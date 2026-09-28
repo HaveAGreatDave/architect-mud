@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "A tall pale room at the bottom of the spine, pinched at the top the way every collar in the building is, so the ceiling comes down to meet the lift doors rather than running level to them. There is a desk, a bench nobody sits on, and a run of fifteen brass floor numbers set into the stone in a line from the door to the lift. Somebody polishes them. The sound in here is the sound of a room that is usually empty.",
+  "description": "A tall, pale room at the bottom of the spine, the ceiling pinched down to meet the lift doors. A desk, an empty bench, and fifteen brass floor numbers set in a line in the stone from the door to the lift, polished. Usually empty.",
   "exits": {
     "down": "zone_util_zone_hf_longlease_hall",
     "east": "zone_district_892_914",

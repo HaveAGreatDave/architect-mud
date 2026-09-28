@@ -284,6 +284,6 @@ export const hooks = {
     const color = running ? '#22c55e' : (pct > 0 ? '#f59e0b' : '#ff4444');
     const label = running ? 'RUNNING' : 'STOPPED';
     return `<span style="color:${color};font-size:11px;letter-spacing:1px">⬤ ${label}</span>`
-      + ` <span class="text-dim">— tank ${pct}%, ${connected ? 'plugged in' : 'not plugged in'}, ${g.capacity_kw}W, ${workLight}</span>`;
+      + ` <span class="text-dim">(tank ${pct}%, ${connected ? 'plugged in' : 'not plugged in'}, ${g.capacity_kw}W, ${workLight})</span>`;
   },
 };

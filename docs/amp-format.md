@@ -1,6 +1,6 @@
 # AMP Format — Architect Music Player Asset Specification
 
-`.amp` files are plain JSON exports from the devpanel Audio tab. Each file contains either a single preset object or an array of preset objects. The format covers five asset types: **instruments**, **songs**, **sfx**, **ambient**, and **samples**.
+`.amp` files are plain JSON exports from the devpanel Audio tab. Each file contains either a single preset object or an array of preset objects. The format covers five asset types: **instruments**, **songs**, **sfx**, **ambient**, and **samples**. It's the sound sibling of [bsm-format.md](bsm-format.md); read it before authoring or changing an audio preset.
 
 ---
 

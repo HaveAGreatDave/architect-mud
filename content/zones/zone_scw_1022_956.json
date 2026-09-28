@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Scrubland, and after a day of bare rock the colour of it's a shock: grey-green thorn to knee height in every direction, growing out of ground that's more grit than soil. It isn't soft country. Every plant in it's armed, and the pale rings of the rain sit on the leaves as burn scars.",
+  "description": "The thorn here stands to the knee and covers everything. It's grey-green, which after the bare rock looks almost lush, and every plant in it will draw blood.",
   "exits": {
     "east": "zone_scw_1023_956",
     "north": "zone_scw_1022_955",

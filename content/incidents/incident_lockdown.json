@@ -11,11 +11,11 @@
     {
       "do": "news",
       "priority": "critical",
-      "text": "An emergency security protocol is in effect across the Basin — all residents are instructed to shelter in place until further notice."
+      "text": "An emergency security protocol is in effect across the Basin. All residents are instructed to shelter in place until further notice."
     },
     {
       "do": "esp",
-      "message": "⚠ EMERGENCY SECURITY PROTOCOL ACTIVE — SHELTER IN PLACE — ARMED RESPONSE UNITS ARE DEPLOYED — THIS IS NOT A DRILL ⚠"
+      "message": "⚠ EMERGENCY SECURITY PROTOCOL ACTIVE. SHELTER IN PLACE. ARMED RESPONSE UNITS ARE DEPLOYED. THIS IS NOT A DRILL ⚠"
     },
     {
       "do": "ambient",

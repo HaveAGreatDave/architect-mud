@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Grey ash to the horizon, level and going nowhere. Nothing grows in it, and there's nothing out here that could make a noise.",
+  "description": "Grey ash in every direction, flat as a table and soft underfoot. A boot sinks to the laces and comes up powdered to the ankle.",
   "exits": {
     "east": "zone_dw_743_980",
     "north": "zone_dw_742_979",

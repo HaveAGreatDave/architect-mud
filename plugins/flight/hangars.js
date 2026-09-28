@@ -14,7 +14,7 @@ import { liveAircraft, persist, out, effStats, fieldFor as fieldOf,
   detach, getLivePlayer, resetSurfaces, acquirableTypes, airfieldOf, fieldName } from './state.js';
 import { normalizeLivery, sanitizeLivery, signatureScore, describeExterior,
   paintCost, isPaintable, readSchemes, schemeOf,
-  PATTERNS, FINISHES, UPHOLSTERY, DECALS, PRESETS } from './livery.js';
+  PATTERNS, FINISHES, UPHOLSTERY, DECALS, PRESETS, TRIMS, CABIN_TRIMS, PLATE_DEFAULT, PLATE_CHARS, PLATE_MAX } from './livery.js';
 import { fieldStocks } from './acquisition.js';
 import { pilotStatusForField, charterParkedAt } from './charter.js';
 import { isPilotLicensed } from './checkride.js';
@@ -207,7 +207,7 @@ function textCraftLine(c, detailed) {
   const tags = [c.typeName, where];
   if (c.rental) tags.push('rental');
   let s = `· <b>${clean(c.tail)}</b> <span class="text-dim">(${tags.join(', ')})</span>`
-    + ` — hull ${c.hullPct}%, fuel ${c.fuelPct}% <span class="text-dim">(${c.fuelType})</span>`;
+    + `: hull ${c.hullPct}%, fuel ${c.fuelPct}% <span class="text-dim">(${c.fuelType})</span>`;
   // `salvage`/`rebuild` work off the wreck standing in this zone and take no
   // argument — don't hand them a craft id they'd try to parse.
   if (c.wreck) return `${s}\n   ${link('salvage', 'salvage')} · ${link('rebuild', 'rebuild')}`;
@@ -225,7 +225,7 @@ function textCraftLine(c, detailed) {
   s += `\n   ${acts.join(' · ')}`;
   if (detailed) {
     const t = c.tune;
-    s += `\n   <span class="text-dim">Tune — mixture ${t.mixture} · pitch ${t.pitch} · boost ${t.boost} · CG ${t.cg}`
+    s += `\n   <span class="text-dim">Tune: mixture ${t.mixture} · pitch ${t.pitch} · boost ${t.boost} · CG ${t.cg}`
       + ` | seats ${c.seatsNow}, cargo ${c.cargoLoaded}/${c.cargoCapNow}kg`
       + ` | kits: ${c.kitsInstalled.length ? c.kitsInstalled.map(k => KITS[k]?.name || k).join(', ') : 'none'}</span>`;
   }
@@ -239,11 +239,11 @@ async function textHangarBay(player, field, selectId, opts) {
   const { rows: mine } = await query('SELECT id, name FROM hangars WHERE field_zone=$1 AND owner_id=$2', [field.id, player.id]);
   const craft = await buildCards(player, field);
   const name = fieldName(field);
-  let msg = `<span class="text-cyan">HANGAR — ${name}</span>`
+  let msg = `<span class="text-cyan">HANGAR: ${name}</span>`
     + ` <span class="text-dim">(text display mode; Tablet → Settings → Display Mode to change)</span>`;
   msg += `\n<span class="furniture-label">Your bay:</span> `
-    + (mine.length ? `${clean(mine[0].name)} — ${link('hangar store', 'store')} · ${link('hangar pull', 'pull')}`
-      : `<span class="text-dim">you rent none here</span> — ${link('hangar rent', 'hangar rent')} <span class="text-dim">(200₵/period, safe from thieves)</span>`);
+    + (mine.length ? `${clean(mine[0].name)}: ${link('hangar store', 'store')} · ${link('hangar pull', 'pull')}`
+      : `<span class="text-dim">you rent none here</span>: ${link('hangar rent', 'hangar rent')} <span class="text-dim">(200₵/period, safe from thieves)</span>`);
 
   if (craft.length) {
     const sel = selectId ? craft.filter(c => c.id === selectId) : [];
@@ -265,21 +265,21 @@ async function textHangarBay(player, field, selectId, opts) {
         const bits = [];
         if (canBuy) bits.push(`${link(`buy ${t.id}`, 'buy')} ${t.price_buy}₵`);
         if (canRent) bits.push(`${link(`rent ${t.id}`, 'rent')} ${t.price_rent_hourly}₵/hr`);
-        msg += `\n· <b>${t.name}</b> <span class="text-dim">(${t.class}, ${t.seats} seat${t.seats > 1 ? 's' : ''}, ${t.fuel_type})</span> — ${bits.join(' · ')}`;
+        msg += `\n· <b>${t.name}</b> <span class="text-dim">(${t.class}, ${t.seats} seat${t.seats > 1 ? 's' : ''}, ${t.fuel_type})</span>: ${bits.join(' · ')}`;
       }
       if (!await isPilotLicensed(player) && !['admin', 'dev'].includes(player.role))
-        msg += `\n<span class="text-amber">You're not rated to fly — see the examiner for a checkride before you buy.</span>`;
+        msg += `\n<span class="text-amber">You're not rated to fly: see the examiner for a checkride before you buy.</span>`;
     }
   }
 
   const parked = charterParkedAt(field.id);
   if (parked && parked.chartererId === player.id)
-    msg += `\n<span class="furniture-label">Charter waiting:</span> bound for ${parked.destName} — ${link('embark', 'embark')}`;
+    msg += `\n<span class="furniture-label">Charter waiting:</span> bound for ${parked.destName}: ${link('embark', 'embark')}`;
   else if (pilotStatusForField(field.id).present)
-    msg += `\n<span class="furniture-label">Charter desk:</span> ${link('charter', 'charter')} <span class="text-dim">— ${pilotStatusForField(field.id).name} is on shift</span>`;
+    msg += `\n<span class="furniture-label">Charter desk:</span> ${link('charter', 'charter')} <span class="text-dim">· ${pilotStatusForField(field.id).name} is on shift</span>`;
 
   const stocks = fieldStocks(field);
-  if (stocks.length) msg += `\n<span class="text-dim">Pumps here: ${stocks.join(', ')} — ${link('refuel', 'refuel')}</span>`;
+  if (stocks.length) msg += `\n<span class="text-dim">Pumps here: ${stocks.join(', ')}: ${link('refuel', 'refuel')}</span>`;
   msg += `\n<span class="text-dim">Credits: ${player.credits || 0}₵</span>`;
 
   sendToPlayer(player.id, { type: 'output', message: msg });
@@ -370,7 +370,7 @@ export async function pushHangarBay(player, selectId, opts = {}) {
     charterWaiting,
     sky: skyState(),   // time-of-day + weather, visible through the open bay door
     canBuy, canRent, lots, licensed, isAdmin,
-    catalog: { patterns: PATTERNS, finishes: FINISHES, uphol: UPHOLSTERY, decals: DECALS, presets: PRESETS },
+    catalog: { patterns: PATTERNS, finishes: FINISHES, uphol: UPHOLSTERY, decals: DECALS, presets: PRESETS, trims: TRIMS, cabinTrims: CABIN_TRIMS, plateDefault: PLATE_DEFAULT, plateChars: PLATE_CHARS, plateMax: PLATE_MAX },
     tuneParams: Object.entries(TUNE_PARAMS).map(([id, p]) => ({ id, label: p.label, lo: p.lo, hi: p.hi, desc: p.desc })),
   } });
   return { type: 'noop' };
@@ -386,7 +386,7 @@ async function paintTarget(player, id) {
   if (ac.owner_id !== player.id || !isPaintable(ac)) return { err: { type: 'emote', message: 'You can only repaint an aircraft you own.' } };
   const field = fieldOf(player);
   if (!field || ac.parked_zone_id !== field.id) return { err: { type: 'emote', message: 'Bring her to a hangar to repaint.' } };
-  if (liveAircraft.get(id)?.row.airborne) return { err: { type: 'emote', message: "Land first — you can't repaint her in the air." } };
+  if (liveAircraft.get(id)?.row.airborne) return { err: { type: 'emote', message: "Land first. You can't repaint her in the air." } };
   return { ac };
 }
 
@@ -403,19 +403,22 @@ async function writeLivery(ac, next) {
 // paint actually changed; the hand-written livery text and saved schemes are never touched here.
 // (accent/ground trail the arg list so older clients that omit them still parse — they default in place.)
 async function cmdPaintset(args, raw, player) {
-  const [id, base, trim, pattern, finish, cabin, uphol, decal, accent, ground] = args;
+  const [id, base, trim, pattern, finish, cabin, uphol, decal, accent, ground, variant, itrim, plateArg] = args;
+  // The nameplate travels as one token: spaces as '_', and '-' for "the trim's own name". Absent (an
+  // older client) leaves it as it was.
+  const plate = plateArg === undefined ? undefined : plateArg === '-' ? '' : plateArg.replace(/_/g, ' ');
   const { ac, err } = await paintTarget(player, id); if (err) return err;
 
   const prev = normalizeLivery(ac.custom_data);
-  const next = { ...sanitizeLivery({ base, trim, accent, ground, pattern, finish, cabin, uphol, decal }, prev), text: prev.text };
+  const next = { ...sanitizeLivery({ base, trim, accent, ground, pattern, finish, cabin, uphol, decal, variant, itrim, plate }, prev), text: prev.text };
   if (JSON.stringify(next) !== JSON.stringify(prev)) {
     const fee = paintCost({ class: ac.class });
-    if ((player.credits || 0) < fee) { await pushHangarBay(player); return { type: 'emote', message: `A respray on the ${ac.tname} runs ${fee}₵ — you're short.` }; }
+    if ((player.credits || 0) < fee) { await pushHangarBay(player); return { type: 'emote', message: `A respray on the ${ac.tname} runs ${fee}₵. You're short.` }; }
     player.credits -= fee;
     await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
     await writeLivery(ac, next);
     sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
-    out(player.id, `<span class="item-grant">The ${ac.tname} rolls out of the paint bay in fresh colours — ${fee}₵.</span>`);
+    out(player.id, `<span class="item-grant">The ${ac.tname} rolls out of the paint bay in fresh colours: ${fee}₵.</span>`);
   }
   return pushHangarBay(player);
 }
@@ -447,7 +450,7 @@ async function cmdScheme(args, raw, player) {
   if (sub === 'load') {
     if (!schemes[name]) return { type: 'emote', message: `No saved scheme "${name}".` };
     await writeLivery({ id: owned.id, custom_data: cd }, sanitizeLivery(schemes[name], normalizeLivery(cd)));
-    out(player.id, `<span class="item-grant">Swapped to scheme "${name}" — no charge.</span>`);
+    out(player.id, `<span class="item-grant">Swapped to scheme "${name}", no charge.</span>`);
     return pushHangarBay(player);
   }
   if (sub === 'delete' || sub === 'del') {
@@ -486,7 +489,7 @@ const cmdFleet = (args, raw, player) => pushHangarBay(player);
 // me look at my planes" and is what the in-room hint points at.
 async function cmdShowroom(args, raw, player) {
   const field = fieldOf(player);
-  if (!field) return { type: 'emote', message: 'Your aircraft are at the airfields — the showroom is there (or in a hangar).' };
+  if (!field) return { type: 'emote', message: 'Your aircraft are at the airfields: the showroom is there (or in a hangar).' };
   return pushHangarBay(player);
 }
 
@@ -522,8 +525,8 @@ async function cmdHangar(args, raw, player) {
 
   if (sub === 'list') {
     const { rows: stored } = await query('SELECT a.name, t.name tname FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.hangar_id IN (SELECT id FROM hangars WHERE field_zone=$1 AND owner_id=$2)', [field.id, player.id]);
-    const head = `<span class="text-cyan">HANGARS — ${fieldName(field)}:</span>`;
-    if (!mine.length) return { type: 'output', message: `${head}\nYou rent no hangar here. <span class="action-link" data-action="cmd" data-cmd="hangar rent">hangar rent</span> — ${200}₵/period, and your craft is safe from thieves.` };
+    const head = `<span class="text-cyan">HANGARS: ${fieldName(field)}:</span>`;
+    if (!mine.length) return { type: 'output', message: `${head}\nYou rent no hangar here. <span class="action-link" data-action="cmd" data-cmd="hangar rent">hangar rent</span>: ${200}₵/period, and your craft is safe from thieves.` };
     const list = stored.length ? stored.map(s => `· ${s.tname} "${s.name}"`).join('\n') : '· (empty)';
     return { type: 'output', message: `${head}\nYour hangar (${mine[0].name}). Stored:\n${list}\n<span class="action-link" data-action="cmd" data-cmd="hangar store">hangar store</span> · <span class="action-link" data-action="cmd" data-cmd="hangar pull">hangar pull</span>` };
   }
@@ -531,12 +534,12 @@ async function cmdHangar(args, raw, player) {
   if (sub === 'rent') {
     if (mine.length) return { type: 'emote', message: 'You already rent a hangar here.' };
     const cost = 200;
-    if ((player.credits || 0) < cost) return { type: 'emote', message: `A hangar runs ${cost}₵/period — you're short.` };
+    if ((player.credits || 0) < cost) return { type: 'emote', message: `A hangar runs ${cost}₵/period. You're short.` };
     player.credits -= cost;
     await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
     await query('INSERT INTO hangars (id,field_zone,name,owner_id,rent_paid_until,rent_per_period) VALUES ($1,$2,$3,$4,$5,$6)',
       [randomUUID(), field.id, `Bay ${Math.floor(Math.random() * 40 + 1)}`, player.id, nowSec() + 7 * 86400, cost]);
-    return { type: 'output', message: `<span class="item-grant">Hangar rented. Your aircraft is safe behind a locked door here now — <b>hangar store</b> to put one away.</span>`, player_update: { credits: player.credits } };
+    return { type: 'output', message: `<span class="item-grant">Hangar rented. Your aircraft is safe behind a locked door here now: <b>hangar store</b> to put one away.</span>`, player_update: { credits: player.credits } };
   }
 
   if (sub === 'store' || sub === 'pull') {
@@ -578,7 +581,7 @@ async function cmdRepair(args, raw, player) {
   if (ac.rental) {
     await query("UPDATE aircraft SET damage=0, custom_data = COALESCE(custom_data,'{}'::jsonb) - 'surfaces' WHERE id=$1", [tgt.id]);
     if (tgt.live) { tgt.live.row.damage = 0; resetSurfaces(tgt.live.row); }
-    return { type: 'output', message: `<span class="item-grant">The rental desk's mechanics square the ${ac.name} away — no charge, maintenance is on your rental. Hull back to 100%.</span>` };
+    return { type: 'output', message: `<span class="item-grant">The rental desk's mechanics square the ${ac.name} away: no charge, maintenance is on your rental. Hull back to 100%.</span>` };
   }
 
   // You OWN her → you pay. Two ways: DIY (Fabrication-checked, cheaper, botchable) or pay the
@@ -586,16 +589,16 @@ async function cmdRepair(args, raw, player) {
   const pro = /^(pay|hangar|pro|full|shop)$/.test((a[0] || '').toLowerCase());
   if (pro) {
     const cost = Math.ceil(ac.damage * ac.hull_hp * 15);   // ~2.5× DIY — you pay for certainty
-    if ((player.credits || 0) < cost) return { type: 'emote', message: `The hangar wants ${cost}₵ for a full shop repair — you're short. (Or <b>repair</b> her yourself for less.)` };
+    if ((player.credits || 0) < cost) return { type: 'emote', message: `The hangar wants ${cost}₵ for a full shop repair. You're short. (Or <b>repair</b> her yourself for less.)` };
     player.credits -= cost;
     await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
     await query("UPDATE aircraft SET damage=0, custom_data = COALESCE(custom_data,'{}'::jsonb) - 'surfaces' WHERE id=$1", [tgt.id]);
     if (tgt.live) { tgt.live.row.damage = 0; resetSurfaces(tgt.live.row); }
-    return { type: 'output', message: `<span class="item-grant">The hangar's mechanics do it right — the ${ac.name} is back to 100% for ${cost}₵.</span>`, player_update: { credits: player.credits } };
+    return { type: 'output', message: `<span class="item-grant">The hangar's mechanics do it right: the ${ac.name} is back to 100% for ${cost}₵.</span>`, player_update: { credits: player.credits } };
   }
 
   const cost = Math.ceil(ac.damage * ac.hull_hp * 6);
-  if ((player.credits || 0) < cost) return { type: 'emote', message: `Parts for a DIY repair run ~${cost}₵ — you're short.` };
+  if ((player.credits || 0) < cost) return { type: 'emote', message: `Parts for a DIY repair run ~${cost}₵. You're short.` };
   const chk = await skillCheck(player, 'fabrication', 5);
   const fixed = chk.success ? ac.damage : ac.damage * 0.5;   // botch it and you only get half back
   player.credits -= cost;
@@ -606,7 +609,7 @@ async function cmdRepair(args, raw, player) {
   if (tgt.live) { tgt.live.row.damage = newDmg; if (full) resetSurfaces(tgt.live.row); }
   await awardSkillUse(player.id, 'fabrication', chk.margin);
   const proCost = Math.ceil(ac.damage * ac.hull_hp * 15);
-  return { type: 'output', message: `<span class="item-grant">You work the ${ac.name} over yourself — hull to ${Math.round((1 - newDmg) * 100)}% for ${cost}₵.</span>${chk.success ? '' : ' <span class="text-amber">(Botched some of it.)</span>'} <span class="text-dim">Or <b>repair hangar</b> next time — ${proCost}₵, done right.</span>`, player_update: { credits: player.credits } };
+  return { type: 'output', message: `<span class="item-grant">You work the ${ac.name} over yourself: hull to ${Math.round((1 - newDmg) * 100)}% for ${cost}₵.</span>${chk.success ? '' : ' <span class="text-amber">(Botched some of it.)</span>'} <span class="text-dim">Or <b>repair hangar</b> next time: ${proCost}₵, done right.</span>`, player_update: { credits: player.credits } };
 }
 
 // ── Wreck salvage + Carcass rebuild ───────────────────────────────────────────
@@ -634,7 +637,7 @@ async function cmdSalvage(args, raw, player) {
       [randomUUID(), player.id, found.item]);
     emit('inventory.changed', { actor: player });
   }
-  return { type: 'output', message: `<span class="item-grant">You strip the ${w.name} wreck for parts and scrap — <b>${scrap}₵</b> of salvage.</span>` +
+  return { type: 'output', message: `<span class="item-grant">You strip the ${w.name} wreck for parts and scrap: <b>${scrap}₵</b> of salvage.</span>` +
     (found ? `\n<span class="item-grant">And something worth having: a <b>${found.name}</b>, tired but whole. <span class="text-dim">(<b>modify fit</b> it at a hangar.)</span></span>` : ''),
     player_update: { credits: player.credits } };
 }
@@ -645,12 +648,12 @@ async function cmdRebuild(args, raw, player) {
   const { rows } = await query('SELECT a.id, a.custom_data, t.name FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.parked_zone_id=$1 AND a.is_wreck=1 LIMIT 1', [player.current_zone]);
   const w = rows[0];
   if (!w) return { type: 'emote', message: 'No wreck here to rebuild.' };
-  if (w.custom_data?.stripped) return { type: 'emote', message: "This wreck's been stripped to the frame — nothing left to rebuild." };
+  if (w.custom_data?.stripped) return { type: 'emote', message: "This wreck's been stripped to the frame: nothing left to rebuild." };
   const cost = 1500;
-  if ((player.credits || 0) < cost) return { type: 'emote', message: `A rebuild runs ${cost}₵ in parts — you're short.` };
+  if ((player.credits || 0) < cost) return { type: 'emote', message: `A rebuild runs ${cost}₵ in parts. You're short.` };
   const mech = await skillCheck(player, 'fabrication', 8);
   const chem = await skillCheck(player, 'chemistry', 6);
-  if (!mech.success || !chem.success) return { type: 'emote', message: 'You can\'t make it airworthy with what you\'ve got — you need cleaner hands at Fabrication and Chemistry. (Try again.)' };
+  if (!mech.success || !chem.success) return { type: 'emote', message: 'You can\'t make it airworthy with what you\'ve got: you need cleaner hands at Fabrication and Chemistry. (Try again.)' };
   // A rebuilt Carcass rolls a random real type.
   const { rows: types } = await query("SELECT id, name FROM aircraft_types WHERE class <> 'wreck' ORDER BY random() LIMIT 1");
   const rolled = types[0];
@@ -659,7 +662,7 @@ async function cmdRebuild(args, raw, player) {
   await query("UPDATE aircraft SET is_wreck=0, damage=0.5, type_id=$1, owner_id=$2, engine_on=0, throttle=0, parked_zone_id=$3, custom_data = COALESCE(custom_data,'{}'::jsonb) - 'surfaces' WHERE id=$4",
     [rolled.id, player.id, field.id, w.id]);
   await awardSkillUse(player.id, 'fabrication', mech.margin);
-  return { type: 'output', message: `<span class="item-grant">Against the odds, the wreck lives — it rebuilds into a battered but flyable <b>${rolled.name}</b>, now yours (hull 50%). She'll need a real repair before she's safe.</span>`, player_update: { credits: player.credits } };
+  return { type: 'output', message: `<span class="item-grant">Against the odds, the wreck lives: it rebuilds into a battered but flyable <b>${rolled.name}</b>, now yours (hull 50%). She'll need a real repair before she's safe.</span>`, player_update: { credits: player.credits } };
 }
 
 // ── Tuning ────────────────────────────────────────────────────────────────────
@@ -669,7 +672,7 @@ async function cmdRebuild(args, raw, player) {
 const TUNE_PARAMS = {
   mixture: { label: 'Mixture',     lo: 'RICH',  hi: 'LEAN',   desc: 'Lean (+) saves fuel but runs hot and sheds a little power; rich (−) runs cool and thirsty with more low-end grunt.' },
   pitch:   { label: 'Prop Pitch',  lo: 'FINE',  hi: 'COARSE', desc: 'Coarse (+) cruises faster but climbs poorly; fine (−) climbs and takes off better for less top speed.' },
-  boost:   { label: 'Boost',       lo: 'LOW',   hi: 'HIGH',   desc: 'More power for speed (+) — paid for in heat, fuel and a twitchier, less reliable machine.' },
+  boost:   { label: 'Boost',       lo: 'LOW',   hi: 'HIGH',   desc: 'More power for speed (+), paid for in heat, fuel and a twitchier, less reliable machine.' },
   cg:      { label: 'Balance / CG', lo: 'NOSE', hi: 'TAIL',   desc: 'Tail-heavy (+) is agile but stall-prone; nose-heavy (−) is stable and forgiving but sluggish.' },
 };
 
@@ -693,7 +696,7 @@ async function setCurve(player, tgt, param, valRaw) {
   await saveCd(tgt, cd);
   await awardSkillUse(player.id, 'fabrication', 0);
   const capped = Math.abs(val) >= range;
-  return { type: 'output', message: `<span class="item-grant">Set ${param} to ${val > 0 ? '+' : ''}${val}.</span>${capped ? ' <span class="text-dim">(That\'s as far as your hands and gear will take it — fit a kit or a better part to push further.)</span>' : ''}` };
+  return { type: 'output', message: `<span class="item-grant">Set ${param} to ${val > 0 ? '+' : ''}${val}.</span>${capped ? ' <span class="text-dim">(That\'s as far as your hands and gear will take it: fit a kit or a better part to push further.)</span>' : ''}` };
 }
 
 // Commit all four dials at once from the bench panel: tuneset <id> <mixture> <pitch>
@@ -731,13 +734,13 @@ async function cmdInstallKit(args, raw, player) {
   const cd = await loadCd(tgt);
   const kits = installedKits(cd);
   if (kits.includes(kitId)) { await pushHangarBay(player); return { type: 'emote', message: `The ${kit.name} is already fitted.` }; }
-  if ((player.credits || 0) < kit.price) { await pushHangarBay(player); return { type: 'emote', message: `The ${kit.name} runs ${kit.price}₵ — you're short.` }; }
+  if ((player.credits || 0) < kit.price) { await pushHangarBay(player); return { type: 'emote', message: `The ${kit.name} runs ${kit.price}₵. You're short.` }; }
   player.credits -= kit.price;
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
   cd.kits = [...kits, kitId];
   await saveCd(tgt, cd);
   await awardSkillUse(player.id, 'fabrication', 0);
-  out(player.id, `<span class="item-grant">Fitted the ${kit.name} — ${kit.price}₵.</span>`);
+  out(player.id, `<span class="item-grant">Fitted the ${kit.name}: ${kit.price}₵.</span>`);
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   return pushHangarBay(player);
 }
@@ -781,7 +784,7 @@ async function partsSheet(player, tgt) {
     const p = PARTS[fitted[s.id]];
     const fit = p
       ? `<b>${p.name}</b> <span class="text-dim">(tier ${p.tier}, ${p.kg}kg)</span> · <span class="action-link" data-action="cmd" data-cmd="modify pull ${s.id}">pull</span>`
-      : '<span class="text-dim">— empty —</span>';
+      : '<span class="text-dim">(empty)</span>';
     return `· <span class="text-cyan">${s.label.padEnd(11)}</span> ${fit}`;
   });
   const canFit = held.filter(h => slots.some(s => s.id === h.part.slot));
@@ -790,10 +793,10 @@ async function partsSheet(player, tgt) {
     : '<span class="text-dim">Nothing in your kit this airframe can take.</span>';
   const shelf = Object.entries(PARTS)
     .filter(([, p]) => slots.some(s => s.id === p.slot))
-    .map(([k, p]) => `· <b>${p.name}</b> <span class="text-dim">(${p.slot}, tier ${p.tier})</span> — ${p.price}₵ · <span class="action-link" data-action="cmd" data-cmd="modify buy ${k}">buy</span>\n  <span class="text-dim">${p.blurb}</span>`);
-  const carried = env.kg ? `\n<span class="text-dim">Fitted hardware weighs ${env.kg}kg — payload you're already carrying.</span>` : '';
+    .map(([k, p]) => `· <b>${p.name}</b> <span class="text-dim">(${p.slot}, tier ${p.tier})</span>: ${p.price}₵ · <span class="action-link" data-action="cmd" data-cmd="modify buy ${k}">buy</span>\n  <span class="text-dim">${p.blurb}</span>`);
+  const carried = env.kg ? `\n<span class="text-dim">Fitted hardware weighs ${env.kg}kg: payload you're already carrying.</span>` : '';
   return { type: 'output', message:
-    `<span class="text-cyan">PARTS — ${type.name || 'aircraft'}:</span>\n${lines.join('\n')}${carried}\n` +
+    `<span class="text-cyan">PARTS: ${type.name || 'aircraft'}:</span>\n${lines.join('\n')}${carried}\n` +
     `<b>IN YOUR KIT:</b>\n${hand}\n<b>THE SHELF:</b>\n${shelf.join('\n')}` };
 }
 const partKeyOf = (part) => Object.keys(PARTS).find(k => PARTS[k] === part);
@@ -817,15 +820,15 @@ async function cmdBuyPart(player, tgt, words) {
   const part = PARTS[key];
   const type = await craftType(tgt);
   if (!slotsFor(type).some(s => s.id === part.slot))
-    return { type: 'emote', message: `The ${type.name} has no ${part.slot} slot — nowhere to hang it.` };
-  if ((player.credits || 0) < part.price) return { type: 'emote', message: `The ${part.name} runs ${part.price}₵ — you're short.` };
+    return { type: 'emote', message: `The ${type.name} has no ${part.slot} slot: nowhere to hang it.` };
+  if ((player.credits || 0) < part.price) return { type: 'emote', message: `The ${part.name} runs ${part.price}₵. You're short.` };
   player.credits -= part.price;
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
   await query('INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,1,1.0)',
     [randomUUID(), player.id, part.item]);
   emit('inventory.changed', { actor: player });
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
-  return { type: 'output', message: `<span class="item-grant">The counter man drags the ${part.name} out of the back — ${part.price}₵. It's yours; now get it fitted (<b>modify fit ${key}</b>).</span>`,
+  return { type: 'output', message: `<span class="item-grant">The counter man drags the ${part.name} out of the back: ${part.price}₵. It's yours; now get it fitted (<b>modify fit ${key}</b>).</span>`,
     player_update: { credits: player.credits } };
 }
 
@@ -845,7 +848,7 @@ async function cmdFitPart(player, tgt, words) {
   if (!rows.length) return { type: 'emote', message: `You haven't got a ${part.name} on you.` };
   const cd = await loadCd(tgt), fitted = installedParts(cd);
   if (fitted[part.slot] === key) return { type: 'emote', message: `That ${part.name} is already in her.` };
-  if (fitted[part.slot]) return { type: 'emote', message: `The ${part.slot} slot is full — <b>modify pull ${part.slot}</b> first. One airframe, one ${part.slot}.` };
+  if (fitted[part.slot]) return { type: 'emote', message: `The ${part.slot} slot is full: <b>modify pull ${part.slot}</b> first. One airframe, one ${part.slot}.` };
   const chk = await skillCheck(player, 'fabrication', 4 + part.tier * 3);
   if (!chk.success) {
     await awardSkillUse(player.id, 'fabrication', chk.margin);
@@ -880,22 +883,22 @@ async function cmdPullPart(player, tgt, words) {
   await awardSkillUse(player.id, 'fabrication', chk.margin);
   if (!chk.success) {
     await pushHangarBay(player).catch(() => {});
-    return { type: 'output', message: `<span class="text-amber">It comes out — in pieces. The ${part.name} is scrap, and the slot's empty.</span>` };
+    return { type: 'output', message: `<span class="text-amber">It comes out... in pieces. The ${part.name} is scrap, and the slot's empty.</span>` };
   }
   await query('INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,1,1.0)',
     [randomUUID(), player.id, part.item]);
   emit('inventory.changed', { actor: player });
   await pushHangarBay(player).catch(() => {});
-  return { type: 'output', message: `<span class="item-grant">Out it comes, clean — the <b>${part.name}</b> is in your hands and the slot is empty.</span>` };
+  return { type: 'output', message: `<span class="item-grant">Out it comes, clean: the <b>${part.name}</b> is in your hands and the slot is empty.</span>` };
 }
 
 // Gate every customisation path: must own the craft, at a field, on the ground.
 async function requireOwned(player, id) {
   const tgt = await ownedCraft(player, id);
-  if (tgt?.notOwned) return { err: { type: 'emote', message: 'You can only modify an aircraft you <b>own</b> — this one isn\'t yours.' } };
+  if (tgt?.notOwned) return { err: { type: 'emote', message: 'You can only modify an aircraft you <b>own</b>. This one isn\'t yours.' } };
   if (!tgt) return { err: { type: 'emote', message: 'No aircraft of your own here to modify. Buy one at a dealer field.' } };
-  if (tgt.live?.row.airborne) return { err: { type: 'emote', message: 'Land first — you can\'t work on her in the air.' } };
-  if (!fieldOf(player)) return { err: { type: 'emote', message: 'Modifications need a hangar\'s tools — do it at a field.' } };
+  if (tgt.live?.row.airborne) return { err: { type: 'emote', message: 'Land first. You can\'t work on her in the air.' } };
+  if (!fieldOf(player)) return { err: { type: 'emote', message: 'Modifications need a hangar\'s tools. Do it at a field.' } };
   return { tgt };
 }
 
@@ -906,7 +909,7 @@ async function showSheet(player, tgt) {
   const ac = rows[0] || {};
   const curves = Object.entries(TUNE_PARAMS).map(([k, d]) => {
     const v = tune[k] ?? 0, next = v >= 2 ? -2 : v + 1;
-    return `· <b>${k}</b> [${v > 0 ? '+' : ''}${v}] — ${d.desc} · <span class="action-link" data-action="cmd" data-cmd="modify ${k} ${next}">cycle</span>`;
+    return `· <b>${k}</b> [${v > 0 ? '+' : ''}${v}]: ${d.desc} · <span class="action-link" data-action="cmd" data-cmd="modify ${k} ${next}">cycle</span>`;
   });
   const profs = Object.keys(cd.profiles || {});
   const fitted = installedParts(cd);
@@ -915,7 +918,7 @@ async function showSheet(player, tgt) {
     : '<span class="text-dim">all stock</span>';
   const lv = normalizeLivery(cd);
   return { type: 'output', message:
-    `<span class="text-cyan">MODIFY — ${ac.tname} "${clean(ac.name)}" (${ac.class}):</span>\n` +
+    `<span class="text-cyan">MODIFY: ${ac.tname} "${clean(ac.name)}" (${ac.class}):</span>\n` +
     `<b>TUNING</b> (−2..+2, wider with Fabrication):\n${curves.join('\n')}\n` +
     `<b>PARTS:</b> ${partLine}  ·  <span class="action-link" data-action="cmd" data-cmd="modify parts">open the parts bench</span>\n` +
     `<b>PAINT:</b> ${lv.pattern === 'bare' ? 'bare metal' : `${lv.finish} · ${lv.pattern}`}  ·  <span class="action-link" data-action="cmd" data-cmd="hangar">open the paint bay</span>\n` +
@@ -949,7 +952,7 @@ async function cmdModify(args, raw, player) {
     return { type: 'output', message: `<span class="item-grant">Tail re-lettered: <b>${name}</b>.</span>` };
   }
   if (sub === 'paint') {
-    return { type: 'output', message: 'Open the <span class="action-link" data-action="cmd" data-cmd="hangar">paint bay</span> to respray her — colours, pattern, finish, and cabin.' };
+    return { type: 'output', message: 'Open the <span class="action-link" data-action="cmd" data-cmd="hangar">paint bay</span> to respray her: colours, pattern, finish, and cabin.' };
   }
   if (sub === 'livery') {
     // The hand-written markings line that rides under the auto-generated paint
@@ -969,7 +972,7 @@ async function cmdModify(args, raw, player) {
     cd.tune = { ...p }; await saveCd(tgt, cd);
     return { type: 'output', message: `<span class="item-grant">Loaded tune profile "${pname}" onto the aircraft.</span>` };
   }
-  return { type: 'emote', message: 'modify — <b>&lt;mixture|pitch|boost|cg&gt; &lt;−2..2&gt;</b> · <b>parts</b> · <b>fit/pull/buy &lt;part&gt;</b> · <b>name</b> · <b>livery</b> · <b>save/load &lt;profile&gt;</b>' };
+  return { type: 'emote', message: 'modify: <b>&lt;mixture|pitch|boost|cg&gt; &lt;−2..2&gt;</b> · <b>parts</b> · <b>fit/pull/buy &lt;part&gt;</b> · <b>name</b> · <b>livery</b> · <b>save/load &lt;profile&gt;</b>' };
 }
 
 // `tune` stays as the quick curve shortcut — now owner-gated, still delegating to
@@ -978,8 +981,8 @@ async function cmdTune(args, raw, player, broadcast) {
   const tgt = await ownedCraft(player);
   if (!tgt) return broadcastCommands.tune(args, raw, player, broadcast);
   if (tgt.notOwned) return { type: 'emote', message: 'You can only tune an aircraft you own.' };
-  if (tgt.live?.row.airborne) return { type: 'emote', message: 'Land first — you can\'t tune her in the air.' };
-  if (!fieldOf(player)) return { type: 'emote', message: 'Tuning needs a hangar\'s tools — do it at a field.' };
+  if (tgt.live?.row.airborne) return { type: 'emote', message: 'Land first. You can\'t tune her in the air.' };
+  if (!fieldOf(player)) return { type: 'emote', message: 'Tuning needs a hangar\'s tools. Do it at a field.' };
   const param = (args[0] || '').toLowerCase();
   if (!param) return showSheet(player, tgt);
   if (!TUNE_PARAMS[param]) return { type: 'emote', message: `Can't tune "${param}". Options: ${Object.keys(TUNE_PARAMS).join(', ')}, or <b>modify</b> for the full sheet.` };
@@ -1014,9 +1017,9 @@ async function cmdLoadout(args, raw, player) {
   const { id, rest: a } = popCraftId(args);
   const tgt = await loadoutTarget(player, id);
   if (!tgt) return { type: 'emote', message: 'No aircraft of yours here to re-rig. Board or park one at a field first.' };
-  if ((tgt.live?.row || tgt.row)?.airborne) return { type: 'emote', message: 'Weight & balance is a ground job — land and shut down first.' };
-  if (!fieldOf(player)) return { type: 'emote', message: "Re-rigging the cabin needs a hangar's tools — do it at a field." };
-  if (!isConfigurable(tgt.type)) return { type: 'emote', message: `The ${tgt.type.name} has a fixed cabin — nothing to trade between seats and cargo.` };
+  if ((tgt.live?.row || tgt.row)?.airborne) return { type: 'emote', message: 'Weight & balance is a ground job. Land and shut down first.' };
+  if (!fieldOf(player)) return { type: 'emote', message: "Re-rigging the cabin needs a hangar's tools. Do it at a field." };
+  if (!isConfigurable(tgt.type)) return { type: 'emote', message: `The ${tgt.type.name} has a fixed cabin: nothing to trade between seats and cargo.` };
 
   const budget = loadoutBudget(tgt.type), maxSeats = Math.max(1, Math.floor(budget / SEAT_KG));
   const cur = effLoadout(tgt.row, tgt.type);
@@ -1025,11 +1028,11 @@ async function cmdLoadout(args, raw, player) {
 
   const line = (lbl, seats) => {
     const cargo = Math.max(0, budget - seats * SEAT_KG), on = seats === cur.seats;
-    return `· <b>${lbl}</b> — <b>${seats}</b> seat${seats > 1 ? 's' : ''} (incl. pilot) + <b>${cargo}kg</b> hold${on ? ' <span class="text-green">◄ current</span>' : ` · <span class="action-link" data-action="cmd" data-cmd="loadout ${lbl.toLowerCase()}">rig</span>`}`;
+    return `· <b>${lbl}</b>: <b>${seats}</b> seat${seats > 1 ? 's' : ''} (incl. pilot) + <b>${cargo}kg</b> hold${on ? ' <span class="text-green">◄ current</span>' : ` · <span class="action-link" data-action="cmd" data-cmd="loadout ${lbl.toLowerCase()}">rig</span>`}`;
   };
   if (!sub) {
     return { type: 'output', message:
-      `<span class="text-cyan">WEIGHT &amp; BALANCE — ${tgt.type.name}:</span> one payload budget of <b>${budget}kg</b>, split how you like.\n` +
+      `<span class="text-cyan">WEIGHT &amp; BALANCE: ${tgt.type.name}:</span> one payload budget of <b>${budget}kg</b>, split how you like.\n` +
       `${line('Passenger', maxSeats)}\n${line('Combi', tgt.type.seats)}\n${line('Freight', 1)}\n` +
       `<span class="text-dim">Now: ${cur.seats} seats + ${cur.cargoCap}kg hold${loaded ? ` (${loaded}kg loaded)` : ''}. Also <b>loadout &lt;1..${maxSeats}&gt;</b> for an exact seat count.</span>` };
   }
@@ -1040,7 +1043,7 @@ async function cmdLoadout(args, raw, player) {
   else if (sub === 'freight' || sub === 'cargo') seats = 1;
   else { const n = parseInt(sub, 10); if (!Number.isFinite(n)) return { type: 'emote', message: `Rig her how? <b>loadout passenger|combi|freight</b> or <b>loadout &lt;1..${maxSeats}&gt;</b>.` }; seats = Math.max(1, Math.min(maxSeats, n)); }
   const cargoCap = Math.max(0, budget - seats * SEAT_KG);
-  if (loaded > cargoCap) return { type: 'emote', message: `You've ${loaded}kg in the hold — that rig only takes ${cargoCap}kg. <b>jettison</b> or deliver the load first.` };
+  if (loaded > cargoCap) return { type: 'emote', message: `You've ${loaded}kg in the hold. That rig only takes ${cargoCap}kg. <b>jettison</b> or deliver the load first.` };
 
   const cd = tgt.live ? (tgt.live.row.custom_data || {}) : (tgt.row.custom_data || {});
   cd.loadout = { seats, cargoCap };
@@ -1068,7 +1071,7 @@ export async function sellAircraft(player, aircraftId) {
   const ac = rows[0];
   if (!ac) return { type: 'error', message: 'No such aircraft.' };
   if (ac.owner_id !== player.id || ac.rental) return { type: 'error', message: 'You can only sell an aircraft you own outright.' };
-  if (ac.is_wreck) return { type: 'error', message: 'Nothing to sell — salvage a wreck instead.' };
+  if (ac.is_wreck) return { type: 'error', message: 'Nothing to sell. Salvage a wreck instead.' };
   // A "live" (currently loaded) aircraft's in-memory row is the source of truth
   // for airborne/damage — the DB column only gets flushed by persist() on its own
   // schedule, so checking it directly can see a stale airborne=1 for a plane
@@ -1077,7 +1080,7 @@ export async function sellAircraft(player, aircraftId) {
   const live = liveAircraft.get(aircraftId);
   const airborne = live ? !!live.row.airborne : !!ac.airborne;
   const damage = live ? live.row.damage : ac.damage;
-  if (airborne) return { type: 'error', message: "Land her first — can't sell an aircraft in the air." };
+  if (airborne) return { type: 'error', message: "Land her first. Can't sell an aircraft in the air." };
   if (live?.occupants?.size) return { type: 'error', message: 'Clear everyone out of her first.' };
 
   const value = Math.max(1, Math.round((ac.price_buy || 0) * 0.5 * (1 - (damage || 0) * 0.5)));
@@ -1103,12 +1106,12 @@ export async function cancelRental(player, aircraftId) {
   // column, which only gets flushed by persist() on its own schedule.
   const live = liveAircraft.get(aircraftId);
   const airborne = live ? !!live.row.airborne : !!ac.airborne;
-  if (airborne) return { type: 'error', message: "Land her first — can't return a rental in the air." };
+  if (airborne) return { type: 'error', message: "Land her first. Can't return a rental in the air." };
   if (live?.occupants?.size) return { type: 'error', message: 'Clear everyone out of her first.' };
 
   if (live) liveAircraft.delete(aircraftId);
   await query('DELETE FROM aircraft WHERE id=$1', [aircraftId]);
-  return { type: 'output', message: `<span class="item-grant">Returned the ${clean(ac.tname)} — the rental slot is free.</span>` };
+  return { type: 'output', message: `<span class="item-grant">Returned the ${clean(ac.tname)}: the rental slot is free.</span>` };
 }
 
 // Flush stuck airborne aircraft — Tablet OS "Vehicles" app. Recovery for a craft

@@ -410,7 +410,7 @@ function placeOnDoll(slot, piece, announce = false) {
     if (acc.some(p => p.itemId === piece.itemId)) {
       if (announce) showWardrobeNotify(`${piece.name} is already on.`);
     } else if (acc.length >= 3) {
-      if (announce) showWardrobeNotify(`Only three accessories — take one off first.`);
+      if (announce) showWardrobeNotify(`Only three accessories: take one off first.`);
     } else {
       acc.push(piece);
       if (announce) showWardrobeNotify(`${piece.name} → Accessories.`);
@@ -457,7 +457,7 @@ function renderLayerBar() {
       dot.textContent = n;
       btn.appendChild(dot);
     }
-    btn.title = `Show the ${label.toLowerCase()} layer${n ? ` — ${n} piece${n === 1 ? '' : 's'}` : ' (empty)'}`;
+    btn.title = `Show the ${label.toLowerCase()} layer${n ? `: ${n} piece${n === 1 ? '' : 's'}` : ' (empty)'}`;
     btn.onclick = () => {
       if (layer === dollLayer) return;
       dollLayer = layer;
@@ -503,7 +503,7 @@ function renderDoll() {
           const row = document.createElement('span');
           row.className = 'wdr-pad-item wdr-acc-row';
           row.textContent = piece.name;
-          row.title = `${piece.name} — click to take off`;
+          row.title = `${piece.name}, click to take off`;
           row.onclick = (e) => {
             if (armedItem) return;              // a tap with a garment in hand places it
             e.stopPropagation();
@@ -551,10 +551,10 @@ function renderDoll() {
       + `<span class="wdr-pad-item">${shown ? shown.name : '—'}</span>`
       + (sub ? `<span class="wdr-pad-sub">${sub}</span>` : '');
     pad.title = !shown
-      ? `Drop any ${label.toLowerCase()} piece here — it lands on its own layer`
+      ? `Drop any ${label.toLowerCase()} piece here: it lands on its own layer`
       : fellBack
-        ? `${shown.name} is on the ${layerLabel(slot, fellBack)} layer — click to go there`
-        : `${shown.name} — click to take off`;
+        ? `${shown.name} is on the ${layerLabel(slot, fellBack)} layer: click to go there`
+        : `${shown.name}, click to take off`;
 
     wirePad(pad, slot, fellBack);
     stage.appendChild(pad);
@@ -613,7 +613,7 @@ function wirePad(pad, slot, fellBack = null) {
 function updateDollLabel() {
   const count = dollItemIds().length;
   const hint = armedItem
-    ? `Place "${armedItem.name}" — tap its pad`
+    ? `Place "${armedItem.name}": tap its pad`
     : (count ? 'New Outfit' : 'Drag or tap a garment, then its pad');
   document.getElementById('wardrobe-doll-label').textContent =
     editingName && !armedItem ? `Editing "${editingName}"` : hint;

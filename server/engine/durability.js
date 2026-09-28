@@ -282,7 +282,7 @@ export function announceWear(player, row, band) {
   const line = band.fatigued
     // A fatigue break is a different beat from wearing down to nothing: the item
     // was carrying too many repairs and one of them finally let go.
-    ? `<span class="msg-system">Something in your ${name} lets go — an old mend, finally giving. It comes apart in your hands and that's the end of it.</span>`
+    ? `<span class="msg-system">Something in your ${name} lets go: an old mend, finally giving. It comes apart in your hands and that's the end of it.</span>`
     : band.id === 'broken'
     ? `<span class="msg-system">Your ${name} gives out for the last time and falls apart. It's gone.</span>`
     : `<span class="msg-system">Your ${name} is looking <span style="color:${band.colour}">${band.label.toLowerCase()}</span>.</span>`;
@@ -415,7 +415,7 @@ export function conditionLine(row) {
     : repairs === 2 ? ', twice-mended'
     : repairs > 2 ? `, mended ${repairs} times` : '';
   const state = band.id === 'broken'
-    ? "It's broken — it won't do its job until someone puts it right"
+    ? "It's broken. It won't do its job until someone puts it right"
     : `It is <span style="color:${band.colour}">${band.label.toLowerCase()}</span>${mend}`;
   // Reinforcement is the reason to hunt down a good repairman, so it has to be
   // legible on the item itself — and it names who did the work, which is how a
@@ -423,7 +423,7 @@ export function conditionLine(row) {
   const reinforced = reinforcementOf(row);
   const by = cd.repaired_by ? ` by ${cd.repaired_by}` : '';
   const extra = reinforced
-    ? ` <span class="text-dim">Someone who knew what they were doing has been at it${by} — it is ${reinforced > 2 ? 'built like it means it' : reinforced > 1 ? 'noticeably tougher' : 'a little tougher'} than it has any right to be.</span>`
+    ? ` <span class="text-dim">Someone who knew what they were doing has been at it${by}. It is ${reinforced > 2 ? 'built like it means it' : reinforced > 1 ? 'noticeably tougher' : 'a little tougher'} than it has any right to be.</span>`
     : '';
   // Fatigue has to be READABLE or the break is a gotcha. This is the warning
   // that makes rule 5 hold: by the time an item can go, it has been telling you.

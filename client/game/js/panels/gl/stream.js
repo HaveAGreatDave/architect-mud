@@ -68,6 +68,13 @@ export function makeVertexStream(gl, vao, stride, attrs, floor = 4096) {
       }
       if (floats > 0) gl.bufferSubData(gl.ARRAY_BUFFER, 0, data, 0, floats);
     },
+    /** Upload `floats` entries of `data` starting at float offset `at`, into the same place on the GPU.
+     *  Only valid inside what the last write() allocated: a caller that changes the layout calls write(). */
+    writeRange(data, at, floats) {
+      if (!(floats > 0) || at + floats > cap) return;
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferSubData(gl.ARRAY_BUFFER, at * 4, data, at, floats);
+    },
     /** Diagnostics: how many times this layer has actually asked the driver for storage. */
     get grows() { return grows; },
     get capacity() { return cap; },

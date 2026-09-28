@@ -546,7 +546,7 @@ export class ChessGame {
         events.push('Checkmate.');
       } else {
         this.result = { over: true, winnerColor: null, reason: DRAW_REASONS.stalemate, drawn: true };
-        events.push('Stalemate — a draw.');
+        events.push('Stalemate: a draw.');
       }
       return;
     }

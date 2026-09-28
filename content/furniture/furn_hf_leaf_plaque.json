@@ -6,9 +6,7 @@
       "plate",
       "dedication"
     ],
-    "interactions": {
-      "examine": "PUBLIC OPEN SPACE. PROVIDED UNDER CONDITION 14. It is the most honest sign in Halcyon Fields and it was probably not meant to be read that way."
-    }
+    "examine_detail": "PUBLIC OPEN SPACE. PROVIDED UNDER CONDITION 14. It is the most honest sign in Halcyon Fields and it was probably not meant to be read that way."
   },
   "id": "furn_hf_leaf_plaque",
   "name": "the dedication plaque",

@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A face of frozen rock, columnar where it cooled slowly, so the whole wall is a rank of black pillars standing shoulder to shoulder. Broken stuff piled at the foot of it. It's one piece and it doesn't offer a hold.",
+  "description": "The face is made of tall black columns packed together. Fallen sections lie heaped below.",
   "exits": {
     "east": "zone_dw_739_999",
     "north": "zone_dw_738_998",

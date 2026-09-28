@@ -24,7 +24,7 @@
     },
     {
       "do": "news",
-      "text": "A scheduled optical maintenance window is under way toward {place} — coverage is unaffected and residents should expect no change to response times."
+      "text": "A scheduled optical maintenance window is under way toward {place}. Coverage is unaffected and residents should expect no change to response times."
     }
   ],
   "updated_at": "1788307200",

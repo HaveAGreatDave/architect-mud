@@ -3,7 +3,7 @@
   "ambient_theme": "city",
   "bg_color": "#1f3646",
   "color": "#4f83a8",
-  "description": "Brackish shallows, warmer than the channel and a great deal less clean, sheeted with a film that turns colours where the light catches it. Reeds have got a foothold. The bank is a slurry of grit and old plastic.",
+  "description": "Shallow brackish water with a rainbow film on it. Reeds stand in the muck along a bank of grit and plastic.",
   "exits": {
     "east": "zone_district_929_908",
     "north": "zone_district_928_907",

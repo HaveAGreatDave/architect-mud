@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "wasteland",
   "color": "#3f7fb0",
-  "description": "Out where the bottom stops meaning anything. The surface lies flat and lightless and takes the sky's colour without improving on it. Somewhere below you the water goes on being cold, in the dark, at length.",
+  "description": "Far out, where the bottom is too deep to matter. The surface lies flat and dark, taking its colour from the sky.",
   "exits": {
     "east": "zone_district_899_939",
     "north": "zone_district_898_938",

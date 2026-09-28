@@ -215,7 +215,7 @@ export default async function regress({ check, getPlayer }) {
     violatesLowRank('Your psionic power surges.') !== null);
   check('the low-rank law catches an em dash',
     violatesLowRank('The door opens — nobody touched it.') !== null,
-    'the em dash belongs to the Architect and the Ascendants');
+    'no prose in the game takes an em dash');
   check('an observational line passes',
     violatesLowRank("The set of their shoulders is wrong for what they're saying.") === null);
 

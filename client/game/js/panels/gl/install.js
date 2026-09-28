@@ -8,8 +8,8 @@
 // This module is that call, and it is the only place that knows both halves: it hands the GL pass
 // the renderer's own mesh capture, its own baked textures and its own palette, so nothing here has
 // an opinion about what a building is made of.
-import { installGLWorld, installGLFaunaInstancing, installGLClouds, installGLDispose, captureModelMesh, modelSolid, wallTexMixed, roofTex, texEpoch, glPowerForCell, wallPaletteInfo, wallMaterialId, roofMaterialId, wallMaterialTable, glLightState, RENDER_TUNE } from '../windshield.js';
-import { glWorldPass, glCloudPass, glDisposeScene } from './world.js';
+import { installGLWorld, installGLFaunaInstancing, installGLClouds, installGLCloudVol, installGLInterior, installGLDispose, installGLSky, captureModelMesh, modelSolid, wallTexMixed, roofTex, texEpoch, glPowerForCell, wallPaletteInfo, wallMaterialId, roofMaterialId, wallMaterialTable, glLightState, RENDER_TUNE } from '../windshield.js';
+import { glWorldPass, glCloudPass, glCloudVolPass, glInteriorPass, glDisposeScene, glSkyPass } from './world.js';
 import { NEAR, FAR } from './camera.js';
 import { MAX_LIGHTS, MAX_MATERIALS } from './context.js';   // the uniform budgets the light pass and the material table ask for   // the clip range the matrix is built with — see the depth-buffer note in glCapabilities
 
@@ -113,6 +113,30 @@ function paletteMap() {
 
 // The pass is handed the canvas this frame belongs to, so installing it is a call with no
 // arguments and no knowledge of which view is painting — four seats share one installation.
+// ── WHETHER THE CLOUD VOLUME RUNS ON "AUTO" ───────────────────────────────────────────────────
+// A raymarch is exactly the per-pixel work an integrated or software GPU is worst at, and every
+// cost number for it was measured on one discrete card. So auto only runs it on a renderer string
+// that does NOT look integrated, mobile or software. This is the first gate. windshield.js adds a
+// second one on measured frame time, which catches whatever this list misses.
+// ⚠ The renderer string is what the browser chooses to report, and some browsers mask it
+// ("ANGLE (Unknown…)", "WebKit WebGL"). An unrecognised string is treated as NOT safe. That errs
+// toward the card deck, which is the renderer that has always shipped.
+const WEAK_GPU = /intel|uhd|iris|mali|adreno|powervr|apple (m\d|gpu)|videocore|swiftshader|llvmpipe|software|microsoft basic|mesa offscreen|radeon\(tm\) graphics|vega \d+ graphics|unknown|webkit webgl/i;
+const STRONG_GPU = /nvidia|geforce|quadro|rtx|gtx|radeon (rx|pro)|\brx \d{3,4}|arc a\d/i;
+export function volumeAutoVerdict() {
+  try {
+    const cv = document.createElement('canvas');
+    const gl = cv.getContext('webgl2');
+    if (!gl) return { ok: false, reason: 'no WebGL2' };
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    const renderer = String(dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+    const lose = gl.getExtension('WEBGL_lose_context'); if (lose) lose.loseContext();
+    if (WEAK_GPU.test(renderer) && !STRONG_GPU.test(renderer)) return { ok: false, renderer, reason: 'integrated, mobile or software GPU' };
+    if (!STRONG_GPU.test(renderer)) return { ok: false, renderer, reason: 'unrecognised GPU' };
+    return { ok: true, renderer, reason: 'discrete GPU' };
+  } catch (e) { return { ok: false, reason: String(e && e.message || e) }; }
+}
+
 export function installGL(hostFor) {
   installGLFaunaInstancing(true);   // the real pass draws birds as instances — see gl/fauna.js
   installGLWorld((cells, cam, opts) => {
@@ -147,12 +171,19 @@ export function installGL(hostFor) {
       // CAUGHT THE NEXT ONE: the baked per-vertex term was added at both ends, gated, measured and
       // swept before anybody read this paragraph, and reported exactly the same 0.0% at every
       // strength. The note is the only reason that took minutes instead of an afternoon.
-      sprites: opts.sprites, glLights: opts.glLights, glAO: opts.glAO, glBakedAo: opts.glBakedAo, msaa: opts.msaa, cssW: opts.cssW, cssH: opts.cssH,
+      sprites: opts.sprites, glLights: opts.glLights, glAO: opts.glAO, glBakedAo: opts.glBakedAo, msaa: opts.msaa,
+      // FXAA — allowlisted, per the note above, or it is inert.
+      glFxaa: opts.glFxaa, cssW: opts.cssW, cssH: opts.cssH,
       // ⚠ AND `glWet` HAS TO BE HERE. This object is an ALLOWLIST, not a spread — two features have
       // shipped inert by being wired at both ends and dropped in the middle, which is exactly what
       // a missing line here produces: the tune key exists, the shader is correct, nothing happens.
       glWet: opts.glWet,
       glPond: opts.glPond,
+      // Neon tube shading and flicker on lit signage (gl/decals.js). Allowlisted, per the note above.
+      glNeonTube: opts.glNeonTube, glNeonFlicker: opts.glNeonFlicker,
+      // ⚠ AND WHETHER THE CABIN IS DRAWN HERE OR LATER, ON ITS OWN — see glInteriorPass. Dropped
+      // here the world pass draws the room inside the banked blit AND the late pass draws it again.
+      interiorLater: opts.interiorLater,
       // ⚠ AND THE SNOW, WHICH REACHES THREE SHADERS AND WOULD GO QUIET IN ALL THREE. Eleventh
       // entry on the list this file keeps: the depth is integrated in windshield.js, the floor,
       // the ground and the mass each declare a uniform for it and each branch on it — and with
@@ -170,6 +201,8 @@ export function installGL(hostFor) {
       // AND THE POOL A LAMP LAYS ON THE ROAD - see the WARN on 'glWet' above and 'npm run gl:opts'.
       // Thirteenth entry on this file's list.
       glPool: opts.glPool,
+      // How much darker the night is outside its lights; the ground shader's share of `nightDark`.
+      glNightDark: opts.glNightDark,
       // ⚠ AND THE TRACKS IN IT, WHICH REACH BOTH GROUND SHADERS. Twelfth entry on this file own
       // list: the store records, the buffer uploads, both shaders declare the array and both
       // branch on the count — and dropped here every frame hands over `undefined`, `uNTrack`
@@ -208,7 +241,7 @@ export function installGL(hostFor) {
       // full-screen passes, all of which work perfectly with this line missing — and then the mass
       // shader multiplies by a strength that never left the windshield, so __glSsao() reports 0.0%
       // moved at every radius and every strength.
-      glSsao: opts.glSsao,
+      glSsao: opts.glSsao, glSsaoRes: opts.glSsaoRes,
       // ⚠ AND THIS ONE. Sixth. Dropped here, the working light count silently falls back to the
       // compiled ceiling — which is not "nothing happens", it is the OPPOSITE of nothing: every
       // frame runs the full thirty-two slots and the knob that exists to hold that down does not.
@@ -265,6 +298,8 @@ export function installGL(hostFor) {
       // windshield builds it, and the only thing missing is this line — a feature wired at both ends
       // and inert in the middle, which measures as 0.0% at every strength. `gl:opts` is the gate.
       skyBand: opts.skyBand ? { hor: u(opts.skyBand.hor), top: u(opts.skyBand.top) } : null,
+      // The waterline on a hull sitting in the sea (the Drake afloat): world z, or null.
+      ownWater: opts.ownWater,
       night: opts.night, nb: opts.nb,
       draw: {
         // Transparent, because this buffer is BLITTED onto the 2-D frame rather than shown: every
@@ -272,7 +307,7 @@ export function installGL(hostFor) {
         // alone. An opaque clear would blank the whole world and draw the city on the hole.
         clearAlpha: 0,
         worldBlend: opts.worldBlend,
-        key: u(L.key), shadow: u(L.shadow), skyTint: u(L.sky), str: L.str,
+        key: u(L.key), shadow: u(L.shadow), skyTint: u(L.sky), str: L.str, nightDim: L.dim,
         keyDir: [dir[0], dir[1], 0.35],
         // GLASS's own N64 fog — the colour it mixes toward, the amount its slider sets, over the
         // same 6..34 band (see fogWeight) — and its own far dissolve, which is a property of the
@@ -310,12 +345,23 @@ export function installGL(hostFor) {
     if (lastStats) lastStats.cloudCards = out ? out.cards : 0;
     return out;
   });
+  // The deck as a raymarched volume, at the same moment as the cards. `auto` is the device verdict
+  // the RENDER_TUNE.glCloudVol auto setting (-1) reads; see volumeAutoVerdict.
+  installGLCloudVol((cam, vol, opts) => {
+    const out = glCloudVolPass(opts.id || (hostFor && hostFor() || {}).id || 'ws', cam, vol, opts);
+    if (lastStats) lastStats.cloudVolCells = out ? out.cells : 0;
+    return out;
+  }, volumeAutoVerdict());
   // ⚠ AND THE WAY BACK OUT. A seat closing calls `disposeWindshield`, which has no way to reach the
   // GL scene on its own — this is the hop that gives it one. Without this line the pass works
   // perfectly and every context it opens is held until the page is closed; see the note on
   // disposeWindshield for what that costs and how it was measured.
   installGLDispose((id) => glDisposeScene(id));
-  return () => { installGLWorld(null); installGLFaunaInstancing(false); installGLClouds(null); installGLDispose(null); };
+  // The sky, at the FIRST moment of the frame — before the world pass, into the same canvas.
+  installGLSky((s) => { try { return glSkyPass(s.id || (hostFor && hostFor() || {}).id || 'ws', s); } catch (e) { console.warn('[glSky]', e); RENDER_TUNE.glSky = 0; return null; } });
+  // The cabin, at the third moment: after the world and the deck are blitted and the bank undone.
+  installGLInterior((cam, opts) => glInteriorPass(opts.id || (hostFor && hostFor() || {}).id || 'ws', cam, opts));
+  return () => { installGLWorld(null); installGLFaunaInstancing(false); installGLClouds(null); installGLCloudVol(null);installGLInterior(null); installGLDispose(null); installGLSky(null); };
 }
 
 export { RENDER_TUNE };

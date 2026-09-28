@@ -7,7 +7,7 @@
 // stops a future third event shipping with no icon, no bed, and no pools).
 import { heroEventForDate, heroEventPresentation, heroEventAnnounce, _testWeather } from './index.js';
 import { recomputeInsulation } from '../../server/engine/commands/inventory.js';
-import { skyVantage, isIndoorZone, getWindowsForZone, setWindowState } from '../../server/engine/environment.js';
+import { skyVantage, isIndoorZone, getWindowsForZone, setWindowState, getWindKph, getWindKphAtGrid, registerWeatherField, WIND_STORM_GAIN } from '../../server/engine/environment.js';
 import { world } from '../../server/engine/world.js';
 
 const PRESENT_KEYS = ['icon', 'fx', 'audio', 'pool', 'sky', 'severe'];
@@ -310,4 +310,29 @@ async function regressEmpFootprint({ check }) {
     && Number.isFinite(v?.x) && Number.isFinite(v?.y));
   check('emp: every crewed vehicle carries a position and a knockOut', shaped,
     JSON.stringify(crewed.map(v => ({ x: v?.x, y: v?.y, k: typeof v?.knockOut }))));
+
+  // ── The wind on a tile follows the weather overhead ──────────────────────────
+  // Until 2026-09-27 every reader of wind took the day's flat forecast figure, so a storm cell
+  // crossing the map changed nothing that blows. getWindKphAtGrid scales the day's wind by the
+  // tile's live stormIntensity and precipRate. The field sampler is swapped for a known one and
+  // the real one put back, so the check does not depend on where today's cells happen to be.
+  {
+    const base = getWindKph();
+    const fake = (x) => x < 0
+      ? { cloudCover: 0, precipRate: 0, precipType: 'none', tempOffset: 0, stormIntensity: 0, severity: 0 }
+      : { cloudCover: 1, precipRate: 1, precipType: 'rain', tempOffset: 0, stormIntensity: 1, severity: 0.6 };
+    registerWeatherField(fake);
+    try {
+      const calm = getWindKphAtGrid(-5, 0), storm = getWindKphAtGrid(5, 0);
+      check('wind: a calm tile blows the day\'s wind', calm === base, `${calm} vs ${base}`);
+      if (base > 0) {
+        check('wind: a storm cell blows harder than the day', storm > base, `${storm} vs ${base}`);
+        check('wind: the storm gust is bounded by its gains', storm <= Math.round(base * (1 + WIND_STORM_GAIN + 0.25)) + 1, `${storm}`);
+      } else {
+        check('wind: no forecast means no wind anywhere', storm === 0, String(storm));
+      }
+    } finally {
+      registerWeatherField(_testWeather.sampleWeatherAt);
+    }
+  }
 }

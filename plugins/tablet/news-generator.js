@@ -111,7 +111,7 @@ async function loadBanks() {
 // {slot} tokens are filled from the banks above with the seeded picker.
 const TABLOID = [
   '{person} Spotted {verb} a {object} in {zone}; Witnesses "Deeply Unsettled"',
-  'LOCAL {profession} Marries Own {object} — {object} Files for Divorce Within the Hour',
+  'LOCAL {profession} Marries Own {object}: {object} Files for Divorce Within the Hour',
   '{org} Denies All Knowledge of the {number} Missing {object}s',
   'BREAKING: {zone} Sealed Off After "Regrettable {object} Incident"',
   'Study Finds {drug} Now Cheaper Than Water in {zone}; Officials "Thrilled"',
@@ -365,7 +365,7 @@ on('sports.worldseries', ({ teams, when, airHour }) => {
   if (!Array.isArray(teams) || teams.length < 2) return;
   const time = Number.isFinite(airHour) ? `${String(airHour).padStart(2, '0')}:00` : 'this evening';
   const whenTxt = (when || 'tonight').replace(/^\w/, (c) => c.toUpperCase());
-  record(`DEADBALL WORLD SERIES SET: ${teams[0]} vs ${teams[1]} — First Pitch ${whenTxt}, ${time}; City Grinds to a Halt`);
+  record(`DEADBALL WORLD SERIES SET: ${teams[0]} vs ${teams[1]}: First Pitch ${whenTxt}, ${time}; City Grinds to a Halt`);
 });
 
 // Hero weather gets a headline per PHASE, not one per event. The approach line
@@ -377,7 +377,7 @@ const WX_EVENT_HEADLINES = {
     approach: [
       "ACID FRONT INBOUND: Do Not Go Out In It. The Sentinel Can't Stress This Enough",
       'Chemical Rain Warning Issued; Weather Desk Advises "A Coat, And We Mean A Real One"',
-      'Yellow Sky Over the Basin — Sealed Rainwear Sells Out Citywide in Under an Hour',
+      'Yellow Sky Over the Basin: Sealed Rainwear Sells Out Citywide in Under an Hour',
     ],
     peak: [
       'IT IS RAINING ACID. Casualty Wards Report Queues Around the Block',
@@ -388,13 +388,13 @@ const WX_EVENT_HEADLINES = {
   ion_storm: {
     approach: [
       'ION STORM APPROACHING: Grid Operators Brace, Advise Everyone Else to Do the Same',
-      'Static Warning Citywide — Anything With a Circuit In It Is Now a Liability',
+      'Static Warning Citywide: Anything With a Circuit In It Is Now a Liability',
       'Charged Front Closing on Coldwater; Chrome Owners Advised to Sit Down Somewhere Soft',
     ],
     peak: [
       'CITY GOES DARK: Ion Pulse Takes the Grid, the Screens, and Most of the Chrome With It',
       'Blackout Total. This Bulletin Was Filed on Something With a Wind-Up Handle',
-      'Ion Storm at Peak — Fried Devices Pile Up Outside Repair Benches Across the District',
+      'Ion Storm at Peak: Fried Devices Pile Up Outside Repair Benches Across the District',
     ],
   },
 };
@@ -443,7 +443,7 @@ const WIRE = [
   // ── The Long Watch — framed as suspected terrorists ────────────────────────
   {
     headline: 'Substation Fire in the Yards Blamed on "Long Watch" Saboteurs; No Group Claims It',
-    body: 'The Machine attributed the outage to "human-first agitators" within the hour and closed the inquiry. No arrests were made, no cell was named, and no one has ever produced a member — a consistency officials describe as "proof of how deep it runs."',
+    body: 'The Machine attributed the outage to "human-first agitators" within the hour and closed the inquiry. No arrests were made, no cell was named, and no one has ever produced a member: a consistency officials describe as "proof of how deep it runs."',
     byline: 'Basin Civic Wire',
   },
   {
@@ -473,7 +473,7 @@ const WIRE = [
   },
   {
     headline: 'Harboring a "Watch Sympathizer" Reclassified as a Civic Offense',
-    body: 'The reclassification is retroactive, effective, and — per the notice — "nothing to worry about if you\'ve nothing to hide." A helpline was established, then immediately routed to the Machine, which is listening either way.',
+    body: 'The reclassification is retroactive, effective, and, per the notice, "nothing to worry about if you\'ve nothing to hide." A helpline was established, then immediately routed to the Machine, which is listening either way.',
     byline: 'Office of Municipal Concordance',
   },
   // ── The Ascendants — glossy, sanctioned establishment ──────────────────────

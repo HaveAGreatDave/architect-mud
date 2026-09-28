@@ -121,7 +121,7 @@ function doAccept(player, fromHandle) {
     chosen = party; break;
   }
   if (!chosen) return { type: 'emote', message: fromHandle ? `You have no pending invite from ${fromHandle}.` : 'You have no pending party invites.' };
-  if (partyOf(player.id)) return { type: 'emote', message: "You're already in a party — leave it first." };
+  if (partyOf(player.id)) return { type: 'emote', message: "You're already in a party: leave it first." };
 
   chosen.invites.delete(player.id);
   chosen.members.add(player.id);

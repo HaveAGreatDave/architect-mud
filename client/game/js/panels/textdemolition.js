@@ -121,7 +121,7 @@ const SKIN = {
     _status = info?.expired
       ? '<span class="hot">✗ OUT OF TIME.</span>'
       : won
-        ? `<span class="ok">◉ ${st.kind === 'rig' ? 'SEATED — walk away.' : 'SHUNT CUT — the count stops.'}</span>`
+        ? `<span class="ok">◉ ${st.kind === 'rig' ? 'SEATED: walk away.' : 'SHUNT CUT: the count stops.'}</span>`
         : `<span class="hot">✗ ${st.kind === 'rig' ? 'The charge is scrap.' : 'Wrong lead.'}</span>`;
     if (st.kind === 'rig') paintRig(st); else paintDefuse(st);
     // Expired reports nothing — the server owns a charge whose fuse ran out.

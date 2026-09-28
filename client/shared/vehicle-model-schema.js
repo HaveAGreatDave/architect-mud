@@ -15,9 +15,15 @@
 // could not tell a Warthog's span from its file. FW_DEFAULT stays in aircraft3d.js as the starting
 // point for a NEW class and as the fallback for a class with no row, and nothing else reads it.
 //
-// ⚠ THE HAND-AUTHORED MESHES HAVE NO ROW AND MUST NEVER BE GIVEN ONE. The Mayfly, the Cub, both
-// helicopters and the wreck are meshes somebody drew, not proportions somebody set; a file naming
-// one of them would be authored data that changes nothing, which is worse than no file at all.
+// ⚠ A HAND-DRAWN MESH IS A `mesh` FILE, NEVER A PARAMETER ROW. The Mayfly, the Cub, both
+// helicopters and the wreck are meshes somebody drew, not proportions somebody set, so a `fw` row
+// naming one would be numbers nothing builds from. They are authored as GEOMETRY instead — a list of
+// parts in `kind: 'mesh'` files, compiled by client/shared/vehicle-mesh.js — which is a different
+// thing and the only honest way to make them editable. (This comment used to say they must never
+// have a file at all; that was right about parameter rows and is superseded for meshes.)
+//
+// ⚠ A MESH ID IS A BINDING, NOT ALWAYS A CLASS. `heli_armed` is what the `heli` class draws when it
+// carries hardpoints; the unarmed file names it in `armedMesh`. Every other mesh id is its class.
 //
 // ⚠ A BOAT IS A VEHICLE AND NOT A FAMILY OF ITS OWN, which is the opposite call from the one
 // fauna-model-schema.js made, and for the reason that file states. It refused the vehicle family
@@ -26,14 +32,18 @@
 // them: it is painted like a dragster, it has a bubble canopy, it carries lamps, and it is drawn
 // by drawAircraftModel through the same contact feed as everything else on the map. The test is
 // not "does it fly", it is "does it want what this family gives you".
-export const VEHICLE_KINDS = ['fw', 'truck', 'boat'];
+import { validateMesh } from './vehicle-mesh.js';
 
-// Which classes, truck types and hulls a file may claim. A row for anything else is a file the
-// renderer would never read, so it fails the build rather than sitting there looking authoritative.
+export const VEHICLE_KINDS = ['fw', 'truck', 'boat', 'mesh'];
+
+// Which classes, truck types, hulls and meshes a file may claim. A row for anything else is a file
+// the renderer would never read, so it fails the build rather than sitting there looking
+// authoritative.
 export const VEHICLE_IDS = {
   fw: ['prop', 'gunship', 'heavy', 'locust', 'divebomber'],
   truck: ['scrapper', 'hauler', 'drayman', 'continental'],
   boat: ['hydro'],
+  mesh: ['heli', 'heli_armed', 'ultralight', 'grasshopper', 'wreck', 'drake', 'prop', 'heavy', 'gunship', 'divebomber', 'locust'],
 };
 
 const isPlain = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -75,6 +85,12 @@ export function validateVehicleRow(doc, file = '<doc>') {
   const leaves = [];
   leafErrors(doc.params, 'params', leaves);
   errors.push(...leaves.map(at));
+  // A mesh is geometry, so it gets the shape check and an actual compile on top of the leaf pass:
+  // a file of perfectly finite numbers can still describe a part with a field missing.
+  if (doc.kind === 'mesh' && !leaves.length) {
+    const m = validateMesh(doc.params, file);
+    errors.push(...m.errors); warnings.push(...m.warnings);
+  }
   return { errors, warnings };
 }
 

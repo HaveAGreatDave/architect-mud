@@ -163,5 +163,5 @@ export async function damageHackDeck(playerId) {
     await destroyItem(deck);
     return ` Your ${deck.name} browns out, sparks once, and crumbles to slag in your hands.`;
   }
-  return ` Your ${deck.name} takes damage — it reads <span style="color:${band.colour}">${band.label.toLowerCase()}</span>.`;
+  return ` Your ${deck.name} takes damage. It reads <span style="color:${band.colour}">${band.label.toLowerCase()}</span>.`;
 }

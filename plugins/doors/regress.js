@@ -344,10 +344,10 @@ export default async function regress({ run, check, getPlayer }) {
         // would never be reached.
         if (frontDoorOf(z)) return false;
         const eid = getMapByParentZone(z.id)?.entry_zone_id;
-        return !!eid && !!allExits(z).find(e => e.target === eid);
+        const sd = allExits(z).find(e => e.target === eid)?.dir;
+        return ['north', 'south', 'east', 'west'].includes(sd);
       });
       if (facade) {
-        const entrance = buildingEntranceDir(facade);
         const entryId = getMapByParentZone(facade.id).entry_zone_id;
         const seamDir = allExits(facade).find(e => e.target === entryId).dir;
         const fDoor = 'door_regress_facade_' + p.id;
@@ -359,11 +359,10 @@ export default async function regress({ run, check, getPlayer }) {
         check('a facade with no door on its seam paints no locked edge', prior === null,
           JSON.stringify(prior));
         putF();
-        // The ENTRANCE side is what gets coloured, never the seam direction — the
-        // arrow says which way the door faces, and the link into the building is
-        // labelled independently ('in' on legacy buildings).
+        // A facade draws all four edges like any building tile, so a locked door
+        // reddens the side it actually sits on: the seam into the building.
         check('a locked front door reddens the facade edge the dpad reddens',
-          JSON.stringify(interiorLockedDirs(facade, p)) === JSON.stringify([entrance]),
+          JSON.stringify(interiorLockedDirs(facade, p)) === JSON.stringify([seamDir]),
           JSON.stringify(interiorLockedDirs(facade, p)));
         putF({ lock_state: 'unlocked' });
         check('...and an unlocked one leaves it green', interiorLockedDirs(facade, p) === null);
@@ -378,7 +377,7 @@ export default async function regress({ run, check, getPlayer }) {
         putF();
         const fNode = (getMinimapData(facade.id, 1, p) || []).find(n => n.id === facade.id);
         check('the minimap node of a locked facade carries the locked edge',
-          JSON.stringify(fNode?.locked_dirs) === JSON.stringify([entrance]),
+          JSON.stringify(fNode?.locked_dirs) === JSON.stringify([seamDir]),
           `${facade.id} → ${JSON.stringify(fNode?.locked_dirs)}`);
         putF({ lock_state: 'unlocked' });
         const oNode = (getMinimapData(facade.id, 1, p) || []).find(n => n.id === facade.id);

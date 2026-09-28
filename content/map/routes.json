@@ -1,0 +1,66 @@
+{
+  "_comment": [
+    "Route numbers for the void highways. A key is the two regions a road joins, sorted and joined",
+    "with ~, which is the road's identity whichever direction it is driven. Baked into",
+    "client/shared/wildlands-field.js by scripts/content/bake-wildlands.mjs; nothing reads this at runtime.",
+    "types: what a stretch of highway is. trunk: the main road out of a region's gate to its hub, shared by every road through that gate. branch: a hub to another region. ramp: the slip road a branch leaves a trunk by. spur: a short dead-end road. half is the paved half-width in tiles, lanes the lane count (1-6), dirt whether it is unsurfaced, shield how its number is drawn.",
+    "A number may be shared by consecutive legs that chain THROUGH regions: Route 1 is the spine, Coldwater -> the Scarletwastes -> Terminus. `type` (a key of `types`) is what the whole road is built as, unless a hub makes part of it a trunk.",
+    "A road into an entrance that a hub road already reaches MERGES into that road and shares it from the join (plugins/trucking/state.js mergeInto): Route 4 from the Reach joins Route 1 short of the Scarletwastes."
+  ],
+  "routes": {
+    "region_coldwater~region_scarletwastes": {
+      "number": "1",
+      "type": "trunk"
+    },
+    "region_scarletwastes~region_terminus": {
+      "number": "1",
+      "type": "trunk"
+    },
+    "region_coldwater~region_the_reach": {
+      "number": "2",
+      "type": "branch"
+    },
+    "region_coldwater~region_deadwater": {
+      "number": "3",
+      "type": "branch"
+    },
+    "region_scarletwastes~region_the_reach": {
+      "number": "4",
+      "type": "branch"
+    },
+    "region_deadwater~region_the_reach": {
+      "number": "5",
+      "type": "branch"
+    }
+  },
+  "types": {
+    "trunk": {
+      "half": 1.35,
+      "lanes": 6,
+      "dirt": false,
+      "label": "old trunk road",
+      "shield": "interstate"
+    },
+    "branch": {
+      "half": 0.95,
+      "lanes": 4,
+      "dirt": false,
+      "label": "old highway",
+      "shield": "plate"
+    },
+    "ramp": {
+      "half": 0.5,
+      "lanes": 1,
+      "dirt": false,
+      "label": "ramp",
+      "shield": null
+    },
+    "spur": {
+      "half": 0.62,
+      "lanes": 2,
+      "dirt": false,
+      "label": "spur",
+      "shield": "plate"
+    }
+  }
+}

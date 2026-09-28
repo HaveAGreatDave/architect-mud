@@ -165,10 +165,10 @@ export function exportTranscript() {
   const lines = raw.map(s => s.replace(/\s+$/, ''));
   const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   const header = [
-    `Architect — log transcript, saved ${new Date().toLocaleString()}`,
+    `Architect: log transcript, saved ${new Date().toLocaleString()}`,
     `${lines.length} line(s) from this session.`,
     lost
-      ? `⚠ ${lost} earlier line(s) are NOT here — the session buffer holds the last ${cap}.`
+      ? `⚠ ${lost} earlier line(s) are NOT here, the session buffer holds the last ${cap}.`
       : `This is everything printed since the page was loaded.`,
     `The buffer is in memory only, so a refresh starts a new one.`,
     '─'.repeat(72),
@@ -218,7 +218,7 @@ export function openHighlightManager() {
   const blurb = document.createElement('p');
   blurb.className = 'log-hl-blurb';
   blurb.textContent = 'Words to colour when the game says them. Matched anywhere in a '
-    + 'line, ignoring case. "Ping" also plays a sound — once per line, however many '
+    + 'line, ignoring case. "Ping" also plays a sound, once per line, however many '
     + 'times the word appears.';
   body.appendChild(blurb);
 

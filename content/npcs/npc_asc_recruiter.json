@@ -16,7 +16,7 @@
   },
   "chitchat": [
     "\"Death is a billing problem. We are simply the only ones honest enough to itemise it.\"",
-    "\"You flinch at the chrome. Everyone does — right up until the day it saves them.\""
+    "\"You flinch at the chrome. Everyone does, right up until the day it saves them.\""
   ],
   "description": "An immaculate man in pale grey, a single chromed pin at his lapel catching the light. He smiles the way a door opens: smoothly, and for a reason. He has been waiting for someone exactly as promising, and as unimproved, as you.",
   "dialogue_tree": {
@@ -33,11 +33,11 @@
           "next": "bye"
         }
       ],
-      "text": "\"Wonderful. The post is just through the outer slab — the Warden will expect you.\" He steps aside like a maître d'. \"Come and find me when it is done.\""
+      "text": "\"Wonderful. The post is just through the outer slab. The Warden will expect you.\" He steps aside like a maître d'. \"Come and find me when it is done.\""
     },
     "bye": {
       "options": [],
-      "text": "\"When the meat disappoints you — and it will — you know where the Gate is.\" He returns to his patient smile."
+      "text": "\"When the meat disappoints you (and it will), you know where the Gate is.\" He returns to his patient smile."
     },
     "codex_certain": {
       "options": [
@@ -75,7 +75,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"All of them.\" He looks delighted, the way a man does when asked to describe his rivals.\n\n\"Very well. Two questions, and everybody has answered both whether they can say so or not. First — is this city worth saving? Renounce it and walk out into the ash, or redeem it and stay and work the machine. Second — is the body worth keeping? Stay as you are, or transcend it: by the machine, by the flesh, or by the mind.\"\n\n\"Cross the two and you have four corners. We are one of them. The Watch guard the door and stay meat. The Wildblood want the ash to finish what it started on them. The Exodus have decided the way out is inward, which is the most convenient exit ever invented.\"\n\nThe pin winks.\n\n\"Four answers. Every one of them held by people who are absolutely certain.\""
+      "text": "\"All of them.\" He looks delighted, the way a man does when asked to describe his rivals.\n\n\"Very well. Two questions, and everybody has answered both whether they can say so or not. First: is this city worth saving? Renounce it and walk out into the ash, or redeem it and stay and work the machine. Second: is the body worth keeping? Stay as you are, or transcend it: by the machine, by the flesh, or by the mind.\"\n\n\"Cross the two and you have four corners. We are one of them. The Watch guard the door and stay meat. The Wildblood want the ash to finish what it started on them. The Exodus have decided the way out is inward, which is the most convenient exit ever invented.\"\n\nThe pin winks.\n\n\"Four answers. Every one of them held by people who are absolutely certain.\""
     },
     "cold": {
       "_vine": {
@@ -89,7 +89,7 @@
           "next": "bye"
         }
       ],
-      "text": "Maresh smiles the way a man smiles at a parked car.\n\n\"Ives wrote you up. I read it. It was — \" he searches for it, finds it, enjoys it \" — *warm*, actually. She liked you. She has never liked me.\"\n\nThe queue moves up one and he moves with it.\n\n\"No, there is nothing for you here. Not out of spite; there is genuinely nothing. The Gate does not scan people who have already answered. Go well.\""
+      "text": "Maresh smiles the way a man smiles at a parked car.\n\n\"Ives wrote you up. I read it. It was...\" he searches for it, finds it, enjoys it \"...*warm*, actually. She liked you. She has never liked me.\"\n\nThe queue moves up one and he moves with it.\n\n\"No, there is nothing for you here. Not out of spite; there is genuinely nothing. The Gate does not scan people who have already answered. Go well.\""
     },
     "hand_approve": {
       "_vine": {
@@ -106,7 +106,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"No.\" The smile is different for a moment — smaller, and actually his. \"No, most people would not, and most people will not say so.\"\n\nHe sits back down.\n\n\"You will do well here. That is not flattery, it is a prediction, and I make about four a year.\""
+      "text": "\"No.\" The smile is different for a moment: smaller, and actually his. \"No, most people would not, and most people will not say so.\"\n\nHe sits back down.\n\n\"You will do well here. That is not flattery, it is a prediction, and I make about four a year.\""
     },
     "hand_deflect": {
       "_vine": {
@@ -259,7 +259,7 @@
           "next": "bye"
         }
       ],
-      "text": "It costs you nothing to say and that is the part you will think about later.\n\n\"There.\" He is genuinely relieved. \"That is all anybody wants. Not agreement — a position. An unsorted person makes everybody nervous and it is nobody's fault.\"\n\nHe writes one line and closes the folder.\n\n\"You will do well here.\""
+      "text": "It costs you nothing to say and that is the part you will think about later.\n\n\"There.\" He is genuinely relieved. \"That is all anybody wants. Not agreement. A position. An unsorted person makes everybody nervous and it is nobody's fault.\"\n\nHe writes one line and closes the folder.\n\n\"You will do well here.\""
     },
     "hand_stay_watched": {
       "_vine": {
@@ -285,7 +285,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Up the plaza, the twisting tower — you cannot miss it, it is the only honest building for miles.\""
+      "text": "\"Up the plaza, the twisting tower. You cannot miss it, it is the only honest building for miles.\""
     },
     "lead_accept": {
       "actions": [
@@ -313,7 +313,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Recruiting.\" He says it the way other men say the name of a sport. \"There is a man in a coffee shop on the Coldwater side who has spent a year asking where Halcyon's money goes, and getting lied to by people who do not even know they are lying. He is very nearly there. He wants somebody to say the word out loud.\"\n\n\"Bring him to the plaza. Alive, unhurried, still curious — in that order. The road west is not a kind one, which is precisely why the offer lands when it does.\""
+      "text": "\"Recruiting.\" He says it the way other men say the name of a sport. \"There is a man in a coffee shop on the Coldwater side who has spent a year asking where Halcyon's money goes, and getting lied to by people who do not even know they are lying. He is very nearly there. He wants somebody to say the word out loud.\"\n\n\"Bring him to the plaza. Alive, unhurried, still curious, in that order. The road west is not a kind one, which is precisely why the offer lands when it does.\""
     },
     "lead_report": {
       "actions": [
@@ -446,7 +446,7 @@
           "next": "maresh_carried_out"
         }
       ],
-      "text": "\"No.\"\n\nHe nods at the door. Two men in Spire grey come in and stand either side of it without looking at you. Both are chromed from the collarbone down and neither has bothered to have it skinned — bare plate at the shoulder, cabling laid in behind the elbow, hands built a size larger than the ones they were born with.\n\n\"Come back on Monday if you would like to. Nothing is closed and nothing is written down.\""
+      "text": "\"No.\"\n\nHe nods at the door. Two men in Spire grey come in and stand either side of it without looking at you. Both are chromed from the collarbone down and neither has bothered to have it skinned: bare plate at the shoulder, cabling laid in behind the elbow, hands built a size larger than the ones they were born with.\n\n\"Come back on Monday if you would like to. Nothing is closed and nothing is written down.\""
     },
     "maresh_fair_hit": {
       "_vine": {
@@ -480,7 +480,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Somebody reads it. Everything is read eventually — that is the whole promise of the place.\"\n\n\"Whether anybody acts on what they read is a separate question, and I would not raise that one on a first visit.\""
+      "text": "\"Somebody reads it. Everything is read eventually. That is the whole promise of the place.\"\n\n\"Whether anybody acts on what they read is a separate question, and I would not raise that one on a first visit.\""
     },
     "maresh_load_bearing": {
       "_vine": {
@@ -663,7 +663,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Nothing is asked of you but honesty — the Gate's kind. Step under the scanline in the post there and let the Threshold read you in full. It will not hurt. It will simply know you, and once it knows you, it will let you pass.\"\n\nThe pin winks.\n\n\"Consider it a free consultation.\""
+      "text": "\"Nothing is asked of you but honesty, the Gate's kind. Step under the scanline in the post there and let the Threshold read you in full. It will not hurt. It will simply know you, and once it knows you, it will let you pass.\"\n\nThe pin winks.\n\n\"Consider it a free consultation.\""
     },
     "pitch": {
       "options": [
@@ -709,7 +709,7 @@
           "next": "inside"
         }
       ],
-      "text": "\"There. The Threshold knows you now — you will find its refusals have become invitations.\"\n\nHe gestures west, toward the Spire.\n\n\"Curator Vess is expecting you on the concourse. Do try to keep an open mind. Or an open skull; we are flexible.\""
+      "text": "\"There. The Threshold knows you now. You will find its refusals have become invitations.\"\n\nHe gestures west, toward the Spire.\n\n\"Curator Vess is expecting you on the concourse. Do try to keep an open mind. Or an open skull; we are flexible.\""
     },
     "root": {
       "options": [
@@ -860,7 +860,7 @@
           "next": "bye"
         }
       ],
-      "text": "The immaculate man turns to you before you have said a word. \"Maresh. I recruit — which is to say I recognise. And I recognise something in you the Watch would very much rather I did not.\""
+      "text": "The immaculate man turns to you before you have said a word. \"Maresh. I recruit, which is to say I recognise. And I recognise something in you the Watch would very much rather I did not.\""
     },
     "the_coat": {
       "_vine": {
@@ -884,7 +884,7 @@
           "next": "bye"
         }
       ],
-      "text": "He notices you are wet before you do.\n\n\"Oh — take that.\" He lifts a coat off the back of a chair and puts it into your hands without looking at it. It is heavier than it looks, and lined, and there is no rain in it at all. \"There are four of them in the cupboard and I have never counted them.\"\n\n\"No, genuinely. It is a coat.\""
+      "text": "He notices you are wet before you do.\n\n\"Oh, take that.\" He lifts a coat off the back of a chair and puts it into your hands without looking at it. It is heavier than it looks, and lined, and there is no rain in it at all. \"There are four of them in the cupboard and I have never counted them.\"\n\n\"No, genuinely. It is a coat.\""
     },
     "the_coat_worth": {
       "_vine": {
@@ -1234,7 +1234,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"They drink it. That is the procedure in full.\"\n\nHe does not raise his voice, but this is the only subject on which he stops being charming.\n\n\"No dose. No schedule. No two batches alike, because there is no method — it is made in a pool by people who do not write anything down.\"\n\n\"Two men take the same flask from the same hand on the same afternoon. One of them ends up with a second heart. The other gets a fever and four bad years.\""
+      "text": "\"They drink it. That is the procedure in full.\"\n\nHe does not raise his voice, but this is the only subject on which he stops being charming.\n\n\"No dose. No schedule. No two batches alike, because there is no method. It is made in a pool by people who do not write anything down.\"\n\n\"Two men take the same flask from the same hand on the same afternoon. One of them ends up with a second heart. The other gets a fever and four bad years.\""
     },
     "why_us_flask_barb": {
       "_vine": {
@@ -1416,7 +1416,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"We do not use that word.\"\n\nHe says it the way you would correct a child's grammar, kindly, without stopping.\n\n\"Unlicensed variation. A body that changed without anybody choosing it or recording it. We cannot price that — nobody knows what it does at fifty, because nobody designed it.\"\n\n\"So it is declined at intake. There is a form. The form is older than I am.\""
+      "text": "\"We do not use that word.\"\n\nHe says it the way you would correct a child's grammar, kindly, without stopping.\n\n\"Unlicensed variation. A body that changed without anybody choosing it or recording it. We cannot price that. Nobody knows what it does at fifty, because nobody designed it.\"\n\n\"So it is declined at intake. There is a form. The form is older than I am.\""
     },
     "why_us_watch": {
       "_vine": {

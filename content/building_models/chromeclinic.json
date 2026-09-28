@@ -136,6 +136,7 @@
       "cy": 0,
       "hw": 0.26,
       "kind": "box",
+      "pal": "ty_asc_chrome",
       "roof": true,
       "z0": 0.78,
       "z1": 0.9
@@ -145,6 +146,7 @@
       "cy": 0,
       "hw": 0.22,
       "kind": "box",
+      "pal": "ty_asc_chrome",
       "roof": true,
       "yaw": 0.785,
       "z0": 0.78,

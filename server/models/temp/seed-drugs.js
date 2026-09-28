@@ -202,7 +202,7 @@ const DRUGS = [
           "[trip]The walls are the wrong colour. They know they're the wrong colour. They're furious about it.[/trip]",
           "[trip]Something enormous is screaming just below the range of hearing and it's getting closer.[/trip]",
           '[trip]Your reflection in every surface is a half-second behind you, and grinning.[/trip]',
-          "[trip]The floor tilts. The ceiling drips. None of it's trying to help you.[/trip]",
+          "[trip]The floor tilts. The ceiling drips. None of it is trying to help you.[/trip]",
           "[trip]You're being watched by the architecture and it doesn't like what it sees.[/trip]",
           "[trip]For a moment you're certain you have always been here and will never leave.[/trip]",
         ] },

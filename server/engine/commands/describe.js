@@ -44,8 +44,8 @@ import { getPhantomsInZone, applyTransforms, applyNpcTransforms, applyPlayerTran
 import { bodyTell } from "../dreamscape.js";
 import { signalLamp, junctionOffset, isJunction, LAMP_WORD } from "../../../client/shared/traffic.js";
 // The geese, on exactly the same footing as the signals above: one answer, two surfaces.
-import { flockAt, flockState, gooseHabitat, gooseDaylight, birdDaylight, speciesAt, placeOf, habitatState, skeinForm, perchedNow, FORM_WORDS, SPECIES, doyOf } from "../../../client/shared/birds.js";
-import { getZonePowerStatus, getGameHour, getGameDate, getEnvironmentState, getBirdClock } from "../environment.js";
+import { flockAt, flockState, gooseHabitat, gooseDaylight, birdDaylight, speciesAt, placeOf, habitatState, skeinForm, perchedNow, FORM_WORDS, SPECIES, doyOf, weatherTell } from "../../../client/shared/birds.js";
+import { getZonePowerStatus, getGameHour, getGameDate, getEnvironmentState, getBirdClock, getForecast } from "../environment.js";
 import { mobStatusLabels } from "../effects.js";
 import { sectionFurniture } from "../classify.js";
 import { loggedPanelsSync } from "../presentation.js";
@@ -128,8 +128,8 @@ async function doorSuffix(fromId, direction, targetId, player) {
 const turretCooldowns = new Map();
 
 const VOID_TELEPORT_MESSAGES = [
-	`The floor, the walls, the air itself — all of it just isn't there anymore. You fall through something that isn't falling, for a length of time that isn't time. Then the world reasserts itself around you, all at once.`,
-	`Wherever you just were stops existing mid-step. There's a gap — not dark, not light, just absence — and then solid ground again, like it never happened.`,
+	`The floor, the walls, the air itself: all of it just isn't there anymore. You fall through something that isn't falling, for a length of time that isn't time. Then the world reasserts itself around you, all at once.`,
+	`Wherever you just were stops existing mid-step. There's a gap (not dark, not light, just absence) and then solid ground again, like it never happened.`,
 	`Reality hiccups. For a moment there's nothing under you, nothing around you, nothing anywhere at all. Then you're standing somewhere else, and your legs remember how to hold you up.`,
 ];
 export function describeVoidTeleport() {
@@ -729,7 +729,7 @@ const BUILDING_TYPE_FLAVOR = {
 		(name, dirPhrase) =>
 			`${name}'s entrance, propped permanently ajar, is ${dirPhrase}.`,
 		(name, dirPhrase) =>
-			`You spot mailboxes — most broken into — outside ${name}, ${dirPhrase}.`,
+			`You spot mailboxes, most broken into, outside ${name}, ${dirPhrase}.`,
 	],
 	clinic: [
 		(name, dirPhrase) =>
@@ -883,11 +883,11 @@ function _vaguePresence(npc) {
 // `line` is [cssClass, text] for the italic light-level feedback line.
 const LIGHT_GATE = {
 	blazing: { line: ["light-blazing", "Harsh light blazes over everything, sharp and unforgiving."] },
-	bright:  { line: ["light-bright", "The area is brightly lit — every detail stands out."] },
+	bright:  { line: ["light-bright", "The area is brightly lit. Every detail stands out."] },
 	dim:     { dim: true, line: ["light-dim", "The light is poor here. Details are hard to make out."] },
-	gloomy:  { dim: true, hideItems: true, line: ["light-gloomy", "Gloom hangs thick — you catch shapes and movement, but little detail."] },
+	gloomy:  { dim: true, hideItems: true, line: ["light-gloomy", "Gloom hangs thick. You catch shapes and movement, but little detail."] },
 	dark:    { dark: true, line: ["light-dark", "It's very dark. You can barely make out your surroundings."] },
-	murk:    { dark: true, hideNpcs: true, line: ["light-murk", "It's nearly black — only the vaguest shapes register."] },
+	murk:    { dark: true, hideNpcs: true, line: ["light-murk", "It's nearly black. Only the vaguest shapes register."] },
 };
 
 // Compass bearing from a zone to its district landmark, off grid deltas. grid_y
@@ -1103,13 +1103,19 @@ const SONG_DAWN_LINES = [
 // What a room may say is that the bird is up there with a view, because that is true whenever it
 // is true. See the ⚠ on the ground pool: nothing here announces a kill.
 const HAWK_PERCH_LINES = [
-	() => `A hawk sits on top of a dead post out on the flat, facing into the wind, and hasn't moved since you first saw it.`,
+	() => `A hawk sits on top of a rock spire out on the flat, facing into the wind, and hasn't moved since you first saw it.`,
 	() => `There's a hawk on the highest thing for a long way round, which isn't very high, watching the ground.`,
 	() => `Something big and brown is hunched on a snag ahead, looking down at the grass rather than at you.`,
 ];
 const HAWK_GROUND_LINES = [
-	() => `A hawk is down on a post, mantling over something, and does not look up as you pass.`,
+	() => `A hawk is down in the scrub with its wings spread over something, and doesn't look up as you pass.`,
 	() => `A hawk stands out in the open with its back to you, doing nothing at all with great attention.`,
+];
+// ⚠ THE WEATHER TELL, IN WORDS. When the weather is keeping it down (weatherTell in birds.js) the hawk
+// is not resting, it is waiting something out, and that is the thing a player can learn to read.
+const HAWK_WARY_LINES = [
+	() => `A hawk sits hunched low on a rock with its feathers puffed out, facing into the wind. It has no plans to go up today.`,
+	() => `There's a hawk tucked down out of the wind, not hunting, not watching anything in particular. It looks like it knows something.`,
 ];
 const HAWK_AIR_LINES = [
 	() => `A hawk is up in a long slow spiral, not beating its wings, going nowhere in particular and getting higher while it does.`,
@@ -1174,7 +1180,7 @@ const BIRD_LINES = {
 	// ⚠ NO `raft` FOR A HAWK, and unlike the pigeon's missing `inland` this one can never be
 	// reached rather than merely being meaningless: nothing in its habitat table is water, so
 	// `habitatState` only ever answers 'walk' for it.
-	hawk: { walk: HAWK_GROUND_LINES, air: HAWK_AIR_LINES, perch: HAWK_PERCH_LINES },
+	hawk: { walk: HAWK_GROUND_LINES, air: HAWK_AIR_LINES, perch: HAWK_PERCH_LINES, wary: HAWK_WARY_LINES },
 	peregrine: { walk: PEREGRINE_GROUND_LINES, air: PEREGRINE_AIR_LINES, perch: PEREGRINE_PERCH_LINES },
 	// ⚠ NO `raft`, for the hawk's reason: nothing in the habitat table is water, so
 	// `habitatState` only ever answers 'walk' and a water pool could never be reached.
@@ -1200,7 +1206,7 @@ function gooseLine(zone) {
 	// among them; `tileSurroundings` counts those two facts off the map and `placeOf` — shared
 	// with the windscreen, so both surfaces answer the same — turns them into a place.
 	const sur = tileSurroundings(zone);
-	const sid = speciesAt(placeOf(t, sur.bld, sur.shore), gx, gy, { weather });
+	const sid = speciesAt(placeOf(t, sur.bld, sur.shore), gx, gy, { weather, airfield: !!zone.flags?.airfield_id });
 	if (!sid) return "";
 	const habitat = habitatState(sid, placeOf(t, sur.bld, sur.shore));
 	if (!habitat) return "";
@@ -1212,7 +1218,10 @@ function gooseLine(zone) {
 	// a July afternoon — see BIRD_TUNE in birds.js — so handing one surface the season and not the
 	// other is the room saying a cloud of hundreds is going up over a park the windscreen has drawn
 	// with a party of nine on it, which is the disagreement this whole module exists to prevent.
-	const st = flockState(flock, Date.now(), null, { ...getBirdClock(), doy: doyOf(getGameDate()) });
+	// ⚠ AND THE WEATHER TELL: today's headline and tomorrow's forecast, the pair the window is pushed,
+	// so a hawk sitting tight before a storm is sitting tight in both.
+	const st = flockState(flock, Date.now(), null, { ...getBirdClock(), doy: doyOf(getGameDate()),
+		wx: [weather, getForecast()?.[1]?.weatherType || null] });
 	const set = BIRD_LINES[sid] || BIRD_LINES.goose;
 	// ⚠ THE DAWN POOL OUTRANKS THE FLOCK'S OWN STATE, which no other species needs. For the other
 	// three the sentence describes what the birds are doing; at first light the whole point is that
@@ -1230,8 +1239,11 @@ function gooseLine(zone) {
 	// room says the birds are up while the window leaves them on the deck. Closing it would mean
 	// shipping the shape capture to the server, which is a lot of machinery for eleven buildings.
 	const perched = set.perch && !st.airborne && sur.bld > 0 && perchedNow(flock, Date.now());
+	// The weather tell is strong enough that the bird is waiting it out rather than resting.
+	const wary = set.wary && !st.airborne && weatherTell(weather, getForecast()?.[1]?.weatherType || null, getBirdClock().hour) >= 0.5;
 	const pool = dawn ? set.dawn
 		: st.airborne ? set.air
+			: wary ? set.wary
 			: perched ? set.perch
 				: (!st.airborne && set.inland && INLAND_GROUND.has(t)) ? set.inland
 					: habitat === "raft" ? set.raft : set.walk;
@@ -1282,7 +1294,7 @@ export async function describeZone(zone, player, out = {}) {
 	if (vis.category === "pitch_dark") {
 		const windows = getWindowsForZone(zone.id);
 		const windowHint = windows.length
-			? ` You can barely make out the outline of ${windows.length === 1 ? "a window" : "some windows"} — ${windows.some((w) => w.curtain_open) ? "no light comes through" : "the curtains are drawn"}.`
+			? ` You can barely make out the outline of ${windows.length === 1 ? "a window" : "some windows"}, but ${windows.some((w) => w.curtain_open) ? "no light comes through" : "the curtains are drawn"}.`
 			: "";
 		const { buildings, rooms, plain } = getConnectedDestinations(zone);
 		let darkDesc =

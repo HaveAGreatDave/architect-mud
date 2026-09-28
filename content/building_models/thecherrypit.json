@@ -87,7 +87,7 @@
     {
       "color": "#140a12",
       "cx": -0.24,
-      "cy": 0.44,
+      "cy": 0.41,
       "font": "script",
       "half": 0.11,
       "hh": 0.035,
@@ -95,7 +95,7 @@
       "kind": "signBoard",
       "label": "PIT",
       "picto": "martini",
-      "z": 0.088
+      "z": 0.18
     }
   ],
   "id": "thecherrypit",
@@ -147,6 +147,7 @@
       "cy": 0,
       "kind": "drum",
       "n": 10,
+      "pal": "ty_volt_chrome",
       "rb": 0.2,
       "rt": 0.15,
       "z0": 0.7,

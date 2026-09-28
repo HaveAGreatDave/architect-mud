@@ -162,7 +162,7 @@ export function posterLines(p) {
   mid('BY PRIVATE CONTRACT');
   out.push('├' + rule + '┤');
   mid(p.target.toUpperCase());
-  mid('— ALIVE IS NOT REQUIRED —');
+  mid('ALIVE IS NOT REQUIRED');
   out.push('├' + rule + '┤');
   mid(`REWARD  ${p.reward}`);
   mid(`(${p.band})`);

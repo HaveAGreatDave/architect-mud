@@ -52,27 +52,62 @@
 // what matters is that the REFLECTION pass runs before the main one (see the prepass note in
 // world.js), so the buffer has to be filled before either. Upload and draw are separate calls for
 // that reason alone.
-import { viewProjMatrix } from './camera.js';
+import { viewProjMatrix, eyePos } from './camera.js';
+const IDENT = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
 import { makeVertexStream } from './stream.js';
 
-const STRIDE = 7;   // pos3, colour3, alpha1
+const STRIDE = 15;   // pos3, colour3, alpha1, normal3, metal1, local3, tex1
+// ⚠ `local` IS THE COCKPIT'S OWN FRAME, IN METRES, and it is what the surface textures are drawn
+// in. `aPos` is where the face is in the WORLD, which moves with the aircraft, so grain sampled
+// off it would crawl across the dash every frame the aircraft moved. Only interior faces carry it;
+// everything else passes 0 for `tex` and the texture block is skipped.
 
 const VERT = `#version 300 es
 in vec3 aPos;
 in vec3 aColor;
 in float aAlpha;
+in vec3 aNormal;
+in float aMetal;
+in vec3 aLocal;
+in float aTex;
 uniform mat4 uViewProj;
+uniform mat4 uModel;
+uniform float uNScale;
 uniform float uFogNear;
 uniform float uFogFar;
 uniform float uFogAmt;
-out vec3 vColor;
+uniform float uWaterZ;
+uniform float uWaterT;
+// ⚠ CENTROID, BECAUSE OF MSAA. With multisampling a pixel a triangle only partly covers is shaded
+// ONCE, at the pixel centre, even when that centre lies outside the triangle, and every varying is
+// EXTRAPOLATED to it. On a thin part at a low resolution-dial step (the Drake's minigun at 54%)
+// the extrapolated normal and position went wild, and the metal reflection turned the gun into a
+// square patch of sky. Centroid samples inside the covered part of the pixel instead.
+centroid out vec3 vColor;
 out float vFog;
-out float vAlpha;
+centroid out float vAlpha;
+centroid out vec3 vPos;
+centroid out vec3 vN;
+centroid out float vMetal;
+centroid out vec3 vLocal;
+flat out int vTex;
 void main() {
-  vec4 clip = uViewProj * vec4(aPos, 1.0);
+  // uModel is the identity for every layer but the cab interior (see upload), and multiplying by an
+  // exact identity is exact, so the other layers compute what they always did.
+  vec4 wp = uModel * vec4(aPos, 1.0);
+  // Under the surface the outline wavers, as anything seen through moving water does. Only below
+  // uWaterZ, which is far under the world unless a hull is afloat, so every other solid is untouched.
+  float wdz = uWaterZ - wp.z;
+  if (wdz > 0.0) {
+    float k = min(1.0, wdz / 0.008) * 0.0016;
+    wp.xy += k * vec2(sin(wp.z * 520.0 + wp.y * 90.0 + uWaterT * 2.4), cos(wp.z * 470.0 + wp.x * 80.0 + uWaterT * 2.0));
+  }
+  vec4 clip = uViewProj * wp;
   gl_Position = clip;
   vColor = aColor;
   vAlpha = aAlpha;
+  vPos = wp.xyz; vN = mat3(uModel) * aNormal * uNScale; vMetal = aMetal;
+  vLocal = aLocal; vTex = int(aTex + 0.5);
   float ff = clamp((clip.w - uFogNear) / max(1e-3, uFogFar - uFogNear), 0.0, 1.0);
   vFog = ff * ff * uFogAmt;
 }`;
@@ -82,15 +117,311 @@ void main() {
 // At the distance an own ship is actually drawn from it is worth nothing, and it costs nothing.
 const FRAG = `#version 300 es
 precision highp float;
-in vec3 vColor;
+centroid in vec3 vColor;
 in float vFog;
-in float vAlpha;
+centroid in float vAlpha;
+centroid in vec3 vPos;
+centroid in vec3 vN;
+centroid in float vMetal;
+centroid in vec3 vLocal;
+flat in int vTex;
 uniform vec3 uFog;
+uniform vec3 uEye;
+uniform vec3 uSkyHor;
+uniform vec3 uSkyTop;
+uniform float uNight;
+uniform vec3 uSun;
+uniform float uSunK;
+uniform float uWaterZ;
+uniform float uWaterT;
+uniform float uUnder;   // 0..1, how far under the eye is: the cockpit seen from inside the sea
+uniform float uUnderD;  // metres of water over the eye: caustics fade and blur with it
 out vec4 outColor;
+// ── THE CAUSTIC NET, AS REAL ONES BEHAVE ──────────────────────────────────────────────────────
+// Bright lines where drifting ripples cross zero, anchored in the WORLD so on a moving hull they slide
+// over her. Three things keep it from strobing, each from how real caustics and real renderers behave:
+//   · SLOW: the surface that focuses them moves at a walking pace, so the net drifts, it does not race.
+//   · TWO SCALES, WARPED: a big soft net under a finer one, the domain bent by a slow wave, so it never
+//     reads as one repeating tile.
+//   · SOFTENED BY DEPTH AND BY THE PIXEL: the line width grows with depth (they are only sharp just
+//     under the surface), and with fwidth, so a cell near one pixel fades out instead of flickering.
+float causNet(vec2 p, float t, float soft) {
+  p += 0.35 * vec2(sin(p.y * 0.7 + t * 0.1), sin(p.x * 0.6 - t * 0.08));
+  float n = abs(sin(p.x * 1.7 + t * 0.18) + sin(p.y * 1.9 - t * 0.15) + sin((p.x + p.y) * 1.3 + t * 0.11));
+  float px = fwidth(p.x) + fwidth(p.y);
+  float w = 0.4 + soft * 0.9 + px * 1.6;
+  return smoothstep(w, 0.0, n) * clamp(1.6 - px * 1.2, 0.0, 1.0) * (0.45 / w);
+}
+float causAt(vec3 p, vec3 n, float t, float soft) {
+  vec3 w = abs(n); w /= max(1e-4, w.x + w.y + w.z);
+  float a = causNet(p.xy, t, soft) * w.z + causNet(p.xz * 1.1, t, soft) * w.y + causNet(p.yz * 1.1, t, soft) * w.x;
+  vec3 q = p * 0.47 + 11.0;
+  float b = causNet(q.xy, t * 0.7, soft) * w.z + causNet(q.xz, t * 0.7, soft) * w.y + causNet(q.yz, t * 0.7, soft) * w.x;
+  return a * 0.55 + b * 0.6;
+}
+// ⚠ CARRIED WITH HER, MOSTLY. Pinned to the world, a sub at cruise sweeps a dozen cells a second through
+// the cabin and it reads as strobing; pinned to the cabin it never moves at all. Sampled about the eye
+// with 8% of her travel left in, it slides slowly past as she goes, which is what it looks like to ride
+// in her. CAUS_CARRY is that share.
+vec3 causP(vec3 p) { return (p - uEye * 0.92) * 45.0; }
+// How strong the net is at this depth: sharp and bright in the first few metres, gone past ~25 m.
+float causDepth() { return exp(-uUnderD / 7.0); }
+float causSoft() { return clamp(uUnderD / 14.0, 0.0, 1.0); }
+// THE WORLD A METAL MIRRORS: the frame's own sky above a hard bright horizon line, the ground below
+// it. The same expression as envAt in windshield.js, which is the per-face answer for the 2-D path.
+vec3 envAt(float rz) {
+  vec3 sky = mix(uSkyHor, uSkyTop, clamp(rz * 1.8, 0.0, 1.0));
+  vec3 gnd = mix(uSkyHor * vec3(0.5, 0.5, 0.48), vec3(40.0, 44.0, 36.0) / 255.0 * (1.0 - uNight * 0.8), clamp(-rz * 3.0, 0.0, 1.0));
+  vec3 env = mix(gnd, sky, clamp(rz * 30.0 + 0.5, 0.0, 1.0));
+  return mix(env, mix(uSkyHor, vec3(1.0, 0.98, 0.925), 1.0 - uNight), exp(-(rz * rz) / 0.0012) * 0.55);
+}
+// The same world with the horizon line blurred out, for a flat plate (see the metal block below).
+vec3 envSoft(float rz) {
+  vec3 sky = mix(uSkyHor, uSkyTop, clamp(rz * 1.2, 0.0, 1.0));
+  vec3 gnd = mix(uSkyHor * vec3(0.5, 0.5, 0.48), vec3(40.0, 44.0, 36.0) / 255.0 * (1.0 - uNight * 0.8), clamp(-rz * 1.5, 0.0, 1.0));
+  return mix(gnd, sky, smoothstep(-0.35, 0.35, rz));
+}
+// ── SURFACE TEXTURE, PER PIXEL, IN THE COCKPIT'S OWN FRAME ───────────────────
+// The kinds are interior-kit.js TEX_KINDS, by index: 1 plastic, 2 fabric, 3 leather, 4 rubber,
+// 5 brushed, 6 cast, 7 paint, 8 wood, 9 carpet. Each returns a brightness multiplier around 1 — a
+// texture here is the VALUE of the surface varying, never a new colour, so a retrim still reaches
+// it and a lamp is never tinted. ⚠ EVERY TERM FADES OUT WHERE ITS FEATURE IS SMALLER THAN A PIXEL
+// (fade), because a procedural pattern sampled below its own frequency is not a finer texture, it
+// is shimmer, and shimmer on a dashboard is the one thing worse than a flat one.
+float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+float vnoise(vec2 p) {
+  vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y);
+}
+// How much of a feature of freq cycles per metre survives at this pixel's footprint.
+float fade(float freq, float px) { return clamp(1.6 - px * freq * 2.2, 0.0, 1.0); }
+// A height field per material, 0..1, at uv (metres in the face's own plane). The value of the
+// surface follows the height, and the RELIEF comes from the height's slope toward the light: the
+// cockpit's light comes in through the glass, forward and above, so a pit is dark on its near
+// side and a ridge bright on its far one. That slope is what reads as texture; brightness alone
+// read as a faint tint and measured under two levels out of 255 on a dark panel.
+float texHeight(int kind, vec2 uv, float px) {
+  if (kind == 1) {        // moulded plastic: a fine stipple over a slow mottle
+    return 0.5 + (vnoise(uv * 420.0) - 0.5) * fade(420.0, px) + (vnoise(uv * 90.0) - 0.5) * 0.25 * fade(90.0, px);
+  } else if (kind == 2) { // fabric: warp and weft, and the pile between them
+    float w = 0.5 + 0.5 * sin(uv.x * 1400.0) * sin(uv.y * 1400.0);
+    return mix(0.5, w, fade(700.0, px)) + (vnoise(uv * 160.0) - 0.5) * 0.7 * fade(160.0, px);
+  } else if (kind == 3) { // leather: pebbled grain
+    float g = vnoise(uv * 180.0); g = 1.0 - abs(g * 2.0 - 1.0);
+    return 0.5 + (g - 0.5) * fade(180.0, px) + (vnoise(uv * 40.0) - 0.5) * 0.5 * fade(40.0, px);
+  } else if (kind == 4) { // rubber: a fine grit
+    return 0.5 + (vnoise(uv * 600.0) - 0.5) * fade(600.0, px) + (vnoise(uv * 120.0) - 0.5) * 0.4 * fade(120.0, px);
+  } else if (kind == 5) { // brushed metal: streaks, long one way and fine the other
+    return 0.5 + (vnoise(vec2(uv.x * 6.0, uv.y * 900.0)) - 0.5) * fade(900.0, px) + (vnoise(vec2(uv.x * 3.0, uv.y * 140.0)) - 0.5) * 0.7 * fade(140.0, px);
+  } else if (kind == 6) { // cast / bare metal: sand-cast pits and a blotchy oxide
+    float pit = smoothstep(0.78, 0.9, vnoise(uv * 380.0));
+    return 0.6 - pit * 0.6 * fade(380.0, px) + (vnoise(uv * 70.0) - 0.5) * 0.35 * fade(70.0, px);
+  } else if (kind == 7) { // painted metal: orange peel and brush marks under the coat
+    return 0.5 + (vnoise(uv * 230.0) - 0.5) * 0.7 * fade(230.0, px) + (vnoise(vec2(uv.x * 20.0, uv.y * 120.0)) - 0.5) * 0.15 * fade(120.0, px);
+  } else if (kind == 8) { // wood: a PAINTED grain, like printed veneer — every feature runs ONE way
+    // The old version crossed full-strength sine rings with noise stretched the other way and then
+    // embossed both, which read as a woven tartan. Grain is long lines along uv.x that wander gently
+    // across it: thin dark lines, broad lighter and darker bands, and pore streaks, all bent by one
+    // warp so they stay parallel. No relief (texAmount), because paint is flat.
+    float wy = uv.y + (vnoise(vec2(uv.x * 1.1, uv.y * 5.0)) - 0.5) * 0.045 + sin(uv.x * 2.3 + uv.y * 7.0) * 0.005;
+    float ln = abs(fract(wy * 48.0 + vnoise(vec2(uv.x * 0.8, wy * 3.0)) * 2.0) - 0.5) * 2.0;
+    float line = smoothstep(0.0, 0.28, ln);                 // 0 on a grain line, 1 between
+    float band = vnoise(vec2(uv.x * 1.5, wy * 16.0));        // broad light/dark stripes along the grain
+    float pore = vnoise(vec2(uv.x * 30.0, wy * 700.0));      // short dark streaks, long the grain way
+    return 0.5 + (line - 0.5) * 0.55 * fade(48.0, px) + (band - 0.5) * 0.9 * fade(16.0, px) + (pore - 0.5) * 0.35 * fade(700.0, px);
+  } else if (kind == 11) { // gelcoat hull: orange peel, fairing ripples and faint laid-up panel seams
+    float seam = smoothstep(0.02, 0.0, abs(fract(uv.x * 0.8) - 0.5) - 0.48);
+    return 0.5 + (vnoise(uv * 160.0) - 0.5) * 0.5 * fade(160.0, px) + (vnoise(uv * 3.0) - 0.5) * 0.9 * fade(3.0, px)
+         - seam * 0.5 * fade(40.0, px);
+  } else if (kind == 9) { // carpet: a dense loop pile
+    return 0.5 + (vnoise(uv * 700.0) - 0.5) * fade(700.0, px) + (vnoise(uv * 90.0) - 0.5) * 0.5 * fade(90.0, px);
+  }
+  return 0.5;
+}
+// How far each material's value follows its height, and how deep its relief reads.
+vec2 texAmount(int kind) {
+  if (kind == 1) return vec2(0.08, 0.35);   // plastic
+  if (kind == 2) return vec2(0.14, 0.50);   // fabric
+  if (kind == 3) return vec2(0.10, 0.45);   // leather
+  if (kind == 4) return vec2(0.08, 0.30);   // rubber
+  if (kind == 5) return vec2(0.18, 0.20);   // brushed
+  if (kind == 6) return vec2(0.14, 0.45);   // cast
+  if (kind == 7) return vec2(0.04, 0.18);   // paint
+  if (kind == 8) return vec2(0.34, 0.0);    // wood: painted grain, value only, no relief
+  if (kind == 9) return vec2(0.16, 0.45);   // carpet
+  if (kind == 11) return vec2(0.24, 0.35);  // gelcoat
+  return vec2(0.0);
+}
+// Returns a multiplier and an additive lift. ⚠ THE LIFT IS WHY A DARK SURFACE SHOWS ANYTHING: a
+// multiplier on a near-black panel moves it by a level or two, so part of the relief is added
+// rather than scaled — a textured black plastic is visibly textured in a real cockpit.
+vec2 surfaceTex(int kind, vec3 L) {
+  vec3 n = normalize(cross(dFdx(L), dFdy(L)));
+  vec3 t = normalize(cross(n, abs(n.z) < 0.9 ? vec3(0, 0, 1) : vec3(1, 0, 0)));
+  vec3 b = cross(n, t);
+  vec2 uv = vec2(dot(L, t), dot(L, b));
+  float px = max(length(fwidth(L)), 1e-5);
+  // The light direction projected into the face: forward and up, the glass.
+  vec3 Ld = normalize(vec3(0.1, 0.62, 0.78));
+  vec2 ld = vec2(dot(Ld, t), dot(Ld, b));
+  float ll = length(ld); ld = ll > 1e-3 ? ld / ll : vec2(0.0, 1.0);
+  float e = max(px * 1.5, 0.0006);
+  float h = texHeight(kind, uv, px);
+  float slope = (texHeight(kind, uv + ld * e, px) - texHeight(kind, uv - ld * e, px));
+  vec2 a = texAmount(kind);
+  float v = (h - 0.5) * a.x + slope * a.y;
+  return vec2(1.0 + v, v * 0.05);
+}
 void main() {
   if (vAlpha <= 0.002) discard;
-  vec3 c = mix(vColor, uFog, vFog);
-  outColor = vec4(c * vAlpha, vAlpha);   // premultiplied, like every other layer on this canvas
+  vec3 c = vColor;
+  float alpha = vAlpha;
+  if (vTex == 10) {
+    // ── COCKPIT GLASS ─────────────────────────────────────────────────────────
+    // Glass you look through, so it is nearly nothing straight on: what makes a pane apparent is
+    // what it REFLECTS, which grows toward grazing (Fresnel), plus the handling marks on it. The
+    // eye is the origin of the cockpit's own frame, so the view ray is just the position. Drawn as
+    // film (no depth write) after the room, over a world that is already on screen, so the pane can
+    // tint the view but never hide it.
+    vec3 n = normalize(cross(dFdx(vLocal), dFdy(vLocal)));
+    vec3 d = normalize(vLocal);
+    float dn = dot(n, d);
+    if (dn > 0.0) { n = -n; dn = -dn; }
+    vec3 R = d - 2.0 * dn * n;
+    float fres = pow(1.0 - clamp(-dn, 0.0, 1.0), 4.0);
+    vec3 tt = normalize(cross(n, abs(n.z) < 0.9 ? vec3(0, 0, 1) : vec3(1, 0, 0)));
+    vec2 uv = vec2(dot(vLocal, tt), dot(vLocal, cross(n, tt)));
+    // Smudges and a wiped arc: slow blotches, and faint streaks along one diagonal.
+    float smudge = smoothstep(0.55, 0.85, vnoise(uv * 7.0)) * 0.6 + smoothstep(0.7, 0.95, vnoise(uv * 23.0)) * 0.4;
+    float streak = smoothstep(0.6, 1.0, vnoise(vec2((uv.x + uv.y) * 40.0, (uv.x - uv.y) * 2.0)));
+    vec3 env = envAt(R.z);
+    float glint = pow(max(0.0, dot(R, uSun)), 60.0) * uSunK;
+    float a = clamp(0.065 + fres * 0.45 + smudge * 0.11 + streak * 0.05 + glint * 0.6, 0.0, 0.75);
+    c = mix(vColor, env, 0.7) + glint * vec3(1.0, 0.97, 0.9);
+    c = mix(c, vec3(0.86, 0.88, 0.9), smudge * 0.3);
+    if (uUnder > 0.001) {
+      float cg = causAt(causP(vPos), n, uWaterT, causSoft()) * causDepth();
+      c = mix(c, vec3(0.62, 0.9, 0.86), cg * 0.35 * uUnder);
+      a = clamp(a + cg * 0.1 * uUnder, 0.0, 0.8);
+    }
+    alpha = a * vAlpha;
+  } else if (vTex == 11) {
+    // ── A HULL THAT HAS BEEN IN THE SEA ──────────────────────────────────────
+    // The gelcoat texture, then what the water does to it: a dark scum band and weed tint along the
+    // waterline, runs of salt streaking down the topsides from the deck edge, and a wet sheen that
+    // fades up the side from wherever the last wave reached.
+    vec2 tx = surfaceTex(11, vLocal); c = max(c * tx.x + tx.y, 0.0);
+    float hz = vLocal.z;                                   // metres up her own side
+    // ⚠ FEATURES THAT READ FROM THE CHASE CAMERA. The gelcoat's own detail is sized for a surface a
+    // foot from the eye and fades out long before a hull fills a quarter of the screen, which left
+    // every face one flat value. These are metre-scale and fade only when genuinely sub-pixel.
+    {
+      vec3 hn = normalize(cross(dFdx(vLocal), dFdy(vLocal)));
+      float hpx = max(length(fwidth(vLocal)), 1e-5);
+      if (abs(hn.z) > 0.72) {
+        // Deck: a moulded non-skid diamond field, with smooth margins where a gutter runs.
+        vec2 g = abs(fract(vec2(vLocal.x + vLocal.y, vLocal.x - vLocal.y) * 9.0) - 0.5);
+        float dia = smoothstep(0.30, 0.22, max(g.x, g.y));
+        c *= 1.0 - dia * 0.10 * fade(9.0, hpx) - 0.05;
+        c *= 0.93 + 0.07 * vnoise(vLocal.xy * 1.7);        // sun-faded patches
+      } else {
+        // Topsides: lighter up at the sheer, darker toward the chine, and the laid-up panel seams
+        // along her length as fine dark lines.
+        c *= mix(0.80, 1.08, clamp(hz / 1.1, 0.0, 1.0));
+        float along = abs(hn.x) > abs(hn.y) ? vLocal.y : vLocal.x;
+        float seam = 1.0 - smoothstep(0.0, 0.012, abs(fract(along / 1.35) - 0.5) - 0.488);
+        c *= 1.0 - seam * 0.22 * fade(1.0 / 0.024, hpx);
+        c *= 0.94 + 0.10 * vnoise(vec2(along * 0.9, hz * 3.0));
+      }
+    }
+    float wl = uWaterZ > -1e8 ? (uWaterZ - vPos.z) : -1.0; // + below the line
+    float scum = smoothstep(-0.03, 0.0, wl) * (1.0 - smoothstep(0.0, 0.02, wl));
+    c = mix(c, c * vec3(0.55, 0.62, 0.5), scum * 0.8);
+    float runs = smoothstep(0.62, 0.95, vnoise(vec2(vLocal.x * 9.0 + vLocal.y * 9.0, hz * 0.6)));
+    float up = clamp(hz / 1.4, 0.0, 1.0);
+    c = mix(c, c * 0.78 + vec3(0.05, 0.05, 0.045), runs * up * 0.35);
+    float wet = uWaterZ > -1e8 ? (1.0 - smoothstep(0.0, 0.03, vPos.z - uWaterZ)) : 0.0;
+    c *= 1.0 - wet * 0.18;
+  } else if (vTex > 0) { vec2 tx = surfaceTex(vTex, vLocal); c = max(c * tx.x + tx.y, 0.0); }
+  // PER PIXEL: the view ray changes across every face and the normal is smoothed across the
+  // facets (upload), so a hub or a barrel carries one continuous reflection rather than a band per
+  // face. A metal (vMetal > 0) takes the reflection tinted by its own colour; a clear coat
+  // (vMetal < 0) only a sheen toward grazing. The sun glints where the reflected ray finds it.
+  // ── THE WORLD AROUND THE PAINT ───────────────────────────────────────────
+  // A painted face's colour is baked on the CPU against one sun and nothing else, so an aircraft
+  // standing in a neon city at night looked exactly as it did at noon on a field. Every face that
+  // carries a normal takes the tint of the half of the world it faces — sky above, ground below —
+  // and a belly facing the ground goes a shade darker. Hue from the environment, not brightness,
+  // or the night sky would just black the model out.
+  if (dot(vN, vN) > 0.01 && vMetal <= 0.0) {
+    vec3 na = normalize(vN);
+    vec3 a = envAt(na.z * 0.5);
+    float al = max(dot(a, vec3(0.3333)), 0.04);
+    vec3 tint = mix(vec3(1.0), a / al, 0.45);
+    c *= tint * (0.82 + 0.26 * clamp(na.z * 0.5 + 0.5, 0.0, 1.0));
+  }
+  bool flatPlate = abs(vMetal) >= 1.5;          // FLAT_TAG in smooth(): a flat plate or pane, no glint
+  float mtl = flatPlate ? vMetal - sign(vMetal) * 2.0 : vMetal;
+  if (abs(mtl) > 0.001) {
+    vec3 n = normalize(vN);
+    vec3 d = normalize(vPos - uEye);
+    if (dot(n, d) > 0.0) n = -n;
+    float dn = dot(d, n);
+    vec3 R = d - 2.0 * dn * n;
+    // ⚠ A FLAT PLATE SEES A BLURRED WORLD. Its reflected ray barely changes across the face, so the
+    // sharp horizon in envAt turns the whole plate into one colour at once (the square of sky beside
+    // the minigun). envSoft has no horizon line, only a slow gradient, so the small change in R.z
+    // across a plate reads as a sheen running over it rather than a switch.
+    vec3 env = flatPlate ? envSoft(R.z) : envAt(R.z);
+    float fres = pow(1.0 - clamp(abs(dn), 0.0, 1.0), 5.0);
+    if (mtl > 0.0) {
+      // Tinted by the metal, but never below a floor: dark gun metal still reflects a good share of
+      // the world, it only darkens it. Multiplied straight by a near-black it reflected nothing.
+      // The untinted share (0.25 + Fresnel) is what reads as polish: a mirror shows the world in
+      // its own colours, most of all at a grazing angle.
+      vec3 t = env * clamp(c * 1.275 + 0.35, 0.0, 1.0);
+      c = mix(c, mix(t, env, 0.25 + fres * 0.5), clamp(mtl * 1.1 + fres * 0.25, 0.0, 0.97));
+    } else {
+      c = mix(c, env, clamp(-mtl * (0.25 + 0.75 * fres), 0.0, 0.6));
+    }
+    // The sun in it: a tight hot core and a broad soft lobe around it, which is what makes polished
+    // metal look wet. A flat plate gets the soft lobe only — the core on a plane lights the whole
+    // face at once, the same way the horizon did.
+    float sd = max(0.0, dot(R, uSun));
+    float core = flatPlate ? 0.0 : pow(sd, 140.0);
+    float lobe = pow(sd, 14.0) * 0.28;
+    c = mix(c, vec3(1.0, 0.98, 0.93), clamp((core + lobe) * uSunK * max(0.3, abs(mtl)), 0.0, 0.95));
+  }
+  if (uUnder > 0.001 && vTex != 10) {
+    vec3 nn = dot(vN, vN) > 0.01 ? normalize(vN) : vec3(0.0, 0.0, 1.0);
+    float up = clamp(nn.z * 0.75 + 0.25, 0.0, 1.0);          // lit from the surface overhead
+    float cn = causAt(causP(vPos), nn, uWaterT, causSoft()) * causDepth();
+    float lum = dot(c, vec3(0.3333));
+    c *= mix(vec3(1.0), vec3(0.42, 0.76, 0.86), uUnder);
+    c += vec3(0.5, 0.82, 0.78) * cn * up * uUnder * (0.18 + 0.5 * lum);
+  }
+  // ── THE WATERLINE ─────────────────────────────────────────────────────────
+  // A hull sitting in the sea: what is under the surface is seen through water, which takes red first
+  // and blue last, so it goes green-blue and dark with depth; and a bright wet band marks where the
+  // surface crosses her, which is what says where the water is from the side. uWaterZ is far below
+  // the world whenever nothing is afloat.
+  {
+    float dz = uWaterZ - vPos.z;
+    if (dz > 0.0) {
+      vec3 ext = exp(-dz * vec3(70.0, 28.0, 18.0));
+      // Seen through a moving surface: the light on her ripples in bands (caustics) that slide with
+      // the water, and the colour wavers with them. Fades in over the first few centimetres of depth.
+      float wob = sin(vPos.x * 420.0 + sin(vPos.y * 310.0 + uWaterT * 2.1) * 2.0 + uWaterT * 1.6)
+                * sin(vPos.y * 380.0 - uWaterT * 1.3 + sin(vPos.z * 500.0 + uWaterT) * 1.5);
+      float fin = smoothstep(0.0, 0.006, dz);
+      c *= 1.0 + wob * 0.28 * fin;
+      c = c * ext + vec3(0.04, 0.2, 0.24) * (1.0 - ext);
+    }
+    float band = 1.0 - smoothstep(0.0, 0.004, abs(dz));
+    c = mix(c, vec3(0.9, 0.96, 1.0), band * 0.75);
+  }
+  c = mix(c, uFog, vFog);
+  outColor = vec4(c * alpha, alpha);   // premultiplied, like every other layer on this canvas
 }`;
 
 function compile(gl, type, src, label) {
@@ -117,17 +448,33 @@ export function createSolidsLayer(gl) {
     color: gl.getAttribLocation(prog, 'aColor'),
     alpha: gl.getAttribLocation(prog, 'aAlpha'),
     viewProj: gl.getUniformLocation(prog, 'uViewProj'),
+    model: gl.getUniformLocation(prog, 'uModel'),
+    nScale: gl.getUniformLocation(prog, 'uNScale'),
     fog: gl.getUniformLocation(prog, 'uFog'),
     fogNear: gl.getUniformLocation(prog, 'uFogNear'),
     fogFar: gl.getUniformLocation(prog, 'uFogFar'),
     fogAmt: gl.getUniformLocation(prog, 'uFogAmt'),
+    normal: gl.getAttribLocation(prog, 'aNormal'),
+    metal: gl.getAttribLocation(prog, 'aMetal'),
+    local: gl.getAttribLocation(prog, 'aLocal'),
+    tex: gl.getAttribLocation(prog, 'aTex'),
+    eye: gl.getUniformLocation(prog, 'uEye'),
+    skyHor: gl.getUniformLocation(prog, 'uSkyHor'),
+    skyTop: gl.getUniformLocation(prog, 'uSkyTop'),
+    night: gl.getUniformLocation(prog, 'uNight'),
+    sun: gl.getUniformLocation(prog, 'uSun'),
+    sunK: gl.getUniformLocation(prog, 'uSunK'),
+    waterZ: gl.getUniformLocation(prog, 'uWaterZ'),
+    waterT: gl.getUniformLocation(prog, 'uWaterT'),
+    under: gl.getUniformLocation(prog, 'uUnder'),
+    underD: gl.getUniformLocation(prog, 'uUnderD'),
   };
 
   const vao = gl.createVertexArray();
   // One stream, set up once: the attribute pointers are recorded into the VAO here and never
   // touched again, and the storage grows by doubling instead of being reallocated every frame.
   // See gl/stream.js.
-  const stream = makeVertexStream(gl, vao, STRIDE, [[loc.pos, 3, 0], [loc.color, 3, 12], [loc.alpha, 1, 24]], 8192);
+  const stream = makeVertexStream(gl, vao, STRIDE, [[loc.pos, 3, 0], [loc.color, 3, 12], [loc.alpha, 1, 24], [loc.normal, 3, 28], [loc.metal, 1, 40], [loc.local, 3, 44], [loc.tex, 1, 56]], 8192);
   let data = new Float32Array(1 << 13);
   let count = 0;
 
@@ -135,27 +482,145 @@ export function createSolidsLayer(gl) {
   // one loop — the same shape ground.js fills for the same reason.
   const tris = (list) => list.reduce((n, q) => n + Math.max(0, q.p.length - 2) * 3, 0);
 
-  function upload(quads) {
-    count = quads && quads.length ? tris(quads) : 0;
-    if (!count) return 0;
-    if (data.length < count * STRIDE) data = new Float32Array(Math.max(count * STRIDE, 1 << 13));
-    let o = 0;
+  // ── FILM: THE TRANSLUCENT THINGS A SOLID CARRIES ─────────────────────────────
+  // A quad marked `film` (a rotor blade, its blur disc) is tested against depth and writes none, and
+  // it goes at the END of the buffer so the caller can draw it as a second range after the opaque
+  // world. Written into depth like a solid it would punch its own shape out of the floor and the
+  // ground, which are drawn after this layer. `filmAt` is where that range starts, in vertices.
+  let filmAt = 0;
+  // ── SMOOTHED NORMALS FOR THE METALS ──────────────────────────────────────────
+  // A metal face carries its own flat normal (`n`). A corner shared with a neighbouring metal face
+  // that meets it at under 60° takes the average of the two, so a round part reflects as one curve;
+  // a sharper corner keeps its edge. Keyed on the vertex position, which the faces of one mesh share.
+  let env = null;
+  const FLAT_METAL = 0.55;   // share of its reflection a flat plate keeps; it reflects a BLURRED world (envSoft), never the sharp one (see smooth)
+  const FLAT_TAG = 2.0;      // decoded in the fragment shader: vMetal >= 1.5 is a flat plate of strength vMetal - 2
+  // ⚠ THE SAME GROUPING AS A STRING KEY, WITHOUT BUILDING ONE PER VERTEX. Corners are shared when
+  // their positions quantise to the same 1/4096-tile cell — that rule is unchanged. What changed is
+  // the lookup: the three cell numbers hash to an integer bucket and each bucket is checked for an
+  // EXACT triple match, so two corners that collide in the hash are still kept apart. The string
+  // version allocated three concatenations per vertex, twice, every frame, for every solid.
+  const cellHash = (x, y, z) => (Math.imul(x, 73856093) ^ Math.imul(y, 19349663) ^ Math.imul(z, 83492791)) | 0;
+  function smoothCell(at, v, create) {
+    const x = (v[0] * 4096) | 0, y = (v[1] * 4096) | 0, z = (v[2] * 4096) | 0, h = cellHash(x, y, z);
+    let b = at.get(h);
+    if (b) for (let i = 0; i < b.length; i++) { const e = b[i]; if (e.x === x && e.y === y && e.z === z) return e.l; }
+    if (!create) return null;
+    const e = { x, y, z, l: [] };
+    if (!b) at.set(h, (b = []));
+    b.push(e);
+    return e.l;
+  }
+  function smooth(quads) {
+    const at = new Map();
+    for (const q of quads) if (q.m && q.n) for (const v of q.p) smoothCell(at, v, true).push(q.n);
     for (const q of quads) {
-      const p = q.p, c = q.rgb, qa = q.a == null ? 1 : q.a;
-      const r = c ? c[0] / 255 : 0, g = c ? c[1] / 255 : 0, b = c ? c[2] / 255 : 0;
-      const put = (v) => {
-        data[o] = v[0]; data[o + 1] = v[1]; data[o + 2] = v[2];
-        data[o + 3] = r; data[o + 4] = g; data[o + 5] = b;
-        data[o + 6] = qa; o += STRIDE;
-      };
-      for (let i = 1; i + 1 < p.length; i++) { put(p[0]); put(p[i]); put(p[i + 1]); }
+      if (!(q.m && q.n)) continue;
+      if (q.env) env = q.env;
+      let curved = false;
+      q.vn = q.p.map((v) => {
+        let x = 0, y = 0, z = 0;
+        for (const m of smoothCell(at, v, false) || []) {
+          const d = m[0] * q.n[0] + m[1] * q.n[1] + m[2] * q.n[2];
+          if (d > 0.5) { x += m[0]; y += m[1]; z += m[2]; }
+          // Curved = any neighbour turning away by less than a right angle: a five-sided gun barrel
+          // (72° between facets) is a tube, not five plates, so it keeps its chrome.
+          if (d > 0.05 && d < 0.999) curved = true;
+        }
+        const l = Math.hypot(x, y, z) || 1;
+        return [x / l, y / l, z / l];
+      });
+      // ⚠ A FLAT METAL PLATE IS NOT A MIRROR. With no curved neighbour every pixel of the face
+      // reflects along nearly the same ray, so the whole plate takes ONE colour off `envAt` — and
+      // that function has a hard horizon line in it, so the plate flips from ground-dark to
+      // sky-bright all at once as the view turns. On the Drake that was the minigun's yoke cheeks
+      // and clamp caps turning into a bright square over the gun. A curved part keeps its full
+      // reflection, because there the band walks across it; a plate keeps a sheen.
+      // ⚠ AND THE SUN GLINT IS WORSE: `pow(dot(R, uSun), 90)` on one constant ray lights the WHOLE
+      // plate or none of it, so at one exact angle the plate flashed white. A flat plate is sent as
+      // FLAT_TAG + strength and the shader gives it the reflection without the glint floor.
+      // A flat pane of CLEAR COAT (glass, negative) is the same story at grazing angles: Fresnel takes
+      // the whole pane to one pale sky colour at once, which is the square that sat beside the gun.
+      if (!curved && q.m > 0) q.m = FLAT_TAG + q.m * FLAT_METAL;
+      else if (!curved && q.m < 0) q.m = -FLAT_TAG + q.m * FLAT_METAL;
     }
-    stream.write(data, count * STRIDE);
+  }
+  // ── ⚠ INCREMENTAL MODE: ONLY WHAT CHANGED GOES TO THE GPU ──────────────────────────────────
+  // `upload(quads, model)` with a model matrix takes each face's LOCAL points (`q.mp`) and draws them
+  // through that matrix. The cab interior is the one caller: it is rebuilt every frame in the same
+  // order, and in its own frame almost none of it moves — only the needles, the wheel and a lamp or
+  // two. So the buffer is written as always, every float is compared with what was there last frame,
+  // and only the spans that differ are sent. Measured at ~1.9 ms of a cab frame to send the whole
+  // buffer every frame for a room that had barely changed. Anything that changes the LAYOUT (a
+  // different vertex count, a regrown buffer) sends everything, exactly as before.
+  let model = null, prevCount = -1, dirty = [];
+  function upload(quads, mdl = null) {
+    count = quads && quads.length ? tris(quads) : 0;
+    filmAt = count;
+    env = null;
+    const incr = !!mdl;
+    model = mdl;
+    if (!count) { prevCount = -1; return 0; }
+    smooth(quads);
+    let fresh = false;
+    if (data.length < count * STRIDE) { data = new Float32Array(Math.max(count * STRIDE, 1 << 13)); fresh = true; }
+    const full = !incr || fresh || count !== prevCount;
+    prevCount = incr ? count : -1;
+    dirty.length = 0;
+    let o = 0, qStart = 0, qDirty = false;
+    // One vertex into the buffer. A plain function over the face's fields rather than a closure
+    // minted per face: the buffer layout is unchanged, the per-face allocation is gone.
+    const w = (i, x) => { if (!qDirty && data[i] !== Math.fround(x)) qDirty = true; data[i] = x; };
+    const put = incr ? (q, r, g, b, qa, mk, tx, j) => {
+      const v = q.mp[j];
+      w(o, v[0]); w(o + 1, v[1]); w(o + 2, v[2]);
+      w(o + 3, r); w(o + 4, g); w(o + 5, b);
+      w(o + 6, qa);
+      const nn = q.vn ? q.vn[j] : q.amb ? q.n : null;
+      w(o + 7, nn ? nn[0] : 0); w(o + 8, nn ? nn[1] : 0); w(o + 9, nn ? nn[2] : 0);
+      w(o + 10, mk);
+      const L = q.lp ? q.lp[j] : null;
+      w(o + 11, L ? L[0] : 0); w(o + 12, L ? L[1] : 0); w(o + 13, L ? L[2] : 0);
+      w(o + 14, L ? tx : 0); o += STRIDE;
+    } : (q, r, g, b, qa, mk, tx, j) => {
+      const v = q.p[j];
+      data[o] = v[0]; data[o + 1] = v[1]; data[o + 2] = v[2];
+      data[o + 3] = r; data[o + 4] = g; data[o + 5] = b;
+      data[o + 6] = qa;
+      // A quad with no normal writes (0,0,0), which the shader reads as "not lit by the world" — the
+      // cab, the shed and every caller that never asked. `amb` (an aircraft's painted faces) asks.
+      const nn = q.vn ? q.vn[j] : q.amb ? q.n : null;
+      data[o + 7] = nn ? nn[0] : 0; data[o + 8] = nn ? nn[1] : 0; data[o + 9] = nn ? nn[2] : 0;
+      data[o + 10] = mk;
+      const L = q.lp ? q.lp[j] : null;
+      data[o + 11] = L ? L[0] : 0; data[o + 12] = L ? L[1] : 0; data[o + 13] = L ? L[2] : 0;
+      data[o + 14] = L ? tx : 0; o += STRIDE;
+    };
+    const put1 = (q) => {
+      const c = q.rgb, qa = q.a == null ? 1 : q.a;
+      const r = c ? c[0] / 255 : 0, g = c ? c[1] / 255 : 0, b = c ? c[2] / 255 : 0;
+      const mk = q.m || 0, tx = q.tex || 0, len = q.p.length;
+      qStart = o; qDirty = false;
+      for (let i = 1; i + 1 < len; i++) { put(q, r, g, b, qa, mk, tx, 0); put(q, r, g, b, qa, mk, tx, i); put(q, r, g, b, qa, mk, tx, i + 1); }
+      if (incr && qDirty && !full) {
+        const last = dirty.length ? dirty[dirty.length - 1] : null;
+        if (last && last[1] === qStart) last[1] = o; else dirty.push([qStart, o]);
+      }
+    };
+    let film = 0;
+    for (const q of quads) { if (q.film) film++; else put1(q); }
+    filmAt = o / STRIDE;
+    if (film) for (const q of quads) if (q.film) put1(q);
+    // A handful of scattered spans is cheaper as spans; past that the driver is better off with one.
+    if (full || dirty.length > 48) stream.write(data, count * STRIDE);
+    else for (const [a, b] of dirty) stream.writeRange(data, a, b - a);
     return quads.length;
   }
 
+  // `opts.film` draws the film range instead of the solid one; see above.
   function draw(cam, cssH, opts = {}) {
-    if (!count) return 0;
+    const first = opts.film ? filmAt : 0, n = opts.film ? count - filmAt : filmAt;
+    if (!n) return 0;
     gl.useProgram(prog);
     // ⚠ THE CLIP RANGE IS THE CALLER'S WHEN IT STATES ONE. Every world client leaves it out and
     // gets exactly the matrix it always got — `viewProjMatrix` defaults to NEAR/FAR — which is what
@@ -164,22 +629,39 @@ export function createSolidsLayer(gl) {
     // NEAR is 0.06, so every surface of it is nearer than the nearest thing the world camera can
     // draw, and the whole room clips away to nothing. See drawInterior.
     gl.uniformMatrix4fv(loc.viewProj, false, viewProjMatrix(cam, cssH, opts.near, opts.far));
+    gl.uniformMatrix4fv(loc.model, false, model || IDENT);
+    gl.uniform1f(loc.nScale, model ? 1 / Math.hypot(model[0], model[1], model[2]) : 1);
     const f = opts.fog;
     gl.uniform3f(loc.fog, f ? f.col[0] : 0, f ? f.col[1] : 0, f ? f.col[2] : 0);
     gl.uniform1f(loc.fogNear, f ? f.near : 1e9);
     gl.uniform1f(loc.fogFar, f ? f.far : 1e9 + 1);
     gl.uniform1f(loc.fogAmt, f ? f.amt : 0);
+    // What the metals reflect (the sky the frame drew, handed over on the quads) and the eye they are
+    // seen from. A buffer with no metal in it leaves these at harmless values the shader never reads.
+    const e = eyePos(cam), E = env || {};
+    gl.uniform3f(loc.eye, e[0], e[1], e[2]);
+    const hor = E.hor || [214, 222, 230], top = E.top || [92, 136, 196], sn = E.sun;
+    gl.uniform3f(loc.skyHor, hor[0] / 255, hor[1] / 255, hor[2] / 255);
+    gl.uniform3f(loc.skyTop, top[0] / 255, top[1] / 255, top[2] / 255);
+    gl.uniform1f(loc.night, E.night || 0);
+    gl.uniform3f(loc.sun, sn ? sn[0] : 0, sn ? sn[1] : 0, sn ? sn[2] : 1);
+    gl.uniform1f(loc.sunK, sn ? (E.sunK || 0) : 0);
+    gl.uniform1f(loc.waterZ, opts.water != null ? opts.water : -1e9);
+    gl.uniform1f(loc.waterT, (performance.now() / 1000) % 1000);
+    gl.uniform1f(loc.under, opts.under || 0);
+    gl.uniform1f(loc.underD, opts.underD || 0);
     // ⚠ DEPTH-WRITE ON. This is a solid object: it has to hide what is behind it and be hidden by
-    // what is in front, which is the whole point of moving it here.
+    // what is in front, which is the whole point of moving it here. Off for film, and put back.
     gl.enable(gl.DEPTH_TEST);
-    gl.depthMask(true);
+    gl.depthMask(!opts.film);
     gl.disable(gl.CULL_FACE);   // see the ⚠ at the top — sheets, and a mirrored winding
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.bindVertexArray(vao);
-    gl.drawArrays(gl.TRIANGLES, 0, count);
+    gl.drawArrays(gl.TRIANGLES, first, n);
     gl.bindVertexArray(null);
-    return count / 3;
+    if (opts.film) gl.depthMask(true);
+    return n / 3;
   }
 
   return { upload, draw, get faces() { return count / 3; } };

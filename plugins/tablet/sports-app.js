@@ -212,7 +212,7 @@ async function teamScreen(player, code, teamParam) {
     // through as the action's params, so the club travels with the tap.
     actions: [{
       id: `follow:${code.id}`,
-      label: following === team ? '★ Following — tap to unfollow' : '☆ Follow on home screen',
+      label: following === team ? '★ Following: tap to unfollow' : '☆ Follow on home screen',
     }],
   };
 }
@@ -318,7 +318,7 @@ export async function cmdFollow(args, raw, player) {
       type: 'output',
       message: cur && cur !== 'none'
         ? `You follow <b>${cur}</b>. <span class="text-dim">"follow none" to stop.</span>`
-        : 'You follow nobody. <span class="text-dim">"follow &lt;club&gt;" — see "standings" for the table.</span>',
+        : 'You follow nobody. <span class="text-dim">"follow &lt;club&gt;": see "standings" for the table.</span>',
     };
   }
   if (/^(none|nobody|off)$/i.test(want)) {

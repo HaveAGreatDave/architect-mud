@@ -131,7 +131,7 @@
     }
   },
   "chitchat": [
-    "\"Solvent, glass, gas. What you build with it's your ledger, not mine.\"",
+    "\"Solvent, glass, gas. What you build with it is your ledger, not mine.\"",
     "\"Sign the sheet. The sheet keeps us both breathing.\"",
     "\"Wear the mask. I mean it. I like repeat customers.\""
   ],
@@ -161,7 +161,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Cook. Aye.\" He turns the word over like it's been left on his counter without a receipt. \"Whether what I do is cooking is between me and the man upstairs, and he's not returning my calls.\"\n\nHe wipes his hands on the apron. This doesn't make them cleaner.\n\n\"It's chemistry you're allowed to eat. Same rules: weigh it, don't guess it, and don't open the lid to look at it.\""
+      "text": "\"Cook. Aye.\" He turns the word over like it has been left on his counter without a receipt. \"Whether what I do is cooking is between me and the man upstairs, and he's not returning my calls.\"\n\nHe wipes his hands on the apron. This doesn't make them cleaner.\n\n\"It's chemistry you're allowed to eat. Same rules: weigh it, don't guess it, and don't open the lid to look at it.\""
     },
     "n_meatballs": {
       "_vine": {

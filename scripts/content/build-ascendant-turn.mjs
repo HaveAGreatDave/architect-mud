@@ -65,7 +65,7 @@ write('quests', quest({
     },
     {
       id: 'o_fitted', type: 'install', count: 1, requires: ['o_consult'],
-      desc: 'Have your first piece fitted. Any piece — it is the fitting that matters, not the hardware.',
+      desc: 'Have your first piece fitted. Any piece. It is the fitting that matters, not the hardware.',
       emotes: ['{who} lies back under the light and lets somebody open them up on purpose.'],
     },
   ],
@@ -116,7 +116,7 @@ write('quests', quest({
   objectives: [
     {
       id: 'o_down', type: 'subdue', target: 'npc_lapsed_client', count: 1,
-      desc: 'Put the lapsed client down — DOWN, not out. Halcyon does not kill clients.',
+      desc: 'Put the lapsed client down. DOWN, not out. Halcyon does not kill clients.',
       emotes: ['{who} waits for the shoulders to drop, and takes them across the back of the head.'],
     },
     {
@@ -184,7 +184,7 @@ write('quests', quest({
 write('quests', quest({
   id: 'quest_asc_fav_tolerance',
   name: 'Within Tolerance',
-  description: 'Foreman Duc wants a piece run in. Not tested — run in, out in the world, doing work, by somebody with a pulse and a poor sense of self-preservation. He is explicit that the piece comes back. He is noticeably less explicit about you.',
+  description: 'Foreman Duc wants a piece run in. Not tested: run in, out in the world, doing work, by somebody with a pulse and a poor sense of self-preservation. He is explicit that the piece comes back. He is noticeably less explicit about you.',
   objectives: [
     {
       id: 'o_fit', type: 'install', count: 1,
@@ -231,7 +231,7 @@ write('quests', quest({
 write('quests', quest({
   id: 'quest_asc_loyalty',
   name: 'Restoring Service',
-  description: 'The First does not want a body. Bodies are cheap and He has a building full of them. What He wants is the eastern approaches back in service — the cameras the Watch have spent years quietly blinding, working again by morning. You know where every one of them is. That is the point, and everybody in the room knows it.',
+  description: 'The First does not want a body. Bodies are cheap and He has a building full of them. What He wants is the eastern approaches back in service: the cameras the Watch have spent years quietly blinding, working again by morning. You know where every one of them is. That is the point, and everybody in the room knows it.',
   objectives: [
     {
       id: 'o_p9', type: 'visit', zone: 'zone_district_922_911', taskSeconds: 12,

@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Red rock to the horizon, pitted with pale rings a hair deep where the rain has stood and eaten. The wind never stops. There's a great deal of sky and none of it's reassuring.",
+  "description": "A flat of red rock, pitted pale where rain has pooled and eaten in. There's nowhere out here to get out of the wind.",
   "exits": {
     "east": "zone_scw_1057_998",
     "north": "zone_scw_1056_997",

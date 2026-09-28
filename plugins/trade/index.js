@@ -64,7 +64,7 @@ async function renderFor(session, viewerId) {
     const credits = off.credits > 0
       ? `<div class="trade-item"><span>₵${off.credits}</span>${mine ? `<button class="trade-btn" data-cmd="traderetract credits">✕</button>` : ''}</div>`
       : '';
-    const empty = (!off.items.length && off.credits <= 0) ? `<div class="trade-empty">— nothing —</div>` : '';
+    const empty = (!off.items.length && off.credits <= 0) ? `<div class="trade-empty">nothing</div>` : '';
     const ready = off.ready ? `<div class="trade-ready on">✓ locked in</div>` : `<div class="trade-ready">not locked</div>`;
     return `${rows}${credits}${empty}${ready}`;
   };
@@ -82,7 +82,7 @@ async function renderFor(session, viewerId) {
     : `<button class="trade-btn" data-cmd="tradeready">Lock in offer</button>`;
 
   return `
-    <div class="trade-title">TRADE — you ⇄ ${theirHandle}</div>
+    <div class="trade-title">TRADE: you ⇄ ${theirHandle}</div>
     <div class="trade-cols">
       <div class="trade-col"><h4>YOUR OFFER</h4>${sideHtml(me, true)}</div>
       <div class="trade-col"><h4>${theirHandle.toUpperCase()}'S OFFER</h4>${sideHtml(them, false)}</div>
@@ -118,7 +118,7 @@ function offerLines(session, viewerId) {
     const lock = off.ready
       ? '<span class="text-green">✓ locked in</span>'
       : '<span class="text-dim">not locked</span>';
-    return `  <b>${who}</b>: ${bits.length ? bits.join(', ') : '<span class="text-dim">nothing</span>'} — ${lock}`;
+    return `  <b>${who}</b>: ${bits.length ? bits.join(', ') : '<span class="text-dim">nothing</span>'}: ${lock}`;
   };
   return [
     side(me, 'You'),
@@ -223,7 +223,7 @@ async function cmdTrade(args, raw, player, broadcast) {
   if (!pool.length) return { type: 'error', message: 'Nobody here to trade with.' };
   const r = siftResolve(who, pool);
   if (r.type === 'none') return { type: 'error', message: `There's no "${who}" here.` };
-  if (r.type === 'ambiguous') return { type: 'error', message: `Who do you mean — ${r.candidates.map(c => c.handle).join(', ')}?` };
+  if (r.type === 'ambiguous') return { type: 'error', message: `Who do you mean: ${r.candidates.map(c => c.handle).join(', ')}?` };
   const target = r.candidate;
 
   if (inv && inv.fromId === target.id) return acceptInvite(player, inv);   // they invited me → accept
@@ -352,7 +352,7 @@ async function executeTrade(session) {
     // Rolled back — un-ready both and re-render so they can retry.
     await resyncCredits(aId); await resyncCredits(bId);
     resetReady(session);
-    await pushBoth(session, `<span class="text-red">The trade fell through — someone no longer has what they staked. Both sides unlocked.</span>`);
+    await pushBoth(session, `<span class="text-red">The trade fell through: someone no longer has what they staked. Both sides unlocked.</span>`);
     return;
   }
 
@@ -364,7 +364,7 @@ async function executeTrade(session) {
   };
   closeSession(session, (pid) => {
     const theirs = pid === aId ? bOff : aOff;
-    return `<span class="msg-system">Trade complete — you received: ${esc(gotLine(theirs))}.</span>`;
+    return `<span class="msg-system">Trade complete: you received: ${esc(gotLine(theirs))}.</span>`;
   });
 }
 
@@ -372,13 +372,13 @@ async function executeTrade(session) {
 on('player.logout', ({ id }) => {
   clearInvite(id);
   for (const [tid, o] of invites) if (o.fromId === id) clearInvite(tid);
-  cancelFor(id, 'The other trader disconnected — trade cancelled.');
+  cancelFor(id, 'The other trader disconnected: trade cancelled.');
 });
 
 // Walking out of the room ends the trade (trades are face-to-face).
 on('zone.entered', ({ actor, zone }) => {
   const s = actor?.id ? sessions.get(actor.id) : null;
-  if (s && zone !== s.zone) cancelFor(actor.id, 'You left the room — trade cancelled.');
+  if (s && zone !== s.zone) cancelFor(actor.id, 'You left the room: trade cancelled.');
 });
 
 export const commands = {

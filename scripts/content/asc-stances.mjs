@@ -133,7 +133,7 @@ edit('npcs/npc_asc_recruiter.json', (d, t) => {
   t.hand_approve = {
     _vine: { x: 1420, y: 1900 }, actions: [],
     text:
-      '"No." The smile is different for a moment — smaller, and actually his. "No, most people '
+      '"No." The smile is different for a moment: smaller, and actually his. "No, most people '
       + 'would not, and most people will not say so."\n\n'
       + 'He sits back down.\n\n'
       + '"You will do well here. That is not flattery, it is a prediction, and I make about four '
@@ -182,7 +182,7 @@ edit('npcs/npc_asc_vess.json', (d, t) => {
     _vine: { x: 1420, y: 1900 }, actions: [],
     text:
       'The warmth comes back all at once, and it is like a light being switched on.\n\n'
-      + '"Thank you. Honestly — thank you. One spends so much of one\'s day being careful."\n\n'
+      + '"Thank you. Honestly, thank you. One spends so much of one\'s day being careful."\n\n'
       + 'She takes your arm, which she has not done before.\n\n'
       + '"Come on. I am going to show you the Vats properly, not the version they get."',
     options: [opt('(go with her)', 'bye')],
@@ -194,7 +194,7 @@ edit('npcs/npc_asc_vess.json', (d, t) => {
       '"No."\n\n'
       + 'She does not flinch and she does not pretend she has to think about it.\n\n'
       + '"There would have been nowhere to send him. He could not work and he could not be '
-      + 'covered, and no district would have housed him — you know that as well as I do, and it '
+      + 'covered, and no district would have housed him. You know that as well as I do, and it '
       + 'is the part nobody ever says out loud."\n\n'
       + 'She smooths the front of her coat.\n\n'
       + '"It was handled kindly. I did ask."\n\n'

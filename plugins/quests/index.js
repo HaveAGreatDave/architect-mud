@@ -82,6 +82,7 @@ import { findPath } from '../../server/engine/pathfinding.js';
 import { world } from '../../server/engine/world.js';
 import { getZone, getAllLivePlayers, getLivePlayer } from '../../server/engine/world.js';
 import { isIndoorZone, getEnvironmentState } from '../../server/engine/environment.js';
+import { bandIndex, QUALITY_BANDS } from '../../server/engine/quality-bands.js';
 
 // Mirror a quest's status into a player Flag so Dialogue/Script Conditions can gate
 // options on quest state through the existing Flag mechanism — e.g. hide "Accept"
@@ -459,14 +460,34 @@ function objectiveMet(obj, have) { return (have || 0) >= (obj.count || 1); }
 // optional. One definition of the finish line, or the surfaces disagree with the
 // hand-in they are offering a button for.
 export function isComplete(quest, progress) {
-  return (quest.objectives || []).every((obj, i) => isOptional(obj) || objectiveMet(obj, progress[i]));
+  const objectives = quest.objectives || [];
+  return objectives.every((obj, i) =>
+    isOptional(obj) || objectiveMet(obj, progress[i]) || groupSatisfied(objectives, obj, progress));
+}
+
+// Groups: objectives sharing a `group` id are alternatives — the group is done
+// when `groupNeed` of them are (default 1, so "do any one of these" needs no
+// number). A met group releases its unfinished members from the finish line and
+// from the "Next:" hint; they can still be done, they just stop being owed.
+// `groupNeed` is read off the first member that states it, so an author only has
+// to write it once.
+function groupNeedOf(objectives, group) {
+  const withNeed = objectives.find((o) => o.group === group && Number(o.groupNeed) > 0);
+  return withNeed ? Number(withNeed.groupNeed) : 1;
+}
+function groupSatisfied(objectives, obj, progress) {
+  if (!obj?.group) return false;
+  let met = 0;
+  objectives.forEach((o, i) => { if (o.group === obj.group && !isOptional(o) && objectiveMet(o, progress[i])) met++; });
+  return met >= groupNeedOf(objectives, obj.group);
 }
 
 // The objective to point the player at next. Mandatory work is offered before
 // optional work — a bonus objective suggested ahead of the thing that actually
 // finishes the quest reads as the game misdirecting you.
 function nextObjective(objectives, progress) {
-  const open = (obj, i) => !objectiveMet(obj, progress[i]) && requiresMet(objectives, obj, progress);
+  const open = (obj, i) => !objectiveMet(obj, progress[i]) && !groupSatisfied(objectives, obj, progress)
+    && requiresMet(objectives, obj, progress);
   return objectives.find((o, i) => open(o, i) && !isOptional(o))
       || objectives.find((o, i) => open(o, i));
 }
@@ -558,7 +579,7 @@ async function routeToTurnIn(actor, questId) {
   const hops = path.length - 1;
   sendToPlayer(actor.id, {
     type: 'gps_route',
-    message: `GPS locked: ${destZone.name} (${hops} stop${hops === 1 ? '' : 's'} away) — turn-in point plotted on the map.`,
+    message: `GPS locked: ${destZone.name} (${hops} stop${hops === 1 ? '' : 's'} away): turn-in point plotted on the map.`,
     path,
     resumeAuto: true, // continue auto-walking to the hand-in if it was already on
     continueOnArrival: true,
@@ -681,7 +702,7 @@ function scheduleTask(actor, quest, objIndex, obj, seconds) {
   const entry = { playerId: actor.id, zone: obj.zone, desc: objectiveDesc(obj), emoteTimer: null, doneTimer: null };
   pendingTasks.set(key, entry);
   // Clear start marker so the player knows the window opened and to hold still.
-  taskMsg(actor.id, `▶ Starting task: ${entry.desc} — stay here (${seconds}s). Moving or acting cancels it.`);
+  taskMsg(actor.id, `▶ Starting task: ${entry.desc}: stay here (${seconds}s). Moving or acting cancels it.`);
 
   const tickEmote = () => {
     fireObjectiveEmote(actor, obj, key, quest.id); // keyed → never repeats the previous line
@@ -931,7 +952,7 @@ async function failQuest(actor, quest, cond) {
   // as nothing having happened.
   const kept = Number(quest.rewards?.advance) > 0 ? ' You keep the advance.' : '';
   msg(actor.id, `<span class="msg-system">Quest failed: ${quest.name}. ${why}${cost}${kept}</span>`);
-  questLogLine(actor, quest.id, 'failed', `${quest.name} — ${why}`);
+  questLogLine(actor, quest.id, 'failed', `${quest.name}: ${why}`);
   emit('quest.failed', { actor, quest_id: quest.id, reason: cond?.type || 'unknown' });
   // "You told them, didn't you" is more interesting as the next job than as a fine.
   await startFollowUp(actor, quest, quest.on_fail);
@@ -1456,6 +1477,119 @@ on('knockout.landed', ({ player, target }) => {
   return trackEvent(player, (obj) =>
     obj.type === 'subdue' && obj.target &&
     (id === String(obj.target) || (name && name.includes(String(obj.target).toLowerCase()))));
+});
+
+// --- Objective types added 2026-09-27 ---------------------------------------
+//
+// Each rides an Event that already exists or that its system now announces, and
+// none of those systems knows quests exist. A blank target means "anything
+// counts" unless the kind names a person.
+
+// Does an objective that names a person match this NPC? Exact id first, then a
+// name substring — the rule `assassinate` and `subdue` already use.
+function npcMatches(obj, npc) {
+  if (!obj.target || !npc) return false;
+  const id = String(npc.id || npc.npcId || '');
+  const name = String(npc.name || '').toLowerCase();
+  return id === String(obj.target) || (!!name && name.includes(String(obj.target).toLowerCase()));
+}
+const itemOk = (obj, itemId) => !(obj.target || obj.item_id) || String(obj.target || obj.item_id) === String(itemId);
+const zoneOk = (obj, zoneId) => !obj.zone || String(obj.zone) === String(zoneId);
+
+// fish / mine / scavenge — something came up out of the water, the rock or the
+// rubble. `target` is the item id; `zone` (optional) is where it has to come
+// from, which is also what the GPS routes to.
+for (const [ev, type] of [['fish.caught', 'fish'], ['ore.mined', 'mine'], ['scavenge.found', 'scavenge']]) {
+  on(ev, ({ player, item_id, zoneId }) => {
+    if (!player?.id) return;
+    return trackEvent(player, (obj) => obj.type === type && itemOk(obj, item_id) && zoneOk(obj, zoneId));
+  });
+}
+
+// cook — a cook finished. `quality` (optional) is the LOWEST band that counts,
+// on the one ladder the cooking plugin scores against. Unprofiled food has no
+// band and never satisfies a quality floor.
+on('dish.cooked', ({ playerId, item_id, quality }) => {
+  const actor = playerId ? getLivePlayer(playerId) : null;
+  if (!actor) return;
+  return trackEvent(actor, (obj) => {
+    if (obj.type !== 'cook' || !itemOk(obj, item_id)) return false;
+    if (!obj.quality) return true;
+    if (!quality || !QUALITY_BANDS.includes(quality)) return false;
+    return bandIndex(quality) >= bandIndex(obj.quality);
+  });
+});
+
+// pet — a person-shaped target, because a cat is somebody.
+on('npc.petted', ({ actor, npc }) => {
+  if (!actor?.id) return;
+  return trackEvent(actor, (obj) => obj.type === 'pet' && npcMatches(obj, npc));
+});
+
+// meet — the FIRST meeting with an NPC, which the relations substrate already
+// announces. Talking to somebody you already know does not count; that is `talk`.
+on('relation.met', ({ actor, npcId }) => {
+  if (!actor?.id) return;
+  return trackEvent(actor, (obj) => obj.type === 'meet' && npcMatches(obj, { id: npcId }));
+});
+
+// emote — a free-text `me`. `target` is a phrase the line must contain
+// ("raises a glass"), `zone` where it has to be done. Blank target = any emote.
+on('player.emoted', ({ player, zoneId, text }) => {
+  if (!player?.id) return;
+  const line = String(text || '').toLowerCase();
+  return trackEvent(player, (obj) => obj.type === 'emote' && zoneOk(obj, zoneId)
+    && (!obj.target || line.includes(String(obj.target).toLowerCase())));
+});
+
+// tag — paint on a wall. `zone` is the wall's zone (the one being painted,
+// which is not always the one the painter is stood in).
+on('graffiti.tagged', ({ player, zoneId, targetZoneId }) => {
+  if (!player?.id) return;
+  return trackEvent(player, (obj) => obj.type === 'tag' && zoneOk(obj, targetZoneId || zoneId));
+});
+
+// breach — a lock gave. `zone` is where the player stood to do it, which for a
+// shopfront is the street.
+on('hololock.breached', ({ player, zoneId }) => {
+  if (!player?.id) return;
+  return trackEvent(player, (obj) => obj.type === 'breach' && zoneOk(obj, zoneId));
+});
+
+// disarm — an intruder alarm beaten before it dialled out.
+on('shopalarm.disarmed', ({ player, zoneId }) => {
+  if (!player?.id) return;
+  return trackEvent(player, (obj) => obj.type === 'disarm' && zoneOk(obj, zoneId));
+});
+
+// sabotage — a generator wrecked. `target` narrows it to a generator type.
+on('generator.destroyed', ({ by, generatorType }) => {
+  if (!by?.id) return;
+  return trackEvent(by, (obj) => obj.type === 'sabotage'
+    && (!obj.target || String(obj.target) === String(generatorType)));
+});
+
+// hijack — you pulled somebody out of their cab. ⚠ The attacker may be an ENEMY
+// (an instance), which must never tick a player's quest.
+on('truck.hijacked', ({ attacker }) => {
+  if (!attacker?.id || attacker.instanceId) return;
+  const actor = getLivePlayer(attacker.id);
+  if (!actor) return;
+  return trackEvent(actor, (obj) => obj.type === 'hijack');
+});
+
+// stash — put a thing down in a particular place: a dead drop, a plant, a
+// delivery nobody signs for. `target` is the item, `zone` the place.
+on('item.dropped', ({ actor, item, zone }) => {
+  if (!actor?.id || !item) return;
+  return trackEvent(actor, (obj) => obj.type === 'stash' && itemOk(obj, item.item_id) && zoneOk(obj, zone));
+});
+
+// kick — a drug has left the system. `target` narrows it to one drug.
+on('drug.cleaned', ({ player, drugId }) => {
+  if (!player?.id) return;
+  return trackEvent(player, (obj) => obj.type === 'kick'
+    && (!obj.target || String(obj.target) === String(drugId)));
 });
 
 // --- Failure-only conditions ------------------------------------------------
@@ -1987,7 +2121,7 @@ async function questLog(args, raw, player) {
   const live = rows.filter((pq) => pq.status !== 'failed');
   if (!live.length) return { type: 'output', message: 'You have no active quests.' };
 
-  const lines = ['<span class="msg-system">— Quests —</span>'];
+  const lines = ['<span class="msg-system">: Quests...</span>'];
   for (const pq of live) {
     const objectives = applyRolled(pq.objectives, pq.targets);
     const progress = Array.isArray(pq.progress) ? pq.progress : [];

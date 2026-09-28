@@ -39,10 +39,10 @@ const STANCE_FLAG = 'stance_axis';                 // -100 renounce .. +100 rede
 const pathFlag = (p) => `path_${p}`;               // path_machine / _flesh / _mind / _human
 
 const PATH_LABEL = {
-  machine: 'the Machine — merge with technology',
-  flesh:   'the Flesh — adapt the body',
-  mind:    'the Mind — awaken consciousness',
-  human:   'the Human way — stay as we are',
+  machine: 'the Machine: merge with technology',
+  flesh:   'the Flesh: adapt the body',
+  mind:    'the Mind: awaken consciousness',
+  human:   'the Human way: stay as we are',
 };
 
 // An 11-cell slider with a marker for a -100..100 value.

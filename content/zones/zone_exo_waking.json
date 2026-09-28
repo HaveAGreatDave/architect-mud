@@ -7,7 +7,7 @@
     "Somewhere above you the clerestory glass ticks as the heat goes out of the day."
   ],
   "ambient_theme": "indoors",
-  "description": "Benches, in rows, facing a floor rather than an altar. The floor at the far end is worn pale in one patch about the size of a person standing. Nothing hangs on the walls. The acoustics are extraordinary and entirely accidental, which nobody here will say, because saying it would mean somebody had checked.\n\nIt is very quiet, in a way that has nothing to do with sound.",
+  "description": "Rows of benches facing a bare floor. At the far end the floor is worn pale in one patch about the size of a person standing. Nothing on the walls. Every small sound carries.",
   "exits": {
     "down": "zone_util_zone_exo_waking",
     "south": "zone_terminus_1220_938"

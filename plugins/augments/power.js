@@ -173,12 +173,12 @@ export async function cmdCharge(args, raw, player) {
     return { type: 'output', message: `You're at ${now}% and holding. Nothing to take on.` };
   }
   if (!zoneCanCharge(player.current_zone)) {
-    return { type: 'error', message: 'Nothing here is carrying current. You need mains power — or a generator somebody has bothered to fuel.' };
+    return { type: 'error', message: 'Nothing here is carrying current. You need mains power, or a generator somebody has bothered to fuel.' };
   }
   setFull(player);
   const campus = world.zones.get(player.current_zone)?.flags?.ascendant_campus;
   return { type: 'output', message: campus
-    ? `You find the inductive plate without looking for it — the campus is full of them, unlabelled, the way a good house hides its sockets. ${now}% → <b>${cap}%</b>.`
+    ? `You find the inductive plate without looking for it: the campus is full of them, unlabelled, the way a good house hides its sockets. ${now}% → <b>${cap}%</b>.`
     : `You find a live socket and stand there for a while like a man waiting for a kettle. ${now}% → <b>${cap}%</b>.` };
 }
 
@@ -207,6 +207,6 @@ export function powerLine(player) {
   return `\n<span class="skills-header">POWER</span>\n`
     + `  <span class="${cls}">${now}/${cap}</span>`
     + `  ·  draw ${draw.toFixed(1)}${net < draw ? ` <span style="opacity:.7">(${net.toFixed(1)} off the cell)</span>` : ''}  ·  ${left}`
-    + `${cellOf(player) ? '' : '  <span style="opacity:.7">(no cell — running on the reserve)</span>'}\n`
+    + `${cellOf(player) ? '' : '  <span style="opacity:.7">(no cell: running on the reserve)</span>'}\n`
     + (pct <= 0 && net > 0 ? `  <span class="text-red">Flat. Your chrome is inert until you find current.</span>\n` : '');
 }

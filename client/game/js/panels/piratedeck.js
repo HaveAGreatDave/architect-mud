@@ -102,7 +102,7 @@ function render() {
       <button class="pd-ico" data-move-up="${i}" title="Move up">▲</button>
       <button class="pd-ico" data-move-dn="${i}" title="Move down">▼</button>
       <button class="pd-ico x" data-remove="${i + 1}" title="Remove">✕</button>
-    </div>`).join('') : '<div class="pd-empty">— QUEUE EMPTY — add from your pool below —</div>';
+    </div>`).join('') : '<div class="pd-empty">QUEUE EMPTY: add from your pool below</div>';
 
   const poolRows = pool.length ? pool.map(p => `
     <div class="pd-row" data-add="${esc(p.id)}">
@@ -110,14 +110,14 @@ function render() {
       ${p.mini ? '<span class="pd-mini">µREEL</span>' : ''}
       <span class="pd-num">${p.src === 'carried' ? 'TAPE' : 'LIB'}</span>
       <button class="pd-ico" title="Add to queue">＋</button>
-    </div>`).join('') : '<div class="pd-empty">— NOTHING TO ADD — carry cassettes or seize a library —</div>';
+    </div>`).join('') : '<div class="pd-empty">NOTHING TO ADD: carry cassettes or seize a library</div>';
 
   const sourceRows = sources.length ? sources.map(s => `
     <div class="pd-row${s.key === liveKey ? ' cur' : ''}" data-source="${esc(s.key)}">
       <span class="pd-name">${esc(s.label)}</span>
       <span class="pd-num">${s.key === 'station' ? 'STUDIO' : 'SPECTER'}</span>
       ${s.key === liveKey ? '<span class="pd-air">▶ ON AIR</span>' : '<button class="pd-ico" title="Cut to this camera">◉</button>'}
-    </div>`).join('') : '<div class="pd-empty">— NO CAMERA — no studio cam, no SPECTER cams you control —</div>';
+    </div>`).join('') : '<div class="pd-empty">NO CAMERA: no studio cam, no SPECTER cams you control</div>';
 
   const recordedBody = `
       <div class="pd-sec">Queue</div>
@@ -125,7 +125,7 @@ function render() {
       <div class="pd-sec">Add from your pool</div>
       <div class="pd-pool">${poolRows}</div>`;
   const liveBody = `
-      <div class="pd-sec">Live camera — cut to air</div>
+      <div class="pd-sec">Live camera: cut to air</div>
       <div class="pd-pool">${sourceRows}</div>`;
 
   _overlay.innerHTML = `
@@ -133,7 +133,7 @@ function render() {
       <div class="pd-head"><span>◈ PIRATE CONSOLE</span><button class="pd-close" aria-label="Close">✕</button></div>
       <div class="pd-sub">${esc(d.stationName || 'STATION')} · ${playing ? '● ON AIR' : '⏸ STOPPED'}</div>
       <div class="pd-now">
-        <div class="pd-now-air"><span class="pd-tag">NOW AIRING</span>${esc(d.nowAiring || '— dead air —')}</div>
+        <div class="pd-now-air"><span class="pd-tag">NOW AIRING</span>${esc(d.nowAiring || 'dead air')}</div>
         <button class="pd-t ${playing ? 'on' : ''}" data-act="${playing ? 'stop' : 'play'}" title="${playing ? 'Stop' : 'Play'}">${playing ? '⏸' : '▶'}</button>
         ${mode === 'recorded' ? `<button class="pd-t" data-act="skip" title="Skip to next">⏭</button>
         <button class="pd-t" data-loop="${loopNext}" title="Loop: ${loop} → ${loopNext}">↻ ${loop.toUpperCase()}</button>` : ''}

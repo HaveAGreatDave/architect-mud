@@ -74,8 +74,8 @@ const randInt = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 // Keyed [where][what]. `where` is home | work | passing; `what` is out (gone) |
 // brown (browning out) | back (restored). {npc} is filled per run.
 //
-// ⚠ No em dashes inside quoted speech — that is the Ascendant voice tell and a
-// grocer is not an Ascendant (docs/story.md, Tone → "The em dash rule").
+// ⚠ No em dashes inside quoted speech: no prose in the game takes one
+// (docs/story.md, Tone → "The em dash rule").
 
 const LINES = {
   home: {

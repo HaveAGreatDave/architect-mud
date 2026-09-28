@@ -80,6 +80,10 @@ const CAMERA_BAKED = new Set(['landmark', 'contact']);
 // test is the only thing in `dpr`.
 const clock = globalThis.performance;
 globalThis.performance = { ...clock, now: () => 1e6 };
+// ⚠ AND THE WALL CLOCK, since the wind gusts off Date.now() (client/shared/wind-gust.js) so every
+// client sees one gust — which sizes a windsock differently between two renders a second apart.
+const wallNow = Date.now;
+Date.now = () => 1750000000000;
 
 const runs = new Map();
 for (const dpr of RATIOS) {
@@ -108,6 +112,7 @@ for (const dpr of RATIOS) {
   runs.set(dpr, cap);
 }
 globalThis.performance = clock;
+Date.now = wallNow;
 
 // ⚠ A FLOOR THAT CANNOT FAIL IS NOT A FLOOR. Deleting the fix under test must turn this red, and
 // it cannot if the scene happens to contain no landmark, no glow or no mast — an empty list

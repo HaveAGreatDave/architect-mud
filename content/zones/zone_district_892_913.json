@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#10161f",
   "color": "#b6dcf7",
-  "description": "A chrome spine with six glazed bulges threaded on it, each one pinched to a collar between, so the tower reads from the mews as a stack of rooms rather than as a stack of floors. The doors are at the foot of the spine under a shallow chrome hood. A small board beside them lists fourteen floors, a concierge, and a telephone number for out of hours, and somebody has stuck a printed notice over the bottom third of it about the lift.",
+  "description": "A chrome spine threaded with six glazed bulges, each pinched to a collar. The doors are at the foot under a shallow chrome hood. A board beside them lists fourteen floors, a concierge and an out-of-hours number, half-covered by a printed notice about the lift.",
   "exits": {
     "east": "zone_district_893_913",
     "west": "zone_hf_quiet_desk"

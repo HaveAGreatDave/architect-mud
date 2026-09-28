@@ -39,12 +39,12 @@ async function readBulletin(args, raw, player) {
   );
 
   const lines = leaders.length
-    ? leaders.map((r, i) => `${i + 1}. ${r.handle} — ${Number(r.total_xp)} XP`)
+    ? leaders.map((r, i) => `${i + 1}. ${r.handle}: ${Number(r.total_xp)} XP`)
     : ['Nobody has made a mark yet.'];
 
   return {
     type: 'output',
-    message: `[ ${furniture.name.toUpperCase()} — TOP SURVIVORS ]\n${lines.join('\n')}`,
+    message: `[ ${furniture.name.toUpperCase()}: TOP SURVIVORS ]\n${lines.join('\n')}`,
   };
 }
 

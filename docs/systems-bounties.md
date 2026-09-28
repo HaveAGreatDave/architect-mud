@@ -112,7 +112,7 @@ that have to agree by hand. Every unit calls the hole "the port"; what the autho
 carry is how *that* unit's port behaves.
 
 Room descriptions are read on every walk past, so all three are kept to four short
-sentences, and none of them uses an em dash (that is the Ascendant voice tell, and this
+sentences, and none of them uses an em dash (no prose in the game takes one, and this
 is a machine in a dive bar).
 
 The furniture is named `bounty terminal`, so `boardHere` treats a short list of generic

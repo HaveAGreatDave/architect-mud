@@ -6,9 +6,7 @@
       "card",
       "regime"
     ],
-    "interactions": {
-      "examine": "At the bottom, in a different hand and clearly added later: AND NOT TO BE ALONE. That line has been gone over twice in ink."
-    }
+    "examine_detail": "At the bottom, in a different hand and clearly added later: AND NOT TO BE ALONE. That line has been gone over twice in ink."
   },
   "id": "furn_wind_chart",
   "name": "the treatment chart",

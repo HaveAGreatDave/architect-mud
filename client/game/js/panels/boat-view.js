@@ -28,14 +28,16 @@
 // against its own water. That is the trucking rule quoted, and it holds harder here: there is no
 // corridor on the Basin, so a self-reported distance would be a number nobody could check at all.
 
-import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, normalizeWx } from './windshield.js';
+import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, lastViewState, seaAmpsNow, hullSurfGain, interiorHotspots, RENDER_TUNE } from './windshield.js';
+import { airHornOn, airHornOff } from './engine-audio.js';
+import { seaClock, SEA_TILE_M } from '../../../shared/sea-swell.js';
 import { stepBoat, TYPES, CRANK_S } from './flight-model.js';
 import { createHelmWheel } from './helm-wheel.js';
 import { startBoatEngine, updateBoatEngine, stopBoatEngine, updateBoatContacts, stopBoatContacts } from './boat-audio.js';
 import { claimSeatKeyboard, endSeatKeyboard } from './seat-keys.js';
+import { seatHidePanel } from '../../../shared/compact-view.js';
 import { bindBigScreenButton, exitBigScreen, BIGSCREEN_GLYPH, BIGSCREEN_TITLE } from './bigscreen.js';
 import { HELM } from '../../../shared/boat-house.js';
-import { EYE_M } from '../../../shared/interior-shell.js';
 
 const ID = 'boat-sim';
 const RAD = 16;                     // map window half-width, in tiles
@@ -57,7 +59,7 @@ const send = (cmd) => { try { st?.onSend?.(cmd); } catch { /* the pane can outli
 // ── HOW THE LEVER MOVES ──────────────────────────────────────────────────────
 //
 // ⚠ A THROTTLE IS A LEVER, NOT A BUTTON, and that is most of what makes this boat feel like a
-// boat. Held down, W runs the lever up over about a second and a half; released, it falls back
+// boat. Held down, A runs the lever up over about a second and a half; released, it falls back
 // faster than it rose. `stepBoat` then spools the BLOWER off the lever on its own asymmetry, so
 // there are two lags in series between your finger and the thrust — which is exactly what the
 // throttle of a supercharged engine is.
@@ -67,6 +69,8 @@ const LEVER_UP = 0.70, LEVER_DOWN = 1.30;
 // three-position switch would make trim a mode you select rather than a thing you are constantly
 // working, and working it IS the skill — see the note in `stepBoat`.
 const TRIM_RATE = 0.55;
+// How much of the sea the hull still answers to with the gyro stabiliser running.
+const STAB_K = 0.35;
 
 function readInput(dt) {
   const k = st.keys;
@@ -74,10 +78,12 @@ function readInput(dt) {
   // lever and a finger on W are two people driving; the one that would lose is the hand, because
   // the key integrates every frame and the drag only writes when the pointer moves — so a player
   // dragging the lever down against a held W would watch it climb out from under them.
+  // ⚠ A AND Z ARE THE FLIGHT SIM'S THROTTLE, AND THEY WORK THE WAY IT DOES: the lever runs while a
+  // key is held and STAYS where you let go. It used to be W, springing back to idle on release,
+  // which was the one vehicle in the game where the throttle hand could not be taken off the key.
   if (!st.leverHeld) {
-    const wantT = (k.has('w') || k.has('arrowup')) ? 1 : 0;
-    const rate = wantT ? LEVER_UP : -LEVER_DOWN;
-    st.lever = Math.max(0, Math.min(1, st.lever + rate * dt));
+    const dir = (k.has('a') ? 1 : 0) - (k.has('z') ? 1 : 0);
+    if (dir) st.lever = Math.max(0, Math.min(1, st.lever + (dir > 0 ? LEVER_UP : -LEVER_DOWN) * dt));
   }
   // ⚠ THERE IS NO REVERSE, AND THE KEY FOR IT HAS BEEN REMOVED RATHER THAN LEFT LOOKING LIKE ONE.
   // This read S into an `astern` lever and handed it to `stepBoat`, which does not read the field
@@ -96,8 +102,10 @@ function readInput(dt) {
   // writer, which is the wheel's `onSteer`. Integrating the keys here as well would be a second
   // owner of the axle, and the one that lost would do so silently.
   let want = 0;
-  if (k.has('a') || k.has('arrowleft')) want -= 1;
-  if (k.has('d') || k.has('arrowright')) want += 1;
+  // X / C are the cockpit's rudder and the cab's steering; the arrows are the alias both share.
+  // ',' / '.' are the flight sim's other rudder pair, so every aircraft's pedals steer a boat.
+  if (k.has('x') || k.has(',') || k.has('arrowleft')) want -= 1;
+  if (k.has('c') || k.has('.') || k.has('arrowright')) want += 1;
   st.wheel?.setHeld?.(want);
 
   return {
@@ -148,13 +156,68 @@ function buildWindow() {
 // Is the water under us water? ⚠ ASKED OF THE TILE THE HULL IS ON, not of the one the window is
 // centred on — they are the same only at the instant the window is rebuilt, and a boat doing 130
 // crosses a tile in under a second.
+// ── FLOATING STRUCTURE IS SOLID ──────────────────────────────────────────────
+//
+// A pontoon or a fuel deck is on WATER tiles (a hull has to be on the tile to moor at it or to be
+// alongside it), so the land test never stops a boat and she used to drive straight through the
+// deck. The deck itself is solid now and the margin of the tile around it is not: that margin is
+// where a hull lies alongside. The footprints are the arms' own (windshield.js, `pontoon` and
+// `fuel_dock`), at the top of `fh`'s range so a hull can never visibly overlap the deck.
+// ⚠ IT IS A FENDER, NOT A GROUNDING: the way comes off and she stops against it; only a hard hit
+// costs hull (and reports `slam`, which the server already prices). Beaching stays for land.
+const RUN_AXIS_NS = { north: true, south: true };
+function structureAt(dx, dy) {
+  const c = cellAt(dx, dy);
+  if (c.bt !== 'pontoon' && c.bt !== 'fuel_dock') return false;
+  const gx = st.cx + dx, gy = st.cy + dy;
+  const ox = gx - Math.round(gx), oy = gy - Math.round(gy);
+  // The deck's long side is its local X, which is world x for a north/south entrance.
+  if (c.bt === 'fuel_dock') {
+    const [ax, ay] = (RUN_AXIS_NS[c.ent] || !c.ent) ? [ox, oy] : [oy, ox];
+    return Math.abs(ax) < 0.38 && Math.abs(ay) < 0.35;
+  }
+  // A pontoon runs the length of its tile along the entrance axis; the walkway is solid across it.
+  return (RUN_AXIS_NS[c.ent] || !c.ent) ? Math.abs(ox) < 0.35 : Math.abs(oy) < 0.35;
+}
+function fendOff(px, py) {
+  if (!structureAt(st.sim.x, st.sim.y)) return;
+  const v = Math.abs(st.sim.speed);
+  // Slide along the face where one axis is still free, rather than sticking dead on contact.
+  if (!structureAt(st.sim.x, py)) st.sim.y = py;
+  else if (!structureAt(px, st.sim.y)) st.sim.x = px;
+  else { st.sim.x = px; st.sim.y = py; }
+  st.sim.speed *= 0.25; st.sim.drift = 0;
+  if (v > 18) {
+    st.sim.hull = Math.max(0, (st.sim.hull ?? 1) - Math.min(0.08, (v - 18) * 0.0015));
+    onEvent('slam');
+  }
+}
+
 function surfaceUnder() {
-  const c = cellAt(0, 0);
+  // ⚠ THE HULL IS AT (sim.x, sim.y) FROM THE WINDOW'S CENTRE. This read cellAt(0, 0) — the centre
+  // itself — so a boat anywhere inside the six-tile recentre radius was asking about a tile up to
+  // six away, and drove straight up a beach that the check never looked at.
+  const c = cellAt(st.sim.x, st.sim.y);
   if (c.biome === 'water' || c.sub) return c.rough ? 'chop' : 'open';
   return 'land';
 }
 
 export function isBoatActive() { return !!st; }
+
+// ── THE SERVICE OVERLAY'S HOOKS ──────────────────────────────────────────────
+// The marina's bench comes to the seat in the covered slot, and the pump at the fuel float
+// (marina-panel.js, service mode). Three things from the seat, the cab's own three: somewhere to
+// mount, a paint job shown on the hull before it is bought, and which camera is up.
+export function boatServiceHost() { return st ? st.root : null; }
+// ⚠ A PREVIEW, NEVER THE PAINT — cleared on close, and replaced by the server's push after a respray.
+export function boatPreview({ livery = null } = {}) { if (st) st.preview = livery || null; }
+export function boatView(mode, { quarter = false } = {}) {
+  if (!st) return null;
+  if (mode === 'ext' || mode === 'cab') setExternal(mode === 'ext');
+  // The dock's opening shot: a 3/4 off her FRONT-RIGHT (see cabView — 225 net of 'chaseYaw').
+  if (quarter && mode === 'ext') { st.extYaw = ((225 - (RENDER_TUNE.chaseYaw || 0)) % 360 + 360) % 360; st.extPitch = 0.18; }
+  return st.external ? 'ext' : 'cab';
+}
 
 export function openBoat(ctx = {}) {
   closeBoat();
@@ -182,10 +245,27 @@ export function openBoat(ctx = {}) {
     // depth buffer, and that is the one you look at; this is the one you can PUT YOUR HAND ON with
     // a mouse or a thumb. A boat whose only throttle is a held key is a boat nobody on a tablet
     // can drive, and it is the control the cab's own note calls the whole longitudinal decision.
-    + '<canvas class="boat-lever" width="88" height="200" title="throttle — drag (W)"></canvas>'
+    + '<canvas class="boat-lever" width="88" height="200" title="throttle, drag (W)"></canvas>'
     + '<canvas class="boat-wheel" width="200" height="200"></canvas>'
     + '<div class="boat-read"></div>'
     + '<div class="boat-keys"></div>'
+    + '</div>'
+    // Every held control is a button as well, so a mouse or a thumb can drive the whole boat: the
+    // ignition key (tap to start, tap again to stop), the tabs and the bottle.
+    + '<div class="boat-panel">'
+    + '<button class="boat-ign" type="button" data-pos="off" title="ignition key (K), turn to START, again to OFF">'
+    + '<span class="boat-ign-face"><i>OFF</i><i>RUN</i><i>START</i></span><span class="boat-ign-key"></span><span class="boat-ign-cap">ENGINE · K</span></button>'
+    + '<div class="boat-hold-row">'
+    + '<button class="boat-chip boat-hold" data-key="[" type="button" title="tabs bow down (hold [)">TAB ▼</button>'
+    + '<button class="boat-chip boat-hold" data-key="]" type="button" title="tabs bow up (hold ])">TAB ▲</button>'
+    + '</div>'
+    + '<div class="boat-hold-row">'
+    + '<button class="boat-chip boat-sw" data-sw="cabin" type="button" title="cabin dome lamp (I)">CABIN</button>'
+    + '<button class="boat-chip boat-sw" data-sw="wipe" type="button" title="wipers (W)">WIPE</button>'
+    + '<button class="boat-chip boat-sw boat-dials" data-sw="dials" type="button" title="gauge lights (L)">☼ DIALS</button>'
+    + '</div>'
+    + '<button class="boat-chip boat-hold" data-key="h" type="button" title="horn (hold H)">HORN</button>'
+    + '<button class="boat-chip boat-hold boat-nos" data-key="shift" type="button" title="nitrous bottle (hold Shift)">BOTTLE</button>'
     + '</div>'
     + '<div class="boat-chips">'
     // ⚠ THE IGNITION IS THE TRUCK'S KEY AND NOT A NEW ONE. `cab-view.js` binds K to
@@ -193,11 +273,14 @@ export function openBoat(ctx = {}) {
     // learned to start a rig has learned to start a boat. I was the obvious letter and is the
     // truck's DOME LIGHT — a seat that gave one letter two meanings across two vehicles is worse
     // than a seat with no key in it.
-    + '<button class="boat-chip boat-key" type="button" title="ignition (K — hold to crank)">⏻ START</button>'
     // ⚠ AND THE CHASE CAMERA IS V/F, for the same reason and off the same pair: the cab takes both
     // because V is the cockpit's and F is what everybody's hands do anyway.
+    // Beached: a held button for the Z shove, shown only while she is on the sand.
+    + '<button class="boat-chip boat-hold boat-push" data-key="z" type="button" hidden title="hold to shove her back off the beach (Z), shuts the lever">⇤ PUSH OFF</button>'
     + '<button class="boat-chip boat-ext" type="button" title="external / helm view (V)">◎ EXT</button>'
+    + '<button class="boat-chip boat-ride" type="button" title="helm camera motion: full / soft / steady (N), the boat still rides the full sea">RIDE FULL</button>'
     + '<button class="boat-chip boat-help-btn" type="button" title="controls (?)">?</button>'
+    + '<button class="boat-chip boat-hidebtn" type="button" title="hide the text panel, keep the command bar">⊟</button>'
     + `<button class="boat-chip boat-big" type="button" title="${BIGSCREEN_TITLE}">${BIGSCREEN_GLYPH}</button>`
     + '<button class="boat-chip boat-x" type="button" title="step off (ESC)">✕</button>'
     + '</div>'
@@ -213,6 +296,7 @@ export function openBoat(ctx = {}) {
   st = {
     p,
     name: ctx.name || 'her',
+    livery: ctx.livery || null, preview: null,
     // The sim state `stepBoat` owns. ⚠ SEEDED FROM THE SERVER AND NOT FROM ZERO: hull and fuel are
     // a row in the database and a boat that came back full every time you sat in it would make the
     // whole yard pointless.
@@ -232,6 +316,14 @@ export function openBoat(ctx = {}) {
     tiles: ctx.map || [],
     surface: 'open', aground: false,
     lever: 0, steer: 0, trim: 0,
+    // The gauge lights' switch. Off until you turn it on; lit only while she has power.
+    dials: false,
+    // The rest of the switch panel (interior-hydro.js HYDRO_SWITCHES). Each one is drawn on the dash,
+    // clickable there, has a key and a button, and does something: the dome lamp, the wipers and the
+    // horn. The cabin lamp starts on, which is how she has always come up.
+    cabin: true, wipers: 0, hornOn: false,
+    // The 3-D control under the pointer and the one being pressed, for the halo (hotspotHalo).
+    hover: null, press: null, holdKey: null,
     starter: false,
     keys: new Set(),
     look: { yaw: 0, pitch: 0, on: false },
@@ -244,7 +336,7 @@ export function openBoat(ctx = {}) {
     external: false, extYaw: 0, extPitch: 0.18, extZoom: 1,
     first: !!ctx.first,
     hour: ctx.hour ?? 12, weather: (ctx.weather || 'clear').toLowerCase(),
-    wxField: ctx.wxField ? normalizeWx(ctx.wxField) : null, wxGround: ctx.wxGround || null,
+    wxField: ctx.wxField || null, wxGround: ctx.wxGround || null,
     contacts: [],
     lastSync: 0, last: performance.now(), alive: true, raf: 0,
     onSend: ctx.onSend || null,
@@ -296,8 +388,20 @@ export function openBoat(ctx = {}) {
   st.helpEl = root.querySelector?.('.boat-help') || null;
   st.outEl = root.querySelector?.('.boat-out') || null;
   bindBigScreenButton(root.querySelector?.('.boat-big'));
+  // ⊟: the log folds away and the command bar stays. The seat opens that way, like every vehicle.
+  const hideBtn = root.querySelector?.('.boat-hidebtn');
+  hideBtn?.addEventListener('click', () => { hideBtn.classList.toggle('on', document.body.classList.toggle('boat-hidepanel')); });
+  seatHidePanel('boat-hidepanel', hideBtn);
   root.querySelector?.('.boat-x')?.addEventListener('click', () => toggleOut());
-  root.querySelector?.('.boat-key')?.addEventListener('click', () => {
+  root.querySelectorAll?.('.boat-hold')?.forEach?.((b) => {
+    const k = b.dataset.key;
+    const up = () => { st?.keys?.delete(k); b.classList.remove('on'); };
+    b.addEventListener('pointerdown', (e) => { e.preventDefault(); b.setPointerCapture?.(e.pointerId); st?.keys?.add(k); b.classList.add('on'); });
+    b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('lostpointercapture', up);
+  });
+  root.querySelectorAll?.('.boat-sw')?.forEach?.((b) => b.addEventListener('click', () => flipSwitch(b.dataset.sw)));
+  root.querySelector?.('.boat-ride')?.addEventListener('click', () => cycleRide());
+  root.querySelector?.('.boat-ign')?.addEventListener('click', () => {
     // ⚠ A CLICK CANNOT HOLD A STARTER, so it arms one and the frame lets go of it once she fires.
     // Without that the button starts a motor that never catches, which is the control reading as
     // broken on the one surface a touch player has.
@@ -305,7 +409,10 @@ export function openBoat(ctx = {}) {
     // ⚠ AND IT LETS GO ON A CLOCK RATHER THAN ON SUCCESS, because a dry motor never succeeds: the
     // model turns it over for as long as the starter is down and reports `dry`, so a release
     // waiting for her to catch would leave the starter engaged for the rest of the session.
-    if (!st.sim.running) { st.clickCrank = true; st.clickCrankUntil = performance.now() + CRANK_S * 1000 + 500; }
+    // ⚠ IN SIM SECONDS, NOT WALL ONES: the frame step is capped at 0.05 s, so below 20 fps the model
+    // turns her over slower than the clock on the wall, and a wall-clock window ran out before she
+    // caught. A click that never starts the boat on a slow machine reads as a dead button.
+    if (!st.sim.running) { st.clickCrank = true; st.clickCrankLeft = CRANK_S + 0.5; }
   });
   root.querySelector?.('.boat-ext')?.addEventListener('click', () => setExternal(!st.external));
   root.querySelector?.('.boat-help-btn')?.addEventListener('click', () => toggleHelp());
@@ -338,10 +445,12 @@ export function closeBoat() {
   st.lever3d?.destroy?.();
   stopBoatEngine(true);
   stopBoatContacts();
+  airHornOff();
   // ⚠ THE MODE OWNS THE PAGE, so nothing else takes it down with the view — climbing out in big
   // screen would otherwise strand the player with no sidebar, no log and no command box, and the
   // one key that would fix it is bound only while the mode thinks it is on.
   exitBigScreen();
+  document.body.classList.remove('boat-hidepanel');
   disposeWindshield(ID);
   endSeatKeyboard(st.pane);
   st = null;
@@ -369,24 +478,31 @@ function bindKeys() {
     // off; on a dead one it turns the starter for as long as your finger is down, so a start you
     // let go of half way through is a start that did not take, which is what a key is.
     if (k === 'k' && !e.repeat) { e.preventDefault(); ignition(); return; }
+    if (k === 'n' && !e.repeat) { e.preventDefault(); cycleRide(); return; }
     if (!e.repeat) {
       if (k === 'v' || k === 'f') { e.preventDefault(); setExternal(!st.external); return; }
       if (k === '?' || k === '/') { e.preventDefault(); toggleHelp(); return; }
+      if (k === 'l') { e.preventDefault(); flipSwitch('dials'); return; }
+      if (k === 'i') { e.preventDefault(); flipSwitch('cabin'); return; }
+      if (k === 'w') { e.preventDefault(); flipSwitch('wipe'); return; }
+      if (k === 'g') { e.preventDefault(); flipSwitch('stab'); return; }
       // The shoulder-checks, and they are the cab's three letters. ⚠ SNAP AND LATCH rather than
       // held: a boat is steered with two hands and there is no third one to hold a look key with.
-      if (k === 'q' || k === 'e') { st.look.yaw = clamp(k === 'q' ? -90 : 90, -LOOK_YAW, LOOK_YAW); st.look.pitch = 0; return; }
+      // Q / E / S are HELD shoulder-checks, the cab's and the cockpit's own three keys.
+      if (k === 'q' || k === 'e' || k === 's') { st.look.yaw = k === 'q' ? -90 : k === 'e' ? 90 : LOOK_YAW; st.look.pitch = 0; st.look.held = k; e.preventDefault(); return; }
       // ⚠ ASTERN IS AS FAR AS THE PAINTED WORLD GOES, NOT 180°. `LOOK_YAW` is the limit this seat
       // and the cab share, and a snap past it would put your head somewhere the renderer has
       // nothing to show you — so S is "as far round as you can get", and pressing it again brings
       // you back rather than winding on for ever.
-      if (k === 's') { st.look.yaw = Math.abs(st.look.yaw) > LOOK_YAW - 1 ? 0 : LOOK_YAW; st.look.pitch = 0; return; }
     }
+    if (k.startsWith('arrow') || k === ' ') e.preventDefault();
     st.keys.add(k === 'shift' ? 'shift' : k);
   };
   st.ku = (e) => {
     if (!st) return;
     const k = e.key.toLowerCase();
     if (k === 'k') st.starter = false;
+    if (st.look.held === k) { st.look.yaw = 0; st.look.pitch = 0; st.look.held = null; }
     st.keys.delete(k);
   };
   window.addEventListener('keydown', st.kd, true);
@@ -395,8 +511,58 @@ function bindKeys() {
   const glass = document.getElementById(ID);
   if (!glass || !glass.addEventListener) return;
   glass.addEventListener('contextmenu', (e) => e.preventDefault());
+  // ── THE 3-D CONTROLS ───────────────────────────────────────────────────────
+  // The renderer leaves where each switch landed on screen (interiorHotspots, off the profile's own
+  // hotspots(live)); a left press on one is taken here before the look drag can have it. 'click'
+  // acts once, 'hold' holds its key for as long as the button is down — the same key the keyboard
+  // and the on-screen buttons hold, so all three are one control.
+  const hotAt = (e) => {
+    if (!st || st.external) return null;
+    const hs = interiorHotspots();
+    if (!hs || !hs.list?.length) return null;
+    const r = glass.getBoundingClientRect();
+    if (!r.width || !r.height) return null;
+    const x = (e.clientX - r.left) * (hs.W / r.width), y = (e.clientY - r.top) * (hs.H / r.height);
+    let best = null, bd = Infinity;
+    for (const h of hs.list) { const d = Math.hypot(x - h.x, y - h.y); if (d <= h.r && d < bd) { bd = d; best = h; } }
+    return best;
+  };
   glass.addEventListener('pointerdown', (e) => {
-    if (e.button !== 2 || !st) return;
+    if (e.button !== 0 || !st) return;
+    const h = hotAt(e);
+    if (!h) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    st.press = h.id;
+    if (h.kind === 'hold') {
+      st.holdKey = HOLD_KEY[h.id] || null;
+      if (st.holdKey) st.keys.add(st.holdKey);
+      glass.setPointerCapture?.(e.pointerId);
+    } else pressControl(h.id);
+  }, true);
+  const release = () => {
+    if (!st) return;
+    if (st.holdKey) st.keys.delete(st.holdKey);
+    st.holdKey = null; st.press = null;
+  };
+  glass.addEventListener('pointerup', release);
+  glass.addEventListener('pointercancel', release);
+  glass.addEventListener('pointermove', (e) => {
+    if (!st || st.look.on) return;
+    const h = hotAt(e);
+    st.hover = h ? h.id : null;
+    glass.style.cursor = h ? 'pointer' : '';
+    glass.title = h ? (CONTROL_TIP[h.id] || '') : '';
+  });
+  glass.addEventListener('pointerleave', () => { if (st) st.hover = null; });
+  // The middle button's default is the browser's autoscroll, which would steal the drag.
+  glass.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); });
+  glass.addEventListener('auxclick', (e) => { if (e.button === 1) e.preventDefault(); });
+  glass.addEventListener('pointerdown', (e) => {
+    // ⚠ MIDDLE OR RIGHT BUTTON. The middle is the free camera's own orbit button everywhere else in
+    // GLASS, so it looks round the pilothouse inside and swings round the hull outside; the right
+    // button stays as the alias this seat shipped with.
+    if ((e.button !== 1 && e.button !== 2) || !st) return;
+    e.preventDefault();
     st.look.on = true; st.look.px = e.clientX; st.look.py = e.clientY;
     glass.setPointerCapture?.(e.pointerId);
   });
@@ -424,7 +590,9 @@ function bindKeys() {
   glass.addEventListener('wheel', (e) => {
     if (!st?.external) return;
     e.preventDefault();
-    st.extZoom = clamp(st.extZoom * (e.deltaY > 0 ? 1.12 : 0.89), 0.55, 3.2);
+    // in as far as the renderer's standoff, where the hull fills the frame (the seat hands over 1.15 x this)
+    const lv = lastViewState(), lo = lv && lv.external && lv.chaseZoomFloor > 0 ? lv.chaseZoomFloor / 1.15 : 0.55;
+    st.extZoom = clamp(st.extZoom * (e.deltaY > 0 ? 1.12 : 0.89), lo, 3.2);
   }, { passive: false });
   const drop = () => { if (st) st.look.on = false; };
   glass.addEventListener('pointerup', drop);
@@ -450,6 +618,16 @@ function bindExternal() { /* the orbit rides the look drag; see bindKeys */ }
 // press, immediate, because a kill switch that had to be held would be the one control in the boat
 // you cannot use in the moment you need it. Dead, it turns the starter, and the starter only turns
 // while your finger is down.
+// Ride comfort for the helm camera: full motion, softened, or steadied. Per-viewer, so browser
+// storage is the right home; it can come back empty and must never throw.
+const RIDE = [{ id: 'full', k: 1, label: 'RIDE FULL' }, { id: 'soft', k: 0.5, label: 'RIDE SOFT' }, { id: 'steady', k: 0.2, label: 'RIDE STEADY' }];
+let rideIdx = (() => { try { const i = RIDE.findIndex((r) => r.id === localStorage.getItem('boat_ride')); return i < 0 ? 0 : i; } catch { return 0; } })();
+function rideK() { return st.external ? 1 : RIDE[rideIdx].k; }
+function cycleRide() {
+  rideIdx = (rideIdx + 1) % RIDE.length;
+  try { localStorage.setItem('boat_ride', RIDE[rideIdx].id); } catch {}
+}
+
 function ignition() {
   if (!st) return;
   if (st.sim.running) {
@@ -464,6 +642,37 @@ function ignition() {
     return;
   }
   st.starter = true;
+}
+
+// ── THE SWITCHES ─────────────────────────────────────────────────────────────
+// One place that knows what each switch on the dash does, used by the keys, the buttons and a click
+// on the dash itself.
+const HOLD_KEY = { horn: 'h', arm: 'shift', tabUp: ']', tabDown: '[' };
+const CONTROL_TIP = {
+  cabin: 'CABIN: dome lamp (I)', wipe: 'WIPE: wipers (W)', horn: 'HORN: hold (H)', dials: 'DIALS: gauge lights (L)',
+  arm: 'ARM: nitrous bottle, hold (Shift)', tabUp: 'TABS: bow up, hold (])', tabDown: 'TABS: bow down, hold ([)',
+  stab: 'STAB: gyro stabiliser (G), needs the engine running',
+  ign: 'IGN: ignition key (K)', kill: 'KILL: stop the engine',
+};
+function switchState(id) {
+  if (!st) return false;
+  return id === 'cabin' ? !!st.cabin : id === 'wipe' ? st.wipers > 0 : id === 'dials' ? !!st.dials : false;
+}
+function flipSwitch(id) {
+  if (!st) return;
+  if (id === 'cabin') st.cabin = !st.cabin;
+  else if (id === 'wipe') st.wipers = st.wipers ? 0 : 2;
+  else if (id === 'dials') st.dials = !st.dials;
+  else if (id === 'stab') st.stab = !st.stab;
+}
+function pressControl(id) {
+  if (!st) return;
+  if (id === 'ign') {
+    // The key on the dash is the same key as the chip: see the click handler at the mount.
+    ignition();
+    if (!st.sim.running) { st.clickCrank = true; st.clickCrankLeft = CRANK_S + 0.5; }
+  } else if (id === 'kill') { if (st.sim.running) ignition(); }
+  else flipSwitch(id);
 }
 
 // ── THE CHASE CAMERA ─────────────────────────────────────────────────────────
@@ -494,14 +703,19 @@ function buildHelp() {
   if (!st?.helpEl) return;
   st.helpEl.innerHTML = '<h4>THE HELM</h4>'
     + '<dl>'
-    + '<dt>K</dt><dd>ignition — hold to crank her, press again to shut down. She will not start with the lever open.</dd>'
-    + '<dt>W</dt><dd>throttle. It is a lever, not a button: it runs up while you hold it and falls back when you let go. You can also drag it.</dd>'
-    + '<dt>A / D</dt><dd>steer. She has no rudder at rest — you point her by moving her.</dd>'
+    + '<dt>K</dt><dd>ignition: hold to crank her, press again to shut down. She will not start with the lever open.</dd>'
+    + '<dt>N</dt><dd>ride comfort: full, soft or steady helm camera motion. The boat still rides the full sea.</dd>'
+    + '<dt>A / Z</dt><dd>throttle up / down, as in the flight sim. It is a lever and stays where you leave it. You can also drag it.</dd>'
+    + '<dt>X / C</dt><dd>steer (or the arrows). She has no rudder at rest: you point her by moving her.</dd>'
+    + '<dt>Z (beached)</dt><dd>with the lever shut, shove her back off the sand.</dd>'
+    + '<dt>L</dt><dd>gauge lights. They need power, so they only come up with the engine running.</dd>'
+    + '<dt>I / W / H</dt><dd>cabin lamp, wipers, horn (held). Every switch on the dash is clickable too.</dd>'
+    + '<dt>G</dt><dd>gyro stabiliser. Takes most of the roll and pitch out of the swell while the engine runs.</dd>'
     + '<dt>[ / ]</dt><dd>trim tabs. Bow down holds on; bow up is speed on a boat barely in the water.</dd>'
     + '<dt>SHIFT</dt><dd>the bottle. It costs hull, not fuel.</dd>'
-    + '<dt>V</dt><dd>external view. Drag to swing round her, wheel to back off.</dd>'
-    + '<dt>Q / E / S</dt><dd>look port, starboard, astern. Right-drag looks anywhere.</dd>'
-    + '<dt>ESC</dt><dd>step off — alongside to moor her, or over the side into the water.</dd>'
+    + '<dt>V</dt><dd>external view. Middle-drag to swing round her, wheel to back off.</dd>'
+    + '<dt>Q / E / S</dt><dd>hold to look port, starboard, astern. Middle-drag looks anywhere.</dd>'
+    + '<dt>ESC</dt><dd>step off: alongside to moor her, or over the side into the water.</dd>'
     + '</dl>'
     + '<p class="boat-help-foot">Everything here is also a button. Press <b>?</b> or <b>Esc</b> to close.</p>';
   st.helpEl.addEventListener('click', () => toggleHelp(false));
@@ -539,7 +753,7 @@ function toggleOut(show) {
     note.textContent = mph > 4
       ? 'She still has way on. Take the lever off her and let her lose it first.'
       : st.sim.running
-        ? 'Alongside a berth you will tie her up and step onto it. Anywhere else you go into the water and she floats where you left her — with the engine still running.'
+        ? 'Alongside a berth you will tie her up and step onto it. Anywhere else you go into the water and she floats where you left her, with the engine still running.'
         : 'Alongside a berth you will tie her up and step onto it. Anywhere else you go into the water and she floats where you left her.';
   }
 }
@@ -631,6 +845,11 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 // ── THE FRAME ────────────────────────────────────────────────────────────────
 function frame(now) {
+  // The horn follows whatever is holding it: the H key, the HORN button or the button on the dash.
+  if (st && st.alive !== false) {
+    const want = st.keys.has('h');
+    if (want !== st.hornOn) { st.hornOn = want; if (want) airHornOn('hauler'); else airHornOff(); }
+  }
   if (!st || !st.alive) return;
   const dt = Math.min(0.05, (now - st.last) / 1000);
   st.last = now;
@@ -651,9 +870,36 @@ function frame(now) {
     if (st.fuel <= 0) { st.lever = 0; input.throttle = 0; }
     else if (st.sim.running) st.fuel = Math.max(0, st.fuel - (0.00042 + 0.0035 * st.sim.pedal) * dt);
 
+    // ⚠ THE SEA SHE RIDES IS THE SEA THE RENDERER DRAWS: its amplitudes, its clock and its WORLD
+    // coordinates. None of the three was ever handed over, so `boatSeaPose` returned zero on every
+    // frame — no heave, no pitch, no roll, and no face to be thrown off, which is why she never
+    // caught air. The sim position is window-relative, hence the window centre as the offset.
+    const amps = seaAmpsNow();
+    // ⚠ AND THE SURF: in shallow water the swell under her grows and then breaks, exactly as the
+    // mesh draws it, so she is thrown about in the break rather than riding the open sea up the beach.
+    const surfG = hullSurfGain(st.sim.x, st.sim.y, amps.roll, amps.wind);
+    // ⚠ THE GYRO STABILISER (STAB switch, G). It takes out most of the swell she answers to — a
+    // flywheel resisting roll and pitch — and it runs off the engine, so a dead boat rides freely.
+    const stabK = st.stab && st.sim.running ? STAB_K : 1;
+    st.sim.seaRoll = amps.roll * surfG * stabK; st.sim.seaWind = amps.wind * surfG * stabK;
+    st.sim.seaChop = amps.chop * (stabK < 1 ? 0.6 : 1);
+    st.sim.ssx = st.cx; st.sim.ssy = st.cy;
+    input.now = seaClock(Date.now()) * 1000;
+    const px = st.sim.x, py = st.sim.y;
     stepBoat(st.sim, input, st.p, dt);
+    fendOff(px, py);
+    // ⚠ BEACHED, Z WITH THE LEVER SHUT IS A SHOVE OFF. She has no astern, so without this a boat run
+    // up the sand is a boat you can never leave: stepping off aground is refused, and the throttle
+    // only drives her further up. Walked backwards off her own keel at a crawl until she floats.
+    if (st.sim.beached && st.keys.has('z')) {
+      st.lever = 0;   // shoving and driving at once is not a thing; the shove wins
+      const h = st.sim.heading * Math.PI / 180;
+      st.sim.x -= Math.sin(h) * 0.5 * dt;
+      st.sim.y += Math.cos(h) * 0.5 * dt;
+    }
     for (const ev of st.sim.events || []) onEvent(ev);
-    if (st.clickCrank && (st.sim.running || now > st.clickCrankUntil)) { st.starter = false; st.clickCrank = false; }
+    if (st.clickCrank) st.clickCrankLeft -= dt;
+    if (st.clickCrank && (st.sim.running || st.clickCrankLeft <= 0)) { st.starter = false; st.clickCrank = false; }
 
     // Recentre the window when the hull has crossed far enough that the rim is in reach. The
     // server streams a fresh one on the next sync; until it arrives the old tiles are re-indexed
@@ -682,7 +928,13 @@ function frame(now) {
       // ⚠ `pitch`/`roll` ARE THE HULL'S ATTITUDE AND `lookYaw`/`lookPitch` ARE YOUR HEAD'S. Two
       // different things that would be one field with two meanings if they shared a name — the
       // trap `camPitch` is named for.
-      pitch: st.sim.pitch, roll: st.sim.roll,
+      // ⚠ DEGREES, AND `bank` NOT `roll`. The sim holds radians; the renderer's own-ship draw and
+      // the horizon both read degrees, and the hull draw reads `bank` — so the attitude arrived as
+      // a fifth of a degree on a field nothing drew from, and she sat level on a heaving sea.
+      // ⚠ RIDE COMFORT SCALES WHAT THE HELM CAMERA IS SHOWN, NEVER THE HULL: the sim, the packet
+      // and the chase view keep the full attitude, so a steadier seat is not a calmer sea.
+      pitch: (st.sim.pitch || 0) * 180 / Math.PI * rideK(), bank: (st.sim.roll || 0) * 180 / Math.PI * rideK(), roll: (st.sim.roll || 0) * 180 / Math.PI * rideK(),
+      rideZ: st.external ? (st.sim.heave || 0) + (st.sim.z || 0) : 0,
       // ⚠ THE SHOULDER-CHECK IS SUPPRESSED OUT THERE, NOT MERELY UNUSED. The chase camera is
       // already showing you what a look astern is for, and yawing a third-person view off the
       // boat it is following is just lost — the cab's own wording, and it is the same renderer
@@ -692,10 +944,17 @@ function frame(now) {
       // there it would move the BOAT against the world rather than the camera against the boat,
       // which is the trap `cab-view.js` records one seat over and the reason it spreads the pair
       // conditionally rather than sending both always.
+      // ⚠ THE HEAVE IS NEVER SCALED BY RIDE COMFORT. The water keeps its full height, so a camera
+      // that rose a fifth as far as the hull sank under every crest she climbed.
       ...(st.external
         ? { external: true, extYaw: st.extYaw, extPitch: st.extPitch, extZoom: 1.15 * st.extZoom }
-        : { height: 0, eyeH: EYE_TILES }),
+        : { height: 0, metreTiles: METRE_TILES, eyeH: Math.max(0.02, EYE_TILES + (st.sim.heave || 0) + (st.sim.z || 0)) }),
       speed: st.sim.speed,
+      // The cabin lights (the profile's floods) and the dome lift come on with the engine.
+      powered: !!st.sim.running, dome: !!st.sim.running && st.cabin,
+      wipers: st.sim.running && st.wipers ? st.wipers : 0,
+      // Her paint, or the shipwright's preview of it (see boatPreview). Absent is the factory colours.
+      ...((st.preview || st.livery) ? { livery: st.preview || st.livery } : {}),
       hour: st.hour, weather: st.weather,
       // ⚠ IT IS `wxGround`, AND THIS SENT `ground`. The renderer reads `v.wxGround` to seed how wet
       // and how snowed the world already is, so named wrong the seat starts every passage on dry,
@@ -705,7 +964,8 @@ function frame(now) {
       // could not see, because that gate scans a hard-coded list of four view files.
       wxField: st.wxField, wxGround: st.wxGround,
       acX: st.cx + st.sim.x, acY: st.cy + st.sim.y,
-      ownWake: { spd: spd01, turn: st.steer, beam: 0.30 },
+      // No wake and no foam while she is off the water: a hull in the air cuts nothing.
+      ownWake: { spd: (st.sim.airborne || st.aground) ? 0 : spd01, turn: st.steer, beam: 0.30 },
       contacts: st.contacts,
       // The live cluster. These are the shell's own keys — see `instrumentFaces` — and every one of
       // them is a number the sim already has, which is the point of the dials being geometry.
@@ -714,6 +974,11 @@ function frame(now) {
         hull: st.sim.hull, nitro: st.sim.nitro, nitroOn: st.sim.nitroOn,
         nitroHeat: st.sim.nitroHeat, steer: st.steer, fuel: st.fuel, trim: st.trim,
         aground: st.aground, gps: { x: st.cx + st.sim.x, y: st.cy + st.sim.y },
+        hdg: st.sim.heading,   // the binnacle compass on the dash — see boatFit
+        running: !!st.sim.running,   // the backlighting on the switchgear and the plotter
+        stab: !!st.stab,
+        dialSwitch: !!st.dials, dials: !!st.dials && !!st.sim.running,   // the gauge lights, and whether they have power
+        cabin: st.cabin, wipers: st.wipers, horn: st.hornOn, hover: st.hover, press: st.press,
       },
     });
     drawRead();
@@ -753,9 +1018,13 @@ function frame(now) {
 // world it is looking out at. Written as a literal it was right, and it was right by coincidence —
 // it would have stopped being right the first time anybody retuned the helm.
 //
-// The conversion is the only human-scale anchor this codebase states: the truck cab sits at
-// `eyeH: 0.12` and means `EYE_M` metres, so a metre is `0.12 / EYE_M` of a tile everywhere.
-const EYE_TILES = HELM.eyeM * (0.12 / EYE_M);
+// ⚠ THE METRE IS THE SEA'S, NOT THE ROAD'S. The cab's anchor (0.12 tiles is `EYE_M` metres) makes
+// a tile about 22 m, but the swell is authored at `SEA_TILE_M` (7 m), so on the cab's scale the
+// helm sat 0.44 sea-metres up and drove into the face of every wave over 10 kt. The same figure
+// goes to the renderer as `metreTiles`, which sizes the pilothouse, so the eye and the room stay
+// one scale.
+const METRE_TILES = 1 / SEA_TILE_M;
+const EYE_TILES = HELM.eyeM * METRE_TILES;
 
 function onEvent(ev) {
   if (ev === 'holed' || ev === 'aground' || ev === 'slam') send('boatevent ' + ev);
@@ -779,7 +1048,7 @@ function drawRead() {
   // footnote on a boat that is plainly not moving, which is exactly the state the whole ignition
   // exists to make legible.
   const head = st.sim.running ? (mph + ' MPH')
-    : (st.sim.crank > 0 ? 'CRANKING…' : st.fuel <= 0 ? 'DRY — NO START' : 'ENGINE OFF · K');
+    : (st.sim.crank > 0 ? 'CRANKING…' : st.fuel <= 0 ? 'DRY: NO START' : (st.starter && st.lever >= 0.05) ? 'LEVER TO IDLE TO START' : 'ENGINE OFF · K');
   el.textContent = head + '   HULL ' + Math.round(st.sim.hull * 100) + '%   FUEL '
     + Math.round(st.fuel * 100) + '%   BOTTLE ' + Math.round(st.sim.nitro * 100) + '%   ' + tab;
   el.classList.toggle('boat-dead', !st.sim.running);
@@ -792,12 +1061,17 @@ function drawRead() {
     keys.textContent = st.external
       ? 'drag swing · wheel back off · V helm view · ? controls · ESC step off'
       : (st.sim.running
-        ? 'W throttle · A/D steer · [ ] tabs · SHIFT bottle · K stop · V external · ? controls'
-        : 'K ignition (hold) · V external · ? controls · ESC step off');
+        ? 'A/Z throttle · X/C steer · [ ] tabs · SHIFT bottle · H horn · I/W/L cabin wipe dials · K stop · V external · ? controls'
+        : 'ENGINE OFF: click the ENGINE key or hold K to start · V external · N ride · ? controls · ESC step off');
   }
   st.lever3d?.draw?.();
-  const kb = st.root?.querySelector?.('.boat-key');
-  if (kb) { kb.textContent = st.sim.running ? '⏻ STOP' : '⏻ START'; kb.classList.toggle('on', st.sim.running); }
+  st.root?.querySelectorAll?.('.boat-sw')?.forEach?.((b) => b.classList.toggle('on', switchState(b.dataset.sw)));
+  const kb = st.root?.querySelector?.('.boat-ign');
+  const rb = st.root?.querySelector?.('.boat-ride');
+  if (rb) rb.textContent = RIDE[rideIdx].label;
+  const pb = st.root?.querySelector?.('.boat-push');
+  if (pb) pb.hidden = !st.sim.beached;
+  if (kb) kb.dataset.pos = (st.sim.crank > 0 || st.starter) && !st.sim.running ? 'start' : st.sim.running ? 'run' : 'off';
 }
 
 // ── WHAT THE SERVER PUSHES ───────────────────────────────────────────────────
@@ -806,7 +1080,7 @@ export function boatSetWorld(msg = {}) {
   if (msg.map) { st.tiles = msg.map; st.ox = (msg.gx ?? st.cx) - RAD; st.oy = (msg.gy ?? st.cy) - RAD; }
   if (msg.hour != null) st.hour = msg.hour;
   if (msg.weather) st.weather = String(msg.weather).toLowerCase();
-  if (msg.wxField) st.wxField = normalizeWx(msg.wxField);
+  if (msg.wxField !== undefined) st.wxField = msg.wxField || null;
   if (msg.wxGround) st.wxGround = msg.wxGround;
   if (msg.contacts) st.contacts = msg.contacts;
   // ⚠ THE SERVER IS AUTHORITATIVE ABOUT THE ROW AND NOT ABOUT THE POSITION. Hull, fuel and the
@@ -816,6 +1090,10 @@ export function boatSetWorld(msg = {}) {
   if (msg.hull != null) st.sim.hull = msg.hull;
   if (msg.fuel != null) st.fuel = msg.fuel;
   if (msg.nitro != null) st.sim.nitro = msg.nitro;
+  // What the yard changed about her while you sat in her: wear (the handling), paint, name.
+  if (msg.params) st.p = msg.params;
+  if ('livery' in msg) st.livery = msg.livery || null;
+  if (msg.name) st.name = msg.name;
 }
 
 // ── THE STYLES ───────────────────────────────────────────────────────────────
@@ -827,6 +1105,10 @@ function ensureBoatStyles() {
   const el = document.getElementById('boat-styles') || document.createElement('style');
   el.id = 'boat-styles';
   el.textContent = `
+    body.boat-hidepanel #area-pane{max-height:none !important;height:auto !important;flex:1 1 auto}
+    body.boat-hidepanel #area-content{flex:1 1 auto;display:flex;min-height:0}
+    body.boat-hidepanel #output, body.boat-hidepanel #look-resize-handle{display:none}
+    .boat-hidebtn.on{ color:#8fd0ff; }
     #area-content:has(.boat-root){ height:100%; overflow:hidden; overscroll-behavior:contain; touch-action:none; }
     .boat-root{ position:relative; width:100%; height:100%; min-height:380px; overflow:hidden;
       overscroll-behavior:contain; touch-action:none; background:#05070b; }
@@ -844,10 +1126,42 @@ function ensureBoatStyles() {
     .boat-keys{ position:absolute; left:0; bottom:-18px; white-space:nowrap;
       font:500 11px/1.4 ui-monospace,monospace; color:#7d93ab; letter-spacing:.04em; }
     .boat-chips{ position:absolute; right:10px; top:10px; display:flex; gap:6px; }
+    .boat-chip[hidden]{ display:none !important; }
+    .boat-push{ color:#ffd27a; border-color:#8a6a2a; }
     .boat-chip{ background:rgba(8,12,18,.72); border:1px solid #24303d; color:#9fb6cc;
       font:600 13px/1 ui-monospace,monospace; padding:6px 9px; border-radius:4px; cursor:pointer; }
     .boat-chip:hover{ color:#e6f2ff; border-color:#3a4a5c; }
     .boat-chip.on{ color:#cfe6ff; border-color:#4a6d8c; background:rgba(24,44,64,.8); }
+    .boat-panel{ position:absolute; right:10px; bottom:30px; display:flex; flex-direction:column;
+      align-items:flex-end; gap:6px; }
+    .boat-hold-row{ display:flex; gap:6px; }
+    .boat-hold{ touch-action:none; user-select:none; min-width:64px; }
+    .boat-nos.on{ color:#fff; border-color:#6fb6ff; background:rgba(30,70,120,.85); }
+    /* The key switch: a bezel with OFF · RUN · START round the top and a key that turns to each. */
+    .boat-ign{ position:relative; width:78px; height:78px; border-radius:50%; cursor:pointer; padding:0;
+      border:2px solid #8a98a8; background:radial-gradient(circle at 40% 35%,#3a4552,#12181f 70%);
+      box-shadow:0 2px 8px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.2); }
+    .boat-ign-face i{ position:absolute; font:700 8px/1 ui-monospace,monospace; font-style:normal;
+      color:#7d93ab; letter-spacing:.06em; }
+    .boat-ign-face i:nth-child(1){ left:6px; top:22px; }
+    .boat-ign-face i:nth-child(2){ left:0; right:0; top:6px; text-align:center; }
+    .boat-ign-face i:nth-child(3){ right:3px; top:22px; color:#ff9c8c; }
+    .boat-ign-key{ position:absolute; left:50%; top:50%; width:10px; height:36px; margin:-18px 0 0 -5px;
+      border-radius:4px; background:linear-gradient(90deg,#9aa6b2,#e8eef4,#9aa6b2);
+      box-shadow:0 0 0 3px #1a2129, 0 2px 4px rgba(0,0,0,.6); transition:transform .12s ease-out;
+      transform:rotate(-60deg); }
+    .boat-ign-cap{ position:absolute; left:50%; top:100%; margin-top:5px; transform:translateX(-50%);
+      white-space:nowrap; font:700 10px/1 ui-monospace,monospace; letter-spacing:.08em; color:#ffb070; }
+    .boat-ign[data-pos="run"] .boat-ign-cap{ color:#8fffb0; }
+    /* Off, the key breathes (no strobe) so it is the first thing a stopped player finds. */
+    .boat-ign[data-pos="off"]{ border-color:#ffb070; animation:boatIgnBreathe 2.4s ease-in-out infinite; }
+    @keyframes boatIgnBreathe{ 0%,100%{ box-shadow:0 2px 8px rgba(0,0,0,.6), 0 0 0 0 rgba(255,176,112,0); }
+      50%{ box-shadow:0 2px 8px rgba(0,0,0,.6), 0 0 14px 4px rgba(255,176,112,.55); } }
+    @media (prefers-reduced-motion: reduce){ .boat-ign[data-pos="off"]{ animation:none; box-shadow:0 0 10px 3px rgba(255,176,112,.5); } }
+    .boat-ign[data-pos="run"] .boat-ign-key{ transform:rotate(0deg); }
+    .boat-ign[data-pos="start"] .boat-ign-key{ transform:rotate(60deg); }
+    .boat-ign[data-pos="run"] .boat-ign-face i:nth-child(2){ color:#8fffb0; }
+    .boat-ign[data-pos="start"] .boat-ign-face i:nth-child(3){ color:#fff; }
     .boat-lever{ width:66px; height:150px; pointer-events:auto; }
     /* ⚠ THE STRIP GOES RED WITH THE LEVER, not amber and not merely dimmer: a stopped engine is
        the one state on this boat you can sit in indefinitely without noticing, and it is the one

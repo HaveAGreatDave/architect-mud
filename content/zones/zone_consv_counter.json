@@ -1,8 +1,9 @@
 {
   "ambient_theme": "indoors",
-  "description": "A narrow room with a chandlery down one side and a counter across the end of it, both in the same hardwood as the bench and by the same hand. Charts in a rack, rolled and labelled. Line on drums by diameter. Shackles, thimbles, fuel cards, fenders, and a shelf of things in boxes that cost more than the boxes suggest. A kettle, which is the single least Ascendant object within half a mile of here and is in plain view.",
+  "description": "A narrow room with a chandlery down one side and a hardwood counter across the end. Charts rolled and labelled in a rack. Line on drums by diameter. Shackles, thimbles, fuel cards, fenders, and a shelf of expensive boxed parts. A kettle, in plain view.",
   "exits": {
-    "east": "zone_marina_lobby"
+    "east": "zone_marina_lobby",
+    "west": "zone_district_892_902"
   },
   "flags": {
     "building_name": "Fairweather Marina",

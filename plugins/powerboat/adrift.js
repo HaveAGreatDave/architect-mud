@@ -42,7 +42,8 @@ import { describeZone } from '../../server/engine/commands/describe.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { surfaceAt } from '../flight/state.js';
 import { TYPES } from '../../client/game/js/panels/flight-model.js';
-import { aboard, isOpenWater, berthKind, myBoats, pickBoat, zonesNear } from './yard.js';
+import { aboard, isOpenWater, berthKind, myBoats, pickBoat, zonesNear, coveredRoomAtTile } from './yard.js';
+import { wetChange } from './service.js';
 import { conning, stopTextHelm } from './texthelm.js';
 import { rigs } from './index.js';
 
@@ -72,7 +73,7 @@ export function livePosition(playerId) {
 /** The zone under a point on the water, or null. */
 export function zoneUnder(x, y) {
   const cell = surfaceAt(Math.round(x), Math.round(y));
-  return cell?.zoneId ? getZone(cell.zoneId) : null;
+  return cell?.id ? getZone(cell.id) : null;
 }
 
 // How much way she may still have on before stepping off the side of her is a thing a person does
@@ -102,6 +103,12 @@ export async function overboard(player, broadcast) {
   if (!here) {
     return { type: 'error', message: 'There is nothing under you the map has a name for. Get her back over charted water.' };
   }
+  // ⚠ THE COVERED SLOT IS THE DOCK HALL, SEEN FROM THE WATER. It is an ordinary water tile to the
+  // map — it has to be, or the hull could not float in it — so without this, bringing her back in
+  // under the roof and stepping off left her ADRIFT in her own shed and put you in the water beside
+  // her. The slings take her instead, and you step up into the hall.
+  const shed = coveredRoomAtTile(here.id);
+  if (shed) return await intoTheShed(player, boatId, shed, broadcast);
   // ⚠ A BERTH UNDER HER IS A MOORING, NOT AN ABANDONMENT, and it has to be caught here rather than
   // left to read as one. Coming alongside the fuel float and typing `disembark` is tying up — the
   // tile is a deck you stand on, not water you fall into — so she is berthed and you step off onto
@@ -162,6 +169,39 @@ export async function overboard(player, broadcast) {
     zone: here.id,
     minimap: getMinimapData(here.id, 8, player),
   };
+}
+
+// She is back in the slot: flushed, lifted, berthed in the covered room, and you are in the hall.
+async function intoTheShed(player, boatId, shed, broadcast) {
+  const rig = rigs.get(player.id);
+  const c = conning.get(player.id);
+  const hull = c ? c.s.hull : rig?.hull;
+  const fuel = c ? c.fuel : rig?.fuel;
+  const nitro = c ? c.s.nitro : rig?.nitro;
+  const r0 = await query('SELECT * FROM boats WHERE id = $1', [boatId]);
+  const row = r0.rows[0] || {};
+  // Out of the water, so fouling's clock stops (service.js), and the distance she ran reaches the row.
+  const cd = { ...(row.custom_data || {}) };
+  if (rig?.run) cd.run = (Number(cd.run) || 0) + rig.run;
+  if (nitro != null) cd.nitro = nitro;
+  const dry = wetChange(cd, false) || cd;
+  await query(
+    `UPDATE boats SET berth_zone = $2, condition = COALESCE($3, condition), fuel = COALESCE($4, fuel), custom_data = $5::jsonb WHERE id = $1`,
+    [boatId, shed.id, hull ?? null, fuel ?? null, JSON.stringify(dry)]);
+  aboard.delete(player.id);
+  stopTextHelm(player.id);
+  rigs.delete(player.id);
+  sendToPlayer(player.id, { type: 'boat_sim_close' });
+  if (player.current_zone !== shed.id) {
+    await dispatchAction({ type: 'TELEPORT', actor: player, params: { zone_id: shed.id }, context: { broadcast } });
+  }
+  const name = row.name || TYPES[row.type_id]?.name || 'her';
+  const zone = getZone(shed.id);
+  const line = `You cut the engine in the slot. The slings come down, take her, and lift her dripping out of the water, and you step up onto the ${shed.name}.`;
+  const tail = `\n<span class="text-dim">${name} is under cover. Hull ${pct(hull ?? row.condition)}%, fuel ${pct(fuel ?? row.fuel)}%.</span>`;
+  if (!zone) return { type: 'emote', message: line + tail };
+  return { type: 'move', message: `<span class="text-cyan">${line}</span>${tail}\n${await describeZone(zone, player)}`,
+    zone: shed.id, minimap: getMinimapData(shed.id, 8, player) };
 }
 
 // ── WHAT THE ROOM SAYS ───────────────────────────────────────────────────────
@@ -303,7 +343,7 @@ registerAction({
     }
     const home = homeOf(boat) || zonesNear(player.current_zone).find(berthKind);
     if (!home) {
-      return say(`<span class="text-dim">${name} has no yard to be taken to. Buy her a berth first — a launch has to be given an address.</span>`);
+      return say(`<span class="text-dim">${name} has no yard to be taken to. Buy her a berth first: a launch has to be given an address.</span>`);
     }
 
     const fee = towFee(boat.type_id, fromZone.id, home.id);
@@ -336,7 +376,7 @@ registerAction({
       + `<span class="text-dim">${name} is at ${home.name}. `
       + (canPay
         ? `<span class="item-loss">₵${fee.toLocaleString()}</span>.</span>`
-        : `<span class="text-red">₵${fee.toLocaleString()}</span> owed on her before she goes out again — <b>tow</b> again to settle it.</span>`));
+        : `<span class="text-red">₵${fee.toLocaleString()}</span> owed on her before she goes out again: <b>tow</b> again to settle it.</span>`));
   },
 });
 

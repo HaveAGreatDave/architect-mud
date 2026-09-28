@@ -32,7 +32,7 @@ function seasoningNote(raw, ideal, tier) {
   const count = Math.round(raw);
   if (count === ideal) return tier === 'novice' ? 'It tastes like something.' : 'The seasoning is where it should be.';
   const under = count < ideal;
-  if (tier === 'novice') return under ? "It needs something. You aren't sure what." : "Something in it's too strong.";
+  if (tier === 'novice') return under ? "It needs something. You aren't sure what." : "Something in it is too strong.";
   if (tier === 'competent') return under ? "It's flat. It wants seasoning." : "It's over-seasoned.";
   const by = Math.abs(count - ideal);
   return under
@@ -47,7 +47,7 @@ function timingNote(state, tier) {
     return 'You have left it too long.';
   }
   const MAP = {
-    raw: 'Still raw in the middle — it needs longer.',
+    raw: 'Still raw in the middle: it needs longer.',
     peak: 'This is it. Take it off.',
     over: "It's past its best and drying out.",
     burnt: "It's ruined. There's nothing to save here.",
@@ -96,7 +96,7 @@ const BAND_FLAVOUR = {
   grim: "Grim work. You eat it because you're hungry, not because you want to.",
   acceptable: "It's fine. It does the job and asks nothing of you.",
   decent: 'Decent. Somebody paid a bit of attention to this.',
-  good: 'Good — properly good. You slow down a little without meaning to.',
+  good: 'Good: properly good. You slow down a little without meaning to.',
   'very good': "Very good. There's a moment near the middle where you stop and notice it.",
   excellent: 'Excellent. Whoever made this knew exactly what they were doing.',
   superb: 'Superb. You eat the last of it far more slowly than the first.',
@@ -107,7 +107,7 @@ const DONENESS_FLAVOUR = {
   blue: 'Barely warmed through, and it fights you a little.',
   rare: 'Red at the centre, and all the better for it.',
   medium: 'Pink in the middle, exactly as it should be.',
-  'well done': 'Cooked right through — no pink, no argument.',
+  'well done': 'Cooked right through: no pink, no argument.',
   runny: 'The yolk goes everywhere.',
   soft: 'Just set, and still soft.',
   hard: 'Set hard the whole way through.',
@@ -120,6 +120,6 @@ export function flavourLines(cd = {}, restState = null) {
   if (cd.doneness && DONENESS_FLAVOUR[cd.doneness]) lines.push(DONENESS_FLAVOUR[cd.doneness]);
   if (restState === 'cold') lines.push('It has gone cold, which takes the edge off it.');
   else if (restState === 'rested') lines.push('It sat exactly as long as it wanted to.');
-  if (cd.minced) lines.push('No texture to speak of — but it was quick.');
+  if (cd.minced) lines.push('No texture to speak of... but it was quick.');
   return lines;
 }

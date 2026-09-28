@@ -52,31 +52,31 @@ function zoneInIntrusion(intr, zoneId) {
 
 // ── Waking & the panic cop-call ──────────────────────────────────────────────
 const WAKE_LINES = [
-  name => `${name} jolts awake — "Who's there?!"`,
+  name => `${name} jolts awake, "Who's there?!"`,
   name => `${name} sits bolt upright, breath catching in the dark.`,
 ];
 const NOTICE_LINES = [
-  name => `${name} freezes — "...someone's in the house."`,
+  name => `${name} freezes: "...someone's in the house."`,
   name => `${name} spins toward the noise, eyes wide.`,
 ];
 // Lower urgency: the intruder is still on the far side of a locked door, so the
 // resident is defiant — banging back, shouting through it, calling it in. These
 // carry to the intruder's side too (they're at the door working the lock).
 const DOOR_YELL_LINES = [
-  name => `${name} pounds on the door: "I've CALLED THE COPS — you hear me?!"`,
+  name => `${name} pounds on the door: "I've CALLED THE COPS: you hear me?!"`,
   name => `${name} shouts through the door: "Get the hell away from my home!"`,
-  name => `${name} snarls through the door: "I know you're out there, you piece of—"`,
+  name => `${name} snarls through the door: "I know you're out there, you piece of..."`,
   name => `${name} yells, "Precinct Nine's on the line RIGHT NOW, you're finished!"`,
   name => `${name} bangs something heavy against the door: "Try it. TRY it and see."`,
 ];
 // High urgency: the intruder is inside the unit. Terror — screaming for help,
 // begging, wailing into the comm.
 const SCREAM_LINES = [
-  name => `${name} SCREAMS: "SOMEBODY HELP — HE'S IN MY HOUSE!"`,
-  name => `${name} shrieks and scrambles back — "Please, please don't, PLEASE—"`,
-  name => `${name} wails into the comm: "HE'S INSIDE, HE'S RIGHT HERE, HURRY—"`,
+  name => `${name} SCREAMS: "SOMEBODY HELP: HE'S IN MY HOUSE!"`,
+  name => `${name} shrieks and scrambles back: "Please, please don't, PLEASE..."`,
+  name => `${name} wails into the comm: "HE'S INSIDE, HE'S RIGHT HERE, HURRY..."`,
   name => `${name} screams for help at the top of their lungs.`,
-  name => `${name}, voice shattering: "TAKE anything — just don't— DON'T—"`,
+  name => `${name}, voice shattering: "TAKE anything, just don't, DON'T..."`,
 ];
 const pick = (pool, name) => pool[Math.floor(Math.random() * pool.length)](name);
 
@@ -181,7 +181,7 @@ function stepFlee(npc, state) {
   }
 
   if (Math.random() >= FLEE_ESCAPE) {
-    sendToZone(npc.zone_id, { type: 'zone_event', message: `${npc.name} tries to bolt — the intruder's in the way!` });
+    sendToZone(npc.zone_id, { type: 'zone_event', message: `${npc.name} tries to bolt: the intruder's in the way!` });
     return;
   }
 
@@ -286,7 +286,7 @@ function alarmTick() {
       sendToZone(npc.zone_id, {
         type: 'zone_event',
         message: state.charged
-          ? `${npc.name} sags against the wall, shaking — the police are on their way.`
+          ? `${npc.name} sags against the wall, shaking: the police are on their way.`
           : `${npc.name} goes still, listening hard... whoever it was is gone.`,
       });
       endAlarm(npc);

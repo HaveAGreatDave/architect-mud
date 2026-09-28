@@ -6,9 +6,7 @@
       "books",
       "shelves"
     ],
-    "interactions": {
-      "examine": "The volumes from the last nineteen years are all in the same hand. The ones before that are in four or five hands and are noticeably worse."
-    }
+    "examine_detail": "The volumes from the last nineteen years are all in the same hand. The ones before that are in four or five hands and are noticeably worse."
   },
   "id": "furn_course_transcripts",
   "name": "the bound transcripts",

@@ -24,6 +24,8 @@
 import { getZone } from '../../server/engine/world.js';
 import { crossingInfo, crossingDistance, VOIDS } from '../voidwalking/index.js';
 import { milesOf } from './corridor.js';
+import { roadLength } from './roadnet.js';
+import { routeNumber } from '../../client/shared/wildlands.js';
 
 // Which destination a rig is CURRENTLY pointed at. A contracted load outranks the aim, because a
 // run knows where it is going and asking twice would be ceremony.
@@ -97,10 +99,12 @@ export function routeOptions(rig, { zoneId = null, forkAhead = true } = {}) {
       // the range gate existed; it was never in the sim. Printing 'ok' everywhere is not a nerf, it
       // is this surface stopping saying something that was not true. If that gate is wanted back it
       // belongs in the tanks, where it would actually bite.
-      const tiles = Math.round(crossingDistance(voidKey, d));
+      // The real road where the network has one (trunk and slip road included); the gate gap otherwise.
+      const tiles = Math.round((d.region && roadLength(voidKey, d.region)) || crossingDistance(voidKey, d));
       return {
         key: d.key,
         heading: d.heading,
+        num: d.region ? routeNumber(voidKey, d.region) : null,
         tiles,
         // MILES, because that is the unit the road itself now speaks in. `tiles` stays because the
         // reach bands below are computed against a tank measured in them; nothing player-facing

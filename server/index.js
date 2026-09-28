@@ -546,8 +546,13 @@ const httpServer = createServer(async (req, res) => {
 		// at most max-age seconds stale for an already-open page.
 		const ext = extname(filePath);
 		const asset = getAsset(filePath);
+		// Dev only: lets the page run the browser's JS Self-Profiling API
+		// (`new Profiler(...)`), the one way to get a function-level frame profile
+		// without DevTools open. The policy has to arrive on the document itself,
+		// and on the 304 as well, or a cached reload silently loses it.
+		const devPolicy = ext === ".html" && process.env.NODE_ENV !== "production" ? { "Document-Policy": "js-profiling" } : {};
 		if (req.headers["if-modified-since"] === asset.lastMod) {
-			res.writeHead(304);
+			res.writeHead(304, devPolicy);
 			res.end();
 			return;
 		}
@@ -572,6 +577,7 @@ const httpServer = createServer(async (req, res) => {
 			// to a client that never advertised support.
 			...(COMPRESSIBLE.has(ext) ? { "Vary": "Accept-Encoding" } : {}),
 			...(encoding ? { "Content-Encoding": encoding } : {}),
+			...devPolicy,
 		});
 		res.end(body);
 	} catch {
@@ -1593,7 +1599,7 @@ async function handleGameCommand(ws, session, msg) {
 			ws.send(JSON.stringify({
 				type: "error",
 				code: "rate_limit",
-				message: "⚠ Slow down — you're sending commands too fast. Extra commands are being dropped.",
+				message: "⚠ Slow down: you're sending commands too fast. Extra commands are being dropped.",
 			}));
 		}
 		return;

@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "wasteland",
   "color": "#b5744a",
-  "description": "Cracked red hardpan runs out flat to a rust-colored horizon. Wind-scoured rock, grit, and nothing that grows.",
+  "description": "The hardpan here is split into thousands of red tiles. Nothing grows in the cracks, and the wind keeps them swept.",
   "exits": {
     "east": "zone_district_914_926",
     "north": "zone_district_913_925",

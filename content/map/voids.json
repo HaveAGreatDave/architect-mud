@@ -1,0 +1,140 @@
+{
+  "_comment": [
+    "The void crossings: for each region, where you can get to from it and how that fork reads.",
+    "Moved out of plugins/voidwalking/index.js so a new connection is a content edit, not an engine one.",
+    "key: the destination id, and the SEED of the road (changing one re-rolls that highway).",
+    "dest: the zone a walker arrives at. region: the region at the other end. heading/sign: what the fork and the boards say.",
+    "dir: which way the walker fork turns for it. Must be unique among the region's destinations.",
+    "A region with two entrances offers each destination only from the entrance its road actually uses (gatePair).",
+    "Every connection must appear from both ends, and every pair needs a number in routes.json. gl:wildlands checks both.",
+    "hub: { toward, distance, ramps } (optional) — every road out of a region runs as ONE trunk `distance` tiles toward `toward` (a compass word, or a bearing in degrees, 0 = north, 90 = east) and branches there. `ramps: false` forks it as a Y (every road carries on from the end of the trunk); otherwise the road that carries straight on continues and the rest leave earlier on slip roads.",
+    "gate (optional, on a destination): the zone id of the entrance its road leaves by, to make two roads share one entrance. Otherwise the closest pair of entrances is used."
+  ],
+  "voids": {
+    "region_coldwater": {
+      "origin": "Coldwater",
+      "sign": "Coldwater Basin",
+      "dests": [
+        {
+          "key": "reach",
+          "dest": "zone_the_reach_870_1958",
+          "region": "region_the_reach",
+          "heading": "The Reach",
+          "dir": "south"
+        },
+        {
+          "key": "scarletwastes",
+          "dest": "zone_scw_1000_957",
+          "region": "region_scarletwastes",
+          "heading": "The Scarletwastes",
+          "sign": "Thornwarren",
+          "dir": "east"
+        },
+        {
+          "key": "deadwater",
+          "dest": "zone_dw_812_955",
+          "region": "region_deadwater",
+          "heading": "Deadwater",
+          "dir": "west"
+        }
+      ],
+      "hub": {
+        "toward": "south",
+        "distance": 24,
+        "ramps": false
+      }
+    },
+    "region_the_reach": {
+      "origin": "The Reach",
+      "dests": [
+        {
+          "key": "coldwater",
+          "dest": "zone_district_918_947",
+          "region": "region_coldwater",
+          "heading": "Coldwater",
+          "sign": "Coldwater Basin",
+          "dir": "north"
+        },
+        {
+          "key": "deadwater",
+          "dest": "zone_dw_818_988",
+          "region": "region_deadwater",
+          "heading": "Deadwater",
+          "dir": "west",
+          "gate": "zone_the_reach_863_1955"
+        },
+        {
+          "key": "scarletwastes",
+          "dest": "zone_scw_1000_957",
+          "region": "region_scarletwastes",
+          "heading": "The Scarletwastes",
+          "sign": "Thornwarren",
+          "dir": "east",
+          "gate": "zone_the_reach_863_1955"
+        }
+      ]
+    },
+    "region_deadwater": {
+      "origin": "Deadwater",
+      "dests": [
+        {
+          "key": "reach",
+          "dest": "zone_the_reach_863_1956",
+          "region": "region_the_reach",
+          "heading": "The Reach",
+          "dir": "east"
+        },
+        {
+          "key": "coldwater",
+          "dest": "zone_district_870_947",
+          "region": "region_coldwater",
+          "heading": "Coldwater",
+          "sign": "Coldwater Basin",
+          "dir": "north"
+        }
+      ]
+    },
+    "region_terminus": {
+      "origin": "Terminus",
+      "dests": [
+        {
+          "key": "scarletwastes",
+          "dest": "zone_scw_1092_957",
+          "region": "region_scarletwastes",
+          "heading": "The Scarletwastes",
+          "sign": "Thornwarren",
+          "dir": "south"
+        }
+      ]
+    },
+    "region_scarletwastes": {
+      "origin": "The Scarletwastes",
+      "sign": "Thornwarren",
+      "dests": [
+        {
+          "key": "exodus",
+          "dest": "zone_terminus_1200_940",
+          "region": "region_terminus",
+          "heading": "Terminus",
+          "sign": "Terminus",
+          "dir": "east"
+        },
+        {
+          "key": "coldwater",
+          "dest": "zone_district_955_940",
+          "region": "region_coldwater",
+          "heading": "Coldwater",
+          "sign": "Coldwater Basin",
+          "dir": "west"
+        },
+        {
+          "key": "reach",
+          "dest": "zone_the_reach_882_1959",
+          "region": "region_the_reach",
+          "heading": "The Reach",
+          "dir": "south"
+        }
+      ]
+    }
+  }
+}

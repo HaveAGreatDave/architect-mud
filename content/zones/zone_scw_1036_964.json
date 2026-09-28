@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The skirt of a mesa, a long slope of broken rock shed off the face above over a very long time, everything from fist-sized to the size of a truck. Nothing here is stable. Everything you put a foot on shifts a little and then decides not to.",
+  "description": "Rubble from the mesa lies in a long apron, loose and shifting. The larger blocks are the size of trucks.",
   "exits": {
     "east": "zone_scw_1037_964",
     "north": "zone_scw_1036_963",

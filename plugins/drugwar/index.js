@@ -58,7 +58,7 @@ function offCooldown(map, id, ms) {
 // No cop is coming. Reuses no crime rules — just narrates the absence of law.
 const POLICE_BEATS = [
   `A woman scrambles across the tile, wallet gone, shouting for a cop. None comes. A Precinct 9 camera swivels to track her, records it, and does nothing else.`,
-  `Someone is getting worked over in the mouth of the alley. A patrol drone drifts past, scans the scene, decides it isn't a priority, and moves on. Neither are you — unless you make yourself one.`,
+  `Someone is getting worked over in the mouth of the alley. A patrol drone drifts past, scans the scene, decides it isn't a priority, and moves on. Neither are you, unless you make yourself one.`,
   `A man in a Precinct 9 jacket takes a folded envelope from a hard-looking stranger, pockets it without counting, and finds something fascinating to study in the other direction. That's the law, around here.`,
   `The emergency call-post on the wall has been ringing out for a long time. Nobody's answering. Someone has scratched WHY BOTHER into the casing.`,
 ];
@@ -66,10 +66,10 @@ const POLICE_BEATS = [
 // The Architect as infrastructure — never a voice, only the machine noticing.
 const WATCH_BEATS = [
   `A camera on the corner rotates, slow and deliberate, and settles on you. The little red light holds, and holds.`,
-  `The streetlights stutter — off, on, off — in a pattern too even to be a fault, then go steady, as if they'd never done it.`,
-  `The departure board overhead cycles through stops that don't exist: THRESHOLD · REROUTED · YOU · —, then resets like you imagined it.`,
+  `The streetlights stutter, off, on, off, in a pattern too even to be a fault, then go steady, as if they'd never done it.`,
+  `The departure board overhead cycles through stops that don't exist: THRESHOLD · REROUTED · YOU · ... then resets like you imagined it.`,
   `For half a second every screen on the block shows the same frame of grey static. Then they go back to whatever they were selling.`,
-  `Something in the walls clicks and re-clicks, counting, and the hum of the grid shifts a half-tone — as if the whole block just got re-prioritised around you.`,
+  `Something in the walls clicks and re-clicks, counting, and the hum of the grid shifts a half-tone: as if the whole block just got re-prioritised around you.`,
 ];
 
 on('zone.entered', ({ actor, zone }) => {
@@ -96,7 +96,7 @@ async function blackout(zoneId) {
   const res = await drainZonePower(zoneId).catch(() => ({ ok: false }));
   if (!res?.ok) return;                            // zone has no power grid — no-op
   sendToZone(zoneId, ambient(
-    `Every light on the block dies at once — not a flicker, a decision. The dark holds a moment too long to be an accident. Somewhere, something is running a calculation, and you're inside it.`));
+    `Every light on the block dies at once, not a flicker, a decision. The dark holds a moment too long to be an accident. Somewhere, something is running a calculation, and you're inside it.`));
   setTimeout(() => recomputePower().catch(e => console.error('[drugwar] power restore:', e.message)), 60_000);
 }
 

@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The ground crunches. It isn't gravel. Whatever died out here died in enough numbers that walking quietly isn't an option.",
+  "description": "The ground crunches. It's bone, broken small, a great deal of it.",
   "exits": {
     "east": "zone_the_reach_864_1949",
     "north": "zone_the_reach_863_1948",

@@ -472,7 +472,7 @@ export const FADING_LINES = {
   fruit: 'giving off sugar that has turned from sweet to acrid',
   preserved: 'gone leathery and dark at the edges',
   bread: 'black at the corners, and the kitchen smells of it',
-  dairy: 'split — oil pooling on top, and something rubbery under it',
+  dairy: 'split: oil pooling on top, and something rubbery under it',
   _: 'past whatever it was',
 };
 
@@ -684,7 +684,7 @@ export function restMultiplier(platedAt, restsWell, now = Date.now()) {
 export function restText(platedAt, restsWell, now = Date.now()) {
   if (!restsWell || !platedAt) return null;
   const age = now - platedAt;
-  if (age < REST_MIN_MS) return 'still spitting — it hasn\'t settled';
+  if (age < REST_MIN_MS) return 'still spitting: it hasn\'t settled';
   if (age <= REST_PEAK_MS) return "resting, and about as good as it's going to get";
   if (age < REST_COLD_MS) return 'still warm, but going off the boil';
   return 'gone cold';

@@ -1,0 +1,1325 @@
+{
+  "repeatedSentences": 157,
+  "files": {
+    "CLAUDE.md": {
+      "jargon-metaphor": 2
+    },
+    "client/game/_cabab.html": {
+      "em-dash": 2
+    },
+    "client/game/bsm-studio.html": {
+      "em-dash": 1
+    },
+    "client/game/contents.html": {
+      "caps-run": 2
+    },
+    "client/game/deep.html": {
+      "caps-run": 1
+    },
+    "client/game/guide-text.html": {
+      "constructed-irony": 1
+    },
+    "client/game/guide.html": {
+      "constructed-irony": 1,
+      "caps-run": 3
+    },
+    "client/game/index.html": {
+      "jargon-metaphor": 1,
+      "caps-run": 3,
+      "em-dash": 31
+    },
+    "client/game/lore.html": {
+      "caps-run": 1
+    },
+    "client/game/thomas-tour.html": {
+      "jargon-metaphor": 1,
+      "caps-run": 1
+    },
+    "client/game/tour.html": {
+      "caps-run": 1
+    },
+    "content/augments": {
+      "constructed-irony": 1
+    },
+    "content/dream_presences": {
+      "aphoristic-closer": 1
+    },
+    "content/dream_templates": {
+      "constructed-irony": 6,
+      "aphoristic-closer": 1,
+      "caps-run": 1
+    },
+    "content/dream_tethers": {
+      "constructed-irony": 1
+    },
+    "content/drug_reactions": {
+      "staged-reveal": 1
+    },
+    "content/drug_transforms": {
+      "constructed-irony": 2,
+      "aphoristic-closer": 1
+    },
+    "content/enemies": {
+      "caps-run": 3,
+      "over-length": 11
+    },
+    "content/furniture": {
+      "negative-parallelism": 2,
+      "constructed-irony": 7,
+      "staged-reveal": 1,
+      "aphoristic-closer": 2,
+      "caps-run": 122,
+      "em-dash": 1,
+      "over-length": 382
+    },
+    "content/incidents": {
+      "constructed-irony": 1,
+      "caps-run": 4,
+      "em-dash": 2
+    },
+    "content/items": {
+      "vocab": 2,
+      "constructed-irony": 6,
+      "aphoristic-closer": 2,
+      "caps-run": 50,
+      "em-dash": 9,
+      "over-length": 102
+    },
+    "content/job_boards": {
+      "em-dash": 2
+    },
+    "content/mis_fit_lines": {
+      "caps-run": 20
+    },
+    "content/mutations": {
+      "constructed-irony": 1
+    },
+    "content/npc_banter_threads": {
+      "constructed-irony": 1,
+      "caps-run": 2
+    },
+    "content/npcs": {
+      "negative-parallelism": 47,
+      "constructed-irony": 17,
+      "staged-reveal": 2,
+      "aphoristic-closer": 5,
+      "caps-run": 19,
+      "em-dash": 1,
+      "over-length": 66
+    },
+    "content/quests": {
+      "negative-parallelism": 3,
+      "constructed-irony": 7,
+      "staged-reveal": 1,
+      "caps-run": 2
+    },
+    "content/script_triggers": {
+      "em-dash": 9
+    },
+    "content/scripts": {
+      "em-dash": 5
+    },
+    "content/zones": {
+      "significance-frame": 1,
+      "constructed-irony": 54,
+      "aphoristic-closer": 4,
+      "fiction-cliche": 34,
+      "caps-run": 124,
+      "em-dash": 264,
+      "over-length": 706
+    },
+    "docs/adr/0001-action-canonical-mutation-path.md": {
+      "em-dash": 4
+    },
+    "docs/adr/0002-events-vs-hooks.md": {
+      "em-dash": 3
+    },
+    "docs/adr/0003-tag-mechanism-unification.md": {
+      "em-dash": 5
+    },
+    "docs/adr/0004-shared-graph-engine.md": {
+      "em-dash": 2
+    },
+    "docs/ai-behaviour.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 103
+    },
+    "docs/amp-format.md": {
+      "negative-parallelism": 1,
+      "em-dash": 40
+    },
+    "docs/architecture.md": {
+      "jargon-metaphor": 2,
+      "negative-parallelism": 1,
+      "em-dash": 144
+    },
+    "docs/audits/README.md": {
+      "vocab": 3,
+      "jargon-metaphor": 1,
+      "aphoristic-closer": 1,
+      "em-dash": 27
+    },
+    "docs/audits/affordance-discoverability-audit.md": {
+      "jargon-metaphor": 16,
+      "caps-run": 1,
+      "em-dash": 17
+    },
+    "docs/audits/capability-tag-vs-itemid-audit.md": {
+      "caps-run": 1,
+      "em-dash": 15
+    },
+    "docs/audits/client-server-protocol-audit.md": {
+      "caps-run": 1,
+      "em-dash": 11
+    },
+    "docs/audits/combat-flow-paths.md": {
+      "em-dash": 18
+    },
+    "docs/audits/content-engine-field-audit.md": {
+      "caps-run": 1,
+      "em-dash": 10
+    },
+    "docs/audits/db-burden-audit.md": {
+      "jargon-metaphor": 2,
+      "em-dash": 10
+    },
+    "docs/audits/doc-correctness-concision-audit.md": {
+      "em-dash": 68
+    },
+    "docs/audits/emdash-sweep.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 7
+    },
+    "docs/audits/findings-2026-07-content-shape.md": {
+      "em-dash": 26
+    },
+    "docs/audits/findings-2026-07-docs.md": {
+      "vocab": 1,
+      "jargon-metaphor": 4,
+      "constructed-irony": 1,
+      "staged-reveal": 1,
+      "aphoristic-closer": 1,
+      "em-dash": 822
+    },
+    "docs/audits/findings-2026-07.md": {
+      "em-dash": 51
+    },
+    "docs/audits/log-vs-dialog-audit.md": {
+      "em-dash": 19
+    },
+    "docs/audits/naming-registry-harmony-audit.md": {
+      "em-dash": 18
+    },
+    "docs/audits/source-of-truth-audit.md": {
+      "caps-run": 1,
+      "em-dash": 5
+    },
+    "docs/audits/ui-presentation-standard-audit.md": {
+      "negative-parallelism": 1,
+      "caps-run": 1,
+      "em-dash": 17
+    },
+    "docs/bsm-format.md": {
+      "vocab": 2,
+      "jargon-metaphor": 2,
+      "caps-run": 1,
+      "em-dash": 230
+    },
+    "docs/combat.md": {
+      "jargon-metaphor": 2,
+      "aphoristic-closer": 1,
+      "em-dash": 119
+    },
+    "docs/commands.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 22
+    },
+    "docs/content-pipeline.md": {
+      "caps-run": 1,
+      "em-dash": 55
+    },
+    "docs/design.md": {
+      "aphoristic-closer": 1,
+      "em-dash": 78
+    },
+    "docs/devpanel-js.md": {
+      "em-dash": 142
+    },
+    "docs/flags-keys.md": {
+      "vocab": 1,
+      "jargon-metaphor": 6,
+      "negative-parallelism": 1,
+      "aphoristic-closer": 1,
+      "caps-run": 1,
+      "em-dash": 118
+    },
+    "docs/items.md": {
+      "em-dash": 23
+    },
+    "docs/lore-wildblood.md": {
+      "caps-run": 3,
+      "em-dash": 12
+    },
+    "docs/marketing/README.md": {
+      "em-dash": 3
+    },
+    "docs/npc-clothing.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 13
+    },
+    "docs/ops-usage-watch.md": {
+      "jargon-metaphor": 1,
+      "negative-parallelism": 1,
+      "caps-run": 2,
+      "em-dash": 41
+    },
+    "docs/plugin-standard.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 32
+    },
+    "docs/plugins.md": {
+      "vocab": 1,
+      "jargon-metaphor": 36,
+      "aphoristic-closer": 5,
+      "caps-run": 11,
+      "em-dash": 569
+    },
+    "docs/proposals/ascendant-stronghold.md": {
+      "jargon-metaphor": 2,
+      "caps-run": 1,
+      "em-dash": 62
+    },
+    "docs/proposals/broadcast-piracy.md": {
+      "jargon-metaphor": 3,
+      "em-dash": 64
+    },
+    "docs/proposals/coldwater-infill.md": {
+      "constructed-irony": 1,
+      "em-dash": 34
+    },
+    "docs/proposals/corporate-assets.md": {
+      "vocab": 1,
+      "em-dash": 49
+    },
+    "docs/proposals/dead-drops.md": {
+      "jargon-metaphor": 1,
+      "caps-run": 1,
+      "em-dash": 49
+    },
+    "docs/proposals/deadwater.md": {
+      "em-dash": 30
+    },
+    "docs/proposals/district-repair.md": {
+      "negative-parallelism": 1,
+      "em-dash": 23
+    },
+    "docs/proposals/egress-remediation-phase4b-cameras.md": {
+      "em-dash": 23
+    },
+    "docs/proposals/egress-remediation-phase7-8-idle-activity.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 41
+    },
+    "docs/proposals/engine-plugin-boundary.md": {
+      "vocab": 1,
+      "jargon-metaphor": 2,
+      "constructed-irony": 1,
+      "em-dash": 86
+    },
+    "docs/proposals/fairweather-marina.md": {
+      "jargon-metaphor": 2,
+      "constructed-irony": 1,
+      "caps-run": 11,
+      "em-dash": 32
+    },
+    "docs/proposals/flight-overhaul.md": {
+      "em-dash": 26
+    },
+    "docs/proposals/flight-unified-model.md": {
+      "em-dash": 28
+    },
+    "docs/proposals/halcyon-fields-infill.md": {
+      "negative-parallelism": 1,
+      "aphoristic-closer": 1,
+      "caps-run": 33,
+      "em-dash": 60
+    },
+    "docs/proposals/injury-system.md": {
+      "jargon-metaphor": 5,
+      "aphoristic-closer": 1,
+      "em-dash": 89
+    },
+    "docs/proposals/interior-pass.md": {
+      "em-dash": 15
+    },
+    "docs/proposals/legacy-world-decommission.md": {
+      "jargon-metaphor": 3,
+      "em-dash": 35
+    },
+    "docs/proposals/leviathan-flying-base.md": {
+      "vocab": 2,
+      "jargon-metaphor": 7,
+      "em-dash": 35
+    },
+    "docs/proposals/map-pipeline-redesign.md": {
+      "jargon-metaphor": 4,
+      "constructed-irony": 2,
+      "em-dash": 278
+    },
+    "docs/proposals/map-pipeline-spec.md": {
+      "jargon-metaphor": 1,
+      "constructed-irony": 1,
+      "aphoristic-closer": 3,
+      "caps-run": 2,
+      "em-dash": 223
+    },
+    "docs/proposals/mastery.md": {
+      "vocab": 1,
+      "jargon-metaphor": 1,
+      "em-dash": 41
+    },
+    "docs/proposals/neon-migration.md": {
+      "em-dash": 18
+    },
+    "docs/proposals/old-coldwater.md": {
+      "caps-run": 6,
+      "em-dash": 30
+    },
+    "docs/proposals/preparation-workspace.md": {
+      "jargon-metaphor": 4,
+      "constructed-irony": 1,
+      "caps-run": 1,
+      "em-dash": 86
+    },
+    "docs/proposals/quest-expansion.md": {
+      "em-dash": 26
+    },
+    "docs/proposals/scarletwastes.md": {
+      "vocab": 2,
+      "jargon-metaphor": 4,
+      "caps-run": 2,
+      "em-dash": 32
+    },
+    "docs/proposals/steady-work.md": {
+      "jargon-metaphor": 3,
+      "em-dash": 44
+    },
+    "docs/proposals/systems-flight-pvp.md": {
+      "em-dash": 45
+    },
+    "docs/proposals/systems-flight.md": {
+      "vocab": 2,
+      "jargon-metaphor": 1,
+      "caps-run": 1,
+      "em-dash": 155
+    },
+    "docs/proposals/terminus.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 16
+    },
+    "docs/proposals/terrain-property-presets.md": {
+      "jargon-metaphor": 2,
+      "aphoristic-closer": 1,
+      "em-dash": 38
+    },
+    "docs/proposals/the-long-haul.md": {
+      "jargon-metaphor": 1,
+      "constructed-irony": 1,
+      "transition-opener": 1,
+      "caps-run": 1,
+      "em-dash": 93
+    },
+    "docs/proposals/the-under.md": {
+      "vocab": 1,
+      "jargon-metaphor": 3,
+      "em-dash": 29
+    },
+    "docs/proposals/tile-presentation-overrides.md": {
+      "em-dash": 41
+    },
+    "docs/proposals/trading-cards.md": {
+      "jargon-metaphor": 2,
+      "caps-run": 1,
+      "em-dash": 110
+    },
+    "docs/proposals/unrest.md": {
+      "jargon-metaphor": 5,
+      "em-dash": 65
+    },
+    "docs/proposals/void-arrival-checkpoint.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 43
+    },
+    "docs/proposals/wildblood-stronghold.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 22
+    },
+    "docs/proposals/yards.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 40
+    },
+    "docs/reference/Cockpit_Design_Reference.md": {
+      "em-dash": 32
+    },
+    "docs/reference/Flight_Implementation.md": {
+      "em-dash": 1
+    },
+    "docs/reference/Rendering_Implementation.md": {
+      "em-dash": 1
+    },
+    "docs/reference/Sound_Implementation.md": {
+      "em-dash": 1
+    },
+    "docs/reference/Weather_Implementation.md": {
+      "em-dash": 10
+    },
+    "docs/reference/ai-fiction-tells.md": {
+      "vocab": 20,
+      "negative-parallelism": 3,
+      "significance-frame": 8,
+      "staged-reveal": 10,
+      "promotional": 3,
+      "caps-run": 10,
+      "em-dash": 1
+    },
+    "docs/reference/building-shapes.md": {
+      "jargon-metaphor": 3,
+      "aphoristic-closer": 2,
+      "caps-run": 9,
+      "em-dash": 104
+    },
+    "docs/reference/building-styles.md": {
+      "jargon-metaphor": 1,
+      "negative-parallelism": 1,
+      "caps-run": 27,
+      "em-dash": 111
+    },
+    "docs/reference/cockpit-lettering.md": {
+      "constructed-irony": 1,
+      "em-dash": 1
+    },
+    "docs/reference/glass-notes.md": {
+      "constructed-irony": 1
+    },
+    "docs/reference/hellmoo-combat-reference.md": {
+      "vocab": 1,
+      "em-dash": 22
+    },
+    "docs/reference/house-voice.md": {
+      "constructed-irony": 10,
+      "caps-run": 1
+    },
+    "docs/reference/item-facets.md": {
+      "em-dash": 31
+    },
+    "docs/reference/land-taxonomy.md": {
+      "em-dash": 33
+    },
+    "docs/reference/plain-writing.md": {
+      "jargon-metaphor": 6,
+      "negative-parallelism": 5,
+      "constructed-irony": 1,
+      "aphoristic-closer": 3,
+      "em-dash": 100
+    },
+    "docs/reference/plugin-architecture-analysis.md": {
+      "vocab": 2,
+      "jargon-metaphor": 2,
+      "em-dash": 135
+    },
+    "docs/reference/world-rendering.md": {
+      "jargon-metaphor": 2,
+      "constructed-irony": 2,
+      "aphoristic-closer": 2,
+      "caps-run": 8,
+      "em-dash": 291
+    },
+    "docs/roadmap-world-expansion.md": {
+      "jargon-metaphor": 4,
+      "em-dash": 137
+    },
+    "docs/scripting.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 44
+    },
+    "docs/server.md": {
+      "jargon-metaphor": 2,
+      "caps-run": 7,
+      "em-dash": 127
+    },
+    "docs/systems-accessibility.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 64
+    },
+    "docs/systems-ascension.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 39
+    },
+    "docs/systems-atm.md": {
+      "jargon-metaphor": 1,
+      "caps-run": 2,
+      "em-dash": 33
+    },
+    "docs/systems-augments.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 50
+    },
+    "docs/systems-automation.md": {
+      "constructed-irony": 2,
+      "caps-run": 1,
+      "em-dash": 60
+    },
+    "docs/systems-bounties.md": {
+      "jargon-metaphor": 1,
+      "constructed-irony": 3,
+      "em-dash": 14
+    },
+    "docs/systems-broadcast.md": {
+      "vocab": 2,
+      "jargon-metaphor": 5,
+      "constructed-irony": 1,
+      "aphoristic-closer": 3,
+      "caps-run": 6,
+      "em-dash": 325
+    },
+    "docs/systems-casino.md": {
+      "em-dash": 30
+    },
+    "docs/systems-chess.md": {
+      "jargon-metaphor": 2,
+      "aphoristic-closer": 1,
+      "em-dash": 78
+    },
+    "docs/systems-cleaning.md": {
+      "em-dash": 15
+    },
+    "docs/systems-codex.md": {
+      "jargon-metaphor": 2,
+      "caps-run": 1,
+      "em-dash": 60
+    },
+    "docs/systems-corps.md": {
+      "jargon-metaphor": 2,
+      "caps-run": 1,
+      "em-dash": 61
+    },
+    "docs/systems-demolition.md": {
+      "em-dash": 22
+    },
+    "docs/systems-display-mode.md": {
+      "jargon-metaphor": 5,
+      "negative-parallelism": 2,
+      "constructed-irony": 2,
+      "caps-run": 1,
+      "em-dash": 215
+    },
+    "docs/systems-dreams.md": {
+      "jargon-metaphor": 2,
+      "em-dash": 81
+    },
+    "docs/systems-drinks.md": {
+      "jargon-metaphor": 2,
+      "aphoristic-closer": 1,
+      "em-dash": 54
+    },
+    "docs/systems-durability.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 36
+    },
+    "docs/systems-economy.md": {
+      "jargon-metaphor": 2,
+      "em-dash": 90
+    },
+    "docs/systems-faction-arcs.md": {
+      "jargon-metaphor": 1,
+      "constructed-irony": 1,
+      "caps-run": 1,
+      "em-dash": 44
+    },
+    "docs/systems-fauna.md": {
+      "jargon-metaphor": 1,
+      "negative-parallelism": 1,
+      "caps-run": 96,
+      "em-dash": 103
+    },
+    "docs/systems-fishing.md": {
+      "jargon-metaphor": 4,
+      "em-dash": 28
+    },
+    "docs/systems-flight.md": {
+      "vocab": 5,
+      "jargon-metaphor": 7,
+      "constructed-irony": 1,
+      "caps-run": 17,
+      "em-dash": 264
+    },
+    "docs/systems-helm.md": {
+      "jargon-metaphor": 2,
+      "em-dash": 17
+    },
+    "docs/systems-hygiene.md": {
+      "constructed-irony": 1,
+      "em-dash": 23
+    },
+    "docs/systems-ideologies.md": {
+      "jargon-metaphor": 1,
+      "constructed-irony": 1,
+      "em-dash": 37
+    },
+    "docs/systems-instruments.md": {
+      "jargon-metaphor": 2,
+      "em-dash": 35
+    },
+    "docs/systems-jail.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 43
+    },
+    "docs/systems-jobboard.md": {
+      "em-dash": 21
+    },
+    "docs/systems-library.md": {
+      "jargon-metaphor": 1,
+      "caps-run": 1,
+      "em-dash": 126
+    },
+    "docs/systems-macros.md": {
+      "jargon-metaphor": 1,
+      "negative-parallelism": 1,
+      "constructed-irony": 1,
+      "em-dash": 55
+    },
+    "docs/systems-mastery.md": {
+      "jargon-metaphor": 2,
+      "aphoristic-closer": 1,
+      "em-dash": 59
+    },
+    "docs/systems-mining.md": {
+      "em-dash": 18
+    },
+    "docs/systems-mis.md": {
+      "constructed-irony": 1,
+      "em-dash": 39
+    },
+    "docs/systems-mutations.md": {
+      "jargon-metaphor": 2,
+      "constructed-irony": 1,
+      "aphoristic-closer": 1,
+      "caps-run": 1,
+      "em-dash": 40
+    },
+    "docs/systems-nullcraft.md": {
+      "jargon-metaphor": 2,
+      "negative-parallelism": 1,
+      "caps-run": 3,
+      "em-dash": 48
+    },
+    "docs/systems-overland-void-travel.md": {
+      "jargon-metaphor": 4,
+      "negative-parallelism": 2,
+      "constructed-irony": 2,
+      "aphoristic-closer": 2,
+      "caps-run": 38,
+      "em-dash": 265
+    },
+    "docs/systems-posture.md": {
+      "em-dash": 16
+    },
+    "docs/systems-procedural-audio.md": {
+      "aphoristic-closer": 1,
+      "em-dash": 99
+    },
+    "docs/systems-psionics.md": {
+      "jargon-metaphor": 1,
+      "caps-run": 1,
+      "em-dash": 40
+    },
+    "docs/systems-relationships.md": {
+      "jargon-metaphor": 1,
+      "aphoristic-closer": 2,
+      "em-dash": 39
+    },
+    "docs/systems-scavenging.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 15
+    },
+    "docs/systems-senses.md": {
+      "jargon-metaphor": 2,
+      "em-dash": 33
+    },
+    "docs/systems-shopalarm.md": {
+      "em-dash": 18
+    },
+    "docs/systems-stealth.md": {
+      "jargon-metaphor": 1,
+      "constructed-irony": 1,
+      "em-dash": 37
+    },
+    "docs/systems-strays.md": {
+      "jargon-metaphor": 2,
+      "negative-parallelism": 1,
+      "constructed-irony": 1,
+      "em-dash": 45
+    },
+    "docs/systems-surveillance.md": {
+      "jargon-metaphor": 3,
+      "constructed-irony": 1,
+      "em-dash": 125
+    },
+    "docs/systems-survival.md": {
+      "jargon-metaphor": 2,
+      "constructed-irony": 2,
+      "caps-run": 1,
+      "em-dash": 255
+    },
+    "docs/systems-swimming.md": {
+      "em-dash": 40
+    },
+    "docs/systems-terrain.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 94
+    },
+    "docs/systems-trucking.md": {
+      "jargon-metaphor": 10,
+      "constructed-irony": 5,
+      "aphoristic-closer": 6,
+      "caps-run": 70,
+      "em-dash": 904
+    },
+    "docs/systems-unrest.md": {
+      "jargon-metaphor": 4,
+      "constructed-irony": 1,
+      "em-dash": 36
+    },
+    "docs/systems-weather-extreme.md": {
+      "jargon-metaphor": 2,
+      "negative-parallelism": 1,
+      "constructed-irony": 1,
+      "aphoristic-closer": 1,
+      "em-dash": 103
+    },
+    "docs/systems-wildlands-ground.md": {
+      "caps-run": 1
+    },
+    "docs/systems-wildlands.md": {
+      "vocab": 1,
+      "jargon-metaphor": 1,
+      "em-dash": 62
+    },
+    "docs/systems-world.md": {
+      "jargon-metaphor": 4,
+      "constructed-irony": 1,
+      "em-dash": 171
+    },
+    "docs/tags.md": {
+      "em-dash": 44
+    },
+    "docs/vine.md": {
+      "em-dash": 50
+    },
+    "docs/zone-redesign-2026-07.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 23
+    },
+    "plugins/aa-sites/README.md": {
+      "caps-run": 1,
+      "em-dash": 9
+    },
+    "plugins/accolades/README.md": {
+      "em-dash": 11
+    },
+    "plugins/ally/README.md": {
+      "em-dash": 14
+    },
+    "plugins/ambient-life/README.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 23
+    },
+    "plugins/amp/README.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 9
+    },
+    "plugins/appliances/README.md": {
+      "em-dash": 5
+    },
+    "plugins/ascendant/README.md": {
+      "em-dash": 3
+    },
+    "plugins/atm/README.md": {
+      "em-dash": 7
+    },
+    "plugins/audio/README.md": {
+      "em-dash": 7
+    },
+    "plugins/augments/README.md": {
+      "caps-run": 1,
+      "em-dash": 28
+    },
+    "plugins/bartender/README.md": {
+      "em-dash": 7
+    },
+    "plugins/birthday/README.md": {
+      "caps-run": 1,
+      "em-dash": 10
+    },
+    "plugins/bodily/README.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 29
+    },
+    "plugins/bounty/README.md": {
+      "em-dash": 4
+    },
+    "plugins/broadcast/README.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 6
+    },
+    "plugins/bulletin/README.md": {
+      "em-dash": 2
+    },
+    "plugins/burglary/README.md": {
+      "caps-run": 1,
+      "em-dash": 21
+    },
+    "plugins/butchering/README.md": {
+      "em-dash": 4
+    },
+    "plugins/cannabis/README.md": {
+      "em-dash": 5
+    },
+    "plugins/cards/README.md": {
+      "jargon-metaphor": 1,
+      "aphoristic-closer": 1,
+      "caps-run": 1,
+      "em-dash": 50
+    },
+    "plugins/checkpoint/README.md": {
+      "aphoristic-closer": 1,
+      "em-dash": 6
+    },
+    "plugins/cleaning/README.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 8
+    },
+    "plugins/climbing/README.md": {
+      "em-dash": 16
+    },
+    "plugins/clinic/README.md": {
+      "em-dash": 11
+    },
+    "plugins/clothing-wetness/README.md": {
+      "em-dash": 10
+    },
+    "plugins/commerce/README.md": {
+      "constructed-irony": 1,
+      "em-dash": 16
+    },
+    "plugins/concealment/README.md": {
+      "em-dash": 17
+    },
+    "plugins/consort/README.md": {
+      "jargon-metaphor": 5,
+      "constructed-irony": 1,
+      "em-dash": 73
+    },
+    "plugins/consume/README.md": {
+      "em-dash": 3
+    },
+    "plugins/container/README.md": {
+      "em-dash": 2
+    },
+    "plugins/cooking/README.md": {
+      "jargon-metaphor": 2,
+      "negative-parallelism": 1,
+      "constructed-irony": 1,
+      "aphoristic-closer": 3,
+      "em-dash": 206
+    },
+    "plugins/corps/README.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 10
+    },
+    "plugins/cosmetic-machine/README.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 3
+    },
+    "plugins/crafting/README.md": {
+      "em-dash": 4
+    },
+    "plugins/deaddrop/README.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 32
+    },
+    "plugins/dealer/README.md": {
+      "jargon-metaphor": 3,
+      "em-dash": 5
+    },
+    "plugins/dealing/README.md": {
+      "em-dash": 6
+    },
+    "plugins/deaths/README.md": {
+      "aphoristic-closer": 1,
+      "em-dash": 2
+    },
+    "plugins/debug/README.md": {
+      "em-dash": 2
+    },
+    "plugins/demolition/README.md": {
+      "em-dash": 5
+    },
+    "plugins/dev-tools/README.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 7
+    },
+    "plugins/district-ambience/README.md": {
+      "em-dash": 4
+    },
+    "plugins/doors/README.md": {
+      "em-dash": 4
+    },
+    "plugins/drama/README.md": {
+      "em-dash": 3
+    },
+    "plugins/drinks/README.md": {
+      "jargon-metaphor": 2,
+      "em-dash": 17
+    },
+    "plugins/drugs/README.md": {
+      "em-dash": 4
+    },
+    "plugins/drugwar/README.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 10
+    },
+    "plugins/economy-ledger/README.md": {
+      "em-dash": 7
+    },
+    "plugins/elevator/README.md": {
+      "em-dash": 24
+    },
+    "plugins/emergency/README.md": {
+      "em-dash": 3
+    },
+    "plugins/escort/README.md": {
+      "negative-parallelism": 1,
+      "em-dash": 9
+    },
+    "plugins/fillable/README.md": {
+      "em-dash": 10
+    },
+    "plugins/fireworks/README.md": {
+      "em-dash": 2
+    },
+    "plugins/fishing/README.md": {
+      "jargon-metaphor": 2,
+      "em-dash": 5
+    },
+    "plugins/flashlight/README.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 12
+    },
+    "plugins/flight/README.md": {
+      "em-dash": 18
+    },
+    "plugins/food/README.md": {
+      "em-dash": 5
+    },
+    "plugins/freelook/README.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 26
+    },
+    "plugins/frostbite/README.md": {
+      "em-dash": 9
+    },
+    "plugins/fuelstation/README.md": {
+      "em-dash": 7
+    },
+    "plugins/gametable/README.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 5
+    },
+    "plugins/gatewarn/README.md": {
+      "em-dash": 3
+    },
+    "plugins/generator/README.md": {
+      "em-dash": 6
+    },
+    "plugins/gossip/README.md": {
+      "em-dash": 11
+    },
+    "plugins/gps/README.md": {
+      "em-dash": 6
+    },
+    "plugins/graffiti/README.md": {
+      "em-dash": 23
+    },
+    "plugins/hackrig/README.md": {
+      "aphoristic-closer": 1,
+      "em-dash": 6
+    },
+    "plugins/ideologies/README.md": {
+      "em-dash": 6
+    },
+    "plugins/idle-logoff/README.md": {
+      "em-dash": 7
+    },
+    "plugins/injury/README.md": {
+      "em-dash": 10
+    },
+    "plugins/instrument/README.md": {
+      "jargon-metaphor": 1,
+      "negative-parallelism": 1,
+      "em-dash": 9
+    },
+    "plugins/insurance/README.md": {
+      "em-dash": 6
+    },
+    "plugins/interactions/README.md": {
+      "em-dash": 1
+    },
+    "plugins/intoxication/README.md": {
+      "em-dash": 23
+    },
+    "plugins/jail/README.md": {
+      "em-dash": 7
+    },
+    "plugins/jobboard/README.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 10
+    },
+    "plugins/knock/README.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 3
+    },
+    "plugins/laundry/README.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 8
+    },
+    "plugins/library/README.md": {
+      "em-dash": 3
+    },
+    "plugins/lighting/README.md": {
+      "em-dash": 2
+    },
+    "plugins/lore/README.md": {
+      "em-dash": 6
+    },
+    "plugins/mastery/README.md": {
+      "em-dash": 7
+    },
+    "plugins/mining/README.md": {
+      "em-dash": 10
+    },
+    "plugins/mis/README.md": {
+      "em-dash": 16
+    },
+    "plugins/mutations/README.md": {
+      "em-dash": 3
+    },
+    "plugins/npc-drugs/README.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 30
+    },
+    "plugins/nullcraft/README.md": {
+      "constructed-irony": 1,
+      "em-dash": 4
+    },
+    "plugins/pacing/README.md": {
+      "em-dash": 17
+    },
+    "plugins/party/README.md": {
+      "em-dash": 11
+    },
+    "plugins/pay/README.md": {
+      "em-dash": 4
+    },
+    "plugins/pinch/README.md": {
+      "em-dash": 7
+    },
+    "plugins/pipes/README.md": {
+      "negative-parallelism": 1,
+      "aphoristic-closer": 1,
+      "em-dash": 9
+    },
+    "plugins/posters/README.md": {
+      "em-dash": 3
+    },
+    "plugins/powerboat/README.md": {
+      "vocab": 1,
+      "constructed-irony": 1,
+      "caps-run": 25,
+      "em-dash": 75
+    },
+    "plugins/preservation/README.md": {
+      "em-dash": 15
+    },
+    "plugins/prologue/README.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 17
+    },
+    "plugins/psionics/README.md": {
+      "em-dash": 7
+    },
+    "plugins/quests/README.md": {
+      "constructed-irony": 1,
+      "em-dash": 85
+    },
+    "plugins/residency/README.md": {
+      "em-dash": 2
+    },
+    "plugins/rolling/README.md": {
+      "em-dash": 8
+    },
+    "plugins/sanity/README.md": {
+      "em-dash": 16
+    },
+    "plugins/scavenging/README.md": {
+      "em-dash": 2
+    },
+    "plugins/search/README.md": {
+      "em-dash": 4
+    },
+    "plugins/shopalarm/README.md": {
+      "jargon-metaphor": 2,
+      "em-dash": 29
+    },
+    "plugins/shove/README.md": {
+      "em-dash": 1
+    },
+    "plugins/slots/README.md": {
+      "em-dash": 3
+    },
+    "plugins/smoking/README.md": {
+      "em-dash": 9
+    },
+    "plugins/smuggle/README.md": {
+      "jargon-metaphor": 2,
+      "em-dash": 22
+    },
+    "plugins/sneak/README.md": {
+      "em-dash": 8
+    },
+    "plugins/sportsbet/README.md": {
+      "em-dash": 6
+    },
+    "plugins/sportsleague/README.md": {
+      "em-dash": 14
+    },
+    "plugins/storefront/README.md": {
+      "em-dash": 22
+    },
+    "plugins/strays/README.md": {
+      "constructed-irony": 1,
+      "em-dash": 15
+    },
+    "plugins/strippers/README.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 8
+    },
+    "plugins/submersible/README.md": {
+      "em-dash": 2
+    },
+    "plugins/surveillance/README.md": {
+      "em-dash": 9
+    },
+    "plugins/swimming/README.md": {
+      "em-dash": 3
+    },
+    "plugins/synthesis/README.md": {
+      "em-dash": 8
+    },
+    "plugins/tablet/README.md": {
+      "em-dash": 15
+    },
+    "plugins/thievery/README.md": {
+      "em-dash": 2
+    },
+    "plugins/topical/README.md": {
+      "jargon-metaphor": 1,
+      "constructed-irony": 1,
+      "em-dash": 28
+    },
+    "plugins/trade/README.md": {
+      "em-dash": 2
+    },
+    "plugins/trip/README.md": {
+      "em-dash": 6
+    },
+    "plugins/trucking/README.md": {
+      "caps-run": 1,
+      "em-dash": 18
+    },
+    "plugins/tv-reactions/README.md": {
+      "em-dash": 3
+    },
+    "plugins/unrest/README.md": {
+      "jargon-metaphor": 2,
+      "em-dash": 29
+    },
+    "plugins/vending/README.md": {
+      "aphoristic-closer": 1,
+      "em-dash": 8
+    },
+    "plugins/vendor-safe/README.md": {
+      "em-dash": 7
+    },
+    "plugins/videostore/README.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 12
+    },
+    "plugins/voidwalking/README.md": {
+      "em-dash": 17
+    },
+    "plugins/wardrobe/README.md": {
+      "em-dash": 9
+    },
+    "plugins/warmth/README.md": {
+      "em-dash": 8
+    },
+    "plugins/water/README.md": {
+      "em-dash": 1
+    },
+    "plugins/weapon/README.md": {
+      "em-dash": 8
+    },
+    "plugins/wear/README.md": {
+      "em-dash": 8
+    },
+    "plugins/weather/README.md": {
+      "jargon-metaphor": 2,
+      "em-dash": 3
+    },
+    "plugins/weightbench/README.md": {
+      "em-dash": 5
+    },
+    "plugins/work/README.md": {
+      "jargon-metaphor": 1,
+      "em-dash": 5
+    },
+    "plugins/workspace/README.md": {
+      "jargon-metaphor": 1,
+      "aphoristic-closer": 1,
+      "caps-run": 1,
+      "em-dash": 68
+    },
+    "plugins/worldmap/README.md": {
+      "em-dash": 3
+    },
+    "plugins/yacht/README.md": {
+      "em-dash": 21
+    },
+    "plugins/zone-validator/README.md": {
+      "em-dash": 5
+    },
+    "tools/modelshop/README.md": {
+      "vocab": 1,
+      "constructed-irony": 5,
+      "aphoristic-closer": 1,
+      "caps-run": 43,
+      "em-dash": 333
+    },
+    "tools/studio/README.md": {
+      "jargon-metaphor": 1,
+      "constructed-irony": 1,
+      "em-dash": 111
+    }
+  }
+}

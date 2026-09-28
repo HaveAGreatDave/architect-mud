@@ -413,6 +413,15 @@ async function dispatchApiRequest(url, method, body, headers) {
   // ⚠ DEV-GATED AND IT MUST STAY SO: the unrest system settled for the whole codebase that a sim
   // with a player-facing readout becomes a dashboard to optimise, so the line is the client
   // boundary rather than the data.
+  // ── THE THERMAL MAP ─────────────────────────────────────────────────────────
+  // Ground heat per surface tile, today's sky and live aircraft, for the Thermals tab. RAM-only
+  // and dev-gated for the census's reason: pilots find lift by what they see, never by a map.
+  if (path==='/thermals' && method==='GET') {
+    return requireDev(auth, async () => {
+      const { apiThermalWorld } = await import('../../plugins/flight/thermals-dev.js');
+      return { status:200, body: apiThermalWorld() };
+    });
+  }
   if (path==='/fauna-census' && method==='GET') {
     return requireDev(auth, () => {
       const p = new URLSearchParams(url.replace(/^[^?]*\??/,''));

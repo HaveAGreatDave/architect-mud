@@ -95,7 +95,7 @@ function bodyBonus(player) {
 registerClimbProvider(async (player, to) => {
   if (!player || !to) return null;
   if (!await hasGear(player.id)) {
-    return { ok: false, message: 'The rock is broken enough to climb — you can see the line up it — but not with your bare hands. <span class="text-dim">You would need the right kit.</span>' };
+    return { ok: false, message: 'The rock is broken enough to climb, you can see the line up it, but not with your bare hands. <span class="text-dim">You would need the right kit.</span>' };
   }
   const eff = await effectiveSkill(player, 'climbing') + bodyBonus(player);
   const cost = climbCost(eff);

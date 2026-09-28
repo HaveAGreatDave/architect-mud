@@ -90,7 +90,7 @@ const FALLBACK = {
   body: [107, 95, 78], belly: [201, 194, 180], neck: [22, 22, 26], cheek: [232, 230, 223],
   bill: [14, 14, 17], wing: [90, 81, 69], patch: [154, 154, 142], leg: [42, 38, 34],
   primary: [46, 42, 38], undertail: [238, 236, 230], head: [22, 22, 26],
-  crown: [22, 22, 26], eye: [16, 14, 13],
+  crown: [22, 22, 26], eye: [16, 14, 13], tail: [90, 81, 69],
 };
 const ROLE_FIELD = {
   body: 'bodyCol', belly: 'bellyCol', neck: 'neckCol', cheek: 'cheekCol',
@@ -120,6 +120,9 @@ const ROLE_FIELD = {
   // The cap, and the eye. Both resolve to something sensible when a row leaves them out — see
   // `faunaPalette` — so neither is a field a species has to carry to be built.
   crown: 'crownCol', eye: 'eyeCol',
+  // The upper tail. Unset it is the wing, which is what every row painted before it existed; a
+  // red-tail is the bird that needs it, and it is the one mark that names the species.
+  tail: 'tailCol',
 };
 
 // ⚠ `hex2rgb` answers NULL on anything that is not exactly #rrggbb, and `rgb(null,null,null)` is a
@@ -138,6 +141,7 @@ export function faunaPalette(p) {
   // all one colour, and the geometry is there either way. `crownCol` is what turns the top two
   // facets into a marking; without it they are simply more head.
   if (!hex2rgb(p?.crownCol)) out.crown = out.head;
+  if (!hex2rgb(p?.tailCol)) out.tail = out.wing;
   return out;
 }
 
@@ -290,11 +294,20 @@ function buildBirdGlyph(p, state, dihK, coarse) {
   // The side profile: nose to tail, at the body's own depth. Always present, at every rung.
   faces.push({ p: [[nose, 0, 0], [nose * 0.1, 0, bodyH * 0.5], [tail0, 0, bodyH * 0.18],
     [tail0, 0, -bodyH * 0.3], [nose * 0.1, 0, -bodyH * 0.45]], role: 'body', sh: 1 });
-  // One quad a side, root to tip, swept back and lifted by the beat.
+  // ⚠ A WING, NOT A PLANK. This was one quad a side carrying the full chord out to the tip, which with
+  // a stub body and a square tail tab is a straight-winged aeroplane at any distance. A bird's planform
+  // is broad at the shoulder, bends back at the wrist and narrows to the hand: a starling is the
+  // "flying star" because its wings are near-triangles. The tip chord comes off `wingSlots` -- a
+  // fingered wing (hawk, vulture, goose) keeps a broad hand, a pointed one (starling, falcon) narrows to
+  // a slim one (a true point read as a paper dart) -- so each species keeps its own read. One face a side.
+  const bluntTip = clampN((p.wingSlots ?? 0) / 6, 0, 1) * 0.5 + 0.3;
   for (const s of [-1, 1]) {
-    const ty = s * tip, tz = dih * tip;
-    faces.push({ p: [[chord * 0.5, s * bodyW * 0.5, 0], [chord * 0.5 - sweep * tip, ty, tz],
-      [-chord * 0.5 - sweep * tip * 1.3, ty, tz], [-chord * 0.45, s * bodyW * 0.5, 0]],
+    const yW = s * tip * 0.42, zW = dih * tip * 0.42, ty = s * tip, tz = dih * tip;
+    const wristLE = chord * 0.58 - sweep * tip * 0.2, wristTE = -chord * 0.62 - sweep * tip * 0.35;
+    const tipMid = -sweep * tip * 1.05 - chord * 0.1, tipHalf = chord * bluntTip * 0.5;
+    faces.push({ p: [[chord * 0.55, s * bodyW * 0.5, 0], [wristLE, yW, zW],
+      [tipMid + tipHalf, ty, tz], [tipMid - tipHalf, ty * 0.97, tz * 0.97],
+      [wristTE, yW, zW], [-chord * 0.6, s * bodyW * 0.5, 0]],
       role: 'wing', sh: 1 - 0.12 * s });
   }
   if (!coarse) return faces;
@@ -307,7 +320,7 @@ function buildBirdGlyph(p, state, dihK, coarse) {
   return faces;
 }
 
-function buildBird(p, state, wing, dihK, gear = 0) {
+function buildBird(p, state, wing, dihK, gear = 0, phase = null) {
   const faces = [];
   const air = state === 'air';
   const bodyLen = p.bodyLen ?? 0.34, bodyW = p.bodyW ?? 0.13, bodyH = p.bodyH ?? 0.14;
@@ -382,7 +395,34 @@ function buildBird(p, state, wing, dihK, gear = 0) {
   // the belly colour at all and the only pale front is the keel sheet below.
   const bellyWrap = clampN(p.bellyWrap ?? 0, 0, 1);
   const botR = bellyWrap > 0.01 ? 'belly' : null, botCut = -(1 - bellyWrap);
-  const sides = clampN(Math.round(p.bodySides ?? 8), 4, 8);    // the body's cross-section
+  // The body's cross-section. Twelve is the ceiling a near starling asks for; every row written
+  // before that asks for eight or fewer and is untouched by the wider clamp.
+  const sides = clampN(Math.round(p.bodySides ?? 8), 4, 12);
+  // ── THE DETAIL FIELDS — zero-is-today, like the feathering ones above ──────
+  // A near bird is the one case where a few dozen more faces are visible, and the far LOD row
+  // switches every one of these back off, so a murmuration of twenty thousand pays for them only
+  // on the handful of birds close enough to be seen as birds.
+  const bodyRings = clampN(Math.round(p.bodyRings ?? 0), 0, 5);  // extra stations along the body
+  const headSides = clampN(Math.round(p.headSides ?? 4), 4, 8);
+  const headRound = clampN(p.headRound ?? 0, 0, 1);             // a domed skull rather than a box
+  const billRidge = clampN(p.billRidge ?? 0, 0, 1);             // a culmen along the top of the bill
+  const wingSerr = clampN(Math.round(p.wingSerr ?? 0), 0, 6);   // secondary tips on the trailing edge
+  // ── THE WALK CYCLE ──────────────────────────────────────────────────────
+  // A standing bird used to be one frozen pose, slid across the ground by the flock. `walkCycle` is
+  // the stride as a share of the leg's length; with it set, a numeric `phase` on a ground pose is a
+  // point in a two-step cycle (legs alternate, the foot lifts as it swings forward, the head thrusts
+  // once per step), and `phase === 'peck'` is the head down at the ground. 0 is the bird that shipped.
+  // Phase 0 is the neutral stance, so a caller that never asks for a phase draws exactly that.
+  const walkK = air ? 0 : clampN(p.walkCycle ?? 0, 0, 1.5);
+  const walkPh = walkK > 0 && typeof phase === 'number' ? phase - Math.floor(phase) : null;
+  const pecking = walkK > 0 && phase === 'peck';
+  const stride = walkK * legLen;
+  const swing = (s) => {
+    if (walkPh == null) return { df: 0, dz: 0 };
+    const th = Math.PI * 2 * (walkPh + (s > 0 ? 0 : 0.5));
+    // Both feet down at phase 0 and at 0.5; each foot lifts only while it swings forward.
+    return { df: -stride * 0.5 * Math.cos(th), dz: stride * 0.35 * Math.max(0, Math.sin(th)) };
+  };
   // -- POSTURE: HOW THE BODY IS CARRIED ------------------------------------
   // ⚠ THE SILHOUETTES WERE ALL THE SAME EGG, AND THIS IS THE REASON. Every bird in this file
   // was built with its body axis lying along f, so the ONLY thing that could differ between two
@@ -404,7 +444,7 @@ function buildBird(p, state, wing, dihK, gear = 0) {
   // ground or point its face at the sky -- the tarsus takes up the angle at the hip and the neck
   // takes it up at the shoulder, which is what a bird's neck is FOR. Rotate everything and you get
   // an animal tipped onto its nose staring upwards.
-  const TORSO = new Set(['body', 'belly', 'undertail', 'patch', 'wing']);
+  const TORSO = new Set(['body', 'belly', 'undertail', 'patch', 'wing', 'tail']);
 
   // BODY — two segments, fattest at the shoulder and drawn in toward the tail, on an EIGHT-sided
   // elliptical section.
@@ -424,8 +464,42 @@ function buildBird(p, state, wing, dihK, gear = 0) {
   // ⚠ below does not need, since nothing here has a broad top face to go flat.
   const rumpR = bodyW * 0.40 * (1 - 0.55 * rumpT);
   const rumpF = -bodyLen + bodyLen * 0.10 * rumpT;
-  tube(faces, V(rumpF, 0, bodyH * 0.10), V(0, 0, 0), rumpR, bodyW, 'body', 1, sides, sq, null, botR, botCut);
-  tube(faces, V(0, 0, 0), V(bodyLen * 0.78, 0, bodyH * 0.16), bodyW, bodyW * 0.66, 'body', 1, sides, sq, null, botR, botCut);
+  let loftAt = null;                                         // (f) -> [radius, axis z], lofted bodies only
+  if (bodyRings < 1) {
+    tube(faces, V(rumpF, 0, bodyH * 0.10), V(0, 0, 0), rumpR, bodyW, 'body', 1, sides, sq, null, botR, botCut);
+    tube(faces, V(0, 0, 0), V(bodyLen * 0.78, 0, bodyH * 0.16), bodyW, bodyW * 0.66, 'body', 1, sides, sq, null, botR, botCut);
+  } else {
+    // ⚠ A LOFT THROUGH THE SAME THREE STATIONS the two-segment body used — rump, shoulder, nose —
+    // so the silhouette the other gates measure is kept and only the straight lines between them
+    // become curves. The rump half rises on a quarter sine and the fore half falls on one, which
+    // is what turns two cones joined at the shoulder into a body with a full breast. Past the nose
+    // one more ring rounds the breast in under the throat, where the head sits over it.
+    const st = [];
+    const K = bodyRings + 1;                                   // segments either side of the shoulder
+    const zAt = (f) => (f < 0 ? bodyH * 0.10 * (f / rumpF) : bodyH * 0.16 * (f / (bodyLen * 0.78)));
+    for (let k = 0; k <= K; k++) {
+      const u = k / K, f = rumpF * (1 - u);
+      st.push([f, rumpR + (bodyW - rumpR) * Math.sin(u * Math.PI / 2)]);
+    }
+    for (let k = 1; k <= K; k++) {
+      const u = k / K, f = bodyLen * 0.78 * u;
+      st.push([f, bodyW * (1 - 0.34 * (1 - Math.cos(u * Math.PI / 2)))]);
+    }
+    st.push([bodyLen * 0.90, bodyW * 0.40]);
+    loftAt = (f) => {
+      for (let k = 0; k + 2 < st.length; k++) {
+        if (f > st[k + 1][0] && k + 3 < st.length) continue;
+        const t = clampN((f - st[k][0]) / ((st[k + 1][0] - st[k][0]) || 1), 0, 1);
+        return [st[k][1] + (st[k + 1][1] - st[k][1]) * t, zAt(clampN(f, rumpF, bodyLen * 0.78))];
+      }
+      return [bodyW, 0];
+    };
+    for (let k = 0; k + 1 < st.length; k++) {
+      const [f0, r0] = st[k], [f1, r1] = st[k + 1];
+      const z1 = k + 2 === st.length ? bodyH * 0.12 : zAt(f1);
+      tube(faces, V(f0, 0, zAt(f0)), V(f1, 0, z1), r0, r1, 'body', 1, sides, sq, null, botR, botCut);
+    }
+  }
   if (rumpT > 0.01) {
     tube(faces, V(rumpF, 0, bodyH * 0.10), V(-bodyLen - tailLen * 0.10, 0, bodyH * 0.16),
       rumpR, rumpR * 0.14, 'body', 0.96, 4, sq);
@@ -461,7 +535,7 @@ function buildBird(p, state, wing, dihK, gear = 0) {
     const midZ = tipZ + (bodyH * 0.02 - tipZ) * (0.5 * fork);
     sheet(faces, [V(-bodyLen * 0.86, -tailW * 0.55, bodyH * 0.02), V(tipF, -tipW, tipZ),
       V(midF, 0, midZ), V(tipF, tipW, tipZ),
-      V(-bodyLen * 0.86, tailW * 0.55, bodyH * 0.02)], 'wing', 0.82);
+      V(-bodyLen * 0.86, tailW * 0.55, bodyH * 0.02)], 'tail', 0.82);
   }
 
   // UNDERTAIL COVERTS — the white under the base of the tail, and the one marking on this bird
@@ -547,7 +621,22 @@ function buildBird(p, state, wing, dihK, gear = 0) {
   const hx = dir[0] / dl, hz = dir[2] / dl;
   const fx = air ? hx : 1, fz = air ? hz : -0.08;
   const hEnd = V(nt[0] + fx * headLen, 0, nt[2] + fz * headLen);
-  tube(faces, nt, hEnd, neckW * 1.15, headH, 'head', 1, 4, 1, crownCol ? 'crown' : null);
+  // The head's radius along its own length, which the eye below reads so it stays on the skull.
+  // Unrounded it is the one straight flare that shipped; rounded it swells to a crown just behind
+  // the eye and draws in toward the bill, which is the domed forehead every passerine has.
+  const HR_AT = 0.45;
+  const headR = (t) => (headRound < 0.01 ? neckW * 1.15 + (headH - neckW * 1.15) * t
+    : t < HR_AT ? neckW * 1.15 + (headH * (1 + 0.12 * headRound) - neckW * 1.15) * Math.sin((t / HR_AT) * Math.PI / 2)
+      : headH * (1 + 0.12 * headRound) * (1 - (0.28 * headRound) * (1 - Math.cos(((t - HR_AT) / (1 - HR_AT)) * Math.PI / 2))));
+  const crownR = crownCol ? 'crown' : null;
+  if (headRound < 0.01) {
+    tube(faces, nt, hEnd, neckW * 1.15, headH, 'head', 1, headSides, 1, crownR);
+  } else {
+    const hp = (t) => V(nt[0] + (hEnd[0] - nt[0]) * t, 0, nt[2] + (hEnd[2] - nt[2]) * t);
+    for (const [t0, t1] of [[0, HR_AT], [HR_AT, 0.78], [0.78, 1]]) {
+      tube(faces, hp(t0), hp(t1), headR(t0), headR(t1), 'head', 1, headSides, 1, crownR);
+    }
+  }
   // EYE — one small quad a side, set into the flank of the head and standing a hair proud of it.
   //
   // ⚠ IT IS THE THING EVERY REFERENCE HAS AND THIS FILE HAD NOT, and a bird without one does not
@@ -562,7 +651,7 @@ function buildBird(p, state, wing, dihK, gear = 0) {
     const eF = 0.34;                                           // along the head, from the nape
     const cF = nt[0] + (hEnd[0] - nt[0]) * eF, cZ = nt[2] + (hEnd[2] - nt[2]) * eF + headH * 0.22;
     // The head's own half-width where the eye lands, so the marking lies ON the skull at any size.
-    const hw = (neckW * 1.15) + (headH - neckW * 1.15) * eF;
+    const hw = headR(eF);
     for (const s of [1, -1]) {
       sheet(faces, [V(cF + eyeR, s * hw * 1.02, cZ), V(cF, s * hw * 1.04, cZ + eyeR),
         V(cF - eyeR, s * hw * 1.02, cZ), V(cF, s * hw * 1.04, cZ - eyeR)], 'eye', 1);
@@ -584,7 +673,15 @@ function buildBird(p, state, wing, dihK, gear = 0) {
   // wader, which is a different bird entirely. One extra face, and only when asked.
   const bEnd = V(hEnd[0] + fx * billLen, 0, hEnd[2] + fz * billLen - headH * 0.12);
   const bw = headH * billW;
-  sheet(faces, [V(hEnd[0], -bw, hEnd[2] + headH * 0.1), bEnd, V(hEnd[0], bw, hEnd[2] + headH * 0.1)], 'bill', 1);
+  if (billRidge < 0.01) {
+    sheet(faces, [V(hEnd[0], -bw, hEnd[2] + headH * 0.1), bEnd, V(hEnd[0], bw, hEnd[2] + headH * 0.1)], 'bill', 1);
+  } else {
+    // The culmen: the top of the bill is two faces meeting along a raised centre line, so it
+    // catches light on one side and not the other and reads as a solid dagger rather than a flake.
+    const ridge = V(hEnd[0], 0, hEnd[2] + headH * (0.1 + 0.22 * billRidge));
+    sheet(faces, [V(hEnd[0], -bw, hEnd[2] + headH * 0.1), bEnd, ridge], 'bill', 1);
+    sheet(faces, [ridge, bEnd, V(hEnd[0], bw, hEnd[2] + headH * 0.1)], 'bill', 0.86);
+  }
   sheet(faces, [V(hEnd[0], -bw, hEnd[2] - headH * 0.2), bEnd, V(hEnd[0], bw, hEnd[2] - headH * 0.2)], 'bill', 0.8);
   if (billHook) {
     const hk = V(bEnd[0] + fx * billLen * 0.22, 0, bEnd[2] - headH * 0.42);
@@ -605,9 +702,31 @@ function buildBird(p, state, wing, dihK, gear = 0) {
       // and of the flick at the top of the recovery. `wingCup` is how much further, and at level
       // (dih 0) it contributes exactly nothing, so the mid-beat silhouette is untouched.
       const dihTip = dih * (1 + cup);
-      const midG = span * 0.5, tipG = span;
+      // ── THE STROKE CHANGES THE PLANFORM, NOT JUST THE ANGLE ────────────────
+      // A wing that only hinges up and down is invisible from below, which is where a flock is
+      // seen from: the outline barely moves and the birds read as rigid cut-outs. What a small bird
+      // actually does is spread the hand fully and reach slightly forward on the downstroke, then
+      // flex the wrist and sweep the hand back and in on the upstroke. `upFold` is how far, and it
+      // is 0 for every row that predates it, which builds exactly the wing that shipped.
+      //
+      // ⚠ IT MOVES VERTICES AND NEVER ADDS OR DROPS A FACE. The GPU bakes all sixteen beat steps
+      // into one texture and refuses a pose whose face list differs from step 0 (faunaPoseBake's
+      // signature check), so a fold that removed the primaries mid-upstroke would take the whole
+      // species off the GPU.
+      const upFold = clampN(p.upFold ?? 0, 0, 1);
+      let fold = 0, reach = 0;
+      if (phase === 'glide') {
+        // The held glide: no reach, the hand swept back by `glideFold` — the star shape.
+        fold = clampN(p.glideFold ?? 0, 0, 1);
+      } else if (upFold > 0 && phase != null) {
+        const ph = phase - Math.floor(phase);
+        if (ph >= BEAT_DOWN) fold = upFold * Math.sin(Math.PI * (ph - BEAT_DOWN) / (1 - BEAT_DOWN));
+        else reach = upFold * Math.sin(Math.PI * ph / BEAT_DOWN);
+      }
+      const midG = span * 0.5 * (1 - 0.18 * fold), tipG = span * (1 - 0.50 * fold);
       const midZ = Math.sin(dih) * midG * 0.9, tipZ = Math.sin(dihTip) * tipG;
-      const rootF = bodyLen * 0.35, midF = rootF - sweep * 0.4, tipF = rootF - sweep;
+      const sw = sweep * (1 - 0.35 * reach) + span * 0.42 * fold;
+      const rootF = bodyLen * 0.35, midF = rootF - sw * 0.4, tipF = rootF - sw;
       const sh0 = s > 0 ? 1 : 0.82, sh1 = s > 0 ? 0.92 : 0.74;
       // The inner panel — the arm. Broad at the shoulder, already narrowing at the elbow.
       const leRoot = V(rootF, s * bodyW * 0.7, bodyH * 0.3);
@@ -629,6 +748,17 @@ function buildBird(p, state, wing, dihK, gear = 0) {
         sheet(faces, [spRoot, spMid, teMid, teRoot], 'wing', sh0 * 0.93);
       } else {
         sheet(faces, [leRoot, leMid, teMid, teRoot], 'wing', sh0);
+      }
+      // SECONDARY TIPS — the trailing edge of the arm is a row of feather ends, not a ruled line.
+      // Each is a small tooth hung off the edge and pointing aft, in the flight-feather colour, so
+      // the wing's back edge reads as feathered from below, which is where a flock is seen from.
+      if (wingSerr > 0) {
+        const ln = (a, b, t) => V(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t);
+        for (let k = 0; k < wingSerr; k++) {
+          const a = ln(teRoot, teMid, (k + 0.08) / wingSerr), b = ln(teRoot, teMid, (k + 0.92) / wingSerr);
+          const m = ln(a, b, 0.5);
+          sheet(faces, [a, V(m[0] - chord * 0.11, m[1], m[2] - chord * 0.015), b], 'primary', sh0 * 0.9);
+        }
       }
       // The outer panel — the primaries. A TRIANGLE to the tip rather than a quad, because a goose
       // wing comes to a point and a blunt-ended outer panel is the other half of why this read as a
@@ -769,14 +899,15 @@ function buildBird(p, state, wing, dihK, gear = 0) {
         // Standing, or reaching for the ground. The landing stance is a shade wider than the
         // walking one and the ankle is AHEAD of the hip rather than behind it, which is the
         // difference between a bird about to touch down and one already walking about.
-        const ankF = hipF + (air ? legLen * 0.55 : -legLen * 0.12);
+        const sw = swing(s), fz = footZ + sw.dz;
+        const ankF = hipF + (air ? legLen * 0.55 : -legLen * 0.12) + sw.df;
         const gy = bodyW * (air ? 0.62 : 0.5);
         const fw = footLen * (air ? 1.15 : 0.7), fb = footLen * (air ? 0.28 : 0.3), fs = footLen * (air ? 0.52 : 0.35);
         const hip = tilt(V(hipF, 0, -bodyH * 0.6));
-        tube(faces, V(hip[0], s * bodyW * 0.45, hip[2]), V(ankF, s * gy, footZ), legW * 1.4, legW, 'leg', 0.9, 3);
+        tube(faces, V(hip[0], s * bodyW * 0.45, hip[2]), V(ankF, s * gy, fz), legW * 1.4, legW, 'leg', 0.9, 3);
         if (webbed) {
-          sheet(faces, [V(ankF + fw, s * gy, footZ + (air ? footLen * 0.42 : 0)),
-            V(ankF - fb, s * (gy + fs), footZ), V(ankF - fb, s * (gy - fs), footZ)], 'leg', 1);
+          sheet(faces, [V(ankF + fw, s * gy, fz + (air ? footLen * 0.42 : 0)),
+            V(ankF - fb, s * (gy + fs), fz), V(ankF - fb, s * (gy - fs), fz)], 'leg', 1);
         } else {
           // ⚠ TOES ARE THE SAME AREA SPLIT THREE WAYS, NOT THREE FEET. A web is one
           // triangle because a web IS one surface; an unwebbed foot is three narrow ones
@@ -784,23 +915,30 @@ function buildBird(p, state, wing, dihK, gear = 0) {
           // bird standing on dinner plates. Same total spread, three slivers inside it.
           for (const t of [-1, 0, 1]) {
             const sp = fs * 0.85 * t;
-            sheet(faces, [V(ankF - fb, s * gy, footZ + legW * 0.6),
-              V(ankF + fw * (t === 0 ? 1 : 0.82), s * (gy + sp), footZ),
-              V(ankF - fb, s * gy, footZ - legW * 0.6)], 'leg', t === 0 ? 1 : 0.88);
+            sheet(faces, [V(ankF - fb, s * gy, fz + legW * 0.6),
+              V(ankF + fw * (t === 0 ? 1 : 0.82), s * (gy + sp), fz),
+              V(ankF - fb, s * gy, fz - legW * 0.6)], 'leg', t === 0 ? 1 : 0.88);
           }
         }
       } else {
         // Folded away: the tarsus lies back along the flank and the web closes into a slim blade
         // under the rump. It runs from about the vent to the root of the tail — far enough aft to
         // read as feet trailing behind the bird, nowhere near far enough to reach the tail fan.
-        const ank = V(-bodyLen * 0.62, s * bodyW * 0.30, -bodyH * 0.72);
-        tube(faces, V(hipF, s * bodyW * 0.42, -bodyH * 0.6), ank, legW * 1.4, legW * 0.9, 'leg', 0.9, 3);
+        // ⚠ A GOOSE TRAILS ITS FEET AND A STARLING TUCKS THEM. `legTuck` draws the ankle up and in
+        // under the belly feathers and shrinks the foot with it, so from below the flock is a clean
+        // triangle instead of a bird dragging two brown bars. It moves the points and never drops the
+        // faces, because every beat step (and the glide row) must share one face list to bake.
+        // 0 is the trailing leg that shipped.
+        const tk = clampN(p.legTuck ?? 0, 0, 1);
+        const ank = V(-bodyLen * (0.62 - 0.30 * tk), s * bodyW * (0.30 - 0.08 * tk), -bodyH * (0.72 - 0.30 * tk));
+        const fk = 1 - 0.75 * tk;
+        tube(faces, V(hipF, s * bodyW * 0.42, -bodyH * 0.6), ank, legW * 1.4 * fk, legW * 0.9 * fk, 'leg', 0.9, 3);
         // ⚠ THE BLADE IS CANTED, for the reason the tail fan is. A folded web lying flat is seen
         // nearly edge-on from every elevation these birds are drawn at and contributes no area at
         // all; tipped, it is a dark wedge under the rump, which is the read.
-        sheet(faces, [V(ank[0], s * (bodyW * 0.30 + legW * 0.9), ank[2] + legW * 1.5),
-          V(ank[0] - footLen * 1.05, s * (bodyW * 0.30 - footLen * 0.06), ank[2] + footLen * 0.20),
-          V(ank[0], s * (bodyW * 0.30 - legW * 0.9), ank[2] - legW * 1.5)], 'leg', 1);
+        sheet(faces, [V(ank[0], s * (bodyW * 0.30 + legW * 0.9 * fk), ank[2] + legW * 1.5 * fk),
+          V(ank[0] - footLen * 1.05 * fk, s * (bodyW * 0.30 - footLen * 0.06), ank[2] + footLen * 0.20 * fk),
+          V(ank[0], s * (bodyW * 0.30 - legW * 0.9 * fk), ank[2] - legW * 1.5 * fk)], 'leg', 1);
       }
     }
   }
@@ -810,7 +948,9 @@ function buildBird(p, state, wing, dihK, gear = 0) {
   // ⚠ SMALL, AND HIGH ON THE SHOULDER. A blotch the size of the body is a two-tone bird, which is
   // a different animal; what is wanted is plumage that has gone wrong in places, so each one is
   // about a fifth of the barrel and they sit where a wing does not already cover.
-  const nPatch = clampN(Math.round(p.patches ?? 0), 0, 6);
+  // Up to sixteen now: a winter starling is spangled with pale spots all over, which six cannot
+  // say. A row with six or fewer lays them exactly where it always did.
+  const nPatch = clampN(Math.round(p.patches ?? 0), 0, 16);
   const patchScale = clampN(p.patchScale ?? 1, 0.15, 2);
   for (let i = 0; i < nPatch; i++) {
     const t = (i + 0.5) / nPatch, s = i % 2 ? 1 : -1;
@@ -821,6 +961,17 @@ function buildBird(p, state, wing, dihK, gear = 0) {
     // more of them. Drawn at blotch size they read as three cream tiles stuck to a dark bird.
     // 1 is every row that predates the field.
     const r = bodyR * (0.17 + ((i * 7) % 5) * 0.022) * patchScale;
+    if (loftAt) {
+      // On a lofted body a spot lies ON the barrel: scattered round the upper flank and back at a
+      // golden-angle step and laid in the surface's own tangent plane a hair proud of it, so none
+      // of them float off the narrow rump or sink into the full breast.
+      const [R, z0] = loftAt(cf), ang = 0.1 + ((i * 2.39996) % 1.35);
+      const ca = Math.cos(ang), sa = Math.sin(ang);
+      const y = s * R * ca * 1.05, z = z0 + R * sq * sa * 1.05;
+      const ty = -s * sa * r * 0.8, tz = ca * sq * r * 0.8;      // round the barrel
+      sheet(faces, [V(cf + r, y, z), V(cf, y + ty, z + tz), V(cf - r, y, z), V(cf, y - ty, z - tz)], 'patch', 0.95);
+      continue;
+    }
     sheet(faces, [V(cf + r, s * bodyW * 0.86, cz), V(cf, s * bodyW * 0.93, cz + r * 0.8),
       V(cf - r, s * bodyW * 0.86, cz), V(cf, s * bodyW * 0.93, cz - r * 0.8)], 'patch', 0.95);
   }
@@ -849,6 +1000,34 @@ function buildBird(p, state, wing, dihK, gear = 0) {
   // ⚠ IT RUNS BEFORE THE LIFT AND AFTER EVERYTHING IS BUILT. The lift is what puts the soles of
   // the feet on h = 0, so a rotation applied after it would swing the whole animal about a point
   // under the turf.
+  // The head rides the gait: forward and back once per step (a starling's walk is a strut, the head
+  // leading), and the body rises a little over each supporting leg. A peck swings the whole head
+  // down about the base of the neck until the bill is at the ground.
+  // ⚠ ROLES, NOT A SECOND MESH — and every pose moves vertices only, because the GPU bake refuses a
+  // row whose face list differs from row 0.
+  if (walkPh != null || pecking) {
+    const HEAD = new Set(['head', 'crown', 'eye', 'bill', 'cheek']);
+    const thrust = walkPh == null ? 0 : headLen * 0.55 * walkK * Math.sin(Math.PI * 4 * walkPh);
+    const bob = walkPh == null ? 0 : bodyH * 0.06 * walkK * Math.abs(Math.sin(Math.PI * 2 * walkPh));
+    // ⚠ A PECK IS THE WHOLE BIRD TIPPING, not the head nodding: turning the head alone left the bill
+    // pointing at the ground from a bird's height above it. The body pitches forward about the hip
+    // and the head turns down on top of that, which is what gets the bill into the grass.
+    const pv = V(bodyLen * 0.62, 0, bodyH * 0.28), ang = pecking ? -0.95 : 0;
+    const ca = Math.cos(ang), sa = Math.sin(ang);
+    const hp = V(-bodyLen * 0.05, 0, -bodyH * 0.55), bAng = pecking ? -0.42 : 0;
+    const cb = Math.cos(bAng), sb = Math.sin(bAng);
+    for (const f of faces) {
+      if (f.role === 'leg') continue;
+      const hd = HEAD.has(f.role);
+      f.p = f.p.map((v) => {
+        let x = v[0], z = v[2];
+        if (hd && ang) { const dx = x - pv[0], dz = z - pv[2]; x = pv[0] + dx * ca - dz * sa; z = pv[2] + dx * sa + dz * ca; }
+        if (hd) x += thrust;
+        if (bAng) { const dx = x - hp[0], dz = z - hp[2]; x = hp[0] + dx * cb - dz * sb; z = hp[2] + dx * sb + dz * cb; }
+        return V(x, v[1], z + bob);
+      });
+    }
+  }
   if (pitch) for (const f of faces) if (TORSO.has(f.role)) f.p = f.p.map(tilt);
   const lift = state === 'raft' ? bodyH * 0.4 : bodyH + legLen;
   if (lift) for (const f of faces) f.p = f.p.map((v) => V(v[0], v[1], v[2] + lift));
@@ -1000,8 +1179,22 @@ function poseParts(state, beatStep, flare, gear) {
   return { air, step, fl: air && flare ? 1 : 0, gr: air && gear ? 1 : 0 };
 }
 
-function faunaPose(kind, id, state, beatStep, flare = 0, gear = 0, far = 0) {
+// ── THE GLIDE ROW ─────────────────────────────────────────────────────────
+// One pose past the sixteen wingbeat steps: the wings held out between bursts. A bake of an air
+// pose carries it as row FAUNA_BEAT_STEPS and the flock shader eases into it, so a glide is a
+// shape of its own rather than a wingbeat frame frozen mid-stroke. A species with no 'glideFold'
+// authored gets beat step 2 here exactly, which is the frame the shader held before this row
+// existed — so every other bird glides (and lands) as it did.
+export const FAUNA_GLIDE_ROW = FAUNA_BEAT_STEPS;
+// A walk bake mirrors it: sixteen stride steps and then the peck (FAUNA_PECK_ROW), for a species that
+// authors `walkCycle`. Every other ground bake stays one row, and the flock shader is told which.
+export const FAUNA_PECK_ROW = FAUNA_BEAT_STEPS;
+export function faunaWalks(kind, id) { const r = baseRow(kind, id); return !!(r && r.walkCycle > 0); }
+function faunaPose(kind, id, state, beatStep, flare = 0, gear = 0, far = 0, glide = false, walk = null) {
   const { air, step, fl } = poseParts(state, beatStep, flare, gear);
+  // A walking species' standing pose IS stride phase 0, so the bake's row 0, a slot and the canvas
+  // painter all draw one stance rather than two that differ by where the feet are.
+  if (!air && walk == null && faunaWalks(kind, id)) walk = 0;
   // ⚠ THE GEAR IS ITS OWN LETTER IN THE KEY, not a widening of the flare's. The two flags are set
   // at different heights and the table has to be able to hold the pose in between — feet down and
   // still beating properly, which is what most of an approach looks like.
@@ -1014,7 +1207,7 @@ function faunaPose(kind, id, state, beatStep, flare = 0, gear = 0, far = 0) {
   // are more — tiers 1, 2 and 3 would share one entry, and the first bird drawn at any of them
   // would decide what every other bird got for the life of the page. That is the same defect the
   // note below is about, arriving again through the fix for it.
-  const key = kind + ':' + id + ':' + state + ':b' + step + (fl ? 'f' : '') + (gr ? 'g' : '') + 'L' + (far | 0);
+  const key = kind + ':' + id + ':' + state + ':b' + step + (fl ? 'f' : '') + (gr ? 'g' : '') + 'L' + (far | 0) + (glide && air ? 'G' : '') + (!air && walk != null ? 'W' + walk : '');
   const hit = _poses.get(key);
   if (hit) return hit;
   // ⚠ THE GLYPH RUNGS TAKE THE SPECIES' OWN FULL ROW, never the far one. A far row is a reduction
@@ -1025,10 +1218,13 @@ function faunaPose(kind, id, state, beatStep, flare = 0, gear = 0, far = 0) {
   const glyph = kind === 'bird' && far >= FAUNA_LOD_COARSE;
   const p = row(kind, id, glyph ? 0 : far);
   if (!p) return null;
-  const dih = air ? beatDihedral(step / FAUNA_BEAT_STEPS, fl) : null;
+  // ⚠ The glide is only its own shape when authored; unauthored it IS step 2, arithmetic and all.
+  const ownGlide = glide && air && p.glideFold != null;
+  const gStep = glide && air && !ownGlide ? 2 : step;
+  const dih = !air ? null : ownGlide ? clampN(p.glideDih ?? 0.1, -1, 1) : beatDihedral(gStep / FAUNA_BEAT_STEPS, fl);
   const faces = kind !== 'bird' ? []
     : glyph ? buildBirdGlyph(p, state, dih, far === FAUNA_LOD_COARSE)
-      : buildBird(p, state, 0, dih, gr);
+      : buildBird(p, state, 0, dih, gr, !air ? walk : ownGlide ? 'glide' : fl ? null : gStep / FAUNA_BEAT_STEPS);
   const pal = faunaPalette(p);
   const rgb = faces.map((f) => {
     const c = pal[f.role] || FALLBACK.body;
@@ -1049,8 +1245,8 @@ function faunaPose(kind, id, state, beatStep, flare = 0, gear = 0, far = 0) {
  * already resolved that to a colour by the time the world pass sees it.
  */
 export function faunaPoseFaces(kind, id, opts = {}) {
-  const { state = 'walk', beat = 0, flare = 0, gear = 0, far = 0 } = opts;
-  return (faunaPose(kind, id, state, beat, flare, gear, far) || { faces: [] }).faces;
+  const { state = 'walk', beat = 0, flare = 0, gear = 0, far = 0, glide = false, walk = null } = opts;
+  return (faunaPose(kind, id, state, beat, flare, gear, far, glide, walk) || { faces: [] }).faces;
 }
 
 // ── THE SAME POSES, FOR THE GPU ───────────────────────────────────────────────
@@ -1079,10 +1275,13 @@ export function faunaPoseSlot(kind, id, state, beat = 0, flare = 0, gear = 0, fa
  * refuses to guess; the caller draws that bird the old way).
  */
 export function faunaPoseBake(kind, id, state, flare = 0, gear = 0, far = 0) {
-  const rows = state === 'air' ? FAUNA_BEAT_STEPS : 1;
+  // An air bake carries the sixteen beat steps and then the glide row (FAUNA_GLIDE_ROW).
+  const walks = state === 'walk' && faunaWalks(kind, id);
+  const rows = state === 'air' || walks ? FAUNA_BEAT_STEPS + 1 : 1;
   let verts = -1, pos = null, rgb = null, sig = null;
   for (let r = 0; r < rows; r++) {
-    const pose = faunaPose(kind, id, state, r, flare, gear, far);
+    const walk = !walks ? null : r === FAUNA_PECK_ROW ? 'peck' : r / FAUNA_BEAT_STEPS;
+    const pose = faunaPose(kind, id, state, r === FAUNA_GLIDE_ROW ? 0 : r, flare, gear, far, state === 'air' && r === FAUNA_GLIDE_ROW, walk);
     if (!pose || !pose.faces.length) return null;
     const faces = pose.faces;
     const thisSig = faces.map((f) => f.p.length).join(',');

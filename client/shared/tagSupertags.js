@@ -27,10 +27,10 @@
     // default damage/type. A weapon's own `damage`/`damage_type` tags override the
     // defaults, so applying a class never changes an authored weapon's numbers.
     weapon_fists: { label: 'Fists Weapon', group: 'Weapons',
-      help: 'Knuckles, power fists, cesti — trains the Fists skill.',
+      help: 'Knuckles, power fists, cesti, trains the Fists skill.',
       members: { weapon: true, slot: 'weapon_hand', weapon_skill: 'fists', damage_type: 'kinetic', damage: { min: 2, max: 4 } } },
     weapon_blades: { label: 'Bladed Weapon', group: 'Weapons',
-      help: 'Knives, machetes, swords — anything with an edge. Trains Blades.',
+      help: 'Knives, machetes, swords: anything with an edge. Trains Blades.',
       members: { weapon: true, slot: 'weapon_hand', weapon_skill: 'blades', damage_type: 'edged', damage: { min: 3, max: 7 } } },
     weapon_clubs: { label: 'Club Weapon', group: 'Weapons',
       help: 'Pipes, bats, sledges, and improvised cudgels. Trains Clubs.',

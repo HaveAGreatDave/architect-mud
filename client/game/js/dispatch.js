@@ -13,6 +13,7 @@ import { renderStatsPanel } from './panels/stats.js';
 import { renderSkillsPanel } from './panels/skills.js';
 import { receiveWhisper, sentWhisper, receiveChannelMsg, initChannels, initChannelHistory, receiveMOTD, refreshOnlinePlayers, rollbackSelfEcho, removeCorpChannels } from './panels/whisper.js';
 import { openContainerPanel, refreshContainerPanel, getActiveContainerId, showContainerNotify } from './panels/container.js';
+import { openGalley } from './panels/galley.js';
 import { openWardrobePanel, refreshWardrobePanel, getActiveWardrobeId, showWardrobeNotify } from './panels/wardrobe.js';
 import { openLootPanel, closeLootPanel } from './panels/loot.js';
 import { openWorkspacePanel, refreshWorkspacePanel, isWorkspaceOpen, workspaceClaimsContainerView } from './panels/workspace.js';
@@ -62,16 +63,16 @@ import { pullConfig, receiveConfig } from './configsync.js';
 import { setTabletAccess, showTabletOffer } from './panels/smartbar.js';
 import { offerInterfaceTour, startInterfaceTour, startTabletTour, consumeTourHandoff } from './panels/tour.js';
 import { playIntroCinematic } from './panels/intro-cinematic.js';
-import { updateCockpit, closeCockpit, cabinAudio, openTargeting, openFlightSim, flightSimContext, flightBurst, flightSimContacts, flightSimAASites, flightSimHopper, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
+import { updateCockpit, closeCockpit, cabinAudio, openTargeting, openFlightSim, flightSimContext, drakeSubmerged, flightBurst, flightSimContacts, flightSimAASites, flightSimHopper, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
 import { openTextCockpit, updateTextCockpit, closeTextCockpit, isTextCockpitActive } from './panels/textcockpit.js';
 import { openHelm, closeHelm, isHelmActive, helmSetSky, helmSetWorld, helmSetContacts, helmEndTransit, helmBeginTransit } from './panels/helm-mode.js';
 import { openCab, closeCab, cabContext, cabGalley, isCabActive } from './panels/cab-view.js';
 import { openBoat, closeBoat, boatSetWorld, isBoatActive } from './panels/boat-view.js';
-import { openMarina, closeMarina, marinaSetData, isMarinaActive } from './panels/marina-panel.js';
+import { openMarina, closeMarina, marinaSetData, isMarinaActive, openMarinaService, closeMarinaService } from './panels/marina-panel.js';
 import { openFreelook, closeFreelook, isFreelookActive, freelookSetSky } from './panels/freelook-view.js';
 import { receiveCbMsg, applyCbContext, clearCbContext } from './panels/cb-radio.js';
 import { airHorn } from './panels/engine-audio.js';
-import { openTruckDepot, closeTruckDepot, isTruckDepotActive } from './panels/truck-depot.js';
+import { openTruckDepot, closeTruckDepot, closeBayService, isTruckDepotActive } from './panels/truck-depot.js';
 import { setYachtAmbience, yachtUnderway, yachtSettled } from './panels/yacht-ambience.js';
 import { setDrugFx, clearDrugFx } from './panels/flight-drugfx.js';
 import { applyDrugFx } from './panels/drug-screen-fx.js';
@@ -99,6 +100,7 @@ import { openAdminPanel } from './panels/admin.js';
 import { renderMarkup } from './markup.js';
 import { onPanelData, onPanelFeed, onPanelCatalog, syncPanels, refreshCustomPanels } from './panels/custom/manager.js';
 import { loadSettings, sfxDetail } from '/shared/settings.js';
+import { noteBirdStrikes } from './panels/bird-strikes.js';
 
 
 const DEV_ROLES = ['admin', 'dev', 'builder', 'designer'];
@@ -345,7 +347,7 @@ function setSleepBar(sleeping, dreaming) {
 // would otherwise wipe the whole application mid-purchase.
 function paneFreeForRoom() {
   return !isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive() && !isHelmActive()
-    && !isCabActive() && !isBoatActive() && !isTruckDepotActive() && !isFreelookActive()
+    && !isCabActive() && !isBoatActive() && !isTruckDepotActive() && !isMarinaActive() && !isFreelookActive()
     && !isTextCockpitActive() && !isTextBreachActive() && !isTextHololockActive()
     && !isTextVaultActive() && !isTextSignalActive() && !isTextFishingActive()
     && !isTextCalibrationActive() && !isTextNullActive() && !isTextReadActive()
@@ -716,7 +718,9 @@ const handlers = {
   })(),
   // Aircraft overhead: a transient banner pinned to the top of the room pane (auto-fades),
   // not a scrollback line. Server rate-limits these per zone, so they don't accumulate.
-  sky: (msg) => { showSkyBanner(msg.message); },
+  // A `cue` is a sound the line comes with: the Drake's quack reaches the people under it as a noise,
+  // not only as a sentence. Loaded on demand so the engine-audio module stays out of the boot path.
+  sky: (msg) => { showSkyBanner(msg.message); if (msg.cue) import('./panels/engine-audio.js').then((m) => m.gearFx(msg.cue)).catch(() => {}); },
   // A new accolade logged against you. Corner stack, never scrollback — the
   // banner is the whole payoff of a system that is otherwise entirely private.
   accolade_unlocked: (msg) => { showAccoladeUnlock(msg); },
@@ -963,7 +967,7 @@ const handlers = {
 
   error: (msg) => {
     if (msg.message === 'Session lost. Refresh and reconnect.') {
-      appendMsg('Session lost — reconnecting...', 'system');
+      appendMsg('Session lost: reconnecting...', 'system');
       attemptAutoReauth();
       return;
     }
@@ -981,7 +985,7 @@ const handlers = {
     // A blocked auto-walk step (locked door, encumbrance, water — anything the
     // move gates veto) comes back as an error. Route AROUND the blocked tile and
     // resume rather than hammer the wall; only dead-stop when there's no way past.
-    if (isAutoWalking()) autoWalkBlocked('Auto-walk stopped — the way ahead is blocked.');
+    if (isAutoWalking()) autoWalkBlocked('Auto-walk stopped: the way ahead is blocked.');
     if (document.getElementById('recipes-panel').classList.contains('active')) sendCmdSilent('recipes');
   },
 
@@ -1443,6 +1447,8 @@ const handlers = {
 
   // ── Flight (cockpit HUD + takeoff/landing minigames) ─────────────────────
   cockpit_update: (msg) => { updateCockpit(msg.state); },
+  // The birds our aircraft hit, so the canopy stops drawing them until their flock lands (bird-strikes.js).
+  bird_strike: (msg) => { noteBirdStrikes(msg.flocks); },
   cockpit_close: () => { closeCockpit(); closeTextCockpit(); sendCmdSilent('look'); },   // hand the area pane back to the room view
   // Text cockpit — the same top pane, drawn in characters for a text-mode pilot.
   // No canvas in this path at all; `cockpit_close` above hands the pane back.
@@ -1531,18 +1537,27 @@ const handlers = {
   truck_sim: (msg) => { closeTruckDepot(); openCab(msg); },
   // The water seat. Same shape as the cab's route above and for the same reason: `openBoat` writes
   // #area-content directly, so whatever owned the pane has to be told first.
-  boat_sim: (msg) => { closeTruckDepot(); openBoat({ ...msg, onSend: (c) => sendCmdSilent(c), onExit: () => sendCmdSilent('disembark') }); },
+  // ⚠ THE COUNTER GOES WHEN THE SEAT OPENS: both mount in #area-content, and a counter left 'open'
+  // under a helm would redraw itself into the seat's own host on the next push.
+  boat_sim: (msg) => { closeTruckDepot(); closeMarina(); closeMarinaService(); openBoat({ ...msg, onSend: (c) => sendCmdSilent(c), onExit: () => sendCmdSilent('disembark') }); },
   boat_ctx: (msg) => boatSetWorld(msg),
   // A fill, on the same beat the credits move. ⚠ THE SAME ADOPTER AS THE WHOLE CONTEXT rather
   // than a second one: `boatSetWorld` already takes `fuel` off the server and only touches the
   // keys a message carries, which is exactly what a one-number push wants. A private setter here
   // would be a second place the gauge can be written and a second place it can be forgotten.
   boat_fuel: (msg) => boatSetWorld(msg),
-  boat_sim_close: () => closeBoat(),
+  boat_sim_close: () => { closeMarinaService(); closeBoat(); },
   // The yard screen. ⚠ NEVER OVER A SEAT — you can be standing in the marina with the helm open,
   // and a shop window blowing across the windscreen is the trap `truck_depot` already guards.
-  marina: (msg) => { if (isBoatActive()) return; if (isMarinaActive()) marinaSetData(msg); else openMarina({ ...msg, onSend: (c) => sendCmdSilent(c) }); },
+  // …EXCEPT THE SEAT'S OWN OVERLAY (`service`), which only ever goes ON a seat.
+  marina: (msg) => {
+    if (msg.service) { if (isBoatActive()) openMarinaService({ ...msg, onSend: (c) => sendCmdSilent(c) }); return; }
+    if (isBoatActive()) return;
+    if (isMarinaActive()) marinaSetData(msg); else openMarina({ ...msg, onSend: (c) => sendCmdSilent(c) });
+  },
   marina_close: () => { if (isMarinaActive()) closeMarina(); },
+  // She left the slot, or pulled away from the float.
+  marina_service_close: () => { closeMarinaService(); },
   truck_ctx: (msg) => { cabContext(msg); applyCbContext(msg.cb); },
   // THE CB. Handled here rather than inside the cab panel because the radio has to work at every
   // rung of Display Mode: a driver reading the text run has the same set, on the same channel, and
@@ -1550,14 +1565,20 @@ const handlers = {
   cb_msg: (msg) => { receiveCbMsg(msg); },
   // The air horn. Pushed to everyone in the zone (plugins/trucking cmdHorn), so you hear somebody
   // else's rig go off in the yard as well as your own — which is the only reason a horn is a verb.
-  truck_horn: (msg) => { airHorn(msg.typeId, msg.secs ?? null); },
+  truck_horn: (msg) => { airHorn(msg.typeId, msg.secs ?? null, msg.horn ?? null); },
   // The galley flap's answer. Dropped on the floor when no cab is up, which is the right
   // handling rather than a missing case: 'galley' is an ordinary verb and can be typed from a
   // depot forecourt, where the LOG is the surface and this panel does not exist.
   truck_galley: (msg) => { cabGalley(msg); },
+  // Any vehicle's galley quick actions (panels/galley.js); the message names the verb that owns it.
+  galley_view: (msg) => { openGalley(msg); },
   // Dismounting takes the set with it — the Deadhead window closes because the radio is gone,
   // not because anybody pressed anything on it.
-  truck_sim_close: () => { closeCab(); clearCbContext(); },
+  // …and the service bay with it, which lives inside the cab's own wrapper and would otherwise
+  // hold its state for a cab that no longer exists.
+  truck_sim_close: () => { closeTruckDepot(); closeCab(); clearCbContext(); },
+  // The truck rolled out of the shed: the bay folds away and the camera goes back to the driver.
+  truck_service_close: () => { closeBayService(); },
   // The depot: fleet, dealer, freight board and exchange on one screen. Opens when you walk into
   // a yard and closes when you leave, exactly as the hangar bay does.
   // ⚠ NEVER OVER THE CAB. `drive` mounts the cab and, a beat later, the yard's own auto-open (or a
@@ -1565,13 +1586,21 @@ const handlers = {
   // back over the top of it. The player is behind the wheel — rig mounted, `drive` answering "you
   // are already behind the wheel" — and looking at a shop window. The cab is the pane owner from
   // the moment it opens, so a late depot push is dropped rather than raced against.
-  truck_depot: (msg) => { if (isCabActive()) return; openTruckDepot(msg); },
+  // ⚠ EXCEPT THE BAY, WHICH ONLY EVER GOES OVER THE CAB. `service` is the same payload pushed while
+  // you sit in the shed (plugins/trucking pushBayService), and it mounts inside the cab rather than
+  // in the pane — so it is the one depot push that is dropped when there is NO cab to put it on.
+  truck_depot: (msg) => {
+    if (msg.service) { if (isCabActive()) openTruckDepot(msg); return; }
+    if (isCabActive()) return;
+    openTruckDepot(msg);
+  },
   // …and it re-looks on the way out, the same as `hangar_close` does. Walking out of a yard fires
   // the move FIRST (which this panel, being a pane owner, correctly told to keep off the pane) and
   // the close SECOND — so without a fresh look the player is left staring at an empty pane. Skipped
   // when the cab has taken the pane over, because then you did not walk out, you drove.
   truck_depot_close: () => { closeTruckDepot(); if (!isCabActive()) sendCmdSilent('look'); },
   flight_ctx: (msg) => { flightSimContext(msg); },
+  drake_sub: (msg) => { drakeSubmerged(msg); },   // plugins/submersible: the Drake's depth, air and hull rating
   flight_burst: (msg) => { flightBurst(msg); },        // a bomb going off — world-anchored fireball in the windshield
   flight_contacts: (msg) => { flightSimContacts(msg); },   // air-to-air traffic (Phase A: see other craft)
   flight_aasites: (msg) => { flightSimAASites(msg); },     // active ground AA emplacements → 3D turret models

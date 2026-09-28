@@ -176,6 +176,13 @@ export function lintContentTree(baseDir, { tree: preRead = null } = {}) {
       // `item_scrap`, an id that has never existed, so the game's second-hardest
       // creature dropped nothing but credits for its entire life. Same silent
       // class as the anatomy checks above, and it fails the same way.
+      // `flags.interactions` is a LIST of verbs. 81 pieces were authored as an object of verb →
+      // prose, which threw inside describeZone and blanked every room they stood in (the Dock Hall
+      // among them). Prose for examine belongs in `flags.examine_detail`.
+      if (entry.table === 'furniture') {
+        const ix = f.data.flags?.interactions;
+        if (ix !== undefined && !Array.isArray(ix)) errors.push(`${label}: flags.interactions must be an array of verbs (put examine prose in flags.examine_detail)`);
+      }
       if (entry.table === 'enemies') {
         const itemPks = pkSets.get('items')?.get('id');
         for (const t of ['loot_table', 'butcher_table']) {

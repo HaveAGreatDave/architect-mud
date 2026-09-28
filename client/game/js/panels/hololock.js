@@ -251,7 +251,7 @@ function trySet() {
   } else {
     _state.feedback = clampNum(_state.feedback + _state.missPenalty, 0, 1);
     sfx('hololock-miss');
-    setStatus('<span style="color:#ffb23e">Missed the window — feedback spikes.</span>');
+    setStatus('<span style="color:#ffb23e">Missed the window: feedback spikes.</span>');
     if (_state.feedback >= 1) finish(false);
   }
 }
@@ -262,8 +262,8 @@ function finish(won) {
   cancelAnimationFrame(_raf); _raf = 0;
   sfx(won ? 'hololock-win' : 'hololock-lose');
   setStatus(won
-    ? '<span class="hl-win">◇ LOCK DISENGAGED — access granted.</span>'
-    : '<span class="hl-lose">✕ SEQUENCE RESET — deck flagged.</span>');
+    ? '<span class="hl-win">◇ LOCK DISENGAGED: access granted.</span>'
+    : '<span class="hl-lose">✕ SEQUENCE RESET: deck flagged.</span>');
   const cb = _opts?.onResult;
   // A skin owns its own teardown — the character board lives in the area pane,
   // not an overlay, so close() here would tear down the wrong thing.

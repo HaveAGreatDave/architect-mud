@@ -6,9 +6,7 @@
       "strip",
       "paper"
     ],
-    "interactions": {
-      "examine": "The lines get closer together as the dates get more recent, which means whatever is being measured is not just moving, it is speeding up."
-    }
+    "examine_detail": "The lines get closer together as the dates get more recent, which means whatever is being measured is not just moving, it is speeding up."
   },
   "id": "furn_hf_root_tape",
   "name": "the taped strip",

@@ -173,7 +173,7 @@ async function cmdTip(args, raw, player, broadcast) {
     if (until < Date.now()) {
       await setFlag('player', VIP_FLAG, String(Date.now() + VIP_MS), player);
       sendToPlayer(player.id, { type: 'output',
-        message: `${npc.name} leans in close, voice low: "You've earned the red room, sweetheart — it's yours for the day. Follow the light."` });
+        message: `${npc.name} leans in close, voice low: "You've earned the red room, sweetheart: it's yours for the day. Follow the light."` });
     }
   }
 

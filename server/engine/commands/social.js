@@ -121,7 +121,7 @@ function liveLogTalk(player) {
   const npc = getZoneNpcs(player.current_zone).find(n => n.id === talk.npcId);
   if (!npc || talk.zone !== player.current_zone) {
     endLogTalk(player.id);
-    return { error: `That conversation is over — ${talk.npcName} isn't here.` };
+    return { error: `That conversation is over; ${talk.npcName} isn't here.` };
   }
   return { talk, npc };
 }
@@ -239,7 +239,7 @@ function cmdYell(text, player, broadcast) {
 // "not again"` is speech AND an action, and shouldn't have to pick one.
 function cmdMe(text, player, broadcast) {
   const line = String(text || '').trim();
-  if (!line) return { type:'error', message:'Usage: me <what you do>  —  e.g. me leans on the bar and waits.' };
+  if (!line) return { type:'error', message:'Usage: me <what you do>  (e.g. me leans on the bar and waits.)' };
   // Leading punctuation ("me's hands shake") joins the handle directly; anything
   // else gets the space it obviously wants.
   const body = /^['’,.!?]/.test(line) ? line : ` ${line}`;

@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "wasteland",
   "color": "#b5744a",
-  "description": "Broken mesa shelves step away in ochre and iron-red, cut by dry washes where the wind funnels grit against your teeth.",
+  "description": "The mesa edge breaks up here into steps and ledges. Ochre stone, iron-red stone, and wind-driven grit in every crack.",
   "exits": {
     "east": "zone_district_875_944",
     "north": "zone_district_874_943",

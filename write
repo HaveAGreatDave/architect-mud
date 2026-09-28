@@ -1,0 +1,1017 @@
+client/game/js/a11y-command.js:60:+ `<b>${esc(opt.label)}</b> — currently <b>${esc(currentLabel(opt, settings, ctx))}</b><br>`
+client/game/js/a11y-command.js:76:+ `<b>Display Mode</b> — how much of the game is drawn rather than written.<br>`
+client/game/js/a11y-command.js:109:+ `Try: ${A11Y_OPTIONS.map(o => esc(o.verb)).join(', ')}, reset — or just <a href="#" data-cmd="accessibility">accessibility</a>.</div>`;
+client/game/js/alarm.js:36:'<span class="text-red">Chirp-chirp-chirp — no gap left in it at all.</span>',
+client/game/js/alarm.js:77:appendMsg('The box on the wall opens up — a two-tone howl, rising and falling, and every light in here goes red.', 'ambient');
+client/game/js/automation.js:115:appendMsg(`All triggers switched OFF — ${why}. Fix the pattern and turn them `
+client/game/js/automation.js:365:appendMsg('No state rules. These watch your vitals rather than the text — try:\n'
+client/game/js/automation.js:678:appendMsg(`The shortest timer is ${MIN_INTERVAL_MS / 1000}s — anything faster is a command every `
+client/game/js/dictation.js:61:btn.title = on ? 'Listening — tap to stop' : 'Voice input (tap, or hold to talk)';
+client/game/js/dictation.js:99:? ' — press Enter to confirm (this one can cost you something).'
+client/game/js/dictation.js:100:: ' — press Enter to run it.';
+client/game/js/dispatch.js:970:appendMsg('Session lost — reconnecting...', 'system');
+client/game/js/dispatch.js:988:if (isAutoWalking()) autoWalkBlocked('Auto-walk stopped — the way ahead is blocked.');
+client/game/js/dispatch.js:2013:if (!handler) { console.debug(`[dispatch] no handler for '${msg.type}' — message dropped`); return; }
+client/game/js/esp.js:17:'A distant wail rises and falls across the city — low, sweeping, like something alive.',
+client/game/js/esp.js:20:'Something in the distance howls — not an animal. The tone is mechanical, patient, inevitable.',
+client/game/js/esp.js:24:'Outside, the siren continues — a long, rising moan that peaks, holds, then sinks back into the low register.',
+client/game/js/input.js:47:if (arg && arg !== 'status') { appendMsg('Usage: .thermals [on|off] — no argument reports what the view found.', 'system'); return; }
+client/game/js/input.js:59:lines.push(`Rings are ${tune && tune.thermalDebug ? 'on' : 'off'} — .thermals on / .thermals off.`);
+client/game/js/input.js:68:appendMsg(on ? 'Murmuration armed. It starts when a view opens — cockpit, cab, free look or a telescope.'
+client/game/js/input.js:81:appendMsg(why === 'high' ? 'Too high to see them. Birds are only drawn low over the ground — come down below the rooftops.'
+client/game/js/input.js:86:if (!near.length) { appendMsg('No starlings in range of here — they keep to streets, parks and rooftops. Try the city.', 'system'); return; }
+client/game/js/logtools.js:168:`Architect — log transcript, saved ${new Date().toLocaleString()}`,
+client/game/js/logtools.js:171:? `⚠ ${lost} earlier line(s) are NOT here — the session buffer holds the last ${cap}.`
+client/game/js/logtools.js:221:+ 'line, ignoring case. "Ping" also plays a sound — once per line, however many '
+client/game/js/main.js:664:prompt: "Your body stays asleep exactly where you log out — it'll remain in the world, vulnerable to anyone who finds it, until you return. Get somewhere safe (your apartment, locked) before signing o
+client/game/js/main.js:841:? "Keyboard movement — unavailable while a 3-D view has the keys"
+client/game/js/net.js:119:appendMsg('Not connected — that did nothing. Reconnecting. If it keeps up, reload the page.', 'system');
+client/game/js/panels/aircraft3d-lazy.js:44:throw new Error("aircraft3d-lazy.js: " + name + "() was called before loadAircraft3d() resolved — await it on the path that opens this view.");
+client/game/js/panels/apprehend.js:44:<div class="apprehend-officer">${esc(officer)} has a hand on you. Comply — or bolt.</div>
+client/game/js/panels/arrest.js:58:<div class="arrest-row"><span class="arrest-label">Sentence</span><span class="arrest-val">${esc(msg.sentence || '—')}</span></div>
+client/game/js/panels/arrest.js:59:<div class="arrest-row"><span class="arrest-label">Property</span><span class="arrest-val">${msg.confiscated || 0} item(s) seized — contraband logged to evidence, the rest returned on release</span></
+client/game/js/panels/arrest.js:60:<div class="arrest-row"><span class="arrest-label">Cash seized</span><span class="arrest-val">₵${held.toLocaleString()} — held at the desk</span></div>
+client/game/js/panels/atm.js:179:capLine = `<div class="atm-scr-fee">24h limit: ${formatC(txnCap)} — larger sums, see a teller</div>`;
+client/game/js/panels/atm.js:181:capLine = `<div class="atm-scr-fee">24h limit: ${formatC(allow.remaining)} of ${formatC(txnCap)} left — resets in ${fmtWait(allow.resetsIn)}</div>`;
+client/game/js/panels/atm.js:183:capLine = `<div class="atm-scr-fee atm-scr-spent">24h limit reached — ${formatC(txnCap)} moved. Resets in ${fmtWait(allow.resetsIn)}, or see a teller</div>`;
+client/game/js/panels/atm.js:235:<div class="atm-scr-avail">Diagnostic shell access active. Cash reserve can be force-ejected from the hopper — this will brick the terminal.</div>
+client/game/js/panels/bigscreen.js:237:export const BIGSCREEN_TITLE = 'big screen — the whole screen, no panels, no HUD (Esc leaves)';
+client/game/js/panels/bigscreen.js:289:export const SIDEBAR_TITLE = 'hide the sidebar panels — a wider picture';
+client/game/js/panels/boat-view.js:249:+ '<canvas class="boat-lever" width="88" height="200" title="throttle — drag (W)"></canvas>'
+client/game/js/panels/boat-view.js:257:+ '<button class="boat-ign" type="button" data-pos="off" title="ignition key (K) — turn to START, again to OFF">'
+client/game/js/panels/boat-view.js:260:+ '<button class="boat-chip boat-hold" data-key="[" type="button" title="tabs bow down (hold — [)">TAB ▼</button>'
+client/game/js/panels/boat-view.js:261:+ '<button class="boat-chip boat-hold" data-key="]" type="button" title="tabs bow up (hold — ])">TAB ▲</button>'
+client/game/js/panels/boat-view.js:268:+ '<button class="boat-chip boat-hold" data-key="h" type="button" title="horn (hold — H)">HORN</button>'
+client/game/js/panels/boat-view.js:269:+ '<button class="boat-chip boat-hold boat-nos" data-key="shift" type="button" title="nitrous bottle (hold — Shift)">BOTTLE</button>'
+client/game/js/panels/boat-view.js:280:+ '<button class="boat-chip boat-hold boat-push" data-key="z" type="button" hidden title="hold to shove her back off the beach (Z) — shuts the lever">⇤ PUSH OFF</button>'
+client/game/js/panels/boat-view.js:282:+ '<button class="boat-chip boat-ride" type="button" title="helm camera motion: full / soft / steady (N) — the boat still rides the full sea">RIDE FULL</button>'
+client/game/js/panels/boat-view.js:284:+ '<button class="boat-chip boat-hidebtn" type="button" title="hide the text panel — keep the command bar">⊟</button>'
+client/game/js/panels/boat-view.js:653:cabin: 'CABIN — dome lamp (I)', wipe: 'WIPE — wipers (W)', horn: 'HORN — hold (H)', dials: 'DIALS — gauge lights (L)',
+client/game/js/panels/boat-view.js:654:arm: 'ARM — nitrous bottle, hold (Shift)', tabUp: 'TABS — bow up, hold (])', tabDown: 'TABS — bow down, hold ([)',
+client/game/js/panels/boat-view.js:655:stab: 'STAB — gyro stabiliser (G), needs the engine running',
+client/game/js/panels/boat-view.js:656:ign: 'IGN — ignition key (K)', kill: 'KILL — stop the engine',
+client/game/js/panels/boat-view.js:707:+ '<dt>K</dt><dd>ignition — hold to crank her, press again to shut down. She will not start with the lever open.</dd>'
+client/game/js/panels/boat-view.js:708:+ '<dt>N</dt><dd>ride comfort — full, soft or steady helm camera motion. The boat still rides the full sea.</dd>'
+client/game/js/panels/boat-view.js:710:+ '<dt>X / C</dt><dd>steer (or the arrows). She has no rudder at rest — you point her by moving her.</dd>'
+client/game/js/panels/boat-view.js:719:+ '<dt>ESC</dt><dd>step off — alongside to moor her, or over the side into the water.</dd>'
+client/game/js/panels/boat-view.js:757:? 'Alongside a berth you will tie her up and step onto it. Anywhere else you go into the water and she floats where you left her — with the engine still running.'
+client/game/js/panels/boat-view.js:1007:if (!st._errLogged) { console.error('[boat] frame error (view kept alive — report this stack):', e); st._errLogged = true; }
+client/game/js/panels/boat-view.js:1046:: (st.sim.crank > 0 ? 'CRANKING…' : st.fuel <= 0 ? 'DRY — NO START' : (st.starter && st.lever >= 0.05) ? 'LEVER TO IDLE TO START' : 'ENGINE OFF · K');
+client/game/js/panels/boat-view.js:1060:: 'ENGINE OFF — click the ENGINE key or hold K to start · V external · N ride · ? controls · ESC step off');
+client/game/js/panels/cab-view.js:212:['Drag the wheel', "Steer. Take hold of the wheel on the dash anywhere on it and turn it, or put a hand anywhere else on the glass and drag sideways. It walks back to centre when you let go. In the ch
+client/game/js/panels/cab-view.js:216:['Lever', "The gear lever, in an H-gate. Drag the knob into a slot — or just click the slot. The knob sits in whatever gear you're actually in."],
+client/game/js/panels/cab-view.js:220:['SPACE / CLUTCH', "Clutch. Held — or TAP the pedal to latch it in, which is how you shift with one hand on a mouse. The box isn't synchronised: a gear only goes in with the clutch in, and trying it w
+client/game/js/panels/cab-view.js:221:['J / JAKE', "Engine brake. Held. Free retardation on a descent — it doesn't heat the drums."],
+client/game/js/panels/cab-view.js:224:['K / KEY', 'The ignition. Off stops the engine; on cranks it, and it only catches with the clutch in or the box in neutral — same rule as restarting a stall.'],
+client/game/js/panels/cab-view.js:225:['M / AUTO', "Automatic shifting. It works the clutch and the lever for you and you can watch it do it — the stick goes out through neutral and into the slot, the pedal goes in and comes up. It never 
+client/game/js/panels/cab-view.js:227:['G / CRUISE', "Cruise control. Locks the speed you're doing — the brake, the clutch or dropping out of gear cancels it. It works the throttle and nothing else, so a hill still beats you in the wrong 
+client/game/js/panels/cab-view.js:228:['/', 'Splitter — half a gear.'],
+client/game/js/panels/cab-view.js:231:['L / LAMPS', 'Headlights. They default on, because a rig runs lit — switching them off is a thing you chose, and other drivers see your actual lamps.'],
+client/game/js/panels/cab-view.js:233:['W / the stalk', 'Wipers. The stalk is on the column beside the wheel and it wears its own setting — off, intermittent, low, high.'],
+client/game/js/panels/cab-view.js:234:['Q / E / S', "Look left, right, and over your shoulder. Held — you look, then you come back. There's no dash behind the side glass, so the view out of it is clear."],
+client/game/js/panels/cab-view.js:236:['V', 'External view — a chase camera behind the rig, on the same key the cockpit uses. Dolly right in and it settles flat to the road so you can see ahead of you; you can still orbit right round at a
+client/game/js/panels/cab-view.js:238:['T / GALLEY', "What's in the cab to eat or drink, with your food and water bars over it. Every row runs the ordinary eat or drink command, so it does exactly what typing would — this is a flap, not a
+client/game/js/panels/cab-view.js:239:['D', 'Damage. Four bars — engine, wheels, body, and the trailer if you have one. The strip in the corner is always there; this opens it out.'],
+client/game/js/panels/cab-view.js:240:['N', "Nav marks. The red chevrons that point at traffic you can't see and the mark on your waypoint — off, and the glass is just the road. Remembered. The free camera hides them regardless, because t
+client/game/js/panels/cab-view.js:241:['⊟ / ⛶ / ⤢', "Three rungs of the same ladder. Hide the text panel for more road; fullscreen takes the command box with it; big screen takes the whole page — no sidebar, no panels, nothing on the glas
+client/game/js/panels/cab-view.js:477:on ? 'Nav marks back on the glass.' : 'Nav marks off the glass — the traffic chevrons and the waypoint mark. <b>N</b> puts them back.',
+client/game/js/panels/cab-view.js:616:<button class="cab-cbtn cab-hidebtn" title="hide the text panel — more road">⊟</button>
+client/game/js/panels/cab-view.js:718:<button class="cab-btn cab-gearsbtn cab-touch" aria-label="Gearshift" title="Open the gearshift — lever, range, AUTO/MANUAL, clutch mode"><b>H</b><em>GEARS</em></button>
+client/game/js/panels/cab-view.js:791:<button class="cab-btn cab-range" aria-label="Range" title="Range collar — LO is gears 1-4, HI is 5-8"><i class="cab-rangeic">${svgIcon('range')}</i><b>LO</b><em>RANGE</em></button>
+client/game/js/panels/cab-view.js:792:<button class="cab-btn cab-splitbtn" aria-label="Splitter" title="Splitter collar (/) — half a gear"><b>${svgIcon('split')}</b><em>SPLIT</em></button>
+client/game/js/panels/cab-view.js:805:<button class="cab-btn cab-rocker cab-auto" aria-pressed="false" aria-label="Automatic shifting" title="Automatic shifting (M) — works the clutch and the lever for you. Watch the stick: it shifts the 
+client/game/js/panels/cab-view.js:818:<button class="cab-btn cab-rocker cab-autoclu" aria-pressed="true" aria-label="Automatic clutch" title="Automatic clutch (Shift+M) — on: the clutch works itself in manual. Off: the pedal is yours."><i
+client/game/js/panels/cab-view.js:819:<button class="cab-btn cab-rocker cab-revbtn" aria-pressed="false" aria-label="Reverse" title="Reverse (R) — clutch in, through neutral, into reverse. Only at a standstill. Press again for neutral."><
+client/game/js/panels/cab-view.js:834:title="Wiper stalk (W) — off / intermittent / low / high">
+client/game/js/panels/cab-view.js:869:<button class="cab-keybarrel" aria-label="Ignition key" aria-pressed="true" title="Ignition (K) — turn and HOLD to crank. Off kills the engine; it only catches with the clutch in or the box in neutral
+client/game/js/panels/cab-view.js:875:<button class="cab-btn cab-rocker cab-jake" aria-label="Jake brake" title="Jacobs engine brake (J) — held. Holds you back on a descent so the service brakes stay cold."><i></i><u><span>JAKE</span></u>
+client/game/js/panels/cab-view.js:879:<button class="cab-btn cab-rocker cab-horn cab-touch" aria-label="Air horn" title="Air horn (H) — the room hears it"><i></i><u><span>HORN</span></u></button>
+client/game/js/panels/cab-view.js:894:title="Headlights (L) — beam on the road ahead. Other drivers see them."><i></i><u><span>LAMPS</span></u></button>
+client/game/js/panels/cab-view.js:908:title="Cab light (I) — the dome lamp over your head. Switched off, the panel still glows and the rest of the dash goes dark."><i></i><u><span>CAB</span></u></button>
+client/game/js/panels/cab-view.js:929:<button class="cab-btn cab-rocker cab-cruise" aria-pressed="false" aria-label="Cruise control" title="Cruise control (G) — locks the speed you're doing. The brake, the clutch or dropping out of gear c
+client/game/js/panels/cab-view.js:937:<button class="cab-btn cab-parkbtn" aria-pressed="false" aria-label="Park brake" title="Park brake (P) — the spring brakes. Holds the rig with the engine off; it won't let you pull away. Pull it with 
+client/game/js/panels/cab-view.js:944:<button class="cab-btn cab-exitbtn" disabled aria-label="Exit cab" title="Exit cab — climb down. Set the park brake at a standstill first."><i></i><u><span>EXIT CAB</span></u></button>
+client/game/js/panels/cab-view.js:957:<button class="cab-btn cab-pumpbtn" hidden aria-label="Fuel pump — hold to fill" title="Fuel — HOLD the handle. It fills while you hold it and charges you when you let go; it clicks off when the tank 
+client/game/js/panels/cab-view.js:992:<button class="cab-btn cab-lookl" aria-label="Look left" title="Look left — hold (Q)"><b>${svgIcon('mirrorL')}</b><em>PORT</em></button>
+client/game/js/panels/cab-view.js:993:<button class="cab-btn cab-lookr" aria-label="Look right" title="Look right — hold (E)"><b>${svgIcon('mirrorR')}</b><em>STBD</em></button>
+client/game/js/panels/cab-view.js:994:<button class="cab-btn cab-lookb" aria-label="Look behind" title="Look behind — hold (S)"><b>${svgIcon('mirrorC')}</b><em>BACK</em></button>
+client/game/js/panels/cab-view.js:2677:"The starter churns and the engine won't catch — the box is still in gear. <b>Clutch in</b>, or find <b>neutral</b>, and turn the key again.",
+client/game/js/panels/cab-view.js:2764:stalk.setAttribute('aria-label', 'Wipers — ' + (WIPE_POS[w] || 'OFF').toLowerCase());
+client/game/js/panels/cab-view.js:2784:el.setAttribute('aria-label', st.heads ? 'Headlights — on' : 'Headlights — off');
+client/game/js/panels/cab-view.js:2802:el.setAttribute('aria-label', st.dome ? 'Cab light — on' : 'Cab light — off');
+client/game/js/panels/cab-view.js:2933:el.innerHTML = '<div class="cab-routes-none cab-gps-dead">— NO SIGNAL —<br><span>the head took the pulse</span></div>';
+client/game/js/panels/cab-view.js:3119:return `<b class="cab-gps-turn">Hold it ${side} — the road is going.</b>`;
+client/game/js/panels/cab-view.js:3142:+ 'A component that has FAILED needs the part itself — <b>rig parts</b>.</p>';
+client/game/js/panels/cab-view.js:3163:: '<div class="cab-routes-ft warn">The fork is behind you — this is the road you\'re on.</div>';
+client/game/js/panels/cab-view.js:3290:+ `<p class="cab-dmg-foot">A bench is <b>rig repair shop</b> at a depot, or one part at a time — `
+client/game/js/panels/cab-view.js:3655:el.setAttribute('aria-label', coupled ? 'Trailer air supply — pull to release' : 'Trailer air supply — push to couple');
+client/game/js/panels/cab-view.js:3676:el.setAttribute('title', `Diesel — ${p.full}₵ a tank, ${Math.round(room * p.full)}₵ to fill this one.`
+client/game/js/panels/cab-view.js:3678:el.setAttribute('aria-label', `Fuel pump — hold to fill, ${Math.round(room * p.full)} credits for a full tank`);
+client/game/js/panels/cab-view.js:3828:? "Doors latched. Stopping isn't enough — pick them up if you mean to."
+client/game/js/panels/cab-view.js:4352:gearEl.textContent = r.stalled ? '—' : r.reversing ? 'R' : (r.gear === 0 ? 'N' : r.gear + (st.sim.split ? '½' : ''));
+client/game/js/panels/cab-view.js:4774:gearLabel: r.stalled ? '—' : r.reversing ? 'R' : (r.gear === 0 ? 'N' : r.gear + (st.sim.split ? '½' : '')),
+client/game/js/panels/cab-view.js:4912:if (!st._errLogged) { console.error('[cab] frame error (view kept alive — report this stack):', e); st._errLogged = true; }
+client/game/js/panels/cardpack.js:684:<div class="vm-hint">Every sleeve on these coils is already what it is. About one in twelve runs HOT — triple
+client/game/js/panels/cardpack.js:685:weight on epic and legendary — and nothing on the outside of a sleeve will ever tell you which.</div>
+client/game/js/panels/cardpack.js:753:shelves.innerHTML = `<div class="vm-dead">— NO STOCK —<br><br>Nobody has minted anything yet.<br>Every coil behind the glass is bare.</div>`;
+client/game/js/panels/cardpack.js:791:`<div class="vm-pick-val">${machine.pick || '——'}</div>` +
+client/game/js/panels/cardpack.js:793:`<div class="vm-note">IN THE POOL — ${total}</div>` +
+client/game/js/panels/cardpack.js:1401:${show.scrapped ? `<div class="cp-sum-note">Duplicates in there — <b style="color:#c07b3a">₵${show.scrapped}</b> if you scrap them at a mint.</div>` : ''}
+client/game/js/panels/cb-radio.js:143:title="Open the Deadhead window — everything said on this channel">
+client/game/js/panels/cb-radio.js:157:aria-label="CB speaker — read incoming traffic aloud"
+client/game/js/panels/cb-radio.js:158:title="Speaker — reads incoming traffic out loud so you can keep your eyes on the road (cb speaker)"><i></i><u><span>SPKR</span></u></button>
+client/game/js/panels/circuithack.js:359:if (state.trace >= state.traceMax) { finish(state, false, 'TRACE COMPLETE — INTRUSION LOGGED, CONNECTION SEVERED'); return true; }
+client/game/js/panels/circuithack.js:360:if (state.movesLeft <= 0) { finish(state, false, 'CYCLES EXHAUSTED — KICKED FROM SYSTEM'); return true; }
+client/game/js/panels/circuithack.js:382:if (state.alarmsLeft <= 0) return finish(state, false, 'ICE LOCK — CONNECTION BURNED');
+client/game/js/panels/circuithack.js:400:return finish(state, true, 'CORE BREACHED — ACCESS GRANTED');
+client/game/js/panels/circuithack.js:423:flashStatus('<span class="ch-warn">&#8226; SENSOR PULSE — EXTENDED RANGE</span>');
+client/game/js/panels/circuithack.js:479:if (state.alarmsLeft <= 0) return finish(state, false, 'ICE LOCK — CONNECTION BURNED');
+client/game/js/panels/circuithack.js:863:'<span class="ch-warn">SCAN ARMED — click an adjacent unknown via</span>',
+client/game/js/panels/circuithack.js:866:'<span class="ch-warn">BREACH ARMED — click an adjacent GATE, ICE, or SENTRY</span>',
+client/game/js/panels/cockpit.js:546:set('ck-surface', s.surface || (s.airborne ? 'open air' : '—'));
+client/game/js/panels/cockpit.js:554:? (s.runup ? '<span class="ck-amber">RUN-UP — warming engines</span>' : s.engineOn ? '<span class="ck-green">READY — throttle up &amp; takeoff</span>' : '<span class="ck-dim">COLD — startup to begin</
+client/game/js/panels/cockpit.js:563:const W = { STARVATION: ['ENGINE OUT — DEAD STICK — LAND NOW', 'r'], BINGO: ['BINGO FUEL — DIVERT', 'a'],
+client/game/js/panels/cockpit.js:564:STALL: ['STALL — NOSE DOWN', 'r'], FIRE: ['ENGINE FIRE — EXTINGUISH', 'r'], WEATHER: ['SEVERE TURBULENCE', 'a'] };
+client/game/js/panels/cockpit.js:594:if (!nodes || !nodes.length) { box.innerHTML = '<div class="ck-mini-empty">— no ground contact —</div>'; return; }
+client/game/js/panels/cockpit.js:596:if (cur.grid_x == null) { box.innerHTML = '<div class="ck-mini-empty">—</div>'; return; }
+client/game/js/panels/cockpit.js:672:<div class="ck-mini" id="ck-mini"><div class="ck-mini-empty">—</div></div>
+client/game/js/panels/cockpit.js:673:<div class="ck-surface-row">⌖ <b id="ck-surface">—</b> · <span id="ck-alt-band">GND</span></div></div>`;
+client/game/js/panels/cockpit.js:708:<button class="ck-pax-hidebtn" id="ck-pax-hidebtn" title="hide the text panel — more window" tabindex="-1">⊟</button>
+client/game/js/panels/cockpit.js:717:<span>◈ <b id="ck-pax-dest">—</b></span>
+client/game/js/panels/cockpit.js:1051:? 'The <b>yoke</b> is your control column — drag it with your <b>finger</b>. Left/right banks the wings into a turn. It\'s <b>inverted</b> like the real thing: drag <b>DOWN</b> to pull back and <b>cli
+client/game/js/panels/cockpit.js:1052:: 'The <b>yoke</b> is your control column — steer it with the <span class="k">mouse</span>. Drag <b>left/right</b> to bank the wings into a turn. It\'s <b>inverted</b> like the real thing: drag <b>DOW
+client/game/js/panels/cockpit.js:1054:? 'The <b>throttle</b> sets engine power — <b>drag the lever</b> up for more, down for less. Run it <b>full</b> for takeoff, and ease it back to bleed off speed for landing.'
+client/game/js/panels/cockpit.js:1055:: 'The <b>throttle</b> sets engine power. Tap <span class="k">A</span> to add power, <span class="k">Z</span> to cut it — or drag the lever. Run it <b>full</b> for takeoff, and ease it back to bleed o
+client/game/js/panels/cockpit.js:1058:: '<b>Flaps</b> add lift so you can fly slower and steeper. Drag the flap knob, or tap <span class="k">Y</span> to extend / <span class="k">H</span> to retract — a notch or two for takeoff and landing
+client/game/js/panels/cockpit.js:1063:'<b>Takeoff:</b> full throttle straight down the runway. As the speed tape comes alive and she gets light on the wheels, ease the <b>yoke back</b> to lift the nose and climb away — keep the wings leve
+client/game/js/panels/cockpit.js:1077:`<div class="fsim-tour-hd">✈ FLIGHT SCHOOL · ${i + 1}/${total} — ${st.title}</div>` +
+client/game/js/panels/cockpit.js:1117:card.querySelector('.fsim-ckride-hd').textContent = `✈ CHECKRIDE · STEP ${n}/${total}${cr.stageName ? ' — ' + cr.stageName : ''}`;
+client/game/js/panels/cockpit.js:2993:if (F.toast) F.toast('⚠ THE FEET TORE OFF — she is on her hull');
+client/game/js/panels/cockpit.js:3129:const adminBtn = isAdmin ? '<button class="fsim-adminbtn" id="fsim-rewindbtn" title="ADMIN — rewind to the hangar you departed, with the plane (test)">⏪</button>' : '';
+client/game/js/panels/cockpit.js:3136:<button class="fsim-pedal fsim-pedal-l" id="fsim-pedal-l" title="left rudder / yaw (hold — , or X)" tabindex="-1" aria-label="left rudder"><span class="fsim-pedal-face"><span class="fsim-pedal-lbl">L<
+client/game/js/panels/cockpit.js:3137:<button class="fsim-pedal fsim-pedal-r" id="fsim-pedal-r" title="right rudder / yaw (hold — . or C)" tabindex="-1" aria-label="right rudder"><span class="fsim-pedal-face"><span class="fsim-pedal-lbl">
+client/game/js/panels/cockpit.js:3155:<button class="dkx-btn" data-dk="mode2" title="mode: boat — on the water" tabindex="-1">BOAT</button>
+client/game/js/panels/cockpit.js:3162:<div class="fsim-view">${adminBtn}${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-dive" 
+client/game/js/panels/cockpit.js:3178:<button class="fsim-nightsw" id="fsim-visorsw" title="CARGO NOSE — raise the visor to load. Only on the ground, and she won't roll with it open." tabindex="-1" style="display:none"><span class="fsim-n
+client/game/js/panels/cockpit.js:3181:<div class="fsim-trim" id="fsim-trim" title="ELEVATOR TRIM — drag or roll the wheel; up = NOSE DOWN, down = NOSE UP">
+client/game/js/panels/cockpit.js:3201:<div class="fsim-plac-reg" id="fsim-reg">—</div>
+client/game/js/panels/cockpit.js:3202:<div class="fsim-plac-model"><span class="fsim-plac-k">MAKE</span><span id="fsim-model">—</span></div>
+client/game/js/panels/cockpit.js:3203:<div class="fsim-plac-own" id="fsim-own"><span class="fsim-plac-k" id="fsim-own-k">OWNER</span><span id="fsim-own-name">—</span></div>
+client/game/js/panels/cockpit.js:3205:<div class="fsim-plac-barcode"><span class="bars"></span><span class="sn" id="fsim-plac-sn">S/N —</span></div>
+client/game/js/panels/cockpit.js:3214:<div class="fsim-radio-frow"><span class="k">TILE</span><b id="fsim-tile" style="font-size:9px;letter-spacing:0;">—</b></div>
+client/game/js/panels/cockpit.js:3215:<div class="fsim-radio-frow tgt"><span class="k">TGT</span><button class="fsim-tgt-btn" id="fsim-tgt-prev" title="previous target ([)" tabindex="-1">◂</button><b id="fsim-tgt-name">—</b><button class=
+client/game/js/panels/cockpit.js:3371:if (snEl) snEl.textContent = 'S/N ' + String(F.reg || '—') + '·' + String(opts.craftType || '').replace(/^ac_/, '').slice(0, 4).toUpperCase();
+client/game/js/panels/cockpit.js:3474:if (trimEl) trimEl.title = 'CYCLIC TRIM — drag or roll the wheel; up = NOSE FWD (cruise), down = NOSE AFT';
+client/game/js/panels/cockpit.js:3519:if (!F.gearRetract) { fsimToast('— FIXED GEAR —'); return; }
+client/game/js/panels/cockpit.js:3522:if (F.dk && F.gearAnim > 0.01 && F.gearAnim < 0.99) { fsimToast('GEAR IN TRANSIT — wait for the lock'); return; }
+client/game/js/panels/cockpit.js:3523:if (F.dk && F.dk.feetGone) { fsimToast('NO FEET — a hangar can fit new ones'); return; }
+client/game/js/panels/cockpit.js:3533:fsimToast('⚠ GEAR UP ON THE GROUND — she settles onto her belly');
+client/game/js/panels/cockpit.js:3546:if (!D.wing && (F.s.onGround || ias < 55)) { fsimToast('CONVERSION — needs 55 kt and air under you'); return; }
+client/game/js/panels/cockpit.js:3547:if (D.wing && ias > 150) { fsimToast('CONVERSION — slow below 150 kt to deploy the rotor'); return; }
+client/game/js/panels/cockpit.js:3550:fsimToast(D.wing ? '⇄ CONVERTING — WING' : '⇄ CONVERTING — ROTOR');
+client/game/js/panels/cockpit.js:3554:if (!D.rampOpen && !F.s.onGround && (F.disp?.ias || 0) > 40) { fsimToast('RAMP — not above 40 kt'); return; }
+client/game/js/panels/cockpit.js:3574:if (cur === 3) return 'HELI — surface first (BOAT)';
+client/game/js/panels/cockpit.js:3575:if (cur === 1 && ias > 150) return 'HELI — slow below 150 kt to deploy the rotor';
+client/game/js/panels/cockpit.js:3579:if (cur >= 2) return 'PLANE — lift off in HELI first';
+client/game/js/panels/cockpit.js:3580:if (F.s.onGround || ias < 55) return 'PLANE — needs 55 kt and air under you';
+client/game/js/panels/cockpit.js:3586:if (!D.onWater && !(F.waterBelow && !F.onYacht && ((F.s.altitude || 0) - (F.s.groundFt || 0)) < 6)) return 'BOAT — get down onto the water first, gear up';
+client/game/js/panels/cockpit.js:3587:if (gearMoving) return 'BOAT — gear in transit, wait for the lock';
+client/game/js/panels/cockpit.js:3590:if (cur !== 2) return 'SUB — switch to BOAT first';
+client/game/js/panels/cockpit.js:3592:if (d == null) return 'SUB — no depth reading';
+client/game/js/panels/cockpit.js:3593:if (d < SUB_MIN_WATER_M) return `SUB — ${d.toFixed(1)} m under her, needs ${SUB_MIN_WATER_M} m`;
+client/game/js/panels/cockpit.js:3610:D.boat = true; fsimToast('⚓ BOAT — feet up, tail rotor to the pusher'); return;
+client/game/js/panels/cockpit.js:3613:if (D.boat) { D.boat = false; if (t === 0) fsimToast('HELI — collective up to lift off the water'); }
+client/game/js/panels/cockpit.js:3616:else if (t === 0) fsimToast('HELI — rotor lift');
+client/game/js/panels/cockpit.js:3632:if (!F.cargoKg) { fsimToast('— NO CARGO —'); return; }
+client/game/js/panels/cockpit.js:3643:if (!list.length) { fsimToast('— NO DESTINATIONS IN RANGE —'); return; }
+client/game/js/panels/cockpit.js:3659:if (nmEl) nmEl.textContent = '—';
+client/game/js/panels/cockpit.js:3685:fsimToast(`◈ DIVE COMPUTER — over the top to ${DIVE_AUTO_DEG}°, then it flies the pull-out`);
+client/game/js/panels/cockpit.js:3732:if (!under && F.drakeModeReady && !F.drakeModeReady(3)) { fsimToast(F.dk.boat ? 'SUB — not deep enough to dive' : 'SUB — switch to BOAT first'); return; }
+client/game/js/panels/cockpit.js:3769:fsimToast(on ? '◎ FREE CAMERA — mouse looks, MMB orbit, LMB/RMB up-down, WASD move, U frees the mouse, O to stow' : '◎ CHASE CAMERA');
+client/game/js/panels/cockpit.js:3814:case 'n': case 'i': if (!e.repeat && F.dk) { F.dk.nv = !F.dk.nv; fsimToast(F.dk.nv ? '◉ NIGHT VISION — centre screen' : '◉ NIGHT VISION OFF'); } break;
+client/game/js/panels/cockpit.js:3870:if (F.reportedAirborne || F.rolling) { if (F.toast) F.toast('NOSE — only on the ground, stopped.'); return; }
+client/game/js/panels/cockpit.js:3873:if (F.toast) F.toast(F.visorWant ? 'NOSE OPENING — cargo visor coming up.' : 'NOSE CLOSING — ~5s to the lock.');
+client/game/js/panels/cockpit.js:3938:if (F.toast) F.toast('NOSE OPEN — cargo visor lowering, ~5s. No taxi until it locks.');
+client/game/js/panels/cockpit.js:3951:if (F.heli && F.rolling) { F.rolling = false; if (F.toast) F.toast('SHUT DOWN — type disembark to climb out'); }
+client/game/js/panels/cockpit.js:3979:pipsEl.textContent = F.weapon === 'bomb' ? (F.bombs > 0 ? '●'.repeat(F.bombs) : '—')
+client/game/js/panels/cockpit.js:3980:: F.weapon === 'msl' ? (F.msl > 0 ? '▲'.repeat(F.msl) : '—') : '◆'.repeat(F.hardpoints);
+client/game/js/panels/cockpit.js:4102:`<div class="fsim-tune-drag" id="fsim-tune-drag">⠿ TUNING — drag to move · edge to resize</div>` +
+client/game/js/panels/cockpit.js:4152:fsimToast('⏪ REWIND — back to the hangar');
+client/game/js/panels/cockpit.js:4165:fsimToast('⤫ ABORT? — tap again to bail (aircraft recovered at cost)');
+client/game/js/panels/cockpit.js:4172:fsimToast('⤫ ABORTING — recovery crew inbound');
+client/game/js/panels/cockpit.js:4243:nv: () => { F.dk.nv = !F.dk.nv; fsimToast(F.dk.nv ? '◉ NIGHT VISION — centre screen' : '◉ NIGHT VISION OFF'); },
+client/game/js/panels/cockpit.js:4574:[250, 'B+', 'good',   'Nice one — textbook touchdown.'],
+client/game/js/panels/cockpit.js:4577:[510, 'C+', 'mid',    'Ooh — felt that one.'],
+client/game/js/panels/cockpit.js:4822:if (F.toast) F.toast('PAD LOCK — the deck has you. Coming down.');
+client/game/js/panels/cockpit.js:4869:if (F.toast) F.toast('The Echelon has you — coming in to land.');
+client/game/js/panels/cockpit.js:5045:if (C.seg !== 2) { C.seg = 2; if (F.toast) F.toast('Skids down — winding down.'); }
+client/game/js/panels/cockpit.js:5207:else if (F.diveAuto && handOn) { F.diveAuto = null; fsimToast('◇ DIVE COMPUTER OFF — you have it'); }
+client/game/js/panels/cockpit.js:5247:if (F.toast) F.toast('THROTTLE BAULKED — cargo nose is open.');
+client/game/js/panels/cockpit.js:5399:if (wasOpen && F.noseVisor <= 0.02) { if (F.toast) F.toast('NOSE LOCKED — cleared to taxi.'); }
+client/game/js/panels/cockpit.js:5430:if (F.toast) F.toast('⚠ PAD GUIDANCE — descend into the green column and the deck will bring you down.');
+client/game/js/panels/cockpit.js:5449:if (F.toast) F.toast('CRASH — you flew into a building');
+client/game/js/panels/cockpit.js:5465:if (F.toast) F.toast('⚠ You bumped the wall — back it off.');
+client/game/js/panels/cockpit.js:5580:if (wr.gearWarn && F.dk.gearWarnT <= 0) { F.dk.gearWarnT = 6; if (F.toast) F.toast('⚠ GEAR DOWN OVER WATER — raise it, she lands on her hull'); }
+client/game/js/panels/cockpit.js:5588:if (wr.autoGearDown && F.dk.feetWarnT <= 0) { F.dk.feetWarnT = 6; if (F.toast) F.toast('⚠ FEET UP OVER LAND — lower the gear'); }
+client/game/js/panels/cockpit.js:5627:if (F.toast) F.toast(dkV.snap ? '⚠ FEET TORN OFF — land on the water gear up' : feet ? 'ON THE WATER — feet out, raise the gear' : 'ON THE WATER — on her hull · BOAT to drive');
+client/game/js/panels/cockpit.js:5638:if (F.toast) F.toast('CRASH — you ditched in the water');
+client/game/js/panels/cockpit.js:5647:if (F.toast) F.toast('CRASH — you slammed it in too hard');
+client/game/js/panels/cockpit.js:5664:if (F.toast) F.toast(F.heli ? 'DOWN — lift off again, or type disembark to climb out' : 'ROLL OUT — brake to a stop, then cut the ENGINE to park');
+client/game/js/panels/cockpit.js:5677:else if (!F.stopHinted) { F.stopHinted = true; if (F.toast) F.toast(F.heli ? 'DOWN — type disembark to climb out' : 'STOPPED — cut the ENGINE to shut down & park'); }
+client/game/js/panels/cockpit.js:5699:if (F.toast) F.toast('⚠ AUTO-LAND ARMING — drop into the green zone over the pad and she\'ll bring you down.');
+client/game/js/panels/cockpit.js:5892:if (F.toast) F.toast('◉ LOCK — FIRE WHEN READY');
+client/game/js/panels/cockpit.js:5919:fsimToast("✜ NOSE DOWN — the rack won't release out of a dive");
+client/game/js/panels/cockpit.js:5984:if (nmEl) nmEl.textContent = '—';
+client/game/js/panels/cockpit.js:6921:if ('surface' in msg) { F.surface = msg.surface; const tEl = document.getElementById('fsim-tile'); if (tEl) tEl.textContent = (msg.surface || '—').toUpperCase(); }
+client/game/js/panels/cockpit.js:6964:if (F.toast) F.toast(`💥 STRUCTURAL FAILURE — ${SHEAR_TOAST[msg.sheared] || 'SURFACE'} GONE`);
+client/game/js/panels/cockpit.js:6970:if (F.toast) F.toast(`⚠ TAKING FIRE${msg.by ? ' · ' + msg.by : ''} — HULL ${msg.hullPct}%`);
+client/game/js/panels/cockpit.js:6988:el.innerHTML = `★ KILL — <b>${name}</b>`;
+client/game/js/panels/cockpit.js:7003:if (F.toast) F.toast(`⚠ RWR — MISSILE LOCK${msg.by ? ' · ' + msg.by : ''}`);
+client/game/js/panels/cockpit.js:7008:if (F.toast) F.toast('⚠ MISSILE INBOUND — FLARES (X) + BREAK');
+client/game/js/panels/cockpit.js:7082:? 'Pouring chemical is a ground job — land first.'
+client/game/js/panels/cockpit.js:7091:+ `<span>${clash ? `holds ${esc(k.fluid)} — she's loaded with ${esc(msg.fluid)}`
+client/game/js/panels/cockpit.js:7213:<div class="ck-status2" id="ck-status"><span class="ck-hint">Move the pipper onto the target and hold it to LOCK — then FIRE (space / click).</span></div>
+client/game/js/panels/cockpit.js:7225:setStatus(won ? '<span class="ck-win">◇ SPLASH — target destroyed.</span>' : '<span class="ck-lose">✕ No hits — you overfly the target.</span>');
+client/game/js/panels/cockpit.js:7252:if (locked && !wasLocked) setStatus('<span style="color:#46e05a">LOCK — FIRE!</span>');
+client/game/js/panels/conceal.js:67:<div class="conceal-title">⛓ PAT-DOWN — PALM WHAT YOU CAN</div>
+client/game/js/panels/container.js:220:if (invLabel) invLabel.textContent = data.invNote ? 'Your Inventory — perishables' : 'Your Inventory';
+client/game/js/panels/container.js:356:'Take what your shopping list still wants from this container — every shelf, in the amounts the recipes ask for'));
+client/game/js/panels/container.js:496:head.title = `${total} of these, in ${bands.length} condition${bands.length === 1 ? '' : 's'} — open to pick one`;
+client/game/js/panels/corp-console.js:89:const rival = z.challenger ? `<span class="rv">${esc(z.challenger)} ${100 - inf}%</span>` : '<span class="dim">—</span>';
+client/game/js/panels/corp-console.js:165:const subtitle = `[${esc(tag)}] · TIER ${msg.org?.tier || 1} · ${esc(msg.you?.rank || '—')}`;
+client/game/js/panels/corp-map.js:180:acts = `<div class="cm-note">▸ Travel to <b>${esc(t.name)}</b> to act — the verbs work where you stand.</div>`;
+client/game/js/panels/custom/builder.js:79:accWrap.innerHTML = '<input type="checkbox"><span>Click header to expand — collapse others to make room</span>';
+client/game/js/panels/custom/catalogs.js:87:else disp = it.value == null ? '—' : esc(it.value);
+client/game/js/panels/custom/catalogs.js:98:if (!arr.length) return `<div class="cpanel-empty">${esc(it.label)}: —</div>`;
+client/game/js/panels/custom/catalogs.js:110:el.innerHTML = '<div class="cpanel-text">' + items.map(it => esc(it.value ?? '—')).join(' · ') + '</div>';
+client/game/js/panels/custom/registry.js:25:description: 'Your skill list with effective levels — pick which skills to show.',
+client/game/js/panels/custom/types/stickycam.js:11:const frame = feed.frame || (status === 'offline' ? '— no signal —' : '…');
+client/game/js/panels/deviceinspect.js:157:const statusText = dead ? 'OFFLINE — WRECKED' : offline ? 'NO POWER' : 'ONLINE';
+client/game/js/panels/deviceinspect.js:163:const kw = (v) => (v == null ? '—' : `${Math.round(v)} kW`);
+client/game/js/panels/deviceinspect.js:276:const temp = dead ? '—' : offline ? '120 °C' : '642 °C';
+client/game/js/panels/deviceinspect.js:330:<text x="192" y="118" fill="${loadColor}">${load == null ? '—' : load + '%'}</text>
+client/game/js/panels/deviceinspect.js:346:${gauge(470, 300, 36, live ? (load == null ? 0.5 : load / 100) : 0, 'LOAD', load == null ? '—' : load + '%', loadColor)}
+client/game/js/panels/dialogue.js:286:btn.title = 'Finish this job first — tap to see what\'s left to do.';
+client/game/js/panels/dialogue.js:485:+ `▸ take ${want.length} listed — ${cost}₵</button>`
+client/game/js/panels/dialogue.js:501:+ `<button class="shop-takeall" data-sec="all" title="Buy one of each shopping-list item this vendor stocks — every shelf">`
+client/game/js/panels/dialogue.js:502:+ `▸ take everything listed (${buyAll.length}) — ${buyAll.reduce((n, it) => n + (it.price || 0), 0)}₵</button></div>`
+client/game/js/panels/dialogue.js:553:act = `<button class="shop-sellall">Sell all (${totalQty} item${totalQty === 1 ? '' : 's'}) — ${totalValue}₵</button>`;
+client/game/js/panels/ebconsole.js:114:</div>`).join('') : '<div class="eb-empty">— NO CAMERA IN THIS ROOM —</div>';
+client/game/js/panels/ebconsole.js:121:</div>`).join('') : '<div class="eb-empty">— NO BULLETIN LOADED —</div>';
+client/game/js/panels/ebconsole.js:126:? `${d.airingMode === 'live' ? 'LIVE' : 'CASSETTE'} · ${esc(d.airingSource || '—')}`
+client/game/js/panels/ebconsole.js:127:: 'nothing — every set is on its own channel';
+client/game/js/panels/ebconsole.js:143:? `<div class="eb-sec">Studio cameras — cut to air</div><div>${camRows}</div>`
+client/game/js/panels/ebconsole.js:145:<div class="eb-sec">Ticker — scrolls along the bottom of every screen</div>
+client/game/js/panels/environment.js:91:let envWeatherIcon = '—';
+client/game/js/panels/environment.js:243:const tempStr = envTempC !== null ? formatTemp(envTempC) : '—';
+client/game/js/panels/environment.js:361:if (env.weatherIcon !== undefined) envWeatherIcon = env.weatherIcon || '—';
+client/game/js/panels/fishing.js:467:setStatus('<span style="color:#7fae99">TAP to lock your aim, then HOLD to charge — deep water hides the better catches.</span>');
+client/game/js/panels/fishing.js:502:setStatus('<span style="color:#7fae99">RELEASE to cast — the higher you charge, the deeper it lands.</span>');
+client/game/js/panels/fishing.js:521:setStatus(`<span style="color:#8fe0a0">Line away — ${depth}.</span>`);
+client/game/js/panels/fishing.js:651:setStatus('<span style="color:#7fae99">HOLD to reel the gaff up over the catch. Bracket it to fill the CREEL — mind the TENSION.</span>');
+client/game/js/panels/fishing.js:662:? '<span class="fs-win">◇ LANDED — it\'s yours.</span>'
+client/game/js/panels/fishing.js:663:: '<span class="fs-lose">✕ LINE SNAPPED — it threw the hook.</span>');
+client/game/js/panels/forecast.js:89:? `<span class="fd-hero-warn" title="${hero.label} forecast for this day — this one kills people who go out unprepared">⚠⚠</span>`
+client/game/js/panels/forecast.js:90:: (severe ? '<span class="fd-warn" title="Severe conditions likely — gear up before heading out">⚠</span>' : '')}</span>
+client/game/js/panels/freelook-view.js:204:+ `<button class="fl-chip fl-hide" type="button" title="hide the text panel — more picture">⊟</button>`
+client/game/js/panels/freelook-view.js:205:+ `<button class="fl-chip fl-fs" type="button" title="fullscreen — the log and the command box too">⛶</button>`
+client/game/js/panels/freelook-view.js:320:if (!st._errLogged) { console.error('[freelook] frame render error (view kept alive — report this stack):', e); st._errLogged = true; }
+client/game/js/panels/freelook-view.js:444:fpsBtn.title = up ? 'back to the flying camera' : 'first person — put the camera on its feet and walk';
+client/game/js/panels/gameday-rink.js:1813:`<span class="gdr-head-score">${_esc(p.awayAbbr || p.awayTeam || 'AWY')} <b>${p.awayScore | 0}</b> — <b>${p.homeScore | 0}</b> ${_esc(p.homeAbbr || p.homeTeam || 'HOM')}</span>` +
+client/game/js/panels/gameday-rink.js:2478:? `<div class="gdri-cas">Carried off: ${(p.casualties || []).map(_esc).join(', ')} — no replacements.</div>` : '';
+client/game/js/panels/gameday-rink.js:2483:`<span class="gdr-head-score">${_esc(p.awayAbbr || 'AWY')} <b>${p.awayScore | 0}</b> — <b>${p.homeScore | 0}</b> ${_esc(p.homeAbbr || 'HOM')}</span>` +
+client/game/js/panels/gameday.js:286:const gb = i === 0 ? '—' : (((leadW - (r.wins | 0)) + ((r.losses | 0) - leadL)) / 2).toFixed(1).replace(/\.0$/, '');
+client/game/js/panels/gameday.js:392:`<div class="gd-mrow"><span class="gd-mlabel">P</span><span class="gd-mname">${_esc(p.pitcher || '—')}</span></div>` +
+client/game/js/panels/gameday.js:393:`<div class="gd-mrow"><span class="gd-mlabel bat">AB</span><span class="gd-mname">${_esc(p.batter || '—')}</span></div>` +
+client/game/js/panels/gl/context.js:1407:if (sh && !Array.isArray(sh)) { if (!warnedShadowShape) { warnedShadowShape = true; console.warn('GLASS 2: draw({shadow}) wants an [r,g,b]; got', sh, '— the sun descriptor belongs in sunShadow'); } sh
+client/game/js/panels/gl/context.js:1781:if (!drawMirror._warned) { drawMirror._warned = true; console.warn('[gl] the reflection pass threw — falling back to a road with no image in it', e); }
+client/game/js/panels/gl/install.js:36:if (!gl) return { webgl2: false, reason: 'no WebGL2 context — GLASS 2 will stay on the 2-D renderer' };
+client/game/js/panels/gl/world.js:94:console.warn(`[glass2] evicted the least-recently-painted GL scene '${oldest}' — more than ${MAX_SCENES} were live at once, which means a view was opened whose teardown never reached glDisposeScene`);
+client/game/js/panels/gl/world.js:718:window.__glChurnStart = () => { CHURN = new Map(); return String.fromCharCode(114) + "ecording — fly for a bit, then call __glChurn()"; };
+client/game/js/panels/gl/world.js:720:if (!CHURN) return "not recording — call __glChurnStart() first";
+client/game/js/panels/gl/world.js:1461:if (!g.atlas && !g.warnedAtlas) { g.warnedAtlas = true; console.warn(`[glass2] the texture atlas for ${tiles.length} surfaces does not fit this device (max ${g.view.maxTexture}) — drawing flat colours
+client/game/js/panels/hangar-bay.js:134:? `, or the ${esc(pilot.name)}-coloured Mule — it's fuelled and waiting for you`
+client/game/js/panels/hangar-bay.js:196:label: unrated ? '✈ CHARTER — click to take your checkride & earn your licence'
+client/game/js/panels/hangar-bay.js:197:: d.charterWaiting ? `✈ CHARTER — ${pilot.name} (ready to board)` : pilot.present ? `✈ CHARTER — ${pilot.name}` : '✈ CHARTER — off shift',
+client/game/js/panels/hangar-bay.js:299:return `<div class="${cls}" style="grid-column:${gx};grid-row:${gy}" ${active ? `data-hb-dest="${t.id}"` : ''} title="${esc(t.name)}${fare != null && active ? ` — ${fare}₵` : ''}">
+client/game/js/panels/hangar-bay.js:307:? `<span><i class="hb-swatch hb-sw-any"></i> The Dragonfly sets down anywhere flat — pick any tile.</span>`
+client/game/js/panels/hangar-bay.js:308:: `<span><i class="hb-swatch hb-sw-air"></i> Airfield — the Mule (${charterAny ? '' : 'active'})</span>
+client/game/js/panels/hangar-bay.js:309:<span><i class="hb-swatch hb-sw-any"></i> Any tile — the Dragonfly, off-airfield premium</span>`;
+client/game/js/panels/hangar-bay.js:339:const why = !licensed ? 'You need a pilot licence — pass a checkride first.'
+client/game/js/panels/hangar-bay.js:357:? `<div class="hb-lot-lockmsg">⚠ You need a pilot licence to buy or rent — pass a checkride at Coldwater Regional first.
+client/game/js/panels/hangar-bay.js:406:return `<div class="hb-note">${c.wreck ? 'A wreck — nothing worth painting.' : c.rental ? "Rentals can't be painted." : 'You can only paint an aircraft you own.'}</div>`;
+client/game/js/panels/hangar-bay.js:487:: `Hopper at ${pct}% — ${amt} of ${cap} units of ${esc(c.hopperFluid || 'fluid')}.`;
+client/game/js/panels/hangar-bay.js:507:<span>${clash ? `holds ${esc(k.fluid)} — she's loaded with ${esc(c.hopperFluid)}` : `${k.amount} units of ${esc(k.fluid)}`}</span></button>`;
+client/game/js/panels/hangar-bay.js:525:: `${amt} of ${cap} units of ${esc(c.hopperFluid || 'fluid')} aboard — about ${Math.floor(amt / 20)} pass${Math.floor(amt / 20) === 1 ? '' : 'es'} left.`;
+client/game/js/panels/hangar-bay.js:542:{ id: 'speed', label: 'SPEED', desc: 'Cruise speed vs. stock — coarser pitch and more boost push this up; a leaner mixture trims it back a little.' },
+client/game/js/panels/hangar-bay.js:543:{ id: 'economy', label: 'ECON', desc: 'Fuel burn vs. stock — a leaner mixture stretches your range; boost and a heavy load both drink more.' },
+client/game/js/panels/hangar-bay.js:545:{ id: 'cool', label: 'COOL', desc: 'Heat margin vs. stock — rich mixture and boost both run hotter; an intercooler kit tempers it.' },
+client/game/js/panels/hangar-bay.js:586:if (c.wreck) return '<div class="hb-note">A wreck — nothing to tune.</div>';
+client/game/js/panels/hangar-bay.js:587:if (c.rental) return '<div class="hb-note">You can only tune an aircraft you <b>own</b> — rentals fly stock.</div>';
+client/game/js/panels/hangar-bay.js:609:<span class="hb-tune-note">Range ±${c.tuneRange ?? 1} — set by <b>Fabrication</b> + kits (see the <b>KITS</b> tab). Hover a dial for what it does.</span>
+client/game/js/panels/hangar-bay.js:617:if (c.wreck) return '<div class="hb-note">A wreck — nothing to upgrade.</div>';
+client/game/js/panels/hangar-bay.js:618:if (c.rental) return '<div class="hb-note">You can only fit kits to an aircraft you <b>own</b> — rentals fly stock.</div>';
+client/game/js/panels/hangar-bay.js:834:<button class="hb-viewbtn${hp ? ' on' : ''}" data-act="hidepanel" title="hide the text panel — more hangar view">⊟</button>
+client/game/js/panels/hangar-bay.js:838:<div class="hb-head">${backBtn}<span class="hb-title">✈ ${title} — ${esc(d.field || '')}</span>
+client/game/js/panels/hangar-bay.js:995:if (c) showConfirmDialog({ title: 'Sell Aircraft', prompt: `Sell the ${c.tail} outright? This deletes her — can't be undone.`, command: `sell ${c.id}`, confirmLabel: 'Sell' });
+client/game/js/panels/hangar-bay.js:1000:if (c) showConfirmDialog({ title: 'Cancel Rental', prompt: `Hand back the ${c.tail}? This deletes the rental — can't be undone.`, command: `cancelrental ${c.id}`, confirmLabel: 'Return' });
+client/game/js/panels/helm-mode.js:391:<button class="helm-icon" data-seat title="the bridge — stand at the wheel and ride her">⌖</button>
+client/game/js/panels/helm-mode.js:392:<button class="helm-icon" data-hide title="collapse the panel — hide the log">⊟</button>
+client/game/js/panels/helm-mode.js:393:<button class="helm-icon" data-fs title="fullscreen — hide the log + command bar">⛶</button>
+client/game/js/panels/helm-mode.js:405:<div class="helm-nav-bezel" data-chart title="open the chart — plot a course">
+client/game/js/panels/helm-mode.js:408:<div class="helm-readout wide"><span class="rk">Position</span><span class="rv" data-pos>— · —</span></div>
+client/game/js/panels/helm-mode.js:431:<div class="helm-readout eta idle"><span class="rk">ETA</span><span class="rv" data-eta>—</span></div>
+client/game/js/panels/helm-mode.js:641:teleLabel.textContent = on ? ('Ahead — ' + bellName(knobP)) : 'Engine Telegraph';
+client/game/js/panels/helm-mode.js:686:teleLabel.textContent = engaged ? (knobP <= 0.2 ? 'Cut throttle — All Stop' : 'Ahead — ' + bellName(knobP)) : (knobP > 0.2 ? bellName(knobP) : 'Engine Telegraph'); };
+client/game/js/panels/helm-mode.js:739:mapInfo.innerHTML = `Course charted — <b>${abs.length - 1}</b> legs to <b>${dest[0]} · ${dest[1]}</b>. Get underway, or push the telegraph.`;
+client/game/js/panels/helm-mode.js:802:if (!cell) { clearCourse(); mapInfo.textContent = 'Off the chart — tap open water inside the basin.'; return; }
+client/game/js/panels/helm-mode.js:803:if (!cellWater(cell.rows, cell.rx, cell.ry)) { clearCourse(); mapInfo.textContent = "That's dry land — the Echelon can only make way over open water."; return; }
+client/game/js/panels/helm-mode.js:805:if (!path) { clearCourse(); mapInfo.textContent = 'No navigable channel to that tile — pick open water clear of the shore.'; return; }
+client/game/js/panels/helm-mode.js:827:el.title = on ? 'the bridge — back to the chase camera' : 'the bridge — stand at the wheel and ride her';
+client/game/js/panels/helm-mode.js:898:q('[data-eta]').textContent = left > 0 ? fmtETA(left) : '—';
+client/game/js/panels/helm-view.js:410:if (!st._frameErrLogged) { console.error('[helm] frame render error (view kept alive — report this stack):', e); st._frameErrLogged = true; }
+client/game/js/panels/hololock.js:254:setStatus('<span style="color:#ffb23e">Missed the window — feedback spikes.</span>');
+client/game/js/panels/hololock.js:265:? '<span class="hl-win">◇ LOCK DISENGAGED — access granted.</span>'
+client/game/js/panels/hololock.js:266:: '<span class="hl-lose">✕ SEQUENCE RESET — deck flagged.</span>');
+client/game/js/panels/insurance.js:68:<span>${esc(c.typeName)} — pays ${fmt(c.payout)} <span class="ins-dim">(after ${fmt(c.deductible)} excess)</span></span>
+client/game/js/panels/insurance.js:94:<div class="ins-note">A covered write-off pays ${data.payoutPct}% of agreed value, less a ${data.deductiblePct}% excess — we keep the wreck.</div>`;
+client/game/js/panels/intro-cinematic.js:1627:<div class="intro-cine-gate-sub">This opens with sound. Turn it up, or don't — it plays either way.</div>
+client/game/js/panels/intro-cinematic.js:1643:<div class="intro-cine-gate-fine">Fifty seconds of how the world ended. If that's a lot to ask, SKIP is right there, and your CODEX will explain it later — to you, slowly.</div>
+client/game/js/panels/intro-cinematic.js:1736:: '<span aria-hidden="true">🔇</span>  Sound off — tap to turn on';
+client/game/js/panels/keypad.js:118:: (msg.open ? 'ARMED — SEAL' : 'LOCKED — OPEN');
+client/game/js/panels/marina-panel.js:135:: hard ? `on a cradle — ${money(d.craneFee)} to crane her in` : `${esc(b.typeName)} · fuel ${pct(b.fuel)}%`;
+client/game/js/panels/marina-panel.js:138:b.rental && b.inYard && !b.aboard ? `<button class="vc-mini" data-confirm="boat return ${esc(b.id)}" title="Hand her back early — no refund">Hand her back</button>` : '',
+client/game/js/panels/marina-panel.js:143:aria-label="${esc(`${b.name}, ${b.rental ? 'hired' : 'owned'}${ready ? ' — take the helm' : ''}`)}"
+client/game/js/panels/marina-panel.js:144:title="${ready ? 'Take the helm — she starts in the covered slot' : esc(b.where || '')}">
+client/game/js/panels/marina-panel.js:199:+ `<div class="mar-where">${b.taken} of ${b.capacity} taken — move a hull in with <b>berth</b> while standing there</div>`
+client/game/js/panels/marina-panel.js:345:<p class="mar-dim mar-small">Fuel is at the float, on the pontoon off the hardstanding — bring her alongside and stop.</p>`;
+client/game/js/panels/marina-panel.js:359:return `<div class="mar-card"><div class="mar-card-head"><span class="mar-boat">Colours</span><span class="mar-dim">shown on her now — press V</span></div>
+client/game/js/panels/mediadeck.js:364:? `Ch ${channelNumber ?? '—'}: ${channelName}`
+client/game/js/panels/mediadeck.js:379:? (miniPlaying ? (camLabel ? `FEED — ${camLabel}` : 'PLAYING') : `NOT PLAYING — ${data.whyNot || 'nothing loaded'}`)
+client/game/js/panels/mediadeck.js:389:previewHeader.textContent = '— NO SIGNAL —';
+client/game/js/panels/mediadeck.js:443:cartridgeEl.innerHTML = '<span class="mediadeck-cartridge-label">— EMPTY —</span>';
+client/game/js/panels/mediadeck.js:457:<span class="mediadeck-cassette-name">${camLabel ? escapeHtml(camLabel) : 'SPECTER INPUT — patch a camera'}</span>
+client/game/js/panels/mediadeck.js:467:listEl.insertAdjacentHTML('beforeend', '<div class="mediadeck-empty">— NO TRACKS LOADED —</div>');
+client/game/js/panels/mediadeck.js:490:schedEl.innerHTML = '<div class="mediadeck-empty">— NO SCHEDULE ON FILE —</div>';
+client/game/js/panels/mediadeck.js:628:list.innerHTML = '<div class="mediadeck-load-picker-empty">— NO CASSETTES IN INVENTORY —</div>';
+client/game/js/panels/minimap.js:279:if (!current) { stopAutoWalk('Auto-walk stopped — lost track of where you are.'); return; }
+client/game/js/panels/minimap.js:297:stopAutoWalk("Auto-walk stopped — off course and can't find a way back to the route.");
+client/game/js/panels/minimap.js:308:stopAutoWalk('Auto-walk stopped — the way ahead is ambiguous. Pick an exit yourself.');
+client/game/js/panels/minimap.js:340:if (!dir || !DIR_CMDS.includes(dir)) { stopAutoWalk("Auto-walk stopped — can't step off the route from here."); return; }
+client/game/js/panels/minimap.js:442:stopAutoWalk(message || 'Auto-walk stopped — the way ahead is blocked.');
+client/game/js/panels/minimap.js:587:rows += `<div class="mm-x-row mm-x-walked${b.void_hard ? ' mm-x-hot' : ''}" title="${escapeHtml(b.name || 'the waste')}${b.void_hard ? ' — bad ground, and you came through it' : ''}"><span class="mm-x
+client/game/js/panels/minimap.js:591:const hotTick = hotHere ? `<span class="mm-x-branch mm-x-hazard" title="hard ground — a rougher ambush lives here">⚠</span>` : '';
+client/game/js/panels/minimap.js:820:const parts = [node.enterable && node.building_name ? `${node.building_name} — ${enterWord}` : node.name];
+client/game/js/panels/minimap.js:1051:console.error('[minimap] canvas renderer failed — falling back to DOM', e);
+client/game/js/panels/minimap.js:1360:if (!mapState.tracePath && isAutoWalking()) stopAutoWalk('Auto-walk stopped — route cleared.');
+client/game/js/panels/morphex.js:128:_statRow('Height', `${imp.feet}'${imp.inches}" — ${heightDesc(h)}`),
+client/game/js/panels/morphex.js:185:mods += _sectionHeader('Biological — 5₵/cm');
+client/game/js/panels/morphex.js:190:mods += _sectionHeader('Biological — 5₵/tier');
+client/game/js/panels/mousestick.js:306:export const STICK_HINT_ON = '✋ MOUSE STICK — the mouse flies her, and she holds where you leave it · ESC or K to let go';
+client/game/js/panels/mousestick.js:307:export const STICK_HINT_OFF = '✋ MOUSE STICK OFF — the yoke pad has it back';
+client/game/js/panels/musicplayer.js:388:list.innerHTML = '<div class="amp-no-tracks">NO TAPES — FIND CASSETTES TO FILL THE DECK</div>';
+client/game/js/panels/piano.js:241:: live ? 'KEYS LIVE — Esc to type' : 'click the keys to play';
+client/game/js/panels/piratedeck.js:105:</div>`).join('') : '<div class="pd-empty">— QUEUE EMPTY — add from your pool below —</div>';
+client/game/js/panels/piratedeck.js:113:</div>`).join('') : '<div class="pd-empty">— NOTHING TO ADD — carry cassettes or seize a library —</div>';
+client/game/js/panels/piratedeck.js:120:</div>`).join('') : '<div class="pd-empty">— NO CAMERA — no studio cam, no SPECTER cams you control —</div>';
+client/game/js/panels/piratedeck.js:128:<div class="pd-sec">Live camera — cut to air</div>
+client/game/js/panels/piratedeck.js:136:<div class="pd-now-air"><span class="pd-tag">NOW AIRING</span>${esc(d.nowAiring || '— dead air —')}</div>
+client/game/js/panels/readwindow.js:126:<div class="rw-free">let it close — it costs you nothing</div>`;
+client/game/js/panels/signalhijack.js:125:if (lockEl) { lockEl.textContent = locked ? 'LOCKED' : '—'; lockEl.classList.toggle('on', locked); }
+client/game/js/panels/signalhijack.js:128:if (s.cap >= 100) return finish(true, 'CARRIER OVERPOWERED — STATION SEIZED');
+client/game/js/panels/signalhijack.js:129:if (s.trace >= 100) return finish(false, 'TRACE COMPLETE — TRANSMITTER BURNED');
+client/game/js/panels/signalhijack.js:220:if (!s.decoys.length) { setStatus('<span class="sh-warn">No decoys on this band — SWEEP does nothing.</span>'); return; }
+client/game/js/panels/signalhijack.js:223:setStatus('<span class="sh-warn">◎ SWEEP — decoys suppressed, carrier tagged (2s).</span>');
+client/game/js/panels/signalhijack.js:261:setStatus('<span style="color:#a06678">Ride the bright carrier to fill CAPTURE. SWEEP to tag it, OVERDRIVE to push — beat the TRACE meter.</span>');
+client/game/js/panels/skills.js:52:`<span class="skills-col">${sk.buff ? '+' + sk.buff : '—'}</span>` +
+client/game/js/panels/smartbar-macros.js:217:{ v: 'auto on', d: 'start auto-walk (deterministic — best in macros)' },
+client/game/js/panels/smartbar-macros.js:231:{ v: 'pow', d: 'power attack — slow, 250% damage' },
+client/game/js/panels/smartbar-macros.js:536:if (!segs.length) return { ok: false, error: 'Empty — add at least one command.', line: 0 };
+client/game/js/panels/smartbar-macros.js:592:if (f && !f.sawDelay) warnings.push(`Line ${f.line}: this "while" has no "delay" — it'll be auto-paced to ~1/sec. Add a "delay" to set your own speed.`);
+client/game/js/panels/smartbar-macros.js:738:appendMsg('Macro stopped — too many steps (possible loop).', 'system');
+client/game/js/panels/smartbar-macros.js:767:appendMsg('Macro stopped — too many steps (possible loop).', 'system');
+client/game/js/panels/smartbar-macros.js:891:appendMsg('Macro nesting too deep — stopped.', 'system');
+client/game/js/panels/smartbar-macros.js:999:content.appendChild(guidePara('Print a line only you see — never sent to the world. Good for reminders and status.'));
+client/game/js/panels/smartbar-macros.js:1022:'echo Low HP — falling back',
+client/game/js/panels/smartbar-macros.js:1029:'Repeat the lines between "while <cond>" and "endwhile" as long as the condition holds — the ' +
+client/game/js/panels/smartbar-macros.js:1041:'Type "macro <name>" in the command box to run a saved macro by its label — and a macro can run ' +
+client/game/js/panels/smartbar-macros.js:1047:'While a macro is running, a red "■ Stop" chip appears at the left of the smartbar — tap it to halt ' +
+client/game/js/panels/smartbar-macros.js:1053:'The Check & Fix button validates your macro and tidies it up — one command per line, ' +
+client/game/js/panels/smartbar-macros.js:1068:const live = (raw === undefined || raw === null || Number.isNaN(Number(raw))) ? '—' : String(Math.round(Number(raw)));
+client/game/js/panels/smartbar-macros.js:1072:content.appendChild(guideRow('$zone', `room name  ·  now: ${zoneName() || '—'}`, () => insertLine(cmdsInput, '$zone')));
+client/game/js/panels/smartbar-macros.js:1073:content.appendChild(guideRow('$zone_id', `zone id  ·  now: ${state.currentZone || '—'}`, () => insertLine(cmdsInput, '$zone_id')));
+client/game/js/panels/smartbar-macros.js:1077:content.appendChild(guideRow('$home', `home name  ·  now: ${homeName() || '—'}`, () => insertLine(cmdsInput, '$home')));
+client/game/js/panels/smartbar-macros.js:1078:content.appendChild(guideRow('$home_id', `home zone id  ·  now: ${state.player?.home_zone || '—'}`, () => insertLine(cmdsInput, '$home_id')));
+client/game/js/panels/smartbar-macros.js:1129:content.appendChild(guideNote('Your inventory (refreshed live). Uses the item id — commands act on the first matching item you carry.'));
+client/game/js/panels/smartbar-macros.js:1146:content.appendChild(guideNote('Common verbs — type "help" in-game for the full list.'));
+client/game/js/panels/smartbar-macros.js:1159:content.appendChild(guideNote('Admin verbs aren\'t held on the client — open the Admin panel (@admin) for the full, role-filtered list.'));
+client/game/js/panels/smartbar-macros.js:1379:const opts = [['', '— none —'],
+client/game/js/panels/smartbar-macros.js:1473:testMsg.textContent = 'Edited — press Check & Fix again.';
+client/game/js/panels/smartbar.js:523:nodes.unshift({ label: '▤ Tablet — show me', tabletOffer: true, onFire: takeTabletOffer });
+client/game/js/panels/splicelab.js:70:if ((d.known ?? 1) < 0.55) return 'effects unfamiliar —\nuse it more to read them';
+client/game/js/panels/splicelab.js:157:if (s._spillT > 0) bigWarn('⚠ SPILLING — LOSING PRODUCT ⚠', '255,74,91', .7 + .3 * Math.sin(s.t * 14));
+client/game/js/panels/splicelab.js:251:g.lab.ticker(`▸ ${name === 'charge' ? 'DECANT' : name.toUpperCase()} — automation rig handles it.`);
+client/game/js/panels/splicelab.js:483:showBtn() { AX.good(); this.ready = true; game.lab.ticker('the reagents are all here — CLICK or SPACE to begin. pick your poison, two at least.'); },
+client/game/js/panels/splicelab.js:636:`<div class="nm" style="font-size:14px;font-weight:bold;color:var(--fgdim);line-height:1.25;flex:1;min-width:0">— empty —</div></div>` +
+client/game/js/panels/splicelab.js:657:`<div class="nm" style="font-size:14px;font-weight:bold;color:var(--fgdim);line-height:1.25">— nothing yet —</div></div>` +
+client/game/js/panels/splicelab.js:666:if (!drug) { p.sw.style.background = 'var(--bg,#1a2a22)'; p.sw.style.boxShadow = 'inset 0 0 6px #0008'; p.nm.textContent = '— empty —'; p.nm.style.color = 'var(--fgdim)'; p.fm.textContent = ''; p.ef.t
+client/game/js/panels/splicelab.js:685:o.nm.textContent = '— nothing yet —'; o.nm.style.color = 'var(--fgdim)'; o.ds.textContent = '';
+client/game/js/panels/splicelab.js:733:else if (missing.length) game.lab.ticker(`recreated "${rec.name}" — missing ${missing.join(', ')} (not in your kit)`, 'a');
+client/game/js/panels/splicelab.js:737:if (!list.length) { this.rcpPanel.innerHTML = `<div style="font-size:11px;font-weight:bold;color:var(--fgdim);padding:10px;text-align:center;white-space:pre-line">no saved recipes yet —\ncommit a spli
+client/game/js/panels/splicelab.js:760:this.hint.textContent = n === 0 ? `drag a drug into the cradle — BASE first, then SPLICE${game.allow3way ? ' (3rd slot open)' : ''}`
+client/game/js/panels/splicelab.js:762:: !(game.compoundName || '').trim() ? 'name your compound (left) — then SPLICE ▶'
+client/game/js/panels/splicelab.js:789:if (game.selected.length >= (game.allow3way ? 3 : 2) && !game.selected.includes(k.d)) { game.lab.ticker(game.allow3way ? "three's the limit — base + two splices." : "two's the limit — a base and a spl
+client/game/js/panels/splicelab.js:855:g.lab.ticker('DECANT — carry each drug from the table to the POUR ZONE and hold it steady to decant. jostle it and it slops.');
+client/game/js/panels/splicelab.js:917:g.lab.ticker('REDUCE — turn every form into a liquid: crush solids, dissolve powders, bleed gas, cut paste.');
+client/game/js/panels/splicelab.js:924:if (f === 'liquid') { this.mode = 'auto'; this.rate = 1.1; this.label = 'ALREADY LIQUID — decanting'; }
+client/game/js/panels/splicelab.js:925:else if (f === 'crystal' || f === 'pill') { this.mode = 'crush'; this.label = 'CRUSH — mash SPACE / click'; }
+client/game/js/panels/splicelab.js:926:else if (f === 'leaf') { this.mode = 'crush'; this.label = 'GRIND — mash SPACE / click'; }
+client/game/js/panels/splicelab.js:927:else if (f === 'gas') { this.mode = 'hold'; this.rate = 0.42; this.label = 'BLEED the valve — hold'; }
+client/game/js/panels/splicelab.js:928:else if (f === 'gel') { this.mode = 'hold'; this.rate = 0.30; this.label = 'WORK it down — hold'; }
+client/game/js/panels/splicelab.js:929:else if (f === 'paste') { this.mode = 'hold'; this.rate = 0.22; this.label = 'CUT with solvent — hold'; }
+client/game/js/panels/splicelab.js:930:else if (f === 'blotter') { this.mode = 'hold'; this.rate = 0.34; this.label = 'STEEP — hold, gently'; }
+client/game/js/panels/splicelab.js:931:else { this.mode = 'hold'; this.rate = 0.5; this.label = 'DISSOLVE the powder — hold'; }
+client/game/js/panels/splicelab.js:982:g.lab.ticker('pour the REAGENT to its line. hold to pour, release on the mark. the stream lags — anticipate.');
+client/game/js/panels/splicelab.js:996:else { const nx = this.steps[this.stepIdx]; game.lab.ticker(`now the ${nx.name}. ${nx.touchy ? 'this one bites — pour slow.' : ''}`); }
+client/game/js/panels/splicelab.js:1030:g.lab.ticker('STIR — trace circles over the beaker (or hold ← / →). hold the rod in the green RPM band.');
+client/game/js/panels/splicelab.js:1069:g.lab.ticker('STABILIZE — hold to heat, keep the reagent in the green band. let it run away and it bites.');
+client/game/js/panels/splicelab.js:1105:g.lab.ticker('SET — strike SPACE on each pulse. lock the lattice. this is the part everyone rushes and ruins.');
+client/game/js/panels/splicelab.js:1152:g.lab.ticker('PACKAGE — the batch is stable. jar it and stamp the label.');
+client/game/js/panels/splicelab.js:1190:function resolveReal() { const score = aggScore(); game.lab.ticker('sequence complete — resolving…', ''); AX.good();
+client/game/js/panels/splicelab.js:1221:<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--fgdim);margin:8px 24px 0;padding-top:8px;border-top:1px solid color-mix(in srgb,var(--A) 22%,transparent)"><span>POTEN
+client/game/js/panels/spliceReport.js:34:${msg.sealed ? `<div class="sr-sealed">🔒 Sealed in a climate crate — <b>unseal</b> to use or it stays search-proof.</div>` : ''}
+client/game/js/panels/spraycan.js:353:const WALL_OPT = (w, sel) => `<option value="${esc(w.dir)}"${w.dir === sel ? ' selected' : ''}>${esc(w.dir)} — ${esc(w.name)}</option>`;
+client/game/js/panels/spraycan.js:369:<div class="sp-sub">${esc(msg.can?.name || 'spray paint')} — ${Number(msg.can?.quantity || 1)} in the bag</div>
+client/game/js/panels/spraycan.js:392:<div class="sp-lab">Fade — four cans, mixed between</div>
+client/game/js/panels/stats.js:51:title.innerHTML = `<span class="stats-handle">${s.handle}</span> — ${s.archetype}`;
+client/game/js/panels/stats.js:74:note.innerHTML = `Spend XP to raise a stat — <b>${cost} XP</b> per point. You have <b>${s.net_xp}</b> XP.`;
+client/game/js/panels/stats.js:84:const statVal = s[stat.key] ? s[stat.key] : '—';
+client/game/js/panels/stats.js:182:`<span class="stats-val">${sk.level || '—'}</span>`;
+client/game/js/panels/synthlab.js:62:<div class="cm-head"><span>⚗ <b>CHIMERA-9</b> · SYNTHESIZER — pick a batch</span><span class="cm-close" title="close">✕</span></div>
+client/game/js/panels/synthlab.js:64:<div class="cm-foot">${msg.hasLab ? 'chem lab detected — full potency.' : 'no chem lab here — a cook kit works at a penalty.'}<br>tier = intensity · harder drugs are pricier and dangerous to botch.</d
+client/game/js/panels/synthlab.js:119:if (Math.hypot(p.x - g.nugget.x, p.y - g.nugget.y) < g.nugget.r) { g.nuggetBroken = true; grindPieceSpawn(g, 6, false); AX.bad(); g.lab.ticker('cracked — now work it down with the pestle.'); return; }
+client/game/js/panels/synthlab.js:208:G.fillText(g.nuggetBroken ? `HOLD & DRAG THE PESTLE OVER THE PIECES — ${g.groundCount}/${g.pieces.length} GROUND` : 'CLICK THE NUGGET TO CRACK IT', W / 2, m.y + m.r + 34);
+client/game/js/panels/synthlab.js:284:G.fillText(`HOLD & DRAG THE DROPPER — DOSE EACH TAB EVENLY · ${dosed}/${g.tabs.length}`, W / 2, s.y + s.sh + 34); G.restore();
+client/game/js/panels/synthlab.js:289:accent: '#4fe08a', label: 'STABILIZE — hold to heat, keep it in the green band',
+client/game/js/panels/synthlab.js:297:accent: '#7fbf5a', label: 'CURE — gentle warmth, hold it in the wide green band',
+client/game/js/panels/synthlab.js:304:draw(g) { const f = g.opts.form; return f === 'leaf' ? grindDraw(g, 'CURE — GRIND THE NUGGET', 'rgba(150,190,110,.55)') : f === 'blotter' ? blotDraw(g, 'DOSE — SOAK THE TABS', 'rgba(150,120,210,.9)') 
+client/game/js/panels/synthlab.js:308:accent: '#ffb23e', label: 'PRESS — hold to build force, release in the green (×3)',
+client/game/js/panels/synthlab.js:317:draw(g) { g.opts.form === 'pill' ? grindDraw(g, 'PRESS — GRIND THE PILLS', 'rgba(220,220,225,.6)') : drawSolidsGame(g); },
+client/game/js/panels/synthlab.js:321:accent: '#5fd0e0', label: 'REGULATE — TAP to vent, keep the needle in the green',
+client/game/js/panels/synthlab.js:374:function toQuench(g, label) { if (g.phase !== 'work' && g.phase !== 'liquid') return; const wasWork = g.phase === 'work'; g.phase = 'quench'; g.quenchT = 0; g.quenchTapped = false; if (wasWork) FAMILI
+client/game/js/panels/synthlab.js:424:G.fillText(`${g.result.grade} — ${g.result.score}%`, W / 2, H * 0.2); G.shadowBlur = 0;
+client/game/js/panels/synthlab.js:468:const tag = form === 'paste' ? 'THICK PASTE — heats slow, holds steady' : form === 'gel' ? 'VISCOUS GEL — sluggish, clings' : form === 'liquid' ? 'THIN LIQUID — runny, quick to swing' : '';
+client/game/js/panels/tablet-a11y.js:336:: `It has no written form yet. Close this and carry on — nothing here is needed to play.`)
+client/game/js/panels/tablet-os.js:4090:return `<span class="tos-void-badge searching" id="tos-signal-live" title="No signal — move the tablet to search">`
+client/game/js/panels/tablet-os.js:4093:return `<span class="tos-void-badge" id="tos-signal-live" title="Weak carrier — voidlink, off the grid">`
+client/game/js/panels/tablet-os.js:4131:{ cls: 'hero', text: '◈ VOIDLINK LOCAL — NO GRID', wait: 900 },
+client/game/js/panels/tablet-os.js:4229:+ ` title="${time} — set an alarm">${time}</button>`
+client/game/js/panels/tablet-os.js:4603:+ `${aria}${stashed ? ' title="Stashed — tap to put it back"' : ''}>`
+client/game/js/panels/tablet-os.js:6214:if (!value && (label === '—' || label === '-' || label === '')) return '<div class="tos-row-sep"></div>';
+client/game/js/panels/tablet-os.js:6253:{ v: 'labels', t: 'Lettering — the building’s 2-letter code', g: 'AB', s: 'font-size:0.6875rem;letter-spacing:1px' },
+client/game/js/panels/tablet-os.js:6254:{ v: 'none', t: 'Plain tiles — no lettering', g: '▫' } ] },
+client/game/js/panels/tablet-os.js:6259:{ v: 'off', t: 'Plain — white labels, untinted buildings', g: '▫' },
+client/game/js/panels/tablet-os.js:6260:{ v: 'on', t: 'Colour — a colour per landmark kind', g: '◼', s: 'color:#8b46c7' } ] },
+client/game/js/panels/tablet-os.js:6265:{ v: 'smooth', t: 'Smooth — the map glides as you walk', g: '🌊' },
+client/game/js/panels/tablet-os.js:6266:{ v: 'classic', t: 'Classic — tiles snap into place', g: '▦' } ] },
+client/game/js/panels/tablet-os.js:6392:['visual', 'Visual', 'Graphics wherever a system has them — the cockpit, the cabin window, the poker felt.'],
+client/game/js/panels/tablet-os.js:6393:['textgames', 'Text', 'The games come to you as characters — fly her by command, play cards in the log. Maps and hangars stay on screen.'],
+client/game/js/panels/tablet-os.js:6501:`<div class="tos-set-row"><span class="tos-set-label">All of this works as a command<span class="tos-set-val">Type <b>accessibility</b> anywhere — no tablet needed. <b>accessibility reset</b> puts eve
+client/game/js/panels/tablet-os.js:6594:<div class="tos-about-tag">We build this because we want to. The servers just insist on being paid. Chip in if you feel like it — thanks either way.</div>
+client/game/js/panels/tablet-os.js:6599:<a class="tos-about-thomas" href="/thomas-client-guide.html" target="_blank" rel="noopener noreferrer" title="THOMAS Client — Power User Guide">
+client/game/js/panels/tablet-os.js:6687:<div class="tos-row"><span>Members</span><span>${ti.members ?? (corp.members || []).length}/${ti.memberCap ?? '—'}</span></div>
+client/game/js/panels/tablet-os.js:6688:<div class="tos-row"><span>Territory</span><span>${ti.zones ?? (corp.territory || []).length}/${ti.slots ?? '—'} zones</span></div>`;
+client/game/js/panels/tablet-os.js:6692:<div class="tos-corp-sub">Tier ${esc(String(corp.tier ?? 1))} · ${esc(corp.rank || '—')}</div>
+client/game/js/panels/tablet-os.js:6797:acts = `<div class="tos-cm-note">▸ Travel to <b>${esc(t.name)}</b> to act — the verbs work where you stand.</div>`;
+client/game/js/panels/tablet-os.js:6942:const titleOf = (c) => `${volume} — ${c.title || ''}`.trim();
+client/game/js/panels/tablet-os.js:7183:<div class="tos-ideo-panel"><p class="tos-ideo-note"><b>Civilization</b> — is the Basin worth saving? Renounce it, or redeem it.<br><br><b>The body</b> — do we stay human, or transcend the form? And b
+client/game/js/panels/tablet-os.js:7224:<div class="tos-ideo-panel"><p class="tos-ideo-note tos-ideo-dim">This order hasn't yet surfaced in the Basin — you can't take up standing with it yet. Consider this a preview of a road that's coming.
+client/game/js/panels/tablet-os.js:7244:<p class="tos-ideo-note"><b>Civilization</b> (↔) — the Basin and its Architect. <b>Renounce</b> it and leave, or <b>redeem</b> it and stay.<br><br><b>The body</b> (↕) — <b>stay human</b>, or <b>transc
+client/game/js/panels/tablet-os.js:7437:title="${esc(p.detail || `${p.partLabel} — fine.`)}">
+client/game/js/panels/tablet-os.js:7602:<span>Last dose</span><b>${esc(s.lastUse || '—')}</b>
+client/game/js/panels/tablet-os.js:7941:? '<span class="tos-bliss-ratefig">—</span><span class="tos-bliss-rateunit">no retainer</span>'
+client/game/js/panels/tablet-os.js:7950:${e.missed ? `<div class="tos-bliss-warn">${e.missed} missed payment — one more and the placement is collected.</div>` : ''}
+client/game/js/panels/tablet-os.js:8012:if (!cur) return `<div class="tos-empty">◈ NO SIGNAL — you're off the grid, out in the void.</div>`;
+client/game/js/panels/tablet-os.js:8237:<span class="tos-map-mini${mapLabelsOn() ? ' active' : ''}" data-map-labels title="Toggle two-letter building labels — also switches the sidebar minimap">🏷 Labels</span>
+client/game/js/panels/tablet-os.js:8238:<span class="tos-map-mini${mapColorOn() ? ' active' : ''}" data-map-color title="Colour buildings by what they are — also switches the sidebar minimap">🎨 Colour</span>
+client/game/js/panels/tablet-os.js:8348:if (!t) return `<div class="tos-map-note">Tap a tile to see what's there — then Route here to plot a course.</div>`;
+client/game/js/panels/tablet-os.js:8406:<div class="tos-detail-desc">Start your own outfit — a shared treasury, ranks, territory, and a private corp channel. You'll be its Founder.</div>
+client/game/js/panels/tablet-os.js:8411:: `You need <b>₵${fee.toLocaleString()}</b> to found a corp — you have ₵${credits.toLocaleString()}.`}</div>
+client/game/js/panels/tablet-os.js:8436:return `${head}<div class="tos-buf empty">${recording ? 'Nothing on tape yet — activity in this zone will log here.' : 'Not recording. Hit Record to start a tape.'}</div>`;
+client/game/js/panels/tablet-os.js:8603:`<span class="tos-gslot-item">${it ? esc(it.name) : '—'}</span></div>`;
+client/game/js/panels/tablet-os.js:8664:<div class="tos-gstat tos-gstat-armor" data-armor-break title="Soak across all five body slots. A hit only meets its own slot's share — click for the per-type breakdown, and see the Protection table f
+client/game/js/panels/tablet-os.js:8665:<div class="tos-gstat" title="Insulation from what you're wearing: +${round1(fx.insulation || 0)}°C of effective ambient, dry. This is NOT your body temperature — that's in Vitals — and soaked clothin
+client/game/js/panels/tablet-os.js:9286:${focus.full ? '<div class="tos-cam-fullbar">⚠ BUFFER FULL — clip or clear to record again</div>' : ''}
+client/game/js/panels/tablet-os.js:9615:<span class="tos-blot-body"><b>${esc(e.who)}</b> — wanted for ${esc(e.what)}</span>
+client/game/js/panels/tablet-os.js:9622:<span class="tos-blot-body"><b>${esc(e.who)}</b> — ${esc(e.what)}${where}</span>
+client/game/js/panels/tablet-os.js:9680:<span class="tos-hl-text">${esc(s.headline)}${s.byline ? ` <span class="tos-hl-by">— ${esc(s.byline)}</span>` : ''}</span>
+client/game/js/panels/tablet-os.js:9708:<div class="tos-nw-foot">The Coldwater Sentinel — all the truth the Architect permits.</div>
+client/game/js/panels/tablet-os.js:9721:if (!teams || !teams.length) return '<div class="tos-empty" style="padding:14px 4px">No games have been played yet — the DEADBALL standings are empty.</div>';
+client/game/js/panels/tablet-os.js:9820:return `<button type="button" title="${esc(r.name)} — hold over it"
+client/game/js/panels/tablet-os.js:9832:data-act-id="chart" data-act-app="deadhead" data-act-params="${esc(f.id)}" title="${esc(f.name)} — ${f.dist} tiles">
+client/game/js/panels/tablet-os.js:9844:const here = `<div style="position:absolute;left:${nx(acX).toFixed(2)}%;top:${ny(acY).toFixed(2)}%;transform:translate(-50%,-50%);pointer-events:none;transition:left .9s linear,top .9s linear" title="
+client/game/js/panels/tablet-os.js:9854:? `Tap a <b>field</b> to send her there, or <b>anywhere</b> to hold — the crew fly her. Board her to walk the decks.`
+client/game/js/panels/tablet-os.js:9859:: `<div style="margin-top:8px;font-size:0.75rem">${dh.remote ? 'Bound for' : 'Course set:'} <b style="color:#7dffb0">${esc(dh.charted.name)}</b>${(!dh.remote && !dh.airborne && !dh.crew && dh.seat !==
+client/game/js/panels/tablet-os.js:9921:<span class="tos-tv-station" data-tv="station-name">——</span>
+client/game/js/panels/tablet-os.js:9922:<span class="tos-tv-ch" data-tv="channel-num">——</span>
+client/game/js/panels/tablet-os.js:9945:<span class="tos-tv-num" data-tv="channel-num" aria-live="polite">——</span>
+client/game/js/panels/tablet-os.js:9947:<button data-tv="schedule-btn" title="TV guide — what's on and when">&#x1F5D3;</button>
+client/game/js/panels/tablet-os.js:9948:<button data-tv="gameday-btn" title="Gameday — animated play-by-play">&#x26BE;</button>
+client/game/js/panels/tablet-os.js:9949:<button data-tv="standings-btn" title="Standings — the DEADBALL league table">&#x1F3C6;</button>
+client/game/js/panels/tablet-os.js:10302:return nxt?.body ? { text: nxt.body, title: `${book} — ${nxt.name || nxt.title || ''}`.trim() } : null;
+client/game/js/panels/tablet-os.js:10308:book, `${book} — ${det.name || ''}`.trim(), _data?.lex, advance);
+client/game/js/panels/tablet-os.js:11669:<div class="tos-void-hunt">◈ Searching for signal — move the tablet</div>
+client/game/js/panels/tablet-os.js:11980:'The neon sign above you flickers: OPE— —PEN — OPEN.',
+client/game/js/panels/tablet-os.js:12159:push('The map is a rumour. Open your tablet for the real one — oh, wait.', 'tos-fk-amb');
+client/game/js/panels/tablet-os.js:12170:push(`You can't "${esc(first)}" here — and honestly, this is a game inside a tablet inside a game. Cut it some slack.`, 'tos-fk-amb');
+client/game/js/panels/tablet-os.js:12252:toast.textContent = `${nm} — not installed`;
+client/game/js/panels/tablet-os.js:13020:const G = 'ABCDEFGH0123456789#$%&@*+=<>/\\|—▓▒░';
+client/game/js/panels/textalarm.js:50:lines.push(`   <span class="dim">LOOP</span> ${st.step}/${st.chain.length}    <span class="dim">SEEKING</span> <span class="amb">${wanted || '—'}</span>    <span class="dim">SPARE</span> ${pips}`);
+client/game/js/panels/textalarm.js:63:lines.push(`   <span class="ok">latch &lt;tag&gt;</span> <span class="dim">— wrong one burns out.</span>`);
+client/game/js/panels/textalarm.js:84:? '<span class="ok">◉ LOOP OPEN — the panel goes dark.</span>'
+client/game/js/panels/textcalibration.js:74:heading(`CALIBRATION RIG — ${String(s.opts.deviceName || 'IMPLANT').toUpperCase()}`, W),
+client/game/js/panels/textcalibration.js:150:s.status = `  <span class="${score >= 45 ? 'ok' : 'bad'}">&gt;&gt; ${score} — ${verdict}</span>`;
+client/game/js/panels/textcockpit.js:239:vtol: 'VTOL — she can set down anywhere, once she is slow.',
+client/game/js/panels/textcockpit.js:240:stol: 'STOL — rough-field rated; get her slow and she will go in short.',
+client/game/js/panels/textcockpit.js:241:strip: 'STRIP — she needs a runway under her to land.',
+client/game/js/panels/textcockpit.js:249:if (el) el.innerHTML = `<div class="tck"><span class="hi">▛ ${esc(msg?.craft || 'AIRCRAFT')} — instruments coming alive…</span></div>`;
+client/game/js/panels/textcockpit.js:290:if (s.stalled) warnings.push('<span class="bad">⚠ STALLED — the assist is unloading and adding power.</span>');
+client/game/js/panels/textcockpit.js:291:else if (s.stallMargin < 0.25) warnings.push('<span class="warn">⚠ BUFFET — she is getting slow.</span>');
+client/game/js/panels/textcockpit.js:292:if (s.warn === 'STARVATION') warnings.push('<span class="bad">⚠ ENGINE OUT — dry tank.</span>');
+client/game/js/panels/textcockpit.js:294:if (s.surfaces) warnings.push('<span class="bad">⚠ STRUCTURAL DAMAGE — she is flying asymmetric.</span>');
+client/game/js/panels/textdemolition.js:98:const reading = l.cut ? 'CUT' : l.probed ? `${l.tension} mV` : '— — —';
+client/game/js/panels/textdemolition.js:124:? `<span class="ok">◉ ${st.kind === 'rig' ? 'SEATED — walk away.' : 'SHUNT CUT — the count stops.'}</span>`
+client/game/js/panels/textfishing.js:94:`<div class="txui-hd"><span>REEL — ${esc(stage)}</span><span>${esc(String(_opts.deviceName || 'THE LINE').toUpperCase())}</span></div>`,
+client/game/js/panels/textfishing.js:113:lines.push('<span class="dim">SPACE — hold and release. ◆ the catch · │ the gaff</span>');
+client/game/js/panels/textfishing.js:168:? '<span class="ok">◇ LANDED — it\'s yours.</span>'
+client/game/js/panels/textfishing.js:169:: '<span class="bad">✕ LINE SNAPPED — it threw the hook.</span>';
+client/game/js/panels/texthololock.js:74:`<span class="dim">SPACE or [set] when the scanner ▓ is over the sweet zone — which you can't see until the pin drops.</span>`,
+client/game/js/panels/texthololock.js:128:? '<span class="ok">◇ LOCK DISENGAGED — access granted.</span>'
+client/game/js/panels/texthololock.js:129:: '<span class="bad">✕ SEQUENCE RESET — deck flagged.</span>';
+client/game/js/panels/textnullboard.js:125:? 'pick a node to test it — costs a step, costs no alert'
+client/game/js/panels/textread.js:56:rows.push(`  <span class="dim">press 1-4 — or do nothing, it costs you nothing</span>`);
+client/game/js/panels/textvault.js:139:? '<span class="ok">◉ BOLT RETRACTED — safe open.</span>'
+client/game/js/panels/textvault.js:140:: '<span class="bad">✗ LOCK RE-SEATED — rig flagged.</span>';
+client/game/js/panels/tour.js:38:body: `This top pane is <b>where you are</b> — the room's description, who and what's standing in it, and the ways out. It redraws every time the room changes. Names in it are clickable: tapping one i
+client/game/js/panels/tour.js:48:body: `On a small screen the room pane starts <b>closed</b> so the log gets the space. This bar is the handle — tap it to slide the room open (<b>▼</b>/<b>▲</b>), or drag it up and down to set the hei
+client/game/js/panels/tour.js:53:body: `Everything that <b>happens</b> scrolls here — what you do, what others do, what hits you, what the world says. If you missed something, it's in here. Scroll back any time.`,
+client/game/js/panels/tour.js:66:body: `Getting around without typing. <b>N/S/E/W</b> for the compass, <b>↑</b>/<b>↓</b> for up and down, <b>in</b>/<b>out</b> for doorways. The <b>⤢</b> in the middle cycles the pad's size — make it b
+client/game/js/panels/tour.js:72:body: `The common commands, one click each — inventory, gear, who's online, help. Nothing here that you can't also type.`,
+client/game/js/panels/tour.js:78:body: `<b>≡ cmds</b> fans out the common commands — inventory, gear, who's online, help — so they're one tap instead of a typed word. Tap it again to fold them away. Next to it sits the weather, the t
+client/game/js/panels/tour.js:90:body: `Your own buttons. Save any command — or a whole chain of them — as a macro and it lives down here for one-tap use. It fills up as you find things worth repeating, and it's the fastest way to re
+client/game/js/panels/tour.js:97:body: `Down the side are <b>panels</b> — your map, your vitals, where you are, the weather, who else is here.`,
+client/game/js/panels/tour.js:109:body: `The world is a grid, and this corner is the piece of it around you — you're the marker in the middle. <b>Tap it for the full map</b>, where you can pick a tile to plot a route and have the game
+client/game/js/panels/tour.js:115:body: `Two bars, because two things are worth watching all the time: <b>health</b> and <b>stamina</b>. Everything else about your body — hunger, thirst, cold, radiation, whatever you took — has no gau
+client/game/js/panels/tour.js:121:body: `Abbreviated to fit: <b>HP</b> health, <b>ST</b> stamina. That's deliberately all — hunger, thirst, cold, radiation and anything you've taken get no gauge, they tell you in words, and <b>conditi
+client/game/js/panels/tour.js:131:body: `The panels are yours to move. The <b>padlock</b> up here unlocks them: <b>✥</b> to drag them into whatever order you like, <b>⤢</b> to drag a panel's bottom edge and resize it, <b>↺</b> to put 
+client/game/js/panels/tour.js:143:? `The <b>⚙</b> holds the rest: <b>text size</b> (the one worth setting first — the layout scales to it), the colour theme, D-pad size, and <b>motion</b>, which turns off the screen effects if they ma
+client/game/js/panels/tour.js:144:: `The <b>⚙</b> holds the rest: text size, the colour theme (there are several, and you can build your own), which side the panels live on, and <b>motion</b>, which turns off the screen effects if you
+client/game/js/panels/tour.js:155:body: `Nearly everything that isn't in this window lives on a <b>tablet</b> — what you're carrying, the full map, bank, quests, messages, your record, the codex. You don't have one yet. When you do, i
+client/game/js/panels/tour.js:170:body: `Everything the interface outside doesn't have room for. Sixteen apps to a screen — <b>Map</b> for the city, <b>Gear</b> for what you're carrying and wearing, <b>Vitals</b> for how you're doing,
+client/game/js/panels/tour.js:175:body: `Date, where you are, and the time — <b>tap the clock</b> to set an alarm. The bars on the right are signal: out past the city there's nothing to connect to, and the tablet says so rather than p
+client/game/js/panels/tour.js:186:body: `Under the grid: <b>⧉ Select</b> picks several apps at once to box them into a named, coloured group. <b>⊕ Add</b> brings back an app you've taken off the screen. <b>⌕ Find</b> searches all of t
+client/game/js/panels/tour.js:192:? `<b>Press and hold</b> a tile to lift it, then drag it where you want it. Drag one clean off the tablet to stash it — <b>⊕ Add</b> has it whenever you want it back.`
+client/game/js/panels/tour.js:193:: `<b>Press and hold</b> a tile to lift it, then drag it where you want it — including into or out of a group. Drag one clean off the tablet to stash it; <b>⊕ Add</b> has it whenever you want it back.
+client/game/js/panels/tour.js:200:body: `Open an app and a trail appears along the top — tap the first crumb to come back here. <b>Esc</b> closes the tablet, and so does typing <b>tablet</b> again.`,
+client/game/js/panels/tour.js:205:body: `The <b>Settings</b> app carries the same preferences as the <b>⚙</b> outside — text size, theme, motion${compact() ? ', D-pad size' : ''} — plus the tablet's own wallpaper and tone. Set it up o
+client/game/js/panels/tour.js:265:<div class="tour-card-body" id="tour-offer-body">Have you played a multiplayer text game before — a MUD, a MUSH, anything you played by typing?</div>
+client/game/js/panels/tour.js:267:<button class="tour-btn tour-btn-ghost" data-tour-answer="yes">Yes — skip it</button>
+client/game/js/panels/tour.js:268:<button class="tour-btn" data-tour-answer="no">No — show me around</button>
+client/game/js/panels/truck-depot.js:167:? `Loaded — ${now.qty} × ${now.name}, ${now.kg} kg on the deck`
+client/game/js/panels/truck-depot.js:168:: `Loaded — ${now.name}, ${now.kg} kg for ${now.to}`, 'good');
+client/game/js/panels/truck-depot.js:170:showToast(`Deck clear — ${was.name} is off the truck`);
+client/game/js/panels/truck-depot.js:222:<button class="td-x${hp ? ' on' : ''}" data-act="hidepanel" title="hide the text panel — more yard">⊟</button>
+client/game/js/panels/truck-depot.js:250:: '<button class="td-verb" disabled title="Off the shed floor — get inside first">bunkroom</button>');
+client/game/js/panels/truck-depot.js:288:? `<span class="vc-badge hired" title="Hired — ${esc(t.rental.leftText)}">HIRED · ${esc(t.rental.leftText)}</span>`
+client/game/js/panels/truck-depot.js:295:t.hereNow && t.rental ? `<button class="vc-mini" data-confirm="yard return ${esc(t.id)}" title="Hand it back early — no refund">Hand it back</button>` : '',
+client/game/js/panels/truck-depot.js:299:aria-label="${esc(`${t.name}, ${t.type}, ${t.rental ? 'hired' : 'owned'}${here ? ' — climb in' : ''}`)}"
+client/game/js/panels/truck-depot.js:300:title="${here ? 'Climb in — you start in the shed' : esc(t.impound ? 'Impounded' : `At ${t.whereName || 'another yard'}`)}">
+client/game/js/panels/truck-depot.js:418:${t?.rental ? `<div class="td-svc-hire">Hire truck · ${esc(t.rental.leftText)} · back at any yard — <b>park</b> in a shed and <b>yard return</b></div>` : ''}
+client/game/js/panels/truck-depot.js:476:Do it yourself · ${money(t.repairField)}<span class="td-dim"> — up to ${pct(0.8)}, and you can botch it</span></button>
+client/game/js/panels/truck-depot.js:478:Put it through the shop · ${money(t.repairShop)}<span class="td-dim"> — back to new, no roll</span></button>
+client/game/js/panels/truck-depot.js:480:${t.washPrice ? `Wash it · ${money(t.washPrice)}` : 'Wash it'}<span class="td-dim"> — the paint back, and nothing else</span></button>
+client/game/js/panels/truck-depot.js:505:<button class="td-act ghost" data-hear="${esc(h.id)}" title="Hear it — nobody else does">▶</button>
+client/game/js/panels/truck-depot.js:550:? `<div class="td-dim td-note"><b>${esc(t.grimeLabel)}</b> — ${esc(t.grimeText)}.</div>` : ''}
+client/game/js/panels/truck-depot.js:742:<div class="td-lab">On the truck<span class="td-dim"> — ${worn} of ${cat.slots.length} places filled${drawer ? ` · ${drawer} more in the drawer` : ''}</span></div>
+client/game/js/panels/truck-depot.js:790:<div class="td-lab">In the cab<span class="td-dim"> — ${worn} of ${cat.slots.length} places filled${drawer ? ` · ${drawer} more in the drawer` : ''}</span></div>
+client/game/js/panels/truck-depot.js:812:['bright', 'Brightwork',     'Grille, spear, stacks — while chrome is on.'],
+client/game/js/panels/truck-depot.js:935:<label class="td-check"><input type="checkbox" data-paint="chrome" ${cur.chrome ? 'checked' : ''}> Brightwork polished<span class="td-dim"> — off blacks it out to the hardware colour</span></label>
+client/game/js/panels/truck-depot.js:936:<div class="td-lab">Paint job<span class="td-dim"> — what the flash colour above is laid on in</span></div>
+client/game/js/panels/truck-depot.js:938:<div class="td-lab">Finish coat<span class="td-dim"> — the only thing that moves the price</span></div>
+client/game/js/panels/truck-depot.js:998:<div class="td-lab">Colourway<span class="td-dim"> — the light you drive by</span></div>
+client/game/js/panels/truck-depot.js:1000:<div class="td-lab">Or mix your own<span class="td-dim"> — three picks, and the rest of the cab follows them</span></div>
+client/game/js/panels/truck-depot.js:1056:<div class="td-dim td-note td-dm-cap">${esc([c.label || 'stock', m.label || 'stock'].join(', '))}${c.custom ? ' — nobody else is driving this one' : c.stock === false ? ' — a bench colour, on no truck
+client/game/js/panels/truck-depot.js:1172:const there = q.thereBid == null ? '<span class="td-dim">—</span>'
+client/game/js/panels/truck-depot.js:1352:if (cap) cap.textContent = [c.label || 'stock', m.label || 'stock'].join(', ') + (c.custom ? ' — nobody else is driving this one' : '');
+client/game/js/panels/tv.js:419:if (stationEl) stationEl.textContent = data.stationName || data.channelName || '——';
+client/game/js/panels/tv.js:420:setAll('channel-num', data.deckInput ? 'CH 0' : (data.channelNumber > 0) ? `CH ${data.channelNumber}` : '——');
+client/game/js/panels/tv.js:893:btn.title = 'Rinkside — live play on the ice';
+client/game/js/panels/tv.js:897:btn.title = 'Gameday — animated play-by-play';
+client/game/js/panels/tv.js:957:host.innerHTML = '<div class="tv-sched-empty">The set is off — tune to a channel first.</div>';
+client/game/js/panels/tv.js:1022:: d.playing ? 'PLAYING' : (d.whyNot ? `IDLE — ${_esc(d.whyNot)}` : 'IDLE');
+client/game/js/panels/tv.js:1120:? (hockey ? 'Coldwater Cup — winner takes the season.' : 'World Series — winner takes the season.')
+client/game/js/panels/tv.js:1291:const score = (fx.home != null) ? `${_esc(fx.home)} ${fx.homeScore} — ${fx.awayScore} ${_esc(fx.away)}` : '';
+client/game/js/panels/tv.js:1327:`<div class="tv-fx-goal-score">${_esc(fx.away)} ${fx.awayScore} — ${fx.homeScore} ${_esc(fx.home)}</div>` +
+client/game/js/panels/tv.js:1401:`<div class="tv-fx-champ-score">${_esc(fx.winner)} ${fx.winScore} — ${fx.loseScore} ${_esc(fx.loser)}</div>` +
+client/game/js/panels/tv.js:1520:setAll('channel-num', (dist < 0.01) ? `CH ${nearest.number}` : '——');
+client/game/js/panels/vaultcrack.js:306:setStatus('<span class="vc-warn">Wrong contact — the cam slips and the tamper sensor spikes.</span>');
+client/game/js/panels/vaultcrack.js:318:? '<span class="vc-win">&#9673; BOLT RETRACTED — safe open.</span>'
+client/game/js/panels/vaultcrack.js:319:: '<span class="vc-lose">&#10007; LOCK RE-SEATED — rig flagged.</span>');
+client/game/js/panels/vaultcrack.js:428:setStatus('<span style="color:#8b97a2">Spin the dial (drag / &#9664; &#9654;) to find each wheel\'s contact — SET when CONTACT peaks into the green. Beat the TAMPER meter.</span>');
+client/game/js/panels/voidwalk-staging.js:73:const btnLabel = msg.youReady ? '✓ Ready — holding for the party' : (msg.solo ? 'Walk Off The Edge ▸' : 'Ready Up ▸');
+client/game/js/panels/wardrobe.js:413:if (announce) showWardrobeNotify(`Only three accessories — take one off first.`);
+client/game/js/panels/wardrobe.js:460:btn.title = `Show the ${label.toLowerCase()} layer${n ? ` — ${n} piece${n === 1 ? '' : 's'}` : ' (empty)'}`;
+client/game/js/panels/wardrobe.js:500:pad.innerHTML += '<span class="wdr-pad-item">—</span>';
+client/game/js/panels/wardrobe.js:506:row.title = `${piece.name} — click to take off`;
+client/game/js/panels/wardrobe.js:551:+ `<span class="wdr-pad-item">${shown ? shown.name : '—'}</span>`
+client/game/js/panels/wardrobe.js:554:? `Drop any ${label.toLowerCase()} piece here — it lands on its own layer`
+client/game/js/panels/wardrobe.js:556:? `${shown.name} is on the ${layerLabel(slot, fellBack)} layer — click to go there`
+client/game/js/panels/wardrobe.js:557:: `${shown.name} — click to take off`;
+client/game/js/panels/wardrobe.js:616:? `Place "${armedItem.name}" — tap its pad`
+client/game/js/panels/who.js:70:const reason = prompt(`Kick ${handle} — reason (optional):`);
+client/game/js/panels/windshield-lazy.js:89:throw new Error("windshield-lazy.js: " + name + "() was called before loadWindshield() resolved — await it on the path that opens this view.");
+client/game/js/panels/windshield.js:3934:catch (e) { console.error('[windshield] releasing the GL scene threw — its context is still held', e); }
+client/game/js/panels/windshield.js:4022:+ '\n  Bounded by the loaded map window (a cab loads 30 tiles) — past that you run out of city.');
+client/game/js/panels/windshield.js:5808:console.error('[windshield] the cloud collect pass threw — putting the deck back on the canvas', e);
+client/game/js/panels/windshield.js:5829:console.error('[windshield] GLASS 2 threw inside the world pass — switching it off and finishing in 2-D', e);
+client/game/js/panels/windshield.js:5899:console.error('[windshield] the cloud volume drew nothing — putting the card deck back');
+client/game/js/panels/windshield.js:5931:GL_LAST_ERROR = { where: 'cloud pass', message: 'drew nothing — no scene, or a lost context', at: Date.now() };
+client/game/js/panels/windshield.js:5932:console.error('[windshield] the GL cloud pass drew nothing — putting the deck back on the canvas');
+client/game/js/panels/windshield.js:5941:console.error('[windshield] the cloud volume threw — putting the card deck back', e);
+client/game/js/panels/windshield.js:5943:console.error('[windshield] the GL cloud pass threw — putting the deck back on the canvas', e);
+client/game/js/panels/windshield.js:6353:console.error('[windshield] the interior pass threw — putting the painted seat back', e);
+client/game/js/panels/windshield.js:9457:const aim = String(v?.aim || '—').toUpperCase();
+client/game/js/panels/windshield.js:16031:const y = H * 0.21, line1 = `⚠ AA THREAT — ${(t.name || 'GROUND FIRE').toUpperCase()}`, line2 = 'CLIMB TO HIGH · or FIREWALL + EVADE';
+client/game/js/panels/windshield.js:24593:if (decoHidden([at(10)])) out.push('an adornment was culled with no occlusion field — the probe must fail open');
+client/game/js/panels/windshield.js:24597:if (!decoHidden([at(10)])) out.push('a light behind a wall a whole tile nearer still drew — the bug this exists for');
+client/game/js/panels/windshield.js:24601:if (!decoHidden([at(10)])) out.push('an adornment behind its own near wall still drew — OCC_BIAS has grown past a host half-depth');
+client/game/js/panels/windshield.js:24617:if (markHidden(stubCam, 0, 0, 1.5, 0.3)) out.push('a landmark was culled with GLASS 1 owning the mass — the painter queue is exact and the probe must abstain');
+client/game/js/panels/windshield.js:24619:if (!markHidden(stubCam, 0, 0, 1.5, 0.3)) out.push('a landmark behind a wall a whole tile nearer still drew — the bug markHidden exists for');
+client/game/js/panels/windshield.js:24623:if (markHidden(stubCam, 0, 0, 1.5, 0.3)) out.push('a landmark whose crown clears the building in front of it was culled — the probe must span its height');
+client/game/js/panels/windshield.js:24997:window.__emitWhoStart = () => { EMIT_TALLY = {}; return "counting — paint a frame, then call __emitWho()"; };
+client/game/js/panels/windshield.js:24999:if (!EMIT_TALLY) return "not counting — call __emitWhoStart() first";
+client/game/js/panels/windshield.js:25077:return PERF.on ? 'flight-sim profiler ON — table every 2s' : 'flight-sim profiler OFF';
+client/game/js/panels/windshield.js:25113:console.log(`── flight-sim frame profile — ${f} frames, ${fps.toFixed(1)} fps, ${(total / f).toFixed(2)} ms/frame inside the rAF handler`);
+client/game/js/panels/windshield.js:26839:if (worst !== 0) out.push(`shared cliff corners disagree by ${worst} — a massif will crack along that edge`);
+client/game/js/panels/windshield.js:26840:if (minArea < 0.15) out.push(`the warp folded a tile to ${minArea.toFixed(3)} of its area — cliffWarp is too large`);
+client/game/js/panels/windshield.js:26885:if (outLo !== 16) out.push(`a lone stack drew only ${outLo} of its 16 wall bands from outside — a side is missing with nothing clipped, which is a backface cull`);
+client/game/js/panels/windshield.js:26886:if (inLo <= 0) out.push('a lone stack vanished completely from a camera inside its own footprint — the massif is a slab floating on nothing, which is the backface cull deleting the whole outline at on
+client/game/js/panels/windshield.js:32481:if (!(on > 0.5)) out.push(`a signal head square-on measures ${on.toFixed(2)}px across — it isn't drawing at all`);
+client/game/js/panels/windshield.js:32483:if (!(oblique > on * 0.5 && oblique < on * 0.85)) out.push(`a signal head at 45° measures ${(oblique / on).toFixed(2)} of its square-on width — expected about cos 45°, so the frame isn't foreshortenin
+client/game/js/panels/windshield.js:32488:if (!(near > 1.0)) out.push(`a mast pole three tiles out is ${(near * 2).toFixed(2)}px of steel — back to a hairline`);
+client/game/js/panels/windshield.js:32489:if (Math.abs(near / far - 2) > 0.05) out.push(`a mast pole doesn't thin with distance (${near.toFixed(2)}px at 3 tiles, ${far.toFixed(2)}px at 6) — the width is back on a clamp, not on the world`);
+client/game/js/panels/windshield.js:39147:out.push({ key, ent, err: `solid for a truck at (${dx.toFixed(1)},${dy.toFixed(1)}) but hollow for an aircraft — the two probes have drifted` });
+client/game/js/panels/windshield.js:39175:out.push(`BAY_FLOORS is ${BAY_FLOORS} but RIDGE ${BAY.RIDGE} is worth ${worth.toFixed(2)} storeys — raise them together`);
+client/game/js/panels/windshield.js:39179:if (!(BAY.DOOR_H > 0.17)) out.push(`the door head ${BAY.DOOR_H} is below the driver's eye — the way out is a letterbox`);
+client/game/js/panels/windshield.js:39194:if (groundObstructionAt(wx, wy, cell, wx, wy, 0.01) !== 0) out.push('a truck can no longer drive into the bay — the one hole in the collision model closed');
+client/game/js/panels/windshield.js:39215:if (groundObstructionAt(wx, wy, cell, thrX, thrY, 0.01) !== 0) out.push('the doorway blocks a truck standing in it — the exit is shut on the driver');
+client/game/js/panels/windshield.js:39343:if (owner.has(k)) out.push(`'${k}' is in both ${owner.get(k)} and ${name} — a palette belongs to exactly one material`);
+client/game/js/panels/windshield.js:39350:if (!live.length) out.push(`${name} matches no palette in WALL_COL — every key in it is a typo or has been deleted, and its surfaces are silently back on the window grid`);
+client/game/js/panels/windshield.js:39364:else if (owner.has(k)) out.push(`FACADE_MAT names '${k}', but ${owner.get(k)} already owns it — a family branch returns before the facade path is reached, so the entry does nothing`);
+client/game/js/panels/windshield.js:39413:if (!T.bloom) out.push('no window bloom was reached at all — the scene stopped exercising the night city path');
+client/game/js/panels/windshield.js:39414:else if (!T.bloomDrawn) out.push(`every window bloom was culled: ${T.bloom} reached, 0 drawn — a building is throwing away its own lights`);
+client/game/js/panels/windshield.js:39482:if (!tall.probes) out.push('no ground object was probed at all — the scene stopped producing scatter, so this proves nothing');
+client/game/js/panels/windshield.js:39487:out.push(`${ds.length} of ${tall.probes} ground objects behind a solid 14-storey wall were still handed to the GPU — the early-out has stopped firing`
+client/game/js/panels/windshield.js:39494:else if (!behind(low)) out.push(`every one of the ${low.probes} ground objects behind a ONE-storey shed was culled — the probe has stopped answering and is simply hiding everything`);
+client/game/js/panels/windshield.js:39544:if (!m) { out.push('TYPE_MODEL.shop is gone — the near tier has no arm to prove itself on'); return out; }
+client/game/js/panels/windshield.js:39619:if (rich !== near) out.push({ key, err: 'near tier changed the CAPTURED geometry — a near-tier detail is being drawn as mass (draw3DBoxAt/drawFacetDrum/…) instead of as an adornment through emitFlat. 
+client/game/js/panels/windshield.js:39667:if (SHAPE_SINK) throw new Error('renderModelPreview: SHAPE_SINK is set — a capture is in flight');
+client/game/js/panels/windshield.js:39811:if (nOff === 0) out.push('a depot shed beside the truck occludes nothing — the occlusion field never hears about it');
+client/game/js/panels/windshield.js:39816:if (openAbove === 0) out.push('every column of the field is covered to the top — this is a span buffer, not a grid');
+client/game/js/panels/windshield.js:39819:if (solids === 0) out.push('a shed beside the truck put no solid in OCC_SOLIDS — the per-pixel mask has nothing to test');
+client/game/js/panels/windshield.js:39833:if (covered(own) === 0) out.push('the shed the rig is parked in masks nothing from outside — the truck paints over a roof drawn solid in the same frame');
+client/game/js/panels/windshield.js:39849:if (!LAST_SHIP_MASK || LAST_SHIP_MASK.bias !== OCC_PIXEL_BIAS) out.push('the own ship\'s coarse clip is cut at a looser margin than its per-pixel mask — its shadow and lamps paint over what its body i
+client/game/js/panels/windshield.js:39860:if (n > 0) out.push("from inside the shed, the shed is masking the room — a wall you're within can't occlude what's in there with you");
+client/game/js/panels/windshield.js:39872:if (F && n === 0) out.push('down at chase height the shed is solid on screen and masks nothing — a truck drawn through a wall you can see');
+client/game/js/panels/windshield.js:39893:if (worstEye > STEP_MAX) out.push(`the shed cutaway jumps ${worstEye.toFixed(2)} on one notch of eye height — a wall that blinks`);
+client/game/js/panels/windshield.js:39900:if (worstDrive > STEP_MAX) out.push(`the shed cutaway jumps ${worstDrive.toFixed(2)} on 0.02 of a tile driven — the depot snapping shut behind you`);
+client/game/js/panels/windshield.js:41160:window.__signHandsStart = () => { SIGN_HANDS = []; return 'counting — paint a frame, then call __signHands()'; };
+client/game/js/panels/windshield.js:41161:window.__signHands = () => { const t = SIGN_HANDS; SIGN_HANDS = null; return t || 'not counting — call __signHandsStart() first'; };
+client/game/js/panels/windshield.js:63922:+ `e.g. ${bad[0]} — a real browser throws on the first one.`);
+client/game/js/panels/windshield.js:64055:if (got.base !== "SIDE") out.push(name + ": base is " + got.base + " — the shape capture would record the wrong material, and collision, the occluder hulls and the cold open all read it");
+client/game/js/panels/windshield.js:64156:if (base.threw) { out.push(kind + ": threw — " + base.threw); continue; }
+client/game/js/panels/windshield.js:64157:if (base.bad) { out.push(kind + ": " + base.bad + " point(s) projected non-finite — it paints NOTHING and reports no error"); continue; }
+client/game/js/panels/windshield.js:64158:if (!base.n) { out.push(kind + ": drew nothing at all — declared, dispatched, and silent"); continue; }
+client/game/js/panels/windshield.js:64167:out.push(kind + " [" + f + "] is declared required and changes nothing when removed — the drawer is reading a different field name, so that dimension is zero and the part is invisible");
+client/game/js/panels/windshield.js:64210:out.push(`${key}: adornments threw — ${e.message}`);
+client/game/js/panels/windshield.js:64217:+ `(${bad.slice(0, 3).join(' ')}) — they draw NOTHING and report no error. Check the argument `
+client/game/js/panels/windshield.js:64525:if (SHAPE_SINK) { SHAPE_SINK = null; console.error("[windshield] SHAPE_SINK leaked into a render pass — capture didn't restore"); }
+client/game/js/panels/windshield.js:65655:else { GL_LAST_ERROR = { where: 'gl pass', message: 'drew nothing — no context, a lost context, or a zero-sized host', at: Date.now() }; console.error('[windshield] the GL world pass drew nothing — fa
+client/game/js/panels/windshield.js:65657:catch (e) { GL_LAST_ERROR = { where: 'gl pass', message: String(e && e.message || e), stack: String(e && e.stack || '').slice(0, 900), at: Date.now() }; console.error('[windshield] the GL world pass t
+client/game/js/panels/workspace.js:178:+ ` title="${esc(a.command.trim())}${a.hint ? ` — ${esc(a.hint)}` : ''}">${esc(a.label)}</button>`;
+client/game/js/panels/workspace.js:246:+ ` title="${esc(spec.title)} — ${esc(actions.map(a => a.label).join(', '))}">`
+client/game/js/panels/workspace.js:282:if (cook.phase === 'window') return `<span class="wsp-window">READY — plate it</span>`;
+client/game/js/panels/workspace.js:356:const state = c.state ? `<span class="wsp-state"> — ${esc(c.state)}</span>` : '';
+client/game/js/panels/workspace.js:425:+ `<span class="wsp-state"> — ${esc(v.place)}</span> ${heat}</div>`;
+client/game/js/panels/workspace.js:528:: (r.kitSoft || []).length ? `ready — no ${esc(r.kitSoft.join(', '))}`
+client/game/js/panels/workspace.js:549:+ `<span class="wsp-state"> — ${need}</span>`
+client/game/js/panels/workspace.js:578:const alt = (s.ex || []).length ? `<span class="wsp-state"> — ${esc(s.ex.join(' or '))}</span>` : '';
+client/game/js/panels/workspace.js:602:body.push(`<div class="wsp-row wsp-step wsp-mark-note">Step by step — press one at a time, and judge the heat yourself.</div>`);
+client/game/js/panels/workspace.js:613:+ ` title="${esc(s.command)}${s.hint ? ` — ${esc(s.hint)}` : ''}">`
+client/game/js/panels/workspace.js:619:body.push(`<div class="wsp-row wsp-step wsp-mark-note">▸ marks what it would use, wherever it is${selected.size > 1 ? ` — numbered by recipe, so ▸${ordinals.get(r.key)} is this one` : ''}.</div>`);
+client/game/js/panels/workspace.js:675:? `<span class="wsp-note"> — better with, works without</span>` : '';
+client/game/js/panels/workspace.js:1255:work.push(section('On the surface', renderArea(data.area || []), 'nothing out — no pan, no free ring'));
+client/game/js/panels/workspace.js:1290:body.push(section(`Recipe — ${ord}${r.name}`, renderRecipeCard(r), 'nothing written down for it'));
+client/game/js/panes.js:91:x.title = 'Hide (the routing rule stays — use "route off" to remove it)';
+client/game/js/render.js:279:const MORPH_GLYPHS = '▚▞░▒▓#%&@*+=~/\\|<>—';
+client/shared/building-model-schema.js:454:warnings.push(`${where}: '${f}' is an absolute constant (${t[2]}) — it will NOT scale with the tile, `
+client/shared/building-model-schema.js:589:errors.push(`${file}: use 'portedFrom' OR 'replaces', never both — one claims to match the arm, the other says it deliberately does not`);
+client/shared/building-model-schema.js:596:errors.push(`${file}: 'pixdiff' is a tolerance from 0 to 1 — the fraction of drawing operations allowed to differ`);
+client/shared/building-model-schema.js:622:errors.push(`${file}: 'trade' is for a model that replaces nothing — 'replaces'/'portedFrom' already name the arm, and therefore the trade`);
+client/shared/building-model-schema.js:626:errors.push(`${file}: 'signWorks' is a boolean — an industrial building that does put its name up`);
+client/shared/building-model-schema.js:641:errors.push(`${file}: 'keepsReach' is a boolean — this model's mass may cross its own plot line on the entrance side`);
+client/shared/building-model-schema.js:648:errors.push(`${file}: 'segs' must hold at least one segment — a model with no mass draws nothing, and collision, shadows and the cold open would all read it as empty ground`);
+client/shared/building-model-schema.js:664:if (n > REPEAT_MAX) errors.push(`${file} detail[${i}]: a repeat of ${n} exceeds the ${REPEAT_MAX} cap — that is a wall of geometry, not a detail`);
+client/shared/building-model-schema.js:680:warnings.push(`${file}: no 'bind' — nothing in the world resolves to this model, so it will only ever be visible in the Modelshop`);
+client/shared/fauna-model-schema.js:90:if (!colour) out.push(path + ' is a string, and the only strings a fauna row may hold are the colours (' + [...COLOUR_FIELDS].join(', ') + ') — anything else reaches the mesh builder as NaN');
+client/shared/fauna-model-schema.js:99:if (v === null) { out.push(path + ' is null — a field a row does not set is left OUT, so that the mesh builder\'s own default applies'); return; }
+client/shared/fauna-model-schema.js:119:+ ' — the renderer reads ' + FAUNA_IDS[doc.kind].join(', ')));
+client/shared/fauna-model-schema.js:140:if (!Object.keys(doc.lod).length) errors.push(at('lod is empty — omit it rather than authoring nothing'));
+client/shared/hockey-sfx.js:151:def('hk-skate-scrape', 'Hockey — skate scrape', 3, 0.16, [
+client/shared/hockey-sfx.js:155:def('hk-skate-stop', 'Hockey — hard stop', 5, 0.55, [
+client/shared/hockey-sfx.js:162:def('hk-puck-tick', 'Hockey — puck tick', 4, 0.07, [
+client/shared/hockey-sfx.js:166:def('hk-puck-slap', 'Hockey — slapshot', 6, 0.22, [
+client/shared/hockey-sfx.js:171:def('hk-stick-hit', 'Hockey — stick crack', 5, 0.15, [
+client/shared/hockey-sfx.js:175:def('hk-stick-break', 'Hockey — stick snap', 7, 0.3, [
+client/shared/hockey-sfx.js:181:def('hk-post', 'Hockey — iron (post)', 8, 0.85, [
+client/shared/hockey-sfx.js:190:def('hk-net', 'Hockey — net bulge', 6, 0.42, [
+client/shared/hockey-sfx.js:194:def('hk-pad-save', 'Hockey — pad save', 5, 0.16, [
+client/shared/hockey-sfx.js:198:def('hk-glove-save', 'Hockey — glove snag', 5, 0.11, [
+client/shared/hockey-sfx.js:204:def('hk-check', 'Hockey — body check', 7, 0.34, [
+client/shared/hockey-sfx.js:208:def('hk-glass', 'Hockey — into the glass', 7, 0.5, [
+client/shared/hockey-sfx.js:215:def('hk-fall', 'Hockey — down on the ice', 6, 0.75, [
+client/shared/hockey-sfx.js:220:def('hk-gloves-drop', 'Hockey — gloves hit the ice', 4, 0.2, [
+client/shared/hockey-sfx.js:231:def('hk-punch', 'Fight — punch', 7, 0.2, [
+client/shared/hockey-sfx.js:235:def('hk-punch-miss', 'Fight — whiff', 4, 0.16, [
+client/shared/hockey-sfx.js:238:def('hk-punch-big', 'Fight — big impact', 9, 0.55, [
+client/shared/hockey-sfx.js:244:def('hk-grapple', 'Fight — jersey grab', 3, 0.3, [
+client/shared/hockey-sfx.js:248:def('hk-knockout', 'Fight — knockout', 10, 1.6, [
+client/shared/hockey-sfx.js:261:def('hk-whistle', 'Hockey — whistle', 8, 0.7, [
+client/shared/hockey-sfx.js:267:def('hk-whistle-short', 'Hockey — short blast', 8, 0.24, [
+client/shared/hockey-sfx.js:271:def('hk-goal-horn', 'Hockey — goal horn', 10, 2.2, [
+client/shared/hockey-sfx.js:279:def('hk-period-horn', 'Hockey — period end', 9, 2.0, [
+client/shared/hockey-sfx.js:287:def('hk-crowd-gasp', 'Crowd — gasp', 6, 0.7, [
+client/shared/hockey-sfx.js:291:def('hk-crowd-groan', 'Crowd — groan', 5, 1.5, [
+client/shared/hockey-sfx.js:295:def('hk-crowd-cheer', 'Crowd — cheer', 7, 2.6, [
+client/shared/hockey-sfx.js:299:def('hk-crowd-roar', 'Crowd — roar', 8, 3.4, [
+client/shared/hockey-sfx.js:303:def('hk-crowd-boo', 'Crowd — boo', 6, 2.4, [
+client/shared/hockey-sfx.js:307:def('hk-crowd-bed', 'Crowd — arena bed', 2, 4.0, [
+client/shared/mod-parser.js:101:if (!numChannels) throw new Error(`Unsupported MOD variant (tag "${tag || '—'}"). Only 31-sample tagged .MOD files are supported.`);
+client/shared/model-port.js:65:if (!u) return { reason: `'${f}' depends on BOTH footprint and height (${JSON.stringify(t.map(round))}) — a mixed basis is not authorable` };
+client/shared/model-port.js:81:if (!segs || !segs.length) return { errors: ['no capture — the arm records no mass at all'] };
+client/shared/model-port.js:95:+ 'Adornments and per-box texture seeds are NOT captured — see that script and the measured pixdiff below.',
+client/shared/procedural-sfx.js:1736:'proc:materials': { name: 'Procedural — materials', ref: () => MATERIALS },
+client/shared/procedural-sfx.js:1737:'proc:surfaces': { name: 'Procedural — surfaces', ref: () => SURFACES },
+client/shared/procedural-sfx.js:1738:'proc:streams': { name: 'Procedural — stream surfaces', ref: () => STREAM_SURFACES },
+client/shared/procedural-sfx.js:1739:'proc:flatus': { name: 'Procedural — fart styles', ref: () => FLATUS_STYLES },
+client/shared/procedural-sfx.js:1740:'proc:instruments': { name: 'Procedural — instrument voices', ref: () => INSTRUMENTS },
+client/shared/procedural-sfx.js:1741:'proc:footsteps': { name: 'Procedural — footing surfaces', ref: () => FOOTSTEPS },
+client/shared/procedural-sfx.js:1742:'proc:doors': { name: 'Procedural — door types', ref: () => DOORS },
+client/shared/procedural-sfx.js:1743:'proc:locks': { name: 'Procedural — lock families', ref: () => LOCKS },
+client/shared/settings.js:43:why: 'The game is monospaced by default. Sans is easier for many readers; Readable widens letter spacing and word spacing, which helps if letters swim or crowd. Maps, minimaps and character art stay m
+client/shared/settings.js:48:why: 'Off stops animation everywhere it can be stopped — including the weather overlay, the cold open, the card reveal and the flight-sim view warp, not just CSS transitions.',
+client/shared/settings.js:53:why: 'Adds a symbol beside anything the game otherwise tells you with colour alone — powered/unpowered, safe/hostile, ok/hurt. Useful with any colour vision deficiency, and in bright sunlight.',
+client/shared/settings.js:59:why: 'Speaks each new line of the log. OFF BY DEFAULT, and leave it off if you already use a screen reader — the log is a live region, so your screen reader is reading it too, and both at once is unus
+client/shared/settings.js:72:why: "Adds a microphone button beside the command box, so you can speak a command instead of typing it. Off by default. Review puts what you said in the box and waits for you to press Enter; Auto-send
+client/shared/settings.js:91:why: 'Screen is the simulated device — tiles, pages, animation. Document replaces it with a plain dialog you move through with Tab, with real headings, lists and buttons: the same tablet, built to be 
+client/shared/settings.js:103:why: 'How much of the world you hear. Limited is the game\'s usual soundset — sound when something happens. Full adds continuous world sound: a footstep on whatever you\'re standing on as you enter ea
+client/shared/sfx-catalog.js:47:{ id: 'poker-shuffle', name: 'Poker — shuffle', group: 'poker', category: 'sfx', priority: 6,
+client/shared/sfx-catalog.js:62:{ id: 'poker-deal', name: 'Poker — deal', group: 'poker', category: 'sfx', priority: 6,
+client/shared/sfx-catalog.js:71:{ id: 'poker-check', name: 'Poker — check', group: 'poker', category: 'sfx', priority: 6,
+client/shared/sfx-catalog.js:73:{ id: 'poker-call', name: 'Poker — call', group: 'poker', category: 'sfx', priority: 6,
+client/shared/sfx-catalog.js:75:{ id: 'poker-raise', name: 'Poker — raise / bet', group: 'poker', category: 'sfx', priority: 6,
+client/shared/sfx-catalog.js:77:{ id: 'poker-fold', name: 'Poker — fold', group: 'poker', category: 'sfx', priority: 5,
+client/shared/sfx-catalog.js:87:{ id: 'poker-allin', name: 'Poker — all-in', group: 'poker', category: 'sfx', priority: 7,
+client/shared/sfx-catalog.js:99:{ id: 'poker-turn', name: 'Poker — your turn', group: 'poker', category: 'sfx', priority: 6,
+client/shared/sfx-catalog.js:111:{ id: 'poker-win', name: 'Poker — win', group: 'poker', category: 'sfx', priority: 8,
+client/shared/sfx-catalog.js:124:{ id: 'poker-broke', name: 'Poker — busted / broke', group: 'poker', category: 'sfx', priority: 7,
+client/shared/sfx-catalog.js:139:{ id: 'hack-entry', name: 'Circuit Breach — jack in', group: 'hack', category: 'sfx', priority: 4,
+client/shared/sfx-catalog.js:144:{ id: 'hack-plug', name: 'Circuit Breach — connector seats', group: 'hack', category: 'sfx', priority: 4,
+client/shared/sfx-catalog.js:154:{ id: 'hack-move', name: 'Circuit Breach — hop node', group: 'hack', category: 'sfx', priority: 5,
+client/shared/sfx-catalog.js:156:{ id: 'hack-boost', name: 'Circuit Breach — boost', group: 'hack', category: 'sfx', priority: 5,
+client/shared/sfx-catalog.js:158:{ id: 'hack-alarm', name: 'Circuit Breach — alarm', group: 'hack', category: 'sfx', priority: 6,
+client/shared/sfx-catalog.js:163:{ id: 'hack-ping', name: 'Circuit Breach — sensor ping', group: 'hack', category: 'sfx', priority: 6,
+client/shared/sfx-catalog.js:169:{ id: 'hack-force', name: 'Circuit Breach — force gate', group: 'hack', category: 'sfx', priority: 7,
+client/shared/sfx-catalog.js:175:{ id: 'hack-win', name: 'Circuit Breach — access granted', group: 'hack', category: 'sfx', priority: 8,
+client/shared/sfx-catalog.js:182:{ id: 'hack-lose', name: 'Circuit Breach — connection severed', group: 'hack', category: 'sfx', priority: 8,
+client/shared/sfx-catalog.js:191:{ id: 'hololock-entry', name: 'Hololock — engage', group: 'hololock', category: 'sfx', priority: 4,
+client/shared/sfx-catalog.js:194:{ id: 'hololock-set', name: 'Hololock — pin set', group: 'hololock', category: 'sfx', priority: 6,
+client/shared/sfx-catalog.js:197:{ id: 'hololock-miss', name: 'Hololock — miss', group: 'hololock', category: 'sfx', priority: 6,
+client/shared/sfx-catalog.js:201:{ id: 'hololock-win', name: 'Hololock — bypassed', group: 'hololock', category: 'sfx', priority: 8,
+client/shared/sfx-catalog.js:205:{ id: 'hololock-lose', name: 'Hololock — lockout', group: 'hololock', category: 'sfx', priority: 8,
+client/shared/sfx-catalog.js:211:{ id: 'vault-entry', name: 'Vault — approach', group: 'vault', category: 'sfx', priority: 4,
+client/shared/sfx-catalog.js:215:{ id: 'vault-tick', name: 'Vault — dial tick', group: 'vault', category: 'sfx', priority: 3,
+client/shared/sfx-catalog.js:218:{ id: 'vault-set', name: 'Vault — tumbler drops', group: 'vault', category: 'sfx', priority: 6,
+client/shared/sfx-catalog.js:222:{ id: 'vault-slip', name: 'Vault — cam slips', group: 'vault', category: 'sfx', priority: 6,
+client/shared/sfx-catalog.js:226:{ id: 'vault-win', name: 'Vault — bolt retracts', group: 'vault', category: 'sfx', priority: 8,
+client/shared/sfx-catalog.js:231:{ id: 'vault-lose', name: 'Vault — tamper lockout', group: 'vault', category: 'sfx', priority: 8,
+client/shared/sfx-catalog.js:239:{ id: 'synth-entry', name: 'Synth Lab — chamber online', group: 'synth', category: 'sfx', priority: 4,
+client/shared/sfx-catalog.js:243:{ id: 'synth-ignite', name: 'Synth Lab — burner ignites', group: 'synth', category: 'sfx', priority: 5,
+client/shared/sfx-catalog.js:247:{ id: 'synth-inband', name: 'Synth Lab — reaction stabilises', group: 'synth', category: 'sfx', priority: 6,
+client/shared/sfx-catalog.js:251:{ id: 'synth-outband', name: 'Synth Lab — reaction drifts', group: 'synth', category: 'sfx', priority: 5,
+client/shared/sfx-catalog.js:254:{ id: 'synth-good', name: 'Synth Lab — clean cook', group: 'synth', category: 'sfx', priority: 8,
+client/shared/sfx-catalog.js:261:{ id: 'synth-bad', name: 'Synth Lab — botched batch', group: 'synth', category: 'sfx', priority: 8,
+client/shared/sfx-catalog.js:270:{ id: 'flight-startup', name: 'Flight — engine start', group: 'flight', category: 'sfx', priority: 4,
+client/shared/sfx-catalog.js:274:{ id: 'flight-roll', name: 'Flight — takeoff roll', group: 'flight', category: 'sfx', priority: 4,
+client/shared/sfx-catalog.js:278:{ id: 'flight-rotate', name: 'Flight — rotate / liftoff', group: 'flight', category: 'sfx', priority: 8,
+client/shared/sfx-catalog.js:282:{ id: 'flight-abort', name: 'Flight — abort / overrun', group: 'flight', category: 'sfx', priority: 6,
+client/shared/sfx-catalog.js:286:{ id: 'flight-warn', name: 'Flight — warning warble', group: 'flight', category: 'sfx', priority: 7,
+client/shared/sfx-catalog.js:290:{ id: 'flight-approach', name: 'Flight — approach', group: 'flight', category: 'sfx', priority: 4,
+client/shared/sfx-catalog.js:294:{ id: 'flight-flare', name: 'Flight — flare cue', group: 'flight', category: 'sfx', priority: 6,
+client/shared/sfx-catalog.js:297:{ id: 'flight-touchdown', name: 'Flight — touchdown', group: 'flight', category: 'sfx', priority: 8,
+client/shared/sfx-catalog.js:302:{ id: 'flight-crash', name: 'Flight — crash', group: 'flight', category: 'sfx', priority: 8,
+client/shared/sfx-catalog.js:306:{ id: 'flight-lock', name: 'Flight — target lock', group: 'flight', category: 'sfx', priority: 6,
+client/shared/sfx-catalog.js:310:{ id: 'flight-guns', name: 'Flight — cannon burst', group: 'flight', category: 'sfx', priority: 8,
+client/shared/sfx-catalog.js:318:{ id: 'fishing-charge', name: 'Fishing — reel charge', group: 'fishing', category: 'sfx', priority: 5,
+client/shared/sfx-catalog.js:323:{ id: 'fishing-cast', name: 'Fishing — cast away', group: 'fishing', category: 'sfx', priority: 6,
+client/shared/sfx-catalog.js:328:{ id: 'fishing-splash', name: 'Fishing — float lands', group: 'fishing', category: 'sfx', priority: 5,
+client/shared/sfx-catalog.js:334:{ id: 'fishing-bite', name: 'Fishing — the strike', group: 'fishing', category: 'sfx', priority: 8,
+client/shared/sfx-catalog.js:340:{ id: 'fishing-reel', name: 'Fishing — reel bite', group: 'fishing', category: 'sfx', priority: 4,
+client/shared/sfx-catalog.js:344:{ id: 'fishing-land', name: 'Fishing — landed', group: 'fishing', category: 'sfx', priority: 8,
+client/shared/sfx-catalog.js:350:{ id: 'fishing-snap', name: 'Fishing — line snaps', group: 'fishing', category: 'sfx', priority: 8,
+client/shared/sfx-catalog.js:365:{ id: 'dialogue-open', name: 'Dialogue — engage', group: 'dialogue', category: 'sfx', priority: 5,
+client/shared/sfx-catalog.js:371:{ id: 'dialogue-line', name: 'Dialogue — speaker begins', group: 'dialogue', category: 'sfx', priority: 4,
+client/shared/sfx-catalog.js:376:{ id: 'dialogue-opt', name: 'Dialogue — choose line', group: 'dialogue', category: 'sfx', priority: 5,
+client/shared/sfx-catalog.js:381:{ id: 'dialogue-close', name: 'Dialogue — disengage', group: 'dialogue', category: 'sfx', priority: 5,
+client/shared/sfx-catalog.js:389:{ id: 'dialogue-refuse', name: 'Dialogue — vendor refuses', group: 'dialogue', category: 'sfx', priority: 6,
+client/shared/sfx-catalog.js:423:{ id: 'accolade-unlock', name: 'Accolades — entry logged', group: 'accolades', category: 'sfx', priority: 9,
+client/shared/sfx-catalog.js:458:{ id: 'cards-vend', name: 'Cards — machine vends a sleeve', group: 'cards', category: 'sfx', priority: 6,
+client/shared/sfx-catalog.js:475:{ id: 'cards-coil', name: 'Cards — the coil turns', group: 'cards', category: 'sfx', priority: 6,
+client/shared/sfx-catalog.js:491:{ id: 'cards-catch', name: 'Cards — caught by the paddle', group: 'cards', category: 'sfx', priority: 5,
+client/shared/sfx-catalog.js:499:{ id: 'cards-belt', name: 'Cards — the belt carries it across', group: 'cards', category: 'sfx', priority: 4,
+client/shared/sfx-catalog.js:508:{ id: 'cards-chute', name: 'Cards — down the chute, flap bangs', group: 'cards', category: 'sfx', priority: 7,
+client/shared/sfx-catalog.js:522:{ id: 'cards-ui', name: 'Cards — panel tick', group: 'cards', category: 'sfx', priority: 3,
+client/shared/sfx-catalog.js:529:{ id: 'cards-deny', name: 'Cards — machine refuses', group: 'cards', category: 'sfx', priority: 5,
+client/shared/sfx-catalog.js:538:{ id: 'cards-hot', name: 'Cards — the sleeve runs hot', group: 'cards', category: 'sfx', priority: 9,
+client/shared/sfx-catalog.js:551:{ id: 'cards-tear', name: 'Cards — foil sleeve tears', group: 'cards', category: 'sfx', priority: 8,
+client/shared/sfx-catalog.js:563:{ id: 'cards-slide', name: 'Cards — card slides off the stack', group: 'cards', category: 'sfx', priority: 4,
+client/shared/sfx-catalog.js:570:{ id: 'cards-flip-common', name: 'Cards — flip (common)', group: 'cards', category: 'sfx', priority: 4,
+client/shared/sfx-catalog.js:576:{ id: 'cards-flip-uncommon', name: 'Cards — flip (uncommon)', group: 'cards', category: 'sfx', priority: 5,
+client/shared/sfx-catalog.js:583:{ id: 'cards-flip-rare', name: 'Cards — flip (rare)', group: 'cards', category: 'sfx', priority: 6,
+client/shared/sfx-catalog.js:592:{ id: 'cards-flip-epic', name: 'Cards — flip (epic)', group: 'cards', category: 'sfx', priority: 8,
+client/shared/sfx-catalog.js:605:{ id: 'cards-flip-legendary', name: 'Cards — flip (legendary)', group: 'cards', category: 'sfx', priority: 9,
+client/shared/sfx-catalog.js:626:{ id: 'cards-flip-architect', name: 'Cards — flip (architect)', group: 'cards', category: 'sfx', priority: 9,
+client/shared/sfx-catalog.js:638:{ id: 'cards-player-sting', name: "Cards — it's a PLAYER card", group: 'cards', category: 'sfx', priority: 9,
+client/shared/sfx-catalog.js:646:{ id: 'cards-dupe', name: 'Cards — duplicate', group: 'cards', category: 'sfx', priority: 4,
+client/shared/sfx-catalog.js:651:{ id: 'cards-stack', name: 'Cards — squared off at the end', group: 'cards', category: 'sfx', priority: 5,
+client/shared/tagCatalog.js:83:help: "Opt-OUT of repair. Anything that wears (weapon / armour / body-slot apparel / tool) is repairable by default and needs no tag — use this only for the rare thing that genuinely can't be fixed at
+client/shared/tagCatalog.js:87:help: 'Lets the carrier field-repair worn gear (capped at Battered — proper restoration needs a repairman).' },
+client/shared/tagCatalog.js:89:help: 'Delivered by INJECT, never by eat/use/drink. Pairs with a drug row whose flags carry `injectable` and (optionally) `requires_site` — a drug that names a site does nothing at all if you put it a
+client/shared/tagCatalog.js:91:help: 'Produced by relieving yourself (or finishing) into a carried vessel. Cooks like any other ingredient and taints the whole dish — anything made with it carries the filth through to the plate. MI
+client/shared/tagCatalog.js:99:help: "A bottle of something that cleans and is USED UP doing it (acetone, bleach). Cleans a floor like a Cleaning Tool, but spends a unit per use — so the resolver reaches for a mop or brush FIRST an
+client/shared/tagCatalog.js:101:help: 'A can of aerosol paint. TAG a building on an adjacent exit with one; the can is spent doing it (one tag, one can). Nothing else gates the verb — no skill, no stat. Removing the result needs a C
+client/shared/tagCatalog.js:121:help: "Proof of a pest killed — a carapace, a tail. An NPC flagged `bounty_buyer` pays the specialist rate (0.7 of value) for these, the way `drug_buyer` and `food_buyer` do for theirs; everyone else 
+client/shared/tagCatalog.js:135:help: "Which of the three worn layers this piece occupies on a body slot (underwear < outerwear < armor, innermost to outermost). Only one item per slot+layer; others see only your outermost layer. Al
+client/shared/tagCatalog.js:137:help: 'Extra body slots this one garment fills, e.g. ["legs"] on a torso jumpsuit — a single piece that occupies both slots at its layer. Equipping it clears (and is cleared by) anything in the covere
+client/shared/tagCatalog.js:139:help: "Absorbs water (0–100) when worn in rain or snow. Wet clothing lowers cooling thresholds and speeds heat loss. Water runs outside-in through the `layer` stack, so how much reaches this piece dep
+client/shared/tagCatalog.js:143:help: 'Sheds falling liquid. Two effects. RAIN: passes only 5% of the water that lands on it down to the layer beneath, so the garments (and skin) under it stay dry — the piece itself never gets wet. 
+client/shared/tagCatalog.js:145:help: 'This garment keeps its `insulation` when soaked. Wool, neoprene, sealed shells and wicking synthetics do; cotton, denim and padding do not, and lose most of their value wet — which is why "cott
+client/shared/tagCatalog.js:147:help: "A sealed outer face the wind can't get through. Gives back the WIND CHILL share of the feels-like temperature for the slots this garment covers — torso is worth about two thirds of it, legs the
+client/shared/tagCatalog.js:151:help: "Faraday shielding. The item itself is immune to an EMP pulse, and — if it's also a container — so is everything inside it." },
+client/shared/tagCatalog.js:167:help: "Physical damage category. Used to index per-part armor soak on defender. NOTE on `chemical`: it's a SPECIALIST type. Almost nothing soaks it, so it walks through armour — but it's multiplied do
+client/shared/tagCatalog.js:173:help: 'Marks a heavy tool/weapon (sledgehammer, cutting torch, breaching charge) capable of damaging armoured industrial infrastructure — generators and junction boxes. The main power plant can ONLY b
+client/shared/tagCatalog.js:175:help: 'Skill required to handle this weapon, e.g. { "blades": 6 }. TWO different gates: a vendor will REFUSE TO SELL it to anyone under the bar (hard), while actually using one you\'re short on merely
+client/shared/tagCatalog.js:177:help: "Exempts this weapon from the water combat penalty. By default a FIREARM won't fire at all while you're in water (wet powder), and every melee weapon swings slower and lands at a fraction of its
+client/shared/tagCatalog.js:179:help: 'Using this weapon while in water dumps its charge into the water instead of the target: everyone in the zone takes the hit, INCLUDING the person holding it. For electrical weapons (the ComplyMa
+client/shared/tagCatalog.js:185:help: 'A discharge weapon whose landed hit JUMPS to other hostiles in the room: { "jumps": 2, "falloff": 0.55 }. Each jump carries `falloff` of the previous hit and is resolved through the ordinary st
+client/shared/tagCatalog.js:189:help: 'What this weapon eats, e.g. "pyre_fuel". RELOAD matches it against a carried item\'s `ammo_load.type` — by TYPE, never by item id, so a second weapon can be authored against the same ammunition
+client/shared/tagCatalog.js:191:help: 'Marks an item as ammunition and says what it fits: { "type": "pyre_fuel", "units": 40 }. Consumed WHOLE by RELOAD — a partial top-up still spends the entire magazine, so reloading a half-full w
+client/shared/tagCatalog.js:193:help: 'The sentence printed when this weapon is fired empty. Optional — the fallback is "It clicks, and nothing happens." Worth authoring: a dry flame projector coughs an unlit mist, and that reads as
+client/shared/tagCatalog.js:195:help: 'The sentence printed on a successful RELOAD. Optional — the fallback names the weapon generically.' },
+client/shared/tagCatalog.js:199:help: 'Consumable is dangerous raw — eating it before the instance is cooked (see the `cooked` instance flag) applies food poisoning instead of its normal restores. Gates the `cook` verb (plugins/cook
+client/shared/tagCatalog.js:205:help: "This furniture is a microwave — its own appliance, NOT a stove tier. Fastest cook in the game and far and away the best defroster, but it browns nothing: a hard quality ceiling no skill, prep o
+client/shared/tagCatalog.js:210:help: 'Marks this item as a carried cooking appliance — the `cook` verb uses it when no room stove is available. Carry it uncontained (the fishing_rod/mining_tool tool-gate pattern). Pair with oven_ca
+client/shared/tagCatalog.js:212:help: 'Max food weight (grams) a portable_oven can cook at once — heavier food is refused outright ("small amounts only").' },
+client/shared/tagCatalog.js:215:help: 'Opts this food into deep cooking: a peak window it can be plated in, a burn point past it, handling that matters (flip/stir), and a quality band stamped by `plate` that scales its restores. Als
+client/shared/tagCatalog.js:221:help: 'OVERRIDE for how this sounds under a knife or in a pan. Almost never needed — the food_profile already picks a sensible acoustic class, and a carrot and a potato are indistinguishable at any re
+client/shared/tagCatalog.js:223:help: 'Worn gear that deliberately DULLS a sense: { "smell": -2 }. Negative numbers only — this is protection, not enhancement. It cuts what you perceive AND raises the strength something needs to ove
+client/shared/tagCatalog.js:226:help: 'A SECOND ingredient class this satisfies in recipes, without being it. Milk is the case: food_profile "liquid" (it cooks like one — one timeline, one set of stage prose) plus food_also "dairy" 
+client/shared/tagCatalog.js:228:help: 'This is in the pan to CARRY heat, not to be eaten — the water pasta boils in. It still counts as a liquid for everything that asks whether the pan is wet (fond, the sound it makes, the dry-star
+client/shared/tagCatalog.js:235:help: 'Which dishes this vessel can produce — a stew needs a pot, a sear needs a pan, a roast needs a tray, a dip needs a bowl, a sandwich needs bread (plugins/cooking/dishes.js). A bowl and bread are
+client/shared/tagCatalog.js:242:help: 'What this counts as in a drink recipe. Recipes match on the multiset of CLASSES in the vessel, never on item ids — tag a new bottle with an existing class and every recipe that class fits accep
+client/shared/tagCatalog.js:250:help: 'Milligrams of caffeine in ONE POUR of this ingredient. Almost nothing needs it: caffeine is a fact about the CLASS, so coffee_base and tea_base carry a default (plugins/drinks/caffeine.js) and 
+client/shared/tagCatalog.js:252:help: "A REUSABLE drinking vessel — a mug, a glass, a shaker. You mix or brew into it, carry it, drink it down and rinse it out; it's never consumed. Requires the Fillable tag, whose capacity doubles 
+client/shared/tagCatalog.js:255:help: 'Which drinks this vessel can produce — a negroni wants a tumbler or a glass, a shaken drink wants a shaker (and only rewards the shaken bonus in one). Unlike cooking vessels, a recipe may list 
+client/shared/tagCatalog.js:257:help: 'A thermos. Stretches how long a brewed drink stays hot — hot drinks lose restore value as they cool, derived from when they were brewed rather than ticked, so this is the whole reason to carry 
+client/shared/tagCatalog.js:261:help: "A plate, platter or strainer — kitchen kit that's neither a cooking vessel nor drinkware. It has no mechanics of its own; it exists to be owned, stored in a dish cabinet and set on a table. Del
+client/shared/tagCatalog.js:264:help: 'Which sort of dishware. Flavour and sorting only — nothing branches on it yet.' },
+client/shared/tagCatalog.js:271:help: 'Makes this item a readable recipe card teaching one dish. The value is the dish key from plugins/cooking/dishes.js (e.g. "stew", "chowder"). READ it to add the recipe to your Cookbook. Knowing 
+client/shared/tagCatalog.js:277:help: 'A hand tool for kitchen work — spoon, spatula, tongs, whisk, ladle. Purely a CATEGORY: nothing branches on it, the actual gates are can_stir/can_turn/can_chop. It exists so bulk commands can sw
+client/shared/tagCatalog.js:281:help: 'Marks a blade usable for kitchen prep. Combining whole ingredients (meat, roots, vegetables, fruit) in a vessel requires one carried uncontained — cooking a single item on its own does not. Any
+client/shared/tagCatalog.js:306:help: "Field medicine for wounds (plugins/injury). { steps, floor, types?, all?, chance? } — steps = severity rungs shed; floor 1 = can't clear a wound outright (only a clinic can); types narrows it t
+client/shared/tagCatalog.js:308:help: "Field medicine for cold injury (plugins/frostbite). { steps, floor } — steps = stages walked back; floor 1 = can't clear outright, so the best a kit can do is leave you at frostnip. Only DEEP f
+client/shared/tagCatalog.js:310:help: "Takes the edge off the cold for a while. { degrees, minutes } — degrees of effective warmth (the same currency as insulation), tapering linearly to nothing over that many GAME-minutes. Cold sid
+client/shared/tagCatalog.js:314:help: 'Drug id (e.g. drug_alcohol) this consumable applies as a carrier — the drug\'s onset/effects run, but its own instant restores are skipped in favor of this item\'s restore_* tags.' },
+client/shared/tagCatalog.js:322:help: 'Marks a container furniture as a wardrobe: it stores clothing like any container, but opens the wardrobe panel instead — saved outfits on the left, a drag-and-drop paper doll in the middle. Req
+client/shared/tagCatalog.js:324:help: 'Marks a carried item as a deployable dead-drop cache. `deploy` spends one and mints a concealed container furniture in the room; `recover` takes it back up, but only when it\'s empty. Value is 
+client/shared/tagCatalog.js:332:help: 'Marks a consumable as subject to freshness decay. Presence gates the whole freshness system — an item without this tag never gets a freshness checkpoint.' },
+client/shared/tagCatalog.js:338:help: 'OVERRIDE for which shelf this belongs on — the section a shop or a container groups it under (Dry Goods / Refrigerated / Frozen). Purely presentational: it decides nothing about spoilage, which
+client/shared/tagCatalog.js:340:help: 'A carried antioxidant/curing chemical the `preserve` verb spends to slow ONE perishable item\'s decay wherever it sits (a vial of BHT). Stacks with refrigeration rather than replacing it, and i
+client/shared/tagCatalog.js:343:help: 'Marks this furniture (or portable container) as an active preservation environment at the given tier. A stronger tier satisfies a weaker requirement. Requires the furniture to also be plugged i
+client/shared/tagCatalog.js:349:help: 'Furniture id of a second container that opens alongside this one in the SAME container panel (e.g. a fridge and its separate freezer box) — set on both sides, pointing at each other.' },
+client/shared/tagCatalog.js:352:help: 'Cosmetic tier for a preserves-tagged container — picks the client container-panel theme (consumer: frosted-glass/condensation; commercial: industrial stainless steel). Only meaningful alongside
+client/shared/tagCatalog.js:360:help: "Marks this item as an intrusion deck. Carrying one (in hand, not in a container) is the tool gate for HACK on hololocked doors and for jacking ATM terminals; it's also classed as contraband whe
+client/shared/tagCatalog.js:362:help: 'On a Hacking Device: how much this deck ADDS to every target\'s Hack Difficulty. 0 (or unset) is a clean professional deck. 2 is junk — every hololock, ATM and safe reads two points harder whil
+client/shared/tagCatalog.js:364:help: 'On a Hacking Device: the fraction of condition (0–1) burned by each FAILED breach. Unset means 0.2 — five failures and the deck is slag. 0.45 means roughly three. This bypasses the usual value-
+client/shared/tagCatalog.js:368:help: "A single-use electromagnetic charge. `emp` fires the SAME pulse the ion storm does, scoped to your room — every unshielded `electronic` item carried by anyone present is `fried` until a bench r
+client/shared/tagCatalog.js:370:help: "A single-use demolition charge. `breach <thing> with <charge>` opens the arming board, spends one, and leaves a fuse counting down on that object — after which anybody in the room, including yo
+client/shared/tagCatalog.js:374:help: 'On a Demolishable object: how hard the arming board is, 1–10. Unset means 5. This scales the SEATING game only — a hardened target is fiddly to wire, never impossible, because a difficulty that
+client/shared/tagCatalog.js:376:help: 'Marks this item as Nullcraft hardware — a jammer, a scrambler, an intrusion platform. Carrying one (in hand, not in a container) is the tool gate for the Null operations that need hardware. Dis
+client/shared/tagCatalog.js:380:help: 'On Null Gear: how hard this jammer pushes, 0–100. Merged with any PLANTED jammer already in the zone — surveillance keeps ownership of the planted half and this is only the carried contribution
+client/shared/tagCatalog.js:384:help: 'On Null Gear: how much this rig suppresses the trace you accrue, as a percentage 0–100. Trace is the clock on how long you can stay inside a system, so this buys TIME rather than power — the di
+client/shared/tagCatalog.js:386:help: 'On Null Gear: this jammer targets one signal instead of flooding the room. A selective jammer contributes NOTHING to the zone jam field — which is the point: your allies\' radios, your own deck
+client/shared/tagCatalog.js:388:help: 'Marks this item as a fishing rod. Carrying one (in hand, not in a container) is the tool gate for FISH at a water-adjacent zone. Pair with the Unique tag so each rod keeps its own condition — a
+client/shared/tagCatalog.js:399:help: 'This item IS a piece of uninstalled chrome; the value is the augment id it fits (e.g. aug_myomer_bundles). The install path finds the row by the augment\'s own item_id, so this tag is for shelv
+client/shared/tagCatalog.js:401:help: "Wreckage. Marks chrome that death or a botched theatre destroyed — scrap value and repair stock, and nothing in the game will ever fit one to a body. Pair with Can't Be Repaired." },
+client/shared/tagCatalog.js:405:help: "Consumed by one CALIBRATE. Better rigs make the tuning board easier, never higher-scoring — a fine instrument makes the job easier, it doesn't make the machine better than it is. Not needed at 
+client/shared/tagCatalog.js:431:help: "A concealed teleporter (yacht plugin). USE it to jump to flags.teleport_target — but only for an approved player; to anyone else it behaves as an ordinary closet. Pairs with teleport_target." }
+client/shared/tagCatalog.js:437:help: "Marks a cassette as the SMALL format — the fat paperback-sized shell the top-loading tape players take. Carries `media_cassette` too, so a full-size media deck reads it perfectly well; the tag 
+client/shared/tagCatalog.js:451:help: 'Players can drink from and wash at this furniture — or at this TILE, for open water with nothing to install a sink on. Enables the water-plugin verbs (drink/wash), and satisfies cooking\'s `fil
+client/shared/tagCatalog.js:453:help: 'A fuel point `fill` draws from — a forecourt pump, a bowser, a drum with a hand pump. The VALUE is the price in ₵ per fluid unit; leave it 0 (or set the flag bare) and the fill is free, which i
+client/shared/tagCatalog.js:455:help: "Examining this renders a forecourt price board. It holds NO prices of its own — it prints whatever the systems that actually charge for fuel report through the `fuel.prices` gather hook for thi
+client/shared/tagCatalog.js:457:help: 'Players can READ this furniture to see the server leaderboard — the top 5 survivors ranked by total XP (ties broken by older account first).' },
+client/shared/tagCatalog.js:459:help: 'Players can sit and relieve themselves here (pee / poop / flush) with privacy. The verbs are blind to what the furniture is — stall, latrine, bucket — they only ask for this capability.' },
+client/shared/tagCatalog.js:469:help: 'This particular `electronic` item was cooked by an EMP / ion storm pulse. It does nothing at all until repaired at a bench. Never dev-panel-editable — written by the weather EMP path, cleared b
+client/shared/tagCatalog.js:471:help: 'Runtime-managed freshness checkpoint { value, checkpointAt, envBucket, powerLostAt, additive } for a perishable item instance. `additive` is present only once the item has been dosed by `preser
+client/shared/tagCatalog.js:473:help: 'Per-item state flag set once a needs_cooking instance finishes cooking. Never dev-panel-editable — written only by the cooking plugin.' },
+client/shared/tagCatalog.js:476:help: 'Per-item quality band stamped when a food_profile meal is plated. Scales its restores on the eat path (poor 0.5x → masterful 1.6x). Never dev-panel-editable — written only by the cooking plugin
+client/shared/tagCatalog.js:478:help: 'Runtime-managed cook session { applianceId, startedAt, thawMs, cookMs, plainDoneAt } for an instance mid-cook. Never dev-panel-editable — written and read only by the cooking plugin.' },
+client/shared/tagCatalog.js:493:help: 'Carrying this rides the player across water dry — no swim stamina cost, no wetness/cold (swimming plugin).' },
+client/shared/tagCatalog.js:495:help: 'Carrying/wearing this supplies air underwater — no breath timer, so you never drown from lack of air (swimming plugin). Stamina still applies.' },
+client/shared/tagCatalog.js:497:help: 'Consumed by `fix` on a boat away from a bench: puts some hull back and is used up doing it. The same field-vs-bench split `durability.js` draws for gear — a patch is capped well short of sound 
+client/shared/tagCatalog.js:499:help: 'Carrying this lets you climb a "scree" tile — a rock face the map DRAWS as having a way up it (climbing plugin). Costs stamina, scaled by the Climbing skill, and never a roll. It does NOT open 
+client/shared/tagCatalog.js:502:help: "Body shapes this garment is cut for. A mutation that blocks this slot is refused UNLESS the garment accommodates it (mutations plugin). Shapes, never mutation ids — a coat has a slit for a tail
+client/shared/tagCatalog.js:508:help: 'Salvaged tech component — crafting/repair input.' },
+client/shared/tagCatalog.js:526:help: "Baled legal agricultural produce — the bottom rung of the Reach dead-drop ladder. Orderable like a raw but tagged NEITHER raw_drug NOR contraband, so it isn't a manufacturing felony and customs
+client/shared/tagCatalog.js:536:help: 'Uncut drug brick — smuggling/flight contract cargo, checkpoint contraband.' },
+client/shared/tagCatalog.js:548:help: 'Surveillance hub deck — reviews planted-device feeds.' },
+client/shared/tagCatalog.js:560:help: 'Civilization carve-out — attach DELIBERATELY. Grants combat protection via the protection substrate, safe sleep, AI safe-flee targeting, and suppresses hostile spawns. (Not auto-derived from th
+client/shared/tagCatalog.js:562:help: 'Permit `sleep` in this zone WITHOUT the full sanctuary bundle — grants safe-zone-rate rest but no combat protection / forcefield / spawn suppression. For places like the holding cell where you 
+client/shared/tagCatalog.js:564:help: 'Set to a building name (e.g. "Solenne Residences"): only a player holding a unit in that building may enter — walked in OR ridden to by elevator (residency plugin). For private amenity floors: 
+client/shared/tagCatalog.js:568:help: 'Part of the Precinct 9 cell block: a prisoner doing time may walk here WITHOUT it counting as a jailbreak (jail plugin). Only for rooms behind the same locked cell door — a room that reaches th
+client/shared/tagCatalog.js:573:help: 'Manual danger override. Danger is normally inferred from the zone\'s enemy spawns — set this only for hazard-flavor zones with no spawn rows (rad fields, scripted horrors).' },
+client/shared/tagCatalog.js:577:help: 'Ground the Exodus hold, inside their own walls. The armour taboo fires here (plugins/psionics/reactions.js): a player who has COMMITTED to the order and walks in wearing armour loses warmth wit
+client/shared/tagCatalog.js:579:help: 'Off the Architect\'s grid — the surveillance witness roll (cameras/cops/bystanders) short-circuits to unseen here, so no crime is ever witnessed and no heat is earned. The Long Watch bunker use
+client/shared/tagCatalog.js:583:help: 'Suppress enemy spawns in this zone — and, since the leash work, refuse entry to any enemy that tries to WALK in (roaming, patrolling or chasing). Spawn suppression alone was never enough once m
+client/shared/tagCatalog.js:585:help: 'Hard "mobs stop here" paint: no enemy may enter this tile, whatever it\'s doing. For the handful of tiles that really are a wall — the city side of the Curtain. This is the runtime backstop the
+client/shared/tagCatalog.js:587:help: "An ion storm does nothing to anyone standing here: the EMP pulse skips this tile, so carried electronics aren't fried and installed chrome isn't knocked out. For places that run on nothing an E
+client/shared/tagCatalog.js:596:help: 'Indoors — weather/temperature/lighting use the interior model.' },
+client/shared/tagCatalog.js:598:help: "RETIRED — don't use. Marked the old SHARED authored dreamzones, where two people on the same drug met each other inside the hallucination. Every dream and trip is instanced now (private, RAM-on
+client/shared/tagCatalog.js:602:help: 'Somewhere a person LIVES but nobody rents — a cabin, a penthouse, a bunkroom, a lair. Together with is_apartment this is what isDwellingZone() answers, and an NPC only performs home-life activi
+client/shared/tagCatalog.js:604:help: 'Building facade/root — groups interior zones into one building (junction-box power scope, entrance discovery).' },
+client/shared/tagCatalog.js:606:help: 'OPT-IN pass-through building tile: stepping onto it auto-forwards into the building\'s interior entry zone (needs an interior map parented on this zone); OUT from inside lands on world_exit_zon
+client/shared/tagCatalog.js:618:help: 'Rates and power charged every cycle on an `is_storefront` unit AFTER the mortgage clears — so an abandoned shop still eventually lapses instead of squatting the tile forever. Omit for the 40c d
+client/shared/tagCatalog.js:620:help: 'Building category (bar, hotel, store, grocery, …) — controls entrance-discovery flavor text.' },
+client/shared/tagCatalog.js:622:help: 'Explicit storey count for the flight-sim skyline — overrides the per-building-type default so a landmark tower stands taller (or shorter). Read by the windshield building-height formula.' },
+client/shared/tagCatalog.js:624:help: 'Exterior seam zone for this building — where OUT ultimately lands. TWO MEANINGS, by where it sits: on a FACADE it\'s the STREET tile out front (authored, geometry\'s business); on an INTERIOR t
+client/shared/tagCatalog.js:626:help: 'Authored door side (north/south/east/west) for the map entrance arrow — read by buildingEntranceDir. Baked once from the road graph, NOT inferred at runtime, so terrain painting can never reloc
+client/shared/tagCatalog.js:636:help: "This room has a window onto the outdoors: { name, description, light, visibility } — transmissions 0–1, default 0.8, and every key optional ({} is a plain window). It lets daylight in (the only
+client/shared/tagCatalog.js:644:help: 'Scales both stamina regen and HP knit-back for anyone resting in this zone (restRegenTick in gameLoop.js). Default 1. Comfort zones raise it — Solenne units 1.5, penthouse 2.0.' },
+client/shared/tagCatalog.js:653:help: 'Ground surface for the map/minimap and the flight-sim ground tint — the authoritative source for zoneTerrain (overrides the inferred surface). Painted in the dev panel: Maps → Terrain mode. Roa
+client/shared/tagCatalog.js:656:help: 'What this floor sounds like underfoot — read by the footstep audio in the dense sound tier. INTERIORS ONLY: outdoors the sound is derived from `terrain`, which is null indoors by design (an int
+client/shared/tagCatalog.js:661:help: 'Marks a world tile as part of the Ascendant stronghold campus (western frontier) — used for ambience and faction framing.' },
+client/shared/tagCatalog.js:667:help: 'The Vats registry desk — intake/enrolment room.' },
+client/shared/tagCatalog.js:676:help: 'Identity flag for The Echelon admin superyacht — distinguishes its zones from any future yacht.' },
+client/shared/tagCatalog.js:682:help: "Cyd's private quarters — owner-gated behind the suite hatch; hosts the MIS-gated dancers." },
+client/shared/tagCatalog.js:684:help: 'The stern landing pad — a Dragonfly (VTOL) can set down here to embark/disembark.' },
+client/shared/tagCatalog.js:694:help: 'RUNTIME-only: the vessel\'s last steered course in degrees (0=N, bow-north), injected onto the live Echelon exterior zone by the yacht plugin from the persisted world flag. Not authored in cont
+client/shared/tagCatalog.js:701:help: 'Authored decor anchors a walkable-base room offers, each { id, kind, label } — the owner fills them from the decor catalog (custom_data.home.slots). The shell defines the anchors; per-owner cho
+client/shared/tagCatalog.js:726:help: 'OVERRIDE for this tile\'s map art. Names an SVG in client/game/assets/zone-icons/ (without .svg). This is the top rung of deriveFeature — it outranks the building rooftop and road auto-tiling, 
+client/shared/tagCatalog.js:741:help: "OVERRIDE. You're IN this tile rather than ON it — fishing casts into it, and the overland void rim doesn't exist here. Preset by terrain (water ⇒ liquid). Omit to inherit; set No to force a wat
+client/shared/tagCatalog.js:747:help: 'OVERRIDE. The dev-panel building tool may place or move a building here. Preset by terrain (water ⇒ NOT buildable). Authoring-only — no player-facing effect.' },
+client/shared/tagCatalog.js:749:help: 'OVERRIDE. A submerged tile below a surface water tile (link up/down): always submerged (a boat doesn\'t help), colder, and dark, and it starts a breath timer that drowns you. Preset by the "und
+client/shared/tagCatalog.js:751:help: 'OVERRIDE. A street a building\'s front door may face onto — the map builder prefers a neighbouring tile with this when choosing which side the entrance goes. Preset by terrain (road). Authoring
+client/shared/tagCatalog.js:756:help: 'OVERRIDE. Movement pacing on this tile — 2 means you cross it in half the time. Preset by terrain (road and dirt_road are 2, everything else 1). Set it to make one stretch slow (rubble, a rutte
+client/shared/tagCatalog.js:759:help: 'Names the sub-area voice this tile speaks in — the `theme` of a set of global_ambient_events rows written for one stretch of country ("deadwater_the_wide_quiet", "scarletwastes_hardpan"). SECON
+client/shared/tagCatalog.js:779:help: 'The public side of Citadel Financial (the Marble Hall). The security vestibule\'s checkpoint_cfg uses this as its fromFlag, so the scan only runs on the way IN off the public floor — not on the
+client/shared/tagCatalog.js:790:help: 'The one break in the Curtain — the guarded road out to the wilds. Draws a gate glyph on the minimap and carries the exit through the wall. Owner: perimeter (wildlands).' },
+client/shared/tagCatalog.js:792:help: 'Outward-facing turret killing-ground just beyond a perimeter_gate — the cleared no-man\'s-land the wall guns sweep. Owner: perimeter (wildlands).' },
+client/shared/tagCatalog.js:794:help: 'One-time spoken briefing the gate guards deliver the first time a player steps onto this perimeter tile — what leaving the city costs and which regions lie past the Curtain. The prose lives her
+client/shared/tagCatalog.js:799:help: 'People live on this tile in canvas rather than in a building. Raises tents, guy lines and a brazier out the canopy through the `camp` mark (deriveSurfaceCell), and the tile stays ORDINARY WALKA
+client/shared/tagCatalog.js:802:help: 'Open water a cargo ship works from, alongside a quay. A freighter comes up the fairway, lies against the quay wall while the gantries load her, and steams off again; three hulls take it in turn
+client/shared/tagCatalog.js:805:help: 'How many boats can lie alongside this pontoon. A tile carrying this IS a marina pontoon — there is deliberately no companion `marina: true`, because that would be a second statement of the same
+client/shared/tagCatalog.js:808:help: 'How many hulls this INTERIOR room keeps under a roof, on cradles, with a hoist. The expensive tier and the only place `refit` finishes a hull properly — a patch anywhere else is capped well sho
+client/shared/tagCatalog.js:810:help: 'How many hulls this open apron keeps on cradles, outdoors. The cheap tier: she is out of the water and out of the weather\'s way, and a refit here is capped between a field patch and a proper s
+client/shared/tagCatalog.js:812:help: 'A pump a boat can `fuel` at. Deliberately NOT `truck_fuel` and deliberately not the furniture `fuel_source` a jerry can draws on: a diesel forecourt and a fuel float are the same trade in two p
+client/shared/tagCatalog.js:814:help: 'The `boat` verb lists a stock list here and will sell one. Deliberately INDEPENDENT of the three berth flags, because selling a hull and keeping one are different trades — a broker in an office
+client/shared/tagCatalog.js:821:help: 'Which airfield this tile belongs to — the membership pointer into the `airfields` table, exactly like region_id. Everything ABOUT the field (its name, which desks it runs, what fuel it stocks, 
+client/shared/tagCatalog.js:825:help: 'A freight depot (THE LONG HAUL) — the SHOP, and it goes INSIDE a building you walk into, never on the street. It used to live on the street tile, which meant the dealer\'s line, the freight boa
+client/shared/tagCatalog.js:827:help: 'The room behind a depot office where a driver can stop the night (THE LONG HAUL). Four cots, a television, a fridge with something in it and a sink — every depot on the network has one and they
+client/shared/tagCatalog.js:829:help: 'The hardstand outside a depot door — the drivable tile a depot\'s `yard` points AT. Purely descriptive: it\'s what makes the street say there\'s a depot through that door, so a driver who parks
+client/shared/tagCatalog.js:831:help: 'A business that takes freight off a truck (THE LONG HAUL). Docks in a region are mixed into that region\'s freight boards, which is what makes the city a DESTINATION rather than the road to the
+client/shared/tagCatalog.js:833:help: 'A weighbridge a rig has to cross (THE LONG HAUL). It measures WEIGHT, NOT CONTRABAND: it compares the trailer against the manifest and against its plate rating, so a legal overweight load fails
+client/shared/tagCatalog.js:835:help: 'The lot a truck seized OUT ON THE VOID HIGHWAY is taken to. An inspection plaza is synthesised per crossing and torn down with it, so it cannot hold a rig itself — writing one into depot_zone i
+client/shared/tagCatalog.js:837:help: 'THE ONE HOLE IN A BUILDING. Put this on a FACADE tile and a truck can drive through it — the tile still draws its building and is still solid to the flight sim, but the ground vehicle\'s obstru
+client/shared/tagCatalog.js:839:help: 'A diesel pump a truck can `fuel` at. Redundant on a tile whose building_type is already fuel_yard — this is for a depot that keeps a pump without being one.' },
+client/shared/tagCatalog.js:845:help: 'Hangar ramp (aircraft parking) — holds the paired dock zone id.' },
+client/shared/tagCatalog.js:869:help: 'Which global ambience pool this tile draws from when it has no ambient_events of its own (world.js). A theme with no pool means no ambience ever fires — content:lint warns about that rather tha
+client/shared/tagCatalog.js:884:help: 'CSS fill for the tile. Beats the terrain palette. Leave it empty and the tile takes the terrain\'s fill — which is what almost every tile should do; an override is for the one that has earned l
+client/shared/tagCatalog.js:889:help: 'The world tile this tile\'s MAP hangs off. Owned by maps.parent_zone_id and pushed down — content:lint errors if a tile on a map disagrees, so edit it on the map (the Studio\'s map properties),
+client/shared/tagCatalog.js:904:help: 'Player-facing neighbourhood name, shown with the room and when crossing in. Written the way it reads in a sentence — "the Redline", not "Redline".' },
+client/shared/tagCatalog.js:906:help: 'CSS colour. Tints the tile on the tablet\'s regional map, fills the legend swatch, and blends the street lines at that zoom. Not the tile fill at normal zoom — terrain owns that.' },
+client/shared/tagCatalog.js:910:help: 'One line, shown once — the first time a player ever sets foot in this district.' },
+client/shared/tagCatalog.js:916:help: 'How the landmark reads from afar, completing "To the north, ___." — e.g. "the Dread Furnace glows red beyond the fence".' },
+client/shared/tagCatalog.js:918:help: 'Zone-id prefixes that resolve to this district (zone_<prefix>_…), for the 154 old zones that still classify themselves that way. Every tile on the modern grid is zone_district_<x>_<y> and match
+client/shared/tagSupertags.js:30:help: 'Knuckles, power fists, cesti — trains the Fists skill.',
+client/shared/tagSupertags.js:33:help: 'Knives, machetes, swords — anything with an edge. Trains Blades.',
+client/shared/vehicle-model-schema.js:80:+ ' — the renderer reads ' + VEHICLE_IDS[doc.kind].join(', ')));

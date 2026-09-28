@@ -8,7 +8,7 @@ import { renderDialogueNode } from '../../server/engine/dialogue.js';
 import { emit } from '../../server/engine/events.js';
 import { clearEffect } from '../../server/engine/effects.js';
 import { world } from '../../server/engine/world.js';
-import { findTurnInNpc, trackEvent, cancelTasksLeavingZone, invalidateQuestCache, loadPlayerQuest, applyRolled, advanceFor, withinHours, isQuestAvailable } from './index.js';
+import { isComplete, findTurnInNpc, trackEvent, cancelTasksLeavingZone, invalidateQuestCache, loadPlayerQuest, applyRolled, advanceFor, withinHours, isQuestAvailable } from './index.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -341,6 +341,67 @@ export default async function regress({ run, check, getPlayer }) {
     emit('npc.talked', { actor: player, npc: { id: 'npc_regress_talker', name: 'Talker' } });
     await settle();
     check('talk advances on npc.talked', (await settled(1))[0] === 1, JSON.stringify(await progressOf()));
+
+    // ── The 2026-09-27 kinds. Each driven through its REAL payload shape, one
+    // near-miss and one hit, because a wrong key reads as "never advances".
+    const hitMiss = async (label, obj, miss, hit) => {
+      await mkQuest([{ id: 'o0', count: 1, desc: label, ...obj }]);
+      if (miss) { emit(...miss); await settle(); check(`${label}: near-miss does not count`, (await progressOf())[0] === 0, JSON.stringify(await progressOf())); }
+      emit(...hit);
+      check(`${label}: advances`, (await settled(1))[0] === 1, JSON.stringify(await progressOf()));
+    };
+    await hitMiss('fish', { type: 'fish', target: 'item_rg_carp', zone: 'zone_rg_pond' },
+      ['fish.caught', { player, item_id: 'item_rg_carp', zoneId: 'zone_rg_elsewhere' }],
+      ['fish.caught', { player, item_id: 'item_rg_carp', zoneId: 'zone_rg_pond' }]);
+    await hitMiss('mine', { type: 'mine', target: 'item_rg_ore' },
+      ['ore.mined', { player, item_id: 'item_rg_slag', zoneId: 'z' }],
+      ['ore.mined', { player, item_id: 'item_rg_ore', zoneId: 'z' }]);
+    await hitMiss('scavenge (blank = anything)', { type: 'scavenge' }, null,
+      ['scavenge.found', { player, item_id: 'item_rg_junk', zoneId: 'z' }]);
+    await hitMiss('cook with a quality floor', { type: 'cook', target: 'item_rg_steak', quality: 'good' },
+      ['dish.cooked', { playerId: player.id, item_id: 'item_rg_steak', quality: 'decent' }],
+      ['dish.cooked', { playerId: player.id, item_id: 'item_rg_steak', quality: 'excellent' }]);
+    await hitMiss('pet', { type: 'pet', target: 'npc_rg_cat' },
+      ['npc.petted', { actor: player, npc: { id: 'npc_rg_dog', name: 'Dog' } }],
+      ['npc.petted', { actor: player, npc: { id: 'npc_rg_cat', name: 'Cat' } }]);
+    await hitMiss('meet', { type: 'meet', target: 'npc_rg_stranger' },
+      ['relation.met', { actor: player, npcId: 'npc_rg_other' }],
+      ['relation.met', { actor: player, npcId: 'npc_rg_stranger' }]);
+    await hitMiss('emote', { type: 'emote', target: 'raises a glass' },
+      ['player.emoted', { player, zoneId: 'z', text: 'waves' }],
+      ['player.emoted', { player, zoneId: 'z', text: 'Raises a glass to the dead' }]);
+    await hitMiss('tag', { type: 'tag', zone: 'zone_rg_wall' },
+      ['graffiti.tagged', { player, zoneId: 'zone_rg_wall', targetZoneId: 'zone_rg_other' }],
+      ['graffiti.tagged', { player, zoneId: 'zone_rg_street', targetZoneId: 'zone_rg_wall' }]);
+    await hitMiss('breach', { type: 'breach' }, null, ['hololock.breached', { player, zoneId: 'z' }]);
+    await hitMiss('disarm', { type: 'disarm' }, null, ['shopalarm.disarmed', { player, zoneId: 'z' }]);
+    await hitMiss('sabotage', { type: 'sabotage', target: 'generator_diesel' },
+      ['generator.destroyed', { by: player, generatorType: 'generator_solar' }],
+      ['generator.destroyed', { by: player, generatorType: 'generator_diesel' }]);
+    await hitMiss('hijack (an enemy doing it never counts)', { type: 'hijack' },
+      ['truck.hijacked', { attacker: { id: player.id, instanceId: 'inst_rg' } }],
+      ['truck.hijacked', { attacker: player }]);
+    await hitMiss('stash', { type: 'stash', target: 'item_rg_envelope', zone: 'zone_rg_drop' },
+      ['item.dropped', { actor: player, item: { item_id: 'item_rg_envelope' }, zone: 'zone_rg_wrong' }],
+      ['item.dropped', { actor: player, item: { item_id: 'item_rg_envelope' }, zone: 'zone_rg_drop' }]);
+    await hitMiss('kick', { type: 'kick', target: 'drug_rg' },
+      ['drug.cleaned', { player, drugId: 'drug_rg_other' }],
+      ['drug.cleaned', { player, drugId: 'drug_rg' }]);
+
+    // Groups: "any two of these three". Pure, no DB.
+    {
+      const q = { objectives: [
+        { id: 'a', type: 'talk', target: 'x', group: 'leads', groupNeed: 2 },
+        { id: 'b', type: 'talk', target: 'y', group: 'leads' },
+        { id: 'c', type: 'talk', target: 'z', group: 'leads' },
+        { id: 'd', type: 'visit', zone: 'q' },
+      ] };
+      check('group: one of two is not enough', isComplete(q, [1, 0, 0, 1]) === false);
+      check('group: any two of three finishes it', isComplete(q, [1, 0, 1, 1]) === true);
+      check('group: a met group does not excuse an ungrouped objective', isComplete(q, [1, 1, 0, 0]) === false);
+      const q1 = { objectives: [{ id: 'a', type: 'talk', group: 'g' }, { id: 'b', type: 'talk', group: 'g' }] };
+      check('group: groupNeed defaults to one', isComplete(q1, [0, 1]) === true);
+    }
 
     // buy / sell — the vendor events carry `player`, not `actor`, and `itemId`,
     // not `item_id`. Both are easy to get backwards and silent when wrong.

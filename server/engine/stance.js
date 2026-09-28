@@ -52,7 +52,7 @@ const SWING_VERBS = {
 };
 
 const MISS_LINES = {
-  berserk:    (t) => `You hurl yourself at ${t} and crash past — wide open.`,
+  berserk:    (t) => `You hurl yourself at ${t} and crash past, wide open.`,
   aggressive: (t) => `You press ${t} hard and swing wide.`,
   normal:     (t) => `You swing at ${t} and miss. It doesn't look impressed.`,
   cautious:   (t) => `You test ${t}'s guard and find nothing.`,

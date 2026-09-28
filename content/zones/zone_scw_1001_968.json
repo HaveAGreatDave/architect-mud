@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The skirt of a mesa, a long slope of broken rock shed off the face above over a very long time, everything from fist-sized to the size of a truck. Nothing here is stable. Everything you put a foot on shifts a little and then decides not to.",
+  "description": "A fan of loose stone runs down from a notch above. A dry channel cuts through the middle of it.",
   "exits": {
     "east": "zone_scw_1002_968",
     "north": "zone_scw_1001_967",
@@ -13,13 +13,13 @@
     "radiation": 9,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "dirt_road"
+    "terrain": "gravel"
   },
   "grid_x": 1001,
   "grid_y": 968,
   "grid_z": 0,
   "id": "zone_scw_1001_968",
   "map_id": "map_world",
-  "name": "The Spill",
+  "name": "The Skirt",
   "parent_zone": null
 }

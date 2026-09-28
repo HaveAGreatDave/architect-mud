@@ -79,7 +79,7 @@ edit('npcs/npc_asc_vess.json', (d, t) => {
     text:
       'A woman in Spire grey comes in with a fresh pot, takes the cold one, and puts a cloth '
       + 'under Vess\'s cup without being asked.\n\n'
-      + '"— and that is why the eastern figures look worse than they are, of course. Two winters '
+      + '"...and that is why the eastern figures look worse than they are, of course. Two winters '
       + 'of it and the model has not caught up." Vess does not pause, does not look up, and moves '
       + 'her elbow to let the cloth go under.\n\n'
       + 'The woman goes out. The door is closed quietly from the other side.\n\n'
@@ -106,7 +106,7 @@ edit('npcs/npc_asc_vess.json', (d, t) => {
       'Behind you, at the far end of the Gallery, two people in grey take an elbow each of a '
       + 'third and walk him towards a door that is already open. He is not shouting. One of his '
       + 'shoes comes off and nobody stops for it.\n\n'
-      + '"— and the west wall is the original glass, which everybody assumes is a reproduction." '
+      + '"...and the west wall is the original glass, which everybody assumes is a reproduction." '
       + 'Vess has not stopped, and turns, pleasantly, so that the group turns with her and you are '
       + 'facing the other way.\n\n'
       + '"Come and look at this while the light is on it."',
@@ -164,7 +164,7 @@ edit('npcs/npc_asc_recruiter.json', (d, t) => {
     _vine: { x: 900, y: 1420 }, actions: [],
     text:
       'He notices you are wet before you do.\n\n'
-      + '"Oh — take that." He lifts a coat off the back of a chair and puts it into your hands '
+      + '"Oh, take that." He lifts a coat off the back of a chair and puts it into your hands '
       + 'without looking at it. It is heavier than it looks, and lined, and there is no rain in '
       + 'it at all. "There are four of them in the cupboard and I have never counted them."\n\n'
       + '"No, genuinely. It is a coat."',

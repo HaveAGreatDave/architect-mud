@@ -149,7 +149,7 @@ async function submitCode(disguise, typed, player) {
 
   const brand = brandOf(disguise);
   const roomLine = opening
-    ? `<span class="msg-system">The ${disguise.name} chimes softly and folds itself away on a hidden turntable — shelving, facing and all of it swallowed into the wall, ${hidden.name} rolling out into the space where it stood.</span>`
+    ? `<span class="msg-system">The ${disguise.name} chimes softly and folds itself away on a hidden turntable: shelving, facing and all of it swallowed into the wall, ${hidden.name} rolling out into the space where it stood.</span>`
     : `<span class="msg-system">${hidden.name} rolls back into the wall, and the ${disguise.name} turns out of it to take its place. Just a cabinet again.</span>`;
   sendToZone(player.current_zone, { type: 'zone_event', message: roomLine, refresh: true }, player.id);
   // The actor's own room pane has to repaint too — the furniture list just gained
@@ -189,7 +189,7 @@ async function cmdConcealSetCode(args, raw, player) {
 // that there IS a panel (a keypad on a luxury cabinet isn't a secret; the code
 // is). An open cabinet says so, because the room can plainly see it.
 function keypadLine(target, trim) {
-  return `\n<span class="text-dim">${trim} — <span class="action-link" data-action="keypad" data-target="${target.name.toLowerCase()}">keypad</span>.</span>`;
+  return `\n<span class="text-dim">${trim}: <span class="action-link" data-action="keypad" data-target="${target.name.toLowerCase()}">keypad</span>.</span>`;
 }
 
 function describeFurniture(furniture, player) {

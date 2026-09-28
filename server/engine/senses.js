@@ -244,13 +244,13 @@ export function wouldOverload(acuity, topStrength) {
 // is a refinement, never a requirement.
 const OVERLOAD_BY_SOURCE = {
   smell: {
-    feces:    `It's a physical thing. Your throat shuts, your eyes stream, and you're breathing through your sleeve before you have decided to — and now you'll smell nothing at all for a while.`,
+    feces:    `It's a physical thing. Your throat shuts, your eyes stream, and you're breathing through your sleeve before you have decided to, and now you'll smell nothing at all for a while.`,
     urine:    `The ammonia goes up your nose like a wire and keeps going. Your eyes water helplessly. Everything after this is going to be very faint.`,
     vomit:    `The sourness gets into the back of your throat and sets your own stomach going. You back off fast, and your nose closes down for the duration.`,
     blood:    `The iron of it coats everything, thick and close and far too warm. It's all you can smell, and shortly it's all you won't be able to smell.`,
     burning:  `Scorched fat and carbon, straight to the back of the sinus. It scours the inside of your head out, and takes your sense of smell with it.`,
     chemical: `Something solvent and wrong bites into the lining of your nose. You reel back with your eyes streaming, shut down for the duration.`,
-    bodies:   `Too many people, too close, all of them unwashed — it stops being a smell and becomes a pressure. Your nose gives up rather than sort it.`,
+    bodies:   `Too many people, too close, all of them unwashed. It stops being a smell and becomes a pressure. Your nose gives up rather than sort it.`,
     corpses:  `Sweet, thick and unmistakable, and there's far too much of it. It gets into your clothes and the back of your throat and it doesn't wash out. You aren't going to smell anything else for a long while, and you're grateful.`,
   },
   hearing: {
@@ -265,7 +265,7 @@ const OVERLOAD_BY_SOURCE = {
 };
 
 const OVERLOAD_DEFAULT = {
-  smell:   `It's far too much. Your eyes water and your throat closes — and for a while after, you'll smell nothing at all.`,
+  smell:   `It's far too much. Your eyes water and your throat closes, and for a while after, you'll smell nothing at all.`,
   hearing: `It goes through your head like a spike. Everything after it arrives muffled and far away.`,
   sight:   `The glare is unbearable. You blink into a swimming afterimage that won't clear.`,
   touch:   `It floods you, and your hands stop reporting anything useful at all.`,
@@ -281,6 +281,6 @@ export function acuityNote(acuity, sense = 'smell') {
   if (acuity >= 2) return `Everything is louder than it should be; your ${sense} is doing more than it was built for.`;
   if (acuity >= 1) return `It all comes through a little sharper than usual.`;
   if (acuity <= -2) return `You're getting almost nothing. Whatever is wrong with your ${sense}, it's bad.`;
-  if (acuity <= -1) return `It comes through dulled, like it's happening to somebody else.`;
+  if (acuity <= -1) return `It comes through dulled, like it is happening to somebody else.`;
   return null;
 }

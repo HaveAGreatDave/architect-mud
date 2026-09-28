@@ -44,7 +44,7 @@ const t = d.dialogue_tree;
 t.tolerance_offer.text =
   '"You have got a pulse and a poor sense of self-preservation. That is the whole '
   + 'specification." Duc wipes his hands on the apron and does not look up.\n\n'
-  + '"Hand actuator. Second knuckle, index and middle — the two that do the gripping. Mine are '
+  + '"Hand actuator. Second knuckle, index and middle, the two that do the gripping. Mine are '
   + 'good for eleven years and I want to know why the last batch came back at nine."\n\n'
   + '"I need it run in. Not tested. Tested is a bench and a week and it tells you nothing about '
   + 'what a hand actually does. Run in means out there, on somebody, doing work."\n\n'

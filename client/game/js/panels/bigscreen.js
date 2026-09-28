@@ -234,7 +234,7 @@ export function bindBigScreenButton(btn) {
 // is called. ⤢ rather than a second ⛶: this is the rung above fullscreen and the two sit next to
 // each other in the same row.
 export const BIGSCREEN_GLYPH = '⤢';
-export const BIGSCREEN_TITLE = 'big screen — the whole screen, no panels, no HUD (Esc leaves)';
+export const BIGSCREEN_TITLE = 'big screen: the whole screen, no panels, no HUD (Esc leaves)';
 
 // ── THE SIDEBAR SWITCH ───────────────────────────────────────────────────────
 //
@@ -286,7 +286,7 @@ export function bindSidebarButton(btn) {
 }
 
 export const SIDEBAR_GLYPH = '◧';
-export const SIDEBAR_TITLE = 'hide the sidebar panels — a wider picture';
+export const SIDEBAR_TITLE = 'hide the sidebar panels, a wider picture';
 
 function ensureStyles() {
   const el = document.getElementById('bigscreen-styles') || document.createElement('style');

@@ -54,7 +54,7 @@ console.log('— the top of the ladder —');
 write('augments', {
   id: 'aug_halo_collar',
   name: 'Halcyon Halo Collar',
-  description: 'The chromed half-collar the Curators wear, issued rather than sold — a ring of pattern-grade sensor weave that sits behind the neck and reads the room a half-second before you do. It is not subtle and is not meant to be. On this campus it is a uniform. In Coldwater it is a statement somebody else has to decide how to take.',
+  description: 'The chromed half-collar the Curators wear, issued rather than sold: a ring of pattern-grade sensor weave that sits behind the neck and reads the room a half-second before you do. It is not subtle and is not meant to be. On this campus it is a uniform. In Coldwater it is a statement somebody else has to decide how to take.',
   slot: 'neural',
   tier: 3,
   cost: 3400,
@@ -82,7 +82,7 @@ write('augments', {
 write('augments', {
   id: 'aug_seraph_lattice',
   name: 'Seraph Lattice',
-  description: 'Subdermal weave of the grade The First wears, laid in a lattice from throat to hip so the whole torso answers at once. Halcyon does not list it. There is no shelf it sits on and no price on any board — there is an account, and either it is the kind of account this goes on or it is not.',
+  description: 'Subdermal weave of the grade The First wears, laid in a lattice from throat to hip so the whole torso answers at once. Halcyon does not list it. There is no shelf it sits on and no price on any board. There is an account, and either it is the kind of account this goes on or it is not.',
   slot: 'torso',
   tier: 4,
   cost: 9500,

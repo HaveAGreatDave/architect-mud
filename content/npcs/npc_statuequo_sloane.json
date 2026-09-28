@@ -141,7 +141,7 @@
     "She wipes the top of the radiator with one finger and inspects the finger.",
     "She tucks something behind the door that came for somebody who is out."
   ],
-  "description": "The caretaker, who is not paid to be and has never once said so. A small upright woman of about seventy with a very large ring of keys and an exact knowledge of who is behind on what. She stands in the hall rather than sits, because sitting down in the hall would imply she was waiting for something, and she is not waiting, she is simply there.",
+  "description": "The caretaker: a small, upright woman of about seventy standing in the hall with a very large ring of keys. She knows exactly who's behind on what. She doesn't sit down.",
   "dialogue_tree": {
     "bins": {
       "options": [

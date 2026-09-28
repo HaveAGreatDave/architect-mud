@@ -137,7 +137,7 @@ const HALLUC_WHISPERS = [
   'Every reflection is a half-second late, and smiling.',
 ];
 const INSANE_WHISPERS = [
-  "THEY ARE ALL HERE THEY HAVE ALWAYS BEEN HERE they're laughing they are —",
+  "THEY ARE ALL HERE THEY HAVE ALWAYS BEEN HERE they're laughing they are...",
   "The room turns inside out. You're outside your own skin, watching.",
   "A thousand voices agree, in perfect unison, that you shouldn't exist.",
   "You can't remember your name. Something else is wearing it now.",
@@ -152,7 +152,7 @@ const DREAD_PHANTOMS = [
   {
     name: 'a figure made of static', kind: 'person', hp: 8,
     arrive: 'A figure of grey static resolves out of the far wall and stands watching you.',
-    look: "It's roughly a person, but it won't hold a shape — features boiling, hands too long. Where its eyes should be there's only more static.",
+    look: "It's roughly a person, but it won't hold a shape: features boiling, hands too long. Where its eyes should be there's only more static.",
     talk: "The static figure doesn't answer. The hiss just gets louder.",
     depart: 'You blink, and the static figure is gone, leaving a ringing in your ears.',
   },

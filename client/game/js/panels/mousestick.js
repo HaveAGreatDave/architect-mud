@@ -303,5 +303,5 @@ export function bindMouseStick(el, st, opts = {}) {
 
 // What the toast says when the mouse is taken. Here rather than in the panel so the two seats that
 // could bind this cannot describe it differently.
-export const STICK_HINT_ON = '✋ MOUSE STICK — the mouse flies her, and she holds where you leave it · ESC or K to let go';
-export const STICK_HINT_OFF = '✋ MOUSE STICK OFF — the yoke pad has it back';
+export const STICK_HINT_ON = '✋ MOUSE STICK: the mouse flies her, and she holds where you leave it · ESC or K to let go';
+export const STICK_HINT_OFF = '✋ MOUSE STICK OFF: the yoke pad has it back';

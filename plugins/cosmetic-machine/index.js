@@ -106,7 +106,7 @@ function renderMorphexText(player, toast) {
     };
   }
 
-  L.push(`<b>MORPHEX 9000 — BioSculpt</b>`);
+  L.push(`<b>MORPHEX 9000: BioSculpt</b>`);
   if (toast) L.push(`<span class="msg-system">${toast}</span>`);
   L.push(sexLine);
   L.push(hairLine);
@@ -218,7 +218,7 @@ async function cmdMorphex(args, raw, player) {
       return buildPanelData(player, `Already ${newSex}.`);
     }
     const { ok, cost } = chargeCheck(player);
-    if (!ok) return buildPanelData(player, `Insufficient funds — 10₵ required. You have ${player.credits || 0}₵.`);
+    if (!ok) return buildPanelData(player, `Insufficient funds: 10₵ required. You have ${player.credits || 0}₵.`);
 
     const newApp = randomAppearance(newSex);
     player.biological_sex = newSex;
@@ -240,7 +240,7 @@ async function cmdMorphex(args, raw, player) {
     if (attr === 'color') {
       if (!HAIR_COLORS.includes(val)) return buildPanelData(player, `Unknown color: ${val}`);
       const { ok, cost } = chargeCheck(player);
-      if (!ok) return buildPanelData(player, `Insufficient funds — 10₵ required.`);
+      if (!ok) return buildPanelData(player, `Insufficient funds: 10₵ required.`);
       player.hair_color = val;
       await applyCharge(player, cost);
       await query('UPDATE players SET hair_color=$1 WHERE id=$2', [val, player.id]);
@@ -249,7 +249,7 @@ async function cmdMorphex(args, raw, player) {
     if (attr === 'length') {
       if (!HAIR_LENGTHS.includes(val)) return buildPanelData(player, `Unknown length: ${val}`);
       const { ok, cost } = chargeCheck(player);
-      if (!ok) return buildPanelData(player, `Insufficient funds — 10₵ required.`);
+      if (!ok) return buildPanelData(player, `Insufficient funds: 10₵ required.`);
       player.hair_length = val;
       await applyCharge(player, cost);
       await query('UPDATE players SET hair_length=$1 WHERE id=$2', [val, player.id]);
@@ -258,7 +258,7 @@ async function cmdMorphex(args, raw, player) {
     if (attr === 'style') {
       if (!HAIR_STYLES.includes(val)) return buildPanelData(player, `Unknown style: ${val}`);
       const { ok, cost } = chargeCheck(player);
-      if (!ok) return buildPanelData(player, `Insufficient funds — 10₵ required.`);
+      if (!ok) return buildPanelData(player, `Insufficient funds: 10₵ required.`);
       player.hair_style = val;
       await applyCharge(player, cost);
       await query('UPDATE players SET hair_style=$1 WHERE id=$2', [val, player.id]);
@@ -272,7 +272,7 @@ async function cmdMorphex(args, raw, player) {
     const val = (rest[0]?.toLowerCase() === 'color' ? rest.slice(1) : rest).join(' ').toLowerCase();
     if (!EYE_COLORS.includes(val)) return buildPanelData(player, `Unknown eye color: ${val}`);
     const { ok, cost } = chargeCheck(player);
-    if (!ok) return buildPanelData(player, `Insufficient funds — 10₵ required.`);
+    if (!ok) return buildPanelData(player, `Insufficient funds: 10₵ required.`);
     player.eye_color = val;
     await applyCharge(player, cost);
     await query('UPDATE players SET eye_color=$1 WHERE id=$2', [val, player.id]);
@@ -284,7 +284,7 @@ async function cmdMorphex(args, raw, player) {
     const cm = parseInt(rest[0]);
     if (isNaN(cm) || cm < 150 || cm > 210) return buildPanelData(player, 'Height must be 150–210cm.');
     const { ok, cost } = chargeCheck(player);
-    if (!ok) return buildPanelData(player, `Insufficient funds — 10₵ required.`);
+    if (!ok) return buildPanelData(player, `Insufficient funds: 10₵ required.`);
     player.height_cm = cm;
     await applyCharge(player, cost);
     await query('UPDATE players SET height_cm=$1 WHERE id=$2', [cm, player.id]);
@@ -296,7 +296,7 @@ async function cmdMorphex(args, raw, player) {
     const kg = parseInt(rest[0]);
     if (isNaN(kg) || kg < 40 || kg > 150) return buildPanelData(player, 'Weight must be 40–150kg.');
     const { ok, cost } = chargeCheck(player);
-    if (!ok) return buildPanelData(player, `Insufficient funds — 10₵ required.`);
+    if (!ok) return buildPanelData(player, `Insufficient funds: 10₵ required.`);
     player.weight_kg = kg;
     await applyCharge(player, cost);
     await query('UPDATE players SET weight_kg=$1 WHERE id=$2', [kg, player.id]);
@@ -311,12 +311,12 @@ async function cmdMorphex(args, raw, player) {
     // parseFloat, not parseInt — the bottom of the range is under a centimetre.
     const targetCm = Math.round(parseFloat(rest[0]) * 10) / 10;
     if (isNaN(targetCm) || targetCm < MIN_PENIS_CM || targetCm > MAX_PENIS_CM) {
-      return buildPanelData(player, `Enter a target length in cm (${MIN_PENIS_CM}–${MAX_PENIS_CM} — that's 0.25in to 15in).`);
+      return buildPanelData(player, `Enter a target length in cm (${MIN_PENIS_CM}–${MAX_PENIS_CM}: that's 0.25in to 15in).`);
     }
     const appData = player.appearance_data || {};
     const delta = Math.abs(targetCm - (appData.penis_length_cm || 12));
     const totalCost = player._morphexChargen ? 0 : Math.max(5, delta * 5);
-    if ((player.credits || 0) < totalCost) return buildPanelData(player, `Costs 5₵/cm — ${totalCost}₵ total. You have ${player.credits || 0}₵.`);
+    if ((player.credits || 0) < totalCost) return buildPanelData(player, `Costs 5₵/cm: ${totalCost}₵ total. You have ${player.credits || 0}₵.`);
     appData.penis_length_cm = targetCm;
     player.appearance_data = appData;
     if (totalCost > 0) await adjustCredits(player, -totalCost, undefined, 'cosmetics:surgery');
@@ -331,7 +331,7 @@ async function cmdMorphex(args, raw, player) {
     const targetSize = rest.join(' ').toLowerCase();
     if (!TESTICLE_SIZES.includes(targetSize)) return buildPanelData(player, `Valid sizes: ${TESTICLE_SIZES.join(', ')}`);
     const { ok, cost } = chargeCheck(player);
-    if (!ok) return buildPanelData(player, `Insufficient funds — 10₵ required.`);
+    if (!ok) return buildPanelData(player, `Insufficient funds: 10₵ required.`);
     const appData = player.appearance_data || {};
     appData.testicle_size = targetSize;
     player.appearance_data = appData;
@@ -347,7 +347,7 @@ async function cmdMorphex(args, raw, player) {
     const targetSize = rest.join(' ').toLowerCase();
     if (!sizes.includes(targetSize)) return buildPanelData(player, `Valid sizes: ${sizes.join(', ')}`);
     const { ok, cost } = chargeCheck(player);
-    if (!ok) return buildPanelData(player, `Insufficient funds — 10₵ required.`);
+    if (!ok) return buildPanelData(player, `Insufficient funds: 10₵ required.`);
     const appData = player.appearance_data || {};
     appData.ass_size = targetSize;
     player.appearance_data = appData;
@@ -365,7 +365,7 @@ async function cmdMorphex(args, raw, player) {
     const appData = player.appearance_data || {};
     const delta = Math.abs(BREAST_MAP[targetSize] - (BREAST_MAP[appData.breast_size || 'medium'] ?? 2));
     const totalCost = player._morphexChargen ? 0 : Math.max(5, delta * 5);
-    if ((player.credits || 0) < totalCost) return buildPanelData(player, `Costs 5₵/tier — ${totalCost}₵ total. You have ${player.credits || 0}₵.`);
+    if ((player.credits || 0) < totalCost) return buildPanelData(player, `Costs 5₵/tier: ${totalCost}₵ total. You have ${player.credits || 0}₵.`);
     appData.breast_size = targetSize;
     player.appearance_data = appData;
     if (totalCost > 0) await adjustCredits(player, -totalCost, undefined, 'cosmetics:surgery');
@@ -381,7 +381,7 @@ async function cmdMorphex(args, raw, player) {
     if (!match) return buildPanelData(player, `Valid options: ${SEXUALITIES.join(', ')}`);
     if (player.sexuality === match) return buildPanelData(player, `Already set to ${match}.`);
     const { ok, cost } = chargeCheck(player);
-    if (!ok) return buildPanelData(player, `Insufficient funds — 10₵ required.`);
+    if (!ok) return buildPanelData(player, `Insufficient funds: 10₵ required.`);
     player.sexuality = match;
     await applyCharge(player, cost);
     await query('UPDATE players SET sexuality=$1 WHERE id=$2', [match, player.id]);

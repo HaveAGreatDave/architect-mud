@@ -1071,7 +1071,7 @@ const _cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 const FLICKER_MSGS = [
   (n, s) => `${_cap(n)} ${s ? 'flickers' : 'flicker'} erratically as the power supply struggles.`,
   (n, s) => `${_cap(n)} ${s ? 'stutters' : 'stutter'}, casting unsteady light.`,
-  (n, s) => `${_cap(n)} ${s ? 'pulses' : 'pulse'} weakly — the grid is under strain.`,
+  (n, s) => `${_cap(n)} ${s ? 'pulses' : 'pulse'} weakly. The grid is under strain.`,
   (n, s) => `${_cap(n)} ${s ? 'dims' : 'dim'} and ${s ? 'brightens' : 'brighten'} in an uneven rhythm.`,
 ];
 
@@ -1467,7 +1467,7 @@ async function applyPowerLightEffects(zoneId, prevStatus, newStatus, available, 
     if (broadcast) {
       if (forcedOff.length) {
         const { text: nameStr, isSingular } = _fmtLightNames(forcedOff.map(l => l.name).filter(Boolean));
-        broadcast(zoneId, { type: 'zone_event', message: `<br><span class="power-flicker">${_cap(nameStr)} ${isSingular ? 'cuts' : 'cut'} out abruptly — not enough power to keep everything on.</span><br>`, refresh: true });
+        broadcast(zoneId, { type: 'zone_event', message: `<br><span class="power-flicker">${_cap(nameStr)} ${isSingular ? 'cuts' : 'cut'} out abruptly: not enough power to keep everything on.</span><br>`, refresh: true });
       } else if (flickering.length) {
         const { text: nameStr, isSingular } = _fmtLightNames(flickering.map(id => lights.find(l => l.id === id)?.name).filter(Boolean));
         broadcast(zoneId, { type: 'zone_event', message: `<br><span class="power-flicker">${_cap(nameStr)} ${isSingular ? 'flickers' : 'flicker'} as the supply runs thin.</span><br>`, refresh: true });
@@ -1988,7 +1988,7 @@ export function getZoneVisibility(zoneId) {
       ambientLight: 0.85, artificialLight: 0.85, windowLight: 0,
       outdoor: false, weatherType: state.weatherType,
       precipType: 'none', precipRate: 0, cloudCover: 0,
-      windKph: state.forecast?.[0]?.windKph ?? 0,
+      windKph: getZoneWindKph(zoneId),
     };
   }
   const zone = state.zones.get(zoneId);
@@ -2056,7 +2056,7 @@ export function getZoneVisibility(zoneId) {
     precipType: precipActive ? state.currentPrecip : 'none',
     precipRate: precipActive ? precipFloor(f ? f.precipRate : 0) : 0,
     cloudCover: f ? f.cloudCover : 0,
-    windKph: state.forecast[0]?.windKph ?? 0,
+    windKph: getZoneWindKph(zoneId),
   };
 }
 
@@ -2410,14 +2410,14 @@ async function firePulse() {
     // nothing went dark — say nothing
   } else if (!darkened || res.wholeGrid) {
     announceWeatherEvent([
-      'Every light in the city dies at once. Screens, streetlamps, the hum behind the walls — all of it, gone between one breath and the next.',
+      'Every light in the city dies at once. Screens, streetlamps, the hum behind the walls: all of it, gone between one breath and the next.',
     ]);
   } else if (deps.broadcast) {
     const wrap = (line) => ({ type: 'zone_event', message: `<br><span class="weather-event">${line}</span><br>` });
     const occupied = deps.getOccupiedZones ? [...deps.getOccupiedZones()] : [];
     for (const zoneId of occupied) {
       if (darkened.has(zoneId)) {
-        deps.broadcast(zoneId, wrap('Every light around you dies at once. Screens, streetlamps, the hum behind the walls — all of it, gone between one breath and the next.'));
+        deps.broadcast(zoneId, wrap('Every light around you dies at once. Screens, streetlamps, the hum behind the walls: all of it, gone between one breath and the next.'));
       } else if (skyVantage(zoneId) !== 'buried' && skyVantage(zoneId) !== 'sealed') {
         deps.broadcast(zoneId, wrap("Across the rooftops a whole quarter of the city goes out at once, block after block, and doesn't come back."));
       }
@@ -2694,7 +2694,7 @@ function broadcastZoneWeather(occupied) {
       precipType: localType,
       active: precipRate > 0,
       precipRate,
-      windKph: state.forecast[0]?.windKph ?? 0,
+      windKph: getZoneWindKph(zoneId),
       muffled,
       muffleHops,
     });
@@ -2727,7 +2727,7 @@ const WEATHER_DESCRIPTIONS = {
   overcast:     ['Heavy cloud cover blankets the sky, diffusing what little light reaches the street.', 'The sky is a flat, featureless grey.'],
   rain:         ['Rain falls in a steady drizzle, pooling in the cracks of the pavement.', 'The hiss of rain fills the air.', 'Gutters run with dark water.'],
   sleet:        ['Freezing sleet pelts down, stinging exposed skin.', 'Half-frozen rain rattles against every surface.'],
-  thunderstorm: ['Thunder rolls in distant waves overhead.', 'Lightning fractures the sky — a thunderstorm rages.', 'The air smells of ozone. Thunder follows every flicker of lightning.'],
+  thunderstorm: ['Thunder rolls in distant waves overhead.', 'Lightning fractures the sky. A thunderstorm rages.', 'The air smells of ozone. Thunder follows every flicker of lightning.'],
   storm:        ['Wind howls between the buildings, carrying debris.', 'A violent storm tears through the area.', 'The force of the wind makes every step an effort.'],
   snow:         ["Snow falls quietly, softening the city's sharp edges.", 'A thin coat of snow covers everything in sight.', 'Snowflakes spiral down through the amber glow of the streetlights.'],
   blizzard:     ['A blizzard rages, cutting visibility to almost nothing.', 'Snow and wind form a near-solid wall of white.'],
@@ -2782,9 +2782,41 @@ export function getZoneTemperature(zoneId) {
 }
 
 // Prevailing wind speed (kph) for the current day. Global — one figure for the
-// whole world, driven by the active forecast. 0 until the forecast is ready.
+// whole world, driven by the active forecast. 0 until the forecast is ready. This is
+// the HEADLINE (the forecast, the HUD); what blows on a particular tile is below.
 export function getWindKph() {
   return state.forecast[0]?.windKph ?? 0;
+}
+
+// ── THE WIND ON A TILE, WHICH FOLLOWS THE WEATHER THAT IS ACTUALLY OVERHEAD ────────────────
+//
+// The day's wind already knows the day's weather TYPE (the weather plugin's WIND_BY_WEATHER
+// doubles it on a storm day), but it is one number for twenty-four hours, so a storm cell
+// crossing the map changed nothing that blows. Every reader of wind that has a place took
+// that flat figure: wind chill, the zone snapshot the client renders sea, windsocks, flags,
+// rain slant and spray from, and the ambience wind bed.
+//
+// ⚠ IT IS THE DAY'S WIND SCALED BY THE LIVE FIELD, NEVER A SECOND WIND. The moving cells
+// already say where it is stormy (stormIntensity) and raining hard (precipRate), and a squall
+// under a cell is the day's wind with gusts on it. On a storm day's ~46 kph a cell's core
+// reaches ~85, about 46 kt, which is the top of the sea's scale (SEA_FULL_KT).
+// ⚠ AND IT CANNOT FEED BACK. Severity is derived from the FORECAST wind in the weather
+// plugin, not from this, so a gust never raises the severity that raises the gust.
+// Off the field (interiors, other maps) it is the day's wind unchanged.
+export const WIND_STORM_GAIN = 0.85;   // at stormIntensity 1
+export const WIND_PRECIP_GAIN = 0.25;  // at precipRate 1
+function windFromField(f) {
+  const base = state.forecast[0]?.windKph ?? 0;
+  if (!f) return base;
+  const gust = 1 + WIND_STORM_GAIN * Math.max(0, Math.min(1, f.stormIntensity || 0))
+                 + WIND_PRECIP_GAIN * Math.max(0, Math.min(1, f.precipRate || 0));
+  return Math.round(base * gust);
+}
+export function getZoneWindKph(zoneId) { return windFromField(fieldAt(zoneId)); }
+// The same answer by world_map grid coordinate, for a viewer that is between zones: a pilot.
+export function getWindKphAtGrid(gridX, gridY) {
+  if (!sampleField || !Number.isFinite(gridX) || !Number.isFinite(gridY)) return windFromField(null);
+  return windFromField(sampleField(Math.round(gridX), Math.round(gridY)));
 }
 
 // Relative humidity (%) for the current day, or null if unknown. Global, from
@@ -2845,7 +2877,7 @@ export function getZoneApparentTemperature(zoneId, extraOffsetC = 0) {
   const ambient = getZoneTemperature(zoneId) + extraOffsetC;
   const z = state.zones.get(zoneId);
   if (isIndoorZone(z)) return ambient;
-  return apparentTemperature(ambient, state.forecast[0]?.windKph ?? 0, getZoneHumidity(zoneId));
+  return apparentTemperature(ambient, getZoneWindKph(zoneId), getZoneHumidity(zoneId));
 }
 
 // The wind's share of the feels-like temperature at a zone, in °C — always ≤ 0, and 0
@@ -2860,7 +2892,7 @@ export function windChillDelta(zoneId, extraOffsetC = 0) {
   if (isIndoorZone(z)) return 0;
   const ambient = getZoneTemperature(zoneId) + extraOffsetC;
   const hum = getZoneHumidity(zoneId);
-  return apparentTemperature(ambient, state.forecast[0]?.windKph ?? 0, hum)
+  return apparentTemperature(ambient, getZoneWindKph(zoneId), hum)
        - apparentTemperature(ambient, 0, hum);
 }
 

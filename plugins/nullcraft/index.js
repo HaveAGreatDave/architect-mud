@@ -113,7 +113,7 @@ async function cmdNullscan(args, raw, player) {
   const lines = targets.map(t => {
     const owner = t.ownerName && t.ownerId !== player.id ? ` <span class="text-dim">(${t.ownerName})</span>` : '';
     const radio = t.security?.wireless === false
-      ? ` <span class="text-dim">— no radio</span>`
+      ? ` <span class="text-dim">(no radio)</span>`
       : '';
     return `  <span class="text-amber">${t.name}</span>${owner}${radio}`;
   });
@@ -343,7 +343,7 @@ async function cmdNullResolve(args, raw, player, broadcast) {
   }
 
   return { type: 'output', message:
-    (result?.message || `<span class="msg-system">${target.name} — ${subsystem.id} ${op.label.toLowerCase()}ed.</span>`)
+    (result?.message || `<span class="msg-system">${target.name}: ${subsystem.id} ${op.label.toLowerCase()}ed.</span>`)
     + traceLine(player.id) };
 }
 
@@ -377,7 +377,7 @@ async function cmdJammer(args, raw, player) {
     if (!running) return { type: 'output', message: `<span class="text-dim">No field running.</span>` };
     const left = Math.max(0, Math.round((running.until - Date.now()) / 1000));
     return { type: 'output', message:
-      `<span class="msg-system">Field up — strength ${running.strength}%, ${left}s of cell left.${running.selective ? ' Selective.' : ''}</span>` };
+      `<span class="msg-system">Field up: strength ${running.strength}%, ${left}s of cell left.${running.selective ? ' Selective.' : ''}</span>` };
   }
 
   if (sub !== 'on' && sub !== 'start') {
@@ -406,7 +406,7 @@ async function cmdJammer(args, raw, player) {
   addTrace(player.id, 0, jam.selective ? 4 : 20);
 
   return { type: 'output', message: jam.selective
-    ? `<span class="msg-system">The ${device.name} narrows onto one carrier. Everything else in the room keeps working — which is the expensive part.</span>`
+    ? `<span class="msg-system">The ${device.name} narrows onto one carrier. Everything else in the room keeps working, which is the expensive part.</span>`
     : `<span class="msg-system">The ${device.name} floods the band. Every radio in here goes to static, including the ones you like.</span>` };
 }
 
@@ -432,7 +432,7 @@ async function cmdVeil(args, raw, player) {
 
   setVeil(player.id, strength, VEIL_MS);
   return { type: 'output', message:
-    `<span class="msg-system">The ${device.name} warms against your chest. You don't vanish — nothing does. `
+    `<span class="msg-system">The ${device.name} warms against your chest. You don't vanish: nothing does. `
     + `Every lens in the district simply stops being sure it saw anything worth writing down.</span>` };
 }
 

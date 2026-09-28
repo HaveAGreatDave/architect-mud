@@ -636,8 +636,8 @@ export default async function regress({ run, check, getPlayer }) {
       };
       for (const [a, ak, b, bk] of [
         ['region_coldwater', 'reach', 'region_the_reach', 'coldwater'],
-        ['region_coldwater', 'deadwater', 'region_deadwater', 'coldwater'],
-        ['region_coldwater', 'exodus', 'region_terminus', 'coldwater'],
+        ['region_the_reach', 'scarletwastes', 'region_scarletwastes', 'reach'],
+        ['region_scarletwastes', 'exodus', 'region_terminus', 'scarletwastes'],
         ['region_the_reach', 'deadwater', 'region_deadwater', 'reach'],
       ]) {
         const out = roomsFor(a, ak), back = roomsFor(b, bk);
@@ -659,9 +659,11 @@ export default async function regress({ run, check, getPlayer }) {
         const nearest = Math.min(...V.region_coldwater.dests.map(d => roomsFor('region_coldwater', d.key)));
         check('the shared trunk is derived, in tiles, and bounded',
           trunk >= voidTest.TRUNK_MIN && trunk <= voidTest.TRUNK_MAX, String(trunk));
-        check('…as a fraction of the nearest destination',
-          trunk === Math.max(voidTest.TRUNK_MIN, Math.min(voidTest.TRUNK_MAX,
-            Math.round(nearest * voidTest.TRUNK_FRACTION))), `${trunk} of ${nearest}`);
+        // A region with an authored hub forks where its highway forks; otherwise it is derived.
+        const hub = V.region_coldwater.hub?.distance;
+        check('…as a fraction of the nearest destination, or at the hub where there is one',
+          hub ? trunk === Math.round(hub) : trunk === Math.max(voidTest.TRUNK_MIN, Math.min(voidTest.TRUNK_MAX,
+            Math.round(nearest * voidTest.TRUNK_FRACTION))), `${trunk} of ${nearest}, hub ${hub}`);
         // The fork has to leave something on the other side of it, or committing to a heading is a
         // thing that happens at the gate and never again.
         check('…and every limb is longer than the trunk it hangs off',
@@ -1092,8 +1094,10 @@ export default async function regress({ run, check, getPlayer }) {
           const d2 = (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
           if (!best || d2 < best.d2) best = { a, b, d2 };
         }
+        // A PINNED entrance (voids.json `gate`) is a decision to share one; it is exempt.
+        const pinned = d.gate || (VOIDS[d.region]?.dests || []).some((e) => e.region === fromKey && e.gate);
         check(`${fromKey}→${d.key} leaves by the mouth that faces it`,
-          pair.from.id === best.a.id && pair.to.id === best.b.id,
+          pinned || (pair.from.id === best.a.id && pair.to.id === best.b.id),
           `${pair.from.id} → ${pair.to.id}`);
       }
     }
@@ -1104,8 +1108,10 @@ export default async function regress({ run, check, getPlayer }) {
       check('the Coldwater highway still lands on the Reach road named after it',
         cw?.to?.id === 'zone_the_reach_863_1955', String(cw?.to?.id));
       const scw = gatePair('region_the_reach', 'region_scarletwastes');
-      check('…and the Scarletwastes road leaves the Reach by the Field Road, not Main Street',
-        scw?.from?.id === 'zone_the_reach_882_1959', String(scw?.from?.id));
+      // Pinned since 2026-09-27 to the Coldwater highway's own entrance, so Route 4 leaves the Reach
+      // ON Route 2 and cuts across to Route 1 rather than running its own road beside it.
+      check('…and the Scarletwastes road leaves the Reach by the entrance it shares with Route 2',
+        scw?.from?.id === 'zone_the_reach_863_1955', String(scw?.from?.id));
     }
   }
 
@@ -1282,12 +1288,16 @@ export default async function regress({ run, check, getPlayer }) {
         // decides how many junctions a gate grows in the first place.
         for (const d of (VOIDS[a]?.dests || [])) {
           if (!d.region || !regionGates(d.region).length) continue;
-          const gp = gatePair(a, d.region), ic = interchangeFor(a, gp.from, d.region);
-          const toIc = Math.atan2(ic.x - gp.from.x, -(ic.y - gp.from.y)) * 180 / Math.PI;
-          const toDest = Math.atan2(gp.to.x - gp.from.x, -(gp.to.y - gp.from.y)) * 180 / Math.PI;
-          const off = Math.abs(((toDest - toIc) % 360 + 540) % 360 - 180);
-          check(`…and ${d.region} is served by a junction it can leave without a hairpin`,
-            off <= 40, `${off.toFixed(0)}° off`);
+          // ⚠ THE INVARIANT IS THE SEAM, NOT THE SPOKE. This compared a spoke's bearing with the gate
+          // gap, which is only a proxy: what folds the verge band is a leg meeting the next at a sharp
+          // angle. A hub (a trunk, then slip roads that sweep off it at the minimum radius) turns a
+          // branch through 90° without any seam at all, so the road itself is what gets measured.
+          const R = networkRoute(a, d.region, win, 8);
+          let worst = 0;
+          for (let i = 1; i < (R?.legs.length || 0); i++) {
+            worst = Math.max(worst, Math.abs(((R.legs[i].deg - R.legs[i - 1].deg) % 360 + 540) % 360 - 180));
+          }
+          check(`…and ${d.region} is served by a road with no hairpin in it`, R && worst <= 40, `${worst.toFixed(0)}° seam`);
         }
         // The odometer still has to survive the whole thing, or none of the above matters.
         let bad = null;
@@ -1305,7 +1315,7 @@ export default async function regress({ run, check, getPlayer }) {
         // road has to be re-asserted about THIS one, or the suite is green about the wrong object.
         const road = buildRoad(a, 'reach', b, win, 8, [{ key: 'reach', name: 'The Reach', region: b, nodes: 8 }]);
         check('the driven road is assembled with its identity and its boards on it',
-          !!road && road.destKey === 'reach' && road.segments.length === 3);
+          !!road && road.destKey === 'reach' && road.segments.length >= 2);   // spoke-middle-spoke, or a hub's trunk + branch
         // THE FOLD INVARIANT, and it matters more here than anywhere: the road now has SEAMS, and a
         // seam is exactly where two pieces of geometry could fail to touch.
         {
@@ -4047,8 +4057,8 @@ export default async function regress({ run, check, getPlayer }) {
       // — and it means the whole network can be built, proven, wired, and silently not used, with a
       // green suite the entire time. This is the case that would notice. Three segments: the spoke
       // out, the middle, the spoke in.
-      check("…and it's a NETWORK road — spoke, middle, spoke — not the old one-piece wander",
-        rig.route?.segments?.length === 3, `${rig.route?.segments?.length ?? 'no'} segments`);
+      check("…and it's a NETWORK road — pieces joined, not the old one-piece wander",
+        rig.route?.segments?.length >= 2, `${rig.route?.segments?.length ?? 'no'} segments`);
       check('…whose first segment is the shared spoke, so the fork happens at the interchange',
         rig.route.trunkL > 20 && Math.abs(rig.route.trunkL - rig.route.segments[0].L) < 1e-6,
         rig.route.trunkL?.toFixed(1));
@@ -5359,4 +5369,37 @@ export default async function regress({ run, check, getPlayer }) {
     }
   }
 
+
+  // ── THE HIRE DESK AND THE SERVICE BAY (rental.js, service.js) ────────────────
+  {
+    const { serviceLife, serviceFx, stampService, stampIfMissing, serviceSheet } = await import('./service.js');
+    const { rentFee, rentalExpired, isRental, RENT_MIN } = await import('./rental.js');
+    const { effTruckParams } = await import('./rig.js');
+    const { TYPES } = await import('../../client/game/js/panels/flight-model.js');
+    // ⚠ THE MIGRATION INVARIANT: a truck with no service stamp drives exactly as it did.
+    const plain = effTruckParams('drayman', {}, 1, null);
+    const withOdo = effTruckParams('drayman', {}, 1, null, 99999);
+    check('service: an unstamped truck is bit-for-bit the truck that shipped',
+      ['thrustMax', 'brake', 'engineLag', 'topSpeed'].every((k) => Object.is(plain[k], withOdo[k])) && withOdo.tread == null);
+    const cd = stampService({}, 1000);
+    const fresh = effTruckParams('drayman', cd, 1, null, 1100);
+    check('service: freshly serviced costs nothing', Object.is(fresh.thrustMax, plain.thrustMax) && Object.is(fresh.brake, plain.brake));
+    const worn = effTruckParams('drayman', cd, 1, null, 1000 + 9000);
+    check('service: overdue oil, linings and tyres cost pull, stopping and grip',
+      worn.thrustMax < plain.thrustMax && worn.brake < plain.brake && worn.tread < 1);
+    const floor = TYPES.drayman.rollFric;
+    check('service: never below the surface floor', worn.thrustMax > floor);
+    check('service: a baseline is written once and never overwritten', stampIfMissing({}, 5) && stampIfMissing(cd, 5) === null);
+    check('service: the sheet prices every item', serviceSheet(TYPES.drayman, cd, 2000).items.every((i) => i.price > 0));
+    check('hire: fee has a floor', rentFee(TYPES.scrapper) >= RENT_MIN);
+    const hire = { custom_data: { rental: { until: Date.now() - 1 } } };
+    check('hire: a stamped row is a hire and runs out on its clock', isRental(hire) && rentalExpired(hire) && !rentalExpired({ custom_data: {} }));
+    // ⚠ EVERY BAY BUTTON IS A VERB: the new subcommands are reachable through `rig` and `yard`.
+    const nfs = await import('fs');
+    const idx = nfs.readFileSync(new URL('./index.js', import.meta.url), 'utf8');
+    const bench = nfs.readFileSync(new URL('./bench.js', import.meta.url), 'utf8');
+    check('yard rent / yard return are routed', /sub === 'rent'/.test(idx) && /sub === 'return'/.test(idx));
+    check('rig service / rig horn are routed', /sub === 'service'/.test(bench) && /sub === 'horn'/.test(bench));
+    check('a hire truck is refused paint, parts and the plate', /RENTAL_BARRED = new Set\(\[[^\]]*'paint'[^\]]*'name'/.test(bench));
+  }
 }

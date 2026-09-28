@@ -145,7 +145,7 @@
     "\"It's not a comic,\" he says to the empty aisle. \"It's a book. It has a spine and a printer and a year.\"",
     "\"Second printing,\" he says, to nobody, in the tone other men use for a diagnosis.",
     "\"They put the inker's name on the cover of that one,\" he says. \"Once. Nineteen years too late.\"",
-    "\"People say golden age like it's a decade. It's a paper stock.\"",
+    "\"People say golden age like it is a decade. It's a paper stock.\"",
     "\"That's a variant. Not a rare one. A variant.\" He waits for an argument that doesn't come.",
     "\"Trimmed,\" he says, closing something with two fingers. \"You can hear it.\"",
     "He sets a book down mid-page, looks at the door for a moment, and picks it up again.",
@@ -160,7 +160,7 @@
     "He counts the float, gets a number he dislikes, and counts it again to the same result.",
     "He eats half a sandwich over the bin, well clear of the counter, and washes his hands after."
   ],
-  "description": "A very large man in a black shirt buttoned to the throat, sitting on a stool that has given up arguing with him. He has the encyclopedic, wounded manner of somebody who knows more about one subject than anyone alive and has never been thanked for it, and he'll correct you, courteously and exhaustively and at a volume that assumes an audience, on the year, the printing, the inker, and what you have just called it. His hands, though, are careful past the point of reverence: he handles forty-year-old newsprint the way a nurse handles a wrist.",
+  "description": "A very large man in a black shirt buttoned to the throat, on a straining stool. He'll correct you, courteously and loudly, on the year, the printing, the inker and what you just called it. His hands handle old newsprint like a nurse takes a wrist.",
   "dialogue_tree": {
     "bye": {
       "options": [],

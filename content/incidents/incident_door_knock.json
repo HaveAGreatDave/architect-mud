@@ -12,7 +12,7 @@
       "do": "ambient",
       "lines": [
         "Two of them are putting a third person into a van, briskly and without conversation.",
-        "A door on this row is standing open and the flat behind it's empty.",
+        "A door on this row is standing open and the flat behind it is empty.",
         "Somebody is being helped into a vehicle by the elbow. They aren't resisting."
       ]
     },
@@ -22,7 +22,7 @@
     },
     {
       "do": "news",
-      "text": "An individual was detained in {place} in connection with an ongoing matter — the Basin considers the matter closed."
+      "text": "An individual was detained in {place} in connection with an ongoing matter. The Basin considers the matter closed."
     }
   ],
   "updated_at": "1787702400",

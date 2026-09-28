@@ -25,11 +25,12 @@
 // downloads and parses the whole 3-D stack before they can type `look`. The facade has the same
 // export names, so nothing below this line changed; what changed is that the bytes arrive when the
 // seat is opened. See scripts/client/bake-lazy-view.mjs.
-import { loadWindshield, isLoaded as windshieldLoaded, paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, normalizeWx, navMarks, yachtScopeMount } from './windshield-lazy.js';
+import { loadWindshield, isLoaded as windshieldLoaded, paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, normalizeWx, navMarks, raptorsNow, yachtScopeMount, yachtDeckEye } from './windshield-lazy.js';
 export { loadWindshield };
 import { createFreeCam, FREECAM_HINT, FREECAM_STAND_HINT, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
 import { bindBigScreenButton, exitBigScreen, setSidebarHidden, bindSidebarButton, BIGSCREEN_GLYPH, BIGSCREEN_TITLE, SIDEBAR_GLYPH, SIDEBAR_TITLE } from './bigscreen.js';
 import { claimSeatKeyboard, endSeatKeyboard } from './seat-keys.js';
+import { floorZAt } from './seabed-scene.js';   // the ground or seabed under the camera (plugins/submersible)
 
 // Live world clock/weather through the shared env system — loaded OPTIONALLY, exactly as helm-view
 // loads it, so a context that cannot provide it still runs on the sky the server sent rather than
@@ -129,6 +130,9 @@ const STAND_TUNE = { lodNear: 32, decoFar: 26, glowFar: 20, shadowFar: 26 };
 let st = null;
 
 export function isFreelookActive() { return !!st; }
+// `__freeLook()` in the console: the live view state, so a shot can be framed exactly
+// (`__freeLook().freeCam.open({ z, pitch, yaw })`) where the mouse would take a minute of nudging.
+if (typeof window !== 'undefined') window.__freeLook = () => st;
 
 export function freelookSetSky(sky) {
   if (!st || !sky) return;
@@ -197,8 +201,8 @@ export function openFreelook(ctx = {}) {
     // height every frame, and the whole of what a telescope is is that you cannot walk off with it.
     + (stand ? '' : `<button class="fl-chip fl-fps" type="button"></button>`)
     + `<button class="fl-chip fl-side" type="button" title="${SIDEBAR_TITLE}">${SIDEBAR_GLYPH}</button>`
-    + `<button class="fl-chip fl-hide" type="button" title="hide the text panel — more picture">⊟</button>`
-    + `<button class="fl-chip fl-fs" type="button" title="fullscreen — the log and the command box too">⛶</button>`
+    + `<button class="fl-chip fl-hide" type="button" title="hide the text panel, more picture">⊟</button>`
+    + `<button class="fl-chip fl-fs" type="button" title="fullscreen, the log and the command box too">⛶</button>`
     + `<button class="fl-chip fl-big" type="button" title="${BIGSCREEN_TITLE}">${BIGSCREEN_GLYPH}</button>`
     + `<button class="fl-chip fl-x" type="button" title="close the camera (O)">✕</button>`
     + `</div>`
@@ -248,7 +252,7 @@ export function openFreelook(ctx = {}) {
   function paintHint() {
     hintEl.textContent = freeCam.standing
       ? FREECAM_STAND_HINT.replace('O steps back', stand ? 'O or ✕ steps back' : 'O or ✕ closes')
-      : FREECAM_HINT.replace('O exit', 'O close');
+      : FREECAM_HINT.replace('O exit', 'H raptor · O close');
   }
   paintHint();
 
@@ -274,6 +278,10 @@ export function openFreelook(ctx = {}) {
       // while the ship rose and fell under it. One call, every frame, to the function that puts
       // her own geometry there.
       if (st.stand) { const s = standSpot(st, now); if (s) freeCam.setEye(s.z); }
+      // A camera put on its feet with FPS has no mount, but on the Echelon the floor is her deck,
+      // not the sea — at the default eye it stood inside her hull and the deck vanished. Asked every
+      // frame, because she rides the swell and you walk between her decks.
+      else if (freeCam.standing) { const fv = freeCam.view(); freeCam.setEye(deckEyeAt(st, fv, now) ?? FPS_EYE); }
 
       // THE WORLD FOLLOWS THE CAMERA — see RECENTER_R. One request outstanding at a time, cleared
       // by the window arriving, which is also the throttle: the next one cannot fire until the
@@ -283,6 +291,8 @@ export function openFreelook(ctx = {}) {
       // a tile, so the test below could never fire — but the reason it must not is that a vantage
       // is a PLACE, and a window that slid out from under one would be the ground moving while the
       // player stood still on it.
+      // The camera may fly under the sea but not through the bottom of it, or into the ground.
+      { const f0 = freeCam.view(); if (f0) freeCam.clampFloor(floorZAt(f0.x, f0.y) + 0.04); }
       const fc = freeCam.view();
       if (fc && !st.stand && st.onRecenter && !st.want
           && (Math.abs(fc.x) > RECENTER_R || Math.abs(fc.y) > RECENTER_R)) {
@@ -297,7 +307,7 @@ export function openFreelook(ctx = {}) {
         hour, moon, weather, wxField: st.field, wxGround: st.ground, event: st.event,
         map: st.map, mapCenter: { x: st.gx, y: st.gy }, mapOffset: { x: 0, y: 0 },
         acX: st.gx, acY: st.gy, airport: 'default',
-        tune: st.stand ? STAND_TUNE : undefined,   // see STAND_TUNE — a seat that cannot move can afford to draw more
+        tune: (st.stand || freeCam.standing) ? STAND_TUNE : undefined,   // see STAND_TUNE — a seat that cannot move can afford to draw more
         freeCam: freeCam.view(),
       });
 
@@ -340,7 +350,34 @@ export function openFreelook(ctx = {}) {
     // module flag the seats throw, so a builder who turns it off out here has turned it off in the
     // cab they get into next, which is very likely what they meant.
     if (k === 'n' && down && !e.repeat) { e.preventDefault(); navMarks(); return; }
+    if (k === 'h' && down && !e.repeat) { e.preventDefault(); findRaptor(); return; }
     if (freeCam.onKey(k, down)) e.preventDefault();
+  }
+  // H: turn to the nearest hawk or peregrine the renderer has in its flock window. Pressing again
+  // steps to the next-nearest, so a sky with three in it can be walked through. It only turns the
+  // lens; flying there is still the player's job.
+  let raptorIdx = -1, raptorAt = 0;
+  function findRaptor() {
+    const fv = freeCam.view();
+    if (!fv) return;
+    const ex = st.gx + fv.x, ey = st.gy + fv.y;
+    const list = raptorsNow().map((r) => ({ ...r, d: Math.hypot(r.x - ex, r.y - ey) })).sort((a, b) => a.d - b.d);
+    if (!list.length) { flash('No raptors in range.'); return; }
+    const now = performance.now();
+    raptorIdx = (now - raptorAt < 8000) ? (raptorIdx + 1) % list.length : 0;
+    raptorAt = now;
+    const r = list[raptorIdx];
+    const dx = r.x - ex, dy = r.y - ey;
+    const yaw = Math.atan2(dx, -dy) * 180 / Math.PI;
+    const pitch = Math.atan2(r.z - fv.z, Math.max(0.05, r.d));
+    freeCam.aimAt(yaw, pitch);
+    flash(`${r.sp === 'peregrine' ? 'Peregrine' : 'Red-tailed hawk'} · ${r.d.toFixed(1)} tiles (${raptorIdx + 1}/${list.length})`);
+  }
+  let flashT = null;
+  function flash(msg) {
+    hintEl.textContent = msg;
+    clearTimeout(flashT);
+    flashT = setTimeout(paintHint, 2500);
   }
   window.addEventListener('keydown', onKey);
   window.addEventListener('keyup', onKey);
@@ -404,13 +441,15 @@ export function openFreelook(ctx = {}) {
     if (!fpsBtn) return;
     const up = freeCam.standing;
     fpsBtn.textContent = up ? 'FLY' : 'FPS';
-    fpsBtn.title = up ? 'back to the flying camera' : 'first person — put the camera on its feet and walk';
+    fpsBtn.title = up ? 'back to the flying camera' : 'first person: put the camera on its feet and walk';
     fpsBtn.classList.toggle('on', up);
     fpsBtn.setAttribute('aria-pressed', up ? 'true' : 'false');
   }
   paintFps();
   fpsBtn?.addEventListener('click', () => {
-    freeCam.setStand(!freeCam.standing, { leash: 0 });
+    const fv = freeCam.view();
+    const eye = deckEyeAt(st, fv, performance.now());
+    freeCam.setStand(!freeCam.standing, { leash: 0, eye: eye ?? FPS_EYE });
     paintFps();
     paintHint();
   });
@@ -465,6 +504,14 @@ export function closeFreelook() {
 // ⚠ IT MAY ANSWER null — the mount reads the centre cell, and a window whose centre is not what the
 // vantage said it was is a window this camera has no business standing in. The caller falls back to
 // the flying camera rather than putting the eye somewhere invented.
+const FPS_EYE = 0.12;
+function deckEyeAt(s, fv, now) {
+  if (!s.map || !fv) return null;
+  const R = (s.map.length - 1) / 2, c = s.map?.[R]?.[R];
+  if (!c || c.mark !== 'yacht') return null;
+  return yachtDeckEye(fv.x, fv.y, c.heading || 0, now);
+}
+
 function standSpot(s, now) {
   const stand = s.stand;
   if (!stand) return null;

@@ -230,7 +230,7 @@ async function renderBoardText(board, player) {
     if (state === 'ready') right = cmdLink(`gigs claim ${i}`, 'Hand in');
     else if (state === 'active') { const { have, need } = progressTotals(quest, pq); right = `<span class="text-dim">in progress (${have}/${need})</span>`; }
     else right = cmdLink(`gigs take ${i}`, 'Take');
-    lines.push(`  <span class="msg-system">${i})</span> ${quest.name} — ${creditsOf(quest)}₵ &nbsp;${right}`);
+    lines.push(`  <span class="msg-system">${i})</span> ${quest.name}: ${creditsOf(quest)}₵ &nbsp;${right}`);
     if (quest.description) lines.push(`     <span class="text-dim">${quest.description}</span>`);
   });
   lines.push('<span class="text-dim">Click a job, or type</span> <span class="msg-system">gigs take &lt;n&gt;</span> <span class="text-dim">/</span> <span class="msg-system">gigs claim &lt;n&gt;</span>.');

@@ -165,9 +165,9 @@ function renderWorkspaceText(view) {
         // was reworked out of. If a provider hands over no rows (an older one,
         // or a domain with nothing to say about shops), the prose falls back.
         const rows = r.shortfall || [];
-        const short = rows.length ? ` <span class="text-dim">— short: ${esc(rows.map(s => s.noun).join(', '))}</span>`
-          : r.missing?.length ? ` <span class="text-dim">— short: ${esc(r.missing.join(', '))}</span>` : '';
-        const gear = r.equipment?.length ? ` <span class="text-dim">— needs ${esc(r.equipment.join(', '))}</span>` : '';
+        const short = rows.length ? ` <span class="text-dim">(short: ${esc(rows.map(s => s.noun).join(', '))})</span>`
+          : r.missing?.length ? ` <span class="text-dim">(short: ${esc(r.missing.join(', '))})</span>` : '';
+        const gear = r.equipment?.length ? ` <span class="text-dim">(needs ${esc(r.equipment.join(', '))})</span>` : '';
         const pct = Number.isFinite(r.pct) ? ` <span class="text-dim">${Math.round(r.pct)}%</span>` : '';
         const acts = (r.actions || []).map(x => link(x.command, x.label || 'prepare')).join(' · ');
         // Where to get each one. Only on a recipe you could realistically go and
@@ -272,7 +272,7 @@ export async function cmdWorkspace(args, raw, player) {
   if (!view) {
     return {
       type: 'error',
-      message: `There's nothing here to work at. A workspace needs equipment — a stove, a bench, something with a surface.`,
+      message: `There's nothing here to work at. A workspace needs equipment: a stove, a bench, something with a surface.`,
     };
   }
   // `workspace text` (or `cook text` at a stove) forces the written HUD at any
@@ -336,7 +336,7 @@ async function runPlan(plan, player, broadcast) {
     // A step that opened a disambiguation owns the player's next input. Stop and
     // let them answer it; resuming afterwards is their call.
     if (getSelectionState(player.id)) {
-      stopped = { step, why: `That needs you to pick which one — the rest is yours to finish.` };
+      stopped = { step, why: `That needs you to pick which one: the rest is yours to finish.` };
       break;
     }
   }
@@ -344,10 +344,10 @@ async function runPlan(plan, player, broadcast) {
   const lines = [`<span class="text-bright">${plan.label}</span>`];
   for (const s of done) lines.push(`  <span class="text-dim">✓ ${s}</span>`);
   if (stopped) {
-    lines.push(`  <span class="text-bright">✗ ${stopped.step}</span> <span class="text-dim">— ${stopped.why}</span>`);
+    lines.push(`  <span class="text-bright">✗ ${stopped.step}</span> <span class="text-dim">(${stopped.why})</span>`);
     lines.push(`<span class="text-dim">Stopped after ${done.length} of ${plan.steps.length}.</span>`);
   } else {
-    lines.push(`<span class="text-dim">Ready${plan.vessel ? ` — it's all in the ${plan.vessel}` : ''}. Cooking it's yours.</span>`);
+    lines.push(`<span class="text-dim">Ready${plan.vessel ? `: it's all in the ${plan.vessel}` : ''}. Cooking it's yours.</span>`);
   }
   return { type: 'output', message: lines.join('\n') };
 }
@@ -378,7 +378,7 @@ async function cmdPrepare(args, raw, player, broadcast) {
   const argStr = args.join(' ');
   const plan = provider ? await provider.plan(player, argStr) : null;
   if (plan && !plan.error) {
-    if (!plan.steps?.length) return { type: 'error', message: `Nothing to do — it's already laid out.` };
+    if (!plan.steps?.length) return { type: 'error', message: `Nothing to do: it's already laid out.` };
     return runPlan(plan, player, broadcast);
   }
 
@@ -387,7 +387,7 @@ async function cmdPrepare(args, raw, player, broadcast) {
     const items = m[2].split(',').map(s => s.trim()).filter(Boolean);
     const load = await loader.planLoad(player, m[1].trim(), items);
     if (!load || load.error) return { type: 'error', message: load?.error || `Nothing to put in.` };
-    if (!load.steps?.length) return { type: 'error', message: `Nothing to do — it's already laid out.` };
+    if (!load.steps?.length) return { type: 'error', message: `Nothing to do: it's already laid out.` };
     return runPlan(load, player, broadcast);
   }
 

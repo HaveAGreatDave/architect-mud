@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The rock goes up in one piece, banded red on red, too high to see the top of from underneath and too sheer to argue with. It runs away in both directions along the same line and doesn't offer anything that could be called a way up.",
+  "description": "The rock is red and the rings in it are white, shallow pans where the rain sat and burned. The wind drags grit across all of it.",
   "exits": {
     "east": "zone_scw_1018_957",
     "north": "zone_scw_1017_956",
@@ -8,18 +8,18 @@
     "west": "zone_scw_1016_957"
   },
   "flags": {
-    "ambient_pool": "scarletwastes_the_rimrock",
+    "ambient_pool": "scarletwastes_hardpan",
     "lawless": true,
     "no_spawn": true,
     "radiation": 9,
     "region_id": "region_scarletwastes",
-    "terrain": "cliff"
+    "terrain": "dirt_road"
   },
   "grid_x": 1017,
   "grid_y": 957,
   "grid_z": 0,
   "id": "zone_scw_1017_957",
   "map_id": "map_world",
-  "name": "The Rimrock",
+  "name": "Hardpan",
   "parent_zone": null
 }

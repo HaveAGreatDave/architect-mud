@@ -5,9 +5,7 @@
       "model",
       "balsa"
     ],
-    "interactions": {
-      "examine": "The concert hall on the model is right. The works at the other end are right. Everything between them is buildings that do not exist, made with exactly as much care as the two that do."
-    }
+    "examine_detail": "The concert hall on the model is right. The works at the other end are right. Everything between them is buildings that do not exist, made with exactly as much care as the two that do."
   },
   "id": "furn_plot_model",
   "name": "the presentation model",

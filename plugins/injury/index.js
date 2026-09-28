@@ -173,7 +173,7 @@ export function bodyReport(player) {
     if (!inj) {
       return { part, partLabel: PART_LABELS[part], severity: 0, band: 'good', name: null, detail: null };
     }
-    return { ...inj, detail: `${cap(inj.partLabel)} — ${inj.name}. ${flavour(inj)}` };
+    return { ...inj, detail: `${cap(inj.partLabel)}: ${inj.name}. ${flavour(inj)}` };
   });
 }
 
@@ -289,7 +289,7 @@ function announceWound(player, part, sev, type) {
   const line = sev >= MAIMED
     ? `<span class="${cls}">Your ${label} is ${name}. Something has gone badly wrong in there.</span>`
     : sev === BRUISED
-      ? `<span class="${cls}">Your ${label} is ${name} — sore, nothing worse.</span>`
+      ? `<span class="${cls}">Your ${label} is ${name}: sore, nothing worse.</span>`
       : `<span class="${cls}">Your ${label} is ${name}.</span>`;
 
   // First wound ever: teach the verb that explains the rest, once, using the
@@ -425,7 +425,7 @@ export const hooks = {
     }
     if (!treated.length) return "It's as patched as anything out of a kit is going to get.";
     player._injuriesDirty = true;
-    return `You work on your ${treated.join(', ')}. Better — not good, but better.`;
+    return `You work on your ${treated.join(', ')}. Better, not good, but better.`;
   },
 
   // §8b — what's visibly wrong with a creature you are fighting. This is the
@@ -536,15 +536,15 @@ async function aimReadiness(player, part) {
 
 // The one sentence that answers "why did I miss?" before they ask it.
 function aimCostNote(r) {
-  if (r.base === 0) return 'Centre mass is where you were swinging anyway — it costs you nothing.';
+  if (r.base === 0) return 'Centre mass is where you were swinging anyway: it costs you nothing.';
   const cost = `<span class="dmg-type">(${r.real} to hit)</span>`;
   if (r.bought <= 0) {
-    return `Right now that's a gamble, not a tactic ${cost}. A called shot is a trained hand — `
+    return `Right now that's a gamble, not a tactic ${cost}. A called shot is a trained hand... `
       + `your <b>${r.name}</b> is ${r.skill}, and every 2 points of it buys back 1 of that penalty. `
       + `Fight with the ${r.weapon} until it does.`;
   }
   if (r.real <= -2) {
-    return `Harder to land ${cost}. Your <b>${r.name}</b> of ${r.skill} has bought back everything it can — `
+    return `Harder to land ${cost}. Your <b>${r.name}</b> of ${r.skill} has bought back everything it can... `
       + `a called shot never gets cheaper than this.`;
   }
   return `Harder to land ${cost}. Your <b>${r.name}</b> of ${r.skill} has already bought back ${r.bought} of it; `
@@ -574,11 +574,11 @@ registerAction({
     // Head is the reference shot because it is the one everybody wants and the
     // one that punishes a novice hardest — it makes the "not yet" honest.
     const line = r.bought <= 0
-      ? `<span class="ambient">You can ${verb} a body part to call your shots — but not yet, not usefully. `
+      ? `<span class="ambient">You can ${verb} a body part to call your shots, but not yet, not usefully. `
         + `Your <b>${r.name}</b> is ${r.skill}, and a called head shot at that costs you `
         + `<span class="dmg-type">${r.real}</span> to hit. Put the hours in first; every 2 points of the skill `
         + `buys 1 of that back.</span>`
-      : `<span class="ambient">You can ${verb} a body part to call your shots, and you have the hands for it now — `
+      : `<span class="ambient">You can ${verb} a body part to call your shots, and you have the hands for it now... `
         + `your <b>${r.name}</b> of ${r.skill} has bought a called head shot down to `
         + `<span class="dmg-type">${r.real}</span> to hit${r.real <= -2 ? ', which is as cheap as it ever gets' : ''}.</span>`;
     return { type: 'dialogue_line', text: `\n${line}` };
@@ -600,7 +600,7 @@ export const commands = {
 
       const head = cur
         ? `You're aiming for the <span class="hit-part">${partLabel(cur)}</span>. ${aimCostNote(await aimReadiness(player, cur))}`
-        : "You aren't aiming anywhere in particular — you swing for whatever presents itself.";
+        : "You aren't aiming anywhere in particular: you swing for whatever presents itself.";
 
       if (anatomy?.length) {
         // Capitalised in the list because it reads as a menu of choices, not as
@@ -630,7 +630,7 @@ export const commands = {
     if (!ok) {
       const offer = anatomy ? anatomy.map(p => p.label).join(', ') : PARTS.map(p => PART_LABELS[p]).join(', ');
       const who = foe ? `${foe.name} has no "${arg}"` : `You can't aim for a "${arg}"`;
-      return { type: 'error', message: `${who}. Try: ${offer} — or <b>auto</b>.` };
+      return { type: 'error', message: `${who}. Try: ${offer}, or <b>auto</b>.` };
     }
 
     if (!part) {
@@ -652,7 +652,7 @@ export const commands = {
       return { type: 'info', message: 'Nothing is broken. Nothing is bleeding. Enjoy it.' };
     }
     const lines = injuries.map(i =>
-      `  <span class="hit-part">${i.partLabel}</span> — ${i.name} <span class="dmg-type">(${i.severityLabel.toLowerCase()})</span>`
+      `  <span class="hit-part">${i.partLabel}</span>: ${i.name} <span class="dmg-type">(${i.severityLabel.toLowerCase()})</span>`
     );
     return {
       type: 'info',

@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "city",
   "color": "#3f7fb0",
-  "description": "Out where the bottom stops meaning anything. The surface lies flat and lightless and takes the sky's colour without improving on it. Somewhere below you the water goes on being cold, in the dark, at length.",
+  "description": "Deep water with a flat, lightless surface. Below, cold and dark for a long way down.",
   "exits": {
     "east": "zone_district_941_901",
     "north": "zone_district_940_900",

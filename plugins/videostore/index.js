@@ -140,22 +140,22 @@ async function cmdRentals(args, raw, player) {
         const { over, fee, writtenOff } = feeFor(held, day);
         const due = held.due_day - day;
         const state = writtenOff
-          ? `<span class="warning">WRITTEN OFF — ₵${fee} to square it</span>`
+          ? `<span class="warning">WRITTEN OFF: ₵${fee} to square it</span>`
           : over
-            ? `<span class="warning">${over} day${over === 1 ? '' : 's'} overdue — ₵${fee}</span>`
+            ? `<span class="warning">${over} day${over === 1 ? '' : 's'} overdue: ₵${fee}</span>`
             : `<span class="text-dim">due in ${due} day${due === 1 ? '' : 's'}</span>`;
-        lines.push(`  <b>${titleOf(id)}</b> — <span class="success">yours</span>, ${state}`);
+        lines.push(`  <b>${titleOf(id)}</b>: <span class="success">yours</span>, ${state}`);
       } else if (gone) {
-        lines.push(`  <span class="text-dim">${titleOf(id)} — out</span>`);
+        lines.push(`  <span class="text-dim">${titleOf(id)}: out</span>`);
       } else {
-        lines.push(`  <b>${titleOf(id)}</b> — in`);
+        lines.push(`  <b>${titleOf(id)}</b>: in`);
       }
     }
   }
 
   lines.push('');
   if (debt) {
-    lines.push(`<span class="warning">You owe ₵${debt}. The wall doesn't open for you until that's cleared — ${teachVerb('settle')}.</span>`);
+    lines.push(`<span class="warning">You owe ₵${debt}. The wall doesn't open for you until that's cleared: ${teachVerb('settle')}.</span>`);
   } else {
     lines.push(`<span class="text-dim">₵${RENTAL_FEE} for ${LOAN_DAYS} days. ₵${LATE_FEE_PER_DAY} a day after that.</span>`);
     lines.push(`<span class="text-dim">${teachVerb('borrow')} &lt;title&gt; to take one, ${teachVerb('returntape', 'returntape')} &lt;title&gt; to bring it back.</span>`);

@@ -31,7 +31,7 @@
           "next": "root"
         }
       ],
-      "text": "\"This is the Weave. We spin the muscle, print the plate, blank the oculars — everything that goes into you starts as raw stock on my floor. Kesh just screws it in.\"\n\nA flat look.\n\n\"When the clinic cannot get you a part, come to the source. Me.\""
+      "text": "\"This is the Weave. We spin the muscle, print the plate, blank the oculars. Everything that goes into you starts as raw stock on my floor. Kesh just screws it in.\"\n\nA flat look.\n\n\"When the clinic cannot get you a part, come to the source. Me.\""
     },
     "root": {
       "options": [
@@ -74,7 +74,7 @@
           "next": "bye"
         }
       ],
-      "text": "Duc doesn't look up from the gantry. \"If you're lost, the Spire's back up the plaza. If you're not lost\"—now he looks—\"tell me what you need built.\""
+      "text": "Duc doesn't look up from the gantry. \"If you're lost, the Spire's back up the plaza. If you're not lost,\" now he looks, \"tell me what you need built.\""
     },
     "tolerance_accept": {
       "actions": [
@@ -149,7 +149,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"You have got a pulse and a poor sense of self-preservation. That is the whole specification.\" Duc wipes his hands on the apron and does not look up.\n\n\"Hand actuator. Second knuckle, index and middle — the two that do the gripping. Mine are good for eleven years and I want to know why the last batch came back at nine.\"\n\n\"I need it run in. Not tested. Tested is a bench and a week and it tells you nothing about what a hand actually does. Run in means out there, on somebody, doing work.\"\n\n\"So: what do you do with your hands all day?\""
+      "text": "\"You have got a pulse and a poor sense of self-preservation. That is the whole specification.\" Duc wipes his hands on the apron and does not look up.\n\n\"Hand actuator. Second knuckle, index and middle, the two that do the gripping. Mine are good for eleven years and I want to know why the last batch came back at nine.\"\n\n\"I need it run in. Not tested. Tested is a bench and a week and it tells you nothing about what a hand actually does. Run in means out there, on somebody, doing work.\"\n\n\"So: what do you do with your hands all day?\""
     },
     "tolerance_report": {
       "actions": [

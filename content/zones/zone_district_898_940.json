@@ -3,7 +3,7 @@
   "ambient_theme": "wasteland",
   "bg_color": "#1f3646",
   "color": "#4f83a8",
-  "description": "Brackish shallows, warmer than the channel and a great deal less clean, sheeted with a film that turns colours where the light catches it. Reeds have got a foothold. The bank is a slurry of grit and old plastic.",
+  "description": "Warm brackish water over a soft bottom. The reeds are thick, and the bank is mostly grit and plastic waste.",
   "exits": {
     "east": "zone_district_899_940",
     "north": "zone_district_898_939",

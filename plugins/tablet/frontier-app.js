@@ -20,7 +20,7 @@ function routesScreen(regions, activeTab) {
       view: 'detail', breadcrumb: [], tabs: TABS, activeTab,
       detail: {
         name: 'The Frontier',
-        desc: 'You have charted nothing yet. The waste keeps no maps — only the ones you make. Read a perimeter gate (frontier) or strike out, and the routes you find will appear here.',
+        desc: 'You have charted nothing yet. The waste keeps no maps: only the ones you make. Read a perimeter gate (frontier) or strike out, and the routes you find will appear here.',
         rows: [],
       },
       actions: [],
@@ -59,7 +59,7 @@ async function buildScreen(player, screenId) {
       view: 'detail', breadcrumb: [], tabs: TABS, activeTab: 'map',
       detail: {
         name: 'Void Survey',
-        desc: 'You\'re on the grid. The void survey only exists while you\'re crossing the waste on foot — strike out through a perimeter gate and the trail will chart itself here as you go.',
+        desc: 'You\'re on the grid. The void survey only exists while you\'re crossing the waste on foot: strike out through a perimeter gate and the trail will chart itself here as you go.',
         rows: [],
       },
       actions: [],

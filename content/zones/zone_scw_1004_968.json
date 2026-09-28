@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Red rock to the horizon, pitted with pale rings a hair deep where the rain has stood and eaten. The wind never stops. There's a great deal of sky and none of it's reassuring.",
+  "description": "Red stone runs out level in every direction, scarred with small pale rings. Grit hisses across it in the wind.",
   "exits": {
     "east": "zone_scw_1005_968",
     "north": "zone_scw_1004_967",
@@ -13,13 +13,13 @@
     "radiation": 9,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "dirt_road"
+    "terrain": "redrock"
   },
   "grid_x": 1004,
   "grid_y": 968,
   "grid_z": 0,
   "id": "zone_scw_1004_968",
   "map_id": "map_world",
-  "name": "The Long Red",
+  "name": "Hardpan",
   "parent_zone": null
 }

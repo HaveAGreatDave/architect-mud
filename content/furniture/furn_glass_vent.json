@@ -6,9 +6,7 @@
       "ridge",
       "crank"
     ],
-    "interactions": {
-      "examine": "The crank is polished where a hand goes and there is chalk on the wall beside it recording the setting, changed twice a day, every day."
-    }
+    "examine_detail": "The crank is polished where a hand goes and there is chalk on the wall beside it recording the setting, changed twice a day, every day."
   },
   "id": "furn_glass_vent",
   "name": "the ridge vent",

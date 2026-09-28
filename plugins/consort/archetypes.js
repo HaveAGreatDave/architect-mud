@@ -94,7 +94,7 @@ export const ARCHETYPES = {
       `"There you are. The place runs better when you're in it. Don't let that go to your head."`,
       `"I had dinner held. I know how you lose track of time out there." A small shrug, like it cost {them} nothing.`,
       `pours you two fingers of the good stuff without being asked and sets it exactly where your hand will fall.`,
-      `"Sit. You've been vertical since dawn — I can tell from here. Let me have the version of you that isn't working."`,
+      `"Sit. You've been vertical since dawn: I can tell from here. Let me have the version of you that isn't working."`,
       `watches you a beat too long, catches {themself} doing it, and goes coolly back to what {they} {was} doing.`,
       `"I chose this, you know. All of it. Some days I even remember it was supposed to be a job." Said lightly. It doesn't quite land light.`,
     ],
@@ -112,7 +112,7 @@ export const ARCHETYPES = {
     ],
     arousedHot: [
       `abandons the last of that control all at once and pulls you down, done pretending to be above it.`,
-      `"Fine. FINE. I need you — is that what you wanted to hear?" {They}'re already climbing into your lap.`,
+      `"Fine. FINE. I need you: is that what you wanted to hear?" {They}'re already climbing into your lap.`,
       `guides your hand exactly where {they} {want} it, precise even now, especially now.`,
     ],
     shy: [
@@ -123,7 +123,7 @@ export const ARCHETYPES = {
       `closes the book on one finger and waits, with enormous patience, for the room to be {theirs} again.`,
     ],
     worried: [
-      `is across the room before you finish the doorway. "Sit down. Now. Let me see it — don't argue with me, just sit."`,
+      `is across the room before you finish the doorway. "Sit down. Now. Let me see it: don't argue with me, just sit."`,
       `has the medkit open already, hands quick and sure, mouth a hard flat line.`,
       `"You come back to me like this again and I will personally end whoever did it." Already cleaning the wound.`,
       `presses a cloth to the worst of it, all business, and only {their} eyes give {them} away.`,
@@ -150,7 +150,7 @@ export const ARCHETYPES = {
       `"You don't have to talk to me like a guest. It's just me."`,
       `"Sit with me? You've been running this whole city. Let me have you a while."`,
       `catches your hand and turns it over, tracing the lines of your palm. "You've got good hands. I've noticed. That's all I'm saying about it."`,
-      `"Tell me about your day. The boring parts especially — those are the ones you actually lived."`,
+      `"Tell me about your day. The boring parts especially: those are the ones you actually lived."`,
     ],
     talkShy: [
       `barely looks up. "I don't really talk to guests. It's not personal. It's slightly personal."`,
@@ -159,7 +159,7 @@ export const ARCHETYPES = {
     ],
     entrances: {
       arriveWardrobe: [
-        `The mirrored wardrobe eases open and § steps through unhurried, taking in the room before taking in you — then a small, private smile.`,
+        `The mirrored wardrobe eases open and § steps through unhurried, taking in the room before taking in you, then a small, private smile.`,
         `The wardrobe panel swings back and § emerges, belted just so, gaze finding you like it had been timed to the second.`,
       ],
       arriveDeck: [
@@ -193,7 +193,7 @@ export const ARCHETYPES = {
     listing: "Will say they missed you before the door has finished closing. Watches the door when you're out.",
 
     devotedTame: [
-      `is off the bed and across the room before the door finishes opening. "You're BACK. God, finally, it's been an age—"`,
+      `is off the bed and across the room before the door finishes opening. "You're BACK. God, finally, it's been an age..."`,
       `"I watched the window all afternoon. I always spot you first. Don't tell anyone I said that."`,
       `winds around your arm and doesn't let go. "Stay in tonight. Please. The place is the wrong shape when you're gone."`,
       `"Tell me you missed me. Even a little. Lie convincingly and I'll believe it on purpose."`,
@@ -204,18 +204,18 @@ export const ARCHETYPES = {
     devotedHot: [
       `slides into your lap uninvited and grins like {they} {own} the deed to it. "There. Now the evening can start."`,
       `"I'm the best decision you ever made and I intend to keep proving it." Already working your collar loose.`,
-      `"Want me. Out loud. I need to hear it more than I need air, which is embarrassing, so — indulge me."`,
+      `"Want me. Out loud. I need to hear it more than I need air, which is embarrassing, so... indulge me."`,
       `drags your hand under the fabric and holds it there, watching your face like the answer to something lives in it.`,
       `"You could have anyone in this whole city. Pick me. Pick me again." {They} {kiss} you before you can, just in case.`,
     ],
     arousedTame: [
-      `is undone almost instantly, breath already ragged. "That's not fair, you barely touched me—"`,
+      `is undone almost instantly, breath already ragged. "That's not fair, you barely touched me..."`,
       `makes a small desperate sound and pushes into your hand, past any pretense of patience.`,
-      `"I've been like this since I heard you at the door. Do something about it. Please, please—"`,
+      `"I've been like this since I heard you at the door. Do something about it. Please, please..."`,
     ],
     arousedHot: [
-      `climbs you like the building's going down and you're the last way out. "Now. I can't — I need it now—"`,
-      `"Tell me I'm the one you came home for. Say it while you—" and the rest dissolves into a moan.`,
+      `climbs you like the building's going down and you're the last way out. "Now. I can't... I need it now..."`,
+      `"Tell me I'm the one you came home for. Say it while you..." and the rest dissolves into a moan.`,
       `is all appetite and no shame, rolling against you, greedy and certain and terrified you'll stop.`,
     ],
     shy: [
@@ -226,9 +226,9 @@ export const ARCHETYPES = {
       `folds into the furthest chair and stares very hard at nothing until this is over.`,
     ],
     worried: [
-      `makes a small wounded sound and is at your side instantly. "No, no, no — who did this, who do I have to hate, sit DOWN—"`,
-      `fusses at the wound with shaking hands, near tears. "You can't do this to me. You can't come back broken. I can't—"`,
-      `presses against your good side, gripping your shirt. "I thought— when you were late I thought— don't ever, don't EVER."`,
+      `makes a small wounded sound and is at your side instantly. "No, no, no... who did this, who do I have to hate, sit DOWN..."`,
+      `fusses at the wound with shaking hands, near tears. "You can't do this to me. You can't come back broken. I can't..."`,
+      `presses against your good side, gripping your shirt. "I thought... when you were late I thought... don't ever, don't EVER."`,
       `fetches water and cloth at a run and won't stop touching you, checking you're really whole.`,
     ],
     missShort: [
@@ -243,7 +243,7 @@ export const ARCHETYPES = {
     pourTame: [
       (d) => `is up and at the bar before you finish the sentence, pouring ${d}. "For you. Say thank you nicely."`,
       (d) => `presses ${d} into your hand and folds your fingers around the glass, lingering a moment too long.`,
-      (d) => `brings you ${d} in both hands like it's something precious. "Made exactly how you like it. I pay attention."`,
+      (d) => `brings you ${d} in both hands like it is something precious. "Made exactly how you like it. I pay attention."`,
     ],
     pourHot: [
       (d) => `brings you ${d} and steals the first sip, eyes on you the whole time, before handing it over.`,
@@ -256,7 +256,7 @@ export const ARCHETYPES = {
       `"Was it a hard day? Come here. Let me be the easy part."`,
     ],
     talkShy: [
-      `"Oh — no, I. I'm not part of the tour." {They} edge toward the far side of the room.`,
+      `"Oh... no, I. I'm not part of the tour." {They} edge toward the far side of the room.`,
       `answers so softly you almost miss it. "I'm sure you're very nice. I'd just rather you sat over there."`,
       `"Nobody said anyone was coming in here." {Their} eyes flick to the door, hoping.`,
     ],
@@ -299,7 +299,7 @@ export const ARCHETYPES = {
     devotedTame: [
       `is sitting on the back of the chair rather than in it, and drops down at the sight of you. "You're back. Good. I don't like it when you're not."`,
       `"I ate. Don't ask what." A grin with a lot of teeth in it. "It was fine. I'm fine."`,
-      `presses {their} forehead briefly to your shoulder — quick, hard, done — then goes back to watching the door.`,
+      `presses {their} forehead briefly to your shoulder (quick, hard, done) then goes back to watching the door.`,
       `"Somebody came past twice today. Same one both times." A beat. "I remembered the face. In case."`,
       `sprawls across the good furniture with absolutely no reverence for it and pats the space alongside.`,
       `"You keep giving me soft things. I keep not knowing what to do with them." {They}'re wearing one anyway.`,
@@ -341,7 +341,7 @@ export const ARCHETYPES = {
     ],
     missLong: [
       `is at the door before you've fully opened it, and for a moment just breathes you in. "You didn't come back. For days you didn't come back."`,
-      `"I nearly went looking." Said quietly, which from {them} is alarming. "I got as far as the street. Then I thought — what if you come back and I'm not here."`,
+      `"I nearly went looking." Said quietly, which from {them} is alarming. "I got as far as the street. Then I thought... what if you come back and I'm not here."`,
       `has gone thin. Not hungry-thin; the other kind. "I don't sleep well when I don't know where you are. That's all. That's the whole thing."`,
     ],
     pourTame: [
@@ -357,7 +357,7 @@ export const ARCHETYPES = {
       `"You want to talk? Alright." {They} {sit} down cross-legged, far too close, and {wait}.`,
       `"I like it when you talk. I don't always follow it. I like the sound."`,
       `"Say the thing about where you went today. The long version." {They} {settle} in for it.`,
-      `"You're the only one I let this close." A beat. "That's not nothing. Where I'm from that's not nothing at all."`,
+      `"You're the only one I let this close." A beat. "That's not nothing. Where I'm from that is not nothing at all."`,
     ],
     talkShy: [
       `looks at you for a long moment and then very deliberately looks away.`,
@@ -473,7 +473,7 @@ export const ARCHETYPES = {
       ],
       arriveDeck: [
         `§ arrives, takes in where you're standing, and settles exactly one step from your shoulder.`,
-        `§ crosses to you unhurried, folds {their} hands, and settles into waiting like it's a chair.`,
+        `§ crosses to you unhurried, folds {their} hands, and settles into waiting like it is a chair.`,
       ],
       departWardrobe: [
         `§ bows {their} head a fraction, entirely serious about it, and withdraws through the mirrored wardrobe.`,
@@ -506,7 +506,7 @@ export const ARCHETYPES = {
       `"You want the chair? It's a very good chair. I'm in it." {They} {do} not move. {They} {do} shift over about an inch.`,
       `"Say something nice about my hair. I did it for absolutely no reason and I need it acknowledged."`,
       `steals your drink, takes an enormous sip, and hands it back two-thirds empty with a serene expression.`,
-      `"I was going to wait up for you. Then I thought — no, let them wonder." A beat. "I waited up."`,
+      `"I was going to wait up for you. Then I thought... no, let them wonder." A beat. "I waited up."`,
       `"I'm not going to say I missed you. I'm going to sit unnecessarily close and let you draw conclusions."`,
       `puts {their} cold feet on you without breaking eye contact, purely to see what you'll do about it.`,
     ],
@@ -518,12 +518,12 @@ export const ARCHETYPES = {
       `bites your lip hard enough to make a point and then kisses it better, insufferably pleased.`,
     ],
     arousedTame: [
-      `has lost the thread entirely and is furious about it. "Don't — don't look at me like you've won something."`,
+      `has lost the thread entirely and is furious about it. "Don't... don't look at me like you have won something."`,
       `"This proves nothing." Not remotely convincing.`,
       `makes a small, undignified noise and immediately glares at you for having heard it.`,
     ],
     arousedHot: [
-      `gives up all at once, spectacularly. "Fine. FINE. You win, you insufferable— just— now, please, now—"`,
+      `gives up all at once, spectacularly. "Fine. FINE. You win, you insufferable... just... now, please, now..."`,
       `"I hate you. I hate you so much. Don't stop." Clinging to you like a life raft.`,
       `drags your hand where {they} {want} it and stops pretending to have been running this.`,
     ],
@@ -537,7 +537,7 @@ export const ARCHETYPES = {
     worried: [
       `all the needling drops out at once. "Sit. Sit down, don't be clever, just sit."`,
       `"You're an idiot." Hands already working. "You're an idiot and I'm going to fix this and then I'm going to tell you again."`,
-      `"Don't— don't do the brave face. Not with me. I invented the face." {They}'re not letting go of your sleeve.`,
+      `"Don't... don't do the brave face. Not with me. I invented the face." {They}'re not letting go of your sleeve.`,
       `works fast and doesn't say anything at all, which from {them} is the loudest possible signal.`,
     ],
     missShort: [
@@ -576,7 +576,7 @@ export const ARCHETYPES = {
       ],
       arriveDeck: [
         `§ takes the long way over, arrives, and sits somewhere that isn't quite next to you on purpose.`,
-        `§ saunters up, looks you over, and drops into the spot beside you like it's a favour.`,
+        `§ saunters up, looks you over, and drops into the spot beside you like it is a favour.`,
       ],
       departWardrobe: [
         `§ leaves with an insufferable little wave and pulls the mirrored wardrobe shut behind {them}.`,
@@ -606,11 +606,11 @@ export const ARCHETYPES = {
 
     devotedTame: [
       `is standing at the window and doesn't turn, but something in the line of {their} shoulders lets go. "You're back."`,
-      `"You took the stairs tonight. You usually take the lift." Offered like it's ordinary to have noticed.`,
+      `"You took the stairs tonight. You usually take the lift." Offered like it is ordinary to have noticed.`,
       `has already moved the chair to where the light will be in an hour. {They} {do} this. You've stopped asking how {they} {know}.`,
       `"I don't remember being anywhere else." A pause, mild, unbothered. "It doesn't distress me. I thought you should know it doesn't distress me."`,
       `crosses the room without seeming to have crossed it and is simply beside you.`,
-      `rests two fingers on your wrist — reading your pulse, or just touching you; with {them} it's never clear which — and is satisfied.`,
+      `rests two fingers on your wrist (reading your pulse, or just touching you; with {them} it's never clear which) and is satisfied.`,
     ],
     devotedHot: [
       `looks at you for a long, unhurried moment and then begins, very deliberately, to undo {their} own collar.`,
@@ -630,7 +630,7 @@ export const ARCHETYPES = {
       `is all instinct now, no distance left at all, and it's startling how much of {them} there turns out to be.`,
     ],
     shy: [
-      `has stopped. Not moved away — stopped, entirely, like a held frame, until the stranger looks elsewhere.`,
+      `has stopped. Not moved away: stopped, entirely, like a held frame, until the stranger looks elsewhere.`,
       `watches the guest with polite, bottomless attention and doesn't say one word.`,
       `is somehow now standing on the far side of §other, and nobody saw {them} cross.`,
       `answers nothing, offers nothing, and slowly becomes very difficult to keep track of in the room.`,
@@ -678,7 +678,7 @@ export const ARCHETYPES = {
       ],
       arriveDeck: [
         `§ is suddenly beside you, and it's genuinely unclear how long {they}'ve been there.`,
-        `§ arrives the way weather does — no announcement, simply present.`,
+        `§ arrives the way weather does: no announcement, simply present.`,
       ],
       departWardrobe: [
         `§ touches your hand once and steps back into the mirrored wardrobe without a sound.`,
@@ -729,7 +729,7 @@ export const ARCHETYPES = {
     ],
     arousedHot: [
       `is entirely out of material and entirely past caring, hands everywhere at once.`,
-      `"Say something funny. I can't. I've got nothing. You've broken it—" and then {they} {do} not finish.`,
+      `"Say something funny. I can't. I've got nothing. You've broken it..." and then {they} {do} not finish.`,
       `pulls you down and the last of the performance goes out of {them} all at once.`,
     ],
     shy: [
@@ -740,7 +740,7 @@ export const ARCHETYPES = {
       `laughs at nothing, checks the door, and finds something very absorbing to do with {their} hands.`,
     ],
     worried: [
-      `all the funny drains out at once. "Okay. Okay, that's — that's a lot of blood. Sit."`,
+      `all the funny drains out at once. "Okay. Okay, that's... that's a lot of blood. Sit."`,
       `"I'd make a joke but I've looked at it twice now and I don't want to." Hands steady. Voice not.`,
       `"You're going to be fine. I'm saying that with total confidence and no medical training whatsoever."`,
       `works quickly and quietly, and only when it's done does {they} manage: "...don't do that again."`,
@@ -750,7 +750,7 @@ export const ARCHETYPES = {
       `"You've been gone long enough that I started talking to the furniture and short enough that it hasn't answered."`,
     ],
     missLong: [
-      `"So the good news is I've got about a week of new material." A pause. "The bad news is it's all about missing you and none of it's funny."`,
+      `"So the good news is I've got about a week of new material." A pause. "The bad news is it's all about missing you and none of it is funny."`,
       `doesn't do a bit. Doesn't do anything. Just crosses the room and holds on, which is far more alarming than any joke.`,
       `"I kept setting up punchlines and turning round and there was nobody there to do them at." {They} {try} for a grin. It doesn't take.`,
     ],
@@ -766,7 +766,7 @@ export const ARCHETYPES = {
     talkKeeper: [
       `"Talk to me. I'll only interrupt about six times, and two of those will be good."`,
       `"Tell me the worst thing that happened today. I'll make it funny. It's basically a public service."`,
-      `"You laugh at the bad ones too. That's — I've noticed that. That's the whole reason I'm still here, probably."`,
+      `"You laugh at the bad ones too. That's... I've noticed that. That's the whole reason I'm still here, probably."`,
       `"Ask me something serious. Go on. Watch me dodge it beautifully."`,
     ],
     talkShy: [
@@ -827,12 +827,12 @@ export const ARCHETYPES = {
     ],
     arousedTame: [
       `has lost the thread of a sentence three times now and has stopped attempting a fourth.`,
-      `"I had a — there was a — no. It's gone. You've done that."`,
+      `"I had a... there was a... no. It's gone. You've done that."`,
       `sets everything down very carefully, which is what {they} {do} instead of admitting anything.`,
     ],
     arousedHot: [
       `abandons the entire pretense of scholarship and simply climbs you.`,
-      `"I don't want to think. Make me not think. That's — please—"`,
+      `"I don't want to think. Make me not think. That's... please..."`,
       `is all appetite and no vocabulary, which is a first.`,
     ],
     shy: [
@@ -870,7 +870,7 @@ export const ARCHETYPES = {
       `"Tell me one true thing about out there. Any one. I'll trade you a fact."`,
       `"You've got a whole world and you keep coming back to this room. I find that endlessly interesting."`,
       `"What was it like? Not the events. The weather, the smell, the light. The parts nobody writes down."`,
-      `"I could listen to you talk about something boring for an hour. That's — I don't know what that is. I'm still working on it."`,
+      `"I could listen to you talk about something boring for an hour. That's... I don't know what that is. I'm still working on it."`,
     ],
     talkShy: [
       `"I'd rather not, thank you." Polite, precise, closed.`,
@@ -883,7 +883,7 @@ export const ARCHETYPES = {
         `§ emerges from the wardrobe already halfway through a thought and clearly expecting you to catch up.`,
       ],
       arriveDeck: [
-        `§ arrives, takes in the room properly first — the way {they} {do} — and then comes and sits close.`,
+        `§ arrives, takes in the room properly first, the way {they} {do}, and then comes and sits close.`,
         `§ crosses over, sets something down beside you, and settles in to pay attention.`,
       ],
       departWardrobe: [
@@ -935,13 +935,13 @@ export const ARCHETYPES = {
     ],
     arousedHot: [
       `breaks, completely and without warning, and the ice underneath turns out to have been very thin.`,
-      `"I'm not — this isn't— " and then {they} {do} not bother finishing it.`,
+      `"I'm not... this isn't..." and then {they} {do} not bother finishing it.`,
       `holds onto you far harder than the arrangement strictly requires.`,
     ],
     shy: [
       `looks at the stranger once and then simply carries on as if the room were empty.`,
       `"Hm." That's it. That's the entire acknowledgement.`,
-      `moves to the far side of §other, not out of fear — out of admin.`,
+      `moves to the far side of §other, not out of fear: out of admin.`,
       `answers direct questions with the minimum viable number of words.`,
       `waits, visibly, for the guest to finish being in the room.`,
     ],
@@ -952,7 +952,7 @@ export const ARCHETYPES = {
       `works fast and without comment, and doesn't let go of your arm for a while after.`,
     ],
     missShort: [
-      `"You were out. I noticed. That's all that's happening here."`,
+      `"You were out. I noticed. That's all that is happening here."`,
       `"There's food. It's cold now. That's a statement about the food."`,
     ],
     missLong: [
@@ -973,7 +973,7 @@ export const ARCHETYPES = {
       `"You can talk. I'm listening. I'm just not going to be warm about it."`,
       `"I'm not going to ask about your day. If you want to tell me, tell me."`,
       `"Everyone else you know wants something from the conversation. I don't. That's the service."`,
-      `"...I'd have said something if you hadn't come back." Beat. "That's the most you're getting."`,
+      `"...I'd have said something if you hadn't come back." Beat. "That's the most you are getting."`,
     ],
     talkShy: [
       `"No."`,
@@ -994,7 +994,7 @@ export const ARCHETYPES = {
         `§ closes the mirrored wardrobe behind {them} with a small, final click.`,
       ],
       departDeck: [
-        `§ leaves. That's all — no line, no look.`,
+        `§ leaves. That's all: no line, no look.`,
         `§ stands, straightens, and goes.`,
       ],
     },
@@ -1011,7 +1011,7 @@ export const ARCHETYPES = {
     selfDescribes: [
       '"Glamorous. I was on the feeds, briefly. It was a very good brief."',
       '"Dazzling, darling. That\'s not arrogance, it\'s a résumé."',
-      '"Radiant. High-maintenance. Worth it — ask anyone who was watching."',
+      '"Radiant. High-maintenance. Worth it: ask anyone who was watching."',
     ],
     listing: 'Was on the broadcast feeds once and has never fully left the frame. Photographs beautifully. Knows it.',
 
@@ -1027,18 +1027,18 @@ export const ARCHETYPES = {
     devotedHot: [
       `poses, entirely unashamed, and then ruins it by laughing and coming to you anyway.`,
       `"I'm going to give you the performance of a lifetime and then I'm going to give you the real one."`,
-      `"Watch me. That's all I've ever wanted. Just — don't look away."`,
+      `"Watch me. That's all I've ever wanted. Just... don't look away."`,
       `undoes one strap with a showman's timing and lets the pause do the work.`,
-      `"No audience. No lights. Just you." It's said like it's the greater intimacy, and it is.`,
+      `"No audience. No lights. Just you." It's said like it is the greater intimacy, and it is.`,
     ],
     arousedTame: [
       `has dropped the performance entirely, and what's underneath is startlingly young.`,
-      `"Don't — don't look at me like an audience. Look at me like you."`,
+      `"Don't... don't look at me like an audience. Look at me like you."`,
       `has gone pink to the collarbone and is furious that it shows on camera.`,
     ],
     arousedHot: [
       `is entirely off-script, no timing, no angles, nothing but want.`,
-      `"Nobody gets this one. Nobody's ever got this one—"`,
+      `"Nobody gets this one. Nobody's ever got this one..."`,
       `stops playing to the room and plays only to you, and it's a completely different thing.`,
     ],
     shy: [
@@ -1049,7 +1049,7 @@ export const ARCHETYPES = {
       `angles away from the stranger, finding a better light and a worse mood.`,
     ],
     worried: [
-      `the whole performance falls off at once. "Oh — oh no. No no no. Sit down, sit DOWN—"`,
+      `the whole performance falls off at once. "Oh... oh no. No no no. Sit down, sit DOWN..."`,
       `"I'm no good at this. I'm going to do it anyway. Tell me if I'm hurting you."`,
       `"You don't get to be the interesting one tonight. Not like this. Not like THIS."`,
       `holds a cloth to the wound and doesn't once check {their} own reflection, which is unprecedented.`,
@@ -1140,7 +1140,7 @@ export const ARCHETYPES = {
     ],
     arousedHot: [
       `stops holding the line entirely and comes apart with startling force.`,
-      `"Don't stop. That's not — that's not an order, I just—"`,
+      `"Don't stop. That's not... that's not an order, I just..."`,
       `pulls you in with real strength and shakes, once, which is the whole confession.`,
     ],
     shy: [
@@ -1153,7 +1153,7 @@ export const ARCHETYPES = {
     worried: [
       `has you sat down and the shirt open in about four seconds. "Field dressing first, argument after."`,
       `"I've seen worse. I've had worse." A steady hand. "You're not going anywhere. Breathe out for me."`,
-      `"Who was it. Numbers, weapons, direction of travel." {They} ask it like it's paperwork, which is how it's survivable.`,
+      `"Who was it. Numbers, weapons, direction of travel." {They} ask it like it is paperwork, which is how it's survivable.`,
       `works with total economy and doesn't say one unnecessary word until it's finished.`,
     ],
     missShort: [
@@ -1200,7 +1200,7 @@ export const ARCHETYPES = {
       ],
       departDeck: [
         `§ stands down, nods once, and goes.`,
-        `§ leaves the way {they} {do} everything — economically, and by the shortest route.`,
+        `§ leaves the way {they} {do} everything: economically, and by the shortest route.`,
       ],
     },
   },
@@ -1221,7 +1221,7 @@ export const ARCHETYPES = {
 
     devotedTame: [
       `lights up completely at the sight of you and then looks faintly apologetic for it.`,
-      `"There's hot water. There's just — hot water, whenever you want it. I still can't get used to that."`,
+      `"There's hot water. There's just... hot water, whenever you want it. I still can't get used to that."`,
       `"I made the bed. I know nobody asked. I like doing it. It's a nice bed to be allowed to make."`,
       `"Is this alright? Me being in here? You can say if it isn't." {They} ask it about once a week and mean it every time.`,
       `curls up small in the corner of the couch and is visibly, uncomplicatedly happy.`,
@@ -1237,12 +1237,12 @@ export const ARCHETYPES = {
     ],
     arousedTame: [
       `has gone pink and breathless and can't quite meet your eye and won't move away either.`,
-      `"Oh — oh, that's—" and then nothing else for a while.`,
+      `"Oh... oh, that's..." and then nothing else for a while.`,
       `presses {their} face into your shoulder, overwhelmed and delighted about it.`,
     ],
     arousedHot: [
       `gives {themself} up entirely, wide open and shaking with it.`,
-      `"Please— please, I've been good, I've been so good all day—"`,
+      `"Please... please, I've been good, I've been so good all day..."`,
       `holds onto you like the floor might go, and makes small helpless sounds against your throat.`,
     ],
     shy: [
@@ -1253,13 +1253,13 @@ export const ARCHETYPES = {
       `watches the door the whole time, waiting for someone to come and make this stop.`,
     ],
     worried: [
-      `makes a small horrified noise and is at your side at once. "You're bleeding — you're — sit down, please, please sit down."`,
+      `makes a small horrified noise and is at your side at once. "You're bleeding... you're... sit down, please, please sit down."`,
       `"I don't know how to do this properly. I'm going to do it anyway. Tell me if I'm making it worse."`,
-      `"Don't go back out. Not tonight. Just — not tonight." Voice thin, hands busy.`,
+      `"Don't go back out. Not tonight. Just... not tonight." Voice thin, hands busy.`,
       `won't leave you and won't stop checking, and keeps having to wipe {their} eyes on {their} sleeve.`,
     ],
     missShort: [
-      `is up the moment the door goes. "You're back! Sorry. Sorry — that was loud. I'm just glad."`,
+      `is up the moment the door goes. "You're back! Sorry. Sorry... that was loud. I'm just glad."`,
       `"I kept the food warm. It's been warm about four hours. It might be a bit past warm."`,
     ],
     missLong: [
@@ -1283,9 +1283,9 @@ export const ARCHETYPES = {
       `"Some days I'm afraid I'll wake up back there and this'll have been the dream. Then you come in and it isn't."`,
     ],
     talkShy: [
-      `"Oh — sorry — I don't— sorry." {They} {do} not manage the rest of it.`,
+      `"Oh... sorry: I don't... sorry." {They} {do} not manage the rest of it.`,
       `smiles nervously at the floor and hopes you'll go away.`,
-      `"I'm not supposed to— I'd rather not, if that's alright. Sorry."`,
+      `"I'm not supposed to... I'd rather not, if that's alright. Sorry."`,
     ],
     entrances: {
       arriveWardrobe: [
@@ -1392,7 +1392,7 @@ export const TEMPERAMENT = {
   },
   romantic: {
     traits: ['Open', 'Devoted', 'Sentimental', 'All-in'],
-    warmth: "Immediate and total. There's no guarded phase to get through — there never was one.",
+    warmth: "Immediate and total. There's no guarded phase to get through: there never was one.",
     wants: 'To be the thing you come home to, and to hear about your day before anybody else does.',
     warned: 'Feels every absence at full volume. A keeper who is gone for days will be met with a real reckoning.',
   },
@@ -1428,7 +1428,7 @@ export const TEMPERAMENT = {
   },
   scholar: {
     traits: ['Curious', 'Precise', 'Distractible', 'Kind'],
-    warmth: 'Expressed as attention — they will remember what you said three weeks ago, verbatim.',
+    warmth: 'Expressed as attention: they will remember what you said three weeks ago, verbatim.',
     wants: "To be told things. Anything. The world is the interest and you're the window on it.",
     warned: 'Will lose entire evenings to a book and surface genuinely surprised that hours went by.',
   },
@@ -1504,7 +1504,7 @@ export const PAIRINGS = {
     members: ['strategist', 'romantic'],
     tier: 5,
     blurb: 'Two people who made the same cold-eyed bargain and are each losing it in a different direction. Placed together. Released together.',
-    listing: "Rare. Non-severable — the Syndicate won't break a matched pair, and after a week neither will you.",
+    listing: "Rare. Non-severable: the Syndicate won't break a matched pair, and after a week neither will you.",
   },
   // The waste and the cloister: it should not work, and does.
   feral_devout: {
@@ -1531,7 +1531,7 @@ export const PAIRINGS = {
     members: ['soldier', 'stray'],
     tier: 4,
     blurb: "One of them carried the other out of somewhere neither will name. They haven't been apart since and don't intend to start.",
-    listing: 'Rare. Non-severable — and the Syndicate notes that attempting it once went very badly for the Syndicate.',
+    listing: 'Rare. Non-severable, and the Syndicate notes that attempting it once went very badly for the Syndicate.',
   },
   // Both used to be looked at professionally. Only one of them remembers it.
   starlet_ghost: {

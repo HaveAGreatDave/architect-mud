@@ -299,7 +299,7 @@ async function resolveBuild(player, vessel, broadcast, { hot, appliance = null }
     message: `${player.handle} ${hot ? 'brews' : 'mixes'} a drink.` }, player.id);
 
   const lines = [
-    `You ${verb} it up: <span class="text-accent">${name}</span> — ${band}.`,
+    `You ${verb} it up: <span class="text-accent">${name}</span>: ${band}.`,
     dim(template.blurb),
   ];
   if (strength) lines.push(dim(`It reads ${strength}.`));

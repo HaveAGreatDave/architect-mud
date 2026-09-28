@@ -24,7 +24,7 @@ import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { registerActivity } from '../../server/engine/activity-tick.js';
 import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
-import { on } from '../../server/engine/events.js';
+import { on, emit } from '../../server/engine/events.js';
 import { setPosture, forceStand } from '../../server/engine/posture.js';
 import { escAttr } from '../../server/engine/text.js';
 
@@ -215,7 +215,7 @@ async function runAttempt(player, st, nowMs) {
 
   const totalStock = entries.reduce((s, e) => s + e.current_qty, 0);
   if (totalStock === 0) {
-    out(player.id, 'You work the face, but this deposit\'s played out — nothing left in it.');
+    out(player.id, 'You work the face, but this deposit\'s played out: nothing left in it.');
     stopMining(player.id, st.zoneId, player.handle);
     return;
   }
@@ -224,7 +224,7 @@ async function runAttempt(player, st, nowMs) {
   const available = entries.filter(e => e.current_qty > 0);
   const reachable = available.filter(e => effective + MAX_SWING >= e.difficulty);
   if (!reachable.length) {
-    out(player.id, 'There\'s ore in here — but it\'s locked in harder rock than you can crack.');
+    out(player.id, 'There\'s ore in here, but it\'s locked in harder rock than you can crack.');
     stopMining(player.id, st.zoneId, player.handle);
     return;
   }
@@ -248,10 +248,11 @@ async function runAttempt(player, st, nowMs) {
       'INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,1,1.0)',
       [randomUUID(), player.id, target.item_id]
     );
+    emit('ore.mined', { player, item_id: target.item_id, zoneId: st.zoneId });
     const link = `<span class="action-link item-link" data-action="examine" data-target="${escAttr(target.name)}" title="Examine ${escAttr(target.name)}">${target.name}</span>`;
     out(player.id, `${flavor}\n<span class="item-grant">You break out ${link} and pocket it.</span>`);
     if (totalStock - 1 === 0)
-      out(player.id, 'That was the last of it — this deposit is worked out.');
+      out(player.id, 'That was the last of it: this deposit is worked out.');
     // A successful strike always ends the action.
     stopMining(player.id, st.zoneId, player.handle);
     return;
@@ -261,7 +262,7 @@ async function runAttempt(player, st, nowMs) {
   out(player.id, `${flavor} Nothing but spoil.`);
   const streak = (st.streak || 0) + 1;
   if (streak === HINT_STREAK) {
-    out(player.id, 'There\'s a promising seam here — you just need to work it harder...');
+    out(player.id, 'There\'s a promising seam here: you just need to work it harder...');
   }
   advanceState(player.id, { lastAttempt: nowMs, streak });
 }

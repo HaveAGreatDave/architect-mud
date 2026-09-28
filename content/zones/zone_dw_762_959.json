@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Crust, bone-pale, crazed all over into plates and stained sulphur-yellow along every crack. Warm through the sole. Somebody has laid a run of planks across the worst of it and pegged them down, and the planks are recent.",
+  "description": "The crust here is pale, cracked and warm. Somebody recently laid planks across it and pegged them in.",
   "exits": {
     "east": "zone_dw_763_959",
     "north": "zone_dw_762_958",

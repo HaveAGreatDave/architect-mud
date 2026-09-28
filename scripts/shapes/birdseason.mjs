@@ -230,12 +230,14 @@ BIRD_TUNE.season = 1;
     problems.push('the murmuration AUDIO bed in windshield.js reads a flock size with no season — the bed would go on asserting there are hundreds of starlings over a summer park');
   }
   // The draw pass bends the flight onto a ledge (perchLegState) around the same seasoned flockState.
-  if (!/(?:const|let) st = perchLegState\(map, R, wcx, wcy, fl, flockState\(fl, now, clear, birdWhen\(v\)\), now, clear, birdWhen\(v\)\)/.test(ws)) {
+  // (the raw state is held as `rawSt` so the skein can tell a bent flight from the plain circuit)
+  if (!/const rawSt = flockState\(fl, now, clear, birdWhen\(v\)\);\s*(?:const|let) st = perchLegState\(map, R, wcx, wcy, fl, rawSt, now, clear, birdWhen\(v\)\)/.test(ws)) {
     problems.push('the fauna DRAW pass in windshield.js reads a flock size with no season — the picture would keep the year-round murmuration while the room description dropped to a party');
   }
   // The bird clock carries the fractional hour, when it was read, and the rate (getBirdClock), which is
   // what lets the roost dive land on the same minute here as out of the canopy.
-  if (!/flockState\(flock, Date\.now\(\), null, \{ \.\.\.getBirdClock\(\), doy: doyOf\(getGameDate\(\)\) \}\)/.test(de)) {
+  // (The weather tell's `wx` may follow the doy in the same object — see falcondive.mjs.)
+  if (!/flockState\(flock, Date\.now\(\), null, \{ \.\.\.getBirdClock\(\), doy: doyOf\(getGameDate\(\)\)[,\s}]/.test(de)) {
     problems.push('describe.js reads a flock size with no season — the room and the window would disagree about how many birds are over the same tile');
   }
   // The renderer's own two inputs: the injected calendar and the bench pin beside `hourForce`.

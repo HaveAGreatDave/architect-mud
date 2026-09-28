@@ -31,6 +31,12 @@ import {
   initEditor, renderEditor, editorRecordFor, editorDocFor, markDirty, renderPalette,
   pushUndoFor, undo, redo, openToolPicker, refreshToolbox,
 } from './editor.js';
+// A vehicle drawn from a mesh file (content/vehicle_models/mesh_*.json) is edited as parts by this
+// module; everything else about a vehicle — the camera, the framing, the renderer — stays here.
+import {
+  initMeshEditor, meshIdOfSubject, drawMeshRail, meshPickList, meshPickAt, meshPaintOverlay, meshKeyDown, meshLivery,
+  meshAnim, meshGearAnim,
+} from './mesh-editor.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -307,8 +313,34 @@ function renderBrowser(filter) {
   }
 }
 
+// ── THE STOREY HEIGHT THE GAME USES ─────────────────────────────────────────
+// `h` is floors x FLOOR_Z, and the preview used to sit at a fixed six floors whatever the model.
+// A one-storey deck previewed at six was six times too tall: a fuel canopy two metres over the
+// water looked like a roof on stilts. So selecting a model sets floors to what the world draws it
+// at — the commonest resolved `floorsFor` over the tiles it reaches (/api/bindables, counted by the
+// server from content/zones) — falling back to the type's own default. The slider still overrides.
+import { floorsFor } from '/client/shared/skyline-scale.js';
+let WORLD_FLOORS = null;
+fetch('/api/bindables').then((r) => r.json()).then((b) => {
+  WORLD_FLOORS = { named: new Map(), type: new Map() };
+  for (const n of b.names || []) if (n.slug && n.floors) WORLD_FLOORS.named.set(n.slug, n.floors);
+  for (const t of b.types || []) if (t.floors) WORLD_FLOORS.type.set(t.key, t.floors);
+  if (state.key) select(state.key);
+}).catch(() => {});
+function worldFloors(key) {
+  if (!key || !(key.startsWith('named:') || key.startsWith('type:'))) return null;
+  const bareKey = key.slice(key.indexOf(':') + 1);
+  const hit = key.startsWith('named:') ? WORLD_FLOORS?.named.get(bareKey) : WORLD_FLOORS?.type.get(bareKey);
+  if (hit) return hit;
+  const m = modelOf(key);
+  const type = key.startsWith('type:') ? bareKey : m?.type;
+  return type && type !== 'authored' ? floorsFor(type, 0) : null;
+}
+
 function select(key) {
   state.key = key;
+  { const fl = worldFloors(key);
+    if (fl) { state.floors = fl; const el = $('floors'); if (el) el.value = fl; } }
   vehSaveMsg = '';
   refreshToolbox();
   selectedSeg = -1;
@@ -366,10 +398,15 @@ function paintViewport() {
     const kind = kindOf(state.key);
     if (kind === 'vehicle') {
       const v = entryOf(state.key).vehicle;
+      // A mesh subject asks the renderer for every face it drew and where, which is what a click is
+      // tested against and what the selection is outlined from — the picture's own polygons.
+      const meshed = !!meshIdOfSubject(v);
       lastCam = renderVehiclePreview(view, {
         ...v, night: state.night, heading: state.heading, dist: state.dist, camPitch: state.pitch,
         eyeH: state.eye, panX: state.panX, panY: state.panY, sizeMul: state.vehSizeMul || 1,
+        ...(meshed ? { pick: meshPickList(), livery: meshLivery(), anim: meshAnim(), gearAnim: meshGearAnim() } : {}),
       });
+      if (meshed) meshPaintOverlay(view.getContext('2d'));
     } else if (kind === 'fauna') {
       const f = entryOf(state.key).fauna;
       // No camera: an animal is drawn straight, so the orbit's heading IS the bearing and the eye
@@ -410,9 +447,17 @@ function draw() {
   renderEditor($('editor'), state.key, () => { invalidateEdit(state.key); draw(); });
 }
 
-// A vehicle: the same camera controls, no editing, and the rail says why.
+// A vehicle: the same camera controls, and either the mesh editor (a vehicle drawn from a mesh
+// file) or the parameter tuner (one generated from a row).
 function drawVehicleRail() {
   const v = entryOf(state.key).vehicle;
+  if (meshIdOfSubject(v)) {
+    $('hud').textContent = 'click a part to select it · Alt+click for the one behind · middle-drag to orbit · Ctrl+S saves';
+    for (const id of ['scales', 'bake', 'checks', 'diffimgs', 'diffnum', 'scaleread']) $(id).textContent = '';
+    const ed = $('editor'); ed.textContent = '';
+    drawMeshRail(ed, $('meta'));
+    return;
+  }
   $('hud').textContent = 'middle-drag to orbit · shift+middle or right-drag to pan · wheel to zoom — a vehicle is tuned as parameters';
   const meta = $('meta'); meta.textContent = '';
   row(meta, 'key', state.key);
@@ -906,6 +951,13 @@ function initViewport() {
     }
     if (ev.button !== 0) return;
 
+    // A mesh subject: a click on a part selects it; anywhere else orbits.
+    if (isVehicle(state.key) && meshIdOfSubject(entryOf(state.key).vehicle)) {
+      if (meshPickAt(sx, sy, ev.altKey)) { draw(); return; }
+      act = orbitGrab(sx, sy, k, true);
+      view.classList.add('grabbing');
+      return;
+    }
     // A hit on a piece begins a transform; empty space begins an orbit. That is the one
     // rule that makes a single mouse button enough for both.
     let best = null;
@@ -1236,6 +1288,8 @@ $('spin').onclick = () => {
 addEventListener('keydown', (ev) => {
   const t = ev.target;
   if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA')) return;
+  // A mesh subject has its own undo, save and part keys; the camera keys below still apply.
+  if (isVehicle(state.key) && meshIdOfSubject(entryOf(state.key).vehicle) && meshKeyDown(ev)) return;
   const doc = editorDocFor(state.key);
   const k = ev.key.toLowerCase();
   // Undo / redo, on the shortcuts everyone already has in their fingers.
@@ -1302,6 +1356,13 @@ preset('cockpit');
 // immediately and a server that is not answering degrades to read-only rather than blank.
 initEditor({ state, onChange: draw }).then(() => { invalidateEdit(state.key); draw(); })
   .catch((e) => { $('esave').className = 'err'; $('esave').textContent = 'no write path: ' + e.message; });
+// The mesh files are read from disk rather than from the bake the page imported, so an edit made by
+// hand (or by Claude) since the last bake is what the editor opens.
+initMeshEditor({
+  state, draw,
+  entry: () => entryOf(state.key),
+  subjectKeyFor: (id) => VEHICLES.find((e) => meshIdOfSubject(e.vehicle) === id)?.key || null,
+}).then(() => draw()).catch((e) => console.warn('mesh editor:', e.message));
 
 // The palette is filled LAST, after the window hooks it reads (__msMode) are assigned above.
 // Rendering it earlier leaves the active tool unlit until the first mode change.

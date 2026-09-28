@@ -119,12 +119,32 @@ whose predicate matches it. The systems that fire those events do not know quest
 | `subdue` | `knockout.landed` | `target` (npc id, or name substring) | names a **person**, like `assassinate`. ⚠ Credits the hand that swung, never the body on the floor |
 | `state` | — (polled) | `when` (a condition) | met by the WORLD, not by you — see [World-state objectives](#world-state-objectives--state--avert) |
 | `restore` | `player.death` (`claimed`) | — | a death somebody arranged for in advance: the only kind that skips augment corruption |
+| `demolish` | `demolition.detonated` | `target` (furniture id, optional) | a breaching charge went off |
+| `fish` | `fish.caught` | `target` (item id, optional) + `zone` (optional) | a landed catch. `zone` is where it has to come out of |
+| `mine` | `ore.mined` | `target` + `zone`, both optional | a successful strike |
+| `scavenge` | `scavenge.found` | `target` + `zone`, both optional | a successful find |
+| `cook` | `dish.cooked` | `target` (item id, optional) + `quality` (lowest band that counts, optional) | any finished cook, burnt included. Unprofiled food has no band and never meets a `quality` floor |
+| `pet` | `npc.petted` | `target` (npc) | names a person, like `talk` |
+| `meet` | `relation.met` | `target` (npc id) | the FIRST meeting only. Somebody you already know does not count; that is `talk` |
+| `emote` | `player.emoted` | `target` (phrase the `me` line must contain, optional) + `zone` | case-insensitive substring |
+| `tag` | `graffiti.tagged` | `zone` (the WALL's zone, optional) | |
+| `breach` | `hololock.breached` | `zone` (where the player stood, optional) | for a shopfront that is the street |
+| `disarm` | `shopalarm.disarmed` | `zone` (optional) | an alarm beaten before it dialled out |
+| `sabotage` | `generator.destroyed` | `target` (generator type, optional) | |
+| `hijack` | `truck.hijacked` | — | you dragged a driver out. An enemy doing it never counts |
+| `stash` | `item.dropped` | `target` (item id) + `zone` | a dead drop: put the thing down in that place |
+| `kick` | `drug.cleaned` | `target` (drug id, optional) | the drug has left your system |
 
 `buy`/`sell`/`craft`/`hack`/`spend`/`survive`/`install`/`mutate` treat a blank target as "anything
 counts". `kill`/`talk`/`assassinate`/`escort`/`subdue` require one, because they name a thing.
 `restore` takes none at all — it either happened to you or it did not.
 
-Only four of those Events ever had to be **added**, because the act was never announced at all:
+`fish.caught`, `ore.mined`, `scavenge.found` (the three posture plugins) and `dish.cooked`
+(`endSession` in `plugins/cooking/cook.js`, the one place every cook ends) were added on
+2026-09-27 for the same reason: those acts were never announced. The other ten kinds that landed
+that day rode Events already on the bus.
+
+Only four of those Events ever had to be **added** before that, because the act was never announced at all:
 `item.crafted` (`server/engine/crafting.js`), `vendor.sale` (`server/engine/vendor.js`),
 `npc.talked` (`server/engine/dialogue.js`) and `augment.installed`
 (`plugins/augments/install.js` — the augments plugin emitted nothing whatsoever before it).
@@ -157,6 +177,23 @@ completion check ignores optional objectives, `requires` does not, so the mandat
 forever and the quest is unfinishable for anyone who skipped the bonus. `content:lint` refuses that
 shape; without the lint it is a defect that reads as the quest system being broken rather than as a
 content bug.
+
+## Groups — "any N of these"
+
+Objectives sharing a `group` id are alternatives. The group is done once `groupNeed` of its
+members are (default 1, so "do any one of these" needs no number; write it on any one member).
+A met group releases its unfinished members from the finish line and from the "Next:" hint —
+they can still be done, they just stop being owed.
+
+```jsonc
+{ id: 'a', type: 'talk', target: 'npc_fence',  group: 'leads', groupNeed: 2 },
+{ id: 'b', type: 'talk', target: 'npc_barman', group: 'leads' },
+{ id: 'c', type: 'visit', zone: 'zone_docks',  group: 'leads' },
+```
+
+An optional objective never counts toward its group. `requires` still names ids, so a later
+objective that should unlock once the whole group is met names one member per path it accepts —
+or, simpler, gate it on the group's last step rather than the group.
 
 ## Branching resolutions
 

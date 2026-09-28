@@ -44,7 +44,7 @@ export async function cmdAttackDestructible(targetStr, player, broadcast) {
   if (!spec) return null;
 
   if ((f.hp ?? 0) <= 0)
-    return { type: 'error', message: `The ${f.name} is already wrecked — a dead, scorched hulk.` };
+    return { type: 'error', message: `The ${f.name} is already wrecked: a dead, scorched hulk.` };
 
   const { rows } = await query(
     `SELECT i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id
@@ -56,7 +56,7 @@ export async function cmdAttackDestructible(targetStr, player, broadcast) {
 
   if (spec.requiresDemolition && !isDemo) {
     return { type: 'error', message:
-      `Your blows barely scuff the ${f.name}'s armoured casing. You'd need real demolition gear — a sledgehammer, a cutting torch, something with bite.` };
+      `Your blows barely scuff the ${f.name}'s armoured casing. You'd need real demolition gear: a sledgehammer, a cutting torch, something with bite.` };
   }
 
   if (isOnCooldown(player.id, 'attack'))
@@ -82,7 +82,7 @@ export async function cmdAttackDestructible(targetStr, player, broadcast) {
   if (damage <= 0) {
     propagateSound(player.current_zone, 'You hear a dull clang of metal on metal nearby.', 1.5, broadcast);
     broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} strikes the ${f.name}, to little effect.` }, player.id);
-    return { type: 'combat', message: `You strike the ${f.name}, but its casing shrugs it off. (0 damage — ${f.hp}/${f.hp_max} HP)` };
+    return { type: 'combat', message: `You strike the ${f.name}, but its casing shrugs it off. (0 damage, ${f.hp}/${f.hp_max} HP)` };
   }
 
   const newHp = Math.max(0, (f.hp ?? f.hp_max) - damage);
@@ -131,7 +131,7 @@ export async function cmdRepairDevice(targetStr, player, broadcast) {
   if (!f || !DEVICE_SPECS[f.object_type])
     return { type: 'error', message: `There's no repairable machinery here matching "${targetStr}".` };
   if ((f.hp ?? 0) >= (f.hp_max ?? 0))
-    return { type: 'output', message: `The ${f.name} is intact — nothing to repair.` };
+    return { type: 'output', message: `The ${f.name} is intact. Nothing to repair.` };
 
   const { rows } = await query(
     `SELECT i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id
@@ -139,7 +139,7 @@ export async function cmdRepairDevice(targetStr, player, broadcast) {
     [player.id]
   );
   if (!rows.length)
-    return { type: 'error', message: `You need heavy tools to work on the ${f.name} — a cutting torch or similar.` };
+    return { type: 'error', message: `You need heavy tools to work on the ${f.name}: a cutting torch or similar.` };
 
   if (isOnCooldown(player.id, 'attack'))
     return { type: 'error', message: `You're still working. (${(getCooldownRemaining(player.id, 'attack') / 1000).toFixed(1)}s)` };

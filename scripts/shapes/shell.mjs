@@ -57,7 +57,12 @@ function rayHitsPoly(o, d, p) {
     const vp = [q[0] - a[0], q[1] - a[1], q[2] - a[2]];
     const c = [ed[1] * vp[2] - ed[2] * vp[1], ed[2] * vp[0] - ed[0] * vp[2], ed[0] * vp[1] - ed[1] * vp[0]];
     const s = c[0] * n[0] + c[1] * n[1] + c[2] * n[2];
-    if (Math.abs(s) < 1e-9) continue;                        // exactly on an edge
+    // ⚠ RELATIVE, NOT ABSOLUTE. `s` scales with the face's area times the distance to it, so a
+    // fixed 1e-9 treated every millimetre-sized face — a compass lubber line, a rocker's tell-tale
+    // — as "on an edge" at every point of its plane, and one of those anywhere ahead of the eye
+    // read as the windscreen being blocked.
+    const scale = Math.hypot(n[0], n[1], n[2]) * Math.hypot(ed[0], ed[1], ed[2]) * Math.hypot(vp[0], vp[1], vp[2]);
+    if (!(scale > 1e-24) || Math.abs(s) <= 1e-9 * scale) continue;   // on an edge, or a collapsed one
     const g = s > 0 ? 1 : -1;
     if (sign === 0) sign = g; else if (g !== sign) return 0;
   }
@@ -105,7 +110,10 @@ for (const [key, P] of Object.entries(SHELL_PROFILES)) {
   const footwell = [2 * P.xCentre, (P.seatY[1] + P.dashY) / 2, 0];       // over the passenger's feet: clear of both seat and dash
   const overHead  = [0, 0, (P.backZ + P.roof) / 2];                      // above the backrest, below the lining
   ok(castFrom(faces, footwell, [0, 0, -1]), key + ': NO FLOOR — a ray down the passenger footwell leaves the vehicle');
-  ok(cast(faces, [0, 0, 1]), key + ': NO ROOF — a ray straight up leaves the vehicle');
+  // ⚠ A GLAZED ROOF IS THE OTHER DIRECTION OF THE SAME CHECK: under a bubble or a skylight the ray
+  //    straight up MUST leave, and a canopy hoop or a switch panel parked over the eye fails it.
+  if (P.roofGlass) ok(!cast(faces, [0, 0, 1]), key + ': something is across the canopy glass straight overhead');
+  else ok(cast(faces, [0, 0, 1]), key + ': NO ROOF — a ray straight up leaves the vehicle');
   ok(castFrom(faces, overHead, [0, -1, 0]), key + ': NO REAR BULKHEAD — a ray back over the seat leaves the vehicle');
   const low = P.winZ[0] - 0.2;   // under the sill: the door card, not the glass
   ok(castFrom(faces, [0, 0, 0], [xL, 0, low]), key + ': NO LEFT DOOR CARD below the window line');
@@ -144,6 +152,69 @@ for (const [key, P] of Object.entries(SHELL_PROFILES)) {
     + (B[4] - B[1]).toFixed(2) + 'm long, ' + (B[3] - B[0]).toFixed(2) + ' wide, ' + (B[5] - B[2]).toFixed(2) + ' tall');
 }
 
+// ── THE FOUR CABS ────────────────────────────────────────────────────────────
+//
+// ⚠ THE LOOP ABOVE BUILDS THE TRUCK WITH NO LIVE OBJECT, WHICH IS ONE CAB OF FOUR. truckFit fits
+// out the Barrow, the Courier, the Drayman and the Continental off `live.tier`, so each is built
+// here with everything lit and held to the same three sight lines, the bounds and the normals.
+{
+  const P = SHELL_PROFILES.truck, B = shellBounds(P);
+  const xL = P.xCentre - P.halfW, xR = P.xCentre + P.halfW;
+  const wy = (P.winY[0] + P.winY[1]) / 2, wz = (P.winZ[0] + P.winZ[1]) / 2;
+  console.log('\nthe four cabs');
+  const counts = [];
+  for (const tier of [0, 1, 2, 3]) {
+    const live = { tier, glow: [255, 200, 40], mph: 44, rpm: 0.6, gear: '7', fuel: 0.1, heads: true, dome: true,
+      braking: true, navTurn: 0.4, brakeTemp: 480, fading: true, trailerPhi: -14, rad: 0.3, wipers: 2 };
+    const faces = shellFaces(P, live);
+    counts.push(faces.length);
+    const k = 'truck tier ' + tier;
+    ok(!cast(faces, [0, 1, 0]), k + ': something is across the windscreen');
+    ok(!castFrom(faces, [0, 0, 0], [xL, wy, wz]), k + ': the left side window is blocked');
+    ok(!castFrom(faces, [0, 0, 0], [xR, wy, wz]), k + ': the right side window is blocked');
+    const down = cast(faces, [0, 0, -1]);
+    ok(down > 0 && down < Math.abs(P.floor) - 1e-6, k + ': nothing to sit on');
+    let bad = 0;
+    for (const f of faces) {
+      if (Math.abs(Math.hypot(f.n[0], f.n[1], f.n[2]) - 1) > 1e-6) bad++;
+      for (const q of f.p) if (!Number.isFinite(q[0] + q[1] + q[2]) || q[0] < B[0] - 1e-6 || q[0] > B[3] + 1e-6
+        || q[1] < B[1] - 1e-6 || q[1] > B[4] + 1e-6 || q[2] < B[2] - 1e-6 || q[2] > B[5] + 1e-6) bad++;
+    }
+    ok(bad === 0, k + ': ' + bad + ' bad vertices or normals');
+  }
+  // ⚠ AND THEY ARE FOUR DIFFERENT CABS. A tier that silently fell through to the default would pass
+  // every check above, so the face counts must all differ.
+  ok(new Set(counts).size === 4, 'two tiers build the same cab: ' + counts.join(', '));
+  console.log('    faces by tier: ' + counts.join(' · '));
+}
+
+// ── WHAT THE DRIVER BOUGHT ───────────────────────────────────────────────────
+//
+// ⚠ A TRINKET IS A PURCHASE, so the modelled cab dropping one is a player's money vanishing. Every
+// row in the catalogue is built into the truck at a swing, and each must ADD geometry, stay finite,
+// state unit normals and stay inside the cab.
+{
+  const { TRINKETS } = await import('../../client/shared/cab-trinkets.js');
+  const P = SHELL_PROFILES.truck, B = shellBounds(P);
+  const bare = shellFaces(P, {}).length;
+  const th = { x: 0.35, y: -0.2 };
+  let bad = 0, none = [];
+  for (const [id, t] of Object.entries(TRINKETS)) {
+    const toy = { id, ...t, th };
+    const toys = t.slot === 'wheel' ? { wheel: toy } : { [t.slot]: toy };
+    const f = shellFaces(P, { toys });
+    if (t.slot !== 'wheel' && !(f.length > bare)) none.push(id);
+    for (const x of f) {
+      if (Math.abs(Math.hypot(x.n[0], x.n[1], x.n[2]) - 1) > 1e-6) bad++;
+      for (const q of x.p) if (!Number.isFinite(q[0] + q[1] + q[2]) || q[0] < B[0] - 1e-6 || q[0] > B[3] + 1e-6
+        || q[1] < B[1] - 1e-6 || q[1] > B[4] + 1e-6 || q[2] < B[2] - 1e-6 || q[2] > B[5] + 1e-6) bad++;
+    }
+  }
+  console.log('\ntrinkets in the modelled cab');
+  ok(none.length === 0, 'these trinkets add nothing to the 3-D cab — bought and invisible: ' + none.join(', '));
+  ok(bad === 0, bad + ' bad trinket vertices or normals (non-finite, non-unit, or outside the cab)');
+}
+
 // ── WHO GETS ONE ─────────────────────────────────────────────────────────────
 //
 // ⚠ THE OMISSIONS ARE THE CHECK. A default would give every class a tractor cab and this file would
@@ -153,9 +224,20 @@ for (const [key, P] of Object.entries(SHELL_PROFILES)) {
 console.log('\nclass map');
 ok(!!shellProfileFor('truck'), 'a truck gets no interior');
 ok(!!shellProfileFor('prop'), 'a light twin gets no interior');
-for (const cls of ['ultralight', 'heli', 'wreck']) {
-  ok(!shellProfileFor(cls), cls + ' was given an enclosed cabin it does not have');
-}
+// ⚠ THE BUBBLE IS DERIVED NOW: the Dragonfly's room is the exterior cabin loft (interior-dragonfly.js),
+// so what is checked is that it builds its own room, not that it carries the generic `bubble` flag.
+ok(!!shellProfileFor('heli') && typeof shellProfileFor('heli').room === 'function', 'a helicopter is not sitting in its own derived bubble');
+// And each of these has its own gate, which holds the inside against its exterior (cockpit-<id>.mjs).
+// ⚠ EVERY FLYABLE CLASS HAS ITS OWN ROOM NOW (interior-fit-craft.js), and "its own" is the check:
+// two classes resolving to one profile is the shared tub this replaced.
+const CRAFT = { prop: 'mule', heavy: 'leviathan', gunship: 'reaper', divebomber: 'shrike', locust: 'locust',
+  grasshopper: 'grasshopper', ultralight: 'mayfly', wreck: 'carcass', drake: 'drake' };
+for (const [cls, key] of Object.entries(CRAFT)) ok(shellProfileFor(cls) === SHELL_PROFILES[key], cls + ' does not sit in its own cockpit (' + key + ')');
+ok(shellProfileFor('heli', true) === SHELL_PROFILES.viper, 'the armed helicopter is sitting in the Dragonfly\'s bubble');
+ok(shellProfileFor('heli', false) === SHELL_PROFILES.heli, 'the Dragonfly lost its bubble');
+// The Mayfly is a closed Cessna 172 cabin (mesh_ultralight.json, interior-mayfly.js): side by side,
+// the pilot left of the centreline, a roof over your head rather than open sky.
+ok(SHELL_PROFILES.mayfly.xCentre > 0 && !SHELL_PROFILES.mayfly.roofGlass && (SHELL_PROFILES.mayfly.seats ?? 2) === 2, 'the Mayfly has lost its closed cabin');
 ok(!shellProfileFor(null) && !shellProfileFor(undefined) && !shellProfileFor('nonesuch'),
    'an unknown class was given an interior');
 ok(EYE_M > 1 && EYE_M < 4, 'EYE_M is not a plausible human eye height: ' + EYE_M);
@@ -171,7 +253,7 @@ console.log('\nwiring');
 const ws = blank(readFileSync('client/game/js/panels/windshield.js', 'utf8'));
 const cv = blank(readFileSync('client/game/js/panels/cab-view.js', 'utf8'));
 
-ok(/ownHdg != null \? v\.ownHdg : v\.heading[\s\S]{0,400}?pushInteriorShell|pushInteriorShell[\s\S]{0,1200}?ownHdg/.test(ws),
+ok(/ownHdg != null \? v\.ownHdg : v\.heading[\s\S]{0,400}?pushInteriorShell|pushInteriorShell[\s\S]{0,4000}?ownHdg/.test(ws),
    'the shell is built on the CAMERA heading — it will turn with your head and never leave your view');
 ok(ws.includes('RENDER_TUNE.interior'), 'the shell is not behind a tune flag, so there is no A/B and no way off');
 ok(ws.includes('pushInteriorShell(cam, v);'), 'nothing calls pushInteriorShell — the shell is never collected');
@@ -232,10 +314,11 @@ const BASE = {
 const clock = globalThis.performance;
 globalThis.performance = { ...clock, now: () => 1e6 };
 
-function frame(view, tune) {
+function frame(view, tune, full = 0) {
   let seen = null;
   sim.RENDER_TUNE.gl = 1;
   sim.RENDER_TUNE.interior = tune;
+  sim.RENDER_TUNE.cockpit3d = full;
   sim.installGLWorld((cells, cam, opts) => { seen = opts.ship ? opts.ship.slice() : []; return null; });
   sim.paintWindshield('__shell', view);
   sim.installGLWorld(null);
@@ -253,7 +336,7 @@ function frame(view, tune) {
 // number passes a shell that has lost its aperture permanently; checking only the turned one
 // passes a shell that draws two of everything at the windscreen. It is the DIFFERENCE that is the
 // feature, so the difference is what is named.
-const ALL = shellFaces(SHELL_PROFILES.truck);
+const ALL = shellFaces(SHELL_PROFILES.truck, null, { rich: false });
 const APERTURE = ALL.filter((f) => f.fwd).length;
 const inSeat = frame({ ...BASE, external: false }, 1);
 ok(inSeat.length > 0, 'the seat collected NO interior at all — the shell reaches the GPU never');
@@ -292,6 +375,30 @@ ok(frame({ ...BASE, external: true, extPitch: 0.3, extZoom: 1 }, 1).length === 0
 // And the switch is a switch.
 ok(frame({ ...BASE, external: false }, 0).length === 0,
    'RENDER_TUNE.interior 0 still collected an interior — there is no way back to the frame that shipped');
+// ── ⚠ AND THE WHOLE SEAT AS GEOMETRY, WHICH IS THE DEFAULT ─────────────────
+//
+// At `cockpit3d: 1` there is no painted anything — no dash, no panel, no canopy arch — so the
+// shell must draw its aperture and its fit-out FACING FORWARD as well as turned, and must draw the
+// same room either way. A forward count below the turned count is the gap the painted board used
+// to hide, now with nothing over it.
+const rich3d = frame({ ...BASE, external: false }, 1, 1);
+const rich3dT = frame({ ...BASE, external: false, lookYaw: 90 }, 1, 1);
+ok(rich3d.length > ALL.length * 3, 'with cockpit3d on the seat collected only ' + rich3d.length
+   + ' faces — the fit-out (gauges, wheel, stick, pedals) is not reaching the depth buffer');
+ok(rich3d.length === rich3dT.length, 'with cockpit3d on the forward seat collected ' + rich3d.length
+   + ' and the turned one ' + rich3dT.length + ' — part of the room is still being dropped for a painted board that is not there');
+ok(sim.RENDER_TUNE.cockpit3d !== undefined, 'RENDER_TUNE.cockpit3d is gone — there is no switch between the modelled seat and the hybrid');
+// ⚠ AND THE AEROPLANE IS SCALED BY A HUMAN, NOT BY ITS ALTITUDE. The shell used `cam.EH` as the
+// driver's eye, which in a cockpit is the height above the ground: at 2,000 ft the flight deck was
+// a room hundreds of metres wide. Every vertex has to be within reach of the eye at any altitude.
+{
+  const PLANE = { ...BASE, cls: 'prop', phase: 'cruise', height: 0.6, eyeH: undefined, external: false, hud: true };
+  const deck = frame(PLANE, 1, 1);
+  let tooFar = 0;
+  for (const f of deck) for (const q of f.p) if (Math.hypot(q[0] - PLANE.mapOffset.x, q[1] - PLANE.mapOffset.y) > 0.25) tooFar++;
+  ok(deck.length > 0, 'an aircraft seat collected no interior at all');
+  ok(tooFar === 0, tooFar + ' flight-deck vertices are more than a quarter tile from the pilot — the room is scaled by altitude');
+}
 globalThis.performance = clock;
 console.log('    ' + inSeat.length + ' faces at the windscreen + ' + APERTURE + ' more once the head turns = '
   + turned.length + ' reaching the depth buffer; 0 from the chase, 0 with the flag off');

@@ -520,7 +520,7 @@ export function renderSmartBar() {
   // prompt, not a button anyone owns, so it can't be dragged away and it can't be
   // buried behind a room full of verbs.
   if (_tabletOffer) {
-    nodes.unshift({ label: '▤ Tablet — show me', tabletOffer: true, onFire: takeTabletOffer });
+    nodes.unshift({ label: '▤ Tablet: show me', tabletOffer: true, onFire: takeTabletOffer });
   }
 
   bar.textContent = '';

@@ -55,7 +55,7 @@ export async function unlockChapter(player, id, { quiet = false } = {}) {
   if (!quiet) {
     sendToPlayer(player.id, {
       type: 'output',
-      message: `<span class="ip-gain">◈ CODEX — a new entry writes itself into your tablet: <b>${ch.title}</b>.</span> <span class="hint">(read it with <b>codex</b>)</span>`,
+      message: `<span class="ip-gain">◈ CODEX: a new entry writes itself into your tablet: <b>${ch.title}</b>.</span> <span class="hint">(read it with <b>codex</b>)</span>`,
     });
   }
   return true;

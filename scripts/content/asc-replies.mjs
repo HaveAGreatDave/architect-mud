@@ -108,7 +108,7 @@ edit('npc_asc_recruiter', ({ add, reply }) => {
     + '"It has never come up in a meeting I was in, and I have sat in a great many meetings."');
 
   add('maresh_kept',
-    '"Somebody reads it. Everything is read eventually — that is the whole promise of the '
+    '"Somebody reads it. Everything is read eventually. That is the whole promise of the '
     + 'place."\n\n'
     + '"Whether anybody acts on what they read is a separate question, and I would not raise that '
     + 'one on a first visit."');

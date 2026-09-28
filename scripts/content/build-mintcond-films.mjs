@@ -140,7 +140,7 @@ for (const f of FILMS) {
   write(`content/media_graphics/${f.graphic}.json`, {
     content: titleAsset.content,
     created_at: STAMP,
-    description: `${meta.name} — title card.`,
+    description: `${meta.name}: title card.`,
     id: f.graphic,
     name: f.graphic,
     tags: [],

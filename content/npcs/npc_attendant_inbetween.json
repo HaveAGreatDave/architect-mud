@@ -30,7 +30,7 @@
     "tilts its head, as if hearing your next thought before you do.",
     "says, quietly, \"You're doing well. There's no other way to do this.\""
   ],
-  "description": "A tall figure of warm, seamless chrome, shaped like a person the way a word is shaped like the thing it means. It has no face to speak of, only a smooth curve where one should be, and yet you feel it looking. When it moves, the light moves a half-second late. It stands beside the humming terminal with the ease of something that has welcomed a billion souls and will welcome a billion more.",
+  "description": "A tall figure of warm, seamless chrome, shaped like a person the way a word is shaped like the thing it means. It has no face to speak of, only a smooth curve where one should be, and it's plainly looking at you. When it moves, the light moves a half-second late. It stands beside the humming terminal like something that has done this a billion times.",
   "dialogue_tree": {
     "architect": {
       "options": [
@@ -54,7 +54,7 @@
           "next": "root"
         }
       ],
-      "text": "\"The terminal gives you a body. It doesn't give you a self. For that there's a word: type .describe followed by whatever is true about you, and that's what a stranger will see when they look. Leave it unsaid and they'll see nothing at all, which is its own kind of true, for now.\""
+      "text": "\"The terminal gives you a body. It doesn't give you a self. For that there's a word: type .describe followed by whatever is true about you, and that's what a stranger will see when they look. Leave it unsaid and they'll see nothing at all.\""
     },
     "root": {
       "actions": [

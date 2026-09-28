@@ -113,7 +113,7 @@ export function exert(player, intensity = 1) {
 export const COLLAPSE_MSGS = [
   `Your legs give out from under you. Whatever that was, it's over now.`,
   `You run entirely out of body. You stop, shaking, and stay stopped.`,
-  `Your arms fold. Enthusiasm was never the problem — fuel was.`,
+  `Your arms fold. Enthusiasm was never the problem: fuel was.`,
 ];
 
 // ── Fluid: it dries, it soils, it smells ─────────────────────────────────────
@@ -294,7 +294,7 @@ const VOLUME_BANDS = [
   { at: 0.60, key: 'heavy',  adj: 'a heavy load of' },
   { at: 0.35, key: 'normal', adj: '' },
   { at: 0.15, key: 'light',  adj: 'a thin trace of' },
-  { at: 0,    key: 'spent',  adj: 'barely anything —' },
+  { at: 0,    key: 'spent',  adj: 'barely anything...' },
 ];
 
 export function volumeBand(v) {

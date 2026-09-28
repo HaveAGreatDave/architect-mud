@@ -385,7 +385,7 @@ function _renderTrackList() {
   const list = document.getElementById('amp-tracklist');
   if (!list) return;
   if (!_songs.length) {
-    list.innerHTML = '<div class="amp-no-tracks">NO TAPES — FIND CASSETTES TO FILL THE DECK</div>';
+    list.innerHTML = '<div class="amp-no-tracks">NO TAPES: FIND CASSETTES TO FILL THE DECK</div>';
     return;
   }
   list.innerHTML = _songs.map((s, i) => `

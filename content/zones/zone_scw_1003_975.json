@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Low thicket over a shallow pan where whatever rain falls runs to and stays a while. The scrub grows thickest along the channels and you can read the drainage off it from any small rise, like a map somebody drew in a hurry.",
+  "description": "Shallow pan, low thicket. The water that runs in here after rain stays long enough for the scrub to grow thick along its path.",
   "exits": {
     "east": "zone_scw_1004_975",
     "north": "zone_scw_1003_974",

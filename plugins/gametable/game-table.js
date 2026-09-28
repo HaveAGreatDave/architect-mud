@@ -69,7 +69,7 @@ const WAITING_LINES = {
   // Heckling other people standing in the room to sit down.
   recruit: [
     'Two open seats and a crowd too gutless to sit. Adorable.',
-    "Come on — somebody in here has credits to lose. Don't be shy.",
+    "Come on: somebody in here has credits to lose. Don't be shy.",
     'I can see you lurking. The felt only bites a little. Sit.',
     'Free seats, warm cards, and not one spine between you. Pathetic.',
     "What's the matter, allergic to money? Park it.",
@@ -92,12 +92,12 @@ const WAITING_LINES = {
 // without drowning out the standard house lines.
 const OLD_SCHOOL_LINES = {
   newHand: [
-    "We do this the old way here, hon — cards called, not clicked. Ante up.",
+    "We do this the old way here, hon: cards called, not clicked. Ante up.",
     "No screens at my table. Cards in the air, and I read 'em as I call 'em.",
     "Old-school rules: I deal by hand, I call it aloud, you keep up. Shuffle up.",
   ],
   flop: [
-    "Flop's out — I'll call it for the room. Old habits die hard.",
+    "Flop's out: I'll call it for the room. Old habits die hard.",
     "I read every card at this table, the way it was done before the machines.",
   ],
   turn: [
@@ -106,11 +106,11 @@ const OLD_SCHOOL_LINES = {
   ],
   river: [
     "River. Last one, and I'll call it clear.",
-    "No screen to squint at here — just my voice and the felt.",
+    "No screen to squint at here: just my voice and the felt.",
   ],
   showdown: [
     "Turn 'em up. I'll call the winner the old-fashioned way.",
-    "Showdown, hon. I read the hands out loud — always have.",
+    "Showdown, hon. I read the hands out loud: always have.",
   ],
   idle: [
     "This table's older than the neon out front, and so am I.",
@@ -211,7 +211,7 @@ export class GameTable extends TableBase {
     const persona = npc.flags?.poker_persona || {};
     const buyIn = persona.buyIn || this.config.buyIn || this.config.minBuyIn || 100;
     if (npc.flags?.poker_cooldown_until && Date.now() < npc.flags.poker_cooldown_until) {
-      return { ok: false, error: `${npc.name} just got cleaned out — he's licking his wounds. Try again later.` };
+      return { ok: false, error: `${npc.name} just got cleaned out: he's licking his wounds. Try again later.` };
     }
     // Broke but off cooldown → a backer restakes him to a fresh bankroll.
     let bankroll = npc.flags?.poker_bankroll ?? persona.bankroll ?? 0;
@@ -483,7 +483,7 @@ export class GameTable extends TableBase {
       this._turnExpired = true;
       const action = this.game?.canCheck(pid) ? 'check' : 'fold';
       this.processAction(pid, action, 0);
-      sendToPlayer(pid, { type: 'output', message: `Time expired — you were auto-${action}ed.` });
+      sendToPlayer(pid, { type: 'output', message: `Time expired: you were auto-${action}ed.` });
       this._registerAutoFold(pid);
     }, timerSecs * 1000);
 
@@ -497,7 +497,7 @@ export class GameTable extends TableBase {
     if (!seat || seat.isBot) return;
     seat.autoFolds = (seat.autoFolds || 0) + 1;
     if (seat.autoFolds >= 3) {
-      sendToPlayer(pid, { type: 'output', message: 'Removed from the table — three auto-folds in a row. Sit back down when you\'re ready to play.' });
+      sendToPlayer(pid, { type: 'output', message: 'Removed from the table: three auto-folds in a row. Sit back down when you\'re ready to play.' });
       this.leaveTable(pid);
     } else if (seat.autoFolds === 2) {
       sendToPlayer(pid, { type: 'output', message: '⚠ Auto-folded twice in a row. Act on your next turn or you\'ll be removed from the table.' });

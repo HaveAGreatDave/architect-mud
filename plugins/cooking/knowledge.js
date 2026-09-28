@@ -161,7 +161,7 @@ registerAction({
     return {
       type: 'output',
       message: learned
-        ? `You listen, and you get it. ${dish.noun[0].toUpperCase()}${dish.noun.slice(1)} — added to your cookbook.`
+        ? `You listen, and you get it. ${dish.noun[0].toUpperCase()}${dish.noun.slice(1)}: added to your cookbook.`
         : `You already know how to make that.`,
     };
   },

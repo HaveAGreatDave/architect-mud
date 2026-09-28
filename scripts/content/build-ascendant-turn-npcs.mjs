@@ -218,7 +218,7 @@ console.log('— dialogue —');
     // `restingRep` floors the opposed orders at −200 for good, and the only
     // route back is the Exodus's chair in the stillhouse.
     turn_warn: {
-      text: "\"Then hear the price first. I will not have somebody say afterwards that it was sold to them.\" It does not move, and the seal above it does not either.\n\n\"The first piece burns the old code out of you. Whatever the flesh was going to make of you, it will not now, and there is no clinic in the Basin that can put it back.\n\nThe Watch will not forgive it. Neither will the Wildblood, nor the ones in the tunnels, nor whatever the dam calls itself these days. Not slowly, not eventually — they will simply hold you at arm's length for the rest of your life, because you will have stopped being a person they disagree with and started being a different kind of thing.\n\nAnd there is one way back, and it is not ours. There is a chair in a cellar under the Yards, and the people who own it will take out every piece of us you ever paid for, and a great deal else besides, and you will wake up owing them everything.\"\n\nA pause that is not hesitation.\n\n\"That is all of it. Now — the clinic is downstairs.\"",
+      text: "\"Then hear the price first. I will not have somebody say afterwards that it was sold to them.\" It does not move, and the seal above it does not either.\n\n\"The first piece burns the old code out of you. Whatever the flesh was going to make of you, it will not now, and there is no clinic in the Basin that can put it back.\n\nThe Watch will not forgive it. Neither will the Wildblood, nor the ones in the tunnels, nor whatever the dam calls itself these days. Not slowly, not eventually. They will simply hold you at arm's length for the rest of your life, because you will have stopped being a person they disagree with and started being a different kind of thing.\n\nAnd there is one way back, and it is not ours. There is a chair in a cellar under the Yards, and the people who own it will take out every piece of us you ever paid for, and a great deal else besides, and you will wake up owing them everything.\"\n\nA pause that is not hesitation.\n\n\"That is all of it. Now: the clinic is downstairs.\"",
       options: [
         { next: 'turn_accept', label: 'Open the account.' },
         { next: 'bye', label: 'Not today.' },
@@ -230,14 +230,14 @@ console.log('— dialogue —');
       options: [{ next: 'bye', label: "I'll go down." }],
     },
     turn_report: {
-      text: 'The seal watches you come in, and something in the room adjusts to your presence in a way it did not before. "There. You are on the books." A sound that might be amusement. "You will find the campus warmer now, and the city, in time, easier. Vess has work. Take it — favour here is not a feeling, it is a balance, and balances are kept up."',
+      text: 'The seal watches you come in, and something in the room adjusts to your presence in a way it did not before. "There. You are on the books." A sound that might be amusement. "You will find the campus warmer now, and the city, in time, easier. Vess has work. Take it. Favour here is not a feeling, it is a balance, and balances are kept up."',
       actions: [{ action: 'TURN_IN', quest_id: 'quest_asc_turn' }],
       options: [{ next: 'bye', label: "I'll see Vess." }],
     },
 
     ...questNodes('loyal', {
       questId: 'quest_asc_loyalty',
-      offer: "\"You have been useful. Useful is not the same as ours.\" The seal above it does not blink, because it never has. \"The Watch have spent a generation putting out the Architect's eyes along the eastern approaches, one at a time, patiently, and you know where every one of them is, because you helped.\n\nGo and turn them back on. Nobody dies. That is deliberate — a corpse is an argument, and an argument can be won. A road that can see again is simply true, and they will know exactly whose hands did it, and there will be nothing for them to say.\"",
+      offer: "\"You have been useful. Useful is not the same as ours.\" The seal above it does not blink, because it never has. \"The Watch have spent a generation putting out the Architect's eyes along the eastern approaches, one at a time, patiently, and you know where every one of them is, because you helped.\n\nGo and turn them back on. Nobody dies. That is deliberate. A corpse is an argument, and an argument can be won. A road that can see again is simply true, and they will know exactly whose hands did it, and there will be nothing for them to say.\"",
       accept: '"By morning, then." It settles back. "You will not enjoy it. I would think less of you if you did."',
       report: '"The approaches are lit." It does not thank you. "You understand what you have done. There is no version of the next ten years in which Cyrelle takes your call." A pause. "Which leaves one door, and you are standing in the room with it. When your account is current and your pattern is committed, come back, and we will stop pretending you are a client."',
       acceptLabel: "They'll know it was me.",
@@ -248,7 +248,7 @@ console.log('— dialogue —');
 
     ...questNodes('rite', {
       questId: 'quest_asc_rite',
-      offer: "\"The last of it, then, and it is the only part we make ceremony of.\" The chrome shifts, which it has not done once while you have known it.\n\n\"Your pattern is held. Your account is current. Everything that can be copied of you already has been, and is safe, and is not here — which leaves precisely one thing standing between you and us, and you have been carrying it around this whole time.\n\nOrrin will walk you to the Uplink. Put your hands on the terminal. Say `ascend`. It will tell you what it is about to do, because we are honest even now, and then it will do it, and then you will get up in the Vats and you will be one of us.\n\nIt is a death. I will not call it anything else. It is simply the last one you will have to pay for out of pocket.\"",
+      offer: "\"The last of it, then, and it is the only part we make ceremony of.\" The chrome shifts, which it has not done once while you have known it.\n\n\"Your pattern is held. Your account is current. Everything that can be copied of you already has been, and is safe, and is not here, which leaves precisely one thing standing between you and us, and you have been carrying it around this whole time.\n\nOrrin will walk you to the Uplink. Put your hands on the terminal. Say `ascend`. It will tell you what it is about to do, because we are honest even now, and then it will do it, and then you will get up in the Vats and you will be one of us.\n\nIt is a death. I will not call it anything else. It is simply the last one you will have to pay for out of pocket.\"",
       accept: '"Then go down to the Nave. Orrin has been waiting for somebody to say yes for rather a long time, and he will be insufferable about it."',
       report: "It rises. You have never seen it rise.\n\n\"Welcome.\" And for the first time there is nothing measured in it at all. \"You died last night and you are standing in front of me, and there is no trick in that, only an account that was paid. Everything on this campus is open to you. Everything in the city will learn to be.\"\n\nIt settles back beneath the seal, and the calm eye above it is, you notice, exactly the eye on every Halcyon letter you have ever seen.",
       acceptLabel: "I'm ready.",
@@ -322,7 +322,7 @@ console.log('— dialogue —');
 
   Object.assign(d, {
     work_hub: {
-      text: '"Work." Vess presses her palms together, delighted. "Yes. Not glamorous work — glamour is what the Gallery is for. Ordinary work, the kind that keeps a building standing. It is how everybody here started, including, I am told, the one upstairs."',
+      text: '"Work." Vess presses her palms together, delighted. "Yes. Not glamorous work. Glamour is what the Gallery is for. Ordinary work, the kind that keeps a building standing. It is how everybody here started, including, I am told, the one upstairs."',
       options: [
         { next: 'actuarial_offer', label: 'What needs walking?', conditions: [offerable('quest_asc_fav_actuarial', true)] },
         { next: 'lapse_offer', label: 'What needs collecting?', conditions: [offerable('quest_asc_fav_lapse', true)] },
@@ -345,7 +345,7 @@ console.log('— dialogue —');
 
     ...questNodes('lapse', {
       questId: 'quest_asc_fav_lapse',
-      offer: '"A recovery." The word is chosen. "A client on Marrow Street has stopped paying and is still wearing the collateral. She is not in trouble, you understand — the account remains open, it always remains open. The hardware simply comes home until she is current."\n\nHer hands come apart, which is as close as she gets to emphasis. "She is not to be killed. I want to be very clear, because people hear \'recovery\' and reach for the simple version. A dead client never resumes payments. Put her down and take the jack. Nothing else."',
+      offer: '"A recovery." The word is chosen. "A client on Marrow Street has stopped paying and is still wearing the collateral. She is not in trouble, you understand. The account remains open, it always remains open. The hardware simply comes home until she is current."\n\nHer hands come apart, which is as close as she gets to emphasis. "She is not to be killed. I want to be very clear, because people hear \'recovery\' and reach for the simple version. A dead client never resumes payments. Put her down and take the jack. Nothing else."',
       accept: '"Gently, if you can manage it. It costs nothing and she will remember it."',
       report: 'She turns the jack over once and sets it in a tray. "Home. Good." She does not ask how it went, and you understand that she has never once asked.',
       acceptLabel: 'Down, not out.',
@@ -404,7 +404,7 @@ console.log('— dialogue —');
 
   Object.assign(d, questNodes('lead', {
     questId: 'quest_asc_fav_lead',
-    offer: '"Recruiting." He says it the way other men say the name of a sport. "There is a man in a coffee shop on the Coldwater side who has spent a year asking where Halcyon\'s money goes, and getting lied to by people who do not even know they are lying. He is nearly there. He wants somebody to say the word out loud."\n\n"Bring him to the plaza. Alive, unhurried, still curious — in that order. The road west is not a kind one, which is precisely why the offer lands when it does."',
+    offer: '"Recruiting." He says it the way other men say the name of a sport. "There is a man in a coffee shop on the Coldwater side who has spent a year asking where Halcyon\'s money goes, and getting lied to by people who do not even know they are lying. He is nearly there. He wants somebody to say the word out loud."\n\n"Bring him to the plaza. Alive, unhurried, still curious, in that order. The road west is not a kind one, which is precisely why the offer lands when it does."',
     accept: '"Walk beside him, not ahead of him. And do keep talking. A silence out there does more of our work than I would like to admit."',
     report: '"There he is." Maresh watches the thin man staring up at the Gate with his notebook shut. "A year of asking, and the answer was a building. It usually is."',
     acceptLabel: "I'll bring him in.",
@@ -444,7 +444,7 @@ console.log('— dialogue —');
 
   Object.assign(d, questNodes('tolerance', {
     questId: 'quest_asc_fav_tolerance',
-    offer: '"You have got a pulse and a poor sense of self-preservation. That is the whole specification." Duc wipes his hands on the apron and does not look up. "I need a piece run in. Not tested — tested is a bench and a week and it tells you nothing. Run in. Out there, doing work, on somebody."\n\n"The piece comes back. I am being clear about the piece."',
+    offer: '"You have got a pulse and a poor sense of self-preservation. That is the whole specification." Duc wipes his hands on the apron and does not look up. "I need a piece run in. Not tested. Tested is a bench and a week and it tells you nothing. Run in. Out there, doing work, on somebody."\n\n"The piece comes back. I am being clear about the piece."',
     accept: '"Kesh will fit it. Then go and do something stupid with it and come back here so I can listen to it."',
     report: 'He puts a hand flat on your chest and goes very still, listening to something inside you that you cannot hear. "Mm." A grunt that could mean anything. "Good numbers. You can go."',
     acceptLabel: 'And me?',
@@ -472,7 +472,7 @@ console.log('— dialogue —');
   const d = npc.dialogue_tree;
 
   d.account = {
-    text: '"Halbrook, Rennick, and now you." She says it to the file, not to you, and the ocular clicks down over her eye. "Your account has been open since the Threshold read you. I have had the file that long. Nobody told you because nobody needed to — you were always going to come down the stairs eventually, and here you are, doing it."\n\nShe indicates the theatre door with two chromed fingers.\n\n"`augment` will show you what I can fit. Buy the piece first; I cut, I do not sell. And I will tell you the one thing upstairs will not, because he thinks it is obvious: the first one takes the flesh with it. Whatever was going to grow in you does not, after today. Choose a piece you would be happy to be buried in."',
+    text: '"Halbrook, Rennick, and now you." She says it to the file, not to you, and the ocular clicks down over her eye. "Your account has been open since the Threshold read you. I have had the file that long. Nobody told you because nobody needed to. You were always going to come down the stairs eventually, and here you are, doing it."\n\nShe indicates the theatre door with two chromed fingers.\n\n"`augment` will show you what I can fit. Buy the piece first; I cut, I do not sell. And I will tell you the one thing upstairs will not, because he thinks it is obvious: the first one takes the flesh with it. Whatever was going to grow in you does not, after today. Choose a piece you would be happy to be buried in."',
     options: [
       { next: 'bye', label: 'Understood.' },
     ],
@@ -496,7 +496,7 @@ console.log('— dialogue —');
   const d = npc.dialogue_tree;
 
   d.rite_walk = {
-    text: 'Orrin puts both hands over his mouth, which is not what you expected from a priest.\n\n"Oh. Oh, He said yes." He recovers, badly. "Forgive me. I tend these racks for people who are going to die one day and I tell them all the same true thing and almost none of them ever — " He stops. Starts again, steadier. "The Uplink is through there. Hard light against cold glass. Put your hands on the terminal and say the word, and it will tell you exactly what it is about to do to you, because we do not lie at the end. Then it will do it."\n\n"I will be standing behind you the entire time. You will not be able to see me and it will not matter. You will not be alone. That is the only promise I have ever made in this room and I have never once broken it."',
+    text: 'Orrin puts both hands over his mouth, which is not what you expected from a priest.\n\n"Oh. Oh, He said yes." He recovers, badly. "Forgive me. I tend these racks for people who are going to die one day and I tell them all the same true thing and almost none of them ever..." He stops. Starts again, steadier. "The Uplink is through there. Hard light against cold glass. Put your hands on the terminal and say the word, and it will tell you exactly what it is about to do to you, because we do not lie at the end. Then it will do it."\n\n"I will be standing behind you the entire time. You will not be able to see me and it will not matter. You will not be alone. That is the only promise I have ever made in this room and I have never once broken it."',
     options: [{ next: 'bye', label: 'Through there, then.' }],
   };
 

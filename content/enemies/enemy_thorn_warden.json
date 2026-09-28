@@ -45,7 +45,7 @@
   "butcher_difficulty": 8,
   "butcher_table": [],
   "death_message": "The Gate Warden goes down on one knee, and then over, and the mask comes off, and underneath it's a face, which is somehow much worse.",
-  "description": "It's eleven feet if it's an inch, and it's wearing a mask of bone and plate with the jaw wired open, and it's standing in the gateway with its hands loose at its sides doing absolutely nothing.\n\nThe proportions are wrong in a way that takes a moment to locate: the arms come down past the knee, and the shoulders have a second set of joints in them, and the whole of it's plated over in something dark and grained that isn't armour because it has grown there.\n\nIt watches you the entire way up the road. It doesn't shift its weight. It doesn't appear to be breathing very often.",
+  "description": "Eleven feet tall, masked in bone and plate with the jaw wired open. Its arms reach past the knee, its shoulders have a second set of joints, and dark grained plating has grown over it. It stands in the gateway and watches you all the way up the road.",
   "dodge": 6,
   "faction": "ideology_wildblood",
   "flags": {

@@ -71,22 +71,42 @@ const _Q_KINDS = [
   ['hack', 'Hack something'], ['spend', 'Spend credits'], ['survive', 'Survive a storm outdoors'],
   ['install', 'Install an augment'], ['mutate', 'Gain a mutation'],
   ['subdue', 'Knock someone out (alive)'], ['restore', 'Die and be restored (a claimed death)'],
+  ['fish', 'Catch a fish'], ['mine', 'Mine ore'], ['scavenge', 'Scavenge a find'],
+  ['cook', 'Cook a dish'], ['pet', 'Pet an animal / NPC'], ['meet', 'Meet an NPC for the first time'],
+  ['emote', 'Perform an emote (me …)'], ['tag', 'Paint graffiti'], ['breach', 'Breach a lock'],
+  ['disarm', 'Disarm a shop alarm'], ['sabotage', 'Wreck a generator'], ['hijack', 'Hijack a truck'],
+  ['stash', 'Drop an item somewhere (dead drop)'], ['kick', 'Get a drug out of your system'],
+  ['demolish', 'Set off a breaching charge'], ['state', 'The world reaches a state (condition)'],
 ];
 // Kinds carrying a SECOND zone field alongside their target ('Spawn / find zone' for
 // retrieve, 'Deliver them to' for escort). Both round-trip through the objective's
 // `zone` key — see fromQuest/toQuest.
-const _Q_ZONE_KINDS = new Set(['retrieve', 'escort']);
+const _Q_ZONE_KINDS = new Set(['retrieve', 'escort', 'fish', 'mine', 'scavenge', 'emote', 'stash']);
+// The label that second zone box wears, per kind.
+function _qZoneLabel(kind) {
+  if (kind === 'retrieve') return 'Spawn / find zone';
+  if (kind === 'escort') return 'Deliver them to (zone)';
+  if (kind === 'stash') return 'Leave it in (zone)';
+  return 'Where (zone) — blank = anywhere';
+}
+// Kinds judged by a CONDITION rather than an event: `state` as an objective,
+// `avert` as a failure. Their one field is the condition JSON.
+const _Q_COND_KINDS = new Set(['state', 'avert']);
 // Kinds whose ONE field is a zone rather than a target — the objective's `zone` key
 // IS its target field, and there's no second box.
-const _Q_ZONE_ONLY = new Set(['visit', 'deliver', 'hack']);
+const _Q_ZONE_ONLY = new Set(['visit', 'deliver', 'hack', 'tag', 'breach', 'disarm']);
 // Kinds where a blank target legitimately means "anything counts" (buy 3 of ANYTHING,
 // hack ANY till, survive ANY storm). Says so in the field label so it doesn't read
 // like an unfilled box.
-const _Q_ANY_OK = new Set(['buy', 'sell', 'craft', 'hack', 'spend', 'survive', 'install', 'mutate', 'witnessed']);
+const _Q_ANY_OK = new Set(['buy', 'sell', 'craft', 'hack', 'spend', 'survive', 'install', 'mutate', 'witnessed',
+  'fish', 'mine', 'scavenge', 'cook', 'emote', 'tag', 'breach', 'disarm', 'sabotage', 'kick', 'demolish']);
 // Kinds with NO target field at all — the event either happened to you or it did
 // not, and there is nothing to narrow it to. An empty box the author can't fill
 // reads as a thing they forgot, so these hide it rather than label it.
-const _Q_NO_TARGET = new Set(['restore', 'spotted', 'broke', 'died']);
+const _Q_NO_TARGET = new Set(['restore', 'spotted', 'broke', 'died', 'hijack', 'state', 'avert']);
+const _Q_COOK_BANDS = [['', 'Any quality'], ['acceptable', 'Acceptable or better'], ['decent', 'Decent or better'],
+  ['good', 'Good or better'], ['very good', 'Very good or better'], ['excellent', 'Excellent or better'],
+  ['superb', 'Superb or better'], ['masterful', 'Masterful']];
 // Failure conditions reuse every objective kind (an event that ADVANCES a quest
 // reads just as well as one that BLOWS it), plus the ones that only make sense as
 // failures. Timeout leads because it's the common case.
@@ -94,6 +114,7 @@ const _Q_FAIL_KINDS = [
   ['timeout', 'Ran out of time'], ['escort_lost', 'Lost the escortee'],
   ['spotted', 'Was seen (stealth blown)'], ['witnessed', 'The crime was witnessed'],
   ['broke', 'Broke a piece of gear'], ['died', 'Died (an ordinary death)'],
+  ['avert', 'The world reaches a state (condition)'],
   ..._Q_KINDS.filter(([k]) => k !== 'deliver'),
 ];
 function _qTargetLabel(kind) {
@@ -111,6 +132,13 @@ function _qTargetLabel(kind) {
   if (kind === 'mutate') return [`Mutation ID${any}`, 'mut_gill_slits'];
   if (kind === 'subdue') return ['NPC id (or part of their name)', 'npc_vale'];
   if (kind === 'witnessed') return [`Crime key${any}`, 'burglary'];
+  if (kind === 'fish' || kind === 'mine' || kind === 'scavenge' || kind === 'cook') return [`Item ID${any}`, 'item_carp'];
+  if (kind === 'stash') return ['Item ID', 'item_envelope'];
+  if (kind === 'pet' || kind === 'meet') return ['NPC id (or part of their name)', 'npc_cathode'];
+  if (kind === 'emote') return [`Phrase the emote must contain${any}`, 'raises a glass'];
+  if (kind === 'sabotage') return [`Generator type${any}`, 'generator_diesel'];
+  if (kind === 'kick') return [`Drug ID${any}`, 'drug_alcohol'];
+  if (kind === 'demolish') return [`Furniture ID${any}`, 'furn_vault_door'];
   return ['Enemy target', 'sewer_rat'];
 }
 // 'spend' counts CREDITS, everything else counts repetitions — worth saying on the
@@ -231,19 +259,21 @@ const _questNodeDefs = {
       const [tlabel, tph] = _qTargetLabel(n.data.kind);
       return `
       ${_qHelp(id,
-        'One goal that advances by world events. Kind picks the event: kill an enemy, give/turn in an item, visit a zone, retrieve an item, assassinate a named NPC, or escort one somewhere. "Retrieve item" completes when the player picks up the named item, and (unless auto-spawn is off) drops a fresh copy into the spawn zone the moment the quest starts, so it\'s always there to find. "Assassinate" names a PERSON where "Kill" names a species — any three rats satisfy a kill, only that one NPC satisfies an assassination. "Escort" is met when that NPC ARRIVES at the delivery zone walking with the player; give the NPC flags.escortable, or have their dialogue fire ESCORT_START, and remember they can be killed on the way. The commerce/act kinds (buy, sell, craft, equip, hack, spend, survive) take a blank target to mean "anything counts". "Spend" is counted in CREDITS, not in purchases. "Survive" means standing OUTDOORS from the peak of a named storm through to the all-clear — ducking inside earns nothing. Any target field may hold a SELECTOR instead of a fixed id, rolled once when the player takes the quest and frozen for them: "@any_of:[item_a,item_b]", "@zone_with:map_id=coldwater" (or flags.terrain=marsh), "@enemy_in:coldwater". A selector that matches nothing refuses the quest, so keep them wide. Draw an edge from another objective\'s "unlocks" port into this one to gate it — it stays hidden until the prerequisite is done. No incoming objective edge = available from quest start.',
+        'One goal that advances by world events. Kind picks the event: kill an enemy, give/turn in an item, visit a zone, retrieve an item, assassinate a named NPC, or escort one somewhere. "Retrieve item" completes when the player picks up the named item, and (unless auto-spawn is off) drops a fresh copy into the spawn zone the moment the quest starts, so it\'s always there to find. "Assassinate" names a PERSON where "Kill" names a species — any three rats satisfy a kill, only that one NPC satisfies an assassination. "Escort" is met when that NPC ARRIVES at the delivery zone walking with the player; give the NPC flags.escortable, or have their dialogue fire ESCORT_START, and remember they can be killed on the way. The commerce/act kinds (buy, sell, craft, equip, hack, spend, survive) take a blank target to mean "anything counts". "Spend" is counted in CREDITS, not in purchases. "Survive" means standing OUTDOORS from the peak of a named storm through to the all-clear — ducking inside earns nothing. Any target field may hold a SELECTOR instead of a fixed id, rolled once when the player takes the quest and frozen for them: "@any_of:[item_a,item_b]", "@zone_with:map_id=coldwater" (or flags.terrain=marsh), "@enemy_in:coldwater". A selector that matches nothing refuses the quest, so keep them wide. Draw an edge from another objective\'s "unlocks" port into this one to gate it — it stays hidden until the prerequisite is done. No incoming objective edge = available from quest start. Skill and street kinds: fish / mine / scavenge (item and zone optional), cook (item plus a lowest quality band), pet and meet (an NPC; meet is the FIRST meeting only), emote (a phrase the me-line must contain), tag / breach / disarm (a zone), sabotage (a generator type), hijack, stash (drop an item in a zone), kick (a drug leaves your system), demolish (a charge goes off). "The world reaches a state" takes a condition instead of a target. Objectives sharing a Group are alternatives: the group is done once N of them are.',
         'kind: retrieve\ntarget: ancient_relic\nspawnZone: zone_sewers\ncount: 1\ndesc: Recover the ancient relic from the sewers'
       )}
       ${_qField('Kind', _qSelect('data.kind', _Q_KINDS, n.data.kind))}
       ${tlabel ? _qField(tlabel, _qInput('data.target', n.data.target, tph)) : ''}
-      ${n.data.kind === 'retrieve' ? `
-      ${_qField('Spawn / find zone', _qInput('data.spawnZone', n.data.spawnZone, 'zone_sewers'))}
-      ${_qField('Auto-spawn the item?', _qSelect('data.spawn', [['spawn', 'Yes — drop it in that zone on quest start'], ['nospawn', 'No — it already exists in the world']], n.data.spawn || 'spawn'))}
-      ` : ''}
-      ${n.data.kind === 'escort' ? _qField('Deliver them to (zone)', _qInput('data.spawnZone', n.data.spawnZone, 'zone_clinic')) : ''}
+      ${_Q_ZONE_KINDS.has(n.data.kind) ? _qField(_qZoneLabel(n.data.kind), _qInput('data.spawnZone', n.data.spawnZone, 'zone_sewers')) : ''}
+      ${n.data.kind === 'retrieve' ? _qField('Auto-spawn the item?', _qSelect('data.spawn', [['spawn', 'Yes — drop it in that zone on quest start'], ['nospawn', 'No — it already exists in the world']], n.data.spawn || 'spawn')) : ''}
+      ${n.data.kind === 'cook' ? _qField('Lowest quality that counts', _qSelect('data.quality', _Q_COOK_BANDS, n.data.quality || '')) : ''}
+      ${_Q_COND_KINDS.has(n.data.kind) ? _qField('Condition (JSON) — met when it holds, e.g. { "scope": "world", "flag": "grid_stable", "op": "eq", "value": "true" }. Any condition shape works: relation, ideology_rep, mastery.',
+        _qTextarea('data.when', n.data.when ? JSON.stringify(n.data.when, null, 2) : '', 4, true)) : ''}
       ${_qField(_qCountLabel(n.data.kind), _qInput('data.count', n.data.count ?? 1, n.data.kind === 'spend' ? '5000' : '1', 'number'))}
       ${_qField('Description', _qTextarea('data.desc', n.data.desc, 2))}
       ${_qField('Required to finish?', _qSelect('data.optional', [['no', "Yes — the quest isn't done without it"], ['yes', 'No — optional bonus objective']], n.data.optional || 'no'))}
+      ${_qField('Group — objectives sharing a group are alternatives (blank = none)', _qInput('data.group', n.data.group, 'leads'))}
+      ${n.data.group ? _qField('How many of this group finish it (set once, on any member)', _qInput('data.groupNeed', n.data.groupNeed ?? '', '1', 'number')) : ''}
       ${n.data.optional === 'yes' ? `
       ${_qField('Bonus credits (paid at turn-in if this was done)', _qInput('data.bonusCredits', n.data.bonusCredits ?? '', '100', 'number'))}
       ${_qField('Bonus XP', _qInput('data.bonusXp', n.data.bonusXp ?? '', '5', 'number'))}
@@ -287,6 +317,8 @@ const _questNodeDefs = {
       ${kind === 'timeout'
         ? _qField('Seconds allowed (from taking the quest)', _qInput('data.count', n.data.count ?? 300, '300', 'number'))
         : (tlabel ? _qField(tlabel, _qInput('data.target', n.data.target, tph)) : '')}
+      ${kind === 'avert' ? _qField('Condition (JSON) — the quest fails the moment it holds',
+        _qTextarea('data.when', n.data.when ? JSON.stringify(n.data.when, null, 2) : '', 4, true)) : ''}
       ${_qField('Failure line shown to the player (blank = a generic one)', _qTextarea('data.desc', n.data.desc, 2))}
       <div style="font-size:10px;color:var(--text-dim);line-height:1.4">Re-open this panel after changing Kind to relabel the field.</div>
     `;
@@ -403,6 +435,10 @@ window.VineQuestSchema = {
         // the finish line. Their own `rewards` are the bonus for having bothered;
         // only credits and XP are editable here, the rest is data-only.
         optional: o.optional === true ? 'yes' : 'no',
+        quality: o.quality || '',
+        when: o.when || null,
+        group: o.group || '',
+        groupNeed: o.groupNeed ?? '',
         bonusCredits: o.rewards?.credits ?? '',
         bonusXp: o.rewards?.xp ?? '',
         // Everything in the bundle this panel does not edit, carried through the
@@ -430,7 +466,7 @@ window.VineQuestSchema = {
     objs.forEach(o => o.requires.forEach(r => dependedOn.add(r)));
     objs.forEach(o => {
       const p = o._vine || pos[o.id] || { x: 340, y: 60 };
-      nodes[o.id] = { type: 'objective', x: p.x, y: p.y, data: { kind: o.kind, target: o.target, count: o.count, desc: o.desc, spawnZone: o.spawnZone, spawn: o.spawn, emotes: o.emotes, taskSeconds: o.taskSeconds } };
+      nodes[o.id] = { type: 'objective', x: p.x, y: p.y, data: { kind: o.kind, target: o.target, count: o.count, desc: o.desc, spawnZone: o.spawnZone, spawn: o.spawn, emotes: o.emotes, taskSeconds: o.taskSeconds, optional: o.optional, bonusCredits: o.bonusCredits, bonusXp: o.bonusXp, _bonusRest: o._bonusRest, quality: o.quality, when: o.when, group: o.group, groupNeed: o.groupNeed } };
       if (o.requires.length) {
         o.requires.forEach(r => { if (byId[r]) edges.push({ fromNode: r, fromPort: 'unlocks', toNode: o.id }); });
       } else {
@@ -451,6 +487,7 @@ window.VineQuestSchema = {
           target: f.target ?? f.item_id ?? f.zone ?? '',
           count: f.count ?? 300,
           desc: f.desc || '',
+          when: f.when || null,
         },
       };
     });
@@ -515,6 +552,16 @@ window.VineQuestSchema = {
       // second field retrieve uses. No spawn toggle — the escortee is a real NPC
       // already standing in the world, never conjured.
       if (kind === 'escort') obj.zone = node.data.spawnZone || '';
+      // The other second-zone kinds: where it has to happen. Blank = anywhere, so
+      // nothing is written and the objective stays unrouted.
+      if (_Q_ZONE_KINDS.has(kind) && kind !== 'retrieve' && kind !== 'escort' && node.data.spawnZone) obj.zone = node.data.spawnZone;
+      if (kind === 'cook' && node.data.quality) obj.quality = node.data.quality;
+      if (_Q_COND_KINDS.has(kind) && node.data.when && typeof node.data.when === 'object') obj.when = node.data.when;
+      if (String(node.data.group || '').trim()) {
+        obj.group = String(node.data.group).trim();
+        const gn = Number(node.data.groupNeed);
+        if (gn > 0) obj.groupNeed = gn;
+      }
       // Action lines: one-per-line text → array (only when non-empty, so an
       // untouched objective stays clean). Task delay is visit-only.
       const emotes = String(node.data.emotes || '').split('\n').map(s => s.trim()).filter(Boolean);
@@ -548,6 +595,8 @@ window.VineQuestSchema = {
       const cond = { type: kind, _vine: { x: node.x, y: node.y } };
       if (kind === 'timeout') {
         cond.count = Number(node.data.count) || 0;
+      } else if (kind === 'avert') {
+        if (node.data.when && typeof node.data.when === 'object') cond.when = node.data.when;
       } else {
         const key = (kind === 'give' || kind === 'retrieve' || kind === 'equip') ? 'item_id'
           : _Q_ZONE_ONLY.has(kind) ? 'zone'

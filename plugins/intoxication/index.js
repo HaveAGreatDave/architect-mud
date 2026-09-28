@@ -75,7 +75,7 @@ const BAND_RISE = {
 };
 const BAND_FALL = {
   drunk:  "The worst of the spins eases off. Still drunk, though.",
-  tipsy:  "You're mostly steady again — just a warm buzz left.",
+  tipsy:  "You're mostly steady again, just a warm buzz left.",
   sober:  "Your head clears. You're sober.",
 };
 // Mechanical weight of each band, applied through the reversible modifier ledger

@@ -32,7 +32,7 @@ export const hooks = {
         // Re-broadcasts each minute if a client ignores 'kicked' — harmless.
         broadcast(null, {
           type: 'kicked',
-          message: 'Idle for 20 minutes — the Architect reclaims your bandwidth. Link severed.',
+          message: 'Idle for 20 minutes. The Architect reclaims your bandwidth. Link severed.',
         }, null, player.id);
       } else if (idle >= IDLE_WARN_MS && !(player._idleWarnedAt > player._lastInputAt)) {
         // Warn once per idle stretch: a fresh input moves _lastInputAt past

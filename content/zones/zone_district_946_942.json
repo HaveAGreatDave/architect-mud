@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "description": "Cracked red hardpan runs out flat to a rust-colored horizon. Wind-scoured rock, grit, and nothing that grows.",
+  "description": "A dry red pan. Every surface is cracked, every crack is full of grit, and the wind keeps the grit moving.",
   "exits": {
     "east": "zone_district_947_942",
     "north": "zone_district_946_941",

@@ -12,10 +12,10 @@ import { registerTabletApp, normScreen } from './registry.js';
 const CHAPTERS = [
   { id: 'basics', title: 'Getting Started', blurb: 'New here? The essentials, in plain terms.',
     prose: [
-      'Type a command on the bottom line and press Enter. You move with north, south, east, west, up and down — or their initials n / s / e / w / u / d.',
-      'look (or just l) describes where you are. look <thing> or examine <thing> inspects something specific — an item, a player, a piece of furniture.',
+      'Type a command on the bottom line and press Enter. You move with north, south, east, west, up and down, or their initials n / s / e / w / u / d.',
+      'look (or just l) describes where you are. look <thing> or examine <thing> inspects something specific: an item, a player, a piece of furniture.',
       "Lost? help lists every command by category, and the chapters here break the same commands down by what you're trying to do.",
-      'Your Tablet holds Skills, Bank, Map, Music and more — including this help — so most of what you need is a tap away.',
+      'Your Tablet holds Skills, Bank, Map, Music and more, including this help, so most of what you need is in one place.',
     ] },
   { id: 'moving', title: 'Moving & Looking', blurb: 'Get around, and read a room.',
     cats: ['MOVEMENT', 'WORLD', 'OBSERVE', 'INFO'] },

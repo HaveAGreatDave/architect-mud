@@ -13,7 +13,8 @@ npm run dev                # server :3000, Studio :5180, Modelshop :5181
 ```
 
 Local-only. Do not expose it. There is a link to it in the dev panel sidebar (🏛 Modelshop),
-which starts it for you the way the Map Studio link does.
+which starts it for you the way the Map Studio link does. Both links share one launcher
+(`LOCAL_TOOLS`) rather than a copy each.
 
 ## Getting around
 
@@ -1519,11 +1520,22 @@ for free. A prefix earns a group by having members, so a new region groups itsel
 `renderVehiclePreview`. There is no capture for it and no geometry to author, but the mesh is
 *generated* from a row of plain numbers, so the row is what the tool edits.
 
-Nine of the fourteen subjects have one: five fixed-wing classes (`prop`, `gunship`, `heavy`,
-`locust`, `divebomber`) and the four trucks. The rest — the Mayfly, the Cub, both helicopters
-and the wreck — are meshes somebody drew rather than proportions somebody set, and the panel says
-so instead of showing an empty form. **They must never be given a row**: a file that changes
-nothing is worse than no file.
+The four trucks have one. The five fixed-wing classes (`prop`, `gunship`, `heavy`, `locust`,
+`divebomber`) still have their `fw_*` rows, but since 2026-09-24 they are DRAWN from mesh files
+(`mesh_<id>.json`, which `aircraftFaces` answers before the fixed-wing builder), so editing a row
+no longer changes the exterior. The rows stay because every fixed-wing interior
+(`client/shared/interior-*.js`) is built from its row's hull and glass. The Mayfly, the Cub, both
+helicopters and the wreck are meshes with no row at all, and the panel says so instead of showing
+an empty form. **They must never be given a row**: a file that changes nothing is worse than no
+file.
+
+⚠ **The five fixed-wing mesh files are generated**, by `scripts/shapes/fw-meshes/build.mjs`, and
+re-running it overwrites any Modelshop edit to them. The stretch of hull carrying the flight-deck
+glass (Mule, Leviathan) and the canopy bubble with the rings under it (Reaper, Shrike, Locust) are
+lifted from the old builder face for face, because `scripts/shapes/cockpit-*.mjs` holds each
+interior against the exterior glass to 1e-6. Change an `fw_*` row and re-run the generator, or the
+outside and the inside drift apart. The Leviathan's visor is a mesh part on the `noseVisor`
+channel, which windshield.js now feeds to mesh animations.
 
 Rows live in `content/vehicle_models/<kind>_<id>.json` and are baked by `npm run vehicles:bake`
 into `client/shared/vehicle-models.js`, which is what aircraft3d.js imports. Same shape as the
@@ -1543,6 +1555,10 @@ Three things worth knowing before you touch it:
   reaches the mesh builder as `NaN`, which paints nothing and throws nothing — the same failure
   the adornments had. So `shapes:smoke` builds every authored vehicle and fails on one non-finite
   vertex.
+- ⚠ **The sun argument is a shape, `{elev, dir, night}`, not a direction.** The lamp alpha comes
+  off `sun.night`, so a plausible `{x,y,z}` makes that alpha NaN and throws
+  `addColorStop … could not be parsed as a color` in a browser while passing every headless gate.
+  That's how it shipped broken; `vehicleRenderSmoke()` now fails on any NaN reaching the canvas.
 
 The move from code tables to content changed no geometry: all fourteen meshes are byte-identical
 to the ones that shipped before it, which is the check to re-run if this is ever refactored again.
@@ -1551,6 +1567,15 @@ to the ones that shipped before it, which is the check to re-run if this is ever
 show a footprint and a storey stack the game never produces. `buildingScaleFor()` in windshield.js
 is the sim's own formula — `BUILDING_FOOT` plus the per-tile jitter, and floors x `FLOOR_Z` — and
 the tool asks it. **Floors** is the control, because floors is what the world actually authors.
+
+⚠ **And selecting a model sets floors to what the game draws it at.** It sat at a fixed 6 for every
+model, so a one-storey deck previewed six times too tall and a 21-storey tower at under a third of
+its height. `/api/bindables` now carries, per name and per type, the commonest `floorsFor(type,
+flags.floors)` over the tiles that model reaches — the same resolution the renderer uses — and the
+slider jumps to it on select; moving it by hand still overrides. Only EXTERIOR tiles vote: interior
+rooms carry the building's name and type with no `floors`, and left in they outvoted the marina's
+one facade (2 against its authored 9). A type drawn only on named tiles counts those. A model with
+no tile in the world falls back to `floorsFor(type)`.
 
 ## What it is
 

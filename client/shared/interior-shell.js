@@ -53,7 +53,17 @@
 // window would put a depth value in front of the entire city seen through it — the world would be
 // there and be quietly fogged by a sheet of glass that is not supposed to be a surface at all.
 //
-// ── ⚠ THE PAINTED CAB OWNS THE FORWARD VIEW, AND KEEPS IT ────────────────────
+// ── ⚠ SUPERSEDED BY `cockpit3d` (2026-09-23) — READ THIS SECTION AS HISTORY ────
+//
+// Everything down to "EVERYTHING ELSE IS ALWAYS DRAWN" describes the HYBRID seat, which is what
+// `RENDER_TUNE.cockpit3d = 0` still gives you. At the default of 1 the painted dash, the plane's
+// painted panel, the canopy arch, the cowl and the painted side windows all stand down, the `fwd`
+// parts are always drawn, and the instruments are geometry for EVERY seat (interior-fit.js). The
+// reason is the one this section argued against and lost to in practice: two descriptions of one
+// cab a few centimetres apart never agreed about where the glass was, and the gaps between the
+// shell's pillars and the painted ones were the world showing through the vehicle.
+//
+// ── ⚠ THE PAINTED CAB OWNS THE FORWARD VIEW, AND KEEPS IT (cockpit3d 0 only) ─
 //
 // `drawCabInterior` is the best-looking thing in the seat: a windscreen aperture with a moulded
 // header, two pillars with lit returns, a padded dash lip, and a board carrying every dial, lamp
@@ -111,6 +121,40 @@
 // rectangular room inside it lines up at exactly four corners.
 import { BOAT_ROWS } from './vehicle-models.js';
 import { boatGeom, HELM } from './boat-house.js';
+// What is IN each room — dials, wheels, levers, pedals, mirrors, clutter. See interior-fit.js.
+import { truckRoom, truckFit, planeFit, heliFit, boatFit, bridgeFit, bubbleRoom, grainRoomPush } from './interior-fit.js';
+import { makeKit, C as KC } from './interior-kit.js';
+import { HY, hydroHotspots } from './interior-hydro.js';
+import { memoContext } from './interior-memo.js';
+// The Drake's cockpit: the inside of the duck's head, lofted off the exterior's own head part. It
+// is its own file because its room is its own shape — see interior-drake.js.
+import { drakeProfile } from './interior-drake.js';
+// One cockpit per airframe. See interior-fit-craft.js.
+import { leviathanFit, reaperFit, shrikeFit, locustFit, grasshopperFit, viperFit, carcassFit, craftHotspots } from './interior-fit-craft.js';
+// The Mayfly is a Cessna 172 now, built on the cockpit kit to the Drake's standard (interior-cessna.js).
+import { cessnaFit, cessnaHotspots } from './interior-cessna.js';
+// The Mule is a Twin Otter, on the same kit (interior-otter.js).
+import { otterFit, otterHotspots } from './interior-otter.js';
+const CRAFT_FIT = { mule: otterFit, leviathan: leviathanFit, reaper: reaperFit, shrike: shrikeFit, locust: locustFit,
+  grasshopper: grasshopperFit, viper: viperFit, carcass: carcassFit, mayfly: cessnaFit };
+let DRAKE_PROFILE = null;
+let DRAKE_NOIR_PROFILE = null, DRAKE_QH_PROFILE = null;
+// ── ONE COCKPIT PER AIRFRAME, EACH TO THE DRAKE'S STANDARD ────────────────────
+// Every one of these is its own file, its room derived from its own exterior row and its fit-out
+// researched against the real type it stands for (the header of each file names the sources), with
+// its own gate in scripts/shapes/cockpit-<id>.mjs. Built on first ask and kept, like the Drake.
+import { muleProfile } from './interior-mule.js';
+import { leviathanProfile } from './interior-leviathan.js';
+import { reaperProfile } from './interior-reaper.js';
+import { shrikeProfile } from './interior-shrike.js';
+import { locustProfile } from './interior-locust.js';
+import { mayflyProfile } from './interior-mayfly.js';
+import { dragonflyProfile } from './interior-dragonfly.js';
+import { viperProfile } from './interior-viper.js';
+import { carcassProfile } from './interior-carcass.js';
+import { grasshopperProfile } from './interior-grasshopper.js';
+const CRAFT_PROFILE = {};
+const craftProfile = (id, build) => (CRAFT_PROFILE[id] ||= build());
 
 // How many metres up the eye is, at this seat. The divisor that turns the metres below into
 // multiples of the seat's own eye height — see the ⚠ at the top. A truck driver's eye over the
@@ -149,15 +193,25 @@ export const SHELL_PROFILES = {
     back: -0.78,            // the rear bulkhead
     dashY: 0.52,            // where the dash starts, coming back from the screen
     dashZ: -0.40,           // the top of the dash
-    headerZ: 0.40,          // the bottom of the header above the screen
-    pillarW: 0.13,          // how thick the A-pillars are
-    winY: [-0.30, 0.74],    // the side-window aperture, fore and aft
-    winZ: [-0.14, 0.44],    // and its sill and header
+    headerZ: 0.50,          // the bottom of the header above the screen — high, for the view
+    pillarW: 0.07,          // how thick the A-pillars are — slim, raked rods (truckRoom)
+    winY: [-0.34, 0.78],    // the side-window aperture, fore and aft
+    winZ: [-0.28, 0.48],    // and its sill (down to your elbow) and header
     seatZ: -0.80,           // the top of the cushion you are sitting on
     seatHalf: 0.28,         // half the width of a seat
     seatY: [-0.50, 0.10],   // the cushion, fore and aft
     backZ: 0.24,            // how far the backrest comes up past the eye
-    centrePost: 0.055,      // the half-width of the post between the two screen panes
+    centrePost: 0,          // one curved pane, no post
+    screenWrap: 0.14,       // how far the screen's corners come back — it wraps round in plan
+    rake: 0.16,             // how far back the header sits from the base of the glass
+    // ⚠ THE CURVED ROOM IS FOR THE MODELLED FIT-OUT ONLY. At cockpit3d 0 the painted dash owns
+    // the forward view and the plain box stays under it — see truckRoom in interior-fit.js.
+    room: (P, live, push, rich) => truckRoom(P, live, push, rich),
+    roomRich: true,
+    normalLit: true,        // lit by which way each face points (windshield.js), not by k alone
+    fit: 'truck',           // the fit-out — see interior-fit.js
+    outboard: 0.42,         // ⚠ the west-coast mirrors hang outside the doors, and this is the one
+                            // statement that they may: shellBounds widens by it and nothing else does
   },
   // A light aircraft tub. Narrow, you sit near the middle of it, and the sides come up to your
   // elbow rather than to your shoulder — which is most of why a cockpit feels open and a cab does
@@ -182,20 +236,27 @@ export const SHELL_PROFILES = {
   // initialization", which is the same trap the exterior's own `fw` note is written about. Built on
   // first ask and kept, because callers rely on a profile having a stable identity.
   get boat() { return (BOAT_PROFILE ||= boatProfile(BOAT_ROWS.hydro)); },
+  // ── THE DRAKE: the pilot sits in the eye ───────────────────────────────────
+  // Derived, like the boat: the room is measured off the mesh file's `cabin` block, which names
+  // the head it is the inside of and the eye glass its windows are cut along. A profile that
+  // carries `room` builds itself (see shellFaces).
+  get drake() { return (DRAKE_PROFILE ||= drakeProfile()); },
+  get drakeNoir() { return (DRAKE_NOIR_PROFILE ||= drakeProfile(undefined, 'noir')); },
+  get drakeQuackhawk() { return (DRAKE_QH_PROFILE ||= drakeProfile(undefined, 'quackhawk')); },
   cockpit: {
     label: 'cockpit tub',
     xCentre: 0.34,
     halfW: 0.62,
     floor: -0.92,
-    roof: 0.52,
-    front: 0.86,
+    roof: 0.48,
+    front: 0.98,
     back: -0.62,
-    dashY: 0.44,
-    dashZ: -0.30,
-    headerZ: 0.30,
-    pillarW: 0.09,
+    dashY: 0.56,
+    dashZ: -0.13,
+    headerZ: 0.34,
+    pillarW: 0.05,
     winY: [-0.34, 0.66],
-    winZ: [-0.30, 0.34],
+    winZ: [-0.18, 0.34],
     seatZ: -0.74,
     seatHalf: 0.24,
     seatY: [-0.44, 0.08],
@@ -204,8 +265,115 @@ export const SHELL_PROFILES = {
                             // it, and a post authored here would be a bar down the middle of an
                             // aircraft windscreen. The builder skips the part rather than drawing
                             // a degenerate one — see `if (P.centrePost > 0)`.
+    fit: 'plane',
+  },
+  // ── THE HELICOPTER'S BUBBLE ────────────────────────────────────────────────
+  //
+  // ⚠ NOT THE TUB WITH THE FRONT CUT OFF. A helicopter cabin is glazed from over your head to under
+  // your feet, so its room is a different SHAPE: a floor that stops at the chin window, a roof that
+  // stops over the seats, two door frames, and struts — built by `bubbleRoom`. The pilot sits on the
+  // RIGHT, as in most light helicopters, so the centreline is to the LEFT of the eye.
+  get heli() { return craftProfile('dragonfly', dragonflyProfile); },
+  // The generic bubble the Dragonfly used to borrow, kept as the reference `bubbleRoom` shape.
+  bubble: {
+    label: 'helicopter bubble',
+    bubble: true,
+    xCentre: -0.36,
+    halfW: 0.68,
+    floor: -0.98,
+    roof: 0.50,
+    front: 1.12,
+    back: -0.56,
+    chinY: 0.46,            // where the floor stops and the chin window starts
+    roofEnd: 0.28,          // where the headlining stops and the overhead glazing starts
+    doorY: 0.62,            // the forward door post
+    dashY: 0.62,            // the pod, standing on its post
+    dashZ: -0.34,
+    headerZ: 0.40,
+    pillarW: 0.05,
+    winY: [-0.40, 0.56],
+    winZ: [-0.52, 0.38],
+    seatZ: -0.70,
+    seatHalf: 0.23,
+    seatY: [-0.40, 0.10],
+    backZ: 0.30,
+    centrePost: 0,
+    fit: 'heli',
+  },
+  // ── THE ECHELON'S WHEELHOUSE ───────────────────────────────────────────────
+  //
+  // A yacht's enclosed bridge: wide, with big screens forward divided by mullions, a raked console
+  // under them, and a pedestal chair on the centreline. The room is the ordinary box — floor, roof,
+  // bulkhead, two side walls with windows — because a wheelhouse IS a box; everything that makes it
+  // a bridge rather than a shed is the fit-out (bridgeFit).
+  // ── ONE PER AIRFRAME ───────────────────────────────────────────────────────
+  //
+  // Each of these is one aircraft's room, sized off the real type it is an analogue of (named on
+  // each); what fills it is interior-fit-craft.js. ⚠ `roofGlass` is a [y0, y1] band of the
+  // headlining that is GLAZING (a bubble or greenhouse canopy, a Cub's skylight), built as a hole
+  // the way a side window is and never as a pane; the gate asserts you CAN see straight up through
+  // it, the other direction of its roof check.
+  // DHC-6 Twin Otter: side by side, pilot left, a centre windscreen post, big side glass.
+  get mule() { return craftProfile('mule', muleProfile); },
+  // An-124: a wide two-pilot deck with an engineer's station aft of the right seat.
+  get leviathan() { return craftProfile('leviathan', leviathanProfile); },
+  // A-10: a single seat high in a titanium tub under a bubble.
+  get reaper() { return craftProfile('reaper', reaperProfile); },
+  // Ju 87: tandem greenhouse, the gunner facing aft behind you.
+  get shrike() { return craftProfile('shrike', shrikeProfile); },
+  // Air Tractor AT-502: single seat, high and aft of the hopper, a low sill and a roof panel.
+  get locust() { return craftProfile('locust', locustProfile); },
+  // J-3 Cub: tandem, soloed from the BACK seat, panel far ahead, skylight overhead.
+  get grasshopper() { return craftProfile('grasshopper', grasshopperProfile); },
+  // AH-64 pilot station: the raised rear seat, flat armoured plates, two big displays.
+  get viper() { return craftProfile('viper', viperProfile); },
+  // The tub it came in, gutted.
+  get carcass() { return craftProfile('carcass', carcassProfile); },
+  // Quicksilver MX: open. ⚠ It builds its own room (`mayflyRoom`): a seat pan, a sling side panel
+  // to your hip, the pusher engine's firewall behind your head and the wing's centre section a
+  // hand's breadth over it. The "side window" is everything above the hip, which is the point.
+  // ⚠ A CESSNA 172 NOW, NOT AN OPEN ULTRALIGHT: the airframe became a closed cabin (mesh_ultralight
+  // .json), so the seat did too. Side by side, the pilot on the left, a centre strip in the
+  // windscreen, a door each side with the window in it; the fit-out is interior-cessna.js.
+  get mayfly() { return craftProfile('mayfly', mayflyProfile); },
+  bridge: {
+    label: 'wheelhouse',
+    xCentre: 0,
+    halfW: 1.85,
+    floor: -1.40,
+    roof: 0.78,
+    front: 1.25,
+    back: -2.20,
+    dashY: 0.78,
+    dashZ: -0.34,
+    headerZ: 0.48,
+    pillarW: 0.10,
+    winY: [-1.90, 0.95],
+    winZ: [-0.40, 0.42],
+    seatZ: -0.62,
+    seatHalf: 0.26,
+    seatY: [-0.34, 0.14],
+    backZ: 0.12,
+    seats: 1,
+    centrePost: 0,
+    fit: 'bridge',
   },
 };
+
+// The aircraft whose cockpits live in interior-fit-craft.js take their clickable controls from
+// there (craftHotspots), so every one of them can be clicked and grabbed like the Drake's.
+for (const k of ['bubble']) {
+  const prof = SHELL_PROFILES[k];
+  if (prof && !prof.hotspots) prof.hotspots = function (live) { return craftHotspots(k, this, live); };
+}
+// Panel floods for every aircraft that has none: small lamps under the glareshield lip, spread across
+// the panel, so a cockpit after dark is lit from its own coaming rather than from nowhere.
+for (const k of ['bubble']) {
+  const prof = SHELL_PROFILES[k];
+  if (!prof || prof.floods) continue;
+  const n = prof.halfW > 0.6 ? 3 : 2, y = prof.dashY - 0.08, z = prof.dashZ + 0.02;
+  prof.floods = Array.from({ length: n }, (_, i) => ({ p: [prof.xCentre + prof.halfW * 0.6 * (n === 1 ? 0 : (i / (n - 1)) * 2 - 1), y, z], r: prof.halfW > 0.6 ? 0.42 : 0.36 }));
+}
 
 // Which profile a vehicle class sits in. ⚠ A CLASS WITH NO ROW GETS NO SHELL, deliberately: the
 // alternative is every helicopter, ultralight and wreck in the game wearing a tractor cab because
@@ -217,17 +385,26 @@ export const SHELL_PROFILES = {
 // whose cabin is a glass bubble glazed below the floor line and is the opposite shape to this.
 const SHELL_CLASS = {
   truck: 'truck',
-  prop: 'cockpit',        // a light twin — the tub these numbers were measured against
-  heavy: 'cockpit',       // a transport flight deck: bigger, same shape, and you sit in the nose of it
-  gunship: 'cockpit',
-  divebomber: 'cockpit',
+  prop: 'mule',           // one cockpit per airframe: interior-fit-craft.js
+  heavy: 'leviathan',
+  gunship: 'reaper',
+  divebomber: 'shrike',
+  locust: 'locust',
+  grasshopper: 'grasshopper',
+  ultralight: 'mayfly',   // a Cessna 172, whatever the class is called (interior-mayfly.js)
+  wreck: 'carcass',
   hydro: 'boat',          // a race boat: lower, narrower, one seat, and its dials are geometry
-  // ultralight  — an open frame, with no cabin to be inside of
-  // heli        — a bubble that glazes below your feet, which this profile cannot express
-  // wreck       — it is a wreck
+  heli: 'heli',           // the Dragonfly's Mini 500 bubble (interior-dragonfly.js); armed → viper
+  bridge: 'bridge',       // the Echelon's wheelhouse — see helm-view, which sends it only from the bridge seat
+  drake: 'drake',         // the inside of a duck's head, and you sit in the eye
 };
 
-export function shellProfileFor(cls) {
+// ⚠ `armed` SPLITS THE HELICOPTERS: the Dragonfly and the Viper are both class `heli`, and the
+// cockpit view already tells them apart the same way (`armed` = a heli with hardpoints).
+export function shellProfileFor(cls, armed = false, trim = null) {
+  if (cls === 'heli' && armed) return SHELL_PROFILES.viper;
+  if (cls === 'drake' && trim === 'noir') return SHELL_PROFILES.drakeNoir;
+  if (cls === 'drake' && trim === 'quackhawk') return SHELL_PROFILES.drakeQuackhawk;
   const key = cls && SHELL_CLASS[cls];
   return key ? SHELL_PROFILES[key] : null;
 }
@@ -280,7 +457,11 @@ function wallWithHole(k, nx, y0, y1, z0, z1, hy0, hy1, hz0, hz1) {
 // Returns faces in METRES about the eye, each carrying the direction it faces and which palette
 // key it wants. Nothing here is a colour and nothing here is a tile: the renderer resolves both,
 // so this function is pure and the gate can read it with no canvas, no camera and no DOM.
-export function shellFaces(profile, live = null) {
+// ⚠ `opts.rich` IS THE FIT-OUT AND DEFAULTS ON. At false the room is exactly the one that shipped
+// before the fit-outs existed — which is what a renderer still painting a 2-D dashboard wants,
+// since it would otherwise get two dashboards a few centimetres apart.
+export function shellFaces(profile, live = null, opts = {}) {
+  const rich = opts.rich !== false;
   const P = profile;
   if (!P) return [];
   const out = [];
@@ -292,13 +473,19 @@ export function shellFaces(profile, live = null) {
   // ambient exactly as before. `rgb` states a colour the colourway has no word for (a lit segment,
   // a redline tick), and `emis` 0..1 is how far that colour ignores the light in the cabin — which
   // is the whole of what makes a dial readable at midnight without a second lighting model.
-  const push = (fs, tone, k, fwd, rgb, emis) => {
+  // `mat` is optional too: { lv, spec, pow } — a value multiplier on the colourway key and a sheen.
+  // It scales the key rather than replacing it, so a retrim still reaches every surface.
+  const collect = (arr) => (fs, tone, k, fwd, rgb, emis, mat) => {
     for (const f of fs) {
       const o = { p: f.p, n: f.n, tone, k, fwd: fwd ? 1 : 0 };
       if (rgb) { o.rgb = rgb; o.emis = emis || 0; }
-      out.push(o);
+      if (mat) o.mat = mat;
+      arr.push(o);
     }
   };
+  const push = collect(out);
+  // The part memo (interior-memo.js): a fit-out part that reads nothing live is built once per seat.
+  push.memo = memoContext(P, out, collect, rich ? 'r:' : 'p:');
 
   // ⚠ THE BOAT IS A LOFT AND EVERYTHING ELSE IS A BOX, and that is a property of the SUBJECT
   // rather than a style: a tractor cab and an aircraft tub are described by nothing else in the
@@ -306,9 +493,25 @@ export function shellFaces(profile, live = null) {
   // The hydro's room is the inside of a house that is already drawn, curve for curve, a few
   // hundred lines away — so it is built off those curves. See the ⚠ at the top of this file.
   if (P.loft) {
-    loftedRoom(P, push);
-    seatFaces(P, push);
+    // Rich, the room's big panels are subdivided and given a material by tone (BOAT_MAT), which is
+    // what the truck's room has had and this one did not: one flat fill per panel.
+    const roomPush = rich ? grainRoomPush(push) : push;
+    loftedRoom(P, roomPush);
+    seatFaces(P, roomPush);
     if (P.instruments) instrumentFaces(P, live, push);
+    if (rich) boatFit(P, live, push);
+    return out;
+  }
+  // ⚠ A PROFILE THAT CARRIES ITS OWN ROOM BUILDS ITSELF, and gets the same collector as everything
+  // here: its faces are the same `{ p, n, tone, k, fwd, rgb, emis }` and pass the same gate.
+  if (P.room && (rich || !P.roomRich)) {
+    P.room(P, live, push, rich);
+    return out;
+  }
+  if (P.bubble) {
+    bubbleRoom(P, push);
+    seatFaces(P, push);
+    if (rich) heliFit(P, live, push);
     return out;
   }
 
@@ -321,8 +524,15 @@ export function shellFaces(profile, live = null) {
        'floor', -0.30);
 
   // THE HEADLINING. It faces the driver, so by the one light it is the darkest thing in here.
-  push([quad([[xL, P.front, P.roof], [xR, P.front, P.roof], [xR, P.back, P.roof], [xL, P.back, P.roof]], [0, 0, -1])],
-       'hdr', -0.45);
+  const roofPane = (y0, y1) => push([quad([[xL, y1, P.roof], [xR, y1, P.roof], [xR, y0, P.roof], [xL, y0, P.roof]], [0, 0, -1])], 'hdr', -0.45);
+  if (P.roofGlass) {
+    // A glazed canopy: headlining fore and aft of the glass, and a rail down each side of it.
+    const [gy0, gy1] = P.roofGlass;
+    if (gy1 < P.front) roofPane(gy1, P.front);
+    if (gy0 > P.back) roofPane(P.back, gy0);
+    push(box(xL, Math.max(P.back, gy0), P.roof - 0.03, xL + 0.04, Math.min(P.front, gy1), P.roof), 'pil', 0.1);
+    push(box(xR - 0.04, Math.max(P.back, gy0), P.roof - 0.03, xR, Math.min(P.front, gy1), P.roof), 'pil', 0.1);
+  } else roofPane(P.back, P.front);
 
   // THE REAR BULKHEAD, and a parcel shelf on it. ⚠ THE SHELF IS WHY THE BULKHEAD READS AS A WALL
   // AND NOT AS A BACKDROP: a flat plane at one tone behind you is the same picture whatever the
@@ -374,7 +584,8 @@ export function shellFaces(profile, live = null) {
 
   // THE DASH, as a top face that looks at the daylight and a fascia that looks at the driver.
   //
-  // ⚠ IT IS THE SLAB AND NEVER THE INSTRUMENTS. `paintCabDash` draws every dial, switch, needle and
+  // ⚠ AT cockpit3d 0 IT IS THE SLAB AND NEVER THE INSTRUMENTS (at 1 the fit-out adds them — see the
+  // SUPERSEDED note at the top). `paintCabDash` draws every dial, switch, needle and
   // lamp on its own canvas at native resolution, keyed to repaint only when a value moved, and it
   // is the best-looking thing in the seat. Modelling a second dashboard here would put two boards
   // a few centimetres apart disagreeing about where the rev counter is. This is what the painted
@@ -386,6 +597,10 @@ export function shellFaces(profile, live = null) {
   seatFaces(P, push);
 
   if (P.instruments) instrumentFaces(P, live, push);
+  if (rich && P.fit === 'truck') truckFit(P, live, push);
+  if (rich && P.craft && CRAFT_FIT[P.craft]) CRAFT_FIT[P.craft](P, live, push);
+  else if (rich && P.fit === 'plane') planeFit(P, live, push);
+  if (rich && P.fit === 'bridge') bridgeFit(P, live, push);
 
   return out;
 }
@@ -413,7 +628,10 @@ function seatFaces(P, push) {
 
 // ── THE INSTRUMENTS, AS GEOMETRY ─────────────────────────────────────────────
 //
-// ⚠ THIS EXISTS FOR ONE PROFILE AND MUST NOT SPREAD TO THE OTHERS. A truck's board is thirteen
+// ⚠ HISTORY: THIS SAID "ONE PROFILE, MUST NOT SPREAD", AND IT HAS SPREAD, ON PURPOSE. Every seat's
+// dials are geometry now, built by interior-kit.js's shared dial/attitude/compass/digit parts; this
+// function stays the boat's own cluster. The argument below was true of a hybrid seat and is kept
+// because it is still true at cockpit3d 0. A truck's board is thirteen
 // hundred lines of needles, six-pixel legends, gradients and glyphs, drawn at authored SCREEN
 // proportions because that is what reads as a cab; rebuilding THAT here would be a worse copy of
 // the best-looking thing in the seat. A race boat's board is five things — revs, speed, hull,
@@ -483,10 +701,10 @@ function instrumentFaces(P, live, push) {
 
   // The backplate, and the two cheeks that give the pod a thickness so it reads as an object
   // standing on the dash rather than as a decal lying on it.
-  rect(-HW, 0, HW, PH, [22, 25, 30], 0, 0);
+  rect(-HW, 0, HW, PH, HY.carbon, 0, 0);
   for (const s of [-1, 1]) push([quad([
     pt(s * HW, 0, 0), pt(s * HW, PH, 0), [cx + s * HW, yB, zB - 0.05], [cx + s * HW, yB, zB - 0.05],
-  ], [s, 0, 0])], 'dash', 0.10, true, [18, 20, 24], 0);
+  ], [s, 0, 0])], 'dash', 0.10, true, HY.carbon, 0);
 
   // ── THE TACHO ──────────────────────────────────────────────────────────────
   // A ring of ticks and a needle. The ticks are objects, so the dial reads as an instrument at
@@ -516,7 +734,7 @@ function instrumentFaces(P, live, push) {
       [tcx + Math.cos(a) * r0 + nx * wdt, tz + Math.sin(a) * r0 + nz * wdt],
       [tcx + Math.cos(a) * r1 + nx * wdt, tz + Math.sin(a) * r1 + nz * wdt],
       [tcx + Math.cos(a) * r1 - nx * wdt, tz + Math.sin(a) * r1 - nz * wdt],
-    ], red ? LAMP_RED : [150, 160, 172], red ? 0.55 : 0.22, 0.008);
+    ], red ? LAMP_RED : L.dials ? HY.tick : [150, 160, 172], red ? 0.55 : L.dials ? 0.95 : 0.22, 0.008);
   }
   const rev = clampN(L.rpm ?? 0, 0, 1);
   const na = A0 - rev * SWEEP;
@@ -655,7 +873,9 @@ function wheelFaces(P, live, push) {
   const ay = W.rakeY ?? 0.05, az = W.rakeZ ?? 0.16;
   const M = Math.hypot(ay, az) || 1, uy = ay / M, uz = az / M;
   const N = [0, -uz, uy];
-  const ang = (L.steer ?? 0) * (W.lock ?? 105) * Math.PI / 180;
+  // Negated: +steer is a right turn, and with +x starboard and v up a positive angle here turns
+  // the top of the yoke to PORT, so the yoke turned the opposite way to the boat.
+  const ang = -(L.steer ?? 0) * (W.lock ?? 105) * Math.PI / 180;
   const ca = Math.cos(ang), sa = Math.sin(ang);
   // Wheel coordinates: u across, v up, rotated by the lock on, then mapped onto the wheel plane.
   const pt = (u, v, lift = 0) => {
@@ -668,19 +888,38 @@ function wheelFaces(P, live, push) {
     face([[u0, v0], [u1, v0], [u1, v1], [u0, v1]], rgb, emis, lift);
 
   const R = W.r ?? 0.115;                      // half-width across the grips
-  const GRIP = [26, 28, 33], RIM = [44, 48, 56];
-  // The two grips — the only part your hands are ever on, so they are the fattest thing here.
+  // ⚠ SOLID PARTS, NOT PLATES IN ONE PLANE. It was nine rectangles lying in the wheel's own plane,
+  // which from the seat reads as a grey ladder rather than as a thing you hold: nothing had a
+  // thickness, so nothing caught the light on an edge. Built from the kit now — the same boxes and
+  // rods the truck's wheel is made of — with the wheel's own axes turned by the lock.
+  const K = makeKit(push);
+  const across = [ca, sa * uy, sa * uz], up = [-sa, ca * uy, ca * uz];
+  const at = (u, v, n = 0) => [cx + across[0] * u + up[0] * v + N[0] * n,
+    cy + across[1] * u + up[1] * v + N[1] * n, cz + across[2] * u + up[2] * v + N[2] * n];
+  const CARBON = HY.carbon, RIM = HY.billet;
+  // The column, back into the dash, and the quick-release hub on it.
+  K.rod(at(0, 0, -0.012), at(0, 0, -0.26), 0.022, 'dash', 0.1, KC.black, 0, 8);
+  K.rod(at(0, 0, -0.012), at(0, 0, -0.04), 0.034, 'dash', 0.1, KC.steel, 0.05, 10);
+  // The body: a carbon plate with a waist, as two boxes — the wide top and the narrower bottom.
+  K.obox(at(0, R * 0.14), across, up, N, R * 0.74, R * 0.34, 0.012, 'dash', 0.2, CARBON);
+  K.obox(at(0, -R * 0.30), across, up, N, R * 0.50, R * 0.16, 0.012, 'dash', 0.2, CARBON);
+  // The grips: fat, rubber, and standing proud of the plate on both faces.
   for (const s of [-1, 1]) {
-    rect(s * R - 0.034, -R * 0.52, s * R, R * 0.52, GRIP, 0, 0.004);
-    rect(s * R - 0.034, -R * 0.52, s * R, -R * 0.30, [18, 19, 23], 0, 0.006);   // a thumb stop
+    K.obox(at(s * (R - 0.012), 0), across, up, N, 0.022, R * 0.54, 0.024, 'dash', 0.1, KC.grip);
+    K.obox(at(s * (R - 0.012), -R * 0.46, 0.006), across, up, N, 0.024, 0.008, 0.028, 'dash', 0.1, KC.black);
+    // The shift paddle behind each grip.
+    K.obox(at(s * (R - 0.02), R * 0.18, -0.03), across, up, N, 0.034, 0.022, 0.004, 'dash', 0.2, KC.chrome);
   }
-  // The flattened top and the shorter flattened bottom — the cut-away that makes it a butterfly.
-  rect(-R * 0.70, R * 0.38, R * 0.70, R * 0.52, RIM, 0, 0.004);
-  rect(-R * 0.46, -R * 0.52, R * 0.46, -R * 0.40, RIM, 0, 0.004);
-  // Two spokes out to the grips.
-  for (const s of [-1, 1]) rect(s * 0.026, -0.016, s * (R - 0.030), 0.016, RIM, 0, 0.003);
-  // The boss.
-  rect(-0.036, -0.030, 0.036, 0.030, [30, 33, 39], 0, 0.006);
+  // The flattened top rim and the shorter bottom, as tubes so they read edge-on too.
+  K.rod(at(-(R - 0.02), R * 0.50), at(R - 0.02, R * 0.50), 0.011, 'dash', 0.1, RIM, 0, 6);
+  K.rod(at(-R * 0.46, -R * 0.47), at(R * 0.46, -R * 0.47), 0.010, 'dash', 0.1, RIM, 0, 6);
+  // The face: a screen with the speed on it, a row of buttons and two rotaries.
+  const F = K.panel(at(0, 0, 0.0125), across, up, 'dash', 0.2);
+  F.rect(-0.036, -0.012, 0.036, 0.022, [6, 10, 12], 0, 0.001);
+  F.digits(-0.030, -0.006, 0.020, String(Math.round(Math.max(0, L.speed ?? 0))).padStart(3, ' '), [120, 236, 200], false);
+  const BTN = [[255, 86, 72], [236, 196, 40], [90, 150, 255], [110, 236, 160]];
+  BTN.forEach((rgb, i) => F.stud(-0.055 + (i % 2) * 0.11, -0.040 + (i < 2 ? 0 : 0.024) + 0.015, 0.007, 0.007, 0.006, rgb, 0.25));
+  for (const s of [-1, 1]) F.knob(s * 0.030, -0.042, 0.009, 0.010, KC.chrome, 0.1);
   // ⚠ AND THE SHIFT LIGHTS ACROSS THE TOP OF IT, which is the one part of an F1 wheel everybody can
   // picture. They are the SAME `rpm` the tacho needle reads, so the two can never disagree — and
   // they are what you actually use at speed, because they are in your eyeline and the dial is not.
@@ -688,8 +927,7 @@ function wheelFaces(P, live, push) {
   for (let i = 0; i < 5; i++) {
     const lit = rev > 0.42 + i * 0.125;
     const col = i < 2 ? LAMP_GREEN : i < 4 ? LAMP_AMBER : LAMP_RED;
-    rect(-0.028 + i * 0.0145, 0.014, -0.028 + i * 0.0145 + 0.010, 0.026,
-      lit ? col : [22, 24, 28], lit ? 0.95 : 0, 0.009);
+    F.rect(-0.036 + i * 0.0155, 0.030, -0.036 + i * 0.0155 + 0.011, 0.040, lit ? col : [22, 24, 28], lit ? 0.95 : 0, 0.003);
   }
 }
 
@@ -721,11 +959,11 @@ function throttleFaces(P, live, push) {
   face([
     [py - sz * w, pz + sy * w], [py + sz * w, pz - sy * w],
     [py + sy * len + sz * w, pz + sz * len - sy * w], [py + sy * len - sz * w, pz + sz * len + sy * w],
-  ], [62, 68, 78], 0);
+  ], HY.billet, 0);
   // The knob, which is what your hand is actually on.
   const ky = py + sy * len, kz = pz + sz * len;
   face([[ky - 0.020, kz - 0.020], [ky + 0.020, kz - 0.020], [ky + 0.020, kz + 0.020], [ky - 0.020, kz + 0.020]],
-    [92, 40, 36], 0.25);
+    HY.anod, 0.25);
   // ⚠ AND A TELL-TALE THAT THE BOTTLE IS OPEN, on the knob rather than on the panel — because the
   // hand that fires it is this one, and a light six inches from your eyes is a light you see with
   // the boat still in your peripheral vision.
@@ -760,13 +998,34 @@ function seg7Faces(x, z, w, h) {
   ];
 }
 
+// ── THE MAYFLY'S ROOM ────────────────────────────────────────────────────────
+//
+// An open ultralight: no doors, no windscreen, no roof but the wing. The sling sides come up to
+// your hip and stop; the pusher engine's firewall is right behind the seat; the wing's centre
+// section is the ceiling.
+function mayflyRoom(P, live, push, rich) {
+  const xL = P.xCentre - P.halfW, xR = P.xCentre + P.halfW, sill = P.winZ[0];
+  push([quad([[xL, P.back, P.floor], [xR, P.back, P.floor], [xR, P.front, P.floor], [xL, P.front, P.floor]], [0, 0, 1])], 'floor', -0.30);
+  push([quad([[xL, P.front, P.roof], [xR, P.front, P.roof], [xR, P.back, P.roof], [xL, P.back, P.roof]], [0, 0, -1])], 'hdr', -0.2);
+  push([quad([[xR, P.back, P.floor], [xL, P.back, P.floor], [xL, P.back, P.roof], [xR, P.back, P.roof]], [0, 1, 0])], 'post', -0.16);
+  for (const [x, nx] of [[xL, 1], [xR, -1]]) {
+    push([quad([[x, P.back, P.floor], [x, P.front, P.floor], [x, P.front, sill], [x, P.back, sill]], [nx, 0, 0])], 'pil', -0.1);
+    push(box(x, P.back, sill - 0.03, x + nx * 0.03, P.front, sill), 'pil', 0.2);
+  }
+  // The nose fairing, low, which is all the "dash" there is.
+  push(box(xL, P.front - 0.20, P.floor, xR, P.front, P.floor + 0.25), 'dash', 0.2);
+  seatFaces(P, push);
+  if (rich) CRAFT_FIT.mayfly(P, live, push);
+}
+
 // The interior's extent in metres, as [x0, y0, z0, x1, y1, z1]. ⚠ THE GATE READS THIS AND SO DOES
 // NOTHING ELSE, on purpose: it is the statement that the eye is in a room, and a second copy
 // derived from the faces would pass by construction and prove nothing.
 export function shellBounds(profile) {
   const P = profile;
   if (!P) return null;
-  return [P.xCentre - P.halfW, P.back, P.floor, P.xCentre + P.halfW, P.front, P.roof];
+  const ob = P.outboard || 0;
+  return [P.xCentre - P.halfW - ob, P.back, P.floor, P.xCentre + P.halfW + ob, P.front, P.roof];
 }
 
 // ── THE HYDRO'S ROOM, MEASURED OFF ITS OWN HOUSE ─────────────────────────────
@@ -839,7 +1098,7 @@ function boatProfile(row) {
     dashY: 0.72,
     dashZ: Z(dashTopZ),
     headerZ: Z(G.hz(G.rF, 1)),
-    pillarW: (row.pillarW ?? 0.040) * m,
+    pillarW: (row.pillarW ?? 0.025) * m,
     winY: [Y(G.gAft), Y(G.sideF1)],
     winZ: [Z(G.hz(midF, G.sillAt(midF))), Z(G.hz(midF, Math.min(1, G.headAt(midF))))],
     door: { halfW: G.door.halfW * LIN * m, top: Z(G.hz(G.hF0, G.door.topT)) },
@@ -867,10 +1126,24 @@ function boatProfile(row) {
       // A wheel is held, so it sits a forearm in front of the fascia rather than flush to it, and
       // its rim stands proud of the dash top — which is what makes it read as a wheel and not as a
       // disc painted on a board.
-      wheel: { y: 0.42, z: -0.40, r: 0.175, rakeY: 0.06, rakeZ: 0.20, lock: 105 },
+      // ⚠ RAISED INTO THE FRAME. At y 0.42 / z -0.40 the wheel sat 43° under the eye line and below
+      // the bottom of the picture, so a driver never saw the thing they were steering with.
+      wheel: { y: 0.48, z: -0.30, r: 0.175, rakeY: 0.06, rakeZ: 0.20, lock: 105 },
       // Outboard on the starboard side, where your hand falls with your elbow up on the coaming.
       throttle: { side: 1, x: X(0) + maxHW * m - 0.16, y: 0.34, z: -0.42, len: 0.20 },
     },
+    // The cabin lights: three lamps under the dash lip and one in the roof over the seat. The
+    // renderer only lights them while `powered` is set, which boat-view ties to the ignition, so a
+    // dead boat at night is dark inside and a running one is lit.
+    floods: [
+      { p: [X(0) - 0.30, 0.64, Z(dashTopZ) + 0.02], r: 0.40 },
+      { p: [X(0), 0.66, Z(dashTopZ) + 0.02], r: 0.40 },
+      { p: [X(0) + 0.30, 0.64, Z(dashTopZ) + 0.02], r: 0.40 },
+      { p: [X(0), -0.10, roofZ - 0.05], r: 0.70 },
+    ],
+    floodFloor: 0.25,
+    // The clickable switches (interior-hydro.js); the renderer projects them and boat-view hit-tests.
+    hotspots(live) { return hydroHotspots(this, live); },
     // The curves themselves, for the loft below. Its presence is what selects the lofted room.
     loft: { G, m, X, Y, Z, LIN },
   };
@@ -1054,8 +1327,10 @@ function loftedRoom(P, push) {
       const w0 = wx(f0, G.sillAt(f0)), w1 = wx(f1, 1);
       push([quad([pt(f0, s * w0, zb), pt(f0 - apW, s * w0, zb),
                   pt(f1 - apW, s * w1, ztA), pt(f1, s * w1, zt)], [-s, 0, 0])], 'pil', 0.26, true);
-      push([quad([pt(f0 - apW, s * w0, zb), pt(f0 - apW, s * w0 * 0.82, zb),
-                  pt(f1 - apW, s * w1 * 0.82, ztA), pt(f1 - apW, s * w1, ztA)], [0, -1, 0])], 'pil', 0.10, true);
+      // ⚠ A SHALLOW RETURN. The helm sits to starboard, so an 18% return on that side stood a slab
+      // of pillar across the driver's forward view; 4% still reads as a post with depth.
+      push([quad([pt(f0 - apW, s * w0, zb), pt(f0 - apW, s * w0 * 0.96, zb),
+                  pt(f1 - apW, s * w1 * 0.96, ztA), pt(f1 - apW, s * w1, ztA)], [0, -1, 0])], 'pil', 0.10, true);
     }
   }
 

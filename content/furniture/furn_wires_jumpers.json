@@ -6,9 +6,7 @@
       "frame",
       "wires"
     ],
-    "interactions": {
-      "examine": "One bunch is newer than all the others. Not new. Newer. It runs up out of the field and away north through a hole in the wall that was cut rather than cast."
-    }
+    "examine_detail": "One bunch is newer than all the others. Not new. Newer. It runs up out of the field and away north through a hole in the wall that was cut rather than cast."
   },
   "id": "furn_wires_jumpers",
   "name": "the jumper field",

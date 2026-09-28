@@ -201,7 +201,7 @@ const terseLock = (player, flavour, outcome) => (loggedPanelsSync(player) ? outc
 async function cmdOpenDoor(args, raw, player, broadcast) {
   const door = resolveDoor(args, player);
   if (!door) return null;
-  if (door === 'ambiguous') return { type:'error', message:'Multiple doors here — specify a direction (e.g. open door north).' };
+  if (door === 'ambiguous') return { type:'error', message:'Multiple doors here. Specify a direction (e.g. open door north).' };
   if (door.hp <= 0) return { type:'error', message:'That door is destroyed.' };
   if (door.is_open) return { type:'error', message:'The door is already open.' };
   if (door.lock_state === 'locked' && !doorGuardsOnlyUnownedApartment(door)) return { type:'error', message:'The door is locked.' };
@@ -215,7 +215,7 @@ async function cmdOpenDoor(args, raw, player, broadcast) {
 async function cmdCloseDoor(args, raw, player, broadcast) {
   const door = resolveDoor(args, player);
   if (!door) return null;
-  if (door === 'ambiguous') return { type:'error', message:'Multiple doors here — specify a direction (e.g. close door north).' };
+  if (door === 'ambiguous') return { type:'error', message:'Multiple doors here. Specify a direction (e.g. close door north).' };
   if (door.hp <= 0) return { type:'error', message:'That door is destroyed.' };
   if (!door.is_open) return { type:'error', message:'The door is already closed.' };
   await updateDoor(door, { is_open: 0 });
@@ -228,7 +228,7 @@ async function cmdCloseDoor(args, raw, player, broadcast) {
 async function cmdLockDoor(args, raw, player, broadcast) {
   const door = resolveDoor(args, player);
   if (!door) return null;
-  if (door === 'ambiguous') return { type:'error', message:'Multiple doors here — specify a direction (e.g. lock door north).' };
+  if (door === 'ambiguous') return { type:'error', message:'Multiple doors here. Specify a direction (e.g. lock door north).' };
   if (door.hp <= 0) return { type:'error', message:'That door is destroyed.' };
   const lockTag = getLockTag(door);
   if (!lockTag) return { type:'error', message:"This door has no lock." };
@@ -260,7 +260,7 @@ async function cmdLockDoor(args, raw, player, broadcast) {
 async function cmdUnlockDoor(args, raw, player, broadcast) {
   const door = resolveDoor(args, player);
   if (!door) return null;
-  if (door === 'ambiguous') return { type:'error', message:'Multiple doors here — specify a direction (e.g. unlock door north).' };
+  if (door === 'ambiguous') return { type:'error', message:'Multiple doors here. Specify a direction (e.g. unlock door north).' };
   if (door.hp <= 0) return { type:'error', message:'That door is destroyed.' };
   const lockTag = getLockTag(door);
   if (!lockTag) return { type:'error', message:"This door has no lock." };
@@ -294,12 +294,12 @@ function doorOppositeZoneIds(door, fromZoneId) {
 // what's being swung, and always reading as "someone is trying to break in" (the
 // resident hears the specific threat, not propagateSound's clipped banging).
 const DOOR_ATTACK_ALERT = {
-  fists:     `Fists HAMMER against the door — someone's trying to break in!`,
-  kinetic:   `Something heavy SLAMS against the door — someone's trying to force their way in!`,
-  edged:     `A blade bites into the door with a splintering CRACK — someone's trying to cut their way in!`,
-  energy:    `The door shudders under a searing crackle of energy — someone's trying to blast their way in!`,
-  fire:      `Heat blooms against the door, the surface hissing and blistering — someone's trying to burn their way in!`,
-  radiation: `The door rattles under a strange, humming assault — someone's trying to force their way in!`,
+  fists:     `Fists HAMMER against the door. Someone's trying to break in!`,
+  kinetic:   `Something heavy SLAMS against the door. Someone's trying to force their way in!`,
+  edged:     `A blade bites into the door with a splintering CRACK. Someone's trying to cut their way in!`,
+  energy:    `The door shudders under a searing crackle of energy. Someone's trying to blast their way in!`,
+  fire:      `Heat blooms against the door, the surface hissing and blistering. Someone's trying to burn their way in!`,
+  radiation: `The door rattles under a strange, humming assault. Someone's trying to force their way in!`,
 };
 
 // The bathroom side of a door: the single zone touching it that holds a toilet.
@@ -338,20 +338,20 @@ export async function cmdAttackDoor(dirStr, player, broadcast) {
   const args = dirStr ? dirStr.split(/\s+/) : [];
   const door = resolveDoor(args, player);
   if (!door) return { type:'error', message:'No door here to attack.' };
-  if (door === 'ambiguous') return { type:'error', message:'Multiple doors here — specify a direction (e.g. attack door north).' };
+  if (door === 'ambiguous') return { type:'error', message:'Multiple doors here. Specify a direction (e.g. attack door north).' };
   if (door.hp <= 0) return { type:'error', message:'That door is already destroyed.' };
 
   // A quantum forcefield seals the whole unit — you can't hack it and you can't
   // batter through it either. Reject the swing (before the cooldown) so a
   // sleeping owner's shield is proof against brute force as well as the deck.
   if (doorForcefieldActive(door))
-    return { type:'error', message:'A quantum forcefield sheathes the door — your blows just wash off it in blue ripples.' };
+    return { type:'error', message:'A quantum forcefield sheathes the door. Your blows just wash off it in blue ripples.' };
 
   // A door tagged unbreakable (e.g. the jail cell) can't be bashed down at all —
   // there is no player bypass, by design. Without this, enough hits eventually
   // zero its HP and leave lock_state permanently NULL with no repair path.
   if (tagValue(door, 'unbreakable'))
-    return { type:'error', message:'The door barely rattles under the blow — this one isn\'t coming down.' };
+    return { type:'error', message:'The door barely rattles under the blow. This one isn\'t coming down.' };
 
   if (isOnCooldown(player.id, 'attack')) {
     const remaining = getCooldownRemaining(player.id, 'attack');
@@ -395,7 +395,7 @@ export async function cmdAttackDoor(dirStr, player, broadcast) {
     emit('door.toggled', { zoneId: door.zone_id, targetZoneId: door.target_zone });
     broadcast(player.current_zone, { type:'zone_event', message:'The door splinters apart!', refresh: true }, player.id);
     for (const zid of doorOppositeZoneIds(door, player.current_zone)) {
-      broadcast(zid, { type:'zone_event', message:'The door BURSTS off its frame — someone has broken in!', refresh: true });
+      broadcast(zid, { type:'zone_event', message:'The door BURSTS off its frame. Someone has broken in!', refresh: true });
     }
     propagateSound(player.current_zone, 'You hear a door being smashed apart nearby.', 2.5, broadcast);
     return { type:'combat', message:`You smash the door! It splinters apart! (${damage} damage)` };
@@ -511,10 +511,10 @@ async function hackDoor(door, player, broadcast) {
 
   // You control this apartment — no need to break into your own place.
   if (await checkLockAuth(lockTag, door, player))
-    return { type:'error', message:'Your credentials open this lock — just UNLOCK it.' };
+    return { type:'error', message:'Your credentials open this lock. Just UNLOCK it.' };
 
   if (doorForcefieldActive(door))
-    return { type:'error', message:"A quantum forcefield sheathes the lock — you can't get a signal in." };
+    return { type:'error', message:"A quantum forcefield sheathes the lock. You can't get a signal in." };
 
   if (!(await hasHackDevice(player.id)))
     return { type:'error', message:`You need a hacking device to breach a ${lockNoun(lockTag)}.` };
@@ -530,7 +530,7 @@ async function hackDoor(door, player, broadcast) {
   // far side is relative to the *hacker*, not the door's anchor, so the resident
   // hears it and the hacker never gets their own whine echoed back.
   for (const zid of doorOppositeZoneIds(door, player.current_zone)) {
-    broadcast(zid, { type:'zone_event', message:'A faint electronic whine buzzes from the door — someone is working the lock.' });
+    broadcast(zid, { type:'zone_event', message:'A faint electronic whine buzzes from the door. Someone is working the lock.' });
   }
   broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} jacks a deck into the door's ${lockNoun(lockTag)}.` }, player.id);
 
@@ -581,7 +581,7 @@ async function cmdHackResolve(args, raw, player, broadcast) {
   const lockTag = getLockTag(door);
   if (!lockTag || !lockCanHack(lockTag)) return { type:'noop' };
   if (door.lock_state !== 'locked' || doorGuardsOnlyUnownedApartment(door)) return { type:'error', message:`The ${lockNoun(lockTag)} is already disengaged.` };
-  if (doorForcefieldActive(door)) return { type:'error', message:"A quantum forcefield sheathes the lock — you can't get a signal in." };
+  if (doorForcefieldActive(door)) return { type:'error', message:"A quantum forcefield sheathes the lock. You can't get a signal in." };
   if (!(await hasHackDevice(player.id))) return { type:'error', message:`You need a hacking device to breach a ${lockNoun(lockTag)}.` };
 
   if (!win) {
@@ -590,7 +590,7 @@ async function cmdHackResolve(args, raw, player, broadcast) {
     // it's the player's live minigame-completion window, not a world duration.)
     hackLockout.set(player.id, Date.now() + gameMsToReal(HACK_LOCKOUT_MS));
     const deckMsg = await damageHackDeck(player.id);
-    return { type:'error', message:`The ${lockNoun(lockTag)}'s key sequence resets mid-spoof. Your deck is flagged — five-minute lockout.${deckMsg}` };
+    return { type:'error', message:`The ${lockNoun(lockTag)}'s key sequence resets mid-spoof. Your deck is flagged: five-minute lockout.${deckMsg}` };
   }
 
   await updateDoor(door, { lock_state: 'unlocked' });
@@ -676,7 +676,7 @@ async function cmdInstallLock(args, raw, player, broadcast) {
 
   const door = resolveDoor(dirArgs, player);
   if (!door) return { type:'error', message:'No door here to install a lock on.' };
-  if (door === 'ambiguous') return { type:'error', message:'Multiple doors here — specify a direction.' };
+  if (door === 'ambiguous') return { type:'error', message:'Multiple doors here. Specify a direction.' };
   if (door.hp <= 0) return { type:'error', message:'That door is destroyed.' };
   if (getLockTag(door)) return { type:'error', message:'This door already has a lock. Uninstall it first.' };
 
@@ -731,7 +731,7 @@ async function cmdUninstallLock(args, raw, player, broadcast) {
 
   const door = resolveDoor(dirArgs, player);
   if (!door) return { type:'error', message:'No door here.' };
-  if (door === 'ambiguous') return { type:'error', message:'Multiple doors here — specify a direction.' };
+  if (door === 'ambiguous') return { type:'error', message:'Multiple doors here. Specify a direction.' };
   if (door.hp <= 0) return { type:'error', message:'That door is destroyed.' };
 
   const lockTag = getLockTag(door);

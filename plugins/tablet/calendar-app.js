@@ -72,7 +72,7 @@ async function rentEvents(playerId) {
     id: `rent:${r.zone_id}`,
     kind: 'rent',
     date: ymd(r.rent_due_date),
-    text: `Rent due — ${getZone(r.zone_id)?.name || r.zone_id}`,
+    text: `Rent due: ${getZone(r.zone_id)?.name || r.zone_id}`,
     detail: `${r.rent_cost ?? 100}₵${r.building_name ? ` · ${r.building_name}` : ''}`,
   }));
 }
@@ -131,7 +131,7 @@ function monthGrid(ym, today, events) {
 // app used to be, so each event still drills into its detail/delete screen.
 function agendaItems(today, events) {
   return [
-    { id: 'today', label: `📅 Today — ${prettyDate(today)}`, sub: 'In-world date' },
+    { id: 'today', label: `📅 Today: ${prettyDate(today)}`, sub: 'In-world date' },
     ...events.map(e => ({
       id: e.id,
       label: `${e.kind === 'rent' ? '🏠 ' : '• '}${e.text}`,
@@ -204,7 +204,7 @@ function calendarScreen(today, events, ym) {
     actions: [{
       id: 'add',
       label: '✚ New reminder',
-      prompt: 'Reminder — start with a date, then your note.\nUse YYYY-MM-DD (e.g. 2087-07-20 Meet Voss) or +N for N days from today (e.g. +7 Pay rent).',
+      prompt: 'Reminder: start with a date, then your note.\nUse YYYY-MM-DD (e.g. 2087-07-20 Meet Voss) or +N for N days from today (e.g. +7 Pay rent).',
     }],
   };
 }
@@ -260,7 +260,7 @@ async function remindTick() {
     for (const r of due) {
       r.fired = true;
       const when = gameDaysBetween(today, r.date) === 0 ? 'today' : `was due ${prettyDate(r.date)}`;
-      sendToPlayer(live.id, { type: 'output', message: `<span style="color:var(--yellow)">📅 REMINDER — ${esc(r.text)} (${when}).</span>` });
+      sendToPlayer(live.id, { type: 'output', message: `<span style="color:var(--yellow)">📅 REMINDER: ${esc(r.text)} (${when}).</span>` });
     }
     await setFlag('player', REM_FLAG, JSON.stringify(list), live);
   }

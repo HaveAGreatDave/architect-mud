@@ -135,7 +135,7 @@
     "\"Rope's not personal. Rope's just math.\"",
     "He unclips the velvet rope for someone with a band, clips it again before you can follow."
   ],
-  "description": "Bishop holds the foot of the VIP stair the way a load-bearing wall holds a roof: without apparent effort and without moving. Immaculate black, an earpiece, a hand-scanner clipped at his hip, and a stillness that reads every approach before it arrives. He's unfailingly polite, which somehow makes the rope harder to argue with. Buy a band and the stair opens like it was always going to. Try it without one and discover how far his patience doesn't extend.",
+  "description": "Bishop, holding the foot of the VIP stair without moving. Immaculate black, an earpiece, a hand-scanner clipped at his hip. He's unfailingly polite. Buy a band and the stair opens. Try it without one and it doesn't.",
   "dialogue_tree": {
     "band": {
       "options": [
@@ -169,7 +169,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Evening.\" Bishop's eyes finish reading you before he speaks. \"Floor's open to everyone: drink, dance, be good. Stair's a different tier.\" A beat. \"You look like you're about to ask about the stair.\""
+      "text": "\"Evening.\" Bishop's eyes finish reading you before he speaks. \"Floor's open to everyone: drink, dance, be good. Stair's a different tier.\" A beat. \"You look like you are about to ask about the stair.\""
     },
     "upstairs": {
       "options": [

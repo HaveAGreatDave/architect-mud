@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A fan of scree run out from a notch in the cliff above, sorted by nothing but weight: the big pieces at the bottom, the grit at the top, and a channel down the middle of it where the water goes when there's water.",
+  "description": "Tough brush crowds in to chest height. The only easy way through is a knee-high run some animal has kept open for a long time.",
   "exits": {
     "east": "zone_scw_1015_968",
     "north": "zone_scw_1014_967",
@@ -8,18 +8,18 @@
     "west": "zone_scw_1013_968"
   },
   "flags": {
-    "ambient_pool": "scarletwastes_the_spill",
+    "ambient_pool": "scarletwastes_the_grey_thicket",
     "lawless": true,
     "radiation": 9,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "dirt_road"
+    "terrain": "scrub"
   },
   "grid_x": 1014,
   "grid_y": 968,
   "grid_z": 0,
   "id": "zone_scw_1014_968",
   "map_id": "map_world",
-  "name": "The Skirt",
+  "name": "Low Growth",
   "parent_zone": null
 }

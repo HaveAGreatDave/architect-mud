@@ -1,3 +1,4 @@
+import { drawSky } from './sky.js';
 // GLASS 2, STAGE ONE: THE MASS, ON THE GPU.
 //
 // The city's solid geometry drawn in WebGL2 into a buffer the 2-D frame BLITS, with everything else
@@ -1187,7 +1188,8 @@ function tileMesh(deps, it) {
         // out-of-bounds read into a GLSL uniform array is undefined and on this driver returns
         // zeros, which is gloss 0: `pow(x, 0.0)` is 1.0 everywhere, a mirror-bright specular over
         // every piece of trim in the city.
-        mat: f.pal
+        // A lit drum names its family on the face (`matId`); every other face takes its palette's.
+        mat: f.matId != null ? f.matId : f.pal
           ? (f.kind === 'roof'
             ? (deps.roofMaterialId ? deps.roofMaterialId(f.pal) : 0)
             : (deps.wallMaterialId ? deps.wallMaterialId(f.pal) : 0))
@@ -1241,6 +1243,16 @@ function tileMesh(deps, it) {
 // world pass has already decided whether GLASS 2 is alive this frame; a missing scene here means
 // the world pass answered nothing, and the caller has already put the flag back and painted the
 // city in 2-D. Falling over a second time would only replace one fallback with a worse one.
+// The sky, drawn into the scene's canvas BEFORE the world pass and blitted by the 2-D frame where
+// its gradient used to go — see gl/sky.js. No scene yet (the first frame of a seat) is a null, and
+// the caller paints the 2-D gradient instead.
+export function glSkyPass(id, s) {
+  const g = scenes.get(id);
+  if (!g || !g.view || !g.canvas || !g.view.gl) return null;
+  if (g.view.lost && g.view.lost()) return null;
+  return drawSky(g.view.gl, g.canvas, s) ? g.canvas : null;
+}
+
 export function glCloudPass(id, cam, cards, opts = {}) {
   const g = scenes.get(id);
   if (!g || !g.view || !g.canvas || !cards || !cards.length) return null;
@@ -1268,6 +1280,40 @@ export function glCloudPass(id, cam, cards, opts = {}) {
   return n ? { cards: n, canvas: g.canvas } : null;
 }
 
+// The deck as a raymarched volume, at the same moment and on the same float target as
+// glCloudPass. Returns null when it drew nothing, which the caller reads as "put the cards back".
+export function glCloudVolPass(id, cam, vol, opts = {}) {
+  const g = scenes.get(id);
+  if (!g || !g.view || !g.canvas || !g.view.drawCloudVolume || !vol) return null;
+  if (g.view.lost && g.view.lost()) return null;
+  const dpr = cam && cam.W ? g.canvas.width / cam.W : 1;
+  const cssH = opts.cssH || (dpr > 0 ? g.canvas.height / dpr : g.canvas.height);
+  const hdrOn = g.view.beginTarget(opts);
+  const n = g.view.drawCloudVolume(cam, vol, cssH, opts);
+  if (hdrOn) {
+    g.view.composite({
+      bloom: opts.glBloom > 0 ? opts.glBloom : 0,
+      threshold: HDR_TUNE.threshold, knee: HDR_TUNE.knee,
+      tonemap: opts.glTonemap > 0 ? opts.glTonemap : 0,
+      exposure: opts.glExposure > 0 ? opts.glExposure : 1,
+    });
+  }
+  return n ? { cells: n, canvas: g.canvas } : null;
+}
+
+// The cabin, drawn on its own after the world has been composited — see drawInteriorAlone. Uses
+// the SAME shifted camera the world pass used for it, because the quads are in map-window tiles.
+export function glInteriorPass(id, cam, opts = {}) {
+  const g = scenes.get(id);
+  if (!g || !g.view || !g.canvas || !g.view.drawInteriorAlone || !cam) return null;
+  if (g.view.lost && g.view.lost()) return null;
+  const camAt = (cam.ox || cam.oy) ? { ...cam, fx: (cam.fx || 0) + cam.ox, fy: (cam.fy || 0) + cam.oy } : cam;
+  const dpr = cam.W ? g.canvas.width / cam.W : 1;
+  const cssH = opts.cssH || (dpr > 0 ? g.canvas.height / dpr : g.canvas.height);
+  const n = g.view.drawInteriorAlone(camAt, cssH, opts.under || 0, opts.underD || 0);
+  return n ? { faces: n, canvas: g.canvas } : null;
+}
+
 export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   const W = host.width, H = host.height;
   // ⚠ THE CANVAS IS IN DEVICE PIXELS AND THE CAMERA IS IN CSS PIXELS, AND THE MATRIX NEEDS THE
@@ -1290,6 +1336,46 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // taking an argument one of them can forget. They share ONE depth buffer, and two of them
   // built from two different near planes do not disagree visibly; they disagree by a hair, which
   // reads as z-fighting somebody then goes looking for in the eps ladder. See `nearFor`.
+  // ── UNDER THE WATER (plugins/submersible) ─────────────────────────────────
+  // The Drake submerged: the camera goes below the surface, and that is ONE assignment, because
+  // every pass below takes its eye height off `cam` and `viewMatrix` is happy with a negative one.
+  // What cannot come along is the floor and the roads — both are the ground seen from ABOVE — and
+  // the mirror, which reflects about a surface we are now under; the seabed replaces the first two.
+  // Everything else still draws, fogged to the water's own colour over a few tiles through the one
+  // fog band every layer already reads, which is honest: you can see three or four tiles down there.
+  // ⚠ It rides FLOOR_STATE rather than a new opts key, so the install.js allowlist (and gl:opts) is
+  // not involved.
+  const SUB = opts.floor && opts.floor.sub > 0 ? opts.floor.sub : 0;
+  const SUBSCENE = opts.floor ? opts.floor.subScene : null;
+  // The eye goes down with her before it goes under: awash, the camera is simply lower.
+  if (opts.floor && opts.floor.camEH != null && cam) cam = { ...cam, EH: opts.floor.camEH };
+  if (SUB && cam) {
+    const wc = (SUBSCENE && SUBSCENE.water) || [0.05, 0.25, 0.32];
+    // The city's lights, signs, wires, trees and birds are all above the surface too; left in, they
+    // hang in the water with nothing under them. Emptied rather than skipped so every layer still
+    // runs its own bookkeeping on an empty list.
+    // ⚠ EASED OVER THE FIRST METRE (about 0.14 tiles) rather than switched: just under, the band is
+    // thin and reaches far, and it closes to the full murk as she goes down, so the city fades into
+    // the water instead of vanishing on one frame. The lights go at the half-way point, with the rest.
+    const fk = Math.min(1, SUB / 0.14);
+    opts = { ...opts, fogBand: { col: wc, amt: 0.35 + 0.65 * fk, near: 0.2, far: 3.6 + (1 - fk) * 30 }, glMirror: 0, glFogH: 0,
+      ...(fk > 0.5 ? { sprites: [], curtain: [], decals: [], strokes: [], scatter: [] } : null) };
+  } else if (opts.floor && (opts.floor.dunkFog ?? opts.floor.seaUnder) > 0.01 && cam) {
+    // ── A WAVE OVER THE LENS (glSeaDunk) ────────────────────────────────────
+    // Not the submarine: a crest has closed over a low camera. The seabed pass is not running, so
+    // nothing stands between the eye and the shore — and the city was drawn at full clarity through
+    // the water, bottoms of the buildings and all, where the rising seabed should have hidden them.
+    // Real water does that job long before the shore: a few tiles of extinction, so the same fog
+    // band the submarine uses closes the view. The water surface overhead does its own extinction
+    // in water.js and is not affected.
+    const b = opts.floor.seaBody || [0.05, 0.25, 0.32];
+    const wc = [b[0] * 0.6, b[1] * 0.6, b[2] * 0.6];
+    // Eased by windshield.js (SUB_FX.fog) so the view closes over a tenth of a second rather than on
+    // one frame; the band pulls in from far to near as it does.
+    const fk = Math.min(1, opts.floor.dunkFog ?? 1);
+    opts = { ...opts, fogBand: { col: wc, amt: fk, near: 0.2, far: 3.6 + (1 - fk) * 30 }, glMirror: 0, glFogH: 0 };
+    if (fk > 0.5) opts = { ...opts, sprites: [], curtain: [], decals: [], strokes: [], scatter: [] };
+  }
   if (cam) cam.near = nearFor(cam, cssH, opts.nearFit == null ? 1 : opts.nearFit);
   if (!W || !H) return null;
   const g = sceneGL(id, W, H, opts.msaa == null ? 1 : opts.msaa);
@@ -1303,6 +1389,20 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // the recovery path was itself a way to run the page out of contexts.
   if (!g.view) { glDisposeScene(id); return null; }
   if (g.view.lost && g.view.lost()) { glDisposeScene(id); return null; }
+  // A profiling seam for the benches: with `window.__glPT` set to an object, every view method's
+  // CPU time accumulates into it by name. Off, this is one property read a frame.
+  if (typeof window !== 'undefined' && window.__glPT && !g.view.__timed) {
+    g.view.__timed = true;
+    for (const k of Object.keys(g.view)) {
+      const fn = g.view[k];
+      if (typeof fn !== 'function' || k === 'lost') continue;
+      g.view[k] = function (...a) {
+        const T = window.__glPT; if (!T) return fn.apply(this, a);
+        const t0 = performance.now();
+        try { return fn.apply(this, a); } finally { T[k] = (T[k] || 0) + performance.now() - t0; }
+      };
+    }
+  }
 
   const key = windowKey(cells);
   if (CHURN) for (const it of cells) {
@@ -1492,7 +1592,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // Screen-space occlusion. Same default-off argument as the bevel: the bench and the Modelshop
     // preview reach this function too, and a bench that silently got a term it did not ask for
     // cannot measure it.
-    ssao: opts.glSsao || 0, ssaoRadius: SSAO_TUNE.radius, ssaoBias: SSAO_TUNE.bias,
+    ssao: opts.glSsao || 0, ssaoRes: opts.glSsaoRes, ssaoRadius: SSAO_TUNE.radius, ssaoBias: SSAO_TUNE.bias,
     mat: deps.matTable || null };
   // ── THE CITY, UPSIDE DOWN, BEFORE ANY OF IT IS DRAWN THE RIGHT WAY UP ──────────────────────
   //
@@ -1531,13 +1631,18 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   const room = (opts.ship || []).filter((f) => f.interior);
   const rig = room.length ? (opts.ship || []).filter((f) => !f.interior) : opts.ship;
   if (g.view.uploadSolids) g.view.uploadSolids([rig, opts.bay, opts.fauna]);
-  if (g.view.uploadInterior) g.view.uploadInterior(room);
+  if (g.view.uploadInterior) g.view.uploadInterior(room, (opts.ship && opts.ship.interiorModel) || null);
   const mirrorGain = opts.glMirror > 0 ? opts.glMirror : 0;
   // ⚠ AND THE SEA WANTS IT TOO, WHICH IS WHY THIS GATE IS NO LONGER ONLY ABOUT WET TARMAC. The
   // prepass was gated on 'glWet' because a puddle was its only client; over open water in clear
   // weather that is 0, so the sea would have reflected nothing at all — and the failure is silent,
   // because a sea with no reflection in it still looks like a sea.
-  const seaWants = opts.floor && opts.floor.swell > 0 && opts.floor.seaRefl > 0 && opts.floor.seaRoll > 0;
+  // ⚠ AND ONLY WHEN THERE IS WATER TO REFLECT IN. `swell` is a property of the SEA, not of the view,
+  // so inland it is still > 0 and the prepass rendered the whole city a second time into a buffer
+  // nothing sampled — measured at ~10 ms of an inland cab frame. `waterTiles` counts the map
+  // window's water; undefined (an older caller) keeps the old behaviour.
+  const seaWants = opts.floor && opts.floor.swell > 0 && opts.floor.seaRefl > 0 && opts.floor.seaRoll > 0
+    && opts.floor.waterTiles !== 0;
   const reflTex = (mirrorGain > 0 && (opts.glWet > 0 || seaWants) && g.view.drawMirror)
     ? g.view.drawMirror(cam, { sprites: opts.sprites, decals: opts.decals, cssH, scale: opts.glMirrorRes,
         // ⚠ AND THE SKY, WHICH IS MOST OF WHAT A PUDDLE IS LOOKING AT. Measured on a city street
@@ -1556,6 +1661,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
         // that has a rig in it.
         fog: opts.fogBand })
     : null;
+  if (SUB) drawOpts.skipMass = true;   // under the sea: see skipMass in context.js
   g.view.draw(camAt, drawOpts);
   // ⚠ AFTER THE MASS, AND THAT IS NOT AN ORDERING PREFERENCE. `draw()` OPENS with
   // gl.clear(COLOR | DEPTH) — so a floor drawn before it is drawn and then wiped, every frame.
@@ -1595,7 +1701,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // triangles of own ship in a cab view with no own ship in it. The two LIST lengths are reported
   // beside it, because a diagnostic that cannot tell a shed that arrived from a rig that did is the
   // reason this was hard to see in the first place.
-  const solids = g.view.drawSolids ? g.view.drawSolids(camAt, cssH, { fog: opts.fogBand }) : 0;
+  const solids = g.view.drawSolids ? g.view.drawSolids(camAt, cssH, { fog: opts.fogBand, water: opts.ownWater }) : 0;
 
   const fl = opts.floor;
   // ⚠ THE WET TERMS STAY OFF AND THE SNOW GOES ON, WHICH IS NOT AN INCONSISTENCY. The floor own
@@ -1626,7 +1732,21 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // ⚠ THE SCALE HEIGHT IS FOLDED IN HERE rather than in windshield.js, which may not import gl/ —
   // see FLOOR_STATE. Spread onto a copy, never written onto the caller's object: FLOOR_STATE is
   // read by __glass2() after the frame and by the 2-D floor beside it.
-  const floor = g.view.drawFloor(opts.floor ? { ...opts.floor, fogHScale: FOG_H_SCALE } : opts.floor, cam.near);
+  // Under the water the seabed stands in for the floor, which only works from above. See UNDER THE WATER.
+  if (SUB && g.view.drawSeabed) g.view.drawSeabed(camAt, SUBSCENE, cssH, dpr, eyePos(camAt), performance.now() / 1000);
+  // ── THE WATERLINE SPLIT (windshield.js drawWaterSplit) ──────────────────
+  // A chase camera low beside a hull afloat: the sea surface is drawn only ABOVE her waterline, so
+  // what is under it shows, and the 2-D pass lays the water over that. A scissor, so nothing else in
+  // either pass has to know; the viewport is read back rather than assumed, because the frame may be
+  // going into the HDR target at another size.
+  const splitF = !SUB && opts.floor && opts.floor.split > 0 && opts.floor.split < 1 ? opts.floor.split : 0;
+  const sgl = splitF ? g.view.gl : null;
+  if (sgl) {
+    const vp = sgl.getParameter(sgl.VIEWPORT);
+    sgl.enable(sgl.SCISSOR_TEST);
+    sgl.scissor(vp[0], vp[1] + Math.round(vp[3] * (1 - splitF)), vp[2], Math.round(vp[3] * splitF));
+  }
+  const floor = SUB ? 0 : g.view.drawFloor(opts.floor ? { ...opts.floor, fogHScale: FOG_H_SCALE } : opts.floor, cam.near);
   // ── AND THE SEA STANDS UP OUT OF IT ─────────────────────────────────────────────────────────
   //
   // ⚠ AFTER THE FLOOR, NEVER BEFORE IT, AND THAT IS NOT A PREFERENCE. The floor writes depth for a
@@ -1643,11 +1763,15 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
         tex: reflTex, sky: opts.skyStrip || null,
         w: g.canvas ? g.canvas.width : 1, h: g.canvas ? g.canvas.height : 1,
       } : null) : 0;
+  if (sgl) sgl.disable(sgl.SCISSOR_TEST);
+  // Bubbles off the Drake and what hangs in the water, after the surface so a bubble rising to it
+  // is seen against it. On the surface the only points are the froth off her stern.
+  if (SUBSCENE && g.view.drawSeabedPoints) g.view.drawSeabedPoints(camAt, SUBSCENE, cssH, dpr);
   // ⚠ AFTER THE FLOOR AND IN THE WINDOW FRAME. The road quads are recorded at their map-window
   // tile exactly as the mesh is, so they take the SHIFTED camera; handing them the plain one
   // would slide the kerbs a fraction of a tile off the buildings standing on them. They also
   // stand ON the floor rather than being it — see the eps ladder in windshield.js.
-  const ground = g.view.drawGround(camAt, opts.ground, cssH, {
+  const ground = SUB ? 0 : g.view.drawGround(camAt, opts.ground, cssH, {
     // No haze band: the per-quad alpha already carries drawGroundSurfaces own far fade, and
     // applying the window dissolve on top would fade the road twice.
     fog: opts.fogBand,
@@ -1673,6 +1797,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // above it carries: the shader has its own 'uNWet' test and a second one here is the mistake
     // that made the road dry every afternoon it rained.
     pool: opts.glPool > 0 ? opts.glPool : 0, night: opts.night || 0,
+    nightDim: 1 - (opts.night || 0) * (opts.glNightDark || 0),
     fogH: opts.glFogH || 0, fogHScale: FOG_H_SCALE, scatter: scatterNow,
     // How much water is STANDING, which is what decides the puddle level — as opposed to how wet
     // the surface is, which decides the darkening and the mirror. See POND_RISE_S in windshield.js.
@@ -1738,6 +1863,12 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     groundBias: opts.glGroundBias,
     vpW: g.canvas ? g.canvas.width : 0, vpH: g.canvas ? g.canvas.height : 0,
   });
+  // ── AND THE TRANSLUCENT HALF OF THE SOLIDS ──────────────────────────────────────────────────
+  // A rotor's blades and blur disc, in the same buffer as the hull that carries them but drawn
+  // here: after the floor, the sea and the road, because they write no depth and have to blend over
+  // whatever is behind them. Tested against depth, so the hull and the city still hide them. See
+  // `film` in solids.js. The mirror prepass draws the solid range only.
+  const film = g.view.drawSolids ? g.view.drawSolids(camAt, cssH, { fog: opts.fogBand, film: true, water: opts.ownWater }) : 0;
   // ⚠ THE LIGHTS ARE IN THE CAMERA'S OWN FRAME, NOT THE WINDOW'S. The mesh is built at map-window
   // tiles so it can be cached; a light is collected fresh every frame from the arm that owns it,
   // in the camera-relative coordinates the arm works in. So it takes the plain camera, and the
@@ -1754,7 +1885,8 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // gain), but it is NOT the same number and must not be folded into it: that one multiplies every
   // additive sprite in the frame, which is how it cost 21.2% of an aerial night frame to buy 0.1%
   // of bloom. A neon box says it is a neon box; a stone frieze says nothing and stays at 1.
-  const decals = g.view.drawDecals(cam, opts.decals, cssH, opts.hdr > 0 ? SIGN_EMISSIVE_GAIN : 0);
+  const decals = g.view.drawDecals(cam, opts.decals, cssH, opts.hdr > 0 ? SIGN_EMISSIVE_GAIN : 0,
+    { tube: opts.glNeonTube, flicker: opts.glNeonFlicker, now: opts.now });
   const decalBinds = g.view.decalCost ? g.view.decalCost() : null;
   // The wires — masts, rails, braces, cables, light-runners. After the mass for the same reason
   // the Curtain and the signage are: depth-tested, writing none of its own.
@@ -1792,7 +1924,8 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // ⚠ AND NO FOG. Fog is the atmosphere between you and a thing, and there is none between a driver
   // and their own steering column. At this range the term is zero anyway, which is exactly why it
   // is left out rather than passed: passing it would make the right answer a coincidence.
-  const interior = g.view.drawInterior ? g.view.drawInterior(camAt, cssH, {}) : 0;
+  // ⚠ UNLESS THE SEAT HAS ASKED FOR IT LATER — see glInteriorPass. Uploaded either way.
+  const interior = (!opts.interiorLater && g.view.drawInterior) ? g.view.drawInterior(camAt, cssH, { under: opts.floor ? (opts.floor.dunkFog || 0) : 0, underD: opts.floor ? Math.max(0, opts.floor.seaUnderD || 0) * 7 : 0 }) : 0;
   // ── AND THE FLOAT BUFFER COMES BACK DOWN TO EIGHT BITS ──────────────────────────────────────
   //
   // ⚠ LAST, AFTER EVERY LAYER, AND THAT IS THE WHOLE ORDERING RULE. `draw()` bound the target and
@@ -1807,6 +1940,10 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     threshold: HDR_TUNE.threshold, knee: HDR_TUNE.knee,
     tonemap: opts.glTonemap > 0 ? opts.glTonemap : 0,
     exposure: opts.glExposure > 0 ? opts.glExposure : 1,
+    // Only the WORLD composite takes FXAA. The cloud deck composites onto its own pass afterwards
+    // and is soft by nature; running the filter there too would be a second full-frame pass for
+    // edges that do not exist.
+    fxaa: opts.glFxaa > 0 ? 1 : 0,
   });
   // ⚠ A FUNCTION RATHER THAN A VALUE, so it costs nothing on a frame nobody is measuring. Reading
   // back a float target is a full readPixels and a scan of every texel; as a plain field it would be
@@ -1830,6 +1967,6 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // product of three things that can each be zero for a different reason — the tune, the wetness,
   // and whether the framebuffer was accepted — and a reflection that silently never ran looks
   // exactly like one that ran and was too faint to see.
-  return { interior, faces: g.faces || 0, builds, lights, lit: lightList || [], curtains, decals, decalBinds, strokes, scatter, solids, ship: (opts.ship || []).length, bay: (opts.bay || []).length, fauna: (opts.fauna || []).length, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, snow: opts.glSnow || 0, tracks: opts.tracks ? opts.tracks.n : 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, hdr: graded, canvas: g.canvas };
+  return { interior, faces: g.faces || 0, builds, lights, lit: lightList || [], curtains, decals, decalBinds, strokes, scatter, solids, film, ship: (opts.ship || []).length, bay: (opts.bay || []).length, fauna: (opts.fauna || []).length, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, snow: opts.glSnow || 0, tracks: opts.tracks ? opts.tracks.n : 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, hdr: graded, canvas: g.canvas };
 }
 

@@ -5,9 +5,7 @@
       "chairs",
       "stack"
     ],
-    "interactions": {
-      "examine": "The top chair of each stack is clean and the ones underneath are not, which is how you can tell how far down anybody ever gets."
-    }
+    "examine_detail": "The top chair of each stack is clean and the ones underneath are not, which is how you can tell how far down anybody ever gets."
   },
   "id": "furn_going_chairs",
   "name": "the stacked chairs",

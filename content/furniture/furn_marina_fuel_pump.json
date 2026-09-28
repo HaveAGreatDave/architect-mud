@@ -1,5 +1,5 @@
 {
-  "description": "A single pump in Fairweather's grey, bolted through the decking at the head of the walkway: a cranked hose on a drum, a dead-man nozzle in a clip, a card reader with the paint worn off the keys, and a bonding cable coiled on a hook that everybody uses and nobody checks. The plate above the reader carries the rate for race fuel and nothing else — no grades, no offers, no hours, on the reasoning that anybody who has to ask is at the wrong marina.",
+  "description": "Three slim chrome pylons along the fuelling edge of the berth, each with a frosted screen that stays dark until a hull alongside has been recognised. The hose lives inside the column and comes out to meet the boat. The middle pylon is race fuel and its screen is gold; the rate shows on it once, in small figures, and nothing else does.",
   "flags": {
     "fuel_price_sign": true,
     "fuel_source": 1.15,
@@ -12,9 +12,9 @@
   "id": "furn_marina_fuel_pump",
   "light_type": "lamp",
   "lumen_output": 180,
-  "name": "the fuel pump",
+  "name": "the fuel pylons",
   "object_type": "furniture",
   "power_draw_kw": 0.05,
   "price": 0,
-  "zone_id": "zone_district_892_901"
+  "zone_id": "zone_district_893_901"
 }

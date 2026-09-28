@@ -395,8 +395,7 @@ function drawGlyph(ctx, node, px, py, t, ink, landmarkInk) {
 }
 
 // Green where the room opens through, red where it's wall. `open_dirs` is the
-// authority and is null outside a floorplan, so a street facade draws only the one
-// green line on its door edge — the red half would just outline every building.
+// authority: set on every building tile (facades too), null on the street.
 //
 // A side a lock is holding shut (`locked_dirs`, always a subset of the open ones)
 // takes that same red at full strength. A wall and a locked door both mean no way
@@ -420,20 +419,15 @@ function drawEdges(ctx, node, px, py, t) {
 	const open = Array.isArray(node.open_dirs) ? node.open_dirs : null;
 	const locked = Array.isArray(node.locked_dirs) ? node.locked_dirs : null;
 	const mine = Array.isArray(node.unlockable_dirs) ? node.unlockable_dirs : null;
-	const dirs = open ? CARDINALS : (CARDINALS.includes(node.entrance) ? [node.entrance] : []);
-	if (!dirs.length) return;
-	// A law holding the building shut (shop hours) reddens the facade's one line, for the
-	// reason in doorMarks: the green line is the invitation, and it must not sit beside
-	// the red inset saying the place is closed. Interiors are unaffected — `shut` is a
-	// facade fact, and out on the street open_dirs is null.
-	const lawShut = !open && !!node.shut;
+	if (!open) return;
 	const w = Math.max(2, Math.round(t * 0.16));
 	const pad = t * 0.14, len = t - pad * 2;
 	ctx.save();
-	for (const d of dirs) {
-		const isLocked = lawShut || !!locked?.includes(d);
+	for (const d of CARDINALS) {
+		// A law holding a building shut (shop hours) reddens its door edge — see doorMarks.
+		const isLocked = !!locked?.includes(d) || (!!node.shut && d === node.entrance);
 		const isMine = isLocked && !!mine?.includes(d);
-		const isOpen = !isLocked && (open ? open.includes(d) : true);
+		const isOpen = !isLocked && open.includes(d);
 		ctx.fillStyle = isMine ? EDGE_MINE : (isOpen ? EDGE_OPEN : EDGE_SHUT);
 		ctx.globalAlpha = isOpen || isLocked ? 1 : 0.7;
 		if (d === 'north') ctx.fillRect(px + pad, py, len, w);

@@ -156,7 +156,7 @@ registerStatusEffect({
   label: 'Drowning',
   onTick(player) {
     player.hp = Math.max(0, (player.hp ?? 0) - DROWN_HP);
-    return bad(`Water closes over your head — you're drowning! (-${DROWN_HP} HP)`);
+    return bad(`Water closes over your head: you're drowning! (-${DROWN_HP} HP)`);
   },
 });
 
@@ -270,7 +270,7 @@ function dropSwimmer(player) {
 // A body that stops being in the world stops being in the water. Without these the
 // roster would hold ids nobody can serve — the tick self-heals those, but leaking
 // them for a whole session just to lean on the self-heal is the wrong way round.
-on('player.logout', ({ player }) => dropSwimmer(player));
+on('player.logout', ({ id }) => dropSwimmer(id));   // the event carries `{ id }`, never `{ player }`
 on('player.death',  ({ player }) => dropSwimmer(player));
 
 // Logging back in standing in the sea used to be caught by the next sweep, because
@@ -310,7 +310,7 @@ on('zone.entered', async ({ actor: player, from, opts }) => {
         foul
           ? 'You haul yourself out, dripping and heavy, wearing a film of whatever that water was carrying.'
           : rinsed
-            ? 'You haul yourself out, dripping and heavy — and noticeably cleaner than you went in.'
+            ? 'You haul yourself out, dripping and heavy, and noticeably cleaner than you went in.'
             : 'You haul yourself out of the water, dripping and heavy.') });
     }
     return;
@@ -394,7 +394,7 @@ export async function swimTick() {
       if (outOfAir || exhausted) {
         if (!player._drowning) {
           player._drowning = true;
-          sendToPlayer(player.id, { type: 'output', message: bad(outOfAir ? "Your lungs are screaming — you're out of air!" : "You can't keep your head up any longer — you're going under!") });
+          sendToPlayer(player.id, { type: 'output', message: bad(outOfAir ? "Your lungs are screaming: you're out of air!" : "You can't keep your head up any longer: you're going under!") });
         }
         applyEffect(player, 'drowning', 3);            // engine per-second tick bleeds HP + handles death
         continue;
@@ -516,7 +516,7 @@ registerMoveGate(({ to }) => {
   if (!isSwimZone(to) || isUnderwater(to)) return;   // her draught doesn't reach the deep tiles below
   const vessel = vesselAt(to);
   if (!vessel) return;
-  return { block: true, message: `The ${vessel.name} fills the water ahead — there's no swimming under her. Come alongside and <b>embark</b> to climb aboard.` };
+  return { block: true, message: `The ${vessel.name} fills the water ahead: there's no swimming under her. Come alongside and <b>embark</b> to climb aboard.` };
 }, 'swimming:vessel-hull');
 
 registerAction({
@@ -540,7 +540,7 @@ registerAction({
       drainStamina(actor, BOARD_FAIL_COST);
       bc?.(here.id, { type: 'zone_event', message: `${actor.handle} grabs at the ${vessel.name} and slides back into the water.` }, actor.id);
       return { type: 'emote', message: bad(tired
-        ? `You get a hand to the rail — and your arms simply won't do it. You slide back into the water, breathing hard.`
+        ? `You get a hand to the rail, and your arms simply won't do it. You slide back into the water, breathing hard.`
         : `You get a hand to the hull, miss your grip and slide back down. Try again.`) };
     }
     if (chk) awardSkillUse(actor.id, 'swimming', Math.max(0, chk.margin));

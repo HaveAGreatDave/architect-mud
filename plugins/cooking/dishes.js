@@ -107,7 +107,7 @@ export const DISHES = {
     // stock's liquid would be worse than useless.
     nouns: { liquid: 'water' },
     ceiling: 'excellent', difficulty: 5,
-    blurb: 'Bones and time. Not a meal — the thing that makes meals.',
+    blurb: 'Bones and time. Not a meal: the thing that makes meals.',
   },
   mash: {
     noun: 'mash', vessel: 'pot',
@@ -484,12 +484,12 @@ export const DISHES = {
     // to reward — the balance is the recipe.
     seasoning: 0,
     notes: {
-      aromatic: "salt and pepper, garlic, brown sugar, paprika, cayenne — and the salt isn't the flavour, it's the vehicle",
+      aromatic: "salt and pepper, garlic, brown sugar, paprika, cayenne, and the salt isn't the flavour, it's the vehicle",
     },
     steps: [
       'Everything dry and everything ground. A lump of anything in a rub is a lump of that thing in your dinner.',
       "Salt first and by weight, because it's the only one you can't walk back.",
-      "Sugar next. It isn't there to sweeten it, it's there to burn — that's where the bark comes from.",
+      "Sugar next. It isn't there to sweeten it, it's there to burn: that's where the bark comes from.",
       'Paprika for colour, cayenne for the argument, garlic for the rest of it.',
       'Mix until the colour is one colour. If you can still see the salt, keep going.',
     ],
@@ -601,7 +601,7 @@ export const DISHES = {
     nameFormat: '{0} chop',
     seasoning: 3,
     notes: {
-      preserved: "a slab an inch and a half thick, smoked first — that isn't optional",
+      preserved: "a slab an inch and a half thick, smoked first: that isn't optional",
       fruit: 'the sauce, and Malcolm will tell you which one',
     },
     steps: [
@@ -635,11 +635,11 @@ export const DISHES = {
     nameFormat: 'pulled {0}',
     seasoning: 3,
     notes: {
-      preserved: 'a whole shoulder, bone in, smoked — one feeds a room, two feeds a week',
+      preserved: 'a whole shoulder, bone in, smoked: one feeds a room, two feeds a week',
     },
     steps: [
       'Score the fat cap. Mustard, then rub, and far more rub than looks reasonable.',
-      "Two twenty-five, and then ten to fourteen hours. That isn't a range you get to choose from — it's done when it's done.",
+      "Two twenty-five, and then ten to fourteen hours. That isn't a range you get to choose from: it's done when it's done.",
       "It'll stop climbing in temperature partway through and sit there for hours, sulking. This is normal. Don't turn the heat up. Do not.",
       'Take it off when the bone comes away from it without an argument.',
       'Rest it, then pull it apart with two forks and your hands, and put the bark back through the middle so everybody gets some.',
@@ -748,7 +748,7 @@ export const DISHES = {
       "Fill a pot at the tap and get it on the heat. Salt the water heavily, then the penne in. Don't stir it about.",
       'Butter or oil into the pan while that goes, and let it get properly hot.',
       'Tomato in and cook it down hard, until it darkens and stops being a sauce made of water.',
-      "Off the heat — genuinely off it — in with the gin. It'll hiss and try to catch. That's why it's off the heat.",
+      "Off the heat, genuinely off it, in with the gin. It'll hiss and try to catch. That's why it's off the heat.",
       'Back on low. Cream in last, and only once the alcohol has gone.',
       'Drain the penne short of done and tip it into the pan, so the sauce catches in the ridges.',
     ],
@@ -1356,7 +1356,7 @@ export function ingredientParts(profileName, need, template = null, itemInfo = n
 // unitWeight, which is the exact number the matcher counts against.
 export function ingredientLine(profileName, need, template = null, itemInfo = null) {
   const parts = ingredientParts(profileName, need, template, itemInfo);
-  if (parts.seasoning) return `${parts.amount} of ${parts.noun} — to season`;
+  if (parts.seasoning) return `${parts.amount} of ${parts.noun}: to season`;
   const { amount: grams, prep: prepWord, note } = parts;
   const prep = prepWord ? `, ${prepWord}` : '';
   // SAY PENNE, NOT "DRY STARCH".
@@ -1375,7 +1375,7 @@ export function ingredientLine(profileName, need, template = null, itemInfo = nu
   // makes the catalog extensible, but "800g–1.2kg of liquid" is not a recipe
   // anyone can follow — that's three ingredients in one number, and the note is
   // where the author says which three.
-  return `${grams} of ${parts.noun}${prep}${note ? ` — ${note}` : ''}`;
+  return `${grams} of ${parts.noun}${prep}${note ? `, ${note}` : ''}`;
 }
 
 // The noun a template's key item lends to the class it belongs to, if any.
@@ -1445,11 +1445,11 @@ export function methodLines(template) {
     .map(n => [n, PROFILES[n]]).filter(([, p]) => p && !p.modifier);
   if (!profiles.length) return [`Assemble it. Nothing here wants heat.`];
 
-  if (template.vessel === 'bowl') return [`Work it together in the bowl. No heat — everything here is better raw.`];
+  if (template.vessel === 'bowl') return [`Work it together in the bowl. No heat: everything here is better raw.`];
   if (template.vessel === 'bread') return [`Build it on the bread. Heat is optional and changes what it is.`];
 
   const anyPrep = profiles.some(([, p]) => p.needsPrep);
-  if (anyPrep) out.push(`Cut everything down first — you'll want a knife.`);
+  if (anyPrep) out.push(`Cut everything down first: you'll want a knife.`);
 
   // Heat: a profile with a heatCurve is telling you to change the setting.
   const curved = profiles.find(([, p]) => p.heatCurve?.length > 1);
@@ -1501,7 +1501,7 @@ export function describeDish(key, template, secondsPerKg = 360, itemInfo = null)
   for (const l of methodLines(t)) lines.push(`  ${l}`);
   lines.push('');
   const ms = estimateCookMs(t, secondsPerKg);
-  if (ms > 0) lines.push(`<span class="text-dim">Roughly:</span> ${MINS(ms)} <span class="text-dim">on an ordinary stove — the pan and the heat move it either way.</span>`);
+  if (ms > 0) lines.push(`<span class="text-dim">Roughly:</span> ${MINS(ms)} <span class="text-dim">on an ordinary stove: the pan and the heat move it either way.</span>`);
   // THE KIT, not just the pan. A card that named the vessel and stopped left the
   // stove and the spoon as things you found out you needed halfway through.
   lines.push(`<span class="text-dim">Make it with:</span> ${gearLine(t) || 'anything, or straight on the heat'}`);
@@ -1511,7 +1511,7 @@ export function describeDish(key, template, secondsPerKg = 360, itemInfo = null)
   // just withholding, and a real cookbook names the bottle.
   if (t.keyItems?.length) {
     const named = t.keyItems.map(id => (itemInfo?.(id)?.name || id.replace(/^item_/, '').replace(/_/g, ' ')));
-    lines.push(`<span class="text-dim">Won't work without:</span> ${named.join(' and ')} — no substitutions, that's what makes it this dish`);
+    lines.push(`<span class="text-dim">Won't work without:</span> ${named.join(' and ')}: no substitutions, that's what makes it this dish`);
   }
   lines.push(`<span class="text-dim">Difficulty:</span> ${t.difficulty}/10 · <span class="text-dim">best possible:</span> ${bestPossibleBand(t, KNOWN_RECIPE_BONUS) || '—'}`);
   return lines.join('\n');
@@ -1550,7 +1550,7 @@ export function validateDishes(dishes = DISHES, bonus = KNOWN_RECIPE_BONUS) {
     if (!Number.isFinite(t.difficulty) || t.difficulty < 1) errors.push(`${at('difficulty')} must be >= 1 — got ${t.difficulty}`);
 
     const needs = t.needs || {};
-    if (!Object.keys(needs).length) errors.push(`${at('needs')} is empty — a dish that requires nothing matches everything`);
+    if (!Object.keys(needs).length) errors.push(`${at('needs')} is empty: a dish that requires nothing matches everything`);
 
     for (const [profile, need] of Object.entries(needs)) {
       if (!PROFILES[profile]) errors.push(`${at(`needs.${profile}`)} isn't a known food profile`);
@@ -1562,7 +1562,7 @@ export function validateDishes(dishes = DISHES, bonus = KNOWN_RECIPE_BONUS) {
       // say the tin. Still guarded — a need must be a positive, ordered range;
       // it just no longer has to be a whole ingredient.
       if (!Number.isFinite(min) || !Number.isFinite(max)) errors.push(`${at(`needs.${profile}`)} must be a number or [min, max] — got ${JSON.stringify(need)}`);
-      else if (min <= 0 || max < min) errors.push(`${at(`needs.${profile}`)} range must be 0 < min <= max — got ${JSON.stringify(need)}`);
+      else if (min <= 0 || max < min) errors.push(`${at(`needs.${profile}`)} range must be 0 < min <= max: got ${JSON.stringify(need)}`);
     }
 
     for (const profile of t.optional || []) {
@@ -1583,7 +1583,7 @@ export function validateDishes(dishes = DISHES, bonus = KNOWN_RECIPE_BONUS) {
       // another, which is the exact failure this field was added to end.
       const shown = t.nouns?.[profile];
       if (shown && String(shown).toLowerCase() !== String(want).toLowerCase()) {
-        errors.push(`${at(`requires.${profile}`)} is "${want}" but nouns.${profile} shows "${shown}" — the card would name something the matcher rejects`);
+        errors.push(`${at(`requires.${profile}`)} is "${want}" but nouns.${profile} shows "${shown}": the card would name something the matcher rejects`);
       }
     }
 
@@ -1606,7 +1606,7 @@ export function validateDishes(dishes = DISHES, bonus = KNOWN_RECIPE_BONUS) {
     // stamped part groups whatever it matches and nothing else.
     for (const [n, part] of (t.parts || []).entries()) {
       const where = at(`parts[${n}]`);
-      if (!part?.label || typeof part.label !== 'string') errors.push(`${where} needs a label — it becomes the line its members sit under`);
+      if (!part?.label || typeof part.label !== 'string') errors.push(`${where} needs a label: it becomes the line its members sit under`);
       const members = part.of || [];
       if (!Array.isArray(members)) errors.push(`${where}.of must be an ordered array of profiles and item ids`);
       if (members.length < 2) errors.push(`${where} groups ${members.length} thing(s); a component group of one is a line with an extra level on top`);
@@ -1673,14 +1673,14 @@ export function validateDishes(dishes = DISHES, bonus = KNOWN_RECIPE_BONUS) {
     if (!errors.length) {
       const best = bestPossibleBand(t, bonus);
       if (best && bandIndex(t.ceiling) > bandIndex(best)) {
-        errors.push(`${at('ceiling')} is ${t.ceiling}, but the best its required ingredients can compose is ${best} — no player could ever reach it`);
+        errors.push(`${at('ceiling')} is ${t.ceiling}, but the best its required ingredients can compose is ${best}: no player could ever reach it`);
       }
     }
 
     // Two templates that demand exactly the same thing in the same vessel are
     // unreachable-by-one: whichever sorts later can never win a tiebreak.
     const fingerprint = `${t.vessel}|${Object.entries(needs).map(([p, n]) => `${p}:${JSON.stringify(range(n))}`).sort().join(',')}`;
-    if (seen.has(fingerprint)) errors.push(`${key} has the same vessel+needs as ${seen.get(fingerprint)} — one of them is unreachable`);
+    if (seen.has(fingerprint)) errors.push(`${key} has the same vessel+needs as ${seen.get(fingerprint)}: one of them is unreachable`);
     else seen.set(fingerprint, key);
   }
 

@@ -123,7 +123,7 @@ function nextPhraseMurmur(npc) {
   const pool = poolFor(npc);
   const next = nextPassphrase(pool);
   if (!next || normalize(next) === normalize(activePassphrase(pool))) return '';
-  return ` Then, lower still: "Words turn over soon. When these die, it's — «${next}»."`;
+  return ` Then, lower still: "Words turn over soon. When these die, it's: «${next}»."`;
 }
 
 async function onSay({ player, text, zoneId, broadcast }) {
@@ -139,7 +139,7 @@ async function onSay({ player, text, zoneId, broadcast }) {
     if (isDealingHour(dealer) && looksLikePassphrase(text)) {
       const trust = await penalizeTrust(dealer, player);
       const msg = trust < 0
-        ? `The wrong words. His face shuts like a door. "...No. Not that, not from you, not tonight." You've soured something you hadn't even earned yet — leave it a while.`
+        ? `The wrong words. His face shuts like a door. "...No. Not that, not from you, not tonight." You've soured something you hadn't even earned yet: leave it a while.`
         : `The wrong words. Something cold crosses his face. "...That's not it. Careful who you try that on." He doesn't move to help you.`;
       sendToPlayer(player.id, { type: 'output', message: `<span class="msg-system">${msg}</span>` });
     }

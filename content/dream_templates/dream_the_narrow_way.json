@@ -5,7 +5,7 @@
     "Something behind you settles, and the way you came is the way you came."
   ],
   "cause": "dream",
-  "description": "A way through, between two things, that you started into upright. It's still passable. It has been still passable for a while now, and each stretch of it's a stretch you could go back along, and you're going forward because the light is that way.",
+  "description": "A way through, between two things, that you started into upright. It's still passable. It has been still passable for a while now, and each stretch of it is a stretch you could go back along, and you're going forward because the light is that way.",
   "drug_id": null,
   "fx": "tunnel",
   "fx_intensity": 0.7,
@@ -15,7 +15,7 @@
     {
       "looks": [
         "Wide enough. It has been wide enough every time you have checked.",
-        "The light through it's daylight and it's on your face.",
+        "The light through it is daylight and it's on your face.",
         "You could get a hand through, and then a shoulder, and you have done both before."
       ],
       "name": "the gap ahead"

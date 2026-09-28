@@ -6,9 +6,7 @@
       "plates",
       "ranks"
     ],
-    "interactions": {
-      "examine": "Number six has a card that has been full for a while, with the last four entries in the same week and then nothing."
-    }
+    "examine_detail": "Number six has a card that has been full for a while, with the last four entries in the same week and then nothing."
   },
   "id": "furn_cold_exchangers",
   "name": "the plate exchangers",

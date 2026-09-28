@@ -142,7 +142,7 @@
     "\"Been up since three,\" he says, to the bench, not as a complaint.",
     "He writes a number on the back of a bag, looks at it, and crosses it out."
   ],
-  "description": "A short wide man with forearms out of all proportion to the rest of him and flour worked so far into the creases of his hands that washing has stopped being the point. He has been awake since three and it shows in the eyes and nowhere else. He talks while he works and the work does not slow down for it, and if you stop him mid-sentence he will finish the sentence later, exactly where he left it.",
+  "description": "A short, wide man with huge forearms and flour worked permanently into the creases of his hands. He's been up since three and it shows in his eyes. He talks while he works, and if you interrupt him he'll finish the sentence later.",
   "dialogue_tree": {
     "bye": {
       "options": [],

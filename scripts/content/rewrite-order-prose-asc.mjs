@@ -165,7 +165,7 @@ const PROSE = {
   // ── Repeatable favour. Pricing a district by walking it. ──────────────────
   quest_asc_fav_actuarial: {
     description:
-      'Curator Vess hands you a slate and a route, and explains — pleasantly, at slightly more length than the task deserves — that Halcyon prices a district by walking it, because a satellite cannot smell a stairwell.\n\nWalk the line. Stand where the slate tells you to stand. Bring back numbers that nobody will ever read back to you, and that will nevertheless decide what a street full of people pays to stay alive next year.',
+      'Curator Vess hands you a slate and a route, and explains (pleasantly, at slightly more length than the task deserves) that Halcyon prices a district by walking it, because a satellite cannot smell a stairwell.\n\nWalk the line. Stand where the slate tells you to stand. Bring back numbers that nobody will ever read back to you, and that will nevertheless decide what a street full of people pays to stay alive next year.',
     objectives: {
       o0: {
         desc: 'Take the first reading on Halcyon Boulevard.',
@@ -209,7 +209,7 @@ const PROSE = {
   // ── Repeatable favour. The warmth given to a working machine. ─────────────
   quest_asc_fav_coldchain: {
     description:
-      'The Weave line makes it and the clinic fits it, and in between there is a walk across a campus that nobody senior has ever had to make.\n\nThe tray is cold. It must stay cold. Vess thanks you for it with the exact warmth she would give a machine that had performed correctly — which is real warmth, delivered accurately, and somehow worse for both of those things.',
+      'The Weave line makes it and the clinic fits it, and in between there is a walk across a campus that nobody senior has ever had to make.\n\nThe tray is cold. It must stay cold. Vess thanks you for it with the exact warmth she would give a machine that had performed correctly, which is real warmth, delivered accurately, and somehow worse for both of those things.',
     objectives: {
       o_pick: {
         desc: 'Collect the tray from the fabrication line.',
@@ -253,7 +253,7 @@ const PROSE = {
   // ── Slot 5 · a test that does not look like one. Bring somebody in. ───────
   quest_asc_fav_lead: {
     description:
-      'Somebody in Coldwater has been asking the right questions in the wrong places, which is how everybody arrives here eventually.\n\nMaresh would like them at the Gate alive, unhurried, and still curious — in that order, and he means the order. He mentions, lightly, almost in passing, that the walk out west is not a safe one.\n\nHe does not connect that remark to anything. He does not have to. It is precisely why the offer lands when it lands.',
+      'Somebody in Coldwater has been asking the right questions in the wrong places, which is how everybody arrives here eventually.\n\nMaresh would like them at the Gate alive, unhurried, and still curious, in that order, and he means the order. He mentions, lightly, almost in passing, that the walk out west is not a safe one.\n\nHe does not connect that remark to anything. He does not have to. It is precisely why the offer lands when it lands.',
     objectives: {
       o_meet: {
         desc: 'Find the prospect and introduce yourself.',

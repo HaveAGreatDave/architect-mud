@@ -77,7 +77,7 @@ async function buildScreen(player) {
       : `Alarm set for ${hhmm(alarm)}.`,
     rows,
     body: [
-      'Set it before you sleep — anywhere, not just at a bed.',
+      'Set it before you sleep: anywhere, not just at a bed.',
       "It wakes you at that time even if you aren't finished resting,",
       'so a short nap is a choice you can actually make.',
     ].join('\n'),

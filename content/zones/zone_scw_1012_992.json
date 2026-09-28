@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The face of the tableland: a hundred feet of banded rock with nothing on it but the marks of the rain, and a fan of fallen stone piled at the foot where pieces of it have given up over the years.",
+  "description": "A tall banded face with nothing growing on it, and loose stone heaped where it meets the ground.",
   "exits": {
     "east": "zone_scw_1013_992",
     "north": "zone_scw_1012_991",

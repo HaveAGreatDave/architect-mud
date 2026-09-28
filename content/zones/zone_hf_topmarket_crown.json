@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "The top floor of the tower, and because the tower has turned nearly a quarter of the way round on its way up, the room is not aligned with the street grid at all — every window looks down a diagonal, and the effect from a table is of a city that has been rotated slightly and left that way. Fourteen tables. A bar along the core. The kitchen is behind the lift and is smaller than the smallest of the flats below.",
+  "description": "The top floor of the tower, which has turned almost a quarter-turn on its way up, so every window looks down a diagonal of the street grid. Fourteen tables. A bar along the core. A small kitchen behind the lift.",
   "exits": {
     "down": "zone_hf_topmarket_lift"
   },

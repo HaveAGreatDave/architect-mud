@@ -6,9 +6,12 @@
       "chairs",
       "deck"
     ],
-    "interactions": {
+    "interaction_lines": {
       "sit": "The slats take your weight with a series of small complaints and then hold. The wall hums, a long way off, and you get used to it faster than you expect."
-    }
+    },
+    "interactions": [
+      "sit"
+    ]
   },
   "id": "furn_wind_steamers",
   "name": "the steamer chairs",

@@ -8,7 +8,7 @@
   "name": "a bale of raw tobacco leaf",
   "tags": {
     "crop": true,
-    "description": "A pressed bale of green leaf, strapped with wire and still smelling of the field. Nothing about it's illegal, which is why the frontier grows it: it rides in a hold in plain sight, and no badge has ever asked a pilot where his tobacco came from. Cure it down and it's smokable."
+    "description": "A pressed bale of green leaf, strapped with wire and still smelling of the field. Nothing about it is illegal, which is why the frontier grows it: it rides in a hold in plain sight, and no badge has ever asked a pilot where his tobacco came from. Cure it down and it's smokable."
   },
   "type": "chemical",
   "value": 12,

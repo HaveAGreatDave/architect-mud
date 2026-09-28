@@ -148,7 +148,7 @@
           "next": "root"
         }
       ],
-      "text": "\"The building is not quiet. The building makes a great deal of noise.\" He tilts his head at the ceiling. \"Pumps at four, lift at six, and the collars flex when the wind gets round the west side — you hear that in the hall as a sort of knock, twice, about a second apart.\"\n\n\"It is the people who are quiet. There are not enough of them to be anything else.\""
+      "text": "\"The building is not quiet. The building makes a great deal of noise.\" He tilts his head at the ceiling. \"Pumps at four, lift at six, and the collars flex when the wind gets round the west side; you hear that in the hall as a sort of knock, twice, about a second apart.\"\n\n\"It is the people who are quiet. There are not enough of them to be anything else.\""
     },
     "root": {
       "options": [
@@ -172,7 +172,7 @@
       "text": "\"Afternoon.\" He does not ask what you want, which is a kind of manners.",
       "text_by_relation": {
         "familiar": "He has the kettle on in the post room before you reach the desk, which is not a thing he does for tenants.\n\n\"Nothing today,\" he says. \"Nothing yesterday either.\"",
-        "first": "The man behind the desk watches you the whole way across the hall without it being rude, and speaks when you are close enough that he does not have to raise his voice.\n\n\"You can come in. People stop at the glass because of the hood — it is designed to look like you are not meant to.\" He says it as though he has said it a hundred times, which he has, to perhaps nine people. \"Corvin Brask. I look after this.\"\n\nHe gestures at the hall, and the gesture takes in rather more emptiness than he probably intends.",
+        "first": "The man behind the desk watches you the whole way across the hall without it being rude, and speaks when you are close enough that he does not have to raise his voice.\n\n\"You can come in. People stop at the glass because of the hood. It is designed to look like you are not meant to.\" He says it as though he has said it a hundred times, which he has, to perhaps nine people. \"Corvin Brask. I look after this.\"\n\nHe gestures at the hall, and the gesture takes in rather more emptiness than he probably intends.",
         "known": "\"You again.\" He nods at the bench. \"Sit down if you like. Nobody ever has.\""
       }
     },

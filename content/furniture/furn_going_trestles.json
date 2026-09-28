@@ -6,9 +6,7 @@
       "trestles",
       "tables"
     ],
-    "interactions": {
-      "examine": "Lot 41 is a box of photographs of people nobody has identified. The catalogue entry for it is four sentences long and is the best writing in the building."
-    }
+    "examine_detail": "Lot 41 is a box of photographs of people nobody has identified. The catalogue entry for it is four sentences long and is the best writing in the building."
   },
   "id": "furn_going_trestles",
   "name": "the lots",

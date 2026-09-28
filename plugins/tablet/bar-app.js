@@ -140,7 +140,7 @@ function drinkDetail(key, have) {
   rows.push({ label: 'Method', value: methodOf(t) });
   rows.push({ label: 'Serve in', value: t.vessels ? t.vessels.join(' or ') : 'anything to hand' });
   if (t.hot) rows.push({ label: 'Needs', value: 'a kettle or better' });
-  if (t.keyItems?.length) rows.push({ label: 'Non-negotiable', value: 'the right bottle — no substitutions' });
+  if (t.keyItems?.length) rows.push({ label: 'Non-negotiable', value: 'the right bottle: no substitutions' });
   rows.push({ label: 'Difficulty', value: `${t.difficulty}/10` });
   rows.push({ label: 'Best possible', value: bestPossibleBand(t) || '—' });
 

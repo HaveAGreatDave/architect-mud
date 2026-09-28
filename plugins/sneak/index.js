@@ -283,7 +283,7 @@ async function cmdKnockout(args, raw, player, broadcast) {
     // panicNpc owns the flag AND drives them out of the room. Setting `_ai.alarm`
     // directly (as this used to) suspends the graph with nobody to resume it.
     panicNpc(ref, { reason: 'assault', threat: player });
-    broadcast(zoneId, { type: 'zone_event', message: `${target.name} ducks the blow, sees who it was, and bolts — shouting.`, refresh: true }, player.id);
+    broadcast(zoneId, { type: 'zone_event', message: `${target.name} ducks the blow, sees who it was, and bolts, shouting.`, refresh: true }, player.id);
     return { type: 'error', message: `${target.name} feels it coming and twists away. They're running, and they're shouting your description as they go.` };
   }
 

@@ -79,9 +79,10 @@ import { initMusicPlayerPanel, stopMusicPlayer } from "./panels/musicplayer.js";
 import { stopEngineAudio } from "./panels/engine-audio.js";
 import { isFlightSimActive } from "./panels/cockpit.js";
 import { isHangarBayWalkActive } from "./panels/hangar-bay.js";
-import { isTruckDepotWalkActive } from "./panels/truck-depot.js";
 import { seatHoldsKeyboard } from "./panels/seat-keys.js";
 import { runBootScreen } from "./panels/bootscreen.js";
+import { installFpsMeter } from "./fps-meter.js";
+installFpsMeter();   // F3: debug FPS counter + frame-time graph (fps-meter.js)
 
 // Started before anything else is wired, and deliberately NOT awaited: the POST
 // screen is an overlay over a client that is booting underneath it, so holding
@@ -396,6 +397,17 @@ restoreDisplayRungPref();
 // none, a pressed one overrides whatever the account already had.
 watchDisplayRungChoice();
 
+// The login sigil's glow: a clone laid over the logo that fades in and out, so the
+// blur is painted once instead of every frame. See #auth-ascii-glow in styles.css.
+{
+	const sigil = document.getElementById("auth-ascii");
+	if (sigil && !document.getElementById("auth-ascii-glow")) {
+		const glow = sigil.cloneNode(true);
+		glow.id = "auth-ascii-glow";
+		sigil.appendChild(glow);
+	}
+}
+
 document.getElementById("auth-submit").addEventListener("click", doAuth);
 document.getElementById("auth-password").addEventListener("keydown", (e) => {
 	if (e.key === "Enter") doAuth();
@@ -649,7 +661,7 @@ document.getElementById("signout-btn").addEventListener("click", () => {
 	}
 	showDangerDialog({
 		title: "Sign Out",
-		prompt: "Your body stays asleep exactly where you log out — it'll remain in the world, vulnerable to anyone who finds it, until you return. Get somewhere safe (your apartment, locked) before signing out here.",
+		prompt: "Your body stays asleep exactly where you log out. It'll remain in the world, vulnerable to anyone who finds it, until you return. Get somewhere safe (your apartment, locked) before signing out here.",
 		confirmLabel: "Sign Out Anyway",
 	}, doSignout);
 });
@@ -826,7 +838,7 @@ if (wasdBtn) {
 		if (seated && state.wasdMove) setArmed(false);
 		wasdBtn.disabled = seated;
 		wasdBtn.title = seated
-			? "Keyboard movement — unavailable while a 3-D view has the keys"
+			? "Keyboard movement: unavailable while a 3-D view has the keys"
 			: "Keyboard movement: WASD=N/W/S/E · Q=in Z=out E=up C=down";
 	});
 	window.addEventListener(
@@ -837,7 +849,7 @@ if (wasdBtn) {
 			// charter cabin and free look are all covered without being named; the two walk views below
 			// claim no seat keyboard of their own and so are still asked for by hand.
 			if (!state.wasdMove || seatHoldsKeyboard()) return;
-			if (isFlightSimActive() || isHangarBayWalkActive() || isTruckDepotWalkActive()) return;
+			if (isFlightSimActive() || isHangarBayWalkActive()) return;
 			if (e.ctrlKey || e.metaKey || e.altKey) return;
 			// Let real text fields (command box, chat, tablet, dialogs) type normally.
 			const tag = e.target.tagName;

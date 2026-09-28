@@ -1,4 +1,5 @@
 import { sendCmdSilent } from '../net.js';
+import { makeFloatable } from './confirm.js';
 
 let activeCorpseId = null;
 let activeCorpseName = null;
@@ -11,6 +12,7 @@ export function openLootPanel(data) {
   activeCorpseId = data.corpseId;
   activeCorpseName = data.corpseName || null;
   renderLootPanel(data);
+  makeFloatable(document.getElementById('loot-box'), document.getElementById('loot-header'));
   document.getElementById('loot-panel').classList.add('active');
 }
 

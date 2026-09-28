@@ -551,7 +551,7 @@ export function validateDrinks(drinks = DRINKS) {
     if (!t.noun) errors.push(`${at('noun')} is missing`);
     if (!QUALITY_BANDS.includes(t.ceiling)) errors.push(`${at('ceiling')} isn't a quality band — got ${t.ceiling}`);
     if (!Number.isFinite(t.difficulty) || t.difficulty < 1) errors.push(`${at('difficulty')} must be >= 1 — got ${t.difficulty}`);
-    if (!t.blurb) errors.push(`${at('blurb')} is missing — every drink says something about itself`);
+    if (!t.blurb) errors.push(`${at('blurb')} is missing: every drink says something about itself`);
 
     if (t.vessels !== null && t.vessels !== undefined) {
       if (!Array.isArray(t.vessels) || !t.vessels.length) errors.push(`${at('vessels')} must be a non-empty array or null`);
@@ -562,7 +562,7 @@ export function validateDrinks(drinks = DRINKS) {
     // A shaken template that can't be built in a shaker rewards a bonus nobody
     // can ever earn.
     if (t.shaken && Array.isArray(t.vessels) && !t.vessels.includes('shaker')) {
-      errors.push(`${at('shaken')} is set but 'shaker' isn't among its vessels — the bonus would be unreachable`);
+      errors.push(`${at('shaken')} is set but 'shaker' isn't among its vessels: the bonus would be unreachable`);
     }
 
     for (const [profile, need] of Object.entries(t.needs || {})) {
@@ -580,7 +580,7 @@ export function validateDrinks(drinks = DRINKS) {
     // At most two nouns read as a name; a third is never reached and hides a
     // mistake about which slot the author meant.
     if ((t.nameSlots || []).length > 2 && !t.nameFormat) {
-      errors.push(`${at('nameSlots')} has more than two entries and no nameFormat — only the first two can ever be used`);
+      errors.push(`${at('nameSlots')} has more than two entries and no nameFormat: only the first two can ever be used`);
     }
     for (const slot of t.nameSlots || []) {
       if (!DRINK_PROFILES[slot]) errors.push(`${at('nameSlots')} names an unknown profile "${slot}"`);
@@ -595,13 +595,13 @@ export function validateDrinks(drinks = DRINKS) {
     // A ceiling nobody can reach is a promise the Cookbook would display forever.
     const best = bestPossibleBand(t);
     if (best && bandIndex(best) < bandIndex(t.ceiling)) {
-      errors.push(`${at('ceiling')} is ${t.ceiling}, but the best reachable band is ${best} — no player could ever pour it`);
+      errors.push(`${at('ceiling')} is ${t.ceiling}, but the best reachable band is ${best}: no player could ever pour it`);
     }
 
     // Two templates with the same vessels AND the same needs can never both be
     // reached: one of them is dead the day it's written.
     const fp = JSON.stringify([[...(t.vessels || ['*'])].sort(), Object.entries(t.needs || {}).sort(), !!t.hot]);
-    if (fingerprints.has(fp)) errors.push(`${key} is unreachable — it has the same vessels+needs as ${fingerprints.get(fp)}`);
+    if (fingerprints.has(fp)) errors.push(`${key} is unreachable: it has the same vessels+needs as ${fingerprints.get(fp)}`);
     else fingerprints.set(fp, key);
   }
   return { ok: errors.length === 0, errors };

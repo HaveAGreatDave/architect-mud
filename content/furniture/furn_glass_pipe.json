@@ -6,9 +6,7 @@
       "main",
       "heat"
     ],
-    "interactions": {
-      "examine": "There is no meter on it anywhere. Whatever arrangement put this pipe here was made between two people rather than between two firms."
-    }
+    "examine_detail": "There is no meter on it anywhere. Whatever arrangement put this pipe here was made between two people rather than between two firms."
   },
   "id": "furn_glass_pipe",
   "name": "the heat main",

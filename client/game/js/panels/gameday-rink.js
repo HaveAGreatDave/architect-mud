@@ -1810,7 +1810,7 @@ export function createRinkView(host) {
       `<div class="gdr-wrap">` +
         `<div class="gdr-head">` +
           `<span class="gdr-head-badge">${cphlMark('17px')}<i>CPhL</i></span>` +
-          `<span class="gdr-head-score">${_esc(p.awayAbbr || p.awayTeam || 'AWY')} <b>${p.awayScore | 0}</b> — <b>${p.homeScore | 0}</b> ${_esc(p.homeAbbr || p.homeTeam || 'HOM')}</span>` +
+          `<span class="gdr-head-score">${_esc(p.awayAbbr || p.awayTeam || 'AWY')} <b>${p.awayScore | 0}</b>: <b>${p.homeScore | 0}</b> ${_esc(p.homeAbbr || p.homeTeam || 'HOM')}</span>` +
           `<span class="gdr-head-clock">${_esc(p.section || '')} ${_esc(p.clock || '')}</span>` +
           (p.rivalry ? '<span class="gdr-head-rival">RIVALRY</span>' : '') +
           (p.strength && p.strength !== 'even' ? `<span class="gdr-head-str ${_esc(p.strength)}">${_esc(p.strength.toUpperCase())}</span>` : '') +
@@ -2475,12 +2475,12 @@ export function createRinkView(host) {
         `</div>`).join('')
       : `<div class="gdri-none">No goals in the ${_esc(p.section || 'period')}.</div>`;
     const cas = (p.casualties || []).length
-      ? `<div class="gdri-cas">Carried off: ${(p.casualties || []).map(_esc).join(', ')} — no replacements.</div>` : '';
+      ? `<div class="gdri-cas">Carried off: ${(p.casualties || []).map(_esc).join(', ')}. No replacements.</div>` : '';
     host.innerHTML =
       `<div class="gdr-wrap">` +
         `<div class="gdr-head">` +
           `<span class="gdr-head-badge">${cphlMark('17px')}<i>CPhL</i></span>` +
-          `<span class="gdr-head-score">${_esc(p.awayAbbr || 'AWY')} <b>${p.awayScore | 0}</b> — <b>${p.homeScore | 0}</b> ${_esc(p.homeAbbr || 'HOM')}</span>` +
+          `<span class="gdr-head-score">${_esc(p.awayAbbr || 'AWY')} <b>${p.awayScore | 0}</b>: <b>${p.homeScore | 0}</b> ${_esc(p.homeAbbr || 'HOM')}</span>` +
           `<span class="gdr-head-clock">INTERMISSION</span>` +
         `</div>` +
         `<div class="gdri">` +

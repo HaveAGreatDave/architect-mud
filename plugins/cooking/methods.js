@@ -55,7 +55,7 @@ export const METHODS = {
   simmer: {
     vessel: 'pot', heat: 'low', medium: true,
     gerund: 'Simmering', needs: 'A simmer wants a pot',
-    dry: 'Nothing to simmer in — no tap here, and the pot is dry.',
+    dry: 'Nothing to simmer in: no tap here, and the pot is dry.',
   },
   poach: {
     vessel: 'pot', heat: 'low', medium: true,

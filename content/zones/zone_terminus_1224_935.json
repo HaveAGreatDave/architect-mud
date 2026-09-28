@@ -1,6 +1,6 @@
 {
   "ambient_theme": "outdoors",
-  "description": "Swept hardpan between the buildings, pale and hard and rung flat by feet. There's nothing lying on it. Not a tool, not a rag, not a stone out of place.",
+  "description": "Pale hardpan between the buildings, swept and packed flat by feet. Nothing is lying on it.",
   "exits": {
     "east": "zone_terminus_1225_935",
     "north": "zone_terminus_1224_934",

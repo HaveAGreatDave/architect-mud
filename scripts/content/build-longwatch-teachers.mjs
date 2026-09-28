@@ -123,7 +123,7 @@ console.log('— instructors —');
     // this being a reputation-only door on the one order whose whole argument is
     // that standing is not a substitute for having done the work.
     rite_offer: {
-      text: '"Right." Pike puts the mug down, which you have not seen before.\n\n"There is no ceremony and I am not going to invent one for you. I get off the stool, and I go, and I do not come back until morning. You sit the Blind on your own until somebody relieves you."\n\n"Nothing will happen. Nothing is supposed to happen. That is not a warning, it is the entire content of the thing — the Watch are called the Watch because somebody has been sitting in a cold room the whole time, and tonight the somebody is you, and there is nobody behind you to check."\n\nHe looks at you properly for the first time in all of this.\n\n"Do not open the door. Do not go and look. Do not do anything at all. If you get up, you start again, and I will not say a word about it."',
+      text: '"Right." Pike puts the mug down, which you have not seen before.\n\n"There is no ceremony and I am not going to invent one for you. I get off the stool, and I go, and I do not come back until morning. You sit the Blind on your own until somebody relieves you."\n\n"Nothing will happen. Nothing is supposed to happen. That is not a warning, it is the entire content of the thing. The Watch are called the Watch because somebody has been sitting in a cold room the whole time, and tonight the somebody is you, and there is nobody behind you to check."\n\nHe looks at you properly for the first time in all of this.\n\n"Do not open the door. Do not go and look. Do not do anything at all. If you get up, you start again, and I will not say a word about it."',
       options: [
         { next: 'rite_accept', label: 'Go and get some sleep, Pike.' },
         { next: 'bye', label: 'Not tonight.' },
@@ -207,7 +207,7 @@ console.log('— instructors —');
       questId: 'quest_lw_loyalty',
       offer: 'The Quartermaster puts a purse on the counter. It is heavier than the errand needs to be and both of you can see that.\n\n"Parts we cannot make. All of it sells on Halcyon Boulevard, and the last of it is behind the clinic counter, and you will be waiting there a while."\n\nShe slides the list across.\n\n"They will offer you things while you wait. They are very good at it, they will be kind about it, and there is a discount for anybody who looks like they are thinking it over." A beat. "I am not telling you not to. I am telling you I will be here when you get back, and so will the ledger."',
       accept: '"Bring the parts back. And bring yourself back." She does not look away as you go, and does not pretend she is doing anything else.',
-      report: 'She counts the parts, and then the change, and then she looks at you — at your hands, at the sides of your throat, at the way you are standing — for a great deal longer than four seconds.\n\n"Right," says the Quartermaster, and writes something in the first ledger.',
+      report: 'She counts the parts, and then the change, and then she looks at you (at your hands, at the sides of your throat, at the way you are standing) for a great deal longer than four seconds.\n\n"Right," says the Quartermaster, and writes something in the first ledger.',
       acceptLabel: 'I know what this is.',
       declineLabel: 'Ask somebody else.',
       doneLabel: 'And myself.',
@@ -253,7 +253,7 @@ console.log('— instructors —');
     },
     ...questNodes('quiet', {
       questId: 'quest_lw_fav_quiet',
-      offer: '"There is a man on Foundry Way counting doorways." Teague says it flatly. "Municipal. Damp. Harmless as a person and not harmless as a ledger, because in six weeks somebody upstairs will have a list of every door in the quarter that opens."\n\n"Stop the counting. Leave the counter." Her eyes come up. "I want to be understood on the second half. We do not leave bodies. Not because we are gentle — because a body is a reason for somebody to come and look, and looking is the only thing that has ever hurt us."',
+      offer: '"There is a man on Foundry Way counting doorways." Teague says it flatly. "Municipal. Damp. Harmless as a person and not harmless as a ledger, because in six weeks somebody upstairs will have a list of every door in the quarter that opens."\n\n"Stop the counting. Leave the counter." Her eyes come up. "I want to be understood on the second half. We do not leave bodies. Not because we are gentle. Because a body is a reason for somebody to come and look, and looking is the only thing that has ever hurt us."',
       accept: '"Across the back of the head, and walk away, and let him wake up cold and confused and alive."',
       report: '"And he is breathing." She does not make you say it twice. "Good. In a month he will tell it as the night he was mugged on Foundry Way, which is a story nobody investigates."',
       acceptLabel: 'Alive. Understood.',
@@ -283,7 +283,7 @@ console.log('— instructors —');
 
   Object.assign(npc.dialogue_tree, questNodes('bench', {
     questId: 'quest_lw_fav_bench',
-    offer: '"I do not need the help." He says it while clearing a space at the bench, and then says it again, and keeps clearing.\n\n"The Watch run on things that were made rather than bought. That is not a philosophy, it is a supply problem — nobody sells us anything and the ones who would want paying in the wrong currency. So the making gets done by whoever is standing there."\n\nHe pushes a stool out with his foot without turning round.\n\n"Today that is you."',
+    offer: '"I do not need the help." He says it while clearing a space at the bench, and then says it again, and keeps clearing.\n\n"The Watch run on things that were made rather than bought. That is not a philosophy, it is a supply problem. Nobody sells us anything and the ones who would want paying in the wrong currency. So the making gets done by whoever is standing there."\n\nHe pushes a stool out with his foot without turning round.\n\n"Today that is you."',
     accept: '"Make me something. I do not much care what. I care that it came out of your hands."',
     report: 'Halloran turns it over twice, the way he turns everything over, and puts it on the shelf with the rest instead of handing it back. Which is the review.',
     acceptLabel: '(sit down at the bench)',
@@ -312,7 +312,7 @@ console.log('— instructors —');
 
   Object.assign(npc.dialogue_tree, questNodes('eye', {
     questId: 'quest_lw_fav_eye',
-    offer: 'The old man taps the chalk stub against the wall twice before he uses it.\n\n"Meltwater side. There is an eye over a doorway that people need, and it has been there four months, and folk have started going the long way round." He writes something on the brick that you cannot read. "That is it on the list. It has been on the list a while."\n\n"Go and close it. And do not be a story afterwards — a blind spot everyone has heard about is just a place people get arrested."',
+    offer: 'The old man taps the chalk stub against the wall twice before he uses it.\n\n"Meltwater side. There is an eye over a doorway that people need, and it has been there four months, and folk have started going the long way round." He writes something on the brick that you cannot read. "That is it on the list. It has been on the list a while."\n\n"Go and close it. And do not be a story afterwards. A blind spot everyone has heard about is just a place people get arrested."',
     accept: '"Mind the angles going in. The eye is not the only thing on that street with an opinion."',
     report: 'Nyall licks the chalk stub, finds the mark on the wall, and draws a line through it with what is unmistakably satisfaction.\n\n"That doorway is a doorway again," he says.',
     acceptLabel: "I'll close it.",

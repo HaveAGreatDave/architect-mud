@@ -1,5 +1,5 @@
 {
-  "description": "A slab of frosted glass standing waist high off the stone, lit from somewhere inside it so evenly that it throws no shadow at all. The face carries the berth list, the rate and a slot for a hand. It does not have a keyboard and it does not appear to want one.",
+  "description": "A waist-high slab of frosted glass, lit evenly from inside. The face shows the berth list, the rate and a slot for a hand. No keyboard.",
   "flags": {
     "aliases": [
       "plinth",
@@ -7,9 +7,7 @@
       "berth board",
       "glass"
     ],
-    "interactions": {
-      "examine": "FAIRWEATHER MARINA — MOORINGS BY ARRANGEMENT. Ten berths. The rate is set out underneath in a smaller size, and it is not small money. Below that, in smaller type again: NO ATTENDANT IS PROVIDED. THE MARINA IS NOT RESPONSIBLE FOR WHAT IS LEFT ABOARD."
-    },
+    "examine_detail": "FAIRWEATHER MARINA: MOORINGS BY ARRANGEMENT. Ten berths. The rate is set out underneath in a smaller size, and it is not small money. Below that, in smaller type again: NO ATTENDANT IS PROVIDED. THE MARINA IS NOT RESPONSIBLE FOR WHAT IS LEFT ABOARD.",
     "marina_plinth": true
   },
   "id": "furn_marina_plinth",

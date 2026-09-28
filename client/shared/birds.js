@@ -46,6 +46,7 @@
 export const FLOCK_AREA = 12;          // tiles per coarse-bias block — a "field" is about this big
 export const GOOSE_AREA_BIAS = 0.45;   // above this a block is goose country; below it, they are rare
 const DENSE = 0.075, SPARSE = 0.006;   // per-habitat-tile chance in each case
+import { liveColumnNear } from './thermals.js';
 
 const frac = (n) => { const x = Math.sin(n) * 43758.5453; return x - Math.floor(x); };
 // ⚠ THE HASH CONSTANTS ARE OFFSET FROM THE TREE ONES. The scatter pass picks wooded patches with
@@ -172,6 +173,12 @@ export const flockPeriod = (f) => spOf(f).period * (0.7 + frac(f.ax * 3.7 + f.ay
 
 // How much of the airborne phase is spent climbing away from the anchor and settling back onto it.
 const RAMP_UP = 0.18, RAMP_DN = 0.22;
+// How far a soaring bird will go from its perch to reach a thermal column, tiles.
+const THERMAL_REACH = 8;   // about one column block: far enough that most flights find a live one
+// The fastest a circling flock may sweep round its anchor, degrees a second. A goose at cruise banks
+// round a circle of thirty-odd metres at best; tighter than this reads as a bird pivoting in place.
+const CIRCUIT_MAX_DEG_S = 70;
+const CIRCUIT_PEAK_DEG_S = 90;   // the sharpest a circuit's tightest bend may be flown (see circuitAt)
 
 // ── Flying ROUND things ───────────────────────────────────────────────────────
 /**
@@ -348,7 +355,15 @@ function radiusAt(clear, th, baseR = GOOSE_R) {
 // test, the settle blend — reads {x, y, z, r, th} and nothing else. Branching INSIDE circuitAt
 // rather than beside flockState is what lets all of that stay untouched: it is the one function
 // every consumer already goes through.
-function thermalAt(f, t, sp) {
+// ⚠ THE SPIRAL IS CENTRED ON A REAL COLUMN (client/shared/thermals.js) when one stands within
+// THERMAL_REACH tiles of the anchor, so a circling hawk marks lift an aircraft can use there.
+// The column's centre is ground- and clock-free, so this stays a pure function of the anchor
+// and the server's copy of the hawk agrees with the window's. The hashes below still key on
+// the ANCHOR, so moving the centre changes where the bird flies and nothing else about it.
+function thermalAt(f, t, sp, cx = f.ax, cy = f.ay, cr = null) {
+  // On a real column the spiral stays inside its core (a red-tail turns in ~30 m inside a core
+  // 100-200 m across); circling a bare anchor keeps the authored radius.
+  const R0 = cr ? Math.min(sp.r, cr * 0.55) : sp.r;
   // Two phases: climb the spiral, then glide out and back. The climb is the longer half.
   const CLIMB = 0.62;
   const turns = (sp.turns ?? 3) + Math.floor(frac(f.ax * 4.4 + f.ay * 9.2) * 3);
@@ -358,10 +373,10 @@ function thermalAt(f, t, sp) {
     // ⚠ THE RADIUS SHRINKS AS IT CLIMBS, which is the whole shape of a thermal: the lift is
     // strongest in the core, so a bird working one spirals TIGHTER the higher it gets. A constant
     // radius is a bird flying in circles, which is a different and much duller thing.
-    const r = sp.r * (1 - 0.55 * u);
+    const r = R0 * (1 - 0.55 * u);
     const th = th0 + turns * TAU * u;
     // Climbs fast at first and levels off at the top, the way lift falls away near the cap.
-    return { x: f.ax + Math.cos(th) * r, y: f.ay + Math.sin(th) * r, z: sp.z * Math.sqrt(u), r, th };
+    return { x: cx + Math.cos(th) * r, y: cy + Math.sin(th) * r, z: sp.z * Math.sqrt(u), r, th };
   }
   // The glide: out along one bearing and back, losing height the whole way.
   const u = (t - CLIMB) / (1 - CLIMB);
@@ -371,11 +386,11 @@ function thermalAt(f, t, sp) {
   // ⚠ THE GLIDE LEAVES FROM THE TOP OF THE SPIRAL, NOT FROM THE ANCHOR. The climb ends 0.45 r off the
   // anchor and the glide used to start on it, so the bird jumped most of a tile in one frame — measured
   // at 188 m/s. The spiral's last point is carried in and drawn back to the anchor over the glide.
-  const topR = sp.r * 0.45, topTh = th0 + turns * TAU;
+  const topR = R0 * 0.45, topTh = th0 + turns * TAU;
   const bx = Math.cos(topTh) * topR * (1 - u), by = Math.sin(topTh) * topR * (1 - u);
   return {
-    x: f.ax + bx + Math.cos(bear) * reach,
-    y: f.ay + by + Math.sin(bear) * reach,
+    x: cx + bx + Math.cos(bear) * reach,
+    y: cy + by + Math.sin(bear) * reach,
     z: sp.z * (1 - u) * (1 - u),
     r: Math.max(0.2, reach),
     th: bear,
@@ -428,13 +443,94 @@ function wanderAt(f, t, sp, clear, span = 1) {
   return { x: f.ax + ox, y: f.ay + oy, z: sp.z * bump, r: sp.r * bump, th: Math.atan2(oy, ox) };
 }
 
-function circuitAt(f, t, clear, span = 1) {
+// ⚠ THE ANGLE ROUND THE CIRCUIT ADVANCES WITH THE RADIUS, NOT WITH THE CLOCK. θ was linear in t while
+// r rode the ramp up from zero, so just after take-off and just before landing the flock was sweeping
+// full angular speed round a circle a few metres across — a heading swinging through a right angle in
+// a fraction of a second, which is "the geese turn too suddenly". Integrating the ramp instead keeps
+// the turn rate (speed over radius) roughly constant: they climb out nearly straight and bend into
+// the circuit as it opens. Closed form of ∫bump: ∫smooth = x³ − x⁴/2 over each ramp.
+const rampInt = (x) => { const c = x < 0 ? 0 : x > 1 ? 1 : x; return c * c * c - 0.5 * c * c * c * c; };
+const SWEEP_TOTAL = 1 - RAMP_UP / 2 - RAMP_DN / 2;
+function sweepAt(t) {
+  const up = RAMP_UP * rampInt(t / RAMP_UP);
+  const mid = Math.max(0, Math.min(t, 1 - RAMP_DN) - RAMP_UP);
+  const dn = t > 1 - RAMP_DN ? RAMP_DN * (0.5 - rampInt((1 - t) / RAMP_DN)) : 0;
+  return (up + mid + dn) / SWEEP_TOTAL;
+}
+
+// ⚠ A BENT CIRCUIT IS FLOWN BY DISTANCE, NOT BY ANGLE, AND A TIGHT BEND COSTS SPEED. θ advanced at a
+// constant rate, so where the clearance pinched the loop the birds swept through the same angle per
+// second on a far smaller radius: measured beside a wall, 143-247°/s of turn and FASTER in the hard
+// turns (2.6 tiles/s) than on the straights (0.4) — a flock whipping round every corner. A real bird
+// carries its speed into a bend and bleeds it off banking through; so each lap is re-timed by the
+// effort of flying it — segment length over a speed that falls with the square root of the turn
+// radius below the species' own circle — and θ is read back off that. Laps, period and the closure
+// on the anchor are untouched (a lap still takes the same total time); only where in the lap the
+// time is spent moves. No clearance, nothing to re-time: an open-air flock is bit-for-bit what it was.
+const LAP_N = 96;
+const _lapMemo = new WeakMap();   // clear array → Map(key → cumulative cost table)
+function lapTable(clear, baseR, th0) {
+  let m = _lapMemo.get(clear);
+  if (!m) { m = new Map(); _lapMemo.set(clear, m); }
+  const key = baseR + ':' + th0;
+  let cum = m.get(key);
+  if (cum) return cum;
+  const px = new Float64Array(LAP_N), py = new Float64Array(LAP_N);
+  for (let i = 0; i < LAP_N; i++) {
+    const th = th0 + (i / LAP_N) * TAU, r = radiusAt(clear, th, baseR);
+    px[i] = Math.cos(th) * r; py[i] = Math.sin(th) * r;
+  }
+  const floorR = Math.max(0.05, baseR);
+  cum = new Float64Array(LAP_N + 1);
+  const dh = new Float64Array(LAP_N);
+  for (let i = 0; i < LAP_N; i++) {
+    const a = (i - 1 + LAP_N) % LAP_N, b = i, c = (i + 1) % LAP_N;
+    const ab = Math.hypot(px[b] - px[a], py[b] - py[a]), bc = Math.hypot(px[c] - px[b], py[c] - py[b]);
+    const ca = Math.hypot(px[a] - px[c], py[a] - py[c]);
+    const cross = Math.abs((px[b] - px[a]) * (py[c] - py[a]) - (py[b] - py[a]) * (px[c] - px[a]));
+    const rc = cross > 1e-12 ? (ab * bc * ca) / (2 * cross) : Infinity;   // circumradius = radius of the turn here
+    const v = Math.max(0.35, Math.min(1, Math.sqrt(rc / floorR)));
+    cum[i + 1] = cum[i] + bc / v;
+    const h1 = Math.atan2(py[b] - py[a], px[b] - px[a]), h2 = Math.atan2(py[c] - py[b], px[c] - px[b]);
+    dh[i] = Math.abs(Math.atan2(Math.sin(h2 - h1), Math.cos(h2 - h1)));
+  }
+  const tot = cum[LAP_N];
+  for (let i = 0; i <= LAP_N; i++) cum[i] /= tot;
+  // Peak heading change per unit of lap TIME — what caps how fast the lap may be flown (circuitAt).
+  let peak = 0;
+  for (let i = 0; i < LAP_N; i++) { const dc = cum[i + 1] - cum[i]; if (dc > 0) peak = Math.max(peak, dh[i] / dc); }
+  cum.peak = peak;
+  m.set(key, cum);
+  return cum;
+}
+/** Laps flown (a real number, in time) → laps swept (in angle), for a bent circuit. */
+function lapTiming(clear, baseR, th0, laps) {
+  const L = Math.floor(laps), fr = laps - L;
+  const cum = lapTable(clear, baseR, th0);
+  let lo = 0, hi = LAP_N;
+  while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (cum[mid] <= fr) lo = mid; else hi = mid; }
+  const span = cum[hi] - cum[lo];
+  return L + (lo + (span > 0 ? (fr - cum[lo]) / span : 0)) / LAP_N;
+}
+
+function circuitAt(f, t, clear, span = 1, now = null) {
   const sp = spOf(f);
   if (sp.circuit === 2) return wanderAt(f, t, sp, clear, span);
   // ⚠ SELECTED BY A NUMBER ON THE ROW rather than by the species id, so the buzzard and anything
   // else that soars gets it without this function learning another name.
   if (sp.circuit === 1) {
-    const c = thermalAt(f, t, sp);
+    // Ride a real column: the nearest one in reach that is working when THIS flight starts, so
+    // the bird commits for the whole flight rather than swapping columns mid-spiral. With no
+    // live column in reach it circles its anchor as before. The takeoff and landing ramps below
+    // carry it between its perch and the column. `now` is null only for the edge-heading probe,
+    // which samples the very ends of the flight where the ramps put the bird on its anchor anyway.
+    let col = null;
+    if (now != null) {
+      const period = flockPeriod(f), ph = frac(f.ax * 19.1 + f.ay * 5.3);
+      const start = (Math.floor(now / period + ph) - ph) * period;
+      col = liveColumnNear(f.ax, f.ay, start, THERMAL_REACH, 0.2);
+    }
+    const c = col ? thermalAt(f, t, sp, col.cx, col.cy, col.r) : thermalAt(f, t, sp);
     const bump = Math.min(smooth(t / RAMP_UP), smooth((1 - t) / RAMP_DN));
     // The same ramp every other circuit rides, so a thermal still starts and ends ON the anchor —
     // which is what closes the cycle and stops anything spawning or teleporting.
@@ -443,7 +539,37 @@ function circuitAt(f, t, clear, span = 1) {
   const bump = Math.min(smooth(t / RAMP_UP), smooth((1 - t) / RAMP_DN));
   // `turns` on the row is the laps a flight makes (plus 0-1): a soaring bird circles a thermal many times.
   const turns = (sp.turns ?? 1) + Math.floor(frac(f.ax * 7.7 + f.ay * 3.1) * 2);
-  const th = frac(f.ax * 2.3 + f.ay * 8.7) * TAU + turns * TAU * t;
+  // ⚠ A BIRD HAS MOMENTUM, SO A SMALLER CIRCUIT IS FLOWN FASTER ROUND, NOT SLOWER ALONG. The lap count
+  // was fixed whatever the clearance, so a flock hemmed in by buildings to a 0.4-tile loop crept round
+  // it at 1.2 m/s turning 15°/s — a goose hanging in the air and rotating on the spot. The angular rate
+  // is scaled by the flock's MEAN clearance (a constant per flock, so θ stays linear in t and the laps
+  // still close on the anchor, where r is zero), capped at a bank a goose can actually hold.
+  let lapK = 1;
+  if (clear) {
+    let m = 0;
+    for (let i = 0; i < clear.length; i++) m += clear[i];
+    m /= clear.length;
+    const secs = (flockPeriod(f) * (1 - sp.uGround) * span) / 1000;
+    // Peak rate, not mean: the eased sweep below spends the ramps turning slowly and the middle faster.
+    const degPerS = (turns * 360) / Math.max(1e-6, secs * SWEEP_TOTAL);
+    lapK = Math.max(1, Math.min(sp.r / Math.max(GOOSE_R_MIN, m), CIRCUIT_MAX_DEG_S / Math.max(1e-6, degPerS)));
+  }
+  const th0 = frac(f.ax * 2.3 + f.ay * 8.7) * TAU;
+  // ⚠ AND THE LAP RATE IS CAPPED BY THE TIGHTEST BEND IN IT, which may take it BELOW one. The mean
+  // cap above bounds the turn averaged round the lap; a loop pinched to a hairpin by a wall still put
+  // 100-250°/s through the hairpin. Here the whole lap slows until its sharpest bend is flyable, so a
+  // flock hemmed in circles slowly rather than whipping round. Fewer laps is safe: r is zero at both
+  // ends of the flight, so the circuit still closes on the anchor.
+  if (clear) {
+    const secs = (flockPeriod(f) * (1 - sp.uGround) * span) / 1000;
+    const peak = lapTable(clear, sp.r, th0).peak;   // rad per lap-time
+    const lapSecs = secs * SWEEP_TOTAL / Math.max(1e-6, turns * lapK);
+    const peakDegS = (peak / lapSecs) * 180 / Math.PI;
+    // floored at half: below that a pinched flock hangs in the air, which reads worse than a hard bank
+    if (peakDegS > CIRCUIT_PEAK_DEG_S) lapK *= Math.max(0.5, CIRCUIT_PEAK_DEG_S / peakDegS);
+  }
+  const laps = turns * lapK * sweepAt(t);
+  const th = clear ? th0 + TAU * lapTiming(clear, sp.r, th0, laps) : th0 + TAU * laps;
   const r = radiusAt(clear, th, sp.r) * bump;
   return { x: f.ax + Math.cos(th) * r, y: f.ay + Math.sin(th) * r, z: sp.z * bump, r, th };
 }
@@ -714,11 +840,39 @@ function roostShow(f, now, opts) {
 // Where in its cycle a flock is at `now`: the share of the period `u`, and `t`, how far through its
 // flight, or null on the ground. ⚠ ONE HELPER FOR flockState AND flockCentreAt, so the centre the GPU
 // flock is steered by and the centre every other reader is handed cannot disagree about when it is up.
+// ── THE WEATHER TELL ─────────────────────────────────────────────────────────
+//
+// A red-tail soars on thermals and sits tight when the weather turns: it spends more of its cycle
+// down, on a perch or the ground, on a bad day and on the afternoon before one — birds feel a front
+// coming before the sky shows it. So a player who has learned to read the hawks gets a warning.
+//
+// ⚠ BOTH SURFACES HAND OVER THE SAME PAIR (today's headline, tomorrow's forecast) through `opts.wx`,
+// and the hour through `opts.hour`, exactly as the season reaches `flockSize`; a surface that has
+// not been told answers 0, which is the bird as it always flew. Only a species with `weatherTell`
+// reads it.
+const WX_BAD = new Set(['storm', 'thunderstorm', 'blizzard', 'sleet']);
+const WX_WET = new Set(['rain', 'snow']);
+const TELL_HOLD = 0.8;             // at a full tell, this share of the flight time is spent down instead
+/** How strongly the weather keeps a hawk down, 0..1, from today's weather, tomorrow's and the hour. */
+export function weatherTell(today, tomorrow, hour) {
+  const now = WX_BAD.has(today) ? 1 : WX_WET.has(today) ? 0.5 : 0;
+  const h = Number.isFinite(hour) ? hour : 0;
+  const ahead = WX_BAD.has(tomorrow) ? Math.max(0, Math.min(1, (h - 11) / 6)) * 0.8 : 0;
+  return Math.max(now, ahead);
+}
+/** A flock's ground share, lengthened by the weather tell for a species that reads it. */
+export function groundShareOf(f, opts) {
+  const sp = spOf(f), uG = sp.uGround;
+  if (!sp.weatherTell || !opts || !opts.wx) return uG;
+  const tell = weatherTell(opts.wx[0], opts.wx[1], opts.hour);
+  return uG + (1 - uG) * TELL_HOLD * tell;
+}
+
 function flightPhase(f, now, opts) {
   const ph = frac(f.ax * 19.1 + f.ay * 5.3);
   const period = flockPeriod(f);
   const u = (((now / period) + ph) % 1 + 1) % 1;
-  const uG = spOf(f).uGround;
+  const uG = groundShareOf(f, opts);
   const forced = !!(opts && opts.air && opts.air === f?.sp);
   if (!forced) {
     const R = roostShow(f, now, opts);
@@ -747,7 +901,7 @@ function flightPhase(f, now, opts) {
 export function flockCentreAt(f, now, clear = null, opts = null) {
   const P = flightPhase(f, now, opts);
   if (P.t == null) return [f.ax, f.ay, 0];
-  const c = circuitAt(f, P.t, clear, P.span);
+  const c = circuitAt(f, P.t, clear, P.span, now);
   return [c.x, c.y, c.z];
 }
 
@@ -755,7 +909,7 @@ export function flockState(f, now, clear = null, opts = null) {
   const P = flightPhase(f, now, opts);
   const { u, period, span } = P;
 
-  const uG = spOf(f).uGround;
+  const uG = P.uG;
   // ⚠ `opts.air` IS A TEST SEAM AND NOTHING IN THE GAME PASSES IT. It names one species whose
   // flocks are held in the air, so a murmuration can be looked at on demand rather than waited
   // for (`.murmur` in the client). It LOOPS THE AIRBORNE PHASE ON ITS OWN CLOCK rather than
@@ -770,7 +924,7 @@ export function flockState(f, now, clear = null, opts = null) {
     return { airborne: false, u, period, cx: f.ax, cy: f.ay, z: 0, heading: frac(f.ax * 2.3 + f.ay * 8.7) * TAU, turn: 0, climb: 0, n: flockSize(f, opts) };
   }
   const t = P.t;
-  const c = circuitAt(f, t, clear, span);
+  const c = circuitAt(f, t, clear, span, now);
 
   // ⚠ THE HEADING IS THE VELOCITY, NOT THE TANGENT TO THE CIRCLE, AND THAT COST A FLOCK THAT FLEW
   // SIDEWAYS. The circuit has TWO moving terms — the angle round it and the radius, which rides the
@@ -785,7 +939,7 @@ export function flockState(f, now, clear = null, opts = null) {
   // to be subtly wrong about the one thing this is for. Three cheap evaluations, at most ten flocks
   // a frame.
   const D = 0.004;
-  const a = circuitAt(f, Math.max(0, t - D / span), clear, span), b = circuitAt(f, Math.min(1, t + D / span), clear, span);
+  const a = circuitAt(f, Math.max(0, t - D / span), clear, span, now), b = circuitAt(f, Math.min(1, t + D / span), clear, span, now);
   const vx = b.x - a.x, vy = b.y - a.y;
   // A flock that is not moving at all has no course to point along; the tangent is the honest
   // fallback rather than atan2(0, 0), which is a confident zero.
@@ -809,7 +963,7 @@ export function flockState(f, now, clear = null, opts = null) {
   const secs = (period * (1 - spOf(f).uGround) * span) / 1000;
   const DT = Math.min(0.24, 1.15 / Math.max(1e-6, secs));
   const t0 = Math.max(0, t - DT), t1 = Math.min(1, t + DT);
-  const wa = circuitAt(f, t0, clear, span), wb = circuitAt(f, t1, clear, span), wm = circuitAt(f, (t0 + t1) / 2, clear, span);
+  const wa = circuitAt(f, t0, clear, span, now), wb = circuitAt(f, t1, clear, span, now), wm = circuitAt(f, (t0 + t1) / 2, clear, span, now);
   const s0 = Math.hypot(wm.x - wa.x, wm.y - wa.y), s1 = Math.hypot(wb.x - wm.x, wb.y - wm.y);
   const turn = (s0 > 1e-9 && s1 > 1e-9)
     ? angDiff(Math.atan2(wb.y - wm.y, wb.x - wm.x), Math.atan2(wm.y - wa.y, wm.x - wa.x)) / (((t1 - t0) / 2) * secs)
@@ -996,7 +1150,7 @@ const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
  * V, a J or an echelon is directly astern of another one — that is the entire point of the shape —
  * so there is nothing here for the rule to apply to.
  */
-export function skeinSlot(f, i, n, now, cx, cy, heading, z = 0) {
+export function skeinSlot(f, i, n, now, cx, cy, heading, z = 0, trail = null) {
   // ⚠ A LONE BIRD HAS NO PLACE IN A FORMATION, and the arithmetic below does not know that. It
   // runs without error at n = 1 — the divide is guarded — but it still applies a station-keeping
   // wander meant for a bird holding position relative to others, and puts the only bird in the
@@ -1061,6 +1215,32 @@ export function skeinSlot(f, i, n, now, cx, cy, heading, z = 0) {
     + Math.cos(now * WANDER_FAST + p2) * WANDER_FAST * 0.4) * wA * 1000;
   const yaw = Math.atan2(rate, GOOSE_CRUISE);
 
+  // ⚠ A BIRD FOLLOWS THE LEADER'S TRACK, NOT A RIGID V. Placed by the flock's heading NOW, the whole
+  // skein swings round its leader like a clock hand in a turn, so the tail of each arm is carried
+  // round far faster than any goose flies — a turn that looks accelerated instead of one the birds
+  // are carried into. `trail(lagMs)` hands back the leader's centre and heading `lagMs` ago; a bird
+  // `along` behind sits where the leader was when it was there, keeps its momentum into the turn
+  // and bends through it after the leader has. The across offset is taken off THAT heading. A
+  // caller with no trail (a bench, the strike test without a map) gets the old rigid V.
+  if (trail && along > 0) {
+    const lag = Math.min(3000, (along / GOOSE_CRUISE) * 1000);
+    const p = trail(lag);
+    if (p) {
+      // ⚠ BLENDED BACK TO THE RIGID V NEAR THE GROUND, because the ground layout starts from the
+      // rigid slots (groundSpot) and a bird still on the leader's track at touchdown jumps to them.
+      const w = clamp01(z / LIFT_FLOOR);
+      const c0 = Math.cos(p.heading), s0 = Math.sin(p.heading);
+      const ch = Math.cos(heading), sh = Math.sin(heading);
+      const rx = cx - ch * along - sh * across, ry = cy - sh * along + ch * across;
+      const dh = Math.atan2(Math.sin(p.heading - heading), Math.cos(p.heading - heading));
+      return {
+        x: rx + (p.cx - s0 * across - rx) * w,
+        y: ry + (p.cy + c0 * across - ry) * w,
+        lift, yaw, headingNow: heading + dh * w,
+        beat: frac(f.ax * 5.51 + f.ay * 2.27) - along / FLAP_WAVELENGTH,
+      };
+    }
+  }
   const ch = Math.cos(heading), sh = Math.sin(heading);
   return {
     x: cx - ch * along - sh * across,
@@ -1289,7 +1469,18 @@ export function birdContacts(a, b, opts = {}) {
         const c = Math.cbrt((3 * vol) / (4 * Math.PI * 2.8 * 5.6));
         const aT = c, aW = 2.8 * c, aL = 5.6 * c;
         // murmur.js flies the long axis broadside to the course; the width runs along it.
-        const dx = px - st.cx, dy = py - st.cy, dz = pz - st.z;
+        // ⚠ THE CLOUD IS WHERE THE PILOT SAW IT (opts.cloudOffset). The GPU flock drifts off the shared
+        // centre under its free rules, so the ellipsoid on the centre alone charged strikes over empty
+        // sky and let a pass through visible birds go free. The client measures that drift for the
+        // hawk (MURMUR_MEASURED) and sends it up; it is clamped to the body's own length, so a client
+        // can move the cloud about its roost and never carry it off to somewhere else.
+        let ox = 0, oy = 0, oz = 0;
+        const off = opts.cloudOffset ? opts.cloudOffset(fl) : null;
+        if (off) {
+          const r = Math.hypot(off.dx, off.dy), cap = aL * 1.5, kk = r > cap ? cap / r : 1;
+          ox = off.dx * kk; oy = off.dy * kk; oz = Math.max(-aT * 2, Math.min(aT * 2, off.dz || 0));
+        }
+        const dx = px - st.cx - ox, dy = py - st.cy - oy, dz = pz - st.z - oz;
         const ch = Math.cos(st.heading), sh = Math.sin(st.heading);
         const along = dx * ch + dy * sh, side = -dx * sh + dy * ch;
         if ((side / aL) ** 2 + (along / aW) ** 2 + (dz / aT) ** 2 <= 1) {
@@ -1541,8 +1732,14 @@ export const SPECIES = {
     // supposed to outrun the birds (WAVE_SPEED 1.21 = the measured 13.4 m/s). A murmuration MILLS
     // over its roost; it does not tour. The radius is what says so, and the longer period is what
     // stops the small circuit simply being flown round faster.
-    period: 300000, uGround: 0.7, z: 5.0, r: 1.0,
-    circuit: 2, roam: 5, forcedSpan: 12,
+    // z 2.2 tiles (~24 m), down from 5.0: among the roofs rather than over all of them. Over a block of towers
+    // the drawn flock rides the skyline instead (windshield.js, skylineUnder); the server keeps this height.
+    period: 300000, uGround: 0.7, z: 2.2, r: 1.0,
+    // ⚠ roam 5 -> 2.5 (2026-09-25): at 5 a 20,000-bird roost swept ~11 tiles of radius (cube-root growth),
+    // which read as a flock touring the district rather than milling over one place. The epicycle speeds
+    // in `wander` are tiles/s and did not move, so the smaller roost is swept round faster — the flock
+    // turns and doubles back more often inside less ground, which is the ask.
+    circuit: 2, roam: 2.5, forcedSpan: 12,
     // ⚠ ITS OWN WINGBEAT, BECAUSE THE GOOSE'S MADE IT SKATE. Every bird beats at GOOSE_FLAP_HZ unless its
     // row says otherwise, and at 1.5 Hz a starling flying 10 m/s covers about twenty-three wingspans a
     // beat: a tiny bird sliding across the sky on nearly still wings, which is paper, not flight. A goose
@@ -1561,11 +1758,11 @@ export const SPECIES = {
     // against its own 840 cap — and because a flock is charged WHOLE (half a skein reads as a
     // rendering fault, not as a budget), it would not have been rejected gracefully, it would
     // simply never have drawn. Twenty is what the share buys.
-    minFlock: 450, maxFlock: 300000,
+    minFlock: 450, maxFlock: 150000,
     // ⚠ AND A FEW ROOSTS ARE ENORMOUS. One anchor in `share` draws from `from` to maxFlock instead of
     // from minFlock to `below`; see flockSize. That is what the GPU flock (gl/murmur-gpu.js) was built
     // to afford, and it is a rarity on purpose: a murmuration of that size over every park would be
-    // the ordinary thing rather than the spectacle. The top of the band is 300,000 (17 ms a step on an RTX 2070 SUPER since the grid was made cache-local, stepped every 2nd or 3rd frame by its measured GPU cost — see STEP_BUDGET_MS in gl/murmur-gpu.js; before that 80,000 was 3.5 ms a step on
+    // the ordinary thing rather than the spectacle. The top of the band is 150,000 (it was 300,000, which read as overwhelming rather than as a spectacle; that size measured 17 ms a step on an RTX 2070 SUPER since the grid was made cache-local, stepped every 2nd or 3rd frame by its measured GPU cost — see STEP_BUDGET_MS in gl/murmur-gpu.js; before that 80,000 was 3.5 ms a step on
     // an RTX 2070 SUPER, against 1.3 at 40,000); under frame-time pressure a roost that big thins to
     // RENDER_TUNE.murmurFloor birds rather than to the ordinary floor (see its note in windshield.js).
     // ⚠ AND ONLY WHERE STARLINGS REALLY ROOST: woodland and a city centre (buildings, piers, bridges),
@@ -1672,20 +1869,25 @@ export const SPECIES = {
     // drops off a perch into a glide, or jumps up with a few powerful beats: no run
     takeoff: { run: 0, beat: 1.3, hop: 0 },
     habitat: {
-      grass: 'walk', parkland: 'walk', park: 'walk', forest: 'walk',
+      // ⚠ NOT THE GREEN GROUND (grass, parkland, park, forest). This bird's job is the wastes —
+      // the weather tell, the thermals over hot rock, the Wildblood — and a territorial claim on a
+      // park tile takes that tile from the geese and songbirds that make a park read as a park.
       redrock: 'walk', scrub: 'walk', hardpan: 'walk',
+      // ⚠ AND THE BROKEN COUNTRY, WHICH IS WHERE A RED-TAIL ACTUALLY LIVES: cliffs and mesas to
+      // ride the updraughts off, dead stands to sit in, and flats to hunt over. Without these it
+      // came out at 14 birds in the whole world, all on redrock.
+      badlands: 'walk', cliff: 'walk', plateau: 'walk', deadwood: 'walk', basalt: 'walk', alkali: 'walk',
+      // ⚠ AND THE TERRAIN NAMES THAT BECOME 'badlands'. The windscreen asks by BIOME and the room text by
+      // TERRAIN (see GOOSE_HABITAT's note on keying both spellings), and four terrains share that one
+      // biome: without these the window draws a hawk the room says is not there.
+      dirt: 'walk', sand: 'walk', gravel: 'walk', marsh: 'walk',
     },
     // ⚠ AN ORDER OF MAGNITUDE RARER THAN ANYTHING ELSE, and it has to be: one bird per flock is
     // not one bird per field. At the goose's density the sky would be full of hawks, which is both
     // wrong and would make the thing they do to other birds routine.
-    // Denser than it looks: the territory below thins it to roughly one hawk per 13x13 block
-    // at most, so the per-tile roll is raised to keep hawks about as common as they were.
-    dense: 0.006, sparse: 0.0012, areaBias: 0.5,
-    // ⚠ TILES EACH WAY THAT ONE HAWK HOLDS. Wider than HUNT_REACH (6, windshield.js) so two
-    // hawks can't both reach the same tower and share its top ledge.
-    territory: 7,
-    // May claim a road tile, but only where its own roll lands (see speciesAt).
-    streetHunt: true,
+    // The territory below thins it to at most one bird per 15x15 block, so the per-tile roll is
+    // well above the density that comes out.
+    dense: 0.012, sparse: 0.003, areaBias: 0.5,
     // ⚠ TILES EACH WAY THAT ONE BIRD HOLDS, so hawks never roll in clusters (see flockAt).
     territory: 7,
     // Claims a tile only where its own roll lands, never through the co-tenant pick (speciesAt).
@@ -1708,6 +1910,11 @@ export const SPECIES = {
     // High because a hunting perch is the tallest post, snag or rock in sight — a vantage over
     // grass, not a view of the street.
     perch: { share: 0.7, high: true },
+    // ⚠ IT HUNTS THE GROUND, NOT THE SKY: voles, jackrabbits and lizards (crittersAt), mostly by
+    // dropping off its perch. Read by groundStrike; it never touches a flock.
+    groundHunt: { odds: 0.15, perchOdds: 0.5 },
+    // Sits tight when the weather turns (weatherTell): a player can read a storm off the hawks.
+    weatherTell: true,
   },
 
   // The peregrine. The city's hunter: a falcon that treats a tower as a cliff, sits on its upper
@@ -1917,6 +2124,10 @@ const SPECIES_ORDER = Object.keys(SPECIES);
  * the tile gives a bay with both on it, and gives the same answer on both surfaces.
  */
 export function speciesAt(ground, wx, wy, opts = {}) {
+  // ⚠ AN AIRFIELD IS KEPT MOSTLY CLEAR. Airports scare birds off their movement area, so a field
+  // tile keeps a flock only one time in eight. It is a hash of the tile, so the picture, the room
+  // and the strike test all agree about which few birds are on the airfield.
+  if (opts.airfield && frac(wx * 7.31 + wy * 19.17 + 0.41) > AIRFIELD_BIRDS) return null;
   const rough = gullsAshore(opts.weather);
   const live = [];
   for (const id of SPECIES_ORDER) {
@@ -1953,6 +2164,9 @@ export function speciesAt(ground, wx, wy, opts = {}) {
   if (live.length === 1) return live[0];
   return live[Math.floor(frac(wx * 13.77 + wy * 91.31 + 5.5) * live.length) % live.length];
 }
+
+/** The share of airfield tiles that still hold a flock (speciesAt). */
+export const AIRFIELD_BIRDS = 0.12;
 
 /** What a given species DOES on a given ground: 'walk', 'raft', or null if it is not there. */
 export const habitatState = (id, ground) => (SPECIES[id] || SPECIES.goose).habitat[ground] || null;
@@ -2300,6 +2514,133 @@ export function lostTo(f, now, falcons, near) {
     if (s && s.hit && s.prey === f) lost++;
   }
   return lost;
+}
+
+// ── GROUND PREY: WHAT A RED-TAIL EATS ─────────────────────────────────────────
+//
+// Voles, jackrabbits and lizards in the open country. ⚠ ARITHMETIC, LIKE EVERY FLOCK IN THIS FILE: a
+// critter is a pure function of its tile and the wall clock, so there is nothing to store and the
+// server and the renderer agree about where it is without anything crossing the wire. It sits still
+// most of the time and darts to a new spot every few seconds, which is what small prey does and is
+// what makes it readable at all at the size it is drawn.
+//
+// ⚠ THE CALLER DECIDES WHETHER A TILE IS CRITTER GROUND, for the rule every function here follows:
+// only the caller has the map. Ask `critterGround` first.
+// ⚠ NO CLIFF AND NO PLATEAU: both are RAISED ground, and a critter is placed at z 0.
+const CRITTER_GROUND = new Set(['redrock', 'scrub', 'hardpan', 'badlands', 'basalt', 'alkali', 'deadwood']);
+export const critterGround = (ground) => CRITTER_GROUND.has(ground);
+export const CRITTER_KINDS = ['vole', 'jackrabbit', 'lizard'];
+// How long one hop lasts, and the share of it spent moving. A jackrabbit sits longest and runs fastest.
+const CRITTER_HOP = { vole: [5200, 0.14], jackrabbit: [9000, 0.10], lizard: [6800, 0.08] };
+const CRITTER_WANDER = 0.14;       // tiles a critter strays from its home spot
+const ch = (wx, wy, k) => frac(wx * 12.9898 + wy * 78.233 + k * 37.719 + 3.1);
+
+/** The critters on one tile at `now`: [{id, kind, x, y, heading, moving}], usually empty. */
+export function crittersAt(wx, wy, now) {
+  const n = ch(wx, wy, 1) < 0.30 ? (ch(wx, wy, 2) < 0.35 ? 2 : 1) : 0;
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const kind = CRITTER_KINDS[Math.floor(ch(wx, wy, 3 + i) * CRITTER_KINDS.length) % CRITTER_KINDS.length];
+    const hx = wx + (ch(wx, wy, 5 + i) - 0.5) * 0.7, hy = wy + (ch(wx, wy, 7 + i) - 0.5) * 0.7;
+    const [P, runShare] = CRITTER_HOP[kind];
+    const ph = ch(wx, wy, 9 + i);
+    const k = Math.floor(now / P + ph), u = now / P + ph - k;
+    const spot = (j) => {
+      const a = frac(j * 0.618 + ch(wx, wy, 11 + i)) * Math.PI * 2, r = CRITTER_WANDER * Math.sqrt(frac(j * 0.377 + ph));
+      return [hx + Math.cos(a) * r, hy + Math.sin(a) * r];
+    };
+    const A = spot(k), B = spot(k + 1);
+    const moving = u < runShare, t = moving ? u / runShare : 1;
+    const e = t * t * (3 - 2 * t);
+    out.push({ id: wx + ',' + wy + ',' + i, kind, ax: wx, ay: wy,
+      x: A[0] + (B[0] - A[0]) * e, y: A[1] + (B[1] - A[1]) * e,
+      heading: Math.atan2(B[1] - A[1], B[0] - A[0]), moving });
+  }
+  return out;
+}
+
+// ⚠ THE RED-TAIL'S STRIKE, WHICH HAS THE FALCON'S SHAPE AND A DIFFERENT TARGET. Same scheduling as
+// `falconStoop` — one chance per cycle, from the perch on a perched cycle, late in the flight
+// otherwise — so both surfaces agree about when it happens; the target is a critter within reach
+// rather than a flock, picked by hashing the cycle over a list sorted into a stable order.
+const GROUND_REACH = 3;            // tiles: a red-tail drops on what it can see from where it sits
+const GROUND_KILL = 0.30;          // share of strikes that take something
+const GROUND_STRIKE_Z = 0.018;     // tiles: a hawk standing over its catch, body centre
+// ⚠ AFTER A KILL IT STAYS DOWN, wings spread over the catch (mantling), before it climbs away. A real
+// red-tail can sit over prey for many minutes; this is long enough to be seen and short enough that the
+// sky is not emptied of hawks. The renderer's dive reads it, so the two agree on when it leaves.
+export const MANTLE_S = 20;
+function groundStrikeOf(f, cycle, prey) {
+  const sp = spOf(f), gh = sp.groundHunt;
+  if (!gh || !prey || !prey.length) return null;
+  const period = flockPeriod(f);
+  const ph = frac(f.ax * 19.1 + f.ay * 5.3);
+  const uG = sp.uGround;
+  const perched = perchedNow(f, (cycle - ph + uG * 0.5) * period);
+  const at = perched
+    ? (cycle - ph + uG * PERCH_STOOP_AT) * period
+    : (cycle - ph + uG + (1 - uG) * STOOP_AT) * period;
+  if (frac(f.ax * 1.77 + f.ay * 6.31 + cycle * 4.13) >= (perched ? gh.perchOdds : gh.odds)) return null;
+  const near = prey.filter((c) => Math.hypot(c.ax - f.ax, c.ay - f.ay) <= GROUND_REACH)
+    .sort((a, b) => (a.ax - b.ax) || (a.ay - b.ay) || (a.id < b.id ? -1 : 1));
+  if (!near.length) return null;
+  const pick = near[Math.floor(frac(f.ax * 3.3 + f.ay * 11.7 + cycle * 2.9) * near.length) % near.length];
+  // Where the critter is at the moment of the strike, which is where the dive goes.
+  const c = crittersAt(pick.ax, pick.ay, at).find((q) => q.id === pick.id) || pick;
+  // ⚠ tz IS THE HAWK'S OWN HEIGHT OVER THE ANIMAL, NOT THE GROUND: the dive puts the bird's body
+  // centre there, and at 0 half of it is under the floor.
+  return { at, x: c.x, y: c.y, tz: GROUND_STRIKE_Z, prey: c, hit: frac(f.ax * 8.8 + f.ay * 4.2 + cycle * 7.3) < GROUND_KILL,
+    cycle, ground: true, period, ph };
+}
+
+/**
+ * Is this red-tail striking at `now`, and at what? `prey` is the caller's list of critters near it,
+ * from `crittersAt` on critter ground — only the caller has the map. Null most of the time.
+ */
+export function groundStrike(f, now, prey) {
+  if (!spOf(f).groundHunt) return null;
+  const period = flockPeriod(f);
+  const cycle = Math.floor(now / period + frac(f.ax * 19.1 + f.ay * 5.3));
+  const s = groundStrikeOf(f, cycle, prey);
+  if (!s) return null;
+  const age = (now - s.at) / 1000;
+  if (age < 0 || age > 3.0 + (s.hit ? MANTLE_S : 0)) return null;
+  return { ...s, age };
+}
+
+/**
+ * Every kill this red-tail made in the last `sinceMs`: [{ at, x, y, ax, ay, kind }]. What a kill leaves
+ * on the ground outlasts the hawk, so this is how the server answers "did something die here?" for
+ * `search` — the same strikes the renderer drew, derived again rather than remembered.
+ * `prey` is the hawk's critter list, built the way groundStrike's is.
+ */
+export function groundKillsSince(f, now, sinceMs, prey) {
+  if (!spOf(f).groundHunt || !prey || !prey.length) return [];
+  const period = flockPeriod(f), ph = frac(f.ax * 19.1 + f.ay * 5.3);
+  const c1 = Math.floor(now / period + ph), c0 = Math.floor((now - sinceMs) / period + ph);
+  const out = [];
+  for (let c = c0; c <= c1; c++) {
+    const s = groundStrikeOf(f, c, prey);
+    if (!s || !s.hit) continue;
+    const landed = s.at + 1000;
+    if (landed > now || landed < now - sinceMs) continue;
+    out.push({ at: landed, x: s.x, y: s.y, ax: s.prey.ax, ay: s.prey.ay, kind: s.prey.kind });
+  }
+  return out;
+}
+
+/**
+ * Has a red-tail taken this critter? From the moment the strike lands to the end of that hawk's
+ * cycle — the same rule a flock follows when it comes back a bird short, for the same reason.
+ */
+export function critterTaken(c, now, hawks, prey) {
+  for (const h of hawks) {
+    const period = flockPeriod(h);
+    const cycle = Math.floor(now / period + frac(h.ax * 19.1 + h.ay * 5.3));
+    const s = groundStrikeOf(h, cycle, prey);
+    if (s && s.hit && s.prey.id === c.id && now >= s.at + 1000) return true;
+  }
+  return false;
 }
 
 export const birdDaylight = (id, hour) => {

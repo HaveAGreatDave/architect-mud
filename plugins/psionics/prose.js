@@ -82,7 +82,7 @@ export function scrub(line, plainly = false) {
   if (!line) return '';
   let out = String(line);
 
-  // The em dash is not ours. Replace rather than warn-only, because a stray one is
+  // No prose in the game takes an em dash. Replace rather than warn-only: a stray one is
   // a voice bug the player can see immediately.
   if (out.includes('—')) {
     out = out.replace(/\s*—\s*/g, ', ');

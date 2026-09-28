@@ -11,7 +11,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "No glass at all on this one — the balustrade is chrome rail, and the drop is nine metres onto the service strip. The nearest yard has a line out in it more days than not.",
+      "description": "No glass at all on this one; the balustrade is chrome rail, and the drop is nine metres onto the service strip. The nearest yard has a line out in it more days than not.",
       "light": 0.9,
       "name": "the terrace edge",
       "visibility": 0.9

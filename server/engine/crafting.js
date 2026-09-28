@@ -170,7 +170,7 @@ export async function attemptCraft(player, recipeId, stationQuality = 'none') {
   }
 
   if (!skillResult.success) {
-    return { success: false, message: `You fail to craft ${recipe.name}. Your materials are intact — try again.` };
+    return { success: false, message: `You fail to craft ${recipe.name}. Your materials are intact. Try again.` };
   }
 
   // Prep output details (pure work + reads) before the write transaction.
@@ -223,7 +223,7 @@ export async function attemptCraft(player, recipeId, stationQuality = 'none') {
     critical,
   });
 
-  const critMsg = critical ? ' CRITICAL CRAFT — double output! ' : '';
+  const critMsg = critical ? ' CRITICAL CRAFT: double output! ' : '';
   return {
     success: true,
     critical,

@@ -15,12 +15,17 @@ import { moonPhaseOf } from '/shared/moon.js';
 // So the owner of the fact hands it over, optionally, exactly as helm-view and freelook-view import
 // THIS module — a renderer that is not there simply never gets told, and `BIRD_DOY` stays null,
 // which `seasonalSize` reads as "no season information" and answers unseasoned.
-let _setBirdSeason = null;
+let _setBirdSeason = null, _setBirdWeather = null;
 import('./windshield.js').then((m) => {
   _setBirdSeason = m.setBirdSeason || null;
+  _setBirdWeather = m.setBirdWeather || null;
   if (_setBirdSeason && envDoy != null) _setBirdSeason(envDoy);   // the clock may have beaten the import
+  if (_setBirdWeather && (envWxToday || envWxTomorrow)) _setBirdWeather(envWxToday, envWxTomorrow);
 }).catch(() => {});
 let envDoy = null;
+// Today's weather and tomorrow's, for the hawks (weatherTell in birds.js). Tomorrow only arrives on the
+// messages that carry the forecast (sync, daily), so it is kept between them.
+let envWxToday = null, envWxTomorrow = null;
 
 const DAY_PHASES_CLIENT = [
   { name: 'dawn',  start: 5 * 60,  end: 7 * 60,  icon: '🌅' },
@@ -331,6 +336,11 @@ let _lastServerTick = 0;
 
 export function updateEnvironmentHUD(env) {
   if (!env) return;
+  if (env.weatherType !== undefined || Array.isArray(env.forecast)) {
+    if (env.weatherType !== undefined) envWxToday = env.weatherType || null;
+    if (Array.isArray(env.forecast)) envWxTomorrow = env.forecast[1]?.weatherType || null;
+    if (_setBirdWeather) _setBirdWeather(envWxToday, envWxTomorrow);
+  }
   if (env.time) clientMinutes = parseHHMM(env.time);
   if (env.date !== undefined) {
     envDateStr = formatGameDate(env.date, env.dayOfWeek);

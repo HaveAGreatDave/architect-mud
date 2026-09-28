@@ -54,8 +54,13 @@ out float vAlpha;
 out float vLit;
 out float vKind;
 out float vYs;
+out float vZ;
 void main() {
   vec4 clip = uViewProj * vec4(aPos, 1.0);
+  // World height of this corner of the card. A card is a flat screen-facing quad at ONE depth, so
+  // its lower half hangs below the altitude the puff sits at. See uFloorZ in the fragment stage.
+  float ky = uViewProj[2][1];
+  vZ = aPos.z + (abs(ky) > 1e-6 ? (-aCorner.y * aSize.y * (2.0 / uViewport.y) * clip.w) / ky : 0.0);
   // ⚠ CORNER +y IS DOWN, because every number this reproduces was written against a 2-D canvas —
   // the focus offset, the squash, the stop positions. Flipping here once means the fragment stage
   // reads the same way as the code it is a port of, rather than being its mirror image.
@@ -86,6 +91,8 @@ in float vAlpha;
 in float vLit;
 in float vKind;
 in float vYs;
+in float vZ;
+uniform float uFloorZ;
 uniform vec3 uBase;
 uniform vec3 uLitCol;
 uniform vec3 uStormBase;
@@ -118,6 +125,12 @@ vec3 overlay(vec3 b, vec3 s) {
 }
 
 void main() {
+  // ⚠ NOTHING UNDER THE CLOUD BASE IS BEHIND A CLOUD, SEEN FROM UNDER IT. A card's depth is its
+  // centre's, so a distant flock below the deck lost the depth test to the hanging lower half of a
+  // nearer card and was painted over. The part of a card below the base goes to the far plane: it
+  // still lays over open sky, and goes behind birds and buildings. uFloorZ is -1e9 (off) in fog,
+  // with the eye above the deck, and in the mirror pass.
+  gl_FragDepth = vZ < uFloorZ ? 1.0 : gl_FragCoord.z;
   // In corner space the card's ellipse is exactly the unit circle.
   float rr = length(vCorner);
   if (rr > 1.0) discard;
@@ -215,6 +228,7 @@ export function createCloudLayer(gl) {
     stormLit: gl.getUniformLocation(prog, 'uStormLit'),
     mottle: gl.getUniformLocation(prog, 'uMottle'),
     noise: gl.getUniformLocation(prog, 'uNoise'),
+    floorZ: gl.getUniformLocation(prog, 'uFloorZ'),
   };
 
   const vao = gl.createVertexArray();
@@ -270,6 +284,7 @@ export function createCloudLayer(gl) {
     const L = opts.light || [W * 0.5, -H];
     gl.uniform2f(loc.light, L[0], L[1]);
     gl.uniform1f(loc.lightStr, opts.lightStr || 0);
+    gl.uniform1f(loc.floorZ, Number.isFinite(opts.floorZ) ? opts.floorZ : -1e9);
     const b = opts.base || [0.7, 0.72, 0.76], l = opts.lit || [0.95, 0.95, 0.95];
     gl.uniform3f(loc.base, b[0], b[1], b[2]);
     gl.uniform3f(loc.litCol, l[0], l[1], l[2]);

@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "The room in the top of the arch: a glazed box thirty feet long with the floor of it a single sheet of something you can see straight down through, out over the road, out over the quarter, and on a clear day out to where the Basin stops being water. It is free to come up and there is nothing to buy. Two benches face outward. Nobody sits on them; everyone stands at the glass with their hands behind their back.",
+  "description": "A glazed box thirty feet long in the top of the arch. The floor is one clear sheet, looking straight down on the road and the quarter, and on a clear day out to the edge of the Basin. Free entry. Two benches face outward. People stand at the glass instead.",
   "exits": {
     "down": "zone_hf_airrights_foot"
   },

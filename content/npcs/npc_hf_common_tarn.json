@@ -126,7 +126,7 @@
     "She runs a cloth along the edge of the slab, following the curve all the way round.",
     "Somewhere above, a door closes. She counts something under her breath and stops."
   ],
-  "description": "A small, extremely tidy woman in the estate's own grey, standing at the slab with her hands flat on it. She is somewhere in her forties and has the particular brightness of somebody who has been told to be welcoming and has decided to be good at it rather than resent it. She knows every one of the fifty-one empty numbers by heart.",
+  "description": "A small, very tidy woman in her forties in the estate's grey, standing at the slab with her hands flat on it. She's bright and welcoming, and she knows all fifty-one empty numbers by heart.",
   "dialogue_tree": {
     "believe": {
       "options": [

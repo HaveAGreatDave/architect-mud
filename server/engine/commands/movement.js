@@ -306,7 +306,7 @@ function cmdLookDistance(player) {
     const z = getZone(target);
     return z ? `to the ${dir}: ${z.name}` : `to the ${dir}: somewhere`;
   });
-  return { type: 'examine', message: `Looking into the distance you can make out — ${parts.join('; ')}.` };
+  return { type: 'examine', message: `Looking into the distance you can make out ${parts.join('; ')}.` };
 }
 
 // Location-gated ambient soundscape for the client (naval gulls/surf on deck, engine-room rumble
@@ -351,7 +351,7 @@ async function cmdExamineFallback(targetStr, player, broadcast) {
 }
 
 async function cmdGo(argText, player, broadcast) {
-  if (!argText) return { type: 'error', message: 'Go where? (north, south, east, west, up, down, in, out — or a building/room name)' };
+  if (!argText) return { type: 'error', message: 'Go where? (north, south, east, west, up, down, in, out, or a building/room name)' };
   if (RAW_DIRECTIONS.includes(argText)) return cmdMove(argText, player, broadcast);
   // "go in 2" — a direction plus a numbered same-direction exit.
   const goParts = argText.split(/\s+/);
@@ -463,6 +463,35 @@ function resolveFacadeTransit(from, to) {
   return { finalId: entryId, finalZone: entryZone, frontDoor: frontDoorOf(to) };
 }
 
+// `out` in a room with several exits: the first step of the shortest walk through the building's own
+// rooms to dry ground outside it. A lobby with a street door and three inner rooms answers the street
+// door; a room deeper in answers the way back towards it. ⚠ Open water is not "outside" for a walker —
+// a covered boat dock's exit onto the Basin is the boat's way out, and `out` must not swim you.
+function isDryOutside(z) {
+  if (!z || isInteriorZone(z) || z.flags?.is_interior) return false;
+  return z.flags?.terrain !== 'water' && z.flags?.district !== 'water';
+}
+function wayOutOf(zone) {
+  if (!zone || !(isInteriorZone(zone) || zone.flags?.is_interior)) return null;
+  const building = zone.flags?.building_name || null;
+  const seen = new Set([zone.id]);
+  let frontier = allExits(zone).map((e) => ({ first: e, id: e.target }));
+  for (let depth = 0; depth < 8 && frontier.length; depth++) {
+    const next = [];
+    for (const f of frontier) {
+      if (seen.has(f.id)) continue;
+      seen.add(f.id);
+      const z = getZone(f.id);
+      if (!z) continue;
+      if (isDryOutside(z)) return f.first;
+      if (building && z.flags?.building_name !== building) continue;
+      for (const e of allExits(z)) next.push({ first: f.first, id: e.target });
+    }
+    frontier = next;
+  }
+  return null;
+}
+
 export async function cmdMove(direction, player, broadcast, opts = {}) {
   if (!direction) return { type:'error', message:'Go where? (north, south, east, west, up, down)' };
   const zone = getZone(player.current_zone);
@@ -473,6 +502,9 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
     if (all.length === 1) {
       direction = all[0].dir;
       targets = [all[0].target];
+    } else if (direction !== 'in') {
+      const step = wayOutOf(zone);
+      if (step) { direction = step.dir; targets = [step.target]; }
     }
   }
   if (!targets.length) {
@@ -777,7 +809,7 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
       // only on the transition in, not on every wheezing stride.
       const wasWinded = (player._windedUntil ?? 0) > Date.now();
       player._windedUntil = Date.now() + WINDED_DURATION_MS;
-      if (!wasWinded) broadcast(null, { type:'resource_tick', messages:['You\'re completely winded — chest heaving, you have to catch your breath before you can run again.'], player_update:{ stamina: player.stamina } }, null, player.id);
+      if (!wasWinded) broadcast(null, { type:'resource_tick', messages:['You\'re completely winded, chest heaving, you have to catch your breath before you can run again.'], player_update:{ stamina: player.stamina } }, null, player.id);
     }
   }
 

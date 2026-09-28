@@ -333,7 +333,7 @@ export function renderA11yTablet(msg) {
     html += `<p class="ta-note">This screen is drawn rather than written, so there's nothing here to read. `
       + (hint
         ? `Type <strong>${esc(hint)}</strong> at the prompt for the same information in words.`
-        : `It has no written form yet. Close this and carry on — nothing here is needed to play.`)
+        : `It has no written form yet. Close this and carry on. Nothing here is needed to play.`)
       + `</p>`;
   }
 

@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Red rock to the horizon, pitted with pale rings a hair deep where the rain has stood and eaten. The wind never stops. There's a great deal of sky and none of it's reassuring.",
+  "description": "Low scrub fills a dip in the ground where runoff gathers. From any small rise you can trace the channels by where the growth is thickest.",
   "exits": {
     "east": "zone_scw_1021_957",
     "north": "zone_scw_1020_956",
@@ -8,18 +8,18 @@
     "west": "zone_scw_1019_957"
   },
   "flags": {
-    "ambient_pool": "scarletwastes_hardpan",
+    "ambient_pool": "scarletwastes_the_grey_thicket",
     "lawless": true,
     "radiation": 9,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "redrock"
+    "terrain": "dirt_road"
   },
   "grid_x": 1020,
   "grid_y": 957,
   "grid_z": 0,
   "id": "zone_scw_1020_957",
   "map_id": "map_world",
-  "name": "Ash Flats",
+  "name": "Scrub Bench",
   "parent_zone": null
 }

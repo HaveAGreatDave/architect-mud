@@ -68,13 +68,13 @@ function panelFor(site, firing, repairing) {
   const factionTag = site.faction ? ` <span class="text-dim">(${site.faction})</span>` : '';
   if (!site.active) {
     if (repairing) {
-      return `<span class="furniture-label">Emplacement:</span> <span class="text-amber">${site.name}</span>${factionTag}\n<span class="text-amber">● OFF-LINE — UNDER REPAIR</span> <span class="text-dim">— the mount hangs slewed and smoking from a gun run, but the crew below are hauling it back into the fight. Give them a few minutes and the barrels come up again.</span>`;
+      return `<span class="furniture-label">Emplacement:</span> <span class="text-amber">${site.name}</span>${factionTag}\n<span class="text-amber">● OFF-LINE: UNDER REPAIR</span> <span class="text-dim">· the mount hangs slewed and smoking from a gun run, but the crew below are hauling it back into the fight. Give them a few minutes and the barrels come up again.</span>`;
     }
-    return `<span class="furniture-label">Emplacement:</span> <span class="text-dim">${site.name}${factionTag} — a torn-open ruin of scorched steel and slag, the mount canted and cold and no one left below to work it. These guns stay silent until someone mans the bunker again.</span>`;
+    return `<span class="furniture-label">Emplacement:</span> <span class="text-dim">${site.name}${factionTag}: a torn-open ruin of scorched steel and slag, the mount canted and cold and no one left below to work it. These guns stay silent until someone mans the bunker again.</span>`;
   }
   const status = firing
-    ? '<span class="text-red">● FIRING</span> <span class="text-red">— barrels up and hammering at a contact overhead, the whole pit ringing with it and spent casings raining down the mount.</span>'
-    : '<span class="text-green">● MANNED</span> <span class="text-dim">— the crew works the guns, barrels cold, scanning the sky for a contact. A hatch drops into the bunker below.</span>';
+    ? '<span class="text-red">● FIRING</span> <span class="text-red">· barrels up and hammering at a contact overhead, the whole pit ringing with it and spent casings raining down the mount.</span>'
+    : '<span class="text-green">● MANNED</span> <span class="text-dim">· the crew works the guns, barrels cold, scanning the sky for a contact. A hatch drops into the bunker below.</span>';
   return `<span class="furniture-label">Emplacement:</span> <span class="text-amber">${site.name}</span>${factionTag}\n${status}`;
 }
 
@@ -100,7 +100,7 @@ on('flight.aaFired', ({ zoneId, siteId }) => {
   if (!zoneId || now - (lastBroadcast.get(siteId) || 0) < AA_BROADCAST_MS) return;
   lastBroadcast.set(siteId, now);
   sendToZone(zoneId, { type: 'zone_event',
-    message: '<span class="text-red">The crew swings the barrels skyward and the battery erupts — cannon fire hammering up at a contact in the sky, the mount shuddering and spent casings clattering down around you.</span>' });
+    message: '<span class="text-red">The crew swings the barrels skyward and the battery erupts: cannon fire hammering up at a contact in the sky, the mount shuddering and spent casings clattering down around you.</span>' });
 });
 
 // A strafing run has silenced the guns (flight flipped active=0). Track it for the repair
@@ -112,7 +112,7 @@ on('flight.aaSilenced', ({ siteId, zoneId }) => {
   damaged.set(siteId, { at: Date.now(), zoneId, name: null });
   const eng = livingEngineer(siteId);
   if (eng?.zone_id) sendToZone(eng.zone_id, { type: 'zone_event',
-    message: '<span class="text-amber">The deck above takes hits — the mount screams and goes dead. The engineer swears, grabs the toolkit, and scrambles for the ladder to bring the gun back up.</span>' });
+    message: '<span class="text-amber">The deck above takes hits: the mount screams and goes dead. The engineer swears, grabs the toolkit, and scrambles for the ladder to bring the gun back up.</span>' });
 });
 
 // Repair loop: for each downed battery, if a living engineer is on it, count down the work;
@@ -130,9 +130,9 @@ async function repairTick() {
     damaged.delete(siteId);
     cache.at = 0;                                 // deck look flips back to MANNED
     if (eng.zone_id) sendToZone(eng.zone_id, { type: 'zone_event',
-      message: '<span class="text-green">The engineer slams the access panel shut, wipes their hands, and thumps the housing twice. Overhead the mount whirs back to life — the battery is online.</span>' });
+      message: '<span class="text-green">The engineer slams the access panel shut, wipes their hands, and thumps the housing twice. Overhead the mount whirs back to life: the battery is online.</span>' });
     if (d.zoneId) sendToZone(d.zoneId, { type: 'zone_event', refresh: true,
-      message: '<span class="text-green">With a grinding whir the gun jerks back to life, barrels rising to scan the sky. Repaired — the battery is hot again.</span>' });
+      message: '<span class="text-green">With a grinding whir the gun jerks back to life, barrels rising to scan the sky. Repaired: the battery is hot again.</span>' });
     emit('flight.aaRepaired', { siteId, zoneId: d.zoneId });
   }
 }

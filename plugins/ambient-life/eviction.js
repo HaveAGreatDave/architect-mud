@@ -61,7 +61,7 @@ const ESCORT = [
 ];
 // A regular doesn't get thrown out, they get walked out — the courtesy version.
 const REGULAR = [
-  `{npc} nods at you. "Closing up. Don't rush — just pull the door behind you."`,
+  `{npc} nods at you. "Closing up. Don't rush, just pull the door behind you."`,
   `{npc} smiles tiredly. "You're alright. Let yourself out when you're done."`,
 ];
 

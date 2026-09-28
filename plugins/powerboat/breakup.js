@@ -103,7 +103,7 @@ export function wreckLines(res, boatName = 'the boat') {
   const hull = sev > 0.7
     ? boatName + ' comes apart underneath you. One moment there is a boat and the next there is not.'
     : sev > 0.35
-      ? boatName + ' breaks up around you — the canopy goes first, then the deck, then the water.'
+      ? boatName + ' breaks up around you: the canopy goes first, then the deck, then the water.'
       : boatName + ' folds and goes down under you.';
   const parts = [...new Set(res.hits.map((h) => h.partLabel || h.part))];
   const body = parts.length

@@ -293,7 +293,7 @@ export function operationRefusal(player, target, subsystem, opId) {
   if (!op) return `There's no such operation.`;
   if (!subsystem) return `You would have to name a subsystem.`;
   if (!operationApplies(opId, subsystem.kind)) {
-    return `You can't ${op.label.toLowerCase()} ${subsystem.label || subsystem.id} — there's nothing there that works that way.`;
+    return `You can't ${op.label.toLowerCase()} ${subsystem.label || subsystem.id}; there's nothing there that works that way.`;
   }
   // The manual-override counterplay (spec §21): an owner who disconnects the
   // radio takes a penalty elsewhere and becomes unreachable through the network

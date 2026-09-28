@@ -12,7 +12,7 @@ export default async function regress({ run, check, getPlayer }) {
 
   // Verbs are registered as flashlight-gated specialized actions.
   const reg = getRegisteredSpecializedActions();
-  for (const verb of ['light', 'unlight', 'reload']) {
+  for (const verb of ['flashlight', 'reload']) {
     check(`${verb} registered on flashlight tag`,
       (reg[verb] || []).some(e => e.requiredTag === 'flashlight'),
       JSON.stringify(reg[verb]));
@@ -36,7 +36,9 @@ export default async function regress({ run, check, getPlayer }) {
   check('drain rate reads flags.flashlight_drain', flashlightDrainRate({ flashlight_drain: 0.5 }) === 0.5, 'frugal light');
   check('drain rate rejects non-positive/garbage', flashlightDrainRate({ flashlight_drain: 0 }) === 1 && flashlightDrainRate({ flashlight_drain: 'x' }) === 1, 'guarded');
 
-  // Typing `light` with no flashlight to resolve falls through without crashing.
-  const r = await run('light');
-  check('light dispatches without throwing', r !== null && r !== undefined, JSON.stringify(r)?.slice(0, 120));
+  // Typing `flashlight` with no flashlight to resolve falls through without crashing.
+  const r = await run('flashlight');
+  const t = await run('turn on flashlight');
+  check('turn on flashlight is claimed by the matcher', !/Unknown command/.test(t?.message ?? ''), JSON.stringify(t)?.slice(0, 120));
+  check('flashlight dispatches without throwing', r !== null && r !== undefined, JSON.stringify(r)?.slice(0, 120));
 }

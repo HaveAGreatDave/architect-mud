@@ -1,0 +1,9 @@
+{
+  "a": "zone_consv_counter",
+  "b": "zone_district_892_902",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_marina_counter_yard",
+  "lockable": false,
+  "one_way": false
+}

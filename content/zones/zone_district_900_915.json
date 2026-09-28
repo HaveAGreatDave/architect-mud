@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#121620",
   "color": "#c4d8e8",
-  "description": "A crescent of chrome and glass that bends along the lane, with drums at the joints and a coping band running the whole curve. Four of its five floors are dark and empty and the ground one is not: warm light, a lot of it, and the only door in Halcyon Fields with anybody standing outside it. The unit number is still on the glass in vinyl — UNIT 2 — and somebody has stuck a hand-cut chrome letter S in front of it so it reads SUNIT 2, which is a joke that has outlived its author.",
+  "description": "A crescent of chrome and glass that bends along the lane, with drums at the joints and a coping band running the whole curve. Four of its five floors are dark and empty and the ground one is not: warm light, a lot of it, and the only door in Halcyon Fields with anybody standing outside it. The unit number is still on the glass in vinyl, UNIT 2, and somebody has stuck a hand-cut chrome letter S in front of it so it reads SUNIT 2, which is a joke that has outlived its author.",
   "exits": {
     "east": "zone_hf_sitting_bar",
     "west": "zone_district_899_915"

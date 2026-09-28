@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "description": "Broken mesa shelves step away in ochre and iron-red, cut by dry washes where the wind funnels grit against your teeth.",
+  "description": "Terraces of ochre rock step away into the distance. Where the washes cut through, the grit comes at you sideways.",
   "exits": {
     "east": "zone_district_947_947",
     "north": "zone_district_946_946",

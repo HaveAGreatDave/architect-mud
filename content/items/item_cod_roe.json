@@ -8,7 +8,7 @@
     "stackable": true,
     "restore_hunger": 10,
     "restore_sanity": 6,
-    "description": "A small jar, salted and pressed, the colour of a brick. Two spoonfuls is a meal and a whole jar is a mistake. It is the only thing in the shop he has ever described as expensive, and he says it as a warning rather than a boast."
+    "description": "A small jar of salted, pressed roe, the colour of brick. Two spoonfuls is a meal and a whole jar is a mistake. He calls it expensive, as a warning."
   },
   "type": "consumable",
   "value": 120,

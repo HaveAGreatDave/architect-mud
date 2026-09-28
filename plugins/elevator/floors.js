@@ -33,7 +33,7 @@ export function floorsOf(zone) {
     : [];
   if (!list.some((f) => f.n === GROUND_FLOOR)) {
     const lobbyId = exitTargets(zone, 'out')[0];
-    if (lobbyId && getZone(lobbyId)) list.push({ n: GROUND_FLOOR, zone: lobbyId, label: 'Ground Floor — Lobby' });
+    if (lobbyId && getZone(lobbyId)) list.push({ n: GROUND_FLOOR, zone: lobbyId, label: 'Ground Floor: Lobby' });
   }
   return list.sort((a, b) => b.n - a.n);
 }

@@ -893,7 +893,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Because a board with a name on it's somebody else property lying in our yard, and a board with no name on it's firewood.\" She picks the pencil back up. \"The parts are ours now. The name never was, and I don't want it in the building.\""
+      "text": "\"Because a board with a name on it is somebody else property lying in our yard, and a board with no name on it is firewood.\" She picks the pencil back up. \"The parts are ours now. The name never was, and I don't want it in the building.\""
     },
     "nl_whyme": {
       "actions": [],
@@ -1313,7 +1313,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "You say that like it's a shutdown.",
+          "label": "You say that like it is a shutdown.",
           "next": "shutdown"
         },
         {

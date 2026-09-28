@@ -111,20 +111,20 @@ function render() {
       <span class="eb-name">${esc(c.label)}</span>
       <span class="eb-num">${c.droid ? 'DROID' : esc(String(c.direction || 'all')).toUpperCase()}</span>
       ${c.key === d.camera ? '<span class="eb-air">◉ CUT TO</span>' : ''}
-    </div>`).join('') : '<div class="eb-empty">— NO CAMERA IN THIS ROOM —</div>';
+    </div>`).join('') : '<div class="eb-empty">NO CAMERA IN THIS ROOM</div>';
 
   const tapeRows = cassettes.length ? cassettes.map((c, i) => `
     <div class="eb-row${c.id === d.activeCassetteId ? ' cur' : ''}" data-tape="${i + 1}">
       <span class="eb-num">${String(i + 1).padStart(2, '0')}</span>
       <span class="eb-name">${esc(c.name)}</span>
       ${c.id === d.activeCassetteId ? '<span class="eb-air">▶ LOADED</span>' : ''}
-    </div>`).join('') : '<div class="eb-empty">— NO BULLETIN LOADED —</div>';
+    </div>`).join('') : '<div class="eb-empty">NO BULLETIN LOADED</div>';
 
   // What the switch would put on air right now, which is not always what is on air:
   // a source changed mid-broadcast re-cuts, but the readout says which is which.
   const nowLine = on
     ? `${d.airingMode === 'live' ? 'LIVE' : 'CASSETTE'} · ${esc(d.airingSource || '—')}`
-    : 'nothing — every set is on its own channel';
+    : 'nothing: every set is on its own channel';
 
   _overlay.innerHTML = `
     <div class="eb-box">
@@ -140,9 +140,9 @@ function render() {
         <button class="eb-t ${mode === 'live' ? 'on' : ''}" data-src="live">◉ LIVE STUDIO</button>
       </div>
       ${mode === 'live'
-        ? `<div class="eb-sec">Studio cameras — cut to air</div><div>${camRows}</div>`
+        ? `<div class="eb-sec">Studio cameras: cut to air</div><div>${camRows}</div>`
         : `<div class="eb-sec">Bulletin</div><div>${tapeRows}</div>`}
-      <div class="eb-sec">Ticker — scrolls along the bottom of every screen</div>
+      <div class="eb-sec">Ticker: scrolls along the bottom of every screen</div>
       <div class="eb-ticker">
         <input id="eb-ticker-input" maxlength="${d.tickerMax || 200}" placeholder="Type what the city reads along the bottom…" value="${esc(d.ticker || '')}">
         <button class="eb-t" data-act="ticker-set">SET</button>

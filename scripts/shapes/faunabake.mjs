@@ -50,10 +50,15 @@ for (const sp of species) {
       if (!bake) { fail.push(`${tag} would not bake — this bird does not draw on the GPU path`); continue; }
       groups++;
       verts = Math.max(verts, bake.verts);
-      const wantRows = state === 'air' ? F.FAUNA_BEAT_STEPS : 1;
+      // An air bake is the sixteen beat steps plus the glide row the flock shader eases into.
+      // A walking bake for a species with a walk cycle is the sixteen stride steps plus the peck.
+      const walks = state === 'walk' && F.faunaWalks('bird', sp);
+      const wantRows = state === 'air' || walks ? F.FAUNA_BEAT_STEPS + 1 : 1;
       if (bake.rows !== wantRows) fail.push(`${tag}: ${bake.rows} rows, expected ${wantRows}`);
       for (let r = 0; r < bake.rows; r++) {
-        const pts = fan(F.faunaPoseFaces('bird', sp, { state, beat: r, flare, gear, far }));
+        const glide = state === 'air' && r === F.FAUNA_GLIDE_ROW;
+        const walk = !walks ? null : r === F.FAUNA_PECK_ROW ? 'peck' : r / F.FAUNA_BEAT_STEPS;
+        const pts = fan(F.faunaPoseFaces('bird', sp, { state, beat: glide ? 0 : r, flare, gear, far, glide, walk }));
         if (pts.length !== bake.verts) { fail.push(`${tag} row ${r}: ${pts.length} vertices, bake has ${bake.verts}`); continue; }
         let bad = 0;
         for (let i = 0; i < pts.length; i++) {
@@ -66,6 +71,19 @@ for (const sp of species) {
       }
     }
   }
+}
+
+// 2b. the glide row: an authored glide is its own shape, and an unauthored one IS beat step 2, the
+// frame the shader held before the row existed — so no other bird's glide or landing moved.
+for (const sp of species) {
+  const b = F.faunaPoseBake('bird', sp, 'air', 0, 0, 0);
+  if (!b) continue;
+  const g = F.FAUNA_GLIDE_ROW * b.verts * 4, two = 2 * b.verts * 4;
+  let same = true;
+  for (let i = 0; i < b.verts * 4; i++) if (b.pos[g + i] !== b.pos[two + i]) { same = false; break; }
+  const authored = F.faunaParamBase('bird', sp)?.glideFold != null;
+  if (!authored && !same) fail.push(sp + ': no glide authored, yet the glide row is not beat step 2');
+  if (authored && same) fail.push(sp + ': a glide is authored and the glide row is still beat step 2 — the pose is not reaching the bake');
 }
 
 // 3. colours: the solids layer takes a face's rgb from faunaPose; the bake must hand the same one

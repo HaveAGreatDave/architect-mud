@@ -127,7 +127,7 @@ function renderLine(machineName, reels, result, bet, winnings, balance) {
   const r = (s) => `<span style="color:var(--red,#f66)">${s}</span>`;
   const face = `[ ${reels.join(' ')} ]`;
   const verdict = result.mult
-    ? g(`${result.jackpot ? '★ JACKPOT ★ ' : ''}${result.label} ×${result.mult} — ₵ ${winnings.toLocaleString()}`)
+    ? g(`${result.jackpot ? '★ JACKPOT ★ ' : ''}${result.label} ×${result.mult}: ₵ ${winnings.toLocaleString()}`)
     : r('no luck');
   return `<span class="action-link slot-pull" data-action="cmd" data-cmd="spin ${bet}" data-label="spin ${bet}"`
     + ` title="Pull the ${machineName} again for ₵ ${bet}">${face}</span> ${verdict}`
@@ -161,7 +161,7 @@ async function cmdSpin(args, raw, player, broadcast) {
 
   // Liveliness — a big win lights up the whole floor.
   if (result.jackpot) {
-    broadcast(player.current_zone, { type: 'zone_event', message: `The ${machine.name} erupts — bells, sirens, a column of light. ${player.handle} just hit the ${result.label.toLowerCase()} for ₵ ${winnings.toLocaleString()}!` }, player.id);
+    broadcast(player.current_zone, { type: 'zone_event', message: `The ${machine.name} erupts: bells, sirens, a column of light. ${player.handle} just hit the ${result.label.toLowerCase()} for ₵ ${winnings.toLocaleString()}!` }, player.id);
   } else if (result.mult >= 12) {
     broadcast(player.current_zone, { type: 'zone_event', message: `Coins clatter into the tray as ${player.handle}'s machine pays out.` }, player.id);
   }

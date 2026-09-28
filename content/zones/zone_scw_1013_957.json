@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A shelf of red stone standing a hundred feet clear of the flats, its face banded in every shade the country has, laid down and then eaten back until only this much was left. From up here the dark line of the thorn is visible a long way off, a black seam laid across the red.",
+  "description": "Loose rock piled against the foot of the mesa, big and small together. None of it is quite stable.",
   "exits": {
     "east": "zone_scw_1014_957",
     "north": "zone_scw_1013_956",
@@ -8,18 +8,18 @@
     "west": "zone_scw_1012_957"
   },
   "flags": {
-    "ambient_pool": "scarletwastes_the_long_shelf",
+    "ambient_pool": "scarletwastes_the_spill",
     "lawless": true,
     "radiation": 9,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "plateau"
+    "terrain": "dirt_road"
   },
   "grid_x": 1013,
   "grid_y": 957,
   "grid_z": 0,
   "id": "zone_scw_1013_957",
   "map_id": "map_world",
-  "name": "The Standing Bench",
+  "name": "The Slide",
   "parent_zone": null
 }

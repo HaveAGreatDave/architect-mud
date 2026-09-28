@@ -303,7 +303,12 @@ const on = run();
 ws.navMarks(false);
 const off = run();
 ws.navMarks(true);
-const free = run((v) => { v.freeCam = { x: 0, y: 0, z: 1.4, yaw: 0, pitch: 0, roll: 0, fov: 1 }; });
+const detach = (v) => { v.freeCam = { x: 0, y: 0, z: 1.4, yaw: 0, pitch: 0, roll: 0, fov: 1 }; };
+const free = run(detach);
+// The free camera's control is the SAME pose with marks off. Comparing it against the cab run
+// compared two different poses, and the fill count moves with the pose, so the check was flaky.
+ws.navMarks(false);
+const freeOff = run(detach);
 ws.navMarks(true);   // leave the flag as it was found
 
 console.log(`    marks on   ${on.total} ops · ${on.fill} fills · name ×${on.named}`);
@@ -323,7 +328,7 @@ ck('marks off → the waypoint is gone', off.named === 0, `${off.named} survived
 ck('a detached camera → the waypoint is gone whatever the switch says', free.named === 0, `${free.named} survived`);
 
 ck('marks off drops the chevron\'s fill', off.fill < on.fill, `on ${on.fill} vs off ${off.fill}`);
-ck('a detached camera drops it too', free.fill < on.fill, `on ${on.fill} vs freelook ${free.fill}`);
+ck('a detached camera drops it too', free.fill === freeOff.fill, `freelook marks on ${free.fill} vs off ${freeOff.fill}`);
 
 // And it must hide OVERLAYS, not the frame — the failure in the other direction.
 const shed = (on.total - off.total) / on.total;

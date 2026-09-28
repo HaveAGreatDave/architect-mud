@@ -37,7 +37,7 @@
  */
 import { query } from '../../server/models/db.js';
 import { hasTag, tagValue } from '../../server/engine/tags.js';
-import { getZoneTemperature, getZonePrecip, getWindKph, getHumidityPct } from '../../server/engine/environment.js';
+import { getZoneTemperature, getZonePrecip, getZoneWindKph, getHumidityPct } from '../../server/engine/environment.js';
 import { getAllLivePlayers, getZone, bodyZoneOf } from '../../server/engine/world.js';
 import { resolveInventoryForPlayers, patchInventoryCustomData } from '../../server/engine/inventory.js';
 import { wear, announceWear } from '../../server/engine/durability.js';
@@ -302,7 +302,7 @@ async function douseWithFluid(player, { potency = 1, broadcast, source, info = {
   // The arrival prose belongs to the FLUID (the substrate's table), not to this
   // plugin — all the wetting pass adds is what the soaking did to you. A fluid
   // with its own registered effect can still overrule this.
-  const lead = source ? `${source} — ` : '';
+  const lead = source ? `${source}: ` : '';
   const tail = wasHot
     ? ' The heat goes out of you all at once.'
     : (player.wetness >= 75 ? " You're soaked through." : '');
@@ -361,7 +361,7 @@ export const hooks = {
       const zoneTemp = getZoneTemperature(zoneId);
       const baseDryRate = isIndoors ? 3 : 2;
       // Wind and humidity only bite outdoors; interiors are sheltered and HVAC-neutral.
-      const windMult = isIndoors ? 1 : windMultiplier(getWindKph());
+      const windMult = isIndoors ? 1 : windMultiplier(getZoneWindKph(zoneId));
       const humidMult = isIndoors ? 1 : humidityMultiplier(getHumidityPct());
       const dryRate = baseDryRate * dryMultiplier(zoneTemp) * windMult * humidMult;
 
@@ -410,7 +410,7 @@ export const hooks = {
       // `snowWettingRate` already caps for it, so the multiplier is rain-only.
       const wettingRate = isPrecipitating
         ? (isSnow ? snowWettingRate(precipRate)
-                  : rainWettingRate(precipRate) * drivenRainMultiplier(getWindKph()))
+                  : rainWettingRate(precipRate) * drivenRainMultiplier(getZoneWindKph(zoneId)))
         : 0;
 
       // ── Outside-in ────────────────────────────────────────────────────────

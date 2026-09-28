@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Somebody is printing the Watch's handbills on a real press, on paper, which is slow and expensive and can't be switched off from an office. Halcyon would like to know where.\n\nIves is unusually direct about the reason. \"Not to burn it. To have the address. An address is a thing you can decide about later — and later is where the whole business lives.\"\n\nThe press is under a dye works east of the wash. Get in, confirm it, get out. Nobody is asking you to touch it.",
+  "description": "Somebody is printing the Watch's handbills on a real press, on paper, which is slow and expensive and can't be switched off from an office. Halcyon would like to know where.\n\nIves is unusually direct about the reason. \"Not to burn it. To have the address. An address is a thing you can decide about later, and later is where the whole business lives.\"\n\nThe press is under a dye works east of the wash. Get in, confirm it, get out. Nobody is asking you to touch it.",
   "fail_on": [],
   "id": "quest_asc_cross",
   "meta": {},
@@ -36,7 +36,7 @@
       "emotes": [
         "{who} realises a man has been sitting six feet away for the whole of the last minute.",
         "{who} takes in a good coat gone shapeless, and two clean ports in the back of a neck.",
-        "{who} is told he wants nothing, isn't Watch, and isn't recruiting — and finds all three of those turn out to be true.",
+        "{who} is told he wants nothing, isn't Watch, and isn't recruiting, and finds all three of those turn out to be true.",
         "{who} gets one plain sentence about the job after this one, from the only person who has ever bothered to say it beforehand.",
         "{who} isn't threatened, not argued with, and not stopped."
       ],

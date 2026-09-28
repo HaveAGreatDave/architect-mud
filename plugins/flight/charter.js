@@ -259,8 +259,8 @@ function charterGate(player) {
   const field = fieldOf(player);
   if (!airfieldOf(field)?.charter) return { err: { type: 'emote', message: "There's no charter desk here." } };
   if (field.flags.hangar_interior_zone && !inHangarInterior(player))
-    return { err: { type: 'emote', message: 'The charter desk is inside the hangar — step <b>in</b> off the ramp to book a flight.' } };
-  if (player.aircraftId) return { err: { type: 'emote', message: "You're already aboard something — disembark first." } };
+    return { err: { type: 'emote', message: 'The charter desk is inside the hangar. Step <b>in</b> off the ramp to book a flight.' } };
+  if (player.aircraftId) return { err: { type: 'emote', message: "You're already aboard something. Disembark first." } };
 
   const pilot = pilotForField(field.id);
   if (!pilot) return { err: { type: 'emote', message: 'No charter pilot works out of this field.' } };
@@ -268,15 +268,15 @@ function charterGate(player) {
   if (busy) {
     if (busy.chartererId === player.id)
       return { err: { type: 'emote', message: busy.phase === 'boarding'
-        ? "Your charter's already fuelled and waiting at the hangar — <b>embark</b> to go, or <b>cancel</b> for a refund."
+        ? "Your charter's already fuelled and waiting at the hangar: <b>embark</b> to go, or <b>cancel</b> for a refund."
         : "You're already booked on a charter. Type <b>cancel</b> if you've changed your mind." } };
     if (busy.phase === 'boarding' || busy.phase === 'departing' || busy.phase === 'rolling')
-      return { err: { type: 'emote', message: `${pilot.name} is readying a charter for someone else — wait your turn.` } };
+      return { err: { type: 'emote', message: `${pilot.name} is readying a charter for someone else. Wait your turn.` } };
     return { err: { type: 'emote', message: `${pilot.name} is out on a run to ${busy.destName}. Wait for them to get back.` } };
   }
   if (!inHangar(pilot)) {   // off the clock and gone home
     const other = openDeskElsewhere(field.id);
-    return { err: { type: 'output', message: `<span class="text-amber">The charter desk is closed — ${pilot.name} flies the ${shiftLabel(pilot)} shift and isn't here.</span>` +
+    return { err: { type: 'output', message: `<span class="text-amber">The charter desk is closed. ${pilot.name} flies the ${shiftLabel(pilot)} shift and isn't here.</span>` +
       (other ? `\nOn duty right now: <b>${other.pilot}</b> at <b>${other.field}</b>.` : '') } };
   }
   return { field, pilot };
@@ -337,7 +337,7 @@ export async function cmdCharterBook(args, raw, player) {
 
   const fare = charterFare(field.grid_x, field.grid_y, dest.grid_x, dest.grid_y, anywhere);
   if ((player.credits || 0) < fare)
-    return { type: 'emote', message: `That run runs <b>${fare}₵</b> — you're short. ${pilot.name} can't roll without the fare.` };
+    return { type: 'emote', message: `That run runs <b>${fare}₵</b>. You're short. ${pilot.name} can't roll without the fare.` };
 
   const destName = fieldName(dest);
   const acId = `aircraft_charter_${randomUUID().slice(0, 10)}`;
@@ -366,8 +366,8 @@ export async function cmdCharterBook(args, raw, player) {
   log({ player: player.handle, pilot: pilot.name, from: ch.homeName, to: destName, status: 'booked' });
   const dist = Math.max(Math.abs(dest.grid_x - field.grid_x), Math.abs(dest.grid_y - field.grid_y));
   const fareLine = anywhere
-    ? `${pilot.name} pockets the <b>${fare}₵</b>: "Off-airfield drop's double — I've got to find somewhere to put her down, and get myself back out. ${dist} out, that's the number."`
-    : `${pilot.name} pockets the <b>${fare}₵</b>: "Flat hundred to get airborne, few credits a mile after — ${dist} out to ${destName}, so ${fare}. Fair's fair."`;
+    ? `${pilot.name} pockets the <b>${fare}₵</b>: "Off-airfield drop's double: I've got to find somewhere to put her down, and get myself back out. ${dist} out, that's the number."`
+    : `${pilot.name} pockets the <b>${fare}₵</b>: "Flat hundred to get airborne, few credits a mile after: ${dist} out to ${destName}, so ${fare}. Fair's fair."`;
   return { type: 'output', message:
     `<span class="text-green">${pilot.name} taxis the <b>${t.name}</b> up to the hangar door, fuelled and bound for <b>${destName}</b>.</span>\n` +
     `<span class="text-dim">${fareLine}</span>\n` +
@@ -404,16 +404,16 @@ export function charterParkedAt(zoneId) {
 export async function embarkCharter(player, ch) {
   const live = liveAircraft.get(ch.aircraftId);
   if (!live) { activeCharters.delete(ch.aircraftId); return { type: 'emote', message: 'That charter aircraft is gone.' }; }
-  if (player.aircraftId) return { type: 'emote', message: "You're already aboard something — disembark first." };
+  if (player.aircraftId) return { type: 'emote', message: "You're already aboard something. Disembark first." };
   if (ch.phase !== 'boarding') return { type: 'emote', message: `${ch.pilotName}'s charter is already underway.` };
   // Reserved: only the player who chartered it may board.
   if (ch.chartererId && ch.chartererId !== player.id)
-    return { type: 'emote', message: `That charter is held for ${getLivePlayer(ch.chartererId)?.handle || 'someone else'} — the pilot waves you off. Type <b>charter</b> to book your own.` };
+    return { type: 'emote', message: `That charter is held for ${getLivePlayer(ch.chartererId)?.handle || 'someone else'}. The pilot waves you off. Type <b>charter</b> to book your own.` };
 
   // Lock: a charter aircraft is dead metal without its pilot aboard.
   const pilot = getNpcsByFlag('charter_pilot').find(n => n.id === ch.pilotId);
   if (!pilot || !inHangar(pilot))
-    return { type: 'emote', message: `The ${live.type.name} is locked up tight and dark — ${ch.pilotName || 'the pilot'} isn't in it. Without a pilot, you're not taking it anywhere.` };
+    return { type: 'emote', message: `The ${live.type.name} is locked up tight and dark. ${ch.pilotName || 'the pilot'} isn't in it. Without a pilot, you're not taking it anywhere.` };
 
   // The fare was already charged at booking (cmdCharterBook) — embarking just goes.
 
@@ -451,7 +451,7 @@ export async function embarkCharter(player, ch) {
   boardPilot(live, pilot);
   await persist(live);
   pushHud(live);
-  toOccupants(live, `<span class="text-green">You climb aboard the ${live.type.name} and settle in. ${ch.pilotName}: "Doors closed, avionics up — cleared to taxi. Sit back, ${ch.destName} coming up."</span>`);
+  toOccupants(live, `<span class="text-green">You climb aboard the ${live.type.name} and settle in. ${ch.pilotName}: "Doors closed, avionics up, cleared to taxi. Sit back, ${ch.destName} coming up."</span>`);
   sendToZone(ch.homeField, { type: 'zone_event', message: `${ch.pilotName}'s ${live.type.name} taxis out of the hangar toward the active, ${player.handle} aboard.`, refresh: true }, player.id);
   log({ player: player.handle, pilot: ch.pilotName, from: ch.homeName, to: ch.destName, status: 'departing' });
   return { type: 'noop' };
@@ -509,11 +509,11 @@ const PILOT_PATTER = [
   "Twelve years on this run. Could fly it with my eyes shut. Some days I do.",
   "In-flight service is in the seat pocket. It's a warm can. That's the service.",
   "Don't mind the rattle. She's rattled the whole time I've owned her.",
-  "Quiet up here — that's the thing about it. Down there it's never quiet.",
+  "Quiet up here, that's the thing about it. Down there it's never quiet.",
   "I don't ask what's in the bags, you don't tell me. That's how we stay friends.",
   "Insurance on this bird lapsed around the same time yours probably did.",
   "You'd be amazed what folks leave in the back. Or maybe you wouldn't.",
-  "Harness stays on. Not for the bumps — for the part where I have to lose somebody.",
+  "Harness stays on. Not for the bumps. For the part where I have to lose somebody.",
 ];
 
 function pilotChatter(ch, live, below) {
@@ -527,7 +527,7 @@ function pilotChatter(ch, live, below) {
     if (h >= 21 || h < 5) pool.push("Nice at night, isn't it? Dark hides how bad it all got.");
     else pool.push("Clear enough today. Can almost see all the way to somewhere better.");
   } catch {}
-  if (below?.name) pool.push(`That's ${below.name} sliding past under us. Wouldn't set down there for money. Well — not for this money.`);
+  if (below?.name) pool.push(`That's ${below.name} sliding past under us. Wouldn't set down there for money. Well... not for this money.`);
   if (ch.destName) pool.push(`${ch.destName}, you said. Bold. None of my business.`);
   let i = Math.floor(Math.random() * pool.length);
   if (pool.length > 1 && pool[i] === ch._lastChat) i = (i + 1) % pool.length;
@@ -553,11 +553,11 @@ async function charterTick() {
       if (ch.phase === 'boarding') {
         const charterer = getLivePlayer(ch.chartererId);
         if (!ch.holdOpen && (!charterer || fieldOf(charterer)?.id !== ch.homeField)) {
-          out(ch.chartererId, '<span class="text-dim">You leave the charter behind — cancelled, no charge.</span>');
-          sendToZone(ch.homeField, { type: 'zone_event', message: `${ch.pilotName} shuts the ${live.type.name} back down — the fare never showed.`, refresh: true });
+          out(ch.chartererId, '<span class="text-dim">You leave the charter behind: cancelled, no charge.</span>');
+          sendToZone(ch.homeField, { type: 'zone_event', message: `${ch.pilotName} shuts the ${live.type.name} back down. The fare never showed.`, refresh: true });
           await cancelCharter(ch, null);
         } else if (Date.now() >= ch.boardExpiry) {
-          out(ch.chartererId, `<span class="text-dim">The pilot gave up waiting${ch.paid ? ' — your fare is refunded' : ''}.</span>`);
+          out(ch.chartererId, `<span class="text-dim">The pilot gave up waiting${ch.paid ? ', your fare is refunded' : ''}.</span>`);
           sendToZone(ch.homeField, { type: 'zone_event', message: `${ch.pilotName} gives up waiting, shuts the ${live.type.name} down and climbs out.`, refresh: true });
           await cancelCharter(ch, null);   // cancelCharter refunds ch.paid
         }
@@ -569,7 +569,7 @@ async function charterTick() {
         ch.phase = 'rolling';
         ch.rollStartAt = Date.now();
         live.row.heading = String(Math.round(bearingDeg(ch.fx, ch.fy, ch.tx, ch.ty)));
-        toOccupants(live, `<span class="text-cyan">${ch.pilotName}: "Throttle up — rolling."</span>`);
+        toOccupants(live, `<span class="text-cyan">${ch.pilotName}: "Throttle up, rolling."</span>`);
         sendToZone(ch.homeField, { type: 'zone_event', message: `${ch.pilotName}'s ${live.type.name} throttles up and starts rolling down the strip toward ${ch.destName}.`, refresh: true });
         pushHud(live);
         continue;
@@ -658,7 +658,7 @@ async function touchdown(ch, live) {
   setDownCompanions(live, dropZone);
   await persist(live);
   pushHud(live);
-  toOccupants(live, `<span class="text-cyan">${ch.pilotName}: "Touchdown — brakes, rolling out."</span>`);
+  toOccupants(live, `<span class="text-cyan">${ch.pilotName}: "Touchdown, brakes, rolling out."</span>`);
   sendToZone(ch.destZone, { type: 'zone_event', message: `An aircraft touches down and rolls out toward the hangar.`, refresh: true });
 }
 
@@ -667,7 +667,7 @@ async function arrive(ch, live) {
   live.row.throttle = 0;
   await persist(live);
   pushHud(live);
-  toOccupants(live, `<span class="text-green">${ch.pilotName} taxis to a stop. "Here we are — <b>${ch.destName}</b>. <b>disembark</b> when you're ready — I'm not waiting all day."</span>`);
+  toOccupants(live, `<span class="text-green">${ch.pilotName} taxis to a stop. "Here we are, <b>${ch.destName}</b>. <b>disembark</b> when you're ready. I'm not waiting all day."</span>`);
   log({ player: getLivePlayer(ch.playerId)?.handle || '?', pilot: ch.pilotName, from: ch.homeName, to: ch.destName, status: 'arrived' });
 }
 
@@ -744,8 +744,8 @@ export async function cmdCancel(args, raw, player) {
     return {
       type: 'emote',
       message: refund > 0
-        ? `Charter called off — <b>${refund}₵</b> refunded. No harm done.`
-        : `Charter called off — no charge. ${name} shrugs and shuts it down.`,
+        ? `Charter called off: <b>${refund}₵</b> refunded. No harm done.`
+        : `Charter called off: no charge. ${name} shrugs and shuts it down.`,
       ...(refund > 0 ? { player_update: { credits: player.credits } } : {}),
     };
   }

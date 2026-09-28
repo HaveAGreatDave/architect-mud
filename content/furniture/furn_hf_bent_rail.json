@@ -5,9 +5,7 @@
       "rail",
       "handrail"
     ],
-    "interactions": {
-      "examine": "The bright part starts at the door and stops exactly where the treatment room begins. You can read how far people can get unaided off the shine."
-    }
+    "examine_detail": "The bright part starts at the door and stops exactly where the treatment room begins. You can read how far people can get unaided off the shine."
   },
   "id": "furn_hf_bent_rail",
   "name": "the wall rail",

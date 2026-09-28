@@ -8,7 +8,7 @@ export function renderStickycam(bodyEl, ctx) {
   bodyEl.innerHTML = cams.map(id => {
     const feed = (ctx.feeds && ctx.feeds[id]) || {};
     const status = feed.status || 'offline';
-    const frame = feed.frame || (status === 'offline' ? '— no signal —' : '…');
+    const frame = feed.frame || (status === 'offline' ? 'no signal' : '…');
     return `<div class="cpanel-cam cpanel-cam-${esc(status)}">` +
       `<div class="cpanel-cam-head"><span>${esc(feed.label || id)}</span><span class="cpanel-cam-status">${esc(status)}</span></div>` +
       `<div class="cpanel-cam-frame">${esc(frame)}</div></div>`;

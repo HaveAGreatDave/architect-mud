@@ -4,7 +4,7 @@
   "id": "furn_light_zone_consv_counter",
   "light_type": "lamp",
   "lumen_output": 1400,
-  "name": "the shelf strip",
+  "name": "shelf strip",
   "object_type": "light",
   "power_draw_kw": 0.02,
   "zone_id": "zone_consv_counter"

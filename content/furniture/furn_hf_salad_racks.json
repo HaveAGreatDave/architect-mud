@@ -6,9 +6,7 @@
       "channels",
       "rack"
     ],
-    "interactions": {
-      "examine": "The water in the channels is moving faster than you would expect, and it is completely clear. There is no soil anywhere in this building."
-    }
+    "examine_detail": "The water in the channels is moving faster than you would expect, and it is completely clear. There is no soil anywhere in this building."
   },
   "id": "furn_hf_salad_racks",
   "name": "the growing racks",

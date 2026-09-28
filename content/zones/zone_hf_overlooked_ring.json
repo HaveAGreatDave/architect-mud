@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "A narrow ring around the lift head one level above the lookout floor, reached by a ladder through a hatch that is not locked and is not meant to be found. Winding gear, a window-cleaning cradle on its rails, and a door out onto the outside of the glass with a warning on it and a handle. Somebody has been eating up here.",
+  "description": "A narrow ring around the lift head, up a ladder through an unlocked hatch. Winding gear, a window-cleaning cradle on its rails, and a door onto the outside of the glass with a warning on it. Food wrappers on the floor.",
   "exits": {
     "down": "zone_hf_overlooked_lookout"
   },

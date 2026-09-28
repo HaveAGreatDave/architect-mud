@@ -72,6 +72,8 @@ export const COLOUR_FIELDS = new Set([
   // The cap on top of that head, and the eye. Both are unset on most rows: a bird with no
   // `crownCol` has a head all one colour, and a bird with no `eyeR` has no eye faces at all.
   'crownCol', 'eyeCol',
+  // The upper tail; unset it is the wing (see fauna3d.js). The red-tail's rufous tail.
+  'tailCol',
 ]);
 
 const HEX = /^#[0-9a-fA-F]{6}$/;

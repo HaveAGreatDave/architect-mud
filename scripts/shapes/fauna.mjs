@@ -1577,7 +1577,11 @@ T = T_GROUND ?? 1e6;
     if (atStart || atEnd) problems.push('an endpoint three tiles from the flock registered a strike on its own — the radius is far too wide to mean anything');
 
     // Well clear, and nothing happens however far you fly.
-    const clear = flockOnSegment(st.cx - 3, st.cy + 40, st.cx + 3, st.cy + 40, tAir, anyGround);
+    // ⚠ Habitat is ONLY the anchor here: with `anyGround` every tile hosts a flock, so "forty
+    // tiles from any flock" is not a place that exists, and whether a neighbour happens to be
+    // airborne under the leg at `tAir` is a coin toss on the circuit timing.
+    const onlyAnchor = (x, y) => x === ANCHOR.ax && y === ANCHOR.ay;
+    const clear = flockOnSegment(st.cx - 3, st.cy + 40, st.cx + 3, st.cy + 40, tAir, onlyAnchor);
     if (clear) problems.push('a leg forty tiles from any flock still registered a strike');
 
     // Ground that is not theirs holds no flock, so there is nothing to hit.
@@ -2167,8 +2171,13 @@ T = T_GROUND ?? 1e6;
 // which moments MATTER: the plain circle's own centre, at the same instants, on a built tile.
 {
   const BLOCK = { kind: 'land', biome: 'citycore', flr: 4, bt: 'office', ent: 'west', is_building: 1, floors: 4 };
+  // ⚠ The block sits on the side the flock CLIMBS OUT on. Near the anchor the circuit barely turns
+  // (the sweep follows the radius), so a block on an arbitrary side is one the plain circle never
+  // crosses and the check goes vacuous. Rotated to the nearest compass quarter of the lift-off course.
+  const q4 = ((Math.round(flockEdgeHeading(ANCHOR, true) / (Math.PI / 2)) % 4) + 4) % 4;
+  const toLocal = (dx, dy) => [[dx, dy], [dy, -dx], [-dx, -dy], [-dy, dx]][q4];
   const onBlock = (wx, wy) => {
-    const rx = Math.round(wx - ANCHOR.ax), ry = Math.round(wy - ANCHOR.ay);
+    const [rx, ry] = toLocal(Math.round(wx - ANCHOR.ax), Math.round(wy - ANCHOR.ay));
     return rx >= 2 && rx <= 3 && ry >= -2 && ry <= 2;
   };
   const builtAt = (wx, wy) => (onBlock(wx, wy) ? { ...BLOCK } : park(wx, wy));
@@ -2177,7 +2186,7 @@ T = T_GROUND ?? 1e6;
   // How far INSIDE the block a point is, in tiles — 0 anywhere outside it. The block is rx 2..3 and
   // ry -2..2 as whole tiles, so its edges are at 1.5/3.5 and ±2.5.
   const depthIn = (wx, wy) => {
-    const rx = wx - ANCHOR.ax, ry = wy - ANCHOR.ay;
+    const [rx, ry] = toLocal(wx - ANCHOR.ax, wy - ANCHOR.ay);
     return Math.max(0, Math.min(rx - 1.5, 3.5 - rx, ry + 2.5, 2.5 - ry));
   };
   let over = 0, flying = 0, wouldCross = 0, centreOver = 0, deepest = 0;
@@ -2186,7 +2195,6 @@ T = T_GROUND ?? 1e6;
     T = 1e6 + (k / 40) * period;
     const st = flockState(ANCHOR, T);                 // the PLAIN circle — the control
     if (!st.airborne) continue;
-    if (onBlock(st.cx, st.cy)) wouldCross++;
     const r = paint({ ...view, map: mapFor({ x: ANCHOR.ax, y: ANCHOR.ay + 7 }, builtAt) });
     const air = airborne(r);
     flying += air.length;
@@ -2203,6 +2211,12 @@ T = T_GROUND ?? 1e6;
     // built around — the first failure was a second flock whose own anchor sits hard against the
     // block — and a bare tally sends you to read the wrong circuit.
     for (const q of bad) offenders.push(`(${(q.wx - ANCHOR.ax).toFixed(2)}, ${(q.wy - ANCHOR.ay).toFixed(2)}) at t=${st.t.toFixed(2)}`);
+  }
+  // ⚠ The control is swept FINELY and on its own: forty painted samples can straddle the plain
+  // circle's pass over the block, and then the check reads as vacuous for a sampling reason.
+  for (let k = 0; k < 800; k++) {
+    const s = flockState(ANCHOR, 1e6 + (k / 800) * period);
+    if (s.airborne && onBlock(s.cx, s.cy)) wouldCross++;
   }
   if (!flying) problems.push('no airborne quad drew in the built scene — the avoidance check cannot see anything');
   else if (!wouldCross) problems.push('the painted avoidance check is vacuous — the plain circle never puts this flock over the block, so nothing is being avoided');

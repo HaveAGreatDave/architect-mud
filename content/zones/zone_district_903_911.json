@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#0d151e",
   "color": "#cae4ff",
-  "description": "Six sides of tinted glass drawn out to an actual point, with a chrome fin up each corner and nothing on top at all — no plant, no mast, no deck. It is the only tall thing in Coldwater that ends rather than stopping. From the lane it reads as a crystal somebody has pushed into the meadow; from four streets away, at dusk, it reads as the one thing on the skyline that has been designed all the way to the end.",
+  "description": "Six sides of tinted glass drawn up to a point, a chrome fin on each corner, nothing on top. From the lane it looks like a crystal pushed into the meadow.",
   "exits": {
     "east": "zone_hf_overlooked_lobby",
     "west": "zone_district_902_911"

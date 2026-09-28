@@ -1215,6 +1215,42 @@
       dur: 0.03,        // measures ~175 ms; references are 145-170 ms of sound
     },
 
+    // The goose's OTHER call: the long, dark honk, where the row above is the short
+    // bright contact bark. Measured off a sixth reference (SoundBible 611844731):
+    // f0 133.5 Hz and flat, the 7th harmonic (~935 Hz) twice as strong as anything
+    // else, almost nothing above h9, centroid 949 Hz against the bark's 1343, and
+    // 260 ms long, swelling to its peak 70% of the way through.
+    // ⚠ A SECOND ROW, NOT A RETUNE. The bark was tuned to five references and
+    // pulled darker once already and reported as too bassy; real geese use both
+    // calls, so `voice: 'goose'` picks between them (GOOSE_HONK_SHARE).
+    goose_honk: {
+      f0: 134,
+      drop: 0.3,
+      dropTime: 0.2,
+      ratio: 1,
+      // Lower than the bark's 11: the reference has no energy past h9, so the
+      // sidebands only need to reach about h10.
+      index: 7,
+      indexEnd: 4.5,
+      op2: 2,
+      op2Index: 0.8, op2End: 0.3,
+      modWave: 'sine',
+      drive: 0.28,
+      // ONE dominant band on h7 with h8 beside it, which is the nasal honk colour.
+      // The weak low band holds h1 and h5-h6 at their measured 0.2-0.28.
+      formants: [{ freq: 520, q: 2.2, gain: 0.3 }, { freq: 950, q: 5.5, gain: 1 },
+        { freq: 1500, q: 3.0, gain: 0.12 }],
+      // Slow swell (peak ~70% through), then a fast fall.
+      adsr: { a: 0.16, d: 0.03, s: 0.85, r: 0.04 },
+      breathMix: 0.35,
+      onset: 0.012,
+      breath: 900,
+      grunt: 0.15,
+      jitter: 14,
+      vibRate: 5,
+      dur: 0.12,        // aims at ~260 ms of sound once the bank's ring is counted
+    },
+
     // The gull. Measured off a reference recording the same way the goose was, and it is a
     // genuinely different animal rather than the goose transposed: shorter (104 ms against 161),
     // peaking earlier (45% through against 59%), and with 83% of its energy inside ONE band
@@ -1433,6 +1469,29 @@
       vibRate: 4,
       dur: 0.45,
     },
+
+    // The peregrine. A harsh "kak" repeated fast (callBurst 3-6 at 160 ms), so each call is short
+    // and hard-edged. ⚠ NOT FITTED, like the hawk: authored from what the bird is known to be.
+    peregrine: {
+      f0: 1900,
+      drop: 1.5,
+      dropTime: 0.5,
+      ratio: 1,
+      index: 5,
+      indexEnd: 6,
+      op2: 3, op2Index: 1.2, op2End: 1.6,
+      modWave: 'sawtooth',
+      drive: 0.45,
+      formants: [{ freq: 2200, q: 5, gain: 1 }, { freq: 3600, q: 4, gain: 0.5 }],
+      adsr: { a: 0.004, d: 0.03, s: 0.6, r: 0.03 },
+      breathMix: 0.35,
+      onset: 0.01,
+      breath: 2600,
+      grunt: 0,
+      jitter: 40,
+      vibRate: 0,
+      dur: 0.09,
+    },
   };
 
   const birdVoice = (v) => BIRD_VOICES[v] || BIRD_VOICES.goose;
@@ -1463,7 +1522,12 @@
     finally { rnd = prev; }
   }
 
+  // How often a goose gives the long honk rather than the short bark.
+  const GOOSE_HONK_SHARE = 0.35;
+
   function birdCallInner({ voice, intensity, size }) {
+    // Drawn from the seeded generator, so the server's event still picks the same call.
+    if (voice === 'goose' && rnd() < GOOSE_HONK_SHARE) voice = 'goose_honk';
     const b = birdVoice(voice);
     const i = clamp01(intensity);
     // A bigger bird is a longer tube: down about a fifth across the range, and

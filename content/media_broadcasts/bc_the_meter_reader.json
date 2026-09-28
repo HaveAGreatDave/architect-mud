@@ -105,7 +105,7 @@
         },
         "next": "bsm_18",
         "style": "narration",
-        "text": "The cupboard with the meter in it's behind the bed. It's always behind the bed. The picture makes nothing of this at all, which is somehow filthier.",
+        "text": "The cupboard with the meter in it is behind the bed. It's always behind the bed. The picture makes nothing of this at all, which is somehow filthier.",
         "type": "say"
       },
       "bsm_18": {
@@ -1074,7 +1074,7 @@
     "Mrs. Okonjo says, \"You're the one from the letters.\"",
     "Cassia Wick says, \"I'm the one from the meter, ma'am. The letters come from a different building.\"",
     "Mrs. Okonjo says, \"Come in, then. Read whatever you like.\"",
-    "The cupboard with the meter in it's behind the bed. It's always behind the bed. The picture makes nothing of this at all, which is somehow filthier.",
+    "The cupboard with the meter in it is behind the bed. It's always behind the bed. The picture makes nothing of this at all, which is somehow filthier.",
     "Cassia Wick says, \"You're using four times what a single occupant uses.\"",
     "Mrs. Okonjo says, \"I run hot.\"",
     "Cassia Wick says, \"Ma'am, this dial hasn't stopped since March.\"",

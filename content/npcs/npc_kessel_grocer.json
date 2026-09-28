@@ -162,7 +162,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Tab.\" He puts a hand flat on it. \"Half the street's in there and not one of them's been chased for it. If a man's on the tab it's because a week went badly, and a week goes badly for everyone eventually.\" He shrugs. \"They pay when they can. Mostly they do. The ones who don't, I stop writing down, which isn't the same as forgetting.\""
+      "text": "\"Tab.\" He puts a hand flat on it. \"Half the street's in there and not one of them has been chased for it. If a man's on the tab it's because a week went badly, and a week goes badly for everyone eventually.\" He shrugs. \"They pay when they can. Mostly they do. The ones who don't, I stop writing down, which isn't the same as forgetting.\""
     },
     "root": {
       "options": [
@@ -196,7 +196,7 @@
           "next": "root"
         }
       ],
-      "text": "\"I know what they eat.\" He says it like it's the same thing, and it more or less is. \"Fella stops buying the tinned and starts buying the rice, something's happened. Woman starts buying two of everything, something good's happened. You don't have to ask people anything if you're paying attention at the till.\""
+      "text": "\"I know what they eat.\" He says it like it is the same thing, and it more or less is. \"Fella stops buying the tinned and starts buying the rice, something's happened. Woman starts buying two of everything, something good's happened. You don't have to ask people anything if you're paying attention at the till.\""
     }
   },
   "faction": null,

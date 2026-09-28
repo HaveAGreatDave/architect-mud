@@ -91,7 +91,7 @@ function paint(s) {
   const stage = fighting ? 'REEL' : s.phase === 'charging' ? 'CHARGE' : 'AIM';
 
   const lines = [
-    `<div class="txui-hd"><span>REEL — ${esc(stage)}</span><span>${esc(String(_opts.deviceName || 'THE LINE').toUpperCase())}</span></div>`,
+    `<div class="txui-hd"><span>REEL: ${esc(stage)}</span><span>${esc(String(_opts.deviceName || 'THE LINE').toUpperCase())}</span></div>`,
     heading(fighting ? 'THE WATER' : 'THE CAST', W),
     ...(fighting ? fightRows(s) : castRows(s)),
     heading('LINE', W),
@@ -110,7 +110,7 @@ function paint(s) {
   lines.push(heading('ACTIONS', W));
   lines.push(`<span class="pick" data-fact="${_held ? 'up' : 'down'}">[ ${_held ? 'RELEASE' : 'PRESS'} ]</span>  `
     + `<span class="pick" data-fact="abort">[ cut line ]</span>`);
-  lines.push('<span class="dim">SPACE — hold and release. ◆ the catch · │ the gaff</span>');
+  lines.push('<span class="dim">SPACE: hold and release. ◆ the catch · │ the gaff</span>');
 
   setAreaPane(`<div class="txui txfs">${lines.filter(Boolean).join('\n')}</div>`);
   wire();
@@ -165,8 +165,8 @@ const SKIN = {
   },
   finish: (s, won) => {
     _status = won
-      ? '<span class="ok">◇ LANDED — it\'s yours.</span>'
-      : '<span class="bad">✕ LINE SNAPPED — it threw the hook.</span>';
+      ? '<span class="ok">◇ LANDED: it\'s yours.</span>'
+      : '<span class="bad">✕ LINE SNAPPED: it threw the hook.</span>';
     paint(s);
     setTimeout(() => close(), won ? 1200 : 2000);
   },

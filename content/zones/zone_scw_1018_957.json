@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A fan of scree run out from a notch in the cliff above, sorted by nothing but weight: the big pieces at the bottom, the grit at the top, and a channel down the middle of it where the water goes when there's water.",
+  "description": "The brush is tough and dense and comes up to your chest. The wind rattles through it with a dry, endless sound.",
   "exits": {
     "east": "zone_scw_1019_957",
     "north": "zone_scw_1018_956",
@@ -8,18 +8,18 @@
     "west": "zone_scw_1017_957"
   },
   "flags": {
-    "ambient_pool": "scarletwastes_the_spill",
+    "ambient_pool": "scarletwastes_the_grey_thicket",
     "lawless": true,
     "radiation": 9,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "gravel"
+    "terrain": "dirt_road"
   },
   "grid_x": 1018,
   "grid_y": 957,
   "grid_z": 0,
   "id": "zone_scw_1018_957",
   "map_id": "map_world",
-  "name": "The Spill",
+  "name": "The Grabbing Ground",
   "parent_zone": null
 }

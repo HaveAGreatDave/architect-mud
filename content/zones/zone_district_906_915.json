@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#0f1922",
   "color": "#c6e8ff",
-  "description": "Two chrome legs that lean in and meet, with a glazed room slung across the top of them and nothing underneath but the road. The legs are hollow and one of them has a lift in it; the other has a stair nobody is encouraged to use. Standing under it you can hear the whole thing move — not sway, exactly, but change note, the way a bridge does. There is no sign. Everyone calls it the Arch.",
+  "description": "Two chrome legs that lean in and meet, with a glazed room slung across the top of them and nothing underneath but the road. The legs are hollow and one of them has a lift in it; the other has a stair nobody is encouraged to use. Standing under it you can hear the whole thing move. Not sway, exactly, but change note, the way a bridge does. There is no sign. Everyone calls it the Arch.",
   "exits": {
     "north": "zone_hf_airrights_foot",
     "south": "zone_district_906_916"

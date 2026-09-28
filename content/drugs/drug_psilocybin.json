@@ -64,7 +64,7 @@
       "comeup_message": "<span class=\"msg-system\">Your stomach turns over and a heaviness settles into your limbs. Something is coming on.</span>",
       "comeup_scale": 0.5,
       "comeup_seconds": 60,
-      "end_message": "<span class=\"msg-system\">You come down gentle and hollowed-out, like you've had a good cry you don't remember.</span>",
+      "end_message": "<span class=\"msg-system\">You come down gentle and hollowed-out, like you have had a good cry you don't remember.</span>",
       "peak_message": "<span class=\"msg-system\">The nausea passes and leaves you wide open. Everything means something now.</span>",
       "peak_mods": {
         "stat_cool": 1,

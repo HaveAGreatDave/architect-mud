@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Chest-high brush, tough as wire, with runs beaten through it at knee height by something that lives here and goes the same way every day. The wind through it makes a dry sound with no rest in it at all.",
+  "description": "Brush to the chest, stiff as wire. Low runs have been beaten through it by some animal that uses the same path every day.",
   "exits": {
     "east": "zone_scw_1024_967",
     "north": "zone_scw_1023_966",

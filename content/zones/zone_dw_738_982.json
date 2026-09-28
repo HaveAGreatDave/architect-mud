@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Grey ash to the horizon, level and going nowhere. Nothing grows in it, and there's nothing out here that could make a noise.",
+  "description": "A wide grey level. The ash drifts a little in the wind and fills your tracks behind you within the hour.",
   "exits": {
     "east": "zone_dw_739_982",
     "north": "zone_dw_738_981",

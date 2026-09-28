@@ -6,9 +6,7 @@
       "season",
       "board"
     ],
-    "interactions": {
-      "examine": "The crossings-out are all the same performer, moved and moved and moved again, and then finally listed with a different name beside the date."
-    }
+    "examine_detail": "The crossings-out are all the same performer, moved and moved and moved again, and then finally listed with a different name beside the date."
   },
   "id": "furn_sound_case",
   "name": "the season case",

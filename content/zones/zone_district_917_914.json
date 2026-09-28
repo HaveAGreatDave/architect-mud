@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "urban",
   "bg_color": "#231d18",
-  "description": "The first shopfront you pass coming up from the South Gate, and it has something dead in the window. The glass is canted, leaning out over the pavement at the top so it takes the sky off the surface and shows you the room instead, and behind it a hare stands on a green baize plinth with its ears up and its eyes doing the thing the eyes do. The sign is painted straight onto the render in black on cream: STUFF IT, and under it, smaller, MOUNTS · TANNING · SKULLS · NO PETS. On a bracket above the sign, mounted and weathering, is something with a wingspan.",
+  "description": "The first shopfront up from the South Gate. Behind canted glass, a stuffed hare stands on a green baize plinth, ears up. The sign is painted on the render, black on cream: STUFF IT, and under it, MOUNTS · TANNING · SKULLS · NO PETS. Above the sign, something with a wingspan is mounted on a bracket, weathering.",
   "exits": {
     "east": "zone_district_918_914",
     "west": "zone_stuffit_shop"

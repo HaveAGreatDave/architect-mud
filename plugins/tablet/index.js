@@ -358,9 +358,9 @@ export const commands = {
     const LABEL = { visual: 'VISUAL', textgames: 'TEXT', log: 'LOG' };
     const BLURB = {
       visual: 'Graphics wherever a system has them: the cockpit, the cabin window, the poker felt.',
-      textgames: 'The GAMES come to you as text — you fly her by command, you play cards in the log. '
+      textgames: 'The GAMES come to you as text: you fly her by command, you play cards in the log. '
         + 'Maps, hangars and scores stay on screen.',
-      log: 'Everything is written out where you can scroll back. No panels at all — the room stays '
+      log: 'Everything is written out where you can scroll back. No panels at all: the room stays '
         + 'in the pane above and the game speaks in one stream.',
     };
 
@@ -369,7 +369,7 @@ export const commands = {
       return {
         type: 'system',
         message: `<span class="msg-system">Display mode is <b>${LABEL[r] || 'VISUAL'}</b>${r === undefined ? ' (default)' : ''}. `
-          + 'Use "displaymode visual|textgames|log" — "text" on its own is an old '
+          + 'Use "displaymode visual|textgames|log": "text" on its own is an old '
           + 'spelling of "log".</span>',
       };
     }

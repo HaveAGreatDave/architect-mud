@@ -890,11 +890,11 @@ export function createTvView(root, opts = {}) {
     btn.dataset.sport = sport;
     if (sport === 'hockey') {
       btn.innerHTML = cphlMark('15px');
-      btn.title = 'Rinkside — live play on the ice';
+      btn.title = 'Rinkside: live play on the ice';
       btn.setAttribute('aria-label', 'Rinkside view');
     } else {
       btn.innerHTML = '&#x26BE;';
-      btn.title = 'Gameday — animated play-by-play';
+      btn.title = 'Gameday: animated play-by-play';
       btn.setAttribute('aria-label', 'Gameday view');
     }
   }
@@ -954,7 +954,7 @@ export function createTvView(root, opts = {}) {
     btn?.classList.toggle('on', _scheduleOpen);
     if (!_scheduleOpen) { _clearScheduleTimer(); return; }
     if (!_tvActiveChannelId) {
-      host.innerHTML = '<div class="tv-sched-empty">The set is off — tune to a channel first.</div>';
+      host.innerHTML = '<div class="tv-sched-empty">The set is off, tune to a channel first.</div>';
       return;
     }
     host.innerHTML = '<div class="tv-sched-empty">Fetching schedule…</div>';
@@ -1019,7 +1019,7 @@ export function createTvView(root, opts = {}) {
     const active = (d.cassettes || []).find(c => c.id === d.activeCassetteId) || null;
     const status = d.camLabel
       ? `CAM · ${_esc(d.camLabel)}`
-      : d.playing ? 'PLAYING' : (d.whyNot ? `IDLE — ${_esc(d.whyNot)}` : 'IDLE');
+      : d.playing ? 'PLAYING' : (d.whyNot ? `IDLE: ${_esc(d.whyNot)}` : 'IDLE');
     const shelf = (d.cassettes || []).map(c =>
       `<button class="tv-deck-row${c.id === d.activeCassetteId ? ' on' : ''}" data-deck="select" data-id="${_esc(c.id)}">${c.id === d.activeCassetteId ? '▶' : '▪'} ${_esc(c.name)}</button>`
     ).join('') || '<div class="tv-sched-empty">Nothing on the shelf.</div>';
@@ -1117,7 +1117,7 @@ export function createTvView(root, opts = {}) {
         `<span class="tv-stp-rd">${hockey ? 'PTS' : 'RD'}</span></div>` +
       `<div class="tv-stp-list">${body}</div>` +
       `<div class="tv-sched-foot">${data.phase === 'worldseries'
-        ? (hockey ? 'Coldwater Cup — winner takes the season.' : 'World Series — winner takes the season.')
+        ? (hockey ? 'Coldwater Cup: winner takes the season.' : 'World Series: winner takes the season.')
         : (hockey ? 'Two points for a win, one for losing past sixty.' : 'Run differential over the season to date.')}</div>`;
   }
 
@@ -1288,7 +1288,7 @@ export function createTvView(root, opts = {}) {
         `</div>`;
     } else if (fx.kind === 'walkoff') {
       const sub = [fx.batter, fx.team].filter(Boolean).join(' · ');
-      const score = (fx.home != null) ? `${_esc(fx.home)} ${fx.homeScore} — ${fx.awayScore} ${_esc(fx.away)}` : '';
+      const score = (fx.home != null) ? `${_esc(fx.home)} ${fx.homeScore}: ${fx.awayScore} ${_esc(fx.away)}` : '';
       inner =
         `<div class="tv-fx-walkoff">` +
           `<div class="tv-fx-wo-rays"></div>` +
@@ -1324,7 +1324,7 @@ export function createTvView(root, opts = {}) {
           `<div class="tv-fx-goal-title${fx.hattrick ? ' hat' : ''}">${fx.hattrick ? 'HAT TRICK' : 'GOAL'}</div>` +
           (tag ? `<div class="tv-fx-goal-tag">${tag}</div>` : '') +
           (sub ? `<div class="tv-fx-goal-sub">${_esc(sub)}</div>` : '') +
-          `<div class="tv-fx-goal-score">${_esc(fx.away)} ${fx.awayScore} — ${fx.homeScore} ${_esc(fx.home)}</div>` +
+          `<div class="tv-fx-goal-score">${_esc(fx.away)} ${fx.awayScore}: ${fx.homeScore} ${_esc(fx.home)}</div>` +
         `</div>`;
     } else if (fx.kind === 'hockeyfight') {
       inner =
@@ -1398,7 +1398,7 @@ export function createTvView(root, opts = {}) {
           `<div class="tv-fx-champ-trophy">🏆</div>` +
           `<div class="tv-fx-champ-team">${_esc(fx.winner)}</div>` +
           `<div class="tv-fx-champ-label">${_esc(fx.label || 'World Series Champions')}</div>` +
-          `<div class="tv-fx-champ-score">${_esc(fx.winner)} ${fx.winScore} — ${fx.loseScore} ${_esc(fx.loser)}</div>` +
+          `<div class="tv-fx-champ-score">${_esc(fx.winner)} ${fx.winScore}: ${fx.loseScore} ${_esc(fx.loser)}</div>` +
         `</div>`;
     } else return;
     host.innerHTML = inner;

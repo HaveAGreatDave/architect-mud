@@ -8,7 +8,7 @@
     "That one over there's Josiah. He's nice. He worries.",
     "It's going to be windy later."
   ],
-  "description": "A girl of about nine, sitting on a rock at the side of the road with her heels drawn up, entirely absorbed in nothing at all. She's on the wrong side of a wall with no way through it and doesn't appear to think this is worth mentioning.\n\nWhen you look at her she's already looking back, and she waits, comfortably, for you to work out what you were going to say.",
+  "description": "A girl of about nine sitting on a rock by the road, heels drawn up, absorbed in nothing. She's on the wrong side of the wall and doesn't seem to mind.",
   "dialogue_tree": {
     "bye": {
       "actions": [],

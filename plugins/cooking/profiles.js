@@ -421,11 +421,11 @@ export function validateProfiles(profiles = PROFILES) {
     if (errors.length) continue; // the comparisons below assume valid bands
 
     // Cooking must be worth doing: no profile may peak below what it's worth raw.
-    if (bandIndex(t.peak) < bandIndex(t.raw)) errors.push(`${at('targets')} — peak (${t.peak}) is worse than raw (${t.raw}); cooking would be pointless`);
+    if (bandIndex(t.peak) < bandIndex(t.raw)) errors.push(`${at('targets')}: peak (${t.peak}) is worse than raw (${t.raw}); cooking would be pointless`);
     // Past the peak must never be an improvement on the peak.
-    if (bandIndex(t.over) > bandIndex(t.peak)) errors.push(`${at('targets')} — over (${t.over}) beats peak (${t.peak})`);
+    if (bandIndex(t.over) > bandIndex(t.peak)) errors.push(`${at('targets')}: over (${t.over}) beats peak (${t.peak})`);
     // Burnt is the floor, always.
-    if (bandIndex(t.burnt) > bandIndex(t.over)) errors.push(`${at('targets')} — burnt (${t.burnt}) beats over (${t.over})`);
+    if (bandIndex(t.burnt) > bandIndex(t.over)) errors.push(`${at('targets')}: burnt (${t.burnt}) beats over (${t.over})`);
   }
   return { ok: errors.length === 0, errors };
 }

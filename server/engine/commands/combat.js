@@ -71,7 +71,7 @@ function renderLootText(view) {
 	const lines = [];
 	if (view.mainMsg) lines.push(`<span class="msg-system">${view.mainMsg}</span>`);
 	if (view.notify) lines.push(`<span class="msg-system">${view.notify}</span>`);
-	lines.push(`<b>${view.corpseName}</b> — what's on the body:`);
+	lines.push(`<b>${view.corpseName}</b>: what's on the body.`);
 	if (!view.items.length) {
 		lines.push(view.butcherable
 			? '  Nothing left to take, but there\'s still meat on it. <span class="action-link" data-action="cmd" data-cmd="butcher">butcher</span>'
@@ -224,7 +224,7 @@ async function attemptSneakyLoot(player, targetPlayer, broadcast) {
 				`${player.handle} jolts upright from ${name}'s sleeping form, pockets suspiciously empty, and announces to no one in particular that they 'dropped a coin.'`,
 			]) }, player.id);
 			return { type: "emote", message: pick([
-				`Eyes on the back of your neck. You withdraw your hand and pretend to tuck ${name}'s blanket in with the warmth of a man who has definitely never stolen anything. Better leave it — for now.`,
+				`Eyes on the back of your neck. You withdraw your hand and pretend to tuck ${name}'s blanket in with the warmth of a man who has definitely never stolen anything. Better leave it, for now.`,
 				`Someone's watching. You straighten up fast, flash a thumbs-up as if that has ever worked for anyone ever, and abandon the heist with as much dignity as you can fake.`,
 				`Caught. You pat ${name} gently on the shoulder like a concerned friend and back away whistling. The pockets will keep.`,
 			]) };

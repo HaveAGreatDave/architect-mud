@@ -68,7 +68,7 @@ function birdSpeciesAt(wx, wy, weather) {
   const z = surfaceAt(wx, wy);
   if (z && z.flags?.terrain && !z.flags?.building_type && !z.flags?.is_building) {
     const sur = tileSurroundings(z), place = placeOf(z.flags.terrain, sur.bld, sur.shore);
-    const s2 = speciesAt(place, wx, wy, { weather });
+    const s2 = speciesAt(place, wx, wy, { weather, airfield: !!z.flags.airfield_id });
     if (s2 && habitatState(s2, place)) sid = s2;
   }
   if (_birdTile.size > 20000) _birdTile.clear();
@@ -77,6 +77,9 @@ function birdSpeciesAt(wx, wy, weather) {
 }
 // Impact energy that writes off the airframe, in kJ: about five Canada geese at a light aircraft's cruise.
 const BIRDSTRIKE_KJ_PER_AIRFRAME = 40;
+// How long a murmuration offset from the pilot's client stays good. It is sent every couple of seconds
+// while flying; past this the cloud goes back on the shared centre, which is the old behaviour.
+export const MURMUR_OFF_TTL = 10000;
 const BIRD_NAMES = {
   goose: ['a goose', 'geese'], gull: ['a gull', 'gulls'], pigeon: ['a pigeon', 'pigeons'],
   songbird: ['a starling', 'starlings'], hawk: ['a hawk', 'hawks'], peregrine: ['a peregrine', 'peregrines'], vulture: ['a vulture', 'vultures'],
@@ -89,7 +92,7 @@ function birdStrikeLine(struck, kJ) {
   const feel = kJ >= 5 ? 'A heavy thud, a smear across the glass, and the engine note changes.'
     : kJ >= 1 ? 'A hard knock somewhere forward and a streak on the screen.'
     : 'A patter along the leading edge like thrown gravel.';
-  return `<span class="text-amber">⚠ BIRD STRIKE — you go through ${what}. ${feel}</span>`;
+  return `<span class="text-amber">⚠ BIRD STRIKE: you go through ${what}. ${feel}</span>`;
 }
 function flockOnThePath(live) {
   const a = live.row;
@@ -112,6 +115,11 @@ function flockOnThePath(live) {
     isBlocked: (wx, wy) => { const z = surfaceAt(wx, wy); return !!(z && z.flags?.building_type); },
     daylight: (sid) => birdDaylight(sid, hour),
     halfSpan: AIRFRAME_HALF_SPAN, halfHeight: AIRFRAME_HALF_HEIGHT,
+    // where the pilot's own murmurations really are (flocksync); stale after MURMUR_OFF_TTL
+    cloudOffset: (fl) => {
+      const o = live._murmurOff && live._murmurOff.get((fl.sp || 'goose') + ':' + fl.ax + ',' + fl.ay);
+      return o && Date.now() - o.at < MURMUR_OFF_TTL ? o : null;
+    },
     speed: (live.cont?.airspeed ?? 0) * 0.5144,
     when,
   });
@@ -149,7 +157,7 @@ export async function rollHazards(live) {
     a.engine_temp += 6;
     if (Math.random() < 0.16) {
       live.hazard = { type: 'FIRE', stage: 0 };
-      toOccupants(live, '<span class="text-red">🔥 A cold cylinder seizes and the engine lets go — FIRE. You warned yourself. <b>extinguish</b> / <b>cut fuel</b>!</span>');
+      toOccupants(live, '<span class="text-red">🔥 A cold cylinder seizes and the engine lets go: FIRE. You warned yourself. <b>extinguish</b> / <b>cut fuel</b>!</span>');
       return;
     }
   }
@@ -163,7 +171,7 @@ export async function rollHazards(live) {
       if (!chk.success) {
         a.damage = Math.min(1, a.damage + 0.06);
         a.engine_temp += 6;
-        toOccupants(live, '<span class="text-amber">The air turns to concrete — a savage gust hammers the airframe and throws you off heading.</span>');
+        toOccupants(live, '<span class="text-amber">The air turns to concrete: a savage gust hammers the airframe and throws you off heading.</span>');
         if (a.damage >= 1) { await crash(live, 'weather'); return; }
       }
     }
@@ -179,7 +187,7 @@ export async function rollHazards(live) {
     a.damage = Math.min(1, a.damage + 0.02 * overflown.precipRate);
     a.engine_temp += 3;
     if (!live._acidTicks || live._acidTicks % 4 === 0) {
-      toOccupants(live, '<span class="text-amber">☣ The rain out here is EATING the aircraft — paint blistering off the leading edges, the airframe hissing where it lands.</span>');
+      toOccupants(live, '<span class="text-amber">☣ The rain out here is EATING the aircraft: paint blistering off the leading edges, the airframe hissing where it lands.</span>');
     }
     live._acidTicks = (live._acidTicks || 0) + 1;
     if (a.damage >= 1) { await crash(live, 'acid'); return; }
@@ -232,10 +240,10 @@ export async function rollHazards(live) {
     if (live._overheatTicks) {
       live.hazard = { type: 'FIRE', stage: 0 };
       live._overheatTicks = 0;
-      toOccupants(live, '<span class="text-red">🔥 ENGINE FIRE — smoke pours back over the cockpit. <b>extinguish</b> it or <b>cut fuel</b>, fast.</span>');
+      toOccupants(live, '<span class="text-red">🔥 ENGINE FIRE: smoke pours back over the cockpit. <b>extinguish</b> it or <b>cut fuel</b>, fast.</span>');
     } else {
       live._overheatTicks = 1;
-      toOccupants(live, '<span class="text-amber">⚠ OVERHEAT — the temp\'s in the red. Ease the throttle before it lights.</span>');
+      toOccupants(live, '<span class="text-amber">⚠ OVERHEAT: the temp\'s in the red. Ease the throttle before it lights.</span>');
     }
   } else if (a.engine_temp < 130) {
     live._overheatTicks = 0;
@@ -248,7 +256,7 @@ async function escalate(live) {
     h.stage++;
     a.damage = Math.min(1, a.damage + 0.18);
     if (a.damage >= 1) { await crash(live, 'fire'); return; }
-    toOccupants(live, `<span class="text-red">🔥 The fire spreads — hull ${Math.round((1 - a.damage) * 100)}%. <b>extinguish</b> / <b>cut fuel</b>!</span>`);
+    toOccupants(live, `<span class="text-red">🔥 The fire spreads: hull ${Math.round((1 - a.damage) * 100)}%. <b>extinguish</b> / <b>cut fuel</b>!</span>`);
     return;
   }
   // (EMP used to count DOWN here, occupying the slot while it did. It has its own
@@ -263,18 +271,18 @@ async function escalate(live) {
 
 async function cmdExtinguish(args, raw, player) {
   const { live, err } = requirePilot(player); if (err) return err;
-  if (live.hazard?.type !== 'FIRE') return { type: 'emote', message: 'Nothing\'s on fire — yet.' };
+  if (live.hazard?.type !== 'FIRE') return { type: 'emote', message: 'Nothing\'s on fire... yet.' };
   const cut = /fuel/.test(raw);
   if (cut) live.row.throttle = 0;
   const chk = await skillCheck(player, 'piloting', 5 + live.hazard.stage * 2 - (cut ? 2 : 0));
   live.row.engine_temp = Math.min(live.row.engine_temp, 120);
-  if (!chk.success) return { type: 'emote', message: cut ? 'You chop the fuel but the fire\'s still lit — try again.' : 'The bottle empties and the flames gutter but hold. Again!' };
+  if (!chk.success) return { type: 'emote', message: cut ? 'You chop the fuel but the fire\'s still lit. Try again.' : 'The bottle empties and the flames gutter but hold. Again!' };
   live.hazard = null;
   // A real check just ran — pass its margin, so a fire caught late (a harder
   // difficulty, a narrower win) teaches more than an easy one. See PILOT_IP.
   await awardSkillUse(player.id, 'piloting', chk.margin);
   return { type: 'emote', message: cut
-    ? '<span class="text-green">Fuel cut, the fire starves and dies. You\'re a glider now — find a field.</span>'
+    ? '<span class="text-green">Fuel cut, the fire starves and dies. You\'re a glider now. Find a field.</span>'
     : '<span class="text-green">The extinguisher smothers it. Smoke, but no more flame.</span>' };
 }
 
@@ -313,17 +321,17 @@ async function cmdPreflight(args, raw, player) {
   if (live.row.airborne) return { type: 'emote', message: 'A little late for a walkaround.' };
   const chk = await skillCheck(player, 'piloting', 4);
   const eff = effStats(live);   // fitted tankage counts — the walkaround reads the tank she HAS
-  const lines = [`<b>${live.type.name}</b> — hull ${Math.round((1 - live.row.damage) * 100)}%, fuel ${Math.round(live.row.fuel)}/${Math.round(eff.fuelCap)} ${live.type.fuel_type}.`];
-  if (live.row.damage > 0.3 && chk.success) lines.push('<span class="text-amber">You find fresh damage — cracked skin, a weeping line. She\'ll fly, but she won\'t forgive much.</span>');
+  const lines = [`<b>${live.type.name}</b>: hull ${Math.round((1 - live.row.damage) * 100)}%, fuel ${Math.round(live.row.fuel)}/${Math.round(eff.fuelCap)} ${live.type.fuel_type}.`];
+  if (live.row.damage > 0.3 && chk.success) lines.push('<span class="text-amber">You find fresh damage: cracked skin, a weeping line. She\'ll fly, but she won\'t forgive much.</span>');
   else if (chk.success) lines.push('She looks honest. Controls free, no leaks, tyres up.');
-  else lines.push('You give her a once-over. Looks fine — though you\'re not sure you\'d catch it if it wasn\'t.');
+  else lines.push('You give her a once-over. Looks fine, though you\'re not sure you\'d catch it if it wasn\'t.');
   return { type: 'output', message: lines.join('\n') };
 }
 
 async function cmdHover(args, raw, player) {
   const { live, err } = requirePilot(player); if (err) return err;
   if (!live.row.airborne) return { type: 'emote', message: 'You can only hover in the air.' };
-  if (live.type.takeoff_mode !== 'vtol') return { type: 'emote', message: `The ${live.type.name} can't hover — it has to keep moving to stay up.` };
+  if (live.type.takeoff_mode !== 'vtol') return { type: 'emote', message: `The ${live.type.name} can't hover: it has to keep moving to stay up.` };
   live.hover = !live.hover;
   return { type: 'emote', message: live.hover
     ? 'You bring it to a hover, holding station over the ground.'
@@ -332,7 +340,7 @@ async function cmdHover(args, raw, player) {
 
 async function cmdSpot(args, raw, player) {
   const { live, err } = requirePilot(player); if (err) return err;
-  if (!live.row.airborne) return { type: 'emote', message: 'Get some altitude first — you spot from the air.' };
+  if (!live.row.airborne) return { type: 'emote', message: 'Get some altitude first. You spot from the air.' };
   const eff = await effectiveSkill(player, 'piloting');
   const radius = live.row.altitude_band === 'high' ? 4 : live.row.altitude_band === 'cruise' ? 3 : 2;
   const a = live.row;
@@ -368,14 +376,14 @@ async function cmdSpray(args, raw, player, broadcast) {
   const { live, err } = requirePilot(player); if (err) return err;
   if (!(live.type.data && live.type.data.spray))
     return { type: 'emote', message: `The ${live.type.name} has no spray gear.` };
-  if (!live.row.airborne) return { type: 'emote', message: 'Get in the air first — you dust on a low pass.' };
+  if (!live.row.airborne) return { type: 'emote', message: 'Get in the air first. You dust on a low pass.' };
   if (live.row.altitude_band !== 'low')
-    return { type: 'emote', message: 'Too high to dust — drop down to a <b>LOW</b> pass first.' };
+    return { type: 'emote', message: 'Too high to dust. Drop down to a <b>LOW</b> pass first.' };
   // Gate on a loaded hopper — but only for dusters that have one (cap 0 = flavour-only spray).
   const cap = hopperCap(live);
   const hop = live.row.custom_data?.hopper;
   if (cap > 0 && !(hop && hop.amount > 0))
-    return { type: 'emote', message: 'The hopper\'s dry — land and <b>loadhopper</b> a liquid before you can dust.' };
+    return { type: 'emote', message: 'The hopper\'s dry. Land and <b>loadhopper</b> a liquid before you can dust.' };
   const now = Date.now();
   if (live.lastSpray && now - live.lastSpray < 2500) return { type: 'noop' };   // booms still re-pressurising
   live.lastSpray = now;
@@ -425,7 +433,7 @@ async function cmdSpray(args, raw, player, broadcast) {
   if (landed) tail += ` <span class="text-cyan">The mist settles over ${landed === 1 ? 'someone' : `${landed} people`} below.</span>`;
   else if (passed) tail += ' <span class="text-dim">Whoever is down there, the mist comes to nothing on them.</span>';
 
-  return { type: 'emote', message: `<span class="text-green">You open the spray booms — a fine mist streams off the trailing edges and settles over the ground below.</span>${tail}` };
+  return { type: 'emote', message: `<span class="text-green">You open the spray booms: a fine mist streams off the trailing edges and settles over the ground below.</span>${tail}` };
 }
 
 // Load the duster's chemical hopper from a liquid you're carrying. Any fillable container
@@ -446,7 +454,7 @@ async function cmdLoadHopper(args, raw, player) {
     return { type: 'emote', message: `The ${live.type.name} has no spray gear.` };
   const cap = hopperCap(live);
   if (cap <= 0) return { type: 'emote', message: `The ${live.type.name} has no chemical hopper.` };
-  if (live.row.airborne) return { type: 'emote', message: 'Pouring chemical into the hopper is a ground job — land first.' };
+  if (live.row.airborne) return { type: 'emote', message: 'Pouring chemical into the hopper is a ground job: land first.' };
 
   const cd = live.row.custom_data || (live.row.custom_data = {});
   return pourIntoHopper(player, args, live.type.name, cap, cd, () => persist(live));
@@ -500,7 +508,7 @@ async function pourIntoHopper(player, args, craftName, cap, cd, save) {
 
   const fluidType = can.custom_data.fluid_type || 'water';
   if ((hop.amount || 0) > 0 && hop.fluid_type && hop.fluid_type !== fluidType)
-    return { type: 'emote', message: `The hopper already holds ${hop.fluid_type} — spray it dry before loading ${fluidType}.` };
+    return { type: 'emote', message: `The hopper already holds ${hop.fluid_type}. Spray it dry before loading ${fluidType}.` };
 
   const have = Number(can.custom_data.fluid_amount) || 0;
   const pour = Math.min(space, have);
@@ -551,7 +559,7 @@ async function cmdChart(args, raw, player) {
   const { live, err } = requirePilot(player); if (err) return err;
   // The plot is a box doing arithmetic, and the box is dead. Refused rather than
   // degraded: half a nav fix is worse than none, because you would fly it.
-  if (avionicsDead(live)) return { type: 'emote', message: '<span class="text-amber">The nav head is dark. No fix, no fuel figure, no field — you have a compass, a watch and the ground.</span>' };
+  if (avionicsDead(live)) return { type: 'emote', message: '<span class="text-amber">The nav head is dark. No fix, no fuel figure, no field: you have a compass, a watch and the ground.</span>' };
   const a = live.row, eff = effStats(live);
   // Nearest airfield (by chebyshev distance over coords).
   const { rows: fields } = await query(
@@ -565,11 +573,11 @@ async function cmdChart(args, raw, player) {
   }
   const range = Math.floor(a.fuel / Math.max(0.1, eff.burn));
   const lines = [
-    `<span class="text-cyan">— DEAD-RECKONING PLOT —</span>`,
+    `<span class="text-cyan">(DEAD-RECKONING PLOT)</span>`,
     `Position ${a.grid_x}, ${a.grid_y} · heading ${(a.heading || 'n').toUpperCase()} · ${a.altitude_band.toUpperCase()}`,
     `Fuel range ≈ ${range} tiles at this burn.`,
   ];
-  if (nearest) lines.push(`Nearest field: <b>${nearest.name}</b> — ${bearing(a, nearest)}${best <= range ? '' : ' <span class="text-amber">(beyond fuel range)</span>'}.`);
+  if (nearest) lines.push(`Nearest field: <b>${nearest.name}</b>, ${bearing(a, nearest)}${best <= range ? '' : ' <span class="text-amber">(beyond fuel range)</span>'}.`);
   return { type: 'output', message: lines.join('\n') };
 }
 
@@ -585,7 +593,7 @@ async function cmdSquawk(args, raw, player) {
   const arg = (args[0] || '').toLowerCase();
   if (arg === 'off' || arg === 'dark') {
     live.squawk = null;
-    return { type: 'emote', message: '<span class="text-amber">Transponder OFF — you\'re running dark. Invisible to the cameras, and that itself is a crime in controlled airspace.</span>' };
+    return { type: 'emote', message: '<span class="text-amber">Transponder OFF: you\'re running dark. Invisible to the cameras, and that itself is a crime in controlled airspace.</span>' };
   }
   const code = /^\d{4}$/.test(arg) ? arg : String(1000 + Math.floor(Math.random() * 6000));
   live.squawk = code;

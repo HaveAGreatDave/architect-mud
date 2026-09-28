@@ -4,7 +4,7 @@
   "id": "item_hf_visitorpass",
   "name": "a visitor pass",
   "tags": {
-    "description": "Chrome-edged card on a lanyard, numbered, and signed out against the book. It opens nothing and is not meant to — what it does is stop anybody in the quarter asking you a second time, which on a site with this many contractors on it is most of what a pass is for.",
+    "description": "Chrome-edged card on a lanyard, numbered, and signed out against the book. It opens nothing and is not meant to. What it does is stop anybody in the quarter asking you a second time, which on a site with this many contractors on it is most of what a pass is for.",
     "stackable": true
   },
   "type": "misc",

@@ -12,8 +12,8 @@
 // field's output IS a terrain key. Nothing in this file knows where a room is, only what it is made
 // of, which is why it can be written before the field is.
 //
-// ⚠ NO EM DASHES. The em dash is the Architect's voice and the Ascendants' after it (docs/story.md),
-// and the waste is neither. It has no opinions and nobody is talking.
+// ⚠ NO EM DASHES. No prose in the game takes one (docs/story.md),
+// and the waste has no opinions anyway; nobody is talking.
 //
 // Tone: bleak and flat, with the occasional human detail that has outlived the human. The joke is
 // never told out here, it is just left lying around.
@@ -97,11 +97,20 @@ export const GROUND = {
       'Something is buried here, and the wind is roughly half done deciding whether to show you.',
     ],
   },
+  basalt: {
+    names: ['The Clinker', 'Black Glass', 'The Cooling', 'Slag Heath', 'The Scald', 'Cinderfall'],
+    descs: [
+      "Old lava, black and sharp, set in ropes and blisters that crunch under your boots like they are mildly offended.",
+      "The ground here was liquid once and has not entirely forgiven the cold. It holds the day's heat long after dark.",
+      'Fields of broken basalt, every edge a knife. Somewhere to the south-west the mountain that made it is still thinking about it.',
+      'A crust of rock over nothing you want to know about. The cracks breathe a warm, sulphur breath now and then.',
+    ],
+  },
   plateau: {
     names: ['The High Table', 'Overlook', 'The Bench', 'Skyfloor', 'The Long Roof', 'Topside'],
     descs: [
       'The top of the mesa, flat as a table and utterly exposed. You can see a very long way, and be seen from all of it.',
-      "Up here the wind has nothing to break it and works on you steadily, like it's being paid by the hour.",
+      "Up here the wind has nothing to break it and works on you steadily, like it is being paid by the hour.",
       'Bare stone, scoured clean, with the whole country laid out below and the road a thin scratch across the middle of it.',
       "Nothing grows on the roof of the world. Whatever came up here came up for a reason and didn't stay.",
     ],
@@ -200,7 +209,7 @@ export const FEATURES = [
   { id: 'hazard_sink',    kind: 'hazard', name: 'The Sinkhole Ground', terrains: ['hardpan', 'alkali', 'marsh'],
     desc: 'The crust here rings hollow and there are holes in it the size of a truck, with nothing at the bottom of them that you can see.' },
   { id: 'hazard_mines',   kind: 'hazard', name: 'A Minefield',
-    desc: "Somebody fenced this once. The fence is down and the reason for it's not, and there's a line of small neat craters where a previous walker found that out." },
+    desc: "Somebody fenced this once. The fence is down and the reason for it is not, and there's a line of small neat craters where a previous walker found that out." },
   { id: 'hazard_gas',     kind: 'hazard', name: 'A Gas Seep', terrains: ['marsh', 'gravel', 'redrock'],
     desc: 'The air here is heavier than air. It pools in the low ground and it has no smell at all, which is the problem with it.' },
   { id: 'hazard_glass',   kind: 'hazard', name: 'The Glass Scar',

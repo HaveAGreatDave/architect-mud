@@ -8,7 +8,7 @@
     "Every one of these is somebody who hasn't decided yet.",
     "It takes nine years to make what's in this room."
   ],
-  "description": "A small still woman standing with both palms flat on a rack of flasks. She has been doing that for a while.\n\nHer hands run about twenty degrees under yours. It isn't a trick and it isn't comfortable to shake, and it's the entire reason she has the most important job in the Thornwarren: two hundred and eleven flasks and no machine anywhere in the region that could hold them at temperature, and one woman who can.\n\nShe looks up when you come in and doesn't stop what she's doing.",
+  "description": "A small, still woman standing with both palms flat on a rack of flasks. She's been doing it a while.",
   "dialogue_tree": {
     "bye": {
       "actions": [],

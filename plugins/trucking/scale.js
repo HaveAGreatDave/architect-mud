@@ -222,7 +222,7 @@ export async function cabCheckAt(player, rig, cfg) {
   await chargeAt(player, !!cfg.plaza, 'harbouring', 'harbouring a fugitive');
   sendToPlayer(player.id, { type: 'emote', message:
     `<span class="text-red">An officer walks the length of the rig at ${cfg.name}, puts a hand on the passenger door and opens it.</span>\n\n`
-    + `There's nowhere in a cab to not be. They don't ask you anything — they're already talking to somebody on a radio, and your passenger is out of the seat and face down on the plates before you have finished stopping.\n\n`
+    + `There's nowhere in a cab to not be. They don't ask you anything: they're already talking to somebody on a radio, and your passenger is out of the seat and face down on the plates before you have finished stopping.\n\n`
     + `<span class="text-dim">Nobody says what they were wanted for. Nobody says it to you at all.</span>` });
   return { taken: true };
 }
@@ -273,7 +273,7 @@ export async function customsAnswer(player, rig, what) {
         ? `<span class="text-amber">They take ${seized === 1 ? 'it' : 'all of it'} off the deck and log it. Nobody says the word out loud.</span>\n\n`
         : '')
       + (fined ? `<span class="text-amber">A fine for ${fined}₵ goes through before the barrier lifts.</span>\n\n` : '')
-      + `<span class="text-dim">No charge. You're a man with a bad load, not a man with a record — and that distinction is worth what it just cost you.</span>` };
+      + `<span class="text-dim">No charge. You're a man with a bad load, not a man with a record, and that distinction is worth what it just cost you.</span>` };
   }
 
   if (what === 'bribe') {

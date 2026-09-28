@@ -64,7 +64,7 @@ edit('orgs/ideology_ascendants.json', (d) => {
     /The climb has stages[\s\S]*?in use for thirty years\./,
     'The climb has stages and they know which stage everybody is on. Chrome is an improvement '
     + 'made on purpose: designed, tested, licensed, recorded, and removable. Mutation is the same '
-    + 'ladder travelled downward, and they have a word for it — reversion — which they use in '
+    + 'ladder travelled downward, and they have a word for it, reversion, which they use in '
     + 'meetings without anybody blinking. A mutant is not a person who changed. A mutant is a '
     + 'person going back. They will not seat one, treat one, insure one or touch one, and they '
     + 'are unfailingly polite about all four.');
@@ -123,7 +123,7 @@ edit('npcs/npc_asc_ives.json', (d, t) => {
     + '"To price a life I need thirty years of people dying on schedule. Nobody has that for a '
     + 'mutant. No two of them are alike and none of them were designed."\n\n'
     + 'She tears the slip off and turns it round so you can read the top of it.\n\n'
-    + '<span class="term-print">FORM 9 — UNVALUED LIVING PROPERTY</span>\n\n'
+    + '<span class="term-print">FORM 9: UNVALUED LIVING PROPERTY</span>\n\n'
     + '"I did not pick that. I typed what he is and the system printed what applies."';
   t.the_mutant_number.options = [
     opt('Living property.', 'the_mutant_form'),
@@ -168,7 +168,7 @@ edit('npcs/npc_asc_ives.json', (d, t) => {
       + '"A committee, in \'39. Eleven of them, and they took four years over it, and the minutes '
       + 'are in the Gallery if you would like to read them. They were careful people."\n\n'
       + 'She turns back to the ledger.\n\n'
-      + '"The page goes to Nine — not the ninth floor, the department. There is no name on the '
+      + '"The page goes to Nine. Not the ninth floor: the department. There is no name on the '
       + 'slip, only the number. Nineteen years, and I have never had cause to send anything else '
       + 'there."',
     options: [opt('(say nothing)', 'bye')],

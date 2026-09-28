@@ -63,35 +63,35 @@ const sceneZones  = new Set(); // zoneIds with a coworker scene currently runnin
 // render as an emote ("Lowry wipes down the counter."). {name} → the guest's handle.
 
 const LOWRY_WELCOMES = [
-  `"Well. Fresh meat in a clean jacket. Welcome to the Embassy, {name} — Lowry's the name. You've got the look of someone who booted up about ten minutes ago."`,
-  `"New face, and a green one. First week, unless I've lost my eye — and I haven't. Sit down, {name}. Let me point you at a few things before the basin does it the hard way."`,
-  `"Valued guest, freshly minted. Welcome to the Embassy Lounge, {name}. Stick near the bar a while — I've kept more newcomers breathing than any clinic in this city."`,
+  `"Well. Fresh meat in a clean jacket. Welcome to the Embassy, {name}: Lowry's the name. You've got the look of someone who booted up about ten minutes ago."`,
+  `"New face, and a green one. First week, unless I've lost my eye, and I haven't. Sit down, {name}. Let me point you at a few things before the basin does it the hard way."`,
+  `"Valued guest, freshly minted. Welcome to the Embassy Lounge, {name}. Stick near the bar a while: I've kept more newcomers breathing than any clinic in this city."`,
 ];
 
 // Ordered roughly by how soon a newcomer needs it. Every verb here is real.
 const TIPS = [
   `"Word of advice, {name}: hunger and thirst kill more newcomers than bullets do. Keep something in your gut. The cheap stuff's a few credits and it counts as both."`,
-  `"You die out here and whatever's in your pockets is anyone's, {name}. Whatever's in the bank is still yours. There's an ATM on the wall — 'deposit' before you go looking for trouble, not after."`,
+  `"You die out here and whatever's in your pockets is anyone's, {name}. Whatever's in the bank is still yours. There's an ATM on the wall: 'deposit' before you go looking for trouble, not after."`,
   `"Cameras on every corner, and the law here doesn't do warnings, {name}. Build up enough heat and you'll wake in Precinct 9 with your gear in an evidence locker. Type 'wanted' if you want to know how deep you're in."`,
-  `"Broke, {name}? Everyone starts broke. 'scavenge' the trash and the wastes for salvage, or check the job board — 'gigs' — for honest-ish work. Nobody out here got fed standing still."`,
+  `"Broke, {name}? Everyone starts broke. 'scavenge' the trash and the wastes for salvage, or check the job board, 'gigs', for honest-ish work. Nobody out here got fed standing still."`,
   `"Bleeding's not a personality, {name}. Sit down, 'rest', let the body knit before you go swinging at things again. Dead men tip poorly."`,
-  `"Check the 'map' before you wander, {name}. Some corners of this basin — the Redline, the deep wastes — will cook you or eat you before you've read the room. Green's for grass, not for you."`,
+  `"Check the 'map' before you wander, {name}. Some corners of this basin (the Redline, the deep wastes) will cook you or eat you before you've read the room. Green's for grass, not for you."`,
   `"Don't pick fights bare, {name}. 'look' at a thing before you 'attack' it, and 'equip' something between your skin and their edge. Armor's the difference between a scar and a corpse."`,
-  `"Nobody here was born good at anything, {name}. You get better by doing — 'skills' and 'stats' show where you stand. The basin rewards the useful and buries the rest."`,
-  `"Everything you do out here, somebody keeps score, {name}. Help the wrong crew, cross the right one — check 'rep' now and then. Grudges in this city have long memories and short fuses."`,
+  `"Nobody here was born good at anything, {name}. You get better by doing: 'skills' and 'stats' show where you stand. The basin rewards the useful and buries the rest."`,
+  `"Everything you do out here, somebody keeps score, {name}. Help the wrong crew, cross the right one: check 'rep' now and then. Grudges in this city have long memories and short fuses."`,
   `"You'll hear there's money in cooking and dealing, {name}. There is. There's also addiction, overdoses, and a manufacturing charge that puts the whole precinct on your back. Easy money out here bites."`,
-  `"Pay first, trust later — that's policy, {name}, and it's good policy for you too. Somebody buys you a drink and calls you friend inside a minute? They're pricing your pockets."`,
+  `"Pay first, trust later: that's policy, {name}, and it's good policy for you too. Somebody buys you a drink and calls you friend inside a minute? They're pricing your pockets."`,
   `"This bar's not the world, {name}, whatever it feels like at three in the morning. There's aircraft to fly, crews to run, a whole city under the city. Survive the first week and it all opens up."`,
 ];
 
 const LOWRY_GRADUATION = [
-  `"That's about all the free wisdom I've got, {name}. The rest you'll earn the way we all did — badly, and in public."`,
+  `"That's about all the free wisdom I've got, {name}. The rest you'll earn the way we all did: badly, and in public."`,
   `"You're asking sharper questions now, {name}. You'll do. Or you won't. Either way you're not my greenest guest anymore."`,
 ];
 
 // Non-newcomer / veteran deflections for the dialogue "advice?" option.
 const LOWRY_VETERAN_ADVICE = [
-  `"Advice? You've got the calluses, {name}. You know how it works — keep breathing and keep paying."`,
+  `"Advice? You've got the calluses, {name}. You know how it works: keep breathing and keep paying."`,
   `"You don't need me holding your hand anymore. Drink up. That's the only tip that never expires."`,
   `"Same advice as ever: trust the room less than it wants you to. You've been here long enough to know I'm right."`,
 ];
@@ -100,7 +100,7 @@ const LOWRY_VETERAN_ADVICE = [
 // it — the Reach voice below inverts this, which is the whole point of the place.
 const LOWRY_HEAT = [
   `"{name}. You're lit up like a signal fire and you brought it through my door. Drink fast."`,
-  `wipes the same spot twice, eyes on the door behind you. "Whatever's chasing you — settle up before it arrives."`,
+  `wipes the same spot twice, eyes on the door behind you. "Whatever's chasing you: settle up before it arrives."`,
   `"I don't ask what you did. I do ask that you do the next one somewhere else."`,
 ];
 
@@ -135,7 +135,7 @@ const LOWRY_COWORKER = [
   ],
   [
     ['L', `"Fresh one at the bar tonight, Dex. Green as they come."`],
-    ['O', `"Send them over when they've found their legs. Not before. I don't take milk money — bad for repeat business."`],
+    ['O', `"Send them over when they've found their legs. Not before. I don't take milk money: bad for repeat business."`],
   ],
   [
     ['L', `"How long's it been, you and me working this room?"`],
@@ -149,7 +149,7 @@ const LOWRY_COWORKER = [
   ],
   [
     ['O', `"Two by the door have been nursing the same drink an hour. Watching the till, not the cards."`],
-    ['L', `polishes a glass, eyes flicking to the door. "Noted. You deal — I'll keep the bad thoughts warm."`],
+    ['L', `polishes a glass, eyes flicking to the door. "Noted. You deal: I'll keep the bad thoughts warm."`],
   ],
   [
     ['L', `"You deal them the cards, I pour them the reason to keep sitting there."`],
@@ -179,7 +179,7 @@ const MARLA_COWORKER = [
   ],
   [
     ['L', `"New face at the bar, Doc. Flew in on their own wings."`],
-    ['O', `"Then they've got money or they've got trouble. Sit them down either way — the felt sorts it out faster than you will."`],
+    ['O', `"Then they've got money or they've got trouble. Sit them down either way: the felt sorts it out faster than you will."`],
   ],
   [
     ['O', `"Nobody's asked me for a marker in a month. Reach is getting honest."`],
@@ -348,13 +348,13 @@ function pokerLine(table) {
   const street  = (table.game?.community || []).length; // 0 pre-flop, 3 flop, 4 turn, 5 river
   if (street >= 5) return `"Cards are all out over there. Now we find out who was praying and who was counting."`;
   if (seated === 2) return `"Down to two at the table and the pot's getting fat. This is the part where somebody learns something about themselves."`;
-  if (pot > 0) return `"Pot's up to ₵${pot} at the table. House doesn't take a cut — the house is me, and I take mine in drinks."`;
+  if (pot > 0) return `"Pot's up to ₵${pot} at the table. House doesn't take a cut: the house is me, and I take mine in drinks."`;
   return `nods toward the poker table, where a fresh hand's being dealt.`;
 }
 
 function tvLine(now) {
   if (now.program)      return `"They're running ${now.program} again. I've heard that jingle in my sleep. Sometimes I hum it while I pour."`;
-  if (now.stationName)  return `"${now.stationName}'s on the set${now.number != null ? `, channel ${now.number}` : ''} — same loop as ever. It's not company, but it beats the quiet in here."`;
+  if (now.stationName)  return `"${now.stationName}'s on the set${now.number != null ? `, channel ${now.number}` : ''}: same loop as ever. It's not company, but it beats the quiet in here."`;
   return `glances up at the flickering set and shakes his head.`;
 }
 
@@ -495,7 +495,7 @@ registerAction({
   type: 'BARTENDER_POKER',
   handler: ({ actor }) => {
     const table = actor && activePokerInZone(actor.current_zone);
-    if (!table) return { type: 'dialogue_line', text: `"Table's cold right now. Pull up a chair and start something — the house always appreciates the traffic."` };
+    if (!table) return { type: 'dialogue_line', text: `"Table's cold right now. Pull up a chair and start something: the house always appreciates the traffic."` };
     return { type: 'dialogue_line', text: pokerLine(table) };
   },
 });

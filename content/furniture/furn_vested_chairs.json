@@ -6,9 +6,12 @@
       "chairs",
       "armchair"
     ],
-    "interactions": {
+    "interaction_lines": {
       "sit": "You sit. The leather is cold at first and then very much not, and the chair is better than anything you own."
-    }
+    },
+    "interactions": [
+      "sit"
+    ]
   },
   "id": "furn_vested_chairs",
   "name": "the armchairs",

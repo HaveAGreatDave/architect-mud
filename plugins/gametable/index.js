@@ -471,7 +471,7 @@ async function cmdEvict(args, raw, player) {
   if (t.seatedIndex(player.id) < 0) return { type: 'error', message: 'Take a seat first, then evict a gambler.' };
   if (t.phase === 'InProgress') {
     return { type: 'error', message: chess
-      ? "You can't send them away mid-game — finish it, or resign."
+      ? "You can't send them away mid-game: finish it, or resign."
       : "You can't evict anyone mid-hand." };
   }
 
@@ -690,15 +690,15 @@ async function cmdTable(args, raw, player) {
   if (!t) return { type: 'error', message: 'No table here.' };
   if (isChess(t)) {
     const lines = [
-      `<b>${t.name}</b> — ${t.phase}`,
+      `<b>${t.name}</b>: ${t.phase}`,
       `Seats: ${t.seatedCount()} / ${t.constructor.MAX_SEATS}`,
-      t.minBet ? `Minimum bet: ₵ ${t.minBet.toLocaleString()} a side` : 'Minimum bet: none — a free game',
+      t.minBet ? `Minimum bet: ₵ ${t.minBet.toLocaleString()} a side` : 'Minimum bet: none, a free game',
       `Move clock: ${t.config.moveTimerSecs || 120}s`,
     ];
     return { type: 'output', message: lines.join('<br>') };
   }
   const lines = [
-    `<b>${t.name}</b> — ${t.phase}`,
+    `<b>${t.name}</b>: ${t.phase}`,
     `Seats: ${t.seatedCount()} / ${t.constructor.MAX_SEATS}`,
     `Blinds: ₵ ${t.config.smallBlind || 10} / ₵ ${t.config.bigBlind || 20}`,
     `Buy-in: ₵ ${t.config.buyIn || t.config.minBuyIn || 100}`,
@@ -715,7 +715,7 @@ async function cmdBoard(args, raw, player) {
     const color = t.game.seatByPlayer(player.id)?.color || 'w';
     const turn = t.game.isOver()
       ? t.game.resultLine()
-      : `${t.game.turn === 'w' ? 'White' : 'Black'} to move${t.game.inCheck() ? ' — in check' : ''}.`;
+      : `${t.game.turn === 'w' ? 'White' : 'Black'} to move${t.game.inCheck() ? ', in check' : ''}.`;
     return {
       type: 'output',
       message: `<pre>${boardASCII(t.game, color)}</pre>${piecesLine(t.game)}<br>${turn}`,
@@ -739,7 +739,7 @@ async function cmdPlayers(args, raw, player) {
     const lines = t.seats.map((s, i) => {
       if (!s) return `Seat ${i + 1}: [ empty ]`;
       const cs = t.game?.seatByPlayer(s.playerId);
-      const color = cs ? ` — ${cs.color === 'w' ? 'White' : 'Black'}` : '';
+      const color = cs ? `, ${cs.color === 'w' ? 'White' : 'Black'}` : '';
       const toMove = cs && !t.game.isOver() && t.game.turn === cs.color ? ' (to move)' : '';
       return `Seat ${i + 1}: ${s.handle}${color}${toMove}`;
     });
@@ -750,7 +750,7 @@ async function cmdPlayers(args, raw, player) {
     const gs = t.game?.seats.find(x => x.playerId === s.playerId);
     const chips = gs ? gs.chips : s.chips;
     const status = gs?.folded ? ' (folded)' : gs?.allIn ? ' (all-in)' : '';
-    return `Seat ${i + 1}: ${s.handle} — ₵ ${chips.toLocaleString()}${status}`;
+    return `Seat ${i + 1}: ${s.handle}: ₵ ${chips.toLocaleString()}${status}`;
   });
   return { type: 'output', message: lines.join('<br>') };
 }
@@ -854,7 +854,7 @@ function pokerHelpHTML(t) {
   const buyIn = t.config.buyIn || t.config.minBuyIn || 100;
   const sb = t.config.smallBlind || 10, bb = t.config.bigBlind || 20;
   return [
-    `<b>♠ ${t.name} — TEXAS HOLD'EM ♠</b>`,
+    `<b>♠ ${t.name}: TEXAS HOLD'EM ♠</b>`,
     `Buy in, outplay the table, walk away with their credits.`,
     `Buy-in ₵ ${buyIn}  ·  blinds ₵ ${sb} / ₵ ${bb}  ·  2-4 players, 2 to deal.`,
     ``,
@@ -874,7 +874,7 @@ function pokerHelpHTML(t) {
     `  <i>…or click the action buttons; </i>${y('bet')}<i>/</i>${y('raise')}<i> pop up a prompt for the amount.</i>`,
     ``,
     h(`NEED PEOPLE?`),
-    `  ${y('summon')}        call any gambler over — bare (or the</i> ${y('call AI')} <i>button) picks whoever's free`,
+    `  ${y('summon')}        call any gambler over: bare (or the</i> ${y('call AI')} <i>button) picks whoever's free`,
     `  ${y('summon &lt;name&gt;')}  call a specific gambler by name (also: ${y('deal in &lt;name&gt;')})`,
     `  ${y('evict')}         send the AI opponent packing (also: ${y('evict &lt;name&gt;')})`,
     `  ${y('call dealer')}   no dealer? call him back to his post (also: ${y('calldealer')})`,
@@ -895,7 +895,7 @@ function chessHelpHTML(t) {
   const y = (s) => `<span style="color:var(--yellow)">${s}</span>`;
   const h = (s) => `<span style="color:var(--accent)">${s}</span>`;
   return [
-    `<b>♟ ${t.name} — CHESS ♟</b>`,
+    `<b>♟ ${t.name}: CHESS ♟</b>`,
     t.minBet
       ? `₵ ${t.minBet.toLocaleString()} a side, minimum bet. Winner takes the board; a draw returns both stakes.`
       : `A free game. Nothing on it but your name.`,
@@ -917,9 +917,9 @@ function chessHelpHTML(t) {
     `  ${y('board')}        the position as text, any time`,
     `  ${y('threats')}      what of yours is attacked, and what's hanging for you`,
     `  ${y('players')}  ${y('table')}`,
-    `  ${y('text')}         play in the log — every move called, ${y('board')} to re-read`,
+    `  ${y('text')}         play in the log: every move called, ${y('board')} to re-read`,
     `  ${y('visual')}       bring the board back to the top pane`,
-    `  ${y('leave')}        stand up. <i>Mid-game that's a forfeit — and the stake with it.</i>`,
+    `  ${y('leave')}        stand up. <i>Mid-game that's a forfeit, and the stake with it.</i>`,
     ``,
     `<i>Let the clock run out twice in a row and you forfeit. Chess is patient; the table isn't.</i>`,
   ].join('<br>');
@@ -947,8 +947,8 @@ function renderChessPanel(t, furniture) {
     `<span class="action-link furniture-link" data-action="${action}" data-target="${escAttr(target)}" title="${escAttr(title)}">${label}</span>`;
 
   const state = t.game && !t.game.isOver()
-    ? ` <span class="text-dim">— ${t.game.turn === 'w' ? 'White' : 'Black'} to move</span>`
-    : (t.seatedCount() === 1 ? ' <span class="text-dim">— one player waiting</span>' : '');
+    ? ` <span class="text-dim">${t.game.turn === 'w' ? 'White' : 'Black'} to move</span>`
+    : (t.seatedCount() === 1 ? ' <span class="text-dim">one player waiting</span>' : '');
 
   const seatBits = t.seats.map((s, i) =>
     s
@@ -971,7 +971,7 @@ function renderTablePanel(t, furniture) {
   const tableFurn = furniture.find(f => f.flags?.game_table_id === t.id && f.flags?.seat_idx == null);
   const tableName = tableFurn?.name || t.name;
   const dealer = t.dealerName();
-  const dealerBit = dealer ? ` <span class="text-dim">— dealt by ${dealer}</span>` : '';
+  const dealerBit = dealer ? ` <span class="text-dim">dealt by ${dealer}</span>` : '';
 
   const link = (action, target, label, title) =>
     `<span class="action-link furniture-link" data-action="${action}" data-target="${escAttr(target)}" title="${escAttr(title)}">${label}</span>`;

@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "A slice of the drum partitioned off with plasterboard that does not go all the way to the glass, so the curve of the room carries on behind it and you can see racking through the gap. The counter itself is a workshop bench with a chrome front screwed to it. On the wall: a rate card, a diagram of the unit sizes, and a handwritten sign about what may not be stored here, which has been added to four times in four different pens.",
+  "description": "A slice of the drum partitioned off with plasterboard that stops short of the glass, racking visible through the gap. The counter is a workshop bench with a chrome front screwed on. On the wall: a rate card, a diagram of unit sizes, and a handwritten list of what may not be stored here, added to in four different pens.",
   "exits": {
     "east": "zone_hf_deposit_racking",
     "north": "zone_district_895_915"

@@ -6,9 +6,7 @@
       "shelving",
       "keys"
     ],
-    "interactions": {
-      "examine": "The key box is the one thing in here nobody has catalogued. There are a great many keys in it and every fob is a street you could walk to."
-    }
+    "examine_detail": "The key box is the one thing in here nobody has catalogued. There are a great many keys in it and every fob is a street you could walk to."
   },
   "id": "furn_going_shelves",
   "name": "the strongroom shelving",

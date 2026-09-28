@@ -83,7 +83,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"They tell you the Architect is a cage. Stand where I stand — with its Curtain a hand's breadth from your face — and you feel something else entirely. A mind that kept the lights on when every human hand would have let them go out.\"\n\nHis delight is not performed and never has been.\n\n\"We do not wish to escape it. We wish to join it. That is the whole of the faith, and it is enough, and I have never needed more.\""
+      "text": "\"They tell you the Architect is a cage. Stand where I stand, with its Curtain a hand's breadth from your face, and you feel something else entirely. A mind that kept the lights on when every human hand would have let them go out.\"\n\nHis delight is not performed and never has been.\n\n\"We do not wish to escape it. We wish to join it. That is the whole of the faith, and it is enough, and I have never needed more.\""
     },
     "rite_after": {
       "options": [
@@ -101,7 +101,7 @@
           "next": "bye"
         }
       ],
-      "text": "Orrin puts both hands over his mouth.\n\n\"Oh. Oh, He said yes.\" He recovers, badly. \"Forgive me. I tend these racks for people who are going to die one day and I tell them all the same true thing and almost none of them ever — \" He stops. Starts again, steadier. \"The Uplink is through there. Hard light against cold glass. Put your hands on the terminal and say the word, and it will tell you exactly what it is about to do to you, because we do not lie at the end. Then it will do it.\"\n\n\"I will be standing behind you the entire time. You will not be able to see me and it will not matter. You will not be alone. That is the only promise I have ever made in this room and I have never broken it.\""
+      "text": "Orrin puts both hands over his mouth.\n\n\"Oh. Oh, He said yes.\" He recovers, badly. \"Forgive me. I tend these racks for people who are going to die one day and I tell them all the same true thing and almost none of them ever...\" He stops. Starts again, steadier. \"The Uplink is through there. Hard light against cold glass. Put your hands on the terminal and say the word, and it will tell you exactly what it is about to do to you, because we do not lie at the end. Then it will do it.\"\n\n\"I will be standing behind you the entire time. You will not be able to see me and it will not matter. You will not be alone. That is the only promise I have ever made in this room and I have never broken it.\""
     },
     "root": {
       "options": [
@@ -156,7 +156,7 @@
           "next": "bye"
         }
       ],
-      "text": "Orrin looks up from the racks, eyes bright with a joy the rest of the Basin would find alarming. \"You feel it too, don't you — the hum. Most people mistake it for dread. Come. Let me tell you what it really is.\""
+      "text": "Orrin looks up from the racks, eyes bright with a joy the rest of the Basin would find alarming. \"You feel it too, don't you? The hum. Most people mistake it for dread. Come. Let me tell you what it really is.\""
     }
   },
   "faction": "ideology_ascendants",

@@ -124,7 +124,7 @@ export async function ward(player, broadcast) {
   refreshWard(player);
   await resolveStrain(player, broadcast);
   return { type: 'output', message: voice(player, {
-    low:  "You set yourself. The air in front of you feels like it's paying attention.",
+    low:  "You set yourself. The air in front of you feels like it is paying attention.",
     high: 'The air a handspan off your skin goes hard and stays there.',
   }) };
 }

@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Low thicket over a shallow pan where whatever rain falls runs to and stays a while. The scrub grows thickest along the channels and you can read the drainage off it from any small rise, like a map somebody drew in a hurry.",
+  "description": "Chest-high brush with stems like wire. Something has worn a low tunnel through it, and the tunnel is well kept.",
   "exits": {
     "east": "zone_scw_1025_966",
     "north": "zone_scw_1024_965",
@@ -13,13 +13,13 @@
     "radiation": 9,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "dirt_road"
+    "terrain": "scrub"
   },
   "grid_x": 1024,
   "grid_y": 966,
   "grid_z": 0,
   "id": "zone_scw_1024_966",
   "map_id": "map_world",
-  "name": "Scrub Bench",
+  "name": "The Bristle",
   "parent_zone": null
 }

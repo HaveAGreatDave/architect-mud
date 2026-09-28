@@ -76,7 +76,7 @@ function openConfigForm(typeId, existing) {
   // Universal option: accordion (click header to expand, pushing others aside).
   const accWrap = document.createElement('label');
   accWrap.className = 'cpanel-check';
-  accWrap.innerHTML = '<input type="checkbox"><span>Click header to expand — collapse others to make room</span>';
+  accWrap.innerHTML = '<input type="checkbox"><span>Click header to expand, collapse others to make room</span>';
   const accInput = accWrap.querySelector('input');
   accInput.checked = existing ? !!existing.accordion : false;
   form.appendChild(accWrap);

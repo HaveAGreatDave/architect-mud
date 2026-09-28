@@ -515,7 +515,7 @@ export const SCHEMA_SQL = `
   -- residence. Curtain and glass are runtime state in RAM (engine/environment.js),
   -- the same split doors use for lock_state, so a drawn curtain is never a
   -- content diff. Dropped rather than left dead: an unread table with authored
-  -- rows in it's a thing somebody re-implements against later.
+  -- rows in it is a thing somebody re-implements against later.
   DROP TABLE IF EXISTS windows;
 
   CREATE TABLE IF NOT EXISTS doors (

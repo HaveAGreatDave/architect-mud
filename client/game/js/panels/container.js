@@ -1,4 +1,5 @@
 import { sendCmdSilent } from '../net.js';
+import { makeFloatable } from './confirm.js';
 
 let containerDraggedId = null;
 let containerDragSource = null; // 'inv' or 'contents'
@@ -6,17 +7,40 @@ let containerDraggedQty = 1;
 let dragHandled = false;
 let activeContainerId = null;   // the id used for `closecontainer` on close (whichever box was opened)
 let fridgeBoxId = null;         // stow target for the main contents list (== activeContainerId unless paired)
-let freezerBoxId = null;        // stow target for the freezer sub-box, null when this container has no pair
+let freezerBoxId = null;
+// A box that is not a container row (the Drake's pantry and locker, plugins/flight/drake-stores.js)
+// names the verb that owns it, and every move goes through that verb instead of stowid/pullid.
+let storeVerb = null;
+const stowCmd = (id, box, q) => storeVerb ? `${storeVerb} putid ${id}${q}` : `stowid ${id} ${box}${q}`;
+const pullCmd = (id, q) => storeVerb ? `${storeVerb} takeid ${id}${q}` : `pullid ${id}${q}`;
 
 export function openContainerPanel(data) {
   activeContainerId = data.containerId;
+  storeVerb = data.storeVerb || null;
   renderContainerPanel(data, { isOpen: true });
+  const box = document.getElementById('container-box');
+  makeFloatable(box, document.getElementById('container-header'));
+  // A compact store (the Drake's galley fridge and locker) sends `compact`: a smaller window to match
+  // its smaller shelf. Only the SIZE is compact; a window the player has already moved keeps its place.
+  box.classList.toggle('ctr-compact', !!data.compact);
+  // Minimise folds the window to its header bar; opening a box always opens it unfolded.
+  box.classList.remove('ctr-folded');
+  const minBtn = document.getElementById('container-min');
+  if (minBtn) {
+    minBtn.textContent = '−';
+    minBtn.onclick = () => { const f = box.classList.toggle('ctr-folded'); minBtn.textContent = f ? '▢' : '−'; minBtn.setAttribute('aria-label', f ? 'Restore' : 'Minimise'); };
+  }
+  // A store that has a galley (the Drake's pantry) offers the quick-actions panel from here.
+  const gBtn = document.getElementById('container-galley');
+  if (gBtn) { gBtn.hidden = storeVerb !== 'pantry'; gBtn.onclick = () => sendCmdSilent('pantry galley'); }
+  if (box.style.position === 'fixed') box.style.width = '';
   document.getElementById('container-panel').classList.add('active');
 }
 
 export function refreshContainerPanel(data) {
   if (!document.getElementById('container-panel').classList.contains('active')) return;
   activeContainerId = data.containerId;
+  storeVerb = data.storeVerb || null;
   renderContainerPanel(data, { isOpen: false });
 }
 
@@ -24,6 +48,8 @@ export function closeContainerPanel() {
   const cid = activeContainerId;
   document.getElementById('container-panel').classList.remove('active');
   activeContainerId = null;
+  // A Drake compartment has no container row to close; the cockpit shuts its door instead.
+  if (storeVerb) { window.dispatchEvent(new CustomEvent('drake-store-close', { detail: storeVerb })); storeVerb = null; return; }
   if (cid) sendCmdSilent(`closecontainer ${cid}`);
 }
 
@@ -191,7 +217,7 @@ function renderContainerPanel(data, { isOpen = false } = {}) {
   // A cold box lists only what spoils (the server filters it), so the column
   // says why rather than reading as an empty pack.
   const invLabel = document.querySelector('#container-inv-col .container-section-label');
-  if (invLabel) invLabel.textContent = data.invNote ? 'Your Inventory — perishables' : 'Your Inventory';
+  if (invLabel) invLabel.textContent = data.invNote ? 'Your Inventory: perishables' : 'Your Inventory';
   const invNote = document.getElementById('container-inv-note');
   if (invNote) invNote.textContent = data.invNote || '';
   renderList('container-contents-list', fridgeItems, 'contents', fridge.containerId);
@@ -254,11 +280,11 @@ function openItemActions(item, source, containerId, anchor) {
   rows.push(inBox
     ? { label: 'Take out', run: async () => {
         const q = await promptQty(item.quantity, 'Take');
-        if (q != null) sendCmdSilent(`pullid ${item.id}${item.quantity > 1 ? ` ${q}` : ''}`);
+        if (q != null) sendCmdSilent(pullCmd(item.id, item.quantity > 1 ? ` ${q}` : ''));
       } }
     : { label: 'Put in', run: async () => {
         const q = await promptQty(item.quantity, 'Stow');
-        if (q != null) sendCmdSilent(`stowid ${item.id} ${containerId}${item.quantity > 1 ? ` ${q}` : ''}`);
+        if (q != null) sendCmdSilent(stowCmd(item.id, containerId, item.quantity > 1 ? ` ${q}` : ''));
       } });
 
   for (const a of ITEM_ACTIONS) {
@@ -267,7 +293,7 @@ function openItemActions(item, source, containerId, anchor) {
     // it takes the item out first and then acts. Stating that in the label beats
     // offering a button that quietly does nothing.
     rows.push(a.held && inBox
-      ? { label: `${a.label} (take out first)`, run: () => { sendCmdSilent(`pullid ${item.id}`); setTimeout(() => sendCmdSilent(a.cmd(name)), 120); } }
+      ? { label: `${a.label} (take out first)`, run: () => { sendCmdSilent(pullCmd(item.id, '')); setTimeout(() => sendCmdSilent(a.cmd(name)), 120); } }
       : { label: a.label, run: () => sendCmdSilent(a.cmd(name)) });
   }
   rows.push({ label: 'Examine', run: () => sendCmdSilent(`examine ${name}`) });
@@ -307,7 +333,7 @@ function renderList(listId, items, source, containerId) {
       b.disabled = true;
       for (const it of want) {
         const q = Math.max(1, Math.min(it.quantity || 1, it.wantedQty || 1));
-        sendCmdSilent(`pullid ${it.id}${q > 1 ? ` ${q}` : ''}`);
+        sendCmdSilent(pullCmd(it.id, q > 1 ? ` ${q}` : ''));
       }
     };
     return b;
@@ -327,7 +353,7 @@ function renderList(listId, items, source, containerId) {
     h.appendChild(takeAllBtn(
       wantAll,
       `▸ take everything listed (${units})`,
-      'Take what your shopping list still wants from this container — every shelf, in the amounts the recipes ask for'));
+      'Take what your shopping list still wants from this container, every shelf, in the amounts the recipes ask for'));
     list.appendChild(h);
   }
 
@@ -387,7 +413,7 @@ function renderList(listId, items, source, containerId) {
         const qty = await promptQty(item.quantity, 'Stow');
         if (qty != null) {
           const qtyPart = item.quantity > 1 ? ` ${qty}` : '';
-          sendCmdSilent(`stowid ${item.id} ${containerId}${qtyPart}`);
+          sendCmdSilent(stowCmd(item.id, containerId, qtyPart));
         }
       };
     } else {
@@ -398,7 +424,7 @@ function renderList(listId, items, source, containerId) {
         const qty = await promptQty(item.quantity, 'Take');
         if (qty != null) {
           const qtyPart = item.quantity > 1 ? ` ${qty}` : '';
-          sendCmdSilent(`pullid ${item.id}${qtyPart}`);
+          sendCmdSilent(pullCmd(item.id, qtyPart));
         }
       };
     }
@@ -467,7 +493,7 @@ function renderList(listId, items, source, containerId) {
       `<span class="ctr-cond"${b.colour ? ` style="color:${b.colour};border-color:${b.colour}"` : ''}>${b.label}${b.n > 1 ? ` ×${b.n}` : ''}</span>`).join('');
     head.innerHTML =
       `<span class="ctr-stack-caret">▸</span><span class="ctr-name">${item.name}</span>${summary}<span class="ctr-qty">×${total}</span>`;
-    head.title = `${total} of these, in ${bands.length} condition${bands.length === 1 ? '' : 's'} — open to pick one`;
+    head.title = `${total} of these, in ${bands.length} condition${bands.length === 1 ? '' : 's'}, open to pick one`;
 
     const kids = document.createElement('div');
     kids.className = 'ctr-stack-kids';
@@ -495,7 +521,7 @@ export function initContainerPanel() {
     if (!fridgeBoxId) return;
     const cards = document.getElementById('container-inv-list').querySelectorAll('.ctr-item-card');
     for (const card of cards) {
-      sendCmdSilent(`stowid ${card.getAttribute('data-id')} ${fridgeBoxId}`);
+      sendCmdSilent(stowCmd(card.getAttribute('data-id'), fridgeBoxId, ''));
     }
   });
 
@@ -503,7 +529,7 @@ export function initContainerPanel() {
     const lists = ['container-contents-list', 'container-freezer-list'];
     for (const listId of lists) {
       const cards = document.getElementById(listId).querySelectorAll('.ctr-item-card');
-      for (const card of cards) sendCmdSilent(`pullid ${card.getAttribute('data-id')}`);
+      for (const card of cards) sendCmdSilent(pullCmd(card.getAttribute('data-id'), ''));
     }
   });
 
@@ -530,7 +556,7 @@ export function initContainerPanel() {
         const qty = await promptQty(dragQty, 'Stow');
         if (qty != null) {
           const qtyPart = dragQty > 1 ? ` ${qty}` : '';
-          sendCmdSilent(`stowid ${dragId} ${targetId}${qtyPart}`);
+          sendCmdSilent(stowCmd(dragId, targetId, qtyPart));
         }
       } else {
         containerDraggedId = null;
@@ -554,7 +580,7 @@ export function initContainerPanel() {
       const qty = await promptQty(dragQty, 'Take');
       if (qty != null) {
         const qtyPart = dragQty > 1 ? ` ${qty}` : '';
-        sendCmdSilent(`pullid ${dragId}${qtyPart}`);
+        sendCmdSilent(pullCmd(dragId, qtyPart));
       }
     } else {
       containerDraggedId = null;

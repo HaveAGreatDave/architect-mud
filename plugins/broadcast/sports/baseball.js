@@ -90,9 +90,9 @@ const PLAY_DESC = {
   doubleplay: 'Double Play', tripleplay: 'Triple Play', sacfly: 'Sacrifice Fly', productout: 'Groundout',
 };
 export function playDesc(b) {
-  if (b.kind === 'homerun') return b.rbi >= 4 ? 'Grand Slam' : (b.rbi > 1 ? `Home Run — ${b.rbi} RBI` : 'Home Run');
+  if (b.kind === 'homerun') return b.rbi >= 4 ? 'Grand Slam' : (b.rbi > 1 ? `Home Run, ${b.rbi} RBI` : 'Home Run');
   const base = PLAY_DESC[b.kind] || 'In Play';
-  return (b.rbi > 0 && b.kind !== 'walk') ? `${base} — ${b.rbi} RBI` : base;
+  return (b.rbi > 0 && b.kind !== 'walk') ? `${base}, ${b.rbi} RBI` : base;
 }
 
 // Build the pitch sequence for one at-bat. Returns pitches ending in the terminal

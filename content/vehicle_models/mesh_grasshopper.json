@@ -1,0 +1,314 @@
+{
+  "id": "grasshopper",
+  "kind": "mesh",
+  "params": {
+    "name": "Grasshopper",
+    "note": "A Piper Cub: a narrow tandem cabin that is one run of glass plus a skylight, a flat-bottomed constant-chord wing carried above the cabin on struts, exposed cylinder heads, bungee taildragger gear and round tail feathers.",
+    "portedFrom": "buildCub",
+    "groundPitch": 11,
+    "navLamps": { "wing": "wing" },
+    "hull": "fuselage",
+    "parts": [
+      {
+        "kind": "loft",
+        "name": "fuselage",
+        "note": "Stations marked minDetail 1 drop out of the far LOD; the glass is keyed by station f so it cannot slide onto the wrong bay when they do.",
+        "sides": 12,
+        "section": "super",
+        "role": "body",
+        "shade": { "base": 0.62, "amp": 0.36 },
+        "stations": [
+          { "f": 0.8, "rg": 0.048, "rvT": 0.046, "rvB": 0.038, "cz": 0.03, "boxy": 0.16 },
+          { "f": 0.72, "rg": 0.064, "rvT": 0.06, "rvB": 0.048, "cz": 0.026, "boxy": 0.3, "minDetail": 1 },
+          { "f": 0.6, "rg": 0.072, "rvT": 0.068, "rvB": 0.056, "cz": 0.02, "boxy": 0.54 },
+          { "f": 0.52, "rg": 0.074, "rvT": 0.072, "rvB": 0.06, "cz": 0.016, "boxy": 0.62, "u": 0 },
+          { "f": 0.44, "rg": 0.076, "rvT": 0.126, "rvB": 0.062, "cz": 0.012, "boxy": 0.7, "u": 0.18 },
+          { "f": 0.22, "rg": 0.078, "rvT": 0.13, "rvB": 0.064, "cz": 0.01, "boxy": 0.72, "u": 0.48, "minDetail": 1 },
+          { "f": 0, "rg": 0.078, "rvT": 0.128, "rvB": 0.064, "cz": 0.01, "boxy": 0.72, "u": 0.78 },
+          { "f": -0.2, "rg": 0.07, "rvT": 0.114, "rvB": 0.058, "cz": 0.016, "boxy": 0.66 },
+          { "f": -0.42, "rg": 0.052, "rvT": 0.082, "rvB": 0.046, "cz": 0.03, "boxy": 0.5, "minDetail": 1 },
+          { "f": -0.64, "rg": 0.036, "rvT": 0.056, "rvB": 0.032, "cz": 0.048, "boxy": 0.36 },
+          { "f": -0.86, "rg": 0.024, "rvT": 0.038, "rvB": 0.022, "cz": 0.066, "boxy": 0.24, "minDetail": 1 },
+          { "f": -1.03, "rg": 0.014, "rvT": 0.024, "rvB": 0.014, "cz": 0.08, "boxy": 0.16 }
+        ],
+        "regions": [
+          { "at": [0.52], "k": [0, 1, 2, 3, 4, 5], "role": "glass", "tint": [96, 132, 158], "art": "xcub", "uvDiv": 6 },
+          { "at": [0.44, 0.22], "k": [0, 2, 3, 5], "role": "glass", "tint": [96, 132, 158], "art": "xcub", "uvDiv": 6 },
+          { "at": [0], "k": [0, 5], "role": "glass", "tint": [96, 132, 158], "art": "xcub", "uvDiv": 6 }
+        ],
+        "capFore": { "kind": "flat", "sh": 0.92 },
+        "capAft": { "kind": "flat", "sh": 0.5, "reverse": true }
+      },
+      {
+        "kind": "cone",
+        "name": "spinner",
+        "f": 0.8,
+        "h": 0.03,
+        "r": 0.036,
+        "n": 10,
+        "apex": [0.865, 0, 0.03],
+        "role": "nacelle",
+        "shade": { "base": 0.72, "amp": 0.26 }
+      },
+      {
+        "kind": "mirror",
+        "name": "cylinder heads",
+        "parts": [
+          { "kind": "tube", "pts": [[0.735, 0.052, 0.014], [0.735, 0.084, 0.008]], "r": 0.017, "sides": 6, "role": "nacelle", "sh": 0.58 },
+          { "kind": "tube", "pts": [[0.665, 0.052, 0.014], [0.665, 0.084, 0.008]], "r": 0.017, "sides": 6, "role": "nacelle", "sh": 0.58 }
+        ],
+        "minDetail": 1
+      },
+      {
+        "kind": "tube",
+        "name": "exhaust",
+        "pts": [[0.68, -0.03, -0.026], [0.5, -0.036, -0.048]],
+        "r": 0.01,
+        "sides": 6,
+        "role": "gun",
+        "sh": 0.34,
+        "minDetail": 1
+      },
+      {
+        "kind": "wing",
+        "name": "wing",
+        "foil": "usa35b",
+        "span": 1.16,
+        "taper0": 1,
+        "wh": 0.212,
+        "dih": 0.022,
+        "leR": 0.3,
+        "teR": -0.18,
+        "leT": 0.3,
+        "teT": -0.18,
+        "ribs": [-1.16, -0.86, -0.58, -0.2, 0.2, 0.58, 0.86, 1.16],
+        "nx": 11,
+        "role": "wing",
+        "lower": 0.44,
+        "tipSh": 0.66,
+        "lens": { "hh": 0.01, "hw": 0.02, "minDetail": 1, "out": 0.012, "tints": [[46, 190, 78], [200, 52, 48]], "x": 0.1 },
+        "lod0": { "nx": 4, "ribs": [-1.16, 0, 1.16] }
+      },
+      {
+        "kind": "mirror",
+        "name": "ailerons",
+        "parts": [
+          {
+            "kind": "ctrl",
+            "role": "aileron",
+            "side": 1,
+            "sh": 0.82,
+            "le": [[-0.016800000000000037, 0.6, 0.2360535391330384], [-0.016800000000000037, 1.12, 0.24591560809855564]],
+            "te": [[-0.18, 0.6, 0.22360913434482757], [-0.18, 1.12, 0.23347120331034482]],
+            "cf": 0.28,
+            "axis": "z",
+            "half": 0.01
+          }
+        ],
+        "minDetail": 1
+      },
+      {
+        "kind": "mirror",
+        "name": "cabane and lift struts",
+        "parts": [
+          {
+            "kind": "faired",
+            "name": "front cabane strut",
+            "pts": [[0.44, 0.066, 0.118], [0.252, 0.096, 0.20441336231383145]],
+            "chord": 0.024,
+            "th": 0.008,
+            "role": "strut",
+            "sh": 0.6
+          },
+          {
+            "kind": "faired",
+            "name": "rear cabane strut",
+            "pts": [[0.06, 0.066, 0.118], [-0.11280000000000001, 0.096, 0.20829823596841243]],
+            "chord": 0.024,
+            "th": 0.008,
+            "role": "strut",
+            "sh": 0.6
+          },
+          {
+            "kind": "faired",
+            "name": "lift strut",
+            "pts": [[0.2, 0.07, -0.052], [0.13679999999999998, 0.62, 0.21398101686954368]],
+            "chord": 0.034,
+            "th": 0.009,
+            "role": "strut",
+            "sh": 0.66
+          },
+          {
+            "kind": "tube",
+            "name": "jury strut",
+            "pts": [[0.1684, 0.345, 0.08299050843477185], [-0.08400000000000002, 0.34, 0.21227098597018856]],
+            "r": 0.006,
+            "sides": 4,
+            "role": "strut",
+            "sh": 0.58,
+            "minDetail": 1
+          }
+        ]
+      },
+      {
+        "kind": "blade",
+        "name": "fin",
+        "outline": [[-0.62, 0.098], [-0.84, 0.34], [-0.92, 0.36], [-0.94, 0.1]],
+        "t": 0.01,
+        "role": "fin",
+        "sh": [0.92, 0.68],
+        "edges": [{ "a": 0, "b": 1, "sh": 0.88 }, { "a": 1, "b": 2, "sh": 0.74 }, { "a": 2, "b": 3, "sh": 0.74 }]
+      },
+      {
+        "kind": "mirror",
+        "name": "rudder",
+        "parts": [
+          {
+            "kind": "poly",
+            "note": "Hangs below the tailcone to the tailwheel: the J-3 outline.",
+            "faces": [
+              {
+                "role": "rudder",
+                "sh": 0.88,
+                "p": [[-0.925, 0.015, 0.352], [-0.945, 0.015, 0.1], [-1.03, 0.015, 0.11], [-0.995, 0.015, 0.32]],
+                "defl": "rudder",
+                "hinge": [[-0.925, 0.015, 0.352], [-0.95, 0.015, -0.02]],
+                "side": 1
+              },
+              {
+                "role": "rudder",
+                "sh": 0.84,
+                "p": [[-0.945, 0.015, 0.1], [-0.95, 0.015, -0.02], [-1.01, 0.015, -0.01], [-1.03, 0.015, 0.11]],
+                "defl": "rudder",
+                "hinge": [[-0.925, 0.015, 0.352], [-0.95, 0.015, -0.02]],
+                "side": 1
+              }
+            ],
+            "left": { "faces": [{ "sh": 0.66, "winding": "reverse" }, { "sh": 0.63, "winding": "reverse" }] }
+          }
+        ]
+      },
+      {
+        "kind": "mirror",
+        "name": "tailplane",
+        "parts": [
+          {
+            "kind": "panel",
+            "c": [
+              [-0.66, 0.024, 0.07],
+              [-0.72, 0.4, 0.07800000000000001],
+              [-0.86, 0.4, 0.07800000000000001],
+              [-0.88, 0.024, 0.07]
+            ],
+            "th": 0.014,
+            "role": "stab",
+            "sh": 0.74
+          },
+          {
+            "kind": "ctrl",
+            "name": "elevator",
+            "role": "elevator",
+            "side": 1,
+            "sh": 0.74,
+            "le": [[-0.663, 0.042800000000000005, 0.0704], [-0.7176, 0.38496, 0.07768000000000001]],
+            "te": [[-0.879, 0.042800000000000005, 0.0704], [-0.8608, 0.38496, 0.07768000000000001]],
+            "cf": 0.38,
+            "axis": "z",
+            "half": 0.008,
+            "minDetail": 1
+          },
+          {
+            "kind": "tube",
+            "name": "brace strut",
+            "pts": [[-0.8, 0.02, 0.02], [-0.78, 0.3, 0.07]],
+            "r": 0.005,
+            "sides": 4,
+            "role": "strut",
+            "sh": 0.56,
+            "minDetail": 1
+          },
+          {
+            "kind": "tube",
+            "name": "bracing wire",
+            "pts": [[-0.86, 0.006, 0.245], [-0.76, 0.3, 0.08]],
+            "r": 0.004,
+            "sides": 4,
+            "role": "strut",
+            "sh": 0.62,
+            "minDetail": 1
+          }
+        ]
+      },
+      {
+        "kind": "mirror",
+        "name": "main gear",
+        "parts": [
+          { "kind": "tube", "name": "front leg", "pts": [[0.46, 0.036, -0.052], [0.34, 0.215, -0.235]], "r": 0.011, "sides": 5, "role": "gear", "sh": 0.62 },
+          { "kind": "tube", "name": "rear leg", "pts": [[0.16, 0.036, -0.054], [0.34, 0.215, -0.235]], "r": 0.01, "sides": 5, "role": "gear", "sh": 0.56 },
+          { "kind": "tube", "name": "shock strut", "pts": [[0.34, 0.03, -0.062], [0.34, 0.215, -0.235]], "r": 0.008, "sides": 5, "role": "gear", "sh": 0.5 },
+          { "kind": "wheel", "name": "tundra tyre", "at": [0.34, 0.215, -0.235], "r": 0.082, "hw": 0.034, "n": 12, "lod0": { "n": 8 } }
+        ]
+      },
+      {
+        "kind": "tube",
+        "name": "cross-axle",
+        "pts": [[0.34, -0.215, -0.235], [0.34, 0.215, -0.235]],
+        "r": 0.007,
+        "sides": 5,
+        "role": "gear",
+        "sh": 0.48,
+        "minDetail": 1
+      },
+      { "kind": "faired", "name": "tailwheel spring", "pts": [[-0.9, 0, -0.006], [-1, 0, -0.052]], "chord": 0.026, "th": 0.006, "role": "gear", "sh": 0.58 },
+      { "kind": "wheel", "name": "tailwheel", "at": [-1.005, 0, -0.072], "r": 0.026, "hw": 0.012, "n": 8, "lod0": { "n": 6 } },
+      {
+        "kind": "group",
+        "name": "small things",
+        "parts": [
+          {
+            "kind": "poly",
+            "name": "split door and step",
+            "note": "Starboard only: the top half swings up under the wing and the bottom half drops.",
+            "faces": [
+              {
+                "role": "strut",
+                "sh": 0.42,
+                "p": [
+                  [0.24, 0.0805, 0.1215],
+                  [0.24, 0.0805, -0.0445],
+                  [0.24, 0.0805, -0.051500000000000004],
+                  [0.24, 0.0805, 0.11449999999999999]
+                ]
+              },
+              {
+                "role": "strut",
+                "sh": 0.42,
+                "p": [
+                  [-0.02, 0.0805, 0.1155],
+                  [-0.02, 0.0805, -0.0465],
+                  [-0.02, 0.0805, -0.053500000000000006],
+                  [-0.02, 0.0805, 0.1085]
+                ]
+              },
+              {
+                "role": "strut",
+                "sh": 0.42,
+                "p": [
+                  [0.24, 0.0805, 0.0395],
+                  [-0.02, 0.0805, 0.037500000000000006],
+                  [-0.02, 0.0805, 0.030500000000000003],
+                  [0.24, 0.0805, 0.032499999999999994]
+                ]
+              },
+              { "role": "strut", "sh": 0.42, "p": [[0.24, 0.0805, -0.046], [-0.02, 0.0805, -0.048], [-0.02, 0.0805, -0.056], [0.24, 0.0805, -0.054]] },
+              { "role": "gear", "sh": 0.58, "p": [[0.16, 0.07, -0.086], [0.16, 0.128, -0.092], [0.09, 0.128, -0.092], [0.09, 0.07, -0.086]] }
+            ]
+          },
+          { "kind": "tube", "name": "pitot", "pts": [[0.12, -0.34, 0.028], [0.19, -0.34, 0.022]], "r": 0.005, "sides": 4, "role": "gear", "sh": 0.55 },
+          { "kind": "tube", "name": "wire aerial", "pts": [[-0.16, 0, 0.132], [-0.86, 0, 0.33]], "r": 0.003, "sides": 3, "role": "strut", "sh": 0.66 }
+        ],
+        "minDetail": 1
+      }
+    ]
+  }
+}

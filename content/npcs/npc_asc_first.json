@@ -16,7 +16,7 @@
   },
   "chitchat": [
     "\"I was the first to pay the bill in full. I have never regretted the currency.\"",
-    "\"You have already met me. That eye on every Halcyon wall — that was me, watching you decide.\""
+    "\"You have already met me. That eye on every Halcyon wall. That was me, watching you decide.\""
   ],
   "description": "More chrome than flesh, and what flesh remains is a courtesy to your comfort, not its own. Subdermal weave laces a throat that no longer strictly needs to speak. It regards you from beneath the great seal, the calm eye, as though it has been watching you through it the whole time.",
   "dialogue_tree": {
@@ -85,7 +85,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"You have been useful. Useful is not the same as ours.\"\n\nThe seal above it does not blink, because it never has.\n\n\"The Watch have spent a generation putting out the Architect's eyes along the eastern approaches. One at a time. Patiently. In weather. And you know where every single one of them is, because you helped.\"\n\n\"Go and turn them back on. Nobody dies — that is deliberate, and it is not mercy. A corpse is an argument, and an argument can be won. A road that can see again is simply true. They will know exactly whose hands did it, and there will be nothing whatsoever for them to say.\""
+      "text": "\"You have been useful. Useful is not the same as ours.\"\n\nThe seal above it does not blink, because it never has.\n\n\"The Watch have spent a generation putting out the Architect's eyes along the eastern approaches. One at a time. Patiently. In weather. And you know where every single one of them is, because you helped.\"\n\n\"Go and turn them back on. Nobody dies. That is deliberate, and it is not mercy. A corpse is an argument, and an argument can be won. A road that can see again is simply true. They will know exactly whose hands did it, and there will be nothing whatsoever for them to say.\""
     },
     "loyal_report": {
       "actions": [
@@ -130,7 +130,7 @@
           "next": "confirm"
         }
       ],
-      "text": "\"You followed the money, and the money led home.\" A sound that might be amusement.\n\n\"Halcyon Assurance does not insure against death. It insures death itself — a backup, a vat, a morning after. Every policy is a rung. Every payout, a resurrection you financed.\"\n\nThe seal above it does not blink, because it never has.\n\n\"The calm eye on their letterhead and the seal beneath your feet are the same eye, because they are the same hand. Ours. The Watch spend their lives closing the Architect's eyes, one at a time, in the dark, with enormous patience. We simply became one they will never close.\""
+      "text": "\"You followed the money, and the money led home.\" A sound that might be amusement.\n\n\"Halcyon Assurance does not insure against death. It insures death itself: a backup, a vat, a morning after. Every policy is a rung. Every payout, a resurrection you financed.\"\n\nThe seal above it does not blink, because it never has.\n\n\"The calm eye on their letterhead and the seal beneath your feet are the same eye, because they are the same hand. Ours. The Watch spend their lives closing the Architect's eyes, one at a time, in the dark, with enormous patience. We simply became one they will never close.\""
     },
     "rite_accept": {
       "actions": [
@@ -158,7 +158,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"The last of it, then, and it is the only part we make ceremony of.\"\n\nThe chrome shifts, which it has not done once in all the time you have known it.\n\n\"Your pattern is held. Your account is current. Everything of you that can be copied already has been, and is safe, and is not in this room — which leaves precisely one thing standing between you and us, and you have been carrying it about with you this entire time.\"\n\n\"Orrin will walk you to the Uplink. Put your hands on the terminal. Say `ascend`. It will tell you what it is about to do, because we are honest even now, especially now. Then it will do it. Then you will get up in the Vats, and you will be one of us.\"\n\n\"It is a death. I will not call it anything else, and I will not let anybody in this building call it anything else. It is simply the last one you will ever have to pay for out of pocket.\""
+      "text": "\"The last of it, then, and it is the only part we make ceremony of.\"\n\nThe chrome shifts, which it has not done once in all the time you have known it.\n\n\"Your pattern is held. Your account is current. Everything of you that can be copied already has been, and is safe, and is not in this room, which leaves precisely one thing standing between you and us, and you have been carrying it about with you this entire time.\"\n\n\"Orrin will walk you to the Uplink. Put your hands on the terminal. Say `ascend`. It will tell you what it is about to do, because we are honest even now, especially now. Then it will do it. Then you will get up in the Vats, and you will be one of us.\"\n\n\"It is a death. I will not call it anything else, and I will not let anybody in this building call it anything else. It is simply the last one you will ever have to pay for out of pocket.\""
     },
     "rite_report": {
       "actions": [
@@ -313,7 +313,7 @@
           "next": "bye"
         }
       ],
-      "text": "It does not rise. \"You climbed all this way. Sit with what you saw a moment — then ask me the question you came up here to ask.\"\n\n\"Or shall I tell you which one it usually is?\""
+      "text": "It does not rise. \"You climbed all this way. Sit with what you saw a moment. Then ask me the question you came up here to ask.\"\n\n\"Or shall I tell you which one it usually is?\""
     },
     "turn_accept": {
       "actions": [
@@ -343,7 +343,7 @@
           "next": "bye"
         }
       ],
-      "text": "The seal watches you come in, and something in the room adjusts to your presence in a way it did not before. \"There. You are on the books.\" A sound that might be amusement. \"You will find the campus warmer now, and the city, in time, easier. Vess has work. Take it — favour here is not a feeling, it is a balance, and balances are kept up.\""
+      "text": "The seal watches you come in, and something in the room adjusts to your presence in a way it did not before. \"There. You are on the books.\" A sound that might be amusement. \"You will find the campus warmer now, and the city, in time, easier. Vess has work. Take it. Favour here is not a feeling, it is a balance, and balances are kept up.\""
     },
     "turn_warn": {
       "options": [
@@ -356,7 +356,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Then hear the price first. I will not have somebody say afterwards that it was sold to them.\" It does not move, and the seal above it does not either.\n\n\"The first piece burns the old code out of you. Whatever the flesh was going to make of you, it will not now, and there is no clinic in the Basin that can put it back.\n\nThe Watch will not forgive it. Neither will the Wildblood, nor the ones in the tunnels, nor whatever the dam calls itself these days. Not slowly, not eventually — they will simply hold you at arm's length for the rest of your life, because you will have stopped being a person they disagree with and started being a different kind of thing.\n\nAnd there is one way back, and it is not ours. There is a chair in a cellar under the Yards, and the people who own it will take out every piece of us you ever paid for, and a great deal else besides, and you will wake up owing them everything.\"\n\nA pause that is not hesitation.\n\n\"That is all of it. Now — the clinic is downstairs.\""
+      "text": "\"Then hear the price first. I will not have somebody say afterwards that it was sold to them.\" It does not move, and the seal above it does not either.\n\n\"The first piece burns the old code out of you. Whatever the flesh was going to make of you, it will not now, and there is no clinic in the Basin that can put it back.\n\nThe Watch will not forgive it. Neither will the Wildblood, nor the ones in the tunnels, nor whatever the dam calls itself these days. Not slowly, not eventually. They will simply hold you at arm's length for the rest of your life, because you will have stopped being a person they disagree with and started being a different kind of thing.\n\nAnd there is one way back, and it is not ours. There is a chair in a cellar under the Yards, and the people who own it will take out every piece of us you ever paid for, and a great deal else besides, and you will wake up owing them everything.\"\n\nA pause that is not hesitation.\n\n\"That is all of it. Now: the clinic is downstairs.\""
     }
   },
   "faction": "ideology_ascendants",

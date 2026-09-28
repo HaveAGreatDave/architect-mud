@@ -39,6 +39,8 @@
 //     instance after a server restart. crossing_room is flushed on player.logout, not
 //     per step. A same-session reconnect needs nothing (rooms still in RAM).
 
+import { wildlandsAt } from '../../client/shared/wildlands.js';
+import { WILDLANDS_FIELD } from '../../client/shared/wildlands-field.js';
 import { getLivePlayer, getAllLivePlayers, getAllZones, getZone, getZoneEnemies, getMinimapData, addPlayerToZone, removePlayerFromZone,
   registerTransientZone, removeTransientZone, spawnEnemySync, removeEnemyInstance, propsOf } from '../../server/engine/world.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
@@ -82,204 +84,13 @@ const VOID_MAP = 'map_void'; // non-map_world → flag/map-filtered world iterat
 // and a graph edge should know its own endpoint: the return-leg check ("is anything reachable also
 // leavable?") is about the shape of the table, and reading it out of live world state made it
 // depend on which zones happened to be loaded.
-export const VOIDS = {
-  region_coldwater: {
-    origin: 'Coldwater',
-    sign: 'Coldwater Basin',
-    // trunk: was 4 ROOMS, when a room was a twelfth of a leg. A room is a TILE now, so the
-    // number no longer means anything and the shared stretch is derived (see trunkTilesFor).
-    dests: [
-      // The `length: 8` that used to be here is now DERIVED and comes out at 8 unchanged: the gates
-      // are 93 tiles apart and a room is 12, so the fork still sits exactly halfway at a trunk of 4.
-      // (The old comment said 40 tiles and clamping to MIN_ROOMS, which was true of the wrong
-      // measurement — origin tile to destination tile, divided by the unanchored 90. See totalLength.)
-      { key: 'reach',  dest: 'zone_the_reach_870_1958', region: 'region_the_reach', heading: 'The Reach', dir: 'south' },
-      // TERMINUS. `zone_exodus_waypoint` never existed — this limb deposited walkers at a zone id
-      // with no zone behind it. The destination is now the roadhead outside the Exodus wall.
-      //
-      // `heading` stays 'Exodus' because that is what the fork means: the direction the Exodus
-      // went, not a town of that name. The codex is explicit that they will not say where they are
-      // going, and Terminus is where they went when they left the Basin, not where they are going.
-      //
-      // The `length: 12` here is derived now, and comes out at the real distance: the gates are 282
-      // tiles apart, which is 23 rooms before the clamp. That is a real answer rather than a
-      // failure — the ROAD is 282 tiles whatever this says — and what the clamp changes is that the
-      // longest crossing gets longer rooms rather than a silly number of them.
-      //
-      // ⚠ THE RANGE GATE THIS COMMENT USED TO CLAIM DOES NOT EXIST, AND NEVER DID. It said fifteen
-      // rooms put Terminus "beyond the range of the two cheapest trucks and beyond ANY truck's
-      // round trip, so the fleet ladder doubles as a map gate". That was read off the `route`
-      // picker, which computed a distance as room count × 90 — the UNANCHORED per-room constant —
-      // and so reported this crossing at 1,350 tiles. The road is 282. Fuel burns `moved / tank`
-      // over the real road (plugins/trucking/state.js) and the cheapest tank is 850 tiles, so a
-      // Scrapper has always been able to reach Terminus and come back on two thirds of a tank.
-      //
-      // The picker tells the truth now, which means it prints 'ok' where it used to warn. Nothing
-      // about the sim changed; a surface stopped misreporting it. IF THE MAP GATE IS WANTED, it has
-      // to go in the tanks or the burn rate — somewhere that actually bites — and not back into a
-      // number this file multiplies by the wrong constant. See docs/proposals/terminus.md, whose
-      // design intent for the gate is still unbuilt rather than merely undone.
-      { key: 'exodus', dest: 'zone_terminus_1200_940', region: 'region_terminus', heading: 'Exodus', sign: 'Terminus', dir: 'east' },
-      // DEADWATER, southwest, landing at the Roadhead six tiles in off its east rim.
-      //
-      // `dir: 'west'` is not a preference, it is the last cardinal left: `reach` holds south and
-      // `exodus` holds east, and north is the basin (a water tile has no rim in any direction, so
-      // there was never a fourth). THE FORK IS NOW FULL AT THREE LIMBS. A fifth destination off
-      // Coldwater needs a design change — a second gate, or a fork that is not a room with four
-      // walls — and not another row in this array.
-      //
-      // Derived as well now — 108 tiles between the gates is 9 rooms, one more than the 8 that was
-      // written here, and the road is the same 108 tiles it always was.
-      { key: 'deadwater', dest: 'zone_dw_812_955', region: 'region_deadwater', heading: 'Deadwater', dir: 'west' },
-    ],
-  },
-
-  // ── The way home ───────────────────────────────────────────────────────────
-  // Until these existed the void was ONE-WAY. Only Coldwater had an entry, so a walker who
-  // reached the Reach — or a trucker who drove to Terminus — could not leave by the road they had
-  // just come down: the rim they were standing on was an ordinary wall in that direction. Terminus
-  // made it plain, because the Gantry is `vtol_only, charter: false`, so the only way out of the
-  // place was a Dragonfly you had to already own. Somebody who spent 31,000 credits on a rig
-  // could be stranded by it.
-  //
-  // These are NOT new roads. Each is the same crossing read backwards — and it is the same LENGTH
-  // by construction now rather than by careful copying: the room count is derived from the gate
-  // pair (see totalLength), and `gatePair` picks the same two mouths whichever end you ask from.
-  // So the corridor is the same distance in both directions and the tank maths holds, without two
-  // numbers in this table having to be edited together. The arrival tile is the rim tile that
-  // faces the way you went. A trunk of one keeps a single-destination
-  // void honest: there is nothing to fork toward, so the "shared trunk" is a formality and the
-  // limb is the crossing. (Detours need `trunkLen >= 3` and therefore do not appear on a return
-  // leg — correct: the gamble is a thing you take on the way OUT, with a full tank and a choice
-  // still ahead of you.)
-  region_the_reach: {
-    origin: 'The Reach',
-    // Raised 1 → 2 when Deadwater gave the Reach a second way out. This is the one place in this
-    // table where a SHIPPED crossing changed shape: the Coldwater limb keeps its `length: 8`, so
-    // the corridor is the same distance it always was and the tank maths in flight-model.js still
-    // holds — only the trunk/limb split moved. A trunk of 2 stays detour-free (`trunkLen >= 3`),
-    // which is right: the gamble belongs on the way out, not on a leg home.
-    // trunk: was 2 ROOMS, when a room was a twelfth of a leg. A room is a TILE now, so the
-    // number no longer means anything and the shared stretch is derived (see trunkTilesFor).
-    dests: [
-      // North out of the Reach, back onto the dirt road at the foot of the Coldwater map — the one
-      // tile on that whole rim that is `dirt_road` rather than redrock, because it is the road.
-      { key: 'coldwater', dest: 'zone_district_918_947', region: 'region_coldwater', heading: 'Coldwater', sign: 'Coldwater Basin', dir: 'north' },
-      // West across the flats to Deadwater's Eastern Ruts. `west` is both true and free (north is
-      // Coldwater's), so the Reach is the one region whose two crossings do not compete.
-      { key: 'deadwater', dest: 'zone_dw_818_988', region: 'region_deadwater', heading: 'Deadwater', dir: 'west' },
-      // ── EAST TO THE SCARLETWASTES ────────────────────────────────────────────
-      // The edge that closes the loop. Until this the graph was a CHAIN with the Reach at one end
-      // and the Scarletwastes at the other, so the two ends of the world were four crossings apart
-      // through Coldwater — the long way round a map on which they are the two most southerly
-      // places. `east` is true and free (north is Coldwater's, west is Deadwater's), which is the
-      // last cardinal the Reach had.
-      //
-      // ⚠ IT NEEDED A SECOND MOUTH AT BOTH ENDS, AND THAT IS THE POINT OF PLURAL GATES. The Reach's
-      // only road ran west out of Main Street to the Coldwater rim; the Scarletwastes' only one ran
-      // east to Talus. Neither faced the other, and `gatePair` would have paired the two mouths it
-      // had — laying a highway back across both regions' own placed ground. Main Street is now
-      // paved out to the Reach's east rim (922,1039) and the Deadleg's spur down and west to the
-      // Scarletwastes' west rim (1000,968), so each region reaches this neighbour through the exit
-      // that actually points at it, and keeps using its old mouth for its old neighbours. Nothing
-      // in the code chooses that; `gatePair` reads it off the map.
-      { key: 'scarletwastes', dest: 'zone_scw_1000_968', region: 'region_scarletwastes', heading: 'The Scarletwastes', sign: 'Thornwarren', dir: 'east' },
-    ],
-  },
-  region_deadwater: {
-    origin: 'Deadwater',
-    // trunk: was 2 ROOMS, when a room was a twelfth of a leg. A room is a TILE now, so the
-    // number no longer means anything and the shared stretch is derived (see trunkTilesFor).
-    dests: [
-      // NORTH out of Deadwater for Coldwater, and this is the one dest in the table that is NOT the
-      // mirror of its outbound leg (`dir: 'west'` from Coldwater). It is not an oversight: Coldwater
-      // lies entirely north of Deadwater AND entirely east of it, so both readings are true, and
-      // `east` is already spoken for by the Reach below. Landing on Coldwater's south rim at x870
-      // keeps it clear of the Reach's own arrival at x918 on the same row.
-      { key: 'coldwater', dest: 'zone_district_870_947', region: 'region_coldwater', heading: 'Coldwater', sign: 'Coldwater Basin', dir: 'north' },
-      // East to the Reach's west rim, level with the middle of its original block.
-      { key: 'reach', dest: 'zone_the_reach_863_1956', region: 'region_the_reach', heading: 'The Reach', dir: 'east' },
-    ],
-  },
-  region_terminus: {
-    origin: 'Terminus',
-    // trunk: was 1 ROOMS, when a room was a twelfth of a leg. A room is a TILE now, so the
-    // number no longer means anything and the shared stretch is derived (see trunkTilesFor).
-    // West out of Terminus, onto Coldwater's east rim at the same latitude as the Roadhead — you
-    // come back in level with where you left.
-    dests: [
-      { key: 'coldwater', dest: 'zone_district_955_940', region: 'region_coldwater', heading: 'Coldwater', sign: 'Coldwater Basin', dir: 'west' },
-      // ── SOUTH TO THE SCARLETWASTES ──────────────────────────────────────────
-      // `dir: 'south'` because west is Coldwater's and south is the free cardinal, and because it
-      // is half true: the Scarletwastes sit west-southwest.
-      //
-      // ⚠ IT LEAVES BY THE ROADHEAD, NOT BY THE SOUTH RIM. This used to read "the WEST rim (x1200)
-      // is cliff for its whole length … so the gate is the westernmost passable tile of the south
-      // rim, (1219,960), painted `dirt_road` to match every other gate in this table", and all
-      // three claims were wrong. The west rim is cliff only from y943 SOUTH — (1200,940) is graded
-      // dirt road through it, because Coldwater's own road comes in there. (1219,960) is not the
-      // westernmost passable south-rim tile either (the ramp at x1201 is, and gravel at x1212).
-      // And a lone tile of `dirt_road` on a hardpan flat is not a road: it is 20 tiles of open
-      // ground from The Gate, with nothing to drive on.
-      //
-      // What made it visible is that NOTHING READ IT. `gatePair` takes the nearest pair of mouths
-      // off the map, so the Scarletwastes road has always joined Terminus at (1200,940) — 109 tiles
-      // against the south gate's 127 — while this table sent the WALKER to (1219,960) and
-      // `crossingPlan` measured that limb's mile boards to it. Two arrivals, one region, and the
-      // paint was the only thing holding the second one up. The tile is hardpan again (which is what
-      // its own description, its name and every neighbour already said) and Terminus publishes the
-      // one gate it has: the roadhead. See docs/systems-overland-void-travel.md.
-      { key: 'scarletwastes', dest: 'zone_scw_1092_957', region: 'region_scarletwastes', heading: 'The Scarletwastes', sign: 'Thornwarren', dir: 'south' },
-    ],
-  },
-
-  // ── THE SCARLETWASTES ──────────────────────────────────────────────────────
-  // The fourth region on the road, and the last one reachable without a design change: Coldwater's
-  // junction has been full at three limbs since Deadwater (a room has four walls and the fourth is
-  // the way you came in), so a hub was never going to hold everything. The network is a CHAIN
-  // instead — Coldwater–Terminus–Scarletwastes on this side, Coldwater–Reach–Deadwater on the other
-  // — which is also why this hangs off Terminus rather than off the Basin. It is not a compromise;
-  // it is the only shape that keeps growing.
-  //
-  // Geometry picked the neighbour, not taste. The Scarletwastes run x1000–1092 / y950–1001 and
-  // Terminus x1200–1239 / y921–960: they overlap in latitude and sit about 108 tiles apart, the
-  // same gap Coldwater and Deadwater are, while Deadwater (x812) and the Reach (y1958) are absurd
-  // from here.
-  //
-  // The road on the far side is authored, not generated: it enters at Talus on the east rim, runs
-  // west along y957, and turns south to ring the Thorn Wall. ⚠ It stops at x1053 and the Deadleg
-  // depot is at x1024, so the last stretch to the yard is open redrock — drivable (nothing out
-  // there is impassable) but off the tarmac, which is a tyre bill rather than a wall. That is a
-  // painting job in the Studio, not a change here.
-  region_scarletwastes: {
-    origin: 'The Scarletwastes',
-    sign: 'Thornwarren',
-    // Raised 1 → 2 when the Reach gave the Scarletwastes a second way out. A trunk of 1 was the
-    // formality a single-destination void gets — there is nothing to fork toward, so the "shared
-    // trunk" is a name and the limb is the crossing. There is a real fork now. It stays below 3,
-    // so detours still do not appear here: the gamble belongs on the way OUT of somewhere with a
-    // full tank, not on a frontier hop between two places at the bottom of the map.
-    // trunk: was 2 ROOMS, when a room was a twelfth of a leg. A room is a TILE now, so the
-    // number no longer means anything and the shared stretch is derived (see trunkTilesFor).
-    dests: [
-      // Terminus has ONE way in and both crossings use it — the roadhead at (1200,940), the same
-      // tile the Basin's own walkers arrive on and the same tile `gatePair` ends the road at. This
-      // pointed at (1219,960) until 2026-08-21; see the ⚠ on Terminus' own scarletwastes limb above
-      // for why that was a gate that only this line believed in.
-      { key: 'exodus', dest: 'zone_terminus_1200_940', region: 'region_terminus', heading: 'Terminus', sign: 'Terminus', dir: 'east' },
-      // ── WEST TO THE REACH ────────────────────────────────────────────────────
-      // The other half of the loop-closing edge (see the Reach's own entry for why it exists and
-      // what it cost in tarmac). `west` is true and free — east is Terminus's.
-      //
-      // ⚠ THE ROAD TO IT GOES ROUND THE PLATEAU, NOT OVER IT. The spur west along y957 stops at the
-      // Deadleg's apron (x1024) and the ground beyond is the cliff-ringed mesa at x1011–1017 —
-      // `cliff` being the one terrain `engine:impassable-terrain` refuses. Same trap as Terminus'
-      // west rim, and answered the same way: the road drops south down the Deadleg's own column to
-      // y=968 and runs west under the mesa to the rim at (1000,968), which is the gate.
-      { key: 'reach', dest: 'zone_the_reach_882_1959', region: 'region_the_reach', heading: 'The Reach', dir: 'west' },
-    ],
-  },
-};
+// ⚠ THE CROSSINGS ARE CONTENT NOW: content/map/voids.json, baked into client/shared/wildlands-field.js
+// by `npm run wildlands:bake`. They lived here as a literal, which put Architect's map inside an
+// engine plugin and made every new road an engine edit. The shape is unchanged — region →
+// { origin, sign, dests: [{ key, dest, region, heading, sign, dir }] } — and so are the keys,
+// because a key is the seed of its road. The notes that sat beside the old literal (why Coldwater's
+// Terminus fork said 'Exodus', how the lengths became derived) are in git history.
+export const VOIDS = WILDLANDS_FIELD.voids;
 
 const crossings = new Map();
 let _seq = 0;
@@ -300,8 +111,26 @@ export function currentWindow() { return WINDOW_FORCE ?? Math.floor(Date.now() /
 export function voidGateOf(zone) {
   const key = zone?.flags?.region_id;
   if (!key || !VOIDS[key]) return null;
-  return { key, void: VOIDS[key] };
+  return { key, void: vdefAt(key, zone?.grid_x, zone?.grid_y) };
 }
+
+// ── A REGION WITH MORE THAN ONE ENTRANCE ──────────────────────────────────────
+// A region can have a road mouth on more than one side (the Scarletwastes has one west and one
+// east), and each highway leaves from the mouth nearest the other end (gatePair in trucking). A
+// walker who steps off the west edge must only be offered the roads that leave from the west, or
+// they choose Terminus, walk out of the wrong side of town and cross the whole region again in the
+// void. Which mouth a road uses is trucking's knowledge, and trucking imports this file, so it is
+// REGISTERED rather than imported — the registerCrossingDistance shape. With nothing registered
+// (or a region with one mouth) every destination is offered, which is what always happened.
+let _gateFilter = null;
+export function registerGateFilter(fn) { if (typeof fn === 'function') _gateFilter = fn; }
+function vdefAt(voidKey, x, y) {
+  const v = VOIDS[voidKey];
+  if (!v || !_gateFilter || x == null || y == null) return v;
+  const dests = _gateFilter(voidKey, x, y, v.dests);
+  return dests && dests.length && dests.length !== v.dests.length ? { ...v, dests } : v;
+}
+const vdefFrom = (voidKey, zone) => vdefAt(voidKey, zone?.grid_x, zone?.grid_y);
 // ── The rim: where the world actually stops ───────────────────────────────────
 // The void is entered by walking out of the world, so "off the map" has to mean the
 // real thing: no TILE at the neighbouring coordinate. A missing `exits` entry is NOT
@@ -360,7 +189,7 @@ async function describeRim(zone) {
   const where = dirs.length === 1
     ? `to the ${dirs[0]}`
     : `to the ${dirs.slice(0, -1).join(', ')} and ${dirs[dirs.length - 1]}`;
-  return `<span class="ambient">The ground runs out ${where}. There's no horizon that way to read and no distance to judge — only the waste, going on being nothing in particular for as long as you can stand to look at it. People do walk out into it from here. The ones who come back mostly come back somewhere else.</span>`;
+  return `<span class="ambient">The ground runs out ${where}. There's no horizon that way to read and no distance to judge, only the waste, going on being nothing in particular for as long as you can stand to look at it. People do walk out into it from here. The ones who come back mostly come back somewhere else.</span>`;
 }
 
 // ── A CAMP SAYS WHAT THE SHORT WAY COSTS ─────────────────────────────────────
@@ -550,6 +379,13 @@ function pick(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
 // ⚠ AND THE HIGHLIGHT GETS ITS OWN STREAM. Seeding the feature roll off `|feat` rather than reading
 // further down the ground's generator keeps the two independent: retuning FEATURE_CHANCE, or adding a
 // kind, must not silently rename and re-surface every room in the world.
+// The wildlands terrain at a room's position, folded onto ground the prose has lines for. Sea is
+// not somewhere a void room can be (the road never goes there), so it reads as the beach.
+function walkTerrain(pt) {
+  const t = wildlandsAt(Math.round(pt.x), Math.round(pt.y)).terrain;
+  return WALK_TERRAIN[t] || t;
+}
+const WALK_TERRAIN = { cliff: 'plateau', water: 'sand', deadwood: 'ash', sinter: 'alkali' };
 function mkRoom(id, voidKey, window, salt, exits, extraFlags = {}, pt = null, wayside = false) {
   const rng = mulberry32(hashSeed(`${voidKey}|${window}|${salt}`));
   const terrain = pick(rng, VOID_TERRAINS);
@@ -685,15 +521,15 @@ function isHardNode(voidKey, window, salt) {
   return mulberry32(hashSeed(`${voidKey}|${window}|${salt}|hard`))() < HARD_NODE_CHANCE;
 }
 const ENCOUNTER_LINES = [
-  'Something detaches from the haze and comes at you —',
-  'A shape you took for a rock uncoils and charges —',
-  'Grit scatters as it breaks cover —',
-  "You aren't alone out here. It was waiting —",
+  'Something detaches from the haze and comes at you...',
+  'A shape you took for a rock uncoils and charges...',
+  'Grit scatters as it breaks cover...',
+  "You aren't alone out here. It was waiting...",
 ];
 const HARD_ENCOUNTER_LINES = [
-  'The ground itself seems to give something up —',
-  "This is the kind of place people don't walk out of —",
-  'Whatever owns this stretch of waste steps into the open —',
+  'The ground itself seems to give something up...',
+  "This is the kind of place people don't walk out of...",
+  'Whatever owns this stretch of waste steps into the open...',
 ];
 const MAX_VOID_FOES = 4; // a pack this size is plenty — keeps a big party from a slog
 // Scale the pack to the party crossing together: solo/duo → 1, then +1 per pair,
@@ -733,10 +569,10 @@ function showTraces(actor, c, roomId) {
   const trunk = c.plan.trunkLen;   // derived in tiles; see trunkTilesFor
   const lines = [];
   if (bigScoreOpen(c.voidKey, c.window, salt, trunk))
-    lines.push("The hulk of a downed gunship dominates this stretch — real salvage in it, if it's still here. <b>(loot)</b>");
+    lines.push("The hulk of a downed gunship dominates this stretch: real salvage in it, if it's still here. <b>(loot)</b>");
   for (const t of getTraces(c.voidKey, c.window, salt)) {
     if (t.kind === 'scrawl') lines.push(`Scratched into the ground, four letters: <b>${t.note}</b>`);
-    else if (t.kind === 'corpse') lines.push(`A body half-buried in the dust${t.handle ? ` — what's left of <b>${t.handle}</b>` : ''}${t.note ? `, ${t.note.toLowerCase()}` : ''}.${!t.claimed && packItems(t.pack).length ? ' <b>(loot to strip it)</b>' : ''}`);
+    else if (t.kind === 'corpse') lines.push(`A body half-buried in the dust${t.handle ? `: what's left of <b>${t.handle}</b>` : ''}${t.note ? `, ${t.note.toLowerCase()}` : ''}.${!t.claimed && packItems(t.pack).length ? ' <b>(loot to strip it)</b>' : ''}`);
   }
   if (lines.length) sendToPlayer(actor.id, { type: 'output', message: lines.join('\n') });
 }
@@ -820,6 +656,8 @@ export function registerTrailCuts(fn) { if (typeof fn === "function") _trailCuts
 // TRUNK_FRACTION for why the authored room count could not simply be reused.
 function trunkTilesFor(voidKey, vdef, originZone, window = currentWindow()) {
   if (vdef.trunk) return Math.max(1, vdef.trunk);        // an authored override, in tiles
+  // A hub (content/map/voids.json) is where the highway forks, so a walker forks there too.
+  if (vdef.hub?.distance > 0) return Math.max(1, Math.round(vdef.hub.distance));
   let shortest = Infinity;
   for (const d of vdef.dests) {
     const n = totalLength(d, originZone, getZone(d.dest), voidKey, window);
@@ -830,7 +668,7 @@ function trunkTilesFor(voidKey, vdef, originZone, window = currentWindow()) {
 }
 
 function planFor(instanceId, voidKey, window, origin, originZone) {
-  const vdef = VOIDS[voidKey];
+  const vdef = vdefFrom(voidKey, originZone);
   const rooms = new Map();          // id → { salt, kind, exits, hard, spine? }
   const detourIds = new Set();
   const cutIds = new Set();      // the FIRST room of each cut, for `the way on` prose
@@ -1167,7 +1005,7 @@ function ensureInstance(instanceId, voidKey, window, origin) {
   const plan = planFor(instanceId, voidKey, window, origin, getZone(origin));
   c = {
     id: instanceId, voidKey, plan,
-    roomSet: new Set(), detourSet: new Set(), destSet: plan.destSet, dests: VOIDS[voidKey].dests,
+    roomSet: new Set(), detourSet: new Set(), destSet: plan.destSet, dests: vdefFrom(voidKey, getZone(origin)).dests,
     entry: plan.entry, origin, window, members: new Set(), enemies: new Set(),
   };
   crossings.set(instanceId, c);
@@ -1235,7 +1073,7 @@ const VOID_ENTRY_BANNER = [
 ].join('\n');
 
 export async function launchCrossing(leader, gate, broadcast, heading) {
-  if (leader._crossing) return { type: 'emote', message: "You're already out in the waste. The only way through it's through it." };
+  if (leader._crossing) return { type: 'emote', message: "You're already out in the waste. The only way through it is through it." };
   const origin = leader.current_zone;
   const window = currentWindow();
   await discoverRoutes(leader, gate.key); // striking out charts this gate's routes
@@ -1262,7 +1100,7 @@ export async function launchCrossing(leader, gate, broadcast, heading) {
   const desc = await describeZone(entry, leader);
   return {
     type: 'move',
-    message: `${VOID_ENTRY_BANNER}\nYou strike out into the waste. The edge of the map falls away behind you and the road is gone — only the going. Somewhere ahead it splits toward ${dests}.${aimLine}${marchLine}\n\n${desc}`,
+    message: `${VOID_ENTRY_BANNER}\nYou strike out into the waste. The edge of the map falls away behind you and the road is gone, only the going. Somewhere ahead it splits toward ${dests}.${aimLine}${marchLine}\n\n${desc}`,
     zone: entry.id,
     minimap: getMinimapData(entry.id, 8, leader),
   };
@@ -1277,7 +1115,7 @@ const playerStaging = new Map(); // pid -> stagingId
 
 function stagingLore(vdef) {
   const dests = (vdef?.dests || []).map(d => d.heading).join(' or ') || 'the unknown';
-  return `Past the wall the map ends and the waste begins — no roads out here, no rescue, no second chance the Architect will pay for. Between you and ${dests} lies trackless killing ground: it shifts with the wind, it buries its own dead, and it doesn't forgive the unprepared. Check your water. Check your people. When everyone's set, walk off the edge of the known world — and don't look back for whoever falls.`;
+  return `Past the wall the map ends and the waste begins: no roads out here, no rescue, no second chance the Architect will pay for. Between you and ${dests} lies trackless killing ground: it shifts with the wind, it buries its own dead, and it doesn't forgive the unprepared. Check your water. Check your people. When everyone's set, walk off the edge of the known world, and don't look back for whoever falls.`;
 }
 async function stagingInventory(pid) {
   const { rows } = await query(
@@ -1289,7 +1127,7 @@ async function stagingInventory(pid) {
   return rows.map(r => ({ name: r.name, qty: r.qty }));
 }
 async function buildStagingPanel(player, staging) {
-  const vdef = VOIDS[staging.gate];
+  const vdef = staging.void || VOIDS[staging.gate];
   return {
     type: 'voidwalk_staging',
     region: vdef?.origin || 'the frontier',
@@ -1326,7 +1164,7 @@ async function openStaging(leader, gate, heading, broadcast) {
   const followers = getAllLivePlayers().filter(p =>
     p.id !== leader.id && p.following === leader.id && p.current_zone === leader.current_zone && !p._crossing && !playerStaging.has(p.id));
   const members = [leader.id, ...followers.map(p => p.id)];
-  const staging = { id: `stg_${leader.id}_${++_seq}`, leaderId: leader.id, gate: gate.key, heading, members, ready: new Set(), chat: [] };
+  const staging = { id: `stg_${leader.id}_${++_seq}`, leaderId: leader.id, gate: gate.key, void: gate.void, heading, members, ready: new Set(), chat: [] };
   stagings.set(staging.id, staging);
   for (const id of members) playerStaging.set(id, staging.id);
   for (const f of followers) sendToPlayer(f.id, await buildStagingPanel(f, staging));
@@ -1347,7 +1185,7 @@ async function launchFromStaging(staging, broadcast) {
   const leader = getLivePlayer(staging.leaderId);
   closeStaging(staging); // close the overlay for everyone; the move payloads render the void behind it
   if (!leader) return null;
-  const gate = { key: staging.gate, void: VOIDS[staging.gate] };
+  const gate = { key: staging.gate, void: staging.void || VOIDS[staging.gate] };
   const leaderPanel = await launchCrossing(leader, gate, broadcast, staging.heading);
   sendToPlayer(leader.id, leaderPanel); // followers were already sent their move payloads inside launchCrossing
   return null;
@@ -1372,8 +1210,8 @@ async function cmdVoidwalk(args, raw, player, broadcast) {
   if (sub === 'say') return stagingChat(player, args.slice(1).join(' '));
   const existing = stagings.get(playerStaging.get(player.id));
   if (existing) return buildStagingPanel(player, existing); // already mustering — re-open the window
-  if (player._crossing) return { type: 'emote', message: "You're already out in the waste. The only way through it's through it." };
-  return { type: 'emote', message: 'There\'s no word for it that works. Nobody steps into the waste by deciding to — they walk, and keep walking, out past the last street and the last fence and the last anything, until there\'s no next tile to step into. Then they take that step anyway. <span class="text-dim">(pick a direction and hold it until the world runs out)</span>' };
+  if (player._crossing) return { type: 'emote', message: "You're already out in the waste. The only way through it is through it." };
+  return { type: 'emote', message: 'There\'s no word for it that works. Nobody steps into the waste by deciding to: they walk, and keep walking, out past the last street and the last fence and the last anything, until there\'s no next tile to step into. Then they take that step anyway. <span class="text-dim">(pick a direction and hold it until the world runs out)</span>' };
 }
 
 async function onMovementEdge({ player, zone, direction, broadcast }) {
@@ -1429,24 +1267,24 @@ export async function frontierView(player) {
 // `frontier` — read the signpost at a gate: where can you strike out to from here.
 async function cmdFrontier(args, raw, player, broadcast) {
   const gate = voidGateOf(getZone(player.current_zone));
-  if (!gate) return { type: 'emote', message: "You see no way to strike out into the waste from here — this isn't a frontier region. (Your charted routes are on the Tablet Frontier map.)" };
+  if (!gate) return { type: 'emote', message: "You see no way to strike out into the waste from here: this isn't a frontier region. (Your charted routes are on the Tablet Frontier map.)" };
   await discoverRoutes(player, gate.key);
   const dests = gate.void.dests.map(d => `<b>${d.heading}</b>`).join(', ');
-  return { type: 'output', message: `You read the waste from the edge. Somewhere out there, past the wind, the trail splits toward: ${dests}. (voidwalk, or just walk off the edge — and pray the fork reads true.)` };
+  return { type: 'output', message: `You read the waste from the edge. Somewhere out there, past the wind, the trail splits toward: ${dests}. (voidwalk, or just walk off the edge, and pray the fork reads true.)` };
 }
 
 // ── `scrawl` — leave a four-letter mark for whoever comes next ─────────────────
 async function cmdScrawl(args, raw, player, broadcast) {
   const live = player._crossing;
   const c = live && crossings.get(live.instanceId);
-  if (!c) return { type: 'emote', message: "There's nothing out here worth marking. (Scrawls are for the waste — you leave them for whoever comes after.)" };
+  if (!c) return { type: 'emote', message: "There's nothing out here worth marking. (Scrawls are for the waste: you leave them for whoever comes after.)" };
   const text = args.join('').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
-  if (!text) return { type: 'error', message: 'Scrawl what? Four letters, max — a warning, a curse, a name. (scrawl RUN)' };
+  if (!text) return { type: 'error', message: 'Scrawl what? Four letters, max: a warning, a curse, a name. (scrawl RUN)' };
   const salt = getZone(player.current_zone)?.flags?.void_salt;
   if (!salt) return { type: 'emote', message: "The ground here won't hold a mark." };
   await addTrace(c.voidKey, c.window, salt, 'scrawl', player.handle, text);
   if (broadcast) broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} scratches something into the ground.` }, player.id);
-  return { type: 'emote', message: `You scratch <b>${text}</b> into the hardpan. Whoever crosses here this window will find it — until the wind takes it.` };
+  return { type: 'emote', message: `You scratch <b>${text}</b> into the hardpan. Whoever crosses here this window will find it, until the wind takes it.` };
 }
 
 // ── Reference-counted leave (arrived / bailed / died / tp'd) ──────────────────
@@ -1459,7 +1297,7 @@ function leaveCrossing(member, zone) {
   c.members.delete(member.id);
   const dest = c.dests.find(d => d.dest === zone); // arrived at a region?
   if (dest) {
-    sendToPlayer(member.id, { type: 'output', message: `<span class="item-grant">You stagger up out of the waste onto solid ground — <b>${dest.heading}</b>. You crossed it on foot.</span>` });
+    sendToPlayer(member.id, { type: 'output', message: `<span class="item-grant">You stagger up out of the waste onto solid ground: <b>${dest.heading}</b>. You crossed it on foot.</span>` });
     markSurvived(member, c.voidKey, dest.key).catch(() => {}); // the route joins your charted frontier
     // The one thing the city ever hears about a crossing. An EVENT rather than a call, for the same
     // reason `crossing.ended` is one: the void must not import a news desk, and nothing out here
@@ -1498,7 +1336,7 @@ registerMoveGate(({ player, from, direction }) => {
   if (!from?.flags?.void_crossing) return;
   if (direction !== 'south') return; // only the advancing exit is barred; retreat/detour stay open
   if (getZoneEnemies(from.id).length === 0) return;
-  return { block: true, message: "It plants itself between you and the way on — no getting past it until it's down." };
+  return { block: true, message: "It plants itself between you and the way on: no getting past it until it's down." };
 }, 'voidwalking');
 
 // ── Node tracking + teardown + encounters (every move) ────────────────────────
@@ -1664,7 +1502,7 @@ async function cmdLoot(args, raw, player, broadcast) {
     emit('void.bigscore', {
       handle: player.handle, voidKey: c.voidKey, origin: VOIDS[c.voidKey]?.origin || null, item: name,
     });
-    return { type: 'emote', message: `<span class="item-grant">You haul <b>${name}</b> out of the wreck — the prize this stretch of waste was hiding. It's gone now; word will spread.</span>` };
+    return { type: 'emote', message: `<span class="item-grant">You haul <b>${name}</b> out of the wreck: the prize this stretch of waste was hiding. It's gone now; word will spread.</span>` };
   }
 
   // 2. Strip the dead — a corpse-pack, first-come.
@@ -1673,7 +1511,7 @@ async function cmdLoot(args, raw, player, broadcast) {
     await claimTrace(corpse);
     const names = [];
     for (const itemId of packItems(corpse.pack)) names.push(await grantItem(player.id, itemId));
-    return { type: 'emote', message: `<span class="item-grant">You strip what the waste left of ${corpse.handle || 'the dead'} — ${names.join(', ')}.</span>` };
+    return { type: 'emote', message: `<span class="item-grant">You strip what the waste left of ${corpse.handle || 'the dead'}: ${names.join(', ')}.</span>` };
   }
 
   // 3. Ambient scavenging (once per room).
@@ -1696,7 +1534,7 @@ async function cmdLoot(args, raw, player, broadcast) {
     if (!forced && margin >= NEAR_MISS) {
       const [scrapId, scrapMax] = rollEntry(LOOT[1]);
       const scrap = await grantItem(player.id, scrapId, rollQty(scrapMax));
-      return { type: 'emote', message: `<span class="item-grant">Nothing in here worth the name — but you turn up ${scrap} on your way back out.</span>` };
+      return { type: 'emote', message: `<span class="item-grant">Nothing in here worth the name, but you turn up ${scrap} on your way back out.</span>` };
     }
     return { type: 'emote', message: `You dig through the ${isDetour ? 'wreckage' : 'dust'} and come up with nothing but grit and disappointment.` };
   }

@@ -6,9 +6,7 @@
       "twine",
       "training"
     ],
-    "interactions": {
-      "examine": "The ties are neat, recent and all in the same hand. Whoever is doing this is doing it carefully and is not being paid for it."
-    }
+    "examine_detail": "The ties are neat, recent and all in the same hand. Whoever is doing this is doing it carefully and is not being paid for it."
   },
   "id": "furn_hf_frond_wires",
   "name": "the training wires",

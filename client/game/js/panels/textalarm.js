@@ -60,7 +60,7 @@ function paint(st) {
   lines.push('');
   lines.push(`   <span class="dim">${esc(st.note || 'The live terminal is marked. Follow where it runs.')}</span>`);
   lines.push('');
-  lines.push(`   <span class="ok">latch &lt;tag&gt;</span> <span class="dim">— wrong one burns out.</span>`);
+  lines.push(`   <span class="ok">latch &lt;tag&gt;</span> <span class="dim">: wrong one burns out.</span>`);
   lines.push('');
   lines.push(`<span class="dim">${'─'.repeat(W)}</span>`);
   lines.push(_status);
@@ -81,7 +81,7 @@ const SKIN = {
     _status = info?.expired
       ? '<span class="hot">✗ OUT OF TIME.</span>'
       : won
-        ? '<span class="ok">◉ LOOP OPEN — the panel goes dark.</span>'
+        ? '<span class="ok">◉ LOOP OPEN: the panel goes dark.</span>'
         : '<span class="hot">✗ LATCHED OUT.</span>';
     paint(st);
     // ⚠ Expired reports nothing — the server's sweep owns an alarm whose window

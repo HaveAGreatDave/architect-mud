@@ -11,8 +11,54 @@
 // ── The model ─────────────────────────────────────────────────────────────────
 export const LIVERY_DEFAULT = {
   base: '#5a5f66', trim: '#8a9099', accent: '#c22b8c', ground: '#eee7d6', pattern: 'bare', finish: 'satin',
-  decal: 'none', cabin: '#2a2e33', uphol: 'standard', text: '',
+  decal: 'none', cabin: '#2a2e33', uphol: 'standard', text: '', variant: 'stock', itrim: 'stock', plate: '',
 };
+
+// FACTORY TRIMS: a whole-aircraft colourway, inside and out, for the types that have more than one.
+// The id reaches the client as livery.variant: the exterior mesh takes it as a paint scheme from its
+// own file (content/vehicle_models/mesh_*.json 'schemes') and the cockpit swaps its palette.
+export const TRIMS = {
+  drake: [
+    { id: 'stock', label: 'Mandarin · walnut & gold' },
+    { id: 'noir', label: 'Darkwing · carbon & gold', plate: 'DARKWING' },
+    // The mesh file carried these two all along and nothing could select them. The cockpit has no
+    // palette of its own for them and sits in the stock walnut.
+    { id: 'midnight', label: 'Midnight' },
+    { id: 'neon', label: 'Neon' },
+    // SPECIAL EDITION: a bald eagle outside, red white and blue inside (interior-drake.js DRAKE_TRIM_QUACKHAWK).
+    { id: 'quackhawk', label: 'Quackhawk Down · special edition' },
+  ],
+};
+const TRIM_IDS = new Set(Object.values(TRIMS).flat().map(t => t.id));
+// The CABIN's factory trim, chosen apart from the exterior scheme: a special edition's cockpit can sit
+// under any paint, and any cockpit under a special edition's paint. Only trims with a cockpit palette
+// of their own (client/shared/interior-drake.js) are offered.
+export const CABIN_TRIMS = {
+  drake: [
+    { id: 'stock', label: 'Mandarin · walnut & gold' },
+    { id: 'noir', label: 'Darkwing · carbon & gold', plate: 'DARKWING' },
+    { id: 'quackhawk', label: 'Quackhawk Down · red, white & blue', plate: 'QUACKHAWK DOWN' },
+  ],
+};
+const CABIN_IDS = new Set(Object.values(CABIN_TRIMS).flat().map(t => t.id));
+
+// THE DASH NAMEPLATE. A cabin trim may carry its own name (a special edition is badged as itself);
+// otherwise the plate reads the class default. livery.plate is the owner's override, '' meaning
+// "whatever the trim says". Only letters the plate's typeface has (interior-drake.js GLYPH) survive.
+export const PLATE_DEFAULT = { drake: 'DRAKE' };
+export const PLATE_CHARS = 'ABCDEFGHIKLMNOPQRSTUVW ';
+export const PLATE_MAX = 16;
+export function cleanPlate(s) {
+  if (typeof s !== 'string') return '';
+  return [...s.toUpperCase()].filter(c => PLATE_CHARS.includes(c)).join('').replace(/ +/g, ' ').trim().slice(0, PLATE_MAX);
+}
+// What the plate actually reads: the override, else the cabin trim's own name, else the class default.
+export function plateText(cls, livery) {
+  const lv = livery || {};
+  if (lv.plate) return lv.plate;
+  const t = (CABIN_TRIMS[cls] || []).find(x => x.id === lv.itrim);
+  return (t && t.plate) || PLATE_DEFAULT[cls] || '';
+}
 
 // Nose art / decals — a cosmetic top layer (does NOT feed the signature).
 export const DECALS = [
@@ -130,6 +176,9 @@ export function normalizeLivery(cd) {
     cabin:   isHex(raw.cabin) ? raw.cabin : LIVERY_DEFAULT.cabin,
     uphol:   UPHOL_IDS.has(raw.uphol) ? raw.uphol : LIVERY_DEFAULT.uphol,
     text:    typeof raw.text === 'string' ? raw.text.slice(0, 80) : '',
+    variant: TRIM_IDS.has(raw.variant) ? raw.variant : 'stock',
+    itrim: CABIN_IDS.has(raw.itrim) ? raw.itrim : CABIN_IDS.has(raw.variant) ? raw.variant : 'stock',
+    plate: cleanPlate(raw.plate),
   };
 }
 
@@ -147,6 +196,9 @@ export function sanitizeLivery(patch, prev = LIVERY_DEFAULT) {
     cabin:   isHex(p.cabin) ? p.cabin : prev.cabin,
     uphol:   UPHOL_IDS.has(p.uphol) ? p.uphol : prev.uphol,
     text:    typeof prev.text === 'string' ? prev.text : '',
+    variant: TRIM_IDS.has(p.variant) ? p.variant : (prev.variant || 'stock'),
+    itrim: CABIN_IDS.has(p.itrim) ? p.itrim : (prev.itrim || 'stock'),
+    plate: typeof p.plate === 'string' ? cleanPlate(p.plate) : (prev.plate || ''),
   };
 }
 
@@ -247,7 +299,7 @@ export function rampColorWord(livery) {
 }
 
 // ── Respray fee (scaled by airframe class) ────────────────────────────────────
-const PAINT_COST = { ultralight: 80, heli: 180, prop: 150, heavy: 400, gunship: 300 };
+const PAINT_COST = { ultralight: 80, heli: 180, prop: 150, heavy: 400, gunship: 300, drake: 260 };
 export function paintCost(type) { return PAINT_COST[type?.class] ?? 150; }
 
 // A wreck is junk and a rental is temporary — neither is paintable (owner-only).

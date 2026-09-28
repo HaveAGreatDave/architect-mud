@@ -6,9 +6,7 @@
       "crane",
       "clamshell"
     ],
-    "interactions": {
-      "examine": "It picks from a different part of the bunker each time rather than working a face, which he will tell you is so the load burns evenly, and which is also why nothing stays near the top for long."
-    }
+    "examine_detail": "It picks from a different part of the bunker each time rather than working a face, which he will tell you is so the load burns evenly, and which is also why nothing stays near the top for long."
   },
   "id": "furn_ash_grab",
   "name": "the grab",

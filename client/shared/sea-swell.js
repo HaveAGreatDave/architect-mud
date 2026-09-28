@@ -176,11 +176,75 @@ export const SEA_WIND_PEAK = quad(SEA_WIND_SIDE);
 // wavenumber of ~6, so 0.02 tiles already gives a 6.7° facet.
 export const SEA_AMP = 0.02;
 
+// ── AND THE CHOP FOLLOWS THE WIND, WHICH IT DID NOT ─────────────────────────────────────────────
+//
+// SEA_AMP was a module constant, so a glass morning carried exactly the chop of a gale and a storm
+// made the water bigger but never rougher: all of Hs went into the two long trains. Two facts set
+// the shape of the fix, and both say the chop cannot simply grow with the swell.
+//
+// ⚠ THESE WAVES ARE FULLY DEVELOPED EARLY. The chop trains are 0.6 to 1.2 tiles, four to eight
+// metres, whose phase speed sqrt(g/k) is about three metres a second: a wind of 6-10 kt already
+// outruns them, so above that they are saturated and do not keep growing with the wind. Below it
+// they are still being built, which is the half that was missing — a calm is nearly glassy.
+//
+// ⚠ AND THEY ARE ALREADY STEEP. At SEA_AMP and k ≈ 6 the steepness ka is about 0.12, a third of the
+// way to SEA_KA_LIMIT, so a gale can only buy them a little more: breaking caps a short wave's
+// steepness, it does not let it grow with the fetch. SEA_CHOP_STORM is that headroom (ka ≈ 0.16).
+//
+// ⚠ THE WHITECAP INVERSION IS UNTOUCHED BY THIS, which is why it is free. Foam is tested against
+// chopRaw at UNIT amplitude (see seaChop and seaFoamThreshold), so this gain moves the drawn and
+// lit surface and never the fraction of the sea that is breaking.
+export const SEA_CHOP_CALM = 0.3;    // share of SEA_AMP on a flat calm
+export const SEA_CHOP_DEV_KT = 12;   // wind at which the chop is fully developed
+export const SEA_CHOP_STORM = 1.3;   // gain at SEA_FULL_KT, where breaking caps the steepness
+export function seaChopGain(kt) {
+  const k = Math.max(0, kt);
+  const x = Math.min(1, k / SEA_CHOP_DEV_KT), grow = x * x * (3 - 2 * x);
+  const storm = Math.min(1, Math.max(0, (k - 20) / (SEA_FULL_KT - 20)));
+  return (SEA_CHOP_CALM + (1 - SEA_CHOP_CALM) * grow) * (1 + (SEA_CHOP_STORM - 1) * storm);
+}
+
+// ── WHICH WAY THE SEA RUNS ────────────────────────────────────────────────────────────────────
+//
+// Every train here is authored on one fixed bearing, so the whole sea used to run the same way on
+// every beach in every wind. It now turns rigidly to run DOWNWIND: every sample is taken in a
+// rotated frame and every slope is rotated back out of it. One module-level heading, set once a
+// frame by the renderer, so the mesh, the floor, the hulls and the spray all ride one sea.
+//
+// ⚠ THE PIVOT IS THE ORIGIN OF THE WINDOW FRAME, which is always within a tile of the camera. A
+// rotation moves a point by its distance from the pivot, so turning about the camera turns the sea
+// under you without sliding it past you; the renderer also slews the heading slowly.
+// ⚠ AND HEADING 0 BYPASSES THE FRAME ENTIRELY (ROT_ON), so every caller that never sets one — the
+// gates, the audio — gets bit-identical numbers to the sea that shipped.
+let ROT_ON = false, ROT_C = 1, ROT_S = 0, ROT_D = 0;
+function frameUV(u, v) { return [ROT_C * u + ROT_S * v, -ROT_S * u + ROT_C * v]; }
+// The rotation, in radians, that turns the authored roll so it travels along (dx, dy). A wave
+// sin(k.x + wt) travels toward -k, so the authored travel bearing is -k.
+export function seaHeadingFor(dx, dy) {
+  if (!(Math.hypot(dx, dy) > 1e-6)) return 0;
+  let d = Math.atan2(dy, dx) - Math.atan2(-SEA_ROLL.kv, -SEA_ROLL.ku);
+  while (d > Math.PI) d -= 2 * Math.PI;
+  while (d < -Math.PI) d += 2 * Math.PI;
+  return d;
+}
+export function setSeaHeading(rad) {
+  ROT_D = Number.isFinite(rad) ? rad : 0;
+  ROT_ON = ROT_D !== 0;
+  ROT_C = Math.cos(ROT_D); ROT_S = Math.sin(ROT_D);
+}
+export function seaHeading() { return ROT_D; }
+// The (cos, sin) pair the shaders take as uSeaRot.
+export function seaRotPair() { return [ROT_C, ROT_S]; }
+
 // ── EVALUATION ────────────────────────────────────────────────────────────────────────────────
 
 // The shipped `wv`: the three chop trains, unit amplitude, no roll. Whitecap thresholds are tested
 // against THIS and not against the total, so a heavy swell does not foam a calm surface.
 export function seaChop(u, v, t) {
+  if (ROT_ON) { const q = frameUV(u, v); u = q[0]; v = q[1]; }
+  return chopRaw(u, v, t);
+}
+function chopRaw(u, v, t) {
   const ph = Math.sin(SEA_PH.ku * u + SEA_PH.kv * v + SEA_PH.w * t);
   let s = 0;
   for (const T of SEA_TRAINS) s += T.a * Math.sin(T.ku * u + T.kv * v + T.w * t + T.pm * ph);
@@ -274,6 +338,10 @@ const stokes = (th, k, A, sk = SEA_SKEW, as = SEA_ASYM) => {
 // The long roll. No phase modulation: it is one train, so there is no lattice to break, and an FM
 // term on it would only make the boats pitch for no reason anybody could see.
 export function seaRoll(u, v, t, A = 1, sp = SEA_SPREAD) {
+  if (ROT_ON) { const q = frameUV(u, v); u = q[0]; v = q[1]; }
+  return rollRaw(u, v, t, A, sp);
+}
+function rollRaw(u, v, t, A, sp) {
   // ⚠ THE PEAK GIVES UP EXACTLY WHAT THE BAND TAKES, so the total amplitude is unchanged whatever
   // the spread is — which is what keeps steepness, the Stokes limit and the hull's own ride meaning
   // the same thing at every setting. Adding sidebands ON TOP instead would raise the sea by a third
@@ -289,6 +357,10 @@ export function seaRoll(u, v, t, A = 1, sp = SEA_SPREAD) {
 // The wind sea. Phase-modulated by the SAME shared sine the chop uses, so a storm is not a perfect
 // corrugation marching across the bay.
 export function seaWind(u, v, t, A = 1, sp = SEA_SPREAD) {
+  if (ROT_ON) { const q = frameUV(u, v); u = q[0]; v = q[1]; }
+  return windRaw(u, v, t, A, sp);
+}
+function windRaw(u, v, t, A, sp) {
   const ph = Math.sin(SEA_PH.ku * u + SEA_PH.kv * v + SEA_PH.w * t);
   const pk = 1 - (1 - SEA_WIND_PEAK) * sp;
   let h = stokes(SEA_WIND.ku * u + SEA_WIND.kv * v + SEA_WIND.w * t + SEA_WIND.pm * ph, SEA_WIND.k, A * pk);
@@ -300,7 +372,8 @@ export function seaWind(u, v, t, A = 1, sp = SEA_SPREAD) {
 
 // Surface height in TILES. `roll` is the swell's amplitude, `wind` the wind sea's, `amp` the chop's.
 export function seaHeight(u, v, t, roll = 0, amp = SEA_AMP, wind = 0, sp = SEA_SPREAD) {
-  return seaRoll(u, v, t, roll, sp) + seaWind(u, v, t, wind, sp) + seaChop(u, v, t) * amp;
+  if (ROT_ON) { const q = frameUV(u, v); u = q[0]; v = q[1]; }
+  return rollRaw(u, v, t, roll, sp) + windRaw(u, v, t, wind, sp) + chopRaw(u, v, t) * amp;
 }
 
 // ── THE SLOPE, IN CLOSED FORM ─────────────────────────────────────────────────────────────────
@@ -314,6 +387,13 @@ export function seaHeight(u, v, t, roll = 0, amp = SEA_AMP, wind = 0, sp = SEA_S
 // puts the highlight on the wrong face of every crest — which looks like water, so nothing and
 // nobody will report it. The gate checks this against a central difference for that reason.
 export function seaSlope(u, v, t, roll = 0, amp = SEA_AMP, wind = 0, sp = SEA_SPREAD) {
+  if (!ROT_ON) return slopeRaw(u, v, t, roll, amp, wind, sp);
+  const q = frameUV(u, v);
+  const g = slopeRaw(q[0], q[1], t, roll, amp, wind, sp);
+  // Back out of the sea's frame: the gradient in world axes is the transpose rotation.
+  return [ROT_C * g[0] - ROT_S * g[1], ROT_S * g[0] + ROT_C * g[1]];
+}
+function slopeRaw(u, v, t, roll, amp, wind, sp) {
   const A = SEA_PH.ku * u + SEA_PH.kv * v + SEA_PH.w * t;
   const cA = Math.cos(A), sA = Math.sin(A);
   let du = 0, dv = 0;
@@ -517,6 +597,44 @@ const TILE_M = 7;                   // a lane is LANE_W across, so a tile is abo
 // cacheable with the tile grid and wind-independent — and it makes a bay calm whichever way the
 // wind blows, which is the one thing this exists to get right.
 export const SEA_TILE_M = TILE_M;
+
+// ── THE SURF ZONE ─────────────────────────────────────────────────────────────────────────────
+// Read against the SEABED's own depth (client/shared/seabed.js, the model the submersible dives on),
+// so the water a wave breaks in and the water a sub sits in are one ocean.
+//
+// A breaker is DEPTH-LIMITED: a wave cannot stand taller than about 0.78 of the water under it
+// (McCowan 1894, the ratio still used in coastal engineering), so it breaks there and the height
+// that is left is what the depth allows. Before that it SHOALS — slowing, bunching, growing — by
+// Green's law, H ~ h^-1/4. Both are one line each, and the consequence falls out for free: a storm
+// sea breaks far out over deep water, a small one creeps in and breaks at the edge of the sand.
+export const SURF_GAMMA = 0.78;    // breaker height / depth
+export const SURF_REF_M = 30;      // depth at which Green's law starts to lift the wave
+export const SURF_KS_MAX = 1.6;    // shoaling cap; the depth limit takes over well before it binds
+export const SURF_DEPTH_Q = 4;     // depth texture: metres x this, in one byte, so 0..63.75 m
+
+// The shoaled height gain and whether it is breaking, for a depth in METRES and a deep-water wave
+// height in METRES. The GLSL twin in gl/sea-glsl.js is generated from these constants.
+export function surfGain(hM, H0) {
+  const ks = Math.min(SURF_KS_MAX, Math.max(1, Math.pow(SURF_REF_M / Math.max(hM, 0.25), 0.25)));
+  const lim = SURF_GAMMA * Math.max(hM, 0) / Math.max(H0, 1e-3);
+  return Math.min(ks, lim);
+}
+// What a HULL rides near the shore: the displaced swell's amplitude multiplier for the seabed depth
+// under it. The same shoal-and-break gain the water mesh displaces by (gl/water.js), so a boat
+// rides the surf that is drawn. ⚠ Open water is exactly 1 — the depth limit never binds past ~30 m
+// and Green's law is clamped at 1 — so every hull offshore is bit-identical to before. amt 0 is
+// the sea as it shipped: full open-sea swell everywhere, including over the sand.
+export function surfHullGain(depthM, rollA, windA, amt = 1) {
+  if (!(amt > 0)) return 1;
+  const H0 = 2 * (rollA + windA) * SEA_TILE_M;
+  return 1 + (surfGain(depthM, H0) - 1) * Math.min(1, amt);
+}
+export function surfBreaking(hM, H0) {
+  const ks = Math.min(SURF_KS_MAX, Math.max(1, Math.pow(SURF_REF_M / Math.max(hM, 0.25), 0.25)));
+  const r = ks * H0 / Math.max(SURF_GAMMA * Math.max(hM, 0), 1e-3);
+  const t = Math.min(1, Math.max(0, (r - 0.85) / 0.15));
+  return t * t * (3 - 2 * t);
+}
 export function seaShelter(d, maxD) {
   if (!(maxD > 0)) return 1;
   return Math.min(1, Math.sqrt(Math.max(0, d) / maxD));
@@ -722,7 +840,7 @@ function quantiles(tear0) {
   for (let i = 0; i < N; i++) {
     const u = (((i + 1) * 0.7548776662) % 1) * 80 - 40;
     const v = (((i + 1) * 0.5698402910) % 1) * 80 - 40;
-    s[i] = seaChop(u, v, 3.0)
+    s[i] = chopRaw(u, v, 3.0)
          + (tear ? seaFoamFine(u, v, 3.0) + tear * seaFoamTear(u, v, 3.0) : 0);
   }
   s.sort();

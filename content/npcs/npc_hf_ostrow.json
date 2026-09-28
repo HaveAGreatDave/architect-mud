@@ -126,7 +126,7 @@
     "She writes a time in a ruled book without appearing to check a clock.",
     "A key on the board swings very slightly, and she reaches over and stills it."
   ],
-  "description": "A short, unhurried woman of about sixty behind the desk, in a grey uniform jacket with the building crest on the pocket and her own cardigan over the back of the chair. She has the manner of somebody who was hired to be decorative and has quietly become the only person in the building who knows how anything works.",
+  "description": "A short, unhurried woman of about sixty behind the desk, in a grey uniform jacket with the building crest on the pocket, her own cardigan on the chair back. She's the only one here who knows how anything works.",
   "dialogue_tree": {
     "bother": {
       "options": [

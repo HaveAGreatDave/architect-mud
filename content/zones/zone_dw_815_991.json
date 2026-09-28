@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Grey ash to the horizon, level and going nowhere. Nothing grows in it, and there's nothing out here that could make a noise.",
+  "description": "Ash underfoot, ash to the horizon, and a low grey sky sitting on top of it. The line where one stops and the other starts is hard to find.",
   "exits": {
     "east": "zone_dw_816_991",
     "north": "zone_dw_815_990",

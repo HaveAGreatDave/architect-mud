@@ -77,7 +77,7 @@ function devicePowered(dev) {
 // Live text snapshot of what a device sees in its zone — the raw feed frame.
 function feedSnapshot(zoneId) {
   const zone = getZone(zoneId);
-  if (!zone) return 'NO SIGNAL — zone unreachable.';
+  if (!zone) return 'NO SIGNAL: zone unreachable.';
   const players = getZonePlayers(zoneId) || [];
   const npcs = getZoneNpcs(zoneId) || [];
   const enemies = getZoneEnemies(zoneId) || [];
@@ -222,13 +222,13 @@ async function cmdSweep(args, raw, player) {
   }
 
   if (!found.length) {
-    return { type: 'output', message: "You sweep the area. You don't find anything — but that doesn't mean it's clean." };
+    return { type: 'output', message: "You sweep the area. You don't find anything, but that doesn't mean it's clean." };
   }
 
   await awardSkillUse(player.id, 'security', bestMargin);
   const lines = found.map(d => {
     const state = devicePowered(d) ? `🔋 ${batteryPct(d)}` : 'OFFLINE';
-    return `  • <span class="furniture-link">${d.name}</span> [${d.device_kind}] — ${state}`;
+    return `  • <span class="furniture-link">${d.name}</span> [${d.device_kind}]: ${state}`;
   });
   return { type: 'output', message: `You spot concealed gear:\n${lines.join('\n')}\n<span class="text-dim">(examine or retrieve by name)</span>` };
 }
@@ -255,7 +255,7 @@ async function cmdFeed(args, raw, player) {
     target = rows.find(d => d.name.toLowerCase().includes(nameHint.toLowerCase()));
     if (!target) return { type: 'error', message: `You have no deployed device matching "${nameHint}".` };
   } else if (rows.length > 1) {
-    const list = rows.map(d => `  • ${d.name} — ${d.zone_name || d.zone_id} (${devicePowered(d) ? batteryPct(d) : 'OFFLINE'})`).join('\n');
+    const list = rows.map(d => `  • ${d.name}: ${d.zone_name || d.zone_id} (${devicePowered(d) ? batteryPct(d) : 'OFFLINE'})`).join('\n');
     return { type: 'output', message: `SPECTER // deployed devices:\n${list}\n<span class="text-dim">Use "feed <name>" to view one.</span>` };
   }
 
@@ -264,7 +264,7 @@ async function cmdFeed(args, raw, player) {
   const frame = deviceFrame(target, status);
   if (!frame) {
     const label = status === 'jammed' ? 'JAMMED' : status === 'damaged' ? 'DAMAGED' : 'NO SIGNAL';
-    return { type: 'output', message: `[FEED ▸ ${target.name}] — <span class="text-red">${label}</span> (${status})` };
+    return { type: 'output', message: `[FEED ▸ ${target.name}]: <span class="text-red">${label}</span> (${status})` };
   }
   const rec = target.is_recording ? ' 🔴REC' : '';
   const header = `[FEED ▸ ${target.name}] ${target.zone_name || target.zone_id} · ${clock()} · 🔋${batteryPct(target)}${rec}`;
@@ -409,7 +409,7 @@ async function pollSensors() {
     const last = sensorMemory.get(d.id) || new Set();
     if (known) {
       const entered = [...present].filter(n => !last.has(n));
-      if (entered.length) pushAlert(d.owner_id, `MOTION — ${entered.join(', ')} in ${zoneName(d.zone_id)}.`, zoneName(d.zone_id));
+      if (entered.length) pushAlert(d.owner_id, `MOTION: ${entered.join(', ')} in ${zoneName(d.zone_id)}.`, zoneName(d.zone_id));
     }
     sensorMemory.set(d.id, present);
   }
@@ -449,11 +449,11 @@ function deviceFrame(d, status) {
   if (status !== 'ok') return null;
   if (CAM_KINDS.has(d.device_kind)) return feedSnapshot(d.zone_id);
   switch (d.device_kind) {
-    case 'jammer':  return '▓ SIGNAL JAMMER — feeds in this sector are down.';
-    case 'spoofer': return '▓ FEED SPOOFER — cams here play clean footage.';
-    case 'relay':   return '▨ RELAY ONLINE — extending network reach.';
+    case 'jammer':  return '▓ SIGNAL JAMMER: feeds in this sector are down.';
+    case 'spoofer': return '▓ FEED SPOOFER: cams here play clean footage.';
+    case 'relay':   return '▨ RELAY ONLINE: extending network reach.';
     case 'motion_sensor':
-    case 'audio_sensor': return '◉ SENSOR ARMED — watching for movement.';
+    case 'audio_sensor': return '◉ SENSOR ARMED: watching for movement.';
     default: return 'ONLINE.';
   }
 }
@@ -526,7 +526,7 @@ async function doInstallSpecter(args, raw, player) {
   const it = await resolveInventoryItem(player, { tag: 'specter_program', name: nameHint || undefined });
   if (!it) return undefined; // named something else / not carrying one — let other handlers try
   if (await isSpecterInstalled(player)) {
-    return { type: 'error', message: 'SPECTER is already installed on your tablet — this program has nothing left to do.' };
+    return { type: 'error', message: 'SPECTER is already installed on your tablet: this program has nothing left to do.' };
   }
   if (it.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [it.inv_id]);
   else await query('DELETE FROM player_inventory WHERE id=$1', [it.inv_id]);
@@ -726,7 +726,7 @@ on('player.death', async ({ player }) => {
   ).catch(() => ({ rows: [] }));
   const zoneName = getZone(zoneId)?.name || zoneId;
   for (const d of rows) {
-    if (devicePowered(d)) pushAlert(d.owner_id, `AUDIO — gunfire and a scream in ${zoneName}.`, zoneName);
+    if (devicePowered(d)) pushAlert(d.owner_id, `AUDIO: gunfire and a scream in ${zoneName}.`, zoneName);
   }
   // Charging the killer is owned entirely by the crime-registry listener below
   // (raiseCrime(killer, 'murder', …) — stars + PD evidence + dispatch in one path).
@@ -863,7 +863,7 @@ async function autoClipZone(zoneId) {
     buf.lastAutoClip = now;
     const clip = await createSecurityClip(id, buf.frames.slice(), zoneId, buf.ownerId).catch(() => null);
     if (clip) sendToPlayer(buf.ownerId, { type: 'system', message:
-      `<span class="text-red">⚠ EVIDENCE</span> — your camera banked a clip. Use "collect" to pull the datachip.` });
+      `<span class="text-red">⚠ EVIDENCE</span>: your camera banked a clip. Use "collect" to pull the datachip.` });
   }
 }
 
@@ -925,7 +925,7 @@ async function physicalizeClip(clipRow, player) {
   await query(
     `INSERT INTO items (id, name, description, type, weight, value, tags)
      VALUES ($1,$2,$3,'evidence',60,$4,$5) ON CONFLICT (id) DO NOTHING`,
-    [itemId, `Datachip — ${zoneName}`,
+    [itemId, `Datachip: ${zoneName}`,
      `A slab of black storage glass, edge-lit amber. Holds ${frames.length} frames of surveillance footage from ${zoneName}.${evidenceTag} <span class="text-dim">(use it to replay, or load it into a media deck to broadcast it.)</span>`,
      crimeTags.length ? 250 : 40,
      JSON.stringify({ datachip: true, clip_id: clipRow.id, media_cassette: true, broadcast_id: broadcastId })]
@@ -976,7 +976,7 @@ async function cmdClip(args, raw, player) {
   // the chip (possession is what SPECTER → Microreels lists and what makes it tradeable).
   await physicalizeClip({ ...clip, zone_name: dev.zone_name || dev.zone_id, frames }, player);
 
-  return { type: 'output', message: `You burn the feed to a microreel — ${frameCount} frame${frameCount === 1 ? '' : 's'} from ${dev.zone_name || dev.zone_id}.${evidenceTag ? ` <span class="text-red">${evidenceTag}</span>` : ''}\n<span class="text-dim">(a datachip drops into your kit — open SPECTER → Microreels to view it, or trade the chip to hand the reel off. The buffer is cleared — the camera is recording again.)</span>` };
+  return { type: 'output', message: `You burn the feed to a microreel: ${frameCount} frame${frameCount === 1 ? '' : 's'} from ${dev.zone_name || dev.zone_id}.${evidenceTag ? ` <span class="text-red">${evidenceTag}</span>` : ''}\n<span class="text-dim">(a datachip drops into your kit, open SPECTER → Microreels to view it, or trade the chip to hand the reel off. The buffer is cleared, the camera is recording again.)</span>` };
 }
 
 // wipe [name] — clear a camera's live buffer WITHOUT saving a microreel, so it can
@@ -995,7 +995,7 @@ async function cmdWipe(args, raw, player) {
   const had = buf?.frames.length || 0;
   if (buf) buf.reset();
   return { type: 'output', message: had
-    ? `You wipe ${dev.name}'s buffer — ${had} line${had === 1 ? '' : 's'} discarded. It's recording again.`
+    ? `You wipe ${dev.name}'s buffer: ${had} line${had === 1 ? '' : 's'} discarded. It's recording again.`
     : `${dev.name}'s buffer is already empty.` };
 }
 
@@ -1014,7 +1014,7 @@ async function cmdCollect(args, raw, player) {
   const clip = rows[0];
   if (!clip) return { type: 'error', message: nameHint ? `No un-collected evidence clips from "${nameHint}".` : 'No un-collected evidence clips on record.' };
   const { frameCount, zoneName, evidenceTag } = await physicalizeClip(clip, player);
-  return { type: 'output', message: `You pull the banked clip to a datachip — ${frameCount} frames from ${zoneName}.${evidenceTag ? ` <span class="text-red">${evidenceTag.trim()}</span>` : ''}\n<span class="text-dim">(use the datachip to replay it.)</span>` };
+  return { type: 'output', message: `You pull the banked clip to a datachip: ${frameCount} frames from ${zoneName}.${evidenceTag ? ` <span class="text-red">${evidenceTag.trim()}</span>` : ''}\n<span class="text-dim">(use the datachip to replay it.)</span>` };
 }
 
 async function buildReplayPayload(clipRow) {
@@ -1040,7 +1040,7 @@ async function doUseDatachip(args, raw, player) {
     `SELECT c.*, z.name AS zone_name FROM security_clips c LEFT JOIN zones z ON z.id=c.zone_id WHERE c.id=$1`,
     [clipId]
   );
-  if (!clip.length) return { type: 'error', message: 'This datachip is corrupted — no footage found.' };
+  if (!clip.length) return { type: 'error', message: 'This datachip is corrupted: no footage found.' };
   return buildReplayPayload(clip[0]);
 }
 
@@ -1114,7 +1114,7 @@ async function cmdDestruct(args, raw, player) {
   if (!confirmed) {
     return {
       type: 'output',
-      message: `Scuttle <b>${dev.name}</b> at ${dev.zone_name || dev.zone_id}? It burns out where it sits — you get nothing back.\n`
+      message: `Scuttle <b>${dev.name}</b> at ${dev.zone_name || dev.zone_id}? It burns out where it sits: you get nothing back.\n`
         + `<span class="action-link" data-action="cmd" data-cmd="destruct ${dev.name} confirm">destruct ${dev.name} confirm</span>`,
     };
   }
@@ -1171,7 +1171,7 @@ async function cmdCrush(args, raw, player) {
 // Dead-man ping: a destroyed/hijacked/breached device warns its owner.
 function tamperPing(ownerId, actorId, name, zoneName, reason) {
   if (!ownerId || ownerId === actorId) return;
-  sendToPlayer(ownerId, { type: 'system', message: `<span class="text-red">⚠ TAMPER</span> — ${name} at ${zoneName || 'unknown'} ${reason}` });
+  sendToPlayer(ownerId, { type: 'system', message: `<span class="text-red">⚠ TAMPER</span>: ${name} at ${zoneName || 'unknown'} ${reason}` });
 }
 
 // smash <name> — rip a discovered device off its mount and destroy it.
@@ -1281,7 +1281,7 @@ async function cmdHijackResolve(args, raw, player) {
     );
     invalidateDeviceCache();
     await awardSkillUse(player.id, 'hacking', await breachMargin(player, dev.hack_difficulty));
-    tamperPing(dev.owner_id, player.id, dev.name, dev.zone_name || dev.zone_id, 'was HIJACKED — you no longer control it.');
+    tamperPing(dev.owner_id, player.id, dev.name, dev.zone_name || dev.zone_id, 'was HIJACKED: you no longer control it.');
     // Breaching any live device is hacking (charged via the crimes registry if
     // witnessed); a PD unit also puts patrols on you regardless.
     emit('hack.success', { player, zoneId: dev.zone_id });
@@ -1316,11 +1316,11 @@ async function cmdPilot(args, raw, player) {
   const { rows } = await query(sql, params);
   const drone = rows[0];
   if (!drone) return { type: 'error', message: nameHint ? `You have no drone matching "${nameHint}".` : "You have no drone deployed." };
-  if (!devicePowered(drone)) return { type: 'error', message: `${drone.name} is offline — dead battery.` };
+  if (!devicePowered(drone)) return { type: 'error', message: `${drone.name} is offline: dead battery.` };
 
   const zone = getZone(drone.zone_id);
   const target = exitTargets(zone, dir)[0];
-  if (!target) return { type: 'error', message: `${drone.name} can't go ${dir} — no exit that way.` };
+  if (!target) return { type: 'error', message: `${drone.name} can't go ${dir}: no exit that way.` };
 
   const chk = await skillCheck(player, 'drone_ops', 3);
   await query('UPDATE security_devices SET zone_id=$1 WHERE id=$2', [target, drone.id]);
@@ -1334,7 +1334,7 @@ async function cmdPilot(args, raw, player) {
   // Piloting trains Drone Ops whether the link holds clean or stutters (abs margin).
   await awardSkillUse(player.id, 'drone_ops', chk.margin);
 
-  return { type: 'output', message: `You pilot the ${drone.name} ${dir} into ${destName}.${chk.success ? '' : ' <span class="text-dim">(rough handling — the link stuttered.)</span>'}` };
+  return { type: 'output', message: `You pilot the ${drone.name} ${dir} into ${destName}.${chk.success ? '' : ' <span class="text-dim">(rough handling: the link stuttered.)</span>'}` };
 }
 
 // ── NPC Police (Phase 6) ─────────────────────────────────────────────────────
@@ -1371,7 +1371,7 @@ async function policeNetworkId() {
 async function logPoliceEvidence(zoneId, tags, suspect) {
   const zoneName = getZone(zoneId)?.name || zoneId;
   const net = await policeNetworkId();
-  const frame = { t: clock(), ts: Date.now(), text: `${suspect || 'Unknown'} — ${tags.join('/')} witnessed in ${zoneName}.` };
+  const frame = { t: clock(), ts: Date.now(), text: `${suspect || 'Unknown'}: ${tags.join('/')} witnessed in ${zoneName}.` };
   await query(
     `INSERT INTO security_clips (id, device_id, zone_id, owner_id, frames, captured_at, crime_tags)
      VALUES ($1, NULL, $2, $3, $4, $5, $6)`,
@@ -1439,7 +1439,7 @@ const WANTED_HUNTER_GRAPH = {
       params: { quarry: 'flag', flag: 'suspect_id', wander_pct: HUNT_RANDOM }, next: 'check_target' },
     check_target: { type: 'condition', condition_type: 'HAS_TARGET', params: {}, ifTrue: 'check_cried', ifFalse: 'loop' },
     check_cried:  { type: 'condition', condition_type: 'FLAG_SET', params: { flag: 'cried', scope: 'self' }, ifTrue: 'attack', ifFalse: 'cry' },
-    cry:          { type: 'action', action_type: 'SAY', params: { message: 'SPECTER-PD — STOP RESISTING. COMPLY.' }, next: 'set_cried' },
+    cry:          { type: 'action', action_type: 'SAY', params: { message: 'SPECTER-PD: STOP RESISTING. COMPLY.' }, next: 'set_cried' },
     set_cried:    { type: 'action', action_type: 'SET_FLAG', params: { flag: 'cried', scope: 'self', value: 'true' }, next: 'attack' },
     attack:       { type: 'action', action_type: 'ATTACK', params: {}, next: 'loop' },
     loop:         { type: 'loop', next: 'search' },
@@ -1506,7 +1506,7 @@ async function raiseWanted(player, amount, reason, zoneId) {
   }
   await setFlag('player', 'wanted', s.stars, player);
   if (s.stars !== prev) {
-    sendToPlayer(player.id, { type: 'system', message: `<span class="text-red">⚠ WANTED ${starBar(s.stars)}</span> — ${reason}.` });
+    sendToPlayer(player.id, { type: 'system', message: `<span class="text-red">⚠ WANTED ${starBar(s.stars)}</span>: ${reason}.` });
     sendWantedHud(player.id, s.stars);
   }
 }
@@ -1618,7 +1618,7 @@ async function igniteHeat(player) {
   s.heat = 0;
   await setFlag('player', 'heat', 0, player);
   sendHeatHud(player.id, 0);
-  sendToPlayer(player.id, { type: 'system', message: `<span class="text-red">⚠ THEY'RE ONTO YOU</span> — SPECTER-PD flags a pattern. You're a person of interest now.` });
+  sendToPlayer(player.id, { type: 'system', message: `<span class="text-red">⚠ THEY'RE ONTO YOU</span>: SPECTER-PD flags a pattern. You're a person of interest now.` });
   const cur = wantedState(player.id).stars;
   if (cur < HEAT_IGNITE_STARS) await raiseWanted(player, HEAT_IGNITE_STARS - cur, 'a pattern of activity flagged by SPECTER-PD');
 }
@@ -1752,7 +1752,7 @@ async function resolveApprehension(suspectId, choice) {
   const s = wantedState(suspectId);
   if (choice === 'run') {
     s.apprehendCooldownUntil = Date.now() + APPREHEND_COOLDOWN_MS;
-    sendToPlayer(suspectId, { type: 'system', message: `<span class="text-red">You wrench free and bolt — boots pounding after you.</span>` });
+    sendToPlayer(suspectId, { type: 'system', message: `<span class="text-red">You wrench free and bolt: boots pounding after you.</span>` });
     await raiseWanted(suspect, 2, 'fleeing a lawful detainment', suspect.current_zone);
   } else {
     // Suppress any re-prompt while booking runs (the palm minigame can take a few
@@ -1833,7 +1833,7 @@ async function cameraLiveInZone(zoneId) {
 function flashCamera(zoneId, suspectName, crimeLabel) {
   sendToZone(zoneId, {
     type: 'zone_event',
-    message: `<span class="camera-alert">⚠ A surveillance camera swivels, its lens flaring red — locking focus on ${suspectName}.</span>`,
+    message: `<span class="camera-alert">⚠ A surveillance camera swivels, its lens flaring red: locking focus on ${suspectName}.</span>`,
   });
   sendToZone(zoneId, { type: 'camera_flash', suspect: suspectName, crime: crimeLabel });
 }
@@ -1844,8 +1844,8 @@ function flashCamera(zoneId, suspectName, crimeLabel) {
 // client treats that overlay as "a camera made you", and this wasn't one).
 const COP_SPOT_LINES = [
   (o, s) => `${o} stops mid-step, eyes fixed on ${s}. "Hey. HEY." A hand goes to the shoulder mic.`,
-  (o, s) => `${o} saw the whole thing. No camera needed — just a cop and a bad sense of timing on ${s}'s part.`,
-  (o, s) => `${o} watches ${s} do it, unhurried, and starts reciting into the mic like they're reading a shopping list.`,
+  (o, s) => `${o} saw the whole thing. No camera needed, just a cop and a bad sense of timing on ${s}'s part.`,
+  (o, s) => `${o} watches ${s} do it, unhurried, and starts reciting into the mic like they are reading a shopping list.`,
   (o, s) => `${o}'s head comes round. ${s} is looking straight down the barrel of an eyewitness with a badge.`,
 ];
 function flashCop(zoneId, officerName, suspectName) {
@@ -2528,7 +2528,7 @@ async function clearWanted(playerId, reason) {
   if (p) {
     await setFlag('player', 'wanted', 0, p);
     sendWantedHud(playerId, 0);
-    if (reason) sendToPlayer(playerId, { type: 'system', message: `<span class="text-dim">Wanted level cleared — ${reason}.</span>` });
+    if (reason) sendToPlayer(playerId, { type: 'system', message: `<span class="text-dim">Wanted level cleared: ${reason}.</span>` });
   } else {
     await updateFlagById(playerId, 'wanted', 0).catch(() => {});
   }
@@ -2618,7 +2618,7 @@ async function searchAndPursue(suspectId, s) {
       deployed = true;
     }
   }
-  if (deployed) sendToZone(spawnZone, { type: 'ambient', message: 'Boots and servos — a SPECTER-PD unit fans out from the scene, hunting.' });
+  if (deployed) sendToZone(spawnZone, { type: 'ambient', message: 'Boots and servos: a SPECTER-PD unit fans out from the scene, hunting.' });
 
   // Engage if co-located. The SEARCH itself is no longer driven from here — each
   // unit's own CHASE node walks it toward the suspect on the AI tick, so this loop
@@ -2752,7 +2752,7 @@ async function cmdScrub(args, raw, player) {
   if (s.stars <= 0) return { type: 'error', message: "Your record's already clean." };
   const chk = await skillCheck(player, 'hacking', 4 + s.stars);
   if (!chk.success) {
-    return { type: 'error', message: 'The record locks you out — and the query pings a sysop. Your heat holds.' };
+    return { type: 'error', message: 'The record locks you out, and the query pings a sysop. Your heat holds.' };
   }
   await awardSkillUse(player.id, 'hacking', chk.margin);
   await setStars(player, s.stars - 1, `You scrub a charge from the PD database. ${starBar(Math.max(0, s.stars))}`);
@@ -2876,7 +2876,7 @@ async function expireStickyCams() {
   for (const d of rows) {
     await destroyDevice(d.id);
     if (d.owner_id) sendToPlayer(d.owner_id, { type: 'system', message:
-      `<span class="text-dim">⏻ BURNOUT — ${d.name} at ${d.zone_name || d.zone_id || 'unknown'} hit its 24-hour limit and cooked itself off the wall.</span>` });
+      `<span class="text-dim">⏻ BURNOUT: ${d.name} at ${d.zone_name || d.zone_id || 'unknown'} hit its 24-hour limit and cooked itself off the wall.</span>` });
   }
   if (rows.length) console.log(`[surveillance] expired ${rows.length} sticky cam(s).`);
 }
@@ -2936,12 +2936,12 @@ async function cmdPurge(args, raw, player, broadcast) {
   const copNpcs = getZoneNpcs(zoneId).filter(n => n.flags?.police);
   let burned = 0;
   for (const e of hunters) {
-    if (broadcast) broadcast(zoneId, { type: 'zone_event', message: `<span class="text-red">🔥 ${e.name} shudders, servos screaming — then erupts in a pillar of flame and slumps into molten slag.</span>` });
+    if (broadcast) broadcast(zoneId, { type: 'zone_event', message: `<span class="text-red">🔥 ${e.name} shudders, servos screaming, then erupts in a pillar of flame and slumps into molten slag.</span>` });
     removeEnemyInstance(e.instanceId);
     burned++;
   }
   for (const n of copNpcs) {
-    if (broadcast) broadcast(zoneId, { type: 'zone_event', message: `<span class="text-red">🔥 ${n.name} spontaneously combusts — a whump of blue fire, a shriek, and a greasy scorch where they stood.</span>` });
+    if (broadcast) broadcast(zoneId, { type: 'zone_event', message: `<span class="text-red">🔥 ${n.name} spontaneously combusts: a whump of blue fire, a shriek, and a greasy scorch where they stood.</span>` });
     world.zones.get(n.zone_id)?.npcs.delete(n.id);
     world.npcs.delete(n.id);
     burned++;
@@ -3011,7 +3011,7 @@ export async function microreelList(player) {
   );
   return rows.map(r => ({
     clipId: r.id,
-    name: `Reel — ${r.zone_name || r.zone_id || 'UNKNOWN'}`,
+    name: `Reel: ${r.zone_name || r.zone_id || 'UNKNOWN'}`,
     zone: r.zone_name || r.zone_id || 'UNKNOWN',
     capturedAt: r.captured_at ? Number(r.captured_at) : null,
     crimeTags: parseBuffer(r.crime_tags),
@@ -3059,7 +3059,7 @@ export async function deleteMicroreel(player, clipId) {
   );
   if (!rows.length) return { ok: false };
   sendToPlayer(player.id, { type: 'output', message:
-    'You thumb the microreel out of your tablet — a sliver of black storage glass — and crush it between finger and thumb. It cracks with a dry snap; you flick the dead shard aside.' });
+    'You thumb the microreel out of your tablet, a sliver of black storage glass, and crush it between finger and thumb. It cracks with a dry snap; you flick the dead shard aside.' });
   sendToZone(player.current_zone, { type: 'zone_event', message:
     `<span class="text-dim">${player.handle || 'Someone'} ejects a sliver of storage glass from their tablet, snaps it between two fingers, and flicks the dead shard away.</span>` },
     player.id);

@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#1d1416",
   "color": "#c06052",
-  "description": "Three bay doors in red, tall enough and wide enough to take an appliance out at speed, with the aprons in front of them swept down to bare concrete. Above them two storeys of watch room and dormitory with ordinary windows, and standing off the north end a square hose tower going up another three storeys with louvres all the way and a hoist beam at the top. A bell is mounted on a bracket over the middle door and it is not decorative.",
+  "description": "Three tall red bay doors over aprons swept to bare concrete. Above them, two storeys of watch room and dormitory. At the north end, a square hose tower rises three more storeys, louvred, with a hoist beam at the top. A working bell hangs over the middle door.",
   "exits": {
     "east": "zone_district_911_917",
     "west": "zone_engine_bay"

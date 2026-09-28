@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "A round room at the bottom of a round building, which sounds obvious and is rarer than it should be — the lift core is a drum inside a drum and the floor is laid in concentric bands out from it. There is a desk, unattended, and beside the lift a chrome sign with an arrow and the words SHOW HOME — FOURTH FLOOR, and the arrow is pointing at the lift rather than upward, which somebody clearly argued about.",
+  "description": "A round room at the bottom of a round building, which sounds obvious and is rarer than it should be. The lift core is a drum inside a drum and the floor is laid in concentric bands out from it. There is a desk, unattended, and beside the lift a chrome sign with an arrow and the words SHOW HOME: FOURTH FLOOR, and the arrow is pointing at the lift rather than upward, which somebody clearly argued about.",
   "exits": {
     "down": "zone_util_zone_hf_newmarket_lobby",
     "south": "zone_district_907_915",

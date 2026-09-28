@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Red rock to the horizon, pitted with pale rings a hair deep where the rain has stood and eaten. The wind never stops. There's a great deal of sky and none of it's reassuring.",
+  "description": "Loose stone fanned out below a cleft in the cliff, with a channel down its middle where rain runs off.",
   "exits": {
     "east": "zone_scw_1003_957",
     "north": "zone_scw_1002_956",
@@ -8,18 +8,18 @@
     "west": "zone_scw_1001_957"
   },
   "flags": {
-    "ambient_pool": "scarletwastes_hardpan",
+    "ambient_pool": "scarletwastes_the_spill",
     "lawless": true,
     "radiation": 9,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "redrock"
+    "terrain": "dirt_road"
   },
   "grid_x": 1002,
   "grid_y": 957,
   "grid_z": 0,
   "id": "zone_scw_1002_957",
   "map_id": "map_world",
-  "name": "Rustwater",
+  "name": "Broken Foot",
   "parent_zone": null
 }

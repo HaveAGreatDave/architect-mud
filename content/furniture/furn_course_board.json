@@ -5,9 +5,7 @@
       "board",
       "blackboard"
     ],
-    "interactions": {
-      "examine": "The top panel still carries the last lecture: a diagram of two boxes with an arrow between them, and under the second box a question mark somebody drew hard enough to break the chalk."
-    }
+    "examine_detail": "The top panel still carries the last lecture: a diagram of two boxes with an arrow between them, and under the second box a question mark somebody drew hard enough to break the chalk."
   },
   "id": "furn_course_board",
   "name": "the blackboard",

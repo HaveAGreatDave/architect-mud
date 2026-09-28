@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "THE SOUTH GATE. The Gate Road climbs to a throat of scorched rockcrete where the Architect's Curtain parts: a single lit gap in a floor-to-heaven wall of humming hard light that seals the city's whole southern edge. Twin turret masts flank the opening, barrels sweeping the killing ground beyond in slow, patient arcs. Grey-uniformed perimeter guards work the gap under a caged amber beacon, waving traffic through and logging every soul that walks south, because most of them don't walk back. The city is behind you. The wild, and everything past it, is through the throat. The gate is open. It's the going that costs you.",
+  "description": "THE SOUTH GATE. The Gate Road climbs to a throat of scorched rockcrete where the Architect's Curtain parts in a single lit gap. Twin turret masts flank it, barrels sweeping the killing ground in slow arcs. Grey-uniformed perimeter guards under a caged amber beacon wave traffic through and log everyone who walks south. The gate is open.",
   "exits": {
     "east": "zone_district_919_919",
     "north": "zone_district_918_918",

@@ -32,7 +32,7 @@ async function cmdCurtain(targetStr, player, open) {
   }
 
   if (win.glass_state === 'broken') {
-    return { type:'examine', message:`The curtains of ${win.name} are already compromised — the glass is broken.` };
+    return { type:'examine', message:`The curtains of ${win.name} are already compromised. The glass is broken.` };
   }
   if (win.curtain_open === (open ? 1 : 0)) {
     return { type:'examine', message:`The curtains of ${win.name} are already ${open ? 'open' : 'closed'}.` };

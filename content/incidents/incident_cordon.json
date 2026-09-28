@@ -27,7 +27,7 @@
     },
     {
       "do": "news",
-      "text": "A temporary closure is in effect in {place} — the operation is proceeding as planned and will conclude shortly."
+      "text": "A temporary closure is in effect in {place}. The operation is proceeding as planned and will conclude shortly."
     },
     {
       "checks": [

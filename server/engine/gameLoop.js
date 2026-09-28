@@ -711,7 +711,7 @@ function scheduleVatEmergence(player) {
   player._vatDressing = true;
 
   setTimeout(() => {
-    send(`<span class="clone-vat-message">Your new body reports in, one seam at a time. Nerve endings find their sockets and announce themselves — cold, ache, the dumb weight of your own hands. Muscle remembers what muscle is for. You are, unmistakably, meat again.</span>`);
+    send(`<span class="clone-vat-message">Your new body reports in, one seam at a time. Nerve endings find their sockets and announce themselves: cold, ache, the dumb weight of your own hands. Muscle remembers what muscle is for. You are, unmistakably, meat again.</span>`);
   }, VAT_ASSIMILATE_MS);
 
   setTimeout(async () => {
@@ -724,7 +724,7 @@ function scheduleVatEmergence(player) {
     // Cloning is free for everyone — the vat still dresses you and prints the invoice,
     // it just stamps the total COMPLIMENTARY and never touches the balance.
     const balance = player.credits ?? 0;
-    send(`<span class="clone-vat-message">A dressing gantry unfolds on too many arms and plants you upright in the lab. It sheathes you — ${starterOutfitPhrase()} — with the tenderness of an industrial press, then slaps an invoice against your account and stamps it before you can read the line items: <span class="credits">COMPLIMENTARY</span>. The Architect eats the cost of cloning, tailoring, and incidental resurrection — not out of generosity but because a debt you could die to escape is no leash at all. Balance: <span class="credits">₵${balance}</span>.</span>`);
+    send(`<span class="clone-vat-message">A dressing gantry unfolds on too many arms and plants you upright in the lab. It sheathes you (${starterOutfitPhrase()}) with the tenderness of an industrial press, then slaps an invoice against your account and stamps it before you can read the line items: <span class="credits">COMPLIMENTARY</span>. The Architect eats the cost of cloning, tailoring, and incidental resurrection, not out of generosity but because a debt you could die to escape is no leash at all. Balance: <span class="credits">₵${balance}</span>.</span>`);
     broadcastFn(null, { type: 'player_update', credits: balance }, null, player.id);
   }, VAT_DRESS_MS);
 }
@@ -843,7 +843,7 @@ export async function handlePlayerDeath(player, killer, cause = null) {
   player.offlinePvpTargetId = null;
 
   const vatLine = respawnOverride?.message
-    || `<span class="clone-vat-message">Nothing. Then less than nothing — a dark so total it has weight. Then, without ceremony, you: consciousness arrives the way a switch does, no dimmer and no warning, just ON, a self where a moment ago there was only the Architect's arithmetic.</span>`;
+    || `<span class="clone-vat-message">Nothing. Then less than nothing: a dark so total it has weight. Then, without ceremony, you: consciousness arrives the way a switch does, no dimmer and no warning, just ON, a self where a moment ago there was only the Architect's arithmetic.</span>`;
   broadcastFn(null, {
     type:'player_death',
     message:`\n<span class="death-message">☠ ${msg}${killerMsg}</span>\n${vatLine}`,
@@ -964,7 +964,7 @@ async function ambientTick() {
 const STORM_WEATHER_TYPES = new Set(['thunderstorm', 'storm']);
 
 const THUNDER_MESSAGES = [
-  '<span class="msg-ambient">A crack of thunder splits the air — close, loud, and felt in the chest.</span>',
+  '<span class="msg-ambient">A crack of thunder splits the air, close, loud, and felt in the chest.</span>',
   '<span class="msg-ambient">Thunder rolls across the sky in a long, rumbling wave.</span>',
   '<span class="msg-ambient">A deep boom of thunder rattles the buildings around you.</span>',
   '<span class="msg-ambient">Lightning, then a violent crack of thunder half a second behind it.</span>',
@@ -1254,7 +1254,7 @@ function tempFlavorMessage(tempC, tick) {
       'Your head is starting to throb.',
       'Salt stings your eyes as sweat pours down your face.',
       'Everything smells like hot asphalt and misery.',
-      'You need water — a lot of it, soon.',
+      'You need water, a lot of it, soon.',
     ];
     return msgs[(tick / 5) % msgs.length | 0];
   }
@@ -2147,7 +2147,7 @@ async function rentCollectionTick() {
       await releaseApartment(apt, apt.zone_id);
       broadcastFn(null, {
         type: 'output',
-        message: `<span style="color:var(--red)">EVICTION NOTICE — You couldn't cover the ${cost}₵ rent for <em>${zoneName}</em> in ${buildingName}. Your lease has been terminated and the unit re-listed. Next time, keep credits banked or on hand.</span>`,
+        message: `<span style="color:var(--red)">EVICTION NOTICE: You couldn't cover the ${cost}₵ rent for <em>${zoneName}</em> in ${buildingName}. Your lease has been terminated and the unit re-listed. Next time, keep credits banked or on hand.</span>`,
       }, null, p.id);
       continue;
     }
@@ -2174,7 +2174,7 @@ async function rentCollectionTick() {
       live.credits = Math.max(0, (live.credits || 0) - fromCarried);
       broadcastFn(null, {
         type: 'output',
-        message: `<span style="color:var(--yellow)">RENT COLLECTED — ${cost}₵ deducted for <em>${zoneName}</em> in ${buildingName}. Banked: ${live.bank_credits}₵ · On hand: ${live.credits}₵.</span>`,
+        message: `<span style="color:var(--yellow)">RENT COLLECTED: ${cost}₵ deducted for <em>${zoneName}</em> in ${buildingName}. Banked: ${live.bank_credits}₵ · On hand: ${live.credits}₵.</span>`,
         player_update: { credits: live.credits, bank_credits: live.bank_credits },
       }, null, p.id);
     }

@@ -288,7 +288,7 @@ async function doTag(args, raw, player) {
     return { type: 'output', message: `Which wall? ${wallList(picked.ambiguous)}` };
   }
   if (!picked.wall) {
-    return { type: 'output', message: `Spray on what? ${wallList(walls)}\n<span class="text-dim">tag &lt;direction&gt; &lt;what to write&gt; — or <b>spraycan</b> for the colours</span>` };
+    return { type: 'output', message: `Spray on what? ${wallList(walls)}\n<span class="text-dim">tag &lt;direction&gt; &lt;what to write&gt;, or <b>spraycan</b> for the colours</span>` };
   }
   // `tag north` with nothing to write, holding a can: that IS the request for the
   // can. Opening the dialog here rather than printing a usage line is the whole
@@ -297,10 +297,10 @@ async function doTag(args, raw, player) {
   // only be able to tell you the same thing at the end.
   if (!text) {
     if (await carriedCan(player)) return doSpray(args, `spraycan ${picked.wall.dir}`, player);
-    return { type: 'output', message: `Spray <i>what</i> on ${esc(picked.wall.name)}?\n<span class="text-dim">tag ${picked.wall.dir} &lt;what to write&gt; — or <b>spraycan ${picked.wall.dir}</b> for the colours</span>` };
+    return { type: 'output', message: `Spray <i>what</i> on ${esc(picked.wall.name)}?\n<span class="text-dim">tag ${picked.wall.dir} &lt;what to write&gt;, or <b>spraycan ${picked.wall.dir}</b> for the colours</span>` };
   }
   if (text.length > TAG_MAX_LEN) {
-    return { type: 'output', message: `That's a mural, not a tag. ${TAG_MAX_LEN} characters, tops — you're ${text.length - TAG_MAX_LEN} over.` };
+    return { type: 'output', message: `That's a mural, not a tag. ${TAG_MAX_LEN} characters, tops: you're ${text.length - TAG_MAX_LEN} over.` };
   }
 
   const can = await carriedCan(player);
@@ -398,7 +398,7 @@ async function applyTag(player, wall, text, runs, can) {
   msg += left > 0
     ? `\n<span class="text-dim">The can rattles. Paint for about ${left} more characters.</span>`
     : (can.quantity > 1
-        ? `\n<span class="text-dim">The can hisses empty on the last letter. You drop it and crack the next one — ${can.quantity - 1} left.</span>`
+        ? `\n<span class="text-dim">The can hisses empty on the last letter. You drop it and crack the next one: ${can.quantity - 1} left.</span>`
         : `\n<span class="text-dim">The can hisses empty on the last letter. That was the last of it.</span>`);
   return { type: 'output', message: msg, refresh: true };
 }

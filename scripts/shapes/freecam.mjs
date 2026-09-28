@@ -1094,3 +1094,24 @@ if (cbad) process.exit(1);
   console.log(`  ${sbad ? '✗' : '✓'} freecam surface — which button reaches which control (${sbad} problem(s))`);
   if (sbad) process.exit(1);
 }
+
+// ── THE PITCHED INVERSE ─────────────────────────────────────────────────────
+// `cam.unproj` answered null under `camPitch`, so every sign, stroke and deco quad fell back to the
+// canvas the moment the free camera turned rather than shifted. It is the rotation undone now, and
+// the claim is a round trip: project a world point through a pitched camera, unproject it, land
+// where it started. A wrong sign on either rotation term moves the answer by whole tiles.
+{
+  let worst = 0, n = 0;
+  for (const th of [-1.4, -0.7, -0.2, 0.3, 1.1]) {
+    const cam = makeCam(800, 300, 330, { heading: 37, height: 0.2, eyeH: 0.4, camPitch: th }, null);
+    for (let i = 0; i < 300; i++) {
+      const x = Math.sin(i * 12.9898) * 10, y = Math.cos(i * 78.233) * 10, z = (i % 17) / 4;
+      const p = cam.proj(x, y, z); if (!(p.f > 0.2)) continue;
+      const w = cam.unproj(p, 0); if (!w) { worst = Infinity; break; }
+      worst = Math.max(worst, Math.hypot(w[0] - x, w[1] - y, w[2] - z)); n++;
+    }
+  }
+  const ok = worst < 1e-9 && n > 500;
+  console.log(`  ${ok ? '✓' : '✗'} pitched unproj — ${n} round trips through a rotated camera, worst ${worst.toExponential(1)} tiles`);
+  if (!ok) process.exit(1);
+}

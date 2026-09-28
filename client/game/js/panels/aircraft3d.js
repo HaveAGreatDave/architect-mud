@@ -28,6 +28,15 @@ import { boatGeom } from '../../../shared/boat-house.js';
 import { rasterFaces, blitRaster, depthAt, maskRaster, depthWinAt } from './model-raster.js';
 import { boltBright } from '../../../shared/lightning.js';
 import { paintBolt } from '../../../shared/lightning-draw.js';
+// The geometry primitives every mesh in this file is built from. They live in the shared module
+// because the authored vehicle meshes (content/vehicle_models/mesh_*.json) are compiled from the
+// same functions — see the header there on why "the same functions" is the whole point.
+import {
+  cross3, norm3, lerp3 as _lerp3, addTube, addStrut, pushWheel, addSpat, addFaired, pushPanel,
+  pushCtrlSurface, addMissileBody, ceFoil, cubFoil, CP_TW as _CP_TW, CP_TH as _CP_TH,
+  compileMesh, resolveRotors, wingTipStation, animFacePoints,
+} from '../../../shared/vehicle-mesh.js';
+import { MESH_ROWS } from '../../../shared/vehicle-meshes.js';
 // How far down the doorway a strike falls before it is behind the apron — see drawInspectDoor's
 // bolt reader, which also takes every lateral offset in the tree against this same span.
 const DOOR_BOLT_DROP = 0.66;
@@ -37,7 +46,8 @@ const FINISH_MUL = { gloss: 1.06, satin: 1.0, matte: 0.88, weathered: 0.82 };
 // ── Livery → colour ────────────────────────────────────────────────────────────
 // Resolve a livery into a working palette (splinter camo drags the base toward drab),
 // then answer per-face whether it wears the trim colour and what raw rgb it takes.
-export function liveryPalette(lv) {
+export function liveryPalette(lv, cls = null) {
+  const noLivery = !lv;
   lv = lv || {};
   let base = hex2rgb(lv.base) || [90, 95, 102];
   const trim = hex2rgb(lv.trim) || [138, 144, 153];
@@ -54,8 +64,23 @@ export function liveryPalette(lv) {
   // whether brightwork is polished at all — see faceBaseRgb, where a 0 sends it to the hardware
   // colour instead, which is what a blacked-out rig is.
   const bright = hex2rgb(lv.bright) || null, glow = hex2rgb(lv.glow) || null, glass = hex2rgb(lv.glass) || null;
+  // `factory` — no livery at all, or the 'factory' pattern: an authored mesh wears the colours its
+  // own file paints (see the paint-slot branch in faceBaseRgb). Anything else is a player's paint job,
+  // and the file's slots map onto its base and trim instead.
+  // ⚠ AN EMPTY LIVERY IS NO LIVERY. drawAircraftModel hands `c.livery || {}`, so "nobody painted it"
+  // arrives here as an object with nothing in it; reading only `!lv` turned every authored mesh grey.
+  // ⚠ AND THE SERVER'S UNTOUCHED DEFAULT IS NO LIVERY EITHER. normalizeLivery (plugins/flight/livery.js)
+  // fills an unpainted craft in with LIVERY_DEFAULT — grey base, grey trim, 'bare' — so reading that as
+  // a paint job put every authored slot of a new Drake in stock grey.
+  const stockGrey = (lv.base || '').toLowerCase() === '#5a5f66' && (lv.trim || '').toLowerCase() === '#8a9099'
+    && (!lv.pattern || lv.pattern === 'bare');
+  // ⚠ THE DRAKE'S BARE METAL IS HER OWN PAINT. She has no bare airframe to show: her authored colours
+  // (the mandarin drake, or the chosen factory scheme) ARE her base finish, so 'bare' leaves the file's
+  // slots alone whatever base and trim say, and every other pattern paints over them.
+  const drakeBare = cls === 'drake' && (!lv.pattern || lv.pattern === 'bare');
+  const factory = noLivery || lv.pattern === 'factory' || (!lv.base && !lv.trim && !lv.pattern) || stockGrey || drakeBare;
   return { base, trim, ground, hw, deck, bright, glow, glass, chrome: lv.chrome == null ? 1 : (lv.chrome ? 1 : 0),
-    finish: lv.finish || 'satin', fmul: FINISH_MUL[lv.finish] ?? 1.0, pat };
+    finish: lv.finish || 'satin', fmul: FINISH_MUL[lv.finish] ?? 1.0, pat, factory };
 }
 // ── A STORED PAINT → A LIVERY, ONCE ──────────────────────────────────────────
 // What the booth writes down and what the renderer takes are two different shapes, and the join
@@ -220,6 +245,18 @@ export function faceBaseRgb(face, pal) {
   // identity, which is the whole migration invariant restated in one line.
   if (role === 'glass' && pal.glass) return tintPane(face.tint || GLASS_REF, pal.glass);
   if (role === 'glass' || role === 'window') return face.tint || [14, 26, 36];   // per-face tint override (e.g. the heli's clear fishbowl bubble)
+  // ── A MESH FILE'S PAINT SLOT ─────────────────────────────────────────────────
+  // An authored mesh can wear more than two colours: a face carries the resolved slot from its file's
+  // `paints` table (client/shared/vehicle-mesh.js stamps it). Under the factory scheme the slot's own
+  // colour shows; under a player's livery a slot marked base or trim takes that colour and one marked
+  // fixed keeps its own — a red bill stays red whatever the flanks are painted. Absent on every face
+  // that shipped before mesh files, so nothing else takes this branch. It sits above the hardware
+  // colours on purpose: a painted landing leg is a leg somebody painted.
+  if (face.paint && typeof face.paint === 'object') {
+    const s = face.paint;
+    if (pal.factory || s.livery === 'fixed') return finishCoat(s.rgb, pal, face);
+    return finishCoat(s.livery === 'trim' ? pal.trim : pal.base, pal, face);
+  }
   // ── THE THIRD AND FOURTH COLOURS, AND WHY THEY ARE OPT-IN KEYS ──────────────
   // A truck wears four colours where an aeroplane wears two, and both go through this one function
   // because every renderer of both meshes colours through it. `hw` is the HARDWARE — chassis rails,
@@ -416,7 +453,7 @@ function buildFixedWing(p, detail = 1) {
   };
   // FLAT-BOTTOM HULL (p.bellyFlat, 0…1). A freighter's cargo floor is a low flat deck, and the hull
   // under it is a shallow pan with a hard chine, not a barrel — it's a big part of why an An-124
-  // looks like it's squatting. This needs facets to read: on a 12- or 16-gon the lower half is so
+  // looks like it is squatting. This needs facets to read: on a 12- or 16-gon the lower half is so
   // coarse that flattening it just moves two vertices, so it was never worth having. At 24 it is.
   // Blends the round section toward a constant depth that turns up sharply at the chine.
   const flatK = p.bellyFlat || 0;
@@ -839,20 +876,10 @@ function buildFixedWing(p, detail = 1) {
   return faces;
 }
 
-// A flat lifting panel (wing / stabiliser) given by 4 corners in order
-// [rootLE, tipLE, tipTE, rootTE]. detail 0 (or no thickness) → the original single quad;
-// detail 1 → a thin box: top + bottom skins (split ±th/2 in z) plus leading-edge, tip and
-// trailing-edge strips (the root edge is buried in the fuselage, so no face). Gives the
-// wing real thickness at the cost of +4 faces, only in the full-detail mesh.
-function pushPanel(faces, role, sh, c, th, detail) {
-  if (!detail || !th) { faces.push({ role, sh, p: c }); return; }
-  const up = th / 2;
-  const T = c.map(v => V(v[0], v[1], v[2] + up)), B = c.map(v => V(v[0], v[1], v[2] - up));
-  faces.push({ role, sh: Math.min(1, sh * 1.06), p: T });                 // top skin (brighter)
-  faces.push({ role, sh: sh * 0.7, p: [B[3], B[2], B[1], B[0]] });        // bottom skin (darker, wound the other way)
-  for (const [i, j] of [[0, 1], [1, 2], [2, 3]]) faces.push({ role, sh: sh * 0.85, p: [T[i], T[j], B[j], B[i]] });   // LE · tip · TE
-}
-
+// `pushPanel` (a flat lifting panel, boxed at full detail) and `pushCtrlSurface` (a hinged flap,
+// aileron, elevator or rudder, standing just proud of its parent so the painter's sort has something
+// to be right about) live in client/shared/vehicle-mesh.js and are imported above.
+//
 // ── Control surfaces ─────────────────────────────────────────────────────────────
 // Ailerons + flaps (on the wing trailing edge) and elevators (on the tailplane) are
 // added as thin quads HINGED along a spanwise line just forward of the trailing edge.
@@ -860,31 +887,6 @@ function pushPanel(faces, role, sh, c, th, detail) {
 // geometry stays neutral in the cache (memoised), and each renderer deflects a COPY of
 // the points per-frame from live pilot input via deflectSurface() below. Only the pilot's
 // own external-chase ship passes input, so contacts/hangar/turntable draw them at rest.
-const _lerp3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-
-// One hinged trailing-edge panel. le0/le1 = the parent panel's leading-edge-side points at
-// the surface's inboard/outboard ends; te0/te1 = the trailing-edge points there; `cf` = the
-// surface's chord fraction (how far forward of the TE the hinge sits). Hinge corners sit ON
-// the axis (unmoved by the rotation); the TE corners swing.
-// `axis` is which way the parent panel is thin — 'z' for a wing/tailplane, 'g' for a vertical fin —
-// and `half` is the parent's half-thickness. The surface is emitted as a two-sided plate standing
-// just PROUD of the parent on both faces, never in its plane.
-//
-// This is a z-fighting fix, not decoration. The old single quad floated 0.006 off the panel's MID
-// plane, which buries it inside a wing 0.028 thick and puts it exactly coplanar with a flat fin. Two
-// overlapping faces at the same depth have no stable painter's-algorithm order, so the sort flipped
-// with the camera and the wing tops and fins strobed. Separating them by the real skin thickness
-// gives the sort something to be right about.
-function pushCtrlSurface(faces, role, side, sh, le0, le1, te0, te1, cf, axis = 'z', half = 0.014) {
-  const off = half + 0.004;
-  const bump = (v, s) => axis === 'g' ? [v[0], v[1] + s * off, v[2]] : [v[0], v[1], v[2] + s * off];
-  const h0 = _lerp3(te0, le0, cf), h1 = _lerp3(te1, le1, cf);
-  for (const s of [1, -1]) {
-    const T0 = bump(te0, s), T1 = bump(te1, s), H0 = bump(h0, s), H1 = bump(h1, s);
-    faces.push({ role, defl: role, side, sh: s > 0 ? sh : sh * 0.72,
-      hinge: [H0, H1], p: s > 0 ? [H0, H1, T1, T0] : [T0, T1, H1, H0] });
-  }
-}
 
 // A point on one wing at spanwise fraction u (0 = root rib, 1 = tip) and chordwise edge
 // ('le' or 'te'), on side `s`. Everything that needs to know where the wing IS goes through
@@ -1003,7 +1005,12 @@ export function visorSpecFor(cls) { return (fwParams(cls) || {}).visor || null; 
 // `visorOnly` extends this to anything else that must not exist with the nose home — notably the
 // hinge brackets, which are external structure you only ever see once the joint is broken open. Left
 // drawn on a shut aeroplane they'd be two lumps sitting proud of an otherwise clean crown.
-export function visorHidden(face, t = 0) {
+// ⚠ AND A MESH FACE CAN NAME ITS OWN CHANNEL (`when`): the Drake's saloon exists only while its
+// ramp is down, for exactly the reason above. `ch` is the channel values; a renderer that passes
+// none (the turntable, the hangar, the lowest-point sweep) gets the aircraft buttoned up.
+export function visorHidden(face, t = 0, ch = null) {
+  if (face.whenNot && (ch?.[face.whenNot] ?? 0) > 0.001) return true;
+  if (face.when) return !((ch?.[face.when] ?? 0) > 0.001);
   return (face.visorOnly || face.role === 'interior' || face.role === 'ramp') && !(t > 0.001);
 }
 
@@ -1147,17 +1154,7 @@ function addGearPod(faces, f, g, wz) {
 // ── Shared gear primitives ───────────────────────────────────────────────────────
 // Reused by the per-class gear builders so every craft's gear reads at the same fidelity
 // (detailed rolling tyres, oleo struts, round tubes) while each keeps its own leg style.
-const cross3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const norm3 = (a) => { const L = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / L, a[1] / L, a[2] / L]; };
-
-// A round n-gon tube between two 3D points — skid rails, cross-tubes, tow bars.
-function addTube(faces, a, b, r, role = 'gear', sh = 0.55, sides = 6) {
-  const d = norm3([b[0] - a[0], b[1] - a[1], b[2] - a[2]]);
-  const u = norm3(cross3(d, Math.abs(d[1]) > 0.9 ? [1, 0, 0] : [0, 1, 0])), v = cross3(d, u);
-  const ring = (c) => { const o = []; for (let i = 0; i < sides; i++) { const t = i / sides * Math.PI * 2, cs = Math.cos(t) * r, sn = Math.sin(t) * r; o.push(V(c[0] + u[0] * cs + v[0] * sn, c[1] + u[1] * cs + v[1] * sn, c[2] + u[2] * cs + v[2] * sn)); } return o; };
-  const A = ring(a), B = ring(b);
-  for (let i = 0; i < sides; i++) { const j = (i + 1) % sides; faces.push({ role, sh, p: [A[i], A[j], B[j], B[i]] }); }
-}
+// `addTube`, `addStrut`, `pushWheel` and `addSpat` are in client/shared/vehicle-mesh.js.
 
 // ── ORDNANCE ON THE RACKS ─────────────────────────────────────────────────────
 // A bomb is a body with a rounded nose, a boat-tailed rear and a cruciform tail — and the tail is
@@ -1196,42 +1193,6 @@ function addStores(faces, p) {
       addTube(faces, V(sf + df, 0, sh + rad), V(sf + df * 0.6, 0, -p.fv * 0.92), 0.008, 'strut', 0.6, 4);
     }
   }
-}
-
-// A vertical oleo strut: an n-gon leg from zTop down to zBot, dull cylinder over a bright piston.
-function addStrut(faces, f, g, zTop, zBot, r, sides = 6) {
-  const ring = (z, s) => { const o = []; for (let i = 0; i < sides; i++) { const a = (i + 0.5) / sides * Math.PI * 2; o.push(V(f + Math.cos(a) * r * s, g + Math.sin(a) * r * s, z)); } return o; };
-  const a = ring(zTop, 1), b = ring((zTop + zBot) / 2, 0.85), c = ring(zBot, 0.85);
-  for (let i = 0; i < sides; i++) { const j = (i + 1) % sides; faces.push({ role: 'gear', sh: 0.58, p: [a[i], a[j], b[j], b[i]] }); faces.push({ role: 'gear', sh: 0.9, p: [b[i], b[j], c[j], c[i]] }); }
-}
-
-// A detailed tyre rolling fore-aft, centred at (wf,g,wz): blocky tread band, two sidewalls,
-// bright metal hubcaps. Radius wr, half-width hw, N tread segments.
-function pushWheel(faces, wf, g, wz, wr, hw, N = 12) {
-  const hr = wr * 0.4, g0 = g - hw, g1 = g + hw;
-  const ring = (gg, rad) => { const r = []; for (let i = 0; i < N; i++) { const a = i / N * Math.PI * 2; r.push(V(wf + Math.cos(a) * rad, gg, wz + Math.sin(a) * rad)); } return r; };
-  const outO = ring(g1, wr), outI = ring(g0, wr), hubO = ring(g1, hr), hubI = ring(g0, hr);
-  for (let i = 0; i < N; i++) {
-    const j = (i + 1) % N;
-    faces.push({ role: 'gear', sh: 0.34 + 0.06 * (i % 2), p: [outI[i], outI[j], outO[j], outO[i]] });   // tread
-    faces.push({ role: 'gear', sh: 0.5, p: [outO[i], outO[j], hubO[j], hubO[i]] });                     // outboard sidewall
-    faces.push({ role: 'gear', sh: 0.4, p: [hubI[i], hubI[j], outI[j], outI[i]] });                     // inboard sidewall
-  }
-  faces.push({ role: 'gear', sh: 0.92, p: hubO });
-  faces.push({ role: 'gear', sh: 0.55, p: hubI.slice().reverse() });
-}
-
-// A streamlined teardrop wheel fairing (Cessna 'spat'), body-coloured, open underneath so the
-// tyre pokes out below. `s` stretches its fore-aft length (smaller on the nose wheel).
-// `s` also scales its girth and how high it stands, so a fairing over a big ag tyre actually
-// covers the tyre instead of sitting on it like a cap.
-function addSpat(faces, f, g, wz, s = 1) {
-  const F = V(f + 0.08 * s, g, wz + 0.03 * s), B = V(f - 0.06 * s, g, wz + 0.035 * s), T = V(f + 0.005, g, wz + 0.075 * s),
-    L = V(f + 0.005, g - 0.024 * s, wz + 0.03 * s), R = V(f + 0.005, g + 0.024 * s, wz + 0.03 * s);
-  faces.push({ role: 'nacelle', sh: 0.86, p: [F, R, T] });
-  faces.push({ role: 'nacelle', sh: 0.8, p: [F, T, L] });
-  faces.push({ role: 'nacelle', sh: 0.62, p: [B, T, R] });
-  faces.push({ role: 'nacelle', sh: 0.58, p: [B, L, T] });
 }
 
 // Cessna 172 gear — two splayed leaf-spring main legs (flat bowed blades) with spatted wheels
@@ -1606,18 +1567,8 @@ export function viperXf(v) {
   return [v[0] * VIPER_SCALE, v[1] * VIPER_SCALE, v[2] * VIPER_SCALE];
 }
 
-// A slim exposed MISSILE lying under a wingtip: a body tube, a pointed seeker nose (triangle fan to
-// an apex ahead), and four little tail fins. Reads unmistakably as ordnance on the rail.
-function addMissileBody(faces, fB, fF, g, z) {
-  const r = 0.018;
-  addTube(faces, V(fB, g, z), V(fF, g, z), r, 'nacelle', 0.7, 6);
-  const apex = V(fF + 0.09, g, z);
-  const bs = 6, ringF = [];
-  for (let i = 0; i < bs; i++) { const a = i / bs * Math.PI * 2; ringF.push(V(fF, g + Math.cos(a) * r, z + Math.sin(a) * r)); }
-  for (let i = 0; i < bs; i++) { const j = (i + 1) % bs; faces.push({ role: 'nacelle', sh: 0.82, p: [apex, ringF[i], ringF[j]] }); }   // seeker cone
-  for (const [dg, dh] of [[1, 0], [-1, 0], [0, 1], [0, -1]])   // tail fins
-    faces.push({ role: 'fin', sh: 0.6, p: [V(fB, g + dg * r, z + dh * r), V(fB - 0.03, g + dg * r * 2.1, z + dh * r * 2.1), V(fB + 0.02, g + dg * r * 2.1, z + dh * r * 2.1)] });
-}
+// `addMissileBody` (a slim exposed missile: body tube, seeker cone, four tail fins) is in
+// client/shared/vehicle-mesh.js.
 
 // ── MAYFLY — a CESSNA, built to the Viper's standard ────────────────────────────
 // She used to be fourteen numbers handed to the generic fixed-wing generator, which is how a
@@ -1676,6 +1627,8 @@ const CESSNA_STATIONS = [
 // their hull from FW_PARAMS, and this class has no FW_PARAMS row to reconstruct it from. Reading
 // the same table the geometry came from is what stops the art sliding off the aeroplane.
 export function cessnaSection(f) {
+  const h = meshHull('ultralight');
+  if (h) return h.CS(f);
   const S = CESSNA_STATIONS;
   if (f >= S[0][0]) return { rg: S[0][1], rvT: S[0][2], rvB: S[0][3], cz: S[0][4], boxy: S[0][5] };
   const last = S[S.length - 1];
@@ -1695,15 +1648,7 @@ export function cessnaSection(f) {
 // CE_TAPER0 of the semi-span, then a straight taper to a square-cut tip.
 const CE_SPAN = 1.12, CE_TAPER0 = 0.55, CE_WH = 0.152, CE_DIH = 0.038;
 const CE_LE_R = 0.26, CE_TE_R = -0.10, CE_LE_T = 0.215, CE_TE_T = -0.035;
-// NACA-2412-ish: standard 4-digit thickness distribution at t = 12% over a 2% camber line at 40%
-// chord. Returns [upper, lower] as fractions of chord. x = 0 at the leading edge, 1 at the trailing.
-function ceFoil(x) {
-  const yt = 0.6 * (0.2969 * Math.sqrt(x) - 0.126 * x - 0.3516 * x * x + 0.2843 * x ** 3 - 0.1015 * x ** 4);
-  const m = 0.02, pc = 0.4;
-  const yc = x < pc ? m / (pc * pc) * (2 * pc * x - x * x)
-    : m / ((1 - pc) * (1 - pc)) * ((1 - 2 * pc) + 2 * pc * x - x * x);
-  return [yc + yt, yc - yt];
-}
+// The aerofoil (`ceFoil`, NACA-2412-ish) is in client/shared/vehicle-mesh.js, beside the Cub's.
 // A point on the wing surface: lateral station g, chord fraction x, upper (true) or lower skin.
 // `sec` 0.5 gives the mean line — what the control surfaces and the strut attachments hinge on.
 function cePt(g, x, sec) {
@@ -1715,28 +1660,7 @@ function cePt(g, x, sec) {
   return V(le - x * c, g, z);
 }
 
-// A STREAMLINED member swept between two points: a lens cross-section (rounded nose, tapering
-// tail) carried along a→b with its chord held fore-aft. This is what a lift strut and a gear-leg
-// fairing actually are, and it's why they catch light down one edge instead of reading as pipe.
-function addFaired(faces, a, b, chord, th, role = 'strut', sh = 0.64) {
-  const d = norm3([b[0] - a[0], b[1] - a[1], b[2] - a[2]]);
-  // u = fore-aft, made perpendicular to the member's own axis (a strut lying along f falls back
-  // to lateral, so the section can never collapse to a line).
-  let u = [1 - d[0] * d[0], -d[0] * d[1], -d[0] * d[2]];
-  if (Math.hypot(u[0], u[1], u[2]) < 0.15) u = [0, 1 - d[1] * d[1], -d[1] * d[2]];
-  u = norm3(u);
-  const v = norm3(cross3(d, u));
-  const PROF = [[0.50, 0], [0.18, 0.9], [-0.20, 0.62], [-0.50, 0], [-0.20, -0.62], [0.18, -0.9]];
-  const ring = (c) => PROF.map(([cu, cv]) => V(
-    c[0] + u[0] * cu * chord + v[0] * cv * th,
-    c[1] + u[1] * cu * chord + v[1] * cv * th,
-    c[2] + u[2] * cu * chord + v[2] * cv * th));
-  const A = ring(a), B = ring(b), n = PROF.length;
-  for (let i = 0; i < n; i++) {
-    const j = (i + 1) % n;
-    faces.push({ role, sh: sh * (0.8 + 0.3 * Math.abs(PROF[i][1])), p: [A[i], A[j], B[j], B[i]] });
-  }
-}
+// `addFaired` (a streamlined lift strut or gear-leg fairing) is in client/shared/vehicle-mesh.js.
 
 function buildCessna(detail = 1) {
   const faces = [];
@@ -1998,6 +1922,8 @@ const CUB_STATIONS = [
 // The Cub's hull section at any station, for the same reason cessnaSection is exported: the
 // nose-art wrap paints onto the real flank, and she has no FW_PARAMS row to reconstruct one from.
 export function cubSection(f) {
+  const h = meshHull('grasshopper');
+  if (h) return h.CS(f);
   const S = CUB_STATIONS;
   if (f >= S[0][0]) return { rg: S[0][1], rvT: S[0][2], rvB: S[0][3], cz: S[0][4], boxy: S[0][5] };
   const last = S[S.length - 1];
@@ -2015,12 +1941,7 @@ export function cubSection(f) {
 // Wing: CONSTANT chord tip to tip (no taper at all — that is the planform), square-cut, carried
 // well clear of the crown on the cabin frame. CU_WH is the gap that makes the greenhouse read.
 const CU_SPAN = 1.16, CU_WH = 0.212, CU_DIH = 0.022, CU_LE = 0.30, CU_TE = -0.18;
-// USA-35B-ish: the Mayfly's foil with the underside flattened almost to a plank and a touch more
-// camber up top. Flat-bottomed is the whole look of a Cub wing from below.
-function cubFoil(x) {
-  const [u, l] = ceFoil(x);
-  return [u * 1.06, Math.min(0, l * 0.30)];
-}
+// Her foil (`cubFoil`, USA-35B-ish: flat-bottomed) is in client/shared/vehicle-mesh.js.
 function cuPt(g, x, sec) {
   const a = Math.min(1, Math.abs(g) / CU_SPAN), c = CU_LE - CU_TE, [u, l] = cubFoil(x);
   const z = CU_WH + CU_DIH * a + (sec === 0.5 ? (u + l) / 2 : sec ? u : l) * c;
@@ -2241,6 +2162,9 @@ export const PROP_STATIONS = {
 // on a garage floor, and the shared-camera fit in drawHangarScene reads this to stand back far
 // enough that four of them park in one shot without shoving each other.
 export const MODEL_SCALE = { ultralight: 0.52, prop: 1.0, gunship: 1.05, heavy: 1.7, heli: 0.42, wreck: 0.85, grasshopper: 0.42, locust: 0.40, divebomber: 0.72, truck: 1.15, hydro: 1.0 };
+// A class that only exists as a mesh file carries its fleet-scene scale in `classFacts.modelScale`.
+// `??=`, so a file can never silently resize a class this table already names.
+for (const [id, row] of Object.entries(MESH_ROWS)) if (row.classFacts?.modelScale != null) MODEL_SCALE[id] ??= row.classFacts.modelScale;
 
 // ── Animated prop & rotor blades ────────────────────────────────────────────────
 // The spinning surfaces are an EFFECT LAYER every renderer draws through its OWN
@@ -2254,21 +2178,71 @@ export const MODEL_SCALE = { ultralight: 0.52, prop: 1.0, gunship: 1.05, heavy: 
 // are actually turning → how smeared they read (0 = a stopped/crisp prop, 1 = full motion smear).
 // Split so the own-ship can spin the BLADES up first (spool) and fade the DISC in after (disc),
 // and reverse on shutdown. Contacts pass neither → both fall back to `power` / full smear (old look).
-export function drawRotorFX(ctx, cls, projFn, { spin = 0, power = 0.7, parked = false, disc = null, spool = null, bladeFade = 0, armed = false } = {}) {
+// ⚠ `sink`, WHEN GIVEN, TAKES THE WHOLE ROTOR AWAY FROM THE CANVAS, and `ctx` may then be null. It is
+// `{ poly(pts, rgba), line(pts, rgba, widthPx) }` with every point in MODEL space, so the caller can
+// put the rotor in the depth buffer with the hull: painted on the canvas after the aircraft, a blade
+// that passes behind the fuselage is drawn over it anyway, and so is a building in front of the
+// whole aircraft. Blades, blur disc and hub cap arrive as polygons, the tip ring and the glint as
+// lines. Every piece is translucent, so the caller must depth-TEST them and not write depth.
+// The canvas path is unchanged, and the mesh gate's rotor trace holds it to that.
+let FX_SINK = null;
+export function drawRotorFX(ctx, cls, projFn, opts = {}) {
+  FX_SINK = opts.sink || null;
+  try { drawRotorFXInner(ctx, cls, projFn, opts); } finally { FX_SINK = null; }
+}
+// How a `run` rotor comes up to speed on its channel: a smoothstep, flat at both ends.
+const RUN_EASE = (k) => k * k * (3 - 2 * k);
+function drawRotorFXInner(ctx, cls, projFn, { spin = 0, power = 0.7, parked = false, disc = null, spool = null, bladeFade = 0, armed = false, anim = null } = {}) {
   const dsc = disc != null ? disc : power;      // blur-disc opacity
   const spl = spool != null ? spool : 1;        // blade motion amount
-  if (cls === 'heli') {
-    // Main rotor (f-g plane; matches buildHeli's cf 0.1 / cz 0.34) + tail rotor
-    // (f-h plane on the boom's right side), geared ~5× the main.
-    //
-    // The ARMED heli (Viper) ships double-size, so its anchors and disc radii go through the
-    // SAME viperXf the mesh used — otherwise the discs sit inside a bigger airframe. The disc
-    // AXES need no transform: the mesh is authored level, and any ground/flight attitude is
-    // applied by the caller's projection to mesh and discs alike. Dragonfly is untouched.
-    const P  = armed ? viperXf : (v) => v;      // positions: scale
-    const R  = armed ? VIPER_SCALE : 1;         // radii: scale
-    spinDisc(ctx, projFn, P([0.1, 0, 0.34]), [1, 0, 0], [0, 1, 0], 1.02 * R, spin, dsc, spl, parked, 2, 0.85, bladeFade);
-    spinDisc(ctx, projFn, P([-1.04, 0.07, 0.12]), [1, 0, 0], [0, 0, 1], 0.19 * R, spin * 4.7 + 1.1, dsc, spl, parked, 2, 0.7, bladeFade);
+  // A class drawn from a mesh file carries its rotors in the file (`rotors`: where each disc is,
+  // which plane it turns in, which way, how fast against the shared phase). That is what lets a
+  // coaxial or a ducted pusher exist without another branch here.
+  const rs = rotorsFor(cls, armed);
+  if (rs) {
+    for (const r of rs) {
+      const sp = r.spinMul == null && r.phase == null ? spin : spin * (r.spinMul ?? 1) + (r.phase ?? 0);
+      // ── A SLIDING ROTOR ── (`slide: { ch, by }`). The disc moves by `by` at 1 on its channel, the
+      // way a part's `anim.slide` moves the duct and spinner it turns inside. Same number, both places.
+      const sl = r.slide ? clampN(anim?.[r.slide.ch] ?? 0, 0, 1) : 0;
+      const at = sl ? [r.at[0] + r.slide.by[0] * sl, r.at[1] + r.slide.by[1] * sl, r.at[2] + r.slide.by[2] * sl] : r.at;
+      // ── A ROTOR THAT RUNS ON A CHANNEL ── (`run: <channel>`): stopped at its `phase` angle at 0, and
+      // at 1 turning exactly as it would without the field. In between, the offset from the stop angle
+      // is eased in, and taken modulo one blade step so a blade set never jumps by a whole turn. There is
+      // no state here, so a spool-up this fast aliases rather than accelerates, which reads as a blur.
+      if (r.run) {
+        const e = RUN_EASE(clampN(anim?.[r.run] ?? 0, 0, 1));
+        const n = r.blades, step = Math.PI * 2 / n, a0 = r.phase ?? 0;
+        const d = (((sp - a0) % step) + step * 1.5) % step - step / 2;
+        // A stopped rotor is drawn by the running branch with no disc and no smear, so nothing about
+        // it changes at the moment it starts: only the blade shade eases from parked to its own lead.
+        spinDisc(ctx, projFn, at, r.U, r.V, r.r, a0 + d * e, dsc * e, spl * e, parked, n, 0.95 + (r.lead - 0.95) * e, bladeFade);
+        continue;
+      }
+      // ── A FOLDING ROTOR ── (`fold` on the rotor in the mesh file). Past zero on its channel the
+      // blades are stopped, and they swing the short way round to lie aft together, `spread` degrees
+      // apart, the way a folding rotor stows for fixed-wing flight. From wherever the rotor stopped.
+      const ft = r.fold ? clampN(anim?.[r.fold.ch] ?? 0, 0, 1) : 0;
+      if (ft > 0) {
+        const n = r.blades, step = Math.PI * 2 / n, aft = (r.fold.aft ?? 180) * Math.PI / 180, spr = (r.fold.spread ?? 10) * Math.PI / 180;
+        const angs = [];
+        for (let i = 0; i < n; i++) {
+          const a0 = sp + i * step, a1 = aft + (i - (n - 1) / 2) * spr;
+          const d = ((a1 - a0) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
+          angs.push(a0 + d * ft);
+        }
+        // ⚠ AND IT CAN TUCK: `fold.tuck` is where the hub goes at a full fold, so the stopped blades
+        // come down with a mast that telescopes into the back (the mast is a mesh part sliding on the
+        // same channel, and the two offsets have to be the same number).
+        const tk = r.fold.tuck;
+        const hub = tk ? [at[0] + tk[0] * ft, at[1] + tk[1] * ft, at[2] + tk[2] * ft] : at;
+        spinDisc(ctx, projFn, hub, r.U, r.V, r.r, sp, 0, 0, true, n, r.lead, bladeFade, angs);
+        continue;
+      }
+      spinDisc(ctx, projFn, at, r.U, r.V, r.r, sp, dsc, spl, parked, r.blades, r.lead, bladeFade);
+    }
+  } else if (cls === 'heli') {
+    legacyHeliRotorFX(ctx, projFn, armed, spin, dsc, spl, parked, bladeFade);
   } else {
     // Cessna two-blade nose prop / Twin Otter three-blade wing turboprops. The
     // stations record the spinner apex (ultralight) vs base (prop) — nudge the
@@ -2287,6 +2261,66 @@ export function drawRotorFX(ctx, cls, projFn, { spin = 0, power = 0.7, parked = 
       spinDisc(ctx, projFn, [st[0] + off, st[1], st[2]], [0, 0, 1], [0, 1, 0],
         rad, spin * 2.2 + st[1] * 3, dsc, spl, parked, blades, 0.5, bladeFade);
     }
+  }
+}
+
+// The rotors a class draws from its mesh file, resolved (the file's scale applied), or null for a
+// class with no file or no rotors. Memoised on the file's identity, because this is asked per
+// contact per frame and an override always hands in a new object.
+const _rotorMemo = new WeakMap();
+export function rotorsFor(cls, armed = false) {
+  const id = meshIdFor(cls, armed);
+  if (!id) return null;
+  const row = meshRow(id);
+  if (!_rotorMemo.has(row)) _rotorMemo.set(row, resolveRotors(row));
+  return _rotorMemo.get(row);
+}
+// Does this class hang under a horizontal rotor? What the ground shadow asks, so a rotorcraft
+// throws a disc and a body rather than a Twin Otter's wings.
+export function hasMainRotor(cls) {
+  const rs = rotorsFor(cls, false);
+  if (rs) return rs.some((r) => r.U[0] === 1 && r.V[2] === 0 && r.V[0] === 0);
+  return cls === 'heli';
+}
+// Every drawing call the rotor layer makes for a class, as one string — for the mesh gate, which
+// holds a converted file's rotors to the hardcoded code they replaced. A recording context and a
+// fixed projection, so the trace is a function of the rotors and nothing else.
+function rotorTraceCtx() {
+  let log = '';
+  const rec = (name) => (...a) => { log += name + '(' + a.map((x) => typeof x === 'number' ? x.toPrecision(12) : String(x)).join(',') + ');'; };
+  const ctx = { beginPath: rec('b'), moveTo: rec('m'), lineTo: rec('l'), closePath: rec('c'), fill: rec('f'), stroke: rec('s'), arc: rec('a') };
+  for (const k of ['fillStyle', 'strokeStyle', 'lineWidth']) Object.defineProperty(ctx, k, { set: (v) => { log += k + '=' + v + ';'; } });
+  return { ctx, out: () => log };
+}
+const traceProj = ([f, g, h]) => ({ sx: 200 + f * 90 + g * 60, sy: 150 - h * 90 + g * 20 + f * 10 });
+export function rotorTrace(cls, st = {}) {
+  const t = rotorTraceCtx();
+  drawRotorFX(t.ctx, cls, traceProj, { power: 0.7, ...st });
+  return t.out();
+}
+export function rotorTraceLegacy(cls, st = {}) {
+  const t = rotorTraceCtx();
+  const was = _legacyMeshes;
+  _legacyMeshes = true;
+  try { drawRotorFX(t.ctx, cls, traceProj, { power: 0.7, ...st }); } finally { _legacyMeshes = was; }
+  return t.out();
+}
+
+// What the heli branch of drawRotorFX was before the rotors moved into the mesh files. Kept for
+// `setLegacyMeshes(true)` and for the gate's trace comparison until the files have shipped.
+function legacyHeliRotorFX(ctx, projFn, armed, spin, dsc, spl, parked, bladeFade) {
+  {
+    // Main rotor (f-g plane; matches buildHeli's cf 0.1 / cz 0.34) + tail rotor
+    // (f-h plane on the boom's right side), geared ~5× the main.
+    //
+    // The ARMED heli (Viper) ships double-size, so its anchors and disc radii go through the
+    // SAME viperXf the mesh used — otherwise the discs sit inside a bigger airframe. The disc
+    // AXES need no transform: the mesh is authored level, and any ground/flight attitude is
+    // applied by the caller's projection to mesh and discs alike. Dragonfly is untouched.
+    const P  = armed ? viperXf : (v) => v;      // positions: scale
+    const R  = armed ? VIPER_SCALE : 1;         // radii: scale
+    spinDisc(ctx, projFn, P([0.1, 0, 0.34]), [1, 0, 0], [0, 1, 0], 1.02 * R, spin, dsc, spl, parked, 2, 0.85, bladeFade);
+    spinDisc(ctx, projFn, P([-1.04, 0.07, 0.12]), [1, 0, 0], [0, 0, 1], 0.19 * R, spin * 4.7 + 1.1, dsc, spl, parked, 2, 0.7, bladeFade);
   }
 }
 
@@ -2311,7 +2345,7 @@ export function drawCockpitProp(ctx, cls, { cx, cy, rad, spin = 0, disc = 0, spo
 // One spinning disc: centre C, two unit axes U/V spanning its plane (model space), radius r.
 // `disc` = blur-disc opacity, `spool` = blade motion amount (see drawRotorFX). `lead` is the
 // front blade's opacity (helis read solid, props smear).
-function spinDisc(ctx, projFn, C, U, V, r, spin, disc, spool, parked, blades, lead, bladeFade = 0) {
+function spinDisc(ctx, projFn, C, U, V, r, spin, disc, spool, parked, blades, lead, bladeFade = 0, angs = null) {
   const at = (a, rad, wPerp) => {   // point at polar (a, rad) offset wPerp across the blade
     const ca = Math.cos(a), sa = Math.sin(a);
     return projFn([
@@ -2319,6 +2353,14 @@ function spinDisc(ctx, projFn, C, U, V, r, spin, disc, spool, parked, blades, le
       C[1] + (U[1] * ca + V[1] * sa) * rad + (V[1] * ca - U[1] * sa) * wPerp,
       C[2] + (U[2] * ca + V[2] * sa) * rad + (V[2] * ca - U[2] * sa) * wPerp]);
   };
+  if (FX_SINK) {
+    const mdl = (a, rad, wPerp) => {
+      const ca = Math.cos(a), sa = Math.sin(a);
+      return [0, 1, 2].map((k) => C[k] + (U[k] * ca + V[k] * sa) * rad + (V[k] * ca - U[k] * sa) * wPerp);
+    };
+    sinkDisc(at, mdl, r, spin, disc, spool, parked, blades, lead, bladeFade, angs);
+    return;
+  }
   const blade = (a, fill) => {   // tapered quad, root → tip
     const q = [at(a, r * 0.12, r * 0.085), at(a, r, r * 0.045), at(a, r, -r * 0.045), at(a, r * 0.12, -r * 0.085)];
     if (q.some(p => !p)) return;
@@ -2331,7 +2373,7 @@ function spinDisc(ctx, projFn, C, U, V, r, spin, disc, spool, parked, blades, le
   const rpx = Math.hypot(tip.sx - hub.sx, tip.sy - hub.sy);   // screen radius → hub dot size
   const step = Math.PI * 2 / blades;
   if (parked) {   // engines off: crisp dark stopped blades on a small hub cap
-    for (let i = 0; i < blades; i++) blade(spin + i * step, 'rgba(38,43,49,0.95)');
+    for (let i = 0; i < blades; i++) blade(angs ? angs[i] : spin + i * step, 'rgba(38,43,49,0.95)');
     // A tiny centre cap only — sized off the BLADE, not the whole rotor span, and capped in px,
     // so it never balloons into a flat screen-space "ball" that reads as a floating sphere when
     // the disc foreshortens edge-on. The real rotor head is 3D geometry on the mesh below.
@@ -2379,6 +2421,45 @@ function spinDisc(ctx, projFn, C, U, V, r, spin, disc, spool, parked, blades, le
     ctx.beginPath();
     for (let i = 0; i <= 4; i++) { const q = at(spin * 1.3 + i * 0.14, r * 0.99, 0); if (!q) return; i === 0 ? ctx.moveTo(q.sx, q.sy) : ctx.lineTo(q.sx, q.sy); }
     ctx.strokeStyle = `rgba(240,248,255,${dFade * (0.2 + disc * 0.25)})`; ctx.lineWidth = 1.4; ctx.stroke();
+  }
+}
+// The disc spinDisc paints, handed to FX_SINK in model space instead. Every size, colour and alpha is
+// the canvas path's own, in the same order, so the two pictures differ only in what can hide them.
+// `at` is still needed for the screen radius, which sets the disc's segment count and caps the hub.
+// The hub dot is a screen circle on the canvas and a cap in the disc's own plane here, at the radius
+// the dot is drawn at.
+function sinkDisc(at, mdl, r, spin, disc, spool, parked, blades, lead, bladeFade, angs) {
+  const hub = at(0, 0, 0), tip = at(0, r, 0);
+  const rpx = hub && tip ? Math.hypot(tip.sx - hub.sx, tip.sy - hub.sy) : 0;
+  const step = Math.PI * 2 / blades;
+  const blade = (a, fill) => FX_SINK.poly([mdl(a, r * 0.12, r * 0.085), mdl(a, r, r * 0.045), mdl(a, r, -r * 0.045), mdl(a, r * 0.12, -r * 0.085)], fill);
+  const ring = (n, rad) => { const out = []; for (let i = 0; i < n; i++) out.push(mdl(i / n * Math.PI * 2, rad, 0)); return out; };
+  const cap = (frac, maxPx, fill) => {
+    const px = rpx > 0 ? Math.max(1, Math.min(rpx * frac, maxPx)) : r * frac;
+    FX_SINK.poly(ring(8, rpx > 0 ? r * px / rpx : px), fill);
+  };
+  if (parked) {
+    for (let i = 0; i < blades; i++) blade(angs ? angs[i] : spin + i * step, 'rgba(38,43,49,0.95)');
+    cap(0.03, 4, 'rgba(30,34,40,0.95)');
+    return;
+  }
+  const dFade = clampN(disc * 3.5, 0, 1);
+  if (dFade > 0.01) {
+    const NS = Math.max(16, Math.min(96, Math.ceil(Math.PI * Math.sqrt(Math.max(1, rpx) / 0.8))));
+    const rim = ring(NS, r);
+    FX_SINK.poly(rim, `rgba(205,216,226,${dFade * (0.06 + disc * 0.09)})`);
+    FX_SINK.line([...rim, rim[0]], `rgba(228,238,246,${dFade * (0.14 + disc * 0.16)})`, 1);
+  }
+  const bladeVis = 1 - bladeFade * clampN((disc - 0.5) / 0.45, 0, 1);
+  const ghosts = spool > 0.55 ? 3 : spool > 0.18 ? 2 : 1;
+  if (bladeVis > 0.02) for (let i = 0; i < blades; i++) {
+    for (let k = 0; k < ghosts; k++) blade(spin + i * step - k * 0.17 * spool, `rgba(36,41,47,${lead * bladeVis * Math.pow(0.42, k)})`);
+  }
+  cap(0.045, 6, 'rgba(30,34,40,0.9)');
+  if (dFade > 0.05) {
+    const g = [];
+    for (let i = 0; i <= 4; i++) g.push(mdl(spin * 1.3 + i * 0.14, r * 0.99, 0));
+    FX_SINK.line(g, `rgba(240,248,255,${dFade * (0.2 + disc * 0.25)})`, 1.4);
   }
 }
 
@@ -2501,7 +2582,7 @@ const FW_DEFAULT = {
     //
     // THE NOSE IS THE WHOLE POINT OF THE TYPE, and it is not a cone. Ahead of the flight deck the
     // ROOF falls away hard while the body stays wide (noseVTaper) — that shed IS the cargo visor,
-    // and it's why the aeroplane looks like it's frowning — but it bottoms out at noseVFloor rather
+    // and it's why the aeroplane looks like it is frowning — but it bottoms out at noseVFloor rather
     // than tapering to a slit, because what it ends in is a fat ROUND radome (noseCowl), not a
     // point. The centreline droops with it (noseZ), spent early (noseDroopK < 1) so the drop lands
     // on the visor and never tips the flight deck down with it. Result: a level cockpit sitting up
@@ -2615,6 +2696,9 @@ const FW_PARAMS = FW_ROWS;
 // floating beside them. Mirror g for the port tip. Uses the same param fallback as the mesh
 // (unknown → prop). Helis have no fixed wings → null.
 export function wingtipStation(cls) {
+  // A mesh file says where its lamps are (or that it has none) — see meshNavLamp.
+  const ml = meshNavLamp(cls);
+  if (ml !== undefined) return ml;
   if (cls === 'heli') return null;
   // A TRUCK HAS NO WINGS, and without this line it got a Twin Otter's — the fall-through below is
   // `FW_PARAMS[cls] || FW_PARAMS.prop`, so the nav lamps were hung at the tips of a wing that is not
@@ -2790,6 +2874,9 @@ function truckLampGeom(S) {
 // sits flat on its skids. Keep this in step with the `groundPitch` in flight-model.js — the sim
 // flies the same stance, and these are the parked renderers' version of it.
 export function groundPitchFor(cls, armed = false) {
+  // A mesh file carries its own stance, and the Viper's is on her file rather than on a class name.
+  const mid = meshIdFor(cls, armed);
+  if (mid && meshRow(mid).groundPitch != null) return meshRow(mid).groundPitch;
   if (cls === 'heli') return armed ? VIPER_GROUND_PITCH : 0;
   // The Cub's stance came off her FW_PARAMS row until she was promoted to her own builder; hers is
   // now a named export beside the mesh, the way the Viper's is. Miss this and a taildragger renders
@@ -2957,7 +3044,12 @@ export function aircraftFaces(cls, detail = 1, armed = false, variant = '') {
   //
   // The boat arm asks the TABLE rather than naming a hull, so a second hull is one JSON file and no
   // edit here. The id spaces cannot collide — the schema's VEHICLE_IDS is what allots them.
-  const faces = cls === 'truck' ? buildTruck(variant || 'hauler', detail)
+  // An authored mesh answers first, so a class drawn from a mesh file can never fall through to the
+  // Twin Otter. The heli arm below is what `setLegacyMeshes(true)` reaches, for the A/B.
+  const mid = meshIdFor(cls, armed);
+  // A mesh's `variant` is a paint job from its own `schemes` (the Drake's four).
+  const faces = mid ? compileMesh(meshRow(mid), { detail, scheme: variant || null }).faces
+    : cls === 'truck' ? buildTruck(variant || 'hauler', detail)
     : cls === 'heli' ? (armed ? buildAttackHeli() : buildHeli())
     : cls === 'ultralight' ? buildCessna(detail)
     : cls === 'grasshopper' ? buildCub(detail)
@@ -2992,6 +3084,131 @@ export function aircraftFaces(cls, detail = 1, armed = false, variant = '') {
   }
   return faces;
 }
+// ── AUTHORED MESHES ───────────────────────────────────────────────────────────
+// A class drawn from a mesh file (content/vehicle_models/mesh_*.json, baked to vehicle-meshes.js).
+// `armedMesh` on the unarmed file names what the class draws with hardpoints, so the Dragonfly's
+// file is what says the Viper is a different airframe; a mesh with no `armedMesh` draws armed or
+// not. A named armed mesh that is not authored yet answers null, which leaves the class on its
+// builder rather than drawing the wrong aircraft.
+//
+// ⚠ THE OVERRIDE IS THE MODELSHOP'S, AND IT REPLACES THE WHOLE FILE. `setVehicleParams` MERGES a
+// patch onto a row, which for a parts list would bring back a part the editor had just deleted.
+// A design-time seam like that one: it lives in one tab and holds nothing durable.
+const _meshOverride = new Map();
+let _legacyMeshes = false;
+function meshRow(id) { return _meshOverride.get(id) || MESH_ROWS[id] || null; }
+export function meshIdFor(cls, armed = false) {
+  if (_legacyMeshes) return null;
+  const base = meshRow(cls);
+  if (!base) return null;
+  if (armed && base.armedMesh) return meshRow(base.armedMesh) ? base.armedMesh : null;
+  return cls;
+}
+export function meshParams(id) { return meshRow(id); }
+export function meshIds() { return [...new Set([...Object.keys(MESH_ROWS), ..._meshOverride.keys()])]; }
+export function setMeshOverride(id, params) {
+  if (params == null) _meshOverride.delete(id); else _meshOverride.set(id, params);
+  clearVehicleFacesCache();
+}
+// Draw every meshed class from its old builder instead: the A/B for a conversion, and the way back
+// if a file ever turns out wrong in a way the gate cannot see. The rotor FX follow it.
+export function setLegacyMeshes(on) { _legacyMeshes = !!on; clearVehicleFacesCache(); }
+export function legacyMeshesOn() { return _legacyMeshes; }
+function findPart(parts, pred) {
+  for (const p of parts || []) {
+    if (pred(p)) return p;
+    const q = p.parts && findPart(p.parts, pred);
+    if (q) return q;
+  }
+  return null;
+}
+// ── The hull the nose art wraps onto ──
+// A mesh file names the loft that is its fuselage (`hull`), and the decal wrap reads that loft's
+// stations with the same interpolation the Cessna and Cub tables had — so a hull edited in the
+// Modelshop takes its nose art with it. A file with no `hull` keeps the old behaviour.
+const _hullMemo = new WeakMap();
+function sectionFnOf(loft) {
+  const S = loft.stations.map((s) => [s.f, s.rg, s.rvT ?? s.rv, s.rvB ?? s.rv, s.cz,
+    s.boxy ?? (loft.exp ? (1 - loft.exp[0]) / 0.55 : 0)]);
+  return (f) => {
+    if (f >= S[0][0]) return { rg: S[0][1], rvT: S[0][2], rvB: S[0][3], cz: S[0][4], boxy: S[0][5] };
+    const last = S[S.length - 1];
+    if (f <= last[0]) return { rg: last[1], rvT: last[2], rvB: last[3], cz: last[4], boxy: last[5] };
+    for (let i = 0; i < S.length - 1; i++) {
+      const a = S[i], b = S[i + 1];
+      if (f <= a[0] && f >= b[0]) {
+        const t = (a[0] - f) / (a[0] - b[0] || 1), L = (x, y) => x + (y - x) * t;
+        return { rg: L(a[1], b[1]), rvT: L(a[2], b[2]), rvB: L(a[3], b[3]), cz: L(a[4], b[4]), boxy: L(a[5], b[5]) };
+      }
+    }
+    return { rg: last[1], rvT: last[2], rvB: last[3], cz: last[4], boxy: last[5] };
+  };
+}
+export function meshHull(cls) {
+  const id = meshIdFor(cls, false);
+  const row = id && meshRow(id);
+  if (!row || !row.hull) return null;
+  if (_hullMemo.has(row)) return _hullMemo.get(row);
+  const loft = findPart(row.parts, (p) => p.kind === 'loft' && p.name === row.hull);
+  const h = loft ? { noseF: loft.stations[0].f, CS: sectionFnOf(loft) } : null;
+  _hullMemo.set(row, h);
+  return h;
+}
+// The starboard nav lamp a mesh file declares: `navLamps: null` for none, `{ wing: '<part name>' }`
+// for mid-chord at that wing's tip rib, or a literal [f, g, h]. `undefined` means the file says
+// nothing, and wingtipStation falls back to what it did before there were files.
+function meshNavLamp(cls) {
+  const id = meshIdFor(cls, false);
+  const row = id && meshRow(id);
+  if (!row || row.navLamps === undefined) return undefined;
+  const nl = row.navLamps;
+  if (nl === null) return null;
+  if (Array.isArray(nl)) return nl;
+  const w = nl.wing && findPart(row.parts, (p) => p.kind === 'wing' && p.name === nl.wing);
+  return w ? wingTipStation(w) : undefined;
+}
+// The lamps a mesh file mounts on its own skin: `lamps: [{ at: [f,g,h], n: [nf,ng,nh], rgb, kind }]`,
+// kind 'steady' | 'strobe' | 'beacon'. For a hull with no wingtips (the Drake), where the generic
+// strobe/beacon stations land inside the body and shine through it. `n` is the outward normal, so
+// the renderer can hide a lamp on the far side. Null when the file declares none.
+export function meshLamps(cls) {
+  const id = meshIdFor(cls, false);
+  const row = id && meshRow(id);
+  return (row && Array.isArray(row.lamps) && row.lamps.length) ? row.lamps : null;
+}
+// A moving part at its default pose, for the renderers here that take no channel values (the
+// turntable, the hangar floor): a parked Drake stands with its wings folded, not spread.
+const poseAtRest = (f) => (f.anim ? { ...f, p: animFacePoints(f, null) } : f);
+// The hangar's wreck: the mesh file, or its old builder under the legacy switch.
+function wreckFaces() { return !_legacyMeshes && meshRow('wreck') ? meshFacesById('wreck', 1) : buildWreck(); }
+
+// A mesh by id at a detail, whatever class binds it — for the Modelshop and the gates, which name a
+// file rather than a class. Memoised on the row's identity, which an override always replaces.
+const _byId = new WeakMap();
+export function meshFacesById(id, detail = 1) {
+  const row = meshRow(id);
+  if (!row) return null;
+  let m = _byId.get(row);
+  if (!m) { m = {}; _byId.set(row, m); }
+  return m[detail] || (m[detail] = compileMesh(row, { detail }).faces);
+}
+
+// ── THE FIVE BUILDERS THE MESH FILES REPLACED ─────────────────────────────────
+// The Dragonfly, the Viper, the Mayfly, the Grasshopper and the wreck were drawn in code; they are
+// authored as mesh files now (content/vehicle_models/mesh_*.json). The builders stay reachable
+// through here until the files have shipped, for two readers only: the mesh gate, which holds each
+// file to what its builder drew, and the Modelshop's A/B. Nothing that renders calls this.
+export function legacyMeshFaces(id, detail = 1) {
+  switch (id) {
+    case 'heli': return buildHeli();
+    case 'heli_armed': return buildAttackHeli();
+    case 'ultralight': return buildCessna(detail);
+    case 'grasshopper': return buildCub(detail);
+    case 'wreck': return buildWreck();
+    default: return null;
+  }
+}
+
 // Drop every memoised mesh. Called only by the parameter overrides above — a scene never needs
 // this, because geometry is static for as long as the table is.
 export function clearVehicleFacesCache() {
@@ -3158,6 +3375,12 @@ function buildBoat(id = 'hydro', detail = 1) {
   const PIPE = [224, 231, 240];      // zoomies, chromed
   const RUBBER = [30, 32, 36];
   const PKB = (t) => (t === CHROME ? 'bright' : t === ACCENT ? 'glow' : null);
+  // What each surface is MADE of, for the reflection pass (windshield.js metalKOf reads `mk`). A boat
+  // is gelcoat, chrome, cast iron and glass, and one flat finish across all four is what made the
+  // hull read as a painted block. Positive is a metal (tinted mirror), negative a clear coat.
+  const MKB = (t, role) => (t === CHROME || t === POLISH || t === PIPE ? 0.92 : t === BLOCK ? 0.38
+    : t === RUBBER || t === DARK ? -0.08 : t === ACCENT ? 0 : role === 'body' || role === 'deck' ? -0.34 : undefined);
+  const tag = (q, role, tint) => { const m = MKB(tint, role); if (m !== undefined) q.mk = m; return q; };
 
   // A quad with its part id and the centre backface culling measures "outward" from.
   // ⚠ `cen` GOES ON THE CENTRELINE FOR A HULL PANEL, not at the panel's own centroid. The renderer
@@ -3166,7 +3389,7 @@ function buildBoat(id = 'hydro', detail = 1) {
   const face = (p, sh, cen, role = 'body', tint = null) => {
     const q = { role, sh, p: p.map((v) => V(v[0], v[1], v[2])), part: ++partSeq, cen };
     if (tint) { q.tint = tint; const k = PKB(tint); if (k) q.pk = k; }
-    faces.push(q);
+    faces.push(tag(q, role, tint));
   };
   // A run of quads sharing one part id — a lofted panel is ONE object, and giving each of its
   // quads a part of its own is what makes a hull flash as the camera orbits.
@@ -3175,7 +3398,7 @@ function buildBoat(id = 'hydro', detail = 1) {
     for (const p of quads) {
       const q = { role, sh, p: p.map((v) => V(v[0], v[1], v[2])), part, cen };
       if (tint) { q.tint = tint; const k = PKB(tint); if (k) q.pk = k; }
-      faces.push(q);
+      faces.push(tag(q, role, tint));
     }
   };
   const box = (f0, f1, w, z0, z1, role = 'body', tint = null, gc = 0) => {
@@ -3184,7 +3407,7 @@ function buildBoat(id = 'hydro', detail = 1) {
     const B = [V(f1, gl, z0), V(f1, gr, z0), V(f1, gr, z1), V(f1, gl, z1)];
     const part = ++partSeq;
     const cen = [(f0 + f1) / 2, gc, (z0 + z1) / 2];
-    const quad = (p, sh) => { const q = { role, sh, p, part, cen }; if (tint) { q.tint = tint; const k = PKB(tint); if (k) q.pk = k; } faces.push(q); };
+    const quad = (p, sh) => { const q = { role, sh, p, part, cen }; if (tint) { q.tint = tint; const k = PKB(tint); if (k) q.pk = k; } faces.push(tag(q, role, tint)); };
     quad([A[3], A[2], B[2], B[3]], 1.00);
     quad([A[0], B[0], B[1], A[1]], 0.42);
     quad([A[0], A[3], B[3], B[0]], 0.72);
@@ -3214,7 +3437,7 @@ function buildBoat(id = 'hydro', detail = 1) {
       const sh = 0.52 + 0.46 * Math.max(0, Math.cos((i / n) * Math.PI * 2 - Math.PI / 2));
       const q = { role, sh, p: [A[i], A[j], B[j], B[i]], part, cen };
       if (tint) { q.tint = tint; const k = PKB(tint); if (k) q.pk = k; }
-      faces.push(q);
+      faces.push(tag(q, role, tint));
     }
   };
 
@@ -5298,7 +5521,9 @@ export function glassSheen(ctx, pts) {
 // The Viper's frame stations mirror its mesh's STATION_U/GLAZE so a mullion always lands on a
 // real facet seam; the fixed-wing bubbles unwrap the same way (segment → U, arc → V), so the
 // same spec shape drives both.
-export const CP_TW = 512, CP_TH = 256;
+// The numbers live in client/shared/vehicle-mesh.js, because an authored mesh's glazed facets carry
+// UVs in these units and the compiler there has to agree with the painter here.
+export const CP_TW = _CP_TW, CP_TH = _CP_TH;
 
 // Per-airframe canopy specs. Each is the same five things — the glass wash, who's inside, the
 // panel glow, the specular rake, and the frame — so a new airframe is a data entry, not code.
@@ -5344,14 +5569,14 @@ const CANOPY_ART = {
     crew: [{ u: 0.30, v: 0.08, sc: 0.85, hair: 'rgba(58,44,36,0.9)' }, { u: 0.30, v: 0.92, sc: 0.85, hair: 'rgba(30,32,38,0.9)' }],
     glow: { u: [0.05, 0.12], col: '120,190,150', a: 0.16, r: 56 },
     spec: { band: [0.0, 1.0], streaks: [[0.06, 30, 0.20], [0.13, 20, 0.13]] },   // sun rake across the windscreen U
-    frame: { col: 'rgba(224,226,230,0.92)', lit: 'rgba(255,255,255,0.5)',   // painted white cabin frames, not gunmetal
+    frame: { col: 'rgba(34,38,44,0.9)', lit: 'rgba(140,150,160,0.25)',   // dark rubber window seals: white edging read as a drawn outline round every pane
       // Posts on the mesh's own STATION_U seams: the windscreen base (0), the beefy A-pillar where
       // the screen meets the cabin (0.18), the door's aft post (0.66) and the front edge of the
       // rear quarter light (0.74). Between those last two the HULL is unglazed, so the frame here
       // is only the edging on either side of a real painted post — don't widen it into a fake one.
-      posts: [[0.00, 7], [0.18, 11], [0.66, 6], [0.74, 6], [1.00, 7]],
-      sills: [[1 / 6, 6], [5 / 6, 6]],   // the window line — a real facet seam (k=1 and k=5 on the ring)
-      mid: 5, edge: 11 },   // mid = the windscreen centre post; only the screen glazes the crown, so it shows there alone
+      posts: [[0.00, 7], [0.26, 11], [0.66, 6], [0.74, 6], [0.86, 7]],   // 0.26: the A-pillar, where the screen ends at f 0.35; 0.86: the rear window ends at the f 0 → -0.12 bay
+      sills: [[2 / 6, 6], [4 / 6, 6]],   // the TOP of the side glass (it runs k 0-1 and k 4-5); a line at k=1 cut every window in half
+      mid: 0, edge: 11 },   // mid 0: a 172's windscreen is one pane, no centre post
   },
   // Mule — a Twin Otter FLIGHT DECK: a working commercial cockpit. Darker green-tinted glass than
   // the Mayfly, chunky dark frames, two pilots abreast, panel glow up the windscreen, and wipers
@@ -5521,6 +5746,20 @@ const CANOPY_ART = {
       shieldV: [[0.00, 0.20]], deckU: 1, browV: [[1.00, 0.86]],
       extra: ['glareshield', 'wipers', 'brow'] },
   },
+  // Drake — the pilot sits in the EYE. One big smoked window a side, mapped from the middle of this
+  // sheet (U 0.25–0.75, so the pilot is not stretched) with forward toward low U and up toward low V;
+  // the frame round it is geometry on the mesh, so nothing is painted at the sheet's edge.
+  drakeeye: {
+    wash: [[0.00, 'rgba(18,14,10,0.88)'], [0.26, 'rgba(40,32,24,0.66)'], [0.50, 'rgba(118,104,80,0.30)'],
+           [0.74, 'rgba(40,32,24,0.66)'], [1.00, 'rgba(18,14,10,0.88)']],
+    crew: [{ u: 0.5, v: 0.54, sc: 3.0, visor: 'rgba(240,178,70,0.62)', hair: 'rgba(28,24,20,0.94)' }],
+    glow: { u: [0.36], col: '255,196,120', a: 0.2, r: 64 },
+    spec: { band: [0.0, 0.42], streaks: [[0.42, 26, 0.18], [0.58, 14, 0.1]] },
+    frame: { col: 'rgba(0,0,0,0)', lit: 'rgba(0,0,0,0)', posts: [], sills: [], hairs: [], mid: 0, edge: 1 },
+    // A round gauge on the dash showing low in the forward corner, which is the duck's iris from outside
+    // (the pilot still sits behind it). Forward is low U and up is low V on this sheet.
+    iris: { u: 0.35, v: 0.6, r: 32 },
+  },
 };
 
 const _canopyTex = {};
@@ -5629,6 +5868,23 @@ export function canopyTex(art = 'viper') {
     const cx = u * W, r = S.glow.r || 70, hg = g.createRadialGradient(cx, H / 2, 4, cx, H / 2, r);
     hg.addColorStop(0, `rgba(${S.glow.col},${S.glow.a})`); hg.addColorStop(1, `rgba(${S.glow.col},0)`);
     g.fillStyle = hg; g.fillRect(cx - r, 0, r * 2, H);
+  }
+
+  // The Drake's iris is a gauge on the dash, seen through the glass from outside: a brass bezel, a
+  // dark lit face and a needle. Read from outside it is the duck's iris; it is also just what is in
+  // there. Before the specular, so the glass's own streaks still rake across it.
+  if (S.iris) {
+    const { u, v, r } = S.iris, ix = u * W, iy = v * H;
+    const rim = g.createLinearGradient(ix - r, iy - r, ix + r, iy + r);
+    rim.addColorStop(0, 'rgba(236,196,110,0.95)'); rim.addColorStop(1, 'rgba(120,84,36,0.95)');
+    g.fillStyle = rim; g.beginPath(); g.arc(ix, iy, r, 0, 7); g.fill();
+    const face = g.createRadialGradient(ix, iy, 1, ix, iy, r * 0.8);
+    face.addColorStop(0, 'rgba(34,70,52,0.97)'); face.addColorStop(1, 'rgba(10,20,16,0.97)');
+    g.fillStyle = face; g.beginPath(); g.arc(ix, iy, r * 0.8, 0, 7); g.fill();
+    g.strokeStyle = 'rgba(140,255,190,0.55)'; g.lineWidth = 1.2;
+    for (let i = 0; i < 8; i++) { const a = -2.3 + i * 0.66; g.beginPath(); g.moveTo(ix + Math.cos(a) * r * 0.62, iy + Math.sin(a) * r * 0.62); g.lineTo(ix + Math.cos(a) * r * 0.74, iy + Math.sin(a) * r * 0.74); g.stroke(); }
+    g.strokeStyle = 'rgba(255,236,190,0.95)'; g.lineWidth = 2; g.beginPath(); g.moveTo(ix, iy); g.lineTo(ix + Math.cos(-0.7) * r * 0.62, iy + Math.sin(-0.7) * r * 0.62); g.stroke();
+    g.fillStyle = 'rgba(255,255,255,0.85)'; g.beginPath(); g.arc(ix - r * 0.32, iy - r * 0.34, r * 0.16, 0, 7); g.fill();
   }
 
   // 3) Specular: hard diagonal streaks raking across the greenhouse, the way a low sun catches
@@ -5808,8 +6064,11 @@ export function drawNoseArt(ctx, proj, cls, lv, occluders = null, near = MODEL_N
   // A class whose hull is a TABLE rather than a formula (the Cessna) serves its own section, so the
   // wrap below reads the geometry the mesh was skinned from instead of reconstructing a shape this
   // aeroplane doesn't have. Everything else keeps the parametric reconstruction unchanged.
-  const CS = cls === 'ultralight' ? cessnaSection : cls === 'grasshopper' ? cubSection : null;
-  const noseF = cls === 'ultralight' ? 0.72 : cls === 'grasshopper' ? 0.80 : p.noseF;
+  // A mesh file that names its fuselage loft (`hull`) serves the section from that loft, so art on an
+  // authored airframe wraps its real hull and follows an edit to it.
+  const hull = meshHull(cls);
+  const CS = hull ? hull.CS : cls === 'ultralight' ? cessnaSection : cls === 'grasshopper' ? cubSection : null;
+  const noseF = hull ? hull.noseF : cls === 'ultralight' ? 0.72 : cls === 'grasshopper' ? 0.80 : p.noseF;
   const reach = id === 'sharkmouth' || id === 'flames';
   const fF = reach ? noseF * 0.9 : 0.64, fR = reach ? 0.06 : 0.18;   // forward-fuselage extent (front = nose)
   const fr = p.fr, fv = p.fv, shapeExp = 1 - (p.boxy || 0) * 0.55;
@@ -6970,7 +7229,7 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
   // `variant` is the ground-vehicle channel (THE LONG HAUL) — which of the four trucks, and
   // whether a box is on the back. Every aircraft caller passes nothing and is unaffected; the
   // depot's turntable, walkaround and bench hero shot all ride this one argument.
-  const faces = wreck ? buildWreck() : aircraftFaces(cls, 1, armed, variant);
+  const faces = (wreck ? wreckFaces() : aircraftFaces(cls, 1, armed, variant)).map(poseAtRest);
   // Taildraggers (the Grasshopper, and the Viper) rest NOSE-HIGH on the ground — tilt the static
   // model to its 3-point sit here too (the floor/room proj below is left untilted). Nose-up: f' = f·c − h·s.
   const _gp = groundPitchFor(cls, armed) * Math.PI / 180;
@@ -7019,7 +7278,7 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
     if (idleRoll) { const g1 = g * cIR - z * sIR; z = g * sIR + z * cIR; g = g1; }
     return [v[0] * mScale, g, z + mDrop];
   };
-  const pal = liveryPalette(livery || {});
+  const pal = liveryPalette(livery || {}, cls);
   const jazzImg = (!wreck && pal.pat === 'jazz') ? jazzTex(livery?.base, livery?.trim, livery?.accent, livery?.ground) : null;
   const texStr = wreck ? 0.62 : (TEX_STRENGTH[livery?.finish] ?? 0.46);
   const roll = wreck ? -0.26 : 0, cro = Math.cos(roll), sro = Math.sin(roll);
@@ -7234,7 +7493,7 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
 // ── Outside world glimpse (through the open bay door) ─────────────────────────
 // A tiny sky + weather read, keyed off the same environment state the flight
 // windshield uses — clipped to the door's trapezoid so the hangar always feels
-// like it's sitting in the same world/weather the player is actually in, not a
+// like it is sitting in the same world/weather the player is actually in, not a
 // timeless box. `sky = { hour, weather, wind }` (plugins/flight/state.js skyState()).
 const WEATHER_SKY = {
   clear:   { top: [70, 140, 196], hor: [196, 220, 232] },
@@ -7968,7 +8227,7 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
   // near enough for an airframe (they measure ±1.05 across the wing) and five times too big for a
   // truck, which is built at ±0.2 — so the machine with the most room to spare on the floor, one
   // rig alone in the garage, was drawn as the smallest thing the renderer has ever put on screen.
-  const models = entries.map(e => (e.wreck ? buildWreck() : aircraftFaces(e.cls, 1, !!e.armed, e.variant || '')));
+  const models = entries.map(e => (e.wreck ? wreckFaces() : aircraftFaces(e.cls, 1, !!e.armed, e.variant || '')).map(poseAtRest));
   const bounds = models.map((faces, i) => {
     const s = scales[i];
     let lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
@@ -8028,7 +8287,7 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
     const gpr = e.wreck ? 0 : groundPitchFor(e.cls, !!e.armed) * Math.PI / 180;
     const cgp = Math.cos(gpr), sgp = Math.sin(gpr);
     const tilt = gpr ? (v) => [v[0] * cgp - v[2] * sgp, v[1], v[0] * sgp + v[2] * cgp] : null;
-    const pal = liveryPalette(e.livery || {});
+    const pal = liveryPalette(e.livery || {}, e.cls);
     const jazzImg = (!e.wreck && pal.pat === 'jazz') ? jazzTex(e.livery?.base, e.livery?.trim, e.livery?.accent, e.livery?.ground) : null;
     const roll = e.wreck ? -0.22 : 0, cro = Math.cos(roll), sro = Math.sin(roll);
     const selected = e.id === selId;

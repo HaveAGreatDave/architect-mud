@@ -110,7 +110,7 @@ export function sendVerificationEmail(toEmail, verifyUrl) {
   return send({
     label: 'verification email',
     toEmail,
-    subject: 'ARCHITECT — Verify your email',
+    subject: 'ARCHITECT: Verify your email',
     textTemplate: 'verify.txt',
     htmlTemplate: 'verify.html',
     vars: { verifyUrl },
@@ -146,7 +146,7 @@ export function sendPasswordResetEmail(toEmail, accounts) {
   return send({
     label: `password reset email (${list.length} account${list.length === 1 ? '' : 's'})`,
     toEmail,
-    subject: 'ARCHITECT — Password Reset',
+    subject: 'ARCHITECT: Password Reset',
     textTemplate: 'password-reset.txt',
     htmlTemplate: 'password-reset.html',
     vars: passwordResetVars(list),

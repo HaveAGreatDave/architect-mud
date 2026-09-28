@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "description": "A vast rust-stained plain, hammered flat and hard, printed here and there with the tracks of things that crossed it once.",
+  "description": "The plain is packed hard and stained red-brown. Tracks from some long-ago crossing are set into it like fossils.",
   "exits": {
     "east": "zone_district_949_935",
     "north": "zone_district_948_934",

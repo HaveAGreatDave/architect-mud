@@ -53,14 +53,14 @@ export const MORE_QUESTIONS = [
     mood: { yes: 10, no: 2 },
     react: {
       yes: [`"Good." {They} {say} it like something's been settled that's been open a while.`],
-      no: [`"Then say so and I'll go through. That's not a slight — I'd rather you slept."`],
+      no: [`"Then say so and I'll go through. That's not a slight: I'd rather you slept."`],
       dodge: [`"You don't know." {They} {consider} that. "Then we'll keep running the experiment."`],
       timeout: [`answers it for you by not moving off the bed.`],
     },
   },
   {
     key: 'jealous',
-    ask: `"If I got on well with somebody else — properly, not politely — would that be a problem? I'd rather find out now than the hard way."`,
+    ask: `"If I got on well with somebody else (properly, not politely) would that be a problem? I'd rather find out now than the hard way."`,
     answers: [['yes', YES], ['no', NO], ['depends', /\b(depends|maybe|who|if|it'?d have to be|as long as)\b/]],
     mood: { yes: 6, depends: 8, no: 2 },
     react: {
@@ -135,7 +135,7 @@ export const MORE_QUESTIONS = [
   },
   {
     key: 'go_outside',
-    ask: `"Would you take me out with you sometime? Not the work. Just — out. I've seen about four rooms since I got here."`,
+    ask: `"Would you take me out with you sometime? Not the work. Just... out. I've seen about four rooms since I got here."`,
     answers: [['yes', YES], ['no', NO], ['maybe', /\b(maybe|sometime|we'?ll see|one day|when it'?s|if it'?s safe|possibly)\b/]],
     mood: { yes: 14, maybe: 6, no: -6 },
     react: {
@@ -152,7 +152,7 @@ export const MORE_QUESTIONS = [
     answers: [['yes', YES], ['no', NO]],
     mood: { yes: 16, no: -4 },
     react: {
-      yes: [`is quiet for a second, then {say} it — just once, quietly, and doesn't repeat it. "There. Now you've got both."`],
+      yes: [`is quiet for a second, then {say} it: just once, quietly, and doesn't repeat it. "There. Now you've got both."`],
       no: [`"No." {They} {nod}, and something closes very neatly. "Fine. It wasn't much of a name anyway."`],
       dodge: [`"That's not a yes." {They} {let} the subject go and it doesn't come back.`],
       timeout: [`waits a long time, and then puts the question away somewhere it won't be found again soon.`],
@@ -234,7 +234,7 @@ export const MORE_QUESTIONS = [
   },
   {
     key: 'bad_day_help',
-    ask: `"When it's a bad day — the real kind — what actually helps? Tell me and I'll just do it, no discussion required."`,
+    ask: `"When it's a bad day, the real kind, what actually helps? Tell me and I'll just do it, no discussion required."`,
     answers: [
       ['alone',  /\b(alone|space|nothing|leave me|by myself|on my own|quiet|silence)\b/],
       ['touch',  /\b(touch|hold|held|near|close|beside|next to|arms|lie down)\b/],
@@ -300,7 +300,7 @@ export const MORE_QUESTIONS = [
     ],
     mood: { here: 14, other: 8, none: 4 },
     react: {
-      here: [`"This one." {They} {look} around it like it's changed slightly. "Well. Now I like it more than I did."`],
+      here: [`"This one." {They} {look} around it like it is changed slightly. "Well. Now I like it more than I did."`],
       other: [`"Then that's where I'll find you when you're hiding." {They} {file} it away, visibly pleased with the intelligence.`],
       none: [`"Nowhere." {They} {consider} that. "Then we'll make one. That's a project, that is."`],
       dodge: [`"You've never thought about it. That's what having a lot of rooms does to a person."`],
@@ -373,7 +373,7 @@ export const MORE_QUESTIONS = [
   },
   {
     key: 'if_i_asked',
-    ask: `"If I asked you for something — a real thing, not a drink — would you say yes because it's easy, or would you actually think about it?"`,
+    ask: `"If I asked you for something (a real thing, not a drink) would you say yes because it's easy, or would you actually think about it?"`,
     answers: [
       ['think', /\b(think|consider|depends|weigh|properly|seriously|listen)\b/],
       ['yes',   /\b(yes|anything|of course|whatever you want|say yes|always)\b/],
@@ -382,7 +382,7 @@ export const MORE_QUESTIONS = [
     react: {
       think: [`"You'd think about it." {They} {nod}, satisfied. "That's worth more than a yes. A yes is cheap and I've had plenty."`],
       yes: [`"Anything." {They} {look} at you steadily. "Careful. I'm going to test that one day and I'm not going to warn you."`],
-      dodge: [`"That's not an answer, which is fine — it means I'll have to just ask and find out."`],
+      dodge: [`"That's not an answer, which is fine: it means I'll have to just ask and find out."`],
       timeout: [`doesn't ask the real thing tonight. {They} {was} going to.`],
     },
   },
@@ -442,13 +442,13 @@ export const MORE_DYNAMIC = [
       told: [`doesn't offer a single piece of advice, which is the best thing anybody's done about it in months.`],
       nothing: [`"Nothing keeping you up." {They} {nod}. "That's what I say too. It's never been true once."`],
       dodge: [`"Not at this hour, then." {They} {settle} in anyway, awake for as long as you are.`],
-      timeout: [(c) => `checks the clock — ${c.hour} — and stops expecting an answer, and stays up regardless.`],
+      timeout: [(c) => `checks the clock: ${c.hour}, and stops expecting an answer, and stays up regardless.`],
     },
   },
   {
     key: 'starving',
     applies: (c) => c.hunger <= 25 && c.thirst <= 25,
-    ask: (c) => `"You're running on nothing. Both — food and water, ${Math.round(c.hunger)} and ${Math.round(c.thirst)} by the look of you. Is this on purpose?"`,
+    ask: (c) => `"You're running on nothing. Both: food and water, ${Math.round(c.hunger)} and ${Math.round(c.thirst)} by the look of you. Is this on purpose?"`,
     answers: [
       ['purpose', /\b(yes|on purpose|fasting|saving|no money|couldn'?t afford|deliberate)\b/],
       ['forgot',  /\b(forgot|busy|no time|didn'?t think|lost track|no|nope)\b/],
@@ -489,7 +489,7 @@ export const MORE_DYNAMIC = [
     ],
     mood: { lands: 16, number: -4 },
     react: {
-      lands: [`"It lands." {They} {look} away, and then back. "Right. Good. That's — right."`],
+      lands: [`"It lands." {They} {look} away, and then back. "Right. Good. That's... right."`],
       number: [`"A number." {They} {nod} slowly, absorbing it properly. "Alright. At least I know which of us is counting."`],
       dodge: [(c) => `"${c.daysKept} days and you've dodged it. That's almost impressive."`],
       timeout: [(c) => `"${c.daysKept}," {they} {say}, to nobody. "I'll keep counting on my own, then."`],
@@ -514,7 +514,7 @@ export const MORE_DYNAMIC = [
   {
     key: 'after_miss',
     applies: (c) => c.missed >= 1,
-    ask: () => `"A draft's already gone through unpaid. When they come for me — and they do come — do you want me to fight it or go with them?"`,
+    ask: () => `"A draft's already gone through unpaid. When they come for me, and they do come, do you want me to fight it or go with them?"`,
     answers: [
       ['fight', /\b(fight|resist|don'?t go|stay|never|i'?ll stop them|no)\b/],
       ['go',    /\b(go|don'?t fight|with them|safer|yes|do what they say|comply)\b/],
@@ -559,7 +559,7 @@ export const MORE_DYNAMIC = [
   {
     key: 'two_of_us',
     applies: (c) => !!c.companionName,
-    ask: (c) => `keeps {their} voice light. "When it's the two of us in a room — me and ${c.companionName} — do you ever wish it was just the one? You can say."`,
+    ask: (c) => `keeps {their} voice light. "When it's the two of us in a room: me and ${c.companionName}: do you ever wish it was just the one? You can say."`,
     answers: [
       ['both',   /\b(both|no|never|like it|want both|keep both|the two of you)\b/],
       ['one',    /\b(sometimes|yes|just you|one|occasionally|now and then)\b/],

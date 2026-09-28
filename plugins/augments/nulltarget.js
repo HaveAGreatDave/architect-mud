@@ -128,7 +128,7 @@ export async function augmentTargets(player, ctx = {}) {
       }));
 
       const notes = [];
-      if (oc > 0) notes.push(`Running at ${100 + oc * 25}% — thermal signature is wide open.`);
+      if (oc > 0) notes.push(`Running at ${100 + oc * 25}%: thermal signature is wide open.`);
       if (Number(rec.condition ?? 1) < 0.5) notes.push("Badly worn. Whatever is holding it together isn't much.");
       if (rec.custom_data?.radio_off === true) notes.push('Radio physically disconnected. Somebody has done this before.');
 
@@ -150,7 +150,7 @@ export async function augmentTargets(player, ctx = {}) {
           if (opId === 'jam' || opId === 'spoof' || opId === 'lock' || opId === 'crash') {
             const vital = VITAL.has(subsystem.kind);
             return {
-              message: `<span class="msg-system">${aug.name} — ${subsystem.id} ${vital ? 'stops responding' : 'starts lying'}.</span>`,
+              message: `<span class="msg-system">${aug.name}: ${subsystem.id} ${vital ? 'stops responding' : 'starts lying'}.</span>`,
               ownerMessage: vital
                 ? `<span class="text-red">Your ${aug.name} goes dead weight. The ${subsystem.id} isn't answering.</span>`
                 : `<span class="text-amber">Your ${aug.name} is reporting something that can't be true.</span>`,
@@ -173,7 +173,7 @@ export async function augmentTargets(player, ctx = {}) {
           if (opId === 'powerspike') {
             if (oc <= 0) {
               return {
-                message: `<span class="text-dim">The supply sags and recovers. ${whose} ${aug.name} is running at spec — there was nothing to push it into.</span>`,
+                message: `<span class="text-dim">The supply sags and recovers. ${whose} ${aug.name} is running at spec: there was nothing to push it into.</span>`,
                 ownerMessage: `<span class="text-dim">Your ${aug.name} flickers, and steadies.</span>`,
               };
             }

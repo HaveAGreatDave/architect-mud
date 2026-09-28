@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The top of a mesa, flat as a floor and red as an old brick, with the whole region laid out under it in bands of colour going away to nothing. The caprock rings under a boot. At the edge the ground simply stops and the drop is a long one, and the wind comes up it hard enough to lean on.",
+  "description": "The mesa top is level and red, and it rings under a boot. The view goes on for miles. The edge is sheer.",
   "exits": {
     "east": "zone_scw_1092_986",
     "north": "zone_scw_1091_985",

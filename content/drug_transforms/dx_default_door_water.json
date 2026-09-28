@@ -4,7 +4,7 @@
     "Did somebody come through just before you?",
     "Can you swim? It isn't important. I'm asking."
   ],
-  "description": "Where the door was there's a pane of water held upright in the frame, unsupported, its surface trembling slightly. The room on the far side of it's visible and about a second behind.",
+  "description": "Where the door was there's a pane of water held upright in the frame, unsupported, its surface trembling slightly. The room on the far side of it is visible and about a second behind.",
   "drug_id": null,
   "emotes": [
     "Rings run out across {it} from a point about head height.",
@@ -16,7 +16,7 @@
   "id": "dx_default_door_water",
   "looks": [
     "The surface shivers in rings when anybody in the room speaks, including you.",
-    "Your reflection in it's doing what you're doing, with a delay you can just about measure.",
+    "Your reflection in it is doing what you're doing, with a delay you can just about measure.",
     "A drip is forming at the bottom edge. It has been forming for a while and it isn't going to fall."
   ],
   "matches": "door",

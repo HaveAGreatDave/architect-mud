@@ -53,11 +53,11 @@ function alarmArmed(zoneId, vendorHere) {
 function soundAlarm(safe, player, zoneId, broadcast) {
   broadcast(zoneId, {
     type: 'zone_event',
-    message: `<span class="text-red">A tamper contact breaks somewhere inside the ${safe.name} and the whole cabinet starts SHRIEKING — a flat electronic howl, loud enough to hurt.</span>`,
+    message: `<span class="text-red">A tamper contact breaks somewhere inside the ${safe.name} and the whole cabinet starts SHRIEKING: a flat electronic howl, loud enough to hurt.</span>`,
     refresh: true,
   });
   for (const neighbourId of neighborZoneIds(getZone(zoneId)) || []) {
-    broadcast(neighbourId, { type: 'zone_event', message: `An alarm goes off nearby — a hard, flat shriek, close enough to feel in your teeth.` });
+    broadcast(neighbourId, { type: 'zone_event', message: `An alarm goes off nearby: a hard, flat shriek, close enough to feel in your teeth.` });
     for (const npc of getZoneNpcs(neighbourId) || []) {
       if (isNpcAsleep(npc)) disturbSleeper(npc, { broadcast, force: true });
     }
@@ -128,7 +128,7 @@ async function cmdHack(args, raw, player, broadcast) {
   if (!npc) return { type: 'error', message: "Can't resolve the linked account." };
 
   if (!npc.vendor_credits || npc.vendor_credits <= 0) {
-    return { type: 'output', message: `You put an ear to the ${safe.name} and spin the dial — the tumblers are the least of it. The accounts are dry. Nothing to take.` };
+    return { type: 'output', message: `You put an ear to the ${safe.name} and spin the dial: the tumblers are the least of it. The accounts are dry. Nothing to take.` };
   }
 
   // If the safe's owner is standing right here, they catch you jacking in — a
@@ -186,13 +186,13 @@ async function cmdSafeCrackResolve(args, raw, player) {
     // The deck eats the tamper response, same as a botched ATM jack — one rule
     // for what a failed breach costs your gear, wherever you failed it.
     const deckMsg = await damageHackDeck(player.id);
-    return { type: 'error', message: `The combination re-seats mid-spin and the tamper sensor logs the attempt. Your rig is flagged — five-minute lockout.${deckMsg}` };
+    return { type: 'error', message: `The combination re-seats mid-spin and the tamper sensor logs the attempt. Your rig is flagged: five-minute lockout.${deckMsg}` };
   }
 
   const npc = world.npcs.get(npcId);
   if (!npc) return { type: 'noop' };
   if (!npc.vendor_credits || npc.vendor_credits <= 0) {
-    return { type: 'output', message: `The ${safe.name} swings open — but the accounts ran dry before you cracked it. Nothing to take.` };
+    return { type: 'output', message: `The ${safe.name} swings open, but the accounts ran dry before you cracked it. Nothing to take.` };
   }
 
   const stolen = npc.vendor_credits;
@@ -232,7 +232,7 @@ export const hooks = {
     if (!zoneId) return undefined;
     const vendorHere = (getZoneNpcs(zoneId) || []).some(n => n.id === f.flags.vendor_npc_id);
     if (!alarmArmed(zoneId, vendorHere)) return undefined;
-    return `<span class="text-red">A pinhead LED on the fascia is showing red. The tamper circuit is live — this thing is listening for hands after dark.</span>`;
+    return `<span class="text-red">A pinhead LED on the fascia is showing red. The tamper circuit is live: this thing is listening for hands after dark.</span>`;
   },
 };
 

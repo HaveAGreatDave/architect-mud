@@ -168,7 +168,7 @@ function scorebugLine(bug) {
   const a = bug.awayAbbr || bug.away, h = bug.homeAbbr || bug.home;
   const outs = bug.outs != null ? ` · ${bug.outs} out` : '';
   return `<span class="text-dim">[</span>${escAttr(a)} <b>${bug.awayScore}</b>`
-    + ` <span class="text-dim">—</span> <b>${bug.homeScore}</b> ${escAttr(h)}`
+    + ` <span class="text-dim">:</span> <b>${bug.homeScore}</b> ${escAttr(h)}`
     + `<span class="text-dim"> · ${escAttr(bug.status || '')}${outs}]</span>`;
 }
 
@@ -906,7 +906,7 @@ function formatMessage(text, deviceType, zone, style) {
     case 'security_monitor': {
       const ts = new Date().toTimeString().slice(0, 8);
       const loc = zone ? zone.name : 'UNKNOWN';
-      return `[FEED — ${loc}] ${ts} — ${text}`;
+      return `[FEED: ${loc}] ${ts} · ${text}`;
     }
     default:
       return text;
@@ -1255,13 +1255,13 @@ const _DELIVERY_DEFAULT = {
   derail: 1,       // ×base — the line not surviving to its own full stop
   drift: 0,        // chance of an unfilled pause mid-line
   fumbles: [
-    'uh —', 'that is —', 'well —', 'hold on —', 'no, wait —', "let's — let's go again —",
+    'uh...', 'that is...', 'well...', 'hold on...', 'no, wait...', "let's... let's go again...",
   ],
   offscript: [
     "...what's that? What does that even mean?",
     "...I'm not saying that. Give me the other one.",
     "...are we rolling? Are we still rolling?",
-    "...no. No, that's not — start me again.",
+    "...no. No, that's not... start me again.",
     "...I can't read this. Who wrote this?",
   ],
   collapse: [
@@ -1281,7 +1281,7 @@ const _DELIVERY = {
   // Drink, and the depressant family that reads like it.
   drunk: {
     level: 0.5, slur: 1.15, stall: 1.3, trip: 1.1, derail: 1, drift: 0.1,
-    fumbles: ['sorry —', 'hold on, hold on —', "wait, I've — I've got it —", 'no, that — that was my fault —'],
+    fumbles: ['sorry...', 'hold on, hold on...', "wait, I've... I've got it...", 'no, that... that was my fault...'],
     offscript: [
       "...is there water? Somebody get me a water.",
       "...I've done this show for nine years. Nine years.",
@@ -1297,11 +1297,11 @@ const _DELIVERY = {
   // A depressant dose proper: glassy and candid rather than merry.
   loose: {
     level: 0.65, slur: 1.2, stall: 1.2, trip: 1, derail: 1.2, drift: 0.16,
-    fumbles: ['...sorry —', 'nnh —', "what — what's the —", 'hang on —'],
+    fumbles: ['...sorry...', 'nnh...', "what... what's the...", 'hang on...'],
     offscript: [
       "...I don't think anyone's watching this. Are they? Genuinely.",
       "...say the rest of it for me. Just say it.",
-      "...that's not true, by the way. None of that's true.",
+      "...that's not true, by the way. None of that is true.",
       "...I'm going to sit down. I'm sitting down.",
     ],
     collapse: [
@@ -1314,7 +1314,7 @@ const _DELIVERY = {
   // cannot stop editing it live, so `slur` is deliberately zero.
   wired: {
     level: 0.4, slur: 0, stall: 1.4, trip: 1.3, derail: 0.7, drift: 0,
-    fumbles: ['— right —', '— no no no —', '— listen —', '— and here it is —', '— which, fine —'],
+    fumbles: ['...right...', '...no no no...', '...listen...', '...and here it is...', '...which, fine...'],
     offscript: [
       "...cut that. Cut it, I'll go again, I'll go again from the top.",
       "...why is this so slow? Why is any of this so slow?",
@@ -1323,14 +1323,14 @@ const _DELIVERY = {
     ],
     collapse: [
       'talks straight through the line, past it, and out the other side into nothing.',
-      "is saying something at considerable speed. None of it's the script.",
+      "is saying something at considerable speed. None of it is the script.",
       'has stopped, entirely, mid-word, and is looking at their own hand.',
     ],
   },
   // Deliriants. The line breaks because they keep checking the room.
   paranoid: {
     level: 0.8, slur: 0.3, stall: 1.1, trip: 1.4, derail: 1.4, drift: 0.12,
-    fumbles: ['— who said that —', '— hold on —', '— did you hear —', '— no, stop —'],
+    fumbles: ['...who said that...', '...hold on...', '...did you hear...', '...no, stop...'],
     offscript: [
       "...who's behind that camera? Who is that?",
       "...take it off. Take the light off me.",
@@ -1362,7 +1362,7 @@ const _DELIVERY = {
   // Psychedelics. Delighted, and reading a different document.
   tripping: {
     level: 0.7, slur: 0.4, stall: 1, trip: 1.2, derail: 1.3, drift: 0.3,
-    fumbles: ['— oh —', '— wait, look —', '— that is —', '— hah —'],
+    fumbles: ['...oh...', '...wait, look...', '...that is...', '...hah...'],
     offscript: [
       "...has that always been there? The red one. Has that always been there.",
       "...you should see what the letters are doing.",
@@ -1378,7 +1378,7 @@ const _DELIVERY = {
   // Dissociatives. A bad connection: the words arrive, late, from a long way off.
   dissociated: {
     level: 0.75, slur: 0.5, stall: 1.5, trip: 0.7, derail: 1.2, drift: 0.5,
-    fumbles: ['...', '... ...', '...uh...'],
+    fumbles: ['...', '......', '...uh...'],
     offscript: [
       "...say it again.",
       "...I heard that. I heard it a second ago.",
@@ -1394,7 +1394,7 @@ const _DELIVERY = {
   // The mean drunk. The problem is not the diction, it is what they are saying.
   belligerent: {
     level: 0.6, slur: 0.7, stall: 1, trip: 1.1, derail: 1.3, drift: 0,
-    fumbles: ['— no —', "— don't —", '— I said —', '— you know what —'],
+    fumbles: ['...no...', "...don't...", '...I said...', '...you know what...'],
     offscript: [
       "...who wrote this? No, genuinely. Which one of you.",
       "...I'm not reading that. Put something else up.",
@@ -1410,7 +1410,7 @@ const _DELIVERY = {
   // The comedown. Not high any more, and it shows.
   comedown: {
     level: 0.35, slur: 0.5, stall: 1.2, trip: 0.9, derail: 0.6, drift: 0.25,
-    fumbles: ['—', 'sorry —', 'uh —'],
+    fumbles: ['...', 'sorry...', 'uh...'],
     offscript: [
       "...can we take five. I need five.",
       "...I'm fine. Keep going, I'm fine.",
@@ -2585,7 +2585,7 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   const slotOfDay = ((slot % SPORTS_GAMES_PER_DAY) + SPORTS_GAMES_PER_DAY) % SPORTS_GAMES_PER_DAY;
   const featured = Array.isArray(script.airSlots) && script.airSlots.length > 0;
   if (featured && !ws && slotOfDay > 0) {
-    add({ type: 'say', text: 'Around the league — here’s how the earlier games finished today.', style: 'raw', _recap: true });
+    add({ type: 'say', text: 'Around the league: here’s how the earlier games finished today.', style: 'raw', _recap: true });
     for (let e = slot - slotOfDay; e < slot; e++) {
       const rg = sportsGameForSlot(script, e, null);
       if (!rg) continue;
@@ -2731,8 +2731,8 @@ const _lastAmbientLine = new Map();     // `${zoneId}:${channelId}` -> last over
 // builder, two leagues — the alternative was the same overlay literal pasted at each
 // of the three sites that raise it, each free to drift from the others.
 const STANDINGS_BUG = {
-  baseball: { title: 'DEADBALL — LEAGUE STANDINGS', row: (r) => ({ team: r.team, wins: r.wins, losses: r.losses, rd: (r.runs_for || 0) - (r.runs_against || 0) }) },
-  hockey: { title: 'CLUSTER PUCK — CPhL STANDINGS', row: (r) => ({ team: r.team, wins: r.wins, losses: r.losses, otl: r.otl || 0, points: r.points || 0 }) },
+  baseball: { title: 'DEADBALL: LEAGUE STANDINGS', row: (r) => ({ team: r.team, wins: r.wins, losses: r.losses, rd: (r.runs_for || 0) - (r.runs_against || 0) }) },
+  hockey: { title: 'CLUSTER PUCK: CPhL STANDINGS', row: (r) => ({ team: r.team, wins: r.wins, losses: r.losses, otl: r.otl || 0, points: r.points || 0 }) },
 };
 function standingsBugFor(sport, rows) {
   const spec = STANDINGS_BUG[sport] || STANDINGS_BUG.baseball;
@@ -3473,7 +3473,7 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
   // thing an announcer is for. Line counts wobble night to night so the open never feels rote.
   lines(sidekick, talkshowDraw(pools, 'open', 1 + Math.floor(rand() * 2), tok, rand));   // 1–2
   lines(sidekick, talkshowDraw(pools, 'tease', 1 + Math.floor(rand() * 2), tok, rand));  // 1–2
-  line(sidekick, talkshowFill(sportsPick(pools, rand, 'announce_host') || "Ladies and gentlemen — {host}!", tok));
+  line(sidekick, talkshowFill(sportsPick(pools, rand, 'announce_host') || "Ladies and gentlemen, {host}!", tok));
   applause('host');   // the host walks out to applause
 
   // ── THE HOST GATE ────────────────────────────────────────────────────────────────────
@@ -3607,7 +3607,7 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
         if (duet(host, sidekick, cover[i])) { did = true; react(); }
       }
       // Nothing authored to cover with ⇒ the host eats it alone rather than airing silence.
-      if (!did) { line(host, talkshowFill("Well — {guest} isn't here. That's showbusiness, and that's a chair.", tok)); react(); }
+      if (!did) { line(host, talkshowFill("Well, {guest} isn't here. That's showbusiness, and that's a chair.", tok)); react(); }
     });
 
     // ── SEGMENT 3: the goodnight. Commercial, one throwback to Graham, and John's sign-off.
@@ -3650,7 +3650,7 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
     // television — the crowd is watching the same thing the viewer is. The silence is the beat.
     const solo = talkshowDraw(pools, 'host_absent', 2 + Math.floor(rand() * 2), tok, rand);   // 2–3
     if (solo.length) solo.forEach(t => line(sidekick, t));
-    else line(sidekick, talkshowFill("Ladies and gentlemen — {host} isn't here, and I'm not going to do his half badly. We'll be back tomorrow.", tok));
+    else line(sidekick, talkshowFill("Ladies and gentlemen, {host} isn't here, and I'm not going to do his half badly. We'll be back tomorrow.", tok));
     const off = talkshowDraw(pools, 'host_absent_signoff', 1, tok, rand);
     lines(sidekick, off.length ? off : [talkshowFill("That's KSAB, signing off a show that didn't start. Goodnight.", tok)]);
   });
@@ -3924,7 +3924,7 @@ function assembleMorningGraph(script, broadcastId, bucket, ctx) {
   else if (script.theme) add({ type: 'music', song: script.theme, text: '♪ The morning theme plays. ♪' });
 
   // Cold open — the real clock, the real temperature, the real day of the week.
-  beat('open', null, "Good morning — it is {time}, it is {temp} degrees, and you're alive. >> Statistically.");
+  beat('open', null, "Good morning, it is {time}, it is {temp} degrees, and you're alive. >> Statistically.");
   if (rand() < 0.6) beat('couch');
 
   // Weather window — keyed to what the sky is actually doing, with the severe channel
@@ -3992,9 +3992,9 @@ function assembleMorningGraph(script, broadcastId, bucket, ctx) {
   const lead = draw(['ticker.lead']);
   if (lead) crawl.push(talkshowFill(lead, tok).trim());
   crawl.push(`${tok.weather.toUpperCase()} · ${tok.temp}° (feels ${tok.feels}°) · high ${tok.hi}° low ${tok.lo}°`);
-  if (ctx.martialLaw) crawl.push('MARTIAL LAW IN EFFECT — CURFEW ENFORCED BASIN-WIDE');
-  if (ctx.radiation) crawl.push('RADIATION ADVISORY — SHELTER AND SEAL WHERE POSSIBLE');
-  if (ctx.outages >= MORNING_BLACKOUT_MIN) crawl.push(`GRID FAULTS REPORTED IN ${ctx.outages} BLOCKS — CREWS DISPATCHED`);
+  if (ctx.martialLaw) crawl.push('MARTIAL LAW IN EFFECT: CURFEW ENFORCED BASIN-WIDE');
+  if (ctx.radiation) crawl.push('RADIATION ADVISORY: SHELTER AND SEAL WHERE POSSIBLE');
+  if (ctx.outages >= MORNING_BLACKOUT_MIN) crawl.push(`GRID FAULTS REPORTED IN ${ctx.outages} BLOCKS: CREWS DISPATCHED`);
   for (const s of (ctx.stories || []).slice(MORNING_STORIES)) if (s.headline) crawl.push(String(s.headline).replace(/[.\s]+$/, ''));
   add({ type: 'ticker', text: crawl.filter(Boolean).join(' · ') });
 
@@ -5759,13 +5759,13 @@ function _sportsScheduleSlots(script, cur) {
     let cand = curDay * G + f;
     if (cand < cur) cand += G;                       // tonight's slot already passed → tomorrow
     const dayDelta = Math.floor(cand / G) - curDay;
-    const dayTag = dayDelta <= 0 ? '' : (dayDelta === 1 ? ' — tomorrow' : ` — in ${dayDelta}d`);
+    const dayTag = dayDelta <= 0 ? '' : (dayDelta === 1 ? ', tomorrow' : `, in ${dayDelta}d`);
     let name;
     if (isWs && wsSlot != null && cand === wsSlot) {
-      name = `${mod.finalIcon || '⚾'} ${(mod.season?.finalName || 'World Series').toUpperCase()} — ${s.finalistA} vs ${s.finalistB}`;
+      name = `${mod.finalIcon || '⚾'} ${(mod.season?.finalName || 'World Series').toUpperCase()}: ${s.finalistA} vs ${s.finalistB}`;
     } else {
       const gs = sportsGameForSlot(script, cand, null);
-      name = gs ? `${brand} — ${gs.game.away.name} @ ${gs.game.home.name}` : (script.title || brand);
+      name = gs ? `${brand}: ${gs.game.away.name} @ ${gs.game.home.name}` : (script.title || brand);
     }
     return {
       name: name + dayTag,
@@ -5802,7 +5802,7 @@ async function sendTvStandings(playerId) {
     type: 'tv_standings',
     sport,
     title: s.phase === 'worldseries'
-      ? `${(SPORTS[sport] || BASEBALL).brand || 'DEADBALL'} — ${((SPORTS[sport] || BASEBALL).season?.finalName || 'World Series').toUpperCase()}`
+      ? `${(SPORTS[sport] || BASEBALL).brand || 'DEADBALL'}: ${((SPORTS[sport] || BASEBALL).season?.finalName || 'World Series').toUpperCase()}`
       : spec.title,
     phase: s.phase || 'regular',
     rows: (rows || []).map(spec.row),
@@ -5821,10 +5821,10 @@ function _sportsSlotLabel(item) {
   const brand = mod.brand || 'DEADBALL';
   const s = seasonOf(mod.id);
   if (s.phase === 'worldseries' && s.finalistA && s.finalistB) {
-    return `${mod.finalIcon || '⚾'} ${(mod.season?.finalName || 'World Series').toUpperCase()} — ${s.finalistA} vs ${s.finalistB}`;
+    return `${mod.finalIcon || '⚾'} ${(mod.season?.finalName || 'World Series').toUpperCase()}: ${s.finalistA} vs ${s.finalistB}`;
   }
   const gs = sportsGameForSlot(item.sportsScript, sportsSlotIndex(), overrideFor(item.sportsScript));
-  return gs ? `${brand} — ${gs.game.away.name} @ ${gs.game.home.name}` : (item.broadcastName || brand);
+  return gs ? `${brand}: ${gs.game.away.name} @ ${gs.game.home.name}` : (item.broadcastName || brand);
 }
 function sendTvSchedule(playerId, channelId) {
   const state = channelId ? channelRuntime.get(channelId) : null;
@@ -6113,7 +6113,7 @@ function _extractNpcWorkSequence(graph, npcId) {
 // performed his part on a loop for ever. That is invisible until you remember the
 // studio floor goes out on air — the `zone.broadcast` relay puts anything said in a
 // studio zone in front of whoever is tuned to that channel — so Captain Nguyen read
-// his lines from You're Not Gonna Believe This Shit over the top of Raptor News at
+// his lines from You are Not Gonna Believe This Shit over the top of Raptor News at
 // eight in the morning, on the same channel, from the same room.
 //
 // So the sequence hangs off the goToWork branch of the same CHECK_WORK node the
@@ -7035,8 +7035,8 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
       // `bb.airedAny` is set the first time a frame actually goes out, so the card
       // can say the true thing in both cases.
       const text = bb.airedAny
-        ? `PLEASE STAND BY\n\nWe have lost the studio floor — ${who} ${verb} left the set.\n\nWe apologise for the interruption and hope to resume shortly.`
-        : `PLEASE STAND BY\n\nTonight's programme is delayed — ${who} ${verb} not yet arrived in the studio.\n\nWe apologise for the inconvenience and thank you for your patience.`;
+        ? `PLEASE STAND BY\n\nWe have lost the studio floor: ${who} ${verb} left the set.\n\nWe apologise for the interruption and hope to resume shortly.`
+        : `PLEASE STAND BY\n\nTonight's programme is delayed: ${who} ${verb} not yet arrived in the studio.\n\nWe apologise for the inconvenience and thank you for your patience.`;
       return {
         style: 'overlay',
         key: `absent-delay:${channelId}:${slot}`,
@@ -7313,7 +7313,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
             : `<span style="color:var(--text-dim);font-style:italic">${cam.label} swings around and takes ${zoneId === stageZoneId ? label : `the feed from ${label}`}; its tally light blinks red.</span>`);
           if (zoneId !== stageZoneId) _stageLine(zoneId, `<span style="color:var(--text-dim);font-style:italic">A camera in the corner pivots to face the room. Its tally light comes on.</span>`);
         }
-        return { text: `[${cam.label} — ${label}] ${snap}`, key: `cam:${channelId}:${zoneId}:${nowMs}`, style: 'raw' };
+        return { text: `[${cam.label}: ${label}] ${snap}`, key: `cam:${channelId}:${zoneId}:${nowMs}`, style: 'raw' };
       }
 
       case 'break': {
@@ -7995,7 +7995,7 @@ function _deckLockError(dflags, player) {
 // them (mirrors surveillance's tamperPing; kept local to avoid importing it).
 function _deckTamperPing(ownerId, actorId, stationName, zoneName, reason) {
   if (!ownerId || ownerId === actorId) return;
-  sendToPlayer(ownerId, { type: 'system', message: `<span class="text-red">⚠ TAMPER</span> — ${stationName || 'a station'} at ${zoneName || 'unknown'} ${reason}` });
+  sendToPlayer(ownerId, { type: 'system', message: `<span class="text-red">⚠ TAMPER</span>: ${stationName || 'a station'} at ${zoneName || 'unknown'} ${reason}` });
 }
 
 const PIRACY_LOCKOUT_MS = 5 * 60 * 1000;
@@ -8091,8 +8091,8 @@ async function cmdPirateResolve(args, raw, player) {
   await awardSkillUse(player.id, 'hacking', await breachMargin(player, dflags.hack_difficulty));
   // Citywide takeover is self-reporting heat (broadcast_piracy, witness 'always').
   await dispatchAction({ type: 'CHARGE_CRIME', actor: player, params: { key: 'broadcast_piracy', zoneId: deck.zone_id } }).catch(() => {});
-  _deckTamperPing(priorOwner, player.id, stationName, deck.zone_name || deck.zone_id, 'was HIJACKED out from under you — you no longer control it.');
-  return { type: 'output', message: `<span class="ip-gain">CARRIER SEIZED.</span> ${stationName} answers to you now — open the pirate console with <b>air</b>. But the station logged the breach: an engineer is en route to the deck. Hold the deck in person or lose the air.` };
+  _deckTamperPing(priorOwner, player.id, stationName, deck.zone_name || deck.zone_id, 'was HIJACKED out from under you: you no longer control it.');
+  return { type: 'output', message: `<span class="ip-gain">CARRIER SEIZED.</span> ${stationName} answers to you now: open the pirate console with <b>air</b>. But the station logged the breach: an engineer is en route to the deck. Hold the deck in person or lose the air.` };
 }
 
 // ── Reclaim: the station fights back (Phase 4) ───────────────────────────────
@@ -8127,7 +8127,7 @@ async function _releaseSeizuresBy(ownerId, reasonToOwner) {
     const dflags = _deckFlags(deck);
     const station = channelRuntime.get(dflags.channel_id)?.stationName || deck.name;
     await _clearSeizure(deck, dflags);
-    if (reasonToOwner) sendToPlayer(ownerId, { type: 'system', message: `<span class="text-red">⚠ SIGNAL LOST</span> — ${station} slipped your grip (${reasonToOwner}).` });
+    if (reasonToOwner) sendToPlayer(ownerId, { type: 'system', message: `<span class="text-red">⚠ SIGNAL LOST</span>: ${station} slipped your grip (${reasonToOwner}).` });
     sendToZone(deck.zone_id, { type: 'zone_event', message: `The deck reboots itself; normal programming resumes.` });
   }
 }
@@ -8145,13 +8145,13 @@ async function engineerTick() {
     if (present) {
       dflags.pirate_engineer_at = now + ENGINEER_RETRY_MS;
       await updateFurniture(deck.id, { flags: JSON.stringify(dflags) }).catch(() => {});
-      sendToPlayer(dflags.pirate_owner, { type: 'system', message: `<span class="text-amber">⚠ You run a station engineer off the ${deck.name}.</span> They'll be back — don't leave the deck.` });
+      sendToPlayer(dflags.pirate_owner, { type: 'system', message: `<span class="text-amber">⚠ You run a station engineer off the ${deck.name}.</span> They'll be back. Don't leave the deck.` });
       sendToZone(deck.zone_id, { type: 'zone_event', message: `A station engineer edges toward the deck, sees it's guarded, and retreats.` }, dflags.pirate_owner);
       continue;
     }
     const owner = dflags.pirate_owner;
     await _clearSeizure(deck, dflags);
-    sendToPlayer(owner, { type: 'system', message: `<span class="text-red">⚠ SIGNAL LOST</span> — a station engineer reached the ${deck.name} and rebooted ${station}. You no longer hold the air.` });
+    sendToPlayer(owner, { type: 'system', message: `<span class="text-red">⚠ SIGNAL LOST</span>: a station engineer reached the ${deck.name} and rebooted ${station}. You no longer hold the air.` });
     sendToZone(deck.zone_id, { type: 'zone_event', message: `A station engineer reboots the deck. Normal programming resumes.` });
   }
 }
@@ -8353,7 +8353,7 @@ async function cmdAir(args, raw, player) {
   if (sub === 'close') return { type: 'pirate_console_close' };
 
   const { deck, ambiguous } = await _findPiratedDeck(player);
-  if (ambiguous) return { type: 'error', message: 'You hold more than one station — stand at the deck you want to run.' };
+  if (ambiguous) return { type: 'error', message: 'You hold more than one station: stand at the deck you want to run.' };
   if (!deck) return { type: 'error', message: "You don't control any station. Pirate a media deck first (pirate <deck>)." };
   const dflags = _deckFlags(deck);
   const q = Array.isArray(dflags.pirate_queue) ? [...dflags.pirate_queue] : [];
@@ -8366,7 +8366,7 @@ async function cmdAir(args, raw, player) {
     case 'recorded': dflags.pirate_mode = 'recorded'; dflags.pirate_playing = true; dflags.pirate_started_ms = Date.now(); break;
     case 'live': {
       const sources = await _liveSources(dflags, player);
-      if (!sources.length) return { type: 'error', message: 'You control no camera to route — the station has no studio cam and you hold no SPECTER cameras.' };
+      if (!sources.length) return { type: 'error', message: 'You control no camera to route: the station has no studio cam and you hold no SPECTER cameras.' };
       const hint = args.slice(1).join(' ').trim().toLowerCase();
       let src = dflags.pirate_live_source || null;
       if (hint) src = sources.find(s => s.key.toLowerCase() === hint || s.label.toLowerCase().includes(hint)) || src;
@@ -8498,7 +8498,7 @@ async function cmdLoadCassette(args, raw, player) {
     const { rows: cl } = await query(
       `SELECT c.frames, z.name AS zone_name FROM security_clips c
          LEFT JOIN zones z ON z.id = c.zone_id WHERE c.id=$1`, [clipId]);
-    if (!cl.length) return { type: 'output', message: 'That datachip is corrupted — its footage is gone.' };
+    if (!cl.length) return { type: 'output', message: 'That datachip is corrupted: its footage is gone.' };
     const frames = Array.isArray(cl[0].frames) ? cl[0].frames : [];
     await ensureClipBroadcast(broadcastId, `Footage: ${cl[0].zone_name || 'UNKNOWN'}`, frames, 4);
   }
@@ -8836,7 +8836,7 @@ async function _camPatchMessage(deck, dflags, nowMs) {
     await updateFurniture(deck.id, { flags: JSON.stringify(dead) });
     _camPatchCache.delete(deck.id);
     _evictDeckZone(deck.zone_id);
-    return { text: `[CAM · ${src.label || 'FEED'}] ◌ NO SIGNAL — the camera is gone.`, style: 'raw', key: `campatch:${slot}` };
+    return { text: `[CAM · ${src.label || 'FEED'}] ◌ NO SIGNAL: the camera is gone.`, style: 'raw', key: `campatch:${slot}` };
   }
   if (snap.status !== 'ok' && snap.status !== 'spoofed') {
     const label = snap.status === 'jammed' ? 'JAMMED' : snap.status === 'damaged' ? 'DAMAGED' : 'NO SIGNAL';
@@ -9279,7 +9279,7 @@ async function cmdTune(args, raw, player, broadcast) {
   // close the view, hold to switch the set off room-wide; see tv.js).
   const word = String(args[0] || '').toLowerCase();
   const channelNumber = word === 'off' ? TV_OFF : parseInt(args[0], 10);
-  if (isNaN(channelNumber)) return { type: 'output', message: 'Usage: tune <channel number> — 0 is the tape deck. Hold the power button to switch the set off.' };
+  if (isNaN(channelNumber)) return { type: 'output', message: 'Usage: tune <channel number>. 0 is the tape deck. Hold the power button to switch the set off.' };
 
   // Find a broadcast_receiver furniture in the player's current zone
   const device = _zoneReceiver(player.current_zone);
@@ -9335,7 +9335,7 @@ function buildTvPanel(channelId, player, dialFrequency, dest) {
     sendToPlayer(player.id, {
       type: 'output',
       message: s
-        ? `<span class="msg-system">Tuned to <b>${s.number != null ? `${s.number} · ` : ''}${escAttr(s.stationName || s.name || channelId)}</b>. It plays out below — <b>tv off</b> to stop.</span>`
+        ? `<span class="msg-system">Tuned to <b>${s.number != null ? `${s.number} · ` : ''}${escAttr(s.stationName || s.name || channelId)}</b>. It plays out below: <b>tv off</b> to stop.</span>`
         : '<span class="msg-system">The set warms up on an empty channel.</span>',
     });
     // `noop`, never null: two callers return this value straight to the dispatcher
@@ -9740,7 +9740,7 @@ function _emergencyConsoleText(c) {
   const L = [];
   const camLabel = c.cameras.find(x => x.key === c.camera)?.label;
   L.push('<span class="msg-system">▓▓ EMERGENCY BROADCAST SYSTEM ▓▓</span>');
-  L.push(`  SYSTEM   ${c.on ? '<b>● ON AIR</b> — every set in Architect' : '○ OFF — carrying nothing'}`);
+  L.push(`  SYSTEM   ${c.on ? '<b>● ON AIR</b>: every set in Architect' : '○ OFF: carrying nothing'}`);
   L.push(`  SOURCE   ${c.mode === 'live' ? 'LIVE CAMERA' : 'CASSETTE'}`);
   L.push(`  FEED     ${escAttr(c.mode === 'live' ? (camLabel || 'no camera in this room') : (c.activeCassetteName || 'nothing loaded'))}`);
   L.push(`  TICKER   ${c.ticker ? `"${escAttr(c.ticker)}"` : '(none)'}`);
@@ -9771,7 +9771,7 @@ async function _engageEmergency(deck, player, broadcast, broadcastIdArg) {
     const r = await startEmergency(null, { mode: 'live', ticker, camZoneId: cam.zoneId, camLabel: cam.label, deckId: deck.id });
     if (!r.ok) return { type: 'error', message: `Can't go to air: ${r.error}.` };
     broadcast?.(player.current_zone, { type: 'zone_event', message: `${player.handle} throws the EMERGENCY BROADCAST switch. The ON AIR lamp floods the room red and ${cam.label} swings round to face it.` }, player.id);
-    return { type: 'system', message: `⚠ EMERGENCY BROADCAST ENGAGED — LIVE on ${cam.label}. Every tuned television in Architect is watching this room, and hearing it. Type ENDEMERGENCY to release the airwaves.` };
+    return { type: 'system', message: `⚠ EMERGENCY BROADCAST ENGAGED. LIVE on ${cam.label}. Every tuned television in Architect is watching this room, and hearing it. Type ENDEMERGENCY to release the airwaves.` };
   }
   const broadcastId = broadcastIdArg || dflags.deck_active || dflags.emergency_broadcast_id;
   if (!broadcastId) return { type: 'error', message: 'Load an emergency bulletin into the deck first, or name one: airemergency <broadcast id>.' };
@@ -9889,7 +9889,7 @@ async function cmdEbs(args, raw, player, broadcast) {
       _syncOverride({ ticker: dflags.eb_ticker || null });
       sendToPlayer(player.id, { type: 'system', message: off
         ? 'Ticker cleared. The strip along the bottom goes dark.'
-        : `Ticker set: "${escAttr(dflags.eb_ticker)}"${emergencyActive() ? ' — it is scrolling across the city now.' : ' — it scrolls the moment the system goes to air.'}` });
+        : `Ticker set: "${escAttr(dflags.eb_ticker)}"${emergencyActive() ? ': it is scrolling across the city now.' : ': it scrolls the moment the system goes to air.'}` });
       break;
     }
     default:

@@ -333,7 +333,7 @@
       ],
       "wind.gale": [
         "A {wind} km/h gale on top of it. Lean into it and pray your boots hold.",
-        "{wind} km/h of gale. Scaffolding, signage, anybody light. All of it's in play."
+        "{wind} km/h of gale. Scaffolding, signage, anybody light. All of it is in play."
       ],
       "wind.strong": [
         "Strong winds at {wind} km/h. Anything not bolted down is now airborne inventory.",

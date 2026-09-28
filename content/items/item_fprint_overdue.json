@@ -5,7 +5,7 @@
   "name": "an overdue notice",
   "tags": {
     "stackable": true,
-    "description": "A printed slip filled in by hand: the title, the date it was due, the amount so far, and the amount it will be by next Friday. The last line is not a threat and does not read as one, which is somehow worse. He writes four of these a week and has never once not sent one."
+    "description": "A printed slip filled in by hand: the title, the due date, what you owe so far and what you'll owe by next Friday. The last line isn't a threat. He sends four of these a week."
   },
   "type": "media",
   "value": 1,

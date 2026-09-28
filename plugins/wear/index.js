@@ -136,7 +136,7 @@ async function doRepair(player, row, broadcast) {
   if (customDataOf(row)?.fried) {
     const shop = repairmanIn(player.current_zone);
     if (!shop) {
-      return { type: 'error', message: `The ${row.name} is cooked through — dead firmware, not a dent. You'd need a proper bench and someone who knows what they're looking at.` };
+      return { type: 'error', message: `The ${row.name} is cooked through: dead firmware, not a dent. You'd need a proper bench and someone who knows what they're looking at.` };
     }
     const price = Math.max(25, Math.round((Number(row.value) || 50) * 0.4 * relationHelp(player, shop.id)));
     if (!(await adjustCredits(player, -price, undefined, 'repair:emp'))) {
@@ -209,7 +209,7 @@ async function doRepair(player, row, broadcast) {
         refresh: true,
       };
     }
-    return { type: 'repair', message: `You make a mess of it. The ${row.name} is no better — a little worse, if anything.` };
+    return { type: 'repair', message: `You make a mess of it. The ${row.name} is no better: a little worse, if anything.` };
   }
 
   // Margin drives how much you get back. A great roll at a bench leaves it
@@ -241,13 +241,13 @@ async function doRepair(player, row, broadcast) {
   if (reinforce) {
     return {
       type: 'repair',
-      message: `<span class="msg-system">You don't just patch the ${row.name} — you go through it. Seams doubled, stress points backed, the weak spot that was going to fail one day simply gone. It comes out tougher than it went in.</span>${mend}`,
+      message: `<span class="msg-system">You don't just patch the ${row.name}: you go through it. Seams doubled, stress points backed, the weak spot that was going to fail one day simply gone. It comes out tougher than it went in.</span>${mend}`,
       refresh: true,
     };
   }
   return {
     type: 'repair',
-    message: `You work the ${row.name} over — ${result.band.label.toLowerCase()}, and it'll hold.${mend}`,
+    message: `You work the ${row.name} over: ${result.band.label.toLowerCase()}, and it'll hold.${mend}`,
     refresh: true,
   };
 }

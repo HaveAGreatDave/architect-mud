@@ -134,9 +134,14 @@ client can only ever report it DOWN, and `helm` refuses a dry hull with *"there 
 fuel pontoon"* — against a world with no pump and no pontoon in it. A 14,500₵ hull was a countdown
 about four minutes long.
 
-[fuel.js](fuel.js) is the pump. `boat_fuel` on a tile is one, and Fairweather now has a **fuel
-float** — a walkway off the north end of the hardstanding, three finger berths and a card reader
-(`zone_district_892_901`). That tile is also the game's first `marina_berths`, a flag the yard has
+[fuel.js](fuel.js) is the pump. `boat_fuel` on a tile is one, and Fairweather's is the **fuel
+berth** (`zone_district_893_901`, `building_type: fuel_dock`): a floating deck moored against the
+slab's north face, where the channel out of the covered dock turns into open basin, so every hull
+leaving or coming home passes it. ⚠ **It serves the water tile on its pylon side, not its own deck**
+(`fuelServesAt`): a hull lies alongside. The side is derived from the entrance, 90° counter-clockwise
+(`fuelSideOf`; a south entrance puts the pylons east), because the GLASS arm draws them on its local
++X by the same rule and a shared mesh cannot read a per-tile flag. The visitor pontoon west of it
+(`zone_district_892_901`, once the fuel float) was the game's first `marina_berths`, a flag the yard has
 read since the day it was written and no content had ever carried.
 
 ⚠ **Priced PER UNIT off the type's own `tank`, never as a flat fill.** Trucking charges one flat
@@ -406,3 +411,41 @@ one block that says six until six.
   nobody steals her. The row has no clock on it and this deliberately did not add one — a hull that
   rotted while you were offline would make leaving her the wrong move in every case, which is the
   opposite of the point.
+
+## The counter, the covered slot, and the pump
+
+The marina's first screen is a **hand of cards**: your hulls, owned or hired, then Buy and Hire.
+Picking a card is `boat take <id>`. It walks you to her, puts you in her and gives you the helm,
+using the ordinary TELEPORT, `aboard` and `cmdHelm`. A hull on a cradle is craned into the covered
+dock first, at the move-in fee, and the card shows that price before you click.
+
+**She starts under the roof, on the water.** The helm used to spawn a covered hull on the
+boathouse's own tile, which is land, so she started aground. `coveredSlot` (yard.js) derives the
+slot from the covered room's exit onto open water, and she lies there bow out. Stepping off in the
+slot lifts her back into the hall (adrift.js `intoTheShed`) rather than leaving her adrift in her
+own shed.
+
+**The seat's overlay** (marina-panel.js service mode). In the covered slot it is the shipwright:
+the hull, servicing, paint, a decal and her name (`refit service|paint|decal|name`). Stopped at the
+fuel float it is the pump, and `BOAT_FUEL` now checks the live position rather than the berth she
+came out of. `svcTick` opens and closes the overlay on transitions only. `applyLive` pushes every
+change into `rigs` and the seat, because the telemetry's one-way clamp would otherwise undo a
+repair.
+
+**The window follows her.** `cmdBoatSync` now streams a fresh map once she is eight tiles from the
+last one. The seat's comment had always expected this, and nothing sent it, so past 33 tiles the
+fuel float she was heading back to did not exist.
+
+**Hire and wear** ([service.js](service.js)): `boat rent` and `boat return`, one at a time, with the
+same lazy clock as a truck hire. The three wear items each have a different clock. Oil wears on
+distance (`run`, accrued from the telemetry). The prop wears on groundings and slams. Fouling grows
+with time afloat, stopped by lifting her out. ⚠ A hull with no service record is handed the stock
+`TYPES` row itself, and regress asserts that.
+
+## The desk
+
+Hulls are bought and hired at the lobby desk only ([desk.js](desk.js)): `use desk` with a clerk on
+shift behind it opens the sale and hire screen, and `boat <name>` / `boat rent` refuse anywhere else.
+The dock hall deals the hand of your own boats on arrival; the lobby and the rest of the building open
+nothing on their own. A clerk is somebody whose `work_zone_id` is the desk's room and who is on shift
+and present (`isVendorClosed`). The desk is furniture flagged `marina_desk`.

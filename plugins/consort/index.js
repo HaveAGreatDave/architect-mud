@@ -204,7 +204,7 @@ const BARE_HOT = [
   (n) => `${n} is down to nothing and pulls you in by the wrist, laying your hands where she wants them.`,
   (n) => `${n} is naked and unhurried, one hand slow on herself and the other already reaching for you, certain of her welcome.`,
   (n) => `${n} is bare and kneeling up on the silk, spine arched, watching you take her in.`,
-  (n) => `${n} is naked now and doesn't cover a thing — just lets you look, chin high, pleased with the effect.`,
+  (n) => `${n} is naked now and doesn't cover a thing: just lets you look, chin high, pleased with the effect.`,
 ];
 const peelTame    = (n, g) => `${n} slips ${g} off and lets it pool on the silk, eyes on you.`;
 const peelHot     = (n, g) => pick(PEEL_HOT)(n, g);
@@ -268,7 +268,7 @@ const FELLATIO_DUO = [
     ['B', `§ presses close on your other side, sharing the space easily.`,
           `§ takes you into her mouth first, slow and deep, while the other watches, waiting her turn.`],
     ['A', `§ leans in to trade places, unhurried and generous.`,
-          `§ takes over without missing a beat, the two of them passing you between warm mouths like they've rehearsed it.`],
+          `§ takes over without missing a beat, the two of them passing you between warm mouths like they have rehearsed it.`],
     ['B', `§ murmurs something to the other and they both laugh softly against you.`,
           `§ and her twin work you together, one deep and one teasing, then swap, tireless and adoring.`],
     ['A', `§ rests her head on your stomach, spent and pleased with the both of them.`,
@@ -359,7 +359,7 @@ const FELLATIO_DUO_M = [
     ['B', `§ presses close on your other side, sharing the space easily.`,
           `§ takes you into his mouth first, slow and deep, while the other watches, waiting his turn.`],
     ['A', `§ leans in to trade places, unhurried and generous.`,
-          `§ takes over without missing a beat, the two of them passing you between warm mouths like they've rehearsed it.`],
+          `§ takes over without missing a beat, the two of them passing you between warm mouths like they have rehearsed it.`],
     ['B', `§ murmurs something to the other and they both laugh softly against you.`,
           `§ and §other work you together, one deep and one teasing, then swap, tireless and adoring.`],
     ['A', `§ rests his head on your stomach, spent and pleased with the both of them.`,
@@ -462,7 +462,7 @@ const MUTUAL_MM = [
   ],
   [
     ['B', `§ knocks his shoulder into §other's and doesn't step away again.`,
-          `§ backs §other into the nearest surface and kisses him like it's been building all week.`],
+          `§ backs §other into the nearest surface and kisses him like it has been building all week.`],
     ['A', `§ makes a low sound and pulls him closer.`,
           `§ drags §other's hand where he wants it and groans into his mouth.`],
     ['B', `§ works him over slow, watching his face.`,
@@ -580,7 +580,7 @@ const ORAL_F_DUO_M = [    // two male consorts → female keeper
     ['B', `§ moves down as the other keeps your attention.`,
           `§ settles between your thighs while §other kisses you and works a hand over your breasts.`],
     ['A', `§ takes his turn without a word being needed.`,
-          `§ takes over below while §other moves up, the two of them passing you between them like they've done this before.`],
+          `§ takes over below while §other moves up, the two of them passing you between them like they have done this before.`],
     ['B', `§ says something low to the other and they both grin.`,
           `§ and §other work you together, one mouth below and one above, until you can't tell which is which.`],
     ['A', `§ settles alongside you, thoroughly satisfied.`,
@@ -764,7 +764,7 @@ const CO_PRESENCE = {
   fm: [
     [`§ studies §other with open curiosity, as though working out what he's for.`,
      `§ looks §other over the way you'd price something, and lets him watch her do it.`],
-    [`§ gives §other a small nod — colleagues, near enough — and leaves it there.`,
+    [`§ gives §other a small nod (colleagues, near enough) and leaves it there.`,
      `§ trails a hand across §other's shoulders on her way past, entirely deliberate.`],
     [`"So there's two of us now." § says it at §other rather than to the room.`,
      `"So there's two of us now." § looks §other up and down. "That could be interesting or it could be tiresome. Surprise me."`],
@@ -868,7 +868,7 @@ function playKeeperScene(zoneId, thread, speakers, keeperId = null, gain = 14) {
 const PAIR_PRIVATE = [
   [
     ['B', `"He's not back yet." She says it to the porthole, not to §other.`],
-    ['A', `"He's back when he's back. Sit down, §other — you'll wear a track in the carpet."`],
+    ['A', `"He's back when he's back. Sit down, §other: you'll wear a track in the carpet."`],
     ['B', `"You watch that door same as me. Don't pretend you don't."`],
     ['A', `a small, caught smile. "...I watch it a little."`],
   ],
@@ -887,7 +887,7 @@ const PAIR_PRIVATE = [
     ['B', `grins, unrepentant. "I left you the bottle he likes. That's practically a love letter."`],
   ],
   [
-    ['B', `"If it were only ever the two of us out here — would that be so bad?"`],
+    ['B', `"If it were only ever the two of us out here: would that be so bad?"`],
     ['A', `quiet a moment. "It's never only the two of us. But I know what you mean."`],
   ],
   [
@@ -896,7 +896,7 @@ const PAIR_PRIVATE = [
   ],
   [
     ['B', `paints a second coat on her toes and holds a foot out. "Honest opinion. Too much?"`],
-    ['A', `considers it like it's a matter of state. "For anyone else, yes. For you, exactly enough."`],
+    ['A', `considers it like it is a matter of state. "For anyone else, yes. For you, exactly enough."`],
     ['B', `wiggles the toes, satisfied. "That's why I ask you and not the mirror."`],
   ],
   [
@@ -916,12 +916,12 @@ const PAIR_PRIVATE = [
 ];
 const PAIR_WITH_KEEPER = [
   [
-    ['B', `sits up the instant the hatch opens. "There he is. §other — he's home."`],
+    ['B', `sits up the instant the hatch opens. "There he is. §other: he's home."`],
     ['A', `already crossing the cabin. "We kept it warm for you. We always keep it warm."`],
   ],
   [
     ['B', `"He looked at you first this time. I'm keeping score, you know."`],
-    ['A', `"You keep a terrible score. He looked at the door — I was just standing in front of it."`],
+    ['A', `"You keep a terrible score. He looked at the door: I was just standing in front of it."`],
     ['B', `laughs. "Same thing, on this boat."`],
   ],
   [
@@ -938,7 +938,7 @@ const PAIR_WITH_KEEPER = [
   ],
   [
     ['A', `"He's got that crease between his eyebrows again, §other."`],
-    ['B', `already moving. "I see it. I've got the shoulders, you've got the rest. Come here, you — sit."`],
+    ['B', `already moving. "I see it. I've got the shoulders, you've got the rest. Come here, you: sit."`],
   ],
   [
     ['B', `"§other learned your coffee. The real way, not the way the galley does it."`],
@@ -955,14 +955,14 @@ const TALK_TO_KEEPER = [
   `leans into you like a cat finding sun. "Mm. I missed you. The boat's too quiet without you in it."`,
   `"I made a list of things I like about you today. It got long. I had to stop or I'd never finish."`,
   `catches your hand and turns it over, tracing the lines of your palm. "You've got good hands. I think about them."`,
-  `"Tell me about your day. All of it. I want the boring parts too — they're yours, so they're mine."`,
+  `"Tell me about your day. All of it. I want the boring parts too: they're yours, so they're mine."`,
   `"You could put me anywhere on this boat and I'd still drift back to whatever room you're in."`,
   `"Was it a hard day? Come here. Let me be the easy part."`,
 ];
 const TALK_SHY = [
   `barely looks up, drawing the robe a little tighter. "...I don't really talk to guests. Sorry."`,
   `gives you a polite, distant smile and looks away. "You should ask whoever brought you aboard."`,
-  `"Oh — no, I. I'm not part of the tour." She edges toward the far side of the cabin.`,
+  `"Oh... no, I. I'm not part of the tour." She edges toward the far side of the cabin.`,
   `answers so softly you almost miss it. "I'm sure you're very nice. I'd just rather you sat over there."`,
   `"He didn't say anyone was coming down here." Her eyes flick to the hatch, hoping.`,
   `keeps her eyes down and her answers to one word. "...Fine. Thanks." She doesn't ask you anything back.`,
@@ -1045,16 +1045,16 @@ const pendingSettle = new Map();                  // keeperId -> { zoneId, aId, 
 const SETTLE_SETUP = [
   ['B', `"We had an argument today about which of us you like best."`],
   ['A', `"There was no argument. I won." A beat. "...it was a draw. We're calling it a draw."`],
-  ['B', `leans in, eyes bright and merciless. "So settle it — out loud, a name. Whole evenings ride on this. Well?"`],
+  ['B', `leans in, eyes bright and merciless. "So settle it: out loud, a name. Whole evenings ride on this. Well?"`],
 ];
 const SETTLE_REACT = {
   a: [
     ['A', `doesn't gloat. She simply lets a slow, satisfied smile arrive and stay. "...noted. For the record."`],
-    ['B', `clutches her chest like she's been shot. "BETRAYED. In my own cabin. §other, don't you DARE look smug—"`],
+    ['B', `clutches her chest like she's been shot. "BETRAYED. In my own cabin. §other, don't you DARE look smug..."`],
     ['A', `looking thoroughly smug. "I would never."`],
   ],
   b: [
-    ['B', `lights up like the whole deck came on at once. "ME. He said ME — §other, are you hearing this—"`],
+    ['B', `lights up like the whole deck came on at once. "ME. He said ME: §other, are you hearing this..."`],
     ['A', `dry as the good gin. "The entire harbour's hearing it, §other." A pause, softer. "...good taste, though. I'll allow it."`],
   ],
   both: [
@@ -1062,7 +1062,7 @@ const SETTLE_REACT = {
     ['B', `"He can't choose because he's SMART. Take notes, §other." She's delighted either way.`],
   ],
   dodge: [
-    ['B', `pouts to her full capacity. "That isn't a name. That's a dodge. I know a dodge — I invented the dodge."`],
+    ['B', `pouts to her full capacity. "That isn't a name. That's a dodge. I know a dodge: I invented the dodge."`],
     ['A', `"Leave him be. The non-answer IS the answer, and it's the kind one." She doesn't look entirely certain she believes that.`],
   ],
   timeout: [
@@ -1382,7 +1382,7 @@ const AREA_ACTIVITIES = {
       start: L('§ perches on the jacuzzi’s tiled lip and trails her toes through the warm spill.'),
       idle: [ L('§ kicks a lazy arc of water into the light and laughs at nothing.'),
               L('§ dangles both legs into the froth and leans back on her hands, sun on her throat.',
-                '§ dangles both legs into the froth, leans back bare to the sun, and asks — perfectly innocent — whether you’re coming in.') ] },
+                '§ dangles both legs into the froth, leans back bare to the sun, and asks, perfectly innocent, whether you’re coming in.') ] },
     { key: 'read', occupies: 'sun loungers',
       start: L('§ curls into a lounger with a glossy magazine, one knee up.'),
       idle: [ L('§ turns a page without really reading it, sun-drunk.'),
@@ -1519,7 +1519,7 @@ const AREA_ACTIVITIES = {
     { key: 'doorway',
       start: L('§ stands in the doorway a while, half in the room and half out of it.'),
       idle: [ L('§ leans a shoulder into the frame and stays there, in no hurry to pick a side.'),
-              L('§ listens to the building for a moment — pipes, neighbours, somebody’s door — and lets it go.') ] },
+              L('§ listens to the building for a moment (pipes, neighbours, somebody’s door) and lets it go.') ] },
     { key: 'floor',
       start: L('§ sits down on the floor with a back against the wall, which is where §’s most comfortable.'),
       idle: [ L('§ stretches both legs out across the boards and studies the ceiling.'),
@@ -1684,7 +1684,7 @@ const AREA_BANTER = {
       ['B', `"The same. We're extremely good at it. It's the whole skill."`],
     ],
     [
-      ['A', `"If it were you and me and nobody else — what would we do with a day?"`],
+      ['A', `"If it were you and me and nobody else: what would we do with a day?"`],
       ['B', `considers it properly. "Cook something. Argue about it. Sleep through the afternoon."`],
       ['A', `"That's it? That's the whole fantasy?"`],
       ['B', `"That's it. I've had grander ones. They were worse."`],

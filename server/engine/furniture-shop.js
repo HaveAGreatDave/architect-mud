@@ -70,7 +70,7 @@ function deliveryLine(npc, item, aptName, buildingName) {
   const lines = [
     `"Good pick. I'll have the ${item.name} run over to ${where} soon as I can."`,
     `"Sold. The ${item.name}'ll be waiting at ${where} before you know it."`,
-    `"Nice. My people will drop the ${item.name} off at ${where} — give it a little time."`,
+    `"Nice. My people will drop the ${item.name} off at ${where}. Give it a little time."`,
     `"Done. Expect the ${item.name} at ${where} shortly; delivery's on me."`,
     `"${item.name}, coming right up. We'll get it over to ${where} as soon as possible."`,
   ];

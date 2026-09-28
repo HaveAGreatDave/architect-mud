@@ -5,7 +5,7 @@
     "pats the launch rail and squints up into the haze.",
     "\"Fly over Redline, you pay the Redline toll. One way or another.\""
   ],
-  "description": "A Redline gang missileer draped in red, one hand resting on the SAM nest's launch rail like it's a pet. He grins at the sky the way a man grins at easy money.",
+  "description": "A Redline gang missileer draped in red, one hand resting on the SAM nest's launch rail like it is a pet. He grins at the sky the way a man grins at easy money.",
   "dialogue_tree": {
     "bye": {
       "options": [],

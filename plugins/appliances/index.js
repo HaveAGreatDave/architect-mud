@@ -48,7 +48,7 @@ export async function togglePluggedByName(player, nameStr, targetState, broadcas
   // Only the plug-in side names the building supply — on the way out it's both
   // contradictory and something the player has no use for.
   return { type: 'output', message: targetState
-    ? `You plug in the ${machine.name} — it draws straight off the building's supply.`
+    ? `You plug in the ${machine.name}: it draws straight off the building's supply.`
     : `You unplug the ${machine.name}.` };
 }
 
@@ -61,7 +61,7 @@ async function cmdUnplug(args, raw, player, broadcast) {
   if (result) return result;
   return { type: 'error', message: nameStr
     ? `There's no powered appliance called "${nameStr}" here. (To disconnect a deployed generator, use \`gen disconnect\`.)`
-    : `Unplug what? There's more than one powered appliance here — name it.` };
+    : `Unplug what? There's more than one powered appliance here: name it.` };
 }
 
 // Generic "looks broken" flavor for any unplugged powered appliance, surfaced

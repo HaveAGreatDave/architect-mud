@@ -56,8 +56,8 @@ export function showArrestNotice(msg) {
       <div class="arrest-banner">⛓ YOU HAVE BEEN PROCESSED INTO HOLDING ${starBar}</div>
       <div class="arrest-row"><span class="arrest-label">Charge</span><span class="arrest-val">${esc(msg.charge || 'multiple outstanding warrants')}</span></div>
       <div class="arrest-row"><span class="arrest-label">Sentence</span><span class="arrest-val">${esc(msg.sentence || '—')}</span></div>
-      <div class="arrest-row"><span class="arrest-label">Property</span><span class="arrest-val">${msg.confiscated || 0} item(s) seized — contraband logged to evidence, the rest returned on release</span></div>
-      <div class="arrest-row"><span class="arrest-label">Cash seized</span><span class="arrest-val">₵${held.toLocaleString()} — held at the desk</span></div>
+      <div class="arrest-row"><span class="arrest-label">Property</span><span class="arrest-val">${msg.confiscated || 0} item(s) seized: contraband logged to evidence, the rest returned on release</span></div>
+      <div class="arrest-row"><span class="arrest-label">Cash seized</span><span class="arrest-val">₵${held.toLocaleString()}, held at the desk</span></div>
       <div class="arrest-row"><span class="arrest-label">Fine (on release)</span><span class="arrest-val arrest-fine">−₵${fine.toLocaleString()}</span></div>
       <div class="arrest-row"><span class="arrest-label">Returned on release</span><span class="arrest-val ${refundCls}">₵${refund.toLocaleString()}</span></div>
       <div class="confirm-actions">

@@ -486,6 +486,14 @@ Four rules worth knowing before you touch any of it:
 modulates on a curve slow enough to read as breathing, and `pulse` carries a **baseline under the
 beat** — a pure `sin³` drew literally zero paint between beats, which the smoke caught.
 
+A dark shape at the edge of sight is invisible on a dark theme. `spiders` and `veins` both shipped a
+draft in near-black over a near-black background and drew nothing; both now draw in the background's
+opposite, off `bgIsLight()`.
+
+A harness that doesn't clear between frames isn't showing you the game: `_test.runEffect` stacks 90
+frames on one canvas unless `clearEachFrame` is passed, which turns a 0.07-alpha heat haze into solid
+white columns. The live loop clears every frame.
+
 ⚠ **`drug_transforms.fx` / `fx_intensity` were authored and read by nothing.** The columns had
 existed since the transforms shipped and no code path had ever looked at either — the weather
 stopped behaving in PROSE while the field over the room pane went on rendering the real drizzle.

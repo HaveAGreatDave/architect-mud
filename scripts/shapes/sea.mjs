@@ -42,7 +42,10 @@ import {
   SEA_TRAINS, SEA_PH, SEA_ROLL, SEA_WIND, SEA_AMP,
   SEA_SWELL_SIDE, SEA_WIND_SIDE, SEA_SWELL_PEAK, SEA_WIND_PEAK, SEA_SPREAD,
   seaChop, seaHeight, seaSlope, seaAmpsFor, whitecapFraction, seaFoamThreshold, seaSubmersion, seaFoamTear, seaFoamFine, SEA_FOAM_TEAR,
+  surfGain, surfBreaking, SURF_GAMMA, surfHullGain,
+  seaChopGain, SEA_CHOP_CALM, SEA_FULL_KT, SEA_KA_LIMIT,
 } from '../../client/shared/sea-swell.js';
+import { seabedDepth, shoreDistance } from '../../client/shared/seabed.js';
 
 const GLSL = 'client/game/js/panels/gl/sea-glsl.js';
 const RASTER = 'client/game/js/panels/windshield.js';
@@ -317,12 +320,12 @@ if (rasterSrc) {
     for (const [needle, what] of [
       ['seaSlope(', 'calls the shared slope rather than spelling out a derivative'],
       ['SEA_NOW.roll', 'reads the LIVE roll amplitude rather than the tune ceiling'],
-      ['RENDER_TUNE.glSeaAmp', 'reads the chop amplitude from the tune'],
+      ['SEA_NOW.amp', 'reads the LIVE chop amplitude (seaChopGain, or the tune when pinned) rather than a constant'],
     ]) {
       if (!body.includes(needle)) { fail.push(`windshield.js: the lit block no longer ${what}`); bad++; }
     }
     if (/\bMath\.cos\([^)]*5\.6/.test(body)) { fail.push('windshield.js: the lit block has grown its own derivative'); bad++; }
-    if (!bad) ok.push('windshield.js: the lit block reads the shared slope and the tune, with no derivative of its own');
+    if (!bad) ok.push('windshield.js: the lit block reads the shared slope and the live amplitudes, with no derivative of its own');
   }
 }
 
@@ -1013,7 +1016,7 @@ if (rasterSrc) {
   // ⚠ AND IT DISPLACES AT THE WARPED POSITION `sw`, not the raw one — the shoal warp bends the
   // crests and the shelter scales them, and both have to reach the same call or one of them is
   // being applied to a surface the other is not.
-  else if (!/seaRoll\(sw, uT, uRoll \* gate \* shel/.test(vert)) fail.push('gl/water.js: the mesh does not scale its displacement by shelter');
+  else if (!/seaRoll\(swR, uT, uRoll \* gate \* shel/.test(vert)) fail.push('gl/water.js: the mesh does not scale its displacement by shelter');
   else if (!/seaSlope\([^)]*uRoll \* gate \* vShelter/.test(frag)) fail.push('gl/water.js: the slope does not read the shelter the mesh displaced by — a harbour lit as open sea');
   else ok.push('gl/water.js: the mesh and its lighting read the same shelter');
 }
@@ -1514,7 +1517,7 @@ if (rasterSrc) {
   // coverage law, so biasing the TEST would foam the sea at the wrong fraction for its wind — the
   // shift has to be in the sampling POSITION, which leaves the distribution alone.
   const W = read('client/game/js/panels/gl/water.js');
-  if (!/spF = sp - uWindDir \*[\s\S]{0,80}?seaChop\(spF/.test(W)) {
+  if (!/spF = sp - uWindDir \*[\s\S]{0,80}?seaChop\(seaFrame\(spF/.test(W)) {
     fail.push('gl/water.js: the whitecap mask is not read downwind — foam sits symmetric about a crest that is not');
   } else if (!/wvT = wvF \+/.test(W)) {
     fail.push('gl/water.js: the tested field does not descend from the shifted sample');
@@ -1646,6 +1649,275 @@ if (rasterSrc) {
   for (let i = 1; i < th.length; i++) if (!(th[i] < th[i - 1])) mono = false;
   if (!mono) fail.push('the whitecap threshold is not monotonic in wind (' + th.map((x) => x.toFixed(2)).join(' ') + ') — spray would not track the sea state');
   else ok.push('the break threshold falls with wind (' + th.map((x) => x.toFixed(2)).join(' -> ') + ')');
+}
+// ── 26. AND WAVES REACH THE BEACH: THEY SHOAL, LEAN AND BREAK ─────────────────────────────────
+//
+// The swell used to taper as deep^2 and fade away toward the shore. It now grows into the
+// shallows, pitches forward and breaks in a surf zone several tiles wide, and the floor's surf band
+// runs up and back with the swell. Four things are silent when wrong, and a rasteriser is needed
+// for none of them.
+{
+  const G = read('client/game/js/panels/gl/sea-glsl.js');
+  const Wt = read('client/game/js/panels/gl/water.js');
+  const F = read('client/game/js/panels/gl/floor.js');
+  const WS = read('client/game/js/panels/windshield.js');
+  const vert = Wt.slice(Wt.indexOf('const VERT'), Wt.indexOf('const FRAG'));
+  const frag = Wt.slice(Wt.indexOf('const FRAG'));
+  const gain = G.slice(G.indexOf('float seaShoalGain('), G.indexOf('float seaSurfZone('));
+  // ⚠ THE FLAG'S 0 IS THE SEA THAT SHIPPED, which is what every later A/B is measured against.
+  if (!/float ship = deep \* deep;\s*if \(amt <= 0\.0\) return ship;/.test(gain)) {
+    fail.push('sea-glsl.js: seaShoalGain at amt 0 is no longer deep^2 — glSeaSurf 0 is not the sea that shipped');
+  } else ok.push('glSeaSurf 0 is the deep^2 taper exactly');
+  // ⚠ STILL ZERO AT THE WATERLINE, or a wall of sea stands on the sand the floor paints.
+  if (!/smoothstep\(0\.0, 0\.5, deep\)/.test(gain)) {
+    fail.push('sea-glsl.js: the shoaling gain is no longer taken to 0 on deep at the waterline — the swell would stand on the beach');
+  } else ok.push('the grown swell still goes to 0 at the waterline');
+  // ⚠ BOTH SHADERS ASK ONE GAIN, or the lighting describes a sea the mesh is not drawing.
+  if (!/float gate = seaShoalGain\(deep, hM, H0, uSurf\) \* vRim;/.test(vert)) fail.push('water.js: the mesh does not displace by the shoaling gain');
+  else if (!/float gate = seaShoalGain\(deep, vDepthM, H0, uSurf\) \* vRim;/.test(frag)) fail.push('water.js: the fragment slope does not read the gain the mesh displaced by');
+  else ok.push('the mesh and the lighting ask one shoaling gain');
+  // ⚠ THE BREAKER'S LEAN IS IN THE SLOPE AS WELL AS THE HEIGHT.
+  if (!/seaSurfLean\(/.test(vert)) fail.push('water.js: the surf lean is not in the displacement');
+  else if (!/seaSurfLeanD\(/.test(frag)) fail.push('water.js: the surf lean is displaced and not lit');
+  else ok.push('the breaker lean is displaced and lit');
+  // ⚠ A UNIFORM HOLDS ITS LAST VALUE, so both layers set it every frame.
+  for (const [n, src] of [['water.js', Wt], ['floor.js', F]]) {
+    if (!/gl\.uniform1f\(loc\.surf, /.test(src)) fail.push(n + ': uSurf is never set');
+  }
+  // ⚠ THE DEPTH IS THE SEABED'S, the model the submersible dives on, not a second idea of it.
+  if (!/seabedDepth\(wx, wy, isLand, d\)/.test(WS)) fail.push('windshield.js: the surf depth plane is not built from seabedDepth');
+  else ok.push('the surf reads the seabed the submersible dives on');
+  // ⚠ AND THE PHYSICS, on the JS twin: a wave shoals (grows) over the shelf, breaks where it
+  // reaches SURF_GAMMA of the depth, and a bigger sea breaks in deeper water.
+  const isLand = (x) => x < 0;
+  const H = [];
+  for (let x = 0.5; x < 40; x += 0.5) H.push([x, seabedDepth(x, 0, isLand, shoreDistance(x, 0, isLand))]);
+  const breakAt = (H0) => { let far = 0; for (const [x, h] of H) if (surfBreaking(h, H0) > 0.5) far = x; return far; };
+  const peak = Math.max(...H.map(([, h]) => surfGain(h, 1.0)));
+  const small = breakAt(0.5), big = breakAt(4.0);
+  if (!(peak > 1.1)) fail.push('surfGain never rises above 1 over the shelf — the waves do not shoal (peak ' + peak.toFixed(2) + ')');
+  else if (!(surfGain(0, 1) === 0)) fail.push('surfGain is not 0 at the waterline');
+  else if (!(big > small)) fail.push('a 4 m sea breaks no further out than a 0.5 m one (' + big + ' vs ' + small + ' tiles) — breaking is not depth-limited');
+  else ok.push('waves shoal to ' + peak.toFixed(2) + 'x and break at ' + small + ' tiles (0.5 m sea) and ' + big + ' tiles (4 m sea), gamma ' + SURF_GAMMA);
+  // ⚠ AND THE HULLS RIDE IT. Offshore the gain must be EXACTLY 1, so no boat at sea moves by a
+  // hair; over a beach it is 0; in the surf it rises above 1 and then falls. And an UNKNOWN depth
+  // (no seabed window yet, and every headless run) must read as open water, not as sand — that
+  // guard is what kept the Echelon's own heave checks in this file green.
+  if (surfHullGain(42, 0.1, 0.05) !== 1 || surfHullGain(500, 0.4, 0.2) !== 1) fail.push('surfHullGain is not exactly 1 in open water — every hull offshore would move');
+  else if (surfHullGain(0, 0.1, 0.05) !== 0) fail.push('surfHullGain is not 0 on the sand');
+  else if (!(surfHullGain(4, 0.02, 0.01) > 1.1)) fail.push('surfHullGain does not rise in the shallows — hulls do not feel the shoaling');
+  else if (surfHullGain(0, 0.1, 0.05, 0) !== 1) fail.push('surfHullGain at amt 0 is not the sea as it shipped');
+  else ok.push('a hull takes gain 1 offshore, 0 on the sand, ' + surfHullGain(4, 0.02, 0.01).toFixed(2) + 'x in the shallows');
+  const BV = read('client/game/js/panels/boat-view.js');
+  const pose = WS.slice(WS.indexOf('function seaPoseAt('), WS.indexOf('export function hullSurfGain('));
+  if (!/hullSurfGain\(wx, wy, a\.roll, a\.wind\)/.test(pose)) fail.push('windshield.js: seaPoseAt does not scale by the surf gain — the Echelon rides the open sea up the beach');
+  else if (!/hullSurfGain\(st\.sim\.x, st\.sim\.y/.test(BV)) fail.push('boat-view.js: the hydro does not scale its sea by the surf gain');
+  else if (!/!seabedWindowReady\(\)\) return 1;/.test(WS)) fail.push('windshield.js: hullSurfGain reads an unknown depth as sand — every hull goes flat before the first window');
+  else ok.push('the Echelon and the hydro both ride the surf gain');
+  if (!/glSeaSurf:\s*[\d.]+/.test(WS)) fail.push('windshield.js: glSeaSurf is not in RENDER_TUNE');
+  else if (!/seaSurf: RENDER_TUNE\.glSeaSurf/.test(WS)) fail.push('windshield.js: glSeaSurf never reaches the sea state');
+  else ok.push('glSeaSurf reaches both water layers');
+}
+// ── 27. AND THE SWELL REACHES THE HORIZON ─────────────────────────────────────────────────────
+//
+// A coarse far band carries the ROLL alone out to PATCH_FAR_R, so a storm's far crests break the
+// skyline. Three things are silent when wrong.
+{
+  const Wt = read('client/game/js/panels/gl/water.js');
+  const vert = Wt.slice(Wt.indexOf('const VERT'), Wt.indexOf('const FRAG'));
+  const frag = Wt.slice(Wt.indexOf('const FRAG'));
+  const step = +(Wt.match(/PATCH_FAR_STEP = ([\d.]+)/) || [0, 0])[1];
+  const rollL = 2 * Math.PI / Math.hypot(SEA_ROLL.ku, SEA_ROLL.kv);
+  // ⚠ THE FAR GRID MUST CARRY THE ROLL, or the far crests are a zigzag on the skyline.
+  if (!(step > 0)) fail.push('gl/water.js: PATCH_FAR_STEP could not be read');
+  else if (rollL / step < 5) fail.push('the far band carries ' + (rollL / step).toFixed(1) + ' vertices across the roll — below five it is a zigzag on the horizon');
+  else ok.push('the far band carries ' + (rollL / step).toFixed(1) + ' vertices across the roll (' + rollL.toFixed(1) + ' tiles)');
+  // ⚠ AND NOT THE WIND SEA, which that spacing cannot carry: it fades at the near rim.
+  if (!/seaWind\(swR, uT, ph, uWind \* gate \* shel \* windK, uSpread\)/.test(vert)) fail.push('gl/water.js: the wind sea is displaced out into the far band, where the grid aliases it');
+  else ok.push('the wind sea stays geometry inside the near rim only');
+  // ⚠ AND A FAR CREST MUST NOT BE HAZED TO THE SKY'S OWN COLOUR, or it is drawn and invisible.
+  if (!/if \(uFarR > 0\.0\) haze = min\(haze, 1\.0 - uFarBody/.test(frag)) fail.push('gl/water.js: the far band hazes to uHor — its crests are sky-coloured against the sky');
+  else ok.push('a far crest keeps some water colour against the sky');
+  const WS = read('client/game/js/panels/windshield.js');
+  if (!/seaFar: RENDER_TUNE\.glSeaFar/.test(WS)) fail.push('windshield.js: glSeaFar never reaches the water');
+  else ok.push('glSeaFar reaches the water layer');
+}
+// ── 28. THE SEA RUNS DOWNWIND, AND CRESTS SWING ROUND OVER THE SHELF ─────────────────────────
+//
+// The heading is a rigid rotation of every sample (sea-swell.js setSeaHeading), so four things can
+// be silently wrong: heading 0 must be the identity, the slope must be rotated back out (or the
+// lighting describes a sea turned the other way), the swell must actually travel downwind, and the
+// refraction warp must not fold on a small island.
+{
+  const { setSeaHeading, seaHeadingFor } = await import('../../client/shared/sea-swell.js');
+  const P = [[3.1, -7.4], [41.2, 12.9], [-18.5, 30.3]];
+  setSeaHeading(0);
+  const h0 = P.map(([u, v]) => seaHeight(u, v, 11.3, 0.3, SEA_AMP, 0.2));
+  setSeaHeading(seaHeadingFor(0, 1)); setSeaHeading(0);
+  const h1 = P.map(([u, v]) => seaHeight(u, v, 11.3, 0.3, SEA_AMP, 0.2));
+  if (h0.some((x, i) => !Object.is(x, h1[i]))) fail.push('sea-swell.js: heading 0 is not the identity');
+  else ok.push('heading 0 is the sea that shipped, bit for bit');
+  let worst = 0, dirErr = 0;
+  for (const deg of [0, 70, 145, 230, 310]) {
+    const r = deg * Math.PI / 180, wx = Math.sin(r), wy = -Math.cos(r);
+    setSeaHeading(seaHeadingFor(wx, wy));
+    for (const [u, v] of P) {
+      const e = 1e-4;
+      const [du, dv] = seaSlope(u, v, 5.2, 0.3, SEA_AMP, 0.2);
+      const fu = (seaHeight(u + e, v, 5.2, 0.3, SEA_AMP, 0.2) - seaHeight(u - e, v, 5.2, 0.3, SEA_AMP, 0.2)) / (2 * e);
+      const fv = (seaHeight(u, v + e, 5.2, 0.3, SEA_AMP, 0.2) - seaHeight(u, v - e, 5.2, 0.3, SEA_AMP, 0.2)) / (2 * e);
+      worst = Math.max(worst, Math.abs(du - fu), Math.abs(dv - fv));
+    }
+    // Travel direction of the single-train roll: -dh/dt over |grad h|, along grad h.
+    const [u, v] = P[1], e = 1e-4;
+    const ht = (seaHeight(u, v, 5.2 + e, 0.3, 0, 0, 0) - seaHeight(u, v, 5.2 - e, 0.3, 0, 0, 0)) / (2 * e);
+    const [gu, gv] = seaSlope(u, v, 5.2, 0.3, 0, 0, 0);
+    const s = -Math.sign(ht) / Math.hypot(gu, gv);
+    dirErr = Math.max(dirErr, Math.hypot(gu * s - wx, gv * s - wy));
+  }
+  setSeaHeading(0);
+  if (worst > 1e-5) fail.push('sea-swell.js: under a heading the slope is not the slope (' + worst.toExponential(2) + ') — it is not rotated back out');
+  else ok.push('under any heading the analytic slope is still the slope (' + worst.toExponential(1) + ')');
+  if (dirErr > 1e-3) fail.push('sea-swell.js: the swell does not travel downwind (error ' + dirErr.toFixed(3) + ')');
+  else ok.push('the swell travels downwind at every heading');
+
+  // Refraction: read the two constants out of the shader rather than restating them.
+  const G = read('client/game/js/panels/gl/sea-glsl.js');
+  const D = +(G.match(/clamp\(1\.0 - hM \/ ([\d.]+), 0\.0, 1\.0\)/) || [0, 0])[1];
+  const B = +(G.match(/return amt \* ([\d.]+) \* x \* x;/) || [0, 0])[1];
+  const amt = +(read('client/game/js/panels/windshield.js').match(/glSeaRefract: ([\d.]+)/) || [0, 0])[1];
+  const { shelfDepth } = await import('../../client/shared/seabed.js');
+  const k = [SEA_ROLL.ku / SEA_ROLL.k, SEA_ROLL.kv / SEA_ROLL.k];
+  const warp = (R) => (x, y) => {
+    const r = Math.hypot(x, y), hd = (px, py) => shelfDepth(Math.max(0, Math.hypot(px, py) - R));
+    const hM = hd(x, y);
+    if (hM >= D) return [x, y];
+    const gx = hd(x + 1, y) - hd(x - 1, y), gy = hd(x, y + 1) - hd(x, y - 1), L = Math.hypot(gx, gy);
+    if (L < 1e-4 || r <= R) return [x, y];
+    const nx = gx / L, ny = gy / L, kn = k[0] * nx + k[1] * ny;
+    const q = Math.max(0, Math.min(1, 1 - hM / D)), g = amt * B * q * q;
+    return [x - (k[0] - kn * nx) * g, y - (k[1] - kn * ny) * g];
+  };
+  let minDet = Infinity;
+  if (!(D > 0 && B > 0)) fail.push('gl/sea-glsl.js: seaRefract constants could not be read');
+  else for (const R of [2, 4, 8]) {
+    const f = warp(R), e = 0.05;
+    for (let a = 0; a < 64; a++) for (let rr = R + 0.1; rr < R + 12; rr += 0.25) {
+      const x = rr * Math.cos(a / 64 * 2 * Math.PI), y = rr * Math.sin(a / 64 * 2 * Math.PI);
+      const px = f(x + e, y), mx = f(x - e, y), py = f(x, y + e), my = f(x, y - e);
+      const det = ((px[0] - mx[0]) * (py[1] - my[1]) - (px[1] - mx[1]) * (py[0] - my[0])) / (4 * e * e);
+      minDet = Math.min(minDet, det);
+    }
+  }
+  if (!(minDet > 0.1)) fail.push('seaRefract folds round a small island (Jacobian ' + minDet.toFixed(3) + ') — a row of cusps along the coast');
+  else ok.push('seaRefract stays a warp of the plane round islands of radius 2-8 (min Jacobian ' + minDet.toFixed(2) + ')');
+  const W28 = read('client/game/js/panels/gl/water.js');
+  if (!/seaRefract\(seaShoal\(w, water, gW, uShoal\), depthAt\(w\), gH, kdir, uRefract\)/.test(W28)) fail.push('gl/water.js: the mesh does not refract over the shelf');
+  else ok.push('the mesh refracts over the shelf');
+  if (!/dd = seaUnframe\(dd, uSeaRot\)/.test(W28) || !/seaUnframe\(seaSlope\(/.test(read('client/game/js/panels/gl/floor.js'))) fail.push('a water layer lights the sea without rotating its slope back out');
+  else ok.push('both water layers rotate the slope back out of the sea\'s frame');
+}
+// ── 29. THE CHOP FOLLOWS THE WIND ─────────────────────────────────────────────────────────────
+//
+// SEA_AMP was a constant, so a calm carried the chop of a gale. seaChopGain is the one answer and
+// SEA_NOW.amp the one place the picture reads it. Four things are silent when wrong: the gain must
+// be nearly glassy in a calm, rise monotonically, keep every chop train under the Stokes limit at
+// the top of the scale, and reach every picture-side reader rather than the constant.
+{
+  let prev = -1, mono = true;
+  for (let kt = 0; kt <= SEA_FULL_KT; kt += 0.5) { const g = seaChopGain(kt); if (g < prev - 1e-12) mono = false; prev = g; }
+  if (!mono) fail.push('seaChopGain is not monotonic in the wind');
+  else if (!(Math.abs(seaChopGain(0) - SEA_CHOP_CALM) < 1e-9)) fail.push('seaChopGain(0) is not the calm share');
+  else ok.push('the chop grows with the wind, from ' + SEA_CHOP_CALM + ' of SEA_AMP in a calm to ' + seaChopGain(SEA_FULL_KT).toFixed(2) + ' in a gale');
+  const kMax = Math.max(...SEA_TRAINS.map((T) => Math.hypot(T.ku, T.kv)));
+  const ka = SEA_AMP * seaChopGain(SEA_FULL_KT) * kMax * Math.max(...SEA_TRAINS.map((T) => Math.abs(T.a)));
+  if (!(ka < SEA_KA_LIMIT)) fail.push('the storm chop is past the Stokes limit (ka ' + ka.toFixed(3) + ')');
+  else ok.push('the steepest chop train stays under the Stokes limit at the top of the scale (ka ' + ka.toFixed(3) + ')');
+  const src = blank(rasterSrc || '');
+  if (!/SEA_NOW\.amp = [\s\S]{0,120}seaChopGain\(SEA_NOW\.kt\)/.test(src)) fail.push('windshield.js: SEA_NOW.amp no longer follows seaChopGain');
+  else ok.push('windshield.js: SEA_NOW.amp follows the wind');
+  const stale = (src.match(/RENDER_TUNE\.glSeaAmp == null \? SEA_AMP/g) || []).length;
+  if (stale) fail.push('windshield.js: ' + stale + ' reader(s) still take the constant chop rather than SEA_NOW.amp');
+  else ok.push('windshield.js: no reader takes the constant chop');
+}
+// ── 30. THE FAR WATER FOAMS ON MONAHAN TOO ─────────────────────────────────────────────────────
+//
+// Past the mesh patch the floor tested the literal wv > 0.90 under a noise mask, held to no coverage
+// law, while the mesh beside it followed Monahan. uFoamFar is the tear-0 quantile of the smooth chop
+// the floor actually tests. Checked on the arithmetic (the fraction over the threshold is Monahan's)
+// and on the wiring at both ends, since a uniform nobody sets reads its last value for ever.
+{
+  let worst = 0;
+  for (const kt of [12, 22, 34, 45]) {
+    const thr = seaFoamThreshold(kt, 0), want = whitecapFraction(kt);
+    let hit = 0; const N = 40000;
+    for (let i = 0; i < N; i++) {
+      const u = (((i + 1) * 0.6180339887) % 1) * 70 - 35, v = (((i + 1) * 0.4142135624) % 1) * 70 - 35;
+      if (seaChop(u, v, 7.3) > thr) hit++;
+    }
+    worst = Math.max(worst, Math.abs(hit / N - want) / Math.max(want, 1e-3));
+  }
+  if (!(worst < 0.25)) fail.push('the far-water threshold does not give Monahan coverage (worst ' + (worst * 100).toFixed(0) + '% off)');
+  else ok.push('the far-water threshold gives Monahan coverage on the smooth chop (worst ' + (worst * 100).toFixed(1) + '% off, 12-45 kt)');
+  const fl = read('client/game/js/panels/gl/floor.js');   // RAW: the shader is a template literal, which blank() wipes
+  const ws = blank(rasterSrc || '');
+  const bad = [];
+  if (!fl.includes('wv > uFoamFar')) bad.push('gl/floor.js does not test uFoamFar');
+  if (!fl.includes('gl.uniform1f(loc.foamFar,')) bad.push('gl/floor.js never sets uFoamFar');
+  if (!ws.includes('seaFoamFar: SEA_NOW.foamFar')) bad.push('windshield.js does not hand the floor SEA_NOW.foamFar');
+  if (!ws.includes('wv > SEA_NOW.foamFar')) bad.push('the 2-D raster twin does not test SEA_NOW.foamFar');
+  if (!ws.includes('foamFar: seaFoamThreshold(kt, 0)')) bad.push('windshield.js: foamFar is not the tear-0 inversion');
+  if (bad.length) for (const b of bad) fail.push(b);
+  else ok.push('the far-water threshold reaches both floors, set every frame');
+}
+// ── 31. SHE HAS A NATURAL ROLL PERIOD ──────────────────────────────────────────────────────────
+//
+// The tap filter can only roll her less than the water; rollRao lets a sea near her period roll her
+// more. Four things are silent when wrong: the response has its peak at her own frequency, the flag's
+// 0 is the tap-filtered roll exactly, the answer stays a pure function of the clock, and the beam
+// sea still rolls her harder than the head sea (the danger must come from geometry, not a guard).
+{
+  const ws = await (await import('./dom-stub.mjs')).loadWindshield();
+  const { rollRao, RIDE_ROLL_W, RIDE_ROLL_ZETA, RENDER_TUNE: T } = ws;
+  if (typeof rollRao !== 'function') fail.push('windshield.js: rollRao is not exported');
+  else {
+    const peak = rollRao(RIDE_ROLL_W).gain, want = 1 / (2 * RIDE_ROLL_ZETA);
+    if (!(Math.abs(peak - want) < 1e-9)) fail.push('rollRao does not peak at 1/(2ζ) at her own frequency');
+    else if (!(rollRao(RIDE_ROLL_W * 3).gain < 0.2)) fail.push('rollRao does not fall away above resonance');
+    else ok.push('rollRao peaks at ' + peak.toFixed(2) + 'x at her own period and falls away above it');
+    const was = { r: T.glSeaRao, s: T.glSeaState, sw: T.glSwell };
+    try {
+      T.glSwell = 1; T.glSeaState = 1;
+      const maxRoll = (hdg) => { let m = 0; for (let i = 0; i < 600; i++) m = Math.max(m, Math.abs(ws.seaRideAt(3.3, 4.1, hdg, 1750000000000 + i * 200).roll)); return m; };
+      T.glSeaRao = 0; const off0 = maxRoll(0), off90 = maxRoll(90);
+      T.glSeaRao = 1; const on0 = maxRoll(0), on90 = maxRoll(90);
+      const a1 = ws.seaRideAt(3.3, 4.1, 0, 1750000123456).roll, a2 = ws.seaRideAt(3.3, 4.1, 0, 1750000123456).roll;
+      if (a1 !== a2) fail.push('the RAO roll is not a pure function of (position, heading, time)');
+      else if (!(on0 > off0 * 1.4)) fail.push('the RAO does not amplify a beam sea (' + off0.toFixed(1) + ' -> ' + on0.toFixed(1) + ' deg)');
+      else if (!(on0 > on90)) fail.push('with the RAO a head sea rolls her as hard as a beam sea (' + on90.toFixed(1) + ' vs ' + on0.toFixed(1) + ')');
+      else ok.push('a beam gale rolls her ' + off0.toFixed(1) + ' -> ' + on0.toFixed(1) + ' deg with the RAO; the head sea stays lower (' + on90.toFixed(1) + ')');
+    } finally { T.glSeaRao = was.r; T.glSeaState = was.s; T.glSwell = was.sw; }
+    // ⚠ AND THE FREQUENCY IS THE ONE SHE MEETS. At rest it must be the wave's own, or the gain moves
+    // for a ship that is not moving; making way must raise it head-on and lower it running before
+    // the sea, and the extremes of those two are exactly opposite headings.
+    const { encounterW, setYachtWay } = ws;
+    if (typeof encounterW !== 'function' || typeof setYachtWay !== 'function') fail.push('windshield.js: encounterW / setYachtWay are not exported');
+    else {
+      const T0 = SEA_ROLL;
+      let lo = Infinity, hi = -Infinity, loH = 0, hiH = 0;
+      if (encounterW(T0, 1.234, 0) !== T0.w) fail.push('encounterW at rest is not the wave frequency');
+      for (let d = 0; d < 360; d += 5) {
+        const w = encounterW(T0, d * Math.PI / 180, 0.3);   // below the swell's phase speed (~0.73 tiles/s), where the extremes are clean
+        if (w < lo) { lo = w; loH = d; }
+        if (w > hi) { hi = w; hiH = d; }
+      }
+      const opp = Math.abs(((hiH - loH) % 360 + 360) % 360 - 180);
+      if (!(lo < T0.w && hi > T0.w)) fail.push('making way does not both raise and lower the encounter frequency');
+      else if (!(opp <= 5)) fail.push('the head-sea and following-sea extremes are not opposite headings (' + loH + ' vs ' + hiH + ')');
+      else ok.push('making way moves the swell she meets from ' + lo.toFixed(3) + ' (following) to ' + hi.toFixed(3) + ' rad/s (head sea), from ' + T0.w + ' at rest');
+      setYachtWay(0);
+    }
+  }
 }
 for (const s of ok) console.log('  ✓ ' + s);
 if (fail.length) {

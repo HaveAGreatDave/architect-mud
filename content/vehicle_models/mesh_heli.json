@@ -1,0 +1,241 @@
+{
+  "id": "heli",
+  "kind": "mesh",
+  "params": {
+    "name": "Dragonfly",
+    "note": "A light rotorcraft (Mini 500): a glass bubble cabin, a slender boom, a small fin, tubular skids and a tall exposed mast.",
+    "portedFrom": "buildHeli",
+    "armedMesh": "heli_armed",
+    "groundPitch": 0,
+    "navLamps": null,
+    "rotors": [
+      { "at": [0.1, 0, 0.34], "plane": "h", "r": 1.02, "blades": 2, "lead": 0.85 },
+      { "at": [-1.04, 0.07, 0.12], "plane": "side", "r": 0.19, "blades": 2, "lead": 0.7, "spinMul": 4.7, "phase": 1.1 }
+    ],
+    "parts": [
+      {
+        "kind": "loft",
+        "name": "cabin",
+        "note": "A rounded egg: a big glass bubble front, widest at the seats, an engine hump, tapering to the boom.",
+        "sides": 14,
+        "section": "ellipse",
+        "role": "body",
+        "shade": { "base": 0.6, "amp": 0.36 },
+        "stations": [
+          { "f": 0.6, "rg": 0.105, "rv": 0.115, "cz": 0.02 },
+          { "f": 0.46, "rg": 0.165, "rv": 0.18, "cz": 0.015 },
+          { "f": 0.3, "rg": 0.205, "rv": 0.215, "cz": 0.015 },
+          { "f": 0.1, "rg": 0.21, "rv": 0.215, "cz": 0.025 },
+          { "f": -0.06, "rg": 0.17, "rv": 0.185, "cz": 0.045 },
+          { "f": -0.16, "rg": 0.11, "rv": 0.12, "cz": 0.05 },
+          { "f": -0.24, "rg": 0.062, "rv": 0.07, "cz": 0.052 }
+        ],
+        "regions": [{ "at": [0.6, 0.46], "k": "all", "role": "glass", "tint": [64, 90, 112] }],
+        "capFore": { "kind": "apex", "at": [0.7, 0, 0.03], "role": "glass", "tint": [64, 90, 112] }
+      },
+      {
+        "kind": "tube",
+        "name": "windscreen centre post",
+        "pts": [[0.7, 0, 0.03], [0.6, 0, 0.135], [0.46, 0, 0.195], [0.3, 0, 0.23]],
+        "r": 0.01,
+        "sides": 5,
+        "role": "nacelle",
+        "sh": 0.9
+      },
+      {
+        "kind": "mirror",
+        "name": "door frames",
+        "parts": [
+          {
+            "kind": "tube",
+            "name": "door arch",
+            "pts": [[0.3, 0.185, 0.02], [0.34, 0.15, 0.15], [0.32, 0.075, 0.22], [0.3, 0, 0.23]],
+            "r": 0.009,
+            "sides": 5,
+            "role": "nacelle",
+            "sh": 0.85
+          },
+          {
+            "kind": "tube",
+            "name": "sill hoop",
+            "pts": [[0.58, 0.1, 0.01], [0.44, 0.16, 0.01], [0.3, 0.19, 0.015]],
+            "r": 0.009,
+            "sides": 5,
+            "role": "nacelle",
+            "sh": 0.7
+          }
+        ]
+      },
+      {
+        "kind": "loft",
+        "name": "tail boom",
+        "sides": 14,
+        "section": "ellipse",
+        "role": "body",
+        "shade": { "base": 0.6, "amp": 0.36, "mul": 0.92 },
+        "stations": [
+          { "f": -0.24, "rg": 0.058, "rv": 0.066, "cz": 0.052 },
+          { "f": -0.5, "rg": 0.044, "rv": 0.048, "cz": 0.078 },
+          { "f": -0.76, "rg": 0.034, "rv": 0.036, "cz": 0.1 },
+          { "f": -1, "rg": 0.026, "rv": 0.028, "cz": 0.118 }
+        ]
+      },
+      {
+        "kind": "blade",
+        "name": "fin",
+        "outline": [[-0.86, 0.13], [-0.99, 0.3], [-1.1, 0.4], [-1.1, 0.11]],
+        "t": 0.014,
+        "role": "fin",
+        "sh": [0.92, 0.72],
+        "edges": [{ "a": 1, "b": 2, "sh": 0.8 }]
+      },
+      {
+        "kind": "poly",
+        "name": "stabiliser",
+        "faces": [
+          { "role": "fin", "sh": 0.85, "p": [[-0.82, 0.02, 0.115], [-0.82, 0.16, 0.12], [-0.94, 0.16, 0.125], [-0.94, 0.02, 0.12]] },
+          { "role": "fin", "sh": 0.7, "p": [[-0.82, -0.02, 0.115], [-0.94, -0.02, 0.12], [-0.94, -0.16, 0.125], [-0.82, -0.16, 0.12]] }
+        ]
+      },
+      {
+        "kind": "tube",
+        "name": "tail rotor gearbox",
+        "pts": [[-0.96, 0.02, 0.12], [-1.06, 0.07, 0.12]],
+        "r": 0.022,
+        "sides": 6,
+        "role": "nacelle",
+        "sh": 0.75
+      },
+      {
+        "kind": "poly",
+        "name": "tail rotor disc",
+        "note": "Schematic only: painted renderers skip role rotor and draw the blades from rotors[1].",
+        "faces": [
+          { "role": "rotor", "sh": 0.7, "p": [[-1, 0.07, 0.02], [-1, 0.07, 0.3], [-1.1, 0.07, 0.3], [-1.1, 0.07, 0.02]] }
+        ]
+      },
+      {
+        "kind": "mirror",
+        "name": "skids",
+        "parts": [
+          {
+            "kind": "tube",
+            "name": "skid rail",
+            "pts": [[0.34, 0.22, -0.27999999999999997], [-0.14, 0.22, -0.3]],
+            "r": 0.016,
+            "sides": 6,
+            "role": "gear",
+            "sh": 0.5
+          },
+          {
+            "kind": "tube",
+            "name": "skid toe",
+            "pts": [[0.34, 0.22, -0.27999999999999997], [0.42, 0.22, -0.21]],
+            "r": 0.015,
+            "sides": 6,
+            "role": "gear",
+            "sh": 0.56
+          },
+          {
+            "kind": "tube",
+            "name": "front cross-tube",
+            "pts": [[0.24, 0.22, -0.27999999999999997], [0.24, 0.05, -0.14]],
+            "r": 0.012,
+            "sides": 6,
+            "role": "strut",
+            "sh": 0.55
+          },
+          {
+            "kind": "tube",
+            "name": "rear cross-tube",
+            "pts": [[-0.06, 0.22, -0.27999999999999997], [-0.06, 0.05, -0.14]],
+            "r": 0.012,
+            "sides": 6,
+            "role": "strut",
+            "sh": 0.55
+          }
+        ]
+      },
+      { "kind": "tube", "name": "mast", "pts": [[0.1, 0, 0.18], [0.1, 0, 0.29500000000000004]], "r": 0.017, "sides": 8, "role": "nacelle", "sh": 0.82 },
+      {
+        "kind": "drum",
+        "name": "swashplate",
+        "f": 0.1,
+        "r": 0.058,
+        "z": [0.253, 0.277],
+        "n": 8,
+        "role": "nacelle",
+        "sh": { "base": 0.55, "alt": 0.12 },
+        "top": { "sh": 0.7 }
+      },
+      {
+        "kind": "tube",
+        "name": "pitch link (right)",
+        "pts": [[0.1406, 0.011600000000000001, 0.265], [0.112, 0, 0.29000000000000004]],
+        "r": 0.006,
+        "sides": 4,
+        "role": "gear",
+        "sh": 0.5
+      },
+      {
+        "kind": "tube",
+        "name": "pitch link (left)",
+        "pts": [[0.05940000000000001, -0.011600000000000001, 0.265], [0.08800000000000001, 0, 0.29000000000000004]],
+        "r": 0.006,
+        "sides": 4,
+        "role": "gear",
+        "sh": 0.5
+      },
+      {
+        "kind": "drum",
+        "name": "hub",
+        "f": 0.1,
+        "r": 0.05,
+        "z": [0.29000000000000004, 0.34800000000000003],
+        "n": 8,
+        "role": "nacelle",
+        "sh": { "base": 0.7, "alt": 0.2, "phase": 1 },
+        "top": { "sh": 0.95 }
+      },
+      {
+        "kind": "poly",
+        "name": "blade grips",
+        "faces": [
+          {
+            "role": "nacelle",
+            "sh": 0.9,
+            "p": [
+              [0.15000000000000002, 0.014, 0.334],
+              [0.27, 0.014, 0.3284],
+              [0.27, -0.014, 0.3284],
+              [0.15000000000000002, -0.014, 0.334]
+            ]
+          },
+          {
+            "role": "nacelle",
+            "sh": 0.8,
+            "p": [
+              [0.15000000000000002, 0.014, 0.334],
+              [0.27, 0.014, 0.3284],
+              [0.27, 0.014, 0.3116],
+              [0.15000000000000002, 0.014, 0.306]
+            ]
+          },
+          { "role": "nacelle", "sh": 0.66, "p": [[0.05, 0.014, 0.334], [-0.07, 0.014, 0.3284], [-0.07, -0.014, 0.3284], [0.05, -0.014, 0.334]] },
+          { "role": "nacelle", "sh": 0.8, "p": [[0.05, 0.014, 0.334], [-0.07, 0.014, 0.3284], [-0.07, 0.014, 0.3116], [0.05, 0.014, 0.306]] }
+        ]
+      },
+      {
+        "kind": "ngon",
+        "name": "main rotor disc",
+        "note": "Schematic only, like the tail rotor disc.",
+        "f": 0.1,
+        "h": 0.34,
+        "r": 1.05,
+        "n": 8,
+        "role": "rotor",
+        "sh": 0.65
+      }
+    ]
+  }
+}

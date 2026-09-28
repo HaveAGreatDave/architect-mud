@@ -7,9 +7,7 @@
       "water",
       "basin"
     ],
-    "interactions": {
-      "examine": "You can see straight down it and out under the end wall into the open basin. Something the size of a dog goes past under the surface, unhurried, and does not come back."
-    }
+    "examine_detail": "You can see straight down it and out under the end wall into the open basin. Something the size of a dog goes past under the surface, unhurried, and does not come back."
   },
   "id": "furn_consv_dock",
   "name": "the wet dock",

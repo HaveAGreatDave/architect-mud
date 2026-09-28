@@ -72,9 +72,9 @@ construction rather than by anybody remembering.
 
 **The two voices disagree, and nothing reconciles them.** The wire carries the
 Ascendant version, the street carries the street version, and they contradict each
-other. Per house style the em dash is the Ascendant voice tell, so it belongs to
-exactly one of the two — the faction split is readable in the punctuation before a
-word of it is. Regress asserts both halves.
+other. No prose in the game takes an em dash, so the split is carried by register:
+the wire is formal and never contracts, and the street always does. Regress asserts
+both (no dash in either voice; no contraction on the wire).
 
 ## Traps
 

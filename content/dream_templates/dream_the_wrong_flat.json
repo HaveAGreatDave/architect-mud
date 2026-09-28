@@ -31,7 +31,7 @@
     {
       "looks": [
         "You don't have another room.",
-        "Ajar, and the light beyond it's on, and the bill for it's yours.",
+        "Ajar, and the light beyond it's on, and the bill for it is yours.",
         "Someone in there stops moving when you look."
       ],
       "name": "the door to the other room"

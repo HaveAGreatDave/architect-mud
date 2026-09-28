@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Loose ground at the foot of the wall of rock, walking on it a matter of picking the flat pieces. There are bones down among the stones and there's no telling how they got there or from how high.",
+  "description": "Stones of all sizes at the base of the wall of rock, and bones mixed in among them.",
   "exits": {
     "east": "zone_scw_1031_950",
     "south": "zone_scw_1030_951",

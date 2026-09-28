@@ -34,7 +34,7 @@ export async function cmdPreserve(args, raw, player) {
 
   const vial = await resolveInventoryItem(player, { tag: 'preservative', topLevel: false });
   if (!vial) {
-    return { type: 'output', message: sys("You've nothing to preserve it with. That takes an antioxidant — a vial of BHT, if you can find one.") };
+    return { type: 'output', message: sys("You've nothing to preserve it with. That takes an antioxidant: a vial of BHT, if you can find one.") };
   }
 
   const food = await resolveInventoryItem(player, { name: targetStr, topLevel: false });

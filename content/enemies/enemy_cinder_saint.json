@@ -110,7 +110,7 @@
     }
   ],
   "death_message": "The saint sits down in the ash, dims like a filament, and leaves a scorch in the exact shape of sitting down.",
-  "description": "Man-shaped, roughly, and lit from inside like a stove with the door left open. The ash doesn't settle on it. It walks the burn in slow circuits and doesn't appear to be going anywhere in particular, which is somehow worse than if it were.",
+  "description": "Roughly man-shaped and lit from inside like a stove with the door open. Ash doesn't settle on it. It walks the burn in slow circuits.",
   "dodge": 4,
   "faction": null,
   "flags": {

@@ -140,7 +140,7 @@ export function cbRadioHTML() {
   return `
     <div class="cab-cb" role="group" aria-label="CB radio">
       <button type="button" class="cab-cb-set" aria-label="Open the Deadhead window"
-        title="Open the Deadhead window — everything said on this channel">
+        title="Open the Deadhead window, everything said on this channel">
         <span class="cab-cb-band">CB</span>
         <span class="cab-cb-chan" aria-hidden="true">19</span>
       </button>
@@ -154,8 +154,8 @@ export function cbRadioHTML() {
         <button type="button" class="cab-btn cab-rocker cab-cb-pwr" aria-pressed="true"
           aria-label="CB power" title="CB on or off (cb on / cb off)"><i></i><u><span>CB</span></u></button>
         <button type="button" class="cab-btn cab-rocker cab-cb-spk" aria-pressed="false"
-          aria-label="CB speaker — read incoming traffic aloud"
-          title="Speaker — reads incoming traffic out loud so you can keep your eyes on the road (cb speaker)"><i></i><u><span>SPKR</span></u></button>
+          aria-label="CB speaker: read incoming traffic aloud"
+          title="Speaker: reads incoming traffic out loud so you can keep your eyes on the road (cb speaker)"><i></i><u><span>SPKR</span></u></button>
       </div>
     </div>`;
 }

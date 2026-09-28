@@ -288,7 +288,8 @@ Coldwater is §2. Four more regions have ground — **the Scarletwastes** 4,869 
 ⚠ **ALL FIVE CANONICAL ORDERS ALREADY HAVE GROUND, WHICH IS EASY TO GET WRONG BECAUSE THREE OF THE
 REGIONS ARE NOT NAMED AFTER THE ORDER THAT LIVES IN THEM.** Deadwater is the Null's, the
 Scarletwastes is the Wildblood's, and **Terminus is the Exodus's** — settlement, wall, sixteen
-interiors and a launch pad, shipped 2026-08-18. What is missing is not land. It is that three of
+interiors and a launch pad at the exact centre, shipped 2026-08-18. (An earlier draft of this doc
+got that backwards and called Terminus "the Ascendants at industrial scale", which it isn't.) What is missing is not land. It is that three of
 those regions are currently faced in flat paint (§3.0), so the belief is in the prose and not yet on
 the walls.
 
@@ -318,6 +319,8 @@ Measured over the palette prefixes, by material family:
 | `ty_dw_*` | 15 | **plain 9**, plate 2, stone 2, brass 1, stucco 1 |
 | `ty_sw_*` | 29 | **plain 19**, tile 3, plate 2, brick 2, stucco 2, bale 1 |
 | `ty_trm_*` | 38 | **plain 29**, concrete 3, stucco 3, tile 2, lattice 1 |
+
+⚠ **RE-FILED 2026-09-27**, keeping every key's colour and following §3.2–3.4: Deadwater is now plate 6, stone 2, brass 1, stucco 1, timber 1, plain 4; the Scarletwastes timber 8, stucco 7, tile 3, plate 2, brick 2, bale 1, plain 6; Terminus concrete 10, stucco 8, timber 3, stone 2, tile 2, bale 1, brass 1, lattice 1, plain 10. What is left in `plain` is genuinely flat: cloth, canvas, lamp and ember glow, water, glass, pipe, rail and roof keys. ⚠ The thirty-four moved keys paint at the dial's own density rather than the 64×128 hi-res floor (`REGION_NO_FLOOR` in windshield.js), because with the floor the city's 860 surfaces no longer fit a 2048px page at texRes 3 (`atlasfit`). Promote one only by measuring it in.
 
 `plain` is the one family with no pattern at all — flat fill, no coursing, no grid, written for
 soffits, kerbs and kiosk flanks. **Deadwater, the Scarletwastes and Terminus are each mostly made of

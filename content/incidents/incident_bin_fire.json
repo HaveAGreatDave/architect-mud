@@ -27,7 +27,7 @@
     },
     {
       "do": "news",
-      "text": "A minor fire in {place} has been contained — the cause is under review and there's no risk to Basin infrastructure."
+      "text": "A minor fire in {place} has been contained. The cause is under review and there's no risk to Basin infrastructure."
     }
   ],
   "updated_at": "1787702400",

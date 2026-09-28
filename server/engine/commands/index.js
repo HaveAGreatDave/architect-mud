@@ -118,7 +118,7 @@ export function builtinCommandNames() { return [...builtins.keys()]; }
 // plugin owns the *state* (player.insane), the engine owns this substrate law.
 const INSANE_REFUSALS = [
   'The word makes no sense the moment you think it. Your hands do something else entirely.',
-  "You reach for the action and it isn't there — just a wet, laughing hole where the thought was.",
+  "You reach for the action and it isn't there, just a wet, laughing hole where the thought was.",
   'The letters of your own command melt and run together. Nothing happens.',
   'Something screams the instant you try, and you forget what you were doing.',
   "You try, but the room tilts and the intent slides off it like water. Nonsense. All of it.",

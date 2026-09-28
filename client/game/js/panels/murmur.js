@@ -374,8 +374,11 @@ export const MURMUR_MEASURED = new Map();
 
 export const MURMUR_RULES = Object.freeze({
   wSep: 2.2, wAli: 1.6, wCoh: 0.55, wCmd: 4.0, wEnv: 3.2, wScare: 9.0,
-  Z_SOFT: 0.2, SCARE_R: 1.15, TILE_PER_M, G_TILES, K: K_NEIGHBOURS, DT_MAX, SHOW_FADE_S,
+  Z_SOFT: 0.2, SCARE_R: 1.15,
+  // an aircraft: noticed at 60 m (a flock sees further than birdEvade's single bird at 40), pushing
+  // birds within about 18 m of its line
+  AC_DETECT: 60 * TILE_PER_M, AC_LANE: 18 * TILE_PER_M, TILE_PER_M, G_TILES, K: K_NEIGHBOURS, DT_MAX, SHOW_FADE_S,
   WAVE_SPEED, WAVE_WIDTH, WAVE_LIFE, PULSE_GAP, PULSE_DECAY, PULSE_MAX, ENV_IN, CMD_N,
-  sepR: 0.15, speed: 11 * TILE_PER_M, speedLo: 6 * TILE_PER_M, speedHi: 16 * TILE_PER_M,
+  sepR: 0.12, speed: 11 * TILE_PER_M, speedLo: 6 * TILE_PER_M, speedHi: 16 * TILE_PER_M,
   speedDev: 0.035, turnG: 3.0, blindCos: -Math.SQRT1_2, catchK: 0.30, rollTau: 0.12, rollMax: 1.25,
 });

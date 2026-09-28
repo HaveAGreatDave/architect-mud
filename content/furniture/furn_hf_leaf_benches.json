@@ -6,9 +6,12 @@
       "benches",
       "seat"
     ],
-    "interactions": {
+    "interaction_lines": {
       "sit": "You sit. Somewhere above you the irrigation ticks over and a fern drips once onto the gravel, and for a moment the quarter outside stops being a quarter."
-    }
+    },
+    "interactions": [
+      "sit"
+    ]
   },
   "id": "furn_hf_leaf_benches",
   "name": "the two benches",

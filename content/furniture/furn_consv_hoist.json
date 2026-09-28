@@ -7,9 +7,7 @@
       "crane",
       "slings"
     ],
-    "interactions": {
-      "examine": "The slings are webbing, not wire, and they are clean. Four buttons: up, down, and the two ends of the hall. Everything else about the machine has been taken out of the operator's hands."
-    },
+    "examine_detail": "The slings are webbing, not wire, and they are clean. Four buttons: up, down, and the two ends of the hall. Everything else about the machine has been taken out of the operator's hands.",
     "marina_hoist": true
   },
   "id": "furn_consv_hoist",

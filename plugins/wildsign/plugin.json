@@ -1,0 +1,7 @@
+{
+  "name": "wildsign",
+  "version": "1.0.0",
+  "description": "Signs of wildlife that `search` can turn up. The first is a red-tail's kill site: the hawk's ground strikes are derived from the tile and the clock (groundKillsSince in client/shared/birds.js), so the server can say that something died on this tile in the last hour, and roughly what, without storing anything. Knowledge only, never loot.",
+  "hooks": ["search.provider"],
+  "commands": []
+}

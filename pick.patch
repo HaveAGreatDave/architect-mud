@@ -1,0 +1,9 @@
+diff --git a/client/game/js/panels/cockpit.js b/client/game/js/panels/cockpit.js
+index 39f608e3c..5a8f82df3 100644
+--- a/client/game/js/panels/cockpit.js
++++ b/client/game/js/panels/cockpit.js
+@@ -1125 +1125 @@ const FLAP_STYLES = {
+-const FLAP_BY_CRAFT = { mayfly: 'johnson', mule: 'johnson', leviathan: 'quadrant', reaper: 'switch', carcass: 'switch', dragonfly: null, viper: null, grasshopper: 'johnson', locust: 'johnson',
++const FLAP_BY_CRAFT = { mayfly: 'johnson', mule: 'johnson', leviathan: 'quadrant', reaper: 'switch', carcass: 'switch', dragonfly: null, viper: null, drake: null, grasshopper: 'johnson', locust: 'johnson',
+@@ -1580,0 +1581 @@ const FSIM_SKIN = {
++  drake: { id: 'drake', acc: '#e89a3a', rgb: [232, 154, 58] },   // the mandarin drake: warm orange sail-fin trim

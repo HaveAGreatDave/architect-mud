@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The skirt of a mesa, a long slope of broken rock shed off the face above over a very long time, everything from fist-sized to the size of a truck. Nothing here is stable. Everything you put a foot on shifts a little and then decides not to.",
+  "description": "A slope of talus below the mesa face, fist-sized chunks mixed with boulders. Pick your footing carefully.",
   "exits": {
     "east": "zone_scw_1060_966",
     "north": "zone_scw_1059_965",

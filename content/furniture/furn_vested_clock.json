@@ -5,9 +5,7 @@
       "clock",
       "mantel"
     ],
-    "interactions": {
-      "examine": "The key sits beside it on a square of felt. The felt has a clean square in the middle of it where the key lives."
-    }
+    "examine_detail": "The key sits beside it on a square of felt. The felt has a clean square in the middle of it where the key lives."
   },
   "id": "furn_vested_clock",
   "name": "the mantel clock",

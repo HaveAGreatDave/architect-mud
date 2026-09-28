@@ -6,9 +6,7 @@
       "floor",
       "glass"
     ],
-    "interactions": {
-      "examine": "The scuffs make a neat oval. In two seasons of people walking this bridge, the oval has not been stepped inside once."
-    }
+    "examine_detail": "The scuffs make a neat oval. In two seasons of people walking this bridge, the oval has not been stepped inside once."
   },
   "id": "furn_hf_common_panel",
   "name": "the glass floor panel",

@@ -143,11 +143,11 @@ function routeToBench(player, bench, station) {
   // wanted to know where the nearest one was. `gps` arms auto-walk if they want it.
   sendToPlayer(player.id, {
     type: 'gps_route',
-    message: `GPS locked: ${bench.name} — ${bench.hops} step${bench.hops === 1 ? '' : 's'}.`,
+    message: `GPS locked: ${bench.name}, ${bench.hops} step${bench.hops === 1 ? '' : 's'}.`,
     path: bench.path,
     continueOnArrival: false,
   });
-  return { type: 'output', message: `Nearest ${station.replace(/_/g, ' ')}: <b>${bench.name}</b> <span class="text-dim">(${bench.hops} steps — plotted on your map)</span>` };
+  return { type: 'output', message: `Nearest ${station.replace(/_/g, ' ')}: <b>${bench.name}</b> <span class="text-dim">(${bench.hops} steps: plotted on your map)</span>` };
 }
 
 function meetsSkill(recipe, levels, player) {
@@ -206,13 +206,13 @@ async function buildScreen(player, screenId, params) {
     const badge = (r.requires_station && !atBench) ? 'bench' : (isMissing(r, have) ? 'missing' : 'ready');
     const status = badge === 'bench' ? 'Needs bench' : badge === 'missing' ? 'Missing materials' : 'Ready';
     const bench = r.requires_station ? ` · ${r.requires_station.replace(/_/g, ' ')}` : '';
-    return { id: r.id, label: r.name, sub: `${r.category || 'misc'}${bench} — ${status}`, badge };
+    return { id: r.id, label: r.name, sub: `${r.category || 'misc'}${bench}: ${status}`, badge };
   });
 
   // Rolling — surfaced only while you carry the loose leaf (no lab needed).
   for (const [kind, t] of Object.entries(ROLL)) {
     const g = have[t.loose] || 0;
-    if (g > 0) items.push({ id: `_roll_${kind}`, label: t.label, sub: `${g}g loose ${kind} → ${t.many} — Ready`, badge: 'ready' });
+    if (g > 0) items.push({ id: `_roll_${kind}`, label: t.label, sub: `${g}g loose ${kind} → ${t.many}: Ready`, badge: 'ready' });
   }
 
   // Splice — master-tier chemistry, shown when you qualify by skill (routes to a lab).
@@ -241,8 +241,8 @@ async function recipeDetail(player, recipe, levels) {
     { label: 'Output', value: `${recipe.base_output?.quantity || 1}× ${names[recipe.base_output?.item_id] || recipe.base_output?.item_id || '?'}` },
     { label: 'Method', value: isCook ? 'Cook (minigame)' : 'Craft' },
     { label: 'Bench', value: station
-        ? `${station.replace(/_/g, ' ')}${atBench ? " — you're here ✓" : ' — travel required'}`
-        : 'No bench — craft anywhere' },
+        ? `${station.replace(/_/g, ' ')}${atBench ? ": you're here ✓" : ': travel required'}`
+        : 'No bench: craft anywhere' },
   ];
   for (const ing of (recipe.ingredients || [])) {
     if (!ing.quantity) continue;
@@ -279,7 +279,7 @@ async function rollingDetail(player, kind) {
   const g = have[t.loose] || 0;
   const rows = [
     { label: 'Method', value: 'Rolling' },
-    { label: 'Bench', value: 'No bench — craft anywhere' },
+    { label: 'Bench', value: 'No bench: craft anywhere' },
     { label: 'Output', value: `${names[t.product] || t.product} (1 per gram)` },
     { label: names[t.loose] || t.loose, value: `${g}g on hand` },
   ];
@@ -300,7 +300,7 @@ async function spliceDetail(player) {
   const rows = [
     { label: 'Skill', value: `chemistry (${SPLICE_MIN_SKILL}+)` },
     { label: 'Method', value: 'Splice designer (minigame)' },
-    { label: 'Bench', value: `chem lab${atBench ? " — you're here ✓" : ' — travel required'}` },
+    { label: 'Bench', value: `chem lab${atBench ? ": you're here ✓" : ': travel required'}` },
     { label: 'Needs', value: 'Two or more different processed drugs on hand' },
   ];
   const actions = [];
@@ -315,7 +315,7 @@ async function spliceDetail(player) {
     breadcrumb: ['Crafting', 'Splice'],
     detail: {
       id: '_splice', name: '⚗ Splice Designer',
-      desc: "Break two or three drugs down to their effect-blocks and graft them into a new compound. Master's work — it needs a real chem lab.",
+      desc: "Break two or three drugs down to their effect-blocks and graft them into a new compound. Master's work: it needs a real chem lab.",
       rows,
     },
     actions,
@@ -337,7 +337,7 @@ async function handleAction(player, actionId, params) {
         const dest = getZone(bench.zoneId);
         sendToPlayer(player.id, {
           type: 'gps_route',
-          message: `GPS locked: ${dest?.name || bench.zoneId} — auto-walking to the bench.`,
+          message: `GPS locked: ${dest?.name || bench.zoneId}: auto-walking to the bench.`,
           path: bench.path,
           autostart: true,
           continueOnArrival: false, // single destination — stop auto-walk on arrival

@@ -152,7 +152,7 @@ function boardHere(zoneId, name = '') {
 const sub = (word) =>
   `<span class="action-link verb-teach" data-action="bounty" data-target="${escAttr(word)}" title="bounty ${escAttr(word)}">bounty ${word}</span>`;
 
-const NO_BOARD = `You need to be standing at a board for that. Contracts are posted and paid at a board — that's the only part of this business anybody insists on.`;
+const NO_BOARD = `You need to be standing at a board for that. Contracts are posted and paid at a board: that's the only part of this business anybody insists on.`;
 
 // ── posting ───────────────────────────────────────────────────────────────────
 
@@ -199,7 +199,7 @@ async function postBounty(player, targetName, amount, note, broadcast) {
   if (escrow < 1) return { type: 'error', message: `That doesn't survive the house cut.` };
 
   if (!await adjustCredits(player, -amount, undefined, 'bounty:post'))
-    return { type: 'error', message: `You're ${money(amount - (player.credits || 0))} short. Contracts are paid up front — the board doesn't run a tab.` };
+    return { type: 'error', message: `You're ${money(amount - (player.credits || 0))} short. Contracts are paid up front: the board doesn't run a tab.` };
 
   const now = Date.now();
   const row = {
@@ -292,9 +292,9 @@ async function mintHead(victim, killer) {
 
   sendToPlayer(killer.id, {
     type: 'output',
-    message: `<span class="text-warning">There's paper out on ${escHtml(victim.handle)} — ${money(total)} of it.</span>\n`
+    message: `<span class="text-warning">There's paper out on ${escHtml(victim.handle)}: ${money(total)} of it.</span>\n`
       + (rows[0]
-        ? `<span class="text-dim">You do what the contract asks. The head goes into the corpse's kit; take it, and take it to a board (${teachVerb('redeem')}). Anyone can carry it in — including whoever gets it off you.</span>`
+        ? `<span class="text-dim">You do what the contract asks. The head goes into the corpse's kit; take it, and take it to a board (${teachVerb('redeem')}). Anyone can carry it in, including whoever gets it off you.</span>`
         : `<span class="text-dim">You take what the contract asks for, and it goes straight into your kit. A board will pay for it (${teachVerb('redeem')}).</span>`),
   });
 }
@@ -334,7 +334,7 @@ async function cmdRedeem(args, raw, player, broadcast) {
     }
     const contracts = bountiesOn(victimId);
     if (!contracts.length) {
-      out.push(`<span class="text-dim">Nothing outstanding on ${escHtml(cd.victim_handle || 'them')} any more — the sheet came down. You're holding a head nobody is buying.</span>`);
+      out.push(`<span class="text-dim">Nothing outstanding on ${escHtml(cd.victim_handle || 'them')} any more: the sheet came down. You're holding a head nobody is buying.</span>`);
       continue;
     }
     out.push(`<span class="text-dim">${recLine(rec, 'accept')}</span>`);
@@ -394,7 +394,7 @@ async function cancelBounty(player, name) {
   const penalty = Math.ceil(row.amount * WITHDRAW_PENALTY);
   const back = row.amount - penalty;
   const res = await query(`UPDATE bounties SET status='withdrawn' WHERE id=$1 AND status='open'`, [row.id]);
-  if (!res.rowCount) { unindex(row.id); return { type: 'error', message: `Too late — that one's already closed.` }; }
+  if (!res.rowCount) { unindex(row.id); return { type: 'error', message: `Too late: that one's already closed.` }; }
   unindex(row.id);
   await adjustCredits(player, back, undefined, 'bounty:withdraw');
 
@@ -425,7 +425,7 @@ schedule('5m', async () => {
       await adjustCredits(live, row.amount, undefined, 'bounty:expired');
       sendToPlayer(row.backer_id, {
         type: 'output',
-        message: `<span class="text-dim">✱ Your contract on ${escHtml(row.target_handle)} ran out. Nobody collected. ${money(row.amount)} refunded — the house keeps only what it took at the counter.</span>`,
+        message: `<span class="text-dim">✱ Your contract on ${escHtml(row.target_handle)} ran out. Nobody collected. ${money(row.amount)} refunded: the house keeps only what it took at the counter.</span>`,
       });
     } else {
       // Offline backer: pay the row directly. `adjustCredits` needs a live
@@ -454,7 +454,7 @@ async function unmaskBounty(player, name) {
   if (!await adjustCredits(player, -cost, undefined, 'bounty:unmask'))
     return {
       type: 'error',
-      message: `A name costs ${money(cost)} — a quarter of what they staked, which the board considers fair, and you are ${money(cost - (player.credits || 0))} short of it.`,
+      message: `A name costs ${money(cost)}: a quarter of what they staked, which the board considers fair, and you are ${money(cost - (player.credits || 0))} short of it.`,
     };
 
   const list = [...listOf(row.unmasked_by), String(player.id)];
@@ -472,7 +472,7 @@ async function unmaskBounty(player, name) {
 // ── the verb ──────────────────────────────────────────────────────────────────
 
 const HELP = [
-  `<b>BOUNTIES</b> — money on a head, paid on delivery.`,
+  `<b>BOUNTIES</b>: money on a head, paid on delivery.`,
   ``,
   `  ${teachVerb('bounty')}                       the boards, and anything out on you`,
   `  <b>bounty &lt;name&gt; &lt;amount&gt; [why]</b>   post a contract (at a board)`,
@@ -481,7 +481,7 @@ const HELP = [
   `  <b>bounty unmask</b>                   pay to learn who paid for you`,
   `  ${teachVerb('redeem')}                       hand a head in at a board`,
   ``,
-  `<span class="text-dim">A kill on somebody with paper out leaves a head with the body. Bring the head to a board and the board pays whoever is holding it — which doesn't have to be the person who took it.</span>`,
+  `<span class="text-dim">A kill on somebody with paper out leaves a head with the body. Bring the head to a board and the board pays whoever is holding it, which doesn't have to be the person who took it.</span>`,
 ].join('\n');
 
 async function cmdBounty(args, raw, player, broadcast) {
@@ -606,7 +606,7 @@ on('player.login', ({ player }) => {
   if (!on_.length) return;
   setTimeout(() => sendToPlayer(player.id, {
     type: 'output',
-    message: `<span class="text-danger">✱ There ${on_.length === 1 ? 'is a contract' : `are ${on_.length} contracts`} out on you — ${money(totalOn(player.id))}.</span>\n`
+    message: `<span class="text-danger">✱ There ${on_.length === 1 ? 'is a contract' : `are ${on_.length} contracts`} out on you: ${money(totalOn(player.id))}.</span>\n`
       + `<span class="text-dim">${teachVerb('bounty')} to read the sheet.</span>`,
   }), 4000);
 });

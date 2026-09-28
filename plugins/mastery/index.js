@@ -159,7 +159,7 @@ function cmdMastery(args, raw, player) {
     const eff = Math.min(stored, cap);
     // A capped discipline says so IN PROSE — never "40/100". The player is meant
     // to understand they are held back, not to compute by how much.
-    const held = eff < stored ? ' <span class="text-dim">— held back by what you have done to yourself</span>' : '';
+    const held = eff < stored ? ' <span class="text-dim">(held back by what you have done to yourself)</span>' : '';
     lines.push(`  ${d.padEnd(9)} <span class="hit-part">${bandOf(eff)}</span>${held}`);
   }
   const reason = capReason(player);

@@ -30,7 +30,7 @@ function build() {
     ].join('\n')),
 
     cat('PRESSURE', [
-      dim("  Eating and drinking fill two meters you can't see. They never go down on their own —"),
+      dim("  Eating and drinking fill two meters you can't see. They never go down on their own..."),
       dim("  waiting doesn't help, and the only way down is a toilet."),
       dim('  Your body will start telling you well before it matters. Listen to it.'),
       dim('  Ignore it long enough and the decision gets taken away from you, in public.'),
@@ -40,7 +40,7 @@ function build() {
       dim('  Scales with how badly you need the other thing: barely anything there and you get a'),
       dim('  thin squeak, genuinely full and the room learns something about you. No two are'),
       dim('  quite the same.'),
-      dim(`  Once every five minutes. It relieves NOTHING — you still need the toilet.`),
+      dim(`  Once every five minutes. It relieves NOTHING: you still need the toilet.`),
       `  ${dim(`Past about ${Math.round(floor * 100)}% full it stops being free: you're relying on a muscle that`)}`,
       `  ${dim(`is already struggling, and at its worst it fails roughly ${worst}% of the time.`)}`,
       dim("  If you get away with it, you'll be told you nearly did not. That's your warning."),

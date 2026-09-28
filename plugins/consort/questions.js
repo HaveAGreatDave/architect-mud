@@ -34,7 +34,7 @@ const NO   = /\b(no|nope|nah|never|not really|i don'?t|i won'?t|i'?m not)\b/;
 export const QUESTIONS = [
   {
     key: 'staying',
-    ask: `{lean} back and {watch} you a moment. "Are you staying tonight? Say it either way — I'd rather know than hope."`,
+    ask: `{lean} back and {watch} you a moment. "Are you staying tonight? Say it either way: I'd rather know than hope."`,
     answers: [['yes', YES], ['no', NO]],
     mood: { yes: 10, no: -6 },
     react: {
@@ -44,7 +44,7 @@ export const QUESTIONS = [
       ],
       no: [
         `takes it without a flicker. "Then eat something before you go. That's not affection, that's maintenance."`,
-        `"Go on. I'll keep the lamp on the low setting — it's better light anyway."`,
+        `"Go on. I'll keep the lamp on the low setting: it's better light anyway."`,
       ],
       dodge: [
         `"That's a maybe. Maybes are how I end up asleep in this chair with my shoes on."`,
@@ -98,7 +98,7 @@ export const QUESTIONS = [
         `"That's the bar version." {They} {let} it stand anyway. "Fine. Keep it."`,
       ],
       timeout: [
-        `"You're not going to say. That's alright — I can usually tell from how you sit down."`,
+        `"You're not going to say. That's alright: I can usually tell from how you sit down."`,
       ],
     },
   },
@@ -154,7 +154,7 @@ export const QUESTIONS = [
   },
   {
     key: 'freedom',
-    ask: `"If the retainer stopped tomorrow — if it just lapsed and nobody came for me — do you think I'd go?"`,
+    ask: `"If the retainer stopped tomorrow, if it just lapsed and nobody came for me, do you think I'd go?"`,
     answers: [['no', NO], ['yes', YES], ['choice', /\b(your (choice|call|decision)|up to you|whatever you want|you'?d decide|not my call)\b/]],
     mood: { no: 10, choice: 12, yes: -8 },
     react: {
@@ -302,11 +302,11 @@ export const DYNAMIC_QUESTIONS = [
     answers: [['yes', YES], ['no', NO], ['soon', /\b(soon|in a bit|shortly|after this|about to|going to now|heading to bed)\b/]],
     mood: { soon: 8, yes: 4, no: -2 },
     react: {
-      yes: [`"Then go and do it. I'll still be here in the morning — that's the whole product."`],
+      yes: [`"Then go and do it. I'll still be here in the morning: that's the whole product."`],
       no: [`"No." {They} {do} not look surprised. "Right. I'll leave the lamp on the low setting and pretend I'm not waiting up."`],
       soon: [`"Good." {They} {move} something off the bed without being asked about it.`],
       dodge: [`"That's a no dressed up." {They} {let} it go and {leave} water where you'll find it.`],
-      timeout: [(c) => `checks the clock again — ${hhmm(c.gameMinutes + 4)} now — and says nothing further about it.`],
+      timeout: [(c) => `checks the clock again: ${hhmm(c.gameMinutes + 4)} now, and says nothing further about it.`],
     },
   },
   {
@@ -372,7 +372,7 @@ export const DYNAMIC_QUESTIONS = [
   {
     key: 'missed_draft',
     applies: (c) => c.missed >= 1,
-    ask: () => `"The draft didn't clear. I'm not asking you for money — I'm asking whether I should be packing. Do I need to worry?"`,
+    ask: () => `"The draft didn't clear. I'm not asking you for money: I'm asking whether I should be packing. Do I need to worry?"`,
     answers: [['no', NO], ['yes', YES]],
     mood: { no: 8, yes: -10 },
     react: {
@@ -385,7 +385,7 @@ export const DYNAMIC_QUESTIONS = [
   {
     key: 'weather_in',
     applies: (c) => c.severity >= 0.5 || c.tempC <= 2 || c.tempC >= 36,
-    ask: (c) => `"It's ${c.weather} out there — ${Math.round(c.tempC)} degrees. Was whatever you went out for worth it?"`,
+    ask: (c) => `"It's ${c.weather} out there: ${Math.round(c.tempC)} degrees. Was whatever you went out for worth it?"`,
     answers: [
       ['yes', /\b(yes|yeah|worth|got it|found it|paid|of course|absolutely)\b/],
       ['no',  /\b(no|nope|not really|waste|nothing|pointless|wasted)\b/],
@@ -441,7 +441,7 @@ export const DYNAMIC_QUESTIONS = [
     mood: { friends: 8, choose: 6, apart: 2 },
     react: {
       friends: [`"Fine." {They} {consider} it. "I've had worse assignments than being kind to somebody."`],
-      apart: [`"Understood." No argument, no sulk — {they} {file} it and {move} on, which is its own kind of unsettling.`],
+      apart: [`"Understood." No argument, no sulk: {they} {file} it and {move} on, which is its own kind of unsettling.`],
       choose: [`"My call, then." {They} {smile} slightly. "You'll regret that phrasing eventually. Not today."`],
       dodge: [`"You'd rather not think about it. Noted. I'll work it out with §other and you can be surprised."`],
       timeout: [`answers it {themself} with a small shrug and lets the subject drop.`],
@@ -450,7 +450,7 @@ export const DYNAMIC_QUESTIONS = [
   {
     key: 'wrecked',
     applies: (c) => c.impaired >= 2,
-    ask: () => `"You can't stand up straight. I'm not judging — I want to know what we're drinking about."`,
+    ask: () => `"You can't stand up straight. I'm not judging: I want to know what we're drinking about."`,
     answers: [
       ['reason', /\b(work|job|deal|money|someone|died|dead|lost|hard day|rough|failed|deal went|because)\b/],
       ['nothing', /\b(nothing|no reason|fun|celebrating|felt like|why not|good day)\b/],

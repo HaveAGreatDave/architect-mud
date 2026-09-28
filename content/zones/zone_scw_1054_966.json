@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Open red country, and something has been through it: the ground is cut with a great many tracks, most of them feet, some of them dogs, all of them heading the same two ways. Off south the horizon has a dark line across it that doesn't behave like a ridge.",
+  "description": "Footprints and dog prints cross the red ground in two directions. There's a dark line across the horizon to the south.",
   "exits": {
     "east": "zone_scw_1055_966",
     "north": "zone_scw_1054_965",

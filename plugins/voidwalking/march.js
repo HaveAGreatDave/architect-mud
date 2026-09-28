@@ -113,7 +113,7 @@ function headingOf(c, key) {
 function forkLine(c) {
   const dests = (c.dests || []).map(d => `<b>${d.heading}</b>`).join(' or ');
   return dests
-    ? `The trail comes apart here. From here it is ${dests} — pick one and the walk goes on.`
+    ? `The trail comes apart here. From here it is ${dests}: pick one and the walk goes on.`
     : 'The trail comes apart here, and nothing goes on from it.';
 }
 
@@ -213,8 +213,8 @@ async function stepMarch(player, run) {
     const left = at?.total != null ? at.total - at.i : null;
     sendToPlayer(player.id, { type: 'output', message: dim(
       left != null && head
-        ? `— ${run.steps} tiles marched. About ${left} to ${head}. —`
-        : `— ${run.steps} tiles marched. —`) });
+        ? `${run.steps} tiles marched. About ${left} to ${head}.`
+        : `${run.steps} tiles marched.`) });
   }
 }
 
@@ -254,7 +254,7 @@ export async function cmdMarch(args, raw, player) {
 
   const thirst = player.thirst ?? 100;
   runs.set(player.id, { pid: player.id, steps: 0, gates: THIRST_GATES.filter(g => g < thirst) });
-  return { type: 'emote', message: `You put your head down and walk. ${dim('Anything you type stops you — or ')}<b>stop</b>${dim('.')}` };
+  return { type: 'emote', message: `You put your head down and walk. ${dim('Anything you type stops you, or ')}<b>stop</b>${dim('.')}` };
 }
 
 // ── What ends a march ────────────────────────────────────────────────────────

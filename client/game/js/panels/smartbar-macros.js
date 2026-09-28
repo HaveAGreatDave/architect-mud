@@ -214,7 +214,7 @@ const COMMAND_REF = [
     { v: 'go <dir>', d: 'move a direction' }, { v: 'enter <thing>', d: 'enter a door/vehicle' },
     { v: 'gps <name>', d: 'plot a route to a location' },
     { v: 'auto', d: 'toggle walking the plotted GPS route' },
-    { v: 'auto on', d: 'start auto-walk (deterministic — best in macros)' },
+    { v: 'auto on', d: 'start auto-walk (deterministic: best in macros)' },
     { v: 'auto off', d: 'stop auto-walk' },
     { v: 'home', d: 'walk to your bound home (or bind it in an apartment you own)' } ] },
   { cat: 'Observe', cmds: [
@@ -228,7 +228,7 @@ const COMMAND_REF = [
   { cat: 'Combat', cmds: [
     { v: 'attack <target>', d: 'engage' }, { v: 'flee', d: 'run from combat' },
     { v: 'fight <stance>', d: 'berserk/aggressive/normal/cautious/pacifist' },
-    { v: 'pow', d: 'power attack — slow, 250% damage' },
+    { v: 'pow', d: 'power attack: slow, 250% damage' },
     { v: 'dodge', d: 'give ground: +5 defense, no attacking' },
     { v: 'loot <corpse>', d: 'loot the dead' } ] },
   { cat: 'Social', cmds: [
@@ -533,7 +533,7 @@ function condOk(text) {
 // Returns { ok:true } or { ok:false, error, line } (1-based segment index).
 export function validateMacro(cmds) {
   const segs = String(cmds || '').split(/[;\n]/).map((s) => s.trim()).filter(Boolean);
-  if (!segs.length) return { ok: false, error: 'Empty — add at least one command.', line: 0 };
+  if (!segs.length) return { ok: false, error: 'Empty: add at least one command.', line: 0 };
   const stack = []; // frames: { kind:'if'|'while', seenElse }
   const top = () => stack[stack.length - 1];
   let ran = 0;
@@ -589,7 +589,7 @@ export function lintMacro(cmds) {
     if (c.kind === 'while') loopStart.push({ line: i + 1, sawDelay: false });
     else if (c.kind === 'endwhile') {
       const f = loopStart.pop();
-      if (f && !f.sawDelay) warnings.push(`Line ${f.line}: this "while" has no "delay" — it'll be auto-paced to ~1/sec. Add a "delay" to set your own speed.`);
+      if (f && !f.sawDelay) warnings.push(`Line ${f.line}: this "while" has no "delay". It'll be auto-paced to ~1/sec. Add a "delay" to set your own speed.`);
     } else if (/^delay\s+\d+$/i.test(segs[i])) {
       for (const f of loopStart) f.sawDelay = true; // a delay paces every open loop
     }
@@ -735,7 +735,7 @@ export async function runMacro(cmds, ctx) {
       if (!on) { i = matchEndwhile(segs, i); continue; }
       if (++ctx.shared.steps > MAX_STEPS) {
         ctx.shared.aborted = true;
-        appendMsg('Macro stopped — too many steps (possible loop).', 'system');
+        appendMsg('Macro stopped: too many steps (possible loop).', 'system');
         break;
       }
       stack.push({ kind: 'while', parentActive, active: true, startIdx: i, sawDelay: false });
@@ -764,7 +764,7 @@ export async function runMacro(cmds, ctx) {
       // Global step budget guards against runaway expansion / loops.
       if (++ctx.shared.steps > MAX_STEPS) {
         ctx.shared.aborted = true;
-        appendMsg('Macro stopped — too many steps (possible loop).', 'system');
+        appendMsg('Macro stopped: too many steps (possible loop).', 'system');
         break;
       }
       // ⚠ set/unset run WITHOUT the inter-command stagger below and without
@@ -888,7 +888,7 @@ async function runNestedMacro(rest, ctx) {
   }
   if (ctx.depth >= MAX_DEPTH) {
     ctx.shared.aborted = true;
-    appendMsg('Macro nesting too deep — stopped.', 'system');
+    appendMsg('Macro nesting too deep, stopped.', 'system');
     return;
   }
   // $0 is every argument as one string, matching the trigger convention where $0
@@ -996,7 +996,7 @@ function renderOverview(content) {
   content.appendChild(guideExample(['north', 'delay 1000', 'open door']));
 
   content.appendChild(guideHeading('echo'));
-  content.appendChild(guidePara('Print a line only you see — never sent to the world. Good for reminders and status.'));
+  content.appendChild(guidePara('Print a line only you see, never sent to the world. Good for reminders and status.'));
   content.appendChild(guideExample(['echo Patching myself up…']));
 
   content.appendChild(guideHeading('$values'));
@@ -1019,14 +1019,14 @@ function renderOverview(content) {
     'endif']));
   content.appendChild(guideExample([
     'if $hp_pct < 50',
-    'echo Low HP — falling back',
+    'echo Low HP: falling back',
     'elseif $stamina < 20',
     'rest',
     'endif']));
 
   content.appendChild(guideHeading('while / endwhile'));
   content.appendChild(guidePara(
-    'Repeat the lines between "while <cond>" and "endwhile" as long as the condition holds — the ' +
+    'Repeat the lines between "while <cond>" and "endwhile" as long as the condition holds, the ' +
     'condition is re-checked at the top of every pass. Same conditions as "if". Put a "delay" in the ' +
     'body so it paces itself. A loop that never ends is capped and stopped automatically.'));
   content.appendChild(guideExample([
@@ -1038,19 +1038,19 @@ function renderOverview(content) {
 
   content.appendChild(guideHeading('Run macros anywhere'));
   content.appendChild(guidePara(
-    'Type "macro <name>" in the command box to run a saved macro by its label — and a macro can run ' +
+    'Type "macro <name>" in the command box to run a saved macro by its label, and a macro can run ' +
     'another macro the same way. Loops (a macro that ends up calling itself) are detected and stopped.'));
   content.appendChild(guideExample(['macro Heal Up', 'delay 500', 'macro Buff']));
 
   content.appendChild(guideHeading('Stopping a macro'));
   content.appendChild(guidePara(
-    'While a macro is running, a red "■ Stop" chip appears at the left of the smartbar — tap it to halt ' +
+    'While a macro is running, a red "■ Stop" chip appears at the left of the smartbar, tap it to halt ' +
     'everything. Typing "stop" does the same (it also cancels auto-walk). A macro parked in a long "delay" ' +
     'finishes that pause before it stops.'));
 
   content.appendChild(guideHeading('Check & Fix'));
   content.appendChild(guidePara(
-    'The Check & Fix button validates your macro and tidies it up — one command per line, ' +
+    'The Check & Fix button validates your macro and tidies it up, one command per line, ' +
     'keyword case, a missing "endif", and indented nested if/else blocks so the structure reads ' +
     'as a tree. It tidies existing macros the moment you open them, too. A macro must pass before ' +
     'it can be added.'));
@@ -1126,7 +1126,7 @@ function renderGuideTab(name, content, cmdsInput) {
     }
     if (!any) content.appendChild(guideNote('No interactable furniture in this room right now.'));
   } else if (name === 'Items') {
-    content.appendChild(guideNote('Your inventory (refreshed live). Uses the item id — commands act on the first matching item you carry.'));
+    content.appendChild(guideNote('Your inventory (refreshed live). Uses the item id, commands act on the first matching item you carry.'));
     const inv = currentInventory();
     if (!inv.length && !_invRefreshed) {
       _invRefreshed = true;
@@ -1143,7 +1143,7 @@ function renderGuideTab(name, content, cmdsInput) {
       }
     }
   } else if (name === 'Commands') {
-    content.appendChild(guideNote('Common verbs — type "help" in-game for the full list.'));
+    content.appendChild(guideNote('Common verbs: type "help" in-game for the full list.'));
     for (const group of COMMAND_REF) {
       const h = document.createElement('div');
       h.className = 'smart-guide-group';
@@ -1156,7 +1156,7 @@ function renderGuideTab(name, content, cmdsInput) {
       h.className = 'smart-guide-group';
       h.textContent = 'Admin';
       content.appendChild(h);
-      content.appendChild(guideNote('Admin verbs aren\'t held on the client — open the Admin panel (@admin) for the full, role-filtered list.'));
+      content.appendChild(guideNote('Admin verbs aren\'t held on the client, open the Admin panel (@admin) for the full, role-filtered list.'));
     }
   }
 }
@@ -1376,7 +1376,7 @@ function renderManager(editing) {
   const taken = new Map(loadMacros()
     .filter(m => m.key && (!editing || m.id !== editing.id))
     .map(m => [m.key, m.label]));
-  const opts = [['', '— none —'],
+  const opts = [['', 'none'],
     ...Array.from({ length: 9 }, (_, i) => [`F${i + 1}`, `F${i + 1}`]),
     ...Array.from({ length: 10 }, (_, i) => [`Numpad${i}`, `Numpad ${i}`])];
   for (const [value, text] of opts) {
@@ -1470,7 +1470,7 @@ function renderManager(editing) {
   };
   const invalidate = () => {
     save.disabled = true;
-    testMsg.textContent = 'Edited — press Check & Fix again.';
+    testMsg.textContent = 'Edited: press Check & Fix again.';
     testMsg.className = 'smart-macro-testmsg';
   };
   testBtn.addEventListener('click', () => runCheck(true));

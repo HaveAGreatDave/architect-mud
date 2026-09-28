@@ -151,7 +151,7 @@ async function searchForCaches({ player, zoneId, margin }) {
   return {
     found: true,
     priority: 60,
-    message: `Something about the ${cache.name} is wrong — it sits a little proud of the wall, and it isn't fixed to anything. There's a cavity behind it.`,
+    message: `Something about the ${cache.name} is wrong: it sits a little proud of the wall, and it isn't fixed to anything. There's a cavity behind it.`,
   };
 }
 

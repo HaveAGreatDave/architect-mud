@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Low thicket over a shallow pan where whatever rain falls runs to and stays a while. The scrub grows thickest along the channels and you can read the drainage off it from any small rise, like a map somebody drew in a hurry.",
+  "description": "Stiff brush on every side, higher than your waist. A beaten run crosses it at knee height, the ground in it packed smooth.",
   "exits": {
     "east": "zone_scw_1021_968",
     "north": "zone_scw_1020_967",
@@ -13,13 +13,13 @@
     "radiation": 9,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "dirt_road"
+    "terrain": "scrub"
   },
   "grid_x": 1020,
   "grid_y": 968,
   "grid_z": 0,
   "id": "zone_scw_1020_968",
   "map_id": "map_world",
-  "name": "Scrub Bench",
+  "name": "The Grabbing Ground",
   "parent_zone": null
 }

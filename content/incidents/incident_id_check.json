@@ -1,6 +1,6 @@
 {
   "cooldown_min": 300,
-  "description": "The polite end of the squeeze. Everything the Ascendants say about it's true, and it still costs twenty minutes and a name.",
+  "description": "The polite end of the squeeze. Everything the Ascendants say about it is true, and it still costs twenty minutes and a name.",
   "duration_min": 90,
   "enabled": 1,
   "flags": {},
@@ -18,7 +18,7 @@
     },
     {
       "do": "news",
-      "text": "Routine identity verification is under way in {place} — residents are reminded that cooperation shortens it considerably."
+      "text": "Routine identity verification is under way in {place}. Residents are reminded that cooperation shortens it considerably."
     },
     {
       "do": "gossip",

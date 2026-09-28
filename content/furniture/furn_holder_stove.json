@@ -6,9 +6,12 @@
       "kettle",
       "fire"
     ],
-    "interactions": {
+    "interaction_lines": {
       "sit": "You take the chair that is not his. It is colder than the other one and he does not remark on it."
-    }
+    },
+    "interactions": [
+      "sit"
+    ]
   },
   "id": "furn_holder_stove",
   "name": "the stove",

@@ -176,11 +176,11 @@ function renderTx(data, mode) {
   let capLine = '';
   if (txnCap != null) {
     if (!allow || allow.spent <= 0) {
-      capLine = `<div class="atm-scr-fee">24h limit: ${formatC(txnCap)} — larger sums, see a teller</div>`;
+      capLine = `<div class="atm-scr-fee">24h limit: ${formatC(txnCap)}, larger sums, see a teller</div>`;
     } else if (allow.remaining > 0) {
-      capLine = `<div class="atm-scr-fee">24h limit: ${formatC(allow.remaining)} of ${formatC(txnCap)} left — resets in ${fmtWait(allow.resetsIn)}</div>`;
+      capLine = `<div class="atm-scr-fee">24h limit: ${formatC(allow.remaining)} of ${formatC(txnCap)} left: resets in ${fmtWait(allow.resetsIn)}</div>`;
     } else {
-      capLine = `<div class="atm-scr-fee atm-scr-spent">24h limit reached — ${formatC(txnCap)} moved. Resets in ${fmtWait(allow.resetsIn)}, or see a teller</div>`;
+      capLine = `<div class="atm-scr-fee atm-scr-spent">24h limit reached: ${formatC(txnCap)} moved. Resets in ${fmtWait(allow.resetsIn)}, or see a teller</div>`;
     }
   }
   return `
@@ -232,7 +232,7 @@ function renderMaintenance(data) {
       <span class="atm-scr-title">MAINTENANCE</span>
       <span></span>
     </div>
-    <div class="atm-scr-avail">Diagnostic shell access active. Cash reserve can be force-ejected from the hopper — this will brick the terminal.</div>
+    <div class="atm-scr-avail">Diagnostic shell access active. Cash reserve can be force-ejected from the hopper. This will brick the terminal.</div>
     <div class="atm-scr-reserve">
       <div class="atm-scr-reserve-lbl">CASH RESERVE</div>
       <div class="atm-scr-reserve-val">${cashStock.toLocaleString()}₵</div>

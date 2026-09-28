@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Red rock to the horizon, pitted with pale rings a hair deep where the rain has stood and eaten. The wind never stops. There's a great deal of sky and none of it's reassuring.",
+  "description": "Broken stone piles up at the base of the cliff. Bones lie between the rocks, and there's no telling where they came from.",
   "exits": {
     "east": "zone_scw_1004_957",
     "north": "zone_scw_1003_956",
@@ -8,18 +8,18 @@
     "west": "zone_scw_1002_957"
   },
   "flags": {
-    "ambient_pool": "scarletwastes_hardpan",
+    "ambient_pool": "scarletwastes_the_spill",
     "lawless": true,
     "radiation": 9,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "redrock"
+    "terrain": "dirt_road"
   },
   "grid_x": 1003,
   "grid_y": 957,
   "grid_z": 0,
   "id": "zone_scw_1003_957",
   "map_id": "map_world",
-  "name": "The Quiet Red",
+  "name": "The Slide",
   "parent_zone": null
 }

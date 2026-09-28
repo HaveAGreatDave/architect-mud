@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#101820",
   "color": "#b8dcf0",
-  "description": "Two short curved wings round a glazed drum, low and wide and considerably less grand than anything it manages. The name is on the drum in chrome letters, and under it, in a smaller and much newer typeface, HALCYON FIELDS ESTATE MANAGEMENT LTD — which is a different company from the one on the hoardings, as several people have noticed and none have been able to do anything about.",
+  "description": "Two short curved wings round a glazed drum, low and wide and considerably less grand than anything it manages. The name is on the drum in chrome letters, and under it, in a smaller and much newer typeface, HALCYON FIELDS ESTATE MANAGEMENT LTD, which is a different company from the one on the hoardings, as several people have noticed and none have been able to do anything about.",
   "exits": {
     "east": "zone_district_902_915",
     "west": "zone_hf_groundrent_counter"

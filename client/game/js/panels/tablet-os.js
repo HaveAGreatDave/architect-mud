@@ -4087,10 +4087,10 @@ function buildSignal() {
 function renderSignal() {
   if (!isOnCrossing()) return buildSignal();
   if (_voidSearching) {
-    return `<span class="tos-void-badge searching" id="tos-signal-live" title="No signal — move the tablet to search">`
+    return `<span class="tos-void-badge searching" id="tos-signal-live" title="No signal, move the tablet to search">`
       + `<span class="tos-void-badge-dot"></span>No signal · searching</span>`;
   }
-  return `<span class="tos-void-badge" id="tos-signal-live" title="Weak carrier — voidlink, off the grid">`
+  return `<span class="tos-void-badge" id="tos-signal-live" title="Weak carrier, voidlink, off the grid">`
     + `<span class="tos-void-badge-dot"></span>Weak signal · off grid</span>`;
 }
 
@@ -4128,7 +4128,7 @@ const VOID_BOOT_LINES = [
   { text: 'grid services .............. ', tail: 'UNREACHABLE', fail: true },
   { text: 'fallback ................... ', tail: 'VOIDLINK LOCAL', ok: true, wait: 500 },
   { text: 'mounting cached apps ....... ', tail: 'OK', ok: true },
-  { cls: 'hero', text: '◈ VOIDLINK LOCAL — NO GRID', wait: 900 },
+  { cls: 'hero', text: '◈ VOIDLINK LOCAL: NO GRID', wait: 900 },
 ];
 const VOID_BOOT_STEP_MS = 260;
 function runVoidFirmwareBoot() {
@@ -4226,7 +4226,7 @@ function renderHeader(d) {
     + `<span class="tos-hdr-right">`
       + `<span class="tos-hdr-loc">${esc(d.location || '')}</span>`
       + `<button type="button" class="tos-hdr-clock" data-nav-app="alarm"`
-      + ` title="${time} — set an alarm">${time}</button>`
+      + ` title="${time}, set an alarm">${time}</button>`
       + renderSignal()
     + `</span></div>`;
 }
@@ -4600,7 +4600,7 @@ function homeTile(a, stashed, extra) {
   // the accessible name instead of being read as a loose number after it.
   const aria = n > 0 ? ` aria-label="${esc(a.name)}, ${n} waiting"` : '';
   return `<button type="button" class="tos-tile${glow}${stashed ? ' tos-tile-stashed' : ''}${extra ? ' ' + extra : ''}" ${attr}`
-    + `${aria}${stashed ? ' title="Stashed — tap to put it back"' : ''}>`
+    + `${aria}${stashed ? ' title="Stashed: tap to put it back"' : ''}>`
     + `${badge}<span class="tos-icon" aria-hidden="true">${icon}</span><span class="tos-name">${esc(a.name)}</span></button>`;
 }
 
@@ -6250,20 +6250,20 @@ const TOS_OPT_GROUPS = [
   // Sidebar minimap tile overlay — panels/minimap.js reads this via the
   // window._applyMapOverlay hook in applySettings and re-renders in place.
   { key: 'mapOverlay', label: 'Map Labels', opts: [
-    { v: 'labels', t: 'Lettering — the building’s 2-letter code', g: 'AB', s: 'font-size:0.6875rem;letter-spacing:1px' },
-    { v: 'none', t: 'Plain tiles — no lettering', g: '▫' } ] },
+    { v: 'labels', t: 'Lettering: the building’s 2-letter code', g: 'AB', s: 'font-size:0.6875rem;letter-spacing:1px' },
+    { v: 'none', t: 'Plain tiles: no lettering', g: '▫' } ] },
   // Landmark colour — panels/minimap.js reads this via window._applyMapColor. Off is
   // the plain map (white label plates, untinted footprints); on paints a building in
   // its landmark class's colour and puts that colour under its code.
   { key: 'mapColor', label: 'Map Colour', opts: [
-    { v: 'off', t: 'Plain — white labels, untinted buildings', g: '▫' },
-    { v: 'on', t: 'Colour — a colour per landmark kind', g: '◼', s: 'color:#8b46c7' } ] },
+    { v: 'off', t: 'Plain: white labels, untinted buildings', g: '▫' },
+    { v: 'on', t: 'Colour: a colour per landmark kind', g: '◼', s: 'color:#8b46c7' } ] },
   // Which renderer draws the sidebar minimap. Classic is a genuine fallback, not a
   // style choice — it's what you switch to if the canvas path misbehaves on your
   // machine, so it has to be reachable without devtools.
   { key: 'minimapRender', label: 'Minimap', opts: [
-    { v: 'smooth', t: 'Smooth — the map glides as you walk', g: '🌊' },
-    { v: 'classic', t: 'Classic — tiles snap into place', g: '▦' } ] },
+    { v: 'smooth', t: 'Smooth: the map glides as you walk', g: '🌊' },
+    { v: 'classic', t: 'Classic: tiles snap into place', g: '▦' } ] },
 ];
 const TOS_AUDIO_TOGGLES = [
   { key: 'music', label: 'Music', on: '🎵', off: '🔇' },
@@ -6389,8 +6389,8 @@ function renderTabletSettings(d) {
   // the explaining, so keep them.
   const rungNow = (d && d.displayRung) || 'visual';
   const RUNGS = [
-    ['visual', 'Visual', 'Graphics wherever a system has them — the cockpit, the cabin window, the poker felt.'],
-    ['textgames', 'Text', 'The games come to you as characters — fly her by command, play cards in the log. Maps and hangars stay on screen.'],
+    ['visual', 'Visual', 'Graphics wherever a system has them, the cockpit, the cabin window, the poker felt.'],
+    ['textgames', 'Text', 'The games come to you as characters, fly her by command, play cards in the log. Maps and hangars stay on screen.'],
     ['log', 'Log', 'Everything written out where you can scroll back. No panels at all.'],
   ];
   const displayRow = `<div class="tos-set-row"><span class="tos-set-label">Display Mode<span class="tos-set-val">How much of the game is drawn for you</span></span><div class="tos-opts">
@@ -6498,7 +6498,7 @@ function renderTabletSettings(d) {
         <span><input type="range" class="tos-slider" data-set-contrast="1" min="0" max="100" step="1" value="${contrast}">
         <span class="tos-btn-sub" data-contrast-reset="1" style="margin:0 0 0 8px;padding:4px 9px">Reset</span></span></div>` +
       a11yRows +
-      `<div class="tos-set-row"><span class="tos-set-label">All of this works as a command<span class="tos-set-val">Type <b>accessibility</b> anywhere — no tablet needed. <b>accessibility reset</b> puts everything back.</span></span></div>`,
+      `<div class="tos-set-row"><span class="tos-set-label">All of this works as a command<span class="tos-set-val">Type <b>accessibility</b> anywhere: no tablet needed. <b>accessibility reset</b> puts everything back.</span></span></div>`,
     Layout: (layoutRows || '') +
       // Home widgets are OFF until you ask for them. The home screen's job is to
       // launch apps; cards under the grid are a second thing it does, and a first
@@ -6591,12 +6591,12 @@ function renderAboutPage() {
     <div class="tos-about-by">Built by</div>
     <div class="tos-about-names">David Lacey<br>John Akerson</div>
     <div class="tos-about-rule"></div>
-    <div class="tos-about-tag">We build this because we want to. The servers just insist on being paid. Chip in if you feel like it — thanks either way.</div>
+    <div class="tos-about-tag">We build this because we want to. The servers just insist on being paid. Chip in if you feel like it, thanks either way.</div>
     <a class="tos-about-bmc" href="https://buymeacoffee.com/haveagreatdave" target="_blank" rel="noopener noreferrer" title="Support Us">
       <span class="tos-about-cup">☕</span><span>Support Us</span>
     </a>
     <div class="tos-about-rule"></div>
-    <a class="tos-about-thomas" href="/thomas-client-guide.html" target="_blank" rel="noopener noreferrer" title="THOMAS Client — Power User Guide">
+    <a class="tos-about-thomas" href="/thomas-client-guide.html" target="_blank" rel="noopener noreferrer" title="THOMAS Client, Power User Guide">
       <svg viewBox="0 0 120 120" aria-hidden="true">
         <g fill="none" stroke="currentColor" stroke-width="7" stroke-linejoin="round">
           <path d="M60 8 L112 37 L60 66 L8 37 Z"/>
@@ -6794,7 +6794,7 @@ function renderCorpMapDetail(d) {
     else if (c.mine) acts = _cmActBtns([['reinforce', 'Reinforce'], ['build:extractor', '+Extractor'], ['build:turret', '+Turret']]);
     else if (c.org_id) acts = _cmActBtns([['contest', '⚔ Contest']], true);
   } else if (c.status === 'OPEN' || c.org_id) {
-    acts = `<div class="tos-cm-note">▸ Travel to <b>${esc(t.name)}</b> to act — the verbs work where you stand.</div>`;
+    acts = `<div class="tos-cm-note">▸ Travel to <b>${esc(t.name)}</b> to act: the verbs work where you stand.</div>`;
   }
   const tug = c.org_id
     ? `<div class="tos-cm-tug"><i style="width:${inf}%"></i></div><div class="tos-cm-tugrow"><span class="my">${esc(c.tag)} ${inf}%</span>${c.challenger ? `<span class="rv">${esc(c.challenger)} ${100 - inf}%</span>` : '<span class="dim">uncontested</span>'}</div>`
@@ -6939,7 +6939,7 @@ function narrateCodexFrom(chapterId) {
   const startAt = chapters.findIndex(c => c.id === chapterId && c.unlocked);
   if (startAt < 0) return;
   const volume = _data?.sectionTitle || _data?.appName || 'CODEX';
-  const titleOf = (c) => `${volume} — ${c.title || ''}`.trim();
+  const titleOf = (c) => `${volume}: ${c.title || ''}`.trim();
 
   let cursor = startAt;
   // Lazy: re-read the payload each time, so a chapter unlocked mid-read counts.
@@ -7180,7 +7180,7 @@ function renderIdeoOverview(d, accent) {
     <div class="tos-ideo-lbl">Standing</div>
     <div class="tos-ideo-panel">${rows}</div>
     <div class="tos-ideo-lbl">The two questions</div>
-    <div class="tos-ideo-panel"><p class="tos-ideo-note"><b>Civilization</b> — is the Basin worth saving? Renounce it, or redeem it.<br><br><b>The body</b> — do we stay human, or transcend the form? And by which path — machine, flesh, or mind? <span class="tos-ideo-dim">Open the Field to see them all plotted.</span></p></div>
+    <div class="tos-ideo-panel"><p class="tos-ideo-note"><b>Civilization</b>: is the Basin worth saving? Renounce it, or redeem it.<br><br><b>The body</b>: do we stay human, or transcend the form? And by which path, machine, flesh, or mind? <span class="tos-ideo-dim">Open the Field to see them all plotted.</span></p></div>
   </div>`;
 }
 
@@ -7221,7 +7221,7 @@ function renderIdeoOrder(o, d, accent) {
     <div class="tos-ideo-panel">${renderIdeoField(d, o.id, accent)}</div>
     ${o.expansion
       ? `<div class="tos-ideo-lbl">Standing</div>
-    <div class="tos-ideo-panel"><p class="tos-ideo-note tos-ideo-dim">This order hasn't yet surfaced in the Basin — you can't take up standing with it yet. Consider this a preview of a road that's coming.</p></div>`
+    <div class="tos-ideo-panel"><p class="tos-ideo-note tos-ideo-dim">This order hasn't yet surfaced in the Basin. You can't take up standing with it yet. Consider this a preview of a road that's coming.</p></div>`
       : `<div class="tos-ideo-lbl">Your standing</div>
     <div class="tos-ideo-panel">
       <div class="tos-ideo-shead"><span class="rp" style="color:${o.color}">${o.rep >= 0 ? '+' : ''}${o.rep}</span><span class="nx">${nxt}</span></div>
@@ -7241,7 +7241,7 @@ function renderIdeoFieldPage(d, accent) {
     <div class="tos-ideo-panel">${renderIdeoField(d, null, accent)}</div>
     <div class="tos-ideo-lbl">The two axes</div>
     <div class="tos-ideo-panel">
-      <p class="tos-ideo-note"><b>Civilization</b> (↔) — the Basin and its Architect. <b>Renounce</b> it and leave, or <b>redeem</b> it and stay.<br><br><b>The body</b> (↕) — <b>stay human</b>, or <b>transcend</b> the form. The ascending orders climb by different means — that third choice of <em>path</em> is what the Overview's field unfolds.</p>
+      <p class="tos-ideo-note"><b>Civilization</b> (↔): the Basin and its Architect. <b>Renounce</b> it and leave, or <b>redeem</b> it and stay.<br><br><b>The body</b> (↕): <b>stay human</b>, or <b>transcend</b> the form. The ascending orders climb by different means, that third choice of <em>path</em> is what the Overview's field unfolds.</p>
       <div class="tos-ideo-legend">${legend}<span><i style="background:#fff;color:${accent}"></i>You</span></div>
     </div>
   </div>`;
@@ -7434,7 +7434,7 @@ function renderHealthDoll(d) {
        data-doll-detail="${esc(p.detail || `${p.partLabel}: no injury.`)}"
        role="button" tabindex="0"
        aria-label="${esc(p.partLabel)}${p.name ? `: ${esc(p.name)}` : ''}"
-       title="${esc(p.detail || `${p.partLabel} — fine.`)}">
+       title="${esc(p.detail || `${p.partLabel}: fine.`)}">
       ${DOLL_SHAPES[p.part] || ''}
     </g>`).join('');
 
@@ -7947,7 +7947,7 @@ function renderBlissArrangement(d) {
       <div class="tos-bliss-heldline"><span>${e.daysKept} day${e.daysKept === 1 ? '' : 's'} kept</span></div>
       ${tenure}
       <div class="tos-bliss-note">${esc(e.tier.note)}</div>
-      ${e.missed ? `<div class="tos-bliss-warn">${e.missed} missed payment — one more and the placement is collected.</div>` : ''}
+      ${e.missed ? `<div class="tos-bliss-warn">${e.missed} missed payment: one more and the placement is collected.</div>` : ''}
       <div class="tos-actions"><button class="tos-btn" data-act-id="release" data-act-app="bliss" data-act-params="${esc(e.id)}"
         data-act-confirm="Release ${esc(e.names.join(' and '))}? ${e.names.length > 1 ? 'A matched pair goes together. ' : ''}This can't be undone.">Release</button></div>`}
     </div>`;
@@ -8009,7 +8009,7 @@ function journeyDepth(nodes, cur) {
 function renderJourneyMap(d) {
   const nodes = d.nodes || [];
   const cur = nodes.find(n => n.is_current);
-  if (!cur) return `<div class="tos-empty">◈ NO SIGNAL — you're off the grid, out in the void.</div>`;
+  if (!cur) return `<div class="tos-empty">◈ NO SIGNAL: you're off the grid, out in the void.</div>`;
   const ahead = journeyAhead(nodes, cur);
   const substrate = JOURNEY_SUBSTRATE[cur.terrain] || 'TRACKLESS WASTE';
   const back = cur.void_detour ? 'east' : 'north', fwd = cur.void_detour ? null : 'south';
@@ -8161,31 +8161,18 @@ function renderMap(d) {
     // Doors as edge lines: an interior room gets a hairline on all four sides — green
     // where it opens through, red where it's wall (server `open_dirs`), brighter red
     // where a lock is holding a way through shut (`locked_dirs`), orange where that lock
-    // is one you can undo (`unlockable_dirs`); a facade out on the
-    // street gets the green door edge alone, no red.
+    // is one you can undo (`unlockable_dirs`). Facades draw the same four edges; a law
+    // holding a building shut (shop hours, the tile's `shut` flag) reddens its door edge.
     let ent = '', exits = '';
     if (Array.isArray(t.open_dirs)) {
       const locked = Array.isArray(t.locked_dirs) ? t.locked_dirs : [];
       const mine = Array.isArray(t.unlockable_dirs) ? t.unlockable_dirs : [];
       exits = ['north', 'south', 'east', 'west'].map(dr => {
-        const st = locked.includes(dr) ? (mine.includes(dr) ? 'unlockable' : 'locked')
+        const lk = locked.includes(dr) || (t.shut && dr === t.entrance);
+        const st = lk ? (mine.includes(dr) ? 'unlockable' : 'locked')
           : (t.open_dirs.includes(dr) ? 'open' : 'shut');
         return `<span class="tos-edge tos-edge-${dr} ${st}"></span>`;
       }).join('');
-    } else {
-      // Out on the street: the door edge is the only one drawn and the other three stay
-      // bare. The red "wall" half is a floorplan idea — outside it would just outline
-      // everything. The one line still takes all three lock colours (facadeLockDirs,
-      // server/engine/world.js); it was hardcoded green, so a bolted front door read
-      // open here while the dpad reddened the same direction from the same door.
-      if (['north', 'south', 'east', 'west'].includes(t.entrance)) {
-        // A law holding the building shut (shop hours) reddens it too — no door row to
-        // hang a lock off, so it arrives as the tile's own `shut` flag. Same rule as the
-        // sidebar minimap's doorMarks.
-        const lk = t.shut || (Array.isArray(t.locked_dirs) && t.locked_dirs.includes(t.entrance));
-        const mn = lk && Array.isArray(t.unlockable_dirs) && t.unlockable_dirs.includes(t.entrance);
-        ent = `<span class="tos-edge tos-edge-${t.entrance} ${mn ? 'unlockable' : lk ? 'locked' : 'open'}"></span>`;
-      }
     }
     // Perimeter wall (mirrors the sidebar minimap). The derived faces in spec.curtain
     // are the tile's own OUTWARD edges, so the stroke lands on the boundary: a run reads
@@ -8247,8 +8234,8 @@ function renderMapCtl(d) {
     <span class="tos-map-mini${auto}" data-map-autotoggle title="Toggle auto-walk to the plotted route">➤ Auto</span>
     <span class="tos-map-mini" data-map-recenter title="Recenter on you">◎ Center</span>
     <span class="tos-map-mini${noRoute}" data-map-clear title="Clear the plotted GPS route">🧭 Clear</span>
-    <span class="tos-map-mini${mapLabelsOn() ? ' active' : ''}" data-map-labels title="Toggle two-letter building labels — also switches the sidebar minimap">🏷 Labels</span>
-    <span class="tos-map-mini${mapColorOn() ? ' active' : ''}" data-map-color title="Colour buildings by what they are — also switches the sidebar minimap">🎨 Colour</span>
+    <span class="tos-map-mini${mapLabelsOn() ? ' active' : ''}" data-map-labels title="Toggle two-letter building labels, also switches the sidebar minimap">🏷 Labels</span>
+    <span class="tos-map-mini${mapColorOn() ? ' active' : ''}" data-map-color title="Colour buildings by what they are, also switches the sidebar minimap">🎨 Colour</span>
     <span class="tos-map-zoom">
       <button class="tos-mz" data-map-zoom="out" title="Zoom out"${zoutOff}>−</button>
       <button class="tos-mz" data-map-zoom="in" title="Zoom in"${zinOff}>+</button>
@@ -8358,7 +8345,7 @@ function _mapActBtns(list) {
 
 function renderMapDetail(d) {
   const t = (d.tiles || []).find(x => x.id === _tosMapSel);
-  if (!t) return `<div class="tos-map-note">Tap a tile to see what's there — then Route here to plot a course.</div>`;
+  if (!t) return `<div class="tos-map-note">Tap a tile to see what's there, then Route here to plot a course.</div>`;
   const rows = [];
   const funcLabel = FUNC_LEGEND[t.func]?.label;
   if (funcLabel) rows.push(`<div class="tos-row"><span>District</span><span>${esc(funcLabel)}</span></div>`);
@@ -8416,12 +8403,12 @@ function renderCorpFound(d) {
   const fee = d.foundFee || 0, credits = d.credits || 0, afford = credits >= fee;
   return `
     <div class="tos-detail-name">Found a Corporation</div>
-    <div class="tos-detail-desc">Start your own outfit — a shared treasury, ranks, territory, and a private corp channel. You'll be its Founder.</div>
+    <div class="tos-detail-desc">Start your own outfit, a shared treasury, ranks, territory, and a private corp channel. You'll be its Founder.</div>
     <div class="tos-row"><span>Founding fee</span><span>₵${fee.toLocaleString()}</span></div>
     <div class="tos-row"><span>Your credits</span><span>₵${credits.toLocaleString()}</span></div>
     <div class="tos-founding-warn">${afford
       ? `Founding costs a one-time <b>₵${fee.toLocaleString()}</b>, debited the moment you create the corp. You can pick your corp colour right after.`
-      : `You need <b>₵${fee.toLocaleString()}</b> to found a corp — you have ₵${credits.toLocaleString()}.`}</div>
+      : `You need <b>₵${fee.toLocaleString()}</b> to found a corp. You have ₵${credits.toLocaleString()}.`}</div>
     ${afford ? renderActions(d.appId, [{ id: 'found', label: `Found a Corp · ₵${fee.toLocaleString()}`, prompt: 'Name your corporation:' }], '') : ''}
   `;
 }
@@ -8446,7 +8433,7 @@ function renderBufferLog(buffer, recording, full) {
   const cap = full ? ' <span class="tos-buf-full">FULL</span>' : '';
   const head = `<div class="tos-buf-head">◉ ON TAPE${lines.length ? ` · ${lines.length} line${lines.length === 1 ? '' : 's'}` : ''}${cap}</div>`;
   if (!lines.length) {
-    return `${head}<div class="tos-buf empty">${recording ? 'Nothing on tape yet — activity in this zone will log here.' : 'Not recording. Hit Record to start a tape.'}</div>`;
+    return `${head}<div class="tos-buf empty">${recording ? 'Nothing on tape yet, activity in this zone will log here.' : 'Not recording. Hit Record to start a tape.'}</div>`;
   }
   const body = lines.map(l => `<div class="tos-buf-line ${l.kind === 'say' ? 'say' : 'event'}"><span class="tos-buf-t">${esc(l.t || '')}</span> <span class="tos-buf-txt">${esc(l.text || '')}</span></div>`).join('');
   return `${head}<div class="tos-buf">${body}</div>`;
@@ -8674,8 +8661,8 @@ function renderGearLoadout(d) {
     `<div class="tos-gload-far">
        <div class="tos-gl-group">${layers}</div>
        ${carry}
-       <div class="tos-gstat tos-gstat-armor" data-armor-break title="Soak across all five body slots. A hit only meets its own slot's share — click for the per-type breakdown, and see the Protection table for where you're bare.">${GEAR_SHIELD_SVG}<span>${totalSoak}</span></div>
-       <div class="tos-gstat" title="Insulation from what you're wearing: +${round1(fx.insulation || 0)}°C of effective ambient, dry. This is NOT your body temperature — that's in Vitals — and soaked clothing keeps far less of it.">${GEAR_THERMO_SVG}<span>+${round1(fx.insulation || 0)}° insul</span></div>
+       <div class="tos-gstat tos-gstat-armor" data-armor-break title="Soak across all five body slots. A hit only meets its own slot's share, click for the per-type breakdown, and see the Protection table for where you're bare.">${GEAR_SHIELD_SVG}<span>${totalSoak}</span></div>
+       <div class="tos-gstat" title="Insulation from what you're wearing: +${round1(fx.insulation || 0)}°C of effective ambient, dry. This is NOT your body temperature (that's in Vitals), and soaked clothing keeps far less of it.">${GEAR_THERMO_SVG}<span>+${round1(fx.insulation || 0)}° insul</span></div>
      </div>`;
 
   // Carried-item tray, paged. Only equippable pieces (a `slot` tag) — this is the
@@ -9296,7 +9283,7 @@ function renderSurveillance(d) {
       <div class="tos-cam-head"><span>${esc(focus.name)}</span><span class="tos-cam-kind">${focus.status === 'ok' ? '<span class="tos-cam-live">◉ LIVE</span> · ' : ''}${esc(focus.kind || '')}${focus.tier ? ` · T${esc(String(focus.tier))}` : ''}</span></div>
       ${renderCamFeed(focus)}
       <div class="tos-cam-foot"><span>${esc(focus.zone || '')} · ${esc(focus.ts || '')}</span><span>${esc(focus.battery || '')}${camExpiry(focus)}${focus.recording ? ' · <span class="tos-rec"><span class="tos-acc-dot">●</span>REC</span>' : ''}</span></div>
-      ${focus.full ? '<div class="tos-cam-fullbar">⚠ BUFFER FULL — clip or clear to record again</div>' : ''}
+      ${focus.full ? '<div class="tos-cam-fullbar">⚠ BUFFER FULL: clip or clear to record again</div>' : ''}
       ${renderBufferLog(d.focusBuffer, focus.recording, focus.full)}
       ${renderActions(d.appId, [
         { id: 'record', label: focus.recording ? 'Stop Recording' : 'Record' },
@@ -9625,14 +9612,14 @@ function renderBlotterWidget(sec) {
       const stars = '★'.repeat(Math.max(1, Math.min(5, e.stars || 1)));
       return `<div class="tos-blot-row warrant">
         <span class="tos-blot-stars" title="${esc(String(e.stars || 0))} star">${stars}</span>
-        <span class="tos-blot-body"><b>${esc(e.who)}</b> — wanted for ${esc(e.what)}</span>
+        <span class="tos-blot-body"><b>${esc(e.who)}</b>: wanted for ${esc(e.what)}</span>
       </div>`;
     }
     const where = e.where ? ` at ${esc(e.where)}` : '';
     const when = e.when ? `<span class="tos-blot-when">${esc(e.when)}</span>` : '';
     return `<div class="tos-blot-row">
       <span class="tos-blot-mark" aria-hidden="true">†</span>
-      <span class="tos-blot-body"><b>${esc(e.who)}</b> — ${esc(e.what)}${where}</span>
+      <span class="tos-blot-body"><b>${esc(e.who)}</b>: ${esc(e.what)}${where}</span>
       ${when}
     </div>`;
   }).join('');
@@ -9690,7 +9677,7 @@ function renderHeadlinesWidget(stories) {
   _newsStories = stories;
   return `<div class="tos-news-list">${stories.map((s, i) => `<div class="tos-headline" data-news-idx="${i}" role="button" tabindex="0">
     <span class="tos-hl-tag ${s.tag === 'live' ? 'live' : 'tabloid'}">${s.tag === 'live' ? 'LIVE' : 'WIRE'}</span>
-    <span class="tos-hl-text">${esc(s.headline)}${s.byline ? ` <span class="tos-hl-by">— ${esc(s.byline)}</span>` : ''}</span>
+    <span class="tos-hl-text">${esc(s.headline)}${s.byline ? ` <span class="tos-hl-by">(${esc(s.byline)})</span>` : ''}</span>
   </div>`).join('')}</div>`;
 }
 
@@ -9718,7 +9705,7 @@ function openNewsStory(story) {
       </div>
       <h2 class="tos-nw-headline">${esc(story.headline || '')}</h2>
       <p class="tos-nw-story">${esc(story.body || 'The story ends here. The rest was classified, redacted, or never true to begin with.')}</p>
-      <div class="tos-nw-foot">The Coldwater Sentinel — all the truth the Architect permits.</div>
+      <div class="tos-nw-foot">The Coldwater Sentinel: all the truth the Architect permits.</div>
     </div>
   </div>`;
   win.addEventListener('click', (e) => { if (e.target === win) closeNewsStory(); });
@@ -9731,7 +9718,7 @@ function closeNewsStory() {
 }
 
 function renderStandingsWidget(teams) {
-  if (!teams || !teams.length) return '<div class="tos-empty" style="padding:14px 4px">No games have been played yet — the DEADBALL standings are empty.</div>';
+  if (!teams || !teams.length) return '<div class="tos-empty" style="padding:14px 4px">No games have been played yet, the DEADBALL standings are empty.</div>';
   const rows = teams.map(t => `<tr>
     <td class="tos-st-rank">${t.rank}</td>
     <td class="tos-st-team">${esc(t.team)}</td>
@@ -9830,7 +9817,7 @@ function renderDeadhead(d) {
     const col = REG_HUE[i % REG_HUE.length];
     const x0 = Math.min(nx(r.minX), nx(r.maxX)), x1 = Math.max(nx(r.minX), nx(r.maxX));
     const y0 = Math.min(ny(r.minY), ny(r.maxY)), y1 = Math.max(ny(r.minY), ny(r.maxY));
-    return `<button type="button" title="${esc(r.name)} — hold over it"
+    return `<button type="button" title="${esc(r.name)}, hold over it"
       data-act-id="loiter" data-act-app="deadhead" data-act-params="${Math.round(r.cx)} ${Math.round(r.cy)}"
       style="position:absolute;left:${x0.toFixed(1)}%;top:${y0.toFixed(1)}%;width:${Math.max(1.5, x1 - x0).toFixed(1)}%;height:${Math.max(1.5, y1 - y0).toFixed(1)}%;
         background:${col}14;border:1px solid ${col}66;border-radius:4px;cursor:pointer;padding:0;font-family:inherit;text-align:left">
@@ -9842,7 +9829,7 @@ function renderDeadhead(d) {
   const dots = fields.map(f => {
     const charted = !dh.charted?.loiter && dh.charted?.id === f.id;
     return `<button type="button" style="position:absolute;left:${nx(f.gx).toFixed(1)}%;top:${ny(f.gy).toFixed(1)}%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:1px;background:none;border:none;cursor:pointer;padding:2px;font-family:inherit"
-      data-act-id="chart" data-act-app="deadhead" data-act-params="${esc(f.id)}" title="${esc(f.name)} — ${f.dist} tiles">
+      data-act-id="chart" data-act-app="deadhead" data-act-params="${esc(f.id)}" title="${esc(f.name)}: ${f.dist} tiles">
       <span style="font-size:0.8125rem;line-height:1;color:${charted ? '#7dffb0' : acc};filter:drop-shadow(0 0 3px ${charted ? '#2f8' : 'transparent'})">✈</span>
       <span style="font-size:0.5313rem;letter-spacing:.3px;color:${charted ? '#7dffb0' : 'var(--tos-dim,#9ab)'};white-space:nowrap;max-width:76px;overflow:hidden;text-overflow:ellipsis">${esc(f.name)}</span>
     </button>`;
@@ -9854,7 +9841,7 @@ function renderDeadhead(d) {
   // A CSS transition on the transform smooths the step between server pushes so she glides rather
   // than jumping, and a soft ring underneath keeps her findable against the airfield dots.
   const hdg = ((dh.hdg || 0) % 360 + 360) % 360;
-  const here = `<div style="position:absolute;left:${nx(acX).toFixed(2)}%;top:${ny(acY).toFixed(2)}%;transform:translate(-50%,-50%);pointer-events:none;transition:left .9s linear,top .9s linear" title="${esc(dh.name || 'your aircraft')} — heading ${Math.round(hdg)}°">
+  const here = `<div style="position:absolute;left:${nx(acX).toFixed(2)}%;top:${ny(acY).toFixed(2)}%;transform:translate(-50%,-50%);pointer-events:none;transition:left .9s linear,top .9s linear" title="${esc(dh.name || 'your aircraft')}, heading ${Math.round(hdg)}°">
     <div style="position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;border:1px solid rgba(255,90,106,.45);box-shadow:0 0 8px rgba(255,90,106,.35)${dh.moving ? ';animation:tos-dh-ping 2s ease-out infinite' : ''}"></div>
     <div style="transform:rotate(${(hdg - 45).toFixed(1)}deg);transition:transform .9s linear;color:#ff5a6a;font-size:1.0625rem;line-height:1;text-shadow:0 0 7px #ff5a6a">✈</div>
   </div>`;
@@ -9864,12 +9851,12 @@ function renderDeadhead(d) {
   const notice = d.notice ? `<div style="margin:6px 0;padding:6px 9px;border-left:2px solid ${acc};background:rgba(255,255,255,.04);font-size:0.75rem">${esc(d.notice)}</div>` : '';
   const clearBtn = `<button type="button" class="tos-btn" style="padding:1px 8px;font-size:0.6875rem;margin-left:6px" data-act-id="clear" data-act-app="deadhead" data-act-params="">clear</button>`;
   const hint = dh.remote
-    ? `Tap a <b>field</b> to send her there, or <b>anywhere</b> to hold — the crew fly her. Board her to walk the decks.`
+    ? `Tap a <b>field</b> to send her there, or <b>anywhere</b> to hold: the crew fly her. Board her to walk the decks.`
     : `Tap an <b>airfield</b> to land there, or <b>anywhere</b> to hold that spot.`;
   const charted = dh.charted
     ? (dh.charted.loiter
       ? `<div style="margin-top:8px;font-size:0.75rem">Holding over <b style="color:#7dffb0">${esc(dh.charted.name)}</b> until bingo fuel, then divert to land ${clearBtn}</div>`
-      : `<div style="margin-top:8px;font-size:0.75rem">${dh.remote ? 'Bound for' : 'Course set:'} <b style="color:#7dffb0">${esc(dh.charted.name)}</b>${(!dh.remote && !dh.airborne && !dh.crew && dh.seat !== 'pilot') ? ' <span style="color:var(--tos-dim,#8aa)">— hit <b>Depart</b> and the crew take her up.</span>' : ''} ${dh.remote ? '' : clearBtn}</div>`)
+      : `<div style="margin-top:8px;font-size:0.75rem">${dh.remote ? 'Bound for' : 'Course set:'} <b style="color:#7dffb0">${esc(dh.charted.name)}</b>${(!dh.remote && !dh.airborne && !dh.crew && dh.seat !== 'pilot') ? ' <span style="color:var(--tos-dim,#8aa)">: hit <b>Depart</b> and the crew take her up.</span>' : ''} ${dh.remote ? '' : clearBtn}</div>`)
     : `<div style="margin-top:8px;font-size:0.75rem;color:var(--tos-dim,#8aa)">${hint}</div>`;
   const btns = [];
   if (dh.remote) btns.push(`<button type="button" class="tos-btn" data-act-id="circlehere" data-act-app="deadhead" data-act-params="" title="send the crew to hold a lazy orbit over her current spot">Circle here</button>`);
@@ -9957,9 +9944,9 @@ function renderTv(d) {
         </button>
         <span class="tos-tv-num" data-tv="channel-num" aria-live="polite">——</span>
         <span class="tos-tv-spacer"></span>
-        <button data-tv="schedule-btn" title="TV guide — what's on and when">&#x1F5D3;</button>
-        <button data-tv="gameday-btn" title="Gameday — animated play-by-play">&#x26BE;</button>
-        <button data-tv="standings-btn" title="Standings — the DEADBALL league table">&#x1F3C6;</button>
+        <button data-tv="schedule-btn" title="TV guide, what's on and when">&#x1F5D3;</button>
+        <button data-tv="gameday-btn" title="Gameday: animated play-by-play">&#x26BE;</button>
+        <button data-tv="standings-btn" title="Standings: the DEADBALL league table">&#x1F3C6;</button>
         <button data-tv="read-btn" title="Read broadcast aloud">&#x1F508;</button>
         <button data-tv="close-btn" title="Switch the screen off">&#x23FB;</button>
       </div>
@@ -9970,6 +9957,20 @@ function renderTv(d) {
 
 // Bind the shared renderer to the freshly-rendered viewport. render() rebuilds the
 // whole body on every nav, so the old instance is always torn down first.
+// ── World Map ────────────────────────────────────────────────────────────────
+let _worldmap = null, _worldmapGen = 0;
+function mountWorldmap() {
+  const host = _overlay?.querySelector('#tos-worldmap');
+  if (!host) return;
+  unmountWorldmap();
+  const gen = ++_worldmapGen, data = _data;
+  import('/shared/worldmap-render.js').then(({ mountWorldMap }) => {
+    if (gen !== _worldmapGen || !host.isConnected) return;   // navigated away while it loaded
+    _worldmap = mountWorldMap(host, data, { tablet: true });
+  }).catch((e) => { host.textContent = 'The map would not load.'; console.warn('worldmap', e); });
+}
+function unmountWorldmap() { _worldmapGen++; _worldmap?.destroy(); _worldmap = null; }
+
 function mountTabletTv() {
   unmountTabletTv();
   const host = _overlay?.querySelector('.tos-tv-set');
@@ -10061,6 +10062,14 @@ function renderBody() {
   if (d.view === 'map') {
     return `<div class="tos-body tos-map-view">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}${renderTosTabs(d)}
       <div id="tos-map-root">${renderMap(d)}</div>
+    </div>`;
+  }
+  if (d.view === 'worldmap') {
+    // The canvas is mounted after the HTML lands (mountWorldmap), from a lazily imported renderer,
+    // so the wildlands field is only fetched by somebody who opens the app.
+    return `<div class="tos-body">${hdr}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
+      <div id="tos-worldmap" style="position:relative;height:min(70vh,560px);border:1px solid var(--tos-accent,#f2b01e)44;border-radius:6px;overflow:hidden;background:#07090c"></div>
+      <div style="font-size:.75rem;opacity:.7;margin-top:6px">Scroll to zoom, drag to pan, hover for detail. Numbered shields are this week's highways.</div>
     </div>`;
   }
   if (d.view === 'deadhead') {
@@ -10290,13 +10299,13 @@ function wireBody() {
       const advance = () => {
         if (!Array.isArray(chapterList) || atIdx < 0) return null;
         const nxt = chapterList[++atIdx];
-        return nxt?.body ? { text: nxt.body, title: `${book} — ${nxt.name || nxt.title || ''}`.trim() } : null;
+        return nxt?.body ? { text: nxt.body, title: `${book}: ${nxt.name || nxt.title || ''}`.trim() } : null;
       };
       // A comic hands over the EXACT array its spans were numbered from. Handing
       // over `det.body` instead would re-split the marker-free prose and shift
       // every index, so the highlight would follow the wrong balloon.
       narrateStart(_data?.comic && _comicParts ? _comicParts : (det.body || ''),
-        book, `${book} — ${det.name || ''}`.trim(), _data?.lex, advance);
+        book, `${book}: ${det.name || ''}`.trim(), _data?.lex, advance);
     });
   });
 
@@ -11657,7 +11666,7 @@ export function openTabletPanel(msg) {
         </div>
         ${crtOverlays()}
         <div class="tos-void-static"></div>
-        <div class="tos-void-hunt">◈ Searching for signal — move the tablet</div>
+        <div class="tos-void-hunt">◈ Searching for signal, move the tablet</div>
       </div></div>
     </div></div>`;
     // onClose runs whenever the overlay is torn down by ANY path (including
@@ -11968,7 +11977,7 @@ const FK_AMBIENT = [
   'A delivery drone whines past, low and overloaded.',
   'Somewhere below, a bassline thuds through the pavement.',
   'A vendor two stalls down screams the price of synth-noodles.',
-  'The neon sign above you flickers: OPE— —PEN — OPEN.',
+  'The neon sign above you flickers: OPE... ...PEN... OPEN.',
   'A stray dog eyes your boots, thinks better of it, moves on.',
   'Static crackles from a dead payphone. It almost sounds like a name.',
   'Your breath fogs. The Architect is watching, probably.',
@@ -12147,7 +12156,7 @@ function fkRespond(cmd, push, openMini) {
   } else if (first === 'who') {
     push('<span class="tos-fk-label">Online:</span> <span class="tos-fk-npc">you</span>, and the machine, always.', 'tos-fk-desc');
   } else if (first === 'map') {
-    push('The map is a rumour. Open your tablet for the real one — oh, wait.', 'tos-fk-amb');
+    push('The map is a rumour. Open your tablet for the real one, oh, wait.', 'tos-fk-amb');
   } else if (first === 'music') {
     push('A synth drone fades up from nowhere. It knows what you did.', 'tos-fk-amb');
   } else if (first === 'tablet' || first === 'os') {
@@ -12158,7 +12167,7 @@ function fkRespond(cmd, push, openMini) {
   } else if (first === 'quit' || first === 'logout' || first === 'exit') {
     push("There's no escape. You're already inside the tablet, inside the game, inside the tablet.", 'tos-fk-sys');
   } else {
-    push(`You can't "${esc(first)}" here — and honestly, this is a game inside a tablet inside a game. Cut it some slack.`, 'tos-fk-amb');
+    push(`You can't "${esc(first)}" here: and honestly, this is a game inside a tablet inside a game. Cut it some slack.`, 'tos-fk-amb');
   }
 }
 
@@ -12240,7 +12249,7 @@ function fkSpawnNest(scrim, depth) {
       const nm = FK_MINI_APPS[+el.getAttribute('data-fk-app')].nm;
       if (nm === 'ARCHITECT') { sfx(FK_DIVE_DEF); fkSpawnNest(scrim, depth + 1); return; } // into the game, smaller
       sfx(FK_DENY_DEF);
-      toast.textContent = `${nm} — not installed`;
+      toast.textContent = `${nm}, not installed`;
       toast.classList.add('show');
       if (toastT) clearTimeout(toastT);
       toastT = setTimeout(() => toast.classList.remove('show'), 1400);
@@ -12302,6 +12311,7 @@ function render() {
   // The TV app mounts the shared broadcast renderer into its viewport (and tears it
   // down whenever we navigate away, so the portable tuner is dropped server-side).
   if (_data.view === 'tv') mountTabletTv(); else unmountTabletTv();
+  if (_data.view === 'worldmap') mountWorldmap(); else unmountWorldmap();
 
   if (isChat) {
     const log = _overlay.querySelector('#tos-chat-log');

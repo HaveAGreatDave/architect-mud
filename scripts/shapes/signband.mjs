@@ -68,29 +68,18 @@ const COPLANAR = 0.004;
 
 const SIGNS = new Set(['signBoard', 'signPanel']);
 
-// ── FOUR THAT NEED A DESIGN PASS RATHER THAN AN ARITHMETIC ONE ──────────────────────────────────
+// ── PINS: EMPTY SINCE 2026-09-27 ─────────────────────────────────────────────────────────────────
 //
-// ⚠ A PIN, NOT A BUDGET, AND NOT AN ALLOW-LIST OF NAMES. Each entry records the share MEASURED on
-// 2026-09-19, and the gate fails if that share grows, if the conflict changes kind, or if an entry
-// stops matching anything — so fixing one of these is a change that makes the gate ask for its pin
-// to be deleted, and a NEW defect on a pinned model is still a failure. A bare list of model names
-// would absorb both silently, which is the thing `signfit`'s own note warns about.
+// ⚠ A PIN, NOT A BUDGET, AND NOT AN ALLOW-LIST OF NAMES. An entry records a share MEASURED on a
+// date, and the gate fails if that share grows, if the conflict changes kind, or if an entry stops
+// matching anything. A bare list of model names would absorb a new defect silently.
 //
-// All four are the same building: a one-storey shop whose podium is already full — shopfront
-// glazing, a full-width canopy over the pavement, and a parapet a hand's breadth above it. There is
-// no clear band to move the name into (the Cherry Pit's is 0.013 of a tile), so every arithmetic
-// answer is bad in a different way: shrink the board to a third of its height, stand it 0.11 of a
-// tile proud of the wall with nothing holding it up, or move the name onto the storey above. Which
-// of those is right is a question about how the building should LOOK, and it wants somebody at the
-// Modelshop rather than a number solved here.
+// Four shops were pinned here from 2026-09-19. Three (the Cherry Pit, Second Skin, Dead Space
+// Interiors) had a one-storey podium that was all glazing, canopy and parapet, with no band left for
+// a name. Their names now sit on the clear wall of the storey above, just over the podium parapet,
+// which is where a shop with a full-height front puts its fascia. Loafing Around's name overlapped
+// its door canopy and was lifted clear of it.
 const PINNED = new Map([
-  ['thecherrypit|PIT|windowBay', 0.61],
-  ['thecherrypit|PIT|canopy', 0.16],
-  ['secondskin|SECOND SKIN|windowBay', 0.56],
-  ['secondskin|SECOND SKIN|canopy', 0.17],
-  ['deadspaceinteriors|DEAD SPACE|windowBay', 0.56],
-  ['deadspaceinteriors|DEAD SPACE|canopy', 0.18],
-  ['loafingaround|LOAFING AROUND|canopy', 0.17],
 ]);
 const SEEN = new Set();
 

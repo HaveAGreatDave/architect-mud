@@ -154,7 +154,7 @@ function stateBits(msg) {
   const offline = dead || !msg.online;
   const pct = dead ? 0 : Math.max(0, Math.min(100, Math.round(msg.integrityPct ?? 0)));
   const barColor = pct > 60 ? '#46e05a' : pct > 25 ? '#ffb23e' : '#ff4a5b';
-  const statusText = dead ? 'OFFLINE — WRECKED' : offline ? 'NO POWER' : 'ONLINE';
+  const statusText = dead ? 'OFFLINE: WRECKED' : offline ? 'NO POWER' : 'ONLINE';
   const statusColor = dead ? '#ff4a5b' : offline ? '#ffb23e' : '#46e05a';
   const critical = !dead && pct <= 25;
   return { dead, offline, pct, barColor, statusText, statusColor, critical };

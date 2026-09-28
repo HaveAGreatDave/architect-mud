@@ -139,7 +139,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Third floor: A, B and C, all of them ready, all of them furnished to estate standard, and all three of them have been ready since the building was signed off.\" He counts them on the desk with two fingers. \"Go up. The lift works. The doors are on the latch and I will not follow you round, because people hate that and I have learned.\"\n\nA beat.\n\n\"If you want one, the terms are the terms. There is no haggling because there is nothing to haggle about — the price has not moved in two years and neither has anything else.\""
+      "text": "\"Third floor: A, B and C, all of them ready, all of them furnished to estate standard, and all three of them have been ready since the building was signed off.\" He counts them on the desk with two fingers. \"Go up. The lift works. The doors are on the latch and I will not follow you round, because people hate that and I have learned.\"\n\nA beat.\n\n\"If you want one, the terms are the terms. There is no haggling because there is nothing to haggle about. The price has not moved in two years and neither has anything else.\""
     },
     "bye": {
       "options": [],
@@ -198,7 +198,7 @@
       "text": "\"Come in properly, you are letting the cold in.\" He is already moving the second chair.",
       "text_by_relation": {
         "familiar": "He has the kettle going in the back before you have crossed the room, and the viewing keys are already on the desk.\n\n\"Three A is the one,\" he says. \"I have stopped pretending otherwise.\"",
-        "first": "The man at the desk stands up before you are all the way through the door, and it is not a salesman's stand — it is faster than that, and a little too glad.\n\n\"Marius Lindqvist.\" He puts a hand out. \"Three flats available on the third, two on the seventh, one on the eleventh, and I will save you the first question: yes, I live here. Flat 3D. Have done since the day it topped out.\"\n\nHe gestures at the cutaway on the wall behind him, then does not look at it.\n\n\"Twenty-eight days to completion, no chain and nothing onward. That has been true for two years.\"",
+        "first": "The man at the desk stands up before you are all the way through the door, faster than a salesman would, and a little too glad.\n\n\"Marius Lindqvist.\" He puts a hand out. \"Three flats available on the third, two on the seventh, one on the eleventh, and I will save you the first question: yes, I live here. Flat 3D. Have done since the day it topped out.\"\n\nHe gestures at the cutaway on the wall behind him, then does not look at it.\n\n\"Twenty-eight days to completion, no chain and nothing onward. That has been true for two years.\"",
         "known": "\"You are the only person who has been in here twice.\" He says it lightly and it does not come out lightly. \"Sit down.\""
       }
     },
@@ -213,7 +213,7 @@
           "next": "root"
         }
       ],
-      "text": "\"That is the question.\" He sits back, and for a moment he is not selling anything. \"It is not the price. It is not the build — the build is good, better than the ones on the mews, and I say that knowing what it costs me to say it.\"\n\nHe turns a pen over once.\n\n\"People come. They look. They stand at that window and they look up Kettle Lane at seven in the evening and there is nobody on it. Not a soul, in a quarter with forty buildings in it. And they do not say that is the reason. They say they will think about it.\""
+      "text": "\"That is the question.\" He sits back, and for a moment he is not selling anything. \"It is not the price. It is not the build. The build is good, better than the ones on the mews, and I say that knowing what it costs me to say it.\"\n\nHe turns a pen over once.\n\n\"People come. They look. They stand at that window and they look up Kettle Lane at seven in the evening and there is nobody on it. Not a soul, in a quarter with forty buildings in it. And they do not say that is the reason. They say they will think about it.\""
     }
   },
   "faction": null,

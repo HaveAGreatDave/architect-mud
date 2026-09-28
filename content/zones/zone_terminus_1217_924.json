@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Caprock. Flat as a table and a very long way up, with the whole country laid out under it going brown into the haze. The wind up here has nothing at all to break it.",
+  "description": "High, flat caprock. The view runs to the haze in every direction, and the wind never lets up.",
   "exits": {
     "east": "zone_terminus_1218_924",
     "north": "zone_terminus_1217_923",

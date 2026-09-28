@@ -39,17 +39,17 @@ export async function maybeBriefField(player, zoneId) {
     type: 'emote',
     message: '<span class="text-green">Somebody in ear defenders waves you off the painted line without breaking stride.</span>'
       + '\n<span class="text-dim">This is an airfield, and there are three things on it:</span>'
-      + '\n<span class="text-dim">· ' + teachVerb('hangar', 'hangar') + ' — the bay. Your aircraft up close: buy or rent one, '
+      + '\n<span class="text-dim">· ' + teachVerb('hangar', 'hangar') + ': the bay. Your aircraft up close: buy or rent one, '
       + 'charter a ride with somebody else flying, or put one on the maintenance bench.</span>'
-      + '\n<span class="text-dim">· ' + teachVerb('contracts', 'contracts') + ' — the board. Cargo and passengers that need moving, '
+      + '\n<span class="text-dim">· ' + teachVerb('contracts', 'contracts') + ': the board. Cargo and passengers that need moving, '
       + 'and what they pay.</span>'
-      + '\n<span class="text-dim">· ' + teachVerb('embark', 'embark') + " — climb into one. Then it's the throttle, the yoke "
+      + '\n<span class="text-dim">· ' + teachVerb('embark', 'embark') + ": climb into one. Then it's the throttle, the yoke "
       + 'and the runway; ' + teachVerb('land', 'land') + ' brings you back down.</span>'
       + (rated
         ? '\n<span class="text-dim">You\'re already rated, so the seat is yours. Anything with an empty one will do.</span>'
         : '\n<span class="text-amber">You aren\'t rated, and nobody will let you into the left-hand seat until you are. '
           + teachVerb('checkride', 'checkride') + '</span> <span class="text-dim">takes a free trainer out with an examiner '
-          + 'beside you — engine, take-off, a circuit through the rings, and a landing. Nothing to buy, nothing to lose, '
+          + 'beside you: engine, take-off, a circuit through the rings, and a landing. Nothing to buy, nothing to lose, '
           + 'and a licence at the end of it.</span>'),
   });
 }

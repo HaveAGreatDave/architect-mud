@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#2e2318",
   "color": "#d9a35c",
-  "description": "Hot, close and smelling of yeast and burnt sugar. A counter runs the length of the room with the trays racked behind it at head height, and the empty trays go back out through a hatch to the ovens, which you can hear more than see. Four stools face the window so you can eat looking at the Green. A hand-lettered card on the till reads WE DO NOT DO COFFEE, THERE IS A PLACE FOR THAT, TWO STREETS UP. Somebody has added, in different pen, AND IT IS NOT VERY GOOD.",
+  "description": "Hot, close, smelling of yeast and burnt sugar. A counter runs the length of the room with trays racked behind it, and a hatch to the ovens. Four stools face the window onto the Green. A card on the till: WE DO NOT DO COFFEE, THERE IS A PLACE FOR THAT, TWO STREETS UP. Added in another pen: AND IT IS NOT VERY GOOD.",
   "exits": {
     "down": "zone_util_zone_loafing_shop",
     "north": "zone_district_907_914"

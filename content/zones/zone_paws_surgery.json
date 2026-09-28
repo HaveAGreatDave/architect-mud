@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#1d2220",
-  "description": "A scrubbed steel table in the middle of a small tiled room, and everything else against the walls where it can be reached without letting go. A gas bottle on a trolley, a drip stand, an instrument tray, and a cabinet of drugs with a real lock on it and a register beside it that is filled in every single time. There is a folded blanket on the shelf under the table. It is the softest object in the building and it is not for the animals that are going home.",
+  "description": "A small tiled room with a scrubbed steel table in the middle. Against the walls: a gas bottle on a trolley, a drip stand, an instrument tray, and a locked drugs cabinet with a register beside it, filled in. A folded blanket sits on the shelf under the table.",
   "exits": {
     "south": "zone_paws_wait"
   },

@@ -8,7 +8,7 @@
     "Leaf spring. Best steel that ever came out of the Basin, and they threw it away.",
     "Tell me how you hold it. Then I'll make it."
   ],
-  "description": "He reaches into the fire and takes out a piece of stock with his bare hand, carries it four steps, and sets it on the anvil.\n\nHis skin is dark and dull and slightly wrong at the edges, and it sheds heat the way a leaf sheds water. He isn't showing off. Nobody in the building looks up. He got this job because of this, the same way the potter got his and the woman in the cold store got hers, and if you say anything about it he'll be politely baffled.",
+  "description": "A smith who reaches into the fire with his bare hand, takes out a piece of stock, carries it four steps and sets it on the anvil.",
   "dialogue_tree": {
     "blades": {
       "actions": [],

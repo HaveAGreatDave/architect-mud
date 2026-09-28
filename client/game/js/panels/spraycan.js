@@ -350,7 +350,7 @@ function ensureStyles() {
   document.head.appendChild(st);
 }
 
-const WALL_OPT = (w, sel) => `<option value="${esc(w.dir)}"${w.dir === sel ? ' selected' : ''}>${esc(w.dir)} — ${esc(w.name)}</option>`;
+const WALL_OPT = (w, sel) => `<option value="${esc(w.dir)}"${w.dir === sel ? ' selected' : ''}>${esc(w.dir)}: ${esc(w.name)}</option>`;
 
 // msg: { walls:[{dir,name}], wall, saved, maxLen, saveCap, can:{name,quantity}, over }
 export function openSprayCan(msg) {
@@ -366,7 +366,7 @@ export function openSprayCan(msg) {
       <div class="sp-row">
         <div>
           <div class="sp-brand">◗ RATTLE-CAN</div>
-          <div class="sp-sub">${esc(msg.can?.name || 'spray paint')} — ${Number(msg.can?.quantity || 1)} in the bag</div>
+          <div class="sp-sub">${esc(msg.can?.name || 'spray paint')}: ${Number(msg.can?.quantity || 1)} in the bag</div>
         </div>
         <div style="margin-left:auto"><select class="sp-btn" id="sp-wall">${walls.map(w => WALL_OPT(w, wall)).join('')}</select></div>
       </div>
@@ -389,7 +389,7 @@ export function openSprayCan(msg) {
         <button type="button" class="sp-btn" id="sp-strip-btn" title="Back to plain">strip</button>
       </div>
       <div class="sp-rack" id="sp-rack">${RACK.map(c => `<button type="button" class="sp-cap" data-cap="${c}" style="background:${c}" title="${c}"></button>`).join('')}</div>
-      <div class="sp-lab">Fade — four cans, mixed between</div>
+      <div class="sp-lab">Fade: four cans, mixed between</div>
       <div class="sp-row">
         <div class="sp-stops" id="sp-stops"></div>
         <div class="sp-ramp" id="sp-ramp"></div>

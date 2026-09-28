@@ -59,9 +59,9 @@ export function openCookMenu(msg) {
     </div>`;
   }).join('') || '<div style="padding:22px;text-align:center;color:#6f8a7c">You know no cooks yet.</div>';
   overlay.innerHTML = `<div class="cm-panel">
-    <div class="cm-head"><span>⚗ <b>CHIMERA-9</b> · SYNTHESIZER — pick a batch</span><span class="cm-close" title="close">✕</span></div>
+    <div class="cm-head"><span>⚗ <b>CHIMERA-9</b> · SYNTHESIZER: pick a batch</span><span class="cm-close" title="close">✕</span></div>
     <div class="cm-list">${rows}</div>
-    <div class="cm-foot">${msg.hasLab ? 'chem lab detected — full potency.' : 'no chem lab here — a cook kit works at a penalty.'}<br>tier = intensity · harder drugs are pricier and dangerous to botch.</div>
+    <div class="cm-foot">${msg.hasLab ? 'chem lab detected: full potency.' : 'no chem lab here, a cook kit works at a penalty.'}<br>tier = intensity · harder drugs are pricier and dangerous to botch.</div>
   </div>`;
   document.body.appendChild(overlay); _menu = overlay;
   overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) closeCookMenu(); });
@@ -116,7 +116,7 @@ function grindInit(g, nugget, tint) {
 }
 function grindInput(g, down, p) {
   if (!g.nuggetBroken && down && p) {
-    if (Math.hypot(p.x - g.nugget.x, p.y - g.nugget.y) < g.nugget.r) { g.nuggetBroken = true; grindPieceSpawn(g, 6, false); AX.bad(); g.lab.ticker('cracked — now work it down with the pestle.'); return; }
+    if (Math.hypot(p.x - g.nugget.x, p.y - g.nugget.y) < g.nugget.r) { g.nuggetBroken = true; grindPieceSpawn(g, 6, false); AX.bad(); g.lab.ticker('cracked: now work it down with the pestle.'); return; }
   }
   g.pestle.active = down;
 }
@@ -205,7 +205,7 @@ function grindDraw(g, label, tint) {
   G.restore();
   hud(g, label);
   G.save(); textShadowOn(); G.fillStyle = brightCol(); G.font = 'bold 12px monospace'; G.textAlign = 'center';
-  G.fillText(g.nuggetBroken ? `HOLD & DRAG THE PESTLE OVER THE PIECES — ${g.groundCount}/${g.pieces.length} GROUND` : 'CLICK THE NUGGET TO CRACK IT', W / 2, m.y + m.r + 34);
+  G.fillText(g.nuggetBroken ? `HOLD & DRAG THE PESTLE OVER THE PIECES: ${g.groundCount}/${g.pieces.length} GROUND` : 'CLICK THE NUGGET TO CRACK IT', W / 2, m.y + m.r + 34);
   G.restore();
 }
 function grindExit() { AX.stop('grind'); }
@@ -281,12 +281,12 @@ function blotDraw(g, label, tint) {
   hud(g, label);
   const dosed = g.tabs.filter(tb => tb.done).length;
   G.save(); textShadowOn(); G.fillStyle = brightCol(); G.font = 'bold 12px monospace'; G.textAlign = 'center';
-  G.fillText(`HOLD & DRAG THE DROPPER — DOSE EACH TAB EVENLY · ${dosed}/${g.tabs.length}`, W / 2, s.y + s.sh + 34); G.restore();
+  G.fillText(`HOLD & DRAG THE DROPPER: DOSE EACH TAB EVENLY · ${dosed}/${g.tabs.length}`, W / 2, s.y + s.sh + 34); G.restore();
 }
 
 const FAMILIES = {
   wet: {
-    accent: '#4fe08a', label: 'STABILIZE — hold to heat, keep it in the green band',
+    accent: '#4fe08a', label: 'STABILIZE: hold to heat, keep it in the green band',
     init(g) { bandInit(g, { dur: 14, gravity: 0.9 + g.difficulty * .04, push: 1.7 + g.difficulty * .04, bandHalf: clamp(.18 - g.difficulty * .007, .07, .18), bandSpeed: .12 + g.difficulty * .02 }); AX.loop('burner', { freq: 70, type: 'sawtooth', gain: .04, filt: 520, tremRate: 11, tremDepth: .35 }); },
     update(g, dt) { bandUpdate(g, dt, () => toQuench(g, 'quench and set the batch')); },
     input(g, down) { g.hold = down; },
@@ -294,18 +294,18 @@ const FAMILIES = {
     exit() { AX.stop('burner'); },
   },
   botanical: {
-    accent: '#7fbf5a', label: 'CURE — gentle warmth, hold it in the wide green band',
+    accent: '#7fbf5a', label: 'CURE: gentle warmth, hold it in the wide green band',
     init(g) { if (g.opts.form === 'leaf') grindInit(g, true, 'rgba(150,190,110,.95)');
       else if (g.opts.form === 'blotter') blotInit(g, 'rgba(150,120,210,.95)');
       else { bandInit(g, { dur: 14, gravity: 0.55, push: 1.15, bandHalf: clamp(.26 - g.difficulty * .006, .15, .26), bandSpeed: .06 + g.difficulty * .01 }); AX.loop('burner', { freq: 58, type: 'sine', gain: .025, filt: 380, tremRate: 5, tremDepth: .2 }); } },
     update(g, dt) { const f = g.opts.form; f === 'leaf' ? grindUpdate(g, dt) : f === 'blotter' ? blotUpdate(g, dt) : bandUpdate(g, dt, () => toQuench(g, 'press and jar it')); },
     input(g, down, p) { const f = g.opts.form; if (f === 'leaf') grindInput(g, down, p); else if (f === 'blotter') blotInput(g, down); else g.hold = down; },
     move(g, p) { const f = g.opts.form; if (f === 'leaf') grindMove(g, p); else if (f === 'blotter') blotMove(g, p); },
-    draw(g) { const f = g.opts.form; return f === 'leaf' ? grindDraw(g, 'CURE — GRIND THE NUGGET', 'rgba(150,190,110,.55)') : f === 'blotter' ? blotDraw(g, 'DOSE — SOAK THE TABS', 'rgba(150,120,210,.9)') : drawBandGame(g, { burner: false, steam: false, flecks: true, okCol: '#7fbf5a', stat: (x) => `CURED ${Math.round(x.inBand / Math.max(.001, x.t) * 100)}% · ${Math.max(0, x.dur - x.t).toFixed(1)}s` }); },
+    draw(g) { const f = g.opts.form; return f === 'leaf' ? grindDraw(g, 'CURE: GRIND THE NUGGET', 'rgba(150,190,110,.55)') : f === 'blotter' ? blotDraw(g, 'DOSE: SOAK THE TABS', 'rgba(150,120,210,.9)') : drawBandGame(g, { burner: false, steam: false, flecks: true, okCol: '#7fbf5a', stat: (x) => `CURED ${Math.round(x.inBand / Math.max(.001, x.t) * 100)}% · ${Math.max(0, x.dur - x.t).toFixed(1)}s` }); },
     exit(g) { const f = g.opts.form; if (f === 'leaf') grindExit(); else if (f === 'blotter') blotExit(); else AX.stop('burner'); },
   },
   solids: {
-    accent: '#ffb23e', label: 'PRESS — hold to build force, release in the green (×3)',
+    accent: '#ffb23e', label: 'PRESS: hold to build force, release in the green (×3)',
     init(g) { if (g.opts.form === 'pill') grindInit(g, false, 'rgba(224,224,230,.95)');
       else { g.pressIdx = 0; g.presses = 3; g.force = 0; g.rising = false; g.scores = []; g.target = .6; g.band = clamp(.14 - g.difficulty * .005, .06, .14); g.rate = 0.5 + g.difficulty * .04; } },
     update(g, dt) { if (g.opts.form === 'pill') { grindUpdate(g, dt); return; } if (g.rising) { g.force += dt * g.rate; if (g.force >= 1.08) this.lock(g, true); } },
@@ -314,11 +314,11 @@ const FAMILIES = {
       if (g.pressIdx >= g.presses) { g.workScore = g.scores.reduce((a, b) => a + b, 0) / g.scores.length; toQuench(g, 'seal the tablets'); } },
     input(g, down, p) { if (g.opts.form === 'pill') { grindInput(g, down, p); return; } if (down) { if (!g.rising && g.pressIdx < g.presses) g.rising = true; } else if (g.rising) this.lock(g, false); },
     move(g, p) { if (g.opts.form === 'pill') grindMove(g, p); },
-    draw(g) { g.opts.form === 'pill' ? grindDraw(g, 'PRESS — GRIND THE PILLS', 'rgba(220,220,225,.6)') : drawSolidsGame(g); },
+    draw(g) { g.opts.form === 'pill' ? grindDraw(g, 'PRESS: GRIND THE PILLS', 'rgba(220,220,225,.6)') : drawSolidsGame(g); },
     exit(g) { if (g.opts.form === 'pill') grindExit(); },
   },
   gas: {
-    accent: '#5fd0e0', label: 'REGULATE — TAP to vent, keep the needle in the green',
+    accent: '#5fd0e0', label: 'REGULATE: TAP to vent, keep the needle in the green',
     init(g) { g.pressure = .4; g.inBand = 0; g.dur = 14; g.riseRate = 0.09 + g.difficulty * .018; g.target = .5; g.band = clamp(.16 - g.difficulty * .006, .07, .16); g.vent = 0; AX.loop('hiss', { freq: 180, type: 'sawtooth', gain: .03, filt: 600, tremRate: 14, tremDepth: .4 }); },
     update(g, dt) { g.pressure = clamp(g.pressure + dt * g.riseRate, 0, 1.2); g.vent = Math.max(0, g.vent - dt * 3); AX.loopGain('hiss', .03 + g.pressure * .06);
       if (Math.abs(g.pressure - g.target) <= g.band) g.inBand += dt; if (g.pressure >= 1.12) g.inBand = Math.max(0, g.inBand - dt * 1.5);
@@ -371,7 +371,7 @@ function wireCook(g) {
   g.lab.onClose(() => { g.closed = true; canvas.removeEventListener('pointermove', onMove); canvas.removeEventListener('pointerdown', onDown); window.removeEventListener('pointerup', onUp); window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKeyUp); if (g.raf) cancelAnimationFrame(g.raf); FAMILIES[g.family] && FAMILIES[g.family].exit(g); });
 }
 
-function toQuench(g, label) { if (g.phase !== 'work' && g.phase !== 'liquid') return; const wasWork = g.phase === 'work'; g.phase = 'quench'; g.quenchT = 0; g.quenchTapped = false; if (wasWork) FAMILIES[g.family].exit(g); g.lab.ticker(`${label} — strike SPACE as the ring meets the mark.`); }
+function toQuench(g, label) { if (g.phase !== 'work' && g.phase !== 'liquid') return; const wasWork = g.phase === 'work'; g.phase = 'quench'; g.quenchT = 0; g.quenchTapped = false; if (wasWork) FAMILIES[g.family].exit(g); g.lab.ticker(`${label}, strike SPACE as the ring meets the mark.`); }
 
 function cookLoop(now) {
   const g = _g; if (!g || g.closed) return;
@@ -421,7 +421,7 @@ function drawQuench(g) {
 function drawDone(g) {
   const win = g.result.score >= 60; G.save(); G.textAlign = 'center'; textShadowOn(6);
   G.fillStyle = win ? '#4fe08a' : '#e0b64f'; G.font = 'bold 22px monospace'; G.shadowColor = win ? 'rgba(79,224,138,.7)' : 'rgba(224,182,79,.6)'; G.shadowBlur = 14;
-  G.fillText(`${g.result.grade} — ${g.result.score}%`, W / 2, H * 0.2); G.shadowBlur = 0;
+  G.fillText(`${g.result.grade}: ${g.result.score}%`, W / 2, H * 0.2); G.shadowBlur = 0;
   textShadowOn(); G.fillStyle = dimCol(); G.font = 'bold 12px monospace'; G.fillText(g.result.score >= 75 ? 'CLEAN BATCH' : g.result.score >= 45 ? 'PASSABLE' : 'MESSY', W / 2, H * 0.2 + 18); G.restore();
 }
 
@@ -465,7 +465,7 @@ function drawBandGame(g, o) {
     g.bubbles.forEach(bl => { G.fillStyle = 'rgba(220,255,235,.3)'; G.beginPath(); G.arc(b.x + bl.x * b.w * .35, base - bl.y * (base - ly), bl.r, 0, 7); G.fill(); });
   });
   if (o.steam) drawSteam(b.x, ly, g.heatS * 0.9, g.t, '210,255,225');
-  const tag = form === 'paste' ? 'THICK PASTE — heats slow, holds steady' : form === 'gel' ? 'VISCOUS GEL — sluggish, clings' : form === 'liquid' ? 'THIN LIQUID — runny, quick to swing' : '';
+  const tag = form === 'paste' ? 'THICK PASTE: heats slow, holds steady' : form === 'gel' ? 'VISCOUS GEL: sluggish, clings' : form === 'liquid' ? 'THIN LIQUID: runny, quick to swing' : '';
   if (tag) { G.save(); textShadowOn(); G.fillStyle = dimCol(); G.font = 'bold 11px monospace'; G.textAlign = 'center'; G.fillText(tag, b.x, base + 24); G.restore(); }
   hud(g, o.stat(g));
 }

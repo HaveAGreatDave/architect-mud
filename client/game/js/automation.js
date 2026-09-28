@@ -112,7 +112,7 @@ function disableAllTriggers(why) {
   const list = loadTriggers().map(t => ({ ...t, enabled: false }));
   saveTriggers(list);
   _budget.reset();
-  appendMsg(`All triggers switched OFF — ${why}. Fix the pattern and turn them `
+  appendMsg(`All triggers switched OFF: ${why}. Fix the pattern and turn them `
     + `back on with "trigger on <name>".`, 'system');
 }
 
@@ -362,7 +362,7 @@ export function runStateCommand(rest) {
   const list = loadStateTriggers();
   if (!arg) {
     if (!list.length) {
-      appendMsg('No state rules. These watch your vitals rather than the text — try:\n'
+      appendMsg('No state rules. These watch your vitals rather than the text. Try:\n'
         + '  on hp_pct < 30 = drink stim\n'
         + '  on thirst < 20 = drink water', 'system');
       return;
@@ -675,7 +675,7 @@ export function runTimerCommand(rest) {
   const unit = (m[2] || 's').toLowerCase();
   const everyMs = unit === 'ms' ? n : unit === 'm' ? n * 60000 : n * 1000;
   if (everyMs < MIN_INTERVAL_MS) {
-    appendMsg(`The shortest timer is ${MIN_INTERVAL_MS / 1000}s — anything faster is a command every `
+    appendMsg(`The shortest timer is ${MIN_INTERVAL_MS / 1000}s: anything faster is a command every `
       + `tick, forever, which isn't something you want running by accident.`, 'system');
     return;
   }

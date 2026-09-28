@@ -6,9 +6,7 @@
       "table",
       "estate"
     ],
-    "interactions": {
-      "examine": "The verge plots between the finished buildings are modelled as grass, neatly, with a fence round each one. On the ground there is no fence round any of them."
-    }
+    "examine_detail": "The verge plots between the finished buildings are modelled as grass, neatly, with a fence round each one. On the ground there is no fence round any of them."
   },
   "id": "furn_hf_sweep_table",
   "name": "the estate model",

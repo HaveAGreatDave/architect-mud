@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Cracked pale hardpan, flat to the horizon and ringing slightly underfoot, the mud of a lake that dried before anybody was counting.",
+  "description": "The ground is old lake mud, dried pale and cracked, ringing faintly as you walk.",
   "exits": {
     "east": "zone_terminus_1236_960",
     "north": "zone_terminus_1235_959",

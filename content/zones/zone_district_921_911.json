@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "description": "The face of Compound Interest: grey stone going up in one slab with a single tall slot of window in it and nothing else to break the wall. Two piers carry a lintel out over the apron, far enough that a car can stop under it in the rain, and the name is cut into the front of that lintel in letters deep enough to put your hand in. Floodlights wash the stone from the kerb upward and they don't go off in daylight. The doors under the lintel are always open and never inviting. The way in is north. The forecourt runs south.",
+  "description": "Grey stone in one slab with a single tall slot of window. Two piers carry a lintel over the apron, the name cut into it deep enough to fit your hand. Floodlights wash the stone day and night. The doors are always open. The way in is north. The forecourt runs south.",
   "exits": {
     "north": "zone_citadel_hall",
     "south": "zone_district_921_912"

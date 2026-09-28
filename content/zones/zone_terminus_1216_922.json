@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Loose broken rock in a long skirt off the high ground, sorted by size the way water sorts things, moving a little underfoot the whole time.",
+  "description": "Broken rock runs down from the high ground and moves a little with each step.",
   "exits": {
     "east": "zone_terminus_1217_922",
     "north": "zone_terminus_1216_921",

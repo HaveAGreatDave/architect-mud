@@ -116,7 +116,7 @@ function noticeDropped() {
   const now = Date.now();
   if (now - _dropNoticeAt < DROP_NOTICE_MS) return;
   _dropNoticeAt = now;
-  appendMsg('Not connected — that did nothing. Reconnecting. If it keeps up, reload the page.', 'system');
+  appendMsg('Not connected: that did nothing. Reconnecting. If it keeps up, reload the page.', 'system');
 }
 
 export function sendCmd(cmd, displayText) {

@@ -129,11 +129,11 @@ export function describeGenitals(player, isSelf) {
     const sizeWord = len <= 11 ? 'small' : len <= 14 ? 'average-sized' : len <= 17 ? 'large' : 'very large';
     const testesNote = testes !== 'average' ? ` ${sub} testicles are ${testes}.` : '';
     const MALE_ASS = {
-      flat:    [`${sub} ass is completely flat — barely a suggestion.`, `${sub} rear is aerodynamically optimized.`],
-      small:   [`${sub} ass is small and tight — compact, quietly functional.`, `${sub} backside is modest but well-formed.`],
-      average: [`${sub} ass is average — a solid, dependable rear.`, `${sub} ass occupies exactly the expected amount of space.`],
-      round:   [`${sub} ass is notably round — more than you'd expect.`, `${sub} rear is surprisingly full and round.`],
-      large:   [`${sub} ass is large and pronounced. It has opinions.`, `${sub} backside is substantial — it makes itself known.`],
+      flat:    [`${sub} ass is completely flat, barely a suggestion.`, `${sub} rear is aerodynamically optimized.`],
+      small:   [`${sub} ass is small and tight: compact, quietly functional.`, `${sub} backside is modest but well-formed.`],
+      average: [`${sub} ass is average, a solid, dependable rear.`, `${sub} ass occupies exactly the expected amount of space.`],
+      round:   [`${sub} ass is notably round, more than you'd expect.`, `${sub} rear is surprisingly full and round.`],
+      large:   [`${sub} ass is large and pronounced. It has opinions.`, `${sub} backside is substantial. It makes itself known.`],
     };
     const assLine = (MALE_ASS[assSize] || MALE_ASS.average)[Math.floor(Math.random() * 2)];
     return `${sub} penis is ${sizeWord} and ${erect}.${testesNote} ${assLine}`;
@@ -143,12 +143,12 @@ export function describeGenitals(player, isSelf) {
     const assSize = data.ass_size || 'average';
 
     const ASS_DESC = {
-      flat:     [`${sub} ass is completely flat — it's less of an ass and more of a suggestion.`, `${sub} rear end is aerodynamically optimized. No drag. No drama.`],
-      small:    [`${sub} ass is small and tight — compact, unassuming, quietly excellent.`, `${sub} backside is modest in scope but well-formed.`],
-      average:  [`${sub} ass is average — a solid, dependable rear with no outstanding grievances.`, `${sub} ass occupies exactly the expected amount of space. Respectable.`],
-      round:    [`${sub} ass is round and full, the kind you notice leaving before you notice arriving.`, `${sub} rear is notably round — geometrically satisfying.`],
-      large:    [`${sub} ass is large and pronounced, a presence unto itself.`, `${sub} backside is generous — substantial enough to have its own agenda.`],
-      enormous: [`${sub} ass is enormous. It's doing a lot. It is, arguably, doing too much.`, `${sub} rear end is massive — a geographical feature more than a body part.`],
+      flat:     [`${sub} ass is completely flat. It's less of an ass and more of a suggestion.`, `${sub} rear end is aerodynamically optimized. No drag. No drama.`],
+      small:    [`${sub} ass is small and tight: compact, unassuming, quietly excellent.`, `${sub} backside is modest in scope but well-formed.`],
+      average:  [`${sub} ass is average, a solid, dependable rear with no outstanding grievances.`, `${sub} ass occupies exactly the expected amount of space. Respectable.`],
+      round:    [`${sub} ass is round and full, the kind you notice leaving before you notice arriving.`, `${sub} rear is notably round, geometrically satisfying.`],
+      large:    [`${sub} ass is large and pronounced, a presence unto itself.`, `${sub} backside is generous, substantial enough to have its own agenda.`],
+      enormous: [`${sub} ass is enormous. It's doing a lot. It is, arguably, doing too much.`, `${sub} rear end is massive, a geographical feature more than a body part.`],
     };
     const assLine = (ASS_DESC[assSize] || ASS_DESC.average)[Math.floor(Math.random() * 2)];
     // Breasts + nipples are described by the MIS chest note (single source of
@@ -184,12 +184,12 @@ function rp(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
 const PENIS_DETAIL = {
   small: [
-    `{sub} cock is on the small side — {state}, and making no apologies for it.`,
+    `{sub} cock is on the small side, {state}, and making no apologies for it.`,
     `{sub} dick is modest. Compact. It does what it needs to and clocks out.`,
     `{sub} cock is small and {state}. Nature was working within a budget.`,
   ],
   'average-sized': [
-    `{sub} cock is average and {state} — reassuringly unremarkable.`,
+    `{sub} cock is average and {state}, reassuringly unremarkable.`,
     `{sub} dick is a textbook build, {state}, no notes.`,
     `{sub} cock hangs {state} at a perfectly respectable size.`,
   ],
@@ -199,16 +199,16 @@ const PENIS_DETAIL = {
     `{sub} cock is generously sized and {state}. Gravity has an opinion.`,
   ],
   'very large': [
-    `{sub} cock is enormous and {state} — frankly it's showing off.`,
+    `{sub} cock is enormous and {state}. Frankly it's showing off.`,
     `{sub} dick is massive, {state}, a genuine logistical concern.`,
     `{sub} cock is huge and {state}. You could set a watch by it.`,
   ],
 };
 const BALLS_DETAIL = {
   small:      [`{sub} balls are small and tucked up tight.`, `{sub} testicles are compact, keeping a low profile.`, `{sub} balls sit high and neat.`],
-  average:    [`{sub} balls hang at an ordinary, unbothered weight.`, `{sub} testicles are average — nothing to write home about.`, `{sub} balls are perfectly standard-issue.`],
-  large:      [`{sub} balls are heavy and low-slung.`, `{sub} testicles are large, hanging with real conviction.`, `{sub} balls are substantial — they've got presence.`],
-  'very large': [`{sub} balls are enormous, swinging like they pay rent.`, `{sub} testicles are massive and heavy.`, `{sub} balls are huge — an anatomical statement.`],
+  average:    [`{sub} balls hang at an ordinary, unbothered weight.`, `{sub} testicles are average, nothing to write home about.`, `{sub} balls are perfectly standard-issue.`],
+  large:      [`{sub} balls are heavy and low-slung.`, `{sub} testicles are large, hanging with real conviction.`, `{sub} balls are substantial. They've got presence.`],
+  'very large': [`{sub} balls are enormous, swinging like they pay rent.`, `{sub} testicles are massive and heavy.`, `{sub} balls are huge: an anatomical statement.`],
 };
 const PUSSY_DETAIL = {
   average:   [`{sub} pussy is neat and unremarkable, {wet}.`, `{sub} cunt sits average and tidy, {wet}.`, `{sub} pussy is a textbook build, {wet}.`],
@@ -220,11 +220,11 @@ const PUSSY_WET = {
   dry: [`dry and composed for now`, `unbothered and dry`, `keeping its opinions to itself`],
 };
 const BREAST_DETAIL = {
-  flat:         [`{sub} chest is nearly flat — efficient, no complaints from physics.`, `{sub} breasts are barely there, present mostly in theory.`, `{sub} chest is smooth and flat, aerodynamic.`],
+  flat:         [`{sub} chest is nearly flat: efficient, no complaints from physics.`, `{sub} breasts are barely there, present mostly in theory.`, `{sub} chest is smooth and flat, aerodynamic.`],
   small:        [`{sub} breasts are small and high, perky to the point of smug.`, `{sub} tits are modest and pert, making no apologies.`, `{sub} breasts sit small and neat.`],
-  medium:       [`{sub} breasts are a solid handful each — the satisfying kind.`, `{sub} tits are average in the best sense, full and round.`, `{sub} breasts are a comfortable medium, unbothered by gravity.`],
+  medium:       [`{sub} breasts are a solid handful each, the satisfying kind.`, `{sub} tits are average in the best sense, full and round.`, `{sub} breasts are a comfortable medium, unbothered by gravity.`],
   large:        [`{sub} breasts are large and full. Gravity is aware of them.`, `{sub} tits are heavy and generous, impossible to ignore.`, `{sub} breasts are big and soft, with real weight to them.`],
-  'very large': [`{sub} breasts are enormous — their own gravitational field.`, `{sub} tits are massive, structurally impressive.`, `{sub} breasts are huge, and doing frankly too much.`],
+  'very large': [`{sub} breasts are enormous, their own gravitational field.`, `{sub} tits are massive, structurally impressive.`, `{sub} breasts are huge, and doing frankly too much.`],
 };
 const NIPPLE_DETAIL_HARD = [
   `{poss} nipples are rock hard, standing at full attention.`,
@@ -233,16 +233,16 @@ const NIPPLE_DETAIL_HARD = [
 ];
 const NIPPLE_DETAIL_SOFT = [
   `{poss} nipples are soft and relaxed, diplomatically neutral.`,
-  `{poss} nipples are at ease — no agenda, no complaints.`,
+  `{poss} nipples are at ease: no agenda, no complaints.`,
   `{poss} nipples are soft, resting quietly.`,
 ];
 const ASS_DETAIL = {
-  flat:     [`{sub} ass is completely flat — more suggestion than ass.`, `{sub} rear is aerodynamically optimized. No drag, no drama.`, `{sub} backside barely registers.`],
-  small:    [`{sub} ass is small and tight — compact, quietly excellent.`, `{sub} backside is modest but well-formed.`, `{sub} ass is trim and firm.`],
-  average:  [`{sub} ass is average — a solid, dependable rear.`, `{sub} ass occupies exactly the expected amount of space. Respectable.`, `{sub} backside is unremarkable and content about it.`],
+  flat:     [`{sub} ass is completely flat, more suggestion than ass.`, `{sub} rear is aerodynamically optimized. No drag, no drama.`, `{sub} backside barely registers.`],
+  small:    [`{sub} ass is small and tight: compact, quietly excellent.`, `{sub} backside is modest but well-formed.`, `{sub} ass is trim and firm.`],
+  average:  [`{sub} ass is average, a solid, dependable rear.`, `{sub} ass occupies exactly the expected amount of space. Respectable.`, `{sub} backside is unremarkable and content about it.`],
   round:    [`{sub} ass is round and full, the kind you notice leaving.`, `{sub} rear is geometrically satisfying.`, `{sub} ass is plump and well-shaped.`],
-  large:    [`{sub} ass is large and pronounced, a presence unto itself.`, `{sub} backside is generous — substantial enough to have an agenda.`, `{sub} ass is big and heavy, impossible to overlook.`],
-  enormous: [`{sub} ass is enormous. It is, arguably, doing too much.`, `{sub} rear is massive — a geographical feature more than a body part.`, `{sub} ass is colossal, and unbothered by your staring.`],
+  large:    [`{sub} ass is large and pronounced, a presence unto itself.`, `{sub} backside is generous, substantial enough to have an agenda.`, `{sub} ass is big and heavy, impossible to overlook.`],
+  enormous: [`{sub} ass is enormous. It is, arguably, doing too much.`, `{sub} rear is massive, a geographical feature more than a body part.`, `{sub} ass is colossal, and unbothered by your staring.`],
 };
 const ASSHOLE_DETAIL = [
   `{sub} asshole is tight and puckered, keeping to itself.`,

@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#161b1d",
   "color": "#9fb4bc",
-  "description": "Four riveted steel legs on concrete pads, cross-braced the whole way up, carrying a tank with a domed top and a walkway round its skirt. On the tank, in letters that were white and are now the colour of the tank, COLDWATER. The overflow pipe comes down one leg and ends a foot off the ground over a grating, and there is a wet patch under it that never entirely dries. At the foot of the legs, a brick pump house with one door and a small high window.",
+  "description": "Four riveted steel legs on concrete pads, cross-braced, carrying a domed tank with a walkway round its skirt. Faded letters on the tank: COLDWATER. The overflow pipe ends a foot above a grating, over a wet patch that never dries. At the foot of the legs, a brick pump house with one door and a small high window.",
   "exits": {
     "north": "zone_hwm_pump",
     "south": "zone_district_910_908"

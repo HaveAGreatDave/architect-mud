@@ -147,7 +147,7 @@
     "He chalks a time on a box and stands it on the rack with the chalked face out.",
     "\"Everybody wants it cheap and fresh. Pick one and I'll do you proud on it.\""
   ],
-  "description": "A heavy-shouldered man in his fifties in a rubber apron over a collar and tie, which is not a combination anybody else on this street attempts and which he has never explained. His hands are red to the wrist all year and he holds a knife the way other people hold a pen. He is courteous, unhurried, and audibly weary of the name painted on his own shop, which was his grandfather's idea of a joke and which he is not permitted by anybody in his family to change.",
+  "description": "A heavy-shouldered man in his fifties wearing a rubber apron over a collar and tie. His hands are red to the wrist and he holds a knife like a pen. He's courteous, unhurried, and tired of the name painted on his shop, his grandfather's joke.",
   "dialogue_tree": {
     "bye": {
       "options": [],

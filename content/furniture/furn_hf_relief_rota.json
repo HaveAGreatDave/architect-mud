@@ -6,9 +6,7 @@
       "chalk",
       "list"
     ],
-    "interactions": {
-      "examine": "Two names have been rubbed out and written back in, in a different hand, which is the nearest thing this building has to a formal apology."
-    }
+    "examine_detail": "Two names have been rubbed out and written back in, in a different hand, which is the nearest thing this building has to a formal apology."
   },
   "id": "furn_hf_relief_rota",
   "name": "the rota",

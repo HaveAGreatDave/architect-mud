@@ -83,7 +83,7 @@ export const BUILDS = {
     },
     opulent: {
       label: 'Opulent', tier: 2,
-      desc: 'built on a scale that reads as wealth by itself — heavy curves, expensive posture, nothing apologising for the room it takes up',
+      desc: 'built on a scale that reads as wealth by itself: heavy curves, expensive posture, nothing apologising for the room it takes up',
       layers: ['a fur-collared wrap', 'a beaded gown', 'a corset and stockings', 'almost nothing at all'],
     },
     rangy: {
@@ -316,7 +316,7 @@ const MALE_ANATOMY = {
     'a lightly furred chest, soft over the muscle',
     'a smooth waxed chest, every line of it deliberate',
     'a heavy chest gone soft at the edges and none the worse for it',
-    'a pierced chest — a bar through each nipple, worn casually',
+    'a pierced chest: a bar through each nipple, worn casually',
   ],
   back: [
     'a wide V of a back that tapers hard to the waist',
@@ -355,7 +355,7 @@ const MALE_ANATOMY = {
     'entirely average, which he has correctly worked out is the useful size',
     'a comfortable, obvious handful, thick more than long',
     'long and slim, with a noticeable upward curve',
-    'genuinely large, and heavy with it — the sort of thing that changes the plan for the evening',
+    'genuinely large, and heavy with it: the sort of thing that changes the plan for the evening',
     'oversized to the point of being a logistical consideration, and priced accordingly',
   ],
   cut: [
@@ -468,7 +468,7 @@ export function describeAppearance(name, a) {
 export function appearanceCard(a) {
   const rows = [
     ['Sex',      a.sex === 'male' ? 'Male' : 'Female'],
-    ['Build',    `${a.buildLabel} — ${a.buildDesc}`],
+    ['Build',    `${a.buildLabel}: ${a.buildDesc}`],
     ['Height',   cap(a.height)],
     ['Age',      cap(a.age)],
     ['Hair',     cap(a.hair)],

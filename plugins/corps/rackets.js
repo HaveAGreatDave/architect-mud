@@ -134,11 +134,11 @@ function findShopkeeper(player, nameArg) {
   if (!pool.length) return { error: "There's no shopkeeper here to lean on." };
   if (!nameArg) {
     if (pool.length === 1) return { npc: pool[0] };
-    return { error: `Lean on who — ${pool.map(n => n.name).join(', ')}?` };
+    return { error: `Lean on who: ${pool.map(n => n.name).join(', ')}?` };
   }
   const r = siftResolve(nameArg, pool);
   if (r.type === 'none') return { error: `There's no shopkeeper called "${esc(nameArg)}" here.` };
-  if (r.type === 'ambiguous') return { error: `Who do you mean — ${r.candidates.map(c => c.name).join(', ')}?` };
+  if (r.type === 'ambiguous') return { error: `Who do you mean: ${r.candidates.map(c => c.name).join(', ')}?` };
   return { npc: r.candidate };
 }
 
@@ -167,7 +167,7 @@ function gateShakedown(player, nameArg) {
   const zone = getZone(player.current_zone);
   const zc = getZoneControl(zone?.id);
   if (!zc || zc.org_id !== m.org_id) {
-    return { error: "Your corp doesn't control this street. Take the zone first — nobody pays for protection you can't provide." };
+    return { error: "Your corp doesn't control this street. Take the zone first: nobody pays for protection you can't provide." };
   }
   const found = findShopkeeper(player, nameArg);
   if (found.error) return { error: found.error };
@@ -212,12 +212,12 @@ async function doShakedown(player, nameArg, broadcast, pushConsole) {
   const existing = getRacket(npc.id);
   if (existing && existing.org_id !== m.org_id) {
     const holder = getOrg(existing.org_id);
-    return err(`${esc(npc.name)} already pays somebody — ${esc(holder?.name || 'another crew')}. They're not looking for a second set of friends.`);
+    return err(`${esc(npc.name)} already pays somebody: ${esc(holder?.name || 'another crew')}. They're not looking for a second set of friends.`);
   }
 
   const until = leanCooldown.get(player.id) || 0;
   if (Date.now() < until) {
-    return err(`Give it a minute — leaning on people back to back just makes you look rattled. (${Math.ceil((until - Date.now()) / 1000)}s)`);
+    return err(`Give it a minute: leaning on people back to back just makes you look rattled. (${Math.ceil((until - Date.now()) / 1000)}s)`);
   }
   leanCooldown.set(player.id, Date.now() + LEAN_COOLDOWN_MS);
 
@@ -241,7 +241,7 @@ async function doShakedown(player, nameArg, broadcast, pushConsole) {
       await query('UPDATE org_rackets SET fear=$1, last_leaned_at=$2 WHERE id=$3', [dropped, now, existing.id]);
       await reloadRacket(npc.id);
       await pushConsole?.(m.org_id, broadcast);
-      return { type: 'corp_racket', message: `${esc(npc.name)} holds your eye and doesn't blink. <span class="dim">(${check.effective} vs ${check.difficulty})</span> Whatever they were afraid of, it wasn't you — the arrangement is on thinner ice than it was.` };
+      return { type: 'corp_racket', message: `${esc(npc.name)} holds your eye and doesn't blink. <span class="dim">(${check.effective} vs ${check.difficulty})</span> Whatever they were afraid of, it wasn't you: the arrangement is on thinner ice than it was.` };
     }
     return { type: 'corp_racket', message: `${esc(npc.name)} listens to the whole speech, then goes back to what they were doing. <span class="dim">(${check.effective} vs ${check.difficulty})</span> They won't be dealing with you for a while.` };
   }
@@ -269,9 +269,9 @@ async function doShakedown(player, nameArg, broadcast, pushConsole) {
 
   const cutPct = Math.round(band.rate * 100);
   if (existing) {
-    return { type: 'corp_racket', message: `${esc(npc.name)} remembers the arrangement. <b>${band.label}</b> — <b>${esc(org.name)}</b> takes ${cutPct}% of the till again.` };
+    return { type: 'corp_racket', message: `${esc(npc.name)} remembers the arrangement. <b>${band.label}</b>: <b>${esc(org.name)}</b> takes ${cutPct}% of the till again.` };
   }
-  return { type: 'corp_racket', message: `${esc(npc.name)} stops arguing somewhere in the middle of the sentence. <b>${esc(npc.name)} is on the books.</b> <b>${band.label}</b> — ${cutPct}% of every sale to <b>${esc(org.name)}</b>. <span class="dim">It won't last. Come back before it doesn't.</span>` };
+  return { type: 'corp_racket', message: `${esc(npc.name)} stops arguing somewhere in the middle of the sentence. <b>${esc(npc.name)} is on the books.</b> <b>${band.label}</b>: ${cutPct}% of every sale to <b>${esc(org.name)}</b>. <span class="dim">It won't last. Come back before it doesn't.</span>` };
 }
 
 // Walk away from a shop deliberately (stops the crime exposure; the shopkeeper
@@ -296,8 +296,8 @@ function racketList(player) {
   const rows = racketConsoleBlock(m.org_id);
   if (!rows.length) return { type: 'corp_racket', message: 'Your corp has nobody on the books. Take a street, then lean on the shops in it.' };
   const lines = rows.map(r =>
-    `  <b>${esc(r.shop)}</b> — ${esc(r.zone)} · <b>${r.band}</b> (${r.cut}% of the till)` +
-    (r.lapsed ? ' <span class="dim">— lapsed, go remind them</span>' : ''));
+    `  <b>${esc(r.shop)}</b>: ${esc(r.zone)} · <b>${r.band}</b> (${r.cut}% of the till)` +
+    (r.lapsed ? ' <span class="dim">lapsed, go remind them</span>' : ''));
   return { type: 'corp_racket', message: `<b>On the books:</b>\n${lines.join('\n')}` };
 }
 

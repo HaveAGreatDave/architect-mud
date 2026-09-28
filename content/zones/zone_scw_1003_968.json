@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Loose ground at the foot of the wall of rock, walking on it a matter of picking the flat pieces. There are bones down among the stones and there's no telling how they got there or from how high.",
+  "description": "Loose rock piled against the foot of the mesa, big and small together. None of it is quite stable.",
   "exits": {
     "east": "zone_scw_1004_968",
     "north": "zone_scw_1003_967",
@@ -13,13 +13,13 @@
     "radiation": 9,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "dirt_road"
+    "terrain": "gravel"
   },
   "grid_x": 1003,
   "grid_y": 968,
   "grid_z": 0,
   "id": "zone_scw_1003_968",
   "map_id": "map_world",
-  "name": "The Slide",
+  "name": "The Spill",
   "parent_zone": null
 }

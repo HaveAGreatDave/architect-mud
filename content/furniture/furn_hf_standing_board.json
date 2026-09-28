@@ -6,10 +6,8 @@
       "indicator",
       "sign"
     ],
-    "hack_difficulty": 6,
-    "interactions": {
-      "examine": "SERVICE COMMENCING. PLEASE STAND BEHIND THE YELLOW LINE. The second line is the one that gets to people."
-    }
+    "examine_detail": "SERVICE COMMENCING. PLEASE STAND BEHIND THE YELLOW LINE. The second line is the one that gets to people.",
+    "hack_difficulty": 6
   },
   "id": "furn_hf_standing_board",
   "name": "the indicator board",

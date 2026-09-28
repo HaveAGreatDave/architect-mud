@@ -353,7 +353,7 @@
 
     // --- Gear ---
     flashlight: { label: 'Flashlight', shape: 'flag', scope: 'class', group: 'Gear',
-      help: 'Marks this item as a battery-powered handheld flashlight. LIGHT / UNLIGHT toggle it; RELOAD swaps in a battery. A lit, charged flashlight makes dark rooms readable for the holder. Pair with the Unique tag so each unit keeps its own on/charge state.' },
+      help: 'Marks this item as a battery-powered handheld flashlight. TURN ON / TURN OFF (or bare FLASHLIGHT) toggle it; RELOAD swaps in a battery. A lit, charged flashlight makes dark rooms readable for the holder. Pair with the Unique tag so each unit keeps its own on/charge state.' },
     battery: { label: 'Battery', shape: 'flag', scope: 'class', group: 'Gear',
       help: 'Marks this item as a power cell. Consumed by RELOAD to recharge a flashlight (or other battery-powered device).' },
     hack_device: { label: 'Hacking Device', shape: 'flag', scope: 'class', group: 'Gear',

@@ -67,6 +67,11 @@ function countingCtx(tally) {
 }
 
 const ws = await loadWindshield();
+// ⚠ THIS GATE IS FOR THE PAINTED DASH, which since cockpit3d is the FALLBACK — what a seat draws
+// on the 2-D renderer, or with the modelled interior switched off. At the default the painted board
+// is never drawn at all, so every claim below would be measuring an empty canvas. The 3-D cab has
+// its own gate: scripts/shapes/shell.mjs.
+ws.RENDER_TUNE.cockpit3d = 0;
 
 const ID = '__cab-gps';
 const el = stubCanvas(ID, W, H);

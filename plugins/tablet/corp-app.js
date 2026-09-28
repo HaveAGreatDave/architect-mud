@@ -59,7 +59,7 @@ async function buildScreen(player, screenId) {
     actions.push({ id: 'invite', label: '➕ Invite Player', pick: online });
   }
   if (canFold) {
-    actions.push({ id: 'fold', label: 'Fold Corp', confirm: `Fold ${org.name}? This deletes the corp for good — the treasury is refunded to the owner and any HQ is released.` });
+    actions.push({ id: 'fold', label: 'Fold Corp', confirm: `Fold ${org.name}? This deletes the corp for good: the treasury is refunded to the owner and any HQ is released.` });
   }
 
   return {

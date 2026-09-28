@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#141f2a",
   "color": "#a8dcff",
-  "description": "The shortest of the three towers and the only one that is fully occupied, because it was let cheaply to the people who build the rest of the estate. Boots outside doors, washing on two of the collars, and a hand-painted board by the entrance listing four trades and a telephone number that is not the estate's. The glass is the same glass. Everything else about it is different.",
+  "description": "The shortest of the three towers, and the only one full, let cheap to the builders working the estate. Boots outside doors, washing on two of the collars. A hand-painted board by the entrance lists four trades and a telephone number that isn't the estate's.",
   "exits": {
     "north": "zone_hf_relief_lobby",
     "south": "zone_district_892_916"

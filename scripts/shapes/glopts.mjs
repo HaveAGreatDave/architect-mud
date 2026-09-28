@@ -30,6 +30,9 @@ const WORLD = 'client/game/js/panels/gl/world.js';
 const NOT_SENT = {
   eyeH: 'world.js falls back to `cam.eh`, the camera\'s own eye height, and nothing at the '
       + 'windshield end has a better answer to give it.',
+  underD: 'the depth beside `under`, same route: glInteriorPass opts come whole from GL_INTERIOR_HOOK.',
+  under: 'read by glInteriorPass, whose opts come straight from GL_INTERIOR_HOOK (install.js passes them '
+      + 'through whole); the world pass takes the same number off opts.floor.dunkFog instead.',
 };
 
 // The second object literal argument to glWorldPass(...): the first is the deps bundle.

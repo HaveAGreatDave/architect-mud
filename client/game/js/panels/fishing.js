@@ -464,7 +464,7 @@ function startCast() {
   if (btn) { btn.textContent = 'Aim'; btn.classList.add('fs-cast'); btn.removeAttribute('disabled'); }
   renderCast();
   renderHud('PICK YOUR LANE');
-  setStatus('<span style="color:#7fae99">TAP to lock your aim, then HOLD to charge — deep water hides the better catches.</span>');
+  setStatus('<span style="color:#7fae99">TAP to lock your aim, then HOLD to charge, deep water hides the better catches.</span>');
   fsfx('fishing-reel', 'hololock-entry');   // a single reel click — the tackle's ready
   // Safety net: auto-cast with a middling cast if the player never engages.
   schedule(() => { if (_state && _state.phase === 'aim') { beginCharge(); } }, 6000);
@@ -499,7 +499,7 @@ function beginCharge() {
   if (btn) btn.textContent = 'Charge…';
   fsfx('fishing-charge', 'hololock-tick');   // reel ratchet winding up
   renderHud('DEPTH <b>0 ft</b>');
-  setStatus('<span style="color:#7fae99">RELEASE to cast — the higher you charge, the deeper it lands.</span>');
+  setStatus('<span style="color:#7fae99">RELEASE to cast: the higher you charge, the deeper it lands.</span>');
 }
 
 // RELEASE fires the cast: capture power (depth) + angle, report to the server,
@@ -518,7 +518,7 @@ function fireCast() {
 
   const depth = _state.castPower > 0.66 ? 'deep' : _state.castPower > 0.33 ? 'a fair way out' : 'short';
   renderHud(`CAST <b>${depthFt(_state.castPower)} ft</b>`);
-  setStatus(`<span style="color:#8fe0a0">Line away — ${depth}.</span>`);
+  setStatus(`<span style="color:#8fe0a0">Line away: ${depth}.</span>`);
   fsfx('fishing-cast', 'hololock-tick');   // the whip of the line paying out
 
   // Report the cast; the server chooses the catch and arms the fight.
@@ -648,7 +648,7 @@ function startFight() {
   if (reelBtn) { reelBtn.textContent = 'Reel In ␣'; reelBtn.removeAttribute('disabled'); }
   render();
   renderHud('ON THE LINE');
-  setStatus('<span style="color:#7fae99">HOLD to reel the gaff up over the catch. Bracket it to fill the CREEL — mind the TENSION.</span>');
+  setStatus('<span style="color:#7fae99">HOLD to reel the gaff up over the catch. Bracket it to fill the CREEL, mind the TENSION.</span>');
   _lastT = performance.now();
   _raf = requestAnimationFrame(tick);
 }
@@ -659,8 +659,8 @@ function finish(won) {
   cancelAnimationFrame(_raf); _raf = 0;
   fsfx(won ? 'fishing-land' : 'fishing-snap', won ? 'hololock-win' : 'hololock-lose');
   setStatus(won
-    ? '<span class="fs-win">◇ LANDED — it\'s yours.</span>'
-    : '<span class="fs-lose">✕ LINE SNAPPED — it threw the hook.</span>');
+    ? '<span class="fs-win">◇ LANDED: it\'s yours.</span>'
+    : '<span class="fs-lose">✕ LINE SNAPPED: it threw the hook.</span>');
   const cb = _opts?.onResult;
   // A skin owns its own teardown — the character board lives in the area pane,
   // not an overlay, so close() here would tear down the wrong thing.

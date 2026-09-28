@@ -92,6 +92,17 @@
         "5205"
       ],
       "port": 5205
+    },
+    {
+      "name": "client-root",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "serve",
+        "-p",
+        "5591",
+        "client"
+      ],
+      "port": 5591
     }
   ]
 }

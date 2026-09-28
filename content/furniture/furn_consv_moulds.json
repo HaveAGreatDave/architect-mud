@@ -7,9 +7,7 @@
       "moulds",
       "mould"
     ],
-    "interactions": {
-      "examine": "A card under it names the layers and their thicknesses. Somebody has written on the card in pencil, in a different hand: \"and this is the one that lets go\"."
-    }
+    "examine_detail": "A card under it names the layers and their thicknesses. Somebody has written on the card in pencil, in a different hand: \"and this is the one that lets go\"."
   },
   "id": "furn_consv_moulds",
   "name": "the cutaway",

@@ -882,7 +882,7 @@ async function cmdFlush(args, player) {
   return {
     type: 'output',
     message: wasOverflowing
-      ? `You flush, and hold your nerve while it decides. The level climbs, hesitates, and then goes down — all of it. <span class="text-dim">(The floor is still your problem.)</span>`
+      ? `You flush, and hold your nerve while it decides. The level climbs, hesitates, and then goes down: all of it. <span class="text-dim">(The floor is still your problem.)</span>`
       : wasDirty
       ? `You flush. The mess swirls away and the water runs clean again.`
       : `You flush. The sound is deeply satisfying.`,
@@ -1078,9 +1078,9 @@ registerStatusEffect({ name: 'refreshed', label: 'Refreshed', onTick() {} });
 const SHOWER_OPEN = `You twist the valve and step in. The water comes through hot and heavy, drumming across your shoulders, and steam climbs the glass until the room beyond it blurs to gold.`;
 const SHOWER_MID = [
   `You tip your head back and let it sheet over your face, through your hair, down the length of your spine. The day begins, grudgingly, to let go of you.`,
-  `Heat works its way into muscle you didn't know was clenched. Lather, steam, a long exhale — you lose track of where the water stops and you begin.`,
+  `Heat works its way into muscle you didn't know was clenched. Lather, steam, a long exhale: you lose track of where the water stops and you begin.`,
 ];
-const SHOWER_DONE_DIRTY = `One last turn toward cold, then off. You step out wreathed in steam and pull a towel thick as a rug around yourself. Every trace of the day has gone down the drain — you feel entirely, luxuriously human again.`;
+const SHOWER_DONE_DIRTY = `One last turn toward cold, then off. You step out wreathed in steam and pull a towel thick as a rug around yourself. Every trace of the day has gone down the drain: you feel entirely, luxuriously human again.`;
 const SHOWER_DONE_CLEAN = `One last turn toward cold, then off. Nothing needed scrubbing, but the heat alone was worth the water bill. You step out into the steam, towel down, and feel refreshed to the bone.`;
 const SHOWER_BROKEN = `You step out of the water half-rinsed, the ritual broken.`;
 
@@ -1245,7 +1245,7 @@ registerStatusEffect({
     if (hp < player.hp) { parts.push(`-${player.hp - hp} HP`); player.hp = hp; }
 
     if (!parts.length) return undefined;
-    return `A wave of nausea doubles you over — your stomach cramps and heaves. (${parts.join(', ')})`;
+    return `A wave of nausea doubles you over: your stomach cramps and heaves. (${parts.join(', ')})`;
   },
 });
 
@@ -1278,7 +1278,7 @@ registerAction({
     return {
       type: 'data',
       message: worse
-        ? `<span style="color:var(--red)">It's fouled with someone's leavings. You gag it down anyway. Your gut lurches in protest — this was a mistake.</span>`
+        ? `<span style="color:var(--red)">It's fouled with someone's leavings. You gag it down anyway. Your gut lurches in protest: this was a mistake.</span>`
         : `<span style="color:var(--red)">The water is warm, stale, and reeks of piss. You drink it anyway, and immediately regret it.</span>`,
     };
   },
@@ -1519,13 +1519,13 @@ const GROUND_POOP_MSGS = [
 ];
 
 const NPC_PEE_YELLS = [
-  `What the — are you PISSING on me?! Get away, you animal!`,
-  `AGH! Stop! That's disgusting — someone call the enforcers!`,
+  `What the: are you PISSING on me?! Get away, you animal!`,
+  `AGH! Stop! That's disgusting: someone call the enforcers!`,
   `You filthy freak! I'll remember your face!`,
   `Is this a joke to you?! You're urinating on a person!`,
 ];
 const NPC_POOP_YELLS = [
-  `Oh god — are you... are you SHITTING on me?! GET OFF!`,
+  `Oh god: are you... are you SHITTING on me?! GET OFF!`,
   `This is the worst day of my life. You absolute monster!`,
 ];
 
@@ -1537,7 +1537,7 @@ const NPC_PEE_WITNESS = [
   `recoils. "Animals. We're surrounded by animals."`,
 ];
 const NPC_POOP_WITNESS = [
-  `retches. "Oh that's VILE — they're actually doing it right there!"`,
+  `retches. "Oh that's VILE: they're actually doing it right there!"`,
   `backs away, horrified. "I didn't need to see that. Ever."`,
   `shouts, "Public defecation! Someone call an enforcer!"`,
   `dry-heaves. "The smell. Oh god, the smell."`,
@@ -1640,7 +1640,7 @@ async function cmdSoap(args, raw, player, broadcast) {
       type: 'zone_event',
       message: `${player.handle} works a block of soap over themselves at the water.`,
     }, player.id);
-    return { type: 'output', message: `You work the soap over yourself and rinse off. Clean — properly clean, the kind that lasts a while. <span class="text-dim">(A block of soap, well spent.)</span>` };
+    return { type: 'output', message: `You work the soap over yourself and rinse off. Clean: properly clean, the kind that lasts a while. <span class="text-dim">(A block of soap, well spent.)</span>` };
   }
 
   const others = getZonePlayers(player.current_zone).filter(p => p.id !== player.id);

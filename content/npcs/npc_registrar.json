@@ -134,7 +134,7 @@
     "squares a stack of paper that's already square.",
     "\"Everything is on file. Somewhere. In theory.\""
   ],
-  "description": "A precise, papery woman who has outlasted the department she serves. She still stamps, files, and disapproves as if any of it'll be audited.",
+  "description": "A precise, papery woman who has outlasted the department she serves. She still stamps, files, and disapproves as if any of it will be audited.",
   "dialogue_tree": {
     "accepted": {
       "actions": [

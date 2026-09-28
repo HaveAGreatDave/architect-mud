@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#201e19",
-  "description": "Where the labels are written, and there are a great many. A typewriter, a card index, a guillotine, and a rack of half-finished cases. Boxes on the floor holding objects that have not been catalogued yet, each with a slip in it saying where it came from and who brought it, which is the part of the record that is scrupulous and true. On the wall, a map of the basin with pins in it, and beside each pin a number that refers to a card in the index.",
+  "description": "Where the labels get written. A typewriter, a card index, a guillotine, and a rack of half-finished cases. Boxes on the floor hold uncatalogued objects, each with a slip saying where it came from and who brought it. A map of the basin on the wall, pinned and numbered.",
   "exits": {
     "west": "zone_pastperf_hall"
   },

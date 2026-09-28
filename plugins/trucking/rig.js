@@ -33,6 +33,7 @@
 
 import { TYPES, SURFACES } from '../../client/game/js/panels/flight-model.js';
 import { partEffects } from './damage.js';
+import { serviceLife, serviceFx } from './service.js';
 
 // ── Tuning ───────────────────────────────────────────────────────────────────
 // Four knobs, each one a real trade. `lo`/`hi` name the two poles the way the dial shows them.
@@ -65,7 +66,7 @@ export function clampTune(val, range) {
 export const KITS = {
   aerokit:  { name: 'Cheatline Aero Kit',  price: 2600, desc: 'Roof cap, cab extenders and skirts. Less air to push, at every speed.' },
   bigcam:   { name: 'Long-Duration Cam',   price: 4200, desc: 'More engine, all the way up. It drinks accordingly.' },
-  jakeplus: { name: 'Three-Stage Jake',    price: 3100, desc: 'A compression brake with real teeth — hold a loaded grade on the engine.' },
+  jakeplus: { name: 'Three-Stage Jake',    price: 3100, desc: 'A compression brake with real teeth: hold a loaded grade on the engine.' },
   auxtank:  { name: 'Auxiliary Saddle Tank', price: 1900, desc: 'A second tank on the off side. A quarter again as far between pumps.' },
   benchkit: { name: 'Workshop Instrument Set', price: 5400, desc: "Bench gear that lets you take every dial past where a hand and an ear can safely go." },
 };
@@ -119,9 +120,13 @@ export function repairCost(type, condition, pro) {
 // truck with a good engine and destroyed wheels now stops badly and pulls fine, where before it was
 // simply "worn" in both directions at once — and the driver could not have told you which, because
 // there was nothing to tell.
-export function effTruckParams(typeId, cd = {}, condition = 1, dmg = null) {
+// `odometer` is OPTIONAL for the same reason `dmg` is: absent, the servicing wear (service.js) is not
+// applied at all, so every caller that predates it gets the numbers it always got. The mount path
+// and the bench pass it, because those are the two places a driver is told what the truck will do.
+export function effTruckParams(typeId, cd = {}, condition = 1, dmg = null, odometer = null) {
   const base = TYPES[typeId]?.ground ? TYPES[typeId] : TYPES.hauler;
   const pe = partEffects(dmg || {});
+  const sv = odometer == null ? null : serviceFx(serviceLife(cd, odometer));
   const t = cd.tune || {}, kits = installedKits(cd);
   const g = t.gearing || 0, b = t.boost || 0, s = t.suspension || 0, br = t.brakes || 0;
   // Condition bites POWER and BRAKES and nothing else. A worn truck is not a truck that steers
@@ -139,6 +144,15 @@ export function effTruckParams(typeId, cd = {}, condition = 1, dmg = null) {
   p.jake      = base.jake * (kits.includes('jakeplus') ? 1.25 : 1);
   p.tank      = Math.round(base.tank * (kits.includes('auxtank') ? 1.25 : 1));
   p.engineLag = base.engineLag * (1 + Math.max(0, -b) * 0.10) * (1 + (1 - c) * 0.35);
+  // SERVICING, applied AFTER everything above and BEFORE the surface floor below, so black oil and
+  // thin linings are real right down to the invariant and never past it. Each factor is exactly 1
+  // until its item is overdue — see `serviceFx`.
+  if (sv) {
+    p.thrustMax *= sv.thrust;
+    p.engineLag *= sv.lag;
+    p.brake *= sv.brake;
+    if (sv.tread < 1) p.tread = sv.tread;
+  }
   // THE SURFACE INVARIANT, ENFORCED HERE RATHER THAN TRUSTED. `thrustMax × drive` must clear
   // `rollFric × drag` on the verge, or the edge of the road quietly stops being a law and becomes a
   // wall — a truck that cannot move off the pavement is blocked, whatever the tuning table calls it.
@@ -191,7 +205,7 @@ export const startTrouble = (condition) => (condition ?? 1) < 0.18 && Math.rando
 //     the truck finishes the journey on foot exactly as it always has.
 export const BREAKDOWNS = {
   hose:   { label: 'a coolant hose', broke: 'Something lets go under the cab with a bang, and the mirrors fill with white. The temperature needle is already off the top of its arc.', fixed: "You get a clamp round the split and enough water back in her to matter. It'll do. It won't do forever." },
-  lifter: { label: 'a lifter pod', broke: 'The nearside drops half a foot and stays there, and the whole rig slews as the pod under it stops holding anything up. The emitter band is dark.', fixed: "You get the pod cycling again — it comes up ragged, and it's holding, and you have stopped asking for more than that." },
+  lifter: { label: 'a lifter pod', broke: 'The nearside drops half a foot and stays there, and the whole rig slews as the pod under it stops holding anything up. The emitter band is dark.', fixed: "You get the pod cycling again: it comes up ragged, and it's holding, and you have stopped asking for more than that." },
   fuel:   { label: 'the fuel line', broke: "She surges, catches, surges again, and quits. Somewhere between the tank and the motor there's air where there should be diesel.", fixed: 'You bleed the line by hand until the air stops coming through, and she catches on the fourth turn.' },
   turbo:  { label: 'the turbo', broke: "A shriek from behind the cab climbs somewhere it should never reach and then stops dead. Everything after that's very quiet and very slow.", fixed: "You can't fix a turbo on a shoulder. You can strap it, blank it off, and drive the rest of it on what's left of the motor." },
   brakes: { label: 'a brake line', broke: 'The pedal goes soft, then goes to the floor. Air is getting out somewhere and the whole system knows it.', fixed: 'You cap off the line that was leaking. You have fewer brakes than you started with, and you have brakes.' },

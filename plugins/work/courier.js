@@ -157,14 +157,14 @@ export async function takeJob(player, jobId) {
     return { ok: false, message: "You're already carrying a run. Deliver what you've got before you take another." };
   }
   const spec = courierBoard().find(j => j.id === jobId);
-  if (!spec) return { ok: false, message: 'That run is gone — the board just turned over.' };
+  if (!spec) return { ok: false, message: 'That run is gone: the board just turned over.' };
   board = board.filter(j => j.id !== spec.id);
   const cls = CLASSES[spec.class];
   await spawnParcel(player, spec);
   return {
     ok: true,
     message: `<span class="msg-system">You sign for ${cls.board} bound for ${spec.dropoffName}.</span>\n` +
-      `<span class="text-dim">${cls.flavour} ${Math.round(T.deadlineS() / 60)} minutes on the clock, ${spec.payout}₵ on delivery. Get moving — type <b>deliver</b> when you're there.</span>`,
+      `<span class="text-dim">${cls.flavour} ${Math.round(T.deadlineS() / 60)} minutes on the clock, ${spec.payout}₵ on delivery. Get moving: type <b>deliver</b> when you're there.</span>`,
   };
 }
 
@@ -190,7 +190,7 @@ async function offerHot(player) {
   sendToPlayer(player.id, {
     type: 'output',
     message: `<span class="msg-system">The fence slides ${CLASSES.hot.board} across to you.</span>\n` +
-      `<span class="text-dim">"${to.name}. Before the clock's out. Keep it out of sight — if it lands on you, that's your problem, not mine. ${payout}₵ when it's done."</span>`,
+      `<span class="text-dim">"${to.name}. Before the clock's out. Keep it out of sight: if it lands on you, that's your problem, not mine. ${payout}₵ when it's done."</span>`,
   });
   return { type: 'noop' };
 }
@@ -205,7 +205,7 @@ export async function deliver(player) {
   if (!held) return { type: 'emote', message: "You're not carrying a run right now. Take one from your Work board (<b>courier</b>)." };
   const run = held.run;
   if (run.cracked) {
-    return { type: 'output', message: '<span class="text-red">The seal\'s broken — no one will take a tampered parcel. It\'s just contraband now. Ditch it or <b>crack</b> what\'s left.</span>' };
+    return { type: 'output', message: '<span class="text-red">The seal\'s broken: no one will take a tampered parcel. It\'s just contraband now. Ditch it or <b>crack</b> what\'s left.</span>' };
   }
   if (player.current_zone !== run.dropoffZone) {
     const z = getZone(run.dropoffZone);
@@ -214,7 +214,7 @@ export async function deliver(player) {
   if (expired(run)) {
     // Deadline blown — the client won't take it. No heat, just a dead run in your
     // bag (keep the item so a hot parcel's contraband consequences still bite).
-    return { type: 'output', message: '<span class="text-red">You\'re too late. The contact\'s gone and won\'t answer. The run\'s blown — no pay.</span>' };
+    return { type: 'output', message: '<span class="text-red">You\'re too late. The contact\'s gone and won\'t answer. The run\'s blown: no pay.</span>' };
   }
   await query('DELETE FROM player_inventory WHERE id=$1', [held.invId]);
   adjustCredits(player, run.payout, undefined, 'work:courier');
@@ -228,7 +228,7 @@ export async function crack(player) {
   const held = await activeRun(player);
   if (!held) return { type: 'emote', message: "You've got nothing sealed to crack." };
   const run = held.run;
-  if (run.cracked) return { type: 'emote', message: "You already cracked this one — it's just contraband now." };
+  if (run.cracked) return { type: 'emote', message: "You already cracked this one: it's just contraband now." };
   const cls = CLASSES[run.class];
 
   // Contents are a blind gamble drawn from existing item ids. Grant one, consume
@@ -242,7 +242,7 @@ export async function crack(player) {
   const { rows: itemRows } = await query('SELECT name, value FROM items WHERE id=$1', [lootId]);
   const item = itemRows[0] || {};
   const itemName = item.name || 'something';
-  const lines = [`<span class="text-yellow">You break the seal. It won't deliver now — that's the whole gamble. Inside: ${itemName}.</span>`];
+  const lines = [`<span class="text-yellow">You break the seal. It won't deliver now: that's the whole gamble. Inside: ${itemName}.</span>`];
 
   // Burning a HOT run brings the fence down: always a blacklist; a bounty too if
   // the take was greedy relative to what they offered you (payout multiple, not
@@ -253,7 +253,7 @@ export async function crack(player) {
     if (fenced >= run.payout * T.bountyMult()) {
       const stars = clamp(Math.round(fenced / (run.payout || 1)), 1, 3);
       await dispatchAction({ type: 'WANTED_RAISE', actor: player, params: { amount: stars, reason: 'burned a fence' } });
-      lines.push('<span class="text-red">You just robbed the fence blind. Word travels — they\'ve put people on you, and the badge that shows up won\'t be gentle either.</span>');
+      lines.push('<span class="text-red">You just robbed the fence blind. Word travels: they\'ve put people on you, and the badge that shows up won\'t be gentle either.</span>');
     } else {
       lines.push('<span class="text-red">The fence won\'t deal with you again. That door\'s shut.</span>');
     }
@@ -268,11 +268,11 @@ export async function cmdCourier(args, raw, player) {
   if (held) {
     const run = held.run;
     const z = getZone(run.dropoffZone);
-    if (run.cracked) return { type: 'output', message: '<span class="text-red">You\'re carrying a cracked parcel — dead weight. It won\'t deliver.</span>' };
+    if (run.cracked) return { type: 'output', message: '<span class="text-red">You\'re carrying a cracked parcel: dead weight. It won\'t deliver.</span>' };
     const late = expired(run);
     return { type: 'output', message:
-      `<span class="msg-system">Active run — ${CLASSES[run.class].board} → ${z?.name || run.dropoffName}` +
-      (late ? ' <span class="text-red">(OVERDUE — blown)</span>' : ` (${Math.round(minsLeft(run) / 60)}m ${minsLeft(run) % 60}s left)`) +
+      `<span class="msg-system">Active run: ${CLASSES[run.class].board} → ${z?.name || run.dropoffName}` +
+      (late ? ' <span class="text-red">(OVERDUE: blown)</span>' : ` (${Math.round(minsLeft(run) / 60)}m ${minsLeft(run) % 60}s left)`) +
       `.</span>\n<span class="text-dim">${run.payout}₵ on delivery. Get there and <b>deliver</b>.</span>` };
   }
   const jobs = courierBoard();

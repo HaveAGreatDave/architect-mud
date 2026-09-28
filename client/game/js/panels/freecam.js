@@ -56,6 +56,8 @@ const MOUSE_YAW = 0.22, MOUSE_PITCH = 0.0038;
 // which is the one thing MOUSE_YAW and MOUSE_PITCH are written to agree about; this way the two axes
 // stay matched at the rim for free.
 const EDGE_MARGIN = 96, EDGE_PX = 620;
+// How long a rim push outlives the last pointer move. The rim turns only while the mouse is moving.
+const PUSH_IDLE_MS = 80;
 // ── THE KEY THAT HANDS THE MOUSE BACK ────────────────────────────────────────
 // Deliberately NOT in OWNED: that set is keys whose HELD state flies the camera, and this one is an
 // edge.
@@ -95,7 +97,13 @@ const ROLL_RATE = 48;     // degrees per second on Z/X
 const ROLL_LIM = Math.PI; // all the way over, both ways: a dutch angle has no natural stopping point
 // The camera may go under the road — briefly, and on purpose, because a low shot looking up at a
 // rig is worth having and the ground is not solid to a camera. What it may not do is fall forever.
-const Z_MIN = -0.6, Z_MAX = 40;
+// ⚠ AND UNDER THE SEA, A LONG WAY (plugins/submersible): the Deep's floor is ~1 km down, so the hard
+// limit is well below it, and what actually stops the camera is the ground or seabed under it — see
+// clampFloor, which the view calls every frame with the bottom from seabed-scene.js.
+const Z_MIN = -160, Z_MAX = 40;
+// ⚠ THE ORBIT KEEPS THE OLD FLOOR. It swings round a SUBJECT, which is a vehicle standing on something,
+// so going under it is the brief look-up shot and never a dive; the deep limit is for free flight.
+const Z_ORBIT_MIN = -0.6;
 // ── STANDING UP ──────────────────────────────────────────────────────────────
 //
 // The same camera with its feet on something. A flying camera and a standing one are not two
@@ -120,6 +128,7 @@ const Z_MIN = -0.6, Z_MAX = 40;
 // MOVES THE EYE — that is what an orbit is — so it would walk straight through the leash; and the
 // roll is a dutch angle, which is a thing a camera does and not a thing a head does.
 const STAND_LEASH = 0.55;   // tiles — about a deck's width; the default when a vantage names none
+const STAND_WALK = 0.05;   // on foot: 0.055 tiles/s at the base rung, shift for a jog
 const STAND_EYE = 0.12;     // tiles — a standing eye, the cab's own 0.139 taken down to a person
 // ── THE LENS ─────────────────────────────────────────────────────────────────
 // A multiplier on the focal length, spent as the renderer's own `fovMul` — 1 is the seat's field of
@@ -310,6 +319,14 @@ export function createFreeCam() {
     },
     // A blur or a panel teardown must not leave a key stuck down, or the camera drifts off on its
     // own with nobody touching it and no way to stop it but pressing and releasing the same key.
+    // Point the lens at a bearing (degrees, `yaw`'s own sense) and an elevation (radians, up positive).
+    // freelook's raptor finder uses it; same wrap and pitch clamp as the mouse.
+    aimAt(yaw, pitch) {
+      if (!st.on) return false;
+      st.yaw = ((yaw % 360) + 360) % 360;
+      st.pitch = clamp(pitch || 0, -PITCH_LIM, PITCH_LIM);
+      return true;
+    },
     releaseAll() { st.keys.clear(); st.btn.clear(); stopPush(); },
     // Narrower, for the one case that is not a teardown: the pointer lock going away with a button
     // still down. That leaves the camera rising or falling with nothing the player can press to stop
@@ -346,6 +363,7 @@ export function createFreeCam() {
       if (!st.on) return false;
       st.px = clamp(px || 0, -1, 1);
       st.py = clamp(py || 0, -1, 1);
+      st.pushAt = performance.now();
       return true;
     },
     get lookPush() { return { x: st.px, y: st.py }; },
@@ -398,10 +416,10 @@ export function createFreeCam() {
       // constant — the same reasoning paintWindshield's `groundPitch` is written on. A fixed floor
       // angle is wrong at every radius but one: dollied in close it stops the camera well above the
       // road, and the shot a ground vehicle most wants is the one level with it.
-      el = Math.max(Math.asin(clamp((Z_MIN - ORBIT_PIVOT_Z) / D, -1, 1)), el);
+      el = Math.max(Math.asin(clamp((Z_ORBIT_MIN - ORBIT_PIVOT_Z) / D, -1, 1)), el);
       const rh = D * Math.cos(el), yr = yaw * DEG;
       st.x = -rh * Math.sin(yr); st.y = rh * Math.cos(yr);
-      st.z = clamp(ORBIT_PIVOT_Z + D * Math.sin(el), Z_MIN, Z_MAX);
+      st.z = clamp(ORBIT_PIVOT_Z + D * Math.sin(el), Z_ORBIT_MIN, Z_MAX);
       st.yaw = ((yaw % 360) + 360) % 360;
       st.pitch = -el;
       return true;
@@ -482,12 +500,18 @@ export function createFreeCam() {
       // THE RIM, spent as the pixels the hand would have gone on travelling if the desk had not run
       // out. See EDGE_PX — it goes through `aim`, so it wraps the yaw and stops at PITCH_LIM on the
       // way in exactly as the mouse does, and the arrows above cannot disagree with it.
+      // ⚠ ONLY WHILE THE MOUSE IS MOVING: a cursor left parked in the rim kept turning the shot after
+      // the hand stopped, which read as the camera lagging behind the gesture and having to be
+      // chased down. The push lapses PUSH_IDLE_MS after the last pointer move.
+      if ((st.px || st.py) && performance.now() - (st.pushAt || 0) > PUSH_IDLE_MS) { st.px = 0; st.py = 0; }
       if (st.px || st.py) aim(st.px * EDGE_PX * d, st.py * EDGE_PX * d);
       st.yaw = ((st.yaw % 360) + 360) % 360;
 
       // ⚠ THE LADDER MULTIPLIES THROUGH THE MODIFIERS rather than sitting beside them, so [ and ]
       // move the walk, the sprint and the crawl together. See SPEED_STEP.
-      const sp = (held('shift') ? FAST : held('control') ? SLOW : BASE) * st.speed * d;
+      // On foot it is a walk, not a flight: a ship's deck is a fraction of a tile and the flying
+      // BASE crosses it in a tenth of a second. STAND_WALK scales the whole ladder down together.
+      const sp = (held('shift') ? FAST : held('control') ? SLOW : BASE) * st.speed * d * (st.stand ? STAND_WALK : 1);
       // The view axes, in the frame `makeCam` reads: forward is (sin, −cos) and right is (cos, sin)
       // — the same two expressions the projection is built from, so "forward" here and "into the
       // screen" there cannot drift apart. Forward carries the pitch, because a camera you can only
@@ -540,6 +564,10 @@ export function createFreeCam() {
     // and may go on owning it: a deck on a swell is a floor whose height is a function of the
     // clock, and this is how that reaches the shot. A no-op flying, where z is the camera's own.
     setEye(z) { if (!st.on || !st.stand || !Number.isFinite(z)) return false; st.eye = z; st.z = z; return true; },
+    // The ground or seabed under the camera, from the view: it may not sink through it. Keeps the
+    // camera's own state honest, so pushing down into the floor does not bank height you then have
+    // to climb back out of before anything on screen moves.
+    clampFloor(min) { if (st.on && !st.stand && Number.isFinite(min) && st.z < min) st.z = min; },
 
     // ── PUTTING YOUR FEET DOWN WITHOUT LOSING THE SHOT ──────────────────────
     //

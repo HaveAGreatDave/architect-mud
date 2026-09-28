@@ -1,0 +1,16 @@
+{
+  "name": "submersible",
+  "version": "0.1.0",
+  "description": "The Drake goes under: a salvage frontier on a procedural seabed (client/shared/seabed.js). Owns the dive verbs, the air and power budget and the crush depth; the aircraft itself stays flight's.",
+  "commands": [
+    "submerge",
+    "surface",
+    "sonar"
+  ],
+  "hooks": [],
+  "events": { "emits": [], "consumes": [] },
+  "ticks": ["1s"],
+  "dependencies": ["flight"],
+  "dataSchema": [],
+  "extensionPoints": []
+}

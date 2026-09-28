@@ -27,20 +27,24 @@
 // and it is why the one interesting route here is a static file server.
 import { createServer } from 'node:http';
 import { readFile, writeFile, unlink, mkdir } from 'node:fs/promises';
-import { readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { dirname, join, normalize, sep } from 'node:path';
 // The validator and the compile the BUILD uses, not a second opinion — see the write path below.
 import { validateModel } from '../../client/shared/building-model-schema.js';
 import { bakeModels, readModelFiles, renderModule, OUT as BAKE_OUT } from '../../scripts/shapes/bake-models.mjs';
-import { bakeVehicles, readVehicleFiles, renderModule as renderVehicleModule } from '../../scripts/shapes/bake-vehicles.mjs';
+import { bakeVehicles, readVehicleFiles, renderModule as renderVehicleModule, renderMeshModule, MESH_OUT } from '../../scripts/shapes/bake-vehicles.mjs';
+// A mesh file is written in the one format the CLI and the converters also write, so a save from
+// here is never a whole-file diff (see formatMesh).
+import { formatMesh } from '../../client/shared/vehicle-mesh.js';
 import { validateVehicleRow, vehicleFileName } from '../../client/shared/vehicle-model-schema.js';
 import { bakeFauna, readFaunaFiles, renderModule as renderFaunaModule } from '../../scripts/shapes/bake-fauna.mjs';
 import { validateFaunaRow, faunaFileName } from '../../client/shared/fauna-model-schema.js';
 // The canonical serialiser every content file in this repo is written with. Object keys sort,
 // ARRAY ORDER IS PRESERVED — which matters here, because a segment list is a paint order.
 import { canonicalJson } from '../../scripts/content/lib.mjs';
+import { floorsFor } from '../../client/shared/skyline-scale.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
@@ -147,17 +151,34 @@ function bindables() {
       building++;
       const bn = z.flags.building_name || null;
       if (bn) named++;
+      // ⚠ THE STOREY COUNT THE GAME WILL DRAW THIS TILE AT — the same `floorsFor` the renderer
+      // resolves, so the Modelshop previews a model at the height it actually stands in the world
+      // rather than at a fixed six floors. Counted per target and the commonest value kept.
+      const fl = floorsFor(bt, Number(z.flags.floors) || 0);
+      // ⚠ ONLY THE TILE THE CITY DRAWS VOTES. Interior rooms carry the building's name and type
+      // too and have no `floors` of their own, so left in they outvote the one exterior tile — the
+      // marina came out at 2 storeys against the 9 its facade authors.
+      const outside = !z.parent_zone && !z.flags.is_interior;
+      const vote = (row, k = 'fl') => { if (!outside) return; row[k] = row[k] || {}; row[k][fl] = (row[k][fl] || 0) + 1; };
       const t = types.get(bt) || { key: bt, tiles: 0, unnamed: 0 };
-      t.tiles++; if (!bn) t.unnamed++;
+      t.tiles++; if (!bn) { t.unnamed++; vote(t); }
+      // A type is also drawn on named tiles whose name has no model of its own; that tally is used
+      // only when the type has no unnamed tile at all.
+      vote(t, 'flAll');
       types.set(bt, t);
       if (bn) {
-        const n = names.get(bn) || { key: bn, tiles: 0, type: bt };
-        n.tiles++;
+        const n = names.get(bn) || { key: bn, tiles: 0, type: bt, slug: bn.toLowerCase().replace(/[^a-z0-9]+/g, '') };
+        n.tiles++; vote(n);
         names.set(bn, n);
       }
     }
   } catch { /* no content tree — the editor degrades to a free-text bind */ }
   const bySize = (a, b) => b.tiles - a.tiles || a.key.localeCompare(b.key);
+  for (const row of [...types.values(), ...names.values()]) {
+    const best = Object.entries(row.fl || row.flAll || {}).sort((a, b) => b[1] - a[1])[0];
+    row.floors = best ? Number(best[0]) : null;
+    delete row.fl; delete row.flAll;
+  }
   _bindables = {
     types: [...types.values()].sort(bySize),
     names: [...names.values()].sort(bySize),
@@ -180,6 +201,11 @@ const server = createServer(async (req, res) => {
     // page to LOOK at, and scripts/shapes/cabtrinkets.mjs is what actually gates the shelf.
     if (req.method === 'GET' && path === '/cabtrinkets.html') {
       return send(res, 200, await readFile(join(HERE, 'cabtrinkets.html')), 'text/html; charset=utf-8');
+    }
+    // The procedural seabed (client/shared/seabed.js) drawn as a depth map over the real coast, for
+    // judging its shape by eye. scripts/shapes/seabed.mjs is what gates it; this is only a picture.
+    if (req.method === 'GET' && path === '/seabed.html') {
+      return send(res, 200, await readFile(join(HERE, 'seabed.html')), 'text/html; charset=utf-8');
     }
     // The tool's own modules. Name-restricted and joined onto this directory, so it cannot climb
     // out of it — the same shape as the client allowlist below, and the reason it is a pattern
@@ -284,6 +310,15 @@ const server = createServer(async (req, res) => {
       return json(res, 200, { rows: readVehicleFiles(VEHICLE_DIR) });
     }
 
+    // When each vehicle file last changed, so the mesh editor can pick up an edit made on disk — by
+    // hand or by Claude — without a reload. A stat per file, only when asked, which is once a second
+    // while a mesh is open.
+    if (req.method === 'GET' && path === '/api/vehicles/stamp') {
+      const out = {};
+      for (const f of readdirSync(VEHICLE_DIR)) if (f.endsWith('.json')) { try { out[f] = statSync(join(VEHICLE_DIR, f)).mtimeMs; } catch { /* raced a delete */ } }
+      return json(res, 200, { stamps: out });
+    }
+
     if (req.method === 'PUT' && path === '/api/vehicles') {
       const body = await readJson(req);
       const doc = body.doc;
@@ -298,7 +333,7 @@ const server = createServer(async (req, res) => {
       try { prior = await readFile(target, 'utf8'); } catch { /* new row */ }
 
       await mkdir(VEHICLE_DIR, { recursive: true });
-      await writeFile(target, canonicalJson(doc) + '\n', 'utf8');
+      await writeFile(target, doc.kind === 'mesh' ? formatMesh(doc) : canonicalJson(doc) + '\n', 'utf8');
       const { rows, errors, warnings } = bakeVehicles(readVehicleFiles(VEHICLE_DIR));
       if (errors.length) {
         if (prior != null) await writeFile(target, prior, 'utf8');
@@ -306,6 +341,7 @@ const server = createServer(async (req, res) => {
         return json(res, 409, { errors, warnings, saved: false, rolledBack: true });
       }
       await writeFile(VEHICLE_BAKE_OUT, renderVehicleModule({ rows }), 'utf8');
+      await writeFile(MESH_OUT, renderMeshModule({ rows }), 'utf8');
       return json(res, 200, { ok: true, file, warnings });
     }
 

@@ -67,7 +67,7 @@ async function cmdVend(args, raw, player, broadcast) {
   const key = `${player.id}:${machine.id}`;
   const now = Date.now();
   if (cooldownMs && now - (lastVend.get(key) || 0) < cooldownMs) {
-    return { type: 'error', message: `The ${machine.name} whirs and resets — it needs a moment before it'll serve you again.` };
+    return { type: 'error', message: `The ${machine.name} whirs and resets: it needs a moment before it'll serve you again.` };
   }
 
   const item = getItem(itemId);

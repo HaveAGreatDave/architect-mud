@@ -88,7 +88,7 @@ function ensurePane(name) {
   // Closing HIDES; it does not delete the routing rule. `route off <pattern>` is
   // how you stop routing. A close button that silently unpicked a rule would be
   // the kind of destructive shortcut nobody expects from an ✕.
-  x.title = 'Hide (the routing rule stays — use "route off" to remove it)';
+  x.title = 'Hide (the routing rule stays, use "route off" to remove it)';
   x.addEventListener('click', () => { el.style.display = 'none'; });
   bar.append(title, x);
 

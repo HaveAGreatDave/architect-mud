@@ -1,10 +1,12 @@
 # Em Dash Sweep — status
 
-**STATUS: DONE. Every player-facing prose surface in `content/` is swept.**
+**STATUS: DONE for `content/`, and the Ascendant/Architect exception is gone (2026-09-27, pass 4).
+Player strings in `plugins/` and `server/` are swept only for the Ascendant, Architect, Halcyon,
+prologue and CODEX surfaces; the rest of the code's player strings are not yet swept.**
 
-The rule this tracks lives in [story.md](../story.md) under Tone → "The em dash rule": the em dash is a
-voice marker reserved for **the Architect and NPCs with `faction: ideology_ascendants`**, who over-use
-it on purpose. Everybody else writes without one. This file records how much of the world has actually
+The rule this tracks lives in [story.md](../story.md) under Tone → "The em dash rule": **nobody gets an
+em dash**. It used to be reserved for the Architect and the Ascendants as a voice tell; that exception
+was removed on 2026-09-27, and their voice is now carried by formal register and no contractions. This file records how much of the world has actually
 been brought in line, so a future pass starts from a count rather than a fresh grep.
 
 Counts below are em dash *occurrences* in `content/`, taken 2026-08-03 after the third sweep.
@@ -15,6 +17,7 @@ Counts below are em dash *occurrences* in `content/`, taken 2026-08-03 after the
 | --- | --- | --- |
 | 1 (2026-08-03) | All spoken dialogue: NPC `dialogue_tree` text + option labels, `chitchat`, `banter`, `npc_banter_threads`, `mis_fit_lines` actor lines, quest objective emotes, `scripts` graph speech | 354 across 108 files |
 | 2 (2026-08-03) | All broadcast copy, in **both** layers: `data/scripts/*.bsm` and `content/media_broadcasts/*.json` | ~1730 across 53 files |
+| 4 (2026-09-27) | The Ascendant exception removed: all Ascendant/Architect dialogue, plus prose added since pass 3 (Halcyon Fields, Mint Condition, incidents, quests, augments), in `content/`, the `.bsm` sources and the `scripts/content/build-*.mjs` builders; Ascendant/Architect/Halcyon/prologue/CODEX strings in code; the unrest wire | 239 content spans across 131 files |
 | 3 (2026-08-03) | **All remaining descriptive prose**: `zones` (`description`, `ambient_events`, `flags.intro_lore`, greeter/gate lines), `furniture`, `items` (incl. `tags.description`), `npcs.description`, `orgs` (creeds, tenets, `flags.reader.*`), `quests`, `glossary`, `enemies`, `drugs`, `global_ambient_events`, `augments`, `districts`, `dream_templates`, `aircraft_types`, `ambient_routines`, `recipes`, `scavenging_tables`, `script_triggers`, `sounds`, `windows`, `job_boards` | 555 unique spans, 2445 occurrences across ~2000 files |
 
 **Broadcasts are two layers.** Five shows compile from a `.bsm` through `scripts/content/build-*.mjs`
@@ -32,10 +35,10 @@ Every dash still in `content/` is in one of these five buckets. A grep hitting 3
 - **`media_broadcasts` (115, not counted above).** Every one is a `CAM — n — …` node label **generated
   by the BSM compiler**, not authored, and shown only in the VINE editor. Rewriting them is undone by
   the next `.bsm` import.
-- **Ascendant dialogue (21).** The `npc_asc_*` and `npc_custodian_*` speech that the rule explicitly
-  exempts: Duc, Kesh, Orrin, Maresh, Vess, the Registrar, the Warden, The First Ascended. Their
-  *descriptions* were swept in pass 3 — a description is the narrator, not the speaker. **If you add an
-  Ascendant, their dialogue keeps its dashes and their description does not.**
+- **Ascendant dialogue: none left.** Pass 4 removed the exemption and swept it. An Ascendant's speech
+  now carries its voice by register (formal, uncontracted, measured), never by punctuation.
+- **Author notes in content (7).** `description` on `incidents`, `scripts` and `script_triggers` is an
+  operator note, not player text.
 - **Name labels (7 + the `name` column everywhere).** The dash in a `name` is a field separator, not a
   voice: `"Adequate! — Housewares"`, `"Guardian Battery — Bunker — Utility Room Junction Box"`. Scoped
   out on 2026-08-03 — sweeping it would have meant renaming ~477 labels in lockstep across `zones`,

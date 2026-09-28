@@ -126,7 +126,7 @@
     "He wipes a mark off the desk with a cloth he keeps in his sleeve.",
     "The lamp over the door buzzes once. He does not look up, but he writes something in the ledger."
   ],
-  "description": "A heavy, slow-moving man in a black coat with a velvet collar, standing behind the desk rather than sitting at it. He is perhaps sixty-five and has the stillness of somebody who has spent forty years not being surprised by anybody coming through a door. He knows your name or he does not, and either way his face says nothing about which.",
+  "description": "A heavy, slow-moving man of about sixty-five in a black coat with a velvet collar, standing behind the desk. His face gives nothing away, including whether he knows your name.",
   "dialogue_tree": {
     "bye": {
       "options": [],

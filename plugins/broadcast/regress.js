@@ -1773,7 +1773,7 @@ export default async function regress({ check, run, getPlayer }) {
     // through to the state pool rather than to nothing.
     const anyVoiced = { flags: { delivery_lines: { any: { fumbles: ['— hah —'] } } } };
     let sawAny = false;
-    for (let i = 0; i < 80; i++) if (_test.garbleLine(line, 0.9, 'mellow', anyVoiced).includes('— hah —')) sawAny = true;
+    for (let i = 0; i < 80; i++) if (_test.garbleLine(line, 0.9, 'mellow', anyVoiced).includes('...hah...')) sawAny = true;
     check("an 'any' pool reaches a state it doesn't name", sawAny, 'the catch-all never fired');
 
     // The take that never happens. Each state dies its own way, and the pool must

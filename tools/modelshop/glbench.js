@@ -4652,7 +4652,7 @@ if (typeof window !== 'undefined') window.__glSeaCost = runSeaCost;
 export function runSeaShot({ W = 900, H = 500, R = 20, hour = 7, heading = 0, seat = 'cab',
                              state = 0.8, weather = 'clear', tune = {}, label = '',
                              sail = null, shore = false, city = false, clockMs = 1.75e12,
-                             mag = 1 } = {}) {
+                             mag = 1, extra = {} } = {}) {
   // ⚠ `helm` IS A TRUCK CAB AT HALF SCALE AND HAS NEVER BEEN A BOAT. `pushInteriorShell` sizes the
   // shell by `cam.EH / eyeMetresOf(profile)`, so the eye height does not move the camera inside a
   // fixed room — it SCALES THE ROOM around it. At `cls: 'truck'` the profile's eye is 2.6 m, so
@@ -4741,6 +4741,9 @@ export function runSeaShot({ W = 900, H = 500, R = 20, hour = 7, heading = 0, se
       cls: s.cls, phase: 'cruise', worldBlend: 1, height: s.height, eyeH: s.eyeH,
       hour, weather, speed: 0.4, map, heading,
       mapCenter: { x: 100, y: 100 }, mapOffset: { x: 0.2, y: -0.3 }, resFloor: 1,
+      // Anything else a caller wants on the view, e.g. { subDepth: 12, drakeWater: true } for the
+      // Drake under the water (plugins/submersible).
+      ...extra,
     };
     // The exact view the last shot painted, for poking at afterwards — a debug read, not a
     // contract. Foam is stateful, so "did the store fill" is a question only the real view can ask.
@@ -5916,6 +5919,58 @@ export function runMurmurShot({ minN = 15000, search = 400, back = 6, hour = 17,
   });
 }
 if (typeof window !== 'undefined') window.__glMurmurShot = runMurmurShot;
+
+/**
+ * HOW DARK THE STARLINGS ARE AGAINST WHAT IS BEHIND THEM, per weather. Each weather paints one frozen
+ * frame twice — with the flock, and with the flock switched off (murmurBirds 0) — and the difference is
+ * the birds and nothing else. A bird pixel's contrast is how much darker it is than the sky or cloud it
+ * covers. If the contrast falls only under cloud, the deck is drawing over the birds; if it is as low in
+ * clear air, the dimming is the birds' own distance fade.
+ * `tune` is applied to every paint, so a knob can be A/B'd across the whole sweep (reload between).
+ */
+export function runMurmurDim({ weathers = ['clear', 'cloudy', 'rain'], minN = 2000, search = 400, back = 6, hour = 13, W = 960, H = 540, tune = {}, show = null } = {}) {
+  const habitat = (wx, wy) => speciesAt('citycore', wx, wy) || false;
+  let A = null;
+  for (const f of flocksNear(900, 900, search, 1, habitat)) if (f.sp === 'songbird' && flockSize(f) >= minN && (!A || flockSize(f) > flockSize(A))) A = f;
+  if (!A) return { ok: false, why: 'no roost of ' + minN + ' within ' + search + ' tiles' };
+  const lum = (d, i) => 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+  const rows = [];
+  for (const wx of weathers) {
+    rows.push(withBench(W, H, '__murmurdim', (el, T) => {
+      Object.assign(T, tune);
+      const s = murmurScene(el, { back, hour, anchor: A, patch: () => ({ weather: wx }) });
+      s.paintAt(s.t); const on = s.grab();
+      if (show === wx) {
+        document.getElementById('__murmurdim')?.remove();
+        const img = document.createElement('img'); img.id = '__murmurdim'; img.src = el.toDataURL();
+        img.style.cssText = 'position:fixed;left:0;top:0;z-index:99999;width:' + W + 'px;height:' + H + 'px';
+        img.onclick = () => img.remove(); document.body.append(img);
+      }
+      const keep = T.murmurBirds; T.murmurBirds = 0;
+      s.paintAt(s.t); const off = s.grab();
+      T.murmurBirds = keep;
+      // a bird pixel: darker than the frame without birds by more than a level or two
+      const px = [];
+      for (let i = 0; i < on.length; i += 4) { const d = lum(off, i) - lum(on, i); if (d > 3) px.push([lum(off, i), d]); }
+      if (!px.length) return { weather: wx, birdPx: 0 };
+      px.sort((a, b) => a[0] - b[0]);
+      const half = (lo, hi) => { const q = px.slice(lo, hi); return q.length ? +(q.reduce((n, p) => n + p[1], 0) / q.length).toFixed(1) : null; };
+      const bg = px.map((p) => p[0]);
+      // INK: how much of the backdrop the darkest quarter of the bird pixels blocks (0 = invisible,
+      // 1 = black). A translucent bird blocks the same SHARE over any backdrop and so shows up PALER
+      // over bright cloud than over dark sky — which reads as the cloud dimming it.
+      const byD = px.slice().sort((a, b) => b[1] - a[1]).slice(0, Math.max(1, px.length >> 2));
+      const ink = +(byD.reduce((n, p) => n + p[1] / Math.max(1, p[0]), 0) / byD.length).toFixed(3);
+      return { weather: wx, birdPx: px.length, contrast: half(0, px.length), ink,
+        // split the bird pixels by what is behind them: the darker half of the backdrop and the brighter
+        darkBg: +bg[Math.floor(bg.length * 0.25)].toFixed(0), contrastDarkBg: half(0, px.length >> 1),
+        brightBg: +bg[Math.floor(bg.length * 0.75)].toFixed(0), contrastBrightBg: half(px.length >> 1, px.length) };
+    }));
+  }
+  console.log('__glMurmurDim', JSON.stringify(rows));
+  return rows;
+}
+if (typeof window !== 'undefined') window.__glMurmurDim = runMurmurDim;
 
 /**
  * MURMURATIONS FILMED FROM OUTSIDE: no cab, a free camera parked `dist` tiles off the roost and turned to

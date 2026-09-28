@@ -190,7 +190,19 @@ announce, same `weather_event` client signal. Three decisions carry them.
   ion storm's overlay already worked. **In the flight sim** it is drawn where a rainbow actually is:
   centred on the antisolar point at 42° (51° and 58° for the outer arcs), through the same `projSky` the
   sun and stars use, so it sits at a true compass bearing and slides off the canopy when you turn toward
-  the sun. It is the one hero event that does **not** outrank the weather type — no canopy cast, no haze
+  the sun. **With GLASS 2 it is no longer on the sky at all** (`drawWorldRainbow`, `RENDER_TUNE.worldBow`;
+  0 and GLASS 1 keep the painted arc). A bow is a cone of light with its apex in your eye, so it is built
+  as one every frame: each ray 42° off the antisolar point is marched through the live weather cells, and
+  the band is laid at the median depth of the rain that ray crosses, as additive strokes on the depth
+  buffer. So it stands IN the shower. A building in front of the shower hides it, and ground behind the
+  shower shows through it. A ray that meets the ground before any rain lights nothing, which is where the
+  bow ends: from the air its feet stand on real ground inside the shower. Drive or fly at it and it
+  recedes, because it is 42° from wherever you are. Nothing moves it on purpose; the geometry does. The
+  shower's top is a fade over 80% of the cloud-base height, not a lid, or the crown of every distant bow
+  is missing. Without a field the rain starts `BOW_CURTAIN` tiles out. Gated by `npm run gl:bow`
+  ([scripts/shapes/rainbow.mjs](../scripts/shapes/rainbow.mjs), in both lists), mutation-tested 4 of 4.
+  ⚠ Its cone check has to run from the AIR as well as the cab: a cab's eye sits almost on the craft
+  origin, so a bow built from the wrong eye passes from the cab. It is the one hero event that does **not** outrank the weather type — no canopy cast, no haze
   slot, no on-glass behaviour — and its WX badge is deliberately not an alarm colour. **Silent by design**: the audio route exists, the fallback bed does
   not, because the sky going quiet after a shower is the sound of a rainbow.
 

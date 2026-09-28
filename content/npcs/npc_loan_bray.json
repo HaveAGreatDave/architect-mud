@@ -141,7 +141,7 @@
     "He lets a pause run about two seconds past comfortable and then smiles.",
     "He writes one word on the blotter's corner and tears the corner off."
   ],
-  "description": "A comfortable, unhurried man in a good suit who has arranged a room in which the only thing to look at is him, and is entirely at ease being looked at. He never raises his voice and never fills a silence, and he has found that between the clock and the carpet the room does most of his work. Everything he says is true. Very little of it is the whole thing.",
+  "description": "A comfortable, unhurried man in a good suit, sitting in a room where he's the only thing to look at. He never raises his voice and never fills a silence. Everything he says is true.",
   "dialogue_tree": {
     "bye": {
       "options": [],

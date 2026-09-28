@@ -6,9 +6,12 @@
       "chairs",
       "cane"
     ],
-    "interactions": {
+    "interaction_lines": {
       "sit": "You sit facing the meadow. The blanket goes over your knees before you have decided whether you wanted it to."
-    }
+    },
+    "interactions": [
+      "sit"
+    ]
   },
   "id": "furn_wind_chairs",
   "name": "the cane chairs",

@@ -139,7 +139,7 @@ export const CONFIG = {
       'You take a long toke and hold it.',
       'You pull again, the cherry crackling softly.',
       'Smoke leaks from the corner of your mouth as you inhale.',
-      'You pass it to yourself — nobody else is offering — and toke.',
+      'You pass it to yourself, nobody else is offering, and toke.',
     ],
     finish: [
       'You smoke it down to the roach and pinch it out.',
@@ -276,7 +276,7 @@ async function finish(player, broadcast) {
     // thirst was credited above for the message — take it back, or a drink that
     // never happened still hydrates.
     revokeThirst(player, finishThirst);
-    sendToPlayer(player.id, { type: 'output', message: sys("You reach for it — but it's gone.") });
+    sendToPlayer(player.id, { type: 'output', message: sys("You reach for it, but it's gone.") });
     return;
   }
   if (result.message) sendToPlayer(player.id, { type: 'output', message: result.message });

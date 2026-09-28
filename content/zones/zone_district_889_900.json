@@ -3,7 +3,7 @@
   "ambient_theme": "city",
   "bg_color": "#1f3646",
   "color": "#4f83a8",
-  "description": "Brackish shallows, warmer than the channel and a great deal less clean, sheeted with a film that turns colours where the light catches it. Reeds have got a foothold. The bank is a slurry of grit and old plastic.",
+  "description": "Warm, murky shallows with an oily sheen. Reeds have taken hold, and the bank is slurry and plastic.",
   "exits": {
     "east": "zone_district_890_900",
     "north": "zone_district_889_899",

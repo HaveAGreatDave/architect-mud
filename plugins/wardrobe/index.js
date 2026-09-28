@@ -137,7 +137,7 @@ async function saveOutfit(player, furnId, name, itemIds) {
        ON CONFLICT (player_id, furniture_id, name) DO UPDATE SET item_ids = EXCLUDED.item_ids`,
     [player.id, furnId, clean, JSON.stringify(itemIds)]
   );
-  return { ok: true, message: `Saved "${clean}" — ${itemIds.length} piece${itemIds.length === 1 ? '' : 's'}.` };
+  return { ok: true, message: `Saved "${clean}": ${itemIds.length} piece${itemIds.length === 1 ? '' : 's'}.` };
 }
 
 // --- Wearing ----------------------------------------------------------------
@@ -195,7 +195,7 @@ async function dressFrom(player, furnId, itemIds, broadcast, label) {
   }
 
   let msg = worn.length
-    ? `You dress in ${label} — ${worn.join(', ')}.`
+    ? `You dress in ${label}: ${worn.join(', ')}.`
     : `You couldn't put any of ${label} together.`;
   if (missing.length) msg += ` Missing: ${missing.join(', ')}.`;
   return { ok: true, message: msg };
@@ -264,7 +264,7 @@ async function undressInto(player, wardrobe, broadcast) {
   broadcast?.(player.current_zone, { type: 'zone_event', message: `${player.handle} strips down and hangs up.` }, player.id);
 
   let msg = hung.length
-    ? `You strip off and hang up ${hung.length} piece${hung.length === 1 ? '' : 's'} — ${hung.join(', ')}.`
+    ? `You strip off and hang up ${hung.length} piece${hung.length === 1 ? '' : 's'}: ${hung.join(', ')}.`
     : `You strip down.`;
   if (kept.length) msg += ` The ${wardrobe.name} is full, so ${kept.join(', ')} stayed in your pack.`;
   return { ok: true, message: msg };
@@ -353,7 +353,7 @@ async function claimTeach(player) {
 }
 
 function teachLine() {
-  return `<span class="ambient">Whatever you hang in here, it'll remember as a set. ${teachVerb('outfits', 'outfits')} lists the looks you've saved — and you can build a new one by dressing the doll when the doors are open.</span>`;
+  return `<span class="ambient">Whatever you hang in here, it'll remember as a set. ${teachVerb('outfits', 'outfits')} lists the looks you've saved, and you can build a new one by dressing the doll when the doors are open.</span>`;
 }
 
 // Examine path: the prose teaches the verb, and the wardrobe's own link up in the
@@ -410,10 +410,10 @@ async function viewWith(player, furnId, notify) {
 async function listOutfits(player, wardrobe) {
   const rows = await loadOutfits(player.id, wardrobe.id);
   if (!rows.length) return { type: 'output', message: `The ${wardrobe.name} holds no saved outfits yet. Wear something and try "outfit save <name>".` };
-  let msg = `<span class="inv-header">OUTFITS — ${wardrobe.name}</span>`;
+  let msg = `<span class="inv-header">OUTFITS: ${wardrobe.name}</span>`;
   for (const r of rows) {
     const names = (r.item_ids || []).map(id => getItem(id)?.name || id);
-    msg += `\n  ${r.name} — ${names.join(', ') || '(empty)'}`;
+    msg += `\n  ${r.name}: ${names.join(', ') || '(empty)'}`;
   }
   return { type: 'output', message: msg };
 }
@@ -433,7 +433,7 @@ async function cmdOutfit(args, raw, player, broadcast) {
   const sub = (args[0] || '').toLowerCase();
   const rest = args.slice(1).join(' ').trim();
   const wardrobe = await resolveWardrobe(player, null);
-  if (wardrobe === 'ambiguous') return { type: 'error', message: "There's more than one wardrobe here — open the one you mean." };
+  if (wardrobe === 'ambiguous') return { type: 'error', message: "There's more than one wardrobe here: open the one you mean." };
   if (!wardrobe) return { type: 'error', message: "There's no wardrobe here." };
 
   if (!sub || sub === 'list') return listOutfits(player, wardrobe);
@@ -527,7 +527,7 @@ async function cmdOutfitDelId(args, raw, player) {
 async function cmdDress(args, raw, player, broadcast) {
   const name = args.join(' ').trim();
   const wardrobe = await resolveWardrobe(player, null);
-  if (wardrobe === 'ambiguous') return { type: 'error', message: "There's more than one wardrobe here — open the one you mean." };
+  if (wardrobe === 'ambiguous') return { type: 'error', message: "There's more than one wardrobe here: open the one you mean." };
   if (!wardrobe) return { type: 'error', message: "There's no wardrobe here to dress from." };
   if (!name) {
     const rows = await loadOutfits(player.id, wardrobe.id);

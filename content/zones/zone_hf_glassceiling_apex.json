@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "The top four storeys are one unit and this is the bottom of it: a single volume with no internal walls whatever, tapering, so the six faces come in over your head and the room gets smaller the further up you look until it ends in a point about forty feet above the floor. Screed floor, exposed services, and a ring of tape on the slab marking out a stair that was never built. There is no light fitting except the one temporary one. Sound in here does something you can hear yourself doing.",
+  "description": "The bottom of a four-storey unit with no internal walls. The six faces taper overhead to a point about forty feet up. Screed floor, exposed services, one temporary light, and a ring of tape on the slab marking a stair that was never built. Your footsteps echo.",
   "exits": {
     "down": "zone_hf_glassceiling_lobby"
   },

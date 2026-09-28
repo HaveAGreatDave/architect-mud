@@ -73,7 +73,7 @@ export function startEscort(player, npc) {
 
   sendToZone(npc.zone_id, { type: 'zone_event', message: `${npc.name} falls in behind ${player.handle}.` });
   emit('escort.started', { actor: player, npc });
-  return { ok: true, message: `${npc.name} is with you now. Lead the way — they'll follow you room to room.` };
+  return { ok: true, message: `${npc.name} is with you now. Lead the way: they'll follow you room to room.` };
 }
 
 /**
@@ -226,10 +226,10 @@ function cmdEscort(args, raw, player, broadcast) {
 
   if (!sub) {
     if (!current) return { type: 'output', message: 'You aren\'t escorting anyone. Type "escort <name>" to walk someone out.' };
-    if (current._aboard) return { type: 'output', message: `You're escorting ${current.name} — strapped in behind you.` };
+    if (current._aboard) return { type: 'output', message: `You're escorting ${current.name}: strapped in behind you.` };
     const z = getZone(current.zone_id);
     const here = current.zone_id === player.current_zone;
-    return { type: 'output', message: `You're escorting ${current.name}${here ? ' — right behind you.' : ` — but they're back at ${z?.name || 'somewhere else'}.`}` };
+    return { type: 'output', message: `You're escorting ${current.name}${here ? ': right behind you.' : `, but they're back at ${z?.name || 'somewhere else'}.`}` };
   }
 
   if (sub === 'stop' || sub === 'dismiss' || sub === 'leave') {

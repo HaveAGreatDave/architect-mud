@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "Two floors up, at the fat part of a bead, and furnished to within an inch of its life: everything matched, everything new, a bowl of fruit that is not fruit. The curved glass makes the room a wedge, which the furniture has been arranged to disguise and does not. On the counter, a folded card thanks you for viewing and asks you not to use the taps.",
+  "description": "Two floors up, at the fat part of a bead, fully furnished: everything matched and new, and a bowl of fruit that isn't fruit. The curved glass makes the room a wedge. On the counter, a folded card thanks you for viewing and asks you not to use the taps.",
   "exits": {
     "down": "zone_hf_quiet_desk"
   },

@@ -139,7 +139,7 @@
           "next": "root"
         }
       ],
-      "text": "\"I sell the filter because people ask me for it.\" A small shrug. \"Second week I was here, a man on the fourth floor asked me whether there was a way to be on the network without being on the network. There is. It is not clever and it is not hidden — it sits in the line and it is the size of your thumb.\"\n\n\"Nobody has told me to stop. I have thought about why nobody has told me to stop, and the answer I keep arriving at is that eleven flats is not enough people for anyone to care.\""
+      "text": "\"I sell the filter because people ask me for it.\" A small shrug. \"Second week I was here, a man on the fourth floor asked me whether there was a way to be on the network without being on the network. There is. It is not clever and it is not hidden. It sits in the line and it is the size of your thumb.\"\n\n\"Nobody has told me to stop. I have thought about why nobody has told me to stop, and the answer I keep arriving at is that eleven flats is not enough people for anyone to care.\""
     },
     "line11": {
       "options": [
@@ -185,7 +185,7 @@
       "text": "\"Door was open.\" She does not look up from the bench. \"That is not an invitation, it is a fact.\"",
       "text_by_relation": {
         "familiar": "She has a lead made up and tagged on the corner of the bench before you speak, which means she was expecting you, which means she has been thinking about the last thing you said.\n\n\"I looked into it,\" she says. \"You were right and you were right for the wrong reason.\"",
-        "first": "The woman on the stool finishes the crimp before she turns round, and the turn is unhurried.\n\n\"You are not from a flat in this building, because I know all eleven of them.\" She looks at you properly. \"Ghalia Toussaint. I do the connections. Not just here — the whole south end of the estate, since the contractor that had it went.\"\n\nShe nods at the patch field, three hundred ports of it.\n\n\"Forty live. Out of three hundred. So I have time to talk, which is a thing I have stopped pretending is good.\"",
+        "first": "The woman on the stool finishes the crimp before she turns round, and the turn is unhurried.\n\n\"You are not from a flat in this building, because I know all eleven of them.\" She looks at you properly. \"Ghalia Toussaint. I do the connections. Not just here: the whole south end of the estate, since the contractor that had it went.\"\n\nShe nods at the patch field, three hundred ports of it.\n\n\"Forty live. Out of three hundred. So I have time to talk, which is a thing I have stopped pretending is good.\"",
         "known": "\"You.\" She kicks the second stool out from under the bench with her heel. \"Sit down and do not touch the field.\""
       }
     }

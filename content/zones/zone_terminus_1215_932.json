@@ -1,6 +1,6 @@
 {
   "ambient_theme": "outdoors",
-  "description": "The way round the inside of the wall, close under it, in its shade for most of the day. A stair goes up to the walk every so often and the treads are worn in the middle.",
+  "description": "In the wall's shadow, following it round. Stairs rise to the walk now and then.",
   "exits": {
     "east": "zone_terminus_1216_932",
     "south": "zone_terminus_1215_933",

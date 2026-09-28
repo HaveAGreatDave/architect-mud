@@ -50,7 +50,7 @@
 // sheen, which is all the water anybody has ever seen in this game.
 import { viewProjMatrix, mat4f, zRow, NEAR } from './camera.js';
 import { SEA_GLSL } from './sea-glsl.js';
-import { seaSlopeVariance, SEA_FOAM_LEAD, SEA_FOAM_RAMP, SEA_FOAM_A } from '../../../../shared/sea-swell.js';
+import { seaSlopeVariance, SEA_FOAM_LEAD, SEA_FOAM_RAMP, SEA_FOAM_A, SURF_DEPTH_Q } from '../../../../shared/sea-swell.js';
 
 // ⚠ THE SAME SIX AS THE SHADER'S OWN 'NEON_MAX', AND THEY HAVE TO AGREE — the GLSL one is inside a
 // template literal and cannot read this, which is the arrangement floor.js's MAX_WET already has.
@@ -89,6 +89,24 @@ export const PATCH_FINE_R = 6;
 export const PATCH_RIM_STEP = 1.4;
 export const PATCH_PER_TILE = 9;
 export const RIM_FADE = 5;      // tiles of crossfade at the outer edge
+// ── THE FAR BAND: THE SWELL OUT TO THE HORIZON ────────────────────────────────────────────────
+//
+// Past PATCH_R the sea was the flat floor: correctly LIT, so a storm swell read as texture, but with
+// no height, so nothing stood above the horizon. A third, coarse tier carries the LONG SWELL alone
+// out to PATCH_FAR_R, and far crests break the skyline in bad weather.
+//
+// ⚠ ONLY THE ROLL IS DISPLACED OUT THERE. It is 25.6 tiles, so PATCH_FAR_STEP carries it at over
+// six samples a wave; the wind sea (9.9 tiles) would alias into zigzags at that spacing, so it hands
+// over to the normal map across the old rim exactly as the chop does at glSeaChopR — lit everywhere,
+// geometry only where the grid can carry it.
+//
+// ⚠ AND IT IS CHEAP BECAUSE THE GRID IS SEPARABLE AND GRADED: the tier adds about 60 divisions a
+// side at four tiles each, so the whole mesh goes from ~19k cells to ~35k — a disc three times the
+// radius for under twice the cells. glSeaFar 0 folds the fade back to PATCH_R: the far cells are
+// still in the buffer but carry alpha 0 and discard, and the picture is the sea as it shipped.
+export const PATCH_FAR_R = 120;
+export const PATCH_FAR_STEP = 4;
+export const FAR_FADE = 24;     // tiles of crossfade at the far edge, deep in the haze by then
 // ⚠ KEEP IN STEP WITH THE MAX_WAKES IN THE VERTEX SHADER — GLSL cannot read a JS constant, so this
 // is the second statement of one number and the array it sizes is silently truncated if it shrinks.
 export const MAX_WAKES = 6;
@@ -103,10 +121,16 @@ uniform float uT;
 uniform float uRoll;     // the long swell's amplitude, in tiles
 uniform float uPatchR;
 uniform float uRimFade;
+uniform float uFarR;     // the far band's outer radius; 0 = no far band, the sea as it shipped
+uniform float uFarFade;
 uniform float uWind;     // the wind sea's amplitude, in tiles
 uniform float uWakeAmp;  // how tall a boat's own disturbance stands, in tiles
 uniform float uShelter;  // 0 = open sea everywhere, 1 = land upwind takes the swell away
 uniform float uShoal;    // how far, in tiles, a crest is dragged along the shore as it shallows
+uniform float uRefract;  // refraction over the whole shelf (seaRefract); 0 = the one-tile warp alone
+uniform vec2  uSeaRot;   // (cos, sin) of the sea's heading: it runs downwind; (1, 0) is as shipped
+uniform sampler2D uDepthT; // the seabed depth, metres x 4 in r (client/shared/seabed.js)
+uniform float uSurf;     // 0 = waves fade out toward the beach as shipped, 1 = they shoal, lean and break
 uniform float uChopR;    // tiles within which the chop is real geometry rather than a normal
 uniform float uAmp;      // the chop's own amplitude, in tiles
 uniform float uSpread;   // 0 = the single-train sea that shipped, 1 = the full spectral band
@@ -128,6 +152,7 @@ out float vRim;          // 1 in the middle of the patch, 0 at its outer edge
 out float vH;            // the height this vertex was actually displaced to
 out float vWake;         // how much of that height a hull put there, for the foam below
 out float vShelter;      // 0 against a beach, 1 in open water — land upwind takes the sea away
+out float vDepthM;       // the seabed's depth here, in metres (client/shared/seabed.js)
 out vec2  vShoal;        // how far the sampling position was warped, so the fragment agrees
 
 ${SEA_GLSL}
@@ -161,6 +186,21 @@ float shelterAt(vec2 pt) {
        + s01 * (1.0 - fr.x) * fr.y         + s11 * fr.x * fr.y;
 }
 
+// The seabed's depth in metres, off the plane windshield.js builds from client/shared/seabed.js.
+// ⚠ THE SAME CLAMPED BILINEAR RULE AS waterAt, or the surf breaks a texel off the water it is in.
+float depthAt(vec2 pt) {
+  vec2 f = vec2(uR, uR) + pt;
+  ivec2 i = ivec2(floor(f));
+  vec2 fr = f - floor(f);
+  float s00 = texelFetch(uDepthT, clamp(i,               ivec2(0), ivec2(uMh - 1)), 0).r;
+  float s10 = texelFetch(uDepthT, clamp(i + ivec2(1, 0), ivec2(0), ivec2(uMh - 1)), 0).r;
+  float s01 = texelFetch(uDepthT, clamp(i + ivec2(0, 1), ivec2(0), ivec2(uMh - 1)), 0).r;
+  float s11 = texelFetch(uDepthT, clamp(i + ivec2(1),    ivec2(0), ivec2(uMh - 1)), 0).r;
+  float v = s00 * (1.0 - fr.x) * (1.0 - fr.y) + s10 * fr.x * (1.0 - fr.y)
+          + s01 * (1.0 - fr.x) * fr.y         + s11 * fr.x * fr.y;
+  return v * ${(255 / SURF_DEPTH_Q).toFixed(4)};
+}
+
 void main() {
   vec2 w = uA + aOff;
   vWorld = w;
@@ -171,11 +211,22 @@ void main() {
   // sampling rule would put the shore normal a texel from the shore it belongs to.
   vec2 gW = vec2(waterAt(w + vec2(1.0, 0.0)) - waterAt(w - vec2(1.0, 0.0)),
                  waterAt(w + vec2(0.0, 1.0)) - waterAt(w - vec2(0.0, 1.0)));
-  vec2 sw = seaShoal(w, water, gW, uShoal);
+  // ⚠ THE DEPTH GRADIENT, one tile each way, the same sampling rule as the waterness one above. It
+  // points out to sea across the whole shelf, where the waterness gradient is zero a tile out.
+  vec2 gH = vec2(depthAt(w + vec2(1.0, 0.0)) - depthAt(w - vec2(1.0, 0.0)),
+                 depthAt(w + vec2(0.0, 1.0)) - depthAt(w - vec2(0.0, 1.0)));
+  // The swell's unit wavevector in WORLD axes: the authored one, carried out of the sea's frame.
+  vec2 kdir = seaUnframe(vec2(0.8529, 0.5224), uSeaRot);
+  vec2 sw = seaRefract(seaShoal(w, water, gW, uShoal), depthAt(w), gH, kdir, uRefract);
   vShoal = sw - w;
 
   float r = length(aOff);
-  vRim = clamp((uPatchR - r) / max(0.001, uRimFade), 0.0, 1.0);
+  // The near rim still fades the WIND SEA; the far band fades the roll. With no far band the two are
+  // one fade and every term reads exactly what it did.
+  float rimNear = clamp((uPatchR - r) / max(0.001, uRimFade), 0.0, 1.0);
+  float farOn = step(uPatchR + 0.001, uFarR);
+  vRim = farOn > 0.5 ? clamp((uFarR - r) / max(0.001, uFarFade), 0.0, 1.0) : rimNear;
+  float windK = farOn > 0.5 ? rimNear : 1.0;
 
   // ⚠ AMPLITUDE TAPERS ON WATERNESS, NOT ON DISTANCE. 'waterW' is simultaneously the shoreline
   // COORDINATE the floor places the surf band, the snow line and the bank lip against — 0.5 is the
@@ -184,16 +235,24 @@ void main() {
   // it is zero at the waterline and full only in genuinely open water. Physically this is right
   // anyway: waves shoal.
   float deep = clamp((water - 0.5) * 2.0, 0.0, 1.0);
-  float gate = deep * deep * vRim;
-
-  vec2 sp = w;
-  float ph = seaPh(sp, uT);
   // ⚠ SHELTER MULTIPLIES THE AMPLITUDE AND MUST NOT TOUCH THE CHOP. A harbour is flat in the
   // SWELL, not glass: the short wind waves are generated locally over metres and are there even
   // in a dock, so taking them away too turns every sheltered basin into a mirror.
   float shel = mix(1.0, shelterAt(w), uShelter);
   vShelter = shel;
-  float h = seaRoll(sw, uT, uRoll * gate * shel, uSpread) + seaWind(sw, uT, ph, uWind * gate * shel, uSpread);
+  // ⚠ SHELTER COMES FIRST because the surf reads the height of the wave ARRIVING: a harbour's
+  // sheltered swell is small, so it shoals further in and breaks at the edge of the quay.
+  float hM = depthAt(w);
+  vDepthM = hM;
+  float H0 = seaH0(uRoll, uWind) * shel;
+  float gate = seaShoalGain(deep, hM, H0, uSurf) * vRim;
+
+  // ⚠ INTO THE SEA'S FRAME HERE AND NOWHERE ELSE in this shader: 'w' stays the world point the
+  // wakes, the rim and gl_Position read, and only the samples of the sea itself are rotated.
+  vec2 sp = seaFrame(w, uSeaRot);
+  vec2 swR = seaFrame(sw, uSeaRot);
+  float ph = seaPh(sp, uT);
+  float h = seaRoll(swR, uT, uRoll * gate * shel, uSpread) + seaWind(swR, uT, ph, uWind * gate * shel * windK, uSpread);
 
   // ── AND THE CHOP GETS A SILHOUETTE, NEAR THE EYE ────────────────────────────────────────────
   //
@@ -214,6 +273,8 @@ void main() {
   // whether or not the mesh has also moved to it. Displaced or not, the two agree.
   float chopF = clamp((uChopR - r) / max(0.001, uChopR * 0.4), 0.0, 1.0);
   h += seaChop(sp, uT, ph) * uAmp * gate * chopF;
+  // The breaker's forward pitch, on the swell, in the surf zone only.
+  h += seaSurfLean(swR, uT, uRoll * gate * shel) * seaSurfZone(hM, H0) * smoothstep(0.0, 0.5, deep) * uSurf;
 
   // ── AND WHAT THE BOATS HAVE DONE TO IT ──────────────────────────────────────────────────────
   //
@@ -244,13 +305,16 @@ in float vH;
 in float vWake;
 in float vShelter;
 in vec2  vShoal;
+in float vDepthM;
 
+uniform vec2  uSeaRot;   // the same heading the vertex shader sampled in
 uniform float uT;
 uniform float uRoll;
 uniform float uAmp;       // the chop's amplitude, for the normal
 uniform float uWind;      // the wind sea's amplitude
 uniform float uState;     // 0 glass, 1 gale — the spindrift rides on this
 uniform float uFoam;      // the wv above which water is breaking, solved from Monahan coverage
+uniform float uSurf;      // the surf zone, as in the vertex shader
 uniform float uTear;      // how torn the foam's edge is; 0 is the smooth threshold that shipped
 // ⚠ UNITS 3 AND 4. The floor holds 0 and 1 for its two LUTs, this layer holds 2 for the one it
 // borrows, and mirror.js already clears a unit before its prepass because ground.js leaves a
@@ -302,9 +366,16 @@ uniform float uUnderExt;  // extinction strength; 0 is water you can see across 
 uniform vec3  uEye;       // camera position in the same frame, z in tiles
 uniform float uHz;
 uniform float uHazeMax;
+uniform float uFarR;     // the far band, as in the vertex shader
+uniform float uPatchR;
+uniform float uFarBody;  // how much water colour a far crest keeps against the sky; 0 = hazed to the sky
 uniform float uDepth;     // vertical focal length, for the haze ramp
 
 out vec4 fragColor;
+// Green water over the deck: her plan (centre, heading), and (half-length, half-beam, deck z, gain).
+// uHullS.w 0 switches it off. See ownHullWash in windshield.js.
+uniform vec4  uHullP;
+uniform vec4  uHullS;
 
 ${SEA_GLSL}
 
@@ -314,21 +385,28 @@ void main() {
   // reads of the tile grid put the lighting on crests a fraction of a tile from the ones the
   // geometry actually bent.
   vec2 sp = vWorld + vShoal;
-  float ph = seaPh(sp, uT);
-  float wv = seaChop(sp, uT, ph);
+  // The sea is sampled in its own frame; foam trails, spindrift and the tear stay in world axes.
+  vec2 spR = seaFrame(sp, uSeaRot);
+  float ph = seaPh(spR, uT);
+  float wv = seaChop(spR, uT, ph);
   // ⚠ A SECOND SAMPLE, FOR THE FOAM ALONE. 'wv' above also drives the surface shading, so shifting
   // it wholesale would slide the lighting off the geometry it is describing.
   vec2 spF = sp - uWindDir * ${SEA_FOAM_LEAD.toFixed(3)};
-  float wvF = seaChop(spF, uT, ph);
+  float wvF = seaChop(seaFrame(spF, uSeaRot), uT, ph);
 
   float deep = clamp((vWater - 0.5) * 2.0, 0.0, 1.0);
-  float gate = deep * deep * vRim;
+  float H0 = seaH0(uRoll, uWind) * vShelter;
+  float gate = seaShoalGain(deep, vDepthM, H0, uSurf) * vRim;
+  float zone = seaSurfZone(vDepthM, H0) * smoothstep(0.0, 0.5, deep) * uSurf;
   // ⚠ ONE SLOPE FOR EVERY TERM. The chop is not in the mesh, so its relief has to arrive as a
   // normal — and the roll and the wind sea ARE in the mesh, so their slopes have to be in the same
   // normal or the lighting and the silhouette disagree about which way a face is pointing.
   // ⚠ THE SAME SHELTER THE VERTEX SHADER DISPLACED BY. Leave it out and the lighting describes a
   // full sea over a harbour the mesh has already flattened — every crest lit that is not there.
-  vec2 dd = seaSlope(sp, uT, ph, uAmp, uRoll * gate * vShelter, uWind * gate * vShelter, uSpread);
+  vec2 dd = seaSlope(spR, uT, ph, uAmp, uRoll * gate * vShelter, uWind * gate * vShelter, uSpread);
+  // ⚠ THE LEAN IS IN THE SLOPE TOO, or the lighting describes a symmetric wave the mesh is not.
+  if (zone > 0.0) dd += seaSurfLeanD(spR, uT, uRoll * gate * vShelter) * zone;
+  dd = seaUnframe(dd, uSeaRot);   // the slope back out into world axes, where N is built
   vec3 N = normalize(vec3(-dd.x, -dd.y, 1.0));
 
   vec3 toEye = uEye - vec3(vWorld, vH);
@@ -494,7 +572,7 @@ void main() {
   // ⚠ AND THE FOAM GOES ON THE BIG WAVES CRESTS, WHICH IS WHERE IT BREAKS. Scattered uniformly it
   // reads as speckle on a moving surface; concentrated where the WIND SEA is cresting it reads as
   // tops being blown off, and it is the same number of white pixels either way.
-  float wcrest = seaWind(sp, uT, ph, 1.0, uSpread);
+  float wcrest = seaWind(spR, uT, ph, 1.0, uSpread);
   // ⚠ AND THE CREST BIAS IS ZERO-MEAN, WHICH IT WAS NOT. Lowering the threshold on the wind sea's
   // crests concentrates foam where water actually breaks — right, and the note beside it claimed it
   // was "the same number of white pixels either way", which is only true if the bias takes foam OFF
@@ -610,6 +688,22 @@ void main() {
   // does not stack to white on water that was already foaming.
   cap = max(cap, foam * 0.9);
 
+  // ── BREAKERS ────────────────────────────────────────────────────────────────────────────────
+  //
+  // In the surf zone every swell crest breaks, so the foam comes in LINES, one per wave, riding in
+  // on the crest the mesh has just raised and pitched forward. 'vH' over the amplitude is where
+  // this point is on its wave, so the white arrives with the crest rather than being a band painted
+  // along the coast. Behind it the zone stays laced with spent froth (a breaker's Stage B), broken
+  // up by the chop so it is not one flat sheet.
+  if (zone > 0.001) {
+    float sA = (uRoll + uWind) * gate * vShelter;
+    float onCrest = sA > 1e-5 ? smoothstep(0.30, 0.85, vH / sA) : 0.0;
+    float froth = clamp(0.5 + 0.8 * wvF, 0.0, 1.0);
+    // A glass day has little surf and a gale has a lot of it.
+    float seaK = clamp(uState * 1.4 + 0.25, 0.0, 1.0);
+    cap = max(cap, zone * seaK * (onCrest * (0.65 + 0.35 * froth) + 0.30 * froth * froth));
+  }
+
   // ── STAGE A AND STAGE B (Monahan & Lu 1990) ─────────────────────────────────────────────────
   //
   // There are two populations of foam and the mask had one. STAGE A is the actively breaking crest:
@@ -644,6 +738,11 @@ void main() {
   // The same distance haze the floor applies, so the patch recedes with the sea beyond it.
   float p = clamp(uDepth / max(0.02, dist), 0.0, 4.0);
   float haze = clamp(1.0 - p * uHz, 0.0, uHazeMax);
+  // ⚠ THE FAR BAND KEEPS SOME OF THE WATER'S OWN BODY. Hazed all the way to uHor, a far crest is
+  // drawn in exactly the colour of the sky behind it and the silhouette the band exists for is
+  // invisible — measured at 0 pixels changed from a boat. A real storm swell on the horizon reads
+  // DARKER than the sky, so past the near patch the haze stops short of it, by uFarBody.
+  if (uFarR > 0.0) haze = min(haze, 1.0 - uFarBody * smoothstep(uPatchR * 0.7, uPatchR * 1.4, dist));
   col = mix(col, uHor, haze);
 
   // ── SEEN FROM UNDERNEATH ────────────────────────────────────────────────────────────────────
@@ -675,6 +774,12 @@ void main() {
     col = mix(uBody * 0.55, sky, win);
     // A rim of brighter light right at the critical angle — the compressed horizon piling up there.
     col += vec3(0.16, 0.20, 0.22) * (1.0 - abs(up - 0.661) / 0.09) * step(abs(up - 0.661), 0.09) * uNm;
+    // The caustic net, on the ceiling where it belongs: bright lines where three drifting ripples all
+    // cross zero, strongest inside the window where the daylight comes through. It is world-anchored,
+    // so it lies ON the moving surface rather than hanging in front of the camera.
+    vec2 cq = vWorld * 2.6;
+    float cn = abs(sin(cq.x * 1.7 + uT * 0.4) + sin(cq.y * 1.9 - uT * 0.33) + sin((cq.x + cq.y) * 1.3 + uT * 0.22));
+    col += vec3(0.30, 0.52, 0.50) * smoothstep(0.42, 0.0, cn) * (0.35 + 0.65 * win);
     col *= uNm;
   }
   // ⚠ AND EXTINCTION IS WAVELENGTH-DEPENDENT, WHICH IS MOST OF THE LOOK AND COSTS ONE exp() A
@@ -692,6 +797,26 @@ void main() {
   // sea, so the mesh has to hand over gradually — a hard edge is a circle on the water that follows
   // the camera, which is worse than the flat sea it is replacing.
   float a = clamp(vRim, 0.0, 1.0) * smoothstep(0.35, 0.6, vWater);
+  // ── GREEN WATER OVER THE DECK ─────────────────────────────────────────────────────────────────
+  // Inside her plan and above her deck, the sheet is THIN water running over a hull: it thins to
+  // a translucent green-white, streaked with foam that runs aft, so she shows through it rather
+  // than blinking out of existence under an opaque crest.
+  if (uHullS.w > 0.0) {
+    vec2 hr = vWorld - uHullP.xy;
+    float al = dot(hr, uHullP.zw), ac = dot(hr, vec2(-uHullP.w, uHullP.z));
+    float inside = (1.0 - smoothstep(0.75, 1.0, abs(al) / uHullS.x)) * (1.0 - smoothstep(0.6, 1.0, abs(ac) / uHullS.y));
+    float over = smoothstep(uHullS.z - 0.004, uHullS.z + 0.01, vH);
+    float wash = inside * over * uHullS.w;
+    if (wash > 0.001) {
+      float thick = clamp((vH - uHullS.z) / 0.05, 0.0, 1.0);
+      float streak = sin(ac * 900.0 + sin(al * 140.0 + uT * 3.0) * 2.0) * 0.5 + 0.5;
+      float churn = sin(al * 260.0 + uT * 9.0 + ac * 80.0) * sin(ac * 330.0 - uT * 7.0) * 0.5 + 0.5;
+      float foamW = clamp(pow(streak, 3.0) * 0.8 + churn * 0.5 * (1.0 - thick), 0.0, 1.0);
+      vec3 sheet = mix(vec3(0.38, 0.62, 0.6) * max(uNm, 0.25), vec3(0.9, 0.95, 0.96) * max(uNm, 0.3), foamW);
+      col = mix(col, sheet, wash * 0.85);
+      a *= mix(1.0, 0.28 + 0.45 * thick + 0.3 * foamW, wash);
+    }
+  }
   if (a < 0.004) discard;
   fragColor = vec4(col * a, a);
 }`;
@@ -718,16 +843,16 @@ export function createWaterLayer(gl) {
   const U = (n) => gl.getUniformLocation(prog, n);
   const loc = {
     viewProj: U('uViewProj'), a: U('uA'), t: U('uT'),
-    roll: U('uRoll'), patchR: U('uPatchR'), rimFade: U('uRimFade'),
+    roll: U('uRoll'), patchR: U('uPatchR'), rimFade: U('uRimFade'), farR: U('uFarR'), farFade: U('uFarFade'), farBody: U('uFarBody'),
     neonN: U('uNeonN'), neonP: U('uNeonP'), neonC: U('uNeonC'), neonGain: U('uNeonGain'), sig2: U('uSig2'),
     under: U('uUnder'), underD: U('uUnderD'), underExt: U('uUnderExt'),
     wind: U('uWind'), state: U('uState'), foam: U('uFoam'), tear: U('uTear'), wakeAmp: U('uWakeAmp'), windDir: U('uWindDir'),
     refl: U('uRefl'), sky: U('uSky'), reflOn: U('uReflOn'), reflGain: U('uReflGain'),
     reflBend: U('uReflBend'), skyOn: U('uSkyOn'), reflVP: U('uReflVP'), skyTop: U('uSkyTop'), skyHor: U('uSkyHor'),
-    nWake: U('uNWake'), wakeP: U('uWakeP'), wakeS: U('uWakeS'),
+    nWake: U('uNWake'), wakeP: U('uWakeP'), wakeS: U('uWakeS'), hullP: U('uHullP'), hullS: U('uHullS'),
     lut0: U('uLut0'), mh: U('uMh'), r: U('uR'),
     amp: U('uAmp'), seaLit: U('uSeaLit'), sss: U('uSss'), spread: U('uSpread'),
-    lut1: U('uLut1'), shelter: U('uShelter'), shoal: U('uShoal'), chopR: U('uChopR'),
+    lut1: U('uLut1'), shelter: U('uShelter'), shoal: U('uShoal'), refract: U('uRefract'), seaRot: U('uSeaRot'), surf: U('uSurf'), depthT: U('uDepthT'), chopR: U('uChopR'),
     foamN: U('uFoamN'), foamP: U('uFoamP'), foamBox: U('uFoamBox'),
     foamBeam: U('uFoamBeam'), foamSpread: U('uFoamSpread'),
     sunDir3: U('uSunDir3'), moonDir3: U('uMoonDir3'), night: U('uNight'), nm: U('uNm'),
@@ -748,20 +873,21 @@ export function createWaterLayer(gl) {
   // ⚠ AND THE DIVISION COUNTS ARE DERIVED FROM THE CONSTRAINTS RATHER THAN PICKED. The fine zone
   // owes 'PATCH_PER_TILE' samples a tile because of the chop; the rim owes 'PATCH_RIM_STEP' because
   // of the wind sea. A grid sized by hand goes quietly wrong the moment either of those moves.
-  function warpAxis(a, u0) {
+  function warpAxis(a, u0, u1) {
     const sg = a < 0 ? -1 : 1, t = Math.abs(a);
-    return t <= u0
-      ? sg * (PATCH_FINE_R / u0) * t
-      : sg * (PATCH_FINE_R + (PATCH_R - PATCH_FINE_R) * (t - u0) / (1 - u0));
+    if (t <= u0) return sg * (PATCH_FINE_R / u0) * t;
+    if (t <= u1) return sg * (PATCH_FINE_R + (PATCH_R - PATCH_FINE_R) * (t - u0) / (u1 - u0));
+    return sg * (PATCH_R + (PATCH_FAR_R - PATCH_R) * (t - u1) / (1 - u1));
   }
   function build() {
     const even = (x) => 2 * Math.ceil(x / 2);
     const nFine = even(2 * PATCH_FINE_R * PATCH_PER_TILE);
     const nRim = even(2 * (PATCH_R - PATCH_FINE_R) / PATCH_RIM_STEP);
-    const n = Math.max(4, nFine + nRim);
-    const u0 = nFine / n;
+    const nFar = even(2 * (PATCH_FAR_R - PATCH_R) / PATCH_FAR_STEP);
+    const n = Math.max(4, nFine + nRim + nFar);
+    const u0 = nFine / n, u1 = (nFine + nRim) / n;
     const X = new Float32Array(n + 1);
-    for (let i = 0; i <= n; i++) X[i] = warpAxis(-1 + (2 * i) / n, u0);
+    for (let i = 0; i <= n; i++) X[i] = warpAxis(-1 + (2 * i) / n, u0, u1);
     // Two triangles per cell, and cells outside the patch circle are skipped entirely — a square
     // grid clipped to a disc is about 21% fewer triangles for exactly the same picture, because
     // the rim fade has already taken the corners to zero.
@@ -773,14 +899,14 @@ export function createWaterLayer(gl) {
         // ⚠ The reject margin is this CELL's own size rather than one global step, because the
         // cells are no longer all the same size — a fixed margin either clips the rim short or
         // keeps a ring of coarse cells nobody can see.
-        if (Math.hypot(cx, cy) > PATCH_R + Math.max(x1 - x0, y1 - y0)) continue;
+        if (Math.hypot(cx, cy) > PATCH_FAR_R + Math.max(x1 - x0, y1 - y0)) continue;
         verts.push(x0, y0, x1, y0, x1, y1, x0, y0, x1, y1, x0, y1);
         cells++;
       }
     }
     const data = new Float32Array(verts);
     count = data.length / 2;
-    if (typeof window !== 'undefined') window.__seaPatch = { cells, verts: count, R: PATCH_R };
+    if (typeof window !== 'undefined') window.__seaPatch = { cells, verts: count, R: PATCH_R, farR: PATCH_FAR_R };
     vao = gl.createVertexArray();
     buf = gl.createBuffer();
     gl.bindVertexArray(vao);
@@ -805,6 +931,9 @@ export function createWaterLayer(gl) {
     gl.uniform1f(loc.roll, roll);
     gl.uniform1f(loc.patchR, PATCH_R);
     gl.uniform1f(loc.rimFade, RIM_FADE);
+    gl.uniform1f(loc.farR, s.seaFar > 0 ? PATCH_FAR_R : 0);
+    gl.uniform1f(loc.farFade, FAR_FADE);
+    gl.uniform1f(loc.farBody, s.seaFarBody == null ? 0.22 : s.seaFarBody);
     gl.uniform1f(loc.wind, s.seaWind || 0);
     gl.uniform1f(loc.state, s.seaState == null ? 0 : s.seaState);
     gl.uniform1f(loc.foam, s.seaFoam == null ? 1.2 : s.seaFoam);
@@ -831,12 +960,20 @@ export function createWaterLayer(gl) {
       gl.uniform4fv(loc.wakeP, P);
       gl.uniform2fv(loc.wakeS, S);
     }
+    // Written every frame, like the wakes, or a boat that left leaves a hole in the sea behind it.
+    const hl = s.ownHull;
+    gl.uniform4f(loc.hullP, hl ? hl.x : 0, hl ? hl.y : 0, hl ? hl.dx : 1, hl ? hl.dy : 0);
+    gl.uniform4f(loc.hullS, hl ? hl.hl : 1, hl ? hl.hb : 1, hl ? hl.z : 0, hl ? hl.k : 0);
     gl.uniform1f(loc.amp, s.seaAmp == null ? 0.02 : s.seaAmp);
     gl.uniform1f(loc.seaLit, s.seaLit == null ? 0 : s.seaLit);
     gl.uniform1f(loc.sss, s.seaSss == null ? 0 : s.seaSss);
     gl.uniform1f(loc.spread, s.seaSpread == null ? 0 : s.seaSpread);
     gl.uniform1f(loc.shelter, s.seaShelter == null ? 0 : s.seaShelter);
     gl.uniform1f(loc.shoal, s.seaShoal == null ? 0 : s.seaShoal);
+    gl.uniform1f(loc.refract, s.seaRefract == null ? 0 : s.seaRefract);
+    const rot = s.seaRot || [1, 0];
+    gl.uniform2f(loc.seaRot, rot[0], rot[1]);
+    gl.uniform1f(loc.surf, s.seaSurf == null ? 0 : s.seaSurf);
     gl.uniform1f(loc.chopR, s.seaChopR == null ? 0 : s.seaChopR);
     // ⚠ A ZERO COUNT IS NOT ENOUGH ON ITS OWN — a uniform holds its last value, so a frame with
     // no trail must still SET the count or the shader goes on walking the buffer it was handed
@@ -883,6 +1020,11 @@ export function createWaterLayer(gl) {
     gl.activeTexture(gl.TEXTURE5);
     gl.bindTexture(gl.TEXTURE_2D, lut.tex1 || lut.tex);
     gl.uniform1i(loc.lut1, 5);
+    // ⚠ UNIT 6, the seabed depth. Falls back to the colour plane, whose red is never read as a depth
+    // anyone could break in (it only binds when the floor has not built the plane yet).
+    gl.activeTexture(gl.TEXTURE6);
+    gl.bindTexture(gl.TEXTURE_2D, lut.tex2 || lut.tex);
+    gl.uniform1i(loc.depthT, 6);
 
     // ⚠ BIND SOMETHING EVEN WHEN IT IS OFF. An unbound sampler reads white on some drivers, which
     // is a sea reflecting a blank page rather than a sea reflecting nothing — ground.js records the

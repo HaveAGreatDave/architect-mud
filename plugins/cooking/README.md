@@ -122,6 +122,13 @@ cook there are none.
 
 ### In the workspace HUD
 
+The HUD is a screenful sitting on top of the place every reply arrives, so it mirrors the log
+into itself: a MutationObserver on `#output` copies each line into a feed inside the panel. It
+observes the log rather than hooking the three append helpers, the same seam Read Aloud uses and
+for the same reason. The feed is `aria-hidden`, because `#output` is the one live region and a
+screen reader is already reading every one of those lines. An ingredient can also be lifted back
+out of a pan from the panel.
+
 The panel's only cooking offer used to be a bare `cook`, whose own hint says a
 vessel would do it better — so the one route it proposed was the worst one in the
 system, and these twelve verbs appeared nowhere. Every raw ingredient now carries

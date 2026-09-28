@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>World Map</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{--bg:#0d1014;--ink:#d8dee6;--dim:#8a94a3;--line:#2a313b}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:13px/1.4 system-ui,sans-serif;overflow:hidden}
+#map{position:fixed;inset:0}
+#bar{position:fixed;top:10px;left:10px;z-index:3;background:#161b22ee;border:1px solid var(--line);border-radius:6px;padding:8px 10px;max-width:280px}
+#bar b{display:block;margin-bottom:4px}#bar span{color:var(--dim);font-size:11px}
+label{display:flex;gap:6px;align-items:center;margin-top:6px;font-size:12px}
+</style></head><body>
+<div id="map"></div>
+<div id="bar"><b>World Map (dev)</b><span>The same renderer and data as the tablet's World Map app. Regenerate with <code>node scripts/map/world-map-dump.mjs</code>. Scroll to zoom, drag to pan, hover for detail.</span>
+<label><input type="checkbox" id="tablet" checked> tablet style</label></div>
+<script type="module">
+import { mountWorldMap } from '/client/shared/worldmap-render.js';
+const data = await (await fetch('/tools/worldmap/world.json', { cache: 'no-store' })).json();
+const host = document.getElementById('map');
+let m = mountWorldMap(host, data, { tablet: true });
+document.getElementById('tablet').onchange = (e) => { m.destroy(); m = mountWorldMap(host, data, { tablet: e.target.checked }); };
+window.__wm = () => m;
+</script>
+</body></html>

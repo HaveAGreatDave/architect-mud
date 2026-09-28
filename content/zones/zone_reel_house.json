@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#181418",
-  "description": "A hundred and eighty seats going down to a screen that fills the whole end wall, and a ceiling so far up in the dark that you take its height on trust. Six seats in row F have been reupholstered and the other hundred and seventy-four have not, so there is a small bright rectangle of newer red in the middle of all that brown. The organ sits in a pit below the screen on a lift that has not been raised in living memory, its console open, its stops out. It smells of dust warmed by lamps and, underneath, very faintly, of oranges.",
+  "description": "A hundred and eighty seats sloping down to a screen that fills the end wall, the ceiling lost in the dark. Six seats in row F have been reupholstered, a bright red patch in the brown. The organ sits in a pit below the screen, console open, stops out. It smells of warm dust and, faintly, oranges.",
   "exits": {
     "west": "zone_reel_foyer"
   },

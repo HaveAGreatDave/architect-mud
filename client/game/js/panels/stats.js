@@ -48,7 +48,7 @@ export function renderStatsPanel(s) {
 
   const title = document.createElement('div');
   title.className = 'stats-title';
-  title.innerHTML = `<span class="stats-handle">${s.handle}</span> — ${s.archetype}`;
+  title.innerHTML = `<span class="stats-handle">${s.handle}</span>: ${s.archetype}`;
   body.appendChild(title);
 
   const cols = document.createElement('div');
@@ -71,7 +71,7 @@ export function renderStatsPanel(s) {
   statSec.className = 'stats-section stats-core';
   const note = document.createElement('div');
   note.className = 'stats-note';
-  note.innerHTML = `Spend XP to raise a stat — <b>${cost} XP</b> per point. You have <b>${s.net_xp}</b> XP.`;
+  note.innerHTML = `Spend XP to raise a stat: <b>${cost} XP</b> per point. You have <b>${s.net_xp}</b> XP.`;
   statSec.appendChild(note);
 
   for (const stat of RAISABLE) {

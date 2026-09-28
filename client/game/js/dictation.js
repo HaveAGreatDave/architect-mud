@@ -58,7 +58,7 @@ function setBtnState(on) {
   if (!btn) return;
   btn.setAttribute('aria-pressed', on ? 'true' : 'false');
   btn.classList.toggle('listening', on);
-  btn.title = on ? 'Listening — tap to stop' : 'Voice input (tap, or hold to talk)';
+  btn.title = on ? 'Listening: tap to stop' : 'Voice input (tap, or hold to talk)';
 }
 
 function ensureRecognizer() {
@@ -96,8 +96,8 @@ function ensureRecognizer() {
       return;
     }
     const why = guarded
-      ? ' — press Enter to confirm (this one can cost you something).'
-      : ' — press Enter to run it.';
+      ? ': press Enter to confirm (this one can cost you something).'
+      : ': press Enter to run it.';
     appendMsg(`Heard: ${text}${changed ? ` (from "${final.trim()}")` : ''}${why}`, 'system');
     input.focus();
   });

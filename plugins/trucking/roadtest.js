@@ -50,14 +50,14 @@ const RUN_TILES = 10;    // far enough that the box has to be shifted through th
 const BACK_TILES = 2;    // near enough to the door to be called back
 
 const INSTRUCTIONS = {
-  [STAGE.KEY]: 'Turn the key and hold it until she catches — <b>K</b>, or the barrel on the shelf. '
+  [STAGE.KEY]: 'Turn the key and hold it until she catches: <b>K</b>, or the barrel on the shelf. '
     + 'Nothing else on this truck works until the diesel is running.',
   [STAGE.OUT]: 'First is a crawler, so she will pull away at walking pace on almost no throttle. '
     + 'Get her out of the yard and onto the road, and change up as the needle comes round.',
-  [STAGE.RUN]: "Now put some road under her — ten tiles out, and I don't care which way. Work up through the box. "
+  [STAGE.RUN]: "Now put some road under her: ten tiles out, and I don't care which way. Work up through the box. "
     + 'She stops in about three times what you think she does, and on anything long and downhill you hold a gear '
     + 'and use the <b>jake</b> rather than cooking the brakes.',
-  [STAGE.BACK]: 'Good. Now bring her home. Back to the yard you came out of — the same road will do it.',
+  [STAGE.BACK]: 'Good. Now bring her home. Back to the yard you came out of: the same road will do it.',
   [STAGE.PARK]: "Line her up and set the brakes. That's the test.",
 };
 const STAGE_NAME = {
@@ -114,7 +114,7 @@ function brief(pid, ride) {
   const step = ride.stage === STAGE.PARK
     ? ' ' + teachVerb('park', 'park') + ' when she is standing still.'
     : '';
-  tell(pid, '<span class="text-green">[ROAD TEST ' + (ride.stage + 1) + '/' + STAGE_TOTAL + ' — '
+  tell(pid, '<span class="text-green">[ROAD TEST ' + (ride.stage + 1) + '/' + STAGE_TOTAL + ': '
     + STAGE_NAME[ride.stage] + ']</span> <span class="text-dim">' + INSTRUCTIONS[ride.stage] + step + '</span>');
 }
 
@@ -169,7 +169,7 @@ export async function roadTestPark(player, rig) {
   if (ride.stage !== STAGE.PARK || dist > BACK_TILES) {
     rides.delete(player.id);
     tell(player.id, '<span class="text-amber">You climb down short of the yard, and that\'s the lesson over. '
-      + 'No harm in it — the rig goes back, and you can take it out again whenever you like.</span>'
+      + 'No harm in it: the rig goes back, and you can take it out again whenever you like.</span>'
       + '\n<span class="text-dim">' + teachVerb('roadtest', 'roadtest') + ' at any depot to start over.</span>');
     await sweepLoaner(ride);
     return true;
@@ -191,7 +191,7 @@ async function pass(player, ride) {
   // about. ⚠ Deliberately NOT a grade: flight can fail a landing because a bad one is a crater, and
   // the equivalent here — parking badly — is a thing every driver in the world does daily. Bringing
   // it back IS the pass, and the corners are a remark.
-  tell(player.id, '<span class="item-grant">★ ROAD TEST PASSED — you\'re licensed to drive, and ' + PURSE + '₵ for the day.</span>'
+  tell(player.id, '<span class="item-grant">★ ROAD TEST PASSED: you\'re licensed to drive, and ' + PURSE + '₵ for the day.</span>'
     + '\n<span class="text-dim">' + (ride.hit
       ? 'You brought it back with the corners rearranged, which the fitters will mention for a fortnight. It still came back.'
       : "Nothing bent, nothing scraped. They won't say so, but that's unusual.")

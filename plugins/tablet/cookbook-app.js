@@ -181,13 +181,13 @@ function profileRows(profileName) {
   rows.push({ label: 'Raw', value: p.targets?.raw || '—' });
   rows.push({ label: 'Cooked right', value: p.targets?.peak || '—' });
   rows.push({ label: 'Past its peak', value: `${p.targets?.over || '—'}, then ${p.targets?.burnt || '—'}` });
-  rows.push({ label: 'Prep', value: p.needsPrep ? 'arrives whole — cut it down first' : 'goes in as it comes' });
+  rows.push({ label: 'Prep', value: p.needsPrep ? 'arrives whole: cut it down first' : 'goes in as it comes' });
   rows.push({
     label: 'In the pan',
     value: `${p.turns ? `turn it ${p.turns} time${p.turns === 1 ? '' : 's'}` : 'leave it alone'} · ${p.heatTolerance} heat`,
   });
   if (p.doneness) rows.push({ label: 'Doneness', value: p.doneness.levels.map(l => l.name).join(' / ') });
-  if (p.modifier) rows.push({ label: 'Note', value: 'a seasoning, not an ingredient — it flavours the dish rather than being part of it' });
+  if (p.modifier) rows.push({ label: 'Note', value: 'a seasoning, not an ingredient: it flavours the dish rather than being part of it' });
   rows.push({ label: 'Difficulty', value: `${p.difficulty}/10` });
   return rows;
 }
@@ -210,7 +210,7 @@ async function ingredientDetail(player, token) {
     }
     if (mine.length) {
       const held = mine[0].have || 0;
-      out.push({ label: 'Carrying', value: `${Math.round(held * 100) / 100} — about ${Math.round(held * (p.unitWeight || 0))}g` });
+      out.push({ label: 'Carrying', value: `${Math.round(held * 100) / 100}: about ${Math.round(held * (p.unitWeight || 0))}g` });
       // The alternatives, spelled out one per row rather than run together in a
       // sentence: this is the screen you read standing in the shop.
       const ex = buyableExamples(key);
@@ -223,7 +223,7 @@ async function ingredientDetail(player, token) {
       breadcrumb: ['Cookbook', 'Shopping List', name],
       detail: {
         id: `${ING_PREFIX}p:${key}`, name,
-        desc: `A class, not a thing — anything on the shelf that behaves like this counts towards the line.`,
+        desc: `A class, not a thing: anything on the shelf that behaves like this counts towards the line.`,
         rows: out,
       },
     };
@@ -307,7 +307,7 @@ async function buildScreen(player, screenId, params) {
         id: '', group: true,
         label: forWhat ? titleFor(forWhat.replace(/ /g, '_')) : 'Odds and ends',
         sub: left
-          ? `${left} of ${entries.length} still to buy — buy each one separately, then cook`
+          ? `${left} of ${entries.length} still to buy: buy each one separately, then cook`
           : `everything it wants is in hand`,
         badge: left ? 'missing' : 'ready',
       });
@@ -369,7 +369,7 @@ async function buildScreen(player, screenId, params) {
       if (kit.length) {
         items.push({
           id: '', child: true, label: 'To make it in',
-          sub: `${kit.length} still to buy — and you only ever buy them once`,
+          sub: `${kit.length} still to buy, and you only ever buy them once`,
           badge: 'missing',
         });
         for (const e of kit.sort((a, b) => (a.req === 'required' ? 0 : 1) - (b.req === 'required' ? 0 : 1))) {
@@ -391,8 +391,8 @@ async function buildScreen(player, screenId, params) {
           id: forWhat ? `${PART_PREFIX}${forWhat.replace(/ /g, '_')}:${partLabel.replace(/ /g, '_')}` : '',
           child: true, label: partLabel,
           sub: short
-            ? `${members.length} thing${members.length === 1 ? '' : 's'} make it — you need all of them`
-            : "all of it's in hand",
+            ? `${members.length} thing${members.length === 1 ? '' : 's'} make it: you need all of them`
+            : "all of it is in hand",
           badge: short ? 'missing' : 'ready',
         });
         for (const e of members) {
@@ -448,7 +448,7 @@ async function buildScreen(player, screenId, params) {
     if (known.has(key) || !DISHES[key]) continue;
     items.push({
       id: '', label: `◌ Something in a ${DISHES[key].vessel}`,
-      sub: `You've made this ${n} time${n === 1 ? '' : 's'} — ${DISCOVERY_ATTEMPTS - n} more to write it down`,
+      sub: `You've made this ${n} time${n === 1 ? '' : 's'}, ${DISCOVERY_ATTEMPTS - n} more to write it down`,
       badge: 'missing', _sort: 2,
     });
   }
@@ -475,7 +475,7 @@ async function buildScreen(player, screenId, params) {
       id: '__shop',
       label: `🛒 Shopping List${rows.length ? ` (${outstanding})` : ''}`,
       sub: rows.length
-        ? (outstanding ? `${outstanding} still to buy` : "everything on it's in hand")
+        ? (outstanding ? `${outstanding} still to buy` : "everything on it is in hand")
         : 'nothing on it yet',
       badge: rows.length && !outstanding ? 'ready' : 'missing',
       _sort: -1,
@@ -534,7 +534,7 @@ async function recipeDetail(player, key, band) {
     for (const v of part.of || []) {
       if (String(v).startsWith('item_')) {
         const it = info(v);
-        rows.push({ label: sentence(it?.name || v.replace(/^item_/, '').replace(/_/g, ' ')), value: 'this exactly — the dish is named for it' });
+        rows.push({ label: sentence(it?.name || v.replace(/^item_/, '').replace(/_/g, ' ')), value: 'this exactly: the dish is named for it' });
       } else if (d.needs[v] != null) {
         rows.push(...rowsFor(v, d.needs[v]));
       }
@@ -563,7 +563,7 @@ async function recipeDetail(player, key, band) {
       rows.push({
         label: sentence(g.label),
         value: g.req === 'required'
-          ? (owned == null ? 'required — the room has to have one' : `required · ${owned ? 'have one ✓' : "haven't got one ✗"}`)
+          ? (owned == null ? 'required: the room has to have one' : `required · ${owned ? 'have one ✓' : "haven't got one ✗"}`)
           : `better with one${owned ? ' · have one ✓' : ''}`,
       });
     }

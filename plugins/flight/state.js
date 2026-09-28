@@ -11,6 +11,7 @@ import { query } from '../../server/models/db.js';
 import { getZone, getAllZones, getLivePlayer, getMinimapData, buildingEntranceDir, getRegion, addPlayerToZone, removePlayerFromZone, airfieldOf, getZoneFurniture } from '../../server/engine/world.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { biomeOf, districtBiome } from './biomes.js';
+import { thermalLiftMax, heatOfCell } from '../../client/shared/thermals.js';
 import { normalizeLivery } from './livery.js';
 import { sendToPlayer, sendToZone, sendToZoneExcept } from '../../server/engine/messaging.js';
 import { setPosture, forceStand } from '../../server/engine/posture.js';
@@ -20,7 +21,7 @@ import { streetActors } from '../../server/engine/street-actors.js';
 import { applyCrashCollateral, isSeverelyImpaired } from './collateral.js';
 import { setDownCompanions, killCompanions } from './companions.js';
 import { isResidentOf } from '../../server/engine/apartments.js';
-import { getEnvironmentState, getWeatherFieldSnapshot, getWeatherEvent, getZonePowerStatus, getZoneEmergencyLighting, getZoneOnGrid, groundAccum } from '../../server/engine/environment.js';
+import { getEnvironmentState, getWeatherFieldSnapshot, getWeatherEvent, getZonePowerStatus, getZoneEmergencyLighting, getZoneOnGrid, groundAccum, getWindKphAtGrid } from '../../server/engine/environment.js';
 import { gatherHookSync } from '../../server/engine/plugins.js';
 
 export const TICK_MS = 3000;
@@ -135,7 +136,7 @@ export const PILOT_IP = {
 // Craft flown on the continuous cockpit sim. The whole fleet is here now — the fixed-wing
 // set plus the Dragonfly (VTOL), which flies the client's dedicated hover model (collective
 // + cyclic + pedals) instead of the old modal VTOL-lift deck.
-export const CONTINUOUS_TYPES = new Set(['ac_mayfly', 'ac_mule', 'ac_leviathan', 'ac_reaper', 'ac_carcass', 'ac_dragonfly', 'ac_grasshopper', 'ac_locust', 'ac_viper', 'ac_shrike']);
+export const CONTINUOUS_TYPES = new Set(['ac_mayfly', 'ac_mule', 'ac_leviathan', 'ac_reaper', 'ac_carcass', 'ac_dragonfly', 'ac_grasshopper', 'ac_locust', 'ac_viper', 'ac_shrike', 'ac_drake']);
 export function isContinuous(live) { return !!live && CONTINUOUS_TYPES.has(live.type?.id); }
 
 // Continuous altitude (ft) → the legacy band the consequence systems still read
@@ -711,11 +712,11 @@ export const TUNE_KEYS = ['mixture', 'pitch', 'boost', 'cg'];
 // contracts' JOB_TYPES), not DB content: a kit is a mechanic, not world content.
 export const KITS = {
   kit_precision: { name: 'Precision Tuning Kit', price: 850, rangeBonus: 0.6,
-    blurb: 'Machined linkages and a wideband sensor — every knob turns further before she bites.' },
+    blurb: 'Machined linkages and a wideband sensor: every knob turns further before she bites.' },
   kit_intercooler: { name: 'Intercooler & Oil Cooler', price: 1200, coolMult: 0.6,
     blurb: 'Sheds heat, so lean mixtures and boost cost far less temperature and reliability.' },
   kit_smuggler_hold: { name: "Smuggler's False-Bottom Hold", price: 2200, smugglerHold: true,
-    blurb: 'A machined false floor and a lead-lined liner — customs scanners skate right over what rides underneath. Most of the time.' },
+    blurb: 'A machined false floor and a lead-lined liner: customs scanners skate right over what rides underneath. Most of the time.' },
 };
 export function installedKits(cd) { return Array.isArray(cd?.kits) ? cd.kits.filter(k => KITS[k]) : []; }
 
@@ -779,7 +780,7 @@ export const PARTS = {
     blurb: "Doubled spar caps and new wing-root fittings. She will carry more, and she won't complain about where you put it." },
   part_frame_plate: { slot: 'frame', tier: 2, price: 3400, item: 'part_frame_plate',
     name: 'Bolt-On Armour Plate', kg: 16, soak: 0.35, cruiseMult: 0.94, handling: 1.2,
-    blurb: "Composite plate over the tub, the tanks and the pilot. Every gram of it's in the wrong place aerodynamically and every gram of it has been earned." },
+    blurb: "Composite plate over the tub, the tanks and the pilot. Every gram of it is in the wrong place aerodynamically and every gram of it has been earned." },
 
   // HARDPOINTS — the mounts themselves. Legality is contextual (the airspace
   // decides), so owning and fitting these is not in itself a crime.
@@ -1350,6 +1351,9 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // (plugins/trucking/corridor.js): sun-bleached and sand-drifted, its paint half gone, patched and
   // cracked. Every baked world tile leaves it undefined and paints exactly as it always did.
   const wr = cell.flags?.road_wear ? 1 : undefined;
+  // How far gone a worn road is (0..1, plugins/trucking/corridor.js conditionAt). Absent on every
+  // road that never set it, which keeps the one worn look it always had.
+  const rc = Number.isFinite(cell.flags?.road_cond) ? cell.flags.road_cond : undefined;
   // A BERTH'S TWO BEARINGS, and they are the whole of what an author writes: which way the open
   // water lies (a hull's bow points up it, and it is the way she comes and goes) and which side
   // the quay is on (she lies against it). Everything else about her — beam, deck height, how far
@@ -1357,7 +1361,13 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // an author can get wrong here is a ship sitting inside a quay wall.
   const bf = mark === 'berth' ? (cell.flags?.berth?.fair || 'north') : undefined;
   const bq = mark === 'berth' ? (cell.flags?.berth?.quay || 'west') : undefined;
-  return { kind, biome, road, danger: cell.danger, pad, bt, bn, ent, flr, mark, strip, rd, rdeg, rt, rw, rl, wr, wake, sub, heading, cur, ft, hi, cf, pf: cell.flags?.park_feature, pw, em, og, sl, sgn, plz, bf, bq, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
+  // `prp` — WHAT A YARD HAS LYING ABOUT ON IT, derived from flags the tile already carries: a fuel
+  // float gets its pump, bollards and a life ring; a cradle yard its crates and drums; a depot apron
+  // its pump island. The renderer dresses the tile with small sprites (windshield.js drawYardProps)
+  // and nothing is authored. Undefined on every other tile in the world, so it costs no egress there.
+  const prp = (cell.flags?.boat_fuel && cell.flags?.building_type !== 'fuel_dock') ? 'fuel' : cell.flags?.boat_hardstanding ? 'hard'
+    : (cell.flags?.truck_yard && cell.flags?.truck_fuel) ? 'apron' : undefined;
+  return { prp, kind, biome, road, danger: cell.danger, pad, bt, bn, ent, flr, mark, strip, rd, rdeg, rt, rw, rl, wr, rc, wake, sub, heading, cur, ft, hi, cf, pf: cell.flags?.park_feature, pw, em, og, sl, sgn, plz, bf, bq, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
 }
 
 // The flight window's half-width, named so the things that have to AGREE with it can say so
@@ -1545,7 +1555,9 @@ export function gaugePayload(live) {
     // paint the city skyline BEFORE takeoff instead of having it pop in during the
     // climb — the client fades it up under the airport scenery.
     map: mapWindow(a),
-    biomeBelow: a.airborne && below ? districtBiome(below) : null,
+    // Sent on the ground too when the ground is WATER: a Drake afloat needs it for BOAT and SUB
+    // (cockpit.js drakeModeBlock), and nulling it on touchdown left her "not on the water".
+    biomeBelow: below ? districtBiome(below) : (() => { const b = districtBiome(surfaceAt(a.grid_x, a.grid_y)); return b === 'water' ? b : null; })(),
     minimap: a.airborne && below ? getMinimapData(below.id, 3) : null,
     guide: (a.airborne && fuelPct < 30) ? nearestField(a.grid_x, a.grid_y) : null,
     // Parked: the terrain look of the field, for the out-the-canopy airport scene.
@@ -1574,7 +1586,10 @@ export function skyState(cx = null, cy = null) {
       // Fractional, not the floored hour: the sky palette blends between keyframes, so an integer
       // made sunset arrive in 24 steps a day. Same field, same range, smoother dusk.
       hour: env.minutes != null ? env.minutes / 60 : env.hour,
-      weather: skyWeatherToken(env), wind: env.windKph || 0,
+      // ⚠ THE WIND AT THE VIEWER'S TILE when there is one — the sea, the windsocks, the flags and
+      // the spray are all driven by this, and the day's flat figure never blew harder under a storm
+      // cell. See getZoneWindKph in environment.js.
+      weather: skyWeatherToken(env), wind: (cx != null && cy != null ? getWindKphAtGrid(cx, cy) : env.windKph) || 0,
       // Tonight's moon (0 new … 0.5 full), derived from the world calendar. The canopy draws the
       // phase; nobody stores it.
       moon: env.moonPhase,
@@ -1753,6 +1768,49 @@ export function stalledState(type, d) {
   return ias < (type?.cruise_speed || 80) * 0.35 && pitch > 3 && (d.vs || 0) < -400;
 }
 
+// ── Engine-off climb bound (thermals) ─────────────────────────────────────────
+// With the throttle closed or the tanks dry, an aircraft has exactly two ways up: trading
+// airspeed for height (a zoom) and rising air (client/shared/thermals.js). This caps a
+// reported climb at the sum of the two, so a modified client cannot claim thermals that are
+// not there. LENIENT by design: lift is the strongest the field could give within two column
+// radii (×1.3), plus 150 ft/min and 15 ft of slack per report, so an honest pilot working a
+// real thermal is never snapped. Powered climb is not checked here.
+// ⚠ COST: only runs for an unpowered airborne craft, and is nine in-memory surfaceAt lookups
+// plus arithmetic per reconcile. No query, no stored state beyond one object on `live`.
+function thermalHeat(x, y) {
+  const z = surfaceAt(x, y);
+  return z ? heatOfCell({ biome: biomeOf(z), road: isRoadCell(z), bt: z.flags?.building_type }) : 0;
+}
+export function thermalSky() {
+  try {
+    const env = getEnvironmentState();
+    return { hour: env.minutes != null ? env.minutes / 60 : env.hour, weather: skyWeatherToken(env), wind: env.windKph || 0 };
+  } catch { return null; }
+}
+const FT_S_PER_KT = 1.688, G_FT = 32.17;
+export function boundUnpoweredClimb(live, alt, vs, ias, onGround, now = Date.now(), sky = null) {
+  const a = live.row;
+  const unpowered = (a.throttle ?? 0) <= 5 || (a.fuel ?? 1) <= 0;
+  if (!a.airborne || onGround || !unpowered) { delete live._glideChk; return { alt, vs }; }
+  // A reported airspeed is capped at what the type can plausibly carry, so a client cannot
+  // bank zoom credit by claiming a speed it never had.
+  const vMax = (live.type?.cruise_speed || 120) * 1.6;
+  const iasC = Math.min(ias, vMax);
+  const prev = live._glideChk;
+  if (prev && now > prev.t && now - prev.t < 3000) {
+    const dt = (now - prev.t) / 1000;
+    const v1 = prev.ias * FT_S_PER_KT, v2 = iasC * FT_S_PER_KT;
+    const zoom = Math.max(0, (v1 * v1 - v2 * v2) / (2 * G_FT));
+    const lift = thermalLiftMax(live.fx ?? a.grid_x, live.fy ?? a.grid_y, prev.alt, now, sky || thermalSky(), thermalHeat);
+    const rate = lift * 1.3 + 150;   // ft/min
+    const allow = prev.alt + zoom + rate * dt / 60 + 15;
+    if (alt > allow) alt = allow;
+    if (vs > rate && zoom <= 0) vs = rate;
+  }
+  live._glideChk = { t: now, alt, ias: iasC };
+  return { alt, vs };
+}
+
 // ── Continuous-flight reconcile (client sim → authoritative server state) ─────
 // The client runs the physics at 60fps and reports state; the server clamps it to
 // a sane envelope (anti-cheat) and writes it into the live row so every consequence
@@ -1783,8 +1841,9 @@ export function reconcile(live, d) {
     if (alt > prevAlt) alt = prevAlt;   // no net climb on one wing
     if (vs > 0) vs = 0;
   }
-  a.altitude_band = bandFromAltitude(alt, d.onGround);
   const ias = Math.max(0, d.ias || 0), pitch = Number.isFinite(d.pitch) ? d.pitch : 0;
+  ({ alt, vs } = boundUnpoweredClimb(live, alt, vs, ias, !!d.onGround));
+  a.altitude_band = bandFromAltitude(alt, d.onGround);
   live.cont = { altitude: alt, airspeed: ias, vs,
     bank: Number.isFinite(d.bank) ? d.bank : 0, pitch,
     onGround: !!d.onGround,
@@ -1841,6 +1900,7 @@ export function contextPayload(live) {
     warn: a.fuel <= 0 ? 'STARVATION' : (a.fuel <= cap * BINGO_FRAC ? 'BINGO' : null),
     aa: live.aaThreat || null,                  // AA engagement-envelope telegraph (set by combat.tickCombat)
     hull: Math.max(0, Math.round((1 - (a.damage || 0)) * 100)),   // for the cockpit hull readout / battle damage
+    feetGone: !!a.custom_data?.feetGone,        // the Drake's feet snapped off on the water (drake-water.js); cleared by repair
     surfaces: surfacesWire(a),                  // sheared structural surfaces (null when intact) → live breakup model + asymmetric physics
     msl: mslAmmo(live),                         // missiles left on the rails (ammo pips)
     bombs: bombLoad(live) ? bombAmmo(live) : 0, // bombs left on the rack (0 = not a bomber)
@@ -1882,7 +1942,7 @@ export function airContact(live) {
   const lv = normalizeLivery(a.custom_data);   // paint the viewer renders the bogey in
   return {
     id: a.id,
-    livery: { base: lv.base, trim: lv.trim, pattern: lv.pattern, finish: lv.finish },
+    livery: { base: lv.base, trim: lv.trim, pattern: lv.pattern, finish: lv.finish, variant: lv.variant },
     x: live.fx ?? a.grid_x ?? 0,
     y: live.fy ?? a.grid_y ?? 0,
     alt: Math.max(0, Math.round(live.cont?.altitude ?? 0)),
@@ -1899,6 +1959,11 @@ export function airContact(live) {
     cls: live.type?.class || 'prop',
     armed: (live.type?.hardpoints || 0) > 0,   // an armed heli renders the attack-heli mesh (stub wings, pods, chin gun)
     firing: (live.firingUntil || 0) > Date.now(),   // guns hot right now → viewers draw its tracers
+    // A Drake's shape (flightsync tail): viewers draw it with its wings, rotor and ramp where they are.
+    // Paddling is a stroke, not a pose, so viewers get its phase off the wall clock at relay time.
+    ...(live.shape ? { anim: { wings: live.shape.wings, rotorFold: live.shape.rotorFold, ramp: live.shape.ramp, ski: live.shape.ski || 0, skid: live.shape.skid || 0,
+      feetGone: live.row.custom_data?.feetGone ? 1 : 0,
+      }, gear: live.shape.gear } : null),
   };
 }
 
@@ -1957,7 +2022,7 @@ export function knockOutAvionics(live, until) {
   const already = avionicsDead(live);
   live.empUntil = Math.max(live.empUntil || 0, until);
   if (!already) {
-    toOccupants(live, '<span class="text-red">⚡ Every panel in the cockpit dies at once. Gauges, radio, nav — black. The engine runs on, which is the only reason this is survivable. You\'re flying this thing by eye and by feel.</span>');
+    toOccupants(live, '<span class="text-red">⚡ Every panel in the cockpit dies at once. Gauges, radio, nav: black. The engine runs on, which is the only reason this is survivable. You\'re flying this thing by eye and by feel.</span>');
   }
   clearTimeout(live._empTimer);
   live._empTimer = setTimeout(() => {
@@ -2104,6 +2169,7 @@ export function anyWingLost(a) {
 // damage=0 (a field DIY patch can't reattach a wing, but a full hangar job can).
 export function resetSurfaces(a) {
   if (a.custom_data?.surfaces) delete a.custom_data.surfaces;
+  if (a.custom_data?.feetGone) delete a.custom_data.feetGone;   // a hangar job fits the Drake new feet
 }
 // Roll whether this hit shears a structural surface. Gated on the hull threshold, then a
 // crit whose odds scale with the bite of the hit (a graze rarely tears metal off; a solid
@@ -2235,7 +2301,7 @@ export async function crash(live, reason = 'crash', byPlayer = null) {
   live.aaThreat = null;
   live.aaWarned = false;
   await persist(live);
-  const downedBy = byPlayer ? ` — ${byPlayer.handle} splashes it` : '';
+  const downedBy = byPlayer ? `, ${byPlayer.handle} splashes it` : '';
   sendToZone(wreckZone, { type: 'zone_event', message: `<span class="text-red">A ${live.type.name} screams down out of the sky and craters into the ground in a fireball${downedBy}.</span>`, refresh: true });
   // Collateral: what the wreck does to the tile it hits (bystanders, damage bill, crimes).
   // Charge the responsible pilot BEFORE the death loop detaches them; the wanted persists.
@@ -2258,12 +2324,12 @@ export async function crash(live, reason = 'crash', byPlayer = null) {
     detach(p, { restore: true });
     p.current_zone = wreckZone;
     out(pid, byPlayer
-      ? '<span class="text-red">Rounds find something vital — the controls go dead and the world tips up. There\'s a noise, and then nothing.</span>'
+      ? '<span class="text-red">Rounds find something vital: the controls go dead and the world tips up. There\'s a noise, and then nothing.</span>'
       : '<span class="text-red">The ground comes up to meet you. There\'s a noise, and then there\'s nothing.</span>');
     await handlePlayerDeath(p, byPlayer || null, { type: reason, label });
   }
   if (byPlayer) {
-    out(byPlayer.id, `<span class="text-green">★ SPLASH ONE — you shot down the ${live.type.name}.</span>`);
+    out(byPlayer.id, `<span class="text-green">★ SPLASH ONE: you shot down the ${live.type.name}.</span>`);
     sendToPlayer(byPlayer.id, { type: 'flight_kill', name: live.type.name });   // big top-of-glass kill banner
   }
   // Notify listeners (Halcyon Assurance files a claim if the craft was insured). Past-tense,

@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "A hexagon, because the building is one, which means not a single corner in this room is a right angle and every piece of furniture in it has had to be made rather than bought. The core is a hexagon too, set inside the first and turned thirty degrees, so the space between them is six triangles and the lifts are in two of them. People stop just inside the door to work out where to go, every time, and the building has never solved it.",
+  "description": "A hexagonal lobby with no right angles and custom-made furniture. The core is a smaller hexagon turned thirty degrees, leaving six triangles between them. The lifts are in two of them. Everyone stops inside the door to work out where to go.",
   "exits": {
     "down": "zone_util_zone_hf_fixedrate_lobby",
     "east": "zone_district_901_912"

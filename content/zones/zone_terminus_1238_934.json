@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Cracked pale hardpan, flat to the horizon and ringing slightly underfoot, the mud of a lake that dried before anybody was counting.",
+  "description": "The hardpan is pale and hard and split into polygons. It rings under a boot.",
   "exits": {
     "east": "zone_terminus_1239_934",
     "north": "zone_terminus_1238_933",

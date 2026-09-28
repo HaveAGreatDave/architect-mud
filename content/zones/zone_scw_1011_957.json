@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The rock goes up in one piece, banded red on red, too high to see the top of from underneath and too sheer to argue with. It runs away in both directions along the same line and doesn't offer anything that could be called a way up.",
+  "description": "The scree is graded by size, boulders at the foot and grit higher up. Water runs down the centre when there's any.",
   "exits": {
     "east": "zone_scw_1012_957",
     "north": "zone_scw_1011_956",
@@ -8,18 +8,18 @@
     "west": "zone_scw_1010_957"
   },
   "flags": {
-    "ambient_pool": "scarletwastes_the_rimrock",
+    "ambient_pool": "scarletwastes_the_spill",
     "lawless": true,
     "no_spawn": true,
     "radiation": 9,
     "region_id": "region_scarletwastes",
-    "terrain": "cliff"
+    "terrain": "dirt_road"
   },
   "grid_x": 1011,
   "grid_y": 957,
   "grid_z": 0,
   "id": "zone_scw_1011_957",
   "map_id": "map_world",
-  "name": "The Red Wall",
+  "name": "The Spill",
   "parent_zone": null
 }

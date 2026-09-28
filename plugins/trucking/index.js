@@ -56,10 +56,13 @@ import { TUNE_PARAMS, KITS, BANDS, bandOf, tuneRange, clampTune, installedKits, 
 import { stockTrim } from '../../client/shared/cab-trim.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { crossingChain, crossingDest, crossingInfo, voidGateOf, launchCrossing, VOIDS,
-  registerCrossingDistance, registerCrossingPoints, registerTrailCuts, beaconsNear } from '../voidwalking/index.js';
+  registerCrossingDistance, registerGateFilter, registerCrossingPoints, registerTrailCuts, beaconsNear } from '../voidwalking/index.js';
 import { pushRoadWindow } from './mmroad.js';
 import { cmdRoadTest, roadTestTick, roadTestPark, roadTestImpact, isLicensedDriver, unlicensedLine } from './roadtest.js';
 import { registerDepotBrief } from './onboard.js';
+import { rentStock, rentFee, makeRental, activeRental, reclaimRental, sweepRentals, rentalExpired, isRental,
+  rentalLeft, fmtLeft, RENT_TERM_MS } from './rental.js';
+import { stampIfMissing, serviceSheet, hornCatalogue, hornPrice, hornOf } from './service.js';
 import { registerZoneReloadHook } from '../../server/engine/world.js';
 import { registerCellOverlay, registerFarRoads } from '../flight/state.js';
 import { worldRoadProvider, farRoadLines } from './roadnet.js';
@@ -185,6 +188,9 @@ registerTrailCuts((voidKey, dest, window) => {
   }));
 });
 
+// A walker is only offered the roads that leave from the entrance they stepped off at.
+registerGateFilter((regionKey, x, y, dests) => destsFromGate(regionKey, x, y, dests));
+
 registerCrossingDistance((fromRegion, toRegion) => {
   const pair = gatePair(fromRegion, toRegion);
   return pair ? Math.hypot(pair.to.x - pair.from.x, pair.to.y - pair.from.y) : 0;
@@ -194,7 +200,7 @@ import { surfaceAt } from '../flight/state.js';
 import { rigs, rigOf, mountRig, dismountRig, reconcileTruck, crossToNode, driveToZone, flushZone,
   joinCorridor, leaveCorridor, unbog, pushCab, cabContext, surfaceUnder, truckContactsNear,
   announceBreak, switchLimb, atOrBeforeFork, cbLine, passSign, passPlaza, passHitcher, markWreck, pumpAt, pumpClamp, FUEL_FULL,
-  gatePair, rigLocked, tryDoorBoard, doorBoardLine,
+  gatePair, destsFromGate, rigLocked, tryDoorBoard, doorBoardLine,
   _clearGateCache, networkRoute,
   ridingRigOf, seatsFree, boardPassenger, alightPassenger,
   truckElecDead, crewedRigs } from './state.js';
@@ -256,7 +262,7 @@ const HARD_START_LINE = '<span class="text-amber">It turns over, and over, and d
 // again; NOT re-reading it is not a lost trailer, it is an invisible one, and the driver cannot
 // tell those apart. Do not replace this with a remembered id — a remembered id is a second copy
 // of a fact the row already holds, and it goes stale the moment somebody else takes the box.
-async function hydrateFromTruck(rig, owned) {
+export async function hydrateFromTruck(rig, owned) {
   rig.truckId = owned.id;
   rig.typeId = owned.type_id;
   rig.type = owned.type;
@@ -268,7 +274,9 @@ async function hydrateFromTruck(rig, owned) {
   // unlike `dmg`, which falls back to `condition` for a truck that predates components, a truck
   // that predates this is genuinely clean, because nothing had been dirtying it.
   rig.grime = grimeOf(rig.cd);
-  rig.params = effTruckParams(owned.type_id, rig.cd, rig.condition, rig.dmg);
+  // The odometer goes in so the SERVICING wear (service.js) is part of the truck you drive. It is
+  // the row's reading at mount, which is also what the bench quotes against, so the two agree.
+  rig.params = effTruckParams(owned.type_id, rig.cd, rig.condition, rig.dmg, owned.odometer ?? 0);
   rig.burnMul = burnMul(rig.cd);           // a hard turbo drinks; the aux tank is on `params.tank`
   rig.fuel = owned.fuel ?? 1;
   rig.travelled = 0;
@@ -333,7 +341,7 @@ async function cmdDrive(args, raw, player) {
   const here = spot ? spot.zone : stood;
   const depot = bay || depotAt(here) || bayForYard(stood?.id)?.depot;
   if (!depot) {
-    return say("There's nothing to drive here. Rigs run out of the freight yards — find a depot with a truck in it.");
+    return say("There's nothing to drive here. Rigs run out of the freight yards: find a depot with a truck in it.");
   }
   if (here.grid_x == null) return say("There's no road out of this yard.");
 
@@ -350,6 +358,25 @@ async function cmdDrive(args, raw, player) {
   const want = (args || []).join(' ').trim();
   const owned = pickParked(parked, want);
   if (!owned && parked.length) return whichTruckLine('drive', parked, want);
+  // A HIRE THAT HAS RUN OUT GOES BACK AT THE MOMENT YOU REACH FOR THE KEYS — rental.js's lazy
+  // clock. Not a refusal with the truck still standing there: the desk takes it, and says so.
+  if (owned && rentalExpired(owned)) {
+    await reclaimRental(owned.id, player.id);
+    await repush(player);
+    return say(`<span class="text-amber">The desk has the keys to the ${owned.type.name} back on their hook before you reach it. The hire ran out.</span>`
+      + ` <span class="text-dim">Another is a click away on the yard's hire line.</span>`);
+  }
+  // A SERVICE BASELINE FOR A TRUCK THAT HAS NEVER HAD ONE — see the migration note in service.js.
+  // Written here because mounting is the one cold moment every truck passes through before it can
+  // wear anything, and it is one write the first time and none after.
+  if (owned) {
+    const stamped = stampIfMissing(owned.custom_data || {}, owned.odometer);
+    if (stamped) {
+      owned.custom_data = stamped;
+      await query(`UPDATE trucks SET custom_data = jsonb_set(COALESCE(custom_data,'{}'::jsonb), '{svc}', $1::jsonb, true) WHERE id = $2`,
+        [JSON.stringify(stamped.svc), owned.id]).catch(() => {});
+    }
+  }
   if (!owned) {
     const mine = await fleetOf(player.id);
     const elsewhere = mine.find(t => t.depot_zone && !zonesHere.includes(t.depot_zone));
@@ -357,7 +384,7 @@ async function cmdDrive(args, raw, player) {
       const z = getZone(elsewhere.depot_zone);
       return say(`Your ${elsewhere.type.name} is parked at ${z ? (depotAt(z)?.name || z.name) : 'another yard'}, not here.`);
     }
-    return say(`You don't own a truck. There's a dealer's line at the fence — see the ${teachVerb('yard', 'yard')}.`);
+    return say(`You don't own a truck. There's a dealer's line at the fence: see the ${teachVerb('yard', 'yard')}.`);
   }
 
   // IMPOUNDED. The truck is right there and it is not yours to take — which is the whole of what an
@@ -470,12 +497,22 @@ async function cmdDrive(args, raw, player) {
   // daylight widening across the hood until the glass is the yard. It costs the world model
   // nothing and it is the difference between a run that begins and a run that is simply on.
   sendToPlayer(player.id, { ...cabContext(rig, { mounted: true, fromBay: fromShed ? (depot.name || 'the shed') : null }), type: 'truck_sim' });
+  // ── THE BENCH COMES TO THE CAB ─────────────────────────────────────────────
+  // The yard's first screen is a hand of cards and picking one lands you HERE, in the real shed —
+  // so everything the bench used to be (servicing, repairs, the shelves, the pump, the freight
+  // board) arrives as an overlay on the glass, and "drive out" is the throttle. `_svc` latches it
+  // so the telemetry tick (`baySvcTick`) knows the overlay is up and closes it when the truck
+  // leaves the shed. Only in a shed with a roller door: a legacy one-tile depot has no inside.
+  if (fromShed || baySvcFor(rig)) {
+    rig._svc = true;
+    await pushBayService(player, { spawn: true });
+  }
   const rollUp = fromShed
     ? ` The roller door grinds up in front of you, a bar of daylight at a time.`
     : '';
-  return say(`<span class="text-green">You haul yourself up into the cab and pull the door to. It's cold in here and nothing is running — the key is in the barrel where you left it.${rollUp} ${depot.name ? `${depot.name}'s` : 'The yard'} gate is open, and the road runs south.</span>`
+  return say(`<span class="text-green">You haul yourself up into the cab and pull the door to. It's cold in here and nothing is running: the key is in the barrel where you left it.${rollUp} ${depot.name ? `${depot.name}'s` : 'The yard'} gate is open, and the road runs south.</span>`
     + `
-<span class="text-dim">Turn the key — <b>K</b>, or the barrel on the shelf — and hold it until she catches.</span>`);
+<span class="text-dim">Turn the key (<b>K</b>, or the barrel on the shelf) and hold it until she catches.</span>`);
 }
 
 // MOUNT ONE PARTICULAR TRUCK. The whole of `drive` — the shed, the roller door, the cold engine,
@@ -545,7 +582,7 @@ export function whichTruckLine(verb, list, want, byId = false) {
   const rows = list.map(t => {
     const label = t.name ? `<b>${t.name}</b> <span class="text-dim">(${t.type.name})</span>` : `<b>${t.type.name}</b>`;
     const arg = byId || !t.name ? t.id : t.name.toLowerCase();
-    return `  ${label} — <span class="text-dim">${verb} ${arg}</span>`;
+    return `  ${label}: <span class="text-dim">${verb} ${arg}</span>`;
   }).join('\n');
   return say((want ? `Nothing of yours here answers to "${want}".` : `You have ${list.length} parked here. Which one?`) + `\n${rows}`);
 }
@@ -924,10 +961,10 @@ async function loadDeck(player) {
     if (tr) withBox.push({ truck: t, trailer: tr });
   }
   if (!withBox.length) {
-    return { err: say(`Every truck in this yard is bobtail — there's nothing behind one to put it on. <b>${teachVerb('hitch', 'hitch')}</b> a trailer first.`) };
+    return { err: say(`Every truck in this yard is bobtail: there's nothing behind one to put it on. <b>${teachVerb('hitch', 'hitch')}</b> a trailer first.`) };
   }
   if (withBox.length > 1) {
-    return { err: say('More than one rig here is hitched up. Take the one you mean out yourself — '
+    return { err: say('More than one rig here is hitched up. Take the one you mean out yourself: '
       + `<span class="text-dim">${withBox.map(w => `drive ${w.truck.id}`).join(' · ')}</span>`) };
   }
   const { truck, trailer } = withBox[0];
@@ -968,8 +1005,8 @@ async function cmdHaul(args, raw, player) {
   const pick = args[0] ? parseInt(args[0], 10) : NaN;
   if (Number.isNaN(pick)) {
     const lines = board.map(b =>
-      `  <b>${b.i + 1}.</b> ${b.name} — <b>${b.kg} kg</b> to <b>${b.toName}</b>${b.crosses ? ' <span class="text-amber">(across the waste)</span>' : b.local ? ` <span class="text-dim">(in town — ${b.where})</span>` : ''} · <span class="item-grant">${b.pay}₵</span>`);
-    return { type: 'emote', message: `<b>${here.name} — freight board</b>\n${lines.join('\n')}\n<span class="text-dim">haul &lt;number&gt; to take one.</span>` };
+      `  <b>${b.i + 1}.</b> ${b.name}: <b>${b.kg} kg</b> to <b>${b.toName}</b>${b.crosses ? ' <span class="text-amber">(across the waste)</span>' : b.local ? ` <span class="text-dim">(in town, ${b.where})</span>` : ''} · <span class="item-grant">${b.pay}₵</span>`);
+    return { type: 'emote', message: `<b>${here.name}: freight board</b>\n${lines.join('\n')}\n<span class="text-dim">haul &lt;number&gt; to take one.</span>` };
   }
   const job = board[pick - 1];
   if (!job) return say('No such load on the board.');
@@ -978,7 +1015,7 @@ async function cmdHaul(args, raw, player) {
   // cannot be in while looking at the board.
   const deck = await loadDeck(player);
   if (deck.err) return deck.err;
-  if (!deck.trailer) return say(`You're bobtail — there's nothing behind you to put it on. <b>${teachVerb('hitch', 'hitch')}</b> a trailer first.`);
+  if (!deck.trailer) return say(`You're bobtail: there's nothing behind you to put it on. <b>${teachVerb('hitch', 'hitch')}</b> a trailer first.`);
   if (deck.cargo) return say(`Already loaded: ${deck.cargo.name}${deck.cargo.toName ? `, for ${deck.cargo.toName}` : ''}.`);
   // ⚠ AND THE BOX HAS TO TAKE IT. The mounted path never checked, because there was no way to be
   // holding a contract the trailer could not carry — you took it in the cab of the truck that was
@@ -1030,8 +1067,90 @@ async function cmdYard(args, raw, player) {
   // as one. It lives on `yard` rather than on `rig` because `rig` takes a TRUCK and every one of
   // its eight named fields is a surface a box has not got: a trailer is one colour, once.
   if (sub === 'paint') return await yardPaintTrailer(player, bay, depot, args[1], args[2]);
+  // The hire desk (rental.js): the second way to have a truck, beside buying one.
+  if (sub === 'rent' || sub === 'hire') return await yardRent(player, bay, depot, args[1]);
+  if (sub === 'return' || sub === 'handback') return await yardReturn(player, bay, depot, args[1]);
 
   return await depotPanel(player, bay, depot, 'fleet', sub === 'text');
+}
+
+// ── `yard rent` — the hire desk ──────────────────────────────────────────────
+// The licence gate is the one `drive` applies, asked here too: a hire you cannot drive is money for
+// a truck that will sit in the yard until the term runs out, and the desk would rather not.
+async function yardRent(player, bay, depot, typeArg) {
+  const key = (typeArg || '').toLowerCase();
+  if (!key) {
+    const lines = rentStock(player.credits || 0).map((t) => `  <b>${t.name}</b> <span class="text-dim">(${t.id}): ${t.fee}₵ for ${t.hours} hours · ${t.kg} kg of deck</span>`);
+    return say(`<span class="text-cyan">THE HIRE LINE: ${depot.name || 'the yard'}</span>\n${lines.join('\n')}\n<span class="text-dim">yard rent &lt;truck&gt;. One at a time, back at any yard, and it goes back on its own when the time is up.</span>`);
+  }
+  const type = truckType(key) || TRUCK_TYPES.find((t) => t.name.toLowerCase().includes(key));
+  if (!type) return say(`Nothing on the hire line called that. <span class="text-dim">${TRUCK_TYPES.map((t) => t.id).join(', ')}</span>`);
+  if (!await isLicensedDriver(player, { fleetOf })) return unlicensedLine();
+  await sweepRentals(player.id, rigOf(player)?.truckId || null);
+  const have = await activeRental(player.id);
+  if (have) return say(`You already have the ${have.type.name} out on hire. <span class="text-dim">Hand it back first: ${teachVerb('yard return', 'yard return')}.</span>`);
+  const fee = rentFee(type);
+  if ((player.credits || 0) < fee) return say(`The ${type.name} is ${fee}₵ for the day and you have ${player.credits || 0}₵.`);
+  player.credits -= fee;
+  await makeRental(player.id, type.id, bay.id, fee);
+  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+  sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
+  await repush(player, 'fleet');
+  return say(`<span class="item-grant">Hired: the ${type.name}, for ${RENT_TERM_MS / 3600000} hours. ${fee}₵.</span>\n`
+    + `<span class="text-dim">It's in the shed with a full tank. Bring it back to any yard; if the time runs out it goes back on its own the next time it stops. ${teachVerb('drive')} when you're ready.</span>`);
+}
+
+// ── `yard return` — handing a hire back early ────────────────────────────────
+// At ANY yard: the desk has branches, and a hire that could only go back where it came from would
+// make every one-way run impossible. No refund — you hired the time, not the miles.
+async function yardReturn(player, bay, depot, idArg) {
+  const rig = rigOf(player);
+  const fleet = await fleetOf(player.id);
+  const zonesHere = depotZonesOf(bay, depot);
+  const hires = fleet.filter((t) => isRental(t) && (zonesHere.includes(t.depot_zone) || t.id === rig?.truckId));
+  const t = idArg ? hires.find((h) => h.id === idArg) : hires[0];
+  if (!t) return say("You haven't got a hire truck standing here to hand back.");
+  if (rig?.truckId === t.id) return say(`Park it first: ${teachVerb('park')}, then hand the keys over.`);
+  await reclaimRental(t.id, player.id);
+  await repush(player, 'fleet');
+  return say(`<span class="item-grant">You hand the keys for the ${t.type.name} across the counter. The desk checks the fuel gauge, writes something down and does not look up.</span>`);
+}
+
+// ── THE BENCH IN THE CAB ─────────────────────────────────────────────────────
+// The shed a mounted rig is standing in, or null — a city leg, on a facade with a roller door.
+export function baySvcFor(rig) {
+  if (!rig || rig.leg !== 'city') return null;
+  const z = getZone(rig.zoneId);
+  if (!z?.flags?.vehicle_bay) return null;
+  const ctx = depotFrom(z.id);
+  return ctx ? { door: z, ...ctx } : null;
+}
+
+/**
+ * The depot panel, pushed into the cab as the service overlay. ⚠ THE SAME PAYLOAD, NOT A SECOND
+ * ONE: `service` only tells the client where to put it, so the overlay and the log rung read one
+ * set of numbers and every button is still a verb string.
+ */
+export async function pushBayService(player, { spawn = false, tab = 'bench' } = {}) {
+  const rig = rigOf(player);
+  const ctx = baySvcFor(rig);
+  if (!ctx) return;
+  const panel = await depotPanel(player, ctx.bay, ctx.depot, tab);
+  if (panel && panel.type === 'truck_depot') {
+    sendToPlayer(player.id, { ...panel, service: true, spawn, serviceId: rig.truckId });
+  }
+}
+
+// ⚠ SYNC, AND ON THE FOUR-TIMES-A-SECOND PATH. It only compares two booleans and a getZone; the one
+// async thing it can start (the overlay's payload) is fired on a TRANSITION — into the shed and
+// stopped, or out of it — and never awaited, so a slow build of the panel can never hold the drive.
+function baySvcTick(player, rig) {
+  const inBay = !!baySvcFor(rig);
+  if (rig._svc && !inBay) { rig._svc = false; sendToPlayer(player.id, { type: 'truck_service_close' }); return; }
+  if (!rig._svc && inBay && Math.abs(rig.speed || 0) < 1) {
+    rig._svc = true;
+    pushBayService(player).catch(() => {});
+  }
 }
 
 // The depot the player is at, from EITHER side of the roller door. Every depot verb goes through
@@ -1054,6 +1173,9 @@ export function depotHere(player) {
 // has never had that problem because every one of its bench commands ends in `pushHangarBay`.
 // Nothing here may end in a bare `say()` if it changed the world.
 export async function repush(player, tab = 'fleet') {
+  // A driver sitting in the shed gets the overlay in the cab, not a yard screen the cab would drop.
+  const rig = rigOf(player);
+  if (rig && rig._svc && baySvcFor(rig)) return pushBayService(player, { tab });
   const { bay, depot } = depotHere(player);
   if (!depot) return;
   const panel = await depotPanel(player, bay, depot, tab);
@@ -1106,6 +1228,12 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
   await standStock(bay, standPlaces(bay, depot), mountSpot(bay)?.heading ?? 180);
   const region = here.flags?.region_id;
   const day = marketDay();
+  // A HIRE THAT HAS RUN OUT IS GONE BEFORE THE HAND IS DEALT — rental.js's lazy clock, at one of
+  // the three moments it is asked. Not the one being driven: that goes back when it stops.
+  const wentBack = await sweepRentals(player.id, rigOf(player)?.truckId || null);
+  if (wentBack.length) {
+    sendToPlayer(player.id, { type: 'emote', message: `<span class="text-dim">The hire desk has taken back the ${wentBack.join(' and the ')}: the time ran out.</span>` });
+  }
   const mine = await fleetOf(player.id);
   const rig = rigOf(player);
   // Three reads the bench needs, and they go out TOGETHER rather than one after another — this
@@ -1134,8 +1262,8 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
   // reason this is a string rather than a boolean.
   const loadWhy = canLoad ? null
     : !mine.some(t => zonesHere.includes(t.depot_zone)) ? 'Nothing of yours is standing here'
-    : hitchedHere && hitchedHere.length > 1 ? 'More than one rig here is hitched up — take the one you mean out yourself'
-    : 'Every truck in this yard is bobtail — hitch a trailer first';
+    : hitchedHere && hitchedHere.length > 1 ? 'More than one rig here is hitched up: take the one you mean out yourself'
+    : 'Every truck in this yard is bobtail: hitch a trailer first';
   // ── THE PIN, AS A FACT ─────────────────────────────────────────────────────
   // Coupling and dropping a box are the two things a driver does most often in a yard, and the
   // panel had no first-class answer for either: `hitch` was a row buried in the boxes list and
@@ -1162,8 +1290,8 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
     if (got) return { verb: 'hitch', id: got.t.id, name: got.t.name };
     const { t, r } = reach[0];
     return { verb: 'hitch', id: null, name: t.name,
-      why: r.why === 'angle' ? `You're across ${t.name}, not under it — straighten up`
-        : r.why === 'across' ? `You're alongside ${t.name}, not on its pin — back onto the nose`
+      why: r.why === 'angle' ? `You're across ${t.name}, not under it: straighten up`
+        : r.why === 'across' ? `You're alongside ${t.name}, not on its pin: back onto the nose`
         : r.why === 'fast' ? 'Stop the truck first'
         : `Line the truck up on ${t.name} and back under` };
   })();
@@ -1315,8 +1443,22 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
         // The performance the panel graphs. Derived through the SAME function the drive uses, so a
         // bar that moves when you turn a dial is promising exactly what the wheel will deliver.
         stats: axesFor(t.type_id, cd, t.condition ?? 1),
+        // ── the card half ──
+        // A HIRE, AND HOW LONG IT HAS LEFT, as facts: the card says RENTED and counts down off
+        // `rentLeft`, and nothing on the client works out a term.
+        rental: isRental(t) ? { left: rentalLeft(t), leftText: fmtLeft(rentalLeft(t)), fee: t.custom_data.rental.fee } : null,
+        driving: rig?.truckId === t.id,
+        // ── the service half ── oil, tyres and linings against THIS truck's odometer, the live
+        // rig's reading when it is the one under you (the row's is only as fresh as the last park).
+        svc: serviceSheet(t.type, cd, (t.odometer || 0) + (rig?.truckId === t.id ? (rig.travelled || 0) : 0)),
+        horn: hornOf(cd) || 'stock',
+        hornPrices: Object.fromEntries(hornCatalogue().map((h) => [h.id, hornPrice(cd, h.id)])),
       };
     }),
+    // The hire line and whether the desk will give you another today. See rental.js.
+    rentStock: rentStock(player.credits || 0),
+    hasRental: mine.some((t) => isRental(t)),
+    hornCat: hornCatalogue(),
     stock: TRUCK_TYPES.map(t => ({
       id: t.id, name: t.name, tier: t.tier, price: t.price, blurb: t.blurb,
       variant: t.id, kg: t.kg, tank: t.tank, top: t.topSpeed,
@@ -1427,16 +1569,27 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
 function depotDialogPayload(p) {
   const rows = [];
   for (const t of p.fleet || []) {
-    const cmds = [{ label: `Sell (${t.resale}₵)`, command: `yard sell ${t.id}` }];
+    const cmds = t.rental ? [{ label: 'Hand it back', command: `yard return ${t.id}` }]
+      : [{ label: `Sell (${t.resale}₵)`, command: `yard sell ${t.id}` }];
+    if (t.hereNow) cmds.unshift({ label: 'Climb in', command: `drive ${t.id}` });
     if (!t.hereNow) cmds.unshift({ label: `Tow home (${t.recall}₵)`, command: `yard recall ${t.id}` });
     rows.push({
       group: 'Your fleet',
-      label: `${t.name} (${t.type})`,
+      label: `${t.name} (${t.type})${t.rental ? ` · HIRED, ${t.rental.leftText}` : ''}`,
       detail: `${t.kg}kg · fuel ${Math.round(t.fuel * 100)}% · ${t.odometer} tiles · ${t.hereNow ? 'here' : `at ${t.whereName}`}`,
       commands: cmds,
     });
   }
   if (!(p.fleet || []).length) rows.push({ group: 'Your fleet', label: 'You own nothing with wheels on it.' });
+
+  for (const t of p.rentStock || []) {
+    rows.push({
+      group: 'For hire',
+      label: t.name,
+      detail: `${t.fee}₵ for ${t.hours} hours · ${t.kg}kg · ${t.top}mph${p.hasRental ? ' · one out already' : t.afford ? '' : " · can't afford"}`,
+      commands: t.afford && !p.hasRental ? [{ label: 'Hire', command: `yard rent ${t.id}` }] : [],
+    });
+  }
 
   for (const t of p.stock || []) {
     rows.push({
@@ -1481,7 +1634,7 @@ function depotDialogPayload(p) {
     : null;
   return {
     type: 'list_dialog',
-    title: `${p.depot} — yard`,
+    title: `${p.depot}: yard`,
     subtitle: `${p.credits}₵`,
     rows,
     footer: [hold, 'yard text to read it in the log'].filter(Boolean).join(' · '),
@@ -1499,14 +1652,14 @@ function depotNameOf(zoneId) {
 // The log rung reads the identical facts as prose. The panel is a skin; this is the record.
 function textYard(p) {
   const fleet = p.fleet.length
-    ? p.fleet.map(t => `  <b>${t.name}</b> (${t.type}) · ${t.kg} kg deck · fuel ${Math.round(t.fuel * 100)}% · ${t.odometer} tiles`
+    ? p.fleet.map(t => `  <b>${t.name}</b> (${t.type})${t.rental ? ` · <span class="text-cyan">HIRED, ${t.rental.leftText}</span>` : ''} · ${t.kg} kg deck · fuel ${Math.round(t.fuel * 100)}% · ${t.odometer} tiles`
         + `${t.hereNow ? ' · <span class="text-green">here</span>' : ` · <span class="text-dim">at ${t.whereName}</span>`}`
         + `${t.hereNow ? ` · <span class="text-dim">take it out (drive ${t.id})</span>` : ''}`
         + `${t.hereNow ? '' : ` · <span class="text-dim">tow it home for ${t.recall}₵ (yard recall ${t.id})</span>`}`
-        + ` · <span class="text-dim">sells for ${t.resale}₵ (yard sell ${t.id})</span>`).join('\n')
+        + (t.rental ? ` · <span class="text-dim">hand it back (yard return ${t.id})</span>` : ` · <span class="text-dim">sells for ${t.resale}₵ (yard sell ${t.id})</span>`)).join('\n')
     : '  <span class="text-dim">You own nothing with wheels on it.</span>';
   const stock = p.stock.map(t =>
-    `  <b>${t.name}</b> — <span class="item-grant">${t.price}₵</span> · ${t.kg} kg deck · ${t.tank} tiles a tank · ${t.top} mph`
+    `  <b>${t.name}</b>: <span class="item-grant">${t.price}₵</span> · ${t.kg} kg deck · ${t.tank} tiles a tank · ${t.top} mph`
     + `${t.afford ? '' : ' <span class="text-dim">(can\'t afford)</span>'}\n    <span class="text-dim">${t.blurb}</span>`
     + `\n    <span class="text-dim">yard buy ${t.id}</span>`).join('\n');
   // THE BOXES, ON THE RECORD. A trailer you own was invisible on BOTH rungs of the display
@@ -1521,9 +1674,11 @@ function textYard(p) {
         + `${t.cargo ? ` · <span class="text-dim">loaded: ${t.cargo.name}</span>` : ''}`
         + `${t.hereNow ? ' · <span class="text-dim">back under it (hitch)</span>' : ''}`).join('\n')
     : null;
-  return `<b>${p.depot} — yard</b>  <span class="text-dim">(${p.credits}₵)</span>\n\n<b>YOUR FLEET</b>\n${fleet}`
+  return `<b>${p.depot}: yard</b>  <span class="text-dim">(${p.credits}₵)</span>\n\n<b>YOUR FLEET</b>\n${fleet}`
     + (boxes ? `\n\n<b>YOUR BOXES</b>\n${boxes}` : '')
-    + `\n\n<b>FOR SALE</b>\n${stock}`;
+    + `\n\n<b>FOR SALE</b>\n${stock}`
+    + `\n\n<b>FOR HIRE</b>${p.hasRental ? ' <span class="text-dim">(one out already)</span>' : ''}\n`
+    + (p.rentStock || []).map(t => `  <b>${t.name}</b>: <span class="item-grant">${t.fee}₵</span> for ${t.hours} hours · ${t.kg} kg deck <span class="text-dim">(yard rent ${t.id})</span>`).join('\n');
 }
 
 async function yardBuy(player, here, depot, typeId, plate) {
@@ -1554,7 +1709,7 @@ async function yardBuy(player, here, depot, typeId, plate) {
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   await repush(player, 'fleet');
-  return say(`<span class="item-grant">Bought: the ${type.name}${plate ? ` — "${plate}"` : ''}. ${type.price}₵.</span>\n`
+  return say(`<span class="item-grant">Bought: the ${type.name}${plate ? `, "${plate}"` : ''}. ${type.price}₵.</span>\n`
     + `<span class="text-dim">${type.kg} kg of deck and ${type.tank} tiles to a tank. ${teachVerb('drive')} when you're ready.</span>`);
 }
 
@@ -1604,8 +1759,8 @@ async function yardBuyTrailer(player, here, depot, t) {
   await repush(player, 'buy');
   return say(`<span class="item-grant">Bought: ${t.name}. ${t.price}₵.</span>\n`
     + `<span class="text-dim">${t.rated} kg rated, ${t.kg} kg empty. ${outside
-      ? `A yard hand walks it out and drops the legs on the hardstand, nose to the road — ${teachVerb('hitch')} once you have backed under it.`
-      : `It's standing in the yard — ${teachVerb('hitch')} to back under it.`}</span>`);
+      ? `A yard hand walks it out and drops the legs on the hardstand, nose to the road: ${teachVerb('hitch')} once you have backed under it.`
+      : `It's standing in the yard: ${teachVerb('hitch')} to back under it.`}</span>`);
 }
 
 // Selling a box. Priced off the list and its condition (trailerResale), refused while it is
@@ -1674,7 +1829,7 @@ async function yardPaintTrailer(player, bay, depot, want, colour) {
   // happens to arrive in the zone — see the same call in yardBuyTrailer.
   await Promise.all(zones.map(z => refreshStanding(z)));
   await repush(player, 'fleet');
-  return say(`<span class="item-grant">Painted — ${BOX_PAINT_FEE}₵.</span> <span class="text-dim">${box.name}, and the overspray is on the concrete for a week.</span>`);
+  return say(`<span class="item-grant">Painted: ${BOX_PAINT_FEE}₵.</span> <span class="text-dim">${box.name}, and the overspray is on the concrete for a week.</span>`);
 }
 
 // ── Recovery: getting a truck home you did not drive home ────────────────────
@@ -1752,7 +1907,7 @@ async function yardRecall(player, here, id) {
   if (rigOf(player)?.truckId === t.id) return say("You're sitting in it.");
   const fee = towFee(t.type, t.depot_zone, here.id) + (t.impound_fee || 0);
   if ((player.credits || 0) < fee) {
-    return say(`Recovery from ${depotNameOf(t.depot_zone)} is <b>${fee}₵</b>${t.impound_fee ? ` (${t.impound_fee}₵ of that's the lot's)` : ''}. `
+    return say(`Recovery from ${depotNameOf(t.depot_zone)} is <b>${fee}₵</b>${t.impound_fee ? ` (${t.impound_fee}₵ of that is the lot's)` : ''}. `
       + `<span class="text-dim">You have ${player.credits || 0}₵.</span>`);
   }
   const moved = await recoverTruckTo(t.id, player.id, t.depot_zone, here.id);
@@ -1773,6 +1928,7 @@ async function yardSell(player, here, depot, id) {
   if (!t) return await yardSellTrailer(player, here, depot, id);
   if (!depotZonesOf(here, depotAt(here)).includes(t.depot_zone)) return say(`It's parked at ${depotNameOf(t.depot_zone)}. Bring it here first.`);
   if (rigOf(player)?.truckId === t.id) return say("You're sitting in it.");
+  if (isRental(t)) return say(`It's a hire truck: it isn't yours to sell. ${teachVerb('yard return', 'yard return')} hands it back.`);
   // The bodywork is in the price — see resaleValue. A dealer looks at the thing.
   const value = resaleValue(t.type, t.odometer, t.condition, damageOf({ condition: t.condition, custom_data: t.custom_data }));
   // ⚠ THE BOX COMES OFF THE PIN BEFORE THE TRACTOR STOPS EXISTING, and this is not politeness about
@@ -1850,7 +2006,7 @@ function textBoardAndMarket(p) {
     return `  ${q.name.padEnd(18)} <b>${String(q.ask).padStart(4)}₵</b> buy · <b>${String(q.bid).padStart(4)}₵</b> sell · ${String(q.kg).padStart(3)}kg${hint}`;
   });
   const board = p.board.length
-    ? p.board.map(b => `  <b>${b.i + 1}.</b> ${b.name} — <b>${b.kg} kg</b> to <b>${b.toName}</b>${b.crosses ? ' <span class="text-amber">(across the waste)</span>' : b.local ? ` <span class="text-dim">(in town — ${b.where})</span>` : ''} · <span class="item-grant">${b.pay}₵</span>`).join('\n')
+    ? p.board.map(b => `  <b>${b.i + 1}.</b> ${b.name}: <b>${b.kg} kg</b> to <b>${b.toName}</b>${b.crosses ? ' <span class="text-amber">(across the waste)</span>' : b.local ? ` <span class="text-dim">(in town, ${b.where})</span>` : ''} · <span class="item-grant">${b.pay}₵</span>`).join('\n')
     : '  <span class="text-dim">Nothing on the board today.</span>';
   const hold = p.cargo
     ? (p.cargo.kind === 'goods'
@@ -1869,7 +2025,7 @@ async function marketBuy(player, rig, here, region, good, qtyArg) {
   // the same building, and refused for the same wrong question. See `loadDeck`.
   const deck = await loadDeck(player);
   if (deck.err) return deck.err;
-  if (!deck.trailer) return say(`Nowhere to put it — you're bobtail. <b>${teachVerb('hitch', 'hitch')}</b> a trailer first.`);
+  if (!deck.trailer) return say(`Nowhere to put it: you're bobtail. <b>${teachVerb('hitch', 'hitch')}</b> a trailer first.`);
   if (deck.cargo) return say(`The deck is full: ${deck.cargo.name}.`);
   // Match on the key or on a word of the display name, but never on an EMPTY argument — a bare
   // `market buy` must ask what, not silently pick whichever commodity happens to sort first.
@@ -1906,14 +2062,14 @@ async function marketBuy(player, rig, here, region, good, qtyArg) {
   await setDeckCargo(player, deck, { kind: 'goods', key, name: c.name, qty, kg: qty * c.kg, unitPaid: unit }, 'market');
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
-  return say(`<span class="item-grant">Loaded ${qty} × ${c.name} at ${unit}₵ — <b>${cost}₵</b> gone. ${qty * c.kg} kg on the deck.</span>`);
+  return say(`<span class="item-grant">Loaded ${qty} × ${c.name} at ${unit}₵: <b>${cost}₵</b> gone. ${qty * c.kg} kg on the deck.</span>`);
 }
 
 async function marketSell(player, rig, here, region) {
   const deck = await loadDeck(player);
   if (deck.err) return deck.err;
   if (!deck.cargo) return say('Nothing on the deck.');
-  if (deck.cargo.kind !== 'goods') return say(`That load is contracted to ${deck.cargo.toName} — it isn't yours to sell.`);
+  if (deck.cargo.kind !== 'goods') return say(`That load is contracted to ${deck.cargo.toName}: it isn't yours to sell.`);
   const day = marketDay();
   const unit = bidPrice(deck.cargo.key, region, day);
   const take = deck.cargo.qty * unit;
@@ -1928,7 +2084,7 @@ async function marketSell(player, rig, here, region) {
     ? `<span class="item-grant">Cleared <b>${profit}₵</b> on the run.</span>`
     : profit === 0 ? '<span class="text-dim">You broke exactly even. All that road for nothing.</span>'
     : `<span class="text-amber">You are <b>${-profit}₵</b> down. Somebody got there first, or you did.</span>`;
-  return say(`Sold ${sold.qty} × ${sold.name} at ${unit}₵ — ${take}₵ in. ${verdict}`);
+  return say(`Sold ${sold.qty} × ${sold.name} at ${unit}₵: ${take}₵ in. ${verdict}`);
 }
 
 // Remembered boards, one player_flag. Written only when you READ a market (rare, deliberate), never
@@ -2063,7 +2219,7 @@ async function pumpFuel(player, want, { typed }) {
   const pct = Math.round(rig.fuel * 100);
   return say(rig.fuel >= 0.995
     ? `<span class="item-grant">Tanks filled. ${cost}₵.</span>`
-    : `<span class="item-grant">The handle clicks off. ${cost}₵ — she is at ${pct}%.</span>`);
+    : `<span class="item-grant">The handle clicks off. ${cost}₵: she is at ${pct}%.</span>`);
 }
 
 // ── park ─────────────────────────────────────────────────────────────────────
@@ -2186,7 +2342,7 @@ async function parkRig(player, forced) {
         WHERE id = $2`, [home, rig.truckId]).catch(() => {});
     sendToPlayer(player.id, { type: 'emote', message:
       `<span class="text-amber">You set the brakes, kill the lights and drop down onto the hardpan. The engine ticks as it cools.</span>\n`
-      + `<span class="text-dim">She will be here when you get back. <b>drive</b> to climb up again — but if you walk out of the waste without her, somebody will have to come and fetch her.</span>` });
+      + `<span class="text-dim">She will be here when you get back. <b>drive</b> to climb up again, but if you walk out of the waste without her, somebody will have to come and fetch her.</span>` });
   }
   // AND YOU LOCK IT. The last thing in the sequence, and the state that says this truck was LEFT
   // rather than merely stopped — persisted in the same flush below, so it is still locked tomorrow.
@@ -2309,7 +2465,7 @@ async function cmdTruckSync(args, raw, player) {
     sendToPlayer(player.id, {
       type: 'emote',
       message: `<span class="text-amber">The wheels find the other road and stay on it. You're on the ${r.tookFork.name} limb now.</span>`
-        + ` <span class="text-dim">Steer back across if that wasn't what you meant — or ${teachVerb('route', 'route')} to see what each one costs you.</span>`,
+        + ` <span class="text-dim">Steer back across if that wasn't what you meant, or ${teachVerb('route', 'route')} to see what each one costs you.</span>`,
     });
   }
 
@@ -2346,10 +2502,12 @@ async function cmdTruckSync(args, raw, player) {
       // THE SCALE. A weighbridge is a tile you drive onto, so it hangs off the drive rather than off
       // the move gate — a driver never walks. Shared with the text rung; see scale.js afterDrive.
       await afterDrive(player, rig, zone);
-      if (zone) sendToPlayer(player.id, { type: 'zone_event', message: `<span class="text-dim">— ${zone.name} —</span>` });
+      if (zone) sendToPlayer(player.id, { type: 'zone_event', message: `<span class="text-dim">(${zone.name})</span>` });
       // Rolled into a depot with a load that belongs there? That's a delivery.
       if (rig.cargo && r.zone === rig.cargo.to) return await deliver(player, rig);
     }
+    // The shed's overlay comes up when you stop in it and goes when you roll out of it.
+    baySvcTick(player, rig);
     pushCab(rig);
     return { type: 'noop' };
   }
@@ -2364,7 +2522,7 @@ async function cmdTruckSync(args, raw, player) {
     rig.bogged = true;
     unbog(rig);
     pushCab(rig, { bogged: true });
-    sendToPlayer(player.id, { type: 'emote', message: '<span class="text-amber">The wheels go soft, then bite nothing at all. You\'re off the road and into the deep stuff — it takes a long, ugly while to get her back onto the gravel, and the tank is lighter for it.</span>' });
+    sendToPlayer(player.id, { type: 'emote', message: '<span class="text-amber">The wheels go soft, then bite nothing at all. You\'re off the road and into the deep stuff: it takes a long, ugly while to get her back onto the gravel, and the tank is lighter for it.</span>' });
     return { type: 'noop' };
   }
   // Arrival is checked on EVERY frame, not only when the node index changes. The last room is the
@@ -2421,7 +2579,7 @@ async function cmdTruckSync(args, raw, player) {
           type: 'emote',
           message: '<span class="text-amber">A junction, of sorts: the graded road splits around a stand of dead pylons and both halves go on being road.</span>'
             + ` <span class="text-dim">You're on the ${(info.dests.find(d => d.key === rig.destKey)?.heading) || 'far'} side of it. `
-            + `${others.map(d => `<b>${d.heading}</b>`).join(', ')} the other way — ${teachVerb('route', 'route')} while you're still on it.</span>`,
+            + `${others.map(d => `<b>${d.heading}</b>`).join(', ')} the other way: ${teachVerb('route', 'route')} while you're still on it.</span>`,
         });
       }
     }
@@ -2431,7 +2589,7 @@ async function cmdTruckSync(args, raw, player) {
     // system's record doesn't reach the log, that rung isn't done for it.
     sendToPlayer(player.id, {
       type: 'zone_event',
-      message: `<span class="text-dim">— ${zone.name} —</span>`,
+      message: `<span class="text-dim">(${zone.name})</span>`,
       minimap: getMinimapData(zone.id, 8, player),
     });
     pushCab(rig);
@@ -2470,7 +2628,7 @@ async function cmdCb(args, raw, player) {
   // not a squelch click. Gated at the verb rather than in each of the five
   // handlers below, because every one of them would otherwise report an audience
   // it cannot reach ("2 other sets are up here", off a radio that is dead).
-  if (truckElecDead(rig)) return say('You reach for the set. Dark face, dead mic, no hiss — it took the pulse with the rest of the dash.');
+  if (truckElecDead(rig)) return say('You reach for the set. Dark face, dead mic, no hiss: it took the pulse with the rest of the dash.');
   const rest = String(raw || '').replace(/^\S+\s*/, '').trim();
   if (!rest) return cbStatus(player, rig);
 
@@ -2550,6 +2708,9 @@ async function cmdHorn(args, raw, player) {
   const rig = rigOf(player);
   let typeId = rig?.typeId || null;
   let name = null;
+  // Which horn is on the roof (client/shared/truck-horns.js) — rides the packet so the yard hears
+  // the three-chime you paid for rather than the factory trumpet.
+  let horn = rig ? hornOf(rig.cd) : null;
   if (!typeId) {
     const zone = getZone(player.current_zone);
     const depot = depotAt(zone);
@@ -2560,6 +2721,7 @@ async function cmdHorn(args, raw, player) {
     const truck = (await trucksAt(player.id, depotZonesOf(zone, depot)))[0];
     if (!truck) return say('You have nothing parked here to lean into.');
     typeId = truck.type_id; name = truck.name || truck.type?.name;
+    horn = hornOf(truck.custom_data);
   }
   // Everyone else in the room, including the sound. Excluding the player is deliberate: their own
   // copy rides back on the emote below, so nobody hears it twice.
@@ -2571,7 +2733,7 @@ async function cmdHorn(args, raw, player) {
   // the sentence that mattered. So the packet is unthrottled and the PROSE is on a per-player 60s
   // gate, kept in RAM on the live rig (or on the player, for somebody honking a parked truck):
   // nothing about a noise deserves a DB write.
-  sendToZone(player.current_zone, { type: 'truck_horn', typeId, secs }, player.id);
+  sendToZone(player.current_zone, { type: 'truck_horn', typeId, secs, horn }, player.id);
   const holder = rig || player;
   const now = Date.now();
   const sayIt = !holder._hornSaidAt || now - holder._hornSaidAt > HORN_SAY_MS;
@@ -2584,7 +2746,7 @@ async function cmdHorn(args, raw, player) {
   // the moment the cord moved (see hornDown), and a second copy arriving on the way back is the
   // same blast twice, a few hundred milliseconds apart. An argument-less `horn` — anybody who typed
   // it, any other caller — still gets its sound from here, because nothing local played one.
-  if (secs == null) sendToPlayer(player.id, { type: 'truck_horn', typeId });
+  if (secs == null) sendToPlayer(player.id, { type: 'truck_horn', typeId, horn });
   // ⚠ AND THE DRIVER'S OWN LINE IS ON THE SAME GATE, which is the half that actually matters: the
   // room sees one line an hour from somebody else's truck, and the driver sees one per pull of
   // their own. Their SOUND already played locally before this ever reached the server (see hornDown
@@ -2607,7 +2769,7 @@ async function cmdFix(args, raw, player) {
   if (!rig.broken) {
     return say(rig.dry
       ? "There's nothing wrong with it that a tank of diesel wouldn't solve."
-      : 'Nothing on it\'s broken. Wear is a bench job — see <span class="text-dim">rig repair</span>.');
+      : 'Nothing on it\'s broken. Wear is a bench job: see <span class="text-dim">rig repair</span>.');
   }
   const b = BREAKDOWNS[rig.broken.kind] || BREAKDOWNS.hose;
 
@@ -2616,7 +2778,7 @@ async function cmdFix(args, raw, player) {
   // that does not offer another attempt — it offers the tow instead, which is the point.
   if (isTerminal(rig.condition)) {
     return say('<span class="text-amber">You get the panel up and stand looking at it for a while.</span>\n'
-      + '<span class="text-dim">There\'s nothing here to fix. It isn\'t one thing that has gone — it\'s everything, all at '
+      + '<span class="text-dim">There\'s nothing here to fix. It isn\'t one thing that has gone: it\'s everything, all at '
       + `once, the way it always is in the end. You aren't driving this out. <b>${teachVerb('tow', 'tow')}</b> is the number to call.</span>`);
   }
 
@@ -2652,7 +2814,7 @@ async function cmdFix(args, raw, player) {
   await awardSkillUse(player.id, 'fabrication', 2);
   pushCab(rig, { fixed: true });
   return say(`<span class="item-grant">${b.fixed}</span>\n`
-    + `<span class="text-dim">It'll hold for a while. It isn't repaired — that's a bench and a bill, and the bar on it hasn't moved.</span>`);
+    + `<span class="text-dim">It'll hold for a while. It isn't repaired: that's a bench and a bill, and the bar on it hasn't moved.</span>`);
 }
 
 // ── parts, spares and `rig strip` → bench.js ─────────────────────────────────
@@ -2720,7 +2882,7 @@ async function cmdTow(args, raw, player) {
 
   // The load is dropped with the truck, not carried by a man in a cab — a recovery driver is not
   // going to hand-ball somebody else's freight into the back of their pickup.
-  const lostLoad = rig.cargo ? " The load goes back to the yard on the same ramps, and the contract on it's dead." : '';
+  const lostLoad = rig.cargo ? " The load goes back to the yard on the same ramps, and the contract on it is dead." : '';
   rig.cargo = null;
 
   // Down off the road, on `park`'s own machinery — the truck's home is written above, so the rig's
@@ -2756,7 +2918,7 @@ async function cmdTow(args, raw, player) {
       + `You ride back in the passenger seat with your boots on the dash, and nobody says anything the whole way.${lostLoad} `
       + `The ${truck.type.name} is at ${depotNameOf(homeId)}, and it's going to need a bench.</span> <span class="item-loss">-${fee}₵</span>`
     : `<span class="text-amber">You make the call. The recovery driver looks at your account, then at the truck, then at you.</span>\n`
-      + `<span class="text-dim">They take it anyway — that's the part people forget about recovery firms — and they keep it. `
+      + `<span class="text-dim">They take it anyway: that's the part people forget about recovery firms, and they keep it. `
       + `${fee}₵ is what it costs to see it again, and it's sitting behind their fence at ${depotNameOf(homeId)} until you have it.${lostLoad} `
       + `They drop you at the gate. It's a long way to anywhere from there.</span>`);
 }
@@ -2865,7 +3027,7 @@ async function cmdTruckEvent(args, raw, player) {
       message: `<span class="text-amber">You put ${mph} mph of loaded truck into a building. The world goes sideways, the load shifts with a bang like a dropped piano, and the rig comes back off it hard.</span>`
         + spoiled
         + (inTown && mph >= RECKLESS_MPH
-          ? `\n<span class="text-dim">People are coming out to look at it. Nobody has a slate out — they have seen worse done to that wall.</span>`
+          ? `\n<span class="text-dim">People are coming out to look at it. Nobody has a slate out: they have seen worse done to that wall.</span>`
           : ''),
     };
   }
@@ -2918,7 +3080,7 @@ async function leaveTheMap(player, rig, broadcast) {
   sendToPlayer(player.id, {
     type: 'emote',
     message: '<span class="text-amber">The last streetlight goes by and the hardtop gives way to something graded rather than built. The map ends. The road, for whatever it\'s worth out here, does not.</span>'
-      + (aimed ? `\n<span class="text-dim">Running for ${aimed.heading}.${(info.dests?.length || 0) > 1 ? ` The fork is ${info.trunk} rooms out — ${teachVerb('route', 'route')} until you take it.` : ''}</span>` : ''),
+      + (aimed ? `\n<span class="text-dim">Running for ${aimed.heading}.${(info.dests?.length || 0) > 1 ? ` The fork is ${info.trunk} rooms out: ${teachVerb('route', 'route')} until you take it.` : ''}</span>` : ''),
   });
   return { type: 'noop' };
 }
@@ -2960,14 +3122,14 @@ async function cmdRoute(args, raw, player) {
     const lines = opts.dests.map((d) => {
       const mark = d.current ? '<span class="text-green">▸</span>' : ' ';
       const reach = d.reach === 'ok' ? ''
-        : d.reach === 'thin' ? ' <span class="text-amber">— further than your tank, one way</span>'
-        : ' <span class="text-red">— well past your range</span>';
-      return `${mark} <b>${d.heading}</b> <span class="text-dim">(${d.key}) — ${d.miles} miles${reach}</span>`;
+        : d.reach === 'thin' ? ' <span class="text-amber">· further than your tank, one way</span>'
+        : ' <span class="text-red">· well past your range</span>';
+      return `${mark} <b>${d.heading}</b> <span class="text-dim">(${d.key})${d.num ? `, Route ${d.num}` : ''}, ${d.miles} miles${reach}</span>`;
     });
     const how = onRoad
       ? (opts.forkAhead ? `<span class="text-dim">The fork is still ahead. <b>route &lt;name&gt;</b> to take the other one.</span>`
         : `<span class="text-dim">The fork is behind you. This is the road you're on now.</span>`)
-      : `<span class="text-dim"><b>route &lt;name&gt;</b> to set it before you leave the map. A contracted load overrides it — the run goes where the paperwork says.</span>`;
+      : `<span class="text-dim"><b>route &lt;name&gt;</b> to set it before you leave the map. A contracted load overrides it: the run goes where the paperwork says.</span>`;
     return say(`<span class="text-green">Out of ${opts.origin || 'here'}, the road forks toward:</span>\n${lines.join('\n')}\n${how}`);
   }
 
@@ -2979,7 +3141,7 @@ async function cmdRoute(args, raw, player) {
   }
   if (pick.key === rig.destKey) return say(`You're already on the ${pick.heading} road.`);
   if (!atOrBeforeFork(rig)) {
-    return say(`<span class="text-amber">The fork is a long way behind you. There's no cutting across out here — the only way onto the ${pick.heading} road is back the way you came.</span>`);
+    return say(`<span class="text-amber">The fork is a long way behind you. There's no cutting across out here: the only way onto the ${pick.heading} road is back the way you came.</span>`);
   }
   const chain = crossingChain(rig.instanceId, pick.key);
   if (!chain.length) return say("That limb isn't there. Something has gone wrong with the crossing.");
@@ -3053,7 +3215,7 @@ async function arrive(player, rig) {
   pushCab(rig, { arrived: true });
   sendToPlayer(player.id, {
     type: 'emote',
-    message: `<span class="text-green">The haze thins, and there it is — low buildings, a water tower, lights that somebody pays for. The wheels find hardtop again.</span>${rig.cargo ? `\n<span class="text-dim">${rig.cargo.name} still on the deck, bound for ${rig.cargo.toName}.</span>` : ''}`,
+    message: `<span class="text-green">The haze thins, and there it is: low buildings, a water tower, lights that somebody pays for. The wheels find hardtop again.</span>${rig.cargo ? `\n<span class="text-dim">${rig.cargo.name} still on the deck, bound for ${rig.cargo.toName}.</span>` : ''}`,
   });
   if (rig.cargo && dest.id === rig.cargo.to) await deliver(player, rig);
 
@@ -3092,7 +3254,7 @@ async function describeDepot(zone, player) {
   // navigation rather than a guess.
   const dock = dockAt(zone);
   if (dock) {
-    return `<span class="ambient">A loading bay is cut into the frontage here — a lipped concrete apron at trailer height, `
+    return `<span class="ambient">A loading bay is cut into the frontage here: a lipped concrete apron at trailer height, `
       + `with ${dock.name} stencilled on the roller door and a bell push nobody has ever answered quickly.</span>`;
   }
 
@@ -3104,7 +3266,7 @@ async function describeDepot(zone, player) {
     // …AND WHAT IS STANDING ON IT. The apron is where stock is stood and where a driver drops a box,
     // so this is now the tile the "On their legs" line matters most on — without it the hardstand
     // described itself as empty concrete while a trailer sat on it.
-    return `<span class="ambient">The hardstand outside ${bay.depot.name || bay.zone.name} — swept concrete, `
+    return `<span class="ambient">The hardstand outside ${bay.depot.name || bay.zone.name}: swept concrete, `
       + `scored with the arcs of everything that has ever backed onto it, and wide enough to turn something with a `
       + `box behind it. The office and the bays are through the roller door; the road is the road.</span>`
       + await standingLine(zone.id);
@@ -3176,7 +3338,7 @@ async function standingLine(zoneId) {
 // a gate that blocks without naming its own escape hatch is just a bug with prose.
 registerMoveGate(({ player }) => {
   if (!player || !rigs.has(player.id)) return undefined;
-  return { block: true, message: "You're behind the wheel — you'd have to <b>park</b> and climb down first." };
+  return { block: true, message: "You're behind the wheel: you'd have to <b>park</b> and climb down first." };
 }, 'trucking');
 
 // WALK IN AND THE YARD OPENS. Exactly what flight does for a hangar interior (plugins/flight
@@ -3247,7 +3409,7 @@ on('vehicle.diveSiren', ({ gx, gy, reach, name }) => {
   for (const rig of rigs.values()) {
     if (rig.leg !== 'city') continue;
     if (Math.max(Math.abs(rig.x - gx), Math.abs(rig.y - gy)) > (reach || 6)) continue;
-    sendToPlayer(rig.playerId, { type: 'emote', message: `<span class="text-amber">⚠ A siren winds up somewhere above the cab — a ${name || 'dive bomber'}, coming down.</span>` });
+    sendToPlayer(rig.playerId, { type: 'emote', message: `<span class="text-amber">⚠ A siren winds up somewhere above the cab: a ${name || 'dive bomber'}, coming down.</span>` });
   }
 });
 
@@ -3281,7 +3443,7 @@ async function cmdHitch(args, raw, player) {
   const rig = rigOf(player);
   if (!rig) return say('You would need to be in a truck. <b>drive</b>.');
   if (rig.trailer) return say(`Already hitched: ${rig.trailer.name}.`);
-  if (Math.abs(rig.speed) > HITCH_MPH) return say("Not at this speed. Stop first — the pin won't find the plate with the truck rolling.");
+  if (Math.abs(rig.speed) > HITCH_MPH) return say("Not at this speed. Stop first: the pin won't find the plate with the truck rolling.");
   // ⚠ A DEPOT IS THREE ZONES AND A TRAILER ONLY EVER SITS IN ONE OF THEM. This read the single tile
   // under your wheels, and that made a bought trailer unreachable on every real depot in the game:
   // `yard buy` parks it in the BAY (with the trucks, under the roof — see yardBuyTrailer), while a
@@ -3300,7 +3462,7 @@ async function cmdHitch(args, raw, player) {
   // of boxes the verb is allowed to look at.
   const here = getZone(player.current_zone);
   const standing = (await Promise.all(hitchZones(here?.id).map(z => trailersAt(z)))).flat();
-  if (!standing.length) return say('Nothing standing here to back under. Trailers are bought and left at yards — see the <b>yard</b>.');
+  if (!standing.length) return say('Nothing standing here to back under. Trailers are bought and left at yards: see the <b>yard</b>.');
 
   // ⚠ A BARE `hitch` TAKES THE NEAREST ONE IN REACH, NOT THE OLDEST ROW. A yard holds as many of
   // your own boxes as you have paid for, standing a few feet apart, and picking the first row meant
@@ -3333,8 +3495,8 @@ async function cmdHitch(args, raw, player) {
     if (reach.why === 'angle') return say(`You're across it, not under it. Straighten up on ${want.name} and try again.`);
     // The flank. A separate answer from 'far' because the driver is not far away at all — they are
     // beside the box, which looks close and is the one place the pin can never be.
-    if (reach.why === 'across') return say(`You're alongside ${want.name}, not on its pin. The fifth wheel has to come up its centreline — pull round and back onto the nose.`);
-    return say("Not at this speed. Stop first — the pin won't find the plate with the truck rolling.");
+    if (reach.why === 'across') return say(`You're alongside ${want.name}, not on its pin. The fifth wheel has to come up its centreline: pull round and back onto the nose.`);
+    return say("Not at this speed. Stop first: the pin won't find the plate with the truck rolling.");
   }
 
   // ⚠ THE GUARD IS THE TRAILER'S OWN ZONE, NOT THE ONE UNDER YOUR WHEELS. `hitchTrailer` writes
@@ -3361,7 +3523,7 @@ async function cmdUnhitch(args, raw, player) {
   // a transient void room is not — it goes when the crossing ends, and a trailer in one would be a
   // row pointing at nothing. On the corridor that is a no, and it says why.
   if (!canDrop(here)) {
-    return say("Not out here. There's nothing to leave it standing ON — the waste closes behind you, and a trailer you drop in it's a trailer you have thrown away. Get it to a yard, or to a street.");
+    return say("Not out here. There's nothing to leave it standing ON: the waste closes behind you, and a trailer you drop in it is a trailer you have thrown away. Get it to a yard, or to a street.");
   }
   const t = rig.trailer, hadLoad = !!rig.cargo;
   // The load STAYS ON IT — that is the point of a trailer being a thing rather than a state.
@@ -3457,8 +3619,8 @@ async function cmdPickup(args, raw, player) {
   if (who.id === 'fugitive' && !['sleeper', 'trailer', 'cab'].includes(where)) {
     return say(`${cap(who.look)}.\n\n${who.line}\n\n`
       + `<span class="text-dim">They mean the wall behind you, and they mean the box. `
-      + `<b>pickup sleeper</b> — fast, and anyone who looks in the cab finds them. `
-      + `<b>pickup trailer</b> — nobody looks, and they weigh what a person weighs.</span>`);
+      + `<b>pickup sleeper</b>: fast, and anyone who looks in the cab finds them. `
+      + `<b>pickup trailer</b>: nobody looks, and they weigh what a person weighs.</span>`);
   }
   const inTrailer = where === 'trailer';
   if (inTrailer && !rig.trailer) return say("There's no box back there to put anybody in.");
@@ -3572,7 +3734,7 @@ async function setLatch(player, rig, want) {
   pushCab(rig, { latch: want });
   return say(want
     ? '<span class="text-dim">You reach across and put both latches down. Whatever is out there stays out there.</span>'
-    : '<span class="text-dim">The latches come up. The doors will open from outside now — either side.</span>');
+    : '<span class="text-dim">The latches come up. The doors will open from outside now, either side.</span>');
 }
 
 // ── the galley ───────────────────────────────────────────────────────────────
@@ -3815,7 +3977,7 @@ export const hooks = {
   // the retail unit is one percent of a tank — `FUEL_FULL / 100`, which is what a driver taking
   // half a tank is charged fifty of. One constant, two presentations, no second copy to retune.
   'fuel.prices': (zone) => pumpAt({ leg: 'city', zoneId: zone?.id })
-    ? { grade: 'DIESEL', unit: 'tank', price: FUEL_FULL, each: FUEL_FULL / 100, note: 'a full tank, any rig — the pylon prices it by the percent' }
+    ? { grade: 'DIESEL', unit: 'tank', price: FUEL_FULL, each: FUEL_FULL / 100, note: 'a full tank, any rig, the pylon prices it by the percent' }
     : null,
   // Flight asks 'who else is out there'; trucking answers with its moving rigs. A gather hook so
   // the dependency stays one-way — flight has never heard of trucking and does not need to.

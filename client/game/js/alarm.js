@@ -33,7 +33,7 @@ const CHIRP_LINES = [
    'Chirp. Chirp. Closer together than they were.',
    'The panel is chirping faster. It has made up its mind about something.'],
   ['<span class="text-red">The chirps are almost running together now.</span>',
-   '<span class="text-red">Chirp-chirp-chirp — no gap left in it at all.</span>',
+   '<span class="text-red">Chirp-chirp-chirp. No gap left in it at all.</span>',
    '<span class="text-red">The panel has stopped pausing between chirps. Whatever that means, it means it soon.</span>'],
 ];
 
@@ -74,7 +74,7 @@ export function handleAlarmChirp({ urgency = 0, muffled = false }) {
 export function applyAlarmState({ active }) {
   document.body.classList.toggle('shop-alarm', !!active);
   if (active && soundOff()) {
-    appendMsg('The box on the wall opens up — a two-tone howl, rising and falling, and every light in here goes red.', 'ambient');
+    appendMsg('The box on the wall opens up: a two-tone howl, rising and falling, and every light in here goes red.', 'ambient');
   }
 }
 

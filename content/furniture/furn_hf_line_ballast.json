@@ -6,9 +6,7 @@
       "bed",
       "stone"
     ],
-    "interactions": {
-      "examine": "It is graded to a fall and the shoulders are dressed. Somebody laid this expecting sleepers on it within the month."
-    }
+    "examine_detail": "It is graded to a fall and the shoulders are dressed. Somebody laid this expecting sleepers on it within the month."
   },
   "id": "furn_hf_line_ballast",
   "name": "the ballast bed",

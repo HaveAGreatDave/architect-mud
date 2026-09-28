@@ -22,7 +22,7 @@
 // sixty metres, and that is the term the mesh displaces and the term a boat rides.
 import {
   SEA_SWELL_SIDE, SEA_WIND_SIDE, SEA_SWELL_PEAK, SEA_WIND_PEAK, SEA_SKEW, SEA_ASYM,
-  SEA_FOAM_ALONG, SEA_FOAM_FREQ } from '../../../../shared/sea-swell.js';
+  SEA_FOAM_ALONG, SEA_FOAM_FREQ, SEA_TILE_M, SURF_GAMMA, SURF_REF_M, SURF_KS_MAX } from '../../../../shared/sea-swell.js';
 
 // ⚠ THE SIDEBANDS ARE GENERATED FROM THE JS TABLE RATHER THAN RETYPED, and that is a change of kind
 // rather than of style: the peak trains above are a hand-written twin held to the original by a
@@ -149,6 +149,97 @@ vec2 seaShoal(vec2 p, float waterW, vec2 gradW, float amt) {
   vec2 n = gradW / L;                 // waterW rises seaward, so this points away from the land
   vec2 t = vec2(-n.y, n.x);           // along the shore
   return p + t * (amt * shal * shal);
+}
+// ── THE SEA'S FRAME: IT RUNS DOWNWIND ────────────────────────────────────────────────────────────
+//
+// The GLSL half of setSeaHeading in client/shared/sea-swell.js. 'r' is (cos, sin) of the heading,
+// handed over as uSeaRot; the sample goes INTO the frame and the slope comes back OUT of it, so the
+// lighting and the mesh describe one rotated sea. (1, 0) is the identity, bit for bit.
+vec2 seaFrame(vec2 p, vec2 r) { return vec2(r.x * p.x + r.y * p.y, -r.y * p.x + r.x * p.y); }
+vec2 seaUnframe(vec2 g, vec2 r) { return vec2(r.x * g.x - r.y * g.y, r.y * g.x + r.x * g.y); }
+
+// ── REFRACTION OVER THE SHELF: CRESTS SWING ROUND TO THE BEACH ────────────────────────────────
+//
+// seaShoal above turns crests inside the one-tile waterness band, measured at about 5 degrees and
+// invisible. This is the same domain warp driven by the SEABED DEPTH, so it acts across the whole
+// shelf (out to REF_D metres, several tiles) rather than the last tile of it.
+//
+// ⚠ THE DISPLACEMENT IS THE SWELL'S OWN ALONG-SHORE COMPONENT, NEGATED: p' = p - G(h) * (k - (k.n)n)
+// with k the swell's unit wavevector and n the seaward depth gradient. The phase k.p' then gains
+// k * s^2 * |grad G| along n, where s is the along-shore share of k, which is squared — so it
+// always turns the crest SHOREWARD whichever way along the coast the swell is running, a wave
+// already square on (s = 0) is untouched, and there is no sign to get wrong.
+// ⚠ G GROWS TOWARD THE BEACH AND IS ZERO PAST REF_D, so open water is untouched. It stays a warp of
+// the plane onto itself (a fold is a row of cusps along the coast, the coastWarp bug) while
+// s^2 |grad G| < 1; sea.mjs sweeps that on a round island.
+float seaRefractG(float hM, float amt) {
+  float x = clamp(1.0 - hM / 12.0, 0.0, 1.0);
+  return amt * 1.5 * x * x;
+}
+vec2 seaRefract(vec2 p, float hM, vec2 gradH, vec2 kdir, float amt) {
+  if (amt <= 0.0 || hM >= 12.0) return p;
+  float L = length(gradH);
+  if (L < 1e-4) return p;
+  vec2 n = gradH / L;                       // depth grows seaward, so this points out to sea
+  vec2 along = kdir - dot(kdir, n) * n;     // the swell's along-shore share
+  return p - along * seaRefractG(hM, amt);
+}
+
+// ── THE SURF ZONE: WAVES GROW, LEAN AND BREAK AS THE WATER RUNS OUT ────────────────────────────
+//
+// 'deep' is 0 at the waterline and 1 in open water. The sea as it shipped tapered the swell as
+// deep^2, so a wave simply faded away toward the beach, which is the one thing surf never does.
+// Real waves SHOAL: as they slow in shallow water the energy piles up and the height grows (Green's
+// law, H ~ depth^-1/4) until the wave is too tall for the water under it and breaks, and from there
+// to the beach it is spent foam. So the gain rises above 1 into the shallows, peaks where the waves
+// break, and falls to exactly 0 at the waterline, which the floor's surf band and bank lip still
+// place against.
+//
+// ⚠ THE DEPTH IS THE SEABED'S, in METRES, handed over as a texture off client/shared/seabed.js —
+// the model the submersible dives on. So the water a wave breaks in and the water a sub sits in are
+// one ocean, and a sandbar or a trench in the seabed shows in the surf with nothing authored. An
+// earlier cut keyed this on 'deep', the waterness ramp across the shore seam: that is about one tile
+// wide, so the surf zone was a quarter of a tile across and could not be seen from any seat.
+//
+// 'H0' is the deep-water wave height in metres, crest to trough, of the swell being displaced.
+// The constants and the JS twin (surfGain / surfBreaking) are in client/shared/sea-swell.js, and
+// every number here is interpolated from there.
+//
+// ⚠ amt 0 IS deep^2 EXACTLY, so the flag's 0 is the sea that shipped. And the result is still
+// taken to 0 on 'deep' at the waterline, which the floor's surf band and bank lip place against —
+// a wall of sea standing on the sand is the thing that taper was always there to stop.
+float seaSurfKs(float hM) {
+  return clamp(pow(${f(SURF_REF_M)} / max(hM, 0.25), 0.25), 1.0, ${f(SURF_KS_MAX)});
+}
+float seaShoalGain(float deep, float hM, float H0, float amt) {
+  float ship = deep * deep;
+  if (amt <= 0.0) return ship;
+  float lim = ${f(SURF_GAMMA)} * max(hM, 0.0) / max(H0, 0.001);
+  float grow = min(seaSurfKs(hM), lim) * smoothstep(0.0, 0.5, deep);
+  return mix(ship, grow, clamp(amt, 0.0, 1.0));
+}
+// 1 where the shoaled wave has reached the depth limit and is breaking, 0 where it is not yet.
+float seaSurfZone(float hM, float H0) {
+  float r = seaSurfKs(hM) * H0 / max(${f(SURF_GAMMA)} * max(hM, 0.0), 0.001);
+  return smoothstep(0.85, 1.0, r);
+}
+// Deep-water wave height in metres from the two displaced trains' amplitudes in tiles.
+float seaH0(float rollA, float windA) {
+  return 2.0 * (rollA + windA) * ${f(SEA_TILE_M)};
+}
+// ⚠ A HEIGHT FIELD CANNOT OVERTURN, so a breaker is written as the one thing a height field CAN do:
+// pitch the crest forward. It is the asymmetry harmonic (sin 2th, the quadrature term the Stokes
+// lean already rides) added on the long swell inside the surf zone only, so the front face steepens
+// just before the foam takes it. The foam is what says "this one has gone over".
+float seaSurfLean(vec2 p, float t, float A) {
+  float th = p.x * 0.2090 + p.y * 0.1280 + t * 0.18;
+  return A * 0.45 * sin(2.0 * th);
+}
+// d/dp of the above. ⚠ One derivative for one height, or the light describes a wave the mesh is not.
+vec2 seaSurfLeanD(vec2 p, float t, float A) {
+  float th = p.x * 0.2090 + p.y * 0.1280 + t * 0.18;
+  float c = A * 0.90 * cos(2.0 * th);
+  return vec2(c * 0.2090, c * 0.1280);
 }
 float seaRoll(vec2 p, float t, float A, float sp) {
   float h = seaStokes(p.x * 0.2090 + p.y * 0.1280 + t * 0.18, 0.2451, A * (1.0 - ${f(1 - SEA_SWELL_PEAK)} * sp));

@@ -59,7 +59,7 @@ export async function buildTextIndex(player) {
     byCat.get(cat).push(app);
   }
 
-  let msg = '<span class="help-header">TABLET — WHAT YOU CAN TYPE</span>';
+  let msg = '<span class="help-header">TABLET: WHAT YOU CAN TYPE</span>';
   msg += '\n<span class="text-dim">Display Mode is set to log, so the tablet answers in text.'
        + ' `displaymode visual` brings the screen back.</span>';
 
@@ -76,7 +76,7 @@ export async function buildTextIndex(player) {
       const verbs = (app.verbs || []).filter(Boolean);
       const route = verbs.length
         ? verbs.join('  |  ')
-        : `<span class="text-dim">tabletnav ${app.id}  — screen only</span>`;
+        : `<span class="text-dim">tabletnav ${app.id}: screen only</span>`;
       msg += `\n  ${String(app.name).padEnd(16)}${route}`;
     }
   }

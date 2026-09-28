@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Bare table rock, scoured clean, cut across by shallow channels the rain has worn and then worn deeper. Nothing grows up here at all. There's a cairn on the high point that somebody built a long time ago and nobody has knocked over.",
+  "description": "The rock is red and the rings in it are white, shallow pans where the rain sat and burned. The wind drags grit across all of it.",
   "exits": {
     "east": "zone_scw_1016_957",
     "north": "zone_scw_1015_956",
@@ -8,18 +8,18 @@
     "west": "zone_scw_1014_957"
   },
   "flags": {
-    "ambient_pool": "scarletwastes_the_long_shelf",
+    "ambient_pool": "scarletwastes_hardpan",
     "lawless": true,
     "radiation": 9,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "plateau"
+    "terrain": "dirt_road"
   },
   "grid_x": 1015,
   "grid_y": 957,
   "grid_z": 0,
   "id": "zone_scw_1015_957",
   "map_id": "map_world",
-  "name": "The Long Shelf",
+  "name": "Cinder Bench",
   "parent_zone": null
 }

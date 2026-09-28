@@ -48,7 +48,7 @@ const PANICS = new Map(); // npcId -> { npcId, until, reason, threatName, said }
 const SHOUT = [
   n => `${n} screams for help.`,
   n => `${n} shouts, "Somebody call the cops! CALL THE COPS!"`,
-  n => `${n} yells, "He's KILLING him — somebody DO something!"`,
+  n => `${n} yells, "He's KILLING him! Somebody DO something!"`,
   n => `${n} backs away fast, hands up, babbling.`,
   n => `${n} shrieks and shoves past anyone in the way.`,
 ];

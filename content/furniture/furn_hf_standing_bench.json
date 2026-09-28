@@ -6,9 +6,12 @@
       "seat"
     ],
     "hack_difficulty": 3,
-    "interactions": {
+    "interaction_lines": {
       "sit": "You sit on the warm side, because everybody does, and outside the glass the rain does something you are no longer part of."
     },
+    "interactions": [
+      "sit"
+    ],
     "vendor_npc_id": "npc_hf_standing_pell",
     "vendor_safe": true
   },

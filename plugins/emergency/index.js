@@ -8,7 +8,7 @@ import { setEspShelter } from '../../server/engine/ai-behaviour.js';
 import { registerAction } from '../../server/engine/actions.js';
 
 const DEFAULT_MESSAGE =
-  '⚠ EMERGENCY SECURITY PROTOCOL ACTIVE — ALL CIVILIANS SHELTER IN PLACE IMMEDIATELY — ARMED RESPONSE UNITS ARE DEPLOYED — THIS IS NOT A DRILL — STAY INDOORS AND AWAIT FURTHER INSTRUCTIONS ⚠';
+  '⚠ EMERGENCY SECURITY PROTOCOL ACTIVE, ALL CIVILIANS SHELTER IN PLACE IMMEDIATELY, ARMED RESPONSE UNITS ARE DEPLOYED, THIS IS NOT A DRILL, STAY INDOORS AND AWAIT FURTHER INSTRUCTIONS ⚠';
 
 // ── ESP state ─────────────────────────────────────────────────────────────────
 
@@ -283,7 +283,7 @@ function deactivate() {
 function broadcastArrayShutdown(zoneId) {
   sendToZone(zoneId, {
     type: 'output',
-    message: `<span style="color:var(--text-dim);font-style:italic">The last bay seals with a pressure-equalizing thud and the Array's status lamp shifts from amber to green. Hydraulic armatures retract in sequence — each segment folding back into the chassis with a series of heavy mechanical clunks. Cooling fans spool down in a long descending whirr, and a tri-tone confirmation chime announces that the Arbiter Array has returned to standby.</span>`,
+    message: `<span style="color:var(--text-dim);font-style:italic">The last bay seals with a pressure-equalizing thud and the Array's status lamp shifts from amber to green. Hydraulic armatures retract in sequence: each segment folding back into the chassis with a series of heavy mechanical clunks. Cooling fans spool down in a long descending whirr, and a tri-tone confirmation chime announces that the Arbiter Array has returned to standby.</span>`,
   });
   // Trigger a look refresh so clients see the updated zone without a manual reload.
   setTimeout(() => sendToZone(zoneId, { type: 'zone_event', message: '', refresh: true }), 2000);
@@ -321,7 +321,7 @@ async function activateArbiters() {
   const { rows: arrayRows } = await query(
     `SELECT DISTINCT zone_id FROM furniture WHERE name ILIKE '%arbiter%'`
   );
-  if (!arrayRows.length) return { error: 'No Arbiter Array furniture found in DB — create furniture named "Arbiter Array" and assign it to a zone' };
+  if (!arrayRows.length) return { error: 'No Arbiter Array furniture found in DB: create furniture named "Arbiter Array" and assign it to a zone' };
 
   const { rows: templates } = await query(
     `SELECT * FROM enemies WHERE id = 'enemy_arbiterclass_enforcement_unit' LIMIT 1`

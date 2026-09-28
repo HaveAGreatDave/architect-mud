@@ -6,9 +6,7 @@
       "map",
       "wall"
     ],
-    "interactions": {
-      "examine": "The coloured plots are scattered rather than grouped, which is what it looks like when the sales are real and the buyers chose for themselves. Three of them are along the Curtain, where the view is a wall."
-    }
+    "examine_detail": "The coloured plots are scattered rather than grouped, which is what it looks like when the sales are real and the buyers chose for themselves. Three of them are along the Curtain, where the view is a wall."
   },
   "id": "furn_plot_plan",
   "name": "the plan of the quarter",

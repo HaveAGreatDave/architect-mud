@@ -79,14 +79,14 @@
     {
       "color": "#140a12",
       "cx": -0.22,
-      "cy": 0.44,
+      "cy": 0.37,
       "font": "script",
       "half": 0.13,
       "hh": 0.032,
       "ink": "#ff9ad8",
       "kind": "signBoard",
       "label": "SECOND SKIN",
-      "z": 0.092
+      "z": 0.175
     }
   ],
   "id": "secondskin",

@@ -108,7 +108,7 @@ function renderRecipes(recipes, player) {
     const head = r.craftable
       ? `<span class="action-link" data-action="cmd" data-cmd="craft ${r.name}">${r.name}</span>`
       : `${r.name} <span class="text-dim">(${r.reason})</span>`;
-    lines.push(`  ${head}${r.output?.quantity > 1 ? ` <span class="text-dim">— makes ${r.output.quantity}</span>` : ''}`);
+    lines.push(`  ${head}${r.output?.quantity > 1 ? ` <span class="text-dim">(makes ${r.output.quantity})</span>` : ''}`);
     const parts = (r.ingredients || []).map(ing =>
       ing.have >= ing.need ? `${ing.name} ${ing.need}` : `<span class="text-red">${ing.name} ${ing.have}/${ing.need}</span>`);
     if (parts.length) lines.push(`      <span class="text-dim">${parts.join(' · ')}</span>`);

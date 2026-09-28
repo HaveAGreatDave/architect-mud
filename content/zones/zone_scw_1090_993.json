@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Bare table rock, scoured clean, cut across by shallow channels the rain has worn and then worn deeper. Nothing grows up here at all. There's a cairn on the high point that somebody built a long time ago and nobody has knocked over.",
+  "description": "A table of clean rock, no soil and no plants, cut with rain channels. There's a cairn on top.",
   "exits": {
     "east": "zone_scw_1091_993",
     "north": "zone_scw_1090_992",

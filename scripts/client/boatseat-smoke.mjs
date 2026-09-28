@@ -226,18 +226,20 @@ ck('starts inactive', mp.isMarinaActive() === false);
 
 const yardData = (tab, over = {}) => ({
   tab, name: 'Fairweather Marina', credits: 20000,
-  // `dock` is the SERVER's answer to "is this room a berth", and the dock tab does not exist without
-  // it — see the note on TABS in marina-panel.js.
-  dock: true, hereName: 'The Dock Hall', sky: { hour: 13, night: 0, weather: 'clear' },
+  hereName: 'The Dock Hall', sky: { hour: 13, night: 0, weather: 'clear' },
   fleet: [{
     id: 'boat_1', typeId: 'hydro', name: 'Rooster', typeName: 'Vaskin Rooster',
     hull: 0.8, band: 'marked', fuel: 0.6, nitro: 0.5,
-    hereNow: true, aboard: false,
+    hereNow: true, aboard: false, inYard: true, kind: 'covered', rental: null,
     where: 'The Dock Hall, under cover', whereShort: 'The Dock Hall',
+    svc: { items: [{ id: 'oil', label: 'Engine oil', desc: 'x', life: 0.4, band: 'due', bandLabel: 'Getting dark', price: 265 }], full: 900, anyDue: true },
+    scheme: 'factory', decal: 'none', liveFuel: null, fillPrice: 120,
   }],
   berths: [{ name: 'The Dock Hall', kindWord: 'under cover', capacity: 2, taken: 1 }],
   dealer: true, stock: [{ id: 'hydro', name: 'Vaskin Rooster', price: 14500, blurb: 'A blown picklefork.' }],
-  refitCap: 1,
+  rentStock: [{ id: 'hydro', name: 'Vaskin Rooster', fee: 653, hours: 2, afford: true }], hasRental: false, craneFee: 1600,
+  schemes: [{ id: 'factory', label: 'As she came', livery: null }, { id: 'redline', label: 'Red line', livery: { base: '#b3261e', trim: '#f1ede4' } }],
+  decals: [{ id: 'none', label: 'Bare' }, { id: 'flames', label: 'Flames' }], paintPrice: 1800, decalPrice: 650,
   ...over,
 });
 
@@ -247,91 +249,58 @@ mp.openMarina({ ...yardData('fleet'), mount: yardMount, onSend: (c) => clicked.p
 ck('openMarina reports it active', mp.isMarinaActive() === true);
 ck('…and it wrote a root into the mount', /mar-root/.test(yardMount.innerHTML || ''));
 
-// ⚠ EVERY TAB HAS TO BUILD, because a body that throws leaves the panel half-drawn with no error
-// anywhere a player can see — and three of the four are only ever reached by a click.
-// ⚠ AND EACH IS CHECKED ON ITS CONTENT, NOT ON "IT DID NOT THROW". A `draw` that wrote an empty
-// body would pass a throw test perfectly, which is the whole class of failure this is here for.
-const TAB_PROOF = {
-  dock: 'mar-scene', fleet: 'Rooster', dealer: '14,500', berths: '1 of 2', bench: 'Refit her',
-};
+// ⚠ EVERY SCREEN HAS TO BUILD AND CARRY ITS CONTENT — a body that wrote nothing would pass a
+// throw test perfectly. The hand is the first screen: the cards, then Buy and Hire.
+const TAB_PROOF = { lot: 'data-card="boat_1"', dealer: '14,500', rent: 'boat rent hydro', berths: '1 of 2' };
 for (const [tab, proof] of Object.entries(TAB_PROOF)) {
   let threw = null;
   try { mp.marinaSetData(yardData(tab)); } catch (e) { threw = e.message; }
-  ck('the ' + tab + ' tab builds', !threw, threw);
+  ck('the ' + tab + ' screen builds', !threw, threw);
   ck('…and has its content on it', !threw && String(yardMount.innerHTML || '').includes(proof),
     'expected to find ' + JSON.stringify(proof));
 }
 
-// ── ⚠ BOARD AND THE HELM ARE GATED ON THE SERVER'S FACTS ───────────────────────────────────────
-//
-// Both buttons were unconditional, so a card for a hull under cover two rooms away offered a Board
-// button that `embark` correctly refuses for not being at the berth. That is the whole of the
-// report "the buttons in the boat depot have to allow you get in your boat": the verb was right and
-// the screen had never been told. Three states, and each one has exactly one live button.
+// ── ⚠ THE CARD IS THE WAY IN, AND IT IS GATED ON THE SERVER'S FACTS ───────────────────────────
+// Picking a hull seats you in her (`boat take`), so the card must only offer that for one the
+// server says is in this yard; a cradle is a crane job and asks first; elsewhere is faded.
 {
-  const acts = () => String(yardMount.innerHTML || '');
-  mp.marinaSetData(yardData('dock'));
-  ck('tied up here: Board is live', /data-cmd="embark"/.test(acts()));
-  ck('…and the helm is refused until you are in her',
-    /disabled[^>]*Get aboard her first|Get aboard her first[^<]*<\/button>/.test(acts()) || /disabled title="Get aboard her first"/.test(acts()));
-
-  mp.marinaSetData(yardData('dock', {
-    aboardId: 'boat_1',
-    fleet: [{ ...yardData('dock').fleet[0], aboard: true }],
-  }));
-  ck('aboard: the helm is live', /data-cmd="helm"/.test(acts()));
-  ck('…and Board has become the way out', /data-cmd="disembark"/.test(acts()));
-
-  mp.marinaSetData(yardData('dock', {
-    fleet: [{ ...yardData('dock').fleet[0], hereNow: false, whereShort: 'The Hardstanding' }],
-  }));
-  ck('she is elsewhere: Board is refused and says where she is',
-    !/data-cmd="embark"/.test(acts()) && /The Hardstanding/.test(acts()));
+  const html = () => String(yardMount.innerHTML || '');
+  mp.marinaSetData(yardData('lot'));
+  ck('in the yard: the card takes the helm', /data-cmd="boat take boat_1"/.test(html()));
+  ck('…and the hand ends with Buy and Hire', /data-tab="dealer"/.test(html()) && /data-tab="rent"/.test(html()));
+  ck('…and says whether she is owned or hired', /OWNED/.test(html()));
+  mp.marinaSetData(yardData('lot', { fleet: [{ ...yardData('lot').fleet[0], kind: 'hard' }] }));
+  ck('on a cradle: the card asks, and says what the crane costs', /data-confirm="boat take boat_1"/.test(html()) && /1,600/.test(html()));
+  mp.marinaSetData(yardData('lot', { fleet: [{ ...yardData('lot').fleet[0], inYard: false, where: 'adrift off Halcyon Quay' }] }));
+  ck('elsewhere: the card is not a way in, and says where she is',
+    !/data-cmd="boat take/.test(html()) && /Halcyon Quay/.test(html()));
+  mp.marinaSetData(yardData('lot', { fleet: [{ ...yardData('lot').fleet[0], rental: { left: 1, leftText: '1h 20m left' } }] }));
+  ck('a hire says so, and offers to go back', /HIRED/.test(html()) && /boat return boat_1/.test(html()));
 }
 
-// ⚠ AND THE DOCK TAB DOES NOT EXIST IN A ROOM WITH NO WATER IN IT — the lobby is the marina and is
-// not a berth, so the screen must not offer a picture of a dock you are not standing on.
-{
-  let threw = null;
-  try { mp.marinaSetData(yardData('fleet', { dock: false })); } catch (e) { threw = e.message; }
-  ck('a room that is not a berth has no dock tab', !threw && !/data-tab="dock"/.test(String(yardMount.innerHTML || '')), threw);
-}
-
-// ── ⚠ THE DEALER SHOWS YOU THE HULL, AND SAYS WHAT SHE LEAVES THE SHED WITH ────────────────────
-//
-// A wireframe is the one thing on this screen the text rung genuinely cannot carry, which is
-// exactly why it is the one thing here that is not a line of prose — and it is `drawWireframe3D`,
-// the schematic the aircraft lot and the rig lot already buy through, rather than a second
-// renderer. What can be asserted headlessly is that the card CARRIES one and that it is bound to
-// the type id, because a canvas with no class on it draws the Twin Otter fallback: `aircraftFaces`
-// builds anything it does not recognise as a fixed wing, silently, which is how the Mayfly once
-// shipped as a light twin.
+// ── THE DEALER SHOWS YOU THE HULL, AND SAYS WHAT SHE LEAVES THE SHED WITH ─────────────────────
+// A canvas with no class on it draws the Twin Otter fallback, which is how the Mayfly once shipped
+// as a light twin — so the schematic must be bound to the hull it is selling.
 {
   mp.marinaSetData(yardData('dealer'));
   const html = () => String(yardMount.innerHTML || '');
   ck('the dealer card carries a schematic', /class="mar-wf"/.test(html()));
   ck('…bound to the hull it is selling', /data-wf-cls="hydro"/.test(html()),
     'an unbound canvas renders the fixed-wing fallback, not a boat');
-  // She has always been sold brimmed — the insert writes `fuel, condition` as 1, 1 — and until
-  // fuel could be SPENT that was a detail nobody could act on. Now a tank is a running cost, so
-  // "the price includes a full one" is part of the price and belongs beside the number.
   ck('…and says she comes with a full tank', /tank full/i.test(html()));
-  // ⚠ AND NEITHER IS ON A TAB THAT IS NOT THE DEALER'S. A schematic left in the fleet list is a
-  // rAF loop with nothing to draw, running for as long as somebody leaves the screen open.
-  mp.marinaSetData(yardData('fleet'));
-  ck('the fleet list carries no schematic', !/class="mar-wf"/.test(html()));
+  mp.marinaSetData(yardData('lot'));
+  ck('the hand carries no schematic', !/class="mar-wf"/.test(html()));
 }
 
-// ⚠ AND IT SURVIVES AN EMPTY YARD, which is the FIRST state anybody sees: no boats, and at most
-// marinas no dealer either, so every list on the screen is empty at once.
+// ⚠ AND IT SURVIVES AN EMPTY YARD, which is the FIRST state anybody sees.
 {
   let threw = null;
   try { mp.marinaSetData({ tab: 'fleet', name: 'Somewhere', credits: 0 }); } catch (e) { threw = e.message; }
   ck('an empty yard does not throw', !threw, threw);
-  for (const tab of ['dealer', 'berths', 'bench']) {
+  for (const tab of ['dealer', 'rent', 'berths']) {
     let t2 = null;
     try { mp.marinaSetData({ tab, name: 'Somewhere', credits: 0 }); } catch (e) { t2 = e.message; }
-    ck('…nor its ' + tab + ' tab', !t2, t2);
+    ck('…nor its ' + tab + ' screen', !t2, t2);
   }
 }
 

@@ -964,6 +964,15 @@ right for a panel whose behaviour under test is what it paints, useless for a mo
 behaviour under test **is** event propagation. ⚠ And the seat list is derived from who calls
 `windshieldHTML(`, the rule `bigscreen-smoke.mjs` already runs on, so a sixth seat arrives as a
 failure rather than as a gap nobody notices.
+
+**The location d-pad.** The d-pad arms a WASD walk mode that binds W/A/S/D on the window, and while a
+seat is up those letters are steering something. `claimSeatKeyboard`/`endSeatKeyboard` fire one
+`seat:keyboard` event, and main.js disarms the walk mode and disables the d-pad button on it, so
+main.js doesn't need a list of panels. The d-pad's keydown guard also asks `seatHoldsKeyboard()`:
+its hand-written list was the flight sim, the hangar bay walk and the depot walk, so the cab, the
+wheelhouse, the boat helm, the charter cabin and free look had their W/A/S/D eaten and walked the
+player instead. The two walk views claim no seat keyboard of their own and are still asked for by name.
+
 ### Naming what the observer promotes
 
 Two more sweeps ride the same per-frame observer, for the same reason it exists:

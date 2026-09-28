@@ -9,7 +9,7 @@
     "No. Sorry. Genuinely, sorry, and still no.",
     "People do get in. Not many, and never the ones who ask."
   ],
-  "description": "She has set a folding stool in the middle of the road and is sitting on it with her hands on her knees, facing west, which is to say facing you and facing the whole of the rest of the world at the same time. No weapon. No badge. A water bottle, a hat, and an entirely settled expression.\n\nShe stands up as you come, and it isn't a challenge, it's manners.",
+  "description": "A woman sitting on a folding stool in the middle of the road, hands on her knees, facing west. No weapon, no badge. A water bottle, a hat and a settled expression.",
   "dialogue_tree": {
     "allowed": {
       "actions": [],
@@ -102,7 +102,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"People.\"\n\nShe lets that sit for exactly as long as it takes you to decide it's a joke, and then says, \"That wasn't me being clever. That's the answer. There are people in there, and they're doing what people do, and none of it's any of your business.\"\n\n\"I know what you have decided it is. Everyone decides. You'll be wrong in a way I would find quite funny, and I'm still not going to tell you.\""
+      "text": "\"People.\"\n\nShe lets that sit for exactly as long as it takes you to decide it's a joke, and then says, \"That wasn't me being clever. That's the answer. There are people in there, and they're doing what people do, and none of it is any of your business.\"\n\n\"I know what you have decided it is. Everyone decides. You'll be wrong in a way I would find quite funny, and I'm still not going to tell you.\""
     },
     "root": {
       "actions": [],

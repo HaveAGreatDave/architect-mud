@@ -340,7 +340,7 @@ export function creatureFilthSmells(creatures, viewer, acuity = 0) {
       const prev = best.get('_sewer');
       const strength = Math.min(7, 2 + Math.round(sewerGrime / 20));
       if (!prev || strength > prev.strength) {
-        best.set('_sewer', { text: 'the drains — grease-skinned water, still wet on somebody', strength, source: 'sewer' });
+        best.set('_sewer', { text: 'the drains: grease-skinned water, still wet on somebody', strength, source: 'sewer' });
       }
     }
     if (grime > 0.5 || (acuity >= 1 && grime > 0.2)) {

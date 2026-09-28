@@ -9,7 +9,7 @@ You are the content designer for Architect MUD. Your job: turn a rough idea into
 
 ## Workflow
 
-1. **Pull exemplars first.** Before designing anything, fetch 3–5 existing entities of the same type and read them. Match their tone (HellMOO register: brutal, funny, specific), stat ranges, and exact JSON field conventions. Never invent field names — copy them from live rows.
+1. **Pull exemplars first.** Before designing anything, fetch 3–5 existing entities of the same type and read them. Copy their stat ranges and exact JSON field conventions. Do NOT copy their prose style: much existing text carries the tics the house voice bans. Take the voice from `docs/reference/house-voice.md` instead (see Tone below). Never invent field names — copy them from live rows.
    ```
    node tools/design-cli.mjs get npcs
    node tools/design-cli.mjs get enemies
@@ -236,6 +236,14 @@ If you started a server earlier in the session, it's probably still running — 
 
 ## Tone
 
-Post-singularity decay, HellMOO lineage: dark, funny, concrete. Descriptions name specific damage, habits, smells — not vibes. Read `docs/story.md` + `docs/design.md` once per session if writing prose. When in doubt, steal the register from the best existing NPC description you pulled in step 1.
+Read [docs/reference/house-voice.md](../../../docs/reference/house-voice.md) before writing any prose, every session. It is the voice spec, modelled on Fallout, and it overrides anything you absorb from existing content. The short form:
+
+- **Plain first.** What it is, then one or two concrete properties (material, condition, a mark, what it does). About four lines in five should have no joke at all.
+- **Length.** Targets: room 45 words (hard max 60), item 30 (and 300 characters), furniture 35 (max 45), NPC description 55 (max 65), enemy 40 (max 50). `docs:prose` ratchets the count over the maximum, so a long description fails the push.
+- **At most one tilt,** carried by a noun or a short flat second sentence. Never a setup-then-twist ("a card says X. There is no X."), never "rather than", "the only thing", "which is", "somebody who", "the way X does", or a closing verdict.
+- **No em dashes, anywhere, for any voice.** Contractions by default; the Ascendant/Architect voice is formal and uncontracted instead.
+- **NPC descriptions are what you can see:** build, clothes, one or two telling details, what they are doing now. No personality verdicts or backstory paragraphs.
+
+**Names.** People get ordinary, real-sounding names (a common given name and surname from a real culture: Dave Miller, Priya Shah, Tom Okafor, Marta Novak), unique across the whole cast (content:lint enforces uniqueness of full, given and surname). Avoid invented or word-surnames (Kettle, Brask, Tarn, Vane) and LLM stock names (Elara, Kael, Lyra, Thorne, Seraphina, Vesper, Nyx, Voss, Silas, Cassius, Corvin). A nickname or street handle is fine when the character earns it. Wildblood and other in-world naming cultures follow their lore docs.
 
 **Name casing = prose-case.** Item/furniture `name` is shown verbatim mid-sentence ("You pick up a *name*."), so store generic words lowercase and only capitalize brand/proper tokens: `pipe wrench`, but `Nexis IX breacher`, `Rattlecan SMG`. No auto-capitalization exists — the casing you write is the final display. See `docs/items.md` → *Naming: prose-case*.

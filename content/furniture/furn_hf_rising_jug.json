@@ -5,9 +5,7 @@
       "jug",
       "water"
     ],
-    "interactions": {
-      "examine": "There is a ring on the cloth from a glass, and only one, and it is not fresh."
-    }
+    "examine_detail": "There is a ring on the cloth from a glass, and only one, and it is not fresh."
   },
   "id": "furn_hf_rising_jug",
   "name": "the water jug",

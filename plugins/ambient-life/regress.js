@@ -212,7 +212,7 @@ export default async function regress({ run, check }) {
     check('blackout: every line names the NPC',
       pools.every(([, l]) => l.every(s => s.includes('{npc}'))),
       pools.find(([, l]) => l.some(s => !s.includes('{npc}')))?.[0]);
-    // The em dash is the Ascendant voice tell, and none of these people are one.
+    // No prose in the game takes an em dash.
     check('blackout: no em dashes in any reaction',
       pools.every(([, l]) => l.every(s => !s.includes('—'))),
       pools.find(([, l]) => l.some(s => s.includes('—')))?.[0]);

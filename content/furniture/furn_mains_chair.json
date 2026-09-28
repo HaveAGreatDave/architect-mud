@@ -5,9 +5,12 @@
       "chair",
       "seat"
     ],
-    "interactions": {
+    "interaction_lines": {
       "sit": "You sit where somebody has sat a great many times. The beam comes over, and goes back, and comes over."
-    }
+    },
+    "interactions": [
+      "sit"
+    ]
   },
   "id": "furn_mains_chair",
   "name": "the bentwood chair",

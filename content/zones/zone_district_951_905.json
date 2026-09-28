@@ -3,7 +3,7 @@
   "ambient_theme": "city",
   "bg_color": "#1f3646",
   "color": "#4f83a8",
-  "description": "The water goes wide and slow here, the current losing its grip and setting down whatever it was carrying. Sandbars break the surface in low grey backs. Birds you can't name work the shallows and leave when you get close.",
+  "description": "The water is wide and lazy here, dropping its load in grey bars.",
   "exits": {
     "east": "zone_district_952_905",
     "north": "zone_district_951_904",

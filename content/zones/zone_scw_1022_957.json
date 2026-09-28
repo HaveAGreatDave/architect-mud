@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Red rock to the horizon, pitted with pale rings a hair deep where the rain has stood and eaten. The wind never stops. There's a great deal of sky and none of it's reassuring.",
+  "description": "A spread of low scrub on ground that's mostly grit. The thorns catch at your trousers with every step, and the leaves carry pale rain scars.",
   "exits": {
     "east": "zone_scw_1023_957",
     "north": "zone_scw_1022_956",
@@ -8,18 +8,18 @@
     "west": "zone_scw_1021_957"
   },
   "flags": {
-    "ambient_pool": "scarletwastes_hardpan",
+    "ambient_pool": "scarletwastes_the_grey_thicket",
     "lawless": true,
     "radiation": 9,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "redrock"
+    "terrain": "dirt_road"
   },
   "grid_x": 1022,
   "grid_y": 957,
   "grid_z": 0,
   "id": "zone_scw_1022_957",
   "map_id": "map_world",
-  "name": "Broken Country",
+  "name": "Low Growth",
   "parent_zone": null
 }

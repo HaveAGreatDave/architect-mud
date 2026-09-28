@@ -271,7 +271,7 @@ async function trip(alarm) {
 
   broadcast(alarm.shopZoneId, {
     type: 'zone_event',
-    message: `<span class="text-red">The chirping stops.\n\nFor about a second the shop is completely silent — and then every light in the ceiling goes hard red and the box on the wall opens up: a two-tone howl, rising and falling, loud enough to lean on. It has already made the call.</span>`,
+    message: `<span class="text-red">The chirping stops.\n\nFor about a second the shop is completely silent, and then every light in the ceiling goes hard red and the box on the wall opens up: a two-tone howl, rising and falling, loud enough to lean on. It has already made the call.</span>`,
     refresh: true,
   });
 
@@ -282,12 +282,12 @@ async function trip(alarm) {
   sendToZone(alarm.shopZoneId, { type: 'alarm_state', active: true, zoneId: alarm.shopZoneId });
   if (alarm.streetZoneId) {
     sendToZone(alarm.streetZoneId, siren);
-    broadcast(alarm.streetZoneId, { type: 'zone_event', message: `An alarm goes off behind the shutters — a hard two-tone howl, and red light strobing out through the glass.` });
+    broadcast(alarm.streetZoneId, { type: 'zone_event', message: `An alarm goes off behind the shutters: a hard two-tone howl, and red light strobing out through the glass.` });
   }
 
   // It carries. A siren through a wall is the least ambiguous wake-up there is.
   for (const neighbourId of neighborZoneIds(getZone(alarm.shopZoneId)) || []) {
-    broadcast(neighbourId, { type: 'zone_event', message: `An alarm starts up somewhere close — a rising, falling howl that does not stop.` });
+    broadcast(neighbourId, { type: 'zone_event', message: `An alarm starts up somewhere close: a rising, falling howl that does not stop.` });
     for (const npc of getZoneNpcs(neighbourId) || []) {
       if (isNpcAsleep(npc)) disturbSleeper(npc, { broadcast, force: true });
     }
@@ -414,7 +414,7 @@ export const hooks = {
       const tier = tierOf(f);
       return `A standby light sits steady and green. ${cap(tier.name)}, and a good one costs what it costs.`;
     }
-    return `<span class="text-red">The light is amber and stepping — on, off, on — and it is stepping faster than it was. HACK ALARM, or don't, but decide now.</span>`;
+    return `<span class="text-red">The light is amber and stepping, on, off, on, and it is stepping faster than it was. HACK ALARM, or don't, but decide now.</span>`;
   },
 };
 

@@ -78,7 +78,7 @@ edit('npcs/npc_asc_recruiter.json', (d, t) => {
     '"We do not use that word."\n\n'
     + 'He says it the way you would correct a child\'s grammar, kindly, without stopping.\n\n'
     + '"Unlicensed variation. A body that changed without anybody choosing it or recording it. We '
-    + 'cannot price that — nobody knows what it does at fifty, because nobody designed it."\n\n'
+    + 'cannot price that. Nobody knows what it does at fifty, because nobody designed it."\n\n'
     + '"So it is declined at intake. There is a form. The form is older than I am."';
 
   t.why_us_variation.options = [

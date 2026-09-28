@@ -177,7 +177,7 @@ function renderDetail() {
     else if (c.mine) acts = `<div class="cm-acts"><div class="cm-btn" data-act="reinforce">Reinforce</div><div class="cm-btn" data-act="build:extractor">+Extractor</div><div class="cm-btn" data-act="build:turret">+Turret</div></div>`;
     else if (c.org_id) acts = `<div class="cm-acts"><div class="cm-btn hot" data-act="contest">⚔ Contest</div></div>`;
   } else if (c.status === 'OPEN' || c.org_id) {
-    acts = `<div class="cm-note">▸ Travel to <b>${esc(t.name)}</b> to act — the verbs work where you stand.</div>`;
+    acts = `<div class="cm-note">▸ Travel to <b>${esc(t.name)}</b> to act: the verbs work where you stand.</div>`;
   }
   const assets = (c.assets && c.assets.length)
     ? `<div class="cm-stat"><span class="dim">Assets</span><span class="v">${c.assets.map(a => `${a.type === 'extractor' ? '⛏' : '⌖'} ${esc(a.type)} L${a.level}`).join(' · ')}${c.defense ? ` · <span style="color:#7bffb0">def ${c.defense}</span>` : ''}</span></div>`

@@ -8,7 +8,7 @@
     "You can talk to them. All of them. Some of them answer.",
     "I do the nights. It suits me."
   ],
-  "description": "A rangy man moving very quietly between ten beds. His eyes have no whites left in them, which is startling for about four seconds and then stops being anything at all.\n\nHe doesn't sleep. Not badly, not a little: not at all, and hasn't since he was twenty-two, and so the night rota in this building has one name on it and it's his. He has been awake for thirty-one years and he's the calmest person in the Scarletwastes.",
+  "description": "A rangy man moving very quietly between ten beds. His eyes have no whites left in them.",
   "dialogue_tree": {
     "bye": {
       "actions": [],

@@ -90,7 +90,7 @@
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "\"Mm. Do look on your way out. There's a lot to look at, and none of it's yours.\""
+      "text": "\"Mm. Do look on your way out. There's a lot to look at, and none of it is yours.\""
     },
     "root": {
       "options": [

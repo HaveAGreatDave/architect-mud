@@ -41,7 +41,7 @@ export function openApprehendPrompt(msg) {
   el.className = 'apprehend-window';
   el.innerHTML = `
     <div class="apprehend-badge">⛓ DETAINED</div>
-    <div class="apprehend-officer">${esc(officer)} has a hand on you. Comply — or bolt.</div>
+    <div class="apprehend-officer">${esc(officer)} has a hand on you. Comply, or bolt.</div>
     <div class="apprehend-bar"><div class="apprehend-fill"></div></div>
     <div class="apprehend-actions">
       <button class="apprehend-submit">SUBMIT</button>

@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "The tenth floor, where the lifts change over, and the one room in Halcyon Fields that does what the brochure said it would: a full floor plate given to nothing, glazed on all four shearing sides, with benches down the middle and a view that includes the Spire, the Curtain, the basin and — on the north side, uncomfortably close — the top eight floors of Glass Ceiling. There is nobody up here. There is a rule that there is always somebody up here and there is nobody.",
+  "description": "The tenth floor, where the lifts change over, and the one room in Halcyon Fields that does what the brochure said it would: a full floor plate given to nothing, glazed on all four shearing sides, with benches down the middle and a view that includes the Spire, the Curtain, the basin and (on the north side, uncomfortably close) the top eight floors of Glass Ceiling. There is nobody up here. There is a rule that there is always somebody up here and there is nobody.",
   "exits": {
     "down": "zone_hf_prime_lobby"
   },

@@ -125,8 +125,8 @@ function tick(t) {
       if (lockEl) { lockEl.textContent = locked ? 'LOCKED' : '—'; lockEl.classList.toggle('on', locked); }
     }
 
-    if (s.cap >= 100) return finish(true, 'CARRIER OVERPOWERED — STATION SEIZED');
-    if (s.trace >= 100) return finish(false, 'TRACE COMPLETE — TRANSMITTER BURNED');
+    if (s.cap >= 100) return finish(true, 'CARRIER OVERPOWERED: STATION SEIZED');
+    if (s.trace >= 100) return finish(false, 'TRACE COMPLETE: TRANSMITTER BURNED');
   }
 
   if (_skin) { _skin.frame(s); }
@@ -217,10 +217,10 @@ function setStatus(html) {
 function sweep() {
   const s = _state;
   if (!s || s.done) return;
-  if (!s.decoys.length) { setStatus('<span class="sh-warn">No decoys on this band — SWEEP does nothing.</span>'); return; }
+  if (!s.decoys.length) { setStatus('<span class="sh-warn">No decoys on this band, SWEEP does nothing.</span>'); return; }
   s.swept = 2.2; s.trace = Math.min(100, s.trace + 5);
   sfx('hijack-sweep');
-  setStatus('<span class="sh-warn">◎ SWEEP — decoys suppressed, carrier tagged (2s).</span>');
+  setStatus('<span class="sh-warn">◎ SWEEP: decoys suppressed, carrier tagged (2s).</span>');
 }
 
 function setOver(v) {
@@ -258,7 +258,7 @@ function setTuner(clientX) {
 // ── Public API ────────────────────────────────────────────────────────────────
 function newRun() {
   _state = generate(Math.max(0, _opts.skill), Math.max(1, _opts.difficulty));
-  setStatus('<span style="color:#a06678">Ride the bright carrier to fill CAPTURE. SWEEP to tag it, OVERDRIVE to push — beat the TRACE meter.</span>');
+  setStatus('<span style="color:#a06678">Ride the bright carrier to fill CAPTURE. SWEEP to tag it, OVERDRIVE to push, beat the TRACE meter.</span>');
   _lastT = performance.now();
   cancelAnimationFrame(_raf);
   _raf = requestAnimationFrame(tick);

@@ -254,7 +254,7 @@ export async function cmdOverclock(args, raw, player) {
     }
     return { type: 'output', message:
       `<span class="skills-header">OVERCLOCK</span>\n\n${lines.join('\n')}\n\n`
-      + `<span style="opacity:.7">augment overclock &lt;name&gt; &lt;level&gt; — 0 is spec. Everything above it's yours to answer for.</span>` };
+      + `<span style="opacity:.7">augment overclock &lt;name&gt; &lt;level&gt;: 0 is spec. Everything above it's yours to answer for.</span>` };
   }
 
   const aug = Object.values(cache).find(a =>
@@ -265,7 +265,7 @@ export async function cmdOverclock(args, raw, player) {
 
   const max = Number(aug.overclock_max) || 0;
   if (max <= 0) {
-    return { type: 'error', message: `${aug.name} runs at spec and nowhere else. There's no adjustment to make — the governor is part of the casting.` };
+    return { type: 'error', message: `${aug.name} runs at spec and nowhere else. There's no adjustment to make: the governor is part of the casting.` };
   }
   if (Number(rec.condition ?? 1) <= 0) {
     return { type: 'error', message: `${aug.name} is dead. Get it repaired before you ask anything of it.` };

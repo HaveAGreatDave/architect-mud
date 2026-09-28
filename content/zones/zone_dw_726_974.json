@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The front of the old flow, where it stopped: a wall of black rock standing clear of the ash, rubbly at the top and sheer in the middle, undercut at the foot where the weather has been at the softer bed under it. There's no way up it here. It runs off in both directions along the same line.",
+  "description": "A wall of black rock marks where the lava halted. The top is rubble, the face is sheer, and the base is eaten away.",
   "exits": {
     "east": "zone_dw_727_974",
     "north": "zone_dw_726_973",

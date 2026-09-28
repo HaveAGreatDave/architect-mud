@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "A long top-lit room with the lots set out down both sides on trestles and the floor left clear in the middle for the trolleys. Every item carries a paper tag on a string. The rostrum is a plain box on a plinth at the far end with three steps up to it and a gavel resting on the rail, and the chairs in front of it are stacked rather than set out, which tells you what Wednesdays are usually like.",
+  "description": "A long top-lit room, lots set out on trestles down both sides and the middle clear for trolleys. Every item has a paper tag on a string. At the far end, a plain rostrum three steps up with a gavel on the rail. The chairs in front of it are stacked.",
   "exits": {
     "down": "zone_util_zone_going_saleroom",
     "north": "zone_district_895_911",

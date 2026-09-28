@@ -71,7 +71,7 @@ function render() {
   const phase = PHASES[s.phase] || 'DONE';
   const left = Math.max(0, DUR - s.elapsed) / 1000;
   const lines = [
-    heading(`CALIBRATION RIG — ${String(s.opts.deviceName || 'IMPLANT').toUpperCase()}`, W),
+    heading(`CALIBRATION RIG: ${String(s.opts.deviceName || 'IMPLANT').toUpperCase()}`, W),
     '',
     `  STAGE <span class="hi">${esc(phase)}</span>  ${s.phase + 1}/${PHASES.length}` +
       `      ${left.toFixed(1)}s      ${s.inBand ? '<span class="ok">IN TOLERANCE</span>' : '<span class="bad">OUT</span>'}`,
@@ -147,7 +147,7 @@ function finish() {
   const score = Math.round(clamp(mean, 0, 1) * 100);
   const verdict = score >= 90 ? 'DEAD ON' : score >= 70 ? 'WELL INSIDE'
     : score >= 45 ? 'ACCEPTABLE' : score >= 20 ? 'LOOSE' : 'ALL OVER THE PLACE';
-  s.status = `  <span class="${score >= 45 ? 'ok' : 'bad'}">&gt;&gt; ${score} — ${verdict}</span>`;
+  s.status = `  <span class="${score >= 45 ? 'ok' : 'bad'}">&gt;&gt; ${score}: ${verdict}</span>`;
   render();
   report(score);
   setTimeout(() => close(), 1600);

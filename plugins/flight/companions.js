@@ -53,7 +53,7 @@ export async function boardCompanions(player, live, { seats = 1 } = {}) {
     // not teleported to the ramp — same rule the walk obeys.
     if (npc.zone_id !== player.current_zone) continue;
     if (live.occupants.size >= seats) {
-      tell(player.id, `There's no room aboard for ${npc.name} — they stay on the ground.`);
+      tell(player.id, `There's no room aboard for ${npc.name}. They stay on the ground.`);
       continue;
     }
     live.occupants.add(npc.id);

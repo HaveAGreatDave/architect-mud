@@ -484,7 +484,7 @@
         },
         "next": "bsm_54",
         "style": "raw",
-        "text": "Some of them cry. Some of them sleep. The ones who've been through a vat, they just sit there and stare at the wall like they're waiting for it to buffer.",
+        "text": "Some of them cry. Some of them sleep. The ones who've been through a vat, they just sit there and stare at the wall like they are waiting for it to buffer.",
         "type": "say"
       },
       "bsm_54": {
@@ -750,7 +750,7 @@
       "text": "Three stars. Three minutes a star. In Coldwater, the sentence is served in real time, and the clock doesn't care that you're bored."
     },
     {
-      "text": "Some of them cry. Some of them sleep. The ones who've been through a vat, they just sit there and stare at the wall like they're waiting for it to buffer."
+      "text": "Some of them cry. Some of them sleep. The ones who've been through a vat, they just sit there and stare at the wall like they are waiting for it to buffer."
     },
     {
       "text": "Ordway's cruiser, parked. Engine ticking as it cools. He doesn't get out for a long moment."

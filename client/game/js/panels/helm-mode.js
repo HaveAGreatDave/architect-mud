@@ -157,7 +157,7 @@ export function ensureHelmStyles() {
       padding:calc(3px*var(--hs)) calc(26px*var(--hs)) 0; max-width:1280px; margin:0 auto; }
     /* Left instrument cluster — a FROSTED TRANSLUCENT GLASS panel that floats over the sea: it really
        blurs the water behind it (backdrop-filter), with chamfered tech-panel corners, a bright glass
-       top edge and a faint accent tint. The instruments read like they're etched into a slab of smoked
+       top edge and a faint accent tint. The instruments read like they are etched into a slab of smoked
        glass. */
     .helm-left{ justify-self:start; display:flex; align-items:center; gap:calc(16px*var(--hs)); min-width:0; position:relative;
       padding:calc(9px*var(--hs)) calc(26px*var(--hs)) calc(9px*var(--hs)) calc(18px*var(--hs));
@@ -388,9 +388,9 @@ export function openHelm(opts = {}) {
         <span class="helm-chip"><b data-wx>CLEAR</b></span>
         <span class="helm-chip"><b data-time>--:--</b></span>
         <button class="helm-icon" data-chart title="chart a course">🗺</button>
-        <button class="helm-icon" data-seat title="the bridge — stand at the wheel and ride her">⌖</button>
-        <button class="helm-icon" data-hide title="collapse the panel — hide the log">⊟</button>
-        <button class="helm-icon" data-fs title="fullscreen — hide the log + command bar">⛶</button>
+        <button class="helm-icon" data-seat title="the bridge, stand at the wheel and ride her">⌖</button>
+        <button class="helm-icon" data-hide title="collapse the panel, hide the log">⊟</button>
+        <button class="helm-icon" data-fs title="fullscreen, hide the log + command bar">⛶</button>
         <button class="helm-icon" data-big title="${BIGSCREEN_TITLE}">${BIGSCREEN_GLYPH}</button>
         <button class="helm-icon exit" data-exit title="leave the helm">✕</button>
       </div>
@@ -402,7 +402,7 @@ export function openHelm(opts = {}) {
               <!-- NAV chart: live top-down basin chart with the Echelon's blip. Tap to open the
                    full chart popup and plot a course. -->
               <div class="helm-nav">
-                <div class="helm-nav-bezel" data-chart title="open the chart — plot a course">
+                <div class="helm-nav-bezel" data-chart title="open the chart, plot a course">
                   <div class="helm-nav-scope"><canvas data-nav></canvas><span class="helm-nav-tag">NAV · BASIN</span><span class="helm-nav-hint">TAP TO CHART</span></div>
                 </div>
                 <div class="helm-readout wide"><span class="rk">Position</span><span class="rv" data-pos>— · —</span></div>
@@ -638,7 +638,7 @@ export function openHelm(opts = {}) {
   const setKnob = (p) => { knobP = Math.max(0, Math.min(1, p)); const rng = track.clientHeight - KNOBH - PAD * 2; knob.style.top = (PAD + (1 - knobP) * rng) + 'px'; };
   function setUnderway(on) {
     engaged = on; tele.classList.toggle('engaged', on); wheel.setEnabled(!on);
-    teleLabel.textContent = on ? ('Ahead — ' + bellName(knobP)) : 'Engine Telegraph';
+    teleLabel.textContent = on ? ('Ahead: ' + bellName(knobP)) : 'Engine Telegraph';
     if (!on) setKnob(0);   // arrived / moored / stopped → lever springs back to STOP (engaging leaves it where set)
   }
   // Cut the throttle mid-passage: fire the real `stop` (the server halts her at the tile she's coasted
@@ -683,7 +683,7 @@ export function openHelm(opts = {}) {
   // fixed), so a drag that doesn't reach the STOP band just snaps the lever back where it was.
   const teleDown = (e) => { teleDrag = true; dragStartP = knobP; knob.setPointerCapture?.(e.pointerId); e.preventDefault(); };
   const teleMove = (e) => { if (!teleDrag) return; const r = track.getBoundingClientRect(); setKnob(1 - (e.clientY - r.top - KNOBH / 2) / (r.height - KNOBH));
-    teleLabel.textContent = engaged ? (knobP <= 0.2 ? 'Cut throttle — All Stop' : 'Ahead — ' + bellName(knobP)) : (knobP > 0.2 ? bellName(knobP) : 'Engine Telegraph'); };
+    teleLabel.textContent = engaged ? (knobP <= 0.2 ? 'Cut throttle: All Stop' : 'Ahead: ' + bellName(knobP)) : (knobP > 0.2 ? bellName(knobP) : 'Engine Telegraph'); };
   const teleUp = () => {
     if (!teleDrag) return; teleDrag = false;
     if (engaged) { if (knobP <= 0.2) cutThrottle(); else setKnob(dragStartP); return; }   // underway: down-to-STOP cuts the throttle; anything else restores the lever
@@ -736,7 +736,7 @@ export function openHelm(opts = {}) {
     const dest = abs[abs.length - 1];
     plannedTarget = { gx: dest[0], gy: dest[1] };
     ctrl.setPlannedCourse(abs); tele.classList.add('course'); mapGoBtn.disabled = false;
-    mapInfo.innerHTML = `Course charted — <b>${abs.length - 1}</b> legs to <b>${dest[0]} · ${dest[1]}</b>. Get underway, or push the telegraph.`;
+    mapInfo.innerHTML = `Course charted: <b>${abs.length - 1}</b> legs to <b>${dest[0]} · ${dest[1]}</b>. Get underway, or push the telegraph.`;
   }
   function clearCourse() {
     plannedTarget = null; ctrl.setPlannedCourse(null); tele.classList.remove('course');
@@ -799,10 +799,10 @@ export function openHelm(opts = {}) {
     // The chart is water-only: a pick off the map or on land/shore can't be a destination. Reject it
     // with a specific reason instead of silently doing nothing, so it's clear you must choose water.
     const cell = cellFromEvent(e);
-    if (!cell) { clearCourse(); mapInfo.textContent = 'Off the chart — tap open water inside the basin.'; return; }
-    if (!cellWater(cell.rows, cell.rx, cell.ry)) { clearCourse(); mapInfo.textContent = "That's dry land — the Echelon can only make way over open water."; return; }
+    if (!cell) { clearCourse(); mapInfo.textContent = 'Off the chart: tap open water inside the basin.'; return; }
+    if (!cellWater(cell.rows, cell.rx, cell.ry)) { clearCourse(); mapInfo.textContent = "That's dry land: the Echelon can only make way over open water."; return; }
     const path = previewCourse(cell.rows, cell.c, cell.c, cell.rx, cell.ry);
-    if (!path) { clearCourse(); mapInfo.textContent = 'No navigable channel to that tile — pick open water clear of the shore.'; return; }
+    if (!path) { clearCourse(); mapInfo.textContent = 'No navigable channel to that tile, pick open water clear of the shore.'; return; }
     armCourse(path.map(([rx, ry]) => [cell.gx + (rx - cell.c), cell.gy + (ry - cell.c)]));
   });
   q('[data-mapclose]').addEventListener('click', closeChart);
@@ -824,7 +824,7 @@ export function openHelm(opts = {}) {
     const on = ctrl && ctrl.toggleBridge ? ctrl.toggleBridge() : false;
     el.classList.toggle('on', on);
     el.textContent = on ? '⎈' : '⌖';
-    el.title = on ? 'the bridge — back to the chase camera' : 'the bridge — stand at the wheel and ride her';
+    el.title = on ? 'the bridge: back to the chase camera' : 'the bridge: stand at the wheel and ride her';
   }));
 
   // Orbit / zoom on the sea — the chase cam stays fixed on the boat and arcs around it.

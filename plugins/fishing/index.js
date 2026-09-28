@@ -34,7 +34,7 @@ import { getZone, getAllZones, getLivePlayer, spawnEnemySync, propsOf } from '..
 import { registerActivity } from '../../server/engine/activity-tick.js';
 import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
-import { on } from '../../server/engine/events.js';
+import { on, emit } from '../../server/engine/events.js';
 import { setPosture, forceStand } from '../../server/engine/posture.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { repairItem, conditionBand, destroyItem } from '../../server/engine/durability.js';
@@ -54,13 +54,13 @@ const DEFAULT_PLAYER_FLAVOR = [
   'You flick the line out over the black water and settle in to wait.',
   'The float bobs on an oily swell. You watch it, and wait.',
   'You reel in a little slack and cast again, further out this time.',
-  'Something breaks the surface out past your line — then nothing.',
+  'Something breaks the surface out past your line, then nothing.',
   'The water laps at the pilings. Your line hangs slack.',
 ];
 const DEFAULT_QUIET = [
   'Nothing\'s biting.',
   'The line stays slack. Whatever\'s down there isn\'t interested.',
-  'You feel a nibble — then slack again. Missed it.',
+  'You feel a nibble, then slack again. Missed it.',
 ];
 const DEFAULT_BROADCAST = [
   'casts a line out over the water and settles in to fish.',
@@ -124,7 +124,7 @@ async function maybeSnapRod(playerId) {
     await destroyItem(rod);
     return ' Your rod snaps clean in half and the pieces spin off into the water.';
   }
-  return ' Your rod groans and takes a worrying bend — that nearly cost you it.';
+  return ' Your rod groans and takes a worrying bend: that nearly cost you it.';
 }
 
 // The set of bait sub-tags the player is currently carrying (for bait-gated
@@ -322,7 +322,7 @@ async function runAttempt(player, st, nowMs) {
 
   const loaded = await loadZoneTable(st.zoneId, tableId);
   if (!loaded || !loaded.entries.length) {
-    out(player.id, 'The water here is dead — nothing lives in it.');
+    out(player.id, 'The water here is dead: nothing lives in it.');
     stopFishing(player.id, st.zoneId, player.handle);
     return;
   }
@@ -367,7 +367,7 @@ async function runAttempt(player, st, nowMs) {
   if (Math.random() > biteChance) {
     out(player.id, `${flavor} ${pick(pools.quiet)}`);
     const streak = (st.streak || 0) + 1;
-    if (streak === HINT_STREAK) out(player.id, 'The fish here are wary. Might be worth trying a different spot — or better bait.');
+    if (streak === HINT_STREAK) out(player.id, 'The fish here are wary. Might be worth trying a different spot, or better bait.');
     advanceState(player.id, { lastAttempt: nowMs, streak });
     return;
   }
@@ -381,7 +381,7 @@ async function runAttempt(player, st, nowMs) {
   const token = randomUUID();
   const avgDiff = Math.round(pool.reduce((s, e) => s + e.difficulty, 0) / pool.length);
   advanceState(player.id, { lastAttempt: nowMs, streak: 0, pending: { pool, token, armedAt: nowMs, phase: 'cast' } });
-  out(player.id, `${flavor}\n<span class="text-cyan">Something stirs the black water past your float — ready your cast.</span>`);
+  out(player.id, `${flavor}\n<span class="text-cyan">Something stirs the black water past your float: ready your cast.</span>`);
   // At the `log` rung this resolves with a skill check instead of opening a board;
   // at `textgames` it opens the character board. TWO-STAGE, so the mark rides the
   // CAST payload — the server picks the catch from the cast and arms the fight.
@@ -406,7 +406,7 @@ registerActivity({
     // player abandoned the overlay, time it out (the fish gets away).
     if (st.pending) {
       if (nowMs - st.pending.armedAt > PENDING_TTL_MS) {
-        out(player.id, 'You wait too long — the line goes slack. Whatever it was, it\'s gone.');
+        out(player.id, 'You wait too long: the line goes slack. Whatever it was, it\'s gone.');
         advanceState(player.id, { pending: null, lastAttempt: nowMs });
       }
       return;
@@ -451,7 +451,7 @@ async function cmdFishCast(args, raw, player) {
   if (st.pending.token !== token || st.zoneId !== zoneId) return { type: 'noop' };
 
   if (!(await hasRod(player.id))) {
-    out(player.id, 'Your rod\'s gone — nothing to cast with.');
+    out(player.id, 'Your rod\'s gone: nothing to cast with.');
     stopFishing(player.id, st.zoneId, player.handle);
     return { type: 'noop' };
   }
@@ -485,7 +485,7 @@ async function cmdFishResolve(args, raw, player, broadcast) {
   advanceState(player.id, { pending: null, lastAttempt: Date.now() });
 
   if (!(await hasRod(player.id))) {
-    out(player.id, 'Your rod\'s gone — nothing to land it with.');
+    out(player.id, 'Your rod\'s gone: nothing to land it with.');
     stopFishing(player.id, st.zoneId, player.handle);
     return { type: 'noop' };
   }
@@ -501,8 +501,8 @@ async function cmdFishResolve(args, raw, player, broadcast) {
       }
     }
     out(player.id, won
-      ? '<span class="text-yellow">You haul back hard — and something far bigger than a fish comes with it.</span>'
-      : '<span class="text-red">The line screams out — whatever took it\'s coming up whether you like it or not.</span>');
+      ? '<span class="text-yellow">You haul back hard, and something far bigger than a fish comes with it.</span>'
+      : '<span class="text-red">The line screams out, whatever took it\'s coming up whether you like it or not.</span>');
     if (won) await awardSkillUse(player.id, 'fishing', 4);
     stopFishing(player.id, st.zoneId, player.handle);
     return { type: 'noop' };
@@ -522,6 +522,8 @@ async function cmdFishResolve(args, raw, player, broadcast) {
       'INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,1,1.0)',
       [randomUUID(), player.id, target.item_id]
     );
+    // Quests count catches off this (the `fish` objective); nothing here knows that.
+    emit('fish.caught', { player, item_id: target.item_id, zoneId: st.zoneId });
     const bait = await baitState(player.id);
     if (bait.hasBait) await consumeBait(player.id);
     const margin = Math.max(0, (await effectiveSkill(player, 'fishing')) - target.difficulty);
@@ -535,7 +537,7 @@ async function cmdFishResolve(args, raw, player, broadcast) {
 
   // Lost the reel — the line snapped or the fish threw the hook.
   const snapMsg = await maybeSnapRod(player.id);
-  out(player.id, `<span class="text-red">The line goes slack — it\'s gone. The big ones always are.</span>${snapMsg}`);
+  out(player.id, `<span class="text-red">The line goes slack: it\'s gone. The big ones always are.</span>${snapMsg}`);
   if (snapMsg.includes('snaps clean')) { stopFishing(player.id, st.zoneId, player.handle); }
   return { type: 'noop' };
 }
@@ -559,7 +561,7 @@ async function cmdFish(args, raw, player, broadcast) {
 
   const loaded = await loadZoneTable(player.current_zone, tableId);
   if (!loaded || !loaded.entries.length)
-    return { type: 'emote', message: 'The water here is dead — nothing lives in it.' };
+    return { type: 'emote', message: 'The water here is dead: nothing lives in it.' };
 
   const pools = flavorPools(loaded.table);
   setPosture(player, 'fishing');

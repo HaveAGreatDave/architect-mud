@@ -1,0 +1,10 @@
+{
+  "name": "worldmap",
+  "version": "1.0.0",
+  "description": "World Map — the whole surface world: placed regions, the wildlands between them (client/shared/wildlands.js) and this week's numbered highways. A tablet app and a text verb.",
+  "after": ["tablet", "flight", "trucking", "voidwalking"],
+  "hooks": [],
+  "commands": ["worldmap"],
+  "events": { "emits": [], "consumes": [] },
+  "dataSchema": []
+}

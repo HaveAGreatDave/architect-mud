@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Red rock to the horizon, pitted with pale rings a hair deep where the rain has stood and eaten. The wind never stops. There's a great deal of sky and none of it's reassuring.",
+  "description": "Scrub country. The thorn is low and dense and grey-green, and there's no way through it that doesn't cost you a few scratches.",
   "exits": {
     "east": "zone_scw_1016_968",
     "north": "zone_scw_1015_967",
@@ -8,18 +8,18 @@
     "west": "zone_scw_1014_968"
   },
   "flags": {
-    "ambient_pool": "scarletwastes_hardpan",
+    "ambient_pool": "scarletwastes_the_grey_thicket",
     "lawless": true,
     "radiation": 9,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "dirt_road"
+    "terrain": "scrub"
   },
   "grid_x": 1015,
   "grid_y": 968,
   "grid_z": 0,
   "id": "zone_scw_1015_968",
   "map_id": "map_world",
-  "name": "Cinder Bench",
+  "name": "The Grabbing Ground",
   "parent_zone": null
 }

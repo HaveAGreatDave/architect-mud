@@ -6,9 +6,7 @@
       "letting",
       "list"
     ],
-    "interactions": {
-      "examine": "The RESERVED ones are the same eleven numbers they were last season. Nobody has moved into any of them."
-    }
+    "examine_detail": "The RESERVED ones are the same eleven numbers they were last season. Nobody has moved into any of them."
   },
   "id": "furn_hf_common_board",
   "name": "the letting board",

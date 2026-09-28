@@ -600,6 +600,9 @@ function main() {
             : land ? pick(land.names, x, y)
               : pick(TILE_NAMES, x, y));
 
+      // NOTE: this emits one fallback text for every open tile. After regenerating, run
+      // scripts/content/wilderness-variety.mjs --write (pools in scripts/content/wilderness-pools.mjs)
+      // or the region goes back to one description on hundreds of tiles.
       const description = works?.desc || out?.desc || (mass ? DAM_DESC : q ? pick(q.descs, x, y)
         : inTailrace(x, y)
           ? 'The channel the water leaves by, running south in a cut of dressed stone with a plank walk along one side of it. It moves fast here and it is the only thing in the region in a hurry.'

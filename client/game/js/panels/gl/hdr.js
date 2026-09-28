@@ -194,6 +194,45 @@ function target(gl, w, h, fmt) {
   return { tex, fbo, w, h };
 }
 
+// ── FXAA, AFTER THE GRADE ────────────────────────────────────────────────────
+//
+// Lottes' FXAA, the console-quality variant cut down: a luma edge test, a direction from the local
+// gradient, and a blend along it. It runs on the GRADED eight-bit frame because that is what the
+// eye compares — edge contrast in linear HDR would weight a neon tube a hundred times a wall.
+//
+// ⚠ THE BUFFER IS PREMULTIPLIED AND GOES ONTO THE 2-D CANVAS, so all four channels are filtered
+// together. Luma is taken from the premultiplied colour, which makes an edge against transparent
+// sky (no coverage) register as an edge, which is exactly the silhouette that most wants smoothing.
+const FXAA_FRAG = `#version 300 es
+precision highp float;
+in vec2 vUV;
+uniform sampler2D uSrc;
+uniform vec2 uTexel;
+out vec4 outColor;
+float luma(vec4 c) { return dot(c.rgb, vec3(0.299, 0.587, 0.114)); }
+void main() {
+  vec4 cM = texture(uSrc, vUV);
+  float lM = luma(cM);
+  float lNW = luma(texture(uSrc, vUV + vec2(-1.0, -1.0) * uTexel));
+  float lNE = luma(texture(uSrc, vUV + vec2( 1.0, -1.0) * uTexel));
+  float lSW = luma(texture(uSrc, vUV + vec2(-1.0,  1.0) * uTexel));
+  float lSE = luma(texture(uSrc, vUV + vec2( 1.0,  1.0) * uTexel));
+  float lMin = min(lM, min(min(lNW, lNE), min(lSW, lSE)));
+  float lMax = max(lM, max(max(lNW, lNE), max(lSW, lSE)));
+  // Below this contrast the pixel is left alone: flat surfaces and texture grain are not edges, and
+  // filtering them is how FXAA earns its reputation for blurring everything.
+  if (lMax - lMin < max(0.0312, lMax * 0.125)) { outColor = cM; return; }
+  vec2 dir = vec2(-((lNW + lNE) - (lSW + lSE)), (lNW + lSW) - (lNE + lSE));
+  float reduce = max((lNW + lNE + lSW + lSE) * 0.25 * 0.125, 1.0 / 128.0);
+  float rcp = 1.0 / (min(abs(dir.x), abs(dir.y)) + reduce);
+  dir = clamp(dir * rcp, vec2(-8.0), vec2(8.0)) * uTexel;
+  vec4 a = 0.5 * (texture(uSrc, vUV + dir * (1.0 / 3.0 - 0.5)) + texture(uSrc, vUV + dir * (2.0 / 3.0 - 0.5)));
+  vec4 b = a * 0.5 + 0.25 * (texture(uSrc, vUV - dir * 0.5) + texture(uSrc, vUV + dir * 0.5));
+  float lB = luma(b);
+  // The wide tap can jump across a second edge; if it lands outside the local range, keep the narrow one.
+  outColor = (lB < lMin || lB > lMax) ? a : b;
+}`;
+
 export function createHDRLayer(gl) {
   // ⚠ WITHOUT THIS EXTENSION RGBA16F IS NOT COLOUR-RENDERABLE, and the framebuffer simply comes
   // back incomplete. It is core-adjacent and near-universal on anything that runs WebGL2 at all,
@@ -204,6 +243,8 @@ export function createHDRLayer(gl) {
   const down = link(gl, DOWN_FRAG);
   const comp = link(gl, COMPOSITE_FRAG);
   if (!bright || !blur || !down || !comp) return null;
+  // Optional: a device that will not link it simply composites without FXAA.
+  const fxaa = link(gl, FXAA_FRAG);
 
   const u = {
     brightSrc: gl.getUniformLocation(bright, 'uSrc'),
@@ -216,11 +257,14 @@ export function createHDRLayer(gl) {
     compBloom: gl.getUniformLocation(comp, 'uBloom'),
     compTone: gl.getUniformLocation(comp, 'uTonemap'),
     compExp: gl.getUniformLocation(comp, 'uExposure'),
+    fxaaSrc: fxaa ? gl.getUniformLocation(fxaa, 'uSrc') : null,
+    fxaaTexel: fxaa ? gl.getUniformLocation(fxaa, 'uTexel') : null,
   };
   const emptyVao = gl.createVertexArray();
 
   let W = 0, H = 0, samples = 0;
   let msFbo = null, msColor = null, msDepth = null, resolved = null;
+  let ldr = null;     // the graded eight-bit frame FXAA reads; built on first use
   let chain = [];      // per octave: { bright, a, b }
   let bound = false;
 
@@ -228,10 +272,10 @@ export function createHDRLayer(gl) {
     if (msFbo) gl.deleteFramebuffer(msFbo);
     if (msColor) gl.deleteRenderbuffer(msColor);
     if (msDepth) gl.deleteRenderbuffer(msDepth);
-    for (const t of [resolved, ...chain.flatMap((c) => [c.bright, c.a, c.b])]) {
+    for (const t of [resolved, ldr, ...chain.flatMap((c) => [c.bright, c.a, c.b])]) {
       if (t) { gl.deleteFramebuffer(t.fbo); gl.deleteTexture(t.tex); }
     }
-    msFbo = msColor = msDepth = resolved = null; chain = []; W = H = 0;
+    msFbo = msColor = msDepth = resolved = ldr = null; chain = []; W = H = 0;
   }
 
   function resize(w, h) {
@@ -344,8 +388,14 @@ export function createHDRLayer(gl) {
       }
     }
 
-    // 4. Grade onto the canvas.
-    use(comp, null, W, H);
+    // 4. Grade onto the canvas — or, with FXAA, into an eight-bit target that pass then reads.
+    // ⚠ Built lazily and kept, so a frame with FXAA off allocates nothing new.
+    let aa = false;
+    if (opts.fxaa > 0 && fxaa) {
+      if (!ldr) ldr = target(gl, W, H, gl.RGBA8);
+      aa = !!ldr;
+    }
+    use(comp, aa ? ldr.fbo : null, W, H);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, resolved.tex); gl.uniform1i(u.compScene, 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, bloomOn ? chain[0].b.tex : resolved.tex); gl.uniform1i(u.compB0, 1);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, bloomOn ? chain[1].b.tex : resolved.tex); gl.uniform1i(u.compB1, 2);
@@ -353,6 +403,14 @@ export function createHDRLayer(gl) {
     gl.uniform1f(u.compTone, opts.tonemap > 0 ? opts.tonemap : 0);
     gl.uniform1f(u.compExp, opts.exposure > 0 ? opts.exposure : 1);
     fullscreen();
+    if (aa) {
+      // 5. FXAA onto the canvas. ⚠ The source is NEAREST-agnostic: the taps sit on texel centres or
+      // between them on purpose, and the target's LINEAR filter is what the sub-pixel taps need.
+      use(fxaa, null, W, H);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, ldr.tex); gl.uniform1i(u.fxaaSrc, 0);
+      gl.uniform2f(u.fxaaTexel, 1 / W, 1 / H);
+      fullscreen();
+    }
 
     gl.bindVertexArray(null);
     // ⚠ AND THE STATE GOES BACK, which is the mistake the occlusion pass shipped once: leave the
@@ -362,7 +420,7 @@ export function createHDRLayer(gl) {
     gl.bindTexture(gl.TEXTURE_2D, null);
     gl.depthMask(true);
     gl.enable(gl.DEPTH_TEST);
-    return { samples, octaves: chain.length };
+    return { samples, octaves: chain.length, fxaa: aa };
   }
 
   // ── WHAT IS ACTUALLY IN THE BUFFER ─────────────────────────────────────────

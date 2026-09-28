@@ -11,7 +11,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#0b0a16",
   "color": "#7fe8ff",
-  "description": "Voltage is a black box built around a beat. The dancefloor is sunk two steps into the middle of the room, lit from beneath through a lattice of blue-white cells that pulse with the music; above it, a rig of moving beams paints the haze in slow sweeps. The bar runs the length of the far wall in a single unbroken ribbon of backlit ice, the DJ booth raised on a plinth to one side like an altar. Off to the north, past a velvet rope and a doorman who has already decided about you, a stair climbs to somewhere quieter and much more expensive.",
+  "description": "A black box built around a beat. The dancefloor is sunk two steps into the middle, lit from beneath by blue-white cells that pulse with the music, with moving beams sweeping the haze above. A bar of backlit ice runs the far wall. The DJ booth sits raised on a plinth. To the north, past a velvet rope and a doorman, a stair climbs to somewhere more expensive.",
   "exits": {
     "north": "zone_voltage_vip",
     "west": "zone_district_895_908"

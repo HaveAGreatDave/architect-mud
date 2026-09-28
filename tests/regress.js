@@ -1282,9 +1282,7 @@ console.log('— layer 1i3: archetype tiers (chitchat / home / banter) —');
   check('every shipped personality has at least one banter thread',
     !noThreads.length, noThreads.join(', '));
 
-  // The tone rule is a voice marker, not punctuation: an em dash in an ordinary
-  // NPC's mouth costs the Architect and the Ascendants their tell. Cheap to check,
-  // and the failure is invisible in play.
+  // No prose in the game takes an em dash. Cheap to check, and invisible in play.
   const dashed = [];
   for (const f of await fsp.readdir(btDir)) {
     if (!f.endsWith('.json')) continue;

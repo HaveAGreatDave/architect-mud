@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The skirt of a mesa, a long slope of broken rock shed off the face above over a very long time, everything from fist-sized to the size of a truck. Nothing here is stable. Everything you put a foot on shifts a little and then decides not to.",
+  "description": "Red rock, wind-scoured and bare. Where the rain has stood it has left shallow white rings with crisp edges, and there are a lot of them.",
   "exits": {
     "east": "zone_scw_1011_968",
     "north": "zone_scw_1010_967",
@@ -8,18 +8,18 @@
     "west": "zone_scw_1009_968"
   },
   "flags": {
-    "ambient_pool": "scarletwastes_the_spill",
+    "ambient_pool": "scarletwastes_hardpan",
     "lawless": true,
     "radiation": 9,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "dirt_road"
+    "terrain": "redrock"
   },
   "grid_x": 1010,
   "grid_y": 968,
   "grid_z": 0,
   "id": "zone_scw_1010_968",
   "map_id": "map_world",
-  "name": "Talus",
+  "name": "Scald Pan",
   "parent_zone": null
 }

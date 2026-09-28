@@ -198,6 +198,15 @@ export function roadNetwork(window = currentWindow()) {
 // Drop the built network by hand. The gate generation above already covers an editor moving a
 // region, so this is for a caller that has changed something else the roads are built out of —
 // principally the regress suite, which rebuilds the world between suites.
+// The length of this week's road between two regions, in tiles, or null if there is none. The real
+// road, trunk and slip road included, which can be much longer than the gap between the gates.
+export function roadLength(regionA, regionB) {
+  for (const r of roadNetwork().routes) {
+    const b = (VOIDS[r.voidKey]?.dests || []).find((d) => d.key === r.destKey)?.region;
+    if ((r.voidKey === regionA && b === regionB) || (r.voidKey === regionB && b === regionA)) return r.L;
+  }
+  return null;
+}
 export function clearRoadNet() { _net = null; _netWindow = -1; _netGen = -1; }
 
 // ── ASKING IT ────────────────────────────────────────────────────────────────

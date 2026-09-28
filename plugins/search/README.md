@@ -66,6 +66,7 @@ a tick here, you are rebuilding scavenging.
 | Plugin | Finds | Priority |
 |---|---|---|
 | `strays` | Cathode, the stray in Dray Lane | 50 |
+| `wildsign` | a red-tail's kill site in the wastes, fresh or an hour old | 150 |
 | `concealment` | that a disguise piece is a disguise piece — never the code, never what's behind it | 200 |
 
 ## Why its own plugin

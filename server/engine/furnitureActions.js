@@ -33,7 +33,10 @@ export function furnitureVerbs(f, viewer) {
   const seen = new Set();
   const out = [];
   const add = (v) => { if (v && !seen.has(v)) { seen.add(v); out.push(v); } };
-  for (const ix of (f.flags?.interactions || [])) add(ix);
+  // ⚠ A LIST, ALWAYS. An object here (verb → prose) threw inside describeZone and blanked every
+  // room the piece stood in; content:lint refuses it now, and this keeps a stray one survivable.
+  const ix = f.flags?.interactions;
+  for (const v of (Array.isArray(ix) ? ix : [])) add(v);
   for (const v of availableActions(f, viewer)) add(v);
   return out;
 }

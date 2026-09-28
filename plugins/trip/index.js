@@ -831,7 +831,7 @@ function phantomWhiff(player, target) {
     : ' There was never anything there.';
   return {
     type: 'output',
-    message: `<span class="msg-combat">You lunge at ${ph.name} — and your fist passes through empty air. ${cap(ph.name)} isn't there. It never was.</span>${reaction}`,
+    message: `<span class="msg-combat">You lunge at ${ph.name}, and your fist passes through empty air. ${cap(ph.name)} isn't there. It never was.</span>${reaction}`,
   };
 }
 

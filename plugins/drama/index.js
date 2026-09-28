@@ -24,7 +24,7 @@ async function cmdDrama(args, raw, player) {
       return { type: 'error', message: 'You have no entrance written. Try: drama $player kicks the door off its hinges.' };
     }
     player._dramaArmed = line;
-    return { type: 'output', message: `Entrance armed — the next room you walk into gets:\n<span style="color:var(--accent)">${line.replace(/\$player/g, player.handle)}</span>` };
+    return { type: 'output', message: `Entrance armed: the next room you walk into gets:\n<span style="color:var(--accent)">${line.replace(/\$player/g, player.handle)}</span>` };
   }
 
   if (/^(off|clear|none)$/i.test(text)) {

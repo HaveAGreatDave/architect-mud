@@ -49,7 +49,7 @@ async function cmdDeaths(args, raw, player) {
   const lines = rows.map((r) => {
     const where = getZone(r.zone_id)?.name || r.zone_id || 'somewhere';
     const when = [r.game_date, r.game_time].filter(Boolean).join(' ') || 'some time ago';
-    return `<span class="text-dim">${when}</span> — ${where} — ${r.cause_label || 'Unknown causes'}`;
+    return `<span class="text-dim">${when}</span>: ${where}: ${r.cause_label || 'Unknown causes'}`;
   });
 
   const header = `<span class="zone-name">Death Log</span>  <span class="text-dim">(${total} reclone${total === 1 ? '' : 's'} total)</span>`;

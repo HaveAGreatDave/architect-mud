@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#1b2733",
   "color": "#e8ddc6",
-  "description": "A members' room walled entirely in glass on the water side, forty-one floors up, with the Coldwater bay laid out flat and grey below and the weather happening at eye level. Low leather chairs face outward in ones and twos, angled so that no member need look at another. There is a bar along the back wall with no prices on it and a brass telescope on a stand by the north pane, kept polished, pointed at the deep water. Step <b>in</b> to the elevator.",
+  "description": "A members' room glassed on the water side, forty-one floors up, Coldwater bay flat and grey below and weather at eye level. Low leather chairs face outward in ones and twos. A bar along the back wall, no prices. A brass telescope on a stand by the north pane, pointed at the deep water. Step <b>in</b> to the elevator.",
   "exits": {
     "in": "zone_solenne_elevator"
   },

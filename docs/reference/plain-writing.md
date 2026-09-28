@@ -103,9 +103,9 @@ The test: read it aloud. If the stress lands on the negative or on the verb,
 expand it. If it doesn't, contract it. A page of expanded forms means none of
 them reads as emphatic any more.
 
-Two exceptions. **Formal and archaic voices** — the Architect, Ascendant wire
-copy, official notices — write out on purpose, and that's a voice tell in the
-same way em dashes are. And **fixed strings** keep their exact wording: verb
+Two exceptions. **Formal and archaic voices** (the Architect, Ascendant wire
+copy, official notices) write out on purpose, and that is now the whole of their
+voice tell, since no voice gets an em dash. And **fixed strings** keep their exact wording: verb
 names, parsed command output, error text, quotations.
 
 ## Simplify over-formal research language
@@ -1268,6 +1268,30 @@ and an Ascendant may all say *reclamation*. A room description says what is
 actually happening in the room. ⚠ It cannot be automated, because the check is not
 whether the word appears but who is holding the microphone.
 
+## The gate: `docs:prose`
+
+[scripts/docs/prose.mjs](../../scripts/docs/prose.mjs) runs inside `docs:lint`, so every
+regress run and every push checks it. It reads docs, CLAUDE.md, plugin and tool READMEs,
+the HTML guides and player-facing content (the public-domain books, media and build data
+are left out).
+
+- **Error rules fail on one hit anywhere.** They have no legitimate use: chat-tool citation
+  residue (`oaicite`, `contentReference`), assistant sign-offs ("I hope this helps"), and the
+  breath-you-didn't-know-you-were-holding family of clichés.
+- **Warn rules are ratcheted.** Each doc file and each content directory has a count per rule
+  in `scripts/docs/prose-baseline.json`, and the check fails if a count rises. New files start
+  at zero. Rules: overused LLM vocabulary (Kobak et al. 2024; Wikipedia's "Signs of AI
+  writing"), negative parallelism, significance and copula frames, staged reveals, aphoristic
+  closers, fiction clichés, promotional place language, transition openers, all-caps runs, em
+  dashes (everywhere; there is no voice exemption), and `load-bearing`/`-gated` (docs only).
+- **Corpus repetition is ratcheted too**: the number of content sentences that appear on more
+  than 50 entries may not rise.
+
+When you clean something up, run `npm run docs:prose -- --update` to lock the lower counts
+in. `--report` lists the worst files and the most repeated sentences. If a rise is deliberate
+(a character who talks like that), rewrite what you can, update the baseline and say why in
+the commit. The reporter below is still the tool for finding specific lines to fix.
+
 ## Auditing the game's own prose
 
 [scripts/docs/prose-audit.mjs](../../scripts/docs/prose-audit.mjs) scans every
@@ -1359,10 +1383,10 @@ and the corpus is the only place the repetition is visible.
 The spec was written for technical prose. Three things here are voice, not
 Claudish, and survive a rewrite:
 
-1. **Em dashes stay an Ascendant tell.** The existing rule stands — em dashes
-   mark Ascendant and Architect voices and appear in no other dialogue. Don't
-   remove them from those voices for reading plainer, and don't add them
-   elsewhere for rhythm.
+1. **No em dashes, in any voice.** The Architect and Ascendant exemption is
+   gone (2026-09-27). Their voice is carried by formal register and no
+   contractions. Don't add a dash anywhere for rhythm, and don't trade one
+   for ` - `, ` -- ` or an en dash.
 2. **Flavour lines that are jokes, not summaries.** The guides end on lines like
    "take a coat". That is a closing joke, not an aphoristic restatement of the
    paragraph above it. Aphorisms that restate go; jokes that add stay.

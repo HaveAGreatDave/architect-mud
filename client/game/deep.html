@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ARCHITECT — Part four: the deep end</title>
+<title>ARCHITECT: Part four: the deep end</title>
 <meta name="description" content="The systems that take a while to find: client automation, protection rackets, the chemical trade, trading cards and long-haul trucking.">
 <style>
   :root{
@@ -72,7 +72,7 @@
   .shot{border:1px solid var(--edge2);border-radius:11px;overflow:hidden;background:#000;
     box-shadow:0 18px 50px rgba(0,0,0,.6);display:flex;flex-direction:column}
   .shot img{width:100%;display:block}
-  /* the captures have different aspect ratios — crop the paired ones to a common
+  /* the captures have different aspect ratios, so crop the paired ones to a common
      frame so the row lines up, and let captions sit flush at the bottom */
   .shots .shot:not(.wide) img{aspect-ratio:16/8;object-fit:cover}
   .shot figcaption{margin-top:auto}
@@ -156,7 +156,7 @@
   <p class="free">This page assumes you've played a bit. &nbsp;<a href="guide.html"
     style="color:var(--cy)">Part one is your first hour.</a></p>
   <p class="free"><a href="deep-text.html" style="color:var(--cy)">Text-only edition of this
-    page</a> &mdash; plain, linear, screen-reader first.</p>
+    page</a>: plain, linear, screen-reader first.</p>
 </header>
 
 <div class="wrap">
@@ -166,12 +166,12 @@
   <p class="eyebrow">What's in here</p>
   <h2>Five long answers and a drawer of short ones</h2>
   <ul class="ticks">
-    <li><b><a href="#thomas">The client is a machine you program</a></b> &mdash; macros, triggers, timers, aliases and the rest of THOMAS.</li>
-    <li><b><a href="#rackets">Protection rackets</a></b> &mdash; holding a street, and what you can take off the people standing on it.</li>
-    <li><b><a href="#chem">The chemical trade</a></b> &mdash; deliberately vague, because finding the door is the first half of it.</li>
-    <li><b><a href="#cards">Trading cards</a></b> &mdash; a frozen snapshot of somebody, in a foil sleeve.</li>
-    <li><b><a href="#haul">The Long Haul</a></b> &mdash; trucking, as an actual career with an actual balance sheet.</li>
-    <li><b><a href="#rest">And the rest</a></b> &mdash; bounties, shops, spy networks, pianos, books, dreams.</li>
+    <li><b><a href="#thomas">The client is a machine you program</a></b>: macros, triggers, timers, aliases and the rest of THOMAS.</li>
+    <li><b><a href="#rackets">Protection rackets</a></b>: holding a street, and what you can take off the people standing on it.</li>
+    <li><b><a href="#chem">The chemical trade</a></b>: deliberately vague, because finding the door is the first half of it.</li>
+    <li><b><a href="#cards">Trading cards</a></b>: a frozen snapshot of somebody, in a foil sleeve.</li>
+    <li><b><a href="#haul">The Long Haul</a></b>: trucking, as an actual career with an actual balance sheet.</li>
+    <li><b><a href="#rest">And the rest</a></b>: bounties, shops, spy networks, pianos, books, dreams.</li>
   </ul>
 </section>
 
@@ -182,7 +182,7 @@
   <p class="stand">ARCHITECT runs on THOMAS, which is a MUD client that happens to have a
   game bolted to it. Underneath the room pane and the map sits a full automation layer:
   scripting, pattern matching, timers, key bindings and output routing. None of it is
-  required. All of it's there from your first login, and it follows your account rather
+  required. All of it is there from your first login, and it follows your account rather
   than your browser.</p>
 
   <div class="grid g3">
@@ -206,7 +206,7 @@
       <p>Conditions are real expressions, with booleans and comparisons, over your vitals,
       your flags, your inventory and anything a trigger just captured.</p></div>
     <div class="card"><span class="ic">&#128694;</span><b>Speedwalk</b>
-      <p>"3n2e" walks it. It has to contain a digit, deliberately &mdash; otherwise "use" is
+      <p>"3n2e" walks it. It has to contain a digit, deliberately. Otherwise "use" is
       a speedwalk, and so is "sew".</p></div>
     <div class="card"><span class="ic">&#129003;</span><b>Routes and panes</b>
       <p>Send chat to its own window with one rule. Panes exist because a rule names one,
@@ -220,7 +220,7 @@
     <p>All three of triggers, timers and aliases end at the same runner, with the same
     step budget and the same abort flag, so a runaway script gets switched off and tells
     you why rather than quietly spamming forever.</p>
-    <div class="who">&mdash; why there's exactly one executor</div>
+    <div class="who">why there's exactly one executor</div>
   </div>
 
   <p style="margin-top:1.6em">There's also voice input (off by default, and it corrects
@@ -256,14 +256,12 @@
     <li><b>"shakedown" is the verb.</b> It's a skill check against a frightened person, in
     public, and it costs you your standing with them for a long time.</li>
     <li><b>Fear is a number, and it decays.</b> Every shop on your book has one, with a
-    half-life of about ten real days &mdash; and nothing tops it up for you. No collection tick, no
+    half-life of about ten real days, and nothing tops it up for you. No collection tick, no
   reminder, no renewal. Somebody has to physically walk back in and lean on them
   again.</li>
-    <li><b>The cut follows the band.</b> Terrified, Cowed, Wary, Slipping, Lapsed &mdash;
-    a fifth of every sale at the top, and nothing at all at the bottom.</li>
+    <li><b>The cut follows the band.</b> Terrified, Cowed, Wary, Slipping, Lapsed. A fifth of every sale at the top, and nothing at all at the bottom.</li>
     <li><b>The money comes out of the till.</b> It isn't minted for you. An over-milked
-    shop with an empty till pays nothing, so greed caps itself without anybody tuning a
-    knob &mdash; and every credit you skim is a credit a rival can no longer crack out of
+    shop with an empty till pays nothing, so greed caps itself without anybody tuning a knob, and every credit you skim is a credit a rival can no longer crack out of
     that shop's safe.</li>
     <li><b>Somebody sees you do it.</b> Extortion is witnessed like any other crime, the
     law works on evidence, and a shopkeeper who has been leaned on remembers it at the
@@ -276,7 +274,7 @@
   <div class="pull">
     <p>Territory income asks nothing of you once the zone is yours. A racket asks
     constantly, which is why it pays better.</p>
-    <div class="who">&mdash; why rackets pay</div>
+    <div class="who">why rackets pay</div>
   </div>
 
   <p style="margin-top:1.4em;color:var(--dim)">Rackets are one lever of several a corp can
@@ -299,7 +297,7 @@
       <h3>What we will tell you</h3>
       <ul class="ticks">
         <li><b>Everything you can take, somebody makes.</b> Every drug in this game has
-        a supply chain, and every link of it's a place a player can stand.</li>
+        a supply chain, and every link of it is a place a player can stand.</li>
         <li><b>Synthesis is a real bench.</b> Precursors, glassware, a workspace HUD that
         tracks what's actually in the vessel, and a step that's a genuine minigame with a
         genuine failure mode. A bad run wastes stock. A very bad run does worse.</li>
@@ -319,16 +317,16 @@
       <p>Where the doors are. Who opens them. What you have to have done first, what you
       have to be carrying, and which conversations simply don't happen until somebody has
       decided you're worth the risk.</p>
-      <p>None of it's behind a quest marker and none of it's on the job board. It is
+      <p>None of it is behind a quest marker and none of it is on the job board. It is
       behind people. Drink in the wrong bar, do somebody an unreasonable favour, and be the
       sort of person who gets offered things.</p>
       <div class="pull" style="margin-top:1.6em">
         <p>If a guide could hand you an entire industry in a paragraph, it wouldn't have
         been worth building one.</p>
-        <div class="who">&mdash; sorry</div>
+        <div class="who">sorry</div>
       </div>
       <p style="color:var(--dim)">Worth knowing before you go looking: there's a whole
-      separate layer for <em>taking</em> the stuff &mdash; tolerance, withdrawal, overdose,
+      separate layer for <em>taking</em> the stuff: tolerance, withdrawal, overdose,
       hallucination, and the dissociatives that open a dreamzone you have to walk back out
       of. You don't have to be a chemist to end up in that one.</p>
     </div>
@@ -340,8 +338,7 @@
   <p class="eyebrow">A collectible in a world with no merchandise</p>
   <h2>Trading cards</h2>
   <p class="stand">A card is a frozen snapshot of somebody: what they were wearing, what
-  they were carrying, what they had done, and one line they said. Three kinds exist &mdash;
-  players, NPCs and enemies &mdash; printed on one shell. Only players mint themselves, and the
+  they were carrying, what they had done, and one line they said. Three kinds exist (players, NPCs and enemies), all printed on one shell. Only players mint themselves, and the
   system never follows anybody around, so you walk somewhere and hand it the moment.</p>
 
   <div class="grid g3">
@@ -355,14 +352,14 @@
       when you tear it open, not when you bought it.</p></div>
     <div class="card"><span class="ic">&#10024;</span><b>The pull</b>
       <p>Opening one is a fullscreen reveal, card by card. Common, uncommon, rare, epic,
-      legendary &mdash; and a sleeve is guaranteed never to be all commons. Some sleeves run
+      legendary. A sleeve is guaranteed never to be all commons. Some sleeves run
       hot. A very few are mis-cut long.</p></div>
     <div class="card"><span class="ic">&#128176;</span><b>They're items</b>
-      <p>Cards trade like anything else: given, sold, stolen off a corpse, or scrapped for a fraction of what a pack cost — deliberately less than the pack cost, so
+      <p>Cards trade like anything else: given, sold, stolen off a corpse, or scrapped for a fraction of what a pack cost. That's deliberately less than the pack cost, so
   the scrap is never the reason to buy one.</p></div>
     <div class="card"><span class="ic">&#129534;</span><b>The back of the card</b>
       <p>Text is budgeted, never truncated: a clause that won't fit is dropped whole. And
-      condition is spoken rather than numbered &mdash; a battered coat has "gone thin at the
+      condition is spoken rather than numbered: a battered coat has "gone thin at the
       shoulders".</p></div>
     <div class="card"><span class="ic">&#128193;</span><b>The shelf</b>
       <p>"cards" is your collection, by rank and by series. NPC and enemy cards are struck
@@ -402,7 +399,7 @@
     <div class="path" style="--c:var(--amber)">
       <span class="nm">&#8377;11,500</span>
       <h4>Vachon Drayman</h4>
-      <p>The one everybody learns on. Nothing about it's remarkable and nothing about it
+      <p>The one everybody learns on. Nothing about it is remarkable and nothing about it
       has ever stopped working.</p>
     </div>
     <div class="path" style="--c:var(--or)">
@@ -419,8 +416,7 @@
       <p><b>Hauling freight is wages.</b> A board at each depot pays a fixed fee to move
       somebody else's box. It's how you learn the road and how you afford the second
       truck.</p>
-      <p><b>The commodity market is enterprise.</b> Six goods &mdash; baled alloy, potable
-      water, protein slurry, industrial chems, machine parts, medical stock &mdash; priced
+      <p><b>The commodity market is enterprise.</b> Six goods (baled alloy, potable water, protein slurry, industrial chems, machine parts, medical stock) are priced
       by region and by the day, bought with your own money. Medical stock is light and dear,
       so you can carry a fortune in it; water is heavy and cheap, so a full trailer of it is
       a lot of diesel for a modest margin, which is why the weight limit is a number you have to think
@@ -440,12 +436,12 @@ about.</p>
         <li><b>Condition</b> runs Sound, Worked, Tired, Ailing, Derelict. The top two bands
         cost you nothing, so an honest working truck is never a chore.</li>
         <li><b>Damage is per component</b>, and the panels are separate from the mechanicals.
-        Dents do nothing to how it drives &mdash; they come off the price when you sell,
+        Dents do nothing to how it drives. They come off the price when you sell,
         which is the bill for how you drive arriving late rather than never.</li>
         <li><b>Breakdowns happen out there.</b> Fix it if you have the spares and the
         fabrication for it. Call a tow if you do not, and a tow isn't cheap.</li>
         <li><b>Kits and tuning.</b> An aero kit, a long-duration cam, a three-stage Jake
-        brake, an auxiliary saddle tank &mdash; and a workshop instrument set that lets you
+        brake, an auxiliary saddle tank, and a workshop instrument set that lets you
         take every dial past where a hand and an ear can safely go.</li>
         <li><b>Paint</b>, because it's your truck.</li>
       </ul>
@@ -456,7 +452,7 @@ about.</p>
   <div class="grid g3">
     <div class="card"><span class="ic">&#128739;</span><b>The verge is a law, not a wall</b>
       <p>You may leave the road. Open country is passable, slow and murder on tyres.
-      Far enough off it and you bog &mdash; stalled, penalised in time, and put back on the shoulder facing the right
+      Far enough off it and you bog: stalled, penalised in time, and put back on the shoulder facing the right
       way. There's no geometry out there to hit.</p></div>
     <div class="card"><span class="ic">&#127908;</span><b>The CB</b>
       <p>Voices on the corridor: a man describing his divorce to nobody, two drivers arguing
@@ -467,7 +463,7 @@ about.</p>
       with you, and the answer is either the throttle or getting out of the cab.</p></div>
     <div class="card"><span class="ic">&#128694;</span><b>The drive is the crossing</b>
       <p>You're genuinely out in the waste. Everything that happens to a person crossing it
-      on foot &mdash; encounters, traces, the bad places &mdash; can happen to you in the
+      on foot (encounters, traces, the bad places) can happen to you in the
       cab. Break down badly enough and you finish the crossing walking.</p></div>
     <div class="card"><span class="ic">&#128220;</span><b>Or read it instead</b>
       <p>The whole drive has a written mode. If you play in the log you get the road as a
@@ -488,21 +484,19 @@ about.</p>
   <div class="grid g3">
     <div class="card"><span class="ic">&#127919;</span><b>Bounties</b>
       <p>Put money on another player's head out of your own pocket. The head is a physical
-      item in the corpse, so a bounty pays whoever walks up to the board holding it &mdash;
-      not whoever did the killing. The sheet names nobody. The target pays to find out.</p></div>
+      item in the corpse, so a bounty pays whoever walks up to the board holding it, not whoever did the killing. The sheet names nobody. The target pays to find out.</p></div>
     <div class="card"><span class="ic">&#127978;</span><b>Your own shop</b>
       <p>Buy a deed, stock the shelves, price the wares, hire staff, and empty the till
       before somebody cracks it. Other players buy from it while you're logged out.</p></div>
     <div class="card"><span class="ic">&#128373;</span><b>SPECTER</b>
       <p>Run a spy network: informants, cameras, coverage of the streets you care about. It
-      is also how crime gets witnessed at all &mdash; the law works on evidence, and
+      is also how crime gets witnessed at all. The law works on evidence, and
       evidence has a source who can be found and bought.</p></div>
     <div class="card"><span class="ic">&#128274;</span><b>Jail</b>
       <p>Go down while wanted and you wake in Holding with your gear in an evidence locker.
       The cell door is hackable. Serving the time isn't the only way out.</p></div>
     <div class="card"><span class="ic">&#127929;</span><b>Instruments</b>
-      <p>Sit at the piano and play it, key by key, on your own keyboard. No skill roll
-      &mdash; the skill is your hands. The room hears what you actually play.</p></div>
+      <p>Sit at the piano and play it, key by key, on your own keyboard. No skill roll. The skill is your hands. The room hears what you actually play.</p></div>
     <div class="card"><span class="ic">&#128218;</span><b>The library</b>
       <p>Nine complete public-domain books, read on the tablet, with a tap-to-gloss
       vocabulary layer over prose that's never rewritten, and a narration mode that
@@ -510,7 +504,7 @@ about.</p>
     <div class="card"><span class="ic">&#127859;</span><b>Cooking</b>
       <p>Forty-seven authored recipes, plus improvised dishes named from whatever you
       actually put in the pan. Invent one, name it, save it, teach it, or sell it as a card.
-      A HUD proposes the steps &mdash; every one of them a command you could have typed
+      A HUD proposes the steps, and every one of them is a command you could have typed
       yourself.</p></div>
     <div class="card"><span class="ic">&#127864;</span><b>Mixology</b>
       <p>A finished drink lives on the glass rather than as a new item, because the whole
@@ -529,7 +523,7 @@ about.</p>
       keeps its mess for a full rent cycle. That's why you would carry a mop.</p></div>
     <div class="card"><span class="ic">&#128164;</span><b>Dreams</b>
       <p>Sleep and your mind goes somewhere built for that sleep, three or four rooms of it.
-      Your body stays in the room &mdash; lootable, killable, and entirely unaware.</p></div>
+      Your body stays in the room: lootable, killable, and entirely unaware.</p></div>
     <div class="card"><span class="ic">&#9822;</span><b>Chess and poker</b>
       <p>Full legal chess on a neon isometric board, and a poker table with NPC regulars who
       will take your money and be pleasant about it.</p></div>
@@ -538,7 +532,7 @@ about.</p>
       comes when you call her. Hurt her and she never comes back, and nothing in the game
       ever explains why.</p></div>
     <div class="card"><span class="ic">&#128269;</span><b>Searching</b>
-      <p>You can search anywhere. Most of the time you find nothing &mdash; and a room with
+      <p>You can search anywhere. Most of the time you find nothing, and a room with
       nothing in it looks exactly like a room you were unlucky in.</p></div>
   </div>
 </section>
@@ -549,8 +543,8 @@ about.</p>
   <p class="eyebrow">Coldwater Basin</p>
   <h2>None of this was on the job board.</h2>
   <p style="color:var(--dim);max-width:520px;margin:0 auto 2em">
-    Register a character and you're in the vat inside thirty seconds. The rest of it's out
-    there, and most of it's behind somebody.</p>
+    Register a character and you're in the vat inside thirty seconds. The rest of it is out
+    there, and most of it is behind somebody.</p>
   <div class="cta" style="justify-content:center">
     <a class="btn" href="https://www.architectgame.net">Play ARCHITECT</a>
     <a class="btn ghost" href="thomas-client-guide.html">THOMAS power guide</a>

@@ -1,0 +1,359 @@
+{
+  "id": "ultralight",
+  "kind": "mesh",
+  "params": {
+    "name": "Mayfly",
+    "note": "A Cessna 172: a tall boxy cabin under a high wing sat on its roof, a raked windscreen, long side windows, a semi-tapered wing skinned from real NACA-2412 ribs, spring-steel legs bowed out to spatted wheels, lift struts, a dorsal fillet and a modest swept fin. Reworked from the ported builder (buildCessna) for a closer 172 silhouette.",
+    "groundPitch": 0,
+    "navLamps": { "wing": "wing" },
+    "hull": "fuselage",
+    "parts": [
+      {
+        "kind": "loft",
+        "name": "fuselage",
+        "note": "A round cowl, the step up to the cabin roof at the windscreen, a slab-sided cabin over a flat floor and a tailcone that sweeps up to the fin. The painted post between the two side windows is the bay NOT listed in regions.",
+        "sides": 24,
+        "section": "super",
+        "role": "body",
+        "shade": { "base": 0.62, "amp": 0.36 },
+        "stations": [
+          { "f": 0.72, "rg": 0.056, "rvT": 0.05, "rvB": 0.042, "cz": 0.028, "boxy": 0.1 },
+          { "f": 0.65, "rg": 0.082, "rvT": 0.06, "rvB": 0.056, "cz": 0.022, "boxy": 0.26, "minDetail": 1 },
+          { "f": 0.55, "rg": 0.09, "rvT": 0.066, "rvB": 0.062, "cz": 0.014, "boxy": 0.45 },
+          { "f": 0.46, "rg": 0.094, "rvT": 0.076, "rvB": 0.068, "cz": 0.008, "boxy": 0.52, "u": 0 },
+          { "f": 0.43, "rg": 0.098, "rvT": 0.112, "rvB": 0.07, "cz": 0.006, "boxy": 0.57, "u": 0.09 },
+          { "f": 0.4, "rg": 0.1, "rvT": 0.138, "rvB": 0.072, "cz": 0.004, "boxy": 0.6, "u": 0.18 },
+          { "f": 0.35, "rg": 0.103, "rvT": 0.153, "rvB": 0.074, "cz": 0.003, "boxy": 0.61, "u": 0.26 },
+          { "f": 0.24, "rg": 0.106, "rvT": 0.155, "rvB": 0.076, "cz": 0.002, "boxy": 0.62, "u": 0.42, "minDetail": 1 },
+          { "f": 0.06, "rg": 0.106, "rvT": 0.15, "rvB": 0.076, "cz": 0.004, "boxy": 0.62, "u": 0.66 },
+          { "f": 0, "rg": 0.104, "rvT": 0.141, "rvB": 0.075, "cz": 0.007, "boxy": 0.61, "u": 0.74 },
+          { "f": -0.12, "rg": 0.1, "rvT": 0.134, "rvB": 0.072, "cz": 0.012, "boxy": 0.58, "u": 0.86, "minDetail": 1 },
+          { "f": -0.28, "rg": 0.084, "rvT": 0.108, "rvB": 0.062, "cz": 0.028, "boxy": 0.46, "u": 1 },
+          { "f": -0.46, "rg": 0.06, "rvT": 0.074, "rvB": 0.048, "cz": 0.048, "boxy": 0.32, "minDetail": 1 },
+          { "f": -0.66, "rg": 0.044, "rvT": 0.052, "rvB": 0.038, "cz": 0.064, "boxy": 0.22 },
+          { "f": -0.86, "rg": 0.032, "rvT": 0.038, "rvB": 0.03, "cz": 0.078, "boxy": 0.16, "minDetail": 1 },
+          { "f": -1, "rg": 0.022, "rvT": 0.026, "rvB": 0.022, "cz": 0.088, "boxy": 0.1 }
+        ],
+        "regions": [
+          { "at": [0.46, 0.43, 0.4], "k": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "role": "glass", "tint": [92, 128, 156], "art": "mayfly", "uvDiv": 12 },
+          { "at": [0.35, 0.24, 0], "k": [1, 2, 3, 8, 9, 10], "role": "glass", "tint": [92, 128, 156], "art": "mayfly", "uvDiv": 12 }
+        ],
+        "capFore": { "kind": "flat", "sh": 0.92 },
+        "capAft": { "kind": "flat", "sh": 0.5, "reverse": true }
+      },
+      {
+        "kind": "cone",
+        "name": "spinner",
+        "f": 0.72,
+        "h": 0.028,
+        "r": 0.048,
+        "n": 10,
+        "apex": [0.795, 0, 0.028],
+        "role": "nacelle",
+        "shade": { "base": 0.72, "amp": 0.26 }
+      },
+      {
+        "kind": "mirror",
+        "name": "cooling intakes",
+        "parts": [
+          { "kind": "tube", "pts": [[0.722, 0.031, 0.012], [0.68, 0.031, 0.012]], "r": 0.016, "sides": 7, "role": "gun", "sh": 0.36 }
+        ],
+        "minDetail": 1
+      },
+      {
+        "kind": "tube",
+        "name": "exhaust stack",
+        "pts": [[0.58, 0.032, -0.032], [0.47, 0.038, -0.048]],
+        "r": 0.01,
+        "sides": 6,
+        "role": "gun",
+        "sh": 0.34,
+        "minDetail": 1
+      },
+      {
+        "kind": "wing",
+        "name": "wing",
+        "foil": "naca2412",
+        "span": 1.12,
+        "taper0": 0.55,
+        "wh": 0.152,
+        "dih": 0.038,
+        "leR": 0.26,
+        "teR": -0.1,
+        "leT": 0.215,
+        "teT": -0.035,
+        "ribs": [-1.12, -0.88, -0.62, 0, 0.62, 0.88, 1.12],
+        "nx": 11,
+        "role": "wing",
+        "lower": 0.46,
+        "tipSh": 0.66,
+        "tipFairing": { "drop": -0.03, "minDetail": 1, "out": 0.012, "role": "nacelle", "sh": 0.7, "x0": 0.06, "x1": 0.9 },
+        "lens": { "hh": 0.012, "hw": 0.02, "minDetail": 1, "out": 0.014, "tints": [[46, 190, 78], [200, 52, 48]], "x": 0.1 },
+        "lod0": { "nx": 4, "ribs": [-1.12, 0, 1.12] }
+      },
+      {
+        "kind": "mirror",
+        "name": "flaps and ailerons",
+        "parts": [
+          {
+            "kind": "ctrl",
+            "name": "flap",
+            "role": "flap",
+            "side": 1,
+            "sh": 0.8,
+            "le": [[0.03680000000000003, 0.17, 0.16399985714285711], [0.03680000000000003, 0.6, 0.17858914285714284]],
+            "te": [[-0.09999999999999998, 0.17, 0.15776785714285713], [-0.09999999999999998, 0.6, 0.17235714285714285]],
+            "cf": 0.3,
+            "axis": "z",
+            "half": 0.012
+          },
+          {
+            "kind": "ctrl",
+            "name": "aileron",
+            "role": "aileron",
+            "side": 1,
+            "sh": 0.82,
+            "le": [[0.03882539682539682, 0.66, 0.18045861552028217], [0.05723809523809523, 1.06, 0.1925187566137566]],
+            "te": [[-0.09432539682539681, 0.66, 0.17439285714285713], [-0.04273809523809524, 1.06, 0.1879642857142857]],
+            "cf": 0.3,
+            "axis": "z",
+            "half": 0.01
+          }
+        ],
+        "minDetail": 1
+      },
+      {
+        "kind": "mirror",
+        "name": "wing-root fillet",
+        "parts": [
+          {
+            "kind": "poly",
+            "faces": [
+              {
+                "role": "body",
+                "sh": 0.8,
+                "p": [
+                  [0.2528, 0.12, 0.1482782309048274],
+                  [-0.0928, 0.12, 0.15509193405338048],
+                  [-0.2, 0.084, 0.126],
+                  [0.34, 0.088, 0.128]
+                ]
+              }
+            ]
+          }
+        ],
+        "minDetail": 1
+      },
+      {
+        "kind": "mirror",
+        "name": "lift struts",
+        "parts": [
+          {
+            "kind": "faired",
+            "name": "lift strut",
+            "pts": [[0.22, 0.086, -0.048], [0.10880952380952383, 0.62, 0.15565905968821742]],
+            "chord": 0.038,
+            "th": 0.01,
+            "role": "strut",
+            "sh": 0.66
+          },
+          {
+            "kind": "poly",
+            "name": "strut cuff",
+            "faces": [
+              {
+                "role": "nacelle",
+                "sh": 0.72,
+                "p": [
+                  [0.14380952380952383, 0.58, 0.1476590596882174],
+                  [0.07380952380952382, 0.58, 0.1476590596882174],
+                  [0.07880952380952383, 0.66, 0.15765905968821742],
+                  [0.13880952380952383, 0.66, 0.15765905968821742]
+                ]
+              }
+            ],
+            "minDetail": 1
+          }
+        ]
+      },
+      {
+        "kind": "blade",
+        "name": "fin",
+        "outline": [[-0.58, 0.118], [-0.82, 0.29], [-0.93, 0.31], [-0.99, 0.14], [-0.93, 0.108]],
+        "t": 0.012,
+        "role": "fin",
+        "sh": [0.92, 0.68],
+        "split": [{ "k": [0, 1, 2, 4] }, { "k": [2, 3, 4], "mul": 0.97 }],
+        "edges": [
+          { "a": 0, "b": 1, "sh": 0.88 },
+          { "a": 1, "b": 2, "sh": 0.74 },
+          { "a": 2, "b": 3, "sh": 0.74 },
+          { "a": 3, "b": 4, "sh": 0.74 }
+        ]
+      },
+      {
+        "kind": "poly",
+        "name": "dorsal fillet",
+        "faces": [{ "role": "fin", "sh": 0.84, "p": [[-0.24, 0, 0.138], [-0.7, 0, 0.205], [-0.56, 0, 0.118]] }],
+        "minDetail": 1
+      },
+      {
+        "kind": "mirror",
+        "name": "rudder",
+        "parts": [
+          {
+            "kind": "poly",
+            "faces": [
+              {
+                "role": "rudder",
+                "sh": 0.88,
+                "p": [
+                  [-0.905, 0.018000000000000002, 0.415],
+                  [-0.938, 0.018000000000000002, 0.115],
+                  [-1, 0.018000000000000002, 0.145],
+                  [-0.962, 0.018000000000000002, 0.43]
+                ],
+                "defl": "rudder",
+                "hinge": [[-0.905, 0.018000000000000002, 0.415], [-0.938, 0.018000000000000002, 0.115]],
+                "side": 1
+              }
+            ],
+            "left": { "faces": [{ "sh": 0.66, "winding": "reverse" }] }
+          }
+        ]
+      },
+      {
+        "kind": "mirror",
+        "name": "tailplane",
+        "parts": [
+          {
+            "kind": "panel",
+            "c": [[-0.64, 0.028, 0.076], [-0.7, 0.37, 0.082], [-0.88, 0.37, 0.082], [-0.86, 0.028, 0.076]],
+            "th": 0.018,
+            "role": "stab",
+            "sh": 0.74
+          },
+          {
+            "kind": "ctrl",
+            "name": "elevator",
+            "role": "elevator",
+            "side": 1,
+            "sh": 0.74,
+            "le": [[-0.643, 0.0451, 0.07629999999999999], [-0.6976, 0.35631999999999997, 0.08176]],
+            "te": [[-0.861, 0.0451, 0.07629999999999999], [-0.8792, 0.35631999999999997, 0.08176]],
+            "cf": 0.36,
+            "axis": "z",
+            "half": 0.009,
+            "minDetail": 1
+          }
+        ]
+      },
+      {
+        "kind": "poly",
+        "name": "beacon lens",
+        "faces": [
+          { "role": "window", "sh": 0.95, "p": [[-0.9, 0.01, 0.452], [-0.94, 0.01, 0.452], [-0.94, -0.01, 0.452], [-0.9, -0.01, 0.452]], "tint": [205, 58, 50] }
+        ],
+        "minDetail": 1
+      },
+      {
+        "kind": "mirror",
+        "name": "main gear",
+        "note": "Spring-steel legs bow out and aft from the belly to wheels outboard of the fuselage.",
+        "parts": [
+          {
+            "kind": "faired",
+            "name": "leaf-spring leg",
+            "pts": [[0.1, 0.03, -0.062], [0.1, 0.13, -0.12], [0.1, 0.228, -0.17], [0.1, 0.3, -0.2]],
+            "chord": 0.03,
+            "th": 0.009,
+            "role": "gear",
+            "sh": 0.62
+          },
+          { "kind": "wheel", "name": "main wheel", "at": [0.1, 0.3, -0.2], "r": 0.055, "hw": 0.018, "n": 12, "lod0": { "n": 8 } },
+          { "kind": "spat", "name": "wheel spat", "at": [0.1, 0.3, -0.2], "s": 1.05, "minDetail": 1 }
+        ]
+      },
+      { "kind": "strut", "name": "nose oleo", "at": [0.52, 0], "top": -0.01, "bot": -0.17900000000000002, "r": 0.016, "sides": 6 },
+      { "kind": "wheel", "name": "nose wheel", "at": [0.52, 0, -0.20900000000000002], "r": 0.046, "hw": 0.016, "n": 10, "lod0": { "n": 8 } },
+      { "kind": "spat", "name": "nose spat", "at": [0.52, 0, -0.20900000000000002], "s": 0.85, "minDetail": 1 },
+      {
+        "kind": "poly",
+        "name": "scissor link",
+        "faces": [
+          {
+            "role": "gear",
+            "sh": 0.8,
+            "p": [
+              [0.534, -0.007, -0.10900000000000001],
+              [0.534, 0.007, -0.10900000000000001],
+              [0.548, 0.007, -0.14700000000000002],
+              [0.548, -0.007, -0.14700000000000002]
+            ]
+          },
+          {
+            "role": "gear",
+            "sh": 0.66,
+            "p": [
+              [0.548, -0.007, -0.14700000000000002],
+              [0.548, 0.007, -0.14700000000000002],
+              [0.534, 0.007, -0.18300000000000002],
+              [0.534, -0.007, -0.18300000000000002]
+            ]
+          }
+        ],
+        "minDetail": 1
+      },
+      {
+        "kind": "mirror",
+        "name": "door and step",
+        "parts": [
+          {
+            "kind": "poly",
+            "faces": [
+              { "role": "strut", "sh": 0.42, "p": [[0.35, 0.109, 0.136], [0.35, 0.109, -0.048], [0.35, 0.109, -0.055999999999999994], [0.35, 0.109, 0.128]] },
+              { "role": "strut", "sh": 0.42, "p": [[0.02, 0.109, 0.132], [0.02, 0.109, -0.052000000000000005], [0.02, 0.109, -0.06], [0.02, 0.109, 0.124]] },
+              { "role": "strut", "sh": 0.42, "p": [[0.35, 0.109, -0.05], [0.02, 0.109, -0.054], [0.02, 0.109, -0.062], [0.35, 0.109, -0.058]] },
+              { "role": "gear", "sh": 0.58, "p": [[0.2, 0.088, -0.09], [0.2, 0.15, -0.096], [0.13, 0.15, -0.096], [0.13, 0.088, -0.09]] }
+            ]
+          }
+        ],
+        "minDetail": 1
+      },
+      {
+        "kind": "mirror",
+        "name": "roof antenna",
+        "parts": [
+          {
+            "kind": "poly",
+            "faces": [
+              { "role": "fin", "sh": 0.86, "p": [[-0.04, 0.004, 0.146], [-0.13, 0.004, 0.146], [-0.13, 0.004, 0.205], [-0.07, 0.004, 0.205]] }
+            ],
+            "left": { "sh": 0.66 }
+          }
+        ],
+        "minDetail": 1
+      },
+      {
+        "kind": "tube",
+        "name": "belly antenna",
+        "pts": [[-0.2, 0, -0.062], [-0.2, 0, -0.1]],
+        "r": 0.006,
+        "sides": 4,
+        "role": "gear",
+        "sh": 0.5,
+        "minDetail": 1
+      },
+      {
+        "kind": "tube",
+        "name": "pitot",
+        "pts": [[0.15200000000000002, -0.52, 0.15078664124102784], [0.20700000000000002, -0.52, 0.14278664124102783]],
+        "r": 0.005,
+        "sides": 4,
+        "role": "gear",
+        "sh": 0.55,
+        "minDetail": 1
+      }
+    ]
+  }
+}

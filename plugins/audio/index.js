@@ -11,7 +11,7 @@ import { on, emit } from '../../server/engine/events.js';
 import { registerDamageObserver } from '../../server/engine/damage-events.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { propagateAudio, getWeatherLeakGain, getWeatherLeakSource } from '../../server/engine/sounds.js';
-import { getZonePrecip, getWindKph, getZonePowerStatus, activeWeatherEvent, isIndoorZone } from '../../server/engine/environment.js';
+import { getZonePrecip, getWindKph, getZoneWindKph, getZonePowerStatus, activeWeatherEvent, isIndoorZone } from '../../server/engine/environment.js';
 // The game's one step clock. Borrowed, never re-derived — a cadence of our own
 // would drift the moment movement speed is tuned, and the symptom would be feet
 // that no longer match the walk. `plugins/pinch` borrows it for the same reason.
@@ -181,7 +181,7 @@ function resolveSongInstruments(song) {
 
 on('player.login', ({ id }) => {
   const routes = eventRoutes.get('player.login');
-  console.log(`[audio] player.login fired for ${id} — routes:`, routes?.length ?? 0, routes?.map(r => `scope=${r.scope} sfx=${r.sfx_id} sample=${r.sample_id}`));
+  console.log(`[audio] player.login fired for ${id}: routes:`, routes?.length ?? 0, routes?.map(r => `scope=${r.scope} sfx=${r.sfx_id} sample=${r.sample_id}`));
   triggerEventRoute('player.login', null, id);
   // zone.entered only fires on movement, so a freshly-connected player would
   // hear no weather bed until their first step. Start it now, at connect.
@@ -1467,7 +1467,8 @@ function reconcilePlayerWeatherAmbient(playerId, zoneId) {
     const d = weatherAmbientDef(precipType);
     if (d) desired.push({ def: d, gain: precipGainFor(precipRate) * mult });
   }
-  const kph = getWindKph();
+  // The wind at the tile the weather leaks in from, so a squall overhead is heard as one.
+  const kph = outdoorZoneId ? getZoneWindKph(outdoorZoneId) : getWindKph();
   if (kph >= WIND_MIN_KPH) {
     const d = weatherAmbientDef('wind');
     if (d) desired.push({ def: d, gain: windGainFor(kph) * mult });

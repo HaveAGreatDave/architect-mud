@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#1b1722",
-  "description": "Eighteen steps and both walls solid with flash: sheets of card, inked and painted, pinned up in ranks with the oldest at the bottom where the damp has got at them. Snakes, hearts, anchors, a great many birds, a whole panel of things that are clearly meant to be seen on a shoulder from behind. Some of them have a small red dot in the corner, and the dots are not explained anywhere, and everybody who has been up these stairs twice has a theory.",
+  "description": "Eighteen steps, both walls covered in flash: inked and painted card pinned in ranks, the oldest at the bottom going to damp. Snakes, hearts, anchors, a lot of birds, a panel of back-of-shoulder pieces. Some carry a small red dot in the corner.",
   "exits": {
     "up": "zone_regerts_room",
     "south": "zone_district_901_905",

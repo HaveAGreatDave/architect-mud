@@ -67,7 +67,7 @@ async function _whoSmite(id) {
 async function _whoKick(id, handle) {
   const token = sessionStorage.getItem('devpanel-token');
   if (!token) return;
-  const reason = prompt(`Kick ${handle} — reason (optional):`);
+  const reason = prompt(`Kick ${handle}, reason (optional):`);
   if (reason === null) return;
   const adminHandle = document.getElementById('handle-display')?.textContent?.trim() || 'An administrator';
   await fetch(`/api/players/${id}/kick`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ reason, adminHandle }) });

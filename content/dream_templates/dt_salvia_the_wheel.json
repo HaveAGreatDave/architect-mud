@@ -5,7 +5,7 @@
     "The whole assembly moves through a quarter and continues."
   ],
   "cause": "drug",
-  "description": "Something enormous is turning and you're one of the things fixed to it. Everything you can see is fixed to it too, at its own radius, going round at its own rate, and all of it's correct. There has been no moment at which this started.",
+  "description": "Something enormous is turning and you're one of the things fixed to it. Everything you can see is fixed to it too, at its own radius, going round at its own rate, and all of it is correct. There has been no moment at which this started.",
   "drug_id": "drug_salvia",
   "fx": "swim",
   "fx_intensity": 0.85,

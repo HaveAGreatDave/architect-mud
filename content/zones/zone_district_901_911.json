@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#0e151d",
   "color": "#b0d6f0",
-  "description": "A tower that shears as it rises — each floor turned a few degrees on the one below, so the corner you are looking at walks round the building as you drive past it and the whole thing looks slightly wrung out. The entrance is a chrome drum canopy on the lane side with one door in it, and the door is thicker than a door needs to be. The name is cut into the canopy fascia, small, in letters about four inches high.",
+  "description": "A tower that shears as it rises, each floor turned a few degrees on the one below, so the corner you are looking at walks round the building as you drive past it and the whole thing looks slightly wrung out. The entrance is a chrome drum canopy on the lane side with one door in it, and the door is thicker than a door needs to be. The name is cut into the canopy fascia, small, in letters about four inches high.",
   "exits": {
     "east": "zone_district_902_911",
     "west": "zone_hf_safe_hall"

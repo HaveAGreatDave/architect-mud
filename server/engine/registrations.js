@@ -8,7 +8,7 @@ import { query } from '../models/db.js';
 
 const DEFAULT_MESSAGE =
   'New registrations are closed for the moment while we work on the world. ' +
-  'They will open again — check back soon.';
+  'They will open again. Check back soon.';
 
 let registrationsOpen = true; // default open
 let closedMessage = DEFAULT_MESSAGE;

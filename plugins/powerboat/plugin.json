@@ -19,6 +19,9 @@
     "boatsync",
     "boatevent"
   ],
+  "specializedActions": [
+    { "verb": "use", "requiredFlag": "marina_desk" }
+  ],
   "actions": {
     "registers": [
       "BOAT_BREAKUP",
@@ -33,6 +36,7 @@
   "events": {
     "emits": [],
     "consumes": [
+      "player.login",
       "player.logout",
       "player.death"
     ]

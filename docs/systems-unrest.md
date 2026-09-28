@@ -75,6 +75,12 @@ label from another. If [district-repair](proposals/district-repair.md) ever ship
 `blocks.js` swaps its key function for `districtFor` and no scalar, incident or regress
 case changes. That is the reason to build on blocks now rather than wait: the district
 painting is worth doing on its own merits and this system does not have to pay for it.
+The first draft keyed on `flags.district`, and twelve of the twenty authored districts
+hold zero tiles, which is why the cell is derived instead.
+
+Before Unrest, the ten authored hostile `org_relations` edges were read by one thing, the
+CODEX tablet reader, and no NPC behaviour reacted to them. There's no player readout
+because a gauge turns the sim into a dashboard to optimise.
 
 ⚠ **grid 0,0 is an unset column, never a tile.** Interiors carry it, so an interior
 resolves its cell by following `world_exit_zone` out to its facade. A coordinate read
@@ -162,10 +168,10 @@ reads as aftermath ("Somebody got lifted in {place} this morning for standing st
 so this needed no new lines.
 
 ⚠ **They contradict each other and nothing ever reconciles them.** That single fact
-communicates "an authority and a resistance" better than any scalar could. Per house
-style the **em dash is the Ascendant voice tell**, so the wire takes them and the street
-never does — the faction split is readable in the punctuation before a word of it is.
-Regress asserts both halves.
+communicates "an authority and a resistance" better than any scalar could. No prose in
+the game takes an em dash, so the split is carried by **register**: the wire is formal
+and never contracts, and the street always does. Regress asserts both (no dash in either;
+no contraction on the wire).
 
 ⚠ **Place is spoken as a bearing, never as a name.** A cell has no name, so a part of
 town is given by orientation from the centre of the built city — "the north end", "the

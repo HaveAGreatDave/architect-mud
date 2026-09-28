@@ -5,7 +5,7 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "The third-floor landing, where the hotel's old carpet runner gives up entirely: bare concrete underneath, worn pale in a path between the stairs and the doors. Four units open off it, brass numbers screwed to each: 2A through 2D, a couple hanging by a single screw. The stairwell railing is cold iron, sticky where a thousand hands have gripped it. A dead vending machine hulks in the corner, its glass front spider-cracked, the snacks inside fossilised. Somewhere below, the bar's murmur leaks up through the floor.",
+  "description": "The third-floor landing, where the carpet runner gives out onto bare concrete worn pale to the doors. Four units, 2A through 2D, brass numbers hanging by single screws. The iron stair rail is sticky. A dead vending machine in the corner, glass spider-cracked, snacks fossilised. The bar murmurs up through the floor.",
   "exits": {
     "down": "zone_embassy_floor_2nd",
     "east": "zone_apt_7",

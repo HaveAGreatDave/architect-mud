@@ -423,7 +423,7 @@ export async function offlineSleepSwing(attacker, targetId, broadcast) {
 		liveTarget.sleeping = null;
 		broadcast(null, { type: 'output', message: `${attacker.handle} attacks you, jolting you awake!` }, null, liveTarget.id);
 		broadcast(attacker.current_zone, { type: 'zone_event', message: `${attacker.handle} engages ${liveTarget.handle} in combat!` }, attacker.id, null, liveTarget.id);
-		broadcast(null, { type: 'combat', message: `${liveTarget.handle} woke up — combat begins!` }, null, attacker.id);
+		broadcast(null, { type: 'combat', message: `${liveTarget.handle} woke up: combat begins!` }, null, attacker.id);
 		return;
 	}
 
@@ -509,7 +509,7 @@ export async function cmdKamehameha(targetStr, player, broadcast) {
 	// Charge-up, seen by the whole room (caller included).
 	broadcast(zoneId, {
 		type: 'zone_event',
-		message: `<span class="battle-cry">${player.handle} draws both hands back — a sphere of blue-white light screams into being. KA…ME…HA…ME…</span>`,
+		message: `<span class="battle-cry">${player.handle} draws both hands back: a sphere of blue-white light screams into being. KA…ME…HA…ME…</span>`,
 	});
 
 	const corpseLinks = [];
@@ -604,7 +604,7 @@ export async function cmdFight(arg, player, broadcast) {
 // Blocked in pacifist: you can still fight, you just can't commit to a haymaker.
 export async function cmdPow(targetStr, player, broadcast) {
 	if (getStance(player) === 'pacifist') {
-		return { type: 'error', message: "Not from a pacifist stance — you're covering up, not committing." };
+		return { type: 'error', message: "Not from a pacifist stance: you're covering up, not committing." };
 	}
 	if (isOnCooldown(player.id, 'combat_move')) {
 		return { type: 'error', message: `You're not set for it yet. (${(getCooldownRemaining(player.id, 'combat_move') / 1000).toFixed(1)}s)` };
@@ -707,9 +707,9 @@ async function attemptFlee(player, direction, attacker) {
 		type: 'combat',
 		noRefresh: true,
 		progressMs: swingInterval(player),
-		message: `You try to break ${direction} — <span class="flee-fail">${fleeFailClause(attacker.name)}</span>`,
+		message: `You try to break ${direction}: <span class="flee-fail">${fleeFailClause(attacker.name)}</span>`,
 	});
-	broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} tries to break away — ${attacker.name} cuts them off.` }, player.id);
+	broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} tries to break away: ${attacker.name} cuts them off.` }, player.id);
 	return false;
 }
 

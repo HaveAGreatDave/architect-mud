@@ -103,7 +103,7 @@ edit('npcs/npc_asc_vess.json', (d, t) => {
     '"Eleven degrees, year round, sixty per cent. Triple glass. The west wall is on its own '
     + 'circuit."\n\n'
     + 'She says the figures without any sense that they are figures.\n\n'
-    + '"It draws more than Meltwater Row does. The Row is in run-off — we stopped writing there '
+    + '"It draws more than Meltwater Row does. The Row is in run-off. We stopped writing there '
     + 'in \'68."\n\n'
     + '"You do not re-wire a district you are waiting on."';
 

@@ -6,9 +6,9 @@
     "That one is fine. That one is fine. Not that one.",
     "Nobody pays. Put your name on the board if you feel bad about it.",
     "Bones in, always. It's the bones that make it.",
-    "Everything out there wants to poison you. Most of it's bad at it."
+    "Everything out there wants to poison you. Most of it is bad at it."
   ],
-  "description": "A wide man working six pots at once with a ladle in each hand and a third under his arm. He has eleven fingers and every one of them is doing something.\n\nHe tastes off the back of his wrist rather than off the spoon, holding it against the inside of his lip for a moment before he swallows, and what he's checking for isn't seasoning. Everything that goes into a Thornwarren pot comes off ground that's trying to kill them, and he's the reason nobody has died of dinner in twenty years.",
+  "description": "A wide man working six pots with a ladle in each hand and a third under his arm. He has eleven fingers, all of them busy.",
   "dialogue_tree": {
     "board": {
       "actions": [],

@@ -70,7 +70,7 @@ export function openVoidwalkStaging(msg) {
 
   const readyCount = party.filter(p => p.ready).length;
   const dests = (msg.dests || []).join('&nbsp; · &nbsp;') || 'the unknown';
-  const btnLabel = msg.youReady ? '✓ Ready — holding for the party' : (msg.solo ? 'Walk Off The Edge ▸' : 'Ready Up ▸');
+  const btnLabel = msg.youReady ? '✓ Ready: holding for the party' : (msg.solo ? 'Walk Off The Edge ▸' : 'Ready Up ▸');
   const btnClass = msg.youReady ? 'vwstage-btn vwstage-btn-done' : 'vwstage-btn vwstage-btn-go';
 
   // Private comms only make sense with a party — hide it when you set out alone.

@@ -82,7 +82,7 @@ async function buildScreen(player, screenId, params) {
   // work-plugin board, with a Take Run action.
   if (isCourierId(questId)) {
     const spec = courierBoard().find(j => j.id === questId);
-    if (!spec) return { view: 'error', message: 'That run just turned over — the board refreshed.' };
+    if (!spec) return { view: 'error', message: 'That run just turned over: the board refreshed.' };
     const badge = spec.class === 'sketchy' ? 'illegal' : 'open';
     return {
       view: 'detail',
@@ -90,7 +90,7 @@ async function buildScreen(player, screenId, params) {
       quest: {
         id: spec.id, name: `Run to ${spec.dropoffName}`,
         description: spec.class === 'sketchy'
-          ? `An unmarked parcel — don't ask what's inside. ${spec.dist} tiles out. If you get searched carrying it, it's gone and so is the pay.`
+          ? `An unmarked parcel: don't ask what's inside. ${spec.dist} tiles out. If you get searched carrying it, it's gone and so is the pay.`
           : `A clean, above-board parcel bound for ${spec.dropoffName}, ${spec.dist} tiles out. Beat the clock and it pays ${spec.payout}₵.`,
         status: 'open',
         objectives: [{ desc: `Deliver to ${spec.dropoffName} before the deadline`, have: 0, need: 1, done: false }],
@@ -198,11 +198,11 @@ async function buildScreen(player, screenId, params) {
     if (held) {
       const z = getZone(held.run.dropoffZone);
       items.push({ id: 'active_run', label: held.run.cracked ? 'Cracked parcel (dead weight)' : `Active run → ${z?.name || held.run.dropoffName}`,
-        sub: held.run.cracked ? 'The seal\'s broken — it won\'t deliver.' : `${held.run.payout}₵ on delivery — get there and use "deliver".`, badge: 'active', badgeLabel: 'CARRYING' });
+        sub: held.run.cracked ? 'The seal\'s broken: it won\'t deliver.' : `${held.run.payout}₵ on delivery: get there and use "deliver".`, badge: 'active', badgeLabel: 'CARRYING' });
     } else {
       for (const j of courierBoard()) {
         items.push({ id: j.id, label: `Run to ${j.dropoffName}`,
-          sub: `${j.dist} tiles · ${j.payout}₵${j.class === 'sketchy' ? ' · sketchy' : ''} — tap to take`,
+          sub: `${j.dist} tiles · ${j.payout}₵${j.class === 'sketchy' ? ' · sketchy' : ''}: tap to take`,
           badge: j.class === 'sketchy' ? 'illegal' : 'open', badgeLabel: 'TAKE' });
       }
       if (!items.length) items.push({ id: 'empty', label: 'Nothing on the board right now', sub: 'Dispatch turns the board over every few minutes.', badge: 'active', badgeLabel: '—' });
@@ -228,9 +228,9 @@ async function buildScreen(player, screenId, params) {
       items: jobs.map(({ quest, pq }) => {
         const state = jobState(quest, pq);
         let sub, badgeLabel;
-        if (state === 'ready') { sub = 'Finished — tap to hand it in for pay'; badgeLabel = 'HAND IN'; }
-        else if (state === 'active') { const { have, need } = progressTotals(quest, pq); sub = `In progress — ${have}/${need} done`; badgeLabel = 'IN PROGRESS'; }
-        else { sub = `${creditsOf(quest)}₵ on completion — tap to take the job`; badgeLabel = 'TAKE'; }
+        if (state === 'ready') { sub = 'Finished: tap to hand it in for pay'; badgeLabel = 'HAND IN'; }
+        else if (state === 'active') { const { have, need } = progressTotals(quest, pq); sub = `In progress: ${have}/${need} done`; badgeLabel = 'IN PROGRESS'; }
+        else { sub = `${creditsOf(quest)}₵ on completion: tap to take the job`; badgeLabel = 'TAKE'; }
         return { id: quest.id, label: quest.name, sub, badge: state, badgeLabel };
       }),
     };
@@ -373,7 +373,7 @@ async function handleAction(player, actionId, params) {
     const next = objectives.find((obj, i) => obj.zone && (progress[i] || 0) < (obj.count || 1));
     const note = (m) => sendToPlayer(player.id, { type: 'output', message: `<span class="msg-system">${m}</span>` });
     if (!next) note('Nothing left to travel to on this one.');
-    else if (next.zone === player.current_zone) note("You're already at the next stop — do the work here.");
+    else if (next.zone === player.current_zone) note("You're already at the next stop: do the work here.");
     else {
       const destZone = getZone(next.zone);
       const path = destZone ? findPath(player.current_zone, next.zone) : null;
@@ -397,7 +397,7 @@ async function handleAction(player, actionId, params) {
         const hops = path.length - 1;
         sendToPlayer(player.id, {
           type: 'gps_route',
-          message: `Bring it to ${npcInfo.npcName} in person — ${destZone.name} (${hops} stop${hops === 1 ? '' : 's'} away). Route plotted.`,
+          message: `Bring it to ${npcInfo.npcName} in person: ${destZone.name} (${hops} stop${hops === 1 ? '' : 's'} away). Route plotted.`,
           path, resumeAuto: true, continueOnArrival: true,
         });
       } else {

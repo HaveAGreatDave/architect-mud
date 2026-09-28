@@ -7,10 +7,8 @@
       "plans",
       "drawers"
     ],
-    "hack_difficulty": 8,
-    "interactions": {
-      "examine": "The labels run from PHASE 1 to PHASE 9. There are twelve drawers."
-    }
+    "examine_detail": "The labels run from PHASE 1 to PHASE 9. There are twelve drawers.",
+    "hack_difficulty": 8
   },
   "id": "furn_hf_sweep_chests",
   "name": "the plan chests",

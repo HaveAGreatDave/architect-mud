@@ -132,7 +132,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Halbrook, Rennick, and now you.\" She says it to the file, not to you, and the ocular clicks down over her eye.\n\n\"Your account has been open since the Threshold read you. I have had the file that long. Nobody told you because nobody needed to — you were always going to come down these stairs eventually, and here you are, doing it.\"\n\nShe indicates the theatre door with two chromed fingers.\n\n\"`augment` will show you what I can fit. Buy the piece first; I cut, I do not sell. And I will tell you the one thing upstairs will not, because he thinks it is obvious: the first one takes the flesh with it. Whatever was going to grow in you does not, after today.\"\n\nThe ocular clicks back up.\n\n\"Choose a piece you would be happy to be buried in.\""
+      "text": "\"Halbrook, Rennick, and now you.\" She says it to the file, not to you, and the ocular clicks down over her eye.\n\n\"Your account has been open since the Threshold read you. I have had the file that long. Nobody told you because nobody needed to. You were always going to come down these stairs eventually, and here you are, doing it.\"\n\nShe indicates the theatre door with two chromed fingers.\n\n\"`augment` will show you what I can fit. Buy the piece first; I cut, I do not sell. And I will tell you the one thing upstairs will not, because he thinks it is obvious: the first one takes the flesh with it. Whatever was going to grow in you does not, after today.\"\n\nThe ocular clicks back up.\n\n\"Choose a piece you would be happy to be buried in.\""
     },
     "bye": {
       "options": [],
@@ -155,7 +155,7 @@
           "next": "root"
         }
       ],
-      "text": "The ocular stops whirring. It is the first time she has been entirely still.\n\n\"Honest answer? I do not know, and neither does anybody who tells you they do.\"\n\nShe turns a chromed hand over, considering it.\n\n\"The units arrive with documentation nobody wrote. They calibrate to a nervous system in under a minute. That used to take a research team ten years and a great deal of screaming — I know, I read the papers, back when there were papers.\"\n\nA shrug that costs her something.\n\n\"I fit them. They work. They work better than the arm. I have decided that is enough, and I decided it on purpose, which is a different thing from not noticing.\""
+      "text": "The ocular stops whirring. It is the first time she has been entirely still.\n\n\"Honest answer? I do not know, and neither does anybody who tells you they do.\"\n\nShe turns a chromed hand over, considering it.\n\n\"The units arrive with documentation nobody wrote. They calibrate to a nervous system in under a minute. That used to take a research team ten years and a great deal of screaming. I know, I read the papers, back when there were papers.\"\n\nA shrug that costs her something.\n\n\"I fit them. They work. They work better than the arm. I have decided that is enough, and I decided it on purpose, which is a different thing from not noticing.\""
     },
     "codex_drift": {
       "options": [
@@ -210,7 +210,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Say <b>augment</b> and I'll show you what your standing and your credits can carry. <b>augment install &lt;name&gt;</b> in the theatre and you'll walk out better than you came in. Fair warning: the first chrome burns out any mutation you're carrying. Chrome doesn't share a body with the old evolution — and it won't mutate again, so radiation stops being your problem.\""
+      "text": "\"Say <b>augment</b> and I'll show you what your standing and your credits can carry. <b>augment install &lt;name&gt;</b> in the theatre and you'll walk out better than you came in. Fair warning: the first chrome burns out any mutation you're carrying. Chrome doesn't share a body with the old evolution, and it won't mutate again, so radiation stops being your problem.\""
     },
     "lw_wait_catch": {
       "_vine": {

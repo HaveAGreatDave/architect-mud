@@ -5,7 +5,7 @@
     "Somebody crosses the doorway from one side to the other and doesn't glance out."
   ],
   "cause": "drug",
-  "description": "A door standing open onto the place this whole building is the entrance to. It's bright and it's occupied and it's going well. Nobody in it's looking this way. The doorway is the width of a doorway and you're on this side of it.",
+  "description": "A door standing open onto the place this whole building is the entrance to. It's bright and it's occupied and it's going well. Nobody in it is looking this way. The doorway is the width of a doorway and you're on this side of it.",
   "drug_id": "drug_threshold",
   "fx": "bloom",
   "fx_intensity": 0.75,

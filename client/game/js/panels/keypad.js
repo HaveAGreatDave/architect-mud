@@ -115,7 +115,7 @@ export function openConcealKeypad(msg) {
     $('kp-readout').textContent = '•'.repeat(digits.length);
     $('kp-state').textContent = mode === 'change'
       ? (oldCode ? 'SET NEW CODE' : 'CURRENT CODE')
-      : (msg.open ? 'ARMED — SEAL' : 'LOCKED — OPEN');
+      : (msg.open ? 'ARMED: SEAL' : 'LOCKED: OPEN');
   }
 
   const grid = $('kp-grid');

@@ -54,6 +54,24 @@ export function makeDraggable(win, handle) {
   handle.addEventListener('pointerup', () => { handle.style.cursor = 'grab'; });
 }
 
+// A window that sits centred in a flex overlay (the container and loot boxes) and can be picked up by
+// its header. The first press takes it out of the flex flow at its current size and place, then the
+// ordinary drag moves it; it stays where it was left for the next open. Idempotent per window.
+export function makeFloatable(win, handle) {
+  if (!win || !handle || win.dataset.floatable) return;
+  win.dataset.floatable = '1';
+  handle.style.cursor = 'grab';
+  handle.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button')) return;
+    if (win.style.position !== 'fixed') {
+      const r = win.getBoundingClientRect();
+      win.style.position = 'fixed'; win.style.margin = '0';
+      win.style.width = r.width + 'px'; win.style.left = r.left + 'px'; win.style.top = r.top + 'px';
+    }
+  }, true);
+  makeDraggable(win, handle);
+}
+
 function close() {
   _el?.remove();
   _el = null;

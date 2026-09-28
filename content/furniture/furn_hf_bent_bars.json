@@ -5,9 +5,7 @@
       "bars",
       "parallel"
     ],
-    "interactions": {
-      "examine": "There is a strip of grip tape on the left-hand bar and none on the right. Most of the people who come here are recovering from the same operation on the same side."
-    }
+    "examine_detail": "There is a strip of grip tape on the left-hand bar and none on the right. Most of the people who come here are recovering from the same operation on the same side."
   },
   "id": "furn_hf_bent_bars",
   "name": "the parallel bars",

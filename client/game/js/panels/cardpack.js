@@ -681,8 +681,8 @@ export function openCardMachinePanel(msg) {
       </div>
       <div class="vm-hatch"><div class="vm-flap" id="vm-flap">PUSH</div></div>
       <div class="vm-tray" id="vm-tray">EMPTY TRAY</div>
-      <div class="vm-hint">Every sleeve on these coils is already what it is. About one in twelve runs HOT — triple
-        weight on epic and legendary — and nothing on the outside of a sleeve will ever tell you which.</div>
+      <div class="vm-hint">Every sleeve on these coils is already what it is. About one in twelve runs HOT, triple
+        weight on epic and legendary, and nothing on the outside of a sleeve will ever tell you which.</div>
     </div>`,
     onClose: () => { machine = null; },
   });
@@ -750,7 +750,7 @@ function renderMachine() {
   const stocked = stockedCodes(d).length;
 
   if (!total) {
-    shelves.innerHTML = `<div class="vm-dead">— NO STOCK —<br><br>Nobody has minted anything yet.<br>Every coil behind the glass is bare.</div>`;
+    shelves.innerHTML = `<div class="vm-dead">NO STOCK<br><br>Nobody has minted anything yet.<br>Every coil behind the glass is bare.</div>`;
     if (mech) mech.style.visibility = 'hidden';
   } else {
     if (mech) mech.style.visibility = '';
@@ -790,7 +790,7 @@ function renderMachine() {
     `<div class="vm-pick"><div class="vm-plate-lbl">SELECTED COIL</div>` +
       `<div class="vm-pick-val">${machine.pick || '——'}</div>` +
       `<div class="vm-pick-sub">${machine.pick ? `${slotOf(d, machine.pick).left} SLEEVE${slotOf(d, machine.pick).left === 1 ? '' : 'S'} ON THE COIL` : 'NOTHING LOADED'}</div></div>` +
-    `<div class="vm-note">IN THE POOL — ${total}</div>` +
+    `<div class="vm-note">IN THE POOL: ${total}</div>` +
     `<div class="vm-odds">` + ranks.map(r => {
       const n = by[r] || 0;
       const h = n ? Math.max(3, Math.round((n / max) * 30)) : 2;
@@ -1398,7 +1398,7 @@ function toSummary() {
           <div class="cp-sum-read">READ ▸</div>
         </div>`;
       }).join('')}</div>
-      ${show.scrapped ? `<div class="cp-sum-note">Duplicates in there — <b style="color:#c07b3a">₵${show.scrapped}</b> if you scrap them at a mint.</div>` : ''}
+      ${show.scrapped ? `<div class="cp-sum-note">Duplicates in there: <b style="color:#c07b3a">₵${show.scrapped}</b> if you scrap them at a mint.</div>` : ''}
       <div class="cp-btns">
         <button class="cp-btn" id="cp-shelf">SEE THE SHELF</button>
         ${show.packs > 0 ? `<button class="cp-btn primary" id="cp-again">TEAR ANOTHER (${show.packs})</button>` : ''}

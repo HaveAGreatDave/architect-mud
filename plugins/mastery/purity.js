@@ -326,7 +326,7 @@ const GREETINGS = {
   },
   [REGARD.AUGMENTED]: {
     coded: [
-      `${'{n}'} glances at where the metal goes in, and away. "How much of that's under warranty?" It's asked lightly, as a joke, twice.`,
+      `${'{n}'} glances at where the metal goes in, and away. "How much of that is under warranty?" It's asked lightly, as a joke, twice.`,
       `"Serviced," ${'{n}'} says, half to themselves, marking something down. "Right. Let's find out what's still yours."`,
     ],
     plain: [`${'{n}'} doesn't pretend not to look. "Bought." A short breath through the nose. "Everything you've got, someone sold you. Let's see what's left."`],
@@ -411,7 +411,7 @@ export function cleanseDemand(player, npcName = 'They') {
   }
   if (chrome) {
     return `${npcName} glances at where the metal goes in, and their whole manner closes like a door.`
-      + `\n<span class="text-dim">"No. Not while you're carrying that." A shrug, almost practical. "Have it taken out. Come back in your own body and I'll start you at the feet — not before."</span>`;
+      + `\n<span class="text-dim">"No. Not while you're carrying that." A shrug, almost practical. "Have it taken out. Come back in your own body and I'll start you at the feet, not before."</span>`;
   }
   return `${npcName} looks at you a beat too long, and steps back the exact distance they have decided is polite.`
     + `\n<span class="text-dim">"I'm not going to be able to help you." Flat, and final. "Go and get corrected. Properly. Then come and stand in front of me again."</span>`;

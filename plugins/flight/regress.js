@@ -8,6 +8,8 @@ import { signatureMult, signatureScore, colorName, describeExterior,
   normalizeLivery, sanitizeLivery, conspicuousnessMult, paintCost, isPaintable,
   readSchemes, schemeOf } from './livery.js';
 import { crashSeverity, collateralBill, isSeverelyImpaired } from './collateral.js';
+import { boundUnpoweredClimb } from './state.js';
+import { thermalLift } from '../../client/shared/thermals.js';
 import { sellAircraft, cancelRental, flushAirborne, pushHangarBay } from './hangars.js';
 import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
 import { computeStats, perfAxes, tuneRange, installedKits, KITS, TUNE_DIAL_MAX,
@@ -20,6 +22,7 @@ import { isFreightLicensed, ensureFreightDrops, isAirCargoUnlocked, hasCacheStan
   waitingDropAt, FENCE_CACHES } from './contracts.js';
 import { isPilotLicensed, _test as checkrideTest } from './checkride.js';
 import { diveQuality } from './combat.js';
+import { judgeWaterTouchdown, drakeWaterFrame, drakeFeetAnim, FEET_WATER_KT, DITCH_FPM, SLOW_SAFE_KT } from '../../client/game/js/panels/drake-water.js';
 import { setFlag, clearFlag } from '../../server/engine/flags.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { adjustCredits } from '../../server/engine/economy.js';
@@ -188,6 +191,34 @@ export default async function regress({ run, check, getPlayer }) {
   check('collateral bill rises with casualties', collateralBill(2, 3, true) > collateralBill(2, 1, true));
   check('an empty tile has no cleanup charge', collateralBill(3, 0, false) === 0 && collateralBill(3, 0, true) > 0);
 
+  // ── Thermals: engine-off climb bound ────────────────────────────────────────
+  {
+    const nightSky = { hour: 23, weather: 'clear', wind: 0 };
+    const glider = () => ({ row: { airborne: true, throttle: 0, fuel: 50 }, type: { cruise_speed: 90 }, fx: 910, fy: 900 });
+    const t0 = 1_750_000_000_000;
+    // At night there is no lift, so a dead-stick craft holding its speed cannot gain height.
+    const g1 = glider();
+    boundUnpoweredClimb(g1, 2000, 0, 70, false, t0, nightSky);
+    const r1 = boundUnpoweredClimb(g1, 2400, 800, 70, false, t0 + 1000, nightSky);
+    check('thermals: engine-off climb at night is capped near level', r1.alt < 2020 && r1.vs <= 150);
+    // Trading airspeed for height (a zoom) is still allowed.
+    const g2 = glider();
+    boundUnpoweredClimb(g2, 2000, 0, 110, false, t0, nightSky);
+    const r2 = boundUnpoweredClimb(g2, 2150, 1500, 70, false, t0 + 1000, nightSky);
+    check('thermals: a zoom (speed traded for height) is not snapped', r2.alt === 2150);
+    // A powered climb is never touched by this bound.
+    const g3 = glider(); g3.row.throttle = 90;
+    boundUnpoweredClimb(g3, 2000, 0, 70, false, t0, nightSky);
+    check('thermals: a powered climb is not bounded here', boundUnpoweredClimb(g3, 2400, 800, 70, false, t0 + 1000, nightSky).alt === 2400);
+    // The field itself: nothing at night or in rain, real cores at mid-afternoon over rock.
+    const rock = () => 1;
+    check('thermals: no lift at night', thermalLift(910, 900, 2000, t0, nightSky, rock) === 0);
+    check('thermals: no lift in rain', thermalLift(910, 900, 2000, t0, { hour: 14, weather: 'rain', wind: 0 }, rock) === 0);
+    let peak = 0;
+    for (let x = 900; x < 930; x += 0.5) for (let y = 890; y < 920; y += 0.5) peak = Math.max(peak, thermalLift(x, y, 2000, t0, { hour: 14, weather: 'clear', wind: 10 }, rock));
+    check('thermals: mid-afternoon cores over rock reach 400+ ft/min', peak >= 400 && peak <= 1400);
+  }
+
   // ── Authoritative stall read (lenient anti-spoof) ───────────────────────────
   const stallT = { cruise_speed: 80 };
   check('stall: client-reported stall is always honoured',
@@ -347,6 +378,42 @@ export default async function regress({ run, check, getPlayer }) {
     const a = { custom_data: { surfaces: { leftWing: 0 } } }; resetSurfaces(a);
     return !a.custom_data.surfaces && surfacesWire(a) === null;
   })());
+  check('resetSurfaces fits the Drake new feet', (() => {
+    const a = { custom_data: { feetGone: true } }; resetSurfaces(a); return !a.custom_data.feetGone;
+  })());
+
+  // The Drake on the water (client/game/js/panels/drake-water.js): the landing rules are pure.
+  check('drake water: feet out on the water above a crawl tears them off',
+    judgeWaterTouchdown({ sinkFpm: 300, kt: FEET_WATER_KT + 10, gearDown: true, feetGone: false, rough: 0 }).snap === true);
+  check('drake water: feet out at a crawl is survivable',
+    !judgeWaterTouchdown({ sinkFpm: 300, kt: FEET_WATER_KT - 5, gearDown: true, feetGone: false, rough: 0 }).snap);
+  check('drake water: a slow hull arrival costs nothing, calm or rough', [0, 0.8, 1].every((rough) =>
+    Object.keys(judgeWaterTouchdown({ sinkFpm: 1200, kt: SLOW_SAFE_KT - 1, gearDown: false, feetGone: false, rough })).length === 0));
+  check('drake water: a slow drop past ditching speed is still a ditching',
+    judgeWaterTouchdown({ sinkFpm: DITCH_FPM + 100, kt: 5, gearDown: true, rough: 0 }).ditch === true);
+  check('drake water: low over water with the feet out warns the pilot', (() => {
+    const F = { dk: {}, biomeBelow: 'water', gearRetract: true, gearUp: false, pos: { x: 900, y: 900 } };
+    return drakeWaterFrame(F, { onGround: false, altitude: 40, groundFt: 0, vs: -400, airspeed: 30, heading: 0 }, 1 / 30, 0, null, 0.008).gearWarn === true;
+  })());
+  check('drake water: BOAT mode takes the water drag off (the pusher holds her speed)', (() => {
+    const run = (boat) => { const F = { dk: { boat }, biomeBelow: 'water', gearRetract: true, gearUp: true, pos: { x: 900, y: 900 } };
+      return drakeWaterFrame(F, { onGround: true, altitude: 0, groundFt: 0, airspeed: 30, heading: 0 }, 1 / 30, 0, null, 0.008).drag; };
+    return run(true) === 0 && run(false) > 0;
+  })());
+  check('drake water: gear up is a belly landing that costs hull',
+    (judgeWaterTouchdown({ sinkFpm: 300, kt: 40, gearDown: false, rough: 0 }).hullPct || 0) > 0);
+  check('drake water: feet tucked, slow or straight down onto calm water is a clean float-on',
+    Object.keys(judgeWaterTouchdown({ sinkFpm: 300, kt: 8, gearDown: false, rough: 0 })).length === 0);
+  check('drake: coming down low over land with the feet tucked puts them out', (() => {
+    const F = { dk: {}, biomeBelow: 'grass', gearRetract: true, gearUp: true, pos: { x: 900, y: 900 } };
+    return drakeWaterFrame(F, { onGround: false, altitude: 40, groundFt: 0, vs: -400, airspeed: 30, heading: 0 }, 1 / 30, 0, null, 0.008).autoGearDown === true;
+  })());
+  check('drake: over water the tucked feet stay tucked', (() => {
+    const F = { dk: {}, biomeBelow: 'water', gearRetract: true, gearUp: true, pos: { x: 900, y: 900 } };
+    return drakeWaterFrame(F, { onGround: false, altitude: 40, groundFt: 0, vs: -400, airspeed: 30, heading: 0 }, 1 / 30, 0, null, 0.008).autoGearDown === false;
+  })());
+  check('drake water: a smash is still a ditching',
+    judgeWaterTouchdown({ sinkFpm: DITCH_FPM + 100, kt: 60, gearDown: true, rough: 0 }).ditch === true);
 
   // Engine-noise propagation: bigger/louder craft carry farther; altitude silences.
   const quiet = { type: { noise: 1, engines: 1, max_takeoff_weight: 90 }, row: { throttle: 60, altitude_band: 'low' } };

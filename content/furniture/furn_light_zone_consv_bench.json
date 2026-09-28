@@ -4,7 +4,7 @@
   "id": "furn_light_zone_consv_bench",
   "light_type": "overhead",
   "lumen_output": 2400,
-  "name": "the bench lamps",
+  "name": "bench lamps",
   "object_type": "light",
   "power_draw_kw": 0.02,
   "zone_id": "zone_consv_bench"

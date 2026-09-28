@@ -170,7 +170,7 @@ mutation is turned away, and that refusal lives at [the door](#the-door--cleanse
 reading `carriesModification`, **not here**.
 
 Two registers, and **the coded one is the default**. They mostly do not say the quiet part:
-*"the assisted"*, *"how much of that's under warranty"*, *"nobody holds it against you"*, and
+*"the assisted"*, *"how much of that is under warranty"*, *"nobody holds it against you"*, and
 everyone in the room knows what was meant. About a quarter of the time somebody says it flat
 out instead, and the flat version lands harder for being rare. The slurs are `shortcut`,
 `bought`, `slipped`, plus `retread` / `unpicked` / `half-clean` for those who cleaned up;

@@ -7,7 +7,7 @@
   "id": "item_raw_nitrous",
   "name": "catering gas cylinder",
   "tags": {
-    "description": "A catering-grade nitrous cylinder meant for whipping cream. Decant it into bulbs. Raw material: legal to hold; what you do with it's not.",
+    "description": "A catering-grade nitrous cylinder meant for whipping cream. Decant it into bulbs. Raw material: legal to hold; what you do with it is not.",
     "raw_drug": true
   },
   "type": "chemical",

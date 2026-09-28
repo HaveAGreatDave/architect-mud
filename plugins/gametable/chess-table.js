@@ -397,7 +397,7 @@ export class ChessTable extends TableBase {
       if (rows.length) sendToPlayer(seat.playerId, { type: 'player_update', credits: rows[0].credits });
       const net = amount - (seat.buyIn || 0);
       if (net > 0) {
-        sendToPlayer(seat.playerId, { type: 'output', message: `You take the board — ₵ ${net.toLocaleString()} up.` });
+        sendToPlayer(seat.playerId, { type: 'output', message: `You take the board: ₵ ${net.toLocaleString()} up.` });
         if (net >= 1000) {
           emit('gossip.pokerWin', { player: { id: seat.playerId, handle: seat.handle }, amount: net, zoneId: this.zoneId });
         }

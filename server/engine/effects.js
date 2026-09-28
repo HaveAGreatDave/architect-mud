@@ -149,7 +149,7 @@ registerStatusEffect({
       return 'You choke on the ash-thick air, gasping for breath. (-4 STA)';
     }
     player.hp = Math.max(0, player.hp - 2);
-    return "You can't breathe — the ash is suffocating you. (-2 HP)";
+    return "You can't breathe; the ash is suffocating you. (-2 HP)";
   },
 });
 

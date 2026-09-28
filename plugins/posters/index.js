@@ -49,7 +49,7 @@ const HIJINKS = {
   alphagunman: `who never fired first, and never once had to fire second`,
   ocelot: `whom nobody could ever quite prove they had seen, which was the entire point of Ocelot`,
   cyd: `who put a wing down in whatever was left of the street, every single time, and never once asked what you had done to deserve the ride`,
-  kiyo: `who never once looked up, not even when it got close, because whatever was in his hands was more interesting than whatever was coming — and everything you were holding, he made`,
+  kiyo: `who never once looked up, not even when it got close, because whatever was in his hands was more interesting than whatever was coming, and everything you were holding, he made`,
   stabbz: `cutting only what needed cutting, and holding sole private custody of the word "needs"`,
   bonghitz: `up on the bar swearing blind that the smoke spelled PEACE, still owing everybody forty credits`,
 };
@@ -63,7 +63,7 @@ function shortName(name) {
 // same room. `partnerName` is the partner furniture's wall title.
 function seamReveal(partnerName) {
   const other = shortName(partnerName).split(',')[0].trim();
-  return `<span class="text-dim">Step back, and you notice this poster lines up seam-to-seam with the ${other} poster beside it — the two were printed as a single sheet, then torn apart. The wing cut off at the edge of the one frame runs on unbroken over the other man's head, which is why it was never explained: it was never his wing. And where the ragged edges meet, the shadow under it and the scorch resolve into three deliberate letters that neither poster shows alone: <b>G R U</b>. Someone wanted these two hung together. Only together.</span>`;
+  return `<span class="text-dim">Step back, and you notice this poster lines up seam-to-seam with the ${other} poster beside it: the two were printed as a single sheet, then torn apart. The wing cut off at the edge of the one frame runs on unbroken over the other man's head, which is why it was never explained: it was never his wing. And where the ragged edges meet, the shadow under it and the scorch resolve into three deliberate letters that neither poster shows alone: <b>G R U</b>. Someone wanted these two hung together. Only together.</span>`;
 }
 
 // The full-wall payoff — only ever shown when all seven sheets hang together.
@@ -74,13 +74,13 @@ function muralReveal() {
   // so he closes the list.
   const order = [...MURAL.slice(1), MURAL[0]];
   const roll = order.map(k => `${titleName(k)}, ${HIJINKS[k]}.`).join('\n');
-  return `<span class="text-dim mural-reveal">Step back — and the wall goes quiet.
+  return `<span class="text-dim mural-reveal">Step back, and the wall goes quiet.
 The seams are the first thing to go. Seven torn edges you could have laid a fingernail into a moment ago, and now you can't find one of them; the paper closes over itself the way water closes, and what hung there as seven posters hangs there as a single unbroken sheet that no press left standing in this city is big enough to have printed.
-Then the word comes up out of it. Not painted, not stencilled — surfacing, the way a name surfaces in a language you spoke as a child, letters standing where the seams were and gathering a low gleam off no light that's in this room:
+Then the word comes up out of it. Not painted, not stencilled, surfacing, the way a name surfaces in a language you spoke as a child, letters standing where the seams were and gathering a low gleam off no light that's in this room:
 <span class="mural-word">${MURAL_WORD.split('').join(' ')}</span>
 That's what we called it. That's what this place was called, before somebody put the word Freedom on a sign and everyone was too polite to argue.
 God, that city. Downtown so thick with police cameras you could be robbed politely, and everybody agreeing that this counted as law. Cheney Way at four in the morning, lit up like a showroom, not one thing open. Drinking in Heaven, which was not. Drinking in the Wide Stance when Heaven threw you out, and in the Round Corner when the Wide Stance did, the barman there already pouring before you were through the door because there was only ever the one place left to go. Getting lost two hours in the Sharpton Projects on a floor you had walked a hundred times, coming out somewhere you had never been, holding something you hadn't gone in for. Parking anywhere at all, and learning some days later that it was at Dope Jack's, in pieces, and being told to your face that the pieces were an improvement.
-The wind coming off the ocean to the north with a taste in it that a hundred years hadn't fixed. The river going out east, brown as stewed tea. Somebody forever about to make their fortune up in CorpClave. Somebody forever walking out into the waste with a rifle and two days of water, coming back with neither, swearing it had been worth it. Everybody swearing blind they were done with all of it and moving out to Slagtown where no camera could see them and no patrol would come — and nobody, not once, ever moving to Slagtown. Getting shot on a Tuesday and being back on the same stool by Wednesday telling it wrong, then telling it better, then telling it so much better that the man who shot you would wander over to complain about the accuracy.
+The wind coming off the ocean to the north with a taste in it that a hundred years hadn't fixed. The river going out east, brown as stewed tea. Somebody forever about to make their fortune up in CorpClave. Somebody forever walking out into the waste with a rifle and two days of water, coming back with neither, swearing it had been worth it. Everybody swearing blind they were done with all of it and moving out to Slagtown where no camera could see them and no patrol would come, and nobody, not once, ever moving to Slagtown. Getting shot on a Tuesday and being back on the same stool by Wednesday telling it wrong, then telling it better, then telling it so much better that the man who shot you would wander over to complain about the accuracy.
 And all of them were here.
 ${roll}
 Good years. Loud, stupid, badly-lit years, and every single one of us swore we were only passing through.
@@ -92,7 +92,7 @@ It hangs on your wall now, gleaming, and you stand in front of it a good while l
 // doesn't repeat itself. The pair (Kiyo/Cyd) never see these; they keep the
 // understated wink that sets up the GRU reveal.
 const SEAM_GOES = [
-  `and the seam goes — torn edge meets torn edge and simply stops being an edge, the way a crack closes in ice.`,
+  `and the seam goes: torn edge meets torn edge and simply stops being an edge, the way a crack closes in ice.`,
   `and the join disappears under your thumb. You go back looking for it and there isn't one.`,
   `and where the two edges meet there's abruptly nothing to meet; the tear closes and won't be found again.`,
   `and the seam vanishes so cleanly that you turn the corner of the paper back to check, and find it whole.`,
@@ -122,7 +122,7 @@ function placementLine(key, present) {
   if (!neighbours.length) {
     edges = ` Nothing beside it answers the tearing yet.`;
   } else if (SECRET_PAIR[key] && present.has(SECRET_PAIR[key])) {
-    edges = ` It settles oddly close to the poster already hanging here — the torn edges almost seem to line up.`;
+    edges = ` It settles oddly close to the poster already hanging here: the torn edges almost seem to line up.`;
   } else {
     const who = neighbours.length > 1
       ? `the ${neighbours[0]} and ${neighbours[1]} sheets`
@@ -206,7 +206,7 @@ async function cmdTake(args, raw, player, broadcast) {
 async function cmdPutup(args, raw, player, broadcast) {
   // Posters only go up on walls you own — your home. Anywhere else, no.
   if (!playerControlsApt(player, getApartment(player.current_zone)))
-    return { type: 'error', message: `You can only hang posters in a home you own — these walls aren't yours. Take it back to your place and \`putup\` there.` };
+    return { type: 'error', message: `You can only hang posters in a home you own: these walls aren't yours. Take it back to your place and \`putup\` there.` };
 
   const target = args.join(' ').replace(/^(the|up)\s+/i, '').trim();
   const { rows } = await query(
@@ -262,7 +262,7 @@ export const hooks = {
     // advertise this the way a loose item does, so say it plainly, with a
     // clickable `take` link (data-action/target -> auto-runs `take <name>`).
     const takeLink = `<span class="action-link" data-action="take" data-target="${escAttr(f.name)}" data-label="${escAttr(shortName(f.name))}" title="Peel this poster off the wall">take</span>`;
-    let out = `<span class="text-dim">It's only wheat-pasted on — you could peel it down and roll it up. (${takeLink})</span>`;
+    let out = `<span class="text-dim">It's only wheat-pasted on: you could peel it down and roll it up. (${takeLink})</span>`;
 
     // The whole run hanging together supersedes the pair hint — GRU is one of
     // the seven seams the full reveal walks you along.

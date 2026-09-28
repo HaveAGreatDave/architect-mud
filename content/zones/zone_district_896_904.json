@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "A plot gone over to nettle and bramble, with a hand-painted sign still standing in the middle of it reading PLOT 6 — DO NOT. Nobody remembers what the rest of the sentence was.",
+  "description": "A plot gone over to nettle and bramble, with a hand-painted sign still standing in the middle of it reading PLOT 6. DO NOT. Nobody remembers what the rest of the sentence was.",
   "exits": {
     "east": "zone_district_897_904",
     "north": "zone_district_896_903",

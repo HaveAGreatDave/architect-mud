@@ -337,7 +337,7 @@ async function cmdFound(player, name) {
   if (!name) return err('Found a corp called what? Usage: corp found <name>');
   if (name.length > MAX_NAME) return err(`That name is too long (${MAX_NAME} chars max).`);
   if (getOrgByName(name)) return err(`A corp named "${esc(name)}" already exists.`);
-  if ((player.credits || 0) < FOUND_FEE) return err(`Founding a corp costs ${FOUND_FEE}₵ — you have ${player.credits || 0}₵.`);
+  if ((player.credits || 0) < FOUND_FEE) return err(`Founding a corp costs ${FOUND_FEE}₵: you have ${player.credits || 0}₵.`);
 
   const orgId = randomUUID(), founderRank = randomUUID(), memberRank = randomUUID();
   const ok = await withTransaction(async (q) => {
@@ -386,8 +386,8 @@ async function cmdRoster(player) {
        JOIN org_ranks r ON r.id = om.rank_id
       WHERE om.org_id = $1 ORDER BY r.rank_order DESC, LOWER(p.handle)`,
     [m.org_id]);
-  let msg = `<span class="skills-header">${esc(org.name)} — ROSTER</span>\n`;
-  for (const row of rows) msg += `  ${esc(row.handle)} — ${esc(row.rank)}\n`;
+  let msg = `<span class="skills-header">${esc(org.name)}: ROSTER</span>\n`;
+  for (const row of rows) msg += `  ${esc(row.handle)}: ${esc(row.rank)}\n`;
   return { type: 'corp_roster', message: msg.trimEnd() };
 }
 
@@ -427,7 +427,7 @@ async function cmdLeave(player) {
   const m = getPlayerMembership(player.id);
   if (!m) return err("You're not in a corp.");
   const org = getOrg(m.org_id);
-  if (org.owner_id === player.id) return err('You own this corp — use "corp disband" to dissolve it.');
+  if (org.owner_id === player.id) return err('You own this corp: use "corp disband" to dissolve it.');
   await query('DELETE FROM org_members WHERE org_id=$1 AND player_id=$2', [m.org_id, player.id]);
   await reloadOrg(m.org_id);
   return { type: 'corp_left', message: `You leave ${esc(org.name)}.` };
@@ -537,9 +537,9 @@ async function cmdRank(player, rest) {
   const sub = (rest[0] || 'list').toLowerCase();
 
   if (sub === 'list') {
-    let msg = `<span class="skills-header">${esc(org.name)} — RANKS</span>\n`;
+    let msg = `<span class="skills-header">${esc(org.name)}: RANKS</span>\n`;
     for (const r of [...org.ranks].sort((a, b) => b.rank_order - a.rank_order)) {
-      msg += `  ${esc(r.name)} (order ${r.rank_order})${r.is_default ? ' [default]' : ''} — ${permLabel(r.permissions)}\n`;
+      msg += `  ${esc(r.name)} (order ${r.rank_order})${r.is_default ? ' [default]' : ''}: ${permLabel(r.permissions)}\n`;
     }
     return { type: 'corp_rank_update', message: msg.trimEnd() };
   }
@@ -575,7 +575,7 @@ async function cmdRank(player, rest) {
     if (!rank) return err(`No rank named "${esc(name)}".`);
     if (rank.is_default) return err("You can't delete the default rank.");
     const { rows: [inUse] } = await query('SELECT COUNT(*)::int n FROM org_members WHERE rank_id=$1', [rank.id]);
-    if (inUse.n > 0) return err(`That rank has ${inUse.n} member(s) — reassign them first.`);
+    if (inUse.n > 0) return err(`That rank has ${inUse.n} member(s): reassign them first.`);
     await query('DELETE FROM org_ranks WHERE id=$1', [rank.id]);
     await reloadOrg(m.org_id);
     return { type: 'corp_rank_update', message: `Rank "${esc(rank.name)}" deleted.` };
@@ -610,7 +610,7 @@ async function cmdClaim(player, broadcast) {
   const zone = getZone(player.current_zone);
   if (zone?.flags?.is_apartment) return cmdClaimHQ(player);
   if (isClaimableZone(zone)) return cmdClaimTerritory(player, broadcast);
-  return err("Nothing to claim here — stand in a vacant apartment (HQ) or a contestable zone (territory).");
+  return err("Nothing to claim here: stand in a vacant apartment (HQ) or a contestable zone (territory).");
 }
 
 async function cmdClaimHQ(player) {
@@ -618,14 +618,14 @@ async function cmdClaimHQ(player) {
   if (!m) return err("You're not in a corp.");
   if (!hasPerm(player, PERM.MANAGE_HQ)) return err("You don't have permission to claim an HQ.");
   const zone = getZone(player.current_zone);
-  if (!zone?.flags?.is_apartment) return err("This isn't a claimable unit — find a vacant apartment.");
+  if (!zone?.flags?.is_apartment) return err("This isn't a claimable unit: find a vacant apartment.");
   const apt = getApartment(zone.id);
   if (apt?.owner_id) {
     if (apt.owner_type === 'org' && apt.owner_org_id === m.org_id) return err('Your corp already holds this HQ.');
     return err('This unit is already owned.');
   }
   const org = getOrg(m.org_id);
-  if ((org.treasury || 0) < HQ_FEE) return err(`Claiming an HQ costs ${HQ_FEE}₵ from the treasury — it has ${org.treasury || 0}₵.`);
+  if ((org.treasury || 0) < HQ_FEE) return err(`Claiming an HQ costs ${HQ_FEE}₵ from the treasury: it has ${org.treasury || 0}₵.`);
   const now = Math.floor(Date.now() / 1000);
   const buildingName = zone.flags?.building_name || zone.name;
 
@@ -644,7 +644,7 @@ async function cmdClaimHQ(player) {
   setApartmentCache(zone.id, result.apt);
   await ensureCorpTerminal(zone.id);
   await reloadOrg(org.id);
-  return { type: 'corp_hq_claim', message: `<b>${esc(org.name)}</b> claims this unit as its HQ for ${HQ_FEE}₵. A corp ops terminal boots against the wall — <b>use</b> it (or type <b>corp</b>) to open the console. Treasury: ${result.treasury}₵.` };
+  return { type: 'corp_hq_claim', message: `<b>${esc(org.name)}</b> claims this unit as its HQ for ${HQ_FEE}₵. A corp ops terminal boots against the wall: <b>use</b> it (or type <b>corp</b>) to open the console. Treasury: ${result.treasury}₵.` };
 }
 
 async function cmdClaimTerritory(player, broadcast) {
@@ -654,13 +654,13 @@ async function cmdClaimTerritory(player, broadcast) {
   const zone = getZone(player.current_zone);
   const zc = getZoneControl(zone.id);
   if (zc?.org_id) {
-    if (zc.org_id === m.org_id) return err("Your corp already controls this zone — 'corp reinforce' to strengthen your grip.");
+    if (zc.org_id === m.org_id) return err("Your corp already controls this zone: 'corp reinforce' to strengthen your grip.");
     return err(`Held by a rival (grip ${zc.influence}%). Break it with 'corp contest'.`);
   }
   const org = getOrg(m.org_id);
   const held = getOrgZones(m.org_id).length;
   if (held >= territorySlots(org.tier)) return err(`Your corp holds its max ${territorySlots(org.tier)} zone(s) at tier ${tierCap(org.tier)}. Expand with "corp invest".`);
-  if ((org.treasury || 0) < TERRITORY_CLAIM_FEE) return err(`Claiming territory costs ${TERRITORY_CLAIM_FEE}₵ from the treasury — it has ${org.treasury || 0}₵.`);
+  if ((org.treasury || 0) < TERRITORY_CLAIM_FEE) return err(`Claiming territory costs ${TERRITORY_CLAIM_FEE}₵ from the treasury: it has ${org.treasury || 0}₵.`);
   const now = Math.floor(Date.now() / 1000);
   const res = await withTransaction(async (q) => {
     const dec = await q('UPDATE orgs SET treasury=treasury-$1 WHERE id=$2 AND treasury>=$1 RETURNING treasury', [TERRITORY_CLAIM_FEE, org.id]);
@@ -686,7 +686,7 @@ async function cmdContest(player, broadcast) {
   const zone = getZone(player.current_zone);
   if (!isClaimableZone(zone)) return err("There's no territory to contest here.");
   const zc = getZoneControl(zone.id);
-  if (!zc || !zc.org_id) return err("This zone is unclaimed — take it with 'corp claim'.");
+  if (!zc || !zc.org_id) return err("This zone is unclaimed: take it with 'corp claim'.");
   if (zc.org_id === m.org_id) return err("Your corp already holds this zone.");
   const until = contestCooldown.get(player.id) || 0;
   if (Date.now() < until) return err(`You need to regroup before pushing again. (${Math.ceil((until - Date.now()) / 1000)}s)`);
@@ -716,7 +716,7 @@ async function cmdContest(player, broadcast) {
       [row0.influence - erosion, m.org_id, zone.id]);
     return { row: upd.rows[0], flipped: false };
   });
-  if (res.noop) return err("Control of the zone just shifted — try again.");
+  if (res.noop) return err("Control of the zone just shifted: try again.");
   setZoneControlCache(zone.id, res.row);
   await pushConsole(m.org_id, broadcast);
   if (res.prevOrg) await pushConsole(res.prevOrg, broadcast);
@@ -726,7 +726,7 @@ async function cmdContest(player, broadcast) {
     return { type: 'corp_territory', message: `<b>${esc(org.name)}</b> breaks the last hold and <b>seizes ${esc(zone.name)}</b>! Grip ${res.row.influence}%.` };
   }
   const defNote = absorbed > 0 ? ` <span class="dim">(turrets soaked ${absorbed})</span>` : '';
-  return { type: 'corp_territory', message: `You erode the hold on <b>${esc(zone.name)}</b> — grip down to ${res.row.influence}%.${defNote} Keep the pressure on.` };
+  return { type: 'corp_territory', message: `You erode the hold on <b>${esc(zone.name)}</b>: grip down to ${res.row.influence}%.${defNote} Keep the pressure on.` };
 }
 
 async function cmdReinforce(player, amountStr, broadcast) {
@@ -741,7 +741,7 @@ async function cmdReinforce(player, amountStr, broadcast) {
   const points = Math.min(want, 100 - zc.influence);
   const cost = points * REINFORCE_COST;
   const org = getOrg(m.org_id);
-  if ((org.treasury || 0) < cost) return err(`Reinforcing +${points}% costs ${cost}₵ — the treasury has ${org.treasury || 0}₵.`);
+  if ((org.treasury || 0) < cost) return err(`Reinforcing +${points}% costs ${cost}₵: the treasury has ${org.treasury || 0}₵.`);
   const res = await withTransaction(async (q) => {
     const dec = await q('UPDATE orgs SET treasury=treasury-$1 WHERE id=$2 AND treasury>=$1 RETURNING treasury', [cost, org.id]);
     if (!dec.rowCount) return null;
@@ -765,7 +765,7 @@ async function cmdInvest(player, broadcast) {
   const tier = tierCap(org.tier);
   if (tier >= MAX_TIER) return err(`Your corp is already at the top tier (${MAX_TIER}).`);
   const cost = TIER_COST[tier + 1];
-  if ((org.treasury || 0) < cost) return err(`Advancing to tier ${tier + 1} costs ${cost}₵ — the treasury has ${org.treasury || 0}₵.`);
+  if ((org.treasury || 0) < cost) return err(`Advancing to tier ${tier + 1} costs ${cost}₵: the treasury has ${org.treasury || 0}₵.`);
   const res = await withTransaction(async (q) => {
     const dec = await q('UPDATE orgs SET treasury=treasury-$1, tier=tier+1 WHERE id=$2 AND treasury>=$1 AND tier=$3 RETURNING treasury, tier', [cost, org.id, tier]);
     return dec.rowCount ? dec.rows[0] : null;
@@ -794,7 +794,7 @@ async function cmdBuild(player, typeArg, broadcast) {
   if (curLevel >= tier) return err(`Your ${def.label.toLowerCase()} here is at your tier cap (level ${tier}). Raise it with "corp invest".`);
   const newLevel = curLevel + 1;
   const cost = def.base + curLevel * def.perLevel;
-  if ((org.treasury || 0) < cost) return err(`${curLevel ? 'Upgrading' : 'Building'} a ${def.label.toLowerCase()} costs ${cost}₵ — the treasury has ${org.treasury || 0}₵.`);
+  if ((org.treasury || 0) < cost) return err(`${curLevel ? 'Upgrading' : 'Building'} a ${def.label.toLowerCase()} costs ${cost}₵: the treasury has ${org.treasury || 0}₵.`);
   const treasury = await withTransaction(async (q) => {
     const dec = await q('UPDATE orgs SET treasury=treasury-$1 WHERE id=$2 AND treasury>=$1 RETURNING treasury', [cost, org.id]);
     if (!dec.rowCount) return null;
@@ -807,7 +807,7 @@ async function cmdBuild(player, typeArg, broadcast) {
   await reloadOrg(m.org_id);
   await pushConsole(m.org_id, broadcast);
   const effect = type === 'extractor' ? `+${newLevel * def.income}/day income` : `+${newLevel * def.defense} defence`;
-  return { type: 'corp_territory', message: `${curLevel ? 'You upgrade the' : 'You build a'} <b>${def.label}</b> in <b>${esc(zone.name)}</b> to level ${newLevel} — ${effect}. Treasury: ${treasury}₵.` };
+  return { type: 'corp_territory', message: `${curLevel ? 'You upgrade the' : 'You build a'} <b>${def.label}</b> in <b>${esc(zone.name)}</b> to level ${newLevel}, ${effect}. Treasury: ${treasury}₵.` };
 }
 
 // 24h territory tick: settle income − upkeep to each controller's treasury, and
@@ -914,7 +914,7 @@ async function onHostileAct(actor, zoneId, amount) {
   const out = await applyInfluence(zoneId, -amount);
   if (!out) return;
   if (out.flipped) {
-    sendToPlayer(actor.id, { type: 'corp_territory', message: `The unrest tips it over — <b>${esc(heldBy?.name || 'the holder')}</b> loses their grip on <b>${esc(out.zone?.name || 'the zone')}</b>.` });
+    sendToPlayer(actor.id, { type: 'corp_territory', message: `The unrest tips it over: <b>${esc(heldBy?.name || 'the holder')}</b> loses their grip on <b>${esc(out.zone?.name || 'the zone')}</b>.` });
   } else {
     sendToPlayer(actor.id, { type: 'corp_territory', message: `<span class="dim">Word travels. ${esc(heldBy?.name || 'The holder')}'s grip on ${esc(out.zone?.name || 'this zone')} slips to ${out.row.influence}%.</span>` });
   }
@@ -938,7 +938,7 @@ async function cmdWar(player, targetName, broadcast) {
                ON CONFLICT (org_id, other_org_id) DO UPDATE SET stance='war'`, [a, b]);
     }
   });
-  notifyOrg(target.id, `<b>${esc(org.name)}</b> has <b>DECLARED WAR</b> on your corp. Your turf is a target now — 'corp raid' cuts both ways.`);
+  notifyOrg(target.id, `<b>${esc(org.name)}</b> has <b>DECLARED WAR</b> on your corp. Your turf is a target now: 'corp raid' cuts both ways.`);
   return { type: 'corp_territory', message: `<b>${esc(org.name)}</b> declares <b>WAR</b> on <b>${esc(target.name)}</b>. Raids on their territory are open. This is loud.` };
 }
 
@@ -967,8 +967,8 @@ async function cmdRaid(player, broadcast) {
   const zone = getZone(player.current_zone);
   if (!isClaimableZone(zone)) return err("There's no territory to raid here.");
   const zc = getZoneControl(zone.id);
-  if (!zc || !zc.org_id) return err("This zone is unclaimed — take it with 'corp claim'.");
-  if (zc.org_id === m.org_id) return err("You hold this zone — 'corp reinforce' to strengthen your grip.");
+  if (!zc || !zc.org_id) return err("This zone is unclaimed: take it with 'corp claim'.");
+  if (zc.org_id === m.org_id) return err("You hold this zone: 'corp reinforce' to strengthen your grip.");
   if (!(await isAtWar(m.org_id, zc.org_id)))
     return err(`You're not at war with <b>${esc(getOrg(zc.org_id)?.name || 'them')}</b>. Declare it with 'corp war <corp>', or 'corp contest' to erode by pressure.`);
   const until = contestCooldown.get(player.id) || 0;
@@ -992,7 +992,7 @@ async function cmdRaid(player, broadcast) {
       [row0.influence - erosion, m.org_id, zone.id]);
     return { row: upd.rows[0], flipped: false, prevOrg: row0.org_id };
   });
-  if (res.noop) return err("Control of the zone just shifted — try again.");
+  if (res.noop) return err("Control of the zone just shifted: try again.");
   setZoneControlCache(zone.id, res.row);
   await pushConsole(m.org_id, broadcast);
   if (res.prevOrg) await pushConsole(res.prevOrg, broadcast);
@@ -1002,8 +1002,8 @@ async function cmdRaid(player, broadcast) {
     broadcast?.(player.current_zone, { type: 'zone_event', message: `<span class="msg-system">${esc(org.name)} storms ${esc(zone.name)} and takes it!</span>` }, player.id);
     return { type: 'corp_territory', message: `<b>${esc(org.name)}</b> overruns the defenders and <b>seizes ${esc(zone.name)}</b>! Grip ${res.row.influence}%.` };
   }
-  broadcast?.(player.current_zone, { type: 'zone_event', message: `<span class="msg-system">Gunfire — ${esc(org.name)} raids ${esc(zone.name)}.</span>` }, player.id);
-  return { type: 'corp_territory', message: `You raid <b>${esc(zone.name)}</b> — grip torn down to ${res.row.influence}%.${defNote} Keep the pressure on.` };
+  broadcast?.(player.current_zone, { type: 'zone_event', message: `<span class="msg-system">Gunfire: ${esc(org.name)} raids ${esc(zone.name)}.</span>` }, player.id);
+  return { type: 'corp_territory', message: `You raid <b>${esc(zone.name)}</b>: grip torn down to ${res.row.influence}%.${defNote} Keep the pressure on.` };
 }
 
 // Every claimed HQ gets a wall-mounted ops terminal (idempotent) — the diegetic
@@ -1063,33 +1063,33 @@ async function cmdSay(player, text, broadcast) {
 
 const USAGE = [
   '<span class="skills-header">CORP</span>',
-  'corp                      — your corp info',
-  'corp found <name>         — found a corp (costs ' + FOUND_FEE + 'c)',
-  'corp roster               — list members',
-  'corp invite <player>      — invite an online player',
-  'corp accept               — accept a pending invite',
-  'corp leave                — leave your corp',
-  'corp kick <player>        — remove a member',
-  'corp contribute <amount>  — add credits to the treasury',
-  'corp disburse <player> <amount> — pay a member from the treasury',
-  'corp rank list|add|set|del ...  — manage ranks',
-  'corp setrank <player> <rank>    — assign a member\'s rank',
+  'corp: your corp info',
+  'corp found <name>: found a corp (costs ' + FOUND_FEE + 'c)',
+  'corp roster: list members',
+  'corp invite <player>: invite an online player',
+  'corp accept: accept a pending invite',
+  'corp leave: leave your corp',
+  'corp kick <player>: remove a member',
+  'corp contribute <amount>: add credits to the treasury',
+  'corp disburse <player> <amount>: pay a member from the treasury',
+  'corp rank list|add|set|del ...: manage ranks',
+  'corp setrank <player> <rank>: assign a member\'s rank',
   'corp edit name|desc|color <value>',
-  'corp claim                — claim where you stand (apartment → HQ ' + HQ_FEE + 'c; zone → territory ' + TERRITORY_CLAIM_FEE + 'c)',
-  'corp contest              — erode a rival\'s grip on this zone (seize it at 0%)',
-  'corp war <corp>           — declare war on a rival corp (opens raids both ways)',
-  'corp peace <corp>         — call a ceasefire, ending the war',
-  'corp raid                 — (at war) storm this zone by force — heavier than contest',
-  'corp reinforce [pts]      — spend treasury to strengthen your grip here',
-  'corp invest               — raise your corp tier (member cap · territory slots · assets)',
-  'corp build extractor|turret — build/upgrade an asset on a zone you hold',
-  'corp asset [list|claim]   — your corp-owned businesses; claim the one you stand in',
-  'shakedown <shopkeeper>    — put a shop on the books, or remind one; fear fades if you don\'t',
-  'corp racket list          — what your corp has on the books, and how scared they still are',
-  'corp racket drop <shop>   — let a shop off the hook',
-  'corp warehouse [list|deposit <item>|withdraw <item>] — the pooled Logistics Store (stand in an owned warehouse)',
-  'corp say <message>        — talk on your private corp channel',
-  'corp disband              — dissolve the corp (owner only)',
+  'corp claim: claim where you stand (apartment → HQ ' + HQ_FEE + 'c; zone → territory ' + TERRITORY_CLAIM_FEE + 'c)',
+  'corp contest: erode a rival\'s grip on this zone (seize it at 0%)',
+  'corp war <corp>: declare war on a rival corp (opens raids both ways)',
+  'corp peace <corp>: call a ceasefire, ending the war',
+  'corp raid: (at war) storm this zone by force, heavier than contest',
+  'corp reinforce [pts]: spend treasury to strengthen your grip here',
+  'corp invest: raise your corp tier (member cap · territory slots · assets)',
+  'corp build extractor|turret: build/upgrade an asset on a zone you hold',
+  'corp asset [list|claim]: your corp-owned businesses; claim the one you stand in',
+  'shakedown <shopkeeper>: put a shop on the books, or remind one; fear fades if you don\'t',
+  'corp racket list: what your corp has on the books, and how scared they still are',
+  'corp racket drop <shop>: let a shop off the hook',
+  'corp warehouse [list|deposit <item>|withdraw <item>]: the pooled Logistics Store (stand in an owned warehouse)',
+  'corp say <message>: talk on your private corp channel',
+  'corp disband: dissolve the corp (owner only)',
 ].join('\n');
 
 // ─── Dispatcher ───────────────────────────────────────────────────────────
@@ -1165,7 +1165,7 @@ async function doUseCorpTerminal(args, raw, player) {
   if (!m) return err('The terminal blinks: CORP CREDENTIALS REQUIRED.');
   const apt = getApartment(player.current_zone);
   if (apt?.owner_type === 'org' && apt.owner_org_id && apt.owner_org_id !== m.org_id) {
-    return err('ACCESS DENIED — this terminal is bound to another corporation.');
+    return err('ACCESS DENIED: this terminal is bound to another corporation.');
   }
   return buildConsolePayload(player);
 }
@@ -1196,9 +1196,9 @@ export const specializedActions = [
 export const _corpPosterPitch = (f) => {
   if (f?.flags?.corp_poster !== true) return undefined;
   let out =
-    `<span class="text-dim">There's no form on it, no number to call — just the want it's built to leave in you, and, in a corner, a line small enough to feel like a secret: <b>Sign-ups in person only.</b> Ask down at the Yards. Word on the row is a smiling man named <b>Denny Corliss</b> keeps a folding table at the Depot, just inside the gates, and will walk anyone who asks through starting an outfit of their own.</span>`;
+    `<span class="text-dim">There's no form on it, no number to call: just the want it's built to leave in you, and, in a corner, a line small enough to feel like a secret: <b>Sign-ups in person only.</b> Ask down at the Yards. Word on the row is a smiling man named <b>Denny Corliss</b> keeps a folding table at the Depot, just inside the gates, and will walk anyone who asks through starting an outfit of their own.</span>`;
   if (f.flags?.architect_wink === true) {
-    out += `\n<span class="text-dim">Bottom corner, too small to be meant for you: "OPERATING UNDER LICENSE · NORTHERN ACCESS GRANTED WHERE PRODUCTIVITY IS OBSERVED · —A"</span>`;
+    out += `\n<span class="text-dim">Bottom corner, too small to be meant for you: "OPERATING UNDER LICENSE · NORTHERN ACCESS GRANTED WHERE PRODUCTIVITY IS OBSERVED · A"</span>`;
   }
   return out;
 };

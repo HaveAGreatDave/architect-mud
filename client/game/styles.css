@@ -4980,6 +4980,54 @@ html.map-poi-color .map-bld-label {
 	isolation: isolate;
 	transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
+/* Folded to its header bar (the − button). */
+#container-box.ctr-folded { height: auto; padding: 8px 14px; }
+#container-box.ctr-folded > :not(#container-header) { display: none; }
+.ctr-head-btns { display: flex; gap: 6px; align-items: center; }
+#container-min, #container-galley { background: none; border: 1px solid var(--cyan); color: var(--cyan); cursor: pointer; padding: 2px 8px; font: inherit; }
+
+/* The galley quick actions (panels/galley.js): a small floating window over any vehicle seat. */
+#galley-panel {
+	display: none; position: fixed; right: 24px; top: 90px; width: 300px; max-height: 70vh;
+	z-index: 160; background: var(--bg2); border: 1px solid var(--cyan); flex-direction: column;
+	font-size: 13px;
+}
+#galley-panel.active { display: flex; }
+#galley-panel .glly-head { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; border-bottom: 1px solid var(--cyan); color: var(--cyan); user-select: none; }
+#galley-panel .glly-head button { background: none; border: none; color: var(--cyan); cursor: pointer; font: inherit; padding: 0 4px; }
+#galley-panel.glly-folded .glly-body { display: none; }
+#galley-panel.glly-folded .glly-head { border-bottom: none; gap: 8px; }
+#galley-panel.glly-folded { width: auto; }
+#galley-panel .glly-mini { display: none; }
+#galley-panel.glly-folded .glly-mini { display: flex; gap: 8px; flex: 1; }
+#galley-panel.glly-folded .glly-title { display: none; }
+.glly-mg { display: flex; align-items: center; gap: 3px; font-size: 11px; }
+.glly-mg i { display: inline-block; width: 38px; height: 5px; background: rgba(127,127,127,0.25); }
+.glly-mg b { display: block; height: 100%; background: var(--green, #4c8); }
+.glly-mg.glly-mid b { background: var(--yellow, #db3); }
+.glly-mg.glly-low b { background: var(--red, #d44); }
+#galley-panel .glly-body { overflow-y: auto; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.glly-vital { display: grid; grid-template-columns: 56px 1fr 28px; gap: 6px; align-items: center; }
+.glly-track { height: 7px; background: rgba(127,127,127,0.25); }
+.glly-fill { height: 100%; background: var(--green, #4c8); }
+.glly-mid .glly-fill { background: var(--yellow, #db3); }
+.glly-low .glly-fill { background: var(--red, #d44); }
+.glly-sec { color: var(--cyan); margin-top: 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; }
+.glly-items, .glly-pax { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.glly-items li { display: flex; gap: 6px; align-items: center; }
+.glly-items .glly-name { flex: 1; }
+.glly-items button { background: none; border: 1px solid var(--cyan); color: var(--cyan); cursor: pointer; font: inherit; padding: 1px 8px; }
+.glly-to { max-width: 90px; font: inherit; background: var(--bg2); color: inherit; border: 1px solid rgba(127,127,127,0.5); }
+.glly-pax span { opacity: 0.7; font-size: 12px; }
+.glly-empty { opacity: 0.6; }
+
+/* A small store (the Drake's galley fridge and locker): a bar-fridge-sized window. */
+#container-box.ctr-compact {
+	max-width: 460px;
+	height: 58vh;
+	padding: 14px;
+	gap: 8px;
+}
 
 /* Cold-appliance theming — applied only when the opened container (or its
    paired box) carries a `preserves` tag, i.e. an actual fridge/freezer, not
@@ -7057,37 +7105,48 @@ html.map-poi-color .map-bld-label {
 /* Two-tone glow — magenta frame, cyan core. Each channel pulses its own
      text-shadow blur on its own animation so the glow itself breathes,
      not just brightness/opacity over a flat color. */
+/* ⚠ The glow breathes by OPACITY, never by animating text-shadow. text-shadow
+     can't be animated on the compositor, so animating its blur repainted all 29
+     lines with a 36px blur every frame, on the main thread, and held the login
+     screen to 15-30 fps on an ordinary machine. So the logo is drawn twice: the
+     base copy carries the resting glow, and main.js lays a clone over it
+     (#auth-ascii-glow) carrying the peak glow, which fades in and out. The blur is
+     painted once and the compositor only changes its opacity. */
+#auth-ascii { position: relative; }
 .sk-m {
 	color: var(--accent);
-	animation: glow-m 3s ease-in-out infinite;
+	text-shadow: 0 0 6px var(--accent-dim);
 }
 .sk-c {
 	color: var(--cyan);
-	animation: glow-c 3s ease-in-out infinite;
-	animation-delay: 0.4s;
+	text-shadow: 0 0 6px var(--cyan);
 }
-
-@keyframes glow-m {
-	0%,
-	100% {
-		text-shadow: 0 0 6px var(--accent-dim);
-	}
-	50% {
-		text-shadow:
-			0 0 18px var(--accent),
-			0 0 32px var(--accent-dim);
-	}
+#auth-ascii-glow {
+	position: absolute;
+	inset: 0;
+	margin: 0;
+	pointer-events: none;
+	opacity: 0;
+	will-change: opacity;
+	animation: glow-breathe 3s ease-in-out infinite;
 }
-@keyframes glow-c {
+#auth-ascii-glow .sk-m {
+	text-shadow:
+		0 0 18px var(--accent),
+		0 0 32px var(--accent-dim);
+}
+#auth-ascii-glow .sk-c {
+	text-shadow:
+		0 0 20px var(--cyan),
+		0 0 36px var(--cyan);
+}
+@keyframes glow-breathe {
 	0%,
-	100% {
-		text-shadow: 0 0 6px var(--cyan);
-	}
-	50% {
-		text-shadow:
-			0 0 20px var(--cyan),
-			0 0 36px var(--cyan);
-	}
+	100% { opacity: 0; }
+	50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+	#auth-ascii-glow { animation: none; opacity: 0.5; }
 }
 
 #auth-title {

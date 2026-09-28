@@ -61,7 +61,7 @@ const MEAL = [
    `{npc} sits down to {thing} and eats the first three mouthfuls far too fast.`,
    `{npc} washes up, badly, and leaves one pan to soak.`],
   [`{npc} reads the back of a packet for a while, then puts it down and does it their own way.`,
-   `{npc} gets {thing} going, and the smell of it fills the room — better than it has any right to be.`,
+   `{npc} gets {thing} going, and the smell of it fills the room: better than it has any right to be.`,
    `{npc} eats standing up, out of the pan, which they would deny if asked.`],
   [`{npc} chops something with more force than the task requires.`,
    `{npc} tastes it, makes a face, and adds something else.`,

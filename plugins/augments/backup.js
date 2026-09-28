@@ -120,7 +120,7 @@ export async function cmdBackup(args, raw, player) {
   const paid = restores > 0
     ? `\n<span style="opacity:.8">Restores on account: ${restores}.</span>`
     : `\n<span class="outcast-warning">No restores on account. A pattern with nothing to spend it on is just a photograph. Buy a policy at Halcyon.</span>`;
-  return { type: 'output', message: `The tanks hum. For a moment you're two places at once, and then only here again — a fresh reading of you laid down over the old one.${fidNote}${chromeNote}${paid}\n<span class="player-update-credits">₵${player.credits}</span>` };
+  return { type: 'output', message: `The tanks hum. For a moment you're two places at once, and then only here again: a fresh reading of you laid down over the old one.${fidNote}${chromeNote}${paid}\n<span class="player-update-credits">₵${player.credits}</span>` };
 }
 
 /** `assurance [buy n]` — the secret Halcyon front. */
@@ -137,18 +137,18 @@ export async function cmdAssurance(args, raw, player) {
   if (sub !== 'buy') {
     const fidLine = backup?.pattern_at
       ? `Pattern fidelity: <b>${fidelity}%</b>${fidelity < FIDELITY_MAX ? `  <span style="opacity:.7">(re-scan at the Registry to correct)</span>` : ''}\n`
-      : `Pattern on file: <span class="text-red">none</span>  <span style="opacity:.7">(scan at the Registry — a policy alone restores nothing)</span>\n`;
+      : `Pattern on file: <span class="text-red">none</span>  <span style="opacity:.7">(scan at the Registry: a policy alone restores nothing)</span>\n`;
     return { type: 'output', message:
-      `<span class="skills-header">HALCYON ASSURANCE — CORTICAL POLICY</span>\n\n`
-      + `"Death, sir, is a billing problem — and your account can be paid up."\n\n`
+      `<span class="skills-header">HALCYON ASSURANCE: CORTICAL POLICY</span>\n\n`
+      + `"Death, sir, is a billing problem, and your account can be paid up."\n\n`
       + `Prepaid restores on file: <b>${restores}</b>\n`
       + fidLine
       + `Price per restore: ₵${RESTORE_PRICE}\n\n`
-      + `<span style="opacity:.7">assurance buy [n] — purchase restores. Requires a cortical backup on file.</span>` };
+      + `<span style="opacity:.7">assurance buy [n]: purchase restores. Requires a cortical backup on file.</span>` };
   }
 
   if (!hasCortical(player)) {
-    return { type: 'error', message: 'The adjuster checks a screen and shakes their head, almost kindly. "We can only insure what can be restored. You have no cortical backup. Speak to the Ascendants about that first." — a slip they don\'t seem to notice making.' };
+    return { type: 'error', message: 'The adjuster checks a screen and shakes their head, almost kindly. "We can only insure what can be restored. You have no cortical backup. Speak to the Ascendants about that first." A slip they don\'t seem to notice making.' };
   }
   const n = Math.max(1, Math.min(20, parseInt(args[1], 10) || 1));
   const cost = n * RESTORE_PRICE;
@@ -163,7 +163,7 @@ export async function cmdAssurance(args, raw, player) {
     [player.id, n]
   );
   const after = restores + n;
-  return { type: 'output', message: `The adjuster's stylus moves. ₵${cost} clears. "You're covered for ${n} more, then. ${after} on account." Behind them, a screen shows a calm closed eye — the Halcyon seal, or something older wearing it.\n<span class="player-update-credits">₵${player.credits}</span>` };
+  return { type: 'output', message: `The adjuster's stylus moves. ₵${cost} clears. "You're covered for ${n} more, then. ${after} on account." Behind them, a screen shows a calm closed eye: the Halcyon seal, or something older wearing it.\n<span class="player-update-credits">₵${player.credits}</span>` };
 }
 
 /**
@@ -245,7 +245,7 @@ export function scheduleAscendantEmergence(player, { left, chrome, fidelity, art
     // The chrome line is the honest one: it was destroyed and this is new
     // hardware, printed to your spec. Saying so is better than implying the old
     // pieces came through, because the player can go and look at the scrap.
-    send(`<span class="clone-vat-message">They walk you out rather than standing you up. Towels that have been warmed. A robe. Somewhere behind you a tank is already being drained and made ready for the next member, and nobody mentions it, the way nobody mentions the plumbing in a good hotel.${chrome ? ` Your hardware was laid in while you were still coming up — ${chrome} piece${chrome === 1 ? '' : 's'}, cut new to the old measurements, still warm from the bed.` : ''}</span>`);
+    send(`<span class="clone-vat-message">They walk you out rather than standing you up. Towels that have been warmed. A robe. Somewhere behind you a tank is already being drained and made ready for the next member, and nobody mentions it, the way nobody mentions the plumbing in a good hotel.${chrome ? ` Your hardware was laid in while you were still coming up: ${chrome} piece${chrome === 1 ? '' : 's'}, cut new to the old measurements, still warm from the bed.` : ''}</span>`);
   }, ASC_BEAT_2);
 
   setTimeout(() => {
@@ -255,6 +255,6 @@ export function scheduleAscendantEmergence(player, { left, chrome, fidelity, art
     const artifactNote = artifacts.length
       ? `\n\n<span class="outcast-warning">${artifacts.map(a => a.self).join(' ')}</span>`
       : '';
-    send(`<span class="clone-vat-message">Clothes are waiting folded on a chair — not yours, but your size, and better than yours. Nobody presents a bill. Nobody mentions money at all. That was settled at Halcyon long before today, by a version of you who had the leisure to plan for this, and the entire architecture of the morning exists to keep you from having to think about it now.${artifactNote}\n\n<span style="opacity:.8">A card is left beside the chair, face down. ${left} restore${left === 1 ? '' : 's'} remaining on account. Pattern fidelity ${fidelity}%.</span></span>`);
+    send(`<span class="clone-vat-message">Clothes are waiting folded on a chair. Not yours, but your size, and better than yours. Nobody presents a bill. Nobody mentions money at all. That was settled at Halcyon long before today, by a version of you who had the leisure to plan for this, and the entire architecture of the morning exists to keep you from having to think about it now.${artifactNote}\n\n<span style="opacity:.8">A card is left beside the chair, face down. ${left} restore${left === 1 ? '' : 's'} remaining on account. Pattern fidelity ${fidelity}%.</span></span>`);
   }, ASC_BEAT_3);
 }

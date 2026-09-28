@@ -73,7 +73,7 @@ async function recordScreen(player, rec) {
     rows.push({ label: 'Out in', value: custody.minutesLeft <= 1 ? 'any minute' : `${custody.minutesLeft} minutes` });
     if (custody.fine) {
       rows.push({
-        label: 'Fine due', value: `₵${custody.fine.toLocaleString()} — taken from the ₵${custody.held.toLocaleString()} the desk is holding`
+        label: 'Fine due', value: `₵${custody.fine.toLocaleString()}: taken from the ₵${custody.held.toLocaleString()} the desk is holding`
           + (custody.fine > custody.held ? `. You'll walk out ₵${(custody.fine - custody.held).toLocaleString()} down.` : '.'),
       });
     }
@@ -107,7 +107,7 @@ async function recordScreen(player, rec) {
     breadcrumb: ['Crime', 'Record'],
     activeTab: 'Record',
     tabs: TABS.map(t => ({ id: t.label, label: t.label })),
-    boardName: `⚖ ${player.handle} — file open`,
+    boardName: `⚖ ${player.handle}: file open`,
     items: [],
     rows,
   };
@@ -139,7 +139,7 @@ function priorsScreen(player, rec) {
     for (const h of rec.history.slice(0, 12)) {
       rows.push({ label: `  ${h.crime}`, value: `${h.zone} · ${ago(h.ts)} · ${h.outcome}` });
     }
-    rows.push({ label: '', value: 'Case notes are the duty board\'s working memory — the tally above is the permanent file.' });
+    rows.push({ label: '', value: 'Case notes are the duty board\'s working memory: the tally above is the permanent file.' });
   }
 
   return {
@@ -176,7 +176,7 @@ function statutesScreen() {
     breadcrumb: ['Crime', 'Statutes'],
     activeTab: 'Statutes',
     tabs: TABS.map(t => ({ id: t.label, label: t.label })),
-    boardName: '⚖ Municipal statutes — what it costs you',
+    boardName: '⚖ Municipal statutes: what it costs you',
     items,
     rows: [
       { label: 'Note', value: 'Stars are what a charge ADDS. They decay on their own if nobody catches up with you.' },

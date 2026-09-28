@@ -39,6 +39,7 @@ import { query } from '../../server/models/db.js';
 import { stepBoat, TYPES } from '../../client/game/js/panels/flight-model.js';
 import { surfaceAt } from '../flight/state.js';
 import { aboard } from './yard.js';
+import { effBoatParams } from './service.js';
 import { rigs } from './index.js';
 
 const TICK = '1s';
@@ -64,12 +65,13 @@ export function isConning(playerId) { return conning.has(playerId); }
 
 export async function startTextHelm(player, boat, at) {
   if (conning.has(player.id)) return true;
-  const p = TYPES[boat.type_id] || TYPES.hydro;
+  // Her wear on her, as the visual rung has it (service.js) — one set of numbers on both rungs.
+  const p = effBoatParams(boat.type_id, boat.custom_data || {});
   conning.set(player.id, {
     playerId: player.id, boatId: boat.id, name: boat.name || 'her', p,
     // The sim state, seeded from the row exactly as the panel seeds it.
     s: {
-      x: at.x, y: at.y, heading: Number(boat.custom_data?.heading) || 0,
+      x: at.x, y: at.y, heading: at.heading ?? (Number(boat.custom_data?.heading) || 0),
       speed: 0, drift: 0, pedal: 0, hull: clamp01(boat.condition),
       nitro: clamp01(boat.custom_data?.nitro ?? 1), nitroHeat: 0,
       vs: 0, z: 0, airborne: false, pitch: 0, roll: 0, clock: 0,
@@ -79,14 +81,14 @@ export async function startTextHelm(player, boat, at) {
       running: false, crank: 0,
     },
     fuel: clamp01(boat.fuel),
-    want: { bearing: Number(boat.custom_data?.heading) || 0, bell: 'stop', bottle: false, trim: 0 },
+    want: { bearing: at.heading ?? (Number(boat.custom_data?.heading) || 0), bell: 'stop', bottle: false, trim: 0 },
     last: Date.now(), said: {}, sinceSay: 0,
   });
   sendToPlayer(player.id, { type: 'message',
     message: `<span class="text-green">You take the helm of ${boat.name || 'her'}. `
       + `Orders: <b>conn 270</b> for a bearing, <b>conn full</b> for a bell (${BELL_WORDS.join('/')}), `
       + `<b>conn tabs up/down/flat</b>, <b>conn bottle</b>, <b>conn moor</b> to tie up. `
-      + `She is cold — <b>conn start</b> first.</span>` });
+      + `She is cold: <b>conn start</b> first.</span>` });
   return true;
 }
 
@@ -188,7 +190,7 @@ export async function cmdConn(args = [], raw, player) {
     // bell accepted here would be a helm that says "you ring for full" over a boat that does not
     // move — and there would be nothing anywhere to say why.
     if (c.s.running === false && word !== 'stop') {
-      return { type: 'error', message: 'Nothing happens. She is not running — <b>conn start</b>.' };
+      return { type: 'error', message: 'Nothing happens. She is not running: <b>conn start</b>.' };
     }
     c.want.bell = word;
     return { type: 'emote', message: word === 'stop'
@@ -218,9 +220,9 @@ function statusLine(c) {
   // stop" is what a running boat at the pontoon says too, and the one question somebody staring at
   // a stationary hull is asking is whether she is alive.
   const drive = s.running === false
-    ? (c.starting ? '<b>cranking…</b>' : '<b class="text-red">engine off</b> — conn start')
+    ? (c.starting ? '<b>cranking…</b>' : '<b class="text-red">engine off</b>: conn start')
     : `${Math.round(s.speed)} mph on <b>${c.want.bell}</b>`;
-  return `<b>${c.name}</b> — heading ${Math.round(norm(s.heading))}°, ordered ${Math.round(c.want.bearing)}°, `
+  return `<b>${c.name}</b>: heading ${Math.round(norm(s.heading))}°, ordered ${Math.round(c.want.bearing)}°, `
     + drive + '. '
     + `Tabs ${trimWord(c.want.trim).toLowerCase()}. `
     + `Hull ${Math.round(s.hull * 100)}%, fuel ${Math.round(c.fuel * 100)}%, bottle ${Math.round(s.nitro * 100)}%.`;

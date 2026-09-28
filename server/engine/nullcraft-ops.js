@@ -166,7 +166,7 @@ registerNullOperation({
   id: 'jam', label: 'Jam', kind: 'transient', tier: 1,
   appliesTo: ['sensor', 'telemetry', 'network'],
   baseDifficulty: 3, minSkill: 0, traceCost: 1,
-  describe: 'Drown the signal. Nothing is damaged and nothing is learned — the link simply stops carrying.',
+  describe: 'Drown the signal. Nothing is damaged and nothing is learned. The link simply stops carrying.',
 });
 
 registerNullOperation({
@@ -194,7 +194,7 @@ registerNullOperation({
   id: 'hijack', label: 'Hijack', kind: 'persistent', tier: 4,
   appliesTo: ['control', 'actuation', 'network'],
   baseDifficulty: 11, minSkill: 6, traceCost: 5,
-  describe: 'Take it. Not disruption — possession, for as long as you can hold the trace down.',
+  describe: 'Take it. Not disruption: possession, for as long as you can hold the trace down.',
 });
 
 // ── The overclock exploit (spec §18–19) ──────────────────────────────────────

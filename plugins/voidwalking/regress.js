@@ -68,7 +68,7 @@ export default async function regress({ run, check, getPlayer }) {
       ...FEATURES.flatMap(f => [f.name, f.desc]),
     ];
     const dashed = prose.filter(s => /[—–]| - | -- /.test(s));
-    check('no void prose uses an em dash (it belongs to the Architect)', dashed.length === 0,
+    check('no void prose uses an em dash', dashed.length === 0,
       dashed.slice(0, 3).join(' | '));
 
     // The roll that says "something is here" must never be spent on nothing: an unwritten kind for
@@ -735,7 +735,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('frontier outside a void-region says so', /no way to strike out|frontier region/i.test(noGate?.message || ''), noGate?.message?.slice(0, 40));
     player.current_zone = GATE;
     const read = await run('frontier');
-    check('frontier at a gate reads out the reachable regions', /The Reach/.test(read?.message || '') && /Exodus/.test(read?.message || ''), read?.message?.slice(0, 60));
+    check('frontier at a gate reads out the reachable regions', /The Reach/.test(read?.message || '') && /The Scarletwastes/.test(read?.message || ''), read?.message?.slice(0, 60));
     const fv = await _test.frontierView(player);
     check('reading a gate charts its routes (fogged discovery)',
       !!fv['Coldwater'] && fv['Coldwater'].some(r => r.heading === 'The Reach' && r.state === 'charted'), JSON.stringify(fv));

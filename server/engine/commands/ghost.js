@@ -44,7 +44,7 @@ const GHOST_AMBIENT_MESSAGES = [
   'You feel briefly, intensely observed. The feeling passes.',
   'The air pressure changes for just a moment, then returns to normal.',
   "Something brushes past you. There's nothing there.",
-  'A low, sourceless sound — less heard than felt — moves through the room.',
+  'A low, sourceless sound, less heard than felt, moves through the room.',
   'The light flickers almost imperceptibly.',
   'The silence thickens for a moment before easing.',
   'You sense a presence just beyond the edge of perception.',
@@ -56,7 +56,7 @@ const GHOST_AMBIENT_MESSAGES = [
 // no cause the players can point to, just an unseen thing pulling the room dark.
 const GHOST_DRAIN_MESSAGES = [
   'The air turns to ice. Every light in the room dies at once, as though something unseen has reached into the walls and squeezed. Darkness pours in.',
-  'A pressure builds — silent, immense, wrong. The power bleeds away like water down a drain, and the room drops into black.',
+  'A pressure builds: silent, immense, wrong. The power bleeds away like water down a drain, and the room drops into black.',
   "Something you can't see draws a long, slow breath. The lights gutter, dim, and go out together. The dark that follows feels occupied.",
   'The bulbs flare too bright, then burst into darkness all at once. No hand was near the switches. The cold stays behind.',
   'An unseen presence closes around the room\'s power and pulls. Filaments die one by one until nothing is left but the black and the certainty of being watched.',

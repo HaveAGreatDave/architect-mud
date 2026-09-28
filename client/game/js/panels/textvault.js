@@ -136,8 +136,8 @@ const SKIN = {
   },
   finish: (s, won) => {
     _status = won
-      ? '<span class="ok">◉ BOLT RETRACTED — safe open.</span>'
-      : '<span class="bad">✗ LOCK RE-SEATED — rig flagged.</span>';
+      ? '<span class="ok">◉ BOLT RETRACTED: safe open.</span>'
+      : '<span class="bad">✗ LOCK RE-SEATED: rig flagged.</span>';
     paint(s);
     setTimeout(() => close(), won ? 1200 : 2200);
   },

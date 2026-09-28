@@ -141,7 +141,7 @@
     "She looks up at the barred slot of window, at the weather, and back down.",
     "She stands still with her hands flat for a while, which is what she does instead of sitting."
   ],
-  "description": "A contained, unreadable woman who has made herself deliberately boring to watch, because everything she does is watched. She wears nothing on her hands and nothing with pockets, which is the first thing regulars notice and the last thing anybody comments on. She states a result once, clearly, in a level voice, and does not repeat it or defend it.",
+  "description": "A contained, unreadable woman who keeps herself dull to watch. Bare hands, nothing with pockets. She states a result once, clearly, in a level voice, and doesn't repeat it.",
   "dialogue_tree": {
     "bye": {
       "options": [],

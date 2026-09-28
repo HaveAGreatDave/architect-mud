@@ -128,6 +128,11 @@ function tileIndex() {
   return _tileIdx;
 }
 
+/** The zone on a grid tile of a map, from the same lazy index. Sync and query-free. */
+export function zoneAtTile(mapId, x, y, z = 0) {
+  return tileIndex().get(`${mapId}|${x},${y},${z}`) || null;
+}
+
 /** { bld, shore } for a tile — the two facts `placeOf` needs. */
 export function tileSurroundings(zone) {
   if (!zone || zone.grid_x == null || zone.grid_y == null) return { bld: 0, shore: false };
@@ -530,13 +535,12 @@ export function interiorExitDirs(zone) {
   return dirs.length ? dirs : null;
 }
 
-// Every cardinal direction an interior room can actually be left by (any exit, not
-// just the ones leaving the building). Drives the alternative "edge lines" door style
-// on the maps: an open side gets a green edge, a walled side a red one. Deliberately
-// null for exteriors and facades — out on the street nearly every tile is open on all
-// four sides, so the mode would paint the whole map green and say nothing.
+// Every cardinal direction a building tile can be left by — an interior room, an
+// apartment, and the FACADE too, which is the tile the engine walks you through on the
+// way in. Drives the "edge lines" door style: green where there is a way through, red
+// on the walls. One rule for every building tile; street tiles get null and draw none.
 export function interiorOpenDirs(zone) {
-  if (!zone || isEnterableFacade(zone)) return null;
+  if (!zone) return null;
   if (!(zone.flags?.is_interior || zone.flags?.is_apartment || zone.flags?.is_building)) return null;
   // An empty array is a real answer here (a room whose only way out is a legacy
   // in/out exit is walled on all four sides), so this returns [] rather than null —
@@ -561,7 +565,7 @@ export function interiorOpenDirs(zone) {
 // this payload for an answer the first pass already had in its hand.
 export function interiorLockDirs(zone, viewer = null) {
   const open = interiorOpenDirs(zone);
-  if (!open?.length) return facadeLockDirs(zone, viewer);
+  if (!open?.length) return { locked: null, unlockable: null };
   const exits = primaryExits(zone);
   const locked = [], unlockable = [];
   for (const d of open) {
@@ -571,47 +575,6 @@ export function interiorLockDirs(zone, viewer = null) {
     if (r.unlockable) unlockable.push(d);
   }
   return { locked: locked.length ? locked : null, unlockable: unlockable.length ? unlockable : null };
-}
-
-// ── THE SAME LOCK, SEEN FROM THE STREET ──────────────────────────────────────
-// `interiorOpenDirs` is null outside a floorplan by design, so until this the map
-// drew no lock anywhere on the overworld — while the dpad reddened the direction,
-// because `describe.js` reaches one hop further in (`frontDoorOf`) and finds the
-// door on the facade seam. Two surfaces, two answers, about the same door.
-//
-// A facade already draws exactly one edge — the green line on its entrance side
-// (`doorMarks` / `drawEdges`) — so there is no new geometry here: this only decides
-// what COLOUR that one line is. The other three sides stay unmarked, for the reason
-// they always were: the red "this is wall" half would just outline every building.
-//
-// The question goes through the same locked seam the interior pass uses, asked about
-// the facade↔interior seam link rather than the street link, so the three exemptions
-// the gate carries (an unrented unit's vestigial lock, an auto-lock that lets you
-// back in, a lock_state with no lock installed) apply here for free. Reading
-// `frontDoorOf(zone).lock_state` directly would be a second lock law, and it would
-// disagree with the first on all three.
-//
-// Shop hours are deliberately NOT asked here: a closed shop already reaches this
-// payload as the tile's own `shut` field, which the map paints as a red inset. A
-// second mark for the same fact is not more information.
-//
-// ⚠ Sync and query-free, like the pass above.
-function facadeLockDirs(zone, viewer = null) {
-  const none = { locked: null, unlockable: null };
-  if (!isEnterableFacade(zone)) return none;
-  const dir = buildingEntranceDir(zone);
-  if (!INTERIOR_EXIT_DIRS.has(dir)) return none;   // legacy in/out — no edge to colour
-  const entryId = getMapByParentZone(zone.id)?.entry_zone_id;
-  const entry = entryId ? world.zones.get(entryId) : null;
-  if (!entry) return none;
-  // The seam's own direction, not the entrance arrow: the arrow says which way the
-  // door FACES (it is the edge we draw on), and the link into the building is
-  // labelled independently — cardinal on reworked buildings, 'in' on legacy ones.
-  const seamDir = allExits(zone).find((e) => e.target === entryId)?.dir;
-  if (!seamDir) return none;
-  const r = lockedOnLink(viewer, zone, seamDir, entry);
-  if (!r?.locked) return none;
-  return { locked: [dir], unlockable: r.unlockable ? [dir] : null };
 }
 
 export function interiorLockedDirs(zone, viewer = null) {

@@ -242,7 +242,7 @@ export function plazaCell(route, plaza, s, t, x, y, ctx) {
     // of lamps down each edge, so it is per tile by nature and the outer band is where it belongs.
     // An inner apron tile gets no mark at all, which keeps most of the footprint free.
     const k = is('deck') ? 'deck' : is('arch') ? 'arch' : far > ap.w - 0.7 ? 'lead' : 'apron';
-    return cell(k === 'deck' ? `${plaza.name} — the plates` : plaza.name, {
+    return cell(k === 'deck' ? `${plaza.name}: the plates` : plaza.name, {
       ...base,
       terrain: 'road', icon: ctx.icon, road_dirt: 1, road_wear: 1,
       road_deg: ctx.deg, road_t: +(t - ap.c).toFixed(3), road_w: +ap.w.toFixed(3), road_lanes: 2,
@@ -257,7 +257,7 @@ export function plazaCell(route, plaza, s, t, x, y, ctx) {
   // here it would quietly delete the office's walls and leave a lit sign standing in open ground.
   // The office is an ordinary building; the light on this apron comes off the arch and the plates.
   if (is('booth')) {
-    return cell(`${plaza.name} — the office`, { ...base, building_type: 'weigh_station',
+    return cell(`${plaza.name}: the office`, { ...base, building_type: 'weigh_station',
       building_name: plaza.name, floors: 1, entrance: ctx.entrance });
   }
   // Everything else in the footprint is the gore island and the apron's outer verge: the plaza's
@@ -335,7 +335,7 @@ export function passPlaza(player, rig) {
       if (!inbound && !back) continue;
       sendToPlayer(player.id, { type: 'emote', message: p.open
         ? `<span class="text-dim">The radio picks up a carrier tone and a flat synthetic voice underneath it, repeating on a loop:</span> <span class="text-amber">"${p.name} is <b>OPEN</b>. All rigs exit. ${milesOf(Math.abs(d))} miles."</span>`
-        : `<span class="text-dim">A carrier tone comes up and goes away again — ${p.name}, ${milesOf(Math.abs(d))} miles up, telling nobody in particular that it's <b>closed</b>. You'll be driving straight past that one.</span>` });
+        : `<span class="text-dim">A carrier tone comes up and goes away again: ${p.name}, ${milesOf(Math.abs(d))} miles up, telling nobody in particular that it's <b>closed</b>. You'll be driving straight past that one.</span>` });
       ev = 'called';
     }
   }
@@ -347,7 +347,7 @@ export function passPlaza(player, rig) {
       sendToPlayer(player.id, { type: 'emote', message:
         `<span class="text-amber">A gantry comes over the road with its whole span lit, and the words on it are not a suggestion: <b>ALL RIGS EXIT</b>.</span>\n`
         + `<span class="text-dim">The ramp lights run away to your right, one after another, toward a lit plate and an arch standing over it. `
-        + `Pull onto the apron and stop on the plates — or don't, and find out what the thing on the gantry does about it.</span>` });
+        + `Pull onto the apron and stop on the plates, or don't, and find out what the thing on the gantry does about it.</span>` });
     } else {
       sendToPlayer(player.id, { type: 'emote', message:
         `<span class="text-dim">${here.name} goes by on the right with its ramp dark and its arch cold. The gantry over the road says <b>BYPASS</b> in green and means it. Nobody's working tonight.</span>` });
@@ -393,7 +393,7 @@ export function passPlaza(player, rig) {
 async function runIt(player, rig, plaza) {
   sendToPlayer(player.id, { type: 'emote', message:
     `<span class="text-red">You hold your lane and the ramp goes by on the right.</span>\n\n`
-    + `The arch behind you lights up its whole length at once — not a flash, a steady white that stays on — and something under the gantry turns to keep you in it as you go. There is no siren. Nothing comes out of the office. A plate somewhere has your number on it and that was the entire transaction.\n\n`
+    + `The arch behind you lights up its whole length at once: not a flash, a steady white that stays on, and something under the gantry turns to keep you in it as you go. There is no siren. Nothing comes out of the office. A plate somewhere has your number on it and that was the entire transaction.\n\n`
     + `<span class="text-dim">${plaza.name}. There is one road out here, and they know which way you are pointing.</span>` });
   await chargeAt(player, true, RUN_CRIME, `running the inspection at ${plaza.name}`);
 }

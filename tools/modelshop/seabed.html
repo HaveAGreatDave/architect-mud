@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Seabed Map</title>
+<style>
+  :root { --bg: #0b0f14; --fg: #cfd8e3; --dim: #7a8796; --line: #243040; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 13px/1.4 ui-monospace, Consolas, monospace; }
+  header { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+  header label { color: var(--dim); }
+  #wrap { overflow: auto; height: calc(100vh - 90px); }
+  canvas { image-rendering: pixelated; display: block; }
+  #read { padding: 6px 12px; border-top: 1px solid var(--line); min-height: 18px; }
+  .key { display: inline-block; width: 10px; height: 10px; vertical-align: middle; margin: 0 3px 0 8px; }
+</style>
+</head>
+<body>
+<header>
+  <strong>Seabed</strong>
+  <label>px/tile <input id="px" type="number" min="1" max="12" value="4" style="width:44px"></label>
+  <label><input id="open" type="checkbox"> tiles outside the map are open sea</label>
+  <label><input id="wrecks" type="checkbox" checked> wrecks</label>
+  <label>view <select id="mode"><option value="depth">depth</option><option value="material">material</option></select></label>
+  <span id="stat" style="color:var(--dim)"></span>
+</header>
+<div id="wrap"><canvas id="cv"></canvas></div>
+<div id="read">hover a tile</div>
+<script type="module">
+import { seabedDepth, seabedMaterial, shoreField, wrecksNear, seabedZoneId, SHORE_SEARCH } from '/client/shared/seabed.js';
+
+const res = await fetch('/api/world');
+if (!res.ok) { document.getElementById('stat').textContent = 'no baked world — npm run snapshot:flight'; throw new Error('no world'); }
+const W = await res.json();
+const B = W.bounds;
+const cellAt = (x, y) => W.cells[x + ',' + y];
+
+// ⚠ TWO ANSWERS FOR A TILE THE SNAPSHOT DOES NOT HOLD. Inside Coldwater only authored `water` is
+// sea; everything missing is land nobody drew. The "open sea" switch treats missing as water, which
+// is what the Deep will look like once it is its own region past the rim.
+const landOf = (open) => (ix, iy) => {
+  const c = cellAt(ix, iy);
+  if (!c) return !open;
+  return c.biome !== 'water';
+};
+
+const MAT = { sand: [214, 196, 140], silt: [120, 110, 90], rock: [90, 96, 104], debris: [170, 90, 60] };
+const WRECK = { skiff: '#ffe08a', container_stack: '#ff9f43', freighter: '#ff5e57', server_farm: '#7efff5', hero: '#ffffff' };
+
+// Depth ramp: shallow turquoise → shelf blue → abyss near-black.
+function depthRGB(m) {
+  const stops = [[0, [150, 230, 220]], [15, [60, 170, 200]], [42, [25, 90, 160]], [200, [12, 40, 90]], [860, [4, 8, 20]]];
+  for (let i = 1; i < stops.length; i++) {
+    if (m <= stops[i][0]) {
+      const [a0, c0] = stops[i - 1], [a1, c1] = stops[i];
+      const t = (m - a0) / (a1 - a0);
+      return c0.map((v, k) => Math.round(v + (c1[k] - v) * t));
+    }
+  }
+  return stops[stops.length - 1][1];
+}
+
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+let grid = null, field = null;
+
+function draw() {
+  const px = +document.getElementById('px').value;
+  const open = document.getElementById('open').checked;
+  const mode = document.getElementById('mode').value;
+  const isLand = landOf(open);
+  const w = B.maxx - B.minx + 1, h = B.maxy - B.miny + 1;
+  cv.width = w * px; cv.height = h * px;
+  const img = ctx.createImageData(w, h);
+  grid = new Float32Array(w * h);
+  let maxD = 0, water = 0;
+  const t0 = performance.now();
+  // One transform for the whole map, padded by the search radius so land just off the edge counts.
+  const P = SHORE_SEARCH, F = shoreField(B.minx - P, B.miny - P, w + 2 * P, h + 2 * P, isLand);
+  field = F;
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const x = B.minx + i, y = B.miny + j, o = (j * w + i) * 4;
+    let rgb;
+    if (isLand(x, y)) {
+      const c = cellAt(x, y);
+      rgb = c ? [48, 44, 40] : [20, 20, 22];
+      grid[j * w + i] = -1;
+    } else {
+      const d = F.at(x + 0.5, y + 0.5);
+      const z = seabedDepth(x + 0.5, y + 0.5, isLand, d);
+      grid[j * w + i] = z; water++; if (z > maxD) maxD = z;
+      if (mode === 'depth') rgb = depthRGB(z);
+      else { const m = seabedMaterial(x + 0.5, y + 0.5, isLand, d, F.at); rgb = MAT[m] || [255, 0, 255]; }
+    }
+    img.data[o] = rgb[0]; img.data[o + 1] = rgb[1]; img.data[o + 2] = rgb[2]; img.data[o + 3] = 255;
+  }
+  // Blit the 1:1 image up to px per tile, pixelated.
+  const tmp = new OffscreenCanvas(w, h); tmp.getContext('2d').putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(tmp, 0, 0, w * px, h * px);
+  let nw = 0;
+  if (document.getElementById('wrecks').checked) {
+    const seen = new Set();
+    const cx = (B.minx + B.maxx) / 2, cy = (B.miny + B.maxy) / 2;
+    for (const wr of wrecksNear(cx, cy, Math.hypot(w, h) / 2 + 20, isLand)) {
+      if (seen.has(wr.id)) continue; seen.add(wr.id);
+      const sx = (wr.x - B.minx) * px, sy = (wr.y - B.miny) * px;
+      if (sx < 0 || sy < 0 || sx > cv.width || sy > cv.height) continue;
+      ctx.fillStyle = WRECK[wr.kind] || '#f0f';
+      ctx.fillRect(sx - 2, sy - 2, 5, 5); nw++;
+    }
+  }
+  document.getElementById('stat').innerHTML =
+    `${water} water tiles · deepest ${maxD.toFixed(0)} m · ${nw} wrecks · ${(performance.now() - t0).toFixed(0)} ms` +
+    Object.entries(WRECK).map(([k, c]) => `<span class="key" style="background:${c}"></span>${k}`).join('');
+}
+
+cv.addEventListener('mousemove', (e) => {
+  if (!grid) return;
+  const px = +document.getElementById('px').value;
+  const r = cv.getBoundingClientRect();
+  const i = Math.floor((e.clientX - r.left) / px), j = Math.floor((e.clientY - r.top) / px);
+  const x = B.minx + i, y = B.miny + j;
+  const w = B.maxx - B.minx + 1;
+  const z = grid[j * w + i];
+  const isLand = landOf(document.getElementById('open').checked);
+  document.getElementById('read').textContent = z < 0
+    ? `${x},${y} · land (${cellAt(x, y)?.biome ?? 'off-map'})`
+    : `${x},${y} · ${seabedZoneId(x, y)} · ${z.toFixed(1)} m · ${seabedMaterial(x + 0.5, y + 0.5, isLand, null, field.at)}`;
+});
+for (const id of ['px', 'open', 'wrecks', 'mode']) document.getElementById(id).addEventListener('change', draw);
+draw();
+</script>
+</body>
+</html>

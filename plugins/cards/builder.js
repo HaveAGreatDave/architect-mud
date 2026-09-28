@@ -172,7 +172,7 @@ export function wholeSentences(text, budget) {
 
 // A quote is never edited to fit. Walk candidates newest-first and take the first
 // one that qualifies; if none do, the region prints its silence copy.
-export const SILENCE = '— said nothing worth printing —';
+export const SILENCE = '(said nothing worth printing)';
 // A candidate is either a plain string — something OVERHEARD, which has to be
 // sniffed for whether it is speech at all — or `{ text, authored: true }`, a line
 // the player sat down and WROTE. The difference is not politeness, it is that the

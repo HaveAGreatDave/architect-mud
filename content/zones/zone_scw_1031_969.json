@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A shelf of red stone standing a hundred feet clear of the flats, its face banded in every shade the country has, laid down and then eaten back until only this much was left. From up here the dark line of the thorn is visible a long way off, a black seam laid across the red.",
+  "description": "Red stone, raised well above the flats and eroded back to this shelf. The dark line of the thorn is plain from up here.",
   "exits": {
     "east": "zone_scw_1032_969",
     "north": "zone_scw_1031_968",

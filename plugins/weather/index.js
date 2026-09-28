@@ -424,6 +424,7 @@ function blendedBiasAt(gx, gy) {
 export const _testWeather = {
   computeRegionBoxes, blendedBiasAt, regionBiasAt, boxDist2, field,
   systemsForForecast, getWeatherFieldSnapshot, mulberry32, seedFromString,
+  sampleWeatherAt,   // so a suite that swaps the engine's field sampler can put the real one back
 };
 
 // ── Named "hero" weather events (step 7) ────────────────────────────────────
@@ -476,7 +477,7 @@ const NAMED_EVENTS = {
       },
       peak: {
         secs: 240,
-        line: 'The ion storm breaks overhead — the sky screams white and every hair stands on end.',
+        line: 'The ion storm breaks overhead: the sky screams white and every hair stands on end.',
         window: "The sky goes white in the window frame, once and then again, and the glass sings in it. Whatever else it is, it isn't out on the horizon any more.",
         inside: "Every screen in the room whites out at once and the walls sing with it. Whatever is out there's directly overhead.",
       },
@@ -500,7 +501,7 @@ const NAMED_EVENTS = {
       },
       peak: {
         secs: 300,
-        line: 'The downpour turns caustic — acid rain, hissing where it lands.',
+        line: 'The downpour turns caustic: acid rain, hissing where it lands.',
         window: "The glass is running with something that fizzes where it pools on the sill. You're on the right side of it. Stay there.",
         inside: 'The rain on the roof has stopped drumming and started hissing, like something being slowly dissolved. Stay in.',
       },
@@ -530,7 +531,7 @@ const NAMED_EVENTS = {
       approach: {
         secs: 30,
         line: 'The last of the rain walks off east and the light comes back all at once, low and gold and wrong-coloured.',
-        window: "The rain stops running down the glass. Outside, the light has come back low and gold, and something in it's beginning to bend.",
+        window: "The rain stops running down the glass. Outside, the light has come back low and gold, and something in it is beginning to bend.",
         inside: 'The drumming overhead stops. Whatever light finds its way in has gone warm and strange at the edges.',
       },
       peak: {
@@ -1152,7 +1153,7 @@ on('weather.empPulse', async (pulse) => {
     const names = fried.get(player.id);
     if (names?.length) {
       const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
-      lines.push(`<span class="msg-system">Something in your pockets pops. ${list} — dead. Cooked right through.</span>`);
+      lines.push(`<span class="msg-system">Something in your pockets pops. ${list}: dead. Cooked right through.</span>`);
     }
     for (const message of lines) sendToPlayer(player.id, { type: 'output', message });
   }

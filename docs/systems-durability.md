@@ -142,7 +142,7 @@ Registered as a **specialized action**, not a command — which is what makes `r
 
 Watts cannot sell you that at any price. A bench *restores*; it never improves. So the choice is genuinely three-way:
 
-- **Watts** — certain, same-day, and **expensive**: `max(25, value × 0.9 × missing)`, discounted by your [standing with him](systems-relationships.md). You are paying for convenience and certainty.
+- **Watts** — certain, same-day, and **expensive**: `max(25, value × 0.9 × missing)`, discounted by your [standing with him](systems-relationships.md) (`relationHelp`; the bench is any NPC flagged `repairman`). You are paying for convenience and certainty.
 - **A good hand** — cheaper by negotiation, and can give it back *better than new*.
 - **A bad hand** — cheapest, and may finish off what was already broken.
 

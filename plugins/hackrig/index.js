@@ -145,7 +145,7 @@ async function cmdHackRigResolve(args, raw, player) {
   // Say so out loud once the rig has stopped being worth the deck it costs.
   // Rule: never let a player grind a dead end without the game telling them.
   const outgrown = margin >= OUTGROWN_MARGIN
-    ? `\n<span class="text-dim">The sequence barely holds your attention. There's nothing left for you here — ` +
+    ? `\n<span class="text-dim">The sequence barely holds your attention. There's nothing left for you here... ` +
       `a real lock would teach you more in one go than a week on this thing.</span>`
     : '';
 

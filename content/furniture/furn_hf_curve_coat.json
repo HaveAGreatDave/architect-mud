@@ -5,9 +5,7 @@
       "coat",
       "chair"
     ],
-    "interactions": {
-      "examine": "The dust on the shoulders is even, which means it has not been moved. The pockets have been emptied and turned out and put back."
-    }
+    "examine_detail": "The dust on the shoulders is even, which means it has not been moved. The pockets have been emptied and turned out and put back."
   },
   "id": "furn_hf_curve_coat",
   "name": "the coat on the chair",

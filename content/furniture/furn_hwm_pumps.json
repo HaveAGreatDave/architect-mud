@@ -6,9 +6,7 @@
       "bedplate",
       "lever"
     ],
-    "interactions": {
-      "examine": "The tally is almost exactly even over years, which does not happen by itself. Somebody changes them over on a schedule and has never once let it drift."
-    }
+    "examine_detail": "The tally is almost exactly even over years, which does not happen by itself. Somebody changes them over on a schedule and has never once let it drift."
   },
   "id": "furn_hwm_pumps",
   "name": "the duty pumps",

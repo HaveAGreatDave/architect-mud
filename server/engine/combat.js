@@ -387,13 +387,13 @@ function playerHitLine(player, targetName, partLabel, damage, damageType, critic
   // A called shot that lands is the rarest thing a player can do on purpose, and
   // it should never be mistaken for an ordinary crit.
   if (execution === 'kill') {
-    return `<span class="crit-tag">EXECUTION</span> Your shot goes exactly where you sent it. ${targetName}'s ${part} comes apart — ${dmg}`;
+    return `<span class="crit-tag">EXECUTION</span> Your shot goes exactly where you sent it. ${targetName}'s ${part} comes apart: ${dmg}`;
   }
   if (execution === 'knockout') {
     return `<span class="crit-tag">KNOCKOUT</span> You bring it down flat on ${targetName}'s ${part}. They fold up and don't get back up`;
   }
   if (execution === 'maim') {
-    return `<span class="crit-tag">CALLED SHOT</span> You put it through ${targetName}'s ${part} — ${dmg}. Not enough to finish it, but it'll never be right again`;
+    return `<span class="crit-tag">CALLED SHOT</span> You put it through ${targetName}'s ${part}: ${dmg}. Not enough to finish it, but it'll never be right again`;
   }
   if (critical) {
     return `<span class="crit-tag">${power ? 'CRITICAL POWER' : 'CRITICAL HIT'}</span> to the ${part}! You deal ${dmg} damage to ${targetName}`;
@@ -405,7 +405,7 @@ function playerHitLine(player, targetName, partLabel, damage, damageType, critic
 // A whiffed power attack has to sting — you just burned 1.5 swings for nothing.
 function playerMissLine(player, targetName, power) {
   return power
-    ? `<span class="pow-tag">POWER</span> You commit everything — and hit nothing but air.`
+    ? `<span class="pow-tag">POWER</span> You commit everything, and hit nothing but air.`
     : missLine(player, targetName);
 }
 
@@ -428,7 +428,7 @@ async function playerDefence(player) {
 // own — the output pane already prints a line every swing.
 const DODGE_BROKEN = ' <span class="dodge-tag">(guard broken)</span>';
 function dodgedMissLine(attackerName) {
-  return `${attackerName} lunges — <span class="dodge-tag">you slip aside</span>.`;
+  return `${attackerName} lunges, but <span class="dodge-tag">you slip aside</span>.`;
 }
 
 // Anatomy lives in server/engine/body-parts.js — one table, four former copies.
@@ -1145,7 +1145,7 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
       live.hp = Math.max(1, live.hp - jolt);   // humiliating, never lethal
       live._resDirty = true;
       if (live.id !== player.id) {
-        sendToPlayer(live.id, { type: 'output', message: `The water lights up. <span class="dmg-taken">${jolt}</span> — you're standing in it too.` });
+        sendToPlayer(live.id, { type: 'output', message: `The water lights up. <span class="dmg-taken">${jolt}</span>. You're standing in it too.` });
       }
     }
     player.hp = Math.max(1, (player.hp ?? player.hp_max) - jolt);

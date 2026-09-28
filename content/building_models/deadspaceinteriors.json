@@ -79,14 +79,14 @@
     {
       "color": "#0c1614",
       "cx": 0.2,
-      "cy": 0.44,
+      "cy": 0.39,
       "font": "condensed",
       "half": 0.15,
       "hh": 0.03,
       "ink": "#8fffdc",
       "kind": "signBoard",
       "label": "DEAD SPACE",
-      "z": 0.108
+      "z": 0.195
     }
   ],
   "id": "deadspaceinteriors",

@@ -60,7 +60,7 @@ export async function thresholdGate({ player, from, to }) {
     if (rushes < 2) {
       return {
         block: true,
-        message: `You break into a run at the line — and the turret housings pivot as one, laying targeting light across your chest. A warden's voice, unhurried: "Don't test the Threshold, baseline." You pull up short. <span class="text-dim">(Force it again and they fire. You need Ascendant clearance.)</span>`,
+        message: `You break into a run at the line, and the turret housings pivot as one, laying targeting light across your chest. A warden's voice, unhurried: "Don't test the Threshold, baseline." You pull up short. <span class="text-dim">(Force it again and they fire. You need Ascendant clearance.)</span>`,
       };
     }
     // You forced it. The turrets fire — energy weapons, soak-reduced, escalating

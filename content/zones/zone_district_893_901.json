@@ -1,16 +1,31 @@
 {
-  "ambient_events": [],
+  "ambient_events": [
+    "A pylon wakes as something passes in the channel, reads nothing it recognises, and goes dark again.",
+    "The canopy's underside brightens by a degree as the light on the basin fails.",
+    "A hose withdraws into its pylon with a soft, expensive sound.",
+    "Water slaps the float and the deck does not move under it."
+  ],
   "ambient_theme": "coast",
   "color": "#7fd3ff",
-  "description": "Cold water closes around your legs at the shoreline, the bottom shelving away fast into lightless murk. This is as far as you go on foot: the channel beyond is deep, and impassable without a boat.",
+  "description": "A broad floating deck on the north face of the marina, where the covered dock's channel opens onto the basin. A single blade of glass canopy on one mast, edged in Fairweather's champagne metal and lit from beneath. Under it, three slim chrome dispensing pylons, each with a screen that shows a price once a hull is alongside and recognised. A gangway runs west to the visitor pontoon.",
   "exits": {
     "east": "zone_district_894_901",
     "north": "zone_district_893_900",
     "west": "zone_district_892_901"
   },
   "flags": {
-    "district": "water",
+    "boat_fuel": true,
+    "building_type": "fuel_dock",
+    "district": "glasshouse",
+    "entrance": "south",
+    "floors": 1,
+    "liquid": false,
+    "marina_berths": 2,
+    "pier": true,
     "region_id": "region_coldwater",
+    "routable": true,
+    "street_life": true,
+    "swimmable": false,
     "terrain": "water"
   },
   "grid_x": 893,
@@ -18,6 +33,7 @@
   "grid_z": 0,
   "id": "zone_district_893_901",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "marker": "⛽",
+  "name": "Fairweather Marina — The Fuel Berth",
   "parent_zone": null
 }

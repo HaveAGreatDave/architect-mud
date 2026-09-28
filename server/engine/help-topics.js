@@ -48,7 +48,7 @@ registerHelpTopic({
     ].join('\n')),
     cat('YOUR RECORD', [
       line('wanted', 'what the police think you have done'),
-      line('scrub', 'at a police terminal — make some of it go away'),
+      line('scrub', 'at a police terminal: make some of it go away'),
       line('conceal <item>', "hide something before you're searched"),
       dim('  Crimes are witnessed, not detected. Nobody watching means nobody charged.'),
     ].join('\n')),
@@ -72,7 +72,7 @@ registerHelpTopic({
       line('raise <n>  fold  allin', ''),
       line('board  pot  players', "what's on the table, and who is still in it"),
       line('spectate / watch', 'sit out and see how it goes for everyone else'),
-      line('text / visual', 'switch how the table is drawn — your choice, per player'),
+      line('text / visual', 'switch how the table is drawn, your choice, per player'),
       dim("  Real people, real credits. The table doesn't care that you're new."),
     ].join('\n')),
     cat('THE BALL GAME', [
@@ -93,7 +93,7 @@ registerHelpTopic({
     cat('HEAT', [
       line('wanted', 'your current standing with the police'),
       line('bribe <officer>', 'if you have the credits and they have the inclination'),
-      line('scrub', 'at a police terminal — edit the record itself'),
+      line('scrub', 'at a police terminal: edit the record itself'),
       dim('  Witnesses include cameras. Sweep for them first, or work somewhere nobody looks.'),
     ].join('\n')),
     cat('WORK', [
@@ -184,7 +184,7 @@ registerHelpTopic({
     ].join('\n')),
     cat('MAKING THINGS', [
       line('recipes / craft <recipe>', 'the general workbench'),
-      dim('  Food is its own system — see help cooking.'),
+      dim('  Food is its own system. See help cooking.'),
     ].join('\n')),
   ].join('\n'),
 });

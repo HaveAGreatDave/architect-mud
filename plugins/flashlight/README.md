@@ -1,13 +1,13 @@
 # flashlight
 
-**Purpose** — a battery-powered handheld light the player carries. Owns the `light` / `unlight` / `reload` verbs for items tagged `flashlight`, and the per-player perception boost that lets a lit flashlight make an otherwise dark room readable. Light and its battery are *item state*, not zone infrastructure — the zone's own lighting (streetlights, fixtures, windows) is untouched; only how brightly the holder perceives the room changes.
+**Purpose** — a battery-powered handheld light the player carries. Owns `turn on/off flashlight`, the `flashlight` toggle and the `reload` verb for items tagged `flashlight`, and the per-player perception boost that lets a lit flashlight make an otherwise dark room readable. Light and its battery are *item state*, not zone infrastructure — the zone's own lighting (streetlights, fixtures, windows) is untouched; only how brightly the holder perceives the room changes.
 
 ## Registered actions
 
 Specialized (tag-gated on the `flashlight` class tag; target self-resolved from inventory):
 
-- `light` — switch the flashlight on. Fails if it's already on or the battery is dead.
-- `unlight` — switch it off.
+- `turn on flashlight` / `turn flashlight on` (also `switch`, and `torch`) — an input matcher, since `turn` belongs to furniture and flight. Fails if it is already on or the battery is dead.
+- `turn off flashlight` — switch it off. `flashlight` alone toggles; `flashlight on|off` is explicit.
 - `reload` — consume one `battery` item from inventory to refill the cell to full.
 
 ## Events emitted

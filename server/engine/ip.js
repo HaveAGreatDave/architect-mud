@@ -226,7 +226,7 @@ export async function raiseStat(playerId, statName) {
   const net = (Number(p.skill_ip) + Number(p.bonus_xp)) - statSpent(p);
 
   if (net < cost) {
-    return { error: `Not enough XP. Need ${cost} XP to raise ${statName} to ${current + 1} — you have ${Math.floor(net)}.` };
+    return { error: `Not enough XP. Need ${cost} XP to raise ${statName} to ${current + 1}; you have ${Math.floor(net)}.` };
   }
 
   // Spending is implicit: raising the stat increases statSpent by `cost`, which

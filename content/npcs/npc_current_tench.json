@@ -126,7 +126,7 @@
     "He glances at bay seven's lamp, which is neither colour, and looks away again.",
     "Outside, the hum changes by about nothing, and he lifts his head anyway."
   ],
-  "description": "A thin, careful man in his thirties standing on the mat in front of the panel with his hands behind his back, which is a habit rather than a pose. He checks things twice while you are talking to him and apologises for it each time. He is not nervous about you. He is nervous about the yard, permanently, and he is right to be.",
+  "description": "A thin, careful man in his thirties on the mat in front of the panel, hands behind his back. He checks things twice while you talk and apologises each time. It's the yard that makes him nervous.",
   "dialogue_tree": {
     "bye": {
       "options": [],

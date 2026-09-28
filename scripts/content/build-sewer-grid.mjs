@@ -60,7 +60,7 @@ const descTemplates = {
   ],
   residential: [
     'A run of domestic storm line under {street}, the walls streaked with a century of household runoff. Somewhere a broken pipe drips with idiot patience.',
-    'The tunnel beneath {street} carries the quiet waste of the blocks above — grey water, lost things, the occasional startled scurry at the edge of your light.',
+    'The tunnel beneath {street} carries the quiet waste of the blocks above: grey water, lost things, the occasional startled scurry at the edge of your light.',
   ],
   wasteland: [
     'A grimy trunk of storm tunnel under {street}, the concrete cracked and weeping, the air thick with the sour breath of the drains.',
@@ -68,7 +68,7 @@ const descTemplates = {
   ],
   yards: [
     'An industrial storm culvert under {street}, wide enough for freight runoff, its floor slick with oil and grit washed down from the yards above.',
-    'The tunnel beneath {street} carries the yards’ dirty water — chemical sheen on the surface, rust on every fixture.',
+    'The tunnel beneath {street} carries the yards’ dirty water: chemical sheen on the surface, rust on every fixture.',
   ],
   _default: [
     'A plain stretch of storm tunnel beneath {street}, brick and standing water and the endless drip of the city draining itself.',

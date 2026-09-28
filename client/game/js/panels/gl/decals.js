@@ -38,8 +38,8 @@
 import { viewProjMatrix, mat4f } from './camera.js';
 import { makeVertexStream } from './stream.js';
 
-// pos3, uv2, alpha1, emit1
-const STRIDE = 7;
+// pos3, uv2, alpha1, emit1, seed1
+const STRIDE = 8;
 // What alpha counts as the BOARD rather than as its edge, in the depth-only prepass. A `solid` decal
 // is one flat fill, so its interior is 1 and only the rim is between — but `vAlpha` carries the
 // world's own distance fade, and a board fading out at the edge of the window must stop writing
@@ -96,11 +96,14 @@ in vec3 aPos;
 in vec2 aUV;
 in float aAlpha;
 in float aEmit;
+in float aSeed;
 uniform mat4 uViewProj;
 out vec2 vUV;
 out float vAlpha;
 out float vEmit;
+flat out float vSeed;
 void main() {
+  vSeed = aSeed;
   gl_Position = uViewProj * vec4(aPos, 1.0);
   vUV = aUV;
   vAlpha = aAlpha;
@@ -112,12 +115,70 @@ precision highp float;
 in vec2 vUV;
 in float vAlpha;
 in float vEmit;
+flat in float vSeed;
 uniform sampler2D uTex;
+uniform float uTube;
+uniform float uFlick;
+uniform float uTime;
 uniform float uCull;
 uniform float uFlip;
 uniform float uEmitGain;
 uniform float uCut;
 out vec4 outColor;
+// ── NEON TUBES ────────────────────────────────────────────────────────────────────────────────
+//
+// A lit sign's lettering arrives as an OPAQUE stroke inside a translucent coloured halo, and that
+// stroke is the tube. The shader recovers the tube's cross-section from the stroke itself: a small
+// blur of its coverage is a height, the height's gradient is a normal across the tube, and a glass
+// cylinder lit from above is shaded off that normal. Nothing about the bake changes and nothing
+// new is uploaded.
+//
+// What a real tube looks like, and what each term is for: the gas fills the bore, so the body is
+// an even SATURATED colour; a camera overexposes the middle of it toward white; the glass curves
+// away at the edges, so the rim is darker and more saturated; and the glass reflects the sky as one
+// thin specular line along the top of the bend. That line is what makes it read as a tube rather
+// than a stroke.
+float nh(float x) { return fract(sin(x * 127.1) * 43758.5453); }
+float coreAt(vec2 uv) {
+  // ⚠ COVERAGE, NOT WHITENESS. The bake's three passes describe a white core, and by the time the
+  // canvas is uploaded it is not white: measured over the 39 lit signs in one Coldwater frame, the
+  // opaque stroke is one flat colour (its whitest channel anywhere from 0.06 to 0.95) and only the
+  // halo is translucent. A whiteness test found no tube on any of them. Alpha tells stroke from
+  // halo on every sign whatever its colour.
+  // ⚠ AND LEVEL 0, NEVER THE MIP CHAIN. At street distance a sign is minified several levels and
+  // each level above 0 averages the stroke into its halo, so the edge the gradient needs is gone.
+  // How far level 0 then aliases is what the fade in main is for.
+  return smoothstep(0.70, 0.98, textureLod(uTex, uv, 0.0).a);
+}
+// ⚠ FLICKER IS PER SIGN AND PER SECTION, AND IT IS SLOW ON PURPOSE. A failing tube stutters: gas
+// leaking or a worn electrode drops a section out for a moment and it strikes again. About a fifth
+// of signs are "faulty"; of those some lose the whole sign (a tired transformer) and the rest lose
+// one section (one letter's tube). A burst is under a second and at most five states a second,
+// under the WCAG three-flash line, and it DIMS rather than blacking out, because this game holds
+// to no strobe at any rate. Everything else gets a shimmer too small to name.
+float neonFlicker(float seed, float seg, float t) {
+  // A slow breath on every sign: gas under a ballast is never quite steady. A few per cent, under
+  // one cycle a second, each sign on its own phase. No strobe.
+  float f = 0.94 + 0.06 * sin(t * (2.2 + nh(seed * 4.3) * 1.6) + seed * 50.0);
+  // Faults are PER LETTER, never the whole sign: about a quarter of signs carry one or two tired
+  // sections, each stuttering on its own clock.
+  if (nh(seed * 3.1) > 0.75) {
+    float sa = floor(nh(seed * 7.7) * 12.0), sb = floor(nh(seed * 8.9) * 12.0);
+    if (seg == sa || (nh(seed * 5.3) > 0.6 && seg == sb)) {
+      float s2 = seed + seg * 0.37;
+      float P = 5.0 + 11.0 * nh(s2 * 9.1);
+      float tt = t + s2 * 37.0;
+      float cyc = floor(tt / P);
+      float ph = tt - cyc * P;
+      float burst = 0.3 + 1.2 * nh(s2 * 2.9 + cyc);
+      if (ph < burst) {
+        float on = step(0.45, nh(floor(ph * 5.0) + s2 * 11.0 + cyc * 3.0));
+        f *= mix(0.12, 1.0, on);
+      }
+    }
+  }
+  return mix(1.0, f, uFlick);
+}
 void main() {
   // ⚠ A SIGN HAS A FRONT. Lettering is PAINT ON A SURFACE, and paint does not read from behind the
   // thing it is painted on — but a textured quad drawn two-sided does, mirrored, and it glows
@@ -165,7 +226,94 @@ void main() {
   // producer that has never heard of this — which is all of them but one. Spelling it the other way
   // round (1 means paint, higher means brighter) was the first cut and it puts the no-op at a
   // non-zero default, where a dropped field reads as a sign that does not light up.
-  outColor = vec4(t.rgb * (1.0 + vEmit * uEmitGain), t.a);
+  vec3 rgb = t.rgb;
+  if (vEmit > 0.001 && uTube + uFlick > 0.001) {
+    vec2 ts = vec2(textureSize(uTex, 0));
+    vec2 px = 1.0 / ts;
+    float seg = floor((ts.y > ts.x ? vUV.y : vUV.x) * 12.0);   // about a letter a section
+    float fl = neonFlicker(vSeed, seg, uTime);
+    // How many level-0 texels one screen pixel covers. The taps step by at least that, so the
+    // gradient is taken across the tube rather than inside one texel, and past about four the tube
+    // is under two pixels across: its shading is invisible and level-0 taps only buy shimmer, so the
+    // tube fades out there and the sign is drawn as it always was. Flicker is kept at every range.
+    vec2 fw = fwidth(vUV * ts);
+    float foot = max(max(fw.x, fw.y), 1.0);
+    float near = 1.0 - smoothstep(4.0, 8.0, foot);
+    // ⚠ A ROUND PROFILE NEEDS A BLUR WIDER THAN THE EDGE. Coverage is flat across the stroke, so a
+    // narrow blur gives a plateau with a step at each side: a flat ribbon with bevelled edges, which
+    // is not a tube. Two rings at about a quarter and a half of the stroke's width (the bake's
+    // tube, halo pass included, is about nine texels across on the 72-texel cell) rise all the way to the middle, so the
+    // height peaks on the centre line where the hot core and the specular belong. The gradient comes
+    // off the same sixteen taps, so the normal costs nothing more.
+    float Hc = coreAt(vUV);
+    float H = Hc * 0.2; vec2 grad = vec2(0.0);
+    for (int i = 0; i < 8; i++) {
+      float a = float(i) * 0.7854;
+      vec2 d = vec2(cos(a), sin(a));
+      float c1 = coreAt(vUV + d * px * 1.4 * foot);
+      float c2 = coreAt(vUV + d * px * 2.8 * foot);
+      H += c1 * 0.06 + c2 * 0.04;
+      grad += d * (c1 + c2 * 0.5);
+    }
+    // The sign is BAKED as tube now (bakeSignText bends it round each letter's outline), so the
+    // opaque stroke IS the glass and this only has to shade it as a cylinder: the blurred coverage
+    // peaks on the tube's axis, its gradient is the normal across it, and the hot line, the
+    // coloured glass and the darker walls follow from that.
+    H *= Hc;
+    // ⚠ A TUBE IS THIN, AND COVERAGE ALONE CANNOT SAY SO. An opaque board (every marquee panel is
+    // opaque, see marqueeBand) is alpha 1 edge to edge, so without this every texel of it read as the
+    // axis of one enormous tube and the whole board went white-hot — Reel Estate's fascia at night.
+    // A stroke is empty on BOTH sides of it along some direction; a board interior is full on both
+    // and a board edge is empty on one side only, so neither passes.
+    float thin = 0.0;
+    for (int i = 0; i < 4; i++) {
+      float a = float(i) * 0.7854;
+      vec2 d = vec2(cos(a), sin(a)) * px * 6.0 * foot;
+      thin = max(thin, (1.0 - coreAt(vUV + d)) * (1.0 - coreAt(vUV - d)));
+    }
+    float body = smoothstep(0.05, 0.45, H) * smoothstep(0.25, 0.75, thin) * uTube * near;
+    if (body > 0.0) {
+      vec4 cs = textureLod(uTex, vUV, 0.0);
+      vec3 hue = cs.a > 0.01 ? cs.rgb / cs.a : vec3(1.0);
+      // The baked axis is white and carries no hue, so take the colour from beside it.
+      vec4 side = textureLod(uTex, vUV + normalize(grad + 1e-5) * px * 3.0 * foot, 0.0);
+      vec3 sh2 = side.a > 0.01 ? side.rgb / side.a : hue;
+      float sat = max(sh2.r, max(sh2.g, sh2.b)) - min(sh2.r, min(sh2.g, sh2.b));
+      hue = sat > 0.15 ? sh2 : hue;
+      hue /= max(max(hue.r, max(hue.g, hue.b)), 1e-3);
+      // uv v runs DOWN the sign, so the light (from above) is toward -v.
+      vec3 n = normalize(vec3(-grad * 0.22, 0.55));
+      vec3 L = normalize(vec3(0.15, -0.65, 0.75));
+      float diff = clamp(dot(n, L), 0.0, 1.0);
+      float spec = pow(clamp(reflect(-L, n).z, 0.0, 1.0), 28.0);
+      float rim = 1.0 - n.z;
+      // Lit glass: the gas colour through a cylinder — darker at the walls where the light crosses
+      // more glass, a warm hot line on the axis, and a thin Fresnel glint at each edge.
+      vec3 litT = mix(hue * (0.55 + 0.45 * diff), hue * 0.5 + 0.5, smoothstep(0.90, 1.0, H) * 0.40);
+      litT = litT * (1.0 - 0.75 * rim) + vec3(0.9) * pow(rim, 3.0) * 0.25;
+      // ⚠ AN OUT SECTION IS STILL A TUBE. Going near-black left a hole the shape of a letter; real
+      // dead neon is pale tinted glass with the street reflected in it, so it keeps its edges.
+      vec3 deadT = hue * 0.10 + vec3(0.07) + vec3(0.45) * pow(rim, 2.0) * 0.5;
+      vec3 tube = mix(deadT, litT, fl);
+      rgb = mix(rgb, tube * t.a, body) + vec3(spec * 0.6 * body) * t.a;
+    } else {
+      // The halo round a tube goes with it when it drops out.
+      rgb *= fl * (1.0 - 0.3 * uTube * near);
+    }
+    // ── THE TUBES STAND OFF THE BOARD ─────────────────────────────────────────────────────────
+    // A neon sign is glass bent on stand-offs a few centimetres proud of its backing, so the
+    // lettering throws a shadow onto the board behind it, down and away from the light above. The
+    // shadow is the tube's own coverage sampled back up toward the light, laid only where there
+    // is no tube, and it DARKENS AND COVERS (alpha goes up), so it lands on the wall or board under
+    // the halo rather than just dimming the halo. Past the fade the offset would be sub-pixel and
+    // it goes with the tube shading.
+    float sh = coreAt(vUV + vec2(-1.2, -3.2) * px * max(foot, 1.0) * 2.0);
+    float shA = sh * (1.0 - smoothstep(0.02, 0.2, H)) * (1.0 - Hc) * 0.6 * uTube * near;
+    vec3 lit = rgb * (1.0 - shA);
+    outColor = vec4(lit * (1.0 + vEmit * uEmitGain * fl), t.a + shA * (1.0 - t.a));
+    return;
+  }
+  outColor = vec4(rgb * (1.0 + vEmit * uEmitGain), t.a);
 }`;
 
 function compile(gl, type, src, label) {
@@ -184,6 +332,18 @@ function compile(gl, type, src, label) {
 // it was baked into, the fade the world pass computed, and four WORLD points in the same
 // camera-relative tile frame the lights and the Curtain use. `solid` says this quad IS the surface
 // rather than paint on one, and is the only thing here that writes depth.
+const SEEDS = new Map();
+function keySeed(key) {
+  let v = SEEDS.get(key);
+  if (v === undefined) {
+    const k = String(key); let h = 2166136261;
+    for (let i = 0; i < k.length; i++) h = Math.imul(h ^ k.charCodeAt(i), 16777619);
+    v = ((h >>> 0) % 100003) / 1000.03;
+    if (SEEDS.size > 4096) SEEDS.clear();
+    SEEDS.set(key, v);
+  }
+  return v;
+}
 export function createDecalLayer(gl) {
   const prog = gl.createProgram();
   gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
@@ -196,6 +356,10 @@ export function createDecalLayer(gl) {
     uv: gl.getAttribLocation(prog, 'aUV'),
     alpha: gl.getAttribLocation(prog, 'aAlpha'),
     emit: gl.getAttribLocation(prog, 'aEmit'),
+    seed: gl.getAttribLocation(prog, 'aSeed'),
+    tube: gl.getUniformLocation(prog, 'uTube'),
+    flick: gl.getUniformLocation(prog, 'uFlick'),
+    time: gl.getUniformLocation(prog, 'uTime'),
     viewProj: gl.getUniformLocation(prog, 'uViewProj'),
     tex: gl.getUniformLocation(prog, 'uTex'),
     cull: gl.getUniformLocation(prog, 'uCull'),
@@ -208,7 +372,7 @@ export function createDecalLayer(gl) {
   // One stream, set up once: the attribute pointers are recorded into the VAO here and never
   // touched again, and the storage grows by doubling instead of being reallocated every frame.
   // See gl/stream.js.
-  const stream = makeVertexStream(gl, vao, STRIDE, [[loc.pos, 3, 0], [loc.uv, 2, 12], [loc.alpha, 1, 20], [loc.emit, 1, 24]], 1024);
+  const stream = makeVertexStream(gl, vao, STRIDE, [[loc.pos, 3, 0], [loc.uv, 2, 12], [loc.alpha, 1, 20], [loc.emit, 1, 24], [loc.seed, 1, 28]], 1024);
   let data = new Float32Array(0);
   const texes = new Map();          // key → WebGLTexture
   let batches = [];                 // { tex, first, count, cull, solid }
@@ -318,9 +482,10 @@ export function createDecalLayer(gl) {
     if (data.length < verts * STRIDE) data = new Float32Array(Math.max(verts * STRIDE, 1024));
     batches = [];
     let o = 0, first = 0;
+    let sd = 0;
     const put = (p, u, v, a, e) => {
       data[o] = p[0]; data[o + 1] = p[1]; data[o + 2] = p[2];
-      data[o + 3] = u; data[o + 4] = v; data[o + 5] = a; data[o + 6] = e;
+      data[o + 3] = u; data[o + 4] = v; data[o + 5] = a; data[o + 6] = e; data[o + 7] = sd;
       o += STRIDE;
     };
     const quad = (d) => {
@@ -335,6 +500,9 @@ export function createDecalLayer(gl) {
       // The TEXTURE cache is keyed on the appearance alone — the same artwork culled and unculled
       // is one upload — so `a.key` and not the grouping key.
       const tex = textureFor(a.key, a.img, a.smooth);
+      // The flicker seed is the ARTWORK's, so it is stable however the map window recentres. A
+      // seed off the quad's position would re-roll every sign's fault the moment the window moved.
+      sd = keySeed(a.key);
       // ⚠ THE COLOUR ORDER IS THE ONE THAT ALWAYS SHIPPED. The prepass reads `solid` batches out of
       // this same buffer, so the split costs no second copy and moves nothing: every quad is still
       // drawn, in group order, in the pass below.
@@ -351,9 +519,13 @@ export function createDecalLayer(gl) {
   // buffer an over-range sign clamps on the way in, so the whole gradient of a lit tube saturates to
   // flat white — the same mistake EMISSIVE_GAIN shipped at 3 and had to be walked back from. The
   // headroom to hold it is the float target, so the caller only ever sends a gain when there is one.
-  function draw(cam, H, emitGain = 0) {
+  function draw(cam, H, emitGain = 0, neon = null) {
     if (!batches.length) return 0;
     gl.useProgram(prog);
+    gl.uniform1f(loc.tube, neon && neon.tube > 0 ? neon.tube : 0);
+    gl.uniform1f(loc.flick, neon && neon.flicker > 0 ? neon.flicker : 0);
+    // Wrapped to an hour: a float32 uniform holding milliseconds since the epoch has no fraction left.
+    gl.uniform1f(loc.time, neon && neon.now ? (neon.now / 1000) % 3600 : 0);
     gl.uniform1f(loc.emitGain, emitGain > 0 ? emitGain : 0);
     gl.uniformMatrix4fv(loc.viewProj, false, mat4f(viewProjMatrix(cam, H)));
     // Whether this camera reflects the world — see the ⚠ on `uFlip`. Read off the camera itself so

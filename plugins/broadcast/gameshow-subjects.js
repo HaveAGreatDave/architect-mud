@@ -329,8 +329,8 @@ export const retailSubject = registerGameshowSubject({
 
   hint(format) {
     if (format === 'overunder') return 'Say `guess higher` or `guess lower`.';
-    if (format === 'lot') return 'Order all three — `guess 2 1 3` — cheapest first.';
-    return 'Name a price in credits — `guess 400`.';
+    if (format === 'lot') return 'Order all three: `guess 2 1 3`, cheapest first.';
+    return 'Name a price in credits: `guess 400`.';
   },
 });
 
@@ -566,7 +566,7 @@ export const basinSubject = registerGameshowSubject({
     return { value: letter, label: letter.toUpperCase(), spoken: `${letter.toUpperCase()}.` };
   },
 
-  hint() { return 'Answer with a letter — `guess b`.'; },
+  hint() { return 'Answer with a letter: `guess b`.'; },
 });
 
 // Test seam for regress.js — never used in production paths.

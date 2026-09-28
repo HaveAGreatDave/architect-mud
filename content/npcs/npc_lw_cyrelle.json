@@ -147,7 +147,7 @@
           "next": "cross_refuse"
         }
       ],
-      "text": "\"Here is what I'm not going to do. I'm not going to tell you that you have made a terrible mistake, because you know, and being told is what makes a person dig in.\"\n\nShe nods at the press behind her.\n\n\"Take the address. Genuinely, take it. It's a machine and we have two more, and the day they come for it's the day we find out how many of them are prepared to be seen carrying a crate out of a basement.\"\n\nA long pause, and she isn't performing it.\n\n\"But you're still on the rota. Nobody has crossed you off. That isn't sentiment. Crossing somebody off is a decision, and I'm not making it while there's any version of this where you come back.\""
+      "text": "\"Here is what I'm not going to do. I'm not going to tell you that you have made a terrible mistake, because you know, and being told is what makes a person dig in.\"\n\nShe nods at the press behind her.\n\n\"Take the address. Genuinely, take it. It's a machine and we have two more, and the day they come for it is the day we find out how many of them are prepared to be seen carrying a crate out of a basement.\"\n\nA long pause, and she isn't performing it.\n\n\"But you're still on the rota. Nobody has crossed you off. That isn't sentiment. Crossing somebody off is a decision, and I'm not making it while there's any version of this where you come back.\""
     },
     "cross_open": {
       "_vine": {
@@ -175,7 +175,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Nothing you would have to do tonight.\" She says it carefully, having rehearsed it, and not wanting it to sound rehearsed.\n\n\"You would have to still be a person we could reach. That's all it's at this stage, and I'm aware of exactly how much I'm asking for and how little I'm offering back.\"\n\nShe stands, finally, and pulls her coat straight.\n\n\"Go on. He'll want it before morning, and you shouldn't be the last one out of this building.\""
+      "text": "\"Nothing you would have to do tonight.\" She says it carefully, having rehearsed it, and not wanting it to sound rehearsed.\n\n\"You would have to still be a person we could reach. That's all it is at this stage, and I'm aware of exactly how much I'm asking for and how little I'm offering back.\"\n\nShe stands, finally, and pulls her coat straight.\n\n\"Go on. He'll want it before morning, and you shouldn't be the last one out of this building.\""
     },
     "cross_refuse": {
       "_vine": {
@@ -622,7 +622,7 @@
         {
           "action": "SET_NPC_HOME",
           "npc_id": "npc_asc_nine",
-          "reason": "Retention — extracted to the Watch",
+          "reason": "Retention: extracted to the Watch",
           "zone_id": "zone_lw_entry"
         }
       ],

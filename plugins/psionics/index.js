@@ -194,7 +194,7 @@ async function cmdPsiResolve(args, raw, player) {
                 high: 'You see it: a room like this one, and somebody in a hurry.' },
     emotion:  { low: "Whoever held this last wasn't calm.",
                 high: 'Fear, and under it something much older and much more tired.' },
-    location: { low: "Somewhere with a hard floor. That's all it'll give up.",
+    location: { low: "Somewhere with a hard floor. That's all it will give up.",
                 high: 'Somewhere underground, with water running close by.' },
     identity: { low: 'Hands. Nothing about whose.',
                 high: 'A person about your height, favouring one leg. No face, and there never will be.' },

@@ -46,12 +46,12 @@ async function cmdInsert(args, raw, player, broadcast) {
   const cass = await resolveInventoryItem(player, { tag: 'amp_cassette', name: targetStr, equipped: false });
   if (!cass) return { type: 'error', message: `You have no cassette like "${targetStr}" to insert.` };
   const songId = cass.tags?.song_id;
-  if (!songId) return { type: 'error', message: `${cass.name} is blank — the AMP whirrs, finds nothing, and spits it back out.` };
+  if (!songId) return { type: 'error', message: `${cass.name} is blank: the AMP whirrs, finds nothing, and spits it back out.` };
 
   const unlocks = await readUnlocks(player);
   // Already known — don't burn a tape that still has resale value.
   if (unlocks.includes(songId)) {
-    return { type: 'system', message: `Your AMP already holds that track. You keep ${cass.name} — no sense feeding it a duplicate.` };
+    return { type: 'system', message: `Your AMP already holds that track. You keep ${cass.name}: no sense feeding it a duplicate.` };
   }
 
   // Destroy the tape (one copy) and unlock the track.
@@ -94,7 +94,7 @@ on('npc.gift', async ({ actor, npc, item }) => {
   if (trade.once && await getFlag('player', onceKey, actor)) {
     sendToPlayer(actor.id, {
       type: 'output',
-      message: trade.already_message || `${npc.name} waves you off — you've already had what they were offering.`,
+      message: trade.already_message || `${npc.name} waves you off: you've already had what they were offering.`,
     });
     return;
   }

@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Bare table rock, scoured clean, cut across by shallow channels the rain has worn and then worn deeper. Nothing grows up here at all. There's a cairn on the high point that somebody built a long time ago and nobody has knocked over.",
+  "description": "Loose ground at the foot of the rock wall. Walking means picking out the flat pieces. There are bones down among the stones.",
   "exits": {
     "east": "zone_scw_1013_957",
     "north": "zone_scw_1012_956",
@@ -8,18 +8,18 @@
     "west": "zone_scw_1011_957"
   },
   "flags": {
-    "ambient_pool": "scarletwastes_the_long_shelf",
+    "ambient_pool": "scarletwastes_the_spill",
     "lawless": true,
     "radiation": 9,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "plateau"
+    "terrain": "dirt_road"
   },
   "grid_x": 1012,
   "grid_y": 957,
   "grid_z": 0,
   "id": "zone_scw_1012_957",
   "map_id": "map_world",
-  "name": "Caprock",
+  "name": "Broken Foot",
   "parent_zone": null
 }

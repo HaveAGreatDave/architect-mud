@@ -37,7 +37,7 @@ export const DRINK_PROFILES = {
   wine: {
     label: 'wine',
     raw: 'good',
-    blurb: "Drunk as it's far more often than it's mixed.",
+    blurb: "Drunk as it's far more often than it is mixed.",
   },
   beer_base: {
     label: 'beer',
@@ -167,8 +167,8 @@ export function validateDrinkProfiles(profiles = DRINK_PROFILES) {
   for (const [key, p] of Object.entries(profiles)) {
     if (!p.label) errors.push(`${key}.label is missing`);
     if (!QUALITY_BANDS.includes(p.raw)) errors.push(`${key}.raw isn't a quality band — got ${p.raw}`);
-    if (p.modifier && p.medium) errors.push(`${key} is both a modifier and a medium — pick one`);
-    if (p.modifier && p.dilutes) errors.push(`${key} is both a modifier and a diluter — a dash of bitters doesn't lengthen a drink`);
+    if (p.modifier && p.medium) errors.push(`${key} is both a modifier and a medium: pick one`);
+    if (p.modifier && p.dilutes) errors.push(`${key} is both a modifier and a diluter: a dash of bitters doesn't lengthen a drink`);
   }
   return { ok: errors.length === 0, errors };
 }

@@ -407,6 +407,9 @@ const LANDFORM = {
   },
   scrub: {
     names: ['The Grey Thicket', 'Scrub Bench', 'The Bristle', 'Low Growth', 'The Grabbing Ground'],
+// NOTE: this emits one fallback text for every open tile. After regenerating, run
+// scripts/content/wilderness-variety.mjs --write (pools in scripts/content/wilderness-pools.mjs)
+// or the region goes back to one description on hundreds of tiles.
     descs: [
       'Scrubland, and after a day of bare rock the colour of it is a shock: grey-green thorn to knee height in every direction, growing out of ground that is more grit than soil. It is not soft country. Every plant in it is armed, and the pale rings of the rain sit on the leaves as burn scars.',
       'Low thicket over a shallow pan where whatever rain falls runs to and stays a while. The scrub grows thickest along the channels and you can read the drainage off it from any small rise, like a map somebody drew in a hurry.',

@@ -1,45 +1,40 @@
-// THE LONG HAUL — the depot, as a place rather than a table.
+// THE LONG HAUL — the depot: a hand of cards at the counter, and a bench that comes to the cab.
 //
-// This was a 250-line modal with four tabs and three numbers per truck, sitting over the road
-// because you had walked across a particular kerb. The hangar it was supposedly modelled on is a
-// PANE APP with a 3D floor you can click a machine on, a walkaround camera, a dealer's lot and a
-// mechanic's bench — and the gap between the two was the whole difference between owning an
-// aircraft and owning a truck.
+// This was a pane app with a 3-D garage in it: every rig you own parked in a painted shed, a
+// walkaround camera, a dealer's lot and a mechanic's bench, all standing in for a building the game
+// already had. `drive` has put you inside the REAL shed for a long time now (the depot's facade
+// tile, drawn by GLASS as a roofed bay with a roller door you roll up by driving at it), so the
+// painted garage was a second picture of a place you were one click from sitting in. It is gone.
 //
-// So this is the same application, for trucks, in the same place (see `render` for why the pane
-// rather than an overlay, and `ensureStyles` for why it wears the same paint), and almost none of
-// it is new code:
+// What is left splits the way the job does:
 //
-//   the floor      drawHangarScene (aircraft3d.js) with venue 'garage' — ONE room, one camera,
-//                  every rig you own parked in it side by side, click-selected by hit-testing the
-//                  scene's own returned regions. The only change that had to be made to the
-//                  renderer was letting an entry carry a `variant`, because which of the four
-//                  trucks a thing is does not fit in `cls`.
-//   the walkaround drawHangarFloorBay with a free camera — the same WASD/orbit inspect the hangar
-//                  has, around a truck instead of an aeroplane.
-//   the lot        drawWireframe3D, big — a schematic of the actual mesh you will own, not an
-//                  illustration of one, and large enough to read the thing you are buying.
-//   the bench      the same hero shot with the dials underneath it.
+//   THE COUNTER (yard mode, in the pane) is where you choose. Your trucks as a hand of cards — the
+//       truck on one of three backdrops, its name, and whether it is yours or hired — then a card
+//       to buy one and a card to hire one. Picking a truck is `drive <id>`, which seats you in it.
 //
-// THREE RULES, all inherited and all load-bearing:
+//   THE BAY (service mode, over the glass) is where you work on it. The moment the cab opens in the
+//       shed, the server pushes this same payload with `service: true` and it lands as an overlay
+//       on the windscreen: servicing, repairs, the pump, tuning, kits, paint, fittings, the inside,
+//       the horn and plate, the freight board and the exchange. "Drive out" is the throttle — roll
+//       at the door and it lifts, and the overlay goes when the truck leaves the shed.
 //
-//  1. THE CLIENT COMPUTES NOTHING. Affordability, resale, repair prices, the performance bars, the
-//     spread against the last market you stood in — every one of them arrives as a fact. What this
-//     file decides is where a rectangle goes.
+// THE THREE RULES THIS FILE HAS ALWAYS HAD STILL HOLD, AND MATTER MORE IN THE CAB:
 //
-//  2. EVERY BUTTON IS A VERB STRING A PLAYER COULD HAVE TYPED. `yard buy krell`, `rig repair shop`,
-//     `rig tune 1 0 -0.5 0`, `haul 2`, `drive`. That is what keeps the log rung honest: the panel
-//     is a skin over the commands, so anything you can click you can also type, and the text rung
-//     is not a second implementation of the depot.
+//  1. THE CLIENT COMPUTES NOTHING. Prices, bands, service life, the hire clock — every one arrives
+//     as a fact. What this file decides is where a rectangle goes.
 //
-//  3. THE PANEL NEVER GUESSES WHAT CHANGED. Every mutating command re-pushes the whole payload
-//     from the server (plugins/trucking/index.js repush), and this file simply redraws. Optimistic
-//     local edits are how the old panel came to show a Buy button on a truck you already owned.
+//  2. EVERY BUTTON IS A VERB STRING A PLAYER COULD HAVE TYPED. `drive truck_ab12`, `yard rent
+//     drayman`, `rig service truck_ab12 oil`, `rig horn truck_ab12 chime`. The log rung is not a
+//     second implementation of the depot; it is the same verbs without the cardboard.
+//
+//  3. THE PANEL NEVER GUESSES WHAT CHANGED. Every mutating command re-pushes the whole payload (in
+//     the bay, straight into the overlay — see `repush` in plugins/trucking/index.js), and this file
+//     simply redraws.
 
 import { setAreaPane } from '../render.js';
 import { sendCmdSilent } from '../net.js';
 import { drawWireframe3D, themeColor } from './wireframe-plane.js';
-import { drawHangarScene, drawHangarFloorBay, pickSceneHit, truckLivery } from './aircraft3d.js';
+import { truckLivery } from './aircraft3d.js';
 // ⚠ THE DERIVATION, NOT A CATALOGUE. Everything else this panel draws comes off the wire (see the
 // ⚠ in paintTab) — but a mixed interior is previewed while the player is still dragging the well,
 // so there is no committed value for the server to have sent. This is the same function the cab
@@ -48,12 +43,17 @@ import { drawHangarScene, drawHangarFloorBay, pickSceneHit, truckLivery } from '
 import { customColourway, CUSTOM_COL } from '../../../shared/cab-trim.js';
 import { suppressWeatherFx } from './weather-fx.js';
 import { compactHidePanel } from '../../../shared/compact-view.js';
+import { paintVehicleCard, paintSlotCard, cardStyleFor, cardSeed, ensureCardStyles, barTone } from './vehicle-card.js';
+import { airHorn } from './engine-audio.js';
+// The cab this overlay sits on. ⚠ ONLY EVER ASKED, NEVER DRIVEN: the overlay reads which view is up
+// and can hand the chase camera a paint job to preview, and that is the whole of the coupling.
+import { cabServiceHost, cabPreview, cabView } from './cab-view.js';
 
-let B = null;             // { data, screen, selId, inspect, bench, toast }
+let B = null;             // { mode: 'yard'|'service', data, screen, selId, bench, toast, open }
 let raf = null;
-let sceneHits = [];
 let yaw = 0;
 let toastT = null;
+let ro = null;
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 // Icon + label chip, the hangar's `tbtn` verbatim (hangar-bay.js): the glyph is decoration and the
@@ -64,91 +64,110 @@ const tbtn = (icon, label, attrs = '', cls = '') =>
 const money = (n) => `${Number(n || 0).toLocaleString()}₵`;
 const pct = (n) => `${Math.round((n || 0) * 100)}%`;
 
-// Which screen a server-sent tab lands on. The server thinks in tabs because the log rung does;
-// this file thinks in screens because it has a floor and a walkaround that no tab ever named.
-const SCREEN_FOR_TAB = { fleet: 'floor', buy: 'buy', freight: 'freight', market: 'market', bench: 'bench' };
+// Which screen a server-sent tab lands on in the YARD. The server thinks in tabs because the log
+// rung does; the counter has three screens and the rest of what the tabs name now lives in the bay.
+const SCREEN_FOR_TAB = { fleet: 'lot', buy: 'buy', rent: 'rent' };
 
-export function isTruckDepotActive() { return !!B; }
-// The walkaround drives a first-person WASD camera, so — exactly like the flight sim and the
-// hangar — it has to OWN those keys while it is up: the MUD's wasd-move (main.js) and the
-// type-anywhere auto-focus (input.js) both stand down on this.
-//
-// This was never wired, and as a fixed overlay it very nearly got away with it: `preventDefault`
-// does not stop propagation, so holding W to walk down the flank of your own truck was also
-// sending you north. In the pane, where the room description is right there behind the panel,
-// that is not a bug you could fail to notice — so it is wired the way the hangar wires it.
-export function isTruckDepotWalkActive() {
-  return !!(B && B.screen === 'inspect' && B.inspect?.mode === 'walk');
-}
+// The bay's tabs. ⚠ THE CUSTOMISING ONES ARE NOT OFFERED ON A HIRE TRUCK, because the verb behind
+// every one of them refuses it (bench.js RENTAL_BARRED) — a tab full of buttons that all say no is
+// worse than no tab.
+const SVC_TABS = [
+  ['service', 'Service', '⚙'], ['tune', 'Tuning', '⌥'], ['kits', 'Kits', '⊞'], ['paint', 'Paint', '◐'],
+  ['fits', 'Fittings', '⚑'], ['cab', 'Inside', '◇'], ['badge', 'Horn & plate', '📯'],
+  ['freight', 'Freight', '▤'], ['market', 'Exchange', '₵'],
+];
+const HIRE_OK = new Set(['service', 'freight', 'market']);
 
+export function isTruckDepotActive() { return !!B && B.mode === 'yard'; }
+
+// ── Opening ──────────────────────────────────────────────────────────────────
 export function openTruckDepot(msg) {
+  ensureCardStyles();
+  // The bay's payload is the same object with one flag on it (plugins/trucking/index.js
+  // pushBayService); where it goes is the only thing that differs.
+  if (msg?.service) return openBayService(msg);
   ensureStyles();
-  const first = !B;
-  // THE OVERLAY IS AN OUTDOOR EFFECT AND THIS IS A SHED. The weather FX layer is pinned over
-  // #area-pane, not over the room — so with the depot mounted it rained *inside the garage*, over
-  // a 3D scene that already draws its own lighting. Same hard override the cockpit takes when it
-  // owns the pane (weather-fx.js `suppressed`), released in closeTruckDepot.
+  const first = !B || B.mode !== 'yard';
+  if (B && B.mode !== 'yard') closeTruckDepot();
+  // THE OVERLAY IS AN OUTDOOR EFFECT AND THIS IS A COUNTER. The weather FX layer is pinned over
+  // #area-pane, not over the room — so with the depot mounted it rained on the paperwork. Same hard
+  // override the cockpit takes when it owns the pane, released in closeTruckDepot.
   suppressWeatherFx(true, 'depot');
-  // Snap the top pane back to its default auto size so the whole depot fits, whatever manual drag
-  // height was left on the previous room look. The hangar does exactly this on a fresh open.
   if (first) document.getElementById('area-pane')?.dispatchEvent(new CustomEvent('lookpaneauto'));
-  // And the log folds away on a phone, on a FIRST open only — same rule and same reason as the
-  // hangar next door, which this function already mirrors line for line.
   if (first) compactHidePanel('td-hidepanel');
   window.dispatchEvent(new Event('pane:claimed'));   // a phone keeps #area-pane collapsed until told; an app that mounts there has to say so
-  const keepSel = B?.selId || null;
-  // What the deck held BEFORE this push, so the panel can say out loud what the server just did to
-  // it. Read before B is replaced, used after.
-  const wasCargo = B?.data?.cargo || null;
+  const keep = first ? null : B;
   B = {
+    mode: 'yard',
     data: msg,
-    screen: SCREEN_FOR_TAB[msg.tab] || (first ? 'floor' : B?.screen) || 'floor',
-    selId: (msg.fleet || []).some(t => t.id === keepSel) ? keepSel : (msg.fleet || [])[0]?.id || null,
-    inspect: B?.inspect || inspectDefault(),
-    bench: B?.bench || { tab: 'condition', psec: 'scheme', fslot: null, cslot: null, tune: null, paint: null, trim: null },
-    lotSel: B?.lotSel || null,
-    // Which box is open, kept across a re-push exactly as the truck selection is — a repush lands
-    // after every mutation on this screen, and a panel that closed itself each time would make
-    // selling a trailer a thing you had to re-find between the click and the confirm.
-    boxSel: (msg.trailers || []).some(t => t.id === B?.boxSel) ? B.boxSel : (msg.trailers || [])[0]?.id || null,
-    // A notice survives the re-push that raised it — every mutation rebuilds this object, so a
-    // toast held anywhere else would be thrown away by the very push it is announcing.
-    toast: B?.toast || null,
+    screen: SCREEN_FOR_TAB[msg.tab] || keep?.screen || 'lot',
+    selId: null,
+    bench: { tab: 'service', psec: 'scheme', fslot: null, cslot: null, tune: null, paint: null, trim: null },
+    lotSel: keep?.lotSel || null,
+    boxSel: (msg.trailers || []).some(t => t.id === keep?.boxSel) ? keep.boxSel : (msg.trailers || [])[0]?.id || null,
+    toast: keep?.toast || null,
   };
-  // A fresh truck selected (you just bought one) resets any half-turned dials — they belonged to a
-  // different machine, and carrying them across would silently propose a tune nobody asked for.
-  B.bench.tune = null; B.bench.paint = null; B.bench.trim = null;
-  // …and the deck delta, which is the only thing on this screen that changes without the screen
-  // changing. Not on a first open: arriving at the yard with a load already on the truck is a
-  // state, not an event.
-  if (!first) noteDeckChange(wasCargo, msg.cargo || null);
   document.addEventListener('keydown', onKey);
-  document.addEventListener('keyup', onKeyUp);
   render();
+}
+
+// THE BAY. Mounted into the cab's own wrapper rather than the pane, which the cab owns while you
+// are in it — so this never calls `setAreaPane` and never claims the pane.
+export function openBayService(msg) {
+  ensureStyles();
+  const host = cabServiceHost();
+  if (!host) return;              // no cab under it (a text driver, or the cab already shut) — nothing to sit on
+  const was = B && B.mode === 'service' ? B : null;
+  const wasCargo = was?.data?.cargo || null;
+  B = {
+    mode: 'service',
+    data: msg,
+    screen: 'service',
+    selId: msg.serviceId || msg.drivingId || null,
+    // ⚠ THE TAB SURVIVES THE RE-PUSH THAT EVERY PURCHASE TRIGGERS, or buying a fitting would throw
+    // you back to Service between the click and the next one.
+    bench: was?.bench || { tab: 'service', psec: 'scheme', fslot: null, cslot: null, tune: null, paint: null, trim: null },
+    toast: was?.toast || null,
+    // Open on arrival, and after that it is the player's: a push that re-opened a panel somebody
+    // had just folded away would make "drive out" a button that does not stay pressed.
+    open: was ? was.open : true,
+    view: was?.view ?? null,
+  };
+  B.bench.tune = null; B.bench.trim = null;
+  if (!was) B.bench.paint = null;
+  // A hire truck has only the tabs that do something to it.
+  if (hired() && !HIRE_OK.has(B.bench.tab)) B.bench.tab = 'service';
+  if (was) noteDeckChange(wasCargo, msg.cargo || null);
+  renderService();
+}
+
+/** The truck has left the shed (or the cab has shut): take the overlay down and hand the camera back. */
+export function closeBayService() {
+  if (!B || B.mode !== 'service') return;
+  restoreView();
+  try { cabPreview({ paint: null }); } catch { /* the cab can already be gone */ }
+  document.getElementById('td-svc')?.remove();
+  if (toastT) clearTimeout(toastT);
+  toastT = null;
+  B = null;
 }
 
 // ── The notice ───────────────────────────────────────────────────────────────
 // TAKING A LOAD WAS INVISIBLE ON THE SCREEN YOU TOOK IT FROM. `haul` wrote a line into the log and
-// re-pushed the panel, and the board redrew IDENTICALLY — same four rows, same live Take it on all
-// of them — because the buttons are gated on `canLoad`, which asks whether there is a box here and
-// never whether the box is empty. So the only evidence was in the scrollback, which is the half of
-// the screen a player deep in a pane app is not reading.
-//
-// This does not break rule 3. Nothing here guesses what changed: the deck is a fact on the payload
-// and the only thing derived is that it is DIFFERENT from the fact in the previous push.
-//
-// ⚠ It is deliberately NOT a live region. The same words already reached #output, which IS one
-// (docs/systems-display-mode.md), and a second announcement in a second voice is worse than none.
-// The accessible half of this change is the `disabled` on the buttons below, which needs no ARIA.
+// re-pushed the panel, and the board redrew IDENTICALLY — so the only evidence was in the
+// scrollback, which is the half of the screen a player deep in a pane app is not reading. Nothing
+// here guesses what changed: the deck is a fact on the payload and the only thing derived is that it
+// is DIFFERENT from the fact in the previous push. ⚠ Deliberately NOT a live region — the same
+// words already reached #output, which IS one.
 function noteDeckChange(was, now) {
   const key = (c) => (c ? `${c.kind || 'job'}|${c.name}|${c.qty || ''}|${c.to || ''}` : '');
   if (key(was) === key(now)) return;
   if (now) {
     showToast(now.kind === 'goods'
-      ? `Loaded — ${now.qty} × ${now.name}, ${now.kg} kg on the deck`
-      : `Loaded — ${now.name}, ${now.kg} kg for ${now.to}`, 'good');
+      ? `Loaded: ${now.qty} × ${now.name}, ${now.kg} kg on the deck`
+      : `Loaded: ${now.name}, ${now.kg} kg for ${now.to}`, 'good');
   } else if (was) {
-    showToast(`Deck clear — ${was.name} is off the truck`);
+    showToast(`Deck clear: ${was.name} is off the truck`);
   }
 }
 
@@ -159,17 +178,18 @@ function showToast(text, kind = '') {
   if (toastT) clearTimeout(toastT);
   // One timer, and it re-renders once on the way out. The fade itself is CSS on the same 5.2s, so
   // there is no second clock to keep in step with this one.
-  toastT = setTimeout(() => { toastT = null; if (B && B.toast === mine) { B.toast = null; render(); } }, 5200);
+  toastT = setTimeout(() => { toastT = null; if (B && B.toast === mine) { B.toast = null; redraw(); } }, 5200);
 }
 
 export function closeTruckDepot() {
+  if (B?.mode === 'service') return closeBayService();
   suppressWeatherFx(false, 'depot');
   window.dispatchEvent(new Event('pane:released'));  // hand the collapsed pane back to the phone layout
   if (raf) cancelAnimationFrame(raf);
   if (toastT) clearTimeout(toastT);
-  raf = null; sceneHits = []; toastT = null; walkKeys.clear();
+  if (ro) { ro.disconnect(); ro = null; }
+  raf = null; toastT = null;
   document.removeEventListener('keydown', onKey);
-  document.removeEventListener('keyup', onKeyUp);
   // Drop the immersive layout, or the room look that follows is left with no log and no command
   // box — the hangar learned this one the hard way and clears both classes on the way out too.
   document.body.classList.remove('td-fullscreen', 'td-hidepanel');
@@ -178,31 +198,18 @@ export function closeTruckDepot() {
 }
 
 const selected = () => (B?.data.fleet || []).find(t => t.id === B.selId) || null;
+const hired = () => !!selected()?.rental;
+const redraw = () => (B?.mode === 'service' ? renderService() : render());
 
-// ── Render ───────────────────────────────────────────────────────────────────
-// THE DEPOT IS A PANE APP, not a modal over one.
-//
-// It used to be a fixed overlay filling the viewport, dimming the game behind it and closing on
-// a ✕ — while the hangar it is modelled on mounts in #area-pane like the flight cockpit does, with
-// the log and the command box still live underneath. That is not decoration: it is the difference
-// between a screen you are USING and a screen you are TRAPPED IN. In the pane you can still read
-// what the room is saying, still type, still watch the log answer the buttons you are pressing —
-// which matters most in exactly this panel, because every button here is a command and the log is
-// where its reply lands. A modal hid the other half of its own interaction.
-//
-// So it mounts through setAreaPane, carries the same ⊟/⛶ immersive toggles the sim and the hangar
-// carry, and backs out one screen at a time on Escape rather than slamming shut. The one cost is
-// that setAreaPane rebuilds the subtree on every render, so the delegated listeners are re-bound
-// each time (`wire`) — on a node that is always brand new, which is why that cannot stack up.
+// ── The counter ──────────────────────────────────────────────────────────────
+// A PANE APP, not a modal over one: the log and the command box stay live underneath, because every
+// button here is a command and the log is where its reply lands. It carries the same ⊟/⛶ immersive
+// toggles the sim and the hangar carry, and backs out one screen at a time on Escape.
 function render() {
-  if (!B) return;
+  if (!B || B.mode !== 'yard') return;
   const d = B.data;
-  const nav = [['floor', 'The Yard', '⌂'], ['buy', 'For Sale', '⊕'], ['bench', 'Bench', '⚙'], ['freight', 'Freight', '▤'], ['market', 'Exchange', '₵']]
+  const nav = [['lot', 'Your trucks', '⌂'], ['buy', 'For sale', '⊕'], ['rent', 'Hire', '⟲']]
     .map(([k, label, ico]) => `<button class="td-tab${B.screen === k ? ' on' : ''}" data-screen="${k}"><span class="td-tab-ico" aria-hidden="true">${ico}</span>${label}</button>`).join('');
-
-  // The same immersive pair the sim and the hangar carry: ⊟ folds away the scrollback (the command
-  // box stays), ⛶ fills the whole column. Their lit state is read off the body class, so it
-  // survives every re-render without being held anywhere.
   const fs = document.body.classList.contains('td-fullscreen');
   const hp = document.body.classList.contains('td-hidepanel');
 
@@ -212,83 +219,37 @@ function render() {
       <nav class="td-nav td-seg">${nav}</nav>
       <div class="td-bal">${money(d.credits)}</div>
       <span class="td-viewbtns">
-        <button class="td-x${hp ? ' on' : ''}" data-act="hidepanel" title="hide the text panel — more yard">⊟</button>
+        <button class="td-x${hp ? ' on' : ''}" data-act="hidepanel" title="hide the text panel, more yard">⊟</button>
         <button class="td-x${fs ? ' on' : ''}" data-act="fullscreen" title="fullscreen">⛶</button>
         <button class="td-x" data-close title="close" aria-label="Close the depot">⏻</button>
       </span>
     </header>
-    <div class="td-body">${
-      B.screen === 'buy' ? buyScreen()
-      : B.screen === 'bench' ? benchScreen()
-      : B.screen === 'inspect' ? inspectScreen()
-      : B.screen === 'freight' ? freightScreen()
-      : B.screen === 'market' ? marketScreen()
-      : floorScreen()}</div>
+    <div class="td-body">${B.screen === 'buy' ? buyScreen() : B.screen === 'rent' ? rentScreen() : lotScreen()}</div>
     ${B.toast ? `<div class="td-toast${B.toast.kind ? ' ' + B.toast.kind : ''}" aria-hidden="true">${esc(B.toast.text)}</div>` : ''}
     <footer class="td-foot">${footChips()}</footer>
   </div>`);
   wire();
   startSpin();
+  // The cards are painted once the pane has laid them out — a canvas with no box has nothing to
+  // be sized to — and again whenever the pane changes size.
+  requestAnimationFrame(paintCards);
+  watchSize();
 }
 
-// ── The footer ───────────────────────────────────────────────────────────────
-// EVERY BUTTON ON THIS SCREEN IS A COMMAND (rule 2), so the footer used to SAY so — a dim line of
-// text reading "Everything here is a command:" followed by five greyed examples with somebody
-// else's arguments in them (`yard buy krell` when you own a Krell already; `haul 1` when the board
-// is empty). A caption explaining the interface is the interface admitting it isn't obvious, and an
-// example you cannot press is a button that has been switched off for no reason.
-//
-// So the examples are gone and the row is real: the verbs are built from what is actually true
-// right now — this truck, this job, this quote — and every one of them runs. Anything that SPENDS
-// goes through the same two-step arm the Sell button uses, because a footer is somewhere a cursor
-// passes through on its way somewhere else.
+// The footer is the PLACE's: the bunkroom, which is the one room in a depot that is not about
+// trucks. Everything that is about a truck is on its card or in the bay.
 function footChips() {
-  const d = B.data, sel = selected();
-  const chip = (cmd, label, spend = false) =>
-    `<button class="td-verb" ${spend ? 'data-confirm' : 'data-cmd'}="${esc(cmd)}">${esc(label || cmd)}</button>`;
+  const d = B.data;
   const out = [];
-  // ⚠ AND NOT WHAT THE SCREEN ABOVE IT IS ALREADY SHOWING, which is the other half of the same
-  // idea. Every screen here already carries its own verbs where they belong — Take it out beside
-  // the truck it takes out, the repair choices under the condition gauge, Take it on each row of
-  // the board — and the footer was printing all of them again, four inches down, in a different
-  // costume and without the explanation. That is what made one panel feel like four sets of
-  // buttons: not the number of them, but the same verb twice. A chip is dropped when the screen in
-  // front of you already offers it, and comes back the moment you leave that screen.
-  const shown = new Set(
-    B.screen === 'floor' ? ['drive']
-    : B.screen === 'freight' ? ['haul']
-    : B.screen === 'market' ? ['market sell']
-    // The bench's Condition tab is the only one that does work on the truck rather than to its
-    // appearance, and it does all three with the choice spelled out beside each price.
-    : B.screen === 'bench' && B.bench.tab === 'condition' ? ['rig repair', 'rig fuel', 'rig wash']
-    : []);
-  const has = (v) => shown.has(v);
-  if (sel?.hereNow && !has('drive')) out.push(chip(`drive ${sel.id}`, 'drive'));
-  if (sel && sel.condition < 1 && !has('rig repair')) out.push(chip(`rig repair ${sel.id} shop`, `rig repair · ${money(sel.repairShop)}`, true));
-  if (sel && d.fuelHere && sel.fuel < 0.99 && !has('rig fuel')) out.push(chip(`rig fuel ${sel.id}`, `rig fuel · ${money(sel.refuel)}`, true));
-  if (sel?.washPrice && !has('rig wash')) out.push(chip(`rig wash ${sel.id}`, `rig wash · ${money(sel.washPrice)}`, true));
-  // …and not while the deck is full, for the same reason the board's own buttons go dim: the footer
-  // is built from what is true right now, and `haul 1` onto a loaded truck is not.
-  if (d.board?.length && !d.cargo && !has('haul')) out.push(chip('haul 1', `haul 1 · ${money(d.board[0].pay)}`));
-  if (d.cargo?.kind === 'goods' && !has('market sell')) out.push(chip('market sell'));
-  out.push(chip('yard'));
-  // ── THE BUNKROOM ───────────────────────────────────────────────────────────
-  // The one room in a depot that is not about trucks, and the screen never admitted it existed.
-  // It goes in the footer rather than on a screen because it is the one action here you want from
-  // wherever you are — you finish at the bench, or you sell a load, and then you go to bed.
-  //
   // ⚠ THE CHIP RUNS A DIRECTION, and that is the whole reason the server sends one instead of a
-  // zone id: this panel's rule is that every button is a command a player could have typed, and
-  // there is no `bunkroom` verb to type. The label carries the direction too, so pressing it
-  // teaches the way rather than replacing it.
-  //
-  // Dim rather than absent out on the apron: the door is real and it is fifteen feet away, and a
-  // button that disappears when you step outside reads as a bug in the button.
+  // zone id: there is no `bunkroom` verb to type. Dim rather than absent out on the apron: the door
+  // is real and it is fifteen feet away, and a button that disappears reads as a bug in the button.
   if (d.bunk) {
     out.push(d.bunk.here
-      ? chip(d.bunk.dir, `bunkroom · ${d.bunk.dir}`)
-      : `<button class="td-verb" disabled title="Off the shed floor — get inside first">bunkroom</button>`);
+      ? `<button class="td-verb" data-cmd="${esc(d.bunk.dir)}">bunkroom · ${esc(d.bunk.dir)}</button>`
+      : '<button class="td-verb" disabled title="Off the shed floor, get inside first">bunkroom</button>');
   }
+  out.push('<span class="td-dim td-foot-note">Pick a truck and you are in it, in the shed. The bench is in there with you.</span>');
   return out.join('');
 }
 
@@ -301,25 +262,89 @@ function wire() {
   root.addEventListener('input', onInput);
 }
 
-// ⚠ A BOX IS A VEHICLE YOU OWN, so it answers the same three questions a truck does — what it is,
-// where it is, and what state it is IN — and the row answered one and a half of them. The server has
-// always sent the condition, the band and the empty weight; the list printed the rating and binned
-// the rest, so a worn reefer and a box off the line read identically right up until one of them
-// cost money to put right.
+function watchSize() {
+  if (ro || typeof ResizeObserver === 'undefined') return;
+  const pane = document.getElementById('area-pane');
+  if (!pane) return;
+  let t = 0;
+  ro = new ResizeObserver(() => { cancelAnimationFrame(t); t = requestAnimationFrame(paintCards); });
+  ro.observe(pane);
+}
+
+// ── THE HAND ─────────────────────────────────────────────────────────────────
+// One card per truck you have — owned or hired — then one to buy and one to hire. The card is the
+// button that seats you: `drive <id>`, the verb the old "Take it out" key sent. What else you can do
+// to a truck from the counter is on a strip under its picture, and every one of those is gated on a
+// fact the server sent.
 //
-// Selection rather than a fourth clause on the row, for the same reason the truck list works that
-// way: a row is a thing you scan and a panel is a thing you read. The ACTIONS deliberately stay on
-// the row — they are already gated on facts the server sent, and moving them in here would put the
-// sell button behind a click for nothing. The band words are the SERVER'S (see the trailer rows in
-// index.js): a label table on the client is a second copy of BANDS waiting to drift.
+// ⚠ A TRUCK AT ANOTHER YARD IS SHOWN, FADED, NOT HIDDEN. The hand is what you own, and hiding a card
+// says you do not own it; faded, it says where it is and offers the tow home.
+function lotScreen() {
+  const d = B.data, fleet = d.fleet || [];
+  const cards = fleet.map((t) => {
+    const here = t.hereNow && !t.impound;
+    const style = cardStyleFor(t.id);
+    const badge = t.rental
+      ? `<span class="vc-badge hired" title="Hired: ${esc(t.rental.leftText)}">HIRED · ${esc(t.rental.leftText)}</span>`
+      : '<span class="vc-badge owned">OWNED</span>';
+    const sub = t.impound ? '<span class="td-warn">IMPOUNDED</span>'
+      : here ? `${esc(t.type)} · fuel ${pct(t.fuel)}` : `at ${esc(t.whereName || 'another yard')}`;
+    const acts = [
+      !t.hereNow ? `<button class="vc-mini" data-confirm="yard recall ${esc(t.id)}" title="Bring it here on a low-loader">Tow home · ${money(t.recall)}</button>` : '',
+      t.hereNow && !t.rental ? `<button class="vc-mini" data-confirm="yard sell ${esc(t.id)}" title="Sell ${esc(t.name)}">Sell · ${money(t.resale)}</button>` : '',
+      t.hereNow && t.rental ? `<button class="vc-mini" data-confirm="yard return ${esc(t.id)}" title="Hand it back early, no refund">Hand it back</button>` : '',
+    ].filter(Boolean).join('');
+    return `<div class="vc-wrap${here ? '' : ' away'}">
+      <button class="vc-card ${style}" data-cmd="${here ? `drive ${esc(t.id)}` : ''}" ${here ? '' : 'disabled'}
+          aria-label="${esc(`${t.name}, ${t.type}, ${t.rental ? 'hired' : 'owned'}${here ? ': climb in' : ''}`)}"
+          title="${here ? 'Climb in: you start in the shed' : esc(t.impound ? 'Impounded' : `At ${t.whereName || 'another yard'}`)}">
+        <canvas class="vc-cv" data-card="${esc(t.id)}" aria-hidden="true"></canvas>
+        ${badge}
+        <span class="vc-plate"><b>${esc(t.name)}</b><span class="vc-sub">${sub}</span>
+          <span class="vc-bar" title="condition ${pct(t.condition)}"><i class="${barTone(t.condition)}" style="width:${Math.round(t.condition * 100)}%"></i></span></span>
+      </button>
+      ${acts ? `<div class="vc-acts">${acts}</div>` : ''}
+    </div>`;
+  }).join('');
+  const buyCard = `<div class="vc-wrap"><button class="vc-card slot" data-screen="buy" aria-label="Buy a truck">
+      <canvas class="vc-cv" data-slot="buy" aria-hidden="true"></canvas>
+      <span class="vc-plate"><b>Buy a truck</b><span class="vc-sub">${(d.stock || []).length} on the line</span></span></button></div>`;
+  const hireCard = `<div class="vc-wrap"><button class="vc-card slot" data-screen="rent" aria-label="Hire a truck">
+      <canvas class="vc-cv" data-slot="rent" aria-hidden="true"></canvas>
+      <span class="vc-plate"><b>Hire a truck</b><span class="vc-sub">${d.hasRental ? 'one out already' : 'by the day, back at any yard'}</span></span></button></div>`;
+  return `<div class="td-col td-lot-col">
+      ${fleet.length ? '' : '<div class="td-hint">Nothing of yours in the shed. Buy one, or hire one for the afternoon.</div>'}
+      <div class="vc-hand">${cards}${buyCard}${hireCard}</div>
+      ${boxList()}
+    </div>`;
+}
+
+// The boxes you own, as a list — a trailer is a capacity and a place, and neither of those is a thing
+// you look at on a card. Coupling one is done from the cab (the bay has the pin key); selling one is
+// done from here.
+function boxList() {
+  const mine = B.data.trailers || [];
+  if (!mine.length) return '';
+  return `<div class="td-deck td-boxes"><span class="td-lab">Your boxes</span>
+    ${mine.map(t => `<div class="td-box-row${t.id === B.boxSel ? ' on' : ''}" data-box="${esc(t.id)}">
+      <span class="td-box-what"><b>${esc(t.name)}</b> <span class="td-dim">· ${t.ratedKg} kg
+        · ${t.towedBy ? 'on the pin' : t.hereNow ? 'standing here' : `at ${esc(t.where)}`}${t.cargo ? ` · loaded: ${esc(t.cargo.name)}` : ''}</span></span>
+      ${t.canSell ? tbtn('₵', `Sell · ${money(t.resale)}`, `data-confirm="yard sell ${esc(t.id)}" title="Sell ${esc(t.name)}"`) : ''}
+      ${!t.canSell && (t.hereNow || t.towedBy) && t.loaded ? '<span class="td-dim td-box-why">empty it to sell it</span>' : ''}
+    </div>`).join('')}
+    ${boxDetail(mine)}
+  </div>`;
+}
+
+// ⚠ A BOX IS A VEHICLE YOU OWN, so it answers the same three questions a truck does — what it is,
+// where it is, and what state it is IN. The band words are the SERVER'S: a label table on the client
+// is a second copy of BANDS waiting to drift.
 function boxDetail(mine) {
   const t = mine.find(r => r.id === B.boxSel);
   if (!t) return '';
   // ⚠ 'loaded' WITHOUT 'cargo' IS A STASH, AND THE STASH IS THE POINT OF THE STASH. The server
-  // tells this panel that the box is not empty and deliberately does not say what is in it, so the
-  // one thing this line must never do is get more specific than it was told.
-  const load = t.cargo ? `${esc(t.cargo.name)} · ${t.cargo.kg} kg`
-    : t.loaded ? 'carrying something' : 'empty';
+  // tells this panel that the box is not empty and deliberately does not say what is in it.
+  const load = t.cargo ? `${esc(t.cargo.name)} · ${t.cargo.kg} kg` : t.loaded ? 'carrying something' : 'empty';
   return `<div class="td-box-detail">
     <div class="td-main"><b>${esc(t.name)}</b><span class="td-dim"> · ${esc(t.bandLabel || t.band || '')} · ${pct(t.condition)}</span></div>
     ${t.bandText ? `<div class="td-dim td-note">${esc(t.bandText)}</div>` : ''}
@@ -332,84 +357,164 @@ function boxDetail(mine) {
   </div>`;
 }
 
-// ── The floor: one garage, every rig you own standing in it ──────────────────
-function floorScreen() {
-  const d = B.data, fleet = d.fleet || [];
-  const sel = selected();
-  // ⚠ THE BOXES YOU OWN, WHICH THIS SCREEN NEVER SHOWED. A trailer was drawn out on the hardstand
-  // and listed nowhere, so buying a reefer and then looking for it was a search of the yard on
-  // foot. It is a list rather than a second turntable on purpose: a box is a capacity and a place,
-  // and neither of those is a thing you look at from three angles.
-  const mine = d.trailers || [];
-  const boxes = mine.length ? `
-      <div class="td-deck td-boxes"><span class="td-lab">Your boxes</span>
-        ${mine.map(t => `<div class="td-box-row${t.id === B.boxSel ? ' on' : ''}" data-box="${esc(t.id)}">
-          <span class="td-box-what"><b>${esc(t.name)}</b> <span class="td-dim">· ${t.ratedKg} kg
-            · ${t.towedBy ? 'on the pin' : t.hereNow ? 'standing here' : `at ${esc(t.where)}`}${t.cargo ? ` · loaded: ${esc(t.cargo.name)}` : ''}</span></span>
-          ${t.hereNow && d.driving ? tbtn('⚯', 'Hitch', `data-cmd="hitch ${esc(t.id)}"`) : ''}
-          ${t.canSell ? tbtn('₵', `Sell · ${money(t.resale)}`, `data-confirm="yard sell ${esc(t.id)}" title="Sell ${esc(t.name)}"`) : ''}
-          ${!t.canSell && (t.hereNow || t.towedBy) && t.loaded ? '<span class="td-dim td-box-why">empty it to sell it</span>' : ''}
-        </div>`).join('')}
-        ${boxDetail(mine)}
-      </div>` : '';
-  const deck = d.cargo
-    ? (d.cargo.kind === 'goods'
-      ? `<b>${esc(d.cargo.qty)} × ${esc(d.cargo.name)}</b> · ${d.cargo.kg} kg · paid ${money(d.cargo.paid)}/unit`
-      : `<b>${esc(d.cargo.name)}</b> · contracted to ${esc(d.cargo.to)}`)
-    : '<span class="td-dim">empty</span>';
+// ── THE HIRE LINE ────────────────────────────────────────────────────────────
+// The same hand, dealt from the desk's stock: a card per model with its fee on the key. The truck on
+// it is in the stock livery because that is what the desk hands you.
+function rentScreen() {
+  const d = B.data;
+  const cards = (d.rentStock || []).map((t) => {
+    const why = d.hasRental ? 'You already have one out on hire' : t.afford ? '' : "You can't afford it";
+    return `<div class="vc-wrap">
+      <div class="vc-card ${cardStyleFor('hire:' + t.id)} static">
+        <canvas class="vc-cv" data-rent="${esc(t.id)}" data-variant="${esc(t.variant)}" aria-hidden="true"></canvas>
+        <span class="vc-badge hired">FOR HIRE</span>
+        <span class="vc-plate"><b>${esc(t.name)}</b><span class="vc-sub">${t.kg} kg deck · ${t.top} mph · ${t.hours} hours</span></span>
+      </div>
+      <div class="vc-acts">${tbtn('⟲', `Hire · ${money(t.fee)}`, `data-cmd="yard rent ${esc(t.id)}" ${why ? `disabled title="${esc(why)}"` : ''}`, 'primary')}</div>
+    </div>`;
+  }).join('');
+  return `<div class="td-col td-lot-col">
+      <div class="td-hint">A hire is yours for ${esc(String(d.rentStock?.[0]?.hours ?? 2))} hours and goes back at any yard. It comes serviced and fuelled; paint and parts stay the company's. One at a time.</div>
+      <div class="vc-hand">${cards}</div>
+    </div>`;
+}
 
-  // ── THE TOOLBAR ────────────────────────────────────────────────────────────
-  // Every entry is gated on a fact the SERVER sent: a button that is present and refuses is worse
-  // than one that is absent and explains itself.
-  //
-  // ⚠ IT IS THE TRUCK'S, AND THE FOOTER IS THE DEPOT'S. They used to be neither — the same four
-  // verbs (drive, repair, fuel, wash) sat in both, four inches apart, in two different costumes,
-  // which is the whole of "I have to hunt for buttons in different areas". The line between them is
-  // now a rule a player can learn rather than an accident: what you do to THIS MACHINE is here,
-  // beside the machine, and what you do at THIS PLACE is on the footer. Nothing is in both — see
-  // `footChips`, which drops `drive` on this screen for that reason — and nothing that used to be
-  // reachable stopped being: Refuel is the footer's `rig fuel` chip, gated on the same two facts it
-  // always was, and the dealer's line is the FOR SALE tab across the top.
-  const acts = sel ? [
-    sel.hereNow ? tbtn('➤', 'Take it out', `data-cmd="drive ${esc(sel.id)}"`, 'primary') : '',
-    // ── THE PIN ───────────────────────────────────────────────────────────────
-    // Coupling and dropping are the two commonest things anybody does in a yard and neither had a
-    // button on this screen: `hitch` was a row inside the boxes list — a scroll and a half below
-    // the fold — and `unhitch` was nowhere at all. Which of the two is offered, and whether the
-    // fifth wheel is actually under the pin, are the server's answers (payload `hitchState`), so
-    // this reads a fact rather than guessing one out of `driving` and `canLoad`.
-    // ⚠ THE PIN IS THE RIG'S, NOT THE SELECTION'S — hence `drivingId`. This toolbar is the selected
-    // truck's, and the truck under you is only sometimes the one you are looking at; offered beside
-    // a rig standing in another region, the key would couple a box to a different machine.
-    sel.id === d.drivingId ? hitchAct(d.hitchState) : '',
-    tbtn('◉', 'Walk around', 'data-screen="inspect"'),
-    tbtn('⚙', 'Bench', 'data-screen="bench"'),
-    sel.hereNow ? tbtn('₵', `Sell · ${money(sel.resale)}`, `data-confirm="yard sell ${esc(sel.id)}"`) : '',
-    // NOT HERE? THEN THE ONLY USEFUL BUTTON IS THE ONE THAT FETCHES IT. A rig parked two regions
-    // away used to offer nothing at all — the toolbar simply thinned out and left you looking at a
-    // truck you could not reach, with no way back to it except the drive you were trying to avoid.
-    sel.hereNow ? '' : tbtn('⛓', `Tow it home · ${money(sel.recall)}`, `data-confirm="yard recall ${esc(sel.id)}"`, 'primary'),
-  ].filter(Boolean).join('') : tbtn('⊕', "See what's for sale", 'data-screen="buy"', 'primary');
+// ── THE BAY ──────────────────────────────────────────────────────────────────
+// The overlay on the glass. Not a pane app: it is a panel inside the cab's own wrapper, so the road
+// is right behind it and the throttle still works while it is up. Folded, it is one chip in the top
+// left corner that says where you are.
+function renderService() {
+  if (!B || B.mode !== 'service') return;
+  const host = cabServiceHost();
+  if (!host) return;
+  let el = document.getElementById('td-svc');
+  if (!el || el.parentElement !== host) {
+    el?.remove();
+    el = document.createElement('div');
+    el.id = 'td-svc';
+    el.addEventListener('click', onClick);
+    el.addEventListener('input', onInput);
+    host.appendChild(el);
+  }
+  const d = B.data, t = selected();
+  el.className = 'td-svc' + (B.open ? ' open' : ' folded');
+  if (!B.open) {
+    el.innerHTML = `<button class="td-svc-chip" data-act="svc-open" title="Open the service bay">⚙ ${esc(d.depot)} · service bay</button>`;
+    syncView();
+    return;
+  }
+  const tabs = SVC_TABS.filter(([k]) => !t?.rental || HIRE_OK.has(k))
+    .map(([k, l, ico]) => `<button class="td-tab sm${B.bench.tab === k ? ' on' : ''}" data-bench="${k}"><span class="td-tab-ico" aria-hidden="true">${ico}</span>${l}</button>`).join('');
+  const body = !t ? '<div class="td-none">The truck is not on the books here.</div>'
+    : B.bench.tab === 'tune' ? tuneTab(t) : B.bench.tab === 'kits' ? kitsTab(t) : B.bench.tab === 'paint' ? paintTab(t)
+    : B.bench.tab === 'fits' ? fitsTab(t) : B.bench.tab === 'cab' ? cabTab(t) : B.bench.tab === 'badge' ? badgeTab(t)
+    : B.bench.tab === 'freight' ? freightScreen() : B.bench.tab === 'market' ? marketScreen() : serviceTab(t);
+  el.innerHTML = `
+    <header class="td-svc-head">
+      <div class="td-title"><b>⚙ ${esc(d.depot)}</b><span class="td-dim"> · ${t ? esc(t.name) : 'service bay'}</span></div>
+      <div class="td-bal">${money(d.credits)}</div>
+      <button class="td-x" data-act="svc-fold" title="Fold the bay away and drive">Drive out ▸</button>
+    </header>
+    ${t?.rental ? `<div class="td-svc-hire">Hire truck · ${esc(t.rental.leftText)} · back at any yard: <b>park</b> in a shed and <b>yard return</b></div>` : ''}
+    ${d.hitchState ? `<div class="td-svc-pin">${hitchAct(d.hitchState)}</div>` : ''}
+    <nav class="td-seg td-svc-tabs">${tabs}</nav>
+    <div class="td-side td-svc-body">${body}</div>
+    ${B.toast ? `<div class="td-toast${B.toast.kind ? ' ' + B.toast.kind : ''}" aria-hidden="true">${esc(B.toast.text)}</div>` : ''}
+    <div class="td-svc-foot td-dim">Roll at the door and it lifts. The bay goes when you leave the shed.</div>`;
+  syncView();
+}
 
+// ── THE CAMERA FOLLOWS THE SHELF ─────────────────────────────────────────────
+// Paint and fittings are the outside of the truck and the inside tab is the inside of it — and the
+// cab already has both cameras. So the tab you are on picks the one that shows what you are
+// buying, and leaving the tab (or the bay) hands back whichever one you had. The paint on the dials
+// rides to the chase camera as a PREVIEW (cab-view `cabPreview`): nothing is charged until the
+// booth button, and the server's push after it replaces the preview with the real thing.
+function syncView() {
+  if (!B || B.mode !== 'service') return;
+  // The bay shows the truck from outside on every tab but the cab one: you are looking at what you are working on.
+  const want = !B.open ? null : B.bench.tab === 'cab' ? 'cab' : 'ext';
+  try {
+    const first = want && B.view == null;
+    if (first) B.view = cabView();                              // remember what they had, once
+    if (want) cabView(want, { quarter: first });
+    else restoreView();
+    cabPreview({ paint: B.open && B.bench.tab === 'paint' && B.bench.paint ? paintNow() : null });
+  } catch { /* a cab without the hooks is a cab without the preview */ }
+}
+function restoreView() {
+  if (!B || B.view == null) return;
+  try { cabView(B.view); } catch { /* the cab can already be gone */ }
+  B.view = null;
+}
+
+// ── The service tab ──────────────────────────────────────────────────────────
+// What used to be the bench's Condition tab, with the three things that wear from the miles alone
+// in front of the three that wear from being hit. Every price is the server's (service.js).
+function serviceTab(t) {
+  const d = B.data, svc = t.svc || { items: [] };
+  const rows = svc.items.map((i) => `
+    <div class="td-svc-row ${i.band}">
+      <div class="td-main"><b>${esc(i.label)}</b><span class="td-dim"> · ${esc(i.bandLabel)}</span>
+        <div class="td-bar" title="${pct(i.life)} left"><i class="s${i.band}" style="width:${Math.round(i.life * 100)}%"></i></div>
+        <div class="td-dim td-note">${i.band === 'fresh' ? `About ${i.left.toLocaleString()} tiles before it costs you.` : esc(i.desc)}</div></div>
+      <button class="td-act" data-cmd="rig service ${esc(t.id)} ${esc(i.id)}" ${i.life >= 0.995 ? 'disabled title="Just done"' : ''}>${money(i.price)}</button>
+    </div>`).join('');
   return `
-    <div class="td-floor">
-      <canvas id="td-scene" class="td-scene" aria-label="The depot floor"></canvas>
-      ${fleet.length ? '' : `<div class="td-hint">The bay is empty and the strip light is buzzing over nothing.
-        There's a line of trucks along the fence outside with chalk on their screens.</div>`}
-      <div class="td-strip">${fleet.map(t => `
-        <button class="td-chip${t.id === B.selId ? ' on' : ''}${t.hereNow ? '' : ' away'}" data-sel="${esc(t.id)}">
-          <span class="td-chip-name">${esc(t.name)}</span>
-          <span class="td-chip-sub">${t.hereNow ? esc(t.type) : `at ${esc(t.whereName || 'another yard')}`}</span>
-          <span class="td-bar" title="condition ${pct(t.condition)}"><i class="c${t.band}" style="width:${Math.round(t.condition * 100)}%"></i></span>
-        </button>`).join('')}</div>
+    <div class="td-pane">
+      <div class="td-lab">Servicing</div>
+      ${rows}
+      <div class="td-acts"><button class="td-act${svc.anyDue ? ' primary' : ''}" data-cmd="rig service ${esc(t.id)} all">Full service · ${money(svc.full)}</button></div>
     </div>
-    <aside class="td-side">
-      ${sel ? truckPane(sel) : '<div class="td-none">Nothing of yours is standing here.</div>'}
-      <div class="td-acts">${acts}</div>
-      <div class="td-deck"><span class="td-lab">On the deck</span> ${deck}
-        ${d.driving ? '' : '<div class="td-dim td-note">You aren\'t in a truck.</div>'}</div>
-      ${boxes}
-    </aside>`;
+    <div class="td-pane">
+      <div class="td-lab">Bodywork and running gear</div>
+      <div class="td-gauge"><i class="c${t.band}" style="width:${Math.round(t.condition * 100)}%"></i><span>${pct(t.condition)}</span></div>
+      <div class="td-dim td-note">${esc(t.bandText)}</div>
+      ${statBars(t.stats)}
+      <div class="td-acts col">
+        <button class="td-act" data-cmd="rig repair ${esc(t.id)}" ${t.canField ? '' : 'disabled title="Already past what hand tools reach"'}>
+          Do it yourself · ${money(t.repairField)}<span class="td-dim">: up to ${pct(0.8)}, and you can botch it</span></button>
+        <button class="td-act${t.condition < 0.85 ? ' primary' : ''}" data-cmd="rig repair ${esc(t.id)} shop" ${t.condition >= 0.999 ? 'disabled title="Nothing to do"' : ''}>
+          Put it through the shop · ${money(t.repairShop)}<span class="td-dim">: back to new, no roll</span></button>
+        <button class="td-act" data-cmd="rig wash ${esc(t.id)}" ${t.washPrice ? '' : 'disabled title="Already clean"'}>
+          ${t.washPrice ? `Wash it · ${money(t.washPrice)}` : 'Wash it'}<span class="td-dim">: the paint back, and nothing else</span></button>
+      </div>
+    </div>
+    <div class="td-pane">
+      <div class="td-lab">The pump</div>
+      <div class="td-gauge"><i class="csound" style="width:${Math.round((d.fuel ?? t.fuel) * 100)}%"></i><span>${pct(d.fuel ?? t.fuel)}</span></div>
+      ${d.fuelHere ? `<div class="td-acts"><button class="td-act${(d.fuel ?? t.fuel) < 0.5 ? ' primary' : ''}" data-cmd="rig fuel ${esc(t.id)}" ${(d.fuel ?? t.fuel) < 0.99 ? '' : 'disabled title="Already full"'}>Fill the tanks · ${money(t.refuel)}</button></div>`
+        : '<div class="td-dim td-note">No pump at this yard.</div>'}
+      <div class="td-dim td-note">${t.odometer.toLocaleString()} tiles on the clock${t.rental ? '' : ` · trade-in ${money(t.resale)}`}</div>
+    </div>`;
+}
+
+// ── Horn and plate ───────────────────────────────────────────────────────────
+// Two things on a truck that are for other people and change nothing about the driving. The plate
+// was a verb (`rig name`) with no button anywhere; the horn is new (client/shared/truck-horns.js).
+// "Hear it" plays the horn here and now and sends nothing — a noise you are deciding whether to
+// buy is not a noise the yard hears.
+function badgeTab(t) {
+  const cat = B.data.hornCat || [];
+  const cur = t.horn || 'stock';
+  const rows = cat.map((h) => {
+    const p = (t.hornPrices || {})[h.id] ?? h.price, fitted = h.id === cur;
+    return `<div class="td-kit-row${fitted ? ' on' : ''}">
+      <div class="td-main"><b>${esc(h.name)}</b>${p === 0 && !fitted && h.id !== 'stock' ? '<span class="td-drawer">YOURS</span>' : ''}
+        <div class="td-dim">${esc(h.desc)}</div></div>
+      <button class="td-act ghost" data-hear="${esc(h.id)}" title="Hear it: nobody else does">▶</button>
+      ${fitted ? '<span class="td-fitted">ON THE ROOF</span>'
+        : `<button class="td-act" data-cmd="rig horn ${esc(t.id)} ${esc(h.id)}" ${(B.data.credits || 0) >= p ? '' : 'disabled title="You can\'t afford it"'}>${p ? money(p) : 'Put it back on'}</button>`}
+    </div>`;
+  }).join('');
+  return `<div class="td-pane">
+      <div class="td-lab">The plate</div>
+      <div class="td-plateform"><input class="td-plate-in" type="text" maxlength="28" value="${esc(t.name)}" aria-label="Name on the plate">
+        <button class="td-act" data-plate="${esc(t.id)}">Signwrite it</button></div>
+      <div class="td-dim td-note">Free, and the yard will paint whatever you tell it to.</div>
+    </div>
+    <div class="td-pane"><div class="td-lab">The horn</div>${rows}
+      <div class="td-dim td-note">Once bought, a horn is this truck's for good and swapping back to it costs nothing.</div></div>`;
 }
 
 // Which way the pin goes — the button for `hitchState`, or nothing when there is no cab under you
@@ -442,7 +547,7 @@ function truckPane(t) {
       </div>
       <div class="td-dim td-note">${esc(t.bandText)}</div>
       ${t.grimeBand && t.grimeBand !== 'clean'
-        ? `<div class="td-dim td-note"><b>${esc(t.grimeLabel)}</b> — ${esc(t.grimeText)}.</div>` : ''}
+        ? `<div class="td-dim td-note"><b>${esc(t.grimeLabel)}</b>: ${esc(t.grimeText)}.</div>` : ''}
       <dl class="td-spec">
         <div><dt>condition</dt><dd>${pct(t.condition)}</dd></div>
         <div><dt>fuel</dt><dd>${pct(t.fuel)}</dd></div>
@@ -471,135 +576,6 @@ function statBars(s, prev = null) {
   }).join('')}</div>`;
 }
 
-// ── Boarding ─────────────────────────────────────────────────────────────────
-// THE IGNITION BELONGS IN THE CAB, NOT IN THE YARD.
-//
-// This used to be a cinematic: pressing Take it out dropped you into the walkaround, lit the rig,
-// held you there while it came up on its lifters, and only then sent 'drive'. It was the wrong
-// place for all of it. You watched your own truck start from the concrete beside it, and the
-// server had already answered 'drive' — mounted you, moved you onto the apron — while the panel
-// was still showing a shed. The one thing the sequence never did was put you behind the wheel.
-//
-// So the button is the verb again, with nothing in front of it: 'drive' goes out, the cab takes
-// the pane (dispatch 'truck_sim' → openCab), and the engine comes to life in the only view where
-// a driver could actually hear it — through the windscreen, with the wheel in front of you.
-
-// ── Walkaround ───────────────────────────────────────────────────────────────
-// THE SAME WALKAROUND THE HANGAR HAS, because a truck is a thing you walk up to for exactly the
-// reasons an aeroplane is. It was a poor relation of it: one step per KEYPRESS (so crossing the bay
-// was thirty taps), no mouse-look at all despite the hint saying "drag to spin it", and no way to
-// get in from inside the view — you had to back out to the floor to board the machine you were
-// standing next to. All three are the hangar's model, adopted verbatim:
-//   • WALK — a first-person free camera. Held keys move the eye per FRAME (dt-scaled), drag turns
-//     the head, wheel changes FOV, and you cannot walk through the truck.
-//   • ORBIT — the turntable, dragged rather than only auto-spun.
-// And the BOARD prompt: walk up to the cab door and it lights, and it sends `drive` — the same verb
-// the floor's button sends, because everything here is still a command a player could have typed.
-// YOU START AT THE DOOR, not across the shed. The first cut opened the walkaround four units out
-// on the diagonal — outside the BOARD radius, facing the truck's quarter — so the first thing
-// anybody did in here was hold W for three seconds. The walk exists to look at the machine up
-// close; the far view is what the turntable and the floor already give you. So the eye opens just
-// off the near-side step, at a driver's height, looking along the flank at the cab: close enough
-// that CLIMB IN is already lit, and a step back is a key rather than a chore.
-//
-// AND IT IS SHOWROOM-SIZED. Every camera constant on this screen used to be a number tuned against
-// a truck that was drawn at a fifth of an aeroplane's size in an aeroplane's room, resting a whole
-// truck-height above an aeroplane's ground plane (see `fit` in aircraft3d.js). Both are one fix
-// there, so the numbers below are now honest world units against a rig that measures FIT long: the
-// eye opens two rig-widths off the near-side front quarter at chest height, which is the shot that
-// makes the machine big — a truck fills the frame and you are looking slightly UP the flank at the
-// cab, rather than down at a model of one from across a shed.
-const FIT = 2.0;          // the span a depot truck is drawn at — an airframe's, so the room fits it
-const DOOR = [0.35, 0.83, 0.1];   // the near-side cab step, in the same units, for the BOARD prompt
-const inspectDefault = () => ({ mode: 'walk', yaw: 0, elev: 0.3, zoom: 1.1,
-  cam: { x: 0.55, y: 1.9, z: 0.3, yaw: -1.85, pitch: 0.02, fov: 1 } });
-const walkKeys = new Set();
-const WALK_KEYS = new Set(['w', 'a', 's', 'd', 'q', 'e', 'r', 'f']);
-
-function inspectScreen() {
-  const t = selected();
-  if (!t) return '<div class="td-none">Nothing selected.</div>';
-  const m = B.inspect.mode;
-  const board = (m === 'walk' && t.hereNow)
-    ? `<div class="td-board" id="td-board" data-cmd="drive ${esc(t.id)}">CLIMB IN</div>` : '';
-  const strip = `${tbtn('⟳', 'Turntable', 'data-mode="orbit"', m === 'orbit' ? 'primary' : '')}
-       ${tbtn('◉', 'Walk around', 'data-mode="walk"', m === 'walk' ? 'primary' : '')}
-       ${t.hereNow ? tbtn('➤', 'Take it out', `data-cmd="drive ${esc(t.id)}"`, 'primary') : ''}
-       ${t.hereNow ? tbtn('📯', 'Horn', 'data-cmd="horn"') : ''}
-       ${tbtn('⌖', 'Reset view', 'data-view-reset', 'ghost')}
-       ${tbtn('←', 'Back to the floor', 'data-screen="floor"', 'ghost')}
-       <span class="td-dim td-note">${m === 'walk'
-         ? 'WASD to move · drag to look · Q/E turn · R/F height · walk up to the door and press Enter.'
-         : 'Drag to turn it · wheel to zoom.'}</span>`;
-  return `
-    <div class="td-floor">
-      <canvas id="td-hero" class="td-scene" tabindex="0" aria-label="Walkaround"></canvas>
-      ${board}
-      <div class="td-strip">${strip}</div>
-    </div>
-    <aside class="td-side">${truckPane(t)}</aside>`;
-}
-
-// Held-key capture for the walk camera. Bound while the panel is mounted (onKey), and never while
-// a text field has focus, so it can't eat what was meant for the command box.
-function walkKeyDown(k) { if (!WALK_KEYS.has(k)) return false; walkKeys.add(k); return true; }
-
-// Mouse-look / orbit-drag / zoom on the hero canvas. Re-bound after every render (the canvas is
-// rebuilt by innerHTML), which is why the handlers live on the element and hold no state of their own
-// beyond the pointer map.
-function bindHeroPointer() {
-  const cv = document.getElementById('td-hero');
-  if (!cv || cv._tdBound) return;
-  cv._tdBound = 1;
-  cv.focus?.();
-  const ptrs = new Map();
-  let pinch = 0;
-  const twoDist = () => { const [a, b] = [...ptrs.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
-  const zoomBy = (ratio) => {
-    if (B.inspect.mode === 'walk') B.inspect.cam.fov = Math.max(0.5, Math.min(2, B.inspect.cam.fov / ratio));
-    else B.inspect.zoom = Math.max(0.6, Math.min(2.8, B.inspect.zoom * ratio));
-  };
-  cv.addEventListener('pointerdown', (e) => { ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); cv.setPointerCapture(e.pointerId); cv.style.cursor = 'grabbing'; cv.focus?.(); if (ptrs.size === 2) pinch = twoDist(); });
-  cv.addEventListener('pointermove', (e) => {
-    const prev = ptrs.get(e.pointerId); if (!prev || !B) return;
-    const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
-    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (ptrs.size >= 2) { const d = twoDist(); if (pinch) zoomBy(d / pinch); pinch = d; return; }
-    if (B.inspect.mode === 'walk') {
-      B.inspect.cam.yaw += dx * 0.006;
-      B.inspect.cam.pitch = Math.max(-1.2, Math.min(1.2, B.inspect.cam.pitch - dy * 0.005));
-    } else {
-      B.inspect.yaw -= dx * 0.01;
-      B.inspect.elev = Math.max(0.05, Math.min(1.3, B.inspect.elev + dy * 0.006));
-    }
-  });
-  const end = (e) => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = 0; if (!ptrs.size) cv.style.cursor = 'grab'; };
-  cv.addEventListener('pointerup', end);
-  cv.addEventListener('pointercancel', end);
-  cv.addEventListener('wheel', (e) => { e.preventDefault(); zoomBy(1 - e.deltaY * 0.0012); }, { passive: false });
-}
-
-// One frame of walking. THE TRUCK IS SOLID: an exclusion ellipse in the ground plane sized off the
-// rig's own footprint, so you slide along the flank instead of walking out through the far door.
-function stepWalk(dt) {
-  const cam = B.inspect.cam;
-  let mf = 0, mr = 0, mu = 0;
-  if (walkKeys.has('w')) mf += 1; if (walkKeys.has('s')) mf -= 1;
-  if (walkKeys.has('d')) mr += 1; if (walkKeys.has('a')) mr -= 1;
-  if (walkKeys.has('r')) mu += 1; if (walkKeys.has('f')) mu -= 1;
-  if (walkKeys.has('e')) cam.yaw += 1.6 * dt;
-  if (walkKeys.has('q')) cam.yaw -= 1.6 * dt;
-  if (!mf && !mr && !mu) return;
-  const spd = 1.7 * dt, cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw);
-  cam.x = Math.max(-9, Math.min(9, cam.x + (mf * cy + mr * -sy) * spd));
-  cam.y = Math.max(-9, Math.min(9, cam.y + (mf * sy + mr * cy) * spd));
-  cam.z = Math.max(-0.12, Math.min(2.6, cam.z + mu * spd));
-  // A rig is long and narrow — an aeroplane's ellipse is the wrong shape. Sized off the FITTED
-  // footprint (half a rig long, a little over half wide) plus a pace of personal space, and the
-  // height gate is the fitted roofline: above the stacks there is nothing to walk into.
-  const AF = 1.35, AG = 1.15;
-  if (cam.z < 0.75) { const d = Math.hypot(cam.x / AF, cam.y / AG); if (d > 1e-3 && d < 1) { cam.x /= d; cam.y /= d; } }
-}
 
 // ── The dealer's line ────────────────────────────────────────────────────────
 // Big cards, big schematics. The old lot drew a 260×104 thumbnail per truck, which for the one
@@ -655,45 +631,6 @@ function buyScreen() {
     </div>`;
 }
 
-// ── The bench ────────────────────────────────────────────────────────────────
-function benchScreen() {
-  const t = selected();
-  if (!t) return '<div class="td-none">Nothing of yours is here to work on. <button class="td-act" data-screen="buy">The dealer\'s line</button></div>';
-  const tabs = [['condition', 'Condition', '◧'], ['tune', 'Tuning', '⌥'], ['kits', 'Kits', '⊞'], ['paint', 'Paint', '◐'], ['fits', 'Fittings', '⚑'], ['cab', 'In the cab', '◇']]
-    .map(([k, l, ico]) => `<button class="td-tab sm${B.bench.tab === k ? ' on' : ''}" data-bench="${k}"><span class="td-tab-ico" aria-hidden="true">${ico}</span>${l}</button>`).join('');
-  return `
-    <div class="td-floor">
-      <canvas id="td-hero" class="td-scene" aria-label="${esc(t.name)}"></canvas>
-      <div class="td-strip"><div class="td-seg">${tabs}</div>${tbtn('←', 'Back to the floor', 'data-screen="floor"', 'ghost')}</div>
-    </div>
-    <aside class="td-side">
-      <div class="td-pane-head"><div><b>${esc(t.name)}</b><div class="td-dim">${esc(t.type)}</div></div>
-        <span class="td-band ${t.band}">${esc(t.bandLabel)}</span></div>
-      ${B.bench.tab === 'tune' ? tuneTab(t) : B.bench.tab === 'kits' ? kitsTab(t) : B.bench.tab === 'paint' ? paintTab(t)
-        : B.bench.tab === 'fits' ? fitsTab(t) : B.bench.tab === 'cab' ? cabTab(t) : conditionTab(t)}
-    </aside>`;
-}
-
-function conditionTab(t) {
-  const d = B.data;
-  return `
-    <div class="td-pane">
-      <div class="td-gauge"><i class="c${t.band}" style="width:${Math.round(t.condition * 100)}%"></i><span>${pct(t.condition)}</span></div>
-      <div class="td-dim td-note">${esc(t.bandText)}</div>
-      ${statBars(t.stats)}
-      <div class="td-acts col">
-        <button class="td-act" data-cmd="rig repair ${esc(t.id)}" ${t.canField ? '' : 'disabled title="Already past what hand tools reach"'}>
-          Do it yourself · ${money(t.repairField)}<span class="td-dim"> — up to ${pct(0.8)}, and you can botch it</span></button>
-        <button class="td-act primary" data-cmd="rig repair ${esc(t.id)} shop">
-          Put it through the shop · ${money(t.repairShop)}<span class="td-dim"> — back to new, no roll</span></button>
-        <button class="td-act" data-cmd="rig wash ${esc(t.id)}" ${t.washPrice ? '' : 'disabled title="Already clean"'}>
-          ${t.washPrice ? `Wash it · ${money(t.washPrice)}` : 'Wash it'}<span class="td-dim"> — the paint back, and nothing else</span></button>
-        ${d.fuelHere ? `<button class="td-act" data-cmd="rig fuel ${esc(t.id)}" ${t.fuel < 0.99 ? '' : 'disabled title="Already full"'}>Fill the tanks · ${money(t.refuel)}</button>`
-          : '<div class="td-dim td-note">No pump in this yard.</div>'}
-      </div>
-      <div class="td-dim td-note">Fuel ${pct(t.fuel)} · ${t.odometer.toLocaleString()} tiles on the clock · trade-in ${money(t.resale)}</div>
-    </div>`;
-}
 
 // The dials. Values live in B.bench.tune while you drag them and are only real when you commit —
 // a knob that wrote the DB on every pixel of a drag would be a hundred round trips per adjustment.
@@ -802,7 +739,7 @@ function fitsTab(t) {
   const worn = cat.slots.filter((s) => fittedIn(s.id)).length;
   const drawer = cat.items.filter((f) => price(f.id) === 0 && !on.has(f.id)).length;
   return `<div class="td-pane">
-    <div class="td-lab">On the truck<span class="td-dim"> — ${worn} of ${cat.slots.length} places filled${drawer ? ` · ${drawer} more in the drawer` : ''}</span></div>
+    <div class="td-lab">On the truck<span class="td-dim">: ${worn} of ${cat.slots.length} places filled${drawer ? ` · ${drawer} more in the drawer` : ''}</span></div>
     <div class="td-fitsheet">${sheet}</div>
     <div class="td-sub-head">${esc(cur.label)} <span class="td-dim">${esc(cur.note)}</span></div>
     ${rows}
@@ -850,7 +787,7 @@ function cabTab(t) {
   const worn = cat.slots.filter((s) => inSlot(s.id)).length;
   const drawer = cat.items.filter((f) => price(f.id) === 0 && !on.has(f.id)).length;
   return `<div class="td-pane">
-    <div class="td-lab">In the cab<span class="td-dim"> — ${worn} of ${cat.slots.length} places filled${drawer ? ` · ${drawer} more in the drawer` : ''}</span></div>
+    <div class="td-lab">In the cab<span class="td-dim">: ${worn} of ${cat.slots.length} places filled${drawer ? ` · ${drawer} more in the drawer` : ''}</span></div>
     <div class="td-fitsheet">${sheet}</div>
     <div class="td-sub-head">${esc(cur.label)} <span class="td-dim">${esc(cur.note)}</span></div>
     ${rows}
@@ -872,7 +809,7 @@ const PAINT_FIELDS = [
   ['trim',   'Flash',          'Whatever the paint job lays over the cab.'],
   ['deck',   'Box',            'The trailer. Very often not the tractor.'],
   ['hw',     'Hardware',       'Chassis, tanks, steps, mirror arms.'],
-  ['bright', 'Brightwork',     'Grille, spear, stacks — while chrome is on.'],
+  ['bright', 'Brightwork',     'Grille, spear, stacks: while chrome is on.'],
   ['glow',   'Running lights', 'The strip under the glass, and the roof pod.'],
   ['glass',  'Glass',          'The tint in the panes.'],
 ];
@@ -995,10 +932,10 @@ function paintColours(t) {
   return `
       <div class="td-lab">Where the paint goes</div>
       <div class="td-crows">${rows}</div>
-      <label class="td-check"><input type="checkbox" data-paint="chrome" ${cur.chrome ? 'checked' : ''}> Brightwork polished<span class="td-dim"> — off blacks it out to the hardware colour</span></label>
-      <div class="td-lab">Paint job<span class="td-dim"> — what the flash colour above is laid on in</span></div>
+      <label class="td-check"><input type="checkbox" data-paint="chrome" ${cur.chrome ? 'checked' : ''}> Brightwork polished<span class="td-dim">: off blacks it out to the hardware colour</span></label>
+      <div class="td-lab">Paint job<span class="td-dim">: what the flash colour above is laid on in</span></div>
       <div class="td-swatches">${swatches(B.data.flashes, 'flash')}</div>
-      <div class="td-lab">Finish coat<span class="td-dim"> — the only thing that moves the price</span></div>
+      <div class="td-lab">Finish coat<span class="td-dim">: the only thing that moves the price</span></div>
       <div class="td-swatches">${swatches(B.data.finishes, 'finish')}</div>
       ${paintFoot(t)}`;
 }
@@ -1058,9 +995,9 @@ function paintInside(t) {
       </label>`).join('');
   return `
       ${dashPreview(cur)}
-      <div class="td-lab">Colourway<span class="td-dim"> — the light you drive by</span></div>
+      <div class="td-lab">Colourway<span class="td-dim">: the light you drive by</span></div>
       <div class="td-tswatches">${cols.map(swatch).join('')}${cur.cust ? mixSwatch() : ''}</div>
-      <div class="td-lab">Or mix your own<span class="td-dim"> — three picks, and the rest of the cab follows them</span></div>
+      <div class="td-lab">Or mix your own<span class="td-dim">: three picks, and the rest of the cab follows them</span></div>
       <div class="td-crows${cur.col === CUSTOM_COL ? ' on' : ''}">${wells}</div>
       <div class="td-lab">Material</div>
       <div class="td-swatches">${mats.map(matRow).join('')}</div>
@@ -1116,7 +1053,7 @@ function dashPreview(cur) {
           <span class="td-dm-dials">${dial(-38)}${dial(24)}</span>
         </span>
       </div>
-      <div class="td-dim td-note td-dm-cap">${esc([c.label || 'stock', m.label || 'stock'].join(', '))}${c.custom ? ' — nobody else is driving this one' : c.stock === false ? ' — a bench colour, on no truck from the factory' : ''}</div>`;
+      <div class="td-dim td-note td-dm-cap">${esc([c.label || 'stock', m.label || 'stock'].join(', '))}${c.custom ? ': nobody else is driving this one' : c.stock === false ? ': a bench colour, on no truck from the factory' : ''}</div>`;
 }
 
 // What the booth will charge for the paint CURRENTLY ON THE DIALS. The scale is the server's — it
@@ -1169,7 +1106,7 @@ function paintCmd(t, cur) {
 // buttons were gated on `canLoad` — is there a box standing here — so with a load already on that
 // box every row still offered a live Take it that `haul` was certain to refuse ("Already loaded:
 // …"), and the refusal only ever appeared in the log. A button that is present and refuses is worse
-// than one that is absent and explains itself (see the toolbar note in floorScreen); this is the
+// than one that is absent and explains itself; this is the
 // same rule, applied to the one screen that was breaking it.
 //
 // So: the deck is printed above both boards, the row you are already carrying says so instead of
@@ -1259,64 +1196,70 @@ function marketScreen() {
       ${rows}</div>${sell}</div>`;
 }
 
+
 // ── Events ───────────────────────────────────────────────────────────────────
+// One delegated handler for both homes — the counter's #td-root and the bay's #td-svc — because
+// every control in either is one of the same dozen shapes.
 function onClick(e) {
   if (!B) return;
-  const t = e.target.closest('[data-cmd],[data-screen],[data-sel],[data-bench],[data-mode],[data-lot],[data-box],[data-paintpick],[data-trimpick],[data-psec],[data-fslot],[data-cslot],[data-preset],[data-close],[data-act],[data-confirm],[data-tune-reset],[data-paint-reset],[data-trim-reset],[data-view-reset]');
-  if (!t || t.disabled) {
-    if (e.target.id === 'td-scene') pickOnFloor(e);
-    return;
-  }
-  // Closing the depot leaves you standing in the yard, so it has to put the room back — the pane
-  // is the room's pane, and a panel that simply removed itself would leave it blank until the next
-  // thing you happened to type redrew it.
+  const t = e.target.closest('[data-cmd],[data-screen],[data-bench],[data-lot],[data-box],[data-paintpick],[data-trimpick],[data-psec],[data-fslot],[data-cslot],[data-preset],[data-close],[data-act],[data-confirm],[data-tune-reset],[data-paint-reset],[data-trim-reset],[data-hear],[data-plate]');
+  if (!t || t.disabled) return;
+  // Closing the counter leaves you standing in the yard, so it has to put the room back — the pane
+  // is the room's pane, and a panel that simply removed itself would leave it blank.
   if (t.dataset.close != null) { closeTruckDepot(); return void sendCmdSilent('look'); }
   if (t.dataset.act === 'fullscreen') { document.body.classList.toggle('td-fullscreen'); return void render(); }
   if (t.dataset.act === 'hidepanel') { document.body.classList.toggle('td-hidepanel'); return void render(); }
-  if (t.dataset.sel) { B.selId = t.dataset.sel; B.bench.tune = null; B.bench.paint = null; B.bench.trim = null; return void render(); }
+  // ⚠ FOLDING THE BAY IS NOT LEAVING IT. The shed is still round you and the fitters are still
+  // there; the chip in the corner brings it back until the truck rolls out through the door.
+  if (t.dataset.act === 'svc-fold') { B.open = false; return void renderService(); }
+  if (t.dataset.act === 'svc-open') { B.open = true; return void renderService(); }
   if (t.dataset.screen) { B.screen = t.dataset.screen; return void render(); }
-  if (t.dataset.bench) { B.bench.tab = t.dataset.bench; return void render(); }
-  if (t.dataset.mode) { B.inspect.mode = t.dataset.mode; walkKeys.clear(); return void render(); }
-  if (t.dataset.viewReset != null) { const m = B.inspect.mode; B.inspect = inspectDefault(); B.inspect.mode = m; walkKeys.clear(); return void render(); }
+  if (t.dataset.bench) { B.bench.tab = t.dataset.bench; return void redraw(); }
   if (t.dataset.lot) { B.lotSel = t.dataset.lot; return void render(); }
   if (t.dataset.box) { B.boxSel = t.dataset.box; return void render(); }
+  // A horn you are deciding whether to buy is played HERE and nowhere else: no packet, nothing the
+  // yard hears, and the same instrument the cord will sound once it is on the roof.
+  if (t.dataset.hear) { airHorn(selected()?.typeId, 1.2, t.dataset.hear === 'stock' ? null : t.dataset.hear); return; }
+  // The plate reads the box beside it at the moment of the click, so what goes out is exactly the
+  // `rig name` a player would have typed with those words in it.
+  if (t.dataset.plate) {
+    const v = String(t.parentElement?.querySelector('.td-plate-in')?.value || '').trim();
+    if (v) sendCmdSilent(`rig name ${t.dataset.plate} ${v}`);
+    return;
+  }
   // One swatch, whichever row it came from — the paint job, the finish coat and the door art are
   // three lists of the same widget, so they are one handler rather than three near-copies.
-  if (t.dataset.paintpick) { B.bench.paint = { ...paintNow(), [t.dataset.paintpick]: t.dataset.paintval }; return void render(); }
-  // Which screen of the booth. Held on the bench rather than in a module local so that selecting a
-  // different truck resets it with everything else — see the `sel` branch above.
-  if (t.dataset.psec) { B.bench.psec = t.dataset.psec; return void render(); }
-  // Which PLACE on the truck the cosmetic shelf is showing. Same reasoning as `psec` above, and
-  // the same store — but note that the cells that set it are also the sheet that reports what is
-  // FITTED, so this one field is both "where am I looking" and "which cell is lit". That is the
-  // point of the layout: there is no second control to disagree with the first.
-  if (t.dataset.fslot) { B.bench.fslot = t.dataset.fslot; return void render(); }
-  if (t.dataset.cslot) { B.bench.cslot = t.dataset.cslot; return void render(); }
+  if (t.dataset.paintpick) { B.bench.paint = { ...paintNow(), [t.dataset.paintpick]: t.dataset.paintval }; return void redraw(); }
+  // Which screen of the booth, and which PLACE on the truck a shelf is showing. Held on the bench so
+  // a re-push after a purchase does not throw the player back to the first one.
+  if (t.dataset.psec) { B.bench.psec = t.dataset.psec; return void redraw(); }
+  if (t.dataset.fslot) { B.bench.fslot = t.dataset.fslot; return void redraw(); }
+  if (t.dataset.cslot) { B.bench.cslot = t.dataset.cslot; return void redraw(); }
   // The interior's two swatch rows, exactly as the paint's are: an edit held locally, previewed,
   // and charged only by the button. ⚠ It is a SEPARATE draft from the paint (`B.bench.trim`), or
   // clicking a colourway would dirty the respray and the booth would quote for both.
-  if (t.dataset.trimpick) { B.bench.trim = { ...trimNow(), [t.dataset.trimpick]: t.dataset.trimval }; return void render(); }
-  // A scheme sets every field at once. ⚠ It is applied LOCALLY rather than sent as
-  // `rig paint <id> preset <name>`, even though that verb exists and works: sending it would
-  // charge for the respray the instant somebody clicked a swatch to see what it looked like.
-  // The preset is a shortcut through the pickers, not a purchase — the button is the purchase.
+  if (t.dataset.trimpick) { B.bench.trim = { ...trimNow(), [t.dataset.trimpick]: t.dataset.trimval }; return void redraw(); }
+  // A scheme sets every field at once. ⚠ Applied LOCALLY rather than sent as `rig paint <id> preset
+  // <name>`: sending it would charge for the respray the instant somebody clicked a swatch to see
+  // what it looked like. The preset is a shortcut through the pickers, not a purchase.
   if (t.dataset.preset) {
     const p = (B.data.paintPresets || []).find(r => r.id === t.dataset.preset);
     if (p) { const { id, label, ...fields } = p; B.bench.paint = { ...paintNow(), ...fields }; }
-    return void render();
+    return void redraw();
   }
-  if (t.dataset.tuneReset != null) { B.bench.tune = null; return void render(); }
-  if (t.dataset.paintReset != null) { B.bench.paint = null; return void render(); }
-  if (t.dataset.trimReset != null) { B.bench.trim = null; return void render(); }
-  // SELLING IS THE ONE IRREVERSIBLE BUTTON on this screen, and it sits next to Refuel. It asks.
+  if (t.dataset.tuneReset != null) { B.bench.tune = null; return void redraw(); }
+  if (t.dataset.paintReset != null) { B.bench.paint = null; return void redraw(); }
+  if (t.dataset.trimReset != null) { B.bench.trim = null; return void redraw(); }
+  // ANYTHING IRREVERSIBLE ASKS — selling, handing a hire back, a tow bill.
   if (t.dataset.confirm) {
     if (t.dataset.armed) { sendCmdSilent(t.dataset.confirm); return; }
     t.dataset.armed = '1'; t.textContent = 'Sure? Click again';
-    setTimeout(() => { delete t.dataset.armed; render(); }, 4000);
+    setTimeout(() => { if (t.isConnected) { delete t.dataset.armed; redraw(); } }, 4000);
     return;
   }
   if (t.dataset.cmd) sendCmdSilent(t.dataset.cmd);
 }
+
 
 function onInput(e) {
   const el = e.target;
@@ -1367,6 +1310,8 @@ function onInput(e) {
     const hex = el.parentElement && el.parentElement.querySelector('.td-chex');
     if (hex && key !== 'chrome') hex.textContent = String(el.value || '').toUpperCase();
     refreshPaintCommit(t);
+    // In the bay the preview is the REAL truck, out of the chase camera, and it follows the well.
+    if (B.mode === 'service') cabPreview({ paint: paintNow() });
     return;
   }
 }
@@ -1404,7 +1349,7 @@ function syncDashMock(cur) {
   }
   const cap = document.querySelector('.td-dm-cap');
   const m = (B.data.dashMaterials || []).find(r => r.id === cur.mat) || {};
-  if (cap) cap.textContent = [c.label || 'stock', m.label || 'stock'].join(', ') + (c.custom ? ' — nobody else is driving this one' : '');
+  if (cap) cap.textContent = [c.label || 'stock', m.label || 'stock'].join(', ') + (c.custom ? ': nobody else is driving this one' : '');
 }
 
 // The paint currently on the dials: the server's truck, whatever the bench has edited on top of
@@ -1424,134 +1369,59 @@ function refreshPaintCommit(t) {
   btn.textContent = `Into the booth · ${money(paintPrice(t, cur))}`;
 }
 
-function onKey(e) {
-  if (!B) return;
-  // Escape BACKS OUT ONE SCREEN, the hangar's behaviour. As a modal it slammed the whole panel
-  // shut from four screens deep, which is the wrong answer to "I'm done with the dealer's line" —
-  // and in the pane it is worse, because Escape is a key you press to leave a text box.
-  if (e.key === 'Escape') {
-    const el0 = document.activeElement;
-    if (el0 && (el0.tagName === 'INPUT' || el0.tagName === 'TEXTAREA' || el0.isContentEditable)) return;
-    if (B.screen !== 'floor') { B.screen = 'floor'; return void render(); }
-    closeTruckDepot();
-    return void sendCmdSilent('look');
-  }
-  const el = document.activeElement;
-  if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
-  if (B.screen !== 'inspect' || B.inspect.mode !== 'walk') return;
-  const k = e.key.toLowerCase();
-  // Enter boards, but ONLY once you've walked up to the door — otherwise it is a click on a button
-  // you cannot see, and a truck that pulls out of the yard because you tapped Enter across the shed.
-  if (k === 'enter') {
-    const b = document.getElementById('td-board');
-    if (b?.classList.contains('near')) { b.click(); e.preventDefault(); }
-    return;
-  }
-  if (walkKeyDown(k)) e.preventDefault();
-}
-function onKeyUp(e) { walkKeys.delete(e.key.toLowerCase()); }
 
-// Clicking a truck on the floor selects it — hit-tested against the regions the scene returns,
-// because there is no DOM element per truck to hang a listener on.
-function pickOnFloor(e) {
-  const cv = document.getElementById('td-scene');
-  if (!cv || !sceneHits.length) return;
-  const r = cv.getBoundingClientRect();
-  const x = e.clientX - r.left, y = e.clientY - r.top;
-  const best = pickSceneHit(sceneHits, x, y);   // the rig's own silhouette, not a circle on the floor
-  // A TRAILER IS ON THE FLOOR BUT IT IS NOT A SELECTION. Everything the side pane, the bench and
-  // the toolbar draw is read out of a FLEET row, so selecting a box would empty all three and the
-  // panel would sit there insisting nothing of yours is here while you looked at your own trailer.
-  if (best && !(B.data.fleet || []).some(t => t.id === best.id)) return;
-  if (best && best.id !== B.selId) { B.selId = best.id; B.bench.tune = null; B.bench.paint = null; B.bench.trim = null; render(); }
+function onKey(e) {
+  if (!B || B.mode !== 'yard') return;
+  // Escape BACKS OUT ONE SCREEN, the hangar's behaviour, and only then closes the counter — and
+  // never while a text box has the caret, because Escape is also how you leave one.
+  if (e.key !== 'Escape') return;
+  const el0 = document.activeElement;
+  if (el0 && (el0.tagName === 'INPUT' || el0.tagName === 'TEXTAREA' || el0.isContentEditable)) return;
+  if (B.screen !== 'lot') { B.screen = 'lot'; return void render(); }
+  closeTruckDepot();
+  sendCmdSilent('look');
+}
+
+// ── The cards ────────────────────────────────────────────────────────────────
+// Painted once per render and per resize, never in a loop (vehicle-card.js says why). Each truck is
+// drawn PARKED (`~p`, the variant grammar's shut-down pose) in its own paint and dirt, through the
+// same livery conversion the cab and the world use.
+function paintCards() {
+  if (!B || B.mode !== 'yard') return;
+  const root = document.getElementById('td-root');
+  if (!root) return;
+  const fleet = B.data.fleet || [];
+  for (const cv of root.querySelectorAll('canvas[data-card]')) {
+    const t = fleet.find((r) => r.id === cv.dataset.card);
+    if (!t) continue;
+    paintVehicleCard(cv, { style: cardStyleFor(t.id), seed: cardSeed(t.id), dim: !t.hereNow,
+      v: { cls: 'truck', variant: `${t.variant}~p`, livery: liveryOf(t), yaw: 0.62, fit: 1.45 } });
+  }
+  for (const cv of root.querySelectorAll('canvas[data-rent]')) {
+    const id = cv.dataset.rent;
+    paintVehicleCard(cv, { style: cardStyleFor('hire:' + id), seed: cardSeed('hire:' + id),
+      v: { cls: 'truck', variant: `${cv.dataset.variant || id}~p`, livery: truckLivery(B.data.paintDefault || {}, 0), yaw: 0.62, fit: 1.45 } });
+  }
+  for (const cv of root.querySelectorAll('canvas[data-slot]')) {
+    const buy = cv.dataset.slot === 'buy';
+    paintSlotCard(cv, { style: buy ? 'showroom' : 'sunburst', seed: buy ? 7 : 11, glyph: buy ? '+' : '⟲' });
+  }
 }
 
 // ── The one animation loop ───────────────────────────────────────────────────
-// One rAF for the whole app, exactly as the hangar bay runs one: the floor, the walkaround hero
-// and every wireframe on the dealer's line are drawn from the same tick. Per-canvas loops would be
-// a dozen timers racing each other for the same frame.
+// Only the dealer's schematics turn, so this only runs while they are on screen — and it retires
+// itself the frame there is nothing left to draw rather than idling behind the hand of cards.
 function startSpin() {
   if (raf) return;
-  let last = 0;
-  const loop = (now) => {
+  const loop = () => {
     const root = document.getElementById('td-root');
-    if (!root || !B) { raf = null; return; }
-    const dt = last ? Math.min(0.05, (now - last) / 1000) : 0.016;
-    last = now;
+    const wfs = root ? root.querySelectorAll('.td-wf') : [];
+    if (!root || !B || !wfs.length) { raf = null; return; }
     yaw += 0.006;
     const accent = themeColor('--accent', '#d8892e');
-
-    const scene = root.querySelector('#td-scene');
-    if (scene) {
-      const ctx = sizeCanvas(scene);
-      if (ctx) sceneHits = drawHangarScene(ctx, {
-        w: scene._cw, h: scene._ch, venue: 'garage', sky: B.data.sky,
-        selId: B.selId, // PARKED, because they are. `~p` is the variant grammar's shut-down pose (aircraft3d): the rig
-        // settles onto its lifters and the emitter bands go out — a truck hovering with a cold engine
-        // in the middle of a garage was the tell that the hover was decoration rather than a machine.
-        // NO FLOATING NAME. The hangar labels its aircraft because a row of white airframes is
-        // genuinely hard to tell apart by sight and a tail number is how a pilot refers to one. A
-        // yard is not that: the rig is painted the colour YOU chose, the strip under the canvas
-        // names every one of them, and the pane beside it names the selected one twice over. A
-        // caption floating in the middle of the bay was a third answer to a question nobody asked,
-        // sitting across the bumper of the thing it was labelling.
-        // Every rig on the floor is PARKED, because a running one is a rig you are sitting in and
-        // that view is the cab, not the yard.
-        // ⚠ AND THE BOXES. The floor drew the FLEET and nothing else, so a trailer you had just
-        // paid for appeared on no screen in the building it was standing outside — the yard is
-        // where you buy one, and the yard was the one place it did not exist. `~s` is the solo
-        // mesh (the box with the tractor thrown away, the same variant `trailersNear` draws out on
-        // the hardstand), and the shape comes from the RATING for the reason it does there: a
-        // trailer row carries no mesh of its own and its capacity already says how big it is.
-        //
-        // Only the ones standing HERE. A box on the pin is drawn under the truck that is towing it
-        // (that is what `+t` on the fleet variant is), and one at another yard is somewhere else.
-        entries: [
-          ...(B.data.fleet || []).map(t => ({ id: t.id, cls: 'truck', livery: liveryOf(t),
-            variant: `${t.variant}~p` })),
-          // …in their own colours. A box is stamped with the cab colour of whoever bought it and
-          // repainted on its own (yard paint), so the floor draws a fleet rather than a row of
-          // black slabs — and the colour is the SERVER's, exactly as the paint on a truck is.
-          ...(B.data.trailers || []).filter(t => t.hereNow).map(t => ({
-            id: t.id, cls: 'truck', variant: `${boxShape(t.ratedKg)}+t~s`,
-            livery: boxLivery(t.colour),
-          })),
-        ],
-      });
-    }
-    const hero = root.querySelector('#td-hero');
-    const sel = selected();
-    if (hero && sel) {
-      if (B.screen === 'inspect') bindHeroPointer();
-      const ctx = sizeCanvas(hero);
-      const inspecting = B.screen === 'inspect';
-      const walk = inspecting && B.inspect.mode === 'walk';
-      if (walk) stepWalk(dt);
-      const camNow = walk ? { ...B.inspect.cam } : null;
-      if (ctx) drawHangarFloorBay(ctx, {
-        w: hero._cw, h: hero._ch, cls: 'truck',
-        variant: `${sel.variant}~p`,
-        livery: liveryOf(sel, true),
-        // The bench hero keeps its slow auto-turn; the turntable is YOURS to drag once you've asked
-        // to walk around it, which is the whole difference between a display and an inspection.
-        yaw: inspecting && !walk ? B.inspect.yaw : yaw,
-        elev: inspecting && !walk ? B.inspect.elev : undefined,
-        zoom: inspecting && !walk ? B.inspect.zoom : undefined,
-        venue: 'garage', sky: B.data.sky, floor: true, floor3d: walk, fit: FIT,
-        cam: camNow,
-      });
-      // The door is at the cab, not at the middle of the rig: walk up to the near-side step and the
-      // prompt lights. Same distance test the hangar's BOARD uses, over the truck's own geometry.
-      if (walk) {
-        const c = B.inspect.cam, near = Math.hypot(c.x - DOOR[0], c.y - DOOR[1], c.z - DOOR[2]) < 1.6;
-        root.querySelector('#td-board')?.classList.toggle('near', near);
-      }
-    }
-    for (const c of root.querySelectorAll('.td-wf')) {
+    for (const c of wfs) {
       const ctx = c.getContext('2d');
-      // `fill` — the rig is sized by the CARD, not by how big the mesh happens to be authored. A
-      // truck is a quarter of an airframe across and this viewport was drawn for airframes, which
-      // is why the schematic used to be a doodle in the middle of an empty box.
+      // `fill` — the rig is sized by the CARD, not by how big the mesh happens to be authored.
       if (ctx) drawWireframe3D(ctx, { cls: 'truck', variant: c.dataset.variant, w: c.width, h: c.height, accent, yaw,
         fill: 0.94, fitRef: c.dataset.fit });
     }
@@ -1560,18 +1430,7 @@ function startSpin() {
   raf = requestAnimationFrame(loop);
 }
 
-// A truck's paint, in the shape the shared renderer's palette already speaks. `base`/`trim` are the
-// two colours every model here is skinned from, so a repainted cab is repainted everywhere it is
-// drawn — the floor, the walkaround and the bench hero — for no per-surface code at all.
-// …and it now carries the FLASH, which is the half of a paint job that was doing nothing at all.
-// `pattern` is what `faceWearsTrim` reads to decide base-or-trim per facet, and the truck flashes
-// go through it under the `truck:` prefix (see aircraft3d) so they can never be mistaken for the
-// airframe patterns that share their vocabulary.
-//
-// AND IT PREVIEWS. The bench drew `t.paint` — the SERVER's paint — so every colour you picked
-// showed you the truck you already had, and the only way to find out what teal looked like was to
-// pay for teal. A half-turned dial is not a lie about the world here: nothing is committed, the
-// button still says what it will cost, and the model in front of you is the one you are describing.
+
 // WHICH BOX TO DRAW, off the one number that already says how big the thing is. The server's own
 // `meshShapeFor` (plugins/trucking/trailers.js) picks the same way for the world renderer, and the
 // two must agree or a trailer changes length when you walk out of the shed.
@@ -1615,6 +1474,7 @@ function sizeCanvas(cv) {
   if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   return ctx;
 }
+
 
 // ── Styles ───────────────────────────────────────────────────────────────────
 function ensureStyles() {
@@ -2197,6 +2057,49 @@ function ensureStyles() {
     .td-side > .td-acts .td-act{padding:9px 8px;letter-spacing:.3px}
   }
   @media (prefers-reduced-motion:reduce){.td-board.near,.td-run{animation:none}.td-tab.on::after{animation:none}}
+  /* The hint above the hand is in the flow; the old floor screen floated it over a 3-D scene. */
+  .td-lot-col{overflow:auto;padding-right:2px}
+  .td-lot-col .td-hint{position:static;transform:none;margin:0 0 4px;max-width:none}
+  /* ── THE BAY ─────────────────────────────────────────────────────────────
+     A panel docked on the right of the glass, inside the cab's own wrapper. It never covers the
+     road ahead and it never covers the dash: the top is below the glass chrome, the bottom stops
+     above the shelf, and folded it is one chip. */
+  #td-svc{--td-accent:var(--accent,#d8892e);
+    --td-surf:color-mix(in srgb, var(--td-accent) 18%, var(--bg2));
+    --td-surf-lo:color-mix(in srgb, var(--td-accent) 6%, var(--bg2));
+    --td-surf-mid:color-mix(in srgb, var(--td-accent) 12%, var(--bg2));
+    --td-bevel-hi:rgba(255,255,255,.5); --td-bevel-lo:rgba(0,0,0,.45);
+    --td-fg:var(--text-bright,var(--text,#eafffb));
+    --td-fg-dim:var(--text-dim,#9db5c6);
+    --td-fg-dim2:color-mix(in srgb, var(--text-dim,#9db5c6) 60%, transparent);
+    position:absolute;z-index:40;right:10px;top:46px;white-space:normal;
+    color:var(--td-fg);font-family:'Courier New',monospace;font-size:13.5px;line-height:1.45}
+  #td-svc.open{bottom:12%;width:min(620px,58%);display:flex;flex-direction:column;gap:6px;padding:8px;
+    background:color-mix(in srgb, var(--bg2) 86%, transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+    border:1px solid color-mix(in srgb, var(--td-accent) 36%, var(--border));border-radius:10px;
+    box-shadow:0 12px 30px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.08)}
+  #td-svc.folded{right:auto;left:10px;top:46px}
+  .td-svc-chip{font-family:inherit;font-size:12px;letter-spacing:.8px;cursor:pointer;padding:6px 11px;border-radius:7px;color:var(--td-fg);
+    background:color-mix(in srgb, var(--bg2) 80%, transparent);border:1px solid var(--td-accent);
+    box-shadow:0 0 10px color-mix(in srgb, var(--td-accent) 30%, transparent)}
+  .td-svc-head{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+  .td-svc-head .td-title{flex:1 1 auto}
+  .td-svc-hire,.td-svc-pin{flex:0 0 auto;font-size:11.5px;padding:4px 8px;border-radius:6px;background:var(--td-surf-lo);
+    border:1px solid color-mix(in srgb, #5aa58c 60%, transparent)}
+  .td-svc-pin{border-color:color-mix(in srgb, var(--td-accent) 40%, transparent)}
+  .td-svc-tabs{flex:0 0 auto;flex-wrap:wrap;gap:2px}
+  #td-svc .td-side.td-svc-body{width:auto;flex:1 1 auto;min-height:0}
+  #td-svc .td-toast{position:absolute;left:50%;bottom:36px;transform:translateX(-50%);z-index:6;max-width:90%}
+  .td-svc-foot{flex:0 0 auto;font-size:11px;text-align:center}
+  .td-svc-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid color-mix(in srgb, var(--border) 60%, transparent)}
+  .td-svc-row:last-of-type{border-bottom:0}
+  .td-svc-row .td-bar{margin:3px 0 1px}
+  .td-bar i.sfresh{background:#5c8f6a}.td-bar i.sdue{background:#e8c07a}.td-bar i.sover{background:#d2685c}
+  .td-svc-row.over b{color:#f0a097}
+  .td-plateform{display:flex;gap:6px}
+  .td-plate-in{flex:1 1 auto;min-width:0;font-family:inherit;font-size:13px;padding:5px 7px;border-radius:6px;color:var(--td-fg);
+    background:var(--td-surf-lo);border:1px solid color-mix(in srgb, var(--td-accent) 30%, transparent);text-transform:uppercase}
+  @media (max-width:720px){ #td-svc.open{left:8px;right:8px;width:auto;bottom:38%} }
   `;
   document.head.appendChild(s);
 }

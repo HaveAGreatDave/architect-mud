@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Chest-high brush, tough as wire, with runs beaten through it at knee height by something that lives here and goes the same way every day. The wind through it makes a dry sound with no rest in it at all.",
+  "description": "The thorn here stands to the knee and covers everything. It's grey-green, which after the bare rock looks almost lush, and every plant in it will draw blood.",
   "exits": {
     "east": "zone_scw_1025_965",
     "north": "zone_scw_1024_964",
@@ -13,13 +13,13 @@
     "radiation": 9,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "dirt_road"
+    "terrain": "scrub"
   },
   "grid_x": 1024,
   "grid_y": 965,
   "grid_z": 0,
   "id": "zone_scw_1024_965",
   "map_id": "map_world",
-  "name": "The Grabbing Ground",
+  "name": "The Grey Thicket",
   "parent_zone": null
 }

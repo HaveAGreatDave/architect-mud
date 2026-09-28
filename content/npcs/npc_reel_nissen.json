@@ -152,7 +152,7 @@
     "\"You want the organ? Nobody wants the organ. Go on, then.\"",
     "He looks at the clock, then at the door, then at the clock, in that order, and gets on with the books."
   ],
-  "description": "A narrow, dry man of about sixty in a cardigan with the elbows gone shiny, sitting on the stool in the kiosk with a ledger open on the shelf in front of him. He has the flat, unhurried manner of a landlord doing sums, which is what he mostly is: the flats upstairs are his, the shop next door is his, and the cinema is the hole all of it goes into. He is entirely unsentimental about films. He can tell you what one costs him to show, to the credit, without looking it up.",
+  "description": "A narrow, dry man of about sixty in a cardigan shiny at the elbows, on the kiosk stool with a ledger open in front of him. He owns the flats upstairs and the shop next door, and the cinema eats the rent. He's doing sums.",
   "dialogue_tree": {
     "bye": {
       "options": [],

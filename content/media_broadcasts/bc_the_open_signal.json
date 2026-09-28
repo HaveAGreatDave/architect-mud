@@ -3834,7 +3834,7 @@
         },
         "next": "bsm_439",
         "style": "verbatim",
-        "text": "Kestrel says, \"Everybody in this house is about to be very rich and none of you're going to be alright and I’ve been saying it for a year and it’s boring now so I stopped.\"",
+        "text": "Kestrel says, \"Everybody in this house is about to be very rich and none of you are going to be alright and I’ve been saying it for a year and it’s boring now so I stopped.\"",
         "type": "say"
       },
       "bsm_439": {
@@ -4988,7 +4988,7 @@
         },
         "next": "bsm_55",
         "style": "verbatim",
-        "text": "Auggie Prine says, \"I want to look at you. That’s all it's tonight. You put the crate down, you show me, I say yes or no, and either way you have a job in the morning and nobody in that bar ever hears about it from me.\"",
+        "text": "Auggie Prine says, \"I want to look at you. That’s all it is tonight. You put the crate down, you show me, I say yes or no, and either way you have a job in the morning and nobody in that bar ever hears about it from me.\"",
         "type": "say"
       },
       "bsm_540": {
@@ -8268,7 +8268,7 @@
         },
         "next": "bsm_830",
         "style": "verbatim",
-        "text": "Joanie Faust says, \"And it wasn’t, and I have thought about that sentence every day since, and I want you to know that being right about it's the worst thing that has ever happened to me.\"",
+        "text": "Joanie Faust says, \"And it wasn’t, and I have thought about that sentence every day since, and I want you to know that being right about it is the worst thing that has ever happened to me.\"",
         "type": "say"
       },
       "bsm_83": {

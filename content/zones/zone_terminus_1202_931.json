@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Grey-green thorn, waist high, following a line of damp that isn't visible any other way. It's the only thing out here that's any colour at all.",
+  "description": "The thorn follows the damp. It's grey-green and grows to your waist, and nothing else nearby has any colour.",
   "exits": {
     "east": "zone_terminus_1203_931",
     "north": "zone_terminus_1202_930",

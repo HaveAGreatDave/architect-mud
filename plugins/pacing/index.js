@@ -196,7 +196,7 @@ on('zone.entered', async ({ actor: player, opts }) => {
   if (player.stamina < SPRINT_FLOOR) {
     player._sprinting = false;
     player._winded = true;
-    messages.push('Your lungs are burning — you drop back to a walk, chest heaving.');
+    messages.push('Your lungs are burning: you drop back to a walk, chest heaving.');
   }
   sendToPlayer(player.id, { type: 'resource_tick', messages, player_update: { stamina: player.stamina } });
   // Stamina is CHECKPOINT-tier, not write-through (see cmdMove in
@@ -222,7 +222,7 @@ async function sprint(args, raw, player) {
   const sta = staminaOf(player);
   if (player._winded) {
     if (sta < WINDED_RECOVER) {
-      return { type: 'error', message: `You're still winded — catch your breath first. (need ${WINDED_RECOVER} stamina, have ${sta})` };
+      return { type: 'error', message: `You're still winded: catch your breath first. (need ${WINDED_RECOVER} stamina, have ${sta})` };
     }
     player._winded = false;
   }

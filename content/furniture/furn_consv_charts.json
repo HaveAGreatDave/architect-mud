@@ -6,9 +6,7 @@
       "rack",
       "chart"
     ],
-    "interactions": {
-      "examine": "The wreck chart is the one that has been handled. It is also the only one anybody has bothered to keep up to date, and the newest marks on it are in biro."
-    }
+    "examine_detail": "The wreck chart is the one that has been handled. It is also the only one anybody has bothered to keep up to date, and the newest marks on it are in biro."
   },
   "id": "furn_consv_charts",
   "name": "the chart rack",

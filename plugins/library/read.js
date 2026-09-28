@@ -33,7 +33,7 @@ const link = (cmd, label) =>
 
 const locked = {
   type: 'error',
-  message: "You don't have anything to read on. The Hall of Records lends — find their terminal and <b>scan</b> it.",
+  message: "You don't have anything to read on. The Hall of Records lends: find their terminal and <b>scan</b> it.",
 };
 
 // ── State ────────────────────────────────────────────────────────────────────
@@ -76,7 +76,7 @@ async function renderPage(player, meta, chIdx, pgIdx) {
   await setFlag('player', PAGE_AT(meta.id), String(pi), player);
 
   const chTitle = ch.title || `Chapter ${ci + 1}`;
-  const head = `<span class="text-cyan">${meta.title}</span> <span class="text-dim">— ${chTitle}`
+  const head = `<span class="text-cyan">${meta.title}</span> <span class="text-dim">${chTitle}`
     + ` · page ${pi + 1} of ${pages.length}`
     + (total > 1 ? ` · chapter ${ci + 1} of ${total}` : '') + `</span>`;
 
@@ -118,7 +118,7 @@ export async function cmdLibrary(args, raw, player) {
     // Progress in chapters, not a percentage: a percentage of a book you haven't
     // read is a number about the book, not about you.
     const where = at > 0
-      ? `<span class="text-dim"> — chapter ${at + 1} of ${b.chapters}</span>`
+      ? `<span class="text-dim">chapter ${at + 1} of ${b.chapters}</span>`
       : '';
     const mark = String(reading) === b.id ? '<span class="text-cyan">▸</span> ' : '  ';
     return `${mark}${link(`read ${b.title}`, b.title)} <span class="text-dim">· ${b.author}, ${b.year}</span>${where}`;
@@ -152,8 +152,8 @@ export async function cmdLongbox(args, raw, player) {
   const lines = comics.map(b => {
     const at = marks.get(b.id) || 0;
     const where = at > 0 && b.chapters > 1
-      ? `<span class="text-dim"> — part ${at + 1} of ${b.chapters}</span>`
-      : (at > 0 ? '<span class="text-dim"> — started</span>' : '');
+      ? `<span class="text-dim">part ${at + 1} of ${b.chapters}</span>`
+      : (at > 0 ? '<span class="text-dim">started</span>' : '');
     const mark = String(reading) === b.id ? '<span class="text-cyan">▸</span> ' : '  ';
     return `${mark}${link(`read ${b.title}`, b.title)} <span class="text-dim">· ${b.author}, ${b.year}</span>${where}`;
   });
@@ -283,7 +283,7 @@ export async function cmdContents(args, raw, player) {
   return {
     type: 'output',
     message: [
-      `<span class="text-cyan">${meta.title}</span> <span class="text-dim">— ${meta.author}, ${meta.year}</span>`,
+      `<span class="text-cyan">${meta.title}</span> <span class="text-dim">${meta.author}, ${meta.year}</span>`,
       ...lines,
     ].join('\n'),
   };

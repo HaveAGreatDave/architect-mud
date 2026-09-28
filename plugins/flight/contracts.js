@@ -173,16 +173,16 @@ async function cmdAccept(args, raw, player) {
   const { rows: acRows } = await query('SELECT type_id, custom_data, rental FROM aircraft WHERE id=$1', [aircraftId]);
   if (!acRows[0]) return { type: 'emote', message: 'That aircraft is no longer here to load.' };
   const { rows: tRows } = await query('SELECT * FROM aircraft_types WHERE id=$1', [acRows[0].type_id]);
-  if (!tRows[0]) return { type: 'emote', message: "This aircraft's type registration is missing — can't load a job onto it." };
+  if (!tRows[0]) return { type: 'emote', message: "This aircraft's type registration is missing: can't load a job onto it." };
   const type = tRows[0];
   // Cargo cap honours the aircraft's current weight-&-balance loadout (rigged for freight vs pax).
   const holdCap = effLoadout(acRows[0], type).cargoCap;
   if (m.kind === 'cargo' && m.weight > holdCap)
-    return { type: 'emote', message: `That's ${m.weight}kg — more than this aircraft's hold takes (${holdCap}kg${acRows[0].custom_data?.loadout ? ', as rigged' : ''}).` };
+    return { type: 'emote', message: `That's ${m.weight}kg: more than this aircraft's hold takes (${holdCap}kg${acRows[0].custom_data?.loadout ? ', as rigged' : ''}).` };
   if (m.kind === 'passenger') {
     const seatsNeeded = Math.max(1, Math.ceil((m.weight || 80) / 80));
     if (seatsNeeded > (type.seats || 1))
-      return { type: 'emote', message: `This aircraft only seats ${type.seats || 1} — that job needs ${seatsNeeded}.` };
+      return { type: 'emote', message: `This aircraft only seats ${type.seats || 1}. That job needs ${seatsNeeded}.` };
   }
 
   // Someone else may have snapped it up since it was listed.
@@ -203,8 +203,8 @@ async function cmdAccept(args, raw, player) {
   if (res?.type === 'error') return { type: 'error', message: res.message };
 
   const destName = getZone(m.destZone)?.name || m.destZone;
-  return { type: 'output', message: `<span class="item-grant">Job accepted — ${m.cargoName} loaded (${m.weight}kg). Deliver to <b>${destName}</b> within ${Math.round((m.deadlineS || 0) / 60)} minutes. Payout: <b>${payout}₵</b>.</span>` +
-    (m.contraband ? '\n<span class="text-red">This is a dark run — kill your transponder (<b>squawk off</b>) or the cameras will make you.</span>' : '') };
+  return { type: 'output', message: `<span class="item-grant">Job accepted: ${m.cargoName} loaded (${m.weight}kg). Deliver to <b>${destName}</b> within ${Math.round((m.deadlineS || 0) / 60)} minutes. Payout: <b>${payout}₵</b>.</span>` +
+    (m.contraband ? '\n<span class="text-red">This is a dark run: kill your transponder (<b>squawk off</b>) or the cameras will make you.</span>' : '') };
 }
 
 async function cmdManifest(args, raw, player) {
@@ -218,7 +218,7 @@ async function cmdManifest(args, raw, player) {
     const m = q.meta || {};
     const left = (m.deadlineS || 0) - (nowSec() - q.started_at);
     const destName = getZone(m.destZone)?.name || m.destZone;
-    return `· ${m.cargoName} → <b>${destName}</b> — <span class="${left < 0 ? 'text-red' : 'text-green'}">${left < 0 ? 'OVERDUE' : Math.ceil(left / 60) + 'min left'}</span> · ${q.rewards?.credits || 0}₵`;
+    return `· ${m.cargoName} → <b>${destName}</b>: <span class="${left < 0 ? 'text-red' : 'text-green'}">${left < 0 ? 'OVERDUE' : Math.ceil(left / 60) + 'min left'}</span> · ${q.rewards?.credits || 0}₵`;
   });
   return { type: 'output', message: `<span class="text-cyan">MANIFEST:</span>\n${lines.join('\n')}` };
 }
@@ -247,7 +247,7 @@ export async function checkContractDelivery(player, live, fieldZoneId) {
     if (cd.contractId === q.id) delete cd.contractId;
     live.row.custom_data = cd;
     await persist(live);
-    const how = m.contraband ? (late ? 'Late — half, in unmarked cash: ' : 'Paid in unmarked cash: ') : (late ? 'Late — half rate: ' : 'Paid in full: ');
+    const how = m.contraband ? (late ? 'Late, half, in unmarked cash: ' : 'Paid in unmarked cash: ') : (late ? 'Late, half rate: ' : 'Paid in full: ');
     out(player.id, `<span class="item-grant">Delivered: ${m.cargoName}. ${how}<b>${pay}₵</b>.</span>`);
   }
 }
@@ -477,8 +477,8 @@ async function deliverPalletPurchase(player, npc, item, quantity, exec) {
   const legal = !item.tags?.raw_drug;
   const tier = Math.max(0, Math.min(5, Number(item.flags?.cook_tier) || 0));
   const res = await writePallets(player, { id: item.id, name: item.name, tier, legal }, pallets, exec);
-  const risk = legal ? 'Legal leaf — nobody will scan it.' : 'Contraband precursor — every policed field you land it at runs a scanner.';
-  return `Run out to <b>${res.cache.name}</b> — ${res.pallets} pallet${res.pallets === 1 ? '' : 's'}, ${res.units}× ${item.name}. `
+  const risk = legal ? 'Legal leaf: nobody will scan it.' : 'Contraband precursor: every policed field you land it at runs a scanner.';
+  return `Run out to <b>${res.cache.name}</b>: ${res.pallets} pallet${res.pallets === 1 ? '' : 's'}, ${res.units}× ${item.name}. `
     + `Give it ${Math.round(ORDER_LEAD_S / 60)} minutes to get there, then set down <i>on</i> the drop and <b>loadcargo</b>. ${risk}`;
 }
 registerPurchaseDelivery('raws_counter', deliverPalletPurchase);
@@ -495,7 +495,7 @@ registerAction({
     await setFlag('player', AIR_UNLOCK_FLAG, '1', actor);
     // House convention: the first mention of a new verb shimmers and is clickable.
     // This is the only place a player learns `raws` exists.
-    out(actor.id, `<span class="ambient">He taps the ledger cover twice. "Ask me for the list when you want something — ${teachVerb('raws')} — and I'll have it run out."</span>`);
+    out(actor.id, `<span class="ambient">He taps the ledger cover twice. "Ask me for the list when you want something (${teachVerb('raws')}) and I'll have it run out."</span>`);
     return { type: 'ok' };
   },
 });
@@ -509,14 +509,14 @@ registerAction({
     if (!(await isAirCargoUnlocked(actor))) return { type: 'goto_node', node: 'raws_unvouched' };
     const orders = await openOrders(actor);
     if (!orders.length) {
-      out(actor.id, `<span class="ambient">Amos runs a finger down the ledger and finds nothing under your name. "You've nothing out there. Order it and I'll have it run out — <b>raws</b>."</span>`);
+      out(actor.id, `<span class="ambient">Amos runs a finger down the ledger and finds nothing under your name. "You've nothing out there. Order it and I'll have it run out: <b>raws</b>."</span>`);
       return { type: 'ok' };
     }
     const lines = orders.map(o => {
-      const when = o.readyIn > 0 ? ` <span class="text-dim">(not out there yet — ${o.readyIn}s)</span>` : '';
-      return `  <b>${o.cache.name}</b> — ${o.pallets} pallet${o.pallets > 1 ? 's' : ''}, ${o.units}× ${o.name}${when}`;
+      const when = o.readyIn > 0 ? ` <span class="text-dim">(not out there yet, ${o.readyIn}s)</span>` : '';
+      return `  <b>${o.cache.name}</b>: ${o.pallets} pallet${o.pallets > 1 ? 's' : ''}, ${o.units}× ${o.name}${when}`;
     }).join('\n');
-    out(actor.id, `<span class="item-grant">Amos turns the ledger a few degrees toward you and taps his own shorthand.\n${lines}\n<span class="text-dim">Set down <i>on</i> the drop — a pallet that size doesn't walk. You'll want something that can put down rough.</span></span>`);
+    out(actor.id, `<span class="item-grant">Amos turns the ledger a few degrees toward you and taps his own shorthand.\n${lines}\n<span class="text-dim">Set down <i>on</i> the drop: a pallet that size doesn't walk. You'll want something that can put down rough.</span></span>`);
     return { type: 'ok' };
   },
 });
@@ -569,8 +569,8 @@ async function cmdRaws(args, raw, player) {
       const locked = trust < need;
       const price = palletPrice(e);
       const label = locked
-        ? `<span class="text-dim">${e.name} — sealed (standing ${need})</span>`
-        : `<span class="action-link" data-action="cmd" data-cmd="raws ${e.name}">${e.name}</span> — ${unitsPerPallet(e.tier)}/pallet · <b>${price}₵</b>`;
+        ? `<span class="text-dim">${e.name}: sealed (standing ${need})</span>`
+        : `<span class="action-link" data-action="cmd" data-cmd="raws ${e.name}">${e.name}</span>: ${unitsPerPallet(e.tier)}/pallet · <b>${price}₵</b>`;
       const grade = e.legal ? '<span class="text-dim">legal crop</span>' : `tier ${e.tier}`;
       return `  ${label} <span class="text-dim">[${grade}]</span>`;
     }).join('\n');
@@ -580,7 +580,7 @@ async function cmdRaws(args, raw, player) {
         + (o.readyIn > 0 ? ` <span class="text-dim">(${o.readyIn}s out)</span>` : '')).join('\n')
       : '';
     return { type: 'output', message:
-      `<span class="text-amber">${npc.name}'s ledger</span> <span class="text-dim">— standing ${trust}. `
+      `<span class="text-amber">${npc.name}'s ledger</span> <span class="text-dim">· standing ${trust}. `
       + `A pallet is run out to a cache and waits there; fly to it and <b>loadcargo</b>.</span>\n${rows}${open}\n`
       + `<span class="text-dim">Order with <b>raws &lt;name&gt; [pallets]</b>. Legal crop scans clean; everything else is what customs is looking for.</span>` };
   }
@@ -610,7 +610,7 @@ async function cmdRaws(args, raw, player) {
     : `<span class="text-amber">That's contraband precursor. Every policed field you land it at runs a scanner.</span>`;
   return { type: 'output', message:
     `<span class="item-grant">${npc.name} writes it down without comment and takes <b>${res.cost}₵</b>. `
-    + `${res.pallets} pallet${res.pallets > 1 ? 's' : ''} — ${res.units}× ${entry.name} — run out to <b>${res.cache.name}</b>.</span>\n`
+    + `${res.pallets} pallet${res.pallets > 1 ? 's' : ''}: ${res.units}× ${entry.name}, run out to <b>${res.cache.name}</b>.</span>\n`
     + `<span class="ambient">"Give it a few minutes to get there. Then it's yours to fetch."</span> ${risk}` };
 }
 
@@ -659,11 +659,11 @@ async function cmdFreightLicense(args, raw, player) {
   const field = fieldOf(player);
   if (!field) return { type: 'emote', message: 'Air-freight licences are issued at the airfields.' };
   if (await isFreightLicensed(player))
-    return { type: 'emote', message: "You already hold an air-freight licence. Board an aircraft — there'll be loads waiting." };
+    return { type: 'emote', message: "You already hold an air-freight licence. Board an aircraft. There'll be loads waiting." };
   if (!(await adjustCredits(player, -FREIGHT_LICENSE_PRICE)))
-    return { type: 'emote', message: `An air-freight licence runs ${FREIGHT_LICENSE_PRICE}₵ — you can't cover it.` };
+    return { type: 'emote', message: `An air-freight licence runs ${FREIGHT_LICENSE_PRICE}₵. You can't cover it.` };
   await setFlag('player', FREIGHT_LICENSE_FLAG, '1', player);
-  return { type: 'output', message: `<span class="item-grant">Air-freight licence issued (−${FREIGHT_LICENSE_PRICE}₵). Standing cargo loads will be on the ramp whenever you board — <b>loadcargo</b> to haul them home.</span>` };
+  return { type: 'output', message: `<span class="item-grant">Air-freight licence issued (−${FREIGHT_LICENSE_PRICE}₵). Standing cargo loads will be on the ramp whenever you board: <b>loadcargo</b> to haul them home.</span>` };
 }
 
 // Loads EVERY waiting drop that fits the hold, one at a time (heaviest constraint
@@ -674,17 +674,17 @@ async function cmdLoadCargo(args, raw, player) {
   const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
   if (!live) return { type: 'emote', message: "You're not aboard an aircraft." };
   if (player.seat !== 'pilot') return { type: 'emote', message: "Only the pilot can take on cargo." };
-  if (live.row.airborne) return { type: 'emote', message: "Land first — you can't load cargo in the air." };
+  if (live.row.airborne) return { type: 'emote', message: "Land first. You can't load cargo in the air." };
   await ensureFreightDrops(player, live.row.parked_zone_id);
   const waiting = await waitingDropsAt(live.row.parked_zone_id, player.id);
   if (!waiting.length) return { type: 'emote', message: 'No cargo waiting here.' };
-  if (!player.home_zone) return { type: 'emote', message: "You've nowhere to haul it to — you don't have a home set. Rent an apartment first." };
+  if (!player.home_zone) return { type: 'emote', message: "You've nowhere to haul it to: you don't have a home set. Rent an apartment first." };
 
   const { rows: tRows } = await query('SELECT seats, max_takeoff_weight, cargo_capacity FROM aircraft_types WHERE id=$1', [live.type.id]);
   const holdCap = tRows[0] ? effLoadout(live.row, tRows[0]).cargoCap : 0;
   let already = live.row.custom_data?.cargoWeight || 0;
   const dest = await nearestAirfieldToHome(player.home_zone);
-  if (!dest) return { type: 'emote', message: "Can't find a route from your home to any airfield — the delivery falls through." };
+  if (!dest) return { type: 'emote', message: "Can't find a route from your home to any airfield: the delivery falls through." };
 
   const loaded = [];
   for (const drop of waiting) {
@@ -694,7 +694,7 @@ async function cmdLoadCargo(args, raw, player) {
   }
   if (!loaded.length) {
     const lightest = Math.min(...waiting.map(d => d.weight_kg));
-    return { type: 'emote', message: `Nothing here fits your hold — ${holdCap - already}kg free and the smallest load on the ground is ${lightest}kg. You need a bigger aircraft, or a hold rigged for cargo.` };
+    return { type: 'emote', message: `Nothing here fits your hold: ${holdCap - already}kg free and the smallest load on the ground is ${lightest}kg. You need a bigger aircraft, or a hold rigged for cargo.` };
   }
 
   const cd = live.row.custom_data || {};
@@ -708,7 +708,7 @@ async function cmdLoadCargo(args, raw, player) {
 
   const destName = fieldName(getZone(dest)) || dest;
   const weight = loaded.reduce((s, d) => s + d.weight_kg, 0);
-  return { type: 'output', message: `<span class="item-grant">${loaded.map(d => d.label).join(', ')} loaded (${weight}kg, ${loaded.length} load${loaded.length > 1 ? 's' : ''}). Fly it to <b>${destName}</b> — the last leg home is on the courier once it's on the ground there.</span>` };
+  return { type: 'output', message: `<span class="item-grant">${loaded.map(d => d.label).join(', ')} loaded (${weight}kg, ${loaded.length} load${loaded.length > 1 ? 's' : ''}). Fly it to <b>${destName}</b>. The last leg home is on the courier once it's on the ground there.</span>` };
 }
 
 // ── Customs scan (contraband air cargo) ────────────────────────────────────────
@@ -768,8 +768,8 @@ async function customsBolt(player, live, drops, fieldZoneId, auto) {
   clearCustoms(player.id);
   await seizeFenceDrops(player, live, drops, fieldZoneId);
   out(player.id, auto
-    ? `<span class="text-amber">You hang back too long. The inspector trips the alarm — the guards seize the pallets and your name goes on a list. You gun it off the ramp with the heat on you.</span>`
-    : `<span class="text-amber">You leave the load and bolt for your plane. The alarm shrills behind you — the pallets are gone and you're marked, but you're rolling before they can close the gate.</span>`);
+    ? `<span class="text-amber">You hang back too long. The inspector trips the alarm: the guards seize the pallets and your name goes on a list. You gun it off the ramp with the heat on you.</span>`
+    : `<span class="text-amber">You leave the load and bolt for your plane. The alarm shrills behind you: the pallets are gone and you're marked, but you're rolling before they can close the gate.</span>`);
 }
 
 // Called from index.cmdLandResolve on a successful landing, alongside checkContractDelivery.
@@ -789,7 +789,7 @@ export async function checkCargoDropDelivery(player, live, fieldZoneId) {
     live.row.custom_data = cd; await persist(live);
     player.credits = (player.credits || 0) + d.reward;
     await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
-    out(player.id, `<span class="item-grant">${d.label} handed off to a courier here — it'll be waiting at home. Paid <b>${d.reward}₵</b>.</span>`);
+    out(player.id, `<span class="item-grant">${d.label} handed off to a courier here: it'll be waiting at home. Paid <b>${d.reward}₵</b>.</span>`);
   }
   if (!fence.length) return;
 
@@ -812,7 +812,7 @@ export async function checkCargoDropDelivery(player, live, fieldZoneId) {
 
   // The false bottom sometimes hides the load outright — no roll.
   if (hold && Math.random() < 0.4) {
-    out(player.id, `<span class="ambient">Customs runs a scanner over your hold. The false bottom does its job — nothing pings. You taxi in clean.</span>`);
+    out(player.id, `<span class="ambient">Customs runs a scanner over your hold. The false bottom does its job: nothing pings. You taxi in clean.</span>`);
     await deliverAllFence(player, live, dirty); return;
   }
   // Deception scan — purer drugs + bigger hauls raise it; the hold eases it.
@@ -829,7 +829,7 @@ export async function checkCargoDropDelivery(player, live, fieldZoneId) {
   clearCustoms(player.id);
   const timer = setTimeout(() => { customsBolt(player, live, dirty, fieldZoneId, true).catch(() => {}); }, CUSTOMS_DECIDE_MS);
   pendingCustoms.set(player.id, { dropIds: dirty.map(d => d.id), bribe, fieldZoneId, aircraftId: live.row.id, timer });
-  out(player.id, `<span class="text-amber">⚠ Customs pulls your hold aside — <b>raw material</b> lights the scanner. The inspector's hand hovers over the alarm, palm turned up.</span>\n<span class="ambient">Slip them <b>${bribe}₵</b> and it disappears — <span class="action-link" data-action="cmd" data-cmd="customs bribe">customs bribe</span> — or leave the load and run for it — <span class="action-link" data-action="cmd" data-cmd="customs bolt">customs bolt</span>. <span class="text-dim">(They move on you in 45s either way.)</span></span>`);
+  out(player.id, `<span class="text-amber">⚠ Customs pulls your hold aside: <b>raw material</b> lights the scanner. The inspector's hand hovers over the alarm, palm turned up.</span>\n<span class="ambient">Slip them <b>${bribe}₵</b> and it disappears: <span class="action-link" data-action="cmd" data-cmd="customs bribe">customs bribe</span>, or leave the load and run for it: <span class="action-link" data-action="cmd" data-cmd="customs bolt">customs bolt</span>. <span class="text-dim">(They move on you in 45s either way.)</span></span>`);
 }
 
 // The bribe/bolt reply to a flagged customs scan.
@@ -852,7 +852,7 @@ async function cmdCustoms(args, raw, player) {
 
   if (choice === 'bribe') {
     if (!(await adjustCredits(player, -p.bribe, undefined, 'flight:customs-bribe')))
-      return { type: 'error', message: `The inspector wants ${p.bribe}₵ and your account won't cover it. Pay up — or <b>customs bolt</b> and lose the load.` };
+      return { type: 'error', message: `The inspector wants ${p.bribe}₵ and your account won't cover it. Pay up, or <b>customs bolt</b> and lose the load.` };
     clearCustoms(player.id);
     if (live && drops.length) await deliverAllFence(player, live, drops);
     return { type: 'output', message: `<span class="ambient">The credits change hands below the desk. The inspector's face goes flat; the scanner "malfunctions," and you taxi in with the load intact.</span>` };
@@ -892,9 +892,9 @@ async function cmdJettison(args, raw, player) {
 
   const what = names.length ? names.join(', ') : 'the load';
   const dump = live.row.airborne
-    ? `<span class="text-amber">You blow the cargo doors — ${what} tumbles away into the slipstream and is gone.</span>`
+    ? `<span class="text-amber">You blow the cargo doors: ${what} tumbles away into the slipstream and is gone.</span>`
     : `<span class="text-amber">You heave ${what} out onto the ramp and kick it clear.</span>`;
-  const tail = rows.length ? `\n<span class="text-red">Contract failed${contraband ? " — but there's nothing in your hold to find now" : ''}.</span>` : '';
+  const tail = rows.length ? `\n<span class="text-red">Contract failed${contraband ? ", but there's nothing in your hold to find now" : ''}.</span>` : '';
   return { type: 'emote', message: dump + tail };
 }
 

@@ -2,8 +2,8 @@
  * Flashlight plugin — a battery-powered handheld light the player carries.
  *
  * Verbs (tag-gated on the `flashlight` class tag, resolved from inventory):
- *   light   — switch it on (needs charge)
- *   unlight — switch it off
+ *   turn on/off flashlight — also `switch`, and `turn flashlight on` (input matcher)
+ *   flashlight [on|off]    — bare `flashlight` toggles
  *   reload  — consume a `battery` item to refill the cell
  *
  * Instance state lives in player_inventory.custom_data:
@@ -19,6 +19,7 @@
  * so it only helps when the room is dimmer than that.
  */
 import { query } from '../../server/models/db.js';
+import { registerInputMatcher } from '../../server/engine/plugins.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { getAllLivePlayers, getZone, getMinimapData } from '../../server/engine/world.js';
@@ -101,11 +102,37 @@ async function reload(args, raw, player) {
   return { type: 'use', message: `You snap a fresh battery into the ${f.name}. Full charge.` };
 }
 
+// Switch a flashlight to `want` ('on' | 'off' | null = toggle). A name that
+// matches nothing falls back to whichever flashlight is carried, so
+// "turn on the torch" works on an item called "Flashlight".
+async function setBeam(want, name, raw, player) {
+  let f = name ? await resolveFlashlight(player, name) : null;
+  if (!f) { name = ''; f = await resolveFlashlight(player, ''); }
+  if (!f) return { type: 'error', message: `You don't have a flashlight.` };
+  const on = want ? want === 'on' : !f.custom_data?.lit;
+  return (on ? light : unlight)(name ? [name] : [], raw, player);
+}
+
+// `flashlight` toggles; `flashlight on` / `flashlight off` are explicit.
+async function flashlightVerb(args, raw, player) {
+  const want = args.find(w => /^(on|off)$/i.test(w))?.toLowerCase() ?? null;
+  const name = args.filter(w => !/^(on|off)$/i.test(w)).join(' ').trim();
+  return setBeam(want, name, raw, player);
+}
+
 export const specializedActions = [
-  { verb: 'light', requiredTag: 'flashlight', handler: light },
-  { verb: 'unlight', requiredTag: 'flashlight', handler: unlight },
+  { verb: 'flashlight', requiredTag: 'flashlight', handler: flashlightVerb },
   { verb: 'reload', requiredTag: 'flashlight', handler: reload },
 ];
+
+// "turn on flashlight", "turn the flashlight off", "switch off my torch". A
+// matcher rather than a verb, because `turn`/`switch` belong to furniture and
+// the flight plugin; it only claims input that names a flashlight or torch.
+const TURN_RE = /^\s*(?:turn|switch)\s+(?:(on|off)\s+(?:the\s+|my\s+)?(.*\b(?:flashlight|torch)\b.*?)|(?:the\s+|my\s+)?(.*\b(?:flashlight|torch)\b.*?)\s+(on|off))\s*$/i;
+registerInputMatcher(TURN_RE, (args, raw, player) => {
+  const m = raw.match(TURN_RE);
+  return setBeam((m[1] || m[4]).toLowerCase(), (m[2] || m[3]).trim(), raw, player);
+}, 'flashlight');
 
 // A lit, charged flashlight in the holder's inventory raises their perceived
 // light to at least LIT_FLOOR. Only queries when the room is dimmer than that.

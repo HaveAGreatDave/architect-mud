@@ -1,6 +1,6 @@
 {
   "cost": 9500,
-  "description": "Subdermal weave of the grade The First wears, laid in a lattice from throat to hip so the whole torso answers at once. Halcyon doesn't list it. There's no shelf it sits on and no price on any board — there's an account, and either it's the kind of account this goes on or it's not.",
+  "description": "Subdermal weave of the grade The First wears, laid in a lattice from throat to hip so the whole torso answers at once. Halcyon doesn't list it. There's no shelf it sits on and no price on any board. There's an account, and either it's the kind of account this goes on or it's not.",
   "failure_messages": {
     "burnout": "The whole torso locks rigid, throat to hip, and holds you upright in a way that has nothing to do with standing.",
     "dead": "The lattice goes slack under the skin all at once, and you feel every separate strand of it stop.",

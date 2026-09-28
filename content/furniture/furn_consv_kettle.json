@@ -6,9 +6,7 @@
       "tin",
       "mugs"
     ],
-    "interactions": {
-      "examine": "Two mugs. One of them gets used."
-    }
+    "examine_detail": "Two mugs. One of them gets used."
   },
   "id": "furn_consv_kettle",
   "name": "the kettle",

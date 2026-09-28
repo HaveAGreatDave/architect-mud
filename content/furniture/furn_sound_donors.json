@@ -6,9 +6,7 @@
       "donors",
       "names"
     ],
-    "interactions": {
-      "examine": "Halcyon Assurance heads the first column. The rest are individuals, and every one of them is listed with the year they gave and no year after it."
-    }
+    "examine_detail": "Halcyon Assurance heads the first column. The rest are individuals, and every one of them is listed with the year they gave and no year after it."
   },
   "id": "furn_sound_donors",
   "name": "the donor wall",

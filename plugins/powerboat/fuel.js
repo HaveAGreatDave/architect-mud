@@ -35,6 +35,7 @@ import { registerAction } from '../../server/engine/actions.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { query } from '../../server/models/db.js';
 import { getZone } from '../../server/engine/world.js';
+import { surfaceAt } from '../flight/state.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { TYPES } from '../../client/game/js/panels/flight-model.js';
 import { aboard, berthsNear, myBoats, pickBoat } from './yard.js';
@@ -69,6 +70,39 @@ export function boatFuelAt(zone) {
   // contributors on that hook make this same move for this same reason.
   const z = zone && zone.flags ? zone : (zone?.id ? getZone(zone.id) : null);
   return !!z?.flags?.boat_fuel;
+}
+
+// ── ALONGSIDE ────────────────────────────────────────────────────────────────
+//
+// ⚠ A FUEL BERTH SELLS TO THE WATER BESIDE IT, NOT TO ITS OWN DECK. A hull lies alongside the
+// pylons; it does not park on top of the float. So a `fuel_dock` tile serves the one water tile on
+// its pylon side, and `boatFuelAt` (which the price pylon reads) still answers for the deck, where
+// the board stands. An older fuel float of any other building type is still served on the tile.
+//
+// ⚠ THE SIDE IS DERIVED FROM THE ENTRANCE AND NEVER AUTHORED: 90 degrees counter-clockwise of it on
+// the compass, a south entrance putting the pylons EAST. The GLASS arm (windshield.js, case
+// 'fuel_dock') draws the pylons on its local +X by exactly this rule, and an arm cannot be handed a
+// per-tile flag because its mesh is shared by every tile drawing the model — so this function and
+// that arm are the two halves of one decision.
+const CCW = { south: 'east', east: 'north', north: 'west', west: 'south' };
+const STEP = { north: [0, -1], east: [1, 0], south: [0, 1], west: [-1, 0] };
+export function fuelSideOf(zone) {
+  const f = zone?.flags;
+  if (!f?.boat_fuel || f.building_type !== 'fuel_dock') return null;
+  return CCW[f.entrance] || 'east';
+}
+export function fuelServesAt(zone) {
+  const z = zone && zone.flags ? zone : (zone?.id ? getZone(zone.id) : null);
+  if (!z) return false;
+  if (z.flags?.boat_fuel && z.flags.building_type !== 'fuel_dock') return true;
+  if (!(z.grid_x || z.grid_y)) return false;
+  for (const [dir, [sx, sy]] of Object.entries(STEP)) {
+    // The neighbour that would have to be pointing back at us lies on the OPPOSITE side.
+    const cell = surfaceAt(z.grid_x - sx, z.grid_y - sy);
+    const n = cell?.id ? getZone(cell.id) : null;
+    if (n && fuelSideOf(n) === dir) return true;
+  }
+  return false;
 }
 
 /**
@@ -171,15 +205,22 @@ registerAction({
     const near = seated || berthsNear(player.current_zone).some((z) => z.id === boat.berth_zone);
     if (!near) return null;
 
-    const where = boat.berth_zone ? getZone(boat.berth_zone) : null;
-    if (!boatFuelAt(where)) {
+    // ⚠ UNDER WAY, SHE IS WHERE THE HULL IS, NOT WHERE SHE WAS BERTHED. `berth_zone` is the slot she
+    // came out of, so a helmsman who brought her alongside the float was told there was no pump —
+    // at the pump. The live position answers it, and she has to have stopped: nobody fuels a boat
+    // going past the float at forty.
+    const { livePosition, zoneUnder } = await import('./adrift.js');
+    const live = seated ? livePosition(player.id) : null;
+    if (live && live.speed > 2) return say(`<span class="text-dim">Bring ${name} to a stop alongside first.</span>`);
+    const where = live ? zoneUnder(live.x, live.y) : (boat.berth_zone ? getZone(boat.berth_zone) : null);
+    if (!fuelServesAt(where)) {
       // ⚠ A DRY HULL GETS TOLD THE WAY OUT. "Bring her alongside the fuel float" is a fine
       // instruction to somebody with fuel and a useless one to somebody with none, and this is the
       // verb they will reach for first when the engine stops — so it is the one place `tow` has to
       // be mentioned, or the only route out of a stranding is a word nobody has been told.
       const dry = Number(boat.fuel ?? 1) <= 0.005;
-      return say(`<span class="text-dim">There is no pump where ${name} is lying. Bring her alongside the fuel float.`
-        + (dry ? ' On what, though — she is dry. Somebody will come out for her: <b>tow</b>.' : '') + '</span>');
+      return say(`<span class="text-dim">There is no pump where ${name} is lying. Bring her alongside the pumps at the fuel berth.`
+        + (dry ? ' On what, though: she is dry. Somebody will come out for her: <b>tow</b>.' : '') + '</span>');
     }
 
     const room = 1 - Math.max(0, Math.min(1, Number(boat.fuel ?? 1)));
@@ -222,7 +263,7 @@ export function fuelPrices(zone) {
     // ⚠ DERIVED FROM THE SAME CONSTANT IT CHARGES BY, never written out — the fuelstation README's
     // own rule, because `each` is a PRESENTATION of one number rather than a second entry of it.
     each: FUEL_PER_UNIT,
-    note: 'race fuel, by the unit — a Rooster takes 260 of them',
+    note: 'race fuel, by the unit: a Rooster takes 260 of them',
   };
 }
 

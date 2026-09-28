@@ -203,7 +203,7 @@ const KNOWN = new Map([
   // radius that only tapers, and this one has to be proud of a radius that bulges. It is blessed
   // rather than fixed because the pods are a live edit in another session, so the standoff would be
   // authored against geometry that is still moving. Fix it and this number owes eight points back.
-  ['stroke', { budget: 672, why:
+  ['stroke', { budget: 610, why:
    'masts, fire stairs, catwalk rails and guy wires are authored INSIDE the host they hang off — a '
    + 'mast at its tile centre is 0.44 tiles behind its own front wall — so `emitWire` still spends '
    + 'the full DECO_LIFT and they are pulled clear on purpose. The Dynamo lost its entire external '

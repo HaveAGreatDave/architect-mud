@@ -87,11 +87,11 @@ function refusal(r) {
   }
   if (!r.pattern) {
     return 'The terminal finds hardware and a paid policy, and no scan on file, and declines.\n'
-      + '<span class="text-dim">Nothing of you has been committed yet. Go to the Vats Registry and `backup` — what you commit there\'s exactly who gets up afterwards.</span>';
+      + '<span class="text-dim">Nothing of you has been committed yet. Go to the Vats Registry and `backup`. What you commit there\'s exactly who gets up afterwards.</span>';
   }
   if (!r.clean) {
     return "The terminal reads you, hesitates in a way machines aren't supposed to, and declines.\n"
-      + '<span class="text-dim">There\'s a warrant against this body. The police take a wanted corpse before Halcyon does, and Halcyon won\'t contest it — they will simply not collect. Settle it, then come back.</span>';
+      + '<span class="text-dim">There\'s a warrant against this body. The police take a wanted corpse before Halcyon does, and Halcyon won\'t contest it. They will simply not collect. Settle it, then come back.</span>';
   }
   return null;
 }
@@ -102,11 +102,11 @@ function warning() {
     '<span class="ambient">You put both hands on the terminal. It\'s colder than the room, and the room is cold.</span>',
     '',
     '<span class="dmg-taken">This will kill you.</span>',
-    '<span class="text-dim">Not metaphorically, and not gently. The pattern held in the Vats is the one you committed, not the one standing here — anything you have become since your last scan isn\'t in it.</span>',
+    '<span class="text-dim">Not metaphorically, and not gently. The pattern held in the Vats is the one you committed, not the one standing here. Anything you have become since your last scan isn\'t in it.</span>',
     '',
     '<span class="dmg-taken">And it\'ll finish something.</span>',
     '<span class="text-dim">Getting up in the Vats is the last step of the Rite, and after it you\'re theirs on the ledger, permanently. Your standing with them stops being something you can lose. The flesh path shut the day you were first fitted; this shuts the rest of the doors behind it, and the orders who might have taken you won\'t be taking you now.</span>',
-    '<span class="text-dim">There\'s no quiet way back out. Walking away from the Ascendants after tonight isn\'t a conversation you can have — it\'s the Exodus on their table, taking out everything Halcyon ever put in.</span>',
+    '<span class="text-dim">There\'s no quiet way back out. Walking away from the Ascendants after tonight isn\'t a conversation you can have. It\'s the Exodus on their table, taking out everything Halcyon ever put in.</span>',
     '',
     '<span class="ambient">Somewhere behind you, Orrin isn\'t saying anything.</span>',
     '',

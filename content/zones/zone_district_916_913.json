@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#1c2618",
   "color": "#5f9e4a",
-  "description": "The last building on this side before the ground gives up and goes to grass, and the only one on Foundry Way with any glass to speak of: a long low span of it, about a third replaced with mismatched panes and a few panels of bare board where the glass lost. Bags of compost stacked against the end wall under a tarpaulin. A hand-painted board reads COMPOST MENTIS, and under it, EVERYTHING HERE WILL GROW IN THIS SOIL, WE HAVE CHECKED.",
+  "description": "The last building on Foundry Way before the grass: a long, low glasshouse, a third of it reglazed in mismatched panes and patched with bare board. Compost bags under a tarpaulin against the end wall. A hand-painted board reads COMPOST MENTIS, and under it, EVERYTHING HERE WILL GROW IN THIS SOIL, WE HAVE CHECKED.",
   "exits": {
     "north": "zone_district_916_912",
     "south": "zone_compostmentis_yard"

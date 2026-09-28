@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#0f151e",
   "color": "#bcd8ee",
-  "description": "A tower that turns as it climbs, so from the corner of Kerbstone Row and Kettle Lane you are looking at an edge that walks slowly round the building as you cross the junction. The flats start at the fourth floor. At the top, where the twist has come nearly a quarter turn, the crown floor is lit differently from everything under it — warmer, lower, and on when the rest of the tower is dark. That is the restaurant, and it has its own door at street level with its own lift.",
+  "description": "A tower that turns as it climbs, so from the corner of Kerbstone Row and Kettle Lane you are looking at an edge that walks slowly round the building as you cross the junction. The flats start at the fourth floor. At the top, where the twist has come nearly a quarter turn, the crown floor is lit differently from everything under it: warmer, lower, and on when the rest of the tower is dark. That is the restaurant, and it has its own door at street level with its own lift.",
   "exits": {
     "north": "zone_hf_topmarket_lift",
     "south": "zone_district_898_916"

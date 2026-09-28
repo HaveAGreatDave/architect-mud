@@ -175,7 +175,7 @@ function actionBtn(a, cls = '') {
   const partial = a.command.endsWith(' ');
   return `<button class="wsp-act${partial ? ' wsp-act-partial' : ''}${a.state === 'on' ? ' wsp-on' : ''}${cls ? ` ${cls}` : ''}"`
     + ` data-cmd="${esc(a.command)}"${a.state === 'on' ? ' aria-pressed="true"' : ''}`
-    + ` title="${esc(a.command.trim())}${a.hint ? ` — ${esc(a.hint)}` : ''}">${esc(a.label)}</button>`;
+    + ` title="${esc(a.command.trim())}${a.hint ? `: ${esc(a.hint)}` : ''}">${esc(a.label)}</button>`;
 }
 
 function actionStrip(actions) {
@@ -243,7 +243,7 @@ function disclosure(kind, rowId, actions) {
   return `<span class="wsp-disc ${spec.cls}${open ? ' wsp-disc-open' : ''}">`
     + `<button class="wsp-act wsp-disc-toggle" data-bank="${esc(key)}"`
     + ` aria-expanded="${open}" aria-controls="${id}"`
-    + ` title="${esc(spec.title)} — ${esc(actions.map(a => a.label).join(', '))}">`
+    + ` title="${esc(spec.title)}: ${esc(actions.map(a => a.label).join(', '))}">`
     + `${esc(spec.label)}${open ? ' ▾' : '…'}</button>`
     + `<span class="wsp-disc-list" id="${id}"${open ? '' : ' hidden'}>`
     + actions.map(a => actionBtn(a, 'wsp-disc-item')).join('')
@@ -279,7 +279,7 @@ function cookMeter(cook) {
   // right and would say nothing about the one fact that matters — they would
   // simply stop moving, which looks exactly like a slow cook.
   if (cook.phase === 'paused') return `<span class="wsp-paused">OFF THE HEAT</span>`;
-  if (cook.phase === 'window') return `<span class="wsp-window">READY — plate it</span>`;
+  if (cook.phase === 'window') return `<span class="wsp-window">READY: plate it</span>`;
   if (cook.phase === 'over') return `<span class="wsp-over">PAST IT</span>`;
   if (cook.phase === 'burnt') return `<span class="wsp-burnt">BURNING</span>`;
   if (!cook.stages) return '';
@@ -353,7 +353,7 @@ function rowActions(c) {
 
 function componentLine(c, indent = 0) {
   const notes = (c.notes || []).length ? `<span class="wsp-note"> · ${esc(c.notes.join(' · '))}</span>` : '';
-  const state = c.state ? `<span class="wsp-state"> — ${esc(c.state)}</span>` : '';
+  const state = c.state ? `<span class="wsp-state">: ${esc(c.state)}</span>` : '';
   const qty = c.qty ? `<span class="wsp-qty"> ×${c.qty}</span>` : '';
   const meter = c.cook ? ` ${cookMeter(c.cook)}` : '';
   // Wanted by the recipe you're reading. The marker goes in front so a column of
@@ -422,7 +422,7 @@ function renderStation(v) {
     ? `<span class="wsp-heat">burner ${esc(v.heat)}</span>` : '';
   const head = `<div class="wsp-row wsp-vessel${v.hot ? ' wsp-hot' : ''}${v.idle ? ' wsp-idle' : ''}">`
     + `<span class="wsp-name">${esc(v.name)}</span>`
-    + `<span class="wsp-state"> — ${esc(v.place)}</span> ${heat}</div>`;
+    + `<span class="wsp-state">: ${esc(v.place)}</span> ${heat}</div>`;
 
   // A free burner is a place to put a pan, not a container: it has no inside, so
   // it gets no "empty" line, no controls and no bank. What it can have is an
@@ -525,7 +525,7 @@ function renderAssistant(a) {
       const need = r.equipment.length ? `needs ${esc(r.equipment.join(', '))}`
         : nouns.length ? `need ${esc(nouns.join(', '))}`
         : r.missing.length ? `need ${esc(r.missing.join('; '))}`
-        : (r.kitSoft || []).length ? `ready — no ${esc(r.kitSoft.join(', '))}`
+        : (r.kitSoft || []).length ? `ready: no ${esc(r.kitSoft.join(', '))}`
         : esc(r.suggestion || 'ready');
       // Click to read it. The method and the ingredient list are already in the
       // payload — the Cookbook app has always shown them, and the HUD was
@@ -546,7 +546,7 @@ function renderAssistant(a) {
       // of REASONS beside them, which is the scan you actually do.
       const head = `<div class="wsp-row wsp-recipe${open ? ' wsp-open' : ''}" data-recipe="${esc(r.key)}">`
         + `${ord}<span class="wsp-name">${esc(r.name)}</span>`
-        + `<span class="wsp-state"> — ${need}</span>`
+        + `<span class="wsp-state">: ${need}</span>`
         + `<span class="wsp-recipe-gauge">`
         + (r.band ? `<span class="wsp-note">${esc(r.band)}</span>` : '')
         + `${bar(r.pct)}<span class="wsp-qty">${r.pct}%</span></span>`
@@ -575,7 +575,7 @@ function renderAssistant(a) {
         const prep = s.prep ? `<span class="wsp-note"> · ${esc(s.prep)}</span>` : '';
         // Alternatives, never a shopping list: any ONE of these answers the line,
         // which is exactly why they're an aside and not their own rows.
-        const alt = (s.ex || []).length ? `<span class="wsp-state"> — ${esc(s.ex.join(' or '))}</span>` : '';
+        const alt = (s.ex || []).length ? `<span class="wsp-state">: ${esc(s.ex.join(' or '))}</span>` : '';
         // A shop you know, or the honest absence of one. `sold: false` is the
         // most useful answer on this line: nobody stocks it, so no amount of
         // walking will find it and you're catching, growing or looting it.
@@ -599,7 +599,7 @@ function renderAssistant(a) {
       // deliberately not pressable.
       if ((r.walkthrough || []).length) {
         body.push(`<div class="wsp-row wsp-step"> </div>`);
-        body.push(`<div class="wsp-row wsp-step wsp-mark-note">Step by step — press one at a time, and judge the heat yourself.</div>`);
+        body.push(`<div class="wsp-row wsp-step wsp-mark-note">Step by step: press one at a time, and judge the heat yourself.</div>`);
         (r.walkthrough || []).forEach((s, i) => {
           const hint = s.hint ? `<span class="wsp-note"> · ${esc(s.hint)}</span>` : '';
           if (!s.command) {
@@ -610,13 +610,13 @@ function renderAssistant(a) {
           // its uppercase 10px border would undo the whole point of a full-width
           // step. It carries `data-cmd` and the click handler takes both.
           body.push(`<button type="button" class="wsp-row wsp-step wsp-run" data-cmd="${esc(s.command)}"`
-            + ` title="${esc(s.command)}${s.hint ? ` — ${esc(s.hint)}` : ''}">`
+            + ` title="${esc(s.command)}${s.hint ? `: ${esc(s.hint)}` : ''}">`
             + `<span class="wsp-run-n">${i + 1}.</span> ${esc(s.text)}${hint}`
             + `<span class="wsp-run-cmd">${esc(s.command)}</span></button>`);
         });
       }
       if (wanted.size) {
-        body.push(`<div class="wsp-row wsp-step wsp-mark-note">▸ marks what it would use, wherever it is${selected.size > 1 ? ` — numbered by recipe, so ▸${ordinals.get(r.key)} is this one` : ''}.</div>`);
+        body.push(`<div class="wsp-row wsp-step wsp-mark-note">▸ marks what it would use, wherever it is${selected.size > 1 ? `: numbered by recipe, so ▸${ordinals.get(r.key)} is this one` : ''}.</div>`);
       }
       return head + body.join('');
     }).join('')
@@ -672,7 +672,7 @@ function renderRecipeCard(r) {
     const mark = g.held ? '✓' : (g.req === 'required' ? '✗' : '·');
     const cls = g.held ? 'wsp-kit-held' : (g.req === 'required' ? 'wsp-kit-short' : 'wsp-kit-soft');
     const note = (!g.held && g.req !== 'required')
-      ? `<span class="wsp-note"> — better with, works without</span>` : '';
+      ? `<span class="wsp-note">: better with, works without</span>` : '';
     return `<div class="wsp-row wsp-step ${cls}"><span class="wsp-kit-mark">${mark}</span> ${esc(g.label)}${note}</div>`;
   }).join('');
 
@@ -1252,7 +1252,7 @@ function render(data) {
   // TWO COLUMNS: the working area, and what you could put into it. Everything
   // with a clock in it is on the left; everything you pick from is on the right.
   const work = [];
-  work.push(section('On the surface', renderArea(data.area || []), 'nothing out — no pan, no free ring'));
+  work.push(section('On the surface', renderArea(data.area || []), 'nothing out: no pan, no free ring'));
 
   const supply = [];
   // One button for the whole highlighted shelf. It fires the same `pullid` the
@@ -1287,7 +1287,7 @@ function render(data) {
       const r = byKey.get(key);
       if (!r) continue;
       const ord = ordinals.size > 1 ? `${ordinals.get(key)} · ` : '';
-      body.push(section(`Recipe — ${ord}${r.name}`, renderRecipeCard(r), 'nothing written down for it'));
+      body.push(section(`Recipe: ${ord}${r.name}`, renderRecipeCard(r), 'nothing written down for it'));
     }
   }
 

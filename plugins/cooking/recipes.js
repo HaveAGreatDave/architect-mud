@@ -55,7 +55,7 @@ export async function cmdRecipe(args, raw, player, broadcast) {
     const lines = [`<span class="text-bright">Your own recipes</span>`];
     for (const [, blob] of saved) {
       const best = blob.best ? ` <span class="text-dim">(best: ${blob.best})</span>` : '';
-      const from = blob.author && blob.author !== player.handle ? ` <span class="text-dim">— from ${blob.author}</span>` : '';
+      const from = blob.author && blob.author !== player.handle ? ` <span class="text-dim">from ${blob.author}</span>` : '';
       lines.push(`  <span class="text-bright">${blob.name}</span>${best} <span class="text-dim">· ${blob.family || 'dish'}${blob.vessel ? ` in a ${blob.vessel}` : ''}</span>${from}`);
     }
     return { type: 'output', message: lines.join('\n') };
@@ -81,7 +81,7 @@ export async function cmdRecipe(args, raw, player, broadcast) {
       complexity: cd.complexity, band: cd.cook_quality, author: player.handle,
     });
     if (!res.saved) {
-      return { type: 'error', message: `You've already written that one down — you called it ${res.existing.name}. ("recipe rename ${res.existing.name} to ${name}")` };
+      return { type: 'error', message: `You've already written that one down: you called it ${res.existing.name}. ("recipe rename ${res.existing.name} to ${name}")` };
     }
     // Rename the plate in your hands to match, so the thing you just named is
     // called that now rather than only the next time you make it.
@@ -89,7 +89,7 @@ export async function cmdRecipe(args, raw, player, broadcast) {
       `UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) || jsonb_build_object('name', $2::text) WHERE id=$1`,
       [held.inv_id ?? held.id, name]
     );
-    return { type: 'output', message: `You write it down: <span class="text-bright">${name}</span>. Yours now — the game will call it that, and so will anybody you teach.` };
+    return { type: 'output', message: `You write it down: <span class="text-bright">${name}</span>. Yours now: the game will call it that, and so will anybody you teach.` };
   }
 
   // ── rename <old> to <new> ─────────────────────────────────────────────────
@@ -129,7 +129,7 @@ export async function cmdRecipe(args, raw, player, broadcast) {
         },
       })]
     );
-    return { type: 'output', message: `You copy ${hit.name} onto a card. Anybody can <b>read</b> it — or buy it off you.` };
+    return { type: 'output', message: `You copy ${hit.name} onto a card. Anybody can <b>read</b> it, or buy it off you.` };
   }
 
   // ── teach <name> to <player> ──────────────────────────────────────────────
@@ -143,7 +143,7 @@ export async function cmdRecipe(args, raw, player, broadcast) {
     if (!pool.length) return { type: 'error', message: `There's nobody here to teach.` };
     const r = siftResolve(m[2].trim(), pool);
     if (r.type === 'none') return { type: 'error', message: `There's no "${m[2].trim()}" here.` };
-    if (r.type === 'ambiguous') return { type: 'error', message: `Who do you mean — ${r.candidates.map(c => c.handle).join(', ')}?` };
+    if (r.type === 'ambiguous') return { type: 'error', message: `Who do you mean: ${r.candidates.map(c => c.handle).join(', ')}?` };
     const target = r.candidate;
 
     // The AUTHOR travels with it. A recipe three players deep still says whose

@@ -301,6 +301,15 @@ const PANELS = {
     fetch: fetchFauna,
     render: renderFauna,
   },
+  // The thermal field over the live world (client/shared/thermals.js), with the hawks riding it and
+  // every airborne aircraft. Derived, like the birds, so there is nothing here to edit.
+  thermals: {
+    title: 'Thermals',
+    description: 'Rising air over sun-heated ground: the same field the cockpit flies in, the server checks engine-off climb against, and the red-tails spiral up. Hour and weather move the question, not the world.',
+    noEdit: true,
+    fetch: fetchThermals,
+    render: renderThermals,
+  },
   scavenging: {
     title: 'Scavenging Tables',
     description: 'Reusable loot templates for the scavenge action. Attach one to a zone from the zone editor (Scavenging section); per-zone stock is tracked automatically.',
@@ -532,7 +541,7 @@ const OPS_WRITABLE_PANELS = new Set(['dashboard', 'devlog', 'worldstate', 'timew
                                      // the world-content banner: "edited on your local dev panel and
                                      // reaches prod through the CODEX deploy", which is untrue of
                                      // every line on it and would send somebody looking for a file.
-                                     'fauna']);
+                                     'fauna', 'thermals']);
 function opsPanelReadOnly(name) {
   if (!window.OPS_MODE) return false;
   // Per PANEL, never per nav row — see the ⚠ on NAV_ALIASES below.

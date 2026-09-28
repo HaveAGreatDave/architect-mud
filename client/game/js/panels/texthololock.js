@@ -71,7 +71,7 @@ function paint(state) {
     _status ? `\n${_status}` : '',
     heading('ACTIONS', W),
     `<span class="pick" data-hact="set">[ set ]</span>  <span class="pick" data-hact="abort">[ abort ]</span>`,
-    `<span class="dim">SPACE or [set] when the scanner ▓ is over the sweet zone — which you can't see until the pin drops.</span>`,
+    `<span class="dim">SPACE or [set] when the scanner ▓ is over the sweet zone, which you can't see until the pin drops.</span>`,
   ];
   setAreaPane(`<div class="txui txhl">${lines.filter(Boolean).join('\n')}</div>`);
   wire();
@@ -125,8 +125,8 @@ const SKIN = {
   },
   finish: (s, won) => {
     _status = won
-      ? '<span class="ok">◇ LOCK DISENGAGED — access granted.</span>'
-      : '<span class="bad">✕ SEQUENCE RESET — deck flagged.</span>';
+      ? '<span class="ok">◇ LOCK DISENGAGED: access granted.</span>'
+      : '<span class="bad">✕ SEQUENCE RESET: deck flagged.</span>';
     paint(s);
     setTimeout(() => close(), won ? 1200 : 2200);
   },

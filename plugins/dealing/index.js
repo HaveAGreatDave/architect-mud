@@ -57,7 +57,7 @@ async function cmdPeddle(args, raw, player) {
   if (!pool.length) return { type: 'error', message: 'Nobody here to deal with.' };
   const r = siftResolve(who, pool);
   if (r.type === 'none') return { type: 'error', message: `There's no "${who}" here.` };
-  if (r.type === 'ambiguous') return { type: 'error', message: `Who do you mean — ${r.candidates.map(c => c.handle).join(', ')}?` };
+  if (r.type === 'ambiguous') return { type: 'error', message: `Who do you mean: ${r.candidates.map(c => c.handle).join(', ')}?` };
   const buyer = r.candidate;
 
   const { rows } = await query(
@@ -89,8 +89,8 @@ async function cmdPeddle(args, raw, player) {
   }, OFFER_TTL_MS);
   pendingDeal.set(buyer.id, { sellerId: player.id, sellerHandle: player.handle, invId: row.inv_id, itemId: row.item_id, itemName: row.name, cd, price: px, timer });
 
-  sendToPlayer(buyer.id, { type: 'output', message: `<span class="msg-system">${player.handle} slips you a look — <b>${nm}</b> for <b>₵${px}</b>. <b>acceptdeal</b> to buy, <b>declinedeal</b> to pass.</span>` });
-  return { type: 'output', message: `You offer ${buyer.handle} the ${nm} for ₵${px} — waiting on them.` };
+  sendToPlayer(buyer.id, { type: 'output', message: `<span class="msg-system">${player.handle} slips you a look: <b>${nm}</b> for <b>₵${px}</b>. <b>acceptdeal</b> to buy, <b>declinedeal</b> to pass.</span>` });
+  return { type: 'output', message: `You offer ${buyer.handle} the ${nm} for ₵${px}: waiting on them.` };
 }
 
 async function cmdAcceptDeal(args, raw, player) {
@@ -123,13 +123,13 @@ async function cmdAcceptDeal(args, raw, player) {
   } catch {
     if (failed === 'gone') return { type: 'error', message: `${seller.handle} doesn't have it anymore.` };
     if (failed === 'funds') return { type: 'error', message: `You couldn't cover ₵${offer.price}.` };
-    return { type: 'error', message: 'The deal glitched — nothing moved.' };
+    return { type: 'error', message: 'The deal glitched: nothing moved.' };
   }
 
   // The hand-off: charges the SELLER with dealing (witness-rolled by surveillance).
   emit('item.given', { actor: seller, item: { item_id: offer.itemId } });
   const nm = offer.cd?.name || offer.itemName;
-  sendToPlayer(seller.id, { type: 'output', message: `<span class="msg-system">${player.handle} takes the ${nm} — ₵${offer.price} in your pocket. (Balance: ₵${seller.credits})</span>` });
+  sendToPlayer(seller.id, { type: 'output', message: `<span class="msg-system">${player.handle} takes the ${nm}: ₵${offer.price} in your pocket. (Balance: ₵${seller.credits})</span>` });
   return { type: 'output', message: `You palm the ${nm} from ${seller.handle} for ₵${offer.price}. (Balance: ₵${player.credits})`, player_update: { credits: player.credits } };
 }
 
@@ -147,7 +147,7 @@ async function cmdCancelDeal(args, raw, player) {
     if (o.sellerId === player.id) {
       clearOffer(bid);
       const buyer = getLivePlayer(bid);
-      if (buyer) sendToPlayer(buyer.id, { type: 'output', message: `<span class="msg-system">${player.handle} pockets the ${o.cd?.name || o.itemName} again — deal's off.</span>` });
+      if (buyer) sendToPlayer(buyer.id, { type: 'output', message: `<span class="msg-system">${player.handle} pockets the ${o.cd?.name || o.itemName} again: deal's off.</span>` });
       return { type: 'output', message: `You pull the offer back.` };
     }
   }

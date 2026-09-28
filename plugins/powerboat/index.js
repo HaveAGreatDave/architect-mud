@@ -19,13 +19,14 @@
 // on the Basin can see, hear or collide with, and nothing anywhere would say so.
 
 import { registerAction } from '../../server/engine/actions.js';
+import { on } from '../../server/engine/events.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { query } from '../../server/models/db.js';
 import { hurtInWreck, wreckSeverity, wreckLines } from './breakup.js';
-import { cmdBoat, cmdBoats, cmdBerth, cmdRefit, boatEmbark, boatDisembark, aboard, berthKind } from './yard.js';
+import { cmdBoat, cmdBoats, cmdBerth, cmdRefit, boatEmbark, boatDisembark, aboard, berthKind, recoverAboard } from './yard.js';
 // The seat. `yard.js` owns where a hull lives between runs; this owns the twenty seconds after you
 // step down into her — the helm the client paints, the telemetry back, and the events it reports.
-import { cmdHelm, cmdBoatSync, cmdBoatEvent } from './helm.js';
+import { cmdHelm, cmdBoatSync, cmdBoatEvent, svcState } from './helm.js';
 // The bottom two Display Mode rungs: the same `stepBoat`, run here, conned by order. See its
 // header — a helm is a surface you ACT through, so without this the whole system is unreachable
 // for anybody not looking at a canvas.
@@ -33,6 +34,7 @@ import { cmdConn, endTextHelm } from './texthelm.js';
 // The yard as a screen — the `prefersLoggedPanels` half. ⚠ It decides nothing: every button on it
 // sends a verb a player could have typed, so deleting it leaves nobody stuck.
 import { installMarinaShopfront, repushMarina } from './shopfront.js';
+import { doUseDesk } from './desk.js';
 // The tank. `stepBoat` has spent fuel since the day it shipped and nothing anywhere could put any
 // in, which made a 14,500₵ hull a four-minute countdown. Registers BOAT_FUEL and answers the
 // forecourt's price board.
@@ -204,6 +206,9 @@ registerAction({
     // somebody a mile offshore, is in a room they have not been in for ten minutes. Asked in the
     // other order the ordinary climb-out always answers, and going over the side is unreachable.
     // `overboard` returns null when there is no passage to end, which is what makes that safe.
+    // The service overlay goes with the seat, however she is left.
+    svcState.delete(actor.id);
+    await recoverAboard(actor);
     const wet = await overboard(actor, context?.broadcast);
     if (wet) return wet;
     await endTextHelm(actor.id);
@@ -230,11 +235,22 @@ export const events = {
   // and a player who logs out after a hard passage would find her mysteriously in better condition
   // than they left her. Not awaited: an event handler is not a transaction, and the alternative is
   // holding up a logout on a write.
-  'player.logout': ({ player }) => { aboard.delete(player.id); endTextHelm(player.id); },
+  // ⚠ `player.logout` EMITS `{ id }`, NOT `{ player }` (server/index.js). Destructured as `player` this threw on
+  // every logout and the seat was never let go, so after a reload the card read "you are sitting in
+  // her" and would not seat you. Death, one line down, really does carry `player`.
+  'player.logout': ({ id }) => { if (!id) return; aboard.delete(id); svcState.delete(id); endTextHelm(id); },
+  // ⚠ AND LOGIN CLEARS IT TOO. A reload takes the session over, and the old socket's logout is not
+  // guaranteed to fire before (or at all for) the new login — but no client ever arrives already in
+  // the seat, so a seat still held at login is always stale.
+  'player.login': ({ id }) => { if (!id) return; aboard.delete(id); svcState.delete(id); endTextHelm(id); },
   // ⚠ DEATH TAKES THE SEAT DOWN TOO. A corpse at the wheel is a pane the next thing you see is
   // drawn behind. (Logout needs no message — the socket has gone.)
-  'player.death': ({ player }) => { aboard.delete(player.id); endTextHelm(player.id); sendToPlayer(player.id, { type: 'boat_sim_close' }); },
+  'player.death': ({ player }) => { aboard.delete(player.id); svcState.delete(player.id); endTextHelm(player.id); sendToPlayer(player.id, { type: 'boat_sim_close' }); },
 };
+// ⚠ NOTHING READS A PLUGIN'S `events` EXPORT. The loader wires commands, hooks and actions and has
+// never looked at this object, so all three handlers above were dead code: the seat outlived every
+// logout and every death. They are subscribed here, the way every other plugin does it.
+for (const [name, fn] of Object.entries(events)) on(name, (payload) => { try { fn(payload || {}); } catch (e) { console.error('[powerboat] ' + name + ':', e.message); } });
 
 // ⚠ THE THREE THAT CHANGE THE WORLD RE-PUSH THE SCREEN, and the one that only reads does not.
 // This is the depot's oldest complaint quoted: a purchase that worked and looked as though it had
@@ -246,7 +262,8 @@ const andRepush = (fn, tab) => async (args, raw, player) => {
 };
 
 export const commands = {
-  boat: andRepush(cmdBoat, 'dealer'),
+  // Back to the hand after a purchase or a hire, where the new hull is waiting as a card.
+  boat: andRepush(cmdBoat, 'fleet'),
   boats: cmdBoats,
   berth: andRepush(cmdBerth, 'berths'),
   refit: andRepush(cmdRefit, 'bench'),
@@ -261,3 +278,8 @@ export const commands = {
 };
 
 export { boatContactsNear };
+
+// `use desk` in the marina lobby — sale and hire, only while a clerk is on shift (desk.js).
+export const specializedActions = [
+  { verb: 'use', requiredFlag: 'marina_desk', handler: doUseDesk },
+];

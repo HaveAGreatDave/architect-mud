@@ -142,7 +142,7 @@ export function createStrokeLayer(gl) {
   // See gl/stream.js.
   const stream = makeVertexStream(gl, vao, STRIDE, [[loc.a, 3, 0], [loc.b, 3, 12], [loc.param, 2, 24], [loc.style, 3, 32], [loc.color, 3, 44]], 4096);
   let data = new Float32Array(0);
-  let count = 0, split = 0;
+  let count = 0, split = 0, deep = 0;
 
   // side, end — the four corners of the quad as two triangles.
   const CORNERS = [[-1, 0], [1, 0], [1, 1], [-1, 0], [1, 1], [-1, 1]];
@@ -151,12 +151,20 @@ export function createStrokeLayer(gl) {
     // ⚠ THE HALOES GO AT THE END, for the reason the sprite layer's additive lights do: two blend
     // modes is two draw calls whatever happens, and a halo ADDS light to the wall behind it while
     // the wire itself lays colour over it.
-    const core = [], halo = [];
+    const core = [], halo = [], lit = [];
+    const deepOn = !!(list && list.deep);
     for (const s of list) {
       if (!s || !s.a || !s.b) continue;
-      core.push(s);
+      // ⚠ `add` IS A STROKE THAT IS LIGHT AND NOTHING ELSE: no core laid over the scene, only the
+      // additive pass. The rainbow is the one caller. A bow is sunlight bent back out of the rain,
+      // so it brightens whatever stands behind the shower and can never darken it.
+      if (s.add) { halo.push(s); continue; }
+      if (deepOn && s.glow > 0) lit.push(s); else core.push(s);
       if (s.glow > 0) halo.push(s);
     }
+    // Glowing cores go FIRST so the depth-only prepass is one contiguous range.
+    deep = lit.length * 6;
+    core.unshift(...lit);
     split = core.length * 6;
     count = split + halo.length * 6;
     if (data.length < count * STRIDE) data = new Float32Array(Math.max(count * STRIDE, 4096));
@@ -181,7 +189,10 @@ export function createStrokeLayer(gl) {
       const w = Math.max(1, s.w || 1);
       put(s, w, 0, (s.alpha == null ? 1 : s.alpha) * Math.min(1, (s.w || 1) / w));
     }
-    for (const s of halo) put(s, Math.max(1, s.w || 1) + s.glow * 2, 1, (s.alpha == null ? 1 : s.alpha) * 0.38);
+    for (const s of halo) {
+      if (s.add) put(s, Math.max(1, s.w || 1), s.feather == null ? 0.5 : s.feather, s.alpha == null ? 1 : s.alpha);
+      else put(s, Math.max(1, s.w || 1) + s.glow * 2, 1, (s.alpha == null ? 1 : s.alpha) * 0.38);
+    }
     stream.write(data, count * STRIDE);
     return count / 6;
   }
@@ -202,6 +213,15 @@ export function createStrokeLayer(gl) {
     gl.disable(gl.CULL_FACE);
     gl.enable(gl.BLEND);
     gl.bindVertexArray(vao);
+    // ⚠ Depth-only prepass for neon cores, so the cloud deck (which tests against what the world
+    // left) stops drawing over a tube that stands against the sky. The colour pass below is the one
+    // that always shipped; LEQUAL lets each core pass its own depth.
+    if (deep) {
+      gl.depthFunc(gl.LEQUAL);
+      gl.colorMask(false, false, false, false); gl.depthMask(true);
+      gl.drawArrays(gl.TRIANGLES, 0, deep);
+      gl.depthMask(false); gl.colorMask(true, true, true, true);
+    }
     if (split) { gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); gl.drawArrays(gl.TRIANGLES, 0, split); }
     if (count > split) { gl.blendFunc(gl.ONE, gl.ONE); gl.drawArrays(gl.TRIANGLES, split, count - split); }
     gl.bindVertexArray(null);

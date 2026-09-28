@@ -126,7 +126,7 @@
     "She writes a figure on a docket, looks at it, and writes a smaller one underneath.",
     "Somewhere out in the hall a strap creaks as a hull settles a quarter inch into its cradle."
   ],
-  "description": "A short, heavy-shouldered woman in her forties in a boiler suit that has been washed so often the colour is a guess. Her forearms are a map of small old burns. She is the only person on this shore with anything under her fingernails, and she keeps her hands where you can see them in a way that reads less as manners and more as somebody who has been asked about them before.",
+  "description": "A short, heavy-shouldered woman in her forties in a boiler suit washed colourless. Her forearms are covered in small old burns and there's dirt under her nails. She keeps her hands where you can see them.",
   "dialogue_tree": {
     "bye": {
       "options": [],

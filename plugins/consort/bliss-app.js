@@ -73,7 +73,7 @@ async function buildListings(player) {
           says: m.says,
           traits: m.temperament?.traits || [],
           headline: m.headline,
-          summary: `${m.physical.find(r => r[0] === 'Height')?.[1] || ''}, ${m.physical.find(r => r[0] === 'Build')?.[1]?.split(' — ')[0] || ''}`,
+          summary: `${m.physical.find(r => r[0] === 'Height')?.[1] || ''}, ${m.physical.find(r => r[0] === 'Build')?.[1]?.split(': ')[0] || ''}`,
         })),
       };
     }),

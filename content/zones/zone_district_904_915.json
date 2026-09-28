@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#16232f",
   "color": "#9fe0ff",
-  "description": "A seven-storey crescent on the Buried Road, curved to follow a street that does not curve, which is the kind of decision that only makes sense from the air. It is the estate's own office: the people who draw Halcyon Fields work in it, and the ground floor is a model room with the whole quarter laid out in it at a scale where the buildings are the size of your thumb.",
+  "description": "A seven-storey crescent on the Buried Road, curved to follow a straight street. It's the estate's own office. The ground floor is a model room with all of Halcyon Fields laid out at thumb scale.",
   "exits": {
     "north": "zone_hf_sweep_model",
     "south": "zone_district_904_916"

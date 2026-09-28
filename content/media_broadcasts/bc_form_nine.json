@@ -502,7 +502,7 @@
         "next": "bsm_pre_2",
         "overlayType": "act_card",
         "subtext": "BASIN BROADCAST STANDARDS BOARD",
-        "text": "UNCERTIFIED — THIS PRINT HAS NEVER BEEN SUBMITTED",
+        "text": "UNCERTIFIED. THIS PRINT HAS NEVER BEEN SUBMITTED",
         "type": "overlay"
       },
       "bsm_pre_2": {
@@ -547,7 +547,7 @@
     ],
     "director": "unknown",
     "presents": "no distributor",
-    "rating": "UNCERTIFIED — THIS PRINT HAS NEVER BEEN SUBMITTED",
+    "rating": "UNCERTIFIED. THIS PRINT HAS NEVER BEEN SUBMITTED",
     "runtime": 660,
     "theme": "",
     "title": "form_nine_title"

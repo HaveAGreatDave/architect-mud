@@ -42,7 +42,7 @@ const CRAVINGS = [
 ];
 const SELF_GIGGLES = [
   "A giggle escapes you. Then another. You have no idea why and it doesn't matter.",
-  'Something — nothing — sets you off, and you dissolve into helpless giggling.',
+  'Something, nothing, sets you off, and you dissolve into helpless giggling.',
   'You snort, then start laughing quietly to yourself at absolutely nothing.',
 ];
 const ROOM_GIGGLES = [

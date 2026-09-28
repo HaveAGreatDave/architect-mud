@@ -118,7 +118,7 @@ registerTopicalEffect('acid', async (player, { potency = 1 }) => {
     announceWear(player, item, wear(player, item, ACID_WEAR_POINTS * potency, 'acid'));
   }
   burn(player, ACID_DAMAGE * potency);
-  return { message: '<span class="text-red">It lands stinging and keeps stinging — it\'s eating into everything it touched.</span>' };
+  return { message: '<span class="text-red">It lands stinging and keeps stinging: it\'s eating into everything it touched.</span>' };
 });
 
 // Scalding. Small numbers on purpose: this is a bar-fight insult that happens to
@@ -225,9 +225,9 @@ async function cmdSplash(args, raw, player, broadcast) {
 }
 
 // ── sprayconsent ────────────────────────────────────────────────────────────
-const HELP = '<span class="text-dim">sprayconsent off</span> — stop other players getting liquid on you (a thrown drink, a crop-duster pass).\n'
-           + '<span class="text-dim">sprayconsent on</span> — allow it again. It starts on. Weather and your own hand are unaffected either way.\n'
-           + '<span class="text-dim">Type it anywhere — no tablet needed.</span>';
+const HELP = '<span class="text-dim">sprayconsent off</span>: stop other players getting liquid on you (a thrown drink, a crop-duster pass).\n'
+           + '<span class="text-dim">sprayconsent on</span>: allow it again. It starts on. Weather and your own hand are unaffected either way.\n'
+           + '<span class="text-dim">Type it anywhere: no tablet needed.</span>';
 
 async function cmdSprayConsent(args, raw, player) {
   const arg = (args[0] || '').toLowerCase();
@@ -254,7 +254,7 @@ async function cmdSprayConsent(args, raw, player) {
     type: 'output',
     message: want
       ? '<span class="text-cyan">Back on.</span> <span class="text-dim">Other players can get liquid on you. Turn it off again any time with</span> sprayconsent off<span class="text-dim">.</span>'
-      : '<span class="text-dim">Off. Nothing another player throws will touch you — the weather still will.</span>',
+      : '<span class="text-dim">Off. Nothing another player throws will touch you: the weather still will.</span>',
   };
 }
 

@@ -3,7 +3,7 @@
   "flags": {
     "receptacle": {
       "accept": "The port cycles smoothly, the way a serviced machine does. A soft double click behind the inner door, then nothing.",
-      "dark": "The port is locked solid. The terminal has gone dark, and whatever is in it's staying in it.",
+      "dark": "The port is locked solid. The terminal has gone dark, and whatever is in it is staying in it.",
       "darkPost": "The terminal is dark. No printer, no sheet, and nobody here is writing one by hand.",
       "empty": "A contract pays on delivery, and the port stays shut for anyone arriving without one.",
       "noun": "the port",

@@ -46,6 +46,8 @@ function _cold(name) {
 
 export function _resetTruckOrder(...a) { return (_m || _cold('_resetTruckOrder'))._resetTruckOrder(...a); }
 export function aircraftFaces(...a) { return (_m || _cold('aircraftFaces')).aircraftFaces(...a); }
+export function boatExhaustPorts(...a) { return (_m || _cold('boatExhaustPorts')).boatExhaustPorts(...a); }
+export function boatPipeTint(...a) { return (_m || _cold('boatPipeTint')).boatPipeTint(...a); }
 export function canopyTex(...a) { return (_m || _cold('canopyTex')).canopyTex(...a); }
 export function cessnaSection(...a) { return (_m || _cold('cessnaSection')).cessnaSection(...a); }
 export function clearVehicleFacesCache(...a) { return (_m || _cold('clearVehicleFacesCache')).clearVehicleFacesCache(...a); }
@@ -55,6 +57,7 @@ export function deflectSurface(...a) { return (_m || _cold('deflectSurface')).de
 export function depthPassBuild(...a) { return (_m || _cold('depthPassBuild')).depthPassBuild(...a); }
 export function depthPassCommit(...a) { return (_m || _cold('depthPassCommit')).depthPassCommit(...a); }
 export function depthPassCount(...a) { return (_m || _cold('depthPassCount')).depthPassCount(...a); }
+export function drawBoatHullArt(...a) { return (_m || _cold('drawBoatHullArt')).drawBoatHullArt(...a); }
 export function drawCanopyGlass(...a) { return (_m || _cold('drawCanopyGlass')).drawCanopyGlass(...a); }
 export function drawCockpitProp(...a) { return (_m || _cold('drawCockpitProp')).drawCockpitProp(...a); }
 export function drawHangarFloorBay(...a) { return (_m || _cold('drawHangarFloorBay')).drawHangarFloorBay(...a); }
@@ -66,13 +69,26 @@ export function drawTurntable(...a) { return (_m || _cold('drawTurntable')).draw
 export function faceBaseRgb(...a) { return (_m || _cold('faceBaseRgb')).faceBaseRgb(...a); }
 export function glassSheen(...a) { return (_m || _cold('glassSheen')).glassSheen(...a); }
 export function groundPitchFor(...a) { return (_m || _cold('groundPitchFor')).groundPitchFor(...a); }
+export function hasMainRotor(...a) { return (_m || _cold('hasMainRotor')).hasMainRotor(...a); }
 export function hex2rgb(...a) { return (_m || _cold('hex2rgb')).hex2rgb(...a); }
 export function hingeVisorFace(...a) { return (_m || _cold('hingeVisorFace')).hingeVisorFace(...a); }
 export function jazzTex(...a) { return (_m || _cold('jazzTex')).jazzTex(...a); }
 export function jazzUV(...a) { return (_m || _cold('jazzUV')).jazzUV(...a); }
+export function legacyMeshFaces(...a) { return (_m || _cold('legacyMeshFaces')).legacyMeshFaces(...a); }
+export function legacyMeshesOn(...a) { return (_m || _cold('legacyMeshesOn')).legacyMeshesOn(...a); }
 export function liveryPalette(...a) { return (_m || _cold('liveryPalette')).liveryPalette(...a); }
+export function meshFacesById(...a) { return (_m || _cold('meshFacesById')).meshFacesById(...a); }
+export function meshHull(...a) { return (_m || _cold('meshHull')).meshHull(...a); }
+export function meshIdFor(...a) { return (_m || _cold('meshIdFor')).meshIdFor(...a); }
+export function meshIds(...a) { return (_m || _cold('meshIds')).meshIds(...a); }
+export function meshParams(...a) { return (_m || _cold('meshParams')).meshParams(...a); }
 export function overlayJazz(...a) { return (_m || _cold('overlayJazz')).overlayJazz(...a); }
 export function pickSceneHit(...a) { return (_m || _cold('pickSceneHit')).pickSceneHit(...a); }
+export function rotorTrace(...a) { return (_m || _cold('rotorTrace')).rotorTrace(...a); }
+export function rotorTraceLegacy(...a) { return (_m || _cold('rotorTraceLegacy')).rotorTraceLegacy(...a); }
+export function rotorsFor(...a) { return (_m || _cold('rotorsFor')).rotorsFor(...a); }
+export function setLegacyMeshes(...a) { return (_m || _cold('setLegacyMeshes')).setLegacyMeshes(...a); }
+export function setMeshOverride(...a) { return (_m || _cold('setMeshOverride')).setMeshOverride(...a); }
 export function setVehicleParams(...a) { return (_m || _cold('setVehicleParams')).setVehicleParams(...a); }
 export function shadeRgb(...a) { return (_m || _cold('shadeRgb')).shadeRgb(...a); }
 export function slideEase(...a) { return (_m || _cold('slideEase')).slideEase(...a); }
@@ -85,4 +101,5 @@ export function viperXf(...a) { return (_m || _cold('viperXf')).viperXf(...a); }
 export function visorHidden(...a) { return (_m || _cold('visorHidden')).visorHidden(...a); }
 export function visorSpecFor(...a) { return (_m || _cold('visorSpecFor')).visorSpecFor(...a); }
 export function wingtipStation(...a) { return (_m || _cold('wingtipStation')).wingtipStation(...a); }
+export function meshLamps(...a) { return (_m || _cold('meshLamps')).meshLamps(...a); }
 

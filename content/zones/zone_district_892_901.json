@@ -1,13 +1,12 @@
 {
   "ambient_events": [
-    "The float takes a swell from somewhere out in the channel and rolls it off along the walkway, one section at a time.",
-    "The pump ticks over on its own and stops again, with nothing plugged into it.",
-    "A rainbow works its way out from under the decking, spreads, thins and is gone.",
-    "Somewhere under the boards a fender squeaks against a pile and does not stop for a while."
+    "The walkway takes a swell from the channel and passes it along, one section at a time, without a sound.",
+    "A pedestal at the root of an empty finger wakes, looks for a hull, finds none, and dims again.",
+    "The edge light brightens under your feet a step ahead of you and fades a step behind."
   ],
   "ambient_theme": "coast",
   "color": "#7fd3ff",
-  "description": "A floating walkway off the end of the hardstanding, six sections of ribbed decking on drums, ramped down off the concrete and moving very slightly the whole time you are on it. Three finger berths run out from it with lines coiled ready on the cleats. At the head of the walkway stands a single pump in Fairweather's grey, a cranked hose on a drum and a card reader with the paint worn off the keys, and the rate for race fuel is on a plate beside it in figures small enough that reading them is a decision you have to make on purpose.",
+  "description": "A floating walkway run out from the hardstanding gate, on pale composite sections that ride the water rather than stand in it, with no handrail because nothing about it needs one. A cool line of light is let into each edge. Three finger berths come off it for visitors, each with a chrome pedestal at the root that reads the hull's transponder before it will give up power or water. East, the walkway meets the fuel berth under its canopy.",
   "exits": {
     "east": "zone_district_893_901",
     "north": "zone_district_892_900",
@@ -15,8 +14,7 @@
     "west": "zone_district_891_901"
   },
   "flags": {
-    "boat_fuel": true,
-    "building_type": "pier",
+    "building_type": "pontoon",
     "district": "glasshouse",
     "entrance": "south",
     "floors": 1,
@@ -34,7 +32,6 @@
   "grid_z": 0,
   "id": "zone_district_892_901",
   "map_id": "map_world",
-  "marker": "⛽",
-  "name": "Fairweather Marina — The Fuel Float",
+  "name": "Fairweather Marina — The Visitor Pontoon",
   "parent_zone": null
 }

@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Red rock under a sky that goes on being enormous about it. Nothing grows here that anybody planted, and nothing has needed to.",
+  "description": "Flat red rock, wind-swept and bare. The sky is wide and pale and goes all the way down to the horizon.",
   "exits": {
     "east": "zone_terminus_1214_957",
     "north": "zone_terminus_1213_956",

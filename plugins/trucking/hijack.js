@@ -53,7 +53,7 @@ const KNOCKS = [
   'Something hits the door hard enough to move the whole cab on its mounts.',
   'A hand slaps flat against the driver\'s glass, then drags away.',
   'The door handle jerks against the lock. Once. Twice.',
-  'Metal shrieks somewhere behind you — a bar, going into the door seam.',
+  'Metal shrieks somewhere behind you: a bar, going into the door seam.',
   'The cab rocks. Whatever is out there has got both hands on it now.',
 ];
 const line = (a) => a[Math.floor(Math.random() * a.length)];

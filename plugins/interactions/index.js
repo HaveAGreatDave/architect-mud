@@ -88,7 +88,7 @@ function envMod(env, vis, zone) {
 		else if (env.weatherType === "blizzard")
 			parts.push("against the howling blizzard");
 	}
-	return parts.length ? ` — ${parts.join(", ")}` : "";
+	return parts.length ? `: ${parts.join(", ")}` : "";
 }
 
 // Broadcast zone_event and return emote for the player.
@@ -354,7 +354,7 @@ async function cmdPoint(args, raw, player, broadcast) {
 		return {
 			type: "emote",
 			message:
-				"You point at nothing in particular — it's too dark to see anything.",
+				"You point at nothing in particular: it's too dark to see anything.",
 		};
 	const target = stripPrep(args, ["at", "to", "toward"]);
 	if (target) {
@@ -391,7 +391,7 @@ function cmdFrown(args, raw, player, broadcast) {
 function cmdLaugh(args, raw, player, broadcast) {
 	const { env } = getCtx(player);
 	const loud = ["storm", "thunderstorm"].includes(env.weatherType)
-		? " — barely audible over the weather"
+		? ": barely audible over the weather"
 		: "";
 	return doEmote(
 		`You laugh${loud}.`,

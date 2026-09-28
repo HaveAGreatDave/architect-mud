@@ -57,7 +57,7 @@ function optionBlock(opt, settings, ctx) {
       : `<a href="#" data-cmd="${esc(cmd)}">${esc(o.t)}</a>`;
   }).join(' · ');
   return `<div style="margin:0.5em 0">`
-    + `<b>${esc(opt.label)}</b> — currently <b>${esc(currentLabel(opt, settings, ctx))}</b><br>`
+    + `<b>${esc(opt.label)}</b>: currently <b>${esc(currentLabel(opt, settings, ctx))}</b><br>`
     + `<span style="color:var(--text-dim)">${esc(opt.why)}</span><br>`
     + `${pills}<br>`
     + `<span style="color:var(--text-dim)">accessibility ${esc(opt.verb)} &lt;option&gt;</span>`
@@ -73,7 +73,7 @@ function listAll(settings, ctx) {
     + `<span style="color:var(--text-dim)">Every setting below applies immediately and is remembered on this device. `
     + `Nothing here is announced to anyone else, and none of it changes the game's difficulty.</span><br>`
     + `<div style="margin:0.5em 0">`
-      + `<b>Display Mode</b> — how much of the game is drawn rather than written.<br>`
+      + `<b>Display Mode</b>: how much of the game is drawn rather than written.<br>`
       + `<span style="color:var(--text-dim)">The biggest one. <b>log</b> writes everything into this log for a screen reader; `
       + `<b>textgames</b> keeps the graphics but gives every minigame a written form you can play at your own pace.</span><br>`
       + `<a href="#" data-cmd="displaymode visual">Visual</a> · `
@@ -106,7 +106,7 @@ export function runAccessibilityCommand(argstr, ctx) {
   const opt = A11Y_OPTIONS.find(o => o.verb === which || o.key.toLowerCase() === which);
   if (!opt) {
     return `<div class="error">No accessibility setting called "${esc(parts[0])}". `
-      + `Try: ${A11Y_OPTIONS.map(o => esc(o.verb)).join(', ')}, reset — or just <a href="#" data-cmd="accessibility">accessibility</a>.</div>`;
+      + `Try: ${A11Y_OPTIONS.map(o => esc(o.verb)).join(', ')}, reset, or just <a href="#" data-cmd="accessibility">accessibility</a>.</div>`;
   }
 
   if (parts.length === 1) return `<div class="system">${optionBlock(opt, settings, ctx)}</div>`;

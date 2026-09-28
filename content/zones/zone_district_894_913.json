@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#101a24",
   "color": "#bfe2ff",
-  "description": "Two low curved wings folded round a glass drum, all of it lit from inside at a level that does not change between noon and midnight. The doors are automatic and open at eight feet, which is further out than anyone expects. Across the drum, in chrome letters spaced wide enough to read from the boulevard: HALCYON FIELDS — A NEW QUARTER. Under it, much smaller, a line of legal type nobody has ever stood close enough to finish.",
+  "description": "Two low curved wings folded round a glass drum, all of it lit from inside at a level that does not change between noon and midnight. The doors are automatic and open at eight feet, which is further out than anyone expects. Across the drum, in chrome letters spaced wide enough to read from the boulevard: HALCYON FIELDS: A NEW QUARTER. Under it, much smaller, a line of legal type nobody has ever stood close enough to finish.",
   "exits": {
     "east": "zone_hf_impression_suite",
     "west": "zone_district_893_913"

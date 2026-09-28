@@ -106,14 +106,16 @@ else {
 
 // ── 2. THE RESOLUTION DIAL, PARKED ON A BOUNDARY ────────────────────────────
 //
-// resTarget = 1 - (frameMs - 20) / 44, so 26.6 ms sits the dial exactly on 0.85 — the worst place
+// resTarget = 1 - (frameMs - 17.5) / 44, so 24.1 ms sits the dial exactly on 0.85 — the worst place
 // for it to be. The jitter is a couple of milliseconds either way, which is an ordinary hitchy
-// frame and not a contrived one.
+// frame and not a contrived one. ⚠ It was 26.6 against an intercept of 20; the renderer moved to
+// 17.5 (a steady 60 is 16.7 ms) and the case stopped dithering and proved nothing. If the intercept
+// moves again, move this with it: the point is 0.85, not a number of milliseconds.
 {
-  const rows = trace('__dial_res', 320, (i) => 26.6 + Math.sin(i * 0.7) * 2.2 + Math.sin(i * 0.13) * 1.1);
+  const rows = trace('__dial_res', 320, (i) => 24.1 + Math.sin(i * 0.7) * 2.2 + Math.sin(i * 0.13) * 1.1);
   const damped = changes(rows, (r) => r.resStep);
   const naive = changes(rows, (r) => TENTHS(r.resScale));
-  report.push(`resolution @26.6ms: naive ${naive} changes, damped ${damped}`);
+  report.push(`resolution @24.1ms: naive ${naive} changes, damped ${damped}`);
   if (naive < 4) problems.push(`the resolution trace did not dither (naive changed ${naive} times) — this case proves nothing`);
   else if (damped > 1) problems.push(`the resolution step still dithers: ${damped} changes over ${rows.length - WARM} settled frames (naive ${naive})`);
   if (DETAIL) console.log(rows.slice(WARM, WARM + 24).map((r) => `${r.frameMs} → ${r.resScale.toFixed(4)} → ${r.resStep}`).join('\n'));

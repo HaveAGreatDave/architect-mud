@@ -112,7 +112,7 @@ export function cbTransmit(player, rig, text) {
   const msg = String(text || '').trim().slice(0, MAX_LEN);
   if (!msg) return { type: 'error', message: 'Say what? <span class="text-dim">cb &lt;what you want to say&gt;</span>' };
   if (truckElecDead(rig)) {
-    return { type: 'error', message: 'You key the mic and get nothing — not even a hiss. The set is cooked.' };
+    return { type: 'error', message: 'You key the mic and get nothing, not even a hiss. The set is cooked.' };
   }
   if (rig.cbOff) {
     return { type: 'error', message: 'The set is off. <span class="text-dim">cb on</span> first.' };

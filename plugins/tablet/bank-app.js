@@ -94,10 +94,10 @@ async function buildScreen(player, screenId, params) {
   const wdLeft = await cooldownLeft(player, 'withdraw');
 
   const depAction = depLeft > 0
-    ? { id: 'deposit', label: `Deposit — ready in ${fmtWait(depLeft)}`, disabled: true }
+    ? { id: 'deposit', label: `Deposit: ready in ${fmtWait(depLeft)}`, disabled: true }
     : { id: 'deposit', label: `Deposit (max ₵${REMOTE_CAP})`, prompt: `Deposit how much? (max ₵${REMOTE_CAP})` };
   const wdAction = wdLeft > 0
-    ? { id: 'withdraw', label: `Withdraw — ready in ${fmtWait(wdLeft)}`, disabled: true }
+    ? { id: 'withdraw', label: `Withdraw: ready in ${fmtWait(wdLeft)}`, disabled: true }
     : { id: 'withdraw', label: `Withdraw (max ₵${REMOTE_CAP})`, prompt: `Withdraw how much? (max ₵${REMOTE_CAP})` };
 
   return {
@@ -105,7 +105,7 @@ async function buildScreen(player, screenId, params) {
     breadcrumb: [],
     detail: {
       name: 'Bank',
-      desc: `Remote banking — up to ₵${REMOTE_CAP} per transfer, once every 24h each way. Use an ATM to move more.`,
+      desc: `Remote banking: up to ₵${REMOTE_CAP} per transfer, once every 24h each way. Use an ATM to move more.`,
       rows: [
         { label: 'On hand', value: `${balances.credits}₵` },
         { label: 'Banked', value: `${balances.bank_credits}₵` },
@@ -128,7 +128,7 @@ async function handleAction(player, actionId, params) {
     }
     const left = await cooldownLeft(player, actionId);
     if (left > 0) {
-      return { view: 'error', message: `Remote ${actionId} on cooldown — try again in ${fmtWait(left)} (or use an ATM).` };
+      return { view: 'error', message: `Remote ${actionId} on cooldown: try again in ${fmtWait(left)} (or use an ATM).` };
     }
     if (!await transferCredits(player, amount, actionId)) {
       return { view: 'error', message: actionId === 'deposit'
@@ -161,7 +161,7 @@ export async function cmdWire(args, raw, player) {
     const wd = await cooldownLeft(player, 'withdraw');
     return {
       type: 'output',
-      message: `<span class="text-cyan">REMOTE BANKING</span> <span class="text-dim">— cap ₵${REMOTE_CAP} per move, once a day each way</span>\n`
+      message: `<span class="text-cyan">REMOTE BANKING</span> <span class="text-dim">cap ₵${REMOTE_CAP} per move, once a day each way</span>\n`
         + `  On you: ₵${player.credits || 0} · Banked: ₵${player.bank_credits || 0}\n`
         + `  <span class="text-dim">deposit ${dep > 0 ? `ready in ${fmtWait(dep)}` : 'ready'}`
         + ` · withdraw ${wd > 0 ? `ready in ${fmtWait(wd)}` : 'ready'}</span>\n`
@@ -174,7 +174,7 @@ export async function cmdWire(args, raw, player) {
   if (amount > REMOTE_CAP) return { type: 'error', message: `Remote transfers cap at ₵${REMOTE_CAP}. Use an ATM to move more.` };
 
   const left = await cooldownLeft(player, kind);
-  if (left > 0) return { type: 'error', message: `Remote ${kind} on cooldown — try again in ${fmtWait(left)} (or use an ATM).` };
+  if (left > 0) return { type: 'error', message: `Remote ${kind} on cooldown: try again in ${fmtWait(left)} (or use an ATM).` };
 
   if (!await transferCredits(player, amount, kind)) {
     return { type: 'error', message: kind === 'deposit'

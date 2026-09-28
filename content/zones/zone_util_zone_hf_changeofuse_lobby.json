@@ -1,5 +1,5 @@
 {
-  "description": "Under the lobby, with the switchgear and four separate meters on a board, labelled STUDIO, PAPER, CLINIC and — on the fourth, in a different hand — ?. The fourth one turns.",
+  "description": "Under the lobby, with the switchgear and four separate meters on a board, labelled STUDIO, PAPER, CLINIC and, on the fourth in a different hand, ?. The fourth one turns.",
   "exits": {
     "up": "zone_hf_changeofuse_lobby"
   },

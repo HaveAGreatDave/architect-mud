@@ -22,7 +22,7 @@ export const TEMPLATES = {
       `"They're still hosing ${v.victim} off the pavement in ${v.zone}. Ask ${v.killer}."`,
     ]),
     renderYou: (v) => pick([
-      `"Hey — aren't you the one ${v.killer} put down in ${v.zone}? You look better than the story."`,
+      `"Hey: aren't you the one ${v.killer} put down in ${v.zone}? You look better than the story."`,
       `"They're still mopping you off the pavement in ${v.zone}, far as anyone heard. Spooky, you standing here."`,
       `"Word is you didn't get back up. And yet." <span class="text-dim">They look you over, unconvinced.</span>`,
     ]),
@@ -44,11 +44,11 @@ export const TEMPLATES = {
   crime: {
     category: 'crime', reach: 3, heat: 0.8,
     render: (v) => pick([
-      `"${v.suspect}'s wanted now — ${v.label}. Cameras caught the whole thing."`,
+      `"${v.suspect}'s wanted now: ${v.label}. Cameras caught the whole thing."`,
       `"Don't stand near ${v.suspect}. Heat's looking for them over ${v.label}."`,
     ]),
     renderYou: (v) => pick([
-      `"You're the one they want, aren't you — ${v.label}. Cameras got your good side and all." <span class="text-dim">They edge back a step.</span>`,
+      `"You're the one they want, aren't you: ${v.label}. Cameras got your good side and all." <span class="text-dim">They edge back a step.</span>`,
       `"I'd not stand so close to me if I were you. Heat's out for you over ${v.label}."`,
       `"Big fan of your work. ${v.label}, right out in the open. Bold." <span class="text-dim">They don't mean it kindly.</span>`,
     ]),
@@ -60,7 +60,7 @@ export const TEMPLATES = {
       `"${v.subject} cleaned out the poker table. Somebody's buying tonight."`,
     ]),
     renderYou: (v) => pick([
-      `"You're the one who walked off the table ${v.amount} up. Lucky, or a cheat — I haven't decided which."`,
+      `"You're the one who walked off the table ${v.amount} up. Lucky, or a cheat: I haven't decided which."`,
       `"Heard you cleaned out the poker table. So you're buying tonight, then." <span class="text-dim">Not a question.</span>`,
     ]),
   },
@@ -90,7 +90,7 @@ export const TEMPLATES = {
     category: 'world', reach: 'global', heat: 0.8,
     render: (v) => pick([
       `"Power's out in ${v.zone}. Whole block gone dark."`,
-      `"${v.zone}'s blacked out. Stay sharp — nothing good happens in the dark."`,
+      `"${v.zone}'s blacked out. Stay sharp: nothing good happens in the dark."`,
     ]),
   },
   power_back: {
@@ -118,18 +118,18 @@ export const TEMPLATES = {
   first_blood: {
     category: 'violence', reach: 'global', heat: 0.9,
     render: (v) => pick([
-      `"New face in ${v.zone} — and already got blood on 'em. ${v.subject}. Remember the name."`,
+      `"New face in ${v.zone}, and already got blood on 'em. ${v.subject}. Remember the name."`,
       `"Somebody nobody's heard of just dropped their first kill over in ${v.zone}. ${v.subject}. They fight back, that one."`,
     ]),
     renderYou: (v) => pick([
       `"You're the new one. First blood already, ${v.zone} way. People remember a name that fights back."`,
-      `"Word's out about you — new face, first kill in ${v.zone}. You're on the board now, like it or not."`,
+      `"Word's out about you: new face, first kill in ${v.zone}. You're on the board now, like it or not."`,
     ]),
   },
   first_score: {
     category: 'wealth', reach: 'global', heat: 0.8,
     render: (v) => pick([
-      `"New face cleaned up at the table — ${v.subject}, ${v.amount} credits their first sit-down. Beginner's luck, or something worse."`,
+      `"New face cleaned up at the table: ${v.subject}, ${v.amount} credits their first sit-down. Beginner's luck, or something worse."`,
       `"${v.subject} walked in a nobody and walked out ${v.amount} up. First hand anyone's seen 'em play, too."`,
     ]),
     renderYou: (v) => pick([
@@ -140,11 +140,11 @@ export const TEMPLATES = {
   first_deal: {
     category: 'wealth', reach: 2, heat: 0.4,
     render: (v) => pick([
-      `"New face spending already — ${v.subject} did their first bit of business in ${v.zone}. Money moves, people notice."`,
+      `"New face spending already: ${v.subject} did their first bit of business in ${v.zone}. Money moves, people notice."`,
       `"Saw the new one, ${v.subject}, put money down in ${v.zone}. Word gets around fast here."`,
     ]),
     renderYou: (v) => pick([
-      `"Saw you spending, new one — first business in ${v.zone}. Word travels quick round here. You'll learn."`,
+      `"Saw you spending, new one: first business in ${v.zone}. Word travels quick round here. You'll learn."`,
       `"You're the new face throwing credits around in ${v.zone}. Somebody always clocks the newcomer with money."`,
     ]),
   },
@@ -161,17 +161,17 @@ export const TEMPLATES = {
       const loser     = v.winner === v.away ? v.home : v.away;
       const fav = ctx.fav;
       if (fav && fav === v.winner) return pick([
-        `"${v.winner} took ${loser} ${winScore}-${loseScore}. That's MY team — told you they'd bury 'em."`,
+        `"${v.winner} took ${loser} ${winScore}-${loseScore}. That's MY team: told you they'd bury 'em."`,
         `grins. "You catch the DEADBALL game? ${v.winner} put ${loseScore} runs on ${loser} and rolled, ${winScore}-${loseScore}. About time."`,
         `"${winScore}-${loseScore}, ${v.winner} over ${loser}. I've bled for that club all season and it finally paid off."`,
       ]);
       if (fav && fav === loser) return pick([
-        `spits. "${loser} blew it again — ${loseScore}-${winScore} to ${v.winner}. Every damn year with my team."`,
+        `spits. "${loser} blew it again: ${loseScore}-${winScore} to ${v.winner}. Every damn year with my team."`,
         `"Don't talk to me about the DEADBALL score. ${v.winner} beat my ${loser} ${winScore}-${loseScore}. I need a drink."`,
         `"${loser} choked, ${loseScore}-${winScore}. I keep backing 'em and they keep breaking my heart."`,
       ]);
       return pick([
-        `"${v.winner} beat ${loser} ${winScore}-${loseScore} in the DEADBALL. Neither's my club, mind — I'm ${fav ? fav : 'still deciding who to hate'}."`,
+        `"${v.winner} beat ${loser} ${winScore}-${loseScore} in the DEADBALL. Neither's my club, mind: I'm ${fav ? fav : 'still deciding who to hate'}."`,
         `"Box score's in: ${v.winner} ${winScore}, ${loser} ${loseScore}."${fav ? ` "Wake me when ${fav} play."` : ''}`,
         `"Heard ${v.winner} handled ${loser}, ${winScore}-${loseScore}. Good for them.${fav ? ` My ${fav} are the ones I'm watching.` : ''}"`,
       ]);
@@ -183,7 +183,7 @@ export const TEMPLATES = {
   asc_fortress: {
     category: 'secret', reach: 'global', heat: 0.3,
     render: () => pick([
-      `"You didn't hear it from me — but there's a chrome fortress out past the western grass. Turns everyone away. Nobody knows what they're guarding."`,
+      `"You didn't hear it from me, but there's a chrome fortress out past the western grass. Turns everyone away. Nobody knows what they're guarding."`,
       `"Word is somebody built a whole gleaming city out in the waste, far west. Walk up and the guards just... send you back. Polite, like. Never seen a soul get in."`,
       `"That wall of mirrors out west? Don't bother. People go to gawk and come back with nothing but a scanline burn and a bad feeling."`,
     ]),
@@ -200,7 +200,7 @@ export const TEMPLATES = {
       `"There's a bounty out of the city on somebody drinking in this room. Been out three months. Nobody's collected."`,
       `"That crate in the cellar's been down there since before I got here. Marla says it's not hers. Marla says a lot of things."`,
       `"Word is the Dynamo's a bad winter from going dark for good. Then we're all just scrub and a runway."`,
-      `"Pallet went missing off the apron. Not stolen — missing. There's a difference out here and nobody wants to say what it is."`,
+      `"Pallet went missing off the apron. Not stolen: missing. There's a difference out here and nobody wants to say what it is."`,
       `"Fella came through asking questions with the wrong accent. Cass sent him back up before he got his boots dusty."`,
       `"They say the city's tightening the scans again. Good for us. Everything that can't go by road comes by us."`,
       `"Someone's been cutting the raws before they leave the Reach. If that's true, whoever it's won't be flying long."`,
@@ -214,7 +214,7 @@ export const TEMPLATES = {
     render: (v) => pick([
       `leans in, barely audible. "You want the figure in the dark? Get near him after nightfall and say '${v.phrase}'. You didn't hear it from me."`,
       `glances around, then murmurs. "There's a way to the good stuff. Find the dealer at night, tell him '${v.phrase}'. That's all I'm saying."`,
-      `"Word is the shadow dealer opens up if you know the words — '${v.phrase}'. Only after dark, though. Keep it quiet."`,
+      `"Word is the shadow dealer opens up if you know the words: '${v.phrase}'. Only after dark, though. Keep it quiet."`,
     ]),
   },
 };

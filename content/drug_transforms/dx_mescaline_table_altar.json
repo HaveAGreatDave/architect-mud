@@ -4,7 +4,7 @@
     "Do you know whose place this was?",
     "Would you take the salt, or leave it for whoever is after you?"
   ],
-  "description": "A slab of pale stone stands where the table was, laid with a folded cloth, a shallow dish, and a small heap of salt. Everything on it's in the only place it could be.",
+  "description": "A slab of pale stone stands where the table was, laid with a folded cloth, a shallow dish, and a small heap of salt. Everything on it is in the only place it could be.",
   "drug_id": "drug_mescaline",
   "emotes": [
     "The dish on {it} rings once, faintly, though nothing has touched it.",

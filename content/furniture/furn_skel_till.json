@@ -1,5 +1,5 @@
 {
-  "description": "A shallow drawer in the bench with no lock on it at all, which is the joke everybody makes and which he lets them make. It is empty every night. What is not empty is a box elsewhere in the building that nobody has ever found, including two people who looked properly.",
+  "description": "A shallow cash drawer in the bench with no lock. It's emptied every night into a box somewhere in the building nobody has found.",
   "flags": {
     "aliases": "till,cash,money,box",
     "hack_difficulty": 4,

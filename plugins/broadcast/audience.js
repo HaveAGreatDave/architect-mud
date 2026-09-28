@@ -120,8 +120,8 @@ export function installAudienceGate({
         time,
       },
       _line: next.live
-        ? `The pass is stamped ${name.toUpperCase()} — HOUSE OPEN NOW. They're already rolling.`
-        : `The pass is stamped ${name.toUpperCase()} — ${date} ${time}. Good for that showing and no other.`,
+        ? `The pass is stamped ${name.toUpperCase()}: HOUSE OPEN NOW. They're already rolling.`
+        : `The pass is stamped ${name.toUpperCase()}: ${date} ${time}. Good for that showing and no other.`,
     };
   });
 

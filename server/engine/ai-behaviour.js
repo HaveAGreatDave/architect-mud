@@ -399,13 +399,13 @@ export function vendorClosedLine(npc) {
   if (isVendorAbsent(npc)) {
     const working = !npc.vendor_schedule || isVendorWorkTime(npc, getEnvironmentState()).working;
     return working
-      ? `The counter is empty — ${name} hasn't opened up yet.`
+      ? `The counter is empty. ${name} hasn't opened up yet.`
       : `The shutter is down. ${name} isn't in.`;
   }
   const when = openInPhrase(npc);
   return when
-    ? `${name} shakes their head. "I'm off the clock right now — I open again in ${when}."`
-    : `${name} shakes their head. "I'm off the clock right now — come back during business hours."`;
+    ? `${name} shakes their head. "I'm off the clock right now. I open again in ${when}."`
+    : `${name} shakes their head. "I'm off the clock right now. Come back during business hours."`;
 }
 
 // The brush-off an off-the-clock vendor gives when a player tries to open their
@@ -416,8 +416,8 @@ export function vendorOffHoursLine(npc) {
   const name = npc?.name || 'The vendor';
   const when = openInPhrase(npc);
   return when
-    ? `${name} waves you off. "Not now — I'm off the clock. Back in ${when}."`
-    : `${name} waves you off. "Not now — I'm off the clock."`;
+    ? `${name} waves you off. "Not now. I'm off the clock. Back in ${when}."`
+    : `${name} waves you off. "Not now. I'm off the clock."`;
 }
 
 // ── Chitchat ────────────────────────────────────────────────────────────────

@@ -107,7 +107,7 @@ Your HoloLock is now bound to your biometric signature. Here's what that means:
   • A <span style="color:var(--cyan)">quantum forcefield</span> activates around the unit, visible to anyone present.
   • All doors to this room lock automatically and become <span style="color:var(--red)">unhackable</span>.
   • No one can attack or loot you while the field is active.
-  • The HoloLock begins to glow — a visible deterrent to anyone who looks at the door.
+  • The HoloLock begins to glow: a visible deterrent to anyone who looks at the door.
 
 The forcefield drops the moment you reconnect or wake up.
 `;
@@ -160,11 +160,11 @@ export async function activateForcefield(player, broadcastFn) {
 		if (broadcastFn) {
 			broadcastFn(zoneId, {
 				type: 'zone_event',
-				message: `<span style="color:var(--red)">${player.handle}'s HoloLock sputters and dies — the forcefield can't seal with an intruder at the door.</span>`,
+				message: `<span style="color:var(--red)">${player.handle}'s HoloLock sputters and dies. The forcefield can't seal with an intruder at the door.</span>`,
 			}, player.id);
 			broadcastFn(null, {
 				type: 'output',
-				message: `<span style="color:var(--red)">◈ HoloLock REFUSED — ${typeof blockReason === 'string' ? blockReason : 'a break-in is in progress'}. No safe forcefield while they're breaching your home. You sleep exposed.</span>`,
+				message: `<span style="color:var(--red)">◈ HoloLock REFUSED: ${typeof blockReason === 'string' ? blockReason : 'a break-in is in progress'}. No safe forcefield while they're breaching your home. You sleep exposed.</span>`,
 			}, null, player.id);
 		}
 		return;
@@ -191,13 +191,13 @@ export async function activateForcefield(player, broadcastFn) {
 		// Bystanders see it from the outside.
 		broadcastFn(zoneId, {
 			type: 'zone_event',
-			message: `<span style="color:var(--cyan)">A low hum fills the air as ${player.handle}'s HoloLock pulses with blue light. A <strong>quantum forcefield</strong> shimmers into existence around the unit — ${player.handle} is protected.</span>`,
+			message: `<span style="color:var(--cyan)">A low hum fills the air as ${player.handle}'s HoloLock pulses with blue light. A <strong>quantum forcefield</strong> shimmers into existence around the unit. ${player.handle} is protected.</span>`,
 		}, player.id);
 		// Anyone standing at the door from the far side watches the lock come alive.
 		for (const z of farSideZones) {
 			broadcastFn(z, {
 				type: 'zone_event',
-				message: `<span style="color:var(--cyan)">The HoloLock on the door flickers, then flares steady blue — the unit beyond has sealed itself for the night.</span>`,
+				message: `<span style="color:var(--cyan)">The HoloLock on the door flickers, then flares steady blue. The unit beyond has sealed itself for the night.</span>`,
 			});
 		}
 		// Owner gets a first-person confirmation.
@@ -217,18 +217,18 @@ export async function activateForcefield(player, broadcastFn) {
 // Deactivate the forcefield when the player comes back online or wakes up.
 const FORCEFIELD_DOWN_BYSTANDER = [
 	(handle) => `<span style="color:var(--cyan)">The field around ${handle}'s unit collapses with a sharp crack. The HoloLock dims to black. The door is just a door again.</span>`,
-	(handle) => `<span style="color:var(--cyan)">A low whine drops in pitch and cuts out. The quantum barrier sealing ${handle}'s unit unravels — threads of blue light dissolving into nothing.</span>`,
+	(handle) => `<span style="color:var(--cyan)">A low whine drops in pitch and cuts out. The quantum barrier sealing ${handle}'s unit unravels, threads of blue light dissolving into nothing.</span>`,
 	(handle) => `<span style="color:var(--cyan)">The shimmer around ${handle}'s door snaps off like a switch being thrown. The HoloLock's pulse slows, steadies, and goes dark.</span>`,
-	(handle) => `<span style="color:var(--cyan)">Static crackles across the surface of the field protecting ${handle}'s unit, then — silence. The glow dies. Whatever was in there's awake again.</span>`,
+	(handle) => `<span style="color:var(--cyan)">Static crackles across the surface of the field protecting ${handle}'s unit, then... silence. The glow dies. Whatever was in there's awake again.</span>`,
 	(handle) => `<span style="color:var(--cyan)">${handle}'s HoloLock shudders once, twice, then goes cold. The forcefield peels back like a heat-haze and is gone.</span>`,
 ];
 
 const FORCEFIELD_DOWN_OWNER = [
 	`<span style="color:var(--cyan)">◈ Your HoloLock disengages. The forcefield drops. You're back in the world.</span>`,
 	`<span style="color:var(--cyan)">◈ Biometric resync confirmed. The quantum barrier dissolves. HoloLock standing by.</span>`,
-	`<span style="color:var(--cyan)">◈ The field collapses as you surface. HoloLock dark. You're exposed again — stay sharp.</span>`,
+	`<span style="color:var(--cyan)">◈ The field collapses as you surface. HoloLock dark. You're exposed again. Stay sharp.</span>`,
 	`<span style="color:var(--cyan)">◈ Presence detected. Forcefield terminated. Your HoloLock is back to idle.</span>`,
-	`<span style="color:var(--cyan)">◈ Signal restored. The barrier peels back. HoloLock offline — you're on your own now.</span>`,
+	`<span style="color:var(--cyan)">◈ Signal restored. The barrier peels back. HoloLock offline. You're on your own now.</span>`,
 ];
 
 export async function deactivateForcefield(playerId, zoneId, broadcastFn) {
@@ -267,7 +267,7 @@ export async function deactivateForcefield(playerId, zoneId, broadcastFn) {
 		for (const z of farSideZones) {
 			broadcastFn(z, {
 				type: 'zone_event',
-				message: `<span style="color:var(--cyan)">The HoloLock on the door dims from blue to dead black — the unit beyond is no longer sealed.</span>`,
+				message: `<span style="color:var(--cyan)">The HoloLock on the door dims from blue to dead black. The unit beyond is no longer sealed.</span>`,
 			});
 		}
 		// Owner gets a personal confirmation.
@@ -523,7 +523,7 @@ export async function cmdRent(player) {
 	if (resident)
 		return {
 			type: "error",
-			message: `${resident.npc_name || "Someone"} already lives here — this unit isn't for rent.`,
+			message: `${resident.npc_name || "Someone"} already lives here; this unit isn't for rent.`,
 		};
 
 	const apt = getApartment(zone.id);
@@ -564,7 +564,7 @@ export async function cmdRent(player) {
 	const nextDueStr = rentDue ? formatGameDate(rentDue) : 'next rent cycle';
 	return {
 		type: "rent",
-		message: `Congratulations — you're the proud new owner of <span style="color:var(--accent)">${zone.name}</span>!\n\n<span class="text-dim">Rented:</span> ${gToday ? formatGameDate(gToday) : '—'}\n<span class="text-dim">Rent (per ${RENT_PERIOD_DAYS}-day cycle):</span> <span style="color:var(--yellow)">${cost}₵</span>\n<span class="text-dim">First payment due:</span> ${nextDueStr}\n\nType LOCK to secure the door when you leave. Type UNRENT to give the place up.`,
+		message: `Congratulations, you're the proud new owner of <span style="color:var(--accent)">${zone.name}</span>!\n\n<span class="text-dim">Rented:</span> ${gToday ? formatGameDate(gToday) : '—'}\n<span class="text-dim">Rent (per ${RENT_PERIOD_DAYS}-day cycle):</span> <span style="color:var(--yellow)">${cost}₵</span>\n<span class="text-dim">First payment due:</span> ${nextDueStr}\n\nType LOCK to secure the door when you leave. Type UNRENT to give the place up.`,
 	};
 }
 
@@ -615,7 +615,7 @@ export async function cmdPrepay(player, args) {
 	if (!(await adjustCredits(player, -total, undefined, 'apartment:prepay')))
 		return {
 			type: "error",
-			message: `${cycles} ${cycles === 1 ? 'cycle' : 'cycles'} up front is <span style="color:var(--yellow)">${total}₵</span>. You're carrying ${player.credits}₵ — the rest would need withdrawing first.`,
+			message: `${cycles} ${cycles === 1 ? 'cycle' : 'cycles'} up front is <span style="color:var(--yellow)">${total}₵</span>. You're carrying ${player.credits}₵; the rest would need withdrawing first.`,
 		};
 
 	// Push the due date out from where it ALREADY is, never from today: paying
@@ -635,7 +635,7 @@ export async function cmdPrepay(player, args) {
 	const dueStr = next ? formatGameDate(next) : 'the next cycle';
 	return {
 		type: "output",
-		message: `Paid <span style="color:var(--yellow)">${total}₵</span> up front on <span style="color:var(--accent)">${zone.name}</span> — ${cycles} ${cycles === 1 ? 'cycle' : 'cycles'}, ${daysBought} days.\n\n<span class="text-dim">Rent now due:</span> ${dueStr}\n<span class="text-dim">On hand:</span> ${player.credits}₵\n\n<span class="text-dim">Paid rent isn't refundable. Give the unit up before then and the remaining days go with it.</span>`,
+		message: `Paid <span style="color:var(--yellow)">${total}₵</span> up front on <span style="color:var(--accent)">${zone.name}</span>: ${cycles} ${cycles === 1 ? 'cycle' : 'cycles'}, ${daysBought} days.\n\n<span class="text-dim">Rent now due:</span> ${dueStr}\n<span class="text-dim">On hand:</span> ${player.credits}₵\n\n<span class="text-dim">Paid rent isn't refundable. Give the unit up before then and the remaining days go with it.</span>`,
 	};
 }
 
@@ -671,7 +671,7 @@ export async function cmdUnrent(player) {
 
 	return {
 		type: "unrent",
-		message: `<span style="color:var(--accent)">${zone.name}</span> has been vacated. You've handed back the keys — the unit is no longer yours.\n\n<span class="text-dim">Rented since:</span> ${rentedDate}\n<span class="text-dim">Weekly rent saved:</span> <span style="color:var(--yellow)">${cost}₵</span>${forfeited}\n\nNo further payments will be collected.`,
+		message: `<span style="color:var(--accent)">${zone.name}</span> has been vacated. You've handed back the keys. The unit is no longer yours.\n\n<span class="text-dim">Rented since:</span> ${rentedDate}\n<span class="text-dim">Weekly rent saved:</span> <span style="color:var(--yellow)">${cost}₵</span>${forfeited}\n\nNo further payments will be collected.`,
 	};
 }
 
@@ -711,7 +711,7 @@ export async function cmdLockDoor(player, wantLocked) {
 	if (!apt?.owner_id)
 		return {
 			type: "error",
-			message: "Nobody owns this unit yet — nothing to lock. Try RENT.",
+			message: "Nobody owns this unit yet. Nothing to lock. Try RENT.",
 		};
 	if (!playerControlsApt(player, apt))
 		return {
@@ -806,7 +806,7 @@ export async function cmdPickLock(player) {
 	if (!apt?.owner_id)
 		return {
 			type: "error",
-			message: "This place is unowned — the door is already open.",
+			message: "This place is unowned. The door is already open.",
 		};
 	if (playerControlsApt(player, apt))
 		return { type: "error", message: "It's your own door. Just open it." };
@@ -822,7 +822,7 @@ export async function cmdPickLock(player) {
 	if (result.success) {
 		return {
 			type: "pick_success",
-			message: `You work the lock — click. It gives.`,
+			message: `You work the lock... click. It gives.`,
 			bypassed_zone: zone.id,
 		};
 	}
@@ -1043,13 +1043,13 @@ export async function cmdSleep(player, broadcastFn, opts = {}) {
 		if (player.home_zone === player.current_zone) {
 			await activateForcefield(player, broadcastFn);
 		} else {
-			extra = '\n<span class="text-dim">◈ HoloLock unbound — type <strong>.home</strong> here to enable the forcefield when you sleep.</span>';
+			extra = '\n<span class="text-dim">◈ HoloLock unbound. Type <strong>.home</strong> here to enable the forcefield when you sleep.</span>';
 		}
 	}
 
 	return {
 		type: "sleep",
-		message: `${selfMsg}\n\nYou'll rest gradually while you're out — hit <strong>wake up</strong> when you've had enough.${extra}`,
+		message: `${selfMsg}\n\nYou'll rest gradually while you're out. Hit <strong>wake up</strong> when you've had enough.${extra}`,
 	};
 }
 
@@ -1210,7 +1210,7 @@ export async function tickSleep(player, broadcastFn) {
 		applyEffect(player, 'rested', WELL_RESTED_TICKS);
 		broadcastFn(null, {
 			type: 'output',
-			message: '<span style="color:var(--green)">◈ You\'re fully rested — healed, clear-headed, and out of fatigue.</span>\n'
+			message: '<span style="color:var(--green)">◈ You\'re fully rested: healed, clear-headed, and out of fatigue.</span>\n'
 				+ '<span class="text-dim">You\'re still asleep. <strong>wake up</strong> whenever you like.</span>',
 		}, null, player.id);
 	}
@@ -1298,14 +1298,14 @@ export function describeRentStatus(zone, player) {
 	// PREPAY is advertised on the status line rather than in help alone: it is the
 	// only lever a tenant has, and nothing else in the room would ever mention it.
 	return `\n<span class="text-dim">Rent: <span style="color:var(--yellow)">${cost}₵</span> due ${formatGameDate(due)} (${urgency}).${prepaid} `
-		+ `<span class="action-link" data-raw-cmd="prepay 4" title="Pay four cycles up front — not refundable">PREPAY</span> to pay ahead.</span>`;
+		+ `<span class="action-link" data-raw-cmd="prepay 4" title="Pay four cycles up front (not refundable)">PREPAY</span> to pay ahead.</span>`;
 }
 
 export async function describeApartmentStatus(zone) {
 	if (!isApartmentZone(zone)) return "";
 	const resident = await getNpcResidence(zone.id);
 	if (resident) {
-		return `\n<span class="apartment-label">This unit is a private residence${resident.npc_name ? ` — ${resident.npc_name} lives here` : ""}.</span> Not for rent.`;
+		return `\n<span class="apartment-label">This unit is a private residence${resident.npc_name ? `: ${resident.npc_name} lives here` : ""}.</span> Not for rent.`;
 	}
 	const apt = getApartment(zone.id);
 	if (!apt?.owner_id) {
@@ -1318,12 +1318,12 @@ export async function describeApartmentStatus(zone) {
 	const rentedDate = apt.date_rented ? new Date(apt.date_rented * 1000).toLocaleDateString() : '?';
 	let status = `\n<span class="apartment-label">Owner: ${apt.owner_handle}.</span> The door is ${lockState}. Rented since ${rentedDate}. (UNRENT to vacate)`;
 	if (apt.forcefield_active) {
-		status += `\n<span style="color:var(--cyan)">◈ A <strong>quantum forcefield</strong> crackles faintly around this unit. The HoloLock pulses with a cold blue glow. Whoever lives here is inside — and unreachable.</span>`;
+		status += `\n<span style="color:var(--cyan)">◈ A <strong>quantum forcefield</strong> crackles faintly around this unit. The HoloLock pulses with a cold blue glow. Whoever lives here is inside, and unreachable.</span>`;
 	}
 	return status;
 }
 
 export function describeDoorForcefield(door) {
 	if (!door?.forcefield_locked) return '';
-	return ` <span style="color:var(--cyan)">[The HoloLock is glowing — a quantum forcefield secures this door.]</span>`;
+	return ` <span style="color:var(--cyan)">[The HoloLock is glowing: a quantum forcefield secures this door.]</span>`;
 }

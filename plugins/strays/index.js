@@ -238,7 +238,7 @@ async function behave() {
 const REPEAT_KILLS = 2;
 
 const SPOOK_YOU = [
-  "She comes up off the ground the instant she registers you — sideways, hackles up, one long hiss — and then there's nothing in the lane but the noise of her leaving.",
+  "She comes up off the ground the instant she registers you, sideways, hackles up, one long hiss, and then there's nothing in the lane but the noise of her leaving.",
   'The hiss starts before she has finished turning round. She holds it for exactly as long as it takes to get her feet under her, and then she is gone.',
   'She sees you. Whatever she was doing stops. She hisses, once, flat and ugly, and runs.',
 ];
@@ -278,7 +278,7 @@ async function strayTick() {
   // home on the next boot, and hiding silently stops working forever. Warn once.
   if (c.home_zone !== DEN_ZONE && !S._warnedHome) {
     S._warnedHome = true;
-    console.warn(`[strays] ${CAT_ID}.home_zone is "${c.home_zone}", expected "${DEN_ZONE}" — hiding won't work. See docs/systems-strays.md.`);
+    console.warn(`[strays] ${CAT_ID}.home_zone is "${c.home_zone}", expected "${DEN_ZONE}": hiding won't work. See docs/systems-strays.md.`);
   }
 
   if (isSurfaced()) {

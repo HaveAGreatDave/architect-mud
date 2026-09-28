@@ -17,7 +17,7 @@
   "looks": [
     "Opening it would open all of them, in order, quite slowly.",
     "The handle is at four heights and each is the right one.",
-    "Behind it's this room, one iteration in, with somebody in it who moves when you move."
+    "Behind it is this room, one iteration in, with somebody in it who moves when you move."
   ],
   "matches": "door",
   "name": "a doorway repeating into itself",

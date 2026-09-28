@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The top of the old flow, flat as a poured floor and black as a stove, with the ash drifted into every low place in it. From up here the whole grey basin lies out below with the water standing in the middle of it and the steam going up off it in a line.",
+  "description": "A flat black top, ash lying in its hollows. Out over the grey basin, steam goes up off the water in a long line.",
   "exits": {
     "east": "zone_dw_758_975",
     "north": "zone_dw_757_974",

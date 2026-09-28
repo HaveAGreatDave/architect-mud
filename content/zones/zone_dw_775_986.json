@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A level of hard black rock standing above the flats, cracked into slabs the size of doors by nothing but time. Where the slabs have parted the crack goes down further than you can see and lets no light in.",
+  "description": "The rock stands above the flats here, black and broken into slabs. Mind the cracks: they go down a long way.",
   "exits": {
     "east": "zone_dw_776_986",
     "north": "zone_dw_775_985",

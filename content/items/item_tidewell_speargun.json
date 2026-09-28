@@ -10,7 +10,7 @@
         "min": 9
       },
       "damage_type": "edged",
-      "description": "A stubby pneumatic speargun with a rubber-wrapped grip and a spare shaft clipped along the barrel. Built for salvage crews working the flooded blocks: it's the one weapon in this city that doesn't care that it's underwater, because underwater is the only place anyone ever meant to fire it.",
+      "description": "A stubby pneumatic speargun with a rubber-wrapped grip and a spare shaft clipped along the barrel. Built for salvage crews in the flooded blocks. It's meant to be fired underwater.",
       "min_skill": {
         "firearms": 3
       },
@@ -25,7 +25,7 @@
       "min": 9
     },
     "damage_type": "edged",
-    "description": "A stubby pneumatic speargun with a rubber-wrapped grip and a spare shaft clipped along the barrel. Built for salvage crews working the flooded blocks: it's the one weapon in this city that doesn't care that it's underwater, because underwater is the only place anyone ever meant to fire it.",
+    "description": "A stubby pneumatic speargun with a rubber-wrapped grip and a spare shaft clipped along the barrel. Built for salvage crews in the flooded blocks. It's meant to be fired underwater.",
     "min_skill": {
       "firearms": 3
     },

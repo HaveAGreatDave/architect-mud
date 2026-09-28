@@ -126,7 +126,7 @@
     "She writes something in the folder without opening it more than an inch.",
     "Somewhere under the floor the air handling changes note, and the room gets very slightly colder."
   ],
-  "description": "A composed woman in her forties in a charcoal suit cut better than anything else in the quarter, standing at the model rather than at a desk. She holds a folder she does not open. When she talks about the estate she talks about it in the present tense, and it takes a while to notice that half of what she is describing is not there.",
+  "description": "A composed woman in her forties in a charcoal suit cut better than anything else in the quarter, standing at the model with a folder she doesn't open. She talks about the estate in the present tense, including the half that isn't built.",
   "dialogue_tree": {
     "built": {
       "options": [
@@ -198,7 +198,7 @@
       "text": "\"Welcome to Halcyon Fields.\" She says it to the room as much as to you, then arrives at your elbow. \"Take your time with the model. Everybody does.\"",
       "text_by_relation": {
         "familiar": "She does not come over. She lifts the folder an inch in greeting and carries on with what she is doing, which after the fourth or fifth visit is the warmest thing she does.\n\n\"Kettle to the row is still not made up,\" she says, without preamble. \"I know. I have said.\"",
-        "first": "The woman at the model looks up before the doors have finished closing behind you, and is beside you a moment later without seeming to have hurried.\n\n\"Odile Marchetti. Welcome to Halcyon Fields.\" She gestures at the case with the folder. \"That is the whole quarter. Take as long as you like — people always want to find where they are standing, and it is there.\"\n\nShe points to a low curved building on the model. It is this one. On the model, the meadow outside it is a boulevard with trees down the middle.",
+        "first": "The woman at the model looks up before the doors have finished closing behind you, and is beside you a moment later without seeming to have hurried.\n\n\"Odile Marchetti. Welcome to Halcyon Fields.\" She gestures at the case with the folder. \"That is the whole quarter. Take as long as you like. People always want to find where they are standing, and it is there.\"\n\nShe points to a low curved building on the model. It is this one. On the model, the meadow outside it is a boulevard with trees down the middle.",
         "known": "\"You came back.\" A small, real smile. \"Nobody comes back twice to look at a model. What is it you actually want to know?\""
       }
     }

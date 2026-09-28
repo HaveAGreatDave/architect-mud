@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "city",
   "color": "#7f8688",
-  "description": "A hard grey apron of poured concrete, walled to knee height along both sides and roofed at the far end by the bank's own lintel, which reaches out far enough that half the yard stands in its shadow. Bollards close the gap to a single lane down the middle. Nothing else is on it — no bench, no planter, nothing to chain a bike to, not so much as a bin — and it's swept so thoroughly it looks unused. It's wide enough to turn a car on, and that is the whole of what it's for.",
+  "description": "A hard grey apron of poured concrete, walled to knee height along both sides and roofed at the far end by the bank's own lintel, which reaches out far enough that half the yard stands in its shadow. Bollards close the gap to a single lane down the middle. Nothing else is on it (no bench, no planter, nothing to chain a bike to, not so much as a bin), and it's swept so thoroughly it looks unused. It's wide enough to turn a car on, and that is the whole of what it's for.",
   "exits": {
     "north": "zone_district_921_911",
     "south": "zone_district_921_913"

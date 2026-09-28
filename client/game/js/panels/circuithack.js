@@ -356,8 +356,8 @@ function bumpTrace(state, amount) {
 // since it represents actively getting caught, not just running dry.
 function checkFailStates(state) {
   if (state.over) return true;
-  if (state.trace >= state.traceMax) { finish(state, false, 'TRACE COMPLETE — INTRUSION LOGGED, CONNECTION SEVERED'); return true; }
-  if (state.movesLeft <= 0) { finish(state, false, 'CYCLES EXHAUSTED — KICKED FROM SYSTEM'); return true; }
+  if (state.trace >= state.traceMax) { finish(state, false, 'TRACE COMPLETE: INTRUSION LOGGED, CONNECTION SEVERED'); return true; }
+  if (state.movesLeft <= 0) { finish(state, false, 'CYCLES EXHAUSTED: KICKED FROM SYSTEM'); return true; }
   return false;
 }
 
@@ -379,7 +379,7 @@ function moveTo(state, id) {
     state.movesLeft--;                                  // ICE also burns an extra move
     bumpTrace(state, state.traceRate * 0.6);
     sfx('hack-alarm');
-    if (state.alarmsLeft <= 0) return finish(state, false, 'ICE LOCK — CONNECTION BURNED');
+    if (state.alarmsLeft <= 0) return finish(state, false, 'ICE LOCK: CONNECTION BURNED');
     flashStatus(`<span class="ch-warn">&#9888; ALARM TRIPPED &mdash; ${state.alarmsLeft} tolerance left</span>`);
   } else if (node.type === 'decoy') {
     const penalty = 2 + Math.floor(_opts.difficulty / 3);
@@ -397,7 +397,7 @@ function moveTo(state, id) {
     sfx('hack-boost');
     flashStatus('<span class="ch-warn">&#43; CYCLES RECOVERED (+3 moves)</span>');
   } else if (id === state.core) {
-    return finish(state, true, 'CORE BREACHED — ACCESS GRANTED');
+    return finish(state, true, 'CORE BREACHED: ACCESS GRANTED');
   } else {
     sfx('hack-move');
     flashStatus('');
@@ -420,7 +420,7 @@ function ping(state) {
   bumpTrace(state, state.traceRate * 0.6);
   sense(state, state.sensor + PING_BONUS_RADIUS);
   sfx('hack-ping');
-  flashStatus('<span class="ch-warn">&#8226; SENSOR PULSE — EXTENDED RANGE</span>');
+  flashStatus('<span class="ch-warn">&#8226; SENSOR PULSE: EXTENDED RANGE</span>');
   if (checkFailStates(state)) return;
   renderBoard();
   renderHud();
@@ -476,7 +476,7 @@ function breach(state, id) {
     state.alarmsLeft -= BREACH_FAIL_ALARM[kind];
     if (kind === 'firewall') state.identified.add(id);   // failed attempt reveals it for certain
     sfx('hack-alarm');
-    if (state.alarmsLeft <= 0) return finish(state, false, 'ICE LOCK — CONNECTION BURNED');
+    if (state.alarmsLeft <= 0) return finish(state, false, 'ICE LOCK: CONNECTION BURNED');
     flashStatus(`<span class="ch-warn">&#9888; BREACH FAILED &mdash; ${state.alarmsLeft} tolerance left</span>`);
   }
   if (checkFailStates(state)) return;
@@ -860,10 +860,10 @@ export function openCircuitHack(opts = {}) {
     renderBoard();
   };
   scanBtn.addEventListener('click', () => setMode('scan',
-    '<span class="ch-warn">SCAN ARMED — click an adjacent unknown via</span>',
+    '<span class="ch-warn">SCAN ARMED: click an adjacent unknown via</span>',
     '<span style="color:#7fa392">Scan disarmed.</span>'));
   breachBtn.addEventListener('click', () => setMode('breach',
-    '<span class="ch-warn">BREACH ARMED — click an adjacent GATE, ICE, or SENTRY</span>',
+    '<span class="ch-warn">BREACH ARMED: click an adjacent GATE, ICE, or SENTRY</span>',
     '<span style="color:#7fa392">Breach disarmed.</span>'));
   window.AudioEngine?.init?.();
   playPlugInIntro();

@@ -5,7 +5,7 @@
   "name": "soylent pouch (birthday)",
   "tags": {
     "consumable": true,
-    "description": "A pink pouch under a print of confetti and a cartoon candle. BIRTHDAY! — A LITTLE CELEBRATION IN EVERY POUCH! The exclamation marks are working very hard.",
+    "description": "A pink pouch under a print of confetti and a cartoon candle. BIRTHDAY! A LITTLE CELEBRATION IN EVERY POUCH! The exclamation marks are working very hard.",
     "restore_hunger": 30,
     "restore_sanity": 2,
     "stackable": true,

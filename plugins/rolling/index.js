@@ -49,7 +49,7 @@ async function cmdRoll(args, raw, player, broadcast) {
   if (kind) key = kind;
   else if (canna && !toba) key = 'cannabis';
   else if (toba && !canna) key = 'tobacco';
-  else if (canna && toba) return { type: 'error', message: 'Roll which — cannabis or tobacco? (e.g. "roll 3 cannabis")' };
+  else if (canna && toba) return { type: 'error', message: 'Roll which: cannabis or tobacco? (e.g. "roll 3 cannabis")' };
   else return { type: 'error', message: "You've no loose cannabis or tobacco to roll." };
 
   const target = ROLLABLE[key];

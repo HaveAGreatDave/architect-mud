@@ -18,7 +18,7 @@
 
 import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield,
   groundObstructionAt, MODEL_MAX_EXTENT, TRUCK_STEP_Z, RENDER_TUNE, navMarks, cabTrim, cabWheelHub, cabWheelGeom, cabGpsRect, cabControlRects, cabDashCanvas , ROAD_RIG_MUL,
-  perfBegin, perfEnd, perfTick } from './windshield.js';
+  perfBegin, perfEnd, perfTick, lastViewState } from './windshield.js';
 import { TYPES, IDLE, createTruckState, truckReadout, step, truckShift, truckSplit, truckSelectGear, bestGear } from './flight-model.js';
 import { createFreeCam, FREECAM_HINT, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
 import { bindBigScreenButton, exitBigScreen, BIGSCREEN_GLYPH, BIGSCREEN_TITLE } from './bigscreen.js';
@@ -35,12 +35,13 @@ import { CAB_VIEW_TUNE } from '../../../shared/cab-render-tune.js';   // this vi
 import { TILES_PER_MILE } from '../../../shared/road-units.js';   // the one tiles→miles conversion, shared with the server
 import { cbRadioHTML, wireCbRadio, cbTabKey } from './cb-radio.js';
 import { openTabletToChatTab } from './tablet-os.js';
+import { makeDraggable } from './confirm.js';
 // HUNGER AND THIRST COST NOTHING TO READ. They are already on the live player object and already
 // reach this client on every 'player_update' and every 'resource_tick', so the band on the glass
 // and the bars in the galley are drawn from what the browser had anyway — no payload, no push, no
 // query. The only thing the cab has to ask the server for is what is in the bunk to eat.
 import { state as gameState } from '../state.js';
-import { COMPACT_MQ, isCompactView, compactHidePanel, TOUCH_MQ, isTouchView } from '../../../shared/compact-view.js';
+import { COMPACT_MQ, isCompactView, compactHidePanel, seatHidePanel, TOUCH_MQ, isTouchView } from '../../../shared/compact-view.js';
 
 // ── THE COMPACT CAB ───────────────────────────────────────────────────────────
 //
@@ -170,6 +171,9 @@ let TRIM = null;
 // `custom_data.cab`. Kept beside the other two because all three are properties of the TRUCK rather
 // than of this frame, and the dash is built around them.
 let CABFITS = [];
+// …and which horn is on the roof: a bench horn's id (client/shared/truck-horns.js), or null for the
+// factory one — which is every truck nobody has taken to the bench, and sounds as it always did.
+let HORN = null;
 const setParams = (ctx) => {
   P = (ctx && ctx.params) || TYPES[ctx && ctx.typeId] || TYPES.hauler;
   if (ctx && ctx.typeId) TYPE_ID = ctx.typeId;
@@ -179,6 +183,7 @@ const setParams = (ctx) => {
   // inside of it arrive together because they are bought at the same bench.
   if (ctx && 'trim' in ctx) TRIM = ctx.trim || null;
   if (ctx && 'cab' in ctx) CABFITS = Array.isArray(ctx.cab) ? ctx.cab : [];
+  if (ctx && 'horn' in ctx) HORN = ctx.horn || null;
 };
 
 // WHICH ROOM YOU ARE SITTING IN. One number — the type's `tier`, which rides along in `params`
@@ -204,35 +209,36 @@ const kitFor = (p) => CAB_KIT[p?.tier] || CAB_KIT[1];
 // two keys out of eleven. This table is the legend the ? card renders, and it is written as data so
 // that adding a control without telling anybody about it takes a deliberate omission.
 const CONTROLS = [
-  ['Drag the wheel', "Steer. Take hold of the wheel on the dash anywhere on it and turn it, or put a hand anywhere else on the glass and drag sideways. It walks back to centre when you let go. In the chase view the same drag orbits the camera instead — the middle button does too, if that's the hand you have — and the scroll wheel dollies it."],
+  ['Drag the wheel', "Steer. Take hold of the wheel on the dash anywhere on it and turn it, or put a hand anywhere else on the glass and drag sideways. It walks back to centre when you let go. In the chase view the same drag orbits the camera instead, the middle button does too, if that's the hand you have, and the scroll wheel dollies it."],
   ['X / C or ← →', 'Steer. X and C are the flight sim rudder keys, so the hand that flies already knows them; the arrows do the same thing. One full turn of the wheel is full lock.'],
   ['Centre boss', 'The horn. Press the middle of the wheel.'],
   ['GPS screen', "Tap it. The map is the road you're actually on; tapping opens the fork, with the distance and whether your tank reaches. Picking one runs the ordinary route command, so it obeys the same rules typing it would."],
-  ['Lever', "The gear lever, in an H-gate. Drag the knob into a slot — or just click the slot. The knob sits in whatever gear you're actually in."],
+  ['Lever', "The gear lever, in an H-gate. Drag the knob into a slot, or just click the slot. The knob sits in whatever gear you're actually in."],
   ['LO / HI', 'Range. The box is a four-by-two: the same four slots are gears 1-4 in LO and 5-8 in HI, and changing range in gear takes four ratios with it.'],
   ['A / THROTTLE', 'Throttle. Held. The engine takes a moment to come up on boost, and longer in a low gear.'],
   ['Z', 'Service brakes. They heat, and hot brakes fade.'],
-  ['SPACE / CLUTCH', "Clutch. Held — or TAP the pedal to latch it in, which is how you shift with one hand on a mouse. The box isn't synchronised: a gear only goes in with the clutch in, and trying it without grinds the box into neutral. It's also how you restart a stalled engine."],
-  ['J / JAKE', "Engine brake. Held. Free retardation on a descent — it doesn't heat the drums."],
+  ['SPACE / CLUTCH', "Clutch. Held, or TAP the pedal to latch it in, which is how you shift with one hand on a mouse. The box isn't synchronised: a gear only goes in with the clutch in, and trying it without grinds the box into neutral. It's also how you restart a stalled engine."],
+  ['J / JAKE', "Engine brake. Held. Free retardation on a descent. It doesn't heat the drums."],
   ['↑ ↓', 'Shift up / down, on the same cluster the wheel is on: ← → steers, ↑ ↓ works the box.'],
   ['. and ,', 'Shift up / down, the other way round. Gear 0 is neutral.'],
-  ['K / KEY', 'The ignition. Off stops the engine; on cranks it, and it only catches with the clutch in or the box in neutral — same rule as restarting a stall.'],
-  ['M / AUTO', "Automatic shifting. It works the clutch and the lever for you and you can watch it do it — the stick goes out through neutral and into the slot, the pedal goes in and comes up. It never chooses reverse, and it has no authority you do not: it can lug the engine and it can be fluffed, because it's a hand on the same controls."],
-  ['G / CRUISE', "Cruise control. Locks the speed you're doing — the brake, the clutch or dropping out of gear cancels it. It works the throttle and nothing else, so a hill still beats you in the wrong gear."],
-  ['/', 'Splitter — half a gear.'],
+  ['K / KEY', 'The ignition. Off stops the engine; on cranks it, and it only catches with the clutch in or the box in neutral, same rule as restarting a stall.'],
+  ['M / AUTO', "Automatic shifting. It works the clutch and the lever for you and you can watch it do it: the stick goes out through neutral and into the slot, the pedal goes in and comes up. It never chooses reverse, and it has no authority you do not: it can lug the engine and it can be fluffed, because it's a hand on the same controls."],
+  ['SHIFT+M / A-CLU', "Automatic clutch, for manual. On (the default) the clutch works itself: a gear goes in wherever you put the lever and the pedal holds itself in at a stop so you can't stall. Off, the pedal is yours and the box grinds without it. Click the gearstick on the dash to open the gearshift, where you also pick your knob."],
+  ['G / CRUISE', "Cruise control. Locks the speed you're doing, the brake, the clutch or dropping out of gear cancels it. It works the throttle and nothing else, so a hill still beats you in the wrong gear."],
+  ['/', 'Splitter: half a gear.'],
   ['R', 'Reverse. Only from a standstill.'],
   ['H', 'Air horn. The room hears it.'],
-  ['L / LAMPS', 'Headlights. They default on, because a rig runs lit — switching them off is a thing you chose, and other drivers see your actual lamps.'],
+  ['L / LAMPS', 'Headlights. They default on, because a rig runs lit, switching them off is a thing you chose, and other drivers see your actual lamps.'],
   ['I / CAB', "The dome lamp over your head. Off, the panel lamps stay lit and everything else in the cab goes dark, which is what a night shift looks like from the seat; there's still enough of the dash to find a knob by."],
-  ['W / the stalk', 'Wipers. The stalk is on the column beside the wheel and it wears its own setting — off, intermittent, low, high.'],
-  ['Q / E / S', "Look left, right, and over your shoulder. Held — you look, then you come back. There's no dash behind the side glass, so the view out of it's clear."],
+  ['W / the stalk', 'Wipers. The stalk is on the column beside the wheel and it wears its own setting, off, intermittent, low, high.'],
+  ['Q / E / S', "Look left, right, and over your shoulder. Held: you look, then you come back. There's no dash behind the side glass, so the view out of it is clear."],
   // The whole map is the flight sim's now — see the sync note in the key handler.
-  ['V', 'External view — a chase camera behind the rig, on the same key the cockpit uses. Dolly right in and it settles flat to the road so you can see ahead of you; you can still orbit right round at any distance. (F still works.)'],
+  ['V', 'External view: a chase camera behind the rig, on the same key the cockpit uses. Dolly right in and it settles flat to the road so you can see ahead of you; you can still orbit right round at any distance. (F still works.)'],
   ['Y / LATCH', "The cab door latches. They start OPEN, which is what makes the button worth finding: stop on the corridor beside somebody with their hand out and they will let themselves into the passenger seat. Locked, nobody gets in and you pick people up on purpose with pickup. It's remembered per truck."],
-  ['T / GALLEY', "What's in the cab to eat or drink, with your food and water bars over it. Every row runs the ordinary eat or drink command, so it does exactly what typing would — this is a flap, not a second way to eat."],
-  ['D', 'Damage. Four bars — engine, wheels, body, and the trailer if you have one. The strip in the corner is always there; this opens it out.'],
-  ['N', "Nav marks. The red chevrons that point at traffic you can't see and the mark on your waypoint — off, and the glass is just the road. Remembered. The free camera hides them regardless, because they point the way the TRUCK is facing and it isn't on the truck."],
-  ['⊟ / ⛶ / ⤢', "Three rungs of the same ladder. Hide the text panel for more road; fullscreen takes the command box with it; big screen takes the whole page — no sidebar, no panels, nothing on the glass but the road. Esc comes back from the last one."],
+  ['T / GALLEY', "What's in the cab to eat or drink, with your food and water bars over it. Every row runs the ordinary eat or drink command, so it does exactly what typing would. This is a flap, not a second way to eat."],
+  ['D', 'Damage. Four bars: engine, wheels, body, and the trailer if you have one. The strip in the corner is always there; this opens it out.'],
+  ['N', "Nav marks. The red chevrons that point at traffic you can't see and the mark on your waypoint, off, and the glass is just the road. Remembered. The free camera hides them regardless, because they point the way the TRUCK is facing and it isn't on the truck."],
+  ['⊟ / ⛶ / ⤢', "Three rungs of the same ladder. Hide the text panel for more road; fullscreen takes the command box with it; big screen takes the whole page, no sidebar, no panels, nothing on the glass but the road. Esc comes back from the last one."],
 ];
 
 // The damage HUD's vocabulary, and the one place the client says anything about what a component
@@ -389,6 +395,7 @@ const CAB_CTL = [
   { key: 'range',   sel: '.cab-range',     bank: 'right', kind: 'rocker', label: 'RANGE' },
   { key: 'split',   sel: '.cab-splitbtn',  bank: 'right', kind: 'rocker', label: 'SPLIT' },
   { key: 'auto',    sel: '.cab-auto',      bank: 'right', kind: 'rocker', label: 'AUTO',   col: '#8fe0a0' },
+  { key: 'clu',     sel: '.cab-autoclu',   bank: 'right', kind: 'rocker', label: 'AUTO CLU', col: '#e8c07a' },
   { key: 'rev',     sel: '.cab-revbtn',    bank: 'right', kind: 'rocker', label: 'REV',    col: '#d2603f' },
   // The two push-pull valves, side by side on the real thing and side by side here — a hand finds
   // both of them without looking, and they are the same gesture.
@@ -406,6 +413,18 @@ const CAB_CTL = [
 const AUTO_KEY = 'truckAutoShift';
 function autoPref() {
   try { return localStorage.getItem(AUTO_KEY) !== '0'; } catch { return true; }
+}
+// The driver's shift knob — a name the painted gate (drawShiftKnob in windshield.js) knows how to
+// draw. A preference, not a purchase, for now.
+const SHIFT_KNOBS = [['ball', 'Black ball'], ['eightball', '8-ball'], ['skull', 'Skull'], ['chrome', 'Chrome'],
+  ['crystal', 'Crystal'], ['walnut', 'Walnut'], ['dice', 'Die']];
+const KNOB_KEY = 'truckShiftKnob';
+function knobPref() {
+  try { const k = localStorage.getItem(KNOB_KEY); return SHIFT_KNOBS.some(([id]) => id === k) ? k : 'ball'; } catch { return 'ball'; }
+}
+const AUTOCLU_KEY = 'truckAutoClutch';
+function autoCluPref() {
+  try { return localStorage.getItem(AUTOCLU_KEY) !== '0'; } catch { return true; }
 }
 
 let st = null;
@@ -455,11 +474,32 @@ function paintFreeCamChrome() {
 // from this file closes a cycle through the boot chain.
 function markSwitchTold(on) {
   import('../render.js').then((r) => r.appendHtml(
-    on ? 'Nav marks back on the glass.' : 'Nav marks off the glass — the traffic chevrons and the waypoint mark. <b>N</b> puts them back.',
+    on ? 'Nav marks back on the glass.' : 'Nav marks off the glass, the traffic chevrons and the waypoint mark. <b>N</b> puts them back.',
     'msg-system')).catch(() => { /* the marks themselves are the feedback; the line is the second surface */ });
 }
 
 export function isCabActive() { return !!st; }
+
+// ── THE SERVICE BAY'S THREE HOOKS ────────────────────────────────────────────
+// The depot's bench comes to the cab when you are sitting in the shed (truck-depot.js, service
+// mode) and lands as an overlay on this glass. It needs exactly three things from the seat and
+// they are all here, so it never reaches into `st`: somewhere to mount, a way to show a paint job
+// on the truck before it is bought, and the camera — outside for paint, inside for the trinkets.
+export function cabServiceHost() { return st ? document.querySelector('.cab-wrap') : null; }
+// ⚠ A PREVIEW, NEVER THE PAINT. It sits over PAINT in the chase camera's livery and nowhere else,
+// is cleared the moment the bay closes, and the server's push after a respray replaces PAINT with
+// the real thing — so a colour you only looked at can never be the colour you drive away in.
+let PAINT_PREVIEW = null;
+export function cabPreview({ paint = null } = {}) { PAINT_PREVIEW = paint || null; }
+/** Read the view ('ext' or 'cab') with no argument; set it with one. */
+export function cabView(mode, { quarter = false } = {}) {
+  if (!st) return null;
+  if (mode === 'ext' || mode === 'cab') st.setExternal?.(mode === 'ext');
+  // The workshop's opening shot: a 3/4 off her FRONT-RIGHT. The renderer looks along heading + yawOff
+  // and adds 'chaseYaw' on top, so a camera ahead and to the right looking back at her is 225 net.
+  if (quarter && mode === 'ext') st.extYaw = ((225 - (RENDER_TUNE.chaseYaw || 0)) % 360 + 360) % 360;
+  return st.external ? 'ext' : 'cab';
+}
 
 // ── THE SHELF IS THE BOTTOM OF THE SAME BOARD ────────────────────────────────
 //
@@ -573,7 +613,7 @@ export function openCab(ctx = {}) {
              ⊟ takes the log, ⛶ takes the command box with it, ⤢ takes the whole page: no sidebar,
              no header, and nothing on the glass but the road. Esc comes back from that one; it's
              the only rung that isn't its own toggle, because in it the button is gone. -->
-        <button class="cab-cbtn cab-hidebtn" title="hide the text panel — more road">⊟</button>
+        <button class="cab-cbtn cab-hidebtn" title="hide the text panel, more road">⊟</button>
         <button class="cab-cbtn cab-fsbtn" title="fullscreen">⛶</button>
         <button class="cab-cbtn cab-bigbtn" title="${BIGSCREEN_TITLE}">${BIGSCREEN_GLYPH}</button>
       </div>
@@ -675,6 +715,7 @@ export function openCab(ctx = {}) {
              dragging the road, or by these arrows, or with the arrow keys; all three wind the same
              helm-wheel state, which is still the only place a steering angle exists. -->
         <div class="cab-col cab-col-wheel">
+          <button class="cab-btn cab-gearsbtn cab-touch" aria-label="Gearshift" title="Open the gearshift: lever, range, AUTO/MANUAL, clutch mode"><b>H</b><em>GEARS</em></button>
           <div class="cab-steer cab-touch" role="group" aria-label="Steering">
             <button class="cab-btn cab-left" aria-label="Steer left" title="Steer left (←)"><b>${svgIcon('steerL')}</b><em>STEER</em></button>
             <button class="cab-btn cab-right" aria-label="Steer right" title="Steer right (→)"><b>${svgIcon('steerR')}</b><em>STEER</em></button>
@@ -747,8 +788,8 @@ export function openCab(ctx = {}) {
                under your thumb, never as a position you put the lever in — so they're two small
                switches beside the gate rather than two more keys in a row of keys. -->
           <div class="cab-collars" role="group" aria-label="Gearbox collars">
-            <button class="cab-btn cab-range" aria-label="Range" title="Range collar — LO is gears 1-4, HI is 5-8"><i class="cab-rangeic">${svgIcon('range')}</i><b>LO</b><em>RANGE</em></button>
-            <button class="cab-btn cab-splitbtn" aria-label="Splitter" title="Splitter collar (/) — half a gear"><b>${svgIcon('split')}</b><em>SPLIT</em></button>
+            <button class="cab-btn cab-range" aria-label="Range" title="Range collar, LO is gears 1-4, HI is 5-8"><i class="cab-rangeic">${svgIcon('range')}</i><b>LO</b><em>RANGE</em></button>
+            <button class="cab-btn cab-splitbtn" aria-label="Splitter" title="Splitter collar (/), half a gear"><b>${svgIcon('split')}</b><em>SPLIT</em></button>
             <!-- AUTO. Not an automatic gearbox — there's no such truck in this fleet. It's a
                  hand on the same lever and the same pedal, and you can watch it work: the stick
                  goes through neutral, the clutch goes in, the gear goes home. Which is the point
@@ -761,7 +802,7 @@ export function openCab(ctx = {}) {
                  gate, the range collar, the splitter — is in this group, and the one control that
                  does all three of those jobs for you was across the cab from them. The class is
                  unchanged, so the M key, the click handler and the lamp painter all still find it. -->
-            <button class="cab-btn cab-rocker cab-auto" aria-pressed="false" aria-label="Automatic shifting" title="Automatic shifting (M) — works the clutch and the lever for you. Watch the stick: it shifts the way you would."><i></i><u><span>AUTO</span></u></button>
+            <button class="cab-btn cab-rocker cab-auto" aria-pressed="false" aria-label="Automatic shifting" title="Automatic shifting (M), works the clutch and the lever for you. Watch the stick: it shifts the way you would."><i></i><u><span>AUTO</span></u></button>
             <!-- REVERSE, AND IT EXISTS BECAUSE OF THE BUTTON NEXT TO IT. The automatic deliberately
                  never chooses reverse for you (which way a truck is pointed when it moves is the
                  one decision that stays with the person who can see out of the window), so a driver
@@ -771,7 +812,11 @@ export function openCab(ctx = {}) {
                  first and reverse second rather than a gear change nobody watched happen: the
                  clutch goes in, the stick comes out to neutral, there's a pause you can see, and
                  then it goes across. Pressing it again brings it back to neutral. -->
-            <button class="cab-btn cab-rocker cab-revbtn" aria-pressed="false" aria-label="Reverse" title="Reverse (R) — clutch in, through neutral, into reverse. Only at a standstill. Press again for neutral."><i></i><u><span>REV</span></u></button>
+            <!-- THE LEFT FOOT. On (the default) the clutch is worked for you in manual: a gear goes in
+                 wherever you put the lever, and the pedal holds itself in at a stop so the engine
+                 never stalls. Off is the full sim — the pedal is yours and the box grinds without it. -->
+            <button class="cab-btn cab-rocker cab-autoclu" aria-pressed="true" aria-label="Automatic clutch" title="Automatic clutch (Shift+M), on: the clutch works itself in manual. Off: the pedal is yours."><i></i><u><span>A-CLU</span></u></button>
+            <button class="cab-btn cab-rocker cab-revbtn" aria-pressed="false" aria-label="Reverse" title="Reverse (R), clutch in, through neutral, into reverse. Only at a standstill. Press again for neutral."><i></i><u><span>REV</span></u></button>
           </div>
         </div>
 
@@ -786,7 +831,7 @@ export function openCab(ctx = {}) {
              would reach for. -->
         <div class="cab-col cab-col-stalk">
           <button class="cab-stalk cab-wipe" aria-label="Wipers"
-            title="Wiper stalk (W) — off / intermittent / low / high">
+            title="Wiper stalk (W): off / intermittent / low / high">
             <i class="cab-stalk-mount"></i>
             <i class="cab-stalk-arm"><b>${svgIcon('wiper')}</b></i>
             <em class="cab-stalk-pos">OFF</em>
@@ -821,17 +866,17 @@ export function openCab(ctx = {}) {
                  template literal, and a backtick here ends the string mid-sentence — see the
                  client:smoke note in CLAUDE.md, which exists because of exactly this file.) -->
             <div class="cab-key" role="group" aria-label="Ignition">
-              <button class="cab-keybarrel" aria-label="Ignition key" aria-pressed="true" title="Ignition (K) — turn and HOLD to crank. Off kills the engine; it only catches with the clutch in or the box in neutral."><s></s><b></b></button>
+              <button class="cab-keybarrel" aria-label="Ignition key" aria-pressed="true" title="Ignition (K), turn and HOLD to crank. Off kills the engine; it only catches with the clutch in or the box in neutral."><s></s><b></b></button>
               <u><span>KEY</span></u>
             </div>
 
             <!-- THE JAKE is a rocker rather than a pedal, because that's what it's in the cab:
                  a switch on the dash you flick on for a descent. It's still HELD (see hold()). -->
-            <button class="cab-btn cab-rocker cab-jake" aria-label="Jake brake" title="Jacobs engine brake (J) — held. Holds you back on a descent so the service brakes stay cold."><i></i><u><span>JAKE</span></u></button>
+            <button class="cab-btn cab-rocker cab-jake" aria-label="Jake brake" title="Jacobs engine brake (J), held. Holds you back on a descent so the service brakes stay cold."><i></i><u><span>JAKE</span></u></button>
 
             <!-- THE HORN. A VERB ('horn', plugins/trucking) rather than a local sound, because the
                  whole point of a horn is that the room hears it and you aren't the room. -->
-            <button class="cab-btn cab-rocker cab-horn cab-touch" aria-label="Air horn" title="Air horn (H) — the room hears it"><i></i><u><span>HORN</span></u></button>
+            <button class="cab-btn cab-rocker cab-horn cab-touch" aria-label="Air horn" title="Air horn (H), the room hears it"><i></i><u><span>HORN</span></u></button>
 
             <!-- ── THE HEADLIGHTS ──────────────────────────────────────────────
                  A LATCHING rocker, and the reason it exists at all is that the lamps used to be
@@ -846,7 +891,7 @@ export function openCab(ctx = {}) {
                  below), so it costs no query, no column and no new route — and other drivers see
                  your actual lamps rather than an assumption about them. -->
             <button class="cab-btn cab-rocker cab-heads on" aria-label="Headlights" aria-pressed="true"
-              title="Headlights (L) — beam on the road ahead. Other drivers see them."><i></i><u><span>LAMPS</span></u></button>
+              title="Headlights (L): beam on the road ahead. Other drivers see them."><i></i><u><span>LAMPS</span></u></button>
 
             <!-- THE DOME LAMP. The other light switch, and the one that points inward: it lights
                  the CAB, not the road, and it's deliberately next to the headlights because a hand
@@ -860,7 +905,7 @@ export function openCab(ctx = {}) {
                  THE DOME LAMP in windshield.js). Purely local, like the headlights — but unlike
                  them it isn't on the telemetry packet, because nobody outside the cab can see it. -->
             <button class="cab-btn cab-rocker cab-dome on" aria-label="Cab light" aria-pressed="true"
-              title="Cab light (I) — the dome lamp over your head. Switched off, the panel still glows and the rest of the dash goes dark."><i></i><u><span>CAB</span></u></button>
+              title="Cab light (I): the dome lamp over your head. Switched off, the panel still glows and the rest of the dash goes dark."><i></i><u><span>CAB</span></u></button>
 
             <!-- CRUISE. A LATCHING switch, not a held one, and the only rocker on this panel whose
                  label is a NUMBER when it's on: what a driver wants back off cruise control is
@@ -877,11 +922,11 @@ export function openCab(ctx = {}) {
                  push-pull control on a truck dash that's shaped differently from everything around
                  it so a hand finds it without looking. Push it in and the trailer has air and is
                  yours; pull it out and the box stays where it is. So the knob's own state is the
-                 rig's state, and the word stamped on it's what your hand does next — which is why
+                 rig's state, and the word stamped on it is what your hand does next — which is why
                  the legend reads PUSH and PULL rather than HITCH and DROP. -->
             <button class="cab-btn cab-hitchbtn" hidden aria-label="Trailer air supply" title="Back under the trailer and couple (hitch)"><i></i><b class="cab-knobface"><s></s><em>PUSH</em></b><u><span>TRAILER AIR</span></u></button>
 
-            <button class="cab-btn cab-rocker cab-cruise" aria-pressed="false" aria-label="Cruise control" title="Cruise control (G) — locks the speed you're doing. The brake, the clutch or dropping out of gear cancels it."><i></i><u><span>CRUISE</span></u></button>
+            <button class="cab-btn cab-rocker cab-cruise" aria-pressed="false" aria-label="Cruise control" title="Cruise control (G), locks the speed you're doing. The brake, the clutch or dropping out of gear cancels it."><i></i><u><span>CRUISE</span></u></button>
 
             <!-- THE PARK BRAKE, and it's a KNOB because that's what it's on a truck: a big
                  yellow diamond you pull out and push in, next to the trailer's red one. It is
@@ -889,14 +934,14 @@ export function openCab(ctx = {}) {
                  both of them without looking, and they're the same gesture. Spring brakes hold
                  the rig with no air and no engine, which is why this is the one control that still
                  does something with the key off. -->
-            <button class="cab-btn cab-parkbtn" aria-pressed="false" aria-label="Park brake" title="Park brake (P) — the spring brakes. Holds the rig with the engine off; it won't let you pull away. Pull it with the key off and the rig stopped and you climb down."><i></i><b class="cab-knobface cab-parkface"><s></s><em>PULL</em></b><u><span>PARK</span></u></button>
+            <button class="cab-btn cab-parkbtn" aria-pressed="false" aria-label="Park brake" title="Park brake (P), the spring brakes. Holds the rig with the engine off; it won't let you pull away. Pull it with the key off and the rig stopped and you climb down."><i></i><b class="cab-knobface cab-parkface"><s></s><em>PULL</em></b><u><span>PARK</span></u></button>
 
             <!-- EXIT CAB. Not a control on the truck — the door. It's disabled until the spring
                  brakes are set and the rig is stopped, so it's a legible sequence rather than a
                  rule you get told off by: the button lights when you have finished parking. It
                  sends the same 'park' verb the knob does, which is what closes this panel and hands
                  the room back. -->
-            <button class="cab-btn cab-exitbtn" disabled aria-label="Exit cab" title="Exit cab — climb down. Set the park brake at a standstill first."><i></i><u><span>EXIT CAB</span></u></button>
+            <button class="cab-btn cab-exitbtn" disabled aria-label="Exit cab" title="Exit cab, climb down. Set the park brake at a standstill first."><i></i><u><span>EXIT CAB</span></u></button>
 
             <!-- THE PUMP HANDLE. Hidden until the server says there's a pump under the nose — the
                  same 'a control appears because the world affords it' rule the trailer air valve
@@ -909,7 +954,7 @@ export function openCab(ctx = {}) {
                  ever wanted a form in a truck. The readout is the running total in credits, so the
                  number you're watching is the number you're about to pay; it stops climbing when
                  the tank is full or the money runs out, and the handle clicks off exactly there. -->
-            <button class="cab-btn cab-pumpbtn" hidden aria-label="Fuel pump — hold to fill" title="Fuel — HOLD the handle. It fills while you hold it and charges you when you let go; it clicks off when the tank is full or you have spent what you have."><i></i><b class="cab-knobface cab-pumpface"><s></s><em class="cab-pumpread">FUEL</em></b><u><span>PUMP</span></u></button>
+            <button class="cab-btn cab-pumpbtn" hidden aria-label="Fuel pump, hold to fill" title="Fuel, HOLD the handle. It fills while you hold it and charges you when you let go; it clicks off when the tank is full or you have spent what you have."><i></i><b class="cab-knobface cab-pumpface"><s></s><em class="cab-pumpread">FUEL</em></b><u><span>PUMP</span></u></button>
 
           </div>
 
@@ -944,9 +989,9 @@ export function openCab(ctx = {}) {
                player who has flown already has the habit. HELD, not toggled, for the reason a
                shoulder-check is held — you look, you come back. -->
           <div class="cab-look cab-touch" role="group" aria-label="Look">
-            <button class="cab-btn cab-lookl" aria-label="Look left" title="Look left — hold (Q)"><b>${svgIcon('mirrorL')}</b><em>PORT</em></button>
-            <button class="cab-btn cab-lookr" aria-label="Look right" title="Look right — hold (E)"><b>${svgIcon('mirrorR')}</b><em>STBD</em></button>
-            <button class="cab-btn cab-lookb" aria-label="Look behind" title="Look behind — hold (S)"><b>${svgIcon('mirrorC')}</b><em>BACK</em></button>
+            <button class="cab-btn cab-lookl" aria-label="Look left" title="Look left, hold (Q)"><b>${svgIcon('mirrorL')}</b><em>PORT</em></button>
+            <button class="cab-btn cab-lookr" aria-label="Look right" title="Look right, hold (E)"><b>${svgIcon('mirrorR')}</b><em>STBD</em></button>
+            <button class="cab-btn cab-lookb" aria-label="Look behind" title="Look behind, hold (S)"><b>${svgIcon('mirrorC')}</b><em>BACK</em></button>
           </div>
         </div>
 
@@ -983,6 +1028,9 @@ export function openCab(ctx = {}) {
     id, container, sim,
     input: { throttle: 0, brake: 0, steer: 0, clutch: 0, jake: 0, surface: ctx.surface || 'road' },
     steerKey: 0,
+    autoClutch: autoCluPref(),   // manual mode works the clutch for you unless this is off
+    autoDip: 0,
+    knob: knobPref(),
     auto: autoPref(),   // automatic shifting — a hand on the lever, never a different gearbox
     shiftSeq: null,     // the beat of a shift in progress (autoShift)
     shiftCool: 0,
@@ -1203,6 +1251,7 @@ export function openCab(ctx = {}) {
   // that stays where you put it.
   container.querySelector('.cab-cruise')?.addEventListener('click', () => toggleCruise());
   container.querySelector('.cab-auto')?.addEventListener('click', () => st.setAuto?.(!st.auto));
+  container.querySelector('.cab-autoclu')?.addEventListener('click', () => st.setAutoClutch?.(!st.autoClutch));
   container.querySelector('.cab-revbtn')?.addEventListener('click', () => st.engageReverse?.());
   container.querySelector('.cab-parkbtn')?.addEventListener('click', () => st.setPark?.(!st.park));
   // The door. It is disabled unless the frame loop says you are parked and stopped, so it decides
@@ -1389,6 +1438,8 @@ export function openCab(ctx = {}) {
       if (!el || el.hidden) continue;
       out[c.bank].push({
         ...c,
+        // A switch whose legend depends on its state (AUTO / MANUAL) says so on the element.
+        label: el.dataset.dash || c.label,
         on: el.classList.contains('on') || el.getAttribute('aria-pressed') === 'true',
         enabled: !el.disabled,
       });
@@ -1579,8 +1630,11 @@ export function openCab(ctx = {}) {
           // NEAREST slot — the same snap a drag on the shelf's own lever gets, and for the same
           // reason: a gate is a physical constraint, and the strongest thing it does is stop you
           // selecting something that is not a gear.
-          if (inR(cr.gate) && st.gateSnapAt) {
-            st.gateSnapAt((px - cr.gate.x) / cr.gate.w, (py - cr.gate.y) / cr.gate.h);
+          // ⚠ A PRESS ON IT OPENS THE GEARSHIFT WINDOW rather than snapping a gear: the painted
+          // plate is small and a stray click on it used to shift the truck. The window is the real
+          // lever (see openShiftWin).
+          if (inR(cr.gate) && st.openShiftWin) {
+            st.openShiftWin(e.clientX, e.clientY);
             e.preventDefault(); return;
           }
           for (const k of Object.keys(cr)) {
@@ -1692,7 +1746,10 @@ export function openCab(ctx = {}) {
       // way out, so a 0.16 floor bottomed out at 0.18 and the renderer's own 0.15 limit was never
       // the one binding. At 0.13 the wheel runs all the way down to what the renderer will actually
       // allow, and the constraint is the camera's rather than an arbitrary number in the cab.
-      st.extZoom = Math.max(0.13, Math.min(2.8, st.extZoom * (e.deltaY > 0 ? 1.1 : 0.9)));
+      // and past that, in as far as the renderer's standoff, where the rig fills the frame (lastViewState;
+      // the cab hands over 1.15 x this, hence the division)
+      const lv = lastViewState(), lo = lv && lv.external && lv.chaseZoomFloor > 0 ? lv.chaseZoomFloor / 1.15 : 0.13;
+      st.extZoom = Math.max(lo, Math.min(2.8, st.extZoom * (e.deltaY > 0 ? 1.1 : 0.9)));
       e.preventDefault();
     }, { passive: false });
   }
@@ -1774,6 +1831,7 @@ export function openCab(ctx = {}) {
       pts: GATE.map((g) => ({ x: g.x, y: g.y, label: g.label || String(gearOfSlot(g)) })),
       at: st.gatePos || { x: 0.38, y: 0.50 },
       range: !!st.range,
+      knob: st.knob || 'ball',
     });
     // ── THE LEVER MOVES, IT DOES NOT TELEPORT ─────────────────────────────────
     // Every shift used to write the new slot straight onto the element, which is right for a hand
@@ -1788,16 +1846,25 @@ export function openCab(ctx = {}) {
     // ⚠ AND IT SNAPS ON THE FIRST PAINT, or the lever slides in from the corner of the plate every
     // time the cab is mounted, which reads as the truck arriving with the stick in the wrong place.
     let at = null, lastPut = 0;
+    const GLIDE_SPEED = 6.5;   // gate fractions a second — the crossgate is ~0.1 s, a whole H ~0.25 s
     const glide = (x, y) => {
       const now = performance.now();
       const dt = at ? Math.min(0.1, (now - lastPut) / 1000) : 0;
       lastPut = now;
       if (!at) { at = { x, y }; put(x, y); return; }
-      // Exponential ease — frame-rate independent, and quick enough that a manual shift still feels
-      // like the gear went in when you pressed the key rather than a moment afterwards.
-      const k = 1 - Math.exp(-16 * dt);
-      at.x += (x - at.x) * k; at.y += (y - at.y) * k;
-      if (Math.abs(x - at.x) < 0.002 && Math.abs(y - at.y) < 0.002) { at.x = x; at.y = y; }
+      // ALONG THE RAILS, never across them. A straight-line ease cut the corner from 4 to 5 through
+      // the plate between the slots, which is the one move a gate physically forbids. So the knob
+      // walks the channel network at a constant speed: along its own rail to the crossgate, across,
+      // then into the slot — and an auto shift is visibly a stick moving through each position on
+      // the way. Same column (1 to 2, or N to itself) is one straight run.
+      let step = GLIDE_SPEED * dt;
+      const route = Math.abs(at.x - x) < 0.004 ? [[x, y]] : [[at.x, 0.5], [x, 0.5], [x, y]];
+      for (const [wx, wy] of route) {
+        const dx = wx - at.x, dy = wy - at.y, d = Math.hypot(dx, dy);
+        if (d <= step) { at.x = wx; at.y = wy; step -= d; continue; }
+        at.x += (dx / d) * step; at.y += (dy / d) * step;
+        break;
+      }
       put(at.x, at.y);
     };
     // A drag has the knob under the pointer; when it ends, the ease resumes from where it was left.
@@ -1932,6 +1999,56 @@ export function openCab(ctx = {}) {
       const g = snap(fx, fy);
       if (g) { selectGear(gearOfSlot(g)); st.paintGate?.(); }
     };
+    // ── THE GEARSHIFT WINDOW ──────────────────────────────────────────────────
+    // Clicking the painted gate opens the shelf's own gate in a floating, draggable window — the
+    // real lever you can drag through the H, the slot buttons, the range and splitter collars, AUTO
+    // and REV. ⚠ IT IS THE SAME ELEMENT, MOVED, NEVER A COPY: every handler above is bound to it,
+    // so there is still one gearbox, and closing puts it back in the shelf where the screen reader
+    // and the touch layout expect it. The painted knob and this one read the same `st.gatePos`.
+    const gateCol = container.querySelector('.cab-col-gate');
+    const gateHome = gateCol?.parentNode, gateNext = gateCol?.nextSibling;
+    let shiftWin = null;
+    const closeShiftWin = () => {
+      if (!shiftWin) return;
+      if (gateHome && gateCol) gateHome.insertBefore(gateCol, gateNext && gateNext.parentNode === gateHome ? gateNext : null);
+      shiftWin.remove(); shiftWin = null;
+    };
+    st.openShiftWin = (cx, cy) => {
+      if (shiftWin) { closeShiftWin(); return; }
+      if (!gateCol) return;
+      shiftWin = document.createElement('div');
+      shiftWin.className = 'cab-shiftwin';
+      shiftWin.setAttribute('role', 'dialog');
+      shiftWin.setAttribute('aria-label', 'Gearshift');
+      shiftWin.innerHTML = `<div class="cab-shiftwin-bar"><span>GEARSHIFT</span><button class="cab-shiftwin-x" aria-label="Close gearshift" title="Close">✕</button></div>`;
+      shiftWin.appendChild(gateCol);
+      const pick = document.createElement('label');
+      pick.className = 'cab-shiftwin-knob';
+      pick.innerHTML = `<span>KNOB</span><select aria-label="Shift knob">${SHIFT_KNOBS.map(([id, name]) => `<option value="${id}"${id === st.knob ? ' selected' : ''}>${name}</option>`).join('')}</select>`;
+      pick.querySelector('select').addEventListener('change', (e) => {
+        st.knob = e.target.value;
+        try { localStorage.setItem(KNOB_KEY, st.knob); } catch {}
+      });
+      shiftWin.appendChild(pick);
+      document.body.appendChild(shiftWin);
+      shiftWin.querySelector('.cab-shiftwin-x').addEventListener('click', (e) => { closeShiftWin(); e.stopPropagation(); });
+      makeDraggable(shiftWin, shiftWin.querySelector('.cab-shiftwin-bar'));
+      // Beside where you clicked, kept on screen.
+      const w = shiftWin.offsetWidth, h = shiftWin.offsetHeight;
+      const x = cx != null ? cx - w / 2 : (innerWidth - w) / 2;
+      const y = cy != null ? cy - h - 16 : innerHeight - h - 24;
+      shiftWin.style.left = Math.max(4, Math.min(innerWidth - w - 4, x)) + 'px';
+      shiftWin.style.top = Math.max(4, Math.min(innerHeight - h - 4, y)) + 'px';
+      // The keyboard stays the cab's: a press in here is on buttons, never a text field.
+      shiftWin.addEventListener('pointerdown', () => grabSeatKeys?.());
+      st.paintGate?.();
+    };
+    st.closeShiftWin = closeShiftWin;
+    winOff.push(closeShiftWin);
+    container.querySelector('.cab-gearsbtn')?.addEventListener('click', (e) => {
+      const r = e.currentTarget.getBoundingClientRect();
+      st.openShiftWin(r.left + r.width / 2, r.top);
+    });
     for (const el of slots) {
       el.addEventListener('click', (e) => {
         const g = GATE[+el.dataset.gi];
@@ -2019,6 +2136,9 @@ export function openCab(ctx = {}) {
     if (target === st.sim.gear) return false;                      // not a shift at all
     if (target === 0 || st.sim.gear === 0) return false;           // out of gear / already out: free
     if (clutchIn()) return false;
+    // THE AUTOMATIC CLUTCH: the pedal goes in for the shift and comes back up on its own (see
+    // autoClutchStep). In NOW, so the step this gear lands on already sees it disengaged.
+    if (st.autoClutch) { st.input.clutch = 1; st.autoDip = 0.3; return false; }
     grind(target);
     return true;                                                    // handled — do not put it in gear
   }
@@ -2096,7 +2216,7 @@ export function openCab(ctx = {}) {
   function hornDown() {
     if (st.hornAt) return;                       // already open; a second finger is not a second horn
     st.hornAt = performance.now();
-    airHornOn(TYPE_ID);
+    airHornOn(TYPE_ID, HORN);
   }
   function hornUp() {
     if (!st.hornAt) return;
@@ -2300,6 +2420,7 @@ export function openCab(ctx = {}) {
     else if (down && !e.repeat && k === 'p') st.setPark?.(!st.park);
     // M — automatic shifting. Not on the gearbox cluster (↑↓ , .) deliberately: those are the box,
     // and a key that switches the box off does not belong among the keys that work it.
+    else if (down && !e.repeat && k === 'm' && e.shiftKey) st.setAutoClutch?.(!st.autoClutch);
     else if (down && !e.repeat && k === 'm') st.setAuto?.(!st.auto);
     // V, the cockpit's own chase key — see the sync note above. F is kept as a silent alias so
     // nobody who learned the cab's old key finds it dead.
@@ -2386,22 +2507,31 @@ export function openCab(ctx = {}) {
     // into a gear at all — the M key that did it is on a keyboard they do not have. This is the
     // one place the switch is not the driver's, and it is refused rather than hidden-and-toggled,
     // because the same call arrives from the click handler, the M key and the park brake.
-    if (!on && cabCompact()) return;
+    // (It used to refuse to switch off on a phone, which had no gate. The GEARS button now opens
+    // the gearshift window there, so manual is reachable everywhere.)
     st.auto = !!on;
     // Never leave the clutch pinned in by a driver that has just been switched off mid-shift: the
     // truck would coast, silently, with no pedal down and nothing to explain it.
     if (!on && st.shiftSeq) { st.shiftSeq = null; if (!st.heldBy?.clutch && !st.clutchLatched) st.input.clutch = 0; }
     const el = container.querySelector('.cab-auto');
-    if (el) { el.classList.toggle('on', st.auto); el.setAttribute('aria-pressed', st.auto ? 'true' : 'false'); }
+    if (el) { el.classList.toggle('on', st.auto); el.setAttribute('aria-pressed', st.auto ? 'true' : 'false'); el.dataset.dash = st.auto ? 'AUTO' : 'MANUAL'; const sp = el.querySelector('span'); if (sp) sp.textContent = st.auto ? 'AUTO' : 'MAN'; }
     if (remember) { try { localStorage.setItem(AUTO_KEY, st.auto ? '1' : '0'); } catch {} }
   }
   st.setAuto = setAuto;
+  function setAutoClutch(on, remember = true) {
+    st.autoClutch = !!on;
+    if (!on && !st.heldBy?.clutch && !st.clutchLatched && !st.shiftSeq) st.input.clutch = 0;
+    const el = container.querySelector('.cab-autoclu');
+    if (el) { el.classList.toggle('on', st.autoClutch); el.setAttribute('aria-pressed', st.autoClutch ? 'true' : 'false'); el.dataset.dash = st.autoClutch ? 'AUTO CLU' : 'FOOT CLU'; }
+    if (remember) { try { localStorage.setItem(AUTOCLU_KEY, st.autoClutch ? '1' : '0'); } catch {} }
+  }
+  st.setAutoClutch = setAutoClutch;
+  setAutoClutch(st.autoClutch, false);
   // And it starts on there, because a driver who climbs in and finds neutral with no lever has
   // been handed a truck with no way to move it. On every other cab the stored preference has
   // already put the switch where the driver left it — this only has to paint the button, since
   // `st.auto` was set from it when the state was built.
-  if (cabCompact()) setAuto(true, false);
-  else setAuto(st.auto, false);
+  setAuto(st.auto, false);
   // ── THE PARK BRAKE ──────────────────────────────────────────────────────────
   //
   // ⚠ IT IS THE BRAKE PEDAL, NOT A NEW FORCE. Same rule as cruise and the automatic: it writes
@@ -2544,7 +2674,7 @@ export function openCab(ctx = {}) {
       // the room. Loaded here it cannot run before the log exists, because nothing can turn a key
       // in a cab that has not been drawn yet.
       import('../render.js').then((r) => r.appendHtml(
-        "The starter churns and the engine won't catch — the box is still in gear. <b>Clutch in</b>, or find <b>neutral</b>, and turn the key again.",
+        "The starter churns and the engine won't catch: the box is still in gear. <b>Clutch in</b>, or find <b>neutral</b>, and turn the key again.",
         'msg-system')).catch(() => { /* the gate plate already said it — the log line is the second surface, not the only one */ });
       // The starter still turns: refusing to crank at all would be a second invisible rule on top
       // of the first, and the churn is the sound that makes the message make sense.
@@ -2631,7 +2761,7 @@ export function openCab(ctx = {}) {
       if (lbl) lbl.textContent = WIPE_POS[w] || 'OFF';
       // The stalk's own detent is the state, so the accessible name carries it too — a screen
       // reader gets "Wipers, low" rather than a control it has to press to learn anything about.
-      stalk.setAttribute('aria-label', 'Wipers — ' + (WIPE_POS[w] || 'OFF').toLowerCase());
+      stalk.setAttribute('aria-label', 'Wipers: ' + (WIPE_POS[w] || 'OFF').toLowerCase());
     }
   }
   st.paintWipers = paintWipers;
@@ -2651,7 +2781,7 @@ export function openCab(ctx = {}) {
       const lbl = el.querySelector('span');
       if (lbl) lbl.textContent = st.heads ? 'LAMPS' : 'DARK';
       el.setAttribute('aria-pressed', st.heads ? 'true' : 'false');
-      el.setAttribute('aria-label', st.heads ? 'Headlights — on' : 'Headlights — off');
+      el.setAttribute('aria-label', st.heads ? 'Headlights: on' : 'Headlights: off');
     }
   }
   st.setHeads = setHeads;
@@ -2669,7 +2799,7 @@ export function openCab(ctx = {}) {
       const lbl = el.querySelector('span');
       if (lbl) lbl.textContent = st.dome ? 'CAB' : 'DARK';
       el.setAttribute('aria-pressed', st.dome ? 'true' : 'false');
-      el.setAttribute('aria-label', st.dome ? 'Cab light — on' : 'Cab light — off');
+      el.setAttribute('aria-label', st.dome ? 'Cab light: on' : 'Cab light: off');
     }
   }
   st.setDome = setDome;
@@ -2715,7 +2845,7 @@ export function openCab(ctx = {}) {
   // cab is looking out of the windscreen, and the room they are parked in has nothing to say until
   // they climb down. Shared with the other five panels that take over the pane; the rules are in
   // compact-view.js, including why it is a default and never a lock.
-  compactHidePanel('cab-hidepanel', hideBtn);
+  seatHidePanel('cab-hidepanel', hideBtn);
   window.dispatchEvent(new Event('pane:claimed'));   // a phone keeps #area-pane collapsed until told; an app that mounts there has to say so
   // THE EXTERNAL VIEW. The renderer has had a real chase camera the whole time — the cab's own
   // header note lists `external` among the things it deliberately did not pass — so this is not a
@@ -2800,7 +2930,7 @@ export function openCab(ctx = {}) {
       // whichever one you press.
       if (st.elecOut) {
         const el = body(); if (!el) return;
-        el.innerHTML = '<div class="cab-routes-none cab-gps-dead">— NO SIGNAL —<br><span>the head took the pulse</span></div>';
+        el.innerHTML = '<div class="cab-routes-none cab-gps-dead">NO SIGNAL<br><span>the head took the pulse</span></div>';
         return;
       }
       if (st.gpsApp === 'damage') return renderDamageApp();
@@ -2986,7 +3116,7 @@ export function openCab(ctx = {}) {
       if (mag < 6) return '<span class="td-dim">Straight on.</span>';
       const side = d > 0 ? 'right' : 'left';
       if (mag < 18) return `<b>Bear ${side}.</b>`;
-      return `<b class="cab-gps-turn">Hold it ${side} — the road is going.</b>`;
+      return `<b class="cab-gps-turn">Hold it ${side}: the road is going.</b>`;
     }
     function destName() {
       const R = st.routes;
@@ -3009,7 +3139,7 @@ export function openCab(ctx = {}) {
           + `<b>${Math.round(v.v * 100)}%</b><span class="cab-dmg-note">${p.note}</span></div>`;
       }).join('')
         + '<p class="cab-dmg-foot">A bench is <b>rig repair shop</b> at a depot, or one part at a time. '
-        + 'A component that has FAILED needs the part itself — <b>rig parts</b>.</p>';
+        + 'A component that has FAILED needs the part itself: <b>rig parts</b>.</p>';
     }
     function renderRoutePicker() {
       if (!box || box.hidden || st.gpsApp !== 'route') return;
@@ -3030,7 +3160,7 @@ export function openCab(ctx = {}) {
       // rather than a decision about the player: past the junction there is nothing to choose.
       const foot = R.forkAhead
         ? '<div class="cab-routes-ft">The fork is still ahead.</div>'
-        : '<div class="cab-routes-ft warn">The fork is behind you — this is the road you\'re on.</div>';
+        : '<div class="cab-routes-ft warn">The fork is behind you. This is the road you\'re on.</div>';
       el.innerHTML = `${R.origin ? `<div class="cab-routes-hd">out of ${esc(R.origin)}</div>` : ''}${rows}${foot}`;
     }
     st.renderRoutePicker = renderRoutePicker;
@@ -3157,7 +3287,7 @@ export function openCab(ctx = {}) {
         + `<span class="cab-dmg-bar b-${v.band}"><i style="width:${Math.round(v.v * 100)}%"></i></span>`
         + `<b>${Math.round(v.v * 100)}%</b><span class="cab-dmg-note">${p.note}</span></div>`;
     }).join('')
-      + `<p class="cab-dmg-foot">A bench is <b>rig repair shop</b> at a depot, or one part at a time — `
+      + `<p class="cab-dmg-foot">A bench is <b>rig repair shop</b> at a depot, or one part at a time: `
       + `<b>rig repair shop engine</b>. Out here, <b>fix</b> needs a box of spares.</p>`;
     // …and if the GPS is showing the rig page, it is showing THESE numbers, so it repaints here
     // rather than on a timer of its own.
@@ -3522,7 +3652,7 @@ function paintHitchBtn(st) {
   const w = el.querySelector('.cab-knobface em');
   if (w) w.textContent = coupled ? 'PULL' : 'PUSH';
   el.classList.toggle('out', !coupled);
-  el.setAttribute('aria-label', coupled ? 'Trailer air supply — pull to release' : 'Trailer air supply — push to couple');
+  el.setAttribute('aria-label', coupled ? 'Trailer air supply: pull to release' : 'Trailer air supply: push to couple');
   el.setAttribute('title', coupled
     ? 'Pull the air supply and drop the trailer here (unhitch)'
     : `Push the air supply in and couple to ${target?.name || 'the trailer'} (hitch)`);
@@ -3543,9 +3673,9 @@ function paintPumpBtn(st) {
   if (!show) return;
   // What a full one costs, said before you pull it rather than after. The tooltip is the price
   // board; the readout while held is the meter.
-  el.setAttribute('title', `Diesel — ${p.full}₵ a tank, ${Math.round(room * p.full)}₵ to fill this one.`
+  el.setAttribute('title', `Diesel: ${p.full}₵ a tank, ${Math.round(room * p.full)}₵ to fill this one.`
     + ` HOLD the handle: it fills while you hold it and charges you when you let go.`);
-  el.setAttribute('aria-label', `Fuel pump — hold to fill, ${Math.round(room * p.full)} credits for a full tank`);
+  el.setAttribute('aria-label', `Fuel pump: hold to fill, ${Math.round(room * p.full)} credits for a full tank`);
 }
 
 // ── THE GLASS FUEL GAUGE ─────────────────────────────────────────────────────
@@ -3695,7 +3825,7 @@ function paintHitchAlert(st) {
   el.innerHTML = '<b>ON THE SHOULDER</b>'
     + '<span>' + (HITCH_LOOK[hh.kind] || 'Somebody with a hand out.') + '</span>'
     + '<em>' + (st.locked
-        ? "Doors latched. Stopping isn't enough — pick them up if you mean to."
+        ? "Doors latched. Stopping isn't enough, pick them up if you mean to."
         : 'Doors are open. Stop for a moment and they will get in by themselves.') + '</em>'
     + '<button class="cab-hitch-go">PICK UP</button>';
 }
@@ -4018,6 +4148,19 @@ function autoShift(dt) {
   // and the gear comes out whatever the right foot is doing.
   if (saving || (rpm < lo && (st.input.throttle || 0) > 0.15)) beginShift(step1);
 }
+// THE AUTOMATIC CLUTCH'S FOOT. Never while a human has the pedal or the automatic is mid-shift.
+// It holds the pedal in for a moment after a shift (shiftGate set autoDip), holds it in at a stop
+// in gear so the engine cannot stall (off the throttle with the revs near the floor), holds it in
+// while stalled so the key will crank, and otherwise lets it up — the model's own launch slip
+// (flight-model LAUNCH_MPH) does the feathering on the way off the line.
+function autoClutchStep(dt) {
+  if (!st.autoClutch || st.shiftSeq) return;
+  if (st.heldBy?.clutch || st.clutchLatched) { st.autoDip = 0; return; }
+  if (st.autoDip > 0) { st.autoDip -= dt; st.input.clutch = 1; return; }
+  const idle = st.sim.gear !== 0 && (st.sim.stalled
+    || ((st.input.throttle || 0) < 0.05 && (st.sim.rpm || 0) < 0.2));
+  st.input.clutch = idle ? 1 : 0;
+}
 function beginShift(to) {
   st.shiftSeq = { to, phase: 'dip', t: 0 };
 }
@@ -4102,6 +4245,7 @@ function frame(now) {
     perfBegin('sim:physics');
     freeCam.step(dt);
     autoShift(dt);
+    autoClutchStep(dt);
     // THE SPRING BRAKES, applied where a foot would be — see setPark. Written AFTER cruise (which
     // it cancels on the way on) and after the automatic, and before `step`, so it is the last word
     // on the pedal for this frame: pulling the knob out while somebody is on the throttle holds the
@@ -4468,7 +4612,7 @@ function frame(now) {
       // …AND HOW MUCH ROAD IS ON TOP OF IT. Second argument to the one conversion (see
       // client/shared/truck-livery.js), so the rig in the chase camera browns exactly as the rig on
       // the depot turntable does and neither of them owns a dirt model.
-      livery: { ...truckLivery(PAINT, st.grime || 0), ...(st.trailer?.colour ? { deck: st.trailer.colour } : {}) },
+      livery: { ...truckLivery(PAINT_PREVIEW || PAINT, st.grime || 0), ...(st.trailer?.colour ? { deck: st.trailer.colour } : {}) },
       // The orbit is the player's now, not two constants — drag on the glass, wheel to dolly, ⟲ to
       // put it back down the road.
       // YAW IS THE PLAYER'S, ALWAYS AND AT EVERY DISTANCE — see the ⚠ on chaseAmt. Only the height
@@ -4501,8 +4645,12 @@ function frame(now) {
         // TRANSLATION of the eye inside the cab — how far a driver's head can actually move — and
         // turning further does not move your neck further. Scaling it with the look would post
         // your head out through the door.
-        return st.freeLook
-          ? { lookYaw: st.look.x * CAB_LOOK_YAW, lookPitch: st.look.y * CAB_LOOK_PITCH,
+        // ⚠ AND IN A CAB THAT IS ALL GEOMETRY THE PEEK IS THE FULL RANGE TOO. The 26° limit exists
+        // because past it the painted board would be drawn over a side window; with the board
+        // modelled there is nothing to protect, and a peek that stops short of the door is a peek
+        // that cannot see the mirror it was for. The spring back is untouched.
+        return (st.freeLook || RENDER_TUNE.cockpit3d)
+          ? { lookYaw: st.look.x * CAB_LOOK_YAW, lookPitch: -st.look.y * CAB_LOOK_PITCH,
               lookLean: { x: st.look.x * 0.14, y: st.look.y * 0.14 } }
           : { lookYaw: st.look.x * CAB_PEEK_YAW, lookPitch: 0, lookLean: { x: st.look.x, y: st.look.y } };
       })(),
@@ -5049,8 +5197,9 @@ function ensureCabStyles() {
      where the knob is. */
   .cab-lever{position:absolute;left:calc(var(--gx,.38) * 100%);top:calc(var(--gy,.5) * 100%);
     width:0;height:0;margin:0;
-    cursor:grab;touch-action:none;z-index:3;
-    transition:left .14s cubic-bezier(.2,.8,.3,1), top .14s cubic-bezier(.2,.8,.3,1)}
+    cursor:grab;touch-action:none;z-index:3}
+  /* No CSS transition: 'glide' walks the knob along the rails in JS, and a transition on top would
+     round every corner of that path back into the diagonal it exists to avoid. */
   /* No easing while a hand is on it: a knob that lags the finger is a knob that feels broken. */
   .cab-lever.on{transition:none;cursor:grabbing;z-index:2}
   /* In a gear the gate's own range doesn't offer — you shifted into 6 with a key while the lever
@@ -5468,6 +5617,22 @@ function ensureCabStyles() {
      inside the cab — see seat-keys.js. A click that passes through this lands on the windscreen, which
      restores focus AND works the rocker, which is strictly more than the tag was doing. It stays a
      <button> so the keyboard can still reach it. */
+  /* ── THE GEARSHIFT WINDOW (openShiftWin) ── the shelf's own gate column, moved into a floating
+     plate you can drag by its bar. Fixed to the page so big screen and the pane both reach it. */
+  .cab-shiftwin{position:fixed;z-index:9000;padding:0 12px 10px;border-radius:8px;
+    background:linear-gradient(#20262e,#12161b);border:1px solid #3a4450;
+    box-shadow:0 12px 32px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.06);color:#c9d4e1}
+  .cab-shiftwin-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    margin:0 -12px 8px;padding:6px 8px 6px 12px;cursor:grab;touch-action:none;user-select:none;
+    font:700 10px/1 inherit;letter-spacing:.16em;border-bottom:1px solid #2c343d}
+  .cab-shiftwin-x{background:none;border:0;color:#9aa6b4;font-size:14px;cursor:pointer;min-width:32px;min-height:28px}
+  .cab-shiftwin .cab-col-gate{padding:34px 0 4px}
+  .cab-shiftwin .cab-collars{flex-wrap:wrap;max-width:230px}
+  .cab-gearsbtn b{font:800 18px/1 inherit}
+  .cab-shiftwin-knob{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px;
+    font:700 9px/1 inherit;letter-spacing:.14em}
+  .cab-shiftwin-knob select{background:#0e1216;color:#dbe4ef;border:1px solid #3a4450;border-radius:4px;
+    padding:4px 6px;font:600 12px/1 inherit;min-height:28px}
   .cab-focustag{position:absolute;right:8px;bottom:calc(var(--cab-shelf,0px) + 8px);z-index:5;pointer-events:none;
     background:rgba(6,10,14,.72);border:1px solid #2f3944;color:#6f7883;
     font:600 9px/1 inherit;letter-spacing:.10em;padding:4px 7px;border-radius:4px}
@@ -5529,7 +5694,7 @@ function ensureCabStyles() {
   .cab-btn em{display:block;font:700 7px/1 inherit;font-style:normal;letter-spacing:.11em;
     color:#aab5c2;text-shadow:0 1px 0 rgba(0,0,0,.9)}
   .cab-btn:hover{filter:brightness(1.12)}
-  /* Pressed: the key goes down onto its own shadow, which is what the 0 2px 0 under it's for. */
+  /* Pressed: the key goes down onto its own shadow, which is what the 0 2px 0 under it is for. */
   .cab-btn:active{transform:translateY(2px);
     box-shadow:inset 0 2px 5px rgba(0,0,0,.6), 0 0 0 #06090c}
   .cab-btn.on::before{background:var(--key,#e8c07a);
@@ -5710,7 +5875,10 @@ function ensureCabStyles() {
        beside the range and the splitter. The result looks completely right and is a truck that
        can't back up, which is the one thing the automatic will never do for you. Caught by
        measuring, not by reading. */
-    .cab-col-gate .cab-gate,.cab-range,.cab-splitbtn,.cab-auto,.cab-clutch{display:none !important}
+    .cab-controls .cab-col-gate .cab-gate,.cab-controls .cab-range,.cab-controls .cab-splitbtn,.cab-controls .cab-auto{display:none !important}
+    /* …but GEARS opens the whole gearbox in a floating window (openShiftWin), where the rule
+       above does not reach, so a phone has the lever, the collars, AUTO and CLUTCH mode after all. */
+    .cab-gearsbtn{display:flex !important}
     /* The column's \`padding:34px 0 16px\` is headroom for the knob standing up out of the plate.
        With no plate it is 50px of nothing, and it was setting the height of the whole first row. */
     .cab-col-gate{order:1;padding:0}
@@ -6059,7 +6227,7 @@ function ensureCabStyles() {
   @keyframes cab-dmg-pulse{0%,100%{box-shadow:0 0 0 0 rgba(210,96,63,0)}50%{box-shadow:0 0 0 3px rgba(210,96,63,.3)}}
   .cab-pip{position:relative;display:flex;flex-direction:column-reverse;align-items:center;
     width:16px;height:26px;background:#12161b;border-radius:2px;overflow:hidden}
-  /* The fill is bottom-anchored, so a bar that's going down LOOKS like it's going down. */
+  /* The fill is bottom-anchored, so a bar that's going down LOOKS like it is going down. */
   .cab-pip em{display:block;width:100%;background:#5f8f6a}
   .cab-pip b{position:absolute;bottom:1px;font:600 7px/1 inherit;letter-spacing:.04em;
     color:#dfe8f2;text-shadow:0 1px 2px #000}
@@ -6113,6 +6281,7 @@ function ensureCabStyles() {
 
 export function closeCab() {
   if (!st) return;
+  PAINT_PREVIEW = null;
   // The immersive layouts are the PAGE's, not the pane's — nothing else takes them down, and a
   // driver who parked in fullscreen would be left with no log and no command box.
   document.body.classList.remove('cab-fullscreen', 'cab-hidepanel');

@@ -6,7 +6,7 @@
   "id": "item_lucky_flashlight",
   "name": "Two-Cell's flashlight",
   "tags": {
-    "description": "Two-Cell's flashlight: a scuffed, rubber-armoured brick of a torch with \"2-CELL\" gouged into the barrel by a man who names his tools. The lens is cracked clean across and couldn't possibly care less. Grady swears it has never left him in the dark: not through two floods, one roof collapse, and a marriage. Best of all, it sips power like a monk sips wine. A single cell lasts it about twice as long as any shop-bought light. LIGHT it on, UNLIGHT to save the cell, RELOAD when it finally dies (which it won't, mostly out of spite).",
+    "description": "Two-Cell's rubber-armoured brick of a torch, \"2-CELL\" gouged into the barrel, lens cracked clean across. Grady swears it's never let him down. One cell lasts twice as long as in any shop light. TURN it ON or OFF; RELOAD when it dies.",
     "flashlight": true,
     "misc": true,
     "unique": true

@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A field of broken black glass and clinker, sharp all over, with the pale ash blown into the hollows between the lobes so the ground reads as a dark map with light rivers in it.",
+  "description": "Clinker and black glass in a jumble of lobes. Every hollow between them has a drift of grey ash in it.",
   "exits": {
     "east": "zone_dw_753_952",
     "north": "zone_dw_752_951",

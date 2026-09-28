@@ -112,7 +112,7 @@ function resolveTeller(args, zoneId) {
   if (/^(the )?teller$/i.test(q) && tellers.length === 1) return { teller: tellers[0], named: true, error: null };
 
   const r = siftResolve(q, tellers);
-  if (r.type === 'ambiguous') return { teller: null, named: true, error: 'More than one teller matches — be more specific.' };
+  if (r.type === 'ambiguous') return { teller: null, named: true, error: 'More than one teller matches: be more specific.' };
   if (r.type !== 'match' || !r.candidate) return nobody;
   return { teller: r.candidate, named: true, error: null };
 }
@@ -191,7 +191,7 @@ export function overCapMessage(kind, amount, allowance, atm, teller) {
   const spent = allowance.spent > 0
     ? ` You've already moved ${allowance.spent}₵ through it in the last 24 hours, leaving ${allowance.remaining}₵.`
     : '';
-  return `${net} won't ${verb} more than ${allowance.cap}₵ in any 24 hours — you asked for ${amount}₵.${spent} ${out}`;
+  return `${net} won't ${verb} more than ${allowance.cap}₵ in any 24 hours: you asked for ${amount}₵.${spent} ${out}`;
 }
 
 function isZonePowered(zoneId) {
@@ -303,7 +303,7 @@ async function cmdDeposit(args, raw, player) {
   }
 
   if (atm.is_broken) return { type: 'error', message: 'The ATM is damaged. Try another terminal.' };
-  if (!isZonePowered(player.current_zone)) return { type: 'error', message: 'The ATM screen is dark — no power.' };
+  if (!isZonePowered(player.current_zone)) return { type: 'error', message: 'The ATM screen is dark: no power.' };
   if (!await checkFactionAccess(player, atm)) return { type: 'error', message: `${atm.network_name || 'This network'} requires higher standing to access.` };
 
   // What this network will still take from you inside the rolling 24h window
@@ -316,13 +316,13 @@ async function cmdDeposit(args, raw, player) {
   // Exhausted allowance is its own refusal — clamping `all` to zero would
   // otherwise fall through as a nonsense "deposit 0c".
   if (allowance.cap != null && allowance.remaining <= 0) {
-    return { type: 'error', message: `${atm.network_name || 'This terminal'} has taken its ${allowance.cap}₵ from you for today. The slot won't open again for ${fmtWindowWait(allowance.resetsInSec)} — a teller has no such limit.` };
+    return { type: 'error', message: `${atm.network_name || 'This terminal'} has taken its ${allowance.cap}₵ from you for today. The slot won't open again for ${fmtWindowWait(allowance.resetsInSec)}: a teller has no such limit.` };
   }
   let capNote = '';
   if (allowance.cap != null && amount > allowance.remaining) {
     if (amountStr !== 'all') return { type: 'error', message: overCapMessage('deposit', amount, allowance, atm, tellersInZone(player.current_zone)[0]) };
     amount = allowance.remaining;
-    capNote = ` The slot takes ${amount}₵ and stops — that's the rest of what it'll swallow today.`;
+    capNote = ` The slot takes ${amount}₵ and stops: that's the rest of what it'll swallow today.`;
   }
 
   // Move the credits and fill the machine as one atomic unit.
@@ -366,7 +366,7 @@ async function cmdWithdraw(args, raw, player) {
   }
 
   if (atm.is_broken) return { type: 'error', message: 'The ATM is damaged. Try another terminal.' };
-  if (!isZonePowered(player.current_zone)) return { type: 'error', message: 'The ATM screen is dark — no power.' };
+  if (!isZonePowered(player.current_zone)) return { type: 'error', message: 'The ATM screen is dark: no power.' };
   if (!await checkFactionAccess(player, atm)) return { type: 'error', message: `${atm.network_name || 'This network'} requires higher standing to access.` };
 
   // A network dispenses at most its `withdrawal_limit` to you in any rolling 24
@@ -383,7 +383,7 @@ async function cmdWithdraw(args, raw, player) {
   const allowance = await allowanceFor(player.id, atm, 'withdraw');
 
   if (allowance.cap != null && allowance.remaining <= 0) {
-    return { type: 'error', message: `${atm.network_name || 'This terminal'} has dispensed its ${allowance.cap}₵ to you for today. The drum stays shut for another ${fmtWindowWait(allowance.resetsInSec)} — a teller has no such limit.` };
+    return { type: 'error', message: `${atm.network_name || 'This terminal'} has dispensed its ${allowance.cap}₵ to you for today. The drum stays shut for another ${fmtWindowWait(allowance.resetsInSec)}: a teller has no such limit.` };
   }
 
   let rawAmount;
@@ -395,7 +395,7 @@ async function cmdWithdraw(args, raw, player) {
     rawAmount = Math.min(cashAvail, maxByFunds);
     if (allowance.cap != null && rawAmount > allowance.remaining) {
       rawAmount = allowance.remaining;
-      capNote = ` The drum stops at ${rawAmount}₵ — that's the rest of this network's day.`;
+      capNote = ` The drum stops at ${rawAmount}₵: that's the rest of this network's day.`;
     }
   } else {
     rawAmount = parseInt(amountStr, 10);
@@ -471,7 +471,7 @@ async function cmdJack(args, raw, player) {
   const atm = await findAtmInZone(player.current_zone);
   if (!atm) return { type: 'error', message: "Nothing worth jacking here." };
   if (atm.is_broken) return { type: 'error', message: 'This terminal is already dead.' };
-  if (!isZonePowered(player.current_zone)) return { type: 'error', message: "The ATM is powered down — nothing to jack." };
+  if (!isZonePowered(player.current_zone)) return { type: 'error', message: "The ATM is powered down: nothing to jack." };
   if (!atm.cash_stock || atm.cash_stock <= 0) return { type: 'error', message: "Cash reserves empty. Not worth the risk." };
   if (!(await hasHackDeck(player.id))) return { type: 'error', message: "You need a hacking device to breach this terminal." };
 
@@ -541,7 +541,7 @@ async function cmdJackResolve(args, raw, player, broadcast) {
 
     return {
       type: 'error',
-      message: `<span class="text-red">INTRUSION DETECTED.</span> Feedback surges up the line — you take ${shockDmg} damage.${deviceMsg} Security pulse traced the attempt. Lockout: 5 minutes.`,
+      message: `<span class="text-red">INTRUSION DETECTED.</span> Feedback surges up the line: you take ${shockDmg} damage.${deviceMsg} Security pulse traced the attempt. Lockout: 5 minutes.`,
       player_update: { hp },
     };
   }

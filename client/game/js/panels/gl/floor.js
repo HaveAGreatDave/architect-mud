@@ -64,6 +64,7 @@ precision highp int;
 uniform float uEH;         // eye height, after the chase lift and the floor
 uniform float uHorizonY;   // in CSS pixels, and it can sit off the canvas in a steep chase
 uniform float uDepth;      // the vertical focal length
+uniform float uPitch;      // camera pitch, radians, + tips down; 0 is the level Mode-7 camera exactly
 uniform float uCx;         // principal point across
 uniform float uHalfW;
 uniform float uLAT;        // halfW / the camera's lateral focal length — see viewLatFocal
@@ -93,6 +94,9 @@ uniform float uSeamEB;
 // symptom would be a colour step at the window edge that looks like the blend being wrong.
 uniform vec3 uFarDirt;
 uniform vec3 uFarRock;
+uniform sampler2D uWild;   // the wildlands: rgb ground colour, a = sea (client/shared/wildlands.js)
+uniform vec4  uWildRect;  // x0, y0 in world tiles, then the texture's size in world tiles
+uniform float uWildOn;
 uniform float uFarOn;     // RENDER_TUNE.farTerrain; 0 puts the clamp back
 
 // THE VOID HIGHWAY, PAST THE WINDOW. Segment endpoints in window-relative tiles (the frame wx/wy
@@ -136,8 +140,11 @@ uniform float uSeaLit;
 uniform float uSeaRoll;
 uniform float uSeaWind;   // the wind sea amplitude — the steep 3.2-tile train
 uniform float uShoal;    // how far, in tiles, a crest is dragged along the shore as it shallows
+uniform vec2  uSeaRot;   // (cos, sin) of the sea's heading: it runs downwind; (1, 0) is as shipped
+uniform float uSurf;     // 0 = the surf band pulses on its own clock as shipped, 1 = it runs up and back with the swell
 uniform float uSpread;   // 0 = the single-train sea that shipped, 1 = the full spectral band
 uniform float uSeaAmp;
+uniform float uFoamFar;   // Monahan whitecap threshold for the smooth chop; negative = the fixed 0.90
 uniform vec2  uSunDir;
 uniform float uSunElev;
 uniform vec2  uMoonDir;
@@ -391,6 +398,15 @@ float farShade(float awx, float awy, vec2 lit) {
 // 'fillOffMap' ragged-izes the off-map coast INSIDE the window with, and this file ragged-izes the
 // continuation of that same coast outside it.
 const float FAR_FADE = 26.0, DEEP_INTO = 0.786, COAST_WOBBLE = 6.0;
+// How much sea the wildlands put at this world point, or -1 where they have no answer (not loaded,
+// or off the baked rect). uWildRect spans first to last sample, so the uv is inset half a texel.
+float farSeaAt(float awx, float awy) {
+  if (uWildOn < 0.5) return -1.0;
+  vec2 q = (vec2(awx, awy) - uWildRect.xy) / uWildRect.zw;
+  if (q.x < 0.0 || q.y < 0.0 || q.x > 1.0 || q.y > 1.0) return -1.0;
+  vec2 n = vec2(textureSize(uWild, 0));
+  return texture(uWild, (q * (n - 1.0) + 0.5) / n).a;
+}
 vec4 farGround(float awx, float awy, vec2 lit) {
   float rr = clamp(DEEP_INTO * 0.7 + vnoise2(awx * 0.06, awy * 0.06) * 0.6 - 0.15, 0.0, 1.0);
   return vec4(mix(uFarDirt, uFarRock, rr), farShade(awx, awy, lit));
@@ -448,12 +464,25 @@ void main() {
   float p = max(0.004, (sy - uHorizonY) / uDepth);
   float d = uEH / p;
   float l = ((sx - uCx) / uHalfW) * d * uLAT;
+  // Under pitch a row is no longer a depth: cast the ray, undo the rotation, meet the ground.
+  // uHorizonY is then the PRINCIPAL point. 'fz' is the rotated depth the projection divides by.
+  float fz = d;
+  if (uPitch != 0.0) {
+    float cp = cos(uPitch), sp = sin(uPitch);
+    float ys = -(sy - uHorizonY) / uDepth;          // u'/f'
+    float u = ys * cp - sp;                          // height per unit f'
+    if (u >= -1e-4) discard;                          // the ray never reaches the ground: sky
+    fz = uEH / -u;
+    d = (cp + ys * sp) * fz;
+    l = ((sx - uCx) / uHalfW) * fz * uLAT;
+    p = max(0.004, uEH / max(d, 1e-4));             // the haze reads the LEVEL row this ground sits on
+  }
   float wx = uA.x + d * uSinh + l * uCosh;
   float wy = uA.y - d * uCosh + l * uSinh;
 
   // Everything above the horizon belongs to the sky pass; leave it alone rather than painting over
   // it, because this buffer is composited onto a frame that already has a sky in it.
-  if (sy <= uHorizonY) discard;
+  if (uPitch == 0.0 && sy <= uHorizonY) discard;
 
   // High-frequency detail aliases into a checkerboard once one pixel spans several world units.
   // Fading the AMPLITUDE with distance is the cheap mip-map the 2-D pass uses, and dropping it
@@ -608,6 +637,8 @@ void main() {
     // 'Math.sin' per call for it.
     vec3 baseSmooth = s00.rgb * w00 + s10.rgb * w10 + s01.rgb * w01 + s11.rgb * w11;
     base = mix(base, baseSmooth, k);
+    float ws = farSeaAt(wpx + uWc.x, wpy + uWc.y);
+    if (ws >= 0.0) waterW = mix(waterW, ws, k);   // the wildlands know where the coast is; the clamp only guessed
     float wet = smoothstep(0.0, 1.0, waterW);
     float kl = k * (1.0 - wet);
     farSea = k * wet;
@@ -697,6 +728,9 @@ void main() {
     // rather than four more texel reads.
     vec2 gW = vec2((s10.a + s11.a) - (s00.a + s01.a), (s01.a + s11.a) - (s00.a + s10.a)) * 0.5;
     vec2 sw = seaShoal(vec2(wx, wy), waterW, gW, uShoal);
+    // Into the sea's frame (gl/sea-glsl.js seaFrame): every swx/swy read below is the sea's own
+    // texture, so the whole block rotates with it and only the slope has to come back out.
+    sw = seaFrame(sw, uSeaRot);
     float swx = sw.x, swy = sw.y;
     float ph = seaPh(vec2(swx, swy), uT);
     float wv = seaChop(vec2(swx, swy), uT, ph);
@@ -721,7 +755,7 @@ void main() {
     if (uSeaLit > 0.001 && detail > 0.3) {
       // The slope comes from gl/sea-glsl.js, which water.js includes too — so the surface this
       // shades and the mesh that displaces it cannot disagree about where a crest is.
-      vec2 dd = seaSlope(vec2(swx, swy), uT, ph, uSeaAmp, rollA, uSeaWind * waterW, uSpread);
+      vec2 dd = seaUnframe(seaSlope(vec2(swx, swy), uT, ph, uSeaAmp, rollA, uSeaWind * waterW, uSpread), uSeaRot);
       float du = dd.x, dv = dd.y;
       vec3 N = normalize(vec3(-du, -dv, 1.0));
       // The eye, in world tiles. 'l' is the lateral offset the projection already recovered above,
@@ -775,7 +809,13 @@ void main() {
     // and not others, which is what real water does.
     float foamMask = wv > 0.75 ? clamp(vnoise2(swx * 1.15 + 20.0, swy * 1.15 - 6.0) * 1.7 - 0.4, 0.0, 1.0) : 0.0;
     if (wv > 0.78) cr = (wv - 0.78) * 5.0 * waterW * foamMask;
-    if (wv > 0.90) cap = (wv - 0.90) * 9.0 * waterW * foamMask;
+    // ⚠ THE WHITECAP IS MONAHAN'S NOW, THE SAME LAW THE MESH FOLLOWS. uFoamFar is the quantile of
+    // THIS field (seaChop, smooth) at the observed coverage for the wind, so the far sea breaks
+    // over the fraction of itself its wind says. The noise mask is not applied to it: the mask
+    // erodes coverage, and the inversion has already decided how much there is. Negative is the
+    // fixed threshold as it shipped.
+    if (uFoamFar >= 0.0) { if (wv > uFoamFar) cap = min(1.0, (wv - uFoamFar) * 9.0) * waterW; }
+    else if (wv > 0.90) cap = (wv - 0.90) * 9.0 * waterW * foamMask;
     // Sun glitter: a broken specular path toward the real bearing of the sun, chopped by the swell
     // into a trail of gold flecks. Anchored on the sun, never on the drift.
     if (uSunElev > 0.05) {
@@ -792,8 +832,27 @@ void main() {
     }
     // Surf: a bright band just on the water side of the line, pulsing with the swell and breaking
     // unevenly along the coast.
-    float band = clamp(1.0 - abs(waterW - 0.56) / 0.16, 0.0, 1.0);
-    if (band > 0.0) foam = band * band * (0.55 + 0.45 * sin(uT * 1.6 + (wx + wy) * 2.7 + wv * 1.5));
+    if (uSurf > 0.0) {
+      // ── SWASH ─────────────────────────────────────────────────────────────────────────────────
+      // The surf band used to pulse on a clock of its own with nothing to do with the sea. It rides
+      // the swell now: the same long train the mesh displaces, sampled at this point on the shore,
+      // pushes the wash up the beach as a crest arrives and draws it back in the trough. A thin
+      // bright leading edge marks how far the last one ran, and the sand it has just left is wet.
+      // ⚠ seaRoll at unit amplitude, so it is a PHASE and does not scale with the sea state; the
+      // reach does, off uSeaRoll, so a glass day barely laps and a gale runs well up the sand.
+      float rn = clamp(seaRoll(vec2(swx, swy), uT, 1.0, uSpread), -1.2, 1.2) / 1.2;
+      float reach = uSurf * (0.03 + clamp(uSeaRoll * 1.6, 0.0, 0.09));
+      float edge = 0.56 - reach * (0.5 + 0.5 * rn);   // the swash's leading edge, in waterW
+      float band = clamp(1.0 - abs(waterW - (edge + 0.07)) / 0.14, 0.0, 1.0);
+      float lip = clamp(1.0 - abs(waterW - edge) / 0.018, 0.0, 1.0);
+      float brk = 0.55 + 0.45 * vnoise2(swx * 3.1 + uT * 0.2, swy * 3.1);
+      foam = max(band * band * (0.45 + 0.35 * max(0.0, rn)), lip * 0.95) * brk;
+      // Sand the wash has just run back off is darker and glossy for a moment.
+      if (waterW < edge && waterW > edge - 0.10) tex *= 1.0 - (1.0 - (edge - waterW) / 0.10) * 0.16 * uSurf;
+    } else {
+      float band = clamp(1.0 - abs(waterW - 0.56) / 0.16, 0.0, 1.0);
+      if (band > 0.0) foam = band * band * (0.55 + 0.45 * sin(uT * 1.6 + (wx + wy) * 2.7 + wv * 1.5));
+    }
   }
   // Wet sand where the wash reaches, then a sunlit bank lip over a contact shadow in the shallows.
   // With no vertical displacement on a flat floor the coast lies flush with the sea and reads as a
@@ -1040,7 +1099,7 @@ void main() {
   // entirely behind it. 'd' here IS the camera-space forward distance — substitute wz = 0 into
   // the projection and sy - horizonY = depth * EH / f, so f = EH / p = d — which is exactly what
   // projMatrix divides by. So the real depth is recoverable, and this is that same mapping.
-  gl_FragDepth = clamp((uZA + uZB / max(d, 1e-4) + 1.0) * 0.5, 0.0, 1.0);
+  gl_FragDepth = clamp((uZA + uZB / max(fz, 1e-4) + 1.0) * 0.5, 0.0, 1.0);
   if (uDebug == 1) { outColor = vec4(base, 1.0); return; }
   if (uDebug == 2) { outColor = vec4(vec3(tex * 0.5), 1.0); return; }
   if (uDebug == 3) { outColor = vec4(vec3(haze * 4.0), 1.0); return; }
@@ -1108,16 +1167,17 @@ export function createFloorLayer(gl) {
 
   const U = (n) => gl.getUniformLocation(prog, n);
   const loc = {
-    EH: U('uEH'), horizonY: U('uHorizonY'), depth: U('uDepth'), cx: U('uCx'), halfW: U('uHalfW'),
+    EH: U('uEH'), pitch: U('uPitch'), horizonY: U('uHorizonY'), depth: U('uDepth'), cx: U('uCx'), halfW: U('uHalfW'),
     LAT: U('uLAT'), sinh: U('uSinh'), cosh: U('uCosh'), A: U('uA'), dpr: U('uDpr'), viewH: U('uViewH'),
     lut0: U('uLut0'), lut1: U('uLut1'), mh: U('uMh'), R: U('uR'),
     hor: U('uHor'), hz: U('uHz'), hazeMax: U('uHazeMax'), nm: U('uNm'),
     freq: U('uFreq'), cwarp: U('uCwarp'), wc: U('uWc'), seamEB: U('uSeamEB'),
     farDirt: U('uFarDirt'), farRock: U('uFarRock'), farOn: U('uFarOn'),
+    wild: U('uWild'), wildRect: U('uWildRect'), wildOn: U('uWildOn'),
     nRoad: U('uNRoad'), roadSeg: U('uRoadSeg'), roadW: U('uRoadW'), roadCol: U('uRoadCol'),
     fogAmt: U('uFogAmt'), fogNear: U('uFogNear'), fogFar: U('uFogFar'), fogCol: U('uFogCol'),
     fogH: U('uFogH'), fogHScale: U('uFogHScale'),
-    t: U('uT'), seaLit: U('uSeaLit'), seaRoll: U('uSeaRoll'), seaWind: U('uSeaWind'), seaAmp: U('uSeaAmp'), spread: U('uSpread'), shoal: U('uShoal'),
+    t: U('uT'), seaLit: U('uSeaLit'), seaRoll: U('uSeaRoll'), seaWind: U('uSeaWind'), seaAmp: U('uSeaAmp'), foamFar: U('uFoamFar'), spread: U('uSpread'), shoal: U('uShoal'), seaRot: U('uSeaRot'), surf: U('uSurf'),
     sunDir: U('uSunDir'), sunElev: U('uSunElev'),
     moonDir: U('uMoonDir'), moonElev: U('uMoonElev'), night: U('uNight'),
     heliDown: U('uHeliDown'), rotor: U('uRotor'), dc: U('uDC'),
@@ -1131,7 +1191,7 @@ export function createFloorLayer(gl) {
   };
 
   const vao = gl.createVertexArray();   // nothing bound: the triangle is synthesised from gl_VertexID
-  let t0 = null, t1 = null, lutTag = null, lutN = 0;
+  let t0 = null, t1 = null, t2 = null, lutTag = null, lutN = 0, tW = null, wildTag = null;
 
   function tex(unit) {
     const t = gl.createTexture();
@@ -1147,10 +1207,14 @@ export function createFloorLayer(gl) {
   // ⚠ RE-UPLOADED ONLY WHEN THE LUT CHANGES. groundLUT already caches on (map, window centre, sun,
   // sky) and hands back the same object when nothing moved, so the tag is that object's own
   // identity plus its size — no hashing, and no texture upload on a frame that is standing still.
-  function setLut(n, a0, a1, tag) {
+  function setLut(n, a0, a1, tag, a2) {
     if (tag != null && tag === lutTag && n === lutN) return;
     lutTag = tag; lutN = n;
-    if (!t0) { t0 = tex(0); t1 = tex(1); }
+    if (!t0) { t0 = tex(0); t1 = tex(1); t2 = tex(1); }
+    // The seabed depth plane is the WATER layer's, not the floor's; the floor only owns it because
+    // it owns the window's other two and they must be built on the same tag.
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, t2);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, n, n, 0, gl.RGBA, gl.UNSIGNED_BYTE, a2 || new Uint8Array(n * n * 4));
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, t0);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, n, n, 0, gl.RGBA, gl.UNSIGNED_BYTE, a0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, t1);
@@ -1160,10 +1224,10 @@ export function createFloorLayer(gl) {
   function draw(s, near = NEAR) {
     if (!s || !s.lut0 || !s.n) return 0;
     gl.useProgram(prog);
-    setLut(s.n, s.lut0, s.lut1, s.tag);
+    setLut(s.n, s.lut0, s.lut1, s.tag, s.lut2);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, t0); gl.uniform1i(loc.lut0, 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, t1); gl.uniform1i(loc.lut1, 1);
-    gl.uniform1f(loc.EH, s.EH); gl.uniform1f(loc.horizonY, s.horizonY); gl.uniform1f(loc.depth, s.depth);
+    gl.uniform1f(loc.EH, s.EH); gl.uniform1f(loc.pitch, s.pitch || 0); gl.uniform1f(loc.horizonY, s.horizonY); gl.uniform1f(loc.depth, s.depth);
     gl.uniform1f(loc.cx, s.cx); gl.uniform1f(loc.halfW, s.halfW); gl.uniform1f(loc.LAT, s.LAT);
     gl.uniform1f(loc.sinh, s.sinh); gl.uniform1f(loc.cosh, s.cosh);
     gl.uniform2f(loc.A, s.ax, s.ay);
@@ -1177,6 +1241,26 @@ export function createFloorLayer(gl) {
     gl.uniform3f(loc.farDirt, fd[0] / 255, fd[1] / 255, fd[2] / 255);
     gl.uniform3f(loc.farRock, fr[0] / 255, fr[1] / 255, fr[2] / 255);
     gl.uniform1f(loc.farOn, s.farOn == null ? 1 : s.farOn);
+    // The wildlands texture: uploaded once (its identity is the tag), on unit 7, which nothing else
+    // in this program uses. LINEAR, because it is a coarse colour field and a far pixel should not
+    // show its 2-tile texels.
+    const wd = s.wild;
+    if (wd && wd !== wildTag) {
+      wildTag = wd;
+      if (!tW) tW = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE7); gl.bindTexture(gl.TEXTURE_2D, tW);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, wd.w, wd.h, 0, gl.RGBA, gl.UNSIGNED_BYTE, wd.data);
+    }
+    gl.uniform1f(loc.wildOn, wd ? 1 : 0);
+    if (wd) {
+      gl.activeTexture(gl.TEXTURE7); gl.bindTexture(gl.TEXTURE_2D, tW); gl.uniform1i(loc.wild, 7);
+      gl.uniform4f(loc.wildRect, wd.x0, wd.y0, (wd.w - 1) * wd.step, (wd.h - 1) * wd.step);
+      gl.activeTexture(gl.TEXTURE0);
+    }
     // ⚠ WRITTEN EVERY FRAME, INCLUDING THE FRAMES WITH NO ROAD — the same rule the wet-reflection
     // lights below follow. A uniform holds its last value, so a pass that only set these when it had
     // a road would leave the last highway painted across the desert after you flew off the end of it.
@@ -1204,8 +1288,12 @@ export function createFloorLayer(gl) {
     gl.uniform1f(loc.seaRoll, s.seaRoll || 0);
     gl.uniform1f(loc.seaWind, s.seaWind || 0);
     gl.uniform1f(loc.seaAmp, s.seaAmp == null ? 0.02 : s.seaAmp);
+    gl.uniform1f(loc.foamFar, s.seaFoamFar == null ? -1 : s.seaFoamFar);
     gl.uniform1f(loc.spread, s.seaSpread == null ? 0 : s.seaSpread);
     gl.uniform1f(loc.shoal, s.seaShoal == null ? 0 : s.seaShoal);
+    const rot = s.seaRot || [1, 0];
+    gl.uniform2f(loc.seaRot, rot[0], rot[1]);
+    gl.uniform1f(loc.surf, s.seaSurf == null ? 0 : s.seaSurf);
     const sd = s.sunDir || [0, 0], md = s.moonDir || [0, 0];
     gl.uniform2f(loc.sunDir, sd[0], sd[1]); gl.uniform1f(loc.sunElev, s.sunElev || 0);
     gl.uniform2f(loc.moonDir, md[0], md[1]); gl.uniform1f(loc.moonElev, s.moonElev || 0);
@@ -1296,5 +1384,5 @@ export function createFloorLayer(gl) {
   // ⚠ BOTH PLANES, because the water mesh needs the SHELTER in uLut1.a as well as the waterness in
   // uLut0.a — and a getter that hands over only the first is a mesh that samples shelter from the
   // tile COLOUR, which is a number between 0 and 1 that varies plausibly and is not shelter.
-  return { draw, get lut() { return t0 ? { tex: t0, tex1: t1, mh: lutN } : null; } };
+  return { draw, get lut() { return t0 ? { tex: t0, tex1: t1, tex2: t2, mh: lutN } : null; } };
 }

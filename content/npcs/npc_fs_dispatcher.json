@@ -326,7 +326,7 @@
           "text": "\"So what's on it?\""
         }
       ],
-      "text": "\"Honest.\" It isn't a compliment or an insult, just a reading. \"The ones who admit that outlast the ones with a cause. Causes get people killed for free. The board at least pays.\""
+      "text": "\"Honest.\" She says it flat, as a reading. \"The ones who admit that outlast the ones with a cause. Causes get people killed for free. The board at least pays.\""
     },
     "job_turnin": {
       "actions": [
@@ -473,7 +473,7 @@
           "text": "\"Sounds like a way to die.\""
         }
       ],
-      "text": "The cigarette stops halfway up. \"Some of them don't take work. Some of them just go.\" She says it evenly, the way you'd read a number off a meter. \"Out. Keep walking, past the last of everything, until the ground stops meaning anything and there's no next step to take, and then take it anyway. That's the waste.\" A pause. \"I log them as unfilled. It's the only column I've got for it.\""
+      "text": "The cigarette stops halfway up. \"Some of them don't take work. Some of them just go.\" She says it evenly. \"Out. Keep walking, past the last of everything, until the ground stops meaning anything and there's no next step to take, and then take it anyway. That's the waste.\" A pause. \"I log them as unfilled. It's the only column I've got for it.\""
     },
     "the_waste_how": {
       "options": [
@@ -503,7 +503,7 @@
           "text": "\"The board's fine by me.\""
         }
       ],
-      "text": "She looks at you properly for the first time. \"No. The board's what the district admits to.\" A drag on the cigarette, held a while. \"Walking a meter route pays ten because any fool can walk. What pays is a job somebody needs doing quietly, and there's three of those drinking coffee in the turbine hall at the power plant right now, east and south;, you'll smell it before you see it. Day shift. They'll all three tell you they're too busy. They're not.\""
+      "text": "She looks at you properly for the first time. \"No. The board's what the district admits to.\" A drag on the cigarette, held a while. \"Walking a meter route pays ten because any fool can walk. What pays is a job somebody needs doing quietly, and there's three of those drinking coffee in the turbine hall at the power plant right now, east and south; you'll smell it before you see it. Day shift. They'll all three tell you they're too busy. They're not.\""
     },
     "who_hires_names": {
       "options": [
@@ -513,7 +513,7 @@
           "text": "\"Noted. Anything on the board meanwhile?\""
         }
       ],
-      "text": "\"Ma Cinder. Old, mean, runs the bog crews, pays a hundred thirty to anyone who'll go into the tar for her. The Harbourmaster, if he's sober, has a lurker problem out on the water worth a hundred fifty. And Voss the yardmaster's been losing freight off the sidings on Dray Lane to scavengers. That one's close, and he's past caring how it gets solved.\" She taps ash. \"And if you want something closer and stupider, there's a spotter up on the gun battery north of the vats, Rooke, been moaning about ground returns for a week and getting nowhere with it. Pays like it's beneath him to ask. But it's two minutes' walk and it won't kill you, probably.\" \"All of them sleep at the Embassy or the Meridian if you miss the shift. Don't knock after midnight. Especially not on Cinder.\""
+      "text": "\"Ma Cinder. Old, mean, runs the bog crews, pays a hundred thirty to anyone who'll go into the tar for her. The Harbourmaster, if he's sober, has a lurker problem out on the water worth a hundred fifty. And Voss the yardmaster's been losing freight off the sidings on Dray Lane to scavengers. That one's close, and he's past caring how it gets solved.\" She taps ash. \"And if you want something closer and stupider, there's a spotter up on the gun battery north of the vats, Rooke, been moaning about ground returns for a week and getting nowhere with it. Pays like it is beneath him to ask. But it's two minutes' walk and it won't kill you, probably.\" \"All of them sleep at the Embassy or the Meridian if you miss the shift. Don't knock after midnight. Especially not on Cinder.\""
     }
   },
   "faction": null,

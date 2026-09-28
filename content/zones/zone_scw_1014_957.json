@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The top of a mesa, flat as a floor and red as an old brick, with the whole region laid out under it in bands of colour going away to nothing. The caprock rings under a boot. At the edge the ground simply stops and the drop is a long one, and the wind comes up it hard enough to lean on.",
+  "description": "A fan of loose stone runs down from a notch above. A dry channel cuts through the middle of it.",
   "exits": {
     "east": "zone_scw_1015_957",
     "north": "zone_scw_1014_956",
@@ -8,18 +8,18 @@
     "west": "zone_scw_1013_957"
   },
   "flags": {
-    "ambient_pool": "scarletwastes_the_long_shelf",
+    "ambient_pool": "scarletwastes_the_spill",
     "lawless": true,
     "radiation": 9,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "plateau"
+    "terrain": "dirt_road"
   },
   "grid_x": 1014,
   "grid_y": 957,
   "grid_z": 0,
   "id": "zone_scw_1014_957",
   "map_id": "map_world",
-  "name": "Red Mesa",
+  "name": "The Skirt",
   "parent_zone": null
 }

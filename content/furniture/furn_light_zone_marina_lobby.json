@@ -4,7 +4,7 @@
   "id": "furn_light_zone_marina_lobby",
   "light_type": "ceiling",
   "lumen_output": 2600,
-  "name": "the lobby cove",
+  "name": "lobby cove",
   "object_type": "light",
   "power_draw_kw": 0.24,
   "zone_id": "zone_marina_lobby"

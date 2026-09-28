@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "A paved room with no walls: six chrome legs, a lit soffit overhead, and the weather on all sides of it. It is the most used space in Halcyon Fields by a distance — everybody on Kerbstone Row stands in here when it rains, contractors eat lunch in here, and two of the legs have the polish worn off them at shoulder height on the side you lean on. The lighting in the soffit is on all day because there is no daylight under a disc.",
+  "description": "A paved space under the disc: six chrome legs, a lit soffit overhead, open to the weather on all sides. Contractors eat lunch here and Kerbstone Row sheds its rain here. Two legs are worn bare at shoulder height. The soffit lights stay on all day.",
   "exits": {
     "down": "zone_util_zone_hf_stampduty_undercroft",
     "north": "zone_district_902_917",

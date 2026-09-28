@@ -15,7 +15,7 @@ export const SKILLS = {
   medicine:    { id:'medicine',    name:'Medicine',    category:'survival', stats:['stat_brains','stat_reflexes'], desc:'Patching wounds, treating sickness, and pretending you went to med school.' },
   navigation:  { id:'navigation',  name:'Navigation',  category:'survival', stats:['stat_brains','stat_reflexes'], desc:'Knowing where you are and where the exits went. Keeps you from dying lost.' },
   butchering:  { id:'butchering',  name:'Butchering',  category:'survival', stats:['stat_endurance','stat_cool'], desc:'Carving usable meat and parts off the dead. Strong stomach required, gloves optional.' },
-  fishing:     { id:'fishing',     name:'Fishing',     category:'survival', stats:['stat_reflexes','stat_cool'], desc:'Coaxing something edible — or something with teeth — out of poisoned water. Patience with a hook on the end.' },
+  fishing:     { id:'fishing',     name:'Fishing',     category:'survival', stats:['stat_reflexes','stat_cool'], desc:'Coaxing something edible (or something with teeth) out of poisoned water. Patience with a hook on the end.' },
   swimming:    { id:'swimming',    name:'Swimming',    category:'survival', stats:['stat_endurance','stat_brawn'], desc:'Staying afloat, hauling yourself through open water, and holding your breath when you go under. The difference between a shortcut and a drowning.' },
   mining:      { id:'mining',      name:'Mining',      category:'survival', stats:['stat_brawn','stat_brains'], desc:'Reading a rock face and knowing where to swing. Prying ore, salvage, and buried worth out of stone and slag.' },
   // Deliberately NOT folded into mining, which reads a rock face to take something
@@ -29,8 +29,8 @@ export const SKILLS = {
   fabrication: { id:'fabrication', name:'Fabrication', category:'tech',     stats:['stat_brains'], desc:'Crafting and repairing gear from raw parts. The backbone of building anything worth having.' },
   chemistry:   { id:'chemistry',   name:'Chemistry',   category:'tech',     stats:['stat_brains','stat_reflexes'], desc:'Cooking compounds and synthesizing drugs. Steady hands and a working knowledge of what not to mix. A good education, or a lot of scars.' },
   drone_ops:   { id:'drone_ops',   name:'Drone Ops',   category:'tech',     stats:['stat_reflexes','stat_brains'], desc:'Piloting and commanding drones. Doing your dirty work from a safe-ish distance.' },
-  piloting:    { id:'piloting',    name:'Piloting',    category:'tech',     stats:['stat_reflexes','stat_brains'], desc:'Flying aircraft — throttle, stick, and rudder over a world that wants you back on the ground. Takeoffs are optional; landings are not.' },
-  security:    { id:'security',    name:'Security',    category:'tech',     stats:['stat_brains','stat_reflexes'], desc:'Locks, alarms, and surveillance — cracking theirs and trusting none of your own.' },
+  piloting:    { id:'piloting',    name:'Piloting',    category:'tech',     stats:['stat_reflexes','stat_brains'], desc:'Flying aircraft: throttle, stick, and rudder over a world that wants you back on the ground. Takeoffs are optional; landings are not.' },
+  security:    { id:'security',    name:'Security',    category:'tech',     stats:['stat_brains','stat_reflexes'], desc:'Locks, alarms, and surveillance: cracking theirs and trusting none of your own.' },
   // Deliberately NOT folded into `hacking`. Hacking is getting into a thing — a
   // door, a till, an ATM. Nullcraft is attacking what a thing DEPENDS on: its
   // power, its telemetry, its radio, the fact that its owner overclocked it.
@@ -97,7 +97,7 @@ export async function awardSkillUse(playerId, skillId, margin = 0) {
   if (!awarded) return { awarded: 0 };
 
   const name = SKILLS[skillId]?.name || skillId;
-  sendToPlayer(playerId, { type: 'output', message: `<span class="ip-gain">+1 IP — ${name}</span>` });
+  sendToPlayer(playerId, { type: 'output', message: `<span class="ip-gain">+1 IP: ${name}</span>` });
   if (leveledUp) {
     const level = Math.floor((await getSkillIp(playerId, skillId)) / 100);
     sendToPlayer(playerId, { type: 'output', message: `<span class="ip-gain">Your ${name} skill rises to level ${level}.</span>` });

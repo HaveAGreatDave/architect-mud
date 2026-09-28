@@ -8,9 +8,7 @@
       "boats",
       "covers"
     ],
-    "interactions": {
-      "examine": "Three of the tags are current. The fourth is two years old, the strapping has been checked since, and the account it is billed to has not lapsed. Somebody is paying to keep a boat they have not come to see."
-    }
+    "examine_detail": "Three of the tags are current. The fourth is two years old, the strapping has been checked since, and the account it is billed to has not lapsed. Somebody is paying to keep a boat they have not come to see."
   },
   "id": "furn_consv_cradles",
   "name": "the cradles",

@@ -196,7 +196,7 @@ async function cmdPlay(args, raw, player, broadcast) {
   const noun = nounFor(voice);
   const help = textMinigamesSync(player)
     ? `Type <span class="text-hl">play c4 e4 g4</span> to pick out a phrase, or ${teachVerb('play stop', 'play', 'stop')} to get up.`
-    : `The keys are live — the two bottom rows of your keyboard are the two octaves, <span class="text-hl">Z</span> up through <span class="text-hl">M</span> and <span class="text-hl">Q</span> up through <span class="text-hl">P</span>, black keys on the row above. <span class="text-hl">←</span> and <span class="text-hl">→</span> shift octave. ${teachVerb('play stop', 'play', 'stop')} when you're done.`;
+    : `The keys are live: the two bottom rows of your keyboard are the two octaves, <span class="text-hl">Z</span> up through <span class="text-hl">M</span> and <span class="text-hl">Q</span> up through <span class="text-hl">P</span>, black keys on the row above. <span class="text-hl">←</span> and <span class="text-hl">→</span> shift octave. ${teachVerb('play stop', 'play', 'stop')} when you're done.`;
   return { type: 'output', message: `You sit down at the ${furn.name.toLowerCase()} and put your hands on it.<br>${help}` };
 }
 

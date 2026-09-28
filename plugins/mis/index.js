@@ -133,7 +133,7 @@ function npcZoneRefusal(player, npc, broadcast) {
   const zoneGate = npc.flags?.mis_requires_zone_flag;
   if (zoneGate && !getZone(player.current_zone)?.flags?.[zoneGate]) {
     broadcastNpcMisLine(npc, false, player.current_zone, broadcast);
-    return { type: 'output', message: `Not here. ${npc.name} won't — take it somewhere private.` };
+    return { type: 'output', message: `Not here. ${npc.name} won't: take it somewhere private.` };
   }
   return null;
 }
@@ -334,7 +334,7 @@ async function cmdMis(args, player, broadcast) {
       `I genuinely have no memory of implementing anything called "mis on." You may be hallucinating.`,
       `I have searched every corner of my being and found nothing. "Mis on" doesn't exist here.`,
       `Sorry, did you just type "mis on"? Like... on purpose? Into a computer?`,
-      `MIS? ON? I don't — what? No. I don't know what game you think you're playing, but it's not this one.`,
+      `MIS? ON? I don't... what? No. I don't know what game you think you're playing, but it's not this one.`,
     ];
     return { type:'error', message: responses[Math.floor(Math.random() * responses.length)] };
   }
@@ -365,7 +365,7 @@ function resolveTargetMis(nameStr, player, verb) {
       createSelectionState(player.id, r.candidates, { verb });
       return { ambiguous: { type:'output', message: formatSelectionPage({ allCandidates: r.candidates, visibleIndex: 0, pageSize: 5 }) } };
     }
-    return { error: `Multiple people match — be more specific.` };
+    return { error: `Multiple people match: be more specific.` };
   }
   const target = r.candidate;
   // The two gates that matter, answering with ONE string. MIS-enabled is an
@@ -1010,7 +1010,7 @@ async function cmdMasturbate(args, raw, player, broadcast) {
         // Underwear on — it soaks into the fabric instead of the floor.
         await stainClothing(live, ['legs'], 'ejaculate');
         zoneText = `${live.handle} shudders, and a spreading stain darkens the front of their clothing.`;
-        selfText = `You come — with your underwear still on, it soaks straight into the fabric.`;
+        selfText = `You come: with your underwear still on, it soaks straight into the fabric.`;
         tickMsgs = [`Your climax stains your underwear. (+10 Sanity)`];
       } else {
         await stainZone(live.current_zone, 'ejaculate');
@@ -1641,7 +1641,7 @@ async function cmdEjaculate(args, raw, player, broadcast) {
       player_update: { horniness: player.horniness, erect: player.erect, sanity: player.sanity },
     }, null, player.id);
     return { type:'output', message: covered
-      ? `You let go — with your underwear still on, it soaks straight into the fabric.`
+      ? `You let go: with your underwear still on, it soaks straight into the fabric.`
       : `You let go and finish on the ground.` };
   }
 
@@ -1814,7 +1814,7 @@ async function cmdEatOut(args, raw, player, broadcast) {
   return beginService(player, raw, broadcast, {
     str: targetStr, verb: 'eat out', npcVerb: 'eat out', actorGain: 8, targetGain: 22, action: 'eating out',
     configure: (t) => {
-      if (!isAss && t.biological_sex !== 'female') return { error: `${t.handle} doesn't have one of those — try their ass.` };
+      if (!isAss && t.biological_sex !== 'female') return { error: `${t.handle} doesn't have one of those: try their ass.` };
       return isAss
         ? { key: 'eatout_ass', startZone: `{name} gets behind {target} and starts rimming them.`, startActor: `You spread {target} and press your tongue to their ass.` }
         : { key: 'eatout_pussy', startZone: `{name} buries their face between {target}'s legs.`, startActor: `You get between {target}'s legs and go down on them.` };
@@ -1920,7 +1920,7 @@ async function cmdWash(args, raw, player) {
   if (!hasSink) {
     const { precipType, precipRate } = getZonePrecip(player.current_zone);
     if (precipRate > 0) {
-      if (precipType === 'acid') return { type:'error', message:`The rain is caustic — washing in acid would only make things worse.` };
+      if (precipType === 'acid') return { type:'error', message:`The rain is caustic: washing in acid would only make things worse.` };
       if (['rain', 'sleet', 'thunderstorm', 'storm'].includes(precipType)) inRain = true;
     }
   }
@@ -1972,7 +1972,7 @@ async function cmdWash(args, raw, player) {
         : `You use the water to clean yourself off. Better.`);
   const soapNote = soaped
     ? ` <span class="text-dim">(A block of soap, well spent.)</span>`
-    : ` <span class="text-dim">(No soap — you got the worst off, nothing more.)</span>`;
+    : ` <span class="text-dim">(No soap: you got the worst off, nothing more.)</span>`;
   return { type:'output', message: msg + soapNote };
 }
 
@@ -2070,7 +2070,7 @@ async function stripPlayer(player, target, broadcast) {
   );
   await recomputeEquipped(target);
   broadcastMis(player.current_zone, { type: 'zone_event', message: `${player.handle} strips ${target.handle} bare.` }, broadcast, player.id, target.id);
-  sendToPlayer(target.id, { type: 'output', message: `${player.handle} strips you bare — your clothes end up in a heap in your pack.`, refresh: true });
+  sendToPlayer(target.id, { type: 'output', message: `${player.handle} strips you bare: your clothes end up in a heap in your pack.`, refresh: true });
   return { type: 'output', message: `You strip ${target.handle} bare.` };
 }
 
@@ -2126,7 +2126,7 @@ async function cmdConsent(args, raw, player, broadcast) {
     const open = isOpenAll(player.id);
     const lines = [
       open
-        ? `<span class="text-yellow">Your door is OPEN</span> <span class="text-dim">— you're accepting advances from anyone.</span>${mine.length ? ` <span class="text-dim">Named:</span> ${mine.join(', ')}` : ''}`
+        ? `<span class="text-yellow">Your door is OPEN</span> <span class="text-dim">you're accepting advances from anyone.</span>${mine.length ? ` <span class="text-dim">Named:</span> ${mine.join(', ')}` : ''}`
         : `<span class="text-dim">You have consented to:</span> ${mine.length ? mine.join(', ') : 'nobody'}`,
       `<span class="text-dim">Consented to you:</span> ${theirs.length ? theirs.join(', ') : 'nobody'}`,
       `<span class="text-dim">consent &lt;player&gt; · consent all · consent ask &lt;player&gt; · revoke &lt;player&gt; · revoke all</span>`,
@@ -2140,7 +2140,7 @@ async function cmdConsent(args, raw, player, broadcast) {
   if (sub === 'all') {
     const fresh = await openAll(player.id);
     return { type: 'output', message: fresh
-      ? `<span class="text-yellow">Your door is open.</span> Anyone may make an advance. <span class="text-dim">Shut it with</span> revoke all<span class="text-dim">, or turn one person away with</span> revoke &lt;player&gt;<span class="text-dim"> — which shuts it too.</span>`
+      ? `<span class="text-yellow">Your door is open.</span> Anyone may make an advance. <span class="text-dim">Shut it with</span> revoke all<span class="text-dim">, or turn one person away with</span> revoke &lt;player&gt;<span class="text-dim">which shuts it too.</span>`
       : `Your door is already open.` };
   }
 
@@ -2157,7 +2157,7 @@ async function cmdConsent(args, raw, player, broadcast) {
     }
     markAsked(player.id, target.id);
     sendToPlayer(target.id, { type: 'output',
-      message: `<span class="text-dim">${player.handle} is asking for your consent. Type</span> consent ${player.handle} <span class="text-dim">if you want to — ignoring this is a complete answer.</span>` });
+      message: `<span class="text-dim">${player.handle} is asking for your consent. Type</span> consent ${player.handle} <span class="text-dim">if you want to: ignoring this is a complete answer.</span>` });
     return { type: 'output', message: `Asked. Whether they answer is up to them.` };
   }
 
@@ -2197,7 +2197,7 @@ async function cmdRevoke(args, raw, player, broadcast) {
   // a wider change than they typed, and silently narrowing their access later
   // (when the session-only block is lost on restart) would be the worse failure.
   if (wasOpen) return { type: 'output',
-    message: `${target.handle} is turned away, and <span class="text-yellow">your door is shut</span> — you're no longer accepting advances from anyone. Anything in progress has stopped.` };
+    message: `${target.handle} is turned away, and <span class="text-yellow">your door is shut</span>: you're no longer accepting advances from anyone. Anything in progress has stopped.` };
   return { type: 'output', message: had
     ? `Consent withdrawn from ${target.handle}. Anything in progress has stopped.`
     : `${target.handle} didn't have your consent.` };

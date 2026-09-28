@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Red rock to the horizon, pitted with pale rings a hair deep where the rain has stood and eaten. The wind never stops. There's a great deal of sky and none of it's reassuring.",
+  "description": "The brush is tough and dense and comes up to your chest. The wind rattles through it with a dry, endless sound.",
   "exits": {
     "east": "zone_scw_1025_963",
     "north": "zone_scw_1024_962",
@@ -8,18 +8,18 @@
     "west": "zone_scw_1023_963"
   },
   "flags": {
-    "ambient_pool": "scarletwastes_hardpan",
+    "ambient_pool": "scarletwastes_the_grey_thicket",
     "lawless": true,
     "radiation": 9,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "dirt_road"
+    "terrain": "scrub"
   },
   "grid_x": 1024,
   "grid_y": 963,
   "grid_z": 0,
   "id": "zone_scw_1024_963",
   "map_id": "map_world",
-  "name": "Hardpan",
+  "name": "Scrub Bench",
   "parent_zone": null
 }

@@ -8,7 +8,7 @@
     "There's no charge for the pot. The rest of it, we'll talk.",
     "You're too thin and I have said nothing."
   ],
-  "description": "A broad woman working three pots with one spoon, tasting from the back of her hand, entirely in charge of a room that doesn't have anybody in charge of it. She has flour to the elbow and has clearly been up since four.\n\nShe puts a bowl in front of you before you have said anything, and doesn't appear to notice doing it.",
+  "description": "A broad woman working three pots with one spoon, tasting off the back of her hand, flour to the elbow. She's been up since four and she's running the room.",
   "dialogue_tree": {
     "bye": {
       "actions": [],

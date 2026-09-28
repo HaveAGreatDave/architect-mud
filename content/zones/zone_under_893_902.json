@@ -6,7 +6,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#141b19",
   "color": "#8fae9a",
-  "description": "A tiled alcove off the records hall with a bench, a kettle on a hotplate wired into something it shouldn't be, and a duty rota chalked on the wall in a grid that covers every hour of every day. Mops stand in a bucket rank by the door, handles worn pale. Above the bench, in letters cut into the tile by hand rather than printed, someone has recorded the date the water came in and the number of people who did not get out. The number is corrected in a second hand, downward, with a source cited.",
+  "description": "A tiled alcove off the records hall: a bench, a kettle on a badly wired hotplate, and a duty rota chalked on the wall covering every hour. Mops stand in a bucket by the door. Cut into the tile above the bench: the date the water came in, and a death count, corrected downward in a second hand.",
   "exits": {
     "south": "zone_under_893_903"
   },

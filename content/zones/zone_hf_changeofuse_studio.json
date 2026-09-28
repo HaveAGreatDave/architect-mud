@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "The second floor, floor to ceiling in mirror down the inside wall and glass down the outside one, which means the room contains the street twice. Sprung boards laid over an office screed by somebody who knew what they were doing, a barre the whole length of the mirror, and a stack of chairs in the corner for the evenings when it is something else. There is chalk dust in the corners and the windows are permanently a little misted at the bottom.",
+  "description": "The second floor: mirror floor to ceiling on the inside wall, glass on the outside one. Sprung boards over office screed, a barre the length of the mirror, and a stack of chairs in the corner. Chalk dust in the corners. The windows are misted at the bottom.",
   "exits": {
     "down": "zone_hf_changeofuse_lobby"
   },

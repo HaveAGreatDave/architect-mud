@@ -41,6 +41,7 @@
     "slotSpread": 0.85,
     "span": 1.02,
     "tailCock": 0.42,
+    "tailCol": "#b5552c",
     "tailLen": 0.195,
     "tailNotch": 0.4,
     "tailW": 0.115,

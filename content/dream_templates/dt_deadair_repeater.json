@@ -5,7 +5,7 @@
     "A cooling fan spins up, does its job, and spins down."
   ],
   "cause": "drug",
-  "description": "A concrete hut on nothing, with a mast on it and an equipment rack inside that's entirely lit and entirely idle. It has power. It has been serviced. It's relaying, faithfully and at full strength, an absence.",
+  "description": "A concrete hut on nothing, with a mast on it and an equipment rack inside that is entirely lit and entirely idle. It has power. It has been serviced. It's relaying, faithfully and at full strength, an absence.",
   "drug_id": "drug_deadair",
   "fx": "static",
   "fx_intensity": 0.75,

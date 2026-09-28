@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "A low wide room the full width of the bottom step, glazed on the mews side and open to the stair on the other, with the four terrace levels named on a chrome board and a bootscraper set into the floor that has never scraped a boot. It smells faintly of wet soil, which comes down the stair from the planting and is the only thing about the hall that is not immaculate.",
+  "description": "A low, wide room glazed on the mews side and open to the stair on the other. A chrome board names the four terrace levels. A bootscraper is set into the floor, unused. It smells faintly of wet soil from the planting upstairs.",
   "exits": {
     "down": "zone_util_zone_hf_terms_hall",
     "up": "zone_hf_terms_terrace",

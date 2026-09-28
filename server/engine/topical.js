@@ -82,7 +82,7 @@ export const TOPICAL_FLUIDS = {
   // A drug carried in a solvent that WANTS to cross skin — the blotter case. The
   // liquid is inert on its own; what it delivers is whatever `drug` the container
   // resolver hands over, which is why there is no drug id in this table.
-  solvent:      { noun: 'a clear solvent', arrival: "it lands cold and thin, and it doesn't run off — it sinks in", wets: true, stain: 'chem', harmful: true, absorb: 0.85 },
+  solvent:      { noun: 'a clear solvent', arrival: "it lands cold and thin, and it doesn't run off; it sinks in", wets: true, stain: 'chem', harmful: true, absorb: 0.85 },
   // ⚠ THE ONE THE WORLD WAS ALREADY AUTHORED AGAINST. Fourteen fillable vials
   // ship `prefill.fluid_type: 'drug'` — every liquid product in the game, each
   // with its `drug_id` beside it — and `drug` was not a key here, so all of them
@@ -296,7 +296,7 @@ export async function applyTopical(target, ctx = {}) {
   }
 
   if (!message) {
-    const lead = source ? `${source} — ` : '';
+    const lead = source ? `${source}: ` : '';
     message = `<span class="text-cyan">${lead}${info.arrival}.</span>`;
   }
 

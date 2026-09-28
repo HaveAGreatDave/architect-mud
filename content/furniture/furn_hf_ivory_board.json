@@ -6,9 +6,7 @@
       "noticeboard",
       "notices"
     ],
-    "interactions": {
-      "examine": "One thread runs to eleven pinned replies and concerns whether the Institute's subject is philosophy or engineering. Nobody has conceded anything and the earliest note is dated two years ago."
-    }
+    "examine_detail": "One thread runs to eleven pinned replies and concerns whether the Institute's subject is philosophy or engineering. Nobody has conceded anything and the earliest note is dated two years ago."
   },
   "id": "furn_hf_ivory_board",
   "name": "the fellows' noticeboard",

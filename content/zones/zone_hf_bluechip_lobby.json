@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "A round lobby, immaculate, lit, heated, and empty — not empty of people, empty of things. There is a lift. There is a fire notice. There is nothing else: no desk, no chairs, no board, no bin, no plant, nothing on any wall anywhere. It is cleaned on a contract and the contract is honoured, and the stone has the deep even shine of a floor that has been polished a great many times and walked on almost never.",
+  "description": "A round lobby, immaculate, lit, heated, and empty. Not empty of people, empty of things. There is a lift. There is a fire notice. There is nothing else: no desk, no chairs, no board, no bin, no plant, nothing on any wall anywhere. It is cleaned on a contract and the contract is honoured, and the stone has the deep even shine of a floor that has been polished a great many times and walked on almost never.",
   "exits": {
     "down": "zone_util_zone_hf_bluechip_lobby",
     "north": "zone_district_901_917"

@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A shelf of red stone standing a hundred feet clear of the flats, its face banded in every shade the country has, laid down and then eaten back until only this much was left. From up here the dark line of the thorn is visible a long way off, a black seam laid across the red.",
+  "description": "Open red rock under a very large sky. Pale etched circles show where puddles lay after the last rain. The wind doesn't let up.",
   "exits": {
     "east": "zone_scw_1017_957",
     "north": "zone_scw_1016_956",
@@ -8,18 +8,18 @@
     "west": "zone_scw_1015_957"
   },
   "flags": {
-    "ambient_pool": "scarletwastes_the_long_shelf",
+    "ambient_pool": "scarletwastes_hardpan",
     "lawless": true,
     "radiation": 9,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "plateau"
+    "terrain": "dirt_road"
   },
   "grid_x": 1016,
   "grid_y": 957,
   "grid_z": 0,
   "id": "zone_scw_1016_957",
   "map_id": "map_world",
-  "name": "The High Table",
+  "name": "The Long Red",
   "parent_zone": null
 }

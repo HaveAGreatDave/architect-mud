@@ -107,7 +107,7 @@ function pickCraft(fleet, want) {
 async function cmdInsure(args, raw, player) {
   if (!atDesk(player)) return notHere;
   const fleet = await ownedFleet(player.id);
-  if (!fleet.length) return { type: 'output', message: '<span class="text-cyan">HALCYON ASSURANCE:</span> our records show no aircraft in your name to cover. Buy one first — we\'ll be delighted to insure it.' };
+  if (!fleet.length) return { type: 'output', message: '<span class="text-cyan">HALCYON ASSURANCE:</span> our records show no aircraft in your name to cover. Buy one first. We will be delighted to insure it.' };
   const paid = await ownerPaidClaims(player.id);
   const want = (args[0] || '').toLowerCase();
 
@@ -119,7 +119,7 @@ async function cmdInsure(args, raw, player) {
   if (!craft) return { type: 'emote', message: `No aircraft of yours by "${want}". Type <b>insure</b> for the list.` };
   const value = craft.price_buy;
   const premium = quotePremium(value, paid);
-  if ((player.credits || 0) < premium) return { type: 'emote', message: `The premium on the ${craft.tname} is ${premium}₵ — you're short. Halcyon doesn't do instalments.` };
+  if ((player.credits || 0) < premium) return { type: 'emote', message: `The premium on the ${craft.tname} is ${premium}₵, and you're short. Halcyon doesn't do instalments.` };
 
   player.credits -= premium;
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
@@ -133,7 +133,7 @@ async function cmdInsure(args, raw, player) {
   const { deductible, payout } = settlement(value);
   return {
     type: 'insurance_action',
-    message: `<span class="item-grant">Bound. The <b>${craft.tname}</b> "${craft.name}" is covered for ${PERIOD_SEC / 86400} days — <b>${premium}₵</b>. Agreed value ${value}₵; a covered write-off pays <b>${payout}₵</b> after the ${deductible}₵ excess, and we keep the hull. <span class="text-dim">Renew before it lapses — a lapsed policy pays nothing.</span></span>`,
+    message: `<span class="item-grant">Bound. The <b>${craft.tname}</b> "${craft.name}" is covered for ${PERIOD_SEC / 86400} days: <b>${premium}₵</b>. Agreed value ${value}₵; a covered write-off pays <b>${payout}₵</b> after the ${deductible}₵ excess, and we keep the hull. <span class="text-dim">Renew before it lapses. A lapsed policy pays nothing.</span></span>`,
     player_update: { credits: player.credits },
     panel: await buildInsurancePanel(player),
   };
@@ -143,7 +143,7 @@ async function cmdInsure(args, raw, player) {
 async function cmdClaim(args, raw, player) {
   if (!atDesk(player)) return notHere;
   const { rows } = await query("SELECT * FROM insurance_claims WHERE owner_id=$1 AND status='pending' ORDER BY filed_at", [player.id]);
-  if (!rows.length) return { type: 'output', message: '<span class="text-cyan">HALCYON ASSURANCE — CLAIMS:</span> you have no open claims. Try not to change that.' };
+  if (!rows.length) return { type: 'output', message: '<span class="text-cyan">HALCYON ASSURANCE, CLAIMS:</span> you have no open claims. Try not to change that.' };
 
   const want = (args[0] || '').toLowerCase();
   if (!want && rows.length > 1) return await buildInsurancePanel(player);
@@ -157,7 +157,7 @@ async function cmdClaim(args, raw, player) {
   if (c.aircraft_id) await query("UPDATE aircraft SET custom_data = jsonb_set(COALESCE(custom_data,'{}'), '{stripped}', 'true') WHERE id=$1", [c.aircraft_id]);
   return {
     type: 'insurance_action',
-    message: `<span class="item-grant">Settled. Halcyon pays out <b>${c.payout}₵</b> on the ${c.type_name} — the ${c.deductible}₵ excess is yours to eat, and the wreck is ours now. <span class="text-dim">A pleasure doing business. Your next premium reflects today.</span></span>`,
+    message: `<span class="item-grant">Settled. Halcyon pays out <b>${c.payout}₵</b> on the ${c.type_name}. The ${c.deductible}₵ excess is yours to eat, and the wreck is ours now. <span class="text-dim">A pleasure doing business. Your next premium reflects today.</span></span>`,
     player_update: { credits: player.credits },
     panel: await buildInsurancePanel(player),
   };
@@ -177,17 +177,17 @@ async function cmdInsureBind(args, raw, player) {
   const fleet = await ownedFleet(player.id);
   const craft = pickCraft(fleet, want);
   if (!craft) return { type: 'emote', message: 'No aircraft of yours to cover here.' };
-  if (craft.policy_id) return { type: 'emote', message: `The ${craft.tname} is already covered — you're set.` };
+  if (craft.policy_id) return { type: 'emote', message: `The ${craft.tname} is already covered. You're set.` };
   const paid = await ownerPaidClaims(player.id);
   const value = craft.price_buy;
   const premium = quotePremium(value, paid);
-  if ((player.credits || 0) < premium) return { type: 'emote', message: `Cover on the ${craft.tname} runs ${premium}₵ — you're short right now. She'll fly uninsured; bind it later at the Halcyon desk.` };
+  if ((player.credits || 0) < premium) return { type: 'emote', message: `Cover on the ${craft.tname} runs ${premium}₵, and you're short right now. She'll fly uninsured; bind it later at the Halcyon desk.` };
   player.credits -= premium;
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
   await query('INSERT INTO insurance_policies (id, owner_id, aircraft_id, insured_value, premium_paid, expires_at, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
     [`pol_${randomUUID().slice(0, 10)}`, player.id, craft.id, value, premium, nowSec() + PERIOD_SEC, nowSec()]);
   const { deductible, payout } = settlement(value);
-  return { type: 'output', message: `<span class="item-grant">Bound on the spot. The <b>${craft.tname}</b> "${craft.name}" is covered for ${PERIOD_SEC / 86400} days — <b>${premium}₵</b>. A covered write-off pays <b>${payout}₵</b> after the ${deductible}₵ excess, and we keep the hull. <span class="text-dim">Fly safe — cover you never claim is the cheapest kind.</span></span>`, player_update: { credits: player.credits } };
+  return { type: 'output', message: `<span class="item-grant">Bound on the spot. The <b>${craft.tname}</b> "${craft.name}" is covered for ${PERIOD_SEC / 86400} days: <b>${premium}₵</b>. A covered write-off pays <b>${payout}₵</b> after the ${deductible}₵ excess, and we keep the hull. <span class="text-dim">Fly safe. Cover you never claim is the cheapest kind.</span></span>`, player_update: { credits: player.credits } };
 }
 
 // ── policies — what you currently carry ───────────────────────────────────────
@@ -225,7 +225,7 @@ on('flight.crashed', async ({ aircraftId, ownerId, pilotId, typeId, typeName, re
       const covered = Math.min(liabilityBill, LIABILITY_LIMIT);
       const overflow = liabilityBill - covered;
       if (overflow > 0) await chargePilot(pilotId, overflow);
-      if (pilotId && getLivePlayer(pilotId)) sendToPlayer(pilotId, { type: 'output', message: `<span class="msg-system">📄 <b>HALCYON ASSURANCE — LIABILITY:</b> we settled <b>${covered}₵</b> of ${who} on your behalf${overflow > 0 ? `; the <b>${overflow}₵</b> over your ${LIABILITY_LIMIT}₵ limit is yours` : ''}. <span class="text-dim">The lawsuit, and the wanted level, remain your own.</span></span>` });
+      if (pilotId && getLivePlayer(pilotId)) sendToPlayer(pilotId, { type: 'output', message: `<span class="msg-system">📄 <b>HALCYON ASSURANCE, LIABILITY:</b> we settled <b>${covered}₵</b> of ${who} on your behalf${overflow > 0 ? `; the <b>${overflow}₵</b> over your ${LIABILITY_LIMIT}₵ limit is yours` : ''}. <span class="text-dim">The lawsuit, and the wanted level, remain your own.</span></span>` });
     } else {
       const paid = await chargePilot(pilotId, liabilityBill);
       if (pilotId && getLivePlayer(pilotId)) sendToPlayer(pilotId, { type: 'output', message: `<span class="msg-system">⚖ <b>THIRD-PARTY LIABILITY:</b> uninsured, you're personally liable for <b>${liabilityBill}₵</b> of ${who}. <b>${paid}₵</b> has been garnished. <span class="text-dim">Halcyon would have covered most of it.</span></span>` });
@@ -247,11 +247,11 @@ on('flight.crashed', async ({ aircraftId, ownerId, pilotId, typeId, typeName, re
   const p = getLivePlayer(ownerId);
   if (!p) return;
   const msg = {
-    covered: `📄 <b>HALCYON ASSURANCE:</b> we're sorry for the loss of your ${craft}. Covered peril — a claim is open for <b>${payout}₵</b> (we keep the ${deductible}₵ excess and the wreck). <span class="text-dim">Come in to the claims desk to settle.</span>`,
-    pilot_error: `📄 <b>HALCYON ASSURANCE:</b> our assessors ruled <b>pilot error</b> on the ${craft}, so cover is reduced. A claim is open for <b>${payout}₵</b> — half the standard settlement, less your excess. <span class="text-dim">Fly it, don't wear it. Settle at the claims desk.</span>`,
-    excluded_nofly: `📄 <b>HALCYON ASSURANCE:</b> the ${craft} was lost in <b>restricted airspace</b> — an excluded, illegal flight. The claim is <b>denied</b> and the policy is void. <span class="text-dim">We did read the black box.</span>`,
+    covered: `📄 <b>HALCYON ASSURANCE:</b> we're sorry for the loss of your ${craft}. Covered peril. A claim is open for <b>${payout}₵</b> (we keep the ${deductible}₵ excess and the wreck). <span class="text-dim">Come in to the claims desk to settle.</span>`,
+    pilot_error: `📄 <b>HALCYON ASSURANCE:</b> our assessors ruled <b>pilot error</b> on the ${craft}, so cover is reduced. A claim is open for <b>${payout}₵</b>: half the standard settlement, less your excess. <span class="text-dim">Fly it, don't wear it. Settle at the claims desk.</span>`,
+    excluded_nofly: `📄 <b>HALCYON ASSURANCE:</b> the ${craft} was lost in <b>restricted airspace</b>, an excluded, illegal flight. The claim is <b>denied</b> and the policy is void. <span class="text-dim">We did read the black box.</span>`,
     excluded_fraud: `📄 <b>HALCYON ASSURANCE:</b> a total loss this soon after binding cover is... convenient. The claim is <b>denied</b> pending an investigation that will outlast your patience. <span class="text-dim">Halcyon wasn't born yesterday.</span>`,
-    excluded_impaired: `📄 <b>HALCYON ASSURANCE:</b> the tox panel came back — you were flying <b>impaired</b>. Operating an aircraft under the influence voids your cover outright. The claim is <b>denied</b> and the policy is void. <span class="text-dim">Fly sober, or fly uninsured.</span>`,
+    excluded_impaired: `📄 <b>HALCYON ASSURANCE:</b> the tox panel came back. You were flying <b>impaired</b>. Operating an aircraft under the influence voids your cover outright. The claim is <b>denied</b> and the policy is void. <span class="text-dim">Fly sober, or fly uninsured.</span>`,
   }[verdict];
   sendToPlayer(ownerId, { type: 'output', message: `<span class="msg-system">${msg}</span>` });
 });

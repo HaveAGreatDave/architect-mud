@@ -1,24 +1,24 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Loose ground at the foot of the wall of rock, walking on it a matter of picking the flat pieces. There are bones down among the stones and there's no telling how they got there or from how high.",
+  "description": "Where the escarpment has failed, a whole section of it come down at once a long time ago and never cleared, making a ragged stair up to the tableland. Tracks come in from both sides and converge on it: feet, dogs, cart wheels, all of them funnelled to the one gap.",
   "exits": {
     "east": "zone_scw_1001_968",
     "north": "zone_scw_1000_967",
     "south": "zone_scw_1000_969"
   },
   "flags": {
-    "ambient_pool": "scarletwastes_the_spill",
+    "ambient_pool": "scarletwastes_the_break",
     "lawless": true,
     "radiation": 9,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "dirt_road"
+    "terrain": "ramp"
   },
   "grid_x": 1000,
   "grid_y": 968,
   "grid_z": 0,
   "id": "zone_scw_1000_968",
   "map_id": "map_world",
-  "name": "Talus",
+  "name": "Broken Stair",
   "parent_zone": null
 }

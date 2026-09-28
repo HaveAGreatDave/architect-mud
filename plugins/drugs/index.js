@@ -87,14 +87,14 @@ async function habits(args, raw, player) {
     // visible characters and not counting tag bytes.
     const name = d.name.length > 16 ? d.name.slice(0, 15) + '…' : d.name.padEnd(16);
     const tol = `tolerance ${String(Math.round(d.tolerance * 100)).padStart(3)}%`;
-    const hooked = d.addicted ? '<span class="addiction-warning">HOOKED</span>' : dim('  —   ');
+    const hooked = d.addicted ? '<span class="addiction-warning">HOOKED</span>' : dim(': ');
     lines.push(`  <b>${name}</b> ${hooked}  ${dim(tol)}  ${dim('last dose ' + ago(d.sinceLastUse))}`);
 
     if (d.withdrawalSeverity > 0) {
       const held = d.substituted ? ' Something close enough is holding it off.' : '';
       lines.push(`      <span class="withdrawal-warning">${bite(d.withdrawalSeverity)}${held}</span>`);
     } else if (d.withdrawalIn > 0) {
-      lines.push(dim(`      Quiet — ${soon(d.withdrawalIn)} before it starts asking.`));
+      lines.push(dim(`      Quiet: ${soon(d.withdrawalIn)} before it starts asking.`));
     }
     // THE MARGIN. Felt tolerance outruns lethal tolerance, so a long habit needs
     // more to feel anything while the dose that stops your breathing has barely
@@ -110,7 +110,7 @@ async function habits(args, raw, player) {
       // The ceiling is the whole point of the relapse law: it moves with tolerance,
       // so seeing it shrink while you are clean is the warning the system owes you.
       const close = d.dosesInSystem >= d.odCeiling - 1;
-      const note = `      ${d.dosesInSystem} still in you — ${d.odCeiling} would be too many.`;
+      const note = `      ${d.dosesInSystem} still in you: ${d.odCeiling} would be too many.`;
       lines.push(close ? `<span class="overdose-warning">${note}</span>` : dim(note));
     }
   }

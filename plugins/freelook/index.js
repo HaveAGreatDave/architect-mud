@@ -164,7 +164,7 @@ function cmdTelescope(args, raw, player) {
   // would turn a verb anybody can type into a detector for vantages they have not found.
   if (!furn) return { type: 'error', message: "There's nothing here to look through." };
   const at = tileUnder(player);
-  if (!at) return { type: 'error', message: `${furn.name} looks out on nothing — this room isn't placed on the map.` };
+  if (!at) return { type: 'error', message: `${furn.name} looks out on nothing: this room isn't placed on the map.` };
   const stand = standBlock(furn);
   sendToPlayer(player.id, viewPayload(at.gx, at.gy, stand));
   viewers.set(player.id, at);
@@ -193,7 +193,7 @@ function cmdFreelook(args, raw, player) {
     return { type: 'error', message: USAGE };
   } else {
     at = tileUnder(player);
-    if (!at) return { type: 'error', message: "There's no world tile under you — this room isn't placed on the map. Name one: <b>freelook &lt;x&gt; &lt;y&gt;</b>." };
+    if (!at) return { type: 'error', message: "There's no world tile under you: this room isn't placed on the map. Name one: <b>freelook &lt;x&gt; &lt;y&gt;</b>." };
   }
 
   const moving = viewers.has(player.id);

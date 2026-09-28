@@ -151,7 +151,7 @@ edit('npcs/npc_asc_ives.json', (d, t) => {
     '"It is where we record anything alive that we cannot put a value on."\n\n'
     + 'She is not defensive. She has not understood the objection and does not know that she has '
     + 'not.\n\n'
-    + '"The page goes to Nine. Not the ninth floor — the department. There is no name on the '
+    + '"The page goes to Nine. Not the ninth floor. The department. There is no name on the '
     + 'slip, only the number, which I have always assumed is an oversight."\n\n'
     + '"Nineteen years, and I have never had cause to send anything else there."';
   log.push('Ives     the F-forty routes to a department with a number and no name');

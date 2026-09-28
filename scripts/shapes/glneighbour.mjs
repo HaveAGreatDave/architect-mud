@@ -1,11 +1,11 @@
 // IS A BUILDING'S ADORNMENT DRAWING THROUGH THE BUILDING NEXT DOOR?
 //
-// ⚠ IT IS A REPORT, NOT A GATE, for `models:quality`'s reason: a gate that is red on the day it
-// lands is a gate somebody turns off. It is in no npm chain on purpose, it exits 1 so a person
-// reading it can tell red from green, and `--fail-over N` is not here yet because the remaining
-// list is a design project rather than a list of mistakes — see the ⚠ four paragraphs down. What
-// it is NOT is a gate that passes: this line exists because the file did not carry it, and a
-// reader who ran the push chain had no way to know this question was never being asked.
+// ⚠ IT IS A GATE NOW (2026-09-27), in `pretest:regress` AND `shapes:smoke`. It was a red report
+// for months; the paragraphs below are the history of why. What closed it: `mast()` and four
+// direct `emitWire` calls (interstack, saloon, fabrication ×2) take a `DECO_PULL` tie-breaker
+// instead of the 0.6-tile default, the Dead Pigeon's pole moved out of its own upper storey onto
+// the setback, and Treble Maker's blade moved out of its facade and away from the tile edge. What
+// is left crosses by its own tie-breaker and is counted under TIE_MAX rather than reported.
 //
 // `glself` asks whether a part is dragged out of its OWN mass. That question is answered and its
 // budgets are committed. This is the other half of the same sentence, and nothing was watching it:
@@ -128,6 +128,14 @@ const HALF = 0.44;         // `draw3DBoxAt`'s own clamp — the deepest a facade
 // corner and a sign standing a third of a tile out in clear air as one point each. A tenth of the
 // tie-breaker (`DECO_PULL` is 0.05) is under a pixel at any range a sign is drawn at.
 const HAIRLINE = 0.005;
+// ⚠ AND A TIE-BREAKER IS NOT A FINDING EITHER, FOR THE SAME REASON AT A LARGER SCALE. A part that
+// asked for `DECO_PULL` (0.05) or less lies ON a surface and can cross a neighbour by at most that,
+// which is one wall's thickness at the silhouette: every caller left after the 2026-09-27 pass
+// (drawRing, the light runners, the gantry decals) crosses by almost exactly its own pull. What this
+// gate exists for is a part DRAGGED a real distance through somebody else's building, so the test is
+// how far the pull MOVED the point, not how far it overshot. The ceiling has headroom over 0.05
+// because a pull is spent along the view ray, which is longer than the depth axis at a rake.
+const TIE_MAX = 0.1;
 
 // ⚠ SAMPLED ALONG THE SEGMENT, AND THE COUNT IS A FLOOR NOT A PREFERENCE — `glself`'s own note. A
 // wall is about 0.05 tiles thick at its thinnest, so a coarse march steps clean over one and
@@ -201,7 +209,7 @@ const byTag = new Map();
 const byTagWorst = new Map();
 const byAngle = new Map();
 const byWho = new Map();        // stroke caller → { n, worst } — the actionable half of a finding
-let models = 0, checked = 0, movedPts = 0, hairs = 0;
+let models = 0, checked = 0, movedPts = 0, hairs = 0, ties = 0;
 
 for (const { key, m } of ws.shapeModelRegistry()) {
   models++;
@@ -243,6 +251,7 @@ for (const { key, m } of ws.shapeModelRegistry()) {
           if (hidden(nSolid, A, eye)) continue;    // still behind it after the pull — the depth buffer has it
           const out = overshoot(nSolid, A, B, eye);
           if (out < HAIRLINE) { hairs++; continue; }
+          if (Math.hypot(A[0] - B[0], A[1] - B[1], A[2] - B[2]) <= TIE_MAX) { ties++; continue; }
           const e = leaks.get(key) || { n: 0, worst: 0, tags: new Map(), angles: new Map(), where: new Set() };
           e.n++; if (out > e.worst) e.worst = out;
           e.tags.set(tag, (e.tags.get(tag) || 0) + 1);
@@ -324,6 +333,7 @@ if (REPORT) {
     console.log('');
   }
   console.log(`  · ${movedPts} of ${checked} adornment points are moved by a pull`);
+  console.log(`  · ${ties} more cross by a tie-breaker pull (moved ≤ ${TIE_MAX} tiles) — the silhouette case, not findings`);
   console.log(`  · ${hairs} more cross the neighbour by under ${HAIRLINE} tiles — silhouette hairlines, not findings`);
   console.log(`  · ${[...byTag.values()].reduce((a, b) => a + b, 0)} of those cross the neighbour, over ${leaks.size} models`);
 }

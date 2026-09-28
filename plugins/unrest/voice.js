@@ -13,9 +13,10 @@
 //
 // ⚠ Rule 7, and it is the whole expressive trick: the wire carries the Ascendant
 // version, the street carries the street version, they contradict each other and
-// nothing ever reconciles them. Per house style the Ascendant copy takes em
-// dashes and the street copy never does, so the faction split is encoded in the
-// punctuation before a word of it is read.
+// nothing ever reconciles them. Neither takes an em dash (no prose in the game
+// does); the Ascendant copy is formal and never contracts while the street copy
+// always does, so the faction split is readable in the register before a word of
+// the content is.
 import { bearing } from '../../server/engine/map-text.js';
 import { allBlocks, blockInfo } from './blocks.js';
 
@@ -109,7 +110,7 @@ const CROSSING = {
   ],
 };
 
-// The street. ⚠ Never an em dash: that is the Ascendant voice tell.
+// The street. Spoken and contracted, and never an em dash (nothing takes one).
 const STREET = {
   grip: [
     (p) => `"They've got the whole of ${p} papered. Checkpoints, tablets, the lot. Go round."`,
@@ -123,16 +124,16 @@ const STREET = {
   ],
 };
 
-// The wire. Em dashes are the point — this is the Ascendant register, and it
+// The wire. The Ascendant register: formal, never contracted, no em dash, and it
 // contradicts the street on purpose. Nothing ever reconciles the two.
 const WIRE = {
   grip: [
-    (p) => `Municipal Safety confirms an expanded presence toward ${p} — a scheduled compliance review, concluded without incident.`,
-    (p) => `Residents of ${p} are reminded that identity verification is routine — cooperation shortens it considerably.`,
+    (p) => `Municipal Safety confirms an expanded presence toward ${p}: a scheduled compliance review, concluded without incident.`,
+    (p) => `Residents of ${p} are reminded that identity verification is routine. Cooperation shortens it considerably.`,
   ],
   heat: [
-    (p) => `Reports of disorder in ${p} are unverified — Basin infrastructure is operating normally and there's no cause for concern.`,
-    (p) => `A small number of unlicensed gatherings in ${p} have been dispersed — the matter is considered closed.`,
+    (p) => `Reports of disorder in ${p} are unverified. Basin infrastructure is operating normally and there is no cause for concern.`,
+    (p) => `A small number of unlicensed gatherings in ${p} have been dispersed. The matter is considered closed.`,
   ],
 };
 

@@ -89,10 +89,10 @@ function buildPanel(floors, at = null) {
   const lines = floors.map(
     (f) => `${at && f.n === at.n ? '<span class="accent">▶</span>' : ' '} <span class="action-link" data-raw-cmd="floor ${f.n}" data-label="floor ${f.n}">[${String(f.n).padStart(2, ' ')}]</span> ${f.label}`
   );
-  const head = ['<span class="accent">▣ FLOOR SELECT</span> — say <b>floor &lt;number&gt;</b> or tap a button:'];
+  const head = ['<span class="accent">▣ FLOOR SELECT</span>: say <b>floor &lt;number&gt;</b> or tap a button:'];
   if (at) {
     head.unshift(
-      `<span class="accent">▣ The doors stand open on ${at.n === GROUND_FLOOR ? 'the lobby' : `Floor ${at.n}`}</span> — ` +
+      `<span class="accent">▣ The doors stand open on ${at.n === GROUND_FLOOR ? 'the lobby' : `Floor ${at.n}`}</span>... ` +
       `<span class="dir-tag">[Out]</span> <span class="action-link exit-link" data-action="go" data-target="out"` +
       ` data-dest="${String(at.label || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;')}" title="Step out into ${String(at.label || 'the hall').replace(/"/g, '&quot;')}">${at.label || 'Out'}</span>\n`
     );
@@ -161,7 +161,7 @@ async function arrive(player, ride) {
   player._elevator = null;
 
   if (!target) {
-    sendToPlayer(player.id, { type: 'error', message: 'The car shudders to a halt — that floor is out of service. The doors reopen on where you started.' });
+    sendToPlayer(player.id, { type: 'error', message: 'The car shudders to a halt: that floor is out of service. The doors reopen on where you started.' });
     return;
   }
 
@@ -183,7 +183,7 @@ async function arrive(player, ride) {
   });
   sendToPlayer(player.id, {
     type: 'output',
-    message: sys(`▣ A soft chime. The doors part on <b>Floor ${floor.n}</b> — ${target.name}. Step <b>out</b> to leave the car.`),
+    message: sys(`▣ A soft chime. The doors part on <b>Floor ${floor.n}</b>: ${target.name}. Step <b>out</b> to leave the car.`),
   });
   signalDoorsOpen(player, floor);
 }
@@ -220,7 +220,7 @@ async function stepOut(player, at, broadcast) {
     type: 'move',
     message: await describeZone(dest, player),
     zone: at.zone,
-    narration: `<span class="msg-system">▣</span> You step out onto <b>Floor ${at.n}</b> — ${dest.name}.`,
+    narration: `<span class="msg-system">▣</span> You step out onto <b>Floor ${at.n}</b>: ${dest.name}.`,
     minimap: getMinimapData(at.zone, 8, player),
   };
 }
@@ -247,7 +247,7 @@ function board(player, floor) {
   player._elevator = ride;
   return {
     type: 'output',
-    message: sys(`The doors glide shut. The car ${rising ? 'rises' : 'descends'} toward <b>Floor ${floor.n}</b>${floor.label ? ` — ${floor.label}` : ''}…`),
+    message: sys(`The doors glide shut. The car ${rising ? 'rises' : 'descends'} toward <b>Floor ${floor.n}</b>${floor.label ? `: ${floor.label}` : ''}…`),
   };
 }
 
@@ -258,7 +258,7 @@ async function cmdFloor(args, raw, player, broadcast) {
   }
   const floors = floorsOf(zone);
   if (!floors.length) {
-    return { type: 'error', message: 'The floor panel is dark — this elevator goes nowhere.' };
+    return { type: 'error', message: 'The floor panel is dark: this elevator goes nowhere.' };
   }
   if (player._elevator) {
     return { type: 'error', message: 'The car is already moving. Wait for it to settle.' };

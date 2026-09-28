@@ -385,7 +385,7 @@ async function cookFood(nameStr, player, broadcast, wantAppliance = null) {
   const starch = foods.filter(needsBoiling);
   if (starch.length && !hasCookingLiquid(contents)) {
     return { type: 'error', message: vessel
-      ? `Dry ${starch[0].name} in a dry ${vessel.name} will scorch, not cook. It needs liquid — <span class="text-dim">fill ${vessel.name}</span> at a tap, or put stock in it.`
+      ? `Dry ${starch[0].name} in a dry ${vessel.name} will scorch, not cook. It needs liquid: <span class="text-dim">fill ${vessel.name}</span> at a tap, or put stock in it.`
       : `${starch[0].name} doesn't cook in heat, it cooks in water. It needs a pot with something wet in it.` };
   }
 
@@ -450,7 +450,7 @@ async function cookFood(nameStr, player, broadcast, wantAppliance = null) {
     if (stove.power_draw_kw != null) {
       const powered = ['powered', 'overloaded'].includes(getZonePowerStatus(player.current_zone));
       if (!powered || !isPluggedIn(stove)) {
-        return { type: 'error', message: `The ${stove.name} clicks but doesn't heat — no power reaching it.` };
+        return { type: 'error', message: `The ${stove.name} clicks but doesn't heat: no power reaching it.` };
       }
     }
     await relight(stove);
@@ -623,7 +623,7 @@ async function runMethod(key, args, player, broadcast) {
         vessel = await vesselOfKind(player, method.vessel);
         if (!vessel) {
           return { type: 'error', message: `${method.needs}, and you haven't got one out. `
-            + `<span class="text-dim">If there's one on the rack, name it — "${key} ${nameStr} in &lt;pan&gt;".</span>` };
+            + `<span class="text-dim">If there's one on the rack, name it: "${key} ${nameStr} in &lt;pan&gt;".</span>` };
         }
       }
     }
@@ -857,7 +857,7 @@ async function plateVessel(vessel, player) {
     // makes a game worse.
     if (isBowl) {
       const masher = await resolveInventoryItem(player, { tag: 'can_stir', topLevel: true, fromNearby: true });
-      if (!masher) return { type: 'error', message: `You need something to mash with — a pestle, a spoon, anything.` };
+      if (!masher) return { type: 'error', message: `You need something to mash with: a pestle, a spoon, anything.` };
     }
     // Cold work never sees heat, so its prep check lands here instead of at `cook`.
     const toChop = rawWorked.filter(needsPrep);
@@ -1052,7 +1052,7 @@ async function plateVessel(vessel, player) {
   const lines = [];
   const label = band[0].toUpperCase() + band.slice(1);
   lines.push(intermediate
-    ? `You work it together and roll it out: ${name}. ${label} — and not dinner yet.`
+    ? `You work it together and roll it out: ${name}. ${label}, and not dinner yet.`
     : (key || improvised)
       ? `You plate it up: ${name}. It's ${label}.`
       : `You plate whatever this is. ${label}, and that's being generous.`);
@@ -1250,7 +1250,7 @@ async function cmdChop(args, raw, player) {
     // share it or to save half for later. Same arithmetic, entirely different
     // reason, so it shouldn't be told the halves will cook faster.
     message: isDish
-      ? `You cut ${baseName} into ${pieces}. ${pieces} × ${pieceName} — the same meal, in more hands.`
+      ? `You cut ${baseName} into ${pieces}. ${pieces} × ${pieceName}: the same meal, in more hands.`
       : `You cut ${baseName} into ${pieces}. ${pieces} × ${pieceName}, and each one will cook in a fraction of the time.`
         + (lostPrep ? ` The work you'd already done to it doesn't survive the knife.` : ''),
   };
@@ -1267,7 +1267,7 @@ async function prepTarget(nameStr, player, { profile = null, needsBlade = true }
   if (!p) return { error: `${food.name} isn't food.` };
   if (profile && p !== profile) return { error: `That isn't something you do to ${food.name}.` };
   if (food.custom_data?.cooking) return { error: `Not while it's on the heat.` };
-  if (food.custom_data?.cooked) return { error: `Too late for that — it's already cooked.` };
+  if (food.custom_data?.cooked) return { error: `Too late for that: it's already cooked.` };
   return { food, profile: p };
 }
 
@@ -1298,7 +1298,7 @@ async function cmdTenderise(args, raw, player) {
   if (t.food.custom_data?.minced) return { type: 'error', message: `It's mince. There's nothing left to tenderise.` };
   await stampPrep(t.food.inv_id ?? t.food.id, { tenderised: true });
   cookSfx(player, { action: 'impact', surface: 'wood', intensity: 0.8 });
-  return { type: 'output', message: `You beat ${t.food.name} out flat and even. It'll cook fast and forgive you a lot — but it'll never be a great piece of meat again.` };
+  return { type: 'output', message: `You beat ${t.food.name} out flat and even. It'll cook fast and forgive you a lot, but it'll never be a great piece of meat again.` };
 }
 
 // `marinate <meat> in <something>` — the one prep that costs TIME rather than
@@ -1343,7 +1343,7 @@ async function cmdButter(args, raw, player) {
   if (!target) return { type: 'error', message: `You don't have "${argStr}".` };
   if (!profileNameFor(target)) return { type: 'error', message: `${target.name} isn't food.` };
   if (target.custom_data?.cooking) return { type: 'error', message: `Not while it's on the heat.` };
-  if (target.custom_data?.cooked) return { type: 'error', message: `Too late — butter goes on before the heat, not after.` };
+  if (target.custom_data?.cooked) return { type: 'error', message: `Too late: butter goes on before the heat, not after.` };
   if (target.custom_data?.buttered) return { type: 'error', message: `${target.name} is buttered enough.` };
 
   const butter = await resolveInventoryItem(player, { tag: 'spreadable', topLevel: false });
@@ -1761,7 +1761,7 @@ async function cmdMise(args, raw, player) {
   const out = [];
   for (const v of vessels) {
     const inside = await describeVessel(v, player);
-    out.push(`<span class="text-bright">${shownName(v)}</span> <span class="text-dim">— ${placeOf(v)}</span>`);
+    out.push(`<span class="text-bright">${shownName(v)}</span> <span class="text-dim">${placeOf(v)}</span>`);
     out.push(inside || `  <span class="text-dim">empty</span>`);
   }
 
@@ -1783,7 +1783,7 @@ async function cmdMise(args, raw, player) {
       if (cd.portion) notes.push(portionName(cd.portion));
       const prep = prepText(cd);
       if (prep) notes.push(prep);
-      out.push(`  ${shownName(r)}${r.quantity > 1 ? ` x${r.quantity}` : ''} — ${state}${notes.length ? `, ${notes.join(', ')}` : ''}`);
+      out.push(`  ${shownName(r)}${r.quantity > 1 ? ` x${r.quantity}` : ''}: ${state}${notes.length ? `, ${notes.join(', ')}` : ''}`);
     }
   }
 
@@ -1804,7 +1804,7 @@ async function cmdMise(args, raw, player) {
   for (const v of near) {
     const inside = await describeVessel(v, player);
     if (!inside) continue;
-    nearLines.push(`<span class="text-bright">${shownName(v)}</span> <span class="text-dim">— in the ${v.from_nearby}</span>`);
+    nearLines.push(`<span class="text-bright">${shownName(v)}</span> <span class="text-dim">in the ${v.from_nearby}</span>`);
     nearLines.push(inside);
   }
   if (nearLines.length) {
@@ -1840,7 +1840,7 @@ async function cmdDoneness(args, raw, player) {
   if (!session) return { type: 'error', message: `${foodRow.name} isn't on the heat.` };
   const profile = sessionProfile(session);
   const levels = profile && donenessLevels(profile);
-  if (!levels) return { type: 'error', message: `${foodRow.name} is done when it's done — there's nothing to choose.` };
+  if (!levels) return { type: 'error', message: `${foodRow.name} is done when it's done: there's nothing to choose.` };
 
   const names = levels.map(l => l.name);
   if (!target) {
@@ -1850,7 +1850,7 @@ async function cmdDoneness(args, raw, player) {
   if (!pick) return { type: 'error', message: `That's not a doneness. Try: ${names.join(', ')}.` };
 
   if (apparentNow(session) >= timeline(session, profile).doneAt) {
-    return { type: 'error', message: `Too late — ${foodRow.name} is already past that.` };
+    return { type: 'error', message: `Too late: ${foodRow.name} is already past that.` };
   }
 
   await query(
@@ -1909,7 +1909,7 @@ function dialBar(level, ceiling) {
 function stoveReadout(stove) {
   const b = burnerOf(stove);
   const capped = b.ceiling < MAX_LEVEL ? ` <span class="text-dim">(tops out at ${b.ceiling})</span>` : '';
-  return `<span class="text-bright">${stove.name}</span> — ${dialBar(b.level, b.ceiling)} `
+  return `<span class="text-bright">${stove.name}</span>: ${dialBar(b.level, b.ceiling)} `
     + `<span class="text-dim">${b.level}/${MAX_LEVEL} · ${levelText(b.level)}${b.tier ? ` · ${b.tier}` : ''}</span>${capped}`;
 }
 
@@ -2010,14 +2010,14 @@ async function cmdStove(args, raw, player) {
 
   const want = parseSetting(args[0], b.level);
   if (want === null) {
-    return { type: 'error', message: `Set the burner to what? <span class="text-dim">"stove off", "stove low", "stove 7", "stove up" — anything from 0 to ${MAX_LEVEL}.</span>` };
+    return { type: 'error', message: `Set the burner to what? <span class="text-dim">"stove off", "stove low", "stove 7", "stove up": anything from 0 to ${MAX_LEVEL}.</span>` };
   }
 
   if (want > b.ceiling) {
-    return { type: 'error', message: `The ${stove.name} doesn't go that high — ${b.ceilingTier} is all it has, and that is ${b.ceiling} on the dial.` };
+    return { type: 'error', message: `The ${stove.name} doesn't go that high: ${b.ceilingTier} is all it has, and that is ${b.ceiling} on the dial.` };
   }
   if (want === b.level) {
-    return { type: 'output', message: `The ${stove.name} is already at ${want} — ${levelText(want)}.` };
+    return { type: 'output', message: `The ${stove.name} is already at ${want}, ${levelText(want)}.` };
   }
 
   await applyBurner(stove, want);
@@ -2026,7 +2026,7 @@ async function cmdStove(args, raw, player) {
   const dir = want === 0 ? `out` : want > b.level ? `up to ${want}` : `down to ${want}`;
   const head = want === 0
     ? `You turn the ${stove.name} off. <span class="text-dim">Whatever's on it stops where it is.</span>`
-    : `You take the ${stove.name} ${dir} — ${levelText(want)}.`;
+    : `You take the ${stove.name} ${dir}, ${levelText(want)}.`;
   return { type: 'output', message: `${head}\n${stoveReadout(stove)}` };
 }
 
@@ -2064,7 +2064,7 @@ async function cmdKitchenKit(args, raw, player) {
   return {
     type: 'output',
     message: [
-      `Kitchen kit issued — ${giving.length} item${giving.length === 1 ? '' : 's'}${skipped ? ` (${skipped} already carried)` : ''}:`,
+      `Kitchen kit issued: ${giving.length} item${giving.length === 1 ? '' : 's'}${skipped ? ` (${skipped} already carried)` : ''}:`,
       ...giving.map(g => `  ${g.name}`),
     ].join('\n'),
   };
@@ -2126,7 +2126,7 @@ async function placeInVessel(player, row, vessel, { stacked = false } = {}) {
   const contents = await vesselContents(vessel.inv_id);
   return {
     type: 'use',
-    message: `You put ${shownName(row)} in the ${vessel.name}. <span class="text-dim">${contents.length} thing${contents.length === 1 ? '' : 's'} in it now — "plate ${vessel.name}" when it's right.</span>`,
+    message: `You put ${shownName(row)} in the ${vessel.name}. <span class="text-dim">${contents.length} thing${contents.length === 1 ? '' : 's'} in it now: "plate ${vessel.name}" when it's right.</span>`,
   };
 }
 
@@ -2207,7 +2207,7 @@ async function cmdStack(args, raw, player) {
   const head = `You lay ${shownName(candidates[0])} on${edible ? ` the ${vessel.name}` : `to the ${vessel.name}`}.`;
   return {
     type: 'use',
-    message: `${head}\n<span class="text-dim">${edible ? 'Bottom to top' : 'In it'}: ${layers.map(shownName).join(', ')} — "plate ${vessel.name}" when it's right.</span>`,
+    message: `${head}\n<span class="text-dim">${edible ? 'Bottom to top' : 'In it'}: ${layers.map(shownName).join(', ')}: "plate ${vessel.name}" when it's right.</span>`,
   };
 }
 
@@ -2392,7 +2392,7 @@ async function cmdDrain(args, raw, player) {
     }
     await freeAppliance(session);
     await endSession(row.inv_id, band, done, null, true, { drained: true });
-    out.push(`${row.name} — ${band}${done ? `, ${done}` : ''}`);
+    out.push(`${row.name}: ${band}${done ? `, ${done}` : ''}`);
   }
 
   if (mediumRows.length) {
@@ -2408,7 +2408,7 @@ async function cmdDrain(args, raw, player) {
   return { type: 'output', message: [
     how,
     ...out.map(l => `  ${l}`),
-    `<span class="text-dim">Still finishable — get it into the sauce before it sits.</span>`,
+    `<span class="text-dim">Still finishable: get it into the sauce before it sits.</span>`,
   ].join('\n') };
 }
 
@@ -2572,8 +2572,8 @@ async function cmdCookbook(args, raw, player) {
     const rows = Object.entries(DISHES).map(([key, t]) => {
       const band = known.get(key);
       return band && band !== UNTRIED
-        ? `  · ${t.noun} <span class="text-dim">— best: ${band}</span>`
-        : known.has(key) ? `  · ${t.noun}` : `  <span class="text-dim">· ${t.noun} — untried</span>`;
+        ? `  · ${t.noun} <span class="text-dim">best: ${band}</span>`
+        : known.has(key) ? `  · ${t.noun}` : `  <span class="text-dim">· ${t.noun}: untried</span>`;
     });
     // The bare catalogue is a pick-one-of-N — it exists to be read and then acted
     // on with `cookbook <dish>` — and it grows with CONTENT rather than progress,
@@ -2612,7 +2612,7 @@ async function cmdCookbook(args, raw, player) {
       `<span class="text-accent">${template.noun.toUpperCase()}</span>`,
       `<span class="text-dim">${template.blurb}</span>`,
       '',
-      `<span class="text-dim">You know it exists. You don't know how to make it — nobody has shown you and you haven't worked it out. Cook something like it a few times and it'll come.</span>`,
+      `<span class="text-dim">You know it exists. You don't know how to make it: nobody has shown you and you haven't worked it out. Cook something like it a few times and it'll come.</span>`,
     ].join('\n') };
   }
     // The item-name lookup lets the card name its key bottles rather than
@@ -2689,13 +2689,13 @@ async function describeVessel(vesselRow, player) {
   const cooking = contents.filter(r => r.custom_data?.cooking);
   for (const row of cooking) {
     const state = checkCooking(row);
-    if (state) lines.push(`  ${shownName(row)} — ${state.text}`);
+    if (state) lines.push(`  ${shownName(row)}: ${state.text}`);
   }
   const idle = contents.filter(r => !r.custom_data?.cooking && profileNameFor(r));
   for (const row of idle) {
     const prep = prepText(row.custom_data || {});
     const state = isModifier(row) ? 'seasoning, not on the heat' : 'in, but not cooking yet';
-    lines.push(`  ${shownName(row)} — ${state}${prep ? `, ${prep}` : ''}`);
+    lines.push(`  ${shownName(row)}: ${state}${prep ? `, ${prep}` : ''}`);
   }
 
   // A sandwich is the one thing here with a shape, so say what the shape is.
@@ -2709,7 +2709,7 @@ async function describeVessel(vesselRow, player) {
 
   const fondLine = fondText(vesselRow.custom_data?.fond);
   if (fondLine) {
-    lines.push(`  <span class="text-dim">${vesselRow.custom_data?.deglazed ? 'lifted — it went into the sauce' : fondLine}</span>`);
+    lines.push(`  <span class="text-dim">${vesselRow.custom_data?.deglazed ? 'lifted: it went into the sauce' : fondLine}</span>`);
   }
 
   // What it's on its way to being. Says the dish it would make RIGHT NOW, never
@@ -2767,7 +2767,7 @@ async function kitchenSmells(zone, player) {
     const what = competent ? r.name : 'something';
 
     if (state === 'burnt') {
-      out.push({ text: `${what} burning — acrid, and past any hope`, strength: 10, source: 'burning' });
+      out.push({ text: `${what} burning: acrid, and past any hope`, strength: 10, source: 'burning' });
     } else if (state === 'over') {
       out.push({ text: expert ? `${what} catching, a hard edge coming off it` : `something cooking a shade too long`, strength: 7 });
     } else if (state === 'peak') {

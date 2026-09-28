@@ -34,7 +34,9 @@ import { createMurmurGPU } from './murmur-gpu.js';
 const INTERIOR_NEAR = 0.004, INTERIOR_FAR = 1.0;
 import { createFloorLayer } from './floor.js';
 import { createWaterLayer } from './water.js';
+import { createSeabedLayer } from './seabed.js';
 import { createCloudLayer } from './clouds.js';
+import { createCloudVolume } from './cloudvol.js';
 import { createShadowLayer, SHADOW_BIAS_TILES } from './shadow.js';
 import { createSSAOLayer } from './ssao.js';
 import { createHDRLayer } from './hdr.js';
@@ -173,6 +175,7 @@ uniform vec3 uFog;
 uniform float uFogNear;
 uniform float uFogFar;
 uniform float uVLight;
+uniform float uNightDim;       // 1 - night * nightDark: the unlit city's share of the dark
 uniform vec3 uSky;
 uniform float uStr;
 uniform float uFogAmt;
@@ -360,6 +363,16 @@ void main() {
   vec3 n = n0;
   // 1 for a wall, 0 for the flat adornment layer — hoisted, because the relief needs it too.
   float solid = 1.0 - clamp(vFlat, 0.0, 1.0);
+  // ── A THIRD ANSWER: ITS OWN COLOUR, LIT LIKE A WALL (aFlat 2) ─────────────────
+  //
+  // A flat face (1) is its own colour and nothing else; a solid one (0) is the atlas, lit. A drum
+  // needs neither: its colour is the arm's (a hand-picked ramp carrying the tile's Halcyon cast)
+  // and it has no texture a curve can wear, but it does want the sun, the shadow, the environment
+  // reflection and its material row. So a face marked 2 is SOLID to every lighting term and takes
+  // vColor as its albedo. 'texW' is the one thing that differs, and every read of the atlas takes it.
+  float litOwn = step(1.5, vFlat);
+  solid = max(solid, litOwn);
+  float texW = clamp(uTextured, 0.0, 1.0) * solid * (1.0 - litOwn);
   // ── AND WHAT IS LYING ON IT ─────────────────────────────────────────────────
   //
   // ⚠ n0, NEVER n. Snow is placed by GRAVITY against the real surface, and n is that surface with
@@ -446,7 +459,7 @@ void main() {
     // is snow — so leaving this standing embosses the brickwork of the wall underneath onto the
     // drift lying on the ledge. Same argument as the floor mixing its material toward the hillshade
     // rather than toward flat white: what goes is the texture, not the shape.
-    float k = uMat[int(vMat + 0.5)].w * uBumpStr * clamp(uTextured, 0.0, 1.0) * solid * (1.0 - snowW);
+    float k = uMat[int(vMat + 0.5)].w * uBumpStr * texW * (1.0 - snowW);
     float l0 = lum(textureLod(uAtlas, vUV, 0.0).rgb);
     float lu = lum(textureLod(uAtlas, vUV + vec2(uAtlasTexel.x, 0.0), 0.0).rgb);
     float lv = lum(textureLod(uAtlas, vUV + vec2(0.0, uAtlasTexel.y), 0.0).rgb);
@@ -530,8 +543,8 @@ void main() {
   // ⚠ IT IS GATED ON 'solid' AND ON THE TEXTURE MIX, or a flat-shaded adornment sampling an atlas
   // entry it does not use would discard on somebody else's alpha.
   vec4 atl = texture(uAtlas, vUV);
-  if (clamp(uTextured, 0.0, 1.0) * solid > 0.5 && atl.a < 0.5) discard;
-  vec3 surf = mix(vColor, atl.rgb, clamp(uTextured, 0.0, 1.0) * solid);
+  if (texW > 0.5 && atl.a < 0.5) discard;
+  vec3 surf = mix(vColor, atl.rgb, texW);
   // ⚠ HERE, AND NOT AFTER THE SHADING, WHICH IS THE WHOLE REASON THIS IS THREE LINES INSTEAD OF
   // THIRTY. Everything below composes a lit surface out of surf — the two overlays, the sun
   // shadow, the chamfer, both occlusion terms, the screen-space pass and then the point lights.
@@ -764,6 +777,10 @@ void main() {
     // lost its lobe and gained an even glow, which is a wide exponent beside a big number here.
     base += mix(uEnvUp, vec3(1.0), 0.25) * (sheen * fres * mk * occ);
   }
+  // The night outside its lights. Dimmed BEFORE the lights are added, so a lamp or a sign stands
+  // out of a darker wall rather than dimming with it. A texel already bright here is a lit window
+  // baked into the night atlas, which is a light source too, so it keeps its brightness.
+  base *= mix(uNightDim, 1.0, smoothstep(0.28, 0.55, dot(base, vec3(0.299, 0.587, 0.114))));
   // The city own lights, added on top of the key shading.
   for (int i = 0; i < GLASS_MAX_LIGHTS; i++) {
     if (i >= uNLight) break;
@@ -950,6 +967,7 @@ export function createGLView(canvas, opts = {}) {
     hazeNear: gl.getUniformLocation(prog, 'uHazeNear'),
     hazeFar: gl.getUniformLocation(prog, 'uHazeFar'),
     vlight: gl.getUniformLocation(prog, 'uVLight'),
+    nightDim: gl.getUniformLocation(prog, 'uNightDim'),
     atlas: gl.getUniformLocation(prog, 'uAtlas'),
     textured: gl.getUniformLocation(prog, 'uTextured'),
     sky: gl.getUniformLocation(prog, 'uSky'),
@@ -1146,7 +1164,9 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
         // ⚠ `flat` IS A LIGHTING ANSWER, NOT A KIND. Most flat-shaded faces are the adornment
         // surfaces and carry kind 'flat'; a barrel roof is MASS that happens to do its own shading,
         // and it has to stay mass so the mesh gate goes on comparing it against the captured shape.
-        const flat = (f.flat != null ? !!f.flat : f.kind === 'flat') ? 1 : 0;
+        // ⚠ AND `flat: 2` IS THE THIRD ANSWER — its own colour, lit as a wall (see litOwn in the
+        // shader). Checked first, because `!!2` is true and would collapse it to an ordinary flat.
+        const flat = f.flat === 2 ? 2 : (f.flat != null ? !!f.flat : f.kind === 'flat') ? 1 : 0;
         // Resolved per model in world.js and carried on the face, exactly as texKey is. A face that
         // never went through that path — the Modelshop preview, the bench — has none, and 0 is the
         // default facade rather than a missing value: see the out-of-range note on wallMaterialId.
@@ -1272,7 +1292,11 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     // quietly means something else on the seats that fit their own.
     const [A, B] = zRow((cam && cam.near) || NEAR);
     try {
-      return ssao.render(vao, count, new Float32Array(vp), { ...cam, H: camH }, W, H,
+      // ⚠ AT A FRACTION OF THE FRAME (`glSsaoRes`, 1 = full as shipped). Contact shadow is low
+      // frequency and the result is blurred and sampled in normalised coordinates with LINEAR
+      // filtering, so half resolution costs a quarter of the fill for no visible change.
+      const rs = opts.ssaoRes > 0 && opts.ssaoRes < 1 ? opts.ssaoRes : 1;
+      return ssao.render(vao, count, new Float32Array(vp), { ...cam, H: camH }, Math.max(1, Math.round(W * rs)), Math.max(1, Math.round(H * rs)),
         { A, B, radius: opts.ssaoRadius > 0 ? opts.ssaoRadius : 0.5, bias: opts.ssaoBias > 0 ? opts.ssaoBias : 0.02 });
     } catch { return null; }
   }
@@ -1325,7 +1349,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     // is reused verbatim, which is the only way the city in the puddle cannot disagree with the
     // city above it about what it is made of.
     const into = opts.intoTarget || null;
-    const sun = into ? null : sunPass(opts);
+    const sun = (into || opts.skipMass) ? null : sunPass(opts);
     const W = into ? into[0] : canvas.width, H = into ? into[1] : canvas.height;
     const ssaoTex = into ? null : ssaoPass(cam, opts, W, H);
     if (!into) { beginTarget(opts); gl.viewport(0, 0, W, H); }
@@ -1398,6 +1422,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     gl.uniform1f(loc.hazeNear, opts.hazeNear == null ? 1e6 : opts.hazeNear);
     gl.uniform1f(loc.hazeFar, opts.hazeFar == null ? 1e6 + 1 : opts.hazeFar);
     gl.uniform1f(loc.vlight, opts.vlight == null ? 1 : opts.vlight);
+    gl.uniform1f(loc.nightDim, opts.nightDim == null ? 1 : opts.nightDim);
     // Contact occlusion. Absent means OFF and the shader multiplies by exactly 1.0.
     gl.uniform1f(loc.ao, opts.ao == null ? 0 : opts.ao);
     gl.uniform1f(loc.bakedAo, opts.bakedAo == null ? 0 : opts.bakedAo);
@@ -1537,7 +1562,10 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       gl.uniform2f(loc.viewport, W, H);
     }
     gl.bindVertexArray(vao);
-    gl.drawArrays(gl.TRIANGLES, 0, count);
+    // skipMass (plugins/submersible): the eye is under the sea, and the city is above it — seen from
+    // below only through Snell's window, and everywhere else the surface is a mirror. The clear
+    // above still runs; only the city does not.
+    if (!opts.skipMass) gl.drawArrays(gl.TRIANGLES, 0, count);
     gl.bindVertexArray(null);
     return count;
   }
@@ -1576,6 +1604,15 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     return L.draw(cam, canvas.width, canvas.height, cssH, opts);
   }
 
+  // The deck as a raymarched VOLUME (RENDER_TUNE.glCloudVol); see gl/cloudvol.js. Same moment and
+  // same depth buffer as drawCloudDeck. It replaces the cards rather than drawing over them.
+  let cloudVol = null;
+  function drawCloudVolume(cam, vol, cssH, opts = {}) {
+    if (!vol || !vol.cells || !vol.cells.length) return 0;
+    if (!cloudVol) cloudVol = createCloudVolume(gl);
+    return cloudVol.draw(cam, canvas.width, canvas.height, cssH, vol, opts);
+  }
+
   // The Curtain, on the same depth buffer as the mass. Built lazily like the lights: a view that
   // never sees the wall never compiles the program.
   let curtain = null;
@@ -1590,11 +1627,11 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // Signage, on the same depth buffer. Lazy like the others.
   let decals = null;
   const decalLayer = () => (decals || (decals = createDecalLayer(gl)));
-  function drawDecals(cam, list, cssH, emitGain = 0) {
+  function drawDecals(cam, list, cssH, emitGain = 0, neon = null) {
     if (!list || !list.length) return 0;
     const L = decalLayer();
     L.upload(list);
-    return L.draw(cam, cssH || canvas.height, emitGain);
+    return L.draw(cam, cssH || canvas.height, emitGain, neon);
   }
   // What that cost in BINDS, which is the figure that tracks the clock — see the ⚠ in decals.js.
   const decalCost = () => (decals ? { batches: decals.batches, textures: decals.textures, minted: decals.minted } : { batches: 0, textures: 0, minted: 0 });
@@ -1846,6 +1883,9 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   }
   function drawSolids(cam, cssH, opts) {
     let n = 0;
+    // The translucent range alone (rotor blades and discs): see `film` in solids.js. The birds and
+    // the murmuration are drawn by the solid call and must not be drawn twice.
+    if (opts && opts.film) return solidQuads ? solidsLayer().draw(cam, cssH || canvas.height, opts) : 0;
     if (solidQuads) n += solidsLayer().draw(cam, cssH || canvas.height, opts || {});
     if (faunaInst) faunaLayer().draw(cam, cssH || canvas.height, opts || {});
     if (cloudList.length) faunaLayer().drawClouds(cam, cssH || canvas.height, canvas.width, canvas.height, opts || {}, cloudList);
@@ -1881,14 +1921,42 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // in one of them.
   let intQuads = 0, intl = null;
   const interiorLayer = () => (intl || (intl = createSolidsLayer(gl)));
-  function uploadInterior(list) {
-    intQuads = list && list.length ? interiorLayer().upload(list) : 0;
+  // `model`, when the interior sends one, is its local-to-world matrix: the faces arrive in the cab's own
+  // frame and only the parts that moved are re-sent (see the incremental mode in solids.js).
+  function uploadInterior(list, model = null) {
+    intQuads = list && list.length ? interiorLayer().upload(list, model && list.every((q) => q.mp) ? model : null) : 0;
     return intQuads;
   }
   function drawInterior(cam, cssH, opts) {
     if (!intQuads) return 0;
     gl.clear(gl.DEPTH_BUFFER_BIT);
-    return interiorLayer().draw(cam, cssH || canvas.height, { ...(opts || {}), near: INTERIOR_NEAR, far: INTERIOR_FAR });
+    const n = interiorLayer().draw(cam, cssH || canvas.height, { ...(opts || {}), near: INTERIOR_NEAR, far: INTERIOR_FAR });
+    // THE GLASS, after the room: see-through, tested against the room and writing no depth (film).
+    interiorLayer().draw(cam, cssH || canvas.height, { ...(opts || {}), near: INTERIOR_NEAR, far: INTERIOR_FAR, film: true });
+    return n;
+  }
+  // ── THE ROOM ON A CANVAS OF ITS OWN ─────────────────────────────────────────
+  //
+  // ⚠ A SECOND MOMENT, NOT A SECOND BUFFER. The world is blitted under the aircraft's BANK — a
+  // canvas rotate — so a cabin drawn into it is rotated too and, worse, only covers the rotated
+  // rectangle: at 30° of bank two corners of the flight deck were simply missing, with the world
+  // showing through the wedges. Drawn here, after the world has been blitted, onto a cleared
+  // default framebuffer, it is composited UNROTATED over the whole frame. The quads were uploaded
+  // by the world pass; this only draws them.
+  // ⚠ CLEARED TO TRANSPARENT, so the only opaque pixels are the room's own, and straight to the
+  // default framebuffer, so it takes the multisampled edges the canvas was created with.
+  function drawInteriorAlone(cam, cssH, aloneUnder = 0, aloneUnderD = 0) {
+    if (!intQuads) return 0;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.disable(gl.SCISSOR_TEST);
+    gl.colorMask(true, true, true, true);
+    gl.depthMask(true);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    const n = interiorLayer().draw(cam, cssH || canvas.height, { near: INTERIOR_NEAR, far: INTERIOR_FAR, under: aloneUnder, underD: aloneUnderD });
+    interiorLayer().draw(cam, cssH || canvas.height, { near: INTERIOR_NEAR, far: INTERIOR_FAR, film: true, under: aloneUnder, underD: aloneUnderD });
+    return n;
   }
 
   // The ground itself. Lazy, and only ever built when RENDER_TUNE.glFloor asks for it.
@@ -1917,10 +1985,16 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     return waterLayer().draw(cam, state, cssH, lut, r);
   }
 
+  // The underwater half (plugins/submersible): the water volume, the bottom and what is in the
+  // water. Lazy, so a view that never goes under never compiles it. See gl/seabed.js.
+  let sbd = null;
+  const seabedLayer = () => (sbd || (sbd = createSeabedLayer(gl)));
+  const drawSeabed = (cam, s, cssH, dpr, eye, t) => (s ? seabedLayer().drawBottom(cam, s, cssH, dpr, eye, t) : 0);
+  const drawSeabedPoints = (cam, s, cssH, dpr) => (s ? seabedLayer().drawPoints(cam, s, cssH, dpr) : 0);
   // Handed the window's cells and the eye in the MESH frame; see gl/skyline.js and the ⚠ on 
   // in world.js. Called before , because the strip is a uniform that draw reads.
   function setSkyline(cells, eye, facesOf) { try { skylineLayer().update(cells, eye, facesOf); } catch { /* no strip is the flat environment, which is the picture that shipped */ } }
-  return { murmurGPU: () => mg, gl, setSkyline, upload, uploadGroups, draw, beginTarget, composite, hdrPeak, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawBillboards, billboardTextures, drawGround, drawFloor, drawWater, drawCloudDeck, drawMirror, mirrorPeak, uploadSolids, drawSolids, uploadInterior, drawInterior, setAtlas, lost: () => gl.isContextLost(),
+  return { murmurGPU: () => mg, gl, setSkyline, upload, uploadGroups, draw, beginTarget, composite, hdrPeak, drawSeabed, drawSeabedPoints, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawBillboards, billboardTextures, drawGround, drawFloor, drawWater, drawCloudDeck, drawCloudVolume, drawMirror, mirrorPeak, uploadSolids, drawSolids, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => gl.isContextLost(),
     maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; },
     // The mesh's own box, for the caller that has to fit a light projection to it — and the shadow
     // map's size, which is 0 when the driver refused it. A zero there next to a sun that is up is

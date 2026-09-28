@@ -1609,7 +1609,7 @@ export function playIntroCinematic(onDone, skyline, shore, opts) {
     ${LOGO_HTML}
     <div class="intro-cine-gate" id="intro-cine-gate">
       <!-- The gate is a PIECE OF HARDWARE, not a dialog box. The first thing the game
-           ever shows you is now the same object the rest of it's made of: a chassis
+           ever shows you is now the same object the rest of it is made of: a chassis
            with a bezel, a status strip, a lamp and a screen behind glass — the tablet
            you'll be issued at the vat, running the terminal that's about to reinstate
            you. It was a centred paragraph on black before, which is a website asking
@@ -1624,7 +1624,7 @@ export function playIntroCinematic(onDone, skyline, shore, opts) {
         <div class="intro-cine-gate-screen">
           <div class="intro-cine-gate-eyebrow">Architect</div>
           <div class="intro-cine-gate-title">Before we begin</div>
-          <div class="intro-cine-gate-sub">This opens with sound. Turn it up, or don't — it plays either way.</div>
+          <div class="intro-cine-gate-sub">This opens with sound. Turn it up, or don't. It plays either way.</div>
         <!-- The sound toggle is deliberately NOT a gate. It reflects the player's
              saved audio setting and writes it back, so someone who wants sound can
              have it in one tap without hunting through Settings, and someone who
@@ -1640,7 +1640,7 @@ export function playIntroCinematic(onDone, skyline, shore, opts) {
              everywhere, and Escape is a bonus nobody needs to be told about. The
              tone is a shrug with a raised eyebrow — the CODEX holds all of it, so
              a player who bails has lost nothing but the good version. -->
-        <div class="intro-cine-gate-fine">Fifty seconds of how the world ended. If that's a lot to ask, SKIP is right there, and your CODEX will explain it later — to you, slowly.</div>
+        <div class="intro-cine-gate-fine">Fifty seconds of how the world ended. If that's a lot to ask, SKIP is right there, and your CODEX will explain it later, to you, slowly.</div>
         </div>
         <!-- The auto-begin, made visible. The sequence has always started on its own
              after AUTO_BEGIN_MS (a player who tabbed away must never be stranded), but
@@ -1733,7 +1733,7 @@ export function playIntroCinematic(onDone, skyline, shore, opts) {
     // sighted player's version of that bit and nothing more.
     soundEl.innerHTML = on
       ? '<span aria-hidden="true">🔊</span>  Sound on'
-      : '<span aria-hidden="true">🔇</span>  Sound off — tap to turn on';
+      : '<span aria-hidden="true">🔇</span>  Sound off: tap to turn on';
     soundEl.classList.toggle('on', on);
     soundEl.setAttribute('aria-pressed', on ? 'true' : 'false');
   };

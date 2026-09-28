@@ -61,7 +61,7 @@ export const TYPE_FLOORS = {
   // against that. Both of these are the fallback for a tile carrying no `flags.floors` (see the
   // note at the top) — the Conservatory declares its own, so this row only decides the height of
   // the next one somebody drops without thinking about it.
-  pontoon: 1, boathouse: 2,
+  pontoon: 1, boathouse: 2, fuel_dock: 1,
 };
 
 // World-z height of one storey, in tile units. Vertically stretched (taller

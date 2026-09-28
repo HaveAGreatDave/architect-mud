@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "A round room with a bright chrome band running round it at head height, continuing the collar through the wall and out the other side, so the building's one piece of vanity does not stop at the front door. Pale stone, three chairs that match each other, and a floor laid in a spiral rather than in bands, which took a fortnight and which nobody has ever remarked on to the people who live here.",
+  "description": "A round room with a chrome band at head height, running on through the wall. Pale stone, three matching chairs, and a floor laid in a spiral.",
   "exits": {
     "down": "zone_util_zone_hf_wellappointed_lobby",
     "north": "zone_district_896_917",

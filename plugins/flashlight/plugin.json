@@ -1,12 +1,12 @@
 {
   "name": "flashlight",
   "version": "1.0.0",
-  "description": "Battery-powered handheld flashlight: LIGHT it to see in dark rooms, UNLIGHT to save the cell, RELOAD it with a fresh battery. A lit flashlight raises how brightly the holder perceives an otherwise dim/dark zone; the battery drains a minute at a time and dies when empty.",
+  "description": "Battery-powered handheld flashlight: TURN it ON to see in dark rooms, OFF to save the cell (bare FLASHLIGHT toggles), RELOAD it with a fresh battery. A lit flashlight raises how brightly the holder perceives an otherwise dim/dark zone; the battery drains a minute at a time and dies when empty.",
   "hooks": ["visibility.perceive"],
+  "inputMatchers": ["turn|switch on|off <flashlight|torch> (either word order) — a matcher because `turn`/`switch` belong to furniture and flight; only claims input naming a flashlight or torch."],
   "actions": {
     "tagGated": [
-      { "verb": "light", "requiredTag": "flashlight" },
-      { "verb": "unlight", "requiredTag": "flashlight" },
+      { "verb": "flashlight", "requiredTag": "flashlight" },
       { "verb": "reload", "requiredTag": "flashlight" }
     ]
   },

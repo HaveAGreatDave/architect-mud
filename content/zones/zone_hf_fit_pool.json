@@ -11,7 +11,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "No glass at all — a lip, a rail, and the whole of Halcyon Fields from seven storeys, with the Spire away to the north and the wall shut across the south.",
+      "description": "No glass at all: a lip, a rail, and the whole of Halcyon Fields from seven storeys, with the Spire away to the north and the wall shut across the south.",
       "light": 1,
       "name": "the open edge",
       "visibility": 1

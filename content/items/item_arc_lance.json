@@ -16,7 +16,7 @@
         "min": 7
       },
       "damage_type": "energy",
-      "description": "A metre of insulated spine ending in a forked emitter, with a capacitor bank clamped along the shaft in four fat segments that whine up the scale as they charge. Kolvig built it for cutting rebar out of drowned foundations, which is why the grip is a full hand's width of rubber and the warning plate is riveted rather than printed. It smells like a storm about to happen.",
+      "description": "A metre of insulated shaft ending in a forked emitter, four fat capacitors clamped along it that whine as they charge. Kolvig built it for cutting rebar out of drowned foundations. The grip is thick rubber and it smells like a storm.",
       "dry_message": "The capacitors whine, find nothing to spend, and settle back down.",
       "min_skill": {
         "science": 6
@@ -39,7 +39,7 @@
       "min": 7
     },
     "damage_type": "energy",
-    "description": "A metre of insulated spine ending in a forked emitter, with a capacitor bank clamped along the shaft in four fat segments that whine up the scale as they charge. Kolvig built it for cutting rebar out of drowned foundations, which is why the grip is a full hand's width of rubber and the warning plate is riveted rather than printed. It smells like a storm about to happen.",
+    "description": "A metre of insulated shaft ending in a forked emitter, four fat capacitors clamped along it that whine as they charge. Kolvig built it for cutting rebar out of drowned foundations. The grip is thick rubber and it smells like a storm.",
     "dry_message": "The capacitors whine, find nothing to spend, and settle back down.",
     "min_skill": {
       "science": 6

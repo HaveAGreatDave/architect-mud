@@ -290,13 +290,13 @@ const DESC = {
 export function playDesc(b) {
   if (b.type === 'goal') {
     const s = b.strength === 'pp' ? ' (PP)' : b.strength === 'sh' ? ' (SH)' : b.strength === 'en' ? ' (EN)' : '';
-    return `Goal${s} — ${b.shooter}`;
+    return `Goal${s}: ${b.shooter}`;
   }
-  if (b.type === 'penalty') return `${b.penaltyMin}:00 ${b.infraction} — ${b.player}`;
-  if (b.type === 'fight') return `Fight — ${b.winner} over ${b.loser}`;
-  if (b.type === 'injury') return `${b.player} — out for the game`;
-  if (b.type === 'death') return `${b.player} — DEAD`;
-  if (b.type === 'boards') return `Big hit — ${b.hitter} on ${b.victim}`;
+  if (b.type === 'penalty') return `${b.penaltyMin}:00 ${b.infraction}: ${b.player}`;
+  if (b.type === 'fight') return `Fight: ${b.winner} over ${b.loser}`;
+  if (b.type === 'injury') return `${b.player}, out for the game`;
+  if (b.type === 'death') return `${b.player}: DEAD`;
+  if (b.type === 'boards') return `Big hit: ${b.hitter} on ${b.victim}`;
   return DESC[b.kind] || 'Chance';
 }
 

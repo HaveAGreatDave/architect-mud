@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Black rock, and it went off in ropes: the whole surface is a set of frozen coils and folds lying over each other in the direction it was going. It rings under a boot and it takes the skin off a hand that goes down on it. Nothing has grown in it and there's no soil in it to grow in.",
+  "description": "The rock here set in twisted cords and folds. It's black, bare and sharp, and it rings when you walk on it.",
   "exits": {
     "east": "zone_dw_749_991",
     "north": "zone_dw_748_990",

@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#141d18",
   "color": "#b8d9c0",
-  "description": "A glazed barrel vault on a low brick plinth, running the depth of the plot, with cast-iron ribs at close centres and a ridge vent open a hand's width along its whole length whatever the weather. From outside the glass is green with what is behind it rather than with algae. Where the vault meets the plinth at the north end, a lagged pipe as thick as a thigh comes up out of the ground, crosses the path on two brick piers and goes in through the wall, and it is warm to the touch.",
+  "description": "A glazed barrel vault on a low brick plinth, cast-iron ribs close together, the ridge vent open along its whole length. The glass is green with plants. At the north end a lagged pipe as thick as a thigh comes out of the ground, crosses the path on two brick piers and goes in through the wall. It's warm to the touch.",
   "exits": {
     "north": "zone_glass_house",
     "south": "zone_district_896_916"

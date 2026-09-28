@@ -8,7 +8,7 @@
     "Diesel's dear. It's dear because I have to want it, and I don't.",
     "You'll not get through the gate today. Nobody does today."
   ],
-  "description": "A rangy man in a coat that was expensive before it was buried, running a pencil down a list he clearly knows by heart. He works at the open doors of the shed rather than inside it, which seems deliberate: everything he handles is handled in the light where the settlement can see him do it. He has the manner of somebody who has made peace with a contradiction by refusing, absolutely, to discuss it.",
+  "description": "A rangy man in a coat that was expensive before it was buried, running a pencil down a list he knows by heart. He works at the shed's open doors, in the light, where the settlement can watch everything he hands out.",
   "dialogue_tree": {
     "arrangement": {
       "actions": [],
@@ -588,7 +588,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"People. Same as anywhere. Working, mostly.\"\n\nHe lets that sit exactly long enough for you to know it's all you're getting.\n\n\"They'll tell you themselves, if it ever comes to that. It won't come to that today. Go and look at the gate if you like. It's very good at being a gate.\""
+      "text": "\"People. Same as anywhere. Working, mostly.\"\n\nHe lets that sit exactly long enough for you to know it's all you are getting.\n\n\"They'll tell you themselves, if it ever comes to that. It won't come to that today. Go and look at the gate if you like. It's very good at being a gate.\""
     }
   },
   "faction": "ideology_exodus",

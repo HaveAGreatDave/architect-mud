@@ -238,7 +238,7 @@ function setLive(on) {
   el.classList.toggle('pk-live', live);
   el.querySelector('.pk-status').textContent = TOUCH
     ? 'tap the keys'
-    : live ? 'KEYS LIVE — Esc to type' : 'click the keys to play';
+    : live ? 'KEYS LIVE: Esc to type' : 'click the keys to play';
   if (TOUCH) return;
   if (on) el.querySelector('.pk-keys').focus();
   else { held.clear(); document.getElementById('cmd-input')?.focus(); }

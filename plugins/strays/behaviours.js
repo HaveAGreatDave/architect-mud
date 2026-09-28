@@ -62,7 +62,7 @@ export const BEHAVIOURS = [
   },
   {
     key: 'paw_grip', weight: 4, gate: () => true,
-    line: (c) => `${c.name} picks up a bottle cap with the metal paw — delicately, servo-slow, more care than the job needs — carries it half a metre, and drops it.`,
+    line: (c) => `${c.name} picks up a bottle cap with the metal paw, delicately, servo-slow, more care than the job needs, carries it half a metre, and drops it.`,
   },
   {
     key: 'paw_diagnostic', weight: 3, gate: () => true,
@@ -112,7 +112,7 @@ export const BEHAVIOURS = [
   },
   {
     key: 'crate_perch', weight: 7, gate: (c) => hasFurn(c, /crate|pallet|barrel|drum|stack/i),
-    line: (c) => `${c.name} takes the high ground in one go — steel paw landing with a distinct clunk — and looks down at everyone from it.`,
+    line: (c) => `${c.name} takes the high ground in one go, steel paw landing with a distinct clunk, and looks down at everyone from it.`,
   },
   {
     key: 'vent_curl', weight: 7, gate: (c) => hasFurn(c, /vent|pipe|duct|grate|exhaust/i),
@@ -159,7 +159,7 @@ export const BEHAVIOURS = [
     gate: (c) => (c.mood === 'neutral' || c.mood === 'seek') && !!c.player &&
       (c.player.posture === 'sitting' || c.player.posture === 'lying'),
     line: (c) => `${c.name} steps up onto ${handleOf(c)} without asking, kneads once, and folds itself down into a shape that clearly intends to stay there.`,
-    you: (c) => `${c.name} steps up onto you without asking, kneads once — push, push, thump — and folds down into your lap, purring, entirely committed.`,
+    you: (c) => `${c.name} steps up onto you without asking, kneads once, push, push, thump, and folds down into your lap, purring, entirely committed.`,
   },
   {
     key: 'cuddle_headbutt', weight: 10,

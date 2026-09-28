@@ -464,6 +464,50 @@ craft (index.js:688). A botched landing does hull damage; enough damage → cras
 crash kills everyone aboard (`handlePlayerDeath`) and turns the craft into a wreck at
 the surface cell. Landing grade → piloting IP (`LANDING_IP`, ≥5 min airborne).
 
+### Thermals *(as built, 2026-09-25)*
+
+Rising air over sun-heated ground. One pure function, [client/shared/thermals.js](../client/shared/thermals.js),
+read by four things: the flight model (lift on the wing), the server's reconcile (how much climb an
+engine-off aircraft may claim), the red-tail hawk in `birds.js` (where it spirals), and the canopy
+(what a pilot sees). None of them store anything, and nothing new goes over the wire.
+
+- **The field.** One column per 6×6-tile block, placed by a hash. Each lives 15–25 minutes, then
+  is dead for a quarter of its cycle, so the lift moves around the sky. Strength is ground heat
+  (`GROUND_HEAT`, keyed by flight biome: bare rock and tarmac hot, grass weaker, water none) × the
+  sun (nothing before 08:30, peak about 14:00, gone by 19:30) × the weather (rain and storms kill it,
+  fog nearly) × wind shear. Cores reach about 1,000 ft/min, with a sink ring round each and light
+  sink between. The height profile is the mixed-layer shape from Allen (2006, NASA): strongest a
+  quarter of the way up, dead just under the top.
+- **Column centres do not depend on the ground.** The ground only sets strength. That lets the hawk
+  use the field with no terrain lookup, and means a client missing a tile gets less lift than the
+  server allows, never more.
+- **Aircraft.** `input.lift` is added to the vertical-speed target after the ceiling fade, unscaled by
+  mass: the whole air mass moves. A column edge adds turbulence.
+- **Server bound (`boundUnpoweredClimb` in state.js).** Only with the throttle at 5% or below or the
+  tanks dry. A climb is capped at the zoom the reported airspeed loss pays for plus the strongest
+  lift within two column radii ×1.3, plus 150 ft/min and 15 ft of slack. Powered climb is not
+  checked. Nine in-memory tile lookups per reconcile, no queries.
+- **Hawks.** Each flight picks the nearest column within 8 tiles that is alive when the flight starts
+  and spirals inside its core; with none, it circles its perch as before. Measured over all 31
+  hawks: 69% of climbing time is in lift over 150 ft/min.
+- **What the pilot sees** (windshield.js, `RENDER_TUNE.thermalCaps` / `dustDevils` / `thermalDebug`):
+  a cumulus cap at the top of any column past 250 ft/min, and a dust devil for about a minute at the
+  foot of a strong column over bare dry ground. ⚠ **The caps are cards even when the raymarched cloud
+  volume is on**: the volume models the weather's one deck and has no per-column base, so the card
+  pass runs with only the cap cards. Without that a clear day had no cloud at all, since its only
+  cloud is a cap. `thermalStats()` reports columns, caps and devils for the last frame; each is
+  silent at zero. `__wsTune.thermalDebug = 1` draws every column as rings.
+- **`.thermals` in the game's command box** (client-only, input.js, like `.murmur`): `.thermals on`
+  / `off` shows or hides the rings in whatever view is open (typed before a view loads, it is
+  applied when one does); bare `.thermals` reports the last frame's columns, caps and devils, the
+  air under your aircraft, and why there are none when there are none.
+- **The vario** (`varioTick` in engine-audio.js): beeps higher and faster in a climb, a low blip in
+  strong sink. On when the engine is off or the throttle is at 25% or below. One-shots, not a loop,
+  so nothing can be left sounding after the panel closes.
+- **The dev panel's Thermals tab** draws the field over the live world with the hawks and every
+  airborne aircraft (`GET /dev/api/thermals`, `plugins/flight/thermals-dev.js`, RAM only). ⚠ It
+  stays dev-only: pilots find lift by caps, devils, hawks and the vario, and a map would make all
+  four pointless.
 
 ## Player-facing surface
 

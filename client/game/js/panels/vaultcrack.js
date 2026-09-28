@@ -303,7 +303,7 @@ function trySet() {
   } else {
     _state.heat = clampNum(_state.heat + _state.slipPenalty, 0, 1);
     sfx('vault-slip');
-    setStatus('<span class="vc-warn">Wrong contact — the cam slips and the tamper sensor spikes.</span>');
+    setStatus('<span class="vc-warn">Wrong contact: the cam slips and the tamper sensor spikes.</span>');
     renderHud();
     if (_state.heat >= 1) finish(false);
   }
@@ -315,8 +315,8 @@ function finish(won) {
   cancelAnimationFrame(_raf); _raf = 0;
   sfx(won ? 'vault-win' : 'vault-lose');
   setStatus(won
-    ? '<span class="vc-win">&#9673; BOLT RETRACTED — safe open.</span>'
-    : '<span class="vc-lose">&#10007; LOCK RE-SEATED — rig flagged.</span>');
+    ? '<span class="vc-win">&#9673; BOLT RETRACTED: safe open.</span>'
+    : '<span class="vc-lose">&#10007; LOCK RE-SEATED: rig flagged.</span>');
   const cb = _opts?.onResult;
   // A skin owns its own teardown — the character board is in the area pane.
   if (_skin) { _skin.finish?.(_state, won); if (cb) cb({ won }); return; }
@@ -425,7 +425,7 @@ export function openVaultCrack(opts = {}) {
   paintDial();
   renderHud();
   renderGauge();
-  setStatus('<span style="color:#8b97a2">Spin the dial (drag / &#9664; &#9654;) to find each wheel\'s contact — SET when CONTACT peaks into the green. Beat the TAMPER meter.</span>');
+  setStatus('<span style="color:#8b97a2">Spin the dial (drag / &#9664; &#9654;) to find each wheel\'s contact, SET when CONTACT peaks into the green. Beat the TAMPER meter.</span>');
   _lastT = performance.now();
   _raf = requestAnimationFrame(tick);
 }

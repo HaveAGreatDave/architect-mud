@@ -223,7 +223,7 @@ async function resolveViaObjective(query, player, routeOpts) {
     // Say WHICH stop this is. The tile's real name is often nothing like the desc
     // the quest printed, and silently routing somewhere differently-named reads as
     // the GPS having misheard.
-    if (res.message) res.message = `${res.message.replace(/\.$/, '')} — ${obj.questName}: ${obj.desc || zone.name}.`;
+    if (res.message) res.message = `${res.message.replace(/\.$/, '')}. ${obj.questName}: ${obj.desc || zone.name}.`;
     return res;
   }
   return resolveByName(query, player, routeOpts);
@@ -292,7 +292,7 @@ function setRunning(player, running) {
     type: 'run_state',
     running,
     message: running
-      ? 'You break into a run — faster, but it burns stamina.'
+      ? 'You break into a run: faster, but it burns stamina.'
       : 'You slow to a walk.',
   };
 }

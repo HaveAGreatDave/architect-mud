@@ -36,7 +36,7 @@ const rand = arr => arr[Math.floor(Math.random() * arr.length)];
 // administrator of reality to explain themselves.
 const ADMIN_LINES = [
   `{npc} startles badly, gets a proper look at you, and visibly decides not to make anything of it.`,
-  `{npc} comes up off the chair fast — then stops, straightens, and says, "Oh. It's you. Carry on."`,
+  `{npc} comes up off the chair fast, then stops, straightens, and says, "Oh. It's you. Carry on."`,
   `{npc} freezes with one hand half-raised, recognises you, and lets the hand drop. "Right. Right, of course."`,
   `{npc} looks at you the way you'd look at weather: startled, then simply accepting of it.`,
   `{npc} opens their mouth to shout, thinks better of it, and settles for watching you very carefully.`,
@@ -44,7 +44,7 @@ const ADMIN_LINES = [
 
 // Everybody else. Indignant, territorial, and entirely powerless about it.
 const INTRUDER_LINES = [
-  `{npc} whirls round. "Who — how did you get in here?"`,
+  `{npc} whirls round. "Who... how did you get in here?"`,
   `{npc} backs up a step, eyes on the door behind you. "That's my door. That was locked."`,
   `{npc} stares at you. "This is my HOME. Out. Now."`,
   `{npc} goes very still. "I don't know you, and you're standing in my kitchen. Turn around."`,

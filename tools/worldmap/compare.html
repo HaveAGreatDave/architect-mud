@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>World Map Comparison</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+html,body{margin:0;height:100%;background:#0d1014;color:#d8dee6;font:13px/1.4 system-ui,sans-serif;overflow:hidden}
+#wrap{display:grid;grid-template-columns:1fr 1fr;gap:8px;height:calc(100% - 36px);padding:8px;box-sizing:border-box}
+.col{display:flex;flex-direction:column;min-width:0}
+.col h2{font-size:13px;margin:0 0 6px;font-weight:600}.col h2 span{color:#8a94a3;font-weight:400}
+.map{flex:1;position:relative;border:1px solid #2a313b;border-radius:4px;overflow:hidden}
+#bar{height:28px;display:flex;gap:10px;align-items:center;padding:0 8px;color:#8a94a3}
+button{background:#1d2530;color:#d8dee6;border:1px solid #2a313b;border-radius:4px;padding:3px 10px;cursor:pointer}
+@media (max-width:700px){#wrap{grid-template-columns:1fr;grid-template-rows:1fr 1fr}}
+</style></head><body>
+<div id="bar"><button id="save">Save as image</button><span id="info"></span></div>
+<div id="wrap">
+  <div class="col"><h2>The world <span>— authored regions plus the generated wildlands, coast, Mount Cinder and highways</span></h2><div class="map" id="a"></div></div>
+  <div class="col"><h2>Hand-authored only <span>— placed tiles; everything else is black</span></h2><div class="map" id="b"></div></div>
+</div>
+<script type="module">
+// Serve the repo root and open /tools/worldmap/compare.html. The data is this week's seeded road
+// network (node scripts/map/world-map-dump.mjs); the wildlands are drawn from the shared field.
+import { mountWorldMap } from '/client/shared/worldmap-render.js';
+const data = await (await fetch('/tools/worldmap/world.json', { cache: 'no-store' })).json();
+document.getElementById('info').textContent = `Road network seed: week ${data.week}`;
+let syncing = false, A = null, B = null;
+const link = (other) => (v) => { if (syncing || !other()) return; syncing = true; other().setView(v); syncing = false; };
+A = mountWorldMap(document.getElementById('a'), data, { tablet: false, onView: link(() => B) });
+B = mountWorldMap(document.getElementById('b'), data, { tablet: false, placedOnly: true, onView: link(() => A) });
+B.setView(A.view());
+
+// One image of both panels as they stand, with their captions.
+function snapshot(type = 'image/png', q) {
+  const cols = [...document.querySelectorAll('.col')], pad = 12, head = 22;
+  const cv = cols.map((c) => c.querySelector('canvas'));
+  const w = cv.reduce((s, c) => s + c.width, 0) + pad * 3, h = Math.max(...cv.map((c) => c.height)) + head + pad * 2;
+  const out = document.createElement('canvas'); out.width = w; out.height = h;
+  const g = out.getContext('2d'); g.fillStyle = '#0d1014'; g.fillRect(0, 0, w, h);
+  g.font = '600 14px system-ui,sans-serif'; g.fillStyle = '#d8dee6';
+  let x = pad;
+  cols.forEach((c, i) => { g.fillText(c.querySelector('h2').firstChild.textContent.trim() + (i === 0 ? ` (week ${data.week})` : ''), x, pad + 14); g.drawImage(cv[i], x, pad + head); x += cv[i].width + pad; });
+  return out.toDataURL(type, q);
+}
+document.getElementById('save').onclick = () => {
+  const a = document.createElement('a'); a.href = snapshot(); a.download = `worldmap-compare-week${data.week}.png`; a.click();
+};
+window.__cmp = { A, B, snapshot };
+</script>
+</body></html>

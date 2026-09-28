@@ -36,10 +36,10 @@ function introText() {
     `<span class="ambient">The bar stops. The dock releases with a clack, and the tablet comes back warm.</span>`,
     ``,
     `<b>LIBRARY</b> is now on your tablet.`,
-    `  <span class="text-dim">·</span> Every book on these shelves, in full — not extracts.`,
+    `  <span class="text-dim">·</span> Every book on these shelves, in full, not extracts.`,
     `  <span class="text-dim">·</span> <b>Read Aloud</b> narrates a chapter to you, highlighting each line as it speaks.`,
     `  <span class="text-dim">·</span> <b>Minimize</b> keeps it reading while you go and do something else.`,
-    `  <span class="text-dim">·</span> Old words are <b>underlined</b> — tap one for a plain-English gloss.`,
+    `  <span class="text-dim">·</span> Old words are <b>underlined</b>: tap one for a plain-English gloss.`,
     `  <span class="text-dim">·</span> It remembers where you stopped, in every book, separately.`,
     ``,
     `<span class="ambient">Marrowby doesn't look up. "It's not lending if it comes back the same night. Take your time."</span>`,
@@ -72,9 +72,9 @@ const SCAN_BEATS = [
   [600,  `<span class="fw">MUNICIPAL LENDING FIRMWARE v4.1.7</span> <span class="fw-dim">(c) COLDWATER CIVIC TRUST</span>`],
   [1500, `<span class="fw-dim">&gt;</span> <span class="fw">HANDSHAKE</span> <span class="fw-dim">····· dock seated · host answered</span>`],
   [2600, `<span class="fw-dim">&gt;</span> <span class="fw">INDEX</span> <span class="fw-dim">········· reading shelf manifest</span>`],
-  [4000, `<span class="fw-dim">&gt;</span> <span class="fw">LICENCE</span> <span class="fw-warn">······· NO RECORD OF OWNERSHIP</span> <span class="fw-dim">— proceeding anyway</span>`],
+  [4000, `<span class="fw-dim">&gt;</span> <span class="fw">LICENCE</span> <span class="fw-warn">······· NO RECORD OF OWNERSHIP</span> <span class="fw-dim">proceeding anyway</span>`],
   [5200, `<span class="fw-dim">&gt;</span> <span class="fw">TRANSFER</span> <span class="fw-dim">······ full text · unabridged</span>`],
-  [6400, `<span class="fw-dim">&gt;</span> <span class="fw-ok">COMMIT OK</span> <span class="fw-dim">— catalogue resident on host</span>`],
+  [6400, `<span class="fw-dim">&gt;</span> <span class="fw-ok">COMMIT OK</span> <span class="fw-dim">catalogue resident on host</span>`],
 ];
 
 // Transfers in flight. Stops a second `scan` running two at once, and is the
@@ -143,7 +143,7 @@ async function onFurnitureDescribe(furniture, player) {
   if (!furniture?.flags?.lending_terminal) return undefined;
   if (await getFlag('player', UNLOCK_FLAG, player)) return undefined;
   pointAt(player.id, 'examine', furniture.name);
-  return `<span class="ambient">There's a tablet-shaped slot in the top, worn bright. ${teachVerb('scan', 'scan')} it and the terminal installs the <b>LIBRARY</b> app on your tablet — every book on these shelves, yours to read anywhere.</span>`;
+  return `<span class="ambient">There's a tablet-shaped slot in the top, worn bright. ${teachVerb('scan', 'scan')} it and the terminal installs the <b>LIBRARY</b> app on your tablet: every book on these shelves, yours to read anywhere.</span>`;
 }
 
 export const specializedActions = [

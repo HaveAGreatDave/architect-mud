@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "A flat on the fourth that has been dressed rather than furnished: everything in it is the right size and nothing in it is quite real. Books chosen for their spines, a fruit bowl with three apples in it that are changed on a rota, a wardrobe with four shirts in it and nothing else, and a bed made so tight the cover has a pressed crease down the middle. There is a faint smell of the diffuser on the hall table and under it, very faintly, of a flat nobody cooks in.",
+  "description": "A fourth-floor flat dressed for viewing. Books chosen for their spines, three apples in a bowl on a rota, a wardrobe with four shirts, a bed made tight enough to crease. A diffuser on the hall table. Nobody cooks here.",
   "exits": {
     "down": "zone_hf_newmarket_lobby"
   },

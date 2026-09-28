@@ -199,7 +199,7 @@ export function overflowLine(part, volume, vars = {}) {
  */
 const RECEIVED_INSIDE = {
   pussy: {
-    heavy: [`You feel it happen — hot, and far more of it than you were braced for. It keeps coming.`,
+    heavy: [`You feel it happen: hot, and far more of it than you were braced for. It keeps coming.`,
             `He empties into you in pulses you can actually count, and you feel every one.`],
     normal: [`You feel him finish inside you, warm and sudden.`],
   },
@@ -254,7 +254,7 @@ export function erectionVisibilityNote(player, tightSlots, layerCount) {
 
 // Breast + nipple visibility note for females.
 export const NIPPLE_HARD = [
-  `Her nipples are hard — fully committed to the bit.`,
+  `Her nipples are hard: fully committed to the bit.`,
   `Her nipples are erect, standing at attention like they got a memo.`,
   `Her nipples are stiff. They have strong opinions about this situation.`,
   `Her nipples are visibly hard. They're not subtle about it.`,
@@ -262,17 +262,17 @@ export const NIPPLE_HARD = [
 export const NIPPLE_SOFT = [
   `Her nipples are soft and relaxed, unbothered by everything.`,
   `Her nipples are at ease. No complaints. No agenda.`,
-  `Her nipples are soft — at rest, diplomatically neutral.`,
+  `Her nipples are soft: at rest, diplomatically neutral.`,
 ];
 
 // Bare-chest breast-size copy — shown whenever the torso is uncovered. Leading
 // "Her" so the isSelf caller can swap it to "Your"; no other gendered pronouns.
 const BREAST_BARE = {
-  flat:         [`Her chest is nearly flat — efficient, aerodynamic, no complaints from physics.`, `Her breasts are barely there. Present in theory.`],
-  small:        [`Her breasts are small and sit high — perky in a way that feels almost smug.`, `Her breasts are modest, and make no apologies about it.`],
-  medium:       [`Her breasts are a solid medium — the kind that fill a bra without a fight.`, `Her breasts are average in the most satisfying sense of the word.`],
-  large:        [`Her breasts are large and full. Gravity is aware of them.`, `Her breasts are generously sized — impossible to ignore.`],
-  'very large': [`Her breasts are enormous, frankly — their own gravitational pull.`, `Her breasts are massive. Structurally impressive. An engineering concern.`],
+  flat:         [`Her chest is nearly flat: efficient, aerodynamic, no complaints from physics.`, `Her breasts are barely there. Present in theory.`],
+  small:        [`Her breasts are small and sit high: perky in a way that feels almost smug.`, `Her breasts are modest, and make no apologies about it.`],
+  medium:       [`Her breasts are a solid medium: the kind that fill a bra without a fight.`, `Her breasts are average in the most satisfying sense of the word.`],
+  large:        [`Her breasts are large and full. Gravity is aware of them.`, `Her breasts are generously sized: impossible to ignore.`],
+  'very large': [`Her breasts are enormous, frankly: their own gravitational pull.`, `Her breasts are massive. Structurally impressive. An engineering concern.`],
 };
 
 // Female chest description (breast size + nipple state) with NO MIS gate — the
@@ -303,7 +303,7 @@ export function femaleChestNote(player, torsoLayerCount, outermostBulkiness, out
     const garment = outermostName || 'top';
     const FILL = {
       flat:         `Her chest barely registers under the ${garment}. It's doing charity work.`,
-      small:        `Her breasts sit neatly under the ${garment} — no complaints from either party.`,
+      small:        `Her breasts sit neatly under the ${garment}: no complaints from either party.`,
       medium:       `Her breasts fill out the ${garment} in a satisfying, uneventful way.`,
       large:        `Her breasts press against the ${garment} with some conviction.`,
       'very large': `Her breasts are straining the ${garment}'s structural integrity. It's doing its best.`,
@@ -341,7 +341,7 @@ export function breastVisibilityNote(player, torsoLayerCount, outermostBulkiness
 const HORNY_TIERS = [
   { at: 50, messages: [
     ['Something stirs in you. A familiar warmth, building quietly.'],
-    ['Your thoughts drift somewhere warmer. You push them aside — mostly.'],
+    ['Your thoughts drift somewhere warmer. You push them aside: mostly.'],
     ['A low heat settles in your body, patient and insistent.'],
     ['You become aware of your body in a way you weren\'t a moment ago.'],
     ['A slow ache starts up, low and unhurried.'],
@@ -379,7 +379,7 @@ const HORNY_SUSTAIN_MIN = { 50: 9, 65: 6, 80: 4, 92: 2 };
 // signal that the pressure is actually easing, and without it a decay from 95 to nothing is
 // twenty minutes of silence indistinguishable from never having been aroused at all.
 const HORNY_COOLING = {
-  92: [`The edge recedes. Not gone — just no longer immediate.`,
+  92: [`The edge recedes. Not gone: just no longer immediate.`,
        `You come back down off the peak, breathing out slowly.`],
   80: [`The worst of it passes. You can hold a thought again.`,
        `It loosens its grip, a little. Enough to function.`],
@@ -415,11 +415,11 @@ export function hornyCoolingLine(player, prev) {
 // The final beat before climax — one last warning that this is the moment to
 // direct where it lands, before your body takes the decision out of your hands.
 const HNNNG_MESSAGES = [
-  [`HNNNNNNNNNGGGGGGGGG— you're seconds away. Last chance to choose where this goes.`],
-  [`HNNNGGGGGGH— it's right there. If you're going to aim, do it NOW.`],
-  [`HNNNNNGGGGGGG— your whole body has locked up. This is it.`],
-  [`HNNNNGH— no more decisions after this one. Aim or don't.`],
-  [`HHHNNNNGGGG— the point of no return just waved goodbye. NOW.`],
+  [`HNNNNNNNNNGGGGGGGGG... you're seconds away. Last chance to choose where this goes.`],
+  [`HNNNGGGGGGH... it's right there. If you're going to aim, do it NOW.`],
+  [`HNNNNNGGGGGGG... your whole body has locked up. This is it.`],
+  [`HNNNNGH... no more decisions after this one. Aim or don't.`],
+  [`HHHNNNNGGGG... the point of no return just waved goodbye. NOW.`],
 ];
 
 const CLIMAX_MESSAGES = [
@@ -512,7 +512,7 @@ export const NPC_WITNESS_AROUSED = [
   `{npc} stares, openly interested.`,
   `{npc} shifts closer, eyes fixed on the show.`,
   `{npc} bites their lip, watching.`,
-  `{npc} doesn't look away — they like what they see.`,
+  `{npc} doesn't look away: they like what they see.`,
   `{npc} lets out a low, appreciative sound.`,
   `{npc} adjusts themselves, not bothering to hide it.`,
   `{npc} murmurs "oh, don't stop on my account."`,
@@ -551,7 +551,7 @@ export const NPC_AROUSAL_MSGS = {
   edge: [
     `{npc} is panting now, right on the edge.`,
     `{npc} claws at you, barely holding on.`,
-    `{npc} gasps, "don't stop — don't you dare stop—"`,
+    `{npc} gasps, "don't stop: don't you dare stop..."`,
     `{npc} shakes, teeth gritted, so close.`,
     `{npc} whines high in their throat, almost there.`,
   ],
@@ -662,7 +662,7 @@ export const FUCK_EVENT_MSGS = {
   ],
   ass: [
     `{name} pumps into {target}'s ass in a grinding rhythm.`,
-    `{name} and {target} continue — {name} buried in {target}'s ass.`,
+    `{name} and {target} continue: {name} buried in {target}'s ass.`,
     `{name} drives deep into {target} and keeps going.`,
     `{target} grunts as {name} sets a harder pace.`,
     `{name} grips {target}'s hips and buries themselves to the hilt.`,
@@ -741,7 +741,7 @@ export const EJACULATE_ZONE_MSGS = {
              `There's too much of it; the excess spills out of {target} and onto the floor.`],
     ass:    [`{target} can't hold it. Most of it runs straight back out of them.`,
              `It leaks out of {target} the moment {name} withdraws, and keeps leaking.`],
-    mouth:  [`{target} can't swallow fast enough — it spills past their lips and down their chin.`,
+    mouth:  [`{target} can't swallow fast enough: it spills past their lips and down their chin.`,
              `More than {target} bargained for. They choke, cough, and wear the rest of it.`],
     throat: [`{target} gags on the volume of it and loses half down their own front.`,
              `It's too much for {target}'s throat; the overflow goes down their chin.`],
@@ -946,23 +946,23 @@ export async function triggerServiceClimax(target) {
   return pick(SERVICE_TARGET_CLIMAX);
 }
 
-export const MIS_TUTORIAL = `<span style="color:var(--accent)">— MATURE INTERACTION SYSTEM ENABLED —</span>
+export const MIS_TUTORIAL = `<span style="color:var(--accent)">MATURE INTERACTION SYSTEM ENABLED: </span>
 
-You've unlocked biological realism mode. This system simulates the body honestly — not to titillate, but because bodies are part of survival. Think of it as the same candor the game applies to violence.
+You've unlocked biological realism mode. This system simulates the body honestly, not to titillate, but because bodies are part of survival. Think of it as the same candor the game applies to violence.
 
 <span style="color:var(--text-dim)">SOLO:</span>
   stroke / masturbate / jerkoff / rubself / fingerself
   jerk off on &lt;target&gt;
   ejaculate / cum [on &lt;target&gt;'s &lt;part&gt; / ground / &lt;furniture&gt;]  (requires 50%+ arousal; males only)
 
-<span style="color:var(--text-dim)">WITH OTHERS — CONSENT FIRST:</span>
+<span style="color:var(--text-dim)">WITH OTHERS, CONSENT FIRST:</span>
   Nobody can aim any of the verbs below at you until you say so, and this
   switch you've just flipped doesn't say so. It opts you into the system,
   not into anyone in particular.
-  consent &lt;player&gt;       — let them act on you. One-way: they need their own.
-  revoke &lt;player&gt; / all  — take it back. Instant, stops anything in progress.
-  consent                — who you've let in, and who has let you in
-  consent ask &lt;player&gt;   — ask once. Ignoring it's a complete answer.
+  consent &lt;player&gt;: let them act on you. One-way: they need their own.
+  revoke &lt;player&gt; / all: take it back. Instant, stops anything in progress.
+  consent (who you've let in, and who has let you in
+  consent ask &lt;player&gt;) ask once. Ignoring it's a complete answer.
 
   touch / squeeze / fondle / lick &lt;target&gt;'s &lt;body part&gt;
   kiss &lt;target&gt;
@@ -975,19 +975,19 @@ You've unlocked biological realism mode. This system simulates the body honestly
   fuck &lt;target&gt; [in mouth / pussy / ass]
   sex / screw / rail / bang / breed &lt;target&gt; [in ...]
   cum in &lt;target&gt;'s [mouth / pussy / ass]  (males, 50%+ arousal)
-  cum   — mid-sex, a bare "cum" finishes where you're already buried
+  cum: mid-sex, a bare "cum" finishes where you're already buried
           (pull out and aim it elsewhere with cum on/in &lt;target&gt;)
 
 <span style="color:var(--text-dim)">LOOK CLOSER:</span>
   examine &lt;target&gt;'s [genitals / tits / nipples / ass / asshole]
 
 <span style="color:var(--text-dim)">OTHER:</span>
-  wash   — clean yourself at a sink, in the rain, or with water
+  wash, clean yourself at a sink, in the rain, or with water
 
 Most acts restore sanity. Arousal builds during events and peaks at climax.
-finger / handjob / suck / eat out are ongoing — they run until your partner
+finger / handjob / suck / eat out are ongoing: they run until your partner
 finishes (or you STOP), and the whole room can see. Penetrative sex requires
-naked legs — clothed players grind instead.
+naked legs: clothed players grind instead.
 Type <span style="color:var(--accent)">examine me</span> to see your current state.
 
 <span style="color:var(--text-dim)">Type MIS OFF in the debug field to disable.</span>`;

@@ -376,7 +376,7 @@ function renderMediaDeckPanel(data) {
   lightEl.className = 'mediadeck-light mediadeck-light-'
     + (isMini ? (miniPlaying ? 'orange' : 'red') : (lightState || 'red'));
   document.getElementById('mediadeck-light-label').textContent = isMini
-    ? (miniPlaying ? (camLabel ? `FEED — ${camLabel}` : 'PLAYING') : `NOT PLAYING — ${data.whyNot || 'nothing loaded'}`)
+    ? (miniPlaying ? (camLabel ? `FEED: ${camLabel}` : 'PLAYING') : `NOT PLAYING: ${data.whyNot || 'nothing loaded'}`)
     : _lightLabel(lightState, activeCassetteId);
 
   const previewHeader = document.getElementById('mediadeck-preview-header');
@@ -386,7 +386,7 @@ function renderMediaDeckPanel(data) {
       previewHeader.className = 'mediadeck-preview-header '
         + (miniPlaying ? 'mediadeck-preview-header-scripted' : 'mediadeck-preview-header-offline');
     } else if (!data.channelId || lightState === 'red') {
-      previewHeader.textContent = '— NO SIGNAL —';
+      previewHeader.textContent = 'NO SIGNAL';
       previewHeader.className = 'mediadeck-preview-header mediadeck-preview-header-offline';
     } else if (lightState === 'green') {
       previewHeader.textContent = '⬤ LIVE';
@@ -440,7 +440,7 @@ function renderMediaDeckPanel(data) {
     if (labelStrip) labelStrip.textContent = activeCassette.name;
   } else {
     slotEl.classList.remove('loaded');
-    cartridgeEl.innerHTML = '<span class="mediadeck-cartridge-label">— EMPTY —</span>';
+    cartridgeEl.innerHTML = '<span class="mediadeck-cartridge-label">EMPTY</span>';
     if (labelStrip) labelStrip.textContent = '';
   }
   slotEl.querySelectorAll('.mediadeck-mini-reel').forEach(r => r.classList.toggle('spinning', isPlaying && miniActive));
@@ -454,7 +454,7 @@ function renderMediaDeckPanel(data) {
     row.className = 'mediadeck-cassette-row' + (camLabel ? ' active' : '');
     row.innerHTML = `<span class="mediadeck-track-num">IN</span>
       <span class="mediadeck-cassette-spool${camLabel ? ' spinning' : ''}"></span>
-      <span class="mediadeck-cassette-name">${camLabel ? escapeHtml(camLabel) : 'SPECTER INPUT — patch a camera'}</span>
+      <span class="mediadeck-cassette-name">${camLabel ? escapeHtml(camLabel) : 'SPECTER INPUT: patch a camera'}</span>
       <span class="mediadeck-cassette-cat">live</span>
       ${camLabel ? '<span class="mediadeck-playing-tag">▶ FEED</span>' : ''}`;
     row.addEventListener('click', () => {
@@ -464,7 +464,7 @@ function renderMediaDeckPanel(data) {
     listEl.appendChild(row);
   }
   if (!cassettes || !cassettes.length) {
-    listEl.insertAdjacentHTML('beforeend', '<div class="mediadeck-empty">— NO TRACKS LOADED —</div>');
+    listEl.insertAdjacentHTML('beforeend', '<div class="mediadeck-empty">NO TRACKS LOADED</div>');
   } else {
     cassettes.forEach((c, i) => {
       const isActive = c.id === activeCassetteId;
@@ -487,7 +487,7 @@ function renderMediaDeckPanel(data) {
   const schedEl = document.getElementById('mediadeck-schedule-list');
   schedEl.innerHTML = '';
   if (!schedule || !schedule.length) {
-    schedEl.innerHTML = '<div class="mediadeck-empty">— NO SCHEDULE ON FILE —</div>';
+    schedEl.innerHTML = '<div class="mediadeck-empty">NO SCHEDULE ON FILE</div>';
   } else {
     for (const s of schedule) {
       const row = document.createElement('div');
@@ -625,7 +625,7 @@ function showLoadPicker() {
   const cassettes = deckData?.inventoryCassettes || [];
   list.innerHTML = '';
   if (!cassettes.length) {
-    list.innerHTML = '<div class="mediadeck-load-picker-empty">— NO CASSETTES IN INVENTORY —</div>';
+    list.innerHTML = '<div class="mediadeck-load-picker-empty">NO CASSETTES IN INVENTORY</div>';
   } else {
     cassettes.forEach(c => {
       const row = document.createElement('div');

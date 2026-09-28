@@ -131,7 +131,7 @@ function floorScreen() {
   const stage = `<canvas id="hb-scene" class="hb-scene"></canvas>`;
 
   const mulePrompt = d.charterWaiting
-    ? `, or the ${esc(pilot.name)}-coloured Mule — it's fuelled and waiting for you`
+    ? `, or the ${esc(pilot.name)}-coloured Mule: it's fuelled and waiting for you`
     : pilot.present ? `, or the ${esc(pilot.name)}-coloured Mule to charter a ride` : '';
   // The info panel is now a pure read-out (name + bars) — every action moved down
   // to the dedicated toolbar so the buttons live in one separate control tray.
@@ -193,8 +193,8 @@ function sceneEntries() {
       id: '__charter', cls: dragonfly ? 'heli' : 'prop', tint: (ready || unrated) ? (pilot.color || '#f2b01e') : null,
       livery: { base: pilot.color || '#f2b01e', trim: '#1a1a1a', pattern: 'solid', finish: 'gloss', cabin: '#1a1a1a' },
       // Unrated pilots see the charter plane as their way in: click it to take the checkride.
-      label: unrated ? '✈ CHARTER — click to take your checkride & earn your licence'
-        : d.charterWaiting ? `✈ CHARTER — ${pilot.name} (ready to board)` : pilot.present ? `✈ CHARTER — ${pilot.name}` : '✈ CHARTER — off shift',
+      label: unrated ? '✈ CHARTER: click to take your checkride & earn your licence'
+        : d.charterWaiting ? `✈ CHARTER: ${pilot.name} (ready to board)` : pilot.present ? `✈ CHARTER: ${pilot.name}` : '✈ CHARTER: off shift',
     });
   }
   return entries;
@@ -296,7 +296,7 @@ function charterScreen() {
     else if (active) cls += ' hb-tile-dest' + (t.charterAirfield ? ' hb-tile-airfield' : '');
     else cls += ' hb-tile-dim';
     const label = t.charterHere ? '◆' : t.charterAirfield ? '✈' : (t.icon || '');
-    return `<div class="${cls}" style="grid-column:${gx};grid-row:${gy}" ${active ? `data-hb-dest="${t.id}"` : ''} title="${esc(t.name)}${fare != null && active ? ` — ${fare}₵` : ''}">
+    return `<div class="${cls}" style="grid-column:${gx};grid-row:${gy}" ${active ? `data-hb-dest="${t.id}"` : ''} title="${esc(t.name)}${fare != null && active ? `: ${fare}₵` : ''}">
       <span class="hb-tile-icon">${label}</span>
       ${active && fare != null ? `<span class="hb-tile-fare">${fare}₵</span>` : ''}
     </div>`;
@@ -304,9 +304,9 @@ function charterScreen() {
 
   const vtolOnly = !!c.vtolOnly;
   const legend = vtolOnly
-    ? `<span><i class="hb-swatch hb-sw-any"></i> The Dragonfly sets down anywhere flat — pick any tile.</span>`
-    : `<span><i class="hb-swatch hb-sw-air"></i> Airfield — the Mule (${charterAny ? '' : 'active'})</span>
-       <span><i class="hb-swatch hb-sw-any"></i> Any tile — the Dragonfly, off-airfield premium</span>`;
+    ? `<span><i class="hb-swatch hb-sw-any"></i> The Dragonfly sets down anywhere flat, pick any tile.</span>`
+    : `<span><i class="hb-swatch hb-sw-air"></i> Airfield: the Mule (${charterAny ? '' : 'active'})</span>
+       <span><i class="hb-swatch hb-sw-any"></i> Any tile: the Dragonfly, off-airfield premium</span>`;
   return `
     <div class="hb-charter-crt">
       <div class="hb-charter-head">
@@ -336,7 +336,7 @@ function lotCard(t) {
   const acqBtn = (kind, price) => {
     const canAfford = admin || credits >= price;
     const ok = licensed && canAfford;
-    const why = !licensed ? 'You need a pilot licence — pass a checkride first.'
+    const why = !licensed ? 'You need a pilot licence, pass a checkride first.'
       : !canAfford ? "You can't afford this." : `${kind === 'buy' ? 'Buy' : 'Rent'} the ${t.name}`;
     return `<button class="hb-lot-acq hb-lot-${kind}" data-hb-${kind}="${esc(t.id)}"${ok ? '' : ' disabled'} title="${esc(why)}">
       ${kind === 'buy' ? 'BUY' : 'RENT'} · ₵${price}${kind === 'rent' ? '/hr' : ''}</button>`;
@@ -354,7 +354,7 @@ function lotCard(t) {
 function buyRentScreen() {
   const d = B.data;
   const gate = !d.isAdmin && !d.licensed
-    ? `<div class="hb-lot-lockmsg">⚠ You need a pilot licence to buy or rent — pass a checkride at Coldwater Regional first.
+    ? `<div class="hb-lot-lockmsg">⚠ You need a pilot licence to buy or rent, pass a checkride at Coldwater Regional first.
        <button class="hb-btn hb-accent" data-act="checkride" style="margin-top:8px">✈ Take the checkride</button></div>` : '';
   return `<div class="hb-dealer"><div class="hb-scroll">${gate}<div class="hb-lotgrid">${(d.lots || []).map(lotCard).join('')}</div></div></div>
     <div class="hb-toolbar"><div class="hb-tb-group hb-tb-right">${tbtn('‹', 'Back', 'data-act="back"')}</div></div>`;
@@ -388,6 +388,12 @@ function swatchRow(label, field) {
   return `<div class="hb-ctl hb-ctl-sw"><span>${label}</span>
     <button type="button" class="hb-cp-swatch" data-cp="${field}"><i style="background:${B.work[field]}"></i><em>${esc((B.work[field] || '').toUpperCase())}</em></button></div>`;
 }
+// The dash nameplate: left blank it reads the cabin trim's own name (Quackhawk Down) or the class default.
+function plateRow(c, cat) {
+  if (!(cat.plateDefault || {})[c.class]) return '';
+  const trimName = ((cat.cabinTrims || {})[c.class] || []).find(t => t.id === B.work.itrim)?.plate || cat.plateDefault[c.class];
+  return `<label class="hb-ctl"><span>Nameplate</span><input data-plate-field maxlength="${cat.plateMax || 16}" placeholder="${esc(trimName)}" value="${esc(B.work.plate || '')}"></label>`;
+}
 function selectRow(label, field, opts) {
   return `<label class="hb-ctl"><span>${label}</span><select data-sel-field="${field}">${
     opts.map(o => `<option value="${o.id}"${o.id === B.work[field] ? ' selected' : ''}>${o.label}</option>`).join('')
@@ -397,7 +403,7 @@ function selectRow(label, field, opts) {
 // with enough controls to need it even inside a single bench tab.
 function paintTabHtml(c, cat, dirty) {
   if (!c.paintable) {
-    return `<div class="hb-note">${c.wreck ? 'A wreck — nothing worth painting.' : c.rental ? "Rentals can't be painted." : 'You can only paint an aircraft you own.'}</div>`;
+    return `<div class="hb-note">${c.wreck ? 'A wreck: nothing worth painting.' : c.rental ? "Rentals can't be painted." : 'You can only paint an aircraft you own.'}</div>`;
   }
   const pt = ['exterior', 'interior', 'schemes'].includes(B.paintTab) ? B.paintTab : (B.paintTab = 'exterior');
   const subtabs = `<div class="hb-subtabs">
@@ -418,11 +424,12 @@ function paintTabHtml(c, cat, dirty) {
         ${B.work.pattern === 'jazz' ? swatchRow('Accent', 'accent') + swatchRow('Ground', 'ground') : ''}
         ${selectRow('Pattern', 'pattern', cat.patterns)}${selectRow('Finish', 'finish', cat.finishes)}
         ${selectRow('Nose art', 'decal', cat.decals || [])}
+        ${(cat.trims || {})[c.class] ? selectRow('Exterior scheme', 'variant', cat.trims[c.class]) : ''}
       </div>
       ${applyRow}`;
   } else if (pt === 'interior') {
     panel = `
-      <div class="hb-ctls">${swatchRow('Cabin', 'cabin')}${selectRow('Upholstery', 'uphol', cat.uphol)}</div>
+      <div class="hb-ctls">${(cat.cabinTrims || {})[c.class] ? selectRow('Cabin trim', 'itrim', cat.cabinTrims[c.class]) : ''}${swatchRow('Cabin', 'cabin')}${selectRow('Upholstery', 'uphol', cat.uphol)}${plateRow(c, cat)}</div>
       ${applyRow}`;
   } else {
     panel = `
@@ -477,7 +484,7 @@ function hopperStripHtml(c) {
   const pct = Math.round(amt / cap * 100);
   const line = pct === 0 ? 'Hopper dry.'
     : pct >= 98 ? `Hopper brimmed with ${esc(c.hopperFluid || 'fluid')}.`
-    : `Hopper at ${pct}% — ${amt} of ${cap} units of ${esc(c.hopperFluid || 'fluid')}.`;
+    : `Hopper at ${pct}%: ${amt} of ${cap} units of ${esc(c.hopperFluid || 'fluid')}.`;
   const body = pct >= 98
     ? `<div class="hb-note">Full. Fly a few passes before you top her up again.</div>`
     : hopperCansHtml(c, amt);
@@ -497,7 +504,7 @@ function hopperCansHtml(c, amt) {
     const clash = amt > 0 && c.hopperFluid && k.fluid !== c.hopperFluid;
     return `<button class="hb-btn hb-hop-can${clash ? ' hb-hop-clash' : ''}" data-act="loadhopper" data-can="${esc(k.name)}"${clash ? ' disabled' : ''}>
       <b>${esc(k.name)}</b>${k.count > 1 ? ` <em>×${k.count}</em>` : ''}
-      <span>${clash ? `holds ${esc(k.fluid)} — she's loaded with ${esc(c.hopperFluid)}` : `${k.amount} units of ${esc(k.fluid)}`}</span></button>`;
+      <span>${clash ? `holds ${esc(k.fluid)}, but she's loaded with ${esc(c.hopperFluid)}` : `${k.amount} units of ${esc(k.fluid)}`}</span></button>`;
   }).join('');
   return `<div class="hb-note">Pour from what you're carrying. The container comes back empty.</div><div class="hb-hop-cans">${rows}</div>`;
 }
@@ -515,7 +522,7 @@ function hopperTabHtml(c) {
   const col = pct < 10 ? '#ff6b6b' : pct < 40 ? '#ffb26b' : '#63d0f0';
   const verdict = pct === 0 ? 'Dry. Nothing to lay down.'
     : pct >= 98 ? `Brimmed with ${esc(c.hopperFluid || 'fluid')}. Watch your weight on the roll.`
-    : `${amt} of ${cap} units of ${esc(c.hopperFluid || 'fluid')} aboard — about ${Math.floor(amt / 20)} pass${Math.floor(amt / 20) === 1 ? '' : 'es'} left.`;
+    : `${amt} of ${cap} units of ${esc(c.hopperFluid || 'fluid')} aboard: about ${Math.floor(amt / 20)} pass${Math.floor(amt / 20) === 1 ? '' : 'es'} left.`;
   const gauge = `<div class="hb-hull-gauge">
       <div class="hb-hull-num" style="color:${col}">${pct}<small>%</small></div>
       <div class="hb-hull-track"><i style="width:${pct}%;background:${col};color:${col}"></i>
@@ -532,10 +539,10 @@ function hopperTabHtml(c) {
 // morphs instantly as you drag, before the server round-trip. On Apply the server
 // recomputes authoritatively and re-pushes, so any drift self-corrects.
 const PERF_LABELS = [
-  { id: 'speed', label: 'SPEED', desc: 'Cruise speed vs. stock — coarser pitch and more boost push this up; a leaner mixture trims it back a little.' },
-  { id: 'economy', label: 'ECON', desc: 'Fuel burn vs. stock — a leaner mixture stretches your range; boost and a heavy load both drink more.' },
+  { id: 'speed', label: 'SPEED', desc: 'Cruise speed vs. stock, coarser pitch and more boost push this up; a leaner mixture trims it back a little.' },
+  { id: 'economy', label: 'ECON', desc: 'Fuel burn vs. stock, a leaner mixture stretches your range; boost and a heavy load both drink more.' },
   { id: 'range', label: 'RANGE' },
-  { id: 'cool', label: 'COOL', desc: 'Heat margin vs. stock — rich mixture and boost both run hotter; an intercooler kit tempers it.' },
+  { id: 'cool', label: 'COOL', desc: 'Heat margin vs. stock, rich mixture and boost both run hotter; an intercooler kit tempers it.' },
   { id: 'agility', label: 'AGILITY' },
 ];
 const TUNE_KEYS = ['mixture', 'pitch', 'boost', 'cg'];
@@ -576,8 +583,8 @@ const curCraft = () => (B.data.craft || []).find(x => x.id === B.selId) || null;
 // Apply/Reset, and the kit shop. The radar lives on the bench stage; paintTuning()
 // draws it + the knobs + the bars.
 function tuningTabHtml(c) {
-  if (c.wreck) return '<div class="hb-note">A wreck — nothing to tune.</div>';
-  if (c.rental) return '<div class="hb-note">You can only tune an aircraft you <b>own</b> — rentals fly stock.</div>';
+  if (c.wreck) return '<div class="hb-note">A wreck: nothing to tune.</div>';
+  if (c.rental) return '<div class="hb-note">You can only tune an aircraft you <b>own</b>: rentals fly stock.</div>';
   ensureTuneWork(c);
   const params = (B.data.tuneParams || []).filter(p => TUNE_KEYS.includes(p.id));
   const knobs = params.map(p => `
@@ -599,7 +606,7 @@ function tuningTabHtml(c) {
     <div class="hb-apply-row">
       <button class="hb-btn hb-accent" data-act="tune-apply">Apply Tune</button>
       <button class="hb-btn" data-act="tune-reset">Reset to stock</button>
-      <span class="hb-tune-note">Range ±${c.tuneRange ?? 1} — set by <b>Fabrication</b> + kits (see the <b>KITS</b> tab). Hover a dial for what it does.</span>
+      <span class="hb-tune-note">Range ±${c.tuneRange ?? 1}, set by <b>Fabrication</b> + kits (see the <b>KITS</b> tab). Hover a dial for what it does.</span>
     </div>`;
 }
 
@@ -607,8 +614,8 @@ function tuningTabHtml(c) {
 // A selectable list of the airframe's kits down the side, with the picked kit's
 // blurb + install action beside it, so nothing ever scrolls off the tuning screen.
 function kitsTabHtml(c) {
-  if (c.wreck) return '<div class="hb-note">A wreck — nothing to upgrade.</div>';
-  if (c.rental) return '<div class="hb-note">You can only fit kits to an aircraft you <b>own</b> — rentals fly stock.</div>';
+  if (c.wreck) return '<div class="hb-note">A wreck: nothing to upgrade.</div>';
+  if (c.rental) return '<div class="hb-note">You can only fit kits to an aircraft you <b>own</b>: rentals fly stock.</div>';
   const cat = c.kitCatalog || [];
   if (!cat.length) return '<div class="hb-note">No upgrade kits fit this airframe.</div>';
   if (!B.kitSel || !cat.some(k => k.id === B.kitSel)) B.kitSel = (cat.find(k => !k.owned) || cat[0]).id;
@@ -824,11 +831,11 @@ function render() {
   // read off the body class so it survives every re-render.
   const fs = document.body.classList.contains('hb-fullscreen'), hp = document.body.classList.contains('hb-hidepanel');
   const viewBtns = `<span class="hb-viewbtns">
-      <button class="hb-viewbtn${hp ? ' on' : ''}" data-act="hidepanel" title="hide the text panel — more hangar view">⊟</button>
+      <button class="hb-viewbtn${hp ? ' on' : ''}" data-act="hidepanel" title="hide the text panel, more hangar view">⊟</button>
       <button class="hb-viewbtn${fs ? ' on' : ''}" data-act="fullscreen" title="fullscreen">⛶</button>
     </span>`;
   setAreaPane(`<div id="hb-root">
-    <div class="hb-head">${backBtn}<span class="hb-title">✈ ${title} — ${esc(d.field || '')}</span>
+    <div class="hb-head">${backBtn}<span class="hb-title">✈ ${title}: ${esc(d.field || '')}</span>
       <span class="hb-credits">₵ ${d.credits ?? 0}</span>${viewBtns}</div>
     <div class="hb-body">${body}</div>
   </div>`);
@@ -985,19 +992,25 @@ function wire() {
     if (act === 'tune-reset') { B.tune = { mixture: 0, pitch: 0, boost: 0, cg: 0 }; paintTuning(); return; }
     if (act === 'sell') {
       const c = (B.data.craft || []).find(x => x.id === B.selId);
-      if (c) showConfirmDialog({ title: 'Sell Aircraft', prompt: `Sell the ${c.tail} outright? This deletes her — can't be undone.`, command: `sell ${c.id}`, confirmLabel: 'Sell' });
+      if (c) showConfirmDialog({ title: 'Sell Aircraft', prompt: `Sell the ${c.tail} outright? This deletes her, can't be undone.`, command: `sell ${c.id}`, confirmLabel: 'Sell' });
       return;
     }
     if (act === 'cancel_rental') {
       const c = (B.data.craft || []).find(x => x.id === B.selId);
-      if (c) showConfirmDialog({ title: 'Cancel Rental', prompt: `Hand back the ${c.tail}? This deletes the rental — can't be undone.`, command: `cancelrental ${c.id}`, confirmLabel: 'Return' });
+      if (c) showConfirmDialog({ title: 'Cancel Rental', prompt: `Hand back the ${c.tail}? This deletes the rental, can't be undone.`, command: `cancelrental ${c.id}`, confirmLabel: 'Return' });
       return;
     }
-    if (act === 'paint-apply') { const c = (B.data.craft || []).find(x => x.id === B.selId); if (c) sendCmdSilent(`paintset ${c.id} ${B.work.base} ${B.work.trim} ${B.work.pattern} ${B.work.finish} ${B.work.cabin} ${B.work.uphol} ${B.work.decal || 'none'} ${B.work.accent || '#c22b8c'} ${B.work.ground || '#eee7d6'}`); return; }
+    if (act === 'paint-apply') { const c = (B.data.craft || []).find(x => x.id === B.selId); if (c) sendCmdSilent(`paintset ${c.id} ${B.work.base} ${B.work.trim} ${B.work.pattern} ${B.work.finish} ${B.work.cabin} ${B.work.uphol} ${B.work.decal || 'none'} ${B.work.accent || '#c22b8c'} ${B.work.ground || '#eee7d6'} ${B.work.variant || 'stock'} ${B.work.itrim || 'stock'} ${(B.work.plate || '').trim().replace(/ +/g, '_') || '-'}`); return; }
     if (act === 'paint-revert') { const c = (B.data.craft || []).find(x => x.id === B.selId); if (c) { B.work = { ...c.livery }; render(); } return; }
     if (act === 'scheme-save') { const n = (document.getElementById('hb-scheme-name')?.value || '').trim(); if (n) sendCmdSilent(`scheme ${B.selId} save ${n}`); return; }
   });
   on('[data-cp]', 'click', (e) => { e.stopPropagation(); openColorPopover(e.currentTarget.getAttribute('data-cp'), e.currentTarget); });
+  on('[data-plate-field]', 'input', (e) => {
+    const chars = B.data?.catalog?.plateChars || 'ABCDEFGHIKLMNOPQRSTUVW ';
+    const el = e.currentTarget, v = [...el.value.toUpperCase()].filter(ch => chars.includes(ch)).join('');
+    if (v !== el.value) el.value = v;
+    B.work.plate = v;
+  });
   on('[data-sel-field]', 'change', (e) => { B.work[e.currentTarget.getAttribute('data-sel-field')] = e.currentTarget.value; render(); });
   on('[data-preset]', 'click', (e) => {
     const p = (B.data.catalog?.presets || []).find(x => x.id === e.currentTarget.getAttribute('data-preset'));

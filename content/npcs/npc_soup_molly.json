@@ -58,7 +58,7 @@
         "action_type": "EMOTE",
         "next": "n_step_up",
         "params": {
-          "message": "wipes her hands down the apron, takes it off, and hangs it on the oven rail like it's a good coat."
+          "message": "wipes her hands down the apron, takes it off, and hangs it on the oven rail like it is a good coat."
         },
         "type": "action"
       },
@@ -717,7 +717,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Everybody, eventually.\" <span class=\"text-dim\">She counts them off on the spoon.</span> \"Dock crews coming off nights, who eat like it's a job. Two women from the laundry who have never spoken to each other in here and are perfectly friendly out on the step. A man who comes in the coat of a job he hasn't had in four years, and buttons it.\"\n\n\"And the kids, in the afternoon, before the drinking starts. Those I sit with.\""
+      "text": "\"Everybody, eventually.\" <span class=\"text-dim\">She counts them off on the spoon.</span> \"Dock crews coming off nights, who eat like it is a job. Two women from the laundry who have never spoken to each other in here and are perfectly friendly out on the step. A man who comes in the coat of a job he hasn't had in four years, and buttons it.\"\n\n\"And the kids, in the afternoon, before the drinking starts. Those I sit with.\""
     },
     "n_why": {
       "_vine": {

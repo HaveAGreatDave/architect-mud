@@ -105,7 +105,7 @@ const OFFER_TTL_MS = 30000;
 const pendingOffers = new Map();   // recipient playerId -> { fromId, fromHandle, timer }
 
 const NPC_THANKS = [
-  "Thanks — you're a lifesaver.",
+  "Thanks: you're a lifesaver.",
   'Appreciated, friend.',
   "Been gasping for one of these.",
   'Cheers. I owe you.',
@@ -150,7 +150,7 @@ async function giveCigarette(args, raw, player, broadcast) {
   // Player in the room → timed offer they can accept/refuse.
   const players = getZonePlayers(player.current_zone).filter(p => p.id !== player.id).map(p => ({ ...p, name: p.handle }));
   const pr = siftResolve(who, players);
-  if (pr.type === 'ambiguous') return { type: 'action', message: `Multiple people match "${who}" — be more specific.` };
+  if (pr.type === 'ambiguous') return { type: 'action', message: `Multiple people match "${who}": be more specific.` };
   if (pr.type !== 'none') {
     const target = pr.candidate;
     const existing = pendingOffers.get(target.id);
@@ -169,7 +169,7 @@ async function giveCigarette(args, raw, player, broadcast) {
 
   // NPC → always accepts and thanks.
   const nr = siftResolve(who, getZoneNpcs(player.current_zone));
-  if (nr.type === 'ambiguous') return { type: 'action', message: `Multiple people match "${who}" — be more specific.` };
+  if (nr.type === 'ambiguous') return { type: 'action', message: `Multiple people match "${who}": be more specific.` };
   if (nr.type !== 'none') {
     const npc = nr.candidate;
     await burnCharge(pack, parseTags(pack.tags));

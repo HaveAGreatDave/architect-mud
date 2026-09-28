@@ -155,7 +155,7 @@ export async function buildBench(player) {
     { label: 'Chemistry', value: `rank ${chem}`, state: 'ok' },
     {
       label: 'Splice',
-      value: chem >= SPLICE_MIN_SKILL ? 'AVAILABLE' : `LOCKED — rank ${SPLICE_MIN_SKILL}`,
+      value: chem >= SPLICE_MIN_SKILL ? 'AVAILABLE' : `LOCKED: rank ${SPLICE_MIN_SKILL}`,
       state: chem >= SPLICE_MIN_SKILL ? 'ok' : 'warn',
     },
   ];
@@ -206,7 +206,7 @@ export async function buildBench(player) {
         `Load the bench with the reagents above.`,
         `<b>synthesize ${recipe.name}</b> arms the reaction; hold it stable to score.`,
         `Difficulty ${cookDiff(tier)} against Chemistry${bonus ? `, +${bonus} from this station` : ''}.`,
-        `The finished product goes into the bench vault, not your pockets — pull it out.`,
+        `The finished product goes into the bench vault, not your pockets: pull it out.`,
       ],
       suggestion: `Tier ${tier} · difficulty ${cookDiff(tier)}`,
       actions: (!missing.length && lab && !locked)
@@ -227,7 +227,7 @@ export async function buildBench(player) {
       .map(([k, list]) => ({ label: LABELS[k], recipes: list.sort((a, b) => b.pct - a.pct || a.name.localeCompare(b.name)) })),
     unknown: 0,
     note: chem >= SPLICE_MIN_SKILL
-      ? `Chemistry ${chem}. You can splice — <b>splice</b> at the bench.`
+      ? `Chemistry ${chem}. You can splice: <b>splice</b> at the bench.`
       : `Chemistry ${chem}. Splicing opens at ${SPLICE_MIN_SKILL}.`,
   };
 

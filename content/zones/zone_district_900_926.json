@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "wasteland",
   "color": "#8f9256",
-  "description": "Low grey brush claws up through broken ground: brittle, half-dead stuff that shivers when there's no wind behind it.",
+  "description": "Broken ground with a cover of low, brittle grey brush.",
   "exits": {
     "east": "zone_district_901_926",
     "north": "zone_district_900_925",

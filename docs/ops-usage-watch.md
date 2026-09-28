@@ -147,6 +147,10 @@ rate and is the safe direction, on the same reasoning that makes
 `player_count_log`'s undercount the dangerous one. The pure arithmetic
 (`deployRate`, `combineLoads`) is gated in `npm run ops:smoke`.
 
+Uptime from `/metrics/cpu` is measured in hours over the billing cycle, but the
+cold-start rate is taken over a trailing 7 days. Taken over the cycle, the rate
+is unusable for the first days of every month.
+
 **Once it is counted, the cadence is a lever.** At 4-hourly, ~120 deploys a month
 × ~13.3 MB is **~1.6 GB of a 5 GB cap before a player connects**. The deploy
 workflow's own header did this arithmetic at 4.7 MB and has not been revisited

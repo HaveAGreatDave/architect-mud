@@ -85,7 +85,7 @@ export function buildImpairment(player, sev) {
     moveStaminaExtra = LEG_STEP_COST[Math.min(worstLeg, MAIMED)] ?? 0;
     if (worstLeg >= MAIMED) {
       runBlocked = bothLegsMaimed
-        ? "Both your legs are ruined. You aren't running anywhere — it's all you can do to stay upright."
+        ? "Both your legs are ruined. You aren't running anywhere: it's all you can do to stay upright."
         : 'Your leg gives out the moment you try to push off it. Walking is the best you have.';
       // Two ruined legs: worse than the sum, and the one place the count matters.
       if (bothLegsMaimed) moveStaminaExtra += 3;

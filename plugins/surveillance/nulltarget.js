@@ -148,7 +148,7 @@ export async function cameraTargets(player, ctx = {}) {
         // the substrate. Writing anything here would be the second copy.
         if (opId === 'jam' || opId === 'spoof' || opId === 'lock' || opId === 'crash') {
           return {
-            message: `<span class="msg-system">The ${dev.fname} goes quiet — its ${subsystem.id} stops answering.</span>`,
+            message: `<span class="msg-system">The ${dev.fname} goes quiet: its ${subsystem.id} stops answering.</span>`,
             ownerMessage: `<span class="text-amber">⚠ SPECTER</span> ${dev.fname} lost its ${subsystem.id}.`,
           };
         }
@@ -164,7 +164,7 @@ export async function cameraTargets(player, ctx = {}) {
           );
           return {
             message: `<span class="ip-gain">The ${dev.fname} answers to you now.</span>`,
-            ownerMessage: `<span class="text-red">⚠ SPECTER</span> ${dev.fname} was HIJACKED — you no longer control it.`,
+            ownerMessage: `<span class="text-red">⚠ SPECTER</span> ${dev.fname} was HIJACKED: you no longer control it.`,
           };
         }
 

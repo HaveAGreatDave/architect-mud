@@ -1,7 +1,7 @@
 {
   "altitude_ceiling": 3,
   "cargo_capacity": 60,
-  "class": "heli",
+  "class": "drake",
   "cruise_speed": 2,
   "data": {
     "feel": "A flying mandarin duck. Stable, comfortable, slow to turn, and nobody looks at anything else on the pad."
@@ -11,7 +11,7 @@
   "fuel_capacity": 1600,
   "fuel_type": "avgas",
   "handling": -1,
-  "hardpoints": 0,
+  "hardpoints": 2,
   "hull_hp": 26,
   "id": "ac_drake",
   "max_takeoff_weight": 520,

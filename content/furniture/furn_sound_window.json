@@ -6,9 +6,7 @@
       "window",
       "booth"
     ],
-    "interactions": {
-      "examine": "The card taped inside the glass reads ONE PRICE, ALL SEATS, and the price has been amended twice in biro."
-    }
+    "examine_detail": "The card taped inside the glass reads ONE PRICE, ALL SEATS, and the price has been amended twice in biro."
   },
   "id": "furn_sound_window",
   "name": "the box-office window",

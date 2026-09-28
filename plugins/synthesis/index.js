@@ -193,7 +193,7 @@ async function cmdSynthResolve(args, raw, player, broadcast) {
 
   const inv = await playerInventory(player.id);
   const res = resolveIngredients(recipe, inv);
-  if (res.missing) return { type: 'error', message: "You're missing something now — the cook falls apart." };
+  if (res.missing) return { type: 'error', message: "You're missing something now: the cook falls apart." };
   const toConsume = res.toConsume;
 
   const tier = pending.tier || 1;
@@ -225,12 +225,12 @@ async function cmdSynthResolve(args, raw, player, broadcast) {
       await handlePlayerDeath(player, null, { type: 'drug', label: 'Killed by a botched cook' });
       return { type: 'noop' };
     }
-    return { type: 'output', message: `<span class="overdose-warning">The reaction runs away from you — a flash of heat, a gout of acrid smoke. The batch is ruined and you're burned (−${dmg} HP).</span>`, player_update: { hp, sanity } };
+    return { type: 'output', message: `<span class="overdose-warning">The reaction runs away from you: a flash of heat, a gout of acrid smoke. The batch is ruined and you're burned (−${dmg} HP).</span>`, player_update: { hp, sanity } };
   }
 
   if (!success) {
     await withTransaction(consume); // a failed cook still burns the materials — no free infinite retries
-    return { type: 'error', message: `The cook doesn't take. The mixture goes inert and cloudy — a wasted run, and the materials are spent. (margin ${finalMargin})` };
+    return { type: 'error', message: `The cook doesn't take. The mixture goes inert and cloudy: a wasted run, and the materials are spent. (margin ${finalMargin})` };
   }
 
   // Potency baked into the produced drug item — a great cook makes stronger product.
@@ -258,11 +258,11 @@ async function cmdSynthResolve(args, raw, player, broadcast) {
 
   const pct = Math.round(potency * 100);
   const landing = toVault
-    ? ` <span class="text-dim">Logged to the chem-lab vault — <span class="action-link" data-raw-cmd="open chem lab">open the vault</span> to withdraw it.</span>`
+    ? ` <span class="text-dim">Logged to the chem-lab vault: <span class="action-link" data-raw-cmd="open chem lab">open the vault</span> to withdraw it.</span>`
     : '';
   return {
     type: 'output',
-    message: `<span class="ip-gain">The reaction settles clean.</span> You cook ${outQty}x <span class="item">${outName}</span> — <b>${pct}% potency</b>.${landing}`,
+    message: `<span class="ip-gain">The reaction settles clean.</span> You cook ${outQty}x <span class="item">${outName}</span>: <b>${pct}% potency</b>.${landing}`,
   };
 }
 
@@ -407,10 +407,10 @@ function composeSplice(inputs) {
   const doseWeight = n;                  // one dose-weight per distinct drug in the blend
   const odThreshold = doseWeight + 2;    // first dose usable; stacking doses ODs faster than a plain drug
   const warnings = [];
-  if (antagonism > 0) warnings.push('Antagonistic effects fight each other — volatile.');
-  if (n >= 3) warnings.push('Three-way blend — overloaded, ODs fast.');
-  if (outputQty >= 4) warnings.push('Big batch — harder to hold steady.');
-  if (instability > 0.6) warnings.push('Highly unstable — real risk of a bad batch, or worse.');
+  if (antagonism > 0) warnings.push('Antagonistic effects fight each other: volatile.');
+  if (n >= 3) warnings.push('Three-way blend: overloaded, ODs fast.');
+  if (outputQty >= 4) warnings.push('Big batch: harder to hold steady.');
+  if (instability > 0.6) warnings.push('Highly unstable: real risk of a bad batch, or worse.');
   return { effects: composed, difficulty, instability: Math.round(instability * 100) / 100, doseWeight, odThreshold, outputQty, form, color, warnings, antagonism };
 }
 
@@ -427,9 +427,9 @@ function badBatch(effects) {
 
 async function cmdSplice(args, raw, player, broadcast) {
   const eff = await effectiveSkill(player, SYNTH_SKILL);
-  if (eff < SPLICE_MIN_SKILL) return { type: 'error', message: `Splicing is master's work — you need Chemistry ${SPLICE_MIN_SKILL}+ (you're at ${eff}).` };
+  if (eff < SPLICE_MIN_SKILL) return { type: 'error', message: `Splicing is master's work: you need Chemistry ${SPLICE_MIN_SKILL}+ (you're at ${eff}).` };
   const ws = await findWorkspace({ requires_station: 'chem_lab' }, player);
-  if (!ws || ws.mode !== 'lab') return { type: 'error', message: "Splicing needs a real chem lab — a cook kit can't hold the reaction." };
+  if (!ws || ws.mode !== 'lab') return { type: 'error', message: "Splicing needs a real chem lab: a cook kit can't hold the reaction." };
 
   const cache = getDrugCache();
   const { rows } = await query(
@@ -527,7 +527,7 @@ async function cmdSpliceBegin(args, raw, player, broadcast) {
   if (!inputs || inputs.length < 2) return { type: 'error', message: 'Pick a base drug and a splice drug.' };
   if (inputs.length > 3) inputs.length = 3;
   if (new Set(inputs.map(i => i.drug)).size !== inputs.length) return { type: 'error', message: 'Each slot needs a different drug.' };
-  if (inputs.length === 3 && !(await allow3way(player))) return { type: 'error', message: "Three-way splicing is master's work — Chemistry 10 and a lot of splices logged." };
+  if (inputs.length === 3 && !(await allow3way(player))) return { type: 'error', message: "Three-way splicing is master's work: Chemistry 10 and a lot of splices logged." };
   if (inputs.some(i => !i.itemId)) return { type: 'error', message: 'A source drug is missing its item.' };
 
   const eff = await effectiveSkill(player, SYNTH_SKILL);
@@ -548,7 +548,7 @@ async function cmdSpliceBegin(args, raw, player, broadcast) {
   const inv = await playerInventory(player.id);
   for (const n of need) {
     const have = inv.filter(v => v.item_id === n.itemId).reduce((s, v) => s + v.quantity, 0);
-    if (have < n.qty) return { type: 'error', message: `You need ${n.qty}× ${n.label} for this batch — you have ${have}.` };
+    if (have < n.qty) return { type: 'error', message: `You need ${n.qty}× ${n.label} for this batch: you have ${have}.` };
   }
 
   const token = randomUUID().slice(0, 8);
@@ -591,7 +591,7 @@ async function cmdSpliceResolve(args, raw, player, broadcast) {
   for (const n of p.need) {
     const stacks = inv.filter(v => v.item_id === n.itemId).sort((a, b) => a.quantity - b.quantity);
     const have = stacks.reduce((s, v) => s + v.quantity, 0);
-    if (have < n.qty) return { type: 'error', message: 'Something you needed is gone — the splice collapses.' };
+    if (have < n.qty) return { type: 'error', message: 'Something you needed is gone: the splice collapses.' };
     let remaining = n.qty;
     for (const st of stacks) { if (remaining <= 0) break; const take = Math.min(remaining, st.quantity); plan.push({ invId: st.id, take, currentQty: st.quantity }); remaining -= take; }
   }
@@ -618,12 +618,12 @@ async function cmdSpliceResolve(args, raw, player, broadcast) {
     player.hp = hp;
     query('UPDATE players SET hp=$1, sanity=$2 WHERE id=$3', [hp, sanity, player.id]).catch(() => {});
     if (hp <= 0) {
-      broadcast(null, { type: 'output', message: `<span class="overdose-warning">The splice goes critical — a white flash, a wall of heat. It takes you with it.</span>`, player_update: { hp, sanity } }, null, player.id);
+      broadcast(null, { type: 'output', message: `<span class="overdose-warning">The splice goes critical: a white flash, a wall of heat. It takes you with it.</span>`, player_update: { hp, sanity } }, null, player.id);
       const { handlePlayerDeath } = await import('../../server/engine/gameLoop.js');
       await handlePlayerDeath(player, null, { type: 'drug', label: 'Killed by a splice gone critical' });
       return { type: 'noop' };
     }
-    return { type: 'output', message: `<span class="overdose-warning">The reaction blows back in your face — the compound is destroyed and you're badly burned (−${dmg} HP).</span>`, player_update: { hp, sanity } };
+    return { type: 'output', message: `<span class="overdose-warning">The reaction blows back in your face: the compound is destroyed and you're badly burned (−${dmg} HP).</span>`, player_update: { hp, sanity } };
   }
 
   // Splicing always happens at a real lab, so the finished batch is deposited
@@ -643,8 +643,8 @@ async function cmdSpliceResolve(args, raw, player, broadcast) {
   if (!grade) {
     const cd = { synthesized: true, spliced: true, potency: 0.4, name: `unstable ${p.name}`, effects: badBatch(p.comp.effects), overdose_threshold: Math.max(2, p.comp.odThreshold - 1), dose_weight: p.comp.doseWeight, duration_seconds: 300, form: p.comp.form, color: p.comp.color, packaged: true, grade: 'F', sources: p.sources };
     await withTransaction(async (q) => { await consume(q); await insertCompound(q, cd, batch); });
-    broadcast?.(null, { type: 'output', message: `<span class="msg-system">The splice curdles into something wrong — cloudy, and it smells of solvent and regret. The lab seals ${batch > 1 ? `${batch}× ` : ''}<span class="item">unstable ${p.name}</span> into a crate anyway and logs it to the chem-lab vault. <span class="text-dim">(<span class="action-link" data-raw-cmd="open chem lab">open the vault</span> to withdraw, then unseal to use)</span></span>` }, null, player.id);
-    return { type: 'splice_report', grade: 'F', outcome: 'badbatch', name: p.name, potency: 40, doses: p.comp.doseWeight, batch, sealed: true, vaulted: true, note: 'Curdled — degraded effects, and it bites back.' };
+    broadcast?.(null, { type: 'output', message: `<span class="msg-system">The splice curdles into something wrong: cloudy, and it smells of solvent and regret. The lab seals ${batch > 1 ? `${batch}× ` : ''}<span class="item">unstable ${p.name}</span> into a crate anyway and logs it to the chem-lab vault. <span class="text-dim">(<span class="action-link" data-raw-cmd="open chem lab">open the vault</span> to withdraw, then unseal to use)</span></span>` }, null, player.id);
+    return { type: 'splice_report', grade: 'F', outcome: 'badbatch', name: p.name, potency: 40, doses: p.comp.doseWeight, batch, sealed: true, vaulted: true, note: 'Curdled: degraded effects, and it bites back.' };
   }
 
   // Success — grade sets the potency, capped by the recipe's instability (overload caps power).
@@ -658,11 +658,11 @@ async function cmdSpliceResolve(args, raw, player, broadcast) {
   await setFlag('player', 'splice_count', (parseInt(await getFlag('player', 'splice_count', player), 10) || 0) + 1, player);
 
   const pct = Math.round(potency * 100);
-  broadcast?.(null, { type: 'output', message: `<span class="ip-gain">It holds.</span> You splice ${batch > 1 ? `${batch}× ` : ''}<span class="item">${p.name}</span> — grade <b>${grade.letter}</b>, <b>${pct}%</b> potency. <span class="text-dim">Sealed and logged to the chem-lab vault — <span class="action-link" data-raw-cmd="open chem lab">open the vault</span> to withdraw, then unseal to use.</span>` }, null, player.id);
+  broadcast?.(null, { type: 'output', message: `<span class="ip-gain">It holds.</span> You splice ${batch > 1 ? `${batch}× ` : ''}<span class="item">${p.name}</span>: grade <b>${grade.letter}</b>, <b>${pct}%</b> potency. <span class="text-dim">Sealed and logged to the chem-lab vault: <span class="action-link" data-raw-cmd="open chem lab">open the vault</span> to withdraw, then unseal to use.</span>` }, null, player.id);
   return {
     type: 'splice_report', grade: grade.letter, outcome: 'success', name: p.name, potency: pct, doses: p.comp.doseWeight, batch, sealed: true, vaulted: true,
-    note: capped ? 'Instability capped the yield — a cleaner recipe would hit harder.'
-      : (p.comp.doseWeight > 1 ? `Heavy blend — counts as ${p.comp.doseWeight} doses, go easy.` : ''),
+    note: capped ? 'Instability capped the yield: a cleaner recipe would hit harder.'
+      : (p.comp.doseWeight > 1 ? `Heavy blend: counts as ${p.comp.doseWeight} doses, go easy.` : ''),
   };
 }
 
@@ -706,7 +706,7 @@ function cmdSpliceTest(args, raw, player) {
     if (Object.keys(blocks).length) drugs.push({ drug: d.id, name: d.name, blocks, ...drugVisual(d.id, d), known: 0.85, count: 20 });
     if (drugs.length >= 6) break;
   }
-  if (drugs.length < 2) return { type: 'error', message: 'Need ≥2 drugs with effects in the cache — run seed-drugs.js first.' };
+  if (drugs.length < 2) return { type: 'error', message: 'Need ≥2 drugs with effects in the cache: run seed-drugs.js first.' };
   return { type: 'splice_designer', drugs, minSkill: SPLICE_MIN_SKILL, baseDifficulty: SPLICE_BASE_DIFF, hasStabilizer: true, test: true, allow3way: true };
 }
 
@@ -741,7 +741,7 @@ async function cmdReclaim(args, raw, player) {
   const row = rows[0];
   if (!row) return { type: 'error', message: hint ? `You're not carrying a "${hint}" to break down.` : "Reclaim what? Name a drug you're carrying." };
   const cd = row.custom_data || {};
-  if (cd.packaged) return { type: 'error', message: "It's sealed in a crate — unseal it first." };
+  if (cd.packaged) return { type: 'error', message: "It's sealed in a crate: unseal it first." };
 
   const chk = await skillCheck(player, SYNTH_SKILL, RECLAIM_DIFF);
   await awardSkillUse(player.id, SYNTH_SKILL, chk.margin);
@@ -759,12 +759,12 @@ async function cmdReclaim(args, raw, player) {
       const amt = Math.max(0, Math.round((s.qty || 1) * quality * skillMul));
       if (amt > 0) gives.push({ itemId, amt, name: cache[s.drug]?.name || s.drug });
     }
-    if (!gives.length) return { type: 'error', message: `A grade-${cd.grade || '?'} batch is too degraded — nothing usable comes back.` };
+    if (!gives.length) return { type: 'error', message: `A grade-${cd.grade || '?'} batch is too degraded: nothing usable comes back.` };
     await withTransaction(async (q) => {
       await q('DELETE FROM player_inventory WHERE id=$1', [row.inv_id]);
       for (const g of gives) await stackAdd(q, player.id, g.itemId, g.amt);
     });
-    return { type: 'output', message: `<span class="ambient">You crack the compound back down over the bench — grade <b>${cd.grade}</b>, so you pull ${gives.map(g => `${g.amt}× ${g.name}`).join(', ')} out of it.</span>` };
+    return { type: 'output', message: `<span class="ambient">You crack the compound back down over the bench: grade <b>${cd.grade}</b>, so you pull ${gives.map(g => `${g.amt}× ${g.name}`).join(', ')} out of it.</span>` };
   }
 
   // Cooked / plain drug → its raw stock, scaled by potency.
@@ -773,12 +773,12 @@ async function cmdReclaim(args, raw, player) {
   if (!rawEx) return { type: 'error', message: `There's no raw form to break ${row.name} down into.` };
   const potNorm = Math.max(0.2, Math.min(1.2, Number(cd.potency) || 1));
   const amt = Math.max(0, Math.round(qtyN * potNorm * skillMul));
-  if (!amt) return { type: 'error', message: 'Too little to reclaim — the process would waste it all.' };
+  if (!amt) return { type: 'error', message: 'Too little to reclaim: the process would waste it all.' };
   await withTransaction(async (q) => {
     await q('DELETE FROM player_inventory WHERE id=$1', [row.inv_id]);
     await stackAdd(q, player.id, rawId, amt);
   });
-  return { type: 'output', message: `<span class="ambient">You cook ${row.name} back down to base stock — ${amt}× ${rawEx.name} reclaimed.</span>` };
+  return { type: 'output', message: `<span class="ambient">You cook ${row.name} back down to base stock: ${amt}× ${rawEx.name} reclaimed.</span>` };
 }
 
 // unseal [name] — pop a climate-crate seal off a packaged batch so it can be
@@ -795,7 +795,7 @@ async function cmdUnseal(args, raw, player) {
   if (!row) return { type: 'error', message: hint ? `You've nothing sealed matching "${hint}".` : "You've nothing sealed in a climate crate." };
   await query(`UPDATE player_inventory SET custom_data = custom_data - 'packaged' WHERE id = $1`, [row.inv_id]);
   const nm = row.custom_data?.name || row.name;
-  return { type: 'output', message: `<span class="ambient">You break the climate crate's seal — the ${nm} is loose and live now. Watch who's looking.</span>` };
+  return { type: 'output', message: `<span class="ambient">You break the climate crate's seal: the ${nm} is loose and live now. Watch who's looking.</span>` };
 }
 
 // ── the chem lab as a hub ─────────────────────────────────────────────────────

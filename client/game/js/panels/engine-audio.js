@@ -11,6 +11,7 @@
 // thicker, beefier bed. Over the top ride airframe creaks, stress groans, gear
 // clunks, and gust thumps. All guarded — silent if the audio engine isn't up.
 
+import { TRUCK_HORNS } from '../../../shared/truck-horns.js';
 function AE() { return window.AudioEngine; }
 
 // Per-class engine character.
@@ -203,7 +204,7 @@ function updateFlightEngine(s) {
   set(N.air.gain.gain, 0.02 + rpm * 0.03 + spdN * 0.02, 0.20);
   set(N.air.hp.frequency, 500 + rpm * 700, 0.20);
   const flaps = _c01(s.flaps || 0);
-  set(N.wind.gain.gain, spdN * 0.12 * windMul * (1 + flaps * 0.5), 0.30);         // wind ∝ airspeed (+ flaps); interior reduces
+  set(N.wind.gain.gain, spdN * 0.12 * windMul * (1 + flaps * 0.5) * (1 - _c01(s.underwater || 0)), 0.30);         // wind ∝ airspeed (+ flaps); interior reduces
   set(N.wind.bp.frequency, 500 + spdN * 700, 0.30);
   // GROUND ROLL. An aircraft only has it while taxiing, so this was gated on `onGround`; a truck
   // has it for the whole drive, and WHICH surface it is on is most of the information it carries.
@@ -222,7 +223,10 @@ function updateFlightEngine(s) {
   }
   // Tone: exterior is wide open, the cockpit is already damped, the CABIN is muffled hard — 340 Hz
   // keeps the core rumble and the blade pulse (the parts you feel) and throws away the whine.
-  set(N.toneFilter.frequency, Math.max(cabin ? 300 : 400, (ext ? 9000 : cabin ? 340 : 2600) * (1 - dist * 0.6)), 0.25);
+  // UNDER THE WATER (plugins/submersible): water carries the low end and eats the rest, so going
+  // under is the cabin's muffle taken further, eased across the crossing rather than switched.
+  const uw = _c01(s.underwater || 0);
+  set(N.toneFilter.frequency, Math.max(cabin ? 300 : 400, (ext ? 9000 : cabin ? 340 : 2600) * (1 - dist * 0.6)) * (1 - uw) + 240 * uw, 0.25);
   // …and back the whole bus off a little, so it sits UNDER the room rather than over it. Still
   // plainly audible: this is a trim, not a mute — a Leviathan is never quiet.
   // Written ONLY when the cabin state actually flips. `master.gain` also carries the start-up swell
@@ -603,8 +607,14 @@ export const HORN = {
 // `secs` is how long the driver held the cord, so the yard hears a toot or a long lean on it rather
 // than the same stock blast either way. Absent (an older sender, or any non-cab caller) is the
 // horn's own authored length exactly as before.
-export function airHorn(typeId, secs = null) {
-  const ae = AE(); const h0 = HORN[typeId] || HORN.drayman;
+// ⚠ `style` IS A HORN BOUGHT AT THE BENCH (client/shared/truck-horns.js) and absent is the truck's own
+// row above, which is every truck nobody has taken to the bench — so an older sender, or any caller
+// that passes nothing, hears exactly what it always heard.
+export function hornFor(typeId, style = null) {
+  return (style && TRUCK_HORNS[style]?.voice) || HORN[typeId] || HORN.drayman;
+}
+export function airHorn(typeId, secs = null, style = null) {
+  const ae = AE(); const h0 = hornFor(typeId, style);
   const h = secs ? { ...h0, dur: Math.max(0.18, Math.min(4, secs)) } : h0;
   // ⚠ The voices are `hornVoices`, shared with the held horn below — see the note there. (The
   // centre of the bandpass sits just ABOVE the fundamental, not three octaves up it, with a wider Q
@@ -631,17 +641,20 @@ function hornVoices(h, sustain) {
       filter: { type: 'lowpass', freq: freq * 5, q: 0.8 },
       adsr: sustain ? { a: 0.05, d: 0.15, s: 0.5, r: 0.2 } : { a: 0.05, d: h.dur * 0.4, s: 0.4, r: h.dur * 0.4 }, gain: gain * 0.4 },
   ]);
+  // ⚠ `ratios` IS A BENCH HORN'S CHORD and `ratio` a stock one's single second note. A stock row builds
+  // exactly the two voices it always did; a chord adds one more a step quieter per extra note.
+  const ratios = h.ratios || [h.ratio];
   return [
     ...voice(h.base, h.gain),
-    ...voice(h.base * h.ratio, h.gain * 0.86),
+    ...ratios.flatMap((r, i) => voice(h.base * r, h.gain * 0.86 * Math.pow(0.9, i))),
     // Air leaking past the diaphragms for as long as the valve is open. Cheap, and it is the
     // difference between a chord and a horn.
     { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 2600, q: 0.7 },
       adsr: sustain ? { a: 0.02, d: 0.2, s: 0.3, r: 0.25 } : { a: 0.02, d: 0.3, s: 0.22, r: 0.3 }, gain: 0.02 * h.air },
   ];
 }
-export function airHornOn(typeId) {
-  const ae = AE(); const h = HORN[typeId] || HORN.drayman;
+export function airHornOn(typeId, style = null) {
+  const ae = AE(); const h = hornFor(typeId, style);
   try {
     ae?.init?.();
     ae?.stopLoop?.(HORN_LOOP_ID);      // a second pull while one is open is one horn, not two
@@ -754,8 +767,170 @@ const GEAR_FX = {
     { waveform: 'sine', freq: 90, pitchBend: { to: 48, time: 0.22 }, delay: 1.28, adsr: { a: 0.002, d: 0.3, s: 0, r: 0.1 }, gain: 0.11 },                                                                                                           // stow hydraulic thunk
     { waveform: 'square', freq: 900, fm: { rate: 1970, depth: 260 }, delay: 1.42, filter: { type: 'bandpass', freq: 1800, q: 2.5 }, adsr: { a: 0.001, d: 0.08, s: 0, r: 0.04 }, gain: 0.05 },                                                       // uplock click
     { waveform: 'square', freq: 760, fm: { rate: 1690, depth: 240 }, delay: 1.55, filter: { type: 'bandpass', freq: 1600, q: 2.5 }, adsr: { a: 0.001, d: 0.09, s: 0, r: 0.04 }, gain: 0.05 } ] } },                                                 // uplock clack
+  // ── THE DRAKE ──────────────────────────────────────────────────────────────
+  // Its gear is a three-second SEQUENCE and these are timed to it (cockpit.js runs the Drake's gear
+  // at a constant rate): up is the bay doors unlatching and swinging, the feet sliding up on the
+  // jacks, clunk-clunk as they seat in the uplocks, and the doors thumping shut; down is the reverse,
+  // ending on the downlocks.
+  drakeUp: { config: { duration: 3.2, layers: [
+    { waveform: 'square', freq: 120, fm: { rate: 260, depth: 150 }, pitchBend: { to: 90, time: 0.1 }, filter: { type: 'bandpass', freq: 700, q: 1.4 }, adsr: { a: 0.002, d: 0.16, s: 0, r: 0.06 }, gain: 0.08 },
+    { waveform: 'sine', freq: 340, pitchBend: { to: 420, time: 0.8 }, fm: { rate: 690, depth: 160 }, filter: { type: 'bandpass', freq: 900, q: 1.3 }, delay: 0.08, adsr: { a: 0.05, d: 0.7, s: 0.3, r: 0.05 }, gain: 0.05 },
+    { waveform: 'sine', freq: 480, pitchBend: { to: 720, time: 1.2 }, fm: { rate: 1030, depth: 300 }, tremolo: { rate: 9, depth: 0.3 }, filter: { type: 'bandpass', freq: 1400, q: 1.3 }, delay: 0.95, adsr: { a: 0.08, d: 1.1, s: 0.5, r: 0.05 }, gain: 0.07 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1500, q: 0.8 }, delay: 0.95, adsr: { a: 0.3, d: 0.9, s: 0.3, r: 0.1 }, gain: 0.03 },
+    { waveform: 'square', freq: 150, fm: { rate: 317, depth: 190 }, pitchBend: { to: 105, time: 0.12 }, delay: 2.1, filter: { type: 'bandpass', freq: 880, q: 1.5 }, adsr: { a: 0.002, d: 0.16, s: 0, r: 0.06 }, gain: 0.1 },
+    { waveform: 'square', freq: 132, fm: { rate: 289, depth: 210 }, pitchBend: { to: 92, time: 0.12 }, delay: 2.34, filter: { type: 'bandpass', freq: 760, q: 1.6 }, adsr: { a: 0.002, d: 0.2, s: 0, r: 0.08 }, gain: 0.12 },
+    { waveform: 'sine', freq: 62, pitchBend: { to: 38, time: 0.25 }, delay: 2.85, adsr: { a: 0.002, d: 0.3, s: 0, r: 0.1 }, gain: 0.12 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 500, q: 0.7 }, delay: 2.85, adsr: { a: 0.002, d: 0.18, s: 0, r: 0.08 }, gain: 0.06 } ] } },
+  drakeDown: { config: { duration: 3.2, layers: [
+    { waveform: 'square', freq: 120, fm: { rate: 260, depth: 150 }, pitchBend: { to: 90, time: 0.1 }, filter: { type: 'bandpass', freq: 700, q: 1.4 }, adsr: { a: 0.002, d: 0.16, s: 0, r: 0.06 }, gain: 0.08 },
+    { waveform: 'sine', freq: 420, pitchBend: { to: 330, time: 0.8 }, fm: { rate: 690, depth: 160 }, filter: { type: 'bandpass', freq: 900, q: 1.3 }, delay: 0.08, adsr: { a: 0.05, d: 0.7, s: 0.3, r: 0.05 }, gain: 0.05 },
+    { waveform: 'sine', freq: 760, pitchBend: { to: 420, time: 1.2 }, fm: { rate: 1030, depth: 280 }, tremolo: { rate: 7, depth: 0.3 }, filter: { type: 'bandpass', freq: 1200, q: 1.3 }, delay: 0.95, adsr: { a: 0.08, d: 1.1, s: 0.5, r: 0.05 }, gain: 0.07 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1300, q: 0.8 }, delay: 0.95, adsr: { a: 0.3, d: 0.9, s: 0.3, r: 0.1 }, gain: 0.03 },
+    { waveform: 'square', freq: 140, fm: { rate: 301, depth: 200 }, pitchBend: { to: 96, time: 0.12 }, delay: 2.55, filter: { type: 'bandpass', freq: 820, q: 1.5 }, adsr: { a: 0.002, d: 0.18, s: 0, r: 0.07 }, gain: 0.11 },
+    { waveform: 'square', freq: 124, fm: { rate: 277, depth: 220 }, pitchBend: { to: 86, time: 0.12 }, delay: 2.8, filter: { type: 'bandpass', freq: 700, q: 1.6 }, adsr: { a: 0.002, d: 0.22, s: 0, r: 0.08 }, gain: 0.13 },
+    { waveform: 'sine', freq: 66, pitchBend: { to: 40, time: 0.25 }, delay: 2.82, adsr: { a: 0.002, d: 0.3, s: 0, r: 0.1 }, gain: 0.1 } ] } },
+  // The conversion: seven seconds of heavy hydraulics, the wings' sweep motor rising, and the rotor
+  // head's lock thumping home at the end.
+  drakeConvert: { config: { duration: 7.2, layers: [
+    { waveform: 'sine', freq: 220, pitchBend: { to: 360, time: 6.5 }, fm: { rate: 440, depth: 120 }, tremolo: { rate: 6, depth: 0.25 }, filter: { type: 'bandpass', freq: 700, q: 1.2 }, adsr: { a: 0.4, d: 6.0, s: 0.5, r: 0.4 }, gain: 0.06 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1100, q: 0.6 }, adsr: { a: 0.8, d: 5.5, s: 0.4, r: 0.5 }, gain: 0.03 },
+    { waveform: 'sine', freq: 70, tremolo: { rate: 4, depth: 0.3 }, filter: { type: 'lowpass', freq: 150, q: 1 }, adsr: { a: 0.5, d: 6.0, s: 0.4, r: 0.4 }, gain: 0.05 },
+    { waveform: 'square', freq: 110, fm: { rate: 240, depth: 200 }, pitchBend: { to: 76, time: 0.14 }, delay: 6.8, filter: { type: 'bandpass', freq: 600, q: 1.5 }, adsr: { a: 0.002, d: 0.25, s: 0, r: 0.1 }, gain: 0.13 } ] } },
+  // The ramp: four seconds of rams and a thud as it meets its stop.
+  drakeRamp: { config: { duration: 4.3, layers: [
+    { waveform: 'sine', freq: 180, pitchBend: { to: 140, time: 3.8 }, fm: { rate: 360, depth: 90 }, tremolo: { rate: 5, depth: 0.2 }, filter: { type: 'bandpass', freq: 500, q: 1.2 }, adsr: { a: 0.2, d: 3.5, s: 0.5, r: 0.3 }, gain: 0.06 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 900, q: 0.6 }, adsr: { a: 0.3, d: 3.4, s: 0.4, r: 0.3 }, gain: 0.025 },
+    { waveform: 'sine', freq: 58, pitchBend: { to: 34, time: 0.3 }, delay: 3.95, adsr: { a: 0.002, d: 0.35, s: 0, r: 0.1 }, gain: 0.14 } ] } },
+  // Setting down on water: a broad wash of noise and a low slap as the hull takes it.
+  splash: { config: { duration: 1.4, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 2400, q: 0.6 }, adsr: { a: 0.01, d: 1.1, s: 0, r: 0.2 }, gain: 0.12 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 600, q: 0.8 }, adsr: { a: 0.005, d: 0.4, s: 0, r: 0.1 }, gain: 0.1 },
+    { waveform: 'sine', freq: 70, pitchBend: { to: 42, time: 0.3 }, adsr: { a: 0.003, d: 0.35, s: 0, r: 0.1 }, gain: 0.1 } ] } },
+  // THE DRAKE SKIING IN ON ITS FEET (drake-water.js): a torn-water hiss, played as overlapping
+  // bursts while she skids so it reads as one continuous sound; the louder one at speed.
+  skidLo: { config: { duration: 0.45, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1300, q: 0.7 }, adsr: { a: 0.08, d: 0.2, s: 0.4, r: 0.15 }, gain: 0.035 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 500, q: 0.5 }, adsr: { a: 0.08, d: 0.2, s: 0.5, r: 0.15 }, gain: 0.03 } ] } },
+  skidHi: { config: { duration: 0.45, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1700, q: 0.6 }, adsr: { a: 0.06, d: 0.2, s: 0.5, r: 0.15 }, gain: 0.07 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 3800, q: 0.9 }, adsr: { a: 0.06, d: 0.2, s: 0.3, r: 0.15 }, gain: 0.03 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 420, q: 0.5 }, adsr: { a: 0.06, d: 0.2, s: 0.6, r: 0.15 }, gain: 0.05 } ] } },
+  // One paddle stroke: a soft plop and a trickle.
+  paddle: { config: { duration: 0.35, layers: [
+    { waveform: 'sine', freq: 190, pitchBend: { to: 90, time: 0.08 }, adsr: { a: 0.003, d: 0.09, s: 0, r: 0.05 }, gain: 0.05 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 2200, q: 1.2 }, adsr: { a: 0.02, d: 0.25, s: 0, r: 0.05 }, gain: 0.02 } ] } },
+  // THE QUACK, out of the bill. ⚠ A DUCK, NOT A HORN, and most of the horn
+  // was one misread number: `duration` here is the HOLD after the decay, not the length of the
+  // sound (buildLayer releases at a + d + duration), so the old 0.5 with a 0.3 decay held a steady
+  // note for about 0.9 s. Rendered offline and measured, this one is about 230 ms.
+  //   · the voice: a buzzy source through three parallel nasal formants (the vowel), pitch falling
+  //     375 → 255 Hz; a 58 Hz tremolo is the rasp, the vocal fry that makes it a throat and not an
+  //     oscillator (envelope roughness 0.54 against the horn's 0.15);
+  //   · the "kw": the same source through one bandpass sweeping 600 → 1600 Hz in 50 ms;
+  //   · breath noise in the nasal band, chopped at the same 58 Hz;
+  //   · a quieter chest than the horn had, and a short release so it ends clipped.
+  quack: { config: { duration: 0.08, layers: [
+    { waveform: 'sawtooth', freq: 400, pitchBend: { to: 270, time: 0.16 }, fm: { rate: 58, depth: 30 }, tremolo: { rate: 58, depth: 0.7 }, formants: [{ freq: 900, q: 5, gain: 1 }, { freq: 1500, q: 6, gain: 0.8 }, { freq: 2600, q: 8, gain: 0.3 }], drive: 0.5, adsr: { a: 0.012, d: 0.09, s: 0.55, r: 0.05 }, gain: 0.26 },
+    { waveform: 'sawtooth', freq: 370, pitchBend: { to: 280, time: 0.16 }, tremolo: { rate: 58, depth: 0.7 }, filter: { type: 'bandpass', freq: 600, q: 4, to: 1600, time: 0.05 }, adsr: { a: 0.004, d: 0.06, s: 0.2, r: 0.04 }, gain: 0.16 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1900, q: 1.4 }, tremolo: { rate: 58, depth: 0.8 }, adsr: { a: 0.006, d: 0.08, s: 0.25, r: 0.04 }, gain: 0.06 },
+    { waveform: 'square', freq: 200, pitchBend: { to: 135, time: 0.16 }, filter: { type: 'lowpass', freq: 650, q: 1 }, adsr: { a: 0.008, d: 0.08, s: 0.2, r: 0.04 }, gain: 0.05 } ] } },
+  // ── THE DRAKE GOING UNDER (plugins/submersible) ──────────────────────────
+  // FLOOD: the vents open. Air leaves the tanks as a hiss that falls as the pressure goes, and the
+  // water coming in behind it is a low gurgle — a pulsing bubbly bandpass, not a steady noise.
+  flood: { config: { duration: 2.6, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 2600, q: 0.7 }, adsr: { a: 0.03, d: 2.4, s: 0, r: 0.3 }, gain: 0.05 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 380, q: 2.2, to: 220, time: 2.4 }, tremolo: { rate: 7, depth: 0.8 }, adsr: { a: 0.3, d: 2.6, s: 0, r: 0.4 }, gain: 0.09 },
+    { waveform: 'sine', freq: 95, fm: { rate: 9, depth: 30 }, tremolo: { rate: 6, depth: 0.6 }, adsr: { a: 0.5, d: 2.2, s: 0, r: 0.4 }, gain: 0.05 } ] } },
+  // BLOW: compressed air into the tanks — a hard roar that rattles the hull and does not let up
+  // until the water is out, then a gurgling tail.
+  blow: { config: { duration: 3.0, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 900, q: 0.5 }, adsr: { a: 0.04, d: 2.8, s: 0.2, r: 0.5 }, gain: 0.11 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 240, q: 0.8 }, tremolo: { rate: 11, depth: 0.4 }, adsr: { a: 0.05, d: 2.6, s: 0.3, r: 0.5 }, gain: 0.08 },
+    { waveform: 'noise', noiseMix: 1, delay: 2.2, filter: { type: 'bandpass', freq: 450, q: 2 }, tremolo: { rate: 8, depth: 0.8 }, adsr: { a: 0.1, d: 0.9, s: 0, r: 0.3 }, gain: 0.05 } ] } },
+  // PLUNGE: the waterline going over the glass — a heavy slosh and then a rush of bubbles, the air
+  // trapped round the canopy tearing loose, heard already half through the water.
+  plunge: { config: { duration: 1.8, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 900, q: 0.7, to: 300, time: 0.8 }, adsr: { a: 0.01, d: 0.9, s: 0, r: 0.2 }, gain: 0.13 },
+    { waveform: 'noise', noiseMix: 1, delay: 0.15, filter: { type: 'bandpass', freq: 1100, q: 3, to: 500, time: 1.2 }, tremolo: { rate: 16, depth: 0.9 }, adsr: { a: 0.05, d: 1.3, s: 0, r: 0.3 }, gain: 0.08 },
+    { waveform: 'sine', freq: 60, pitchBend: { to: 38, time: 0.5 }, adsr: { a: 0.01, d: 0.6, s: 0, r: 0.2 }, gain: 0.12 } ] } },
+  // BREACH: coming back out — a bright tearing splash as the canopy clears, and the sheet of water
+  // running off it.
+  breach: { config: { duration: 1.6, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 1400, q: 0.6 }, adsr: { a: 0.005, d: 0.5, s: 0, r: 0.2 }, gain: 0.12 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 2200, q: 0.9, to: 900, time: 1.2 }, adsr: { a: 0.05, d: 1.3, s: 0, r: 0.3 }, gain: 0.06 },
+    { waveform: 'sine', freq: 80, pitchBend: { to: 50, time: 0.25 }, adsr: { a: 0.003, d: 0.3, s: 0, r: 0.1 }, gain: 0.08 } ] } },
 };
-export function gearFx(kind) { const ae = AE(); const d = GEAR_FX[kind] || GEAR_FX.extend; try { ae?.init?.(); ae?.playSfx?.(d); } catch {} }
+// A crossing of the sea surface, sized by the event: `k` is how hard (vertical speed x mass,
+// 0.2..1) and `mass` how heavy the thing crossing is. Harder is louder and longer; heavier is
+// LOWER, because a hull displaces a body of water and a camera displaces a cupful. The cue's own
+// shape is kept and only scaled, so there is still one authored plunge and one authored breach.
+export function crossingFx(kind, k = 1, mass = 0.5) {
+  const base = GEAR_FX[kind]; if (!base) return;
+  const g = 0.35 + 0.9 * k, lenK = 0.6 + 0.7 * k, pitch = 1.35 - 0.6 * mass;
+  const layers = base.config.layers.map((L) => {
+    const o = { ...L, gain: L.gain * g, adsr: L.adsr ? { ...L.adsr, d: L.adsr.d * lenK } : L.adsr };
+    if (L.freq) o.freq = L.freq * pitch;
+    if (L.pitchBend) o.pitchBend = { ...L.pitchBend, to: L.pitchBend.to * pitch };
+    if (L.filter) o.filter = { ...L.filter, freq: L.filter.freq * pitch, ...(L.filter.to ? { to: L.filter.to * pitch } : {}) };
+    return o;
+  });
+  const ae = AE(); try { ae?.init?.(); ae?.playSfx?.({ config: { ...base.config, duration: base.config.duration * lenK, layers } }); } catch {}
+}
+if (typeof window !== 'undefined' && window.addEventListener) {
+  window.addEventListener('sea:crossing', (e) => { const d = e.detail || {}; crossingFx(d.kind, d.k, d.mass); });
+}
+// THE HELD QUACK: the Drake's button quacks for as long as it is pressed. A synthesized copy of the
+// recording below, measured off it rather than guessed (buzz rising 148 → 178 Hz, resonances at 340,
+// 700, 1650, 2100 and 2600 Hz, breath noise at 1800), so a tap sounds like the sample and a hold is
+// the same duck carrying on. ⚠ A steady buzz through fixed formants is a TRUMPET, which is what the
+// first long render sounded like, so a held quack wobbles (vibrato), rasps (a 31 Hz tremolo, the
+// throat) and closes its nasal resonances as it goes (filter.to). Played with `sustain: true`, so the
+// caller's release ends it; `QUACK_MIN_S` keeps a tap from being a click.
+const QUACK_MIN_S = 0.15;
+const qLayer = (freq, q, gain, s, to, type = 'bandpass', waveform = 'sawtooth') => ({
+  waveform, freq: 148, pitchBend: { to: 178, time: 0.1 }, vibrato: { rate: 5.5, depth: 30 }, tremolo: { rate: 31, depth: 0.35 },
+  filter: { type, freq, q, ...(to ? { to, time: 0.9 } : {}) }, adsr: { a: 0.012, d: 0.12, s, r: 0.06 }, gain });
+const QUACK_HELD = { category: 'sfx', priority: 6, config: { duration: 0.2, layers: [
+  qLayer(700, 2.2, 0.061, 0.7, 560), qLayer(1650, 4, 0.159, 0.45, 1250), qLayer(2100, 5, 0.105, 0.35, 1700),
+  qLayer(420, 1.5, 0.012, 0.7, 0, 'lowpass', 'square'),
+  { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1800, q: 1 }, tremolo: { rate: 31, depth: 0.5 }, adsr: { a: 0.005, d: 0.12, s: 0.55, r: 0.05 }, gain: 0.083 },
+  qLayer(340, 3, 0.11, 0.8), qLayer(2600, 4, 0.033, 0.3) ] } };
+// Starts a quack and returns a function that ends it (idempotent). Never throws.
+export function quackStart() {
+  const ae = AE(); let h = null; const t0 = performance.now();
+  try { ae?.init?.(); h = ae?.playSfx?.(QUACK_HELD, 1, { sustain: true, maxHold: 4 }); } catch {}
+  let ended = false;
+  return () => {
+    if (ended) return; ended = true;
+    const left = QUACK_MIN_S * 1000 - (performance.now() - t0);
+    const end = () => { try { h?.release?.(); } catch {} };
+    if (left > 0) setTimeout(end, left); else end();
+  };
+}
+export function gearFx(kind) {
+  if (kind === 'quack' && playQuackSample()) return;
+  const ae = AE(); const d = GEAR_FX[kind] || GEAR_FX.extend; try { ae?.init?.(); ae?.playSfx?.(d); } catch {}
+}
+// THE QUACK IS A RECORDING (content/audio_samples, "drake_quack"), played untouched — the synthesized
+// one below was a little harsh. It is fetched once; until it has arrived, or if this server has no such
+// sample, the synth stands in, so the button is never silent.
+const QUACK_SAMPLE = 'smp_5d7a1c2e-9b41-4e7a-a3d6-2f8c0b6e71a9';
+let _quackOk = null;   // null: not asked yet, true: on the server, false: missing
+function checkQuack() {
+  if (_quackOk !== null || typeof fetch !== 'function') return;
+  _quackOk = false;
+  fetch('/api/audio/samples/' + QUACK_SAMPLE + '/data').then((r) => r.ok ? r.json() : null).then((j) => { _quackOk = !!j?.data; }).catch(() => {});
+}
+// Asked as soon as the flight audio loads, so the FIRST quack is the recording too, whoever hears it.
+setTimeout(checkQuack, 0);
+function playQuackSample() {
+  const ae = AE();
+  if (!ae?.playSample) return false;
+  if (_quackOk === null) { checkQuack(); return false; }
+  if (!_quackOk) return false;
+  try { ae.init?.(); ae.playSample({ id: QUACK_SAMPLE, snes_bits: 0, category: 'sfx', priority: 6, config: { gain: 1 } }, { gain: 0.9 }); } catch { return false; }
+  return true;
+}
 
 // Cargo visor nose (Leviathan) — a HUGE, slow hydraulic hinge, an order heavier and longer than
 // the gear: a deep electric screw-jack motor grind, a broad structural groan of the nose swinging
@@ -778,6 +953,17 @@ const VISOR_FX = {
     { waveform: 'square', freq: 150, fm: { rate: 317, depth: 190 }, pitchBend: { to: 100, time: 0.12 }, delay: 4.16, filter: { type: 'bandpass', freq: 820, q: 1.6 }, adsr: { a: 0.002, d: 0.18, s: 0, r: 0.07 }, gain: 0.1 },                                // down-lock clunk
     { waveform: 'square', freq: 128, fm: { rate: 283, depth: 200 }, pitchBend: { to: 88, time: 0.12 }, delay: 4.36, filter: { type: 'bandpass', freq: 720, q: 1.7 }, adsr: { a: 0.002, d: 0.2, s: 0, r: 0.08 }, gain: 0.11 } ] } },                           // down-lock clack (harder)
 };
+// THE MODE SELECTOR'S CLUNK: a heavy detent — a dull metal thunk as the lever drops into its
+// indent, a bright chrome click on top, and a short ring. One per gate the lever passes.
+const DETENT_FX = { config: { duration: 0.32, layers: [
+  { waveform: 'sine', freq: 96, pitchBend: { to: 52, time: 0.09 }, adsr: { a: 0.001, d: 0.16, s: 0, r: 0.06 }, gain: 0.16 },
+  { waveform: 'square', freq: 210, fm: { rate: 431, depth: 260 }, pitchBend: { to: 140, time: 0.05 }, filter: { type: 'bandpass', freq: 1400, q: 2 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.03 }, gain: 0.09 },
+  { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 3200, q: 0.7 }, adsr: { a: 0.001, d: 0.025, s: 0, r: 0.02 }, gain: 0.05 },
+  { waveform: 'triangle', freq: 1870, filter: { type: 'bandpass', freq: 1870, q: 12 }, adsr: { a: 0.001, d: 0.22, s: 0, r: 0.08 }, gain: 0.018 } ] } };
+export function detentFx(n = 1) {
+  const ae = AE();
+  for (let i = 0; i < Math.max(1, n); i++) setTimeout(() => { try { ae?.init?.(); ae?.playSfx?.(DETENT_FX); } catch {} }, i * 110);
+}
 export function visorFx(kind) { const ae = AE(); const d = VISOR_FX[kind] || VISOR_FX.close; try { ae?.init?.(); ae?.playSfx?.(d); } catch {} }
 
 // A single heavy .50-cal round — ONE percussive "thud", fired per round by the trigger loop
@@ -954,6 +1140,35 @@ export function stallHorn(level) {
     _hornOn = true;
   }
   if (_hornOn) ae.setLoopGain?.('flt-stallhorn', Math.max(0, Math.min(0.6, level)), 0.05);   // pulse/steady via gain (no restart churn)
+}
+
+// ── THE VARIOMETER ────────────────────────────────────────────────────────────
+// A glider's audio vario: while climbing it beeps, higher and faster the harder you climb; in
+// strong sink it gives a low slow blip. It is one-shot beeps rather than a loop, because the loop
+// API has no pitch control and a vario's whole message is in its pitch — and a one-shot cannot
+// be left droning after the panel closes. `vsFpm` is the aircraft's vertical speed; the caller
+// decides when a pilot would have it switched on.
+let _varioNext = 0;
+export function varioTick(vsFpm, active) {
+  if (!active) { _varioNext = 0; return; }
+  const ae = AE(); if (!ae) return;
+  const now = performance.now();
+  if (now < _varioNext) return;
+  const vs = vsFpm || 0;
+  if (vs > 60) {
+    const freq = Math.min(1500, 620 + vs * 0.55);
+    const gap = Math.max(110, 560 - vs * 0.42);
+    _varioNext = now + gap;
+    try { ae.playSfx?.({ config: { duration: 0.12, layers: [
+      { waveform: 'sine', freq, adsr: { a: 0.004, d: 0.06, s: 0.5, r: 0.03 }, gain: 0.07 },
+      { waveform: 'triangle', freq: freq * 2, adsr: { a: 0.004, d: 0.04, s: 0, r: 0.02 }, gain: 0.015 } ] } }); } catch {}
+  } else if (vs < -450) {
+    _varioNext = now + 950;
+    try { ae.playSfx?.({ config: { duration: 0.4, layers: [
+      { waveform: 'sine', freq: 300, pitchBend: { to: 240, time: 0.35 }, adsr: { a: 0.02, d: 0.2, s: 0.4, r: 0.1 }, gain: 0.04 } ] } }); } catch {}
+  } else {
+    _varioNext = now + 150;   // near zero: quiet, re-check soon
+  }
 }
 
 // ── THE DIVE SIREN (the Shrike) ───────────────────────────────────────────────

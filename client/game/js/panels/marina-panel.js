@@ -1,84 +1,58 @@
-// THE MARINA, AS A SCREEN.
+// THE MARINA — a hand of cards at the counter, and the shipwright and the pump at the helm.
 //
-// The `prefersLoggedPanels` half of the boat. The hangar bay and the truck depot are the shape this
-// follows: one panel that AUTO-OPENS when you walk into the yard and closes when you leave, with
-// the fleet, the dealer, the berths and the refit bench on tabs.
+// The truck depot's shape (truck-depot.js), for boats. It opened on a 3-D dock that was a painted
+// second copy of the Dock Hall; picking a hull now seats you in her in the REAL covered slot, on the
+// water under the roof GLASS draws, so the painted dock is gone.
 //
-// ── ⚠ IT IS A SKIN OVER THE IDENTICAL TEXT, AND THAT IS THE WHOLE CONTRACT ───
+//   THE COUNTER (in the pane) is where you choose: your boats as cards — the hull on one of three
+//       backdrops, her name, owned or hired — then a card to buy one and a card to hire one.
+//       Picking a boat is `boat take <id>`, which walks you to her, puts you in her and hands you
+//       the helm.
 //
-// Every button here sends a verb string a player could have typed — `boat continental`, `berth 2
-// covered`, `refit 1` — and every number it shows is a number the text rung prints. That is the
-// `prefersLoggedPanels` rule from docs/systems-display-mode.md: delete this file and nobody is
-// STUCK, they are reading instead of clicking, which is the difference between this axis and the
-// helm's. A panel that grew a decision of its own would break that in the one way nobody notices
-// until a player on the bottom rung cannot do something everybody else can.
+//   THE SEAT (an overlay on the helm's glass) is where you work on her. In the covered slot it is
+//       the shipwright: the hull, the oil, the prop, the bottom, paint, a decal and her name, and
+//       "Cast off" is the lever. Stopped at the fuel float it is the pump. The server opens and
+//       closes it as she comes and goes (plugins/powerboat/helm.js svcTick).
 //
-// ⚠ AND IT RE-PUSHES AFTER EVERY MUTATION. This is the truck depot's oldest complaint quoted: you
-// buy a hull, the server charges you, writes the row and answers with a line of prose — and the
-// panel sitting over the top of it still shows the same dealer card, the same Buy button and a
-// stale balance, so a purchase that WORKED looks exactly like one that did not. Nothing here may
-// end in a bare send if it changed the world; the server re-pushes and this redraws.
+// ⚠ IT IS STILL A SKIN OVER THE IDENTICAL TEXT. Every button sends a verb string a player could
+// have typed and every number is one the text rung prints, which is what keeps this on
+// `prefersLoggedPanels`: delete it and nobody is stuck, they are reading instead of clicking.
+// ⚠ AND IT RE-PUSHES AFTER EVERY MUTATION; nothing here guesses what changed.
 
 import { bindBigScreenButton, exitBigScreen, BIGSCREEN_GLYPH, BIGSCREEN_TITLE } from './bigscreen.js';
-// The same scene the hangar bay and the truck depot draw, handed a third venue. ⚠ NOT A SECOND
-// PREVIEW RENDERER — the boat on the dock is `aircraftFaces('hydro')`, which is the hull the flight
-// sim puts in your windscreen, so there is nothing here that can disagree with the water about what
-// she looks like.
-import { drawHangarScene, pickSceneHit } from './aircraft3d.js';
-// ⚠ AND THE DEALER'S SCHEMATIC IS THE SAME ONE THE OTHER TWO LOTS BUY THROUGH. `drawWireframe3D`
-// strokes the edges of `aircraftFaces` — the identical face list the dock tab, the windscreen and
-// a stranger's contact draw — so this is a second PRESENTATION of one mesh and not a second
-// renderer. The aircraft lot (hangar-bay.js) and the rig lot (truck-depot.js) are its two existing
-// callers, and a third that drew its own hull would be the thing this file's header forbids.
+// ⚠ THE DEALER'S SCHEMATIC IS THE SAME ONE THE OTHER TWO LOTS BUY THROUGH — `drawWireframe3D` strokes
+// `aircraftFaces`, the face list the windscreen and a stranger's contact draw.
 import { drawWireframe3D, themeColor } from './wireframe-plane.js';
+import { paintVehicleCard, paintSlotCard, cardStyleFor, cardSeed, ensureCardStyles, barTone } from './vehicle-card.js';
+import { boatServiceHost, boatPreview, boatView } from './boat-view.js';
 
-// ⚠ THE DOCK TAB ONLY EXISTS IN A ROOM WITH WATER IN IT. The server says which room this is
-// (`dock`), because whether you are standing on a berth is its question and not the client's — the
-// same rule every button here follows.
-const TABS = [
-  ['dock', 'THE DOCK'],
-  ['fleet', 'YOUR BOATS'],
-  ['dealer', 'HULLS'],
-  ['berths', 'BERTHS'],
-  ['bench', 'REFIT'],
-];
-const tabsFor = (d) => TABS.filter(([k]) => k !== 'dock' || d?.dock);
+const TABS = [['lot', 'YOUR BOATS'], ['dealer', 'FOR SALE'], ['rent', 'HIRE'], ['berths', 'BERTHS']];
 
-let st = null;
+// Which screen a server-sent tab lands on. The server's tabs predate the hand: everything that used
+// to be the dock, the fleet or the bench is the hand now (the bench itself is in the seat).
+const TAB_FOR = { lot: 'lot', fleet: 'lot', dock: 'lot', bench: 'lot', dealer: 'dealer', rent: 'rent', berths: 'berths' };
+
+let st = null;      // the counter
+let sv = null;      // the seat's overlay
 
 export function isMarinaActive() { return !!st; }
 
 export function openMarina(msg = {}) {
+  if (msg.service) return openMarinaService(msg);
   const host = msg.mount || document.getElementById('area-content');
   if (!host) return;
   ensureMarinaStyles();
-  const avail = tabsFor(msg);
-  const want = st?.tab && avail.some(([k]) => k === st.tab) ? st.tab : (msg.tab || 'fleet');
-  st = {
-    host,
-    data: msg,
-    tab: avail.some(([k]) => k === want) ? want : avail[0][0],
-    // Which hull the dock screen is looking at. The id the server sent, never an index into a list
-    // that the next push may reorder.
-    selId: msg.fleet?.find((b) => b.aboard)?.id || msg.fleet?.find((b) => b.hereNow)?.id || null,
-    onSend: msg.onSend || null,
-    onExit: msg.onExit || null,
-  };
+  ensureCardStyles();
+  const want = TAB_FOR[msg.tab] || st?.tab || 'lot';
+  st = { host, data: msg, tab: want, onSend: msg.onSend || st?.onSend || null };
   draw();
-  watchDock();
 }
 
 export function closeMarina() {
   if (!st) return;
   if (ro) { ro.disconnect(); ro = null; }
-  // ⚠ AND THE SCHEMATICS STOP TURNING. The loop re-queries its canvases and retires itself when
-  // they are gone, which covers a redraw — but `closeMarina` empties the host in the same tick, so
-  // without this there is one more frame scheduled against a detached node. Cheap, and it is the
-  // difference between a loop that ends and a loop that happens to run out of work.
   stopWireframes();
-  hits = [];
-  // ⚠ THE MODE OWNS THE PAGE. Same rule the seats follow: leaving in big screen with nothing to
-  // take it down strands the player with no sidebar, no log and no command box.
+  // ⚠ THE MODE OWNS THE PAGE — leaving in big screen with nothing to take it down strands the player.
   exitBigScreen();
   if (st.host) st.host.innerHTML = '';
   st = null;
@@ -86,253 +60,202 @@ export function closeMarina() {
 
 /** The server re-pushes after anything that changed the world; this is where it lands. */
 export function marinaSetData(msg = {}) {
+  if (msg.service) return openMarinaService(msg);
   if (!st) return openMarina(msg);
   st.data = msg;
-  const avail = tabsFor(msg);
-  if (msg.tab && avail.some(([k]) => k === msg.tab)) st.tab = msg.tab;
-  if (!avail.some(([k]) => k === st.tab)) st.tab = avail[0][0];
-  // ⚠ KEEP THE SELECTION IF THE HULL IS STILL THERE. A re-push follows every purchase, refit and
-  // berth move, and re-picking from scratch each time throws the player back to the first boat in
-  // the middle of working on the second one.
-  if (!msg.fleet?.some((b) => b.id === st.selId)) {
-    st.selId = msg.fleet?.find((b) => b.aboard)?.id || msg.fleet?.find((b) => b.hereNow)?.id || msg.fleet?.[0]?.id || null;
-  }
+  if (TAB_FOR[msg.tab]) st.tab = TAB_FOR[msg.tab];
   draw();
-  watchDock();
 }
 
-const send = (cmd) => { try { st?.onSend?.(cmd); } catch { /* the pane can outlive the socket */ } };
+const send = (cmd) => { try { (st?.onSend || sv?.onSend)?.(cmd); } catch { /* the pane can outlive the socket */ } };
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const pct = (v) => Math.round(Math.max(0, Math.min(1, Number(v ?? 0))) * 100);
+const money = (n) => `₵${Number(n || 0).toLocaleString()}`;
 
+// ── The counter ──────────────────────────────────────────────────────────────
 function draw() {
   if (!st) return;
   const d = st.data || {};
-  const tabs = tabsFor(d).map(([k, label]) =>
-    `<button class="mar-tab${k === st.tab ? ' on' : ''}" data-tab="${k}" type="button">${label}</button>`).join('');
-
+  const tabs = TABS.filter(([k]) => (k !== 'dealer' && k !== 'rent') || d.dealer)
+    .map(([k, label]) => `<button class="mar-tab${k === st.tab ? ' on' : ''}" data-tab="${k}" type="button">${label}</button>`).join('');
   st.host.innerHTML = '<div class="mar-root">'
     + '<div class="mar-head">'
     + `<span class="mar-name">${esc(d.name || 'The Marina')}</span>`
-    + `<span class="mar-credits">₵${Number(d.credits || 0).toLocaleString()}</span>`
-    + `<span class="mar-spacer"></span>`
+    + `<span class="mar-credits">${money(d.credits)}</span>`
+    + '<span class="mar-spacer"></span>'
     + `<button class="mar-chip mar-big" type="button" title="${BIGSCREEN_TITLE}">${BIGSCREEN_GLYPH}</button>`
+    + '<button class="mar-chip mar-x" type="button" title="Put the screen away and look at the room" aria-label="Close">✕</button>'
     + '</div>'
     + `<div class="mar-tabs">${tabs}</div>`
-    + `<div class="mar-body">${bodyFor(st.tab, d)}</div>`
+    // The room's doors. The screen sits over the room description, so the ways out have to be on it.
+    + ((d.exits || []).length ? `<div class="mar-exits"><span class="mar-dim">Leave</span>${d.exits.map((x) =>
+      `<button class="mar-go" type="button" data-leave="${esc(x.dir)}">${esc(x.dir)} · ${esc(x.name)}</button>`).join('')}</div>` : '')
+    + `<div class="mar-body">${st.tab === 'dealer' ? dealerBody(d) : st.tab === 'rent' ? rentBody(d) : st.tab === 'berths' ? berthBody(d) : lotBody(d)}</div>`
     + '</div>';
-
   const root = st.host.querySelector('.mar-root');
   bindBigScreenButton(root.querySelector('.mar-big'));
-  root.addEventListener('click', (e) => {
-    const tab = e.target.closest?.('[data-tab]');
-    if (tab) { st.tab = tab.dataset.tab; draw(); watchDock(); return; }
-    // ⚠ EVERY BUTTON CARRIES A VERB STRING, never an opaque id — see the header. It is also what
-    // makes this testable: a gate can sweep every `data-cmd` in the panel against the live verb
-    // registry and prove the screen cannot offer something you could not type.
-    const pick = e.target.closest?.('[data-sel]');
-    if (pick) { st.selId = pick.dataset.sel; draw(); watchDock(); return; }
-    const btn = e.target.closest?.('[data-cmd]');
-    if (btn) send(btn.dataset.cmd);
-  });
-  // Clicking a hull in the water selects her — hit-tested against the silhouettes the scene
-  // returns, because there is no DOM element per boat to hang a listener on.
-  const scene = root.querySelector('#mar-scene');
-  if (scene) {
-    scene.addEventListener('click', (e) => {
-      if (!hits.length) return;
-      const r = scene.getBoundingClientRect();
-      const best = pickSceneHit(hits, e.clientX - r.left, e.clientY - r.top);
-      if (best && best.id !== st.selId) { st.selId = best.id; draw(); watchDock(); }
-    });
+  root.addEventListener('click', onClick);
+  spinWireframes();
+  requestAnimationFrame(paintCards);
+  watchSize();
+}
+
+// ⚠ ANYTHING IRREVERSIBLE ASKS — handing a hire back, a crane bill, a tow.
+function onClick(e) {
+  const tab = e.target.closest?.('[data-tab]');
+  if (tab && st) { st.tab = tab.dataset.tab; draw(); return; }
+  // Leaving: the move closes the screen from the server side (marina_close), and the room paints.
+  const leave = e.target.closest?.('[data-leave]');
+  if (leave && st) { send(leave.dataset.leave); return; }
+  // ✕ puts it away here and asks for the room; walking back in deals the hand again.
+  if (e.target.closest?.('.mar-x') && st) { const s = st.onSend; closeMarina(); try { s?.('look'); } catch { /* socket gone */ } return; }
+  const c = e.target.closest?.('[data-confirm]');
+  if (c && !c.disabled) {
+    if (c.dataset.armed) { send(c.dataset.confirm); return; }
+    c.dataset.armed = '1'; c.textContent = 'Sure? Click again';
+    setTimeout(() => { if (c.isConnected) (sv ? drawService() : draw()); }, 4000);
+    return;
   }
+  const b = e.target.closest?.('[data-cmd]');
+  if (b && !b.disabled && b.dataset.cmd) send(b.dataset.cmd);
 }
 
-function bodyFor(tab, d) {
-  if (tab === 'dock') return dockBody(d);
-  if (tab === 'fleet') return fleetBody(d);
-  if (tab === 'dealer') return dealerBody(d);
-  if (tab === 'berths') return berthBody(d);
-  return benchBody(d);
-}
-
-// ── THE DOCK ─────────────────────────────────────────────────────────────────
-//
-// What you get for walking into the room the hulls are kept in: the room, with them in it. The
-// truck depot's floor screen is the shape, and the two differ in one way that matters — a yard
-// SELECTS a rig because a rig is parked among five others and you have to say which; here the
-// selection is mostly a formality, because a berth holds two hulls, so the strip under the canvas
-// is short and the pane beside it is the point.
-//
-// ⚠ EVERY BUTTON ON IT IS STILL A VERB STRING. See the header. The gating is the SERVER'S facts
-// (`hereNow`, `aboard`) rather than this file's opinion, and a button that cannot fire is present
-// and says why rather than absent — that is the truck depot's own rule, and it is the whole fix for
-// "the buttons don't let me get in my boat": Board refused away from the berth by design and looked
-// broken because nothing on the screen had said so.
-function dockBody(d) {
+// ── THE HAND ─────────────────────────────────────────────────────────────────
+// One card per hull you have, owned or hired, then Buy and Hire. The card is the button that seats
+// you: `boat take`. ⚠ A HULL ON A CRADLE IS A CRANE JOB FIRST, and the card says so and what it costs
+// (the server does it as part of `take`); one that is somewhere else is shown faded, not hidden.
+function lotBody(d) {
   const fleet = d.fleet || [];
-  const here = fleet.filter((b) => b.hereNow);
-  const sel = fleet.find((b) => b.id === st.selId) || here[0] || null;
-  return `
-    <div class="mar-dock">
-      <canvas id="mar-scene" class="mar-scene" aria-label="${esc(d.hereName || 'The dock')}"></canvas>
-      ${here.length ? '' : `<div class="mar-hint">Nothing of yours is tied up here. The water moves
-        under the deck and the slot is empty the whole way to the Basin.</div>`}
-      <div class="mar-strip">${fleet.map((b) => `
-        <button class="mar-chip${b.id === st.selId ? ' on' : ''}${b.hereNow ? '' : ' away'}" data-sel="${esc(b.id)}">
-          <span class="mar-chip-name">${esc(b.name)}</span>
-          <span class="mar-chip-sub">${b.hereNow ? esc(b.typeName) : 'at ' + esc(b.whereShort || 'another berth')}</span>
-          <span class="mar-chip-bar"><i class="${b.hull < 0.3 ? 'bad' : b.hull < 0.6 ? 'warn' : 'ok'}" style="width:${pct(b.hull)}%"></i></span>
-        </button>`).join('')}</div>
-    </div>
-    <aside class="mar-side">
-      ${sel ? boatPane(sel) : '<div class="mar-dim">Nothing of yours is on this water.</div>'}
-      <div class="mar-acts">${sel ? dockActs(sel) : ''}</div>
-    </aside>`;
+  const cards = fleet.map((b) => {
+    const ready = b.inYard && !b.aboard && b.kind !== 'adrift';
+    const hard = b.kind === 'hard';
+    const badge = b.rental ? `<span class="vc-badge hired">HIRED · ${esc(b.rental.leftText)}</span>` : '<span class="vc-badge owned">OWNED</span>';
+    const sub = b.aboard ? 'you are sitting in her'
+      : !b.inYard ? esc(b.where || 'somewhere else')
+      : hard ? `on a cradle: ${money(d.craneFee)} to crane her in` : `${esc(b.typeName)} · fuel ${pct(b.fuel)}%`;
+    const cmd = `boat take ${b.id}`;
+    const acts = [
+      b.rental && b.inYard && !b.aboard ? `<button class="vc-mini" data-confirm="boat return ${esc(b.id)}" title="Hand her back early, no refund">Hand her back</button>` : '',
+      !b.inYard ? '<button class="vc-mini" data-confirm="tow" title="Somebody goes out for her, for a price">Tow her in</button>' : '',
+    ].filter(Boolean).join('');
+    return `<div class="vc-wrap${ready ? '' : ' away'}">
+      <button class="vc-card ${cardStyleFor(b.id)}" ${ready ? (hard ? `data-confirm="${esc(cmd)}"` : `data-cmd="${esc(cmd)}"`) : 'disabled'}
+          aria-label="${esc(`${b.name}, ${b.rental ? 'hired' : 'owned'}${ready ? ': take the helm' : ''}`)}"
+          title="${ready ? 'Take the helm: she starts in the covered slot' : esc(b.where || '')}">
+        <canvas class="vc-cv" data-card="${esc(b.id)}" aria-hidden="true"></canvas>
+        ${badge}
+        <span class="vc-plate"><b>${esc(b.name)}</b><span class="vc-sub">${sub}</span>
+          <span class="vc-bar" title="hull ${pct(b.hull)}%"><i class="${barTone(b.hull)}" style="width:${pct(b.hull)}%"></i></span></span>
+      </button>
+      ${acts ? `<div class="vc-acts">${acts}</div>` : ''}
+    </div>`;
+  }).join('');
+  const slot = (tab, label, sub) => `<div class="vc-wrap"><button class="vc-card slot" data-tab="${tab}" aria-label="${label}">
+      <canvas class="vc-cv" data-slot="${tab}" aria-hidden="true"></canvas>
+      <span class="vc-plate"><b>${label}</b><span class="vc-sub">${sub}</span></span></button></div>`;
+  return `${fleet.length ? '' : '<p class="mar-dim">Nothing of yours on this water. Buy a hull, or hire one for the afternoon.</p>'}
+    <div class="vc-hand">${cards}${d.dealer ? slot('dealer', 'Buy a boat', `${(d.stock || []).length} on the line`) + slot('rent', 'Hire a boat', d.hasRental ? 'one out already' : 'by the afternoon') : ''}</div>`;
 }
 
-function boatPane(b) {
-  return `<div class="mar-card">
-    <div class="mar-card-head"><span class="mar-boat">${esc(b.name)}</span>
-      <span class="mar-dim">${esc(b.typeName || '')}</span></div>
-    ${bar('hull', b.hull, b.band)}
-    ${bar('fuel', b.fuel)}
-    ${b.nitro != null ? bar('bottle', b.nitro) : ''}
-    <div class="mar-where">${esc(b.aboard ? 'You are sitting in her.' : b.where || '')}</div>
-  </div>`;
-}
-
-// The two things you came down here to do, and the reason when you cannot do one of them.
-function dockActs(b) {
-  const board = b.aboard
-    ? '<button class="mar-go" type="button" data-cmd="disembark">Climb out</button>'
-    : b.hereNow
-      ? '<button class="mar-go pri" type="button" data-cmd="embark">Board her</button>'
-      : `<button class="mar-go" type="button" disabled title="She is at ${esc(b.whereShort || 'another berth')}">Board her</button>`;
-  const helm = b.aboard
-    ? '<button class="mar-go pri" type="button" data-cmd="helm">Take the helm</button>'
-    : '<button class="mar-go" type="button" disabled title="Get aboard her first">Take the helm</button>';
-  return board + helm;
-}
-
-// ── YOUR BOATS ───────────────────────────────────────────────────────────────
-function fleetBody(d) {
-  const rows = d.fleet || [];
-  if (!rows.length) {
-    return '<p class="mar-dim">You do not own a boat. The dealer tab is what to do about that.</p>';
-  }
-  return rows.map((b, i) => `<div class="mar-card">`
-    + `<div class="mar-card-head"><span class="mar-boat">${esc(b.name)}</span>`
-    + `<span class="mar-dim">${esc(b.typeName || '')}</span></div>`
-    + bar('hull', b.hull, b.band)
-    + bar('fuel', b.fuel)
-    + (b.nitro != null ? bar('bottle', b.nitro) : '')
-    + `<div class="mar-where">${esc(b.where || '')}</div>`
-    + '<div class="mar-acts">'
-    // ⚠ THE INDEX IS THE ONE THE TEXT RUNG PRINTS, so a player who reads `boats` and a player who
-    // clicks here are naming the same hull. A panel-local id would be a second numbering.
-    //
-    // ⚠ AND BOARD AND HELM ARE GATED ON THE SERVER'S ANSWER, never offered flat. Both were
-    // unconditional, so a card for a hull under cover two rooms away offered a Board button that
-    // `embark` correctly refuses — which is the whole of "the buttons don't let me get in my boat".
-    + dockActs(b)
-    + `<button class="mar-go" type="button" data-cmd="refit ${i + 1}">Refit</button>`
-    + '</div></div>').join('');
-}
-
-function bar(label, v, note) {
-  const p = pct(v);
-  const tone = p < 30 ? 'bad' : p < 60 ? 'warn' : 'ok';
-  return `<div class="mar-bar"><span class="mar-bl">${label}</span>`
-    + `<span class="mar-bt"><i class="${tone}" style="width:${p}%"></i></span>`
-    + `<span class="mar-bv">${p}%${note ? ' ' + esc(note) : ''}</span></div>`;
+function rentBody(d) {
+  if (!d.dealer) return '<p class="mar-dim">Nobody hires hulls out here.</p>';
+  const cards = (d.rentStock || []).map((t) => {
+    const why = d.hasRental ? 'You already have one out on hire' : t.afford ? '' : "You can't afford it";
+    return `<div class="vc-wrap">
+      <div class="vc-card ${cardStyleFor('hire:' + t.id)} static">
+        <canvas class="vc-cv" data-rent="${esc(t.id)}" aria-hidden="true"></canvas>
+        <span class="vc-badge hired">FOR HIRE</span>
+        <span class="vc-plate"><b>${esc(t.name)}</b><span class="vc-sub">${t.hours} hours · tank full</span></span>
+      </div>
+      <div class="vc-acts"><button class="mar-go pri" data-cmd="boat rent ${esc(t.id)}" ${why ? `disabled title="${esc(why)}"` : ''}>Hire · ${money(t.fee)}</button></div>
+    </div>`;
+  }).join('');
+  return `<p class="mar-dim">A hire comes out of the covered dock fuelled and serviced, and goes back on its own when the time is up and she is tied up. One at a time.</p>
+    <div class="vc-hand">${cards}</div>`;
 }
 
 // ── THE DEALER ───────────────────────────────────────────────────────────────
-//
-// ⚠ A SCHEMATIC OF THE ACTUAL MESH YOU WILL OWN, and it is `drawWireframe3D` — the SAME function
-// the aircraft lot and the truck lot already buy through — rather than anything written here. That
-// is the dock tab's own rule one tab across: the hull on the water is `aircraftFaces('hydro')`, so
-// there is nothing on this screen that can disagree with the Basin about what she looks like. A
-// picture drawn beside a price is the only part of "look at what you could own" the text rung
-// genuinely cannot carry, which is why this is the one thing here that is not a line of prose.
-//
-// ⚠ AND IT IS `fill` RATHER THAN THE STOCK FOCAL. That focal was set for airframes, which measure
-// about ±1.05 across the wing; a hull is authored far smaller, so unfitted she renders as a doodle
-// in the middle of an empty box — the truck lot's own bug, recorded at its call site in
-// truck-depot.js and inherited here for free by asking for the same thing.
-//
-// ⚠ NO `fitRef`, AND THAT IS A DECISION WITH A DATE ON IT. `fitRef` is what keeps a LINE of
-// vehicles a line — fit each mesh to its own frame and the cheapest rig on the lot draws exactly as
-// big as the flagship, so the tier ladder vanishes. There is one hull in the game, so there is no
-// ladder to flatten and a shared reference would only be a second cache entry for the same mesh.
-// ⚠ It cannot simply be switched on when a second hull ships, either: `fitRef` is spent as a
-// VARIANT, and `aircraftFaces` dispatches a boat on its CLASS (`boatShape(cls) ? buildBoat(cls)`),
-// so a boat family needs a reference CLASS and `wireframe-plane.js` has nowhere to put one yet.
+// ⚠ `fill` RATHER THAN THE STOCK FOCAL: that focal was set for airframes and a hull is authored far
+// smaller, so unfitted she renders as a doodle in the middle of an empty box.
 function dealerBody(d) {
   if (!d.dealer) return '<p class="mar-dim">Nobody sells hulls here.</p>';
   const afford = Number(d.credits || 0);
-  return (d.stock || []).map((t) => `<div class="mar-card">`
+  return (d.stock || []).map((t) => '<div class="mar-card">'
     + `<div class="mar-card-head"><span class="mar-boat">${esc(t.name)}</span>`
-    + `<span class="mar-price${t.price > afford ? ' over' : ''}">₵${Number(t.price).toLocaleString()}</span></div>`
+    + `<span class="mar-price${t.price > afford ? ' over' : ''}">${money(t.price)}</span></div>`
     + `<canvas class="mar-wf" data-wf-cls="${esc(t.id)}" aria-label="${esc(t.name)}, schematic"></canvas>`
     + `<p class="mar-blurb">${esc(t.blurb || '')}</p>`
-    // ⚠ WHAT SHE LEAVES THE SHED WITH, SAID AT THE POINT OF DECISION. She has always been sold
-    // brimmed — the insert writes `fuel, condition` as `1, 1` and the reply says so — and until
-    // fuel could be spent that was a detail nobody could act on. Now that a tank is a real running
-    // cost, "the price includes a full one" is part of the price, and saying it only in the
-    // confirmation is saying it to somebody who has already decided.
     + '<div class="mar-out">Out of the shed: <b>hull sound</b> · <b>tank full</b> · <b>bottle charged</b></div>'
-    + '<div class="mar-acts">'
-    // ⚠ DISABLED RATHER THAN HIDDEN when you cannot afford her. A button that is not there is a
-    // boat you do not know exists; one you cannot press is a boat to come back for.
-    + `<button class="mar-go" type="button" data-cmd="boat ${esc(t.id)}"${t.price > afford ? ' disabled' : ''}>Buy</button>`
-    + '</div></div>').join('') || '<p class="mar-dim">The shed is empty.</p>';
+    + `<div class="mar-acts"><button class="mar-go pri" type="button" data-cmd="boat ${esc(t.id)}"${t.price > afford ? ' disabled' : ''}>Buy</button></div>`
+    + '</div>').join('') || '<p class="mar-dim">The shed is empty.</p>';
 }
 
-// ── THE BERTHS ───────────────────────────────────────────────────────────────
+// ⚠ TAKEN OF CAPACITY, COUNTED SERVER-SIDE — occupancy is counted against the rows, never stored.
 function berthBody(d) {
   const rows = d.berths || [];
   if (!rows.length) return '<p class="mar-dim">Nowhere here to keep a hull.</p>';
-  return rows.map((b) => `<div class="mar-card">`
-    + `<div class="mar-card-head"><span class="mar-boat">${esc(b.name)}</span>`
-    + `<span class="mar-dim">${esc(b.kindWord || '')}</span></div>`
-    // ⚠ TAKEN OF CAPACITY, COUNTED SERVER-SIDE. The yard's own note: occupancy is counted against
-    // the rows and never stored, so a crash cannot leave a berth believing it is full.
-    + `<div class="mar-where">${b.taken} of ${b.capacity} taken</div>`
+  return rows.map((b) => '<div class="mar-card">'
+    + `<div class="mar-card-head"><span class="mar-boat">${esc(b.name)}</span><span class="mar-dim">${esc(b.kindWord || '')}</span></div>`
+    + `<div class="mar-where">${b.taken} of ${b.capacity} taken: move a hull in with <b>berth</b> while standing there</div>`
     + '</div>').join('');
 }
 
-// ── THE BENCH ────────────────────────────────────────────────────────────────
-function benchBody(d) {
-  const cap = d.refitCap;
-  return '<p class="mar-blurb">A refit is capped by WHERE it happens — a patch on the water, a '
-    + 'cradle outside, a shed with a shipwright in it. That is the whole reason to pay for a roof.</p>'
-    + (cap != null ? `<p class="mar-dim">Here, she can be brought back to <b>${pct(cap)}%</b>.</p>` : '')
-    + ((d.fleet || []).map((b, i) =>
-      `<div class="mar-card"><div class="mar-card-head"><span class="mar-boat">${esc(b.name)}</span>`
-      + `<span class="mar-dim">hull ${pct(b.hull)}%</span></div>`
-      + '<div class="mar-acts">'
-      + `<button class="mar-go" type="button" data-cmd="refit ${i + 1}">Refit her</button>`
-      + '</div></div>').join('') || '<p class="mar-dim">Nothing of yours to work on.</p>');
+// ── The cards, painted ───────────────────────────────────────────────────────
+// Once per draw and per resize, never in a loop (vehicle-card.js says why).
+let ro = null;
+function paintCards() {
+  if (!st) return;
+  const fleet = st.data?.fleet || [];
+  for (const cv of st.host.querySelectorAll('canvas[data-card]')) {
+    const b = fleet.find((r) => r.id === cv.dataset.card);
+    if (!b) continue;
+    paintVehicleCard(cv, { style: cardStyleFor(b.id), seed: cardSeed(b.id), dim: !b.inYard,
+      v: { cls: b.typeId || 'hydro', livery: b.livery || null, yaw: 0.62, fit: 2.3, elev: 0.28 } });
+  }
+  for (const cv of st.host.querySelectorAll('canvas[data-rent]')) {
+    const id = cv.dataset.rent;
+    paintVehicleCard(cv, { style: cardStyleFor('hire:' + id), seed: cardSeed('hire:' + id),
+      v: { cls: id, livery: null, yaw: 0.62, fit: 2.3, elev: 0.28 } });
+  }
+  for (const cv of st.host.querySelectorAll('canvas[data-slot]')) {
+    const buy = cv.dataset.slot === 'dealer';
+    paintSlotCard(cv, { style: buy ? 'showroom' : 'sunburst', seed: buy ? 5 : 9, glyph: buy ? '+' : '⟲' });
+  }
+}
+function watchSize() {
+  if (ro || typeof ResizeObserver !== 'function' || !st) return;
+  let t = 0;
+  ro = new ResizeObserver(() => { cancelAnimationFrame(t); t = requestAnimationFrame(paintCards); });
+  ro.observe(st.host);
 }
 
-// ── PAINTING THE DOCK ────────────────────────────────────────────────────────
-//
-// ⚠ IT IS A STILL, AND DELIBERATELY. The depot runs a rAF because its floor spins a turntable and
-// its walkaround takes key input; `drawHangarScene` does neither — it has no yaw parameter at all,
-// every machine on it faces the same way, and a frame drawn twice is the same frame. So this paints
-// once per redraw and again when the pane changes size, and burns nothing sitting there. A loop
-// here would be a timer running for the life of the panel to produce an identical picture.
-let hits = [];
-let ro = null;
-
+// ── THE SCHEMATICS, TURNING ──────────────────────────────────────────────────
+// Started and stopped by which tab is up; re-queries its canvases each frame and retires itself when
+// there are none, so it can never outlive what it is painting.
+let spinRaf = 0;
+function stopWireframes() { if (spinRaf) { cancelAnimationFrame(spinRaf); spinRaf = 0; } }
+function spinWireframes() {
+  stopWireframes();
+  if (!st || st.tab !== 'dealer') return;
+  const accent = themeColor('--cyan', '#7fd4ff');
+  const loop = () => {
+    const cards = st?.host?.querySelectorAll?.('.mar-wf');
+    if (!cards || !cards.length) { spinRaf = 0; return; }
+    const yaw = performance.now() / 2600;
+    for (const cv of cards) {
+      const ctx = sizeCanvas(cv);
+      if (ctx) drawWireframe3D(ctx, { cls: cv.dataset.wfCls || 'hydro', w: cv._cw, h: cv._ch, accent, yaw, fill: 0.94 });
+    }
+    spinRaf = requestAnimationFrame(loop);
+  };
+  spinRaf = requestAnimationFrame(loop);
+}
 function sizeCanvas(cv) {
   const r = cv.getBoundingClientRect();
   if (!r.width || !r.height) return null;
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   if (!cv._cw || Math.abs(r.width - cv._cw) > 0.5 || Math.abs(r.height - cv._ch) > 0.5) {
-    cv._cw = r.width; cv._ch = r.height; cv._dpr = dpr;
+    cv._cw = r.width; cv._ch = r.height;
     cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
   }
   const ctx = cv.getContext('2d');
@@ -340,89 +263,162 @@ function sizeCanvas(cv) {
   return ctx;
 }
 
-/** Paint the slot. Called after every redraw, and by the observer when the pane resizes. */
-function paintDock() {
-  hits = [];
-  if (!st) return;
-  const cv = st.host?.querySelector('#mar-scene');
-  if (!cv) return;
-  // ⚠ THE CANVAS IS SIZED FROM ITS BOX, so this cannot run in the same tick as the innerHTML that
-  // created it — a flex child that has not been laid out yet measures zero and paints nothing.
-  const ctx = sizeCanvas(cv);
-  if (!ctx) return;
-  // ⚠ NO LABELS IN THE WATER, and the depot's reasoning applies here twice over: the strip under
-  // the canvas names every hull and the pane beside it names the selected one. A caption floating
-  // across a boat's transom would be a third answer to a question nobody asked.
-  hits = drawHangarScene(ctx, {
-    w: cv._cw, h: cv._ch, venue: 'dock', sky: st.data?.sky, selId: st.selId,
-    entries: (st.data?.fleet || []).filter((b) => b.hereNow).map((b) => ({
-      id: b.id, cls: b.typeId || 'hydro', livery: b.livery || null,
-    })),
-  }) || [];
-}
-
-function watchDock() {
-  spinWireframes();
-  const cv = st?.host?.querySelector('#mar-scene');
-  if (ro) { ro.disconnect(); ro = null; }
-  if (!cv) return;
-  requestAnimationFrame(paintDock);
-  if (typeof ResizeObserver === 'function') {
-    ro = new ResizeObserver(() => paintDock());
-    ro.observe(cv);
-  }
-}
-
-// ── THE SCHEMATICS, TURNING ──────────────────────────────────────────────────
-//
-// ⚠ THE ONE LOOP IN THIS FILE, AND IT IS THE OPPOSITE CASE FROM THE DOCK. Two tabs over,
-// `paintDock` paints once per redraw and explicitly refuses a loop, because the slot is a still
-// life: nothing in it moves, so a frame drawn twice is the same frame and a timer would burn for
-// the life of the panel to produce an identical picture. A schematic is the other thing — it turns,
-// and that is most of what makes a wireframe read as a solid you are being shown rather than as a
-// drawing of one.
-//
-// ⚠ SO IT IS STARTED AND STOPPED BY WHICH TAB IS UP, never merely by the panel being open. Left
-// running behind the fleet list it is a rAF loop with nothing to draw, for ever, on a screen a
-// player leaves open while they do other things. `watchDock` is the one hook every redraw already
-// goes through — open, re-push and tab click — so it is where the decision belongs.
-let spinRaf = 0;
-function stopWireframes() { if (spinRaf) { cancelAnimationFrame(spinRaf); spinRaf = 0; } }
-
-function spinWireframes() {
-  stopWireframes();
-  if (!st || st.tab !== 'dealer') return;
-  const accent = themeColor('--cyan', '#7fd4ff');
-  const loop = () => {
-    const cards = st?.host?.querySelectorAll?.('.mar-wf');
-    // ⚠ SELF-HEALING RATHER THAN TRUSTED. `draw()` replaces the whole body on every re-push, so the
-    // canvases this closure started with are detached the moment anybody buys anything — and a
-    // redraw that switched tab has none at all. Re-queried each frame and stopped when the answer
-    // is empty, so the loop can never outlive what it is painting.
-    if (!cards || !cards.length) { spinRaf = 0; return; }
-    const yaw = performance.now() / 2600;
-    for (const cv of cards) {
-      const ctx = sizeCanvas(cv);
-      if (!ctx) continue;
-      drawWireframe3D(ctx, {
-        cls: cv.dataset.wfCls || 'hydro', w: cv._cw, h: cv._ch, accent,
-        // Each card turns from its own offset, so a line of them reads as several boats rather
-        // than as one boat drawn several times. The truck lot's `_phase`, derived off the id
-        // instead of stored, because the element is thrown away and rebuilt on every re-push.
-        yaw: yaw + phaseOf(cv.dataset.wfCls || ''),
-        fill: 0.94,
-      });
-    }
-    spinRaf = requestAnimationFrame(loop);
+// ── THE SEAT'S OVERLAY ───────────────────────────────────────────────────────
+// Mounted in the helm's own root (boat-view `boatServiceHost`), never in the pane the seat owns.
+// `dock` is the shipwright in the covered slot; `fuel` is the pump at the float.
+export function openMarinaService(msg) {
+  ensureMarinaStyles();
+  const host = boatServiceHost();
+  if (!host) return;
+  const was = sv;
+  sv = {
+    data: msg, mode: msg.service, onSend: was?.onSend || msg.onSend || null,
+    tab: was && was.mode === msg.service ? was.tab : 'service',
+    // Open when she arrives; after that, folded or open is the helmsman's.
+    open: was && was.mode === msg.service ? was.open : true,
+    pick: was?.pick || null, view: was?.view ?? null,
   };
-  spinRaf = requestAnimationFrame(loop);
+  const b = boat();
+  if (b?.rental && sv.tab !== 'service') sv.tab = 'service';
+  drawService();
+}
+export function setMarinaServiceSend(fn) { if (sv) sv.onSend = fn; }
+
+export function closeMarinaService() {
+  if (!sv) return;
+  restoreView();
+  try { boatPreview({ livery: null }); } catch { /* the seat can already be gone */ }
+  document.getElementById('mar-svc')?.remove();
+  sv = null;
 }
 
-/** A stable turn offset per hull, so two cards are never in step. */
-function phaseOf(id) {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
-  return (Math.abs(h) % 628) / 100;
+const boat = () => (sv?.data?.fleet || []).find((b) => b.id === sv.data.serviceId) || null;
+
+function drawService() {
+  if (!sv) return;
+  const host = boatServiceHost();
+  if (!host) return;
+  let el = document.getElementById('mar-svc');
+  if (!el || el.parentElement !== host) {
+    el?.remove();
+    el = document.createElement('div');
+    el.id = 'mar-svc';
+    el.addEventListener('click', onServiceClick);
+    host.appendChild(el);
+  }
+  const d = sv.data, b = boat();
+  const where = sv.mode === 'fuel' ? 'the fuel float' : 'the covered dock';
+  el.className = 'mar-svc' + (sv.open ? ' open' : ' folded');
+  if (!sv.open) {
+    el.innerHTML = `<button class="mar-go mar-svc-chip" data-svc="open">${sv.mode === 'fuel' ? '⛽' : '⚓'} ${esc(where)}</button>`;
+    syncPreview();
+    return;
+  }
+  const tabs = sv.mode === 'fuel' ? '' : [['service', 'SERVICE'], ['paint', 'PAINT'], ['name', 'NAME']]
+    .filter(([k]) => !b?.rental || k === 'service')
+    .map(([k, l]) => `<button class="mar-tab${sv.tab === k ? ' on' : ''}" data-svtab="${k}" type="button">${l}</button>`).join('');
+  const body = !b ? '<p class="mar-dim">She is not on the books here.</p>'
+    : sv.mode === 'fuel' ? fuelBody(b) : sv.tab === 'paint' ? paintBody(b, d) : sv.tab === 'name' ? nameBody(b) : serviceBody(b);
+  el.innerHTML = `<div class="mar-svc-head"><span class="mar-name">${sv.mode === 'fuel' ? '⛽' : '⚓'} ${esc(b?.name || 'her')}</span>
+      <span class="mar-credits">${money(d.credits)}</span><span class="mar-spacer"></span>
+      <button class="mar-go" data-svc="fold" title="Fold this away">${sv.mode === 'fuel' ? 'Carry on ▸' : 'Cast off ▸'}</button></div>
+    ${b?.rental ? `<div class="mar-svc-hire">Hire boat · ${esc(b.rental.leftText)} · step off in the slot to hand her back with <b>boat return</b></div>` : ''}
+    ${tabs ? `<div class="mar-tabs">${tabs}</div>` : ''}
+    <div class="mar-svc-body">${body}</div>
+    <div class="mar-dim mar-svc-foot">${sv.mode === 'fuel' ? 'The pump goes when you pull away from the float.' : 'Open the lever and she leaves the slot. Stop in it again and the shipwright comes back.'}</div>`;
+  syncPreview();
+}
+
+function serviceBody(b) {
+  const svc = b.svc || { items: [] };
+  const rows = svc.items.map((i) => `<div class="mar-svrow ${i.band}">
+      <div class="mar-svmain"><b>${esc(i.label)}</b> <span class="mar-dim">· ${esc(i.bandLabel)}</span>
+        <span class="mar-bt"><i class="${i.band === 'fresh' ? 'ok' : i.band === 'due' ? 'warn' : 'bad'}" style="width:${pct(i.life)}%"></i></span>
+        <div class="mar-dim mar-small">${esc(i.desc)}</div></div>
+      <button class="mar-go" data-cmd="refit service ${esc(b.id)} ${esc(i.id)}" ${i.life >= 0.995 ? 'disabled title="Just done"' : ''}>${money(i.price)}</button>
+    </div>`).join('');
+  return `<div class="mar-card"><div class="mar-card-head"><span class="mar-boat">The hull</span><span class="mar-dim">${esc(b.band)}</span></div>
+      ${bar('hull', b.hull)}
+      <div class="mar-acts"><button class="mar-go${b.hull < 0.9 ? ' pri' : ''}" data-cmd="refit ${esc(b.id)}" ${b.hull >= 0.999 ? 'disabled title="Sound"' : ''}>Repair the hull</button></div></div>
+    <div class="mar-card"><div class="mar-card-head"><span class="mar-boat">Servicing</span></div>${rows}
+      <div class="mar-acts"><button class="mar-go${svc.anyDue ? ' pri' : ''}" data-cmd="refit service ${esc(b.id)} all">Everything · ${money(svc.full)}</button></div></div>
+    <p class="mar-dim mar-small">Fuel is at the float, on the pontoon off the hardstanding, bring her alongside and stop.</p>`;
+}
+
+// ⚠ A SCHEME IS PREVIEWED ON THE HULL BEFORE IT IS BOUGHT: clicking a swatch shows it out of the chase
+// camera, and only the button under it spends anything.
+function paintBody(b, d) {
+  const cur = sv.pick || b.scheme;
+  const sw = (d.schemes || []).map((s) => {
+    const base = s.livery?.base || '#6f7a86', trim = s.livery?.trim || '#c9ced6';
+    return `<button class="mar-swatch${cur === s.id ? ' on' : ''}${b.scheme === s.id ? ' mine' : ''}" data-scheme="${esc(s.id)}" title="${esc(s.label)}">
+      <i style="background:linear-gradient(135deg, ${base} 0 55%, ${trim} 55% 100%)"></i><span>${esc(s.label)}</span></button>`;
+  }).join('');
+  const decals = (d.decals || []).map((a) => `<button class="mar-go${b.decal === a.id ? ' pri' : ''}" data-cmd="refit decal ${esc(b.id)} ${esc(a.id)}" ${b.decal === a.id ? 'disabled' : ''}>${esc(a.label)}${a.id === 'none' || b.decal === a.id ? '' : ' · ' + money(d.decalPrice)}</button>`).join('');
+  const dirty = cur !== b.scheme;
+  return `<div class="mar-card"><div class="mar-card-head"><span class="mar-boat">Colours</span><span class="mar-dim">shown on her now, press V</span></div>
+      <div class="mar-swatches">${sw}</div>
+      <div class="mar-acts"><button class="mar-go pri" data-cmd="refit paint ${esc(b.id)} ${esc(cur)}" ${dirty ? '' : 'disabled title="Nothing changed"'}>Paint her · ${money(cur === 'factory' ? Math.round(d.paintPrice / 2) : d.paintPrice)}</button>
+        <button class="mar-go" data-scheme="${esc(b.scheme)}" ${dirty ? '' : 'disabled'}>Put it back</button></div></div>
+    <div class="mar-card"><div class="mar-card-head"><span class="mar-boat">On her topsides</span></div><div class="mar-decals">${decals}</div></div>`;
+}
+
+function nameBody(b) {
+  return `<div class="mar-card"><div class="mar-card-head"><span class="mar-boat">Across her transom</span></div>
+    <div class="mar-acts"><input class="mar-namein" type="text" maxlength="24" value="${esc(b.name)}" aria-label="Her name">
+      <button class="mar-go pri" data-name="${esc(b.id)}">Paint it on</button></div>
+    <p class="mar-dim mar-small">Free. The shipwright has done worse names than whatever you are about to choose.</p></div>`;
+}
+
+function fuelBody(b) {
+  const f = b.liveFuel ?? b.fuel;
+  return `<div class="mar-card"><div class="mar-card-head"><span class="mar-boat">Marine fuel</span><span class="mar-dim">alongside the float</span></div>
+    ${bar('tank', f)}
+    <div class="mar-acts"><button class="mar-go pri" data-cmd="fuel" ${f >= 0.99 ? 'disabled title="Full"' : ''}>Fill her · ${money(b.fillPrice)}</button></div>
+    <p class="mar-dim mar-small">The nozzle stops when the money does.</p></div>`;
+}
+
+function bar(label, v) {
+  const p = pct(v);
+  return `<div class="mar-bar"><span class="mar-bl">${label}</span><span class="mar-bt"><i class="${barTone(v)}" style="width:${p}%"></i></span><span class="mar-bv">${p}%</span></div>`;
+}
+
+function onServiceClick(e) {
+  if (!sv) return;
+  const s = e.target.closest?.('[data-svc]');
+  if (s) { sv.open = s.dataset.svc === 'open'; drawService(); return; }
+  const t = e.target.closest?.('[data-svtab]');
+  if (t) { sv.tab = t.dataset.svtab; drawService(); return; }
+  const sc = e.target.closest?.('[data-scheme]');
+  if (sc && !sc.disabled) { sv.pick = sc.dataset.scheme; drawService(); return; }
+  const n = e.target.closest?.('[data-name]');
+  if (n) {
+    const v = String(n.parentElement?.querySelector('.mar-namein')?.value || '').trim();
+    if (v) send(`refit name ${n.dataset.name} ${v}`);
+    return;
+  }
+  onClick(e);
+}
+
+// The paint tab turns the camera round to look at her, and the preview rides on the hull; leaving the
+// tab or the slot hands back whichever view the helmsman had.
+function syncPreview() {
+  if (!sv) return;
+  // The dock always shows her from outside: you are looking at the boat you are working on.
+  const onDock = sv.open && sv.mode === 'dock';
+  const onPaint = onDock && sv.tab === 'paint';
+  try {
+    if (onDock) { const first = sv.view == null; if (first) sv.view = boatView(); boatView('ext', { quarter: first }); } else restoreView();
+    const b = boat();
+    const pick = onPaint && sv.pick && b && sv.pick !== b.scheme ? (sv.data.schemes || []).find((x) => x.id === sv.pick) : null;
+    boatPreview({ livery: pick ? { ...(pick.livery || {}), ...(b.decal && b.decal !== 'none' ? { decal: b.decal } : {}) } : null });
+  } catch { /* a seat without the hooks is a seat without the preview */ }
+  if (!onPaint && sv) sv.pick = sv.tab === 'paint' ? sv.pick : null;
+}
+function restoreView() {
+  if (!sv || sv.view == null) return;
+  try { boatView(sv.view); } catch { /* gone */ }
+  sv.view = null;
 }
 
 // ── THE STYLES ───────────────────────────────────────────────────────────────
@@ -438,7 +434,9 @@ function ensureMarinaStyles() {
     .mar-spacer{ flex:1; }
     .mar-chip{ background:rgba(8,12,18,.72); border:1px solid #24303d; color:#9fb6cc;
       font:600 13px/1 ui-monospace,monospace; padding:6px 9px; border-radius:4px; cursor:pointer; }
-    .mar-tabs{ display:flex; gap:2px; padding:8px 12px 0; border-bottom:1px solid #1b242e; }
+    .mar-tabs{ display:flex; flex-wrap:wrap; gap:2px; padding:8px 12px 0; border-bottom:1px solid #1b242e; }
+    .mar-exits{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:6px 12px; border-bottom:1px solid #1b242e; font-size:11px; }
+    .mar-exits .mar-go{ text-transform:capitalize; }
     .mar-tab{ background:none; border:1px solid transparent; border-bottom:none; color:#6f8399;
       font:600 12px/1 ui-monospace,monospace; letter-spacing:.06em; padding:8px 12px; cursor:pointer; }
     .mar-tab.on{ color:#cfe9ff; border-color:#24303d; background:#0c121a; }
@@ -447,59 +445,52 @@ function ensureMarinaStyles() {
     .mar-card-head{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
     .mar-boat{ color:#7fd4ff; font-weight:600; }
     .mar-dim{ color:#6f8399; }
+    .mar-small{ font-size:11.5px; }
     .mar-price{ color:#8fe0a8; }
     .mar-price.over{ color:#c0707a; }
     .mar-blurb{ color:#8aa0b5; margin:6px 0 2px; }
-    /* ⚠ THE VIEWPORT IS A HEIGHT, NOT AN ASPECT, and the truck lot's note says why: the canvas is
-       displayed at the card's width, so its buffer aspect IS its height on screen and a shorter
-       box is a smaller boat. A hull projects long and low at this camera, so unlike a rig it does
-       want the letterbox — but the height is still the whole budget, and 168 is where the schematic
-       stops being a thumbnail without pushing the Buy button off a partly-scrolled card. */
     .mar-wf{ display:block; width:100%; height:168px; margin:8px 0 2px;
       background:radial-gradient(ellipse at 50% 62%, #0d1721 0%, #070a0e 72%);
       border:1px solid #16202b; border-radius:3px; }
-    .mar-out{ color:#6f8399; font-size:12px; letter-spacing:.02em; margin:4px 0 2px; }
-    /* ⚠ A PHRASE WRAPS WHOLE OR NOT AT ALL. Measured in a 368px card, "bottle charged" broke
-       across the line — and a two-word state read as one word and a stray verb, which is worse
-       than the line being a row longer. The row still wraps BETWEEN phrases, which is the break
-       that means something. */
+    .mar-out{ color:#6f8399; font-size:12px; margin:4px 0 2px; }
     .mar-out b{ color:#8fe0a8; font-weight:600; white-space:nowrap; }
     .mar-where{ color:#6f8399; font-size:12px; margin-top:6px; }
     .mar-bar{ display:flex; align-items:center; gap:8px; margin-top:6px; font-size:12px; }
     .mar-bl{ width:52px; color:#6f8399; }
-    .mar-bt{ flex:1; height:6px; background:#141c25; border-radius:3px; overflow:hidden; }
-    .mar-bt i{ display:block; height:100%; }
-    .mar-bt i.ok{ background:#4fae74; } .mar-bt i.warn{ background:#c8a04a; } .mar-bt i.bad{ background:#b4545e; }
-    .mar-bv{ width:92px; text-align:right; color:#9fb6cc; }
-    .mar-acts{ display:flex; gap:6px; margin-top:8px; }
+    .mar-bt{ flex:1; display:block; height:6px; background:#141c25; border-radius:3px; overflow:hidden; }
+    .mar-bt i{ display:block; height:100%; background:#4fae74; }
+    .mar-bt i.warn{ background:#c8a04a; } .mar-bt i.bad{ background:#b4545e; }
+    .mar-bv{ width:52px; text-align:right; color:#9fb6cc; }
+    .mar-acts{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
     .mar-go{ background:#121a24; border:1px solid #2a3846; color:#cfe9ff;
       font:600 12px/1 ui-monospace,monospace; padding:7px 11px; border-radius:3px; cursor:pointer; }
     .mar-go:hover:not([disabled]){ border-color:#3f556b; }
     .mar-go[disabled]{ opacity:.4; cursor:default; }
-    .mar-body:has(.mar-dock){ display:flex; gap:12px; padding:12px; }
-    .mar-dock{ flex:1; min-width:0; display:flex; flex-direction:column; gap:8px; }
-    .mar-scene{ flex:1; min-height:200px; width:100%; display:block; border-radius:6px;
-      border:1px solid #1b242e; cursor:pointer; touch-action:none; }
-    .mar-hint{ color:#6f8399; font-size:12px; }
-    .mar-strip{ display:flex; gap:6px; flex-wrap:wrap; }
-    .mar-chip{ background:#0a0f15; border:1px solid #1b242e; border-radius:4px; padding:6px 9px;
-      color:#c6d7e6; font:12px/1.35 ui-monospace,monospace; cursor:pointer; text-align:left; }
-    .mar-chip.on{ border-color:#3f556b; background:#101a24; }
-    .mar-chip.away{ opacity:.55; }
-    .mar-chip-name{ display:block; color:#7fd4ff; font-weight:600; }
-    .mar-chip-sub{ display:block; color:#6f8399; }
-    .mar-chip-bar{ display:block; height:4px; margin-top:4px; background:#141c25; border-radius:2px; overflow:hidden; }
-    .mar-chip-bar i{ display:block; height:100%; background:#4fae74; }
-    .mar-chip-bar i.warn{ background:#c8a04a; } .mar-chip-bar i.bad{ background:#b4545e; }
-    .mar-side{ width:min(300px,38%); flex:0 0 auto; overflow:auto; }
     .mar-go.pri{ border-color:#3f6d8a; background:#16283a; }
-    @media (max-width:760px){
-      .mar-body:has(.mar-dock){ flex-direction:column; }
-      .mar-side{ width:100%; }
-      .mar-scene{ flex:0 0 auto; height:min(34vh,220px); }
-    }
-    /* Same allow-list shape the seats use: the picture stays, the chrome goes. There is no world
-       canvas here, so what big screen buys is the whole window for the screen itself. */
-    body.bigscreen .mar-root > .mar-head{ display:none !important; }`;
+    .mar-body .vc-hand{ margin-top:4px; }
+    /* ── The seat's overlay: docked right on the glass, above the lever and the wheel. */
+    .mar-svc{ position:absolute; z-index:40; right:10px; top:44px; color:#c6d7e6; font:13px/1.45 ui-monospace,monospace; white-space:normal; }
+    .mar-svc.open{ bottom:12%; width:min(620px,58%); display:flex; flex-direction:column; gap:6px; padding:8px;
+      background:rgba(7,10,14,.88); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+      border:1px solid #2a3846; border-radius:8px; box-shadow:0 12px 30px rgba(0,0,0,.55); }
+    .mar-svc.folded{ right:auto; left:10px; }
+    .mar-svc-head{ display:flex; align-items:center; gap:8px; }
+    .mar-svc .mar-tabs{ padding:0; }
+    .mar-svc-body{ flex:1; min-height:0; overflow:auto; }
+    .mar-svc-hire{ font-size:11.5px; padding:4px 8px; border:1px solid #2f6b58; border-radius:4px; }
+    .mar-svc-foot{ font-size:11px; text-align:center; }
+    .mar-svrow{ display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid #141c25; }
+    .mar-svrow:last-of-type{ border-bottom:0; }
+    .mar-svmain{ flex:1; min-width:0; }
+    .mar-svrow.over b{ color:#f0a097; }
+    .mar-swatches{ display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:6px; margin-top:6px; }
+    .mar-swatch{ display:flex; align-items:center; gap:6px; background:#0c121a; border:1px solid #24303d; border-radius:4px;
+      color:#c6d7e6; font:12px/1.2 ui-monospace,monospace; padding:5px; cursor:pointer; text-align:left; }
+    .mar-swatch i{ width:22px; height:22px; border-radius:3px; flex:none; border:1px solid rgba(255,255,255,.2); }
+    .mar-swatch.on{ border-color:#7fd4ff; } .mar-swatch.mine span::after{ content:' ✓'; color:#8fe0a8; }
+    .mar-decals{ display:flex; flex-wrap:wrap; gap:5px; margin-top:6px; }
+    .mar-namein{ flex:1; min-width:0; background:#0c121a; border:1px solid #2a3846; color:#cfe9ff; font:13px ui-monospace,monospace; padding:6px 8px; border-radius:3px; }
+    @media (max-width:720px){ .mar-svc.open{ left:8px; right:8px; width:auto; bottom:40%; } }
+    body.bigscreen .mar-root > .mar-head, body.bigscreen .mar-svc{ display:none !important; }`;
   if (!el.parentNode) document.head.appendChild(el);
 }

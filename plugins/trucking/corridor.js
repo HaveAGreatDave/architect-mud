@@ -112,15 +112,61 @@ const RAMP_LEN = 26;           // tiles the taper runs over
 // constants to turn a half-width back into a lane count, which is the second copy of a number that
 // the `road_t`/`road_w` note further down exists to prevent.
 const LANES_FULL = 4, LANES_RAMP = 2;
+// ⚠ THE WIDTH IS THE HIGHWAY TYPE'S NOW (client/shared/highways.js), eased across a change of type,
+// and still tapered where the road meets the map. A route with no typed segments is a `branch`,
+// which is 0.95 / four lanes / dirt — exactly the road that shipped before types — so every legacy
+// and hand-made route is unchanged.
 export function pavedAt(route, s) {
   const L = route?.L ?? 0;
   const d = Math.min(s, Math.max(0, L - s));            // distance from whichever end is nearer
   const k = d >= RAMP_LEN ? 1 : Math.max(0, d) / RAMP_LEN;
-  return RAMP_R + (PAVED_R - RAMP_R) * k;
+  const full = halfWidthAt(route, s), end = Math.min(RAMP_R, full);
+  return end + (full - end) * k;
 }
 export function lanesAt(route, s) {
-  const k = (pavedAt(route, s) - RAMP_R) / Math.max(1e-6, PAVED_R - RAMP_R);
-  return Math.max(LANES_RAMP, Math.min(LANES_FULL, Math.round(LANES_RAMP + (LANES_FULL - LANES_RAMP) * k)));
+  const t = typeAt(route, s), full = t.lanes;
+  if (full <= LANES_RAMP) return full;
+  const k = (pavedAt(route, s) - RAMP_R) / Math.max(1e-6, t.half - RAMP_R);
+  return Math.max(LANES_RAMP, Math.min(full, Math.round(LANES_RAMP + (full - LANES_RAMP) * k)));
+}
+// Whether the road is unsurfaced here, by its type.
+export const dirtAt = (route, s) => typeAt(route, s).dirt !== false;
+
+// HOW FAR GONE THE ROAD IS HERE, 0 (still good) to 1 (broken up). A slow drift along the road's own
+// length, seeded on the road, so a stretch is good or bad for tens of tiles at a time the way a real
+// neglected highway is — one contractor's section held, the next did not. A trunk wears a little
+// better than a branch, because it was built heavier. The renderer turns it into three looks.
+const COND_F = 0.028;   // ≈ one change of character every 35 tiles
+// ⚠ KEYED TO THE GROUND, NOT THE JOURNEY. Worked out along each road's own length, the stretch out
+// of Coldwater that Routes 1, 2 and 3 share came out in three different states depending on which
+// route you were driving. The tarmac is one road; its state is a function of where it is.
+export function conditionAt(route, s) {
+  const p = corridorPos(route, s, 0);
+  const n = hnoise2(p.x * COND_F, p.y * COND_F) * 0.75 + hnoise2(p.x * COND_F * 3.1 + 41.3, p.y * COND_F * 3.1 - 13.7) * 0.25;
+  const base = typeNameAt(route, s) === 'trunk' ? -0.08 : 0;
+  return Math.max(0.02, Math.min(1, (n - 0.28) * 2.1 + base));
+}
+
+// The first `sEnd` tiles of a route — where a slip road leaves a trunk, the trunk up to that point.
+// The legs are the trunk's own, so the stretch the slip road shares IS the trunk's tarmac.
+export function sliceRoute(route, sEnd, sStart = 0) {
+  const b0 = Math.max(0, Math.min(route.L, sStart)), e = Math.max(b0, Math.min(route.L, sEnd));
+  const legs = [];
+  for (const l of route.legs) {
+    if (l.s1 <= b0) continue;
+    if (l.s0 >= e) break;
+    const a = Math.max(l.s0, b0), z = Math.min(l.s1, e), cut = a - l.s0;
+    legs.push({ ...l, x0: l.x0 + l.ux * cut, y0: l.y0 + l.uy * cut, len: z - a, s0: a - b0, s1: z - b0 });
+  }
+  const out = { ...route, legs, L: e - b0, bends: (route.bends || []).filter((q) => q.s >= b0 && q.s < e).map((q) => ({ ...q, s: q.s - b0 })),
+    index: undefined, signs: [], branches: [] };
+  // A slice of a road that is already typed keeps its types, clipped to the slice.
+  if (route.segments?.length && route.segments[0].s0 != null) {
+    out.segments = route.segments
+      .filter((g) => g.s0 + g.L > b0 && g.s0 < e)
+      .map((g) => { const a = Math.max(g.s0, b0), z = Math.min(g.s0 + g.L, e); return { ...g, s0: a - b0, L: z - a }; });
+  }
+  return out;
 }
 // HOW FAR OFF THE ROAD YOU CAN ACTUALLY GO, as a multiple of the paved half-width.
 //
@@ -134,6 +180,7 @@ export function lanesAt(route, s) {
 // corridor is synthesised around a line and beyond some width there is no geometry to stand on.
 // Far enough out that reaching it is a decision rather than a wobble.
 export const OFFROAD_R = CORRIDOR_R * 4;
+const TURN_IN_MARGIN = 1.15;   // a slip road's arc, as a multiple of the fold radius
 
 // ── Tiles into miles ─────────────────────────────────────────────────────────
 // A distance a driver reads has to be in the units a driver thinks in, and until the signs went up
@@ -149,8 +196,11 @@ export const OFFROAD_R = CORRIDOR_R * 4;
 // calls `milesOf` to word a sign, threw ReferenceError the first time a road was built WITH a
 // plan. Every test that passed no plan built no signs and never touched it.
 export { TILES_PER_MILE, milesOf } from '../../client/shared/road-units.js';
+import { wildlandsAt } from '../../client/shared/wildlands.js';
+import { halfWidthAt, typeAt, segmentAt } from '../../client/shared/highways.js';
+const typeNameAt = (route, s) => segmentAt(route, s)?.type || 'branch';
 import { TILES_PER_MILE, milesOf } from '../../client/shared/road-units.js';
-import { highTerrainAt } from '../../client/shared/landform.js';   // the same field the floor shades off — see HIGH_OFF below
+import { highTerrainAt, hnoise2 } from '../../client/shared/landform.js';   // the same field the floor shades off — see HIGH_OFF below
 import { plazaOn, plazaCell, plazaRoadFlags } from './plaza.js';
 // ⚠ ONE DEFINITION OF WHERE THE TRAIL RUNS. voidwalking lays its rooms at this offset and the road
 // names the band it crosses, so the two would disagree the first time either was tuned if this were
@@ -518,6 +568,13 @@ export function corridorFor(voidKey, destKey, window, nodes, trunkNodes = 0, pla
   // Unanchored: due south, as it always was. Anchored: straight at the target — which is the same
   // statement ("point down the corridor") made about a real place instead of a compass bearing.
   let hdg = anch ? bearingDegOf(anch.x1 - anch.x0, anch.y1 - anch.y0) : 180;
+  // ⚠ A ROAD THAT LEAVES ANOTHER ROAD STARTS ON ITS HEADING (`anchor.h0`). Started "straight at the
+  // target" it would meet the road it leaves at whatever angle the target lies at, and a seam
+  // sharper than the verge band can fold is the odometer jumping backwards. So it starts where the
+  // road it leaves points and TURNS IN at the minimum radius until it faces its target, then builds
+  // as any road does. The turn-in is one arc, the tightest the road may hold: a slip road.
+  let turning = false, turnedIn = false;
+  if (anch && Number.isFinite(anch.h0)) { hdg = ((anch.h0 % 360) + 360) % 360; turning = true; }
   let hold = 0, kappa = 0;    // tiles left in the current straight-or-arc, and its curvature (°/tile)
   let forkedAt = -1;          // the s the fork bend was armed at, so it is armed exactly once
   // ── ANCHORED, THE ROAD STOPS WHEN IT GETS THERE ──────────────────────────────
@@ -554,7 +611,15 @@ export function corridorFor(voidKey, destKey, window, nodes, trunkNodes = 0, pla
     // that moves can sit either side of the 0/360 seam, and an unwrapped difference there reads as
     // ~350° off — the leash would slam the road round in the wrong direction at the seam.
     const off = wrapDeg(hdg - nominal);
-    if (!onTrunk && trunkL > 0 && forkedAt < 0 && (L - s) > arcMin) {
+    if (turning) {
+      // Faced round: hold the line from here. A wander bend now would leave the final leg into the
+      // entrance at whatever angle the bend had reached, which is how a 47° seam got in.
+      if (Math.abs(off) <= 2) { turning = false; turnedIn = true; kappa = 0; hold = 1e9; hdg = nominal; }
+      // The turn-in runs nearer the real limit than a wandering bend: the fold happens at OFFROAD_R
+      // (the verge band), and minRadius carries a 1.8x margin meant for bends nobody chose.
+      else { kappa = -Math.sign(off) * (1 / (OFFROAD_R * TURN_IN_MARGIN)) * R2D; hold = SEG; }
+    }
+    if (!turning && !onTrunk && trunkL > 0 && forkedAt < 0 && (L - s) > arcMin) {
       forkedAt = s;
       // ⚠ THE FORK ARC'S LENGTH MUST BE DESTINATION-SEEDED, NOT JUST ITS DIRECTION. Seeding only the
       // direction is the obvious way to write this and it does not work: where the leash forces the
@@ -588,7 +653,7 @@ export function corridorFor(voidKey, destKey, window, nodes, trunkNodes = 0, pla
     // round one; the other half is not straightening out again halfway past it because the arc ran to
     // its scheduled length. Extending `hold` while the same obstruction is still ahead and the road is
     // already turning away from it is what makes the detour a detour rather than a swerve.
-    const blk = avoidTurn(field, x, y, hdg, AVOID_NEAR);
+    const blk = (turning || turnedIn) ? 0 : avoidTurn(field, x, y, hdg, AVOID_NEAR);
     if (kappa === 0 && hold > 0 && blk) hold = 0;
     if (kappa !== 0 && blk && Math.sign(kappa) === blk) hold = Math.max(hold, SEG);
     if (hold <= 0) {
@@ -637,8 +702,14 @@ export function corridorFor(voidKey, destKey, window, nodes, trunkNodes = 0, pla
     // Hard stop at the leash: the bend simply ends early rather than carrying the road round.
     // Measured against the nominal captured at the TOP of this iteration, so the clamp and the
     // decision that produced this segment are talking about the same direction.
-    if (wrapDeg(hdg - nominal) > HOME_MAX) { hdg = nominal + HOME_MAX; hold = 0; }
-    if (wrapDeg(hdg - nominal) < -HOME_MAX) { hdg = nominal - HOME_MAX; hold = 0; }
+    if (turning) {
+      // the arc may overshoot by a hair: land it on the target rather than swing back
+      const now = bearingDegOf(anch.x1 - x, anch.y1 - y);
+      if (Math.sign(wrapDeg(hdg - now)) !== Math.sign(off)) { hdg = now; turning = false; turnedIn = true; kappa = 0; hold = 1e9; }
+    } else {
+      if (wrapDeg(hdg - nominal) > HOME_MAX) { hdg = nominal + HOME_MAX; hold = 0; }
+      if (wrapDeg(hdg - nominal) < -HOME_MAX) { hdg = nominal - HOME_MAX; hold = 0; }
+    }
   }
   // ── THE LAST LEG LANDS ON THE TILE, EXACTLY ──────────────────────────────────
   // The loop stops within a segment of the target, which is close but not the same thing. A road
@@ -833,7 +904,15 @@ function signsFor(route, dests) {
   // The junction board, on the trunk, in advance of the fork — a sign AT a junction is a sign you
   // read as you take the wrong one.
   if (route.trunkL > apart) push(route.trunkL - lead, 'fork');
-  for (const b of route.bends) push(b.s - lead, b.fork ? 'fork' : 'bend');
+  // A board just past every point where another route comes in alongside (the route numbers on the
+  // road change), so the driver reads the new numbers as the two roads become one. Before the bend
+  // boards: a join is a seam, a seam is a bend, and the bend board would otherwise take the spot.
+  const segs = route.segments || [];
+  for (let i = 1; i < segs.length; i++) {
+    const p = (segs[i - 1].nums || []).join('/'), q = (segs[i].nums || []).join('/');
+    if (p && q && p !== q && segs[i].s0 != null) push(segs[i].s0 + 3, 'merge');
+  }
+  for (const bd of route.bends) push(bd.s - lead, bd.fork ? 'fork' : 'bend');
   return at
     .sort((a, b) => a.s - b.s)
     .map((p) => {
@@ -1158,7 +1237,7 @@ export function corridorAt(route, x, y) {
   if (!hit) return branchAt(route, x, y);                 // not our road — try the ones we forked away from
   const { s, t } = hit;
   const node = nodeAt(route, s);
-  const terrain = terrainAt(route, s);
+  const terrain = terrainAt(route, s, x, y);
   const at = Math.abs(t);
   const id = `corridor_${route.voidKey}_${route.destKey}_${x}_${y}`;
   const danger = 2;
@@ -1216,7 +1295,8 @@ export function corridorAt(route, x, y) {
       // takes it from there. `road_wear` stays orthogonal and means what it always meant — nobody
       // has maintained this — which on dirt reads as scouring and drift rather than as dead paint.
       flags: { terrain: 'road', icon: roadIcon(hit), road_deg: deg, road_t: +t.toFixed(3),
-        road_w: +PAVED.toFixed(3), road_lanes: lanesAt(route, s), road_dirt: 1,
+        road_w: +PAVED.toFixed(3), road_lanes: lanesAt(route, s), road_dirt: dirtAt(route, s) ? 1 : 0,
+        road_type: typeNameAt(route, s), road_cond: +conditionAt(route, s).toFixed(2),
         road_wear: 1, corridor_s: s, corridor_node: node,
         // The gantry over the highway at each end of a plaza's footprint. It rides the carriageway
         // cell because it spans it: a mark on a road tile, exactly as a dust strip's drums are (see
@@ -1491,6 +1571,12 @@ export function reverseRoute(route) {
   const out = { ...route, legs, trunkL: Math.max(0, L - (route.trunkL || 0)),
     bends: (route.bends || []).map((b) => ({ ...b, s: L - b.s })).reverse(),
     signs: [], branches: [], reversed: !route.reversed };
+  // Typed segments run the other way too, or the trunk would sit at the wrong end of a road driven
+  // backwards. A piece's own `hwSplit` is only meaningful before it is joined, so it is dropped.
+  if (route.segments?.length && route.segments[0].s0 != null) {
+    out.segments = route.segments.map((g) => ({ ...g, s0: L - (g.s0 + g.L) })).reverse();
+  }
+  delete out.hwSplit;
   out.index = buildIndex(out);
   return out;
 }
@@ -1543,7 +1629,26 @@ export function joinRoutes(parts) {
     // The trunk is the first segment: the spoke out of the gate, shared by every road that leaves
     // it. That is what makes the fork happen AT the interchange rather than at a room boundary.
     trunkL: first.L,
-    segments: list.map((r) => ({ seedKey: r.seedKey || `${r.voidKey}|${r.destKey}`, L: r.L })),
+    // Each piece keeps its highway type and where it starts; a piece may itself be split
+    // (`hwSplit`, a slip road that becomes a branch) into typed runs of its own length.
+    segments: (() => { const out = []; let acc = 0;
+      for (const r of list) {
+        // An already-typed piece (a slice of another road) brings its own segments with it.
+        if (r.segments?.length && r.segments[0].s0 != null) {
+          for (const g of r.segments) out.push({ ...g, s0: acc + g.s0 });   // keeps g.shared and g.nums
+          acc += r.L; continue;
+        }
+        const seed = r.seedKey || `${r.voidKey}|${r.destKey}`;
+        const runs = r.hwSplit || [{ L: r.L, type: r.hwType || 'branch' }];
+        let used = 0;
+        runs.forEach((run, i) => {
+          const L = i === runs.length - 1 ? r.L - used : Math.min(run.L, r.L - used);
+          if (L > 0) out.push({ seedKey: runs.length > 1 ? `${seed}#${i}` : seed, L, s0: acc + used, type: run.type });
+          used += Math.max(0, L);
+        });
+        acc += r.L;
+      }
+      return out; })(),
     signs: [], branches: [] };
   out.index = buildIndex(out);
   // ── THE INTERCHANGE, AS SOMETHING YOU CAN SEE ──────────────────────────────

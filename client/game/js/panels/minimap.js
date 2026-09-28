@@ -276,7 +276,7 @@ export function setAutoWalkPersist(v) { autoWalkPersist = !!v; }
 function autoWalkStep() {
   autoWalkTimer = null;
   const current = (_lastMinimapNodes || []).find(n => n.is_current);
-  if (!current) { stopAutoWalk('Auto-walk stopped — lost track of where you are.'); return; }
+  if (!current) { stopAutoWalk('Auto-walk stopped: lost track of where you are.'); return; }
   const path = effectiveTracePath(current.id);
   // Arrived at this leg's end. Keep the intent armed only for a continuing route (a
   // quest leg — autoWalkPersist) so a quest advancing to a new waypoint (gps_route
@@ -294,7 +294,7 @@ function autoWalkStep() {
       requestReroute(destId); // gps_route resumeAuto re-arms the step from our new spot
       return;
     }
-    stopAutoWalk("Auto-walk stopped — off course and can't find a way back to the route.");
+    stopAutoWalk("Auto-walk stopped: off course and can't find a way back to the route.");
     return;
   }
   autoRerouteTries = 0;
@@ -305,7 +305,7 @@ function autoWalkStep() {
   if (autoLastZone === current.id) {
     if (++autoNoProgress >= 2) {
       sendCmdSilent('cancel');
-      stopAutoWalk('Auto-walk stopped — the way ahead is ambiguous. Pick an exit yourself.');
+      stopAutoWalk('Auto-walk stopped: the way ahead is ambiguous. Pick an exit yourself.');
       return;
     }
   } else {
@@ -337,7 +337,7 @@ function autoWalkStep() {
   }
 
   if (!dir) dir = Object.entries(current.exits || {}).find(([, id]) => id === nextId)?.[0];
-  if (!dir || !DIR_CMDS.includes(dir)) { stopAutoWalk("Auto-walk stopped — can't step off the route from here."); return; }
+  if (!dir || !DIR_CMDS.includes(dir)) { stopAutoWalk("Auto-walk stopped: can't step off the route from here."); return; }
   autoPendingTarget = nextId; // so an exit picker can be answered toward this zone
   sendCmd(dir);
   // Confirmation-driven: wait for the server to report we've reached nextId
@@ -439,7 +439,7 @@ export function autoWalkBlocked(message) {
     requestReroute(destId);
     return true;
   }
-  stopAutoWalk(message || 'Auto-walk stopped — the way ahead is blocked.');
+  stopAutoWalk(message || 'Auto-walk stopped: the way ahead is blocked.');
   return true;
 }
 
@@ -584,11 +584,11 @@ export function crossingInnerHtml(nodes, current) {
   // Top cue: the vertical axis points BACK the way you came (north), so mark it.
   if (behind.length) rows += `<div class="mm-x-row mm-x-cue"><span class="mm-x-node">↑</span>${lbl('the way back')}</div>`;
   for (const b of behind.slice().reverse())
-    rows += `<div class="mm-x-row mm-x-walked${b.void_hard ? ' mm-x-hot' : ''}" title="${escapeHtml(b.name || 'the waste')}${b.void_hard ? ' — bad ground, and you came through it' : ''}"><span class="mm-x-node">${b.void_hard ? '✷' : '●'}</span></div>`;
+    rows += `<div class="mm-x-row mm-x-walked${b.void_hard ? ' mm-x-hot' : ''}" title="${escapeHtml(b.name || 'the waste')}${b.void_hard ? ': bad ground, and you came through it' : ''}"><span class="mm-x-node">${b.void_hard ? '✷' : '●'}</span></div>`;
   const ticks = branches.map(br =>
     `<span class="mm-x-branch mm-x-${br.kind}" title="${br.dir}: ${br.kind === 'gamble' ? 'a risk-for-loot detour' : 'divert toward another region'}">${br.kind === 'gamble' ? '?' : '⋔'}</span>`
   ).join('');
-  const hotTick = hotHere ? `<span class="mm-x-branch mm-x-hazard" title="hard ground — a rougher ambush lives here">⚠</span>` : '';
+  const hotTick = hotHere ? `<span class="mm-x-branch mm-x-hazard" title="hard ground, a rougher ambush lives here">⚠</span>` : '';
   rows += `<div class="mm-x-row mm-x-you${hotHere ? ' mm-x-hot' : ''}" title="${escapeHtml(current.name || 'the void')}">${lbl(hotHere ? 'bad ground' : 'you')}<span class="mm-x-node mm-x-here">◎</span>${ticks}${hotTick}</div>`;
   if (ahead === 'gate') rows += `<div class="mm-x-row mm-x-gate" title="the far gate"><span class="mm-x-node">⌂</span>${lbl('the gate')}</div>`;
   else if (ahead === 'fog') rows += `<div class="mm-x-row mm-x-fog"><span class="mm-x-node">⋯</span>${lbl('onward')}</div>`;
@@ -817,7 +817,7 @@ export function titleFor(node) {
   // this, so the DOM tile and the canvas tile can never describe the same door
   // differently.
   const enterWord = node.shut ? 'closed' : 'enter';
-  const parts = [node.enterable && node.building_name ? `${node.building_name} — ${enterWord}` : node.name];
+  const parts = [node.enterable && node.building_name ? `${node.building_name}: ${enterWord}` : node.name];
   if (node.district?.name) parts.push(node.district.name);
   if (node.artery?.length) parts.push(node.artery.join(' / '));
   if (node.buildings?.length) parts.push(node.buildings.join(', '));
@@ -1214,8 +1214,7 @@ const ENTRANCE_DIRS = new Set(['north', 'south', 'east', 'west']);
 
 // The only door style: an interior room gets a thin line on each of its four sides —
 // green where there's a way through, red where there's a wall. Server `open_dirs` is
-// the authority and is null on exterior tiles, so out on the street this draws only
-// the single green line on the facade's door edge (see doorMarks).
+// the authority: set on every building tile (facades too), null on the street.
 //
 // `locked_dirs` is the third state, a subset of the open ones: a way through that a
 // lock is holding shut. Wall red, at full strength. `unlockable_dirs` is the fourth
@@ -1233,24 +1232,13 @@ function edgeMarks(node, pfx) {
   }).join('');
 }
 
-// A facade out on the street gets the green line on its door edge and NOTHING on the
-// other three — the red "this is wall" half only makes sense inside a floorplan; on
-// the street it would just outline every building.
+// Every building tile, facade included, draws the same four edges. The one extra is a
+// LAW holding a building shut (shop hours): it has no door row to lock, so it arrives
+// as the tile's own `shut` flag and reddens the facade's door edge.
 function doorMarks(node, pfx) {
-  if (Array.isArray(node?.open_dirs)) return edgeMarks(node, pfx);
-  if (!ENTRANCE_DIRS.has(node?.entrance)) return '';
-  // The one line a facade draws takes the same three lock colours an interior edge
-  // does (facadeLockDirs, server/engine/world.js). It was hardcoded 'open', which is
-  // why a bolted front door read green out on the street while the dpad reddened the
-  // same direction from the same door.
-  // ...and a LAW holding the building shut reddens it too. Shop hours have no door row
-  // to hang a lock off, so they arrive as the tile's own `shut` flag — the same flag
-  // that paints the red inset. A green door beside that inset says the opposite thing
-  // about the same building in the same square, which is what read as a bug.
-  const locked = node?.shut || (Array.isArray(node?.locked_dirs) && node.locked_dirs.includes(node.entrance));
-  const mine = locked && Array.isArray(node?.unlockable_dirs) && node.unlockable_dirs.includes(node.entrance);
-  const state = mine ? 'unlockable' : locked ? 'locked' : 'open';
-  return `<span class="${pfx}-edge ${pfx}-edge-${node.entrance} ${state}"></span>`;
+  if (!node?.shut || !ENTRANCE_DIRS.has(node.entrance)) return edgeMarks(node, pfx);
+  const locked = [...new Set([...(node.locked_dirs || []), node.entrance])];
+  return edgeMarks({ ...node, locked_dirs: locked }, pfx);
 }
 
 // The tile-label overlay mode (none | labels) lives in the shared settings store as
@@ -1369,6 +1357,6 @@ export function setGpsRoute(path, dirs = null) {
   // with the path; absent for client-side map-click routes (walker falls back to
   // reading the direction off the node's exits).
   mapState.traceDirs = mapState.tracePath ? dirs : null;
-  if (!mapState.tracePath && isAutoWalking()) stopAutoWalk('Auto-walk stopped — route cleared.');
+  if (!mapState.tracePath && isAutoWalking()) stopAutoWalk('Auto-walk stopped: route cleared.');
   if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes);
 }

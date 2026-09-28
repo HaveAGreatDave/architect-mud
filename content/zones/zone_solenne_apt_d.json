@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#2b3a34",
   "color": "#e8ddc7",
-  "description": "A two-bedroom sky residence on the bay side: engineered oak, a wall of glass the full width of the room, and a platform bed set back where the ceiling steps up. The kitchen is a single seam of stone; the second room is doing nothing in particular and does it beautifully. Quiet, warm, and exactly where it should be. Leave <b>south</b> to the landing.",
+  "description": "A two-bedroom sky residence on the bay side: engineered oak, a full-width wall of glass, and a platform bed where the ceiling steps up. The kitchen is a single seam of stone. The second room is empty. Leave <b>south</b> to the landing.",
   "exits": {
     "in": "zone_solenne_apt_d_bath",
     "south": "zone_solenne_residences_34"

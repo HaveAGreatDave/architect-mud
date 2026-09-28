@@ -45,7 +45,7 @@ const LEAGUES = {
   baseball: {
     sport: 'baseball', icon: '⚾', show: 'DEADBALL', league: 'COLDWATER LEAGUE',
     final: 'WORLD SERIES', finalTitle: 'World Series', finalCmd: 'worldseries',
-    empty: 'No baseball games have been played yet — the DEADBALL standings are empty.',
+    empty: 'No baseball games have been played yet. The DEADBALL standings are empty.',
     head: '  W   L    PCT   RDIF',
     cells: (r) => {
       const games = r.wins + r.losses;
@@ -60,7 +60,7 @@ const LEAGUES = {
   hockey: {
     sport: 'hockey', icon: '🏒', show: 'CLUSTER PUCK', league: 'CPhL',
     final: 'COLDWATER CUP', finalTitle: 'Coldwater Cup', finalCmd: 'cup',
-    empty: "The CPhL hasn't dropped a puck yet — the Cluster Puck standings are empty.",
+    empty: "The CPhL hasn't dropped a puck yet. The Cluster Puck standings are empty.",
     head: '  W   L  OTL   PTS     GD',
     cells: (r) => {
       const gd = (r.goals_for || 0) - (r.goals_against || 0);
@@ -273,7 +273,7 @@ function formatStandings(rows, sport = 'baseball') {
   const head = `  #  ${'TEAM'.padEnd(nameW)} ${L.head}`;
   const sep = '  ' + '─'.repeat(head.length - 2);
   const lines = rows.map((r, i) => ` ${String(i + 1).padStart(2)}  ${r.team.padEnd(nameW)} ${L.cells(r)}`);
-  return [`${L.icon} ${L.show} — ${L.league} STANDINGS`, head, sep, ...lines].join('\n');
+  return [`${L.icon} ${L.show}: ${L.league} STANDINGS`, head, sep, ...lines].join('\n');
 }
 
 // A batting average, the way a scoreboard writes one: no leading zero, three
@@ -339,7 +339,7 @@ async function seasonHeaderLines(sport) {
   const s = await currentSeason(sport);
   const champ = await lastChampion(sport);
   const lines = [];
-  if (s?.phase === 'worldseries' && s.finalist_a) lines.push(`Season ${s.season_no} · ${L.icon} ${L.final} — ${s.finalist_a} vs ${s.finalist_b}`);
+  if (s?.phase === 'worldseries' && s.finalist_a) lines.push(`Season ${s.season_no} · ${L.icon} ${L.final}: ${s.finalist_a} vs ${s.finalist_b}`);
   else lines.push(`Season ${s?.season_no || 1} · regular season`);
   if (champ) lines.push(`Reigning champ: ${champ.champion} (S${champ.season_no})`);
   return lines;
@@ -361,9 +361,9 @@ async function cmdStandings(args) {
 
 function formatChampions(rows, sport = 'baseball') {
   const L = leagueOf(sport);
-  if (!rows.length) return `No ${L.finalTitle} has been played yet — the trophy case is empty.`;
+  if (!rows.length) return `No ${L.finalTitle} has been played yet. The trophy case is empty.`;
   const lines = rows.map((r) => ` S${String(r.season_no).padStart(2)}  🏆 ${r.champion}  (def. ${r.runner_up} ${r.champ_score}-${r.runner_score})`);
-  return [`${L.icon} ${L.show} — ${L.final} CHAMPIONS`, ...lines].join('\n');
+  return [`${L.icon} ${L.show}: ${L.final} CHAMPIONS`, ...lines].join('\n');
 }
 
 async function cmdChampions(args) {
@@ -392,19 +392,19 @@ async function cmdFinal(sport, args, raw, player) {
     if (!s) return { type: 'error', message: `No ${L.show} season is open yet.` };
     if (s.phase !== 'regular') return { type: 'error', message: `A ${L.finalTitle} is already set or underway.` };
     const seeded = await seedFinal(sport, s);
-    if (!seeded) return { type: 'error', message: `Can't seed yet — need 2+ teams with the runner-up at ${SPORTS_MIN_WS_GAMES}+ games played.` };
+    if (!seeded) return { type: 'error', message: `Can't seed yet: need 2+ teams with the runner-up at ${SPORTS_MIN_WS_GAMES}+ games played.` };
     return { type: 'output', message: `${L.icon} ${L.final} forced: ${seeded.finalist_a} vs ${seeded.finalist_b}. It airs at the top of the hour.` };
   }
   const s = await currentSeason(sport);
   const champ = await lastChampion(sport);
   const out = [];
-  if (s?.phase === 'worldseries') out.push(`${L.icon} ${L.final} is ON — ${s.finalist_a} vs ${s.finalist_b} (Season ${s.season_no}). Winner takes all.`);
+  if (s?.phase === 'worldseries') out.push(`${L.icon} ${L.final} is ON: ${s.finalist_a} vs ${s.finalist_b} (Season ${s.season_no}). Winner takes all.`);
   else {
     const day = s?.start_date ? daysElapsed(s.start_date) : null;
-    const prog = (day !== null) ? ` — day ${Math.max(0, day) + 1} of ${SPORTS_SEASON_DAYS}` : '';
+    const prog = (day !== null) ? `, day ${Math.max(0, day) + 1} of ${SPORTS_SEASON_DAYS}` : '';
     out.push(`Season ${s?.season_no || 1}: regular season${prog}. The top two meet in the ${L.finalTitle} when the season ends.`);
   }
-  if (champ) out.push(`Reigning champion: ${champ.champion} — beat ${champ.runner_up} ${champ.champ_score}-${champ.runner_score} (Season ${champ.season_no}).`);
+  if (champ) out.push(`Reigning champion: ${champ.champion}, beat ${champ.runner_up} ${champ.champ_score}-${champ.runner_score} (Season ${champ.season_no}).`);
   if (isDev && (!s || s.phase === 'regular')) out.push(`(dev: "${L.finalCmd} start" to force it now.)`);
   return { type: 'output', message: out.join('\n') };
 }

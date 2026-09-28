@@ -86,8 +86,8 @@ function renderForecastDays(forecast) {
       <span class="fd-label">${i === 0 ? 'Today' : (f.date || '').slice(5) || `+${i}`}</span>
       <span class="fd-icon">${hero ? hero.icon : (f.icon || '')}</span>
       <span class="fd-weather"><span class="fd-cond" title="${cond}">${cond}</span>${hero
-        ? `<span class="fd-hero-warn" title="${hero.label} forecast for this day — this one kills people who go out unprepared">⚠⚠</span>`
-        : (severe ? '<span class="fd-warn" title="Severe conditions likely — gear up before heading out">⚠</span>' : '')}</span>
+        ? `<span class="fd-hero-warn" title="${hero.label} forecast for this day. This one kills people who go out unprepared">⚠⚠</span>`
+        : (severe ? '<span class="fd-warn" title="Severe conditions likely, gear up before heading out">⚠</span>' : '')}</span>
       ${f.humidityPct != null ? `<span class="fd-humid" title="Humidity">\u{1F4A7} ${f.humidityPct}%</span>` : ''}
       ${f.windKph != null ? `<span class="fd-wind" title="${windLabel(f.windKph)}">\u{1F4A8} ${f.windKph}</span>` : ''}
       <span class="fd-temp">${formatTemp(f.tempC)}</span>

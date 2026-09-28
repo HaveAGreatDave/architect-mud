@@ -28,9 +28,9 @@ const SUCCESS = [
   (n, p) => `${n} slides it across. "Enjoy it. Or don't. Not my problem anymore."`,
   (n, p) => `${n} pockets the payment and almost smiles. "Good doing business."`,
   (n, p) => `${n} counts your credits twice, just to be sure, then nods. "We're square."`,
-  (n, p) => `${n} snorts. "Look at you, spending like you'll live long enough to regret it."`,
+  (n, p) => `${n} snorts. "Look at you, spending like you will live long enough to regret it."`,
   (n, p) => `${n} flashes a grin missing a tooth or two. "Come back when your wallet's fat again."`,
-  (n, p) => `${n} wraps it without a word, then winks. "Tell your friends. Actually — don't. I hate a crowd."`,
+  (n, p) => `${n} wraps it without a word, then winks. "Tell your friends. Actually... don't. I hate a crowd."`,
 ];
 
 const POOR = [
@@ -38,7 +38,7 @@ const POOR = [
   (n, p) => `${n} yanks it back out of reach. "Credits first. This isn't a soup kitchen."`,
   (n, p) => `${n} rolls ${p.poss} eyes so hard you can hear it. "Broke. Figures."`,
   (n, p) => `${n} taps the counter twice. "Cute. Now show me the real money."`,
-  (n, p) => `${n} sighs like you've personally aged ${p.obj} a year. "Window-shopping's free. This isn't."`,
+  (n, p) => `${n} sighs like you have personally aged ${p.obj} a year. "Window-shopping's free. This isn't."`,
   (n, p) => `${n} smirks. "Bold move, strolling in here with pocket lint and big dreams."`,
   (n, p) => `${n} waves you off. "No credits, no goods. Try the gutter, it's cheaper."`,
 ];

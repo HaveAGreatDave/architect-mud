@@ -225,7 +225,7 @@ export function renderPane(table, viewerId) {
   // Between hands, show a status so a lone player knows why nothing's happening.
   const seatedCount = seats.filter(Boolean).length;
   const waitLabel = game ? '' : (
-    table.phase === 'WaitingForDealer' ? 'NO DEALER — TABLE PAUSED' :
+    table.phase === 'WaitingForDealer' ? 'NO DEALER: TABLE PAUSED' :
     seatedCount < 2 ? 'WAITING FOR PLAYERS' : 'SHUFFLING UP…'
   );
 

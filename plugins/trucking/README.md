@@ -130,3 +130,35 @@ panel is trusted to ignore** — a payload something else will read is a payload
 read. The law and the geometry are the engine's (`empReaches`); this plugin answers
 `vehicle.crewed` with its rigs and a `knockOut` each. See
 [systems-weather-extreme.md](../../docs/systems-weather-extreme.md).
+
+## The counter and the bay
+
+The depot's first screen is a **hand of cards**: every truck you have, owned or hired, on one of
+three backdrops (client/game/js/panels/vehicle-card.js), then a card to buy one and a card to hire
+one. Picking a card is `drive <id>`, which seats you in the real shed on the depot's facade tile.
+The painted 3-D garage and the walkaround it had are gone, because the shed they imitated is where
+you now start.
+
+**The bench comes to the cab.** While you sit stopped in the shed, the depot payload is pushed with
+`service: true` and lands as an overlay on the glass (`pushBayService`). It holds servicing, repairs,
+the pump, tuning, kits, paint, fittings, the inside, the horn and plate, the freight board and the
+exchange. It closes when the truck leaves the shed (`baySvcTick`, on a transition only). ⚠ The
+bench works on the rig you are sitting in by **flushing it to the row first and hydrating it after**
+(bench.js `flushLive`, then `hydrateFromTruck` and `pushCab`). Without the flush the next park writes
+the old RAM numbers over the repair. ⚠ `flushLive` leaves `depot_zone` alone, because the door tile
+is not where the truck lives.
+
+**Hire** ([rental.js](rental.js)): `yard rent <truck>` and `yard return`. A hire truck is a real
+`trucks` row stamped `custom_data.rental`, the road-test loaner's pattern. There is one at a time,
+it can go back at any yard, and it runs out lazily: when the yard opens, when you reach for the keys,
+and when you park. A hire is serviced but never customised, and `RENTAL_BARRED` refuses it before
+any handler runs.
+
+**Servicing** ([service.js](service.js)): oil, tyres and brake linings wear with distance, and the
+record is the odometer reading when each was last done. ⚠ **A missing stamp means fresh**, and the
+first mount writes the baseline. Every truck that has never been serviced therefore drives exactly
+as before, and regress asserts it. Worn tyres are `p.tread`, one optional factor on the surface grip
+in `stepTruck`.
+
+**Horns** (client/shared/truck-horns.js): `rig horn <truck> <horn>`, one catalogue that both the
+bench and the synth read. `stock` is stored as nothing.

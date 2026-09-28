@@ -155,7 +155,7 @@ function startShow(seconds, zoneId) {
   // rather than shell by shell — the bursts themselves fire silently underneath it.
   const finaleStart = durMs - FINALE_MS;
   timers.push(setTimeout(() => {
-    if (bc) propagateSound(launchZone, 'The sky detonates — shell after shell slamming up in a rolling barrage, the booms overlapping into one continuous roar as the whole horizon strobes crimson, gold and white.', LOUD, bc);
+    if (bc) propagateSound(launchZone, 'The sky detonates: shell after shell slamming up in a rolling barrage, the booms overlapping into one continuous roar as the whole horizon strobes crimson, gold and white.', LOUD, bc);
   }, finaleStart));
   for (let k = 0; k < 12; k++) {
     timers.push(setTimeout(() => fireBurst(nextShell(), true), finaleStart + 250 + k * 300));

@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Loose broken rock in a long skirt off the high ground, sorted by size the way water sorts things, moving a little underfoot the whole time.",
+  "description": "A long apron of loose stone below the high ground. None of it sits quite still.",
   "exits": {
     "east": "zone_terminus_1202_942",
     "north": "zone_terminus_1201_941",

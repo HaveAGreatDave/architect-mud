@@ -26,7 +26,7 @@
 // looks completely fine in a screenshot and completely wrong in motion; and a hull that reached
 // into windshield.js for `seaPoseAt` instead could not be stepped on a server, which is what the
 // text rung is and therefore what the accessibility rung is.
-import { seaRoll, seaWind, seaSlope } from '../../../shared/sea-swell.js';
+import { seaRoll, seaWind, seaSlope, seaChop } from '../../../shared/sea-swell.js';
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const D2R = Math.PI / 180, R2D = 180 / Math.PI;
@@ -256,6 +256,7 @@ export const TYPES = {
   // Sold for now; meant to become a mission prize.
   drake: {
     name: 'Drake', heli: true, mass: 3.2,
+    convert: 'drake_wing',   // K converts: the wings sweep out and the rotor folds into the back (cockpit.js F.dk)
     vne: 180, cruise: 140, vs0: 24,
     vr: 0, aoaCrit: 90, liftScale: 1,
     pitchRate: 18, pitchTau: 0.6, rollRate: 30, rollTau: 0.55,
@@ -269,6 +270,20 @@ export const TYPES = {
     vrsVs: 560,
     rollFric: 12,
     ceiling: 26000,
+  },
+  // Drake, wing mode — what the rotor row becomes once the conversion is past halfway: swing wings
+  // out, rotor folded, the ducted pusher driving. Heavy, stable and quick in a straight line; slow to
+  // roll, and it stalls at a speed a helicopter would not notice, so you convert back to land.
+  drake_wing: {
+    // ⚠ POWER RAISED 40 → 64 (2026-09-26), WITH DRAG TO MATCH. The lever is the rotor's collective
+    // until the conversion passes halfway and stays where it was, so she comes out of it at a hover's
+    // 40-60% — and at 40 thrust that was ~163 kt level, which flew like a glider. Now 50% holds about
+    // cruise (√(32/0.00095) ≈ 184 kt) and full is ~260 kt, so vne moves up to meet it.
+    name: 'Drake (wing)', mass: 3.2, thrustMax: 64, vr: 55, vs0: 45, vne: 250, cruise: 185,
+    pitchRate: 10, pitchTau: 0.8, rollRate: 34, rollTau: 0.75, engineLag: 1.4,
+    pitchStable: 1.0, rollStable: 1.1, dragP: 0.00095, flapDrag: 0.6, flapLift: 0.5, flapVs: 0.24,
+    rollFric: 1.4, aoaCrit: 17, liftScale: 1.0, vsMax: 2000, vsGain: 1800, vsTau: 0.95,
+    brake: 6.0, groundSteer: 22, ceiling: 26000, ldMax: 8.5, gLimit: 3.5,
   },
   // Carcass — salvaged wreck: underpowered, draggy, unstable. A junker you nurse into the air.
   carcass: {
@@ -448,7 +463,7 @@ export const TYPES = {
     gears: [0, 5.3, 3.22, 2.46, 1.89, 1.44, 1.1, 0.85, 0.65], band: [0.42, 0.68],   // 1st is the crawler — see the ⚠ on the Courier
     engBrake: 1.25, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
     trailerLen: 0.29, hitchOffset: 0.08, trailerKg: 3200,   // kingpin geometry, and the empty box itself
-    blurb: "The one everybody learns on. Nothing about it's remarkable and nothing about it has ever stopped working.",
+    blurb: "The one everybody learns on. Nothing about it is remarkable and nothing about it has ever stopped working.",
   },
   // A HEAVY TRUCK IS SLOW TO WIND UP, NOT INCAPABLE. `thrustMax` is the whole engine, and it has to
   // clear `rollFric × drag` on the worst surface with headroom or the truck simply cannot move off
@@ -795,6 +810,8 @@ function stepHeli(state, input, p, dt) {
   // type can be given more rate on a full lever without also dropping away harder when you chop it.
   const deficit = thrustV / hoverT - 1;
   let vsTarget = clamp(deficit * (deficit < 0 ? p.vsGain * 1.9 : (p.vsGainUp || p.vsGain)), -p.vsMax * 2.6, p.vsMax);
+  // Rising air (thermals.js): the whole air mass moves, so it carries a helicopter too.
+  if (!s.onGround && input.lift) vsTarget += input.lift;
   // Ground cushion (in-ground-effect): within ~a rotor-diameter of the deck the downwash piles
   // into a lift cushion, so a descent SOFTENS as you near the ground — she eases onto the skids
   // instead of dropping the last few feet. Sink only; hover and climb are untouched.
@@ -1322,7 +1339,10 @@ function stepTruck(state, input, p, dt) {
   // wheel did the least, which reads exactly like the steering being broken. Grip is what a tyre
   // runs out of when you ask for lateral acceleration, so it now fades IN with speed and the crawl
   // is pure kinematics. On the road (grip 1) this changes nothing at all.
-  const gripAuth = surf.grip + (1 - surf.grip) * (1 - Math.min(1, Math.abs(s.speed) / 22));
+  // `p.tread` is the tyres (plugins/trucking/service.js): absent on every truck that has not worn
+  // them past the point they cost anything, so this is `surf.grip` exactly on all of those.
+  const grip = surf.grip * (p.tread ?? 1);
+  const gripAuth = grip + (1 - grip) * (1 - Math.min(1, Math.abs(s.speed) / 22));
   // …and with the engine off there is no steer axle to speak of — see SETTLED_DRAG. A rig on its
   // shrouds slides where it was already pointed.
   const yaw = (!s.stalled && Math.abs(tps) > 0.001) ? (tps * Math.tan(delta) / p.wheelbase) * R2D * gripAuth : 0;
@@ -1375,7 +1395,7 @@ function stepTruck(state, input, p, dt) {
   // 5. Feedback the cab and the audio layer read. `slip` is the tyres losing the surface in a
   //    corner — it drives the rumble and, later, the trailer's willingness to fold.
   const lat = Math.abs(yaw) * tps / 60;
-  s.slip = clamp(lat / Math.max(0.05, surf.grip), 0, 1);
+  s.slip = clamp(lat / Math.max(0.05, grip), 0, 1);
   if (s.slip > 0.85 && !s.wasSliding) { s.events.push('slide'); s.wasSliding = true; }
   else if (s.slip < 0.5) s.wasSliding = false;
   s.onRoad = input.surface === 'road';
@@ -1785,7 +1805,8 @@ export function stepBoat(s, input, p, dt) {
   const lock = (p.turnLock ?? 34) * fade * surf.grip * (1 - TRIM_GRIP * trim);
   // ⚠ A RUDDER NEEDS WATER GOING PAST IT. Stopped, a boat cannot steer at all, and the whole
   // low-speed feel of one comes from that: you point it by moving it. Airborne there is no water.
-  const auth = s.airborne ? 0 : clamp(v / 6, 0, 1);
+  // ⚠ AND BEACHED THERE IS NO WATER EITHER: a hull up the sand does not answer her wheel.
+  const auth = (s.airborne || aground) ? 0 : clamp(v / 6, 0, 1);
   const yaw = steer * lock * auth;
   s.heading = wrap360(s.heading + yaw * dt);
   s.yawRate = yaw;
@@ -1798,6 +1819,14 @@ export function stepBoat(s, input, p, dt) {
   // handling a function of the frame rate, which is the quiet half of the same bug.
   s.drift += (-yaw * D2R) * tps * dt;
   s.drift *= Math.exp(-dt / Math.max(0.05, p.driftTau ?? 1.35));
+  // BEACHING. The linear scrub above takes the way off; this takes it off quickly enough that she
+  // runs a hull-length up the shore rather than across it, and the slide stops with her.
+  if (aground) {
+    s.speed *= Math.exp(-dt * 3.5);
+    s.drift *= Math.exp(-dt * 8);
+    if (s.speed < 0.4) { s.speed = 0; s.drift = 0; }
+    if (s.speed === 0 && !s.beached) { s.beached = true; s.events.push('beached'); }
+  } else s.beached = false;
   s.slip = clamp(Math.abs(s.drift) / Math.max(0.02, Math.abs(tps) + 0.02), 0, 1);
   if (s.slip > 0.5 && !s.wasSliding) { s.events.push('slide'); s.wasSliding = true; }
   else if (s.slip < 0.28) s.wasSliding = false;
@@ -1809,7 +1838,19 @@ export function stepBoat(s, input, p, dt) {
   if (!s.airborne) {
     // The launch. The hull is tangent to the face, so its vertical rate IS the slope it is climbing
     // times how fast it is climbing it. Past a threshold the water lets go.
-    const climb = pose.pitch * tps;                  // tiles/s of rise being forced on the hull
+    // ⚠ PLUS THE CHOP, WHEN THE SEAT HANDS ONE OVER (`s.seaChop`, its amplitude in tiles). The pose
+    // above deliberately ignores it — a hull fitted to one-tile ripples would jitter — but a race boat
+    // at speed is thrown by exactly those: it crosses a short steep face every half second, and that
+    // is where a boat gets air on an ordinary day. Rising faces only; a falling one does not throw.
+    // Absent (every headless gate, the text helm) it is 0 and the launch is what it always was.
+    let chopClimb = 0;
+    if (s.seaChop > 0 && tps > 0.45) {
+      const hh = (s.heading || 0) * D2R, fx = Math.sin(hh), fy = -Math.cos(hh), e = 0.08;
+      const u0 = s.x + (s.ssx || 0), v0 = s.y + (s.ssy || 0);
+      const g = (seaChop(u0 + fx * e, v0 + fy * e, t) - seaChop(u0 - fx * e, v0 - fy * e, t)) / (2 * e) * s.seaChop;
+      chopClimb = Math.max(0, g) * tps;
+    }
+    const climb = pose.pitch * tps + chopClimb;      // tiles/s of rise being forced on the hull
     const kick = climb * (p.launchVs ?? 0.55) * (1 + (want ? 0.35 : 0)) * (1 + TRIM_FLY * trim);
     // ⚠ TUNED AGAINST THE SEA THE RENDERER ACTUALLY DRAWS, not against a guess — and ⚠ THAT SEA
     // HAS CHANGED SINCE, WHICH IS WHY 'launchVs' CARRIES THE STORY NOW. This threshold was fitted
@@ -1875,7 +1916,29 @@ export function stepBoat(s, input, p, dt) {
     s.hull = clamp((s.hull ?? 1) - s.hullHit, 0, 1);
     if (s.hull <= 0 && !s.wasHoled) { s.events.push('holed'); s.wasHoled = true; }
   }
-  s.pitch = pose.pitch; s.roll = pose.roll;
+  // Out of the water the sea no longer lifts her; she settles on her keel with a slight list.
+  if (aground) { s.pitch = 0.04; s.roll = 0.06; s.heave = 0; }
+  // In the air the nose follows the flight path: up off the face, over at the top, down to land.
+  else if (s.airborne) { s.pitch = clamp(Math.atan2(s.vs, Math.max(0.3, tps)) * 0.8, -0.35, 0.4); s.roll = pose.roll * 0.5; }
+  else {
+    // The chop, in the attitude as well as the launch: a race boat at speed is thrown about by the
+    // short faces it crosses, and a hull that only followed the long swell sat level at 130 mph.
+    // Low-passed (about 0.12 s) so it reads as slamming rather than jitter. Only the seat hands a
+    // `seaChop` over, so headless callers keep the old pose exactly.
+    let cp = 0, cr = 0;
+    if (s.seaChop > 0) {
+      const hh = (s.heading || 0) * D2R, fx = Math.sin(hh), fy = -Math.cos(hh), e = 0.08;
+      const u0 = s.x + (s.ssx || 0), v0 = s.y + (s.ssy || 0);
+      const gF = (seaChop(u0 + fx * e, v0 + fy * e, t) - seaChop(u0 - fx * e, v0 - fy * e, t)) / (2 * e) * s.seaChop;
+      const gR = (seaChop(u0 - fy * e, v0 + fx * e, t) - seaChop(u0 + fy * e, v0 - fx * e, t)) / (2 * e) * s.seaChop;
+      const spd = clamp(Math.abs(tps) / 2, 0, 1);
+      cp = Math.atan(gF) * (0.4 + 0.6 * spd); cr = Math.atan(gR) * 0.5;
+    }
+    const kf = 1 - Math.exp(-dt / 0.12);
+    s.chopPitch = (s.chopPitch || 0) + (cp - (s.chopPitch || 0)) * kf;
+    s.chopRoll = (s.chopRoll || 0) + (cr - (s.chopRoll || 0)) * kf;
+    s.pitch = pose.pitch + s.chopPitch; s.roll = pose.roll + s.chopRoll;
+  }
   return s;
 }
 
@@ -2132,6 +2195,10 @@ export function step(state, input, p, dt) {
   // untouched). A brief zoom can still trade speed for height above it — you just can't SUSTAIN a climb.
   const ceil = p.ceiling || 20000;
   if (vsTarget > 0) vsTarget *= clamp((ceil - s.altitude) / (ceil * 0.4), 0, 1);
+  // Rising air (thermals.js), added AFTER the ceiling fade: the ceiling is what the engine and wing
+  // can do, and a column of air lifts you whatever the engine is doing. Not scaled by mass: the
+  // whole air mass is moving, and a fast heavy aircraft simply crosses a column before it gains much.
+  if (!s.onGround && input.lift) vsTarget += input.lift;
   // Ground effect: within ~a wingspan of the deck the wing rides a cushion of trapped air — the
   // sink softens so she FLOATS and you FLARE her on instead of driving her into the runway. A firm,
   // wide cushion makes the touchdown forgiving — a slightly-fast/high-sink arrival still settles.

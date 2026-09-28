@@ -283,7 +283,7 @@ function renderDialogue(msg) {
     // Tablet Quests screen for that quest so you can read what's still outstanding.
     if (opt._turninDisabled) {
       btn.classList.add('dialogue-opt-locked');
-      btn.title = 'Finish this job first — tap to see what\'s left to do.';
+      btn.title = 'Finish this job first, tap to see what\'s left to do.';
       const qid = opt._turninQuestId;
       btn.onclick = () => { closeDialogue(); import('./tablet-os.js').then(m => m.openTabletToQuest(qid)); };
       opts.appendChild(btn);
@@ -482,7 +482,7 @@ function renderShop() {
     const cost = want.reduce((n, it) => n + (it.price || 0), 0);
     const btn = want.length
       ? `<button class="shop-takeall" data-sec="${i}" title="buy one of each shopping-list item on this shelf">`
-        + `▸ take ${want.length} listed — ${cost}₵</button>`
+        + `▸ take ${want.length} listed: ${cost}₵</button>`
       : '';
     return `<div class="shop-section${want.length ? ' has-wanted' : ''}">`
       + `<span>${s.group || ''}</span>${btn}</div>`;
@@ -498,8 +498,8 @@ function renderShop() {
   shopState.buyAll = buyAll;
   const topBtn = buyAll.length
     ? `<div class="shop-section has-wanted bare shop-takeall-top"><span></span>`
-      + `<button class="shop-takeall" data-sec="all" title="Buy one of each shopping-list item this vendor stocks — every shelf">`
-      + `▸ take everything listed (${buyAll.length}) — ${buyAll.reduce((n, it) => n + (it.price || 0), 0)}₵</button></div>`
+      + `<button class="shop-takeall" data-sec="all" title="Buy one of each shopping-list item this vendor stocks, every shelf">`
+      + `▸ take everything listed (${buyAll.length}): ${buyAll.reduce((n, it) => n + (it.price || 0), 0)}₵</button></div>`
     : '';
   const rows = list.length
     ? topBtn + sections.map((s, i) => sectionHead(s, i) + s.items.map(renderRow).join('')).join('')
@@ -550,7 +550,7 @@ function renderShop() {
   } else if (mode === 'sell' && list.length) {
     const totalQty = list.reduce((n, it) => n + (it.quantity || 1), 0);
     const totalValue = list.reduce((n, it) => n + (it.price || 0) * (it.quantity || 1), 0);
-    act = `<button class="shop-sellall">Sell all (${totalQty} item${totalQty === 1 ? '' : 's'}) — ${totalValue}₵</button>`;
+    act = `<button class="shop-sellall">Sell all (${totalQty} item${totalQty === 1 ? '' : 's'}): ${totalValue}₵</button>`;
   }
   const foot = `<div class="shop-foot">${nav}<div class="shop-act">${act}</div></div>`;
 

@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Grey ash to the horizon, level and going nowhere. Nothing grows in it, and there's nothing out here that could make a noise.",
+  "description": "A grey flat with no feature on it. The ash has a thin crust that breaks under a boot and shows the looser stuff underneath.",
   "exits": {
     "east": "zone_dw_735_968",
     "north": "zone_dw_734_967",

@@ -113,7 +113,7 @@ registerPurchaseDelivery('mule_counter', async (player, npc, item, quantity, exe
   ordersGate.noteWork();   // a shipment is in flight — wake the delivery tick
   const mins = Math.round(DELIVERY_MS / 60000);
   return `A MULE drops <b>${qty}× ${item.name}</b> at ${DROP_NAME} in about ${mins} minute${mins === 1 ? '' : 's'}. `
-    + `Getting it home past the checkpoint is your lookout — <b>unpack</b> it out there first.`;
+    + `Getting it home past the checkpoint is your lookout: <b>unpack</b> it out there first.`;
 });
 
 // Dialogue option action: the fence takes an order. On success the receipt is
@@ -128,7 +128,7 @@ registerAction({
     const mins = Math.round(DELIVERY_MS / 60000);
     sendToPlayer(actor.id, {
       type: 'output',
-      message: `<span class="ambient">A word, a nod, credits gone. <b>${res.qty}× ${res.name}</b> for <b>${res.cost}₵</b> — a MULE drops it at ${DROP_NAME} in about ${mins} minute${mins === 1 ? '' : 's'}. (${actor.credits || 0}₵ left.)</span>`,
+      message: `<span class="ambient">A word, a nod, credits gone. <b>${res.qty}× ${res.name}</b> for <b>${res.cost}₵</b>: a MULE drops it at ${DROP_NAME} in about ${mins} minute${mins === 1 ? '' : 's'}. (${actor.credits || 0}₵ left.)</span>`,
     });
     return { type: 'ok' };
   },
@@ -162,7 +162,7 @@ schedule('1m', async () => {
     const p = getLivePlayer(o.player_id);
     if (p) sendToPlayer(p.id, {
       type: 'output',
-      message: `<span class="ambient">Far out at ${DROP_NAME}, a MULE drone flares, thumps a crate onto the pad, and is gone into the haze. Your shipment (<b>${o.qty}× ${o.item_name}</b>) is out there — go and get it.</span>`,
+      message: `<span class="ambient">Far out at ${DROP_NAME}, a MULE drone flares, thumps a crate onto the pad, and is gone into the haze. Your shipment (<b>${o.qty}× ${o.item_name}</b>) is out there: go and get it.</span>`,
     });
   }
 });
@@ -176,10 +176,10 @@ async function unpack(args, raw, player) {
   if (!crate) return undefined; // no crate on you → fall through
   const cd = crate.custom_data || {};
   if (cd.ownerId && cd.ownerId !== player.id)
-    return { type: 'error', message: `The crate is cipher-locked to whoever ordered it — not you. It won't open.` };
+    return { type: 'error', message: `The crate is cipher-locked to whoever ordered it, not you. It won't open.` };
 
   const rawId = cd.itemId, qty = Math.max(1, Number(cd.qty) || 1), rawName = cd.itemName || 'raw material';
-  if (!rawId) return { type: 'error', message: `The crate is empty — a bad drop.` };
+  if (!rawId) return { type: 'error', message: `The crate is empty: a bad drop.` };
 
   // Transfer the raw (merge into an existing stack if you already carry some).
   const ex = await query(
@@ -193,7 +193,7 @@ async function unpack(args, raw, player) {
 
   return {
     type: 'use',
-    message: `<span class="ambient">You crack the MULE crate open, transfer <b>${qty}× ${rawName}</b> into your kit and boot the empty shell off the pad. Now get it home past the checkpoint — <b>that's</b> the run that earns your standing with the fence.</span>`,
+    message: `<span class="ambient">You crack the MULE crate open, transfer <b>${qty}× ${rawName}</b> into your kit and boot the empty shell off the pad. Now get it home past the checkpoint: <b>that's</b> the run that earns your standing with the fence.</span>`,
   };
 }
 
@@ -225,7 +225,7 @@ export async function runRawScan(player, guards = 'the border guards') {
   if (!n) return { handled: false };                       // clean → not the scanner's business
 
   if (Date.now() < (heat.get(player.id) || 0))
-    return { handled: true, block: true, message: `${capG(guards)} are still eyeing you from the last pass — hang back a moment, or find another way in.` };
+    return { handled: true, block: true, message: `${capG(guards)} are still eyeing you from the last pass: hang back a moment, or find another way in.` };
 
   const tier = Math.max(1, Number(rows[0]?.tier || 1));
   const diff = 3 + tier;                                   // tier 1 → 4 (easy), tier 5 → 8 (hard)
@@ -240,7 +240,7 @@ export async function runRawScan(player, guards = 'the border guards') {
       const gain = tier;
       const next = (Number(await getFlag('player', TRUST_FLAG, player)) || 0) + gain;
       await setFlag('player', TRUST_FLAG, String(next), player);
-      sendToPlayer(player.id, { type: 'output', message: `<span class="ambient">You keep your hands loose and your face bored. The scanner blinks green; the guard waves you through — and you're in with the goods.</span>\n<span class="text-dim">A clean delivery. Your fence hears about it. (standing +${gain} → ${next})</span>` });
+      sendToPlayer(player.id, { type: 'output', message: `<span class="ambient">You keep your hands loose and your face bored. The scanner blinks green; the guard waves you through, and you're in with the goods.</span>\n<span class="text-dim">A clean delivery. Your fence hears about it. (standing +${gain} → ${next})</span>` });
     } else {
       sendToPlayer(player.id, { type: 'output', message: `<span class="ambient">You keep your hands loose and your face bored. The scanner blinks green; the guard waves you through.</span>` });
     }
@@ -253,7 +253,7 @@ export async function runRawScan(player, guards = 'the border guards') {
   heat.set(player.id, Date.now() + HEAT_MS);
   await dispatchAction({ type: 'CHARGE_CRIME', actor: player, params: { key: 'manufacturing' } });
   await dispatchAction({ type: 'APPREHEND', actor: player, params: { officer: capG(guards) } });
-  return { handled: true, block: true, message: `The scanner shrills — <b>raw material</b>. ${capG(guards)} move on you before you can turn — no bolting back this time.` };
+  return { handled: true, block: true, message: `The scanner shrills: <b>raw material</b>. ${capG(guards)} move on you before you can turn: no bolting back this time.` };
 }
 
 // SMUGGLE_RAW_SCAN — the cross-plugin seam: the checkpoint plugin dispatches this to

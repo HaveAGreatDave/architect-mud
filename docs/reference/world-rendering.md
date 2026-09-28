@@ -1023,6 +1023,11 @@ runs on `Date.now()` by design — sweeps the cycle with `RENDER_TUNE.shipForce`
 still, and records only FILLED paths, because the ambient birds are stroked and drift on a
 per-frame integrator. Mutation-tested 5 of 5.
 
+The lift-count stow (`BERTH_LIFTS`, `BERTH_SETDOWN`, `BERTH_SLOTS`, `berthRowOut`) has a fifth
+check in the same file, mutation-tested 4 of 4. It finds the crane as the difference between two
+scenes, never as a colour found somewhere in the frame, because her deck is stacked out of the
+same six colours and would answer yes to any of them.
+
 ## Gotchas
 
 - **No cache-busting on assets.** Scripts load as ES modules; asset URLs never change. `server/index.js`

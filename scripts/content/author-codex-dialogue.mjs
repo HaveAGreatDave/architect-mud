@@ -81,7 +81,7 @@ const PASSES = [
       });
       t.codex_field = {
         actions: [unlock('answers')],
-        text: '"All of them." He looks delighted, the way a man does when asked to describe his rivals. "Very well. Two questions, and everyone has answered both whether they can say so or not.\n\nFirst — is this city worth saving? Renounce it and walk out into the ash, or redeem it and stay and work the machine. Second — is the body worth keeping? Stay as you are, or transcend it: by the machine, by the flesh, or by the mind.\n\nCross the two and you have four corners. We are one of them. The Watch guards the door and stays meat. The Wildblood want the ash to finish what it started to them. The Exodus have decided the way out is inward, which is the most convenient exit ever invented." The pin winks. "Four answers, and every one held by people who are absolutely certain."',
+        text: '"All of them." He looks delighted, the way a man does when asked to describe his rivals. "Very well. Two questions, and everyone has answered both whether they can say so or not.\n\nFirst: is this city worth saving? Renounce it and walk out into the ash, or redeem it and stay and work the machine. Second: is the body worth keeping? Stay as you are, or transcend it: by the machine, by the flesh, or by the mind.\n\nCross the two and you have four corners. We are one of them. The Watch guards the door and stays meat. The Wildblood want the ash to finish what it started to them. The Exodus have decided the way out is inward, which is the most convenient exit ever invented." The pin winks. "Four answers, and every one held by people who are absolutely certain."',
         options: [
           { label: 'Nobody was that certain before the Quiet.', next: 'codex_certain' },
           { label: '(consider it)', next: 'bye' },
@@ -104,7 +104,7 @@ const PASSES = [
       t.root.options.splice(1, 0, { label: 'Where do the designs come from?', next: 'codex_designs' });
       t.codex_designs = {
         actions: [unlock('chrome')],
-        text: 'The ocular stops whirring. It is the first time she has been entirely still.\n\n"Honest answer? I don\'t know, and neither does anyone who tells you they do." She turns a chromed hand over, considering it. "The units arrive with documentation nobody wrote. They calibrate to a nervous system in under a minute. That used to take a research team ten years and a great deal of screaming — I know, I read the papers, back when there were papers." A shrug that costs her something. "I fit them. They work. They work better than the arm. I have decided that is enough, and I have decided it on purpose, which is different from not noticing."',
+        text: 'The ocular stops whirring. It is the first time she has been entirely still.\n\n"Honest answer? I don\'t know, and neither does anyone who tells you they do." She turns a chromed hand over, considering it. "The units arrive with documentation nobody wrote. They calibrate to a nervous system in under a minute. That used to take a research team ten years and a great deal of screaming. I know, I read the papers, back when there were papers." A shrug that costs her something. "I fit them. They work. They work better than the arm. I have decided that is enough, and I have decided it on purpose, which is different from not noticing."',
         options: [
           { label: 'What aren’t you telling me?', next: 'codex_drift' },
           { label: 'Fair enough.', next: 'root' },

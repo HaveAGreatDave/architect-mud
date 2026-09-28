@@ -378,7 +378,7 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1, shelfKey 
   if (sourceContainer) {
     const { rows: n } = await query('SELECT COUNT(*)::int AS n FROM player_inventory WHERE container_id=$1 AND item_id=$2', [sourceContainer, itemId]);
     if ((n[0]?.n || 0) < quantity) {
-      return { success: false, message: `${item.name} is out of stock — check back after the next delivery.` };
+      return { success: false, message: `${item.name} is out of stock. Check back after the next delivery.` };
     }
   }
 
@@ -446,7 +446,7 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1, shelfKey 
         [sourceContainer, itemId, quantity]
       );
       if (picked.length < quantity)   // sold out from under us mid-transaction
-        throw new VendorAbort(`${item.name} is out of stock — check back after the next delivery.`);
+        throw new VendorAbort(`${item.name} is out of stock. Check back after the next delivery.`);
       await q(
         'UPDATE player_inventory SET container_id=NULL, player_id=$1, is_equipped=0 WHERE id = ANY($2::text[])',
         [player.id, picked.map(r => r.id)]

@@ -5,9 +5,12 @@
       "bench",
       "seat"
     ],
-    "interactions": {
+    "interaction_lines": {
       "sit": "You sit in the dip, because everybody does, and you can see both lift doors without turning your head. That is why the dip is there."
-    }
+    },
+    "interactions": [
+      "sit"
+    ]
   },
   "id": "furn_hf_topbrass_bench",
   "name": "the curved bench",

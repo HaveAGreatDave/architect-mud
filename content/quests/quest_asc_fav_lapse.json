@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "A client has stopped paying and is still wearing the collateral.\n\nVess is at pains to point out that this isn't a punishment — the account remains open, in good standing, ready to resume the moment it's current. The hardware simply comes home in the meantime. She uses the word \"home\" without any apparent irony.\n\nShe is also at pains to point out that the client isn't to be killed. Halcyon doesn't kill clients. Halcyon repossesses, and then it writes, and then it waits.",
+  "description": "A client has stopped paying and is still wearing the collateral.\n\nVess is at pains to point out that this isn't a punishment. The account remains open, in good standing, ready to resume the moment it's current. The hardware simply comes home in the meantime. She uses the word \"home\" without any apparent irony.\n\nShe is also at pains to point out that the client isn't to be killed. Halcyon doesn't kill clients. Halcyon repossesses, and then it writes, and then it waits.",
   "fail_on": [
     {
       "desc": "You killed a client. A dead client pays nothing, ever, and Halcyon is very clear about the difference.",

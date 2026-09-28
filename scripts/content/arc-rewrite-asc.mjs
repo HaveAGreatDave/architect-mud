@@ -55,7 +55,7 @@ const Q = {
   quest_asc_2: {
     description:
       "Stand on the plate at the Gate and let the Warden read you.\n\n" +
-      "It takes four seconds and there is no needle, no form and no fee. At the end of it you exist — as a file, as a projection, as a set of numbers about how likely you are to be alive in a year, and Halcyon has an opinion about that number for the first time.\n\n" +
+      "It takes four seconds and there is no needle, no form and no fee. At the end of it you exist: as a file, as a projection, as a set of numbers about how likely you are to be alive in a year, and Halcyon has an opinion about that number for the first time.\n\n" +
       "Nothing is asked of you. That is not a trick; it is the product. Everything the Ascendants do rests on the fact that being known by them is free and being unknown by them is expensive, and they have never once had to explain that to anybody twice.",
     objectives: {
       o0: {
@@ -221,7 +221,7 @@ const Q = {
   quest_asc_cross: {
     description:
       "Somebody is printing the Watch's handbills on a real press, on paper, which is slow and expensive and cannot be switched off from an office. Halcyon would like to know where.\n\n" +
-      "Ives is unusually direct about the reason. \"Not to burn it. To have the address. An address is a thing you can decide about later — and later is where the whole business lives.\"\n\n" +
+      "Ives is unusually direct about the reason. \"Not to burn it. To have the address. An address is a thing you can decide about later, and later is where the whole business lives.\"\n\n" +
       "The press is under a dye works east of the wash. Get in, confirm it, get out. Nobody is asking you to touch it.",
     // ⚠ NOT Cyrelle. The NPC at the press is `npc_asc_lapsed` — Wessel Ardy,
     // male, faction null, a lapsed Halcyon client with two clean ports in the
@@ -331,9 +331,9 @@ const Q = {
   quest_asc_rite: {
     description:
       "Your backup is taken in the morning and is very boring. The Rite is in the evening and is not.\n\n" +
-      "You go up to the Nave and somebody reads the words, and about two thirds of the way through he loses his place — properly loses it, shuffles the card, apologises, and finishes the last part from memory in the voice of a man saying a thing he means rather than a thing he has learned.\n\n" +
+      "You go up to the Nave and somebody reads the words, and about two thirds of the way through he loses his place, properly loses it, shuffles the card, apologises, and finishes the last part from memory in the voice of a man saying a thing he means rather than a thing he has learned.\n\n" +
       "Then you go to the Uplink and you die there, on purpose, on schedule, with the claim already filed. Somewhere below you a tank that has been quietly paid up since the day of the tour opens on a body with your face on it.\n\n" +
-      "They will not do it while the police want you, and Vess is apologetic but immovable about that. A claimed death is an administrative act — and the law does not recognise administration.",
+      "They will not do it while the police want you, and Vess is apologetic but immovable about that. A claimed death is an administrative act, and the law does not recognise administration.",
     objectives: {
       o_nave: {
         desc: "Go up to the Nave for the reading.",
@@ -398,7 +398,7 @@ const Q = {
         emotes: [
           "{who} is greeted by name by somebody who has never met them.",
           "{who} is told, accurately and without malice, what the Watch pays and what it costs to stay in it.",
-          "{who} listens to her explain the whole machine out loud — the vats, the premiums, who actually gets covered — as though describing weather.",
+          "{who} listens to her explain the whole machine out loud (the vats, the premiums, who actually gets covered) as though describing weather.",
           "{who} is offered a number, and the number is not insulting, which is worse.",
           "{who} is told to take a week, and that the offer does not expire, because offers that expire are for people you do not want.",
         ],

@@ -95,7 +95,7 @@ export const WIDGET_CATALOG = {
     paint(el, items) {
       el.innerHTML = items.map(it => {
         const arr = Array.isArray(it.value) ? it.value : [];
-        if (!arr.length) return `<div class="cpanel-empty">${esc(it.label)}: —</div>`;
+        if (!arr.length) return `<div class="cpanel-empty">${esc(it.label)}:: </div>`;
         return '<div class="cpanel-rows">' + arr.map(e =>
           `<div class="cpanel-row"><span class="cpanel-row-label"${e.color ? ` style="color:${esc(e.color)}"` : ''}>${esc(e.label)}</span>` +
           `<span class="cpanel-row-val">${esc(e.value)}</span></div>`

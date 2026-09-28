@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Chest-high brush, tough as wire, with runs beaten through it at knee height by something that lives here and goes the same way every day. The wind through it makes a dry sound with no rest in it at all.",
+  "description": "Knee-high scrub runs off in every direction, a dull grey-green over gritty ground. The leaves are pocked with pale rain burns.",
   "exits": {
     "east": "zone_scw_1019_968",
     "north": "zone_scw_1018_967",
@@ -13,13 +13,13 @@
     "radiation": 9,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "dirt_road"
+    "terrain": "scrub"
   },
   "grid_x": 1018,
   "grid_y": 968,
   "grid_z": 0,
   "id": "zone_scw_1018_968",
   "map_id": "map_world",
-  "name": "The Grabbing Ground",
+  "name": "The Bristle",
   "parent_zone": null
 }

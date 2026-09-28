@@ -9,7 +9,7 @@
     "You want me to say something frightening. I would rather not.",
     "The masks are for the road. This is the gate."
   ],
-  "description": "She's standing in the gate house door because she's too tall for the gate house, and she has to duck to get into her own guardroom, and she does it eleven times a shift without appearing to notice.\n\nHer left arm is longer than her right by most of a forearm and ends in a hand with too many bones in it. She uses it to reach things down off high shelves without moving her feet, and to hold you at a distance that's exactly out of your reach and exactly inside hers, and she's doing the second one now.\n\nShe isn't hostile. She isn't going to move either.",
+  "description": "A very tall woman standing in the gatehouse door. She's too tall for the gatehouse and has to duck into her own guardroom.",
   "dialogue_tree": {
     "bye": {
       "actions": [],
@@ -41,7 +41,7 @@
           "next": "bye"
         }
       ],
-      "text": "She considers the question like it's a piece of work.\n\n\"I went to Coldwater when I was nineteen. Got to the checkpoint at the Yards. There's a frame there you walk through and a man behind glass who reads what it says about you.\"\n\nA pause, and she looks down the road rather than at you.\n\n\"He wasn't cruel about it. That's the bit people get wrong. He was bored. He had done it forty times that day and I was the forty-first and he didn't look up.\"\n\nShe rolls her shoulder, the long one.\n\n\"Anyway. Nothing to tell. Everyone here has that story and everyone here is bored of it.\""
+      "text": "She considers the question like it is a piece of work.\n\n\"I went to Coldwater when I was nineteen. Got to the checkpoint at the Yards. There's a frame there you walk through and a man behind glass who reads what it says about you.\"\n\nA pause, and she looks down the road rather than at you.\n\n\"He wasn't cruel about it. That's the bit people get wrong. He was bored. He had done it forty times that day and I was the forty-first and he didn't look up.\"\n\nShe rolls her shoulder, the long one.\n\n\"Anyway. Nothing to tell. Everyone here has that story and everyone here is bored of it.\""
     },
     "in": {
       "actions": [],

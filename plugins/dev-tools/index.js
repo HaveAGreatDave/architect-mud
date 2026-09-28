@@ -161,7 +161,7 @@ async function cmdMakeItRain(args, raw, player, broadcast) {
   }
   return {
     type: 'output',
-    message: `☔ The Architect makes it rain. <b>+₵${GRANT.toLocaleString()}</b> — your balance is now <b>₵${player.credits.toLocaleString()}</b>.`,
+    message: `☔ The Architect makes it rain. <b>+₵${GRANT.toLocaleString()}</b>. Your balance is now <b>₵${player.credits.toLocaleString()}</b>.`,
     player_update: { credits: player.credits },
   };
 }

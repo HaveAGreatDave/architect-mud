@@ -8,7 +8,7 @@
     "The drum goes out on a Thursday.",
     "You keep your name. That's the one thing you keep."
   ],
-  "description": "A wiry man in a rubber apron, folding linen, with the unbothered competence of somebody who has done a difficult thing several hundred times. His forearms are scarred in a pattern that isn't from work.\n\nHe glances at you once, at your arms and your jaw and the way you stand, and prices you in about a second and a half.",
+  "description": "A wiry man in a rubber apron, folding linen with easy competence. His forearms are scarred in a pattern that isn't from work.",
   "dialogue_tree": {
     "bye": {
       "actions": [],

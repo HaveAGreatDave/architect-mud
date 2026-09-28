@@ -26,13 +26,13 @@ const KINDS = {
 // the scoring lives in quality.js and never leaks a number to the player.
 function flavour(session, profile, now) {
   const tl = timeline(session, profile);
-  if (now < tl.startedAt + tl.thawMs) return `It's still half-frozen — barely worth the effort.`;
+  if (now < tl.startedAt + tl.thawMs) return `It's still half-frozen: barely worth the effort.`;
   if (now < tl.doneAt) {
     // Against the cook that was ASKED for, not the plain 1.0 one: a cut being
     // taken rare is only ever 75% of the way through by this measure, so on the
     // raw cookMs it could never read as a late turn however late it was.
     const through = (now - (tl.startedAt + tl.thawMs)) / (tl.cookMs * tl.mult);
-    if (through < 0.25) return `Too early — it hasn't taken any colour yet.`;
+    if (through < 0.25) return `Too early: it hasn't taken any colour yet.`;
     if (through > 0.85) return `The underside is already dark. That was late.`;
     return `The underside comes away clean, evenly browned.`;
   }
@@ -58,7 +58,7 @@ export async function handle(kind, args, player) {
   // A soup wants stirring, a steak wants turning — using the wrong one on the
   // wrong food is a nudge back to the right verb, not a silent no-op.
   const wanted = HANDLING_VERB[session.profile] || 'flip';
-  if (wanted !== kind) return { type: 'error', message: `You don't ${spec.verb} ${food.name} — you ${wanted} it.` };
+  if (wanted !== kind) return { type: 'error', message: `You don't ${spec.verb} ${food.name}: you ${wanted} it.` };
 
   // A microwave has no handling at all — the door is shut and the plate is
   // turning. This is one of the things that makes it a different appliance
@@ -69,7 +69,7 @@ export async function handle(kind, args, player) {
 
   // A spatula in the rack on the wall is a spatula you can reach.
   const tool = await resolveInventoryItem(player, { tag: spec.tag, topLevel: true, fromNearby: true });
-  if (!tool) return { type: 'error', message: `You need ${spec.tool} — and a free hand to hold it.` };
+  if (!tool) return { type: 'error', message: `You need ${spec.tool}, and a free hand to hold it.` };
 
   const now = Date.now();
   const acts = [...(session.acts || []), { at: now, kind }];

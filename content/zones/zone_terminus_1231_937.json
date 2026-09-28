@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Two different rocks meet on this face and neither of them is happy about it. The join between them runs up the whole height, a hand wide, full of grit — and a hand wide is a hand wide.",
+  "description": "Two different rocks meet on this face and neither of them is happy about it. The join between them runs up the whole height, a hand wide, full of grit, and a hand wide is a hand wide.",
   "exits": {
     "east": "zone_terminus_1232_937",
     "north": "zone_terminus_1231_936",

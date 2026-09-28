@@ -105,11 +105,11 @@ async function listAssets(player) {
   if (!m) return err("You're not in a corp.");
   const vs = getOrgVentures(m.org_id);
   if (!vs.length) return { type: 'corp_asset', message: 'Your corp owns no businesses. Stand in a claimable one and use "corp asset claim".' };
-  let msg = `<span class="skills-header">${esc(getOrg(m.org_id).name)} — BUSINESSES</span>\n`;
+  let msg = `<span class="skills-header">${esc(getOrg(m.org_id).name)}: BUSINESSES</span>\n`;
   for (const v of vs) {
     const def = CORP_ASSET_TYPES[v.asset_type] || {};
     const state = v.dormant ? '<span class="dim">dormant</span>' : `+${(def.passiveFloor || 0) * v.level}/day`;
-    msg += `  ${esc(def.label || v.asset_type)} @ ${esc(getZone(v.zone_id)?.name || v.zone_id)} — ${state}\n`;
+    msg += `  ${esc(def.label || v.asset_type)} @ ${esc(getZone(v.zone_id)?.name || v.zone_id)}: ${state}\n`;
   }
   return { type: 'corp_asset', message: msg.trimEnd() };
 }
@@ -123,7 +123,7 @@ async function cmdClaimAsset(player, broadcast, pushConsole) {
   if (!type) return err("There's no claimable business here.");
   if (getVenture(zone.id)) return err('This business is already owned.');
   const org = getOrg(m.org_id);
-  if ((org.treasury || 0) < CLAIM_FEE) return err(`Taking over this business costs ${CLAIM_FEE}₵ from the treasury — it has ${org.treasury || 0}₵.`);
+  if ((org.treasury || 0) < CLAIM_FEE) return err(`Taking over this business costs ${CLAIM_FEE}₵ from the treasury: it has ${org.treasury || 0}₵.`);
   const vendor = getZoneNpcs(zone.id).find(n => n.vendor_inventory?.length) || null;
   const id = randomUUID();
   const res = await withTransaction(async (q) => {
@@ -142,7 +142,7 @@ async function cmdClaimAsset(player, broadcast, pushConsole) {
   const cut = vendor ? `, plus a ${Math.round(def.activeShare * 100)}% cut of every sale at ${esc(vendor.name)}` : '';
   return {
     type: 'corp_asset',
-    message: `<b>${esc(org.name)}</b> takes over the <b>${esc(def.label)}</b> here for ${CLAIM_FEE}₵. It runs on its own — <b>+${def.passiveFloor}/day</b> to the treasury${cut}. Treasury: ${res.treasury}₵.`,
+    message: `<b>${esc(org.name)}</b> takes over the <b>${esc(def.label)}</b> here for ${CLAIM_FEE}₵. It runs on its own: <b>+${def.passiveFloor}/day</b> to the treasury${cut}. Treasury: ${res.treasury}₵.`,
   };
 }
 
@@ -196,7 +196,7 @@ async function listStore(orgId) {
   const { rows } = await query(
     `SELECT i.name, SUM(pi.quantity)::int qty FROM player_inventory pi JOIN items i ON i.id=pi.item_id
       WHERE pi.container_id=$1 GROUP BY i.name ORDER BY i.name`, [storeContainerId(orgId)]);
-  let msg = `<span class="skills-header">${esc(getOrg(orgId)?.name || 'CORP')} — LOGISTICS STORE</span>\n<span class="dim">${fmtKg(used)} / ${fmtKg(cap)} used</span>`;
+  let msg = `<span class="skills-header">${esc(getOrg(orgId)?.name || 'CORP')}: LOGISTICS STORE</span>\n<span class="dim">${fmtKg(used)} / ${fmtKg(cap)} used</span>`;
   if (!rows.length) msg += '\n  (empty)';
   else for (const r of rows) msg += `\n  ${esc(r.name)}${r.qty > 1 ? ` x${r.qty}` : ''}`;
   return { type: 'corp_asset', message: msg };
@@ -214,7 +214,7 @@ async function depositStore(player, orgId, name) {
   const cap = warehouseStoreCapacity(getOrgVentures(orgId));
   const used = await storeUsedWeight(orgId);
   const adding = (Number(it.weight) || 0) * (it.quantity || 1);
-  if (used + adding > cap) return err(`The Logistics Store is full — ${fmtKg(used)} / ${fmtKg(cap)} used. Claim or upgrade more warehouses.`);
+  if (used + adding > cap) return err(`The Logistics Store is full: ${fmtKg(used)} / ${fmtKg(cap)} used. Claim or upgrade more warehouses.`);
   await query('UPDATE player_inventory SET container_id=$1, player_id=$1, is_equipped=0, slot=NULL WHERE id=$2',
     [storeContainerId(orgId), it.id]);
   emit('inventory.changed', { actor: player });

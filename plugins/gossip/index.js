@@ -329,7 +329,7 @@ function cmdAskAbout(args, raw, player, broadcast) {
 async function cmdSpread(args, raw, player, broadcast) {
   const text = raw.replace(/^\s*(spread|rumou?r)\s+/i, '').trim();
   if (!text) return { type: 'error', message: 'Spread what? Try: spread <the word on the street>.' };
-  if (text.length > 200) return { type: 'error', message: 'Keep it short — nobody repeats a speech.' };
+  if (text.length > 200) return { type: 'error', message: 'Keep it short: nobody repeats a speech.' };
 
   const until = Number(await getFlag('player', 'gossip_spread_until', player)) || 0;
   if (Date.now() < until) {
@@ -345,7 +345,7 @@ async function cmdSpread(args, raw, player, broadcast) {
 
   broadcast?.(player.current_zone, { type: 'zone_event', message: `${player.handle} mutters something to the people nearby.` }, player.id);
   return { type: 'output', message: check.success
-    ? 'You lean in and let it slip, just quiet enough to travel. It lands as true — people will pass it on.'
+    ? 'You lean in and let it slip, just quiet enough to travel. It lands as true: people will pass it on.'
     : 'You put the word out, but it comes out clumsy. Most who hear it just raise an eyebrow.' };
 }
 
@@ -511,7 +511,7 @@ export const routeHandler = async (path, method, body, auth) => {
     const text  = String(body?.text || '').trim();
     if (!npcId) return { status: 400, body: { error: 'Pick an NPC to spread the rumour.' } };
     if (!text)  return { status: 400, body: { error: 'Enter what the NPC should spread.' } };
-    if (text.length > 200) return { status: 400, body: { error: 'Keep it short — under 200 characters.' } };
+    if (text.length > 200) return { status: 400, body: { error: 'Keep it short: under 200 characters.' } };
     const npc = world.npcs.get(npcId);
     if (!npc) return { status: 404, body: { error: 'NPC not found.' } };
     const item = pool.plant({ text, zoneId: npc.zone_id, truth: 0.9, subjectName: npc.name });

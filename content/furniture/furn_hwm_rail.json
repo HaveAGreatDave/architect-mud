@@ -6,9 +6,7 @@
       "handrail",
       "walkway"
     ],
-    "interactions": {
-      "examine": "The two worn places are on the south side, facing the meadow and the wall. Nobody stands on the north side, where the view is the basin and the money."
-    }
+    "examine_detail": "The two worn places are on the south side, facing the meadow and the wall. Nobody stands on the north side, where the view is the basin and the money."
   },
   "id": "furn_hwm_rail",
   "name": "the walkway rail",

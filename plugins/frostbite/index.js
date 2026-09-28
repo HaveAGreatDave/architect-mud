@@ -211,7 +211,7 @@ export const hooks = {
     const moved = await treatFrostbite(player, rx);
     if (!moved) return 'You warm and wrap what you can. The damage is past what this can reach.';
     return moved.to
-      ? `You work the circulation back as far as it'll go. ${moved.from} — ${moved.to}.`
+      ? `You work the circulation back as far as it'll go. ${moved.from}: ${moved.to}.`
       : 'You work the feeling back into your hands.';
   },
 };

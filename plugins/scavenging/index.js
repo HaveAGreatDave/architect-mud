@@ -18,7 +18,7 @@ import { getZone, getLivePlayer } from '../../server/engine/world.js';
 import { registerActivity } from '../../server/engine/activity-tick.js';
 import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
-import { on } from '../../server/engine/events.js';
+import { on, emit } from '../../server/engine/events.js';
 import { setPosture, forceStand } from '../../server/engine/posture.js';
 import { escAttr } from '../../server/engine/text.js';
 
@@ -202,7 +202,7 @@ async function runAttempt(player, st, nowMs) {
   const available = entries.filter(e => e.current_qty > 0);
   const reachable = available.filter(e => effective + MAX_SWING >= e.difficulty);
   if (!reachable.length) {
-    out(player.id, 'You can tell there\'s something here — but you\'ve got no shot of finding it.');
+    out(player.id, 'You can tell there\'s something here, but you\'ve got no shot of finding it.');
     stopScavenging(player.id, st.zoneId, player.handle);
     return;
   }
@@ -226,10 +226,11 @@ async function runAttempt(player, st, nowMs) {
       'INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,1,1.0)',
       [randomUUID(), player.id, target.item_id]
     );
+    emit('scavenge.found', { player, item_id: target.item_id, zoneId: st.zoneId });
     const link = `<span class="action-link item-link" data-action="examine" data-target="${escAttr(target.name)}" title="Examine ${escAttr(target.name)}">${target.name}</span>`;
     out(player.id, `${flavor}\n<span class="item-grant">You turn up ${link} and pocket it.</span>`);
     if (totalStock - 1 === 0)
-      out(player.id, 'That was the last of it — you\'ve picked the area clean.');
+      out(player.id, 'That was the last of it: you\'ve picked the area clean.');
     // A successful find always ends the action.
     stopScavenging(player.id, st.zoneId, player.handle);
     return;

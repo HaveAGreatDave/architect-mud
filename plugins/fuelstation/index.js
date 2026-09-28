@@ -61,7 +61,7 @@ export const hooks = {
     const prices = [...new Set(pumps.map(pumpPrice))];
     return prices.map(p => ({
       grade: 'GASOLINE', unit: 'unit', price: p,
-      note: p > 0 ? 'into a can' : 'free — nobody has repriced it',
+      note: p > 0 ? 'into a can' : 'free, nobody has repriced it',
     }));
   },
 

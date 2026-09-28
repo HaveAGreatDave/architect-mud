@@ -172,7 +172,9 @@ export async function street(opts = {}) {
         freeCam: {
           x: (opts.off && opts.off.x) || 0, y: (opts.off && opts.off.y) || 0,
           z: opts.eyeH ?? opts.height ?? 0.12,
-          yaw: (heading || 0) * Math.PI / 180, pitch: (opts.pitch || 0) * Math.PI / 180,
+          // ⚠ YAW IS DEGREES AND PITCH IS RADIANS TO THIS CAMERA. The yaw went in as radians, so every
+          // free-seat shot faced within a few degrees of north whatever heading was asked for.
+          yaw: heading || 0, pitch: (opts.pitch || 0) * Math.PI / 180,
           roll: 0, fov: opts.fov || 1,
         },
       } : {}),
@@ -200,6 +202,77 @@ export async function street(opts = {}) {
   const info = { x, y, heading, seat, hour, weather, faces: L.faces || 0, lights: L.lights || 0, decals: L.decals || 0, wet: L.wet || 0 };
   console.log('__street', JSON.stringify(info));
   return info;
+}
+
+// ── `__redtail()` — WATCH A RED-TAIL TAKE SOMETHING ───────────────────────────────────────────
+//
+// A strike is a few seconds once a cycle, somewhere in the wastes, so the chance of meeting one by
+// flying about is poor. This finds a red-tail in the baked world, finds its next strike from now,
+// PINS THE CLOCK to a moment in it and stands a free camera a little way off the target.
+//
+//   __redtail()                      // one second in: the hawk on the critter
+//   __redtail({ t: -1 })             // a second before: the critter still there, the hawk up
+//   __redtail({ t: 2.5 })            // climbing away (the critter gone, if it was a kill)
+//   __redtail({ pick: 3, back: 2 })  // another hawk; stand further off
+//
+// ⚠ THE PREY LIST IS BUILT THE WAY THE RENDERER BUILDS IT (critter ground, not built, not road,
+// not raised), or the strike this finds is not the strike the frame draws.
+export async function redtail(opts = {}) {
+  const w = await world();
+  const B = await import('/client/shared/birds.js');
+  const cellAt = (x, y) => w.cells[x + ',' + y];
+  const preyFor = (h, t) => {
+    const out = [];
+    for (let y = h.ay - 3; y <= h.ay + 3; y++) for (let x = h.ax - 3; x <= h.ax + 3; x++) {
+      const c = cellAt(x, y);
+      if (c && !c.bt && !c.road && !c.hi && B.critterGround(c.biome)) out.push(...B.crittersAt(x, y, t));
+    }
+    return out;
+  };
+  const hawks = [];
+  for (const [k, c] of Object.entries(w.cells)) {
+    if (c.bt || !c.biome) continue;
+    const [x, y] = k.split(',').map(Number);
+    if (B.speciesAt(c.biome, x, y, { road: !!c.road }) === 'hawk') { const f = B.flockAt(x, y, 1, 'hawk'); if (f) hawks.push(f); }
+  }
+  hawks.sort((a, b) => (a.ax - b.ax) || (a.ay - b.ay));
+  const start = opts.from || Date.now();
+  const order = hawks.map((h, i) => hawks[(i + (opts.pick || 0)) % hawks.length]);
+  let found = null;
+  for (const h of order) {
+    for (let t = start; t < start + 12 * 3600e3; t += 500) {
+      const s = B.groundStrike(h, t, preyFor(h, t));
+      if (s && s.age < 0.5) { found = { h, s, t0: t - s.age * 1000 }; break; }
+    }
+    if (found) break;
+  }
+  if (!found) { console.warn('__redtail: no red-tail strike found in twelve hours'); return null; }
+  const { h, s, t0 } = found;
+  const at = t0 + (opts.t ?? 1) * 1000;
+  // Stand `back` tiles off the target, looking at it.
+  const hd = opts.heading ?? 0, back = opts.back ?? 1.2;
+  const cx = s.x + Math.sin(hd * Math.PI / 180) * back, cy = s.y + Math.cos(hd * Math.PI / 180) * back;
+  // ⚠ THE MAP CENTRE IS WHERE THE (HIDDEN) OWN CRAFT IS, AND BIRDS GET OUT OF ITS WAY (birdEvade).
+  // Centred on the camera, the craft sits on the strike and shoves the hawk off its own target; so
+  // the centre is put a few tiles off and the free camera carries the whole offset back.
+  const X = Math.round(cx) + 4, Y = Math.round(cy) + 4;
+  const realNow = Date.now;
+  Date.now = () => at;
+  let info;
+  try {
+    // ⚠ THE SUB-TILE OFFSET GOES IN THE FREE CAMERA ONLY. `street()` hands `off` to both the free
+    // camera and the map offset, and the renderer adds the two, so passing it there puts the eye
+    // twice as far off the tile as asked.
+    info = await street({ ...opts, seat: 'free', x: X, y: Y, heading: hd, hour: opts.hour ?? 13,
+      // ⚠ AND THE HIDDEN VEHICLE IS A PARKED TRUCK, NOT THE FREE SEAT'S AEROPLANE: birds dodge an
+      // aircraft (birdEvade), so an invisible one near the strike pushes the hawk off its target.
+      view: { cls: 'truck', speed: 0, freeCam: { x: cx - X, y: cy - Y, z: opts.eyeH ?? 0.06, yaw: hd,   // ⚠ DEGREES: the free camera here reads its yaw in degrees
+        pitch: (opts.pitch ?? 0) * Math.PI / 180, roll: 0, fov: opts.fov || 1 } } });   // pitch in DEGREES here, radians to the camera
+  } finally { Date.now = realNow; }
+  const out = { hawk: h.ax + ',' + h.ay, kind: s.prey.kind, kill: s.hit, strikeAt: new Date(t0).toISOString(),
+    t: opts.t ?? 1, target: [+s.x.toFixed(2), +s.y.toFixed(2)], camera: [+cx.toFixed(2), +cy.toFixed(2)], ...info };
+  console.log('__redtail', JSON.stringify(out));
+  return out;
 }
 
 export function streetHide() {
@@ -300,6 +373,7 @@ export async function shot(name = 'shot', el = null) {
 
 if (typeof window !== 'undefined') {
   window.__street = street;
+  window.__redtail = redtail;
   window.__streetHide = streetHide;
   window.__tagSheet = tagSheet;
   window.__tagSheetHide = tagSheetHide;

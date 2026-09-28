@@ -30,13 +30,13 @@ const D = {
   // ═══ THE GATE · the first Ascendant voice in the game. ════════════════════
   npc_asc_warden: {
     root: {
-      text: 'The chrome unit registers you without warmth.\n\n"Warden Unit, designation Threshold. State nothing — I have already read everything about you that matters, and I read it before you were close enough to be nervous."',
+      text: 'The chrome unit registers you without warmth.\n\n"Warden Unit, designation Threshold. State nothing. I have already read everything about you that matters, and I read it before you were close enough to be nervous."',
     },
     what: {
-      text: '"This is the beginning of the Ascendants — and the end of what you currently are, which are the same event described from two sides."\n\nThe scanline holds on you, unhurried.\n\n"Past this Gate the meat becomes something worth keeping. You are, at present, only meat. That is not an insult. It is a reading."',
+      text: '"This is the beginning of the Ascendants, and the end of what you currently are, which are the same event described from two sides."\n\nThe scanline holds on you, unhurried.\n\n"Past this Gate the meat becomes something worth keeping. You are, at present, only meat. That is not an insult. It is a reading."',
     },
     refuse: {
-      text: '"No. You carry no clearance and too much flesh — a condition, not a verdict, and conditions are the sort of thing that get solved."\n\nThe scanline moves off you and does not come back.\n\n"Speak to the recruiter if you wish that to change. Do not run the line. The turrets are not rhetorical."',
+      text: '"No. You carry no clearance and too much flesh: a condition, not a verdict, and conditions are the sort of thing that get solved."\n\nThe scanline moves off you and does not come back.\n\n"Speak to the recruiter if you wish that to change. Do not run the line. The turrets are not rhetorical."',
     },
     bye: { text: 'The scanline passes over you once more and dismisses you.' },
   },
@@ -44,10 +44,10 @@ const D = {
   // ═══ THE VAT REGISTRAR · the business model, in one paragraph. ════════════
   npc_asc_registrar: {
     root: {
-      text: 'The shell brightens as you enter.\n\n"Welcome to the Registry. I hold the only copy of you that will outlast the accident — and there is always an accident, statistically, eventually. Shall I explain the terms?"',
+      text: 'The shell brightens as you enter.\n\n"Welcome to the Registry. I hold the only copy of you that will outlast the accident, and there is always an accident, statistically, eventually. Shall I explain the terms?"',
     },
     how: {
-      text: '"A cortical backup is the summit augment; a policy from Halcyon is the fuel. Save your state here, keep your account paid, and death becomes a formality — one we handle while you sleep, and bill for afterwards, and never once discuss with you again."\n\nThe warm light does not change at all for the next part.\n\n"Lapse the account, and you die like anybody else. Messily, and only once."\n\nA gentle pause.\n\n"The full service comes online with a later refit. For now, consider this your introduction."',
+      text: '"A cortical backup is the summit augment; a policy from Halcyon is the fuel. Save your state here, keep your account paid, and death becomes a formality, one we handle while you sleep, and bill for afterwards, and never once discuss with you again."\n\nThe warm light does not change at all for the next part.\n\n"Lapse the account, and you die like anybody else. Messily, and only once."\n\nA gentle pause.\n\n"The full service comes online with a later refit. For now, consider this your introduction."',
     },
     bye: { text: '"Rest assured." The warm light dims to a patient standby.' },
   },

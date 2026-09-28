@@ -5,7 +5,7 @@
     "\"Eleven months I had the arms. You forget what your own reach is.\"",
     "\"I still get the newsletter. I have not asked them to stop.\""
   ],
-  "description": "A narrow man in a good coat gone shapeless, sitting on an upturned crate with his hands loose between his knees. There are two clean ports in the back of his neck and one in each forearm, capped with the little grey blanks they give you, and he does not hide them or draw attention to them. He has the specific stillness of somebody who has stopped being in a hurry about anything at all.",
+  "description": "A narrow man in a good coat gone shapeless, sitting on an upturned crate with his hands loose between his knees. Two clean ports in the back of his neck and one in each forearm, capped with grey blanks. He's in no hurry.",
   "dialogue_tree": {
     "bye": {
       "_vine": {
@@ -117,7 +117,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"No. Of course not.\" No edge on it at all. \"Seven jobs is a great deal to have done for people you were only ever going to leave.\"\n\nHe settles back on the crate.\n\n\"Go on, then. Genuinely — go on. I would far rather you did it wholeheartedly than stood in a basement being talked out of it by a man with no arms.\"\n\nAt the stairs, without turning round:\n\n\"Account four thousand and eleven. If you are ever the one holding the paperwork, and it is my name on it, I would take it as a kindness if you let me finish the phone call.\""
+      "text": "\"No. Of course not.\" No edge on it at all. \"Seven jobs is a great deal to have done for people you were only ever going to leave.\"\n\nHe settles back on the crate.\n\n\"Go on, then. Genuinely, go on. I would far rather you did it wholeheartedly than stood in a basement being talked out of it by a man with no arms.\"\n\nAt the stairs, without turning round:\n\n\"Account four thousand and eleven. If you are ever the one holding the paperwork, and it is my name on it, I would take it as a kindness if you let me finish the phone call.\""
     },
     "cross_terms": {
       "_vine": {
@@ -139,7 +139,7 @@
           "next": "cross_stay"
         }
       ],
-      "text": "\"They take back what they gated. Not the cheap pieces — nobody wants those back and they were never really theirs. The good ones, the ones you needed their name to buy at all.\"\n\n\"Any cover you have paid for stops. Your standing goes to nothing, which sounds worse than it is; nothing is where everybody starts.\"\n\nHe shrugs, and it is the first thing he has done quickly.\n\n\"And you may go back. That is the part they do not advertise, because it is not much of an advertisement: you may go back, from the bottom, and pay for all of it again. I did not. But you may.\""
+      "text": "\"They take back what they gated. Not the cheap pieces. Nobody wants those back and they were never really theirs. The good ones, the ones you needed their name to buy at all.\"\n\n\"Any cover you have paid for stops. Your standing goes to nothing, which sounds worse than it is; nothing is where everybody starts.\"\n\nHe shrugs, and it is the first thing he has done quickly.\n\n\"And you may go back. That is the part they do not advertise, because it is not much of an advertisement: you may go back, from the bottom, and pay for all of it again. I did not. But you may.\""
     },
     "cross_who": {
       "_vine": {

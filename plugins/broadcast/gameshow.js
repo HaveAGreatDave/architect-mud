@@ -184,7 +184,7 @@ export function assembleGameshowGraph(script, broadcastId, bucket, normalizeGrap
 
   // Cold open — the announcer sets the show up, then brings the host out.
   lines(sidekick, draw(pools, 'open', 1 + Math.floor(rand() * 2), baseTok, rand));
-  line(sidekick, fill(sportsPick(pools, rand, 'announce_host') || "Ladies and gentlemen — {host}!", baseTok));
+  line(sidekick, fill(sportsPick(pools, rand, 'announce_host') || "Ladies and gentlemen, {host}!", baseTok));
   applause();
   // The invitation to play, with the verb taught the house way. This is the only place
   // `guess` is ever advertised, which is why it carries the shimmer. NOTE the token is
@@ -447,7 +447,7 @@ export function gameshowTokens(channelId) {
   const verdict = !w
     ? "Nobody. Not one of you."
     : res.noPayout
-      ? `${w.name} takes it — though the network says one purse a day, friend.`
+      ? `${w.name} takes it, though the network says one purse a day, friend.`
       : `${w.name} takes it.`;
   return {
     ...money_tok,

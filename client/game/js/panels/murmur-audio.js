@@ -30,6 +30,8 @@
 //   wings     the murmur: band-passed noise amplitude-modulated around the wingbeat rate
 //   flutters  individual wingbursts, close and scattered across the stereo field
 //   body      a very quiet low-mid FM pad, so the flock has a size instead of being all whistles
+//   wash      the air the cloud moves: low broadband noise plus a rough FM grain. The one layer
+//             whose LEVEL follows the head count; it sweeps and pans as the flock passes
 //
 // ⚠ NO STROBE AND NO CLEAN TREMOLO. The wing AM sits at 12-15 Hz, which is in the roughness band
 // where a PERFECTLY regular modulation stops reading as an animal and starts reading as an
@@ -59,6 +61,11 @@ const T = {
   flutter: { rate: [4, 12] },
   manoeuvre: { every: [5, 15], hold: [0.8, 2.5], back: [0.5, 1.5] },
   mix: { calls: 0, wings: -12, flutters: -18, body: -24, high: -10 },
+  // The wash. `count` is dB at 120 birds and at 20,000, interpolated on log(birds): doubling the
+  // flock is a step up, never twice as loud. `band`/`lpf` are the air band far → overhead, and
+  // `sweep` is octaves per tile/sec of closing speed (clamped to ±1 octave).
+  wash: { count: [-30, -4], ref: [120, 20000], band: [260, 900], lpf: [900, 4200], sweep: 0.35,
+          grain: -14, pan: 0.85 },
   // The one number the caller moves. A bed at 1 is a flock overhead; the rest is distance.
   master: 0.55,
 };
@@ -104,7 +111,7 @@ function rollDistance(foregroundBias) {
 // ── GRAPH ────────────────────────────────────────────────────────────────────
 let ctx = null, bus = null, noiseBuf = null;
 let out = null, comp = null, tone = null;        // flock sum -> gentle compression -> air lowpass
-let wing = null, body = null;                    // the two continuous layers
+let wing = null, body = null, wash = null;      // the continuous layers
 let live = 0;                                    // concurrent chirp voices
 
 function ensureNodes() {
@@ -209,6 +216,71 @@ function bodyDrift() {
     p.mod.frequency.setTargetAtTime(f * rnd(1.4, 2.2), t, 4);
     p.idx.gain.setTargetAtTime(f * rnd(1.0, 2.5) / 2, t, 4);
   }
+}
+
+// ── THE WASH ─────────────────────────────────────────────────────────────────
+//
+// What a cloud of birds sounds like going over you is mostly not birds: it's the air. This is the
+// only layer whose level is set by the head count. The calls and wings are balanced to read as
+// "a flock" at any size, and the thing that should grow with the number is how much air is moving.
+//
+// ⚠ ONE CHAIN, WHATEVER THE COUNT. Twenty thousand birds are the same handful of nodes as two
+// hundred — the count moves a gain and nothing else, so it can't cost a frame.
+//
+// ⚠ THE PASS-BY IS A SWEPT FILTER, NOT A PITCH SHIFT. Noise has no pitch to Doppler, so what the ear
+// takes as "coming at me / going away" is the band moving up and then down as the distance closes
+// and opens, with the pan carrying it across. Both are driven from where the flock actually IS
+// (`flockState`'s centre, not its anchor), so a circling murmuration audibly swings round you.
+function buildWash() {
+  const src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
+  src.playbackRate.value = 0.5;                   // an octave down: air, not hiss
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.55;
+  bp.frequency.value = T.wash.band[0];
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 0.4;
+  lp.frequency.value = T.wash.lpf[0];
+  const pan = ctx.createStereoPanner(); pan.pan.value = 0;
+  const level = ctx.createGain(); level.gain.value = 0;
+  src.connect(bp).connect(lp).connect(pan).connect(level).connect(out);
+  // The grain: a low FM pair whose carrier is jittered by the noise itself, so it's a rough
+  // flutter under the air rather than a tone. Low index, low level; it gives the wash a body.
+  const f = rnd(150, 320);
+  const car = ctx.createOscillator(); car.type = 'sine'; car.frequency.value = f;
+  const mod = ctx.createOscillator(); mod.type = 'sine'; mod.frequency.value = f * rnd(0.47, 0.53);
+  const idx = ctx.createGain(); idx.gain.value = f * 0.9;
+  mod.connect(idx).connect(car.frequency);
+  const jit = ctx.createGain(); jit.gain.value = 60;      // noise into the carrier: no clean pitch
+  src.connect(jit).connect(car.frequency);
+  const grain = ctx.createGain(); grain.gain.value = db(T.wash.grain);
+  car.connect(grain).connect(lp);
+  src.start(); car.start(); mod.start();
+  wash = { src, bp, lp, pan, level, car, mod };
+}
+
+// Where the flock is relative to the listener, set by the caller every frame. `close` is the
+// closing speed in tiles/sec, derived from successive distances (positive = approaching).
+const passby = { pan: 0, dist: null, at: 0, close: 0, count: 0 };
+
+/** dB for a flock of `birds`, on log(birds) between the two anchors. */
+export function washLevelDb(birds) {
+  const [a, b] = T.wash.ref, [lo, hi] = T.wash.count;
+  const k = clamp((Math.log(Math.max(1, birds)) - Math.log(a)) / (Math.log(b) - Math.log(a)), 0, 1);
+  return lo + (hi - lo) * k;
+}
+
+function washTick(t) {
+  if (!wash) return;
+  const near = bedGain;                            // eased: 0 at the edge of earshot, 1 overhead
+  const oct = clamp(passby.close * T.wash.sweep, -1, 1);
+  const [b0, b1] = T.wash.band, [l0, l1] = T.wash.lpf;
+  const centre = (b0 + (b1 - b0) * near) * Math.pow(2, oct);
+  const cut = (l0 + (l1 - l0) * near * near) * Math.pow(2, oct * 0.6);
+  wash.bp.frequency.setTargetAtTime(clamp(centre, 80, 4000), t, 0.25);
+  wash.lp.frequency.setTargetAtTime(clamp(cut, 300, 9000), t, 0.25);
+  wash.pan.pan.setTargetAtTime(clamp(passby.pan * T.wash.pan, -1, 1), t, 0.3);
+  // A turn is the whole flock banking at once, the loudest thing a murmuration does; an
+  // approaching cloud swells a little on top of the distance curve.
+  const lvl = washLevelDb(passby.count) + man.amt * 5 + Math.max(0, oct) * 3;
+  wash.level.gain.setTargetAtTime(db(lvl) * (0.35 + 0.65 * near), t, 0.2);
 }
 
 // ── ONE CHIRP ────────────────────────────────────────────────────────────────
@@ -392,6 +464,7 @@ function tick() {
     if (chance(fRate / Math.max(1, rate))) flutter(booked + rnd(0, 0.05));
   }
 
+  washTick(t);
   if (chance(0.25)) wingDrift();
   if (chance(0.06)) bodyDrift();
 }
@@ -411,6 +484,18 @@ let running = false;
 export function setMurmurAudio(flock) {
   if (!flock || !(flock.near > 0)) { stop(); return; }
   if (!start()) return;
+  // The pass-by: `pan` is -1..1 across the listener, `dist` in tiles gives the closing speed.
+  passby.count = flock.birds || 450;
+  if (Number.isFinite(flock.pan)) passby.pan = clamp(flock.pan, -1, 1);
+  if (Number.isFinite(flock.dist)) {
+    const now = performance.now();
+    const dt = (now - passby.at) / 1000;
+    if (passby.dist != null && dt > 0.01 && dt < 0.5) {
+      const v = clamp((passby.dist - flock.dist) / dt, -8, 8);
+      passby.close += (v - passby.close) * Math.min(1, dt * 3);   // smoothed over ~⅓ s
+    }
+    passby.dist = flock.dist; passby.at = now;
+  }
   // ⚠ SIZE MOVES THE MIX, NOT THE VOLUME. Four hundred birds and seventeen hundred are the same
   // loudness at the same distance and a very different sound: the big one is mostly wings and the
   // small one mostly voices, which is what makes the cloud read as having a count.
@@ -435,7 +520,8 @@ export function murmurStartle() {
 function start() {
   if (running) return true;
   if (!ensureNodes()) return false;
-  buildChain(); buildWing(); buildBody();
+  buildChain(); buildWing(); buildBody(); buildWash();
+  passby.dist = null; passby.close = 0;
   booked = 0; bedGain = 0;
   man.amt = 0; man.until = 0;
   man.next = ctx.currentTime * 1000 + rnd(T.manoeuvre.every[0], T.manoeuvre.every[1]) * 1000;
@@ -450,14 +536,15 @@ function stop() {
   clearInterval(timer); timer = null;
   const t = ctx.currentTime;
   try { out.gain.cancelScheduledValues(t); out.gain.setTargetAtTime(0, t, 0.5); } catch {}
-  const w = wing, b = body, o = out, c = comp, n = tone;
-  wing = body = out = comp = tone = null;
+  const w = wing, b = body, o = out, c = comp, n = tone, h = wash;
+  wing = body = out = comp = tone = wash = null;
   bedGain = bedTarget = 0;
   // ⚠ TORN DOWN AFTER THE TAIL, NOT ON THE SPOT. Half the chirps in flight are already booked
   // against the audio clock, and cutting their destination out from under them is a click.
   setTimeout(() => {
     try { w?.src.stop(); for (const s of w?.sides || []) s.lfo.stop(); } catch {}
     try { for (const p of b?.parts || []) { p.car.stop(); p.mod.stop(); } } catch {}
+    try { h?.src.stop(); h?.car.stop(); h?.mod.stop(); h?.level.disconnect(); } catch {}
     try { w?.level.disconnect(); b?.level.disconnect(); o?.disconnect(); c?.disconnect(); n?.disconnect(); } catch {}
   }, 1600);
 }
@@ -466,5 +553,5 @@ function stop() {
 // hear by finding one is a bed nobody tunes: __murmurAudio.setMurmurAudio({ near: 1, birds: 900 })
 // puts one overhead from the console.
 if (typeof window !== 'undefined') {
-  window.__murmurAudio = { setMurmurAudio, murmurStartle, T, state: () => ({ running, live, dens, man, field }) };
+  window.__murmurAudio = { setMurmurAudio, murmurStartle, T, state: () => ({ running, live, dens, man, field, passby }) };
 }

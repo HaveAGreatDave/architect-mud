@@ -184,7 +184,9 @@ if (!kitLedgeCount) problems.push("the detail kit offers no perches at all — s
 // buildings in it. A hoodoo is real geometry the painter already puts there, so the only question
 // is whether the bird is standing on the part of it that exists.
 let wildTiles = 0, wildCount = 0, wildBadProf = 0, wildTiny = 0, wildOffTile = 0, wildOdd = 0;
-let redrockTiles = 0;
+let redrockTiles = 0, snagCount = 0, snagOdd = 0, snagOffTile = 0;
+// A snag is drawn from deadStandSnags at SNAG_H x 1..1.8 (windshield.js); a perch is its tip.
+const SNAG_LO = 0.17, SNAG_HI = 0.17 * 1.8;
 const WILD_OK = new Set(["capped", "sheared", "stump"]);
 // The painter cannot make a spire outside this band: HOODOO_H x its own 0.58-1.63 roll x the
 // tallest and shortest kind scalings. A perch beyond it is not on anything the painter drew.
@@ -195,8 +197,17 @@ for (const [k, c] of Object.entries(cells)) {
   try { L = wildLedges(c, wx, wy); } catch (e) { problems.push(`${k}: wildLedges threw — ${e.message}`); continue; }
   if (c.biome === "redrock" && !c.bt && !c.road) redrockTiles++;
   if (!L || !L.length) continue;
-  wildTiles++; wildCount += L.length;
+  if (c.biome === "redrock") wildTiles++;
+  wildCount += L.length;
   for (const l of L) {
+    // ⚠ A SNAG IS NOT A SPIRE, so none of the rock rules below apply to it. What does: it is at a
+    // height the painter draws a snag at, and it is on its own tile.
+    if (l.kind === "snag") {
+      snagCount++;
+      if (!(l.z >= SNAG_LO - 1e-6 && l.z <= SNAG_HI + 1e-6)) snagOdd++;
+      if (l.pts.some((q) => Math.abs(q.x - wx) > 0.55 || Math.abs(q.y - wy) > 0.55)) snagOffTile++;
+      continue;
+    }
     // ⚠ NEVER A POINT OR A BLADE. `spire` tapers to nothing and `fin` is a wall remnant; a bird
     // on either is balanced on an edge, and both are a majority of what a badland actually grows.
     if (!WILD_OK.has(l.prof)) wildBadProf++;
@@ -222,6 +233,9 @@ if (redrockTiles && wildTiles / redrockTiles > 0.25) problems.push(
 if (!wildCount) problems.push("the open country offers no perch at all — the hawk has nowhere to hunt from");
 if (wildBadProf) problems.push(`${wildBadProf} wasteland perches are on a spire tip or a fin edge`);
 if (wildTiny) problems.push(`${wildTiny} wasteland perches are too narrow for a bird to stand on`);
+if (!snagCount) problems.push("no dead stand offers a snag to perch on — deadStandSnags is not reaching wildLedges");
+if (snagOdd) problems.push(`${snagOdd} snag perches are at a height the painter cannot draw a snag at`);
+if (snagOffTile) problems.push(`${snagOffTile} snag perches are off their own tile`);
 if (wildOdd) problems.push(`${wildOdd} wasteland perches are at a height the painter cannot draw a spire at`);
 if (wildOffTile) problems.push(`${wildOffTile} wasteland perches are off their own tile`);
 

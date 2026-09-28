@@ -112,10 +112,10 @@ async function onGpsSuggest({ actor, zone }) {
   if (!path || path.length < 2) path = findPath(actor.current_zone, targetId, { roads: false, maxDistance: 300 });
   if (!path || path.length < 2) return;
   const hops = path.length - 1;
-  const label = here.flags.gps_suggest_label || `${destZone.name} — worth a look.`;
+  const label = here.flags.gps_suggest_label || `${destZone.name}: worth a look.`;
   sendToPlayer(actor.id, {
     type: 'gps_route',
-    message: `<span class="msg-system">📍 ${label} (${hops} stop${hops === 1 ? '' : 's'} away — hit AUTO to follow the line.)</span>`,
+    message: `<span class="msg-system">📍 ${label} (${hops} stop${hops === 1 ? '' : 's'} away: hit AUTO to follow the line.)</span>`,
     path,
     // A hint, not a hijack: draw the line but don't arm auto-walk or prompt for it.
     resumeAuto: false,

@@ -174,7 +174,7 @@ function isHostileOption(opt, tree) {
 // glyph and the sentence can't drift apart.
 const OPT_KIND_HINT = {
   hostile: "This one turns ugly. There's no taking it back.",
-  shop:    'Opens their stock — you can browse without buying.',
+  shop:    'Opens their stock; you can browse without buying.',
   quest:   'Takes the job on. It lands in your Tablet.',
   turnin:  'Hands the job in and settles up.',
   leave:   'Ends the conversation.',
@@ -206,7 +206,7 @@ export async function filterDialogueOptions(options, tree, player, context) {
       const status = await getFlag('player', questId, player);
       if (status === 'active') {
         return { ...tagged, _turninDisabled: true, _turninQuestId: questId,
-          _hint: "Not finished yet — opens the Tablet so you can see what's outstanding." };
+          _hint: "Not finished yet. Opens the Tablet so you can see what's outstanding." };
       }
       if (status !== 'completed') return null;
     }

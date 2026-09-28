@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Cracked pale hardpan, flat to the horizon and ringing slightly underfoot, the mud of a lake that dried before anybody was counting.",
+  "description": "Pale cracked mud, baked hard, stretching out flat in every direction.",
   "exits": {
     "east": "zone_terminus_1226_960",
     "north": "zone_terminus_1225_959",

@@ -180,7 +180,7 @@
       "text": "\"Good afternoon.\" He sets the jar down carefully. \"This is a licensed facility. You may be in this room and not the one above it.\"",
       "text_by_relation": {
         "familiar": "He has the kit out and the reply label already written before you have said anything, which is the closest this man comes to warmth.\n\n\"Your last four were interesting,\" he says. \"That is not a compliment and it is not nothing.\"",
-        "first": "A grey man in a lab coat looks up from a bench of scales as you come in, and waits for the door to close before he speaks.\n\n\"Good afternoon. Corliss Venn.\"\n\nHe puts the jar in the rack, in a specific gap.\n\n\"You have come into a licensed facility, which you are permitted to do — the licence is on the door and it covers this floor. The tray above us it does not cover, and I will stop you at the lift, politely, and you will not enjoy arguing with me about it because I will simply keep saying the same sentence.\"",
+        "first": "A grey man in a lab coat looks up from a bench of scales as you come in, and waits for the door to close before he speaks.\n\n\"Good afternoon. Corliss Venn.\"\n\nHe puts the jar in the rack, in a specific gap.\n\n\"You have come into a licensed facility, which you are permitted to do. The licence is on the door and it covers this floor. The tray above us it does not cover, and I will stop you at the lift, politely, and you will not enjoy arguing with me about it because I will simply keep saying the same sentence.\"",
         "known": "\"Afternoon.\" He is already reaching for a kit. \"Same four jars. Fill them from different places this time.\""
       }
     },

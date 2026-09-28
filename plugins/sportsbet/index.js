@@ -104,7 +104,7 @@ async function cmdWager(args, raw, player, broadcast) {
   if (amount <= 0) return { type: 'error', message: 'Wager a positive amount.' };
 
   const game = currentGame();
-  if (!game) return { type: 'error', message: "There's no game on the air right now — nothing to bet on." };
+  if (!game) return { type: 'error', message: "There's no game on the air right now: nothing to bet on." };
   const myTeam = pickTeam(team, game);
   if (!myTeam) return { type: 'error', message: `Pick a side: ${game.away} or ${game.home}.` };
 
@@ -112,7 +112,7 @@ async function cmdWager(args, raw, player, broadcast) {
   if (!pool.length) return { type: 'error', message: 'Nobody here to bet with.' };
   const r = siftResolve(who, pool);
   if (r.type === 'none') return { type: 'error', message: `There's no "${who}" here.` };
-  if (r.type === 'ambiguous') return { type: 'error', message: `Who do you mean — ${r.candidates.map(c => c.handle).join(', ')}?` };
+  if (r.type === 'ambiguous') return { type: 'error', message: `Who do you mean: ${r.candidates.map(c => c.handle).join(', ')}?` };
   const target = r.candidate;
   if ((player.credits || 0) < amount) return { type: 'error', message: `You don't have ₵${amount} to stake.` };
 
@@ -138,7 +138,7 @@ async function cmdTakeWager(args, raw, player, broadcast) {
 
   // The game must still be the one on the air (a new airing means a new game).
   const live = currentGame();
-  if (!live || live.gameId !== offer.game.gameId) { clearOffer(player.id); return { type: 'error', message: 'That game is over — the wager lapsed.' }; }
+  if (!live || live.gameId !== offer.game.gameId) { clearOffer(player.id); return { type: 'error', message: 'That game is over: the wager lapsed.' }; }
 
   const proposer = getLivePlayer(offer.fromId);
   if (!proposer) { clearOffer(player.id); return { type: 'error', message: "Whoever offered that's gone." }; }
@@ -156,7 +156,7 @@ async function cmdTakeWager(args, raw, player, broadcast) {
       if (!(await adjustCredits(player, -offer.amount, tx, 'sportsbet:stake'))) { failed = player.handle; throw new Error('rollback'); }
     });
   } catch {
-    return { type: 'error', message: failed ? `${failed} can't cover the stake — the bet's off.` : 'The wager glitched — nothing moved.' };
+    return { type: 'error', message: failed ? `${failed} can't cover the stake: the bet's off.` : 'The wager glitched: nothing moved.' };
   }
 
   const betId = randomUUID();
@@ -177,12 +177,12 @@ async function cmdTakeWager(args, raw, player, broadcast) {
     await adjustCredits(proposer, offer.amount, undefined, 'sportsbet:payout').catch(() => {});
     await adjustCredits(player, offer.amount, undefined, 'sportsbet:payout').catch(() => {});
     console.error('[sportsbet] lock error:', e.message);
-    return { type: 'error', message: 'The wager desk glitched — your stakes are refunded, nothing locked.' };
+    return { type: 'error', message: 'The wager desk glitched: your stakes are refunded, nothing locked.' };
   }
 
   betsGate.noteWork();   // something is now locked and will need settling
   const pot = offer.amount * 2;
-  const line = `${labelOf(g).icon} Bet locked — ₵${offer.amount} each (₵${pot} pot). ${proposer.handle}: ${offer.team}${offer.score ? ` ${offer.score.away}-${offer.score.home}` : ''} · ${player.handle}: ${myTeam}${myScore ? ` ${myScore.away}-${myScore.home}` : ''}. Settles when the ${g.away}–${g.home} game ends.`;
+  const line = `${labelOf(g).icon} Bet locked: ₵${offer.amount} each (₵${pot} pot). ${proposer.handle}: ${offer.team}${offer.score ? ` ${offer.score.away}-${offer.score.home}` : ''} · ${player.handle}: ${myTeam}${myScore ? ` ${myScore.away}-${myScore.home}` : ''}. Settles when the ${g.away}–${g.home} game ends.`;
   sendToPlayer(proposer.id, { type: 'output', message: `<span class="msg-system">${line}</span>` });
   return { type: 'output', message: `<span class="msg-system">${line}</span>` };
 }
@@ -238,12 +238,12 @@ async function settleBet(row) {
   // Neutral marker here on purpose: settlement reads from the `sports_bets` row, which
   // has no sport column, and a bet can settle after a restart with no live game left to
   // ask. A chequered flag is true of both codes and needs no schema change to stay true.
-  const header = `🏁 FINAL — ${row.away_team} ${row.away_score}, ${row.home_team} ${row.home_score}. ${winLabel}.`;
+  const header = `🏁 FINAL: ${row.away_team} ${row.away_score}, ${row.home_team} ${row.home_score}. ${winLabel}.`;
   const tell = (pid, team, won, push) => {
     let outcome;
-    if (push) outcome = `Push — your ₵${row.amount} stake is returned.`;
-    else if (won) outcome = `You called the ${team} (${reason}) — you win the ₵${pot} pot!`;
-    else outcome = `You had the ${team} — the ₵${pot} pot goes the other way.`;
+    if (push) outcome = `Push: your ₵${row.amount} stake is returned.`;
+    else if (won) outcome = `You called the ${team} (${reason}): you win the ₵${pot} pot!`;
+    else outcome = `You had the ${team}, the ₵${pot} pot goes the other way.`;
     sendToPlayer(pid, { type: 'output', message: `<span class="msg-system">${header} ${outcome}</span>` });
   };
   const push = !winnerId;

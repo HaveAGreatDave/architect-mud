@@ -10,7 +10,7 @@
     "No.",
     "You were going to. It's all right. Most people do."
   ],
-  "description": "She stands in the slot in the gate with her hands where you can see them. Nothing about her is armed and nothing about her needs to be. She watches the road behind you rather than watching you, and she has clearly been doing this for years without once being bored by it.\n\nShe answers a shade early. Not enough to remark on. Enough that you find yourself leaving a gap before you speak, and then wondering why you started doing that.",
+  "description": "A woman standing in the slot in the gate, hands where you can see them. She's unarmed. She's watching the road behind you.",
   "dialogue_tree": {
     "bye": {
       "actions": [],

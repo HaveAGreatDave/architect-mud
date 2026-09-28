@@ -61,13 +61,13 @@ export async function applyCrashCollateral(live, surface, pilot) {
   // Each player on the tile has a severity-scaled chance of being caught under it.
   for (const p of groundPlayers) {
     if (Math.random() >= hitChance) continue;
-    sendToPlayer(p.id, { type: 'output', message: '<span class="text-red">The world fills with a screaming shadow — the wreck comes down on top of you. There\'s a noise, and then there\'s nothing.</span>' });
+    sendToPlayer(p.id, { type: 'output', message: '<span class="text-red">The world fills with a screaming shadow: the wreck comes down on top of you. There\'s a noise, and then there\'s nothing.</span>' });
     await handlePlayerDeath(p, pilot, { type: 'crash', label: `Crushed by a crashing ${live.type?.name || 'aircraft'}` });
     casualties++; victims.push(p.handle);
   }
   if (casualties > 0) {
     sendToZone(surface.id, { type: 'zone_event', refresh: true,
-      message: `<span class="text-red">The wreck ploughs through the tile — ${casualties === 1 ? 'someone is' : casualties + ' people are'} caught in the fireball.</span>` });
+      message: `<span class="text-red">The wreck ploughs through the tile: ${casualties === 1 ? 'someone is' : casualties + ' people are'} caught in the fireball.</span>` });
     // Tell the pilot who they took with them — it lands in their pane before the crash death.
     if (pilot) sendToPlayer(pilot.id, { type: 'output', message: `<span class="text-red">★ Your wreck killed: ${victims.join(', ')}.</span>` });
   }

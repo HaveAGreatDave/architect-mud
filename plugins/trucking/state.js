@@ -23,14 +23,17 @@ import { query } from '../../server/models/db.js';
 import { mapWindow, surfaceAt, isRoadCell, aircraftNearCoord, skyState, farRoadsNear, FAR_ROAD_R } from '../flight/state.js';
 import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM,
   nodeAt, sOfNode, roomLenOf, addWreck, wreckAhead, signsBetween, ARROW_WORDS, pavedAt,
-  attachSigns, joinRoutes, reverseRoute, pairKey, composeRoad, milesOf } from './corridor.js';
+  attachSigns, joinRoutes, reverseRoute, pairKey, composeRoad, milesOf, sliceRoute } from './corridor.js';
 import { attachPlazas, passPlaza } from './plaza.js';
+import { routeNumber, routeType } from '../../client/shared/wildlands.js';
+import { segmentAt, typeAt } from '../../client/shared/highways.js';
 import { hitcherAt, hitcherAhead, hitcherSOf } from './hitchers.js';
 import { wearFor, breakdownRoll, BREAKDOWNS } from './rig.js';
 import { applyDamage, wearSplit, damageOf, PARTS, partBand } from './damage.js';
 import { accrueGrime, grimeBand } from './filth.js';
 import { fitSuffix } from './fittings.js';
 import { installedTrinkets } from '../../client/shared/cab-trinkets.js';
+import { hornOf } from '../../client/shared/truck-horns.js';
 import { routeOptions } from './routes.js';
 // The crossing's own shape, read rather than reconstructed. ⚠ voidwalking imports nothing from
 // this plugin, so this is a one-way edge and not the load-order tangle routes.js warns about.
@@ -331,8 +334,27 @@ export function regionGates(regionKey) {
 //
 // ⚠ NULL RATHER THAN A GUESS. A region with no road reaching its rim publishes no exits, and every
 // caller falls back to the tile the driver actually left from — the behaviour that shipped.
+// Which of a region's entrances is nearest a point — the one a walker stepping off the edge there,
+// or a rig driving out there, is using.
+export function nearestGate(regionKey, x, y) {
+  let best = null, bd = Infinity;
+  for (const g of regionGates(regionKey)) { const d = (g.x - x) ** 2 + (g.y - y) ** 2; if (d < bd - 1e-9) { bd = d; best = g; } }
+  return best;
+}
+// The destinations whose road leaves from the entrance nearest (x, y). A region with one entrance
+// keeps them all; so does a destination with no road (no pair), which is the old behaviour.
+export function destsFromGate(regionKey, x, y, dests) {
+  const gates = regionGates(regionKey);
+  if (gates.length < 2) return dests;
+  const g = nearestGate(regionKey, x, y);
+  return (dests || []).filter((d) => { const p = d.region ? gatePair(regionKey, d.region) : null; return !p || p.from.id === g.id; });
+}
 export function gatePair(aKey, bKey) {
-  const A = regionGates(aKey), B = regionGates(bKey);
+  // A destination may PIN the entrance its road uses (the 'gate' field in content/map/voids.json),
+  // so two roads can leave by one entrance and share it; otherwise the closest pair of entrances wins.
+  const pin = (k, other) => (VOIDS[k]?.dests || []).find((d) => d.region === other)?.gate || null;
+  const pa = pin(aKey, bKey), pb = pin(bKey, aKey);
+  const A = regionGates(aKey).filter((g) => !pa || g.id === pa), B = regionGates(bKey).filter((g) => !pb || g.id === pb);
   if (!A.length || !B.length) return null;
   let best = null;
   for (const a of A) for (const b of B) {
@@ -396,6 +418,9 @@ function destGroups(regionKey, gate) {
   for (const d of VOIDS[regionKey]?.dests || []) {
     const p = d.region ? gatePair(regionKey, d.region) : null;
     if (!p) continue;
+    // ⚠ ONLY THIS ENTRANCE'S ROADS. With two mouths, a road leaving from the other side of the
+    // region would otherwise pull this interchange toward a direction nothing here drives.
+    if (p.from.id !== gate.id) continue;
     const vx = p.to.x - gate.x, vy = p.to.y - gate.y, len = Math.hypot(vx, vy);
     if (len < 1e-6) continue;
     dirs.push({ region: d.region, key: d.key, ux: vx / len, uy: vy / len, len,
@@ -419,6 +444,15 @@ function destGroups(regionKey, gate) {
 export function interchangeFor(regionKey, gate, destRegion = null) {
   const g = gate || regionGates(regionKey)[0];
   if (!g) return null;
+  // ⚠ AN AUTHORED HUB WINS (content/map/voids.json `hub`): every road out of this gate runs down ONE
+  // main highway `distance` tiles `toward` a compass direction, and only branches there. Without it
+  // each road splits off at the gate on its own bearing, which reads as a fan of roads leaving town
+  // rather than one road out of it.
+  const hub = VOIDS[regionKey]?.hub;
+  if (hub && hubDir(hub.toward) && hub.distance > 0) {
+    const [ux, uy] = hubDir(hub.toward);
+    return { x: g.x + ux * hub.distance, y: g.y + uy * hub.distance };
+  }
   const groups = destGroups(regionKey, g);
   const grp = destRegion ? groups.find((q) => q.members.some((m) => m.region === destRegion)) : groups[0];
   if (grp) {
@@ -461,9 +495,224 @@ export function interchangeFor(regionKey, gate, destRegion = null) {
 // spoke out → the middle → spoke in, reversed. The middle is seeded on the PAIR of gates, so this
 // road and the one built from the other end are the same tarmac driven in opposite directions; each
 // spoke is seeded on its own gate, so it is shared by every road that leaves it.
+const HUB_DIR = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
+// ── A REGION WITH A HUB ──────────────────────────────────────────────────────
+//
+// content/map/voids.json `hub: { toward, distance }`: every road out of the gate runs down ONE trunk
+// `distance` tiles `toward` a compass direction. The destination whose road carries straight on
+// from the hub is the MAINLINE and continues off the end of the trunk; every other road leaves the
+// trunk RAMP_BACK tiles earlier on a slip road that starts on the trunk's heading and curves away
+// (corridorFor's `h0`), so nothing meets the trunk at an angle sharper than a road can hold. The
+// trunk is built once per gate and CUT where a slip road leaves it, so every road using it shares
+// the same tarmac to the tile.
+// The route numbers on each typed piece of a road. A trunk carries every road that leaves through
+// its gate (concurrent numbers: the main road out of Coldwater is 1/2/3); anything else carries its
+// own road's number. Written once at build, read by the boards and the map.
+function tagNumbers(route, fromKey, toKey, hubKey) {
+  const own = routeNumber(fromKey, toKey);
+  const trunkNums = hubKey ? [...new Set((VOIDS[hubKey]?.dests || [])
+    .map((d) => (d.region ? routeNumber(hubKey, d.region) : null)).filter(Boolean))].sort((a, b) => Number(a) - Number(b)) : [];
+  const merged = route.mergedInto ? routeNumber(route.mergedInto[0], route.mergedInto[1]) : null;
+  const both = [...new Set([own, merged].filter(Boolean))].sort((a, b) => Number(a) - Number(b));
+  for (const g of route.segments || []) {
+    const onHubTrunk = String(g.seedKey || '').startsWith('trunk|');
+    if (onHubTrunk && trunkNums.length) g.nums = trunkNums;
+    else if (merged && g.shared) g.nums = both;        // the stretch it shares with the road it joined
+    else g.nums = own ? [own] : [];
+  }
+}
+// "Route 1/2/3 · old trunk road" for a point on a road — the line a board carries above its rows.
+export function routeLabelAt(route, s) {
+  const g = segmentAt(route, s);
+  if (!g?.nums?.length) return null;
+  return `Route ${g.nums.join('/')} · ${typeAt(route, s).label}`;
+}
+const RAMP_BACK = 18;   // how far before the hub a slip road leaves the trunk
+const RAMP_TYPE_L = 16; // how much of a slip road is ramp before it is a branch
+// A hub's direction: a compass word, or a bearing in degrees (0 = north, 90 = east).
+function hubDir(toward) {
+  if (HUB_DIR[toward]) return HUB_DIR[toward];
+  const b = Number(toward);
+  if (!Number.isFinite(b)) return null;
+  const r = b * Math.PI / 180;
+  return [Math.sin(r), -Math.cos(r)];
+}
+function hubSide(key, gate, otherKey, window, nodes) {
+  const hub = VOIDS[key]?.hub, dir = hub && hubDir(hub.toward);
+  if (!dir || !(hub.distance > 0)) return null;
+  const end = { x: gate.x + dir[0] * hub.distance, y: gate.y + dir[1] * hub.distance };
+  const trunk = corridorFor(key, 'trunk', window, nodes, 0, null,
+    { x0: gate.x, y0: gate.y, x1: end.x, y1: end.y }, `trunk|${gate.id}`);
+  trunk.hwType = 'trunk';
+  // Which road carries straight on: the one whose far end lies nearest the trunk's own direction.
+  let main = null, best = Infinity;
+  for (const d of VOIDS[key]?.dests || []) {
+    const p = d.region ? gatePair(key, d.region) : null;
+    if (!p || p.from.id !== gate.id) continue;
+    const a = Math.atan2(p.to.y - end.y, p.to.x - end.x) - Math.atan2(dir[1], dir[0]);
+    const off = Math.abs(Math.atan2(Math.sin(a), Math.cos(a)));
+    if (off < best - 1e-9 || (Math.abs(off - best) < 1e-9 && d.region < main)) { best = off; main = d.region; }
+  }
+  // `ramps: false` is a Y: every road carries on from the end of the trunk on its own curve.
+  const through = hub.ramps === false || main === otherKey;
+  const cut = through ? trunk : sliceRoute(trunk, Math.max(4, trunk.L - RAMP_BACK));
+  cut.hwType = 'trunk';
+  const at = corridorPos(trunk, cut.L, 0);
+  return { pieces: [cut], x: at.x, y: at.y, h0: at.heading, ramp: !through };
+}
+
+// ── ONE ROAD INTO AN ENTRANCE ────────────────────────────────────────────────
+// A road into an entrance that a HUB road already reaches merges into that road rather than running
+// its own tarmac beside it to the same place: it runs from its own gate to the point on the hub road
+// it can join most gently, then shares the hub road the rest of the way. Returns { link, shared,
+// withKeys } built in the direction plainKey -> farKey, or null when there is nothing to join or no
+// join is gentle enough (the road is then built as a plain road).
+const MERGE_STEP = 5, MERGE_MAX = 45, MERGE_KEEP = 18, MERGE_DETOUR = 1.5;   // tiles between candidates; steepest join; tiles kept clear of the entrance
+function mergeInto(plainKey, plainGate, farKey, farGate, window, nodes, seed) {
+  let best = null;
+  for (const d of VOIDS[farKey]?.dests || []) {
+    if (!d.region || d.region === plainKey || !VOIDS[d.region]?.hub) continue;
+    const p = gatePair(farKey, d.region);
+    if (!p || p.from.id !== farGate.id) continue;
+    const hubRoad = networkRoute(d.region, farKey, window, nodes);   // built from the hub side, ends at farGate
+    if (!hubRoad) continue;
+    for (let s = MERGE_STEP; s < hubRoad.L - MERGE_KEEP; s += MERGE_STEP) {
+      if (segOf(hubRoad, s)?.seedKey?.startsWith('trunk|')) continue;   // never onto the shared trunk
+      const m = corridorPos(hubRoad, s, 0);
+      if (Math.hypot(m.x - plainGate.x, m.y - plainGate.y) < 24) continue;
+      // ⚠ BUILT BACKWARDS, FROM THE JOIN. Leaving the hub road on its own heading (reversed) and
+      // turning in toward this road's gate makes the join TANGENT, the way a real merge is; built
+      // the obvious way, from the gate toward the join, it arrives at whatever angle the gate lies
+      // at, which here was 56-150°. The only free angle left is at the gate, a road's end.
+      const back = corridorFor(plainKey, farKey, window, nodes, 0, null,
+        { x0: m.x, y0: m.y, x1: plainGate.x, y1: plainGate.y, h0: (m.heading + 180) % 360 }, seed);
+      const link = reverseRoute(back);
+      let worst = Math.abs(((m.heading - link.legs[link.legs.length - 1].deg) % 360 + 540) % 360 - 180);   // measured, see cutOff
+      for (let i = 1; i < link.legs.length - 1; i++) worst = Math.max(worst, Math.abs(((link.legs[i].deg - link.legs[i - 1].deg) % 360 + 540) % 360 - 180));
+      if (worst > MERGE_MAX) continue;
+      const score = link.L + (hubRoad.L - s);
+      if (!best || score < best.score) best = { score, link, shared: sliceRoute(hubRoad, hubRoad.L, s), withKeys: [d.region, farKey] };
+    }
+  }
+  return best;
+}
+// ── A CUT-OFF: SHARE A HUB ROAD AT BOTH ENDS ─────────────────────────────────
+// When the road's OWN entrance is also reached by a hub road, it should leave on that road, peel off,
+// cut across and join the hub road at the other end, rather than run its own tarmac beside either.
+// The link is built backwards from the far join (tangent there) and kept only where it also lands
+// within MERGE_MAX of the near road's heading. Returns { near, link, far, withNear, withFar } in the
+// direction plainKey -> farKey, or null.
+function cutOff(plainKey, plainGate, farKey, farGate, window, nodes, seed) {
+  const hubNear = (VOIDS[plainKey]?.dests || []).find((d) => d.region && d.region !== farKey && VOIDS[d.region]?.hub
+    && gatePair(plainKey, d.region)?.from.id === plainGate.id);
+  const hubFar = (VOIDS[farKey]?.dests || []).find((d) => d.region && d.region !== plainKey && VOIDS[d.region]?.hub
+    && gatePair(farKey, d.region)?.from.id === farGate.id);
+  if (!hubNear || !hubFar) return null;
+  const nearRoad = reverseRoute(networkRoute(hubNear.region, plainKey, window, nodes));   // starts at plainGate
+  const farRoad = networkRoute(hubFar.region, farKey, window, nodes);                     // ends at farGate
+  if (!nearRoad || !farRoad) return null;
+  const onTrunk = (r, q) => String(segOf(r, q)?.seedKey || '').startsWith('trunk|');
+  let best = null;
+  for (let sa = 10; sa < nearRoad.L - 10; sa += 8) {
+    if (onTrunk(nearRoad, sa)) continue;
+    const A = corridorPos(nearRoad, sa, 0);
+    for (let sm = 10; sm < farRoad.L - MERGE_KEEP; sm += 8) {
+      if (onTrunk(farRoad, sm)) continue;
+      const M = corridorPos(farRoad, sm, 0);
+      if (Math.hypot(M.x - A.x, M.y - A.y) < 24) continue;
+      const link = reverseRoute(corridorFor(plainKey, farKey, window, nodes, 0, null,
+        { x0: M.x, y0: M.y, x1: A.x, y1: A.y, h0: (M.heading + 180) % 360 }, seed));
+      const land = Math.abs(((link.legs[0].deg - A.heading) % 360 + 540) % 360 - 180);
+      // ⚠ TANGENT BY INTENT IS NOT TANGENT: a link shorter than the builder's approach distance is
+      // drawn as one straight leg and skips the turn-in, so the join is measured, not assumed.
+      const join = Math.abs(((M.heading - link.legs[link.legs.length - 1].deg) % 360 + 540) % 360 - 180);
+      let worst = Math.max(land, join);
+      for (let i = 1; i < link.legs.length; i++) worst = Math.max(worst, Math.abs(((link.legs[i].deg - link.legs[i - 1].deg) % 360 + 540) % 360 - 180));
+      if (worst > MERGE_MAX) continue;
+      // Favour the shortest road of its own: two routes going the same way become one road as soon
+      // as they meet, rather than running side by side to a late join. The detour cap bounds the total.
+      const score = sa + link.L * 4 + (farRoad.L - sm);
+      if (!best || score < best.score) best = { score, sa, sm, link, nearRoad, farRoad };
+    }
+  }
+  if (!best) return null;
+  return { near: sliceRoute(best.nearRoad, best.sa, 0), link: best.link, far: sliceRoute(best.farRoad, best.farRoad.L, best.sm),
+    withNear: [hubNear.region, plainKey], withFar: [hubFar.region, farKey] };
+}
+const segOf = (route, s) => (route.segments || []).find((g) => s >= g.s0 && s < g.s0 + g.L) || null;
+
 export function networkRoute(fromKey, toKey, window, nodes) {
   const pair = gatePair(fromKey, toKey);
   if (!pair) return null;
+  // Neither end has a hub, but one end's entrance is already reached by a hub road: merge into it.
+  if (!VOIDS[fromKey]?.hub && !VOIDS[toKey]?.hub) {
+    const gap = Math.hypot(pair.to.x - pair.from.x, pair.to.y - pair.from.y);
+    const seedM = `merge|${pairKey(pair.from.id, pair.to.id)}`;
+    // ⚠ EVERY WAY OF SHARING IS TRIED AND THE ONE WITH THE LEAST ROAD OF ITS OWN WINS. A cut-off
+    // (share a hub road at both ends) and a plain merge (share one at the far end) are both
+    // candidates; whichever lays the shortest stretch of its own tarmac is taken, because two routes
+    // going the same way should be one road as soon as they can be — the cut-off alone made the
+    // Reach -> Deadwater road ride Route 2 north and then run beside Route 3 for 90 tiles.
+    const cands = [];
+    // `startShared`/`endShared`: how much of the built road, in its build direction, is shared tarmac
+    // at each end. The TRUNK of the finished road is the shared stretch it STARTS on (what its fork
+    // board stands on, and what its sibling roads share); joinRoutes would otherwise call the whole
+    // first piece the trunk and put a fork board seventy tiles out.
+    const finish = (built, flip, tag, startShared, endShared) => {
+      if (!built || built.L > gap * MERGE_DETOUR) return null;
+      const out = flip ? reverseRoute(built) : built;
+      out.voidKey = fromKey;   // the link piece's identity is not the road's
+      out.nodes = nodes; out.roomLen = out.L / Math.max(1, nodes); out.anchored = true;
+      out.trunkL = flip ? endShared : startShared;
+      tag(out, flip);
+      return out;
+    };
+    const own = routeNumber(fromKey, toKey);
+    const both = (x) => [...new Set([own, x].filter(Boolean))].sort((p, q) => Number(p) - Number(q));
+    for (const [pk, pg, fk, fg, flip] of [[fromKey, pair.from, toKey, pair.to, false], [toKey, pair.to, fromKey, pair.from, true]]) {
+      const c = cutOff(pk, pg, fk, fg, window, nodes, seedM);
+      if (c) {
+        c.link.hwType = routeType(fromKey, toKey);
+        const out = finish(joinRoutes([c.near, c.link, c.far]), flip, (o, fl) => {
+          tagNumbers(o, fromKey, toKey, null);
+          // The near stretch carries the road it leaves on, the far stretch the road it joins.
+          const nA = routeNumber(...c.withNear), nB = routeNumber(...c.withFar), L0 = c.near.L, L1 = c.near.L + c.link.L;
+          for (const g of o.segments || []) {
+            const mid = g.s0 + g.L / 2, at = fl ? o.L - mid : mid;
+            if (at < L0) g.nums = both(nA); else if (at > L1) g.nums = both(nB);
+          }
+        }, c.near.L, c.far.L);
+        if (out) cands.push({ out, own: c.link.L });
+      }
+      const m = mergeInto(pk, pg, fk, fg, window, nodes, seedM);
+      if (m) {
+        m.link.hwType = routeType(fromKey, toKey);
+        for (const g of m.shared.segments || []) g.shared = true;
+        const out = finish(joinRoutes([m.link, m.shared]), flip, (o) => { o.mergedInto = m.withKeys; tagNumbers(o, fromKey, toKey, null); }, 0, m.shared.L);
+        if (out) cands.push({ out, own: m.link.L });
+      }
+    }
+    if (cands.length) { cands.sort((p, q) => p.own - q.own); return cands[0].out; }
+  }
+  const hA = hubSide(fromKey, pair.from, toKey, window, nodes);
+  const hB = hA ? null : hubSide(toKey, pair.to, fromKey, window, nodes);
+  if (hA || hB) {
+    // Build from the hub end, so the branch leaves the trunk on the trunk's heading; the far end
+    // arrives through that region's own interchange as any road does.
+    // ⚠ THE BRANCH RUNS STRAIGHT TO THE FAR ENTRANCE, NOT TO ITS INTERCHANGE. Joined to the far
+    // region's spoke it would meet it at whatever angle it arrived, which on a road that has just
+    // swept round off a trunk is routinely past 100°, and a mid-road seam that sharp folds the verge
+    // band. A road's END is the region's edge, where a turn has always been allowed.
+    const [hk, ok, hs, og] = hA ? [fromKey, toKey, hA, pair.to] : [toKey, fromKey, hB, pair.from];
+    const seed = `branch|${pairKey(pair.from.id, pair.to.id)}`;
+    const branch = corridorFor(hk, ok, window, nodes, 0, null, { x0: hs.x, y0: hs.y, x1: og.x, y1: og.y, h0: hs.h0 }, seed);
+    branch.hwType = routeType(fromKey, toKey);
+    if (hs.ramp) branch.hwSplit = [{ L: RAMP_TYPE_L, type: 'ramp' }, { L: Infinity, type: branch.hwType }];
+    const fromHub = joinRoutes([...hs.pieces, branch]);
+    const out = hA ? fromHub : reverseRoute(fromHub);
+    if (out) { out.nodes = nodes; out.roomLen = out.L / Math.max(1, nodes); out.anchored = true; tagNumbers(out, fromKey, toKey, hk); }
+    return out;
+  }
   // Each end asks for the interchange that serves THIS neighbour, so two roads share a spoke
   // exactly when they leave in the same direction.
   const iA = interchangeFor(fromKey, pair.from, toKey), iB = interchangeFor(toKey, pair.to, fromKey);
@@ -484,8 +733,11 @@ export function networkRoute(fromKey, toKey, window, nodes) {
   const midCanon = corridorFor(k0, k1, window, nodes, 0, null,
     { x0: m0.x, y0: m0.y, x1: m1.x, y1: m1.y }, `mid|${pairKey(pair.from.id, pair.to.id)}`);
   const mid = canon ? midCanon : reverseRoute(midCanon);
-  const out = joinRoutes([spoke(fromKey, pair.from, iA), mid, reverseRoute(spoke(toKey, pair.to, iB))]);
-  if (out) { out.nodes = nodes; out.roomLen = out.L / Math.max(1, nodes); out.anchored = true; }
+  // Every piece of a plain road is built as the road's own type (content/map/routes.json).
+  const ty = routeType(fromKey, toKey), sA = spoke(fromKey, pair.from, iA), sB = spoke(toKey, pair.to, iB);
+  for (const r of [sA, mid, sB]) if (r) r.hwType = ty;
+  const out = joinRoutes([sA, mid, reverseRoute(sB)]);
+  if (out) { out.nodes = nodes; out.roomLen = out.L / Math.max(1, nodes); out.anchored = true; tagNumbers(out, fromKey, toKey, null); }
   return out;
 }
 
@@ -531,7 +783,6 @@ export function buildRoad(fromKey, destKey, toRegion, window, nodes, dests = nul
   if (!road) return null;
   road.destKey = destKey;
   road.origin = dests ? (VOIDS[fromKey]?.sign || VOIDS[fromKey]?.origin || null) : null;
-  attachSigns(road, dests);
   // The inspection plazas, worked out from the same finished geometry the boards are and gated the
   // same way — a sibling limb is built with no destinations, so it gets neither. See plaza.js.
   attachPlazas(road, dests);
@@ -543,6 +794,9 @@ export function buildRoad(fromKey, destKey, toRegion, window, nodes, dests = nul
       if (b) road.branches.push({ key: d.key, name: d.name || d.key, route: b });
     }
   }
+  // ⚠ THE BOARDS GO UP AFTER THE BRANCHES, or a fork board cannot name the roads leaving the fork:
+  // its rows are read off road.branches, which was still empty when this ran first.
+  attachSigns(road, dests);
   return road;
 }
 
@@ -619,7 +873,7 @@ function anchorFor(instanceId, destKey) {
 // the region reads the same object.
 const _preview = new Map();
 let _previewGen = -1;
-function previewRoute(voidKey, window) {
+function previewRoute(voidKey, window, near = null) {
   // ⚠ THIS IS THE THIRD CACHE BUILT ON THE RIM GATES, AND IT WAS THE ONE NOBODY GUARDED. Every
   // metre of this road is anchored on a gate pair, so a gate that moves invalidates it exactly as
   // it invalidates the network — which is why `_clearGateCache` bumps a generation and `roadnet.js`
@@ -628,14 +882,16 @@ function previewRoute(voidKey, window) {
   // at all, so it went on handing every driver in the region a road anchored to a mouth that had
   // moved, or — worse — the null it happened to build before the world was loaded.
   if (_previewGen !== gateGeneration()) { _preview.clear(); _previewGen = gateGeneration(); }
-  const key = `${voidKey}|${window}`;
+  const gate0 = near ? nearestGate(voidKey, near.x, near.y) : null;
+  const key = `${voidKey}|${window}|${gate0?.id || ''}`;
   if (_preview.has(key)) return _preview.get(key);
-  const v = VOIDS[voidKey], gate = regionGates(voidKey)[0];
+  const v = VOIDS[voidKey], gate = gate0 || regionGates(voidKey)[0];
   let route = null;
   // The approach builds the SAME road the crossing will, through the same function — which is the
   // whole contract of the preview (see the ⚠ above it) and is now one call rather than a careful
   // re-assembly of the same arguments in a second place.
-  const dests = destsFor(voidKey, null);
+  const all = destsFor(voidKey, null);
+  const dests = near ? destsFromGate(voidKey, near.x, near.y, all) : all;
   if (dests.length) {
     const d = dests[0];
     // ⚠ AND A NULL IS NEVER CACHED. `buildRoad` answers null when the gate pair cannot be resolved,
@@ -678,7 +934,7 @@ function previewFor(rig) {
   const here = surfaceAt(Math.round(rig.x), Math.round(rig.y));
   const voidKey = here?.flags?.region_id;
   if (!voidKey || !VOIDS[voidKey]) return null;
-  return previewRoute(voidKey, currentVoidWindow());
+  return previewRoute(voidKey, currentVoidWindow(), { x: rig.x, y: rig.y });
 }
 
 // City → corridor. Called when the rig drives off the rim into a live crossing.
@@ -1064,7 +1320,7 @@ export function announceBreak(player, rig) {
     type: 'emote',
     message: `<span class="text-red">${b.broke}</span>\n`
       + `<span class="text-amber">The ${b.label} is finished, and so is the run until you deal with it.</span> `
-      + `<span class="text-dim">${teachVerb('fix', 'fix')} to get under it with what you have, or ${teachVerb('park', 'park')} and walk — the road out here goes on without you either way.</span>`,
+      + `<span class="text-dim">${teachVerb('fix', 'fix')} to get under it with what you have, or ${teachVerb('park', 'park')} and walk: the road out here goes on without you either way.</span>`,
   });
   return true;
 }
@@ -1108,10 +1364,12 @@ export function passSign(player, rig) {
   const rev = rig.s < from;
   for (const g of passed) {
     rig.signSeen.add(g.s);
+    if (g.kind === 'merge') sendToPlayer(player.id, { type: 'emote', message: '<span class="text-dim">Another road comes in alongside, and the two run on as one.</span>' });
     const rows = ((rev && g.back) || g.rows).map(r => `<b>${r.n}</b> <span class="text-dim">${r.m} miles, ${ARROW_WORDS[r.a] || 'straight on'}</span>`).join('\n  ');
     sendToPlayer(player.id, {
       type: 'emote',
-      message: '<span class="text-dim">A board goes by on the shoulder, green under the dust, still bolted to its legs:</span>\n  ' + rows,
+      message: '<span class="text-dim">A board goes by on the shoulder, green under the dust, still bolted to its legs:</span>\n  '
+        + ((lbl) => (lbl ? `<b>${lbl.toUpperCase()}</b>\n  ` : ''))(routeLabelAt(rig.route, g.s)) + rows,
     });
   }
   return true;
@@ -1146,14 +1404,14 @@ export function passSign(player, rig) {
 // which is enough truck-stopping room. The feature never depends on the radio; the LEAD does.
 const HITCH_CALLS = [
   { tiles: 60, cb: true, say: (who, mi) =>
-    `<span class="text-dim">CB: “Anybody running this stretch — there's somebody thumbing it about ${mi} miles ahead of me. `
+    `<span class="text-dim">CB: “Anybody running this stretch, there's somebody thumbing it about ${mi} miles ahead of me. `
     + `Been out there a while by the look of it.”</span>` },
   { tiles: 18, cb: false, say: (who, mi) =>
     `<span class="text-amber">A shape resolves out of the haze on the right-hand verge, a long way off and not moving.</span>`
     + ` <span class="text-dim">About ${mi} miles. Come off the throttle now if you're going to stop for them.</span>` },
   { tiles: 6, cb: false, say: (who, mi) =>
     `<span class="text-amber">Close enough to see now: ${who.look}. A hand comes up as you close.</span>`
-    + ` <span class="text-dim">${mi} mile${mi === 1 ? '' : 's'} — ${teachVerb('pickup', 'pickup')} if you're stopping.</span>` },
+    + ` <span class="text-dim">${mi} mile${mi === 1 ? '' : 's'}: ${teachVerb('pickup', 'pickup')} if you're stopping.</span>` },
 ];
 // The farthest mark, which is also how far ahead the lookahead has to reach.
 const HITCH_LOOK = Math.max(...HITCH_CALLS.map((c) => c.tiles));
@@ -1393,7 +1651,7 @@ export function knockOutTruckElec(rig, until) {
   const player = getLivePlayer(rig.playerId);
   if (!already && player) {
     sendToPlayer(player.id, { type: 'output', message:
-      '<span class="text-red">⚡ The dash goes out in one flat crack — the nav head, the CB, the whole lit half of the cab. '
+      '<span class="text-red">⚡ The dash goes out in one flat crack: the nav head, the CB, the whole lit half of the cab. '
       + 'The engine never misses a beat, which somehow makes it worse.</span>' });
   }
   clearTimeout(rig._empTimer);
@@ -1620,6 +1878,9 @@ export function cabContext(rig, extra = {}) {
     // that has never heard of it. This is the ONLY time they're sent: the inside of a cab is the
     // driver's alone, so unlike `fits` there's no suffix on any contact string.
     cab: installedTrinkets(rig.cd),
+    // Which horn is on the roof — null is the factory one (client/shared/truck-horns.js), so a truck
+    // nobody has taken to the bench sounds exactly as it always did.
+    horn: hornOf(rig.cd),
     cargo: rig.cargo ? { name: rig.cargo.name, kg: rig.cargo.kg, to: rig.cargo.toName } : null,
     // The client model owns φ and the brake temperature between frames — it simulates them at
     // 60fps and nothing here could improve on that. What the server owns is WHETHER there is a

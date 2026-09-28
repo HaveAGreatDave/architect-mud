@@ -229,7 +229,7 @@ function foodActions(row, ctx, { inVessel = false } = {}) {
     for (const v of ctx.vessels) {
       if (v.edible) continue;
       out.push(act(`≈ ${v.short}`, `pour ${name} into ${v.name}`,
-        'a measure of it — the arrow puts the whole thing in', { role: 'pour' }));
+        'a measure of it: the arrow puts the whole thing in', { role: 'pour' }));
     }
   }
 
@@ -253,7 +253,7 @@ function foodActions(row, ctx, { inVessel = false } = {}) {
       out.push(act(
         `${onto ? '≡' : '→'} ${v.short}`,
         onto ? `stack ${name} on ${v.name}` : `stow ${name} in ${v.name}`,
-        onto ? 'lays it on top — the sandwich reads bottom to top' : null,
+        onto ? 'lays it on top: the sandwich reads bottom to top' : null,
         { role: 'stow', target: v.id },
       ));
     }
@@ -272,7 +272,7 @@ function foodActions(row, ctx, { inVessel = false } = {}) {
         out.push(act(key, `${key} ${name}`, m?.needs ? `${m.needs.toLowerCase()}; it finds one and lights the ring` : null, { role: 'method' }));
       }
     }
-    if (ctx.stoves.length) out.push(act('cook', `cook ${name}`, 'bare on the heat — a vessel cooks it better', { role: 'start' }));
+    if (ctx.stoves.length) out.push(act('cook', `cook ${name}`, 'bare on the heat: a vessel cooks it better', { role: 'start' }));
   }
   return out;
 }
@@ -300,7 +300,7 @@ function vesselActions(v, contents, ctx, heat = null) {
   const low = contents.some(r => r.custom_data?.cooking?.wet);
   if (boilable && ctx.taps?.length && !wet) {
     out.push(act('fill', `fill ${name}`,
-      anyCooking ? 'tops it back up — the clock on the water restarts'
+      anyCooking ? 'tops it back up: the clock on the water restarts'
         : contents.some(r => profileNameFor(r) === 'dry_starch')
           ? "pasta and rice won't cook without it"
           : 'water from the tap, to boil in', { role: 'water' }));
@@ -357,7 +357,7 @@ function vesselActions(v, contents, ctx, heat = null) {
   // dried on is worth scrubbing, and leaving it is worse than a clean pan.
   const fond = fondState(cd.fond);
   if (fond === 'fresh' && !cd.deglazed && contents.some(r => profileNameFor(r) === 'liquid')) {
-    out.push(act('deglaze', `deglaze ${name}`, "beats any seasoning — it's a technique", { role: 'clean' }));
+    out.push(act('deglaze', `deglaze ${name}`, "beats any seasoning: it's a technique", { role: 'clean' }));
   }
   if (fond === 'residue' || (fond !== 'none' && !contents.length)) {
     out.push(act('scour', `scour ${name}`, 'a pan you browned in and ignored is worse than a clean one', { role: 'clean' }));
@@ -438,7 +438,7 @@ function hobFor(stoves, vessels) {
       // ⚠ THE VERDICT IS ALSO WHERE "IT IS OFF" IS SAID. The panel must not have
       // to own a phrase for a dead ring — that is kitchen vocabulary, and the one
       // file in this feature that is not allowed any.
-      verdict: idle ? { state: 'off', text: 'the ring is out — nothing is cooking' }
+      verdict: idle ? { state: 'off', text: 'the ring is out: nothing is cooking' }
         : want ? heatVerdict(level, want) : null,
       idle,
       meter: cook ? { phase: cook.phase || null, stage: cook.stage || null, stages: cook.stages || null,
@@ -480,7 +480,7 @@ function stagesFor({ area, components, dials }) {
   else if (cooking.length) { at = 2; hint = 'On the heat. Ride the burner and judge when to pull it.'; }
   else if (loaded) { at = 2; hint = 'The pan is loaded. Set the ring, then start it.'; }
   else if (toHand.length && !unprepped) { at = 1; hint = 'Tick what you want and drop it in a pan.'; }
-  else if (toHand.length) { at = 0; hint = 'Cut it down first — whole things cook badly.'; }
+  else if (toHand.length) { at = 0; hint = 'Cut it down first: whole things cook badly.'; }
   else { at = 0; hint = 'Get something out of the fridge to start.'; }
 
   // A ring at zero with a pan on it is not "heating" whatever else is true.
@@ -695,7 +695,7 @@ function walkthroughFor(template, chosen, c, ctx) {
   //    setting, so the burner steps are the recipe's curve read back as the
   //    verb that sets it.
   if (template.vessel === 'bowl' || template.vessel === 'bread') {
-    out.push(step(`Work it together. No heat — everything here is better raw.`, null));
+    out.push(step(`Work it together. No heat: everything here is better raw.`, null));
     return out;
   }
   out.push(step(`Get the ${vName} on the heat.`, `cook ${vName}`));
@@ -723,7 +723,7 @@ function walkthroughFor(template, chosen, c, ctx) {
     const verb = HANDLING_VERB[p] || 'flip';
     for (let i = 0; i < turns; i++) {
       out.push(step(`${verb === 'stir' ? 'Stir' : 'Turn'} the ${shownName(turnRow)}${turns > 1 ? ` (${i + 1} of ${turns})` : ''}.`,
-        `${verb} ${shownName(turnRow)}`, i === turns - 1 ? 'no more than this — fussing it costs you' : null));
+        `${verb} ${shownName(turnRow)}`, i === turns - 1 ? 'no more than this: fussing it costs you' : null));
     }
   } else {
     out.push(step(`Leave it alone. Turning this one makes it worse.`, null));
@@ -851,7 +851,7 @@ function scoreRecipe(key, template, sig, ctx, band) {
     // but proposing it against a recipe you're two ingredients short of would
     // be proposing a failure.
     actions: (!missing.length && !equipment.length)
-      ? [{ label: 'prepare', command: `prepare ${key.replace(/_/g, ' ')}`, hint: 'gathers what it needs — you still cook it' }]
+      ? [{ label: 'prepare', command: `prepare ${key.replace(/_/g, ' ')}`, hint: 'gathers what it needs: you still cook it' }]
       // Short of something? Then the useful action isn't prepare, it's writing
       // down what to go and buy.
       : missing.length
@@ -901,7 +901,7 @@ async function buildAssistant(player, reachableFood, ctx) {
       groups: [],
       unknown: total,
       // The same sentence the Cookbook app ends on, for the same reason.
-      note: `Nothing written down yet. Put things in a pan and cook them together — ${total} recipes exist, and nobody's going to tell you what they are.`,
+      note: `Nothing written down yet. Put things in a pan and cook them together: ${total} recipes exist, and nobody's going to tell you what they are.`,
     };
   }
 
@@ -1522,7 +1522,7 @@ export async function planLoadKitchen(player, targetStr, itemStrs) {
     steps.push(`stow ${shownName(row)} in ${shownName(vessel)}`);
   }
   if (missing.length) {
-    return { error: `You haven't got ${missing.join(', ')} — the workspace has moved on since you ticked that.` };
+    return { error: `You haven't got ${missing.join(', ')}: the workspace has moved on since you ticked that.` };
   }
   if (!steps.length) return { error: `It's all in there already.` };
   return { label: `Loading the ${shownName(vessel)}`, steps, vessel: shownName(vessel) };

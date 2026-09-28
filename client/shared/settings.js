@@ -40,23 +40,23 @@ export const A11Y_OPTIONS = [
   },
   {
     key: 'uiFont', label: 'Typeface', verb: 'font',
-    why: 'The game is monospaced by default. Sans is easier for many readers; Readable widens letter spacing and word spacing, which helps if letters swim or crowd. Maps, minimaps and character art stay monospaced either way — they need the columns.',
+    why: 'The game is monospaced by default. Sans is easier for many readers; Readable widens letter spacing and word spacing, which helps if letters swim or crowd. Maps, minimaps and character art stay monospaced either way. They need the columns.',
     opts: [{ v: 'mono', t: 'Monospace' }, { v: 'sans', t: 'Sans' }, { v: 'readable', t: 'Readable' }],
   },
   {
     key: 'motion', label: 'Motion', verb: 'motion',
-    why: 'Off stops animation everywhere it can be stopped — including the weather overlay, the cold open, the card reveal and the flight-sim view warp, not just CSS transitions.',
+    why: 'Off stops animation everywhere it can be stopped, including the weather overlay, the cold open, the card reveal and the flight-sim view warp, not just CSS transitions.',
     opts: [{ v: 'on', t: 'On' }, { v: 'off', t: 'Off' }],
   },
   {
     key: 'statusGlyphs', label: 'Status Marks', verb: 'marks',
-    why: 'Adds a symbol beside anything the game otherwise tells you with colour alone — powered/unpowered, safe/hostile, ok/hurt. Useful with any colour vision deficiency, and in bright sunlight.',
+    why: 'Adds a symbol beside anything the game otherwise tells you with colour alone, powered/unpowered, safe/hostile, ok/hurt. Useful with any colour vision deficiency, and in bright sunlight.',
     opts: [{ v: 'off', t: 'Off' }, { v: 'on', t: 'On' }],
   },
 
   {
     key: 'logVoice', label: 'Read Aloud', verb: 'read',
-    why: 'Speaks each new line of the log. OFF BY DEFAULT, and leave it off if you already use a screen reader — the log is a live region, so your screen reader is reading it too, and both at once is unusable. Natural uses your device\'s own voice and is the one to pick if you just want the game read to you. In-world uses the game\'s own synthetic voice, the one the broadcasts use: it fits the fiction and is harder work to listen to for a long session. Escape stops it, and entering a command interrupts it.',
+    why: 'Speaks each new line of the log. OFF BY DEFAULT, and leave it off if you already use a screen reader. The log is a live region, so your screen reader is reading it too, and both at once is unusable. Natural uses your device\'s own voice and is the one to pick if you just want the game read to you. In-world uses the game\'s own synthetic voice, the one the broadcasts use: it fits the fiction and is harder work to listen to for a long session. Escape stops it, and entering a command interrupts it.',
     opts: [{ v: 'off', t: 'Off' }, { v: 'natural', t: 'Natural' }, { v: 'world', t: 'In-world' }],
   },
   {
@@ -69,7 +69,7 @@ export const A11Y_OPTIONS = [
   },
   {
     key: 'dictation', label: 'Voice Input', verb: 'voice',
-    why: "Adds a microphone button beside the command box, so you can speak a command instead of typing it. Off by default. Review puts what you said in the box and waits for you to press Enter; Auto-send runs it straight away — except for commands that cost you something (drop, give, attack, buy), which always wait. Needs Chrome, Edge, or Safari; Firefox has no speech recognition and the button won't appear.",
+    why: "Adds a microphone button beside the command box, so you can speak a command instead of typing it. Off by default. Review puts what you said in the box and waits for you to press Enter; Auto-send runs it straight away, except for commands that cost you something (drop, give, attack, buy), which always wait. Needs Chrome, Edge, or Safari; Firefox has no speech recognition and the button won't appear.",
     opts: [{ v: 'off', t: 'Off' }, { v: 'review', t: 'Review' }, { v: 'send', t: 'Auto-send' }],
   },
 
@@ -88,7 +88,7 @@ export const A11Y_OPTIONS = [
     // with nothing configured, and reset leaves that intact.
     key: 'tabletMode', label: 'Tablet Style', verb: 'tablet',
     resolve: (settings, ctx) => tabletStyle(settings, ctx?.displayRung),
-    why: 'Screen is the simulated device — tiles, pages, animation. Document replaces it with a plain dialog you move through with Tab, with real headings, lists and buttons: the same tablet, built to be read rather than looked at. Document is the default if you play in log mode. Neither is required — every tablet app also has a verb you can simply type, and `tablet verbs` lists them.',
+    why: 'Screen is the simulated device, tiles, pages, animation. Document replaces it with a plain dialog you move through with Tab, with real headings, lists and buttons: the same tablet, built to be read rather than looked at. Document is the default if you play in log mode. Neither is required: every tablet app also has a verb you can simply type, and `tablet verbs` lists them.',
     opts: [{ v: 'visual', t: 'Screen' }, { v: 'accessible', t: 'Document' }],
   },
   {
@@ -100,7 +100,7 @@ export const A11Y_OPTIONS = [
     // rather than reading the raw key, so neither has to know that "unset" is a
     // real state here — and neither ends up printing "currently undefined".
     resolve: (settings, ctx) => sfxDetail(settings, ctx?.displayRung),
-    why: 'How much of the world you hear. Limited is the game\'s usual soundset — sound when something happens. Full adds continuous world sound: a footstep on whatever you\'re standing on as you enter each tile, doors opening and closing. It\'s meant to tell you where you\'re without reading. Full is the default if you play in log mode. Off silences both tiers, and changes nothing about volume — the sliders under Sound are still where you set how loud things are.',
+    why: 'How much of the world you hear. Limited is the game\'s usual soundset, sound when something happens. Full adds continuous world sound: a footstep on whatever you\'re standing on as you enter each tile, doors opening and closing. It\'s meant to tell you where you\'re without reading. Full is the default if you play in log mode. Off silences both tiers, and changes nothing about volume, the sliders under Sound are still where you set how loud things are.',
     opts: [{ v: 'off', t: 'Off' }, { v: 'limited', t: 'Limited' }, { v: 'full', t: 'Full' }],
   },
 ];

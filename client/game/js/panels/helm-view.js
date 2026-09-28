@@ -11,7 +11,7 @@
 // Public: openHelmChase(containerEl, opts) → controller { sail, setHour, setWeather,
 //   setPosition, isSailing, destroy }. opts: { gx, gy, hour, weather, onArrive(gx,gy) }.
 
-import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, surfaceBreakup, normalizeWx, navMarks, seaRideAt } from './windshield.js';
+import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, surfaceBreakup, normalizeWx, navMarks, seaRideAt, setYachtWay } from './windshield.js';
 import { createFreeCam, FREECAM_HINT, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
 
 // Live world clock/weather via the shared (non-flight) env system — loaded OPTIONALLY so a
@@ -377,6 +377,9 @@ export function openHelmChase(container, opts = {}) {
     // of climb tipped the camera fifty-seven and the city hung upside down. `seaRideAt` returns
     // degrees for exactly that reason.
     const bridge = !!st.bridge;
+    // Her way, for the roll RAO's encounter frequency: the bell in knots (instr.speed is st.spd × 30)
+    // as tiles a second. Set every frame so the hull, the pad and the bridge all read one value.
+    setYachtWay(st.spd * 30 * 0.5144 / 7);
     const ride = bridge ? seaRideAt(0, -BRIDGE_OY, hdgN, performance.now()) : null;
 
     paintWindshield(id, {
@@ -386,6 +389,15 @@ export function openHelmChase(container, opts = {}) {
       // camera's. In the chase both are 0 and the payload is byte-for-byte the one that shipped.
       height: bridge ? ride.heave : 0,
       eyeH: bridge ? BRIDGE_EYE : undefined,
+      // ⚠ THE WHEELHOUSE AROUND YOU, SENT ONLY FROM THE BRIDGE. `cls: 'bridge'` is what gives the
+      // seat its interior (interior-shell's class map); from the chase it would be a room drawn
+      // round a camera floating off her quarter. `ownHdg` is her heading, which the room is bolted
+      // to, and `instr` is what the console reads — every value one this panel already has.
+      ...(bridge ? {
+        cls: 'bridge', ownHdg: hdgN,
+        instr: { hdg: hdgN, speed: st.spd * 30, rudder: clamp((st.headingTarget - st.heading) / 45, -1, 1) || 0,
+          throttle: clamp(st.spd, 0, 1), t: performance.now() / 1000 },
+      } : {}),
       pitch: bridge ? ride.pitch : undefined,
       bank: bridge ? ride.roll : undefined,
       speed: st.spd, hour, moon, weather, wxField: field, wxGround: st.serverGround, contacts,
@@ -609,7 +621,7 @@ export function openHelmChase(container, opts = {}) {
     pose() { return { yaw: +st.extYaw.toFixed(1), pitch: +st.extPitch.toFixed(3), zoom: +st.extZoom.toFixed(3), frameY: st.frameY == null ? null : +st.frameY.toFixed(3) }; },
     setPose(p = {}) { if (p.yaw != null) st.extYaw = ((p.yaw % 360) + 360) % 360; if (p.pitch != null) st.extPitch = p.pitch; if (p.zoom != null) st.extZoom = p.zoom; if (p.frameY !== undefined) st.frameY = (p.frameY == null ? null : Math.max(0.15, Math.min(0.8, p.frameY))); return this.pose(); },
     destroy() {
-      st.alive = false; cancelAnimationFrame(st.raf); audio.stop(); disposeWindshield(id);
+      st.alive = false; cancelAnimationFrame(st.raf); audio.stop(); disposeWindshield(id); setYachtWay(0);
       // The camera is stowed with the view, and its keys with it — see the same note in closeCab.
       // The chrome class goes too: it outlives this container, and a helm closed with the camera
       // out would leave the next one's console hidden by a mode nothing is in.

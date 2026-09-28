@@ -48,7 +48,7 @@ export function narrateDeal(table) {
     else if (g.seats.indexOf(gs) === g.dealerIdx) role = 'You have the dealer button.';
 
     const parts = [
-      `<span style="color:var(--accent)">♠ New hand — your hole cards:</span>`,
+      `<span style="color:var(--accent)">♠ New hand: your hole cards:</span>`,
       `<pre>${renderHandASCII(gs.hand)}</pre>`,
     ];
     if (role) parts.push(role);
@@ -76,7 +76,7 @@ export function narrateShowdown(table) {
   const g = table.game;
   if (!g || !g.community.length) return;
   const msg = [
-    `<span style="color:var(--accent)">SHOWDOWN — final board:</span>`,
+    `<span style="color:var(--accent)">SHOWDOWN: final board:</span>`,
     `<pre>${renderHandASCII(g.community)}</pre>`,
   ].join('');
   for (const pid of textWatchers(table)) sendToPlayer(pid, { type: 'output', message: msg });
@@ -94,7 +94,7 @@ export function narrateTurn(table, playerId) {
   const opts = toCall > 0
     ? `To call ${cred(toCall)}. Type: <b>call</b> · <b>raise &lt;amt&gt;</b> · <b>fold</b>`
     : `Type: <b>check</b> · <b>bet &lt;amt&gt;</b> · <b>fold</b>`;
-  const msg = `<span style="color:var(--yellow)">▶ Your turn</span> — pot ${cred(g.pot)}, `
+  const msg = `<span style="color:var(--yellow)">▶ Your turn</span>: pot ${cred(g.pot)}, `
     + `your stack ${cred(gs.chips)}. ${opts}`
     + ` <span class="text-dim">(board · showhand to review cards)</span>`;
   sendToPlayer(playerId, { type: 'output', message: msg });

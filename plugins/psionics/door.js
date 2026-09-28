@@ -39,7 +39,7 @@ const WALKED_INTO_IT = 'psi_walked_into_door';
 /**
  * The guide's line. The ONLY time an Exodus explains the discipline plainly.
  *
- * No em dashes (they belong to the Architect and the Ascendants), and note it
+ * No em dashes (no prose in the game takes one), and note it
  * never says "psionics" — even here, being taught, nobody names the thing. The
  * guide describes what you will be able to DO, which is the Exodus's whole
  * pedagogy and is also the joke: they are not impressed, and this happens to

@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Red rock to the horizon, pitted with pale rings a hair deep where the rain has stood and eaten. The wind never stops. There's a great deal of sky and none of it's reassuring.",
+  "description": "Red stone runs out level in every direction, scarred with small pale rings. Grit hisses across it in the wind.",
   "exits": {
     "east": "zone_scw_1045_1001",
     "north": "zone_scw_1044_1000",

@@ -33,10 +33,16 @@
 // = $1`, which is the only answer that cannot drift from the boats themselves.
 
 import { query } from '../../server/models/db.js';
-import { getZone, getZoneNpcs, propsOf } from '../../server/engine/world.js';
+import { getZone, getZoneNpcs, propsOf, getAllZones } from '../../server/engine/world.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { getItem } from '../../server/engine/items-cache.js';
 import { TYPES, BOAT_TYPES } from '../../client/game/js/panels/flight-model.js';
+import { boatRental, boatRentalExpired, boatRentFee, BOAT_RENT_TERM_MS, BOAT_RENT_REFUSE, BOAT_SERVICE,
+  boatServicePrice, stampBoatService, BOAT_SCHEMES, BOAT_DECALS, BOAT_PAINT_PRICE, BOAT_DECAL_PRICE, wetChange } from './service.js';
+// ⚠ A CYCLE INSIDE ONE PLUGIN, AND SAFE FOR THE STATED REASON: helm.js imports `aboard` from here,
+// and this reads `boatTake` only inside a function body, after both modules have evaluated.
+import { boatTake, applyLive } from './helm.js';
+import { deskReady, deskRefusal } from './desk.js';
 
 // ── TUNING ───────────────────────────────────────────────────────────────────
 //
@@ -181,7 +187,7 @@ export function boatLine(row, { where = true } = {}) {
     : z ? `${z.name}, ${KIND_WORD[berthKind(z)] || 'laid up'}` : 'somewhere the yard has lost track of';
   return `<span class="text-cyan">${name}</span>`
     + `<span class="text-dim"> (${t ? t.name : row.type_id})</span>`
-    + ` — hull <span class="text-${pct(row.condition) < 50 ? 'red' : 'green'}">${pct(row.condition)}%</span> ${hullBand(row.condition)}`
+    + `: hull <span class="text-${pct(row.condition) < 50 ? 'red' : 'green'}">${pct(row.condition)}%</span> ${hullBand(row.condition)}`
     + `, fuel ${pct(row.fuel)}%`
     + (where ? `\n    <span class="text-dim">${place}</span>` : '');
 }
@@ -204,6 +210,10 @@ export function pickBoat(rows, arg) {
   if (!rows.length) return { none: true };
   const q = (arg || '').trim().toLowerCase();
   if (!q) return rows.length === 1 ? { boat: rows[0] } : { ambiguous: rows };
+  // THE ID FIRST, AND EXACTLY. Every button on the marina screen names a hull by id, so a click is
+  // never a prefix match that two boats called "Rooster" could both answer to.
+  const exact = rows.find((b) => b.id.toLowerCase() === q);
+  if (exact) return { boat: exact };
   const hit = rows.filter(b => {
     const t = TYPES[b.type_id];
     return (b.name || '').toLowerCase().includes(q)
@@ -239,19 +249,29 @@ export async function cmdBoats(args, raw, player) {
 // ⚠ SINGULAR BUYS, PLURAL OWNS, and both say so in their own output, because `boat` and `boats` one
 // letter apart is a real way to mistype your way into the wrong screen.
 
+// ⚠ THE DESK, NOT THE WALK — see desk.js. A dealer found anywhere within reach sold hulls from the
+// dock and the pontoons; buying and hiring are the clerk's job now.
 function dealerHere(player) {
-  return zonesNear(player.current_zone).find(z => z.flags?.boat_dealer) || null;
+  return deskReady(player) ? getZone(player.current_zone) : null;
 }
 
 export async function cmdBoat(args, raw, player) {
+  // ── THE COUNTER'S OTHER THREE JOBS ─────────────────────────────────────────
+  // `take` is the card on the marina's first screen: it seats you in a hull where she lies, in the
+  // real water, and hands you the helm. `rent` and `return` are the hire desk (service.js). All
+  // three are words no hull on the line is called, so they sit ahead of the dealer's name match.
+  const sub = String(args[0] || '').toLowerCase();
+  if (sub === 'take' || sub === 'launch' || sub === 'out') return await boatTake(player, args.slice(1).join(' '));
+  if (sub === 'rent' || sub === 'hire') return await boatRent(player, args.slice(1).join(' '));
+  if (sub === 'return' || sub === 'handback') return await boatReturn(player, args.slice(1).join(' '));
   const shed = dealerHere(player);
   if (!shed) {
-    return say('<span class="text-dim">Nobody sells hulls here. A yard that does will be on the water, with somewhere to put one.</span>');
+    return say(`<span class="text-dim">${deskRefusal(player)}</span>`);
   }
   const arg = args.join(' ').trim().toLowerCase();
   if (!arg) {
     const lines = BOAT_TYPES.map(t =>
-      `  <span class="text-cyan">${t.name}</span> <span class="text-dim">(${t.id})</span> — <span class="text-green">₵${t.price.toLocaleString()}</span>`
+      `  <span class="text-cyan">${t.name}</span> <span class="text-dim">(${t.id})</span>: <span class="text-green">₵${t.price.toLocaleString()}</span>`
       + `\n    <span class="text-dim">${t.blurb}</span>`);
     return say(`<span class="text-cyan">HULLS, BY ARRANGEMENT</span>\n${lines.join('\n')}`
       + `\n\n<span class="text-dim">buy one with <span class="text-white">boat &lt;name&gt;</span>. What you already own is <span class="text-white">boats</span>.</span>`);
@@ -283,6 +303,98 @@ export async function cmdBoat(args, raw, player) {
   return say(`<span class="text-green">Bought.</span> A ${type.name}, hull sound, tank full.`
     + `\n<span class="text-dim">She is at ${home.zone.name}, ${KIND_WORD[berthKind(home.zone)]}. ₵${type.price.toLocaleString()} gone.</span>`);
 }
+
+// ── THE HIRE DESK ────────────────────────────────────────────────────────────
+// See service.js for the model. One hire at a time, at a yard that sells hulls, into the first free
+// berth — which from the Dock Hall is the covered dock, so a hire comes out of the same slot a
+// bought boat does.
+
+/** Every hire of this player's that has run out and is not being sailed goes back. */
+export async function sweepBoatRentals(playerId) {
+  const rows = await myBoats(playerId);
+  const seated = aboard.get(playerId);
+  const gone = [];
+  for (const b of rows) {
+    if (!boatRentalExpired(b) || b.id === seated) continue;
+    const r = await query("DELETE FROM boats WHERE id = $1 AND owner_id = $2 AND custom_data->'rental' IS NOT NULL", [b.id, playerId]).catch(() => ({ rowCount: 0 }));
+    if (r.rowCount) gone.push(b.name || TYPES[b.type_id]?.name || 'the hire');
+  }
+  return gone;
+}
+
+async function boatRent(player, arg) {
+  if (!dealerHere(player)) return say(`<span class="text-dim">${deskRefusal(player)}</span>`);
+  const q = String(arg || '').trim().toLowerCase();
+  if (!q) {
+    const lines = BOAT_TYPES.map((t) => `  <span class="text-cyan">${t.name}</span> <span class="text-dim">(${t.id})</span>: <span class="text-green">₵${boatRentFee(t).toLocaleString()}</span> for ${BOAT_RENT_TERM_MS / 3600000} hours`);
+    return say(`<span class="text-cyan">FOR HIRE</span>\n${lines.join('\n')}\n<span class="text-dim">boat rent &lt;name&gt;. One at a time; she goes back on her own when the time is up and she is tied up.</span>`);
+  }
+  const type = BOAT_TYPES.find((t) => t.id === q || t.name.toLowerCase().includes(q));
+  if (!type) return say(`<span class="text-dim">Nothing on the hire line called "${q}".</span>`);
+  await sweepBoatRentals(player.id);
+  const have = (await myBoats(player.id)).find((b) => boatRental(b));
+  if (have) return say(`<span class="text-dim">You already have ${have.name || 'a hull'} out on hire. Bring her back first: <span class="text-white">boat return</span>.</span>`);
+  const fee = boatRentFee(type);
+  if ((player.credits ?? 0) < fee) return say(`<span class="text-red">₵${fee.toLocaleString()} for the hire.</span> <span class="text-dim">You have ₵${(player.credits ?? 0).toLocaleString()}.</span>`);
+  const home = await firstFreeBerth(berthsNear(player.current_zone));
+  if (!home) return say('<span class="text-dim">Every berth here is full. There is nowhere to bring a hire round to.</span>');
+  await adjustCredits(player, -fee, query, 'boat hire');
+  const id = `boat_${player.id}_${Date.now().toString(36)}`;
+  const cd = { home_berth: home.zone.id, rental: { until: Date.now() + BOAT_RENT_TERM_MS, fee, from: home.zone.id } };
+  await query(
+    `INSERT INTO boats (id, type_id, name, owner_id, berth_zone, fuel, condition, custom_data)
+     VALUES ($1, $2, $3, $4, $5, 1, 1, $6::jsonb)`,
+    [id, type.id, `Hire ${type.name.split(' ').pop()}`, player.id, home.zone.id, JSON.stringify(cd)],
+  );
+  return say(`<span class="text-green">Hired.</span> A ${type.name} for ${BOAT_RENT_TERM_MS / 3600000} hours, tank full.`
+    + `\n<span class="text-dim">She is at ${home.zone.name}, ${KIND_WORD[berthKind(home.zone)]}. ₵${fee.toLocaleString()}.</span>`);
+}
+
+async function boatReturn(player, arg) {
+  const reach = berthsNear(player.current_zone).map((z) => z.id);
+  if (!reach.length) return say('<span class="text-dim">Hand a hire back at a marina.</span>');
+  const hires = (await myBoats(player.id)).filter((b) => boatRental(b));
+  const q = String(arg || '').trim().toLowerCase();
+  const boat = q ? hires.find((b) => b.id.toLowerCase() === q || (b.name || '').toLowerCase().includes(q)) : hires[0];
+  if (!boat) return say('<span class="text-dim">You have no hire boat to hand back.</span>');
+  if (aboard.get(player.id) === boat.id) return say('<span class="text-dim">Step off her first.</span>');
+  if (!reach.includes(boat.berth_zone)) return say('<span class="text-dim">She is not lying at this marina. Bring her in first.</span>');
+  await query("DELETE FROM boats WHERE id = $1 AND owner_id = $2 AND custom_data->'rental' IS NOT NULL", [boat.id, player.id]);
+  return say('<span class="text-green">The desk takes the key and a clipboard, walks down to look at her, and comes back without saying anything.</span>');
+}
+
+// ── THE COVERED SLOT ─────────────────────────────────────────────────────────
+// A covered dock is a ROOM (it has no grid position) over a slot of real water, and the water is
+// what the helm has to put a hull on — the room's own tile is the building, and a boat started on it
+// is a boat started aground. The slot is the room's exit onto open water, and the way she lies in it
+// is the way that exit points: bow out, under the roof, towards the Basin. Derived from the exits the
+// room already has, so a second covered dock anywhere gets its slot without anybody authoring one.
+const DIR_HEADING = { north: 0, east: 90, south: 180, west: 270 };
+export function coveredSlot(zone) {
+  if (!zone?.flags?.boat_covered) return null;
+  for (const [dir, t] of Object.entries(zone.exits || {})) {
+    for (const tid of (Array.isArray(t) ? t : [t])) {
+      const w = tid && getZone(tid);
+      if (!w || !(w.grid_x || w.grid_y) || !isOpenWater(w)) continue;
+      return { zone: w, x: w.grid_x, y: w.grid_y, heading: DIR_HEADING[dir] ?? 0, room: zone };
+    }
+  }
+  return null;
+}
+// The reverse: the covered room whose slot is this water tile. Content-keyed and built once, the
+// `yardIndex` idiom, because it is asked from the telemetry tick.
+let _slotIndex = null;
+export function coveredRoomAtTile(zoneId) {
+  if (!_slotIndex) {
+    _slotIndex = new Map();
+    for (const z of getAllZones()) {
+      const s = coveredSlot(z);
+      if (s) _slotIndex.set(s.zone.id, z);
+    }
+  }
+  return _slotIndex.get(zoneId) || null;
+}
+export const _forgetSlots = () => { _slotIndex = null; };
 
 async function firstFreeBerth(zones) {
   for (const zone of zones) {
@@ -353,6 +465,10 @@ export async function cmdBerth(args, raw, player) {
     `UPDATE boats SET berth_zone = $1,
        custom_data = jsonb_set(COALESCE(custom_data, '{}'::jsonb), '{home_berth}', to_jsonb($1::text), true)
      WHERE id = $2`, [here.id, boat.id]);
+  // FOULING'S CLOCK (service.js): lifted into a shed or onto a cradle it stops, afloat at a pontoon
+  // it runs. Banked on the move, the only moment the state changes.
+  const wet = wetChange(boat.custom_data || {}, kind === 'berth');
+  if (wet) await query('UPDATE boats SET custom_data = $2::jsonb WHERE id = $1', [boat.id, JSON.stringify(wet)]);
   const name = boat.name || TYPES[boat.type_id]?.name || 'she';
   const how = kind === 'covered'
     ? 'The slings take her, she comes up dripping, and the hall closes over her.'
@@ -368,7 +484,7 @@ async function berthStatusLine(zone, player) {
   const r = await query('SELECT count(*)::int AS n FROM boats WHERE berth_zone = $1', [zone.id]);
   const used = r.rows[0]?.n ?? 0;
   const fee = MOVE_IN[kind] ?? 0;
-  return `  <span class="text-cyan">${zone.name}</span> <span class="text-dim">— ${KIND_WORD[kind]}</span>`
+  return `  <span class="text-cyan">${zone.name}</span> <span class="text-dim">· ${KIND_WORD[kind]}</span>`
     + `\n    ${used} of ${cap} taken · <span class="text-green">₵${fee.toLocaleString()}</span> to move in`;
 }
 
@@ -381,6 +497,9 @@ async function berthStatusLine(zone, player) {
 // check psionics' own doc says is necessary and NOT sufficient.
 
 export async function cmdRefit(args, raw, player) {
+  // The shipwright's other four jobs, ahead of the hull. None of them is a word a boat is called.
+  const sub = String(args[0] || '').toLowerCase();
+  if (REFIT_JOBS.has(sub)) return await refitJob(player, sub, args.slice(1));
   const here = getZone(player.current_zone);
   const rows = await myBoats(player.id);
   const pick = pickBoat(rows, args.join(' ').trim());
@@ -398,17 +517,23 @@ export async function cmdRefit(args, raw, player) {
   const kind = berthKind(here);
   const wright = getZoneNpcs(player.current_zone).find(n => n?.flags?.repairman);
 
-  if (atBoat && kind === 'covered' && wright) {
+  // Seated in her in the covered slot counts as being at her in the shed.
+  const seated = aboard.get(player.id) === boat.id ? await benchFor(player, boat) : null;
+  const wrightName = seated?.ok ? seated.wright : wright?.name;
+  if ((atBoat && kind === 'covered' && wright) || seated?.ok) {
     const cap = REFIT_CAP.covered;
     const gain = cap - (boat.condition ?? 1);
     const cost = Math.max(1, Math.round(gain * 100 * REFIT_RATE));
     if ((player.credits ?? 0) < cost) {
-      return say(`<span class="text-dim">${wright.name} looks the hull over and writes a figure on a docket.</span>`
+      return say(`<span class="text-dim">${wrightName} looks the hull over and writes a figure on a docket.</span>`
         + `\n<span class="text-red">₵${cost.toLocaleString()}.</span> <span class="text-dim">You have ₵${(player.credits ?? 0).toLocaleString()}.</span>`);
     }
     await adjustCredits(player, -cost, query, 'boat refit');
     await query('UPDATE boats SET condition = $1 WHERE id = $2', [cap, boat.id]);
-    return say(`<span class="text-green">${wright.name} takes the job.</span> It is not quick and you do not watch all of it.`
+    // ⚠ AND THE HULL SHE IS SITTING IN, if you are sitting in her — the telemetry's one-way clamp
+    // would otherwise write the old number straight back over the repair ten seconds later.
+    await applyLive(player, boat.id, { hull: cap });
+    return say(`<span class="text-green">${wrightName} takes the job.</span> It is not quick and you do not watch all of it.`
       + `\n<span class="text-dim">${name} comes back sound. ₵${cost.toLocaleString()}.</span>`);
   }
 
@@ -426,12 +551,130 @@ export async function cmdRefit(args, raw, player) {
   }
   const next = Math.min(cap, (boat.condition ?? 1) + PATCH_GAIN);
   await query('UPDATE boats SET condition = $1 WHERE id = $2', [next, boat.id]);
+  await applyLive(player, boat.id, { hull: next });
   // ⚠ DECREMENT A STACK, DELETE A SINGLE. A flat DELETE here destroys the other four patches in the
   // tin along with the one you used, which is silent, expensive and only noticed much later.
   if ((patch.quantity ?? 1) > 1) await query('UPDATE player_inventory SET quantity = quantity - 1 WHERE id = $1', [patch.id]);
   else await query('DELETE FROM player_inventory WHERE id = $1', [patch.id]);
   return say(`<span class="text-green">You get a patch over it.</span> Cloth, accelerator, and about nine minutes with a scraper.`
     + `\n<span class="text-dim">${name} is ${hullBand(next)} at ${pct(next)}%. It will hold. It is not a repair.</span>`);
+}
+
+// ── THE SHIPWRIGHT'S BENCH, BEYOND THE HULL ──────────────────────────────────
+// Servicing (oil, prop, the bottom), paint, a decal and a name. All four are shed work: the hull has
+// to be lying at a covered berth in this yard with a shipwright in the room, or you have to be
+// sitting in her, stopped, in that berth's slot — which is the same place, seen from the water.
+const REFIT_JOBS = new Set(['service', 'paint', 'decal', 'name']);
+const HIRE_BARRED = new Set(['paint', 'decal', 'name']);
+
+async function refitJob(player, job, rest) {
+  const rows = await myBoats(player.id);
+  // An id first (the panel always sends one), then the ordinary pick for somebody typing.
+  const first = String(rest[0] || '');
+  let pick = first ? pickBoat(rows, first) : pickBoat(rows, '');
+  let args = first && pick.boat ? rest.slice(1) : rest;
+  if (!pick.boat && rows.length === 1) { pick = { boat: rows[0] }; args = rest; }
+  if (pick.none) return say('<span class="text-dim">You do not own a boat.</span>');
+  if (!pick.boat) return say(`<span class="text-dim">Which one? ${rows.map((b) => b.name || TYPES[b.type_id]?.name).join(', ')}.</span>`);
+  const boat = pick.boat;
+  const name = boat.name || TYPES[boat.type_id]?.name || 'she';
+  if (boatRental(boat) && HIRE_BARRED.has(job)) return say(`<span class="text-dim">${BOAT_RENT_REFUSE}</span>`);
+
+  const bench = await benchFor(player, boat);
+  if (!bench.ok) return say(`<span class="text-dim">${bench.why}</span>`);
+  const cd = boat.custom_data || {};
+  const type = TYPES[boat.type_id] || TYPES.hydro;
+  const charge = async (cost, what) => {
+    if ((player.credits ?? 0) < cost) return false;
+    if (cost) await adjustCredits(player, -cost, query, what);
+    return true;
+  };
+  const save = (next) => query('UPDATE boats SET custom_data = $2::jsonb WHERE id = $1', [boat.id, JSON.stringify(next)]);
+
+  if (job === 'service') {
+    const which = String(args[0] || 'all').toLowerCase();
+    if (which !== 'all' && !BOAT_SERVICE[which]) return say(`<span class="text-dim">refit service ${boat.id} oil|prop|scrub|all</span>`);
+    const cost = boatServicePrice(type, which);
+    if (!await charge(cost, 'boat service')) return say(`<span class="text-red">₵${cost.toLocaleString()}.</span> <span class="text-dim">You have ₵${(player.credits ?? 0).toLocaleString()}.</span>`);
+    const next = stampBoatService(cd, which, { afloat: bench.live });
+    await save(next);
+    await applyLive(player, boat.id, { cd: next });
+    const line = which === 'all' ? `${bench.wright} goes over her end to end: oil, a new prop, and the bottom scraped back to gelcoat.`
+      : which === 'oil' ? 'The old oil comes out like tar. The new goes in gold.'
+      : which === 'prop' ? 'The chewed prop comes off with a puller and a swear word, and a new one goes on.'
+      : 'The slings take her and the weed comes off in sheets.';
+    return say(`<span class="text-green">${line}</span> <span class="text-dim">₵${cost.toLocaleString()}.</span>`);
+  }
+  if (job === 'paint') {
+    const id = String(args[0] || '').toLowerCase();
+    const scheme = BOAT_SCHEMES.find((s) => s.id === id);
+    if (!scheme) return say(`<span class="text-dim">refit paint ${boat.id} ${BOAT_SCHEMES.map((s) => s.id).join('|')}</span>`);
+    const decal = cd.livery?.decal;
+    const next = { ...cd };
+    if (scheme.livery) next.livery = { ...scheme.livery, ...(decal ? { decal } : {}) };
+    else if (decal) next.livery = { decal };
+    else delete next.livery;
+    if (JSON.stringify(next.livery || null) === JSON.stringify(cd.livery || null)) return say('<span class="text-dim">She is already in those colours.</span>');
+    const cost = scheme.livery ? BOAT_PAINT_PRICE : Math.round(BOAT_PAINT_PRICE / 2);
+    if (!await charge(cost, 'boat paint')) return say(`<span class="text-red">₵${cost.toLocaleString()}.</span> <span class="text-dim">You have ₵${(player.credits ?? 0).toLocaleString()}.</span>`);
+    await save(next);
+    await applyLive(player, boat.id, { cd: next });
+    return say(`<span class="text-green">${scheme.livery ? `Masked, sprayed and flatted back: ${scheme.label.toLowerCase()}.` : 'Stripped back to the colours she left the builder in.'}</span> <span class="text-dim">₵${cost.toLocaleString()}.</span>`);
+  }
+  if (job === 'decal') {
+    const id = String(args[0] || '').toLowerCase();
+    const art = BOAT_DECALS.find((a) => a.id === id);
+    if (!art) return say(`<span class="text-dim">refit decal ${boat.id} ${BOAT_DECALS.map((a) => a.id).join('|')}</span>`);
+    if ((cd.livery?.decal || 'none') === id) return say('<span class="text-dim">That is what is on her now.</span>');
+    const next = { ...cd, livery: { ...(cd.livery || {}), decal: id } };
+    if (id === 'none') { delete next.livery.decal; if (!Object.keys(next.livery).length) delete next.livery; }
+    const cost = id === 'none' ? 0 : BOAT_DECAL_PRICE;
+    if (!await charge(cost, 'boat decal')) return say(`<span class="text-red">₵${cost.toLocaleString()}.</span> <span class="text-dim">You have ₵${(player.credits ?? 0).toLocaleString()}.</span>`);
+    await save(next);
+    await applyLive(player, boat.id, { cd: next });
+    return say(`<span class="text-green">${id === 'none' ? 'The topsides are cut back clean.' : `${art.label}, signwritten down both sides.`}</span>${cost ? ` <span class="text-dim">₵${cost.toLocaleString()}.</span>` : ''}`);
+  }
+  // job === 'name'
+  const clean = args.join(' ').replace(/[<>]/g, '').trim().slice(0, 24);
+  if (!clean) return say('<span class="text-dim">Call her what?</span>');
+  await query('UPDATE boats SET name = $2 WHERE id = $1', [boat.id, clean]);
+  await applyLive(player, boat.id, { name: clean });
+  return say(`<span class="text-green">${bench.wright} paints <b>${clean}</b> across her transom in a hand that has done it before.</span> <span class="text-dim">(${name} no longer.)</span>`);
+}
+
+/**
+ * Is this hull at a shipwright's bench? Lying at a covered berth in reach with one in the room, or
+ * sat in, stopped, in that berth's slot. `live` says she is in the water (the second case).
+ */
+async function benchFor(player, boat) {
+  const { livePosition, zoneUnder } = await import('./adrift.js');
+  const at = aboard.get(player.id) === boat.id ? livePosition(player.id) : null;
+  const wright = getZoneNpcs(player.current_zone).find((n) => n?.flags?.repairman);
+  const berth = boat.berth_zone ? getZone(boat.berth_zone) : null;
+  // ⚠ SEATED IN THE SLOT WITH THE OVERLAY UP IS THE BENCH, whether or not telemetry has landed yet.
+  // `livePosition` is null until the first boatsync, and a hull lifted into the water has no berth
+  // row to fall back on, so every overlay button used to answer "that is shed work" from the shed.
+  if (aboard.get(player.id) === boat.id) {
+    const { svcState } = await import('./helm.js');
+    if (svcState.get(player.id)?.mode === 'dock') {
+      let w = wright;
+      if (!w && at) { const t = zoneUnder(at.x, at.y); const room = t ? coveredRoomAtTile(t.id) : null; w = room ? getZoneNpcs(room.id).find((n) => n?.flags?.repairman) : null; }
+      if (!w && berth) w = getZoneNpcs(berth.id).find((n) => n?.flags?.repairman);
+      if (w) return { ok: true, live: true, wright: w.name };
+    }
+  }
+  if (at) {
+    const tile = zoneUnder(at.x, at.y);
+    const room = tile ? coveredRoomAtTile(tile.id) : null;
+    if (!room || at.speed > 2) return { ok: false, why: 'Bring her into the covered slot and stop. The shipwright does not work on a moving boat.' };
+    const w = wright || getZoneNpcs(room.id).find((n) => n?.flags?.repairman);
+    if (!w) return { ok: false, why: 'There is nobody in the shed to do the work.' };
+    return { ok: true, live: true, wright: w.name };
+  }
+  const reach = berthsNear(player.current_zone).some((z) => z.id === boat.berth_zone);
+  if (!reach || berthKind(berth) !== 'covered') return { ok: false, why: 'That is shed work. She has to be in the covered dock.' };
+  if (!wright) return { ok: false, why: 'There is nobody here to do the work.' };
+  return { ok: true, live: false, wright: wright.name };
 }
 
 async function findPatch(player) {
@@ -467,7 +710,38 @@ async function findPatch(player) {
 // return null only when there is no boat in the question at all.
 
 /** Who is sitting in what. RAM only: where a body is, is per-tick state and does not go to the DB. */
-export const aboard = new Map();          // playerId -> boat id
+//
+// ⚠ MIRRORED TO ONE PLAYER FLAG, BECAUSE THE PANE OUTLIVES THE PROCESS. A server restart (a deploy,
+// or the dev watcher reloading on a save) emptied this map while the helm was still open on the
+// screen, so every sync was silently dropped and stepping off answered "you are not aboard
+// anything" to somebody sitting in their boat. The map is still the hot-path truth; the flag is
+// written only on boarding and leaving, and read only by `recoverAboard` when the map has no entry.
+const ABOARD_FLAG = 'boat_aboard';
+class SeatMap extends Map {
+  set(pid, boatId) {
+    super.set(pid, boatId);
+    query('INSERT INTO player_flags (player_id, flag_key, flag_value) VALUES ($1, $2, $3) ON CONFLICT (player_id, flag_key) DO UPDATE SET flag_value = $3', [pid, ABOARD_FLAG, String(boatId)]).catch(() => {});
+    return this;
+  }
+  delete(pid) {
+    query('DELETE FROM player_flags WHERE player_id = $1 AND flag_key = $2', [pid, ABOARD_FLAG]).catch(() => {});
+    return super.delete(pid);
+  }
+}
+export const aboard = new SeatMap();      // playerId -> boat id
+
+/** Put back a seat a restart forgot. Straight to the table rather than the flag cache, which a
+ *  delete in this same session does not reach. Returns the boat id or null. */
+export async function recoverAboard(player) {
+  if (!player?.id) return null;
+  const have = aboard.get(player.id);
+  if (have) return have;
+  const r = await query('SELECT f.flag_value AS id FROM player_flags f JOIN boats b ON b.id::text = f.flag_value WHERE f.player_id = $1 AND f.flag_key = $2 AND b.owner_id = $1', [player.id, ABOARD_FLAG]).catch(() => ({ rows: [] }));
+  const id = r.rows[0]?.id;
+  if (!id) return null;
+  Map.prototype.set.call(aboard, player.id, id);
+  return id;
+}
 
 export async function boatEmbark(player) {
   const here = getZone(player.current_zone);

@@ -356,23 +356,23 @@ export default async function regress({ check, getPlayer }) {
     }
     check('no signal line names a place', !named, named || '');
 
-    // ── Rule 7: the split is in the punctuation ─────────────────────────────
+    // ── Rule 7: the split is in the register ────────────────────────────────
     // The wire carries the Ascendant version and the street carries the street
-    // version; they contradict each other and nothing reconciles them. Per house
-    // style the em dash is the Ascendant voice tell, so it belongs to exactly one
-    // of the two and the faction split is readable before a word of it is.
+    // version; they contradict each other and nothing reconciles them. No prose
+    // in the game takes an em dash, so the Ascendant voice is carried by
+    // register instead: the wire is formal and never contracts.
     const aCell = allBlocks()[0];
-    let streetDash = false, wireDash = 0, wireTotal = 0;
+    let anyDash = false, wireContracted = '';
     for (let i = 0; i < 60; i++) {
       for (const w of ['grip', 'heat']) {
-        if ((voice.streetLine(aCell, w) || '').includes('—')) streetDash = true;
+        const sl = voice.streetLine(aCell, w) || '';
         const wl = voice.wireLine(aCell, w) || '';
-        wireTotal++;
-        if (wl.includes('—')) wireDash++;
+        if (sl.includes('—') || wl.includes('—')) anyDash = true;
+        if (/[a-z]'(s|t|re|ll|d|ve)\b/i.test(wl)) wireContracted = wl;
       }
     }
-    check('the street never takes an em dash', !streetDash);
-    check('the wire always does', wireDash === wireTotal, `${wireDash}/${wireTotal}`);
+    check('neither voice takes an em dash', !anyDash);
+    check('the wire never contracts', !wireContracted, wireContracted);
 
     // ── The ambient hook ─────────────────────────────────────────────────────
     // ⚠ HARD ABSTENTION AT BASELINE. fireHook keeps the LAST non-undefined result

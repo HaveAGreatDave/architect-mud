@@ -8,7 +8,7 @@
     "I have been in here since the sun was on the other side of everything.",
     "Everybody talks in a bathhouse. It's the rules."
   ],
-  "description": "She's in the steam and of it. Her skin is faintly, permanently wet, and it doesn't dry, and it never has, and in any other room in the world that would be a problem. In this one she can stand at the copper for nine hours without going down, which is why she's the one who does.\n\nShe talks constantly, to everybody, about nothing, and it's the most relaxing sound in the Thornwarren.",
+  "description": "A woman standing in the steam at the copper. Her skin is faintly, permanently wet and never dries.",
   "dialogue_tree": {
     "bye": {
       "actions": [],

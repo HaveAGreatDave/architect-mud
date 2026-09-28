@@ -142,7 +142,7 @@ async function detailFor(player, deed) {
     rows.push({ label: '⚠ Shortfall', value: `${ec.shortfall}₵ short of the next bill` });
   }
   if (deed.missed > 0) {
-    rows.push({ label: '⚠ Missed', value: `${deed.missed} payment${deed.missed === 1 ? '' : 's'} — two in a row loses the place` });
+    rows.push({ label: '⚠ Missed', value: `${deed.missed} payment${deed.missed === 1 ? '' : 's'}: two in a row loses the place` });
   }
   if (!here) {
     rows.push({ label: 'Management', value: 'Go to the shop to hire, collect or restock' });
@@ -219,7 +219,7 @@ async function buildScreen(player, screenId, params) {
 // ── Actions ─────────────────────────────────────────────────────────────────
 
 // Delegate to the real verb. Every storefront command resolves the shop from
-// player.current_zone itself, so passing the player through is all that's needed —
+// player.current_zone itself, so passing the player through is all that is needed —
 // and the verb's own ownership/presence errors surface unchanged.
 async function runShopVerb(player, verb, args = []) {
   const { commands } = await import('../storefront/index.js');

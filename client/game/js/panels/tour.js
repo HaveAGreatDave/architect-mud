@@ -35,7 +35,7 @@ const STEPS = [
   {
     sel: ['#area-pane'],
     title: 'The room',
-    body: `This top pane is <b>where you are</b> — the room's description, who and what's standing in it, and the ways out. It redraws every time the room changes. Names in it are clickable: tapping one is the same as typing the command.`,
+    body: `This top pane is <b>where you are</b>: the room's description, who and what's standing in it, and the ways out. It redraws every time the room changes. Names in it are clickable: tapping one is the same as typing the command.`,
   },
   {
     // Phone-only, and the single most useful thing to know about the small
@@ -45,12 +45,12 @@ const STEPS = [
     on: 'mobile',
     sel: ['#look-resize-handle'],
     title: 'Open the room',
-    body: `On a small screen the room pane starts <b>closed</b> so the log gets the space. This bar is the handle — tap it to slide the room open (<b>▼</b>/<b>▲</b>), or drag it up and down to set the height you want. It also carries the room's name, so you always know where you're standing with the pane shut. Opening the keyboard tucks it away and reopens it after.`,
+    body: `On a small screen the room pane starts <b>closed</b> so the log gets the space. This bar is the handle, tap it to slide the room open (<b>▼</b>/<b>▲</b>), or drag it up and down to set the height you want. It also carries the room's name, so you always know where you're standing with the pane shut. Opening the keyboard tucks it away and reopens it after.`,
   },
   {
     sel: ['#output'],
     title: 'The log',
-    body: `Everything that <b>happens</b> scrolls here — what you do, what others do, what hits you, what the world says. If you missed something, it's in here. Scroll back any time.`,
+    body: `Everything that <b>happens</b> scrolls here: what you do, what others do, what hits you, what the world says. If you missed something, it's in here. Scroll back any time.`,
   },
   {
     sel: ['#input-area'],
@@ -63,19 +63,19 @@ const STEPS = [
     on: 'mobile',
     sel: ['#mob-dpad'],
     title: 'The D-pad',
-    body: `Getting around without typing. <b>N/S/E/W</b> for the compass, <b>↑</b>/<b>↓</b> for up and down, <b>in</b>/<b>out</b> for doorways. The <b>⤢</b> in the middle cycles the pad's size — make it bigger if you're missing the buttons, or shrink it to give the log more room.`,
+    body: `Getting around without typing. <b>N/S/E/W</b> for the compass, <b>↑</b>/<b>↓</b> for up and down, <b>in</b>/<b>out</b> for doorways. The <b>⤢</b> in the middle cycles the pad's size, make it bigger if you're missing the buttons, or shrink it to give the log more room.`,
   },
   {
     on: 'desktop',
     sel: ['#quick-cmds'],
     title: 'Shortcuts',
-    body: `The common commands, one click each — inventory, gear, who's online, help. Nothing here that you can't also type.`,
+    body: `The common commands, one click each, inventory, gear, who's online, help. Nothing here that you can't also type.`,
   },
   {
     on: 'mobile',
     sel: ['#cmd-fan-btn'],
     title: 'Shortcuts',
-    body: `<b>≡ cmds</b> fans out the common commands — inventory, gear, who's online, help — so they're one tap instead of a typed word. Tap it again to fold them away. Next to it sits the weather, the temperature, and your own body temperature, which is worth watching in bad weather.`,
+    body: `<b>≡ cmds</b> fans out the common commands, inventory, gear, who's online, help, so they're one tap instead of a typed word. Tap it again to fold them away. Next to it sits the weather, the temperature, and your own body temperature, which is worth watching in bad weather.`,
   },
   {
     on: 'mobile',
@@ -87,14 +87,14 @@ const STEPS = [
   {
     sel: ['#smart-bar'],
     title: 'The smartbar',
-    body: `Your own buttons. Save any command — or a whole chain of them — as a macro and it lives down here for one-tap use. It fills up as you find things worth repeating, and it's the fastest way to reach your <b>tablet</b>.`,
+    body: `Your own buttons. Save any command, or a whole chain of them, as a macro and it lives down here for one-tap use. It fills up as you find things worth repeating, and it's the fastest way to reach your <b>tablet</b>.`,
     optional: true,
   },
   {
     on: 'desktop',
     sel: ['#sidebar'],
     title: 'The panels',
-    body: `Down the side are <b>panels</b> — your map, your vitals, where you are, the weather, who else is here.`,
+    body: `Down the side are <b>panels</b>: your map, your vitals, where you are, the weather, who else is here.`,
   },
   {
     on: 'desktop',
@@ -106,19 +106,19 @@ const STEPS = [
     on: 'mobile',
     sel: ['#minimap-grid-hud'],
     title: 'The map',
-    body: `The world is a grid, and this corner is the piece of it around you — you're the marker in the middle. <b>Tap it for the full map</b>, where you can pick a tile to plot a route and have the game walk it for you.`,
+    body: `The world is a grid, and this corner is the piece of it around you: you're the marker in the middle. <b>Tap it for the full map</b>, where you can pick a tile to plot a route and have the game walk it for you.`,
   },
   {
     on: 'desktop',
     sel: ['#vitals-section'],
     title: 'Staying alive',
-    body: `Two bars, because two things are worth watching all the time: <b>health</b> and <b>stamina</b>. Everything else about your body — hunger, thirst, cold, radiation, whatever you took — has no gauge on purpose. It tells you in words instead, so read what your body says, and type <b>condition</b> for the whole picture. Eat, drink, and <b>sit</b> or <b>sleep</b> to claw it back. When health empties, you wake up in a vat, lighter than you were. (Want the instruments anyway? The hidden bars are one click away in this panel's edit mode.)`,
+    body: `Two bars, because two things are worth watching all the time: <b>health</b> and <b>stamina</b>. Everything else about your body (hunger, thirst, cold, radiation, whatever you took) has no gauge on purpose. It tells you in words instead, so read what your body says, and type <b>condition</b> for the whole picture. Eat, drink, and <b>sit</b> or <b>sleep</b> to claw it back. When health empties, you wake up in a vat, lighter than you were. (Want the instruments anyway? The hidden bars are one click away in this panel's edit mode.)`,
   },
   {
     on: 'mobile',
     sel: ['#mobile-vitals'],
     title: 'Staying alive',
-    body: `Abbreviated to fit: <b>HP</b> health, <b>ST</b> stamina. That's deliberately all — hunger, thirst, cold, radiation and anything you've taken get no gauge, they tell you in words, and <b>condition</b> gives you the whole picture on demand. Eat, drink, and <b>sit</b> or <b>sleep</b> to claw it back. When health empties, you wake up in a vat, lighter than you were.`,
+    body: `Abbreviated to fit: <b>HP</b> health, <b>ST</b> stamina. That's deliberately all, hunger, thirst, cold, radiation and anything you've taken get no gauge, they tell you in words, and <b>condition</b> gives you the whole picture on demand. Eat, drink, and <b>sit</b> or <b>sleep</b> to claw it back. When health empties, you wake up in a vat, lighter than you were.`,
   },
   // ── Making it yours ───────────────────────────────────────────────────────
   // Both layouts get a customisation beat, because on both the defaults are a
@@ -128,7 +128,7 @@ const STEPS = [
     on: 'desktop',
     sel: ['#sidebar-header', '#sidebar'],
     title: 'Rearrange it',
-    body: `The panels are yours to move. The <b>padlock</b> up here unlocks them: <b>✥</b> to drag them into whatever order you like, <b>⤢</b> to drag a panel's bottom edge and resize it, <b>↺</b> to put the sizes back. Hide the ones you never read, bring them back from <b>panels ▾</b>, and build your own — a note, a stat readout, a camera feed — with <b>＋ panel</b>. Lock it again when it looks right.`,
+    body: `The panels are yours to move. The <b>padlock</b> up here unlocks them: <b>✥</b> to drag them into whatever order you like, <b>⤢</b> to drag a panel's bottom edge and resize it, <b>↺</b> to put the sizes back. Hide the ones you never read, bring them back from <b>panels ▾</b>, and build your own, a note, a stat readout, a camera feed, with <b>＋ panel</b>. Lock it again when it looks right.`,
   },
   {
     on: 'mobile',
@@ -140,8 +140,8 @@ const STEPS = [
     sel: ['#settings-btn'],
     title: 'Settings',
     body: compact()
-      ? `The <b>⚙</b> holds the rest: <b>text size</b> (the one worth setting first — the layout scales to it), the colour theme, D-pad size, and <b>motion</b>, which turns off the screen effects if they make reading harder or you'd rather save the battery. The tablet's own Settings app has the same controls if the tablet's already open.`
-      : `The <b>⚙</b> holds the rest: text size, the colour theme (there are several, and you can build your own), which side the panels live on, and <b>motion</b>, which turns off the screen effects if you'd rather read in peace. Worth a look now — everything here is a preference, not a difficulty setting.`,
+      ? `The <b>⚙</b> holds the rest: <b>text size</b> (the one worth setting first, the layout scales to it), the colour theme, D-pad size, and <b>motion</b>, which turns off the screen effects if they make reading harder or you'd rather save the battery. The tablet's own Settings app has the same controls if the tablet's already open.`
+      : `The <b>⚙</b> holds the rest: text size, the colour theme (there are several, and you can build your own), which side the panels live on, and <b>motion</b>, which turns off the screen effects if you'd rather read in peace. Worth a look now, everything here is a preference, not a difficulty setting.`,
   },
   {
     // Last, because it's the one thing here that is a whole second interface — and
@@ -152,7 +152,7 @@ const STEPS = [
     // opening it here would spotlight a device the fiction hasn't handed over.
     sel: ['#smart-bar', '#input-area'],
     title: 'The tablet',
-    body: `Nearly everything that isn't in this window lives on a <b>tablet</b> — what you're carrying, the full map, bank, quests, messages, your record, the codex. You don't have one yet. When you do, it turns up in this bar and offers to show you round.`,
+    body: `Nearly everything that isn't in this window lives on a <b>tablet</b>: what you're carrying, the full map, bank, quests, messages, your record, the codex. You don't have one yet. When you do, it turns up in this bar and offers to show you round.`,
   },
 ];
 
@@ -167,12 +167,12 @@ const TABLET_STEPS = [
   {
     sel: ['#tablet-os-overlay .tos-appgrid', '#tablet-os-overlay .tos-screen'],
     title: 'Your tablet',
-    body: `Everything the interface outside doesn't have room for. Sixteen apps to a screen — <b>Map</b> for the city, <b>Gear</b> for what you're carrying and wearing, <b>Vitals</b> for how you're doing, <b>Quests</b> for what you're doing. Below those: people, money, your <b>Crime</b> record, your skills. Tap a tile to open it.`,
+    body: `Everything the interface outside doesn't have room for. Sixteen apps to a screen: <b>Map</b> for the city, <b>Gear</b> for what you're carrying and wearing, <b>Vitals</b> for how you're doing, <b>Quests</b> for what you're doing. Below those: people, money, your <b>Crime</b> record, your skills. Tap a tile to open it.`,
   },
   {
     sel: ['#tablet-os-overlay .tos-hdr'],
     title: 'The status bar',
-    body: `Date, where you are, and the time — <b>tap the clock</b> to set an alarm. The bars on the right are signal: out past the city there's nothing to connect to, and the tablet says so rather than pretending.`,
+    body: `Date, where you are, and the time: <b>tap the clock</b> to set an alarm. The bars on the right are signal: out past the city there's nothing to connect to, and the tablet says so rather than pretending.`,
   },
   {
     optional: true,
@@ -183,26 +183,26 @@ const TABLET_STEPS = [
   {
     sel: ['#tablet-os-overlay .tos-hbar', '#tablet-os-overlay .tos-appgrid'],
     title: 'The toolbar',
-    body: `Under the grid: <b>⧉ Select</b> picks several apps at once to box them into a named, coloured group. <b>⊕ Add</b> brings back an app you've taken off the screen. <b>⌕ Find</b> searches all of them by name — quicker than remembering where you put one. <b>▤ Cards</b> turns on the info cards under the grid: where you are, what's in your pocket, the weather.`,
+    body: `Under the grid: <b>⧉ Select</b> picks several apps at once to box them into a named, coloured group. <b>⊕ Add</b> brings back an app you've taken off the screen. <b>⌕ Find</b> searches all of them by name, quicker than remembering where you put one. <b>▤ Cards</b> turns on the info cards under the grid: where you are, what's in your pocket, the weather.`,
   },
   {
     sel: ['#tablet-os-overlay .tos-appgrid'],
     title: 'Rearrange it',
     body: compact()
-      ? `<b>Press and hold</b> a tile to lift it, then drag it where you want it. Drag one clean off the tablet to stash it — <b>⊕ Add</b> has it whenever you want it back.`
-      : `<b>Press and hold</b> a tile to lift it, then drag it where you want it — including into or out of a group. Drag one clean off the tablet to stash it; <b>⊕ Add</b> has it whenever you want it back.`,
+      ? `<b>Press and hold</b> a tile to lift it, then drag it where you want it. Drag one clean off the tablet to stash it: <b>⊕ Add</b> has it whenever you want it back.`
+      : `<b>Press and hold</b> a tile to lift it, then drag it where you want it, including into or out of a group. Drag one clean off the tablet to stash it; <b>⊕ Add</b> has it whenever you want it back.`,
   },
   {
     // On the home screen there's no breadcrumb yet, so this lands on the header —
     // still "the top of the screen", which is what the wording has to survive.
     sel: ['#tablet-os-overlay .tos-crumb', '#tablet-os-overlay .tos-hdr'],
     title: 'Getting back',
-    body: `Open an app and a trail appears along the top — tap the first crumb to come back here. <b>Esc</b> closes the tablet, and so does typing <b>tablet</b> again.`,
+    body: `Open an app and a trail appears along the top, tap the first crumb to come back here. <b>Esc</b> closes the tablet, and so does typing <b>tablet</b> again.`,
   },
   {
     sel: ['#tablet-os-overlay .tos-appgrid'],
     title: 'Settings live here too',
-    body: `The <b>Settings</b> app carries the same preferences as the <b>⚙</b> outside — text size, theme, motion${compact() ? ', D-pad size' : ''} — plus the tablet's own wallpaper and tone. Set it up once; it follows your account, not this device.`,
+    body: `The <b>Settings</b> app carries the same preferences as the <b>⚙</b> outside: text size, theme, motion${compact() ? ', D-pad size' : ''}, plus the tablet's own wallpaper and tone. Set it up once; it follows your account, not this device.`,
   },
 ];
 
@@ -262,10 +262,10 @@ export function offerInterfaceTour() {
   box.setAttribute('aria-describedby', 'tour-offer-body');
   box.innerHTML = `
     <div class="tour-card-title" id="tour-offer-title">Before you begin</div>
-    <div class="tour-card-body" id="tour-offer-body">Have you played a multiplayer text game before — a MUD, a MUSH, anything you played by typing?</div>
+    <div class="tour-card-body" id="tour-offer-body">Have you played a multiplayer text game before, a MUD, a MUSH, anything you played by typing?</div>
     <div class="tour-card-actions">
-      <button class="tour-btn tour-btn-ghost" data-tour-answer="yes">Yes — skip it</button>
-      <button class="tour-btn" data-tour-answer="no">No — show me around</button>
+      <button class="tour-btn tour-btn-ghost" data-tour-answer="yes">Yes, skip it</button>
+      <button class="tour-btn" data-tour-answer="no">No, show me around</button>
     </div>`;
   document.body.appendChild(box);
   box.querySelectorAll('[data-tour-answer]').forEach((b) => {

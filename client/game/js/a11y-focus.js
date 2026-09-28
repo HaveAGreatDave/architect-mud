@@ -395,10 +395,20 @@ function evaluate() {
   }
 }
 
+// ⚠ At most every EVAL_GAP ms, not once a frame. A 3-D seat rewrites its HUD text every frame (the
+// speedometer, the gear, the dash readouts), so "coalesce to one scan per frame" was a full
+// querySelectorAll + getComputedStyle sweep of the document on every frame of every drive —
+// measured at ~0.4 ms of a cab frame. A dialog that opens is trapped within a tenth of a second,
+// which nobody can tab faster than.
+const EVAL_GAP = 120;
+let _lastEval = 0;
 function schedule() {
   if (_scheduled) return;
   _scheduled = true;
-  requestAnimationFrame(evaluate);
+  const wait = EVAL_GAP - (performance.now() - _lastEval);
+  const run = () => { _lastEval = performance.now(); evaluate(); };
+  if (wait <= 0) requestAnimationFrame(run);
+  else setTimeout(() => requestAnimationFrame(run), wait);
 }
 
 export function initA11yFocus() {

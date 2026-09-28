@@ -247,7 +247,7 @@ async function drink(args, raw, player, context) {
   if (amount <= 0) return { type:'error', message:`The ${c.name} is empty.` };
 
   if ((c.custom_data?.fluid_type || 'water') === 'fuel')
-    return { type:'error', message:`The ${c.name} is full of fuel — you're not that desperate.` };
+    return { type:'error', message:`The ${c.name} is full of fuel: you're not that desperate.` };
 
   // -- DRINKING THE CARGO ----------------------------------------------------
   //

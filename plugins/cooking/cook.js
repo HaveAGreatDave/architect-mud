@@ -153,7 +153,7 @@ export function prepareCook(invRow, appliance, env) {
   // which is the entire tactical point of chopping.
   const batchWeight = (invRow.weight || 0) * (invRow.quantity || 1) * portionOf(invRow);
   if (appliance.capacityG != null && batchWeight > appliance.capacityG) {
-    return { error: `${invRow.name} is too much for the ${appliance.name} — it can only handle small amounts.` };
+    return { error: `${invRow.name} is too much for the ${appliance.name}: it can only handle small amounts.` };
   }
 
   const isFrozen = effectiveTier(env) === 'frozen';
@@ -228,7 +228,7 @@ export function prepareCook(invRow, appliance, env) {
   // How long this item alone would hold the stove. The batch takes the longest.
   const holdUntil = profile ? timeline(session, profile).burnAt : finishAt(session);
 
-  const frozenNote = isFrozen ? ` — it's frozen solid, this will take a while` : '';
+  const frozenNote = isFrozen ? `, and it's frozen solid, this will take a while` : '';
   const via = appliance.vesselName ? ` in the ${appliance.vesselName}` : '';
   return {
     invId: invRow.id, playerId: invRow.player_id, name: invRow.name, session, holdUntil, totalMs,
@@ -478,10 +478,13 @@ export async function endSession(invId, quality, doneness = null, smoked = null,
         SET custom_data = (COALESCE(custom_data,'{}'::jsonb)
               - 'cooking' - 'scored' - 'tenderised' - 'marinated_at' - 'tasted') || $2::jsonb
       WHERE id=$1 AND jsonb_exists(custom_data,'cooking')
-      RETURNING id`,
+      RETURNING id, player_id, item_id`,
     [invId, JSON.stringify(stamp)]
   );
   forgetCook(invId);
+  // Quests count finished cooks off this (the `cook` objective). `quality` is the
+  // band actually produced, or null for unprofiled food.
+  if (rows[0]?.player_id) emit('dish.cooked', { playerId: rows[0].player_id, item_id: rows[0].item_id, quality: quality || null });
   return rows.length > 0;
 }
 

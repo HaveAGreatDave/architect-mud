@@ -73,14 +73,14 @@ async function showRegister(player) {
 
   const lines = listings.map((l, i) => {
     const names = memberNames(l).map(esc).join(' &amp; ');
-    const pair = l.kind === 'pairing' ? ' <span class="text-dim">(matched pair — inseparable)</span>' : '';
+    const pair = l.kind === 'pairing' ? ' <span class="text-dim">(matched pair: inseparable)</span>' : '';
     return `  ${link(`bliss ${i + 1}`, String(i + 1))}. <b>${names}</b> <span class="text-dim">· ${l.rate}₵/day</span>${pair}`;
   });
 
   return {
     type: 'output',
     message: [
-      `<span class="text-cyan">B.L.I.S.S.</span> <span class="text-dim">— Bonded Live-In Intimacy Subscription Service</span>`,
+      `<span class="text-cyan">B.L.I.S.S.</span> <span class="text-dim">Bonded Live-In Intimacy Subscription Service</span>`,
       ...lines,
       `<span class="text-dim">${link('bliss 1', 'bliss &lt;n&gt;')} for the full sheet · ${link('bliss arrangement', 'bliss arrangement')} for what you keep`
         + ` · ${state.ready ? link('bliss reroll', 'bliss reroll') : `register refreshes in ${state.remainingLabel}`}</span>`,
@@ -212,7 +212,7 @@ async function showArrangement(player) {
   });
   return {
     type: 'output',
-    message: [`<span class="text-cyan">YOUR ARRANGEMENT</span> <span class="text-dim">— ${total}₵/day</span>`, ...lines].join('\n'),
+    message: [`<span class="text-cyan">YOUR ARRANGEMENT</span> <span class="text-dim">${total}₵/day</span>`, ...lines].join('\n'),
   };
 }
 

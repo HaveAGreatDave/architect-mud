@@ -123,7 +123,7 @@ export function openReadWindow(opts) {
     </div>
     <div class="rw-tells">${tells}</div>
     <div class="rw-opts">${buttons}</div>
-    <div class="rw-free">let it close — it costs you nothing</div>`;
+    <div class="rw-free">let it close: it costs you nothing</div>`;
 
   _el.querySelectorAll('.rw-opt').forEach(b =>
     b.addEventListener('click', () => answer(b.dataset.choice)));

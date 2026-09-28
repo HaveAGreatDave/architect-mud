@@ -80,7 +80,7 @@ would be a system that makes the game worse at the thing it just became good at.
 FM, from the synthesis `AudioEngine.buildLayer` already had. The load-bearing parameter is
 `fm.indexEnd` — a **modulation index that collapses across the note**, which is exactly what reads as
 *struck*: bright and inharmonic at the hammer, settling toward the carrier as it rings. That one
-existing sweep is why a piano cost a table row rather than a synthesiser.
+existing sweep is why a piano cost a table row rather than a synthesiser. (Older notes call this the `fm.depthTo` sweep, its name before the ratio/index spelling.)
 
 **Velocity opens the index, not just the gain.** Playing harder changes the *timbre*, which is the
 single thing that most separates a piano from a keyboard.

@@ -352,12 +352,10 @@ sorts best-hands-first like the sales document it is, and licensed entries sell
 the *room and the aftercare* — the things that never appear on a stat line — while
 unlicensed entries sell the price, because that is all they have.
 
-**None of it uses an em dash.** The exemption in [story.md](story.md) covers an
-Ascendant NPC's own *speech*; the rule explicitly names narration as not exempt,
-and room prose and emergence beats are narration. The luxury is carried by what
+**None of it uses an em dash.** No prose in the game does, the Ascendants included
+([story.md](story.md)). The luxury is carried by what
 the sentences notice (a glass already poured, warmed towels, somebody whose whole
-job is watching your numbers) rather than by punctuation borrowed from a voice
-that is not currently talking.
+job is watching your numbers) rather than by punctuation.
 
 Dr Sable Kesh (`npc_asc_kesh`, the Improvement Suite) is the benchmark:
 `surgeon_skill: 9`, `surgeon_rate: 1.6`, `surgeon_risk: 0.015`. Excellent, and

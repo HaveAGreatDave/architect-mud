@@ -461,7 +461,7 @@ async function main() {
   // the renderer that reads it.
   let vehicleLine = 'Vehicle rows: none.';
   try {
-    const { bakeVehicles, readVehicleFiles, renderModule } = await import('./bake-vehicles.mjs');
+    const { bakeVehicles, readVehicleFiles, renderModule, renderMeshModule } = await import('./bake-vehicles.mjs');
     // ⚠ WALK THE SCHEMA'S OWN KIND LIST. Both loops below used to spell ['fw','truck'], so a third
     // kind baked, validated and shipped while neither the orphan check nor the NaN check ever
     // looked at it — a gate that silently stops covering the newest thing in the family.
@@ -476,14 +476,25 @@ async function main() {
       if (onDisk.replace(/\r\n/g, '\n') !== renderModule({ rows }).replace(/\r\n/g, '\n')) {
         problems.push('stale vehicle bake — client/shared/vehicle-models.js differs from content/vehicle_models/. Run: npm run vehicles:bake');
       }
+      // The meshes bake to their own module (see bake-vehicles.mjs on why), so it is a second file to
+      // hold against the content.
+      const meshOnDisk = rf(new URL('../../client/shared/vehicle-meshes.js', import.meta.url), 'utf8');
+      if (meshOnDisk.replace(/\r\n/g, '\n') !== renderMeshModule({ rows }).replace(/\r\n/g, '\n')) {
+        problems.push('stale vehicle bake — client/shared/vehicle-meshes.js differs from content/vehicle_models/mesh_*. Run: npm run vehicles:bake');
+      }
       // 2. THE ROW ACTUALLY REACHES THE MESH. A file can be valid, bake cleanly and still be
       // authored for a class nothing builds — so ask the renderer for the row it would use and
       // fail if it is not the one on disk. This is the vehicle half of the orphan check.
       const veh = await import('../../client/game/js/panels/aircraft3d.js');
+      const { canon } = await import('../../client/shared/vehicle-mesh.js');
       for (const kind of VEHICLE_KINDS) {
         for (const id of Object.keys(rows[kind] || {})) {
-          const live = veh.vehicleParamBase(kind, id);
-          if (JSON.stringify(live) !== JSON.stringify(rows[kind][id])) {
+          // A mesh file is read through its own seam: it is a parts list, not a parameter row.
+          const live = kind === 'mesh' ? veh.meshParams(id) : veh.vehicleParamBase(kind, id);
+          // A mesh file keeps its keys in schema order and the bake sorts them, so it is compared by
+          // value (canon: key order ignored, −0 kept) rather than as a string.
+          const same = kind === 'mesh' ? canon(live) === canon(rows[kind][id]) : JSON.stringify(live) === JSON.stringify(rows[kind][id]);
+          if (!same) {
             problems.push(`vehicle row ${kind}/${id} is authored but the renderer builds from something else`);
           }
         }
@@ -495,7 +506,9 @@ async function main() {
       // ⚠ A TRUCK'S ID IS A VARIANT AND EVERY OTHER KIND'S ID IS THE CLASS. That is the only thing
       // the kinds disagree about here, so it stays one ternary rather than a table of builders.
       for (const [kind, id] of VEHICLE_KINDS.flatMap((k) => Object.keys(rows[k] || {}).map((id) => [k, id]))) {
-        const faces = kind === 'truck' ? veh.aircraftFaces('truck', 1, false, id) : veh.aircraftFaces(id, 1);
+        // A mesh id is not always a class (`heli_armed` is what `heli` draws armed), so a mesh is built
+        // by id rather than through aircraftFaces.
+        const faces = kind === 'truck' ? veh.aircraftFaces('truck', 1, false, id) : kind === 'mesh' ? veh.meshFacesById(id, 1) : veh.aircraftFaces(id, 1);
         if (!faces.length) { problems.push(`vehicle row ${kind}/${id} builds no faces at all`); continue; }
         const bad = faces.some((f) => f.p.some((pt) => pt.some((n) => !Number.isFinite(n))));
         if (bad) problems.push(`vehicle row ${kind}/${id} builds a mesh with non-finite vertices — a field is the wrong type`);

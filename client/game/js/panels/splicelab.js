@@ -67,7 +67,7 @@ function deleteRecipe(name) {
 // Effect summary for an info panel, redacted by how familiar the player is with
 // the drug (learned by use). Unknown drugs read as a blur until you've dosed them.
 function effText(d) {
-  if ((d.known ?? 1) < 0.55) return 'effects unfamiliar —\nuse it more to read them';
+  if ((d.known ?? 1) < 0.55) return 'effects unfamiliar: \nuse it more to read them';
   const b = d.blocks || {}, lines = [];
   if (b.instant) lines.push('• ' + b.instant);
   if (b.phases) lines.push('• ' + b.phases);
@@ -154,7 +154,7 @@ function bigWarn(text, tint, alpha) {
 function drawCarryWarn(s) {
   // No steadiness meter — you carry by feel. Only the consequence shows: a flash while
   // it's actually spilling, and the running product-loss tally.
-  if (s._spillT > 0) bigWarn('⚠ SPILLING — LOSING PRODUCT ⚠', '255,74,91', .7 + .3 * Math.sin(s.t * 14));
+  if (s._spillT > 0) bigWarn('⚠ SPILLING: LOSING PRODUCT ⚠', '255,74,91', .7 + .3 * Math.sin(s.t * 14));
   if (s.lost > 0) { G.save(); textShadowOn(); G.textAlign = 'center'; G.globalAlpha = .85; G.fillStyle = '#ff6a6a'; G.font = 'bold 14px monospace'; G.fillText(`PRODUCT LOST: ${Math.round(s.lost)}%`, W / 2, H * 0.13 + 26); G.restore(); }
 }
 
@@ -248,7 +248,7 @@ const SCORED_STAGES = ['mix', 'pour', 'stir', 'heat', 'rhythm'];   // 'charge' (
 function maybeAutomate(g, name) {
   if (!g.automated || !g.automated.has(name)) return;
   if (SCORED_STAGES.includes(name)) g.scores[name] = (g.autoScore || 70) / 100;
-  g.lab.ticker(`▸ ${name === 'charge' ? 'DECANT' : name.toUpperCase()} — automation rig handles it.`);
+  g.lab.ticker(`▸ ${name === 'charge' ? 'DECANT' : name.toUpperCase()}, automation rig handles it.`);
   setTimeout(() => {
     if (!g || g.closed) return;
     if (name === 'rhythm') { if (g.mode === 'test') finalizeTest(); else resolveReal(); }
@@ -480,7 +480,7 @@ STAGES.title = {
     AX.loop('hood', { freq: 54, type: 'sawtooth', gain: 0, filt: 320, tremRate: 7, tremDepth: .25 });
   },
   exit() { AX.stop('hood'); },
-  showBtn() { AX.good(); this.ready = true; game.lab.ticker('the reagents are all here — CLICK or SPACE to begin. pick your poison, two at least.'); },
+  showBtn() { AX.good(); this.ready = true; game.lab.ticker('the reagents are all here, CLICK or SPACE to begin. pick your poison, two at least.'); },
   begin() { if (!this.ready || this._begun) return; this._begun = true; AX.click(); AX.stop('hood'); transit(game, 'select'); },
   down() { this.begin(); },
   key(e) { if (e.code === 'Space' || e.key === ' ' || e.key === 'Enter') { e.preventDefault(); this.begin(); } },
@@ -633,7 +633,7 @@ STAGES.select = {
         `<button class="cx" title="clear" style="background:none;border:none;color:var(--fgdim);font-size:14px;font-weight:bold;cursor:pointer;padding:0">✕</button></div>` +
       `<div style="display:flex;align-items:center;gap:8px;margin-top:5px">` +
         `<div class="sw" style="width:30px;height:30px;border-radius:6px;background:var(--bg,#1a2a22);border:1px solid #0007;flex:none;box-shadow:inset 0 0 6px #0008"></div>` +
-        `<div class="nm" style="font-size:14px;font-weight:bold;color:var(--fgdim);line-height:1.25;flex:1;min-width:0">— empty —</div></div>` +
+        `<div class="nm" style="font-size:14px;font-weight:bold;color:var(--fgdim);line-height:1.25;flex:1;min-width:0">empty</div></div>` +
       `<div class="fm" style="font-size:10px;font-weight:bold;color:var(--fgdim);margin-top:5px;text-transform:uppercase;letter-spacing:1px;min-height:12px"></div>` +
       `<div class="ef" style="font-size:11px;font-weight:bold;color:var(--fgdim);margin-top:4px;line-height:1.45;white-space:pre-line;min-height:28px">drop a drug into the cradle</div>` +
       `<div class="qr" style="display:flex;align-items:center;gap:7px;margin-top:6px;opacity:.55">` +
@@ -654,7 +654,7 @@ STAGES.select = {
       `<div style="font-size:11px;letter-spacing:2px;color:var(--fgdim);font-weight:bold">OUTPUT</div>` +
       `<div style="display:flex;align-items:center;gap:8px;margin-top:5px">` +
         `<div class="sw" style="width:30px;height:30px;border-radius:6px;background:var(--bg,#1a2a22);border:1px solid #0007;flex:none;box-shadow:inset 0 0 6px #0008"></div>` +
-        `<div class="nm" style="font-size:14px;font-weight:bold;color:var(--fgdim);line-height:1.25">— nothing yet —</div></div>` +
+        `<div class="nm" style="font-size:14px;font-weight:bold;color:var(--fgdim);line-height:1.25">nothing yet</div></div>` +
       `<div class="ds" style="font-size:11px;font-weight:bold;color:var(--A);margin-top:5px;letter-spacing:1px;min-height:13px"></div>` +
       `<div class="risk" style="font-size:10px;font-weight:bold;color:var(--orange,#e0b878);margin-top:5px;line-height:1.5;white-space:pre-line;min-height:34px"></div>`;
     return { el, sw: el.querySelector('.sw'), nm: el.querySelector('.nm'), ds: el.querySelector('.ds'), risk: el.querySelector('.risk') };
@@ -663,7 +663,7 @@ STAGES.select = {
     const g = game;
     const fill = (p, drug, qty) => {
       if (!p) return;
-      if (!drug) { p.sw.style.background = 'var(--bg,#1a2a22)'; p.sw.style.boxShadow = 'inset 0 0 6px #0008'; p.nm.textContent = '— empty —'; p.nm.style.color = 'var(--fgdim)'; p.fm.textContent = ''; p.ef.textContent = 'drop a drug into the cradle'; p.qn.textContent = '×1'; p.av.textContent = ''; p.qr.style.opacity = '.4'; return; }
+      if (!drug) { p.sw.style.background = 'var(--bg,#1a2a22)'; p.sw.style.boxShadow = 'inset 0 0 6px #0008'; p.nm.textContent = 'empty'; p.nm.style.color = 'var(--fgdim)'; p.fm.textContent = ''; p.ef.textContent = 'drop a drug into the cradle'; p.qn.textContent = '×1'; p.av.textContent = ''; p.qr.style.opacity = '.4'; return; }
       p.sw.style.background = drug.color; p.sw.style.boxShadow = `inset 0 0 6px #0008, 0 0 10px ${drug.color}66`;
       p.nm.textContent = drug.name; p.nm.style.color = 'var(--fgbright)';
       p.fm.textContent = `${drug.form} · ${drug.sub}`;
@@ -682,7 +682,7 @@ STAGES.select = {
       o.ds.textContent = `${out} dose${out === 1 ? '' : 's'} · ${sel[fi].form}`;
     } else {
       o.sw.style.background = 'var(--bg,#1a2a22)'; o.sw.style.boxShadow = 'inset 0 0 6px #0008';
-      o.nm.textContent = '— nothing yet —'; o.nm.style.color = 'var(--fgdim)'; o.ds.textContent = '';
+      o.nm.textContent = 'nothing yet'; o.nm.style.color = 'var(--fgdim)'; o.ds.textContent = '';
       if (o.risk) o.risk.textContent = '';
     }
   },
@@ -730,11 +730,11 @@ STAGES.select = {
     if (this.nameEl) this.nameEl.value = game.compoundName;
     this.closeRecipes(); AX.drop(); this.sync();
     if (!game.selected.length) game.lab.ticker(`none of "${rec.name}"'s drugs are in your kit`, 'a');
-    else if (missing.length) game.lab.ticker(`recreated "${rec.name}" — missing ${missing.join(', ')} (not in your kit)`, 'a');
+    else if (missing.length) game.lab.ticker(`recreated "${rec.name}": missing ${missing.join(', ')} (not in your kit)`, 'a');
   },
   renderRecipes() {
     const list = loadRecipes();
-    if (!list.length) { this.rcpPanel.innerHTML = `<div style="font-size:11px;font-weight:bold;color:var(--fgdim);padding:10px;text-align:center;white-space:pre-line">no saved recipes yet —\ncommit a splice to save it</div>`; return; }
+    if (!list.length) { this.rcpPanel.innerHTML = `<div style="font-size:11px;font-weight:bold;color:var(--fgdim);padding:10px;text-align:center;white-space:pre-line">no saved recipes yet, \ncommit a splice to save it</div>`; return; }
     this.rcpPanel.innerHTML = `<div style="font-size:9px;font-weight:bold;letter-spacing:2px;color:var(--fgdim);padding:2px 4px 6px">SAVED COMPOUNDS</div>`;
     list.forEach(rec => {
       const row = document.createElement('div');
@@ -757,9 +757,9 @@ STAGES.select = {
   canCommit() { return game.selected.length >= 2 && !!(game.compoundName || '').trim(); },
   sync() { const n = game.selected.length; this.splice.disabled = n < 2;   // enabled at 2 drugs; click shakes the name field until it's filled
     if (n >= 2) this.clampQtys();
-    this.hint.textContent = n === 0 ? `drag a drug into the cradle — BASE first, then SPLICE${game.allow3way ? ' (3rd slot open)' : ''}`
+    this.hint.textContent = n === 0 ? `drag a drug into the cradle, BASE first, then SPLICE${game.allow3way ? ' (3rd slot open)' : ''}`
       : n === 1 ? 'now drop the splice drug in too'
-        : !(game.compoundName || '').trim() ? 'name your compound (left) — then SPLICE ▶'
+        : !(game.compoundName || '').trim() ? 'name your compound (left), then SPLICE ▶'
           : 'set quantities below · SPLICE ▶ or SPACE to begin';
     this.refreshPanels();
     // Live risk telegraph before you commit — server's authoritative composeSplice math.
@@ -786,7 +786,7 @@ STAGES.select = {
   up() { const k = this.drag; if (!k) return; this.drag = null; k.held = false;
     if (!this.moved && (this.t - this.pressT) < 0.25) { if (_labelFor === k.d && _labelEl) hideLabel(); else showLabel(k.d, k.home.x, k.home.y); return; }
     if (Math.hypot(k.x - this.cradle.x, k.y - this.cradle.y) < this.cradle.r + 12) {
-      if (game.selected.length >= (game.allow3way ? 3 : 2) && !game.selected.includes(k.d)) { game.lab.ticker(game.allow3way ? "three's the limit — base + two splices." : "two's the limit — a base and a splice.", 'a'); AX.bad(); }
+      if (game.selected.length >= (game.allow3way ? 3 : 2) && !game.selected.includes(k.d)) { game.lab.ticker(game.allow3way ? "three's the limit: base + two splices." : "two's the limit: a base and a splice.", 'a'); AX.bad(); }
       else { k.inCradle = true; if (!game.selected.includes(k.d)) game.selected.push(k.d); AX.drop(); this.sync(); }
     } else AX.tick();
     hideLabel(); },
@@ -852,7 +852,7 @@ STAGES.charge = {
     const homes = tableHomes(g.selected.length);
     this.cans = g.selected.map((d, i) => { const hx = homes[i].x, hy = homes[i].y, w = 2 * Math.PI * (FORM_FREQ[d.form] || 2.2), k = w * w, c = 2 * 0.62 * w;
       return { d, home: { x: hx, y: hy }, x: hx, y: hy, vx: 0, vy: 0, pvx: 0, tilt: 0, slosh: 0, sloshV: 0, held: false, gdx: 0, gdy: 0, k, c, fluid: FORM_FLUID[d.sub] ?? .3, poured: 0, done: false, remaining: 1, warn: 0, pourSfx: false }; });
-    g.lab.ticker('DECANT — carry each drug from the table to the POUR ZONE and hold it steady to decant. jostle it and it slops.');
+    g.lab.ticker('DECANT: carry each drug from the table to the POUR ZONE and hold it steady to decant. jostle it and it slops.');
     this.hint = mkEl('position:absolute;left:50%;top:40px;transform:translateX(-50%);color:var(--fgdim);font-size:13px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;pointer-events:none;text-shadow:0 0 6px color-mix(in srgb,var(--bg,#05050a) 85%,transparent)');
   },
   exit() { AX.pour(false); game.lab.canvas.style.cursor = 'default'; },
@@ -914,21 +914,21 @@ STAGES.mix = {
     const g = game; this.t = 0; this.queue = g.selected.slice(); this.idx = 0; this.meter = 0; this.fill = 0;
     this.hold = false; this.crushHits = 0; this.frags = []; this.cloud = []; this.done = false;
     this.beaker = { x: W / 2, y: H * 0.52, w: 140, h: 200 };
-    g.lab.ticker('REDUCE — turn every form into a liquid: crush solids, dissolve powders, bleed gas, cut paste.');
+    g.lab.ticker('REDUCE: turn every form into a liquid: crush solids, dissolve powders, bleed gas, cut paste.');
     this.setupCurrent();
     AX.loop('whir', { freq: 110, type: 'triangle', gain: 0, filt: 700, tremRate: 20, tremDepth: .5 });
   },
   exit() { AX.stop('whir'); },
   setupCurrent() {
     const d = this.queue[this.idx]; this.meter = 0; this.crushHits = 0; if (!d) return; const f = d.form;
-    if (f === 'liquid') { this.mode = 'auto'; this.rate = 1.1; this.label = 'ALREADY LIQUID — decanting'; }
-    else if (f === 'crystal' || f === 'pill') { this.mode = 'crush'; this.label = 'CRUSH — mash SPACE / click'; }
-    else if (f === 'leaf') { this.mode = 'crush'; this.label = 'GRIND — mash SPACE / click'; }
-    else if (f === 'gas') { this.mode = 'hold'; this.rate = 0.42; this.label = 'BLEED the valve — hold'; }
-    else if (f === 'gel') { this.mode = 'hold'; this.rate = 0.30; this.label = 'WORK it down — hold'; }
-    else if (f === 'paste') { this.mode = 'hold'; this.rate = 0.22; this.label = 'CUT with solvent — hold'; }
-    else if (f === 'blotter') { this.mode = 'hold'; this.rate = 0.34; this.label = 'STEEP — hold, gently'; }
-    else { this.mode = 'hold'; this.rate = 0.5; this.label = 'DISSOLVE the powder — hold'; }
+    if (f === 'liquid') { this.mode = 'auto'; this.rate = 1.1; this.label = 'ALREADY LIQUID: decanting'; }
+    else if (f === 'crystal' || f === 'pill') { this.mode = 'crush'; this.label = 'CRUSH: mash SPACE / click'; }
+    else if (f === 'leaf') { this.mode = 'crush'; this.label = 'GRIND: mash SPACE / click'; }
+    else if (f === 'gas') { this.mode = 'hold'; this.rate = 0.42; this.label = 'BLEED the valve: hold'; }
+    else if (f === 'gel') { this.mode = 'hold'; this.rate = 0.30; this.label = 'WORK it down: hold'; }
+    else if (f === 'paste') { this.mode = 'hold'; this.rate = 0.22; this.label = 'CUT with solvent: hold'; }
+    else if (f === 'blotter') { this.mode = 'hold'; this.rate = 0.34; this.label = 'STEEP: hold, gently'; }
+    else { this.mode = 'hold'; this.rate = 0.5; this.label = 'DISSOLVE the powder: hold'; }
   },
   advance() {
     const d = this.queue[this.idx]; this.idx++; this.fill = clamp(this.idx / this.queue.length, 0, 1);
@@ -979,7 +979,7 @@ STAGES.pour = {
     this.steps = [ { name: 'REAGENT', col: '#4fe08a', target: .55, band: clamp(.14 - g.diff() * .0025, .07, .14) },
       { name: 'CATALYST', col: '#9a5ce0', target: .78, band: clamp(.11 - g.diff() * .0025, .05, .11), touchy: true } ];
     this.drops = []; this.beaker = { x: W / 2, y: H * 0.5, w: 150, h: 210 };
-    g.lab.ticker('pour the REAGENT to its line. hold to pour, release on the mark. the stream lags — anticipate.');
+    g.lab.ticker('pour the REAGENT to its line. hold to pour, release on the mark. the stream lags, anticipate.');
     this.b = mkBtn('HOLD TO POUR / RELEASE ON MARK', 'left:50%;top:40px;transform:translateX(-50%)', 'ghost'); this.b.style.pointerEvents = 'none';
   },
   exit() { AX.pour(false); },
@@ -993,7 +993,7 @@ STAGES.pour = {
     game.lab.ticker(acc > .85 ? `${s.name}: dead on.` : acc > .5 ? `${s.name}: close enough.` : `${s.name}: ${this.level > s.target ? 'too much' : 'short'}.`, acc > .5 ? null : 'a');
     this.stepIdx++; this.level = 0; this.vel = 0;
     if (this.stepIdx >= this.steps.length) this.finish();
-    else { const nx = this.steps[this.stepIdx]; game.lab.ticker(`now the ${nx.name}. ${nx.touchy ? 'this one bites — pour slow.' : ''}`); }
+    else { const nx = this.steps[this.stepIdx]; game.lab.ticker(`now the ${nx.name}. ${nx.touchy ? 'this one bites: pour slow.' : ''}`); }
   },
   finish() { game.scores.pour = this.locked.reduce((a, b) => a + b, 0) / this.locked.length; setTimeout(() => { if (game && !game.closed) transit(game, 'stir'); }, 500); },
   update(dt) { this.t += dt; const s = this.steps[this.stepIdx]; if (!s) return;
@@ -1027,7 +1027,7 @@ STAGES.pour = {
 STAGES.stir = {
   enter() { const g = game; this.t = 0; this.angle = 0; this.rpm = 0; this.spin = 0; this.lastA = null; this.holdT = 0; this.need = 5.5;
     this.targetRpm = 0.55; this.band = clamp(.22 - g.diff() * .008, .1, .22); this.keyDir = 0; this.beaker = { x: W / 2, y: H * 0.5, w: 150, h: 210 }; this.ended = false;
-    g.lab.ticker('STIR — trace circles over the beaker (or hold ← / →). hold the rod in the green RPM band.');
+    g.lab.ticker('STIR: trace circles over the beaker (or hold ← / →). hold the rod in the green RPM band.');
     this.bar = mkEl('position:absolute;left:50%;top:40px;transform:translateX(-50%);color:var(--fgdim);font-size:13px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;pointer-events:none;text-shadow:0 0 6px color-mix(in srgb,var(--bg,#05050a) 85%,transparent)');
     AX.loop('stir', { freq: 80, type: 'sawtooth', gain: 0, filt: 500 });
   },
@@ -1066,7 +1066,7 @@ STAGES.heat = {
   enter() { const g = game; this.t = 0; this.dur = 15; this.level = .5; this.vel = 0; this.hold = false; this.inBand = 0; this.ended = false;
     const d = g.diff(); this.gravity = 0.8 + d * .04; this.push = 1.7 + d * .04; this.bandHalf = clamp(.20 - d * .006, .09, .20); this.bandSpeed = .09 + d * .018;
     this.beaker = { x: W / 2, y: H * 0.48, w: 120, h: 230 }; this.bubbles = []; this.heatS = 0;
-    g.lab.ticker('STABILIZE — hold to heat, keep the reagent in the green band. let it run away and it bites.');
+    g.lab.ticker('STABILIZE: hold to heat, keep the reagent in the green band. let it run away and it bites.');
     this.bar = mkEl('position:absolute;left:50%;top:40px;transform:translateX(-50%);color:var(--fgdim);font-size:13px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;pointer-events:none;text-shadow:0 0 6px color-mix(in srgb,var(--bg,#05050a) 85%,transparent)');
     AX.loop('burner', { freq: 70, type: 'sawtooth', gain: .04, filt: 520, tremRate: 11, tremDepth: .35 });
   },
@@ -1102,7 +1102,7 @@ STAGES.rhythm = {
     const bpm = 78 + g.diff() * 6; this.interval = 60 / bpm; this.window = clamp(.16 - g.diff() * .006, .06, .16); this.lead = 2.0;
     for (let i = 0; i < 8; i++) this.beats.push({ time: this.lead + i * this.interval, hit: null });
     this.beaker = { x: W / 2, y: H * 0.5, w: 150, h: 200 };
-    g.lab.ticker('SET — strike SPACE on each pulse. lock the lattice. this is the part everyone rushes and ruins.');
+    g.lab.ticker('SET: strike SPACE on each pulse. lock the lattice. this is the part everyone rushes and ruins.');
     this.judgements = []; this.nextMetro = this.lead;
     this.readout = mkEl('position:absolute;left:50%;top:40px;transform:translateX(-50%);color:var(--fgdim);font-size:15px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;pointer-events:none;min-width:120px;text-align:center;text-shadow:0 0 6px color-mix(in srgb,var(--bg,#05050a) 85%,transparent)');
     AX.loop('drone', { freq: 55, type: 'sine', gain: .05, filt: 300 });
@@ -1149,7 +1149,7 @@ STAGES.package = {
     this.beaker = { x: W / 2, y: H * 0.52, w: 130, h: 200 };
     this.col = avgColor(g.selected); this.potency = computePotency();
     this.grade = gradeForAvg((g.scores.mix + g.scores.pour + g.scores.stir + g.scores.heat + g.scores.rhythm) / 5);
-    g.lab.ticker('PACKAGE — the batch is stable. jar it and stamp the label.');
+    g.lab.ticker('PACKAGE: the batch is stable. jar it and stamp the label.');
     this.b = mkBtn('SEAL & LABEL', 'left:50%;bottom:40px;transform:translateX(-50%)'); this.b.disabled = true;
     this.b.onclick = () => this.seal();
     AX.loop('hood', { freq: 58, type: 'sawtooth', gain: .03, filt: 340, tremRate: 7, tremDepth: .25 });
@@ -1187,7 +1187,7 @@ STAGES.package = {
 
 // ── resolve ──────────────────────────────────────────────────────────────────
 function aggScore() { const s = game.scores; const avg = (s.mix + s.pour + s.stir + s.heat + s.rhythm) / 5; return clamp(Math.round(avg * 100 - game.instability * 0.3), 0, 100); }
-function resolveReal() { const score = aggScore(); game.lab.ticker('sequence complete — resolving…', ''); AX.good();
+function resolveReal() { const score = aggScore(); game.lab.ticker('sequence complete: resolving…', ''); AX.good();
   const cb = game.onResolve; setTimeout(() => { const g = game; if (g) g.lab.close(); if (cb) cb({ score }); }, 850); }
 
 // test-mode only: client-side catastrophe, then the packaging beat → result card (dev feel-test)

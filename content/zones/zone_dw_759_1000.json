@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Lava rock, gone matt and grey-black with age, standing a foot or two proud of the ash flat it stopped on. The edge of it's as clean as a tide line: this far, and then it cooled.",
+  "description": "Weathered lava rock, grey-black and dull. Ash has drifted up against its edge but hasn't covered it.",
   "exits": {
     "east": "zone_dw_760_1000",
     "north": "zone_dw_759_999",

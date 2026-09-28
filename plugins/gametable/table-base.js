@@ -279,7 +279,7 @@ export class TableBase {
     if (this._incomingDealer?.npc.id === npc.id) return { ok: false, error: `${npc.name} is already on his way.` };
     if (npc.hp != null && npc.hp <= 0) return { ok: false, error: `${npc.name} is in no condition to deal.` };
     if (npc._ai?.waitUntil && Date.now() < npc._ai.waitUntil) {
-      return { ok: false, error: `${npc.name} is tied up right now — try again shortly.` };
+      return { ok: false, error: `${npc.name} is tied up right now: try again shortly.` };
     }
 
     if (npc.zone_id === this.zoneId) {

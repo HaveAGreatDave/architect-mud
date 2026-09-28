@@ -3,7 +3,7 @@
   "ambient_theme": "city",
   "bg_color": "#1f3646",
   "color": "#4f83a8",
-  "description": "Shoreline water, shallow enough to watch the bottom go from gravel to silt as it deepens, then a slow shelf away into nothing. Something has been rooting along the waterline in the mud, and not recently.",
+  "description": "The shallows run gravel to silt before the shelf drops. Old rooting marks show in the mud at the waterline.",
   "exits": {
     "east": "zone_district_951_903",
     "north": "zone_district_950_902",

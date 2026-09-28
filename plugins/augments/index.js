@@ -181,7 +181,7 @@ async function listAugments(player) {
       const dead = Number(rec.condition ?? 1) <= 0;
 
       msg += `<span class="zone-name">${aug.name}</span> <span style="opacity:.7">[${rec.slot}]</span>`;
-      if (dead) msg += ` <span class="text-red">— DEAD</span>`;
+      if (dead) msg += ` <span class="text-red">: DEAD</span>`;
       msg += `\n${aug.description}\n`;
       msg += `  Condition ${Math.round(rec.condition * 100)}% (${band?.label || band?.id})`
           +  `  ·  Calibration ${rec.calibration}%`;
@@ -208,7 +208,7 @@ async function listAugments(player) {
   if (fid < FIDELITY_MAX) {
     const arts = artifactsFor(fid);
     msg += `\n<span class="skills-header">PATTERN FIDELITY</span>\n`
-        +  `  <span class="text-red">${fid}%</span> <span style="opacity:.7">— calibration is held here whatever the hardware says. Re-scan at the Vats Registry.</span>\n`;
+        +  `  <span class="text-red">${fid}%</span> <span style="opacity:.7">: calibration is held here whatever the hardware says. Re-scan at the Vats Registry.</span>\n`;
     for (const a of arts) msg += `  <span style="opacity:.8">· ${a.self}</span>\n`;
   }
   msg += powerLine(player);

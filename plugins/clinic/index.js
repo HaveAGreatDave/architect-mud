@@ -48,7 +48,7 @@ const NOT_HURT = [
 ];
 const BROKE = [
   `"Credit first, then the table. I've been stiffed by better-dressed corpses than you."`,
-  `She glances at your hands, then your eyes. "You can't cover it. I'm sorry — I don't do favours on a Tuesday."`,
+  `She glances at your hands, then your eyes. "You can't cover it. I'm sorry: I don't do favours on a Tuesday."`,
 ];
 const pick = (pool) => pool[Math.floor(Math.random() * pool.length)];
 
@@ -128,7 +128,7 @@ registerAction({
       ? ` She takes your hands in hers, turns them over, and doesn't say anything for a moment. What she does next is slow, and expensive, and you get to keep your fingers.`
       : '';
     const woundLine = mended.length
-      ? ` She sets and closes ${mended.map(m => m.partLabel).join(', ')} — unhurried, and it hurts more than the wound did.`
+      ? ` She sets and closes ${mended.map(m => m.partLabel).join(', ')}: unhurried, and it hurts more than the wound did.`
       : '';
     // "She waves it away" is the payoff for being someone she cares about, so it
     // has to read differently from an authored charity node.

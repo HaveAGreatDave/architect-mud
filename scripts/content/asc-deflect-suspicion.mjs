@@ -190,7 +190,7 @@ edit('npcs/npc_asc_recruiter.json', (d, t) => {
     text:
       'It costs you nothing to say and that is the part you will think about later.\n\n'
       + '"There." He is genuinely relieved, which is somehow the worst thing in the room. "That '
-      + 'is all anybody wants. Not agreement — a position. An unsorted person makes everybody '
+      + 'is all anybody wants. Not agreement. A position. An unsorted person makes everybody '
       + 'nervous and it is nobody\'s fault."\n\n'
       + 'He writes one line and closes the folder.\n\n'
       + '"You will do well here."',

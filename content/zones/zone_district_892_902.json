@@ -6,8 +6,9 @@
   ],
   "ambient_theme": "coast",
   "color": "#b9c0c4",
-  "description": "An apron of concrete behind a mesh fence, marked out in bays with paint that is still the colour it was mixed. Six cradles, four of them holding hulls under fitted covers with the owner's name on a tag at the bow. The covers are immaculate. Two of the tags have gone brittle enough to read as old.",
+  "description": "An apron of concrete behind a mesh fence, marked out in bays with paint that is still the colour it was mixed. Six cradles, four of them holding hulls under fitted covers with the owner's name on a tag at the bow. The covers are immaculate. Two of the tags have gone brittle enough to read as old. A glass door in the marina's west wall opens straight into the chandlery, and a gate at the north end lets onto the visitor pontoon.",
   "exits": {
+    "east": "zone_consv_counter",
     "north": "zone_district_892_901",
     "south": "zone_district_892_903",
     "west": "zone_district_891_902"

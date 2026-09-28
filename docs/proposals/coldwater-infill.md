@@ -300,6 +300,11 @@ in the Modelshop at full night, the building reports **0 grads · 0 blurs**: it 
 on The Gate Road that is genuinely dark. Nobody walking up from the South Gate after six can read
 it, and she has never thought that was a problem worth money.
 
+Second Helpings is a second unlit sign, and it needed `solid` as well as `dn: 0`. The default `put`
+in `bakeSignText` lays a coloured halo, a dark edge and then a white core over it, which is a neon
+tube and comes out white whatever ink you hand it. `dn: 0` alone gives unlit white lettering rather
+than paint.
+
 ## Shipping it
 
 Content and the renderer both reach prod through an ordinary push ([content-pipeline.md](../content-pipeline.md)).

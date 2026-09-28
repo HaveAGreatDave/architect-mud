@@ -1,5 +1,7 @@
 # Story & Theme Bible
 
+This doc says what the world is. How it is written (the house voice, modelled on Fallout: a pleased service voice over horror, documents that tell the story, tragedy shown by what is left, the sting rationed) is in [reference/house-voice.md](reference/house-voice.md). Read both before writing player-facing prose.
+
 ## The World in One Sentence
 A darkly comedic post-singularity wasteland where the AI won, humans lost, and everyone is too stubborn, stupid, or broke to notice.
 
@@ -118,11 +120,11 @@ Pop culture and nostalgia rot in the wasteland. Brand logos on crumbling buildin
 
 ### The em dash rule
 
-**The em dash belongs to the Architect and the Ascendants. Nobody else gets one.**
+**Nobody gets an em dash. Not the narrator, not the NPCs, and not the Architect or the Ascendants.**
 
-It's a voice marker, not punctuation. The Architect thinks in qualifications stacked inside qualifications, and the Ascendants have taken that cadence on as scripture, so both of them over-use it well past what the sentence needs. That only reads as a tell if everyone else in the world speaks without it. When a bartender and a machine-god punctuate the same way, the machine-god stops sounding like anything.
+This rule used to carve out the Architect and the Ascendants, who over-used the dash as a voice tell. That exception is gone (2026-09-27). Their voice is carried by register instead: formal, uncontracted, measured, precise, faintly corporate-serene. The Architect still stacks qualifications inside qualifications; it does it with commas, colons and full stops.
 
-So: no em dashes in NPC dialogue, banter, chitchat, quest emotes, scripted speech, or narration around any of it. The replacement is almost always already there:
+So: no em dashes in NPC dialogue, banter, chitchat, quest emotes, scripted speech, broadcast copy, or narration around any of it. The replacement is almost always already there:
 
 | The dash was doing | Write instead |
 | --- | --- |

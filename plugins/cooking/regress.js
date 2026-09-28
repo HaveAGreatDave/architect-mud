@@ -639,7 +639,7 @@ export default async function regress({ run, check, getPlayer }) {
       readyPeek?.done === true && inWindowLines.includes(readyPeek.text), readyPeek);
     // The telegraph describes the food; it never tells you what to do about it.
     check('in-window narration is observational, never instructional',
-      !/take it off|it's ready|ready —|you should/i.test(readyPeek.text), readyPeek.text);
+      !/take it off|it's ready|ready —|ready:|you should/i.test(readyPeek.text), readyPeek.text);
     // GRAMMAR. Every line is a COMPLEMENT, rendered two ways: `It's <x>.` by
     // examine (server/engine/commands/world.js) and `The <name> is <x>.` by the
     // push. A line that carries its own verb reads as "It's has gone dark…",
@@ -1955,7 +1955,7 @@ export default async function regress({ run, check, getPlayer }) {
     const mac = named(macRows, 'tray', macProfiles);
     check('macaroni, cheese, milk, egg and butter on a tray is mac and cheese', mac?.key === 'mac_and_cheese', mac?.key);
     const macPenne = named(['item_penne', ...macRows.slice(1)], 'tray', macProfiles);
-    check("the same tray with penne in it's NOT mac and cheese", macPenne?.key !== 'mac_and_cheese', macPenne?.key);
+    check("the same tray with penne in it is NOT mac and cheese", macPenne?.key !== 'mac_and_cheese', macPenne?.key);
     const macNoCheese = named(['item_macaroni', 'item_synth_cream', 'item_ration_milk', 'item_water_bottle', 'item_battery_egg', 'item_butter_analog'], 'tray', macProfiles);
     check("dairy that isn't cheese doesn't answer the cheese requirement", macNoCheese?.key !== 'mac_and_cheese', macNoCheese?.key);
     // The method is two vessels and eight steps, and the pasta half of it is the
@@ -2501,7 +2501,7 @@ export default async function regress({ run, check, getPlayer }) {
         const cls = l.find(e => e.k === 'p' && (e.ex || []).length);
         const out = (await run('shoplist'))?.message || '';
         check('a class line carries its buyable answers as parts', !!cls, JSON.stringify(l));
-        check('...with the bare ask kept separate from them', !!cls?.base && !/—/.test(cls.base), JSON.stringify(cls));
+        check('...with the bare ask kept separate from them', !!cls?.base && !/—|: /.test(cls.base), JSON.stringify(cls));
         check('...and they print as alternatives, not as errands', /any one of:/.test(out), out);
 
         // ON THE TABLET, every one of those rows OPENS. A shopping-list line used

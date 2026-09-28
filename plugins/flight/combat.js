@@ -142,8 +142,8 @@ async function applyAirDamage(targetLive, amount, byPlayer, reason = 'shotdown',
   // can't pretend it's whole; the client just flies the consequence + renders the missing part.
   const sheared = shearRoll(t, amount);
   toOccupants(targetLive, sheared
-    ? `<span class="text-red">💥 STRUCTURAL FAILURE — ${SHEAR_LABEL[sheared] || 'a control surface'} tears away! She's barely flying.</span>`
-    : (message || `<span class="text-red">⚠ TAKING FIRE — cannon rounds rake the airframe. Hull ${hullPct}%.</span>`));
+    ? `<span class="text-red">💥 STRUCTURAL FAILURE: ${SHEAR_LABEL[sheared] || 'a control surface'} tears away! She's barely flying.</span>`
+    : (message || `<span class="text-red">⚠ TAKING FIRE: cannon rounds rake the airframe. Hull ${hullPct}%.</span>`));
   for (const pid of targetLive.occupants) {
     const p = getLivePlayer(pid);
     // The hit itself is already narrated to every occupant by the toOccupants above;
@@ -158,9 +158,9 @@ async function applyAirDamage(targetLive, amount, byPlayer, reason = 'shotdown',
 // A text pilot has no RWR strip to light up, but being locked up is not something they
 // may simply fail to notice — so the same warning arrives as a line of text instead.
 const RWR_TEXT = {
-  lock: '<span class="text-amber">⚠ RWR — someone has you locked up.</span>',
-  missile: '<span class="text-red">⚠⚠ MISSILE IN THE AIR — break and flare.</span>',
-  clear: '<span class="text-dim">RWR clear — the lock is broken.</span>',
+  lock: '<span class="text-amber">⚠ RWR: someone has you locked up.</span>',
+  missile: '<span class="text-red">⚠⚠ MISSILE IN THE AIR: break and flare.</span>',
+  clear: '<span class="text-dim">RWR clear: the lock is broken.</span>',
 };
 function airThreatTo(live, payload) {
   for (const pid of live.occupants) {
@@ -222,7 +222,7 @@ async function cmdAirFire(args, raw, player) {
   await awardSkillUse(player.id, 'piloting', PILOT_IP.GUNS);
   if (!killed) {
     const hullPct = Math.round((1 - target.row.damage) * 100);
-    out(player.id, `<span class="text-green">Guns — hits on the ${target.type.name}. Hull ${hullPct}%.</span>`);
+    out(player.id, `<span class="text-green">Guns: hits on the ${target.type.name}. Hull ${hullPct}%.</span>`);
     sendToPlayer(player.id, { type: 'air_hit', role: 'dealt', hullPct });
     relayContacts(live);                                             // push the target's new hull to the shooter's picture
   }
@@ -234,12 +234,12 @@ async function cmdAirFire(args, raw, player) {
 // time is what decides the outcome, so flares popped mid-flight actually matter).
 function fireMissile(live, args, player) {
   if (!live.row.airborne || !live.row.weapons_hot || effHardpoints(live) < 1) return { type: 'noop' };
-  if (mslAmmo(live) < 1) return { type: 'emote', message: '<span class="text-amber">Rails are empty — rearm at a field.</span>' };
+  if (mslAmmo(live) < 1) return { type: 'emote', message: '<span class="text-amber">Rails are empty. Rearm at a field.</span>' };
   const nowMs = Date.now();
   if (live.lastMsl && nowMs - live.lastMsl < MISSILE_COOLDOWN_MS) return { type: 'noop' };
   const target = args[1] ? liveAircraft.get(args[1]) : null;
   if (!target || target === live || !target.row.airborne || target.row.is_wreck) return { type: 'noop' };
-  if (live.lockTargetId !== target.row.id) return { type: 'emote', message: '<span class="text-amber">No lock — hold the seeker on the target first.</span>' };
+  if (live.lockTargetId !== target.row.id) return { type: 'emote', message: '<span class="text-amber">No lock. Hold the seeker on the target first.</span>' };
   const a = live.row, b = target.row;
   if (cheb(a.grid_x, a.grid_y, b.grid_x, b.grid_y) > MISSILE_RANGE_GATE) return { type: 'noop' };
   live.lastMsl = nowMs;
@@ -247,8 +247,8 @@ function fireMissile(live, args, player) {
   pushContext(live);   // authoritative ammo pips, now
   target.inboundMsl = [...(target.inboundMsl || []), { shooterId: player.id, launchedAt: nowMs, resolveAt: nowMs + MISSILE_FLIGHT_MS }];
   airThreatTo(target, { kind: 'missile', ms: MISSILE_FLIGHT_MS, by: player.handle || null });
-  toOccupants(target, '<span class="text-red">⚠ MISSILE INBOUND — pop <b>flares</b> and break!</span>');
-  return { type: 'emote', message: `<span class="text-cyan">FOX TWO — missile away at the ${target.type.name}.</span>` };
+  toOccupants(target, '<span class="text-red">⚠ MISSILE INBOUND: pop <b>flares</b> and break!</span>');
+  return { type: 'emote', message: `<span class="text-cyan">FOX TWO: missile away at the ${target.type.name}.</span>` };
 }
 
 // Fire-and-forget SWARM (the Viper): rip `salvo` dumb seekers at the bore-designated bogey with
@@ -260,7 +260,7 @@ function fireSwarm(live, args, player) {
   const salvo = salvoOf(live);
   if (salvo < 2) return fireMissile(live, args, player);   // not a swarm airframe — fall back to the locked shot
   if ((args[1] || '').toLowerCase() === 'ground') return fireSwarmGround(live, player);   // nothing in the air → hit the dirt
-  if (mslAmmo(live) < 1) return { type: 'emote', message: '<span class="text-amber">Rails are empty — rearm at a field.</span>' };
+  if (mslAmmo(live) < 1) return { type: 'emote', message: '<span class="text-amber">Rails are empty. Rearm at a field.</span>' };
   const nowMs = Date.now();
   if (live.lastMsl && nowMs - live.lastMsl < SWARM_COOLDOWN_MS) return { type: 'noop' };
   const target = args[1] ? liveAircraft.get(args[1]) : null;
@@ -277,8 +277,8 @@ function fireSwarm(live, args, player) {
   for (let i = 0; i < n; i++) inbound.push({ shooterId: player.id, launchedAt: nowMs, resolveAt: nowMs + MISSILE_FLIGHT_MS + i * 120, pkMult: SWARM_PK_MULT, dmgMult: SWARM_DMG_MULT });
   target.inboundMsl = [...(target.inboundMsl || []), ...inbound];
   airThreatTo(target, { kind: 'missile', ms: MISSILE_FLIGHT_MS, by: player.handle || null });
-  toOccupants(target, '<span class="text-red">⚠ MISSILE SWARM INBOUND — pop <b>flares</b> and break!</span>');
-  return { type: 'emote', message: `<span class="text-cyan">RIPPLE — a swarm of ${n} missiles streaks off the rails at the ${target.type.name}.</span>` };
+  toOccupants(target, '<span class="text-red">⚠ MISSILE SWARM INBOUND: pop <b>flares</b> and break!</span>');
+  return { type: 'emote', message: `<span class="text-cyan">RIPPLE: a swarm of ${n} missiles streaks off the rails at the ${target.type.name}.</span>` };
 }
 
 // ── Ground SWARM — the attack heli's real job ─────────────────────────────────
@@ -296,8 +296,8 @@ const GROUND_SWARM_DMG = { min: 34, max: 58 };   // vs soft targets — ~2× a c
 async function fireSwarmGround(live, player) {
   if (!live.row.airborne || !live.row.weapons_hot || effHardpoints(live) < 1) return { type: 'noop' };
   if (salvoOf(live) < 2) return { type: 'noop' };
-  if (mslAmmo(live) < 1) return { type: 'emote', message: '<span class="text-amber">Rails are empty — rearm at a field.</span>' };
-  if (live.row.altitude_band === 'high') return { type: 'emote', message: '<span class="text-amber">Too high to pick out a ground target — bring her down.</span>' };
+  if (mslAmmo(live) < 1) return { type: 'emote', message: '<span class="text-amber">Rails are empty. Rearm at a field.</span>' };
+  if (live.row.altitude_band === 'high') return { type: 'emote', message: '<span class="text-amber">Too high to pick out a ground target. Bring her down.</span>' };
   const nowMs = Date.now();
   if (live.lastMsl && nowMs - live.lastMsl < SWARM_COOLDOWN_MS) return { type: 'noop' };
 
@@ -336,7 +336,7 @@ async function fireSwarmGround(live, player) {
   if (zone) {
     emit('flight.strafeIncoming', { zoneId: zone.id });   // the ground side of the audio
     sendToZone(zone.id, { type: 'zone_event',
-      message: '<span class="text-red">Missiles come in flat and fast out of the sky — the ground erupts in a walking line of blasts.</span>' });
+      message: '<span class="text-red">Missiles come in flat and fast out of the sky: the ground erupts in a walking line of blasts.</span>' });
   }
 
   if (best && hits > 0) {
@@ -347,15 +347,15 @@ async function fireSwarmGround(live, player) {
       emit('flight.aaSilenced', { siteId: best.site.id, siteName: best.site.name, zoneId: best.site.zone_id });
       await awardSkillUse(player.id, 'piloting', PILOT_IP.AA_SILENCED);
       if (zone) sendToZone(zone.id, { type: 'zone_event', message: `${best.site.name} disappears inside a rolling fireball.`, refresh: true });
-      out(player.id, `<span class="text-green">SPLASH — the swarm guts ${best.site.name}. It's a smoking crater.</span>`);
+      out(player.id, `<span class="text-green">SPLASH: the swarm guts ${best.site.name}. It's a smoking crater.</span>`);
     }
   } else if (best) {
-    out(player.id, `<span class="text-amber">The swarm walks wide of ${best.site.name} — and now it knows you're here.</span>`);
+    out(player.id, `<span class="text-amber">The swarm walks wide of ${best.site.name}, and now it knows you're here.</span>`);
   }
   if (zone && hits > 0) await swarmBlastTile(zone, live, player);
 
   const where = best ? best.site.name : `${tx},${ty}`;
-  return { type: 'emote', message: `<span class="text-cyan">RIFLE — ${n} missiles off the rails onto ${where}.</span>` };
+  return { type: 'emote', message: `<span class="text-cyan">RIFLE: ${n} missiles off the rails onto ${where}.</span>` };
 }
 
 // ── THE DIVE BOMB (the Shrike) ────────────────────────────────────────────────
@@ -400,15 +400,15 @@ async function cmdBomb(args, raw, player) {
   const a = live.row, c = live.cont || {};
   if (!bombLoad(live)) return advise('<span class="text-amber">This aircraft has no bomb rack.</span>');
   if (!a.airborne) return advise('<span class="text-amber">On the ground. Not from here.</span>');
-  if (!a.weapons_hot) return advise('<span class="text-amber">Weapons are safe — <b>arm</b> first.</span>');
+  if (!a.weapons_hot) return advise('<span class="text-amber">Weapons are safe. <b>arm</b> first.</span>');
   if (effHardpoints(live) < 1) return advise('<span class="text-amber">The pylons are shot away.</span>');
-  if (bombAmmo(live) < 1) return advise('<span class="text-amber">Rack is empty — rearm at a field.</span>');
+  if (bombAmmo(live) < 1) return advise('<span class="text-amber">Rack is empty. Rearm at a field.</span>');
   const nowMs = Date.now();
   if (live.lastBomb && nowMs - live.lastBomb < BOMB_COOLDOWN_MS) return { type: 'noop' };
-  if (a.altitude_band === 'high') return advise('<span class="text-amber">Too high to pick out anything on the ground — bring her down.</span>');
+  if (a.altitude_band === 'high') return advise('<span class="text-amber">Too high to pick out anything on the ground. Bring her down.</span>');
   const down = -(c.pitch || 0);
-  if (down < BOMB_DIVE_DEG) return advise(`<span class="text-amber">The sight won't settle in level flight. Put the nose down — properly, past ${BOMB_DIVE_DEG}°.</span>`);
-  if ((c.airspeed || 0) < BOMB_IAS_MIN) return advise(`<span class="text-amber">Not enough speed in the dive — you need ${BOMB_IAS_MIN} knots on the clock before the rack will let go.</span>`);
+  if (down < BOMB_DIVE_DEG) return advise(`<span class="text-amber">The sight won't settle in level flight. Put the nose down, properly, past ${BOMB_DIVE_DEG}°.</span>`);
+  if ((c.airspeed || 0) < BOMB_IAS_MIN) return advise(`<span class="text-amber">Not enough speed in the dive: you need ${BOMB_IAS_MIN} knots on the clock before the rack will let go.</span>`);
 
   // WHERE IT GOES. The pilot's designated tile wins if it is genuinely ahead and in reach; that
   // is what the tablet map's crosshair is for. Failing that, the tile the nose is pointed at.
@@ -438,10 +438,10 @@ async function cmdBomb(args, raw, player) {
   if (zone) {
     emit('flight.bombImpact', { zoneId: zone.id });
     sendToZone(zone.id, { type: 'zone_event',
-      message: '<span class="text-red">The wail overhead stops. A half-second of nothing — then the world goes white and the ground picks itself up and hits you.</span>' });
+      message: '<span class="text-red">The wail overhead stops. A half-second of nothing... then the world goes white and the ground picks itself up and hits you.</span>' });
   }
   // The pilot's own view of it, so the windshield can throw up the burst at the right spot.
-  toOccupants(live, `<span class="text-red">💣 BOMB AWAY — ${bombAmmo(live)} left on the rack.</span>`);
+  toOccupants(live, `<span class="text-red">💣 BOMB AWAY: ${bombAmmo(live)} left on the rack.</span>`);
   sendToPlayer(player.id, { type: 'flight_burst', gx: ax, gy: ay, q: +q.toFixed(2) });
 
   if (zone) {
@@ -458,8 +458,8 @@ async function cmdBomb(args, raw, player) {
   const off = (ax !== tx || ay !== ty);
   const grade = q > 0.75 ? 'Dead centre.' : q > 0.4 ? 'Close enough.' : "Ugly, but it's down.";
   return { type: 'emote', message: off
-    ? `<span class="text-amber">RELEASE — and it goes long. The bomb walks off to ${ax},${ay}.</span>`
-    : `<span class="text-cyan">RELEASE — ${aimed ? 'onto the designated tile' : `onto ${ax},${ay}`}. ${grade}</span>` };
+    ? `<span class="text-amber">RELEASE, and it goes long. The bomb walks off to ${ax},${ay}.</span>`
+    : `<span class="text-cyan">RELEASE: ${aimed ? 'onto the designated tile' : `onto ${ax},${ay}`}. ${grade}</span>` };
 }
 
 // An AA emplacement on the tile a bomb just landed on. Guarded UPDATE + the same cache
@@ -477,7 +477,7 @@ async function bombKillAA(ax, ay, zone, player) {
   emit('flight.aaSilenced', { siteId: site.id, siteName: site.name, zoneId: site.zone_id });
   await awardSkillUse(player.id, 'piloting', PILOT_IP.BOMB_KILL);
   if (zone) sendToZone(zone.id, { type: 'zone_event', message: `${site.name} ceases to exist.`, refresh: true });
-  out(player.id, `<span class="text-green">SPLASH — ${site.name} is a hole in the ground.</span>`);
+  out(player.id, `<span class="text-green">SPLASH: ${site.name} is a hole in the ground.</span>`);
 }
 
 // The blast. Structurally a copy of swarmBlastTile, and deliberately so: every correctness
@@ -502,7 +502,7 @@ async function bombBlastTile(zone, live, player, dmgMult, hitMult) {
   let hitPlayer = false, killedPlayer = false;
   for (const p of players) {
     if (Math.random() >= hit) {
-      out(p.id, '<span class="text-amber">The blast throws you flat and the air goes out of you — but you\'re still whole.</span>');
+      out(p.id, '<span class="text-amber">The blast throws you flat and the air goes out of you, but you\'re still whole.</span>');
       continue;
     }
     const lo = Math.round(BOMB_DMG.min * dmgMult), hi = Math.round(BOMB_DMG.max * dmgMult);
@@ -544,7 +544,7 @@ async function swarmBlastTile(zone, live, player) {
   let hitPlayer = false, killedPlayer = false;
   for (const p of players) {
     if (Math.random() >= GROUND_SWARM_HIT) {
-      out(p.id, '<span class="text-amber">A warhead bursts close enough to lift you off your feet — shrapnel sings past.</span>');
+      out(p.id, '<span class="text-amber">A warhead bursts close enough to lift you off your feet: shrapnel sings past.</span>');
       continue;
     }
     const r = await applyStrikeToPlayer(p, { min: GROUND_SWARM_DMG.min, max: GROUND_SWARM_DMG.max, damageType: 'explosive' });
@@ -604,7 +604,7 @@ async function tickMissiles(live) {
     if ((live.flaredUntil || 0) > m.launchedAt && Math.random() < FLARE_DEFEAT) {
       toOccupants(live, '<span class="text-green">The missile bites on the flares and detonates behind you.</span>');
       airThreatTo(live, { kind: 'clear' });
-      if (shooter) out(shooter.id, '<span class="text-amber">Flares — your missile goes stupid and eats a decoy.</span>');
+      if (shooter) out(shooter.id, '<span class="text-amber">Flares: your missile goes stupid and eats a decoy.</span>');
       continue;
     }
     // A hard defensive break + a good last-second notch both shave the kill probability.
@@ -613,20 +613,20 @@ async function tickMissiles(live) {
     const defPilot = pilotOf(live);
     if (defPilot && (await skillCheck(defPilot, 'piloting', 8)).success) pk *= 0.7;
     if (Math.random() >= pk) {
-      toOccupants(live, '<span class="text-amber">The missile streaks past and self-destructs — a clean notch.</span>');
+      toOccupants(live, '<span class="text-amber">The missile streaks past and self-destructs: a clean notch.</span>');
       airThreatTo(live, { kind: 'clear' });
-      if (shooter) out(shooter.id, '<span class="text-amber">Miss — the shot loses the picture and goes ballistic.</span>');
+      if (shooter) out(shooter.id, '<span class="text-amber">Miss: the shot loses the picture and goes ballistic.</span>');
       continue;
     }
     const armor = isArmored(live.type) ? 0.6 : 1;
     const warhead = MISSILE_DMG * armor * (m.dmgMult ?? 1);          // swarm seekers carry a smaller warhead
     const hullAfter = Math.round((1 - Math.min(1, (live.row.damage || 0) + warhead * (1 - effStats(live).soak))) * 100);
     const killed = await applyAirDamage(live, warhead, shooter, 'shotdown',
-      `<span class="text-red">💥 MISSILE IMPACT — the airframe bucks hard and sheds metal. Hull ${hullAfter}%.</span>`);
+      `<span class="text-red">💥 MISSILE IMPACT: the airframe bucks hard and sheds metal. Hull ${hullAfter}%.</span>`);
     if (shooter) {
       await awardSkillUse(shooter.id, 'piloting', PILOT_IP.MISSILE);
       if (!killed) {
-        out(shooter.id, `<span class="text-green">Splash — missile impact on the ${live.type.name}. Hull ${hullAfter}%.</span>`);
+        out(shooter.id, `<span class="text-green">Splash: missile impact on the ${live.type.name}. Hull ${hullAfter}%.</span>`);
         sendToPlayer(shooter.id, { type: 'air_hit', role: 'dealt', hullPct: hullAfter });
       }
     }
@@ -694,7 +694,7 @@ export async function tickCombat(live) {
   let wantedStars = 0;
   if (pilot) { try { const r = await dispatchAction({ type: 'WANTED_STARS', actor: pilot }); wantedStars = Number(r?.stars) || 0; } catch {} }
   if (!wantedStars) {
-    if (live.aaWarned) { toOccupants(live, '<span class="text-green">Clear of the guns — out of the AA envelope.</span>'); live.aaWarned = false; }
+    if (live.aaWarned) { toOccupants(live, '<span class="text-green">Clear of the guns: out of the AA envelope.</span>'); live.aaWarned = false; }
     live.aaThreat = null;
     return;
   }
@@ -710,10 +710,10 @@ export async function tickCombat(live) {
   const exposed = !!live.aaThreat?.exposed;
   if (exposed && !live.aaWarned) {
     live.aaWarned = true;
-    toOccupants(live, `<span class="text-red">⚠ AA THREAT — you've flown into the guns at ${live.aaThreat.name}. Climb to HIGH to top the envelope, or firewall the throttle and <b>evade</b> to spoil their aim.</span>`);
+    toOccupants(live, `<span class="text-red">⚠ AA THREAT: you've flown into the guns at ${live.aaThreat.name}. Climb to HIGH to top the envelope, or firewall the throttle and <b>evade</b> to spoil their aim.</span>`);
   } else if (!exposed && live.aaWarned) {
     live.aaWarned = false;
-    toOccupants(live, `<span class="text-green">Clear of the guns — out of the AA envelope.</span>`);
+    toOccupants(live, `<span class="text-green">Clear of the guns: out of the AA envelope.</span>`);
   }
 
   // High and fast = hard to engage; only low/cruise overflights are exposed to fire.
@@ -749,11 +749,11 @@ export async function tickCombat(live) {
       // does — red screen flash, hit sound, and an immediate hull-gauge refresh — instead
       // of just a text log line.
       const killed = await applyAirDamage(live, dmg, null, 'shotdown',
-        `<span class="text-red">💥 ${s.name} opens up — rounds walk across the airframe. Hull ${Math.round((1 - Math.min(1, a.damage + bite)) * 100)}%.</span>`);
+        `<span class="text-red">💥 ${s.name} opens up: rounds walk across the airframe. Hull ${Math.round((1 - Math.min(1, a.damage + bite)) * 100)}%.</span>`);
       emit('flight.aaFired', { zoneId: s.zone_id, siteId: s.id, siteName: s.name, hit: true });
       if (killed) return;
     } else {
-      toOccupants(live, `<span class="text-amber">Tracer arcs past from ${s.name} below — a near miss.</span>`);
+      toOccupants(live, `<span class="text-amber">Tracer arcs past from ${s.name} below: a near miss.</span>`);
       emit('flight.aaFired', { zoneId: s.zone_id, siteId: s.id, siteName: s.name, hit: false });
     }
     break;   // one emplacement engages per tick — don't stack a firing squad
@@ -771,7 +771,7 @@ function requirePilot(player) {
 // ── Verbs ─────────────────────────────────────────────────────────────────────
 async function cmdArm(args, raw, player) {
   const { live, err } = requirePilot(player); if (err) return err;
-  if (effHardpoints(live) < 1) return { type: 'emote', message: `The ${live.type.name} is a civilian airframe — no hardpoints, no guns.` };
+  if (effHardpoints(live) < 1) return { type: 'emote', message: `The ${live.type.name} is a civilian airframe: no hardpoints, no guns.` };
   live.row.weapons_hot = 1; pushHud(live);
   return { type: 'emote', message: '<span class="text-red">Master arm HOT. Weapons live.</span>' };
 }
@@ -786,7 +786,7 @@ async function cmdEvade(args, raw, player) {
   const { live, err } = requirePilot(player); if (err) return err;
   if (!live.row.airborne) return { type: 'emote', message: 'Nothing to evade on the ground.' };
   live.evadeUntil = Date.now() + 6000;
-  return { type: 'emote', message: '<span class="text-cyan">You break hard and jink, throwing chaff — a harder target for the next few seconds.</span>' };
+  return { type: 'emote', message: '<span class="text-cyan">You break hard and jink, throwing chaff: a harder target for the next few seconds.</span>' };
 }
 
 // Grant a seeker lock (Phase C). The client only asks after holding the bogey in the
@@ -802,8 +802,8 @@ async function cmdAirLock(args, raw, player) {
   if (live.lockTargetId === target.row.id) return { type: 'noop' };   // already have it
   live.lockTargetId = target.row.id;
   airThreatTo(target, { kind: 'lock', by: player.handle || null });
-  toOccupants(target, '<span class="text-red">⚠ RWR — MISSILE LOCK. Someone\'s seeker has you.</span>');
-  return { type: 'emote', message: `<span class="text-green">◉ LOCK — seeker tone on the ${target.type.name}.</span>` };
+  toOccupants(target, '<span class="text-red">⚠ RWR: MISSILE LOCK. Someone\'s seeker has you.</span>');
+  return { type: 'emote', message: `<span class="text-green">◉ LOCK: seeker tone on the ${target.type.name}.</span>` };
 }
 
 async function cmdAirUnlock(args, raw, player) {
@@ -820,12 +820,12 @@ async function cmdFlares(args, raw, player) {
   if (!live.row.airborne) return { type: 'emote', message: 'Nothing up here to decoy.' };
   const nowMs = Date.now();
   if (live.lastFlare && nowMs - live.lastFlare < FLARE_COOLDOWN_MS) {
-    return { type: 'emote', message: '<span class="text-amber">Flare launchers cycling — not ready.</span>' };
+    return { type: 'emote', message: '<span class="text-amber">Flare launchers cycling, not ready.</span>' };
   }
   live.lastFlare = nowMs;
   live.flaredUntil = nowMs + FLARE_WINDOW_MS;
   airThreatTo(live, { kind: 'flares' });   // the cockpit plays the launch FX on confirmation
-  return { type: 'emote', message: '<span class="text-cyan">FLARES — burning stars tumble away behind you.</span>' };
+  return { type: 'emote', message: '<span class="text-cyan">FLARES: burning stars tumble away behind you.</span>' };
 }
 
 // ── Ground strafe: raking the tile directly below ─────────────────────────────
@@ -844,7 +844,7 @@ const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 // A confirmed kill announced back to the pilot's own output pane, so they see WHO they
 // just cut down (or cratered) — a strafing run is fired blind from altitude otherwise.
 function announceKill(pilotId, name) {
-  out(pilotId, `<span class="text-green">★ KILL — you cut down ${name} with cannon fire.</span>`);
+  out(pilotId, `<span class="text-green">★ KILL: you cut down ${name} with cannon fire.</span>`);
   sendToPlayer(pilotId, { type: 'flight_kill', name });   // big top-of-glass kill banner in the cockpit
 }
 
@@ -874,12 +874,12 @@ async function rakeGroundBelow(live, player) {
 
   // Everyone on the tile feels the pass — the terror is the point.
   sendToZone(zone.id, { type: 'zone_event',
-    message: '<span class="text-red">The sky splits with a ripping roar — a low pass walks a line of cannon fire across the ground, dirt and sparks kicking up in a straight seam.</span>' });
+    message: '<span class="text-red">The sky splits with a ripping roar: a low pass walks a line of cannon fire across the ground, dirt and sparks kicking up in a straight seam.</span>' });
 
   let hitPlayer = false, killedPlayer = false;
   for (const p of players) {
     if (Math.random() >= STRAFE_HIT_CHANCE) {
-      out(p.id, '<span class="text-amber">Cannon rounds hammer the ground a body-length away — the shockwave punches the air out of you.</span>');
+      out(p.id, '<span class="text-amber">Cannon rounds hammer the ground a body-length away: the shockwave punches the air out of you.</span>');
       continue;
     }
     const r = await applyStrikeToPlayer(p, { min: dmin, max: dmax, damageType: 'kinetic' });
@@ -916,7 +916,7 @@ async function cmdStrafe(args, raw, player) {
   // advisories stay SILENT there (a typed/deck `strafe` still gets them once).
   const advise = (msg) => isContinuous(live) ? { type: 'noop' } : { type: 'emote', message: msg };
   if (!live.row.airborne) return advise('You strafe from the air.');
-  if (!live.row.weapons_hot) return advise('Weapons are cold — `arm` first.');
+  if (!live.row.weapons_hot) return advise('Weapons are cold. `arm` first.');
   if (live.row.altitude_band !== 'low') return advise('Come down to LOW for a gun pass.');
   // Continuous cockpit: the same held trigger rakes people/NPCs/enemies on the tile
   // below (its own cooldown gates the rate); the AA-silencing pass resolves alongside.
@@ -944,7 +944,7 @@ async function cmdStrafe(args, raw, player) {
     type: 'flight_target', token, deviceName: target.name,
     skill: await effectiveSkill(player, 'piloting'), difficulty: target.accuracy || 6,
   });
-  return { type: 'emote', message: `<span class="text-cyan">Rolling in on ${target.name} — pipper on, guns hot.</span>` };
+  return { type: 'emote', message: `<span class="text-cyan">Rolling in on ${target.name}, pipper on, guns hot.</span>` };
 }
 
 // Apply a gun-pass outcome: silence the site on a hit, or wake it on a miss. Shared by
@@ -959,9 +959,9 @@ async function applyStrafeResult(live, player, targetId, targetName, won) {
     emit('flight.aaSilenced', { siteId: targetId, siteName: targetName, zoneId: rows[0].zone_id });
     await awardSkillUse(player.id, 'piloting', PILOT_IP.AA_SILENCED);
     if (below) sendToZone(below.id, { type: 'zone_event', message: `${targetName} vanishes in a string of impacts and a secondary blast.`, refresh: true });
-    out(player.id, `<span class="text-green">Guns, guns — you walk fire straight through ${targetName}. It's a smoking hole.</span>`);
+    out(player.id, `<span class="text-green">Guns, guns: you walk fire straight through ${targetName}. It's a smoking hole.</span>`);
   } else {
-    out(player.id, `<span class="text-amber">Your burst goes wide of ${targetName} — and now it knows you're here.</span>`);
+    out(player.id, `<span class="text-amber">Your burst goes wide of ${targetName}, and now it knows you're here.</span>`);
   }
 }
 

@@ -6,9 +6,7 @@
       "bank",
       "cowls"
     ],
-    "interactions": {
-      "examine": "Fan three runs slower than the rest and has done for months. It is not broken. It is set that way, and there is a piece of tape on its starter with a date on it."
-    }
+    "examine_detail": "Fan three runs slower than the rest and has done for months. It is not broken. It is set that way, and there is a piece of tape on its starter with a date on it."
   },
   "id": "furn_cold_fans",
   "name": "the fan bank",

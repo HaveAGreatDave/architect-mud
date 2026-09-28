@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Loose ground at the foot of the wall of rock, walking on it a matter of picking the flat pieces. There are bones down among the stones and there's no telling how they got there or from how high.",
+  "description": "Fallen rock covers the slope below the face, all sizes and all a little unsteady.",
   "exits": {
     "east": "zone_scw_1013_968",
     "north": "zone_scw_1012_967",
@@ -13,13 +13,13 @@
     "radiation": 9,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "dirt_road"
+    "terrain": "gravel"
   },
   "grid_x": 1012,
   "grid_y": 968,
   "grid_z": 0,
   "id": "zone_scw_1012_968",
   "map_id": "map_world",
-  "name": "Broken Foot",
+  "name": "Talus",
   "parent_zone": null
 }

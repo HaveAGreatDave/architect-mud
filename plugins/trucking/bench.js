@@ -46,9 +46,11 @@ import { TUNE_PARAMS, KITS, bandOf, tuneRange, clampTune, installedKits, effTruc
 import { stockTrim } from '../../client/shared/cab-trim.js';
 import { TRINKETS, TRINKET_IDS, CAB_SLOTS, installedTrinkets, trinketIn, trinketsIn, trinketPrice } from '../../client/shared/cab-trinkets.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
-import { rigOf, pumpAt, FUEL_FULL } from './state.js';
+import { rigOf, pumpAt, FUEL_FULL, pushCab } from './state.js';
 import { wreckNear } from './corridor.js';
-import { say, cap, depotHere, depotZonesOf, yardIdOf, whichTruckLine, repush } from './index.js';
+import { say, cap, depotHere, depotZonesOf, yardIdOf, whichTruckLine, repush, hydrateFromTruck } from './index.js';
+import { SERVICE, serviceSheet, servicePrice, stampService, hornCatalogue, hornPrice, hornOf, TRUCK_HORNS, HORN_IDS } from './service.js';
+import { isRental, RENT_REFUSE } from './rental.js';
 // ── rig: the bench ───────────────────────────────────────────────────────────
 // Repair, tune, kit, paint and pump, behind ONE verb with subcommands rather than five verbs.
 // That is not tidiness: `repair`, `tune`, `modify` and `paintset` are all already owned — by the
@@ -79,13 +81,80 @@ async function cmdRig(args, raw, player) {
   // competing with a colourway for the same token, and the loser is somebody who called their truck
   // Walnut. The panel always sends the id; a player with two trucks in one yard gets the menu below
   // and every line of it is typable.
+  // ⚠ THE TRUCK YOU ARE SITTING IN COUNTS AS PARKED HERE WHEN IT IS STOPPED IN THE SHED. The yard's
+  // first screen is a hand of cards now, and picking one puts you IN the cab, in the real shed —
+  // so the bench has to reach the rig under you or it reaches nothing. See `liveInBay` below.
+  const mounted = rigOf(player);
   const parked = idArg ? [] : await trucksAt(player.id, depotZonesOf(bay, depot));
-  const truck = idArg ? await getTruck(idArg, player.id) : (parked.length === 1 ? parked[0] : null);
+  if (!idArg && mounted && liveInBay(mounted) && !parked.some((t) => t.id === mounted.truckId)) {
+    const t = await getTruck(mounted.truckId, player.id);
+    if (t) parked.unshift(t);
+  }
+  let truck = idArg ? await getTruck(idArg, player.id) : (parked.length === 1 ? parked[0] : null);
   if (!truck && parked.length > 1) return whichTruckLine(`rig ${sub}`, parked, null, true);
   if (!truck) return say(idArg ? "That isn't one of yours." : 'You have nothing parked here to work on.');
-  if (rigOf(player)?.truckId === truck.id) return say("Climb down first — nobody works on a truck they're sitting in.");
+  // ── THE RIG UNDER YOU ──────────────────────────────────────────────────────
+  // ⚠ THE LIVE RIG HOLDS ITS OWN COPY OF EVERYTHING THE BENCH TOUCHES, and that is the whole reason
+  // this was a flat refusal: fuel, condition, the component bag and the dirt are accrued in RAM on
+  // the drive and written home on `park`, so a repair written to the row while you sat in the cab
+  // was undone by the next flush — and the cab went on showing the old numbers until then. So the
+  // rig is FLUSHED to the row first (the bench then reads the truth), and HYDRATED from the row
+  // after (the cab then gets the result), in that order and only while it is stopped in the shed.
+  // Anywhere else — on the apron, on the road — the old answer stands.
+  const live = mounted?.truckId === truck.id ? mounted : null;
+  if (live && !liveInBay(live)) return say("Bring it into the shed and stop. The fitters won't work on a truck that's out on the road.");
+  if (live && sub === 'strip') return say("Climb down first. The roadside strip is done from the ground.");
+  if (live) {
+    await flushLive(live);
+    truck = await getTruck(truck.id, player.id) || truck;
+  }
   const cd = truck.custom_data || {};
+  // A HIRE TRUCK IS SERVICED, NEVER CUSTOMISED — see rental.js. Refused before the handler rather
+  // than inside eight of them, so a new shelf added later is refused on a hire by default.
+  if (isRental(truck) && RENTAL_BARRED.has(sub)) return say(`<span class="text-dim">${RENT_REFUSE}</span>`);
 
+  const res = await rigSub(sub, player, truck, cd, bay, depot, rest);
+  if (live) {
+    const row = await getTruck(live.truckId, player.id);
+    if (row) {
+      await hydrateFromTruck(live, row);
+      pushCab(live, { serviced: true });
+      await repush(player);
+    }
+  }
+  return res;
+}
+
+// What a hire truck may not have done to it. Repair, wash, fuel and servicing are allowed: a hire
+// company is glad of all four.
+const RENTAL_BARRED = new Set(['tune', 'kit', 'paint', 'trim', 'interior', 'fit', 'fittings', 'unfit', 'cab', 'inside', 'name', 'horn']);
+
+/** Stopped, in a city leg, on a tile with a roller door over it. */
+function liveInBay(rig) {
+  return !!(rig && rig.leg === 'city' && Math.abs(rig.speed || 0) < 1
+    && getZone(rig.zoneId)?.flags?.vehicle_bay);
+}
+
+// The same numbers `persistTruck` carries home on `park`, WITHOUT `depot_zone`: the rig has not been
+// parked, and writing the door tile as where it lives would re-home it to a zone no ownership lookup
+// matches. `travelled` is zeroed because it has just been added to the odometer.
+async function flushLive(rig) {
+  await query(
+    `UPDATE trucks SET fuel = $1, odometer = odometer + $2, condition = $3,
+       custom_data = jsonb_set(jsonb_set(
+         CASE WHEN $4::jsonb IS NULL THEN COALESCE(custom_data,'{}'::jsonb)
+              ELSE jsonb_set(COALESCE(custom_data,'{}'::jsonb), '{dmg}', $4::jsonb, true) END,
+         '{locked}', to_jsonb($5::boolean), true),
+         '{grime}', to_jsonb($6::numeric), true)
+     WHERE id = $7`,
+    [Math.max(0, Math.min(1, rig.fuel)), Math.max(0, rig.travelled || 0),
+      Math.max(0, Math.min(1, rig.condition ?? 1)), rig.dmg ? JSON.stringify(rig.dmg) : null,
+      !!rig.locked, +Math.max(0, Math.min(1, rig.grime ?? 0)).toFixed(4), rig.truckId],
+  ).catch(() => {});
+  rig.travelled = 0;
+}
+
+async function rigSub(sub, player, truck, cd, bay, depot, rest) {
   if (sub === 'strip') return await rigStrip(player);
   if (sub === 'parts') return await rigParts(player, rest[0]);
   if (sub === 'repair') return await rigRepair(player, truck, cd, rest[0], rest[1] || (PARTS.includes((rest[0]||'').toLowerCase()) ? rest[0] : null));
@@ -99,7 +168,9 @@ async function cmdRig(args, raw, player) {
   if (sub === 'wash') return await rigWash(player, truck, cd);
   if (sub === 'fuel') return await rigFuel(player, truck, bay, depot);
   if (sub === 'name') return await rigName(player, truck, rest.join(' '));
-  return say('<span class="text-dim">rig fit [&lt;fitting&gt;|&lt;place&gt;|all] | rig unfit &lt;fitting|place&gt; | rig cab [&lt;thing&gt;|&lt;place&gt;|all|off &lt;thing|place&gt;] | rig wash | rig repair [shop] [engine|wheels|body] | rig strip | rig parts &lt;engine|wheels|body&gt; | rig spares [n] | rig tune &lt;gearing&gt; &lt;boost&gt; &lt;suspension&gt; &lt;brakes&gt; | rig kit &lt;id&gt; | rig paint [preset &lt;name&gt;|base=… trim=… hw=… deck=… bright=… glow=… glass=… flash=… finish=… art=…] | rig trim [&lt;material&gt;] [&lt;colourway&gt;|panel=… needle=… glow=…] | rig fuel | rig name &lt;plate&gt;</span>');
+  if (sub === 'service') return await rigService(player, truck, cd, (rest[0] || 'all').toLowerCase());
+  if (sub === 'horn') return await rigHorn(player, truck, cd, (rest[0] || '').toLowerCase());
+  return say('<span class="text-dim">rig service [oil|tyres|pads|all] | rig horn [&lt;horn&gt;] | rig fit [&lt;fitting&gt;|&lt;place&gt;|all] | rig unfit &lt;fitting|place&gt; | rig cab [&lt;thing&gt;|&lt;place&gt;|all|off &lt;thing|place&gt;] | rig wash | rig repair [shop] [engine|wheels|body] | rig strip | rig parts &lt;engine|wheels|body&gt; | rig spares [n] | rig tune &lt;gearing&gt; &lt;boost&gt; &lt;suspension&gt; &lt;brakes&gt; | rig kit &lt;id&gt; | rig paint [preset &lt;name&gt;|base=… trim=… hw=… deck=… bright=… glow=… glass=… flash=… finish=… art=…] | rig trim [&lt;material&gt;] [&lt;colourway&gt;|panel=… needle=… glow=…] | rig fuel | rig name &lt;plate&gt;</span>');
 }
 
 // The counter. Cheap, heavy, and the thing everybody decides they do not need on the way out of the
@@ -136,7 +207,7 @@ async function rigParts(player, what) {
   return say(spec.carry
     ? `<span class="item-grant">${cap(spec.label)}, ${cost}₵. It goes in the cab and you'll feel it on every hill.</span>`
     : `<span class="item-grant">${cap(spec.label)}, ${cost}₵.</span>
-<span class="text-dim">The yard crane swings it down onto the hardstand beside you. It stays where it lands — an engine isn't luggage.</span>`);
+<span class="text-dim">The yard crane swings it down onto the hardstand beside you. It stays where it lands: an engine isn't luggage.</span>`);
 }
 
 const SPARES_PRICE = 140;
@@ -193,7 +264,7 @@ async function partsMissing(player, dmg, parts) {
     if (have.rows.length) continue;
     return say(`<span class="text-amber">The ${PART_LABELS[p].label.toLowerCase()} hasn't worn out, it has FAILED.</span>
 `
-      + `<span class="text-dim">No hours and no money fix that — it needs ${spec.label}`
+      + `<span class="text-dim">No hours and no money fix that: it needs ${spec.label}`
       + (spec.carry ? ", and you aren't carrying any. " : ", and there isn't one standing here. An engine goes where a forklift puts it. ")
       + `Yards sell them.</span>`);
   }
@@ -292,7 +363,7 @@ async function rigFit(player, truck, cd, arg) {
   if (live?.truckId === truck.id) live.cd = cd;
   await repush(player, 'bench');
   const swapped = already ? ` <span class="text-dim">The ${FITTINGS[already].name} comes off and goes in the drawer.</span>` : '';
-  return say(`<span class="item-grant">Fitted: ${f.name}${cost ? ` — ${cost}₵` : ' — already yours, no charge'}.</span> `
+  return say(`<span class="item-grant">Fitted: ${f.name}${cost ? `, ${cost}₵` : ', already yours, no charge'}.</span> `
     + `<span class="text-dim">${f.desc}</span>${swapped}`);
 }
 
@@ -307,14 +378,14 @@ async function rigUnfit(player, truck, cd, arg) {
   const slot = SLOTS.find((s) => s.id === key);
   const id = slot ? fitInSlot(cd, slot.id)
     : (FITTINGS[key] ? key : FIT_IDS.find((k) => FITTINGS[k].name.toLowerCase() === key));
-  if (!id || !fitted.includes(id)) return say("Nothing like that's on it.");
+  if (!id || !fitted.includes(id)) return say("Nothing like that is on it.");
   cd.fits = fitted.filter((k) => k !== id);
   await saveTruckData(truck.id, player.id, cd);
   const live = rigOf(player);
   if (live?.truckId === truck.id) live.cd = cd;
   await repush(player, 'bench');
   return say(`<span class="item-grant">Off comes the ${FITTINGS[id].name}.</span> `
-    + `<span class="text-dim">It goes in the drawer — putting it back on costs nothing.</span>`);
+    + `<span class="text-dim">It goes in the drawer: putting it back on costs nothing.</span>`);
 }
 
 // ── THE SHELF, AS TYPABLE LINES ──────────────────────────────────────────────
@@ -335,12 +406,12 @@ async function rigUnfit(player, truck, cd, arg) {
 // as well as the catalogue.
 function fitCatalogue(truck, cd, only) {
   const fitted = new Set(installedFits(cd));
-  const head = `<span class="text-amber">The cosmetic shelf — ${truck.type.name}</span>\n`
+  const head = `<span class="text-amber">The cosmetic shelf: ${truck.type.name}</span>\n`
     + `<span class="text-dim">None of it does anything. One per place; swapping is free once it's yours.</span>`;
   const shelf = (sid) => SLOTS.filter((s) => !sid || s.id === sid).map((s) => {
     const items = FIT_IDS.filter((id) => FITTINGS[id].slot === s.id).map((id) => {
       const f = FITTINGS[id], on = fitted.has(id), price = priceFor(cd, id);
-      const line = `  <b>${on ? '●' : '○'}</b> <b>${f.name}</b> <span class="text-dim">— ${price ? `${price}₵` : 'in the drawer'} · `
+      const line = `  <b>${on ? '●' : '○'}</b> <b>${f.name}</b> <span class="text-dim">· ${price ? `${price}₵` : 'in the drawer'} · `
         + `${on ? `rig unfit ${id}` : `rig fit ${id}`}</span>`;
       // The description only in the one-place view. It is what tells you what the thing IS, and it
       // is the reason a single shelf is worth asking for — but thirty-eight of them is the wall.
@@ -410,7 +481,7 @@ async function rigCab(player, truck, cd, args) {
   if (live?.truckId === truck.id) live.cd = cd;
   await repush(player, 'bench');
   const swapped = already ? ` <span class="text-dim">The ${TRINKETS[already].name} comes down and goes in the drawer.</span>` : '';
-  return say(`<span class="item-grant">In it goes: ${t.name}${cost ? ` — ${cost}₵` : ' — already yours, no charge'}.</span> `
+  return say(`<span class="item-grant">In it goes: ${t.name}${cost ? `, ${cost}₵` : ', already yours, no charge'}.</span> `
     + `<span class="text-dim">${t.desc}</span>${swapped}`
     + `\n<span class="text-dim">You'll see it next time you climb in.</span>`);
 }
@@ -422,14 +493,14 @@ async function rigCabOff(player, truck, cd, key) {
   const slot = CAB_SLOTS.find((s) => s.id === key || s.label.toLowerCase() === key);
   const id = slot ? trinketIn(cd, slot.id)
     : (TRINKETS[key] ? key : TRINKET_IDS.find((k) => TRINKETS[k].name.toLowerCase() === key));
-  if (!id || !up.includes(id)) return say("Nothing like that's in it.");
+  if (!id || !up.includes(id)) return say("Nothing like that is in it.");
   cd.cab = up.filter((k) => k !== id);
   await saveTruckData(truck.id, player.id, cd);
   const live = rigOf(player);
   if (live?.truckId === truck.id) live.cd = cd;
   await repush(player, 'bench');
   return say(`<span class="item-grant">Down comes the ${TRINKETS[id].name}.</span> `
-    + '<span class="text-dim">It goes in the drawer — putting it back costs nothing.</span>');
+    + '<span class="text-dim">It goes in the drawer: putting it back costs nothing.</span>');
 }
 
 // The same three answers `rig fit` gives, in the same shape and for the same reason: the sheet, one
@@ -438,12 +509,12 @@ async function rigCabOff(player, truck, cd, key) {
 // a second set of words to browse the inside of their own truck.
 function cabCatalogue(truck, cd, only) {
   const up = new Set(installedTrinkets(cd));
-  const head = '<span class="text-amber">The inside of the cab — ' + truck.type.name + '</span>\n'
+  const head = '<span class="text-amber">The inside of the cab: ' + truck.type.name + '</span>\n'
     + "<span class=\"text-dim\">Nobody sees any of it but you. One per place; swapping is free once it's yours.</span>";
   const shelf = (sid) => CAB_SLOTS.filter((s) => !sid || s.id === sid).map((s) => {
     const items = trinketsIn(s.id).map((t) => {
       const on = up.has(t.id), price = trinketPrice(cd, t.id);
-      const line = `  <b>${on ? '●' : '○'}</b> <b>${t.name}</b> <span class="text-dim">— ${price ? `${price}₵` : 'in the drawer'} · `
+      const line = `  <b>${on ? '●' : '○'}</b> <b>${t.name}</b> <span class="text-dim">· ${price ? `${price}₵` : 'in the drawer'} · `
         + `${on ? `rig cab off ${t.id}` : `rig cab ${t.id}`}</span>`;
       return sid ? `${line}\n     <span class="text-dim">${t.desc}</span>` : line;
     }).join('\n');
@@ -494,7 +565,7 @@ async function rigWash(player, truck, cd) {
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   await repush(player, 'bench');
   return say(`<span class="item-grant">Hot water and a long brush, and ${cost}₵ of somebody's afternoon. `
-    + `The ${truck.type.name} comes out from under it — ${was.label.toLowerCase()}, and now not.</span>`);
+    + `The ${truck.type.name} comes out from under it: ${was.label.toLowerCase()}, and now not.</span>`);
 }
 
 async function rigRepair(player, truck, cd, mode, part) {
@@ -510,7 +581,7 @@ async function rigRepair(player, truck, cd, mode, part) {
   if (target) return await rigRepairPart(player, truck, cd, dmg, target, pro);
   const cond = truck.condition ?? 1;
   if (cond >= 0.995) return say(`The ${truck.type.name} is as good as it gets.`);
-  if (!pro && cond >= FIELD_CAP) return say(`Nothing you can do to it with hand tools — it's already past what a field repair reaches. <span class="text-dim">rig repair shop</span>`);
+  if (!pro && cond >= FIELD_CAP) return say(`Nothing you can do to it with hand tools: it's already past what a field repair reaches. <span class="text-dim">rig repair shop</span>`);
   // THE WHOLE TRUCK, IF NOTHING ON IT HAS ACTUALLY FAILED. That is the rule the parts economy
   // hangs on: an ordinary tired rig is one bill and one visit, exactly as it always was, and it is
   // only a component that has GONE which turns the job into finding the thing itself.
@@ -546,7 +617,7 @@ async function rigRepair(player, truck, cd, mode, part) {
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   await repush(player, 'bench');
   const band = bandOf(overall(dmg));
-  return say(`<span class="item-grant">${pro ? "The depot's fitters take it in and give it back right" : 'You get under it yourself'} — ${cost}₵. `
+  return say(`<span class="item-grant">${pro ? "The depot's fitters take it in and give it back right" : 'You get under it yourself'}: ${cost}₵. `
     + `${truck.type.name}: <b>${band.label}</b> (${Math.round(overall(dmg) * 100)}%).</span>${note}`);
 }
 
@@ -583,7 +654,7 @@ async function rigRepairPart(player, truck, cd, dmg, part, pro) {
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   await repush(player, 'bench');
-  return say(`<span class="item-grant">${pro ? 'The fitters have it out and back in' : 'You do the ' + label.toLowerCase() + ' yourself'} — ${cost}₵. `
+  return say(`<span class="item-grant">${pro ? 'The fitters have it out and back in' : 'You do the ' + label.toLowerCase() + ' yourself'}: ${cost}₵. `
     + `<b>${label}: ${partBand(to).label}</b> (${Math.round(to * 100)}%).</span>${note}\n`
     + `<span class="text-dim">Truck overall: ${bandOf(overall(dmg)).label}.</span>`);
 }
@@ -603,7 +674,7 @@ async function rigTune(player, truck, cd, vals) {
   await repush(player, 'bench');
   const capped = keys.some(k => Math.abs(next[k]) >= range);
   return say(`<span class="item-grant">Dialled in: ${keys.map(k => `${TUNE_PARAMS[k].label} ${next[k] > 0 ? '+' : ''}${next[k]}`).join(', ')}.</span>`
-    + (capped ? ' <span class="text-dim">That\'s as far as your hands and your gear will take it — a workshop instrument set would go further.</span>' : ''));
+    + (capped ? ' <span class="text-dim">That\'s as far as your hands and your gear will take it: a workshop instrument set would go further.</span>' : ''));
 }
 
 async function rigKit(player, truck, cd, kitId) {
@@ -667,7 +738,7 @@ async function rigPaint(player, truck, cd, args) {
     const list = (rows) => rows.map(r => r.id).join(', ');
     return say('<span class="text-dim">rig paint &lt;id&gt; base=#rrggbb trim=#rrggbb hw=#rrggbb deck=#rrggbb '
       + 'bright=#rrggbb glow=#rrggbb glass=#rrggbb '
-      + 'flash=&lt;job&gt; finish=&lt;coat&gt; art=&lt;door&gt; chrome=0|1 — or <b>rig paint &lt;id&gt; preset &lt;name&gt;</b>.\n'
+      + 'flash=&lt;job&gt; finish=&lt;coat&gt; art=&lt;door&gt; chrome=0|1, or <b>rig paint &lt;id&gt; preset &lt;name&gt;</b>.\n'
       + `Jobs: ${list(FLASHES)}.\nCoats: ${list(FINISHES)}.\nDoor: ${list(ARTS)}.\nSchemes: ${list(PAINT_PRESETS)}.</span>`);
   }
   const next = sanitizePaint(patch, prev);
@@ -681,7 +752,7 @@ async function rigPaint(player, truck, cd, args) {
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   await repush(player, 'bench');
-  return say(`<span class="item-grant">Resprayed — ${cost}₵.</span> <span class="text-dim">${(FINISHES.find(f => f.id === next.finish) || {}).label || 'Gloss'}, and it comes out of the booth still smelling of it.</span>`);
+  return say(`<span class="item-grant">Resprayed: ${cost}₵.</span> <span class="text-dim">${(FINISHES.find(f => f.id === next.finish) || {}).label || 'Gloss'}, and it comes out of the booth still smelling of it.</span>`);
 }
 
 // ── rig trim ─────────────────────────────────────────────────────────────────
@@ -732,8 +803,8 @@ async function rigTrim(player, truck, cd, args) {
     // "which of these am I looking at" is the first question anybody asks at a swatch book.
     const line = (k, label, blurb, on) =>
       `  <span class="action-link" data-action="cmd" data-cmd="rig trim ${k}">${on ? '<b>' : ''}${k}${on ? '</b>' : ''}</span>`
-      + ` — ${label}${blurb ? `<span class="text-dim">, ${blurb}</span>` : ''}${on ? ' <span class="text-dim">(fitted)</span>' : ''}`;
-    return say(`<b>Interior trim</b> <span class="text-dim">— ${cost}₵ a job, however much of it you change.</span>\n`
+      + `: ${label}${blurb ? `<span class="text-dim">, ${blurb}</span>` : ''}${on ? ' <span class="text-dim">(fitted)</span>' : ''}`;
+    return say(`<b>Interior trim</b> <span class="text-dim">· ${cost}₵ a job, however much of it you change.</span>\n`
       + `<span class="text-dim">Material:</span>\n`
       + mats.map(([k, m]) => line(k, m.label, m.blurb, k === (now.mat || truckStockTrim(truck).mat))).join('\n')
       + `\n<span class="text-dim">Colourway:</span>\n`
@@ -753,7 +824,7 @@ async function rigTrim(player, truck, cd, args) {
   await repush(player, 'bench');
   const said = [next.mat && DASH_MATERIALS[next.mat]?.label,
     next.col === CUSTOM_COL ? 'your own mix' : next.col && DASH_COLOURWAYS[next.col]?.label].filter(Boolean).join(', ');
-  return say(`<span class="item-grant">Retrimmed — ${cost}₵.</span> ${said}. It smells of glue and it'll for a week.`);
+  return say(`<span class="item-grant">Retrimmed: ${cost}₵.</span> ${said}. It smells of glue and it'll for a week.`);
 }
 // What the truck LEFT THE FACTORY IN, for the catalogue's "fitted" marks. One mapping, in the
 // shared file the renderer reads — a second copy here would drift the first time a stock interior
@@ -798,6 +869,59 @@ async function rigName(player, truck, plate) {
   await query('UPDATE trucks SET name=$1 WHERE id=$2 AND owner_id=$3', [clean, truck.id, player.id]).catch(() => {});
   await repush(player, 'fleet');
   return say(`<span class="item-grant">Signwritten: <b>${clean}</b>.</span>`);
+}
+
+// ── `rig service` — oil, tyres, linings ──────────────────────────────────────
+// The three things that wear out from the miles alone (service.js). Priced off the truck's own list
+// price like every other bench job, and the stamp is the ODOMETER — nothing here writes a bar.
+async function rigService(player, truck, cd, what) {
+  const which = what === 'brakes' || what === 'linings' ? 'pads' : what === 'tires' ? 'tyres' : what;
+  if (which !== 'all' && !SERVICE[which]) {
+    const sheet = serviceSheet(truck.type, cd, truck.odometer);
+    return say(`<span class="text-cyan">SERVICE: ${truck.name || truck.type.name}</span>\n`
+      + sheet.items.map((i) => `  ${i.label}: <b>${i.bandLabel}</b> <span class="text-dim">(${Math.round(i.life * 100)}%) · ${i.price}₵</span>`).join('\n')
+      + `\n  <span class="text-dim">All three together: ${sheet.full}₵ · </span>rig service all`);
+  }
+  const cost = servicePrice(truck.type, which);
+  if ((player.credits || 0) < cost) return say(`That's ${cost}₵ and you have ${player.credits || 0}₵.`);
+  player.credits -= cost;
+  const next = stampService(cd, truck.odometer, which);
+  await saveTruckData(truck.id, player.id, next);
+  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+  sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
+  await repush(player, 'bench');
+  const line = which === 'all'
+    ? 'Oil drained and filled, a new set of tyres walked out and fitted, the linings changed. The fitter signs the book and stamps it.'
+    : which === 'oil' ? 'A drip tray, a filter wrench and twenty minutes. It comes out black and goes in gold.'
+    : which === 'tyres' ? 'The old set comes off bald and the new set goes on with the paper stickers still on the tread.'
+    : 'The drums come off, the old linings are down to the rivets, and the new ones smell of hot glue.';
+  return say(`<span class="item-grant">${line} ${cost}₵.</span>`);
+}
+
+// ── `rig horn` — what the yard hears ─────────────────────────────────────────
+// The fittings shelf's rule for the drawer: a horn bought once is this truck's for good and swapping
+// back to it is free. `stock` is not stored — it is the ABSENCE of a choice (truck-horns.js).
+async function rigHorn(player, truck, cd, id) {
+  if (!id) {
+    const cur = hornOf(cd) || 'stock';
+    return say(`<span class="text-cyan">HORNS</span>\n`
+      + hornCatalogue().map((h) => `  ${h.id === cur ? '<span class="text-green">▸</span>' : ' '} <b>${h.name}</b> <span class="text-dim">(${h.id}): ${hornPrice(cd, h.id) ? hornPrice(cd, h.id) + '₵' : 'free'} · ${h.desc}</span>`).join('\n'));
+  }
+  if (!TRUCK_HORNS[id]) return say(`No horn called that. <span class="text-dim">${HORN_IDS.join(', ')}</span>`);
+  if ((hornOf(cd) || 'stock') === id) return say('That is the horn it already has.');
+  const cost = hornPrice(cd, id);
+  if ((player.credits || 0) < cost) return say(`That horn is ${cost}₵ and you have ${player.credits || 0}₵.`);
+  const next = { ...cd };
+  if (id === 'stock') delete next.horn; else next.horn = id;
+  if (id !== 'stock') next.owned_horns = [...new Set([...(Array.isArray(cd.owned_horns) ? cd.owned_horns : []), id])];
+  if (cost) {
+    player.credits -= cost;
+    await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+    sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
+  }
+  await saveTruckData(truck.id, player.id, next);
+  await repush(player, 'bench');
+  return say(`<span class="item-grant">${id === 'stock' ? 'The factory trumpets go back on the roof.' : `${TRUCK_HORNS[id].name}, piped to the air tank and tested once, loudly.`}${cost ? ` ${cost}₵.` : ''}</span>`);
 }
 
 // ── `rig strip` — the road as a supply line ──────────────────────────────────

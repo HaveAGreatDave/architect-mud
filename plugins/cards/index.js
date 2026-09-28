@@ -409,8 +409,8 @@ async function cmdMint(args, raw, player, broadcast) {
   // didn't qualify.
   if (!confirming) {
     const gaps = [];
-    if (!card.text_blocks.origin) gaps.push('no <b>.describe</b> text will print — write one with <span class="cmd">describe</span> first');
-    if (!card.text_blocks.quote) gaps.push('nothing you said here recently fits the quote line — write one with <span class="cmd">mintquote</span>');
+    if (!card.text_blocks.origin) gaps.push('no <b>.describe</b> text will print: write one with <span class="cmd">describe</span> first');
+    if (!card.text_blocks.quote) gaps.push('nothing you said here recently fits the quote line: write one with <span class="cmd">mintquote</span>');
 
     // THE PRESS IS THE SHOW; THIS TEXT IS THE RECORD. Same contract the pack
     // reveal states about itself: `message` always prints, so the cabinet can be
@@ -473,7 +473,7 @@ async function cmdMint(args, raw, player, broadcast) {
     series: struck.series,
     credits: player.credits,
     message: `${renderCard({ ...card, series: struck.series, serial: struck.serial })}\n`
-      + `<span class="success">Struck № ${String(struck.serial).padStart(4, '0')} — ${date}, ${time}, ${zone?.name || 'here'}. `
+      + `<span class="success">Struck № ${String(struck.serial).padStart(4, '0')}, ${date}, ${time}, ${zone?.name || 'here'}. `
       + `It's in the pool now. Somebody will pull you out of a machine.</span>`,
   };
 }
@@ -571,9 +571,9 @@ async function cmdBuyPack(args, raw, player, broadcast) {
       slots,
       pool: { total: catalogue.length, byRank: poolBreakdown(catalogue) },
       message: !catalogue.length
-        ? `The ${machine.name} lights its window. Every coil reads SOLD OUT — nobody has minted anything yet.`
+        ? `The ${machine.name} lights its window. Every coil reads SOLD OUT: nobody has minted anything yet.`
         : stocked
-          ? `The ${machine.name} lights its window. Nine coils, ${stocked} sleeve${stocked === 1 ? '' : 's'} between them — take your pick.`
+          ? `The ${machine.name} lights its window. Nine coils, ${stocked} sleeve${stocked === 1 ? '' : 's'} between them: take your pick.`
           : `The ${machine.name} lights its window, and every coil behind the glass is bare. Somebody cleaned it out.`,
     };
   }
@@ -585,7 +585,7 @@ async function cmdBuyPack(args, raw, player, broadcast) {
   const slot = asked || fullestSlot(machine, day);
   if (!slot) return { type: 'error', message: `Every coil in the ${machine.name} is bare. Come back when it's been filled.` };
   if (asked && slotLeft(machine, day, asked) < 1) {
-    return { type: 'error', message: `Coil ${asked} is empty — the price card behind it has faded. Pick another.` };
+    return { type: 'error', message: `Coil ${asked} is empty: the price card behind it has faded. Pick another.` };
   }
   if ((player.credits || 0) < PACK_PRICE) return { type: 'error', message: `A sleeve is ₵${PACK_PRICE}. You have ₵${player.credits || 0}.` };
   const taken = takeFromSlot(machine, day, slot);
@@ -605,12 +605,12 @@ async function cmdBuyPack(args, raw, player, broadcast) {
     credits: player.credits,
     packs: await packsHeld(player.id),
     slots: slotsFor(machine, day),
-    message: `Coil <b>${slot}</b> turns. The sleeve tips, drops, and the ${machine.name} kicks it into the tray — `
+    message: `Coil <b>${slot}</b> turns. The sleeve tips, drops, and the ${machine.name} kicks it into the tray...`
       + `<b>₵${PACK_PRICE}</b> gone, <b>₵${player.credits}</b> left. `
       // The offer, in the log as well as on the panel: a player who bought by
       // typing never sees the cabinet's button, and "you may open it now" is the
       // whole point of the sleeve being a thing you carry rather than a payout.
-      + `Tear it now or keep it sealed — <span class="action-link cmd" data-action="cmd" data-cmd="openpack">openpack</span>.`,
+      + `Tear it now or keep it sealed: <span class="action-link cmd" data-action="cmd" data-cmd="openpack">openpack</span>.`,
   };
 }
 
@@ -635,7 +635,7 @@ async function cmdOpenPack(args, raw, player, broadcast) {
   if (!catalogue.length) return { type: 'error', message: "The pool is empty. There's nothing in the sleeve to be." };
   const sleeve = await consumeSleeve(player.id);
   if (!sleeve) {
-    return { type: 'error', message: `You have no unopened sleeves. They come out of a card machine — ₵${PACK_PRICE} a go.` };
+    return { type: 'error', message: `You have no unopened sleeves. They come out of a card machine: ₵${PACK_PRICE} a go.` };
   }
 
   // A sleeve with no seed is one bought before coils meant anything. It rolls
@@ -704,13 +704,13 @@ async function cmdOpenPack(args, raw, player, broadcast) {
     // the overlay mid-reveal, or whose client is old enough not to know the type,
     // still has to be able to read what they pulled.
     message: `<span class="card-sleeve" data-count="${cards.length}">`
-      + (hot ? `<span class="card-hot">HOT RUN — the foil under the foil is gold. Triple weight on epic and legendary.</span>` : '')
+      + (hot ? `<span class="card-hot">HOT RUN: the foil under the foil is gold. Triple weight on epic and legendary.</span>` : '')
       + `<span class="card-tear">The sleeve tears. <b>${cards.length}</b> cards.`
       + (sleeve.coil ? ` <span class="text-dim">Coil ${sleeve.coil}${sleeve.machine ? `, ${sleeve.machine}` : ''}.</span>` : '')
       + `</span>`
       + lines.join('')
       + `</span>`
-      + (scrapped ? `\n<span class="text-dim">Dupes in there — <span class="cmd">scrap</span> them for ₵${scrapped}.</span>` : ''),
+      + (scrapped ? `\n<span class="text-dim">Dupes in there: <span class="cmd">scrap</span> them for ₵${scrapped}.</span>` : ''),
   });
 }
 
@@ -733,7 +733,7 @@ async function cmdCards(args, raw, player) {
   const byRank = {};
   for (const r of rows) (byRank[r.rarity] ||= []).push(r);
   const order = [...RANKS].reverse().concat('architect');
-  const out = [`<span class="card-shelf-head">Your shelf — ${rows.length} card${rows.length === 1 ? '' : 's'}</span>`];
+  const out = [`<span class="card-shelf-head">Your shelf: ${rows.length} card${rows.length === 1 ? '' : 's'}</span>`];
   for (const rank of order) {
     const set = byRank[rank];
     if (!set?.length) continue;
@@ -838,7 +838,7 @@ function cardFurnitureDescribe(f) {
   if (!live) {
     return `<span class="cardmach cardmach-dead${isMint ? ' cardmach-mint' : ''}">`
       + `<span class="cardmach-top"><span class="cardmach-pwr">○ DARK</span></span>`
-      + `<span class="cardmach-win cardmach-off">— no power —${isMachine ? '\nthe glass just shows you the room' : ''}</span>`
+      + `<span class="cardmach-win cardmach-off">no power: ${isMachine ? '\nthe glass just shows you the room' : ''}</span>`
       + `</span>`;
   }
 
@@ -854,7 +854,7 @@ function cardFurnitureDescribe(f) {
   }
   return `<span class="cardmach cardmach-mint">`
     + `<span class="cardmach-top"><span class="cardmach-pwr">● READY</span></span>`
-    + `<span class="cardmach-win">Strike your own card — ₵${MINT_FEE}\nOne every 7 days. Frozen at the moment you pay.</span>`
+    + `<span class="cardmach-win">Strike your own card: ₵${MINT_FEE}\nOne every 7 days. Frozen at the moment you pay.</span>`
     + `<span class="action-link cardmach-buy" data-action="cmd" data-cmd="mint" title="Preview your card">PREVIEW · FREE</span>`
     + `</span>`;
 }
@@ -935,7 +935,7 @@ export async function routeHandler(path, method, body, auth) {
       ]);
       if (r.rows.length) rebuilt = buildEnemyCard(r.rows[0], s.rows[0] || {});
     }
-    if (!rebuilt) return { status: 400, body: { error: 'Only NPC and enemy cards can be re-derived — a player card is a frozen moment and has no live source.' } };
+    if (!rebuilt) return { status: 400, body: { error: 'Only NPC and enemy cards can be re-derived: a player card is a frozen moment and has no live source.' } };
     await query('UPDATE cards SET text_blocks=$1, spec=$2, power=$3 WHERE id=$4',
       [JSON.stringify(rebuilt.text_blocks), JSON.stringify(rebuilt.spec), rebuilt.power, id]);
     invalidatePool();

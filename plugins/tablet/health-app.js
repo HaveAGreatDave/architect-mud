@@ -118,11 +118,11 @@ function buildMeters(player) {
       note: rad >= 40 ? 'mutagenic dose' : rad >= 25 ? 'hot' : rad > 0 ? 'traces' : 'clean' },
     { key: 'temp', label: 'Core temp', value: temp, max: 100,
       pct: Math.max(4, Math.min(100, Math.round((tempOff / 8) * 100))), band: tempBand, invert: true,
-      note: `${temp.toFixed(1)}°C — ${tempNote}` },
+      note: `${temp.toFixed(1)}°C: ${tempNote}` },
     { key: 'fatigue', label: 'Fatigue', value: tired, max: 100, pct: tired, band: bandLow(tired), invert: true,
       // One ladder, shared with the Environment pane — see FATIGUE_BANDS. The
       // urgency is the app's own: this is the screen you open to be told to act.
-      note: tired >= FATIGUE_RUINED ? 'wrecked — sleep now' : fatigueLabel(tired).toLowerCase() },
+      note: tired >= FATIGUE_RUINED ? 'wrecked: sleep now' : fatigueLabel(tired).toLowerCase() },
   ];
 
   const intox = Math.round(player.intoxication || 0);
@@ -148,22 +148,22 @@ function describeBand(v, ladder) {
   return { text: last[1], band: last[2] };
 }
 const HUNGER_LADDER = [
-  [85, "full — couldn't eat another thing", 'good'],
+  [85, "full: couldn't eat another thing", 'good'],
   [60, 'fed', 'good'],
   [40, 'starting to think about food', 'good'],
   [22, 'hungry', 'warn'],
-  [8, "very hungry — it's getting hard to ignore", 'bad'],
+  [8, "very hungry: it's getting hard to ignore", 'bad'],
   [1, 'starving', 'crit'],
-  [0, 'starving to death — this is costing you HP', 'crit'],
+  [0, 'starving to death: this is costing you HP', 'crit'],
 ];
 const THIRST_LADDER = [
   [85, 'watered', 'good'],
   [60, 'comfortable', 'good'],
   [40, 'dry-mouthed', 'good'],
   [22, 'thirsty', 'warn'],
-  [8, 'very thirsty — your head is starting to ache', 'bad'],
+  [8, 'very thirsty: your head is starting to ache', 'bad'],
   [1, 'parched', 'crit'],
-  [0, 'dehydrated — this is costing you HP, fast', 'crit'],
+  [0, 'dehydrated: this is costing you HP, fast', 'crit'],
 ];
 
 function buildReadouts(player) {
@@ -218,7 +218,7 @@ function buildAfflictions(player, drugStatus) {
   for (const d of drugStatus) {
     if (d.withdrawalSeverity > 0) {
       add(`${d.name} withdrawal`, d.substituted
-        ? `Biting at ${Math.round(d.withdrawalSeverity * 100)}% — something similar is taking the edge off.`
+        ? `Biting at ${Math.round(d.withdrawalSeverity * 100)}%: something similar is taking the edge off.`
         : `Biting at ${Math.round(d.withdrawalSeverity * 100)}%. It won't improve on its own.`, 'bad');
     } else if (d.withdrawalIn > 0) {
       add(`${d.name} dependency`, `Starts asking in about ${fmtDuration(d.withdrawalIn)}.`, 'warn');

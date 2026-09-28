@@ -5,9 +5,7 @@
       "mat",
       "rubber"
     ],
-    "interactions": {
-      "examine": "The pale patches are worn right through to the backing. Whoever has stood here has stood here in the same place a very great many times."
-    }
+    "examine_detail": "The pale patches are worn right through to the backing. Whoever has stood here has stood here in the same place a very great many times."
   },
   "id": "furn_current_mat",
   "name": "the rubber mat",

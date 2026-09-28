@@ -7,7 +7,6 @@ import { openMusicPlayerPanel } from './panels/musicplayer.js';
 import { DISCORD_INVITE } from './panels/tablet-os.js';
 import { isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
 import { isHangarBayWalkActive } from './panels/hangar-bay.js';
-import { isTruckDepotWalkActive } from './panels/truck-depot.js';
 import { isPianoKeysLive } from './panels/piano.js';
 // THE CAB owns A/Z/X/C, the arrows, the comma and the full stop — nearly the whole letter row.
 // Without this guard every one of them is also a printable character, so the auto-focus below
@@ -33,12 +32,40 @@ const COMPASS = ['east', 'south-east', 'south', 'south-west', 'west', 'north-wes
 // Grid y grows SOUTH (map-text.js: dy < 0 is north), so atan2 on the raw grid deltas is a
 // clockwise bearing from east.
 const compassOf = (dx, dy) => COMPASS[((Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) % 8) + 8) % 8];
+// `.thermals` — on / off draws every thermal column as rings in whatever view is open; with no
+// argument it reports what the last frame found and the lift under your aircraft. Client-only,
+// like `.murmur`: it moves the picture and nothing else.
+function runThermalsCommand(arg) {
+  const tune = typeof window !== 'undefined' ? window.__wsTune : null;
+  if (arg === 'on' || arg === 'off') {
+    const on = arg === 'on';
+    if (tune) tune.thermalDebug = on ? 1 : 0; else window.__thermalDebugPending = on;
+    appendMsg(on ? 'Thermal columns shown as rings: orange strong, yellow moderate, pale weak.' + (tune ? '' : ' They appear when a view opens.')
+      : 'Thermal columns hidden.', 'system');
+    return;
+  }
+  if (arg && arg !== 'status') { appendMsg('Usage: .thermals [on|off]. No argument reports what the view found.', 'system'); return; }
+  const st = window.__thermalStats ? window.__thermalStats() : null;
+  if (!st) { appendMsg('No view has loaded yet. Open the cockpit, the cab, free look or a telescope, then try again.', 'system'); return; }
+  const lines = [];
+  if (st.why === 'no sun') lines.push('No thermals now: they need daytime sun, and rain, storms and fog stop them.');
+  else if (st.why === 'no map') lines.push('No view is drawing the world yet.');
+  else lines.push(`${st.cols} live column${st.cols === 1 ? '' : 's'} in view range, ${st.caps} with a cumulus cap, ${st.devils} dust devil${st.devils === 1 ? '' : 's'}.`);
+  const h = window.__thermalHere;
+  if (h && Date.now() - h.at < 3000) {
+    const l = Math.round(h.lift || 0);
+    lines.push(`Air under you: ${l > 0 ? '+' : ''}${l} ft/min (${l > 150 ? 'rising' : l < -50 ? 'sinking' : 'still'}), at ${Math.round(h.alt)} ft, climbing ${Math.round(h.vs)} ft/min.`);
+  }
+  lines.push(`Rings are ${tune && tune.thermalDebug ? 'on' : 'off'} (.thermals on / .thermals off).`);
+  appendMsg(lines.join(' '), 'system');
+}
+
 function runMurmurCommand(arg) {
   const on = !(arg === 'off' || arg === 'stop');
   const fn = typeof window !== 'undefined' ? window.__murmuration : null;
   if (!fn) {
     window.__murmurPending = on;
-    appendMsg(on ? 'Murmuration armed. It starts when a view opens — cockpit, cab, free look or a telescope.'
+    appendMsg(on ? 'Murmuration armed. It starts when a view opens: cockpit, cab, free look or a telescope.'
       : 'Murmuration disarmed.', 'system');
     return;
   }
@@ -51,12 +78,12 @@ function runMurmurCommand(arg) {
     const near = r.near();
     if (!near) {
       const why = r.why && r.why();
-      appendMsg(why === 'high' ? 'Too high to see them. Birds are only drawn low over the ground — come down below the rooftops.'
+      appendMsg(why === 'high' ? 'Too high to see them. Birds are only drawn low over the ground, come down below the rooftops.'
         : why === 'dark' ? 'Too dark to see them. Something else is pinning the hour; clear it with __wsTune.hourForce = null.'
         : 'No view is drawing birds. Open the cockpit, the cab, free look or a telescope.', 'system');
       return;
     }
-    if (!near.length) { appendMsg('No starlings in range of here — they keep to streets, parks and rooftops. Try the city.', 'system'); return; }
+    if (!near.length) { appendMsg('No starlings in range of here. They keep to streets, parks and rooftops. Try the city.', 'system'); return; }
     appendMsg('Nearest: ' + near.map((q) => `${Math.hypot(q.dx, q.dy).toFixed(1)} tiles ${compassOf(q.dx, q.dy)} (${q.n} birds)`).join(' · ') + '.', 'system');
   }, 500);
 }
@@ -131,6 +158,8 @@ export function handleClientCommand(cmd, { saveOrigin, notify } = {}) {
   // demand. Dot-prefixed with `.savelog` because it is a dev meta-command with no in-world
   // meaning, and client-side because it moves the picture and nothing else.
   if (lower === '.murmur' || lower.startsWith('.murmur ')) { runMurmurCommand(lower.slice(7).trim()); return true; }
+  // Thermals debug: the columns as rings out of any view, and what the lift is doing right now.
+  if (lower === '.thermals' || lower.startsWith('.thermals ')) { runThermalsCommand(lower.slice(9).trim()); return true; }
   // Automation. Same collision rule as the log tools above — all four were
   // checked against the live registries and none is claimed by the engine or any
   // plugin. `set`/`unset` are deliberately NOT client verbs: they are macro-script
@@ -348,7 +377,7 @@ export function initInput({ saveOrigin, notify } = {}) {
     if (e.ctrlKey || e.altKey || e.metaKey) return;   // browser/OS combinations
     if (document.getElementById('auth-screen')?.style.display !== 'none') return;
     if (isFlightSimActive() || isCockpitHudActive() || isHangarBayWalkActive()
-      || isTruckDepotWalkActive() || isCabActive() || isPianoKeysLive()) return;
+      || isCabActive() || isPianoKeysLive()) return;
     // NumLock off sends Numpad codes for the arrows and Home/End; honouring those
     // would fire a macro when somebody meant to move the caret.
     if (e.code.startsWith('Numpad') && e.key.length !== 1) return;
@@ -378,8 +407,6 @@ export function initInput({ saveOrigin, notify } = {}) {
     // The hangar walk-around inspect owns W/A/S/D (its own free camera) — don't steal
     // focus into the command box, or its keydown handler bails on the focused input.
     if (isHangarBayWalkActive()) return;
-    // The truck depot's walkaround is the same camera around a rig, and owns the same keys.
-    if (isTruckDepotWalkActive()) return;
     // …and driving the thing is the same claim as walking round it.
     if (isCabActive()) return;
     // The detached camera owns the same letters the cab does — W/A/S/D fly it, Q/E turn it — and it

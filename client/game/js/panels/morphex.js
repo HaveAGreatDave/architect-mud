@@ -125,7 +125,7 @@ function _render(d) {
   // ── Character sheet ──────────────────────────────────────────
   let sheet = [
     _statRow('Sex',    sex.charAt(0).toUpperCase() + sex.slice(1)),
-    _statRow('Height', `${imp.feet}'${imp.inches}" — ${heightDesc(h)}`),
+    _statRow('Height', `${imp.feet}'${imp.inches}": ${heightDesc(h)}`),
     _statRow('Build',  buildDesc(w, h)),
     _statRow('Weight', `${lbs} lbs`),
     _statRow('Hair',   `${hs}, ${hl}, ${hc}`),
@@ -182,12 +182,12 @@ function _render(d) {
     mods += _sectionHeader('Biological');
     mods += _modRow('Sexuality', _sel('mx-sexuality', SEXUALITIES, sexuality));
     if (sex === 'male') {
-      mods += _sectionHeader('Biological — 5₵/cm');
+      mods += _sectionHeader('Biological: 5₵/cm');
       mods += _modRow('Length (cm)', _numInput('mx-penis', app.penis_length_cm || 13, 0.6, 38.1, 0.1));
       mods += _modRow('Testicles',   _sel('mx-testicle', TESTICLE_SIZES, app.testicle_size || 'average'));
       mods += _modRow('Ass Size',    _sel('mx-ass', MALE_ASS_SIZES, app.ass_size || 'average'));
     } else {
-      mods += _sectionHeader('Biological — 5₵/tier');
+      mods += _sectionHeader('Biological: 5₵/tier');
       mods += _modRow('Breast Size', _sel('mx-breast', BREAST_SIZES, app.breast_size || 'medium'));
       mods += _modRow('Ass Size',    _sel('mx-ass', FEMALE_ASS_SIZES, app.ass_size || 'average'));
     }

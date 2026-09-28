@@ -74,14 +74,14 @@ const CHECKS = {
     if (stars <= 0) return;
 
     if ((cfg.wantedMode || 'hard') === 'hard') {
-      return { block: true, message: `${cap(guards)} scan your record and it lights up red. "No entry — clear your warrants first." You're waved back the way you came.` };
+      return { block: true, message: `${cap(guards)} scan your record and it lights up red. "No entry: clear your warrants first." You're waved back the way you came.` };
     }
 
     // bluff
     if (hot(key)) return { block: true, message: `${cap(guards)} are still watching you from your last try. Give it a minute before you push your luck.` };
     if (stars >= HARD_STARS) {
       stoke(key); await apprehend(player, guards);
-      return { block: true, message: `${cap(guards)} don't even reach for a slate — they already know your face. "That's far enough." <span class="text-dim">(Too wanted to bluff this checkpoint — they move to take you in.)</span>` };
+      return { block: true, message: `${cap(guards)} don't even reach for a slate, they already know your face. "That's far enough." <span class="text-dim">(Too wanted to bluff this checkpoint, they move to take you in.)</span>` };
     }
     const chk = await skillCheck(player, 'deception', BASE_DIFF + stars * PER_STAR);
     if (chk.success) {
@@ -89,7 +89,7 @@ const CHECKS = {
       return; // pass (no XP award — a gate, not a training ground)
     }
     stoke(key); await apprehend(player, guards);
-    return { block: true, message: `${cap(guards)} run your face and the story falls apart. "Nice try." <span class="text-dim">(Your bluff failed — they move to detain you.)</span>` };
+    return { block: true, message: `${cap(guards)} run your face and the story falls apart. "Nice try." <span class="text-dim">(Your bluff failed: they move to detain you.)</span>` };
   },
 
   // Route the raw-drug scan through the smuggle economy (cook_tier diff, bm_trust
@@ -105,7 +105,7 @@ const CHECKS = {
     const hit = await resolveInventoryItem(player, { tag: ['raw_drug', 'contraband'], topLevel: false }).catch(() => null);
     if (!hit) return; // clean → walk through
 
-    if (hot(key)) return { block: true, message: `${cap(guards)} are still watching you from the last pass — hang back, or slip in another way.` };
+    if (hot(key)) return { block: true, message: `${cap(guards)} are still watching you from the last pass: hang back, or slip in another way.` };
     const chk = await skillCheck(player, 'deception', SCAN_DIFF);
     if (chk.success) {
       sendToPlayer(player.id, { type: 'output', message: `<span class="ambient">You keep your coat closed and your story straight. The scanner blinks green; ${guards} nod you through.</span>` });
@@ -114,7 +114,7 @@ const CHECKS = {
     stoke(key);
     await dispatchAction({ type: 'CHARGE_CRIME', actor: player, params: { key: 'contraband_possession' } });
     await apprehend(player, guards);
-    return { block: true, message: `The scanner shrills — <b>contraband</b>. ${cap(guards)} close on you — no bolting out of this one.` };
+    return { block: true, message: `The scanner shrills: <b>contraband</b>. ${cap(guards)} close on you: no bolting out of this one.` };
   },
 };
 

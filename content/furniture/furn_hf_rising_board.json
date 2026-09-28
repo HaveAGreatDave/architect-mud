@@ -6,10 +6,8 @@
       "figures",
       "ticker"
     ],
-    "hack_difficulty": 7,
-    "interactions": {
-      "examine": "The unexplained column is headed with two characters and a slash. It moves less than the others and, when it moves, the others follow it about a minute later."
-    }
+    "examine_detail": "The unexplained column is headed with two characters and a slash. It moves less than the others and, when it moves, the others follow it about a minute later.",
+    "hack_difficulty": 7
   },
   "id": "furn_hf_rising_board",
   "name": "the figure board",

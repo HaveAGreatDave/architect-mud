@@ -67,7 +67,7 @@ async function openShopFor(npc, player, forceText = false) {
     // longer gets is 63 priced rows every time the shelf is re-read.
     sendToPlayer(player.id, {
       type: 'output',
-      message: `<span class="msg-system">${npc.name}'s shelf is open — ${stock.length} thing${stock.length === 1 ? '' : 's'} for sale. `
+      message: `<span class="msg-system">${npc.name}'s shelf is open: ${stock.length} thing${stock.length === 1 ? '' : 's'} for sale. `
         + `<span class="action-link" data-action="cmd" data-cmd="shop text ${npc.name}">shop text ${npc.name}</span> to read it here instead.</span>`,
     });
     return shopDialogPayload(npc, stock, player.credits);
@@ -426,7 +426,7 @@ async function cmdCheckout(player) {
     });
   }
 
-  const lines = priced.map(r => `  ${r.quantity > 1 ? `${r.quantity}x ` : ''}${r.name} — ${r.price}₵`).join('\n');
+  const lines = priced.map(r => `  ${r.quantity > 1 ? `${r.quantity}x ` : ''}${r.name}: ${r.price}₵`).join('\n');
   return {
     type: 'buy',
     message: `${vendor.name} ${counter._isPerson ? 'takes the lot off you and totals it up' : `rings you up at the ${counter.name}`}.\n${lines}\n<b>Total: ${total}₵</b>`,

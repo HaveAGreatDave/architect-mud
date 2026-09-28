@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Chest-high brush, tough as wire, with runs beaten through it at knee height by something that lives here and goes the same way every day. The wind through it makes a dry sound with no rest in it at all.",
+  "description": "Scrub country. The thorn is low and dense and grey-green, and there's no way through it that doesn't cost you a few scratches.",
   "exits": {
     "east": "zone_scw_1025_959",
     "north": "zone_scw_1024_958",
@@ -13,13 +13,13 @@
     "radiation": 9,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "dirt_road"
+    "terrain": "scrub"
   },
   "grid_x": 1024,
   "grid_y": 959,
   "grid_z": 0,
   "id": "zone_scw_1024_959",
   "map_id": "map_world",
-  "name": "The Bristle",
+  "name": "Low Growth",
   "parent_zone": null
 }

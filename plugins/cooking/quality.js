@@ -290,5 +290,5 @@ export function overStageText(session, profile, now = Date.now()) {
     const through = (app - tl.peakEnd) / tl.overMs;
     return through > 0.5 ? 'starting to char, smoke curling off it' : 'past its best, going dry';
   }
-  return 'burnt black — nothing to be done about it now';
+  return 'burnt black: nothing to be done about it now';
 }

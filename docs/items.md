@@ -96,7 +96,7 @@ tag model and the rationale behind it.
 
 | Tag | Shape | What it does |
 |---|---|---|
-| `description` | text | Shown on examine / look. Always present in the editor. |
+| `description` | text | Shown on examine / look. Always present in the editor. 300 characters or fewer (see below). |
 | `quest_item` | flag | Cannot be dropped or sold. |
 | `unique` | flag | Prevents stacking. Items merge into one quantity row by default; tag Unique to keep each as its own row. |
 | `weapon` | flag | Marks the combat weapon. The equipped item with this tag is used when you attack. |
@@ -121,6 +121,11 @@ tag model and the rationale behind it.
 | `laced_drug` | text (drug id) | Consumable applies this drug on use (systemic effects only — meter/phases/OD, not its instant restores). The "drugged drink/food" path; alcohol uses `"drug_alcohol"`. See [systems-survival.md](systems-survival.md). |
 | `laced_potency` | int | Strength multiplier for `laced_drug` (default 1). Alcohol: scales `intox_per_dose` per drink. |
 | `container` | int | Marks the item as a container; value is the max total weight it can hold. See **Containers** below. |
+
+A description is 300 characters or fewer. It's read in a room list, on a shop shelf and in
+`examine`, so it has to earn its length in the smallest of those. `node scripts/prose/trim-descriptions.mjs`
+audits items and furniture and holds the rewrites. The only exemptions are the betatape cassettes
+(the length is ASCII label art) and the hero posters (the poster is the content).
 
 This table covers the core item model; it is not the full catalog. The authoritative list is
 `client/shared/tagCatalog.js` — it also defines environmental/equipment tags (`insulation`,

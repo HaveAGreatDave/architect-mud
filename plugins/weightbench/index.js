@@ -99,7 +99,7 @@ async function runSet(player, st, nowMs) {
     const { net } = await getNetXp(player.id);
     if (net < cost) {
       stopWorkout(player.id, player.handle, player.current_zone,
-        `You've hit the wall — raising ${label} to ${current + 1} costs ${cost} XP and you're ${cost - Math.floor(net)} short. Go earn it out in the world.`,
+        `You've hit the wall: raising ${label} to ${current + 1} costs ${cost} XP and you're ${cost - Math.floor(net)} short. Go earn it out in the world.`,
         station);
       return;
     }

@@ -72,7 +72,7 @@ function cmdMutations(args, raw, player) {
   if (!muts.length) {
     return {
       type: 'mutations',
-      message: "Nothing has changed about you yet. Give it time in the hot places. Or don't — that's a choice too.",
+      message: "Nothing has changed about you yet. Give it time in the hot places. Or don't: that's a choice too.",
     };
   }
 
@@ -100,13 +100,13 @@ function section(title, list, player) {
     // happens to a mutation you cannot see, because you do not need a physician
     // to tell you your hands have claws on them. A clinic will name it.
     if (!entry.diagnosed) {
-      out += `\n  <span class="hit-part">Something unnamed</span> — ${band}\n`;
+      out += `\n  <span class="hit-part">Something unnamed</span>: ${band}\n`;
       out += `    <span class="text-dim">You can feel that it's there and you have no idea what it is. `
            + `A physician could tell you.</span>\n`;
       continue;
     }
 
-    out += `\n  <span class="hit-part">${m.name}</span> — ${band} (${entry.expression}%)`;
+    out += `\n  <span class="hit-part">${m.name}</span>: ${band} (${entry.expression}%)`;
     // Held down by medication. The RAW number stays on the line above: a player
     // being medicated needs to see that their 70% is being held at 17%, not be
     // told they have a 17% mutation, which would read as a cure.

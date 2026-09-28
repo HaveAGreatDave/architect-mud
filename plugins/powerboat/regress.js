@@ -253,7 +253,7 @@ export default async function regress({ run, check, getPlayer }) {
   // against object literals and would go on passing if `content/` had never been touched — which is
   // exactly the failure worth catching, because a boatyard whose flags nothing authored is a set of
   // verbs that politely refuse for ever.
-  const { getZone } = await import('../../server/engine/world.js');
+  const { getZone, getZoneFurniture } = await import('../../server/engine/world.js');
   // ⚠ THE PONTOONS ARE GONE AND THE FAIRWAY IS OPEN WATER. 894,901 and 894,902 carried
   // `building_type: pontoon` with `marina_berths` 4 and 6 on them — ten of the twelve berths
   // — and they were pulled back to plain Basin water. The arm survives in windshield.js for a
@@ -268,7 +268,7 @@ export default async function regress({ run, check, getPlayer }) {
   }
   const hall = getZone('zone_consv_hall');
   check('the covered bay is loaded', !!hall && Y.berthKind(hall) === 'covered');
-  check('and it is where hulls are sold', !!hall && hall.flags.boat_dealer === true);
+  check('and hulls are sold at the lobby desk, not on the dock', !!hall && !hall.flags.boat_dealer && !!getZoneFurniture('zone_marina_lobby').find((f) => f.flags?.marina_desk));
   const hard = getZone('zone_district_892_902');
   check('the hardstanding is loaded', !!hard && Y.berthKind(hard) === 'hard');
 
@@ -819,7 +819,7 @@ export default async function regress({ run, check, getPlayer }) {
       const hall = SF.yardHere(HALL);
       check('the dock hall is a yard', !!hall);
       check('…and it can see its own berths', !!hall && hall.zones.length > 1, String(hall?.zones.length));
-      check('…and the dealer, which is not itself a berth', !!hall?.dealer);
+      check('…and it deals no sale or hire of its own (that is the desk)', !hall?.dealer);
       // The lobby is a room with no berth flag of its own: if IT answers, the walk is doing its job.
       if (getZone('zone_marina_lobby')) {
         check('the lobby is the same yard', !!SF.yardHere('zone_marina_lobby'));
@@ -981,12 +981,16 @@ export default async function regress({ run, check, getPlayer }) {
     const FUEL = await import('./fuel.js');
     const Y = await import('./yard.js');
     const { getZone } = await import('../../server/engine/world.js');
-    const FLOAT = 'zone_district_892_901';
+    const FLOAT = 'zone_district_893_901';   // the fuel berth, moored to the marina's north face
     const float = getZone(FLOAT);
     if (float) {
       check('the fuel float is a berth', Y.berthKind(float) === 'berth');
       check('…with room at it', Y.berthCapacity(float) > 0);
       check('…and a pump on it', FUEL._test.boatFuelAt(float));
+      // ⚠ IT SELLS TO THE WATER ON ITS PYLON SIDE, NOT TO ITS OWN DECK: a hull lies alongside.
+      check('…whose pylons face east (derived from a south entrance)', FUEL.fuelSideOf(float) === 'east');
+      if (getZone('zone_district_894_901')) check('…and it serves the boat lying east of it', FUEL.fuelServesAt(getZone('zone_district_894_901')));
+      check('…and not a boat parked on top of it', !FUEL.fuelServesAt(float));
       // ⚠ A PONTOON IS A DECK, NOT WATER, and that is the one property a `terrain: water` tile has
       // to be overridden out of. Without it the pump stands in the Basin: you tread water at your
       // own fuel float, the swim tick bleeds you while you fill up, and `isOpenWater` calls a real
@@ -1199,5 +1203,32 @@ export default async function regress({ run, check, getPlayer }) {
     // ⚠ AND THE GATE COMES BEFORE THE QUERY. This is gathered on every look in the game.
     check('the tile is tested before any query is made',
       src.indexOf('isOpenWater(zone)') < src.indexOf('SELECT id, name, type_id'));
+  }
+
+  // ── HIRE, WEAR AND THE COVERED SLOT (service.js, yard.js) ────────────────────
+  {
+    const { effBoatParams, stampBoatService, stampBoatIfMissing, wetChange, boatRentFee, boatRentalExpired, FOUL_FULL_MS } = await import('./service.js');
+    const { coveredSlot, coveredRoomAtTile, isOpenWater } = await import('./yard.js');
+    const { TYPES } = await import('../../client/game/js/panels/flight-model.js');
+    const { getZone } = await import('../../server/engine/world.js');
+    // ⚠ THE MIGRATION INVARIANT: a hull with no service record is the stock row itself.
+    check('boat service: an unserviced hull is handed the stock row', effBoatParams('hydro', {}) === TYPES.hydro);
+    const T0 = 1.7e12;   // a real clock: a wetSince of 0 means she is out of the water
+    const cd = stampBoatIfMissing({}, { afloat: true, now: T0 });
+    check('boat service: a fresh baseline costs nothing', effBoatParams('hydro', cd, T0 + 1000) === TYPES.hydro);
+    const fouled = effBoatParams('hydro', cd, T0 + FOUL_FULL_MS);
+    check('boat service: a hull left afloat fouls and loses her top end', fouled.dragP > TYPES.hydro.dragP);
+    const dry = wetChange(cd, false, T0 + FOUL_FULL_MS / 4);
+    check('boat service: lifting her out stops the clock', effBoatParams('hydro', dry, T0 + FOUL_FULL_MS * 10).dragP === effBoatParams('hydro', dry, T0 + FOUL_FULL_MS / 4).dragP);
+    const knocked = effBoatParams('hydro', { ...cd, prop: 0.2 }, 0);
+    check('boat service: a chewed prop costs thrust', knocked.thrustMax < TYPES.hydro.thrustMax);
+    check('boat service: servicing puts her back', effBoatParams('hydro', stampBoatService({ ...cd, prop: 0.2 }, 'all', { now: 0 }), 0) === TYPES.hydro);
+    check('boat hire: a fee and a clock', boatRentFee(TYPES.hydro) > 0 && boatRentalExpired({ custom_data: { rental: { until: 1 } } }));
+    // ⚠ THE COVERED DOCK PUTS HER ON WATER, NEVER ON THE BUILDING — the aground-in-front-of-the-shed bug.
+    const hall = getZone('zone_consv_hall');
+    const slot = hall && coveredSlot(hall);
+    check('covered slot: the Dock Hall resolves to a water tile', !!slot && isOpenWater(slot.zone) && Number.isFinite(slot.heading),
+      slot ? slot.zone.id : 'no slot');
+    check('covered slot: and that tile maps back to the hall', !!slot && coveredRoomAtTile(slot.zone.id)?.id === 'zone_consv_hall');
   }
 }

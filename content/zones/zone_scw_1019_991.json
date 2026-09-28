@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A wall of caprock standing out of the flats, undercut at the base where the weather has got in and eaten the softer bed away, so the top overhangs slightly and the shade under it's deep and cold.",
+  "description": "The wall of caprock leans slightly out over the flats. Under the lip it's shaded and cool.",
   "exits": {
     "east": "zone_scw_1020_991",
     "north": "zone_scw_1019_990",

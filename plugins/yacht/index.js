@@ -197,7 +197,7 @@ on('zone.entered', async ({ actor, zone }) => {
   if (isOpenDeck(z)) return;
   if (await isInvited(actor)) return;
   const bc = getBroadcast();
-  bc?.(zone, { type: 'zone_event', message: `${actor.handle} sets foot aboard the Echelon — and is gone in a flash of white light.` }, actor.id);
+  bc?.(zone, { type: 'zone_event', message: `${actor.handle} sets foot aboard the Echelon... and is gone in a flash of white light.` }, actor.id);
   sendToPlayer(actor.id, { type: 'output', message: "The deck recognises an intruder. There's a flash of white, and then nothing at all." });
   await handlePlayerDeath(actor, null, { type: 'admin', label: SMITE_LABEL }).catch(e => console.error('[yacht] smite:', e.message));
 });
@@ -211,7 +211,7 @@ const canManageInvites = (player) => isOwner(player) || player.role === 'admin';
 async function cmdInvite(args, raw, player) {
   if (!canManageInvites(player)) return ADMIN_ONLY;
   const nameStr = (args || []).join(' ').trim();
-  if (!nameStr) return { type: 'error', message: 'Usage: invite <player> — adds them to the Echelon invite list.' };
+  if (!nameStr) return { type: 'error', message: 'Usage: invite <player>. Adds them to the Echelon invite list.' };
   const target = await resolveHandle(nameStr);
   if (!target) return { type: 'error', message: `No player named "${nameStr}" found.` };
   if (await isInvitedById(target.id)) return { type: 'system', message: `${target.handle} is already on the Echelon invite list.` };
@@ -222,7 +222,7 @@ async function cmdInvite(args, raw, player) {
 async function cmdUninvite(args, raw, player) {
   if (!canManageInvites(player)) return ADMIN_ONLY;
   const nameStr = (args || []).join(' ').trim();
-  if (!nameStr) return { type: 'error', message: 'Usage: uninvite <player> — removes them from the Echelon invite list.' };
+  if (!nameStr) return { type: 'error', message: 'Usage: uninvite <player>. Removes them from the Echelon invite list.' };
   const target = await resolveHandle(nameStr);
   if (!target) return { type: 'error', message: `No player named "${nameStr}" found.` };
   if (!(await isInvitedById(target.id))) return { type: 'system', message: `${target.handle} isn't on the Echelon invite list.` };
@@ -241,7 +241,7 @@ async function cmdInvites(args, raw, player) {
   if (!rows.length) {
     return { type: 'system', message: 'The Echelon invite list is empty. (Admins always have access.)' };
   }
-  const lines = rows.map(r => `  ${(r.handle || r.player_id).padEnd(24)} added by ${r.added_by || '—'}`).join('\n');
+  const lines = rows.map(r => `  ${(r.handle || r.player_id).padEnd(24)} added by ${r.added_by || 'unknown'}`).join('\n');
   return { type: 'system', message: `<span class="help-header">ECHELON INVITE LIST (${rows.length})</span>\n${lines}\n\n(Admins always have access, listed or not.)` };
 }
 
@@ -432,9 +432,9 @@ function rebuildFlightIndex() {
 
 function helmStatus(ext, dockedPierName) {
   const left = transitLeft();
-  const ready = left > 0 ? `Underway — she reaches her next position in ${Math.ceil(left / 1000)}s.` : 'The engines are ready.';
+  const ready = left > 0 ? `Underway: she reaches her next position in ${Math.ceil(left / 1000)}s.` : 'The engines are ready.';
   const dock = left > 0 ? 'Making way across the Basin.' : (dockedPierName ? `Docked alongside ${dockedPierName}.` : 'Underway, no pier alongside.');
-  return `<span class="help-header">ECHELON — HELM</span>\nPosition: ${ext.grid_x}, ${ext.grid_y} (Coldwater Basin)\n${dock}\n${ready}\nUsage: sail <n|ne|e|se|s|sw|w|nw>`;
+  return `<span class="help-header">ECHELON: HELM</span>\nPosition: ${ext.grid_x}, ${ext.grid_y} (Coldwater Basin)\n${dock}\n${ready}\nUsage: sail <n|ne|e|se|s|sw|w|nw>`;
 }
 
 // Arrival: the passage completes ten minutes after casting off. Only now does her authoritative
@@ -563,7 +563,7 @@ function knockOutBridge(until) {
   if (!already) {
     for (const z of yachtZones()) {
       bc?.(z.id, { type: 'zone_event', message:
-        '<span class="text-red">Every screen aboard whites out and dies. The engines never falter — they do not need to be told anything — but the plot, the radar and the radios are gone.</span>' }, null);
+        '<span class="text-red">Every screen aboard whites out and dies. The engines never falter (they do not need to be told anything) but the plot, the radar and the radios are gone.</span>' }, null);
     }
   }
   clearTimeout(bridgeEmpTimer);
@@ -687,7 +687,7 @@ async function cmdSail(args, raw, player, broadcast) {
   if (!dirWord) return { type: 'system', message: helmStatus(ext, dockPier?.pier?.name) };
 
   const left = transitLeft();
-  if (left > 0) return { type: 'error', message: `The Echelon is already underway. She reaches her next position in ${Math.ceil(left / 1000)}s — you can't give a new order until she's there.` };
+  if (left > 0) return { type: 'error', message: `The Echelon is already underway. She reaches her next position in ${Math.ceil(left / 1000)}s: you can't give a new order until she's there.` };
 
   // Optional throttle bell (the helm telegraph sends it as 1–100; a typed order defaults to Half).
   const bellPct = parseInt(args?.[1], 10);
@@ -717,7 +717,7 @@ async function cmdSail(args, raw, player, broadcast) {
   }
 
   const { tx, ty, passageMs } = await startPassage(ext, path, cruise, msPerTile, player, broadcast);
-  return { type: 'system', message: `You engage the throttle ${dirWord}. The Echelon leans into her turn and gets underway across the Basin — she'll reach ${tx}, ${ty} in about ${Math.round(passageMs / 1000)}s.` };
+  return { type: 'system', message: `You engage the throttle ${dirWord}. The Echelon leans into her turn and gets underway across the Basin: she'll reach ${tx}, ${ty} in about ${Math.round(passageMs / 1000)}s.` };
 }
 
 // The map-popup helm mode: chart a water-only course around the shoreline to a chosen tile and get
@@ -735,13 +735,13 @@ async function cmdSailTo(args, raw, player, broadcast) {
   // needs a working computer — `sail <direction>` is a compass and a helmsman and
   // is deliberately still available. See knockOutBridge.
   if (bridgeElecDead()) {
-    return { type: 'error', message: 'The chart plotter is a dead pane of glass. You could still take her out on the compass — <span class="text-dim">sail &lt;direction&gt;</span> — but nothing aboard will plot you a course.' };
+    return { type: 'error', message: 'The chart plotter is a dead pane of glass. You could still take her out on the compass (<span class="text-dim">sail &lt;direction&gt;</span>) but nothing aboard will plot you a course.' };
   }
   const left = transitLeft();
-  if (left > 0) return { type: 'error', message: `The Echelon is already underway. She reaches her next position in ${Math.ceil(left / 1000)}s — you can't give a new order until she's there.` };
+  if (left > 0) return { type: 'error', message: `The Echelon is already underway. She reaches her next position in ${Math.ceil(left / 1000)}s: you can't give a new order until she's there.` };
 
   const tx = parseInt(args?.[0], 10), ty = parseInt(args?.[1], 10);
-  if (!Number.isFinite(tx) || !Number.isFinite(ty)) return { type: 'error', message: 'Usage: sailto <x> <y> — plot a course to a water tile.' };
+  if (!Number.isFinite(tx) || !Number.isFinite(ty)) return { type: 'error', message: 'Usage: sailto <x> <y>. Plot a course to a water tile.' };
   const bellPct = parseInt(args?.[2], 10);
   const t = Number.isFinite(bellPct) ? Math.max(0, Math.min(1, bellPct / 100)) : DEFAULT_BELL;
   const { cruise } = bellFor(t);   // visual way only — a charted course runs at the fixed course pace
@@ -749,11 +749,11 @@ async function cmdSailTo(args, raw, player, broadcast) {
   const path = chartCourse(ext.grid_x, ext.grid_y, tx, ty);
   if (!path) {
     if (helmViewers.has(player.id)) sendToPlayer(player.id, { type: 'helm_hold', gx: ext.grid_x, gy: ext.grid_y });
-    return { type: 'error', message: "There's no navigable channel to that tile — the Echelon can only make way over open water." };
+    return { type: 'error', message: "There's no navigable channel to that tile: the Echelon can only make way over open water." };
   }
 
   const { tx: ax, ty: ay, passageMs } = await startPassage(ext, path, cruise, SAIL_MS_PER_TILE_COURSE, player, broadcast);
-  return { type: 'system', message: `Course charted — ${path.length - 1} legs to ${ax}, ${ay}. The Echelon gets underway across the Basin, arriving in about ${Math.round(passageMs / 1000)}s.` };
+  return { type: 'system', message: `Course charted: ${path.length - 1} legs to ${ax}, ${ay}. The Echelon gets underway across the Basin, arriving in about ${Math.round(passageMs / 1000)}s.` };
 }
 
 async function cmdDock(args, raw, player) {
@@ -872,7 +872,7 @@ async function cmdHelmConsole(args, raw, player) {
 // verb. Fires per zone; returns undefined off the bridge so it never touches other rooms.
 function describeBridge(zone) {
   if (!zone?.flags?.echelon_bridge) return undefined;
-  return `<span class="furniture-label">Helm:</span> <span class="action-link cmd-link" data-action="cmd" data-cmd="helm" title="take the helm — chase view + wheel">take the helm</span> <span class="text-dim">steer her from the console — chart a course across the Basin in 3D</span>`;
+  return `<span class="furniture-label">Helm:</span> <span class="action-link cmd-link" data-action="cmd" data-cmd="helm" title="take the helm: chase view + wheel">take the helm</span> <span class="text-dim">steer her from the console: chart a course across the Basin in 3D</span>`;
 }
 
 export const hooks = {

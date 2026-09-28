@@ -6,9 +6,7 @@
       "pegs",
       "coats"
     ],
-    "interactions": {
-      "examine": "Peg six has a coat on it that has not moved in a very long time, and has been brushed recently."
-    }
+    "examine_detail": "Peg six has a coat on it that has not moved in a very long time, and has been brushed recently."
   },
   "id": "furn_vested_pegs",
   "name": "the hall stand",

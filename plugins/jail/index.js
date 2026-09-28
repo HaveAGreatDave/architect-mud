@@ -75,11 +75,11 @@ const OFFICERS = ['npc_precinct_guard', 'npc_precinct_officer_2', 'npc_precinct_
 // Lines the on-duty officer says as they walk you out at the end of your stretch.
 const RELEASE_LINES = [
   `"Time's served. Try to make it a week this time."`,
-  `"Sobered up? Good. The door's that way — don't make me see you again."`,
+  `"Sobered up? Good. The door's that way: don't make me see you again."`,
   `"You're free to go. Your file says otherwise, but that's tomorrow's problem."`,
   `"Up. Out. Sign for your things at the desk and stay off the cameras."`,
   `"Congratulations, you're rehabilitated. Statistically, for about six hours."`,
-  `"On your feet. The city's forgotten you already — do it a favor and stay forgotten."`,
+  `"On your feet. The city's forgotten you already: do it a favor and stay forgotten."`,
 ];
 
 const timers = new Map();       // playerId -> release setTimeout handle
@@ -346,8 +346,8 @@ async function bookIntoCell(player, { teleport = false } = {}) {
   }, 700);
 
   const message = teleport
-    ? `<span class="clone-vat-message">The cuffs bite in and a knee folds you down — then the cold steel bench of Precinct 9's holding block. Pockets empty, a charge sheet taped to the bars. "${mins}," the desk sergeant says, not looking up. Anything the law calls contraband has been logged to evidence; you won't be seeing that again.</span>`
-    : `<span class="clone-vat-message">The dark takes you, and the grid catches you — but the print never reaches the civic hall. An open file outranks the queue: your pattern is pulled mid-decant and finished in Precinct 9's custodial vat, and you come up choking warm fluid onto the drain grate of the holding cell. Pockets empty, a charge sheet taped to the bars. The desk sergeant doesn't look up: "${mins}. Sit tight." Anything the law calls contraband has been logged to evidence; you won't be seeing that again.</span>`;
+    ? `<span class="clone-vat-message">The cuffs bite in and a knee folds you down, then the cold steel bench of Precinct 9's holding block. Pockets empty, a charge sheet taped to the bars. "${mins}," the desk sergeant says, not looking up. Anything the law calls contraband has been logged to evidence; you won't be seeing that again.</span>`
+    : `<span class="clone-vat-message">The dark takes you, and the grid catches you, but the print never reaches the civic hall. An open file outranks the queue: your pattern is pulled mid-decant and finished in Precinct 9's custodial vat, and you come up choking warm fluid onto the drain grate of the holding cell. Pockets empty, a charge sheet taped to the bars. The desk sergeant doesn't look up: "${mins}. Sit tight." Anything the law calls contraband has been logged to evidence; you won't be seeing that again.</span>`;
 
   if (teleport) {
     // No death occurred, so nothing has moved them or cleared their heat — do both.
@@ -417,15 +417,15 @@ async function cmdConceal(args, raw, player) {
   const cand = rows.find(r => isPalmable(r.tags, r.weight) && !((r.custom_data || {}).concealed));
   if (!cand) {
     return { type: 'error', message: hint
-      ? `You can't palm a "${hint}" — it's not small contraband, or it's already tucked away.`
+      ? `You can't palm a "${hint}": it's not small contraband, or it's already tucked away.`
       : "You've nothing small and illicit to conceal." };
   }
   const chk = await skillCheck(player, 'deception', CONCEAL_DIFFICULTY);
   await awardSkillUse(player.id, 'deception', chk.margin);
   await markConcealed(cand.inv_id, { quality: Math.max(1, 3 + chk.margin), palmed: false });
   const how = chk.success
-    ? 'It vanishes into a fold of clothing — you barely feel it there.'
-    : "It's hidden, but not well — a thorough pat-down would turn it up.";
+    ? 'It vanishes into a fold of clothing: you barely feel it there.'
+    : "It's hidden, but not well: a thorough pat-down would turn it up.";
   return { type: 'output', message: `You slip the ${cand.name} out of sight. ${how}` };
 }
 
@@ -464,7 +464,7 @@ async function cmdConcealResolve(args, raw, player) {
   if (botched.length) {
     // Caught mid-palm — a fresh contraband-possession charge (stars + heat, forced witness).
     await dispatchAction({ type: 'CHARGE_CRIME', actor: player, params: { key: 'contraband_possession' } }).catch(() => {});
-    sendToPlayer(player.id, { type: 'system', message: `<span class="text-red">A hand clamps your wrist mid-reach — "What've you got there?" It goes on the sheet.</span>` });
+    sendToPlayer(player.id, { type: 'system', message: `<span class="text-red">A hand clamps your wrist mid-reach: "What've you got there?" It goes on the sheet.</span>` });
   }
   clearConceal(player.id);
   await finishArrest(player.id);
@@ -603,13 +603,13 @@ async function release(playerId) {
       await dispatchAction({ type: 'TELEPORT', actor: player, params: { zone_id: rec.release_zone }, context: { broadcast: bc } });
       const zone = getZone(rec.release_zone);
       if (zone) sendToPlayer(playerId, { type: 'move', message: await describeZone(zone, player), zone: rec.release_zone, minimap: getMinimapData(rec.release_zone, 8, player) });
-      sendToPlayer(playerId, { type: 'output', message: `<span class="msg-system">${officerName} slides a plastic tub across the counter — your things, minus anything the law keeps. "Stay out of trouble."</span>` });
+      sendToPlayer(playerId, { type: 'output', message: `<span class="msg-system">${officerName} slides a plastic tub across the counter: your things, minus anything the law keeps. "Stay out of trouble."</span>` });
       // Nobody launders a jumpsuit for a second occupant. You change back into your
       // own clothes and the garb goes in the tub with them.
       sendToPlayer(playerId, { type: 'output', message: `<span class="msg-system">Nobody asks for the jumpsuit back. You bundle it under one arm on the way out.</span>` });
       if (rec.held_credits || rec.fine) {
         const ledger = rec.fine > 0
-          ? `₵${rec.held_credits} seized, ₵${rec.fine} kept for your fine — ₵${Math.max(0, refund)} back${refund < 0 ? ` and you're ₵${-refund} in the hole` : ''}.`
+          ? `₵${rec.held_credits} seized, ₵${rec.fine} kept for your fine: ₵${Math.max(0, refund)} back${refund < 0 ? ` and you're ₵${-refund} in the hole` : ''}.`
           : `₵${rec.held_credits} returned in full.`;
         sendToPlayer(playerId, { type: 'output', message: `<span class="msg-system">A receipt is stapled to the tub: ${ledger}</span>` });
       }
@@ -645,10 +645,10 @@ function fmtRemaining(ms) {
 function renderRecord(rec) {
   const left = new Date(rec.release_at).getTime() - Date.now();
   const lines = [
-    '[ PRECINCT 9 — DETENTION RECORD ]',
+    '[ PRECINCT 9: DETENTION RECORD ]',
     `Charge:    ${rec.charge || 'multiple outstanding warrants'}`,
     `Booked at: ${rec.stars}★`,
-    `Remaining: ${left > 0 ? fmtRemaining(left) : 'time served — the duty officer is on their way'}`,
+    `Remaining: ${left > 0 ? fmtRemaining(left) : 'time served: the duty officer is on their way'}`,
   ];
   if (rec.held_credits || rec.fine) {
     lines.push(`Property:  ₵${rec.held_credits} held at the desk, ₵${rec.fine} of it kept as your fine`);
@@ -675,7 +675,7 @@ async function readChargeSheet(args, raw, player) {
     : here.find(f => f.flags && 'charge_sheet' in f.flags);
   if (!furn || !hasTag(furn, 'charge_sheet')) return undefined;   // fall through
   const rec = await prisonerRow(player.id);
-  if (!rec) return { type: 'output', message: 'The form clipped to the bars is blank. Nobody has filled one out in your name — yet.' };
+  if (!rec) return { type: 'output', message: 'The form clipped to the bars is blank. Nobody has filled one out in your name, yet.' };
   return renderRecord(rec);
 }
 
@@ -692,8 +692,8 @@ async function escape(player) {
   await lockUp(Array.isArray(rec.held_items) ? rec.held_items : [], player.handle);
   // Breaking out is a fresh crime: the heat you shed on arrest comes roaring back.
   await dispatchAction({ type: 'WANTED_RAISE', actor: player, params: { amount: rec.stars, reason: 'a jailbreak' } });
-  sendToPlayer(player.id, { type: 'output', message: `<span class="text-red">You're out — but the cell logged the breach. Your file is active again, and everything the police were holding is gone into evidence.</span>` });
-  getBroadcast()?.(rec.cell_zone, { type: 'zone_event', message: 'An alarm strobes over the empty cell — someone bypassed the lock.' }, player.id);
+  sendToPlayer(player.id, { type: 'output', message: `<span class="text-red">You're out, but the cell logged the breach. Your file is active again, and everything the police were holding is gone into evidence.</span>` });
+  getBroadcast()?.(rec.cell_zone, { type: 'zone_event', message: 'An alarm strobes over the empty cell: someone bypassed the lock.' }, player.id);
 }
 
 // The cell block is everything a prisoner may walk to WITHOUT it being a breakout:
@@ -792,7 +792,7 @@ on('zone.entered', async ({ actor, zone }) => {
 // actual street heat was cleared on arrest.
 // How long an empty jail may go without re-reading the table. The sweep exists
 // to push each prisoner's HUD countdown and to re-seed the roster from truth; an
-// empty roster has no countdown to push, so all that's left is the re-seed, and
+// empty roster has no countdown to push, so all that is left is the re-seed, and
 // that only needs to be often enough to notice a prisoner booked by the one
 // writer outside this plugin. Five minutes of a cosmetic HUD lag is a fair trade
 // for not asking an empty table the same question every minute forever.

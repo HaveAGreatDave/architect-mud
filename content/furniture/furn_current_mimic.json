@@ -6,9 +6,7 @@
       "panel",
       "diagram"
     ],
-    "interactions": {
-      "examine": "The odd lamp is bay seven. Its label has been overwritten in marker with a different bay number, and then that has been crossed out too."
-    }
+    "examine_detail": "The odd lamp is bay seven. Its label has been overwritten in marker with a different bay number, and then that has been crossed out too."
   },
   "id": "furn_current_mimic",
   "name": "the mimic panel",

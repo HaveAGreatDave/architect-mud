@@ -546,6 +546,9 @@ const TILE_NAMES_COUNTRY = [
 const pick = (arr, x, y) => arr[Math.abs(x * 31 + y * 17) % arr.length];
 
 const DESC_COUNTRY = {
+  // NOTE: this emits one fallback text for every open tile. After regenerating, run
+  // scripts/content/wilderness-variety.mjs --write (pools in scripts/content/wilderness-pools.mjs)
+  // or the region goes back to one description on hundreds of tiles.
   flat: 'Red rock under a sky that goes on being enormous about it. Nothing grows here that anybody planted, and nothing has needed to.',
   mesa: 'Caprock. Flat as a table and a very long way up, with the whole country laid out under it going brown into the haze. The wind up here has nothing at all to break it.',
   cliff: 'The rim of the tableland, a clean red face of it going up out of reach. There is no way up here. There is a way up somewhere, and this is not it.',

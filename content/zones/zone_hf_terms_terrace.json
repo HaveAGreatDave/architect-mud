@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "A long planted step with a glass balustrade down the open side and the protective film still on every pane of it — gone milky, lifting at the corners, and left because the contractor who was to strip it was engaged on the terraces above and never came down again. The beds are irrigated on a timer, four minutes at six and four minutes at seven, into soil that has had nothing planted in it. The timer works perfectly.",
+  "description": "A long planted step with a glass balustrade down the open side and the protective film still on every pane of it, gone milky, lifting at the corners, and left because the contractor who was to strip it was engaged on the terraces above and never came down again. The beds are irrigated on a timer, four minutes at six and four minutes at seven, into soil that has had nothing planted in it. The timer works perfectly.",
   "exits": {
     "down": "zone_hf_terms_hall"
   },

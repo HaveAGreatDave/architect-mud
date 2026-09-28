@@ -3,10 +3,10 @@
   "chitchat": [
     "\"Everyone who comes up this road is doing arithmetic. Most of them are doing it badly.\"",
     "\"I priced a man last week who thought he was here to sell me something.\"",
-    "\"The Watch call it a wall. We call it a waiting room — the difference is whether anybody is coming.\"",
+    "\"The Watch call it a wall. We call it a waiting room. The difference is whether anybody is coming.\"",
     "\"You are worth a number today and a different number tomorrow. I only ever tell people the good one.\""
   ],
-  "description": "A trim, unhurried woman in a pale grey coat that has never been rained on, standing at the gate the way an auditor stands at a doorway — not blocking it, simply present, and counting. She holds a slate she does not look at. When she looks at you she does it once, all the way down, and then stops, as though she has finished the sum and is being polite about the answer.",
+  "description": "A trim, unhurried woman in a pale grey coat that has never been rained on, standing at the gate the way an auditor stands at a doorway: not blocking it, simply present, and counting. She holds a slate she does not look at. When she looks at you she does it once, all the way down, and then stops, as though she has finished the sum and is being polite about the answer.",
   "dialogue_tree": {
     "a13_done": {
       "_vine": {
@@ -325,7 +325,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Wessel Ardy.\" She does not pretend not to know. \"He is not to be touched. If you think that is me being sentimental you have not understood a single thing this firm does — he is a lapsed client with a full file and an account we closed politely, and a lapsed client who turns up dead in a Watch basement is the one thing that would make any of this a matter for somebody else.\""
+      "text": "\"Wessel Ardy.\" She does not pretend not to know. \"He is not to be touched. If you think that is me being sentimental you have not understood a single thing this firm does. He is a lapsed client with a full file and an account we closed politely, and a lapsed client who turns up dead in a Watch basement is the one thing that would make any of this a matter for somebody else.\""
     },
     "bye": {
       "_vine": {
@@ -397,7 +397,7 @@
           "next": "file_small"
         }
       ],
-      "text": "She is almost apologetic.\n\n\"Underwriting has a settled file that needs to be in the Registry by end of day. The Spire does not put settled files on a wire — never has, never will, and if you ever find out why, they will have had to make you permanent first.\"\n\nShe holds out a docket.\n\n\"It is a walk with a wallet in it. I would like you to do a fortnight of walks with wallets in them. Then we will discuss the second fortnight.\""
+      "text": "She is almost apologetic.\n\n\"Underwriting has a settled file that needs to be in the Registry by end of day. The Spire does not put settled files on a wire. It never has, never will, and if you ever find out why, they will have had to make you permanent first.\"\n\nShe holds out a docket.\n\n\"It is a walk with a wallet in it. I would like you to do a fortnight of walks with wallets in them. Then we will discuss the second fortnight.\""
     },
     "file_small": {
       "_vine": {
@@ -461,7 +461,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"The same job, more of it, and a scan on the way in.\" She hands you a chit.\n\n\"The Gate first. It is not a formality — it is how you stop being a person we are discussing and start being a person we are covering. After that you are on the rota, and somebody upstairs starts caring whether you come back.\"\n\nA truck goes past, west, full of something heavy.\n\n\"Nothing else changes yet. The first month never does, and I say that to everybody, and it is true every time.\""
+      "text": "\"The same job, more of it, and a scan on the way in.\" She hands you a chit.\n\n\"The Gate first. That is how you stop being a person we are discussing and start being a person we are covering. After that you are on the rota, and somebody upstairs starts caring whether you come back.\"\n\nA truck goes past, west, full of something heavy.\n\n\"Nothing else changes yet. The first month never does, and I say that to everybody, and it is true every time.\""
     },
     "ives_again": {
       "_vine": {
@@ -508,7 +508,7 @@
         }
       ],
       "options": [],
-      "text": "There are two of them. The second one comes through the side door without being called, which means somebody upstairs has been watching this conversation.\n\nChrome arms on both, shoulder to fingertip, the plating dulled and scuffed along the forearms the way a much-used tool gets scuffed. One of them has a hand you can hear — a small servo whine as the fingers close.\n\nThey give you about four seconds. Then one takes your upper arm and the other takes a fistful of the back of your coat, and your feet stop being load-bearing.\n\nNeither of them says a word to you. They talk over your head about a delivery that is late. At the first door they turn you sideways without slowing down and your shoulder goes into the frame, and neither of them notices, and neither of them adjusts.\n\nIves has gone back to the ledger before you are through it.\n\nOn the road they set you on your feet and let go at the same moment, so you have to catch your own balance. One of them flexes his hand twice, the way you would after carrying shopping.\n\n\"Mind the step. It is slick tonight.\""
+      "text": "There are two of them. The second one comes through the side door without being called, which means somebody upstairs has been watching this conversation.\n\nChrome arms on both, shoulder to fingertip, the plating dulled and scuffed along the forearms the way a much-used tool gets scuffed. One of them has a hand you can hear: a small servo whine as the fingers close.\n\nThey give you about four seconds. Then one takes your upper arm and the other takes a fistful of the back of your coat, and your feet stop being load-bearing.\n\nNeither of them says a word to you. They talk over your head about a delivery that is late. At the first door they turn you sideways without slowing down and your shoulder goes into the frame, and neither of them notices, and neither of them adjusts.\n\nIves has gone back to the ledger before you are through it.\n\nOn the road they set you on your feet and let go at the same moment, so you have to catch your own balance. One of them flexes his hand twice, the way you would after carrying shopping.\n\n\"Mind the step. It is slick tonight.\""
     },
     "ives_count_them": {
       "_vine": {
@@ -620,7 +620,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Assessment, and then whatever assessment finds.\"\n\nThe number gets the same room as the last one.\n\n\"They are a good department. I have never had a page sit with them overnight — it comes back closed the same day, every time, which I have always thought was rather impressive for that volume.\""
+      "text": "\"Assessment, and then whatever assessment finds.\"\n\nThe number gets the same room as the last one.\n\n\"They are a good department. I have never had a page sit with them overnight. It comes back closed the same day, every time, which I have always thought was rather impressive for that volume.\""
     },
     "ives_nine_closed": {
       "_vine": {
@@ -798,7 +798,7 @@
           "next": "pitch2"
         }
       ],
-      "text": "She steps off the kerb before you reach it, which means she was waiting, which means she knew.\n\n\"Halcyon Assurance, claims oversight. You have been standing in my claims hall for two days with a face like a man doing long division.\"\n\nShe does not look at the slate.\n\n\"You are not a claimant, you are not staff, and you walked in from the east on a road the Long Watch use because it is the one with no cameras on it. I am not guessing. Guessing is what people do who have not read the file — and I have read the file.\""
+      "text": "She steps off the kerb before you reach it, which means she was waiting, which means she knew.\n\n\"Halcyon Assurance, claims oversight. You have been standing in my claims hall for two days with a face like a man doing long division.\"\n\nShe does not look at the slate.\n\n\"You are not a claimant, you are not staff, and you walked in from the east on a road the Long Watch use because it is the one with no cameras on it. I am not guessing. Guessing is what people do who have not read the file, and I have read the file.\""
     },
     "pitch2": {
       "_vine": {
@@ -816,7 +816,7 @@
           "next": "terms"
         }
       ],
-      "text": "\"So — no theatre. I know who sent you and I am not going to have you stopped, because a man walking home with the truth is worth rather more to me than a man in a cell.\"\n\nShe turns, so that you are both looking down the road east, at Coldwater lying in its own smoke.\n\n\"They are going to lose. Not this year, and not cheaply, and not because anybody out-thought them. I have eleven names I am certain of, in a basement, arguing about a machine that runs a city — and every one of those names is fixed to a body that wears out.\"\n\nA truck goes past behind you, west, unhurried.\n\n\"We are not asking you to believe anything. We are asking whether you would like to still be here in forty years to find out who was right.\""
+      "text": "\"So. No theatre. I know who sent you and I am not going to have you stopped, because a man walking home with the truth is worth rather more to me than a man in a cell.\"\n\nShe turns, so that you are both looking down the road east, at Coldwater lying in its own smoke.\n\n\"They are going to lose. Not this year, and not cheaply, and not because anybody out-thought them. I have eleven names I am certain of, in a basement, arguing about a machine that runs a city, and every one of those names is fixed to a body that wears out.\"\n\nA truck goes past behind you, west, unhurried.\n\n\"We are not asking you to believe anything. We are asking whether you would like to still be here in forty years to find out who was right.\""
     },
     "refused": {
       "_vine": {
@@ -837,7 +837,7 @@
           "next": "bye"
         }
       ],
-      "text": "She laughs. Not unkindly — the short, genuine laugh of somebody who has been told a very old joke very well.\n\n\"Death to the Architect. Yes.\" She wipes her eye with a knuckle. \"You have no idea how much I needed that today.\"\n\nShe steps back to let you past, and she does not look at the slate, and she does not need to.\n\n\"You are making a mistake, and I mean that professionally rather than personally. But go on — go and tell them what you saw. I would genuinely rather you did.\"\n\nShe is already looking at the next person coming up the road.\n\n\"We will keep an eye on you. Not as a threat. As an actuary. People in your line of work come back to me eventually, one way or the other, and the other one still counts.\""
+      "text": "She laughs. Not unkindly: the short, genuine laugh of somebody who has been told a very old joke very well.\n\n\"Death to the Architect. Yes.\" She wipes her eye with a knuckle. \"You have no idea how much I needed that today.\"\n\nShe steps back to let you past, and she does not look at the slate, and she does not need to.\n\n\"You are making a mistake, and I mean that professionally rather than personally. But go on. Go and tell them what you saw. I would genuinely rather you did.\"\n\nShe is already looking at the next person coming up the road.\n\n\"We will keep an eye on you. Not as a threat. As an actuary. People in your line of work come back to me eventually, one way or the other, and the other one still counts.\""
     },
     "root": {
       "_vine": {
@@ -1114,7 +1114,7 @@
         "\"Back up the road,\" she says, and marks something. \"Fourth one this week.\""
       ],
       "text_by_relation": {
-        "first": "\"Verity Ives,\" she says, before you have said anything. \"Claims oversight. I price things — mostly people, lately.\"",
+        "first": "\"Verity Ives,\" she says, before you have said anything. \"Claims oversight. I price things. Mostly people, lately.\"",
         "known": "\"You again.\" She almost smiles. \"You are becoming a trend, and I do like a trend.\""
       }
     },
@@ -1130,7 +1130,7 @@
           "next": "bye"
         }
       ],
-      "text": "She signs you in with two strokes and does not ask for a name.\n\n\"The Curator will walk you through the Gallery, then the Vats, then up. Watch the Vats properly — everybody watches the ceiling and misses the part that matters.\"\n\nShe hands the slate back to a man who was not there a moment ago.\n\n\"I will be here when you come down. I am always here when people come down.\""
+      "text": "She signs you in with two strokes and does not ask for a name.\n\n\"The Curator will walk you through the Gallery, then the Vats, then up. Watch the Vats properly. Everybody watches the ceiling and misses the part that matters.\"\n\nShe hands the slate back to a man who was not there a moment ago.\n\n\"I will be here when you come down. I am always here when people come down.\""
     },
     "stance_approve": {
       "_vine": {
@@ -1423,7 +1423,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"The terms, then, since you asked plainly.\" She counts them off on the slate she still is not looking at.\n\n\"An account. Cover on the body you are currently wearing. Access to a clinic where the staff are not drunk. And work — real work, paid, some of which you will not enjoy, none of which I will lie to you about beforehand.\"\n\nA truck goes past, west, full of something heavy.\n\n\"What we want in return is not your friends. Nobody is asking you for eleven names, and if you offered them I would think less of you and take them anyway. What we want is that when it comes apart out there — and it will, and I can tell you roughly when — you are standing on this side of the road.\""
+      "text": "\"The terms, then, since you asked plainly.\" She counts them off on the slate she still is not looking at.\n\n\"An account. Cover on the body you are currently wearing. Access to a clinic where the staff are not drunk. And work: real work, paid, some of which you will not enjoy, none of which I will lie to you about beforehand.\"\n\nA truck goes past, west, full of something heavy.\n\n\"What we want in return is not your friends. Nobody is asking you for eleven names, and if you offered them I would think less of you and take them anyway. What we want is that when it comes apart out there (and it will, and I can tell you roughly when), you are standing on this side of the road.\""
     },
     "the_loss_body": {
       "_vine": {
@@ -1543,7 +1543,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"It is where we record anything alive that we cannot put a value on.\"\n\nShe is not defensive. She has not understood the objection and does not know that she has not.\n\n\"The page goes to Nine. Not the ninth floor — the department. There is no name on the slip, only the number, which I have always assumed is an oversight.\"\n\n\"Nineteen years, and I have never had cause to send anything else there.\""
+      "text": "\"It is where we record anything alive that we cannot put a value on.\"\n\nShe is not defensive. She has not understood the objection and does not know that she has not.\n\n\"The page goes to Nine. Not the ninth floor. The department. There is no name on the slip, only the number, which I have always assumed is an oversight.\"\n\n\"Nineteen years, and I have never had cause to send anything else there.\""
     },
     "the_mutant_number": {
       "_vine": {
@@ -1574,7 +1574,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"There is no number.\"\n\nShe turns the ledger back and does not offer it this time.\n\nShe enters his details anyway, to show you. Under the counter a terminal wakes up and begins printing, unhurried, the way a machine prints a thing it prints all day.\n\n\"To price a life I need thirty years of people dying on schedule. Nobody has that for a mutant. No two of them are alike and none of them were designed.\"\n\nShe tears the slip off and turns it round so you can read the top of it.\n\n<span class=\"term-print\">FORM 9 — UNVALUED LIVING PROPERTY</span>\n\n\"I did not pick that. I typed what he is and the system printed what applies.\""
+      "text": "\"There is no number.\"\n\nShe turns the ledger back and does not offer it this time.\n\nShe enters his details anyway, to show you. Under the counter a terminal wakes up and begins printing, unhurried, the way a machine prints a thing it prints all day.\n\n\"To price a life I need thirty years of people dying on schedule. Nobody has that for a mutant. No two of them are alike and none of them were designed.\"\n\nShe tears the slip off and turns it round so you can read the top of it.\n\n<span class=\"term-print\">FORM 9: UNVALUED LIVING PROPERTY</span>\n\n\"I did not pick that. I typed what he is and the system printed what applies.\""
     },
     "the_mutant_written": {
       "_vine": {
@@ -1646,7 +1646,7 @@
           "next": "stance_object"
         }
       ],
-      "text": "\"Of course somebody did. It did not fall out of the sky.\"\n\nShe says it the way you would explain that a bridge has engineers.\n\n\"A committee, in '39. Eleven of them, and they took four years over it, and the minutes are in the Gallery if you would like to read them. They were careful people.\"\n\nShe turns back to the ledger.\n\n\"The page goes to Nine — not the ninth floor, the department. There is no name on the slip, only the number. Nineteen years, and I have never had cause to send anything else there.\""
+      "text": "\"Of course somebody did. It did not fall out of the sky.\"\n\nShe says it the way you would explain that a bridge has engineers.\n\n\"A committee, in '39. Eleven of them, and they took four years over it, and the minutes are in the Gallery if you would like to read them. They were careful people.\"\n\nShe turns back to the ledger.\n\n\"The page goes to Nine. Not the ninth floor: the department. There is no name on the slip, only the number. Nineteen years, and I have never had cause to send anything else there.\""
     },
     "the_note": {
       "_vine": {

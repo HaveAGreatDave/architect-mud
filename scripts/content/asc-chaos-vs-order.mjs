@@ -75,7 +75,7 @@ t.why_us_flask = {
     '"They drink it. That is the procedure in full."\n\n'
     + 'He does not raise his voice, but this is the only subject on which he stops being '
     + 'charming.\n\n'
-    + '"No dose. No schedule. No two batches alike, because there is no method — it is made in a '
+    + '"No dose. No schedule. No two batches alike, because there is no method. It is made in a '
     + 'pool by people who do not write anything down."\n\n'
     + '"Two men take the same flask from the same hand on the same afternoon. One of them ends up '
     + 'with a second heart. The other gets a fever and four bad years."',

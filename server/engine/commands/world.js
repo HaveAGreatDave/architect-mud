@@ -50,7 +50,7 @@ const NAKED_DESC = {
       (n) => `${n} is naked as the day they were born.`,
     ],
     graphic: [
-      (n) => `${n} is completely naked — full breasts, stiff nipples, a neat thatch of hair between their thighs.`,
+      (n) => `${n} is completely naked: full breasts, stiff nipples, a neat thatch of hair between their thighs.`,
       (n) => `${n} wears nothing at all, heavy breasts swaying, hips bare down to the smooth curve of their sex.`,
       (n) => `${n} is stripped down to nothing, soft breasts and a flat stomach above the shadow of hair at their thighs.`,
       (n) => `${n} stands fully nude, nipples tight in the cool air, thighs parting on a glimpse of everything.`,
@@ -66,7 +66,7 @@ const NAKED_DESC = {
       (n) => `${n} is naked as the day they were born.`,
     ],
     graphic: [
-      (n) => `${n} is completely naked — broad chest, a trail of hair down a flat stomach, cock hanging heavy between their thighs.`,
+      (n) => `${n} is completely naked: broad chest, a trail of hair down a flat stomach, cock hanging heavy between their thighs.`,
       (n) => `${n} wears nothing at all, everything on display, soft and uncut against one thigh.`,
       (n) => `${n} is stripped down to nothing, bare from the chest to the blunt weight of their cock.`,
       (n) => `${n} stands fully nude, muscle and old scars and a thick length swinging as they shift.`,
@@ -334,7 +334,7 @@ const STAIN_DESCS = {
   dirt: {
     self: [
       (item) => `Your ${item} is dirt stained. You've been somewhere the ground didn't care about you.`,
-      (item) => `Your ${item} is filthy — dirt stained from wherever you've been crawling.`,
+      (item) => `Your ${item} is filthy, dirt stained from wherever you've been crawling.`,
     ],
     other: [
       (item) => `Their ${item} is dirt stained. They've been somewhere unpleasant recently.`,
@@ -610,7 +610,7 @@ async function cmdExamine(targetStr, player, broadcast) {
       const cooking = await fireHook('item.checkCooking', { ...it, id: it.inv_id }, player);
       if (cooking) msg += `\n<span class="text-dim">It's ${cooking.text}.</span>`;
     } else if (it.tags && Object.prototype.hasOwnProperty.call(it.tags, 'needs_cooking')) {
-      msg += `\n<span class="text-dim">It's ${it.custom_data?.cooked ? 'cooked through' : 'raw — probably not safe to eat like this'}.</span>`;
+      msg += `\n<span class="text-dim">It's ${it.custom_data?.cooked ? 'cooked through' : 'raw, probably not safe to eat like this'}.</span>`;
     }
     // What's been done to it before the heat: scored, beaten out, sitting in a
     // marinade. A marinade is a timer the player is meant to read, so it has to
@@ -672,6 +672,8 @@ async function cmdExamine(targetStr, player, broadcast) {
       f = { ...f, name: tf.name || f.name, description: look || tf.description || f.description };
     }
     let msg = `<span class="zone-name">${f.name}</span>\n${f.description}`;
+    // What you see only by looking closely: authored beside the piece, never in the room line.
+    if (typeof f.flags?.examine_detail === 'string' && f.flags.examine_detail) msg += `\n${f.flags.examine_detail}`;
     const furnitureExtra = await fireHook('furniture.describe', f, player);
     if (furnitureExtra) msg += `\n${furnitureExtra}`;
     const interactions = f.flags?.interactions || [];
@@ -683,7 +685,7 @@ async function cmdExamine(targetStr, player, broadcast) {
     const excludeVerbs = [];
     if (f.object_type === 'light') {
       if (f.light_type === 'streetlight') {
-        msg += `\n<span class="light-state ${f.light_on ? 'light-on' : 'light-off'}">Currently ${f.light_on ? 'lit' : 'dark'} — city-grid controlled, no switch out here.</span>`;
+        msg += `\n<span class="light-state ${f.light_on ? 'light-on' : 'light-off'}">Currently ${f.light_on ? 'lit' : 'dark'}: city-grid controlled, no switch out here.</span>`;
       } else {
         msg += `\n<span class="light-state ${f.light_on ? 'light-on' : 'light-off'}">Currently ${f.light_on ? 'on' : 'off'}.</span>`;
         if (interactions.includes('switch')) {
@@ -930,10 +932,10 @@ async function cmdExamine(targetStr, player, broadcast) {
     const { totalLoad, zoneCount } = getGeneratorLoad(gen.id);
     const statusLabel = gen.status === 'online' ? 'RUNNING' : gen.status.toUpperCase();
     const typeLabel = gen.generator_type === 'city_plant' ? 'city power plant' : gen.generator_type === 'building' ? 'building generator' : 'portable generator';
-    let msg = `${gen.name || 'Generator'}\nA permanent ${typeLabel}. No fuel required — it just runs.\n\n` +
+    let msg = `${gen.name || 'Generator'}\nA permanent ${typeLabel}. No fuel required; it just runs.\n\n` +
       `STATUS: ${statusLabel}\nOUTPUT: ${gen.capacity_kw}kW capacity, ${totalLoad}kW current draw\n` +
       `SERVING: ${zoneCount} zone${zoneCount === 1 ? '' : 's'}`;
-    if (totalLoad > gen.capacity_kw) msg += `\n<span class="generator-overload">⚠ OVERLOADED — drawing more than rated capacity.</span>`;
+    if (totalLoad > gen.capacity_kw) msg += `\n<span class="generator-overload">⚠ OVERLOADED: drawing more than rated capacity.</span>`;
     return { type:'examine', message: msg };
   }
   // Inside a dream or a hallucination, the room's own objects and its wandering
@@ -1110,7 +1112,7 @@ ${line}`;
     if (all.length === 1) return describeDoor(all[0].door, all[0].dir);
     if (all.length > 1) {
       const dirs = all.map(e => e.dir).join(', ');
-      return { type: 'error', message: `Multiple doors here — specify a direction (${dirs}).` };
+      return { type: 'error', message: `Multiple doors here. Specify a direction (${dirs}).` };
     }
   }
 
@@ -1329,7 +1331,7 @@ async function applyLightSwitch(nameStr, dir, player, broadcast) {
   if (!rows.length) return { type:'error', message:`You don't see a light called "${nameStr}" here.` };
   const light = rows[0];
   if (light.light_type === 'streetlight') {
-    return { type:'error', message:`${light.name} is city-grid infrastructure — it comes on by itself once it gets dark. There's no switch out here.` };
+    return { type:'error', message:`${light.name} is city-grid infrastructure. It comes on by itself once it gets dark. There's no switch out here.` };
   }
   const newState = dir ? (dir === 'on' ? 1 : 0) : (light.light_on ? 0 : 1);
   if (light.light_on === newState) {
@@ -1387,7 +1389,7 @@ async function cmdTurn(args, player, broadcast) {
     dir = last;
     nameStr = args.slice(0, -1).join(' ');
   } else {
-    return { type:'error', message:'Usage: turn on/off <light name> — or — turn <light name> on/off' };
+    return { type:'error', message:'Usage: turn on/off <light name>, or turn <light name> on/off' };
   }
   return applyLightSwitch(nameStr, dir, player, broadcast);
 }
@@ -1470,7 +1472,7 @@ export const HELP_GROUPS = [
   { cat: 'MOVEMENT',   text: 'north south east west up down (n/s/e/w/u/d)  |  go <dir>  |  run  walk  sprint  |  gps <place>' },
   { cat: 'COMBAT',     text: 'attack <target>  |  loot <corpse>  |  butcher <corpse>' },
   { cat: 'ITEMS',      text: 'inventory  take <item>  drop  use  equip' },
-  { cat: 'TABLET',     text: 'tablet (or os) — map, bank, gear, chat, TV guide and the full help book on your wrist' },
+  { cat: 'TABLET',     text: 'tablet (or os): map, bank, gear, chat, TV guide and the full help book on your wrist' },
   { cat: 'WORK',       text: 'quests  |  gigs (day work off a job board)  |  work / shift (steady jobs)' },
   { cat: 'FORAGING',   text: 'scavenge (junk, anywhere)  |  fish (rod required, at water)  |  mine (pick required, at a deposit)' },
   { cat: 'CONTAINERS', text: 'look in <container>  |  stow <item> in <container>  |  pull <item> from <container>' },
@@ -1498,7 +1500,7 @@ async function cmdTargetHelp(targetStr, player) {
   const render = (name, entries) => {
     let msg = `<span class="help-header">${name.toUpperCase()}</span>\n`;
     if (!entries.length) {
-      msg += `\n<span class="text-dim">Nothing special to do with this — try</span> examine ${name.toLowerCase()}<span class="text-dim">.</span>`;
+      msg += `\n<span class="text-dim">Nothing special to do with this. Try</span> examine ${name.toLowerCase()}<span class="text-dim">.</span>`;
       return { type: 'help', message: msg };
     }
     msg += `\n<span class="text-dim">Things you can do:</span>\n`;
@@ -1713,7 +1715,7 @@ function creatureSmells(zone, player, acuity) {
   if (enemies.length) {
     out.push({
       text: acuity >= 2 && enemies.length === 1
-        ? `something that isn't a person, and it's close — ${enemies[0].name}`
+        ? `something that isn't a person, and it's close: ${enemies[0].name}`
         : enemies.length > 2 ? `rank animal musk, several of them, and this is their room` : `something rank and alive that isn't a person`,
       strength: 4 + Math.min(3, enemies.length),
     });
@@ -1737,7 +1739,7 @@ async function cmdSmell(args, raw, player) {
     // otherwise be the tell that the whole surface exists.
     if (s.misOnly && !isMisActive(player)) continue;
     found.push({
-      text: count > 2 ? `${s.text} — more than one incident's worth` : s.text,
+      text: count > 2 ? `${s.text}, more than one incident's worth` : s.text,
       strength: s.strength + Math.min(2, count - 1),
       source: s.source,
     });
@@ -1777,7 +1779,7 @@ async function cmdSmell(args, raw, player) {
   if (!top.length) {
     const nothing = acuity < 0
       ? `You breathe in and get almost nothing. Something is wrong with your nose.`
-      : `You breathe in. Nothing worth reporting — which around here counts as good news.`;
+      : `You breathe in. Nothing worth reporting, which around here counts as good news.`;
     return { type: 'output', message: own
       ? `You breathe in.\n  <span class="text-dim">${own}</span>`
       : nothing };
@@ -1868,7 +1870,7 @@ export async function cmdListen(args, raw, player) {
     if (bodies) found.push({ zoneId, dist, strength: (bodies > 3 ? 7 : 4) - dist,
       text: bodies > 3 ? `a lot of people moving about` : bodies > 1 ? `people talking, more than one` : `somebody moving quietly` });
     if (beasts) found.push({ zoneId, dist, strength: 6 - dist, source: 'beast',
-      text: beasts > 2 ? `several things moving that don't move like people` : `something moving wrong — too heavy, too low` });
+      text: beasts > 2 ? `several things moving that don't move like people` : `something moving wrong, too heavy, too low` });
 
     // THE CHEAP QUERY. Bodies are already in memory, so those are free above —
     // but asking every plugin what a zone sounds like is a fan-out, and paying
@@ -1898,7 +1900,7 @@ export async function cmdListen(args, raw, player) {
     if (s.zoneId === player.current_zone) return `  ${s.text[0].toUpperCase()}${s.text.slice(1)}.`;
     const dir = bearingTo(zone, s.zoneId);
     // Only a sharp ear resolves a direction; everyone else knows it's not here.
-    const where = dir && acuity >= 1 ? ` — ${dir} of here` : s.dist > 1 ? ` — somewhere further off` : ` — through the wall`;
+    const where = dir && acuity >= 1 ? `, ${dir} of here` : s.dist > 1 ? `, somewhere further off` : `, through the wall`;
     return `  ${s.text[0].toUpperCase()}${s.text.slice(1)}${where}.`;
   });
   if (note) lines.push(`  <span class="text-dim">${note}</span>`);

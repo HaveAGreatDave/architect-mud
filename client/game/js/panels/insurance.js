@@ -65,7 +65,7 @@ function render() {
 
   const claims = (data.claims || []).map(c => `
     <div class="ins-claim">
-      <span>${esc(c.typeName)} — pays ${fmt(c.payout)} <span class="ins-dim">(after ${fmt(c.deductible)} excess)</span></span>
+      <span>${esc(c.typeName)}, pays ${fmt(c.payout)} <span class="ins-dim">(after ${fmt(c.deductible)} excess)</span></span>
       <button class="ins-btn ins-accent" data-claim="${c.id}">Collect</button>
     </div>`).join('');
 
@@ -91,7 +91,7 @@ function render() {
     <div class="ins-list">${rows}</div>
     ${claims ? `<div class="ins-section">OPEN CLAIMS</div><div class="ins-claims">${claims}</div>` : ''}
     ${surcharge}
-    <div class="ins-note">A covered write-off pays ${data.payoutPct}% of agreed value, less a ${data.deductiblePct}% excess — we keep the wreck.</div>`;
+    <div class="ins-note">A covered write-off pays ${data.payoutPct}% of agreed value, less a ${data.deductiblePct}% excess: we keep the wreck.</div>`;
 
   wire();
 }

@@ -132,7 +132,7 @@ const BAND_LINES = {
     clean:    name => `${name} does clean work in a clean room. You wake to a warm blanket and a glass of water already poured, and the soreness has been anticipated and medicated before you noticed it was coming.`,
     sound:    name => `${name} takes longer than the estimate and says so, which is itself a kind of service. It's in, it works, and somebody sits with you until the shaking stops.`,
     rough:    name => `${name} goes back in a second time, and the room gets quieter in the way expensive rooms do when something isn't going to plan. It's seated. It isn't seated WELL, and everyone present knows it.`,
-    botched:  name => `${name} steps back too early and doesn't meet your eye. There's a form to sign. The language on it's beautiful and it says, at length, that nothing here was anybody's fault. Something in there isn't sitting square, and it never will.`,
+    botched:  name => `${name} steps back too early and doesn't meet your eye. There's a form to sign. The language on it is beautiful and it says, at length, that nothing here was anybody's fault. Something in there isn't sitting square, and it never will.`,
   },
   unlicensed: {
     flawless: name => `${name} does it on a folding table under a work lamp, humming, and does it perfectly. Some hands don't need a building around them.`,
@@ -376,7 +376,7 @@ export async function installAugment(rest, player) {
     : '';
   return { type: 'augments', message:
     `${bandLine(band.id, surgeon)(surgeon.name)}\n\n`
-    + `<span class="zone-name">${aug.name}</span> installed — condition ${Math.round(condition * 100)}%, calibration ${calibration}%.${capNote}${burnLine}\n`
+    + `<span class="zone-name">${aug.name}</span> installed: condition ${Math.round(condition * 100)}%, calibration ${calibration}%.${capNote}${burnLine}\n`
     + `<span style="opacity:.7">Fresh chrome always runs under spec. Have it calibrated.</span>` };
 }
 
@@ -495,7 +495,7 @@ export async function repairAugment(rest, player) {
   const band = conditionBand(rec.condition);
   return { type: 'output', message:
     `${surgeon.name} opens you up and works. ₵${cost}.\n`
-    + `<span class="zone-name">${aug.name}</span> — condition ${Math.round(before * 100)}% → <b>${Math.round(rec.condition * 100)}%</b> (${band?.label || band?.id}).\n`
+    + `<span class="zone-name">${aug.name}</span>: condition ${Math.round(before * 100)}% → <b>${Math.round(rec.condition * 100)}%</b> (${band?.label || band?.id}).\n`
     + `<span style="opacity:.7">Calibration is untouched. Physically sound isn't the same as tuned.</span>` };
 }
 
@@ -519,7 +519,7 @@ export async function quoteInstall(rest, player) {
   const row = (rows || []).find(r => r.item_id === aug.item_id);
   const itemCondition = row ? (row.condition == null ? 1 : Number(row.condition)) : 1;
 
-  let msg = `<span class="skills-header">FITTING — ${aug.name.toUpperCase()}</span>\n\n`;
+  let msg = `<span class="skills-header">FITTING: ${aug.name.toUpperCase()}</span>\n\n`;
   if (!row) msg += `<span class="outcast-warning">You aren't carrying the hardware. These are prices, not appointments.</span>\n\n`;
   // Sorted best-hands-first. A quote sheet is a sales document and the house
   // always leads with the thing it would rather you bought.

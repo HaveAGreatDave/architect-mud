@@ -1,5 +1,5 @@
 {
-  "description": "Below the bowl of paving, between the two crescents, and shared with next door — which is why there are two cabinets on the wall and only one of them is this building's. Somebody has painted a line on the floor and written OURS on the correct side of it.",
+  "description": "Below the bowl of paving, between the two crescents, and shared with next door, which is why there are two cabinets on the wall and only one of them is this building's. Somebody has painted a line on the floor and written OURS on the correct side of it.",
   "exits": {
     "up": "zone_hf_bent_front"
   },

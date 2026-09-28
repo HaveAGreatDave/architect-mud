@@ -148,7 +148,7 @@ export function narrateBoard(table, onlyPlayerId = null) {
       : "You're watching.";
     const turn = g.isOver()
       ? g.resultLine()
-      : `${g.turn === 'w' ? 'White' : 'Black'} to move${g.inCheck() ? ' — in check' : ''}.`;
+      : `${g.turn === 'w' ? 'White' : 'Black'} to move${g.inCheck() ? ', in check' : ''}.`;
     sendToPlayer(pid, {
       type: 'output',
       message: [
@@ -176,8 +176,8 @@ export function narrateMove(table, san) {
   // "check". Captures are deliberately NOT repeated here — `handleMove` already
   // says "X takes the knight" to the room, and the room log is the same log.
   const consequence = /#$/.test(san)
-    ? ' — <b>checkmate</b>.'
-    : (/\+$/.test(san) || g.inCheck()) ? ' — check.' : '';
+    ? ', <b>checkmate</b>.'
+    : (/\+$/.test(san) || g.inCheck()) ? ', check.' : '';
 
   for (const pid of textWatchers(table)) {
     const color = g.seatByPlayer(pid)?.color || 'w';

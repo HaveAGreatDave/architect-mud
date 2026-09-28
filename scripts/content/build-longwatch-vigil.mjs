@@ -263,7 +263,7 @@ write('npcs', {
   behaviour_graph: { _start: 'start', nodes: { start: { next: 'wait', type: 'start' }, wait: { next: 'start', seconds: 75, type: 'wait' } } },
   dialogue_tree: {
     root: {
-      first: 'He looks up from the clipboard, sees somebody who is not a doorway, and is briefly at a loss. "Ah. Are you — is this your door?"',
+      first: 'He looks up from the clipboard, sees somebody who is not a doorway, and is briefly at a loss. "Ah. Are you... is this your door?"',
       text: 'He has moved eleven feet along the street and is counting again. "Still going. Long street."',
       options: [
         { next: 'why', label: 'What are you counting?' },

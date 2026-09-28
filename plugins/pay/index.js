@@ -41,7 +41,7 @@ async function cmdPay(args, raw, player, broadcast) {
   if (!pool.length) return { type: 'error', message: 'Nobody here to pay.' };
   const r = siftResolve(who, pool);
   if (r.type === 'none') return { type: 'error', message: `There's no "${who}" here.` };
-  if (r.type === 'ambiguous') return { type: 'error', message: `Who do you mean — ${r.candidates.map(c => c.handle).join(', ')}?` };
+  if (r.type === 'ambiguous') return { type: 'error', message: `Who do you mean: ${r.candidates.map(c => c.handle).join(', ')}?` };
   const target = r.candidate;
   if ((player.credits || 0) < amount) return { type: 'error', message: `You don't have ₵${amount} on hand.` };
 
@@ -56,7 +56,7 @@ async function cmdPay(args, raw, player, broadcast) {
   pendingPay.set(target.id, { fromId: player.id, fromHandle: player.handle, amount, timer });
 
   sendToPlayer(target.id, { type: 'output', message: `<span class="msg-system">${player.handle} offers you <b>₵${amount}</b>. Type <b>acceptpay</b> to take it, or <b>declinepay</b> to wave it off.</span>` });
-  return { type: 'output', message: `You hold out ₵${amount} to ${target.handle} — waiting on them to accept.` };
+  return { type: 'output', message: `You hold out ₵${amount} to ${target.handle}: waiting on them to accept.` };
 }
 
 async function cmdAcceptPay(args, raw, player) {
@@ -74,7 +74,7 @@ async function cmdAcceptPay(args, raw, player) {
     });
   } catch {
     if (failed === 'funds') return { type: 'error', message: `${payer.handle} can't cover that anymore.` };
-    return { type: 'error', message: 'The transfer glitched — nothing moved.' };
+    return { type: 'error', message: 'The transfer glitched: nothing moved.' };
   }
   sendToPlayer(payer.id, { type: 'output', message: `<span class="msg-system">${player.handle} accepts your ₵${offer.amount}. (Balance: ₵${payer.credits})</span>` });
   return { type: 'output', message: `You take ₵${offer.amount} from ${payer.handle}. (Balance: ₵${player.credits})` };

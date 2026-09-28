@@ -194,6 +194,7 @@ uniform float uWet;             // how wet the ground is, 0-1
 // with everything drawn on it. Tarmac is the one surface in a night city whose whole job is to
 // carry the pool a lamp throws on it: there is nothing on a road for it to drown.
 uniform float uPool;
+uniform float uNightDim;   // 1 - night * nightDark: the road's share of the dark, before the lights
 // The night, 0 by day. ⚠ THE LIST ITSELF CARRIES NO NIGHT TERM — 'rgbRaw' is deliberately
 // unweighted so a wet road goes on reflecting neon at four in the afternoon (see pickLights) — so
 // without this a lamp would lay its pool on sunlit tarmac at noon, which is the pink-cast-at-midday
@@ -591,6 +592,7 @@ void main() {
     surf *= 1.0 + lm.z * lm.x;
     surf = mix(surf, uLidSlot, lm.y);
   }
+  if (uSurface > 0.5) surf *= uNightDim;
   vec3 c = mix(surf, uFog, gfog);
   // ⚠ AFTER THE FOG, because the fog is already folded into c above: a road that has receded into
   // the horizon has nothing left to reflect in, and adding light to it would put a streak on top of
@@ -1370,6 +1372,7 @@ export function createGroundLayer(gl) {
     fogFar: gl.getUniformLocation(prog, 'uFogFar'),
     fogAmt: gl.getUniformLocation(prog, 'uFogAmt'),
     pool: gl.getUniformLocation(prog, 'uPool'),
+    nightDim: gl.getUniformLocation(prog, 'uNightDim'),
     night: gl.getUniformLocation(prog, 'uNight'),
     nWet: gl.getUniformLocation(prog, 'uNWet'),
     wetP: gl.getUniformLocation(prog, 'uWetP'),
@@ -1518,6 +1521,7 @@ export function createGroundLayer(gl) {
     // ⚠ WRITTEN EVERY FRAME, LIKE THE WETNESS ABOVE, or a lamp goes on lighting the road after
     // the pool is switched off — a uniform holds its last value.
     gl.uniform1f(loc.pool, opts.pool > 0 ? opts.pool : 0);
+    gl.uniform1f(loc.nightDim, opts.nightDim == null ? 1 : opts.nightDim);
     gl.uniform1f(loc.night, opts.night == null ? 0 : opts.night);
     // ⚠ AND THE LIGHTS ARRIVE ON A DRY NIGHT NOW, WHICH THEY NEVER DID. This read
     // '(opts.wet > 0 ? opts.wetLights : null)', which is right for a term that is about water and

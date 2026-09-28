@@ -137,7 +137,7 @@ function gearEntry(g, forLabel) {
   const ex = gearExamples(g.key);
   return {
     k: 'g', v: g.key, n: 1,
-    label: ex.length ? `${g.label} — ${examplesLine(ex)}` : g.label,
+    label: ex.length ? `${g.label}: ${examplesLine(ex)}` : g.label,
     base: g.label, ex, req: g.req, for: forLabel || null,
   };
 }
@@ -374,7 +374,7 @@ function classLabel(profile, need, template) {
   // Note suppressed deliberately — see above. The examples replace it, and they
   // are the half of it that can be handed over a counter.
   const base = ingredientLine(profile, need, plain, itemInfo);
-  return { label: `${base} — ${examplesLine(examples)}`, base, ex: examples };
+  return { label: `${base}: ${examplesLine(examples)}`, base, ex: examples };
 }
 
 // Add a recipe's SHORTFALL, not its whole ingredient list. You already own half

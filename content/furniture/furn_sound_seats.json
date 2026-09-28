@@ -7,9 +7,12 @@
       "chairs",
       "row"
     ],
-    "interactions": {
+    "interaction_lines": {
       "sit": "You pick a seat. The hinge is stiff and takes a push, then settles you lower than you expected."
-    }
+    },
+    "interactions": [
+      "sit"
+    ]
   },
   "id": "furn_sound_seats",
   "name": "the seats",

@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Loose ground at the foot of the wall of rock, walking on it a matter of picking the flat pieces. There are bones down among the stones and there's no telling how they got there or from how high.",
+  "description": "Knee-high scrub runs off in every direction, a dull grey-green over gritty ground. The leaves are pocked with pale rain burns.",
   "exits": {
     "east": "zone_scw_1020_957",
     "north": "zone_scw_1019_956",
@@ -8,18 +8,18 @@
     "west": "zone_scw_1018_957"
   },
   "flags": {
-    "ambient_pool": "scarletwastes_the_spill",
+    "ambient_pool": "scarletwastes_the_grey_thicket",
     "lawless": true,
     "radiation": 9,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "gravel"
+    "terrain": "dirt_road"
   },
   "grid_x": 1019,
   "grid_y": 957,
   "grid_z": 0,
   "id": "zone_scw_1019_957",
   "map_id": "map_world",
-  "name": "Broken Foot",
+  "name": "The Grey Thicket",
   "parent_zone": null
 }

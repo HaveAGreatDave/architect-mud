@@ -439,7 +439,7 @@
         },
         "next": "bsm_47",
         "style": "verbatim",
-        "text": "Captain Quorum says, \"And the motion, having been debated —\"",
+        "text": "Captain Quorum says, \"And the motion, having been debated...\"",
         "type": "say"
       },
       "bsm_47": {
@@ -459,7 +459,7 @@
         },
         "next": "bsm_49",
         "style": "verbatim",
-        "text": "Captain Quorum says, \"— CARRIES.\"",
+        "text": "Captain Quorum says, \"...CARRIES.\"",
         "type": "say"
       },
       "bsm_49": {

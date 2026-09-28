@@ -53,7 +53,7 @@ registerPrintArtifact('mismatched_iris', {
 registerPrintArtifact('wrong_hands', {
   at: 60,
   self: 'Your fingerprints have stopped matching the ones on your own record. The Registry has amended the record.',
-  other: 'Their hands are subtly the wrong hands — the whorls too clean, too newly cut.',
+  other: 'Their hands are subtly the wrong hands: the whorls too clean, too newly cut.',
 });
 registerPrintArtifact('static_voice', {
   at: 45,

@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "Black and white stone underfoot in a diamond pattern, and a hall stand with eleven pegs, four of them holding coats. The porter's desk faces the door rather than the room. On it, a ledger, a brass bell nobody rings, and a leather-bound book of members that is closed and has a ribbon in it. The staircase goes up into a part of the building the door to the smoking room does not suggest exists.",
+  "description": "Black and white stone in a diamond pattern. A hall stand with eleven pegs, four holding coats. The porter's desk faces the door: a ledger, a brass bell, and a leather-bound members' book shut on a ribbon. A staircase goes up.",
   "exits": {
     "down": "zone_util_zone_vested_hall",
     "north": "zone_district_894_911",

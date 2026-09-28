@@ -6,9 +6,7 @@
       "notices",
       "noticeboard"
     ],
-    "interactions": {
-      "examine": "The second notice is in a different hand and is not on estate paper. It has been there longer than the first."
-    }
+    "examine_detail": "The second notice is in a different hand and is not on estate paper. It has been there longer than the first."
   },
   "id": "furn_hf_topbrass_notices",
   "name": "the noticeboard",

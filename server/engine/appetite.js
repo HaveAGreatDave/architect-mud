@@ -34,7 +34,7 @@ const HUNGER_BANDS = [
     "There's nothing left in you to burn and something in you is burning anyway.",
   ] },
   { at: 12, every: 8, lines: [
-    "You're starving. Not hungry — starving. There's a difference and you have found it.",
+    "You're starving. Not hungry. Starving. There's a difference and you have found it.",
     'Your hands have a tremor in them that has nothing to do with the cold.',
     'Standing up takes a decision now.',
   ] },
@@ -167,7 +167,7 @@ const SATIATION = {
     'That was too much. You know it was too much. You ate it anyway.',
   ],
   full: [
-    "You're full — properly, heavily full. It was worth it.",
+    "You're full: properly, heavily full. It was worth it.",
     "That's enough. That's comfortably, unarguably enough.",
     'You sit back and let it settle. Nothing about you wants anything for a while.',
   ],
@@ -261,9 +261,9 @@ export function slakeLine(player) {
  */
 const WASTE = {
   most: {
-    hunger: ['Most of it goes to waste — you were fuller than you thought.',
+    hunger: ['Most of it goes to waste. You were fuller than you thought.',
              'You get perhaps a third of the way through before your stomach refuses the rest.',
-             "The rest of it's a gift to the floor. You had no room for it."],
+             "The rest of it is a gift to the floor. You had no room for it."],
     thirst: ['Most of it goes straight through you and does nothing at all.',
              'You manage a few swallows and give up. There was nowhere for it to go.',
              'The rest runs down your chin, unwanted.'],

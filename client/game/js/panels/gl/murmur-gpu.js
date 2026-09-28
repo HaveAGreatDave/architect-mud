@@ -69,6 +69,9 @@ const W = 64;                       // birds per texture row
 const UNIT0 = 8;                    // texture units 8-16: no other layer binds these during the sim
 const FLOOR_Z = 0.03;               // tiles: the lowest an airborne starling flies
 const IDLE_EVICT_MS = 4000;         // murmur.js's own eviction rule, for the same reason
+// Landing: the shortest time a bird is given to reach its ground spot (s), and the fastest it may travel
+// doing so (tiles/s, ~18 m/s — a starling's own flight speed), so none is ever placed there in a jump.
+const LAND_TAU = '0.45', LAND_VMAX = '1.6';
 const MAX_CLOUDS = 12;
 // ⚠ A BIG CLOUD IS STEPPED EVERY 2ND OR 3RD FRAME AND DRAWN BETWEEN ITS LAST TWO STEPS (gl/fauna.js,
 // uLerp), so the flock is drawn one step behind itself. Each cloud takes its own phase, so two big roosts
@@ -91,7 +94,9 @@ export const STRIDE_FROM = 120000;
 const OBS_LOOK_S = 0.8, OBS_MARGIN = 0.6, OBS_W = 14.0;
 // How often a side of the flock peels off, and for how long (seconds); `split` in FREE_RULES is how hard.
 const SPLIT_EVERY = 17, SPLIT_FOR = 6;
-export const FREE_RULES = { on: 1, cmd: 0.0, roost: 3.0, alt: 0.8, roostR: 0.6, band: 1.2, edge: 3.0, wander: 0.15, spin: 0.5, split: 4.0 };
+// wander 0.15 -> 0.25 and spin 0.5 -> 0.7 (2026-09-25), with the roost pulled in (birds.js roam): the
+// body shifts and rolls more inside the smaller ground it now covers.
+export const FREE_RULES = { on: 1, cmd: 0.0, roost: 3.0, alt: 0.8, roostR: 0.6, band: 1.2, edge: 3.0, wander: 0.25, spin: 0.7, split: 4.0 };
 export const STEP_BUDGET_MS = 6;
 // ⚠ AND NEVER BELOW THIS MANY BIRDS. A timer query on a GPU that is also drawing a city is noisy: one
 // 20,000-bird cloud read 2.2, 4.4 and 8.4 ms in three runs against 1.5 back to back. That noise may push a
@@ -316,6 +321,10 @@ uniform vec4 uEnv;                 // the body's semi-axes long, wide, thick; ta
 uniform vec2 uEnvDir;              // the body's long axis
 uniform vec2 uNoise;               // the speed field's wavenumber and phase
 uniform vec4 uScare;               // x, y, damp, live
+uniform vec4 uAc0;                 // the nearest aircraft: position, live
+uniform vec4 uAcV0;                // …its velocity, tiles/s
+uniform vec4 uAc1;                 // the second nearest
+uniform vec4 uAcV1;
 uniform vec4 uFree;                // the free rules (FREE_RULES): on, course weight, roost pull, height pull
 uniform vec4 uWave;                // the flock taking off or coming down in waves: mode (0 none, 1 up, 2 down), seconds into it, spread, each bird's settle
 uniform float uAirZ;               // the height a bird still waiting to come down holds
@@ -362,6 +371,22 @@ float obsH(vec2 xy) {
   return texelFetch(uObsT, ivec2(uv), 0).r;
 }
 ${HASH}
+vec3 murmurAcFlee(vec3 p, vec4 a, vec4 av) {
+  if (a.w < 0.5) return vec3(0.0);
+  vec3 r = p - a.xyz, vv = av.xyz;
+  float v2 = dot(vv, vv);
+  if (v2 < 1e-6) return vec3(0.0);
+  float dist = length(r);
+  if (dist > ${f(R.AC_DETECT)}) return vec3(0.0);
+  float tc = dot(r, vv) / v2;
+  if (tc < -0.4) return vec3(0.0);                  // it has gone by
+  vec3 w = r - vv * max(tc, 0.0);                   // off the line it is flying
+  float wl = length(w.xy);
+  vec2 dir = wl > 1e-4 ? w.xy / wl : normalize(vec2(-vv.y, vv.x) + 1e-5);
+  float k = exp(-(wl / ${f(R.AC_LANE)}) * (wl / ${f(R.AC_LANE)})) * smoothstep(${f(R.AC_DETECT)}, ${f(R.AC_DETECT)} * 0.35, dist);
+  return vec3(dir * k * 1.4, -0.6 * k);
+}
+
 void main() {
   ivec2 me = ivec2(gl_FragCoord.xy); int i = me.y * TW + me.x;
   vec4 P = texelFetch(uPos, me, 0);
@@ -427,7 +452,14 @@ void main() {
     vec3 tgt = vec3(spot, uGround == 1 ? uLift : 0.0);
     // coming down, each bird has its own deadline, its turn plus the settle; otherwise the flock's
     float LL = uWave.x > 1.5 ? max(0.0, myT + uWave.w - uWave.y) : (uGround == 1 ? uLandLeft : 0.0);
-    vec3 np = LL > 0.0 ? p + (tgt - p) * min(1.0, uDt / LL) : tgt;
+    // ⚠ A BIRD IS NEVER PLACED ON ITS SPOT, IT FLIES THERE. With no landing time left this was 'np = tgt',
+    // so any bird that reached the ground branch late (a flock landing without a wave, a window that ran
+    // out before it arrived) teleported onto its spot. Now the remaining time is floored at LAND_TAU and
+    // each step is capped at a starling's own speed, so every bird comes in on its own path and settles;
+    // once down, the same easing is what carries it round the slow mill, so nothing changes there.
+    vec3 dp = (tgt - p) * min(1.0, uDt / max(LL, ${LAND_TAU}));
+    float dl = length(dp), mx = ${LAND_VMAX} * uDt;
+    vec3 np = p + (dl > mx ? dp * (mx / dl) : dp);
     ${emit('vec4(np, 0.0)', 'vec4((np - p) / max(uDt, 1e-4), vis)', true)}
   }
 
@@ -510,6 +542,10 @@ void main() {
     float kk = exp(-(sd / ${f(R.SCARE_R)}) * (sd / ${f(R.SCARE_R)})) * uScare.z;
     if (kk > 1e-4) e = vec3(s2 / sd * kk, 0.35 * kk);
   }
+  // ⚠ AN AIRCRAFT IS A SECOND FRIGHT, the hawk's push pointed away from a LINE rather than a point: each
+  // bird goes sideways and down off the path the aircraft is flying, once inside the reaction range and
+  // until it has passed. Picture only; the server's strike test never samples a murmuration.
+  e += murmurAcFlee(p, uAc0, uAcV0) + murmurAcFlee(p, uAc1, uAcV1);
   // ⚠ THE FREE RULES: no body at all. The relayed course becomes a nudge rather than an order, cohesion
   // grows toward the edge, and what keeps the flock over its roost is a pull that starts only past a radius,
   // horizontal, plus a soft band of height round the centre's. Everything inside that is the birds.
@@ -620,7 +656,7 @@ function link(gl, vs, fs, label) {
 }
 
 const STEP_UNIFORMS = ['uPos', 'uVel', 'uStat0', 'uStat1', 'uN', 'uDt', 'uSpeed', 'uSepR', 'uTurn',
-  'uShow', 'uFadeK', 'uC', 'uCmd', 'uCmdDt', 'uRelay', 'uSide', 'uEnv', 'uEnvDir', 'uNoise', 'uScare', 'uShift', 'uFrozen', 'uProbe',
+  'uShow', 'uFadeK', 'uC', 'uCmd', 'uCmdDt', 'uRelay', 'uSide', 'uEnv', 'uEnvDir', 'uNoise', 'uScare', 'uAc0', 'uAcV0', 'uAc1', 'uAcV1', 'uShift', 'uFrozen', 'uProbe',
   'uFree', 'uFree2', 'uStat2', 'uStat3', 'uGround', 'uAnchor', 'uGR', 'uMill', 'uMillA', 'uLandLeft', 'uLift', 'uFloorZ', 'uObsT', 'uObs', 'uSpin', 'uCent', 'uWave', 'uAirZ', 'uSplit'];
 
 export function createMurmurGPU(gl) {
@@ -774,6 +810,32 @@ export function createMurmurGPU(gl) {
     };
     clouds.set(rec.key, C);
     return C;
+  }
+
+  // Copy the first min(n) birds' position and velocity, in both ping-pong buffers, from one cloud to its
+  // resized replacement. Birds beyond the old count keep their seedPoints start (round the current
+  // centre), so a flock that grows gains birds inside its own body. Copied by whole rows plus the
+  // partial last row, because a row slot past the old count holds nothing and would land a bird at 0,0,0.
+  function carryOver(from, to) {
+    if (from.bad || to.bad) return;
+    const m = Math.min(from.n, to.n), full = Math.floor(m / W), rest = m % W;
+    const rf = gl.getParameter(gl.READ_FRAMEBUFFER_BINDING);
+    for (let k = 0; k < 2; k++) {
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, from.fbo[k]);
+      for (let a = 0; a < 2; a++) {
+        gl.readBuffer(gl.COLOR_ATTACHMENT0 + a);
+        gl.activeTexture(gl.TEXTURE0 + UNIT0);
+        gl.bindTexture(gl.TEXTURE_2D, to.tex[k * 2 + a]);
+        if (full) gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 0, 0, W, full);
+        if (rest) gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, full, 0, full, rest, 1);
+      }
+    }
+    gl.readBuffer(gl.COLOR_ATTACHMENT0);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, rf);
+    to.cur = from.cur;
+    to.c = { ...from.c, sd: to.c.sd };
+    to.tick = from.tick; to.stepAt = from.stepAt; to.stepGap = from.stepGap; to.costK = from.costK;
   }
 
   function drop(C) {
@@ -936,7 +998,11 @@ export function createMurmurGPU(gl) {
     if (!grid) grid = buildGrid();
     if (!grid.ok) return null;
     let C = clouds.get(rec.key);
-    if (C && C.n !== rec.n) { drop(C); C = null; }
+    // ⚠ A NEW BIRD COUNT IS A RESIZE, NEVER A RESTART. The count moves when a strike takes birds out
+    // of the flock and when the dusk curve grows or shrinks it, and this used to drop the cloud and
+    // re-seed it from seedPoints round the centre: the whole formation snapped to a fresh starting
+    // shape and flew on from there. The birds that survive the resize keep their state.
+    if (C && C.n !== rec.n) { const old = C; C = create(rec); carryOver(old, C); drop(old); clouds.set(rec.key, C); }
     if (!C) C = create(rec);
     if (C.bad) return null;
     C.c.seen = rec.now;
@@ -1027,6 +1093,13 @@ export function createMurmurGPU(gl) {
     const Fd = { ...FREE_RULES, ...(rec.free || {}) };
     const dx = Fd.on && C.cent ? C.cent.x - rec.cx : 0, dy = Fd.on && C.cent ? C.cent.y - rec.cy : 0;
     u4f(L.uScare, F.scare ? F.scare.x + dx : 0, F.scare ? F.scare.y + dy : 0, F.scareDamp || 0, F.scare ? 1 : 0);
+    // the two aircraft nearest this cloud, in world tiles like the birds; no offset, they are really there
+    const acs = (rec.aircraft || []).map((a) => [Math.hypot(a.x - rec.cx, a.y - rec.cy), a]).sort((m, q) => m[0] - q[0]);
+    for (let k = 0; k < 2; k++) {
+      const a = acs[k] && acs[k][0] < R.AC_DETECT * 4 ? acs[k][1] : null;
+      u4f(k ? L.uAc1 : L.uAc0, a ? a.x : 0, a ? a.y : 0, a ? a.z : 0, a ? 1 : 0);
+      u4f(k ? L.uAcV1 : L.uAcV0, a ? a.vx : 0, a ? a.vy : 0, a ? a.vz : 0, 0);
+    }
     const Fr = { ...FREE_RULES, ...(rec.free || {}) };
     // radius and height band scale with the body the flock was sized for, so a roost of 300,000 is not
     // squeezed into the room a party of 450 needs

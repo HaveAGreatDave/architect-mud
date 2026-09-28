@@ -39,7 +39,7 @@ async function listTypes(kind, field) {
 
 function typeLine(t, kind) {
   const price = kind === 'buy' ? `${t.price_buy}₵` : `${t.price_rent_hourly}₵/hr`;
-  return `<b>${t.name}</b> <span class="text-dim">(${t.class}, ${t.seats} seat${t.seats > 1 ? 's' : ''}, ${t.fuel_type})</span> — ${price} · <span class="action-link" data-action="cmd" data-cmd="${kind} ${t.id}">${kind}</span>`;
+  return `<b>${t.name}</b> <span class="text-dim">(${t.class}, ${t.seats} seat${t.seats > 1 ? 's' : ''}, ${t.fuel_type})</span>: ${price} · <span class="action-link" data-action="cmd" data-cmd="${kind} ${t.id}">${kind}</span>`;
 }
 
 // Anti-clutter cap. Buying counts only aircraft you OWN outright (rental=0) so a
@@ -103,7 +103,7 @@ async function acquire(args, raw, player, kind) {
     if (player.aircraftId) {
       const dir = hangarEntryDir(field);
       const how = dir ? `head <b>${dir}</b> into the hangar` : `step into the hangar off the ramp`;
-      return { type: 'emote', message: `The ${kind === 'buy' ? 'dealer' : 'rental'} desk is inside — <b>disembark</b> and ${how}.` };
+      return { type: 'emote', message: `The ${kind === 'buy' ? 'dealer' : 'rental'} desk is inside: <b>disembark</b> and ${how}.` };
     }
     await walkIntoHangar(player, field);
   }
@@ -111,7 +111,7 @@ async function acquire(args, raw, player, kind) {
   const types = await listTypes(kind, field);
   const wanted = (args[0] || '').toLowerCase();
   if (!wanted) {
-    const note = vtolOnlyField(field) ? ' <span class="text-dim">(helipad — VTOL only)</span>' : '';
+    const note = vtolOnlyField(field) ? ' <span class="text-dim">(helipad, VTOL only)</span>' : '';
     const lines = types.map(t => '· ' + typeLine(t, kind));
     return { type: 'output', message: `<span class="text-cyan">${kind === 'buy' ? 'FOR SALE' : 'FOR RENT (self-flown)'} at ${fieldName(field)}:</span>${note}\n${lines.join('\n')}` };
   }
@@ -119,7 +119,7 @@ async function acquire(args, raw, player, kind) {
   if (!t) return { type: 'emote', message: `They don't ${kind} a "${wanted}" here. Type <b>${kind}</b> to see the list.` };
 
   const price = kind === 'buy' ? t.price_buy : t.price_rent_hourly;
-  if ((player.credits || 0) < price) return { type: 'emote', message: `That's ${price}₵ — you're short.` };
+  if ((player.credits || 0) < price) return { type: 'emote', message: `That's ${price}₵. You're short.` };
   if (await ownedCount(player.id, kind === 'buy') >= MAX_OWNED) return { type: 'emote', message: kind === 'buy'
     ? 'You already own the most aircraft you can. Sell or scrap one before buying another.'
     : "You've got too many aircraft out as it is. Return or scrap one first." };
@@ -150,9 +150,9 @@ async function acquire(args, raw, player, kind) {
       confirmLabel: `Insure (${premium}₵)`,
       command: `insurebind ${id}`,
     });
-    return { type: 'output', message: `<span class="item-grant">Sold. A brand-new <b>${t.name}</b> (${tailNum}) is towed onto the ramp — it's yours. <b>embark</b> her. <span class="text-dim">You own her now: you buy your own fuel and pay for your own <b>repair</b>s (DIY, or the hangar does it right for more).</span></span>\n<span class="msg-system">📄 <b>HALCYON ASSURANCE</b> is offering cover — accept it in the popup, or <span class="action-link" data-action="cmd" data-cmd="insurebind ${id}">insure her now</span> later. <span class="text-dim">An uninsured write-off is a total loss.</span></span>` };
+    return { type: 'output', message: `<span class="item-grant">Sold. A brand-new <b>${t.name}</b> (${tailNum}) is towed onto the ramp. It's yours. <b>embark</b> her. <span class="text-dim">You own her now: you buy your own fuel and pay for your own <b>repair</b>s (DIY, or the hangar does it right for more).</span></span>\n<span class="msg-system">📄 <b>HALCYON ASSURANCE</b> is offering cover. Accept it in the popup, or <span class="action-link" data-action="cmd" data-cmd="insurebind ${id}">insure her now</span> later. <span class="text-dim">An uninsured write-off is a total loss.</span></span>` };
   }
-  return { type: 'output', message: `<span class="item-grant">Rented a <b>${t.name}</b> (${tailNum}), half a tank, parked and ready. <b>embark</b> her and fly it yourself. <span class="text-dim">Flat desk fee ${price}₵ paid; the meter then runs while you're airborne — ~${rentalOpFee(t)}₵ per 30 min for gas &amp; upkeep. Maintenance is on the desk, so just bring her back.</span></span>` };
+  return { type: 'output', message: `<span class="item-grant">Rented a <b>${t.name}</b> (${tailNum}), half a tank, parked and ready. <b>embark</b> her and fly it yourself. <span class="text-dim">Flat desk fee ${price}₵ paid; the meter then runs while you're airborne: ~${rentalOpFee(t)}₵ per 30 min for gas &amp; upkeep. Maintenance is on the desk, so just bring her back.</span></span>` };
 }
 
 async function typeCap(typeId) {
@@ -176,7 +176,7 @@ export async function refuelAt(args, raw, player) {
   if (need <= 0.5) return { type: 'emote', message: 'The tank is already full.' };
   const want = args[0] ? Math.min(need, Math.max(0, parseInt(args[0], 10) || 0)) : need;
   const cost = Math.ceil(want * REFUEL_PRICE_PER_UNIT);
-  if ((player.credits || 0) < cost) return { type: 'emote', message: `Fuel runs ${REFUEL_PRICE_PER_UNIT}₵/unit — you can't cover ${cost}₵.` };
+  if ((player.credits || 0) < cost) return { type: 'emote', message: `Fuel runs ${REFUEL_PRICE_PER_UNIT}₵/unit. You can't cover ${cost}₵.` };
   player.credits -= cost;
   live.row.fuel = Math.min(cap, live.row.fuel + want);
   live.starving = false;
@@ -211,7 +211,7 @@ export async function refuelParked(player, craftId) {
   const need = cap - a.fuel;
   if (need <= 0.5) return { type: 'emote', message: `The ${a.tname}'s tank is already full.` };
   const cost = Math.ceil(need * REFUEL_PRICE_PER_UNIT);
-  if ((player.credits || 0) < cost) return { type: 'emote', message: `Topping her off is ${cost}₵ — you're short.` };
+  if ((player.credits || 0) < cost) return { type: 'emote', message: `Topping her off is ${cost}₵. You're short.` };
   player.credits -= cost;
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
   const live = liveAircraft.get(craftId);

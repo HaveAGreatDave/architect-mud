@@ -6,9 +6,7 @@
       "recorder",
       "drum"
     ],
-    "interactions": {
-      "examine": "Every chart is the same shape: up through the evening, flat overnight, and a long slide from six in the morning. You could set a clock by the corner at eight."
-    }
+    "examine_detail": "Every chart is the same shape: up through the evening, flat overnight, and a long slide from six in the morning. You could set a clock by the corner at eight."
   },
   "id": "furn_holder_chart",
   "name": "the chart recorder",

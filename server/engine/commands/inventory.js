@@ -541,7 +541,7 @@ async function cmdGive(argStr, player, broadcast) {
   // Prefer a player recipient standing in the room…
   const givePool = getZonePlayers(player.current_zone).filter(p => p.id !== player.id).map(p => ({ ...p, name: p.handle }));
   const gr = siftResolve(who, givePool);
-  if (gr.type === 'ambiguous') return { type:'error', message:`Multiple people match "${who}" — be more specific.` };
+  if (gr.type === 'ambiguous') return { type:'error', message:`Multiple people match "${who}". Be more specific.` };
   if (gr.type !== 'none') {
     if (!rows.length) return { type:'error', message:`You don't have "${itemPart}".` };
     return dispatchAction({ type:'GIVE', actor: player, params: { row: rows[0], toPlayer: gr.candidate }, context: { broadcast } });
@@ -551,7 +551,7 @@ async function cmdGive(argStr, player, broadcast) {
   // interested plugins own the reaction and any item transfer. An unclaimed gift
   // just acknowledges the offer and leaves the item with the giver.
   const nr = siftResolve(who, getZoneNpcs(player.current_zone));
-  if (nr.type === 'ambiguous') return { type:'error', message:`Multiple people match "${who}" — be more specific.` };
+  if (nr.type === 'ambiguous') return { type:'error', message:`Multiple people match "${who}". Be more specific.` };
   if (nr.type !== 'none') {
     if (!rows.length) return { type:'error', message:`You don't have "${itemPart}".` };
     emit('npc.gift', { actor: player, npc: nr.candidate, item: rows[0], broadcast });
@@ -797,8 +797,8 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
 
   if (sick) {
     messages[0] = undercooked
-      ? `${item.name} is still raw in the middle — you eat it anyway and immediately regret it.`
-      : `${item.name} is spoiled — you eat it anyway and immediately regret it.`;
+      ? `${item.name} is still raw in the middle. You eat it anyway and immediately regret it.`
+      : `${item.name} is spoiled. You eat it anyway and immediately regret it.`;
   } else {
   // How well it was cooked scales what it gives back. Absent (every item that
   // isn't a plated profiled meal) is 1.0, so nothing that existed before this
@@ -1212,7 +1212,7 @@ const UNPAID_SET_SQL = `, custom_data = COALESCE(custom_data,'{}'::jsonb) || jso
 // And the fragment that clears it, for putting stock back where it came from.
 const UNPAID_CLEAR_SQL = `, custom_data = COALESCE(custom_data,'{}'::jsonb) - 'unpaid'`;
 const unpaidNote = name =>
-  `<span class="text-dim">The ${name} isn't yours yet — pay at the counter (<b>checkout</b>) before you leave.</span>`;
+  `<span class="text-dim">The ${name} isn't yours yet. Pay at the counter (<b>checkout</b>) before you leave.</span>`;
 
 // ── What a container is FOR ──────────────────────────────────────────────────
 //
@@ -1435,7 +1435,7 @@ async function buildContainerView(containerId, player) {
   const view = { type:'container_view', containerId: container.id, containerName: titleCaseName(container.name), ...box, invItems };
   if (filter && invItems.length < allInv.length) {
     const hidden = allInv.length - invItems.length;
-    view.invNote = `Only ${filter.label} — ${hidden} other item${hidden === 1 ? '' : 's'} hidden.`;
+    view.invNote = `Only ${filter.label}: ${hidden} other item${hidden === 1 ? '' : 's'} hidden.`;
   }
 
   // Paired container (e.g. a fridge's separate freezer box, same appliance,
@@ -1561,7 +1561,7 @@ async function cmdCloseContainer(idStr, player, broadcast) {
     await query('DELETE FROM player_inventory WHERE container_id IN (SELECT id FROM player_inventory WHERE container_id=$1)', [container.id]);
     await query('DELETE FROM player_inventory WHERE container_id=$1', [container.id]);
     broadcast?.(player.current_zone, { type: 'zone_event', message: `The ${name} grinds and swallows its contents with a wet CRUNCH.` });
-    return { type: 'action', message: `You slam the ${name} shut. It grinds its contents into slurry — gone for good.` };
+    return { type: 'action', message: `You slam the ${name} shut. It grinds its contents into slurry. Gone for good.` };
   }
   broadcast?.(player.current_zone, { type: 'zone_event', message: `${player.handle} closes ${withArticle(name)}.` }, player.id);
   return { type: 'action', message: `You close ${withArticle(name)}.` };
@@ -1667,7 +1667,7 @@ async function cmdStowById(argStr, player, broadcast) {
         }
         const echoed = throttledContainerBroadcast(player, broadcast, container.name);
         const view = await buildContainerView(container.id, player);
-        view.notify = `Stowed ${canFit}x ${item.name} — bag is now full.`;
+        view.notify = `Stowed ${canFit}x ${item.name}; bag is now full.`;
         if (echoed) view.mainMsg = `You rummage through ${withArticle(container.name)}.`;
         return containerReply(view, player, view.notify);
       }
@@ -1928,7 +1928,7 @@ async function cmdStow(argStr, player) {
       skipped = matches.length - kept.length;
       matches = kept;
       if (!matches.length) {
-        return { type:'error', message:`${container.name} is for ${cf.label} — you aren't carrying any.` };
+        return { type:'error', message:`${container.name} is for ${cf.label}, and you aren't carrying any.` };
       }
     }
     if (!matches.length) {
@@ -1939,7 +1939,7 @@ async function cmdStow(argStr, player) {
       const r = await stowOne(row, container, player);
       messages.push(r.message);
     }
-    if (skipped) messages.push(`<span class="text-dim">You keep the rest — ${container.name} is for ${cf.label}.</span>`);
+    if (skipped) messages.push(`<span class="text-dim">You keep the rest: ${container.name} is for ${cf.label}.</span>`);
     return { type:'stow', message: messages.join('\n') };
   }
 
@@ -1965,7 +1965,7 @@ async function stowOne(item, container, player) {
   const cap = containerCapacity(container);
   const used = await containerContentsWeight(container.id);
   const adding = (item.weight || 0) * item.quantity;
-  if (used + adding > cap) return { type:'error', message:`${container.name} can't hold that — ${formatWeight(used)}/${formatWeight(cap)} used, ${item.name} weighs ${formatWeight(adding)}.` };
+  if (used + adding > cap) return { type:'error', message:`${container.name} can't hold that: ${formatWeight(used)}/${formatWeight(cap)} used, ${item.name} weighs ${formatWeight(adding)}.` };
 
   // Same guard `pull` uses on the way out: an instanced row never merges, or the
   // merge would keep the target's custom_data and drop this row's.

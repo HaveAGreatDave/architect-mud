@@ -64,7 +64,7 @@ export function openConcealSearch(msg) {
   const el = document.createElement('div');
   el.className = 'conceal-window';
   el.innerHTML = `
-    <div class="conceal-title">⛓ PAT-DOWN — PALM WHAT YOU CAN</div>
+    <div class="conceal-title">⛓ PAT-DOWN: PALM WHAT YOU CAN</div>
     <div class="conceal-sub">You can hide <b>${_maxPalm}</b>. Tap before the scan line reaches it. <span class="conceal-keys">[1–${items.length}]</span></div>
     <div class="conceal-track" style="width:${TRACK_W}px">
       <div class="conceal-line"></div>

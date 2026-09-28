@@ -7,7 +7,7 @@
   ],
   "ambient_theme": "coast",
   "color": "#9fc0b8",
-  "description": "The last full section before the tower. The slab is newer out here — poured to reach the light and not walked on much since — and the rail has kept its paint. A ladder goes over the west edge into water that has stopped being green. The Beacon stands NORTH, close enough now that the collar hangs out over the end of the run.",
+  "description": "The last full section before the tower. The slab is newer out here (poured to reach the light and not walked on much since), and the rail has kept its paint. A ladder goes over the west edge into water that has stopped being green. The Beacon stands NORTH, close enough now that the collar hangs out over the end of the run.",
   "exits": {
     "east": "zone_district_910_901",
     "north": "zone_district_909_900",

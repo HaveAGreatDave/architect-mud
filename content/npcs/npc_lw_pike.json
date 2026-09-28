@@ -100,7 +100,7 @@
           "next": "bye"
         }
       ],
-      "text": "He lifts the mug, finds it empty, and looks at it as though it has done something.\n\n\"Take the door for an hour.\" He says it like it's about the mug. \"Nothing comes through it. Nothing has come through it in eleven years.\""
+      "text": "He lifts the mug, finds it empty, and looks at it as though it has done something.\n\n\"Take the door for an hour.\" He says it like it is about the mug. \"Nothing comes through it. Nothing has come through it in eleven years.\""
     },
     "l11_take": {
       "_vine": {
@@ -551,7 +551,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Somebody has to sit the Blind while somebody else sleeps.\" He says it like it's Tuesday.\n\n\"Mirror looks down the Outfall. Shortwave talks to itself. The whole of the job is that you're there, and you're awake.\"\n\n\"I have sat it about ten thousand times. I won't thank you for it, and neither will anybody else, and that isn't rudeness. It's that somebody sitting there's the ordinary state of things, and you don't thank the ordinary state of things.\""
+      "text": "\"Somebody has to sit the Blind while somebody else sleeps.\" He says it like it is Tuesday.\n\n\"Mirror looks down the Outfall. Shortwave talks to itself. The whole of the job is that you're there, and you're awake.\"\n\n\"I have sat it about ten thousand times. I won't thank you for it, and neither will anybody else, and that isn't rudeness. It's that somebody sitting there's the ordinary state of things, and you don't thank the ordinary state of things.\""
     },
     "sit_report": {
       "actions": [

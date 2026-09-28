@@ -259,7 +259,7 @@ async function stepRun(player, rig, run) {
     if (rig.s >= rig.route.L - 1) { await run.hooks.arrive(player, rig); return; }
     if (node !== rig.node) {
       const zone = await crossToNode(player, rig, node);
-      if (zone) narrate(player, `<span class="text-dim">— ${zone.name} —</span> <span class="text-dim">${rig.chain.length - node - 1} to go.</span>`);
+      if (zone) narrate(player, `<span class="text-dim">(${zone.name})</span> <span class="text-dim">${rig.chain.length - node - 1} to go.</span>`);
       // The radio is a rung-neutral thing: it says the same lines, on the same node crossings, in
       // whichever cab you are sitting in. A text driver who could not hear a wreck reported ahead
       // would be missing information the other rung gets, which is the one thing a rung may not do.

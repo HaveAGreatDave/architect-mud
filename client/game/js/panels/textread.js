@@ -53,7 +53,7 @@ function paint() {
   rows.push(rule(W));
   const opts = _opts.options.map((o, i) => `<span class="hi">${i + 1}</span> ${esc(o)}`).join('   ');
   rows.push(`  ${opts}`);
-  rows.push(`  <span class="dim">press 1-4 — or do nothing, it costs you nothing</span>`);
+  rows.push(`  <span class="dim">press 1-4: or do nothing, it costs you nothing</span>`);
 
   setAreaPane(`<div class="textui">${rows.join('\n')}</div>`);
 }

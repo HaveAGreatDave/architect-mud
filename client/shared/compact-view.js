@@ -47,3 +47,12 @@ export function compactHidePanel(bodyClass, btn) {
   btn?.classList?.add('on');
   return true;
 }
+
+// A vehicle seat opens with the log folded away and the command bar kept, on every screen size:
+// the view out of the glass is the point of the seat, and the command bar is still one keypress
+// away. The helm has always done this; ⊟ puts the log back.
+export function seatHidePanel(bodyClass, btn) {
+  document.body.classList.add(bodyClass);
+  btn?.classList?.add('on');
+  return true;
+}

@@ -23,7 +23,7 @@
 // no culling. A bird drawn here and a bird drawn there must be indistinguishable in a still.
 import { viewProjMatrix } from './camera.js';
 import { makeVertexStream } from './stream.js';
-import { faunaPoseSlot, faunaPoseBake, FAUNA_BEAT_STEPS } from '../fauna3d.js';
+import { faunaPoseSlot, faunaPoseBake, FAUNA_BEAT_STEPS, FAUNA_GLIDE_ROW, FAUNA_PECK_ROW } from '../fauna3d.js';
 import { zRow, NEAR } from './camera.js';
 import { LIGHT_PULL } from './sprites.js';
 import { PULSE_MAX } from '../murmur.js';
@@ -135,7 +135,33 @@ uniform vec4 uSil;         // the eye (the birds' frame) and how far a bird agai
 // below, where a starling is a black cut-out: measured, the darkest bird in a dusk frame was luminance 42
 // against a sky of 100-160. The share is the line of sight's climb, so the change is continuous at the
 // eye's own height and a pilot looking down on a flock still sees it lit.
-float silhouette(vec3 w) { vec3 d = w - uSil.xyz; float up = d.z / max(1e-4, length(d)); return 1.0 - uSil.w * smoothstep(-0.03, 0.10, up); }
+//
+// ⚠ BUT ONLY WHEN THE SUN IS BEHIND IT. A flock with the sun at your back is lit, not cut out: every
+// bird turns a sunlit face to you and the whole cloud reads warm brown against the sky. So the silhouette
+// is scaled by how BACKLIT the bird is, and a front-lit bird gains the sun's light instead.
+// uSun is the bearing toward the sun, sin(elevation) and a strength (0 is the flock as it shipped);
+// uSunCol is the light's tint and gain.
+uniform vec4 uSun;
+uniform vec3 uSunCol;
+// ⚠ THE RAMP IS THE HORIZON, NOT SIX DEGREES ABOVE IT. It ran to 0.10 (about 6°), so a distant flock —
+// which sits a few degrees up — was half lit, in the warm sun-lifted colour, and read as pale olive birds
+// dimmed by the cloud behind them; and because the ramp is one elevation, it drew a straight line across
+// a flock where dark birds turned pale. Against the sky a bird is a silhouette; only below the horizon,
+// against the ground, does it show its lit colour.
+float silhouetteK(vec3 w) { vec3 d = w - uSil.xyz; float up = d.z / max(1e-4, length(d)); return uSil.w * smoothstep(-0.03, 0.015, up); }
+float sunFront(vec3 w) {
+  if (uSun.w <= 0.0) return 0.0;
+  vec3 v = normalize(w - uSil.xyz);
+  float ce = sqrt(max(0.0, 1.0 - uSun.z * uSun.z));
+  vec3 L = vec3(uSun.xy * ce, uSun.z);
+  return clamp(-dot(v, L) * 1.4 + 0.2, 0.0, 1.0) * smoothstep(-0.05, 0.08, uSun.z);
+}
+// the sun's light on the bird, with no silhouette: what an edge-on bird is lifted toward
+vec3 sunLit(vec3 w) { return vec3(1.0) + uSunCol * (uSun.w * sunFront(w)); }
+vec3 silhouette(vec3 w) {
+  float f = sunFront(w);
+  return sunLit(w) * (1.0 - silhouetteK(w) * (1.0 - uSun.w * f * 0.85));
+}
 const int TW = 64;
 ivec2 at(int i) { return ivec2(i % TW, i / TW); }
 float sstep(float x) { x = clamp(x, 0.0, 1.0); return x * x * (3.0 - 2.0 * x); }
@@ -158,14 +184,23 @@ Bird bird(int id, int wantTier) {
   if (V.w <= 0.0) return b;
   vec3 w = vec3(P.xy - uOrigin, P.z);
   float f = (w.x - uCull.x) * uCull.z - (w.y - uCull.y) * uCull.w;
-  if (f + uCull2.x <= uCull2.y || f > uCull2.z) return b;
+  // ⚠ THE NEAR TEST IS THE TRUE DISTANCE TO THE EYE, NOT THE LEVEL FORWARD DISTANCE. 'f' is measured along
+  // the heading in the ground plane, so with the camera tipped up a bird straight overhead has an 'f' of
+  // almost nothing and was culled — a straight line across the flock where starlings simply stopped,
+  // worst looking straight up. The clip planes do the real near clipping; this only rejects a bird
+  // actually at the lens. The far test stays on 'f', which is what the rest of the world is culled on.
+  float fd = length(w - uSil.xyz);
+  if (fd <= uCull2.y || f > uCull2.z) return b;
   float a = sstep((uCull2.z - f) / 5.0) * uCull2.w * V.w;
   if (a <= 0.03) return b;
   // ⚠ THE DEPTH cam.proj DIVIDES BY, NOT THE CLIP w. pushFauna sizes a bird as FL x span / pr.f, and
   // pr.f is the craft-forward distance plus the camera's own offset. The clip-space w of the GL matrix
   // is not that number, and using it sized birds differently from the CPU: measured, the GPU sent
   // birds at five tiles to mesh tiers the CPU drew as dots.
-  float fe = f + uCull2.x;
+  // A bird off the axis (overhead, to the side under a tilted camera) is sized by its real distance, not
+  // by a forward distance that goes to zero under it. Within an ordinary field of view f > 0.7 fd, so a
+  // level view is sized exactly as before.
+  float fe = max(f + uCull2.x, 0.7 * fd);
   float px = fe > 0.07 ? uFL * uSpan / fe : 0.0;
   int tier = clamp(fe > 0.07 ? tierOf(px) : 0, uTierClamp.x, uTierClamp.y);
   if (tier != wantTier) return b;
@@ -205,6 +240,7 @@ uniform vec3 uPitchK;      // the share of each bird's pitch that is its own; go
 uniform float uBeatBase;
 uniform float uBeatAdv;    // how much of a wingbeat passes in one rendered frame (flapHz x frame time)
 uniform vec2 uGlide;       // the burst-and-glide cycle's phase, and the share of it spent gliding
+uniform int uWalkPose;     // 1: this group's ground bake is a walk cycle (16 stride rows + the peck)
 uniform float uPitch;
 uniform float uScale;
 uniform vec2 uMinPx;       // faunaMinPx, faunaMinFade
@@ -231,21 +267,41 @@ void main() {
   // ⚠ THE BEAT IS A PHASE, NOT A ROW: the wing is blended between the two baked steps either side of it, so
   // a slow flap (a landing, a bird near the eye) moves smoothly rather than in sixteen jumps. row < 0 beats.
   int row = uGround.x > 0.5 && !landing ? 0 : -1;
-  float ph = fract(uBeatBase + b.beat), rate = 1.0;
+  float ph = fract(uBeatBase + b.beat), rate = 1.0, gw = 0.0;
   if (landing) {
     // climbing away: hard, quick beats. The last stretch before touchdown: braking beats. The descent
     // itself: wings held out (the glide row), with the odd flap, which is what a starling dropping into
     // a roost does. The climb rate is what the bird really moved, so each one chooses on its own.
     if (b.vz > ${CLIMB_VZ}) { ph = fract(uBeatBase * 1.5 + b.beat); rate = 1.5; }
     else if (b.h < ${BRAKE_H}) { ph = fract(uBeatBase * 1.3 + b.beat); rate = 1.3; }
-    else if (fract(uGlide.x * 0.6 + b.beat * 3.7) > 0.2) row = 2;
+    else { float w = fract(uGlide.x * 0.6 + b.beat * 3.7); gw = smoothstep(0.2, 0.3, w) * (1.0 - smoothstep(0.93, 1.0, w)); }
   }
   // ⚠ A GLIDE HOLDS THE WINGS OUT AT BEAT STEP 2, a slight dihedral above level, where beatDihedral puts a
   // wing a sixth of the way into the downstroke. Each bird's cycle is offset by its own beat offset, so
   // the flock never glides in unison.
-  if (uGround.x < 0.5 && uGlide.y > 0.0 && fract(uGlide.x + b.beat * 3.7) > 1.0 - uGlide.y) row = 2;
+  // ⚠ AND IT IS EASED, NEVER SNAPPED. Held as a switch, every bird jumped from wherever its wing was
+  // mid-beat straight to the held pose and back — 1.4 times a second per bird, which across a flock
+  // reads as a constant crackle. The weight ramps in over about a wingbeat as the bird sets its wings
+  // and out as it starts beating again; the glide itself is the baked FAUNA_GLIDE_ROW, a shape of its
+  // own (flat, hand swept back) rather than a flap frame frozen mid-stroke.
+  if (uGround.x < 0.5 && uGlide.y > 0.0) {
+    float g = fract(uGlide.x + b.beat * 3.7), e = 1.0 - uGlide.y;
+    gw = smoothstep(e, e + 0.08, g) * (1.0 - smoothstep(0.94, 1.0, g));
+  }
+  // ⚠ A STANDING STARLING WALKS, IT DOES NOT SLIDE. With a walk bake the ground row is no longer one
+  // frozen pose: the stride plays in proportion to how fast this bird is actually moving (a bird
+  // standing still is the planted stance, row 0, and a wandering one strides), and a bird that has
+  // stopped probes the ground on its own rhythm. Both phases are integer multiples of the bob's own
+  // wrapped phase, so neither jumps when it wraps. Stateless, like everything else here: the stride
+  // is timed rather than integrated from distance, so fast birds shuffle a little, which reads fine.
+  bool walking = row == 0 && uWalkPose == 1;
   vec3 m;
-  if (row >= 0) m = texelFetch(uPose, ivec2(gl_VertexID, row), 0).xyz;
+  if (walking) {
+    float mv = smoothstep(0.008, 0.035, b.hv);
+    m = mix(texelFetch(uPose, ivec2(gl_VertexID, 0), 0).xyz, poseAt(fract(uGround.y / 6.2831853 * 3.0 + b.beat * 3.7)), mv);
+    float pk = smoothstep(0.55, 0.95, sin(uGround.y * 2.0 + b.beat * 23.0)) * (1.0 - mv);
+    if (pk > 0.0) m = mix(m, texelFetch(uPose, ivec2(gl_VertexID, ${FAUNA_PECK_ROW}), 0).xyz, pk);
+  } else if (row >= 0) m = texelFetch(uPose, ivec2(gl_VertexID, row), 0).xyz;
   else {
     m = poseAt(ph);
     // ⚠ A FAST WING IS A BLUR, NOT A SHARP WING AT A RANDOM POINT OF ITS BEAT. A starling beats 13 times a
@@ -258,8 +314,9 @@ void main() {
       vec3 avg = (m + poseAt(ph - adv * 0.5) + poseAt(ph - adv)) / 3.0;
       m = mix(m, avg, blur);
       float travel = length(poseAt(0.25) - poseAt(0.75));
-      a *= 1.0 - blur * ${WING_BLUR_FADE} * smoothstep(0.01, 0.06, travel);
+      a *= 1.0 - (1.0 - gw) * blur * ${WING_BLUR_FADE} * smoothstep(0.01, 0.06, travel);
     }
+    if (gw > 0.0) m = mix(m, texelFetch(uPose, ivec2(gl_VertexID, ${FAUNA_GLIDE_ROW}), 0).xyz, gw);
   }
   m *= scale;
   // ⚠ EACH BIRD PITCHES ALONG ITS OWN PATH, by goosePitch's arithmetic on its own climb rate, rather than
@@ -288,14 +345,15 @@ uniform float uPull;
 uniform float uDpr;
 uniform float uFlash;
 uniform vec3 uFlashK;      // floor, how much of the flash is the wing's angle to you, area share
+uniform vec3 uFlashX;      // sharpness of the wing-to-eye response; colour lift of an edge-on bird; display bank gain
 uniform vec2 uInk;         // smallest radius in device px, soft/hard ink gain
 uniform vec3 uEye;         // the eye, in the same frame as the birds
-out vec2 vCorner; out float vAlpha; out float vSil;
+out vec2 vCorner; out float vAlpha; out vec3 vSil; out float vDepthA;
 const vec2 CORNERS[6] = vec2[6](vec2(-1.0, -1.0), vec2(1.0, -1.0), vec2(1.0, 1.0), vec2(-1.0, -1.0), vec2(1.0, 1.0), vec2(-1.0, 1.0));
 void main() {
   Bird b = bird(gl_InstanceID, 4);
   vCorner = CORNERS[gl_VertexID];
-  vSil = 1.0;
+  vSil = vec3(1.0);
   if (!b.ok) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); vAlpha = 0.0; return; }
   vSil = silhouette(b.w);
   // ⚠ THE FLASH IS HOW MUCH WING THE BIRD SHOWS YOU: the wing plane's normal against the line of sight,
@@ -303,17 +361,36 @@ void main() {
   // what a dark band is (Hemelrijk 2015), and seen from below a flock rolling through a sharp turn goes
   // LIGHTER, not darker (Costanzo 2021). A beating wing is never quite edge-on, which is the rest of it.
   float ch = cos(b.heading), sh = sin(b.heading);
-  vec3 N = vec3(0.0, 0.0, cos(b.roll)) - vec3(-sh, ch, 0.0) * sin(b.roll);
+  // ⚠ THE BANK IS EXAGGERATED FOR SHADING ONLY (uFlashX.z, 1 is the bird's real bank): a milling turn banks a
+  // starling a few degrees, which moves how much wing it shows you by a few per cent and no band can be seen.
+  // The flight is untouched; only the flash reads the larger angle.
+  float sr0 = clamp(b.roll * max(1.0, uFlashX.z), -1.45, 1.45);
+  vec3 N = vec3(0.0, 0.0, cos(sr0)) - vec3(-sh, ch, 0.0) * sin(sr0);
   vec3 los = b.w - uEye;
   float ll = length(los);
   float face = ll > 1e-5 ? abs(dot(N, los / ll)) : 1.0;
+  // ⚠ SHARPENED ABOUT ITS MIDDLE (uFlashX.x, 0 is linear): a turn front read as a soft gradient across
+  // the cloud; steepened, each bird is mostly wing or mostly edge and the front gets an edge of its own.
+  face = clamp(0.5 + (face - 0.5) * (1.0 + uFlashX.x), 0.0, 1.0);
   float shown = (1.0 - uFlashK.y) * 0.35 + uFlashK.y * face;
+  // ⚠ ALPHA ALONE CANNOT DIM A DENSE CORE: ten dots stacked on a pixel composite to near-opaque however
+  // faint each one is, so the band vanished exactly where the flock is thickest. A saturated pixel IS the
+  // bird's colour, so an edge-on bird's COLOUR is lifted toward its lit value too (uFlashX.y, 0 is off),
+  // which survives stacking. Against the sky that is a lighter band, what a flock turning edge-on
+  // overhead does (Costanzo 2021).
+  if (uFlash > 0.0) vSil = mix(vSil, sunLit(b.w), clamp(uFlash * uFlashX.y * smoothstep(0.45, 0.85, 1.0 - face), 0.0, 1.0));
   float dim = uFlash > 0.0 ? (1.0 - uFlash) + uFlash * (uFlashK.x + (1.0 - uFlashK.x) * shown) : 1.0;
   float area = uFlash > 0.0 ? 1.0 - uFlash * uFlashK.z + uFlash * uFlashK.z * (0.55 + 0.9 * shown) : 1.0;
   // ink conserved: drawn wide enough to reach a pixel centre, faint by the area it was given
   float rTrue = b.px * 0.30 * area;
   float R = max(rTrue, uInk.x / uDpr);
   vAlpha = b.a * dim * min(1.0, (rTrue * rTrue) / (R * R) * uInk.y);
+  // ⚠ WHETHER A DOT HIDES THE CLOUD BEHIND IT IS DECIDED ON DISTANCE ALONE. vAlpha carries how much wing
+  // the bird shows the eye and the flash, both of which change as the camera turns, so a prepass gated on
+  // it wrote depth at one angle and not at the next — and the cloud deck popped in front of the flock and
+  // back as you panned. This is the same ink with the angle terms left out.
+  float r0 = b.px * 0.30, R0 = max(r0, uInk.x / uDpr);
+  vDepthA = b.a * min(1.0, (r0 * r0) / (R0 * R0) * uInk.y);
   vec4 clip = uViewProj * vec4(b.w, 1.0);
   clip.xy += vCorner * (2.0 * R * uDpr / uViewport) * clip.w;
   float fp = max(0.02, clip.w - uPull);
@@ -323,13 +400,17 @@ void main() {
 
 const FRAG_DOT = `#version 300 es
 precision highp float;
-in vec2 vCorner; in float vAlpha; in float vSil;
+in vec2 vCorner; in float vAlpha; in vec3 vSil; in float vDepthA;
 uniform vec3 uColor;
+uniform int uDepthOnly;    // 1: the depth prepass — lay down the dot's core and draw nothing
 out vec4 outColor;
 void main() {
   float d = length(vCorner);
   if (d > 1.0 || vAlpha <= 0.002) discard;
   float a = vAlpha * pow(max(0.0, 1.0 - d), 1.8);   // sprites.js's soft profile
+  // ⚠ ONLY WHAT IS MOSTLY THERE WRITES DEPTH. The soft rim and a faded dot stay out of the buffer,
+  // or a bird that is a third there takes all of the cloud behind it and leaves a hole in the deck.
+  if (uDepthOnly == 1 && vDepthA * pow(max(0.0, 1.0 - d), 1.8) < 0.2) discard;
   outColor = vec4(uColor * vSil * a, a);
 }`;
 
@@ -588,6 +669,8 @@ export function createFaunaLayer(gl) {
     const G = r.ground || r.hold;
     u3f(u.uGround, G ? 1 : 0, G ? G.bob[0] : 0, G ? G.bob[1] : 0);
     u4f(u.uSil, r.eye[0], r.eye[1], r.eye[2], G ? 0 : (r.sil || 0));
+    u4f(u.uSun, (r.sun && r.sun[0]) || 0, (r.sun && r.sun[1]) || 0, (r.sun && r.sun[2]) || 0, G ? 0 : ((r.sun && r.sun[3]) || 0));
+    u3f(u.uSunCol, (r.sunCol && r.sunCol[0]) || 0, (r.sunCol && r.sunCol[1]) || 0, (r.sunCol && r.sunCol[2]) || 0);
   }
 
   /**
@@ -614,7 +697,10 @@ export function createFaunaLayer(gl) {
     u3f(um.uFog, f ? f.col[0] : 0, f ? f.col[1] : 0, f ? f.col[2] : 0);
     u1f(um.uFogNear, f ? f.near : 1e9);
     u1f(um.uFogFar, f ? f.far : 1e9 + 1);
-    u1f(um.uFogAmt, f ? f.amt : 0);
+    // ⚠ NO FOG ON A MURMURATION. Faded toward the fog colour by distance, a flock in front of cloud went the
+    // grey of the cloud behind it and disappeared into it; a starling cloud reads as dark against the sky at
+    // any range it is drawn at, so it keeps its own colour.
+    u1f(um.uFogAmt, 0);
     for (let ci = 0; ci < list.length; ci++) {
       const { rec: r, st } = list[ci], span = spans[ci];
       if (!span) continue;
@@ -642,6 +728,7 @@ export function createFaunaLayer(gl) {
           const g = groupFor('bird', r.sp, pose, fl, ge, tier, slot.group);
           if (!g) continue;
           u1i(um.uPoseSel, sel);
+          u1i(um.uWalkPose, pose === 'walk' && g.rows > 1 ? 1 : 0);
           gl.activeTexture(gl.TEXTURE0 + UNIT);
           gl.bindTexture(gl.TEXTURE_2D, g.tex);
           gl.bindVertexArray(cloudVaoOf(g));
@@ -651,8 +738,14 @@ export function createFaunaLayer(gl) {
       }
     }
     // dots
+    // ⚠ A DOT WROTE NO DEPTH, AND THE CLOUD DECK DRAWS AFTER THIS PASS AND TESTS AGAINST DEPTH — so
+    // every distant starling was painted over by any cloud card in the same part of the frame,
+    // whether the cloud was in front of it or behind. The meshes already write depth; the dots now
+    // get a depth-only prepass (the same fix billboards.js got for the geese, under the same flag),
+    // and the colour pass is the one that always shipped. LEQUAL, or the colour pass fails its own
+    // prepass and the dot is not drawn at all.
     gl.useProgram(P.dot.pr);
-    gl.depthMask(false);
+    gl.depthFunc(gl.LEQUAL);
     const ud = P.dot.u;
     const zr = zRow((cam && cam.near) || NEAR);
     u2f(ud.uViewport, W, H);
@@ -666,9 +759,18 @@ export function createFaunaLayer(gl) {
       u1f(ud.uDpr, r.dpr);
       u1f(ud.uFlash, r.flash);
       u3f(ud.uFlashK, r.flashK[0], r.flashK[1], r.flashK[2]);
+      u3f(ud.uFlashX, (r.flashX && r.flashX[0]) || 0, (r.flashX && r.flashX[1]) || 0, (r.flashX && r.flashX[2]) || 1);
       u3f(ud.uEye, r.eye[0], r.eye[1], r.eye[2]);
       u2f(ud.uInk, r.ink[0], r.ink[1]);
       u3f(ud.uColor, r.dot[0] / 255, r.dot[1] / 255, r.dot[2] / 255);
+      if (r.airDepth) {
+        u1i(ud.uDepthOnly, 1);
+        gl.colorMask(false, false, false, false); gl.depthMask(true);
+        gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, st.n);
+        gl.colorMask(true, true, true, true);
+      }
+      u1i(ud.uDepthOnly, 0);
+      gl.depthMask(false);
       gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, st.n);
       drawn++;
     }

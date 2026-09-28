@@ -55,7 +55,7 @@ export async function cmdShoplist(args, raw, player) {
     }
     const r = await removeFor(player.id, rest);
     return r.ok
-      ? { type: 'output', message: `Crossed off everything for <span class="text-bright">${r.label}</span> — ${r.removed} line${r.removed === 1 ? '' : 's'} gone, ${r.left} left.` }
+      ? { type: 'output', message: `Crossed off everything for <span class="text-bright">${r.label}</span>: ${r.removed} line${r.removed === 1 ? '' : 's'} gone, ${r.left} left.` }
       : { type: 'error', message: `Nothing on your list is for "${rest}".` };
   }
 
@@ -118,7 +118,7 @@ export async function cmdShoplist(args, raw, player) {
   for (const [forWhat, entries] of ordered) {
     const left = entries.filter(x => !x.e.done).length;
     const head = forWhat || 'odds and ends';
-    lines.push(`  <span class="text-bright">${head}</span> <span class="text-dim">— ${
+    lines.push(`  <span class="text-bright">${head}</span> <span class="text-dim">${
       left ? `${left} of ${entries.length} still to buy, separately` : 'all in hand'}</span>`);
     // Things you just buy, then the things you assemble. A `parts` group is one
     // object you buy in several pieces (the sauce is tomato AND gin AND cream);
@@ -162,7 +162,7 @@ export async function cmdShoplist(args, raw, player) {
     if (kit.length) {
       // Every line here is one you haven't got — kit is derived and only appears
       // while it's still an errand, so there is no ticked half of this block.
-      lines.push(`    <span class="text-bright">to make it in</span> <span class="text-dim">— ${
+      lines.push(`    <span class="text-bright">to make it in</span> <span class="text-dim">${
         kit.length} still to buy, and you keep them</span>`);
       for (const x of kit.sort((a, b) => (a.e.req === 'required' ? 0 : 1) - (b.e.req === 'required' ? 0 : 1))) {
         emit(x, '      ');
@@ -174,7 +174,7 @@ export async function cmdShoplist(args, raw, player) {
     for (const partLabel of partOrder) {
       const members = byPart.get(partLabel);
       const short = members.filter(x => !x.e.done).length;
-      lines.push(`    <span class="text-bright">${partLabel}</span> <span class="text-dim">— ${
+      lines.push(`    <span class="text-bright">${partLabel}</span> <span class="text-dim">${
         short ? `${members.length} thing${members.length === 1 ? '' : 's'} make it, all of them` : 'all in hand'}</span>`);
       for (const x of members) emit(x, '      ');
     }

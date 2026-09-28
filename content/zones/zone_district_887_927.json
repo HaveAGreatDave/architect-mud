@@ -3,7 +3,7 @@
   "ambient_theme": "wasteland",
   "bg_color": "#1f3646",
   "color": "#4f83a8",
-  "description": "Shoreline water, shallow enough to watch the bottom go from gravel to silt as it deepens, then a slow shelf away into nothing. Something has been rooting along the waterline in the mud, and not recently.",
+  "description": "Shallow shoreline water. The bottom runs from gravel to silt as it deepens, then shelves away. Something has been rooting in the mud along the waterline, though not recently.",
   "exits": {
     "east": "zone_district_888_927",
     "north": "zone_district_887_926",

@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Loose broken rock in a long skirt off the high ground, sorted by size the way water sorts things, moving a little underfoot the whole time.",
+  "description": "Talus underfoot, graded the way water grades things, big stones at the bottom and small ones above.",
   "exits": {
     "east": "zone_terminus_1239_942",
     "north": "zone_terminus_1238_941",

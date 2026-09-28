@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Packed ash, and it holds a print the way nothing else does: the flat is crossed with tracks, most of them feet and one set of wheels, all going the same two ways, and none of them washed out. Off north a grey wall goes across the whole horizon with water standing behind it.",
+  "description": "Ash packed firm enough to hold a clear print, and plenty of prints in it, all going two ways. A grey wall lies across the northern horizon, water behind it.",
   "exits": {
     "east": "zone_dw_767_991",
     "north": "zone_dw_766_990",

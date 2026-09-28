@@ -245,7 +245,9 @@ nothing, silently; wire a reader first.
 | `generator_id` | power | generators row this furniture mirrors. Auto-built junction boxes use a **deterministic** id `gen_<zoneId>` (converges on re-run; see `installGenerator` in environment.js); city plants and player units (`pgen_<uuid>`) do not. |
 | `hack_difficulty` | hacking | difficulty to hack this object. The deck's own `tags.hack_penalty` is added on top at arm time (`server/engine/hack-gear.js`) — a junk deck reads every target harder |
 | `hack_rig` | hackrig | practice lock rig: a legal, low-difficulty `hack` target with nothing behind it. No credits, no crime, no shock, and a failure still burns deck condition. Scores on the shared skill-vs-difficulty margin like every other hack target, so it teaches a beginner brilliantly and a professional nothing — the rig retires itself around Hacking 3–4. Defaults to `hack_difficulty` 2 |
-| `interactions` | engine (tags.js) | verb list surfaced as tags (`['switch','sit']`) |
+| `interactions` | engine (tags.js) | verb list surfaced as tags (`['switch','sit']`). ⚠ An ARRAY, always — an object of verb → prose threw inside describeZone and blanked the room; content:lint refuses it |
+| `examine_detail` | engine (commands/world.js) | a line printed under the description on `examine` only, never in the room list |
+| `interaction_lines` | — | verb → prose authored beside `interactions`; nothing reads it yet |
 | `is_light` / `light_type` | environment | legacy light markers (see furniture columns) |
 | `job_board` | jobboard | job board |
 | `junction_box` | power | junction-box housing |

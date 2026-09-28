@@ -5,7 +5,7 @@
     "A stamp comes down on something, twice, and is put away."
   ],
   "cause": "drug",
-  "description": "A small building whose whole purpose is the larger one behind it. It has a counter and a ledger and a person’s job in it. Everything about it's in good order. What's behind it goes up out of the top of what you can see and has been there longer than the gatehouse.",
+  "description": "A small building whose whole purpose is the larger one behind it. It has a counter and a ledger and a person’s job in it. Everything about it is in good order. What's behind it goes up out of the top of what you can see and has been there longer than the gatehouse.",
   "drug_id": "drug_threshold",
   "fx": "crawl",
   "fx_intensity": 0.5,

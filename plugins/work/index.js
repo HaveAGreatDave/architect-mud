@@ -69,7 +69,7 @@ async function gigsDone(player) {
 }
 
 function gigGateMessage(done, need) {
-  return `<span class="msg-system">The manager looks you over and isn't sold. "Shift work's not a first job. Do ${need} runs off the job board, then come see me — you've got ${done}."</span>\n` +
+  return `<span class="msg-system">The manager looks you over and isn't sold. "Shift work's not a first job. Do ${need} runs off the job board, then come see me: you've got ${done}."</span>\n` +
     `<span class="text-dim">Find a board and type</span> <span class="msg-system">gigs</span><span class="text-dim">.</span>`;
 }
 
@@ -98,7 +98,7 @@ const DINER_EVENTS = [
     nailed: 'You total it in your head, run the card, wish them a night. Smooth. They round up.',
     botched: 'You fumble the reader, the total\'s wrong twice. They pay, but the tip line stays a hard zero.' },
   { id: 'fryer', verb: 'douse', stat: 'reflexes', difficulty: 6,
-    prompt: '<span class="text-red">The fryer\'s smoking — grease is about to catch.</span> <b>douse</b> it, now.',
+    prompt: '<span class="text-red">The fryer\'s smoking: grease is about to catch.</span> <b>douse</b> it, now.',
     nailed: 'You kill the element and smother it before it goes up. Gus grunts, which is high praise.',
     botched: 'You get to it late. A gout of flame, a stink of burnt oil, half the counter wreathed in smoke.' },
   { id: 'regular', verb: 'soothe', stat: 'cool', difficulty: 4,
@@ -106,7 +106,7 @@ const DINER_EVENTS = [
     nailed: 'You let him talk, top his coffee, laugh at the one about the dog. He leaves happy and heavy-tipping.',
     botched: 'You cut him off. He deflates, drinks up, and takes his lonely credits somewhere kinder.' },
   { id: 'drunk', verb: 'bounce', stat: 'brawn|cool', difficulty: 6,
-    prompt: 'A drunk at the counter is getting loud and handsy. <b>bounce</b> him — muscle or mouth.',
+    prompt: 'A drunk at the counter is getting loud and handsy. <b>bounce</b> him: muscle or mouth.',
     nailed: 'You walk him to the door without a scene. The room exhales; the mood holds.',
     botched: "It turns into a shoving match. A stool goes over, two tables clear out. Gus isn't thrilled." },
 ];
@@ -127,15 +127,15 @@ const BAR_EVENTS = [
   { id: 'spill', verb: 'douse', stat: 'reflexes', difficulty: 6,
     prompt: 'Someone knocked a candle into a napkin pile on the VIP rail. <b>douse</b> it before the bottle service goes up.',
     nailed: 'You smother it with a bar towel in one motion, barely breaking stride. Nobody in VIP even looks up.',
-    botched: 'It catches. A flare, a shriek, a very expensive bottle of nothing — and security glaring at you.' },
+    botched: 'It catches. A flare, a shriek, a very expensive bottle of nothing, and security glaring at you.' },
   { id: 'vip', verb: 'soothe', stat: 'cool', difficulty: 5,
     prompt: 'A regular high-roller feels ignored and is loudly threatening to take his money to Voltage\'s rival. <b>soothe</b> him.',
     nailed: 'You comp him a top-shelf pour, remember his usual, and laugh at his terrible joke. He settles in for the night.',
     botched: 'You say the wrong name. He deflates, closes out, and takes his whole entourage with him.' },
   { id: 'brawl', verb: 'bounce', stat: 'brawn|cool', difficulty: 7,
-    prompt: 'Two drunks are squaring up over a spilled drink and the crowd\'s starting to circle. <b>bounce</b> it — muscle or mouth.',
+    prompt: 'Two drunks are squaring up over a spilled drink and the crowd\'s starting to circle. <b>bounce</b> it: muscle or mouth.',
     nailed: 'You get between them, big and calm, and talk it down to a handshake before a fist flies. The floor barely notices.',
-    botched: 'It goes off. Glass, a table, a scream — and the whole floor\'s energy curdles for the rest of the night.' },
+    botched: 'It goes off. Glass, a table, a scream, and the whole floor\'s energy curdles for the rest of the night.' },
 ];
 
 // A third venue shape: a REPAIR BENCH. Reuses the same five response verbs (no
@@ -152,12 +152,12 @@ const BENCH_EVENTS = [
     nailed: "You hand it over, point out the mend, and let them feel the seam. They leave believing it'll hold, which it will.",
     botched: 'You hand back the wrong ticket, twice. They take theirs eventually, and take a long look at the workmanship on the way out.' },
   { id: 'quote', verb: 'bill', stat: 'cool', difficulty: 6,
-    prompt: 'The quote on a wrecked jacket is more than the jacket cost new. <b>bill</b> it straight — no flinching.',
+    prompt: 'The quote on a wrecked jacket is more than the jacket cost new. <b>bill</b> it straight: no flinching.',
     nailed: "You tell them what it costs and why, and you don't blink. They pay it, because you clearly weren't guessing.",
     botched: 'You hedge, discount yourself mid-sentence, and end up doing half of it for nothing to save the argument.' },
   { id: 'flare', verb: 'douse', stat: 'reflexes', difficulty: 6,
     prompt: '<span class="text-red">Solvent rag, open torch, and the bench is going up.</span> <b>douse</b> it.',
-    nailed: 'Blanket, weight, done — out before it found the thinners. The shop smells wrong for an hour and nothing else.',
+    nailed: 'Blanket, weight, done: out before it found the thinners. The shop smells wrong for an hour and nothing else.',
     botched: 'It gets into the tray before you smother it. Two jobs on that bench are now somebody\'s bad news.' },
   { id: 'sentimental', verb: 'soothe', stat: 'cool', difficulty: 5,
     prompt: 'Someone has brought in a coat that can\'t be saved, and it was their mother\'s. <b>soothe</b> them.',
@@ -233,7 +233,7 @@ function fireNext(player, st) {
   const ev = st.queue.shift();
   if (!ev) return;
   st.pending = { ...ev, expiresAt: Date.now() + (ev.rush ? RUSH_WINDOW_MS : EVENT_WINDOW_MS) };
-  const banner = ev.rush ? '<span class="text-yellow">RUSH — </span>' : '';
+  const banner = ev.rush ? '<span class="text-yellow">RUSH: </span>' : '';
   out(player.id, `<span class="msg-system">${banner}${ev.prompt}</span>`);
 }
 
@@ -268,7 +268,7 @@ function endShift(player, reason) {
     headline = `Shift over. ${boss} counts your pay out onto the counter without being asked twice.`;
   } else if (reason === 'sent_home') {
     pay = Math.round(wage * worked * 0.5); tips = 0;
-    headline = `<span class="text-red">"Go home."</span> ${boss} doesn't look up. "You're costing me more than you're making. Half for the hours, no tips. Try again when you've got the legs for it."`;
+    headline = `<span class="text-red">"Go home."</span> ${boss} doesn't look up. "You're costing me more than you are making. Half for the hours, no tips. Try again when you've got the legs for it."`;
   } else { // clocked_out, or walked off (moved/interrupted)
     pay = Math.round(wage * worked * 0.85); tips = tipFor(sat);
     headline = reason === 'clocked_out'
@@ -339,7 +339,7 @@ function resolveEvent(player, verb) {
   }
   if (!st.pending) return { type: 'emote', message: 'Nothing needs that right this second. Stay sharp.' };
   if (st.pending.verb !== verb) {
-    return { type: 'emote', message: `That\'s not what the floor needs — read the room and ${st.pending.verb} it.` };
+    return { type: 'emote', message: `That\'s not what the floor needs: read the room and ${st.pending.verb} it.` };
   }
   const ev = st.pending;
   st.pending = null;
@@ -363,7 +363,7 @@ async function cmdWork(args, raw, player) {
   if (getPosture(player) === 'working' && player.shiftState) {
     const st = player.shiftState;
     const left = Math.max(0, Math.round((st.endsAt - Date.now()) / 1000));
-    return { type: 'output', message: `<span class="msg-system">You\'re on shift — ${st.venue.role || 'working'} (${Math.round(st.satisfaction)}% satisfaction, ${left}s left). Respond to what the floor throws at you, or \`clock out\` to leave.</span>` };
+    return { type: 'output', message: `<span class="msg-system">You\'re on shift: ${st.venue.role || 'working'} (${Math.round(st.satisfaction)}% satisfaction, ${left}s left). Respond to what the floor throws at you, or \`clock out\` to leave.</span>` };
   }
 
   const here = venueOf(getZone(player.current_zone));
@@ -372,19 +372,19 @@ async function cmdWork(args, raw, player) {
     const done = await gigsDone(player);
     if (done !== null && done < need) {
       return { type: 'output', message:
-        `<span class="msg-system">${here.name || 'This place'} is hiring a ${here.role || 'hand'} — but not you, not yet.</span>\n` +
+        `<span class="msg-system">${here.name || 'This place'} is hiring a ${here.role || 'hand'}, but not you, not yet.</span>\n` +
         gigGateMessage(done, need) };
     }
     return { type: 'output', message:
       `<span class="msg-system">${here.name || 'This place'} is hiring a ${here.role || 'hand'}.</span>\n` +
-      `<span class="text-dim">Wage about ${here.wage || DEFAULT_WAGE}₵ a shift, tips on top for good work. Type \`clock in\` to start. It takes real time and you can be sent home — don\'t start one you can\'t finish.</span>` };
+      `<span class="text-dim">Wage about ${here.wage || DEFAULT_WAGE}₵ a shift, tips on top for good work. Type \`clock in\` to start. It takes real time and you can be sent home: don\'t start one you can\'t finish.</span>` };
   }
   const venues = allVenues();
   if (!venues.length) return { type: 'output', message: '<span class="text-dim">No steady work posted anywhere right now.</span>' };
   const lines = ['<span class="msg-system">Steady work is going at:</span>'];
-  for (const { zone, venue } of venues) lines.push(`  <span class="text-dim">${venue.name || zone.name} — ${venue.role || 'hand'}, ~${venue.wage || DEFAULT_WAGE}₵/shift (${zone.name})</span>`);
+  for (const { zone, venue } of venues) lines.push(`  <span class="text-dim">${venue.name || zone.name}: ${venue.role || 'hand'}, ~${venue.wage || DEFAULT_WAGE}₵/shift (${zone.name})</span>`);
   lines.push('<span class="text-dim">Get to one of these and type</span> <span class="msg-system">clock in</span>.');
-  lines.push('<span class="text-dim">Or take a delivery run — type</span> <span class="msg-system">courier</span>.');
+  lines.push('<span class="text-dim">Or take a delivery run: type</span> <span class="msg-system">courier</span>.');
   return { type: 'output', message: lines.join('\n') };
 }
 
@@ -429,7 +429,7 @@ async function cmdClock(args, raw, player, broadcast) {
   (broadcast || sendToZone)(player.current_zone, { type: 'zone_event', message: inLine }, player.id);
   return { type: 'output', message:
     `<span class="msg-system">You clock in as ${venue.role || 'a hand'}. ${Math.round(T.shiftSecs() / 60)} minutes on the floor.</span>\n` +
-    `<span class="text-dim">Handle what comes at you — <b>serve</b>, <b>bill</b>, <b>douse</b>, <b>soothe</b>, <b>bounce</b> — before the moment passes. Keep the tables happy and the tips follow. Let it slide and you get cut.</span>` };
+    `<span class="text-dim">Handle what comes at you (<b>serve</b>, <b>bill</b>, <b>douse</b>, <b>soothe</b>, <b>bounce</b>) before the moment passes. Keep the tables happy and the tips follow. Let it slide and you get cut.</span>` };
 }
 
 // The five event-response verbs — thin wrappers over resolveEvent.

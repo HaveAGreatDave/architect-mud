@@ -135,7 +135,7 @@ function classify(effects, flags) {
 // ── Flavour ───────────────────────────────────────────────────────────────────
 const LINE = {
   loose:    (n) => `${n}'s eyes go glassy and the wary edge slides right off them.`,
-  out:      (n) => `${n}'s knees fold — they slump bonelessly to the floor and don't get up.`,
+  out:      (n) => `${n}'s knees fold: they slump bonelessly to the floor and don't get up.`,
   paranoid: (n) => `${n}'s pupils blow wide; they flinch at nothing and start scanning the room like the walls just moved.`,
   wired:    (n) => `${n}'s jaw starts working overtime, one heel jackhammering the floor, eyes too bright.`,
   belligerent: (n) => `${n}'s eyes go flat and mean. Whatever they were before the drink, this is what was underneath it.`,
@@ -169,7 +169,7 @@ const isMeanDrunk = (npc) => MEAN_DRUNK_PERSONALITIES.has(String(npc?.flags?.per
 
 const BELLIGERENT_MUTTER = [
   (n) => `${n} squares up to nobody in particular and mutters a challenge at the room.`,
-  (n) => `${n} looks you up and down like they're pricing a fight.`,
+  (n) => `${n} looks you up and down like they are pricing a fight.`,
   (n) => `${n} knocks something off a surface and dares anyone to mention it.`,
   (n) => `${n} says "say that again" to a room in which nobody has said anything.`,
 ];
@@ -552,7 +552,7 @@ function runRitual(npc, beats, onDone) {
 }
 
 const PRESHOW_RITUALS = [
-  [`checks the countdown feed — "...live in ten" — and goes very still for a moment.`,
+  [`checks the countdown feed, "...live in ten", and goes very still for a moment.`,
    `taps out a neat line of {drug} along the back of a hand mirror, with the ease of long habit.`,
    `takes it in one, blinks twice as the room sharpens to a razor's edge, and grins at their own reflection.`],
   [`digs a tin out from somewhere it wasn't supposed to be, and weighs it in one hand.`,
@@ -567,7 +567,7 @@ const PRESHOW_RITUALS = [
 // lights come on is the oldest version of this story, and it needs its own beats:
 // tipping a hit of whisky under your tongue is not a thing anyone does.
 const PRESHOW_DRINK_RITUALS = [
-  [`checks the countdown feed — "...live in ten" — and goes very still for a moment.`,
+  [`checks the countdown feed, "...live in ten", and goes very still for a moment.`,
    `pours two fingers of {drug} from a bottle that lives behind something else.`,
    `drinks it off, breathes out slowly, and squares their shoulders at the door.`],
   [`opens a drawer, considers it, and takes out the {drug} rather than whatever they went in for.`,
@@ -896,7 +896,7 @@ async function setup(args, player, verb) {
   if (!who) return { error: err(`Usage: ${verb} <someone> [with <drug>].`) };
   const r = resolveNpc(who, player);
   if (r.type === 'none') return { error: err(`There's no "${who || 'one'}" here to ${verb}.`) };
-  if (r.type === 'ambiguous') return { error: err(`Who do you mean — ${r.candidates.map(c => c.name).join(', ')}?`) };
+  if (r.type === 'ambiguous') return { error: err(`Who do you mean: ${r.candidates.map(c => c.name).join(', ')}?`) };
   const npc = r.candidate;
   const row = await findCarriedDrug(player, drug);
   if (!row) return { error: err(drug ? `You're not carrying a "${drug}".` : "You're not carrying anything to dose them with.") };
@@ -916,7 +916,7 @@ async function cmdSpike(args, raw, player) {
   if (margin < 0) {
     // Caught tipping it into their drink — assault-tier heat, no dose lands.
     emit('npc.attacked', { actor: player, npc });
-    sendToZone(npc.zone_id, { type: 'zone_event', message: `${npc.name} knocks the ${name} aside — "What the hell did you just put in that?!"` }, player.id);
+    sendToZone(npc.zone_id, { type: 'zone_event', message: `${npc.name} knocks the ${name} aside: "What the hell did you just put in that?!"` }, player.id);
     return err(`${npc.name} catches you slipping the ${name} into their drink. Busted.`);
   }
 
@@ -950,7 +950,7 @@ async function cmdSlip(args, raw, player) {
 
   const r = resolveNpc(who, player);
   if (r.type === 'none') return err(`There's no "${who}" here.`);
-  if (r.type === 'ambiguous') return err(`Who do you mean — ${r.candidates.map(c => c.name).join(', ')}?`);
+  if (r.type === 'ambiguous') return err(`Who do you mean: ${r.candidates.map(c => c.name).join(', ')}?`);
   const npc = r.candidate;
 
   const willing = !!(npc.flags?.uses_drugs || npc._ai?.dose?.loose);

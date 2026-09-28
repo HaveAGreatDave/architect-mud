@@ -6,9 +6,12 @@
       "seat"
     ],
     "hack_difficulty": 3,
-    "interactions": {
+    "interaction_lines": {
       "sit": "You sit on a bench in a waiting room that has no walls, under a roof that is perfect, and it is not as bad as it sounds, which is somehow worse."
     },
+    "interactions": [
+      "sit"
+    ],
     "vendor_npc_id": "npc_hf_line_marchetti",
     "vendor_safe": true
   },

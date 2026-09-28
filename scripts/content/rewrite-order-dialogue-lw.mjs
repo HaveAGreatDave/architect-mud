@@ -385,7 +385,7 @@ for (const [npcId, patch] of Object.entries(D)) {
   // `reason` strings are exempt because they are relations bookkeeping, written
   // to player_npc_relations to record WHY warmth moved, and never rendered to
   // anybody. The dash rule is about prose the player reads. (Cyrelle's
-  // ret_report carries one: "Retention — extracted to the Watch".)
+  // ret_report carries one: "Retention: extracted to the Watch".)
   const prose = JSON.stringify(tree, (k, v) => (k === 'reason' ? undefined : v));
   const leftover = (prose.match(/—/g) || []).length;
   if (leftover) problems.push(`${npcId}: ${leftover} em dash(es) still in player-facing text`);

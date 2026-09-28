@@ -236,9 +236,9 @@ function mapRows(nodes, cx, cy, hdg, R, fields) {
 // What `land` will do in this airframe, printed on the panel so the rule is an instrument
 // reading rather than something you only learn by being refused mid-approach.
 const LAND_MODE_NOTE = {
-  vtol: 'VTOL — she can set down anywhere, once she is slow.',
-  stol: 'STOL — rough-field rated; get her slow and she will go in short.',
-  strip: 'STRIP — she needs a runway under her to land.',
+  vtol: 'VTOL: she can set down anywhere, once she is slow.',
+  stol: 'STOL: rough-field rated; get her slow and she will go in short.',
+  strip: 'STRIP: she needs a runway under her to land.',
 };
 
 export function openTextCockpit(msg) {
@@ -246,7 +246,7 @@ export function openTextCockpit(msg) {
   _open = true;
   _last = null;
   const el = document.getElementById('area-content');
-  if (el) el.innerHTML = `<div class="tck"><span class="hi">▛ ${esc(msg?.craft || 'AIRCRAFT')} — instruments coming alive…</span></div>`;
+  if (el) el.innerHTML = `<div class="tck"><span class="hi">▛ ${esc(msg?.craft || 'AIRCRAFT')}, instruments coming alive…</span></div>`;
 }
 
 export function closeTextCockpit() {
@@ -287,11 +287,11 @@ export function updateTextCockpit(s) {
   ];
 
   const warnings = [];
-  if (s.stalled) warnings.push('<span class="bad">⚠ STALLED — the assist is unloading and adding power.</span>');
-  else if (s.stallMargin < 0.25) warnings.push('<span class="warn">⚠ BUFFET — she is getting slow.</span>');
-  if (s.warn === 'STARVATION') warnings.push('<span class="bad">⚠ ENGINE OUT — dry tank.</span>');
+  if (s.stalled) warnings.push('<span class="bad">⚠ STALLED: the assist is unloading and adding power.</span>');
+  else if (s.stallMargin < 0.25) warnings.push('<span class="warn">⚠ BUFFET: she is getting slow.</span>');
+  if (s.warn === 'STARVATION') warnings.push('<span class="bad">⚠ ENGINE OUT: dry tank.</span>');
   else if (s.warn === 'BINGO') warnings.push('<span class="warn">⚠ BINGO FUEL.</span>');
-  if (s.surfaces) warnings.push('<span class="bad">⚠ STRUCTURAL DAMAGE — she is flying asymmetric.</span>');
+  if (s.surfaces) warnings.push('<span class="bad">⚠ STRUCTURAL DAMAGE: she is flying asymmetric.</span>');
   if (s.checkride?.instruction) warnings.push(`<span class="hi">✈ ${esc(s.checkride.stageName || 'CHECKRIDE')}: </span><span class="dim">${esc(s.checkride.instruction)}</span>`);
 
   el.innerHTML = `<div class="tck">` +

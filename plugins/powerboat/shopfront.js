@@ -23,12 +23,18 @@
 // street, before you got to the door.
 
 import { on } from '../../server/engine/events.js';
-import { getZone } from '../../server/engine/world.js';
+import { getZone, getLivePlayer } from '../../server/engine/world.js';
+import { allExits } from '../../server/engine/exits.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { query } from '../../server/models/db.js';
 import { prefersLoggedPanelsOrDefault } from '../../server/engine/presentation.js';
 import { BOAT_TYPES, TYPES } from '../../client/game/js/panels/flight-model.js';
-import { berthKind, berthCapacity, berthsNear, zonesNear, hullBand, REFIT_CAP, aboard } from './yard.js';
+import { berthKind, berthCapacity, berthsNear, zonesNear, hullBand, REFIT_CAP, aboard, sweepBoatRentals, isOpenWater, MOVE_IN } from './yard.js';
+import { boatRental, boatRentalLeft, fmtLeft, boatRentFee, BOAT_RENT_TERM_MS, boatServiceSheet, boatLiveryOf, schemeOf,
+  BOAT_SCHEMES, BOAT_DECALS, BOAT_PAINT_PRICE, BOAT_DECAL_PRICE } from './service.js';
+import { tankPrice } from './fuel.js';
+import { rigs } from './index.js';
+import { deskReady } from './desk.js';
 // The hour and the weather out the open end of the dock. The same `skyState` the helm's own payload
 // asks for, at the BUILDING'S tile rather than the room's — an interior zone sits at grid 0,0 by
 // construction, so asking it where it is answers the middle of the map.
@@ -105,6 +111,9 @@ export async function marinaPanel(player, zoneId, tab = 'fleet') {
   const yard = yardHere(zoneId);
   if (!yard) return null;
   const here = getZone(zoneId);
+  // ⚠ THE SALE AND HIRE TABS ARE THE DESK'S (desk.js): standing at it with a clerk behind it, and
+  // nowhere else in the building.
+  const desk = player.current_zone === zoneId && deskReady(player);
 
   // ⚠ THE SEAT IS A FACT THE SERVER OWNS AND THE SCREEN WAS GUESSING AT. Board and Take the helm
   // were both unconditional buttons, so the fleet card offered them for a hull three rooms away and
@@ -112,6 +121,9 @@ export async function marinaPanel(player, zoneId, tab = 'fleet') {
   // is correct and reads as a dead button. Whether you can get in her is `berth_zone === here`,
   // whether you can drive her is `aboard`, and both of those are answers this file already has.
   const seated = aboard.get(player.id) || null;
+  // A HIRE THAT HAS RUN OUT IS GONE BEFORE THE HAND IS DEALT — service.js's lazy clock.
+  const wentBack = await sweepBoatRentals(player.id);
+  if (wentBack.length) sendToPlayer(player.id, { type: 'emote', message: `<span class="text-dim">The hire desk has taken back ${wentBack.join(' and ')}: the time ran out.</span>` });
   const mine = await query('SELECT * FROM boats WHERE owner_id = $1 ORDER BY created_at', [player.id]);
   const fleet = mine.rows.map((b) => {
     const t = TYPES[b.type_id];
@@ -123,7 +135,7 @@ export async function marinaPanel(player, zoneId, tab = 'fleet') {
       typeName: t ? t.name : b.type_id,
       hull: pct(b.condition), band: hullBand(b.condition), fuel: pct(b.fuel),
       nitro: pct(b.custom_data?.nitro ?? 1),
-      livery: b.custom_data?.livery || null,
+      livery: boatLiveryOf(b.custom_data),
       // Standing on the deck she is tied to — the one place `embark` will have you.
       hereNow: !!b.berth_zone && b.berth_zone === zoneId,
       aboard: seated === b.id,
@@ -131,6 +143,16 @@ export async function marinaPanel(player, zoneId, tab = 'fleet') {
         : z ? `${z.name}, ${KIND_WORD[berthKind(z)] || 'laid up'}`
         : 'somewhere the yard has lost track of',
       whereShort: z ? z.name : 'out on the water',
+      // ── the card half ── where she is as a KIND, so the card can say whether picking her seats
+      // you (covered, afloat) or needs the crane first (on a cradle), and whether she is here at all.
+      kind: z ? (berthKind(z) || (isOpenWater(z) ? 'adrift' : null)) : 'adrift',
+      inYard: !!b.berth_zone && yard.zones.some((y) => y.id === b.berth_zone),
+      rental: boatRental(b) ? { left: boatRentalLeft(b), leftText: fmtLeft(boatRentalLeft(b)) } : null,
+      // ── the bench half ── her wear, her paint, and the live fuel when she is the one under you.
+      svc: boatServiceSheet(b.type_id, b.custom_data || {}),
+      scheme: schemeOf(b.custom_data), decal: b.custom_data?.livery?.decal || 'none',
+      liveFuel: seated === b.id ? pct(rigs.get(player.id)?.fuel ?? b.fuel) : null,
+      fillPrice: Math.round(tankPrice(b.type_id) * (1 - pct(seated === b.id ? (rigs.get(player.id)?.fuel ?? b.fuel) : b.fuel))),
     };
   });
 
@@ -154,14 +176,32 @@ export async function marinaPanel(player, zoneId, tab = 'fleet') {
     credits: Number(player.credits || 0),
     fleet,
     berths,
-    dealer: !!yard.dealer,
+    dealer: desk,
     // The room decides the screen: a berth gets the dock, everywhere else in the building gets the
     // paperwork. See `yardHere`.
     dock: !!yard.dock,
     hereName: here?.name || '',
+    // The room's ways out. The screen covers the room description, so without these the dock is a
+    // hand of cards with the doors painted over.
+    // Open water is left off: a covered slot's exit onto the Basin is the boat's way out, not yours.
+    exits: allExits(here).filter(({ target }) => getZone(target)?.flags?.terrain !== 'water')
+      .map(({ dir, target }) => {
+        // "Fairweather Marina — The Lobby" on a button inside Fairweather Marina is just "The Lobby".
+        const n = getZone(target)?.name || dir, b = here?.flags?.building_name;
+        return { dir, name: b && n.startsWith(b + ' — ') ? n.slice(b.length + 3) : n };
+      }),
     sky: skyOver(here),
     aboardId: seated,
-    stock: yard.dealer ? BOAT_TYPES.map((t) => ({ id: t.id, name: t.name, price: t.price, blurb: t.blurb })) : [],
+    stock: desk ? BOAT_TYPES.map((t) => ({ id: t.id, name: t.name, price: t.price, blurb: t.blurb })) : [],
+    // The hire line (service.js) and whether the desk will let you have another.
+    rentStock: desk ? BOAT_TYPES.map((t) => ({ id: t.id, name: t.name, fee: boatRentFee(t), hours: BOAT_RENT_TERM_MS / 3600000,
+      afford: Number(player.credits || 0) >= boatRentFee(t) })) : [],
+    hasRental: mine.rows.some((b) => boatRental(b)),
+    // What `boat take` charges to crane a hull off a cradle into the covered dock (yard.js MOVE_IN).
+    craneFee: MOVE_IN.covered,
+    // The shipwright's shelf: schemes, decals and what each costs, as facts.
+    schemes: BOAT_SCHEMES.map((s) => ({ id: s.id, label: s.label, livery: s.livery })),
+    decals: BOAT_DECALS, paintPrice: BOAT_PAINT_PRICE, decalPrice: BOAT_DECAL_PRICE,
     // What a refit can reach HERE, which is the entire economic argument for paying for a roof.
     refitCap: capHere(yard.zones),
   };
@@ -216,10 +256,46 @@ export async function pushMarina(player, zoneId, tab = 'fleet') {
  */
 export async function repushMarina(player, tab = 'fleet') {
   if (!player?.current_zone) return;
-  await pushMarina(player, player.current_zone, tab).catch(() => {});
+  // Sitting in her with the overlay up, the push goes to the overlay rather than to a screen the
+  // seat would drop on the floor.
+  const { svcState } = await import('./helm.js');
+  const s = svcState.get(player.id);
+  if (s && aboard.has(player.id)) return pushMarinaService(player, s.mode);
+  // Only where a screen belongs: the dock, or the desk with a clerk behind it.
+  const zid = player.current_zone;
+  if (!yardHere(zid)?.dock && !deskReady(player)) return;
+  await pushMarina(player, zid, tab).catch(() => {});
+}
+
+/**
+ * The marina's payload pushed into the boat seat as its service overlay — `dock` in a covered slot
+ * (the shipwright's bench, paint, name, casting off) or `fuel` stopped at the float (the pump). ⚠ THE
+ * SAME PAYLOAD, not a second one: `service` only says where it goes, so the overlay reads the same
+ * numbers the text rung prints and every button is still a verb string.
+ */
+export async function pushMarinaService(player, mode, { spawn = false, zoneId = null } = {}) {
+  if (await prefersLoggedPanelsOrDefault(player)) return false;
+  // At the float the panel is built for the FLOAT: a helmsman who got in somewhere else (off open
+  // water) is standing, as far as the room goes, somewhere that is not a marina at all.
+  const panel = await marinaPanel(player, (zoneId && yardHere(zoneId)) ? zoneId : player.current_zone, 'bench');
+  if (!panel) return false;
+  sendToPlayer(player.id, { ...panel, service: mode, spawn, serviceId: aboard.get(player.id) || null });
+  return true;
 }
 
 export function installMarinaShopfront() {
+  // Logging in while standing on the dock is arriving there too: the hand is dealt, or the dock is a
+  // room description with no way to pick a boat short of walking out and back in.
+  // ⚠ ASKED A MOMENT LATER, NOT NOW: a reload's login can arrive before the old socket's logout,
+  // which is what clears `aboard`, so asked at once it saw a seat that no longer exists and dealt
+  // nothing.
+  on('player.login', ({ id }) => {
+    setTimeout(async () => {
+      const p = getLivePlayer(id);
+      if (!p || aboard.has(id) || !yardHere(p.current_zone)?.dock) return;
+      await pushMarina(p, p.current_zone, 'dock').catch(() => {});
+    }, 1200);
+  });
   on('zone.entered', async ({ actor, zone, from }) => {
     if (!actor?.id) return;
     try {
@@ -230,7 +306,9 @@ export function installMarinaShopfront() {
       // ⚠ THE ROOM PICKS THE TAB, and that is the whole of what "walk in and see your boats" means.
       // Landed on `fleet` from every door, the dock was a list of cards about hulls that were
       // twenty feet away and in front of you.
-      if (nowIn) { await pushMarina(actor, to, yardHere(to)?.dock ? 'dock' : 'fleet'); return; }
+      // ⚠ ONLY THE DOCK DEALS THE HAND ON ARRIVAL. The lobby, the counter and the rest of the
+      // building are rooms; the sale and hire screen is `use desk` (desk.js).
+      if (nowIn && yardHere(to)?.dock) { await pushMarina(actor, to, 'dock'); return; }
       // ⚠ AND WALKING OUT CLOSES IT, FROM ANY TILE OF THE YARD. See the header: asked of the tile
       // rather than the walk, leaving by the lobby would leave the shop window over the street.
       //
@@ -238,7 +316,7 @@ export function installMarinaShopfront() {
       // step every player takes anywhere in the world, for ever, to close a panel almost none of
       // them has open — which is the kind of cost that never shows up as a bug, only as a number on
       // the egress report that nobody can account for.
-      if (wasIn) sendToPlayer(actor.id, { type: 'marina_close' });
+      if (wasIn || nowIn) sendToPlayer(actor.id, { type: 'marina_close' });
     } catch (e) { console.error('[powerboat] marina shopfront:', e.message); }
   });
 }

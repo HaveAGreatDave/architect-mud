@@ -6,9 +6,12 @@
       "row",
       "seats"
     ],
-    "interactions": {
+    "interaction_lines": {
       "sit": "You sit in one of the middle ones, which is the only place the line and the wall agree, and it is oddly the most comfortable thing about the building."
-    }
+    },
+    "interactions": [
+      "sit"
+    ]
   },
   "id": "furn_hf_curve_chairs",
   "name": "the row of chairs",

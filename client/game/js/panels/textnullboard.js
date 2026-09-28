@@ -122,7 +122,7 @@ function render() {
       + `<span class="pick${_mode === 'probe' ? ' hi' : ''}" data-nact="probe">[probe]</span>  `
       + `<span class="pick" data-nact="abort">[abort]</span>`,
     `<span class="dim">${_mode === 'probe'
-      ? 'pick a node to test it — costs a step, costs no alert'
+      ? 'pick a node to test it, costs a step, costs no alert'
       : 'pick a lit node to move · ? unknown · # defended · ◎ target'}</span>`,
   ];
 

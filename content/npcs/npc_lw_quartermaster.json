@@ -214,7 +214,7 @@
           "next": "bye"
         }
       ],
-      "text": "She writes the lot into the ledger and turns it round so you can see your own name against it.\n\n\"None of that's a gift. Bring back whatever you don't use, and tell me what you did use, because that's how I know what to keep on the shelf.\""
+      "text": "She writes the lot into the ledger and turns it round so you can see your own name against it.\n\n\"None of that is a gift. Bring back whatever you don't use, and tell me what you did use, because that's how I know what to keep on the shelf.\""
     },
     "fit_job": {
       "_vine": {
@@ -508,7 +508,7 @@
           "next": "bye"
         }
       ],
-      "text": "The Quartermaster puts a purse on the counter. It's heavier than the errand needs to be and both of you can see that.\n\n\"Parts we can't make. All of it sells on Halcyon Boulevard, and the last of it's behind the clinic counter, and you'll be waiting there a while.\"\n\nShe slides the list across.\n\n\"They'll offer you things while you wait. They're very good at it, they'll be kind about it, and there's a discount for anybody who looks like they're thinking it over.\"\n\nA beat.\n\n\"I'm not telling you not to. I'm telling you I'll be here when you get back, and so will the ledger.\""
+      "text": "The Quartermaster puts a purse on the counter. It's heavier than the errand needs to be and both of you can see that.\n\n\"Parts we can't make. All of it sells on Halcyon Boulevard, and the last of it is behind the clinic counter, and you'll be waiting there a while.\"\n\nShe slides the list across.\n\n\"They'll offer you things while you wait. They're very good at it, they'll be kind about it, and there's a discount for anybody who looks like they are thinking it over.\"\n\nA beat.\n\n\"I'm not telling you not to. I'm telling you I'll be here when you get back, and so will the ledger.\""
     },
     "loyalty_report": {
       "actions": [

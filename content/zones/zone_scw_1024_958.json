@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Scrubland, and after a day of bare rock the colour of it's a shock: grey-green thorn to knee height in every direction, growing out of ground that's more grit than soil. It isn't soft country. Every plant in it's armed, and the pale rings of the rain sit on the leaves as burn scars.",
+  "description": "Open red rock under a very large sky. Pale etched circles show where puddles lay after the last rain. The wind doesn't let up.",
   "exits": {
     "east": "zone_scw_1025_958",
     "north": "zone_scw_1024_957",
@@ -8,18 +8,18 @@
     "west": "zone_scw_1023_958"
   },
   "flags": {
-    "ambient_pool": "scarletwastes_the_grey_thicket",
+    "ambient_pool": "scarletwastes_hardpan",
     "lawless": true,
     "radiation": 9,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "dirt_road"
+    "terrain": "redrock"
   },
   "grid_x": 1024,
   "grid_y": 958,
   "grid_z": 0,
   "id": "zone_scw_1024_958",
   "map_id": "map_world",
-  "name": "The Grey Thicket",
+  "name": "Scald Pan",
   "parent_zone": null
 }

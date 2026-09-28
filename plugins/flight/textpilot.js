@@ -124,8 +124,8 @@ export function statusLines(live) {
     `<span class="text-cyan">FUEL</span> ${fuelPct}%`,
   ];
   let line = bits.join(' · ');
-  if (r.stalled) line += '\n<span class="text-red">⚠ STALLED — nose down, power up.</span>';
-  else if (r.stallMargin < 0.25) line += '\n<span class="text-amber">⚠ Buffet — she\'s getting slow.</span>';
+  if (r.stalled) line += '\n<span class="text-red">⚠ STALLED: nose down, power up.</span>';
+  else if (r.stallMargin < 0.25) line += '\n<span class="text-amber">⚠ Buffet: she\'s getting slow.</span>';
   if (fuelPct <= 15) line += '\n<span class="text-amber">⚠ Low fuel.</span>';
   if (s.onGround) line += '\n<span class="text-dim">On the ground.</span>';
   return line;
@@ -385,7 +385,7 @@ export function cmdTextThrottle(args, player) {
 
 export function cmdTextClimb(args, player) {
   const { live, err } = requireTextPilot(player); if (err) return err; if (!live) return null;
-  if (!live.row.airborne) return { type: 'emote', message: 'Fly her off the ground first — <b>takeoff</b>.' };
+  if (!live.row.airborne) return { type: 'emote', message: 'Fly her off the ground first: <b>takeoff</b>.' };
   const n = parseInt(String(args.join(' ')).replace(/[^0-9]/g, ''), 10);
   if (Number.isNaN(n)) return { type: 'emote', message: 'Climb to what height? <b>climb to 3000</b>.' };
   live.textTargets.altitude = clamp(n, 0, 40000);
@@ -436,7 +436,7 @@ export function cmdTextGear(args, player) {
   const { live, err } = requireTextPilot(player); if (err) return err; if (!live) return null;
   const up = /^(up|in|retract)$/i.test(args[0] || '');
   live.textTargets.gear = up ? 0 : 1;
-  return { type: 'emote', message: up ? 'Gear up — she cleans up and accelerates.' : 'Gear down and locked.' };
+  return { type: 'emote', message: up ? 'Gear up: she cleans up and accelerates.' : 'Gear down and locked.' };
 }
 
 export function cmdTextStatus(args, player) {
@@ -449,11 +449,11 @@ export function cmdTextStatus(args, player) {
 export function cmdTextTakeoff(args, player) {
   const { live, err } = requireTextPilot(player); if (err) return err; if (!live) return null;
   if (live.row.airborne) return { type: 'emote', message: "You're already flying." };
-  if (!live.row.engine_on) return { type: 'emote', message: 'The engine is cold — <b>startup</b> first.' };
+  if (!live.row.engine_on) return { type: 'emote', message: 'The engine is cold: <b>startup</b> first.' };
   live.textTargets.takeoff = true;
   if ((live.textTargets.throttle || 0) < 90) live.textTargets.throttle = 100;
   live.textTargets.altitude = null;
-  return { type: 'emote', message: '<span class="text-green">Full power — she gathers herself and rolls. Hold on; she\'ll fly herself off.</span>' };
+  return { type: 'emote', message: '<span class="text-green">Full power: she gathers herself and rolls. Hold on; she\'ll fly herself off.</span>' };
 }
 
 // `land` sets an approach: gear down, flaps out, and a descent toward the deck. The
@@ -491,13 +491,13 @@ export function cmdTextLand(args, player) {
     const near = nearestAirfield(live.row.grid_x, live.row.grid_y, { needsRunway: true });
     if (!near || near.dist > STRIP_FIELD_DIST) {
       const where = near ? ` The nearest strip is <b>${near.name}</b>, ${near.dist} tiles off.` : '';
-      return { type: 'emote', message: `<span class="text-amber">The ${name} needs a runway under her — she can't just stop in the air and sit down.</span>${where} <span class="text-dim">Fly to the field first (<b>turn to heading …</b>), then <b>land</b>.</span>` };
+      return { type: 'emote', message: `<span class="text-amber">The ${name} needs a runway under her: she can't just stop in the air and sit down.</span>${where} <span class="text-dim">Fly to the field first (<b>turn to heading …</b>), then <b>land</b>.</span>` };
     }
   } else {
     const vApp = (p?.vs0 || 30) * LAND_APPROACH_KT[mode];
     if ((s?.airspeed || 0) > vApp) {
       const verb = mode === 'vtol' ? 'come to the hover' : 'settle onto a short field';
-      return { type: 'emote', message: `<span class="text-amber">Too fast to ${verb} — ${Math.round(s.airspeed)} kt, and she wants under ${Math.round(vApp)}.</span> <span class="text-dim">Bring the power back (<b>throttle 20</b>) and let her slow, then <b>land</b>.</span>` };
+      return { type: 'emote', message: `<span class="text-amber">Too fast to ${verb}: ${Math.round(s.airspeed)} kt, and she wants under ${Math.round(vApp)}.</span> <span class="text-dim">Bring the power back (<b>throttle 20</b>) and let her slow, then <b>land</b>.</span>` };
     }
   }
 
@@ -509,8 +509,8 @@ export function cmdTextLand(args, player) {
   const lead = mode === 'vtol'
     ? `<span class="text-cyan">You bleed the last of the speed off and let her down on the collective.</span>`
     : mode === 'stol'
-      ? `<span class="text-cyan">Gear down, full flap, nose high — you drag the ${name} in slow over the threshold.</span>`
-      : `<span class="text-cyan">Gear down, flaps out, power back — you turn onto final and start down.</span>`;
+      ? `<span class="text-cyan">Gear down, full flap, nose high: you drag the ${name} in slow over the threshold.</span>`
+      : `<span class="text-cyan">Gear down, flaps out, power back: you turn onto final and start down.</span>`;
   return { type: 'emote', message: `${lead} <span class="text-dim">Watch your sink rate; a soft touchdown grades better.</span>` };
 }
 

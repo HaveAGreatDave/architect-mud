@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#8f4f3a",
-  "description": "A pitch rather than a shop: a hand-cart the size of a room, roofed over with corrugate and dug into the hardpan so the wind goes over it. It sits where the west road starts to empty out, which is where everything dragging itself back from the flats has to pass. Sorted salvage is laid out on boards either side in grades, and a bell on a pole rings whenever anything heavy moves out there, which it does. SLAG & WARES is chalked on the tailboard and re-chalked most weeks.",
+  "description": "A hand-cart the size of a room, roofed with corrugate and dug into the hardpan where the west road empties out. Sorted salvage lies on boards either side, in grades. A bell on a pole rings whenever something heavy moves out on the flats. SLAG & WARES is chalked on the tailboard.",
   "exits": {
     "north": "zone_slag_shop",
     "south": "zone_district_904_906"

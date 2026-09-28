@@ -1,0 +1,76 @@
+{
+  "_comment": [
+    "The ground between regions. Read by scripts/content/bake-wildlands.mjs, which bakes it with",
+    "the region distance fields into client/shared/wildlands-field.js. Nothing reads this at runtime.",
+    "halo: how a region's own ground spreads into the wildlands around it. biome is a BIOME_GROUND",
+    "key, reach is how many tiles the blend runs before it is gone.",
+    "coast: the sea runs north of this row, taken from the named region's north edge plus offset,",
+    "and extended east and west across the whole map.",
+    "landforms: features that exist only in the wildlands. Render and prose only, never collision.",
+    "edge: how far past a region's rim its own edge terrain carries on before the wildlands take over, per terrain (tiles). Terrains not listed use default."
+  ],
+  "halo": {
+    "region_deadwater": {
+      "biome": "ash",
+      "reach": 55
+    },
+    "region_the_reach": {
+      "biome": "scrub",
+      "reach": 42
+    },
+    "region_scarletwastes": {
+      "biome": "scarlet",
+      "reach": 48
+    },
+    "region_terminus": {
+      "biome": "hardpan",
+      "reach": 40
+    },
+    "region_coldwater": {
+      "biome": "badlands",
+      "reach": 26
+    }
+  },
+  "coast": {
+    "region": "region_coldwater",
+    "offset": 4
+  },
+  "edge": {
+    "default": 4,
+    "cliff": 9,
+    "plateau": 10,
+    "basalt": 7,
+    "scree": 6,
+    "deadwood": 6,
+    "ash": 6,
+    "scrub": 5,
+    "redrock": 6,
+    "hardpan": 6,
+    "gravel": 4,
+    "sand": 3,
+    "water": 0,
+    "road": 0,
+    "dirt_road": 0,
+    "asphalt": 0,
+    "concrete": 0,
+    "grass": 2,
+    "park": 0,
+    "forest": 3
+  },
+  "landforms": [
+    {
+      "id": "mount_cinder",
+      "name": "Mount Cinder",
+      "kind": "volcano",
+      "x": 742,
+      "y": 1060,
+      "radius": 74,
+      "crater": 10,
+      "plume": {
+        "toward": "region_deadwater",
+        "length": 190,
+        "width": 24
+      }
+    }
+  ]
+}

@@ -108,7 +108,7 @@ function sqlValue(v, jsonCast) {
 }
 
 // Postgres single-quote escaping (double the quote). The dump is plain SQL, so
-// this is all that's needed for string literals.
+// this is all that is needed for string literals.
 function escapeStr(s) {
   return s.replace(/'/g, "''");
 }

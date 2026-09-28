@@ -7,7 +7,7 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#3a3026",
-  "description": "A site shack raised on blocks, panelled in whatever was flattest that week and heated well past comfortable by a bar fire nobody is allowed to touch. The counter is a slab of scaffold board on two oil drums, worn pale in one spot where forty years of elbows have landed. Behind it: a wall of pigeonholes, each labelled in marker with a part name and a price that has been crossed out and rewritten at least twice. A set of hanging scales. A ledger, open, in handwriting that gets worse toward the bottom of every page. The window looks <b>west</b> over the yard. Out <b>east</b> to the gate.",
+  "description": "A site shack on blocks, panelled in scrap and heated too hot by a bar fire. The counter is a scaffold board on two oil drums, worn pale where elbows land. Behind it, pigeonholes labelled in marker with part names and prices crossed out twice. A set of hanging scales. An open ledger. The window looks <b>west</b> over the yard. Out <b>east</b> to the gate.",
   "exits": {
     "east": "zone_district_918_906",
     "north": "zone_util_junkyard",
