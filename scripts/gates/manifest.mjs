@@ -86,6 +86,7 @@ export const GROUPS = [
       'scripts/shapes/smoke.mjs',
       'scripts/shapes/wildlands.mjs',
       'scripts/shapes/meshes.mjs',
+      'scripts/shapes/actors.mjs',
       'scripts/shapes/freecam.mjs',
       'scripts/shapes/mousestick.mjs',
       'scripts/shapes/skypan.mjs',

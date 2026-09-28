@@ -1863,6 +1863,13 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     groundBias: opts.glGroundBias,
     vpW: g.canvas ? g.canvas.width : 0, vpH: g.canvas ? g.canvas.height : 0,
   });
+  // ── AND THE PEOPLE ON THE PAVEMENT, AFTER THE GROUND ─────────────────────────────────────────
+  // Solid, but drawn here rather than with the solids above. The pavement band is laid a kerb's
+  // height above the road as translucent paint, and a figure stands at road level like the billboard
+  // it replaces, so drawn before the ground the band blended over the bottom 40% of every person on
+  // it. After the ground they cover the paint the way the billboards do. The mirror prepass still
+  // draws them with the solids (see context.js), because a reflection has no pavement over it.
+  const actors = g.view.drawActors ? g.view.drawActors(camAt, cssH, { fog: opts.fogBand }) : 0;
   // ── AND THE TRANSLUCENT HALF OF THE SOLIDS ──────────────────────────────────────────────────
   // A rotor's blades and blur disc, in the same buffer as the hull that carries them but drawn
   // here: after the floor, the sea and the road, because they write no depth and have to blend over
@@ -1967,6 +1974,6 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // product of three things that can each be zero for a different reason — the tune, the wetness,
   // and whether the framebuffer was accepted — and a reflection that silently never ran looks
   // exactly like one that ran and was too faint to see.
-  return { interior, faces: g.faces || 0, builds, lights, lit: lightList || [], curtains, decals, decalBinds, strokes, scatter, solids, film, ship: (opts.ship || []).length, bay: (opts.bay || []).length, fauna: (opts.fauna || []).length, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, snow: opts.glSnow || 0, tracks: opts.tracks ? opts.tracks.n : 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, hdr: graded, canvas: g.canvas };
+  return { interior, faces: g.faces || 0, builds, lights, lit: lightList || [], curtains, decals, decalBinds, strokes, scatter, solids, film, ship: (opts.ship || []).length, bay: (opts.bay || []).length, fauna: (opts.fauna || []).length, actors, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, snow: opts.glSnow || 0, tracks: opts.tracks ? opts.tracks.n : 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, hdr: graded, canvas: g.canvas };
 }
 
