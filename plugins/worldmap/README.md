@@ -20,4 +20,4 @@ None.
 
 ## Tablet apps
 
-`worldmap` — the canvas map: zoom, pan, hover for what a tile is, "you" marked. Everything is visible; there is no fog of war.
+`worldmap` — the canvas map: zoom, pan, hover for what a tile is, "you" marked. Everything is visible; there is no fog of war. On a touch screen it's pinch to zoom and tap for what a tile is, and on an upright phone it opens filling the screen's height, centred on you, instead of fitting the whole world into a strip across the width.

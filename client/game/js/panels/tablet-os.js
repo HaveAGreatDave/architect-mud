@@ -553,6 +553,11 @@ function ensureStyles() {
     #tablet-os-overlay .tos-tab:hover { color:var(--tos-fg); }
     #tablet-os-overlay .tos-tab.active { color:var(--mg-accent); border-bottom-color:var(--mg-accent);
       text-shadow:0 0 6px color-mix(in srgb, var(--mg-accent) 35%, transparent); }
+    /* A phone: the tabs share the width, and a fifth that still won't fit wraps to a
+       second row instead of running off the edge (Vitals' Changes tab was cut in half,
+       with no scrollbar to say there was more). */
+    html[data-density="compact"] #tablet-os-overlay .tos-tabs { flex-wrap:wrap; gap:2px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-tab { flex:1 1 auto; padding:7px 6px; letter-spacing:.5px; }
 
     /* App grid (home) — raised tile: light-accent gradient + bevel edge, lifts
        on hover, presses in on click (pseudo-3D, not a flat grey fill). */
@@ -903,13 +908,59 @@ function ensureStyles() {
     /* Toolbar keeps its labels (they're what make the icons legible to a newcomer)
        but gives up padding; the widget cards go single-file so nothing is squeezed
        to an unreadable width. */
-    html[data-density="compact"] #tablet-os-overlay .tos-hbar-btn { padding:4px 2px 3px; }
-    html[data-density="compact"] #tablet-os-overlay .tos-hbar-lb { font-size:0.4375rem; letter-spacing:.4px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-hbar-btn { padding:5px 2px 4px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-hbar-lb { font-size:0.625rem; letter-spacing:.4px; }
     html[data-density="compact"] #tablet-os-overlay .tos-widgets { grid-template-columns:1fr; gap:6px; }
     /* Touch targets: the page dots are 6px of paint, so they keep their generous
        invisible padding and gain a little more room to be thumbed. */
     html[data-density="compact"] #tablet-os-overlay .tos-page-dot { padding:8px; }
     html[data-density="compact"] #tablet-os-overlay .tos-page-arrow { padding:4px 10px; font-size:1.0625rem; }
+
+    /* ── Phone case ───────────────────────────────────────────────────────────
+       On a phone the case, the bezel and the screen gutter took 41px off each side
+       of a 390px screen, and every app paid for it. The case keeps its look but gives
+       up most of its padding, and the four bezel screws go (at 6px of bezel they sit
+       on the glass). The close button was an 11px glyph; it gets a thumb-sized target. */
+    html[data-density="compact"] #tablet-os-overlay .tos-panel { padding:6px 6px 6px; }
+    html[data-density="compact"] #tablet-os-overlay .mg-head { margin-bottom:6px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-bezel { padding:6px; border-radius:10px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-bezel > .mg-screw { display:none; }
+    html[data-density="compact"] #tablet-os-overlay .mg-close { font-size:1.125rem; padding:6px 10px; margin:-6px -6px -6px 0; }
+    /* The status row's 14px of top padding sat over nothing on app screens (they show
+       only the signal bars there), above a breadcrumb, above the app. It keeps its
+       contents and gives up the air; --tos-hdr-h follows so the sticky breadcrumb still
+       tucks under it by the same 3px it always has. */
+    html[data-density="compact"] #tablet-os-overlay { --tos-hdr-h:19px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-hdr { padding-top:8px; margin-bottom:4px; }
+
+    /* ── Home tiles on a phone: every app keeps a label you can read ──────────
+       There's no hover on a touch screen, so the label under the icon is the only
+       name an app has. The compact rows above were 3.5rem, which can't hold an icon
+       and a line of text: the label was cut to its top half at about 7px and read as
+       no label at all. And because the compact rule outranks .tos-no-widgets, the
+       "spend the widget space on the tiles" growth never reached a phone either, so
+       the grid sat in the top half of the screen over a band of nothing.
+       Labels may wrap to two lines ("Skills & Stats" doesn't fit one line of a 73px
+       tile at a size anyone can read), and the rows are sized off the phone's own
+       height: the fixed furniture above and below the grid is about 260px, the rest
+       is split four ways, clamped so a short phone still fits four rows and a tall
+       one doesn't turn the tiles into columns. Still four columns and four rows. */
+    html[data-density="compact"] #tablet-os-overlay { --tos-tile-h:4.625rem; }
+    html[data-density="compact"] #tablet-os-overlay.tos-no-widgets { --tos-tile-h:clamp(4.75rem, calc((100dvh - 260px) / 4), 8rem); }
+    html[data-density="compact"] #tablet-os-overlay .tos-tile { display:flex; flex-direction:column;
+      align-items:center; justify-content:center; padding:5px 3px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-tile .tos-name,
+    html[data-density="compact"] #tablet-os-overlay .tos-grp-inner .tos-tile .tos-name {
+      font-size:0.6875rem; letter-spacing:.2px; line-height:1.18; white-space:normal; text-overflow:clip;
+      display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; line-clamp:2; overflow:hidden;
+      overflow-wrap:anywhere; max-width:100%; }
+    html[data-density="compact"] #tablet-os-overlay.tos-no-widgets .tos-tile .tos-icon { font-size:1.625rem; margin-bottom:7px; }
+    html[data-density="compact"] #tablet-os-overlay.tos-no-widgets .tos-tile .tos-icon svg { width:27px; height:27px; }
+    html[data-density="compact"] #tablet-os-overlay.tos-no-widgets .tos-tile .tos-name { font-size:0.75rem; letter-spacing:.3px; }
+    html[data-density="compact"] #tablet-os-overlay.tos-no-widgets .tos-grid { gap:8px; }
+    html[data-density="compact"] #tablet-os-overlay.tos-no-widgets .tos-homegrid { min-height:calc(var(--tos-tile-h) * 4 + 8px * 3); }
+    html[data-density="compact"] #tablet-os-overlay.tos-no-widgets .tos-grp-inner .tos-tile .tos-icon { font-size:1.25rem; margin-bottom:4px; }
+    html[data-density="compact"] #tablet-os-overlay.tos-no-widgets .tos-grp-inner .tos-tile .tos-icon svg { width:21px; height:21px; }
     /* No cards: SPEND the widget space on the tiles instead of shrinking the chassis.
        Shrinking was the first answer and it was the wrong one — the panel got shorter
        but the grid still sat in the top two-thirds with a band of nothing under it, so
@@ -1977,6 +2028,17 @@ function ensureStyles() {
     #tablet-os-overlay .tos-gstat svg { width:17px; height:17px; flex:0 0 auto; filter:drop-shadow(0 0 3px color-mix(in srgb, var(--mg-accent) 40%, transparent)); }
     #tablet-os-overlay .tos-gstat-armor { cursor:pointer; border-radius:5px; padding:2px 4px; margin:-2px -4px; transition:background .12s; }
     #tablet-os-overlay .tos-gstat-armor:hover { background:color-mix(in srgb, var(--mg-accent) 16%, transparent); }
+    /* Loadout on a phone: stacked, not three columns. At 338px the two outer columns
+       were about 69px each, so the ~190px layer switch hung left over the doll's head
+       and the pack tray was a strip one word wide. Readouts go across the top, the doll
+       under them, the tray under the doll; the doll is a little shorter so the first
+       cards in the tray are on screen with it, since equipping is a drag between them. */
+    html[data-density="compact"] #tablet-os-overlay .tos-gload { grid-template-columns:minmax(0,1fr); gap:8px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-gload-far { grid-column:1; grid-row:1; justify-self:stretch;
+      flex-direction:row; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 14px; padding-top:0; }
+    html[data-density="compact"] #tablet-os-overlay .tos-gload-doll { grid-column:1; grid-row:2; }
+    html[data-density="compact"] #tablet-os-overlay .tos-gload-side { grid-column:1; grid-row:3; justify-self:stretch; max-width:none; }
+    html[data-density="compact"] #tablet-os-overlay .tos-doll { height:min(44vh, 22rem); max-width:none; }
 
     /* Hover quick-stats tooltip — monochrome accent, floats above everything. */
     #tablet-os-overlay .tos-gtip { position:fixed; z-index:9500; pointer-events:none; min-width:132px; max-width:220px; padding:9px 11px; border-radius:8px;
@@ -2590,6 +2652,26 @@ function ensureStyles() {
     /* Map ↔ legend rail, side by side, filling the remaining height. */
     #tablet-os-overlay .tos-map-main { flex:1; min-height:0; display:flex; gap:9px; margin-top:2px; }
     #tablet-os-overlay .tos-map-main .tos-map-wrap { flex:1 1 auto; min-width:0; max-height:none; }
+    /* The stage holds the map and, on a phone, the zoom cluster floating over it. It
+       takes the place in the row the map used to, so desktop lays out as before. */
+    #tablet-os-overlay .tos-map-stage { position:relative; flex:1 1 auto; min-width:0; min-height:0; display:flex; }
+    #tablet-os-overlay .tos-map-stage > .tos-map-wrap { min-height:0; }
+    #tablet-os-overlay .tos-map-float { display:none; }
+    /* World Map. The border is the #f2b01e44 the inline style always meant: written as
+       var(--tos-accent,#f2b01e)44 it was two tokens, so the whole border was dropped. */
+    #tablet-os-overlay .tos-worldmap { position:relative; height:min(70vh,560px); border:1px solid #f2b01e44;
+      border-radius:6px; overflow:hidden; background:#07090c; }
+    #tablet-os-overlay .tos-wm-hint { font-size:.75rem; opacity:.7; margin-top:6px; }
+    #tablet-os-overlay .tos-wm-touch { display:none; }
+    @media (hover:none), (pointer:coarse) {
+      #tablet-os-overlay .tos-wm-mouse { display:none; }
+      #tablet-os-overlay .tos-wm-touch { display:inline; }
+    }
+    /* On a phone the map takes the whole screen under the breadcrumb rather than a
+       fixed 560px box with the hint floating somewhere below it. */
+    html[data-density="compact"] #tablet-os-overlay .tos-body.tos-worldmap-view { box-sizing:border-box; height:100%;
+      display:flex; flex-direction:column; }
+    html[data-density="compact"] #tablet-os-overlay .tos-worldmap { flex:1 1 auto; height:auto; min-height:15rem; }
     /* Right rail: legend pinned at the top, buildings + detail scroll beneath it. */
     #tablet-os-overlay .tos-map-side { flex:0 0 158px; display:flex; flex-direction:column; min-height:0; }
     /* The key is pinned above the scrolling half of the rail, so it must never grow without
@@ -2603,13 +2685,57 @@ function ensureStyles() {
     #tablet-os-overlay .tos-map-side .tos-map-bldgs { margin-top:0; }
     #tablet-os-overlay .tos-map-side .tos-map-bldgs-list { gap:5px; }
     #tablet-os-overlay .tos-map-side .tos-map-bldg { width:100%; }
-    /* Mobile: stack the rail under the map so the map gets the full panel width
-       (a fixed side rail pinches the map to ~half on a phone). The rail becomes a
-       short, self-scrolling strip beneath the map; buildings wrap horizontally. */
+    /* ── The map on a phone ──────────────────────────────────────────────────
+       The rail drops under the map so the map gets the full panel width (a fixed side
+       rail pinches it to about half on a phone), and becomes ONE scrolling sheet in the
+       order a phone needs it: what you just tapped (with Route here) first, then the
+       buildings in view, then the legend at the very bottom. The legend is the least
+       used part of the screen; it used to be dropped on phones outright, and the tile
+       detail sat under the whole building list, out of sight in a 34% strip.
+       display:contents on the inner scroller lets the sheet itself scroll and order all
+       three as siblings, without a second set of markup for phones. */
     html[data-density="compact"] #tablet-os-overlay .tos-map-main { flex-direction:column; gap:6px; }
-    html[data-density="compact"] #tablet-os-overlay .tos-map-side { flex:0 0 auto; max-height:34%; }
+    html[data-density="compact"] #tablet-os-overlay .tos-map-side { flex:0 1 auto; max-height:36%; min-height:0;
+      overflow-y:auto; overscroll-behavior:contain; padding-right:2px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-map-side-scroll { display:contents; }
+    html[data-density="compact"] #tablet-os-overlay .tos-map-detail { order:1; margin:0 0 6px; border-top:0; padding-top:2px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-map-bldgs { order:2; margin:2px 0 4px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-map-side .tos-map-legend { order:3; flex:0 0 auto; max-height:none; overflow:visible;
+      flex-direction:row; flex-wrap:wrap; gap:5px 12px; margin:8px 0 4px; padding-top:8px;
+      border-top:1px solid color-mix(in srgb,var(--mg-accent) 16%,transparent); font-size:0.6875rem; }
+    html[data-density="compact"] #tablet-os-overlay .tos-map-side .tos-map-legend::before { content:'Key'; flex:0 0 100%;
+      font-size:0.625rem; text-transform:uppercase; letter-spacing:.6px; opacity:.8; }
+    /* Nothing tapped yet: the route bar above the map already says "tap a tile", so the
+       sheet doesn't repeat it and opens on the buildings. */
+    html[data-density="compact"] #tablet-os-overlay .tos-map-detail:has(> .tos-map-note:only-child) { display:none; }
     html[data-density="compact"] #tablet-os-overlay .tos-map-side .tos-map-bldgs-list { flex-direction:row; }
-    html[data-density="compact"] #tablet-os-overlay .tos-map-side .tos-map-bldg { width:auto; }
+    html[data-density="compact"] #tablet-os-overlay .tos-map-side .tos-map-bldg { width:auto; font-size:0.75rem; padding:5px 10px; }
+    /* One row of toggles, sized to share the width, instead of two rows with the zoom
+       stepper squeezed onto the end; Center and zoom move onto the map (.tos-map-float). */
+    html[data-density="compact"] #tablet-os-overlay .tos-map-ctl { gap:5px; margin:2px 0 6px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-map-ctl > .tos-map-zoom,
+    html[data-density="compact"] #tablet-os-overlay .tos-map-ctl > [data-map-recenter] { display:none; }
+    html[data-density="compact"] #tablet-os-overlay .tos-map-ctl > .tos-map-mini { flex:1 1 auto; text-align:center; white-space:nowrap;
+      padding:7px 5px; font-size:0.625rem; letter-spacing:.3px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-map-bar { margin-bottom:6px; font-size:0.6875rem; }
+    html[data-density="compact"] #tablet-os-overlay .tos-map-wrap { padding:4px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-map-float { display:flex; flex-direction:column; gap:6px;
+      position:absolute; right:8px; bottom:8px; z-index:5; }
+    html[data-density="compact"] #tablet-os-overlay .tos-mf { width:2.875rem; height:2.875rem; border-radius:8px; cursor:pointer;
+      font:inherit; font-size:1.25rem; line-height:1; color:var(--mg-accent);
+      background:color-mix(in srgb, var(--bg2, #0b1116) 82%, transparent);
+      border:1px solid color-mix(in srgb, var(--mg-accent) 45%, transparent);
+      box-shadow:0 2px 8px rgba(0,0,0,.55), inset 0 1px 0 var(--tos-bevel-hi); -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px); }
+    html[data-density="compact"] #tablet-os-overlay .tos-mf:active:not(:disabled) { transform:translateY(1px); }
+    html[data-density="compact"] #tablet-os-overlay .tos-mf:disabled { opacity:.35; cursor:default; }
+    /* A phone on its side has height to spare for nothing: stacked, the map was a strip
+       about 130px tall with the zoom buttons hanging off it. The sheet goes back beside
+       the map (same order, legend still last) and the buttons lie in a row. */
+    @media (orientation:landscape) {
+      html[data-density="compact"] #tablet-os-overlay .tos-map-main { flex-direction:row; }
+      html[data-density="compact"] #tablet-os-overlay .tos-map-side { flex:0 0 38%; max-height:none; }
+      html[data-density="compact"] #tablet-os-overlay .tos-map-float { flex-direction:row; }
+    }
 
     /* ── Accolades app — your permanent file ───────────────────────────────────────
        Surfaces ride the shared --tos-surface bevel tokens, so the app follows
@@ -4829,6 +4955,13 @@ function tickInstall() {
     const ring = document.createElement('span'); ring.className = 'tos-install-ring';
     const pct = document.createElement('span'); pct.className = 'tos-install-pct'; pct.textContent = '0%';
     tile.append(ring, pct);
+    // Over the icon and the name wherever the tile has put them. The stylesheet's
+    // fixed top:7px / bottom:9px only fit the old short tile; a tall tile centres its
+    // content (widgets off, or any phone) and left the ring floating above the icon.
+    // Placed once per dressing, and a re-render re-dresses.
+    const icon = tile.querySelector('.tos-icon'), name = tile.querySelector('.tos-name');
+    if (icon) ring.style.top = `${Math.round(icon.offsetTop + icon.offsetHeight / 2 - 16)}px`;
+    if (name) { pct.style.top = `${name.offsetTop}px`; pct.style.bottom = 'auto'; }
   }
   if (_installRaf) return;   // already running; the re-render just re-dressed the tile
   const step = (now) => {
@@ -5849,7 +5982,7 @@ function wireDragScroll(scroll) {
   // pan the screen behind it at once, and the time you let go on wouldn't be the
   // time you dragged to.
   const isInteractive = (el) =>
-    el.closest('input, textarea, select, button, [contenteditable], .tos-tile, .tos-color, input[type=range], .tos-al-reel');
+    el.closest('input, textarea, select, button, [contenteditable], .tos-tile, .tos-color, input[type=range], .tos-al-reel, #tos-worldmap');
 
   const onMove = (e) => {
     if (!start) return;
@@ -8210,12 +8343,31 @@ function renderMap(d) {
   // Map + right rail: the map pans on its own inside .tos-map-wrap, and the legend
   // stays pinned to the top of the rail while the buildings list + detail scroll
   // under it — so the tablet panel itself never has to scroll (drag = pan, always).
+  // On a phone the same markup is re-laid by CSS alone (see the compact block after
+  // .tos-map-side): the rail drops under the map as one scrolling sheet, ordered
+  // detail, buildings, then the legend last, and the floating zoom cluster on the
+  // stage replaces the zoom and Center buttons in the control row. CSS rather than a
+  // render-time phone check, so rotating the phone doesn't leave the wrong layout up.
   return `${renderMapCtl(d)}${renderMapBar(d)}<div class="tos-map-main">`
-    + `<div class="tos-map-wrap">${grid}</div>`
-    + `<div class="tos-map-side">${tosIsMobile() ? '' : renderMapLegend(d, mode)}`
+    + `<div class="tos-map-stage"><div class="tos-map-wrap">${grid}</div>${renderMapFloat(d)}</div>`
+    + `<div class="tos-map-side">${renderMapLegend(d, mode)}`
     + `<div class="tos-map-side-scroll">${renderMapBuildings(d)}`
     + `<div class="tos-map-detail" id="tos-map-detail">${renderMapDetail(d)}</div></div></div>`
     + `</div>`;
+}
+
+// The phone's zoom cluster: Center and −/+ stacked in the corner of the map, where a
+// thumb expects them, instead of a second row of buttons above it. Rendered always and
+// shown only on a compact layout. Same data attributes as the control row, so wireMap
+// wires both copies.
+function renderMapFloat(d) {
+  const zoutOff = _mapCanZoom(d, -1) ? '' : ' disabled';
+  const zinOff = _mapCanZoom(d, 1) ? '' : ' disabled';
+  return `<div class="tos-map-float">
+    <button class="tos-mf" data-map-recenter aria-label="Recenter on you">◎</button>
+    <button class="tos-mf" data-map-zoom="in" aria-label="Zoom in"${zinOff}>+</button>
+    <button class="tos-mf" data-map-zoom="out" aria-label="Zoom out"${zoutOff}>−</button>
+  </div>`;
 }
 
 // Persistent map controls (mirroring the sidebar minimap): Run + Auto-walk toggles,
@@ -10067,9 +10219,10 @@ function renderBody() {
   if (d.view === 'worldmap') {
     // The canvas is mounted after the HTML lands (mountWorldmap), from a lazily imported renderer,
     // so the wildlands field is only fetched by somebody who opens the app.
-    return `<div class="tos-body">${hdr}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
-      <div id="tos-worldmap" style="position:relative;height:min(70vh,560px);border:1px solid var(--tos-accent,#f2b01e)44;border-radius:6px;overflow:hidden;background:#07090c"></div>
-      <div style="font-size:.75rem;opacity:.7;margin-top:6px">Scroll to zoom, drag to pan, hover for detail. Numbered shields are this week's highways.</div>
+    // Two hints, one shown: a touch screen has no wheel and no hover (see .tos-wm-hint).
+    return `<div class="tos-body tos-worldmap-view">${hdr}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
+      <div id="tos-worldmap" class="tos-worldmap"></div>
+      <div class="tos-wm-hint"><span class="tos-wm-mouse">Scroll to zoom, drag to pan, hover for detail.</span><span class="tos-wm-touch">Pinch to zoom, drag to pan, tap for detail.</span> Numbered shields are this week's highways.</div>
     </div>`;
   }
   if (d.view === 'deadhead') {
@@ -10924,6 +11077,10 @@ function mapSyncSelection(center) {
   if (center && selTile) _scrollMapTo(selTile);
   const det = _overlay.querySelector('#tos-map-detail');
   if (det) { det.innerHTML = renderMapDetail(_data); wireMapActs(); }
+  // On a phone the detail heads the sheet under the map, and a building picked from
+  // halfway down the list would otherwise put Route here out of sight above it.
+  // A no-op on desktop, where the sheet isn't the scroller.
+  if (tosIsMobile()) _overlay.querySelector('.tos-map-side')?.scrollTo({ top: 0 });
 }
 
 // Plot a GPS route from where you stand to a reachable tile (double-click / Route here).
@@ -10974,7 +11131,7 @@ function wireMap() {
   // step = a wider/narrower tile window), so it's a round trip that re-renders the map.
   _overlay.querySelector('[data-map-run]')?.addEventListener('click', () => sendCmdSilent('run'));
   _overlay.querySelector('[data-map-autotoggle]')?.addEventListener('click', () => { toggleAutoWalk(); rebuildMap(); });
-  _overlay.querySelector('[data-map-recenter]')?.addEventListener('click', centerMapOnPlayer);
+  _overlay.querySelectorAll('[data-map-recenter]').forEach(b => b.addEventListener('click', centerMapOnPlayer));
   // Writes the shared `mapOverlay` setting rather than a local flag: applySettings
   // drives window._applyMapOverlay, so the sidebar minimap re-renders in the same
   // beat and the choice survives a reload.
