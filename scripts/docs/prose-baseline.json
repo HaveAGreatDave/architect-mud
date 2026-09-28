@@ -228,7 +228,7 @@
     "docs/combat.md": {
       "jargon-metaphor": 2,
       "aphoristic-closer": 1,
-      "em-dash": 119
+      "em-dash": 118
     },
     "docs/commands.md": {
       "jargon-metaphor": 1,
@@ -382,8 +382,8 @@
       "em-dash": 18
     },
     "docs/proposals/old-coldwater.md": {
-      "caps-run": 6,
-      "em-dash": 30
+      "caps-run": 5,
+      "em-dash": 25
     },
     "docs/proposals/preparation-workspace.md": {
       "jargon-metaphor": 4,
