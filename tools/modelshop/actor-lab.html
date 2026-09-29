@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Actor Lab</title>
+<style>
+  :root { --bg: #111317; --fg: #d8d4c8; --dim: #8a8678; --line: #2a2d33; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); font: 13px/1.4 ui-monospace, Menlo, Consolas, monospace; }
+  header { padding: 8px 12px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; }
+  header b { color: #e8c070; }
+  label { color: var(--dim); white-space: nowrap; }
+  label input { vertical-align: middle; }
+  #views { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+  .view { position: relative; }
+  .view canvas { width: 100%; height: 72vh; display: block; }
+  .view span { position: absolute; left: 10px; top: 8px; color: var(--dim); }
+  @media (max-width: 800px) { #views { grid-template-columns: 1fr; } .view canvas { height: 46vh; } }
+</style>
+</head>
+<body>
+<header>
+  <b>Actor Lab</b>
+  <label><input type="checkbox" id="u1" checked> 1 shading</label>
+  <label><input type="checkbox" id="u2" checked> 2 surface detail</label>
+  <label><input type="checkbox" id="u3" checked> 3 build and height</label>
+  <label><input type="checkbox" id="u4" checked> 4 hats and scarves</label>
+  <label><input type="checkbox" id="u5" checked> 5 posture</label>
+  <label>clip <select id="clip"><option>mixed</option><option>walk</option><option>idle</option><option>wave</option></select></label>
+  <label><input type="checkbox" id="night"> night</label>
+  <label><input type="checkbox" id="spin"> turntable</label>
+  <label>zoom <input type="range" id="zoom" min="2" max="9" step="0.1" value="5.2"></label>
+  <label>seed <input type="number" id="seed" value="7" style="width:4em"></label>
+</header>
+<div id="views">
+  <div class="view"><canvas id="a"></canvas><span>as built</span></div>
+  <div class="view"><canvas id="b"></canvas><span>proposed</span></div>
+</div>
+<script type="module">
+// A look at the street figures (client/game/js/panels/actor3d.js) with the shipping shader beside a
+// proposed one. It reads the real bake, so both sides draw the same mesh the game does. The left
+// shader is gl/actors.js's lighting copied as is; the right one is the upgrade plan, each part behind
+// its own checkbox. Nothing here ships: it is for deciding the look.
+import { actorBake, actorOutfit } from '/client/game/js/panels/actor3d.js';
+
+const bk = actorBake();
+const TOP = bk.top;
+const N = 6;
+
+// The rest shape: the idle clip's first frame, used by the proposed shader as a stable coordinate
+// to hang seams, grime and hats on, so the pattern rides the cloth instead of swimming through it.
+const rest = bk.preview.subarray(bk.clips.idle.row0 * bk.nv * 3, (bk.clips.idle.row0 + 1) * bk.nv * 3);
+
+const VERT = `#version 300 es
+precision highp float;
+precision highp int;
+in float aMat;
+in vec3 aRest;
+uniform highp sampler2D uPosT;
+uniform highp sampler2D uNrmT;
+uniform int uW;
+uniform int uRows;
+uniform mat4 uVP;
+uniform vec4 uClip;
+uniform vec3 uAt;
+uniform float uHd;
+uniform vec3 uShape;
+uniform float uTop;
+out vec3 vN;
+out vec3 vW;
+out vec3 vRest;
+flat out int vMat;
+ivec2 texel(int f) { return ivec2(gl_VertexID % uW, f * uRows + gl_VertexID / uW); }
+void main() {
+  float fr = fract(uClip.z) * uClip.y;
+  int f0 = int(fr);
+  int f1 = f0 + 1;
+  if (float(f1) >= uClip.y) f1 = 0;
+  float t = fr - float(f0);
+  int b = int(uClip.x + 0.5);
+  vec3 p = mix(texelFetch(uPosT, texel(b + f0), 0).xyz, texelFetch(uPosT, texel(b + f1), 0).xyz, t);
+  vec3 n = mix(texelFetch(uNrmT, texel(b + f0), 0).xyz, texelFetch(uNrmT, texel(b + f1), 0).xyz, t);
+  // Build: girth widens the torso and thighs but not the head, hands or feet.
+  float band = smoothstep(0.35, 0.6, aRest.y) * (1.0 - smoothstep(1.35, 1.5, aRest.y));
+  float g = mix(1.0, uShape.x, band);
+  p.x *= g;
+  p.z *= mix(1.0, uShape.x, band * 0.8);
+  // Slouch: everything above the waist leans forward about a pivot at the pelvis.
+  float s = uShape.z * smoothstep(0.95, uTop * 0.85, aRest.y);
+  float c = cos(s), sn = sin(s);
+  vec3 q = p - vec3(0.0, 0.95, 0.0);
+  p = vec3(q.x, c * q.y - sn * q.z, sn * q.y + c * q.z) + vec3(0.0, 0.95, 0.0);
+  n = vec3(n.x, c * n.y - sn * n.z, sn * n.y + c * n.z);
+  // Height scales the whole figure from the ground.
+  p *= uShape.y;
+  float ch = cos(uHd), sh = sin(uHd);
+  vec3 w = vec3(ch * p.x + sh * p.z, p.y, -sh * p.x + ch * p.z) + uAt;
+  vN = vec3(ch * n.x + sh * n.z, n.y, -sh * n.x + ch * n.z);
+  vW = w;
+  vRest = aRest;
+  vMat = int(aMat + 0.5);
+  gl_Position = uVP * vec4(w, 1.0);
+}`;
+
+const FRAG = `#version 300 es
+precision highp float;
+in vec3 vN;
+in vec3 vW;
+in vec3 vRest;
+flat in int vMat;
+uniform vec3 uCoat;
+uniform vec3 uLegs;
+uniform vec3 uSkin;
+uniform vec3 uHair;
+uniform vec3 uShoe;
+uniform vec3 uKey;
+uniform vec3 uEye;
+uniform float uLum;
+uniform float uSeed;
+uniform float uTop;
+uniform vec4 uOn;
+uniform float uPost;
+uniform vec3 uHat;
+uniform vec3 uScarf;
+uniform vec2 uAcc;
+uniform float uNight;
+out vec4 outColor;
+float h1(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
+float vnoise(vec3 p) {
+  vec3 i = floor(p), f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(h1(i), h1(i + vec3(1, 0, 0)), f.x), mix(h1(i + vec3(0, 1, 0)), h1(i + vec3(1, 1, 0)), f.x), f.y),
+             mix(mix(h1(i + vec3(0, 0, 1)), h1(i + vec3(1, 0, 1)), f.x), mix(h1(i + vec3(0, 1, 1)), h1(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+}
+float line(float x, float w) { return 1.0 - smoothstep(0.0, w, abs(x)); }
+void main() {
+  int m = vMat;
+  vec3 col = m == 0 ? uSkin : m == 1 ? uCoat : m == 2 ? uLegs : m == 3 ? uShoe
+           : m == 4 ? uHair : m == 5 ? vec3(0.035) : uSkin * vec3(0.78, 0.55, 0.55);
+  vec3 n = normalize(vN);
+  vec3 r = vRest;
+  if (uOn.x < 0.5 && uOn.y < 0.5 && uAcc.x < 0.5 && uAcc.y < 0.5) {
+    // As built: gl/actors.js, with this page's Y-up world.
+    float lit = clamp(0.5 + dot(n, uKey) * 0.5, 0.0, 1.0);
+    float up = max(n.y, 0.0);
+    float k = 0.52 + 0.48 * (lit * (1.0 - up) + 0.86 * up);
+    outColor = vec4(col * k * uLum, 1.0);
+    return;
+  }
+  bool skinLike = m == 0 || m == 6;
+  // 4. A knit hat over the crown, a scarf round the neck: recoloured, not new geometry.
+  if (uAcc.x > 0.5 && (m == 4 || skinLike) && r.y > uTop - 0.085 && !(r.z > 0.06 && r.y < uTop - 0.05)) {
+    col = uHat * (0.85 + 0.15 * step(0.5, fract(atan(r.x, r.z) * 6.0)));
+    if (r.y < uTop - 0.07) col *= 0.75;
+    m = 7;
+  }
+  float neck = uTop * 0.835;
+  if (uAcc.y > 0.5 && (m == 1 || skinLike) && r.y > neck - 0.05 && r.y < neck + 0.03) {
+    col = uScarf * (0.8 + 0.2 * step(0.5, fract(r.y * 55.0)));
+    m = 8;
+  }
+  if (uOn.y > 0.5) {
+    // 2. Surface detail, keyed by material and hung on the rest shape.
+    float grime = vnoise(r * 18.0 + uSeed) * 0.6 + vnoise(r * 55.0 + uSeed) * 0.4;
+    if (m == 1) {
+      float front = step(0.0, r.z);
+      col *= 1.0 - 0.45 * line(r.x, 0.006) * front;
+      float pocket = line(r.y - 0.88, 0.004) * step(0.05, abs(r.x)) * step(abs(r.x), 0.15) * front;
+      col *= 1.0 - 0.35 * pocket;
+      float btn = line(r.x - 0.02, 0.01) * line(fract(r.y * 9.0) - 0.5, 0.08) * front * step(0.9, r.y) * step(r.y, 1.35);
+      col = mix(col, vec3(0.08), btn * 0.8);
+      if (fract(uSeed * 3.1) > 0.7) col *= 0.9 + 0.1 * step(0.5, fract(r.y * 14.0)) + 0.06 * step(0.5, fract(r.x * 14.0));
+      float hem = 1.0 - smoothstep(0.55, 1.0, r.y);
+      col = mix(col, col * vec3(0.62, 0.55, 0.45), hem * grime * 0.7);
+    } else if (m == 2) {
+      if (fract(uSeed * 7.3) > 0.8) col *= 0.88 + 0.12 * step(0.5, fract(r.y * 40.0));
+      float knee = line(r.y - 0.5, 0.06) * step(0.0, r.z);
+      col = mix(col, col * 1.25 + 0.03, knee * grime * 0.6);
+      col = mix(col, vec3(0.2, 0.17, 0.13), (1.0 - smoothstep(0.03, 0.18, r.y)) * grime * 0.6);
+    } else if (m == 3) {
+      col = mix(col, vec3(0.1, 0.09, 0.08), 1.0 - smoothstep(0.018, 0.028, r.y));
+      col += vec3(0.05) * line(r.y - 0.075, 0.004);
+    } else if (skinLike) {
+      col *= 0.94 + 0.08 * vnoise(r * 90.0);
+    }
+  }
+  float k;
+  vec3 lit;
+  if (uOn.x > 0.5) {
+    // 1. Wrap key, sky/ground ambient, a rim from the view, fake occlusion, a little sheen on skin.
+    float wrap = max(0.0, (dot(n, uKey) + 0.35) / 1.35);
+    vec3 sky = mix(vec3(0.46, 0.52, 0.62), vec3(0.10, 0.13, 0.22), uNight);
+    vec3 gnd = mix(vec3(0.34, 0.28, 0.22), vec3(0.08, 0.06, 0.05), uNight);
+    vec3 amb = mix(gnd, sky, n.y * 0.5 + 0.5);
+    vec3 keyC = mix(vec3(1.0, 0.94, 0.84), vec3(0.95, 0.72, 0.42), uNight) * mix(0.9, 0.55, uNight);
+    float ao = mix(0.55, 1.0, smoothstep(0.0, 0.3, r.y));
+    ao *= 1.0 - 0.3 * line(r.y - 0.93, 0.08) * (1.0 - smoothstep(0.03, 0.09, abs(r.x)));
+    ao *= 1.0 - 0.25 * step(abs(r.x), 0.24) * step(0.18, abs(r.x)) * line(r.y - 1.3, 0.1);
+    vec3 v = normalize(uEye - vW);
+    float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0);
+    vec3 rimC = mix(vec3(0.25, 0.28, 0.32), vec3(0.35, 0.55, 0.8), uNight);
+    lit = col * (amb * ao + keyC * wrap) + rim * rimC * (0.35 + 0.65 * uNight);
+    if (skinLike) {
+      vec3 hv = normalize(uKey + v);
+      lit += keyC * pow(max(dot(n, hv), 0.0), 24.0) * 0.12;
+    }
+  } else {
+    float l = clamp(0.5 + dot(n, uKey) * 0.5, 0.0, 1.0);
+    float up = max(n.y, 0.0);
+    k = 0.52 + 0.48 * (l * (1.0 - up) + 0.86 * up);
+    lit = col * k * uLum;
+  }
+  outColor = vec4(pow(lit, vec3(0.95)), 1.0);
+}`;
+
+function gl2(canvas) {
+  const gl = canvas.getContext('webgl2', { antialias: true, preserveDrawingBuffer: true });
+  const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o);
+    if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
+  const prog = gl.createProgram();
+  gl.attachShader(prog, sh(gl.VERTEX_SHADER, VERT));
+  gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FRAG));
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+  const tex = (data) => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, bk.W, bk.H, 0, gl.RGBA, gl.HALF_FLOAT, data);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); return t; };
+  const posT = tex(bk.pos), nrmT = tex(bk.nrm);
+  const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+  const buf = (loc, data, size) => { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b);
+    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW); gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, size, gl.FLOAT, false, 0, 0); };
+  buf(gl.getAttribLocation(prog, 'aMat'), bk.mat, 1);
+  buf(gl.getAttribLocation(prog, 'aRest'), new Float32Array(rest), 3);
+  const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, bk.idx, gl.STATIC_DRAW);
+  gl.bindVertexArray(null);
+  const U = {};
+  const n = gl.getProgramParameter(prog, gl.ACTIVE_UNIFORMS);
+  for (let i = 0; i < n; i++) { const nm = gl.getActiveUniform(prog, i).name; U[nm] = gl.getUniformLocation(prog, nm); }
+  return { gl, prog, vao, posT, nrmT, U };
+}
+
+function persp(fov, asp, near, far) {
+  const f = 1 / Math.tan(fov / 2), nf = 1 / (near - far);
+  return [f / asp, 0, 0, 0, 0, f, 0, 0, 0, 0, (far + near) * nf, -1, 0, 0, 2 * far * near * nf, 0];
+}
+function lookAt(e, c) {
+  let zx = e[0] - c[0], zy = e[1] - c[1], zz = e[2] - c[2]; const zl = Math.hypot(zx, zy, zz); zx /= zl; zy /= zl; zz /= zl;
+  let xx = zz, xy = 0, xz = -zx; const xl = Math.hypot(xx, xz); xx /= xl; xz /= xl;
+  const yx = zy * xz - zz * xy, yy = zz * xx - zx * xz, yz = zx * xy - zy * xx;
+  return [xx, yx, zx, 0, xy, yy, zy, 0, xz, yz, zz, 0,
+    -(xx * e[0] + xy * e[1] + xz * e[2]), -(yx * e[0] + yy * e[1] + yz * e[2]), -(zx * e[0] + zy * e[1] + zz * e[2]), 1];
+}
+function mul(a, b) { const o = new Array(16).fill(0);
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) for (let k = 0; k < 4; k++) o[j * 4 + i] += a[k * 4 + i] * b[j * 4 + k]; return o; }
+
+function mulberry(s) { return () => { s |= 0; s = s + 0x6d2b79f5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s);
+  t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const HATS = [[150, 40, 36], [40, 44, 52], [190, 150, 60], [60, 90, 70], [110, 110, 118]];
+
+function crowd(seed) {
+  const R = mulberry(seed * 9973 + 1);
+  return Array.from({ length: N }, (_, i) => {
+    const vals = Array.from({ length: 5 }, R);
+    const o = actorOutfit((k) => vals[k]);
+    const clip = ['walk', 'idle', 'walk', 'wave', 'idle', 'walk'][i];
+    return { o, clip, ph: R(), seed: R() * 100,
+      girth: 0.88 + R() * 0.3, height: 0.93 + R() * 0.12, slouch: R() < 0.4 ? 0.08 + R() * 0.12 : 0,
+      hat: R() < 0.35, scarf: R() < 0.3, hatC: HATS[Math.floor(R() * HATS.length)], scarfC: HATS[Math.floor(R() * HATS.length)] };
+  });
+}
+
+const $ = (id) => document.getElementById(id);
+const views = [gl2($('a')), gl2($('b'))];
+let people = crowd(+$('seed').value);
+$('seed').oninput = () => { people = crowd(+$('seed').value || 0); };
+
+function frame(now) {
+  const t = now / 1000, night = $('night').checked;
+  const on = [1, 2, 3, 4, 5].map((k) => $('u' + k).checked);
+  const pick = $('clip').value;
+  views.forEach((V, side) => {
+    const { gl, U } = V, cv = gl.canvas;
+    const dpr = devicePixelRatio || 1, w = cv.clientWidth * dpr | 0, h = cv.clientHeight * dpr | 0;
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    gl.viewport(0, 0, w, h);
+    const bg = night ? [0.05, 0.06, 0.09] : [0.55, 0.58, 0.62];
+    gl.clearColor(bg[0], bg[1], bg[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST);
+    gl.useProgram(V.prog); gl.bindVertexArray(V.vao);
+    const z = +$('zoom').value, eye = [2.2, 1.4, z];
+    const vp = mul(persp(0.6, w / h, 0.1, 50), lookAt(eye, [0, 0.9, 0]));
+    gl.uniformMatrix4fv(U.uVP, false, vp);
+    gl.uniform3fv(U.uEye, eye);
+    const key = night ? [-0.3, 0.5, 0.6] : [0.55, 0.7, 0.45], kl = Math.hypot(...key);
+    gl.uniform3f(U.uKey, key[0] / kl, key[1] / kl, key[2] / kl);
+    gl.uniform1f(U.uLum, night ? 0.55 : 1);
+    gl.uniform1f(U.uNight, night ? 1 : 0);
+    gl.uniform1f(U.uTop, TOP);
+    gl.uniform1i(U.uW, bk.W); gl.uniform1i(U.uRows, bk.rows);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, V.posT); gl.uniform1i(U.uPosT, 0);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, V.nrmT); gl.uniform1i(U.uNrmT, 1);
+    const P = side === 1;
+    gl.uniform4f(U.uOn, P && on[0] ? 1 : 0, P && on[1] ? 1 : 0, 0, 0);
+    people.forEach((p, i) => {
+      const name = pick === 'mixed' ? p.clip : pick, c = bk.clips[name];
+      gl.uniform4f(U.uClip, c.row0, c.len, t / c.dur + p.ph, 0);
+      gl.uniform3f(U.uAt, (i - (N - 1) / 2) * 0.9, 0, (i % 2) * -0.6);
+      gl.uniform1f(U.uHd, $('spin').checked ? t * 0.6 + i : 0.35 - i * 0.12);
+      gl.uniform3f(U.uShape, P && on[2] ? p.girth : 1, P && on[2] ? p.height : 1, P && on[4] ? p.slouch : 0);
+      gl.uniform1f(U.uSeed, p.seed);
+      gl.uniform2f(U.uAcc, P && on[3] && p.hat ? 1 : 0, P && on[3] && p.scarf ? 1 : 0);
+      const c3 = (u, rgb) => gl.uniform3f(u, rgb[0] / 255, rgb[1] / 255, rgb[2] / 255);
+      c3(U.uCoat, p.o.coat); c3(U.uLegs, p.o.legs); c3(U.uSkin, p.o.skin); c3(U.uHair, p.o.hair); c3(U.uShoe, p.o.shoes);
+      c3(U.uHat, p.hatC); c3(U.uScarf, p.scarfC);
+      gl.drawElements(gl.TRIANGLES, bk.idx.length, gl.UNSIGNED_SHORT, 0);
+    });
+  });
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
