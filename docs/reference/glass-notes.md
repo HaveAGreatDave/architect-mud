@@ -1625,6 +1625,8 @@ Pitch's shelters). Each arrives as a record in `FAUNA_SINK` (`inst`, `actor`, `c
   hook sees the old decals unless it opts in, as `scripts/shapes/cloth.mjs` does. Wind strength and
   direction are state and are always applied; only the phase stops when `motion` is 0.
 
+The next frame-time work is CPU record building, not more animation: see [glass-headroom.md](../proposals/glass-headroom.md).
+
 ## Truss web LOD
 
 `webBays`, `RENDER_TUNE.webLod` (0 is every lattice at its authored bay count). The bracing is what a truss costs: `latticeTower` is 3 legs and a top belt against 36 braced segments, and the count was a literal at every range.
