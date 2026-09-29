@@ -5753,18 +5753,14 @@ const CANOPY_ART = {
       shieldV: [[0.00, 0.20]], deckU: 1, browV: [[1.00, 0.86]],
       extra: ['glareshield', 'wipers', 'brow'] },
   },
-  // Drake — the pilot sits in the EYE. One big smoked window a side, mapped from the middle of this
-  // sheet (U 0.25–0.75, so the pilot is not stretched) with forward toward low U and up toward low V;
-  // the frame round it is geometry on the mesh, so nothing is painted at the sheet's edge.
+  // Drake — the pilot sits in the EYE, but the eyes are screens the cabin looks out through, not
+  // glass: from outside they are opaque, a dark lens with the iris and a sheen and nobody behind it.
   drakeeye: {
-    wash: [[0.00, 'rgba(18,14,10,0.88)'], [0.26, 'rgba(40,32,24,0.66)'], [0.50, 'rgba(118,104,80,0.30)'],
-           [0.74, 'rgba(40,32,24,0.66)'], [1.00, 'rgba(18,14,10,0.88)']],
-    crew: [{ u: 0.5, v: 0.54, sc: 3.0, visor: 'rgba(240,178,70,0.62)', hair: 'rgba(28,24,20,0.94)' }],
-    glow: { u: [0.36], col: '255,196,120', a: 0.2, r: 64 },
+    wash: [[0.00, 'rgb(14,11,8)'], [0.26, 'rgb(30,24,18)'], [0.50, 'rgb(52,44,34)'],
+           [0.74, 'rgb(30,24,18)'], [1.00, 'rgb(14,11,8)']],
     spec: { band: [0.0, 0.42], streaks: [[0.42, 26, 0.18], [0.58, 14, 0.1]] },
     frame: { col: 'rgba(0,0,0,0)', lit: 'rgba(0,0,0,0)', posts: [], sills: [], hairs: [], mid: 0, edge: 1 },
-    // A round gauge on the dash showing low in the forward corner, which is the duck's iris from outside
-    // (the pilot still sits behind it). Forward is low U and up is low V on this sheet.
+    // The duck's iris, low in the forward corner. Forward is low U and up is low V on this sheet.
     iris: { u: 0.35, v: 0.6, r: 32 },
   },
 };
