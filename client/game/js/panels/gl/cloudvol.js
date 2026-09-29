@@ -342,7 +342,9 @@ export function createCloudVolume(gl) {
   // its depth buffer. Returns the number of cells that fed it, so 0 means "drew nothing".
   function draw(cam, W, H, cssH, vol, opts = {}) {
     if (!vol || !vol.cells || !vol.cells.length) return 0;
-    const prevFb = gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING);
+    // Whatever the caller had bound, named by the caller: a getParameter here was a synchronous round
+    // trip to the GPU process every frame the deck was up. context.js knows which target is live.
+    const prevFb = opts.fb === undefined ? gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING) : opts.fb;
     const scale = Math.max(0.125, Math.min(1, opts.res || 0.25));
     const w = Math.max(16, Math.round(W * scale)), h = Math.max(16, Math.round(H * scale));
     sizeTarget(w, h);

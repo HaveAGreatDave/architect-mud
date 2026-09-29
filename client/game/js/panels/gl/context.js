@@ -1612,7 +1612,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   function drawCloudVolume(cam, vol, cssH, opts = {}) {
     if (!vol || !vol.cells || !vol.cells.length) return 0;
     if (!cloudVol) cloudVol = createCloudVolume(gl);
-    return cloudVol.draw(cam, canvas.width, canvas.height, cssH, vol, opts);
+    return cloudVol.draw(cam, canvas.width, canvas.height, cssH, vol, { ...opts, fb: hdr ? hdr.drawFbo : null });
   }
 
   // The Curtain, on the same depth buffer as the mass. Built lazily like the lights: a view that
