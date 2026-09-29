@@ -38148,7 +38148,7 @@ const CAMP_LAYOUTS = [
   { name: 'ring',
     place: (seed, i, n) => {
       const th = (i / n) * Math.PI * 2 + (frac(seed * 5 + i) - 0.5) * 0.3, r = 0.30 + frac(seed * 13 + i * 7) * 0.12;
-      return { a: Math.cos(th) * r, b: Math.sin(th) * r, kind: frac(seed * 53 + i * 41) < 0.5 ? 2 : 0, hd: th + Math.PI };
+      return { a: Math.cos(th) * r, b: Math.sin(th) * r, kind: [2, 0, 3, 4, 2][Math.floor(frac(seed * 53 + i * 41) * 5)], hd: th + Math.PI };
     },
     drums: () => [[0, 0]] },
   // A lane: two rows facing each other across a path, with the drums down the middle of it.
@@ -38176,6 +38176,67 @@ const CAMP_LAYOUTS = [
 //
 // ⚠ ONLY THE FACES TURNED TO THE EYE ARE EMITTED, the drum's rule: the back of a box is behind its
 // front from every seat, and a quad the camera can't see is a draw for nothing.
+// ⚠ A CAMP IS WALKED THROUGH, SO ITS PARTS HAVE TO SURVIVE THE EYE PLANE. `emitDecoFill` drops a
+// polygon outright when any corner is within 0.1 of the eye, which is right for a sign on a wall
+// across the street and wrong for a tent you are standing beside: the whole slope went, the moment
+// its near corner passed you, and a shelter half in view popped out of the picture. So the camp clips
+// its own polygons at the plane first, in world space, the way `emitWire` clips a segment (see the
+// ⚠ there on `cam.rawF`), and hands on only the part in front.
+function campClip(cam, pts) {
+  if (!cam.rawF) return pts;
+  const NEAR = 0.13, d = pts.map((p) => cam.rawF(p[0], p[1], p[2]));
+  if (d.every((x) => x > NEAR)) return pts;
+  if (d.every((x) => x <= NEAR)) return null;
+  const out = [];
+  for (let i = 0; i < pts.length; i++) {
+    const j = (i + 1) % pts.length, a = pts[i], b = pts[j], da = d[i], db = d[j];
+    if (da > NEAR) out.push(a);
+    if ((da > NEAR) !== (db > NEAR)) {
+      const t = (NEAR + 1e-4 - da) / (db - da);
+      out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]);
+    }
+  }
+  return out.length >= 3 ? out : null;
+}
+function campFill(ctx, cam, W, ...rest) {
+  const q = campClip(cam, W);
+  if (q) emitDecoFill(ctx, cam, q, ...rest);
+}
+// The shelters, as drawTentCamp numbers them; the names are cloth3d.js's CLOTH_SHELTERS.
+const CAMP_SHELTERS = ['ridge', 'tarp', 'lean', 'dome', 'bell', 'tunnel'];
+// Which shelter a pitch gets when its layout doesn't say: the old three still the commoner, since
+// they are what you make out of what you find, and the bought tents (dome, bell, tunnel) rarer.
+const CAMP_KIND_ODDS = [0.19, 0.36, 0.52, 0.70, 0.84, 1];
+const campKind = (r) => { for (let k = 0; k < CAMP_KIND_ODDS.length; k++) if (r < CAMP_KIND_ODDS[k]) return k; return 0; };
+// Half-width across, half-length along and height, per shelter, off three rolls. A dome and a bell
+// are round, so their two halves are near equal; a tunnel is long and low; the rest vary widely, so
+// no two ridge tents on a tile stand the same.
+function campDims(kind, fh, r1, r2, r3) {
+  switch (kind) {
+    case 0: return [fh * (0.12 + r1 * 0.10), fh * (0.16 + r2 * 0.14), fh * (0.22 + r3 * 0.18)];
+    case 1: return [fh * (0.14 + r1 * 0.10), fh * (0.16 + r2 * 0.12), fh * (0.24 + r3 * 0.12)];
+    case 2: return [fh * (0.14 + r1 * 0.10), fh * (0.12 + r2 * 0.10), fh * (0.22 + r3 * 0.12)];
+    case 3: { const w = fh * (0.13 + r1 * 0.06); return [w, w * (0.95 + r2 * 0.15), w * (0.95 + r3 * 0.3)]; }
+    case 4: { const w = fh * (0.16 + r1 * 0.06); return [w, w, fh * (0.36 + r3 * 0.10)]; }
+    default: { const w = fh * (0.11 + r1 * 0.04); return [w, fh * (0.22 + r2 * 0.10), w * (1.0 + r3 * 0.2)]; }
+  }
+}
+// What hangs on a washing line: the same weather as the tarps, a shade lighter for being washed.
+const LAUNDRY = [[150, 146, 132], [120, 128, 140], [140, 120, 110], [110, 116, 96], [160, 150, 120], [96, 90, 100], [134, 96, 88]];
+// A tyre lying flat: eight tread faces (only those turned to the eye, the drum's rule), the sidewall
+// on top and the hole in it.
+function campTyre(ctx, cam, x, y, z, r, h, nightF, alpha) {
+  const ex = cam.ex || 0, ey = cam.ey || 0, n = 8, rub = [40, 38, 36];
+  const at = (j, rr, zz) => { const a = (j / n) * Math.PI * 2; return [x + Math.cos(a) * rr, y + Math.sin(a) * rr, zz]; };
+  for (let j = 0; j < n; j++) {
+    const am = ((j + 0.5) / n) * Math.PI * 2, nx = Math.cos(am), ny = Math.sin(am);
+    if (nx * (ex - x) + ny * (ey - y) <= 0) continue;
+    campFill(ctx, cam, [at(j, r, z + h), at(j + 1, r, z + h), at(j + 1, r, z), at(j, r, z)],
+      campShade(rub, campLightK(nx, ny) * 0.9, nightF), alpha, DECO_LIFT * 0.1, 'camp|tyre');
+  }
+  campFill(ctx, cam, Array.from({ length: n }, (_, j) => at(j, r, z + h)), campShade(rub, 1.1, nightF), alpha, DECO_LIFT * 0.1, 'camp|tyre');
+  campFill(ctx, cam, Array.from({ length: n }, (_, j) => at(j, r * 0.5, z + h * 1.03)), campShade([16, 15, 14], 1, nightF), alpha, DECO_LIFT * 0.1, 'camp|tyre');
+}
 const campShade = (rgb, k, nightF, add = [0, 0, 0]) => 'rgb(' + rgb.map((c, i) => clamp(Math.round(c * k * (1 - nightF * 0.6) + add[i]), 0, 255)).join(',') + ')';
 const campLightK = (nx, ny, up = 0) => {
   const LS = LIGHT_STATE;
@@ -38202,7 +38263,7 @@ function drawCampDrum(x, y, r, h, nightF, alpha, seed, near, glow, ctx, cam, top
     for (const [v0, v1, kind] of (near ? bands : [[0, 1, 'rust']])) {
       const col = kind === 'paint' ? paint.map((c, i) => c * 0.55 + rust[i] * 0.45 * (frac(seed * 3 + j) < 0.3 ? 1.4 : 0.8))
         : kind === 'foot' ? rust.map((c) => c * 0.62) : rust.map((c) => c * stave);
-      emitDecoFill(ctx, cam, [[X0, Y0, h * v1], [X1, Y1, h * v1], [X1, Y1, h * v0], [X0, Y0, h * v0]],
+      campFill(ctx, cam, [[X0, Y0, h * v1], [X1, Y1, h * v1], [X1, Y1, h * v0], [X0, Y0, h * v0]],
         campShade(col, k, nightF, add), alpha, DECO_LIFT * 0.1, 'camp|drum');
     }
   }
@@ -38216,18 +38277,18 @@ function drawCampDrum(x, y, r, h, nightF, alpha, seed, near, glow, ctx, cam, top
     // A closed drum: its lid, with the bung.
     const lid = [];
     for (let j = 0; j < sides; j++) { const a = (j / sides) * Math.PI * 2; lid.push([x + Math.cos(a) * r, y + Math.sin(a) * r, h]); }
-    emitDecoFill(ctx, cam, lid, campShade(paint || rust, 0.95, nightF), alpha, DECO_LIFT * 0.1, 'camp|drum');
+    campFill(ctx, cam, lid, campShade(paint || rust, 0.95, nightF), alpha, DECO_LIFT * 0.1, 'camp|drum');
   }
 }
 // A box on the mud, axis-aligned: top and the two sides that face the eye.
 function campBox(ctx, cam, x, y, hw, hd, z0, z1, rgb, nightF, alpha, key, tones = null) {
   const ex = cam.ex || 0, ey = cam.ey || 0, T = tones || [1, 1, 1];
-  const face = (pts, nx, ny, t) => emitDecoFill(ctx, cam, pts, campShade(rgb, campLightK(nx, ny) * t, nightF), alpha, DECO_LIFT * 0.1, key);
+  const face = (pts, nx, ny, t) => campFill(ctx, cam, pts, campShade(rgb, campLightK(nx, ny) * t, nightF), alpha, DECO_LIFT * 0.1, key);
   if (ex > x + hw) face([[x + hw, y - hd, z1], [x + hw, y + hd, z1], [x + hw, y + hd, z0], [x + hw, y - hd, z0]], 1, 0, T[1]);
   else if (ex < x - hw) face([[x - hw, y + hd, z1], [x - hw, y - hd, z1], [x - hw, y - hd, z0], [x - hw, y + hd, z0]], -1, 0, T[1]);
   if (ey > y + hd) face([[x - hw, y + hd, z1], [x + hw, y + hd, z1], [x + hw, y + hd, z0], [x - hw, y + hd, z0]], 0, 1, T[2]);
   else if (ey < y - hd) face([[x + hw, y - hd, z1], [x - hw, y - hd, z1], [x - hw, y - hd, z0], [x + hw, y - hd, z0]], 0, -1, T[2]);
-  emitDecoFill(ctx, cam, [[x - hw, y - hd, z1], [x + hw, y - hd, z1], [x + hw, y + hd, z1], [x - hw, y + hd, z1]],
+  campFill(ctx, cam, [[x - hw, y - hd, z1], [x + hw, y - hd, z1], [x + hw, y + hd, z1], [x - hw, y + hd, z1]],
     campShade(rgb, 0.92 * T[0], nightF), alpha, DECO_LIFT * 0.1, key);
 }
 // Bedding: a mattress somebody carried out of a building, stained, on the mud or on a pallet, with a
@@ -38244,7 +38305,7 @@ function drawCampBed(ctx, cam, x, y, fh, along, nightF, alpha, seed) {
     z = pz;
   }
   if (kind === 2) {
-    emitDecoFill(ctx, cam, [[x - sx, y - sy, fh * 0.002], [x + sx, y - sy, fh * 0.002], [x + sx, y + sy, fh * 0.002], [x - sx, y + sy, fh * 0.002]],
+    campFill(ctx, cam, [[x - sx, y - sy, fh * 0.002], [x + sx, y - sy, fh * 0.002], [x + sx, y + sy, fh * 0.002], [x - sx, y + sy, fh * 0.002]],
       campShade(BED_CARD, 0.9, nightF), alpha, DECO_LIFT * 0.1, 'camp|card');
     z = fh * 0.003;
   } else {
@@ -38253,7 +38314,7 @@ function drawCampBed(ctx, cam, x, y, fh, along, nightF, alpha, seed) {
     campBox(ctx, cam, x, y, sx, sy, z, mz, tick, nightF, alpha, 'camp|mattress', [1, 0.72, 0.72]);
     // A stain, because every one of them has one.
     const cx = x + (frac(seed * 9.1) - 0.5) * sx, cy = y + (frac(seed * 4.3) - 0.5) * sy, st = Math.min(sx, sy) * 0.45;
-    emitDecoFill(ctx, cam, [[cx - st, cy - st * 0.7, mz + fh * 0.001], [cx + st, cy - st * 0.5, mz + fh * 0.001], [cx + st * 0.8, cy + st * 0.7, mz + fh * 0.001], [cx - st * 0.9, cy + st * 0.5, mz + fh * 0.001]],
+    campFill(ctx, cam, [[cx - st, cy - st * 0.7, mz + fh * 0.001], [cx + st, cy - st * 0.5, mz + fh * 0.001], [cx + st * 0.8, cy + st * 0.7, mz + fh * 0.001], [cx - st * 0.9, cy + st * 0.5, mz + fh * 0.001]],
       campShade(tick.map((c) => c * 0.7), 0.9, nightF), alpha, DECO_LIFT * 0.1, 'camp|stain');
     z = mz;
   }
@@ -38261,8 +38322,8 @@ function drawCampBed(ctx, cam, x, y, fh, along, nightF, alpha, seed) {
   const bl = TARPS[Math.floor(frac(seed * 13.1) * TARPS.length)].map((c) => c * 0.9);
   const bz = z + fh * 0.004, bz2 = z + fh * 0.009;
   const P = (u, v, zz) => along ? [x - sx + u * sx * 2, y - sy + v * sy * 2, zz] : [x - sx + v * sx * 2, y - sy + u * sy * 2, zz];
-  emitDecoFill(ctx, cam, [P(0.30, -0.04, bz), P(0.64, -0.04, bz2), P(0.64, 1.04, bz2), P(0.30, 1.04, bz)], campShade(bl, 0.95, nightF), alpha, DECO_LIFT * 0.1, 'camp|blanket');
-  emitDecoFill(ctx, cam, [P(0.64, -0.04, bz2), P(1.02, -0.04, bz), P(1.02, 1.04, bz), P(0.64, 1.04, bz2)], campShade(bl, 0.82, nightF), alpha, DECO_LIFT * 0.1, 'camp|blanket');
+  campFill(ctx, cam, [P(0.30, -0.04, bz), P(0.64, -0.04, bz2), P(0.64, 1.04, bz2), P(0.30, 1.04, bz)], campShade(bl, 0.95, nightF), alpha, DECO_LIFT * 0.1, 'camp|blanket');
+  campFill(ctx, cam, [P(0.64, -0.04, bz2), P(1.02, -0.04, bz), P(1.02, 1.04, bz), P(0.64, 1.04, bz2)], campShade(bl, 0.82, nightF), alpha, DECO_LIFT * 0.1, 'camp|blanket');
   // The pillow: a rolled coat at the head.
   const pw = Math.min(sx, sy) * 0.55;
   const [hx, hy] = along ? [x - sx * 0.78, y] : [x, y - sy * 0.78];
@@ -38315,7 +38376,7 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha, inward = null, n
   // page (`clothTex`) its colour keys, and the sheets on the buildings match these exactly.
   const tone = (rgb, k, warm = 0) => slumTone(rgb, k, nightF, warm);
   // A tent's canvas: the weathered page near to, the flat colour beyond (see `clothTex`).
-  const cloth = (pts, css, tag) => clothFill(ctx, cam, pts, css, alpha, DECO_LIFT * 0.1, tag, 'cloth', true);
+  const cloth = (pts, css, tag) => { const q = campClip(cam, pts); if (q) clothFill(ctx, cam, q, css, alpha, DECO_LIFT * 0.1, tag, 'cloth', true); };
   // Sun shading off the frame's own key (LIGHT_STATE, the light the walls are shaded against), so
   // the slope turned to the sun is the bright one whichever way the camp faces; `up` is how much of
   // a face looks at the sky. No light state (a capture pass) falls back to the fixed 1 / 0.62 / 0.78
@@ -38369,21 +38430,70 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha, inward = null, n
     const dw = own ? 0.10 * k : 0;
     return [dl * 1.0 + db * 1.0 + dw * 0.38, dl * 0.77 + db * 0.60 + dw * 0.24, dl * 0.45 + db * 0.22 + dw * 0.07];
   };
+  // ── the shelters' kit ─────────────────────────────────────────────────────
+  // Every shelter is placed in its own frame: `hd` is the way its mouth faces (+y of the frame, the
+  // way the meshes are built), and `M(mx, my, mz)` takes a point in the unit shape (x and y in -1..1,
+  // z in 0..1) to the world. The canvas path keeps every shelter square (hd = π/2, so M is cx + mx·w,
+  // cy + my·l), which is the geometry the ridge, tarp and lean-to below were always drawn in.
+  const EX = cam.ex || 0, EY = cam.ey || 0, EZ = cam.EH || 0;
+  const fill = (pts, css, tag) => campFill(ctx, cam, pts, css, alpha, DECO_LIFT * 0.1, tag);
+  const wire = (A, B, px, css) => emitWire(ctx, cam, A, B, px, css, alpha, { lift: DECO_LIFT * 0.1 });
+  const ROPE = campShade([150, 138, 112], 0.85, nightF);
+  const peg = (P) => wire([P[0], P[1], 0], [P[0], P[1], fh * 0.014], 2, DARK);
+  const guy = (A, B) => { wire(A, B, 1, ROPE); peg(B); };
+  const spots = [];
   for (let i = 0; i < pitches; i++) {
     const pl = layout.place(seed, i, pitches);
     const [cx, cy] = fold(dx + pl.a * R * 1.7, dy + pl.b * R * 1.7);
-    const w = fh * (0.14 + frac(seed + i * 3) * 0.07);          // half-width across the slopes
-    const l = fh * (0.18 + frac(seed + i * 5) * 0.09);          // half-length along the ridge
-    const t = fh * (0.26 + frac(seed + i * 7) * 0.11);          // ridge / roof height
+    const kind = pl.kind ?? campKind(frac(seed * 53 + i * 41));   // 0 ridge · 1 tarp · 2 lean-to · 3 dome · 4 bell · 5 tunnel
+    const [w, l, t] = campDims(kind, fh, frac(seed + i * 3), frac(seed + i * 5), frac(seed + i * 7));
     const tarp = TARPS[Math.floor(frac(seed * 31 + i * 17) * TARPS.length) % TARPS.length];
+    const pt = TARPS[Math.floor(frac(seed * 91 + i * 7) * TARPS.length) % TARPS.length];
+    // A loose cluster turns its shelters any way they were thrown up; a layout that names a heading
+    // keeps it. The GPU path only: the canvas shapes are square.
+    const hd = gpu ? (pl.hd ?? Math.PI / 2 + (frac(seed * 67 + i * 13) - 0.5) * 1.3) : Math.PI / 2;
+    const Fx = Math.cos(hd), Fy = Math.sin(hd), Rx = Fy, Ry = -Fx;
+    const M = (mx, my, mz) => [cx + Rx * mx * w + Fx * my * l, cy + Ry * mx * w + Fy * my * l, mz * t];
+    spots.push({ x: cx, y: cy, s: Math.max(w, l) });
     // Two pitches in five carry a lamp, rolled per tent so the same ones are lit every night.
     const glowing = (nightF > 0.3 && frac(seed * 59 + i * 19) > 0.5) ? 1 : 0;
-    const kind = pl.kind ?? Math.floor(frac(seed * 53 + i * 41) * 3);   // 0 ridge · 1 flat tarp · 2 lean-to
     // Per-shape face shading: a ridge's (and flat tarp's) two slopes face +x / -x, a lean-to's roof
     // faces +y and its back wall -y, and the near gable faces -y.
     const kA = kind === 2 ? faceK(0, 1, 0.55, 1) : faceK(1, 0, kind === 1 ? 0.85 : 0.5, 1);
     const kB = kind === 2 ? faceK(0, -1, 0, 0.62) : faceK(-1, 0, kind === 1 ? 0.85 : 0.5, 0.62);
     const lit = tone(tarp, kA, glowing), shade = tone(tarp, kB, glowing), gab = tone(tarp, faceK(0, -1, 0, 0.78), glowing);
+    // Does the eye stand on the mouth side? A door drawn from behind would show through the shelter.
+    const mouthSeen = (P) => Fx * (EX - P[0]) + Fy * (EY - P[1]) > 0;
+    // A sheet of a round shelter on the canvas path. Its outward normal is taken off the polygon and
+    // turned away from the shelter's axis; a sheet facing away from the eye is dropped (the drum's
+    // rule: a closed shell's back is behind its front from every seat), and the rest are shaded by
+    // which way they face.
+    const sheet = (pts, rgb, tag) => {
+      const [a, b, c] = pts;
+      const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+      let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+      const L = Math.hypot(nx, ny, nz);
+      if (!(L > 1e-12)) return;
+      nx /= L; ny /= L; nz /= L;
+      let mx = 0, my = 0, mz = 0;
+      for (const p of pts) { mx += p[0]; my += p[1]; mz += p[2]; }
+      mx /= pts.length; my /= pts.length; mz /= pts.length;
+      if (nx * (mx - cx) + ny * (my - cy) + nz * (mz - t * 0.3) < 0) { nx = -nx; ny = -ny; nz = -nz; }
+      if (nx * (EX - mx) + ny * (EY - my) + nz * (EZ - mz) <= 0) return;
+      cloth(pts, tone(rgb, faceK(nx, ny, Math.max(0, nz), 0.66 + 0.34 * Math.max(0, nx, nz)), glowing), tag);
+    };
+    // The round shapes, the same arithmetic as cloth3d.js's meshes; `o` pushes a point out off the
+    // skin, past the most the GPU skin billows, so a door laid over it is never under it.
+    const domeP = (a, s, o = 1) => {
+      const th = s * Math.PI / 2, q = Math.pow(Math.pow(Math.abs(Math.cos(a)), 4) + Math.pow(Math.abs(Math.sin(a)), 4), -0.25);
+      const k = Math.sin(th) * (1 + (q - 1) * 0.45) * o;
+      return M(Math.cos(a) * k, Math.sin(a) * k, Math.pow(Math.max(0, Math.cos(th)), 0.85) * o);
+    };
+    const BW = 0.26;   // cloth3d.js's BELL_WALL
+    const bellP = (a, s, o = 1) => M(Math.cos(a) * s * 0.95 * o, Math.sin(a) * s * 0.95 * o, BW + (1 - BW) * (1 - s) - 0.05 * Math.sin(Math.PI * s));
+    const tunP = (sx, y, ps, o = 1) => { const g = 1 - 0.07 * Math.pow(Math.sin(Math.PI * (y + 1)), 2); return M(sx * Math.sin(ps) * (0.96 + 0.04 * g) * o, y, Math.cos(ps) * g * o); };
+    // The inside of a shelter through its door: dark, or the lamp's colour when it has one lit.
+    const MOUTH = glowing ? campShade([176, 116, 60], 1, nightF * 0.4) : campShade([24, 22, 20], 1, nightF);
 
     if (gpu) {
       // ONE RECORD A SHELTER. The drab is jittered a little per pitch on this path (a colour here is
@@ -38392,19 +38502,17 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha, inward = null, n
       // city with nothing to lose by saying so.
       const jit = 0.9 + frac(seed * 43 + i * 7) * 0.2;
       const colA = tarp.map((c) => clamp(c * jit, 0, 255));
-      const pt = TARPS[Math.floor(frac(seed * 91 + i * 7) * TARPS.length) % TARPS.length];
       const pu = 0.2 + frac(seed + i * 11) * 0.4;
       const patch = frac(seed * 71 + i * 23) > 0.42 ? [pu, 0.28, pu + 0.3, 0.62] : null;
       const tr = frac(seed * 83 + i * 31);
       const tag = tr < 0.55 ? { cell: clothTagCell(frac(seed * 61 + i * 37)), u: 0.08 + frac(seed * 5 + i * 3) * 0.3, v: 0.1 + frac(seed * 9 + i * 13) * 0.25, size: 0.5 + frac(seed * 2 + i) * 0.15 } : null;
       const nq = Math.round(nightF * 16) / 16;
-      pushCloth(cam, { kind: kind === 0 ? 'ridge' : kind === 1 ? 'tarp' : 'lean', x: cx, y: cy, z: 0, hd: pl.hd ?? Math.PI / 2,
+      pushCloth(cam, { kind: CAMP_SHELTERS[kind], x: cx, y: cy, z: 0, hd,
         sx: w, sy: l, sz: t, wind: windOf().fly * 0.8, ph: clothClock(now) / 3600 + frac(seed * 13 + i * 5), seed: frac(seed + i * 0.37) * 10,
         a: alpha, lum: 1 - nq * 0.62 * (1 - glowing * 0.72), colA, colB: pt, patch, tag, weather: 1,
         warm: warmAt(cx, cy, glowing) });
     } else if (kind === 0) {
-      // A RIDGE TENT. Two slopes and the near gable; the far gable is behind its own tent from
-      // every seat that can see the tile and is a third of the cost for nothing.
+      // A RIDGE TENT. Two slopes and the back gable; the front is its open mouth, as on the mesh.
       const P = [[cx - w, cy - l, 0], [cx - w, cy + l, 0], [cx + w, cy - l, 0], [cx + w, cy + l, 0],
                  [cx, cy - l, t], [cx, cy + l, t]];
       cloth([P[0], P[1], P[5], P[4]], shade, 'camp|slope');
@@ -38418,36 +38526,170 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha, inward = null, n
       const s = t * 0.74, sag = t * 0.60;
       cloth([[cx - w, cy - l, s], [cx, cy - l, sag], [cx, cy + l, sag], [cx - w, cy + l, s]], shade, 'camp|tarp');
       cloth([[cx + w, cy - l, s], [cx, cy - l, sag], [cx, cy + l, sag], [cx + w, cy + l, s]], lit, 'camp|tarp');
-      if (near) for (const [px, py] of [[cx - w, cy - l], [cx + w, cy - l], [cx - w, cy + l], [cx + w, cy + l]])
-        emitWire(ctx, cam, [px, py, 0], [px, py, s], 1, DARK, alpha, { lift: DECO_LIFT * 0.1 });
-    } else {
+    } else if (kind === 2) {
       // A LEAN-TO: one slope from a high edge down to the ground, with a back wall. Half a tent,
       // which is what you build when you have half a tarp.
       cloth([[cx - w, cy - l, t], [cx + w, cy - l, t], [cx + w, cy + l, 0], [cx - w, cy + l, 0]], lit, 'camp|lean');
       cloth([[cx - w, cy - l, 0], [cx + w, cy - l, 0], [cx + w, cy - l, t], [cx - w, cy - l, t]], shade, 'camp|lean');
+    } else if (kind === 3) {
+      // A DOME, as eight gores in two bands and its zipped door panel in the patch colour.
+      const n = 8, top = M(0, 0, 1);
+      for (let j = 0; j < n; j++) {
+        const a0 = (j / n) * Math.PI * 2 + 0.2, a1 = ((j + 1) / n) * Math.PI * 2 + 0.2;
+        sheet([top, domeP(a0, 0.5), domeP(a1, 0.5)], tarp, 'camp|dome');
+        sheet([domeP(a0, 0.5), domeP(a1, 0.5), domeP(a1, 1), domeP(a0, 1)], tarp, 'camp|dome');
+      }
+      const H = Math.PI / 2;
+      if (mouthSeen(M(0, 1, 0))) cloth([domeP(H - 0.33, 0.44, 1.05), domeP(H + 0.33, 0.44, 1.05), domeP(H + 0.35, 1, 1.05), domeP(H - 0.35, 1, 1.05)], tone(pt, 0.86, glowing), 'camp|dome');
+    } else if (kind === 4) {
+      // A BELL TENT: ten gores of cone in two bands, and the wall round the foot.
+      const n = 10, top = M(0, 0, 1);
+      for (let j = 0; j < n; j++) {
+        const a0 = (j / n) * Math.PI * 2, a1 = ((j + 1) / n) * Math.PI * 2;
+        sheet([top, bellP(a0, 0.5), bellP(a1, 0.5)], tarp, 'camp|bell');
+        sheet([bellP(a0, 0.5), bellP(a1, 0.5), bellP(a1, 1), bellP(a0, 1)], tarp, 'camp|bell');
+        sheet([bellP(a0, 1), bellP(a1, 1), M(Math.cos(a1), Math.sin(a1), 0), M(Math.cos(a0), Math.sin(a0), 0)], tarp, 'camp|bell');
+      }
+    } else {
+      // A TUNNEL: each side in three strips over four bays, the hoops between them, and both ends.
+      const Y = [-1, -0.5, 0, 0.5, 1], PS = [0, Math.PI / 6, Math.PI / 3, Math.PI / 2];
+      for (const sx of [1, -1]) for (let k = 0; k < 4; k++) for (let q = 0; q < 3; q++)
+        sheet([tunP(sx, Y[k], PS[q]), tunP(sx, Y[k + 1], PS[q]), tunP(sx, Y[k + 1], PS[q + 1]), tunP(sx, Y[k], PS[q + 1])], tarp, 'camp|tunnel');
+      for (const y of [-1, 1]) {
+        const end = [];
+        for (let q = 0; q <= 6; q++) { const ps = -Math.PI / 2 + q * Math.PI / 6; end.push(M(Math.sin(ps), y, Math.cos(ps))); }
+        sheet(end, tarp, 'camp|tunnel');
+      }
+      if (mouthSeen(M(0, 1, 0))) {
+        const arch = [];
+        for (let q = 0; q <= 6; q++) { const ps = -Math.PI / 2 + q * Math.PI / 6; arch.push(M(Math.sin(ps) * 0.5, 1.035, Math.cos(ps) * 0.7)); }
+        cloth(arch, tone(pt, 0.86, glowing), 'camp|tunnel');
+      }
     }
 
-    // THE PATCH. A smaller quad in a DIFFERENT tarp's colour laid on the lit slope, which is the
-    // one detail that separates a shanty from a campsite: every sheet here has been mended with
-    // whatever the last one was made of. Near tier only — at range it is a few pixels of noise.
-    if (!gpu && near && frac(seed * 71 + i * 23) > 0.42) {
-      const pt = TARPS[Math.floor(frac(seed * 91 + i * 7) * TARPS.length) % TARPS.length];
-      const pw = w * 0.42, pl = l * 0.38, pz = t * (kind === 2 ? 0.62 : 0.46);
+    // THE PATCH, on the canvas path's three flat shapes: a smaller quad in a DIFFERENT tarp's colour
+    // laid on the lit slope, which is the one detail that separates a shanty from a campsite: every
+    // sheet here has been mended with whatever the last one was made of. Near tier only; at range it
+    // is a few pixels of noise. (The round shapes wear their door panel in that colour instead.)
+    if (!gpu && near && kind <= 2 && frac(seed * 71 + i * 23) > 0.42) {
+      const pw = w * 0.42, pl2 = l * 0.38, pz = t * (kind === 2 ? 0.62 : 0.46);
       const ox = cx + w * 0.34, oy = cy + (frac(seed + i * 11) - 0.5) * l * 0.7;
-      cloth([[ox - pw, oy - pl, pz + pl * 0.5], [ox + pw, oy - pl, pz + pl * 0.5],
-             [ox + pw, oy + pl, pz], [ox - pw, oy + pl, pz]], tone(pt, 0.86), 'camp|patch');
+      cloth([[ox - pw, oy - pl2, pz + pl2 * 0.5], [ox + pw, oy - pl2, pz + pl2 * 0.5],
+             [ox + pw, oy + pl2, pz], [ox - pw, oy + pl2, pz]], tone(pt, 0.86), 'camp|patch');
     }
 
-    // The spill out of the open end. Small, and at the GABLE rather than at the centre: the mouth
-    // is the only part of a tent a lamp can actually get out of, and a glow inside the canvas is
-    // hidden by the canvas. The tarp itself is doing the work above; this is the bit on the mud.
-    if (glowing) glowPool(ctx, cam, cx, cy - l * 1.25, t * 0.18, '255,186,104', 10, alpha * 0.42 * nightF);
-    // Guy lines. ⚠ NEAR TIER ONLY, and that is legibility rather than cost: a dark 1px line
-    // carries further than the canvas it is holding up, so a camp seen from across the district
-    // drew as a scribble of wire with the tents lost inside it.
-    if (near && kind !== 1) {
-      emitWire(ctx, cam, [cx, cy - l, t], [cx, cy - l - w * 1.6, 0], 1, DARK, alpha, { lift: DECO_LIFT * 0.1 });
-      emitWire(ctx, cam, [cx, cy + l, t], [cx, cy + l + w * 1.6, 0], 1, DARK, alpha, { lift: DECO_LIFT * 0.1 });
+    // The spill out of the mouth. Small, and at the DOOR rather than at the centre: the mouth is the
+    // only part of a tent a lamp can actually get out of, and a glow inside the canvas is hidden by
+    // the canvas. The sheet itself is doing the work above; this is the bit on the mud. A flat tarp
+    // has no walls, so its lamp is under the middle of it.
+    if (glowing) {
+      const G = kind === 1 ? M(0, 0, 0) : M(0, 1.3, 0);
+      glowPool(ctx, cam, G[0], G[1], t * 0.18, '255,186,104', 10, alpha * 0.42 * nightF);
+    }
+
+    // ── THE KIT, near tier only. ⚠ And that is legibility rather than cost: a dark 1px line carries
+    // further than the canvas it is holding up, so a camp seen from across the district drew as a
+    // scribble of wire with the tents lost inside it. Every part goes to emitDecoFill/emitWire
+    // (never draw3DBoxAt; see the ⚠ on the camp above), and every one is placed through `M`, so it
+    // turns with its shelter on the GPU path. The roll per pitch is off the seed, like everything.
+    if (!near) continue;
+    const kr = frac(seed * 97 + i * 29);
+    if (kind === 0) {
+      // Ridge: the pole ends through the canvas at both gables, a guy off each, pegs at the skirt, and
+      // the door flap at the mouth tied back to one side.
+      for (const e of [-1, 1]) {
+        const top = M(0, e, 1);
+        wire(top, [top[0], top[1], top[2] + fh * 0.03], 2, DARK);
+        guy(top, M(0, e * (1 + 1.6 * w / l), 0));
+      }
+      for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) peg(M(sx * 1.06, sy * 0.96, 0));
+      const side = kr < 0.5 ? -1 : 1;
+      fill([M(0, 1.01, 1), M(side, 1.01, 0), M(side * 0.45, 1.32, 0.02)], tone(tarp, 0.72, glowing), 'camp|flap');
+    } else if (kind === 1) {
+      // Tarp: its four posts (on both paths now; the GPU sheet stood on nothing), each guyed out.
+      for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+        const top = M(sx, sy, 0.74);
+        wire(M(sx, sy, 0), top, 1, DARK);
+        if (kr < 0.7) guy(top, M(sx * 1.5, sy * 1.35, 0));
+      }
+    } else if (kind === 2) {
+      // Lean-to: the high edge guyed back from its corners.
+      for (const sx of [-1, 1]) guy(M(sx, -1, 1), M(sx * 1.2, -1 - 1.4 * w / l, 0));
+    } else if (kind === 3) {
+      // Dome: four guys off the hoop crossings, pegs round the skirt, and the door half unzipped.
+      for (let k = 0; k < 4; k++) {
+        const a = Math.PI / 4 + k * Math.PI / 2;
+        guy(domeP(a, 0.55), M(Math.cos(a) * 1.55, Math.sin(a) * 1.55, 0));
+        peg(domeP(a, 1, 1.03));
+      }
+      const H = Math.PI / 2;
+      if (mouthSeen(M(0, 1, 0))) fill([domeP(H - 0.24, 1, 1.07), domeP(H + 0.05, 1, 1.07), domeP(H - 0.02, 0.5, 1.07)], MOUTH, 'camp|door');
+    } else if (kind === 4) {
+      // Bell: the pole's tip through the crown, six guys off the wall top, the door flap rolled and
+      // tied up, and one in three with a stove pipe out through the cone.
+      const top = M(0, 0, 1);
+      wire(top, [top[0], top[1], top[2] + fh * 0.04], 2, DARK);
+      for (let k = 0; k < 6; k++) {
+        const a = Math.PI / 2 + (k + 0.5) * Math.PI / 3;
+        guy(bellP(a, 1), M(Math.cos(a) * 1.75, Math.sin(a) * 1.75, 0));
+      }
+      if (mouthSeen(M(0, 1, 0))) {
+        fill([M(-0.2, 1.05, 0), M(0.2, 1.05, 0), M(0.17, 1.0, BW), M(0, 0.7, 0.44), M(-0.17, 1.0, BW)], MOUTH, 'camp|door');
+        wire(M(0.22, 1.06, 0.02), M(0.05, 0.74, 0.44), 3, tone(pt, 0.8, glowing));
+      }
+      if (kr < 0.34) {
+        const b = bellP(-0.7, 0.55, 1.02);
+        wire(b, [b[0], b[1], b[2] + fh * 0.11], 2, DARK);
+      }
+    } else {
+      // Tunnel: a guy off each side of every hoop, one off the back, and the door half open.
+      for (const y of [-1, 0, 1]) for (const sx of [-1, 1]) guy(tunP(sx, y, Math.PI / 4), M(sx * 1.9, y, 0));
+      guy(M(0, -1, 1), M(0, -1 - 1.3 * w / l, 0));
+      if (mouthSeen(M(0, 1, 0))) {
+        const arch = [];
+        for (let q = 0; q <= 6; q++) { const ps = -Math.PI / 2 + q * Math.PI / 6; arch.push(M(Math.sin(ps) * 0.3 - 0.12, 1.05, Math.cos(ps) * 0.55)); }
+        fill(arch, MOUTH, 'camp|door');
+      }
+    }
+    // Tyres holding the sheet down, where the wind gets under it: along a lean-to's foot, on a ridge
+    // tent's skirt, stacked at a tarp's post, beside a tunnel.
+    if (kr > 0.45 || kind === 2) {
+      const TY = kind === 2 ? [[-0.55, 1.1, 0], [0.5, 1.1, 0]] : kind === 0 ? [[1.12, -0.6, 0], [-1.12, 0.5, 0]]
+        : kind === 1 ? [[1.2, -1, 0], [1.2, -1, 1]] : kind === 5 ? [[1.15, 0.5, 0]] : [];
+      for (const [mx, my, st] of TY) {
+        const P = M(mx, my, 0), r = fh * 0.026, h = fh * 0.017;
+        campTyre(ctx, cam, P[0], P[1], st * h, r, h, nightF, alpha);
+        if (st === 0 && kind === 1) campTyre(ctx, cam, P[0], P[1], h, r, h, nightF, alpha);
+      }
+    }
+  }
+
+  // ── THE WASHING ─────────────────────────────────────────────────────────────
+  // A line strung between two stakes, from one shelter to the next, with whatever got washed on it:
+  // shirts, a blanket, a towel, all the drab the tarps are. Near tier only, and not on every tile.
+  if (near && frac(seed * 173) < 0.65) {
+    let lines = frac(seed * 181) < 0.4 ? 2 : 1;
+    for (let i = 0; i + 1 < spots.length && lines > 0; i++) {
+      const A = spots[i], B = spots[i + 1], d = Math.hypot(B.x - A.x, B.y - A.y);
+      if (d < (A.s + B.s) * 1.15 + fh * 0.1 || d > fh * 0.95 || frac(seed * 187 + i * 7) < 0.3) continue;
+      lines--;
+      const ux = (B.x - A.x) / d, uy = (B.y - A.y) / d;
+      const ax = A.x + ux * A.s * 1.1, ay = A.y + uy * A.s * 1.1, bx = B.x - ux * B.s * 1.1, by = B.y - uy * B.s * 1.1;
+      const hz = fh * (0.17 + frac(seed * 191 + i) * 0.06), dip = fh * 0.022;
+      const zAt = (q) => hz - dip * (1 - Math.abs(2 * q - 1));
+      const P = (q, z) => [ax + (bx - ax) * q, ay + (by - ay) * q, z];
+      wire([ax, ay, 0], [ax, ay, hz], 1, DARK);
+      wire([bx, by, 0], [bx, by, hz], 1, DARK);
+      wire(P(0, hz), P(0.5, zAt(0.5)), 1, ROPE);
+      wire(P(0.5, zAt(0.5)), P(1, hz), 1, ROPE);
+      const L2 = Math.hypot(bx - ax, by - ay) || 1;
+      for (let k = 0, n = 3 + Math.floor(frac(seed * 193 + i * 3) * 4); k < n; k++) {
+        const r = frac(seed * 197 + i * 11 + k * 7);
+        const hw = fh * (0.011 + r * 0.013) / L2, tt = (k + 0.5) / n + (frac(seed * 199 + k * 13 + i) - 0.5) * 0.4 / n;
+        const t0 = clamp(tt - hw, 0.04, 0.96), t1 = clamp(tt + hw, 0.04, 0.96), drop = fh * (0.028 + r * 0.035);
+        const c = LAUNDRY[Math.floor(frac(seed * 211 + i * 5 + k * 17) * LAUNDRY.length)];
+        fill([P(t0, zAt(t0)), P(t1, zAt(t1)), P(t1, zAt(t1) - drop * (0.8 + r * 0.3)), P(t0, zAt(t0) - drop)], campShade(c, 0.95, nightF), 'camp|laundry');
+      }
     }
   }
 
@@ -38468,7 +38710,7 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha, inward = null, n
   // The lamp: a small dark body on the cable by day, a warm point at night. ⚠ The body is drawn at
   // both tiers and the glow only after dark — an unlit bulb is a thing you can see, and a camp with
   // nothing hanging on its cables in daylight reads as a camp that has been abandoned.
-  if (near) emitDecoFill(ctx, cam, [[lx - fh * 0.022, ly, lz + fh * 0.03], [lx + fh * 0.022, ly, lz + fh * 0.03],
+  if (near) campFill(ctx, cam, [[lx - fh * 0.022, ly, lz + fh * 0.03], [lx + fh * 0.022, ly, lz + fh * 0.03],
                                     [lx + fh * 0.022, ly, lz], [lx - fh * 0.022, ly, lz]], DARK, alpha, DECO_LIFT * 0.1, 'camp|lamp');
   if (nightF > 0.3) glowPool(ctx, cam, lx, ly, lz, '255,196,116', 9, alpha * 0.42 * nightF);
 
@@ -38479,7 +38721,7 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha, inward = null, n
   if ((seed % 3) === 1) {
     const bw = fh * 0.05, bz = poleZ - fh * 0.06, bh = fh * 0.30;
     const bc = ((seed >> 2) & 1) ? 'rgb(' + Math.round(132 * (1 - nightF * 0.55)) + ',34,32)' : 'rgb(' + Math.round(150 * (1 - nightF * 0.55)) + ',' + Math.round(126 * (1 - nightF * 0.55)) + ',52)';
-    emitDecoFill(ctx, cam, [[px0 + bw * 0.3, py0, bz], [px0 + bw * 2.3, py0, bz],
+    campFill(ctx, cam, [[px0 + bw * 0.3, py0, bz], [px0 + bw * 2.3, py0, bz],
                             [px0 + bw * 2.3, py0, bz - bh], [px0 + bw * 0.3, py0, bz - bh]],
       bc, alpha, DECO_LIFT * 0.1, 'camp|banner');
   }

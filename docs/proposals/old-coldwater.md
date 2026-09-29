@@ -192,6 +192,15 @@ them, a cable strung between and on past both of them to the tile edge so a row 
 reads as one line rather than ten pairs of sticks, and a lamp hanging off the cable. A banner on
 one tile in three, and drums and crates on the mud.
 
+**Six shelter kinds now, not three.** The bought tents joined the scavenged ones: a pop-up dome, a
+bell tent with a short wall and its pole through the crown, and a hoop tunnel. Each is a baked
+cloth mesh (`cloth3d.js`) with a canvas-path approximation, and each has its door at +y, the way a
+lean-to opens. Near to, every shelter gets its kit: guy lines and pegs, pole tips, door flaps and
+half-open doors, tyres holding sheets down, the odd stove pipe, and washing lines strung between
+neighbours. All of it turns with the shelter on the GPU path. The camp clips its own polygons at
+the eye plane (`campClip`), because `emitDecoFill` drops any polygon with a corner near the eye,
+and a tent you walked past used to vanish whole.
+
 ⚠ **A LIT TENT IS A WARM TARP, NEVER A GLOW BESIDE A TENT.** A lamp under canvas lights the
 canvas, from the inside, so it is a term on the surface colour rather than a sprite. Two reasons
 it cannot be a sprite: `emitDecoFill` quads are depth-TESTED, so a glow at the tent's own centre
