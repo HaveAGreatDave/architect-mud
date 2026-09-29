@@ -21,6 +21,8 @@ import { showConfirmDialog } from './confirm.js';
 import { openColorPicker, closeColorPicker } from './color-picker.js';
 import { compactHidePanel } from '../../../shared/compact-view.js';
 import { liveriesFor } from '../../../shared/livery-sets.js';
+import { shellProfileFor } from '../../../shared/interior-shell.js';
+import { loadWindshield, isLoaded as windshieldLoaded, paintWindshield, disposeWindshield, glWorldInstalled, RENDER_TUNE } from './windshield-lazy.js';
 
 let B = null;       // { data, screen, selId, work (paint edit copy) }
 let raf = null;      // shared spin/scene-draw loop
@@ -82,6 +84,7 @@ export function closeHangarBay() {
   document.body.classList.remove('hb-fullscreen', 'hb-hidepanel');   // drop the immersive layout so the room look isn't left with the log/command box hidden
   window.dispatchEvent(new Event('pane:released'));  // hand the collapsed pane back to the phone layout
   if (raf) { cancelAnimationFrame(raf); raf = null; }
+  dropSeat();
   B = null; charterData = null;
   // Tear the panel out of the pane immediately rather than leaving it (with its
   // now-dead click handlers) on screen until whatever look/move follows renders.
@@ -474,7 +477,8 @@ function paintTabHtml(c, cat, dirty) {
     // pattern wears the mesh file's own scheme, so its band is that scheme's colours.
     for (const st of (c.sets || [])) {
       const sp = special(st.look.variant);
-      const band = mesh && st.look.pattern === 'factory' ? meshBand(mesh, st.look.variant) : [st.look.base, st.look.trim, st.look.accent].filter(Boolean);
+      const band = mesh && st.look.pattern === 'factory' ? meshBand(mesh, st.look.variant)
+        : [st.look.base, st.look.trim, st.look.pattern === 'jazz' && st.look.accent].filter(Boolean);   // only jazz paints the accent
       cards.push(lookCard(`data-set="${esc(st.id)}"`, band, st.name, st.factory ? 'factory' : sp ? 'special edition' : 'livery set',
         LOOK_KEYS.every(k => st.look[k] == null || W[k] === st.look[k]) && (W.variant || 'stock') === (st.look.variant || 'stock'), sp ? star : ''));
     }
@@ -803,6 +807,27 @@ function weightTabHtml(c) {
 // The paint booth takes the stage on the Livery card unless you've asked for the bay back; the
 // button on the stage flips it on any card.
 const boothOn = () => (B.boothPick ?? B.benchTab === 'paint');
+// THE BOOTH'S INTERIOR VIEW: the craft's own cockpit, the one she is flown from, painted by GLASS
+// (windshield.js paintWindshield) with the work copy's cabin trim, nameplate and cabin colour. The
+// cockpit is geometry only GLASS 2 draws, so with WebGL or 3-D interiors off the view says so.
+const SEAT_ID = 'hb-seat';
+const armedOf = (c) => c.class === 'heli' && c.hardpoints > 0;
+const hasCabin = (c) => !!(c && !c.wreck && shellProfileFor(c.class, armedOf(c)));
+const seatOn = () => boothOn() && B.boothView === 'int' && hasCabin(curCraft());
+const seatDrawable = () => windshieldLoaded() && glWorldInstalled() && RENDER_TUNE.gl && RENDER_TUNE.interior && RENDER_TUNE.cockpit3d;
+let seatLive = false;
+function dropSeat() { if (seatLive && windshieldLoaded()) disposeWindshield(SEAT_ID); seatLive = false; }
+// Nothing outside but flat ground: the booth is indoors, and the windows only need light through them.
+const SEAT_MAP = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => ({ kind: 'land', biome: 'citycore', flr: 0 })));
+function seatView(sc, t) {
+  const lv = B.work || sc.livery || {}, look = B.seatLook || (B.seatLook = { yaw: -18, pitch: -12, held: false });
+  // Left alone, the head drifts slowly across the panel, as the stage drifts round her outside.
+  const yaw = look.held ? look.yaw : look.yaw + 14 * Math.sin(t * 0.25);
+  return { cls: sc.class, armed: armedOf(sc), phase: 'cruise', height: 0.1, worldBlend: 1, hour: 13, weather: 'clear',
+    speed: 0, heading: 0, mapOffset: { x: 0, y: 0 }, pitch: 0, bank: 0, lookYaw: yaw, lookPitch: look.pitch,
+    map: SEAT_MAP, livery: lv, powered: true, fuel: 1, hull: 1, noWxBadge: true,   // indoors: no weather readout on the glass
+    ...(sc.class === 'drake' ? { drakeCab: { trim: lv.itrim || 'stock', plate: lv.plate || '', gear: 1 } } : {}) };
+}
 function stageVenue(c) {
   if (B.data.venue === 'helipad') return 'helipad';
   if (B.data.inHangar || c.location === 'hangar') return 'hangar';
@@ -846,15 +871,21 @@ function benchScreen() {
     : paintTabHtml(c, cat, dirty);
 
   const venue = stageVenue(c);
-  const booth = boothOn();
+  const booth = boothOn(), seat = seatOn();
+  if (!seat) dropSeat();
+  else if (!windshieldLoaded()) loadWindshield().then(() => { if (B && seatOn()) render(); }).catch(() => {});
   const radar = B.benchTab === 'tuning' ? `<canvas id="hb-perf-radar" class="hb-stage-radar" width="220" height="200"></canvas>` : '';
   const statusPill = c.rental ? '<b class="hb-bench-pill hb-bench-pill-rent">Rental</b>' : '';
   return `
     <div class="hb-bay2">
       <div class="hb-bay2-stage${booth ? ' hb-booth' : ''}">
-        <canvas id="hb-stage3d" class="hb-scene" tabindex="0" aria-label="${esc(c.tail)} ${esc(STAGE_CAP[venue].toLowerCase())}"></canvas>
+        ${seat ? `<canvas id="${SEAT_ID}" class="hb-scene hb-seat" tabindex="0" aria-label="The cockpit of ${esc(c.tail)}"></canvas>
+        ${seatDrawable() ? '' : `<div class="hb-seat-note">${windshieldLoaded() ? 'The cabin view needs 3-D graphics on.' : 'Opening her up…'}</div>`}`
+        : `<canvas id="hb-stage3d" class="hb-scene" tabindex="0" aria-label="${esc(c.tail)} ${esc(STAGE_CAP[venue].toLowerCase())}"></canvas>`}
         <div class="hb-inspect-name">${esc(c.tail)} <span>${esc(c.typeName)}</span> ${statusPill}</div>
-        <div class="hb-inspect-hint">${booth ? 'PAINT SHOP · drag to spin her' : STAGE_CAP[venue] + ' · drag to walk round her'}</div>
+        <div class="hb-inspect-hint">${seat ? 'PAINT SHOP · drag to look round' : booth ? 'PAINT SHOP · drag to spin her' : STAGE_CAP[venue] + ' · drag to walk round her'}</div>
+        ${booth && hasCabin(c) ? `<div class="hb-view-seg" role="group" aria-label="Booth view">${[['ext', 'Exterior'], ['int', 'Interior']]
+          .map(([k, l]) => `<button type="button" data-booth-view="${k}" aria-pressed="${(seat ? 'int' : 'ext') === k}"${(seat ? 'int' : 'ext') === k ? ' class="on"' : ''}>${l}</button>`).join('')}</div>` : ''}
         <button class="hb-stage-mode" data-act="stage-mode">${booth ? '⌂ Back to the ' + (venue === 'hangar' ? 'hangar' : venue === 'helipad' ? 'pad' : 'ramp') : '✦ Paint booth'}</button>
         ${radar}
       </div>
@@ -914,6 +945,29 @@ function wire() {
   on('[data-bench-tab]', 'click', (e) => { B.benchTab = e.currentTarget.getAttribute('data-bench-tab'); B.boothPick = null; render(); });
   on('[data-paint-tab]', 'click', (e) => { B.paintTab = e.currentTarget.getAttribute('data-paint-tab'); render(); });
 
+  on('[data-booth-view]', 'click', (e) => { B.boothView = e.currentTarget.getAttribute('data-booth-view'); render(); });
+  // The booth's cockpit: drag to turn your head, as you would sat in her.
+  const seatCv = root.querySelector('#' + SEAT_ID);
+  if (seatCv) {
+    const look = B.seatLook || (B.seatLook = { yaw: -18, pitch: -12, held: false });
+    let last = null;
+    seatCv.addEventListener('pointerdown', (e) => { last = { x: e.clientX, y: e.clientY }; seatCv.setPointerCapture(e.pointerId); look.held = true; });
+    seatCv.addEventListener('pointermove', (e) => {
+      if (!last) return;
+      look.yaw = Math.max(-150, Math.min(150, look.yaw + (e.clientX - last.x) * 0.3));
+      look.pitch = Math.max(-60, Math.min(40, look.pitch - (e.clientY - last.y) * 0.25));
+      last = { x: e.clientX, y: e.clientY };
+    });
+    const up = () => { last = null; };
+    seatCv.addEventListener('pointerup', up); seatCv.addEventListener('pointercancel', up);
+    // The arrow keys look round too, so the view doesn't need a pointer.
+    seatCv.addEventListener('keydown', (e) => {
+      const d = { ArrowLeft: [-8, 0], ArrowRight: [8, 0], ArrowUp: [0, 6], ArrowDown: [0, -6] }[e.key];
+      if (!d) return;
+      e.preventDefault(); look.held = true;
+      look.yaw = Math.max(-150, Math.min(150, look.yaw + d[0])); look.pitch = Math.max(-60, Math.min(40, look.pitch + d[1]));
+    });
+  }
   // The maintenance stage: drag to walk round her (the camera orbits), scroll to step in or out.
   const stage3d = root.querySelector('#hb-stage3d');
   if (stage3d) {
@@ -1150,6 +1204,11 @@ function startSpin() {
           venue: stageVenue(sc), cam });
       }
     }
+
+    // The booth's cockpit view, when it is up and GLASS can draw it.
+    const seatCv = root.querySelector('#' + SEAT_ID);
+    const seatCraft = seatCv && seatOn() && curCraft();
+    if (seatCraft && seatDrawable()) { paintWindshield(SEAT_ID, seatView(seatCraft, t / 1000)); seatLive = true; }
 
     // Walkaround inspect — one craft on the player-driven camera (B.inspect): a free WASD
     // walk camera or the orbit turntable.
@@ -1788,6 +1847,16 @@ function ensureStyles() {
     box-shadow:0 0 8px rgba(64,220,255,0.35); }
   #hb-root .hb-booth .hb-stage-mode { font-style:italic; text-transform:uppercase; letter-spacing:1px; color:#fff; background:rgba(40,8,48,0.8);
     border:1px solid #c448ff; box-shadow:0 0 10px rgba(196,72,255,0.6), inset 0 0 6px rgba(196,72,255,0.4); }
+  /* The booth's Exterior | Interior switch, top left, in the booth's neon. */
+  #hb-root .hb-view-seg { position:absolute; left:10px; top:40px; z-index:3; display:flex; border:1px solid #c448ff; border-radius:16px; overflow:hidden;
+    background:rgba(40,8,48,0.8); box-shadow:0 0 10px rgba(196,72,255,0.5); }
+  #hb-root .hb-view-seg button { font:inherit; font-size:10px; font-style:italic; text-transform:uppercase; letter-spacing:1px; padding:5px 11px;
+    color:#d9b8ff; background:none; border:0; cursor:pointer; }
+  #hb-root .hb-view-seg button.on { color:#fff; background:rgba(196,72,255,0.45); text-shadow:0 0 6px rgba(255,120,255,0.9); }
+  #hb-root .hb-view-seg button:focus-visible { outline:2px solid #40dcff; outline-offset:-2px; }
+  #hb-root .hb-seat { background:#05060c; }
+  #hb-root .hb-seat-note { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-style:italic; letter-spacing:1px;
+    color:#bfefff; text-shadow:0 0 6px rgba(64,220,255,0.8); pointer-events:none; }
   #hb-root .hb-bay2-side { flex:1 1 0; min-width:0; display:flex; flex-direction:column; gap:10px; min-height:0; }
   #hb-root .hb-jobs { flex:0 0 auto; display:grid; grid-template-columns:repeat(auto-fill,minmax(88px,1fr)); gap:6px; }
   #hb-root .hb-job { display:flex; flex-direction:column; align-items:flex-start; gap:1px; padding:7px 9px; border-radius:8px; cursor:pointer;

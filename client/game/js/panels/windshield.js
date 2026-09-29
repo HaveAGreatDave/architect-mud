@@ -69,7 +69,7 @@ import { CAB_VIEW_TUNE } from '../../../shared/cab-render-tune.js';   // the gro
 import { DASH_MATERIALS, DASH_COLOURWAYS, isDashMaterial, isDashColourway, stockTrim, resolveColourway, sanitizeCustomTrim, CUSTOM_COL } from '../../../shared/cab-trim.js';
 import { TRINKETS, trinketIn, wheelStyle, trinketState, stepTrinket } from '../../../shared/cab-trinkets.js';
 import { signalLamp, junctionOffset, isJunction } from '../../../shared/traffic.js';
-import { shellFaces, shellProfileFor, shellBounds, EYE_M, eyeMetresOf } from '../../../shared/interior-shell.js';
+import { shellFaces, shellProfileFor, shellBounds, EYE_M, eyeMetresOf, cabinRetint } from '../../../shared/interior-shell.js';
 import { drakeHotspots } from '../../../shared/interior-drake.js';
 import { SHINY, PANE, TEXTURE, TONE_TEX, texIndex } from '../../../shared/interior-kit.js';   // which cabin colours are metals, and how hard they glint   // the room you are sitting in, as geometry — see pushInteriorShell
 // The wet/standing-water/snow arithmetic, shared with the server so a player logging in mid-storm
@@ -6435,7 +6435,8 @@ function paintWindshieldFrame(id, view) {
     // near-ground band the cowl exists to hide. The header stays either way — it is over the glass.
     if (!planeForward) drawCowlCached(ctx, W, H, v.cls, dpr);
   }
-  if (!bare && !v.windowClass) drawWxBadge(ctx, W, bowArcs ? v.event.type : wx, v.wind);
+  // The paint booth's cabin view (hangar-bay.js) is indoors, and says so with `noWxBadge`.
+  if (!bare && !v.windowClass && !v.noWxBadge) drawWxBadge(ctx, W, bowArcs ? v.event.type : wx, v.wind);
   // ── RAIN IN FRONT OF THE CHASE CAMERA ────────────────────────────────────────
   // The atmospheric pass runs early, before the world objects, so that falling rain reads as being
   // out IN the scene rather than plastered on the glass — right for a cockpit, and the reason the
@@ -22522,6 +22523,9 @@ function pushInteriorShell(cam, v) {
   // The light, and the relation `drawCabInterior` shades every surface by: what comes in through
   // the screen, in the sky's own colour, floored so a pillar return keeps its thickness at night.
   const T = v.cls === 'truck' ? cabTrim(v.tier, v.trim) : DASH_COLOURWAYS.slate;
+  // The livery's cabin colour over the walls it repaints (interior-shell.js cabinRetint), or null.
+  const cabin = v.livery && v.livery.cabin;
+  const cabinMap = cabin ? cabinRetint(v.cls, v.armed, cabin) : null;
   const sky = skyAt(v.hour == null ? 12 : v.hour);
   const murk = v.weather === 'storm' || v.weather === 'ash' || v.weather === 'dust' ? 0.55
     : v.weather === 'rain' || v.weather === 'snow' || v.weather === 'fog' || v.weather === 'haze' ? 0.40
@@ -22594,7 +22598,7 @@ function pushInteriorShell(cam, v) {
   // Only a SHINY face (the metal ramp and the sun glint) reads the sun; the rest are lit from the
   // fixed key and keep their colour through a turn.
   const frameKeyBase = litK + '|' + outK + '|' + amb + '|' + KEY + '|' + floodK + '|' + floodRgb
-    + '|' + v.tier + '|' + v.trim + '|' + rich + '|' + CAB_PAINTED;
+    + '|' + v.tier + '|' + v.trim + '|' + rich + '|' + CAB_PAINTED + '|' + (cabinMap ? cabin : '');
   const frameKeySun = frameKeyBase + '|' + sunC;
   if (INT_LIT.P !== P) { INT_LIT.length = 0; INT_LIT.P = P; }
   let fi = -1;
@@ -22642,7 +22646,7 @@ function pushInteriorShell(cam, v) {
     // A material may scale the colourway key (a light headliner, a darker dash top) without
     // replacing it, so a retrim still reaches the surface.
     const lv = f.mat && Number.isFinite(f.mat.lv) ? f.mat.lv : 1;
-    const base = f.rgb || (lv === 1 ? c : [Math.min(255, c[0] * lv), Math.min(255, c[1] * lv), Math.min(255, c[2] * lv)]);
+    const base = (cabinMap && f.rgb && cabinMap.get(f.rgb)) || f.rgb || (lv === 1 ? c : [Math.min(255, c[0] * lv), Math.min(255, c[1] * lv), Math.min(255, c[2] * lv)]);
     let shaded;
     if (P.normalLit && f.n) {
       // ⚠ LIT BY WHICH WAY THE FACE POINTS. The k relation gives every face one authored brightness,

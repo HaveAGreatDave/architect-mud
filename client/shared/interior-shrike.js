@@ -808,3 +808,6 @@ export function shrikeHotspots(P, live) {
 
 // Exposed for the gate: the exterior read-back and the scale, so it can say what it measured.
 export const SHRIKE_EXTERIOR = exterior;
+
+// The palette, for the livery cabin retint (interior-shell.js CABIN_WALLS).
+export { T as SHRIKE_TRIM };

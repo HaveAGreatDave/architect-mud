@@ -143,16 +143,17 @@ let DRAKE_NOIR_PROFILE = null, DRAKE_QH_PROFILE = null;
 // Every one of these is its own file, its room derived from its own exterior row and its fit-out
 // researched against the real type it stands for (the header of each file names the sources), with
 // its own gate in scripts/shapes/cockpit-<id>.mjs. Built on first ask and kept, like the Drake.
-import { muleProfile } from './interior-mule.js';
-import { leviathanProfile } from './interior-leviathan.js';
-import { reaperProfile } from './interior-reaper.js';
-import { shrikeProfile } from './interior-shrike.js';
-import { locustProfile } from './interior-locust.js';
-import { mayflyProfile } from './interior-mayfly.js';
-import { dragonflyProfile } from './interior-dragonfly.js';
-import { viperProfile } from './interior-viper.js';
+import { muleProfile, MULE_TRIM } from './interior-mule.js';
+import { leviathanProfile, LEV_TRIM } from './interior-leviathan.js';
+import { reaperProfile, REAPER_TRIM } from './interior-reaper.js';
+import { shrikeProfile, SHRIKE_TRIM } from './interior-shrike.js';
+import { locustProfile, LOCUST_TRIM } from './interior-locust.js';
+import { mayflyProfile, MAYFLY_TRIM } from './interior-mayfly.js';
+import { dragonflyProfile, DRAGONFLY_TRIM } from './interior-dragonfly.js';
+import { viperProfile, VIPER_TRIM } from './interior-viper.js';
 import { carcassProfile } from './interior-carcass.js';
-import { grasshopperProfile } from './interior-grasshopper.js';
+import { grasshopperProfile, CUB_TRIM } from './interior-grasshopper.js';
+import { defaultLivery } from './livery-sets.js';
 const CRAFT_PROFILE = {};
 const craftProfile = (id, build) => (CRAFT_PROFILE[id] ||= build());
 
@@ -407,6 +408,44 @@ export function shellProfileFor(cls, armed = false, trim = null) {
   if (cls === 'drake' && trim === 'quackhawk') return SHELL_PROFILES.drakeQuackhawk;
   const key = cls && SHELL_CLASS[cls];
   return key ? SHELL_PROFILES[key] : null;
+}
+
+// ── THE LIVERY'S CABIN COLOUR ────────────────────────────────────────────────
+//
+// A livery's `cabin` colour repaints the cockpit's walls: the lining or skin that fills most of the
+// room, listed per class with the main tone first. Every other tone keeps its brightness against
+// the main one, so a darker return stays darker. The class's own default cabin colour means "as
+// authored", so an aircraft nobody has repainted keeps the interior its file draws. The Drake has
+// no entry: its cabin trim (livery.itrim) is its cabin, a whole palette rather than one colour.
+// The tones are matched by identity, so SHINY and TEXTURE (registered on the same arrays) still apply.
+const CABIN_WALLS = {
+  prop: () => [MULE_TRIM.lining, MULE_TRIM.liningDk],
+  heavy: () => [LEV_TRIM.lining, LEV_TRIM.liningDk],
+  gunship: () => [REAPER_TRIM.gull, REAPER_TRIM.gullDk],
+  divebomber: () => [SHRIKE_TRIM.rlm66, SHRIKE_TRIM.rlm66Dk, SHRIKE_TRIM.rlm66Lt],
+  locust: () => [LOCUST_TRIM.skin, LOCUST_TRIM.skinDk],
+  grasshopper: () => [CUB_TRIM.lining, CUB_TRIM.liningDk, CUB_TRIM.fabric, CUB_TRIM.fabricDk],
+  ultralight: () => [MAYFLY_TRIM.lining, MAYFLY_TRIM.liningDk],
+  heli: () => [DRAGONFLY_TRIM.cloth, DRAGONFLY_TRIM.clothDk],
+  heliArmed: () => [VIPER_TRIM.wall, VIPER_TRIM.wallAlt, VIPER_TRIM.wallDk],
+};
+const hexRgb = (h) => (/^#[0-9a-f]{6}$/i.test(h || '') ? [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)) : null);
+const lum = (c) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+let CABIN_LAST = { key: null, map: null };
+// The wall tones this cabin colour repaints, as a Map from the authored array to its new colour,
+// or null when there is nothing to change. Cached on its inputs, so it is free frame to frame.
+export function cabinRetint(cls, armed, hex) {
+  const key = cls + '|' + !!armed + '|' + hex;
+  if (CABIN_LAST.key === key) return CABIN_LAST.map;
+  let map = null;
+  const walls = CABIN_WALLS[cls === 'heli' && armed ? 'heliArmed' : cls];
+  const rgb = hexRgb(hex), def = cls && defaultLivery('aircraft', cls);
+  if (walls && rgb && String(hex).toLowerCase() !== String(def?.interior?.cabin || '').toLowerCase()) {
+    const tones = walls(), ref = Math.max(1, lum(tones[0]));
+    map = new Map(tones.map(t => { const k = lum(t) / ref; return [t, rgb.map(v => Math.max(0, Math.min(255, Math.round(v * k))))]; }));
+  }
+  CABIN_LAST = { key, map };
+  return map;
 }
 
 // ── GEOMETRY HELPERS ─────────────────────────────────────────────────────────
