@@ -3754,7 +3754,13 @@ export function openFlightSim(opts = {}) {
     F.dk.subBlowLocal = false;
     F.dk.subWant = Math.max(5, Math.round(F.dk.submerged || 0));
     try { gearFx('flood'); } catch {}
-    sendCmdSilent(under ? 'submerge ' + F.dk.subWant : 'submerge');
+    // ⚠ THE SERVER DIVES HER ONLY FROM BOAT, and learns she is in BOAT from flightsync, which goes
+    // every 1.2 s. Sent straight away, a SUB taken just after BOAT reached a server that still had
+    // her in HELI and was refused, while the gauge ran the tanks up and snapped them back to its 0.
+    // So the order rides the next sync, which the frame sends at once (syncAcc).
+    F.dk.subPending = under ? 'submerge ' + F.dk.subWant : 'submerge';
+    F.dk.subAskAt = performance.now();
+    F.syncAcc = 99;
   };
   const KEYS = new Set(['a', 'z', 'q', 'w', 'e', 's', 'y', 'h', 'f', 'g', 'j', 'v', 'x', 'c', '1', '2', ' ', '[', ']', '\\', ',', '.', 'k', 'r', 't', 'i']);
   const onKeyDown = (e) => {
@@ -5549,10 +5555,15 @@ function fsimFrameBody(now) {
     // more than a quarter snaps it back, so the picture cannot wander from the arithmetic.
     {
       const D = F.dk;
+      // Asked to dive and nothing came back: the server said no, so stop filling tanks it never flooded.
+      if (D.subBlowLocal === false && !(D.submerged > 0) && D.subAskAt && performance.now() - D.subAskAt > 3000) {
+        D.subBlowLocal = null; D.subAskAt = 0; D.subPending = null;
+        fsimToast(F.engineOn ? 'SUB: she would not go under' : 'SUB: start the engine first');
+      }
       const blowing = D.subBlowLocal ?? D.subBlow ?? true;
       const want = blowing ? 0 : 1;
       let b = D.ballastVis ?? 0;
-      if (Math.abs(b - (D.subBallast || 0)) > 0.25) b = D.subBallast || 0;
+      if (!D.subPending && !(D.subBlowLocal === false && !(D.submerged > 0)) && Math.abs(b - (D.subBallast || 0)) > 0.25) b = D.subBallast || 0;
       const prev = b;
       b += clampNum(want - b, -dt / (D.subBlowS || 3), dt / (D.subFloodS || 4));
       D.ballastVis = b;
@@ -6332,6 +6343,7 @@ function fsimFrameBody(now) {
   if ((F.reportedAirborne || F.rolling || taxiing) && F.syncAcc >= syncEvery) {
     F.syncAcc = 0;
     sendCmdSilent(`flightsync ${F.pos.x.toFixed(2)} ${F.pos.y.toFixed(2)} ${Math.round(s.altitude)} ${Math.round(s.airspeed)} ${Math.round(s.heading)} ${Math.round(thr * 100)} ${Math.round(s.vs)} ${s.onGround ? 1 : 0} ${s.stalled ? 1 : 0} ${Math.round(s.bank || 0)} ${Math.round((s.pitch || 0) + (F.dk?.flarePitch || 0))}${drakeSyncTail(F)}`);
+    if (F.dk?.subPending) { sendCmdSilent(F.dk.subPending); F.dk.subPending = null; }
     // Where our murmurations really are (MURMUR_MEASURED), so the server's strike test hits the cloud
     // we can see rather than its shared centre. Every couple of seconds, only flocks within reach.
     F.flockAcc = (F.flockAcc || 0) + syncEvery;
@@ -6906,6 +6918,7 @@ export function drakeSubmerged(msg) {
   F.dk.subBallast = +msg.ballast || 0;
   F.dk.subBlow = msg.blow !== false;
   F.dk.subBlowLocal = null;            // the server has answered the button; its word wins now
+  F.dk.subAskAt = 0;
   if (msg.floodS) F.dk.subFloodS = +msg.floodS;
   if (msg.blowS) F.dk.subBlowS = +msg.blowS;
   F.dk.subFloor = msg.floor ?? null;
