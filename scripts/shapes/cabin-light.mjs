@@ -1,5 +1,5 @@
 // The world's light reaches the room you sit in: the moon brightens a cab at night, a roof dims it
-// at noon (a shed, the gate's lock road, the gate, a hangar), and rolled inverted the light comes up off the floor (cabinEnvLight in windshield.js).
+// at noon (a shed, the gate's lock road, the gate, a hangar, a bridge or arch overhead), and rolled inverted the light comes up off the floor (cabinEnvLight in windshield.js).
 // Measured on the interior faces the frame collects, as mean luminance, so it proves direction and
 // not taste.
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
@@ -46,6 +46,21 @@ for (const [k, x] of [['shed', shed], ['lock road', lock], ['covered seat', said
   if (!(x < open * 0.9)) problems.push(`the ${k} did not darken the cab at noon (open ${open.toFixed(1)}, ${k} ${x.toFixed(1)})`);
 }
 if (!(gate < open * 0.97 && gate > shed)) problems.push(`the gate yoke is not a partial shade (open ${open.toFixed(1)}, gate ${gate.toFixed(1)}, shed ${shed.toFixed(1)})`);
+
+// Under a bridge: parked beneath the Air Rights arch (a named model whose mass starts above a
+// truck's eye), against the same spot with no building. overheadAt answers from the captured
+// segments, so this is the real model, not a stand-in.
+{
+  const arch = { kind: 'land', biome: 'downtown', bt: 'chrome_arch', bn: 'Air Rights', flr: 3, ent: 'south' };
+  const m = mkMap(null); m[20][20] = arch;
+  if (!ws.overheadAt(100, 100, arch, 99.8, 100, 0.12)) problems.push('overheadAt no longer finds the Air Rights arch over a truck');
+  const under = lum(faces({ ...TRUCK, map: m, mapOffset: { x: -0.2, y: 0 } }));
+  const clear = lum(faces({ ...TRUCK, mapOffset: { x: -0.2, y: 0 } }));
+  if (!(under < clear * 0.9)) problems.push(`driving under the Air Rights arch did not darken the cab (clear ${clear.toFixed(1)}, under ${under.toFixed(1)})`);
+  // A stacked building is mass above every point of it, and being in it is not being under it.
+  const wh = { kind: 'land', biome: 'freight', bt: 'warehouse', flr: 2, ent: 'south' };
+  if (ws.overheadAt(100, 100, wh, 100, 100, 0.12)) problems.push('overheadAt called the inside of a warehouse wall a bridge');
+}
 
 // Upside down: the upper half of the room loses to the lower half compared with level. Per-face
 // comparison on the same slots, split by each face's height in the level frame.

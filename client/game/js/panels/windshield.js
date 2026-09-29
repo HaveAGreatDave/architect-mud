@@ -19033,6 +19033,39 @@ export function modelTopAt(wx, wy, cell, px, py, inFeet) {
   return inFeet ? altForRoofZ(best) : best;
 }
 
+// IS THERE A BUILDING OVER THIS POINT, ABOVE THIS EYE? The same captured segments modelTopAt
+// reads, asked the other way up: not "how high is the mass here" but "does any of it start above
+// me". That is a bridge, a sky link, an arch, an overpass or a soffit, whatever the arm called it,
+// and it is how the cockpit knows it has driven under one (cabinEnvLight). World-z, like the eye.
+// A bay is not asked here: its roof has its own row in COVER_BY_MARK.
+export function overheadAt(wx, wy, cell, px, py, eyeZ) {
+  if (!cell || isBay(cell) || buildingHeightZ(wx, wy, cell) <= 0) return false;
+  const m = modelFor(cell);
+  if (!m) return false;   // an archetype square is solid to the ground: you are in it, not under it
+  const seed = (wx + 512) * 73 + (wy + 512) * 149;
+  const segs = shapeForModel(m, seed);
+  if (!segs || !segs.length) return false;
+  const h = floorHeight(cell, seed);
+  if (!(h > 0)) return false;
+  const fh = (BUILDING_FOOT + frac(seed + 2) * 0.06) * (RENDER_TUNE.bldgFoot || 1);
+  const E = faceVec(cell.ent), th = Math.atan2(-E[0], E[1]), ct = Math.cos(th), st = Math.sin(th);
+  const ox = px - wx, oy = py - wy;
+  const lx = ox * ct + oy * st, ly = -ox * st + oy * ct;
+  const V = (q) => q[0] * fh + q[1] * h + q[2];
+  // ⚠ AND THE EYE MUST BE IN CLEAR AIR. A stacked building has mass above every point of its
+  // footprint; that is being inside a wall, not under a bridge. Covered means something starts
+  // above you and nothing is solid where you are.
+  let over = false;
+  for (const sg of segs) {
+    const z0 = V(sg.z0);
+    if (z0 <= eyeZ && V(sg.z1) < eyeZ) continue;       // wholly below the eye: a kerb, a plinth
+    if (!segContains(sg, lx, ly, V)) continue;
+    if (z0 <= eyeZ) return false;                      // solid at eye height
+    over = true;
+  }
+  return over;
+}
+
 // Is a MODEL-LOCAL point inside this segment's footprint? Extracted so the aircraft's CFIT probe
 // (modelTopAt) and the ground vehicle's obstruction probe (groundObstructionAt) share one answer.
 // They ask different questions — "how high is the mass here" vs "is the mass here in my way" — but
@@ -22527,7 +22560,8 @@ function texOf(f) {
 // was missing, all off fields already on the view, so nothing new goes on the wire:
 //   · moon  — what the moon adds after dark: its phase times its height, gone behind cloud.
 //   · cover — 0 open sky, ~1 a roof overhead, off the mark under the vehicle (COVER_BY_MARK: the
-//             shed, the gate's lock road, the gate). A seat that knows better (the hangar bay's
+//             shed, the gate's lock road, the gate), or any building mass whose underside is above
+//             the eye (overheadAt: a bridge, an overpass, a sky link, an arch). A seat that knows better (the hangar bay's
 //             cockpit booth) says so with `v.covered`.
 //   · up    — the sky's direction in the cab's own frame (x right, y forward, z up). Level it is
 //             [0, 0, 1]; rolled inverted it is [0, 0, −1] and the light comes up off the floor.
@@ -22536,7 +22570,8 @@ function texOf(f) {
 // covered lock road either side of the South Gate (`lock`, roof at LCK_ROOF_Z, open at its ends)
 // are most of it; the gate itself is a yoke across the carriageway, a band of shade you pass under.
 const COVER_BY_MARK = { bay: 0.8, lock: 0.8, gate: 0.45 };
-function cabinEnvLight(v, murk) {
+const OVERHEAD_PROBES = [[0, 0], [0.06, 0], [-0.06, 0], [0, 0.06], [0, -0.06]];
+function cabinEnvLight(v, murk, eyeZ) {
   const hour = v.hour == null ? 12 : v.hour;
   const ph = v.moon != null ? ((v.moon % 1) + 1) % 1 : 0.5;
   const mA = moonArc(hour, ph);
@@ -22546,7 +22581,20 @@ function cabinEnvLight(v, murk) {
   const here = mid >= 0 && v.map[mid] ? v.map[mid][mid] : null;
   // ⚠ A ROOF IS ONLY A ROOF TO SOMETHING UNDER IT. An aircraft 500 ft over a shed is not in it.
   const low = v.alt == null || v.alt < 40;
-  const cover = clamp(Number.isFinite(v.covered) ? v.covered : (here && low ? COVER_BY_MARK[here.mark] || 0 : 0), 0, 1);
+  let cover = Number.isFinite(v.covered) ? v.covered : (here && low ? COVER_BY_MARK[here.mark] || 0 : 0);
+  // A bridge, an overpass, a sky link or an arch: building mass whose underside is above the eye.
+  // Five probes (the eye and a step each way) so driving out from under one fades rather than snaps.
+  if (!Number.isFinite(v.covered) && eyeZ != null && v.mapCenter && mid >= 0) {
+    const cx = v.mapCenter.x + ((v.mapOffset && v.mapOffset.x) || 0), cy = v.mapCenter.y + ((v.mapOffset && v.mapOffset.y) || 0);
+    let hits = 0;
+    for (const [ex, ey] of OVERHEAD_PROBES) {
+      const px = cx + ex, py = cy + ey, wx = Math.round(px), wy = Math.round(py);
+      const row = v.map[mid + wy - v.mapCenter.y];
+      if (row && overheadAt(wx, wy, row[mid + wx - v.mapCenter.x], px, py, eyeZ)) hits++;
+    }
+    cover = Math.max(cover, 0.85 * hits / OVERHEAD_PROBES.length);
+  }
+  cover = clamp(cover, 0, 1);
   const b = (v.bank || 0) * Math.PI / 180, p = (v.pitch || 0) * Math.PI / 180;
   const cb = Math.cos(b), sb = Math.sin(b), cp = Math.cos(p), sp = Math.sin(p);
   // World → cab: the body's right, forward and up in the level-heading frame (pitch, then roll,
@@ -22604,7 +22652,7 @@ function pushInteriorShell(cam, v) {
     : v.weather === 'overcast' ? 0.22 : 0;
   const litK = clamp(Math.max(sky.night, murk), 0, 1);
   // The moon, a roof overhead and which way is up — see cabinEnvLight.
-  const E = cabinEnvLight(v, murk), UP = E.up;
+  const E = cabinEnvLight(v, murk, cam.EH), UP = E.up;
   // How dark it is where the lamps are concerned: the night, or a shed at noon.
   const darkK = clamp(Math.max(litK, E.cover * 0.75), 0, 1);
   // A moonlit cab takes the moon's cold silver into what comes through the glass.
