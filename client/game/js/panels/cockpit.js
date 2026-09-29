@@ -3733,7 +3733,8 @@ export function openFlightSim(opts = {}) {
   const subDepthKey = (dir) => {
     if (!F.dk) return;
     const base = F.dk.subWant ?? F.dk.submerged ?? 0;
-    F.dk.subWant = Math.max(0, Math.min(1200, base + dir * 3));
+    // Under, she holds 1 m at the shallowest: only BOAT mode blows the ballast and surfaces her.
+    F.dk.subWant = Math.max(F.dk.submerged > 0 ? 1 : 0, Math.min(1200, base + dir * 3));
     fsimToast(F.dk.subWant > 0 ? '⬇ DEPTH ' + F.dk.subWant + ' m' : '⬆ SURFACE');
     clearTimeout(F.dk.subSendTimer);
     F.dk.subSendTimer = setTimeout(() => subOrder(F.dk.subWant), 350);
@@ -3746,7 +3747,7 @@ export function openFlightSim(opts = {}) {
   F.subToggle = () => {
     if (!F.dk) return;
     const under = F.dk.submerged > 0, blowing = F.dk.subBlowLocal ?? F.dk.subBlow ?? true;
-    if (under && !blowing) { F.subSurface(); return; }
+    if (under && !blowing) { fsimToast('SUB: switch to BOAT to blow ballast and surface'); return; }
     if (!under && F.drakeModeReady && !F.drakeModeReady(3)) { fsimToast(F.dk.boat ? 'SUB: not deep enough to dive' : 'SUB: switch to BOAT first'); return; }
     F.dk.subBlowLocal = false;
     F.dk.subWant = Math.max(5, Math.round(F.dk.submerged || 0));
@@ -4353,7 +4354,7 @@ export function openFlightSim(opts = {}) {
       mode0: () => ['HELI', 'rotor flight'], mode1: () => ['PLANE', 'wings out, forward flight'],
       mode2: () => ['BOAT', 'feet up, sit on the hull (over water)'], mode3: () => ['SUB', 'flood the ballast and dive (on the water)'],
       modelever: () => ['MODE', `${['HELI', 'PLANE', 'BOAT', 'SUB'][drakeModeNow()]} · click a gate, or the knob for the next`],
-      sublever: () => { const d = F.dk || {}; const up = d.submerged > 0 && !(d.subBlowLocal ?? d.subBlow ?? true); return ['SUB', up ? 'submerged · click to blow ballast and surface' : 'click to flood ballast and dive (on the water)']; },
+      sublever: () => { const d = F.dk || {}; const up = d.submerged > 0 && !(d.subBlowLocal ?? d.subBlow ?? true); return ['SUB', up ? 'submerged · take BOAT to blow ballast and surface' : 'click to flood ballast and dive (on the water)']; },
       convlever: () => ['CONVERSION LEVER', 'ROTOR aft · WING forward · click to convert'],
       trim: () => ['TRIM', 'drag or scroll'],
       yoke: () => ['YOKE', 'drag: roll and pitch'],

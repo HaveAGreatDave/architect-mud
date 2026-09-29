@@ -5,7 +5,7 @@ The Drake goes under. A salvage frontier on a procedural seabed.
 ## Verbs
 
 - `submerge`: go down to 5 m (or the bottom, if shallower). `submerge <metres>` trims to a depth, `submerge floor` sits her just off the bottom, and a bare `submerge` while under reads the gauges.
-- `surface`: blow the ballast.
+- `surface`: blow the ballast. Taking BOAT on the mode selector sends it; nothing else in the cockpit surfaces her. Flown up on the planes she holds at 1 m (`SUB_CEIL`) rather than broaching. Running out of air or drifting over a shoal still forces her up.
 - `sonar`: the bottom under her and what is lying on it within 20 tiles, as bearings and ranges. Works on the surface too.
 
 `dive` is flight's nose-down verb, which is why this one is `submerge`.

@@ -1,7 +1,7 @@
 // SUBMERSIBLE — regress. The arithmetic first (sub.js, driven second by second), then the verbs
 // against a real seated Drake over a real water tile, because a check that only asserts a refusal
 // cannot tell a working gate from a broken verb (see powerboat's regress on the same point).
-import { newSub, stepSub, HULL_TIERS, tierOf, crushRate, bearing, MIN_WATER, regenAir, REGEN_S, MIN_AIR_FRAC, FLOOD_S, DESCEND_MS, PLANE_MS } from './sub.js';
+import { newSub, stepSub, HULL_TIERS, tierOf, crushRate, bearing, MIN_WATER, regenAir, REGEN_S, MIN_AIR_FRAC, FLOOD_S, DESCEND_MS, PLANE_MS, SUB_CEIL } from './sub.js';
 import { subs, subTick, regenTick, isLandTile, floorUnder, airMaxOf } from './index.js';
 import { liveAircraft } from '../flight/state.js';
 import { getAllZones, zoneTerrain } from '../../server/engine/world.js';
@@ -75,10 +75,10 @@ export default async function regress({ run, check, getPlayer }) {
     s.planes = 0.8; s.planesAt = t0;
     stepSub(s, 1, 40, t0 + 10);
     check('a stale planes order is ignored', s.depth === held);
-    // Flown up to the surface on the planes: she broaches and the dive ends.
+    // Flown up on the planes she holds at the ceiling: only a blow (BOAT mode) surfaces her.
     let ev = [];
-    for (let i = 0; i < 30 && !ev.includes('surfaced'); i++) { s.planes = -1; s.planesAt = t0 + 20 + i; ev = stepSub(s, 1, 40, t0 + 20 + i).ev; }
-    check('steering up through the surface ends the dive', ev.includes('surfaced') && s.blow, `depth ${s.depth}`);
+    for (let i = 0; i < 30; i++) { s.planes = -1; s.planesAt = t0 + 20 + i; ev = ev.concat(stepSub(s, 1, 40, t0 + 20 + i).ev); }
+    check('steering up stops at the ceiling and she stays under', !ev.includes('surfaced') && !s.blow && s.depth === SUB_CEIL, `depth ${s.depth}`);
     // Blowing empties the tanks, and the planes cannot fight a blow.
     const b = newSub(1, 10);
     for (let i = 0; i < 12; i++) stepSub(b, 1, 40);
