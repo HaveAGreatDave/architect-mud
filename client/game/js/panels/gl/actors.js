@@ -2,8 +2,9 @@
 //
 // The close-up half of the street-actor layer. windshield.js decides who is drawn this way (anybody
 // big enough on screen, on GLASS 2, once the bake has finished) and hands each of them over as a
-// record in the solids list with `actor: 1`; context.js splits those out to here. Everybody else is
-// still the billboard drawActorFigure bakes.
+// record in the solids list with `actor: 1`; context.js splits those out to here. A record with
+// `lod: 1` is somebody a few pixels tall and draws the far body (actor3d.js bk.far), a second mesh on
+// the same clips; smaller than RENDER_TUNE.actorFarPx is still the billboard drawActorFigure bakes.
 //
 // It is gl/fauna.js's scheme with two changes. The mesh is one skinned body from actor3d.js, and its
 // clips live in two RGBA16F textures (positions and normals), a column per vertex and a band of rows
@@ -142,10 +143,12 @@ export function createActorLayer(gl) {
     keyDir: gl.getUniformLocation(prog, 'uKeyDir'),
   };
 
-  // The mesh and its textures go up once, the first time anybody is drawn with a finished bake.
-  let mesh = null;
-  function meshFor(bk) {
-    if (mesh) return mesh;
+  // Each body's mesh and textures go up once, the first time anybody is drawn with it. Index 0 is the
+  // close-up body and 1 the far one (actor3d.js bk.far); both play through the one program, and both
+  // use units 20 and 21, bound in turn at draw time.
+  const meshes = [null, null];
+  function meshFor(bk, lod) {
+    if (meshes[lod]) return meshes[lod];
     const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
     const mb = gl.createBuffer();
@@ -178,11 +181,11 @@ export function createActorLayer(gl) {
       gl.activeTexture(gl.TEXTURE0);
       return t;
     };
-    mesh = { vao, stream, count: bk.idx.length, posT: tex(POS_UNIT, bk.pos), nrmT: tex(NRM_UNIT, bk.nrm), bk };
-    return mesh;
+    meshes[lod] = { vao, stream, count: bk.idx.length, posT: tex(POS_UNIT, bk.pos), nrmT: tex(NRM_UNIT, bk.nrm), bk,
+      data: new Float32Array(STRIDE * 64), n: 0 };
+    return meshes[lod];
   }
 
-  let data = new Float32Array(STRIDE * 64);
   let n = 0;
   let key = [-0.7, -0.7, 0.35];
 
@@ -190,34 +193,40 @@ export function createActorLayer(gl) {
    * Take this frame's records. Each is { x, y, z, s, hd, clip, ph, clip2, ph2, mix, o, lum, a, lx, ly }:
    * map-window tiles, tiles per metre, heading in radians on the ground plane, the clip and its phase
    * (and optionally a second clip being blended from), the outfit, brightness, alpha, and the frame's
-   * key-light direction on the ground plane.
+   * key-light direction on the ground plane. `lod: 1` draws the far body.
    */
   function upload(recs) {
     n = 0;
-    const bk = actorBakeReady();
-    if (!bk || !recs || !recs.length) return 0;
-    const M = meshFor(bk);
-    if (data.length < recs.length * STRIDE) data = new Float32Array(Math.max(recs.length * STRIDE, data.length * 2));
-    const c = (o, rgb) => { data[o] = rgb[0] / 255; data[o + 1] = rgb[1] / 255; data[o + 2] = rgb[2] / 255; };
+    for (const M of meshes) if (M) M.n = 0;
+    const bake = actorBakeReady();
+    if (!bake || !recs || !recs.length) return 0;
+    for (const r of recs) if (r.lod && bake.far) meshFor(bake.far, 1).n++; else meshFor(bake, 0).n++;
+    for (const M of meshes) {
+      if (!M || !M.n) continue;
+      if (M.data.length < M.n * STRIDE) M.data = new Float32Array(Math.max(M.n * STRIDE, M.data.length * 2));
+      M.n = 0;
+    }
     for (const r of recs) {
+      const M = r.lod && bake.far ? meshes[1] : meshes[0], bk = M.bk, data = M.data;
+      const c = (o, rgb) => { data[o] = rgb[0] / 255; data[o + 1] = rgb[1] / 255; data[o + 2] = rgb[2] / 255; };
       const A = bk.clips[r.clip] || bk.clips.idle, Bc = r.clip2 ? bk.clips[r.clip2] : null;
-      const o = n * STRIDE;
+      const o = M.n * STRIDE;
       data[o] = r.x; data[o + 1] = r.y; data[o + 2] = r.z || 0; data[o + 3] = r.s;
       data[o + 4] = A.row0; data[o + 5] = A.len; data[o + 6] = r.ph || 0; data[o + 7] = r.hd || 0;
       data[o + 8] = Bc ? Bc.row0 : 0; data[o + 9] = Bc ? Bc.len : 1; data[o + 10] = r.ph2 || 0; data[o + 11] = Bc ? (r.mix || 0) : 0;
       c(o + 12, r.o.coat); c(o + 15, r.o.legs); c(o + 18, r.o.skin); c(o + 21, r.o.hair); c(o + 24, r.o.shoes);
       data[o + 27] = r.lum == null ? 1 : r.lum; data[o + 28] = r.a == null ? 1 : r.a;
-      n++;
+      M.n++; n++;
     }
     const r0 = recs[0];
     const kl = Math.hypot(r0.lx || 0, r0.ly || 0, 0.35) || 1;
     key = [(r0.lx || 0) / kl, (r0.ly || 0) / kl, 0.35 / kl];
-    M.stream.write(data, n * STRIDE);
+    for (const M of meshes) if (M && M.n) M.stream.write(M.data, M.n * STRIDE);
     return n;
   }
 
   function draw(cam, cssH, opts = {}) {
-    if (!n || !mesh) return 0;
+    if (!n) return 0;
     gl.useProgram(prog);
     gl.uniformMatrix4fv(loc.viewProj, false, viewProjMatrix(cam, cssH, opts.near, opts.far));
     const f = opts.fog;
@@ -226,27 +235,32 @@ export function createActorLayer(gl) {
     gl.uniform1f(loc.fogFar, f ? f.far : 1e9 + 1);
     gl.uniform1f(loc.fogAmt, f ? f.amt : 0);
     gl.uniform3f(loc.keyDir, key[0], key[1], key[2]);
-    gl.uniform1i(loc.w, mesh.bk.W);
-    gl.uniform1i(loc.rows, mesh.bk.rows);
     gl.uniform1i(loc.posT, POS_UNIT);
     gl.uniform1i(loc.nrmT, NRM_UNIT);
-    gl.activeTexture(gl.TEXTURE0 + POS_UNIT);
-    gl.bindTexture(gl.TEXTURE_2D, mesh.posT);
-    gl.activeTexture(gl.TEXTURE0 + NRM_UNIT);
-    gl.bindTexture(gl.TEXTURE_2D, mesh.nrmT);
     gl.enable(gl.DEPTH_TEST);
     gl.depthMask(true);
     gl.disable(gl.CULL_FACE);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    gl.bindVertexArray(mesh.vao);
-    gl.drawElementsInstanced(gl.TRIANGLES, mesh.count, gl.UNSIGNED_SHORT, 0, n);
+    let tris = 0;
+    for (const mesh of meshes) {
+      if (!mesh || !mesh.n) continue;
+      gl.uniform1i(loc.w, mesh.bk.W);
+      gl.uniform1i(loc.rows, mesh.bk.rows);
+      gl.activeTexture(gl.TEXTURE0 + POS_UNIT);
+      gl.bindTexture(gl.TEXTURE_2D, mesh.posT);
+      gl.activeTexture(gl.TEXTURE0 + NRM_UNIT);
+      gl.bindTexture(gl.TEXTURE_2D, mesh.nrmT);
+      gl.bindVertexArray(mesh.vao);
+      gl.drawElementsInstanced(gl.TRIANGLES, mesh.count, gl.UNSIGNED_SHORT, 0, mesh.n);
+      tris += (mesh.count / 3) * mesh.n;
+    }
     gl.bindVertexArray(null);
     gl.bindTexture(gl.TEXTURE_2D, null);
     gl.activeTexture(gl.TEXTURE0 + POS_UNIT);
     gl.bindTexture(gl.TEXTURE_2D, null);
     gl.activeTexture(gl.TEXTURE0);
-    return (mesh.count / 3) * n;
+    return tris;
   }
 
   return {

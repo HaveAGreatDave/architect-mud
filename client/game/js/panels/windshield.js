@@ -2331,9 +2331,12 @@ export const RENDER_TUNE = {
   glFaunaInst: 1,
   // People on the pavement as skinned meshes on GLASS 2 (gl/actors.js, actor3d.js). 0 draws every
   // figure as the billboard, as shipped. `actorMeshPx` is how tall, in device pixels, somebody has to
-  // be before they get the mesh; smaller than that the billboard reads better and costs nothing.
+  // be before they get the close-up mesh. Between `actorFarPx` and that they get the far body (a few
+  // hundred vertices on the same clips, actor3d.js buildBody lod 1); under it, the billboard. 0 for
+  // actorFarPx is the billboard for everybody under actorMeshPx, as shipped before the far body.
   actorMesh: 1,
   actorMeshPx: 8,
+  actorFarPx: 1.5,
   // ⚠ HOW MANY MURMURATION BIRDS THE GPU SIMULATES IN ONE FRAME, over every cloud in view. A step
   // costs about 2.9 ms at 80,000 birds and 17 ms at 300,000 (big clouds step every 2nd or 3rd frame by measured cost, STEP_BUDGET_MS in gl/murmur-gpu.js) on the machine it was measured on
   // (__glMurmurCost), so this is one of the biggest roosts. Clouds are admitted nearest first, charged
@@ -28875,14 +28878,19 @@ function actorMeshOn() { return GL_ACTOR_MESH && SCATTER_SINK && FAUNA_SINK && R
 function pushActorMesh(cam, dx, dy, z, alpha, night, pose, p) {
   const bk = actorBakeReady();
   if (!bk || !actorMeshOn()) return false;
-  if (ACTOR_TOP * ACTOR_S * _propK / p.f * _frameDpr < (RENDER_TUNE.actorMeshPx || 0)) return false;
+  // Under actorMeshPx somebody gets the far body (bk.far), a few hundred vertices on the same clips;
+  // under actorFarPx, the billboard. actorFarPx at 0 or unset keeps the billboard for everybody under
+  // actorMeshPx, as shipped.
+  const px = ACTOR_TOP * ACTOR_S * _propK / p.f * _frameDpr;
+  const far = px < (RENDER_TUNE.actorMeshPx || 0);
+  if (far && (!bk.far || !(RENDER_TUNE.actorFarPx > 0) || px < RENDER_TUNE.actorFarPx)) return false;
   const s = ACTOR_TOP * ACTOR_S * _propK / cam.depth / bk.top * pose.k;
   // A walk's phase is distance over stride, both in tiles, so the feet cover the ground the figure does.
   const phOf = (clip, gd, ph) => (clip === 'walk' ? gd / (actorStrideM() * s) : ph) % 1;
   const L = LIGHT_STATE;
   const from = pose.mix > 0 ? pose.from : null;
   FAUNA_SINK.push({
-    actor: 1, x: dx + (cam.ox || 0), y: dy + (cam.oy || 0), z, s, hd: pose.hd, o: pose.o,
+    actor: 1, lod: far ? 1 : 0, x: dx + (cam.ox || 0), y: dy + (cam.oy || 0), z, s, hd: pose.hd, o: pose.o,
     clip: pose.clip, ph: phOf(pose.clip, pose.gd, pose.ph),
     clip2: from ? from.clip : null, ph2: from ? phOf(from.clip, from.gd, from.ph) : 0, mix: from ? pose.mix : 0,
     lum: night ? 0.62 : 1, a: alpha, lx: L ? L.sx : -0.707, ly: L ? L.sy : -0.707,
