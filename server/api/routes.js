@@ -143,7 +143,7 @@ schedule('1m', async () => {
 // mistypes a password, not for a script: the login window is short so a locked-
 // out player is back in minutes, while the mail-sending routes are hourly
 // because each one costs a real message to somebody's inbox.
-const AUTH_LIMITS = {
+export const AUTH_LIMITS = {
   '/auth/login':               { limit: 20, windowMs:  5 * 60_000, globalLimit: 600 },
   '/auth/register':            { limit: 10, windowMs: 60 * 60_000, globalLimit: 200 },
   '/auth/forgot-password':     { limit:  5, windowMs: 60 * 60_000, globalLimit: 200 },
@@ -570,6 +570,12 @@ async function dispatchApiRequest(url, method, body, headers) {
 async function apiRegister(body) {
   const {username,password,handle,email,displayRung} = body||{};
   if (!username||!password||!handle||!email) return {status:400,body:{error:'username, password, handle, email required'}};
+  // ⚠ A handle is shown to other players, and dialogue interpolates it into HTML
+  // (`${player.handle}`), so markup here would be stored XSS. Letters, digits,
+  // spaces and _ . ' - only.
+  if (typeof handle !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9 _.'-]{1,23}$/.test(handle)) {
+    return {status:400,body:{error:"Handle must be 2 to 24 characters: letters, numbers, spaces and _ . ' - (starting with a letter or number)."}};
+  }
   // Starting appearance is fully randomized here (sex included) so the chargen
   // terminal opens on a random look the player then reshapes — nothing is a fixed
   // default. Sex and the rest are all finalized at the MORPHEX terminal.

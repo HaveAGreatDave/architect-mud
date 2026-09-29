@@ -1,4 +1,5 @@
 import { sendCmdSilent } from '../net.js';
+import { escapeHtml } from '/shared/dom.js';
 import { makeFloatable, promptQty } from './confirm.js';
 
 let activeCorpseId = null;
@@ -52,7 +53,7 @@ function buildItemCard(item, source, corpseId) {
   card.setAttribute('data-id', item.id);
   const qty = item.quantity > 1 ? ` x${item.quantity}` : '';
   const wt = item.weight != null ? ` ${formatWeight(item.weight)}` : '';
-  card.innerHTML = `<span class="ctr-name">${item.name}${qty}</span><span class="ctr-meta">${wt}</span>`;
+  card.innerHTML = `<span class="ctr-name">${escapeHtml(String(item.name))}${qty}</span><span class="ctr-meta">${wt}</span>`;
 
   if (source === 'corpse') {
     card.setAttribute('draggable', 'true');

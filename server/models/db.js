@@ -51,6 +51,14 @@ const pool = new Pool({
   // so one-offs never compete with the server for slots.
   max: parseInt(process.env.DB_POOL_MAX, 10) || 10,
   idleTimeoutMillis: 30000,
+  // With no limits, one hung query holds a slot for ever and a caller waiting
+  // on a full pool waits for ever too; ten of either and the game stops. Both
+  // are generous: they catch a hang, not a slow backup. DB_STATEMENT_TIMEOUT_MS=0
+  // turns the statement limit off for a one-shot that really needs longer.
+  connectionTimeoutMillis: 15000,
+  statement_timeout: process.env.DB_STATEMENT_TIMEOUT_MS != null
+    ? parseInt(process.env.DB_STATEMENT_TIMEOUT_MS, 10) || undefined
+    : 120000,
 });
 
 pool.on('error', (err) => {
@@ -216,9 +224,28 @@ export async function query(text, params) {
   try {
     const res = await client.query(text, params);
     return res;
+  } catch (err) {
+    logFailedWrite(text, err);
+    throw err;
   } finally {
     client.release();
   }
+}
+
+// About 380 call sites write with `.catch(() => {})`, so a failed save used to
+// leave no trace at all. The error still goes to the caller; this only makes
+// sure somebody can see it. Reads are left alone (callers handle those), and
+// the same statement logs at most once a minute so a failing tick can't flood.
+const WRITE_RE = /^\s*(INSERT|UPDATE|DELETE)\b/i;
+const lastLogged = new Map();   // statement head → ms
+function logFailedWrite(text, err) {
+  if (typeof text !== 'string' || !WRITE_RE.test(text)) return;
+  const head = text.trim().replace(/\s+/g, ' ').slice(0, 80);
+  const now = Date.now();
+  if (now - (lastLogged.get(head) || 0) < 60_000) return;
+  if (lastLogged.size > 500) lastLogged.clear();
+  lastLogged.set(head, now);
+  console.warn(`⚠ DB write failed (${err.code || 'no code'}): ${err.message} | ${head}`);
 }
 
 // Log a server activity event. Caps the table at ~500 rows.

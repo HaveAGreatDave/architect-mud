@@ -1,4 +1,5 @@
 import { sendCmdSilent } from '../net.js';
+import { escapeHtml } from '/shared/dom.js';
 
 // The wardrobe panel: saved outfits on the left, a paper doll in the middle, the
 // wardrobe's hanging stock and your carried clothes on the right. Drag a garment
@@ -254,7 +255,7 @@ function renderStock(listId, items, source) {
     // know which of the three coats on you is the one under the armour.
     const tag = source === 'worn' && item.tags.layer
       ? `${slotOf(item)} · ${layerLabel(slotOf(item), item.tags.layer)}` : slotOf(item);
-    card.innerHTML = `<span class="ctr-name">${item.name}</span><span class="ctr-meta wdr-slot-tag">${tag}</span>`;
+    card.innerHTML = `<span class="ctr-name">${escapeHtml(String(item.name))}</span><span class="ctr-meta wdr-slot-tag">${tag}</span>`;
 
     const btn = document.createElement('button');
     btn.className = 'ctr-action-btn';

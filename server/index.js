@@ -1,7 +1,7 @@
 import { createServer } from "http";
 import { readFileSync, existsSync, statSync } from "fs";
 import { brotliCompressSync, gzipSync, constants } from "zlib";
-import { join, extname, dirname } from "path";
+import { join, extname, dirname, relative, isAbsolute } from "path";
 import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
 import { randomUUID } from "crypto";
@@ -82,8 +82,10 @@ import { reloadAliases } from "./engine/commands/aliases.js";
 import { loadMutations, hydrateMutations, flushMutations } from "./engine/mutations.js";
 import { loadBanterLibrary } from "./engine/npc-banter.js";
 import { loadScriptTriggers } from "./engine/script-triggers.js";
+import { checkRateLimit, clientKey } from "./api/rate-limit.js";
 import {
 	handleApiRequest,
+	AUTH_LIMITS,
 	setBroadcast,
 	consumeSwitchToken,
 	setGhostTokenStore,
@@ -395,6 +397,9 @@ function getAsset(filePath) {
 	return entry;
 }
 
+const API_BODY_MAX = 5 * 1024 * 1024;   // bytes; dev-panel saves are the big ones
+const WS_MAX_PAYLOAD = 1024 * 1024;     // bytes; commands are tiny, macro syncs are not
+
 const httpServer = createServer(async (req, res) => {
 	const url = req.url || "/";
 	const cors = {
@@ -425,11 +430,29 @@ const httpServer = createServer(async (req, res) => {
 	if (url.startsWith("/api/")) {
 		let body = {};
 		if (req.method !== "GET") {
+			// Capped: this runs before any auth check, so an uncapped read lets
+			// anyone make the server buffer as much as they care to send.
 			const chunks = [];
-			for await (const chunk of req) chunks.push(chunk);
-			try {
-				body = JSON.parse(Buffer.concat(chunks).toString());
-			} catch {}
+			let size = 0;
+			for await (const chunk of req) {
+				size += chunk.length;
+				if (size > API_BODY_MAX) {
+					res.writeHead(413, { ...cors, "Content-Type": "application/json" });
+					res.end(JSON.stringify({ error: "Request body too large." }));
+					req.destroy();
+					return;
+				}
+				chunks.push(chunk);
+			}
+			if (size) {
+				try {
+					body = JSON.parse(Buffer.concat(chunks).toString());
+				} catch {
+					res.writeHead(400, { ...cors, "Content-Type": "application/json" });
+					res.end(JSON.stringify({ error: "Malformed JSON body." }));
+					return;
+				}
+			}
 		}
 		let result;
 		try {
@@ -496,35 +519,43 @@ const httpServer = createServer(async (req, res) => {
 			res.writeHead(404); res.end("Not found"); return;
 		}
 		res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
-		res.end(readFileSync(scriptPath));
+		res.end(getAsset(scriptPath).raw);   // cached, like every other static file
 		return;
 	}
 
 	let filePath;
+	let fileRoot;
 	if (url === "/admin" || url === "/admin/") {
 		// Same app, same file — the client reads location.pathname and prunes
 		// itself to the ops panels. One HTML file means the two views can't drift.
-		filePath = join(__dirname, "../client/devpanel", "index.html");
+		fileRoot = join(__dirname, "../client/devpanel");
+		filePath = join(fileRoot, "index.html");
 	} else if (url.startsWith("/dev")) {
+		fileRoot = join(__dirname, "../client/devpanel");
 		filePath = join(
-			__dirname,
-			"../client/devpanel",
+			fileRoot,
 			url === "/dev" || url === "/dev/"
 				? "index.html"
 				: url.replace("/dev", ""),
 		);
 	} else if (url.startsWith("/shared/")) {
+		fileRoot = join(__dirname, "../client/shared");
 		filePath = join(
-			__dirname,
-			"../client/shared",
+			fileRoot,
 			url.slice("/shared/".length),
 		);
 	} else {
+		fileRoot = join(__dirname, "../client/game");
 		filePath = join(
-			__dirname,
-			"../client/game",
+			fileRoot,
 			url === "/" ? "index.html" : url,
 		);
+	}
+	// ⚠ req.url is raw, so "/../../.env" joins to the repo root. Every static
+	// path must stay under the folder its branch serves.
+	const rel = relative(fileRoot, filePath);
+	if (rel.startsWith("..") || isAbsolute(rel)) {
+		res.writeHead(404); res.end("Not found"); return;
 	}
 	if (!existsSync(filePath)) {
 		// Only fall back to the SPA shell for extension-less paths (real navigation
@@ -607,6 +638,8 @@ const httpServer = createServer(async (req, res) => {
 //                      the context buys nothing and costs memory per player.
 const wss = new WebSocketServer({
 	server: httpServer,
+	// Frames are JSON.parsed before auth, and the ws default is 100 MB.
+	maxPayload: WS_MAX_PAYLOAD,
 	perMessageDeflate: {
 		threshold: 1024,
 		concurrencyLimit: 10,
@@ -625,16 +658,25 @@ const IDLE_ACTIVITY_TYPES = new Set([
 	"instrument_note",
 ]);
 
-wss.on("connection", (ws) => {
+wss.on("connection", (ws, req) => {
 	clients.set(ws, {
 		playerId: null,
 		handle: null,
 		role: null,
 		isGhost: false,
+		// Same key shape the HTTP limiter uses, so a WS login and an HTTP login
+		// from one address draw on one allowance.
+		addrKey: clientKey({ ...req.headers, "x-remote-addr": req.socket.remoteAddress }),
 	});
 
 	// WebSocket keepalive ping/pong
 	ws.isAlive = true;
+	// ⚠ Without a listener, a socket error (an oversized or malformed frame, a
+	// reset) is an uncaught exception, and that now restarts the server. ws
+	// closes the socket itself; this only has to exist.
+	ws.on("error", (err) => {
+		console.warn("⚠ WebSocket error:", err.code || err.message);
+	});
 	ws.on("pong", () => {
 		ws.isAlive = true;
 	});
@@ -661,6 +703,10 @@ wss.on("connection", (ws) => {
 			const live = getLivePlayer(session.playerId);
 			if (live) live._lastInputAt = Date.now();
 		}
+		// Everything but commands and keepalives shares a flood bucket. Commands
+		// have their own (commandAllowed, with a player-facing notice) and
+		// instrument notes are rate-limited by their plugin.
+		if (!UNTHROTTLED_TYPES.has(msg.type) && !messageAllowed(session)) return;
 		if (msg.type === "auth") return handleAuth(ws, session, msg);
 		if (msg.type === "auth_token") return handleAuthToken(ws, session, msg);
 		if (msg.type === "auth_reconnect")
@@ -1083,6 +1129,13 @@ async function handleGhostRefresh(ws, session) {
 }
 
 async function handleAuth(ws, session, msg) {
+	// The HTTP /auth/login route is rate-limited; this door has to be too, or a
+	// guesser just switches transport. Checked before the lookup and the scrypt.
+	const gate = checkRateLimit("/auth/login", session.addrKey || "unknown", AUTH_LIMITS["/auth/login"]);
+	if (!gate.ok) {
+		ws.send(JSON.stringify({ type: "auth_fail", message: "Too many attempts. Wait a few minutes and try again." }));
+		return;
+	}
 	const { rows } = await query("SELECT * FROM players WHERE username=$1", [
 		msg.username?.toLowerCase(),
 	]);
@@ -1576,6 +1629,23 @@ const CMD_BUCKET_CAP = 15;       // burst allowance (tokens)
 const CMD_REFILL_PER_SEC = 5;    // sustained refill rate
 const CMD_NOTICE_COOLDOWN_MS = 2000; // min gap between "slow down" errors
 
+// A looser bucket for every other message type (shop buys and sells, dialogue,
+// panel data, ghost verbs, auth). Several write to the DB, so a scripted client
+// must not get them for free. Over the limit they're dropped silently.
+const MSG_BUCKET_CAP = 40;
+const MSG_REFILL_PER_SEC = 15;
+const UNTHROTTLED_TYPES = new Set(["command", "ping", "instrument_note"]);
+
+function messageAllowed(session) {
+	const now = Date.now();
+	const b = session.msgBucket || (session.msgBucket = { tokens: MSG_BUCKET_CAP, last: now });
+	b.tokens = Math.min(MSG_BUCKET_CAP, b.tokens + ((now - b.last) / 1000) * MSG_REFILL_PER_SEC);
+	b.last = now;
+	if (b.tokens < 1) return false;
+	b.tokens -= 1;
+	return true;
+}
+
 function commandAllowed(session) {
 	const now = Date.now();
 	const b = session.cmdBucket || (session.cmdBucket = { tokens: CMD_BUCKET_CAP, last: now, notifiedAt: 0 });
@@ -1946,10 +2016,13 @@ async function handleSellAllToNpc(ws, session, msg) {
 	if (sold) ws.send(JSON.stringify({ type: "player_update", credits: player.credits }));
 }
 
-// Safety net: a bug in any single request handler should never be able
-// to take the whole server down. Log it, keep running.
+// An uncaught exception can leave the world Maps, a player or the pool half
+// mutated, and running on from there corrupts state quietly. Log it and exit
+// through the normal shutdown; Render restarts the process. A rejected promise
+// stays inside its own chain, so that one stays up.
 process.on("uncaughtException", (err) => {
-	console.error("⚠ Uncaught exception (server staying up):", err);
+	console.error("⚠ Uncaught exception, restarting:", err);
+	shutdown("uncaughtException", 1);
 });
 process.on("unhandledRejection", (err) => {
 	console.error("⚠ Unhandled rejection (server staying up):", err);
@@ -2057,13 +2130,15 @@ async function boot() {
 // Graceful shutdown: release DB connections immediately on Ctrl-C / kill so a
 // restart starts clean and doesn't leave connections lingering on the pooler.
 let _shuttingDown = false;
-async function shutdown(signal) {
+async function shutdown(signal, code = 0) {
 	if (_shuttingDown) return;
 	_shuttingDown = true;
 	console.log(`\n${signal} — shutting down…`);
+	// A pool that won't drain must not keep a broken process alive.
+	setTimeout(() => process.exit(code), 5000).unref();
 	httpServer.close();
 	try { await pool.end(); } catch { /* pool already closed */ }
-	process.exit(0);
+	process.exit(code);
 }
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));

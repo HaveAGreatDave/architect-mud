@@ -1,4 +1,5 @@
 import { sendCmdSilent } from '../net.js';
+import { escapeHtml } from '/shared/dom.js';
 import { state } from '../state.js';
 import { makeFloatable, promptQty } from './confirm.js';
 
@@ -439,13 +440,13 @@ function renderList(listId, items, source, containerId) {
     // owns the label AND the colour — the client keeps no copy of the ladder).
     // Absent on anything untouched, which is nearly everything.
     const cond = item.cond
-      ? `<span class="ctr-cond" style="color:${item.cond.colour};border-color:${item.cond.colour}" title="condition">${item.cond.label}</span>`
+      ? `<span class="ctr-cond" style="color:${item.cond.colour};border-color:${item.cond.colour}" title="condition">${escapeHtml(String(item.cond.label))}</span>`
       : '';
     // `wanted` is set by the cooking plugin's container.view hook — this row
     // answers something still on your shopping list. Same mark and same colour
     // as the shop board uses, because it is the same fact.
     const mark = item.wanted ? '<span class="ctr-mark" title="on your shopping list">▸</span>' : '';
-    card.innerHTML = `${mark}<span class="ctr-name">${item.name}</span>${cond}${qty}${wt}`;
+    card.innerHTML = `${mark}<span class="ctr-name">${escapeHtml(String(item.name))}</span>${cond}${qty}${wt}`;
 
     const btn = document.createElement('button');
     btn.className = 'ctr-action-btn';

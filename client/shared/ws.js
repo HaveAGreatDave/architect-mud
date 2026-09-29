@@ -43,6 +43,7 @@ export function connectWS(url, { onOpen, onClose, onRetry, onColdStart, onMessag
     sock.onclose = () => {
       if (permanent) return;
       if (sock !== ws) return;   // a stale socket's death says nothing about the live one
+      if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
       coldStartTimer = setTimeout(() => {
         coldStartTimer = null;
         // Last check before crying wolf: the socket may have come up during the
@@ -53,7 +54,9 @@ export function connectWS(url, { onOpen, onClose, onRetry, onColdStart, onMessag
       reconnectDelay = Math.min(reconnectDelay * 1.5, 15000);
       onClose?.();
       onRetry?.();
-      retryTimer = setTimeout(connect, reconnectDelay);
+      // ±25% jitter, so after a server restart every client doesn't redial on
+      // the same beat.
+      retryTimer = setTimeout(connect, reconnectDelay * (0.75 + Math.random() * 0.5));
     };
 
     sock.onmessage = (e) => {

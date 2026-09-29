@@ -60,7 +60,11 @@ export async function handleEnvironmentApi(path, method, body, auth) {
     return { status: 200, body: env.getForecast() };
   }
 
+  // Dev-panel reads. Behind dev auth because several hit the DB, and an open GET
+  // that queries is a free way to spend the database from outside.
   if (path === '/environment/weathermap' && method === 'GET') {
+    const denied = requireDevAuth(auth);
+    if (denied) return denied;
     return { status: 200, body: await env.getWeatherMap() };
   }
 
@@ -71,23 +75,33 @@ export async function handleEnvironmentApi(path, method, body, auth) {
   }
 
   if (path === '/environment/power/map' && method === 'GET') {
+    const denied = requireDevAuth(auth);
+    if (denied) return denied;
     return { status: 200, body: env.getPowerMap() };
   }
 
   if (path.startsWith('/environment/power/zones/') && method === 'GET') {
+    const denied = requireDevAuth(auth);
+    if (denied) return denied;
     const zoneId = decodeURIComponent(path.split('/')[4] || '');
     return { status: 200, body: await env.getZonePowerInfo(zoneId) };
   }
 
   if (path === '/environment/power/generators' && method === 'GET') {
+    const denied = requireDevAuth(auth);
+    if (denied) return denied;
     return { status: 200, body: await env.getGeneratorsList() };
   }
 
   if (path === '/environment/power/city-generators' && method === 'GET') {
+    const denied = requireDevAuth(auth);
+    if (denied) return denied;
     return { status: 200, body: await env.getCityGenerators() };
   }
 
   if (path.startsWith('/environment/power/generators/') && path.endsWith('/zones') && method === 'GET') {
+    const denied = requireDevAuth(auth);
+    if (denied) return denied;
     const parts = path.split('/'); // ['', 'environment', 'power', 'generators', id, 'zones']
     const genId = decodeURIComponent(parts[4] || '');
     return { status: 200, body: await env.getGeneratorZones(genId) };

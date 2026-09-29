@@ -39,6 +39,13 @@ function findSaved(saved, nameStr) {
   return null;
 }
 
+// A dish name is player text that other players see (the plate's name when it's
+// dropped, given or looted), and the renderers treat a name as HTML. Strip
+// markup characters here, at the only door they come in by.
+function dishName(s) {
+  return String(s || '').replace(/[<>&"`]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+}
+
 export async function cmdRecipe(args, raw, player, broadcast) {
   const sub = (args[0] || '').toLowerCase();
   // Off `raw`, not `args` — the dispatcher lower-cases arguments, and a player
@@ -67,7 +74,7 @@ export async function cmdRecipe(args, raw, player, broadcast) {
   // it, which is why this needs no "last thing you cooked" state — there is
   // nothing to go stale, and nothing to write on a tick.
   if (sub === 'save') {
-    const name = rest.replace(/^as\s+/i, '').trim();
+    const name = dishName(rest.replace(/^as\s+/i, ''));
     if (!name) return { type: 'error', message: `Call it what? ("recipe save rat surprise")` };
 
     const rows = await resolveInventoryItem(player, { topLevel: true, all: true });
@@ -102,7 +109,9 @@ export async function cmdRecipe(args, raw, player, broadcast) {
     if (!m) return { type: 'error', message: `Rename what to what? ("recipe rename rat surprise to house special")` };
     const hit = findSaved(saved, m[1]);
     if (!hit) return { type: 'error', message: `You haven't written down anything called "${m[1].trim()}".` };
-    const r = await renameRecipe(player.id, hit.slug, m[2].trim());
+    const newName = dishName(m[2]);
+    if (!newName) return { type: 'error', message: `Rename it to what?` };
+    const r = await renameRecipe(player.id, hit.slug, newName);
     return { type: 'output', message: r.ok ? `${hit.name} is now <span class="text-bright">${r.name}</span>.` : `That didn't take.` };
   }
 
