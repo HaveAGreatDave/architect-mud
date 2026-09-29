@@ -134,6 +134,12 @@ export function isFreelookActive() { return !!st; }
 // (`__freeLook().freeCam.open({ z, pitch, yaw })`) where the mouse would take a minute of nudging.
 if (typeof window !== 'undefined') window.__freeLook = () => st;
 
+// Who is standing in the window (server/engine/street-actors.js), absolute tiles. An empty list is a
+// real answer; only an absent one keeps the last.
+export function freelookSetActors(actors) {
+  if (st && actors !== undefined) st.actors = actors || [];
+}
+
 export function freelookSetSky(sky) {
   if (!st || !sky) return;
   st.field = sky.field || st.field;
@@ -173,6 +179,7 @@ export function openFreelook(ctx = {}) {
     if (st.want && st.want.x === st.gx && st.want.y === st.gy) st.freeCam.rebase(ogx - st.gx, ogy - st.gy);
     st.want = null;
     freelookSetSky(ctx.sky);
+    freelookSetActors(ctx.actors);
     return st.api;
   }
   closeFreelook();
@@ -231,6 +238,7 @@ export function openFreelook(ctx = {}) {
     id, mount, root, freeCam,
     gx: ctx.gx ?? 0, gy: ctx.gy ?? 0,
     map: ctx.map || null,
+    actors: ctx.actors || [],
     want: null,                       // the re-centre this view has asked for and not yet been given
     onRecenter: ctx.onRecenter || null,
     stand,
@@ -324,6 +332,7 @@ export function openFreelook(ctx = {}) {
         acX: st.gx, acY: st.gy, airport: 'default',
         tune: (st.stand || freeCam.standing) ? STAND_TUNE : undefined,   // see STAND_TUNE — a seat that cannot move can afford to draw more
         freeCam: freeCam.view(),
+        actors: st.actors,   // pavement people; meshes up close (gl/actors.js)
       });
 
       // ⚠ WHERE THE CAMERA IS, NOT WHERE THE WINDOW IS CENTRED. This read `st.gx,st.gy`, which is

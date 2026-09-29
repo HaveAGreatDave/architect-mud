@@ -18,6 +18,7 @@
 // switch off the frame is the billboard frame it always was.
 import { actorBake, actorOutfit, actorStrideM, ACTOR_OUTFITS } from '../../client/game/js/panels/actor3d.js';
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
+import { readFileSync } from 'node:fs';
 
 const REPORT = process.argv.includes('--report');
 const problems = [];
@@ -218,6 +219,31 @@ else {
   report(`walker: moved ${d.toFixed(4)} tiles, gait advanced ${covered.toFixed(4)} tiles of stride`);
   if (!(d > 0)) problems.push('the walker did not move between frames');
   else if (Math.abs(covered - d) > d * 0.1) problems.push(`the gait covered ${covered.toFixed(4)} tiles while the figure moved ${d.toFixed(4)}; the feet will slide`);
+}
+
+// ── 4. Every seat ───────────────────────────────────────────────────────────────────────────────────
+// The mesh only reaches a view that hands the renderer its `actors`. The cab did and nothing else
+// asked, so the cockpit, free look and the boat each need their own camera shape to give meshes.
+// A 720p canvas: at 360 a cockpit's figure a tile off is just under actorMeshPx.
+stubCanvas('__acs', 1280, 720);
+const SEATS = {
+  cockpit: { cls: 'cessna', phase: 'cruise', height: 0, pitch: 0, bank: 0, speed: 0 },
+  freelook: { external: true, hideOwnShip: true, phase: 'cruise', height: 0, speed: 0, freeCam: { x: 0, y: 0.3, z: 0.08, yaw: 0, pitch: -0.05 } },
+  boat: { cls: 'hydro', phase: 'cruise', height: 0, metreTiles: 0.02, eyeH: 0.05 },
+};
+for (const [seat, cam] of Object.entries(SEATS)) {
+  let seen = null;
+  const c = globalThis.document.createElement('canvas');
+  c.width = 1280; c.height = 720;
+  ws.installGLWorld((cells, _cam, o) => { seen = (o.fauna || []).filter((q) => q.actor).length; return { faces: 1, canvas: c }; });
+  const v = () => ({ hour: 13, weather: 'clear', map, mapCenter: C, mapOffset: { x: 0, y: 0 }, heading: 0, worldBlend: 1, ...cam, actors: people().slice(0, 2) });
+  ws.paintWindshield('__acs', v()); T += 1000; ws.paintWindshield('__acs', v()); T += 1000;
+  report(`${seat}: ${seen} actor records`);
+  if (!seen) problems.push(`the ${seat} camera turned no near figure into a mesh`);
+}
+// And each seat passes the list on. A view that drops `actors` draws an empty street with nothing said.
+for (const f of ['cab-view.js', 'cockpit.js', 'freelook-view.js', 'boat-view.js']) {
+  if (!/\bactors:\s*(st|F)\.actors\b/.test(readFileSync(new URL(`../../client/game/js/panels/${f}`, import.meta.url), 'utf8'))) problems.push(`${f} never hands the renderer its street actors`);
 }
 
 // Off: the frame is the billboard frame it always was.

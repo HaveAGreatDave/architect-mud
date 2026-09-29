@@ -346,6 +346,7 @@ export function openBoat(ctx = {}) {
     hour: ctx.hour ?? 12, weather: (ctx.weather || 'clear').toLowerCase(),
     wxField: ctx.wxField || null, wxGround: ctx.wxGround || null,
     contacts: [],
+    actors: ctx.actors || [],   // the people on the quay, in absolute tiles (street-actors.js)
     lastSync: 0, last: performance.now(), alive: true, raf: 0,
     onSend: ctx.onSend || null,
     onExit: ctx.onExit || (() => send('disembark')),
@@ -965,6 +966,7 @@ function frame(now) {
       // Her paint, or the shipwright's preview of it (see boatPreview). Absent is the factory colours.
       ...((st.preview || st.livery) ? { livery: st.preview || st.livery } : {}),
       hour: st.hour, weather: st.weather,
+      actors: st.actors,   // pavement people; drawn as meshes up close (gl/actors.js)
       // ⚠ IT IS `wxGround`, AND THIS SENT `ground`. The renderer reads `v.wxGround` to seed how wet
       // and how snowed the world already is, so named wrong the seat starts every passage on dry,
       // bare summer ground and converges over the next ten minutes — a player taking the helm in a
@@ -1092,6 +1094,8 @@ export function boatSetWorld(msg = {}) {
   if (msg.wxField !== undefined) st.wxField = msg.wxField || null;
   if (msg.wxGround) st.wxGround = msg.wxGround;
   if (msg.contacts) st.contacts = msg.contacts;
+  // An empty list is a real answer (everybody went indoors), so only an absent key keeps the last one.
+  if (msg.actors !== undefined) st.actors = msg.actors || [];
   // ⚠ THE SERVER IS AUTHORITATIVE ABOUT THE ROW AND NOT ABOUT THE POSITION. Hull, fuel and the
   // bottle are things the yard, a refit and a wreck all write, so they are adopted; where the boat
   // IS is what this client just told the server, and adopting it back would fight the sim four
