@@ -1501,7 +1501,8 @@ const HULL_LAND = 0.34;        // driving it onto the beach: catastrophic, and m
 // hundred small landings are cheap and the one that drops the hull flat off a big face is not,
 // which is the difference between a maintenance tax and a mistake.
 const HULL_SLAM = 0.35;
-const HULL_FREE_VS = 0.30;
+// Raised from 0.30: an ordinary swell's landings are free again; a big sea or a gale still costs.
+const HULL_FREE_VS = 0.48;
 // ⚠ PER SECOND, SO IT IS SMALL. At 0.020 a minute of running hard across the swell took the hull
 // from 100% to 47% — which is not "a decision rather than a shortcut", it is a boat that dissolves
 // while you are looking at the scenery. At 0.004, sustained worst-case costs about a tenth of the
@@ -1510,7 +1511,7 @@ const HULL_BEAM = 0.004;
 // And it has a DEADBAND. The swell throws up 25 degrees of slope on its steeper faces, so a term
 // that starts the moment the hull is off level is a term that is always on — the lean has to be a
 // real one before it counts, and it saturates at a genuinely bad one.
-const HULL_BEAM_FROM = 0.20, HULL_BEAM_FULL = 0.55;   // radians: ~11 deg to ~31 deg
+const HULL_BEAM_FROM = 0.35, HULL_BEAM_FULL = 0.70;   // radians: ~20 deg to ~40 deg
 const NITRO_HEAT_HURT = 0.82;  // where leaning on the bottle starts costing hull
 
 export function createBoatState(p) {

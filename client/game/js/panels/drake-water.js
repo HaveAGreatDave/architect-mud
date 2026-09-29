@@ -33,7 +33,8 @@ export const DITCH_FPM = 1600;
 // BOAT MODE: the tail rotor as a pusher. Top speed on the surface and under it, knots.
 export const BOAT_MAX_KT = 48, SUB_MAX_KT = 14;
 // Tiles per second of vertical closing speed between hull and water that a strike starts to hurt.
-const WAVE_FREE = 0.10;
+// At 0.10 an ordinary swell hurt her every second she was moving; only a real sea should.
+const WAVE_FREE = 0.30;
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
@@ -107,7 +108,7 @@ export function drakeWaterFrame(F, s, dt, nowMs, amps, tilesPerKt) {
   const rel = Math.abs(closing);
   if (rel > WAVE_FREE && W.hitCd <= 0 && kt >= SLOW_SAFE_KT) {
     W.hitCd = 1.1;
-    out.hullPct = clamp(Math.round((rel - WAVE_FREE) * 90), 1, 25);
+    out.hullPct = clamp(Math.round((rel - WAVE_FREE) * 60), 1, 15);
   }
   out.ride = { heave: sea.h, pitch: Math.atan(sea.along) * 180 / Math.PI * 0.8, roll: Math.atan(sea.across) * 180 / Math.PI * 0.8 };
   return out;
