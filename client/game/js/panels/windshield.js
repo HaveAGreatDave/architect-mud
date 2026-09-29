@@ -42781,6 +42781,12 @@ function emitSurfaceText(ctx, cam, pts, tex, vertical, alpha, lift = DECO_LIFT, 
   // `signBoard`: those stand off 0.05 of a tile ON PURPOSE, and flattening them onto their own wall
   // put 92 models' worth of kit fins and tubes in front of their own name. `signfit` caught it.
   const sq = RENDER_TUNE.signSquare;
+  // ── ⚠ ZERO GAP: LETTERING IS ON ITS BOARD, NOT IN FRONT OF IT ────────────────────────────────
+  // Every `pull` a caller asks for is spent as `deep` now: a depth bias about the eye, which moves
+  // no pixel. Spent as a real stand-off along the normal it was a gap you could see, and from a
+  // low oblique seat that gap slid the words off their own board. The tie with the board (and the
+  // kit fins behind it) is still won, by the same amount of depth; nothing is drawn off the surface.
+  if (sq) { deep += pull; pull = 0; }
   const w0 = cam.unproj ? (sq ? unprojQuad(cam, pts, deep) : pts.map((p) => cam.unproj(p, pull + deep))) : null;
   const wf = (w0 && !w0.some((q) => !q)) ? fitSignPts(w0, tex) : null;
   // No fit available (no `unproj`, or a corner at the eye) is not a failure — it is today's
@@ -55792,11 +55798,13 @@ function drawTypeModelArm(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E
       drawFacetDrum(ctx, cam, dx, dy, entab + (ped - entab) * 0.55, ped, fh * 0.60, fh * 0.14, 24, alpha, hfChrome([130, 146, 162], [244, 250, 252], 1.7), hfChrome([136, 152, 168], [214, 228, 236], 1.4), pal);
       // …and the FRIEZE PLATE the inscription is cut into, flat across the entrance side of the
       // ring, for the reason the fascia note on `concert_hall` gives.
-      { const [ex, ey] = F(0, fh * 0.80); draw3DBoxAt(ctx, cam, ex, ey, fh * 0.76, bodyTop, entab, 'ty_course_dk', seed + 9, night, alpha, false, faceYaw(E), fh * 0.12); }
+      // ⚠ THE PLATE STANDS PROUD OF THE DRUM (face at 0.95; the drum's facets reach 0.93 and its rim
+      // 0.94). It was set at 0.92, inside the drum, and only a stand-off on the lettering hid that.
+      { const [ex, ey] = F(0, fh * 0.83); draw3DBoxAt(ctx, cam, ex, ey, fh * 0.76, bodyTop, entab, 'ty_course_dk', seed + 9, night, alpha, false, faceYaw(E), fh * 0.12); }
       // 4) THE INSCRIPTION, cut into the frieze plate. Paint flags: a chisel is not a tube.
       if (frontVis) {
         const P = (lx10, ly10, z) => { const [wx, wy] = F(lx10, ly10); return cam.proj(wx, wy, z); };
-        const z0 = bodyTop + h * 0.012, z1 = entab - h * 0.012, bhw = fh * 0.72, by = fh * 0.93;
+        const z0 = bodyTop + h * 0.012, z1 = entab - h * 0.012, bhw = fh * 0.72, by = fh * 0.95;
         const TL = P(-bhw, by, z1), TR = P(bhw, by, z1), BR = P(bhw, by, z0), BL = P(-bhw, by, z0);
         if ([TL, TR, BR, BL].every((q) => q.f > 0.12)) {
           const tex = bakeSignText(sign || 'THE HALCYON INSTITUTE', '#efeadb', 0, false, true, true);
@@ -60170,7 +60178,8 @@ const AUTHORED_DETAIL = {
       if (dp) Q([[lx, yF + t, zb + hh * 0.2], [lx, yF - t, zb + hh * 0.2], [lx, yF - t, z], [lx, yF + t, z]], shadeOf(P, 0.40), c.alpha, { lift: DETAIL_LIFT });
     }
     const pts = [[c.lx - half, yF, zt], [c.lx + half, yF, zt], [c.lx + half, yF, zb], [c.lx - half, yF, zb]];
-    Q(pts, board, c.alpha, { lift: DETAIL_LIFT, stroke: 'rgba(0,0,0,0.5)', lw: 1 });
+    // A painted (`perTile`) board is a decal pulled by its lift, so it asks for less than the lettering's own lead.
+    Q(pts, board, c.alpha, { lift: perTile ? FACE_EPS * 0.5 : DETAIL_LIFT, stroke: 'rgba(0,0,0,0.5)', lw: 1 });
     if (dp) {
       // The back of a hoarding is bare board and dimmer than its painted face.
       Q([[c.lx + half, yB, zt], [c.lx - half, yB, zt], [c.lx - half, yB, zb], [c.lx + half, yB, zb]], shadeOf(P, 0.44), c.alpha,
