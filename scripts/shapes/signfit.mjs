@@ -80,6 +80,10 @@ const KNOWN = new Map([
     "the same, with a 0.6-tile podium offset."],
   // ⚠ THE THIRD OF THE SAME SHAPE, AND THE FIRST WHERE BOTH PARTS ARE THE KIT'S OWN. Two walls at
   // two depths again, which no lateral rule on either one can clear.
+  ['named:chromeclinic',
+    "the asc_clinic arm under a name, so the same two-walls coincidence as `type:asc_clinic` below. " +
+    "It showed once the roof hoarding's lettering came in to FACE_EPS * 2 off its board (it stood " +
+    "0.03 of a tile out, which slid the words off small boards from a low oblique seat)."],
   ['type:asc_clinic',
     "the lit pilaster rank is on the FRONT face at x ±0.117 and the gable ad panel is on the −x " +
     "FLANK (`face: 'x'`, half 0.273, spanning most of that wall), so they are on two different " +

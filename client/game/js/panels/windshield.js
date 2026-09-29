@@ -60245,10 +60245,11 @@ const AUTHORED_DETAIL = {
         // ⚠ THE PULL IS MEASURED FROM `yF`, THE BOARD'S OWN FACE, so it only has to win a tie with
         // the board and clear the surround channel at `yFace`. It was `DETAIL_LIFT * 2.5` — 0.05 of a
         // tile, a fifth of a typical hoarding's height — which stood the tube lettering visibly off
-        // the front of its board from any oblique seat ("neon too far off sign"). ⚠ 0.03 AND NOT
-        // LESS: at `FACE_EPS * 2` and at `DETAIL_LIFT` a hand-drawn fitting on `named:chromeclinic`
-        // lands in front of its own name, and `signfit` says so.
-        emitSurfaceText(c.ctx, c.cam, w, tex, false, c.alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 1.5);
+        // the front of its board from any oblique seat ("neon too far off sign"). 0.03 still did it
+        // on a small roof board seen low and oblique ("PAWNBROKER" hanging off its hoarding), so it
+        // is `FACE_EPS * 2` now: past the surround at `yFace` and no further. Chrome Clinic's
+        // fitting then crosses its name from one heading; that is on `signfit`'s KNOWN list.
+        emitSurfaceText(c.ctx, c.cam, w, tex, false, c.alpha, DETAIL_LIFT * 2, false, FACE_EPS * 2);
       }
     }
   },
