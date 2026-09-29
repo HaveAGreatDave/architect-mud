@@ -112,12 +112,12 @@ void main() {
   vec3 col = vColor;
   if (vFeather > 0.99) {
     // A glow halo: the Shadertoy neon profile in place of a flat plateau. A tight exp() core that
-    // goes white-hot on the tube, plus a 1/d-style bloom that trails out and is forced to zero at
+    // goes white-hot on the tube, plus a wide exponential bloom that trails out and is forced to zero at
     // the quad's edge so no hard rim shows.
-    float core = exp(-d * d * 18.0);
-    float bloom = pow(0.12 / max(d, 0.12), 1.3) * (1.0 - d) * (1.0 - d);
-    a = vAlpha * 1.6 * (0.7 * core + 0.5 * bloom);
-    col = mix(vColor, vec3(1.0), core * 0.35);
+    float core = exp(-d * d * 60.0);
+    float bloom = exp(-d * 2.6) * (1.0 - d * d);
+    a = vAlpha * (0.9 * core + 1.5 * bloom);
+    col = mix(vColor, vec3(1.0), core * 0.25);
   }
   if (a < 0.004) discard;
   outColor = vec4(col * a, a);
