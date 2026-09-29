@@ -113,7 +113,8 @@ export const DRAKE_TRIM_QUACKHAWK = {
 // on Darkwing, brushed steel on Quackhawk. Each is its own array, so SHINY keys it on its own.
 DRAKE_TRIM.engrave = { face: [214, 174, 96], lip: [255, 238, 184], shadow: [58, 38, 12], floor: [34, 24, 12] };
 DRAKE_TRIM_NOIR.engrave = { face: [156, 128, 70], lip: [250, 222, 150], shadow: [26, 20, 10], floor: [14, 12, 8] };
-DRAKE_TRIM_QUACKHAWK.engrave = { face: [192, 198, 208], lip: [252, 254, 255], shadow: [36, 40, 50], floor: [12, 18, 44] };
+DRAKE_TRIM_QUACKHAWK.engrave = { face: [192, 198, 208], lip: [252, 254, 255], shadow: [36, 40, 50], floor: [12, 18, 44],
+  mirror: { sky: [214, 226, 244], horizon: [58, 64, 78], ground: [150, 156, 168], streak: [253, 254, 255] } };
 for (const [E, amb, bright, alb] of [
   [DRAKE_TRIM.engrave, [110, 76, 24], [255, 232, 160], [255, 210, 130]],
   [DRAKE_TRIM_NOIR.engrave, [70, 52, 20], [240, 204, 130], [236, 196, 120]],
@@ -121,7 +122,14 @@ for (const [E, amb, bright, alb] of [
 ]) {
   SHINY.set(E.face, { spec: 1, pow: 36, ramp: [amb, bright], glint: 0.45, albedo: alb, envK: 0.8 });
   SHINY.set(E.lip, { spec: 1, pow: 80, ramp: [bright, [255, 255, 255]], glint: 1, albedo: alb, envK: 1 });
-  TEXTURE.set(E.face, 'brushed');
+  if (E.mirror === undefined) TEXTURE.set(E.face, 'brushed');
+}
+{ // The chrome plaque's reflections: hard, bright and smooth, so they read as polish, not paint.
+  const M = DRAKE_TRIM_QUACKHAWK.engrave.mirror;
+  SHINY.set(M.sky, { spec: 1, pow: 90, ramp: [[120, 132, 150], [250, 252, 255]], glint: 0.8, albedo: [240, 244, 250], envK: 1 });
+  SHINY.set(M.ground, { spec: 1, pow: 90, ramp: [[70, 76, 88], [220, 224, 232]], glint: 0.5, albedo: [230, 234, 240], envK: 1 });
+  SHINY.set(M.horizon, { spec: 0.8, pow: 60, ramp: [[20, 22, 28], [110, 116, 130]], envK: 0.7 });
+  SHINY.set(M.streak, { spec: 1, pow: 120, ramp: [[230, 236, 244], [255, 255, 255]], glint: 1, albedo: [255, 255, 255], envK: 1 });
 }
 // ⚠ `T` IS SWAPPED, NOT PASSED: every part in this file reads it, so the profile builder and the
 // fit-out set it for the trim of the profile they are building (drakeProfile's second argument).
@@ -797,6 +805,22 @@ function nameplate_(Pn, ca, cb, h, name = 'DRAKE', maxW = Infinity) {
   Pn.plate(roundRect(a0 + h * 0.14, b0 + h * 0.12, a1 - h * 0.14, b1 - h * 0.1, h * 0.28), E.shadow, 0, 0.0026);
   Pn.plate(roundRect(a0 + h * 0.14, b0 + h * 0.16, a1 - h * 0.14, b1 - h * 0.14, h * 0.28), E.lip, 0.2, 0.0029);
   Pn.plate(roundRect(a0 + h * 0.16, b0 + h * 0.16, a1 - h * 0.16, b1 - h * 0.16, h * 0.26), E.face, 0.12, 0.0032);
+  // Mirror chrome (Quackhawk): the face shows the world, not a brush. Sky in the top half, a dark
+  // horizon band across the middle, ground below, and two bright diagonal streaks of window light,
+  // all clipped to the face and lying under the cuts.
+  if (E.mirror) {
+    const f0 = a0 + h * 0.2, f1 = a1 - h * 0.2, g0 = b0 + h * 0.2, g1 = b1 - h * 0.2, mid = (g0 + g1) / 2;
+    const box = (poly) => [(q) => q[0] - f0, (q) => f1 - q[0], (q) => q[1] - g0, (q) => g1 - q[1]].reduce(clipHalf, poly);
+    Pn.plate(box([[f0, mid + h * 0.08], [f1, mid + h * 0.08], [f1, g1], [f0, g1]]), E.mirror.sky, 0.25, 0.0036);
+    Pn.plate(box([[f0, mid - h * 0.1], [f1, mid - h * 0.1], [f1, mid + h * 0.08], [f0, mid + h * 0.08]]), E.mirror.horizon, 0, 0.0036);
+    Pn.plate(box([[f0, g0], [f1, g0], [f1, mid - h * 0.1], [f0, mid - h * 0.1]]), E.mirror.ground, 0.05, 0.0036);
+    const span = f1 - f0, sk = (g1 - g0) * 0.6;
+    for (const [at, w] of [[0.22, 0.09], [0.3, 0.025], [0.68, 0.05]]) {
+      const x = f0 + span * at, ww = h * w * 6;
+      const q = box([[x - sk, g0], [x - sk + ww, g0], [x + sk + ww, g1], [x + sk, g1]]);
+      if (q.length >= 3) Pn.plate(q, E.mirror.streak, 0.6, 0.004);
+    }
+  }
   // Everything on the face is CUT into it: a shadow on the upper-left wall of each cut, the lower-right
   // wall catching the light as a bright lip, and the dark floor over both.
   const cut = (poly) => {
