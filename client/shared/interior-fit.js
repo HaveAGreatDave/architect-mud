@@ -72,6 +72,7 @@ export function truckFit(P, live, push) {
     on: L.engineOn !== false,
     gear: String(L.gear ?? 'N').replace('½', '').slice(0, 2).padStart(2, ' '),
     toys: L.toys || {},
+    ctl: truckSwitchCells(L),
   };
 
   // Each part is memoised on exactly the values it reads (interior-memo.js), so only the parts
@@ -86,12 +87,73 @@ export function truckFit(P, live, push) {
   else if (tier === 1) part(courierStack);
   else part(modernStack);
 
+  part(truckSwitchBanks);
   part(truckTunnel);
   part(truckPedals);
   part(truckDoors);
   part(truckOverhead);
   part(truckBehind);
   if (tier === 3) part(continentalExtras);
+}
+
+// ── THE SWITCH BANKS: WHAT YOU CAN REACH FROM THE FORWARD VIEW ───────────────
+//
+// Looking straight down the road the modelled cab shows the binnacle, the top of the wheel and a
+// strip of fascia either side of it; the stacks, the tunnel and everything under the wheel are
+// out of the frame. So the switches a driver works while driving sit on that strip: the key and
+// the lamps left of the column, the brakes, air and doors right of it. Every one is clickable
+// (the profile's `hotspots`, projected by windshield.js and hit-tested in cab-view.js) and every
+// press ends at the shelf button's own click, as the painted console's do.
+//
+// ⚠ `live.ctl` IS THE CAB'S LIST OF WHAT THIS TRUCK HAS RIGHT NOW (cab-view.js ctlCells). A
+// control the truck does not have is not drawn, and with no list at all (the gate, a cold view)
+// the banks are empty rather than guessed.
+const SW_LEFT = ['key', 'heads', 'dome', 'jake', 'cruise', 'horn'];
+const SW_RIGHT = ['park', 'trailer', 'pump', 'exit', 'latch', 'galley', 'auto'];
+const SW_PITCH = 0.040, SW_MAX = 6, SW_Z = -0.44;
+// Nearer than the fascia by a finger's width, so the plate stands proud of whatever is behind it.
+const swY = (P) => P.dashY - 0.022;
+function truckSwitchCells(L) {
+  const c = L && L.ctl;
+  if (!c) return null;
+  const all = [...(c.left || []), ...(c.right || [])];
+  const pick = (ids) => ids.map((id) => all.find((x) => x.key === id)).filter(Boolean).slice(0, SW_MAX)
+    .map((x) => ({ key: x.key, label: String(x.label || x.key).toUpperCase().slice(0, 12), on: !!x.on, enabled: x.enabled !== false }));
+  return { left: pick(SW_LEFT), right: pick(SW_RIGHT) };
+}
+// Where each bank's switches sit, in shell metres: the left bank's last switch and the right
+// bank's first sit a hand's width outboard of the rim.
+function switchLayout(P, ctl) {
+  const out = [];
+  if (!ctl) return out;
+  const y = swY(P);
+  ctl.left.forEach((c, i, a) => out.push({ c, p: [-0.32 - (a.length - 1 - i) * SW_PITCH, y, SW_Z] }));
+  ctl.right.forEach((c, i) => out.push({ c, p: [0.32 + i * SW_PITCH, y, SW_Z] }));
+  return out;
+}
+export function truckHotspots(P, live) {
+  return switchLayout(P, truckSwitchCells(live || {})).filter((s) => s.c.enabled)
+    .map((s) => ({ id: s.c.key, p: [s.p[0], s.p[1], s.p[2] + 0.004], r: 0.02, kind: 'click' }));
+}
+function truckSwitchBanks(S) {
+  const { K, P, ctl, glow, on } = S;
+  const lay = switchLayout(P, ctl);
+  if (!lay.length) return;
+  const y = swY(P);
+  const Pn = K.panel([0, y, SW_Z], [1, 0, 0], [0, 0, 1]);
+  for (const side of [-1, 1]) {
+    const mine = lay.filter((s) => Math.sign(s.p[0]) === side);
+    if (!mine.length) continue;
+    const a0 = Math.min(...mine.map((s) => s.p[0])) - 0.028, a1 = Math.max(...mine.map((s) => s.p[0])) + 0.028;
+    Pn.rect(a0, -0.034, a1, 0.024, [24, 26, 30], 0, 0);
+    Pn.rect(a0, 0.022, a1, 0.024, glow, on ? 0.5 : 0.05, 0.001);
+  }
+  for (const s of lay) {
+    const lit = s.c.on && s.c.enabled;
+    Pn.rocker(s.p[0], 0.004, lit, s.c.enabled ? C.black : [58, 60, 64]);
+    // The name under it, fitted to the pitch rather than the kit's default, or neighbours run together.
+    Pn.fitText(s.c.label, s.p[0], -0.0235, SW_PITCH - 0.005, 0.0085, C.tick, 0.35, 0.004);
+  }
 }
 
 // ── KRELL BARROW: THE SALVAGED CLUSTER ───────────────────────────────────────

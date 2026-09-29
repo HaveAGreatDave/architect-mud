@@ -275,11 +275,12 @@ ok(cv.includes('CAB_LOOK_YAW') && cv.includes('CAB_LOOK_PITCH'), 'the cab has no
 // Nothing in the repo noticed; this line is what noticing looks like.
 ok(/k === 'l' && down\) setHeads/.test(cv), 'L is no longer the headlights — a mode has taken a bound key');
 ok(/!st\.looking && !st\.freeLook/.test(cv), 'free look still springs back to the windscreen');
-ok(/e\.shiftKey[\s\S]{0,80}?st\.freeLook = true/.test(cv), 'nothing latches free look');
+// A middle press latches it, as in the aircraft; no modifier (2026-09-29).
+ok(/st\.freeLook = true; st\.viewYaw = 0/.test(cv), 'nothing latches free look');
 // ⚠ AND THERE IS A WAY OUT. A mode with no exit is the trap O's own note is written about, and
 // here it is worse than a trap: the head HOLDS where you left it, so a driver who cannot unlatch
 // is driving a truck they are not looking through.
-ok(/st\.freeLook && !e\.shiftKey/.test(cv), 'free look cannot be unlatched');
+ok(/if \(st\.freeLook\) \{\s*st\.freeLook = false/.test(cv), 'free look cannot be unlatched');
 
 
 // ── AND IT HAS TO ACTUALLY ARRIVE ─────────────────────────────────
