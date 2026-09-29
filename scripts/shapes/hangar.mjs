@@ -10,7 +10,8 @@
 //   · EVERY AIRFRAME FITS THROUGH THE DOOR. The own ship is drawn 1.9x its contact size, so a
 //     Leviathan is most of a tile across. A hangar whose door is narrower than the span of the
 //     thing it exists to hold is a hangar you taxi out of through the wall.
-//   · …AND UNDER THE DOOR HEAD, AND INSIDE THE SHED, nose to tail.
+//   · …AND UNDER THE DOOR HEAD, AND INSIDE THE SHED, nose to tail. The head climbs into the gable,
+//     so it is checked against her profile across the span, not a box as tall as her fin.
 //   · THE DOOR OPENS FOR AN AEROPLANE. The occupant list used to take trucks only, so an aircraft
 //     rolling at a hangar door found it shut in the picture and open in nothing.
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
@@ -87,6 +88,16 @@ try {
     fits.push(`${name} ${(2 * f.wid).toFixed(2)}x${(2 * f.len).toFixed(2)}x${f.top.toFixed(2)}`);
     if (f.wid > D.DOOR_W - MARGIN) problems.push(`the ${name} is ${(2 * f.wid).toFixed(3)} tiles across and the hangar door is ${(2 * D.DOOR_W).toFixed(3)}: she does not fit through it`);
     if (f.top > D.DOOR_H - MARGIN) problems.push(`the ${name} stands ${f.top.toFixed(3)} tall and the door head is at ${D.DOOR_H}: her tail hits it`);
+    // The head follows the gable, so it is lower out toward the jambs: every point of her has to
+    // pass under the head at its own distance off the centreline (fin in the middle, wingtips out
+    // wide). Checking vertices is exact, since the head is concave and a straight edge between two
+    // vertices under it stays under it.
+    let worst = null;
+    for (const [y, z] of f.prof || []) {
+      const room = ws.bayDoorHead(y, D) - MARGIN - z;
+      if (room < 0 && (!worst || room < worst.room)) worst = { y, z, room };
+    }
+    if (worst) problems.push(`the ${name} has a point ${worst.z.toFixed(3)} up at ${worst.y.toFixed(3)} off her centreline, and the door head there is ${ws.bayDoorHead(worst.y, D).toFixed(3)}: she hits the gable`);
     if (f.len > D.HL - MARGIN) problems.push(`the ${name} is ${(2 * f.len).toFixed(3)} tiles long and the hangar is ${(2 * D.HL).toFixed(3)} deep`);
   }
 
@@ -107,7 +118,7 @@ try {
   if (!(openNear > 0.5)) problems.push(`an aircraft 0.3 tiles off the hangar door leaves it ${openNear.toFixed(2)} open: the door does not see aeroplanes`);
   if (!(openFar < 0.01)) problems.push(`an aircraft six tiles away leaves the hangar door ${openFar.toFixed(2)} open: it should be shut`);
 
-  if (!problems.length) console.log(`✓ hangar: ${on.bay.length} faces, ${D.RIDGE} to the ridge, door ${(2 * D.DOOR_W).toFixed(2)}x${D.DOOR_H}; fits ${fits.join(', ')}`);
+  if (!problems.length) console.log(`✓ hangar: ${on.bay.length} faces, ${D.RIDGE} to the ridge, eaves ${D.WALL}, door ${(2 * D.DOOR_W).toFixed(2)}x${D.DOOR_H} (${ws.bayDoorHead(D.DOOR_W, D).toFixed(2)} at the jambs); fits ${fits.join(', ')}`);
 } finally {
   ws.RENDER_TUNE.gl = glWas; ws.RENDER_TUNE.glFloor = floorWas; ws.RENDER_TUNE.glBay = bayWas;
   globalThis.performance = clock;

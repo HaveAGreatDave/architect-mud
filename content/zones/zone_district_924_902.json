@@ -9,7 +9,11 @@
     "west": "zone_district_923_902"
   },
   "flags": {
+    "building_name": "Coldwater Regional Terminal",
+    "building_type": "hangar",
     "district": "docks",
+    "entrance": "east",
+    "floors": 1,
     "region_id": "region_coldwater",
     "runway": "pad",
     "scavenging_table_id": "scav_industrial_salvage",
