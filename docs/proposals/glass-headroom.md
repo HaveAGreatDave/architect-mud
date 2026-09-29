@@ -1,6 +1,6 @@
 # GLASS frame headroom
 
-**Status: design, not built.** The vertex-animated layers it follows from are built (actors,
+**Status: Stage 1 started (the bench fixed, per-frame GL state queries removed); Stages 2-3 design.** The vertex-animated layers it follows from are built (actors,
 birds, cloth; see [glass-notes.md](../reference/glass-notes.md#vertex-animated-layers-actors-birds-cloth)).
 
 ## Where the time goes
@@ -16,6 +16,8 @@ work to the GPU; what's left is static work repeated every frame.
 
 ## Stage 1: measure
 
+**Started 2026-09-29; the baseline still has to be taken on real hardware.**
+
 - Run `__glWheres` (tools/modelshop/districtcost.js) at every district landmark from a cab and
   from an aircraft, with `setWindshieldProfiler(true, { arms: true })`.
 - Three runs each, keeping the minimum: the first run of a cold process is wrong (glass-notes
@@ -23,12 +25,40 @@ work to the GPU; what's left is static work repeated every frame.
 - Record a per-district table of `world:build`, `world:arms`, the ten dearest arms and decal counts.
   That table is the baseline every later stage is judged against.
 
+What the first attempt found (in a cloud container, SwiftShader, no GPU):
+
+- **The bench was measuring a collapsing frame.** It set `RENDER_TUNE.resFloor`, which nothing
+  reads (the renderer takes `v.resFloor`), and sized only the canvas's holder, so each frame read
+  the last one's backing size as its CSS size and shrank it: 448 px wide, then 314, 220 … 15×9
+  over one run. Every figure it printed before this was taken at that resolution. Fixed.
+- **The frame synced with the GPU process every frame.** The sky pass saved and restored its state
+  with `getParameter`/`isEnabled`, and the first such query drains every queued command before
+  it answers. In a CPU profile it was 56-87% of the frame; the mirror and the cloud volume did the
+  same with one query each. All three are gone (the sky hands the context back at WebGL's defaults),
+  and the picture is pixel-identical over three scenes.
+- **SwiftShader can't say what that bought.** At full resolution its frames are 500-950 ms of
+  software rendering, and removing a sync point just moves the wait to the next one (`world:gl`
+  went from 5-450 ms to 5-915 ms with the total unchanged). On a real GPU a forced sync costs a
+  command-queue drain, typically a millisecond or two, and stops the CPU and GPU overlapping.
+  Measure it there.
+- **The CPU phase timers are usable anywhere** (they time JavaScript, not the GPU): `world:build`
+  11-20 ms and `world:arms` 2-15 ms per district at 640×360 here, noisy between reps. Residential,
+  nightlife and civic are the dearest; the docks are cheapest.
+- The remaining per-frame sync is in `gl/murmur-gpu.js`, which saves and restores about ten pieces
+  of state with `getParameter` while a murmuration is in view. Same fix, not done yet.
+
 ## Stage 2: cache each building's adornment output
 
 - Record the records an arm pushes (decal, stroke, sprite and billboard, all in world space) the first
   time a building is drawn, and replay them on later frames instead of running `drawTypeModel`.
 - Key on appearance, never the camera (glass-notes "keyed on appearance"): building id, detail tier,
   LOD rung, a quantised night/light band, and the power inputs (`glPowerForCell`).
+- ⚠ **The records themselves can't be cached.** Every emit primitive is camera-dependent: decal
+  corners are pulled toward the eye along the view ray (`cam.unproj`), wires are clipped at the near
+  plane, sprite sizes are pixels chosen from distance, and all coordinates are relative to the
+  camera. What can be cached is the CALLS (primitive plus world-space arguments), replayed through
+  each primitive's tail. That saves the arm's own logic and keeps the projection cost, so measure
+  how much of `world:arms` is arm logic before building it.
 - An arm that reads `now`, the camera or `cam.unproj` (`emitDecoQuad` does) is uncacheable. Mark it,
   or split it so only its live part runs each frame. Flags, signs that flicker and anything using
   `motionOn` fall here.
