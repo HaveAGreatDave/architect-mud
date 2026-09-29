@@ -58701,7 +58701,8 @@ function drawModelLODSegs(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, E, det
 //
 // And it is MOUNTED. A part standing on a surface takes that surface as its host (see mountedOn),
 // so an AC unit on a roof cannot sort behind the roof it stands on.
-const DETAIL_LIFT = 0.02;   // a hair proud of the face it is bolted to, the same trick marqueeBand uses
+const DETAIL_LIFT = 0.02;
+const SIGN_BOARD_OUT = DETAIL_LIFT * 2.5;   // how far a signBoard's lettering, and now its board, stands off the wall   // a hair proud of the face it is bolted to, the same trick marqueeBand uses
 // ── WHEN A PART DRAWS THE THING THAT HOLDS IT UP ────────────────────────────
 //
 // Three parts in this table project into open air — a `bladePanel` hangs off one edge, a `canopy`
@@ -59556,7 +59557,16 @@ const AUTHORED_DETAIL = {
         if (!(half > hh)) return;    // narrower than it is tall is not a name, it is a smear
       }
     }
-    const pts = [[c.lx - half, y, z + hh], [c.lx + half, y, z + hh], [c.lx + half, y, z - hh], [c.lx - half, y, z - hh]];
+    // ── ⚠ THE BOARD STANDS WHERE ITS LETTERING DOES ─────────────────────────────────────────
+    //
+    // The lettering stands `SIGN_BOARD_OUT` off the wall on purpose (kit fins and tubes bolted to
+    // that wall have to stay behind the name, and `signfit` says so). The board used to stay at
+    // `faceY`, a hair off the brick, so from any oblique seat the words slid clean off their own
+    // plate by `out·cot θ`: "READ THE SENTINEL" half on the board and half on the stonework. So the
+    // board goes out to meet the text, and short returns close the gap back to the wall, which is
+    // what a real board a few inches proud of its facade looks like. Bare paint stays on the wall.
+    const out = c.ly < 0 ? -1 : 1, yB = bare ? y : y + out * (SIGN_BOARD_OUT - FACE_EPS);
+    const pts = [[c.lx - half, yB, z + hh], [c.lx + half, yB, z + hh], [c.lx + half, yB, z - hh], [c.lx - half, yB, z - hh]];
     const board = d.color || "#141018";
     // `$name` varies per TILE, so the board goes on the canvas in both renderers rather than into a
     // per-model mesh that cannot hold two answers — see the ⚠ on `paint` in emitFlat. A board with a
@@ -59573,7 +59583,18 @@ const AUTHORED_DETAIL = {
     //
     // ⚠ SO THE FLAT BOARD MUST BE SKIPPED, or the square plate is drawn behind the round one and
     // the curve is invisible — which looks precisely like the feature not working.
-    if (!bare && !d.badge) detailQuad(c.ctx, c.cam, c.F, pts, board, c.alpha, { lift: DETAIL_LIFT, stroke: "rgba(0,0,0,0.5)", lw: 1, paint: perTile });
+    // ⚠ A PAINTED (`perTile`) BOARD IS A DECAL, AND ITS `lift` IS ALSO A PULL ALONG THE VIEW RAY. It
+    // already stands out with the lettering, so it asks for less than the lettering's own FACE_EPS
+    // lead or it lands in front of its own words.
+    if (!bare && !d.badge) {
+      detailQuad(c.ctx, c.cam, c.F, pts, board, c.alpha, { lift: perTile ? FACE_EPS * 0.5 : DETAIL_LIFT, stroke: "rgba(0,0,0,0.5)", lw: 1, paint: perTile });
+      if (!perTile) {
+        const edge = shadeOf(d.pal || c.pal, 0.5), zt = z + hh, zb = z - hh, L = c.lx - half, R = c.lx + half;
+        for (const q of [[[L, y, zt], [R, y, zt], [R, yB, zt], [L, yB, zt]], [[L, y, zb], [R, y, zb], [R, yB, zb], [L, yB, zb]],
+                         [[L, y, zt], [L, yB, zt], [L, yB, zb], [L, y, zb]], [[R, y, zt], [R, yB, zt], [R, yB, zb], [R, y, zb]]])
+          detailQuad(c.ctx, c.cam, c.F, q, edge, c.alpha, { lift: DETAIL_LIFT });
+      }
+    }
     // ⚠ A MARK ON ITS OWN IS CONTENT, AND THIS TESTED `d.label` ALONE — the exact bug `signGantry`
     // and `bladePanel` both record in their own guards, in the one drawer that never got the fix.
     // The derived kit pushes a MARK-ONLY plate over the door of any building whose roof has taken
@@ -59599,7 +59620,7 @@ const AUTHORED_DETAIL = {
         // paint would stand a finger's width off the wall it is supposed to be ON, which shows as
         // a name sliding across its own building as you drive past it.
         emitSurfaceText(c.ctx, c.cam, w, tex, false, c.alpha * (bare ? 0.92 : 1),
-          bare ? DETAIL_LIFT : DETAIL_LIFT * 2, false, bare ? FACE_EPS : DETAIL_LIFT * 2.5);
+          bare ? DETAIL_LIFT : DETAIL_LIFT * 2, false, bare ? FACE_EPS : FACE_EPS * 2);   // the board is already out at SIGN_BOARD_OUT
       }
     }
   },
