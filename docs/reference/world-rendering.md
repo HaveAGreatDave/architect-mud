@@ -732,6 +732,13 @@ the birds.
   would make the coat an identity you could read from a street away, which is the tracker the
   opaque token exists to prevent. With an outfit, the billboard's tone bucket comes from the coat's
   lightness, so a figure keeps its brightness across the LOD switch.
+- **Seams, grime and the fuller light.** The fragment shader in `gl/actors.js` paints coat seams,
+  pockets and buttons, the odd check or stripe, knee wear, hem grime and boot soles, all hung on
+  the rest shape (`aRest`, the idle clip's first frame) so they ride the cloth. Its light is a
+  wrapped key, sky over warm ground, fake occlusion, a rim off the camera and a little sheen on
+  skin, tuned to average the old brightness so the LOD switch doesn't pop. The pattern's seed is the
+  outfit colour, so it adds nothing a watcher could track. `ACTOR_LOOK.on = 0` brings back the flat
+  shading; `tools/modelshop/actor-lab.html` compares the two.
 - **Standing on the kerb.** The pavement band is raised a kerb's height (`kerbHeight`, 0.028
   tiles, about 40% of a person) on single-width straight streets. `drawGroundSurfaces` marks each
   tile it raises in `RAISED_WALK`, and the actor pass stands people on those tiles at the kerb top,
