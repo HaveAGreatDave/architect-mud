@@ -30,6 +30,7 @@ export const PLANE_MS = 5;       // m/s at full planes: the trim wheel's straigh
 export const PLANES_STALE_S = 2.5;
 export const PLANES_DEAD = 0.05;
 export const FLOOR_CLEAR = 0.8;    // metres she keeps off the bottom when told to sit on it
+export const SUB_CEIL = 1;          // metres: flown up on the planes she holds here; only `surface` (BOAT mode) brings her up
 export const MIN_WATER = 3;        // metres of water under her before she can go down at all
 // Crush: hull damage per second past the rating, as a fraction of the whole hull. A little over
 // is survivable for a while; a long way over is quick. ⚠ It is DAMAGE, the same `row.damage` a wave
@@ -75,9 +76,8 @@ export function stepSub(sub, dt, floor, nowS = -Infinity) {
   if (planing) {
     // The stick has her, and wherever it leaves her is where she holds.
     const rate = sub.planes > 0 ? sub.planes * PLANE_MS * bal : sub.planes * PLANE_MS;
-    sub.depth = Math.max(0, Math.min(lowest, sub.depth + rate * dt));
-    sub.target = sub.depth;
-    if (sub.depth <= 0) { sub.target = 0; sub.blow = true; }   // flown up through the surface: she broaches
+    sub.depth = Math.max(Math.min(SUB_CEIL, lowest), Math.min(lowest, sub.depth + rate * dt));
+    sub.target = sub.depth;   // flown up to the ceiling she stays under; she surfaces only on a blow
   } else {
     const want = Math.min(sub.target, lowest);
     if (sub.depth < want) sub.depth = Math.min(want, sub.depth + DESCEND_MS * bal * dt);
