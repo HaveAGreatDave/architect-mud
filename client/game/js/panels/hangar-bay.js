@@ -883,7 +883,7 @@ function benchScreen() {
         ${seatDrawable() ? '' : `<div class="hb-seat-note">${windshieldLoaded() ? 'The cabin view needs 3-D graphics on.' : 'Opening her up…'}</div>`}`
         : `<canvas id="hb-stage3d" class="hb-scene" tabindex="0" aria-label="${esc(c.tail)} ${esc(STAGE_CAP[venue].toLowerCase())}"></canvas>`}
         <div class="hb-inspect-name">${esc(c.tail)} <span>${esc(c.typeName)}</span> ${statusPill}</div>
-        <div class="hb-inspect-hint">${seat ? 'PAINT SHOP · drag to look round' : booth ? 'PAINT SHOP · drag to spin her' : STAGE_CAP[venue] + ' · drag to walk round her'}</div>
+        <div class="hb-inspect-hint">${seat ? 'PAINT SHOP · drag to look round' : booth ? 'PAINT SHOP · drag to spin her · click to stop or start' : STAGE_CAP[venue] + ' · drag to walk round her'}</div>
         ${booth && hasCabin(c) ? `<div class="hb-view-seg" role="group" aria-label="Booth view">${[['ext', 'Exterior'], ['int', 'Interior']]
           .map(([k, l]) => `<button type="button" data-booth-view="${k}" aria-pressed="${(seat ? 'int' : 'ext') === k}"${(seat ? 'int' : 'ext') === k ? ' class="on"' : ''}>${l}</button>`).join('')}</div>` : ''}
         <button class="hb-stage-mode" data-act="stage-mode">${booth ? '⌂ Back to the ' + (venue === 'hangar' ? 'hangar' : venue === 'helipad' ? 'pad' : 'ramp') : '✦ Paint booth'}</button>
@@ -972,16 +972,19 @@ function wire() {
   const stage3d = root.querySelector('#hb-stage3d');
   if (stage3d) {
     B.orbit = B.orbit || { a: 0.75, r: 1, h: 0.35 };
-    let last = null;
-    stage3d.addEventListener('pointerdown', (e) => { last = { x: e.clientX, y: e.clientY }; stage3d.setPointerCapture(e.pointerId); B.orbit.held = true; });
+    let last = null, travel = 0;
+    stage3d.addEventListener('pointerdown', (e) => { last = { x: e.clientX, y: e.clientY }; travel = 0; stage3d.setPointerCapture(e.pointerId); B.orbit.held = true; });
     stage3d.addEventListener('pointermove', (e) => {
       if (!last) return;
+      travel += Math.abs(e.clientX - last.x) + Math.abs(e.clientY - last.y);
       B.orbit.a -= (e.clientX - last.x) * 0.008;
       B.orbit.h = Math.max(0.05, Math.min(1.4, B.orbit.h + (e.clientY - last.y) * 0.006));
       last = { x: e.clientX, y: e.clientY };
     });
     const up = () => { last = null; B.orbit.held = false; };
-    stage3d.addEventListener('pointerup', up); stage3d.addEventListener('pointercancel', up);
+    // A press that never became a drag is a click: in the booth it stops or starts the turntable.
+    stage3d.addEventListener('pointerup', () => { if (last && travel < 5 && boothOn()) B.orbit.still = !B.orbit.still; up(); });
+    stage3d.addEventListener('pointercancel', up);
     stage3d.addEventListener('wheel', (e) => { e.preventDefault(); B.orbit.r = Math.max(0.7, Math.min(1.5, B.orbit.r * (1 + e.deltaY * 0.001))); }, { passive: false });
   }
   // Walkaround inspect: drag to orbit (yaw + eye height), scroll to zoom. Writes the
@@ -1189,7 +1192,10 @@ function startSpin() {
       const ctx = stage3d.getContext('2d');
       if (ctx && stage3d._cw) {
         const o = B.orbit || (B.orbit = { a: 0.75, r: 1, h: 0.35 });
-        if (!o.held) o.a += dt * 0.12;
+        // A click on the booth stops her turning and another starts her again (`o.still`); the
+        // spin is an accumulated angle so she stops exactly where she was, not on a time jump.
+        const still = o.still && boothOn();
+        if (!o.held && !still) { o.a += dt * 0.12; o.spin = (o.spin || 0) + dt * 0.35; }
         const armed = sc.class === 'heli' && sc.hardpoints > 0;
         const R = Math.min(5.6, (1.9 + 1.05 * (MODEL_SCALE[sc.class] || 1) * (armed ? 1.8 : 1)) * o.r);
         const x = Math.cos(o.a) * R, y = Math.sin(o.a) * R, z = 0.05 + o.h * 1.6;
@@ -1198,7 +1204,7 @@ function startSpin() {
         if (boothOn()) {
           const armedZ = armed ? 0.55 : 1;
           drawPaintBooth(ctx, { cls: sc.class, armed, wreck: !!sc.wreck, variant: liveVariant(B.work), livery: B.work || sc.livery,
-            w: stage3d._cw, h: stage3d._ch, time: t / 1000, yaw: -o.a * 2, zoom: 1.45 * armedZ, fit: 1.4 });
+            w: stage3d._cw, h: stage3d._ch, time: t / 1000, spin: o.spin || 0, yaw: -o.a * 2, zoom: 1.45 * armedZ, fit: 1.4 });
         } else drawHangarFloorBay(ctx, { cls: sc.class, armed, wreck: !!sc.wreck, variant: liveVariant(B.work), livery: B.work || sc.livery,
           w: stage3d._cw, h: stage3d._ch, sky: { ...(B.data?.sky || {}), fx: skyFx }, floor: true, floor3d: true,
           venue: stageVenue(sc), cam });

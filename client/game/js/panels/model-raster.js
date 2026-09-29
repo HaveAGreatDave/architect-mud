@@ -261,10 +261,22 @@ function tri(depth, rgba, stride, W, H, ax, ay, az, bx, by, bz, cx, cy, cz, r, g
   if (!linear && (!(az > 0) || !(bz > 0) || !(cz > 0))) return;
   const ia = linear ? az : 1 / az, ib = linear ? bz : 1 / bz, ic = linear ? cz : 1 / cz;
   const gwp = G && G.wp, gfi = G && G.fi;
+  // Each edge function is linear in px along a row: w = c + s·px. Solving w ≥ 0 per edge gives the
+  // row's span, so the loop below skips the empty half of the bounding box that a sliver or a
+  // diagonal leaves. The span is widened a pixel each side and the exact test still runs per pixel,
+  // so the output is identical; it only stops paying for pixels no edge could ever admit.
+  const s0 = -(by - ay) * inv, s1 = -(cy - by) * inv, s2 = -(ay - cy) * inv;
   for (let y = minY; y <= maxY; y++) {
     const py = y + 0.5;
     const rowOff = y * stride;
-    for (let x = minX; x <= maxX; x++) {
+    let x0 = minX, x1 = maxX;
+    const c0 = ((bx - ax) * (py - ay) + (by - ay) * ax) * inv;
+    const c1 = ((cx - bx) * (py - by) + (cy - by) * bx) * inv;
+    const c2 = ((ax - cx) * (py - cy) + (ay - cy) * cx) * inv;
+    if (s0 > 1e-12) { const e = Math.floor(-c0 / s0 - 0.5) - 1; if (e > x0) x0 = e; } else if (s0 < -1e-12) { const e = Math.ceil(-c0 / s0 - 0.5) + 1; if (e < x1) x1 = e; } else if (c0 < -1e-9) continue;
+    if (s1 > 1e-12) { const e = Math.floor(-c1 / s1 - 0.5) - 1; if (e > x0) x0 = e; } else if (s1 < -1e-12) { const e = Math.ceil(-c1 / s1 - 0.5) + 1; if (e < x1) x1 = e; } else if (c1 < -1e-9) continue;
+    if (s2 > 1e-12) { const e = Math.floor(-c2 / s2 - 0.5) - 1; if (e > x0) x0 = e; } else if (s2 < -1e-12) { const e = Math.ceil(-c2 / s2 - 0.5) + 1; if (e < x1) x1 = e; } else if (c2 < -1e-9) continue;
+    for (let x = x0; x <= x1; x++) {
       const px = x + 0.5;
       // Barycentrics by edge functions. The sign test covers both windings, so a mesh authored
       // back-to-front rasterises identically rather than vanishing.

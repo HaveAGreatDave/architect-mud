@@ -7287,7 +7287,7 @@ export function drawTurntable(ctx, opts) {
 // The turntable's paint step alone, with NO clear — so a caller that's already
 // painted a backdrop into the canvas (drawHangarFloorBay below) can draw the plane
 // on top of it in the same pass instead of the model wiping the scene behind it.
-function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0, w, h, wreck = false, zoom = 1, elev = 0.42, cam = null, floor = false, sky = null, venue = null, fit = 0, lift = 0, idleRoll = 0 }) {
+function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0, w, h, wreck = false, zoom = 1, elev = 0.42, cam = null, floor = false, sky = null, venue = null, fit = 0, lift = 0, idleRoll = 0, budget = RASTER_BUDGET_PX }) {
   // `variant` is the ground-vehicle channel (THE LONG HAUL) — which of the four trucks, and
   // whether a box is on the back. Every aircraft caller passes nothing and is unaffected; the
   // depot's turntable, walkaround and bench hero shot all ride this one argument.
@@ -7493,7 +7493,7 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
   // depth per part can order. See the note on modelDepthPass.
   // The hero shot is the SUBJECT of its camera, so it takes the pass at any size — see the `min`
   // the floor scene passes, which is for a row of machines rather than one.
-  const rasterOK = modelDepthPass(ctx, drawn);
+  const rasterOK = modelDepthPass(ctx, drawn, { budget });
   if (!rasterOK) {
     if (cls === 'truck') sortTruckFaces(drawn, { id: `bay:${cls}:${variant || ''}` }, 1);
     else drawn.sort((a, b) => b.avgZ - a.avgZ);
@@ -8258,6 +8258,7 @@ function boothGlow(hex) {
   const k = 255 / hi;
   return `${Math.round(r * k)},${Math.round(g * k)},${Math.round(b * k)}`;
 }
+const BOOTH_BUDGET_PX = 90_000;
 export function drawPaintBooth(ctx, opts) {
   const { w, h } = opts, t = opts.time || 0;
   ctx.clearRect(0, 0, w, h);
@@ -8333,7 +8334,9 @@ export function drawPaintBooth(ctx, opts) {
   ctx.restore();
   ctx.save(); ctx.globalAlpha = 0.14; disc(R * 0.7, 'rgba(200,210,255,0.4)'); ctx.restore();
   // The vehicle, turning.
-  const res = drawHangarFloorBayOnto(ctx, { ...opts, flat: true, yaw: t * 0.35 + (opts.yaw || 0), elev: opts.elev ?? 0.28, zoom: opts.zoom ?? 1.2 });
+  // A spinning showpiece fills the pane, so it rasterises on a tighter budget than a still hero
+  // shot: the supersample is what gives way, and on a model that never stops turning nobody sees it.
+  const res = drawHangarFloorBayOnto(ctx, { ...opts, flat: true, yaw: (opts.spin ?? t * 0.35) + (opts.yaw || 0), elev: opts.elev ?? 0.28, zoom: opts.zoom ?? 1.2, budget: opts.budget ?? BOOTH_BUDGET_PX });
   if (res?.ground) _boothAnchor.set(ctx.canvas, { sx: res.ground.sx, sy: res.ground.sy });
   // Two coloured key lights raking in from the corners, added over everything.
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
