@@ -7,9 +7,9 @@
 // and so cannot be one mesh at all. Every one of those draws a plausible bird. None of them throws.
 //
 // No headless harness here reaches a GL draw call, so this checks the DATA the GPU is handed, which
-// is where all four of those live. What the shader does with it is the Modelshop's A/B
-// (`__glFaunaInst` in tools/modelshop/glbench.js), which measured 0 differing pixels against the
-// solids path and 12-17 with the basis deliberately mirrored.
+// is where all four of those live. What the shader does with it was proved by a Modelshop A/B against
+// the old CPU solids path (0 differing pixels, 12-17 with the basis deliberately mirrored); that path
+// and its bench were deleted once the instanced one had shipped (2026-09-29).
 //
 //   1. Every pose group in the table bakes. A group that will not bake is a species that does not
 //      draw at all on the GPU path.

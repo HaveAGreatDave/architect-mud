@@ -8,7 +8,7 @@
 // This module is that call, and it is the only place that knows both halves: it hands the GL pass
 // the renderer's own mesh capture, its own baked textures and its own palette, so nothing here has
 // an opinion about what a building is made of.
-import { installGLWorld, installGLFaunaInstancing, installGLActorMesh, installGLClouds, installGLCloudVol, installGLInterior, installGLDispose, installGLSky, captureModelMesh, modelSolid, wallTexMixed, roofTex, texEpoch, glPowerForCell, wallPaletteInfo, wallMaterialId, roofMaterialId, wallMaterialTable, glLightState, RENDER_TUNE } from '../windshield.js';
+import { installGLWorld, installGLFaunaInstancing, installGLActorMesh, installGLCloth, installGLClouds, installGLCloudVol, installGLInterior, installGLDispose, installGLSky, captureModelMesh, modelSolid, wallTexMixed, roofTex, texEpoch, glPowerForCell, wallPaletteInfo, wallMaterialId, roofMaterialId, wallMaterialTable, glLightState, RENDER_TUNE } from '../windshield.js';
 import { glWorldPass, glCloudPass, glCloudVolPass, glInteriorPass, glDisposeScene, glSkyPass } from './world.js';
 import { NEAR, FAR } from './camera.js';
 import { MAX_LIGHTS, MAX_MATERIALS } from './context.js';   // the uniform budgets the light pass and the material table ask for   // the clip range the matrix is built with — see the depth-buffer note in glCapabilities
@@ -140,6 +140,7 @@ export function volumeAutoVerdict() {
 export function installGL(hostFor) {
   installGLFaunaInstancing(true);   // the real pass draws birds as instances — see gl/fauna.js
   installGLActorMesh(true);         // …and close pavement figures as meshes — see gl/actors.js
+  installGLCloth(true);             // …and socks, flags and tents as baked cloth — see gl/cloth.js
   installGLWorld((cells, cam, opts) => {
     const host = (hostFor && hostFor()) || opts.host;
     if (!host) return;
@@ -362,7 +363,7 @@ export function installGL(hostFor) {
   installGLSky((s) => { try { return glSkyPass(s.id || (hostFor && hostFor() || {}).id || 'ws', s); } catch (e) { console.warn('[glSky]', e); RENDER_TUNE.glSky = 0; return null; } });
   // The cabin, at the third moment: after the world and the deck are blitted and the bank undone.
   installGLInterior((cam, opts) => glInteriorPass(opts.id || (hostFor && hostFor() || {}).id || 'ws', cam, opts));
-  return () => { installGLWorld(null); installGLFaunaInstancing(false); installGLActorMesh(false); installGLClouds(null); installGLCloudVol(null);installGLInterior(null); installGLDispose(null); installGLSky(null); };
+  return () => { installGLWorld(null); installGLFaunaInstancing(false); installGLActorMesh(false); installGLCloth(false); installGLClouds(null); installGLCloudVol(null);installGLInterior(null); installGLDispose(null); installGLSky(null); };
 }
 
 export { RENDER_TUNE };

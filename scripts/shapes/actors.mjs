@@ -13,7 +13,8 @@
 //
 // The sweep (windshield.js) decides who is a mesh. No harness reaches a GL draw call, so this reads
 // the records it hands to the world pass, the same way scripts/shapes/fauna.mjs reads the birds: near
-// figures become records and far ones stay billboards, nothing on a record can name an NPC, a walker
+// figures become close-up records, far ones far-body records (and billboards with that switched off),
+// nothing on a record can name an NPC, a walker
 // faces the way they're going, the gait follows distance, the hitcher faces the camera, and with the
 // switch off the frame is the billboard frame it always was.
 import { actorBake, actorOutfit, actorStrideM, ACTOR_OUTFITS } from '../../client/game/js/panels/actor3d.js';
@@ -25,9 +26,20 @@ const problems = [];
 const report = (...a) => { if (REPORT) console.log(...a); };
 
 // ── 1. The bake ─────────────────────────────────────────────────────────────────────────────────────
+// Both bodies get the same checks: the close-up one, and the far one (bk.far) for somebody a few
+// pixels tall, which has its own vertex budget and has to stand the same height.
 const bk = actorBake();
+const { nv, frames, top } = bk;
+checkBake(bk, 'bake', 2000, 4000);
+if (!bk.far) problems.push('the bake has no far body');
+else {
+  checkBake(bk.far, 'far bake', 250, 500);
+  if (Math.abs(bk.far.top - top) > 0.03) problems.push(`the far body stands ${bk.far.top.toFixed(3)} m against the near body's ${top.toFixed(3)}; the swap would pop`);
+}
+function checkBake(bk, label, minV, maxV) {
 const { nv, W, H, rows, frames, preview, idx, clips, top } = bk;
-report(`bake: ${nv} vertices, ${bk.nt} triangles, ${W}×${H} texels (${rows} rows a frame), ${frames} frames, top ${top.toFixed(3)} m`);
+if (!(nv >= minV && nv <= maxV)) problems.push(`the ${label} has ${nv} vertices; expected ${minV}–${maxV}`);
+report(`${label}: ${nv} vertices, ${bk.nt} triangles, ${W}×${H} texels (${rows} rows a frame), ${frames} frames, top ${top.toFixed(3)} m`);
 if (W > 2048 || H > 2048) problems.push(`the pose texture is ${W}×${H}, past WebGL2's guaranteed 2048`);
 if (W * rows < nv) problems.push(`${W}×${rows} texels a frame can't hold ${nv} vertices`);
 if (nv >= 65536) problems.push(`${nv} vertices won't index with UNSIGNED_SHORT`);
@@ -85,7 +97,8 @@ for (const [name, c] of Object.entries(clips)) {
   }
   const pace = stride / c.dur;
   report(`walk: stride ${stride.toFixed(3)} m, pace ${pace.toFixed(2)} m/s, worst contact slip ${slip.toFixed(3)} m/s`);
-  if (slip > pace * 0.15) problems.push(`a planted foot slides at ${slip.toFixed(2)} m/s against a ${pace.toFixed(2)} m/s walk; the root solve is off`);
+  if (slip > pace * 0.15) problems.push(`${label}: a planted foot slides at ${slip.toFixed(2)} m/s against a ${pace.toFixed(2)} m/s walk; the root solve is off`);
+}
 }
 
 // ── 2. Outfits ──────────────────────────────────────────────────────────────────────────────────────
@@ -141,7 +154,7 @@ const VIEW = {
 const clock = globalThis.performance;
 let T = 1e6;
 globalThis.performance = { ...clock, now: () => T };
-const glWas = ws.RENDER_TUNE.gl, floorWas = ws.RENDER_TUNE.glFloor, meshWas = ws.RENDER_TUNE.actorMesh;
+const glWas = ws.RENDER_TUNE.gl, floorWas = ws.RENDER_TUNE.glFloor, meshWas = ws.RENDER_TUNE.actorMesh, farWas = ws.RENDER_TUNE.actorFarPx;
 
 let got = null;
 function frame(view) {
@@ -165,14 +178,30 @@ const settle = (view) => { frame(view); T += 1000; return frame(view); };
 
 ws.installGLActorMesh(true);
 ws.RENDER_TUNE.actorMesh = 1;
+// With the far body off, the two far figures stay billboards, as shipped before it.
+ws.RENDER_TUNE.actorFarPx = 0;
 const on = settle(VIEW);
-const recs = on.recs;
-report(`sweep, mesh on: ${recs.length} actor records, ${on.boards} actor billboards`);
-const walkers = recs.filter((r) => r.clip !== 'wave'), hitchers = recs.filter((r) => r.clip === 'wave');
-if (walkers.length !== 2) problems.push(`${walkers.length} pavement figures became meshes; the two near ones should have and the two far ones should not`);
+report(`sweep, far body off: ${on.recs.length} actor records, ${on.boards} actor billboards`);
+if (on.recs.some((r) => r.lod)) problems.push('a far-body record with RENDER_TUNE.actorFarPx at 0');
+if (on.boards !== 2) problems.push(`${on.boards} figures stayed billboards with the far body off; the two far ones should have`);
+// With it on, those two become far-body records, and nobody is a billboard. At 640×360 and dpr 1 a
+// figure twelve tiles off is about a pixel tall, under the shipped 1.5, so the cut-off is set here.
+ws.RENDER_TUNE.actorFarPx = 0.5;
+const onFar = frame(VIEW);
+const recs = onFar.recs;
+report(`sweep, far body on: ${recs.length} actor records (${recs.filter((r) => r.lod).length} far), ${onFar.boards} actor billboards`);
+const walkers = recs.filter((r) => r.clip !== 'wave' && !r.lod), hitchers = recs.filter((r) => r.clip === 'wave');
+const farRecs = recs.filter((r) => r.lod === 1);
+if (walkers.length !== 2) problems.push(`${walkers.length} pavement figures became close-up meshes; the two near ones should have and the two far ones should not`);
+if (farRecs.length !== 2) problems.push(`${farRecs.length} pavement figures became far-body meshes; the two far ones should have`);
 if (hitchers.length !== 1) problems.push(`${hitchers.length} hitcher meshes; the one on the verge beside the camera should be one`);
-if (on.boards !== 2) problems.push(`${on.boards} figures stayed billboards; the two far ones should have`);
-const ALLOWED = new Set(['actor', 'x', 'y', 'z', 's', 'hd', 'o', 'clip', 'ph', 'clip2', 'ph2', 'mix', 'lum', 'a', 'lx', 'ly']);
+if (onFar.boards !== 0) problems.push(`${onFar.boards} figures stayed billboards with the far body on; none should have`);
+// Tiny: with the cut-off above everybody's size, nobody far is a mesh and the billboard is back.
+ws.RENDER_TUNE.actorFarPx = 7.99;
+const tiny = frame(VIEW);
+if (tiny.recs.some((r) => r.lod)) problems.push('a far-body record for somebody under RENDER_TUNE.actorFarPx');
+ws.RENDER_TUNE.actorFarPx = farWas;
+const ALLOWED = new Set(['actor', 'lod', 'x', 'y', 'z', 's', 'hd', 'o', 'clip', 'ph', 'clip2', 'ph2', 'mix', 'lum', 'a', 'lx', 'ly']);
 for (const r of recs) {
   for (const k of Object.keys(r)) if (!ALLOWED.has(k)) problems.push(`an actor record carries '${k}'; a record may carry nothing that could name somebody`);
   for (const k of ['x', 'y', 's', 'hd', 'ph', 'lum', 'a']) if (!Number.isFinite(r[k])) problems.push(`an actor record's ${k} is ${r[k]}`);
@@ -204,7 +233,7 @@ moved[0] = { ...moved[0], y: 98.2 };
 const view2 = { ...VIEW, actors: moved };
 let last = null, prev = null;
 for (let i = 0; i < 12; i++) { T += 200; prev = last; last = frame(view2); }
-const nearest = (f) => f.recs.filter((r) => r.clip !== 'wave').sort((a, b) => b.y - a.y)[0];
+const nearest = (f) => f.recs.filter((r) => r.clip !== 'wave' && !r.lod).sort((a, b) => b.y - a.y)[0];
 const w1 = prev && nearest(prev), w2 = last && nearest(last);
 if (!w1 || !w2) problems.push('the walker stopped being drawn as a mesh');
 else {
@@ -257,7 +286,7 @@ if (unplugged.recs.length) problems.push(`${unplugged.recs.length} actor records
 if (unplugged.boards !== 5) problems.push(`${unplugged.boards} actor billboards with the mesh pass not installed; all four pavement figures and the hitcher should be billboards`);
 
 ws.installGLWorld(null);
-ws.RENDER_TUNE.gl = glWas; ws.RENDER_TUNE.glFloor = floorWas; ws.RENDER_TUNE.actorMesh = meshWas;
+ws.RENDER_TUNE.gl = glWas; ws.RENDER_TUNE.glFloor = floorWas; ws.RENDER_TUNE.actorMesh = meshWas; ws.RENDER_TUNE.actorFarPx = farWas;
 globalThis.performance = clock;
 
 if (problems.length) {
@@ -265,4 +294,4 @@ if (problems.length) {
   for (const p of [...new Set(problems)]) console.error('  ' + p);
   process.exit(1);
 }
-console.log(`✓ actors: ${nv}-vertex figure, ${frames} baked frames that loop and keep a foot down, varied outfits, and the sweep hands near figures to the mesh pass and nothing else.`);
+console.log(`✓ actors: ${nv}-vertex figure and a ${bk.far.nv}-vertex far one, ${frames} baked frames that loop and keep a foot down, varied outfits, and the sweep hands near figures to the mesh pass and nothing else.`);

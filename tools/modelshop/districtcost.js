@@ -75,6 +75,11 @@ function rig(W, H) {
   }
   _rig.el.width = W; _rig.el.height = H;
   _rig.holder.style.width = W + 'px'; _rig.holder.style.height = H + 'px';
+  // ⚠ THE CANVAS ITSELF NEEDS A CSS SIZE, not only its holder. Without one the renderer reads the
+  // backing size it wrote last frame as this frame's CSS size and scales it again, so the frame
+  // shrank by the dial every paint: 448, 314, 220 … 15×9 over a twenty-frame run, and every figure
+  // this bench printed before 2026-09-29 was measured at a resolution collapsing under it.
+  _rig.el.style.width = W + 'px'; _rig.el.style.height = H + 'px';
   return { el: _rig.el, uninstall: installGL(() => _rig.el) };
 }
 
@@ -101,7 +106,9 @@ export async function where(opts = {}) {
 
   const { el, uninstall } = rig(W, H);
 
-  const view = { ...S, phase: 'cruise', worldBlend: 1, hour, weather, map, wxField: null };
+  // ⚠ `resFloor` ON THE VIEW, WHICH IS WHERE THE RENDERER READS IT (v.resFloor). `pinned` sets
+  // RENDER_TUNE.resFloor as well, and nothing reads that one: the resolution dial was loose.
+  const view = { ...S, phase: 'cruise', worldBlend: 1, hour, weather, map, wxField: null, resFloor: 1 };
   const out = pinned(() => {
     // ⚠ The heading is swept rather than held. A fixed heading measures one frustum, and the cost
     // that matters is the one you pay while turning — which is also the only way a stale vertex

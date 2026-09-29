@@ -219,16 +219,15 @@ function layerFor(gl) {
 //          moonFace (canvas), moonFaceR (the disc radius the sprite was baked at) }.
 export function drawSky(gl, canvas, s) {
   const L = layerFor(gl);
-  const prevProg = gl.getParameter(gl.CURRENT_PROGRAM);
-  const prevVao = gl.getParameter(gl.VERTEX_ARRAY_BINDING);
-  const prevFb = gl.getParameter(gl.FRAMEBUFFER_BINDING);
-  const prevVp = gl.getParameter(gl.VIEWPORT);
+  // ⚠ NO STATE IS READ BACK, AND IT IS HANDED BACK AT WEBGL'S DEFAULTS. This saved and restored ten
+  // pieces of state with getParameter and isEnabled, and the first of them each frame is a
+  // synchronous round trip to the GPU process that waits for every command queued before it: in the
+  // Modelshop's district bench it was 56-87% of the frame (SwiftShader, where draining the queue is
+  // the rendering itself), and halving the frame when removed. The defaults are safe to hand back
+  // because they are what the world pass already starts from on a scene's first frame, when this
+  // pass returns null and never runs.
   const caps = [gl.DEPTH_TEST, gl.BLEND, gl.CULL_FACE, gl.SCISSOR_TEST, gl.STENCIL_TEST];
-  const was = caps.map((c) => gl.isEnabled(c));
-  const mask = gl.getParameter(gl.COLOR_WRITEMASK);
-  const prevUnit = gl.getParameter(gl.ACTIVE_TEXTURE);
   gl.activeTexture(gl.TEXTURE0);
-  const prevTex = gl.getParameter(gl.TEXTURE_BINDING_2D);
   try {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, canvas.width, canvas.height);
@@ -272,14 +271,13 @@ export function drawSky(gl, canvas, s) {
     gl.bindVertexArray(L.vao);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   } finally {
-    gl.bindVertexArray(prevVao);
-    gl.useProgram(prevProg);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, prevFb);
-    gl.viewport(prevVp[0], prevVp[1], prevVp[2], prevVp[3]);
-    caps.forEach((c, i) => (was[i] ? gl.enable(c) : gl.disable(c)));
-    gl.colorMask(mask[0], mask[1], mask[2], mask[3]);
-    gl.bindTexture(gl.TEXTURE_2D, prevTex);
-    gl.activeTexture(prevUnit);
+    gl.bindVertexArray(null);
+    gl.useProgram(null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.colorMask(true, true, true, true);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.activeTexture(gl.TEXTURE0);
   }
   return true;
 }

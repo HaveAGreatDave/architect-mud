@@ -21,7 +21,7 @@
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
 import { flocksNear, flockState, flockClearance, flockOnSegment, birdContacts, BIRD_M_PER_TILE, BIRD_MASS_KG, BIRD_TUNE_EVADE, flockEdgeHeading, FLOCK_AREA, GOOSE_PERIOD, GOOSE_SETTLE_MS, U_GROUND, GOOSE_SPAN, SKEIN_ACROSS, skeinSlot, skeinForm, SPECIES, speciesAt, placeOf, habitatState, flockAt, flockPeriod, flockSize, flockSpreadScale, flockDrawRange, FLOCK_REF, BIRD_TUNE, groundSpot, groundPatchR, FORM_WORDS, birdDaylight, callsIn } from '../../client/shared/birds.js';
 import { agitation, agitationWave, K_NEIGHBOURS, MURMUR_RULES as MR } from '../../client/game/js/panels/murmur.js';
-import { faunaPaintCount, FAUNA_BEAT_STEPS, FAUNA_TILE, faunaParamBase, faunaParamIds, faunaPoseFaces, setFaunaParams, faunaWorldFaces, faunaSpanTiles, beatDihedral } from '../../client/game/js/panels/fauna3d.js';
+import { faunaPaintCount, FAUNA_BEAT_STEPS, FAUNA_TILE, faunaParamBase, faunaParamIds, faunaPoseFaces, setFaunaParams, faunaWorldFaces, faunaRecordFaces, faunaSpanTiles, beatDihedral } from '../../client/game/js/panels/fauna3d.js';
 
 const ws = await loadWindshield();
 const REPORT = process.argv.includes('--report');
@@ -169,7 +169,8 @@ function paint(view) {
   c.width = W; c.height = H;
   ws.RENDER_TUNE.gl = 1; ws.RENDER_TUNE.glFloor = 1;
   ws.installGLWorld((cells, cam, o) => {
-    const mesh = o.fauna || [];
+    // Birds come as instance records; expanded here through the transform gl/fauna.js mirrors.
+    const mesh = faunaRecordFaces(o.fauna || []);
     got = {
       // ⚠ THE CAMERA, because one check asks where the GROUND is under a bird and there is no
       // other way to ask it. Held only for the life of the call that returns it.

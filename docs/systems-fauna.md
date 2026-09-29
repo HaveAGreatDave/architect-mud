@@ -1099,7 +1099,13 @@ near model at every distance, which is what shipped.
 
 ### What is left, and why it is not worth doing
 
-The only real item remaining is **GPU instancing**. Each bird's 165 vertices are handled twice a
+> **Superseded (2026-09-29).** GPU instancing was built after all: `gl/fauna.js` bakes each pose
+> group into a texture and draws a bird from nine floats. The CPU face path (`faunaWorldFacesInto`
+> and `RENDER_TUNE.glFaunaInst`/`faunaPool`) is gone; every GL frame sends birds as instance
+> records, and the gates expand them through `faunaRecordFaces` in `fauna3d.js`. The reasoning
+> below is kept as the record of why it waited.
+
+The only real item remaining was **GPU instancing**. Each bird's 165 vertices are handled twice a
 frame: transformed into arrays-of-arrays by `faunaWorldFacesInto`, then flattened into the GL
 buffer. Instancing would upload one static buffer per (species, beat, tier) plus about twelve floats
 a bird — 360 x 12 against 360 x 165 x 3.

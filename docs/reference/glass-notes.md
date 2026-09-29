@@ -1608,6 +1608,25 @@ Traps:
 
 Per-model arm timing: `setWindshieldProfiler(true, { arms: true })`, off by default (two `performance.now()` calls per building per frame). Dense and cheap districts run the same seventy-odd arms; cost comes from which buildings. The worst is `shell_tower` at 0.52 ms a draw (Halcyon's half-built glass tower, 7.9 in view, 4.1 ms a frame) against `authored` at 0.07. It's only meaningful on the GL path, where the mass is suppressed and an arm's time is adornment collection. Only about a third of `world:arms` is inside `drawTypeModel` (the rest is marks, LOD and per-item loop work), so treat the table as a starting point.
 
+## Vertex-animated layers (actors, birds, cloth)
+
+Three layers play motion baked into RGBA16F textures, read by `gl_VertexID`: `gl/fauna.js` (bird
+wingbeats), `gl/actors.js` (pedestrian clips) and `gl/cloth.js` (windsocks, the pier flag, the
+Pitch's shelters). Each arrives as a record in `FAUNA_SINK` (`inst`, `actor`, `cloth`), which
+`context.js` splits by kind. Texture units: 7 fauna, 20–21 actors, 24–25 cloth.
+
+- **Actors have two bodies.** `actor3d.js` bakes a close-up body (2,284 vertices) and a far one
+  (`bk.far`, 327). Between `RENDER_TUNE.actorFarPx` and `actorMeshPx` a figure is a `lod: 1` record;
+  under `actorFarPx` it's still the canvas billboard. `scripts/shapes/actors.mjs` holds the split.
+- **Birds have no CPU face path.** `pushFauna` always sends an instance record on GL frames. A gate
+  that measures bird geometry expands records with `faunaRecordFaces` (fauna3d.js), the transform
+  the shader mirrors.
+- **Cloth needs the real pass.** `installGLCloth` is set only by `gl/install.js`, so every headless
+  hook sees the old decals unless it opts in, as `scripts/shapes/cloth.mjs` does. Wind strength and
+  direction are state and are always applied; only the phase stops when `motion` is 0.
+
+The next frame-time work is CPU record building, not more animation: see [glass-headroom.md](../proposals/glass-headroom.md).
+
 ## Truss web LOD
 
 `webBays`, `RENDER_TUNE.webLod` (0 is every lattice at its authored bay count). The bracing is what a truss costs: `latticeTower` is 3 legs and a top belt against 36 braced segments, and the count was a literal at every range.

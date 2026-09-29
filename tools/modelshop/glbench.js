@@ -5308,33 +5308,6 @@ function withBench(W, H, id, fn) {
 const pxDiff = (p, q, thr = 8) => { let n = 0, worst = 0; for (let i = 0; i < p.length; i += 4) { const d = Math.max(Math.abs(p[i] - q[i]), Math.abs(p[i + 1] - q[i + 1]), Math.abs(p[i + 2] - q[i + 2])); if (d > thr) n++; if (d > worst) worst = d; } return { px: n, worst }; };
 
 /**
- * Birds drawn as instances (gl/fauna.js) against the same birds drawn as solids, one frozen moment.
- *
- * ⚠ THE CONTROL IS THE SAME PATH PAINTED TWICE, AND THE ABLATION IS THE SAME MOMENT WITH NO BIRDS.
- * "The two agree" is also what comes back when neither drew anything, so `birds` says how many
- * pixels the flock actually covers and `instRecs` how many birds went through the instanced path.
- * Measured when it was written: 0 pixels differ against the solids path, and 12-17 with the shader's
- * basis deliberately mirrored, over a flock covering 70-143 pixels.
- */
-export function runFaunaInst({ back = 1.2, W = 640, H = 360 } = {}) {
-  return withBench(W, H, '__faunainst', (el, T) => {
-    // ⚠ THE MURMURATION IS THE GPU CLOUD ON BOTH SIDES OF THIS A/B, since there is no CPU flock to hand
-    // over as birds: glFaunaInst is the per-bird path's switch and the cloud never takes that path. What
-    // this compares is every other bird in shot — the starlings on the ground, and any other species.
-    const s = murmurScene(el, { back });
-    T.glFaunaInst = 1; s.paintAt(s.t); const a = s.grab(); const instRecs = (glLastFrame() || {}).fauna;
-    s.paintAt(s.t); const a2 = s.grab();
-    T.glFaunaInst = 0; s.paintAt(s.t); const b = s.grab(); const faces = (glLastFrame() || {}).fauna;
-    T.geese = 0; s.paintAt(s.t); const none = s.grab();
-    const out = { back, flock: flockSize(s.A), instRecs, facesOnCpuPath: faces,
-      birds: pxDiff(a, none), control: pxDiff(a, a2), instVsSolids: pxDiff(a, b) };
-    console.log('__glFaunaInst', JSON.stringify(out));
-    return out;
-  });
-}
-if (typeof window !== 'undefined') window.__glFaunaInst = runFaunaInst;
-
-/**
  * How much a distant murmuration GLITTERS: the share of its pixels that change when every bird moves
  * a fraction of a pixel. An honest flock barely changes; a flock of sub-pixel hard dots blinks on and
  * off the pixel grid, and a flock of one-pixel glyphs snaps between wing poses — both read as confetti.

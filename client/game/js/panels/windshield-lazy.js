@@ -154,6 +154,7 @@ export function groundVisibilitySmoke(...a) { return (_m || _cold('groundVisibil
 export function installGLClouds(...a) { return (_m || _cold('installGLClouds')).installGLClouds(...a); }
 export function installGLDispose(...a) { return (_m || _cold('installGLDispose')).installGLDispose(...a); }
 export function installGLFaunaInstancing(...a) { return (_m || _cold('installGLFaunaInstancing')).installGLFaunaInstancing(...a); }
+export function installGLCloth(...a) { return (_m || _cold('installGLCloth')).installGLCloth(...a); }
 export function installGLInterior(...a) { return (_m || _cold('installGLInterior')).installGLInterior(...a); }
 export function installGLSky(...a) { return (_m || _cold('installGLSky')).installGLSky(...a); }
 export function installGLWorld(...a) { return (_m || _cold('installGLWorld')).installGLWorld(...a); }

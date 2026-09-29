@@ -142,9 +142,15 @@ function loft(M, st, nu, sub, wf, mat) {
 }
 const flatSole = (x, y, z) => [x, Math.max(y, 0.004), z];
 
-function buildBody() {
+// `lod` 0 is the close-up body. 1 is the far one, for somebody a few pixels tall: six sides to every
+// loft, every other station, no face, and a hand or a shoe is a lump. It keeps the skeleton, the
+// weights and the material slots, so it plays the same clips in the same outfit.
+function buildBody(lod = 0) {
   const M = meshBuilder();
-  const N = 14;
+  const far = lod > 0;
+  const N = far ? 6 : 14, SUB = far ? 0 : 1;
+  const thin = (st) => (far ? st.filter((_, i) => i % 2 === 0 || i === st.length - 1) : st);
+  const ell = (c, r, nu, nv, wf, mat, shape) => ellipsoid(M, c, r, far ? Math.max(4, nu >> 1) : nu, far ? Math.max(3, nv >> 1) : nv, wf, mat, shape);
   const torso = chainW([
     { y: 1.43, a: B.neck, b: B.chest, h: 0.025 },
     { y: 1.17, a: B.chest, b: B.spine, h: 0.06 },
@@ -157,7 +163,7 @@ function buildBody() {
     const k = smooth(0.93, 0.62, y) * 0.92 * Math.min(1, Math.abs(x) / 0.03);
     return [B.pelvis, x >= 0 ? B.thighL : B.thighR, 1 - k];
   };
-  loft(M, [
+  loft(M, thin([
     [1.475, 0.070, 0.070, 0, -0.005],
     [1.445, 0.125, 0.095, 0, -0.01],
     [1.43, 0.170, 0.108, 0, -0.01],
@@ -169,44 +175,48 @@ function buildBody() {
     [0.92, 0.175, 0.120, 0, -0.005],
     [0.78, 0.190, 0.135, 0, 0.0],
     [0.62, 0.205, 0.150, 0, 0.005],
-  ], N, 1, coatW, COAT);
-  loft(M, [[1.57, 0.047, 0.05, 0, 0.0], [1.46, 0.052, 0.056, 0, -0.005]], N, 1,
+  ]), N, SUB, coatW, COAT);
+  loft(M, [[1.57, 0.047, 0.05, 0, 0.0], [1.46, 0.052, 0.056, 0, -0.005]], N, SUB,
     chainW([{ y: 1.53, a: B.head, b: B.neck, h: 0.025 }]), SKIN);
   const head = rigid(B.head);
   const jaw = (x, y, z) => { const t = clamp01((1.625 - y) / 0.085); return [x * (1 - 0.28 * t), y, z * (1 - 0.1 * t) + 0.01 * t]; };
-  ellipsoid(M, [0, 1.645, 0.012], [0.077, 0.106, 0.094], 18, 12, head, SKIN, jaw);
-  ellipsoid(M, [0, 1.632, 0.103], [0.013, 0.024, 0.018], 8, 6, head, SKIN);
-  ellipsoid(M, [0, 1.598, 0.093], [0.02, 0.0045, 0.006], 8, 4, head, LIP);
+  ell([0, 1.645, 0.012], [0.077, 0.106, 0.094], 18, 12, head, SKIN, jaw);
+  if (!far) {
+    ellipsoid(M, [0, 1.632, 0.103], [0.013, 0.024, 0.018], 8, 6, head, SKIN);
+    ellipsoid(M, [0, 1.598, 0.093], [0.02, 0.0045, 0.006], 8, 4, head, LIP);
+  }
   // The hair is an ellipsoid with everything under the hairline pulled up onto it: high at the brow,
   // low at the nape.
   const hair = (x, y, z) => { const f = 1.64 + 0.6 * Math.max(z, -0.1); return y < f ? [x * 0.93, f, z * 0.93] : [x, y, z]; };
-  ellipsoid(M, [0, 1.668, 0.0], [0.084, 0.094, 0.1], 18, 10, head, HAIR, hair);
+  ell([0, 1.668, 0.0], [0.084, 0.094, 0.1], 18, 10, head, HAIR, hair);
   for (const s of [1, -1]) {
     const L = s > 0 ? 'L' : 'R', x = 0.195 * s, lx = 0.095 * s;
-    ellipsoid(M, [0.077 * s, 1.643, 0.0], [0.011, 0.028, 0.018], 8, 5, head, SKIN);
-    ellipsoid(M, [0.029 * s, 1.66, 0.095], [0.012, 0.0075, 0.006], 8, 5, head, EYE);
-    ellipsoid(M, [0.03 * s, 1.684, 0.093], [0.02, 0.005, 0.008], 8, 4, head, HAIR);
-    loft(M, [
+    if (!far) {
+      ellipsoid(M, [0.077 * s, 1.643, 0.0], [0.011, 0.028, 0.018], 8, 5, head, SKIN);
+      ellipsoid(M, [0.029 * s, 1.66, 0.095], [0.012, 0.0075, 0.006], 8, 5, head, EYE);
+      ellipsoid(M, [0.03 * s, 1.684, 0.093], [0.02, 0.005, 0.008], 8, 4, head, HAIR);
+    }
+    loft(M, thin([
       [1.43, 0.058, 0.062, x, -0.01], [1.36, 0.058, 0.06, x, -0.01], [1.26, 0.054, 0.056, x, -0.01],
       [1.16, 0.048, 0.05, x, -0.01], [1.10, 0.046, 0.048, x, -0.01], [1.02, 0.045, 0.046, x, -0.01],
       [0.93, 0.043, 0.044, x, -0.01], [0.875, 0.046, 0.046, x, -0.01],
-    ], N, 1, chainW([
+    ]), N, SUB, chainW([
       { y: 1.39, a: B.chest, b: B['uarm' + L], h: 0.03 },
       { y: 1.10, a: B['uarm' + L], b: B['farm' + L], h: 0.045 },
     ]), COAT);
-    ellipsoid(M, [x, 0.795, 0.005], [0.026, 0.068, 0.043], 10, 8, rigid(B['hand' + L]), SKIN);
-    ellipsoid(M, [x, 0.83, 0.038], [0.016, 0.03, 0.016], 8, 6, rigid(B['hand' + L]), SKIN);
-    loft(M, [
+    ell([x, 0.795, 0.005], [0.026, 0.068, 0.043], 10, 8, rigid(B['hand' + L]), SKIN);
+    if (!far) ellipsoid(M, [x, 0.83, 0.038], [0.016, 0.03, 0.016], 8, 6, rigid(B['hand' + L]), SKIN);
+    loft(M, thin([
       [0.965, 0.085, 0.092, lx, -0.005], [0.88, 0.082, 0.088, lx, 0.0], [0.76, 0.072, 0.078, lx, 0.005],
       [0.62, 0.060, 0.064, lx, 0.005], [0.53, 0.053, 0.057, lx, 0.0], [0.47, 0.053, 0.058, lx, 0.0],
       [0.40, 0.055, 0.062, lx, -0.008], [0.30, 0.050, 0.055, lx, -0.005], [0.18, 0.045, 0.048, lx, 0.0],
       [0.10, 0.050, 0.052, lx, 0.0],
-    ], N, 1, chainW([
+    ]), N, SUB, chainW([
       { y: 0.93, a: B.pelvis, b: B['thigh' + L], h: 0.04 },
       { y: 0.49, a: B['thigh' + L], b: B['shin' + L], h: 0.04 },
       { y: 0.095, a: B['shin' + L], b: B['foot' + L], h: 0.02 },
     ]), LEGS);
-    ellipsoid(M, [lx, 0.052, 0.045], [0.048, 0.052, 0.122], 12, 7, rigid(B['foot' + L]), SHOE, flatSole);
+    ell([lx, 0.052, 0.045], [0.048, 0.052, 0.122], 12, 7, rigid(B['foot' + L]), SHOE, flatSole);
   }
   return M;
 }
@@ -350,28 +360,31 @@ function toHalf(v) {
 // Positions and normals are separate RGBA16F textures of the same shape. Built once and kept:
 //
 //   { nv, nt, W, rows, H, frames, pos, nrm, mat, idx, top, clips: { walk|idle|wave: { row0, len, dur } },
-//     preview }  where `preview` is the unhalved positions, frame-major, for the gate and the Modelshop.
+//     preview, far }  where `preview` is the unhalved positions, frame-major, for the gate and the
+//     Modelshop, and `far` is the same shape again for the lod-1 body (see buildBody) at half the frames.
 //
 // The whole bake is about 2 ms a frame, 112 frames, so the game takes it in slices (actorBakeStep)
 // and draws the billboard until it is done, rather than stalling one frame for a quarter of a second.
-let _bake = null, _job = null;
-function bakeBegin() {
+let _bake = null, _job = null, _near = null;
+// The far body's clips have half the frames: at a few pixels nobody can count them.
+const clipFrames = (clip, lod) => (lod ? clip.frames >> 1 : clip.frames);
+function bakeBegin(lod = 0) {
   solveRoot(CLIPS[0]);
-  const M = buildBody();
+  const M = buildBody(lod);
   const nv = M.p.length / 3, rows = Math.ceil(nv / 1024), W = Math.ceil(nv / rows);
-  const frames = CLIPS.reduce((x, c) => x + c.frames, 0), H = frames * rows;
+  const frames = CLIPS.reduce((x, c) => x + clipFrames(c, lod), 0), H = frames * rows;
   return {
-    nv, nt: M.i.length / 3, W, rows, H, frames, top: 0, ci: 0, f: 0, F: 0, clips: {},
+    lod, nv, nt: M.i.length / 3, W, rows, H, frames, top: 0, ci: 0, f: 0, F: 0, clips: {},
     pos: new Uint16Array(W * H * 4), nrm: new Uint16Array(W * H * 4), preview: new Float32Array(nv * frames * 3),
     P: new Float32Array(nv * 3), Nn: new Float32Array(nv * 3), mat: new Float32Array(M.m),
     rp: new Float64Array(M.p), rw: new Float64Array(M.w), b0: new Uint8Array(M.b0), b1: new Uint8Array(M.b1), ix: new Uint16Array(M.i),
   };
 }
 function bakeFrame(J) {
-  const clip = CLIPS[J.ci];
-  if (J.f === 0) J.clips[clip.name] = { row0: J.F, len: clip.frames, dur: clip.dur };
+  const clip = CLIPS[J.ci], len = clipFrames(clip, J.lod);
+  if (J.f === 0) J.clips[clip.name] = { row0: J.F, len, dur: clip.dur };
   const { nv, W, rows, P, Nn, rp, rw, b0, b1, ix, pos, nrm } = J;
-  const ph = J.f / clip.frames, pose = clip.fn(ph);
+  const ph = J.f / len, pose = clip.fn(ph);
   if (clip.surge) pose.root[2] += clip.surge(ph);
   const S = skinMats(fk(pose));
   let minY = Infinity;
@@ -406,22 +419,25 @@ function bakeFrame(J) {
   }
   J.preview.set(P, F * nv * 3);
   J.F++;
-  if (++J.f >= clip.frames) { J.f = 0; J.ci++; }
+  if (++J.f >= len) { J.f = 0; J.ci++; }
   return J.ci >= CLIPS.length;
 }
 // Bake for up to `budgetMs`, then return: the finished bake once there is one, null until then.
+// The near body bakes first and the far one after it; the bake is ready once both are.
 export function actorBakeStep(budgetMs = 2) {
   if (_bake) return _bake;
-  if (!_job) _job = bakeBegin();
+  if (!_job) _job = bakeBegin(_near ? 1 : 0);
   const t0 = performance.now();
-  let done = false;
-  do { done = bakeFrame(_job); } while (!done && performance.now() - t0 < budgetMs);
-  if (!done) return null;
-  const J = _job;
-  _job = null;
-  _bake = { nv: J.nv, nt: J.nt, W: J.W, rows: J.rows, H: J.H, frames: J.frames, pos: J.pos, nrm: J.nrm,
-    mat: J.mat, idx: J.ix, top: J.top, clips: J.clips, preview: J.preview };
-  return _bake;
+  for (;;) {
+    if (bakeFrame(_job)) {
+      const J = _job;
+      _job = null;
+      const out = { nv: J.nv, nt: J.nt, W: J.W, rows: J.rows, H: J.H, frames: J.frames, pos: J.pos, nrm: J.nrm,
+        mat: J.mat, idx: J.ix, top: J.top, clips: J.clips, preview: J.preview };
+      if (!_near) { _near = out; _job = bakeBegin(1); } else { _bake = { ..._near, far: out }; return _bake; }
+    }
+    if (performance.now() - t0 >= budgetMs) return null;
+  }
 }
 // The finished bake if there is one, without doing any work.
 export const actorBakeReady = () => _bake;

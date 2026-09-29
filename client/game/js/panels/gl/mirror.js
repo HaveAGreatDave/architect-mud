@@ -99,7 +99,10 @@ export function createMirrorLayer(gl) {
       if (!ok) { tw = th = 0; return false; }
       tw = w; th = h;
     }
-    prevVP = gl.getParameter(gl.VIEWPORT);
+    // The caller's viewport is the full canvas it handed over (context.js passes canvas.width and
+    // canvas.height). Asked with getParameter it was a synchronous round trip to the GPU process
+    // every frame, which drains every command queued so far before it answers.
+    prevVP = [0, 0, cw, ch];
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
     gl.viewport(0, 0, w, h);
     // ⚠ TRANSPARENT, AND THE GROUND ADDS WHAT IT FINDS. The reflection is the city's LIGHT lying on

@@ -454,5 +454,8 @@ export function createHDRLayer(gl) {
       overOnePct: +(over / (W * H) * 100).toFixed(2) };
   }
 
-  return { bind, composite, peak, dispose, get size() { return [W, H]; }, get samples() { return samples; } };
+  return { bind, composite, peak, dispose, get size() { return [W, H]; }, get samples() { return samples; },
+    // The framebuffer the scene is drawing into while bound, so a pass that has to rebind it after
+    // drawing somewhere else can say so without asking the driver (see cloudvol.js).
+    get drawFbo() { return bound ? msFbo : null; } };
 }
