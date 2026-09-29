@@ -41796,9 +41796,9 @@ const _marqueeTexCache = new Map();
 // by their letter-spacing before anything else. `ctx.letterSpacing` carries it — see SIGN_TRACK.
 export const SIGN_FONT = {
   mono: (C) => `bold ${Math.round(C * 0.72)}px Consolas,"DejaVu Sans Mono",monospace`,
-  script: (C) => `italic bold ${Math.round(C * 0.92)}px "Brush Script MT","Segoe Script","Snell Roundhand",cursive`,
-  block: (C) => `900 ${Math.round(C * 0.66)}px "Arial Black",Impact,"Haettenschweiler",sans-serif`,
-  slab: (C) => `bold ${Math.round(C * 0.70)}px Rockwell,"Roboto Slab","Sitka Heading",Georgia,serif`,
+  script: (C) => `${Math.round(C * 0.92)}px Yellowtail,"Brush Script MT","Segoe Script","Snell Roundhand",cursive`,
+  block: (C) => `${Math.round(C * 0.62)}px Bungee,"Arial Black",Impact,"Haettenschweiler",sans-serif`,
+  slab: (C) => `${Math.round(C * 0.70)}px "Alfa Slab One",Rockwell,"Roboto Slab","Sitka Heading",Georgia,serif`,
   // The two the city was missing, and both are about a building's AGE rather than its trade.
   // `deco` is the gilt letter cut into stone over a 1930s entrance: small caps, light, a high
   // stroke contrast — the one hand that cannot be got by making a sans heavier or a serif bigger.
@@ -41809,8 +41809,8 @@ export const SIGN_FONT = {
   // Copperplate is a LIGHT face with a short cap height: at the size the rest of this table uses it
   // measures WIDER than mono and still reads as smaller and finer, which on a frieze is a name that
   // has got lost on its own building. Bold, and a size up.
-  deco: (C) => `700 ${Math.round(C * 0.86)}px "Copperplate Gothic Bold","Copperplate Gothic Light",Copperplate,"Sitka Banner","Perpetua Titling MT",Optima,"Palatino Linotype",Palatino,serif`,
-  condensed: (C) => `bold ${Math.round(C * 0.84)}px "Arial Narrow","Bahnschrift Condensed","Liberation Sans Narrow","Helvetica Neue Condensed",Oswald,Impact,sans-serif`,
+  deco: (C) => `${Math.round(C * 0.84)}px Limelight,"Copperplate Gothic Bold","Copperplate Gothic Light",Copperplate,"Sitka Banner","Perpetua Titling MT",Optima,"Palatino Linotype",Palatino,serif`,
+  condensed: (C) => `800 ${Math.round(C * 0.90)}px "Big Shoulders Display","Arial Narrow","Bahnschrift Condensed","Liberation Sans Narrow","Helvetica Neue Condensed",Oswald,Impact,sans-serif`,
   // ── AND FOUR MORE, EACH FOR A TRADE THE SIX ABOVE HAD NO HAND FOR ─────────
   //
   // The rule these are picked by is the one already stated above: a face has to be a hand a real
@@ -41831,18 +41831,18 @@ export const SIGN_FONT = {
   //
   // ⚠ ALL FOUR NAME A FACE THAT SHIPS WITH WINDOWS FIRST and then a generic family, for exactly the
   // reason the ⚠ above gives: a missing font must fall back to a different HAND, never to body text.
-  stencil: (C) => `bold ${Math.round(C * 0.72)}px Stencil,"Allerta Stencil","Saira Stencil One","Bahnschrift Condensed","Arial Narrow","Arial Black",sans-serif`,
-  techno: (C) => `600 ${Math.round(C * 0.76)}px Bahnschrift,"DIN Alternate","DIN Condensed",Eurostile,"Segoe UI Semibold","Titillium Web","Segoe UI",sans-serif`,
+  stencil: (C) => `${Math.round(C * 0.72)}px "Black Ops One",Stencil,"Allerta Stencil","Saira Stencil One","Bahnschrift Condensed","Arial Narrow","Arial Black",sans-serif`,
+  techno: (C) => `${Math.round(C * 0.70)}px Audiowide,Bahnschrift,"DIN Alternate","DIN Condensed",Eurostile,"Segoe UI Semibold","Titillium Web","Segoe UI",sans-serif`,
   // ⚠ GABRIOLA IS THE REAL FALLBACK HERE AND IT IS NOT A NEAR MISS FOR BLACKLETTER — it is a
   // calligraphic display face rather than a gothic one. It earns the slot because what this hand has
   // to do is read as OLDER AND HAND-CUT than everything around it, and on a machine with no
   // blackletter the alternative was Cambria, which is a body serif and says nothing at all.
-  gothic: (C) => `${Math.round(C * 0.95)}px "Old English Text MT","UnifrakturMaguntia","Blackadder ITC",Gabriola,"Sitka Banner",Cambria,Garamond,serif`,
+  gothic: (C) => `${Math.round(C * 0.95)}px UnifrakturMaguntia,"Old English Text MT","Blackadder ITC",Gabriola,"Sitka Banner",Cambria,Garamond,serif`,
   // ⚠ THE WEIGHT AND THE TIGHT TRACKING ARE DOING THE WORK, not the family — there is no fat slab on
   // a stock Windows box, so on the machines that lack Playbill and Rockwell this is a display serif
   // set heavy and jammed together, which is what a saloon board and a pawnbroker's shingle actually
   // are. Without the tracking (see SIGN_TRACK) it would be `slab` again.
-  western: (C) => `900 ${Math.round(C * 0.80)}px Playbill,"Rockwell Extra Bold","Bookman Old Style",Rockwell,"Sitka Display",Georgia,serif`,
+  western: (C) => `${Math.round(C * 0.76)}px Rye,Playbill,"Rockwell Extra Bold","Bookman Old Style",Rockwell,"Sitka Display",Georgia,serif`,
   // ── AND THE ONE THAT IS NOT A LATIN HAND AT ALL ──────────────────────────
   //
   // ⚠ `hanzi` IS SIZED AND WEIGHTED AGAINST THE OTHER TEN, NOT AGAINST ITS OWN DEFAULTS, and the
@@ -41873,7 +41873,7 @@ export const SIGN_FONT = {
   // each a fine serif rather than a body one. ⚠ It must also stay distinct from `deco`, whose own
   // chain lands on Sitka BANNER where there is no Copperplate — so Banner is deliberately absent
   // here, or the city's two dressiest hands would be one hand on most machines.
-  estate: (C) => `600 ${Math.round(C * 0.80)}px "Bodoni MT",Didot,"Didot LT STD","Playfair Display","Baskerville Old Face","Big Caslon","Modern No. 20","Sitka Heading","Palatino Linotype",Constantia,Georgia,serif`,
+  estate: (C) => `700 ${Math.round(C * 0.80)}px "Playfair Display SC","Bodoni MT",Didot,"Didot LT STD","Playfair Display","Baskerville Old Face","Big Caslon","Modern No. 20","Sitka Heading","Palatino Linotype",Constantia,Georgia,serif`,
   // ── AND THE TWO BENT-GLASS HANDS, WHICH ARE WHAT A NEON SHOP ACTUALLY BENDS ──
   //
   // Every face above is a painter's or a carver's hand that the tube pass then traces. These two are
@@ -41888,6 +41888,16 @@ export const SIGN_FONT = {
   //   a time down a blade is a row of unjoined squiggles.
   tube: (C) => `${Math.round(C * 0.80)}px "Varela Round","Arial Rounded MT Bold","Nunito",sans-serif`,
   neonscript: (C) => `${Math.round(C * 0.6)}px Sacramento,"Segoe Script","Brush Script MT",cursive`,
+  // ── AND THE ALTERNATES, SO TWO SHOPS OF ONE TRADE AREN'T LETTERED BY ONE HAND ─────────────────
+  //
+  // Each is a second hand for a trade tradition above, picked per name by `altHand`. `showcard` is
+  // the inline display letter of a sign-painter's showcard (Bungee Inline), `marker` the hand-done
+  // board a chancer paints himself (Permanent Marker), `stencil2` a cleaner plate stencil (Saira
+  // Stencil One), `techno2` the wide geometric of a lab's nameplate (Orbitron).
+  showcard: (C) => `${Math.round(C * 0.62)}px "Bungee Inline",Bungee,"Arial Black",Impact,sans-serif`,
+  marker: (C) => `${Math.round(C * 0.80)}px "Permanent Marker","Segoe Print","Comic Sans MS",cursive`,
+  stencil2: (C) => `${Math.round(C * 0.78)}px "Saira Stencil One","Black Ops One",Stencil,"Arial Narrow",sans-serif`,
+  techno2: (C) => `700 ${Math.round(C * 0.66)}px Orbitron,Audiowide,Bahnschrift,"Segoe UI",sans-serif`,
 };
 // ── HOW TIGHTLY THE LETTERS ARE SET, AS A FRACTION OF THE CELL ─────────────────────────────────
 //
@@ -41920,6 +41930,10 @@ export const SIGN_TRACK = {
   tube: 0.05,       // two tubes a stem, and the neighbours' walls must not touch
   mono: 0.04,
   hanzi: 0.04,
+  showcard: 0.03,
+  marker: 0,       // a brush hand; tracking it looks typed
+  stencil2: 0.10,
+  techno2: 0.10,
 };
 // A pictogram is drawn as a TUBE, not as a filled shape — it is bent glass with gas in it, so it is
 // a stroked path with round caps and joins, and it takes the same three passes the lettering does.
@@ -42219,22 +42233,49 @@ if (typeof window !== 'undefined') window.__bakeSign = (...a) => bakeSignText(..
 // frame and on every building that carries it (see `_signFace` and scripts/shapes/signhand.mjs).
 // ⚠ A PAINTED (`solid`) SIGN KEEPS ITS HAND: this is about bent glass, not about wall paint.
 const NEON_GENERIC = new Set(['mono', 'block', 'slab', 'condensed']);
-function neonHand(face, label, vertical, solid) {
-  if (solid || face === 'hanzi') return face;
-  if (vertical) return 'tube';
-  let h = 2166136261;
+// A trade's second (and third) hand, rolled per name so a street of pawnshops isn't one font. Keyed
+// on the label like everything else here, so a name keeps its hand. The first entry is the hand the
+// building asked for, so it still wins most of the time.
+const SIGN_ALT = {
+  block: ['block', 'block', 'showcard'],
+  slab: ['slab', 'slab', 'western'],
+  stencil: ['stencil', 'stencil2'],
+  techno: ['techno', 'techno2'],
+  script: ['script', 'script', 'marker'],
+  condensed: ['condensed', 'condensed', 'block'],
+};
+function labelRoll(label, salt) {
+  let h = 2166136261 ^ salt;
   for (let i = 0; i < label.length; i++) h = Math.imul(h ^ label.charCodeAt(i), 16777619);
-  const r = ((h >>> 0) % 1000) / 1000;
+  return ((h >>> 0) % 1000) / 1000;
+}
+function altHand(face, label) {
+  const alts = SIGN_ALT[face];
+  return alts ? alts[Math.floor(labelRoll(label, 0x5a17) * alts.length)] : face;
+}
+function neonHand(face, label, vertical, solid) {
+  if (face === 'hanzi') return face;
+  if (solid) return altHand(face, label);
+  if (vertical) return 'tube';
+  const r = labelRoll(label, 0);
   if (face === 'script') return r < 0.5 ? 'neonscript' : 'script';
   if (NEON_GENERIC.has(face)) return r < 0.12 ? 'neonscript' : 'tube';
-  return face;
+  return altHand(face, label);
 }
-// The two faces are fetched once. A sign baked before they arrive is baked in the fallback, so the
-// cache is emptied when they land and every board re-bakes in its real hand on the next frame.
+// The sign faces are fetched once (all self-hosted, OFL or Apache; the licences sit beside them).
+// A sign baked before they arrive is baked in the fallback, so the cache is emptied when they land and every board re-bakes in its real hand on the next frame.
 function loadNeonFaces() {
   if (typeof document === 'undefined' || typeof FontFace === 'undefined' || !document.fonts) return;
-  const faces = [['Varela Round', 'varela-round.woff2'], ['Sacramento', 'sacramento.woff2']];
-  Promise.all(faces.map(([fam, file]) => new FontFace(fam, `url(${new URL('../../../shared/fonts/' + file, import.meta.url)})`)
+  const faces = [['Varela Round', 'varela-round.woff2'], ['Sacramento', 'sacramento.woff2'],
+    ['Rye', 'rye.woff2'], ['Limelight', 'limelight.woff2'], ['Black Ops One', 'black-ops-one.woff2'],
+    ['Saira Stencil One', 'saira-stencil-one.woff2'], ['Audiowide', 'audiowide.woff2'],
+    ['Orbitron', 'orbitron.woff2', { weight: '700' }], ['UnifrakturMaguntia', 'unifraktur-maguntia.woff2'],
+    ['Yellowtail', 'yellowtail.woff2'], ['Bungee', 'bungee.woff2'], ['Bungee Inline', 'bungee-inline.woff2'],
+    ['Alfa Slab One', 'alfa-slab-one.woff2'], ['Playfair Display SC', 'playfair-display-sc.woff2', { weight: '700' }],
+    ['Big Shoulders Display', 'big-shoulders-display.woff2', { weight: '800' }],
+    ['Permanent Marker', 'permanent-marker.woff2']];
+  // ⚠ allSettled, not all: one font failing to load must not keep the other fifteen off the cache.
+  Promise.allSettled(faces.map(([fam, file, desc]) => new FontFace(fam, `url(${new URL('../../../shared/fonts/' + file, import.meta.url)})`, desc)
     .load().then((f) => { document.fonts.add(f); })))
     .then(() => _signTexCache.clear(), () => {});
 }
