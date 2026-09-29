@@ -15,7 +15,7 @@
 // paint and patches are there and point at the atlas; a tent after dark near the brazier is warmer
 // than one on the far side; and with the pass off or the switch at 0 the frame is the decal frame it
 // always was.
-import { clothBake, CLOTH_KINDS, CLOTH_BANDS, CLOTH_FRAMES } from '../../client/game/js/panels/cloth3d.js';
+import { clothBake, CLOTH_KINDS, CLOTH_SHELTERS, CLOTH_BANDS, CLOTH_FRAMES } from '../../client/game/js/panels/cloth3d.js';
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
 
 const REPORT = process.argv.includes('--report');
@@ -42,7 +42,7 @@ for (const kind of CLOTH_KINDS) {
     if (wrap > inner * 1.6 + 1e-4) problems.push(`${kind} at wind ${CLOTH_BANDS[b]}: the loop jumps ${wrap.toFixed(4)} across the wrap against ${inner.toFixed(4)} inside it`);
   }
   // Tents stand on the ground: nothing under z 0 in any frame.
-  if (['ridge', 'tarp', 'lean'].includes(kind)) {
+  if (CLOTH_SHELTERS.includes(kind)) {
     let lo = Infinity;
     for (let r = 0; r < H; r++) for (let v = 0; v < nv; v++) lo = Math.min(lo, at(r, v)[2]);
     if (lo < -0.02) problems.push(`${kind}: a frame reaches ${lo.toFixed(3)} under the ground`);
@@ -123,14 +123,15 @@ const campView = (hour) => ({ cls: 'truck', variant: 'hauler', phase: 'ground', 
   hour, weather: 'clear', speed: 0, map: camp, heading: 0, mapCenter: { x: 300, y: 300 }, mapOffset: { x: 0, y: 0 }, wind: 20 });
 {
   const on = frame(campView(13), true), off = frame(campView(13), false);
-  const tents = on.recs.filter((r) => ['ridge', 'tarp', 'lean'].includes(r.kind));
-  const campDecals = (fr) => fr.decals.filter((k) => /camp\|(slope|gable|tarp|lean|patch)/.test(k) || k.startsWith('cloth|')).length;
+  const tents = on.recs.filter((r) => CLOTH_SHELTERS.includes(r.kind));
+  const campDecals = (fr) => fr.decals.filter((k) => /camp\|(slope|gable|tarp|lean|patch|dome|bell|tunnel)/.test(k) || k.startsWith('cloth|')).length;
   report(`camp: ${tents.length} shelters as records (${new Set(tents.map((r) => r.kind)).size} kinds), ${campDecals(off)} canvas decals without the pass`);
   if (!campDecals(off)) problems.push('the camp control drew no shelter decals; the scene has no camp, so the rest means nothing');
   if (tents.length < 9) problems.push(`${tents.length} shelters became records over three camp tiles; every pitch should`);
   if (campDecals(on)) problems.push(`${campDecals(on)} shelter decals with the cloth pass installed; the tents are drawn twice`);
   const kinds = new Set(tents.map((r) => r.kind));
-  if (kinds.size < 3) problems.push(`the camp has only ${[...kinds].join('/')}; it should have ridge tents, tarps and lean-tos`);
+  if (kinds.size < 4) problems.push(`the camp has only ${[...kinds].join('/')}; it should have ridge tents, tarps, lean-tos and bought tents (domes, bells, tunnels)`);
+  if (!['dome', 'bell', 'tunnel'].some((k) => kinds.has(k))) problems.push('no dome, bell or tunnel tent in three camp tiles');
   const colours = new Set(tents.map((r) => r.colA.map(Math.round).join()));
   if (colours.size < tents.length * 0.6) problems.push(`${colours.size} colours over ${tents.length} shelters; a camp is every drab there is`);
   for (const r of tents) {
@@ -148,13 +149,31 @@ const campView = (hour) => ({ cls: 'truck', variant: 'hauler', phase: 'ground', 
 
   // After dark, the camp's own light: the warmest shelter is much warmer than the coldest, and in
   // daylight nothing is warm at all.
-  const night = frame(campView(23), true).recs.filter((r) => ['ridge', 'tarp', 'lean'].includes(r.kind));
+  const night = frame(campView(23), true).recs.filter((r) => CLOTH_SHELTERS.includes(r.kind));
   const heat = (r) => (r.warm ? r.warm[0] + r.warm[1] + r.warm[2] : 0);
   const hs = night.map(heat).sort((a, b) => a - b);
   report(`camp at night: warmth from ${hs[0]?.toFixed(3)} to ${hs[hs.length - 1]?.toFixed(3)}`);
   if (!(hs.length && hs[hs.length - 1] > hs[0] + 0.1)) problems.push('after dark every shelter is lit the same; the lamps and braziers should light the ones near them');
   if (tents.some((r) => heat(r) > 0)) problems.push('a shelter is warm in daylight');
   if (!night.every((r) => r.lum < 1)) problems.push('a shelter is not dimmed after dark');
+}
+
+// Standing in the camp: the camera's own tile is a camp. `emitDecoFill` drops a polygon with any
+// corner near the eye, so before the camp clipped its own sheets at the eye plane, the shelters
+// beside you vanished whole. With the pass off, the canvas shelters round the eye must still draw.
+{
+  const inside = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) =>
+    (x === R && (y === R || y === R - 1)) ? { kind: 'land', biome: 'city', flr: 0, mark: 'camp' } : { kind: 'land', biome: 'city', flr: 0 }));
+  const v = { ...campView(13), map: inside, eyeH: 0.03 };
+  const off = frame(v, false);
+  const n = off.decals.filter((k) => /camp\|(slope|gable|tarp|lean|dome|bell|tunnel)/.test(k)).length;
+  report(`standing in a camp: ${n} shelter decals`);
+  if (!n) problems.push('standing in a camp, no shelter drew at all');
+  // And near to, the kit round the shelters: doors, flaps, tyres, washing, on both paths.
+  const kit = (fr) => fr.decals.filter((k) => /camp\|(door|flap|tyre|laundry)/.test(k)).length;
+  const on = frame(v, true);
+  report(`standing in a camp: ${kit(off)} kit decals on the canvas path, ${kit(on)} with the pass`);
+  if (!kit(off) || !kit(on)) problems.push(`near to, the camp drew ${kit(off)} doors, flaps, tyres or washing on the canvas path and ${kit(on)} with the pass`);
 }
 
 ws.RENDER_TUNE.gl = was.gl; ws.RENDER_TUNE.glFloor = was.floor; ws.RENDER_TUNE.glCloth = was.cloth;

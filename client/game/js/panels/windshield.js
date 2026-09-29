@@ -1269,6 +1269,7 @@ export const RENDER_TUNE = {
   cloudVolRes: 0.25,   // fraction of the frame's resolution the march runs at
   cloudVolSteps: 48,   // march steps a ray
   cloudVolTemporal: 0.85,   // how much of last frame each pixel keeps (gl/cloudvol.js); 0 is the raw jittered march
+  cloudUnder: 1,      // 1: on the 2-D path, from under the deck, paint the cards BEFORE the world so buildings cover them; 0 paints them over everything as before
   cloudFloor: 1,      // 1: from under the deck, the part of a cloud card below the base never covers a bird (gl/clouds.js uFloorZ); 0 is the deck as it shipped
   // What FLIES lays its silhouette into the depth buffer, so the deck above can sort against it.
   // 0 puts both back to writing no depth, which is the renderer that shipped.
@@ -5854,6 +5855,17 @@ function paintWindshieldFrame(id, view) {
     CAB_PAINTED = wantCabNow(v, bare, ext);
     INTERIOR_LATER = !!(GL_INTERIOR_HOOK && full3d(v) && !bare && !ext);
     SEAT_FRAME_H = H;   // the frame height, which the camera object does not carry — see seatAttitude
+    // ⚠ THE 2-D DECK GOES UNDER THE CITY. With no GL sink the cards were painted after the world
+    // and covered every tower and overpass in front of them. From under the deck nothing in the
+    // city is behind a cloud, so the cards are painted first and the world covers them; above the
+    // deck the old order stays (the ground would otherwise hide the deck below you).
+    CLOUD_UNDER = false;
+    if (volOn && worldBlend > 0.02 && !CLOUD_SINK && TUNE.cloudUnder !== 0 && cam.EH < cloudBaseZ(wx)) {
+      pBegin('clouds');
+      try { drawVolumetricClouds(ctx, cam, st, v, baseTint, litTint, cloudAlpha, localStorm, sky.night, dt, W, H, horizonY, wx, lightX, lightY, lightStr, 'under'); CLOUD_UNDER = true; }
+      catch (e) { console.error('[windshield] the under-deck cloud pass threw', e); }
+      pEnd();
+    }
     pMark('m:preworld');
     try { drawWorldObjects(ctx, cam, vw, sky, now, sunFx); }
     catch (e) {
@@ -5898,7 +5910,7 @@ function paintWindshieldFrame(id, view) {
         // build twice, on the frame GLASS 2 fell over, and the sky is never empty.
         if (CLOUD_SINK && !GL_DREW) { CLOUD_SINK = null; CLOUD_STATE = null; CLOUD_VOL = null; }
         try {
-          drawVolumetricClouds(ctx, cam, st, v, baseTint, litTint, cloudAlpha, localStorm, sky.night, dt, W, H, horizonY, wx, lightX, lightY, lightStr, CLOUD_SINK ? 'paint' : 'both');
+          drawVolumetricClouds(ctx, cam, st, v, baseTint, litTint, cloudAlpha, localStorm, sky.night, dt, W, H, horizonY, wx, lightX, lightY, lightStr, CLOUD_SINK ? 'paint' : (CLOUD_UNDER ? 'over' : 'both'));
           if (CLOUD_VOL && CLOUD_VOL.cells && CLOUD_VOL.cells.length) {
             // ── THE VOLUME, IN PLACE OF THE CARDS ──────────────────────────────────────────────
             // The cards were collected into the sink and are simply not drawn. A volume that fails
@@ -17717,8 +17729,11 @@ function bakePuffSprite(col, shade) {
 // `dt` every call, so running both halves would advance it twice a frame and the whiteout would
 // bloom at double speed in exactly the weather it is built for.
 function drawVolumetricClouds(ctx, cam, st, v, base, lit, alpha, storm, night, dt, W, H, horizonY, wx, lightX, lightY, lightStr, phase = 'both') {
-  const build = phase !== 'paint';     // project the swarm and fill the sink
-  const paint = phase !== 'collect';   // put anything on the 2-D canvas
+  // 'under' (2-D path, eye below the deck): build and paint the cards only, BEFORE the world pass,
+  // so every building painted after it covers the deck. 'over' then paints the screen-space layers
+  // (haze, virga, whiteout) after the world without rebuilding the swarm.
+  const build = phase !== 'paint' && phase !== 'over';     // project the swarm and fill the sink
+  const paint = phase !== 'collect' && phase !== 'under';  // put the screen-space layers on the 2-D canvas
   const cells = st.cells || [], ax = v.acX, ay = v.acY;
   // Cumulus caps over strong thermals (thermalCapCells), built into the same swarm as the weather's
   // cells so they light, sort and fade exactly like the rest of the deck. They are the one cloud a
@@ -25417,6 +25432,7 @@ let OWN_ON_GL = false;
 // pass and the deck hook after it. It is the deck's palette resolved once, for the same reason
 // FOG_STATE and LIGHT_STATE are: a shader that carried its own copy would drift.
 let GL_CLOUD_HOOK = null, CLOUD_SINK = null, CLOUD_STATE = null;
+let CLOUD_UNDER = false;   // this frame's 2-D deck was painted before the world pass
 
 // ── THE PAINTED SKY, DOWNSCALED, FOR THE WATER TO REFLECT ──────────────────────────────────────
 //
@@ -25485,6 +25501,47 @@ export function cloudVolStatus() {
   return { setting: RENDER_TUNE.glCloudVol, installed: !!GL_CLOUD_VOL_HOOK, device: CLOUD_VOL_DEVICE, sessionOff: CLOUD_VOL_OFF, failed: CLOUD_VOL_FAIL, running: cloudVolWanted() && !!RENDER_TUNE.gl && !!RENDER_TUNE.glClouds };
 }
 if (typeof window !== 'undefined') window.__cloudVol = cloudVolStatus;
+
+// ── F9: THE VOLUMETRIC DECK, ON OR OFF ─────────────────────────────────────────────────────────
+// Flips RENDER_TUNE.glCloudVol between forced on (1) and the card deck (0). From AUTO (-1) the
+// first press goes to whichever state is NOT on screen now. A per-viewer convenience, so it lives
+// in localStorage only, and a browser that refuses storage still gets the toggle.
+const CLOUD_VOL_LS = 'wsCloudVol';
+try {
+  const s = typeof localStorage !== 'undefined' ? localStorage.getItem(CLOUD_VOL_LS) : null;
+  if (s === '0' || s === '1') RENDER_TUNE.glCloudVol = +s;
+} catch { /* private mode */ }
+export function cloudVolToggle(on) {
+  const cur = cloudVolWanted();
+  const next = on == null ? !cur : !!on;
+  RENDER_TUNE.glCloudVol = next ? 1 : 0;
+  if (next) { CLOUD_VOL_FAIL = null; CLOUD_VOL_OFF = null; }   // an explicit ask gets another try
+  try { if (typeof localStorage !== 'undefined') localStorage.setItem(CLOUD_VOL_LS, next ? '1' : '0'); } catch { /* see above */ }
+  return next;
+}
+function cloudVolToast(text) {
+  if (typeof document === 'undefined' || !document.body) return;
+  let el = document.getElementById('ws-cloudvol-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'ws-cloudvol-toast';
+    el.style.cssText = 'position:fixed;left:50%;top:12%;transform:translateX(-50%);z-index:99999;padding:6px 14px;'
+      + 'background:rgba(10,14,20,0.82);color:#cfe3f0;font:12px monospace;letter-spacing:1px;border:1px solid #4a6a80;'
+      + 'pointer-events:none;transition:opacity 0.4s';
+    document.body.appendChild(el);
+  }
+  el.textContent = text; el.style.opacity = '1';
+  clearTimeout(el._t); el._t = setTimeout(() => { el.style.opacity = '0'; }, 1600);
+}
+if (typeof window !== 'undefined' && window.addEventListener) {
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'F9' || e.repeat) return;
+    e.preventDefault();
+    const on = cloudVolToggle();
+    const gpu = !!(RENDER_TUNE.gl && RENDER_TUNE.glClouds && GL_CLOUD_VOL_HOOK);
+    cloudVolToast(on ? (gpu ? 'VOLUMETRIC CLOUDS ON' : 'VOLUMETRIC CLOUDS ON (needs GLASS 2)') : 'VOLUMETRIC CLOUDS OFF');
+  });
+}
 // The cabin's own moment — see drawInteriorAlone in gl/context.js. Installed from outside for the
 // same reason the other two are: this file must never import gl/.
 let GL_SKY_HOOK = null;
@@ -33121,7 +33178,9 @@ function drawTrafficSignals(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
     const c = map[ry][rx];
     // Junctions only, and never on a curve or a dirt track — the same two exclusions the crossings
     // take, for the same reasons (a bend has no arms to govern; a graded track has no signals).
-    if (!c || !c.road || c.bt || c.ft === 'dust' || c.rdeg != null) continue;
+    // ⚠ AND NEVER IN THE SOUTH LOCK: its own gantries are the only signals a driver answers to
+    // in there, and a crossroads mast under the roof contradicted them.
+    if (!c || !c.road || c.bt || c.lk || c.mark === 'gate' || c.ft === 'dust' || c.rdeg != null) continue;
     const dirs = c.rd || '';
     if (!isJunction(dirs)) continue;
     const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
@@ -38149,7 +38208,7 @@ const CAMP_LAYOUTS = [
   { name: 'ring',
     place: (seed, i, n) => {
       const th = (i / n) * Math.PI * 2 + (frac(seed * 5 + i) - 0.5) * 0.3, r = 0.30 + frac(seed * 13 + i * 7) * 0.12;
-      return { a: Math.cos(th) * r, b: Math.sin(th) * r, kind: frac(seed * 53 + i * 41) < 0.5 ? 2 : 0, hd: th + Math.PI };
+      return { a: Math.cos(th) * r, b: Math.sin(th) * r, kind: [2, 0, 3, 4, 2][Math.floor(frac(seed * 53 + i * 41) * 5)], hd: th + Math.PI };
     },
     drums: () => [[0, 0]] },
   // A lane: two rows facing each other across a path, with the drums down the middle of it.
@@ -38177,6 +38236,67 @@ const CAMP_LAYOUTS = [
 //
 // ⚠ ONLY THE FACES TURNED TO THE EYE ARE EMITTED, the drum's rule: the back of a box is behind its
 // front from every seat, and a quad the camera can't see is a draw for nothing.
+// ⚠ A CAMP IS WALKED THROUGH, SO ITS PARTS HAVE TO SURVIVE THE EYE PLANE. `emitDecoFill` drops a
+// polygon outright when any corner is within 0.1 of the eye, which is right for a sign on a wall
+// across the street and wrong for a tent you are standing beside: the whole slope went, the moment
+// its near corner passed you, and a shelter half in view popped out of the picture. So the camp clips
+// its own polygons at the plane first, in world space, the way `emitWire` clips a segment (see the
+// ⚠ there on `cam.rawF`), and hands on only the part in front.
+function campClip(cam, pts) {
+  if (!cam.rawF) return pts;
+  const NEAR = 0.13, d = pts.map((p) => cam.rawF(p[0], p[1], p[2]));
+  if (d.every((x) => x > NEAR)) return pts;
+  if (d.every((x) => x <= NEAR)) return null;
+  const out = [];
+  for (let i = 0; i < pts.length; i++) {
+    const j = (i + 1) % pts.length, a = pts[i], b = pts[j], da = d[i], db = d[j];
+    if (da > NEAR) out.push(a);
+    if ((da > NEAR) !== (db > NEAR)) {
+      const t = (NEAR + 1e-4 - da) / (db - da);
+      out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]);
+    }
+  }
+  return out.length >= 3 ? out : null;
+}
+function campFill(ctx, cam, W, ...rest) {
+  const q = campClip(cam, W);
+  if (q) emitDecoFill(ctx, cam, q, ...rest);
+}
+// The shelters, as drawTentCamp numbers them; the names are cloth3d.js's CLOTH_SHELTERS.
+const CAMP_SHELTERS = ['ridge', 'tarp', 'lean', 'dome', 'bell', 'tunnel'];
+// Which shelter a pitch gets when its layout doesn't say: the old three still the commoner, since
+// they are what you make out of what you find, and the bought tents (dome, bell, tunnel) rarer.
+const CAMP_KIND_ODDS = [0.19, 0.36, 0.52, 0.70, 0.84, 1];
+const campKind = (r) => { for (let k = 0; k < CAMP_KIND_ODDS.length; k++) if (r < CAMP_KIND_ODDS[k]) return k; return 0; };
+// Half-width across, half-length along and height, per shelter, off three rolls. A dome and a bell
+// are round, so their two halves are near equal; a tunnel is long and low; the rest vary widely, so
+// no two ridge tents on a tile stand the same.
+function campDims(kind, fh, r1, r2, r3) {
+  switch (kind) {
+    case 0: return [fh * (0.12 + r1 * 0.10), fh * (0.16 + r2 * 0.14), fh * (0.22 + r3 * 0.18)];
+    case 1: return [fh * (0.14 + r1 * 0.10), fh * (0.16 + r2 * 0.12), fh * (0.24 + r3 * 0.12)];
+    case 2: return [fh * (0.14 + r1 * 0.10), fh * (0.12 + r2 * 0.10), fh * (0.22 + r3 * 0.12)];
+    case 3: { const w = fh * (0.13 + r1 * 0.06); return [w, w * (0.95 + r2 * 0.15), w * (0.95 + r3 * 0.3)]; }
+    case 4: { const w = fh * (0.16 + r1 * 0.06); return [w, w, fh * (0.36 + r3 * 0.10)]; }
+    default: { const w = fh * (0.11 + r1 * 0.04); return [w, fh * (0.22 + r2 * 0.10), w * (1.0 + r3 * 0.2)]; }
+  }
+}
+// What hangs on a washing line: the same weather as the tarps, a shade lighter for being washed.
+const LAUNDRY = [[150, 146, 132], [120, 128, 140], [140, 120, 110], [110, 116, 96], [160, 150, 120], [96, 90, 100], [134, 96, 88]];
+// A tyre lying flat: eight tread faces (only those turned to the eye, the drum's rule), the sidewall
+// on top and the hole in it.
+function campTyre(ctx, cam, x, y, z, r, h, nightF, alpha) {
+  const ex = cam.ex || 0, ey = cam.ey || 0, n = 8, rub = [40, 38, 36];
+  const at = (j, rr, zz) => { const a = (j / n) * Math.PI * 2; return [x + Math.cos(a) * rr, y + Math.sin(a) * rr, zz]; };
+  for (let j = 0; j < n; j++) {
+    const am = ((j + 0.5) / n) * Math.PI * 2, nx = Math.cos(am), ny = Math.sin(am);
+    if (nx * (ex - x) + ny * (ey - y) <= 0) continue;
+    campFill(ctx, cam, [at(j, r, z + h), at(j + 1, r, z + h), at(j + 1, r, z), at(j, r, z)],
+      campShade(rub, campLightK(nx, ny) * 0.9, nightF), alpha, DECO_LIFT * 0.1, 'camp|tyre');
+  }
+  campFill(ctx, cam, Array.from({ length: n }, (_, j) => at(j, r, z + h)), campShade(rub, 1.1, nightF), alpha, DECO_LIFT * 0.1, 'camp|tyre');
+  campFill(ctx, cam, Array.from({ length: n }, (_, j) => at(j, r * 0.5, z + h * 1.03)), campShade([16, 15, 14], 1, nightF), alpha, DECO_LIFT * 0.1, 'camp|tyre');
+}
 const campShade = (rgb, k, nightF, add = [0, 0, 0]) => 'rgb(' + rgb.map((c, i) => clamp(Math.round(c * k * (1 - nightF * 0.6) + add[i]), 0, 255)).join(',') + ')';
 const campLightK = (nx, ny, up = 0) => {
   const LS = LIGHT_STATE;
@@ -38203,7 +38323,7 @@ function drawCampDrum(x, y, r, h, nightF, alpha, seed, near, glow, ctx, cam, top
     for (const [v0, v1, kind] of (near ? bands : [[0, 1, 'rust']])) {
       const col = kind === 'paint' ? paint.map((c, i) => c * 0.55 + rust[i] * 0.45 * (frac(seed * 3 + j) < 0.3 ? 1.4 : 0.8))
         : kind === 'foot' ? rust.map((c) => c * 0.62) : rust.map((c) => c * stave);
-      emitDecoFill(ctx, cam, [[X0, Y0, h * v1], [X1, Y1, h * v1], [X1, Y1, h * v0], [X0, Y0, h * v0]],
+      campFill(ctx, cam, [[X0, Y0, h * v1], [X1, Y1, h * v1], [X1, Y1, h * v0], [X0, Y0, h * v0]],
         campShade(col, k, nightF, add), alpha, DECO_LIFT * 0.1, 'camp|drum');
     }
   }
@@ -38217,18 +38337,18 @@ function drawCampDrum(x, y, r, h, nightF, alpha, seed, near, glow, ctx, cam, top
     // A closed drum: its lid, with the bung.
     const lid = [];
     for (let j = 0; j < sides; j++) { const a = (j / sides) * Math.PI * 2; lid.push([x + Math.cos(a) * r, y + Math.sin(a) * r, h]); }
-    emitDecoFill(ctx, cam, lid, campShade(paint || rust, 0.95, nightF), alpha, DECO_LIFT * 0.1, 'camp|drum');
+    campFill(ctx, cam, lid, campShade(paint || rust, 0.95, nightF), alpha, DECO_LIFT * 0.1, 'camp|drum');
   }
 }
 // A box on the mud, axis-aligned: top and the two sides that face the eye.
 function campBox(ctx, cam, x, y, hw, hd, z0, z1, rgb, nightF, alpha, key, tones = null) {
   const ex = cam.ex || 0, ey = cam.ey || 0, T = tones || [1, 1, 1];
-  const face = (pts, nx, ny, t) => emitDecoFill(ctx, cam, pts, campShade(rgb, campLightK(nx, ny) * t, nightF), alpha, DECO_LIFT * 0.1, key);
+  const face = (pts, nx, ny, t) => campFill(ctx, cam, pts, campShade(rgb, campLightK(nx, ny) * t, nightF), alpha, DECO_LIFT * 0.1, key);
   if (ex > x + hw) face([[x + hw, y - hd, z1], [x + hw, y + hd, z1], [x + hw, y + hd, z0], [x + hw, y - hd, z0]], 1, 0, T[1]);
   else if (ex < x - hw) face([[x - hw, y + hd, z1], [x - hw, y - hd, z1], [x - hw, y - hd, z0], [x - hw, y + hd, z0]], -1, 0, T[1]);
   if (ey > y + hd) face([[x - hw, y + hd, z1], [x + hw, y + hd, z1], [x + hw, y + hd, z0], [x - hw, y + hd, z0]], 0, 1, T[2]);
   else if (ey < y - hd) face([[x + hw, y - hd, z1], [x - hw, y - hd, z1], [x - hw, y - hd, z0], [x + hw, y - hd, z0]], 0, -1, T[2]);
-  emitDecoFill(ctx, cam, [[x - hw, y - hd, z1], [x + hw, y - hd, z1], [x + hw, y + hd, z1], [x - hw, y + hd, z1]],
+  campFill(ctx, cam, [[x - hw, y - hd, z1], [x + hw, y - hd, z1], [x + hw, y + hd, z1], [x - hw, y + hd, z1]],
     campShade(rgb, 0.92 * T[0], nightF), alpha, DECO_LIFT * 0.1, key);
 }
 // Bedding: a mattress somebody carried out of a building, stained, on the mud or on a pallet, with a
@@ -38245,7 +38365,7 @@ function drawCampBed(ctx, cam, x, y, fh, along, nightF, alpha, seed) {
     z = pz;
   }
   if (kind === 2) {
-    emitDecoFill(ctx, cam, [[x - sx, y - sy, fh * 0.002], [x + sx, y - sy, fh * 0.002], [x + sx, y + sy, fh * 0.002], [x - sx, y + sy, fh * 0.002]],
+    campFill(ctx, cam, [[x - sx, y - sy, fh * 0.002], [x + sx, y - sy, fh * 0.002], [x + sx, y + sy, fh * 0.002], [x - sx, y + sy, fh * 0.002]],
       campShade(BED_CARD, 0.9, nightF), alpha, DECO_LIFT * 0.1, 'camp|card');
     z = fh * 0.003;
   } else {
@@ -38254,7 +38374,7 @@ function drawCampBed(ctx, cam, x, y, fh, along, nightF, alpha, seed) {
     campBox(ctx, cam, x, y, sx, sy, z, mz, tick, nightF, alpha, 'camp|mattress', [1, 0.72, 0.72]);
     // A stain, because every one of them has one.
     const cx = x + (frac(seed * 9.1) - 0.5) * sx, cy = y + (frac(seed * 4.3) - 0.5) * sy, st = Math.min(sx, sy) * 0.45;
-    emitDecoFill(ctx, cam, [[cx - st, cy - st * 0.7, mz + fh * 0.001], [cx + st, cy - st * 0.5, mz + fh * 0.001], [cx + st * 0.8, cy + st * 0.7, mz + fh * 0.001], [cx - st * 0.9, cy + st * 0.5, mz + fh * 0.001]],
+    campFill(ctx, cam, [[cx - st, cy - st * 0.7, mz + fh * 0.001], [cx + st, cy - st * 0.5, mz + fh * 0.001], [cx + st * 0.8, cy + st * 0.7, mz + fh * 0.001], [cx - st * 0.9, cy + st * 0.5, mz + fh * 0.001]],
       campShade(tick.map((c) => c * 0.7), 0.9, nightF), alpha, DECO_LIFT * 0.1, 'camp|stain');
     z = mz;
   }
@@ -38262,8 +38382,8 @@ function drawCampBed(ctx, cam, x, y, fh, along, nightF, alpha, seed) {
   const bl = TARPS[Math.floor(frac(seed * 13.1) * TARPS.length)].map((c) => c * 0.9);
   const bz = z + fh * 0.004, bz2 = z + fh * 0.009;
   const P = (u, v, zz) => along ? [x - sx + u * sx * 2, y - sy + v * sy * 2, zz] : [x - sx + v * sx * 2, y - sy + u * sy * 2, zz];
-  emitDecoFill(ctx, cam, [P(0.30, -0.04, bz), P(0.64, -0.04, bz2), P(0.64, 1.04, bz2), P(0.30, 1.04, bz)], campShade(bl, 0.95, nightF), alpha, DECO_LIFT * 0.1, 'camp|blanket');
-  emitDecoFill(ctx, cam, [P(0.64, -0.04, bz2), P(1.02, -0.04, bz), P(1.02, 1.04, bz), P(0.64, 1.04, bz2)], campShade(bl, 0.82, nightF), alpha, DECO_LIFT * 0.1, 'camp|blanket');
+  campFill(ctx, cam, [P(0.30, -0.04, bz), P(0.64, -0.04, bz2), P(0.64, 1.04, bz2), P(0.30, 1.04, bz)], campShade(bl, 0.95, nightF), alpha, DECO_LIFT * 0.1, 'camp|blanket');
+  campFill(ctx, cam, [P(0.64, -0.04, bz2), P(1.02, -0.04, bz), P(1.02, 1.04, bz), P(0.64, 1.04, bz2)], campShade(bl, 0.82, nightF), alpha, DECO_LIFT * 0.1, 'camp|blanket');
   // The pillow: a rolled coat at the head.
   const pw = Math.min(sx, sy) * 0.55;
   const [hx, hy] = along ? [x - sx * 0.78, y] : [x, y - sy * 0.78];
@@ -38316,7 +38436,7 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha, inward = null, n
   // page (`clothTex`) its colour keys, and the sheets on the buildings match these exactly.
   const tone = (rgb, k, warm = 0) => slumTone(rgb, k, nightF, warm);
   // A tent's canvas: the weathered page near to, the flat colour beyond (see `clothTex`).
-  const cloth = (pts, css, tag) => clothFill(ctx, cam, pts, css, alpha, DECO_LIFT * 0.1, tag, 'cloth', true);
+  const cloth = (pts, css, tag) => { const q = campClip(cam, pts); if (q) clothFill(ctx, cam, q, css, alpha, DECO_LIFT * 0.1, tag, 'cloth', true); };
   // Sun shading off the frame's own key (LIGHT_STATE, the light the walls are shaded against), so
   // the slope turned to the sun is the bright one whichever way the camp faces; `up` is how much of
   // a face looks at the sky. No light state (a capture pass) falls back to the fixed 1 / 0.62 / 0.78
@@ -38370,21 +38490,70 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha, inward = null, n
     const dw = own ? 0.10 * k : 0;
     return [dl * 1.0 + db * 1.0 + dw * 0.38, dl * 0.77 + db * 0.60 + dw * 0.24, dl * 0.45 + db * 0.22 + dw * 0.07];
   };
+  // ── the shelters' kit ─────────────────────────────────────────────────────
+  // Every shelter is placed in its own frame: `hd` is the way its mouth faces (+y of the frame, the
+  // way the meshes are built), and `M(mx, my, mz)` takes a point in the unit shape (x and y in -1..1,
+  // z in 0..1) to the world. The canvas path keeps every shelter square (hd = π/2, so M is cx + mx·w,
+  // cy + my·l), which is the geometry the ridge, tarp and lean-to below were always drawn in.
+  const EX = cam.ex || 0, EY = cam.ey || 0, EZ = cam.EH || 0;
+  const fill = (pts, css, tag) => campFill(ctx, cam, pts, css, alpha, DECO_LIFT * 0.1, tag);
+  const wire = (A, B, px, css) => emitWire(ctx, cam, A, B, px, css, alpha, { lift: DECO_LIFT * 0.1 });
+  const ROPE = campShade([150, 138, 112], 0.85, nightF);
+  const peg = (P) => wire([P[0], P[1], 0], [P[0], P[1], fh * 0.014], 2, DARK);
+  const guy = (A, B) => { wire(A, B, 1, ROPE); peg(B); };
+  const spots = [];
   for (let i = 0; i < pitches; i++) {
     const pl = layout.place(seed, i, pitches);
     const [cx, cy] = fold(dx + pl.a * R * 1.7, dy + pl.b * R * 1.7);
-    const w = fh * (0.14 + frac(seed + i * 3) * 0.07);          // half-width across the slopes
-    const l = fh * (0.18 + frac(seed + i * 5) * 0.09);          // half-length along the ridge
-    const t = fh * (0.26 + frac(seed + i * 7) * 0.11);          // ridge / roof height
+    const kind = pl.kind ?? campKind(frac(seed * 53 + i * 41));   // 0 ridge · 1 tarp · 2 lean-to · 3 dome · 4 bell · 5 tunnel
+    const [w, l, t] = campDims(kind, fh, frac(seed + i * 3), frac(seed + i * 5), frac(seed + i * 7));
     const tarp = TARPS[Math.floor(frac(seed * 31 + i * 17) * TARPS.length) % TARPS.length];
+    const pt = TARPS[Math.floor(frac(seed * 91 + i * 7) * TARPS.length) % TARPS.length];
+    // A loose cluster turns its shelters any way they were thrown up; a layout that names a heading
+    // keeps it. The GPU path only: the canvas shapes are square.
+    const hd = gpu ? (pl.hd ?? Math.PI / 2 + (frac(seed * 67 + i * 13) - 0.5) * 1.3) : Math.PI / 2;
+    const Fx = Math.cos(hd), Fy = Math.sin(hd), Rx = Fy, Ry = -Fx;
+    const M = (mx, my, mz) => [cx + Rx * mx * w + Fx * my * l, cy + Ry * mx * w + Fy * my * l, mz * t];
+    spots.push({ x: cx, y: cy, s: Math.max(w, l) });
     // Two pitches in five carry a lamp, rolled per tent so the same ones are lit every night.
     const glowing = (nightF > 0.3 && frac(seed * 59 + i * 19) > 0.5) ? 1 : 0;
-    const kind = pl.kind ?? Math.floor(frac(seed * 53 + i * 41) * 3);   // 0 ridge · 1 flat tarp · 2 lean-to
     // Per-shape face shading: a ridge's (and flat tarp's) two slopes face +x / -x, a lean-to's roof
     // faces +y and its back wall -y, and the near gable faces -y.
     const kA = kind === 2 ? faceK(0, 1, 0.55, 1) : faceK(1, 0, kind === 1 ? 0.85 : 0.5, 1);
     const kB = kind === 2 ? faceK(0, -1, 0, 0.62) : faceK(-1, 0, kind === 1 ? 0.85 : 0.5, 0.62);
     const lit = tone(tarp, kA, glowing), shade = tone(tarp, kB, glowing), gab = tone(tarp, faceK(0, -1, 0, 0.78), glowing);
+    // Does the eye stand on the mouth side? A door drawn from behind would show through the shelter.
+    const mouthSeen = (P) => Fx * (EX - P[0]) + Fy * (EY - P[1]) > 0;
+    // A sheet of a round shelter on the canvas path. Its outward normal is taken off the polygon and
+    // turned away from the shelter's axis; a sheet facing away from the eye is dropped (the drum's
+    // rule: a closed shell's back is behind its front from every seat), and the rest are shaded by
+    // which way they face.
+    const sheet = (pts, rgb, tag) => {
+      const [a, b, c] = pts;
+      const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+      let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+      const L = Math.hypot(nx, ny, nz);
+      if (!(L > 1e-12)) return;
+      nx /= L; ny /= L; nz /= L;
+      let mx = 0, my = 0, mz = 0;
+      for (const p of pts) { mx += p[0]; my += p[1]; mz += p[2]; }
+      mx /= pts.length; my /= pts.length; mz /= pts.length;
+      if (nx * (mx - cx) + ny * (my - cy) + nz * (mz - t * 0.3) < 0) { nx = -nx; ny = -ny; nz = -nz; }
+      if (nx * (EX - mx) + ny * (EY - my) + nz * (EZ - mz) <= 0) return;
+      cloth(pts, tone(rgb, faceK(nx, ny, Math.max(0, nz), 0.66 + 0.34 * Math.max(0, nx, nz)), glowing), tag);
+    };
+    // The round shapes, the same arithmetic as cloth3d.js's meshes; `o` pushes a point out off the
+    // skin, past the most the GPU skin billows, so a door laid over it is never under it.
+    const domeP = (a, s, o = 1) => {
+      const th = s * Math.PI / 2, q = Math.pow(Math.pow(Math.abs(Math.cos(a)), 4) + Math.pow(Math.abs(Math.sin(a)), 4), -0.25);
+      const k = Math.sin(th) * (1 + (q - 1) * 0.45) * o;
+      return M(Math.cos(a) * k, Math.sin(a) * k, Math.pow(Math.max(0, Math.cos(th)), 0.85) * o);
+    };
+    const BW = 0.26;   // cloth3d.js's BELL_WALL
+    const bellP = (a, s, o = 1) => M(Math.cos(a) * s * 0.95 * o, Math.sin(a) * s * 0.95 * o, BW + (1 - BW) * (1 - s) - 0.05 * Math.sin(Math.PI * s));
+    const tunP = (sx, y, ps, o = 1) => { const g = 1 - 0.07 * Math.pow(Math.sin(Math.PI * (y + 1)), 2); return M(sx * Math.sin(ps) * (0.96 + 0.04 * g) * o, y, Math.cos(ps) * g * o); };
+    // The inside of a shelter through its door: dark, or the lamp's colour when it has one lit.
+    const MOUTH = glowing ? campShade([176, 116, 60], 1, nightF * 0.4) : campShade([24, 22, 20], 1, nightF);
 
     if (gpu) {
       // ONE RECORD A SHELTER. The drab is jittered a little per pitch on this path (a colour here is
@@ -38393,19 +38562,17 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha, inward = null, n
       // city with nothing to lose by saying so.
       const jit = 0.9 + frac(seed * 43 + i * 7) * 0.2;
       const colA = tarp.map((c) => clamp(c * jit, 0, 255));
-      const pt = TARPS[Math.floor(frac(seed * 91 + i * 7) * TARPS.length) % TARPS.length];
       const pu = 0.2 + frac(seed + i * 11) * 0.4;
       const patch = frac(seed * 71 + i * 23) > 0.42 ? [pu, 0.28, pu + 0.3, 0.62] : null;
       const tr = frac(seed * 83 + i * 31);
       const tag = tr < 0.55 ? { cell: clothTagCell(frac(seed * 61 + i * 37)), u: 0.08 + frac(seed * 5 + i * 3) * 0.3, v: 0.1 + frac(seed * 9 + i * 13) * 0.25, size: 0.5 + frac(seed * 2 + i) * 0.15 } : null;
       const nq = Math.round(nightF * 16) / 16;
-      pushCloth(cam, { kind: kind === 0 ? 'ridge' : kind === 1 ? 'tarp' : 'lean', x: cx, y: cy, z: 0, hd: pl.hd ?? Math.PI / 2,
+      pushCloth(cam, { kind: CAMP_SHELTERS[kind], x: cx, y: cy, z: 0, hd,
         sx: w, sy: l, sz: t, wind: windOf().fly * 0.8, ph: clothClock(now) / 3600 + frac(seed * 13 + i * 5), seed: frac(seed + i * 0.37) * 10,
         a: alpha, lum: 1 - nq * 0.62 * (1 - glowing * 0.72), colA, colB: pt, patch, tag, weather: 1,
         warm: warmAt(cx, cy, glowing) });
     } else if (kind === 0) {
-      // A RIDGE TENT. Two slopes and the near gable; the far gable is behind its own tent from
-      // every seat that can see the tile and is a third of the cost for nothing.
+      // A RIDGE TENT. Two slopes and the back gable; the front is its open mouth, as on the mesh.
       const P = [[cx - w, cy - l, 0], [cx - w, cy + l, 0], [cx + w, cy - l, 0], [cx + w, cy + l, 0],
                  [cx, cy - l, t], [cx, cy + l, t]];
       cloth([P[0], P[1], P[5], P[4]], shade, 'camp|slope');
@@ -38419,36 +38586,170 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha, inward = null, n
       const s = t * 0.74, sag = t * 0.60;
       cloth([[cx - w, cy - l, s], [cx, cy - l, sag], [cx, cy + l, sag], [cx - w, cy + l, s]], shade, 'camp|tarp');
       cloth([[cx + w, cy - l, s], [cx, cy - l, sag], [cx, cy + l, sag], [cx + w, cy + l, s]], lit, 'camp|tarp');
-      if (near) for (const [px, py] of [[cx - w, cy - l], [cx + w, cy - l], [cx - w, cy + l], [cx + w, cy + l]])
-        emitWire(ctx, cam, [px, py, 0], [px, py, s], 1, DARK, alpha, { lift: DECO_LIFT * 0.1 });
-    } else {
+    } else if (kind === 2) {
       // A LEAN-TO: one slope from a high edge down to the ground, with a back wall. Half a tent,
       // which is what you build when you have half a tarp.
       cloth([[cx - w, cy - l, t], [cx + w, cy - l, t], [cx + w, cy + l, 0], [cx - w, cy + l, 0]], lit, 'camp|lean');
       cloth([[cx - w, cy - l, 0], [cx + w, cy - l, 0], [cx + w, cy - l, t], [cx - w, cy - l, t]], shade, 'camp|lean');
+    } else if (kind === 3) {
+      // A DOME, as eight gores in two bands and its zipped door panel in the patch colour.
+      const n = 8, top = M(0, 0, 1);
+      for (let j = 0; j < n; j++) {
+        const a0 = (j / n) * Math.PI * 2 + 0.2, a1 = ((j + 1) / n) * Math.PI * 2 + 0.2;
+        sheet([top, domeP(a0, 0.5), domeP(a1, 0.5)], tarp, 'camp|dome');
+        sheet([domeP(a0, 0.5), domeP(a1, 0.5), domeP(a1, 1), domeP(a0, 1)], tarp, 'camp|dome');
+      }
+      const H = Math.PI / 2;
+      if (mouthSeen(M(0, 1, 0))) cloth([domeP(H - 0.33, 0.44, 1.05), domeP(H + 0.33, 0.44, 1.05), domeP(H + 0.35, 1, 1.05), domeP(H - 0.35, 1, 1.05)], tone(pt, 0.86, glowing), 'camp|dome');
+    } else if (kind === 4) {
+      // A BELL TENT: ten gores of cone in two bands, and the wall round the foot.
+      const n = 10, top = M(0, 0, 1);
+      for (let j = 0; j < n; j++) {
+        const a0 = (j / n) * Math.PI * 2, a1 = ((j + 1) / n) * Math.PI * 2;
+        sheet([top, bellP(a0, 0.5), bellP(a1, 0.5)], tarp, 'camp|bell');
+        sheet([bellP(a0, 0.5), bellP(a1, 0.5), bellP(a1, 1), bellP(a0, 1)], tarp, 'camp|bell');
+        sheet([bellP(a0, 1), bellP(a1, 1), M(Math.cos(a1), Math.sin(a1), 0), M(Math.cos(a0), Math.sin(a0), 0)], tarp, 'camp|bell');
+      }
+    } else {
+      // A TUNNEL: each side in three strips over four bays, the hoops between them, and both ends.
+      const Y = [-1, -0.5, 0, 0.5, 1], PS = [0, Math.PI / 6, Math.PI / 3, Math.PI / 2];
+      for (const sx of [1, -1]) for (let k = 0; k < 4; k++) for (let q = 0; q < 3; q++)
+        sheet([tunP(sx, Y[k], PS[q]), tunP(sx, Y[k + 1], PS[q]), tunP(sx, Y[k + 1], PS[q + 1]), tunP(sx, Y[k], PS[q + 1])], tarp, 'camp|tunnel');
+      for (const y of [-1, 1]) {
+        const end = [];
+        for (let q = 0; q <= 6; q++) { const ps = -Math.PI / 2 + q * Math.PI / 6; end.push(M(Math.sin(ps), y, Math.cos(ps))); }
+        sheet(end, tarp, 'camp|tunnel');
+      }
+      if (mouthSeen(M(0, 1, 0))) {
+        const arch = [];
+        for (let q = 0; q <= 6; q++) { const ps = -Math.PI / 2 + q * Math.PI / 6; arch.push(M(Math.sin(ps) * 0.5, 1.035, Math.cos(ps) * 0.7)); }
+        cloth(arch, tone(pt, 0.86, glowing), 'camp|tunnel');
+      }
     }
 
-    // THE PATCH. A smaller quad in a DIFFERENT tarp's colour laid on the lit slope, which is the
-    // one detail that separates a shanty from a campsite: every sheet here has been mended with
-    // whatever the last one was made of. Near tier only — at range it is a few pixels of noise.
-    if (!gpu && near && frac(seed * 71 + i * 23) > 0.42) {
-      const pt = TARPS[Math.floor(frac(seed * 91 + i * 7) * TARPS.length) % TARPS.length];
-      const pw = w * 0.42, pl = l * 0.38, pz = t * (kind === 2 ? 0.62 : 0.46);
+    // THE PATCH, on the canvas path's three flat shapes: a smaller quad in a DIFFERENT tarp's colour
+    // laid on the lit slope, which is the one detail that separates a shanty from a campsite: every
+    // sheet here has been mended with whatever the last one was made of. Near tier only; at range it
+    // is a few pixels of noise. (The round shapes wear their door panel in that colour instead.)
+    if (!gpu && near && kind <= 2 && frac(seed * 71 + i * 23) > 0.42) {
+      const pw = w * 0.42, pl2 = l * 0.38, pz = t * (kind === 2 ? 0.62 : 0.46);
       const ox = cx + w * 0.34, oy = cy + (frac(seed + i * 11) - 0.5) * l * 0.7;
-      cloth([[ox - pw, oy - pl, pz + pl * 0.5], [ox + pw, oy - pl, pz + pl * 0.5],
-             [ox + pw, oy + pl, pz], [ox - pw, oy + pl, pz]], tone(pt, 0.86), 'camp|patch');
+      cloth([[ox - pw, oy - pl2, pz + pl2 * 0.5], [ox + pw, oy - pl2, pz + pl2 * 0.5],
+             [ox + pw, oy + pl2, pz], [ox - pw, oy + pl2, pz]], tone(pt, 0.86), 'camp|patch');
     }
 
-    // The spill out of the open end. Small, and at the GABLE rather than at the centre: the mouth
-    // is the only part of a tent a lamp can actually get out of, and a glow inside the canvas is
-    // hidden by the canvas. The tarp itself is doing the work above; this is the bit on the mud.
-    if (glowing) glowPool(ctx, cam, cx, cy - l * 1.25, t * 0.18, '255,186,104', 10, alpha * 0.42 * nightF);
-    // Guy lines. ⚠ NEAR TIER ONLY, and that is legibility rather than cost: a dark 1px line
-    // carries further than the canvas it is holding up, so a camp seen from across the district
-    // drew as a scribble of wire with the tents lost inside it.
-    if (near && kind !== 1) {
-      emitWire(ctx, cam, [cx, cy - l, t], [cx, cy - l - w * 1.6, 0], 1, DARK, alpha, { lift: DECO_LIFT * 0.1 });
-      emitWire(ctx, cam, [cx, cy + l, t], [cx, cy + l + w * 1.6, 0], 1, DARK, alpha, { lift: DECO_LIFT * 0.1 });
+    // The spill out of the mouth. Small, and at the DOOR rather than at the centre: the mouth is the
+    // only part of a tent a lamp can actually get out of, and a glow inside the canvas is hidden by
+    // the canvas. The sheet itself is doing the work above; this is the bit on the mud. A flat tarp
+    // has no walls, so its lamp is under the middle of it.
+    if (glowing) {
+      const G = kind === 1 ? M(0, 0, 0) : M(0, 1.3, 0);
+      glowPool(ctx, cam, G[0], G[1], t * 0.18, '255,186,104', 10, alpha * 0.42 * nightF);
+    }
+
+    // ── THE KIT, near tier only. ⚠ And that is legibility rather than cost: a dark 1px line carries
+    // further than the canvas it is holding up, so a camp seen from across the district drew as a
+    // scribble of wire with the tents lost inside it. Every part goes to emitDecoFill/emitWire
+    // (never draw3DBoxAt; see the ⚠ on the camp above), and every one is placed through `M`, so it
+    // turns with its shelter on the GPU path. The roll per pitch is off the seed, like everything.
+    if (!near) continue;
+    const kr = frac(seed * 97 + i * 29);
+    if (kind === 0) {
+      // Ridge: the pole ends through the canvas at both gables, a guy off each, pegs at the skirt, and
+      // the door flap at the mouth tied back to one side.
+      for (const e of [-1, 1]) {
+        const top = M(0, e, 1);
+        wire(top, [top[0], top[1], top[2] + fh * 0.03], 2, DARK);
+        guy(top, M(0, e * (1 + 1.6 * w / l), 0));
+      }
+      for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) peg(M(sx * 1.06, sy * 0.96, 0));
+      const side = kr < 0.5 ? -1 : 1;
+      fill([M(0, 1.01, 1), M(side, 1.01, 0), M(side * 0.45, 1.32, 0.02)], tone(tarp, 0.72, glowing), 'camp|flap');
+    } else if (kind === 1) {
+      // Tarp: its four posts (on both paths now; the GPU sheet stood on nothing), each guyed out.
+      for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+        const top = M(sx, sy, 0.74);
+        wire(M(sx, sy, 0), top, 1, DARK);
+        if (kr < 0.7) guy(top, M(sx * 1.5, sy * 1.35, 0));
+      }
+    } else if (kind === 2) {
+      // Lean-to: the high edge guyed back from its corners.
+      for (const sx of [-1, 1]) guy(M(sx, -1, 1), M(sx * 1.2, -1 - 1.4 * w / l, 0));
+    } else if (kind === 3) {
+      // Dome: four guys off the hoop crossings, pegs round the skirt, and the door half unzipped.
+      for (let k = 0; k < 4; k++) {
+        const a = Math.PI / 4 + k * Math.PI / 2;
+        guy(domeP(a, 0.55), M(Math.cos(a) * 1.55, Math.sin(a) * 1.55, 0));
+        peg(domeP(a, 1, 1.03));
+      }
+      const H = Math.PI / 2;
+      if (mouthSeen(M(0, 1, 0))) fill([domeP(H - 0.24, 1, 1.07), domeP(H + 0.05, 1, 1.07), domeP(H - 0.02, 0.5, 1.07)], MOUTH, 'camp|door');
+    } else if (kind === 4) {
+      // Bell: the pole's tip through the crown, six guys off the wall top, the door flap rolled and
+      // tied up, and one in three with a stove pipe out through the cone.
+      const top = M(0, 0, 1);
+      wire(top, [top[0], top[1], top[2] + fh * 0.04], 2, DARK);
+      for (let k = 0; k < 6; k++) {
+        const a = Math.PI / 2 + (k + 0.5) * Math.PI / 3;
+        guy(bellP(a, 1), M(Math.cos(a) * 1.75, Math.sin(a) * 1.75, 0));
+      }
+      if (mouthSeen(M(0, 1, 0))) {
+        fill([M(-0.2, 1.05, 0), M(0.2, 1.05, 0), M(0.17, 1.0, BW), M(0, 0.7, 0.44), M(-0.17, 1.0, BW)], MOUTH, 'camp|door');
+        wire(M(0.22, 1.06, 0.02), M(0.05, 0.74, 0.44), 3, tone(pt, 0.8, glowing));
+      }
+      if (kr < 0.34) {
+        const b = bellP(-0.7, 0.55, 1.02);
+        wire(b, [b[0], b[1], b[2] + fh * 0.11], 2, DARK);
+      }
+    } else {
+      // Tunnel: a guy off each side of every hoop, one off the back, and the door half open.
+      for (const y of [-1, 0, 1]) for (const sx of [-1, 1]) guy(tunP(sx, y, Math.PI / 4), M(sx * 1.9, y, 0));
+      guy(M(0, -1, 1), M(0, -1 - 1.3 * w / l, 0));
+      if (mouthSeen(M(0, 1, 0))) {
+        const arch = [];
+        for (let q = 0; q <= 6; q++) { const ps = -Math.PI / 2 + q * Math.PI / 6; arch.push(M(Math.sin(ps) * 0.3 - 0.12, 1.05, Math.cos(ps) * 0.55)); }
+        fill(arch, MOUTH, 'camp|door');
+      }
+    }
+    // Tyres holding the sheet down, where the wind gets under it: along a lean-to's foot, on a ridge
+    // tent's skirt, stacked at a tarp's post, beside a tunnel.
+    if (kr > 0.45 || kind === 2) {
+      const TY = kind === 2 ? [[-0.55, 1.1, 0], [0.5, 1.1, 0]] : kind === 0 ? [[1.12, -0.6, 0], [-1.12, 0.5, 0]]
+        : kind === 1 ? [[1.2, -1, 0], [1.2, -1, 1]] : kind === 5 ? [[1.15, 0.5, 0]] : [];
+      for (const [mx, my, st] of TY) {
+        const P = M(mx, my, 0), r = fh * 0.026, h = fh * 0.017;
+        campTyre(ctx, cam, P[0], P[1], st * h, r, h, nightF, alpha);
+        if (st === 0 && kind === 1) campTyre(ctx, cam, P[0], P[1], h, r, h, nightF, alpha);
+      }
+    }
+  }
+
+  // ── THE WASHING ─────────────────────────────────────────────────────────────
+  // A line strung between two stakes, from one shelter to the next, with whatever got washed on it:
+  // shirts, a blanket, a towel, all the drab the tarps are. Near tier only, and not on every tile.
+  if (near && frac(seed * 173) < 0.65) {
+    let lines = frac(seed * 181) < 0.4 ? 2 : 1;
+    for (let i = 0; i + 1 < spots.length && lines > 0; i++) {
+      const A = spots[i], B = spots[i + 1], d = Math.hypot(B.x - A.x, B.y - A.y);
+      if (d < (A.s + B.s) * 1.15 + fh * 0.1 || d > fh * 0.95 || frac(seed * 187 + i * 7) < 0.3) continue;
+      lines--;
+      const ux = (B.x - A.x) / d, uy = (B.y - A.y) / d;
+      const ax = A.x + ux * A.s * 1.1, ay = A.y + uy * A.s * 1.1, bx = B.x - ux * B.s * 1.1, by = B.y - uy * B.s * 1.1;
+      const hz = fh * (0.17 + frac(seed * 191 + i) * 0.06), dip = fh * 0.022;
+      const zAt = (q) => hz - dip * (1 - Math.abs(2 * q - 1));
+      const P = (q, z) => [ax + (bx - ax) * q, ay + (by - ay) * q, z];
+      wire([ax, ay, 0], [ax, ay, hz], 1, DARK);
+      wire([bx, by, 0], [bx, by, hz], 1, DARK);
+      wire(P(0, hz), P(0.5, zAt(0.5)), 1, ROPE);
+      wire(P(0.5, zAt(0.5)), P(1, hz), 1, ROPE);
+      const L2 = Math.hypot(bx - ax, by - ay) || 1;
+      for (let k = 0, n = 3 + Math.floor(frac(seed * 193 + i * 3) * 4); k < n; k++) {
+        const r = frac(seed * 197 + i * 11 + k * 7);
+        const hw = fh * (0.011 + r * 0.013) / L2, tt = (k + 0.5) / n + (frac(seed * 199 + k * 13 + i) - 0.5) * 0.4 / n;
+        const t0 = clamp(tt - hw, 0.04, 0.96), t1 = clamp(tt + hw, 0.04, 0.96), drop = fh * (0.028 + r * 0.035);
+        const c = LAUNDRY[Math.floor(frac(seed * 211 + i * 5 + k * 17) * LAUNDRY.length)];
+        fill([P(t0, zAt(t0)), P(t1, zAt(t1)), P(t1, zAt(t1) - drop * (0.8 + r * 0.3)), P(t0, zAt(t0) - drop)], campShade(c, 0.95, nightF), 'camp|laundry');
+      }
     }
   }
 
@@ -38469,7 +38770,7 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha, inward = null, n
   // The lamp: a small dark body on the cable by day, a warm point at night. ⚠ The body is drawn at
   // both tiers and the glow only after dark — an unlit bulb is a thing you can see, and a camp with
   // nothing hanging on its cables in daylight reads as a camp that has been abandoned.
-  if (near) emitDecoFill(ctx, cam, [[lx - fh * 0.022, ly, lz + fh * 0.03], [lx + fh * 0.022, ly, lz + fh * 0.03],
+  if (near) campFill(ctx, cam, [[lx - fh * 0.022, ly, lz + fh * 0.03], [lx + fh * 0.022, ly, lz + fh * 0.03],
                                     [lx + fh * 0.022, ly, lz], [lx - fh * 0.022, ly, lz]], DARK, alpha, DECO_LIFT * 0.1, 'camp|lamp');
   if (nightF > 0.3) glowPool(ctx, cam, lx, ly, lz, '255,196,116', 9, alpha * 0.42 * nightF);
 
@@ -38480,7 +38781,7 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha, inward = null, n
   if ((seed % 3) === 1) {
     const bw = fh * 0.05, bz = poleZ - fh * 0.06, bh = fh * 0.30;
     const bc = ((seed >> 2) & 1) ? 'rgb(' + Math.round(132 * (1 - nightF * 0.55)) + ',34,32)' : 'rgb(' + Math.round(150 * (1 - nightF * 0.55)) + ',' + Math.round(126 * (1 - nightF * 0.55)) + ',52)';
-    emitDecoFill(ctx, cam, [[px0 + bw * 0.3, py0, bz], [px0 + bw * 2.3, py0, bz],
+    campFill(ctx, cam, [[px0 + bw * 0.3, py0, bz], [px0 + bw * 2.3, py0, bz],
                             [px0 + bw * 2.3, py0, bz - bh], [px0 + bw * 0.3, py0, bz - bh]],
       bc, alpha, DECO_LIFT * 0.1, 'camp|banner');
   }
@@ -55224,53 +55525,34 @@ function drawTypeModelArm(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E
       if (night) { const [gx, gy] = F(0, fh * 0.52); glowPool(ctx, cam, gx, gy, h * 0.24, '255,214,150', 7, alpha * 0.20); }
       break;
     }
-    case 'weigh_station': {   // THE GLACIS WEIGH — A LOW BOX UNDER A WIDE FLAT CANOPY ON TWO POSTS,
-      // and that canopy is the whole silhouette: nothing else in Coldwater reaches a roof out over
-      // ground it is not standing on. Everything about the shape is about reading a windscreen —
-      // the room is raised until the glass is at cab height, the canopy is out over the plates so
-      // the officer is dry and the board is lit, and there are no windows anywhere else.
+    case 'weigh_station': {   // THE GLACIS WEIGH — THE LOCK'S CONTROL ROOM, BUILT INTO ITS WALL.
+      // It used to be a municipal box under a canopy on two posts, standing apart from the covered
+      // lane like a bus shelter somebody forgot. Now it is part of the Outer Lock: the same grey
+      // plate, the same roof line (LCK_ROOF_Z), and its glass face IS the lock's wall on the booth
+      // side, carried out to the tile edge so the deck and the room are one closed interior.
       //
-      // ⚠ THE PLATES ARE NOT DRAWN HERE. The weighbridge is the tile NEXT DOOR (917,918), which is
-      // paved ground carrying `flags.weigh_station` and deliberately not a building — a deck
-      // authored as mass is a rig-shaped hole you cannot drive onto. This arm is the booth only.
-      const plinth = h * 0.22, sill = h * 0.40, eaves = h * 0.82;
-      // 1) THE PLINTH. Poured, blunt, and the reason the window is where it is: a booth at ground
-      //    level is a booth looking at a wheel.
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.46, 0, plinth, 'ty_cold_slab', seed, night, alpha, false);
-      // 2) THE ROOM, set back off the plinth so the plinth reads as a plinth rather than as the
-      //    bottom of the wall. Grey plate on three sides; the fourth is glass and gets its own
-      //    band below, because a window drawn as a palette is a window nobody sees.
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.40, plinth, eaves, pal, seed + 1, night, alpha, false);
-      // 3) THE GLASS, on the entrance face only, at cab height. `ty_lh_eye` is in GLASS_WALL,
-      //    which is the family that skins a continuous glazed band with a sky sheen — the lighthouse
-      //    lantern's own key, and the closest thing in the palette to one long window on a small
-      //    building. A pale PLAIN_WALL key would have been flat fill with no environment term at
-      //    all, which is a panel rather than a window. Standing PROUD of the wall by
-      //    FACE_EPS rather than in its plane: coplanar is a tie on the depth buffer, and a tie is a
-      //    loss, so a window authored flush is a window that is simply not there.
-      { const [gx, gy] = F(0, fh * 0.40 + FACE_EPS);
-        draw3DBoxAt(ctx, cam, gx, gy, fh * 0.34, sill, eaves - h * 0.06, 'ty_lh_eye', seed + 2, night, alpha, false, faceYaw(E), fh * 0.02); }
-      // 4) THE CANOPY. Out over the deck on the road side, which is the part you see from a cab and
-      //    the part that says what this building is for. It is a slab on two posts and it oversails
-      //    its own footprint, so it is drawn as its own box rather than as a roof on the room.
-      { const [cx, cy] = F(0, fh * 0.62);
-        draw3DBoxAt(ctx, cam, cx, cy, fh * 0.80, eaves, eaves + h * 0.07, 'ty_gantry', seed + 3, night, alpha, true, faceYaw(E), fh * 0.42); }
-      for (const s of [-1, 1]) {
-        const [px, py] = F(s * fh * 0.70, fh * 0.96);
-        draw3DBoxAt(ctx, cam, px, py, fh * 0.05, 0, eaves, 'ty_gantry', seed + 4 + s, night, alpha, false);
-      }
-      // 5) THE BOARD ON ITS POLE, over the plates, facing the way a rig arrives. The numbers a foot
-      //    high that the room's own prose is about.
-      { const [bx, by] = F(fh * 0.52, fh * 1.02);
-        draw3DBoxAt(ctx, cam, bx, by, fh * 0.04, 0, h * 1.10, 'ty_gantry', seed + 6, night, alpha, false);
-        draw3DBoxAt(ctx, cam, bx, by, fh * 0.26, h * 1.10, h * 1.34, 'ty_stack_dk', seed + 7, night, alpha, true, faceYaw(E), fh * 0.03); }
-      if (night) {
-        // The booth glass, the board, and the canopy's own underside light over the plates. Three
-        // small warm sources and no neon: this is a municipal building and it advertises nothing.
-        { const [wx, wy] = F(0, fh * 0.42); glowPool(ctx, cam, wx, wy, sill + h * 0.16, '255,226,176', 8, alpha * 0.30); }
-        { const [bx, by] = F(fh * 0.52, fh * 1.02); glowPool(ctx, cam, bx, by, h * 1.22, '176,255,196', 6, alpha * 0.34); }
-        { const [cx, cy] = F(0, fh * 0.70); glowPool(ctx, cam, cx, cy, eaves - h * 0.02, '226,236,255', 10, alpha * 0.22); }
-      }
+      // ⚠ THE PLATES ARE NOT DRAWN HERE. The weighbridge is the tile next door, a `gate_lock` deck,
+      // and deliberately not a building. This arm is the room only.
+      const plinth = h * 0.16, sill = h * 0.30, eaves = LCK_ROOF_Z - 0.02;   // the lock's roof line, a constant, so the capture stays affine
+      const edge = 0.5;   // the tile edge on the lane side, in tiles
+      // 1) THE PLINTH: dark steel, flush with the room, one blunt block.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.46, 0, plinth, 'ty_stack_dk', seed, night, alpha, false);
+      // 2) THE ROOM: grey plate, the lock's own, full height to the lock's roof.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.44, plinth, eaves, 'ty_gantry', seed + 1, night, alpha, true);
+      // 3) THE BRIDGE: the room carried out to the lane's edge at the lock's height, so no sky and
+      //    no gap shows between the booth and the deck's roof.
+      { const reach = edge - fh * 0.44, [bx, by] = F(0, fh * 0.44 + reach / 2);
+        draw3DBoxAt(ctx, cam, bx, by, fh * 0.44, eaves - 0.12, LCK_ROOF_Z, 'ty_gantry', seed + 2, night, alpha, true, faceYaw(E), reach / 2 + FACE_EPS);
+        draw3DBoxAt(ctx, cam, bx, by, fh * 0.44, 0, plinth, 'ty_stack_dk', seed + 3, night, alpha, false, faceYaw(E), reach / 2 + FACE_EPS); }
+      // 4) THE GLASS: one continuous band across the lane face, sill to eaves, proud of the plate.
+      { const [gx, gy] = F(0, fh * 0.44 + FACE_EPS);
+        draw3DBoxAt(ctx, cam, gx, gy, fh * 0.40, sill, eaves - 0.14, 'ty_lh_eye', seed + 4, night, alpha, false, faceYaw(E), fh * 0.02); }
+      // 5) THE LIGHT LINE: a cyan strip under the glass and one along the roof edge. The only
+      //    colour on it, and the lock's scanner colour.
+      { const [lx, ly] = F(0, fh * 0.44 + FACE_EPS * 2);
+        glowPool(ctx, cam, lx, ly, sill - h * 0.02, '120,244,255', 10, alpha * (night ? 0.45 : 0.22));
+        glowPool(ctx, cam, lx, ly, eaves - h * 0.06, '120,244,255', 8, alpha * (night ? 0.35 : 0.15)); }
+      if (night) { const [wx, wy] = F(0, fh * 0.30); glowPool(ctx, cam, wx, wy, sill + h * 0.2, '226,240,255', 9, alpha * 0.30); }
       break;
     }
     case 'vehicle_pound': {   // LONG STAY — A COMPOUND, WHICH IS A SILHOUETTE WITH A HOLE IN IT.
@@ -69342,10 +69624,42 @@ function drawGateLock(ctx, cam, dx, dy, lk, night, alpha, now, seed) {
   const P = (u, v, z) => cam.proj(dx + u, dy - v, z);
   const poly = (q) => { ctx.beginPath(); ctx.moveTo(q[0].sx, q[0].sy); for (let i = 1; i < q.length; i++) ctx.lineTo(q[i].sx, q[i].sy); ctx.closePath(); };
   const ok = (q) => q.every((p) => p.f > 0.12);
-  const quad = (q, fill, add) => {
-    if (!ok(q)) return;
-    ctx.save(); if (add) ctx.globalCompositeOperation = 'lighter';
-    ctx.fillStyle = fill; poly(q); ctx.fill(); ctx.restore();
+  // ⚠ EVERY FACE IS SORTED AND CLIPPED, NEVER PAINTED IN CALL ORDER. The lock is one mark you drive
+  // INSIDE, so the fixed order (walls, frame, roof) put the roof over the near wall and a far wall
+  // over a near post; and a face with one corner behind the eye was dropped whole, so the walls
+  // beside the cab blinked out. `quad` now takes local [u, v, z] corners, clips them at the near
+  // plane in world space, and queues them; `flush` paints far to near. Lamps and glows go after,
+  // additive, where order doesn't show.
+  const NEAR = 0.14;
+  const Q = (u, v, z) => [u, v, z];
+  const depth = (c) => cam.rawF ? cam.rawF(dx + c[0], dy - c[1], c[2]) : cam.proj(dx + c[0], dy - c[1], c[2]).f;
+  const faces = [];
+  const quad = (q, fill, add, lineW) => {
+    const d = q.map(depth);
+    if (d.every((x) => x < NEAR)) return;
+    let pts = q;
+    if (d.some((x) => x < NEAR)) {
+      pts = [];
+      for (let i = 0; i < q.length; i++) {
+        const j = (i + 1) % q.length, a = q[i], b = q[j], da = d[i], db = d[j];
+        if (da >= NEAR) pts.push(a);
+        if ((da >= NEAR) !== (db >= NEAR)) { const t = (NEAR - da) / (db - da); pts.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]); }
+      }
+      if (pts.length < 2) return;
+    }
+    const pr = pts.map((c) => P(c[0], c[1], c[2]));
+    faces.push({ pr, fill, add, lineW, d: d.reduce((m, x) => m + x, 0) / d.length - (add ? 0.002 : 0) });
+  };
+  const flush = () => {
+    faces.sort((x, y) => y.d - x.d);
+    for (const F of faces) {
+      ctx.save(); if (F.add) ctx.globalCompositeOperation = 'lighter';
+      poly(F.pr);
+      if (F.lineW) { ctx.strokeStyle = F.fill; ctx.lineWidth = F.lineW; ctx.stroke(); }
+      else { ctx.fillStyle = F.fill; ctx.fill(); }
+      ctx.restore();
+    }
+    faces.length = 0;
   };
   const dn = night > 0.4 ? 1 : 0;
   const lit = (0.45 + 0.55 * night) * alpha;
@@ -69357,55 +69671,60 @@ function drawGateLock(ctx, cam, dx, dy, lk, night, alpha, now, seed) {
   const sig = inner ? LCK_SIG[st] : LCK_WORK;
   const plate = dn ? 'rgb(38,42,48)' : 'rgb(96,102,110)';
   const plateDk = dn ? 'rgb(26,29,34)' : 'rgb(72,77,84)';
+  // ⚠ THE GATE TILE IS HALF EACH SIDE'S. `gx` is the side a tile shares with the perimeter gate
+  // (plugins/flight/state.js); the inner hall and the outer shed each reach half a tile into it,
+  // so the two meet over the gate and the lock is one covered run with no open sky between them.
+  const gx = lk.gx || '';
+  const uLo = -H - (gx.includes('w') ? 0.5 : 0), uHi = H + (gx.includes('e') ? 0.5 : 0);
+  const vLo = -H - (gx.includes('s') ? 0.5 : 0), vHi = H + (gx.includes('n') ? 0.5 : 0);
   ctx.save();
   ctx.globalAlpha = alpha;
 
   // A wall along one side: grey plate from the floor to the eaves, seams every quarter tile, and a
   // lamp strip at cab height in the lock's colour.
   const wall = (side) => {
-    const seg = side === 'n' ? [[-H, H], [H, H]] : side === 's' ? [[-H, -H], [H, -H]]
-      : side === 'e' ? [[H, -H], [H, H]] : [[-H, -H], [-H, H]];
+    const seg = side === 'n' ? [[uLo, vHi], [uHi, vHi]] : side === 's' ? [[uLo, vLo], [uHi, vLo]]
+      : side === 'e' ? [[uHi, vLo], [uHi, vHi]] : [[uLo, vLo], [uLo, vHi]];
     const [[u0, v0], [u1, v1]] = seg;
-    quad([P(u0, v0, Z), P(u1, v1, Z), P(u1, v1, 0), P(u0, v0, 0)], side === 'n' || side === 'e' ? plate : plateDk);
+    quad([Q(u0, v0, Z), Q(u1, v1, Z), Q(u1, v1, 0), Q(u0, v0, 0)], side === 'n' || side === 'e' ? plate : plateDk);
     for (let i = 1; i < 4; i++) {
-      const k = i / 4, a = P(u0 + (u1 - u0) * k, v0 + (v1 - v0) * k, Z), b = P(u0 + (u1 - u0) * k, v0 + (v1 - v0) * k, 0);
-      if (a.f > 0.12 && b.f > 0.12) {
-        ctx.strokeStyle = dn ? 'rgba(10,12,15,0.7)' : 'rgba(40,44,50,0.55)'; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
-      }
+      const k = i / 4, uu = u0 + (u1 - u0) * k, vv = v0 + (v1 - v0) * k;
+      quad([Q(uu, vv, Z), Q(uu, vv, 0)], dn ? 'rgba(10,12,15,0.7)' : 'rgba(40,44,50,0.55)', false, 1);
     }
     // Hazard banding along the foot, because a rig's wheels live this close to it.
-    quad([P(u0, v0, 0.07), P(u1, v1, 0.07), P(u1, v1, 0), P(u0, v0, 0)], dn ? 'rgba(120,96,30,0.8)' : 'rgba(214,170,48,0.85)');
+    quad([Q(u0, v0, 0.07), Q(u1, v1, 0.07), Q(u1, v1, 0), Q(u0, v0, 0)], dn ? 'rgba(120,96,30,0.8)' : 'rgba(214,170,48,0.85)');
     const inset = (u, v) => [u - Math.sign(u) * 0.01 * (side === 'e' || side === 'w' ? 1 : 0), v - Math.sign(v) * 0.01 * (side === 'n' || side === 's' ? 1 : 0)];
     const [a0, b0] = inset(u0, v0), [a1, b1] = inset(u1, v1);
-    quad([P(a0, b0, 0.50), P(a1, b1, 0.50), P(a1, b1, 0.44), P(a0, b0, 0.44)], `rgba(${sig},${lit * 0.9 * flash})`, true);
+    quad([Q(a0, b0, 0.50), Q(a1, b1, 0.50), Q(a1, b1, 0.44), Q(a0, b0, 0.44)], `rgba(${sig},${lit * 0.9 * flash})`, true);
   };
   for (const s of 'nesw') if (wl.includes(s)) wall(s);
 
   // THE FRAME. Four corner posts and a rib across each end, so an open end still reads as the end
   // of a structure rather than the roof stopping in mid-air.
   const post = (u, v) => {
-    const w = 0.035, q = [P(u - w, v, Z), P(u + w, v, Z), P(u + w, v, 0), P(u - w, v, 0)];
+    const w = 0.035, q = [Q(u - w, v, Z), Q(u + w, v, Z), Q(u + w, v, 0), Q(u - w, v, 0)];
     quad(q, dn ? 'rgb(30,33,38)' : 'rgb(70,75,82)');
   };
-  for (const u of [-H, H]) for (const v of [-H, H]) post(u, v);
-  for (const v of [-H, H]) quad([P(-H, v, Z + 0.05), P(H, v, Z + 0.05), P(H, v, Z - 0.07), P(-H, v, Z - 0.07)], dn ? 'rgb(34,37,43)' : 'rgb(82,88,96)');
+  for (const u of [uLo, uHi]) for (const v of [vLo, vHi]) post(u, v);
+  for (const v of [vLo, vHi]) quad([Q(uLo, v, Z + 0.05), Q(uHi, v, Z + 0.05), Q(uHi, v, Z - 0.07), Q(uLo, v, Z - 0.07)], dn ? 'rgb(34,37,43)' : 'rgb(82,88,96)');
 
   // THE ROOF: ribbed plate, and one long lamp down the spine.
-  quad([P(-H, H, Z), P(H, H, Z), P(H, -H, Z), P(-H, -H, Z)], dn ? 'rgba(22,24,28,0.94)' : 'rgba(58,62,68,0.94)');
+  quad([Q(uLo, vHi, Z), Q(uHi, vHi, Z), Q(uHi, vLo, Z), Q(uLo, vLo, Z)], dn ? 'rgba(22,24,28,0.94)' : 'rgba(58,62,68,0.94)');
   for (let i = -1; i <= 1; i++) {
     const v = i * H * 0.5;
-    quad([P(-H, v + 0.012, Z - 0.012), P(H, v + 0.012, Z - 0.012), P(H, v - 0.012, Z - 0.012), P(-H, v - 0.012, Z - 0.012)], dn ? 'rgba(8,9,11,0.8)' : 'rgba(30,33,37,0.8)');
+    quad([Q(uLo, v + 0.012, Z - 0.012), Q(uHi, v + 0.012, Z - 0.012), Q(uHi, v - 0.012, Z - 0.012), Q(uLo, v - 0.012, Z - 0.012)], dn ? 'rgba(8,9,11,0.8)' : 'rgba(30,33,37,0.8)');
   }
-  quad([P(-0.03, H, Z - 0.02), P(0.03, H, Z - 0.02), P(0.03, -H, Z - 0.02), P(-0.03, -H, Z - 0.02)], `rgba(${sig},${lit * flash})`, true);
+  quad([Q(-0.03, vHi, Z - 0.02), Q(0.03, vHi, Z - 0.02), Q(0.03, vLo, Z - 0.02), Q(-0.03, vLo, Z - 0.02)], `rgba(${sig},${lit * flash})`, true);
+  flush();
   glowPool(ctx, cam, dx, dy, 0.02, sig, 40, lit * 0.45 * flash, { add: true, max: 80 });
 
   // THE SIGNAL GANTRY at an open end of the inner lock: five lamps in a row under the rib, facing
   // the road, in the answer's colour. The one thing a driver reads from a hundred yards out.
   if (inner) {
     for (const side of (lk.mo || '') + (lk.seg === 0 ? 's' : '')) {
-      const v = side === 'n' ? H : -H;
-      quad([P(-H * 0.8, v, Z - 0.07), P(H * 0.8, v, Z - 0.07), P(H * 0.8, v, Z - 0.22), P(-H * 0.8, v, Z - 0.22)], dn ? 'rgb(10,12,14)' : 'rgb(22,25,29)');
+      const v = side === 'n' ? vHi : vLo;
+      quad([Q(-H * 0.8, v, Z - 0.07), Q(H * 0.8, v, Z - 0.07), Q(H * 0.8, v, Z - 0.22), Q(-H * 0.8, v, Z - 0.22)], dn ? 'rgb(10,12,14)' : 'rgb(22,25,29)');
+      flush();
       for (let i = 0; i < 5; i++) {
         const u = -H * 0.64 + i * H * 0.32, q = P(u, v, Z - 0.145);
         if (q.f <= 0.12) continue;
@@ -69422,7 +69741,7 @@ function drawGateLock(ctx, cam, dx, dy, lk, night, alpha, now, seed) {
     }
     // A stop bar across the floor, lit only when the lock wants you stopped.
     if (st !== 'green') {
-      quad([P(-H * 0.8, 0.05, 0.012), P(H * 0.8, 0.05, 0.012), P(H * 0.8, -0.05, 0.012), P(-H * 0.8, -0.05, 0.012)], `rgba(${LCK_SIG[st]},${lit * 0.6 * flash})`, true);
+      quad([Q(-H * 0.8, 0.05, 0.012), Q(H * 0.8, 0.05, 0.012), Q(H * 0.8, -0.05, 0.012), Q(-H * 0.8, -0.05, 0.012)], `rgba(${LCK_SIG[st]},${lit * 0.6 * flash})`, true);
     }
   } else {
     // Caged worklamps on the ribs of the outer shed, and amber studs down a ramp's edges.
@@ -69440,16 +69759,26 @@ function drawGateLock(ctx, cam, dx, dy, lk, night, alpha, now, seed) {
         }
       }
     }
-    // The shed's own gantry at the waste end: ALL RIGS: WEIGH LANE LEFT.
+    // The shed's own gantry at the waste end: the city's name, and beside it a red chevron
+    // pulsing toward the weigh ramp on the left. The chevron is the instruction; the board is the
+    // welcome. A smooth swell, never dark, for the no-strobe rule above.
     if (lk.k === 'shed' && (lk.mo || '').includes('s')) {
       const v = -H;
-      quad([P(-H * 0.85, v, Z - 0.07), P(H * 0.85, v, Z - 0.07), P(H * 0.85, v, Z - 0.24), P(-H * 0.85, v, Z - 0.24)], dn ? 'rgb(10,12,14)' : 'rgb(22,25,29)');
-      quad([P(-H * 0.85, v - 0.004, Z - 0.225), P(H * 0.85, v - 0.004, Z - 0.225), P(H * 0.85, v - 0.004, Z - 0.235), P(-H * 0.85, v - 0.004, Z - 0.235)], `rgba(${LCK_SIG.amber},${lit * 0.8})`, true);
+      quad([Q(-H * 0.85, v, Z - 0.07), Q(H * 0.85, v, Z - 0.07), Q(H * 0.85, v, Z - 0.24), Q(-H * 0.85, v, Z - 0.24)], dn ? 'rgb(10,12,14)' : 'rgb(22,25,29)');
+      quad([Q(-H * 0.85, v - 0.004, Z - 0.225), Q(H * 0.85, v - 0.004, Z - 0.225), Q(H * 0.85, v - 0.004, Z - 0.235), Q(-H * 0.85, v - 0.004, Z - 0.235)], `rgba(${LCK_SIG.amber},${lit * 0.8})`, true);
+      const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin((now || 0) * 0.0071));
+      for (let i = 0; i < 2; i++) {
+        const u0 = -H * 0.80 + i * 0.07, w = 0.05, zc = Z - 0.155, dz = 0.06, t = 0.018;
+        quad([Q(u0 + w, v - 0.006, zc + dz), Q(u0 + w - t * 2, v - 0.006, zc + dz), Q(u0 - t, v - 0.006, zc), Q(u0 + t, v - 0.006, zc)], `rgba(${LCK_SIG.red},${Math.min(1, lit * 1.3) * pulse})`, true);
+        quad([Q(u0 + t, v - 0.006, zc), Q(u0 - t, v - 0.006, zc), Q(u0 + w - t * 2, v - 0.006, zc - dz), Q(u0 + w, v - 0.006, zc - dz)], `rgba(${LCK_SIG.red},${Math.min(1, lit * 1.3) * pulse})`, true);
+      }
+      flush();
+      glowPool(ctx, cam, dx - H * 0.76, dy - v + 0.02, Z - 0.155, LCK_SIG.red, 12, lit * 0.5 * pulse, { add: true, max: 26 });
       _signFace = 'mono';
-      const tex = bakeSignText('WEIGH LANE LEFT', '#ffcc7a', dn, false, false, true);
+      const tex = bakeSignText('COLDWATER BASIN', '#ffcc7a', dn, false, false, true);
       if (tex) {
-        const aspect = tex.width / tex.height, hgt = Math.min(0.12, (H * 1.5) / aspect), wid = hgt * aspect, zc = Z - 0.155;
-        const q = [P(-wid / 2, v - 0.006, zc + hgt / 2), P(wid / 2, v - 0.006, zc + hgt / 2), P(wid / 2, v - 0.006, zc - hgt / 2), P(-wid / 2, v - 0.006, zc - hgt / 2)];
+        const aspect = tex.width / tex.height, hgt = Math.min(0.12, (H * 1.3) / aspect), wid = hgt * aspect, zc = Z - 0.155, uc = H * 0.12;
+        const q = [P(uc - wid / 2, v - 0.006, zc + hgt / 2), P(uc + wid / 2, v - 0.006, zc + hgt / 2), P(uc + wid / 2, v - 0.006, zc - hgt / 2), P(uc - wid / 2, v - 0.006, zc - hgt / 2)];
         if (ok(q)) drawSurfaceText(ctx, q[0], q[1], q[2], q[3], tex, false, alpha);
       }
     }
@@ -69461,24 +69790,26 @@ function drawGateLock(ctx, cam, dx, dy, lk, night, alpha, now, seed) {
   if (lk.k === 'deck') {
     const hw = H * 0.78, hl = H * 0.62, dz = 0.045;
     // The ramps up at both ends, then the deck, then its lit face toward the camera.
-    quad([P(-hw, hl, dz), P(hw, hl, dz), P(hw, H, 0.004), P(-hw, H, 0.004)], dn ? 'rgb(44,47,52)' : 'rgb(112,116,122)');
-    quad([P(-hw, -H, 0.004), P(hw, -H, 0.004), P(hw, -hl, dz), P(-hw, -hl, dz)], dn ? 'rgb(44,47,52)' : 'rgb(112,116,122)');
-    for (const u of [-hw, hw]) quad([P(u, -hl, dz), P(u, hl, dz), P(u, hl, 0), P(u, -hl, 0)], dn ? 'rgb(20,22,25)' : 'rgb(58,61,66)');
-    quad([P(-hw, hl, dz), P(hw, hl, dz), P(hw, -hl, dz), P(-hw, -hl, dz)], dn ? 'rgb(34,37,42)' : 'rgb(104,108,114)');
-    for (const v of [-hl * 0.34, hl * 0.34]) quad([P(-hw, v + 0.012, dz + 0.001), P(hw, v + 0.012, dz + 0.001), P(hw, v - 0.012, dz + 0.001), P(-hw, v - 0.012, dz + 0.001)], 'rgba(12,14,17,0.9)');
+    quad([Q(-hw, hl, dz), Q(hw, hl, dz), Q(hw, H, 0.004), Q(-hw, H, 0.004)], dn ? 'rgb(44,47,52)' : 'rgb(112,116,122)');
+    quad([Q(-hw, -H, 0.004), Q(hw, -H, 0.004), Q(hw, -hl, dz), Q(-hw, -hl, dz)], dn ? 'rgb(44,47,52)' : 'rgb(112,116,122)');
+    for (const u of [-hw, hw]) quad([Q(u, -hl, dz), Q(u, hl, dz), Q(u, hl, 0), Q(u, -hl, 0)], dn ? 'rgb(20,22,25)' : 'rgb(58,61,66)');
+    quad([Q(-hw, hl, dz), Q(hw, hl, dz), Q(hw, -hl, dz), Q(-hw, -hl, dz)], dn ? 'rgb(34,37,42)' : 'rgb(104,108,114)');
+    for (const v of [-hl * 0.34, hl * 0.34]) quad([Q(-hw, v + 0.012, dz + 0.001), Q(hw, v + 0.012, dz + 0.001), Q(hw, v - 0.012, dz + 0.001), Q(-hw, v - 0.012, dz + 0.001)], 'rgba(12,14,17,0.9)');
     const pulse = 0.55 + 0.45 * Math.sin((now || 0) * 0.0032);
-    for (const u of [-hw, hw]) quad([P(u - 0.02, hl, dz + 0.002), P(u + 0.02, hl, dz + 0.002), P(u + 0.02, -hl, dz + 0.002), P(u - 0.02, -hl, dz + 0.002)], `rgba(${LCK_SIG.amber},${lit * 0.8})`, true);
-    quad([P(-hw * 0.7, 0.03, dz + 0.003), P(hw * 0.7, 0.03, dz + 0.003), P(hw * 0.7, -0.03, dz + 0.003), P(-hw * 0.7, -0.03, dz + 0.003)], `rgba(226,240,255,${lit * 0.55 * pulse})`, true);
+    for (const u of [-hw, hw]) quad([Q(u - 0.02, hl, dz + 0.002), Q(u + 0.02, hl, dz + 0.002), Q(u + 0.02, -hl, dz + 0.002), Q(u - 0.02, -hl, dz + 0.002)], `rgba(${LCK_SIG.amber},${lit * 0.8})`, true);
+    quad([Q(-hw * 0.7, 0.03, dz + 0.003), Q(hw * 0.7, 0.03, dz + 0.003), Q(hw * 0.7, -0.03, dz + 0.003), Q(-hw * 0.7, -0.03, dz + 0.003)], `rgba(226,240,255,${lit * 0.55 * pulse})`, true);
     // The terminal: a post, a box, a screen facing across the deck, and the board above it.
     const tu = (lk.term === 'e' ? 1 : -1) * (hw + 0.07);
     post(tu, 0.1);
     const face = tu < 0 ? 0.03 : -0.03;
-    quad([P(tu + face, 0.2, 0.42), P(tu + face, 0.0, 0.42), P(tu + face, 0.0, 0.26), P(tu + face, 0.2, 0.26)], dn ? 'rgb(14,16,19)' : 'rgb(30,34,38)');
-    quad([P(tu + face * 1.3, 0.18, 0.40), P(tu + face * 1.3, 0.02, 0.40), P(tu + face * 1.3, 0.02, 0.30), P(tu + face * 1.3, 0.18, 0.30)], `rgba(120,244,255,${lit * 0.55})`, true);
-    quad([P(tu + face, 0.28, 0.80), P(tu + face, -0.08, 0.80), P(tu + face, -0.08, 0.62), P(tu + face, 0.28, 0.62)], dn ? 'rgb(8,10,12)' : 'rgb(18,21,25)');
-    quad([P(tu + face * 1.3, 0.24, 0.76), P(tu + face * 1.3, -0.04, 0.76), P(tu + face * 1.3, -0.04, 0.66), P(tu + face * 1.3, 0.24, 0.66)], `rgba(${LCK_SIG.amber},${lit * 0.35})`, true);
+    quad([Q(tu + face, 0.2, 0.42), Q(tu + face, 0.0, 0.42), Q(tu + face, 0.0, 0.26), Q(tu + face, 0.2, 0.26)], dn ? 'rgb(14,16,19)' : 'rgb(30,34,38)');
+    quad([Q(tu + face * 1.3, 0.18, 0.40), Q(tu + face * 1.3, 0.02, 0.40), Q(tu + face * 1.3, 0.02, 0.30), Q(tu + face * 1.3, 0.18, 0.30)], `rgba(120,244,255,${lit * 0.55})`, true);
+    quad([Q(tu + face, 0.28, 0.80), Q(tu + face, -0.08, 0.80), Q(tu + face, -0.08, 0.62), Q(tu + face, 0.28, 0.62)], dn ? 'rgb(8,10,12)' : 'rgb(18,21,25)');
+    quad([Q(tu + face * 1.3, 0.24, 0.76), Q(tu + face * 1.3, -0.04, 0.76), Q(tu + face * 1.3, -0.04, 0.66), Q(tu + face * 1.3, 0.24, 0.66)], `rgba(${LCK_SIG.amber},${lit * 0.35})`, true);
+    flush();
     glowPool(ctx, cam, dx + tu, dy - 0.1, 0.3, '120,244,255', 14, lit * 0.45, { add: true, max: 30 });
   }
+  flush();
   ctx.restore();
 }
 

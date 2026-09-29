@@ -69,7 +69,8 @@ const flap = (k, seed) => {
 };
 
 // ── The tents. Unit shapes: x and y in -1..1, z in 0..1, scaled per pitch. Face 0 is the one a patch
-// or paint goes on (the ridge's +x slope, the tarp's +x half, the lean-to's roof). ──────────────────
+// or paint goes on (the ridge's +x slope, the tarp's +x half, the lean-to's roof; the dome, bell and
+// tunnel below put it on their +x side). ─────────────────────────────────────────────────────────────
 // ⚠ PAINT HAS TO READ FROM OUTSIDE. Face 0 on the ridge and the tarp runs u from -y to +y, and seen
 // from +x (looking west) your right hand is north, -y, so a slogan came out mirrored. Those two faces
 // store u flipped; the lean-to's roof faces +y and already reads the right way.
@@ -91,6 +92,63 @@ function lean() {
   const M = builder();
   grid(M, 0, 6, 4, quadAt([-1, -1, 1], [1, -1, 1], [-1, 1, 0], [1, 1, 0]), billow(0.06, 0.5));
   grid(M, 2, 6, 3, quadAt([-1, -1, 1], [1, -1, 1], [-1, -1, 0], [1, -1, 0]), billow(0.03, 2.6));
+  return M;
+}
+
+// ── Round shelters. A shell is a surface of revolution round z: `prof(s)` gives the radius and height
+// at station s (0 at the apex, 1 at the foot) and `foot(a)` squares the footprint off at azimuth a
+// (0 = +x, turning toward +y). The apex closes to a point, so paint can't live there: every shell is a
+// CAP (apex down to station s0, face 3) and a BAND under it, and face 0 is the band's +x panel,
+// between azimuths -A0 and A0. That panel runs u from -y to +y, the ridge's case, so it stores u
+// flipped. The rest of the band is face 1 and carries the door (mat 1, the record's second colour) at
+// +y, the way a lean-to's mouth faces.
+const DEG = Math.PI / 180;
+function shell(M, prof, foot, s0, A0, door, move, capMove) {
+  const pt = (a, s) => { const [r, z] = prof(s), k = r * foot(a); return [Math.cos(a) * k, Math.sin(a) * k, z]; };
+  const band = (v) => s0 + (1 - s0) * v;
+  grid(M, 0, 6, 4, (u, v) => pt(-A0 + 2 * A0 * u, band(v)), move, undefined, true);
+  const a1 = (u) => A0 + (TAU - 2 * A0) * u;
+  grid(M, 1, 14, 4, (u, v) => pt(a1(u), band(v)), move,
+    (u, v) => (door && Math.abs(a1(u) - Math.PI / 2) < door[0] && band(v) > door[1] ? 1 : 0));
+  grid(M, 3, 12, 2, (u, v) => pt(u * TAU, s0 * v), capMove);
+}
+// A POP-UP DOME: two crossed hoops under a skin, so the footprint is a rounded square and the top is
+// a little flat. The door is a zipped panel in another colour.
+function dome() {
+  const M = builder();
+  const prof = (s) => { const th = s * Math.PI / 2; return [Math.sin(th), Math.pow(Math.max(0, Math.cos(th)), 0.85)]; };
+  const foot = (a) => { const q = Math.pow(Math.pow(Math.abs(Math.cos(a)), 4) + Math.pow(Math.abs(Math.sin(a)), 4), -0.25); return 1 + (q - 1) * 0.45; };
+  shell(M, prof, foot, 0.34, 64 * DEG, [20 * DEG, 0.42], billow(0.045, 0.9), billow(0.02, 2.4));
+  return M;
+}
+// A BELL TENT: a centre pole, a cone of canvas off its top, and a short wall round the foot, which is
+// the difference between a bell and a tepee. The door is a flap in the wall and the cone above it.
+export const BELL_WALL = 0.26;
+function bell() {
+  const M = builder(), wt = BELL_WALL, rw = 0.95;
+  // The cone, with a slight sag between the pole and the wall, as canvas hangs.
+  const cone = (s) => [s * rw, wt + (1 - wt) * (1 - s) - 0.05 * Math.sin(Math.PI * s)];
+  shell(M, cone, () => 1, 0.34, 60 * DEG, [16 * DEG, 0.8], billow(0.04, 1.3), billow(0.015, 3.3));
+  // The wall, face 2: from the cone's rim down to the ground, splayed a little at the foot.
+  const at = (u, v) => { const a = u * TAU, r = rw + 0.05 * v; return [Math.cos(a) * r, Math.sin(a) * r, wt * (1 - v)]; };
+  grid(M, 2, 20, 1, at, billow(0.03, 0.2), (u) => (Math.abs(u * TAU - Math.PI / 2) < 16 * DEG ? 1 : 0));
+  return M;
+}
+// A TUNNEL TENT: three hoops along its length and the skin sagging between them, a closed back end
+// and a door in the front one. Long along y, the mouth at +y. Face 0 is the +x side, u flipped.
+function tunnel() {
+  const M = builder();
+  const sag = (y) => 1 - 0.07 * Math.pow(Math.sin(Math.PI * (y + 1)), 2);   // hoops at -1, 0 and +1
+  const side = (sx) => (u, v) => {
+    const y = -1 + 2 * u, ps = v * Math.PI / 2, g = sag(y);
+    return [sx * Math.sin(ps) * (0.96 + 0.04 * g), y, Math.cos(ps) * g];
+  };
+  grid(M, 0, 8, 4, side(1), billow(0.05, 0.4), undefined, true);
+  grid(M, 1, 8, 4, side(-1), billow(0.05, 2.0));
+  // The ends. At height z = 1 - v the hoop is sqrt(1 - z²) wide, the same circle the sides end on.
+  const end = (y) => (u, v) => { const z = 1 - v, hw = Math.sqrt(Math.max(0, 1 - z * z)); return [(2 * u - 1) * hw, y, z]; };
+  grid(M, 2, 6, 4, end(-1), billow(0.025, 3.0));
+  grid(M, 2, 6, 4, end(1), billow(0.025, 1.1), (u, v) => (Math.abs(2 * u - 1) < 0.5 && v > 0.3 ? 1 : 0));
   return M;
 }
 
@@ -149,8 +207,10 @@ function flag() {
   return M;
 }
 
-export const CLOTH_KINDS = ['ridge', 'tarp', 'lean', 'sock', 'flag'];
-const BUILD = { ridge, tarp, lean, sock, flag };
+// The shelters, in the order drawTentCamp numbers them (0 ridge … 5 tunnel).
+export const CLOTH_SHELTERS = ['ridge', 'tarp', 'lean', 'dome', 'bell', 'tunnel'];
+export const CLOTH_KINDS = [...CLOTH_SHELTERS, 'sock', 'flag'];
+const BUILD = { ridge, tarp, lean, dome, bell, tunnel, sock, flag };
 
 // ── Half floats, as actor3d.js packs them. ──────────────────────────────────────────────────────────
 const _f = new Float32Array(1), _u = new Uint32Array(_f.buffer);
