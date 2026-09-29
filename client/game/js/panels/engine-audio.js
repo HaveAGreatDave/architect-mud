@@ -1260,6 +1260,17 @@ const DMG_CUES = {
 // A worse band gets a louder, harder version of the SAME cue rather than a different sound. The
 // part is the identity; the band is the volume of the news.
 const BAND_GAIN = { worked: 0.55, tired: 0.75, ailing: 1.0, derelict: 1.25 };
+// THE SOUTH LOCK'S KLAXON: you rolled out on amber (plugins/trucking/lock.js). Two notes, low-high,
+// four times over, square-wave so it cuts through a closed cab at speed.
+const KLAXON = { config: { duration: 3.4, layers: [0, 1, 2, 3].flatMap((i) => [
+  { waveform: 'square', freq: 392, delay: i * 0.84, filter: { type: 'lowpass', freq: 2200, q: 1.2 }, adsr: { a: 0.01, d: 0.40, s: 0, r: 0.04 }, gain: 0.08 },
+  { waveform: 'square', freq: 523, delay: i * 0.84 + 0.42, filter: { type: 'lowpass', freq: 2400, q: 1.2 }, adsr: { a: 0.01, d: 0.40, s: 0, r: 0.04 }, gain: 0.08 },
+]) } };
+export function lockKlaxon() {
+  const ae = AE();
+  try { ae?.init?.(); ae?.playSfx?.(KLAXON); } catch { /* no audio */ }
+}
+
 export function damageCue(part, band = 'tired') {
   const ae = AE(); const def = DMG_CUES[part]; if (!def) return;
   const g = BAND_GAIN[band] ?? 0.8;

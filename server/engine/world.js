@@ -598,7 +598,8 @@ export function zoneTerrain(zone) {
 // two auto-tile together (a dirt lane meets a paved street at a proper junction) and draw
 // the same road_<nesw> piece, dirt_road just recoloured. Kept for callers that ask the
 // question; the piece itself is no longer computed here.
-export function isRoadTerrain(t) { return t === 'road' || t === 'dirt_road'; }
+// `weighbridge` is the raised deck of a scale (the Glacis Weigh): a road you drive onto and stop on.
+export function isRoadTerrain(t) { return t === 'road' || t === 'dirt_road' || t === 'weighbridge'; }
 
 // The named zone-icon SVG for a tile's map payload — READ, not computed.
 //

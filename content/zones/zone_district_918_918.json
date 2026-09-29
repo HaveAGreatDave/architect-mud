@@ -1,12 +1,11 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The Gate Road's last clear stretch before the wall. The Curtain fills the southern sky, a floor-to-heaven sheet of hard light, pierced by the single lit throat of the South Gate just ahead.",
+  "description": "The Gate Road runs into a roofed box of grey plate, the Curtain's light at the far end. A lamp strip runs down each wall and along the roof, all one colour at a time. Green, you roll. Amber, you stop and somebody walks the rig. Stop bars are painted across the drain every few metres.",
   "exits": {
     "east": "zone_district_919_918",
     "north": "zone_district_918_917",
-    "south": "zone_district_918_919",
-    "west": "zone_district_917_918"
+    "south": "zone_district_918_919"
   },
   "flags": {
     "artery": [
@@ -14,13 +13,20 @@
     ],
     "district": "ashway",
     "region_id": "region_coldwater",
-    "terrain": "road"
+    "terrain": "road",
+    "gate_lock": {
+      "name": "the South Lock",
+      "k": "hall",
+      "search": true,
+      "gate": "zone_district_918_919",
+      "seg": 0
+    }
   },
   "grid_x": 918,
   "grid_y": 918,
   "grid_z": 0,
   "id": "zone_district_918_918",
   "map_id": "map_world",
-  "name": "The Gate Road",
+  "name": "The South Lock",
   "parent_zone": null
 }

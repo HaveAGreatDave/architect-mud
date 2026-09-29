@@ -972,6 +972,7 @@ export const TERRAIN_STEP = {
   dock: 'boards',
   // Wet stone underfoot, and the one terrain whose whole character is the echo.
   sewer: 'metal',
+  weighbridge: 'metal',   // steel plate on a raised deck (the Glacis Weigh)
 };
 
 // Interior floor → footing class. `flags.floor` is authored (see tagCatalog.js),

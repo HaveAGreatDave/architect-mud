@@ -221,7 +221,7 @@ export function surfaceRank(flags = {}) {
   // tiles are painted-only, so this was most of them.
   if (/^(road_|runway_|statue)/.test(flags.icon || '')
       || (Array.isArray(flags.artery) && flags.artery.length)
-      || flags.terrain === 'road' || flags.terrain === 'dirt_road') return 1; // road / artery / statue
+      || flags.terrain === 'road' || flags.terrain === 'dirt_road' || flags.terrain === 'weighbridge') return 1; // road / artery / statue
   return 0;                                                             // plain terrain (water, land)
 }
 let _coordIndex = null;
@@ -1015,7 +1015,7 @@ export function isRoadCell(c) {
   const f = c && c.flags;
   if (!f) return false;
   return /^(road_|runway_)/.test(f.icon || '')
-    || f.terrain === 'road' || f.terrain === 'dirt_road';
+    || f.terrain === 'road' || f.terrain === 'dirt_road' || f.terrain === 'weighbridge';
 }
 
 // HIGH GROUND. The three terrains that stand a tile-height above the plain, and the only
@@ -1153,6 +1153,28 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // marking those would put every one of them through the mark dispatch to draw nothing.
   const plz = cell.flags?.scale_plaza || undefined;
   const plzDrawn = plz && plz.k !== 'apron' ? 1 : 0;
+  // THE SOUTH LOCK — the covered road either side of the South Gate (plugins/trucking/lock.js). A
+  // mark and not a building for the plaza's reason: it is a roof you drive UNDER, and a building
+  // would join the collision sweep. `wl` is the sides that are walled (a neighbour that is not lock,
+  // gate or road), derived here so content only has to say which tiles are covered. `st` is the
+  // signal: green by default, and the cab push repaints it per driver (see cabContext).
+  let lk;
+  const lkf = cell.flags?.gate_lock;
+  if (lkf && typeof lkf === 'object') {
+    const open = (c) => !!(c && (c.flags?.gate_lock || c.flags?.perimeter_gate || isRoadCell(c)
+      || (c.flags?.building_type === 'weigh_station' && lkf.k === 'deck')));
+    let wl = '';
+    if (!open(at(x, y - 1))) wl += 'n';
+    if (!open(at(x + 1, y))) wl += 'e';
+    if (!open(at(x, y + 1))) wl += 's';
+    if (!open(at(x - 1, y))) wl += 'w';
+    // A MOUTH is a side opening onto road that is not itself covered: where the gantry hangs.
+    let mo = '';
+    const mouth = (c) => !!(c && !c.flags?.gate_lock && !c.flags?.perimeter_gate && isRoadCell(c));
+    if (mouth(at(x, y - 1))) mo += 'n';
+    if (mouth(at(x, y + 1))) mo += 's';
+    lk = { k: lkf.k, s: lkf.search ? 1 : undefined, seg: Number(lkf.seg) || 0, term: lkf.term || undefined, wl, mo: mo || undefined, st: 'green' };
+  }
   // An airfield's hangar is the same shed at aircraft scale (windshield.js bayDims): a `bay` mark,
   // told apart by `bk`, so every reader of the shed (door, CFIT roof, occlusion) takes it for free.
   const mark = (cell.flags?.vehicle_bay || cell.flags?.aircraft_hangar) ? 'bay'
@@ -1161,6 +1183,7 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
     : cell.flags?.road_sign ? 'sign'
     : cell.flags?.junction_pylons ? 'pylons'
     : plzDrawn ? 'plaza'
+    : lk ? 'lock'
     : strip ? 'strip'
     // Old Coldwater's tent camp (docs/proposals/old-coldwater.md). ⚠ A MARK AND DELIBERATELY NOT A
     // `building_type`: a building tile leaves the walk graph and joins the CFIT collision sweep, so
@@ -1202,7 +1225,7 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   let rd;
   const im = /^road_([nesw]+|x)$/.exec(cell.flags?.icon || '');
   if (im) rd = im[1] === 'x' ? 'nesw' : im[1];
-  else if (cell.flags?.terrain === 'road' || cell.flags?.terrain === 'dirt_road') {
+  else if (cell.flags?.terrain === 'road' || cell.flags?.terrain === 'dirt_road' || cell.flags?.terrain === 'weighbridge') {
     // Painted road/dirt_road with no authored icon: auto-tile the connector from adjacent road cells.
     let s = '';
     if (isRoadCell(at(x, y - 1))) s += 'n';
@@ -1389,7 +1412,7 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   const prp = (cell.flags?.boat_fuel && cell.flags?.building_type !== 'fuel_dock') ? 'fuel' : cell.flags?.boat_hardstanding ? 'hard'
     : (cell.flags?.truck_yard && cell.flags?.truck_fuel) ? 'apron' : undefined;
   const bk = cell.flags?.aircraft_hangar ? 'air' : undefined;
-  return { prp, kind, biome, road, danger: cell.danger, pad, bt, bn, ent, flr, mark, bk, strip, rd, rdeg, rt, rw, rl, wr, rc, wake, sub, heading, cur, ft, hi, cf, pf: cell.flags?.park_feature, pw, em, og, sl, sgn, plz, bf, bq, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
+  return { prp, kind, biome, road, danger: cell.danger, pad, bt, bn, ent, flr, mark, bk, strip, rd, rdeg, rt, rw, rl, wr, rc, wake, sub, heading, cur, ft, hi, cf, pf: cell.flags?.park_feature, pw, em, og, sl, sgn, plz, lk, bf, bq, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
 }
 
 // The flight window's half-width, named so the things that have to AGREE with it can say so

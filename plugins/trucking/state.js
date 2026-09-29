@@ -1764,6 +1764,17 @@ function hitchableFor(rig) {
   return best ? { id: best.id, name: best.name } : null;
 }
 
+// THE SOUTH LOCK'S LAMPS ARE PER DRIVER. The cells ship green (see deriveSurfaceCell); this repaints
+// the inner lock's cells with whatever the lock has said to THIS rig (lock.js sets `_lockSig`). Red
+// lapses on its own clock. Read straight off the rig so this file needs no import of lock.js.
+function paintLock(rig, rows) {
+  const s = rig._lockSig;
+  if (!s) return rows;
+  if (s.until && Date.now() > s.until) { rig._lockSig = null; return rows; }
+  for (const row of rows) for (const c of row) if (c.lk?.s) c.lk = { ...c.lk, st: s.st };
+  return rows;
+}
+
 export function cabContext(rig, extra = {}) {
   const cx = Math.round(rig.x), cy = Math.round(rig.y);
   const city = rig.leg === 'city';
@@ -1771,7 +1782,7 @@ export function cabContext(rig, extra = {}) {
   return {
     type: 'truck_ctx',
     leg: rig.leg,
-    map: mapWindow({ grid_x: cx, grid_y: cy }, CAB_RADIUS, providerFor(rig)),
+    map: paintLock(rig, mapWindow({ grid_x: cx, grid_y: cy }, CAB_RADIUS, providerFor(rig))),
     mapX: cx, mapY: cy,
     // The road past the edge of that window, as geometry rather than as cells — the same payload a
     // cockpit gets, and for the same reason. The cab window is 30 tiles and the ground runs to the
@@ -2108,7 +2119,7 @@ export function surfaceUnder(rig) {
     : corridorAt(rig.route, Math.round(rig.x), Math.round(rig.y));
   const terrain = c?.flags?.terrain;
   if (!c) return 'offroad';
-  if (terrain === 'road' || terrain === 'asphalt' || terrain === 'concrete') return 'road';
+  if (terrain === 'road' || terrain === 'asphalt' || terrain === 'concrete' || terrain === 'weighbridge') return 'road';
   // ⚠ `dirt_road` MEANS TWO DIFFERENT THINGS AND ONLY THE LEG CAN TELL THEM APART. Out on the
   // corridor it is the graded band beside the tarmac — `corridorAt` paints the verge with it
   // precisely because it earns the renderer's packed-dirt look — and a verge has to keep a verge's

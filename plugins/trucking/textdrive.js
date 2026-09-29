@@ -30,6 +30,7 @@ import { rigs, driveToZone, crossToNode, surfaceUnder, announceBreak, cbLine, pa
   tryDoorBoard, doorBoardLine } from './state.js';
 import { TILES_PER_ROOM, nodeAt } from './corridor.js';
 import { afterDrive } from './scale.js';
+import { lockTick } from './lock.js';
 import { hitcherAt } from './hitchers.js';
 import { wearFor, breakdownRoll } from './rig.js';
 import { roadTestTick } from './roadtest.js';
@@ -303,8 +304,13 @@ async function stepRun(player, rig, run) {
   const z = getZone(next);
   if (z?.grid_x != null) { rig.x = z.grid_x; rig.y = z.grid_y; }
   burn(rig, 1);
+  const prevZone = getZone(player.current_zone);
   const zone = driveToZone(player, rig, next);
   await afterDrive(player, rig, zone);      // the same weighbridge — one law, both rungs
+  // The South Lock. A text driver pulled for a search is stopped in it and searched; `drive` again
+  // rolls on. There is no wheel here to run it with, so the text rung can't earn the red.
+  const lk = await lockTick(player, rig, zone, prevZone, { text: true });
+  if (lk?.stop) { runs.delete(player.id); return; }
   if (zone && run.since++ % 3 === 0) narrate(player, `<span class="text-dim">${zone.name}. ${pick(CITY_LINES)}</span>`);
 }
 

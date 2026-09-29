@@ -2,23 +2,27 @@
   "ambient_events": [],
   "ambient_theme": "wasteland",
   "color": "#b5744a",
-  "description": "The hardpan here is split into thousands of red tiles. Nothing grows in the cracks, and the wind keeps them swept.",
+  "description": "The run back from the plates onto the lock road, still under the roof. The kerbstones down the west side have been shunted out of true by trailers cutting it fine. A board at the top faces back the way you came: Rejoin, Give Way.",
   "exits": {
     "east": "zone_district_918_920",
-    "south": "zone_district_917_921",
-    "west": "zone_district_916_920"
+    "south": "zone_district_917_921"
   },
   "flags": {
     "district": "wilds",
-    "radiation": 30,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "road",
+    "gate_lock": {
+      "name": "the Outer Lock",
+      "k": "ramp",
+      "gate": "zone_district_918_919",
+      "seg": 0
+    }
   },
   "grid_x": 917,
   "grid_y": 920,
   "grid_z": 0,
   "id": "zone_district_917_920",
   "map_id": "map_world",
-  "name": "The Slag Pan",
+  "name": "The Weigh Lane",
   "parent_zone": null
 }
