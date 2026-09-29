@@ -1295,6 +1295,54 @@ function stepShots(F, now, dt, s) {
   F.shots = F.shots.filter(m => !m.dead);
   return view.length ? view : null;
 }
+// ── Flares ──────────────────────────────────────────────────────────────────────
+// A countermeasure burst the server confirmed (`air_threat` kind 'flares'): a fan of burning
+// magnesium pellets kicked out both sides and down, carrying the airframe's speed at first, then
+// dragging to a stop and dropping away behind us. Purely visual and client-side, like the missiles:
+// each pellet keeps an absolute position and the view hands the windshield live offsets.
+const FLARE_COUNT = 10;          // pellets per burst (a salvo of 5 a side)
+const FLARE_LIFE_MS = 3200;      // burn time
+const FLARE_TRAIL = 12;          // smoke-trail samples per pellet
+function launchFlares(F, s) {
+  if (!F.pos || !s) return;
+  const now = performance.now(), hr = s.heading * Math.PI / 180;
+  const pace = Math.max(0.05, Math.abs(s.airspeed) * RENDER_TUNE.worldPace);
+  F.flares = F.flares || [];
+  for (let i = 0; i < FLARE_COUNT; i++) {
+    const side = i % 2 ? 1 : -1, k = Math.floor(i / 2);
+    const out = 0.10 + Math.random() * 0.10, back = 0.04 + Math.random() * 0.08;
+    F.flares.push({
+      t0: now + k * 90,   // rippled out in pairs
+      x: F.pos.x - Math.sin(hr) * 0.02, y: F.pos.y + Math.cos(hr) * 0.02, alt: s.altitude - 4,
+      // Airframe velocity + a sideways kick + a little rearward.
+      vx: Math.sin(hr) * (pace - back) + Math.cos(hr) * out * side,
+      vy: -Math.cos(hr) * (pace - back) + Math.sin(hr) * out * side,
+      vz: -20 - Math.random() * 40,   // ft/s, ejected downward
+      seed: Math.random() * 100, trail: [],
+    });
+  }
+}
+function stepFlares(F, now, dt, s) {
+  if (!F.flares || !F.flares.length || !F.pos) return null;
+  const view = [], drag = Math.exp(-1.4 * dt);
+  for (const f of F.flares) {
+    if (now < f.t0) continue;
+    const age = now - f.t0;
+    if (age > FLARE_LIFE_MS) { f.dead = true; continue; }
+    f.vx *= drag; f.vy *= drag;
+    f.vz = f.vz * drag - 70 * dt;   // gravity, with drag capping the fall
+    f.x += f.vx * dt; f.y += f.vy * dt; f.alt += f.vz * dt;
+    f.trail.push([f.x, f.y, f.alt]);
+    if (f.trail.length > FLARE_TRAIL) f.trail.shift();
+    view.push({
+      dx: f.x - F.pos.x, dy: f.y - F.pos.y, altDiff: f.alt - s.altitude,
+      life: age / FLARE_LIFE_MS, seed: f.seed,
+      trail: f.trail.map(p => [p[0] - F.pos.x, p[1] - F.pos.y, p[2] - s.altitude]),
+    });
+  }
+  F.flares = F.flares.filter(f => !f.dead);
+  return view.length ? view : null;
+}
 // ── Building collision (CFIT) ─────────────────────────────────────────────────
 // The windshield draws one deterministic building per built-up tile from its floor count; the sim
 // collision-checks that SAME building so flying into a tower you can see out the glass hurts. The
@@ -6260,6 +6308,7 @@ function fsimFrameBody(now) {
     chinGun: F.chinGun,   // gun station: one barrel under the nose (heli) vs a pair under the wings
     // Missiles in the air right now — flown client-side (stepShots), drawn as real world objects.
     missiles: stepShots(F, now, dt, s),
+    flares: stepFlares(F, now, dt, s),   // countermeasure pellets burning away behind us
     // Two-part gunsight: shown while the guns are armed + airborne (aiming, not only firing). Also
     // aligns the chase camera dead-astern so the boresight runs up the screen centre (windshield.js).
     reticle: !!(F.armed && F.reportedAirborne && F.weapon !== 'msl'),
@@ -7057,6 +7106,7 @@ export function flightSimAirThreat(msg) {
     case 'flares':
       if (F.toast) F.toast('FLARES AWAY');
       try { flareFx(); } catch {}
+      launchFlares(F, F.s);
       break;
     case 'lockbreak':
       F.lockId = null; F.lockProg = 0; F.seekId = null;   // the server dropped our seeker lock
