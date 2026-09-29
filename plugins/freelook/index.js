@@ -41,6 +41,7 @@ import { sendToPlayer } from '../../server/engine/messaging.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { on } from '../../server/engine/events.js';
 import { mapWindow, skyState, FLIGHT_RADIUS } from '../flight/state.js';
+import { streetActors } from '../../server/engine/street-actors.js';
 
 // The same roster the fireworks command takes, and deliberately not the narrower `role === 'admin'`
 // the helm console uses: the helm steers a boat and this looks at a wall, so the people who build
@@ -105,7 +106,8 @@ export function tileUnder(player) {
 function viewPayload(gx, gy, stand) {
   const map = mapWindow({ grid_x: gx, grid_y: gy }, RADIUS);
   if (stand && map[RADIUS]?.[RADIUS]) map[RADIUS][RADIUS].self = undefined;
-  return { type: 'freelook_open', gx, gy, map, sky: skyState(gx, gy), stand };
+  // Everybody standing in that window, so the street under the camera is not empty.
+  return { type: 'freelook_open', gx, gy, map, sky: skyState(gx, gy), actors: streetActors(gx, gy, RADIUS), stand };
 }
 
 // ── A VANTAGE: THE SAME CAMERA, BOLTED DOWN ──────────────────────────────────
@@ -221,7 +223,8 @@ function pushLive() {
   if (!viewers.size) return;
   for (const [pid, at] of [...viewers]) {
     if (!getLivePlayer(pid)) { viewers.delete(pid); continue; }
-    sendToPlayer(pid, { type: 'freelook_sky', sky: skyState(at.gx, at.gy) });
+    // The people ride the sky's clock: an NPC steps a tile every 15 s, and the client walks them between.
+    sendToPlayer(pid, { type: 'freelook_sky', sky: skyState(at.gx, at.gy), actors: streetActors(at.gx, at.gy, RADIUS) });
   }
 }
 schedule('15s', pushLive);

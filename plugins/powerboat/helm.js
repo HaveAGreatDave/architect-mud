@@ -20,6 +20,7 @@ import { query } from '../../server/models/db.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { getZone } from '../../server/engine/world.js';
 import { mapWindow, skyState, aircraftNearCoord } from '../flight/state.js';
+import { streetActors } from '../../server/engine/street-actors.js';
 import { aboard, berthKind, berthsNear, berthCapacity, myBoats, pickBoat, coveredSlot, coveredRoomAtTile, isOpenWater, MOVE_IN, recoverAboard } from './yard.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { fuelServesAt } from './fuel.js';
@@ -103,7 +104,7 @@ export function seawardHeading(x, y) {
 }
 
 // ── THE PAYLOAD ──────────────────────────────────────────────────────────────
-export function helmContext(boat, at) {
+export function helmContext(boat, at, playerId = null) {
   const sky = skyState(at.x, at.y) || {};
   return {
     type: 'boat_ctx',
@@ -124,6 +125,8 @@ export function helmContext(boat, at) {
     // Anything overhead, so a boat under a helicopter can see it. The same list the cockpit reads,
     // asked at the hull rather than at the player.
     contacts: aircraftNearCoord ? (aircraftNearCoord(at.x, at.y) || []) : [],
+    // The people on the quay, so a boat coming alongside sees them as the cab and the cockpit do.
+    actors: streetActors(at.x, at.y, RADIUS, playerId),
   };
 }
 
@@ -204,7 +207,7 @@ export async function cmdHelm(args, raw, player) {
   // Making it async to fetch one flag would make every one of them await a database round trip on
   // a payload that is otherwise assembled entirely out of memory.
   const first = !(await getFlag('player', HELM_TAUGHT, player));
-  sendToPlayer(player.id, { ...helmContext(boat, at), type: 'boat_sim', first });
+  sendToPlayer(player.id, { ...helmContext(boat, at, player.id), type: 'boat_sim', first });
   // ── THE SHIPWRIGHT COMES TO THE SLOT ───────────────────────────────────────
   // Taken from under cover, the marina's bench arrives as an overlay on the glass: servicing,
   // repairs, paint and name, and casting off is the lever. The telemetry tick takes it down when
@@ -321,6 +324,8 @@ export async function applyLive(player, boatId, { hull = null, cd = null, name =
 // ⚠ AND THE SPENT FIELDS ARE ONE-WAY. Hull, bottle and fuel are spent by the sim and refilled only
 // by the yard, so a client may report them DOWN and never up. That is the whole of the anti-cheat
 // and it is one comparison rather than a second model of the boat.
+// How often the seat is sent who is standing on the quay: between the cab's 1 s and the flight's 3 s.
+const ACTOR_PUSH_MS = 2000;
 export async function cmdBoatSync(args = [], raw, player) {
   const id = aboard.get(player.id) || await recoverAboard(player);
   if (!id) return null;                                    // silent: the pane can outlive the seat
@@ -363,7 +368,13 @@ export async function cmdBoatSync(args = [], raw, player) {
     const sky = skyState(cx, cy) || {};
     sendToPlayer(player.id, { type: 'boat_ctx', gx: cx, gy: cy, map: mapWindow({ grid_x: cx, grid_y: cy }, RADIUS),
       hour: sky.hour, weather: sky.weather, wxField: sky.field || null, wxGround: sky.ground || null,
-      contacts: aircraftNearCoord ? (aircraftNearCoord(cx, cy) || []) : [] });
+      contacts: aircraftNearCoord ? (aircraftNearCoord(cx, cy) || []) : [],
+      actors: streetActors(cx, cy, RADIUS, player.id) });
+    was.actAt = Date.now();
+  } else if (Date.now() - (was.actAt || 0) > ACTOR_PUSH_MS) {
+    // The street population on its own clock: people walk while the window stays put. RAM only.
+    was.actAt = Date.now();
+    sendToPlayer(player.id, { type: 'boat_ctx', actors: streetActors(was.mapX, was.mapY, RADIUS, player.id) });
   }
   svcTick(player, was);
 

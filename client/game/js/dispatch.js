@@ -68,7 +68,7 @@ import { openHelm, closeHelm, isHelmActive, helmSetSky, helmSetWorld, helmSetCon
 import { openCab, closeCab, cabContext, cabGalley, isCabActive } from './panels/cab-view.js';
 import { openBoat, closeBoat, boatSetWorld, isBoatActive } from './panels/boat-view.js';
 import { openMarina, closeMarina, marinaSetData, isMarinaActive, openMarinaService, closeMarinaService } from './panels/marina-panel.js';
-import { openFreelook, closeFreelook, isFreelookActive, freelookSetSky } from './panels/freelook-view.js';
+import { openFreelook, closeFreelook, isFreelookActive, freelookSetSky, freelookSetActors } from './panels/freelook-view.js';
 import { receiveCbMsg, applyCbContext, clearCbContext } from './panels/cb-radio.js';
 import { airHorn } from './panels/engine-audio.js';
 import { openTruckDepot, closeTruckDepot, closeBayService, isTruckDepotActive } from './panels/truck-depot.js';
@@ -1507,12 +1507,12 @@ const handlers = {
     // camera flies anywhere, so past that edge the buildings, lights, signs and the Curtain simply
     // stop being in the payload — see RECENTER_R in freelook-view.js. It fires the same verb a
     // person types, which is what keeps the re-centre one path on both sides of the wire.
-    openFreelook({ gx: msg.gx, gy: msg.gy, map: msg.map, sky: msg.sky, stand: msg.stand || null,
+    openFreelook({ gx: msg.gx, gy: msg.gy, map: msg.map, sky: msg.sky, actors: msg.actors, stand: msg.stand || null,
       onRecenter: (x, y) => sendCmdSilent('freelook ' + x + ' ' + y + ' follow'),
       onExit: () => sendCmdSilent('freelook close') });
   },
   freelook_close: () => { closeFreelook(); sendCmdSilent('look'); },
-  freelook_sky: (msg) => { if (isFreelookActive()) freelookSetSky(msg.sky); },
+  freelook_sky: (msg) => { if (isFreelookActive()) { freelookSetSky(msg.sky); if (msg.actors !== undefined) freelookSetActors(msg.actors); } },
   helm_sky: (msg) => { if (isHelmActive()) helmSetSky(msg.sky); },   // live sim weather field, streamed like the flight sim's
   helm_contacts: (msg) => { if (isHelmActive()) helmSetContacts(msg.contacts); },   // planes over the Basin, drawn in the chase view
   // Passage complete → re-centre the chase view on the new tile's real world window, then unlock.
