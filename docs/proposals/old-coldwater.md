@@ -355,6 +355,11 @@ shop sign.
 - The arms draw their own paint with `slumScrawl`: zigzag passes and drips in the kit's spray
   colours, with no letters. The ruin's five throw-ups became five scrawls.
 - The camp's slogans are gone (see the camp tier below).
+- **Exception (2026-09-29): graffiti on the camp's tarps.** Graffiti isn't signage, and the Pitch
+  should carry more of it than anywhere. On GLASS 2 about half the shelters wear an anti-Architect
+  slogan or the struck-through eye (`CLOTH_SLOGANS`, `clothAtlas` in windshield.js). It's dye in
+  the cloth: `gl/cloth.js` lights it with the tarp and never on its own, so after dark it can't read
+  as a lit shop sign, which is what the rule was for. The canvas path stays bare.
 
 ### A piece missing from each
 
@@ -402,6 +407,18 @@ runs under them, a crease, and mildew in the lower half. Tin gets ribs and rust 
 - **A grime overlay was the first idea and cannot work.** Decals write no depth to each other and
   draw in the order their keys were first seen, so an overlay batched before its sheet is simply
   covered by it.
+
+### Camp sites, drums and cloth (as built, 2026-09-29)
+
+- A camp tile picks one of four layouts off its seed (`CAMP_LAYOUTS`): `cluster` (the old scatter),
+  `ring` (shelters turned to one fire), `lane` (two rows facing across a path, drums down it) and
+  `wall` (lean-tos backed onto the north edge, a row of tents in front).
+- Every tile has one or two oil drums (`drawOilDrum`): rusted by day, a grate on one in two for
+  cooking, burning after dark with flames and a pool of light. It replaces the one-tile-in-three brazier.
+- On GLASS 2 the shelters are instanced cloth with a baked flutter (`gl/cloth.js`, `cloth3d.js`), in
+  twelve drab tarp colours jittered per pitch. They're lit like the walls (key, sky, shadow) and,
+  after dark, by the drums and the cable lamp near them, falling off over most of a tile.
+  `RENDER_TUNE.glCloth` 0 puts them back on the decal path.
 
 ### The camp's near tier had never run
 

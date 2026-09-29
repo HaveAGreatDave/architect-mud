@@ -28,6 +28,7 @@ import { createGroundLayer } from './ground.js';
 import { createSolidsLayer } from './solids.js';
 import { createFaunaLayer } from './fauna.js';
 import { createActorLayer } from './actors.js';
+import { createClothLayer } from './cloth.js';
 import { createMurmurGPU } from './murmur-gpu.js';
 // The interior's own clip range, in tiles. A cab is about 0.10 of a tile end to end at a driver's
 // eye height, so this brackets it with room to spare — and because the pass clears depth first,
@@ -1734,7 +1735,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       // ⚠ IT TAKES THE MASS CAMERA. The rig is collected in MAP-WINDOW tiles for exactly the reason
       // the mesh is — see the ⚠ above on mMassCam — so it reflects through the same shifted camera
       // and lands on the same pixels at the same depth.
-      if (solidQuads || faunaInst || actorInst || cloudList.length) drawSolids(mMassCam, cssH, { fog: opts.fog || null, actors: true });
+      if (solidQuads || faunaInst || actorInst || clothInst || cloudList.length) drawSolids(mMassCam, cssH, { fog: opts.fog || null, actors: true });
       // ── AND THE SKY OVER ALL OF IT ────────────────────────────────────────────────────────────
       //
       // A puddle shows what is ABOVE it, and above most of a street is sky. The buffer held the city
@@ -1860,6 +1861,12 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   const actorLayer = () => (acl || (acl = createActorLayer(gl)));
   let actorInst = 0;
   const actorRecs = [];
+  // …AND CLOTH (`.cloth`): windsocks, flags and the Pitch's tents, whose flutter is baked (gl/cloth.js).
+  // Drawn with the birds, by both calls.
+  let cll = null;
+  const clothLayer = () => (cll || (cll = createClothLayer(gl)));
+  let clothInst = 0;
+  const clothRecs = [];
   // ⚠ AND A MURMURATION ARRIVES AS ONE RECORD (`.cloud`), NOT AS ITS BIRDS. Its simulation is stepped
   // HERE, once a frame, because this is the one call guaranteed to come before both the mirror prepass
   // and the main pass — so both draw the flock where it is this frame, not where it was last frame.
@@ -1870,11 +1877,13 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     const all = [];
     instRecs.length = 0;
     actorRecs.length = 0;
+    clothRecs.length = 0;
     cloudList.length = 0;
     const clouds = [];
     for (const l of lists) if (l && l.length) for (const q of l) {
       if (q.cloud) clouds.push(q);
       else if (q.actor) actorRecs.push(q);
+      else if (q.cloth) clothRecs.push(q);
       else (q.inst ? instRecs : all).push(q);
     }
     // every cloud of the frame stepped under one save of the GL state, not one each
@@ -1889,6 +1898,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     solidQuads = all.length ? solidsLayer().upload(all) : 0;
     faunaInst = (instRecs.length || fnl) ? faunaLayer().upload(instRecs) : 0;
     actorInst = (actorRecs.length || acl) ? actorLayer().upload(actorRecs) : 0;
+    clothInst = (clothRecs.length || cll) ? clothLayer().upload(clothRecs) : 0;
     return solidQuads;
   }
   function drawSolids(cam, cssH, opts) {
@@ -1898,6 +1908,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     if (opts && opts.film) return solidQuads ? solidsLayer().draw(cam, cssH || canvas.height, opts) : 0;
     if (solidQuads) n += solidsLayer().draw(cam, cssH || canvas.height, opts || {});
     if (faunaInst) faunaLayer().draw(cam, cssH || canvas.height, opts || {});
+    if (clothInst) clothLayer().draw(cam, cssH || canvas.height, opts || {});
     // People only when asked: the main pass draws them after the ground instead (drawActors, and the
     // note beside its call in world.js), and only the mirror prepass wants them here.
     if (actorInst && opts && opts.actors) actorLayer().draw(cam, cssH || canvas.height, opts);

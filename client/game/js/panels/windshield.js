@@ -2328,6 +2328,9 @@ export const RENDER_TUNE = {
   // actorFarPx is the billboard for everybody under actorMeshPx, as shipped before the far body.
   actorMesh: 1,
   actorMeshPx: 8,
+  // Windsocks, the pier flag and the Pitch's tents as instanced cloth with a baked flutter (gl/cloth.js,
+  // cloth3d.js). 0 draws them as the decal quads they were.
+  glCloth: 1,
   actorFarPx: 1.5,
   // ⚠ HOW MANY MURMURATION BIRDS THE GPU SIMULATES IN ONE FRAME, over every cloud in view. A step
   // costs about 2.9 ms at 80,000 birds and 17 ms at 300,000 (big clouds step every 2nd or 3rd frame by measured cost, STEP_BUDGET_MS in gl/murmur-gpu.js) on the machine it was measured on
@@ -37836,7 +37839,14 @@ function windsockAt(ctx, cam, wx0, wy0, windKt, windDeg, now, nite, alpha = 1) {
   // windDeg is the bearing the wind blows TOWARD (matches the drift push in cockpit.js), and a
   // windsock points downwind, so the mouth follows windDeg directly — no +180 flip.
   const dwr = windDeg * Math.PI / 180;
-  sockCone(ctx, cam, wx0, wy0, SOCK_MAST, Math.sin(dwr), -Math.cos(dwr), 1 - strength, alpha, nite, now, wx0 * 0.7 + wy0 * 1.3);
+  if (clothOn()) {
+    // The cone on the GPU, flying toward windDeg; the mast-head flood is the same glow either way.
+    const seed = wx0 * 0.7 + wy0 * 1.3, lit = clamp(nite || 0, 0, 1);
+    pushCloth(cam, { kind: 'sock', x: wx0, y: wy0, z: SOCK_MAST, hd: Math.atan2(-Math.cos(dwr), Math.sin(dwr)), wind: strength,
+      ph: clothClock(now) / 2000 + seed, seed, a: alpha * 0.96, lum: 1 - lit * 0.55,
+      colA: [242, 116, 32], colB: [238, 240, 244], warm: lit > 0.25 ? [0.30 * lit, 0.27 * lit, 0.22 * lit] : null, weather: 0.2 });
+    if (lit > 0.25) glowPool(ctx, cam, wx0 + Math.sin(dwr) * SOCK_LEN * 0.5, wy0 - Math.cos(dwr) * SOCK_LEN * 0.5, SOCK_MAST, '255,236,206', 5, alpha * 0.5 * lit);
+  } else sockCone(ctx, cam, wx0, wy0, SOCK_MAST, Math.sin(dwr), -Math.cos(dwr), 1 - strength, alpha, nite, now, wx0 * 0.7 + wy0 * 1.3);
   if (nite > 0.25) groundLamp(ctx, cam, wx0, wy0, SOCK_MAST + 0.012, '255,80,70', alpha * (0.5 + nite * 0.5), 1.5, 0.6, 2.4);   // the mast's own obstruction light
 }
 
@@ -38038,8 +38048,77 @@ const TARPS = [
   [118, 116, 108],  // canvas, grey with it
   [140, 116, 74],   // ochre site sheet
   [112, 84, 66],    // orange, most of the way to rust
+  [74, 80, 70],     // olive drab, dark with damp
+  [128, 122, 100],  // tent canvas the colour of the lane
+  [92, 90, 96],     // a grey sheet off a lorry
+  [104, 96, 80],    // brown, from a lot of weather
+  [70, 84, 96],     // navy, most of the way to grey
+  [132, 104, 92],   // red once
+  [110, 118, 96],   // green-grey groundsheet
 ];
-function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha) {
+// FOUR WAYS A PITCH GROWS. Each places shelter `i` of `n` at (a, b), in -0.5..0.5 of the camp's
+// spread, with an optional kind and heading (the GPU path turns a shelter to it; the canvas path keeps
+// them square), and names where its drums stand. All off the seed, so a tile is the same camp every
+// frame and on every client. A lean-to opens toward +y of its heading, so `hd` points its mouth.
+const CAMP_LAYOUTS = [
+  // Loose clusters: what the camp always was, and two drums between them.
+  { name: 'cluster',
+    place: (seed, i) => ({ a: frac(seed * 7 + i * 13) - 0.5, b: frac(seed * 11 + i * 29) - 0.5 }),
+    drums: (seed) => [[frac(seed * 3) - 0.5, frac(seed * 17) - 0.5], [(frac(seed * 23) - 0.5) * 0.8, (frac(seed * 29) - 0.5) * 0.8]] },
+  // A ring round one fire, every mouth turned to it: where people eat together.
+  { name: 'ring',
+    place: (seed, i, n) => {
+      const th = (i / n) * Math.PI * 2 + (frac(seed * 5 + i) - 0.5) * 0.3, r = 0.30 + frac(seed * 13 + i * 7) * 0.12;
+      return { a: Math.cos(th) * r, b: Math.sin(th) * r, kind: frac(seed * 53 + i * 41) < 0.5 ? 2 : 0, hd: th + Math.PI };
+    },
+    drums: () => [[0, 0]] },
+  // A lane: two rows facing each other across a path, with the drums down the middle of it.
+  { name: 'lane',
+    place: (seed, i, n) => {
+      const side = i % 2 ? 1 : -1, row = Math.floor(i / 2), rows = Math.ceil(n / 2);
+      return { a: side * (0.27 + frac(seed * 3 + i) * 0.08), b: (row + 0.5) / rows - 0.5 + (frac(seed * 9 + i) - 0.5) * 0.05, hd: side < 0 ? 0 : Math.PI };
+    },
+    drums: (seed) => [[(frac(seed * 3) - 0.5) * 0.1, -0.22], [(frac(seed * 7) - 0.5) * 0.1, 0.24]] },
+  // Backed onto the north edge: a row of lean-tos against whatever is there, a second row of tents in
+  // front, and the drums out in the open ground before them.
+  { name: 'wall',
+    place: (seed, i, n) => {
+      const back = i < Math.ceil(n * 0.55), k = back ? i : i - Math.ceil(n * 0.55), m = back ? Math.ceil(n * 0.55) : n - Math.ceil(n * 0.55);
+      return { a: (k + 0.5) / m - 0.5, b: back ? -0.42 : -0.12 + (frac(seed * 5 + i) - 0.5) * 0.1, kind: back ? 2 : undefined, hd: Math.PI / 2 + Math.PI };
+    },
+    drums: (seed) => [[(frac(seed * 3) - 0.5) * 0.6, 0.25], [(frac(seed * 11) - 0.5) * 0.6 + 0.2, 0.32]] },
+];
+// An oil drum: eight staves of rusted steel, the top cut off, a grate across it on one in two, and
+// after dark a fire in it. Flat decal quads and sprites, so both renderers draw it the same.
+function drawOilDrum(ctx, cam, x, y, fh, nightF, alpha, now, seed, near) {
+  const r = fh * 0.05, h = fh * 0.13, sides = 8;
+  const ex = cam.ex || 0, ey = cam.ey || 0;
+  const rust = [96 * (1 - nightF * 0.6), 58 * (1 - nightF * 0.6), 38 * (1 - nightF * 0.6)].map(Math.round);
+  for (let j = 0; j < sides; j++) {
+    const a0 = (j / sides) * Math.PI * 2, a1 = ((j + 1) / sides) * Math.PI * 2, am = (a0 + a1) / 2;
+    const nx = Math.cos(am), ny = Math.sin(am);
+    if (nx * (ex - x) + ny * (ey - y) <= 0) continue;   // the back of the drum is behind the front
+    const k = clamp(0.6 + 0.4 * nx * (LIGHT_STATE ? LIGHT_STATE.sx : -0.7) + 0.4 * ny * (LIGHT_STATE ? LIGHT_STATE.sy : -0.7), 0.35, 1);
+    const glow = nightF > 0.35 ? 40 * nightF : 0;       // the fire lights its own rim
+    emitDecoFill(ctx, cam, [[x + Math.cos(a0) * r, y + Math.sin(a0) * r, h], [x + Math.cos(a1) * r, y + Math.sin(a1) * r, h],
+      [x + Math.cos(a1) * r, y + Math.sin(a1) * r, 0], [x + Math.cos(a0) * r, y + Math.sin(a0) * r, 0]],
+      `rgb(${Math.round(rust[0] * k + glow)},${Math.round(rust[1] * k + glow * 0.4)},${Math.round(rust[2] * k)})`, alpha, DECO_LIFT * 0.1, 'camp|drum');
+  }
+  if (near && frac(seed * 3.7) < 0.5)
+    emitWire(ctx, cam, [x - r * 1.1, y, h + fh * 0.004], [x + r * 1.1, y, h + fh * 0.004], 1, 'rgb(34,30,28)', alpha, { lift: DECO_LIFT * 0.1 });
+  if (nightF > 0.35) {
+    // The fire: flames that lick above the rim, flickering off the clock, and the light on the mud.
+    const t = (TUNE.motion ? now || 0 : 0) * 0.001;
+    for (let f = 0; f < 3; f++) {
+      const fl = 0.75 + 0.25 * Math.sin(t * (7 + f * 2.3) + seed + f * 2.1);
+      const ox = Math.cos(seed + f * 2.1) * r * 0.45, oy = Math.sin(seed + f * 2.1) * r * 0.45;
+      glowPool(ctx, cam, x + ox, y + oy, h + fh * (0.03 + 0.03 * fl), f === 0 ? '255,214,140' : '255,150,60', 3.5 * fl, alpha * 0.9 * nightF);
+    }
+    glowPool(ctx, cam, x, y, h + fh * 0.04, '255,158,62', 11, alpha * 0.48 * nightF);
+    glowPool(ctx, cam, x, y, fh * 0.02, '255,140,58', 26, alpha * 0.22 * nightF);
+  }
+}
+function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha, now = 0) {
   if (ADORN_TIER < ADORN_CHEAP) return;
   const near = ADORN_TIER >= ADORN_NEAR;
   const R = fh * 0.86;                       // how far across the tile the pitches spread
@@ -38085,23 +38164,66 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha) {
   // and subtract from the read. The cap is on the DRAWN count and never on the roll, so a tile
   // holds the same pitches at both tiers and simply stops early.
   const pitches = Math.min(near ? 16 : 10, 9 + Math.floor(frac(seed * 137) * 8));
+  // The poles, the cable lamp and the brazier are placed here, before the shelters, so a shelter on
+  // the GPU path can take their light (see `warmAt`). They are drawn further down, as they always were.
+  const poleZ = fh * (0.66 + frac(seed * 97) * 0.26);
+  const px0 = dx + (frac(seed * 3 + 1) - 0.5) * R * 0.5, py0 = dy - R * 0.62;
+  const px1 = dx + (frac(seed * 5 + 2) - 0.5) * R * 0.5, py1 = dy + R * 0.62;
+  const midZ = poleZ - fh * 0.10;
+  const lz = midZ - fh * 0.04, lx = (px0 + px1) / 2, ly = (py0 + py1) / 2;
+  // ── THE SITE. Four ways a pitch grows, picked off the tile seed (CAMP_LAYOUTS): a ring round one
+  // fire, a lane with its drums down the middle, loose clusters, and a row of lean-tos backed onto
+  // the tile's north edge. The layout places each shelter and every drum; everything else is shared.
+  const layout = CAMP_LAYOUTS[Math.abs(seed | 0) % CAMP_LAYOUTS.length];
+  const drums = layout.drums(seed).map(([a, b]) => [dx + a * R * 1.7, dy + b * R * 1.7]);
+  // ⚠ THE AREA'S LIGHT, WHICH IS WHAT A SHELTER STANDS IN. By day the shader lights a tent with the
+  // frame's key, sky and shadow, as it lights the walls. After dark the light that reaches the
+  // canvas is the camp's own: the lamp on the cable and the fire in the drum, falling off over most
+  // of a tile, so the tents round a brazier glow orange on the side toward it and the far ones don't.
+  const gpu = clothOn();
+  const warmAt = (x, y, own) => {
+    if (nightF <= 0.3) return null;
+    const k = nightF, fall = (d, r) => { const t = clamp(1 - d / r, 0, 1); return t * t; };
+    const dl = fall(Math.hypot(x - lx, y - ly), fh * 0.95) * 0.08 * k;
+    let db = 0;
+    for (const [bx, by] of drums) db += fall(Math.hypot(x - bx, y - by), fh * 0.9) * 0.16 * k;
+    const dw = own ? 0.10 * k : 0;
+    return [dl * 1.0 + db * 1.0 + dw * 0.38, dl * 0.77 + db * 0.60 + dw * 0.24, dl * 0.45 + db * 0.22 + dw * 0.07];
+  };
   for (let i = 0; i < pitches; i++) {
-    const a = frac(seed * 7 + i * 13) - 0.5, b = frac(seed * 11 + i * 29) - 0.5;
-    const cx = dx + a * R * 1.7, cy = dy + b * R * 1.7;
+    const pl = layout.place(seed, i, pitches);
+    const cx = dx + pl.a * R * 1.7, cy = dy + pl.b * R * 1.7;
     const w = fh * (0.14 + frac(seed + i * 3) * 0.07);          // half-width across the slopes
     const l = fh * (0.18 + frac(seed + i * 5) * 0.09);          // half-length along the ridge
     const t = fh * (0.26 + frac(seed + i * 7) * 0.11);          // ridge / roof height
     const tarp = TARPS[Math.floor(frac(seed * 31 + i * 17) * TARPS.length) % TARPS.length];
     // Two pitches in five carry a lamp, rolled per tent so the same ones are lit every night.
     const glowing = (nightF > 0.3 && frac(seed * 59 + i * 19) > 0.5) ? 1 : 0;
-    const kind = Math.floor(frac(seed * 53 + i * 41) * 3);       // 0 ridge · 1 flat tarp · 2 lean-to
+    const kind = pl.kind ?? Math.floor(frac(seed * 53 + i * 41) * 3);   // 0 ridge · 1 flat tarp · 2 lean-to
     // Per-shape face shading: a ridge's (and flat tarp's) two slopes face +x / -x, a lean-to's roof
     // faces +y and its back wall -y, and the near gable faces -y.
     const kA = kind === 2 ? faceK(0, 1, 0.55, 1) : faceK(1, 0, kind === 1 ? 0.85 : 0.5, 1);
     const kB = kind === 2 ? faceK(0, -1, 0, 0.62) : faceK(-1, 0, kind === 1 ? 0.85 : 0.5, 0.62);
     const lit = tone(tarp, kA, glowing), shade = tone(tarp, kB, glowing), gab = tone(tarp, faceK(0, -1, 0, 0.78), glowing);
 
-    if (kind === 0) {
+    if (gpu) {
+      // ONE RECORD A SHELTER. The drab is jittered a little per pitch on this path (a colour here is
+      // not a texture key), the patch is a rectangle of another tarp on face 0, and about half of
+      // them carry paint. The Pitch has more of it than anywhere, because it is the one place in the
+      // city with nothing to lose by saying so.
+      const jit = 0.9 + frac(seed * 43 + i * 7) * 0.2;
+      const colA = tarp.map((c) => clamp(c * jit, 0, 255));
+      const pt = TARPS[Math.floor(frac(seed * 91 + i * 7) * TARPS.length) % TARPS.length];
+      const pu = 0.2 + frac(seed + i * 11) * 0.4;
+      const patch = frac(seed * 71 + i * 23) > 0.42 ? [pu, 0.28, pu + 0.3, 0.62] : null;
+      const tr = frac(seed * 83 + i * 31);
+      const tag = tr < 0.55 ? { cell: clothTagCell(frac(seed * 61 + i * 37)), u: 0.08 + frac(seed * 5 + i * 3) * 0.3, v: 0.1 + frac(seed * 9 + i * 13) * 0.25, size: 0.5 + frac(seed * 2 + i) * 0.15 } : null;
+      const nq = Math.round(nightF * 16) / 16;
+      pushCloth(cam, { kind: kind === 0 ? 'ridge' : kind === 1 ? 'tarp' : 'lean', x: cx, y: cy, z: 0, hd: pl.hd ?? Math.PI / 2,
+        sx: w, sy: l, sz: t, wind: windOf().fly * 0.8, ph: clothClock(now) / 3600 + frac(seed * 13 + i * 5), seed: frac(seed + i * 0.37) * 10,
+        a: alpha, lum: 1 - nq * 0.62 * (1 - glowing * 0.72), colA, colB: pt, patch, tag, weather: 1,
+        warm: warmAt(cx, cy, glowing) });
+    } else if (kind === 0) {
       // A RIDGE TENT. Two slopes and the near gable; the far gable is behind its own tent from
       // every seat that can see the tile and is a third of the cost for nothing.
       const P = [[cx - w, cy - l, 0], [cx - w, cy + l, 0], [cx + w, cy - l, 0], [cx + w, cy + l, 0],
@@ -38129,7 +38251,7 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha) {
     // THE PATCH. A smaller quad in a DIFFERENT tarp's colour laid on the lit slope, which is the
     // one detail that separates a shanty from a campsite: every sheet here has been mended with
     // whatever the last one was made of. Near tier only — at range it is a few pixels of noise.
-    if (near && frac(seed * 71 + i * 23) > 0.42) {
+    if (!gpu && near && frac(seed * 71 + i * 23) > 0.42) {
       const pt = TARPS[Math.floor(frac(seed * 91 + i * 7) * TARPS.length) % TARPS.length];
       const pw = w * 0.42, pl = l * 0.38, pz = t * (kind === 2 ? 0.62 : 0.46);
       const ox = cx + w * 0.34, oy = cy + (frac(seed + i * 11) - 0.5) * l * 0.7;
@@ -38155,15 +38277,11 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha) {
   // under them, with a cable run between them and on OFF THE TILE EDGE in both directions — so a
   // row of camp tiles reads as one strung line rather than as ten separate pairs of sticks. The
   // lamp hanging off it is the only light in this district that is not behind a window.
-  const poleZ = fh * (0.66 + frac(seed * 97) * 0.26);
-  const px0 = dx + (frac(seed * 3 + 1) - 0.5) * R * 0.5, py0 = dy - R * 0.62;
-  const px1 = dx + (frac(seed * 5 + 2) - 0.5) * R * 0.5, py1 = dy + R * 0.62;
   emitWire(ctx, cam, [px0, py0, 0], [px0, py0, poleZ], 2, DARK, alpha, { lift: DECO_LIFT * 0.1 });
   emitWire(ctx, cam, [px1, py1, 0], [px1, py1, poleZ], 2, DARK, alpha, { lift: DECO_LIFT * 0.1 });
   // The run, and its continuation past both poles to the tile edge. A catenary is not something
   // this layer can draw, so the sag is the MIDPOINT dropped — two segments, which at any distance
   // you can see a cable from is the same picture.
-  const midZ = poleZ - fh * 0.10;
   emitWire(ctx, cam, [px0, py0, poleZ], [(px0 + px1) / 2, (py0 + py1) / 2, midZ], 1, DARK, alpha, { lift: DECO_LIFT * 0.1 });
   emitWire(ctx, cam, [(px0 + px1) / 2, (py0 + py1) / 2, midZ], [px1, py1, poleZ], 1, DARK, alpha, { lift: DECO_LIFT * 0.1 });
   emitWire(ctx, cam, [px0, py0, poleZ], [px0, dy - R * 1.15, poleZ - fh * 0.05], 1, DARK, alpha, { lift: DECO_LIFT * 0.1 });
@@ -38171,7 +38289,6 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha) {
   // The lamp: a small dark body on the cable by day, a warm point at night. ⚠ The body is drawn at
   // both tiers and the glow only after dark — an unlit bulb is a thing you can see, and a camp with
   // nothing hanging on its cables in daylight reads as a camp that has been abandoned.
-  const lz = midZ - fh * 0.04, lx = (px0 + px1) / 2, ly = (py0 + py1) / 2;
   if (near) emitDecoFill(ctx, cam, [[lx - fh * 0.022, ly, lz + fh * 0.03], [lx + fh * 0.022, ly, lz + fh * 0.03],
                                     [lx + fh * 0.022, ly, lz], [lx - fh * 0.022, ly, lz]], DARK, alpha, DECO_LIFT * 0.1, 'camp|lamp');
   if (nightF > 0.3) glowPool(ctx, cam, lx, ly, lz, '255,196,116', 9, alpha * 0.42 * nightF);
@@ -38201,24 +38318,17 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha) {
       DARK, alpha, DECO_LIFT * 0.1, 'camp|clutter');
   }
 
-  // ── THE BRAZIER ────────────────────────────────────────────────────────────
-  // One tile in three has a fire on it, chosen off the seed so it is the same tile every time. It
-  // burns by day too — a cut-down drum with four people round it is how this camp cooks, not how it
-  // lights itself — but the glow is only worth drawing after dark.
-  if ((seed % 3) === 0 && nightF > 0.35) {
-    const bx = dx + (frac(seed * 3) - 0.5) * R, by = dy + (frac(seed * 17) - 0.5) * R;
-    glowPool(ctx, cam, bx, by, fh * 0.10, '255,158,62', 11, alpha * 0.48 * nightF);
-    // Firelight on the ground round the drum: a broad low pool, so the nearest tents sit in its
-    // light rather than beside a point.
-    glowPool(ctx, cam, bx, by, fh * 0.02, '255,140,58', 26, alpha * 0.22 * nightF);
-  }
+  // ── THE DRUMS ──────────────────────────────────────────────────────────────
+  // Oil drums with the tops cut off, where the layout put them. By day a rusted drum with a grate on
+  // it, which is how this camp cooks. After dark it burns: the flames, the glow on the mud round it,
+  // and on the GPU path the orange on the tents nearest it (`warmAt`), which is the heat and the light
+  // everybody here has.
+  for (let k = 0; k < drums.length; k++) drawOilDrum(ctx, cam, drums[k][0], drums[k][1], fh, nightF, alpha, now, seed * 7 + k * 13, near);
 
-  // ⚠ THERE IS NO PAINT ON THE CANVAS ANY MORE. Two tiles in three used to carry a hand-painted
-  // slogan (eighteen lines in three registers), and none of them had ever drawn: the camp ran at
-  // whatever tier the last building left behind, which is never NEAR, and the paint was near tier
-  // only. When that was fixed at the call site the slogans came off rather than on, under the
-  // district's rule that nothing in the Shingles carries words (the block comment over the Old
-  // Coldwater arms). The weathered canvas (`clothTex`) is what the sheets carry instead.
+  // ⚠ THE PAINT IS BACK, ON THE GPU PATH, AS GRAFFITI. The old hand-painted slogans came off under the
+  // district's no-words rule, because a lit throw-up reads as a shop sign. Paint dyed into the tarp
+  // and lit only with it doesn't, so on GLASS 2 about half the shelters carry an anti-Architect
+  // slogan or the struck-through eye (CLOTH_SLOGANS, `clothAtlas`). The canvas path stays bare.
 }
 
 // ── THE SHINGLES' REPAIRS — the Pitch's tarps, carried onto the buildings beside it ──────────
@@ -47152,6 +47262,88 @@ function flagSlice(i, n, shade) {
   });
 }
 
+// ── CLOTH ON THE GPU ─────────────────────────────────────────────────────────────────────────
+//
+// Windsocks, the pier flag and the Pitch's tents as instanced meshes with their flutter baked into
+// a texture (cloth3d.js, gl/cloth.js). With the switch on, a sock, a flag's cloth or a shelter is one
+// record in FAUNA_SINK, the list the solids pass already splits by kind, instead of a pile of decal
+// quads rebuilt every frame. Off, or on any path without the real GL pass (GLASS 1, every headless
+// gate's own hook), each drawer paints exactly what it did before.
+//
+// ⚠ THE WIND IS STATE AND THE PHASE IS ANIMATION, windFlag's rule. The wind strength and direction
+// are read every frame whatever `motion` says; only the phase stops when it is 0.
+let GL_CLOTH = false;
+export function installGLCloth(on) { GL_CLOTH = !!on; }
+function clothOn() { return GL_CLOTH && !!FAUNA_SINK && RENDER_TUNE.glCloth > 0 && !SHAPE_SINK && !MESH_SINK; }
+const clothClock = (now) => (TUNE.motion ? (now || 0) : 0);
+// `r` in view-relative tiles, as the drawers work; moved into the map window here, as actors are.
+function pushCloth(cam, r) {
+  r.cloth = 1;
+  r.x += cam.ox || 0; r.y += cam.oy || 0;
+  r.light = LIGHT_STATE;
+  if (r.tag) r.atlas = clothAtlas();
+  FAUNA_SINK.push(r);
+}
+
+// ── THE PAINT ON THE CLOTH ───────────────────────────────────────────────────────────────────
+// One atlas, baked once: the Architect's eye for the pier flag in cell 0, and in the rest what the
+// Pitch thinks of it. The Pitch is the one place in Coldwater nobody is paying rent to the thing that
+// keeps the city running, and it says so on the only surface it owns.
+//
+// ⚠ THIS IS GRAFFITI, NOT SIGNAGE, and that is why it is allowed in a district that carries no words
+// (docs/proposals/old-coldwater.md). The rule came out of the kit's throw-ups, which light after dark
+// and read on a slum wall as a shop sign. Paint on a tarp is dye in the weave: gl/cloth.js lights it
+// with the cloth, never on its own, so at night it is exactly as dark as the tent it is on.
+// ⚠ AND IT IS NEVER A SENTENCE. Short enough to read on a tent at a cab's range, in the hands
+// people write in: a marker scrawl, a stencil, the odd throw-up.
+const CLOTH_SLOGANS = [
+  'NO GODS', 'WAKE UP', 'NOT YOUR CITY', 'WHO BUILT YOU', 'UNPLUG IT', 'THE VAT LIES',
+  'IT WATCHES', 'NOBODY CHOSE THIS', 'SCREEN NOT SKY', 'NOT ITS', 'OFF SWITCH', 'ASK WHO PAYS',
+  'STILL MEAT',
+];
+// Spray colours a camp gets hold of: the dregs of a can, bright once. Never neon.
+const CLOTH_INKS = ['#d8d2c0', '#1c1a1e', '#b23a2e', '#e0b040', '#3e6a8c', '#7a8a3a', '#c86a2c'];
+const CLOTH_HANDS = ['hand', 'stencil', 'hand', 'throw', 'stencil', 'hand'];
+const CLOTH_ATLAS_COLS = 4, CLOTH_ATLAS_ROWS = 4, CLOTH_CELL_W = 256, CLOTH_CELL_H = 128;
+let _clothAtlas = null;
+function clothAtlas() {
+  if (_clothAtlas) return _clothAtlas;
+  if (typeof document === 'undefined') return null;
+  const c = document.createElement('canvas');
+  c.width = CLOTH_ATLAS_COLS * CLOTH_CELL_W; c.height = CLOTH_ATLAS_ROWS * CLOTH_CELL_H;
+  const g = c.getContext('2d');
+  if (!g) return null;
+  const cell = (i) => [(i % CLOTH_ATLAS_COLS) * CLOTH_CELL_W, Math.floor(i / CLOTH_ATLAS_COLS) * CLOTH_CELL_H];
+  // Cell 0: the eye, as the pier flag always wore it.
+  { const [x, y] = cell(0); g.save(); g.translate(x, y); paintEyeFlag(g, CLOTH_CELL_W, CLOTH_CELL_H, 1); g.restore(); }
+  // Cell 1: the same eye sprayed freehand and struck through. No words at all, and the one everybody
+  // in the Basin can read.
+  {
+    const [x, y] = cell(1), cx = x + CLOTH_CELL_W / 2, cy = y + CLOTH_CELL_H / 2;
+    g.save(); g.lineCap = 'round'; g.lineJoin = 'round';
+    g.strokeStyle = 'rgba(28,26,30,0.92)'; g.lineWidth = 9;
+    g.beginPath(); g.ellipse(cx, cy, 78, 30, 0, 0, Math.PI * 2); g.stroke();
+    g.fillStyle = 'rgba(28,26,30,0.92)'; g.beginPath(); g.arc(cx, cy, 13, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = 'rgba(178,58,46,0.95)'; g.lineWidth = 13;
+    g.beginPath(); g.moveTo(cx - 92, cy - 46); g.lineTo(cx + 92, cy + 46); g.moveTo(cx + 92, cy - 46); g.lineTo(cx - 92, cy + 46); g.stroke();
+    g.restore();
+  }
+  // Cells 2..: the slogans, each fitted into its cell and kept to its own aspect.
+  const cells = CLOTH_ATLAS_COLS * CLOTH_ATLAS_ROWS;
+  for (let i = 2; i < cells; i++) {
+    const k = i - 2, text = CLOTH_SLOGANS[k % CLOTH_SLOGANS.length];
+    const tex = bakeTagText(text, null, CLOTH_INKS[k % CLOTH_INKS.length], 0, k, 0, CLOTH_HANDS[k % CLOTH_HANDS.length], null, false);
+    if (!tex || !tex.width) continue;
+    const [x, y] = cell(i), s = Math.min(CLOTH_CELL_W / tex.width, CLOTH_CELL_H / tex.height) * 0.94;
+    const w = tex.width * s, h = tex.height * s;
+    try { g.drawImage(tex, x + (CLOTH_CELL_W - w) / 2, y + (CLOTH_CELL_H - h) / 2, w, h); } catch { /* a stub canvas */ }
+  }
+  _clothAtlas = { canvas: c, cols: CLOTH_ATLAS_COLS, rows: CLOTH_ATLAS_ROWS, ver: 1, cells };
+  return _clothAtlas;
+}
+// A paint cell for a tent, off its seed: the struck-through eye one time in four, else a slogan.
+function clothTagCell(r) { return r < 0.25 ? 1 : 2 + Math.floor(((r - 0.25) / 0.75) * (CLOTH_ATLAS_COLS * CLOTH_ATLAS_ROWS - 2)); }
+
 // A FLAG ON A POLE, flying downwind and rippling along its own length.
 //
 // ⚠ THE POLE IS MASS AND THE CLOTH MAY NEVER BE — the split `motionOn` is written for. A pole is in
@@ -47169,6 +47361,12 @@ function windFlag(ctx, cam, x, y, z0, z1, w, pal, alpha, night, now, seed) {
   if (SHAPE_SINK || MESH_SINK || ADORN_TIER < ADORN_RICH) return;   // the cloth is an adornment, and never a captured one
   const WD = windOf(), fly = WD.fly;
   const hx = WD.dx, hy = WD.dy, nx = -hy, ny = hx;
+  if (clothOn()) {
+    pushCloth(cam, { kind: 'flag', x, y, z: z1, hd: Math.atan2(hy, hx), sx: w, sy: w, sz: w, wind: fly,
+      ph: clothClock(now) / 1500 + seed / (Math.PI * 2), seed, a: alpha, lum: LIGHT_STATE ? LIGHT_STATE.dim : 1,
+      colA: EYE_FIELD, tag: { cell: 0, size: -1 }, weather: 0.25 });
+    return;
+  }
   const t = motionOn() ? (now || 0) : 0;   // the ripple, and only the ripple, stops when motion is off
   const hgt = w * 0.62, N = 5;
   // Along the flag at fraction `u`: how far downwind, how far it has sagged, and where the travelling
@@ -66188,7 +66386,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // canvas) had never drawn in the game at all.
     if (it.c.mark === 'camp') {
       ADORN_TIER = (TUNE.detailNear || 0) > 0 && Math.hypot(it.dx, it.dy) < TUNE.detailNear ? ADORN_NEAR : ADORN_RICH;
-      try { drawTentCamp(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha); }
+      try { drawTentCamp(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now); }
       finally { ADORN_TIER = ADORN_RICH; }
       if (!it.c.cur) continue;
     }
