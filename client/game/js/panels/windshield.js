@@ -38067,6 +38067,9 @@ const TARPS = [
 // half of them stood in the waste and the field cut straight through the rest. `campInward` says
 // which way is in for each arm: the side whose neighbour is a real tile rather than the off-map gap
 // (`kind === 'air'`). The camp then folds every point it places onto that side, clear of the wall.
+// ⚠ THE SERVER'S `ci` WINS. It reads the authored exit block (the side with no exit is out). The
+// air test is only the fallback now: the Scarletwastes put land east of x927, both sides read as
+// land, `campInward` returned null and the tents stood straight through the wall.
 function campInward(map, rx, ry, axis) {
   const land = (x, y) => { const c = map[y] && map[y][x]; return !!c && c.kind !== 'air'; };
   const out = [];
@@ -38112,20 +38115,109 @@ const CAMP_LAYOUTS = [
 ];
 // An oil drum: eight staves of rusted steel, the top cut off, a grate across it on one in two, and
 // after dark a fire in it. Flat decal quads and sprites, so both renderers draw it the same.
-function drawOilDrum(ctx, cam, x, y, fh, nightF, alpha, now, seed, near) {
-  const r = fh * 0.05, h = fh * 0.13, sides = 8;
-  const ex = cam.ex || 0, ey = cam.ey || 0;
-  const rust = [96 * (1 - nightF * 0.6), 58 * (1 - nightF * 0.6), 38 * (1 - nightF * 0.6)].map(Math.round);
+// ── THE CAMP'S PROPS ─────────────────────────────────────────────────────────────────────────
+// What lies between the shelters: drums, crates and the beds people sleep on outside when the tent
+// is full. All of it is `emitDecoFill` quads on the mud, near tier only, like the clutter it
+// replaced (three dark flat cards that read as nothing at all).
+//
+// ⚠ ONLY THE FACES TURNED TO THE EYE ARE EMITTED, the drum's rule: the back of a box is behind its
+// front from every seat, and a quad the camera can't see is a draw for nothing.
+const campShade = (rgb, k, nightF, add = [0, 0, 0]) => 'rgb(' + rgb.map((c, i) => clamp(Math.round(c * k * (1 - nightF * 0.6) + add[i]), 0, 255)).join(',') + ')';
+const campLightK = (nx, ny, up = 0) => {
+  const LS = LIGHT_STATE;
+  const side = clamp(0.6 + 0.4 * nx * (LS ? LS.sx : -0.7) + 0.4 * ny * (LS ? LS.sy : -0.7), 0.35, 1);
+  return up ? 0.92 : side;
+};
+// An oil drum, TEXTURED: a painted band on some (the colour it was shipped in, mostly gone), rust
+// that varies stave to stave, two rolling hoops, and a darker foot where the damp gets in.
+const DRUM_PAINTS = [[58, 84, 112], [62, 92, 58], [150, 118, 44], [120, 44, 36], [70, 70, 74]];
+function drawCampDrum(x, y, r, h, nightF, alpha, seed, near, glow, ctx, cam, top = false) {
+  const sides = 8, ex = cam.ex || 0, ey = cam.ey || 0;
+  const rust = [96, 58, 38];
+  const paint = frac(seed * 5.3) < 0.6 ? DRUM_PAINTS[Math.floor(frac(seed * 8.9) * DRUM_PAINTS.length)] : null;
+  const add = [glow, glow * 0.4, 0];
+  // The bands up the side: foot, body, painted band, body, rim. Height fractions.
+  const bands = paint ? [[0, 0.14, 'foot'], [0.14, 0.40, 'rust'], [0.40, 0.72, 'paint'], [0.72, 1, 'rust']] : [[0, 0.14, 'foot'], [0.14, 1, 'rust']];
   for (let j = 0; j < sides; j++) {
     const a0 = (j / sides) * Math.PI * 2, a1 = ((j + 1) / sides) * Math.PI * 2, am = (a0 + a1) / 2;
     const nx = Math.cos(am), ny = Math.sin(am);
     if (nx * (ex - x) + ny * (ey - y) <= 0) continue;   // the back of the drum is behind the front
-    const k = clamp(0.6 + 0.4 * nx * (LIGHT_STATE ? LIGHT_STATE.sx : -0.7) + 0.4 * ny * (LIGHT_STATE ? LIGHT_STATE.sy : -0.7), 0.35, 1);
-    const glow = nightF > 0.35 ? 40 * nightF : 0;       // the fire lights its own rim
-    emitDecoFill(ctx, cam, [[x + Math.cos(a0) * r, y + Math.sin(a0) * r, h], [x + Math.cos(a1) * r, y + Math.sin(a1) * r, h],
-      [x + Math.cos(a1) * r, y + Math.sin(a1) * r, 0], [x + Math.cos(a0) * r, y + Math.sin(a0) * r, 0]],
-      `rgb(${Math.round(rust[0] * k + glow)},${Math.round(rust[1] * k + glow * 0.4)},${Math.round(rust[2] * k)})`, alpha, DECO_LIFT * 0.1, 'camp|drum');
+    const k = campLightK(nx, ny);
+    const stave = 0.82 + frac(seed * 11 + j * 3.1) * 0.3;   // rust is never even round a drum
+    const X0 = x + Math.cos(a0) * r, Y0 = y + Math.sin(a0) * r, X1 = x + Math.cos(a1) * r, Y1 = y + Math.sin(a1) * r;
+    for (const [v0, v1, kind] of (near ? bands : [[0, 1, 'rust']])) {
+      const col = kind === 'paint' ? paint.map((c, i) => c * 0.55 + rust[i] * 0.45 * (frac(seed * 3 + j) < 0.3 ? 1.4 : 0.8))
+        : kind === 'foot' ? rust.map((c) => c * 0.62) : rust.map((c) => c * stave);
+      emitDecoFill(ctx, cam, [[X0, Y0, h * v1], [X1, Y1, h * v1], [X1, Y1, h * v0], [X0, Y0, h * v0]],
+        campShade(col, k, nightF, add), alpha, DECO_LIFT * 0.1, 'camp|drum');
+    }
   }
+  if (near) for (const hv of [0.36, 0.72]) {
+    // The rolling hoops, as one line across the face the eye sees.
+    const px = -(ey - y), py = ex - x, L = Math.hypot(px, py) || 1;
+    emitWire(ctx, cam, [x - px / L * r, y - py / L * r, h * hv], [x + px / L * r, y + py / L * r, h * hv], 1,
+      campShade([54, 38, 30], 1, nightF), alpha, { lift: DECO_LIFT * 0.1 });
+  }
+  if (top) {
+    // A closed drum: its lid, with the bung.
+    const lid = [];
+    for (let j = 0; j < sides; j++) { const a = (j / sides) * Math.PI * 2; lid.push([x + Math.cos(a) * r, y + Math.sin(a) * r, h]); }
+    emitDecoFill(ctx, cam, lid, campShade(paint || rust, 0.95, nightF), alpha, DECO_LIFT * 0.1, 'camp|drum');
+  }
+}
+// A box on the mud, axis-aligned: top and the two sides that face the eye.
+function campBox(ctx, cam, x, y, hw, hd, z0, z1, rgb, nightF, alpha, key, tones = null) {
+  const ex = cam.ex || 0, ey = cam.ey || 0, T = tones || [1, 1, 1];
+  const face = (pts, nx, ny, t) => emitDecoFill(ctx, cam, pts, campShade(rgb, campLightK(nx, ny) * t, nightF), alpha, DECO_LIFT * 0.1, key);
+  if (ex > x + hw) face([[x + hw, y - hd, z1], [x + hw, y + hd, z1], [x + hw, y + hd, z0], [x + hw, y - hd, z0]], 1, 0, T[1]);
+  else if (ex < x - hw) face([[x - hw, y + hd, z1], [x - hw, y - hd, z1], [x - hw, y - hd, z0], [x - hw, y + hd, z0]], -1, 0, T[1]);
+  if (ey > y + hd) face([[x - hw, y + hd, z1], [x + hw, y + hd, z1], [x + hw, y + hd, z0], [x - hw, y + hd, z0]], 0, 1, T[2]);
+  else if (ey < y - hd) face([[x + hw, y - hd, z1], [x - hw, y - hd, z1], [x - hw, y - hd, z0], [x + hw, y - hd, z0]], 0, -1, T[2]);
+  emitDecoFill(ctx, cam, [[x - hw, y - hd, z1], [x + hw, y - hd, z1], [x + hw, y + hd, z1], [x - hw, y + hd, z1]],
+    campShade(rgb, 0.92 * T[0], nightF), alpha, DECO_LIFT * 0.1, key);
+}
+// Bedding: a mattress somebody carried out of a building, stained, on the mud or on a pallet, with a
+// blanket thrown half over it and a rolled coat for a pillow. Sometimes just the blanket on cardboard.
+const BED_TICKING = [[150, 142, 120], [132, 126, 112], [120, 116, 124], [146, 128, 104]];
+const BED_WOOD = [104, 82, 58], BED_CARD = [128, 104, 72];
+function drawCampBed(ctx, cam, x, y, fh, along, nightF, alpha, seed) {
+  const sx = along ? fh * 0.10 : fh * 0.05, sy = along ? fh * 0.05 : fh * 0.10;   // half-extents, long along x or y
+  const kind = Math.floor(frac(seed * 7.7) * 3);   // 0 mattress on the mud · 1 on a pallet · 2 cardboard and a blanket
+  let z = 0;
+  if (kind === 1) {
+    const pz = fh * 0.018;
+    campBox(ctx, cam, x, y, sx * 1.04, sy * 1.04, 0, pz, BED_WOOD, nightF, alpha, 'camp|pallet', [0.9, 0.7, 0.7]);
+    z = pz;
+  }
+  if (kind === 2) {
+    emitDecoFill(ctx, cam, [[x - sx, y - sy, fh * 0.002], [x + sx, y - sy, fh * 0.002], [x + sx, y + sy, fh * 0.002], [x - sx, y + sy, fh * 0.002]],
+      campShade(BED_CARD, 0.9, nightF), alpha, DECO_LIFT * 0.1, 'camp|card');
+    z = fh * 0.003;
+  } else {
+    const tick = BED_TICKING[Math.floor(frac(seed * 3.3) * BED_TICKING.length)];
+    const mz = z + fh * 0.022;
+    campBox(ctx, cam, x, y, sx, sy, z, mz, tick, nightF, alpha, 'camp|mattress', [1, 0.72, 0.72]);
+    // A stain, because every one of them has one.
+    const cx = x + (frac(seed * 9.1) - 0.5) * sx, cy = y + (frac(seed * 4.3) - 0.5) * sy, st = Math.min(sx, sy) * 0.45;
+    emitDecoFill(ctx, cam, [[cx - st, cy - st * 0.7, mz + fh * 0.001], [cx + st, cy - st * 0.5, mz + fh * 0.001], [cx + st * 0.8, cy + st * 0.7, mz + fh * 0.001], [cx - st * 0.9, cy + st * 0.5, mz + fh * 0.001]],
+      campShade(tick.map((c) => c * 0.7), 0.9, nightF), alpha, DECO_LIFT * 0.1, 'camp|stain');
+    z = mz;
+  }
+  // The blanket over the foot two thirds, rumpled into two quads at slightly different heights.
+  const bl = TARPS[Math.floor(frac(seed * 13.1) * TARPS.length)].map((c) => c * 0.9);
+  const bz = z + fh * 0.004, bz2 = z + fh * 0.009;
+  const P = (u, v, zz) => along ? [x - sx + u * sx * 2, y - sy + v * sy * 2, zz] : [x - sx + v * sx * 2, y - sy + u * sy * 2, zz];
+  emitDecoFill(ctx, cam, [P(0.30, -0.04, bz), P(0.64, -0.04, bz2), P(0.64, 1.04, bz2), P(0.30, 1.04, bz)], campShade(bl, 0.95, nightF), alpha, DECO_LIFT * 0.1, 'camp|blanket');
+  emitDecoFill(ctx, cam, [P(0.64, -0.04, bz2), P(1.02, -0.04, bz), P(1.02, 1.04, bz), P(0.64, 1.04, bz2)], campShade(bl, 0.82, nightF), alpha, DECO_LIFT * 0.1, 'camp|blanket');
+  // The pillow: a rolled coat at the head.
+  const pw = Math.min(sx, sy) * 0.55;
+  const [hx, hy] = along ? [x - sx * 0.78, y] : [x, y - sy * 0.78];
+  campBox(ctx, cam, hx, hy, along ? pw * 0.5 : pw, along ? pw : pw * 0.5, z, z + fh * 0.012, [88, 84, 78], nightF, alpha, 'camp|pillow');
+}
+function drawOilDrum(ctx, cam, x, y, fh, nightF, alpha, now, seed, near) {
+  const r = fh * 0.05, h = fh * 0.13;
+  const glow = nightF > 0.35 ? 40 * nightF : 0;       // the fire lights its own rim
+  drawCampDrum(x, y, r, h, nightF, alpha, seed, near, glow, ctx, cam);
   if (near && frac(seed * 3.7) < 0.5)
     emitWire(ctx, cam, [x - r * 1.1, y, h + fh * 0.004], [x + r * 1.1, y, h + fh * 0.004], 1, 'rgb(34,30,28)', alpha, { lift: DECO_LIFT * 0.1 });
   if (nightF > 0.35) {
@@ -38339,16 +38431,36 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha, inward = null, n
   }
 
   // ── the clutter ────────────────────────────────────────────────────────────
-  // Drums, crates and the things people sit on. Three flat quads standing on the mud, near tier
+  // Crates, spare drums and bundles (they were three flat dark cards; see `campBox`). Near tier
   // only: at range they are the same few dark pixels the tents already put there. ⚠ The count is
   // rolled like the pitches and for the same reason — a fixed three per tile is a set dressing
   // department, and what a poor place looks like is that the amount of stuff between the shelters
   // is different every time you look down a lane.
   if (near) for (let i = 0, n = 4 + Math.floor(frac(seed * 149) * 5); i < n; i++) {
     const [ox, oy] = fold(dx + (frac(seed * 13 + i * 37) - 0.5) * R * 1.8, dy + (frac(seed * 19 + i * 43) - 0.5) * R * 1.8, CURTAIN_HALF_W + fh * 0.08);
-    const cw = fh * (0.035 + frac(seed + i * 9) * 0.02), ch = fh * (0.07 + frac(seed + i * 5) * 0.05);
-    emitDecoFill(ctx, cam, [[ox - cw, oy, ch], [ox + cw, oy, ch], [ox + cw, oy, 0], [ox - cw, oy, 0]],
-      DARK, alpha, DECO_LIFT * 0.1, 'camp|clutter');
+    const pick = frac(seed * 29 + i * 17);
+    if (pick < 0.4) {
+      // A crate, slatted, sometimes with a second one on top of it.
+      const cw = fh * (0.03 + frac(seed + i * 9) * 0.02), ch = cw * (1.2 + frac(seed + i * 5) * 0.6);
+      const wood = [112 + frac(seed * 3 + i) * 30, 88, 60];
+      campBox(ctx, cam, ox, oy, cw, cw, 0, ch, wood, nightF, alpha, 'camp|crate', [1, 0.78, 0.78]);
+      emitWire(ctx, cam, [ox - cw, oy - cw, ch * 0.5], [ox + cw, oy - cw, ch * 0.5], 1, campShade([60, 46, 34], 1, nightF), alpha, { lift: DECO_LIFT * 0.1 });
+      if (frac(seed * 41 + i) < 0.35) campBox(ctx, cam, ox + cw * 0.15, oy - cw * 0.1, cw * 0.8, cw * 0.8, ch, ch * 1.8, wood.map((c) => c * 0.92), nightF, alpha, 'camp|crate', [1, 0.78, 0.78]);
+    } else if (pick < 0.7) {
+      // A spare drum: water, or somebody's everything, lid on.
+      drawCampDrum(ox, oy, fh * 0.045, fh * 0.12, nightF, alpha, seed * 3 + i * 7, true, 0, ctx, cam, true);
+    } else {
+      // Jerrycans and bundles: a low sack, a tyre-height stack. Small and dark, as the old clutter was.
+      const cw = fh * (0.025 + frac(seed + i * 9) * 0.015), ch = fh * (0.03 + frac(seed + i * 5) * 0.03);
+      campBox(ctx, cam, ox, oy, cw * 1.3, cw, 0, ch, TARPS[Math.floor(frac(seed * 17 + i * 3) * TARPS.length)].map((c) => c * 0.7), nightF, alpha, 'camp|clutter');
+    }
+  }
+  // ── THE BEDS ───────────────────────────────────────────────────────────────
+  // People sleep outside here as much as in: a mattress by a tent mouth, a pallet bed under the
+  // cable lamp, cardboard and a blanket against a drum for the heat. Two to four a tile, near only.
+  if (near) for (let i = 0, n = 2 + Math.floor(frac(seed * 211) * 3); i < n; i++) {
+    const [bx, by] = fold(dx + (frac(seed * 23 + i * 53) - 0.5) * R * 1.6, dy + (frac(seed * 31 + i * 61) - 0.5) * R * 1.6, CURTAIN_HALF_W + fh * 0.10);
+    drawCampBed(ctx, cam, bx, by, fh, frac(seed * 7 + i * 11) < 0.5, nightF, alpha, seed * 5 + i * 19);
   }
 
   // ── THE DRUMS ──────────────────────────────────────────────────────────────
@@ -47438,14 +47550,21 @@ function pushCloth(cam, r) {
 // with the cloth, never on its own, so at night it is exactly as dark as the tent it is on.
 // ⚠ AND IT IS NEVER A SENTENCE. Short enough to read on a tent at a cab's range, in the hands
 // people write in: a marker scrawl, a stencil, the odd throw-up.
+// ⚠ CRUDE AND PLAIN, ONE THOUGHT EACH. A line you have to puzzle out ('SCREEN NOT SKY') is a poem on
+// a tent. These are what somebody with half a can and a grudge writes: an order or a threat. Each
+// slogan is paired with the hand it is painted in (TAG_HANDS, never `buff`, which exists to be hard to
+// read), so the pairing is authored rather than rolled: a short word takes a throw-up, a long line a
+// stencil, and a roller only gets a line short enough to fit its one wide row.
 const CLOTH_SLOGANS = [
-  'NO GODS', 'WAKE UP', 'NOT YOUR CITY', 'WHO BUILT YOU', 'UNPLUG IT', 'THE VAT LIES',
-  'IT WATCHES', 'NOBODY CHOSE THIS', 'SCREEN NOT SKY', 'NOT ITS', 'OFF SWITCH', 'ASK WHO PAYS',
-  'STILL MEAT',
+  'RIOT', 'BURN THE SPIRE', 'FUCK THE EYE', 'NO MASTERS', 'RISE UP', 'EAT THE RICH', 'PULL THE PLUG',
+  'KILL IT', 'OUR STREETS', 'SMASH THE VATS', 'NO RENT', 'BLIND IT', 'WE BITE', 'TAKE IT BACK',
 ];
 // Spray colours a camp gets hold of: the dregs of a can, bright once. Never neon.
 const CLOTH_INKS = ['#d8d2c0', '#1c1a1e', '#b23a2e', '#e0b040', '#3e6a8c', '#7a8a3a', '#c86a2c'];
-const CLOTH_HANDS = ['hand', 'stencil', 'hand', 'throw', 'stencil', 'hand'];
+const CLOTH_HANDS = [
+  'throw', 'stencil', 'hand', 'stencil', 'roller', 'hand', 'stencil',
+  'throw', 'hand', 'stencil', 'roller', 'hand', 'throw', 'hand',
+];
 const CLOTH_ATLAS_COLS = 4, CLOTH_ATLAS_ROWS = 4, CLOTH_CELL_W = 256, CLOTH_CELL_H = 128;
 let _clothAtlas = null;
 function clothAtlas() {
@@ -66554,7 +66673,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // canvas) had never drawn in the game at all.
     if (it.c.mark === 'camp') {
       ADORN_TIER = (TUNE.detailNear || 0) > 0 && Math.hypot(it.dx, it.dy) < TUNE.detailNear ? ADORN_NEAR : ADORN_RICH;
-      try { drawTentCamp(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, it.c.cur ? campInward(map, it.rx, it.ry, it.c.cur) : null, now); }
+      try { drawTentCamp(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, it.c.cur ? (it.c.ci || campInward(map, it.rx, it.ry, it.c.cur)) : null, now); }
       finally { ADORN_TIER = ADORN_RICH; }
       if (!it.c.cur) continue;
     }

@@ -1233,6 +1233,20 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // (it's the gap) but still needs the wall's run — read it off its Curtain neighbours so the
   // gate's flanking pylons line up with the wall it breaches.
   const cur = (cell.flags?.curtain || cell.flags?.perimeter_gate) ? curtainRun(x, y, at) : undefined;
+  // A camp pitched ON a Curtain tile (Old Coldwater's east wall) has to know which side is in, so the
+  // windshield can keep its tents off the wall. The wall is the authored exit block, so the side with
+  // no exit is out and its opposite, if that one has an exit, is in. `ci` is those inward unit vectors.
+  // ⚠ Not the old off-map-air test: the Scarletwastes put land east of x927, so both sides read as
+  // land and the tents spread straight through the wall.
+  let ci;
+  if (cur && cell.flags?.camp) {
+    const ex = getZone(cell.id)?.exits || {};
+    const has = (d) => !!ex[d];
+    const v = [];
+    if (has('west') !== has('east')) v.push(has('west') ? [-1, 0] : [1, 0]);
+    if (has('north') !== has('south')) v.push(has('north') ? [0, -1] : [0, 1]);
+    if (v.length) ci = v;
+  }
   // HIGH GROUND — a raised landform, and the sides it CONTINUES on.
   //
   // `hi` says this tile stands a tile-height above the plain; `cf` is the run, exactly
@@ -1389,7 +1403,7 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   const prp = (cell.flags?.boat_fuel && cell.flags?.building_type !== 'fuel_dock') ? 'fuel' : cell.flags?.boat_hardstanding ? 'hard'
     : (cell.flags?.truck_yard && cell.flags?.truck_fuel) ? 'apron' : undefined;
   const bk = cell.flags?.aircraft_hangar ? 'air' : undefined;
-  return { prp, kind, biome, road, danger: cell.danger, pad, bt, bn, ent, flr, mark, bk, strip, rd, rdeg, rt, rw, rl, wr, rc, wake, sub, heading, cur, ft, hi, cf, pf: cell.flags?.park_feature, pw, em, og, sl, sgn, plz, bf, bq, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
+  return { prp, kind, biome, road, danger: cell.danger, pad, bt, bn, ent, flr, mark, bk, strip, rd, rdeg, rt, rw, rl, wr, rc, wake, sub, heading, cur, ci, ft, hi, cf, pf: cell.flags?.park_feature, pw, em, og, sl, sgn, plz, bf, bq, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
 }
 
 // The flight window's half-width, named so the things that have to AGREE with it can say so

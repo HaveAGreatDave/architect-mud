@@ -24,7 +24,9 @@ function builder() {
 }
 // A face as a (nu+1)×(nv+1) grid of `at(u, v)` rest points. `move(u, v, p, n, w, ph)` returns the
 // displaced point for wind `w` and phase `ph`; `n` is the face's rest normal at that point.
-function grid(M, face, nu, nv, at, move, mat = () => 0) {
+// `flipU` mirrors only the STORED u, so paint on the face reads left to right from outside it. The
+// geometry, winding and normals are untouched.
+function grid(M, face, nu, nv, at, move, mat = () => 0, flipU = false) {
   const base = M.rest.length / 3;
   for (let j = 0; j <= nv; j++) for (let k = 0; k <= nu; k++) {
     const u = k / nu, v = j / nv, p = at(u, v);
@@ -34,7 +36,7 @@ function grid(M, face, nu, nv, at, move, mat = () => 0) {
     let n = [du[1] * dv[2] - du[2] * dv[1], du[2] * dv[0] - du[0] * dv[2], du[0] * dv[1] - du[1] * dv[0]];
     const L = Math.hypot(n[0], n[1], n[2]) || 1;
     n = [n[0] / L, n[1] / L, n[2] / L];
-    M.rest.push(p[0], p[1], p[2]); M.uv.push(u, v); M.face.push(face); M.mat.push(mat(u, v));
+    M.rest.push(p[0], p[1], p[2]); M.uv.push(flipU ? 1 - u : u, v); M.face.push(face); M.mat.push(mat(u, v));
     M.defs.push({ u, v, p, n, move });
   }
   for (let j = 0; j < nv; j++) for (let k = 0; k < nu; k++) {
@@ -68,17 +70,20 @@ const flap = (k, seed) => {
 
 // ── The tents. Unit shapes: x and y in -1..1, z in 0..1, scaled per pitch. Face 0 is the one a patch
 // or paint goes on (the ridge's +x slope, the tarp's +x half, the lean-to's roof). ──────────────────
+// ⚠ PAINT HAS TO READ FROM OUTSIDE. Face 0 on the ridge and the tarp runs u from -y to +y, and seen
+// from +x (looking west) your right hand is north, -y, so a slogan came out mirrored. Those two faces
+// store u flipped; the lean-to's roof faces +y and already reads the right way.
 function ridge() {
   const M = builder();
   const P = [[-1, -1, 0], [-1, 1, 0], [1, -1, 0], [1, 1, 0], [0, -1, 1], [0, 1, 1]];
-  grid(M, 0, 6, 4, quadAt(P[4], P[5], P[2], P[3]), billow(0.05, 0.3));
+  grid(M, 0, 6, 4, quadAt(P[4], P[5], P[2], P[3]), billow(0.05, 0.3), undefined, true);
   grid(M, 1, 6, 4, quadAt(P[4], P[5], P[0], P[1]), billow(0.05, 1.9));
   grid(M, 2, 3, 3, triAt(P[4], P[0], P[2]), billow(0.03, 3.1));
   return M;
 }
 function tarp() {
   const M = builder(), s = 0.74, sag = 0.60;
-  grid(M, 0, 6, 3, quadAt([1, -1, s], [1, 1, s], [0, -1, sag], [0, 1, sag]), flap(0.07, 0.7));
+  grid(M, 0, 6, 3, quadAt([1, -1, s], [1, 1, s], [0, -1, sag], [0, 1, sag]), flap(0.07, 0.7), undefined, true);
   grid(M, 1, 6, 3, quadAt([-1, -1, s], [-1, 1, s], [0, -1, sag], [0, 1, sag]), flap(0.07, 2.2));
   return M;
 }

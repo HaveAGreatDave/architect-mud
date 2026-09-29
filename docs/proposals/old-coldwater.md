@@ -205,6 +205,10 @@ the hanging lamp at `k: 5, alpha 0.26` and the brazier at `k: 9, alpha 0.30` pro
 with two orange dots in it. The lamps are 9/0.42 and 11/0.48 now, and the pole height varies per
 tile so a row of camp tiles is a sawtooth rather than a fence rail.
 
+**The props, 2026-09-29.** The clutter was three flat dark cards. It's now crates (some stacked), spare drums with lids, and bundles, plus two to four beds a tile: a stained mattress on the mud or on a pallet, or cardboard and a blanket, each with a rolled coat for a pillow. Every drum is textured: a faded paint band on most, rust that varies stave to stave, two hoops and a damp foot. All of it is near tier only (`campBox`, `drawCampDrum`, `drawCampBed`).
+
+**The camp on the east wall.** 927,917 and 927,918 are Curtain tiles with the camp on them, and the tents are folded onto the inland side. That fold used to find "inland" by looking for off-map air, and once the Scarletwastes put land east of x927 it found none, so the tents stood through the wall. The server now sends `ci`, the inward side read from the authored exit block (`deriveSurfaceCell`).
+
 ### The paint
 
 Superseded by the shanty pass, below. The kit's paint was a density knob (`TAG_DENSE`) over the
