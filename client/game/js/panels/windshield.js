@@ -23098,6 +23098,7 @@ function liveInstruments(v) {
       // instruments only the dearer rungs carry. See truckFit in interior-fit.js.
       tier: v.tier, glow: hex2rgb(cabTrim(v.tier, v.trim).glow), brakeTemp: v.brakeTemp, fading: v.fading,
       trailerPhi: v.hitched ? v.phi : null, rad: v.rad,
+      ctl: v.ctl || null,   // which switches the truck has, and how they stand — the fascia banks
     };
   }
   return {

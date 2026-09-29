@@ -17,7 +17,7 @@
 // authoritative world window.
 
 import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield,
-  groundObstructionAt, MODEL_MAX_EXTENT, TRUCK_STEP_Z, RENDER_TUNE, navMarks, cabTrim, cabWheelHub, cabWheelGeom, cabGpsRect, cabControlRects, cabDashCanvas , ROAD_RIG_MUL,
+  groundObstructionAt, MODEL_MAX_EXTENT, TRUCK_STEP_Z, RENDER_TUNE, navMarks, cabTrim, cabWheelHub, cabWheelGeom, cabGpsRect, cabControlRects, cabDashCanvas , ROAD_RIG_MUL, interiorHotspots,
   perfBegin, perfEnd, perfTick, lastViewState } from './windshield.js';
 import { TYPES, IDLE, createTruckState, truckReadout, step, truckShift, truckSplit, truckSelectGear, bestGear } from './flight-model.js';
 import { createFreeCam, FREECAM_HINT, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
@@ -490,7 +490,13 @@ export function cabServiceHost() { return st ? document.querySelector('.cab-wrap
 // is cleared the moment the bay closes, and the server's push after a respray replaces PAINT with
 // the real thing — so a colour you only looked at can never be the colour you drive away in.
 let PAINT_PREVIEW = null;
-export function cabPreview({ paint = null } = {}) { PAINT_PREVIEW = paint || null; }
+// The interior gets the same: a retrim held on the bench is drawn in the cab before it is bought,
+// the way the hangar's cabin view shows an aircraft's work copy. Each key is set only when passed.
+let TRIM_PREVIEW = null;
+export function cabPreview(o = {}) {
+  if ('paint' in o) PAINT_PREVIEW = o.paint || null;
+  if ('trim' in o) TRIM_PREVIEW = o.trim || null;
+}
 /** Read the view ('ext' or 'cab') with no argument; set it with one. */
 export function cabView(mode, { quarter = false } = {}) {
   if (!st) return null;
@@ -1481,6 +1487,18 @@ export function openCab(ctx = {}) {
   {
     let drag = null;
     const isChrome = (e) => !!e.target?.closest?.('.cab-chrome,.cab-dmg,.cab-help');
+    // The switch under the pointer, from the last frame's projected hotspots (canvas CSS pixels).
+    const hotAt = (e) => {
+      const hs = st && st.hot;
+      if (!hs || !hs.list?.length || isChrome(e)) return null;
+      const cv = document.getElementById(st.id);
+      const b = cv?.getBoundingClientRect();
+      if (!b || !b.width || !b.height) return null;
+      const x = (e.clientX - b.left) * ((hs.W || b.width) / b.width), y = (e.clientY - b.top) * ((hs.H || b.height) / b.height);
+      let best = null, bd = Infinity;
+      for (const h of hs.list) { const d = Math.hypot(x - h.x, y - h.y); if (d <= h.r * 1.2 && d < bd) { bd = d; best = h; } }
+      return best;
+    };
     glass.addEventListener('pointerdown', (e) => {
       grabSeatKeys();                                     // clicking the road is asking to drive — see seat-keys.js
       // ⚠ THE PRIMARY BUTTON — AND THE MIDDLE ONE, BUT ONLY OUT OF THE CAB.
@@ -1530,16 +1548,26 @@ export function openCab(ctx = {}) {
       // range change under a hand that is already moving — the head would leap from 26° to 140° the
       // instant a thumb brushed shift, at whatever deflection the cursor happened to be at.
       if (e.button === 1 && !st.external) {
-        if (st.freeLook && !e.shiftKey) {
+        // ⚠ NOW THE SAME AS THE AIRCRAFT: no Shift. A middle press takes hold and the head STAYS
+        // where you leave it; the next middle press straightens you up and does nothing else.
+        if (st.freeLook) {
           st.freeLook = false; st.look.x = 0; st.look.y = 0; st.looking = false;
           st.showViewTag?.(0);
           e.preventDefault(); return;
         }
-        if (e.shiftKey) { st.freeLook = true; st.viewYaw = 0; st.showViewTag?.(0); }
+        st.freeLook = true; st.viewYaw = 0; st.showViewTag?.(0);
         st.looking = true;
         peekFrom(e);
         glass.setPointerCapture?.(e.pointerId);
         e.preventDefault(); return;
+      }
+      // ── THE MODELLED CAB'S SWITCHES ─────────────────────────────────────────
+      // In the 3-D cab the fascia banks either side of the wheel are clickable (truckHotspots in
+      // interior-fit.js). A press on one is that shelf button's own click, the same as the painted
+      // console's below, and is taken before the steering drag can have it.
+      if (e.button === 0 && !st.external) {
+        const h = hotAt(e);
+        if (h) { st.pressCtl?.(h.id); e.preventDefault(); return; }
       }
       const orbitBtn = e.button === 1 && st.external;
       if (isChrome(e) || (e.button > 0 && !orbitBtn)) return;
@@ -1662,6 +1690,7 @@ export function openCab(ctx = {}) {
     window.addEventListener('pointercancel', endPeek);
     glass.addEventListener('pointermove', (e) => {
       if (st && st.looking) { peekFrom(e); e.preventDefault(); return; }
+      if (!drag && st) glass.classList.toggle('cab-glass-hot', !!hotAt(e));
       if (!drag || !st) return;
       const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
       drag.x = e.clientX; drag.y = e.clientY;
@@ -4737,7 +4766,7 @@ function frame(now) {
       // many dials are in the binnacle. One number; the table is CAB_TRIM in windshield.js.
       // `trim` is the bench's retrim over the top of it, and reaches the SURFACE only: a retrimmed
       // Barrow can be walnut and brass and still has one dial, because the ladder is instruments.
-      tier: P.tier, trim: TRIM,
+      tier: P.tier, trim: TRIM_PREVIEW || TRIM,
       // What the driver has hung, stood and bolted in here (cab-trinkets.js), and the two numbers
       // the ones with mass swing on. Neither goes any further than this renderer — nobody but the
       // driver is ever shown the inside of a cab, so unlike `fits` there is no wire suffix and no
@@ -4837,6 +4866,9 @@ function frame(now) {
       // renderer owns the dash and has never heard of `st`.
       elecOut: !!st.elecOut,
     });
+    // Where the fascia's switches landed this frame — taken now, because the mirror's own pass
+    // (bare, so no interior) clears the renderer's copy on the frames it runs.
+    st.hot = st.external || freeCam.active ? null : interiorHotspots();
     // The rig itself is the renderer's now; this is only what the renderer cannot know.
     if (st.external) { st.tier = P.tier; drawRigOverlay(st, r); }
     // The road, on the glass and in the air. After the world and after the rig, because it is
@@ -4990,6 +5022,7 @@ function ensureCabStyles() {
      dash is all over the place".
      THE SHELF IS NOW A MOULDED THING rather than a strip of background: a lip catching the light
      off the glass, a bolt line, and the tier's own materials underneath (see the four cabs). */
+  .cab-wrap .ws-wrap.cab-glass-hot, .cab-wrap .ws-wrap.cab-glass-hot canvas{cursor:pointer}
   .cab-controls{flex:0 0 auto;display:flex;flex-wrap:wrap;align-items:stretch;gap:8px 12px;
     padding:26px 12px 10px;border-top:1px solid var(--cab-seam,#0b0d10);position:relative;overflow:hidden;
     background:linear-gradient(var(--cab-seam,#0b0d10) 0,var(--cab-seam,#0b0d10) 13px,
@@ -6283,7 +6316,7 @@ function ensureCabStyles() {
 
 export function closeCab() {
   if (!st) return;
-  PAINT_PREVIEW = null;
+  PAINT_PREVIEW = null; TRIM_PREVIEW = null;
   // The immersive layouts are the PAGE's, not the pane's — nothing else takes them down, and a
   // driver who parked in fullscreen would be left with no log and no command box.
   document.body.classList.remove('cab-fullscreen', 'cab-hidepanel');

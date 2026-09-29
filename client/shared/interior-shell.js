@@ -122,7 +122,7 @@
 import { BOAT_ROWS } from './vehicle-models.js';
 import { boatGeom, HELM } from './boat-house.js';
 // What is IN each room — dials, wheels, levers, pedals, mirrors, clutter. See interior-fit.js.
-import { truckRoom, truckFit, planeFit, heliFit, boatFit, bridgeFit, bubbleRoom, grainRoomPush } from './interior-fit.js';
+import { truckRoom, truckFit, truckHotspots, planeFit, heliFit, boatFit, bridgeFit, bubbleRoom, grainRoomPush } from './interior-fit.js';
 import { makeKit, C as KC } from './interior-kit.js';
 import { HY, hydroHotspots } from './interior-hydro.js';
 import { memoContext } from './interior-memo.js';
@@ -211,6 +211,7 @@ export const SHELL_PROFILES = {
     roomRich: true,
     normalLit: true,        // lit by which way each face points (windshield.js), not by k alone
     fit: 'truck',           // the fit-out — see interior-fit.js
+    hotspots(live) { return truckHotspots(this, live); },   // the switch banks on the fascia (interior-fit.js)
     outboard: 0.42,         // ⚠ the west-coast mirrors hang outside the doors, and this is the one
                             // statement that they may: shellBounds widens by it and nothing else does
   },
