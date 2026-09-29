@@ -41701,6 +41701,20 @@ export const SIGN_FONT = {
   // chain lands on Sitka BANNER where there is no Copperplate — so Banner is deliberately absent
   // here, or the city's two dressiest hands would be one hand on most machines.
   estate: (C) => `600 ${Math.round(C * 0.80)}px "Bodoni MT",Didot,"Didot LT STD","Playfair Display","Baskerville Old Face","Big Caslon","Modern No. 20","Sitka Heading","Palatino Linotype",Constantia,Georgia,serif`,
+  // ── AND THE TWO BENT-GLASS HANDS, WHICH ARE WHAT A NEON SHOP ACTUALLY BENDS ──
+  //
+  // Every face above is a painter's or a carver's hand that the tube pass then traces. These two are
+  // the tube's own. Both are self-hosted (client/shared/fonts/, OFL) and loaded by `loadNeonFaces`
+  // below, because neither ships with any OS and the whole point of them is that they look the same
+  // on every machine.
+  // `tube` is a round monoline sans (Varela Round). Its outline IS the stock neon alphabet: every
+  //   stem two parallel tubes, every bowl a loop. It is the default for most lit signs and for every
+  //   vertical one — see `neonHand`.
+  // `neonscript` is a monoline script (Sacramento), thin enough that the tube pass closes its outline
+  //   into ONE tube, which is how script neon is bent. Horizontal only: a script stacked a letter at
+  //   a time down a blade is a row of unjoined squiggles.
+  tube: (C) => `${Math.round(C * 0.80)}px "Varela Round","Arial Rounded MT Bold","Nunito",sans-serif`,
+  neonscript: (C) => `${Math.round(C * 0.6)}px Sacramento,"Segoe Script","Brush Script MT",cursive`,
 };
 // ── HOW TIGHTLY THE LETTERS ARE SET, AS A FRACTION OF THE CELL ─────────────────────────────────
 //
@@ -41729,6 +41743,8 @@ export const SIGN_TRACK = {
   gothic: -0.02,    // blackletter sets close by nature
   western: -0.05,   // a signwriter filling a plank
   script: 0,        // a brush joins its letters; tracking a script pulls them apart
+  neonscript: 0,    // one bent run of tube; tracking it breaks the joins
+  tube: 0.05,       // two tubes a stem, and the neighbours' walls must not touch
   mono: 0.04,
   hanzi: 0.04,
 };
@@ -42018,6 +42034,38 @@ function glyphCorners(g, ch, x, y, T) {
 // Inspection hook: `__bakeSign('HOTEL', '#ff3df0', 1)` returns the baked canvas, so a sign's artwork
 // (the neon tube bake, its corner gaps) can be looked at without finding a building that wears it.
 if (typeof window !== 'undefined') window.__bakeSign = (...a) => bakeSignText(...a);
+// ── WHICH HAND A SIGN IS BENT IN, AFTER THE BUILDING HAS SAID WHICH ONE IT WANTED ────────────
+//
+// The generic commercial hands (mono, block, slab, condensed) become `tube`, the stock neon
+// alphabet, so most of the city reads as bent glass rather than as type with a glow on it. The
+// characterful hands (deco, gothic, western, stencil, techno, estate, hanzi) keep their own.
+// Every VERTICAL sign is `tube` (a CJK name aside), whatever it asked for. A horizontal `script` sign
+// is bent in `neonscript` about half the time, and a horizontal `tube` one about one time in eight,
+// for variety.
+// ⚠ KEYED ON THE LABEL, NEVER ON A RANDOM OR ON WHO PAINTED LAST, so a name is the same hand every
+// frame and on every building that carries it (see `_signFace` and scripts/shapes/signhand.mjs).
+// ⚠ A PAINTED (`solid`) SIGN KEEPS ITS HAND: this is about bent glass, not about wall paint.
+const NEON_GENERIC = new Set(['mono', 'block', 'slab', 'condensed']);
+function neonHand(face, label, vertical, solid) {
+  if (solid || face === 'hanzi') return face;
+  if (vertical) return 'tube';
+  let h = 2166136261;
+  for (let i = 0; i < label.length; i++) h = Math.imul(h ^ label.charCodeAt(i), 16777619);
+  const r = ((h >>> 0) % 1000) / 1000;
+  if (face === 'script') return r < 0.5 ? 'neonscript' : 'script';
+  if (NEON_GENERIC.has(face)) return r < 0.12 ? 'neonscript' : 'tube';
+  return face;
+}
+// The two faces are fetched once. A sign baked before they arrive is baked in the fallback, so the
+// cache is emptied when they land and every board re-bakes in its real hand on the next frame.
+function loadNeonFaces() {
+  if (typeof document === 'undefined' || typeof FontFace === 'undefined' || !document.fonts) return;
+  const faces = [['Varela Round', 'varela-round.woff2'], ['Sacramento', 'sacramento.woff2']];
+  Promise.all(faces.map(([fam, file]) => new FontFace(fam, `url(${new URL('../../../shared/fonts/' + file, import.meta.url)})`)
+    .load().then((f) => { document.fonts.add(f); })))
+    .then(() => _signTexCache.clear(), () => {});
+}
+loadNeonFaces();
 function bakeSignText(label, color, dn, vertical, solid, tight, opts) {
   // The universal chokepoint for world lettering, so it catches the arms that paint a name straight
   // onto a frieze or a false front (The Meridian, The Dry Goods) rather than onto a blade or a band.
@@ -42036,7 +42084,8 @@ function bakeSignText(label, color, dn, vertical, solid, tight, opts) {
   // ⚠ THE FACE AND THE PICTOGRAM ARE IN THE KEY. They change the picture and nothing else in it
   // does, so leaving either out hands the first caller's artwork to every later one with the same
   // label and colour — one chain's script wordmark appearing on another's block-lettered board.
-  const face = (opts && opts.font) || _signFace || 'mono';
+  const asked = (opts && opts.font) || _signFace || 'mono';
+  const face = neonHand(asked, String(label || ''), vertical, solid);
   const picto = (opts && opts.picto) || '';
   // ⚠ AND SO IS THE BADGE PLATE, for exactly the same reason: it is the biggest thing on the
   // canvas when it is on, so leaving it out of the key hands a plated badge's artwork to the next
@@ -42097,7 +42146,9 @@ function bakeSignText(label, color, dn, vertical, solid, tight, opts) {
   // ⚠ TALLIED BEFORE THE CACHE, NEVER AFTER IT. The question is which hand this CALL asked for, and
   // a cache hit is still a call — record only the misses and a sign that has already been baked once
   // disappears from the census, which is every sign after the first frame.
-  if (SIGN_HANDS) SIGN_HANDS.push({ label, face, tight: !!tight });
+  // `asked`, not `face`: the census is of what the painter declared, and `neonHand` maps that onto
+  // bent glass deterministically from the label, so it cannot carry a neighbour's hand in.
+  if (SIGN_HANDS) SIGN_HANDS.push({ label, face: asked, bent: face, tight: !!tight });
   let c = _signTexCache.get(key); if (c) return c;
   // ── THE CELL IS THE TEXEL DENSITY, AND IT WENT UP BECAUSE THE BOX CAME OFF ──────────────────
   //
@@ -42262,7 +42313,8 @@ function bakeSignText(label, color, dn, vertical, solid, tight, opts) {
     // at any size, and it is kept thick enough to survive being minified a few levels at street
     // distance — a hairline outline goes to nothing long before the letter does.
     if (tubeOn) {
-      const T = Math.max(2, CELL * 0.085);
+      // `neonscript` is set small to fit its loops in the cell, so its tube is bent thinner to match.
+      const T = Math.max(2, CELL * (face === 'neonscript' ? 0.06 : 0.085));
       g.save();
       g.lineJoin = 'round'; g.lineCap = 'round';
       // ⚠ A TUBE IS SEVERAL LENGTHS OF GLASS, NOT ONE UNBROKEN LOOP. Real neon is bent from short
@@ -42272,7 +42324,8 @@ function bakeSignText(label, color, dn, vertical, solid, tight, opts) {
       let corners = [];
       // Never let finding the gaps cost the sign: a canvas that cannot be read back (the headless
       // stub, a tainted canvas) gets an unbroken tube instead of no lettering at all.
-      try { if ((RENDER_TUNE.neonGaps ?? 1) > 0) corners = glyphCorners(g, ch, x, y, T); } catch { corners = []; }
+      // `neonscript` is one run of tube bent through the whole word, so it is never cut.
+      try { if ((RENDER_TUNE.neonGaps ?? 1) > 0 && face !== 'neonscript') corners = glyphCorners(g, ch, x, y, T); } catch { corners = []; }
       // The halo is the gas light spilling off the glass, and it stays UNBROKEN across a gap: the two
       // tube ends either side of a joint glow into each other. ⚠ So the cut is made on the TUBE ALONE,
       // on its own layer — it used to punch a disc through the halo and then paint a radial pool back
