@@ -20,6 +20,7 @@ import { drawWireframe3D, drawKnob, drawPerfRadar, themeColor, rgbTriplet } from
 import { showConfirmDialog } from './confirm.js';
 import { openColorPicker, closeColorPicker } from './color-picker.js';
 import { compactHidePanel } from '../../../shared/compact-view.js';
+import { liveriesFor } from '../../../shared/livery-sets.js';
 
 let B = null;       // { data, screen, selId, work (paint edit copy) }
 let raf = null;      // shared spin/scene-draw loop
@@ -456,15 +457,27 @@ function paintTabHtml(c, cat, dirty) {
   if (pt === 'schemes') {
     const cards = [];
     const specials = ((cat.trims || {})[c.class] || []);
+    const special = (v) => specials.find(t => t.id === v && t.id !== 'stock' && /special/i.test(t.label));
+    const star = '<span class="hb-look-star">★</span>';
+    // A factory edition that a livery set wears gets that set's card and no card of its own, or the
+    // booth shows it twice. Every authored set counts, locked ones too, so a locked set's edition
+    // doesn't come back free as a bare edition card.
+    const setVariants = new Set(liveriesFor('aircraft', c.class).map(s => s.exterior?.variant).filter(Boolean));
     if (mesh && specials.length) for (const t of specials) {
+      if (setVariants.has(t.id)) continue;
       const [name, sub] = t.label.split(' · ');
       cards.push(lookCard(`data-variant="${esc(t.id)}"`, meshBand(mesh, t.id), name,
-        t.id === 'stock' ? 'the original' : sub || 'factory edition', (W.variant || 'stock') === t.id && W.pattern === 'bare' && noParts, t.id !== 'stock' && /special/i.test(t.label) ? '<span class="hb-look-star">★</span>' : ''));
+        t.id === 'stock' ? 'the original' : sub || 'factory edition', (W.variant || 'stock') === t.id && W.pattern === 'bare' && noParts, special(t.id) ? star : ''));
     }
     // The livery sets this pilot has unlocked for the class (content/liveries/). A card only tries
-    // the set on, so the booth shows it; Apply paints it for the respray fee.
-    for (const st of (c.sets || [])) cards.push(lookCard(`data-set="${esc(st.id)}"`, [st.look.base, st.look.trim, st.look.accent].filter(Boolean), st.name,
-      st.factory ? 'factory' : 'livery set', LOOK_KEYS.every(k => st.look[k] == null || W[k] === st.look[k]) && (W.variant || 'stock') === (st.look.variant || 'stock')));
+    // the set on, so the booth shows it; Apply paints it for the respray fee. A set on the factory
+    // pattern wears the mesh file's own scheme, so its band is that scheme's colours.
+    for (const st of (c.sets || [])) {
+      const sp = special(st.look.variant);
+      const band = mesh && st.look.pattern === 'factory' ? meshBand(mesh, st.look.variant) : [st.look.base, st.look.trim, st.look.accent].filter(Boolean);
+      cards.push(lookCard(`data-set="${esc(st.id)}"`, band, st.name, st.factory ? 'factory' : sp ? 'special edition' : 'livery set',
+        LOOK_KEYS.every(k => st.look[k] == null || W[k] === st.look[k]) && (W.variant || 'stock') === (st.look.variant || 'stock'), sp ? star : ''));
+    }
     const mine = (c.schemes || []).map(sc => `<span class="hb-look-wrap">${lookCard(`data-scheme-load="${esc(sc.name)}"`,
       [sc.base, sc.trim, sc.accent, ...Object.values(sc.parts || {})].filter(Boolean).filter((h, i, a) => a.findIndex(x => colourDist(x, h) < 30) === i).slice(0, 6),
       sc.name, 'yours', false)}<button class="hb-look-del" data-scheme-del="${esc(sc.name)}" aria-label="Delete scheme ${esc(sc.name)}">✕</button></span>`);
@@ -800,15 +813,16 @@ function benchScreen() {
   const c = (B.data.craft || []).find(x => x.id === B.selId);
   if (!c) return '<div class="hb-empty">Pick an aircraft first.</div><div class="hb-toolbar"><button class="hb-btn" data-act="back">Back</button></div>';
   if (!B.work) B.work = { ...c.livery };
-  const cat = B.data.catalog || { patterns: [], finishes: [], uphol: [], presets: [] };
+  const cat = B.data.catalog || { patterns: [], finishes: [], uphol: [] };
   const dirty = JSON.stringify(B.work) !== JSON.stringify(c.livery);
   const canTune = !c.wreck && !c.rental;
   const hull = Math.max(0, Math.min(100, c.hullPct));
   const lookName = (() => {
-    const sp = ((cat.trims || {})[c.class] || []).find(t => t.id === c.livery?.variant && t.id !== 'stock');
-    if (sp) return sp.label.split(' · ')[0];
-    const pr = (cat.presets || []).find(p => LOOK_KEYS.every(k => p[k] == null || c.livery?.[k] === p[k]));
-    return pr ? pr.label : 'custom';
+    const lv = c.livery || {};
+    const st = (c.sets || []).find(x => LOOK_KEYS.every(k => x.look[k] == null || lv[k] === x.look[k]) && (lv.variant || 'stock') === (x.look.variant || 'stock'));
+    if (st) return st.name;
+    const sp = ((cat.trims || {})[c.class] || []).find(t => t.id === lv.variant && t.id !== 'stock');
+    return sp ? sp.label.split(' · ')[0] : 'custom';
   })();
   const tuned = TUNE_KEYS.some(k => Math.abs((c.tune || {})[k] || 0) > 0.001);
   const fitted = (c.kitCatalog || []).filter(k => k.owned).length;
@@ -1065,10 +1079,6 @@ function wire() {
     B.work.plate = v;
   });
   on('[data-sel-field]', 'change', (e) => { B.work[e.currentTarget.getAttribute('data-sel-field')] = e.currentTarget.value; render(); });
-  on('[data-preset]', 'click', (e) => {
-    const p = (B.data.catalog?.presets || []).find(x => x.id === e.currentTarget.getAttribute('data-preset'));
-    if (p) { B.work = { ...B.work, variant: 'stock', parts: {}, base: p.base, trim: p.trim, accent: p.accent || B.work.accent, pattern: p.pattern, finish: p.finish, cabin: p.cabin, uphol: p.uphol }; render(); }
-  });
   // A factory edition is the mesh file's own paint, so it shows bare (no pattern over it) and drops
   // any per-part colours; the cabin follows it when the model has a cabin of that name.
   on('[data-variant]', 'click', (e) => {
@@ -1710,11 +1720,6 @@ function ensureStyles() {
   #hb-root .hb-wb-tile b small { font-size:10px; opacity:0.6; margin-left:1px; }
   #hb-root .hb-wb-tile u { display:block; text-decoration:none; font-size:8.5px; color:var(--text-dim); margin-top:3px; }
   #hb-root .hb-loadout-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
-  #hb-root .hb-presets { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:7px; }
-  #hb-root .hb-preset { display:flex; align-items:center; gap:6px; font-size:10px; letter-spacing:1px; color:var(--tos-fg); cursor:pointer;
-    background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo)); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 28%, transparent); border-radius:6px; padding:5px 9px; font-family:inherit;
-    box-shadow:inset 0 1px 0 var(--hb-bevel-hi); transition:filter .12s, border-color .12s; }
-  #hb-root .hb-preset:hover { filter:brightness(1.1); border-color:var(--hb-atm-accent); }
   #hb-root .hb-chip { width:14px; height:14px; border-radius:3px; display:inline-block; }
   #hb-root .hb-ctls { display:grid; grid-template-columns:1fr 1fr; gap:8px 12px; }
   #hb-root .hb-ctl { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:11px; color:var(--tos-fg-dim); letter-spacing:1px; }
