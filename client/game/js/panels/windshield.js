@@ -38077,7 +38077,9 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha) {
   // page (`clothTex`) its colour keys, and the sheets on the buildings match these exactly.
   const tone = (rgb, k, warm = 0) => slumTone(rgb, k, nightF, warm);
   // A tent's canvas: the weathered page near to, the flat colour beyond (see `clothTex`).
-  const cloth = (pts, css, tag) => clothFill(ctx, cam, pts, css, alpha, DECO_LIFT * 0.1, tag);
+  // ⚠ SOLID: the tents write depth. As paint they wrote none, so a tent's far slope, its neighbour
+  // and the rain behind it all drew through its near face.
+  const cloth = (pts, css, tag) => clothFill(ctx, cam, pts, css, alpha, DECO_LIFT * 0.1, tag, 'cloth', true);
   // Sun shading off the frame's own key (LIGHT_STATE, the light the walls are shaded against), so
   // the slope turned to the sun is the bright one whichever way the camp faces; `up` is how much of
   // a face looks at the sky. No light state (a capture pass) falls back to the fixed 1 / 0.62 / 0.78
@@ -38094,79 +38096,98 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha) {
   // Pitches laid out deterministically off the tile seed so a camp does not crawl between frames
   // and two clients see the same one. Deliberately NOT on a grid: the Pitch grew.
   //
-  // ⚠ THE COUNT VARIES PER TILE AND THAT IS THE POINT, not the count itself. Five on every tile
-  // gave a row of camp tiles one density, and one density over ten tiles reads as a layout — a
-  // campsite with numbered pitches rather than ground people keep arriving on. Nine to sixteen
-  // (was six to eleven; raised for density, with smaller shelters so they still fit), cheap tier
-  // capped at ten. Original note:
-  // rolled per tile, puts a crowded tile next to a thin one, which is what makes the thin one read
-  // as thin. ⚠ Near tier gets the whole roll and the cheap tier is CAPPED at seven: past that the
-  // shelters are a few pixels each and overlap into one dark mass, so the extra ones cost a draw
-  // and subtract from the read. The cap is on the DRAWN count and never on the roll, so a tile
-  // holds the same pitches at both tiers and simply stops early.
-  const pitches = Math.min(near ? 16 : 10, 9 + Math.floor(frac(seed * 137) * 8));
-  for (let i = 0; i < pitches; i++) {
-    const a = frac(seed * 7 + i * 13) - 0.5, b = frac(seed * 11 + i * 29) - 0.5;
-    const cx = dx + a * R * 1.7, cy = dy + b * R * 1.7;
-    const w = fh * (0.14 + frac(seed + i * 3) * 0.07);          // half-width across the slopes
-    const l = fh * (0.18 + frac(seed + i * 5) * 0.09);          // half-length along the ridge
-    const t = fh * (0.26 + frac(seed + i * 7) * 0.11);          // ridge / roof height
+  // ⚠ THE COUNT VARIES PER TILE: one density over ten tiles reads as a campsite with numbered
+  // pitches. The cheap tier stops early rather than rolling differently, so a tile holds the same
+  // pitches at both tiers.
+  // ⚠ ON A JITTERED GRID, ONE TENT A CELL. Scattered freely, nine to sixteen tents on one tile ran
+  // through each other, and two tarps crossing read as broken geometry rather than as a crowd. A
+  // 3×3 grid with a few cells left empty keeps the count varied and every tent standing clear.
+  const CELL = (R * 1.7) / 3;
+  const cells = [];
+  for (let gy = 0; gy < 3; gy++) for (let gx = 0; gx < 3; gx++) cells.push([gx, gy]);
+  const drawn = near ? 9 : 6;
+  for (let i = 0, n = 0; i < cells.length && n < drawn; i++) {
+    if (frac(seed * 23 + i * 47) < 0.22) continue;            // an empty pitch, somebody's fire pit
+    n++;
+    const [gx, gy] = cells[i];
+    const cx = dx + (gx - 1) * CELL + (frac(seed * 7 + i * 13) - 0.5) * CELL * 0.18;
+    const cy = dy + (gy - 1) * CELL + (frac(seed * 11 + i * 29) - 0.5) * CELL * 0.18;
+    // Ridge along y or along x, so the rows do not all face one way.
+    const rot = frac(seed * 43 + i * 31) > 0.5;
+    const ax = rot ? 0 : 1, ay = rot ? 1 : 0;                  // across-the-slopes axis (u)
+    const bx = rot ? -1 : 0, by = rot ? 0 : 1;                 // along-the-ridge axis (v)
+    const Q = (u, v, z) => [cx + u * ax + v * bx, cy + u * ay + v * by, z];
+    const w = CELL * (0.28 + frac(seed + i * 3) * 0.06);      // half-width across the slopes
+    const l = CELL * (0.34 + frac(seed + i * 5) * 0.08);      // half-length along the ridge
+    const t = CELL * (0.46 + frac(seed + i * 7) * 0.10);      // ridge height
     const tarp = TARPS[Math.floor(frac(seed * 31 + i * 17) * TARPS.length) % TARPS.length];
-    // Two pitches in five carry a lamp, rolled per tent so the same ones are lit every night.
     const glowing = (nightF > 0.3 && frac(seed * 59 + i * 19) > 0.5) ? 1 : 0;
-    const kind = Math.floor(frac(seed * 53 + i * 41) * 3);       // 0 ridge · 1 flat tarp · 2 lean-to
-    // Per-shape face shading: a ridge's (and flat tarp's) two slopes face +x / -x, a lean-to's roof
-    // faces +y and its back wall -y, and the near gable faces -y.
-    const kA = kind === 2 ? faceK(0, 1, 0.55, 1) : faceK(1, 0, kind === 1 ? 0.85 : 0.5, 1);
-    const kB = kind === 2 ? faceK(0, -1, 0, 0.62) : faceK(-1, 0, kind === 1 ? 0.85 : 0.5, 0.62);
-    const lit = tone(tarp, kA, glowing), shade = tone(tarp, kB, glowing), gab = tone(tarp, faceK(0, -1, 0, 0.78), glowing);
+    const kind = frac(seed * 53 + i * 41) < 0.7 ? 0 : 1;       // 0 wall tent · 1 lean-to
+    const kA = faceK(ax, ay, 0.5, 1), kB = faceK(-ax, -ay, 0.5, 0.62);
+    const kW = faceK(ax, ay, 0, 0.7), kE = faceK(-ax, -ay, 0, 0.55);
+    const kF = faceK(-bx, -by, 0, 0.78), kR = faceK(bx, by, 0, 0.7);
+    const lit = tone(tarp, kA, glowing), shade = tone(tarp, kB, glowing);
 
     if (kind === 0) {
-      // A RIDGE TENT. Two slopes and the near gable; the far gable is behind its own tent from
-      // every seat that can see the tile and is a third of the cost for nothing.
-      const P = [[cx - w, cy - l, 0], [cx - w, cy + l, 0], [cx + w, cy - l, 0], [cx + w, cy + l, 0],
-                 [cx, cy - l, t], [cx, cy + l, t]];
-      cloth([P[0], P[1], P[5], P[4]], shade, 'camp|slope');
-      cloth([P[2], P[3], P[5], P[4]], lit, 'camp|slope');
-      cloth([P[0], P[2], P[4]], gab, 'camp|gable');
-    } else if (kind === 1) {
-      // A FLAT TARP ON POSTS, which is the commonest thing in the concept art and the one shape a
-      // ridge tent cannot stand in for: a sheet held up at the corners, open on every side, with a
-      // SAG in it. The sag is two quads at slightly different heights rather than a curve, the same
-      // trick the flophouse roof uses, and it is what stops this reading as a table.
-      const s = t * 0.74, sag = t * 0.60;
-      cloth([[cx - w, cy - l, s], [cx, cy - l, sag], [cx, cy + l, sag], [cx - w, cy + l, s]], shade, 'camp|tarp');
-      cloth([[cx + w, cy - l, s], [cx, cy - l, sag], [cx, cy + l, sag], [cx + w, cy + l, s]], lit, 'camp|tarp');
-      if (near) for (const [px, py] of [[cx - w, cy - l], [cx + w, cy - l], [cx - w, cy + l], [cx + w, cy + l]])
-        emitWire(ctx, cam, [px, py, 0], [px, py, s], 1, DARK, alpha, { lift: DECO_LIFT * 0.1 });
+      // A WALL TENT, the army-surplus kind: short upright walls, a pitched roof that overhangs them
+      // at the eaves, both gables closed, and a dark door in the front one. Every face is drawn,
+      // because a solid tent missing its back gable is a hole you can see into from behind.
+      const wall = t * 0.34, e = w * 1.14, ez = wall * 0.82;   // eave overhang, dropped a little
+      const A0 = Q(-w, -l, 0), A1 = Q(-w, l, 0), B0 = Q(w, -l, 0), B1 = Q(w, l, 0);
+      const A0h = Q(-w, -l, wall), A1h = Q(-w, l, wall), B0h = Q(w, -l, wall), B1h = Q(w, l, wall);
+      const R0 = Q(0, -l, t), R1 = Q(0, l, t);
+      cloth([A0h, A1h, A1, A0], tone(tarp, kE, glowing), 'camp|wall');
+      cloth([B0h, B1h, B1, B0], tone(tarp, kW, glowing), 'camp|wall');
+      // Roof slopes carried past the walls to the eaves.
+      cloth([R0, R1, Q(-e, l * 1.04, ez), Q(-e, -l * 1.04, ez)], shade, 'camp|slope');
+      cloth([R0, R1, Q(e, l * 1.04, ez), Q(e, -l * 1.04, ez)], lit, 'camp|slope');
+      // Gables: a pentagon each, wall-top to ridge.
+      cloth([A0, B0, B0h, R0, A0h], tone(tarp, kF, glowing), 'camp|gable');
+      cloth([A1, B1, B1h, R1, A1h], tone(tarp, kR, glowing), 'camp|gable');
+      // The door: a dark slit proud of the front gable, lit from inside when there is a lamp.
+      if (near) {
+        const dw = w * 0.30, dz = t * 0.72, off = -l - FACE_EPS * 3;
+        const door = glowing ? 'rgb(150,104,58)' : DARK;
+        emitDecoFill(ctx, cam, [Q(-dw, off, dz * 0.7), Q(dw * 0.4, off, dz), Q(dw, off, 0), Q(-dw, off, 0)],
+          door, alpha, DECO_LIFT * 0.1, 'camp|door');
+      }
+      // Poles at each gable, standing a little above the ridge the way the reference's do.
+      if (near) for (const v of [-l, l]) emitWire(ctx, cam, Q(0, v * 1.02, 0), Q(0, v * 1.02, t * 1.12), 1, DARK, alpha, { lift: DECO_LIFT * 0.1 });
     } else {
-      // A LEAN-TO: one slope from a high edge down to the ground, with a back wall. Half a tent,
-      // which is what you build when you have half a tarp.
-      cloth([[cx - w, cy - l, t], [cx + w, cy - l, t], [cx + w, cy + l, 0], [cx - w, cy + l, 0]], lit, 'camp|lean');
-      cloth([[cx - w, cy - l, 0], [cx + w, cy - l, 0], [cx + w, cy - l, t], [cx - w, cy - l, t]], shade, 'camp|lean');
+      // A LEAN-TO: one slope from a high edge to the ground, a back wall and two side triangles.
+      const P0 = Q(-w, -l, t), P1 = Q(w, -l, t), G0 = Q(-w, l, 0), G1 = Q(w, l, 0), F0 = Q(-w, -l, 0), F1 = Q(w, -l, 0);
+      cloth([P0, P1, G1, G0], lit, 'camp|lean');
+      cloth([F0, F1, P1, P0], shade, 'camp|lean');
+      cloth([F0, P0, G0], tone(tarp, kE, glowing), 'camp|lean');
+      cloth([F1, P1, G1], tone(tarp, kW, glowing), 'camp|lean');
     }
 
-    // THE PATCH. A smaller quad in a DIFFERENT tarp's colour laid on the lit slope, which is the
-    // one detail that separates a shanty from a campsite: every sheet here has been mended with
-    // whatever the last one was made of. Near tier only — at range it is a few pixels of noise.
+    // THE PATCH: a smaller sheet in a DIFFERENT tarp's colour, a hair proud of the lit slope.
+    // Everything here has been mended with whatever the last sheet was made of.
     if (near && frac(seed * 71 + i * 23) > 0.42) {
       const pt = TARPS[Math.floor(frac(seed * 91 + i * 7) * TARPS.length) % TARPS.length];
-      const pw = w * 0.42, pl = l * 0.38, pz = t * (kind === 2 ? 0.62 : 0.46);
-      const ox = cx + w * 0.34, oy = cy + (frac(seed + i * 11) - 0.5) * l * 0.7;
-      cloth([[ox - pw, oy - pl, pz + pl * 0.5], [ox + pw, oy - pl, pz + pl * 0.5],
-             [ox + pw, oy + pl, pz], [ox - pw, oy + pl, pz]], tone(pt, 0.86), 'camp|patch');
+      const f0 = 0.35, f1 = 0.70, v0 = (frac(seed + i * 11) - 0.5) * l * 0.8, pl = l * 0.28;
+      if (kind === 0) {
+        const up = (f) => { const e = w * 1.14 * f; return [e, t + (t * 0.34 * 0.82 - t) * f + FACE_EPS * 3]; };
+        const [u0, z0] = up(f0), [u1, z1] = up(f1);
+        cloth([Q(u0, v0 - pl, z0), Q(u0, v0 + pl, z0), Q(u1, v0 + pl, z1), Q(u1, v0 - pl, z1)], tone(pt, 0.86), 'camp|patch');
+      } else {
+        const z = (f) => t * (1 - f) + FACE_EPS * 3, V = (f) => -l + 2 * l * f;
+        const u0 = (frac(seed + i * 11) - 0.5) * w, pw = w * 0.3;
+        cloth([Q(u0 - pw, V(f0), z(f0)), Q(u0 + pw, V(f0), z(f0)), Q(u0 + pw, V(f1), z(f1)), Q(u0 - pw, V(f1), z(f1))], tone(pt, 0.86), 'camp|patch');
+      }
     }
 
-    // The spill out of the open end. Small, and at the GABLE rather than at the centre: the mouth
-    // is the only part of a tent a lamp can actually get out of, and a glow inside the canvas is
-    // hidden by the canvas. The tarp itself is doing the work above; this is the bit on the mud.
-    if (glowing) glowPool(ctx, cam, cx, cy - l * 1.25, t * 0.18, '255,186,104', 10, alpha * 0.42 * nightF);
-    // Guy lines. ⚠ NEAR TIER ONLY, and that is legibility rather than cost: a dark 1px line
-    // carries further than the canvas it is holding up, so a camp seen from across the district
-    // drew as a scribble of wire with the tents lost inside it.
-    if (near && kind !== 1) {
-      emitWire(ctx, cam, [cx, cy - l, t], [cx, cy - l - w * 1.6, 0], 1, DARK, alpha, { lift: DECO_LIFT * 0.1 });
-      emitWire(ctx, cam, [cx, cy + l, t], [cx, cy + l + w * 1.6, 0], 1, DARK, alpha, { lift: DECO_LIFT * 0.1 });
+    // The spill out of the door onto the mud.
+    if (glowing) { const g = Q(0, -l * 1.3, 0); glowPool(ctx, cam, g[0], g[1], t * 0.12, '255,186,104', 10, alpha * 0.42 * nightF); }
+    // Guy lines off the ridge ends and the eave corners, near tier only: at range a 1px line
+    // carries further than the canvas it holds up and the camp draws as a scribble.
+    if (near && kind === 0) {
+      for (const s of [-1, 1]) {
+        emitWire(ctx, cam, Q(0, s * l, t), Q(0, s * (l + w * 1.3), 0), 1, DARK, alpha, { lift: DECO_LIFT * 0.1 });
+        emitWire(ctx, cam, Q(s * w * 1.14, -l, t * 0.28), Q(s * w * 1.9, -l * 1.25, 0), 1, DARK, alpha, { lift: DECO_LIFT * 0.1 });
+        emitWire(ctx, cam, Q(s * w * 1.14, l, t * 0.28), Q(s * w * 1.9, l * 1.25, 0), 1, DARK, alpha, { lift: DECO_LIFT * 0.1 });
+      }
     }
   }
 
@@ -38363,9 +38384,11 @@ function clothOrder(w) {
   return (w[0][2] + w[1][2]) >= (w[2][2] + w[3][2]) ? w : [w[2], w[3], w[0], w[1]];
 }
 // A sheet in world points, textured near to. The camp and `slumSheet` both come through here.
-function clothFill(ctx, cam, w, css, alpha, lift, tag, kind = 'cloth') {
-  if (ADORN_TIER < ADORN_NEAR || !kind) { emitDecoFill(ctx, cam, w, css, alpha, lift, tag); return; }
-  emitDecoFill(ctx, cam, clothOrder(w), css, alpha, lift, tag, false, null, clothTex(css, kind));
+// `solid` makes the sheet write depth (see `emitDecoFill`): the camp's tents are the surface, not
+// paint on one, and without it every face of a tent showed through every other.
+function clothFill(ctx, cam, w, css, alpha, lift, tag, kind = 'cloth', solid = false) {
+  if (ADORN_TIER < ADORN_NEAR || !kind) { emitDecoFill(ctx, cam, w, css, alpha, lift, tag, solid); return; }
+  emitDecoFill(ctx, cam, clothOrder(w), css, alpha, lift, tag, solid, null, clothTex(css, kind));
 }
 // One sheet through `pts` (model-local, three or four of them), shaded by where it faces. `kind`
 // is the page it wears near to (`clothTex`), or null for a plain fill.
