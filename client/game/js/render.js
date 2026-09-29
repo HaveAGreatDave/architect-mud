@@ -699,15 +699,49 @@ export function updateVitals(p) {
   try { _stateObserver?.(p); } catch { /* an observer's problem is not the HUD's */ }
 }
 
+// A drop leaves a TRAIL: a pale ghost of the old width that holds for a beat and then drains down
+// to the new one, so you see how much a hit took and not just what is left. HP also flashes. The
+// ghost is made on the first drop and lives in the bar's track; a rise snaps it to the new width
+// (the bar itself grows by its own transition). Motion off drops the drain and the flash in CSS.
+const TRAIL_HOLD_MS = 380;
+const _barPct = {};
 function setBar(id, val, max, inverse = false) {
   const pct = Math.max(0, Math.min(100, (val / max) * 100));
   const low = inverse ? pct > 60 : pct < 25;
+  const prev = _barPct[id];
+  _barPct[id] = pct;
+  // A worse number is lower, except on an inverse bar (radiation), where the trail would read backwards.
+  const drop = !inverse && prev != null && pct < prev - 0.5;
   for (const suffix of ['', '-m']) {
     const bar = document.getElementById(`${id}-bar${suffix}`);
     const valEl = document.getElementById(`${id}-val${suffix}`);
-    if (bar) { bar.style.width = pct + '%'; bar.classList.toggle('low', low); }
+    if (bar) {
+      bar.style.width = pct + '%'; bar.classList.toggle('low', low);
+      if (!inverse) trailBar(bar, prev, pct, drop, id === 'hp');
+    }
     if (valEl) valEl.textContent = Math.round(val);
   }
+}
+function trailBar(bar, prev, pct, drop, flash) {
+  const track = bar.parentElement;
+  if (!track) return;
+  let ghost = track.querySelector(':scope > .vital-trail');
+  if (!ghost) {
+    if (!drop) return;
+    ghost = document.createElement('div');
+    ghost.className = 'vital-trail';
+    ghost.setAttribute('aria-hidden', 'true');
+    track.classList.add('vital-trailed');
+    track.insertBefore(ghost, track.firstChild);
+  }
+  clearTimeout(ghost._t);
+  if (!drop) { ghost.classList.remove('draining'); ghost.style.width = pct + '%'; return; }
+  // Hold at the old width (or wherever an earlier hit's trail still is), then drain.
+  if (!ghost.classList.contains('draining') || parseFloat(ghost.style.width || '0') < prev) {
+    ghost.classList.remove('draining'); ghost.style.width = prev + '%';
+  }
+  ghost._t = setTimeout(() => { ghost.classList.add('draining'); ghost.style.width = pct + '%'; }, TRAIL_HOLD_MS);
+  if (flash) { track.classList.remove('vital-hit'); void track.offsetWidth; track.classList.add('vital-hit'); }
 }
 
 // Maps dpad data-cmd abbreviations to full direction names used in exit data-target

@@ -2780,6 +2780,51 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 .vital-bar.low {
 	background: var(--red);
 }
+/* The damage trail (render.js setBar): a pale ghost of the old width behind the bar that holds
+   for a beat and then drains, so a hit shows its size. HP's track also flashes, and low HP
+   breathes. Motion off keeps the ghost as a static mark and drops the rest. */
+.vital-trailed {
+	position: relative;
+	overflow: hidden;
+}
+.vital-trailed > .vital-bar {
+	position: relative;
+	z-index: 1;
+}
+.vital-trail {
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	background: color-mix(in srgb, var(--red) 55%, #fff);
+	opacity: 0.75;
+	border-radius: 1px;
+	pointer-events: none;
+}
+.vital-trail.draining {
+	transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.vital-hit {
+	animation: vital-hit 0.35s ease-out;
+}
+@keyframes vital-hit {
+	0% { box-shadow: 0 0 0 1px var(--red), 0 0 8px var(--red); }
+	100% { box-shadow: 0 0 0 0 transparent, 0 0 0 transparent; }
+}
+.vital-hp .vital-bar.low {
+	animation: vital-low 1.4s ease-in-out infinite;
+}
+@keyframes vital-low {
+	50% { filter: brightness(1.45); }
+}
+[data-motion="off"] .vital-trail.draining { transition: none; }
+[data-motion="off"] .vital-hit,
+[data-motion="off"] .vital-hp .vital-bar.low { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+	.vital-trail.draining { transition: none; }
+	.vital-hit,
+	.vital-hp .vital-bar.low { animation: none; }
+}
 
 /* Zone info */
 /* The name above the d-pad wraps to two lines at an intersection ("MARROW
