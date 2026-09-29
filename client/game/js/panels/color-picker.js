@@ -78,6 +78,10 @@ function ensureStyles() {
   const st = document.createElement('style');
   st.id = 'cp-shared-styles';
   st.textContent = `
+  /* The picker's tokens, when whoever opened it doesn't carry them (themeFrom sets them inline,
+     which wins): the game theme's own colours, so a picker opened from anywhere is in theme. */
+  .hb-cp-pop { --hb-atm-accent:var(--accent); --hb-surf:var(--bg2); --hb-surf-lo:var(--bg); --hb-surf-mid:var(--bg3);
+    --hb-bevel-hi:rgba(255,255,255,0.06); --hb-bevel-lo:rgba(0,0,0,0.45); --tos-fg:var(--text); --tos-fg-dim:var(--text-dim); --tos-fg-dim2:var(--text-dim); }
   .hb-cp-pop { position:fixed; z-index:100000; padding:12px; width:264px; border-radius:12px;
     font-family:inherit; animation:hbCpIn .14s ease-out;
     background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));

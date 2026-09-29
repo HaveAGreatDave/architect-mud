@@ -1172,7 +1172,16 @@ paint shop doesn't know, or a class with no default. Read them through `client/s
   private to that aircraft. A saved set holds the whole look, factory scheme and plate included.
 - **Applying any set is a respray** and costs `paintCost(class)`: `scheme <tail> load <name>` takes a
   saved set by name or a livery by id or name. Putting on what she already wears is free. The
-  hangar's Paint tab opens on **Sets**; clicking one previews it on the model, and Apply charges.
+  hangar's Paint tab opens on **Schemes**; clicking a card previews it on the model, and Apply charges.
+  A factory trim (`TRIMS`) that a set wears gets no card of its own, so each edition shows once.
+- **The booth has an Exterior | Interior switch.** Interior paints her real cockpit through
+  `paintWindshield` with the work copy's cabin trim, nameplate and cabin colour, so a set can be
+  judged from the seat before it's paid for. It needs GLASS 2 with 3-D interiors on, and says so
+  otherwise.
+- **The cabin colour repaints the cockpit walls.** `cabinRetint` in `client/shared/interior-shell.js`
+  lists each class's wall tones (`CABIN_WALLS`) and maps them onto `livery.cabin`, keeping each
+  tone's brightness against the main one. The class default's own cabin colour means "as authored".
+  The Drake has no entry: its cabin trim is its cabin.
 
 **The tuning model (one source of truth).** `state.computeStats(type, tune, cargo,
 kits)` is the single function that bends a template's base numbers by the four

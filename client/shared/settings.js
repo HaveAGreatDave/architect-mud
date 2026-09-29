@@ -6,7 +6,7 @@ export const DEFAULT_AUDIO_SETTINGS = { enabled: true, music: true, sfx: true, t
 // default look of the product; keep it in step with the inline boot script in
 // client/game/index.html, which sets the same value before any module loads so the
 // first paint isn't a different colour from the second.
-const DEFAULT_SETTINGS = { theme: 'iron', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', mapColor: 'off', minimapRender: 'smooth', uiFont: 'mono', statusGlyphs: 'off', monoAudio: 'off', dictation: 'off', logVoice: 'off', logVoiceRate: '1', audio: DEFAULT_AUDIO_SETTINGS };
+const DEFAULT_SETTINGS = { theme: 'iron', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', mapColor: 'off', minimapRender: 'smooth', uiFont: 'mono', statusGlyphs: 'off', monoAudio: 'off', uiSound: 'on', dictation: 'off', logVoice: 'off', logVoiceRate: '1', audio: DEFAULT_AUDIO_SETTINGS };
 
 // ── The accessibility surface, declared once ─────────────────────────────────
 //
@@ -73,6 +73,11 @@ export const A11Y_OPTIONS = [
     opts: [{ v: 'off', t: 'Off' }, { v: 'review', t: 'Review' }, { v: 'send', t: 'Auto-send' }],
   },
 
+  {
+    key: 'uiSound', label: 'Interface Sounds', verb: 'clicks',
+    why: "A soft click when you press a button, switch a tab or open a panel, and a fainter tick when the mouse passes over one. Keyboard focus never makes a sound, so it won't talk over a screen reader. The SFX volume slider sets how loud it is.",
+    opts: [{ v: 'on', t: 'On' }, { v: 'off', t: 'Off' }],
+  },
   {
     key: 'monoAudio', label: 'Mono Audio', verb: 'mono',
     why: "Sums both channels to one, so nothing is only in the ear you aren't using.",
@@ -450,6 +455,7 @@ export function applySettings(settings) {
   // dictation.js reads the same key for that half.
   document.documentElement.setAttribute('data-dictation', settings.dictation || 'off');
   window._applyDictation?.(settings.dictation || 'off');
+  window._applyUiSound?.(settings.uiSound || 'on');
   // Read Aloud. Rate first, so a mode change never speaks its first line at the
   // old speed.
   window._applyLogVoiceRate?.(settings.logVoiceRate || '1');
@@ -597,7 +603,9 @@ export function applySettings(settings) {
   }
 }
 
-export function initSettingsUI(settings, saveAndApply, { sendCmd, notify } = {}) {
+export function initSettingsUI(settings, saveAndApply, { sendCmd, notify, confirm } = {}) {
+  // The game's own confirm window, handed in so this shared file never imports a game panel.
+  _confirmUi = confirm || null;
   // Theme swatch grids — the editor-overlay grid and the inline settings grid
   // both pick a theme on click.
   const pickTheme = (value) => {
@@ -639,6 +647,9 @@ export function listenForSettingsChanges(applyFn) {
 // --- Theme Editor (game client) ---
 
 let _teSettings = null;
+// (prompt, onYes): the themed confirm initSettingsUI was given, or the browser's as a last resort.
+let _confirmUi = null;
+const askConfirm = (title, prompt, label, onYes) => (_confirmUi ? _confirmUi({ title, prompt, confirmLabel: label }, onYes) : (window.confirm(prompt) && onYes()));
 let _teSaveAndApply = null;
 let _teEditingId = null;
 let _teEditLoaded = false;
@@ -798,7 +809,11 @@ function _teApplyColor(safe, varName, val) {
 function _teSaveTheme() {
   const nameEl = document.getElementById('te-name');
   const name = nameEl ? nameEl.value.trim() : '';
-  if (!name) { alert('Enter a theme name first'); return; }
+  // No name: say so on the field itself rather than in a browser alert.
+  if (!name) {
+    if (nameEl) { nameEl.setAttribute('aria-invalid', 'true'); nameEl.placeholder = 'Name it first'; nameEl.focus(); nameEl.addEventListener('input', () => nameEl.removeAttribute('aria-invalid'), { once: true }); }
+    return;
+  }
   const colors = {};
   THEME_COLOR_VARS.forEach(({ v }) => { colors[v] = _teGetCurrentColor(v); });
   if (!_teSettings.customThemes) _teSettings.customThemes = [];
@@ -825,7 +840,10 @@ function _teDeleteTheme() {
   const idx = customThemes.findIndex(t => t.id === _teEditingId);
   if (idx === -1) return;
   const name = customThemes[idx].name;
-  if (!confirm(`Delete custom theme "${name}"?`)) return;
+  askConfirm('Delete Theme', `Delete custom theme "${name}"? This can't be undone.`, 'Delete', () => _teDeleteNow(idx));
+}
+function _teDeleteNow(idx) {
+  const customThemes = _teSettings.customThemes || [];
   customThemes.splice(idx, 1);
   _teSettings.customThemes = customThemes;
   if (_teSettings.theme === _teEditingId) _teSettings.theme = 'dark';

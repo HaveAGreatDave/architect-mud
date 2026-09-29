@@ -862,3 +862,6 @@ function muleFit(P, live, push) {
 
   hotspotHalo(K, muleHotspots(P, L), L);
 }
+
+// The palette, for the livery cabin retint (interior-shell.js CABIN_WALLS).
+export { T as MULE_TRIM };

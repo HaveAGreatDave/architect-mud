@@ -470,6 +470,7 @@ async function cmdDrop(targetStr, player, broadcast) {
       type: 'confirm',
       prompt: `Drop all ${rows.length} item${rows.length === 1 ? '' : 's'} you're carrying, including everything you have equipped?`,
       confirmLabel: 'Drop Everything',
+      hold: true,   // the client makes the button a hold-to-confirm (confirm.js holdToConfirm)
       command: 'drop __allconfirm',
     };
   }

@@ -392,6 +392,44 @@
         { waveform: 'square', freq: 147, delay: 0.09, pitchBend: { to: 110, time: 0.06 }, filter: { type: 'lowpass', freq: 1200, q: 1 }, adsr: { a: 0.002, d: 0.08, s: 0, r: 0.04 }, gain: 0.22 },
         { waveform: 'noise', noiseMix: 1, delay: 0.09, filter: { type: 'lowpass', freq: 600, q: 0.8 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.03 }, gain: 0.08 } ] } },
 
+    // ── Interface (every button in the client) ───────────────────────────────
+    // The sound contract for the chrome: one delegated listener (client/game/js/ui-sound.js)
+    // plays these for any button, tab or pill, so a click answers the hand the way a game menu
+    // does. Category 'ui' is the dry bus: the sfx slider moves it and the room reverb never
+    // reaches it. They fire constantly, so every one is short, quiet and above the voice band.
+    //
+    // hover — the faintest tick, felt more than heard. Pointer only, never keyboard focus, so it
+    // never talks over a screen reader.
+    { id: 'ui-hover', name: 'Interface — hover', group: 'interface', category: 'ui', priority: 2,
+      config: { duration: 0.04, layers: [
+        { waveform: 'sine', freq: 2400, adsr: { a: 0.001, d: 0.018, s: 0, r: 0.012 }, gain: 0.035 } ] } },
+    // confirm — a dry key with a lift: up a fifth, so it reads as "yes".
+    { id: 'ui-confirm', name: 'Interface — confirm', group: 'interface', category: 'ui', priority: 4,
+      config: { duration: 0.1, layers: [
+        { waveform: 'triangle', freq: 880, adsr: { a: 0.001, d: 0.035, s: 0, r: 0.02 }, gain: 0.09 },
+        { waveform: 'triangle', freq: 1320, delay: 0.028, adsr: { a: 0.001, d: 0.045, s: 0, r: 0.025 }, gain: 0.07 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 3500, q: 1 }, adsr: { a: 0.001, d: 0.012, s: 0, r: 0.01 }, gain: 0.04 } ] } },
+    // cancel — the confirm turned over: down a fourth, a touch lower and softer. Back, close, revert.
+    { id: 'ui-cancel', name: 'Interface — back / cancel', group: 'interface', category: 'ui', priority: 4,
+      config: { duration: 0.11, layers: [
+        { waveform: 'triangle', freq: 660, adsr: { a: 0.001, d: 0.035, s: 0, r: 0.02 }, gain: 0.08 },
+        { waveform: 'triangle', freq: 495, delay: 0.03, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.03 }, gain: 0.07 } ] } },
+    // tab — a switch detent: a click with a short body, no pitch movement. Tabs, segments, pills.
+    { id: 'ui-tab', name: 'Interface — tab / toggle', group: 'interface', category: 'ui', priority: 3,
+      config: { duration: 0.06, layers: [
+        { waveform: 'square', freq: 1150, filter: { type: 'lowpass', freq: 2600, q: 1 }, adsr: { a: 0.001, d: 0.018, s: 0, r: 0.012 }, gain: 0.05 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 4200, q: 2 }, adsr: { a: 0.001, d: 0.01, s: 0, r: 0.008 }, gain: 0.06 } ] } },
+    // open — a panel sliding up: a short rising sweep over a breath of air.
+    { id: 'ui-open', name: 'Interface — panel open', group: 'interface', category: 'ui', priority: 4,
+      config: { duration: 0.16, layers: [
+        { waveform: 'sine', freq: 420, pitchBend: { to: 900, time: 0.09 }, adsr: { a: 0.004, d: 0.09, s: 0, r: 0.05 }, gain: 0.07 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 2200, q: 0.9 }, adsr: { a: 0.02, d: 0.06, s: 0, r: 0.04 }, gain: 0.04 } ] } },
+    // close — the open, falling.
+    { id: 'ui-close', name: 'Interface — panel close', group: 'interface', category: 'ui', priority: 4,
+      config: { duration: 0.15, layers: [
+        { waveform: 'sine', freq: 860, pitchBend: { to: 380, time: 0.09 }, adsr: { a: 0.003, d: 0.08, s: 0, r: 0.05 }, gain: 0.06 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1600, q: 0.9 }, adsr: { a: 0.01, d: 0.05, s: 0, r: 0.04 }, gain: 0.03 } ] } },
+
     // ── Accolades ────────────────────────────────────────────────────────────
     // "Reach & relax": three glass bells, C5 → G5 → F5.
     //
@@ -668,7 +706,7 @@
     ...(global.HockeySfx?.BUILTINS || []),
   ];
 
-  const GROUPS = { poker: 'Poker table', hack: 'Circuit Breach (hack)', hololock: 'Hololock Bypass', vault: 'Vault Crack', synth: 'Synth Lab (cook)', flight: 'Flight (cockpit)', fishing: 'Fishing (cast / reel)', dialogue: 'Dialogue (conversation)', accolades: 'Accolades (entry logged)', cards: 'Trading cards (machine / pack opening)', procedural: 'Procedural material/action tables', hockey: 'Hockey (Cluster Puck broadcast)' };
+  const GROUPS = { poker: 'Poker table', hack: 'Circuit Breach (hack)', hololock: 'Hololock Bypass', vault: 'Vault Crack', synth: 'Synth Lab (cook)', flight: 'Flight (cockpit)', fishing: 'Fishing (cast / reel)', dialogue: 'Dialogue (conversation)', interface: 'Interface (buttons, tabs, panels)', accolades: 'Accolades (entry logged)', cards: 'Trading cards (machine / pack opening)', procedural: 'Procedural material/action tables', hockey: 'Hockey (Cluster Puck broadcast)' };
 
   const _builtinById = new Map(BUILTINS.map(d => [d.id, d]));
   let _overrides = new Map(); // id -> { config, priority, enabled, name }

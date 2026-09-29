@@ -833,3 +833,6 @@ export function viperFit(P, live, push) {
 
   hotspotHalo(K, viperHotspots(P, L), L);
 }
+
+// The palette, for the livery cabin retint (interior-shell.js CABIN_WALLS).
+export { V as VIPER_TRIM };

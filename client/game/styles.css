@@ -2780,6 +2780,51 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 .vital-bar.low {
 	background: var(--red);
 }
+/* The damage trail (render.js setBar): a pale ghost of the old width behind the bar that holds
+   for a beat and then drains, so a hit shows its size. HP's track also flashes, and low HP
+   breathes. Motion off keeps the ghost as a static mark and drops the rest. */
+.vital-trailed {
+	position: relative;
+	overflow: hidden;
+}
+.vital-trailed > .vital-bar {
+	position: relative;
+	z-index: 1;
+}
+.vital-trail {
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	background: color-mix(in srgb, var(--red) 55%, #fff);
+	opacity: 0.75;
+	border-radius: 1px;
+	pointer-events: none;
+}
+.vital-trail.draining {
+	transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.vital-hit {
+	animation: vital-hit 0.35s ease-out;
+}
+@keyframes vital-hit {
+	0% { box-shadow: 0 0 0 1px var(--red), 0 0 8px var(--red); }
+	100% { box-shadow: 0 0 0 0 transparent, 0 0 0 transparent; }
+}
+.vital-hp .vital-bar.low {
+	animation: vital-low 1.4s ease-in-out infinite;
+}
+@keyframes vital-low {
+	50% { filter: brightness(1.45); }
+}
+[data-motion="off"] .vital-trail.draining { transition: none; }
+[data-motion="off"] .vital-hit,
+[data-motion="off"] .vital-hp .vital-bar.low { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+	.vital-trail.draining { transition: none; }
+	.vital-hit,
+	.vital-hp .vital-bar.low { animation: none; }
+}
 
 /* Zone info */
 /* The name above the d-pad wraps to two lines at an intersection ("MARROW
@@ -15530,6 +15575,21 @@ body.esp-active #output {
 	color: var(--text-bright);
 }
 .confirm-actions button:hover { border-color: var(--accent); }
+/* Hold to confirm (confirm.js holdToConfirm): the button fills left to right as
+   it's held and fires when full. The fill is the progress, not decoration, so it
+   stays with Motion off; only the ease back on letting go is dropped. */
+.confirm-hold { position: relative; overflow: hidden; touch-action: none; user-select: none; }
+.confirm-hold .hold-fill {
+	position: absolute;
+	inset: 0;
+	transform-origin: left center;
+	transform: scaleX(var(--hold, 0));
+	background: color-mix(in srgb, var(--text-bright) 30%, transparent);
+	pointer-events: none;
+}
+.confirm-hold:not(.holding) .hold-fill { transition: transform 0.18s ease-out; }
+.confirm-hold .hold-label { position: relative; }
+[data-motion="off"] .confirm-hold .hold-fill { transition: none; }
 
 /* Select dialog (showSelectDialog) — a scrollable column of pickable options. */
 .confirm-select-list {
@@ -16592,7 +16652,8 @@ input.trade-qty { width: 56px; }
 }
 .accolade-foot .accolade-xp { color: var(--accent); font-variant-numeric: tabular-nums; }
 .accolade-foot .accolade-dismiss { color: var(--text-dim); opacity: 0; transition: opacity 140ms ease; }
-.accolade-card:hover .accolade-dismiss { opacity: 1; }
+.accolade-card:hover .accolade-dismiss,
+.accolade-card:focus-within .accolade-dismiss { opacity: 1; }
 /* No hover on touch — the card still times itself out, but the dismiss would
    be permanently invisible, so show it outright. */
 @media (hover: none), (pointer: coarse) {
@@ -16608,7 +16669,8 @@ input.trade-qty { width: 56px; }
 	background: color-mix(in srgb, var(--accent) 60%, transparent);
 	animation: accolade-life var(--accolade-hold, 5s) linear both;
 }
-.accolade-card:hover .accolade-life { animation-play-state: paused; }
+.accolade-card:hover .accolade-life,
+.accolade-card:focus-within .accolade-life { animation-play-state: paused; }
 @keyframes accolade-life { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 
 @media (prefers-reduced-motion: reduce) {
@@ -18916,7 +18978,8 @@ html[data-density="compact"] #workspace-grip { display: none; }
 	text-transform: uppercase;
 	white-space: nowrap;
 }
-.wsp-run:hover .wsp-run-cmd { opacity: 1; }
+.wsp-run:hover .wsp-run-cmd,
+.wsp-run:focus-visible .wsp-run-cmd { opacity: 1; }
 /* A step with no verb behind it — "leave it alone" is real advice and not a
    command. It keeps the numbering and the indent and pointedly not the hover. */
 .wsp-run-idle { padding-left: 12px; opacity: .8; }
@@ -20186,3 +20249,105 @@ body.shop-alarm #minimap-grid-mob {
 		box-shadow: 0 0 10px rgba(200, 25, 10, 0.5);
 	}
 }
+
+/* ── Native controls, in the game's own skin ─────────────────────────────────
+   A select, a slider or a number box drawn by the operating system is the
+   loudest "this is a web page" in the client. These put every one of them in
+   the theme's colours. They are all :where(), so they weigh nothing: any panel
+   that styles its own controls (the hangar, the flight tune sheet) still wins.
+   The elements stay native underneath, so the keyboard and a screen reader see
+   exactly what they saw before, and the focus ring is the sheet's own
+   (:focus-visible, at the end). Colour inputs don't open the OS dialog at all:
+   js/native-controls.js hands them to the game's colour picker. */
+/* A select keeps its native arrow: panels set their own background and padding
+   (some inline), and a drawn chevron would vanish under one and collide with the
+   other. The colours are what read as a form. */
+:where(select) {
+	font: inherit;
+	color: var(--text);
+	background-color: var(--bg3);
+	border: 1px solid var(--border);
+	border-radius: 2px;
+	padding: 3px 5px;
+	cursor: pointer;
+}
+:where(select):hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+:where(select option, select optgroup) { color: var(--text); background: var(--bg2); }
+
+:where(input[type="range"]) {
+	appearance: none;
+	-webkit-appearance: none;
+	height: 18px;
+	background: transparent;
+	cursor: pointer;
+}
+:where(input[type="range"])::-webkit-slider-runnable-track {
+	height: 4px;
+	background: linear-gradient(90deg, var(--accent-dim), var(--bg3));
+	border: 1px solid var(--border);
+	border-radius: 1px;
+}
+:where(input[type="range"])::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 9px;
+	height: 16px;
+	margin-top: -7px;
+	background: var(--accent);
+	border: 1px solid var(--bg);
+	border-radius: 1px;
+	box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+:where(input[type="range"])::-moz-range-track {
+	height: 4px;
+	background: linear-gradient(90deg, var(--accent-dim), var(--bg3));
+	border: 1px solid var(--border);
+	border-radius: 1px;
+}
+:where(input[type="range"])::-moz-range-thumb {
+	width: 9px;
+	height: 16px;
+	background: var(--accent);
+	border: 1px solid var(--bg);
+	border-radius: 1px;
+	box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+/* A number box is typed into. The spinner arrows are a desktop form's; the
+   arrow keys still step it. */
+:where(input[type="number"]) {
+	appearance: textfield;
+	-moz-appearance: textfield;
+	font: inherit;
+	color: var(--text);
+	background: var(--bg3);
+	border: 1px solid var(--border);
+	border-radius: 2px;
+	padding: 2px 6px;
+}
+:where(input[type="number"])::-webkit-inner-spin-button,
+:where(input[type="number"])::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+:where(input[type="checkbox"], input[type="radio"], progress) { accent-color: var(--accent); }
+
+/* A colour well: a lacquer chip in a dark bezel, not a grey form button. */
+:where(input[type="color"]) {
+	appearance: none;
+	-webkit-appearance: none;
+	width: 38px;
+	height: 24px;
+	padding: 2px;
+	background: var(--bg3);
+	border: 1px solid var(--border);
+	border-radius: 2px;
+	cursor: pointer;
+}
+:where(input[type="color"])::-webkit-color-swatch-wrapper { padding: 0; }
+:where(input[type="color"])::-webkit-color-swatch { border: none; border-radius: 1px; }
+:where(input[type="color"])::-moz-color-swatch { border: none; border-radius: 1px; }
+
+
+/* A field that was left empty when it needed filling says so itself, rather
+   than through a browser alert (settings.js, the theme editor's name). */
+input[aria-invalid="true"] { outline: 1px solid var(--red); outline-offset: 1px; }
+input[aria-invalid="true"]::placeholder { color: var(--red); opacity: 0.8; }

@@ -48,6 +48,8 @@ import { state } from "./state.js";
 import { initInput, handleClientCommand } from "./input.js";
 import { initA11yFocus } from "./a11y-focus.js";
 import { initDictation, setDictationMode } from "./dictation.js";
+import { initUiSound, setUiSoundMode } from "./ui-sound.js";
+import { initNativeControls } from "./native-controls.js";
 import { initLogReader, setLogReaderMode, setLogReaderRate } from "./logreader.js";
 import { initTradePanel } from "./panels/trade.js";
 import { initRecipesPanel } from "./panels/recipes.js";
@@ -62,7 +64,7 @@ import { initForecast } from "./panels/forecast.js";
 import { initWhisperPanel, debugFakeWhisper } from "./panels/whisper.js";
 import { initWho, openWhoModal } from "./panels/who.js";
 import { initPlayersPanel } from "./panels/players.js";
-import { showAmountDialog, showDangerDialog, makeDraggable } from "./panels/confirm.js";
+import { showAmountDialog, showDangerDialog, showConfirmDialog, makeDraggable } from "./panels/confirm.js";
 import { initSidebarOrder } from "./panels/sidebar-order.js";
 import { mountCustomPanels } from "./panels/custom/manager.js";
 import { initCustomPanelButton } from "./panels/custom/builder.js";
@@ -166,6 +168,10 @@ window._applyDictation = setDictationMode;
 // screen-reader note at the top of logreader.js.
 window._applyLogVoice = setLogReaderMode;
 window._applyLogVoiceRate = setLogReaderRate;
+// Interface Sounds (Settings → Accessibility): the click a button makes. On by default.
+window._applyUiSound = setUiSoundMode;
+initUiSound();
+initNativeControls();
 
 applySettings(settings);
 // Mobile vs. desktop layout is auto-detected per device at launch — there is no
@@ -408,6 +414,7 @@ initSettingsUI(
 	{
 		sendCmd,
 		notify: (msg) => appendMsg(msg, "system"),
+		confirm: (msg, onYes) => showConfirmDialog(msg, onYes),
 	},
 );
 
