@@ -46,6 +46,7 @@ uniform vec2 uViewport;
 // The projection z row [A, B] and the pull in tiles — see the WARN below and the twin in sprites.js.
 uniform vec2 uAB;
 uniform float uPull;
+uniform float uTime;
 out float vSide;
 out float vFeather;
 out vec3 vColor;
@@ -83,6 +84,16 @@ void main() {
   vFeather = aStyle.z;
   vColor = aColor;
   vAlpha = aStyle.y;
+  // Gas-tube hum on glow haloes only (feather 1). The phase is hashed from the tube's own end, so
+  // every sign breathes on its own and the same sign breathes the same way every frame.
+  if (aStyle.z > 0.99) {
+    float h = fract(sin(dot(aA.xz + aB.xz, vec2(12.9898, 78.233))) * 43758.5453);
+    float hum = 0.96 + 0.04 * sin(uTime * (7.0 + 5.0 * h) + h * 6.2832);
+    // A rare stutter: about one tube in eight dips for a twentieth of a second now and then.
+    float tick = floor(uTime * 20.0);
+    float r = fract(sin(tick * 0.137 + h * 91.7) * 43758.5453);
+    vAlpha *= hum * ((h > 0.875 && r > 0.97) ? 0.35 : 1.0);
+  }
 }`;
 
 const FRAG = `#version 300 es
@@ -96,9 +107,20 @@ void main() {
   // 'feather' is 0 for a hard line and 1 for a halo. A canvas stroke is antialiased across its own
   // edge and a shadowBlur halo falls off across its whole width, and one number covers both.
   // (Single quotes, never backticks: this comment is inside a template literal.)
-  float a = vAlpha * (1.0 - smoothstep(1.0 - max(0.08, vFeather), 1.0, abs(vSide)));
+  float d = abs(vSide);
+  float a = vAlpha * (1.0 - smoothstep(1.0 - max(0.08, vFeather), 1.0, d));
+  vec3 col = vColor;
+  if (vFeather > 0.99) {
+    // A glow halo: the Shadertoy neon profile in place of a flat plateau. A tight exp() core that
+    // goes white-hot on the tube, plus a wide exponential bloom that trails out and is forced to zero at
+    // the quad's edge so no hard rim shows.
+    float core = exp(-d * d * 60.0);
+    float bloom = exp(-d * 2.6) * (1.0 - d * d);
+    a = vAlpha * (0.9 * core + 1.5 * bloom);
+    col = mix(vColor, vec3(1.0), core * 0.25);
+  }
   if (a < 0.004) discard;
-  outColor = vec4(vColor * a, a);
+  outColor = vec4(col * a, a);
 }`;
 
 function compile(gl, type, src, label) {
@@ -134,6 +156,7 @@ export function createStrokeLayer(gl) {
     viewport: gl.getUniformLocation(prog, 'uViewport'),
     ab: gl.getUniformLocation(prog, 'uAB'),
     pull: gl.getUniformLocation(prog, 'uPull'),
+    time: gl.getUniformLocation(prog, 'uTime'),
   };
 
   const vao = gl.createVertexArray();
@@ -208,6 +231,7 @@ export function createStrokeLayer(gl) {
     const zr = zRow((cam && cam.near) || NEAR);
     gl.uniform2f(loc.ab, zr[0], zr[1]);
     gl.uniform1f(loc.pull, WIRE_PULL);
+    gl.uniform1f(loc.time, (performance.now() / 1000) % 3600);
     gl.enable(gl.DEPTH_TEST);
     gl.depthMask(false);        // a wire is thinner than the depth buffer can express; it must not hide anything
     gl.disable(gl.CULL_FACE);

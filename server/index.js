@@ -273,6 +273,8 @@ const MIME = {
 	".jpg": "image/jpeg",
 	".jpeg": "image/jpeg",
 	".webp": "image/webp",
+	// The two self-hosted neon sign faces (client/shared/fonts/).
+	".woff2": "font/woff2",
 };
 
 // ── Static asset cache + compression ──────────────────────────────────────────
