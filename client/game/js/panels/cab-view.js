@@ -490,7 +490,13 @@ export function cabServiceHost() { return st ? document.querySelector('.cab-wrap
 // is cleared the moment the bay closes, and the server's push after a respray replaces PAINT with
 // the real thing — so a colour you only looked at can never be the colour you drive away in.
 let PAINT_PREVIEW = null;
-export function cabPreview({ paint = null } = {}) { PAINT_PREVIEW = paint || null; }
+// The interior gets the same: a retrim held on the bench is drawn in the cab before it is bought,
+// the way the hangar's cabin view shows an aircraft's work copy. Each key is set only when passed.
+let TRIM_PREVIEW = null;
+export function cabPreview(o = {}) {
+  if ('paint' in o) PAINT_PREVIEW = o.paint || null;
+  if ('trim' in o) TRIM_PREVIEW = o.trim || null;
+}
 /** Read the view ('ext' or 'cab') with no argument; set it with one. */
 export function cabView(mode, { quarter = false } = {}) {
   if (!st) return null;
@@ -1530,12 +1536,14 @@ export function openCab(ctx = {}) {
       // range change under a hand that is already moving — the head would leap from 26° to 140° the
       // instant a thumb brushed shift, at whatever deflection the cursor happened to be at.
       if (e.button === 1 && !st.external) {
-        if (st.freeLook && !e.shiftKey) {
+        // ⚠ NOW THE SAME AS THE AIRCRAFT: no Shift. A middle press takes hold and the head STAYS
+        // where you leave it; the next middle press straightens you up and does nothing else.
+        if (st.freeLook) {
           st.freeLook = false; st.look.x = 0; st.look.y = 0; st.looking = false;
           st.showViewTag?.(0);
           e.preventDefault(); return;
         }
-        if (e.shiftKey) { st.freeLook = true; st.viewYaw = 0; st.showViewTag?.(0); }
+        st.freeLook = true; st.viewYaw = 0; st.showViewTag?.(0);
         st.looking = true;
         peekFrom(e);
         glass.setPointerCapture?.(e.pointerId);
@@ -4737,7 +4745,7 @@ function frame(now) {
       // many dials are in the binnacle. One number; the table is CAB_TRIM in windshield.js.
       // `trim` is the bench's retrim over the top of it, and reaches the SURFACE only: a retrimmed
       // Barrow can be walnut and brass and still has one dial, because the ladder is instruments.
-      tier: P.tier, trim: TRIM,
+      tier: P.tier, trim: TRIM_PREVIEW || TRIM,
       // What the driver has hung, stood and bolted in here (cab-trinkets.js), and the two numbers
       // the ones with mass swing on. Neither goes any further than this renderer — nobody but the
       // driver is ever shown the inside of a cab, so unlike `fits` there is no wire suffix and no
@@ -6283,7 +6291,7 @@ function ensureCabStyles() {
 
 export function closeCab() {
   if (!st) return;
-  PAINT_PREVIEW = null;
+  PAINT_PREVIEW = null; TRIM_PREVIEW = null;
   // The immersive layouts are the PAGE's, not the pane's — nothing else takes them down, and a
   // driver who parked in fullscreen would be left with no log and no command box.
   document.body.classList.remove('cab-fullscreen', 'cab-hidepanel');

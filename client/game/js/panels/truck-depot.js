@@ -145,7 +145,7 @@ export function openBayService(msg) {
 export function closeBayService() {
   if (!B || B.mode !== 'service') return;
   restoreView();
-  try { cabPreview({ paint: null }); } catch { /* the cab can already be gone */ }
+  try { cabPreview({ paint: null, trim: null }); } catch { /* the cab can already be gone */ }
   document.getElementById('td-svc')?.remove();
   if (toastT) clearTimeout(toastT);
   toastT = null;
@@ -433,13 +433,16 @@ function renderService() {
 function syncView() {
   if (!B || B.mode !== 'service') return;
   // The bay shows the truck from outside on every tab but the cab one: you are looking at what you are working on.
-  const want = !B.open ? null : B.bench.tab === 'cab' ? 'cab' : 'ext';
+  // …and the paint booth's Interior section sits you in the seat, so a retrim is seen where it is worn.
+  const inside = B.open && B.bench.tab === 'paint' && B.bench.psec === 'inside';
+  const want = !B.open ? null : (B.bench.tab === 'cab' || inside) ? 'cab' : 'ext';
   try {
     const first = want && B.view == null;
     if (first) B.view = cabView();                              // remember what they had, once
     if (want) cabView(want, { quarter: first });
     else restoreView();
-    cabPreview({ paint: B.open && B.bench.tab === 'paint' && B.bench.paint ? paintNow() : null });
+    cabPreview({ paint: B.open && B.bench.tab === 'paint' && B.bench.paint ? paintNow() : null,
+      trim: inside && B.bench.trim ? trimNow() : null });
   } catch { /* a cab without the hooks is a cab without the preview */ }
 }
 function restoreView() {
@@ -1294,6 +1297,7 @@ function onInput(e) {
     if (hex) hex.textContent = String(el.value || '').toUpperCase();
     syncDashMock(trimNow(t));
     refreshTrimCommit(t);
+    if (B.mode === 'service') cabPreview({ trim: trimNow(t) });
     return;
   }
   if (el.dataset.paint) {

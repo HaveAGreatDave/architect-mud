@@ -4676,6 +4676,8 @@ under rather than growing a second set of rules.
 
 Middle mouse, held, leans the driver's head; let go and it springs back. `RENDER_TUNE.cabLean`.
 
+*(2026-09-29)* The latch now works as the aircraft's does: a middle press takes hold and the head stays where you leave it; the next middle press straightens you up. Shift no longer matters. The paint booth's Interior section also sits you in the seat and draws the held retrim, colour wells included, in the real cab before you pay (`cabPreview({ trim })`).
+
 **A rotation reveals nothing, and that is the whole reason this is a translation.** The first cut
 yawed the camera through the `yawOff` seam a shoulder-check already uses, and it is the wrong shape:
 under a pure rotation every point in the frame swings by the same angle whatever its distance, so
