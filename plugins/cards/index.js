@@ -227,42 +227,46 @@ function recordLine(r) {
   return bits.join(' <span class="text-dim">·</span> ');
 }
 
+// ⚠ Every text region is escaped here, at render. The quote is player text
+// (mintquote, or a line overheard from say) and a card is collected by other
+// players, so it was stored XSS. Escaping at render covers every card already
+// struck; the authored sources carry no markup.
 export function renderCard(row) {
   const t = row.text_blocks || {};
   const s = row.spec || {};
   const out = [];
   out.push(`<span class="card-face card-${row.rarity}">`);
   out.push(`<span class="card-serial">Series ${row.series} · № ${String(row.serial).padStart(4, '0')}</span>`);
-  out.push(`<span class="card-handle">${row.subject_name}</span>`);
-  out.push(`<span class="card-sub">${t.epithet || row.subject_type} · ${rankSpan(row.rarity)}</span>`);
+  out.push(`<span class="card-handle">${esc(row.subject_name)}</span>`);
+  out.push(`<span class="card-sub">${esc(t.epithet || row.subject_type)} · ${rankSpan(row.rarity)}</span>`);
   // The physical line, the way a real card carries HT/WT. Lifted from the
   // subject's own description, so it can never argue with the prose below it —
   // and simply absent when nobody wrote anything physical down.
-  if (t.marks) out.push(`<span class="card-marks">${t.marks}</span>`);
+  if (t.marks) out.push(`<span class="card-marks">${esc(t.marks)}</span>`);
   // TWO PARAGRAPHS OF PROSE, NO HEADINGS, AND THE SPOKEN LINE UNDER THEM. The
   // labels used to announce each region ("Last seen", "In their own words") and
   // that is what made the face read as a form rather than as writing — the reader
   // can already tell prose from a quotation by looking at it.
-  if (t.last_seen) out.push(`<span class="card-block card-narration">${t.last_seen}</span>`);
+  if (t.last_seen) out.push(`<span class="card-block card-narration">${esc(t.last_seen)}</span>`);
   if (t.origin) {
     // ⚠ THE SECOND PARAGRAPH IS PROSE, ALWAYS — see narration() in builder.js for
     // what it used to do instead and why that was wrong. The setting happens HERE
     // rather than at strike, so every card already in a binder obeys the rule too.
     // An enemy's second paragraph is what it leaves behind; it has no speaker to
     // name, so it prints exactly as stored.
-    out.push(`<span class="card-block card-narration">${row.subject_type === 'enemy' ? t.origin : narration(row.subject_name, t.origin)}</span>`);
+    out.push(`<span class="card-block card-narration">${esc(row.subject_type === 'enemy' ? t.origin : narration(row.subject_name, t.origin))}</span>`);
   }
   // What it is made of, for a thing that does not talk — see anatomyLine. It sits
   // where the quote would have been and takes that region's own colour, so the
   // card has the same shape whether the subject speaks or not.
-  if (t.anatomy) out.push(`<span class="card-quote">${t.anatomy}</span>`);
+  if (t.anatomy) out.push(`<span class="card-quote">${esc(t.anatomy)}</span>`);
   // ⚠ AN EMPTY QUOTE IS A REGION THAT IS NOT THERE, AND SO IS A SILENT ONE. Most
   // subjects never say a printable word — 52 of 215 NPCs, 56 of 64 enemies, and
   // any player who was quiet at the terminal — and a card printing "— said nothing
   // worth printing —" reads as a card that failed to fill rather than as a quiet
   // person. The sentinel is a message for the MINT, where somebody can still write
   // a line before they pay; it is not a line for an object struck once and kept.
-  if (t.quote && t.quote !== SILENCE) out.push(`<span class="card-quote">“${t.quote}”</span>`);
+  if (t.quote && t.quote !== SILENCE) out.push(`<span class="card-quote">“${esc(t.quote)}”</span>`);
   if (s.record) out.push(`<span class="card-block"><span class="card-lbl">Record</span>${recordLine(s.record)}</span>`);
   if (s.hp_max) out.push(`<span class="card-block"><span class="card-lbl">Field data</span>HP ${s.hp_max} · hit ${s.hit ?? 1} · dodge ${s.dodge ?? 1}</span>`);
   out.push(`<span class="card-power">${row.subject_type === 'enemy' ? 'Threat' : row.subject_type === 'npc' ? 'Standing' : 'Power'} <b>${row.power}</b></span>`);

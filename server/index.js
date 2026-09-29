@@ -154,7 +154,7 @@ onRevoke((playerId) => {
 		try {
 			ws.send(JSON.stringify({
 				type: "error",
-				message: "Your password was changed. Please log in again.",
+				message: "Your session was ended (password or account role changed). Please log in again.",
 			}));
 			ws.close();
 		} catch { /* socket already gone; the close path cleans up either way */ }

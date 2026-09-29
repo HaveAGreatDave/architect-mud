@@ -3052,9 +3052,13 @@ async function apiSetPlayerRole(id, body) {
   const VALID_ROLES = ['player','builder','designer','dev','admin'];
   const {role}=body||{};
   if (!VALID_ROLES.includes(role)) return {status:400,body:{error:'Invalid role'}};
-  const {rows}=await query('SELECT handle FROM players WHERE id=$1',[id]);
+  const {rows}=await query('SELECT handle, role FROM players WHERE id=$1',[id]);
   if (!rows.length) return {status:404,body:{error:'Player not found'}};
   await query('UPDATE players SET role=$1 WHERE id=$2',[role,id]);
+  // The role rides inside a 24 h signed token, so without this a demoted dev
+  // keeps dev rights until it expires. Revoking also closes their live sockets;
+  // logging back in signs a token with the new role.
+  if (rows[0].role !== role) await revokeTokensFor(id);
   broadcastFn(null,{type:'output',message:`<span style="color:#7c3aed">Your account role has been updated to: ${role}.</span>`},null,id);
   return {status:200,body:{updated:true,handle:rows[0].handle,role}};
 }

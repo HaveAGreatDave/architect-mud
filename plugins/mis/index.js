@@ -2277,7 +2277,7 @@ on('player.stop', ({ player, stopped }) => {
 // in consent.js). Logout drops only the session-scoped bookkeeping — the grants
 // themselves live in the table and come back at next login.
 on('player.login', ({ id }) => { if (id) hydrateConsents(id).catch(() => {}); });
-on('player.logout', ({ id }) => { if (id) forgetSession(id); });
+on('player.logout', ({ id }) => { if (id) { forgetSession(id); stopMisEvent(id); } });
 
 // The WS-level Maturity Slider toggle (server/index.js) emits this after
 // flipping the player's fields; the plugin owns the consequences.
