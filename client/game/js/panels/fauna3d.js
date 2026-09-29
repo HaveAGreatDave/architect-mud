@@ -1317,65 +1317,6 @@ export function faunaPoseBake(kind, id, state, flare = 0, gear = 0, far = 0) {
  * clockwise is the world's (−sin, cos). Get that sign wrong and every bird is mirrored, which is
  * invisible on a goose and not on anything with a marking down one side.
  */
-// ── THE SAME TRANSFORM, WITHOUT THE GARBAGE ────────────────────────────────
-//
-// 'faunaWorldFaces' builds a fresh array of fresh face objects holding fresh vertex arrays every
-// time it is called, which is once per bird per frame: at fifty-five faces that is 330 allocations
-// a bird, or about 66,000 a frame for a two-hundred-bird murmuration. It is the same defect the
-// boids neighbour search had one layer down — correct, obvious, and quietly the dominant cost.
-//
-// ⚠ THE POOL IS OPT-IN AND THE PLAIN FUNCTION STAYS, which is not tidiness. Gates call
-// 'faunaWorldFaces' twice and compare the two results — the dpr sweep and the leg-strike check both
-// do — and a pooled call returns THE SAME OBJECTS mutated, so a comparison like that would be
-// comparing a thing with itself and passing for ever. Only the render path, which reads each face
-// once at upload and discards it, may use the pool.
-//
-// ⚠ AND A POOLED FACE MUST BE WIPED OF WHAT THE LAST CALLER WROTE ON IT. windshield.js stamps
-// '.bird' on the first face of each animal for the census to read; left on a recycled object it
-// would still be there next frame on a face belonging to nothing, and the census would report
-// birds that were never drawn. It is cleared on every face handed out.
-const _pool = [];
-let _poolN = 0;
-export function faunaPoolReset() { _poolN = 0; }
-export function faunaPoolSize() { return _pool.length; }
-
-export function faunaWorldFacesInto(out, kind, id, opts = {}) {
-  const { state = 'walk', beat = 0, flare = 0, gear = 0, x = 0, y = 0, z = 0, heading = 0, roll = 0,
-    pitch = 0, scale = FAUNA_TILE, alpha = 1, far = 0 } = opts;
-  const pose = faunaPose(kind, id, state, beat, flare, gear, far);
-  if (!pose || !pose.faces.length) return 0;
-  const ch = Math.cos(heading), sh = Math.sin(heading);
-  const cp = Math.cos(pitch), sp = Math.sin(pitch);
-  const cr = Math.cos(roll), sr = Math.sin(roll);
-  const F0 = ch * cp, F1 = sh * cp, F2 = sp;
-  const S0x = -sh, S0y = ch, S0z = 0;
-  const U0x = -ch * sp, U0y = -sh * sp, U0z = cp;
-  const Sx = S0x * cr + U0x * sr, Sy = S0y * cr + U0y * sr, Sz = S0z * cr + U0z * sr;
-  const Ux = U0x * cr - S0x * sr, Uy = U0y * cr - S0y * sr, Uz = U0z * cr - S0z * sr;
-  const faces = pose.faces;
-  for (let i = 0; i < faces.length; i++) {
-    const src = faces[i].p, n = src.length;
-    let slot = _pool[_poolN];
-    if (!slot) slot = _pool[_poolN] = { p: [], rgb: null, a: 1, bird: null };
-    _poolN++;
-    const q = slot.p;
-    if (q.length !== n) q.length = n;
-    for (let j = 0; j < n; j++) {
-      const v = src[j], a = v[0] * scale, b = v[1] * scale, c = v[2] * scale;
-      let t = q[j];
-      if (!t) t = q[j] = [0, 0, 0];
-      t[0] = x + F0 * a + Sx * b + Ux * c;
-      t[1] = y + F1 * a + Sy * b + Uy * c;
-      t[2] = z + F2 * a + Sz * b + Uz * c;
-    }
-    slot.rgb = pose.rgb[i];
-    slot.a = alpha;
-    slot.bird = null;
-    out.push(slot);
-  }
-  return faces.length;
-}
-
 export function faunaWorldFaces(kind, id, opts = {}) {
   const { state = 'walk', beat = 0, flare = 0, gear = 0, x = 0, y = 0, z = 0, heading = 0, roll = 0, pitch = 0,
     scale = FAUNA_TILE, alpha = 1, far = 0 } = opts;
@@ -1400,6 +1341,23 @@ export function faunaWorldFaces(kind, id, opts = {}) {
         z + F[2] * a + S[2] * b + U[2] * c];
     }
     out.push({ p: q, rgb: pose.rgb[i], a: alpha });
+  }
+  return out;
+}
+
+// A frame's fauna list with every bird instance record (windshield.js pushFauna) expanded into the
+// faces gl/fauna.js draws for it, the first tagged `.bird` as the CPU path once did. For the gates:
+// no harness reaches a draw call, and this is the transform the shader mirrors, so a check on these
+// faces is a check on what the GPU puts on screen. Anything that isn't a bird record passes through.
+export function faunaRecordFaces(list) {
+  const out = [];
+  for (const q of list) {
+    if (!(q && q.inst && q.kind === 'bird')) { out.push(q); continue; }
+    const faces = faunaWorldFaces('bird', q.sp, { state: q.state, beat: q.beat, flare: q.flare, gear: q.gear,
+      x: q.x, y: q.y, z: q.z, heading: q.heading, pitch: q.pitch, roll: q.roll, scale: q.scale, alpha: q.a, far: q.far });
+    if (!faces.length) continue;
+    faces[0].bird = { sp: q.sp, state: q.state, x: q.x, y: q.y, z: q.z, heading: q.heading, beat: q.beat, flare: q.flare, gear: q.gear };
+    for (const f of faces) out.push(f);
   }
   return out;
 }

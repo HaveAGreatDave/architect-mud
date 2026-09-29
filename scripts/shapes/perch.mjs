@@ -22,7 +22,7 @@
 import { readFileSync } from 'node:fs';
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
 import { SPECIES, spOf, perchedNow, perchesHigh, flockSize, flockAt, flockState, speciesAt, placeOf, habitatState, U_GROUND, GOOSE_SETTLE_MS } from '../../client/shared/birds.js';
-import { FAUNA_TILE } from '../../client/game/js/panels/fauna3d.js';
+import { FAUNA_TILE, faunaRecordFaces } from '../../client/game/js/panels/fauna3d.js';
 import { BIRD_ROWS } from '../../client/shared/fauna-models.js';
 
 const ws = await loadWindshield();
@@ -636,7 +636,7 @@ try {
     const run = () => {
       let got = [], totalFaces = 0;
       ws.installGLWorld((glCells, cam, o) => {
-        const mesh = o.fauna || [];
+        const mesh = faunaRecordFaces(o.fauna || []);   // bird records → the faces gl/fauna.js draws
         totalFaces = mesh.length;
         // ⚠ ONE BIRD IS A RUN OF FACES BETWEEN TWO MARKERS. `pushFauna` pushes an animal's faces
         // consecutively and tags only the first, so the run is the animal — which is how the width

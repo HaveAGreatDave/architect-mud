@@ -15,7 +15,7 @@
 // Within a group only positions move; the topology is identical across all sixteen beat steps. The
 // feet are the one part that adds faces, which is why gear is a group and not a row.
 //
-// ⚠ THE TRANSFORM IS faunaWorldFacesInto's, TERM FOR TERM. Heading, pitch and roll build the same
+// ⚠ THE TRANSFORM IS faunaWorldFaces's, TERM FOR TERM. Heading, pitch and roll build the same
 // F/S/U basis in the same order, so a bird cannot come out mirrored or banked the other way on the
 // GPU. Read the note on that function before changing either.
 //
@@ -541,7 +541,7 @@ export function createFaunaLayer(gl) {
 
   /**
    * Take this frame's instance records. Each is { kind, sp, state, beat, flare, gear, far, x, y, z,
-   * heading, pitch, roll, scale, a } — the arguments faunaWorldFacesInto would have been given.
+   * heading, pitch, roll, scale, a } — the arguments faunaWorldFaces would have been given.
    */
   function upload(recs) {
     for (const g of live) { g.n = 0; g.list.length = 0; }
