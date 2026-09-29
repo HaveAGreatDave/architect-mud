@@ -45625,7 +45625,7 @@ function fasciaKind(m, seed) {
   if (LIT_PICTO.has(picto)) return dRand(seed, 911) < 0.55 ? 'tube' : 'box';
   if (WORK_PICTO.has(picto)) return 'painted';
   const r = dRand(seed, 911);
-  return r < 0.24 ? 'tube' : r < 0.54 ? 'box' : r < 0.79 ? 'applied' : 'painted';
+  return r < 0.22 ? 'tube' : r < 0.48 ? 'box' : r < 0.70 ? 'applied' : r < 0.88 ? 'painted' : 'gilt';
 }
 // ── ⚠ AND THE AWNING UNDER IT WAS CUTTING THE NAME IN HALF ──────────────────────────────────────
 //
@@ -45949,6 +45949,32 @@ function marqueeBand(ctx, cam, dx, dy, E, half, wz, color, night, alpha, label =
       }
       g.globalAlpha = a; g.strokeStyle = 'rgba(10,8,12,0.95)'; g.lineWidth = 1.4; trace([TL, TR, BR, BL]); g.stroke();
       inkCol = color; inkSolid = true; pad = 0.07;
+    } else if (kind === 'gilt') {
+      // ── GOLD LEAF ON A LACQUERED BOARD ──────────────────────────────────────────────────────
+      //
+      // The Victorian shopfront fascia: a deep lacquer (the building's own hue, taken nearly to
+      // black) with a double gilt rule and gilt letters. Like `painted` it is not a lamp, so it
+      // is brightest by day; unlike paint, leaf catches whatever light is going, so it sinks less.
+      const day = night ? 0.62 : 1;
+      const GOLD = '#d9b458';
+      fill([TL, TR, BR, BL], rgba(mix([cr, cg, cb], [10, 8, 12], 0.82), 1), 1);
+      {
+        const t = P(0.5, 0), b = P(0.5, 1);
+        const grad = g.createLinearGradient(t.sx, t.sy, b.sx, b.sy);
+        grad.addColorStop(0, 'rgba(255,255,255,' + (0.14 * day) + ')');   // the varnish catching the sky
+        grad.addColorStop(0.35, 'rgba(255,255,255,0)');
+        grad.addColorStop(1, 'rgba(0,0,0,0.28)');
+        g.globalAlpha = a; g.fillStyle = grad; trace([TL, TR, BR, BL]); g.fill();
+      }
+      // Two rules, a heavy outer and a hairline inner, which is what separates gilding from paint.
+      g.strokeStyle = GOLD;
+      for (const [k, al, lw] of [[1, 0.85, 0.028], [2.4, 0.55, 0.010]]) {
+        const iu = clamp(2.2 * k / Math.max(8, wpx), 0.012, 0.09), iv = clamp(2.2 * k / Math.max(6, hpx), 0.05, 0.26);
+        g.globalAlpha = a * al * day; g.lineWidth = Math.max(0.7, hpx * lw);
+        trace([P(iu, iv), P(1 - iu, iv), P(1 - iu, 1 - iv), P(iu, 1 - iv)]); g.stroke();
+      }
+      g.globalAlpha = a; g.strokeStyle = 'rgba(10,8,12,0.95)'; g.lineWidth = 1.4; trace([TL, TR, BR, BL]); g.stroke();
+      inkCol = GOLD; inkSolid = true; pad = 0.10;
     } else if (kind === 'applied') {
       // ── APPLIED LETTERS OVER A TROUGH LIGHT ─────────────────────────────────────────────────
       //
