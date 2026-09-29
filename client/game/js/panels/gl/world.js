@@ -288,6 +288,10 @@ let builds = 0;
 // headroom over 1.0 — but headroom is not a licence, because the tonemap still has to bring it back
 // and a core that arrives desaturated arrives desaturated.
 export const LIGHT_TUNE = {
+  // The camp's tarps and the Shingles' sheets (`lit` decals): how strongly the city's lights catch
+  // them, and what share of the ROAD's reach they take. Cloth is on the ground under the lamps, so
+  // it is lit like the road rather than like a facade. 0 turns it off.
+  cloth: 1.6, clothR: 0.55,
   // The reach, in tiles. ⚠ THIS IS THE WET ROAD'S and it was swept at these — see above.
   minR: 0.8, span: 3.2,
   wallR: 0.32,   // the share of it the wall's bloom takes — about a tile, five storeys
@@ -1892,8 +1896,17 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // gain), but it is NOT the same number and must not be folded into it: that one multiplies every
   // additive sprite in the frame, which is how it cost 21.2% of an aerial night frame to buy 0.1%
   // of bloom. A neon box says it is a neon box; a stone frieze says nothing and stays at 1.
+  // ⚠ CLOTH IS THE ONE DECAL THAT CATCHES LIGHT. A tarp is not paint on a lit wall: it is the
+  // surface, and with nothing lighting it a camp under the street lamps drew as flat cut-outs. The
+  // list is the frame's own `lightList`, taken at its raw (un-night-weighted, un-`wet`) colour, and
+  // only after dark — by day the sun term is already baked into the sheet's tone.
+  const clothN = Math.min(1, Math.max(0, opts.night || 0)) * LIGHT_TUNE.cloth;
+  const clothLit = clothN > 0.01 && lightList ? {
+    gain: clothN, lights: lightList.map((L) => ({ p: L.p, r: (L.r || 1) * LIGHT_TUNE.clothR,
+      rgb: (L.rgbRaw || L.rgb).map((v) => v / (LIGHT_TUNE.wet || 1)) })),
+  } : null;
   const decals = g.view.drawDecals(cam, opts.decals, cssH, opts.hdr > 0 ? SIGN_EMISSIVE_GAIN : 0,
-    { tube: opts.glNeonTube, flicker: opts.glNeonFlicker, now: opts.now });
+    { tube: opts.glNeonTube, flicker: opts.glNeonFlicker, now: opts.now }, clothLit);
   const decalBinds = g.view.decalCost ? g.view.decalCost() : null;
   // The wires — masts, rails, braces, cables, light-runners. After the mass for the same reason
   // the Curtain and the signage are: depth-tested, writing none of its own.

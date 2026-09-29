@@ -91,6 +91,8 @@ if (typeof window !== 'undefined') {
   };
 }
 
+// How many lights lit cloth takes. The strongest few of the frame's list, in its order.
+const LIT_MAX = 12;
 const VERT = `#version 300 es
 in vec3 aPos;
 in vec2 aUV;
@@ -101,9 +103,11 @@ uniform mat4 uViewProj;
 out vec2 vUV;
 out float vAlpha;
 out float vEmit;
+out vec3 vWorld;
 flat out float vSeed;
 void main() {
   vSeed = aSeed;
+  vWorld = aPos;
   gl_Position = uViewProj * vec4(aPos, 1.0);
   vUV = aUV;
   vAlpha = aAlpha;
@@ -112,11 +116,19 @@ void main() {
 
 const FRAG = `#version 300 es
 precision highp float;
+#define LIT_MAX ${LIT_MAX}
 in vec2 vUV;
 in float vAlpha;
 in float vEmit;
+in vec3 vWorld;
 flat in float vSeed;
 uniform sampler2D uTex;
+// Lit cloth (vEmit < 0) — see LIT_MAX and the ⚠ in main.
+uniform int uLitN;
+uniform float uLitGain;
+uniform vec3 uLitP[LIT_MAX];
+uniform vec3 uLitC[LIT_MAX];
+uniform float uLitR[LIT_MAX];
 uniform float uTube;
 uniform float uFlick;
 uniform float uTime;
@@ -206,6 +218,28 @@ void main() {
   // A sign's canvas is mostly empty; do not pay to blend nothing. 'uCut' is COLOUR_CUT in the
   // ordinary pass — the literal this line has always held — and DEPTH_CUT in the depth-only prepass.
   if (t.a < uCut) discard;
+  // ── ⚠ CLOTH CATCHES THE CITY'S LIGHTS ───────────────────────────────────────────────────────
+  // A tarp is the surface, not paint on one, so it takes the same lamps the walls do. Its colour
+  // already carries the sun and the night (slumTone), so the lamps ADD onto the albedo. A sheet is
+  // thin and seen from both sides, so the cosine is two-sided and wrapped: light on the far face of
+  // a tent still comes through it, which is what a lamp inside one looks like.
+  if (vEmit < -0.5) {
+    vec3 add = vec3(0.0);
+    if (uLitN > 0) {
+      vec3 n = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
+      for (int i = 0; i < LIT_MAX; i++) {
+        if (i >= uLitN) break;
+        vec3 d = uLitP[i] - vWorld;
+        float dist = length(d);
+        float att = clamp(1.0 - dist / max(0.001, uLitR[i]), 0.0, 1.0);
+        if (att <= 0.0) continue;
+        float diff = (abs(dot(n, d / max(0.001, dist))) + 0.4) / 1.4;
+        add += uLitC[i] * (att * att * diff);
+      }
+    }
+    outColor = vec4(t.rgb * (1.0 + add * uLitGain), t.a);
+    return;
+  }
   // ── ⚠ AND THIS IS THE CITY'S ONE REAL EMITTER ───────────────────────────────────────────────
   //
   // The bloom chain has been built, wired, gated and measured for months and has never found a
@@ -366,7 +400,13 @@ export function createDecalLayer(gl) {
     flip: gl.getUniformLocation(prog, 'uFlip'),
     emitGain: gl.getUniformLocation(prog, 'uEmitGain'),
     cut: gl.getUniformLocation(prog, 'uCut'),
+    litN: gl.getUniformLocation(prog, 'uLitN'),
+    litGain: gl.getUniformLocation(prog, 'uLitGain'),
+    litP: gl.getUniformLocation(prog, 'uLitP'),
+    litC: gl.getUniformLocation(prog, 'uLitC'),
+    litR: gl.getUniformLocation(prog, 'uLitR'),
   };
+  const litP = new Float32Array(LIT_MAX * 3), litC = new Float32Array(LIT_MAX * 3), litR = new Float32Array(LIT_MAX);
 
   const vao = gl.createVertexArray();
   // One stream, set up once: the attribute pointers are recorded into the VAO here and never
@@ -492,7 +532,8 @@ export function createDecalLayer(gl) {
       const [TL, TR, BR, BL] = d.p, al = d.alpha == null ? 1 : d.alpha;
       // 0 is "this is paint" and is the default, so a producer that has never heard of emission
       // draws exactly what it drew before at any gain — see the ⚠ in the fragment shader.
-      const em = d.emit > 0 ? d.emit : 0;
+      // -1 is lit cloth, which is never also an emitter.
+      const em = d.lit ? -1 : d.emit > 0 ? d.emit : 0;
       put(TL, 0, 0, al, em); put(TR, 1, 0, al, em); put(BR, 1, 1, al, em);
       put(TL, 0, 0, al, em); put(BR, 1, 1, al, em); put(BL, 0, 1, al, em);
     };
@@ -519,9 +560,20 @@ export function createDecalLayer(gl) {
   // buffer an over-range sign clamps on the way in, so the whole gradient of a lit tube saturates to
   // flat white — the same mistake EMISSIVE_GAIN shipped at 3 and had to be walked back from. The
   // headroom to hold it is the float target, so the caller only ever sends a gain when there is one.
-  function draw(cam, H, emitGain = 0, neon = null) {
+  function draw(cam, H, emitGain = 0, neon = null, lit = null) {
     if (!batches.length) return 0;
     gl.useProgram(prog);
+    const ls = lit && lit.lights ? lit.lights : [];
+    const nL = Math.min(ls.length, LIT_MAX);
+    for (let i = 0; i < nL; i++) {
+      const L = ls[i];
+      litP[i * 3] = L.p[0]; litP[i * 3 + 1] = L.p[1]; litP[i * 3 + 2] = L.p[2];
+      litC[i * 3] = L.rgb[0]; litC[i * 3 + 1] = L.rgb[1]; litC[i * 3 + 2] = L.rgb[2];
+      litR[i] = L.r;
+    }
+    gl.uniform1i(loc.litN, nL);
+    gl.uniform1f(loc.litGain, lit && lit.gain > 0 ? lit.gain : 0);
+    if (nL) { gl.uniform3fv(loc.litP, litP); gl.uniform3fv(loc.litC, litC); gl.uniform1fv(loc.litR, litR); }
     gl.uniform1f(loc.tube, neon && neon.tube > 0 ? neon.tube : 0);
     gl.uniform1f(loc.flick, neon && neon.flicker > 0 ? neon.flicker : 0);
     // Wrapped to an hour: a float32 uniform holding milliseconds since the epoch has no fraction left.

@@ -1628,11 +1628,11 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // Signage, on the same depth buffer. Lazy like the others.
   let decals = null;
   const decalLayer = () => (decals || (decals = createDecalLayer(gl)));
-  function drawDecals(cam, list, cssH, emitGain = 0, neon = null) {
+  function drawDecals(cam, list, cssH, emitGain = 0, neon = null, lit = null) {
     if (!list || !list.length) return 0;
     const L = decalLayer();
     L.upload(list);
-    return L.draw(cam, cssH || canvas.height, emitGain, neon);
+    return L.draw(cam, cssH || canvas.height, emitGain, neon, lit);
   }
   // What that cost in BINDS, which is the figure that tracks the clock — see the ⚠ in decals.js.
   const decalCost = () => (decals ? { batches: decals.batches, textures: decals.textures, minted: decals.minted } : { batches: 0, textures: 0, minted: 0 });
