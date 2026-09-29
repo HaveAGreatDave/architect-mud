@@ -3564,6 +3564,8 @@ export function openFlightSim(opts = {}) {
     if (!D.wing && (F.s.onGround || ias < 55)) { fsimToast('CONVERSION: needs 55 kt and air under you'); return; }
     if (D.wing && ias > 150) { fsimToast('CONVERSION: slow below 150 kt to deploy the rotor'); return; }
     D.wing = !D.wing;
+    // The cyclic trim the rotor was flying on means nothing to the wing: she comes out of it neutral.
+    if (D.wing) setTrim(0);
     try { gearFx('drakeConvert'); } catch {}
     fsimToast(D.wing ? '⇄ CONVERTING: WING' : '⇄ CONVERTING: ROTOR');
   };
