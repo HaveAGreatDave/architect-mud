@@ -64,7 +64,7 @@ import { initForecast } from "./panels/forecast.js";
 import { initWhisperPanel, debugFakeWhisper } from "./panels/whisper.js";
 import { initWho, openWhoModal } from "./panels/who.js";
 import { initPlayersPanel } from "./panels/players.js";
-import { showAmountDialog, showDangerDialog, makeDraggable } from "./panels/confirm.js";
+import { showAmountDialog, showDangerDialog, showConfirmDialog, makeDraggable } from "./panels/confirm.js";
 import { initSidebarOrder } from "./panels/sidebar-order.js";
 import { mountCustomPanels } from "./panels/custom/manager.js";
 import { initCustomPanelButton } from "./panels/custom/builder.js";
@@ -414,6 +414,7 @@ initSettingsUI(
 	{
 		sendCmd,
 		notify: (msg) => appendMsg(msg, "system"),
+		confirm: (msg, onYes) => showConfirmDialog(msg, onYes),
 	},
 );
 

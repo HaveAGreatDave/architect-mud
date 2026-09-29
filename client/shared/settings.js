@@ -603,7 +603,9 @@ export function applySettings(settings) {
   }
 }
 
-export function initSettingsUI(settings, saveAndApply, { sendCmd, notify } = {}) {
+export function initSettingsUI(settings, saveAndApply, { sendCmd, notify, confirm } = {}) {
+  // The game's own confirm window, handed in so this shared file never imports a game panel.
+  _confirmUi = confirm || null;
   // Theme swatch grids — the editor-overlay grid and the inline settings grid
   // both pick a theme on click.
   const pickTheme = (value) => {
@@ -645,6 +647,9 @@ export function listenForSettingsChanges(applyFn) {
 // --- Theme Editor (game client) ---
 
 let _teSettings = null;
+// (prompt, onYes): the themed confirm initSettingsUI was given, or the browser's as a last resort.
+let _confirmUi = null;
+const askConfirm = (title, prompt, label, onYes) => (_confirmUi ? _confirmUi({ title, prompt, confirmLabel: label }, onYes) : (window.confirm(prompt) && onYes()));
 let _teSaveAndApply = null;
 let _teEditingId = null;
 let _teEditLoaded = false;
@@ -804,7 +809,11 @@ function _teApplyColor(safe, varName, val) {
 function _teSaveTheme() {
   const nameEl = document.getElementById('te-name');
   const name = nameEl ? nameEl.value.trim() : '';
-  if (!name) { alert('Enter a theme name first'); return; }
+  // No name: say so on the field itself rather than in a browser alert.
+  if (!name) {
+    if (nameEl) { nameEl.setAttribute('aria-invalid', 'true'); nameEl.placeholder = 'Name it first'; nameEl.focus(); nameEl.addEventListener('input', () => nameEl.removeAttribute('aria-invalid'), { once: true }); }
+    return;
+  }
   const colors = {};
   THEME_COLOR_VARS.forEach(({ v }) => { colors[v] = _teGetCurrentColor(v); });
   if (!_teSettings.customThemes) _teSettings.customThemes = [];
@@ -831,7 +840,10 @@ function _teDeleteTheme() {
   const idx = customThemes.findIndex(t => t.id === _teEditingId);
   if (idx === -1) return;
   const name = customThemes[idx].name;
-  if (!confirm(`Delete custom theme "${name}"?`)) return;
+  askConfirm('Delete Theme', `Delete custom theme "${name}"? This can't be undone.`, 'Delete', () => _teDeleteNow(idx));
+}
+function _teDeleteNow(idx) {
+  const customThemes = _teSettings.customThemes || [];
   customThemes.splice(idx, 1);
   _teSettings.customThemes = customThemes;
   if (_teSettings.theme === _teEditingId) _teSettings.theme = 'dark';

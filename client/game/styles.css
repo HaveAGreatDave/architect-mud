@@ -16637,7 +16637,8 @@ input.trade-qty { width: 56px; }
 }
 .accolade-foot .accolade-xp { color: var(--accent); font-variant-numeric: tabular-nums; }
 .accolade-foot .accolade-dismiss { color: var(--text-dim); opacity: 0; transition: opacity 140ms ease; }
-.accolade-card:hover .accolade-dismiss { opacity: 1; }
+.accolade-card:hover .accolade-dismiss,
+.accolade-card:focus-within .accolade-dismiss { opacity: 1; }
 /* No hover on touch — the card still times itself out, but the dismiss would
    be permanently invisible, so show it outright. */
 @media (hover: none), (pointer: coarse) {
@@ -16653,7 +16654,8 @@ input.trade-qty { width: 56px; }
 	background: color-mix(in srgb, var(--accent) 60%, transparent);
 	animation: accolade-life var(--accolade-hold, 5s) linear both;
 }
-.accolade-card:hover .accolade-life { animation-play-state: paused; }
+.accolade-card:hover .accolade-life,
+.accolade-card:focus-within .accolade-life { animation-play-state: paused; }
 @keyframes accolade-life { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 
 @media (prefers-reduced-motion: reduce) {
@@ -18961,7 +18963,8 @@ html[data-density="compact"] #workspace-grip { display: none; }
 	text-transform: uppercase;
 	white-space: nowrap;
 }
-.wsp-run:hover .wsp-run-cmd { opacity: 1; }
+.wsp-run:hover .wsp-run-cmd,
+.wsp-run:focus-visible .wsp-run-cmd { opacity: 1; }
 /* A step with no verb behind it — "leave it alone" is real advice and not a
    command. It keeps the numbering and the indent and pointedly not the hover. */
 .wsp-run-idle { padding-left: 12px; opacity: .8; }
@@ -20238,7 +20241,8 @@ body.shop-alarm #minimap-grid-mob {
    the theme's colours. They are all :where(), so they weigh nothing: any panel
    that styles its own controls (the hangar, the flight tune sheet) still wins.
    The elements stay native underneath, so the keyboard and a screen reader see
-   exactly what they saw before. Colour inputs don't open the OS dialog at all:
+   exactly what they saw before, and the focus ring is the sheet's own
+   (:focus-visible, at the end). Colour inputs don't open the OS dialog at all:
    js/native-controls.js hands them to the game's colour picker. */
 /* A select keeps its native arrow: panels set their own background and padding
    (some inline), and a drawn chevron would vanish under one and collide with the
@@ -20253,7 +20257,6 @@ body.shop-alarm #minimap-grid-mob {
 	cursor: pointer;
 }
 :where(select):hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
-:where(select):focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
 :where(select option, select optgroup) { color: var(--text); background: var(--bg2); }
 
 :where(input[type="range"]) {
@@ -20294,7 +20297,6 @@ body.shop-alarm #minimap-grid-mob {
 	border-radius: 1px;
 	box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 55%, transparent);
 }
-:where(input[type="range"]):focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
 
 /* A number box is typed into. The spinner arrows are a desktop form's; the
    arrow keys still step it. */
@@ -20308,7 +20310,6 @@ body.shop-alarm #minimap-grid-mob {
 	border-radius: 2px;
 	padding: 2px 6px;
 }
-:where(input[type="number"]):focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
 :where(input[type="number"])::-webkit-inner-spin-button,
 :where(input[type="number"])::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 
@@ -20329,4 +20330,9 @@ body.shop-alarm #minimap-grid-mob {
 :where(input[type="color"])::-webkit-color-swatch-wrapper { padding: 0; }
 :where(input[type="color"])::-webkit-color-swatch { border: none; border-radius: 1px; }
 :where(input[type="color"])::-moz-color-swatch { border: none; border-radius: 1px; }
-:where(input[type="color"]):focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
+
+
+/* A field that was left empty when it needed filling says so itself, rather
+   than through a browser alert (settings.js, the theme editor's name). */
+input[aria-invalid="true"] { outline: 1px solid var(--red); outline-offset: 1px; }
+input[aria-invalid="true"]::placeholder { color: var(--red); opacity: 0.8; }
