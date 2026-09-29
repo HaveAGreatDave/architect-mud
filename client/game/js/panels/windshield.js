@@ -18804,13 +18804,21 @@ const BAY_FLOORS = 2.2;
 // so on the truck's numbers she was through the door before it had lifted. A hangar door is up
 // whenever an aircraft stands in the front of the shed, which is also what the maintenance camera
 // needs when it stands off in the doorway, and what "in the seat, ready to go" looks like.
-const HANGAR_BAY = { HW: 0.49, HL: 0.49, WALL: 0.72, RIDGE: 0.86, DOOR_W: 0.45, DOOR_H: 0.68, LANE: 0.05, IN_SENSE: 0.98, IN_OPEN: 0.6 };
+// ⚠ LOW EAVES, AND THE DOOR GOES UP INTO THE GABLE. With the eaves at 0.72 the shed was a cube a
+// tile on a side with a lid, and it read as a tower block with a door in it. Only the fin needs the
+// height, and the fin is on the centreline, so the eaves come down to 0.46 and the door head follows
+// the gable (`bayDoorHead`): tall in the middle for the fin, lower out at the jambs where only
+// wingtips pass. The gate holds every airframe's own profile against that head, not a box.
+const HANGAR_BAY = { HW: 0.49, HL: 0.49, WALL: 0.46, RIDGE: 0.84, DOOR_W: 0.45, DOOR_H: 0.68, HEAD: 0.035, LANE: 0.05, IN_SENSE: 0.98, IN_OPEN: 0.6 };
 // Worth the same storey height the truck shed's ridge is, so CFIT lands on the roof it draws.
 const HANGAR_FLOORS = HANGAR_BAY.RIDGE * (BAY_FLOORS / BAY.RIDGE);
 export const bayDims = (cell) => (cell && cell.bk === 'air' ? HANGAR_BAY : BAY);
 // The roof line at a point across the shed, in world-z: a straight gable from eaves to ridge, which
 // is exactly the two pitches drawVehicleBay paints. `lx` is the local cross-shed coordinate.
 const bayTopZ = (lx, D = BAY) => D.WALL + (D.RIDGE - D.WALL) * Math.max(0, 1 - Math.abs(lx) / D.HW);
+// The door head at `lx` across the opening: DOOR_H, unless the gable comes lower than that (less a
+// header of steel), which only happens on the hangar. The truck shed's head is flat.
+export const bayDoorHead = (lx, D = BAY) => Math.min(D.DOOR_H, bayTopZ(lx, D) - (D.HEAD || 0));
 const isBay = (cell) => cell && cell.mark === 'bay';
 function floorsOf(cell) { return isBay(cell) ? (cell.bk === 'air' ? HANGAR_FLOORS : BAY_FLOORS) : floorsFor(cell && cell.bt, cell && cell.flr); }
 // Deterministic building height for a cell: floors × per-storey, with a small stable
@@ -33733,8 +33741,16 @@ export function hangarFit(cls, armed) {
     if (face.role === 'rotor') continue;
     for (const p of face.p) { if (p[2] < lo) lo = p[2]; if (p[2] > hi) hi = p[2]; }
   }
-  const S = (CONTACT_SIZE[cls] || 0.11) * ownExtMul(cls) * CONTACT_VS;
-  return { wid: b.wid, len: b.len, top: lo <= hi ? S * (hi - lo) : 0 };
+  const S = (CONTACT_SIZE[cls] || 0.11) * ownExtMul(cls) * CONTACT_VS, SH = S / CONTACT_VS;
+  // `prof`: every vertex as [distance off her centreline, height off the floor], in tiles. The
+  // hangar door's head follows the gable, so what has to clear it is the fin at the middle and the
+  // wingtips out at the jambs, not one box as tall as the fin and as wide as the wings.
+  const prof = [];
+  for (const face of aircraftFaces(cls, 1, !!armed)) {
+    if (face.role === 'rotor') continue;
+    for (const p of face.p) prof.push([Math.abs(p[1]) * SH, S * (p[2] - lo)]);
+  }
+  return { wid: b.wid, len: b.len, top: lo <= hi ? S * (hi - lo) : 0, prof };
 }
 // The distance the camera must hold from the model's CENTRE to keep every face in front of the near
 // plane, at the bearing it is actually orbiting from. `deg` is degrees off dead-astern, which is
@@ -38886,6 +38902,9 @@ const NAMED_MODELS = {
   // `pawn` arm for any other fence in the world.
   coldwaterpowerplantturbinehall: { type: 'power',     pal: 'ty_power' },
   coldwaterregionalhangar:        { type: 'hangar',    pal: 'ty_hangar_a', big: true },
+  // The terminal and tower beside the field's GLASS hangar (a bay since the taxi-in hangar): the
+  // old airport model without its own shed, and without the derived kit, which it hung on that shed.
+  coldwaterregionalterminal:      { type: 'hangar',    pal: 'ty_hangar_a', big: true, noShed: true, noKit: true },
   thresholdhelipadhangar:         { type: 'hangar',    pal: 'ty_hangar_b', helipad: true },
   sump:                           { type: 'divebar',   pal: 'ty_bar_a',    neon: '#7dff6a' },
   thedeadpigeon:                  { type: 'divebar',   pal: 'ty_bar_b',    neon: '#5fd0ff', perch: true },
@@ -52189,7 +52208,8 @@ function drawTypeModelArm(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E
       // 2. HANGAR — a smaller corrugated-STEEL shed standing to the LEFT (clear of the tower) under a
       //    curved BARREL ROOF, with an OPEN bay on the apron gable — a recessed dark interior, a floor,
       //    a parked-aircraft tail hint and warm spill — instead of a closed door.
-      { const hxL = -fh * 0.55, hw = fh * 0.5, wallTop = top * 0.52, archH = hw * 0.95;
+      // A terminal standing beside a field's real hangar (`noShed`) leaves this one out.
+      if (!m.noShed) { const hxL = -fh * 0.55, hw = fh * 0.5, wallTop = top * 0.52, archH = hw * 0.95;
         const [hx, hy] = F(hxL, 0);
         draw3DBoxAt(ctx, cam, hx, hy, hw, 0, wallTop, 'ty_hangarmetal', seed, night, alpha, false);                 // ribbed-steel walls (roof capped by the barrel)
         drawBarrelRoof(ctx, cam, F, hxL, hw, hw, wallTop, archH, 10, alpha, [138, 146, 156]);                        // curved corrugated roof + arched gables
@@ -62389,7 +62409,8 @@ export function derivedTrim(m, fh, h, seed, forceRich) {
   let list = byScale.get(k);
   if (list) return list;
   // What somebody has already drawn for this building, and which sections that covers.
-  const base = (m.detail && m.detail.length) ? m.detail : (ARM_DETAIL[m.type] || null);
+  // (`noKit`: the arm's parts were placed against a mass this model leaves out — see the terminal.)
+  const base = m.noKit ? null : (m.detail && m.detail.length) ? m.detail : (ARM_DETAIL[m.type] || null);
   const have = new Set();
   // ⚠ COUNTED BEFORE IT IS CLAIMED — see SECTION_MIN. A kind with no entry there needs one part,
   // which is what every kind did before the table existed.
@@ -62983,7 +63004,7 @@ const NO_AD_TRADE = new Set(['power', 'dynamo', 'dw_turbine', 'trm_charge', 'sig
 // square roof face — what a roof part stands ON. They differ for every shed in the city: a box under
 // a barrel roof is a fine wall and not a floor you can put a water tank on. See the ⚠ in derivedTrim.
 function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = MODERN_NEUTRAL, place = null, claims = [], blocks = [], mass = cand) {
-  if (!RENDER_TUNE.derivedKit || NO_KIT.has(m.type)) return;
+  if (!RENDER_TUNE.derivedKit || NO_KIT.has(m.type) || m.noKit) return;
   const wants = (s) => !have.has(s);   // a section somebody already drew is theirs; stay out of it
   const pal = m.pal;
   // What the OPENINGS are dressed in, as opposed to what the wall is faced in — see trimPalFor.
@@ -66601,11 +66622,14 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
         };
         slab(-BD.HW, -BD.DOOR_W, 0, BD.WALL);     // the two solid flanks…
         slab(BD.DOOR_W, BD.HW, 0, BD.WALL);
-        slab(-BD.DOOR_W, BD.DOOR_W, BD.DOOR_H, BD.WALL);   // …and the header over the opening
+        slab(-BD.DOOR_W, BD.DOOR_W, BD.DOOR_H, BD.WALL);   // …and the header over the opening (none on a hangar, whose door is in its gable)
         // The leaf itself. A roller door goes UP, so what is left of it hangs from the head and the
         // gap opens underneath — which is the half a truck drives through.
         const open = bayDoorOpen(it.dx, it.dy, it.c);
-        if (open < 0.98) slab(-BD.DOOR_W, BD.DOOR_W, BD.DOOR_H * open, BD.DOOR_H);
+        // A box can't follow the hangar's gabled head, so it stops at the jamb head: an occluder may
+        // hide less than is drawn, never more.
+        const headZ = bayDoorHead(BD.DOOR_W, BD);
+        if (open < 0.98) slab(-BD.DOOR_W, BD.DOOR_W, Math.min(BD.DOOR_H * open, headZ), headZ);
         contribute(it);
         continue;
       }
@@ -68284,6 +68308,12 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   // paint and the fittings differ. A second copy of the shed would be a second door to get wrong.
   const D = bayDims(cell), air = cell.bk === 'air';
   const { HW, HL, WALL, RIDGE, DOOR_W, DOOR_H, LANE } = D;
+  // The door's outline. On the truck shed a rectangle; on the hangar the head climbs into the gable,
+  // so it is a pentagon: straight up the jambs to `JAMB_H`, along the roof pitch to `DOOR_H`, flat
+  // across the middle between ±XB. `doorHalfW(z)` is the opening's half-width at a height.
+  const JAMB_H = bayDoorHead(DOOR_W, D);
+  const XB = air ? clamp(HW * (1 - (DOOR_H + (D.HEAD || 0) - WALL) / (RIDGE - WALL)), 0, DOOR_W) : DOOR_W;
+  const doorHalfW = (z) => (z <= JAMB_H || JAMB_H >= DOOR_H) ? DOOR_W : XB + (DOOR_W - XB) * (DOOR_H - z) / (DOOR_H - JAMB_H);
 
   // ── WHERE THE CAMERA IS, IN THE SHED'S OWN FRAME ───────────────────────────
   // The eye sits `back` tiles astern of the focus (makeCam), so in the chase view it is NOT at the
@@ -68515,13 +68545,25 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   }
   // The front: a header over the opening and a jamb each side. The gap between them is the door,
   // and it is a real absence — never a rectangle painted on a wall.
-  bayFace([[-HW, HL, DOOR_H], [HW, HL, DOOR_H], [HW, HL, WALL], [-HW, HL, WALL]], two(...STEEL, 0.8, 0.92), { stroke: 'rgba(0,0,0,0.3)' });
+  if (air) {
+    // The hangar's front is the whole gable with the door cut out of it: a jamb each side whose top
+    // follows the roof, and strips of gable between the door head and the roof line over the door.
+    const xs = [-DOOR_W, -XB, 0, XB, DOOR_W];
+    for (let i = 0; i + 1 < xs.length; i++) {
+      const x0 = xs[i], x1 = xs[i + 1];
+      if (x1 - x0 < 1e-6) continue;
+      bayFace([[x0, HL, bayDoorHead(x0, D)], [x1, HL, bayDoorHead(x1, D)], [x1, HL, bayTopZ(x1, D)], [x0, HL, bayTopZ(x0, D)]], two(...STEEL, 0.8, 0.92), { stroke: 'rgba(0,0,0,0.3)' });
+    }
+  } else {
+    bayFace([[-HW, HL, DOOR_H], [HW, HL, DOOR_H], [HW, HL, WALL], [-HW, HL, WALL]], two(...STEEL, 0.8, 0.92), { stroke: 'rgba(0,0,0,0.3)' });
+  }
   for (const s of [-1, 1]) {
     const inner = s * DOOR_W, outer = s * HW;
-    bayFace([[inner, HL, 0], [outer, HL, 0], [outer, HL, DOOR_H], [inner, HL, DOOR_H]], two(...STEEL, 0.86, 0.86), { stroke: 'rgba(0,0,0,0.3)' });
+    if (air) bayFace([[inner, HL, 0], [outer, HL, 0], [outer, HL, bayTopZ(outer, D)], [inner, HL, bayTopZ(inner, D)]], two(...STEEL, 0.86, 0.86), { stroke: 'rgba(0,0,0,0.3)' });
+    else bayFace([[inner, HL, 0], [outer, HL, 0], [outer, HL, DOOR_H], [inner, HL, DOOR_H]], two(...STEEL, 0.86, 0.86), { stroke: 'rgba(0,0,0,0.3)' });
     // Hazard diagonals up the jamb, because the one thing a driver hits in a shed is the doorway.
     const jw = Math.min(0.035, HW - DOOR_W - 0.002);
-    for (let z = 0.01; z < DOOR_H - 0.02; z += 0.036) {
+    for (let z = 0.01; z < JAMB_H - 0.02; z += 0.036) {
       bayFace([[inner, HL - 0.002, z], [inner + s * jw, HL - 0.002, z + 0.018],
                [inner + s * jw, HL - 0.002, z + 0.036], [inner, HL - 0.002, z + 0.018]], YELLOW_DIM, { stroke: null });
     }
@@ -68546,23 +68588,31 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   // header, which is what a rolled-up door actually looks like from underneath.
   const doorBottom = DOOR_H * open;
   for (const s of [-1, 1]) {   // the guide rails it runs in — they are there whether it is up or down
-    bayFace([[s * (DOOR_W + 0.012), HL - 0.012, 0], [s * DOOR_W, HL - 0.012, 0], [s * DOOR_W, HL - 0.012, DOOR_H], [s * (DOOR_W + 0.012), HL - 0.012, DOOR_H]],
+    bayFace([[s * (DOOR_W + 0.012), HL - 0.012, 0], [s * DOOR_W, HL - 0.012, 0], [s * DOOR_W, HL - 0.012, JAMB_H], [s * (DOOR_W + 0.012), HL - 0.012, JAMB_H]],
       two(...DARK, 1.3, 0.9), { stroke: null });
   }
   if (doorBottom < DOOR_H - 0.001) {
+    if (air) {
+      // The leaf fills the pentagon above `doorBottom`, clipped by the same clipper the near plane uses.
+      const leaf = clipTo([[-DOOR_W, HL - 0.008, 0], [DOOR_W, HL - 0.008, 0], [DOOR_W, HL - 0.008, JAMB_H], [XB, HL - 0.008, DOOR_H],
+        [-XB, HL - 0.008, DOOR_H], [-DOOR_W, HL - 0.008, JAMB_H]], (p) => p[2] - doorBottom);
+      if (leaf.length >= 3) bayFace(leaf, two(126, 134, 142, 0.82, 0.95), { stroke: 'rgba(0,0,0,0.55)' });
+    } else {
     bayFace([[-DOOR_W, HL - 0.008, doorBottom], [DOOR_W, HL - 0.008, doorBottom],
              [DOOR_W, HL - 0.008, DOOR_H], [-DOOR_W, HL - 0.008, DOOR_H]], two(126, 134, 142, 0.82, 0.95), { stroke: 'rgba(0,0,0,0.55)' });
+    }
     // Slats. A flat panel reads as a sheet of card, and a roller door is the one object in a yard
     // everybody has looked at closely.
     const SLATS = air ? 12 : 9;
     for (let i = 1; i < SLATS; i++) {
-      const z = doorBottom + (DOOR_H - doorBottom) * (i / SLATS);
-      bayFace([[-DOOR_W, HL - 0.009, z], [DOOR_W, HL - 0.009, z], [DOOR_W, HL - 0.009, z + 0.0022], [-DOOR_W, HL - 0.009, z + 0.0022]],
+      const z = doorBottom + (DOOR_H - doorBottom) * (i / SLATS), w0 = doorHalfW(z), w1 = doorHalfW(z + 0.0022);
+      bayFace([[-w0, HL - 0.009, z], [w0, HL - 0.009, z], [w1, HL - 0.009, z + 0.0022], [-w1, HL - 0.009, z + 0.0022]],
         'rgba(0,0,0,0.35)', { stroke: null });
     }
     // The bottom rail: the heavy rubber-shod edge, darker than the leaf.
-    bayFace([[-DOOR_W, HL - 0.0075, doorBottom], [DOOR_W, HL - 0.0075, doorBottom], [DOOR_W, HL - 0.0075, doorBottom + 0.006], [-DOOR_W, HL - 0.0075, doorBottom + 0.006]],
-      two(...DARK, 1.2, 0.8), { stroke: null });
+    { const w0 = doorHalfW(doorBottom), w1 = doorHalfW(doorBottom + 0.006);
+    bayFace([[-w0, HL - 0.0075, doorBottom], [w0, HL - 0.0075, doorBottom], [w1, HL - 0.0075, doorBottom + 0.006], [-w1, HL - 0.0075, doorBottom + 0.006]],
+      two(...DARK, 1.2, 0.8), { stroke: null }); }
   }
 
   // ── THE ROOF ───────────────────────────────────────────────────────────────
@@ -68585,7 +68635,8 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
       }
     }
     // The gable over the door, so the front reads as a building rather than as a wall with sky above it.
-    bayFace([[-HW, HL, WALL], [HW, HL, WALL], [0, HL, RIDGE]], ex(...STEEL, 0.98), { stroke: 'rgba(0,0,0,0.3)', cut: true });
+    // (The hangar's door is cut up into its gable, so its front was built whole with the jambs.)
+    if (!air) bayFace([[-HW, HL, WALL], [HW, HL, WALL], [0, HL, RIDGE]], ex(...STEEL, 0.98), { stroke: 'rgba(0,0,0,0.3)', cut: true });
     bayFace([[-HW, -HL, WALL], [HW, -HL, WALL], [0, -HL, RIDGE]], two(...STEEL, 0.95, 0.6), { stroke: 'rgba(0,0,0,0.3)', cut: true });
   }
 
@@ -68815,11 +68866,14 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
       // world quad through `cam.unproj`, which cannot be mirrored because the screen is the screen;
       // it is also the one path every other sign in the city already goes through, and it falls
       // back to the canvas by itself when GL is off.
-      // A hangar's header is a few centimetres of steel over a door that is nearly the whole front,
-      // so its board goes up on the gable instead, inside the triangle at every point.
-      const bw = air ? HW * 0.38 : DOOR_W, bz0 = air ? WALL + 0.008 : DOOR_H + 0.012, bz1 = air ? WALL + 0.058 : WALL - 0.012;
-      const BOARD = [[-bw, HL + 0.004, bz1], [bw, HL + 0.004, bz1],
-                     [bw, HL + 0.004, bz0], [-bw, HL + 0.004, bz0]];
+      // A hangar's door is cut up into its gable, so there is no front left to hang a name on: its
+      // board goes down both long walls instead, under the eaves.
+      const bw = DOOR_W, bz0 = DOOR_H + 0.012, bz1 = WALL - 0.012;
+      const hbz0 = WALL * 0.56, hbz1 = WALL * 0.8, hbl = HL * 0.62;
+      const BOARDS = air
+        ? [-1, 1].map((s) => [[s * (HW + 0.004), -hbl, hbz1], [s * (HW + 0.004), hbl, hbz1], [s * (HW + 0.004), hbl, hbz0], [s * (HW + 0.004), -hbl, hbz0]])
+        : [[[-bw, HL + 0.004, bz1], [bw, HL + 0.004, bz1], [bw, HL + 0.004, bz0], [-bw, HL + 0.004, bz0]]];
+      for (const BOARD of BOARDS) {
       // ⚠ THE BOARD IS EMITTED WHATEVER THE CAMERA IS DOING; ONLY THE WORDS WAIT ON THE PROJECTION.
       // A board bolted to a wall is part of the shell, and the `f > 0.12` test below is a statement
       // about where the EYE is — so hanging the board off it makes the building's geometry a
@@ -68828,8 +68882,12 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
       // the bug the gate exists for. `emitSurfaceText` genuinely needs screen points, so the words
       // keep the guard.
       if (toGL) bayFace(BOARD, ex(28, 30, 36));
-      const q = BOARD.map(([lx, ly, z]) => P(lx, ly, z));
-      if (q.every((p) => p.f > 0.12)) {
+      let q = BOARD.map(([lx, ly, z]) => P(lx, ly, z));
+      // A side wall's board has no one reading order that holds from both sides of the shed, so it
+      // is decided on the screen: the words run left to right as seen. (The front board always is.)
+      if (air && q[1].sx < q[0].sx) q = [q[1], q[0], q[3], q[2]];
+      const facing = !air || camLX * Math.sign(BOARD[0][0]) > HW;   // a side wall's words only from its own side
+      if (facing && q.every((p) => p.f > 0.12)) {
         if (toGL) {
           emitSurfaceText(ctx, cam, q, tex, false, alpha);
         } else {
@@ -68839,6 +68897,7 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
           drawSurfaceText(ctx, q[0], q[1], q[2], q[3], tex, false, alpha);
           ctx.restore();
         }
+      }
       }
     }
     if (night) for (const s of [-1, 1]) glowPool(ctx, cam, ...F(s * (DOOR_W + 0.06), HL + 0.01), WALL * 0.8, '255,206,140', 9, alpha * 0.5);
