@@ -1799,6 +1799,12 @@ function ensureStyles() {
   #hb-root .hb-ctl select { flex:1; max-width:130px; padding:5px 6px; font-family:inherit; cursor:pointer;
     color:var(--tos-fg); background:color-mix(in srgb, var(--hb-atm-accent) 8%, var(--bg2));
     border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); border-radius:6px; }
+  /* The dash nameplate: typed in, so a field, but in the selects' finish rather than a white form box. */
+  #hb-root .hb-ctl input[data-plate-field] { flex:1; min-width:0; max-width:130px; padding:5px 7px; font-family:inherit; letter-spacing:2px; text-transform:uppercase;
+    color:var(--tos-fg); background:color-mix(in srgb, var(--hb-atm-accent) 8%, var(--bg2));
+    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); border-radius:6px; }
+  #hb-root .hb-ctl input[data-plate-field]::placeholder { color:var(--tos-fg-dim); }
+  #hb-root .hb-ctl input[data-plate-field]:focus-visible { outline:1px solid var(--hb-atm-accent); outline-offset:1px; }
   #hb-root .hb-apply-row { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
   #hb-root .hb-schemes { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
   #hb-root .hb-scheme { display:inline-flex; align-items:center; background:var(--hb-surf-lo); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 28%, transparent); border-radius:6px; overflow:hidden;

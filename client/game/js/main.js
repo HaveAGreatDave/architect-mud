@@ -49,6 +49,7 @@ import { initInput, handleClientCommand } from "./input.js";
 import { initA11yFocus } from "./a11y-focus.js";
 import { initDictation, setDictationMode } from "./dictation.js";
 import { initUiSound, setUiSoundMode } from "./ui-sound.js";
+import { initNativeControls } from "./native-controls.js";
 import { initLogReader, setLogReaderMode, setLogReaderRate } from "./logreader.js";
 import { initTradePanel } from "./panels/trade.js";
 import { initRecipesPanel } from "./panels/recipes.js";
@@ -170,6 +171,7 @@ window._applyLogVoiceRate = setLogReaderRate;
 // Interface Sounds (Settings → Accessibility): the click a button makes. On by default.
 window._applyUiSound = setUiSoundMode;
 initUiSound();
+initNativeControls();
 
 applySettings(settings);
 // Mobile vs. desktop layout is auto-detected per device at launch — there is no

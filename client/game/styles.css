@@ -20231,3 +20231,102 @@ body.shop-alarm #minimap-grid-mob {
 		box-shadow: 0 0 10px rgba(200, 25, 10, 0.5);
 	}
 }
+
+/* ── Native controls, in the game's own skin ─────────────────────────────────
+   A select, a slider or a number box drawn by the operating system is the
+   loudest "this is a web page" in the client. These put every one of them in
+   the theme's colours. They are all :where(), so they weigh nothing: any panel
+   that styles its own controls (the hangar, the flight tune sheet) still wins.
+   The elements stay native underneath, so the keyboard and a screen reader see
+   exactly what they saw before. Colour inputs don't open the OS dialog at all:
+   js/native-controls.js hands them to the game's colour picker. */
+/* A select keeps its native arrow: panels set their own background and padding
+   (some inline), and a drawn chevron would vanish under one and collide with the
+   other. The colours are what read as a form. */
+:where(select) {
+	font: inherit;
+	color: var(--text);
+	background-color: var(--bg3);
+	border: 1px solid var(--border);
+	border-radius: 2px;
+	padding: 3px 5px;
+	cursor: pointer;
+}
+:where(select):hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+:where(select):focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
+:where(select option, select optgroup) { color: var(--text); background: var(--bg2); }
+
+:where(input[type="range"]) {
+	appearance: none;
+	-webkit-appearance: none;
+	height: 18px;
+	background: transparent;
+	cursor: pointer;
+}
+:where(input[type="range"])::-webkit-slider-runnable-track {
+	height: 4px;
+	background: linear-gradient(90deg, var(--accent-dim), var(--bg3));
+	border: 1px solid var(--border);
+	border-radius: 1px;
+}
+:where(input[type="range"])::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 9px;
+	height: 16px;
+	margin-top: -7px;
+	background: var(--accent);
+	border: 1px solid var(--bg);
+	border-radius: 1px;
+	box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+:where(input[type="range"])::-moz-range-track {
+	height: 4px;
+	background: linear-gradient(90deg, var(--accent-dim), var(--bg3));
+	border: 1px solid var(--border);
+	border-radius: 1px;
+}
+:where(input[type="range"])::-moz-range-thumb {
+	width: 9px;
+	height: 16px;
+	background: var(--accent);
+	border: 1px solid var(--bg);
+	border-radius: 1px;
+	box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+:where(input[type="range"]):focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+
+/* A number box is typed into. The spinner arrows are a desktop form's; the
+   arrow keys still step it. */
+:where(input[type="number"]) {
+	appearance: textfield;
+	-moz-appearance: textfield;
+	font: inherit;
+	color: var(--text);
+	background: var(--bg3);
+	border: 1px solid var(--border);
+	border-radius: 2px;
+	padding: 2px 6px;
+}
+:where(input[type="number"]):focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
+:where(input[type="number"])::-webkit-inner-spin-button,
+:where(input[type="number"])::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+:where(input[type="checkbox"], input[type="radio"], progress) { accent-color: var(--accent); }
+
+/* A colour well: a lacquer chip in a dark bezel, not a grey form button. */
+:where(input[type="color"]) {
+	appearance: none;
+	-webkit-appearance: none;
+	width: 38px;
+	height: 24px;
+	padding: 2px;
+	background: var(--bg3);
+	border: 1px solid var(--border);
+	border-radius: 2px;
+	cursor: pointer;
+}
+:where(input[type="color"])::-webkit-color-swatch-wrapper { padding: 0; }
+:where(input[type="color"])::-webkit-color-swatch { border: none; border-radius: 1px; }
+:where(input[type="color"])::-moz-color-swatch { border: none; border-radius: 1px; }
+:where(input[type="color"]):focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
