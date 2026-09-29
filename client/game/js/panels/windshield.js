@@ -5993,6 +5993,7 @@ function paintWindshieldFrame(id, view) {
       drawGunTracers(ctx, cam, v, now);
       drawConvergenceMark(ctx, cam, v, now);   // where the two guns meet (the Drake's CONV knob)   // 3D gun tracers — own rounds + any nearby shooter's, streaking through world space toward where they're aiming
       if (v.missiles) drawMissiles(ctx, cam, v, now);   // our own shots in the air: motor flare + smoke trail, weaving downrange
+      if (v.flares) drawFlares(ctx, cam, v, now);   // countermeasure pellets: white-hot sparkling points under a smoke trail
       // Incoming ground-AA volley in the same 3D world space, rising off the gun's tile.
       // Remembers whether it drew: a site behind the view (or an old payload without site
       // coords) falls through to the screen-space streak after the banked block instead.
@@ -36626,6 +36627,57 @@ function drawMissiles(ctx, cam, v, now) {
     if (nose.f > 0.1) {
       ctx.strokeStyle = 'rgba(38,40,46,0.9)'; ctx.lineWidth = clamp(2.6 / p.f, 1, 7);
       ctx.beginPath(); ctx.moveTo(p.sx, p.sy); ctx.lineTo(nose.sx, nose.sy); ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+// ── Countermeasure flares ────────────────────────────────────────────────────
+// The pellets cockpit.js stepFlares flies. `v.flares` = [{ dx, dy, altDiff, life, seed,
+// trail:[[dx,dy,altDiff]…] }]. Each is a curling grey smoke trail, a warm halo and a white-hot
+// core that flickers hard, with a few sparks shed around it, so a burst reads as a spray of
+// sparkling points arcing down and away. Lit additively, so they bloom against a night sky.
+function drawFlares(ctx, cam, v, now) {
+  const fs = v.flares; if (!fs || !fs.length) return;
+  ctx.save(); ctx.lineCap = 'round';
+  for (const f of fs) {
+    const fade = f.life < 0.75 ? 1 : 1 - (f.life - 0.75) / 0.25;
+    const tr = f.trail || [];
+    for (let i = 1; i < tr.length; i++) {
+      const a = cam.proj(tr[i - 1][0], tr[i - 1][1], cam.EH + tr[i - 1][2] * CONTACT_ALT_K);
+      const b = cam.proj(tr[i][0], tr[i][1], cam.EH + tr[i][2] * CONTACT_ALT_K);
+      if (a.f <= 0.12 || b.f <= 0.12) continue;
+      const k = i / tr.length;
+      ctx.strokeStyle = `rgba(222,218,210,${0.28 * k * fade})`;
+      ctx.lineWidth = clamp((1.2 + (1 - k) * 3) / b.f, 0.6, 10);   // smoke widens as it ages
+      ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
+    }
+  }
+  ctx.globalCompositeOperation = 'lighter';
+  for (const f of fs) {
+    const wz = cam.EH + (f.altDiff || 0) * CONTACT_ALT_K;
+    const p = cam.proj(f.dx, f.dy, wz);
+    if (p.f <= 0.15) continue;
+    const fade = f.life < 0.75 ? 1 : 1 - (f.life - 0.75) / 0.25;
+    // Magnesium doesn't burn steady: two fast sines and a hash give a hard, uneven flicker.
+    const t = now * 0.001, sd = f.seed;
+    const flick = 0.6 + 0.25 * Math.sin(t * 47 + sd) + 0.15 * Math.sin(t * 91 + sd * 3.1);
+    const rad = clamp(2.6 / p.f, 1.2, 12) * (0.8 + 0.4 * flick);
+    const hg = ctx.createRadialGradient(p.sx, p.sy, 0, p.sx, p.sy, rad * 4);
+    hg.addColorStop(0, `rgba(255,250,230,${0.9 * fade})`);
+    hg.addColorStop(0.25, `rgba(255,214,140,${0.5 * fade * flick})`);
+    hg.addColorStop(1, 'rgba(255,150,60,0)');
+    ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(p.sx, p.sy, rad * 4, 0, 7); ctx.fill();
+    // Sparks: short-lived points thrown off the pellet, re-rolled every ~60ms.
+    const tick = Math.floor(now / 60);
+    ctx.fillStyle = `rgba(255,246,210,${0.85 * fade})`;
+    for (let j = 0; j < 5; j++) {
+      const h = Math.sin((tick + j * 13.7) * 12.9898 + sd * 78.233) * 43758.5453;
+      const r1 = h - Math.floor(h), r2 = (h * 7.13) - Math.floor(h * 7.13);
+      if (r1 > 0.7) continue;
+      const ang = r2 * Math.PI * 2, dist = rad * (1.5 + r1 * 4);
+      const sz = clamp(0.9 / p.f, 0.7, 2.5);
+      ctx.fillRect(p.sx + Math.cos(ang) * dist - sz / 2, p.sy + Math.sin(ang) * dist * 0.8 + dist * 0.3 - sz / 2, sz, sz);
     }
   }
   ctx.restore();
