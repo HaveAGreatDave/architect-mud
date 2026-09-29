@@ -24,7 +24,7 @@ import { createFreeCam, FREECAM_HINT, bindFreeCamPointer, bindFreeCamIdle } from
 import { bindBigScreenButton, exitBigScreen, BIGSCREEN_GLYPH, BIGSCREEN_TITLE } from './bigscreen.js';
 import { claimSeatKeyboard, endSeatKeyboard, grabSeatKeys } from './seat-keys.js';
 import { updateBoatContacts, stopBoatContacts } from './boat-audio.js';
-import { updateEngineAudio, stopEngineAudio, damageCue, damageBed, stopDamageBed, airHornOn, airHornOff } from './engine-audio.js';
+import { updateEngineAudio, stopEngineAudio, damageCue, damageBed, stopDamageBed, airHornOn, airHornOff, lockKlaxon } from './engine-audio.js';
 // The cab draws the weather through its own windscreen, so the pane's outdoor overlay has to
 // stand down while it owns the pane — the same hard override the cockpit takes on embark.
 import { suppressWeatherFx } from './weather-fx.js';
@@ -3409,6 +3409,8 @@ export function cabContext(ctx) {
   // The damage HUD repaints on the SERVER push, never in the frame loop — see renderDamage.
   if (ctx.dmg) st.renderDamage?.(ctx.dmg);
   if (ctx.map) { st.map = ctx.map; st.mapX = ctx.mapX; st.mapY = ctx.mapY; st.renderMapApp?.(); }
+  // The South Lock: you rolled out on amber. The lamps are already red in the map above.
+  if (ctx.lockAlarm) lockKlaxon();
   // The road past the edge of that window, as polylines in absolute world tiles — the cab window is
   // 30 tiles and the ground runs to the horizon. Same 'undefined vs null' rule as the two lines
   // below: null is the server saying there is no road in range, and it has to CLEAR.

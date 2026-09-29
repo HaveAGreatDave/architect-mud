@@ -1166,7 +1166,7 @@ export function poiInk(node) {
 // with yellow lane markings; every other terrain is a seamless coloured expanse. The
 // .mm-<terrain> / .map-<terrain> classes carry no art any more — they only drop the
 // tile border so neighbours read as one surface.
-const TERRAIN = new Set(['road', 'dirt_road', 'water', 'grass', 'park', 'forest', 'asphalt', 'concrete', 'dirt', 'sand', 'gravel', 'dock', 'scrub', 'redrock', 'ash', 'marsh', 'sewer', 'hardpan', 'alkali', 'cliff', 'plateau']);
+const TERRAIN = new Set(['road', 'dirt_road', 'weighbridge', 'water', 'grass', 'park', 'forest', 'asphalt', 'concrete', 'dirt', 'sand', 'gravel', 'dock', 'scrub', 'redrock', 'ash', 'marsh', 'sewer', 'hardpan', 'alkali', 'cliff', 'plateau']);
 // (Every painted surface keeps whatever stands on it — see the terrain branch in the
 // cell loop. There is no longer a glyph-keeping subset: blanking icons and building
 // overlays on painted ground was the bug that hid the Fisherman Statue.)

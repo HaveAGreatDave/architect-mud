@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The far edge of the glacis, where the swept red rock finally loses to dead brush and rusted badland. The Curtain is a bright wall at your back now; ahead the land breaks into scrub and stone, rattling in a hot wind and alive in the wrong ways.",
+  "description": "The south mouth of the lock, where the Glacis road goes under a roof. A gantry hung from the first frame reads Weigh Lane Left in amber, and the ramp to the scales peels off west under the same roof. Past the mouth is open waste.",
   "exits": {
     "east": "zone_district_919_922",
     "north": "zone_district_918_921",
@@ -13,13 +13,22 @@
     "district": "wilds",
     "glacis": true,
     "region_id": "region_coldwater",
-    "terrain": "dirt_road"
+    "terrain": "road",
+    "artery": [
+      "The Gate Road"
+    ],
+    "gate_lock": {
+      "name": "the Outer Lock",
+      "k": "shed",
+      "gate": "zone_district_918_919",
+      "seg": 2
+    }
   },
   "grid_x": 918,
   "grid_y": 922,
   "grid_z": 0,
   "id": "zone_district_918_922",
   "map_id": "map_world",
-  "name": "The Glacis",
+  "name": "The Outer Lock",
   "parent_zone": null
 }

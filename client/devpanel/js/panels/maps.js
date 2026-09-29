@@ -1233,7 +1233,7 @@ function mapZoneTerrain(z) {
 function mapRoadConnector(z, byCoord) {
   if (!z || z.grid_x == null) return 'road_x';
   // Paved road and dirt_road auto-tile together (mirror of server isRoadTerrain).
-  const isRoad = (x, y) => { const t = mapZoneTerrain(byCoord.get(`${x},${y}`)); return t === 'road' || t === 'dirt_road'; };
+  const isRoad = (x, y) => { const t = mapZoneTerrain(byCoord.get(`${x},${y}`)); return t === 'road' || t === 'dirt_road' || t === 'weighbridge'; };
   let s = '';
   if (isRoad(z.grid_x, z.grid_y - 1)) s += 'n';
   if (isRoad(z.grid_x + 1, z.grid_y)) s += 'e';

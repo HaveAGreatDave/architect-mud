@@ -25,7 +25,7 @@ export const BLOCK = 12;
 // region-wide index spends the sim's heat on empty ground.
 const REGION = 'region_coldwater';
 
-const URBAN_TERRAIN = new Set(['road', 'asphalt', 'concrete', 'park', 'dirt_road']);
+const URBAN_TERRAIN = new Set(['road', 'asphalt', 'concrete', 'park', 'dirt_road', 'weighbridge']);
 
 const isUrban = (z) => {
   const f = z?.flags || {};

@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "THE GLACIS. Past the gate the ground is scraped to bare, blast-fused red rock: a wide cleared apron with no cover for a hundred metres, sown with the slag of things that tried to cross it. Behind you the Curtain's turret masts sit high on the wall, barrels idling in your direction. Nothing grows here on purpose.",
+  "description": "The inside of a long shed of grey plate laid over the Glacis road, open at both ends: the gate's light filling the north mouth, the red waste in the south. Caged worklamps run down the roof. On the west side the weigh lane comes back in. Beyond this there's only the gate.",
   "exits": {
     "east": "zone_district_919_920",
     "north": "zone_district_918_919",
@@ -13,13 +13,22 @@
     "district": "wilds",
     "glacis": true,
     "region_id": "region_coldwater",
-    "terrain": "dirt_road"
+    "terrain": "road",
+    "artery": [
+      "The Gate Road"
+    ],
+    "gate_lock": {
+      "name": "the Outer Lock",
+      "k": "shed",
+      "gate": "zone_district_918_919",
+      "seg": 0
+    }
   },
   "grid_x": 918,
   "grid_y": 920,
   "grid_z": 0,
   "id": "zone_district_918_920",
   "map_id": "map_world",
-  "name": "The Glacis",
+  "name": "The Outer Lock",
   "parent_zone": null
 }

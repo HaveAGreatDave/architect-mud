@@ -1,12 +1,11 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Cracked roadway funnels south between rusted stanchions that once held signage. The hum of the Curtain is a low electric note under the wind now, and the grass gives way to bare, over-driven ground.",
+  "description": "The town end of the lock, a roofed mouth of grey plate. A shutter hangs up in the lintel and under it a gantry of lamps faces the road: green, amber, or once in a while red with a klaxon behind it. A stencil on the wall says all vehicles may be searched.",
   "exits": {
     "east": "zone_district_919_917",
     "north": "zone_district_918_916",
-    "south": "zone_district_918_918",
-    "west": "zone_district_917_917"
+    "south": "zone_district_918_918"
   },
   "flags": {
     "artery": [
@@ -14,13 +13,20 @@
     ],
     "district": "ashway",
     "region_id": "region_coldwater",
-    "terrain": "road"
+    "terrain": "road",
+    "gate_lock": {
+      "name": "the South Lock",
+      "k": "hall",
+      "search": true,
+      "gate": "zone_district_918_919",
+      "seg": 1
+    }
   },
   "grid_x": 918,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_918_917",
   "map_id": "map_world",
-  "name": "The Gate Road",
+  "name": "The South Lock",
   "parent_zone": null
 }

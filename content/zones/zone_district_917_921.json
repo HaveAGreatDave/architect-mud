@@ -1,25 +1,35 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Red hardpan under a bleached sky. It's so flat that the horizon seems closer than it is.",
+  "color": "#9a9ea4",
+  "description": "The weighbridge: a raised deck of steel plate a hand above the road, with a short ramp at each end and a joint you feel through the seat. It's covered and floodlit. On the west edge, under the driver's window, a terminal on a post faces the booth, and its board shows nothing until something stands on the plates.",
   "exits": {
-    "east": "zone_district_918_921",
     "north": "zone_district_917_920",
     "south": "zone_district_917_922",
+    "east": "zone_district_918_921",
     "west": "zone_district_916_921"
   },
   "flags": {
     "district": "wilds",
-    "radiation": 30,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "weighbridge",
+    "weigh_station": {
+      "name": "the Glacis Weigh",
+      "pound": "zone_gatepound_lot"
+    },
+    "gate_lock": {
+      "name": "the Outer Lock",
+      "k": "deck",
+      "gate": "zone_district_918_919",
+      "seg": 1,
+      "term": "w"
+    }
   },
   "grid_x": 917,
   "grid_y": 921,
   "grid_z": 0,
   "id": "zone_district_917_921",
   "map_id": "map_world",
-  "name": "Mesa Shelf",
+  "name": "The Glacis Weigh",
   "parent_zone": null
 }

@@ -100,6 +100,17 @@
         "speed_mult": 2
       }
     },
+    "weighbridge": {
+      "label": "Weighbridge",
+      "fill": "#8f949b",
+      "text": "#f2c53d",
+      "glyph": null,
+      "minimap_class": "road",
+      "auto_tile": true,
+      "props": {
+        "speed_mult": 2
+      }
+    },
     "asphalt": {
       "label": "Asphalt",
       "fill": "#45484d",

@@ -40520,6 +40520,12 @@ export function viewRenderSmoke(ID) {
     rt: 0, rw: 1.1, rl: 2, mark: 'plaza',
     plz: { k, open, u, deg: 180, name: 'Smoke Inspection' } });
   const PLZ_KINDS = ['signal', 'lead', 'deck', 'arch'];
+  // THE SOUTH LOCK (drawGateLock): every kind, and all three signal states on the inner hall, so the
+  // red flash and the beacon run here rather than only in the one browser that ran a lock.
+  const LCK = (k, st, extra) => ({ kind: 'land', biome: 'citycore', road: 1, rd: 'ns', mark: 'lock',
+    lk: { k, st, wl: 'ew', seg: 0, ...extra } });
+  const LCK_ROWS = [LCK('hall', 'green', { s: 1, mo: 'n' }), LCK('hall', 'amber', { s: 1 }), LCK('hall', 'red', { s: 1, mo: 'n' }),
+    LCK('shed', 'green', { mo: 's' }), LCK('ramp', 'green', { wl: 'w' }), LCK('deck', 'green', { wl: '', term: 'w' })];
   const map = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => (
     x === R && y === R - 3 ? { kind: 'land', biome: 'citycore', road: 1, rd: 'nesw', flr: 0, pw: 1 }
     : x === R ? { kind: 'land', biome: 'citycore', road: 1, rd: 'ns', flr: 0, pw: 1, sl: y % 3 === 0 ? 1 : y % 3 === 1 ? 0 : undefined }
@@ -40527,6 +40533,7 @@ export function viewRenderSmoke(ID) {
     : x === R + 3 && y % 4 === 0 ? { kind: 'land', biome: 'citycore', bt: 'office', ent: 'south', flr: 6 }
     : x === R - 3 && y % 5 === 0 ? { kind: 'land', biome: 'citycore', bt: 'shop', ent: 'east', flr: 2 }
     : x === R - 5 && y >= 1 && y <= 8 ? PLZ(PLZ_KINDS[y % 4], y <= 4 ? 1 : 0, (y % 8) / 8)
+    : x === R + 5 && y >= 9 && y < 9 + LCK_ROWS.length ? LCK_ROWS[y - 9]
     : y === 0 ? { kind: 'water', biome: 'coast' }
     : { kind: 'land', biome: 'citycore', flr: 0 }
   )));
@@ -66697,6 +66704,12 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       if (markHidden(cam, it.dx, it.dy, 1.45, 0.75)) continue;
       emitMarked(() => art(ctx)); continue;
     }
+    // THE SOUTH LOCK — the covered road either side of the South Gate. See drawGateLock. No
+    // billboard and no probe: the lights animate, and you drive through the inside of it.
+    if (it.c.mark === 'lock') {
+      emitMarked(() => drawGateLock(ctx, cam, it.dx, it.dy, it.c.lk, night, alpha, now, it.seed));
+      continue;
+    }
     // A dust airstrip's drums and threshold bars — see drawStripMarks. `continue` is deliberate:
     // the tile is still a road underneath (the ground pass has already painted it), and there is no
     // mass here to extrude on top of it.
@@ -69096,6 +69109,171 @@ function drawPlazaPart(ctx, cam, dx, dy, plz, foot, night, alpha, now, seed) {
     for (const s of [-1, 1]) glowPool(ctx, cam, dx + A[0] * half * s, dy + A[1] * half * s, z * 0.5, PLZ_CYAN, 16, lit * 0.4, { add: true, max: 36 });
     ctx.restore();
     return;
+  }
+  ctx.restore();
+}
+
+// ── THE SOUTH LOCK ───────────────────────────────────────────────────────────
+//
+// The covered road either side of the South Gate, drawn so the gate reads as an airlock: a shed of
+// grey plate over the Glacis road outside (the Outer Lock, with the weigh ramp and the raised deck
+// of the Glacis Weigh under the same roof), and two covered tiles inside the wall (the South Lock)
+// whose lamps tell a driver what the lock wants of them. The server decides all of it
+// (plugins/trucking/lock.js); this paints what it is told.
+//
+//   lk.k   'hall' the inner lock · 'shed' the outer · 'ramp' the weigh lane · 'deck' the weighbridge
+//   lk.wl  which sides are walled (n/e/s/w) · lk.mo which ends open onto uncovered road
+//   lk.st  'green' roll on · 'amber' stop for search · 'red' ran it (flashing, with the klaxon)
+//
+// ⚠ EVERY MOVING PART IS LIGHT, for drawPlazaPart's reason: the steel is static and only the lamps
+// read the clock. ⚠ The red flash is a smooth pulse that never goes fully dark, not a strobe.
+const LCK_ROOF_Z = 1.02;
+const LCK_SIG = { green: '96,236,140', amber: '255,170,52', red: '255,52,40' };
+const LCK_WORK = '255,214,150';
+
+function drawGateLock(ctx, cam, dx, dy, lk, night, alpha, now, seed) {
+  if (!lk) return;
+  const H = 0.5, Z = LCK_ROOF_Z;
+  // u runs east, v runs north, in the map-space convention (north is −y).
+  const P = (u, v, z) => cam.proj(dx + u, dy - v, z);
+  const poly = (q) => { ctx.beginPath(); ctx.moveTo(q[0].sx, q[0].sy); for (let i = 1; i < q.length; i++) ctx.lineTo(q[i].sx, q[i].sy); ctx.closePath(); };
+  const ok = (q) => q.every((p) => p.f > 0.12);
+  const quad = (q, fill, add) => {
+    if (!ok(q)) return;
+    ctx.save(); if (add) ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = fill; poly(q); ctx.fill(); ctx.restore();
+  };
+  const dn = night > 0.4 ? 1 : 0;
+  const lit = (0.45 + 0.55 * night) * alpha;
+  const wl = lk.wl || '';
+  const inner = lk.k === 'hall';
+  const st = LCK_SIG[lk.st] ? lk.st : 'green';
+  // The flash: a 1 Hz swell between a quarter and full, never off.
+  const flash = st === 'red' ? 0.25 + 0.75 * (0.5 + 0.5 * Math.sin((now || 0) * 0.0063)) : 1;
+  const sig = inner ? LCK_SIG[st] : LCK_WORK;
+  const plate = dn ? 'rgb(38,42,48)' : 'rgb(96,102,110)';
+  const plateDk = dn ? 'rgb(26,29,34)' : 'rgb(72,77,84)';
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  // A wall along one side: grey plate from the floor to the eaves, seams every quarter tile, and a
+  // lamp strip at cab height in the lock's colour.
+  const wall = (side) => {
+    const seg = side === 'n' ? [[-H, H], [H, H]] : side === 's' ? [[-H, -H], [H, -H]]
+      : side === 'e' ? [[H, -H], [H, H]] : [[-H, -H], [-H, H]];
+    const [[u0, v0], [u1, v1]] = seg;
+    quad([P(u0, v0, Z), P(u1, v1, Z), P(u1, v1, 0), P(u0, v0, 0)], side === 'n' || side === 'e' ? plate : plateDk);
+    for (let i = 1; i < 4; i++) {
+      const k = i / 4, a = P(u0 + (u1 - u0) * k, v0 + (v1 - v0) * k, Z), b = P(u0 + (u1 - u0) * k, v0 + (v1 - v0) * k, 0);
+      if (a.f > 0.12 && b.f > 0.12) {
+        ctx.strokeStyle = dn ? 'rgba(10,12,15,0.7)' : 'rgba(40,44,50,0.55)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
+      }
+    }
+    // Hazard banding along the foot, because a rig's wheels live this close to it.
+    quad([P(u0, v0, 0.07), P(u1, v1, 0.07), P(u1, v1, 0), P(u0, v0, 0)], dn ? 'rgba(120,96,30,0.8)' : 'rgba(214,170,48,0.85)');
+    const inset = (u, v) => [u - Math.sign(u) * 0.01 * (side === 'e' || side === 'w' ? 1 : 0), v - Math.sign(v) * 0.01 * (side === 'n' || side === 's' ? 1 : 0)];
+    const [a0, b0] = inset(u0, v0), [a1, b1] = inset(u1, v1);
+    quad([P(a0, b0, 0.50), P(a1, b1, 0.50), P(a1, b1, 0.44), P(a0, b0, 0.44)], `rgba(${sig},${lit * 0.9 * flash})`, true);
+  };
+  for (const s of 'nesw') if (wl.includes(s)) wall(s);
+
+  // THE FRAME. Four corner posts and a rib across each end, so an open end still reads as the end
+  // of a structure rather than the roof stopping in mid-air.
+  const post = (u, v) => {
+    const w = 0.035, q = [P(u - w, v, Z), P(u + w, v, Z), P(u + w, v, 0), P(u - w, v, 0)];
+    quad(q, dn ? 'rgb(30,33,38)' : 'rgb(70,75,82)');
+  };
+  for (const u of [-H, H]) for (const v of [-H, H]) post(u, v);
+  for (const v of [-H, H]) quad([P(-H, v, Z + 0.05), P(H, v, Z + 0.05), P(H, v, Z - 0.07), P(-H, v, Z - 0.07)], dn ? 'rgb(34,37,43)' : 'rgb(82,88,96)');
+
+  // THE ROOF: ribbed plate, and one long lamp down the spine.
+  quad([P(-H, H, Z), P(H, H, Z), P(H, -H, Z), P(-H, -H, Z)], dn ? 'rgba(22,24,28,0.94)' : 'rgba(58,62,68,0.94)');
+  for (let i = -1; i <= 1; i++) {
+    const v = i * H * 0.5;
+    quad([P(-H, v + 0.012, Z - 0.012), P(H, v + 0.012, Z - 0.012), P(H, v - 0.012, Z - 0.012), P(-H, v - 0.012, Z - 0.012)], dn ? 'rgba(8,9,11,0.8)' : 'rgba(30,33,37,0.8)');
+  }
+  quad([P(-0.03, H, Z - 0.02), P(0.03, H, Z - 0.02), P(0.03, -H, Z - 0.02), P(-0.03, -H, Z - 0.02)], `rgba(${sig},${lit * flash})`, true);
+  glowPool(ctx, cam, dx, dy, 0.02, sig, 40, lit * 0.45 * flash, { add: true, max: 80 });
+
+  // THE SIGNAL GANTRY at an open end of the inner lock: five lamps in a row under the rib, facing
+  // the road, in the answer's colour. The one thing a driver reads from a hundred yards out.
+  if (inner) {
+    for (const side of (lk.mo || '') + (lk.seg === 0 ? 's' : '')) {
+      const v = side === 'n' ? H : -H;
+      quad([P(-H * 0.8, v, Z - 0.07), P(H * 0.8, v, Z - 0.07), P(H * 0.8, v, Z - 0.22), P(-H * 0.8, v, Z - 0.22)], dn ? 'rgb(10,12,14)' : 'rgb(22,25,29)');
+      for (let i = 0; i < 5; i++) {
+        const u = -H * 0.64 + i * H * 0.32, q = P(u, v, Z - 0.145);
+        if (q.f <= 0.12) continue;
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = `rgba(${LCK_SIG[st]},${Math.min(1, lit * 1.2) * flash})`;
+        ctx.beginPath(); ctx.arc(q.sx, q.sy, Math.max(1, 3.2 / q.f), 0, 7); ctx.fill(); ctx.restore();
+      }
+      if (st === 'red') {
+        // The beacon on the rib, turning: a lamp that swings its throw round rather than blinking.
+        const a = ((now || 0) * 0.004) % (Math.PI * 2);
+        glowPool(ctx, cam, dx + Math.cos(a) * 0.35, dy - v - Math.sin(a) * 0.35, 0.02, LCK_SIG.red, 30, lit * 0.6, { add: true, max: 60 });
+        blinkLight(ctx, cam, dx, dy - v, Z + 0.08, LCK_SIG.red, now, seed, alpha, 2.2);
+      }
+    }
+    // A stop bar across the floor, lit only when the lock wants you stopped.
+    if (st !== 'green') {
+      quad([P(-H * 0.8, 0.05, 0.012), P(H * 0.8, 0.05, 0.012), P(H * 0.8, -0.05, 0.012), P(-H * 0.8, -0.05, 0.012)], `rgba(${LCK_SIG[st]},${lit * 0.6 * flash})`, true);
+    }
+  } else {
+    // Caged worklamps on the ribs of the outer shed, and amber studs down a ramp's edges.
+    for (const v of [-H * 0.5, H * 0.5]) glowPool(ctx, cam, dx, dy - v, Z - 0.05, LCK_WORK, 16, lit * 0.55, { add: true, max: 36 });
+    if (lk.k === 'ramp') {
+      const t = ((now || 0) % 1100) / 1100;
+      for (let i = 0; i < 3; i++) {
+        const a = 0.25 + 0.75 * Math.max(0, 1 - Math.abs(((i / 3) - t + 1) % 1) * 3);
+        for (const u of [-H * 0.8, H * 0.8]) {
+          const q = P(u, -H + (i + 0.5) * (2 * H / 3), 0.03);
+          if (q.f <= 0.12) continue;
+          ctx.save(); ctx.globalCompositeOperation = 'lighter';
+          ctx.fillStyle = `rgba(${LCK_SIG.amber},${lit * a})`;
+          ctx.beginPath(); ctx.arc(q.sx, q.sy, Math.max(0.8, 2 / q.f), 0, 7); ctx.fill(); ctx.restore();
+        }
+      }
+    }
+    // The shed's own gantry at the waste end: ALL RIGS: WEIGH LANE LEFT.
+    if (lk.k === 'shed' && (lk.mo || '').includes('s')) {
+      const v = -H;
+      quad([P(-H * 0.85, v, Z - 0.07), P(H * 0.85, v, Z - 0.07), P(H * 0.85, v, Z - 0.24), P(-H * 0.85, v, Z - 0.24)], dn ? 'rgb(10,12,14)' : 'rgb(22,25,29)');
+      quad([P(-H * 0.85, v - 0.004, Z - 0.225), P(H * 0.85, v - 0.004, Z - 0.225), P(H * 0.85, v - 0.004, Z - 0.235), P(-H * 0.85, v - 0.004, Z - 0.235)], `rgba(${LCK_SIG.amber},${lit * 0.8})`, true);
+      _signFace = 'mono';
+      const tex = bakeSignText('WEIGH LANE LEFT', '#ffcc7a', dn, false, false, true);
+      if (tex) {
+        const aspect = tex.width / tex.height, hgt = Math.min(0.12, (H * 1.5) / aspect), wid = hgt * aspect, zc = Z - 0.155;
+        const q = [P(-wid / 2, v - 0.006, zc + hgt / 2), P(wid / 2, v - 0.006, zc + hgt / 2), P(wid / 2, v - 0.006, zc - hgt / 2), P(-wid / 2, v - 0.006, zc - hgt / 2)];
+        if (ok(q)) drawSurfaceText(ctx, q[0], q[1], q[2], q[3], tex, false, alpha);
+      }
+    }
+  }
+
+  // THE WEIGHBRIDGE. Its own road type: a deck a hand higher than the road with a short ramp at
+  // each end, steel plates with joints, amber edge strips and a terminal on a post on the booth
+  // side, under the driver's window.
+  if (lk.k === 'deck') {
+    const hw = H * 0.78, hl = H * 0.62, dz = 0.045;
+    // The ramps up at both ends, then the deck, then its lit face toward the camera.
+    quad([P(-hw, hl, dz), P(hw, hl, dz), P(hw, H, 0.004), P(-hw, H, 0.004)], dn ? 'rgb(44,47,52)' : 'rgb(112,116,122)');
+    quad([P(-hw, -H, 0.004), P(hw, -H, 0.004), P(hw, -hl, dz), P(-hw, -hl, dz)], dn ? 'rgb(44,47,52)' : 'rgb(112,116,122)');
+    for (const u of [-hw, hw]) quad([P(u, -hl, dz), P(u, hl, dz), P(u, hl, 0), P(u, -hl, 0)], dn ? 'rgb(20,22,25)' : 'rgb(58,61,66)');
+    quad([P(-hw, hl, dz), P(hw, hl, dz), P(hw, -hl, dz), P(-hw, -hl, dz)], dn ? 'rgb(34,37,42)' : 'rgb(104,108,114)');
+    for (const v of [-hl * 0.34, hl * 0.34]) quad([P(-hw, v + 0.012, dz + 0.001), P(hw, v + 0.012, dz + 0.001), P(hw, v - 0.012, dz + 0.001), P(-hw, v - 0.012, dz + 0.001)], 'rgba(12,14,17,0.9)');
+    const pulse = 0.55 + 0.45 * Math.sin((now || 0) * 0.0032);
+    for (const u of [-hw, hw]) quad([P(u - 0.02, hl, dz + 0.002), P(u + 0.02, hl, dz + 0.002), P(u + 0.02, -hl, dz + 0.002), P(u - 0.02, -hl, dz + 0.002)], `rgba(${LCK_SIG.amber},${lit * 0.8})`, true);
+    quad([P(-hw * 0.7, 0.03, dz + 0.003), P(hw * 0.7, 0.03, dz + 0.003), P(hw * 0.7, -0.03, dz + 0.003), P(-hw * 0.7, -0.03, dz + 0.003)], `rgba(226,240,255,${lit * 0.55 * pulse})`, true);
+    // The terminal: a post, a box, a screen facing across the deck, and the board above it.
+    const tu = (lk.term === 'e' ? 1 : -1) * (hw + 0.07);
+    post(tu, 0.1);
+    const face = tu < 0 ? 0.03 : -0.03;
+    quad([P(tu + face, 0.2, 0.42), P(tu + face, 0.0, 0.42), P(tu + face, 0.0, 0.26), P(tu + face, 0.2, 0.26)], dn ? 'rgb(14,16,19)' : 'rgb(30,34,38)');
+    quad([P(tu + face * 1.3, 0.18, 0.40), P(tu + face * 1.3, 0.02, 0.40), P(tu + face * 1.3, 0.02, 0.30), P(tu + face * 1.3, 0.18, 0.30)], `rgba(120,244,255,${lit * 0.55})`, true);
+    quad([P(tu + face, 0.28, 0.80), P(tu + face, -0.08, 0.80), P(tu + face, -0.08, 0.62), P(tu + face, 0.28, 0.62)], dn ? 'rgb(8,10,12)' : 'rgb(18,21,25)');
+    quad([P(tu + face * 1.3, 0.24, 0.76), P(tu + face * 1.3, -0.04, 0.76), P(tu + face * 1.3, -0.04, 0.66), P(tu + face * 1.3, 0.24, 0.66)], `rgba(${LCK_SIG.amber},${lit * 0.35})`, true);
+    glowPool(ctx, cam, dx + tu, dy - 0.1, 0.3, '120,244,255', 14, lit * 0.45, { add: true, max: 30 });
   }
   ctx.restore();
 }

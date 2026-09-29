@@ -217,6 +217,7 @@ import { schedule } from '../../server/engine/scheduler.js';
 import { hitcherAt } from './hitchers.js';
 import { runScale, afterDrive, customsAnswer, pendingCustoms, scaleAt, releaseImpound } from './scale.js';
 import { tryDeck, plazaHere, weighHere } from './plaza.js';
+import { lockTick } from './lock.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { TRAILER_TYPES, trailerType, trailersAt, trailersOf, getTrailer, trailerOnTruck,
@@ -2497,8 +2498,11 @@ async function cmdTruckSync(args, raw, player) {
     // off the map in a truck launches the crossing exactly as walking off it does — the same
     // `launchCrossing`, the same muster-less path a walker takes once they've readied.
     if (r.bogged) return await leaveTheMap(player, rig);
+    let lockZone = null, lockPrev = null;
     if (r.moved) {
+      lockPrev = getZone(player.current_zone);
       const zone = driveToZone(player, rig, r.zone);
+      lockZone = zone;
       // THE SCALE. A weighbridge is a tile you drive onto, so it hangs off the drive rather than off
       // the move gate — a driver never walks. Shared with the text rung; see scale.js afterDrive.
       await afterDrive(player, rig, zone);
@@ -2506,9 +2510,16 @@ async function cmdTruckSync(args, raw, player) {
       // Rolled into a depot with a load that belongs there? That's a delivery.
       if (rig.cargo && r.zone === rig.cargo.to) return await deliver(player, rig);
     }
+    // THE SOUTH LOCK. Every frame, not only on a move, because what it asks is that you STOP in it;
+    // a sync guard returns at once anywhere that isn't the lock. See lock.js.
+    if (rig._lock || lockZone) await lockTick(player, rig, lockZone || getZone(rig.zoneId), lockPrev);
     // The shed's overlay comes up when you stop in it and goes when you roll out of it.
     baySvcTick(player, rig);
-    pushCab(rig);
+    if (rig._lockPush) {
+      const red = rig._lockPush === 'red';
+      rig._lockPush = null;
+      pushCab(rig, { lockAlarm: red ? 1 : 0 });
+    } else pushCab(rig);
     return { type: 'noop' };
   }
 

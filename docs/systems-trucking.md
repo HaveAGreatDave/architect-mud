@@ -1,6 +1,6 @@
 # THE LONG HAUL — driving the void
 
-**STATUS: Built — buy a truck, keep it running, take work, haul it. Four models, contracts, a commodity market, fuel, solid buildings, an eight-speed box with a diesel voice, and the rig — trailer articulation, reverse and brake fade. The depot is now a building you walk into, with a garage floor you can click a rig on, a walkaround, a dealer's line and a maintenance bench (condition, repair, four tuning dials, kits, paint). The scale house is now also a PLACE — the Glacis Weigh, a drive-in station just inside the South Gate with a pull-in apron, a weighbridge deck, a booth and an impound lot, plus an inspection plaza out on the void highway, with a deceleration lane, an apron, a weighbridge deck you stop on, a scanner arch and a lit gantry over your own lane; holding your lane past a lit one is a four-star crime. Trailers as world objects, hitchhikers and city driving are all built too — every phase of the design has shipped, and so are the four things the build itself turned up: breakdowns with a roadside `fix`, the fork as a junction you can take (`route`), wipers, and a CB that reports real wrecks. The junction is now a fork you can SEE — the corridor synthesises the limbs you did *not* take, so the highway branches toward each region instead of ending in open waste — and the road signs its own bends in MILES. The road is laid in REAL WORLD COORDINATES, so a driver, a pilot and a walker all describe the same place with the same numbers, the world outside the windscreen is the actual world, and you can turn round and drive home. Distances are consequently the real gaps between regions and are pending a tuning pass. See [proposals](proposals/the-long-haul.md).**
+**STATUS: Built — buy a truck, keep it running, take work, haul it. Four models, contracts, a commodity market, fuel, solid buildings, an eight-speed box with a diesel voice, and the rig — trailer articulation, reverse and brake fade. The depot is now a building you walk into, with a garage floor you can click a rig on, a walkaround, a dealer's line and a maintenance bench (condition, repair, four tuning dials, kits, paint). The scale house is now also a PLACE — the Glacis Weigh, a drive-in station just OUTSIDE the South Gate under the Outer Lock's roof, with an off-ramp, a raised weighbridge deck, a booth and an impound lot, and the gate itself is an airlock whose inner lock pulls drivers for a contraband search (the South Lock), plus an inspection plaza out on the void highway, with a deceleration lane, an apron, a weighbridge deck you stop on, a scanner arch and a lit gantry over your own lane; holding your lane past a lit one is a four-star crime. Trailers as world objects, hitchhikers and city driving are all built too — every phase of the design has shipped, and so are the four things the build itself turned up: breakdowns with a roadside `fix`, the fork as a junction you can take (`route`), wipers, and a CB that reports real wrecks. The junction is now a fork you can SEE — the corridor synthesises the limbs you did *not* take, so the highway branches toward each region instead of ending in open waste — and the road signs its own bends in MILES. The road is laid in REAL WORLD COORDINATES, so a driver, a pilot and a walker all describe the same place with the same numbers, the world outside the windscreen is the actual world, and you can turn round and drive home. Distances are consequently the real gaps between regions and are pending a tuning pass. See [proposals](proposals/the-long-haul.md).**
 
 Freight hauling by road. You take a load at a depot in Coldwater, drive it through the city to the
 edge of the map, cross the waste on a highway that does not exist until you drive it, and back onto
@@ -27,6 +27,7 @@ and a city that resolves out of the haze at the end of it.
 | Ground collision | `groundObstructionAt` + `segContains` in [windshield.js](../client/game/js/panels/windshield.js) |
 | The scale house, customs, impound | [plugins/trucking/scale.js](../plugins/trucking/scale.js) |
 | The inspection plaza — the station as geometry, and the law for driving past one | [plugins/trucking/plaza.js](../plugins/trucking/plaza.js) |
+| The South Lock — the covered search lane inside the gate, and the law for rolling out on amber | [plugins/trucking/lock.js](../plugins/trucking/lock.js) |
 | Trailers as world objects | [plugins/trucking/trailers.js](../plugins/trucking/trailers.js) · `trailers` table in SCHEMA_SQL |
 | People on the shoulder | [plugins/trucking/hitchers.js](../plugins/trucking/hitchers.js) |
 | The sleeper cab as a place you can sleep | [plugins/trucking/bunk.js](../plugins/trucking/bunk.js) |
@@ -39,7 +40,7 @@ and a city that resolves out of the haze at the end of it.
 | The truck meshes (four shapes, bobtail + hitched) | `buildTruck` / `TRUCK_SHAPES` in [aircraft3d.js](../client/game/js/panels/aircraft3d.js) |
 | The dispatcher | [content/npcs/npc_kessler_dispatcher.json](../content/npcs/npc_kessler_dispatcher.json) |
 | Commodities + prices | [plugins/trucking/market.js](../plugins/trucking/market.js) |
-| Zone flags | `truck_depot` / `truck_yard` / `truck_fuel` / `weigh_station` / `loading_dock` in [tagCatalog.js](../client/shared/tagCatalog.js) |
+| Zone flags | `truck_depot` / `truck_yard` / `truck_fuel` / `weigh_station` / `gate_lock` / `loading_dock` in [tagCatalog.js](../client/shared/tagCatalog.js) |
 
 ---
 
@@ -2687,26 +2688,30 @@ never scans — Coldwater→Reach is the smuggling run and the return is the one
 
 ### The Glacis Weigh — the station you drive into
 
-The weighbridge used to be a flag on a tile twelve miles out on the Glacis, at **918,947**, where
-the paragraph arrived while you drove past it and there was nothing to pull into and nothing to look
-at. It is now a **place just inside the South Gate**, and the ground is laid out so that stopping is
-a decision:
+The weighbridge used to be a flag on a tile twelve miles out on the Glacis, at **918,947**, then a
+place just inside the South Gate. It's now **outside the Curtain**, under the roof of the Outer Lock
+(see *The South Lock* below), and the ground is laid out so that stopping is a decision:
 
 |       | 916 | 917 | 918 | 919 |
 |---|---|---|---|---|
-| **917** | open | the lane | Gate Road | Mains Squeeze |
-| **918** | **the booth** | **the deck** | Gate Road | **Long Stay** |
+| **917** | scrub | old lane (gravel) | **the South Lock** | Mains Squeeze |
+| **918** | scrub | old deck (gravel) | **the South Lock** | Long Stay |
 | **919** | Curtain | Curtain | **SOUTH GATE** | Curtain |
+| **920** | waste | the weigh lane | **the Outer Lock** | waste |
+| **921** | **the booth** | **the deck** | **the Outer Lock** | waste |
+| **922** | waste | the weigh ramp | **the Outer Lock** | waste |
 
-A rig coming north through the throat either carries straight on up 918 — the bypass — or bears
-left onto the deck at **917,918**, which is the tile carrying `flags.weigh_station`, and rejoins by
-the lane at 917,917. That is a deceleration lane, an apron and an acceleration lane in placed tiles:
-the same RUN_IN / PAD / RUN_OUT shape a plaza synthesises out on the highway, which is what makes
-the highway stations and the gate read as one institution rather than two mechanics.
+A rig coming north up the Glacis goes under the lock roof at 918,922. It either carries straight on
+up 918 — the bypass — or takes the ramp at **917,922** onto the deck at **917,921**, the tile
+carrying `flags.weigh_station`, and rejoins by the weigh lane at 917,920 just short of the gate.
+Every one of those tiles is covered (`flags.gate_lock`).
 
-It works because in the **city leg** a rig's zone is just `surfaceAt(round(x), round(y))` — free
-roam, with buildings solid through the CFIT sweep — so the apron is somewhere you genuinely steer to
-and the mainline is a genuine way past it.
+The deck is its own road type, `terrain: 'weighbridge'`: a road for every rule that asks (it's in
+`isRoadTerrain`, `isRoadCell`, `surfaceUnder` and the footstep table as steel), drawn by GLASS as a
+deck a hand higher than the road with a short ramp at each end, plates, amber edge strips and a
+terminal on a post on the booth side (`gate_lock.term`), right under the driver's window.
+
+The old deck and lane inside the wall are gravel now, with the scars described in their rooms.
 
 > ⚠ **THE DECK IS NOT A BUILDING, AND MUST NEVER BECOME ONE.** A building tile joins the CFIT
 > collision sweep and leaves the walk graph, so a weighbridge authored as a building is a
@@ -2754,6 +2759,42 @@ smuggle without importing it. Neither direction of dependency is created.
 
 
 ---
+
+## The South Lock — the gate as an airlock
+
+**STATUS: BUILT.** `plugins/trucking/lock.js`, drawn by `drawGateLock` in `windshield.js`.
+
+The South Gate is an airlock. Outside, the Glacis road runs under a shed of grey plate for three
+tiles (the Outer Lock, 918,920–922), with the weigh ramp, the deck and the weigh lane under the same
+roof. Inside, the Gate Road runs through two covered tiles (the South Lock, 918,917–918) that carry
+`gate_lock.search`. Content marks every covered tile with `flags.gate_lock`; walls are derived in
+`deriveSurfaceCell` from the neighbours (any side that isn't lock, gate or road is plate), so nothing
+authors a wall by hand.
+
+**The lamps are the order.** Every driver entering the inner lock is drawn for a search, seeded on
+(player, truck, 20-minute window) at about one in three:
+
+| Lamps | Means |
+|---|---|
+| green | roll on |
+| amber | stop in the lock; the officers walk the rig (the `CONTRABAND_SCAN` action) and open the cab (`cabCheckAt`) |
+| red, flashing, klaxon | you rolled out the far end on amber without stopping: `running_an_inspection`, four stars |
+
+- **Seeded, never rolled per frame.** Turning round and coming back in the same window gets the same
+  answer.
+- **Ran is decided on the way out**, as at a plaza: the lock arms when the rig enters a search tile
+  and settles when it leaves. Out the end you came in by is turning round and costs nothing.
+- **The stars go through `WANTED_RAISE`** (`chargeAt(…, true, …)`), not a witness roll. The lock
+  read the plate; nobody has to happen to see it. The star value is still the crime registry's.
+- **The lamps are per driver.** Cells ship `lk.st: 'green'`; `cabContext` repaints the inner lock's
+  cells from `rig._lockSig` for that driver only. Red lapses after 30 seconds. The klaxon is
+  `lockKlaxon()` in `engine-audio.js`, fired by `lockAlarm` on the push that turns the lamps red.
+- **The text rung can't run it.** A text driver pulled for a search is stopped in the lock and
+  searched, and the run ends; `drive` again to roll on.
+- The lock searches and the scale weighs, and neither knows about the other: "weight, not
+  contraband" still holds at the deck outside.
+- Long Stay's gate opens into the lock, so a rig bought out of the pound mounts inside it. Mounting
+  doesn't arm the lock; only entering it does.
 
 ## The inspection plaza — the scale house as a place
 
