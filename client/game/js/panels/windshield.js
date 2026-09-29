@@ -6369,6 +6369,8 @@ function paintWindshieldFrame(id, view) {
   pEnd();
   // The Drake's night vision, on the finished picture and only inside the centre screen.
   if (!ext && INTERIOR_NV) applyNightVision(ctx, INTERIOR_NV);
+  // The lit cabin reflected in the glass, over the world and under the room.
+  if (!ext && INTERIOR_GLARE) applyCabinGlare(ctx, W, H, INTERIOR_GLARE);
   // ── THE ROOM, LAST OF THE WORLD AND FIRST OF THE OVERLAYS ──────────────────
   //
   // ⚠ AFTER THE GLASS, because the rain is on the OUTSIDE of the windscreen and the dash is inside
@@ -22580,7 +22582,9 @@ function pushInteriorShell(cam, v) {
   // warm lamp in view would wash it out. Per channel as a fraction of the surface's own colour.
   const nvOn = !!(v.drakeCab && v.drakeCab.nv);
   const floodRgb = (P.floods && v.powered !== false) ? (nvOn ? [0.28, 0.72, 0.50] : [1.0, 0.72, 0.42]) : null;
-  const floodK = 1.3 * Math.max(clamp(litK - 0.15, 0, 1), P.floodFloor || 0);
+  const floodK = 1.3 * (P.floodGain || 1) * Math.max(clamp(litK - 0.15, 0, 1), P.floodFloor || 0);
+  // A cabin lit that brightly at night shows itself in its own glass (applyCabinGlare).
+  if (floodRgb && P.glare && litK > 0.2) INTERIOR_GLARE = { k: P.glare * clamp((litK - 0.2) / 0.6, 0, 1) * (nvOn ? 0.35 : 1), rgb: floodRgb };
 
   let n = 0;
   // ── ⚠ A FACE'S COLOUR IS REUSED WHEN NOTHING IT READS HAS CHANGED ─────────────────────────────
@@ -22934,6 +22938,29 @@ let INTERIOR_HOTSPOTS = null;
 // The centre screen's outline in canvas CSS pixels while night vision is on, else null. Spent once
 // per frame by applyNightVision, so a frame that did not build the room cannot inherit it.
 let INTERIOR_NV = null;
+// { k, rgb } while a profile with `glare` has its cabin lamps up after dark, else null. Spent once
+// per frame by applyCabinGlare, like INTERIOR_NV.
+let INTERIOR_GLARE = null;
+
+// ── THE CABIN IN ITS OWN GLASS ──────────────────────────────────────────────
+// A cockpit lit up at night turns its windows into dim mirrors: the lamps and the lit trim come back
+// off the inside of the glass and lift the black outside to a warm haze, so the city is harder to
+// pick out. Drawn over the finished world and under the room, so only the glass takes it. Brightest
+// high up, where the headliner cove is reflected, with a soft bright smear where the lamp itself is.
+function applyCabinGlare(ctx, W, H, { k, rgb }) {
+  INTERIOR_GLARE = null;
+  if (!(k > 0.01)) return;
+  const c = (a) => 'rgba(' + Math.round(255 * rgb[0]) + ',' + Math.round(255 * rgb[1]) + ',' + Math.round(255 * rgb[2]) + ',' + clamp(a, 0, 1).toFixed(3) + ')';
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  const wash = ctx.createLinearGradient(0, 0, 0, H);
+  wash.addColorStop(0, c(0.30 * k)); wash.addColorStop(0.55, c(0.20 * k)); wash.addColorStop(1, c(0.14 * k));
+  ctx.fillStyle = wash; ctx.fillRect(0, 0, W, H);
+  const spot = ctx.createRadialGradient(W * 0.5, H * 0.12, 0, W * 0.5, H * 0.12, Math.max(W, H) * 0.45);
+  spot.addColorStop(0, c(0.22 * k)); spot.addColorStop(1, c(0));
+  ctx.fillStyle = spot; ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+}
 
 // ── NIGHT VISION: AN IMAGE INTENSIFIER, NOT A GREEN FILTER ──────────────────
 //

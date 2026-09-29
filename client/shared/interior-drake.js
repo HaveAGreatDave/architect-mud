@@ -87,11 +87,6 @@ export const DRAKE_TRIM_NOIR = {
   // The gauges: black faces, gold ink, ivory hands.
   dialFace: [24, 23, 22], dialInk: [214, 172, 82], dialHand: [236, 226, 200],
 };
-// The nameplate is backlit: a lamp behind the badge spills round its rim and out behind each letter.
-// Warm on the stock and noir trims, cool white behind Quackhawk's chrome. See-through, so it reads
-// as light on the panel rather than a painted border.
-const BACKLIGHT_WARM = [255, 206, 128], BACKLIGHT_COOL = [196, 222, 255];
-DRAKE_TRIM.backlight = BACKLIGHT_WARM; DRAKE_TRIM_NOIR.backlight = BACKLIGHT_WARM;
 // QUACKHAWK DOWN, the special edition, and it is dressed like one: red, white and blue with the
 // brightwork in CHROME. Every bezel, rim, rule and letter that is gold on the stock Drake is polished
 // chrome here (its own `gold` array, registered below as chrome); the walnut becomes a deep navy
@@ -112,8 +107,22 @@ export const DRAKE_TRIM_QUACKHAWK = {
   console: [14, 22, 60],
   dialFace: [246, 246, 242], dialInk: [18, 28, 84], dialHand: [200, 22, 38],
   stripeRed: [200, 24, 40], stripeWhite: [246, 246, 242],
-  backlight: BACKLIGHT_COOL,
 };
+// The nameplate is engraved metal: a brushed face, cuts with a dark floor, a shadowed wall and a
+// bright lip where the far wall of each cut catches the light. Brass on the stock trim, smoked gold
+// on Darkwing, brushed steel on Quackhawk. Each is its own array, so SHINY keys it on its own.
+DRAKE_TRIM.engrave = { face: [214, 174, 96], lip: [255, 238, 184], shadow: [58, 38, 12], floor: [34, 24, 12] };
+DRAKE_TRIM_NOIR.engrave = { face: [156, 128, 70], lip: [250, 222, 150], shadow: [26, 20, 10], floor: [14, 12, 8] };
+DRAKE_TRIM_QUACKHAWK.engrave = { face: [192, 198, 208], lip: [252, 254, 255], shadow: [36, 40, 50], floor: [12, 18, 44] };
+for (const [E, amb, bright, alb] of [
+  [DRAKE_TRIM.engrave, [110, 76, 24], [255, 232, 160], [255, 210, 130]],
+  [DRAKE_TRIM_NOIR.engrave, [70, 52, 20], [240, 204, 130], [236, 196, 120]],
+  [DRAKE_TRIM_QUACKHAWK.engrave, [64, 70, 82], [250, 252, 255], [236, 240, 248]],
+]) {
+  SHINY.set(E.face, { spec: 1, pow: 36, ramp: [amb, bright], glint: 0.45, albedo: alb, envK: 0.8 });
+  SHINY.set(E.lip, { spec: 1, pow: 80, ramp: [bright, [255, 255, 255]], glint: 1, albedo: alb, envK: 1 });
+  TEXTURE.set(E.face, 'brushed');
+}
 // ⚠ `T` IS SWAPPED, NOT PASSED: every part in this file reads it, so the profile builder and the
 // fit-out set it for the trim of the profile they are building (drakeProfile's second argument).
 // A profile is built once per trim, and interior-memo keys its caches on the profile, so the two
@@ -125,7 +134,7 @@ const HUD_GLASS = [6, 22, 18];
 // The switch legends: warm ivory, self-lit, on an enamel chip (drakeFit, the switch strips).
 const LABEL_INK = [244, 232, 204];
 PANE.set(HUD_GLASS, 0.45);
-PANE.set(BACKLIGHT_WARM, 0.55); PANE.set(BACKLIGHT_COOL, 0.55);
+
 // The glass over each dial catches a crescent of window light.
 const DIAL_GLINT = [255, 252, 244];
 PANE.set(DIAL_GLINT, 0.22);
@@ -353,6 +362,9 @@ export function drakeProfile(doc = MESH_ROWS.drake, trim = 'stock') {
       { p: [0, 0.05, 0.30], r: 0.75 }, { p: [0.42, 0.34, -0.18], r: 0.22 }],
     // The Drake's floods never go fully out by day: a trace of warm cabin light stays on the wood.
     floodFloor: 0.22,
+    // After dark the cabin lamps are strong enough to read by, and strong enough to show in the glass:
+    // `floodGain` scales the floods, `glare` how much of the lit cabin the windows reflect.
+    floodGain: 2.2, glare: 1,
     // The room is its own; interior-shell.js hands `room` the collector and stands back.
     room: drakeShell,
     drake: { m, X, Y, Z, H, inset, rims, faces: room.faces, floorZ: room.floorZ, well: room.well, screenRim: room.screenRim, screen: room.screen },
@@ -777,31 +789,45 @@ const roundRect = (a0, b0, a1, b1, r, n = 4) => {
 // past `maxW` (the pod's own width): 'QUACKHAWK DOWN' is three times as long as 'DRAKE'.
 function nameplate_(Pn, ca, cb, h, name = 'DRAKE', maxW = Infinity) {
   h = Math.min(h, maxW / (textWidth(name) + 2.8));   // the plate is W + 2·pad + h wide = (text + 2.8)·h
-  const W = textWidth(name) * h, pad = h * 0.9;
-  // The backlight's spill round the rim, under the gold border.
-  const bl = T.backlight, sp = h * 0.22;
-  Pn.plate(roundRect(ca - W / 2 - pad - h * 0.5 - sp, cb - h * 1.05 - sp, ca + W / 2 + pad + h * 0.5 + sp, cb + h * 1.05 + sp, h * 0.35 + sp), bl, 1, 0.0012);
-  Pn.plate(roundRect(ca - W / 2 - pad - h * 0.5, cb - h * 1.05, ca + W / 2 + pad + h * 0.5, cb + h * 1.05, h * 0.35), T.gold, 0.1, 0.002);
-  Pn.plate(roundRect(ca - W / 2 - pad - h * 0.36, cb - h * 0.9, ca + W / 2 + pad + h * 0.36, cb + h * 0.9, h * 0.28), T.enamel, 0, 0.003);
-  // A hairline gold rule inside the border, which is what makes it read as a badge and not a sign.
-  const i0 = ca - W / 2 - pad - h * 0.16, i1 = ca + W / 2 + pad + h * 0.16, j0 = cb - h * 0.72, j1 = cb + h * 0.72, t = h * 0.05;
-  Pn.rect(i0, j0, i1, j0 + t, T.gold, 0.2, 0.0035); Pn.rect(i0, j1 - t, i1, j1, T.gold, 0.2, 0.0035);
-  Pn.rect(i0, j0, i0 + t, j1, T.gold, 0.2, 0.0035); Pn.rect(i1 - t, j0, i1, j1, T.gold, 0.2, 0.0035);
-  // Halo-lit letters: the same light out from behind each one, onto the enamel round it.
-  const o = h * 0.06;
-  for (const [dx, dy] of [[-o, -o], [o, -o], [-o, o], [o, o]]) plated_(Pn, name, ca + dx, cb + dy, h, bl, bl, 0.0032, 1);
-  plated(Pn, name, ca, cb, h, T.gold, T.goldDk, 0.005);   // a millimetre prouder, clear of the halo
-  // The special edition's badge carries a red and white rule under the letters, inside the chrome.
+  const W = textWidth(name) * h, pad = h * 0.9, E = T.engrave;
+  const a0 = ca - W / 2 - pad - h * 0.5, a1 = ca + W / 2 + pad + h * 0.5, b0 = cb - h * 1.05, b1 = cb + h * 1.05;
+  // A polished frame, then the brushed face inset in it with a lit bevel along the top and a dark
+  // one along the bottom, so the plate reads as a thick slab of metal rather than a sticker.
+  Pn.plate(roundRect(a0, b0, a1, b1, h * 0.35), T.gold, 0.1, 0.002);
+  Pn.plate(roundRect(a0 + h * 0.14, b0 + h * 0.12, a1 - h * 0.14, b1 - h * 0.1, h * 0.28), E.shadow, 0, 0.0026);
+  Pn.plate(roundRect(a0 + h * 0.14, b0 + h * 0.16, a1 - h * 0.14, b1 - h * 0.14, h * 0.28), E.lip, 0.2, 0.0029);
+  Pn.plate(roundRect(a0 + h * 0.16, b0 + h * 0.16, a1 - h * 0.16, b1 - h * 0.16, h * 0.26), E.face, 0.12, 0.0032);
+  // Everything on the face is CUT into it: a shadow on the upper-left wall of each cut, the lower-right
+  // wall catching the light as a bright lip, and the dark floor over both.
+  const cut = (poly) => {
+    const e = h * 0.045;
+    Pn.plate(poly.map(([x, y]) => [x - e, y + e]), E.shadow, 0, 0.0047);
+    Pn.plate(poly.map(([x, y]) => [x + e, y - e]), E.lip, 0.3, 0.0047);
+    Pn.plate(poly, E.floor, 0, 0.0062);
+  };
+  // A cut rule inside the border, which is what makes it read as a badge and not a sign.
+  const i0 = ca - W / 2 - pad - h * 0.1, i1 = ca + W / 2 + pad + h * 0.1, j0 = cb - h * 0.72, j1 = cb + h * 0.72, t = h * 0.06;
+  for (const [p0, q0, p1, q1] of [[i0, j0, i1, j0 + t], [i0, j1 - t, i1, j1], [i0, j0, i0 + t, j1], [i1 - t, j0, i1, j1]]) cut([[p0, q0], [p1, q0], [p1, q1], [p0, q1]]);
+  let x = ca - W / 2;
+  const lb = cb - h / 2;
+  for (const ch of name) {
+    const G = GLYPH[ch];
+    if (!G) { x += (0.5 + TRACK) * h; continue; }
+    for (const poly of G.p) cut(poly.map(([u, v]) => [x + u * h, lb + v * h]));
+    x += (G.w + TRACK) * h;
+  }
+  // The special edition's badge carries a red and white rule under the letters, inlaid in the cut.
   if (T.stripeRed) {
     const r0 = ca - W / 2 - pad * 0.2, r1 = ca + W / 2 + pad * 0.2, y = cb - h * 0.62, th = h * 0.07;
-    Pn.rect(r0, y - th * 1.5, r1, y - th * 0.5, T.stripeRed, 0.15, 0.0034);
-    Pn.rect(r0, y - th * 0.5, r1, y + th * 0.5, T.stripeWhite, 0.15, 0.0034);
-    Pn.rect(r0, y + th * 0.5, r1, y + th * 1.5, T.stripeRed, 0.15, 0.0034);
+    cut([[r0, y - th * 1.5], [r1, y - th * 1.5], [r1, y + th * 1.5], [r0, y + th * 1.5]]);
+    Pn.rect(r0, y - th * 1.5, r1, y - th * 0.5, T.stripeRed, 0.15, 0.0068);
+    Pn.rect(r0, y - th * 0.5, r1, y + th * 0.5, T.stripeWhite, 0.15, 0.0068);
+    Pn.rect(r0, y + th * 0.5, r1, y + th * 1.5, T.stripeRed, 0.15, 0.0068);
   }
-  // A lozenge either side of the name.
+  // A lozenge either side of the name, cut like the letters.
   for (const s of [-1, 1]) {
-    const x = ca + s * (W / 2 + pad * 0.55);
-    Pn.plate([[x - h * 0.22, cb], [x, cb - h * 0.3], [x + h * 0.22, cb], [x, cb + h * 0.3]], T.gold, 0.25, 0.0045);
+    const lx = ca + s * (W / 2 + pad * 0.55);
+    cut([[lx - h * 0.22, cb], [lx, cb - h * 0.3], [lx + h * 0.22, cb], [lx, cb + h * 0.3]]);
   }
 }
 
