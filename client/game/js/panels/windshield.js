@@ -38169,7 +38169,7 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha, inward = null, n
   // page (`clothTex`) its colour keys, and the sheets on the buildings match these exactly.
   const tone = (rgb, k, warm = 0) => slumTone(rgb, k, nightF, warm);
   // A tent's canvas: the weathered page near to, the flat colour beyond (see `clothTex`).
-  const cloth = (pts, css, tag) => clothFill(ctx, cam, pts, css, alpha, DECO_LIFT * 0.1, tag);
+  const cloth = (pts, css, tag) => clothFill(ctx, cam, pts, css, alpha, DECO_LIFT * 0.1, tag, 'cloth', true);
   // Sun shading off the frame's own key (LIGHT_STATE, the light the walls are shaded against), so
   // the slope turned to the sun is the bright one whichever way the camp faces; `up` is how much of
   // a face looks at the sky. No light state (a capture pass) falls back to the fixed 1 / 0.62 / 0.78
@@ -38492,10 +38492,12 @@ function clothOrder(w) {
   return (w[0][2] + w[1][2]) >= (w[2][2] + w[3][2]) ? w : [w[2], w[3], w[0], w[1]];
 }
 // A sheet in world points, textured near to. The camp and `slumSheet` both come through here.
-function clothFill(ctx, cam, w, css, alpha, lift, tag, kind = 'cloth') {
-  if (!kind) { emitDecoFill(ctx, cam, w, css, alpha, lift, tag); return; }
+// `solid` makes the sheet write depth (see `emitDecoFill`): the camp's tents are the surface, not
+// paint on one, and without it every face of a tent showed through every other.
+function clothFill(ctx, cam, w, css, alpha, lift, tag, kind = 'cloth', solid = false) {
+  if (!kind) { emitDecoFill(ctx, cam, w, css, alpha, lift, tag, solid); return; }
   const skin = ADORN_TIER >= ADORN_NEAR ? clothTex(css, kind) : clothFlat(css);
-  emitDecoFill(ctx, cam, clothOrder(w), css, alpha, lift, tag, false, null, skin);
+  emitDecoFill(ctx, cam, clothOrder(w), css, alpha, lift, tag, solid, null, skin);
 }
 // One sheet through `pts` (model-local, three or four of them), shaded by where it faces. `kind`
 // is the page it wears near to (`clothTex`), or null for a plain fill.
