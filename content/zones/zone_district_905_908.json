@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "description": "The face of Ampersand Electronics.",
+  "description": "Less a shop than a barnacle: a stall grown into the footing of the overpass, roofed by the overpass itself and walled in pegboard. Cable hangs in coils off every hook, sorted by nothing. The hand-cut board reads OHM SWEET OHM, and under it, smaller, TESTED MEANS IT LIT UP ONCE. Something in the back is charging, and you can hear it doing it. The stall is north; Voss Avenue runs south.",
   "exits": {
     "north": "zone_mq_amp_shop",
     "south": "zone_district_905_909"

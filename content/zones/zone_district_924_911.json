@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "description": "The face of Coldwater Power Plant, Turbine Hall.",
+  "description": "The turbine hall from the outside: a windowless steel shed four storeys high, its flank ribbed with ducting, standing in a low hum you feel in your back teeth before you hear it. The ground around it is warm and bare, and snow does not lie here. No fuel is delivered. Nobody comes out. The plant has kept the streetlights on since before the Handoff, and Kessler Street stopped finding that remarkable a long time ago. The doors are east; Kessler Street runs west.",
   "exits": {
     "east": "zone_coldwater_turbine_hall",
     "west": "zone_district_923_911"

@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "description": "The face of Coldwater Clone Facility.",
+  "description": "A squat white block with no windows on the street side and a roofline crowded with condenser units running flat out, which is how the whole street knows the vats are working. The doors are stainless and hip-wide, hung to swing either way but worn bright on the inside face only, where new people have shouldered through them. A screen above cycles a printed name and a number, over and over, for the benefit of people who have met neither. The doors are west; Ironside Street runs east.",
   "exits": {
     "east": "zone_district_919_903",
     "west": "zone_start"

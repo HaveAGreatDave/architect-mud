@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "description": "The face of The Dead Pigeon.",
+  "description": "A low bar with its door recessed deep enough to keep the rain off two smokers and nobody else. The sign is a pigeon in flaking paint. Under it hangs a newer board where the daily has been written and half-wiped so many times the surface has gone furry. The extractor breathes old fryer oil out at ankle height across the pavement. The door is south; Voss Avenue runs north.",
   "exits": {
     "north": "zone_district_905_909",
     "south": "zone_mq_pigeon_bar"

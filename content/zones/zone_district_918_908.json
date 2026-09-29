@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "description": "The face of The Meridian - Lobby.",
+  "description": "A residential tower whose ground floor has been re-clad twice and whose upper floors have not been touched since before the Handoff, so the building changes texture at the third storey like a tidemark. Satellite dishes and washing lines share the balconies. The lobby door is glass, propped open with a fire extinguisher, and the intercom panel carries more tape than buttons. The lobby is west; Ironside Street runs east.",
   "exits": {
     "east": "zone_district_919_908",
     "west": "zone_meridian_lobby"

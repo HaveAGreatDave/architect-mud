@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "description": "The face of Precinct 9.",
+  "description": "Coldwater's answer to policing, housed in a concrete box with the windows bricked in to sill height and a camera on every corner, three of which turn. The blue lamp over the door still works. Behind mesh, a noticeboard carries a dozen curled sheets under the heading PERSONS OF INTEREST, sun-bleached down to the outlines of faces. Somebody has pinned a takeaway menu up among them. The lobby is west; Kessler Street runs east.",
   "exits": {
     "east": "zone_district_923_911",
     "west": "zone_mq_precinct_lobby"

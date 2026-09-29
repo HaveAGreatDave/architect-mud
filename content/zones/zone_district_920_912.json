@@ -3,7 +3,7 @@
   "ambient_theme": "city",
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "description": "The face of Meat Your Maker.",
+  "description": "A butcher's shop in a whitewashed single-storey, steel shutter half up, hooks visible on their rail through the gap. The tiles at the threshold are slicked and rinsed and slicked again, and the drain outside runs pink for an hour after opening, which is the only clock this end of the street needs. Flies work the frontage in a slow crowd. The door is east; Ironside Street runs west.",
   "exits": {
     "east": "zone_bt_shop",
     "west": "zone_district_919_912"

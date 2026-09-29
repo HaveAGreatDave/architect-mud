@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "description": "The face of Halcyon Towers.",
+  "description": "Twenty-one floors of grey glass going up out of the gravel with no setback and no apology, the Halcyon eye etched at chest height on every ground-floor pane so you cannot approach the building without being looked at. Half the windows above the tenth are dark, which is not the same as empty. A brass plate by the doors lists the floors by department, ending at RETENTION, and it is polished daily by somebody whose job that is. The lobby is east; Halcyon Boulevard runs west.",
   "exits": {
     "east": "zone_halcyon_lobby",
     "west": "zone_district_894_906"
