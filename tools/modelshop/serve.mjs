@@ -202,6 +202,11 @@ const server = createServer(async (req, res) => {
     if (req.method === 'GET' && path === '/cabtrinkets.html') {
       return send(res, 200, await readFile(join(HERE, 'cabtrinkets.html')), 'text/html; charset=utf-8');
     }
+    // Street figures, the shipping shader beside a proposed one, for judging the look by eye.
+    // scripts/shapes/actors.mjs is what gates the bake; this is only a picture.
+    if (req.method === 'GET' && path === '/actor-lab.html') {
+      return send(res, 200, await readFile(join(HERE, 'actor-lab.html')), 'text/html; charset=utf-8');
+    }
     // The procedural seabed (client/shared/seabed.js) drawn as a depth map over the real coast, for
     // judging its shape by eye. scripts/shapes/seabed.mjs is what gates it; this is only a picture.
     if (req.method === 'GET' && path === '/seabed.html') {
