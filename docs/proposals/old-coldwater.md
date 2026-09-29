@@ -360,6 +360,10 @@ shop sign.
   slogan or the struck-through eye (`CLOTH_SLOGANS`, `clothAtlas` in windshield.js). It's dye in
   the cloth: `gl/cloth.js` lights it with the tarp and never on its own, so after dark it can't read
   as a lit shop sign, which is what the rule was for. The canvas path stays bare.
+- **And on the buildings.** `slumScrawl` writes the same slogans on about two walls in three where
+  the decal path draws (`slumSlogan`), in a marker, stencil or throw-up hand, on a baked page that's
+  darkened with the wall after dark. The zigzags are kept on the rest and on GLASS 1. Boards, blades
+  and neon are still out (`SLUM_DECLINE`).
 
 ### A piece missing from each
 

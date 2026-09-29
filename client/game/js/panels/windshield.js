@@ -38527,13 +38527,22 @@ function slumOpening(ctx, cam, W3, P, u, z, w, hh, kind, seed, nightF, alpha) {
     emitWire(ctx, cam, W3(a[0], a[1], a[2]), W3(b[0], b[1], b[2]), 3, 'rgb(96,82,60)', alpha, { lift: DECO_LIFT * 0.1, pull: SLUM_PULL });
   }
 }
-// A SCRAWL: spray paint with no words in it. Two zigzag passes at arm's height and a couple of drips
-// run down from them, in the kit's own spray colours, so the Shingles is painted on as heavily as
-// anywhere in the city while carrying no lettering at all. ⚠ WORDS ARE THE ONE THING IT MUST NOT
-// GROW: a throw-up reads as a logo at any distance a cab sees it from, and after dark `bakeTagText`
-// lights it, which on a slum wall is a sign. Near tier, because 2px of colour at range is noise.
+// A SCRAWL: two zigzag passes of spray at arm's height and a couple of drips, in the kit's spray
+// colours; and on most walls, where the decal path draws, somebody's opinion of the Architect.
+//
+// ⚠ WORDS ARE ALLOWED AS PAINT AND NEVER AS A SIGN. The Shingles banned lettering because a throw-up
+// lit after dark reads as a shop sign. A slogan here is `slumSlogan`: the camp's own lines
+// (CLOTH_SLOGANS) in a marker or stencil hand, baked on a page that is darkened with the wall after
+// dark, so it is never the brightest thing on a street at night. Boards, blades and neon stay out
+// (SLUM_DECLINE). Near tier, because 2px of colour at range is noise.
+// ⚠ AND ONLY ON THE DECAL PATH. `emitDecoFill`'s canvas fallback fills a quad with its flat colour,
+// so on GLASS 1 a slogan would be a painted rectangle; there the wall keeps the zigzag.
 function slumScrawl(ctx, cam, W3, P, u, z, w, hh, seed, nightF, alpha) {
   if (ADORN_TIER < ADORN_NEAR) return;
+  const words = DECAL_SINK && !SHAPE_SINK && TUNE.glDeco && cam.unproj;
+  // Every scrawl site on the decal path gets a slogan, in the scrawl's own patch: the sites are placed
+  // clear of awnings and openings, and a patch moved off them lands behind the building's own mass.
+  if (words) { slumSlogan(ctx, cam, W3, P, u, z, w, hh, seed, nightF, alpha); return; }
   const base = TAG_COLS[Math.floor(frac(seed * 53) * TAG_COLS.length) % TAG_COLS.length];
   const col = nightF > 0.3 ? tagMix(base, '#1a1c22', 0.55) : base;
   const o = { lift: DECO_LIFT * 0.1, pull: SLUM_PULL };
@@ -38553,6 +38562,38 @@ function slumScrawl(ctx, cam, W3, P, u, z, w, hh, seed, nightF, alpha) {
     const x = u + (frac(seed * 59 + k * 17) - 0.5) * w * 1.4;
     emitWire(ctx, cam, at(x, z - hh * 0.4), at(x, z - hh * (1.4 + frac(seed * 61 + k) * 1.6)), 1, col, alpha * 0.7, o);
   }
+}
+// A SLOGAN on a slum wall, fitted into the scrawl's patch (`P` maps u, z and an outward offset). One
+// baked page per line and per day or night, so the whole district costs 26 pages at most.
+const SLOGAN_W = 256, SLOGAN_H = 96;
+function sloganPage(k, night) {
+  const text = CLOTH_SLOGANS[k % CLOTH_SLOGANS.length];
+  const key = 'slogan|' + k + '|' + (night ? 'n' : 'd');
+  const img = bakeQuadTex(key, SLOGAN_W, SLOGAN_H, (g, W, H) => {
+    const tex = bakeTagText(text, null, CLOTH_INKS[k % CLOTH_INKS.length], 0, k, 0, CLOTH_HANDS[k % CLOTH_HANDS.length]);
+    if (!tex || !tex.width) return;
+    const s = Math.min(W / tex.width, H / tex.height) * 0.96, w = tex.width * s, h = tex.height * s;
+    try { g.drawImage(tex, (W - w) / 2, (H - h) / 2, w, h); } catch { return; }
+    // After dark the paint goes as dark as the wall it is on: the scrawl's own night mix, laid over
+    // the letters only, so the transparent page round them stays transparent.
+    if (night) { g.globalCompositeOperation = 'source-atop'; g.fillStyle = 'rgba(26,28,34,0.62)'; g.fillRect(0, 0, W, H); g.globalCompositeOperation = 'source-over'; }
+  });
+  return { key, img };
+}
+function slumSlogan(ctx, cam, W3, P, u, z, w, hh, seed, nightF, alpha) {
+  // Which line, off the seed AND where the wall stands: the arms hand the same few seeds to every
+  // building of a trade, so the seed alone gave a street one slogan.
+  const o = P(u, z, 0), wpt = W3(o[0], o[1], o[2]);
+  const k = Math.floor(frac(seed * 71 + Math.round((wpt[0] + (cam.ox || 0)) * 8) * 0.37 + Math.round((wpt[1] + (cam.oy || 0)) * 8) * 0.61) * CLOTH_SLOGANS.length);
+  const page = sloganPage(k, nightF > 0.3);
+  if (!page.img) return;
+  // As wide as the patch, and as tall as the page's aspect allows inside 2.2 of its half-height.
+  let hw = w * 1.1, hz = hw * (SLOGAN_H / SLOGAN_W);
+  if (hz > hh * 2.2) { hz = hh * 2.2; hw = hz * (SLOGAN_W / SLOGAN_H); }
+  const at = (x, zz) => { const p = P(x, zz, FACE_EPS * 1.5); return W3(p[0], p[1], p[2]); };
+  const tilt = (frac(seed * 29) - 0.5) * hz * 0.3;   // sprayed by hand, never level
+  emitDecoFill(ctx, cam, [at(u - hw, z + hz + tilt), at(u + hw, z + hz - tilt), at(u + hw, z - hz - tilt), at(u - hw, z - hz + tilt)],
+    'rgba(0,0,0,0)', alpha, SLUM_PULL, 'slum|slogan', false, null, page);
 }
 // A ROPE, near tier only: a guy line is 1px of dark at any range, and at a distance a building's
 // ropes read as a scribble over the sheet they are holding down (the camp's own guy-line note).
@@ -62255,8 +62296,9 @@ const TAG_COLS = ['#b8f03a', '#ff4a9a', '#5fd0ff', '#ffcf3e', '#ff6a4a', '#c88cf
 // ⚠ `paint` AND `pier` ARE THE TWO SECTIONS ONLY THIS LIST NAMES (the note at each gate says why), and
 // `paint` replaced a knob. `TAG_DENSE` used to
 // scale the paint gates by a quarter for these six so the slum carried more throw-ups than a bank,
-// and nothing else ever read it. Every piece of kit paint is a word (`bakeTagText`), and the
-// Shingles carries no words, so the arms paint their own walls with `slumScrawl` instead.
+// and nothing else ever read it. Kit paint is a lit throw-up (`bakeTagText`), which on a slum wall
+// reads as a sign, so the arms paint their own walls with `slumScrawl` instead: zigzags, and on the
+// decal path anti-Architect slogans darkened with the wall at night (`slumSlogan`).
 const SLUM_DECLINE = ['sign', 'signRoof', 'neon', 'ground', 'roof', 'stair', 'cope', 'wall', 'paint', 'pier'];
 // ── AND WHICH BUILDINGS NOBODY IS GOING TO WASH ────────────────────────────
 //
