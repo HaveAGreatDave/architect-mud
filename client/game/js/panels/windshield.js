@@ -4923,7 +4923,7 @@ function paintWindshieldFrame(id, view) {
       // invert that for the horizon that lands it on chaseFrameY. This is zoom- AND altitude-stable (the
       // altitude term cancels: baseWz climbs with EHbaseC), so the craft never slides behind the stick HUD
       // as you zoom in on the ground — the failure mode the old resting-pin had (its back scaled with zoom).
-      const EH = Math.max(eyeFloor(v), EHbaseC + chase.up);            // matches makeCam's summed, floored eye-height
+      const EH = Math.max(eyeFloor(v), EHbaseC + chase.up + chaseSubSink(v, chase));            // matches makeCam's summed, floored eye-height
       const midWz = baseWz + modelMidH(v.cls, !!v.armed);
       chaseAim(RENDER_TUNE.chaseFrameY, EH, midWz);
     }
@@ -15284,6 +15284,15 @@ function eyeFloor(v) {
   if (v.freeCam) { const o = v.mapOffset || { x: 0, y: 0 }; return Math.min(0.05, floorZAt(o.x + v.freeCam.x, o.y + v.freeCam.y) + 0.04); }
   return v.subHull > 0 ? -200 : 0.05;
 }
+// How far a CHASE eye goes down with the Drake when she is under (plugins/submersible), in tiles (<= 0).
+// ⚠ THE MODEL SINKS BY 'rideZ' AND THE EYE HAS TO SINK WITH IT. Only the model was ever moved, so the
+// orbit sat at its resting height above the surface looking down at an opaque sea while she went
+// under, and the external view showed water and nothing else. Same term as the model, so the aim in
+// chaseAim (baseWz vs EH) still cancels, and eyeFloor has already let the eye through the surface.
+function chaseSubSink(v, chase) {
+  if (!chase || !v || v.freeCam || !(v.subHull > 0)) return 0;
+  return v.rideZ != null ? Math.min(0, v.rideZ) : -v.subHull / SEA_TILE_M;
+}
 // Whether the eye is under the water this frame, for the cockpit's sounds and audio muffle: the one
 // place that knows where the eye is answers, so the sound and the picture cross together.
 export function subCrossing() { return { under: SUB_FX.under, plungeT: SUB_FX.plungeT, breachT: SUB_FX.breachT, plungeK: SUB_FX.plungeK, breachK: SUB_FX.breachK }; }
@@ -16822,7 +16831,7 @@ function drawMode7Floor(ctx, W, H, horizonY, depth0, v, sky, gTop, now, sun, cha
   // it safe under every chase, cockpit, helm, deck-cam and cold-open caller that never passes one.
   const EH = chase && chase.ez != null
     ? Math.max(eyeFloor(v), chase.ez)
-    : Math.max(eyeFloor(v), (v.eyeH != null ? v.eyeH : RENDER_TUNE.eh) + (v.height || 0) * RENDER_TUNE.climbLift + (chase ? chase.up : 0));   // additive + floor: altitude adds real eye-height so you climb above buildings; chase.up lifts the external camera above the craft; the floor wraps the sum so a low vertical orbit can't sink the camera below the terrain
+    : Math.max(eyeFloor(v), (v.eyeH != null ? v.eyeH : RENDER_TUNE.eh) + (v.height || 0) * RENDER_TUNE.climbLift + (chase ? chase.up : 0) + chaseSubSink(v, chase));   // additive + floor: altitude adds real eye-height so you climb above buildings; chase.up lifts the external camera above the craft; the floor wraps the sum so a low vertical orbit can't sink the camera below the terrain
   const hd = (v.heading || 0) * Math.PI / 180, sinh = Math.sin(hd), cosh = Math.cos(hd);
   const off = v.mapOffset, back = chase ? chase.back : 0;
   // ⚠ AND `fx`/`fy` FOR THE SAME REASON THE HEIGHT NEEDED `ez`. `back` is a scalar down the craft's own
@@ -21829,7 +21838,7 @@ export function makeCam(W, horizonY, depth0, v, chase) {
   const fy = (chase && chase.fy || 0) + leanR * Math.sin(leanH);
   const EH = chase && chase.ez != null
     ? Math.max(eyeFloor(v), chase.ez)
-    : Math.max(eyeFloor(v), EHbase + (chase ? chase.up : 0));   // floor the summed eye-height so a low vertical orbit never drops the camera below the terrain
+    : Math.max(eyeFloor(v), EHbase + (chase ? chase.up : 0) + chaseSubSink(v, chase));   // floor the summed eye-height so a low vertical orbit never drops the camera below the terrain
   const hd = (v.heading || 0) * Math.PI / 180, sinh = Math.sin(hd), cosh = Math.cos(hd);
   const off = v.mapOffset, ox = off ? off.x : 0, oy = off ? off.y : 0;
   const cx = W / 2, FL = viewLatFocal(W, v);   // fov<1 compresses the world laterally into a tighter tunnel; fovMul is the per-seat override. ⚠ THE FLOOR READS THE SAME FUNCTION — see viewLatFocal
@@ -70928,6 +70937,45 @@ function drawBirds(ctx, W, H, horizonY, v, st, dt, speed, sky, now, worldBlend) 
 // aircraft, sampled from the moving weather cells: { type, rate } where rate 0..1 scales density.
 // `phase` is which of the two rain curtains to draw: 'far' behind the city, 'near' in front of it,
 // or 'both' in one place, which is the renderer as it shipped. See RENDER_TUNE.rainLit.
+// Rain seen from under the sea: each drop is a ring spreading on the underside of the surface
+// overhead. The surface is the top of the frame from down here, so rings near the top are overhead
+// and round, and flatten toward the middle of the frame where the surface runs off to the distance.
+// They fade with depth (SUB_FX.dep, tiles) and are gone by about 25 m. Pool state lives on `st` with
+// the rest of the weather; it is paint, nothing reads it back.
+function drawRainFromBelow(ctx, W, H, st, dt, amt) {
+  const pool = st.belowRings || (st.belowRings = []);
+  const depM = Math.max(0, (SUB_FX.dep || 0) * SEA_TILE_M);
+  const vis = clamp(1 - depM / 25, 0, 1);
+  if (amt > 0 && vis > 0) {
+    st.belowAcc = (st.belowAcc || 0) + dt * 90 * amt;
+    while (st.belowAcc >= 1 && pool.length < 160) {
+      st.belowAcc -= 1;
+      const v = Math.random();                       // 0 overhead (top of the frame) .. 1 far off
+      pool.push({ x: Math.random() * W, y: v * v * H * 0.45, v, age: 0, life: 0.55 + Math.random() * 0.4 });
+    }
+    if (st.belowAcc > 1) st.belowAcc = 0;
+  }
+  if (!pool.length) return;
+  ctx.save();
+  ctx.lineWidth = Math.max(1, W / 900);
+  let w = 0;
+  for (const r of pool) {
+    r.age += dt;
+    if (r.age >= r.life) continue;
+    pool[w++] = r;
+    if (vis <= 0) continue;
+    const k = r.age / r.life, near = 1 - r.v;
+    const rx = (4 + 26 * near) * (W / 800) * (0.25 + k);
+    ctx.globalAlpha = (1 - k) * 0.35 * vis * (0.4 + 0.6 * near);
+    ctx.strokeStyle = '#cfe6ee';
+    ctx.beginPath();
+    ctx.ellipse(r.x, r.y, rx, rx * (0.2 + 0.8 * near), 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  pool.length = w;
+  ctx.restore();
+}
+
 function drawWeather(ctx, W, H, wx, st, dt, speed, precipLocal, phase = 'both') {
   // Resolve the precip to render: the local cell's if present, else the global weather string.
   let rainy = wx === 'rain' || wx === 'storm', snowy = wx === 'snow', stormy = wx === 'storm', rate = 1;
@@ -70940,6 +70988,13 @@ function drawWeather(ctx, W, H, wx, st, dt, speed, precipLocal, phase = 'both') 
     rainy = !snowy && (t === 'rain' || t === 'storm' || t === 'thunderstorm' || t === 'acid' || t === 'drizzle');
     stormy = t === 'storm' || t === 'thunderstorm';
     rate = clamp(precipLocal.rate, 0.15, 1);
+  }
+  // ⚠ NO RAIN FALLS UNDER THE SEA. With the eye under (the Drake down, or a wave over a low camera)
+  // the curtain was still drawn across the frame, so it rained on the seabed. Down here the only
+  // sign of it is the drops landing on the surface overhead, seen from below.
+  if (SEA_DUNK.under > 0.5) {
+    if (phase !== 'far') drawRainFromBelow(ctx, W, H, st, dt, rainy ? rate * (stormy ? 1 : 0.7) : 0);
+    return;
   }
   if (rainy) {
     // ── ⚠ DENSITY IS THE WHOLE COMPLAINT, AND IT WAS TUNED FOR THE WRONG VIEW ──

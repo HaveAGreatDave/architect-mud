@@ -73,6 +73,19 @@ export function judgeWaterTouchdown({ sinkFpm, kt, gearDown, feetGone, rough }) 
   return { hullPct: clamp(pct, 1, 40) };
 }
 
+// BUOYANCY CONTROL (B on the water, D.stab; on unless switched off): the trim tanks fight the swell,
+// so the hull follows only a small, slow share of it and the cockpit stops see-sawing. The sea is
+// still the renderer's, and wave strikes still hurt; only the ride the eye feels is damped.
+export const STAB_TILT = 0.2, STAB_HEAVE = 0.35, STAB_TAU_S = 1.6;
+function stabilise(W, raw, dt) {
+  const r = W.stab || (W.stab = { heave: raw.heave * STAB_HEAVE, pitch: 0, roll: 0 });
+  const k = 1 - Math.exp(-Math.max(0, dt) / STAB_TAU_S);
+  r.heave += (raw.heave * STAB_HEAVE - r.heave) * k;
+  r.pitch += (raw.pitch * STAB_TILT - r.pitch) * k;
+  r.roll += (raw.roll * STAB_TILT - r.roll) * k;
+  return { heave: r.heave, pitch: r.pitch, roll: r.roll };
+}
+
 // One frame of the Drake on (or over) the water. Returns what the cockpit should apply:
 // { drag (kt/s off airspeed), hullPct, snap, ride {heave, pitch, roll}, autoGearDown, gearWarn }.
 // `tilesPerKt` is how far one knot carries her in a second on the surface.
@@ -109,7 +122,8 @@ export function drakeWaterFrame(F, s, dt, nowMs, amps, tilesPerKt) {
     W.hitCd = 1.1;
     out.hullPct = clamp(Math.round((rel - WAVE_FREE) * 90), 1, 25);
   }
-  out.ride = { heave: sea.h, pitch: Math.atan(sea.along) * 180 / Math.PI * 0.8, roll: Math.atan(sea.across) * 180 / Math.PI * 0.8 };
+  const raw = { heave: sea.h, pitch: Math.atan(sea.along) * 180 / Math.PI * 0.8, roll: Math.atan(sea.across) * 180 / Math.PI * 0.8 };
+  out.ride = D.stab === false ? raw : stabilise(W, raw, dt);
   return out;
 }
 

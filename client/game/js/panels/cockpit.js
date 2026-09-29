@@ -3836,7 +3836,8 @@ export function openFlightSim(opts = {}) {
       case '1': if (!e.repeat) setWeapon('guns'); break;   // weapon select
       case '2': if (!e.repeat) setWeapon('msl'); break;
       case '3': if (!e.repeat) setWeapon('bomb'); break;   // a rack is a weapon like any other — 1/2/3 pick directly, the WPN button cycles
-      case 'b': if (!e.repeat) toggleDiveAuto(); break;    // the automatic dive: over the top, then the pull-out
+      // On the water B is the Drake's buoyancy control (drake-water.js stabilise); in the air, the automatic dive.
+      case 'b': if (!e.repeat) { if (F.dk && F.dk.onWater) { F.dk.stab = F.dk.stab === false; fsimToast(F.dk.stab ? '⚓ BUOYANCY CONTROL: trim tanks steadying her' : '⚓ BUOYANCY CONTROL OFF: riding the swell'); } else toggleDiveAuto(); } break;
       case '[': if (!e.repeat) cycleApTarget(-1); break;   // cycle target (fields / landmarks / regions)
       case ']': if (!e.repeat) cycleApTarget(1); break;
       case '\\': if (!e.repeat) clearApTarget(); break;    // clear all waypoints
