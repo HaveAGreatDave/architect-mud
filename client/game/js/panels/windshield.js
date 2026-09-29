@@ -1242,6 +1242,8 @@ export const RENDER_TUNE = {
   neonBake: 1,
   // Break each neon letter's tube at the corners of its outline (glyphCorners). 0 is one unbroken loop.
   neonGaps: 1,
+  // The share of lit names with one tube gone dark (deadNeon). 0 lights every letter.
+  neonDead: 0.14,
   // Every light this frame collected, fed to the MASS shader as well as to the sprite layer, so a
   // neon sign washes the wall it is bolted to. Nothing new is authored and nothing new is
   // collected — `SPRITE_SINK` is the same list the glows are drawn from — and the term is ADDED
@@ -42280,6 +42282,24 @@ function loadNeonFaces() {
     .then(() => _signTexCache.clear(), () => {});
 }
 loadNeonFaces();
+// ── ⚠ ONE TUBE GONE DARK: "HOT L" ────────────────────────────────────────────────────────────
+//
+// A lit name loses one letter to a blown tube, which is the oldest joke a neon street tells and the
+// one this city was too tidy to. Keyed on the label, like every other roll here, so a sign is broken
+// the same way every frame and on every building that carries the name. The dead letter becomes a
+// space, which is what a dark tube is from across a street at night.
+// ⚠ NEVER THE FIRST OR LAST LETTER, and only on a name of five letters or more: a three-letter name
+// with a hole in it is unreadable, and a missing end letter reads as a typo rather than a fault.
+function deadNeon(label) {
+  const share = RENDER_TUNE.neonDead ?? 0.14;
+  const t = String(label || '');
+  if (share <= 0 || t.replace(/[^A-Za-z]/g, '').length < 5 || labelRoll(t, 0xdead) >= share) return t;
+  const idx = [];
+  for (let i = 1; i < t.length - 1; i++) if (/[A-Za-z]/.test(t[i])) idx.push(i);
+  if (!idx.length) return t;
+  const k = idx[Math.floor(labelRoll(t, 0xbee) * idx.length)];
+  return t.slice(0, k) + ' ' + t.slice(k + 1);
+}
 function bakeSignText(label, color, dn, vertical, solid, tight, opts) {
   // The universal chokepoint for world lettering, so it catches the arms that paint a name straight
   // onto a frieze or a false front (The Meridian, The Dry Goods) rather than onto a blade or a band.
@@ -42295,6 +42315,8 @@ function bakeSignText(label, color, dn, vertical, solid, tight, opts) {
   // night zeroed passes 0 in and gets 0 out, and a brownout's board is left alone rather than being
   // quietly halved once per hop through a chain nobody traced.
   dn = powerNight(dn);
+  // A dead tube is a lit-sign fault, so paint and daylight keep every letter.
+  if (dn > 0 && !solid) label = deadNeon(label);
   // ⚠ THE FACE AND THE PICTOGRAM ARE IN THE KEY. They change the picture and nothing else in it
   // does, so leaving either out hands the first caller's artwork to every later one with the same
   // label and colour — one chain's script wordmark appearing on another's block-lettered board.
