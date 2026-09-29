@@ -6,7 +6,7 @@ export const DEFAULT_AUDIO_SETTINGS = { enabled: true, music: true, sfx: true, t
 // default look of the product; keep it in step with the inline boot script in
 // client/game/index.html, which sets the same value before any module loads so the
 // first paint isn't a different colour from the second.
-const DEFAULT_SETTINGS = { theme: 'iron', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', mapColor: 'off', minimapRender: 'smooth', uiFont: 'mono', statusGlyphs: 'off', monoAudio: 'off', dictation: 'off', logVoice: 'off', logVoiceRate: '1', audio: DEFAULT_AUDIO_SETTINGS };
+const DEFAULT_SETTINGS = { theme: 'iron', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', mapColor: 'off', minimapRender: 'smooth', uiFont: 'mono', statusGlyphs: 'off', monoAudio: 'off', uiSound: 'on', dictation: 'off', logVoice: 'off', logVoiceRate: '1', audio: DEFAULT_AUDIO_SETTINGS };
 
 // ── The accessibility surface, declared once ─────────────────────────────────
 //
@@ -73,6 +73,11 @@ export const A11Y_OPTIONS = [
     opts: [{ v: 'off', t: 'Off' }, { v: 'review', t: 'Review' }, { v: 'send', t: 'Auto-send' }],
   },
 
+  {
+    key: 'uiSound', label: 'Interface Sounds', verb: 'clicks',
+    why: "A soft click when you press a button, switch a tab or open a panel, and a fainter tick when the mouse passes over one. Keyboard focus never makes a sound, so it won't talk over a screen reader. The SFX volume slider sets how loud it is.",
+    opts: [{ v: 'on', t: 'On' }, { v: 'off', t: 'Off' }],
+  },
   {
     key: 'monoAudio', label: 'Mono Audio', verb: 'mono',
     why: "Sums both channels to one, so nothing is only in the ear you aren't using.",
@@ -450,6 +455,7 @@ export function applySettings(settings) {
   // dictation.js reads the same key for that half.
   document.documentElement.setAttribute('data-dictation', settings.dictation || 'off');
   window._applyDictation?.(settings.dictation || 'off');
+  window._applyUiSound?.(settings.uiSound || 'on');
   // Read Aloud. Rate first, so a mode change never speaks its first line at the
   // old speed.
   window._applyLogVoiceRate?.(settings.logVoiceRate || '1');

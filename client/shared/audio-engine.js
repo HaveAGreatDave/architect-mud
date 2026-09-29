@@ -990,9 +990,14 @@
   // ramp rather than waiting). So a normal cue is already released before playSfx
   // returns, and a later release() from a keyup would be silently ignored. The
   // sustain path exists to withhold that build-time call.
+  // When a game cue last started, for the interface listener (client/game/js/ui-sound.js): a click
+  // a panel already answered with its own cue gets no second one. Interface cues don't count.
+  let _lastSfxAt = 0;
+  function lastSfxAt() { return _lastSfxAt; }
   function playSfx(def, gainMultiplier = 1, opts = {}) {
     const c = init();
     if (!c || !def?.config) return null;
+    if (def.category !== 'ui') _lastSfxAt = performance.now();
     const priority = def.priority ?? 5;
     const idx = allocateVoice(priority);
     if (idx === -1) return null; // dropped — all higher/equal-priority voices busy
@@ -3584,7 +3589,7 @@ return out;
 
   global.AudioEngine = {
     init, onUnlock, applyVolumeSettings, setMonoAudio,
-    playSfx, playSample, clearSampleCache,
+    playSfx, lastSfxAt, playSample, clearSampleCache,
     loopSound, stopLoop, setLoopGain, duckLoop, setEcho,
     playMusic, stopMusic, stopMusicOwnedBy, pauseMusic, resumeMusic, queueMusic, fadeTo, crossFade, setLayerWeight,
     stop,

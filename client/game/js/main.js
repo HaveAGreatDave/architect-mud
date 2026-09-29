@@ -48,6 +48,7 @@ import { state } from "./state.js";
 import { initInput, handleClientCommand } from "./input.js";
 import { initA11yFocus } from "./a11y-focus.js";
 import { initDictation, setDictationMode } from "./dictation.js";
+import { initUiSound, setUiSoundMode } from "./ui-sound.js";
 import { initLogReader, setLogReaderMode, setLogReaderRate } from "./logreader.js";
 import { initTradePanel } from "./panels/trade.js";
 import { initRecipesPanel } from "./panels/recipes.js";
@@ -166,6 +167,9 @@ window._applyDictation = setDictationMode;
 // screen-reader note at the top of logreader.js.
 window._applyLogVoice = setLogReaderMode;
 window._applyLogVoiceRate = setLogReaderRate;
+// Interface Sounds (Settings → Accessibility): the click a button makes. On by default.
+window._applyUiSound = setUiSoundMode;
+initUiSound();
 
 applySettings(settings);
 // Mobile vs. desktop layout is auto-detected per device at launch — there is no

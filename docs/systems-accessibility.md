@@ -33,6 +33,12 @@ the escape hatch silence the player it exists to rescue. The full reasoning is i
 [systems-display-mode.md](systems-display-mode.md#sound-detail); the sounds themselves are in
 [systems-procedural-audio.md](systems-procedural-audio.md#the-dense-tier--footsteps-doors-locks).
 
+**Interface Sounds** (`accessibility clicks on|off`, on by default) is the click a button, tab or pill
+makes, and the tick the mouse makes passing over one
+([client/game/js/ui-sound.js](../client/game/js/ui-sound.js)). Keyboard focus never sounds and touch
+never gets the hover tick, so it can't talk over a screen reader or double a tap. The cues are the
+`interface` group in `sfx-catalog.js` on the dry `ui` bus, which the SFX slider moves.
+
 **Sound Detail is a preference, not an accessibility-only feature**, and `off` is not the volume
 slider: volume answers *how loud*, this answers *how much*. It changes nothing about the game's
 difficulty, which is the bar every row on this page has to clear.
