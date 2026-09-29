@@ -33120,7 +33120,9 @@ function drawTrafficSignals(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
     const c = map[ry][rx];
     // Junctions only, and never on a curve or a dirt track — the same two exclusions the crossings
     // take, for the same reasons (a bend has no arms to govern; a graded track has no signals).
-    if (!c || !c.road || c.bt || c.ft === 'dust' || c.rdeg != null) continue;
+    // ⚠ AND NEVER IN THE SOUTH LOCK: its own gantries are the only signals a driver answers to
+    // in there, and a crossroads mast under the roof contradicted them.
+    if (!c || !c.road || c.bt || c.lk || c.mark === 'gate' || c.ft === 'dust' || c.rdeg != null) continue;
     const dirs = c.rd || '';
     if (!isJunction(dirs)) continue;
     const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
@@ -55223,53 +55225,34 @@ function drawTypeModelArm(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E
       if (night) { const [gx, gy] = F(0, fh * 0.52); glowPool(ctx, cam, gx, gy, h * 0.24, '255,214,150', 7, alpha * 0.20); }
       break;
     }
-    case 'weigh_station': {   // THE GLACIS WEIGH — A LOW BOX UNDER A WIDE FLAT CANOPY ON TWO POSTS,
-      // and that canopy is the whole silhouette: nothing else in Coldwater reaches a roof out over
-      // ground it is not standing on. Everything about the shape is about reading a windscreen —
-      // the room is raised until the glass is at cab height, the canopy is out over the plates so
-      // the officer is dry and the board is lit, and there are no windows anywhere else.
+    case 'weigh_station': {   // THE GLACIS WEIGH — THE LOCK'S CONTROL ROOM, BUILT INTO ITS WALL.
+      // It used to be a municipal box under a canopy on two posts, standing apart from the covered
+      // lane like a bus shelter somebody forgot. Now it is part of the Outer Lock: the same grey
+      // plate, the same roof line (LCK_ROOF_Z), and its glass face IS the lock's wall on the booth
+      // side, carried out to the tile edge so the deck and the room are one closed interior.
       //
-      // ⚠ THE PLATES ARE NOT DRAWN HERE. The weighbridge is the tile NEXT DOOR (917,918), which is
-      // paved ground carrying `flags.weigh_station` and deliberately not a building — a deck
-      // authored as mass is a rig-shaped hole you cannot drive onto. This arm is the booth only.
-      const plinth = h * 0.22, sill = h * 0.40, eaves = h * 0.82;
-      // 1) THE PLINTH. Poured, blunt, and the reason the window is where it is: a booth at ground
-      //    level is a booth looking at a wheel.
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.46, 0, plinth, 'ty_cold_slab', seed, night, alpha, false);
-      // 2) THE ROOM, set back off the plinth so the plinth reads as a plinth rather than as the
-      //    bottom of the wall. Grey plate on three sides; the fourth is glass and gets its own
-      //    band below, because a window drawn as a palette is a window nobody sees.
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.40, plinth, eaves, pal, seed + 1, night, alpha, false);
-      // 3) THE GLASS, on the entrance face only, at cab height. `ty_lh_eye` is in GLASS_WALL,
-      //    which is the family that skins a continuous glazed band with a sky sheen — the lighthouse
-      //    lantern's own key, and the closest thing in the palette to one long window on a small
-      //    building. A pale PLAIN_WALL key would have been flat fill with no environment term at
-      //    all, which is a panel rather than a window. Standing PROUD of the wall by
-      //    FACE_EPS rather than in its plane: coplanar is a tie on the depth buffer, and a tie is a
-      //    loss, so a window authored flush is a window that is simply not there.
-      { const [gx, gy] = F(0, fh * 0.40 + FACE_EPS);
-        draw3DBoxAt(ctx, cam, gx, gy, fh * 0.34, sill, eaves - h * 0.06, 'ty_lh_eye', seed + 2, night, alpha, false, faceYaw(E), fh * 0.02); }
-      // 4) THE CANOPY. Out over the deck on the road side, which is the part you see from a cab and
-      //    the part that says what this building is for. It is a slab on two posts and it oversails
-      //    its own footprint, so it is drawn as its own box rather than as a roof on the room.
-      { const [cx, cy] = F(0, fh * 0.62);
-        draw3DBoxAt(ctx, cam, cx, cy, fh * 0.80, eaves, eaves + h * 0.07, 'ty_gantry', seed + 3, night, alpha, true, faceYaw(E), fh * 0.42); }
-      for (const s of [-1, 1]) {
-        const [px, py] = F(s * fh * 0.70, fh * 0.96);
-        draw3DBoxAt(ctx, cam, px, py, fh * 0.05, 0, eaves, 'ty_gantry', seed + 4 + s, night, alpha, false);
-      }
-      // 5) THE BOARD ON ITS POLE, over the plates, facing the way a rig arrives. The numbers a foot
-      //    high that the room's own prose is about.
-      { const [bx, by] = F(fh * 0.52, fh * 1.02);
-        draw3DBoxAt(ctx, cam, bx, by, fh * 0.04, 0, h * 1.10, 'ty_gantry', seed + 6, night, alpha, false);
-        draw3DBoxAt(ctx, cam, bx, by, fh * 0.26, h * 1.10, h * 1.34, 'ty_stack_dk', seed + 7, night, alpha, true, faceYaw(E), fh * 0.03); }
-      if (night) {
-        // The booth glass, the board, and the canopy's own underside light over the plates. Three
-        // small warm sources and no neon: this is a municipal building and it advertises nothing.
-        { const [wx, wy] = F(0, fh * 0.42); glowPool(ctx, cam, wx, wy, sill + h * 0.16, '255,226,176', 8, alpha * 0.30); }
-        { const [bx, by] = F(fh * 0.52, fh * 1.02); glowPool(ctx, cam, bx, by, h * 1.22, '176,255,196', 6, alpha * 0.34); }
-        { const [cx, cy] = F(0, fh * 0.70); glowPool(ctx, cam, cx, cy, eaves - h * 0.02, '226,236,255', 10, alpha * 0.22); }
-      }
+      // ⚠ THE PLATES ARE NOT DRAWN HERE. The weighbridge is the tile next door, a `gate_lock` deck,
+      // and deliberately not a building. This arm is the room only.
+      const plinth = h * 0.16, sill = h * 0.30, eaves = LCK_ROOF_Z - 0.02;   // the lock's roof line, a constant, so the capture stays affine
+      const edge = 0.5;   // the tile edge on the lane side, in tiles
+      // 1) THE PLINTH: dark steel, flush with the room, one blunt block.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.46, 0, plinth, 'ty_stack_dk', seed, night, alpha, false);
+      // 2) THE ROOM: grey plate, the lock's own, full height to the lock's roof.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.44, plinth, eaves, 'ty_gantry', seed + 1, night, alpha, true);
+      // 3) THE BRIDGE: the room carried out to the lane's edge at the lock's height, so no sky and
+      //    no gap shows between the booth and the deck's roof.
+      { const reach = edge - fh * 0.44, [bx, by] = F(0, fh * 0.44 + reach / 2);
+        draw3DBoxAt(ctx, cam, bx, by, fh * 0.44, eaves - 0.12, LCK_ROOF_Z, 'ty_gantry', seed + 2, night, alpha, true, faceYaw(E), reach / 2 + FACE_EPS);
+        draw3DBoxAt(ctx, cam, bx, by, fh * 0.44, 0, plinth, 'ty_stack_dk', seed + 3, night, alpha, false, faceYaw(E), reach / 2 + FACE_EPS); }
+      // 4) THE GLASS: one continuous band across the lane face, sill to eaves, proud of the plate.
+      { const [gx, gy] = F(0, fh * 0.44 + FACE_EPS);
+        draw3DBoxAt(ctx, cam, gx, gy, fh * 0.40, sill, eaves - 0.14, 'ty_lh_eye', seed + 4, night, alpha, false, faceYaw(E), fh * 0.02); }
+      // 5) THE LIGHT LINE: a cyan strip under the glass and one along the roof edge. The only
+      //    colour on it, and the lock's scanner colour.
+      { const [lx, ly] = F(0, fh * 0.44 + FACE_EPS * 2);
+        glowPool(ctx, cam, lx, ly, sill - h * 0.02, '120,244,255', 10, alpha * (night ? 0.45 : 0.22));
+        glowPool(ctx, cam, lx, ly, eaves - h * 0.06, '120,244,255', 8, alpha * (night ? 0.35 : 0.15)); }
+      if (night) { const [wx, wy] = F(0, fh * 0.30); glowPool(ctx, cam, wx, wy, sill + h * 0.2, '226,240,255', 9, alpha * 0.30); }
       break;
     }
     case 'vehicle_pound': {   // LONG STAY — A COMPOUND, WHICH IS A SILHOUETTE WITH A HOLE IN IT.
@@ -69341,10 +69324,42 @@ function drawGateLock(ctx, cam, dx, dy, lk, night, alpha, now, seed) {
   const P = (u, v, z) => cam.proj(dx + u, dy - v, z);
   const poly = (q) => { ctx.beginPath(); ctx.moveTo(q[0].sx, q[0].sy); for (let i = 1; i < q.length; i++) ctx.lineTo(q[i].sx, q[i].sy); ctx.closePath(); };
   const ok = (q) => q.every((p) => p.f > 0.12);
-  const quad = (q, fill, add) => {
-    if (!ok(q)) return;
-    ctx.save(); if (add) ctx.globalCompositeOperation = 'lighter';
-    ctx.fillStyle = fill; poly(q); ctx.fill(); ctx.restore();
+  // ⚠ EVERY FACE IS SORTED AND CLIPPED, NEVER PAINTED IN CALL ORDER. The lock is one mark you drive
+  // INSIDE, so the fixed order (walls, frame, roof) put the roof over the near wall and a far wall
+  // over a near post; and a face with one corner behind the eye was dropped whole, so the walls
+  // beside the cab blinked out. `quad` now takes local [u, v, z] corners, clips them at the near
+  // plane in world space, and queues them; `flush` paints far to near. Lamps and glows go after,
+  // additive, where order doesn't show.
+  const NEAR = 0.14;
+  const Q = (u, v, z) => [u, v, z];
+  const depth = (c) => cam.rawF ? cam.rawF(dx + c[0], dy - c[1], c[2]) : cam.proj(dx + c[0], dy - c[1], c[2]).f;
+  const faces = [];
+  const quad = (q, fill, add, lineW) => {
+    const d = q.map(depth);
+    if (d.every((x) => x < NEAR)) return;
+    let pts = q;
+    if (d.some((x) => x < NEAR)) {
+      pts = [];
+      for (let i = 0; i < q.length; i++) {
+        const j = (i + 1) % q.length, a = q[i], b = q[j], da = d[i], db = d[j];
+        if (da >= NEAR) pts.push(a);
+        if ((da >= NEAR) !== (db >= NEAR)) { const t = (NEAR - da) / (db - da); pts.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]); }
+      }
+      if (pts.length < 2) return;
+    }
+    const pr = pts.map((c) => P(c[0], c[1], c[2]));
+    faces.push({ pr, fill, add, lineW, d: d.reduce((m, x) => m + x, 0) / d.length - (add ? 0.002 : 0) });
+  };
+  const flush = () => {
+    faces.sort((x, y) => y.d - x.d);
+    for (const F of faces) {
+      ctx.save(); if (F.add) ctx.globalCompositeOperation = 'lighter';
+      poly(F.pr);
+      if (F.lineW) { ctx.strokeStyle = F.fill; ctx.lineWidth = F.lineW; ctx.stroke(); }
+      else { ctx.fillStyle = F.fill; ctx.fill(); }
+      ctx.restore();
+    }
+    faces.length = 0;
   };
   const dn = night > 0.4 ? 1 : 0;
   const lit = (0.45 + 0.55 * night) * alpha;
@@ -69356,55 +69371,60 @@ function drawGateLock(ctx, cam, dx, dy, lk, night, alpha, now, seed) {
   const sig = inner ? LCK_SIG[st] : LCK_WORK;
   const plate = dn ? 'rgb(38,42,48)' : 'rgb(96,102,110)';
   const plateDk = dn ? 'rgb(26,29,34)' : 'rgb(72,77,84)';
+  // ⚠ THE GATE TILE IS HALF EACH SIDE'S. `gx` is the side a tile shares with the perimeter gate
+  // (plugins/flight/state.js); the inner hall and the outer shed each reach half a tile into it,
+  // so the two meet over the gate and the lock is one covered run with no open sky between them.
+  const gx = lk.gx || '';
+  const uLo = -H - (gx.includes('w') ? 0.5 : 0), uHi = H + (gx.includes('e') ? 0.5 : 0);
+  const vLo = -H - (gx.includes('s') ? 0.5 : 0), vHi = H + (gx.includes('n') ? 0.5 : 0);
   ctx.save();
   ctx.globalAlpha = alpha;
 
   // A wall along one side: grey plate from the floor to the eaves, seams every quarter tile, and a
   // lamp strip at cab height in the lock's colour.
   const wall = (side) => {
-    const seg = side === 'n' ? [[-H, H], [H, H]] : side === 's' ? [[-H, -H], [H, -H]]
-      : side === 'e' ? [[H, -H], [H, H]] : [[-H, -H], [-H, H]];
+    const seg = side === 'n' ? [[uLo, vHi], [uHi, vHi]] : side === 's' ? [[uLo, vLo], [uHi, vLo]]
+      : side === 'e' ? [[uHi, vLo], [uHi, vHi]] : [[uLo, vLo], [uLo, vHi]];
     const [[u0, v0], [u1, v1]] = seg;
-    quad([P(u0, v0, Z), P(u1, v1, Z), P(u1, v1, 0), P(u0, v0, 0)], side === 'n' || side === 'e' ? plate : plateDk);
+    quad([Q(u0, v0, Z), Q(u1, v1, Z), Q(u1, v1, 0), Q(u0, v0, 0)], side === 'n' || side === 'e' ? plate : plateDk);
     for (let i = 1; i < 4; i++) {
-      const k = i / 4, a = P(u0 + (u1 - u0) * k, v0 + (v1 - v0) * k, Z), b = P(u0 + (u1 - u0) * k, v0 + (v1 - v0) * k, 0);
-      if (a.f > 0.12 && b.f > 0.12) {
-        ctx.strokeStyle = dn ? 'rgba(10,12,15,0.7)' : 'rgba(40,44,50,0.55)'; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
-      }
+      const k = i / 4, uu = u0 + (u1 - u0) * k, vv = v0 + (v1 - v0) * k;
+      quad([Q(uu, vv, Z), Q(uu, vv, 0)], dn ? 'rgba(10,12,15,0.7)' : 'rgba(40,44,50,0.55)', false, 1);
     }
     // Hazard banding along the foot, because a rig's wheels live this close to it.
-    quad([P(u0, v0, 0.07), P(u1, v1, 0.07), P(u1, v1, 0), P(u0, v0, 0)], dn ? 'rgba(120,96,30,0.8)' : 'rgba(214,170,48,0.85)');
+    quad([Q(u0, v0, 0.07), Q(u1, v1, 0.07), Q(u1, v1, 0), Q(u0, v0, 0)], dn ? 'rgba(120,96,30,0.8)' : 'rgba(214,170,48,0.85)');
     const inset = (u, v) => [u - Math.sign(u) * 0.01 * (side === 'e' || side === 'w' ? 1 : 0), v - Math.sign(v) * 0.01 * (side === 'n' || side === 's' ? 1 : 0)];
     const [a0, b0] = inset(u0, v0), [a1, b1] = inset(u1, v1);
-    quad([P(a0, b0, 0.50), P(a1, b1, 0.50), P(a1, b1, 0.44), P(a0, b0, 0.44)], `rgba(${sig},${lit * 0.9 * flash})`, true);
+    quad([Q(a0, b0, 0.50), Q(a1, b1, 0.50), Q(a1, b1, 0.44), Q(a0, b0, 0.44)], `rgba(${sig},${lit * 0.9 * flash})`, true);
   };
   for (const s of 'nesw') if (wl.includes(s)) wall(s);
 
   // THE FRAME. Four corner posts and a rib across each end, so an open end still reads as the end
   // of a structure rather than the roof stopping in mid-air.
   const post = (u, v) => {
-    const w = 0.035, q = [P(u - w, v, Z), P(u + w, v, Z), P(u + w, v, 0), P(u - w, v, 0)];
+    const w = 0.035, q = [Q(u - w, v, Z), Q(u + w, v, Z), Q(u + w, v, 0), Q(u - w, v, 0)];
     quad(q, dn ? 'rgb(30,33,38)' : 'rgb(70,75,82)');
   };
-  for (const u of [-H, H]) for (const v of [-H, H]) post(u, v);
-  for (const v of [-H, H]) quad([P(-H, v, Z + 0.05), P(H, v, Z + 0.05), P(H, v, Z - 0.07), P(-H, v, Z - 0.07)], dn ? 'rgb(34,37,43)' : 'rgb(82,88,96)');
+  for (const u of [uLo, uHi]) for (const v of [vLo, vHi]) post(u, v);
+  for (const v of [vLo, vHi]) quad([Q(uLo, v, Z + 0.05), Q(uHi, v, Z + 0.05), Q(uHi, v, Z - 0.07), Q(uLo, v, Z - 0.07)], dn ? 'rgb(34,37,43)' : 'rgb(82,88,96)');
 
   // THE ROOF: ribbed plate, and one long lamp down the spine.
-  quad([P(-H, H, Z), P(H, H, Z), P(H, -H, Z), P(-H, -H, Z)], dn ? 'rgba(22,24,28,0.94)' : 'rgba(58,62,68,0.94)');
+  quad([Q(uLo, vHi, Z), Q(uHi, vHi, Z), Q(uHi, vLo, Z), Q(uLo, vLo, Z)], dn ? 'rgba(22,24,28,0.94)' : 'rgba(58,62,68,0.94)');
   for (let i = -1; i <= 1; i++) {
     const v = i * H * 0.5;
-    quad([P(-H, v + 0.012, Z - 0.012), P(H, v + 0.012, Z - 0.012), P(H, v - 0.012, Z - 0.012), P(-H, v - 0.012, Z - 0.012)], dn ? 'rgba(8,9,11,0.8)' : 'rgba(30,33,37,0.8)');
+    quad([Q(uLo, v + 0.012, Z - 0.012), Q(uHi, v + 0.012, Z - 0.012), Q(uHi, v - 0.012, Z - 0.012), Q(uLo, v - 0.012, Z - 0.012)], dn ? 'rgba(8,9,11,0.8)' : 'rgba(30,33,37,0.8)');
   }
-  quad([P(-0.03, H, Z - 0.02), P(0.03, H, Z - 0.02), P(0.03, -H, Z - 0.02), P(-0.03, -H, Z - 0.02)], `rgba(${sig},${lit * flash})`, true);
+  quad([Q(-0.03, vHi, Z - 0.02), Q(0.03, vHi, Z - 0.02), Q(0.03, vLo, Z - 0.02), Q(-0.03, vLo, Z - 0.02)], `rgba(${sig},${lit * flash})`, true);
+  flush();
   glowPool(ctx, cam, dx, dy, 0.02, sig, 40, lit * 0.45 * flash, { add: true, max: 80 });
 
   // THE SIGNAL GANTRY at an open end of the inner lock: five lamps in a row under the rib, facing
   // the road, in the answer's colour. The one thing a driver reads from a hundred yards out.
   if (inner) {
     for (const side of (lk.mo || '') + (lk.seg === 0 ? 's' : '')) {
-      const v = side === 'n' ? H : -H;
-      quad([P(-H * 0.8, v, Z - 0.07), P(H * 0.8, v, Z - 0.07), P(H * 0.8, v, Z - 0.22), P(-H * 0.8, v, Z - 0.22)], dn ? 'rgb(10,12,14)' : 'rgb(22,25,29)');
+      const v = side === 'n' ? vHi : vLo;
+      quad([Q(-H * 0.8, v, Z - 0.07), Q(H * 0.8, v, Z - 0.07), Q(H * 0.8, v, Z - 0.22), Q(-H * 0.8, v, Z - 0.22)], dn ? 'rgb(10,12,14)' : 'rgb(22,25,29)');
+      flush();
       for (let i = 0; i < 5; i++) {
         const u = -H * 0.64 + i * H * 0.32, q = P(u, v, Z - 0.145);
         if (q.f <= 0.12) continue;
@@ -69421,7 +69441,7 @@ function drawGateLock(ctx, cam, dx, dy, lk, night, alpha, now, seed) {
     }
     // A stop bar across the floor, lit only when the lock wants you stopped.
     if (st !== 'green') {
-      quad([P(-H * 0.8, 0.05, 0.012), P(H * 0.8, 0.05, 0.012), P(H * 0.8, -0.05, 0.012), P(-H * 0.8, -0.05, 0.012)], `rgba(${LCK_SIG[st]},${lit * 0.6 * flash})`, true);
+      quad([Q(-H * 0.8, 0.05, 0.012), Q(H * 0.8, 0.05, 0.012), Q(H * 0.8, -0.05, 0.012), Q(-H * 0.8, -0.05, 0.012)], `rgba(${LCK_SIG[st]},${lit * 0.6 * flash})`, true);
     }
   } else {
     // Caged worklamps on the ribs of the outer shed, and amber studs down a ramp's edges.
@@ -69439,16 +69459,26 @@ function drawGateLock(ctx, cam, dx, dy, lk, night, alpha, now, seed) {
         }
       }
     }
-    // The shed's own gantry at the waste end: ALL RIGS: WEIGH LANE LEFT.
+    // The shed's own gantry at the waste end: the city's name, and beside it a red chevron
+    // pulsing toward the weigh ramp on the left. The chevron is the instruction; the board is the
+    // welcome. A smooth swell, never dark, for the no-strobe rule above.
     if (lk.k === 'shed' && (lk.mo || '').includes('s')) {
       const v = -H;
-      quad([P(-H * 0.85, v, Z - 0.07), P(H * 0.85, v, Z - 0.07), P(H * 0.85, v, Z - 0.24), P(-H * 0.85, v, Z - 0.24)], dn ? 'rgb(10,12,14)' : 'rgb(22,25,29)');
-      quad([P(-H * 0.85, v - 0.004, Z - 0.225), P(H * 0.85, v - 0.004, Z - 0.225), P(H * 0.85, v - 0.004, Z - 0.235), P(-H * 0.85, v - 0.004, Z - 0.235)], `rgba(${LCK_SIG.amber},${lit * 0.8})`, true);
+      quad([Q(-H * 0.85, v, Z - 0.07), Q(H * 0.85, v, Z - 0.07), Q(H * 0.85, v, Z - 0.24), Q(-H * 0.85, v, Z - 0.24)], dn ? 'rgb(10,12,14)' : 'rgb(22,25,29)');
+      quad([Q(-H * 0.85, v - 0.004, Z - 0.225), Q(H * 0.85, v - 0.004, Z - 0.225), Q(H * 0.85, v - 0.004, Z - 0.235), Q(-H * 0.85, v - 0.004, Z - 0.235)], `rgba(${LCK_SIG.amber},${lit * 0.8})`, true);
+      const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin((now || 0) * 0.0071));
+      for (let i = 0; i < 2; i++) {
+        const u0 = -H * 0.80 + i * 0.07, w = 0.05, zc = Z - 0.155, dz = 0.06, t = 0.018;
+        quad([Q(u0 + w, v - 0.006, zc + dz), Q(u0 + w - t * 2, v - 0.006, zc + dz), Q(u0 - t, v - 0.006, zc), Q(u0 + t, v - 0.006, zc)], `rgba(${LCK_SIG.red},${Math.min(1, lit * 1.3) * pulse})`, true);
+        quad([Q(u0 + t, v - 0.006, zc), Q(u0 - t, v - 0.006, zc), Q(u0 + w - t * 2, v - 0.006, zc - dz), Q(u0 + w, v - 0.006, zc - dz)], `rgba(${LCK_SIG.red},${Math.min(1, lit * 1.3) * pulse})`, true);
+      }
+      flush();
+      glowPool(ctx, cam, dx - H * 0.76, dy - v + 0.02, Z - 0.155, LCK_SIG.red, 12, lit * 0.5 * pulse, { add: true, max: 26 });
       _signFace = 'mono';
-      const tex = bakeSignText('WEIGH LANE LEFT', '#ffcc7a', dn, false, false, true);
+      const tex = bakeSignText('COLDWATER BASIN', '#ffcc7a', dn, false, false, true);
       if (tex) {
-        const aspect = tex.width / tex.height, hgt = Math.min(0.12, (H * 1.5) / aspect), wid = hgt * aspect, zc = Z - 0.155;
-        const q = [P(-wid / 2, v - 0.006, zc + hgt / 2), P(wid / 2, v - 0.006, zc + hgt / 2), P(wid / 2, v - 0.006, zc - hgt / 2), P(-wid / 2, v - 0.006, zc - hgt / 2)];
+        const aspect = tex.width / tex.height, hgt = Math.min(0.12, (H * 1.3) / aspect), wid = hgt * aspect, zc = Z - 0.155, uc = H * 0.12;
+        const q = [P(uc - wid / 2, v - 0.006, zc + hgt / 2), P(uc + wid / 2, v - 0.006, zc + hgt / 2), P(uc + wid / 2, v - 0.006, zc - hgt / 2), P(uc - wid / 2, v - 0.006, zc - hgt / 2)];
         if (ok(q)) drawSurfaceText(ctx, q[0], q[1], q[2], q[3], tex, false, alpha);
       }
     }
@@ -69460,24 +69490,26 @@ function drawGateLock(ctx, cam, dx, dy, lk, night, alpha, now, seed) {
   if (lk.k === 'deck') {
     const hw = H * 0.78, hl = H * 0.62, dz = 0.045;
     // The ramps up at both ends, then the deck, then its lit face toward the camera.
-    quad([P(-hw, hl, dz), P(hw, hl, dz), P(hw, H, 0.004), P(-hw, H, 0.004)], dn ? 'rgb(44,47,52)' : 'rgb(112,116,122)');
-    quad([P(-hw, -H, 0.004), P(hw, -H, 0.004), P(hw, -hl, dz), P(-hw, -hl, dz)], dn ? 'rgb(44,47,52)' : 'rgb(112,116,122)');
-    for (const u of [-hw, hw]) quad([P(u, -hl, dz), P(u, hl, dz), P(u, hl, 0), P(u, -hl, 0)], dn ? 'rgb(20,22,25)' : 'rgb(58,61,66)');
-    quad([P(-hw, hl, dz), P(hw, hl, dz), P(hw, -hl, dz), P(-hw, -hl, dz)], dn ? 'rgb(34,37,42)' : 'rgb(104,108,114)');
-    for (const v of [-hl * 0.34, hl * 0.34]) quad([P(-hw, v + 0.012, dz + 0.001), P(hw, v + 0.012, dz + 0.001), P(hw, v - 0.012, dz + 0.001), P(-hw, v - 0.012, dz + 0.001)], 'rgba(12,14,17,0.9)');
+    quad([Q(-hw, hl, dz), Q(hw, hl, dz), Q(hw, H, 0.004), Q(-hw, H, 0.004)], dn ? 'rgb(44,47,52)' : 'rgb(112,116,122)');
+    quad([Q(-hw, -H, 0.004), Q(hw, -H, 0.004), Q(hw, -hl, dz), Q(-hw, -hl, dz)], dn ? 'rgb(44,47,52)' : 'rgb(112,116,122)');
+    for (const u of [-hw, hw]) quad([Q(u, -hl, dz), Q(u, hl, dz), Q(u, hl, 0), Q(u, -hl, 0)], dn ? 'rgb(20,22,25)' : 'rgb(58,61,66)');
+    quad([Q(-hw, hl, dz), Q(hw, hl, dz), Q(hw, -hl, dz), Q(-hw, -hl, dz)], dn ? 'rgb(34,37,42)' : 'rgb(104,108,114)');
+    for (const v of [-hl * 0.34, hl * 0.34]) quad([Q(-hw, v + 0.012, dz + 0.001), Q(hw, v + 0.012, dz + 0.001), Q(hw, v - 0.012, dz + 0.001), Q(-hw, v - 0.012, dz + 0.001)], 'rgba(12,14,17,0.9)');
     const pulse = 0.55 + 0.45 * Math.sin((now || 0) * 0.0032);
-    for (const u of [-hw, hw]) quad([P(u - 0.02, hl, dz + 0.002), P(u + 0.02, hl, dz + 0.002), P(u + 0.02, -hl, dz + 0.002), P(u - 0.02, -hl, dz + 0.002)], `rgba(${LCK_SIG.amber},${lit * 0.8})`, true);
-    quad([P(-hw * 0.7, 0.03, dz + 0.003), P(hw * 0.7, 0.03, dz + 0.003), P(hw * 0.7, -0.03, dz + 0.003), P(-hw * 0.7, -0.03, dz + 0.003)], `rgba(226,240,255,${lit * 0.55 * pulse})`, true);
+    for (const u of [-hw, hw]) quad([Q(u - 0.02, hl, dz + 0.002), Q(u + 0.02, hl, dz + 0.002), Q(u + 0.02, -hl, dz + 0.002), Q(u - 0.02, -hl, dz + 0.002)], `rgba(${LCK_SIG.amber},${lit * 0.8})`, true);
+    quad([Q(-hw * 0.7, 0.03, dz + 0.003), Q(hw * 0.7, 0.03, dz + 0.003), Q(hw * 0.7, -0.03, dz + 0.003), Q(-hw * 0.7, -0.03, dz + 0.003)], `rgba(226,240,255,${lit * 0.55 * pulse})`, true);
     // The terminal: a post, a box, a screen facing across the deck, and the board above it.
     const tu = (lk.term === 'e' ? 1 : -1) * (hw + 0.07);
     post(tu, 0.1);
     const face = tu < 0 ? 0.03 : -0.03;
-    quad([P(tu + face, 0.2, 0.42), P(tu + face, 0.0, 0.42), P(tu + face, 0.0, 0.26), P(tu + face, 0.2, 0.26)], dn ? 'rgb(14,16,19)' : 'rgb(30,34,38)');
-    quad([P(tu + face * 1.3, 0.18, 0.40), P(tu + face * 1.3, 0.02, 0.40), P(tu + face * 1.3, 0.02, 0.30), P(tu + face * 1.3, 0.18, 0.30)], `rgba(120,244,255,${lit * 0.55})`, true);
-    quad([P(tu + face, 0.28, 0.80), P(tu + face, -0.08, 0.80), P(tu + face, -0.08, 0.62), P(tu + face, 0.28, 0.62)], dn ? 'rgb(8,10,12)' : 'rgb(18,21,25)');
-    quad([P(tu + face * 1.3, 0.24, 0.76), P(tu + face * 1.3, -0.04, 0.76), P(tu + face * 1.3, -0.04, 0.66), P(tu + face * 1.3, 0.24, 0.66)], `rgba(${LCK_SIG.amber},${lit * 0.35})`, true);
+    quad([Q(tu + face, 0.2, 0.42), Q(tu + face, 0.0, 0.42), Q(tu + face, 0.0, 0.26), Q(tu + face, 0.2, 0.26)], dn ? 'rgb(14,16,19)' : 'rgb(30,34,38)');
+    quad([Q(tu + face * 1.3, 0.18, 0.40), Q(tu + face * 1.3, 0.02, 0.40), Q(tu + face * 1.3, 0.02, 0.30), Q(tu + face * 1.3, 0.18, 0.30)], `rgba(120,244,255,${lit * 0.55})`, true);
+    quad([Q(tu + face, 0.28, 0.80), Q(tu + face, -0.08, 0.80), Q(tu + face, -0.08, 0.62), Q(tu + face, 0.28, 0.62)], dn ? 'rgb(8,10,12)' : 'rgb(18,21,25)');
+    quad([Q(tu + face * 1.3, 0.24, 0.76), Q(tu + face * 1.3, -0.04, 0.76), Q(tu + face * 1.3, -0.04, 0.66), Q(tu + face * 1.3, 0.24, 0.66)], `rgba(${LCK_SIG.amber},${lit * 0.35})`, true);
+    flush();
     glowPool(ctx, cam, dx + tu, dy - 0.1, 0.3, '120,244,255', 14, lit * 0.45, { add: true, max: 30 });
   }
+  flush();
   ctx.restore();
 }
 

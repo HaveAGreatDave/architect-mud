@@ -1173,7 +1173,15 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
     const mouth = (c) => !!(c && !c.flags?.gate_lock && !c.flags?.perimeter_gate && isRoadCell(c));
     if (mouth(at(x, y - 1))) mo += 'n';
     if (mouth(at(x, y + 1))) mo += 's';
-    lk = { k: lkf.k, s: lkf.search ? 1 : undefined, seg: Number(lkf.seg) || 0, term: lkf.term || undefined, wl, mo: mo || undefined, st: 'green' };
+    // `gx`: the side shared with the perimeter gate. The renderer carries the roof half a tile over
+    // the gate from each side, so the inner hall and the outer shed meet with no sky between them.
+    let gx = '';
+    const isGate = (c) => !!c?.flags?.perimeter_gate;
+    if (isGate(at(x, y - 1))) gx += 'n';
+    if (isGate(at(x + 1, y))) gx += 'e';
+    if (isGate(at(x, y + 1))) gx += 's';
+    if (isGate(at(x - 1, y))) gx += 'w';
+    lk = { k: lkf.k, s: lkf.search ? 1 : undefined, seg: Number(lkf.seg) || 0, term: lkf.term || undefined, wl, mo: mo || undefined, gx: gx || undefined, st: 'green' };
   }
   // An airfield's hangar is the same shed at aircraft scale (windshield.js bayDims): a `bay` mark,
   // told apart by `bk`, so every reader of the shed (door, CFIT roof, occlusion) takes it for free.
