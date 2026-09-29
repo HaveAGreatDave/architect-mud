@@ -42042,9 +42042,15 @@ export const SIGN_PICTO = {
   // the fold above it is the whole glyph: one shape, unmistakably a closed eye, and calm, which is
   // the adjective the prose uses and the thing that separates this from an all-seeing corporate
   // eye. Nothing about Halcyon is watching you. It is waiting for you.
+  // ⚠ AND THE FRAME IS THE ARCHITECT'S. The lens round it is `paintEyeFlag`'s lens, corners and
+  // all, with the rule under it: the Architect's calm eye with the lid brought down. The pupil is
+  // what goes, and the shut lid across the middle is what stops the empty lens reading as a saucer.
+  // Halcyon's seal is the city's eye, asleep — "or something older wearing it".
   eye: (g) => {
-    g.moveTo(-0.44, -0.08); g.quadraticCurveTo(0, 0.22, 0.44, -0.08);   // the shut lid
-    g.moveTo(-0.32, -0.30); g.quadraticCurveTo(0, -0.08, 0.32, -0.30);  // the fold above it, which is what stops the lid reading as a mouth
+    g.moveTo(-0.44, -0.04); g.quadraticCurveTo(0, -0.40, 0.44, -0.04);  // the Architect's lens, upper arc
+    g.quadraticCurveTo(0, 0.32, -0.44, -0.04);                           // …and lower
+    g.moveTo(-0.44, -0.04); g.quadraticCurveTo(0, 0.14, 0.44, -0.04);   // the lid, shut
+    g.moveTo(-0.28, 0.34); g.lineTo(0.28, 0.34);                         // the Architect's rule under it
   },
   // ── AND THE TWO MARKS THAT NEED NO LANGUAGE AT ALL ────────────────────────────────────────
   //
@@ -49200,8 +49206,7 @@ function drawTypeModelArm(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E
       // bolted to, taller than the shopfront under it, and the first and last thing anybody saw of
       // the place — the frontage was a sign with a shed behind it. A council feeding station does
       // not advertise. It labels itself and posts the line that makes the label legally true, and
-      // the room's own description has said so all along: the name across the fascia in cheerful
-      // municipal green, and under it, small, NUTRITION AT NO COST. THIS IS NOT A SHOP.
+      // the name across the fascia in cheerful municipal green, and nothing under it.
       //
       // ⚠ `dn: 0` — PAINT, NOT NEON, which is the same call Stuff It makes and for the same
       // reason: `night ? 1 : 0` lights the lettering from inside, and this is a stencil on a wall.
@@ -49212,12 +49217,12 @@ function drawTypeModelArm(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E
       // municipal notice is set in condensed gothic and in nothing else.
       // ⚠ THE QUAD IS SIZED TO THE TEXTURE'S OWN ASPECT, roughly — `fitSignPts` insets whichever
       // way it has to, so a board twice as tall as its lettering needs prints the name at half the
-      // size it could have been. Two lines of 15 and 18 characters bake about nine to one.
+      // size it could have been. One line of 15 characters bakes about seven to one.
       if (frontVis) {
         const nhw = fh * 0.70, nz0 = h * 0.685, nz1 = h * 0.795, ny = FR + FACE_EPS;
         const q = [P3(-nhw, ny, nz1), P3(nhw, ny, nz1), P3(nhw, ny, nz0), P3(-nhw, ny, nz0)];
         const tex = bakeSignText('SECOND HELPINGS', '#2f9a58', 0, false, true, true,
-          { font: 'condensed', sub: 'THIS IS NOT A SHOP' });
+          { font: 'condensed' });
         if (tex && q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha);
       }
       break;
@@ -50199,7 +50204,18 @@ function drawTypeModelArm(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E
       if (frontVis) {
         const tex = bakeSignText('', '#7fe8d2', night ? 1 : 0, false, true, true, { picto: 'eye', badge: true, color: '#10202a' });
         if (tex) {
-          const q = [[-fh * 0.22, capTop - h * 0.03], [fh * 0.22, capTop - h * 0.03], [fh * 0.22, capTop - h * 0.27], [-fh * 0.22, capTop - h * 0.27]]
+          const q = [[-fh * 0.62, capTop - h * 0.03], [-fh * 0.18, capTop - h * 0.03], [-fh * 0.18, capTop - h * 0.27], [-fh * 0.62, capTop - h * 0.27]]
+            .map(([lx, z2]) => { const [wx, wy] = F(lx, fh * 1.18); return cam.proj(wx, wy, z2); });
+          if (q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
+        }
+      }
+      // ── THE NAME ────────────────────────────────────────────────────────────────────────────
+      // Beside the seal, on the same band under the capping course. What the place is called by
+      // the people it prints is what it is called: YOU AGAIN.
+      if (frontVis) {
+        const tex = bakeSignText('YOU AGAIN', '#7fe8d2', night ? 1 : 0, false, true, true, { font: 'condensed', sub: 'CLONE FACILITY' });
+        if (tex) {
+          const q = [[-fh * 0.10, capTop - h * 0.05], [fh * 1.02, capTop - h * 0.05], [fh * 1.02, capTop - h * 0.25], [-fh * 0.10, capTop - h * 0.25]]
             .map(([lx, z2]) => { const [wx, wy] = F(lx, fh * 1.18); return cam.proj(wx, wy, z2); });
           if (q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
         }
