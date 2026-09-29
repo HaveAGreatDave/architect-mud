@@ -45622,10 +45622,10 @@ function fasciaKind(m, seed) {
   const trade = tradeOf(m);
   if (SIGN_FASCIA[trade]) return SIGN_FASCIA[trade];
   const picto = (SIGN_TRADE[trade] || ['', ''])[1];
-  if (LIT_PICTO.has(picto)) return dRand(seed, 911) < 0.55 ? 'tube' : 'box';
+  if (LIT_PICTO.has(picto)) { const q = dRand(seed, 911); return q < 0.45 ? 'tube' : q < 0.72 ? 'box' : q < 0.88 ? 'bulbs' : 'halo'; }
   if (WORK_PICTO.has(picto)) return 'painted';
   const r = dRand(seed, 911);
-  return r < 0.22 ? 'tube' : r < 0.48 ? 'box' : r < 0.70 ? 'applied' : r < 0.88 ? 'painted' : 'gilt';
+  return r < 0.18 ? 'tube' : r < 0.40 ? 'box' : r < 0.58 ? 'applied' : r < 0.74 ? 'painted' : r < 0.86 ? 'gilt' : r < 0.94 ? 'halo' : 'bulbs';
 }
 // ── ⚠ AND THE AWNING UNDER IT WAS CUTTING THE NAME IN HALF ──────────────────────────────────────
 //
@@ -45975,6 +45975,50 @@ function marqueeBand(ctx, cam, dx, dy, E, half, wz, color, night, alpha, label =
       }
       g.globalAlpha = a; g.strokeStyle = 'rgba(10,8,12,0.95)'; g.lineWidth = 1.4; trace([TL, TR, BR, BL]); g.stroke();
       inkCol = GOLD; inkSolid = true; pad = 0.10;
+    } else if (kind === 'halo') {
+      // ── HALO-LIT: DARK LETTERS, LIGHT BEHIND THEM ─────────────────────────────────────────
+      //
+      // Reverse-lit channel letters stand off a dark plate with their lamps facing the plate, so
+      // what reads is a glow on the plate behind a dark name. Drawn as a wash strongest along the
+      // board's middle, where the letters are, and dark lettering over it.
+      const lit = night ? 1 : 0.75;   // by day the letters stand dark against a lit plate, which is what makes them read
+      fill([TL, TR, BR, BL], '#0b0a0f', 1);
+      if (bloom && B > 0) { g.shadowColor = color; g.shadowBlur = 10 * B; }
+      for (const [v0, v1, al] of [[0.22, 0.78, 0.30], [0.34, 0.66, 0.42]]) {
+        const l = P(0, 0.5), r = P(1, 0.5);
+        const grad = g.createLinearGradient(l.sx, l.sy, r.sx, r.sy);
+        grad.addColorStop(0, 'rgba(0,0,0,0)');
+        grad.addColorStop(0.12, rgba([cr, cg, cb], al * lit));
+        grad.addColorStop(0.88, rgba([cr, cg, cb], al * lit));
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        g.globalAlpha = a; g.fillStyle = grad; trace(box(0, 1, v0, v1)); g.fill();
+      }
+      g.shadowBlur = 0;
+      g.globalAlpha = a; g.strokeStyle = 'rgba(10,8,12,0.95)'; g.lineWidth = 1.4; trace([TL, TR, BR, BL]); g.stroke();
+      inkCol = '#121016'; inkSolid = true; pad = 0.08;
+    } else if (kind === 'bulbs') {
+      // ── A BULB MARQUEE: A RING OF LAMPS ROUND A PAINTED FACE ─────────────────────────────────
+      //
+      // The picture-house and casino sign: round bulbs at a fixed pitch all the way round, which
+      // reads as a different century from a tube even at a distance, because the light is DOTS.
+      // ⚠ THE PITCH IS IN (u, v) OFF THE BOARD'S PIXEL SIZE, AND THE COUNT IS CAPPED, so a big
+      // board doesn't draw a thousand arcs.
+      const lit = night ? 1 : 0.5;
+      fill([TL, TR, BR, BL], rgba(mix([cr, cg, cb], [14, 12, 16], 0.80), 1), 1);
+      g.globalAlpha = a; g.strokeStyle = 'rgba(10,8,12,0.95)'; g.lineWidth = 1.4; trace([TL, TR, BR, BL]); g.stroke();
+      const iv = 0.11, iu = clamp(iv * hpx / Math.max(8, wpx), 0.01, 0.1);
+      const nu = clamp(Math.round(wpx / Math.max(4, hpx * 0.2)), 6, 60), nv = clamp(Math.round(nu * hpx / Math.max(8, wpx)), 2, 12);
+      const rad = clamp(hpx * 0.045, 0.6, 6);
+      const lamps = [];
+      for (let i = 0; i <= nu; i++) { const u = iu + (1 - 2 * iu) * i / nu; lamps.push(P(u, iv), P(u, 1 - iv)); }
+      for (let j = 1; j < nv; j++) { const v = iv + (1 - 2 * iv) * j / nv; lamps.push(P(iu, v), P(1 - iu, v)); }
+      if (bloom && B > 0) { g.shadowColor = '#ffd27a'; g.shadowBlur = 5 * B; }
+      g.globalAlpha = a * (0.55 + 0.45 * lit); g.fillStyle = night ? '#fff1c4' : '#e8d9a8';
+      g.beginPath();
+      for (const p of lamps) { g.moveTo(p.sx + rad, p.sy); g.arc(p.sx, p.sy, rad, 0, Math.PI * 2); }
+      g.fill();
+      g.shadowBlur = 0;
+      inkCol = '#fff4dc'; inkSolid = true; pad = 0.14;
     } else if (kind === 'applied') {
       // ── APPLIED LETTERS OVER A TROUGH LIGHT ─────────────────────────────────────────────────
       //

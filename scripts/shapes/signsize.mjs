@@ -50,7 +50,7 @@ function kindTraces(ws) {
   const m = reg['type:off_licence'] || ws.shapeModelRegistry()[0].m;
   const hash = (t) => { let h = 0; for (const op of t) { const s = JSON.stringify(op); for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; } return h; };
   const out = new Map();
-  for (const k of ['tube', 'box', 'applied', 'painted', 'gilt']) {
+  for (const k of ['tube', 'box', 'applied', 'painted', 'gilt', 'halo', 'bulbs']) {
     ws.signKindForce(k);
     try { out.set(k, hash(ws.captureModelTrace(m, { night: 1, name: 'SPIRIT LEVEL', dist: 4 }))); }
     finally { ws.signKindForce(null); }
@@ -131,7 +131,7 @@ if (!BEFORE) {
   }
   if (REPORT) console.log('  kinds and traces: ' + [...tr].map(([k, h]) => k + ' ' + h).join(' · ') + '\n');
 }
-if (!BEFORE && kinds.size < 5) {
+if (!BEFORE && kinds.size < 7) {
   console.error(`\n  only ${kinds.size} fascia kind(s) reach the registry — 'fasciaKind' is rolling everything onto one treatment\n`);
   process.exit(1);
 }
