@@ -116,8 +116,10 @@ export const WILDLANDS_FIELD = ${JSON.stringify(out)};
 `;
 
 if (process.argv.includes('--check')) {
-  const cur = existsSync(OUT) ? readFileSync(OUT, 'utf8') : '';
-  if (cur !== body) { console.error('✗ client/shared/wildlands-field.js is stale — run npm run wildlands:bake'); process.exit(1); }
+  // Line endings are ignored: with autocrlf a fresh Windows checkout writes this
+  // file as CRLF, and the bake emits LF, so a byte compare called it stale.
+  const cur = existsSync(OUT) ? readFileSync(OUT, 'utf8').replace(/\r\n/g, '\n') : '';
+  if (cur !== body.replace(/\r\n/g, '\n')) { console.error('✗ client/shared/wildlands-field.js is stale — run npm run wildlands:bake'); process.exit(1); }
   console.log('✓ wildlands field is fresh');
 } else {
   writeFileSync(OUT, body);
