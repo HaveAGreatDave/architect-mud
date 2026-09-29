@@ -461,11 +461,13 @@ function paintTabHtml(c, cat, dirty) {
       cards.push(lookCard(`data-variant="${esc(t.id)}"`, meshBand(mesh, t.id), name,
         t.id === 'stock' ? 'the original' : sub || 'factory edition', (W.variant || 'stock') === t.id && W.pattern === 'bare' && noParts, t.id !== 'stock' && /special/i.test(t.label) ? '<span class="hb-look-star">★</span>' : ''));
     }
-    for (const p of (cat.presets || [])) cards.push(lookCard(`data-preset="${esc(p.id)}"`, [p.base, p.trim, p.accent].filter(Boolean), p.label, 'paint job',
-      (W.variant || 'stock') === 'stock' && noParts && LOOK_KEYS.every(k => p[k] == null || W[k] === p[k])));
+    // The livery sets this pilot has unlocked for the class (content/liveries/). A card only tries
+    // the set on, so the booth shows it; Apply paints it for the respray fee.
+    for (const st of (c.sets || [])) cards.push(lookCard(`data-set="${esc(st.id)}"`, [st.look.base, st.look.trim, st.look.accent].filter(Boolean), st.name,
+      st.factory ? 'factory' : 'livery set', LOOK_KEYS.every(k => st.look[k] == null || W[k] === st.look[k]) && (W.variant || 'stock') === (st.look.variant || 'stock')));
     const mine = (c.schemes || []).map(sc => `<span class="hb-look-wrap">${lookCard(`data-scheme-load="${esc(sc.name)}"`,
       [sc.base, sc.trim, sc.accent, ...Object.values(sc.parts || {})].filter(Boolean).filter((h, i, a) => a.findIndex(x => colourDist(x, h) < 30) === i).slice(0, 6),
-      sc.name, 'yours · free swap', false)}<button class="hb-look-del" data-scheme-del="${esc(sc.name)}" aria-label="Delete scheme ${esc(sc.name)}">✕</button></span>`);
+      sc.name, 'yours', false)}<button class="hb-look-del" data-scheme-del="${esc(sc.name)}" aria-label="Delete scheme ${esc(sc.name)}">✕</button></span>`);
     panel = `
       <div class="hb-looks">${cards.join('')}</div>
       <div class="hb-section">YOUR SCHEMES</div>
@@ -835,10 +837,10 @@ function benchScreen() {
   const statusPill = c.rental ? '<b class="hb-bench-pill hb-bench-pill-rent">Rental</b>' : '';
   return `
     <div class="hb-bay2">
-      <div class="hb-bay2-stage">
+      <div class="hb-bay2-stage${booth ? ' hb-booth' : ''}">
         <canvas id="hb-stage3d" class="hb-scene" tabindex="0" aria-label="${esc(c.tail)} ${esc(STAGE_CAP[venue].toLowerCase())}"></canvas>
         <div class="hb-inspect-name">${esc(c.tail)} <span>${esc(c.typeName)}</span> ${statusPill}</div>
-        <div class="hb-inspect-hint">${booth ? 'PAINT BOOTH · drag to turn her' : STAGE_CAP[venue] + ' · drag to walk round her'}</div>
+        <div class="hb-inspect-hint">${booth ? 'PAINT SHOP · drag to spin her' : STAGE_CAP[venue] + ' · drag to walk round her'}</div>
         <button class="hb-stage-mode" data-act="stage-mode">${booth ? '⌂ Back to the ' + (venue === 'hangar' ? 'hangar' : venue === 'helipad' ? 'pad' : 'ramp') : '✦ Paint booth'}</button>
         ${radar}
       </div>
@@ -1075,7 +1077,15 @@ function wire() {
     B.work = { ...B.work, variant: v, pattern: 'bare', parts: {}, ...(cab ? { itrim: v } : {}) }; render();
   });
   on('[data-part-reset]', 'click', (e) => { const k = e.currentTarget.getAttribute('data-part-reset'); const p = { ...(B.work.parts || {}) }; delete p[k]; B.work.parts = p; render(); });
-  on('[data-scheme-load]', 'click', (e) => sendCmdSilent(`scheme ${B.selId} load ${e.currentTarget.getAttribute('data-scheme-load')}`));
+  const selCard = () => (B.data.craft || []).find(x => x.id === B.selId);
+  on('[data-set]', 'click', (e) => {
+    const st = (selCard()?.sets || []).find(x => x.id === e.currentTarget.getAttribute('data-set'));
+    if (st) { B.work = { ...B.work, parts: {}, ...st.look }; render(); }
+  });
+  on('[data-scheme-load]', 'click', (e) => {
+    const sc = (selCard()?.schemes || []).find(x => x.name === e.currentTarget.getAttribute('data-scheme-load'));
+    if (sc) { B.work = { ...B.work, parts: {}, ...(sc.look || sc) }; delete B.work.name; delete B.work.look; render(); }
+  });
   on('[data-scheme-del]', 'click', (e) => sendCmdSilent(`scheme ${B.selId} delete ${e.currentTarget.getAttribute('data-scheme-del')}`));
   on('[data-knob]', 'pointerdown', startKnobDrag);
   on('[data-kit]', 'click', (e) => sendCmdSilent(`installkit ${B.selId} ${e.currentTarget.getAttribute('data-kit')}`));
@@ -1764,6 +1774,15 @@ function ensureStyles() {
     border:1px solid var(--hb-atm-accent); box-shadow:0 0 12px color-mix(in srgb, var(--hb-atm-accent) 45%, transparent); }
   #hb-root .hb-stage-mode:hover { filter:brightness(1.2); }
   #hb-root .hb-stage-radar { position:absolute; left:8px; bottom:8px; transform:scale(.72); transform-origin:left bottom; z-index:2; background:rgba(6,12,18,0.72); border-radius:8px; pointer-events:none; }
+  /* The paint booth is an NFS Underground garage: neon on black, italic caps, a hard glow. */
+  #hb-root .hb-bay2-stage.hb-booth { background:#05060c; box-shadow:inset 0 0 0 1px rgba(196,72,255,0.55), 0 0 18px rgba(196,72,255,0.25); }
+  #hb-root .hb-booth .hb-inspect-name { font-style:italic; text-transform:uppercase; font-size:16px; letter-spacing:2px; color:#fff;
+    text-shadow:0 0 6px rgba(64,220,255,0.9), 0 0 16px rgba(64,220,255,0.5); }
+  #hb-root .hb-booth .hb-inspect-name span { color:#ff5cc0; text-shadow:0 0 6px rgba(255,60,170,0.8); }
+  #hb-root .hb-booth .hb-inspect-hint { font-style:italic; color:#bfefff; background:rgba(5,6,12,0.75); border-color:rgba(64,220,255,0.6);
+    box-shadow:0 0 8px rgba(64,220,255,0.35); }
+  #hb-root .hb-booth .hb-stage-mode { font-style:italic; text-transform:uppercase; letter-spacing:1px; color:#fff; background:rgba(40,8,48,0.8);
+    border:1px solid #c448ff; box-shadow:0 0 10px rgba(196,72,255,0.6), inset 0 0 6px rgba(196,72,255,0.4); }
   #hb-root .hb-bay2-side { flex:1 1 0; min-width:0; display:flex; flex-direction:column; gap:10px; min-height:0; }
   #hb-root .hb-jobs { flex:0 0 auto; display:grid; grid-template-columns:repeat(auto-fill,minmax(88px,1fr)); gap:6px; }
   #hb-root .hb-job { display:flex; flex-direction:column; align-items:flex-start; gap:1px; padding:7px 9px; border-radius:8px; cursor:pointer;

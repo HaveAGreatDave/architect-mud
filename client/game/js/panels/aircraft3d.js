@@ -8243,59 +8243,114 @@ export function drawHangarFloorBay(ctx, opts) {
   return opts.cls ? paintTurntable(ctx, opts) : null;
 }
 
-// ── THE PAINT BOOTH: a lazy susan under three spotlights ──────────────────────
-// Any vehicle on a turning platform in a white booth, for choosing a paint job without flying it.
-// It's a stage, not a place: the booth is drawn in 2-D behind the turntable model and the platform
-// sits where that model says its ground is (last frame's anchor, so the disc tracks the craft's size).
-// Any class drawHangarFloorBay can draw can stand on it — aircraft, trucks, boats.
+// ── THE PAINT BOOTH: a night garage in the NFS Underground mould ─────────────
+// Any vehicle on a turning platform in a dark tiled garage: neon tubes down the back wall, a wet
+// floor that throws them back, a chrome turntable with a chasing light ring, and underglow under
+// the machine in its own accent colour. It's a stage, not a place: the garage is drawn in 2-D
+// behind the turntable model and the platform sits where that model says its ground is (last
+// frame's anchor, so the disc tracks the craft's size). Any class drawHangarFloorBay can draw can
+// stand on it: aircraft, trucks, boats.
 const _boothAnchor = new WeakMap();
+const BOOTH_NEON = ['64,220,255', '196,72,255', '255,60,170'];
+function boothGlow(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+  if (!m) return BOOTH_NEON[0];
+  const n = parseInt(m[1], 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+  // A dark or grey accent makes no glow worth the name, so it falls back to the house cyan.
+  const hi = Math.max(r, g, b), lo = Math.min(r, g, b);
+  if (hi < 90 || hi - lo < 40) return BOOTH_NEON[0];
+  const k = 255 / hi;
+  return `${Math.round(r * k)},${Math.round(g * k)},${Math.round(b * k)}`;
+}
 export function drawPaintBooth(ctx, opts) {
   const { w, h } = opts, t = opts.time || 0;
   ctx.clearRect(0, 0, w, h);
-  // The booth: pale walls going up into shadow, and a glossy floor.
-  const hor = h * 0.58;
+  const hor = h * 0.56;
+  // The back wall: near-black, bluing toward the floor.
   let g = ctx.createLinearGradient(0, 0, 0, hor);
-  g.addColorStop(0, '#15181e'); g.addColorStop(0.55, '#3a414c'); g.addColorStop(1, '#8e98a6');
+  g.addColorStop(0, '#05060c'); g.addColorStop(0.7, '#0d1020'); g.addColorStop(1, '#171a30');
   ctx.fillStyle = g; ctx.fillRect(0, 0, w, hor);
-  // Light panels in the back wall.
-  for (let i = 0; i < 6; i++) {
-    const x = w * (0.08 + i * 0.15), pw = w * 0.1;
-    const lg = ctx.createLinearGradient(0, hor * 0.2, 0, hor * 0.85);
-    lg.addColorStop(0, 'rgba(235,242,255,0.05)'); lg.addColorStop(1, 'rgba(235,242,255,0.28)');
-    ctx.fillStyle = lg; ctx.fillRect(x, hor * 0.22, pw, hor * 0.62);
-  }
+  // Roller-door ribs, faint.
+  ctx.strokeStyle = 'rgba(120,140,200,0.07)'; ctx.lineWidth = 1;
+  for (let y = hor * 0.18; y < hor; y += 7) { ctx.beginPath(); ctx.moveTo(w * 0.24, y); ctx.lineTo(w * 0.76, y); ctx.stroke(); }
+  // Neon tubes: two verticals either side and a long bar over the door, with a slow buzz.
+  const tube = (x0, y0, x1, y1, rgb, a) => {
+    ctx.save(); ctx.lineCap = 'round';
+    ctx.strokeStyle = `rgba(${rgb},${0.16 * a})`; ctx.lineWidth = 14; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+    ctx.strokeStyle = `rgba(${rgb},${0.5 * a})`; ctx.lineWidth = 5; ctx.stroke();
+    ctx.strokeStyle = `rgba(255,255,255,${0.85 * a})`; ctx.lineWidth = 1.6; ctx.stroke();
+    ctx.restore();
+  };
+  const buzz = (k) => 0.82 + 0.18 * Math.sin(t * (2.1 + k) + k * 1.7);
+  const tubes = [
+    [w * 0.1, hor * 0.2, w * 0.1, hor * 0.92, BOOTH_NEON[1], buzz(0)],
+    [w * 0.9, hor * 0.2, w * 0.9, hor * 0.92, BOOTH_NEON[1], buzz(1)],
+    [w * 0.26, hor * 0.12, w * 0.74, hor * 0.12, BOOTH_NEON[0], buzz(2)],
+  ];
+  for (const tb of tubes) tube(...tb);
+  // The floor: wet dark concrete with a tile seam grid running to the horizon.
   g = ctx.createLinearGradient(0, hor, 0, h);
-  g.addColorStop(0, '#6d7581'); g.addColorStop(1, '#1b1f25');
+  g.addColorStop(0, '#12142a'); g.addColorStop(1, '#040408');
   ctx.fillStyle = g; ctx.fillRect(0, hor, w, h - hor);
+  ctx.strokeStyle = 'rgba(140,160,255,0.08)'; ctx.lineWidth = 1;
+  for (let i = -8; i <= 8; i++) { ctx.beginPath(); ctx.moveTo(w / 2 + i * w * 0.02, hor); ctx.lineTo(w / 2 + i * w * 0.16, h); ctx.stroke(); }
+  for (let k = 1; k < 7; k++) { const y = hor + (h - hor) * (k / 7) ** 1.7; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+  // The tubes again, smeared down the wet floor.
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (const [x0, , , , rgb, a] of tubes.slice(0, 2)) {
+    const rg = ctx.createLinearGradient(0, hor, 0, h);
+    rg.addColorStop(0, `rgba(${rgb},${0.3 * a})`); rg.addColorStop(1, `rgba(${rgb},0)`);
+    ctx.fillStyle = rg; ctx.fillRect(x0 - 5, hor, 10, h - hor);
+  }
+  ctx.restore();
   // The platform, where the model's ground was last frame.
   const an = _boothAnchor.get(ctx.canvas) || { sx: w / 2, sy: h * 0.66 };
   const R = Math.min(w * 0.4, h * 0.62), ry = R * 0.2;
+  const glow = boothGlow(opts.livery?.accent || opts.livery?.trim);
   const disc = (r, fill) => { ctx.beginPath(); ctx.ellipse(an.sx, an.sy, r, r * ry / R, 0, 0, 7); ctx.fillStyle = fill; ctx.fill(); };
-  disc(R * 1.08, 'rgba(0,0,0,0.45)');
+  // Underglow: a pool of the machine's accent colour spilling past the disc.
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  ctx.translate(an.sx, an.sy); ctx.scale(1, ry / R);
+  const ug = ctx.createRadialGradient(0, 0, R * 0.2, 0, 0, R * 1.6);
+  const pulse = 0.85 + 0.15 * Math.sin(t * 1.6);
+  ug.addColorStop(0, `rgba(${glow},${0.9 * pulse})`); ug.addColorStop(0.5, `rgba(${glow},${0.4 * pulse})`); ug.addColorStop(1, `rgba(${glow},0)`);
+  ctx.fillStyle = ug; ctx.beginPath(); ctx.arc(0, 0, R * 1.6, 0, 7); ctx.fill();
+  ctx.restore();
+  disc(R * 1.04, 'rgba(0,0,0,0.55)');
   const dg = ctx.createLinearGradient(an.sx - R, 0, an.sx + R, 0);
-  dg.addColorStop(0, '#2a2f37'); dg.addColorStop(0.5, '#5b6470'); dg.addColorStop(1, '#2a2f37');
+  dg.addColorStop(0, '#15171f'); dg.addColorStop(0.5, '#3b3f4c'); dg.addColorStop(1, '#15171f');
   disc(R, dg);
-  // Chrome rim, a ring of lights running round it, and the reflection of the booth in the top.
-  ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(230,236,246,0.85)';
+  // Chrome rim, then a ring of LEDs chasing round it in the underglow colour.
+  ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(220,228,246,0.9)';
   ctx.beginPath(); ctx.ellipse(an.sx, an.sy, R, ry, 0, 0, 7); ctx.stroke();
-  for (let i = 0; i < 28; i++) {
-    const a = i / 28 * Math.PI * 2 + t * 0.6, x = an.sx + Math.cos(a) * R * 0.97, y = an.sy + Math.sin(a) * ry * 0.97;
-    const on = (i + Math.floor(t * 6)) % 4 === 0;
-    ctx.fillStyle = on ? 'rgba(255,240,200,0.95)' : 'rgba(255,240,200,0.28)';
-    ctx.beginPath(); ctx.arc(x, y, on ? 2.4 : 1.6, 0, 7); ctx.fill();
+  for (let i = 0; i < 32; i++) {
+    const a = i / 32 * Math.PI * 2 + t * 0.6, x = an.sx + Math.cos(a) * R * 0.95, y = an.sy + Math.sin(a) * ry * 0.95;
+    const on = (i + Math.floor(t * 10)) % 8 < 2;
+    ctx.fillStyle = on ? `rgba(${glow},1)` : `rgba(${glow},0.25)`;
+    ctx.beginPath(); ctx.arc(x, y, on ? 2.6 : 1.5, 0, 7); ctx.fill();
   }
-  ctx.save(); ctx.globalAlpha = 0.18; disc(R * 0.7, 'rgba(255,255,255,0.35)'); ctx.restore();
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (const [lw, a] of [[14, 0.14], [7, 0.3], [2.5, 0.7]]) {
+    ctx.lineWidth = lw; ctx.strokeStyle = `rgba(${glow},${a * pulse})`;
+    ctx.beginPath(); ctx.ellipse(an.sx, an.sy + 2, R * 1.02, ry * 1.02, 0, 0, Math.PI); ctx.stroke();
+  }
+  ctx.restore();
+  ctx.save(); ctx.globalAlpha = 0.14; disc(R * 0.7, 'rgba(200,210,255,0.4)'); ctx.restore();
   // The vehicle, turning.
   const res = drawHangarFloorBayOnto(ctx, { ...opts, flat: true, yaw: t * 0.35 + (opts.yaw || 0), elev: opts.elev ?? 0.28, zoom: opts.zoom ?? 1.2 });
   if (res?.ground) _boothAnchor.set(ctx.canvas, { sx: res.ground.sx, sy: res.ground.sy });
-  // Three spotlights from above, added over everything.
+  // Two coloured key lights raking in from the corners, added over everything.
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  for (const [fx, tint] of [[0.2, '255,236,210'], [0.5, '235,242,255'], [0.8, '255,236,210']]) {
-    const sx = w * fx, cg = ctx.createLinearGradient(0, 0, 0, an.sy);
-    cg.addColorStop(0, `rgba(${tint},0.22)`); cg.addColorStop(1, `rgba(${tint},0)`);
-    ctx.fillStyle = cg; ctx.beginPath(); ctx.moveTo(sx - 8, 0); ctx.lineTo(sx + 8, 0); ctx.lineTo(an.sx + (sx - w / 2) * 0.25 + R * 0.5, an.sy); ctx.lineTo(an.sx + (sx - w / 2) * 0.25 - R * 0.5, an.sy); ctx.closePath(); ctx.fill();
+  for (const [fx, rgb] of [[0.06, BOOTH_NEON[2]], [0.94, BOOTH_NEON[0]]]) {
+    const sx = w * fx, cg = ctx.createLinearGradient(sx, 0, an.sx, an.sy);
+    cg.addColorStop(0, `rgba(${rgb},0.2)`); cg.addColorStop(1, `rgba(${rgb},0)`);
+    ctx.fillStyle = cg; ctx.beginPath(); ctx.moveTo(sx - 10, 0); ctx.lineTo(sx + 10, 0); ctx.lineTo(an.sx + R * 0.5, an.sy); ctx.lineTo(an.sx - R * 0.5, an.sy); ctx.closePath(); ctx.fill();
   }
   ctx.restore();
+  // A vignette to pull the eye in.
+  const vg = ctx.createRadialGradient(w / 2, h * 0.55, Math.min(w, h) * 0.3, w / 2, h * 0.55, Math.max(w, h) * 0.75);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.6)');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
 }
 // drawHangarFloorBay clears the canvas first; the booth has already drawn, so this skips the clear.
 function drawHangarFloorBayOnto(ctx, opts) { return opts.cls ? paintTurntable(ctx, opts) : null; }
