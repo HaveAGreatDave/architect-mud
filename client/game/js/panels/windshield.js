@@ -1265,6 +1265,7 @@ export const RENDER_TUNE = {
   cloudVolRes: 0.25,   // fraction of the frame's resolution the march runs at
   cloudVolSteps: 48,   // march steps a ray
   cloudVolTemporal: 0.85,   // how much of last frame each pixel keeps (gl/cloudvol.js); 0 is the raw jittered march
+  cloudUnder: 1,      // 1: on the 2-D path, from under the deck, paint the cards BEFORE the world so buildings cover them; 0 paints them over everything as before
   cloudFloor: 1,      // 1: from under the deck, the part of a cloud card below the base never covers a bird (gl/clouds.js uFloorZ); 0 is the deck as it shipped
   // What FLIES lays its silhouette into the depth buffer, so the deck above can sort against it.
   // 0 puts both back to writing no depth, which is the renderer that shipped.
@@ -5821,6 +5822,17 @@ function paintWindshieldFrame(id, view) {
     CAB_PAINTED = wantCabNow(v, bare, ext);
     INTERIOR_LATER = !!(GL_INTERIOR_HOOK && full3d(v) && !bare && !ext);
     SEAT_FRAME_H = H;   // the frame height, which the camera object does not carry — see seatAttitude
+    // ⚠ THE 2-D DECK GOES UNDER THE CITY. With no GL sink the cards were painted after the world
+    // and covered every tower and overpass in front of them. From under the deck nothing in the
+    // city is behind a cloud, so the cards are painted first and the world covers them; above the
+    // deck the old order stays (the ground would otherwise hide the deck below you).
+    CLOUD_UNDER = false;
+    if (volOn && worldBlend > 0.02 && !CLOUD_SINK && TUNE.cloudUnder !== 0 && cam.EH < cloudBaseZ(wx)) {
+      pBegin('clouds');
+      try { drawVolumetricClouds(ctx, cam, st, v, baseTint, litTint, cloudAlpha, localStorm, sky.night, dt, W, H, horizonY, wx, lightX, lightY, lightStr, 'under'); CLOUD_UNDER = true; }
+      catch (e) { console.error('[windshield] the under-deck cloud pass threw', e); }
+      pEnd();
+    }
     pMark('m:preworld');
     try { drawWorldObjects(ctx, cam, vw, sky, now, sunFx); }
     catch (e) {
@@ -5865,7 +5877,7 @@ function paintWindshieldFrame(id, view) {
         // build twice, on the frame GLASS 2 fell over, and the sky is never empty.
         if (CLOUD_SINK && !GL_DREW) { CLOUD_SINK = null; CLOUD_STATE = null; CLOUD_VOL = null; }
         try {
-          drawVolumetricClouds(ctx, cam, st, v, baseTint, litTint, cloudAlpha, localStorm, sky.night, dt, W, H, horizonY, wx, lightX, lightY, lightStr, CLOUD_SINK ? 'paint' : 'both');
+          drawVolumetricClouds(ctx, cam, st, v, baseTint, litTint, cloudAlpha, localStorm, sky.night, dt, W, H, horizonY, wx, lightX, lightY, lightStr, CLOUD_SINK ? 'paint' : (CLOUD_UNDER ? 'over' : 'both'));
           if (CLOUD_VOL && CLOUD_VOL.cells && CLOUD_VOL.cells.length) {
             // ── THE VOLUME, IN PLACE OF THE CARDS ──────────────────────────────────────────────
             // The cards were collected into the sink and are simply not drawn. A volume that fails
@@ -17672,8 +17684,11 @@ function bakePuffSprite(col, shade) {
 // `dt` every call, so running both halves would advance it twice a frame and the whiteout would
 // bloom at double speed in exactly the weather it is built for.
 function drawVolumetricClouds(ctx, cam, st, v, base, lit, alpha, storm, night, dt, W, H, horizonY, wx, lightX, lightY, lightStr, phase = 'both') {
-  const build = phase !== 'paint';     // project the swarm and fill the sink
-  const paint = phase !== 'collect';   // put anything on the 2-D canvas
+  // 'under' (2-D path, eye below the deck): build and paint the cards only, BEFORE the world pass,
+  // so every building painted after it covers the deck. 'over' then paints the screen-space layers
+  // (haze, virga, whiteout) after the world without rebuilding the swarm.
+  const build = phase !== 'paint' && phase !== 'over';     // project the swarm and fill the sink
+  const paint = phase !== 'collect' && phase !== 'under';  // put the screen-space layers on the 2-D canvas
   const cells = st.cells || [], ax = v.acX, ay = v.acY;
   // Cumulus caps over strong thermals (thermalCapCells), built into the same swarm as the weather's
   // cells so they light, sort and fade exactly like the rest of the deck. They are the one cloud a
@@ -25273,6 +25288,7 @@ let OWN_ON_GL = false;
 // pass and the deck hook after it. It is the deck's palette resolved once, for the same reason
 // FOG_STATE and LIGHT_STATE are: a shader that carried its own copy would drift.
 let GL_CLOUD_HOOK = null, CLOUD_SINK = null, CLOUD_STATE = null;
+let CLOUD_UNDER = false;   // this frame's 2-D deck was painted before the world pass
 
 // ── THE PAINTED SKY, DOWNSCALED, FOR THE WATER TO REFLECT ──────────────────────────────────────
 //
@@ -25341,6 +25357,47 @@ export function cloudVolStatus() {
   return { setting: RENDER_TUNE.glCloudVol, installed: !!GL_CLOUD_VOL_HOOK, device: CLOUD_VOL_DEVICE, sessionOff: CLOUD_VOL_OFF, failed: CLOUD_VOL_FAIL, running: cloudVolWanted() && !!RENDER_TUNE.gl && !!RENDER_TUNE.glClouds };
 }
 if (typeof window !== 'undefined') window.__cloudVol = cloudVolStatus;
+
+// ── F9: THE VOLUMETRIC DECK, ON OR OFF ─────────────────────────────────────────────────────────
+// Flips RENDER_TUNE.glCloudVol between forced on (1) and the card deck (0). From AUTO (-1) the
+// first press goes to whichever state is NOT on screen now. A per-viewer convenience, so it lives
+// in localStorage only, and a browser that refuses storage still gets the toggle.
+const CLOUD_VOL_LS = 'wsCloudVol';
+try {
+  const s = typeof localStorage !== 'undefined' ? localStorage.getItem(CLOUD_VOL_LS) : null;
+  if (s === '0' || s === '1') RENDER_TUNE.glCloudVol = +s;
+} catch { /* private mode */ }
+export function cloudVolToggle(on) {
+  const cur = cloudVolWanted();
+  const next = on == null ? !cur : !!on;
+  RENDER_TUNE.glCloudVol = next ? 1 : 0;
+  if (next) { CLOUD_VOL_FAIL = null; CLOUD_VOL_OFF = null; }   // an explicit ask gets another try
+  try { if (typeof localStorage !== 'undefined') localStorage.setItem(CLOUD_VOL_LS, next ? '1' : '0'); } catch { /* see above */ }
+  return next;
+}
+function cloudVolToast(text) {
+  if (typeof document === 'undefined' || !document.body) return;
+  let el = document.getElementById('ws-cloudvol-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'ws-cloudvol-toast';
+    el.style.cssText = 'position:fixed;left:50%;top:12%;transform:translateX(-50%);z-index:99999;padding:6px 14px;'
+      + 'background:rgba(10,14,20,0.82);color:#cfe3f0;font:12px monospace;letter-spacing:1px;border:1px solid #4a6a80;'
+      + 'pointer-events:none;transition:opacity 0.4s';
+    document.body.appendChild(el);
+  }
+  el.textContent = text; el.style.opacity = '1';
+  clearTimeout(el._t); el._t = setTimeout(() => { el.style.opacity = '0'; }, 1600);
+}
+if (typeof window !== 'undefined' && window.addEventListener) {
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'F9' || e.repeat) return;
+    e.preventDefault();
+    const on = cloudVolToggle();
+    const gpu = !!(RENDER_TUNE.gl && RENDER_TUNE.glClouds && GL_CLOUD_VOL_HOOK);
+    cloudVolToast(on ? (gpu ? 'VOLUMETRIC CLOUDS ON' : 'VOLUMETRIC CLOUDS ON (needs GLASS 2)') : 'VOLUMETRIC CLOUDS OFF');
+  });
+}
 // The cabin's own moment — see drawInteriorAlone in gl/context.js. Installed from outside for the
 // same reason the other two are: this file must never import gl/.
 let GL_SKY_HOOK = null;
