@@ -169,6 +169,7 @@ export const GROUPS = [
       'scripts/shapes/cockpit-mayfly.mjs',
       'scripts/shapes/cockpit-dragonfly.mjs',
       'scripts/shapes/cockpit-viper.mjs',
+      'scripts/shapes/cabin-light.mjs',
       'scripts/shapes/cockpit-carcass.mjs',
       'scripts/shapes/bay.mjs',
       'scripts/shapes/hangar.mjs',

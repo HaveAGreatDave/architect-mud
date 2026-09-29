@@ -22504,6 +22504,40 @@ function texOf(f) {
   const name = (f.mat && f.mat.tex) || (f.rgb ? TEXTURE.get(f.rgb) : TONE_TEX[f.tone]);
   return name ? texIndex(name) : 0;
 }
+// ── WHAT THE WORLD SHINES INTO THE ROOM ─────────────────────────────────────
+// The cab's light came off the hour and the weather alone, so a cockpit was lit the same under a
+// full moon as under a new one, the same parked in a shed as out on the apron, and the same upside
+// down as level: the brightest wall was always the roof. This is the three facts pushInteriorShell
+// was missing, all off fields already on the view, so nothing new goes on the wire:
+//   · moon  — what the moon adds after dark: its phase times its height, gone behind cloud.
+//   · cover — 0 open sky, ~1 a roof overhead. A `bay` under the vehicle is a shed (the same test
+//             `roofed` makes for the rain); a caller that knows better (a hangar seat, a tunnel)
+//             may say so with `v.covered`.
+//   · up    — the sky's direction in the cab's own frame (x right, y forward, z up). Level it is
+//             [0, 0, 1]; rolled inverted it is [0, 0, −1] and the light comes up off the floor.
+// Pure and cheap, so the frame key below can carry it and a steady cab still hits the cache.
+function cabinEnvLight(v, murk) {
+  const hour = v.hour == null ? 12 : v.hour;
+  const ph = v.moon != null ? ((v.moon % 1) + 1) % 1 : 0.5;
+  const mA = moonArc(hour, ph);
+  const sky = skyAt(hour);
+  const moon = mA.up ? moonIllum(ph) * mA.elev * sky.night * (1 - clamp(murk * 1.6, 0, 0.9)) : 0;
+  const mid = v.map && v.map.length ? (v.map.length - 1) / 2 : -1;
+  const bay = mid >= 0 && v.map[mid] && v.map[mid][mid] && v.map[mid][mid].mark === 'bay';
+  // ⚠ A BAY IS ONLY A ROOF TO SOMETHING STANDING IN IT. An aircraft 500 ft over a hangar tile is
+  // not in the hangar.
+  const low = v.alt == null || v.alt < 40;
+  const cover = clamp(Number.isFinite(v.covered) ? v.covered : (bay && low ? 0.8 : 0), 0, 1);
+  const b = (v.bank || 0) * Math.PI / 180, p = (v.pitch || 0) * Math.PI / 180;
+  const cb = Math.cos(b), sb = Math.sin(b), cp = Math.cos(p), sp = Math.sin(p);
+  // World → cab: the body's right, forward and up in the level-heading frame (pitch, then roll,
+  // right wing down for a positive bank).
+  const R = [cb, sb * sp, -sb * cp], F = [0, cp, sp], U = [sb, -cb * sp, cb * cp];
+  const rot = (w) => w ? [w[0] * R[0] + w[1] * R[1] + w[2] * R[2], w[0] * F[0] + w[1] * F[1] + w[2] * F[2], w[0] * U[0] + w[1] * U[1] + w[2] * U[2]] : null;
+  // Rounded: it is in the shade cache's key, and a hundredth is below anything the eye can see.
+  const up = rot([0, 0, 1]).map((c) => Math.round(c * 100) / 100);
+  return { moon, cover, up, rot, att: Math.abs(b) > 1e-4 || Math.abs(p) > 1e-4 };
+}
 const INT_LIT = [];   // per face slot: the last shaded colour and everything it was shaded from — see pushInteriorShell
 function pushInteriorShell(cam, v) {
   INTERIOR_NV = null;
@@ -22550,11 +22584,18 @@ function pushInteriorShell(cam, v) {
     : v.weather === 'rain' || v.weather === 'snow' || v.weather === 'fog' || v.weather === 'haze' ? 0.40
     : v.weather === 'overcast' ? 0.22 : 0;
   const litK = clamp(Math.max(sky.night, murk), 0, 1);
-  const KEY = mix([10, 12, 16], sky.hor, 0.88);
-  const outK = clamp(1 - litK * 0.88, 0.12, 1);
-  // How much light the room has to work with: all of it by day, about a third at midnight, and a
-  // good deal back when the dome is on.
-  const amb = clamp(1 - litK * 0.66 + (v.dome && litK > 0.3 ? 0.28 : 0), 0.3, 1);
+  // The moon, a roof overhead and which way is up — see cabinEnvLight.
+  const E = cabinEnvLight(v, murk), UP = E.up;
+  // How dark it is where the lamps are concerned: the night, or a shed at noon.
+  const darkK = clamp(Math.max(litK, E.cover * 0.75), 0, 1);
+  // A moonlit cab takes the moon's cold silver into what comes through the glass.
+  const KEY = mix(mix([10, 12, 16], sky.hor, 0.88), [150, 166, 200], clamp(E.moon * 0.55, 0, 0.55));
+  // Inverted, the glass over your head looks at the ground, which gives back less than the sky.
+  const skyward = 0.8 + 0.2 * Math.max(0, UP[2]);
+  const outK = clamp((1 - litK * 0.88 + E.moon * 0.16) * (1 - E.cover * 0.65) * skyward, 0.12, 1);
+  // How much light the room has to work with: all of it by day, about a third at midnight (more
+  // under a full moon), less under a roof, and a good deal back when the dome is on.
+  const amb = clamp((1 - litK * 0.66 + E.moon * 0.14) * (1 - E.cover * 0.45) * skyward + (v.dome && darkK > 0.3 ? 0.28 : 0), 0.3, 1);
   const mul3c = (c3, kk) => [c3[0] * kk, c3[1] * kk, c3[2] * kk];
   // Every tone is a key the colourway already carries — see the ⚠ in interior-shell.js. `seat` and
   // `floor` are the two surfaces a dashboard has no word for, so they are derived off the ones it
@@ -22594,16 +22635,19 @@ function pushInteriorShell(cam, v) {
   const sHr = v.hour == null ? 12 : v.hour, sDay = clamp((sHr - 6) / 12, 0, 1), sUp = sHr > 5.5 && sHr < 18.5;
   const sEl = sUp ? Math.sin(sDay * Math.PI) : 0, sAz = sDay * Math.PI, sCe = Math.sqrt(1 - sEl * sEl);
   const swx = Math.cos(sAz) * sCe, swy = Math.sin(sAz) * sCe;
-  const sunC = sUp ? norm3v([swx * ch + swy * sh, swx * sh - swy * ch, Math.max(0.05, sEl)]) : null;
+  // ⚠ Turned by the bank and pitch too, so a rolled aircraft glints off the side the sun is really
+  // on; and nothing gets in under a roof.
+  const sunLvl = sUp && E.cover < 0.5 ? norm3v([swx * ch + swy * sh, swx * sh - swy * ch, Math.max(0.05, sEl)]) : null;
+  const sunC = sunLvl && E.att ? E.rot(sunLvl) : sunLvl;
 
   // The panel floods' colour: warm incandescent, or NVIS green with night vision on — a cockpit flown
   // on goggles is lit blue-green, because the tube is most sensitive to red and near-infrared and a
   // warm lamp in view would wash it out. Per channel as a fraction of the surface's own colour.
   const nvOn = !!(v.drakeCab && v.drakeCab.nv);
   const floodRgb = (P.floods && v.powered !== false) ? (nvOn ? [0.28, 0.72, 0.50] : [1.0, 0.72, 0.42]) : null;
-  const floodK = 1.3 * (P.floodGain || 1) * Math.max(clamp(litK - 0.15, 0, 1), P.floodFloor || 0);
+  const floodK = 1.3 * (P.floodGain || 1) * Math.max(clamp(darkK - 0.15, 0, 1), P.floodFloor || 0);
   // A cabin lit that brightly at night shows itself in its own glass (applyCabinGlare).
-  if (floodRgb && P.glare && litK > 0.2) INTERIOR_GLARE = { k: P.glare * clamp((litK - 0.2) / 0.6, 0, 1) * (nvOn ? 0.35 : 1), rgb: floodRgb };
+  if (floodRgb && P.glare && darkK > 0.2) INTERIOR_GLARE = { k: P.glare * clamp((darkK - 0.2) / 0.6, 0, 1) * (nvOn ? 0.35 : 1), rgb: floodRgb };
 
   let n = 0;
   // ── ⚠ A FACE'S COLOUR IS REUSED WHEN NOTHING IT READS HAS CHANGED ─────────────────────────────
@@ -22619,7 +22663,7 @@ function pushInteriorShell(cam, v) {
   // Only a SHINY face (the metal ramp and the sun glint) reads the sun; the rest are lit from the
   // fixed key and keep their colour through a turn.
   const frameKeyBase = litK + '|' + outK + '|' + amb + '|' + KEY + '|' + floodK + '|' + floodRgb
-    + '|' + v.tier + '|' + v.trim + '|' + rich + '|' + CAB_PAINTED + '|' + (cabinMap ? cabin : '');
+    + '|' + v.tier + '|' + v.trim + '|' + rich + '|' + CAB_PAINTED + '|' + (cabinMap ? cabin : '') + '|' + UP;
   const frameKeySun = frameKeyBase + '|' + sunC;
   if (INT_LIT.P !== P) { INT_LIT.length = 0; INT_LIT.P = P; }
   let fi = -1;
@@ -22679,10 +22723,13 @@ function pushInteriorShell(cam, v) {
       for (const q of f.p) { cx += q[0]; cy += q[1]; cz += q[2]; }
       cx /= f.p.length; cy /= f.p.length; cz /= f.p.length;
       const nn = f.n;
-      const lam = Math.max(0, nn[0] * 0.10 + nn[1] * -0.62 + nn[2] * 0.78);
+      // The overhead share of it comes from wherever the sky is (UP): the roof level, the floor inverted.
+      const lam = Math.max(0, nn[0] * 0.10 + nn[1] * -0.62 + 0.78 * (nn[0] * UP[0] + nn[1] * UP[1] + nn[2] * UP[2]));
       const back = Math.max(0, nn[1] * 0.9 + nn[2] * 0.3);
       const side = 0.5 * Math.max(0, nn[0]) + 0.5 * Math.max(0, -nn[0]);
-      const yf = clamp((cy - P.back) / (P.front - P.back), 0, 1), zf = clamp((cz - P.floor) / (P.roof - P.floor), 0, 1);
+      const yf = clamp((cy - P.back) / (P.front - P.back), 0, 1), zf0 = clamp((cz - P.floor) / (P.roof - P.floor), 0, 1);
+      // High is bright because high is nearer the sky; upside down the footwells are.
+      const zf = UP[2] >= 0 ? zf0 : zf0 + (1 - 2 * zf0) * -UP[2];
       let fac = (0.70 + 0.85 * lam + 0.45 * back + 0.30 * side) * (0.74 + 0.26 * yf) * (0.76 + 0.24 * zf) * (1 + 0.18 * k);
       fac *= 0.55 + 0.45 * outK;
       // GRAIN: a textured plastic or a leather is modelled as many small faces, and each takes a hashed

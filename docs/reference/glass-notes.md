@@ -1096,6 +1096,16 @@ So `gl/water.js` is a real mesh. It displaces the 8.6-tile roll and the fragment
 - The diffuse is measured against the flat sea. A flat surface gets `dot(up, L)` (the light's elevation sine), so `(lam − elev)` is the facet's own deviation and is zero-mean at every hour. Trap: against a constant it carries the sun's height as a brightness offset and the whole sea drops about 9% at a low sun.
 - Night moves 0% of the frame, which is correct. With the eye 0.12 tiles up and the moon 60° high, the mirror point is about 0.07 tiles away, under the truck. The existing `moon` path term is the deliberate non-physical answer.
 
+## Cockpit light from the world
+
+`cabinEnvLight` (windshield.js) feeds `pushInteriorShell` the three things the room's light used to ignore, all off fields already on the view:
+
+- The moon: `moonIllum(phase) × elev`, only after dark and cut by cloud. It lifts the cab's ambient and cools the window key toward silver, so a full-moon cab reads and a new-moon one doesn't.
+- Cover: a `bay` under the vehicle (the test `roofed` makes, and only below 40 ft so a plane over a hangar isn't in it), or `v.covered` from a caller that knows better. It dims the daylight, kills the sun glint, and counts as dark for the panel floods and cabin glare.
+- Attitude: the sky's direction in cab space from `bank` and `pitch`. The overhead share of each face's light and the roof-bright height falloff follow it, so inverted the footwells are lit and the roof is not, and the sun glint is turned with the airframe.
+
+Trap: the up vector is in the shade cache's frame key. It's rounded to hundredths so a steady bank still hits the cache. `scripts/shapes/cabin-light.mjs` checks all three by direction.
+
 ## Sea state from the wind
 
 - The sea reads wind in knots. `windFromView().fly` is `clamp(kt/18)`, the windsock's curve, which saturates at Force 5. Sea state instead uses JONSWAP fetch-limited growth, `Hs = 4·U·sqrt(1.6e-7·F/g)`: 0.29 m at Force 2 to 3.23 m at Force 10.
