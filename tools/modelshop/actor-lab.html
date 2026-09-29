@@ -10,52 +10,98 @@
   header { padding: 8px 12px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; }
   header b { color: #e8c070; }
   label { color: var(--dim); white-space: nowrap; }
-  label input { vertical-align: middle; }
+  label input, label select { vertical-align: middle; }
   #views { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
   .view { position: relative; }
-  .view canvas { width: 100%; height: 72vh; display: block; }
-  .view span { position: absolute; left: 10px; top: 8px; color: var(--dim); }
+  .view canvas { width: 100%; height: 78vh; display: block; }
+  .view span { position: absolute; left: 10px; top: 8px; color: var(--dim); text-shadow: 0 0 3px #000; }
   @media (max-width: 800px) { #views { grid-template-columns: 1fr; } .view canvas { height: 46vh; } }
 </style>
 </head>
 <body>
 <header>
   <b>Actor Lab</b>
-  <label><input type="checkbox" id="u1" checked> 1 shading</label>
-  <label><input type="checkbox" id="u2" checked> 2 surface detail</label>
-  <label><input type="checkbox" id="u3" checked> 3 build and height</label>
-  <label><input type="checkbox" id="u4" checked> 4 hats and scarves</label>
-  <label><input type="checkbox" id="u5" checked> 5 posture</label>
+  <label><input type="checkbox" id="bodies" checked> body types</label>
+  <label><input type="checkbox" id="shape" checked> build and height</label>
+  <label><input type="checkbox" id="shadows" checked> contact shadows</label>
+  <label>weather <select id="weather"><option>clear</option><option selected>rain</option><option>cold</option></select></label>
   <label>clip <select id="clip"><option>mixed</option><option>walk</option><option>idle</option><option>wave</option></select></label>
   <label><input type="checkbox" id="night"> night</label>
   <label><input type="checkbox" id="spin"> turntable</label>
-  <label>zoom <input type="range" id="zoom" min="2" max="9" step="0.1" value="5.2"></label>
+  <label>zoom <input type="range" id="zoom" min="2" max="9" step="0.1" value="5.6"></label>
   <label>seed <input type="number" id="seed" value="7" style="width:4em"></label>
 </header>
 <div id="views">
-  <div class="view"><canvas id="a"></canvas><span>as built</span></div>
-  <div class="view"><canvas id="b"></canvas><span>proposed</span></div>
+  <div class="view"><canvas id="a"></canvas><span>as built: one body, seams and grime, the fuller light</span></div>
+  <div class="view"><canvas id="b"></canvas><span>next: body types, weather, contact shadows</span></div>
 </div>
 <script type="module">
-// A look at the street figures (client/game/js/panels/actor3d.js) with the shipping shader beside a
-// proposed one. It reads the real bake, so both sides draw the same mesh the game does. The left
-// shader is gl/actors.js's lighting copied as is; the right one is the upgrade plan, each part behind
-// its own checkbox. Nothing here ships: it is for deciding the look.
+// A look at the street figures (client/game/js/panels/actor3d.js): what ships on the left, a proposal
+// on the right. Both read the real bake, so they draw the mesh the game does. The left shader is
+// gl/actors.js's look as built; the right one adds what the next pass would. Nothing here ships: it
+// is for deciding the look.
+//
+// What the right side fakes that the real thing would bake:
+//   body types   cut or flare the one coat in the shader. The real thing is a vertex range per body.
+//   hoods        recolour the crown. The real thing is a rigid mesh on the head bone.
+//   umbrellas    a second small mesh placed at the hand vertex each frame, the same place a baked
+//                rigid part on the hand bone would put it.
 import { actorBake, actorOutfit } from '/client/game/js/panels/actor3d.js';
 
 const bk = actorBake();
 const TOP = bk.top;
-const N = 6;
+const N = 7;
+const idle0 = bk.clips.idle.row0;
+const rest = bk.preview.subarray(idle0 * bk.nv * 3, (idle0 + 1) * bk.nv * 3);
 
-// The rest shape: the idle clip's first frame, used by the proposed shader as a stable coordinate
-// to hang seams, grime and hats on, so the pattern rides the cloth instead of swimming through it.
-const rest = bk.preview.subarray(bk.clips.idle.row0 * bk.nv * 3, (bk.clips.idle.row0 + 1) * bk.nv * 3);
+// Which coat vertices are the body of the coat rather than a sleeve: the lofts are separate pieces,
+// so a union-find over the triangles splits them, and the torso is the piece holding the chest.
+const part = new Float32Array(bk.nv);
+{
+  const up = new Int32Array(bk.nv).map((_, i) => i);
+  const find = (i) => { while (up[i] !== i) i = up[i] = up[up[i]]; return i; };
+  for (let t = 0; t < bk.idx.length; t += 3) {
+    const a = bk.idx[t], b = bk.idx[t + 1], c = bk.idx[t + 2];
+    if (bk.mat[a] !== 1) continue;
+    up[find(b)] = find(a); up[find(c)] = find(a);
+  }
+  let best = -1, bd = Infinity;
+  for (let v = 0; v < bk.nv; v++) {
+    if (bk.mat[v] !== 1) continue;
+    const d = Math.hypot(rest[v * 3], rest[v * 3 + 1] - 1.2, rest[v * 3 + 2] - 0.12);
+    if (d < bd) { bd = d; best = v; }
+  }
+  const root = find(best);
+  for (let v = 0; v < bk.nv; v++) part[v] = bk.mat[v] === 1 && find(v) === root ? 1 : 0;
+}
+// The right hand, for the umbrella: the skin vertex nearest the middle of the hand's cluster.
+let hand = 0;
+{
+  let sx = 0, sy = 0, sz = 0, k = 0;
+  for (let v = 0; v < bk.nv; v++) {
+    const x = rest[v * 3], y = rest[v * 3 + 1], z = rest[v * 3 + 2];
+    if (bk.mat[v] === 0 && x < -0.12 && y > 0.7 && y < 0.9) { sx += x; sy += y; sz += z; k++; }
+  }
+  sx /= k; sy /= k; sz /= k;
+  let bd = Infinity;
+  for (let v = 0; v < bk.nv; v++) {
+    if (bk.mat[v] !== 0) continue;
+    const d = Math.hypot(rest[v * 3] - sx, rest[v * 3 + 1] - sy, rest[v * 3 + 2] - sz);
+    if (d < bd) { bd = d; hand = v; }
+  }
+}
+function handAt(c, ph) {
+  const fr = (((ph % 1) + 1) % 1) * c.len, f0 = Math.floor(fr), f1 = (f0 + 1) % c.len, t = fr - f0;
+  const a = (c.row0 + f0) * bk.nv * 3 + hand * 3, b = (c.row0 + f1) * bk.nv * 3 + hand * 3, P = bk.preview;
+  return [0, 1, 2].map((i) => P[a + i] + (P[b + i] - P[a + i]) * t);
+}
 
 const VERT = `#version 300 es
 precision highp float;
 precision highp int;
 in float aMat;
 in vec3 aRest;
+in float aPart;
 uniform highp sampler2D uPosT;
 uniform highp sampler2D uNrmT;
 uniform int uW;
@@ -66,9 +112,11 @@ uniform vec3 uAt;
 uniform float uHd;
 uniform vec3 uShape;
 uniform float uTop;
+uniform float uFlare;
 out vec3 vN;
 out vec3 vW;
 out vec3 vRest;
+out float vPart;
 flat out int vMat;
 ivec2 texel(int f) { return ivec2(gl_VertexID % uW, f * uRows + gl_VertexID / uW); }
 void main() {
@@ -80,24 +128,25 @@ void main() {
   int b = int(uClip.x + 0.5);
   vec3 p = mix(texelFetch(uPosT, texel(b + f0), 0).xyz, texelFetch(uPosT, texel(b + f1), 0).xyz, t);
   vec3 n = mix(texelFetch(uNrmT, texel(b + f0), 0).xyz, texelFetch(uNrmT, texel(b + f1), 0).xyz, t);
-  // Build: girth widens the torso and thighs but not the head, hands or feet.
+  // A duster: the coat's skirt flares out below the hips.
+  float fl = uFlare * aPart * smoothstep(0.92, 0.62, aRest.y);
+  p.x *= 1.0 + fl * 0.7;
+  p.z *= 1.0 + fl * 0.55;
   float band = smoothstep(0.35, 0.6, aRest.y) * (1.0 - smoothstep(1.35, 1.5, aRest.y));
-  float g = mix(1.0, uShape.x, band);
-  p.x *= g;
+  p.x *= mix(1.0, uShape.x, band);
   p.z *= mix(1.0, uShape.x, band * 0.8);
-  // Slouch: everything above the waist leans forward about a pivot at the pelvis.
   float s = uShape.z * smoothstep(0.95, uTop * 0.85, aRest.y);
   float c = cos(s), sn = sin(s);
   vec3 q = p - vec3(0.0, 0.95, 0.0);
   p = vec3(q.x, c * q.y - sn * q.z, sn * q.y + c * q.z) + vec3(0.0, 0.95, 0.0);
   n = vec3(n.x, c * n.y - sn * n.z, sn * n.y + c * n.z);
-  // Height scales the whole figure from the ground.
   p *= uShape.y;
   float ch = cos(uHd), sh = sin(uHd);
   vec3 w = vec3(ch * p.x + sh * p.z, p.y, -sh * p.x + ch * p.z) + uAt;
   vN = vec3(ch * n.x + sh * n.z, n.y, -sh * n.x + ch * n.z);
   vW = w;
   vRest = aRest;
+  vPart = aPart;
   vMat = int(aMat + 0.5);
   gl_Position = uVP * vec4(w, 1.0);
 }`;
@@ -107,6 +156,7 @@ precision highp float;
 in vec3 vN;
 in vec3 vW;
 in vec3 vRest;
+in float vPart;
 flat in int vMat;
 uniform vec3 uCoat;
 uniform vec3 uLegs;
@@ -115,15 +165,15 @@ uniform vec3 uHair;
 uniform vec3 uShoe;
 uniform vec3 uKey;
 uniform vec3 uEye;
-uniform float uLum;
 uniform float uSeed;
 uniform float uTop;
-uniform vec4 uOn;
-uniform float uPost;
-uniform vec3 uHat;
-uniform vec3 uScarf;
-uniform vec2 uAcc;
 uniform float uNight;
+uniform int uBody;
+uniform float uHood;
+uniform vec3 uHoodC;
+uniform float uScarf;
+uniform vec3 uScarfC;
+uniform float uWet;
 out vec4 outColor;
 float h1(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
 float vnoise(vec3 p) {
@@ -135,111 +185,158 @@ float vnoise(vec3 p) {
 float line(float x, float w) { return 1.0 - smoothstep(0.0, w, abs(x)); }
 void main() {
   int m = vMat;
+  vec3 r = vRest;
+  // Body types. 1 jacket, 2 hoodie, 3 coverall: the coat stops at a hem. 4 duster: flared in VERT.
+  float hem = uBody == 1 ? 0.86 : uBody == 2 ? 0.87 : uBody == 3 ? 0.93 : -1.0;
+  if (vPart > 0.5 && r.y < hem) discard;
   vec3 col = m == 0 ? uSkin : m == 1 ? uCoat : m == 2 ? uLegs : m == 3 ? uShoe
            : m == 4 ? uHair : m == 5 ? vec3(0.035) : uSkin * vec3(0.78, 0.55, 0.55);
-  vec3 n = normalize(vN);
-  vec3 r = vRest;
-  if (uOn.x < 0.5 && uOn.y < 0.5 && uAcc.x < 0.5 && uAcc.y < 0.5) {
-    // As built: gl/actors.js, with this page's Y-up world.
-    float lit = clamp(0.5 + dot(n, uKey) * 0.5, 0.0, 1.0);
-    float up = max(n.y, 0.0);
-    float k = 0.52 + 0.48 * (lit * (1.0 - up) + 0.86 * up);
-    outColor = vec4(col * k * uLum, 1.0);
-    return;
-  }
+  if (uBody == 3 && m == 2) col = uCoat * 0.94;
   bool skinLike = m == 0 || m == 6;
-  // 4. A knit hat over the crown, a scarf round the neck: recoloured, not new geometry.
-  if (uAcc.x > 0.5 && (m == 4 || skinLike) && r.y > uTop - 0.085 && !(r.z > 0.06 && r.y < uTop - 0.05)) {
-    col = uHat * (0.85 + 0.15 * step(0.5, fract(atan(r.x, r.z) * 6.0)));
-    if (r.y < uTop - 0.07) col *= 0.75;
+  bool face = r.z > 0.045 && r.y < uTop - 0.03 && r.y > uTop - 0.2;
+  if (uHood > 0.5 && (m == 4 || skinLike) && r.y > uTop - 0.2 && !face) {
+    col = uHoodC * (0.9 + 0.1 * vnoise(r * 60.0));
+    if (r.y < uTop - 0.17) col *= 0.8;
     m = 7;
   }
   float neck = uTop * 0.835;
-  if (uAcc.y > 0.5 && (m == 1 || skinLike) && r.y > neck - 0.05 && r.y < neck + 0.03) {
-    col = uScarf * (0.8 + 0.2 * step(0.5, fract(r.y * 55.0)));
+  if (uScarf > 0.5 && (m == 1 || skinLike) && r.y > neck - 0.05 && r.y < neck + 0.03) {
+    col = uScarfC * (0.8 + 0.2 * step(0.5, fract(r.y * 55.0)));
     m = 8;
   }
-  if (uOn.y > 0.5) {
-    // 2. Surface detail, keyed by material and hung on the rest shape.
-    float grime = vnoise(r * 18.0 + uSeed) * 0.6 + vnoise(r * 55.0 + uSeed) * 0.4;
-    if (m == 1) {
-      float front = step(0.0, r.z);
+  float grime = vnoise(r * 18.0 + uSeed) * 0.6 + vnoise(r * 55.0 + uSeed) * 0.4;
+  if (m == 1) {
+    float front = step(0.0, r.z);
+    if (uBody == 2) {
+      float pouch = step(0.93, r.y) * step(r.y, 1.06) * step(abs(r.x), 0.11) * front;
+      col *= 1.0 - 0.3 * pouch * (line(r.y - 1.06, 0.006) + line(abs(r.x) - 0.11, 0.006));
+      col *= 1.0 - 0.3 * line(r.y - 0.89, 0.012);
+    } else {
       col *= 1.0 - 0.45 * line(r.x, 0.006) * front;
-      float pocket = line(r.y - 0.88, 0.004) * step(0.05, abs(r.x)) * step(abs(r.x), 0.15) * front;
-      col *= 1.0 - 0.35 * pocket;
+      col *= 1.0 - 0.35 * line(r.y - 0.88, 0.004) * step(0.05, abs(r.x)) * step(abs(r.x), 0.15) * front;
       float btn = line(r.x - 0.02, 0.01) * line(fract(r.y * 9.0) - 0.5, 0.08) * front * step(0.9, r.y) * step(r.y, 1.35);
-      col = mix(col, vec3(0.08), btn * 0.8);
-      if (fract(uSeed * 3.1) > 0.7) col *= 0.9 + 0.1 * step(0.5, fract(r.y * 14.0)) + 0.06 * step(0.5, fract(r.x * 14.0));
-      float hem = 1.0 - smoothstep(0.55, 1.0, r.y);
-      col = mix(col, col * vec3(0.62, 0.55, 0.45), hem * grime * 0.7);
-    } else if (m == 2) {
-      if (fract(uSeed * 7.3) > 0.8) col *= 0.88 + 0.12 * step(0.5, fract(r.y * 40.0));
-      float knee = line(r.y - 0.5, 0.06) * step(0.0, r.z);
-      col = mix(col, col * 1.25 + 0.03, knee * grime * 0.6);
-      col = mix(col, vec3(0.2, 0.17, 0.13), (1.0 - smoothstep(0.03, 0.18, r.y)) * grime * 0.6);
-    } else if (m == 3) {
-      col = mix(col, vec3(0.1, 0.09, 0.08), 1.0 - smoothstep(0.018, 0.028, r.y));
-      col += vec3(0.05) * line(r.y - 0.075, 0.004);
-    } else if (skinLike) {
-      col *= 0.94 + 0.08 * vnoise(r * 90.0);
+      if (uBody != 3) col = mix(col, vec3(0.08), btn * 0.8);
     }
+    if (uBody == 3) col = mix(col, vec3(0.1), line(r.y - 0.97, 0.018));
+    col = mix(col, col * vec3(0.62, 0.55, 0.45), (1.0 - smoothstep(0.55, 1.0, r.y)) * grime * 0.8);
+  } else if (m == 2) {
+    col = mix(col, col * 1.25 + 0.03, line(r.y - 0.5, 0.06) * step(0.0, r.z) * grime * 0.6);
+    col = mix(col, vec3(0.2, 0.17, 0.13), (1.0 - smoothstep(0.03, 0.18, r.y)) * grime * 0.6);
+  } else if (m == 3) {
+    col = mix(col, vec3(0.1, 0.09, 0.08), 1.0 - smoothstep(0.018, 0.028, r.y));
+  } else if (skinLike) {
+    col *= 0.94 + 0.08 * vnoise(r * 90.0);
   }
-  float k;
-  vec3 lit;
-  if (uOn.x > 0.5) {
-    // 1. Wrap key, sky/ground ambient, a rim from the view, fake occlusion, a little sheen on skin.
-    float wrap = max(0.0, (dot(n, uKey) + 0.35) / 1.35);
-    vec3 sky = mix(vec3(0.46, 0.52, 0.62), vec3(0.10, 0.13, 0.22), uNight);
-    vec3 gnd = mix(vec3(0.34, 0.28, 0.22), vec3(0.08, 0.06, 0.05), uNight);
-    vec3 amb = mix(gnd, sky, n.y * 0.5 + 0.5);
-    vec3 keyC = mix(vec3(1.0, 0.94, 0.84), vec3(0.95, 0.72, 0.42), uNight) * mix(0.9, 0.55, uNight);
-    float ao = mix(0.55, 1.0, smoothstep(0.0, 0.3, r.y));
-    ao *= 1.0 - 0.3 * line(r.y - 0.93, 0.08) * (1.0 - smoothstep(0.03, 0.09, abs(r.x)));
-    ao *= 1.0 - 0.25 * step(abs(r.x), 0.24) * step(0.18, abs(r.x)) * line(r.y - 1.3, 0.1);
-    vec3 v = normalize(uEye - vW);
-    float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0);
-    vec3 rimC = mix(vec3(0.25, 0.28, 0.32), vec3(0.35, 0.55, 0.8), uNight);
-    lit = col * (amb * ao + keyC * wrap) + rim * rimC * (0.35 + 0.65 * uNight);
-    if (skinLike) {
-      vec3 hv = normalize(uKey + v);
-      lit += keyC * pow(max(dot(n, hv), 0.0), 24.0) * 0.12;
-    }
-  } else {
-    float l = clamp(0.5 + dot(n, uKey) * 0.5, 0.0, 1.0);
-    float up = max(n.y, 0.0);
-    k = 0.52 + 0.48 * (l * (1.0 - up) + 0.86 * up);
-    lit = col * k * uLum;
-  }
+  // Wet cloth is darker and catches the light.
+  col *= 1.0 - 0.22 * uWet * step(0.5, float(m != 0 && m != 6));
+  vec3 n = normalize(vN);
+  float wrap = max(0.0, (dot(n, uKey) + 0.35) / 1.35);
+  vec3 sky = mix(vec3(0.46, 0.52, 0.62), vec3(0.10, 0.13, 0.22), uNight);
+  vec3 gnd = mix(vec3(0.34, 0.28, 0.22), vec3(0.08, 0.06, 0.05), uNight);
+  vec3 amb = mix(gnd, sky, n.y * 0.5 + 0.5);
+  vec3 keyC = mix(vec3(1.0, 0.94, 0.84), vec3(0.95, 0.72, 0.42), uNight) * mix(0.9, 0.55, uNight) * (1.0 - 0.3 * uWet);
+  float ao = mix(0.55, 1.0, smoothstep(0.0, 0.3, r.y));
+  ao *= 1.0 - 0.3 * line(r.y - 0.93, 0.08) * (1.0 - smoothstep(0.03, 0.09, abs(r.x)));
+  vec3 v = normalize(uEye - vW);
+  float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0);
+  vec3 rimC = mix(vec3(0.25, 0.28, 0.32), vec3(0.35, 0.55, 0.8), uNight);
+  vec3 lit = col * (amb * ao + keyC * wrap) + rim * rimC * (0.35 + 0.65 * uNight);
+  vec3 hv = normalize(uKey + v);
+  float spec = pow(max(dot(n, hv), 0.0), mix(24.0, 40.0, uWet)) * (skinLike ? 0.12 : 0.35 * uWet);
+  lit += keyC * spec;
   outColor = vec4(pow(lit, vec3(0.95)), 1.0);
 }`;
+
+// Everything that is not a person: the pavement, the contact shadows, umbrellas and the weather.
+const PLAIN_V = `#version 300 es
+in vec3 aP;
+in vec3 aN;
+uniform mat4 uVP;
+uniform mat4 uM;
+out vec3 vN;
+out vec3 vL;
+void main() { vec4 w = uM * vec4(aP, 1.0); vN = mat3(uM) * aN; vL = aP; gl_Position = uVP * w; }`;
+const PLAIN_F = `#version 300 es
+precision highp float;
+in vec3 vN;
+in vec3 vL;
+uniform vec3 uC;
+uniform vec3 uKey;
+uniform float uMode;
+uniform float uA;
+out vec4 o;
+void main() {
+  if (uMode > 1.5) {
+    // A contact shadow: a soft disc, darkest under the feet.
+    float d = dot(vL.xz, vL.xz);
+    float a = uA * pow(max(0.0, 1.0 - d), 2.0);
+    o = vec4(0.0, 0.0, 0.0, a);
+    return;
+  }
+  if (uMode > 0.5) { o = vec4(uC, uA); return; }
+  vec3 n = normalize(vN);
+  float k = 0.45 + 0.55 * max(0.0, (dot(n, uKey) + 0.3) / 1.3);
+  o = vec4(uC * k, uA);
+}`;
+
+function umbrellaMesh() {
+  const P = [], Nn = [], seg = 10, R = 0.52, H = 0.2;
+  const push = (p, n) => { P.push(...p); Nn.push(...n); };
+  for (let i = 0; i < seg; i++) {
+    const a0 = (i / seg) * Math.PI * 2, a1 = ((i + 1) / seg) * Math.PI * 2, am = (a0 + a1) / 2;
+    const p0 = [Math.cos(a0) * R, 0, Math.sin(a0) * R], p1 = [Math.cos(a1) * R, 0, Math.sin(a1) * R];
+    const n = [Math.cos(am) * 0.5, 1, Math.sin(am) * 0.5];
+    push([0, H, 0], n); push(p0, n); push(p1, n);
+    // A scallop between the ribs: the rim sags a little mid-panel.
+    const pm = [Math.cos(am) * R * 0.97, -0.05, Math.sin(am) * R * 0.97];
+    push(p0, n); push(pm, n); push(p1, n);
+  }
+  const s = 0.008, top = H, bot = -1.02;
+  for (const [dx, dz] of [[s, 0], [0, s], [-s, 0], [0, -s]]) {
+    const nx = [dz, 0, -dx];
+    push([dx, top, dz], nx); push([dx, bot, dz], nx); push([-dz, top, dx], nx);
+    push([-dz, top, dx], nx); push([dx, bot, dz], nx); push([-dz, bot, dx], nx);
+  }
+  return { P: new Float32Array(P), N: new Float32Array(Nn) };
+}
+function quad(r) {
+  return { P: new Float32Array([-r, 0, -r, r, 0, -r, r, 0, r, -r, 0, -r, r, 0, r, -r, 0, r]), N: new Float32Array(Array(6).fill([0, 1, 0]).flat()) };
+}
 
 function gl2(canvas) {
   const gl = canvas.getContext('webgl2', { antialias: true, preserveDrawingBuffer: true });
   const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o);
     if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
-  const prog = gl.createProgram();
-  gl.attachShader(prog, sh(gl.VERTEX_SHADER, VERT));
-  gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FRAG));
-  gl.linkProgram(prog);
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+  const program = (v, f) => { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, v)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, f));
+    gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    const U = {}; const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+    for (let i = 0; i < n; i++) { const nm = gl.getActiveUniform(p, i).name; U[nm] = gl.getUniformLocation(p, nm); }
+    return { p, U }; };
+  const body = program(VERT, FRAG), plain = program(PLAIN_V, PLAIN_F);
   const tex = (data) => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, bk.W, bk.H, 0, gl.RGBA, gl.HALF_FLOAT, data);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); return t; };
   const posT = tex(bk.pos), nrmT = tex(bk.nrm);
+  const attr = (prog, name, data, size) => { const l = gl.getAttribLocation(prog, name); if (l < 0) return;
+    const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, size, gl.FLOAT, false, 0, 0); };
   const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
-  const buf = (loc, data, size) => { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b);
-    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW); gl.enableVertexAttribArray(loc);
-    gl.vertexAttribPointer(loc, size, gl.FLOAT, false, 0, 0); };
-  buf(gl.getAttribLocation(prog, 'aMat'), bk.mat, 1);
-  buf(gl.getAttribLocation(prog, 'aRest'), new Float32Array(rest), 3);
+  attr(body.p, 'aMat', bk.mat, 1);
+  attr(body.p, 'aRest', new Float32Array(rest), 3);
+  attr(body.p, 'aPart', part, 1);
   const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib);
   gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, bk.idx, gl.STATIC_DRAW);
   gl.bindVertexArray(null);
-  const U = {};
-  const n = gl.getProgramParameter(prog, gl.ACTIVE_UNIFORMS);
-  for (let i = 0; i < n; i++) { const nm = gl.getActiveUniform(prog, i).name; U[nm] = gl.getUniformLocation(prog, nm); }
-  return { gl, prog, vao, posT, nrmT, U };
+  const mesh = (m) => { const v = gl.createVertexArray(); gl.bindVertexArray(v);
+    attr(plain.p, 'aP', m.P, 3); attr(plain.p, 'aN', m.N, 3); gl.bindVertexArray(null); return { vao: v, count: m.P.length / 3 }; };
+  const streaks = gl.createBuffer();
+  const streakVao = gl.createVertexArray(); gl.bindVertexArray(streakVao);
+  gl.bindBuffer(gl.ARRAY_BUFFER, streaks);
+  const la = gl.getAttribLocation(plain.p, 'aP'); gl.enableVertexAttribArray(la); gl.vertexAttribPointer(la, 3, gl.FLOAT, false, 0, 0);
+  const na = gl.getAttribLocation(plain.p, 'aN'); gl.disableVertexAttribArray(na); gl.vertexAttrib3f(na, 0, 1, 0);
+  gl.bindVertexArray(null);
+  return { gl, body, plain, vao, posT, nrmT, ground: mesh(quad(9)), disc: mesh(quad(1)), umb: mesh(umbrellaMesh()), streaks, streakVao };
 }
 
 function persp(fov, asp, near, far) {
@@ -255,20 +352,29 @@ function lookAt(e, c) {
 }
 function mul(a, b) { const o = new Array(16).fill(0);
   for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) for (let k = 0; k < 4; k++) o[j * 4 + i] += a[k * 4 + i] * b[j * 4 + k]; return o; }
+const model = (x, y, z, sx = 1, sy = 1, sz = 1, yaw = 0, tilt = 0) => {
+  const c = Math.cos(yaw), s = Math.sin(yaw), ct = Math.cos(tilt), st = Math.sin(tilt);
+  // yaw about Y, then a tilt about the figure's own X so an umbrella leans into the walk.
+  return [c * sx, 0, -s * sx, 0, s * st * sy, ct * sy, c * st * sy, 0, s * ct * sz, -st * sz, c * ct * sz, 0, x, y, z, 1];
+};
 
 function mulberry(s) { return () => { s |= 0; s = s + 0x6d2b79f5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s);
   t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
-const HATS = [[150, 40, 36], [40, 44, 52], [190, 150, 60], [60, 90, 70], [110, 110, 118]];
+const KNIT = [[150, 40, 36], [40, 44, 52], [190, 150, 60], [60, 90, 70], [110, 110, 118]];
+const BROLLY = [[20, 20, 24], [120, 24, 30], [30, 50, 90], [200, 170, 40], [60, 60, 64]];
+const BODY_W = [[0, 3], [1, 3], [2, 2], [3, 1], [4, 1.5]];
 
 function crowd(seed) {
   const R = mulberry(seed * 9973 + 1);
+  const pickW = (list) => { let t = 0; for (const [, w] of list) t += w; let x = R() * t; for (const [v, w] of list) if ((x -= w) < 0) return v; return list[0][0]; };
   return Array.from({ length: N }, (_, i) => {
     const vals = Array.from({ length: 5 }, R);
     const o = actorOutfit((k) => vals[k]);
-    const clip = ['walk', 'idle', 'walk', 'wave', 'idle', 'walk'][i];
-    return { o, clip, ph: R(), seed: R() * 100,
-      girth: 0.88 + R() * 0.3, height: 0.93 + R() * 0.12, slouch: R() < 0.4 ? 0.08 + R() * 0.12 : 0,
-      hat: R() < 0.35, scarf: R() < 0.3, hatC: HATS[Math.floor(R() * HATS.length)], scarfC: HATS[Math.floor(R() * HATS.length)] };
+    return { o, clip: ['walk', 'idle', 'walk', 'wave', 'idle', 'walk', 'walk'][i], ph: R(), seed: R() * 100,
+      body: pickW(BODY_W), girth: 0.88 + R() * 0.3, height: 0.93 + R() * 0.12,
+      brolly: R() < 0.55, hood: R(), scarf: R() < 0.6,
+      knit: KNIT[Math.floor(R() * KNIT.length)], canopy: BROLLY[Math.floor(R() * BROLLY.length)],
+      x: (i - (N - 1) / 2) * 0.95 + (R() - 0.5) * 0.2, z: (i % 3) * -0.7 };
   });
 }
 
@@ -277,46 +383,144 @@ const views = [gl2($('a')), gl2($('b'))];
 let people = crowd(+$('seed').value);
 $('seed').oninput = () => { people = crowd(+$('seed').value || 0); };
 
+// The weather: a fixed cloud of streaks (rain) or flakes (snow) that falls through a box round the crowd.
+const DROPS = Array.from({ length: 900 }, (_, i) => { const R = mulberry(i + 5); return [R() * 10 - 5, R() * 3.4, R() * 6 - 4.5, R()]; });
+function weatherVerts(kind, t) {
+  const out = new Float32Array(DROPS.length * 6);
+  DROPS.forEach(([x, y, z, r], i) => {
+    const fall = kind === 'rain' ? 7 : 0.6, len = kind === 'rain' ? 0.16 : 0.015;
+    const yy = ((y - t * fall * (0.8 + r * 0.4)) % 3.4 + 3.4) % 3.4;
+    const xx = x + (kind === 'cold' ? Math.sin(t * 0.8 + r * 20) * 0.15 : yy * 0.05);
+    out.set([xx, yy, z, xx - (kind === 'rain' ? 0.01 : 0.01), yy + len, z], i * 6);
+  });
+  return out;
+}
+
 function frame(now) {
-  const t = now / 1000, night = $('night').checked;
-  const on = [1, 2, 3, 4, 5].map((k) => $('u' + k).checked);
+  const t = now / 1000, night = $('night').checked, weather = $('weather').value;
   const pick = $('clip').value;
+  const rain = weather === 'rain', cold = weather === 'cold';
   views.forEach((V, side) => {
-    const { gl, U } = V, cv = gl.canvas;
+    const { gl } = V, cv = gl.canvas, next = side === 1;
     const dpr = devicePixelRatio || 1, w = cv.clientWidth * dpr | 0, h = cv.clientHeight * dpr | 0;
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
     gl.viewport(0, 0, w, h);
-    const bg = night ? [0.05, 0.06, 0.09] : [0.55, 0.58, 0.62];
+    const bg = night ? [0.05, 0.06, 0.09] : rain ? [0.42, 0.45, 0.5] : cold ? [0.62, 0.66, 0.7] : [0.55, 0.58, 0.62];
     gl.clearColor(bg[0], bg[1], bg[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    gl.enable(gl.DEPTH_TEST);
-    gl.useProgram(V.prog); gl.bindVertexArray(V.vao);
-    const z = +$('zoom').value, eye = [2.2, 1.4, z];
-    const vp = mul(persp(0.6, w / h, 0.1, 50), lookAt(eye, [0, 0.9, 0]));
+    gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.disable(gl.BLEND);
+    const z = +$('zoom').value, eye = [2.2, 1.5, z];
+    const vp = mul(persp(0.62, w / h, 0.1, 50), lookAt(eye, [0, 0.9, -0.6]));
+    const key = night ? [-0.3, 0.5, 0.6] : [0.55, 0.7, 0.45], kl = Math.hypot(...key);
+    const K = key.map((k) => k / kl);
+
+    // The pavement.
+    const P = V.plain;
+    gl.useProgram(P.p);
+    gl.uniformMatrix4fv(P.U.uVP, false, vp);
+    gl.uniform3fv(P.U.uKey, K);
+    const pave = night ? [0.1, 0.1, 0.12] : rain ? [0.3, 0.31, 0.33] : cold ? [0.62, 0.63, 0.66] : [0.46, 0.45, 0.43];
+    gl.uniform3fv(P.U.uC, pave); gl.uniform1f(P.U.uMode, 1); gl.uniform1f(P.U.uA, 1);
+    gl.uniformMatrix4fv(P.U.uM, false, model(0, 0, -1.5));
+    gl.bindVertexArray(V.ground.vao); gl.drawArrays(gl.TRIANGLES, 0, V.ground.count);
+
+    const pose = (p) => {
+      let name = pick === 'mixed' ? p.clip : pick;
+      // Nobody waves with an umbrella in that hand.
+      if (next && rain && p.brolly && name === 'wave') name = 'idle';
+      const c = bk.clips[name];
+      const hd = $('spin').checked ? t * 0.6 + p.x : 0.3 - p.x * 0.1;
+      const shape = next && $('shape').checked;
+      const hunch = next && cold ? 0.16 : next && rain && !p.brolly ? 0.08 : 0;
+      return { c, ph: t / c.dur + p.ph, hd, g: shape ? p.girth : 1, ht: shape ? p.height : 1, hunch };
+    };
+
+    // Contact shadows: a soft disc under each figure, stretched away from the key light.
+    if (next && $('shadows').checked) {
+      gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+      gl.uniform1f(P.U.uMode, 2);
+      gl.bindVertexArray(V.disc.vao);
+      for (const p of people) {
+        const q = pose(p);
+        const off = night ? 0.04 : 0.1, yaw = Math.atan2(-K[0], -K[2]);
+        gl.uniform1f(P.U.uA, night ? 0.35 : rain ? 0.4 : 0.55);
+        gl.uniformMatrix4fv(P.U.uM, false, model(p.x - K[0] * off, 0.003, p.z - K[2] * off, 0.26 * q.g, 1, 0.34 + (night ? 0 : 0.12), yaw));
+        gl.drawArrays(gl.TRIANGLES, 0, V.disc.count);
+        if (p.brolly && rain) {
+          gl.uniform1f(P.U.uA, 0.22);
+          gl.uniformMatrix4fv(P.U.uM, false, model(p.x, 0.004, p.z, 0.55, 1, 0.55));
+          gl.drawArrays(gl.TRIANGLES, 0, V.disc.count);
+        }
+      }
+      gl.depthMask(true); gl.disable(gl.BLEND);
+    }
+
+    // The people.
+    const B = V.body, U = B.U;
+    gl.useProgram(B.p); gl.bindVertexArray(V.vao);
     gl.uniformMatrix4fv(U.uVP, false, vp);
     gl.uniform3fv(U.uEye, eye);
-    const key = night ? [-0.3, 0.5, 0.6] : [0.55, 0.7, 0.45], kl = Math.hypot(...key);
-    gl.uniform3f(U.uKey, key[0] / kl, key[1] / kl, key[2] / kl);
-    gl.uniform1f(U.uLum, night ? 0.55 : 1);
+    gl.uniform3fv(U.uKey, K);
     gl.uniform1f(U.uNight, night ? 1 : 0);
     gl.uniform1f(U.uTop, TOP);
     gl.uniform1i(U.uW, bk.W); gl.uniform1i(U.uRows, bk.rows);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, V.posT); gl.uniform1i(U.uPosT, 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, V.nrmT); gl.uniform1i(U.uNrmT, 1);
-    const P = side === 1;
-    gl.uniform4f(U.uOn, P && on[0] ? 1 : 0, P && on[1] ? 1 : 0, 0, 0);
-    people.forEach((p, i) => {
-      const name = pick === 'mixed' ? p.clip : pick, c = bk.clips[name];
-      gl.uniform4f(U.uClip, c.row0, c.len, t / c.dur + p.ph, 0);
-      gl.uniform3f(U.uAt, (i - (N - 1) / 2) * 0.9, 0, (i % 2) * -0.6);
-      gl.uniform1f(U.uHd, $('spin').checked ? t * 0.6 + i : 0.35 - i * 0.12);
-      gl.uniform3f(U.uShape, P && on[2] ? p.girth : 1, P && on[2] ? p.height : 1, P && on[4] ? p.slouch : 0);
+    const c3 = (u, rgb) => gl.uniform3f(u, rgb[0] / 255, rgb[1] / 255, rgb[2] / 255);
+    const umbrellas = [];
+    for (const p of people) {
+      const q = pose(p);
+      gl.uniform4f(U.uClip, q.c.row0, q.c.len, q.ph, 0);
+      gl.uniform3f(U.uAt, p.x, 0, p.z);
+      gl.uniform1f(U.uHd, q.hd);
+      gl.uniform3f(U.uShape, q.g, q.ht, q.hunch);
       gl.uniform1f(U.uSeed, p.seed);
-      gl.uniform2f(U.uAcc, P && on[3] && p.hat ? 1 : 0, P && on[3] && p.scarf ? 1 : 0);
-      const c3 = (u, rgb) => gl.uniform3f(u, rgb[0] / 255, rgb[1] / 255, rgb[2] / 255);
+      const body = next && $('bodies').checked ? p.body : 0;
+      gl.uniform1i(U.uBody, body);
+      gl.uniform1f(U.uFlare, body === 4 ? 1 : 0);
+      // Weather: rain puts hoods up on whoever has no umbrella, cold puts up hoods or knit hats and scarves.
+      const hood = next && ((rain && !p.brolly) || (cold && p.hood < 0.8) || (body === 2 && p.hood < 0.3));
+      gl.uniform1f(U.uHood, hood ? 1 : 0);
+      c3(U.uHoodC, cold && body !== 2 && p.hood < 0.45 ? p.knit : p.o.coat);
+      gl.uniform1f(U.uScarf, next && cold && p.scarf ? 1 : 0);
+      c3(U.uScarfC, p.knit);
+      gl.uniform1f(U.uWet, next && rain && !p.brolly ? 1 : next && rain ? 0.35 : 0);
       c3(U.uCoat, p.o.coat); c3(U.uLegs, p.o.legs); c3(U.uSkin, p.o.skin); c3(U.uHair, p.o.hair); c3(U.uShoe, p.o.shoes);
-      c3(U.uHat, p.hatC); c3(U.uScarf, p.scarfC);
       gl.drawElements(gl.TRIANGLES, bk.idx.length, gl.UNSIGNED_SHORT, 0);
-    });
+      if (next && rain && p.brolly) {
+        const hp = handAt(q.c, q.ph), ch = Math.cos(q.hd), sh = Math.sin(q.hd);
+        // Held in front at the hand's reach, the canopy at a fixed height over the head: an arm's
+        // swing moves the umbrella a little, never up and down with it.
+        const hx = hp[0] * q.ht * 0.4, hz = Math.max(0.05, Math.min(0.3, hp[2] * q.ht + 0.12));
+        umbrellas.push({ x: p.x + ch * hx + sh * hz, y: 2.02 * q.ht, z: p.z - sh * hx + ch * hz, yaw: q.hd, col: p.canopy });
+      }
+    }
+
+    if (umbrellas.length) {
+      gl.useProgram(P.p);
+      gl.uniform1f(P.U.uMode, 0); gl.uniform1f(P.U.uA, 1);
+      gl.bindVertexArray(V.umb.vao);
+      for (const u of umbrellas) {
+        c3(P.U.uC, night ? u.col.map((v) => v * 0.45) : u.col);
+        gl.uniformMatrix4fv(P.U.uM, false, model(u.x, u.y, u.z, 1, 1, 1, u.yaw, 0.12));
+        gl.drawArrays(gl.TRIANGLES, 0, V.umb.count);
+      }
+    }
+
+    // The weather itself, on both sides, so the comparison is the people and not the sky.
+    if (rain || cold) {
+      gl.useProgram(P.p);
+      gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+      gl.uniform1f(P.U.uMode, 1);
+      gl.uniformMatrix4fv(P.U.uM, false, model(0, 0, 0));
+      gl.uniform3fv(P.U.uC, rain ? [0.75, 0.8, 0.88] : [0.97, 0.98, 1]);
+      gl.uniform1f(P.U.uA, rain ? 0.35 : 0.9);
+      gl.bindVertexArray(V.streakVao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, V.streaks);
+      gl.bufferData(gl.ARRAY_BUFFER, weatherVerts(weather, t), gl.STREAM_DRAW);
+      gl.drawArrays(gl.LINES, 0, DROPS.length * 2);
+      gl.depthMask(true); gl.disable(gl.BLEND);
+    }
+    gl.bindVertexArray(null);
   });
   requestAnimationFrame(frame);
 }
