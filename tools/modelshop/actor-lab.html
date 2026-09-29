@@ -23,6 +23,7 @@
 <body>
 <header>
   <b>ACTOR LAB</b>
+  <label>shot <select id="shot"><option>street</option><option>portraits</option><option>faces</option></select></label>
   <label><input type="checkbox" id="built"> as built</label>
   <label>weather <select id="weather"><option>clear</option><option selected>rain</option><option>cold</option></select></label>
   <label><input type="checkbox" id="night" checked> night</label>
@@ -39,73 +40,154 @@
 <script type="module">
 // A look at the street figures (client/game/js/panels/actor3d.js), dressed by district. The west
 // street is mostly Ascendants with a few Null, the east mostly Long Watch with some Wildblood. Both
-// read the real bake, so they draw the mesh the game does. "as built" draws the look that ships.
+// read the real bake, so they draw the mesh the game does. "as built" draws the look that ships;
+// "portraits" and "faces" line people up at head height so the faces can be judged.
 //
 // An order's dress is the street's, never the NPC's: a figure in the west wears the west's colours
 // because of where it walks, which says nothing about who it is (see ACTOR_OUTFITS in actor3d.js).
 //
 // What this page fakes that the real thing would bake:
-//   the held arm   the right arm re-posed in the vertex shader from its rest shape. The real thing is
-//                  a hold clip layered over walk and idle, baked like the others.
-//   body types     cut, flared or ragged from the one coat. The real thing is a vertex range per body.
-//   caps, horns,   small meshes placed each frame at the head or hand vertex, where a rigid part on
-//   umbrellas      the head or hand bone would sit.
+//   the face       the bake's eyes and brows are lumps; here they are pushed inside the head and the
+//                  face is painted on the skin, with its relief as a bump. The real thing is the same
+//                  paint in gl/actors.js and smaller features in buildBody.
+//   reshaping      nose, lips, hands, ears, hair, hoods and collars are moved in the vertex shader
+//                  from the rest shape, rotated with the bone they ride. The real thing is buildBody.
+//   the held arm   re-posed in the vertex shader. The real thing is a hold clip, baked.
+//   props          caps, horns, headphones, rifles, packs, radios, tablets and umbrellas are small
+//                  meshes placed each frame on the frame of the part they ride, where a rigid part
+//                  on that bone would sit.
 import { actorBake, actorOutfit } from '/client/game/js/panels/actor3d.js';
 
 const bk = actorBake();
 const TOP = bk.top;
-const N = 7;
 const IDLE0 = bk.clips.idle.row0;
 const rest = bk.preview.subarray(IDLE0 * bk.nv * 3, (IDLE0 + 1) * bk.nv * 3);
 const R3 = (v) => [rest[v * 3], rest[v * 3 + 1], rest[v * 3 + 2]];
-const nearest = (test, x, y, z) => {
-  let best = -1, bd = Infinity;
-  for (let v = 0; v < bk.nv; v++) {
-    if (!test(v)) continue;
-    const d = Math.hypot(rest[v * 3] - x, rest[v * 3 + 1] - y, rest[v * 3 + 2] - z);
-    if (d < bd) { bd = d; best = v; }
-  }
-  return best;
-};
 
-// The coat's pieces. The lofts are separate, so a union-find over the triangles splits the torso
-// from each sleeve. part = 1 is the coat's body; arm = 1 is the right sleeve and the right hand.
-const part = new Float32Array(bk.nv), arm = new Float32Array(bk.nv);
-{
+const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const mulS = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const norm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+
+// ── The body's pieces ───────────────────────────────────────────────────────────────────────────────
+// Every loft and ellipsoid in buildBody is its own connected piece, so a union-find over the
+// triangles recovers them, and their material and place say which is which.
+const pieces = (() => {
   const up = new Int32Array(bk.nv).map((_, i) => i);
   const find = (i) => { while (up[i] !== i) i = up[i] = up[up[i]]; return i; };
   for (let t = 0; t < bk.idx.length; t += 3) {
-    const a = bk.idx[t], b = bk.idx[t + 1], c = bk.idx[t + 2];
-    if (bk.mat[a] !== 1) continue;
-    up[find(b)] = find(a); up[find(c)] = find(a);
+    const a = find(bk.idx[t]);
+    up[find(bk.idx[t + 1])] = a;
+    up[find(bk.idx[t + 2])] = find(a);
   }
-  const coat = (v) => bk.mat[v] === 1;
-  const torso = find(nearest(coat, 0, 1.2, 0.12));
-  const sleeve = find(nearest((v) => coat(v) && find(v) !== torso, -0.2, 1.25, -0.01));
-  for (let v = 0; v < bk.nv; v++) {
-    const [x, y] = R3(v);
-    part[v] = coat(v) && find(v) === torso ? 1 : 0;
-    arm[v] = (coat(v) && find(v) === sleeve) || (bk.mat[v] === 0 && x < -0.12 && y > 0.68 && y < 0.92) ? 1 : 0;
-  }
-}
-const SHOULDER_V = nearest((v) => arm[v] && bk.mat[v] === 1, -0.195, 1.43, -0.01);
-const HAND_V = nearest((v) => arm[v] && bk.mat[v] === 0, -0.19, 0.8, 0.0);
-const HEAD_V = nearest((v) => bk.mat[v] === 4, 0, TOP, 0);
+  const groups = new Map();
+  for (let v = 0; v < bk.nv; v++) { const r = find(v); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(v); }
+  return [...groups.values()].map((vs) => {
+    const c = [0, 0, 0], mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity];
+    for (const v of vs) for (let i = 0; i < 3; i++) { const x = rest[v * 3 + i]; c[i] += x; mn[i] = Math.min(mn[i], x); mx[i] = Math.max(mx[i], x); }
+    return { vs, mat: bk.mat[vs[0]], c: c.map((x) => x / vs.length), mn, mx };
+  });
+})();
+const ofMat = (m) => pieces.filter((p) => p.mat === m);
+const biggest = (list) => list.reduce((a, b) => (b.vs.length > a.vs.length ? b : a));
+const eyes = ofMat(5);
+const MID = (eyes[0].c[0] + eyes[1].c[0]) / 2;
+const isL = (p) => p.c[0] > MID;
+const eyeL = eyes.find(isL), eyeR = eyes.find((p) => !isL(p));
+const hair = biggest(ofMat(4));
+const brows = ofMat(4).filter((p) => p !== hair);
+const browL = brows.find(isL), browR = brows.find((p) => !isL(p));
+const lips = ofMat(6)[0];
+const headish = ofMat(0).filter((p) => p.c[1] > eyeL.c[1] - 0.1);
+const head = biggest(headish);
+const ears = headish.filter((p) => p !== head && Math.abs(p.c[0] - MID) > 0.05);
+const earL = ears.find(isL), earR = ears.find((p) => !isL(p));
+const nose = headish.find((p) => p !== head && !ears.includes(p));
+const neck = ofMat(0).find((p) => p.c[1] < eyeL.c[1] - 0.1 && p.c[1] > 1.2);
+const handish = ofMat(0).filter((p) => p.c[1] < 1.2);
+const palms = handish.filter((p) => p.mx[1] - p.mn[1] > 0.09), thumbs = handish.filter((p) => !palms.includes(p));
+const handL = palms.find(isL), handR = palms.find((p) => !isL(p));
+const torso = biggest(ofMat(1));
+const sleeves = ofMat(1).filter((p) => p !== torso), sleeveL = sleeves.find(isL), sleeveR = sleeves.find((p) => !isL(p));
+
+// Per-vertex feature ids, shared by both shaders:
+//   1/2 eye L/R  3/4 brow L/R  5 nose  6 lips  7 head skin  8 ears  9 hair  10/11 hand L/R (with the
+//   thumbs)  12 neck  13/14 sleeve L/R. Left is the figure's own left, +X.
+const FEAT = new Float32Array(bk.nv);
+const tag = (p, id) => { if (p) for (const v of p.vs) FEAT[v] = id; };
+tag(eyeL, 1); tag(eyeR, 2); tag(browL, 3); tag(browR, 4); tag(nose, 5); tag(lips, 6); tag(head, 7);
+ears.forEach((e) => tag(e, 8)); tag(hair, 9); tag(handL, 10); tag(handR, 11); tag(neck, 12); tag(sleeveL, 13); tag(sleeveR, 14);
+thumbs.forEach((t) => tag(t, isL(t) ? 10 : 11));
+// part = 1 is the coat's body; arm = 1 is the right sleeve and the right hand, which hold umbrellas.
+const part = new Float32Array(bk.nv), arm = new Float32Array(bk.nv);
+for (const v of torso.vs) part[v] = 1;
+for (const p of [sleeveR, handR, ...thumbs.filter((t) => !isL(t))]) for (const v of p.vs) arm[v] = 1;
+
+const ringAt = (p, y, tol) => {
+  const s = [0, 0, 0]; let k = 0;
+  for (const v of p.vs) if (Math.abs(rest[v * 3 + 1] - y) < tol) { s[0] += rest[v * 3]; s[1] += rest[v * 3 + 1]; s[2] += rest[v * 3 + 2]; k++; }
+  return k ? mulS(s, 1 / k) : [0, y, 0];
+};
+const hairFront = hair.vs.filter((v) => rest[v * 3 + 2] > hair.c[2] + 0.06).reduce((m, v) => Math.min(m, rest[v * 3 + 1]), Infinity);
+// The anchors the shaders measure the face and the reshaping from. The hair shell's centre is its
+// box centre in x and z; in y the shell is cut at the hairline, so it is its top less its radius.
+const ANCHOR = {
+  mid: MID, eyeL: eyeL.c, eyeR: eyeR.c, browL: browL.c, browR: browR.c, nose: nose.c, noseY: [nose.mn[1], nose.mx[1]],
+  lip: lips.c, head: head.c, hair: [(hair.mn[0] + hair.mx[0]) / 2, hair.mx[1] - (hair.mx[0] - hair.mn[0]) * 0.56, (hair.mn[2] + hair.mx[2]) / 2],
+  hairFront, neck: neck.c, earL: earL.c, earR: earR.c, handL: handL.c, handR: handR.c,
+  torsoTop: torso.mx[1], collar: ringAt(torso, torso.mx[1], 0.004), coatX: torso.c[0],
+  patch: (() => { const r = ringAt(sleeveL, sleeveL.mx[1] - 0.09, 0.012); return [sleeveL.mx[0], r[1], r[2]]; })(),
+};
+
+// ── Frames: where a rigid part is this frame, and how it has turned since the rest shape ─────────────
+const nearestIn = (p, x, y, z) => p.vs.reduce((b, v) => (Math.hypot(rest[v * 3] - x, rest[v * 3 + 1] - y, rest[v * 3 + 2] - z) < Math.hypot(rest[b * 3] - x, rest[b * 3 + 1] - y, rest[b * 3 + 2] - z) ? v : b), p.vs[0]);
+const extremeIn = (p, axis, sign) => p.vs.reduce((a, v) => (rest[v * 3 + axis] * sign > rest[a * 3 + axis] * sign ? v : a), p.vs[0]);
+const HEAD_V = extremeIn(hair, 1, 1);
+const FR = {
+  head: [HEAD_V, extremeIn(eyeL, 2, 1), extremeIn(eyeR, 2, 1)],
+  handL: [extremeIn(handL, 1, 1), extremeIn(handL, 1, -1), extremeIn(handL, 2, 1)],
+  handR: [extremeIn(handR, 1, 1), extremeIn(handR, 1, -1), extremeIn(handR, 2, 1)],
+  torso: [nearestIn(torso, MID, 1.2, -0.4), nearestIn(torso, MID + 0.15, 1.36, -0.4), nearestIn(torso, MID - 0.15, 1.36, -0.4)],
+};
+const SHOULDER_V = nearestIn(sleeveR, sleeveR.c[0], sleeveR.mx[1], sleeveR.c[2]);
 
 function posAt(c, ph, v) {
   const fr = (((ph % 1) + 1) % 1) * c.len, f0 = Math.floor(fr), f1 = (f0 + 1) % c.len, t = fr - f0;
   const a = (c.row0 + f0) * bk.nv * 3 + v * 3, b = (c.row0 + f1) * bk.nv * 3 + v * 3, P = bk.preview;
   return [0, 1, 2].map((i) => P[a + i] + (P[b + i] - P[a + i]) * t);
 }
+function basis(a, b, d) { const e1 = norm(sub(b, a)); const t = sub(d, a); const e2 = norm(sub(t, mulS(e1, dot(t, e1)))); return [e1, e2, cross(e1, e2)]; }
+// Row-major 3x3s. R takes a rest-shape vector to where the part has it this frame.
+function frameOf(c, ph, ids) {
+  const r = ids.map(R3), p = ids.map((v) => posAt(c, ph, v));
+  const Br = basis(...r), Bp = basis(...p), R = new Array(9).fill(0);
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) for (let k = 0; k < 3; k++) R[i * 3 + j] += Bp[k][i] * Br[k][j];
+  return { R, o: p[0], o0: r[0] };
+}
+const m3 = (a, b) => { const o = new Array(9).fill(0); for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) for (let k = 0; k < 3; k++) o[i * 3 + j] += a[i * 3 + k] * b[k * 3 + j]; return o; };
+const rotX3 = (a) => { const c = Math.cos(a), s = Math.sin(a); return [1, 0, 0, 0, c, -s, 0, s, c]; };
+const rotY3 = (a) => { const c = Math.cos(a), s = Math.sin(a); return [c, 0, s, 0, 1, 0, -s, 0, c]; };
+const rotZ3 = (a) => { const c = Math.cos(a), s = Math.sin(a); return [c, -s, 0, s, c, 0, 0, 0, 1]; };
+const colMajor = (R) => [R[0], R[3], R[6], R[1], R[4], R[7], R[2], R[5], R[8]];
+const mat4 = (A, t, sc = 1) => [A[0] * sc, A[3] * sc, A[6] * sc, 0, A[1] * sc, A[4] * sc, A[7] * sc, 0, A[2] * sc, A[5] * sc, A[8] * sc, 0, t[0], t[1], t[2], 1];
+const I3 = [1, 0, 0, 0, 1, 0, 0, 0, 1];
 
-// The hold: the forearm folds up at the elbow, the upper arm comes a little forward and in. The
-// same numbers drive the shader and holdPoint below, so the umbrella lands in the hand.
-const HOLD = { S: [-0.195, 1.40, -0.01], E: [-0.195, 1.10, -0.01], elbow: -1.45, shoulder: -0.22, inward: 0.3 };
+// ── The held arm ────────────────────────────────────────────────────────────────────────────────────
+// The forearm folds up at the elbow, the upper arm comes a little forward and in. Shoulder and elbow
+// are measured off the right sleeve. The same numbers drive the shader and holdPoint, so the umbrella
+// lands in the hand.
+const HOLD = (() => {
+  const S = ringAt(sleeveR, sleeveR.mx[1] - 0.03, 0.012);
+  const E = ringAt(sleeveR, S[1] - 0.3, 0.015);
+  return { S, E, elbow: -1.45, shoulder: -0.22, inward: 0.3 };
+})();
 const rotX = (p, o, a) => { const c = Math.cos(a), s = Math.sin(a), y = p[1] - o[1], z = p[2] - o[2]; return [p[0], o[1] + c * y - s * z, o[2] + s * y + c * z]; };
 const rotZ = (p, o, a) => { const c = Math.cos(a), s = Math.sin(a), x = p[0] - o[0], y = p[1] - o[1]; return [o[0] + c * x - s * y, o[1] + s * x + c * y, p[2]]; };
-const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 function holdPoint(r) {
-  const fa = sstep(1.16, 1.04, r[1]);
+  const fa = sstep(HOLD.E[1] + 0.06, HOLD.E[1] - 0.06, r[1]);
   const f = rotX(r, HOLD.E, HOLD.elbow);
   let v = [r[0] + (f[0] - r[0]) * fa, r[1] + (f[1] - r[1]) * fa, r[2] + (f[2] - r[2]) * fa];
   v = rotX(v, HOLD.S, HOLD.shoulder);
@@ -122,6 +204,11 @@ function place(p, fig, restY, held) {
   const ch = Math.cos(fig.hd), sh = Math.sin(fig.hd);
   return [ch * x + sh * z + fig.x, y, -sh * x + ch * z + fig.z];
 }
+// The model matrix for a prop riding a part: authored relative to the frame's rest anchor.
+function attach(fig, fr) {
+  const s = fig.hunch * sstep(0.95, TOP * 0.85, fr.o0[1]);
+  return mat4(m3(rotY3(fig.hd), m3(rotX3(s), fr.R)), place(fr.o, fig, fr.o0[1], false), fig.ht);
+}
 
 const VERT = `#version 300 es
 precision highp float;
@@ -130,6 +217,7 @@ in float aMat;
 in vec3 aRest;
 in float aPart;
 in float aArm;
+in float aFeat;
 uniform highp sampler2D uPosT;
 uniform highp sampler2D uNrmT;
 uniform int uW;
@@ -147,15 +235,133 @@ uniform vec3 uArmOff;
 uniform vec3 uHoldS;
 uniform vec3 uHoldE;
 uniform vec3 uHoldA;
+uniform float uNew;
+uniform mat3 uHeadR;
+uniform mat3 uHandLR;
+uniform mat3 uHandRR;
+uniform vec3 uEyeL;
+uniform vec3 uEyeR;
+uniform vec3 uBrowL;
+uniform vec3 uBrowR;
+uniform vec3 uNoseC;
+uniform vec2 uNoseY;
+uniform vec3 uLipC;
+uniform vec3 uHeadC;
+uniform vec3 uHairC;
+uniform vec3 uEarL;
+uniform vec3 uEarR;
+uniform vec3 uHandL;
+uniform vec3 uHandR;
+uniform vec3 uCollarC;
+uniform vec3 uNeckC;
+uniform float uTorsoTop;
+uniform float uMid;
+uniform float uSeed;
+uniform vec2 uCollar;
+uniform int uHairStyle;
+uniform float uHood;
+uniform float uEarPoint;
 out vec3 vN;
 out vec3 vW;
 out vec3 vRest;
+out vec3 vRestN;
 out float vPart;
 out float vArm;
 flat out int vMat;
+flat out int vFeat;
 ivec2 texel(int f) { return ivec2(gl_VertexID % uW, f * uRows + gl_VertexID / uW); }
 vec3 rotX(vec3 p, vec3 o, float a) { float c = cos(a), s = sin(a); vec3 q = p - o; return o + vec3(q.x, c * q.y - s * q.z, s * q.y + c * q.z); }
 vec3 rotZ(vec3 p, vec3 o, float a) { float c = cos(a), s = sin(a); vec3 q = p - o; return o + vec3(c * q.x - s * q.y, s * q.x + c * q.y, q.z); }
+float h1(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
+float vnoise(vec3 p) {
+  vec3 i = floor(p), f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(h1(i), h1(i + vec3(1, 0, 0)), f.x), mix(h1(i + vec3(0, 1, 0)), h1(i + vec3(1, 1, 0)), f.x), f.y),
+             mix(mix(h1(i + vec3(0, 0, 1)), h1(i + vec3(1, 0, 1)), f.x), mix(h1(i + vec3(0, 1, 1)), h1(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+}
+float sq(float x) { return x * x; }
+float g2(vec2 p) { return exp(-dot(p, p)); }
+const vec3 HAND_S = vec3(0.66, 1.08, 0.94);
+// The rest shape as the new look wants it. Everything is measured from the anchors, so it holds if
+// buildBody moves a part.
+vec3 reshape(vec3 r, int f) {
+  if (uNew < 0.5) return r;
+  // The bake's eyes and brows are lumps; they go inside the head and the face is painted instead.
+  if (f == 1) return uEyeL + (r - uEyeL) * 0.3 - vec3(0.0, 0.0, 0.012);
+  if (f == 2) return uEyeR + (r - uEyeR) * 0.3 - vec3(0.0, 0.0, 0.012);
+  if (f == 3) return uBrowL + (r - uBrowL) * 0.3 - vec3(0.0, 0.0, 0.016);
+  if (f == 4) return uBrowR + (r - uBrowR) * 0.3 - vec3(0.0, 0.0, 0.016);
+  // The nose: a teardrop, narrow at the bridge, wide and forward at the tip.
+  if (f == 5) {
+    vec3 l = r - uNoseC;
+    float t = clamp((r.y - uNoseY.x) / max(1e-4, uNoseY.y - uNoseY.x), 0.0, 1.0);
+    return uNoseC + vec3(l.x * mix(1.35, 0.55, t), l.y * 0.82, l.z * mix(0.7, 0.45, t));
+  }
+  if (f == 6) return uLipC + (r - uLipC) * vec3(1.12, 1.15, 0.8) - vec3(0.0, 0.0, 0.003);
+  // The head's profile: a chin that comes forward and a brow over the eyes.
+  if (f == 7) {
+    float fw = smoothstep(0.02, 0.07, r.z - uHeadC.z);
+    float ax = abs(r.x - uMid);
+    float chin = g2(vec2(ax / 0.024, (r.y - (uLipC.y - 0.032)) / 0.015));
+    float brow = exp(-sq((r.y - (uEyeL.y + 0.014)) / 0.01)) * (1.0 - smoothstep(0.03, 0.06, ax));
+    return r + vec3(0.0, -0.002 * chin, 0.008 * chin + 0.003 * brow) * fw;
+  }
+  if (f == 8) {
+    if (uHood > 0.5) return uHeadC + (r - uHeadC) * 0.7;
+    if (uEarPoint > 0.5) {
+      bool left = r.x > uMid;
+      vec3 l = r - (left ? uEarL : uEarR);
+      float u = max(l.y, 0.0) / 0.028;
+      return r + vec3((left ? 1.0 : -1.0) * 0.014 * u * u, 0.03 * u * u, -0.016 * u * u);
+    }
+    return r;
+  }
+  if (f == 9) {
+    vec3 l = r - uHairC;
+    if (uHood > 0.5) {
+      // A hood: the hair shell grown, dropped at the sides to frame the face and at the back to
+      // the shoulders, with a little peak over the brow.
+      vec3 q = uHairC + l * vec3(1.15, 1.08, 1.13) + vec3(0.0, 0.004, -0.006);
+      float side = smoothstep(0.03, 0.07, abs(l.x));
+      float back = smoothstep(0.01, -0.06, l.z);
+      float low = smoothstep(-0.004, -0.028, l.y);
+      q.y -= low * (0.07 * side * (1.0 - back) + 0.17 * back);
+      q.z += 0.014 * side * low * (1.0 - back);
+      q += vec3(0.0, -0.01, 0.014) * smoothstep(0.05, 0.09, l.z) * smoothstep(-0.02, 0.03, l.y);
+      return q;
+    }
+    // The shell's edge tucks into the scalp all the way round, so the hairline is where hair meets
+    // skin and not the lip of a helmet. buildBody pulls the shell up to a line 0.6 m up per metre
+    // forward; near that line the shell sinks, deepest at the back where it stands off furthest.
+    float rimY = -0.028 + 0.6 * max(l.z, -0.1);
+    float nearRim = smoothstep(0.03, 0.0, l.y - rimY);
+    float depth = mix(0.013, 0.026, smoothstep(0.03, -0.05, l.z)) + (uHairStyle == 1 ? 0.006 : 0.0);
+    r -= normalize(l) * nearRim * depth * (uHairStyle == 3 ? smoothstep(0.0, 0.04, l.z) : 1.0);
+    if (uHairStyle == 1) return uHairC + (r - uHairC) * vec3(0.975, 0.985, 0.975);
+    if (uHairStyle == 2) return r + normalize(l) * 0.009 * (vnoise(r * 48.0 + uSeed) - 0.2);
+    if (uHairStyle == 3) {
+      float back = smoothstep(0.0, -0.06, l.z);
+      float low = smoothstep(-0.035, -0.07, l.y);
+      vec3 q = r + normalize(l) * 0.007 * vnoise(r * 40.0 + uSeed);
+      return q + vec3(l.x * 0.35 * back * low, -0.16 * back * low, -0.03 * back * low);
+    }
+    return r;
+  }
+  // A fuller neck, tapering back to the bake's where it goes up into the head.
+  if (f == 12) {
+    float k = smoothstep(uNeckC.y + 0.05, uNeckC.y + 0.01, r.y);
+    return vec3(uNeckC.x + (r.x - uNeckC.x) * (1.0 + 0.18 * k), r.y, uNeckC.z + (r.z - uNeckC.z) * (1.0 + 0.14 * k));
+  }
+  if (f == 10) return uHandL + (r - uHandL) * HAND_S;
+  if (f == 11) return uHandR + (r - uHandR) * HAND_S;
+  // The coat's collar: the top rings raised, and flared for a trench.
+  if (aPart > 0.5) {
+    float w = smoothstep(uTorsoTop - 0.032, uTorsoTop, r.y);
+    float k = 1.0 + (uCollar.y - 1.0) * w;
+    return vec3(uCollarC.x + (r.x - uCollarC.x) * k, r.y + uCollar.x * w, uCollarC.z + (r.z - uCollarC.z) * k);
+  }
+  return r;
+}
 void main() {
   float fr = fract(uClip.z) * uClip.y;
   int f0 = int(fr);
@@ -165,23 +371,36 @@ void main() {
   int b = int(uClip.x + 0.5);
   vec3 p = mix(texelFetch(uPosT, texel(b + f0), 0).xyz, texelFetch(uPosT, texel(b + f1), 0).xyz, t);
   vec3 n = mix(texelFetch(uNrmT, texel(b + f0), 0).xyz, texelFetch(uNrmT, texel(b + f1), 0).xyz, t);
+  vec3 rn0 = texelFetch(uNrmT, texel(uIdle0), 0).xyz;
+  int f = int(aFeat + 0.5);
+  vec3 rr = reshape(aRest, f);
+  bool hand = uNew > 0.5 && (f == 10 || f == 11);
   bool held = uHold > 0.5 && aArm > 0.5;
   if (held) {
     // The held arm starts from its rest shape, not the clip, so it does not swing, then rides the
     // shoulder wherever the clip has put it.
-    vec3 r = aRest;
-    vec3 rn = texelFetch(uNrmT, texel(uIdle0), 0).xyz;
-    float fa = smoothstep(1.16, 1.04, r.y);
+    vec3 r = rr;
+    vec3 rn = hand ? normalize(rn0 / HAND_S) : rn0;
+    float fa = smoothstep(uHoldE.y + 0.06, uHoldE.y - 0.06, aRest.y);
     r = mix(r, rotX(r, uHoldE, uHoldA.x), fa);
     rn = normalize(mix(rn, rotX(rn, vec3(0.0), uHoldA.x), fa));
     r = rotZ(rotX(r, uHoldS, uHoldA.y), uHoldS, uHoldA.z);
     rn = rotZ(rotX(rn, vec3(0.0), uHoldA.y), vec3(0.0), uHoldA.z);
     p = r + uArmOff;
     n = rn;
+  } else {
+    // A reshape is a change to the rest shape, so it turns with the bone the part rides.
+    vec3 d = rr - aRest;
+    if (f >= 1 && f <= 9) p += uHeadR * d;
+    else if (f == 10) { p += uHandLR * d; if (hand) n = normalize(uHandLR * ((transpose(uHandLR) * n) / HAND_S)); }
+    else if (f == 11) { p += uHandRR * d; if (hand) n = normalize(uHandRR * ((transpose(uHandRR) * n) / HAND_S)); }
+    else p += d;
   }
+  // A duster flares at the back and sides and hangs straight in front.
   float fl = uFlare * aPart * smoothstep(0.92, 0.62, aRest.y);
-  p.x *= 1.0 + fl * 0.45;
-  p.z *= 1.0 + fl * 0.4;
+  float back = smoothstep(uCollarC.z + 0.02, uCollarC.z - 0.08, aRest.z);
+  p.x *= 1.0 + fl * 0.28;
+  p.z *= 1.0 + fl * mix(0.08, 0.6, back);
   float band = smoothstep(0.35, 0.6, aRest.y) * (1.0 - smoothstep(1.35, 1.5, aRest.y));
   p.x *= mix(1.0, uShape.x, band);
   p.z *= mix(1.0, uShape.x, band * 0.8);
@@ -194,21 +413,26 @@ void main() {
   vN = vec3(ch * n.x + sh * n.z, n.y, -sh * n.x + ch * n.z);
   vW = w;
   vRest = aRest;
+  vRestN = rn0;
   vPart = aPart;
   vArm = aArm;
   vMat = int(aMat + 0.5);
+  vFeat = f;
   gl_Position = uVP * vec4(w, 1.0);
 }`;
 
 // Orders: 0 the look as built, 1 Ascendant, 2 Long Watch, 3 Null, 4 Wildblood.
 const FRAG = `#version 300 es
 precision highp float;
+precision highp int;
 in vec3 vN;
 in vec3 vW;
 in vec3 vRest;
+in vec3 vRestN;
 in float vPart;
 in float vArm;
 flat in int vMat;
+flat in int vFeat;
 uniform vec3 uCoat;
 uniform vec3 uLegs;
 uniform vec3 uSkin;
@@ -216,6 +440,7 @@ uniform vec3 uHair;
 uniform vec3 uShoe;
 uniform vec3 uAcc;
 uniform vec3 uGlow;
+uniform vec3 uIris;
 uniform vec3 uKey;
 uniform vec3 uKeyC;
 uniform vec3 uSky;
@@ -226,11 +451,39 @@ uniform float uSeed;
 uniform float uTop;
 uniform int uOrder;
 uniform int uBody;
+uniform int uGlove;
+uniform int uStrap;
+uniform int uHairStyle;
 uniform float uHood;
 uniform float uScarf;
 uniform float uWet;
 uniform float uCyber;
+uniform float uAge;
+uniform float uBrow;
+uniform float uMood;
+uniform float uBeard;
+uniform float uImplant;
+uniform float uClaws;
+uniform float uNight;
+uniform float uMakeup;
+uniform vec3 uLipTint;
+uniform vec3 uEyeL;
+uniform vec3 uEyeR;
+uniform vec3 uNoseC;
+uniform vec2 uNoseY;
+uniform vec3 uLipC;
+uniform vec3 uHeadC;
+uniform vec3 uHairC;
+uniform vec3 uHandL;
+uniform vec3 uHandR;
+uniform vec3 uPatch;
+uniform float uMid;
+uniform float uHairFront;
+uniform float uTorsoTop;
+uniform float uCoatX;
 out vec4 outColor;
+float fw;
+vec3 gHair;
 float h1(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
 float vnoise(vec3 p) {
   vec3 i = floor(p), f = fract(p);
@@ -238,9 +491,14 @@ float vnoise(vec3 p) {
   return mix(mix(mix(h1(i), h1(i + vec3(1, 0, 0)), f.x), mix(h1(i + vec3(0, 1, 0)), h1(i + vec3(1, 1, 0)), f.x), f.y),
              mix(mix(h1(i + vec3(0, 0, 1)), h1(i + vec3(1, 0, 1)), f.x), mix(h1(i + vec3(0, 1, 1)), h1(i + vec3(1, 1, 1)), f.x), f.y), f.z);
 }
+float sq(float x) { return x * x; }
+float g2(vec2 p) { return exp(-dot(p, p)); }
 float line(float x, float w) { return 1.0 - smoothstep(0.0, w, abs(x)); }
-// Bump from a height field in world units, by screen derivatives: folds, straps and weave without
-// a normal map.
+// A line w wide that never gets thinner than a pixel: past that it widens and fades, so a brow or a
+// lash at a distance becomes a soft shade instead of a crawling stripe.
+float lineAA(float d, float w) { float W = max(w, fw); return (1.0 - smoothstep(0.0, W, abs(d))) * min(1.0, 1.4 * w / W); }
+// Bump from a height field in world units, by screen derivatives: folds, straps, weave and the
+// face's relief without a normal map.
 vec3 bump(vec3 n, vec3 p, float h) {
   vec3 dx = dFdx(p), dy = dFdy(p);
   float hx = dFdx(h), hy = dFdy(h);
@@ -249,22 +507,138 @@ vec3 bump(vec3 n, vec3 p, float h) {
   vec3 g = sign(det) * (hx * r1 + hy * r2);
   return normalize(abs(det) * n - g);
 }
+
+// The face, painted on the head's skin. Coordinates are rest-shape metres from the anchors: q runs
+// from the nearer eye's centre, +x toward its outer corner.
+void paintFace(inout vec3 col, inout float h, inout vec3 glow, vec3 r) {
+  vec3 skin = col;
+  float side = r.x >= uMid ? 1.0 : -1.0;
+  vec3 ec = side > 0.0 ? uEyeL : uEyeR;
+  float ax = abs(r.x - uMid);
+  vec2 q = vec2((r.x - ec.x) * side, r.y - ec.y);
+  float front = smoothstep(uHeadC.z + 0.015, uHeadC.z + 0.05, r.z);
+  float detail = 1.0 - smoothstep(0.0012, 0.0035, fw);
+  float nb = uNoseY.x;
+  // Relief: brow ridge, sockets, the bridge of the nose, cheekbones and their hollows, chin, and
+  // the corners of the mouth.
+  float hf = 0.0022 * exp(-sq((q.y - 0.0125) / 0.007)) * (1.0 - smoothstep(0.028, 0.055, ax));
+  hf -= 0.0028 * g2(vec2(q.x / 0.017, (q.y + 0.001) / 0.012));
+  hf += 0.0016 * (1.0 - smoothstep(0.0, 0.01, ax)) * smoothstep(uNoseY.y - 0.012, uNoseY.y, r.y) * (1.0 - smoothstep(ec.y + 0.008, ec.y + 0.016, r.y));
+  hf += 0.0016 * g2(vec2((ax - 0.045) / 0.016, (r.y - (ec.y - 0.026)) / 0.013));
+  hf -= 0.0010 * g2(vec2((ax - 0.047) / 0.012, (r.y - (ec.y - 0.054)) / 0.012));
+  hf += 0.0014 * g2(vec2(ax / 0.014, (r.y - (uLipC.y - 0.03)) / 0.011));
+  hf -= 0.0008 * g2(vec2((ax - 0.022) / 0.005, (r.y - uLipC.y) / 0.005));
+  h += hf * front;
+  // Where the nose meets the face.
+  col *= 1.0 - 0.16 * g2(vec2(ax / 0.019, (r.y - (uNoseC.y - 0.004)) / 0.02)) * smoothstep(0.003, 0.011, ax) * front;
+  // Sockets shade under the brow; cheeks run a little warm.
+  col *= 1.0 - 0.17 * g2(vec2(q.x / 0.02, (q.y - 0.003) / 0.013)) * front;
+  col = mix(col, col * vec3(1.07, 0.9, 0.88), 0.3 * g2(vec2((ax - 0.042) / 0.016, (r.y - (ec.y - 0.032)) / 0.014)) * front);
+  // The eye: an almond opening, the outer corner a touch higher, under an upper lid.
+  float u = q.x / 0.0152;
+  float v = (q.y - 0.0012 * u) / 0.0063;
+  float cu = 1.0 - u * u;
+  float up = cu * (1.0 + 0.12 * u);
+  float lo = -0.7 * cu;
+  float ew = max(0.1, 1.5 * fw / 0.0063);
+  float open = smoothstep(-ew, ew, up - v) * smoothstep(-ew, ew, v - lo);
+  float di = length(vec2(q.x, q.y - 0.0004));
+  float iw = 1.2 * fw;
+  float iris = 1.0 - smoothstep(0.0055 - iw, 0.0055 + iw, di);
+  float pupil = 1.0 - smoothstep(0.0021 - iw, 0.0021 + iw, di);
+  bool implantEye = uImplant > 0.5 && side > 0.0;
+  vec3 irisC = uIris * (0.65 + 0.55 * smoothstep(0.0055, 0.0017, di));
+  irisC *= 1.0 - 0.5 * smoothstep(0.004, 0.0055, di);
+  if (implantEye) irisC = uGlow * 0.9;
+  vec3 eye = mix(mix(vec3(0.82, 0.79, 0.74), skin, 0.2), irisC, iris);
+  eye = mix(eye, vec3(0.015), pupil * (implantEye ? 0.3 : 1.0));
+  eye *= mix(0.45, 1.0, smoothstep(0.0, 0.6, up - v));
+  eye = mix(skin * 0.4, eye, detail);
+  col = mix(col, eye, open * front);
+  if (implantEye) glow += uGlow * iris * open * front * 0.9;
+  if (uOrder == 4) glow += uIris * iris * open * front * 0.3 * uNight;
+  // A catchlight, the same side in both eyes.
+  float cl = 1.0 - smoothstep(0.0004, 0.0008 + fw, length(r.xy - ec.xy - vec2(0.0012, 0.0016)));
+  glow += uKeyC * 0.45 * cl * open * detail * front;
+  // Lash line, heavier toward the outer corner; the lid crease; the lower lid; age under the eye.
+  float lashW = mix(0.0006, 0.0011, smoothstep(0.1, 0.95, u));
+  float lash = lineAA((v - up) * 0.0063 - lashW * 0.5, lashW) * smoothstep(1.05, 0.85, abs(u));
+  col = mix(col, gHair * 0.3 + 0.012, 0.85 * lash * front);
+  col *= 1.0 - 0.2 * lineAA((v - up - 1.2) * 0.0063, 0.0005) * smoothstep(1.0, 0.6, abs(u)) * front;
+  col *= 1.0 - 0.15 * lineAA((v - lo) * 0.0063, 0.0005) * smoothstep(1.0, 0.7, abs(u)) * front;
+  float bag = g2(vec2(u / 0.8, (v - lo + 0.9) / 0.55));
+  col *= 1.0 - (0.04 + 0.1 * uAge + (uOrder == 3 ? 0.08 : 0.0)) * bag * front;
+  // Liner with a wing at the outer corner.
+  if (uMakeup > 0.5) {
+    float wing = lineAA(q.y - (0.0048 + (q.x - 0.012) * 0.4), 0.0007) * smoothstep(0.009, 0.012, q.x) * (1.0 - smoothstep(0.017, 0.02, q.x));
+    col = mix(col, vec3(0.02, 0.015, 0.03), 0.9 * max(wing, lash) * front);
+  }
+  // Brows: a tapered stroke, thick at the inner end, set stern or worried.
+  float by = 0.0128 + 0.0028 * (1.0 - sq((q.x - 0.003) / 0.021)) - uBrow * 0.1 * q.x;
+  float bth = mix(0.0024, 0.001, smoothstep(-0.014, 0.02, q.x));
+  float bIn = smoothstep(-0.02, -0.0145, q.x) * (1.0 - smoothstep(0.017, 0.024, q.x));
+  float brow = lineAA(q.y - by, bth) * bIn;
+  vec3 browC = mix(skin, gHair * 0.85, 0.85) * (0.8 + 0.35 * vnoise(vec3(q.x * 900.0, q.y * 400.0, uSeed)));
+  col = mix(col, browC, brow * front);
+  // Under the nose, the philtrum, and the lines from nose to mouth that come with age.
+  float under = (1.0 - smoothstep(0.011, 0.017, ax)) * smoothstep(nb + 0.002, nb - 0.004, r.y) * smoothstep(uLipC.y + 0.004, uLipC.y + 0.01, r.y);
+  col *= 1.0 - 0.2 * under * front;
+  h -= 0.0005 * (1.0 - smoothstep(0.0, 0.004, ax)) * step(uLipC.y + 0.004, r.y) * step(r.y, nb) * front;
+  float tt = clamp((nb + 0.002 - r.y) / (nb + 0.002 - (uLipC.y - 0.006)), 0.0, 1.0);
+  // Soft folds, not lines: a line reads as a scar at this size.
+  float nl = exp(-sq((ax - (0.018 + 0.01 * tt)) / 0.005)) * smoothstep(uLipC.y - 0.012, uLipC.y - 0.002, r.y) * smoothstep(nb + 0.006, nb - 0.002, r.y);
+  col *= 1.0 - (0.02 + 0.07 * uAge) * nl * front;
+  h -= (0.0002 + 0.0006 * uAge) * nl * front;
+  float fy = r.y - (ec.y + 0.026);
+  float lines = lineAA((fract(fy / 0.007) - 0.5) * 0.007, 0.0005) * step(0.0, fy) * step(r.y, uHairFront - 0.012) * (1.0 - smoothstep(0.03, 0.05, ax));
+  col *= 1.0 - 0.14 * smoothstep(0.55, 1.0, uAge) * lines * front;
+  // The chin's shadow on the throat, and the hair's on the forehead.
+  float chinY = uLipC.y - 0.04;
+  col *= 1.0 - 0.32 * smoothstep(chinY + 0.004, chinY - 0.022, r.y);
+  col *= 1.0 - 0.18 * smoothstep(uHairFront - 0.016, uHairFront, r.y);
+  // Beard: stubble is a speckle, a full beard a coat of hair with some body to it.
+  if (uBeard > 0.5) {
+    float yb = mix(nb - 0.001, ec.y - 0.04, smoothstep(0.02, 0.058, ax));
+    float mask = smoothstep(0.004, -0.008, r.y - yb) * smoothstep(uHeadC.z - 0.015, uHeadC.z + 0.015, r.z);
+    vec3 bc = mix(gHair * 0.75, vec3(0.55, 0.54, 0.52), smoothstep(0.55, 1.0, uAge) * 0.8);
+    if (uBeard < 1.5) {
+      col = mix(col, mix(col, bc, 0.55), mask * mix(0.5, mix(0.3, 0.75, vnoise(r * 520.0 + uSeed)), detail));
+    } else {
+      col = mix(col, bc * (0.75 + 0.5 * vnoise(r * 320.0 + uSeed)), mask * 0.95);
+      h += 0.0015 * mask * vnoise(r * 180.0 + uSeed);
+    }
+  }
+  // An Ascendant's temple plate, with a lit seam running back from the eye.
+  if (implantEye) {
+    float along = q.x - 0.015;
+    float ly = q.y - 0.001 - along * 0.12;
+    float seg = smoothstep(-0.001, 0.001, along) * (1.0 - smoothstep(0.034, 0.04, along));
+    col = mix(col, vec3(0.14, 0.15, 0.19), seg * (1.0 - smoothstep(0.0035, 0.005, abs(ly))));
+    glow += uGlow * 1.8 * lineAA(ly, 0.0007) * seg;
+  }
+}
+
 void main() {
   int m = vMat;
+  int f = vFeat;
   vec3 r = vRest;
-  float ang = atan(r.x, r.z);
+  fw = 0.7 * length(fwidth(vRest));
+  gHair = mix(uHair, vec3(0.6, 0.59, 0.57), smoothstep(0.6, 1.0, uAge) * 0.7);
+  float ang = atan(r.x - uCoatX, r.z);
   float grime = vnoise(r * 18.0 + uSeed) * 0.6 + vnoise(r * 55.0 + uSeed) * 0.4;
   float hem = uBody == 1 ? 0.86 : uBody == 2 ? 0.87 : uBody == 3 ? 0.93 : -1.0;
   if (uOrder == 4) hem = 0.64 + 0.07 * vnoise(vec3(ang * 4.0, uSeed, 0.0)) + 0.03 * vnoise(vec3(ang * 19.0, 1.0, uSeed));
   if (vPart > 0.5 && r.y < hem) discard;
+  // A long coat is open below the waist, so it reads as a coat and not a dress.
+  if (uOrder != 0 && uOrder != 4 && vPart > 0.5 && (uBody == 0 || uBody == 4) && r.y < 0.9 && vRestN.z > 0.2 && abs(r.x - uCoatX) < (0.9 - r.y) * 0.16) discard;
   vec3 col = m == 0 ? uSkin : m == 1 ? uCoat : m == 2 ? uLegs : m == 3 ? uShoe
            : m == 4 ? uHair : m == 5 ? vec3(0.035) : uSkin * vec3(0.78, 0.55, 0.55);
   bool skinLike = m == 0 || m == 6;
-  bool face = r.z > 0.045 && r.y < uTop - 0.03 && r.y > uTop - 0.2;
-  float neck = uTop * 0.835;
+  bool inside = !gl_FrontFacing && uOrder != 0;
   vec3 glow = vec3(0.0);
   float h = 0.0;
   float rough = 1.0;
+  bool isHair = false;
   if (uOrder == 0) {
     if (m == 1) {
       float front = step(0.0, r.z);
@@ -275,72 +649,95 @@ void main() {
       col = mix(col, vec3(0.2, 0.17, 0.13), (1.0 - smoothstep(0.03, 0.18, r.y)) * grime * 0.6);
     }
   } else {
-    // Cloth: long folds below the waist, a finer weave everywhere.
-    if (m == 1 && vArm < 0.5) h += 0.0035 * sin(ang * 9.0 + vnoise(r * 5.0 + uSeed) * 4.0) * (1.0 - smoothstep(0.6, 1.02, r.y));
-    if (m == 1 && vArm > 0.5) h += 0.0015 * sin(r.y * 70.0 + vnoise(r * 9.0) * 3.0);
-    if (m == 2) h += 0.0018 * sin(r.y * 55.0 + vnoise(r * 7.0 + uSeed) * 5.0) * line(r.y - 0.25, 0.22);
+    float cx = r.x - uCoatX;
+    float frontN = smoothstep(0.2, 0.6, vRestN.z);
+    // Cloth: long folds below the waist, creases up the sleeves and trousers, a weave everywhere.
+    if (m == 1 && vPart > 0.5) h += 0.0035 * sin(ang * 9.0 + vnoise(r * 5.0 + uSeed) * 4.0) * (1.0 - smoothstep(0.6, 1.02, r.y));
+    if (m == 1 && vPart < 0.5) h += 0.0015 * sin(r.y * 70.0 + vnoise(r * 9.0) * 3.0);
+    if (m == 2) {
+      h += 0.0018 * sin(r.y * 55.0 + vnoise(r * 7.0 + uSeed) * 5.0) * line(r.y - 0.25, 0.22);
+      if (uOrder != 4) h += 0.0008 * line(vRestN.x, 0.12) * step(0.5, vRestN.z) * step(0.3, r.y);
+    }
     h += vnoise(r * 260.0) * 0.00035;
     if (uOrder == 1) {
-      // Ascendant: clean pale coat, a high collar, lit piping on the front edge and the hem, an
-      // eye implant, sometimes a machined hand.
+      // Ascendant: a clean pale coat, a high collar, lit piping on the front edge, hem and cuffs,
+      // a badge on the breast, glossy shoes.
       rough = 0.35;
-      if (skinLike && r.y < neck + 0.06 && r.y > neck - 0.03 && !face) { col = uCoat; m = 1; }
       if (m == 1) {
-        float front = step(0.02, r.z);
-        float edge = line(r.x - 0.012, 0.004) * front * step(r.y, neck);
+        float edge = line(cx - 0.012, 0.004) * frontN * step(r.y, uTorsoTop - 0.03) * vPart;
         float hemLine = line(r.y - 0.645, 0.006) * vPart;
-        float cuff = line(r.y - 0.9, 0.005) * vArm;
+        float cuff = line(r.y - 0.9, 0.005) * (1.0 - vPart);
         glow += uGlow * (edge + hemLine + cuff) * 1.6;
         col *= 1.0 - 0.18 * line(r.y - 1.02, 0.01) * vPart;
-        h -= 0.0012 * line(r.x - 0.012, 0.01) * front;
-        col *= 1.0 - 0.1 * line(abs(r.x) - 0.12, 0.004) * front * step(0.9, r.y);
+        h -= 0.0012 * line(cx - 0.012, 0.01) * frontN;
+        col *= 1.0 - 0.1 * line(abs(cx) - 0.12, 0.004) * frontN * step(0.9, r.y);
+        float bx = cx - 0.09;
+        float badge = lineAA(abs(bx) * 1.7 - (1.318 - r.y), 0.0012) * step(1.29, r.y) * step(r.y, 1.318) * frontN * vPart;
+        glow += uGlow * badge * 1.4;
+        col = mix(col, vec3(0.1, 0.1, 0.14), line(r.y - (uTorsoTop - 0.004), 0.004) * vPart);
       }
-      if (m == 2) col *= 1.0 + 0.25 * line(abs(r.x) - 0.12, 0.006);
-      if (m == 3) { rough = 0.2; col *= 0.9; }
-      if (skinLike && r.x > 0.035 && r.x < 0.09 && r.z > 0.05 && r.y > uTop - 0.12 && r.y < uTop - 0.075) {
-        col = vec3(0.15, 0.16, 0.2);
-        glow += uGlow * line(r.y - (uTop - 0.1), 0.006) * 2.5;
-      }
+      if (m == 2) col *= 1.0 + 0.25 * line(abs(r.x - uCoatX) - 0.12, 0.006);
+      if (m == 3) { rough = 0.18; col *= 0.9; }
       if (uCyber > 0.5 && skinLike && vArm > 0.5) {
         col = vec3(0.05, 0.05, 0.07);
         rough = 0.15;
         glow += uGlow * line(fract(r.y * 45.0) - 0.5, 0.06) * 1.2;
       }
     } else if (uOrder == 2) {
-      // Long Watch: a weathered trench, webbing across the chest, a belt with pouches, a scarf.
+      // Long Watch: a weathered trench with the collar up, a rifle sling or pack straps, a belt
+      // with pouches, a patch on the left arm, lace-up boots.
       if (m == 1) {
         float wear = smoothstep(0.55, 0.8, vnoise(r * 22.0 + uSeed));
         col = mix(col, col * 1.35 + 0.02, wear * 0.5);
         col = mix(col, col * vec3(0.55, 0.5, 0.42), (1.0 - smoothstep(0.62, 1.0, r.y)) * grime);
-        float strap = line(r.x + (r.y - 1.18) * 0.75, 0.02) * step(0.95, r.y) * step(r.y, 1.43) * vPart;
+        float strap = 0.0;
+        if (uStrap == 1) strap = line(cx + (r.y - 1.18) * 0.75, 0.02) * step(0.95, r.y) * step(r.y, 1.45) * vPart;
+        if (uStrap == 2) strap = line(abs(cx) - 0.085, 0.016) * step(1.1, r.y) * vPart;
         float belt = line(r.y - 0.985, 0.022) * vPart;
         float pouch = belt * step(0.5, fract(ang * 1.6 + 0.2)) * step(r.z, 0.0);
         col = mix(col, uAcc, max(strap, belt));
         h += 0.004 * (strap + belt) + 0.006 * pouch;
-        col += vec3(0.25, 0.22, 0.12) * line(r.y - 0.985, 0.006) * line(r.x, 0.018) * step(0.0, r.z);
-        col *= 1.0 - 0.35 * line(r.x - 0.03, 0.005) * step(0.0, r.z) * step(0.7, r.y);
+        col += vec3(0.25, 0.22, 0.12) * line(r.y - 0.985, 0.006) * line(cx, 0.018) * frontN;
+        col *= 1.0 - 0.35 * line(cx - 0.03, 0.005) * frontN * step(0.7, r.y) * vPart;
+        if (f == 13) {
+          float d = length(vec2(r.z - uPatch.z, r.y - uPatch.y));
+          float disc = (1.0 - smoothstep(0.019, 0.021, d)) * smoothstep(0.2, 0.5, vRestN.x);
+          col = mix(col, mix(vec3(0.62, 0.45, 0.15), vec3(0.12, 0.09, 0.05), line(d - 0.017, 0.0025) + line(r.y - uPatch.y, 0.003) * step(d, 0.012)), disc);
+          h += 0.001 * disc;
+        }
       }
-      if (m == 2) col = mix(col, col * 0.6, (1.0 - smoothstep(0.02, 0.3, r.y)) * grime);
+      if (m == 2) {
+        col = mix(col, col * 0.6, (1.0 - smoothstep(0.02, 0.3, r.y)) * grime);
+        if (r.y < 0.27) {
+          col = uShoe * 1.12 * (0.85 + 0.25 * vnoise(r * 90.0));
+          col *= 1.0 - 0.45 * line(r.y - 0.265, 0.006);
+          float lace = line(fract(r.y / 0.018 + abs(vRestN.x) * 1.4) - 0.5, 0.12) * step(0.6, vRestN.z);
+          col = mix(col, vec3(0.1, 0.08, 0.06), lace * 0.8);
+          h += 0.0012 * lace;
+          rough = 0.6;
+        }
+      }
       if (m == 3) { col = mix(col, uAcc * 0.8, step(0.05, r.y)); h += 0.002 * line(fract(r.y * 40.0) - 0.5, 0.1) * step(0.06, r.y); }
-      if (skinLike) col *= 0.9 + 0.1 * vnoise(r * 40.0 + 3.0);
-      // Stubble.
-      if (skinLike && face && r.y < uTop - 0.12) col *= 0.75 + 0.25 * vnoise(r * 400.0);
     } else if (uOrder == 3) {
-      // Null: black hoodie, hood always up, cans over the ears, one green lamp.
+      // Null: a black hoodie with the hood up, a jam patch on the arm, one green lamp, sneakers.
       rough = 0.8;
       if (m == 1) {
-        float front = step(0.0, r.z);
-        float pouch = step(0.93, r.y) * step(r.y, 1.06) * step(abs(r.x), 0.11) * front;
-        col *= 1.0 - 0.4 * pouch * (line(r.y - 1.06, 0.006) + line(abs(r.x) - 0.11, 0.006));
+        float pouch = step(0.93, r.y) * step(r.y, 1.06) * step(abs(cx), 0.11) * frontN;
+        col *= 1.0 - 0.4 * pouch * (line(r.y - 1.06, 0.006) + line(abs(cx) - 0.11, 0.006));
         h += 0.002 * pouch;
-        col = mix(col, vec3(0.6), line(abs(r.x) - 0.03, 0.004) * front * step(1.2, r.y) * step(r.y, neck));
+        col = mix(col, vec3(0.6), line(abs(cx) - 0.03, 0.004) * frontN * step(1.2, r.y) * step(r.y, uTorsoTop - 0.01));
         col *= 1.0 - 0.3 * line(r.y - 0.89, 0.012);
-        glow += vec3(0.2, 1.0, 0.4) * line(length(r.xy - vec2(0.09, 1.25)), 0.008) * front * 2.0;
+        glow += vec3(0.2, 1.0, 0.4) * line(length(vec2(cx - 0.09, r.y - 1.25)), 0.008) * frontN * 2.0;
+        if (f == 13) {
+          vec2 pd = vec2(r.z - uPatch.z, r.y - uPatch.y);
+          float disc = (1.0 - smoothstep(0.018, 0.02, length(pd))) * smoothstep(0.2, 0.5, vRestN.x);
+          col = mix(col, mix(vec3(0.45), vec3(0.05), max(line(length(pd) - 0.014, 0.0025), line(pd.x - pd.y, 0.0025) * step(length(pd), 0.014))), disc);
+        }
       }
-      bool cup = length(vec2(abs(r.x) - 0.085, r.y - (uTop - 0.105))) < 0.04;
-      if ((m == 4 || skinLike) && cup) { col = vec3(0.12, 0.12, 0.13); rough = 0.3; m = 7; }
+      if (m == 3) { col = mix(col, vec3(0.85, 0.84, 0.8), 1.0 - smoothstep(0.024, 0.03, r.y)); col = mix(col, vec3(0.8), line(r.y - 0.06, 0.004) * step(0.5, abs(vRestN.x))); }
     } else if (uOrder == 4) {
-      // Wildblood: a red cloak with a ragged hem, a woven band at its edge, marked skin, teeth.
+      // Wildblood: a red cloak with a ragged hem and a woven band, marked skin, a necklace of
+      // teeth, wrapped shins.
       rough = 0.9;
       if (m == 1) {
         col = mix(col, col * 1.3, smoothstep(0.5, 0.9, vnoise(r * 14.0 + uSeed)) * 0.4);
@@ -349,40 +746,113 @@ void main() {
         h += 0.002 * band;
         col = mix(col, col * 0.55, (1.0 - smoothstep(0.64, 0.95, r.y)) * grime * 0.8);
       }
+      if (m == 2 && r.y < 0.42) {
+        col = mix(col, vec3(0.5, 0.42, 0.3), 0.8);
+        float wrap = line(fract(r.y / 0.022 + atan(vRestN.x, vRestN.z) * 0.25) - 0.5, 0.1);
+        col *= 1.0 - 0.35 * wrap;
+        h += 0.001 * wrap;
+      }
       if (skinLike) {
         float spots = smoothstep(0.62, 0.7, vnoise(r * 70.0 + uSeed));
-        col = mix(col, col * vec3(0.55, 0.4, 0.5), spots * (face ? 0.5 : 1.0));
+        col = mix(col, col * vec3(0.55, 0.4, 0.5), spots * (f == 7 ? 0.5 : 1.0));
       }
-      if ((skinLike || m == 1) && abs(r.y - (neck - 0.035)) < 0.012 && r.z > 0.0) {
+      if ((f == 12 || m == 1) && abs(r.y - (uTorsoTop - 0.035)) < 0.012 && vRestN.z > 0.0) {
         col = mix(col, vec3(0.9, 0.86, 0.72), step(0.5, fract(ang * 8.0)));
         m = 8;
       }
     }
-    if (uHood > 0.5 && (m == 4 || skinLike) && r.y > uTop - 0.2 && !face) {
-      col = uCoat * (0.9 + 0.1 * vnoise(r * 60.0));
-      if (r.y < uTop - 0.17) col *= 0.8;
-      m = 7;
+    // The person: face, nose, lips, ears, hair, hands, neck.
+    vec3 skin = uSkin;
+    if (f == 7) {
+      paintFace(col, h, glow, r);
+      // Below the hair at the temples and the nape the skin takes the hair's colour and lets it go,
+      // so the shell's edge disappears into a hairline instead of a zigzag.
+      if (uHood < 0.5) {
+        vec3 lh = r - uHairC;
+        float rimY = -0.028 + 0.6 * max(lh.z, -0.1);
+        float fade = smoothstep(-0.03, -0.004, lh.y - rimY) * smoothstep(0.07, 0.02, lh.z);
+        float strand = vnoise(vec3(atan(lh.x, lh.z) * 24.0, lh.y * 16.0, uSeed));
+        col = mix(col, gHair * (0.78 + 0.4 * strand) * 0.9, fade * 0.9);
+      }
     }
-    if (uScarf > 0.5 && (m == 1 || skinLike) && r.y > neck - 0.05 && r.y < neck + 0.035) {
-      col = (uOrder == 2 ? vec3(0.12, 0.11, 0.1) : uAcc) * (0.8 + 0.2 * step(0.5, fract(r.y * 55.0)));
-      h += 0.002 * vnoise(r * 80.0);
-      m = 8;
+    if (f == 5) {
+      col *= 1.0 - 0.14 * smoothstep(0.006, 0.0, r.z - uNoseC.z);
+      col *= 1.0 - 0.4 * smoothstep(uNoseY.x + 0.014, uNoseY.x + 0.003, r.y) * smoothstep(0.0, -0.6, normalize(vN).y);
+      col = mix(col, col * vec3(1.06, 0.9, 0.88), 0.35 * smoothstep(uNoseY.x + 0.025, uNoseY.x + 0.008, r.y));
     }
+    if (f == 6) {
+      float lu = (r.x - uLipC.x) / 0.022;
+      float lv = (r.y - uLipC.y) / 0.0052;
+      float d = lv - (0.05 - 0.28 * uMood * lu * lu);
+      vec3 lip = skin * mix(vec3(0.78, 0.55, 0.53), vec3(0.9, 0.68, 0.64), smoothstep(0.3, -0.3, d));
+      if (uMakeup > 0.5) lip = uLipTint * mix(0.75, 1.0, smoothstep(0.3, -0.3, d));
+      col = mix(lip, skin, smoothstep(0.62, 1.0, abs(lu)));
+      col = mix(col, skin * 0.28, lineAA(d * 0.0052, 0.00045) * (1.0 - smoothstep(0.85, 1.05, abs(lu))));
+      rough = 0.5;
+    }
+    if (f == 8) col *= vec3(1.03, 0.9, 0.88);
+    if (f == 9) {
+      if (uHood > 0.5) {
+        col = uCoat * (0.88 + 0.14 * vnoise(r * 60.0 + uSeed));
+        h += 0.0012 * sin((r.y - uHairC.y) * 90.0 + vnoise(r * 12.0) * 3.0);
+        rough = 0.85;
+      } else {
+        vec3 lh = r - uHairC;
+        float strand = vnoise(vec3(atan(lh.x, lh.z) * 24.0, lh.y * 16.0, uSeed));
+        col = gHair * (0.78 + 0.4 * strand);
+        h += 0.0007 * strand;
+        if (uHairStyle == 1) col *= 1.0 - 0.55 * lineAA(lh.x - 0.024, 0.0014) * smoothstep(0.03, 0.06, lh.y) * smoothstep(-0.03, 0.02, lh.z);
+        rough = uHairStyle == 1 ? 0.35 : 0.6;
+        isHair = true;
+      }
+    }
+    if (f == 10 || f == 11) {
+      vec3 l = r - (f == 10 ? uHandL : uHandR);
+      float fing = smoothstep(-0.004, -0.02, l.y);
+      float d = min(abs(l.z + 0.018), min(abs(l.z - 0.001), abs(l.z - 0.019)));
+      col *= 1.0 - 0.3 * lineAA(d, 0.0011) * fing;
+      col *= 1.0 - 0.12 * lineAA(l.y + 0.011, 0.0018);
+      if (uGlove > 0 && !(uCyber > 0.5 && vArm > 0.5)) {
+        float gv = smoothstep(-0.02, -0.01, l.y);
+        col = mix(col, uGlove == 1 ? uAcc * 1.25 : vec3(0.05, 0.05, 0.055), gv);
+        rough = mix(rough, 0.45, gv);
+      }
+      if (uClaws > 0.5) {
+        float tip = smoothstep(-0.052, -0.062, l.y);
+        col = mix(col, vec3(0.09, 0.075, 0.07), tip);
+        rough = mix(rough, 0.2, tip);
+      }
+    }
+    if (f == 12) col *= 1.0 - 0.25 * smoothstep(uLipC.y - 0.06, uLipC.y - 0.03, r.y);
+    if (uScarf > 0.5 && ((f == 12 && r.y < uLipC.y - 0.045) || (vPart > 0.5 && r.y > uTorsoTop - 0.03))) {
+      col = (uOrder == 2 ? vec3(0.12, 0.11, 0.1) : uAcc) * (0.8 + 0.2 * step(0.5, fract(r.y * 55.0))) * (0.85 + 0.3 * vnoise(r * 150.0));
+      h += 0.0018 * vnoise(r * 80.0);
+      rough = 1.0;
+    }
+    if (inside) col = uOrder == 1 ? uAcc * 0.55 : col * 0.42;
   }
   col *= 1.0 - 0.22 * uWet * step(0.5, float(m != 0 && m != 6));
   vec3 n = normalize(vN);
+  if (inside) n = -n;
   if (uOrder != 0) n = bump(n, vW, h);
-  float wrap = max(0.0, (dot(n, uKey) + 0.35) / 1.35);
+  float nk = dot(n, uKey);
+  float wrap = max(0.0, (nk + 0.35) / 1.35);
   vec3 amb = mix(uGnd, uSky, n.y * 0.5 + 0.5);
   float ao = mix(0.55, 1.0, smoothstep(0.0, 0.3, r.y));
-  ao *= 1.0 - 0.3 * line(r.y - 0.93, 0.08) * (1.0 - smoothstep(0.03, 0.09, abs(r.x)));
+  ao *= 1.0 - 0.3 * line(r.y - 0.93, 0.08) * (1.0 - smoothstep(0.03, 0.09, abs(r.x - uCoatX)));
   ao *= 0.85 + 0.15 * smoothstep(-0.004, 0.004, h);
+  if (inside) ao *= 0.6;
   vec3 v = normalize(uEye - vW);
   float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0);
   vec3 lit = col * (amb * ao + uKeyC * wrap * (1.0 - 0.3 * uWet)) + rim * uRimC;
+  // Skin: light that gets under it warms the edge of the shadow.
+  if (skinLike && uOrder != 0) lit += col * vec3(0.3, 0.1, 0.06) * uKeyC * (smoothstep(-0.45, 0.1, nk) - smoothstep(0.1, 0.7, nk)) * 0.8;
   vec3 hv = normalize(uKey + v);
-  float shine = skinLike ? 0.12 : mix(0.03, 0.5, 1.0 - rough) + 0.35 * uWet;
-  lit += uKeyC * pow(max(dot(n, hv), 0.0), mix(18.0, 60.0, 1.0 - rough)) * shine;
+  float nh = max(dot(n, hv), 0.0);
+  float shine = skinLike ? 0.1 : mix(0.03, 0.5, 1.0 - rough) + 0.35 * uWet;
+  lit += uKeyC * pow(nh, mix(18.0, 60.0, 1.0 - rough)) * shine;
+  // Hair: a soft band of sheen round the crown.
+  if (isHair) lit += uKeyC * 0.12 * exp(-sq((nh - 0.72) / 0.12)) * (0.4 + dot(gHair, vec3(0.33)));
   lit += glow;
   outColor = vec4(pow(lit, vec3(0.95)), 1.0);
 }`;
@@ -390,22 +860,35 @@ void main() {
 const PLAIN_V = `#version 300 es
 in vec3 aP;
 in vec3 aN;
+in vec3 aC;
+in float aE;
+in float aK;
 uniform mat4 uVP;
 uniform mat4 uM;
 out vec3 vN;
 out vec3 vL;
 out vec3 vWp;
-void main() { vec4 w = uM * vec4(aP, 1.0); vN = mat3(uM) * aN; vL = aP; vWp = w.xyz; gl_Position = uVP * w; }`;
+out vec3 vC;
+out float vE;
+out float vK;
+void main() { vec4 w = uM * vec4(aP, 1.0); vN = mat3(uM) * aN; vL = aP; vWp = w.xyz; vC = aC; vE = aE; vK = aK; gl_Position = uVP * w; }`;
+// Modes: 0 a prop, 0.7 the weather, 1 the pavement, 2 a contact shadow. A prop's vertex colour
+// either tints the prop's colour (aK 0) or is its own (aK 1); aE is how much of uEmit it gives off.
 const PLAIN_F = `#version 300 es
 precision highp float;
 in vec3 vN;
 in vec3 vL;
 in vec3 vWp;
+in vec3 vC;
+in float vE;
+in float vK;
 uniform vec3 uC;
 uniform vec3 uKey;
 uniform vec3 uKeyC;
 uniform vec3 uSky;
 uniform vec3 uGlow;
+uniform vec3 uEmit;
+uniform vec3 uEye;
 uniform float uMode;
 uniform float uA;
 uniform float uWet;
@@ -420,7 +903,14 @@ void main() {
   vec3 n = normalize(vN);
   if (!gl_FrontFacing && uMode < 0.9) n = -n;
   float k = max(0.0, (dot(n, uKey) + 0.3) / 1.3);
-  vec3 c = uC * (uSky * (0.5 + 0.5 * n.y) + uKeyC * k);
+  vec3 base = mix(uC * vC, vC, vK);
+  vec3 c = base * (uSky * (0.5 + 0.5 * n.y) + uKeyC * k);
+  if (uMode < 0.5) {
+    vec3 v = normalize(uEye - vWp);
+    float nh = max(dot(n, normalize(uKey + v)), 0.0);
+    c += uKeyC * (0.18 * pow(nh, 40.0) + 0.25 * uWet * pow(nh, 70.0));
+    c += uEmit * vE;
+  }
   if (uMode > 0.9) {
     // The pavement: slabs, and in the rain a sheen of the street's own light.
     vec2 g = fract(vWp.xz * 1.1);
@@ -430,60 +920,174 @@ void main() {
   o = vec4(c, uA);
 }`;
 
-function build(fn) { const P = [], Nn = []; fn((p, n) => { P.push(...p); Nn.push(...n); }); return { P: new Float32Array(P), N: new Float32Array(Nn) }; }
+// ── Props ───────────────────────────────────────────────────────────────────────────────────────────
+function kit() {
+  const P = [], N = [], C = [], E = [], K = [];
+  const vert = (p, n, c, e, k) => { P.push(p[0], p[1], p[2]); N.push(n[0], n[1], n[2]); C.push(c[0], c[1], c[2]); E.push(e); K.push(k); };
+  const it = {
+    X: null, own: 0,
+    at(p) { return it.X ? it.X(p) : p; },
+    atN(n) { return it.X ? norm(sub(it.X(n), it.X([0, 0, 0]))) : n; },
+    tri(a, b, d, c = [1, 1, 1], e = 0) {
+      a = it.at(a); b = it.at(b); d = it.at(d);
+      const n = norm(cross(sub(b, a), sub(d, a)));
+      vert(a, n, c, e, it.own); vert(b, n, c, e, it.own); vert(d, n, c, e, it.own);
+    },
+    smooth(a, na, b, nb, d, nd, c = [1, 1, 1], e = 0) {
+      vert(it.at(a), it.atN(na), c, e, it.own); vert(it.at(b), it.atN(nb), c, e, it.own); vert(it.at(d), it.atN(nd), c, e, it.own);
+    },
+    box(ctr, hh, c = [1, 1, 1], e = 0) {
+      for (let ax = 0; ax < 3; ax++) for (const s of [1, -1]) {
+        const b1 = (ax + 1) % 3, b2 = (ax + 2) % 3;
+        const corner = (u, w) => { const p = ctr.slice(); p[ax] += s * hh[ax]; p[b1] += u * hh[b1]; p[b2] += w * hh[b2]; return p; };
+        const q = [corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1)];
+        if (s < 0) q.reverse();
+        it.tri(q[0], q[1], q[2], c, e); it.tri(q[0], q[2], q[3], c, e);
+      }
+    },
+    ellipsoid(ctr, r, nu, nv, c = [1, 1, 1], e = 0, thMax = Math.PI) {
+      const Pt = (th, ph) => [ctr[0] + r[0] * Math.sin(th) * Math.cos(ph), ctr[1] + r[1] * Math.cos(th), ctr[2] + r[2] * Math.sin(th) * Math.sin(ph)];
+      const Nt = (th, ph) => norm([Math.sin(th) * Math.cos(ph) / r[0], Math.cos(th) / r[1], Math.sin(th) * Math.sin(ph) / r[2]]);
+      for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) {
+        const t0 = (j / nv) * thMax, t1 = ((j + 1) / nv) * thMax, p0 = (i / nu) * Math.PI * 2, p1 = ((i + 1) / nu) * Math.PI * 2;
+        it.smooth(Pt(t0, p0), Nt(t0, p0), Pt(t1, p0), Nt(t1, p0), Pt(t1, p1), Nt(t1, p1), c, e);
+        it.smooth(Pt(t0, p0), Nt(t0, p0), Pt(t1, p1), Nt(t1, p1), Pt(t0, p1), Nt(t0, p1), c, e);
+      }
+    },
+    // A tube through the points, `cf(t)` its colour along the way; `cap` closes both ends.
+    tube(pts, radii, sides, cf = () => [1, 1, 1], e = 0, cap = false) {
+      const rings = pts.map((p, i) => {
+        const tg = norm(sub(pts[Math.min(i + 1, pts.length - 1)], pts[Math.max(i - 1, 0)]));
+        const ref = Math.abs(tg[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
+        const u = norm(cross(tg, ref)), w = cross(tg, u);
+        return Array.from({ length: sides }, (_, s) => {
+          const a = (s / sides) * Math.PI * 2, nn = add(mulS(u, Math.cos(a)), mulS(w, Math.sin(a)));
+          return { p: add(p, mulS(nn, radii[i])), n: nn };
+        });
+      });
+      for (let i = 0; i < rings.length - 1; i++) for (let s = 0; s < sides; s++) {
+        const a = rings[i][s], b = rings[i][(s + 1) % sides], c = rings[i + 1][s], d = rings[i + 1][(s + 1) % sides], col = cf(i / (rings.length - 1));
+        it.smooth(a.p, a.n, c.p, c.n, b.p, b.n, col, e); it.smooth(b.p, b.n, c.p, c.n, d.p, d.n, col, e);
+      }
+      if (cap) for (const [i, sgn] of [[0, -1], [pts.length - 1, 1]]) {
+        const tg = mulS(norm(sub(pts[Math.min(i + 1, pts.length - 1)], pts[Math.max(i - 1, 0)])), sgn), col = cf(i / (pts.length - 1));
+        for (let s = 0; s < sides; s++) it.smooth(pts[i], tg, rings[i][s].p, tg, rings[i][(s + 1) % sides].p, tg, col, e);
+      }
+    },
+    done: () => ({ P: new Float32Array(P), N: new Float32Array(N), C: new Float32Array(C), E: new Float32Array(E), K: new Float32Array(K) }),
+  };
+  return it;
+}
+const HEAD0 = R3(HEAD_V), TORSO0 = R3(FR.torso[0]), HANDL0 = R3(FR.handL[0]);
+const WOOD = [0.36, 0.22, 0.12], GUN = [0.11, 0.11, 0.12], CANVAS = [0.34, 0.31, 0.21];
+
 // Origin at the handle: the shaft runs up from the hand to the canopy.
-const umbrellaMesh = () => build((push) => {
+const umbrellaMesh = () => {
+  const k = kit();
   const seg = 12, R = 0.52, H = 0.2, Y = 0.9;
   for (let i = 0; i < seg; i++) {
     const a0 = (i / seg) * Math.PI * 2, a1 = ((i + 1) / seg) * Math.PI * 2, am = (a0 + a1) / 2;
     const p0 = [Math.cos(a0) * R, Y, Math.sin(a0) * R], p1 = [Math.cos(a1) * R, Y, Math.sin(a1) * R];
-    const n = [Math.cos(am) * 0.5, 1, Math.sin(am) * 0.5];
-    push([0, Y + H, 0], n); push(p0, n); push(p1, n);
-    push(p0, n); push([Math.cos(am) * R * 0.96, Y - 0.05, Math.sin(am) * R * 0.96], n); push(p1, n);
+    const pm = [Math.cos(am) * R * 0.96, Y - 0.05, Math.sin(am) * R * 0.96];
+    k.tri([0, Y + H, 0], p1, p0); k.tri(p0, p1, pm);
   }
-  const s = 0.008, top = Y + H + 0.05, bot = -0.06;
-  for (const [dx, dz] of [[s, 0], [0, s], [-s, 0], [0, -s]]) {
-    const nx = [dz, 0, -dx];
-    push([dx, top, dz], nx); push([dx, bot, dz], nx); push([-dz, top, dx], nx);
-    push([-dz, top, dx], nx); push([dx, bot, dz], nx); push([-dz, bot, dx], nx);
-  }
-});
-// A cap: a squat crown over the hair and a brim forward of it. Origin at the top of the head.
-const capMesh = () => build((push) => {
-  const seg = 10;
+  k.own = 1;
+  k.tube([[0, -0.02, 0], [0, Y + H + 0.06, 0]], [0.007, 0.007], 6, () => GUN);
+  const hook = Array.from({ length: 8 }, (_, i) => { const a = (i / 7) * Math.PI; return [0.03 - Math.cos(a) * 0.03, -0.02 - Math.sin(a) * 0.035, 0]; });
+  k.tube(hook, hook.map(() => 0.009), 6, () => [0.2, 0.13, 0.08]);
+  return k.done();
+};
+// A peaked cap, relative to the top of the head: crown, brim, button, and the order's badge.
+const capMesh = () => {
+  const k = kit();
+  k.ellipsoid([0, -0.075, -0.005], [0.097, 0.09, 0.11], 16, 6, [1, 1, 1], 0, Math.PI / 2);
+  const seg = 12;
   for (let i = 0; i < seg; i++) {
     const a0 = -Math.PI / 2 + (i / seg) * Math.PI, a1 = -Math.PI / 2 + ((i + 1) / seg) * Math.PI;
-    const p0 = [Math.sin(a0) * 0.09, -0.07, 0.03 + Math.cos(a0) * 0.1], p1 = [Math.sin(a1) * 0.09, -0.07, 0.03 + Math.cos(a1) * 0.1];
-    push([0, -0.065, 0.02], [0, 1, 0]); push(p0, [0, 1, 0.2]); push(p1, [0, 1, 0.2]);
+    const inner = (a) => [Math.sin(a) * 0.097, -0.075, -0.005 + Math.cos(a) * 0.11];
+    const outer = (a) => add(inner(a), [Math.sin(a) * 0.004, -0.008 - 0.004 * Math.cos(a), 0.065 * Math.cos(a)]);
+    k.tri(inner(a0), outer(a0), outer(a1), [0.85, 0.85, 0.85]); k.tri(inner(a0), outer(a1), inner(a1), [0.85, 0.85, 0.85]);
   }
-  const rings = 4, segs = 14;
-  const P = (t, a) => [Math.cos(t) * Math.sin(a) * 0.092, -0.075 + Math.sin(t) * 0.085, -0.005 + Math.cos(t) * Math.cos(a) * 0.105];
-  const Nn = (t, a) => [Math.cos(t) * Math.sin(a), Math.sin(t), Math.cos(t) * Math.cos(a)];
-  for (let j = 0; j < rings; j++) for (let i = 0; i < segs; i++) {
-    const t0 = (j / rings) * Math.PI / 2, t1 = ((j + 1) / rings) * Math.PI / 2;
-    const a0 = (i / segs) * Math.PI * 2, a1 = ((i + 1) / segs) * Math.PI * 2;
-    push(P(t0, a0), Nn(t0, a0)); push(P(t0, a1), Nn(t0, a1)); push(P(t1, a1), Nn(t1, a1));
-    push(P(t0, a0), Nn(t0, a0)); push(P(t1, a1), Nn(t1, a1)); push(P(t1, a0), Nn(t1, a0));
+  k.ellipsoid([0, 0.014, -0.005], [0.009, 0.005, 0.009], 8, 4, [0.8, 0.8, 0.8]);
+  k.own = 1;
+  const bc = [0, -0.045, 0.1];
+  for (let i = 0; i < 10; i++) {
+    const a0 = (i / 10) * Math.PI * 2, a1 = ((i + 1) / 10) * Math.PI * 2;
+    k.tri(bc, add(bc, [Math.cos(a0) * 0.013, Math.sin(a0) * 0.013, 0.001]), add(bc, [Math.cos(a1) * 0.013, Math.sin(a1) * 0.013, 0.001]), [0.72, 0.52, 0.18]);
   }
-});
-// Two horns sweeping back and up from the temples.
-const hornMesh = () => build((push) => {
+  return k.done();
+};
+// Two horns sweeping back and up from the temples, dark at the root and pale at the tip.
+const hornMesh = () => {
+  const k = kit();
+  k.own = 1;
   for (const s of [1, -1]) {
-    const steps = 10, sides = 7;
-    const at = (k) => { const t = k / steps; return [s * (0.055 + 0.06 * t), -0.05 + 0.13 * t - 0.05 * t * t, -0.01 - 0.16 * t + 0.08 * t * t * t]; };
-    for (let k = 0; k < steps; k++) {
-      const c0 = at(k), c1 = at(k + 1), r0 = 0.022 * (1 - k / steps) + 0.002, r1 = 0.022 * (1 - (k + 1) / steps) + 0.002;
-      for (let i = 0; i < sides; i++) {
-        const a0 = (i / sides) * Math.PI * 2, a1 = ((i + 1) / sides) * Math.PI * 2;
-        const ring = (c, r, a) => [c[0] + Math.cos(a) * r, c[1] + Math.sin(a) * r * 0.8, c[2] + Math.sin(a) * r * 0.6];
-        const n = (a) => [Math.cos(a), Math.sin(a), 0];
-        push(ring(c0, r0, a0), n(a0)); push(ring(c1, r1, a0), n(a0)); push(ring(c1, r1, a1), n(a1));
-        push(ring(c0, r0, a0), n(a0)); push(ring(c1, r1, a1), n(a1)); push(ring(c0, r0, a1), n(a1));
-      }
-    }
+    const pts = Array.from({ length: 11 }, (_, i) => { const t = i / 10; return [s * (0.055 + 0.06 * t), -0.05 + 0.13 * t - 0.05 * t * t, -0.01 - 0.16 * t + 0.08 * t * t * t]; });
+    k.tube(pts, pts.map((_, i) => 0.022 * (1 - i / 10) + 0.002), 8, (t) => [0.35 + 0.45 * t, 0.26 + 0.4 * t, 0.18 + 0.35 * t]);
   }
-});
-const quad = (r) => ({ P: new Float32Array([-r, 0, -r, r, 0, -r, r, 0, r, -r, 0, -r, r, 0, r, -r, 0, r]), N: new Float32Array(Array(6).fill([0, 1, 0]).flat()) });
+  return k.done();
+};
+// Cans over the hood and a band across the top; a green lamp on the left can.
+const phonesMesh = () => {
+  const k = kit();
+  k.own = 1;
+  for (const s of [1, -1]) {
+    k.tube([[s * 0.098, -0.118, 0], [s * 0.124, -0.118, 0]], [0.034, 0.03], 14, () => [0.1, 0.1, 0.11], 0, true);
+    k.tube([[s * 0.094, -0.118, 0], [s * 0.1, -0.118, 0]], [0.03, 0.03], 14, () => [0.2, 0.2, 0.2], 0, false);
+  }
+  const band = Array.from({ length: 13 }, (_, i) => { const a = (i / 12) * Math.PI; return [0.112 * Math.cos(a), -0.118 + 0.142 * Math.sin(a), 0]; });
+  k.tube(band, band.map(() => 0.007), 6, () => [0.14, 0.14, 0.15]);
+  k.box([0.125, -0.1, 0.012], [0.002, 0.004, 0.004], [0.2, 1, 0.4], 1);
+  return k.done();
+};
+const bunMesh = () => { const k = kit(); k.ellipsoid([0, -0.06, -0.105], [0.032, 0.03, 0.03], 12, 8); return k.done(); };
+// A rifle slung across the back, muzzle up behind the right shoulder, relative to the back anchor.
+const rifleMesh = () => {
+  const k = kit();
+  k.own = 1;
+  const R = rotZ3(0.6435), off = [0.02, -0.03, -0.055];
+  k.X = (p) => add([R[0] * p[0] + R[1] * p[1] + R[2] * p[2], R[3] * p[0] + R[4] * p[1] + R[5] * p[2], R[6] * p[0] + R[7] * p[1] + R[8] * p[2]], off);
+  k.box([0, -0.36, 0], [0.018, 0.09, 0.034], WOOD);
+  k.box([0, -0.455, 0], [0.019, 0.006, 0.036], GUN);
+  k.box([0, -0.22, -0.03], [0.012, 0.03, 0.018], WOOD);
+  k.box([0, -0.1, 0], [0.016, 0.1, 0.028], GUN);
+  k.box([0, -0.06, -0.05], [0.011, 0.03, 0.028], GUN);
+  k.box([0, 0.08, 0], [0.017, 0.09, 0.022], WOOD);
+  k.box([0, 0.3, 0.004], [0.007, 0.16, 0.007], GUN);
+  k.box([0, 0.44, 0.016], [0.003, 0.01, 0.01], GUN);
+  return k.done();
+};
+// A canvas pack with a bedroll strapped on top.
+const packMesh = () => {
+  const k = kit();
+  k.own = 1;
+  k.box([0, 0.0, -0.075], [0.15, 0.17, 0.065], CANVAS);
+  k.box([0, 0.1, -0.142], [0.14, 0.07, 0.006], mulS(CANVAS, 0.85));
+  k.box([0, -0.06, -0.143], [0.1, 0.05, 0.006], mulS(CANVAS, 0.9));
+  k.tube([[-0.17, 0.215, -0.08], [0.17, 0.215, -0.08]], [0.055, 0.055], 12, () => [0.3, 0.27, 0.22], 0, true);
+  for (const x of [-0.09, 0.09]) k.tube([[x - 0.004, 0.215, -0.08], [x + 0.004, 0.215, -0.08]], [0.058, 0.058], 12, () => [0.12, 0.09, 0.06], 0, false);
+  return k.done();
+};
+// A field radio on the back with a whip antenna and a red lamp.
+const radioMesh = () => {
+  const k = kit();
+  k.own = 1;
+  k.box([0.06, -0.05, -0.06], [0.07, 0.1, 0.045], [0.16, 0.17, 0.15]);
+  k.box([0.06, 0.0, -0.106], [0.05, 0.03, 0.002], [0.08, 0.08, 0.08]);
+  k.box([0.03, 0.03, -0.108], [0.004, 0.004, 0.002], [1, 0.15, 0.1], 1);
+  k.tube([[0.11, 0.05, -0.06], [0.14, 0.52, -0.09]], [0.003, 0.0015], 5, () => [0.08, 0.08, 0.08]);
+  return k.done();
+};
+// A tablet held at the left hand's outer side, its screen lit.
+const tabletMesh = () => {
+  const k = kit();
+  k.own = 1;
+  const c = add(sub(ANCHOR.handL, HANDL0), [0.034, -0.02, 0.008]);
+  k.box(c, [0.005, 0.1, 0.07], [0.06, 0.06, 0.08]);
+  k.box(add(c, [0.0056, 0, 0]), [0.0008, 0.09, 0.061], [0.1, 0.12, 0.18], 1);
+  return k.done();
+};
+const quadMesh = (r) => { const k = kit(); k.tri([-r, 0, -r], [r, 0, r], [r, 0, -r]); k.tri([-r, 0, -r], [-r, 0, r], [r, 0, r]); return k.done(); };
 
 function gl2(canvas) {
   const gl = canvas.getContext('webgl2', { antialias: true, preserveDrawingBuffer: true });
@@ -508,19 +1112,22 @@ function gl2(canvas) {
   attr(body.p, 'aRest', new Float32Array(rest), 3);
   attr(body.p, 'aPart', part, 1);
   attr(body.p, 'aArm', arm, 1);
+  attr(body.p, 'aFeat', FEAT, 1);
   const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib);
   gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, bk.idx, gl.STATIC_DRAW);
   gl.bindVertexArray(null);
   const mesh = (m) => { const v = gl.createVertexArray(); gl.bindVertexArray(v);
-    attr(plain.p, 'aP', m.P, 3); attr(plain.p, 'aN', m.N, 3); gl.bindVertexArray(null); return { vao: v, count: m.P.length / 3 }; };
+    attr(plain.p, 'aP', m.P, 3); attr(plain.p, 'aN', m.N, 3); attr(plain.p, 'aC', m.C, 3); attr(plain.p, 'aE', m.E, 1); attr(plain.p, 'aK', m.K, 1);
+    gl.bindVertexArray(null); return { vao: v, count: m.P.length / 3 }; };
   const streaks = gl.createBuffer();
   const streakVao = gl.createVertexArray(); gl.bindVertexArray(streakVao);
   gl.bindBuffer(gl.ARRAY_BUFFER, streaks);
   const la = gl.getAttribLocation(plain.p, 'aP'); gl.enableVertexAttribArray(la); gl.vertexAttribPointer(la, 3, gl.FLOAT, false, 0, 0);
-  const na = gl.getAttribLocation(plain.p, 'aN'); gl.disableVertexAttribArray(na); gl.vertexAttrib3f(na, 0, 1, 0);
   gl.bindVertexArray(null);
   return { gl, body, plain, vao, posT, nrmT, streaks, streakVao,
-    ground: mesh(quad(9)), disc: mesh(quad(1)), umb: mesh(umbrellaMesh()), cap: mesh(capMesh()), horns: mesh(hornMesh()) };
+    ground: mesh(quadMesh(9)), disc: mesh(quadMesh(1)), umb: mesh(umbrellaMesh()), cap: mesh(capMesh()), horns: mesh(hornMesh()),
+    phones: mesh(phonesMesh()), bun: mesh(bunMesh()), rifle: mesh(rifleMesh()), pack: mesh(packMesh()), radio: mesh(radioMesh()),
+    tablet: mesh(tabletMesh()) };
 }
 
 function persp(fov, asp, near, far) {
@@ -536,56 +1143,82 @@ function lookAt(e, c) {
 }
 function mul(a, b) { const o = new Array(16).fill(0);
   for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) for (let k = 0; k < 4; k++) o[j * 4 + i] += a[k * 4 + i] * b[j * 4 + k]; return o; }
-// Yaw about Y, then a tilt about the figure's own X (positive leans the top forward), then scale.
-const model = (x, y, z, sc = 1, yaw = 0, tilt = 0, sy = sc, sz = sc) => {
-  const c = Math.cos(yaw), s = Math.sin(yaw), ct = Math.cos(tilt), st = Math.sin(tilt);
-  return [c * sc, 0, -s * sc, 0, s * st * sy, ct * sy, c * st * sy, 0, s * ct * sz, -st * sz, c * ct * sz, 0, x, y, z, 1];
-};
 
 function mulberry(s) { return () => { s |= 0; s = s + 0x6d2b79f5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s);
   t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 
-// What each order wears. Colours are 0..255 sRGB like ACTOR_OUTFITS; a real version would live in
-// content beside the order, not in the engine.
+// What each order wears and how its people tend to look. Colours are 0..255 sRGB like
+// ACTOR_OUTFITS; a real version would live in content beside the order, not in the engine.
 const ORDERS = {
   1: { coat: [[228, 228, 240], [206, 208, 232], [236, 236, 246], [196, 198, 228], [228, 228, 240], [30, 32, 46]],
-       legs: [[24, 26, 40], [34, 36, 56], [16, 16, 22]], shoes: [[14, 14, 18], [30, 30, 40]], hair: [[16, 14, 20], [28, 22, 26], [40, 34, 44]],
-       acc: [[70, 90, 200]], glow: [[70, 120, 255], [150, 90, 255], [60, 200, 255]], body: [[0, 5], [1, 1]], girth: [0.9, 1.0] },
+       legs: [[24, 26, 40], [34, 36, 56], [16, 16, 22]], shoes: [[14, 14, 18], [30, 30, 40]], hair: [[16, 14, 20], [28, 22, 26], [40, 34, 44], [58, 40, 30]],
+       acc: [[70, 90, 200]], glow: [[70, 120, 255], [150, 90, 255], [60, 200, 255]], body: [[0, 5], [1, 1]], girth: [0.9, 1.0],
+       iris: [[90, 110, 140], [70, 80, 110], [60, 45, 35], [110, 100, 130]], collar: [0.042, 1.02], hairStyle: 1, mood: -0.2, brow: 0.1 },
   2: { coat: [[92, 64, 40], [78, 58, 38], [104, 80, 52], [70, 66, 44], [60, 48, 34]],
-       legs: [[62, 60, 40], [84, 74, 52], [48, 44, 36]], shoes: [[58, 40, 26], [40, 30, 22]], hair: [[40, 28, 20], [70, 50, 32], [26, 22, 18]],
-       acc: [[46, 32, 22], [56, 42, 28]], glow: [[0, 0, 0]], body: [[4, 3], [0, 2], [1, 1]], girth: [1.0, 1.18], cap: [[96, 84, 52], [60, 56, 40], [110, 80, 40]] },
+       legs: [[62, 60, 40], [84, 74, 52], [48, 44, 36]], shoes: [[58, 40, 26], [40, 30, 22]], hair: [[40, 28, 20], [70, 50, 32], [26, 22, 18], [96, 70, 44]],
+       acc: [[46, 32, 22], [56, 42, 28]], glow: [[0, 0, 0]], body: [[4, 3], [0, 2], [1, 1]], girth: [1.0, 1.18], cap: [[96, 84, 52], [60, 56, 40], [110, 80, 40]],
+       iris: [[70, 48, 30], [95, 80, 45], [80, 90, 95], [55, 40, 28]], collar: [0.028, 1.28], hairStyle: 2, mood: 0.5, brow: -0.5 },
   3: { coat: [[22, 22, 26], [30, 30, 34], [16, 16, 18]], legs: [[20, 20, 24], [36, 36, 40]], shoes: [[18, 18, 20]],
-       hair: [[14, 12, 12], [24, 20, 18]], acc: [[40, 40, 44]], glow: [[40, 255, 120]], body: [[2, 1]], girth: [0.9, 1.05] },
+       hair: [[14, 12, 12], [24, 20, 18]], acc: [[40, 40, 44]], glow: [[40, 255, 120]], body: [[2, 1]], girth: [0.9, 1.05],
+       iris: [[40, 32, 28], [70, 72, 76], [50, 40, 32]], collar: [0, 1], hairStyle: 0, mood: 0.3, brow: 0.3 },
   4: { coat: [[150, 34, 30], [120, 26, 30], [170, 50, 34], [100, 22, 34]], legs: [[60, 36, 30], [44, 30, 28]],
        shoes: [[50, 34, 24]], hair: [[120, 20, 60], [90, 16, 30], [30, 18, 20], [160, 60, 40]], acc: [[40, 16, 14], [200, 150, 60]],
-       glow: [[0, 0, 0]], body: [[4, 1]], girth: [0.95, 1.12] },
+       glow: [[0, 0, 0]], body: [[4, 1]], girth: [0.95, 1.12], iris: [[220, 150, 40], [200, 190, 60], [230, 110, 40]],
+       collar: [0, 1.05], hairStyle: 3, mood: 0, brow: -0.3, skin: [[196, 120, 120], [160, 128, 170], [150, 150, 120], [200, 140, 110]] },
 };
 const DISTRICT = { W: [[1, 5], [3, 1.5]], E: [[2, 5], [4, 2]] };
 const BROLLY = { 1: [[230, 230, 240], [40, 44, 90]], 2: [[20, 20, 22], [60, 50, 36]], 3: [[14, 14, 16]], 4: [[120, 24, 30]] };
 
-function crowd(seed, district) {
-  const R = mulberry(seed * 9973 + (district === 'W' ? 1 : 77));
+function crowd(seed, district, orders = null) {
+  const R = mulberry(seed * 9973 + (district === 'W' ? 1 : 77) + (orders ? orders.length * 131 : 0));
   const pick = (list) => list[Math.floor(R() * list.length)];
   const pickW = (list) => { let t = 0; for (const [, w] of list) t += w; let x = R() * t; for (const [v, w] of list) if ((x -= w) < 0) return v; return list[0][0]; };
-  return Array.from({ length: N }, (_, i) => {
+  const n = orders ? orders.length : 7;
+  return Array.from({ length: n }, (_, i) => {
     const vals = Array.from({ length: 5 }, R);
     const base = actorOutfit((k) => vals[k]);
-    const order = pickW(DISTRICT[district]), O = ORDERS[order];
-    const o = { coat: pick(O.coat), legs: pick(O.legs), skin: base.skin, hair: pick(O.hair), shoes: pick(O.shoes) };
+    const order = orders ? orders[i] : pickW(DISTRICT[district]), O = ORDERS[order];
+    let skin = base.skin;
+    if (O.skin) { const t = pick(O.skin); skin = skin.map((c, j) => c * 0.5 + t[j] * 0.5); }
+    const o = { coat: pick(O.coat), legs: pick(O.legs), skin, hair: pick(O.hair), shoes: pick(O.shoes) };
+    const r = () => R();
+    const prop = order === 2 ? (r() < 0.5 ? 'rifle' : r() < 0.6 ? 'pack' : null) : order === 1 ? (r() < 0.5 ? 'tablet' : null) : order === 3 ? (r() < 0.6 ? 'radio' : null) : null;
     return { base, o, order, acc: pick(O.acc), glow: pick(O.glow), body: pickW(O.body),
-      clip: ['walk', 'idle', 'walk', 'idle', 'walk', 'walk', 'idle'][i], ph: R(), seed: R() * 100,
+      clip: ['walk', 'idle', 'walk', 'idle', 'walk', 'walk', 'idle'][i % 7], ph: R(), seed: R() * 100,
       girth: O.girth[0] + R() * (O.girth[1] - O.girth[0]), height: 0.93 + R() * 0.12,
       brolly: R() < (order === 1 ? 0.8 : order === 2 ? 0.35 : 0.2), brollyC: pick(BROLLY[order]),
       cap: order === 2 && R() < 0.75, capC: O.cap ? pick(O.cap) : [0, 0, 0], scarf: order === 2 ? R() < 0.8 : R() < 0.3,
-      cyber: order === 1 && R() < 0.5, hoodR: R(),
-      x: (i - (N - 1) / 2) * 0.95 + (R() - 0.5) * 0.2, z: (i % 3) * -0.7 };
+      makeup: order === 1 && R() < 0.5, lipTint: [[110, 50, 120], [90, 30, 60], [60, 40, 110]][Math.floor(R() * 3)],
+      cyber: order === 1 && R() < 0.5, hoodR: R(), implant: order === 1 && R() < 0.7, bun: order === 1 && R() < 0.45,
+      phones: order === 3 && R() < 0.8, earPoint: order === 4 && R() < 0.8, claws: order === 4,
+      glove: order === 2 ? (R() < 0.35 ? 1 : 0) : order === 3 ? (R() < 0.6 ? 2 : 0) : 0,
+      age: Math.pow(R(), 1.3), brow: O.brow + (R() - 0.5) * 0.6, mood: O.mood + (R() - 0.5) * 0.4, iris: pick(O.iris),
+      beard: order === 2 ? (R() < 0.3 ? 2 : R() < 0.5 ? 1 : 0) : order === 3 ? (R() < 0.25 ? 1 : 0) : order === 1 ? (R() < 0.08 ? 1 : 0) : 0,
+      prop, strap: order === 2 ? (prop === 'rifle' ? 1 : prop === 'pack' ? 2 : 0) : 0,
+      x: (i - 3) * 0.95 + (R() - 0.5) * 0.2, z: (i % 3) * -0.7 };
   });
+}
+// The shots: the street, then a line-up and a pair of faces, each with the district's two orders.
+const SHOTS = {
+  street: { eye: [2.2, 1.5, 5.4], at: [0, 0.95, -0.6] },
+  portraits: { eye: [0.35, 1.5, 2.4], at: [0, 1.3, 0], n: 4, gap: 0.5 },
+  faces: { eye: [0.08, 1.64, 0.95], at: [0, 1.615, 0], n: 2, gap: 0.36 },
+};
+function lineup(seed, district, n, gap) {
+  const [a, b] = DISTRICT[district].map(([o]) => o);
+  const people = crowd(seed, district, Array.from({ length: n }, (_, i) => (i % 2 ? b : a)));
+  people.forEach((p, i) => { p.x = (i - (n - 1) / 2) * gap; p.z = 0; p.clip = 'idle'; p.face = true; });
+  return people;
 }
 
 const $ = (id) => document.getElementById(id);
 const views = [{ ...gl2($('a')), district: 'W' }, { ...gl2($('b')), district: 'E' }];
 let crowds = {};
-const recrowd = () => { const s = +$('seed').value || 0; crowds = { W: crowd(s, 'W'), E: crowd(s, 'E') }; };
+const recrowd = () => {
+  const s = +$('seed').value || 0;
+  crowds = {};
+  for (const d of ['W', 'E']) crowds[d] = { street: crowd(s, d), portraits: lineup(s, d, 4, SHOTS.portraits.gap), faces: lineup(s, d, 2, SHOTS.faces.gap) };
+};
 recrowd();
 $('seed').oninput = recrowd;
 
@@ -616,36 +1249,48 @@ function weatherVerts(kind, t) {
   return out;
 }
 
+// The anchors never change, so they go to each program once.
+function setAnchors(gl, U) {
+  const v3 = (n, a) => { if (U[n]) gl.uniform3fv(U[n], a); };
+  const f1 = (n, a) => { if (U[n]) gl.uniform1f(U[n], a); };
+  v3('uEyeL', ANCHOR.eyeL); v3('uEyeR', ANCHOR.eyeR); v3('uBrowL', ANCHOR.browL); v3('uBrowR', ANCHOR.browR);
+  v3('uNoseC', ANCHOR.nose); if (U.uNoseY) gl.uniform2fv(U.uNoseY, ANCHOR.noseY); v3('uLipC', ANCHOR.lip);
+  v3('uHeadC', ANCHOR.head); v3('uHairC', ANCHOR.hair); v3('uEarL', ANCHOR.earL); v3('uEarR', ANCHOR.earR);
+  v3('uNeckC', ANCHOR.neck); v3('uHandL', ANCHOR.handL); v3('uHandR', ANCHOR.handR); v3('uCollarC', ANCHOR.collar); v3('uPatch', ANCHOR.patch);
+  f1('uTorsoTop', ANCHOR.torsoTop); f1('uMid', ANCHOR.mid); f1('uHairFront', ANCHOR.hairFront); f1('uCoatX', ANCHOR.coatX);
+}
+
 function frame(now) {
   const t = now / 1000, night = $('night').checked, weather = $('weather').value, built = $('built').checked;
-  const rain = weather === 'rain', cold = weather === 'cold';
+  const rain = weather === 'rain', cold = weather === 'cold', shot = $('shot').value, S = SHOTS[shot];
   views.forEach((V) => {
-    const { gl } = V, cv = gl.canvas, people = crowds[V.district];
+    const { gl } = V, cv = gl.canvas, people = crowds[V.district][shot];
     const L = lightFor(V.district, night, weather);
     const dpr = devicePixelRatio || 1, w = cv.clientWidth * dpr | 0, h = cv.clientHeight * dpr | 0;
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
     gl.viewport(0, 0, w, h);
     gl.clearColor(...L.bg, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.disable(gl.BLEND);
-    const zoom = +$('zoom').value, eye = [2.2, 1.5, zoom];
-    const vp = mul(persp(0.62, w / h, 0.1, 50), lookAt(eye, [0, 0.95, -0.6]));
+    const zk = +$('zoom').value / 5.4;
+    const eye = add(S.at, mulS(sub(S.eye, S.at), zk));
+    const vp = mul(persp(0.62, w / h, 0.05, 50), lookAt(eye, S.at));
     const kl = Math.hypot(...L.key), K = L.key.map((k) => k / kl);
     const P = V.plain;
     const plainCommon = () => {
       gl.useProgram(P.p);
       gl.uniformMatrix4fv(P.U.uVP, false, vp);
       gl.uniform3fv(P.U.uKey, K); gl.uniform3fv(P.U.uKeyC, L.keyC); gl.uniform3fv(P.U.uSky, L.sky);
-      gl.uniform3fv(P.U.uGlow, L.street); gl.uniform1f(P.U.uWet, rain ? 1 : 0);
+      gl.uniform3fv(P.U.uGlow, L.street); gl.uniform1f(P.U.uWet, rain ? 1 : 0); gl.uniform3fv(P.U.uEye, eye);
+      gl.uniform3f(P.U.uEmit, 0, 0, 0);
     };
     plainCommon();
     gl.uniform3fv(P.U.uC, L.pave.map((c) => c * (night ? 1.6 : 0.8))); gl.uniform1f(P.U.uMode, 1); gl.uniform1f(P.U.uA, 1);
-    gl.uniformMatrix4fv(P.U.uM, false, model(0, 0, -1.5));
+    gl.uniformMatrix4fv(P.U.uM, false, mat4(I3, [0, 0, -1.5]));
     gl.bindVertexArray(V.ground.vao); gl.drawArrays(gl.TRIANGLES, 0, V.ground.count);
 
     const figs = people.map((p) => {
-      const name = $('clip').value === 'mixed' ? p.clip : $('clip').value;
-      const c = bk.clips[name];
-      const hd = $('spin').checked ? t * 0.6 + p.x : 0.3 - p.x * 0.1;
+      const c = bk.clips[$('clip').value === 'mixed' ? p.clip : $('clip').value];
+      const hd = $('spin').checked ? t * 0.6 + p.x : p.face ? -p.x * 0.4 : 0.3 - p.x * 0.1;
       const hunch = built ? 0 : cold ? 0.16 : rain && !p.brolly ? 0.08 : p.order === 3 ? 0.06 : 0;
       return { p, c, ph: t / c.dur + p.ph, hd, x: p.x, z: p.z, g: built ? 1 : p.girth, ht: built ? 1 : p.height, hunch,
         holds: !built && rain && p.brolly };
@@ -658,11 +1303,12 @@ function frame(now) {
       const yaw = Math.atan2(-K[0], -K[2]);
       for (const f of figs) {
         gl.uniform1f(P.U.uA, night ? 0.5 : rain ? 0.4 : 0.55);
-        gl.uniformMatrix4fv(P.U.uM, false, model(f.x - K[0] * 0.08, 0.003, f.z - K[2] * 0.08, 0.26 * f.g, yaw, 0, 1, 0.42));
+        const A = m3(rotY3(yaw), [0.26 * f.g, 0, 0, 0, 1, 0, 0, 0, 0.42]);
+        gl.uniformMatrix4fv(P.U.uM, false, mat4(A, [f.x - K[0] * 0.08, 0.003, f.z - K[2] * 0.08]));
         gl.drawArrays(gl.TRIANGLES, 0, V.disc.count);
         if (f.holds) {
           gl.uniform1f(P.U.uA, 0.22);
-          gl.uniformMatrix4fv(P.U.uM, false, model(f.x, 0.004, f.z, 0.55));
+          gl.uniformMatrix4fv(P.U.uM, false, mat4(I3, [f.x, 0.004, f.z], 0.55));
           gl.drawArrays(gl.TRIANGLES, 0, V.disc.count);
         }
       }
@@ -671,11 +1317,12 @@ function frame(now) {
 
     const B = V.body, U = B.U;
     gl.useProgram(B.p); gl.bindVertexArray(V.vao);
+    setAnchors(gl, U);
     gl.uniformMatrix4fv(U.uVP, false, vp);
     gl.uniform3fv(U.uEye, eye);
     gl.uniform3fv(U.uKey, K); gl.uniform3fv(U.uKeyC, L.keyC); gl.uniform3fv(U.uSky, L.sky); gl.uniform3fv(U.uGnd, L.gnd);
     gl.uniform3fv(U.uRimC, L.rim.map((c) => c * (night ? 0.8 : 0.5)));
-    gl.uniform1f(U.uTop, TOP);
+    gl.uniform1f(U.uTop, TOP); gl.uniform1f(U.uNight, night ? 1 : 0);
     gl.uniform1i(U.uW, bk.W); gl.uniform1i(U.uRows, bk.rows); gl.uniform1i(U.uIdle0, IDLE0);
     gl.uniform3fv(U.uHoldS, HOLD.S); gl.uniform3fv(U.uHoldE, HOLD.E); gl.uniform3f(U.uHoldA, HOLD.elbow, HOLD.shoulder, HOLD.inward);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, V.posT); gl.uniform1i(U.uPosT, 0);
@@ -683,33 +1330,49 @@ function frame(now) {
     const c3 = (u, rgb, k = 1) => gl.uniform3f(u, rgb[0] / 255 * k, rgb[1] / 255 * k, rgb[2] / 255 * k);
     const extras = [];
     for (const f of figs) {
-      const p = f.p, o = built ? p.base : p.o;
+      const p = f.p, o = built ? p.base : p.o, O = ORDERS[p.order];
       gl.uniform4f(U.uClip, f.c.row0, f.c.len, f.ph, 0);
       gl.uniform3f(U.uAt, f.x, 0, f.z);
       gl.uniform1f(U.uHd, f.hd);
       gl.uniform3f(U.uShape, f.g, f.ht, f.hunch);
       gl.uniform1f(U.uSeed, p.seed);
+      gl.uniform1f(U.uNew, built ? 0 : 1);
       gl.uniform1i(U.uOrder, built ? 0 : p.order);
       gl.uniform1i(U.uBody, built ? 0 : p.body);
       gl.uniform1f(U.uFlare, !built && p.body === 4 ? 1 : 0);
-      const armOff = posAt(f.c, f.ph, SHOULDER_V).map((v, i) => v - rest[SHOULDER_V * 3 + i]);
+      const fh = frameOf(f.c, f.ph, FR.head), fL = frameOf(f.c, f.ph, FR.handL), fR = frameOf(f.c, f.ph, FR.handR);
+      gl.uniformMatrix3fv(U.uHeadR, false, colMajor(fh.R));
+      gl.uniformMatrix3fv(U.uHandLR, false, colMajor(fL.R));
+      gl.uniformMatrix3fv(U.uHandRR, false, colMajor(fR.R));
+      const armOff = sub(posAt(f.c, f.ph, SHOULDER_V), R3(SHOULDER_V));
       gl.uniform1f(U.uHold, f.holds ? 1 : 0);
       gl.uniform3fv(U.uArmOff, armOff);
       const hood = !built && (p.order === 3 || (rain && !p.brolly && !p.cap && p.order !== 4) || (cold && p.hoodR < 0.5 && !p.cap));
       gl.uniform1f(U.uHood, hood ? 1 : 0);
+      gl.uniform1i(U.uHairStyle, built ? 0 : O.hairStyle);
+      gl.uniform2fv(U.uCollar, built ? [0, 1] : O.collar);
+      gl.uniform1f(U.uEarPoint, !built && p.earPoint ? 1 : 0);
       gl.uniform1f(U.uScarf, !built && p.scarf && (p.order === 2 || cold) ? 1 : 0);
       gl.uniform1f(U.uWet, !built && rain ? (f.holds ? 0.3 : 1) : 0);
       gl.uniform1f(U.uCyber, p.cyber ? 1 : 0);
+      gl.uniform1f(U.uAge, p.age); gl.uniform1f(U.uBrow, p.brow); gl.uniform1f(U.uMood, p.mood);
+      gl.uniform1f(U.uBeard, p.beard); gl.uniform1f(U.uImplant, p.implant ? 1 : 0); gl.uniform1f(U.uClaws, p.claws ? 1 : 0);
+      gl.uniform1i(U.uGlove, p.glove); gl.uniform1i(U.uStrap, p.strap);
+      gl.uniform1f(U.uMakeup, p.makeup ? 1 : 0); c3(U.uLipTint, p.lipTint);
       c3(U.uCoat, o.coat); c3(U.uLegs, o.legs); c3(U.uSkin, o.skin); c3(U.uHair, o.hair); c3(U.uShoe, o.shoes);
-      c3(U.uAcc, p.acc); c3(U.uGlow, p.glow, night ? 1 : 0.6);
+      c3(U.uAcc, p.acc); c3(U.uGlow, p.glow, night ? 1 : 0.6); c3(U.uIris, p.iris);
       gl.drawElements(gl.TRIANGLES, bk.idx.length, gl.UNSIGNED_SHORT, 0);
       if (built) continue;
-      const head = place(posAt(f.c, f.ph, HEAD_V), f, TOP, false);
-      if (p.cap) extras.push({ mesh: V.cap, at: head, yaw: f.hd, col: p.capC, sc: f.ht });
-      if (p.order === 4) extras.push({ mesh: V.horns, at: head, yaw: f.hd, col: [150, 120, 84], sc: f.ht });
+      const grey = sstep(0.6, 1.0, p.age) * 0.7, hairC = p.o.hair.map((c) => c + (153 - c) * grey);
+      if (p.cap) extras.push({ mesh: V.cap, M: attach(f, fh), col: p.capC });
+      if (p.order === 4) extras.push({ mesh: V.horns, M: attach(f, fh), col: [255, 255, 255] });
+      if (p.phones) extras.push({ mesh: V.phones, M: attach(f, fh), col: [255, 255, 255], emit: [0.2, 1, 0.4] });
+      if (p.bun && !hood) extras.push({ mesh: V.bun, M: attach(f, fh), col: hairC });
+      if (p.prop === 'tablet') extras.push({ mesh: V.tablet, M: attach(f, fL), col: [255, 255, 255], emit: p.glow.map((c) => (c / 255) * 0.55) });
+      if (p.prop === 'rifle' || p.prop === 'pack' || p.prop === 'radio') extras.push({ mesh: V[p.prop], M: attach(f, frameOf(f.c, f.ph, FR.torso)), col: [255, 255, 255], emit: [1, 0.15, 0.1] });
       if (f.holds) {
-        const hr = holdPoint(R3(HAND_V)).map((v, i) => v + armOff[i]);
-        extras.push({ mesh: V.umb, at: place(hr, f, 0.8, true), yaw: f.hd, tilt: -0.28, col: p.brollyC, sc: 1 });
+        const hr = add(holdPoint(ANCHOR.handR), armOff);
+        extras.push({ mesh: V.umb, M: mat4(m3(rotY3(f.hd), rotX3(-0.28)), place(hr, f, 0.8, true)), col: p.brollyC });
       }
     }
 
@@ -718,8 +1381,9 @@ function frame(now) {
       gl.uniform1f(P.U.uMode, 0); gl.uniform1f(P.U.uA, 1);
       for (const e of extras) {
         c3(P.U.uC, e.col);
+        gl.uniform3fv(P.U.uEmit, e.emit || [0, 0, 0]);
         gl.bindVertexArray(e.mesh.vao);
-        gl.uniformMatrix4fv(P.U.uM, false, model(e.at[0], e.at[1], e.at[2], e.sc, e.yaw, e.tilt || 0));
+        gl.uniformMatrix4fv(P.U.uM, false, e.M);
         gl.drawArrays(gl.TRIANGLES, 0, e.mesh.count);
       }
     }
@@ -728,7 +1392,7 @@ function frame(now) {
       plainCommon();
       gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
       gl.uniform1f(P.U.uMode, 0.7);
-      gl.uniformMatrix4fv(P.U.uM, false, model(0, 0, 0));
+      gl.uniformMatrix4fv(P.U.uM, false, mat4(I3, [0, 0, 0]));
       gl.uniform3fv(P.U.uC, rain ? (night ? L.street.map((c) => 0.35 + c * 0.35) : [0.75, 0.8, 0.88]) : [0.97, 0.98, 1]);
       gl.uniform1f(P.U.uA, rain ? 0.35 : 0.9);
       gl.bindVertexArray(V.streakVao);
