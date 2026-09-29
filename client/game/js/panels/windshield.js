@@ -22510,12 +22510,16 @@ function texOf(f) {
 // down as level: the brightest wall was always the roof. This is the three facts pushInteriorShell
 // was missing, all off fields already on the view, so nothing new goes on the wire:
 //   · moon  — what the moon adds after dark: its phase times its height, gone behind cloud.
-//   · cover — 0 open sky, ~1 a roof overhead. A `bay` under the vehicle is a shed (the same test
-//             `roofed` makes for the rain); a caller that knows better (a hangar seat, a tunnel)
-//             may say so with `v.covered`.
+//   · cover — 0 open sky, ~1 a roof overhead, off the mark under the vehicle (COVER_BY_MARK: the
+//             shed, the gate's lock road, the gate). A seat that knows better (the hangar bay's
+//             cockpit booth) says so with `v.covered`.
 //   · up    — the sky's direction in the cab's own frame (x right, y forward, z up). Level it is
 //             [0, 0, 1]; rolled inverted it is [0, 0, −1] and the light comes up off the floor.
 // Pure and cheap, so the frame key below can carry it and a steady cab still hits the cache.
+// How much sky each roofed mark takes away from a vehicle standing on it. A shed (`bay`) and the
+// covered lock road either side of the South Gate (`lock`, roof at LCK_ROOF_Z, open at its ends)
+// are most of it; the gate itself is a yoke across the carriageway, a band of shade you pass under.
+const COVER_BY_MARK = { bay: 0.8, lock: 0.8, gate: 0.45 };
 function cabinEnvLight(v, murk) {
   const hour = v.hour == null ? 12 : v.hour;
   const ph = v.moon != null ? ((v.moon % 1) + 1) % 1 : 0.5;
@@ -22523,11 +22527,10 @@ function cabinEnvLight(v, murk) {
   const sky = skyAt(hour);
   const moon = mA.up ? moonIllum(ph) * mA.elev * sky.night * (1 - clamp(murk * 1.6, 0, 0.9)) : 0;
   const mid = v.map && v.map.length ? (v.map.length - 1) / 2 : -1;
-  const bay = mid >= 0 && v.map[mid] && v.map[mid][mid] && v.map[mid][mid].mark === 'bay';
-  // ⚠ A BAY IS ONLY A ROOF TO SOMETHING STANDING IN IT. An aircraft 500 ft over a hangar tile is
-  // not in the hangar.
+  const here = mid >= 0 && v.map[mid] ? v.map[mid][mid] : null;
+  // ⚠ A ROOF IS ONLY A ROOF TO SOMETHING UNDER IT. An aircraft 500 ft over a shed is not in it.
   const low = v.alt == null || v.alt < 40;
-  const cover = clamp(Number.isFinite(v.covered) ? v.covered : (bay && low ? 0.8 : 0), 0, 1);
+  const cover = clamp(Number.isFinite(v.covered) ? v.covered : (here && low ? COVER_BY_MARK[here.mark] || 0 : 0), 0, 1);
   const b = (v.bank || 0) * Math.PI / 180, p = (v.pitch || 0) * Math.PI / 180;
   const cb = Math.cos(b), sb = Math.sin(b), cp = Math.cos(p), sp = Math.sin(p);
   // World → cab: the body's right, forward and up in the level-heading frame (pitch, then roll,

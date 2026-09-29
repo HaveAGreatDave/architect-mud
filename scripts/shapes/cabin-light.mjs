@@ -1,5 +1,5 @@
 // The world's light reaches the room you sit in: the moon brightens a cab at night, a roof dims it
-// at noon, and rolled inverted the light comes up off the floor (cabinEnvLight in windshield.js).
+// at noon (a shed, the gate's lock road, the gate, a hangar), and rolled inverted the light comes up off the floor (cabinEnvLight in windshield.js).
 // Measured on the interior faces the frame collects, as mean luminance, so it proves direction and
 // not taste.
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
@@ -11,8 +11,8 @@ const clock = globalThis.performance;
 globalThis.performance = { ...clock, now: () => 1e6 };
 
 const N = 41;
-const mkMap = (bay) => Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => (
-  { kind: 'land', biome: 'parkland', flr: 0, surf: (x === 20 || y === 20) ? 'road' : null, ...(bay && x === 20 && y === 20 ? { mark: 'bay' } : null) })));
+const mkMap = (mark) => Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => (
+  { kind: 'land', biome: 'parkland', flr: 0, surf: (x === 20 || y === 20) ? 'road' : null, ...(mark && x === 20 && y === 20 ? { mark } : null) })));
 const TRUCK = {
   cls: 'truck', variant: 'hauler', phase: 'ground', worldBlend: 1, height: 0, eyeH: 0.12, fovMul: 1.22,
   hour: 13, weather: 'clear', speed: 0, map: mkMap(false), heading: 30,
@@ -36,8 +36,16 @@ const fullMoon = lum(faces({ ...TRUCK, hour: 0, moon: 0.5 }));
 if (!(fullMoon > newMoon * 1.03)) problems.push(`a full moon did not light the cab (new ${newMoon.toFixed(1)}, full ${fullMoon.toFixed(1)})`);
 
 const open = lum(faces({ ...TRUCK }));
-const shed = lum(faces({ ...TRUCK, map: mkMap(true) }));
-if (!(shed < open * 0.9)) problems.push(`a roof overhead did not darken the cab at noon (open ${open.toFixed(1)}, shed ${shed.toFixed(1)})`);
+// A shed, the covered lock road at the South Gate, the gate's own yoke, and a seat that says so
+// (the hangar bay's booth). The yoke is a band, not a roof, so it has to sit between open and shed.
+const shed = lum(faces({ ...TRUCK, map: mkMap('bay') }));
+const lock = lum(faces({ ...TRUCK, map: mkMap('lock') }));
+const gate = lum(faces({ ...TRUCK, map: mkMap('gate') }));
+const said = lum(faces({ ...TRUCK, covered: 0.9 }));
+for (const [k, x] of [['shed', shed], ['lock road', lock], ['covered seat', said]]) {
+  if (!(x < open * 0.9)) problems.push(`the ${k} did not darken the cab at noon (open ${open.toFixed(1)}, ${k} ${x.toFixed(1)})`);
+}
+if (!(gate < open * 0.97 && gate > shed)) problems.push(`the gate yoke is not a partial shade (open ${open.toFixed(1)}, gate ${gate.toFixed(1)}, shed ${shed.toFixed(1)})`);
 
 // Upside down: the upper half of the room loses to the lower half compared with level. Per-face
 // comparison on the same slots, split by each face's height in the level frame.

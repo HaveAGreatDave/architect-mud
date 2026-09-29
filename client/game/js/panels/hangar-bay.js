@@ -825,7 +825,7 @@ function seatView(sc, t) {
   const yaw = look.held ? look.yaw : look.yaw + 14 * Math.sin(t * 0.25);
   return { cls: sc.class, armed: armedOf(sc), phase: 'cruise', height: 0.1, worldBlend: 1, hour: 13, weather: 'clear',
     speed: 0, heading: 0, mapOffset: { x: 0, y: 0 }, pitch: 0, bank: 0, lookYaw: yaw, lookPitch: look.pitch,
-    map: SEAT_MAP, livery: lv, powered: true, fuel: 1, hull: 1, noWxBadge: true,   // indoors: no weather readout on the glass
+    map: SEAT_MAP, livery: lv, powered: true, fuel: 1, hull: 1, noWxBadge: true, covered: 0.9,   // indoors: no weather readout on the glass, and the hangar roof over the cockpit
     ...(sc.class === 'drake' ? { drakeCab: { trim: lv.itrim || 'stock', plate: lv.plate || '', gear: 1 } } : {}) };
 }
 function stageVenue(c) {
