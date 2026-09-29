@@ -24536,10 +24536,12 @@ function emitDecoFill(ctx, cam, W, css, alpha, lift = DECO_LIFT, tag = '', solid
   // it, because `paint` fills the whole path. A fan is one entry per triangle and the same picture.
   const KEY = (tag ? tag + '|' : '') + (skin ? skin.key : ramp ? 'ramp|' + ramp[0] + '|' + ramp[1] : 'solid|' + css),
         IMG = skin ? skin.img : ramp ? rampTex(ramp[0], ramp[1]) : solidTex(css), SOL = solid && TUNE.glBoardDepth !== 0;
-  if (w.length < 4) { DECAL_SINK.push({ key: KEY, img: IMG, alpha, solid: SOL, p: [w[0], w[1], w[2], w[2]] }); return; }
-  if (w.length === 4) { DECAL_SINK.push({ key: KEY, img: IMG, alpha, solid: SOL, p: w }); return; }
+  // `lit` rides on the skin: cloth takes the city's lights in the decal shader (see decals.js).
+  const LIT = !!(skin && skin.lit);
+  if (w.length < 4) { DECAL_SINK.push({ key: KEY, img: IMG, alpha, solid: SOL, lit: LIT, p: [w[0], w[1], w[2], w[2]] }); return; }
+  if (w.length === 4) { DECAL_SINK.push({ key: KEY, img: IMG, alpha, solid: SOL, lit: LIT, p: w }); return; }
   for (let i = 1; i + 1 < w.length; i++) {
-    DECAL_SINK.push({ key: KEY, img: IMG, alpha, solid: SOL, p: [w[0], w[i], w[i + 1], w[i + 1]] });
+    DECAL_SINK.push({ key: KEY, img: IMG, alpha, solid: SOL, lit: LIT, p: [w[0], w[i], w[i + 1], w[i + 1]] });
   }
 }
 function quadBox(p, hx, hy, oy = 0) {
@@ -38059,10 +38061,37 @@ const TARPS = [
   [140, 116, 74],   // ochre site sheet
   [112, 84, 66],    // orange, most of the way to rust
 ];
-function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha) {
+// ⚠ A CAMP ON A CURTAIN TILE (927,917 and 927,918) HAS THE WALL THROUGH ITS MIDDLE. The wall runs
+// down the tile centre (`curtainSegs`), and the pitches used to spread across the whole tile, so
+// half of them stood in the waste and the field cut straight through the rest. `campInward` says
+// which way is in for each arm: the side whose neighbour is a real tile rather than the off-map gap
+// (`kind === 'air'`). The camp then folds every point it places onto that side, clear of the wall.
+function campInward(map, rx, ry, axis) {
+  const land = (x, y) => { const c = map[y] && map[y][x]; return !!c && c.kind !== 'air'; };
+  const out = [];
+  const side = (ax, ay) => {
+    const a = land(rx + ax, ry + ay), b = land(rx - ax, ry - ay);
+    if (a !== b) out.push(a ? [ax, ay] : [-ax, -ay]);
+  };
+  if (/[ns]/.test(axis)) side(-1, 0);
+  if (/[ew]/.test(axis)) side(0, -1);
+  return out.length ? out : null;
+}
+function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha, inward = null) {
   if (ADORN_TIER < ADORN_CHEAP) return;
   const near = ADORN_TIER >= ADORN_NEAR;
   const R = fh * 0.86;                       // how far across the tile the pitches spread
+  // Fold a point onto the inland side of the wall, at least `gap` off it, keeping its spread.
+  const WALL_GAP = CURTAIN_HALF_W + fh * 0.30;
+  const fold = (x, y, gap = WALL_GAP) => {
+    if (!inward) return [x, y];
+    for (const [nx, ny] of inward) {
+      const s = (x - dx) * nx + (y - dy) * ny;
+      const t = gap + Math.abs(s) * Math.max(0, 0.46 - gap) / (R * 0.85);
+      x += (t - s) * nx; y += (t - s) * ny;
+    }
+    return [x, y];
+  };
   const nightF = night ? clamp(night, 0, 1) : 0;
   // One tone function rather than two hand-written palettes, so a tarp colour is authored once and
   // the night is arithmetic over it. `k` is the face: 1 lit, 0.62 shade, 0.78 gable.
@@ -38107,7 +38136,7 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha) {
   const pitches = Math.min(near ? 16 : 10, 9 + Math.floor(frac(seed * 137) * 8));
   for (let i = 0; i < pitches; i++) {
     const a = frac(seed * 7 + i * 13) - 0.5, b = frac(seed * 11 + i * 29) - 0.5;
-    const cx = dx + a * R * 1.7, cy = dy + b * R * 1.7;
+    const [cx, cy] = fold(dx + a * R * 1.7, dy + b * R * 1.7);
     const w = fh * (0.14 + frac(seed + i * 3) * 0.07);          // half-width across the slopes
     const l = fh * (0.18 + frac(seed + i * 5) * 0.09);          // half-length along the ridge
     const t = fh * (0.26 + frac(seed + i * 7) * 0.11);          // ridge / roof height
@@ -38176,8 +38205,8 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha) {
   // row of camp tiles reads as one strung line rather than as ten separate pairs of sticks. The
   // lamp hanging off it is the only light in this district that is not behind a window.
   const poleZ = fh * (0.66 + frac(seed * 97) * 0.26);
-  const px0 = dx + (frac(seed * 3 + 1) - 0.5) * R * 0.5, py0 = dy - R * 0.62;
-  const px1 = dx + (frac(seed * 5 + 2) - 0.5) * R * 0.5, py1 = dy + R * 0.62;
+  const [px0, py0] = fold(dx + (frac(seed * 3 + 1) - 0.5) * R * 0.5, dy - R * 0.62, CURTAIN_HALF_W + fh * 0.12);
+  const [px1, py1] = fold(dx + (frac(seed * 5 + 2) - 0.5) * R * 0.5, dy + R * 0.62, CURTAIN_HALF_W + fh * 0.12);
   emitWire(ctx, cam, [px0, py0, 0], [px0, py0, poleZ], 2, DARK, alpha, { lift: DECO_LIFT * 0.1 });
   emitWire(ctx, cam, [px1, py1, 0], [px1, py1, poleZ], 2, DARK, alpha, { lift: DECO_LIFT * 0.1 });
   // The run, and its continuation past both poles to the tile edge. A catenary is not something
@@ -38215,7 +38244,7 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha) {
   // department, and what a poor place looks like is that the amount of stuff between the shelters
   // is different every time you look down a lane.
   if (near) for (let i = 0, n = 4 + Math.floor(frac(seed * 149) * 5); i < n; i++) {
-    const ox = dx + (frac(seed * 13 + i * 37) - 0.5) * R * 1.8, oy = dy + (frac(seed * 19 + i * 43) - 0.5) * R * 1.8;
+    const [ox, oy] = fold(dx + (frac(seed * 13 + i * 37) - 0.5) * R * 1.8, dy + (frac(seed * 19 + i * 43) - 0.5) * R * 1.8, CURTAIN_HALF_W + fh * 0.08);
     const cw = fh * (0.035 + frac(seed + i * 9) * 0.02), ch = fh * (0.07 + frac(seed + i * 5) * 0.05);
     emitDecoFill(ctx, cam, [[ox - cw, oy, ch], [ox + cw, oy, ch], [ox + cw, oy, 0], [ox - cw, oy, 0]],
       DARK, alpha, DECO_LIFT * 0.1, 'camp|clutter');
@@ -38226,7 +38255,7 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha) {
   // burns by day too — a cut-down drum with four people round it is how this camp cooks, not how it
   // lights itself — but the glow is only worth drawing after dark.
   if ((seed % 3) === 0 && nightF > 0.35) {
-    const bx = dx + (frac(seed * 3) - 0.5) * R, by = dy + (frac(seed * 17) - 0.5) * R;
+    const [bx, by] = fold(dx + (frac(seed * 3) - 0.5) * R, dy + (frac(seed * 17) - 0.5) * R);
     glowPool(ctx, cam, bx, by, fh * 0.10, '255,158,62', 11, alpha * 0.48 * nightF);
     // Firelight on the ground round the drum: a broad low pool, so the nearest tents sit in its
     // light rather than beside a point.
@@ -38350,7 +38379,13 @@ function clothTex(css, kind = 'cloth') {
     }
     g.putImageData(page, 0, 0);
   });
-  return { key, img };
+  return { key, img, lit: true };
+}
+// The flat fill a sheet wears past arm's length, as a page so it still goes through the lit decal
+// path: a sheet that caught the lamps near to and went dead flat one tile further out would pop.
+function clothFlat(css) {
+  const key = 'clothflat|' + css;
+  return { key, img: bakeQuadTex(key, 2, 2, (g, W, H) => { g.fillStyle = css; g.fillRect(0, 0, W, H); }), lit: true };
 }
 // A sheet's corners with its HIGH edge first, so `clothTex`'s foot lands at the bottom. A triangle
 // (a gable) is its apex twice and then its base, which squeezes the page to a point at the top.
@@ -38364,8 +38399,9 @@ function clothOrder(w) {
 }
 // A sheet in world points, textured near to. The camp and `slumSheet` both come through here.
 function clothFill(ctx, cam, w, css, alpha, lift, tag, kind = 'cloth') {
-  if (ADORN_TIER < ADORN_NEAR || !kind) { emitDecoFill(ctx, cam, w, css, alpha, lift, tag); return; }
-  emitDecoFill(ctx, cam, clothOrder(w), css, alpha, lift, tag, false, null, clothTex(css, kind));
+  if (!kind) { emitDecoFill(ctx, cam, w, css, alpha, lift, tag); return; }
+  const skin = ADORN_TIER >= ADORN_NEAR ? clothTex(css, kind) : clothFlat(css);
+  emitDecoFill(ctx, cam, clothOrder(w), css, alpha, lift, tag, false, null, skin);
 }
 // One sheet through `pts` (model-local, three or four of them), shaded by where it faces. `kind`
 // is the page it wears near to (`clothTex`), or null for a plain fill.
@@ -66232,7 +66268,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // canvas) had never drawn in the game at all.
     if (it.c.mark === 'camp') {
       ADORN_TIER = (TUNE.detailNear || 0) > 0 && Math.hypot(it.dx, it.dy) < TUNE.detailNear ? ADORN_NEAR : ADORN_RICH;
-      try { drawTentCamp(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha); }
+      try { drawTentCamp(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, it.c.cur ? campInward(map, it.rx, it.ry, it.c.cur) : null); }
       finally { ADORN_TIER = ADORN_RICH; }
       if (!it.c.cur) continue;
     }
