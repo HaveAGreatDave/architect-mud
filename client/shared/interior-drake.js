@@ -87,6 +87,11 @@ export const DRAKE_TRIM_NOIR = {
   // The gauges: black faces, gold ink, ivory hands.
   dialFace: [24, 23, 22], dialInk: [214, 172, 82], dialHand: [236, 226, 200],
 };
+// The nameplate is backlit: a lamp behind the badge spills round its rim and out behind each letter.
+// Warm on the stock and noir trims, cool white behind Quackhawk's chrome. See-through, so it reads
+// as light on the panel rather than a painted border.
+const BACKLIGHT_WARM = [255, 206, 128], BACKLIGHT_COOL = [196, 222, 255];
+DRAKE_TRIM.backlight = BACKLIGHT_WARM; DRAKE_TRIM_NOIR.backlight = BACKLIGHT_WARM;
 // QUACKHAWK DOWN, the special edition, and it is dressed like one: red, white and blue with the
 // brightwork in CHROME. Every bezel, rim, rule and letter that is gold on the stock Drake is polished
 // chrome here (its own `gold` array, registered below as chrome); the walnut becomes a deep navy
@@ -107,6 +112,7 @@ export const DRAKE_TRIM_QUACKHAWK = {
   console: [14, 22, 60],
   dialFace: [246, 246, 242], dialInk: [18, 28, 84], dialHand: [200, 22, 38],
   stripeRed: [200, 24, 40], stripeWhite: [246, 246, 242],
+  backlight: BACKLIGHT_COOL,
 };
 // ⚠ `T` IS SWAPPED, NOT PASSED: every part in this file reads it, so the profile builder and the
 // fit-out set it for the trim of the profile they are building (drakeProfile's second argument).
@@ -119,6 +125,7 @@ const HUD_GLASS = [6, 22, 18];
 // The switch legends: warm ivory, self-lit, on an enamel chip (drakeFit, the switch strips).
 const LABEL_INK = [244, 232, 204];
 PANE.set(HUD_GLASS, 0.45);
+PANE.set(BACKLIGHT_WARM, 0.55); PANE.set(BACKLIGHT_COOL, 0.55);
 // The glass over each dial catches a crescent of window light.
 const DIAL_GLINT = [255, 252, 244];
 PANE.set(DIAL_GLINT, 0.22);
@@ -699,9 +706,9 @@ const TRACK = 0.28;
 export const textWidth = (str) => [...str].reduce((s, ch, i) => s + (GLYPH[ch] ? GLYPH[ch].w : 0.5) + (i ? TRACK : 0), 0);
 // Plated lettering: each glyph twice, a dark gold "depth" a hair behind and offset down-right, and
 // the bright face over it. Centred on (ca, cb), `h` metres tall.
-function plated_(Pn, str, ca, cb, h, face = T.gold, depth = T.goldDk, lift = 0.004) {
+function plated_(Pn, str, ca, cb, h, face = T.gold, depth = T.goldDk, lift = 0.004, glow = 0.25) {
   // Small text takes the legend face (legend-font.js): this serif's hairlines vanish below ~15 mm.
-  if (h < LEGEND_MAX_H) return legend(Pn, str, ca, cb, h, face, 0.25, lift, depth);
+  if (h < LEGEND_MAX_H) return legend(Pn, str, ca, cb, h, face, glow, lift, depth);
   const W = textWidth(str) * h;
   let x = ca - W / 2;
   const b0 = cb - h / 2;
@@ -709,8 +716,8 @@ function plated_(Pn, str, ca, cb, h, face = T.gold, depth = T.goldDk, lift = 0.0
     const G = GLYPH[ch];
     if (!G) { x += (0.5 + TRACK) * h; continue; }
     for (const poly of G.p) {
-      Pn.plate(poly.map(([u, v]) => [x + (u + 0.035) * h, b0 + (v - 0.035) * h]), depth, 0.1, lift);
-      Pn.plate(poly.map(([u, v]) => [x + u * h, b0 + v * h]), face, 0.25, lift + 0.0015);
+      Pn.plate(poly.map(([u, v]) => [x + (u + 0.035) * h, b0 + (v - 0.035) * h]), depth, Math.min(glow, 0.1), lift);
+      Pn.plate(poly.map(([u, v]) => [x + u * h, b0 + v * h]), face, glow, lift + 0.0015);
     }
     x += (G.w + TRACK) * h;
   }
@@ -771,13 +778,19 @@ const roundRect = (a0, b0, a1, b1, r, n = 4) => {
 function nameplate_(Pn, ca, cb, h, name = 'DRAKE', maxW = Infinity) {
   h = Math.min(h, maxW / (textWidth(name) + 2.8));   // the plate is W + 2·pad + h wide = (text + 2.8)·h
   const W = textWidth(name) * h, pad = h * 0.9;
+  // The backlight's spill round the rim, under the gold border.
+  const bl = T.backlight, sp = h * 0.22;
+  Pn.plate(roundRect(ca - W / 2 - pad - h * 0.5 - sp, cb - h * 1.05 - sp, ca + W / 2 + pad + h * 0.5 + sp, cb + h * 1.05 + sp, h * 0.35 + sp), bl, 1, 0.0012);
   Pn.plate(roundRect(ca - W / 2 - pad - h * 0.5, cb - h * 1.05, ca + W / 2 + pad + h * 0.5, cb + h * 1.05, h * 0.35), T.gold, 0.1, 0.002);
   Pn.plate(roundRect(ca - W / 2 - pad - h * 0.36, cb - h * 0.9, ca + W / 2 + pad + h * 0.36, cb + h * 0.9, h * 0.28), T.enamel, 0, 0.003);
   // A hairline gold rule inside the border, which is what makes it read as a badge and not a sign.
   const i0 = ca - W / 2 - pad - h * 0.16, i1 = ca + W / 2 + pad + h * 0.16, j0 = cb - h * 0.72, j1 = cb + h * 0.72, t = h * 0.05;
   Pn.rect(i0, j0, i1, j0 + t, T.gold, 0.2, 0.0035); Pn.rect(i0, j1 - t, i1, j1, T.gold, 0.2, 0.0035);
   Pn.rect(i0, j0, i0 + t, j1, T.gold, 0.2, 0.0035); Pn.rect(i1 - t, j0, i1, j1, T.gold, 0.2, 0.0035);
-  plated(Pn, name, ca, cb, h);
+  // Halo-lit letters: the same light out from behind each one, onto the enamel round it.
+  const o = h * 0.06;
+  for (const [dx, dy] of [[-o, -o], [o, -o], [-o, o], [o, o]]) plated_(Pn, name, ca + dx, cb + dy, h, bl, bl, 0.0032, 1);
+  plated(Pn, name, ca, cb, h, T.gold, T.goldDk, 0.005);   // a millimetre prouder, clear of the halo
   // The special edition's badge carries a red and white rule under the letters, inside the chrome.
   if (T.stripeRed) {
     const r0 = ca - W / 2 - pad * 0.2, r1 = ca + W / 2 + pad * 0.2, y = cb - h * 0.62, th = h * 0.07;
