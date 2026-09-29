@@ -205,6 +205,20 @@ Two rules came out of doing it, and both are easy to get wrong:
   what real signage does, and it is a cap rather than a target, so short names that already fill
   their row are left alone.
 
+### Sign styles: faces and fascia kinds (as built)
+
+- **Faces are self-hosted.** Every hand in `SIGN_FONT` leads with a font in `client/shared/fonts/`
+  (OFL or Apache, licence beside each), loaded by `loadNeonFaces`. The old system-font chains stay
+  as the fallback. Add a face by dropping the `.woff2` and its licence there and adding a row to the
+  loader, `SIGN_FONT`, `SIGN_TRACK` and the key list in `building-model-schema.js`.
+- **A trade has more than one hand.** `SIGN_ALT` lists a face's alternates (`showcard`, `marker`,
+  `stencil2`, `techno2`), rolled per label in `altHand`, so a name keeps its hand everywhere.
+- **Seven fascia kinds** in `fasciaKind`: `tube`, `box` (lightbox), `applied`, `painted`, `gilt`
+  (gold leaf on lacquer), `halo` (dark letters over a glow) and `bulbs` (a lamp-ringed marquee).
+  `SIGN_FASCIA` pins a trade to one. `sign:size` forces each and fails if two paint the same.
+- **Dead tubes.** `deadNeon` blanks one middle letter of about one lit name in seven, keyed on the
+  label. `RENDER_TUNE.neonDead` is the share; 0 turns it off. Paint and daylight keep every letter.
+
 **The one carve-out — HUD / instrument text STAYS billboarded.** Airfield ID + distance tags
 (drawn inline off `v.airports` on the heading tape, windshield.js:1642), bogey reg/range labels,
 ring numbers, the ⚠ weather band, heading tape and hull

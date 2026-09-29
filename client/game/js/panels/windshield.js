@@ -1242,6 +1242,8 @@ export const RENDER_TUNE = {
   neonBake: 1,
   // Break each neon letter's tube at the corners of its outline (glyphCorners). 0 is one unbroken loop.
   neonGaps: 1,
+  // The share of lit names with one tube gone dark (deadNeon). 0 lights every letter.
+  neonDead: 0.14,
   // Every light this frame collected, fed to the MASS shader as well as to the sprite layer, so a
   // neon sign washes the wall it is bolted to. Nothing new is authored and nothing new is
   // collected — `SPRITE_SINK` is the same list the glows are drawn from — and the term is ADDED
@@ -41823,9 +41825,9 @@ const _marqueeTexCache = new Map();
 // by their letter-spacing before anything else. `ctx.letterSpacing` carries it — see SIGN_TRACK.
 export const SIGN_FONT = {
   mono: (C) => `bold ${Math.round(C * 0.72)}px Consolas,"DejaVu Sans Mono",monospace`,
-  script: (C) => `italic bold ${Math.round(C * 0.92)}px "Brush Script MT","Segoe Script","Snell Roundhand",cursive`,
-  block: (C) => `900 ${Math.round(C * 0.66)}px "Arial Black",Impact,"Haettenschweiler",sans-serif`,
-  slab: (C) => `bold ${Math.round(C * 0.70)}px Rockwell,"Roboto Slab","Sitka Heading",Georgia,serif`,
+  script: (C) => `${Math.round(C * 0.92)}px Yellowtail,"Brush Script MT","Segoe Script","Snell Roundhand",cursive`,
+  block: (C) => `${Math.round(C * 0.62)}px Bungee,"Arial Black",Impact,"Haettenschweiler",sans-serif`,
+  slab: (C) => `${Math.round(C * 0.70)}px "Alfa Slab One",Rockwell,"Roboto Slab","Sitka Heading",Georgia,serif`,
   // The two the city was missing, and both are about a building's AGE rather than its trade.
   // `deco` is the gilt letter cut into stone over a 1930s entrance: small caps, light, a high
   // stroke contrast — the one hand that cannot be got by making a sans heavier or a serif bigger.
@@ -41836,8 +41838,8 @@ export const SIGN_FONT = {
   // Copperplate is a LIGHT face with a short cap height: at the size the rest of this table uses it
   // measures WIDER than mono and still reads as smaller and finer, which on a frieze is a name that
   // has got lost on its own building. Bold, and a size up.
-  deco: (C) => `700 ${Math.round(C * 0.86)}px "Copperplate Gothic Bold","Copperplate Gothic Light",Copperplate,"Sitka Banner","Perpetua Titling MT",Optima,"Palatino Linotype",Palatino,serif`,
-  condensed: (C) => `bold ${Math.round(C * 0.84)}px "Arial Narrow","Bahnschrift Condensed","Liberation Sans Narrow","Helvetica Neue Condensed",Oswald,Impact,sans-serif`,
+  deco: (C) => `${Math.round(C * 0.84)}px Limelight,"Copperplate Gothic Bold","Copperplate Gothic Light",Copperplate,"Sitka Banner","Perpetua Titling MT",Optima,"Palatino Linotype",Palatino,serif`,
+  condensed: (C) => `800 ${Math.round(C * 0.90)}px "Big Shoulders Display","Arial Narrow","Bahnschrift Condensed","Liberation Sans Narrow","Helvetica Neue Condensed",Oswald,Impact,sans-serif`,
   // ── AND FOUR MORE, EACH FOR A TRADE THE SIX ABOVE HAD NO HAND FOR ─────────
   //
   // The rule these are picked by is the one already stated above: a face has to be a hand a real
@@ -41858,18 +41860,18 @@ export const SIGN_FONT = {
   //
   // ⚠ ALL FOUR NAME A FACE THAT SHIPS WITH WINDOWS FIRST and then a generic family, for exactly the
   // reason the ⚠ above gives: a missing font must fall back to a different HAND, never to body text.
-  stencil: (C) => `bold ${Math.round(C * 0.72)}px Stencil,"Allerta Stencil","Saira Stencil One","Bahnschrift Condensed","Arial Narrow","Arial Black",sans-serif`,
-  techno: (C) => `600 ${Math.round(C * 0.76)}px Bahnschrift,"DIN Alternate","DIN Condensed",Eurostile,"Segoe UI Semibold","Titillium Web","Segoe UI",sans-serif`,
+  stencil: (C) => `${Math.round(C * 0.72)}px "Black Ops One",Stencil,"Allerta Stencil","Saira Stencil One","Bahnschrift Condensed","Arial Narrow","Arial Black",sans-serif`,
+  techno: (C) => `${Math.round(C * 0.70)}px Audiowide,Bahnschrift,"DIN Alternate","DIN Condensed",Eurostile,"Segoe UI Semibold","Titillium Web","Segoe UI",sans-serif`,
   // ⚠ GABRIOLA IS THE REAL FALLBACK HERE AND IT IS NOT A NEAR MISS FOR BLACKLETTER — it is a
   // calligraphic display face rather than a gothic one. It earns the slot because what this hand has
   // to do is read as OLDER AND HAND-CUT than everything around it, and on a machine with no
   // blackletter the alternative was Cambria, which is a body serif and says nothing at all.
-  gothic: (C) => `${Math.round(C * 0.95)}px "Old English Text MT","UnifrakturMaguntia","Blackadder ITC",Gabriola,"Sitka Banner",Cambria,Garamond,serif`,
+  gothic: (C) => `${Math.round(C * 0.95)}px UnifrakturMaguntia,"Old English Text MT","Blackadder ITC",Gabriola,"Sitka Banner",Cambria,Garamond,serif`,
   // ⚠ THE WEIGHT AND THE TIGHT TRACKING ARE DOING THE WORK, not the family — there is no fat slab on
   // a stock Windows box, so on the machines that lack Playbill and Rockwell this is a display serif
   // set heavy and jammed together, which is what a saloon board and a pawnbroker's shingle actually
   // are. Without the tracking (see SIGN_TRACK) it would be `slab` again.
-  western: (C) => `900 ${Math.round(C * 0.80)}px Playbill,"Rockwell Extra Bold","Bookman Old Style",Rockwell,"Sitka Display",Georgia,serif`,
+  western: (C) => `${Math.round(C * 0.76)}px Rye,Playbill,"Rockwell Extra Bold","Bookman Old Style",Rockwell,"Sitka Display",Georgia,serif`,
   // ── AND THE ONE THAT IS NOT A LATIN HAND AT ALL ──────────────────────────
   //
   // ⚠ `hanzi` IS SIZED AND WEIGHTED AGAINST THE OTHER TEN, NOT AGAINST ITS OWN DEFAULTS, and the
@@ -41900,7 +41902,7 @@ export const SIGN_FONT = {
   // each a fine serif rather than a body one. ⚠ It must also stay distinct from `deco`, whose own
   // chain lands on Sitka BANNER where there is no Copperplate — so Banner is deliberately absent
   // here, or the city's two dressiest hands would be one hand on most machines.
-  estate: (C) => `600 ${Math.round(C * 0.80)}px "Bodoni MT",Didot,"Didot LT STD","Playfair Display","Baskerville Old Face","Big Caslon","Modern No. 20","Sitka Heading","Palatino Linotype",Constantia,Georgia,serif`,
+  estate: (C) => `700 ${Math.round(C * 0.80)}px "Playfair Display SC","Bodoni MT",Didot,"Didot LT STD","Playfair Display","Baskerville Old Face","Big Caslon","Modern No. 20","Sitka Heading","Palatino Linotype",Constantia,Georgia,serif`,
   // ── AND THE TWO BENT-GLASS HANDS, WHICH ARE WHAT A NEON SHOP ACTUALLY BENDS ──
   //
   // Every face above is a painter's or a carver's hand that the tube pass then traces. These two are
@@ -41915,6 +41917,16 @@ export const SIGN_FONT = {
   //   a time down a blade is a row of unjoined squiggles.
   tube: (C) => `${Math.round(C * 0.80)}px "Varela Round","Arial Rounded MT Bold","Nunito",sans-serif`,
   neonscript: (C) => `${Math.round(C * 0.6)}px Sacramento,"Segoe Script","Brush Script MT",cursive`,
+  // ── AND THE ALTERNATES, SO TWO SHOPS OF ONE TRADE AREN'T LETTERED BY ONE HAND ─────────────────
+  //
+  // Each is a second hand for a trade tradition above, picked per name by `altHand`. `showcard` is
+  // the inline display letter of a sign-painter's showcard (Bungee Inline), `marker` the hand-done
+  // board a chancer paints himself (Permanent Marker), `stencil2` a cleaner plate stencil (Saira
+  // Stencil One), `techno2` the wide geometric of a lab's nameplate (Orbitron).
+  showcard: (C) => `${Math.round(C * 0.62)}px "Bungee Inline",Bungee,"Arial Black",Impact,sans-serif`,
+  marker: (C) => `${Math.round(C * 0.80)}px "Permanent Marker","Segoe Print","Comic Sans MS",cursive`,
+  stencil2: (C) => `${Math.round(C * 0.78)}px "Saira Stencil One","Black Ops One",Stencil,"Arial Narrow",sans-serif`,
+  techno2: (C) => `700 ${Math.round(C * 0.66)}px Orbitron,Audiowide,Bahnschrift,"Segoe UI",sans-serif`,
 };
 // ── HOW TIGHTLY THE LETTERS ARE SET, AS A FRACTION OF THE CELL ─────────────────────────────────
 //
@@ -41947,6 +41959,10 @@ export const SIGN_TRACK = {
   tube: 0.05,       // two tubes a stem, and the neighbours' walls must not touch
   mono: 0.04,
   hanzi: 0.04,
+  showcard: 0.03,
+  marker: 0,       // a brush hand; tracking it looks typed
+  stencil2: 0.10,
+  techno2: 0.10,
 };
 // A pictogram is drawn as a TUBE, not as a filled shape — it is bent glass with gas in it, so it is
 // a stroked path with round caps and joins, and it takes the same three passes the lettering does.
@@ -42246,26 +42262,71 @@ if (typeof window !== 'undefined') window.__bakeSign = (...a) => bakeSignText(..
 // frame and on every building that carries it (see `_signFace` and scripts/shapes/signhand.mjs).
 // ⚠ A PAINTED (`solid`) SIGN KEEPS ITS HAND: this is about bent glass, not about wall paint.
 const NEON_GENERIC = new Set(['mono', 'block', 'slab', 'condensed']);
-function neonHand(face, label, vertical, solid) {
-  if (solid || face === 'hanzi') return face;
-  if (vertical) return 'tube';
-  let h = 2166136261;
+// A trade's second (and third) hand, rolled per name so a street of pawnshops isn't one font. Keyed
+// on the label like everything else here, so a name keeps its hand. The first entry is the hand the
+// building asked for, so it still wins most of the time.
+const SIGN_ALT = {
+  block: ['block', 'block', 'showcard'],
+  slab: ['slab', 'slab', 'western'],
+  stencil: ['stencil', 'stencil2'],
+  techno: ['techno', 'techno2'],
+  script: ['script', 'script', 'marker'],
+  condensed: ['condensed', 'condensed', 'block'],
+};
+function labelRoll(label, salt) {
+  let h = 2166136261 ^ salt;
   for (let i = 0; i < label.length; i++) h = Math.imul(h ^ label.charCodeAt(i), 16777619);
-  const r = ((h >>> 0) % 1000) / 1000;
+  return ((h >>> 0) % 1000) / 1000;
+}
+function altHand(face, label) {
+  const alts = SIGN_ALT[face];
+  return alts ? alts[Math.floor(labelRoll(label, 0x5a17) * alts.length)] : face;
+}
+function neonHand(face, label, vertical, solid) {
+  if (face === 'hanzi') return face;
+  if (solid) return altHand(face, label);
+  if (vertical) return 'tube';
+  const r = labelRoll(label, 0);
   if (face === 'script') return r < 0.5 ? 'neonscript' : 'script';
   if (NEON_GENERIC.has(face)) return r < 0.12 ? 'neonscript' : 'tube';
-  return face;
+  return altHand(face, label);
 }
-// The two faces are fetched once. A sign baked before they arrive is baked in the fallback, so the
-// cache is emptied when they land and every board re-bakes in its real hand on the next frame.
+// The sign faces are fetched once (all self-hosted, OFL or Apache; the licences sit beside them).
+// A sign baked before they arrive is baked in the fallback, so the cache is emptied when they land and every board re-bakes in its real hand on the next frame.
 function loadNeonFaces() {
   if (typeof document === 'undefined' || typeof FontFace === 'undefined' || !document.fonts) return;
-  const faces = [['Varela Round', 'varela-round.woff2'], ['Sacramento', 'sacramento.woff2']];
-  Promise.all(faces.map(([fam, file]) => new FontFace(fam, `url(${new URL('../../../shared/fonts/' + file, import.meta.url)})`)
+  const faces = [['Varela Round', 'varela-round.woff2'], ['Sacramento', 'sacramento.woff2'],
+    ['Rye', 'rye.woff2'], ['Limelight', 'limelight.woff2'], ['Black Ops One', 'black-ops-one.woff2'],
+    ['Saira Stencil One', 'saira-stencil-one.woff2'], ['Audiowide', 'audiowide.woff2'],
+    ['Orbitron', 'orbitron.woff2', { weight: '700' }], ['UnifrakturMaguntia', 'unifraktur-maguntia.woff2'],
+    ['Yellowtail', 'yellowtail.woff2'], ['Bungee', 'bungee.woff2'], ['Bungee Inline', 'bungee-inline.woff2'],
+    ['Alfa Slab One', 'alfa-slab-one.woff2'], ['Playfair Display SC', 'playfair-display-sc.woff2', { weight: '700' }],
+    ['Big Shoulders Display', 'big-shoulders-display.woff2', { weight: '800' }],
+    ['Permanent Marker', 'permanent-marker.woff2']];
+  // ⚠ allSettled, not all: one font failing to load must not keep the other fifteen off the cache.
+  Promise.allSettled(faces.map(([fam, file, desc]) => new FontFace(fam, `url(${new URL('../../../shared/fonts/' + file, import.meta.url)})`, desc)
     .load().then((f) => { document.fonts.add(f); })))
     .then(() => _signTexCache.clear(), () => {});
 }
 loadNeonFaces();
+// ── ⚠ ONE TUBE GONE DARK: "HOT L" ────────────────────────────────────────────────────────────
+//
+// A lit name loses one letter to a blown tube, which is the oldest joke a neon street tells and the
+// one this city was too tidy to. Keyed on the label, like every other roll here, so a sign is broken
+// the same way every frame and on every building that carries the name. The dead letter becomes a
+// space, which is what a dark tube is from across a street at night.
+// ⚠ NEVER THE FIRST OR LAST LETTER, and only on a name of five letters or more: a three-letter name
+// with a hole in it is unreadable, and a missing end letter reads as a typo rather than a fault.
+function deadNeon(label) {
+  const share = RENDER_TUNE.neonDead ?? 0.14;
+  const t = String(label || '');
+  if (share <= 0 || t.replace(/[^A-Za-z]/g, '').length < 5 || labelRoll(t, 0xdead) >= share) return t;
+  const idx = [];
+  for (let i = 1; i < t.length - 1; i++) if (/[A-Za-z]/.test(t[i])) idx.push(i);
+  if (!idx.length) return t;
+  const k = idx[Math.floor(labelRoll(t, 0xbee) * idx.length)];
+  return t.slice(0, k) + ' ' + t.slice(k + 1);
+}
 function bakeSignText(label, color, dn, vertical, solid, tight, opts) {
   // The universal chokepoint for world lettering, so it catches the arms that paint a name straight
   // onto a frieze or a false front (The Meridian, The Dry Goods) rather than onto a blade or a band.
@@ -42281,6 +42342,8 @@ function bakeSignText(label, color, dn, vertical, solid, tight, opts) {
   // night zeroed passes 0 in and gets 0 out, and a brownout's board is left alone rather than being
   // quietly halved once per hop through a chain nobody traced.
   dn = powerNight(dn);
+  // A dead tube is a lit-sign fault, so paint and daylight keep every letter.
+  if (dn > 0 && !solid) label = deadNeon(label);
   // ⚠ THE FACE AND THE PICTOGRAM ARE IN THE KEY. They change the picture and nothing else in it
   // does, so leaving either out hands the first caller's artwork to every later one with the same
   // label and colour — one chain's script wordmark appearing on another's block-lettered board.
@@ -45586,10 +45649,10 @@ function fasciaKind(m, seed) {
   const trade = tradeOf(m);
   if (SIGN_FASCIA[trade]) return SIGN_FASCIA[trade];
   const picto = (SIGN_TRADE[trade] || ['', ''])[1];
-  if (LIT_PICTO.has(picto)) return dRand(seed, 911) < 0.55 ? 'tube' : 'box';
+  if (LIT_PICTO.has(picto)) { const q = dRand(seed, 911); return q < 0.45 ? 'tube' : q < 0.72 ? 'box' : q < 0.88 ? 'bulbs' : 'halo'; }
   if (WORK_PICTO.has(picto)) return 'painted';
   const r = dRand(seed, 911);
-  return r < 0.24 ? 'tube' : r < 0.54 ? 'box' : r < 0.79 ? 'applied' : 'painted';
+  return r < 0.18 ? 'tube' : r < 0.40 ? 'box' : r < 0.58 ? 'applied' : r < 0.74 ? 'painted' : r < 0.86 ? 'gilt' : r < 0.94 ? 'halo' : 'bulbs';
 }
 // ── ⚠ AND THE AWNING UNDER IT WAS CUTTING THE NAME IN HALF ──────────────────────────────────────
 //
@@ -45913,6 +45976,76 @@ function marqueeBand(ctx, cam, dx, dy, E, half, wz, color, night, alpha, label =
       }
       g.globalAlpha = a; g.strokeStyle = 'rgba(10,8,12,0.95)'; g.lineWidth = 1.4; trace([TL, TR, BR, BL]); g.stroke();
       inkCol = color; inkSolid = true; pad = 0.07;
+    } else if (kind === 'gilt') {
+      // ── GOLD LEAF ON A LACQUERED BOARD ──────────────────────────────────────────────────────
+      //
+      // The Victorian shopfront fascia: a deep lacquer (the building's own hue, taken nearly to
+      // black) with a double gilt rule and gilt letters. Like `painted` it is not a lamp, so it
+      // is brightest by day; unlike paint, leaf catches whatever light is going, so it sinks less.
+      const day = night ? 0.62 : 1;
+      const GOLD = '#d9b458';
+      fill([TL, TR, BR, BL], rgba(mix([cr, cg, cb], [10, 8, 12], 0.82), 1), 1);
+      {
+        const t = P(0.5, 0), b = P(0.5, 1);
+        const grad = g.createLinearGradient(t.sx, t.sy, b.sx, b.sy);
+        grad.addColorStop(0, 'rgba(255,255,255,' + (0.14 * day) + ')');   // the varnish catching the sky
+        grad.addColorStop(0.35, 'rgba(255,255,255,0)');
+        grad.addColorStop(1, 'rgba(0,0,0,0.28)');
+        g.globalAlpha = a; g.fillStyle = grad; trace([TL, TR, BR, BL]); g.fill();
+      }
+      // Two rules, a heavy outer and a hairline inner, which is what separates gilding from paint.
+      g.strokeStyle = GOLD;
+      for (const [k, al, lw] of [[1, 0.85, 0.028], [2.4, 0.55, 0.010]]) {
+        const iu = clamp(2.2 * k / Math.max(8, wpx), 0.012, 0.09), iv = clamp(2.2 * k / Math.max(6, hpx), 0.05, 0.26);
+        g.globalAlpha = a * al * day; g.lineWidth = Math.max(0.7, hpx * lw);
+        trace([P(iu, iv), P(1 - iu, iv), P(1 - iu, 1 - iv), P(iu, 1 - iv)]); g.stroke();
+      }
+      g.globalAlpha = a; g.strokeStyle = 'rgba(10,8,12,0.95)'; g.lineWidth = 1.4; trace([TL, TR, BR, BL]); g.stroke();
+      inkCol = GOLD; inkSolid = true; pad = 0.10;
+    } else if (kind === 'halo') {
+      // ── HALO-LIT: DARK LETTERS, LIGHT BEHIND THEM ─────────────────────────────────────────
+      //
+      // Reverse-lit channel letters stand off a dark plate with their lamps facing the plate, so
+      // what reads is a glow on the plate behind a dark name. Drawn as a wash strongest along the
+      // board's middle, where the letters are, and dark lettering over it.
+      const lit = night ? 1 : 0.75;   // by day the letters stand dark against a lit plate, which is what makes them read
+      fill([TL, TR, BR, BL], '#0b0a0f', 1);
+      if (bloom && B > 0) { g.shadowColor = color; g.shadowBlur = 10 * B; }
+      for (const [v0, v1, al] of [[0.22, 0.78, 0.30], [0.34, 0.66, 0.42]]) {
+        const l = P(0, 0.5), r = P(1, 0.5);
+        const grad = g.createLinearGradient(l.sx, l.sy, r.sx, r.sy);
+        grad.addColorStop(0, 'rgba(0,0,0,0)');
+        grad.addColorStop(0.12, rgba([cr, cg, cb], al * lit));
+        grad.addColorStop(0.88, rgba([cr, cg, cb], al * lit));
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        g.globalAlpha = a; g.fillStyle = grad; trace(box(0, 1, v0, v1)); g.fill();
+      }
+      g.shadowBlur = 0;
+      g.globalAlpha = a; g.strokeStyle = 'rgba(10,8,12,0.95)'; g.lineWidth = 1.4; trace([TL, TR, BR, BL]); g.stroke();
+      inkCol = '#121016'; inkSolid = true; pad = 0.08;
+    } else if (kind === 'bulbs') {
+      // ── A BULB MARQUEE: A RING OF LAMPS ROUND A PAINTED FACE ─────────────────────────────────
+      //
+      // The picture-house and casino sign: round bulbs at a fixed pitch all the way round, which
+      // reads as a different century from a tube even at a distance, because the light is DOTS.
+      // ⚠ THE PITCH IS IN (u, v) OFF THE BOARD'S PIXEL SIZE, AND THE COUNT IS CAPPED, so a big
+      // board doesn't draw a thousand arcs.
+      const lit = night ? 1 : 0.5;
+      fill([TL, TR, BR, BL], rgba(mix([cr, cg, cb], [14, 12, 16], 0.80), 1), 1);
+      g.globalAlpha = a; g.strokeStyle = 'rgba(10,8,12,0.95)'; g.lineWidth = 1.4; trace([TL, TR, BR, BL]); g.stroke();
+      const iv = 0.11, iu = clamp(iv * hpx / Math.max(8, wpx), 0.01, 0.1);
+      const nu = clamp(Math.round(wpx / Math.max(4, hpx * 0.2)), 6, 60), nv = clamp(Math.round(nu * hpx / Math.max(8, wpx)), 2, 12);
+      const rad = clamp(hpx * 0.045, 0.6, 6);
+      const lamps = [];
+      for (let i = 0; i <= nu; i++) { const u = iu + (1 - 2 * iu) * i / nu; lamps.push(P(u, iv), P(u, 1 - iv)); }
+      for (let j = 1; j < nv; j++) { const v = iv + (1 - 2 * iv) * j / nv; lamps.push(P(iu, v), P(1 - iu, v)); }
+      if (bloom && B > 0) { g.shadowColor = '#ffd27a'; g.shadowBlur = 5 * B; }
+      g.globalAlpha = a * (0.55 + 0.45 * lit); g.fillStyle = night ? '#fff1c4' : '#e8d9a8';
+      g.beginPath();
+      for (const p of lamps) { g.moveTo(p.sx + rad, p.sy); g.arc(p.sx, p.sy, rad, 0, Math.PI * 2); }
+      g.fill();
+      g.shadowBlur = 0;
+      inkCol = '#fff4dc'; inkSolid = true; pad = 0.14;
     } else if (kind === 'applied') {
       // ── APPLIED LETTERS OVER A TROUGH LIGHT ─────────────────────────────────────────────────
       //

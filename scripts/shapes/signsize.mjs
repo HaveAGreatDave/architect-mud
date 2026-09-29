@@ -39,18 +39,18 @@ const FLOORS = [2, 3, 4, 6, 10];
 // on a building, it is a building with a sign for a facade.
 const MAX_STOREYS = 0.62;
 
-// ⚠ AND A CENSUS THAT COUNTS NAMES IS NOT A GATE. The block above can see that four kinds reach
+// ⚠ AND A CENSUS THAT COUNTS NAMES IS NOT A GATE. The block above can see that the kinds reach
 // the registry; it cannot see whether they PAINT differently, so a treatment that quietly fell
 // through to the tube's own strokes would be reported as present and be invisible on the street.
 // So each one is forced and a signed model is traced through the ordinary path — the same recording
-// context `models:diff` compares — and the four traces have to differ from each other.
+// context `models:diff` compares — and every pair of traces has to differ from each other.
 // ⚠ BY HASH, NEVER BY OP COUNT: `applied` and `painted` both draw 192 ops and are not the same sign.
 function kindTraces(ws) {
   const reg = Object.fromEntries(ws.shapeModelRegistry().map((e) => [e.key, e.m]));
   const m = reg['type:off_licence'] || ws.shapeModelRegistry()[0].m;
   const hash = (t) => { let h = 0; for (const op of t) { const s = JSON.stringify(op); for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; } return h; };
   const out = new Map();
-  for (const k of ['tube', 'box', 'applied', 'painted']) {
+  for (const k of ['tube', 'box', 'applied', 'painted', 'gilt', 'halo', 'bulbs']) {
     ws.signKindForce(k);
     try { out.set(k, hash(ws.captureModelTrace(m, { night: 1, name: 'SPIRIT LEVEL', dist: 4 }))); }
     finally { ws.signKindForce(null); }
@@ -129,9 +129,9 @@ if (!BEFORE) {
     }
     seen.set(h, k);
   }
-  if (REPORT) console.log('  four kinds, four traces: ' + [...tr].map(([k, h]) => k + ' ' + h).join(' · ') + '\n');
+  if (REPORT) console.log('  kinds and traces: ' + [...tr].map(([k, h]) => k + ' ' + h).join(' · ') + '\n');
 }
-if (!BEFORE && kinds.size < 4) {
+if (!BEFORE && kinds.size < 7) {
   console.error(`\n  only ${kinds.size} fascia kind(s) reach the registry — 'fasciaKind' is rolling everything onto one treatment\n`);
   process.exit(1);
 }
