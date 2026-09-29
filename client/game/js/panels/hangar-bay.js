@@ -1111,12 +1111,12 @@ function wire() {
     if (act === 'tune-reset') { B.tune = { mixture: 0, pitch: 0, boost: 0, cg: 0 }; paintTuning(); return; }
     if (act === 'sell') {
       const c = (B.data.craft || []).find(x => x.id === idOf());
-      if (c) showConfirmDialog({ title: 'Sell Aircraft', prompt: `Sell the ${c.tail} outright? This deletes her, can't be undone.`, command: `sell ${c.id}`, confirmLabel: 'Sell' });
+      if (c) showConfirmDialog({ title: 'Sell Aircraft', hold: true, prompt: `Sell the ${c.tail} outright? This deletes her, can't be undone.`, command: `sell ${c.id}`, confirmLabel: 'Sell' });
       return;
     }
     if (act === 'cancel_rental') {
       const c = (B.data.craft || []).find(x => x.id === idOf());
-      if (c) showConfirmDialog({ title: 'Cancel Rental', prompt: `Hand back the ${c.tail}? This deletes the rental, can't be undone.`, command: `cancelrental ${c.id}`, confirmLabel: 'Return' });
+      if (c) showConfirmDialog({ title: 'Cancel Rental', hold: true, prompt: `Hand back the ${c.tail}? This deletes the rental, can't be undone.`, command: `cancelrental ${c.id}`, confirmLabel: 'Return' });
       return;
     }
     if (act === 'paint-apply') { const c = (B.data.craft || []).find(x => x.id === B.selId); if (c) sendCmdSilent(`paintset ${c.id} ${B.work.base} ${B.work.trim} ${B.work.pattern} ${B.work.finish} ${B.work.cabin} ${B.work.uphol} ${B.work.decal || 'none'} ${B.work.accent || '#c22b8c'} ${B.work.ground || '#eee7d6'} ${B.work.variant || 'stock'} ${B.work.itrim || 'stock'} ${(B.work.plate || '').trim().replace(/ +/g, '_') || '-'} ${Object.entries(B.work.parts || {}).map(([k, v]) => k + ':' + v).join(',') || '-'}`); return; }

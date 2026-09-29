@@ -15575,6 +15575,21 @@ body.esp-active #output {
 	color: var(--text-bright);
 }
 .confirm-actions button:hover { border-color: var(--accent); }
+/* Hold to confirm (confirm.js holdToConfirm): the button fills left to right as
+   it's held and fires when full. The fill is the progress, not decoration, so it
+   stays with Motion off; only the ease back on letting go is dropped. */
+.confirm-hold { position: relative; overflow: hidden; touch-action: none; user-select: none; }
+.confirm-hold .hold-fill {
+	position: absolute;
+	inset: 0;
+	transform-origin: left center;
+	transform: scaleX(var(--hold, 0));
+	background: color-mix(in srgb, var(--text-bright) 30%, transparent);
+	pointer-events: none;
+}
+.confirm-hold:not(.holding) .hold-fill { transition: transform 0.18s ease-out; }
+.confirm-hold .hold-label { position: relative; }
+[data-motion="off"] .confirm-hold .hold-fill { transition: none; }
 
 /* Select dialog (showSelectDialog) — a scrollable column of pickable options. */
 .confirm-select-list {

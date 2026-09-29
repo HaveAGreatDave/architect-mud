@@ -39,6 +39,13 @@ makes, and the tick the mouse makes passing over one
 never gets the hover tick, so it can't talk over a screen reader or double a tap. The cues are the
 `interface` group in `sfx-catalog.js` on the dry `ui` bus, which the SFX slider moves.
 
+**Hold to confirm** (`holdToConfirm` in [confirm.js](../client/game/js/panels/confirm.js)) guards the
+choices that can't be undone: selling or handing back an aircraft, `drop all` (the server's confirm
+carries `hold: true`) and the sign-out danger dialog. The button fills as it's held and fires when
+full. Enter or Space held does the same. A screen reader's virtual cursor can't hold, so a bare click
+with no press behind it arms the button and a second click within four seconds fires it; the
+button's label names both ways. First focus goes to Cancel.
+
 **Sound Detail is a preference, not an accessibility-only feature**, and `off` is not the volume
 slider: volume answers *how loud*, this answers *how much*. It changes nothing about the game's
 difficulty, which is the bar every row on this page has to clear.

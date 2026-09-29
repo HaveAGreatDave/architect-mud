@@ -29,6 +29,9 @@ const CANCEL_TEXT = /^\s*(?:[‹<←✕×✖]\s*)?(back|close|cancel|revert|dism
 const HOVER_GAP_MS = 45;
 const OWN_CUE_MS = 40;
 
+// For a control that answers something other than a click (confirm.js's hold), in the same voice
+// and under the same switch.
+export function playUi(id, gain = 1) { play(id, gain); }
 function play(id, gain = 1) {
   if (mode === 'off') return;
   const eng = window.AudioEngine, def = window.SFXCatalog?.get(id);
