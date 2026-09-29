@@ -263,7 +263,7 @@ guess an unrecognised one.
 
 ### Are the gaps real? (`ops:gaps`)
 
-Yes — measured 2026-09-02 over 7 days: 82 gaps, 50 of them past the 15-minute
+Yes. Measured 2026-09-02 over 7 days: 82 gaps, 50 of them past the 15-minute
 idle threshold, **110.8h up out of 168h**. The service spins down as designed, is
 woken ~12x/day, and every wake re-reads the whole boot payload. The cold-start
 rate the egress model multiplies by is sound.
@@ -322,8 +322,8 @@ OPS_WEBHOOK_URL=…    # Discord channel → Integrations → Webhooks
 | Command | Does |
 |---|---|
 | `npm run ops:usage` | Verdict table, attribution, alert if warranted. |
-| `npm run ops:usage:discover` | Raw API payloads, no verdicts. Use when a shape changes. ⚠ A week of CPU samples is ~10,000 timestamps, so this scrolls off a terminal — redirect it (`> dump.json`) rather than reading it live, and reach for `ops:gaps` when the question is about uptime. |
-| `npm run ops:gaps` | Gap histogram over Render's CPU timeline — tells a spin-down from a missed scrape. `--days N` to widen the window. |
+| `npm run ops:usage:discover` | Raw API payloads, no verdicts. Use when a shape changes. ⚠ A week of CPU samples is ~10,000 timestamps, so this scrolls off a terminal, so redirect it (`> dump.json`) rather than reading it live, and reach for `ops:gaps` when the question is about uptime. |
+| `npm run ops:gaps` | Gap histogram over Render's CPU timeline. Tells a spin-down from a missed scrape. `--days N` to widen the window. |
 | `npm run ops:smoke` | The pure decision logic. Wired into `pretest:regress`. |
 
 Flags: `--json`, `--no-alert`, `--no-db` (skip attribution), `--fail-on-alert`
