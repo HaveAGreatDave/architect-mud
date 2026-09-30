@@ -4,7 +4,7 @@ import { appendHtml, appendMsg, releaseScrollLock } from './render.js';
 import { MARKUP_HELP_HTML, STATUS_TEMPLATE } from './markup.js';
 import { appendToWhisperLog, sendToActiveTab } from './panels/whisper.js';
 import { openMusicPlayerPanel } from './panels/musicplayer.js';
-import { DISCORD_INVITE } from './panels/tablet-os.js';
+import { DISCORD_INVITE } from './panels/links.js';
 import { isFlightSimActive, isCockpitHudActive } from './panels/lazy-views.js';
 import { isHangarBayWalkActive } from './panels/lazy-views.js';
 import { isPianoKeysLive } from './panels/piano.js';

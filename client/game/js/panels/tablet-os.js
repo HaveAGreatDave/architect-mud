@@ -26,6 +26,9 @@ import { parseMarkup } from '../markup.js';
 import { openMusicPlayerPanel } from './musicplayer.js';
 import { createTvView } from './tv.js';
 import { resetOrder } from './sidebar-order.js';
+import { loadQLog, saveQLog, recordQuestLog } from './quest-log.js';
+import { DISCORD_INVITE } from './links.js';
+export { DISCORD_INVITE };
 
 // Tablet's theme can be independent of the shared UI theme ("unlinked") —
 // its own tiny localStorage record, separate from architect_settings, so
@@ -54,32 +57,17 @@ function saveTabletTheme(t) {
 //   kind: 'start' | 'arrive' | 'emote' | 'objective' | 'complete'
 // A quest flips `done` on its 'complete' beat; its bucket is purged the next time
 // the tablet closes (purgeCompletedQuestLogs) — "clears once finished + closed".
-const QLOG_KEY = 'architect_quest_log_v2';
-const QLOG_ENTRY_CAP = 60; // per-quest, oldest trimmed
-function loadQLog() {
-  try { const o = JSON.parse(localStorage.getItem(QLOG_KEY) || '{}'); return (o && typeof o === 'object') ? o : {}; }
-  catch { return {}; }
-}
-function saveQLog(o) { try { localStorage.setItem(QLOG_KEY, JSON.stringify(o)); } catch {} }
-
-// Feed a structured server quest_log event into its quest's bucket.
+// Storage lives in quest-log.js so a quest line can be recorded without loading
+// this file; lazy-views.js records it there, then calls questLogChanged here if
+// the tablet is loaded.
 export function noteQuestLog(msg) {
-  if (!msg || !msg.quest_id || !msg.kind || !msg.text) return;
-  const log = loadQLog();
-  const q = log[msg.quest_id] || (log[msg.quest_id] = { name: '', done: false, entries: [] });
-  if (msg.kind === 'start') q.name = msg.text;
-  if (msg.kind === 'complete') q.done = true;
-  const entries = q.entries;
-  // Collapse an exact immediate repeat (e.g. a double-fired line).
-  const last = entries[entries.length - 1];
-  if (!(last && last.kind === msg.kind && last.text === msg.text)) {
-    entries.push({ kind: msg.kind, text: msg.text, t: Date.now() });
-    if (entries.length > QLOG_ENTRY_CAP) entries.splice(0, entries.length - QLOG_ENTRY_CAP);
-  }
-  saveQLog(log);
-  // Live-refresh the detail screen if it's showing this very quest.
+  if (recordQuestLog(msg)) questLogChanged(msg.quest_id);
+}
+
+// Live-refresh the detail screen if it's showing this very quest.
+export function questLogChanged(questId) {
   if (_overlay && _data && _data.appId === 'quests' && _data.view === 'detail'
-      && (_data.quest?.id || _data.detail?.id) === msg.quest_id) {
+      && (_data.quest?.id || _data.detail?.id) === questId) {
     _keepQuestScroll = true;
     render();
   }
@@ -6711,7 +6699,7 @@ const DISCORD_SERVER_ID = '1537202670451040316';
 // case the link beside it exists for.
 // Exported because the `discord` verb (client/game/js/input.js) prints the same link, and an invite
 // that lives in two places is an invite that expires in one of them.
-export const DISCORD_INVITE = 'https://discord.gg/kgPYFpQNQ';
+// DISCORD_INVITE lives in links.js, so input.js can use it without loading this file.
 function renderDiscordPage() {
   // The tablet's own theme drives the widget's: a parchment tablet with a black widget bolted into
   // it reads as a bug rather than as a choice. `LIGHT_THEMES` is a list of [value, label] PAIRS,

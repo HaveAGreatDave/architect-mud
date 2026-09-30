@@ -34,7 +34,7 @@
 import { sendCmd, sendRaw } from '../net.js';
 import { appendMsg, appendHtml } from '../render.js';
 import { state } from '../state.js';
-import { getTabletInventory } from './tablet-os.js';
+import { getTabletInventory } from './lazy-views.js';
 import { refreshInventory, getEquipInventory } from './inventory-state.js';
 import { handleClientCommand } from '../input.js';
 import { renderSmartBar } from './smartbar.js';

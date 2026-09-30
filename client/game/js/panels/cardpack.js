@@ -22,7 +22,7 @@ import { sendCmd, sendCmdSilent } from '../net.js';
 import { refreshInventory } from './inventory-state.js';
 import { sfx, esc, mountOverlay } from './minigame-common.js';
 import { prefersReducedMotion } from '/shared/settings.js';
-import { openTabletToBinder } from './tablet-os.js';
+import { openTabletToBinder } from './lazy-views.js';
 
 // ── the rarity ladder, as presentation ────────────────────────────────────────
 // One table drives colour, ray count, screen flash, the pre-flip HOLD and the

@@ -29,7 +29,7 @@ import { openWantedPoster } from './panels/wantedposter.js';
 import { openCorpConsole, updateCorpConsole } from './panels/corp-console.js';
 import { isA11yTablet, renderA11yTablet, close as closeA11yTablet, initA11yTablet } from './panels/tablet-a11y.js';
 import { openListDialog, closeListDialog, initListDialog } from './panels/listdialog.js';
-import { openTabletPanel, closeTabletPanel, tabletQuestUpdate, noteQuestLog, openTabletToSpecter, openTabletToReel, openTabletSpecterInstall, refreshTabletGearIfOpen, openTabletToMap, refreshTabletMapIfOpen, openTabletTvPanel } from './panels/tablet-os.js';
+import { openTabletPanel, closeTabletPanel, tabletQuestUpdate, noteQuestLog, openTabletToSpecter, openTabletToReel, openTabletSpecterInstall, refreshTabletGearIfOpen, openTabletToMap, refreshTabletMapIfOpen, openTabletTvPanel } from './panels/lazy-views.js';
 import { openCorpMap } from './panels/corp-map.js';
 import { openVoidwalkStaging, appendVoidwalkChat } from './panels/voidwalk-staging.js';
 import { openMediaDeckPanel, updateMediaDeckBroadcast, applyMediaDeckOverlay } from './panels/mediadeck.js';

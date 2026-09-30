@@ -16,6 +16,8 @@
 // and everything under it back into the boot graph, and the server preloads the
 // whole static graph (server/modulegraph.js). Import it from here.
 
+import { recordQuestLog } from './quest-log.js';
+
 // A view with GLASS in its static graph has already fetched windshield.js by the
 // time it resolves, so this import is a module-map hit, not a download. It hands
 // GLASS the bird season and weather environment.js has been keeping.
@@ -126,3 +128,22 @@ export const closeMarinaService = ifLoaded(marina, 'closeMarinaService');
 export const marinaSetData = call(marina, 'marinaSetData');   // opens the marina when none is open
 export const openMarina = call(marina, 'openMarina');
 export const openMarinaService = call(marina, 'openMarinaService');
+
+// tablet-os.js (894 KB raw). Quest lines are recorded in quest-log.js whether or
+// not the tablet is loaded; the tablet only hears about them to refresh a screen.
+const tablet = lazy('tablet-os', () => import('./tablet-os.js'), { glass: false });
+export const closeTabletPanel = ifLoaded(tablet, 'closeTabletPanel');
+export const tabletQuestUpdate = ifLoaded(tablet, 'tabletQuestUpdate');
+export const refreshTabletGearIfOpen = ifLoaded(tablet, 'refreshTabletGearIfOpen', false);
+export const refreshTabletMapIfOpen = ifLoaded(tablet, 'refreshTabletMapIfOpen', false);
+export const getTabletInventory = () => tablet.get()?.getTabletInventory() ?? [];
+export const openTabletPanel = call(tablet, 'openTabletPanel');
+export const openTabletToSpecter = call(tablet, 'openTabletToSpecter');
+export const openTabletToReel = call(tablet, 'openTabletToReel');
+export const openTabletSpecterInstall = call(tablet, 'openTabletSpecterInstall');
+export const openTabletToMap = call(tablet, 'openTabletToMap');
+export const openTabletTvPanel = call(tablet, 'openTabletTvPanel');
+export const openTabletToBinder = call(tablet, 'openTabletToBinder');
+export function noteQuestLog(msg) {
+  if (recordQuestLog(msg)) tablet.get()?.questLogChanged(msg.quest_id);
+}
