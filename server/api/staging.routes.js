@@ -38,6 +38,7 @@ export async function handleStagingApi(path, method, body, auth) {
   if (path === '/staging/reject' && method === 'POST') return reject(body, auth);
   if (path === '/staging/resolve' && method === 'POST') return resolve(body, auth);
   if (path === '/staging/deployments' && method === 'GET') return getDeployments();
+  if (path === '/staging/deployments/latest' && method === 'GET') return getLatestDeployAt();
   return null;
 }
 
@@ -163,8 +164,8 @@ const CREATORS = {
     const { region, zones } = data || {};
     const dr = await apiCreateRegion(region || {});
     if (dr?.body?.error) throw new Error(dr.body.error);
-    // skipHooks so the zone-validator's async autoRepair can't strip a tile's exits to
-    // siblings that aren't inserted yet — the fresh grid must stay internally connected.
+    // skipHooks so no zone.create listener sees a tile whose exits point at siblings that
+    // aren't inserted yet.
     for (const z of (zones || [])) {
       const r = await apiCreateZone(z, null, { skipHooks: true });
       if (r?.body?.error) throw new Error(`${z.id}: ${r.body.error}`);
@@ -355,6 +356,13 @@ async function resolve(body) {
       message: `Resolved ${resolved.length} of ${rows.length}${errors.length ? `, ${errors.length} still failed` : ''}`,
     },
   };
+}
+
+// The dashboard's deploy clock polls this once a minute and only reads the timestamp, so it
+// skips changes_summary. The staging panel's list still uses getDeployments.
+async function getLatestDeployAt() {
+  const { rows } = await query('SELECT deployed_at FROM deployments ORDER BY deployed_at DESC LIMIT 1');
+  return { status: 200, body: { deployments: rows.map(r => ({ deployedAt: r.deployed_at })) } };
 }
 
 async function getDeployments() {

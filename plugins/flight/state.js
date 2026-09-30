@@ -538,13 +538,21 @@ export function fieldFor(player) {
 // `flags.aircraft_hangar` whose `world_exit_zone` is the field's ramp tile. It is drawn as a
 // `bay` with `bk: 'air'` (deriveSurfaceCell below; windshield.js bayDims), and `hangaract service|launch`
 // stands an aircraft on it. One scan per field, cached; a zone reload clears it (index.js).
+// A field can have two: the regular hangar (`aircraft_hangar: true`) and a heavy bay
+// (`aircraft_hangar` plus `heavy_hangar`, `bk: 'heavy'`), the one shed the Leviathan fits. `heavy` asks for
+// the heavy bay and falls back to the regular one; everything else gets the regular one first.
 const _hangarTiles = new Map();
-export function hangarTileFor(field) {
+export function hangarTileFor(field, heavy = false) {
   if (!field) return null;
-  if (_hangarTiles.has(field.id)) return _hangarTiles.get(field.id);
-  const hit = getAllZones().find(z => z.flags?.aircraft_hangar && z.flags.world_exit_zone === field.id && z.grid_x != null) || null;
-  _hangarTiles.set(field.id, hit);
-  return hit;
+  let hit = _hangarTiles.get(field.id);
+  if (!hit) {
+    // `hangar_field` names the field outright, for a shed whose door opens onto another apron tile
+    // (the heavy bay does); otherwise the field is the tile the facade lets out onto.
+    const all = getAllZones().filter(z => z.flags?.aircraft_hangar && (z.flags.hangar_field || z.flags.world_exit_zone) === field.id && z.grid_x != null);
+    hit = { reg: all.find(z => !z.flags.heavy_hangar) || null, heavy: all.find(z => z.flags.heavy_hangar) || null };
+    _hangarTiles.set(field.id, hit);
+  }
+  return heavy ? (hit.heavy || hit.reg) : (hit.reg || hit.heavy);
 }
 export function clearHangarTiles() { _hangarTiles.clear(); }
 // Which way an aircraft on the hangar floor faces: out through the door, which is the facade's
@@ -1161,8 +1169,9 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   let lk;
   const lkf = cell.flags?.gate_lock;
   if (lkf && typeof lkf === 'object') {
-    const open = (c) => !!(c && (c.flags?.gate_lock || c.flags?.perimeter_gate || isRoadCell(c)
-      || (c.flags?.building_type === 'weigh_station' && lkf.k === 'deck')));
+    // A vehicle bay opening onto the lock (the Motor Pool beside the police lane) is a door, not a wall.
+    const open = (c) => !!(c && (c.flags?.gate_lock || c.flags?.perimeter_gate || isRoadCell(c) || c.flags?.vehicle_bay
+      || ((c.flags?.building_type === 'weigh_station' || c.flags?.building_type === 'police') && lkf.k === 'deck')));
     let wl = '';
     if (!open(at(x, y - 1))) wl += 'n';
     if (!open(at(x + 1, y))) wl += 'e';
@@ -1433,7 +1442,7 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // and nothing is authored. Undefined on every other tile in the world, so it costs no egress there.
   const prp = (cell.flags?.boat_fuel && cell.flags?.building_type !== 'fuel_dock') ? 'fuel' : cell.flags?.boat_hardstanding ? 'hard'
     : (cell.flags?.truck_yard && cell.flags?.truck_fuel) ? 'apron' : undefined;
-  const bk = cell.flags?.aircraft_hangar ? 'air' : undefined;
+  const bk = cell.flags?.aircraft_hangar && cell.flags?.heavy_hangar ? 'heavy' : cell.flags?.aircraft_hangar ? 'air' : undefined;
   return { prp, kind, biome, road, danger: cell.danger, pad, bt, bn, ent, flr, mark, bk, strip, rd, rdeg, rt, rw, rl, wr, rc, wake, sub, heading, cur, ci, ft, hi, cf, pf: cell.flags?.park_feature, pw, em, og, sl, sgn, plz, lk, bf, bq, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
 }
 

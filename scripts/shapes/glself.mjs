@@ -248,6 +248,13 @@ const KNOWN = new Map([
   // that talks about doorways. The number was real and the label was wrong, which is the failure a
   // shared catch-all category has: it passes because it is big, and it is big because of something
   // nobody meant to put in it. 2 is what the doorways actually cost.
+  // The control tower's three legs (the `atc` arm in windshield.js) are structure, not paint: each
+  // one stands on the podium's lid and meets the equipment drum under the cab, so its foot and its
+  // head are flush against its own building by construction. Four points, all at those two joints.
+  ['decal:atc-leg', { budget: 4, why:
+   'the control tower\'s legs, whose feet stand on the podium lid and whose heads meet the '
+   + 'equipment drum. A leg that met neither would be a leg hanging in the air; the only points '
+   + 'the tie-breaker brings out are the ones sitting on those two surfaces.' }],
   ['decal:solid', { budget: 2, why:
    'the recessed doorway panels. `emitDecoFill` is already capped at DECO_PULL, and these are the '
    + 'few that are authored far enough INTO their own facade that even a 0.05 tie-breaker brings '

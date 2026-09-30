@@ -1,39 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "city",
-  "description": "THE SOUTH GATE. The Gate Road climbs to a throat of scorched rockcrete where the Architect's Curtain parts in a single lit gap. Twin turret masts flank it, barrels sweeping the killing ground in slow arcs. Grey-uniformed perimeter guards under a caged amber beacon wave traffic through and log everyone who walks south. The gate is open.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Grass has the end of the Gate Road, the tarmac broken up under it and going nowhere. There's a square of scorched rockcrete where the South Gate stood before it moved west to Meltwater Row, and the sawn-off stumps of two turret masts. The Architect's Curtain seals the edge here: a floor-to-sky sheet of humming hard light. There's no way through but the South Gate.",
   "exits": {
     "east": "zone_district_919_919",
     "north": "zone_district_918_918",
-    "south": "zone_district_918_920",
     "west": "zone_district_917_919"
   },
   "flags": {
-    "artery": [
-      "The Gate Road"
-    ],
-    "checkpoint_cfg": {
-      "checks": [
-        "wanted",
-        "smuggle",
-        "contraband"
-      ],
-      "fromDistrict": "wilds",
-      "guards": "the gate guards",
-      "wantedMode": "bluff"
-    },
-    "district": "ashway",
-    "gate_warning": "One of the grey-uniformed gate guards steps into your path before you reach the throat of light. \"Hold up. I don't know your face, so you'll hear this once. Nobody walks the waste without it.\" She tips her head at the Curtain, where the Gate Road simply ends. \"Past this wall there's no road, no rescue, and no clone-vat waiting on you if it goes bad out there. It's open killing ground: the turrets sweep it, the wind moves it, and it buries its own. Most who walk south don't walk back. Carry water. Carry people. Don't carry a warrant.\" She thumbs at two smudges on the far horizon. \"Two places worth reaching, if you must. South, past the deep waste, lies <b>The Reach</b>, an air-town that takes the kind the city won't. East is <b>Exodus</b>, for those done with allegiances. Everything between is just the going.\" She steps aside and waves you toward the gap. \"That's your warning. Feet forward, and don't look back for whoever falls.\"",
-    "light_beacon": true,
-    "perimeter_gate": true,
+    "curtain": true,
+    "district": "wasteland",
     "region_id": "region_coldwater",
-    "terrain": "road"
+    "terrain": "grass"
   },
   "grid_x": 918,
   "grid_y": 919,
   "grid_z": 0,
   "id": "zone_district_918_919",
   "map_id": "map_world",
-  "name": "The South Gate",
+  "name": "Grasslands",
   "parent_zone": null
 }

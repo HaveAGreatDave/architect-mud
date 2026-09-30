@@ -1,26 +1,28 @@
 {
   "ambient_events": [],
-  "ambient_theme": "city",
+  "ambient_theme": "indoors",
   "color": "#9aa0b0",
-  "description": "Faded taxiway markings run off toward the hangars, the paint scoured to suggestion. Rubber scuffs and oil stains map decades of landings; somewhere a loose panel ticks against its frame in the wind.",
+  "description": "A white tripod of poured concrete standing on a glass drum, three legs meeting under a green-glass cab ten storeys up. Neon runs up every leg, pink as a bad idea. The radar on the roof turns whether or not anyone is flying. The door is west; the apron is east.",
   "exits": {
     "east": "zone_district_925_901",
-    "north": "zone_district_924_900",
-    "south": "zone_district_924_902",
-    "west": "zone_district_923_901"
+    "west": "zone_cw_tower"
   },
   "flags": {
+    "building_name": "Coldwater Regional Tower",
+    "building_type": "control_tower",
     "district": "docks",
+    "entrance": "east",
+    "facade": true,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "runway": "pad",
-    "scavenging_table_id": "scav_industrial_salvage",
-    "terrain": "asphalt"
+    "world_exit_zone": "zone_district_925_901"
   },
   "grid_x": 924,
   "grid_y": 901,
   "grid_z": 0,
   "id": "zone_district_924_901",
   "map_id": "map_world",
-  "name": "Runway",
+  "marker": "TW",
+  "name": "Coldwater Regional Tower",
   "parent_zone": null
 }

@@ -120,7 +120,7 @@ globalThis.requestAnimationFrame = () => 0;
 globalThis.cancelAnimationFrame = () => {};
 globalThis.localStorage = globalThis.window.localStorage;
 globalThis.Image = class { set src(_) {} addEventListener() {} };
-globalThis.Path2D = class { addPath() {} };
+globalThis.Path2D = class { addPath() {} rect() {} moveTo() {} lineTo() {} closePath() {} };
 globalThis.OffscreenCanvas = class {
   constructor(w, h) { this.width = w; this.height = h; }
   getContext() { return makeCtx(); }

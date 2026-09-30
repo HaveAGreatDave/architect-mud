@@ -48,6 +48,16 @@ export const GOOSE_AREA_BIAS = 0.45;   // above this a block is goose country; b
 const DENSE = 0.075, SPARSE = 0.006;   // per-habitat-tile chance in each case
 import { liveColumnNear } from './thermals.js';
 
+// ── THE WORLD SCALE ─────────────────────────────────────────────────────────────
+// ⚠ ONE STATEMENT OF IT, for every bird in the game. GLASS pins the world to the building storey:
+// a storey is 0.196 tiles and 3.5 m, so a tile is 17.9 m, and aircraft, people and trees are drawn
+// on the same number. Everything metric about a bird (a speed, a gap, a radius flown at a speed) is
+// written in metres and goes through `M`; what is written in tiles is a fact about the MAP (how
+// big a field is, how near a building may be) and stays in tiles. murmur.js and windshield.js read
+// this constant rather than stating their own.
+export const BIRD_M_PER_TILE = 3.5 / 0.196;
+const M = (m) => m / BIRD_M_PER_TILE;
+
 const frac = (n) => { const x = Math.sin(n) * 43758.5453; return x - Math.floor(x); };
 // ⚠ THE HASH CONSTANTS ARE OFFSET FROM THE TREE ONES. The scatter pass picks wooded patches with
 // `frac(floor(wx/4)*71.7 + floor(wy/4)*131.3)` and `frac(wx*57.1 + wy*199.7)`. Reusing those on a
@@ -153,9 +163,10 @@ export const gooseHabitat = (ground) => GOOSE_HABITAT[ground] || null;
 export const GOOSE_PERIOD = 100000;   // ms, before the per-flock jitter below
 export const U_GROUND = 0.40;         // the share of a period spent on the ground
 export const GOOSE_Z = 2.2;           // tiles, the top of the circuit
-// tiles, the radius of the circuit. ⚠ SET BY SPEED: a 60 s flight round 3.4 tiles was a 5.7 m/s
-// median against a Canada goose's 18 m/s cruise; at 9 it is 15 m/s, peaking at 29 on the climb out.
-export const GOOSE_R = 9;
+// The radius of the circuit, 99 m. ⚠ SET BY SPEED: a 60 s flight round 37 m was a 5.7 m/s median
+// against a Canada goose's 18 m/s cruise; at 99 m it is 15 m/s, peaking at 29 on the climb out.
+// (GOOSE_Z above is a height against the skyline, so it stays in tiles: 2.2 is about 39 m.)
+export const GOOSE_R = M(99);
 
 const smooth = (t) => { const x = t < 0 ? 0 : t > 1 ? 1 : t; return x * x * (3 - 2 * x); };
 const TAU = Math.PI * 2;
@@ -392,7 +403,7 @@ function thermalAt(f, t, sp, cx = f.ax, cy = f.ay, cr = null) {
     x: cx + bx + Math.cos(bear) * reach,
     y: cy + by + Math.sin(bear) * reach,
     z: sp.z * (1 - u) * (1 - u),
-    r: Math.max(0.2, reach),
+    r: Math.max(M(2.2), reach),
     th: bear,
   };
 }
@@ -996,7 +1007,7 @@ export function flockEdgeHeading(f, takingOff, clear = null) {
  * eviction rule — for an effect that is spent entirely on how fast the birds are walking and how
  * far apart they stand. Nothing about the silhouette changes, so it costs no texture either.
  */
-export const STARTLE_R = 5;
+export const STARTLE_R = M(55);   // metres: a flock looks up at about this range
 export const alarmAt = (d) => smooth((STARTLE_R - d) / STARTLE_R);
 
 // ── THE SKEIN ─────────────────────────────────────────────────────────────────
@@ -1009,8 +1020,8 @@ export const alarmAt = (d) => smooth((STARTLE_R - d) / STARTLE_R);
 // ⚠ THEY SIT MORE THAN A WINGSPAN APART. Cutts & Speakman photographed 54 skeins of pink-footed
 // geese from directly underneath and measured a mean WING-TIP SPACING of 16.9 cm — about a ninth of
 // a span — so centre to centre is a span and a bit. A skein is a row of separate animals with sky
-// between them, which is what the first version of this got wrong: at 0.075 tiles across on a
-// model 0.145 wide, every bird overlapped its neighbours and the flock read as one moving lump.
+// between them, which is what the first version of this got wrong: at half a span across,
+// every bird overlapped its neighbours and the flock read as one moving lump.
 //
 // ⚠ AND THEY ARE BAD AT IT, DELIBERATELY. The variation in that spacing is high, and the mean sits
 // OUTBOARD of the position that would save the most — they bank 14% of induced power out of a
@@ -1034,11 +1045,13 @@ export const alarmAt = (d) => smooth((STARTLE_R - d) / STARTLE_R);
 // bargain this whole file makes. A flock has no memory of its own formation; it is recomputed from
 // scratch every frame and comes out the same on two machines because they share a wall clock.
 
-// The drawn model's wingtip-to-wingtip, in tiles. ⚠ STATED HERE RATHER THAN IMPORTED: this file is
-// shared with the server, which has no renderer to reach into — so `fauna.mjs` asserts the two
-// agree instead, because a spacing written against a model that has since been resized is a flock
-// that silently goes back to being a lump.
-export const GOOSE_SPAN = 0.145;
+// The drawn model's wingtip-to-wingtip: a Canada goose's 1.65 m. ⚠ STATED HERE, AND fauna3d.js
+// SIZES THE MODEL FROM IT: this file is shared with the server, which has no renderer to reach
+// into, so the renderer reads this one (FAUNA_TILE) and `fauna.mjs` asserts the two agree, because
+// a spacing written against a model that has since been resized is a flock that silently goes
+// back to being a lump.
+export const GOOSE_SPAN_M = 1.65;
+export const GOOSE_SPAN = M(GOOSE_SPAN_M);
 // Centre to centre across the formation, and behind. The measured wing-tip GAP is a ninth of a
 // span, so centre to centre is 1.11 of one; 0.6 spans of depth is what puts the arm at about 62°
 // off the axis, an included angle of 124°, which is where small goose skeins are measured.
@@ -1055,8 +1068,8 @@ const FLAP_WAVELENGTH = GOOSE_CRUISE / GOOSE_FLAP_HZ;
 // behind is holding position on the one in front, so the error accumulates and the tail of a skein
 // is the raggedest part of it. A flat amplitude makes the point of the V wobble, which reads as the
 // whole formation being blown about rather than as birds station-keeping.
-const WANDER_ACROSS = 0.34, WANDER_ALONG = 0.55, WANDER_LIFT = 0.055;
-const LIFT_FLOOR = 0.22;              // tiles of altitude below which the skein comes level
+const WANDER_ACROSS = 0.34, WANDER_ALONG = 0.55, WANDER_LIFT = M(0.6);
+const LIFT_FLOOR = M(2.4);            // altitude below which the skein comes level
 const WANDER_RANK = 0.45;             // the share of the amplitude a rank-0 bird gets
 const WANDER_SLOW = 0.00061, WANDER_FAST = 0.00103;   // rad/ms — a drift of seconds, never a jitter
 // How much the V opens and closes, and how slowly.
@@ -1350,8 +1363,6 @@ export function flockOnSegment(ax, ay, bx, by, now, isHabitat, radius = STRIKE_R
 // `MURMUR_M3_PER_BIRD` cubic metres. The count is how much of that volume the airframe's frontal area
 // swept through. It is the expected number of birds in that volume, not a roll against it.
 
-// Metres in a tile: the scale murmur.js states once (a starling at 12 m/s is 1.09 tiles/s).
-export const BIRD_M_PER_TILE = 12 / 1.09;
 // The masses a strike's energy is taken from, in kg: Canada goose, herring gull, feral pigeon,
 // European starling, a buteo, a vulture. ½mv² is what the airframe absorbs.
 export const BIRD_MASS_KG = { goose: 4.0, gull: 1.0, pigeon: 0.35, songbird: 0.08, hawk: 1.0, peregrine: 0.9, vulture: 1.9 };
@@ -1562,9 +1573,9 @@ export const SPECIES = {
     id: 'goose',
     // ⚠ HOW IT LEAVES THE GROUND (the renderer only; the flock's own height is untouched). `run` is the
     // distance in metres it covers on its feet before the body lifts, `beat` how much faster it beats while
-    // launching, `hop` how high each stride bounces it in tiles. A Canada goose is heavy with a high wing
+    // launching, `hop` how high each stride bounces it (M: metres to tiles). A Canada goose is heavy with a high wing
     // loading and cannot jump off: it runs, pattering and beating hard, for several metres on land or water.
-    takeoff: { run: 12, beat: 1.4, hop: 0.004 },
+    takeoff: { run: 12, beat: 1.4, hop: M(0.044) },
     // and on to WATER it comes in low, sets its feet forward and skis on them for a few metres before it
     // settles: `skid` is that distance in metres (drawing only, like the run)
     landing: { skid: 6 },
@@ -1575,18 +1586,20 @@ export const SPECIES = {
     // How close together they stand when they are down, centre to centre — see groundPatchR. A
     // grazing goose keeps about three metres of grass to itself, which is what makes a flock of
     // eight a spread rather than a huddle.
-    groundPitch: 0.27,
+    groundPitch: M(3),
     forms: SKEIN_FORMS,
     dayStart: 6, dayEnd: 20,
     // How often this flock says anything, and how much it says when it does.
     callEvery: 96000, callBurst: [2, 4], callGap: 620,
-    // How far off a bird of this size is still worth drawing, in tiles.
+    // How far off a bird of this size is still worth drawing, in tiles. ⚠ EVERY drawRange IS WHERE
+    // THE REAL-SIZED BIRD IS ABOUT 1.5 px ACROSS on the 640-wide reference frame (FL 228), so a small
+    // bird's range is short because the bird is, and none of them pops out while still a clear dot.
     drawRange: 14,
   },
   gull: {
     id: 'gull',
     // a few quick steps or a hop into the wind, then open wings: a short run
-    takeoff: { run: 3, beat: 1.4, hop: 0.006 },
+    takeoff: { run: 3, beat: 1.4, hop: M(0.066) },
     landing: { skid: 1.5 },   // a gull drops on to water with a short skid
     // ⚠ THE ONLY SPECIES THAT WANTS BOTH GROUND STATES FROM ONE TABLE, which is exactly why
     // habitat had to stop being a single shared map: a gull rafts on the bay and walks the quay,
@@ -1602,9 +1615,9 @@ export const SPECIES = {
     // restless where a goose is not.
     // ⚠ THE FLIGHT IS SET BY ITS SPEED, and it is wider than the goose on a shorter cycle, both of
     // which the fauna gate holds it to. With the
-    // goose at 9 tiles (its own 18 m/s) that leaves a restless bird: 9.5 tiles, a 79 s cycle, seven
+    // goose at 99 m (its own 18 m/s) that leaves a restless bird: 105 m, a 79 s cycle, seven
     // seconds down between flights, and about 13 m/s, the top of a herring gull's cruise.
-    period: 79000, uGround: 0.08, z: 1.6, r: 9.5,
+    period: 79000, uGround: 0.08, z: 1.6, r: M(105),
     minFlock: 4, maxFlock: 12,
     // ⚠ NO V. A skein is a goose thing — gulls go about in a loose cloud, and giving them a
     // formation is the single fastest way to make two species read as one bird in two colours.
@@ -1615,8 +1628,8 @@ export const SPECIES = {
     // cries in a series is 147, so a gull's calls come about a quarter-second apart. They are
     // noisier than geese and they say it faster.
     callEvery: 54000, callBurst: [3, 6], callGap: 250,
-    drawRange: 13,
-    groundPitch: 0.23,       // a gull on a quay stands closer than a goose on a lawn
+    drawRange: 12,
+    groundPitch: M(2.5),       // a gull on a quay stands closer than a goose on a lawn
     // Ashore, a gull stands on a parapet as readily as on the quay — a roof ridge is the same
     // flat exposed thing a harbour wall is, and it is where they go when the tide is wrong.
     perch: { share: 0.42 },
@@ -1652,7 +1665,7 @@ export const SPECIES = {
     // peak, twice a feral pigeon's 17-20 cruise; fourteen is 12 and 22, and 29 at worst with the step
     // onto a ledge added (perchLeg in windshield.js). The ground share stays 0.78, so it sits 50 s
     // rather than 21 and the share of pigeons in the air at any moment (which framecost pays for) is unchanged.
-    period: 63600, uGround: 0.78, z: 0.9, r: 1.6,
+    period: 63600, uGround: 0.78, z: 0.9, r: M(18),
     minFlock: 4, maxFlock: 10,
     forms: ['loose'],
     dayStart: 6, dayEnd: 20,
@@ -1664,9 +1677,9 @@ export const SPECIES = {
     // live on citycore, which is most of Coldwater, sixteen to a flock, and framecost went +112%
     // the moment they landed. The face budget caps the MESH; on the 2-D fallback every bird still
     // paints, and that path is what framecost measures.
-    drawRange: 7,
+    drawRange: 5.5,
     preyable: true,
-    groundPitch: 0.10,       // pigeons crowd: half a metre apart on a pavement is normal
+    groundPitch: M(1.1),       // pigeons crowd: half a metre apart on a pavement is normal
     // ⚠ THE HIGHEST SHARE IN THE TABLE, because the ledge is this animal's own word. A feral
     // pigeon is a cliff bird that took to cornices; the pavement is where it feeds and the ledge
     // is where it lives, so more than half of every ground phase is spent up on something.
@@ -1695,7 +1708,7 @@ export const SPECIES = {
     //
     // ⚠ IT SWEEPS A ROOST RATHER THAN FLYING THE CIRCLE (`circuit: 2`, wanderAt). `roam` is the
     // roost's radius at `wander.refN` birds, growing by the cube root past it; `wander` is the three
-    // epicycles' share of it and their speeds in tiles/s (1 tile = 11 m). `r` stays the nominal circuit
+    // epicycles' share of it and their speeds (in metres a second, through M). `r` stays the nominal circuit
     // radius the cloud's size and the clearance margins are keyed on, which is why it did not change.
     //
     // ⚠ WHAT FOLLOWS IS THE HISTORY OF WHY THE OLD CIRCLE WAS SMALL AND SLOW, kept because the reasoning
@@ -1727,19 +1740,19 @@ export const SPECIES = {
     // That is why some flocks jostled and others moved as one object — the circuit is a pure
     // function of the anchor tile, so a given roost was always one or always the other, for ever.
     //
-    // ⚠ AND IT IS THE SAME NUMBER THAT MADE THEM LOOK TOO FAST. 2.40 tiles/s is 26 m/s at 11 m to
-    // the tile: nearly twice a starling's own cruise, and faster than the agitation wave that is
+    // ⚠ AND IT IS THE SAME NUMBER THAT MADE THEM LOOK TOO FAST. 2.40 tiles/s was 26 m/s at the 11 m
+    // tile it was measured on: nearly twice a starling's own cruise, and faster than the agitation wave that is
     // supposed to outrun the birds (WAVE_SPEED 1.21 = the measured 13.4 m/s). A murmuration MILLS
     // over its roost; it does not tour. The radius is what says so, and the longer period is what
     // stops the small circuit simply being flown round faster.
-    // z 2.2 tiles (~24 m), down from 5.0: among the roofs rather than over all of them. Over a block of towers
+    // z 2.2 tiles (~39 m), down from 5.0: among the roofs rather than over all of them. Over a block of towers
     // the drawn flock rides the skyline instead (windshield.js, skylineUnder); the server keeps this height.
-    period: 300000, uGround: 0.7, z: 2.2, r: 1.0,
+    period: 300000, uGround: 0.7, z: 2.2, r: M(11),
     // ⚠ roam 5 -> 2.5 (2026-09-25): at 5 a 20,000-bird roost swept ~11 tiles of radius (cube-root growth),
     // which read as a flock touring the district rather than milling over one place. The epicycle speeds
     // in `wander` are tiles/s and did not move, so the smaller roost is swept round faster — the flock
     // turns and doubles back more often inside less ground, which is the ask.
-    circuit: 2, roam: 2.5, forcedSpan: 12,
+    circuit: 2, roam: M(27.5), forcedSpan: 12,
     // ⚠ ITS OWN WINGBEAT, BECAUSE THE GOOSE'S MADE IT SKATE. Every bird beats at GOOSE_FLAP_HZ unless its
     // row says otherwise, and at 1.5 Hz a starling flying 10 m/s covers about twenty-three wingspans a
     // beat: a tiny bird sliding across the sky on nearly still wings, which is paper, not flight. A goose
@@ -1751,7 +1764,7 @@ export const SPECIES = {
     // (Tobalske, J Exp Biol 198:1259, 1995): `glide` is the share of each burst-and-glide cycle spent with
     // the wings held out, and `glideHz` how many such cycles a second — about six beats, then a glide.
     flapHz: 13, glide: 0.28, glideHz: 1.4,
-    wander: { refN: 1700, a1: 0.62, v1: 0.36, v2: 0.09, v3: 0.03 },
+    wander: { refN: 1700, a1: 0.62, v1: M(4.0), v2: M(1.0), v3: M(0.33) },
     // ⚠ BIG FLOCKS, WHICH IS THE WHOLE REASON THIS SPECIES EXISTS. A murmuration of six is a
     // sentence with no subject. The budget share below is what stops that being a problem.
     // ⚠ AND THE SIZE IS SET BY THE SHARE, not the other way round. At 26 a flock is 1,040 faces
@@ -1831,7 +1844,7 @@ export const SPECIES = {
     // up to `jitter` hours either side of that. 26 minutes is the mean over Goodenough's surveys;
     // `minSeason` keeps a July party of six from staging a display nobody has ever seen one give.
     roost: { lead: 0.7, span: 1.1, floor: 0.02, dive: 0.25, show: 26, jitter: 0.1, minSeason: 0.35 },
-    drawRange: 6,
+    drawRange: 3.5,
     // ⚠ A GOOSE IS NOT ON THIS LIST, and that is the fiction rather than an oversight: a hawk does
     // not take a bird several times its own weight. Gulls, pigeons and songbirds are all plausible
     // prey and all three are marked.
@@ -1845,7 +1858,7 @@ export const SPECIES = {
     // ⚠ THE SMALLEST PITCH THAT IS NOT A KNOT, AND THE SPECIES THIS WHOLE DERIVATION IS FOR. A
     // murmuration is hundreds of birds; at the old fixed radius all of them stood inside two thirds
     // of a tile. Starlings feeding on turf work a few feet apart, so the flock covers a field.
-    groundPitch: 0.09,
+    groundPitch: M(1.0),
     // Starlings line a parapet, a wire and a gutter before they go up, and come back to the same
     // one after. The pre-roost gathering is most of what anybody has ever watched them do.
     perch: { share: 0.5 },
@@ -1895,7 +1908,7 @@ export const SPECIES = {
     // Long, high and slow — a thermal is a patient way to get about.
     // ⚠ HALF THE CYCLE DOWN, where it was 18%. A red-tail spends most of its day perched and only
     // soars when the thermals are up; the longer period keeps each flight a proper climb.
-    period: 240000, uGround: 0.5, z: 3.6, r: 1.9,
+    period: 240000, uGround: 0.5, z: 3.6, r: M(21),
     minFlock: 1, maxFlock: 1,
     forms: ['loose'],
     circuit: 1,               // the spiral, not the circle
@@ -1906,7 +1919,7 @@ export const SPECIES = {
     dayStart: 9, dayEnd: 17,
     // It barely calls, and when it does it is once.
     callEvery: 190000, callBurst: [1, 2], callGap: 1400,
-    drawRange: 16,            // long: it is big and it is high up (the vulture goes further)
+    drawRange: 10,            // long: it is high up (the vulture goes further)
     // High because a hunting perch is the tallest post, snag or rock in sight — a vantage over
     // grass, not a view of the street.
     perch: { share: 0.7, high: true },
@@ -1938,17 +1951,17 @@ export const SPECIES = {
     territory: 7,
     // May claim a road tile, but only where its own roll lands (see speciesAt).
     streetHunt: true,
-    period: 900000, uGround: 0.8, z: 4.4, r: 1.4,
+    period: 900000, uGround: 0.8, z: 4.4, r: M(15.4),
     minFlock: 1, maxFlock: 1,
     forms: ['loose'],
     circuit: 1,
-    // About 8 m/s round a 1.4-tile circle over a three-minute flight.
+    // About 8 m/s round a 15 m circle over a three-minute flight.
     turns: 14,
     // Hunts from first light to dusk, and the city's lights keep it at it a little later.
     dayStart: 6, dayEnd: 20,
     // The "kek-kek-kek" near the eyrie, not often.
     callEvery: 240000, callBurst: [3, 6], callGap: 160,
-    drawRange: 16,
+    drawRange: 8.5,
     perch: { share: 0.9, high: true },
     // ⚠ THE ONLY SPECIES THAT STOOPS. Read by falconStoop; a row without it never attacks.
     stoop: { odds: 0.10, perchOdds: 0.28 },
@@ -1970,7 +1983,7 @@ export const SPECIES = {
   vulture: {
     id: 'vulture',
     // heavy: several hopping strides flapping hard, usually into the wind, before it lifts
-    takeoff: { run: 8, beat: 1.3, hop: 0.012 },
+    takeoff: { run: 8, beat: 1.3, hop: M(0.13) },
     habitat: {
       // The wastes, the dead ground, and the long road — and NOT one square of the green country
       // or the city. That is the split from the hawk and it is the whole species: a hawk hunts
@@ -1988,7 +2001,7 @@ export const SPECIES = {
     // this for a living is in no hurry about any of it.
     // ⚠ LAPS SET BY SPEED: one or two circles in a two-minute flight moved a vulture at 2.7 m/s, and a
     // soaring vulture circles a thermal at about 10. Six or seven laps of the same circle is 10.4.
-    period: 210000, uGround: 0.42, z: 4.4, r: 3.2, turns: 6,
+    period: 210000, uGround: 0.42, z: 4.4, r: M(35), turns: 6,
     // ⚠ THE LARGEST GROUND SHARE OF ANY SPECIES HERE, and that is the design rather than a tuning
     // choice: everything else touches down between flights, and this comes down TO something. If
     // the ground phase is short the species is a hawk with more birds in it.
@@ -1999,18 +2012,18 @@ export const SPECIES = {
     // authored statement that there is a body there at all — no carcass is modelled, and it does
     // not need to be, because several birds crowded onto one spot in open waste reads as a kill
     // and nothing else does.
-    groundSpread: 0.09,
+    groundSpread: M(1.0),
     // ⚠ AND THE PITCH SAYS IT AGAIN IN THE UNITS THE PATCH IS DERIVED FROM. groundSpread bounds
     // how far ONE bird paces; what decides how far apart the birds STAND is this, and a knot that
     // kept the default would have spread out the moment the patch started scaling with the count.
     // At three to seven birds it reproduces the radius this species already had.
-    groundPitch: 0.06,
+    groundPitch: M(0.66),
     // Thermals, exactly as the hawk. A vulture flaps as little as it can get away with.
     dayStart: 8, dayEnd: 18,
     // ⚠ IT HAS NO SYRINX AND CANNOT CALL AT ALL — see BIRD_VOICES. What it does is hiss, and only
     // at each other over the body, which is why the rate is the lowest here and the burst is short.
     callEvery: 240000, callBurst: [1, 3], callGap: 700,
-    drawRange: 18,            // the longest in the table: high, and a two-metre span
+    drawRange: 14.5,          // the longest in the table: high, and a 1.7 m span
     budgetShare: 0.35,
     // A roost is a high dead thing — a snag, a mast, a water tower — and out where these live
     // there is usually nothing to stand on, so this mostly resolves to the ground and is right
@@ -2306,14 +2319,14 @@ export function callsIn(f, fromMs, toMs, opts = {}) {
 //
 // ⚠ AND THE KNOT SURVIVES IT. The vulture's whole statement is that several birds are crowded onto
 // one thing — see `groundSpread` on its row — and a patch that grows with the count would have
-// spread the one species that must not spread. It says so with the PITCH instead (0.06 against a
-// goose's 0.27), which is the same sentence in the units this now derives from: at its own flock
+// spread the one species that must not spread. It says so with the PITCH instead (0.66 m against a
+// goose's 3 m), which is the same sentence in the units this now derives from: at its own flock
 // sizes it lands within a hair of the radius it had before, and it stays a knot at any count.
 //
 // ⚠ NOTHING IS STORED, exactly as everywhere else in this file. A station is a hash of (anchor,
 // bird index), so it survives a reload, a map-window recentre and the settle blend that eases the
 // birds out of the formation they landed in — which is the one thing the take-off reads.
-const GROUND_PITCH_DEFAULT = 0.27;
+const GROUND_PITCH_DEFAULT = M(3);
 
 /** How far out the edge of a landed flock's patch is, in tiles. */
 export function groundPatchR(f, n) {
@@ -2331,7 +2344,7 @@ export function groundPatchR(f, n) {
 export function groundMill(f) {
   const sp = spOf(f);
   const pitch = sp.groundPitch ?? GROUND_PITCH_DEFAULT;
-  return Math.min(sp.groundSpread ?? 0.34, pitch * 0.30);
+  return Math.min(sp.groundSpread ?? M(3.7), pitch * 0.30);
 }
 
 /**
@@ -2565,7 +2578,7 @@ export function crittersAt(wx, wy, now) {
 // rather than a flock, picked by hashing the cycle over a list sorted into a stable order.
 const GROUND_REACH = 3;            // tiles: a red-tail drops on what it can see from where it sits
 const GROUND_KILL = 0.30;          // share of strikes that take something
-const GROUND_STRIKE_Z = 0.018;     // tiles: a hawk standing over its catch, body centre
+const GROUND_STRIKE_Z = M(0.125);  // a hawk standing over its catch, body centre
 // ⚠ AFTER A KILL IT STAYS DOWN, wings spread over the catch (mantling), before it climbs away. A real
 // red-tail can sit over prey for many minutes; this is long enough to be seen and short enough that the
 // sky is not emptied of hawks. The renderer's dive reads it, so the two agree on when it leaves.

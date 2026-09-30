@@ -67,11 +67,12 @@ import { flockFrame, seedPoints, scatterOf, MURMUR_RULES as R, MURMUR_MEASURED }
 
 const W = 64;                       // birds per texture row
 const UNIT0 = 8;                    // texture units 8-16: no other layer binds these during the sim
-const FLOOR_Z = 0.03;               // tiles: the lowest an airborne starling flies
+const FLOOR_Z = 0.33 * R.TILE_PER_M;   // the lowest an airborne starling flies, 0.33 m
 const IDLE_EVICT_MS = 4000;         // murmur.js's own eviction rule, for the same reason
 // Landing: the shortest time a bird is given to reach its ground spot (s), and the fastest it may travel
-// doing so (tiles/s, ~18 m/s — a starling's own flight speed), so none is ever placed there in a jump.
-const LAND_TAU = '0.45', LAND_VMAX = '1.6';
+// doing so (18 m/s, a starling's own flight speed, as a GLSL literal in tiles/s), so none is ever placed
+// there in a jump.
+const LAND_TAU = '0.45', LAND_VMAX = (18 * R.TILE_PER_M).toFixed(4);
 const MAX_CLOUDS = 12;
 // ⚠ A BIG CLOUD IS STEPPED EVERY 2ND OR 3RD FRAME AND DRAWN BETWEEN ITS LAST TWO STEPS (gl/fauna.js,
 // uLerp), so the flock is drawn one step behind itself. Each cloud takes its own phase, so two big roosts

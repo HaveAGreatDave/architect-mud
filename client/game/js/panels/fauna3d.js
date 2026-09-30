@@ -33,6 +33,7 @@
 // no honest way to spend fewer. `FACE_MAX` in scripts/shapes/fauna.mjs is what bounds a frame; the
 // slack there is what any future part is spent out of, so check it before adding one.
 import { BIRD_ROWS, BIRD_ROWS_FAR } from '../../../shared/fauna-models.js';
+import { GOOSE_SPAN } from '../../../shared/birds.js';
 
 const V = (f, g, h) => [f, g, h];
 const clampN = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
@@ -1049,7 +1050,7 @@ export function faunaFaces(kind, id, state = 'walk', wing = 0) {
   if (hit) return hit;
   const p = row(kind, id);
   if (!p) return [];
-  const faces = kind === 'bird' ? buildBird(p, state, w) : [];
+  const faces = kind === 'bird' ? scaleFaces(buildBird(p, state, w), faunaScale(kind, id)) : [];
   _faces.set(key, faces);
   return faces;
 }
@@ -1120,10 +1121,25 @@ export function beatDihedral(phase, flare = 0) {
 // ⚠ THE SIZE IS IN TILES AND IS A PROPERTY OF THE ANIMAL, not of the seat. The card's size came
 // from `propS`, which is a SCREEN size with a per-seat multiplier in it — a truck's props draw
 // 1.75× a cockpit's — and a solid object cannot have two physical sizes depending on who is
-// looking. A tile is about fifteen metres (a storey is 0.196 of one), so 0.11 puts the wingspan at
-// 1.15 model units ≈ 1.9 m, which is a Canada goose, and lands within a few per cent of the size
-// the card drew at the seat it was tuned at.
-export const FAUNA_TILE = 0.085;
+// looking. It is the world's one scale (a storey is 0.196 tiles = 3.5 m, so a tile is 17.9 m):
+// the goose row's 1.7 model units of wingspan are GOOSE_SPAN, a Canada goose's 1.65 m, and every
+// other species sits on the same factor times its own `scale` (faunaScale below).
+export const FAUNA_TILE = GOOSE_SPAN / 1.7;
+
+// ⚠ A SPECIES' SIZE IS ITS `scale`, NEVER ITS SPAN. The row's span, chord and body are the
+// animal's PROPORTIONS; `scale` shrinks the whole mesh uniformly about its feet, so a gull keeps a
+// gull's shape at a real gull's 1.4 m. It is applied inside faunaPose and faunaFaces, so every
+// renderer (GPU bake, solids, 2-D painter) gets the same bird, and it is read through row() so a
+// Modelshop slider reaches it.
+export function faunaScale(kind, id) {
+  const r = row(kind, id);
+  const v = r && r.scale;
+  return typeof v === 'number' && v > 0 ? v : 1;
+}
+const scaleFaces = (faces, k) => {
+  if (k !== 1) for (const f of faces) f.p = f.p.map((v) => V(v[0] * k, v[1] * k, v[2] * k));
+  return faces;
+};
 
 // ── A BIRD AT RANGE IS A SPECK, AND 103 TRIANGLES IS THE WRONG SHAPE FOR ONE ────────
 //
@@ -1161,7 +1177,7 @@ export function faunaDotPx(kind, id) {
 
 export function faunaSpanTiles(kind, id) {
   const r = row(kind, id);
-  return r ? (r.span ?? 1) * 2 * FAUNA_TILE : 0;
+  return r ? (r.span ?? 1) * 2 * FAUNA_TILE * faunaScale(kind, id) : 0;
 }
 
 // The model faces plus their resolved colours, per pose. The palette is per row and the shade is
@@ -1225,6 +1241,7 @@ function faunaPose(kind, id, state, beatStep, flare = 0, gear = 0, far = 0, glid
   const faces = kind !== 'bird' ? []
     : glyph ? buildBirdGlyph(p, state, dih, far === FAUNA_LOD_COARSE)
       : buildBird(p, state, 0, dih, gr, !air ? walk : ownGlide ? 'glide' : fl ? null : gStep / FAUNA_BEAT_STEPS);
+  scaleFaces(faces, faunaScale(kind, id));
   const pal = faunaPalette(p);
   const rgb = faces.map((f) => {
     const c = pal[f.role] || FALLBACK.body;

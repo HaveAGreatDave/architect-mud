@@ -268,7 +268,9 @@ float seaWind(vec2 p, float t, float ph, float A, float sp) {
 // deep water — half-angle arcsin(1/3) — and it does not depend on how fast the boat is going, only
 // on how big the wake is. A wedge that widened with speed is the single most common way a wake is
 // drawn wrong, and it reads as the boat skidding.
-float seaWake(vec2 p, vec2 c, vec2 d, float spd, float bw) {
+// 'bow' scales the bow crest. The own hull's wake passes 0, because the crest stands under the
+// hull, and a mound under the boat the camera is following buries her.
+float seaWake(vec2 p, vec2 c, vec2 d, float spd, float bw, float bow) {
   if (spd <= 0.001) return 0.0;
   vec2 rel = p - c;
   float s = dot(rel, d);              // along track; negative is astern
@@ -294,7 +296,7 @@ float seaWake(vec2 p, vec2 c, vec2 d, float spd, float bw) {
   // The bow wave: a crest standing just ahead of the stem and pushed out to either side of it.
   float bs = (s - bw * 0.35) / (bw * 1.2 + 0.25);
   float bn = an / (bw * 1.6 + 0.3);
-  h += exp(-bs * bs - bn * bn) * (0.6 + 0.9 * spd);
+  h += exp(-bs * bs - bn * bn) * (0.6 + 0.9 * spd) * bow;
 
   // The diverging arms, on the Kelvin wedge. A ridge either side, strongest near the boat.
   float arm = an - (-s) * 0.3639;     // tan(19.5 degrees)

@@ -478,13 +478,6 @@ const PANELS = {
     noEdit: true,
     render: renderGamesPanel,
   },
-  validator: {
-    title: 'Zone Validator',
-    description: 'Cross-reference zones and content for broken exits, missing references, and bad data.',
-    fetch: () => Promise.resolve({}),
-    noEdit: true,
-    render: renderValidatorPanel,
-  },
   broadcasts: {
     title: 'Broadcasts',
     description: 'TV channels, schedules, NPC hosts, themes, and live broadcast content.',
@@ -532,7 +525,7 @@ const VINE_GROUP_PANELS = new Set(['vine', 'scripts', 'script-triggers', 'quests
 // the Save/Delete/New buttons are gone and the reason is stated once, at the top,
 // instead of a button firing into a 403.
 const OPS_WRITABLE_PANELS = new Set(['dashboard', 'devlog', 'worldstate', 'timeweather', 'players',
-                                     'games', 'gossip', 'validator', 'power', 'emergency', 'bank',
+                                     'games', 'gossip', 'power', 'emergency', 'bank',
                                      'flight', 'cards',
                                      // ⚠ 'fauna' IS HERE TO SUPPRESS A BANNER, NOT TO GRANT A WRITE.
                                      // It has no save and no delete — a flock is derived, so there is

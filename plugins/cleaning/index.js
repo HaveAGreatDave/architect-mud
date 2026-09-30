@@ -26,7 +26,7 @@ import { addSweat } from '../../server/engine/hygiene.js';
 import { hasTag } from '../../server/engine/tags.js';
 // The wall half of "make this room right". One verb covers the floor and the
 // brickwork; the graffiti plugin owns the tag itself and this only removes it.
-import { tagAt, removeTag } from '../graffiti/index.js';
+import { tagsAt, removeTagsAt } from '../graffiti/index.js';
 import { query } from '../../server/models/db.js';
 
 // Marks removed per action. A proper tool clears the room; hands do one mark and
@@ -92,9 +92,10 @@ function cleanLine(types) {
 async function doClean(args, raw, player) {
   const zoneId = player.current_zone;
   const before = filthCount(zoneId);
-  const paint = tagAt(zoneId);
+  // Every wall in reach, one tag each. A proper tool clears the room, so it clears all of them.
+  const paint = tagsAt(zoneId);
 
-  if (!before && !paint) {
+  if (!before && !paint.length) {
     // Not an error — "there's nothing to clean" is information, and answering it
     // here stops `clean` falling through to an unhelpful "Unknown command".
     return { type: 'output', message: `There's nothing here worth cleaning. Small mercies.` };
@@ -108,12 +109,14 @@ async function doClean(args, raw, player) {
   // would mean nobody ever cleans, but a tag has to have TEETH or defacing a
   // shopfront costs the owner nothing to undo. You go and buy a solvent.
   let paintMsg = '';
-  if (paint) {
+  if (paint.length) {
+    const walls = paint.length > 1 ? 'walls' : 'wall';
     if (tool) {
-      await removeTag(zoneId);
-      paintMsg = `\nYou take ${tool.name} to the wall. <span class="text-dim">"${paint.text}"</span> goes grey, then goes.`;
+      await removeTagsAt(zoneId);
+      const said = paint.map(p => `<span class="text-dim">"${p.text}"</span>`).join(', ');
+      paintMsg = `\nYou take ${tool.name} to the ${walls}. ${said} ${paint.length > 1 ? 'go' : 'goes'} grey, then ${paint.length > 1 ? 'go' : 'goes'}.`;
     } else {
-      paintMsg = `\n<span class="text-dim">The paint on the wall doesn't care about your hands. That needs solvent and a brush.</span>`;
+      paintMsg = `\n<span class="text-dim">The paint on the ${walls} doesn't care about your hands. That needs solvent and a brush.</span>`;
     }
   }
 

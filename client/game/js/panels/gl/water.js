@@ -51,6 +51,7 @@
 import { viewProjMatrix, mat4f, zRow, NEAR } from './camera.js';
 import { SEA_GLSL } from './sea-glsl.js';
 import { seaSlopeVariance, SEA_FOAM_LEAD, SEA_FOAM_RAMP, SEA_FOAM_A, SURF_DEPTH_Q } from '../../../../shared/sea-swell.js';
+import { declareProgram, takeWarm } from './programs.js';
 
 // ⚠ THE SAME SIX AS THE SHADER'S OWN 'NEON_MAX', AND THEY HAVE TO AGREE — the GLSL one is inside a
 // template literal and cannot read this, which is the arrangement floor.js's MAX_WET already has.
@@ -140,11 +141,12 @@ uniform int   uMh;
 uniform float uR;        // the window's half-width in tiles
 
 // Up to MAX_WAKES boats, as the two things a wake needs: where it is and which way it points
-// (xy = position, zw = unit heading), and how fast it is going and how wide it is.
+// (xy = position, zw = unit heading), and how fast it is going, how wide it is, how tall its wake
+// stands and how much bow crest it carries (x, y, z, w).
 #define MAX_WAKES 6
 uniform int   uNWake;
 uniform vec4  uWakeP[MAX_WAKES];
-uniform vec2  uWakeS[MAX_WAKES];
+uniform vec4  uWakeS[MAX_WAKES];
 
 out vec2  vWorld;        // window-frame world position, which is what the floor calls wx/wy
 out float vWater;        // waterness at this vertex
@@ -286,7 +288,7 @@ void main() {
   float wk = 0.0;
   for (int i = 0; i < MAX_WAKES; i++) {
     if (i >= uNWake) break;
-    wk += seaWake(w, uWakeP[i].xy, uWakeP[i].zw, uWakeS[i].x, uWakeS[i].y);
+    wk += uWakeS[i].z * seaWake(w, uWakeP[i].xy, uWakeP[i].zw, uWakeS[i].x, uWakeS[i].y, uWakeS[i].w);
   }
   wk *= gate;
   vWake = wk;
@@ -834,10 +836,14 @@ function compile(gl, type, src, label) {
 }
 
 export function createWaterLayer(gl) {
-  const prog = gl.createProgram();
-  gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
-  gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
-  gl.linkProgram(prog);
+  // Prewarmed with the context when it can be (programs.js); built here otherwise.
+  let prog = takeWarm(gl, VERT, FRAG);
+  if (!prog) {
+    prog = gl.createProgram();
+    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
+    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
+    gl.linkProgram(prog);
+  }
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('water link: ' + gl.getProgramInfoLog(prog));
 
   const U = (n) => gl.getUniformLocation(prog, n);
@@ -951,14 +957,14 @@ export function createWaterLayer(gl) {
     const n = Math.min(wk.length, MAX_WAKES);
     gl.uniform1i(loc.nWake, n);
     if (n > 0) {
-      const P = new Float32Array(MAX_WAKES * 4), S = new Float32Array(MAX_WAKES * 2);
+      const P = new Float32Array(MAX_WAKES * 4), S = new Float32Array(MAX_WAKES * 4);
       for (let i = 0; i < n; i++) {
         const w = wk[i];
         P[i * 4] = w.x; P[i * 4 + 1] = w.y; P[i * 4 + 2] = w.dx; P[i * 4 + 3] = w.dy;
-        S[i * 2] = w.spd; S[i * 2 + 1] = w.beam;
+        S[i * 4] = w.spd; S[i * 4 + 1] = w.beam; S[i * 4 + 2] = w.amp ?? 1; S[i * 4 + 3] = w.bow ?? 1;
       }
       gl.uniform4fv(loc.wakeP, P);
-      gl.uniform2fv(loc.wakeS, S);
+      gl.uniform4fv(loc.wakeS, S);
     }
     // Written every frame, like the wakes, or a boat that left leaves a hole in the sea behind it.
     const hl = s.ownHull;
@@ -1097,3 +1103,5 @@ export function createWaterLayer(gl) {
 
   return { draw, get tris() { return count / 3; } };
 }
+
+declareProgram(VERT, FRAG);

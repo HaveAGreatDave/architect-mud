@@ -21,6 +21,7 @@
 // from the same constants, and the pulse is the same `sin(now / 420)`.
 import { viewProjMatrix, mat4f } from './camera.js';
 import { makeVertexStream } from './stream.js';
+import { declareProgram, takeWarm } from './programs.js';
 
 // pos3, uv2, alpha1
 const STRIDE = 6;
@@ -118,10 +119,14 @@ function compile(gl, type, src, label) {
 // camera-relative tile frame the lights use, its world-z height, and the fade the world pass
 // already computed for it.
 export function createCurtainLayer(gl) {
-  const prog = gl.createProgram();
-  gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
-  gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
-  gl.linkProgram(prog);
+  // Prewarmed with the context when it can be (programs.js); built here otherwise.
+  let prog = takeWarm(gl, VERT, FRAG);
+  if (!prog) {
+    prog = gl.createProgram();
+    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
+    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
+    gl.linkProgram(prog);
+  }
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('curtain link: ' + gl.getProgramInfoLog(prog));
 
   const loc = {
@@ -179,3 +184,5 @@ export function createCurtainLayer(gl) {
 
   return { upload, draw, get segments() { return count / 6; } };
 }
+
+declareProgram(VERT, FRAG);

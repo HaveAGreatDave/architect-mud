@@ -4,6 +4,7 @@
   "color": "#b5744a",
   "description": "Cracked hardpan stretches off in every direction, the color of old rust. The wind has scoured it bare of anything loose.",
   "exits": {
+    "east": "zone_district_916_921",
     "north": "zone_district_915_920",
     "south": "zone_district_915_922",
     "west": "zone_district_914_921"

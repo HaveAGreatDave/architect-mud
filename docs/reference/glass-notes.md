@@ -99,6 +99,7 @@ Engineering notes for the GLASS renderer (`client/game/js/panels/windshield.js` 
 - [Hydro launches](#hydro-launches)
 - [Neon glitter on the harbour](#neon-glitter-on-the-harbour)
 - [Underwater camera](#underwater-camera)
+- [Seabed view](#seabed-view)
 - [Wet glass after surfacing](#wet-glass-after-surfacing)
 - [Bench clock for temporal events](#bench-clock-for-temporal-events)
 - [Street lamp pools](#street-lamp-pools)
@@ -875,7 +876,7 @@ Checks: no headless harness reaches a draw call (they install a GL hook returnin
 
 ## Baked billboards are for landmarks
 
-`markBillboard` paints a 2-D adornment into a canvas and hands it to `gl/billboards.js` as a quad, re-baked at the live camera every frame (`fresh: true`) so it lands where the 2-D pass would. That's a canvas repaint plus a `texImage2D` per instance per frame: fine for the six marks it was written for (a statue, a gate, a sign, pylons, a bay, a no-fly tile), ruinous for masts, lattice towers and neon blades on ordinary buildings. Routing those through it for an afternoon measured a cockpit framerate below GLASS 1.
+`markBillboard` paints a 2-D adornment into a canvas and hands it to `gl/billboards.js` as a quad, re-baked at the live camera every frame (`fresh: true`) so it lands where the 2-D pass would. That's a canvas repaint plus a `texImage2D` per instance per frame: fine for the six marks it was written for (a statue, a gate, a sign, pylons, a bay, a no-fly tile), ruinous for masts, lattice towers and neon blades on ordinary buildings. Routing those through it for an afternoon measured a cockpit framerate below GLASS 1. Three of the six have since left it on GL: the statue and the bay are solids in `BAY_SINK`, and the pylons are `emitWire` strokes drawn during the sweep. The gate, sign, plaza and no-fly tile still bake, because their boxes only reach the per-model mesh capture and their lettering is raw canvas.
 
 - Trap: never put `dx`/`dy` in a cache key. They're camera-relative, so all three callers minted a new key per frame: an unbounded canvas leak on the windshield side and a 256-entry GL texture cache turning over in seconds. `markBillboard` now prefixes `MARK_TILE`, so callers name only what varies within a tile.
 - Trap: eviction. It took the oldest-inserted entry inside `textureFor`, and the oldest are the stable keys (a bush, a cactus, the gate) already queued in `batches`. `gl.deleteTexture` on one leaves a batch sampling a dead texture: a region's scatter turned bright pink and a gate drew as a hovering bush, only from an external camera with many masts in view. Eviction now runs once at the top of `upload` against this frame's keys and refuses to delete a live one, which turns a cache miss into a slow picture instead of a wrong one.
@@ -895,15 +896,29 @@ The **Depot in the depth buffer** slider; 0 puts it back on the canvas.
 
 Gate: `npm run gl:bay` ([scripts/shapes/bay.mjs](../../scripts/shapes/bay.mjs), in `shapes:smoke` and the push chain) checks the geometry arrives and stands up, orbiting the camera moves none of it, moving the camera inside its own tile moves none of it, `glBay 0` collects none, and a GLASS 1 control still paints one. The `cam.ox/oy` check compares two sub-tile camera positions; a bounding-box check couldn't fail.
 
+### One world scale for aircraft
+
+`CONTACT_SIZE` is solved against the storey (3.5 m, so a tile is about 17.9 m), and `OWN_EXT_MUL` is 1, so your own aircraft draws at the size everybody else sees. Up to 10 m an aircraft is true size; above that its drawn span is 10 × √(real ÷ 10), so a Twin Otter is 14 m and the An-124 27 m. `chaseBack`/`chaseUp` were scaled by the same 1.84 the prop grew by, so the resting chase frames her as before. The truck and the hydro boat keep their own scale (`OWN_EXT_MUL_BY_CLS`), because the road and the sea are drawn at theirs. People (`ACTOR_S`, 1.75 m) and trees (`TREE_S`, about 7 m) are true size through `_trueK`, which is `_propK` without the seat's `propMul`. Birds are too: `BIRD_M_PER_TILE` in birds.js is 3.5 / 0.196, the flock sim and murmur.js convert every metric figure through it, and each species' drawn wingspan is the real bird's (`FAUNA_TILE` off `GOOSE_SPAN`, then the row's `scale`). See [systems-fauna.md](../systems-fauna.md).
+
 ### The aircraft hangar is the same shed
 
-An airfield's hangar tile (`flags.aircraft_hangar`) derives as `mark: 'bay'` with `bk: 'air'`, and everything that sizes the shed asks `bayDims(cell)`: the drawer, the door sensor, the CFIT roof probe, `groundObstructionAt` and the occluder slabs. `HANGAR_BAY` is sized for the Leviathan, the biggest own ship (0.84 across, 0.96 long, 0.65 to her fin at 1.9x contact size). Only the floor, its paint and the fittings differ between the two kinds; the shell, the door, the roof, the lights and both sinks are one code path.
+An airfield's hangar tile (`flags.aircraft_hangar`) derives as `mark: 'bay'` with `bk: 'air'`, and everything that sizes the shed asks `bayDims(cell)`: the drawer, the door sensor, the CFIT roof probe, `groundObstructionAt` and the occluder slabs. `HANGAR_BAY` holds every airframe but the Leviathan. A tile that also carries `flags.heavy_hangar` derives `bk: 'heavy'` and gets `HEAVY_BAY`, a shed 1.8 tiles square that holds her (1.51 across, 1.72 long, 1.17 to her fin). It overhangs its tile by about 0.4 on every side, so site it where that lands on apron or water, never a runway; Coldwater Regional's is at 929,904, at the end of the east taxiway. `isAirBay` is true for both. Only the floor, its paint and the fittings differ between the two kinds; the shell, the roof, the lights and both sinks are one code path. The door's picture is shared too; what drives it isn't.
 
 - The height isn't just for the fin. The maintenance view's 3/4 camera orbits inside the building, because the cutaway is off, and a truck-height roof would put it on top of the roof.
-- Trap: the door sensor measures the vehicle's centre. An aircraft's nose is 0.2 to 0.48 tiles ahead of hers, so on the truck's inside numbers (0.40/0.14) she went through the door before it lifted. `HANGAR_BAY.IN_SENSE/IN_OPEN` keep it up while she stands in the front of the shed.
-- `setBayVehicles` takes any own ship and any contact on the ground, not trucks only. An aircraft rolling at a door used to find it shut.
+- `setBayVehicles` takes any own ship and any contact on the ground, not trucks only. An aircraft rolling at a door used to find it shut. The cockpit marks a ground contact with `groundZ: 0`, not `onGround`, so both are read.
 
-Gate: [scripts/shapes/hangar.mjs](../../scripts/shapes/hangar.mjs) (in `gl:bay`, `shapes:smoke` and the push chain) checks the hangar arrives at its own ridge, orbiting doesn't change it, every airframe fits through the door, under the head and inside the shed (`hangarFit`), and the door opens for an aircraft outside and stays up for one parked inside.
+### A hangar door has a motor and a memory
+
+The depot door is a pure function of where the trucks are (`bayDoorSense`). A hangar's isn't: `bayDoorOpen` hands an air bay to `airDoorOpen`.
+
+- Outside, it's the depot's approach curve: up as you taxi at the door, down again as you roll away down the taxiway.
+- Inside, it's up for an aircraft that came in through it, for the own ship with her engine running (`altOn`/`engineOn`) and for a contact rolling faster than 2 kt. Otherwise it's down, which is where Launch and Maintain put her.
+- It travels at `AIR_DOOR_RATE` (half its height a second), so an engine start on the floor is a door you watch go up.
+- Trap: a position curve can't do this. Launch stands her with her nose a hand's width off the door, so a curve either holds it up the whole time she's parked (the old whole-shed `IN_SENSE` did) or lifts it after she's through. And the field's ramp used to be next to the door, so every aircraft parked there held it open all day.
+- Trap: the memory is keyed by world tile (`airDoorKey`, from `mapCenter + mapOffset`), because `dx, dy` move every frame. The first caller in a frame moves the door and the rest read it, so the occluder and the drawer agree. A door nobody asked about for a second snaps to its answer. `setBayVehicles(null)` forgets every door; the gates use it between cases.
+- Nothing collides with a hangar door. `groundObstructionAt` is the truck's probe; an aircraft on the ground has no CFIT sweep.
+
+Gate: [scripts/shapes/hangar.mjs](../../scripts/shapes/hangar.mjs) (in `gl:bay`, `shapes:smoke` and the push chain) checks the hangar arrives at its own ridge, orbiting doesn't change it, every airframe fits through the door (the Leviathan through the heavy bay's), under the head and inside the shed (`hangarFit`). On a clock it drives: the door opens for an aircraft taxiing at it and comes down behind her, stays shut for one put on the floor cold, rolls up (not appears) when she starts her engine, and stays up for one that taxied in and shut down.
 
 Trap: every harness installs a GL hook that returns `null` (the no-WebGL2 path), so none reaches `drawSolids`. A stale identifier in that function passed all 26 shape gates, `client:smoke` and `imports:smoke`, and killed the GL pass on the first real frame. Use the Modelshop, A/B on `RENDER_TUNE.glBay` with everything else fixed.
 
@@ -1114,6 +1129,20 @@ Trap: only lights that were drawn reach the sink, so a lamp behind the camera do
 
 Trap: the up vector is in the shade cache's frame key. It's rounded to hundredths so a steady bank still hits the cache. `scripts/shapes/cabin-light.mjs` checks all three by direction.
 
+## Cockpit light on the GPU (`RENDER_TUNE.cabGPU`)
+
+GLASS 2 comes first here, and GLASS 1 may be the plainer picture. The 3-D cabin only exists on GL anyway (`pushInteriorShell` returns without `OWNSHIP_SINK`); GLASS 1 draws the 2-D cab.
+
+- With `cabGPU` 1 (the default), `pushInteriorShell` doesn't shade faces. Each face goes up with its albedo (trim, cabin retint and grain folded in) and a 24-float material record, `q.cab`, cached per face object in `CAB_GPU`. The frame's light goes up once as `OWNSHIP_SINK.interiorLight`. The layout of `q.cab` is at the top of `gl/solids.js`.
+- The interior layer is `createSolidsLayer(gl, { cabin: true })`: the same layer with `CABIN` defined. `cabinShade` runs the per-face model per pixel in the cab's own frame (`vLocal`, metres about the eye): the window key, attitude, the height falloff, floods, sheen, the metal ramp and its reflection, clear coat and the glint. Floods are pools across the board now, not one value a face.
+- New on the GPU: the direct sun, occluded by the room. A 1024² depth map from the sun, orthographic over the box of this frame's faces in cab metres (`lightMat`), drawn once a frame before the room. It gives sun patches through the glass and pillar, frame and yoke shadows that turn as you bank. Panes (`kind` −1) are clipped out of the pass, so glass lets the sun through. `cabSun` 0 drops it; `cabSunGain` (2.5) sets its strength. At 1 the patches drowned in the sky light.
+- The city casts into the cab too (`cabWorldSun`). The context keeps each frame's city sun map (`worldSun`) and the cabin shader tests each pixel's world position against it, so the dash loses its sun in a building's shadow. On a 195-tile scan of Coldwater at 14:30, 77 cab positions come out shadowed. A roofed mark still uses cover, because the map holds building mass, not sheds or the lock.
+- Trap: keep a copy of the city's light matrix, never `mat4f`'s return. That's a shared scratch array the next draw overwrites; kept as-is, the cab sat above every roof in the map and was never shadowed.
+- Both maps are read as plain depth and compared by hand (NEAREST, `COMPARE_MODE` none), not through `sampler2DShadow`: on ANGLE/D3D11 the hardware compare came back saturated for the city's map (see gl/shadow.js). The layer builds its own map on the first draw even with no sun, so its sampler always has a texture.
+- Cost, whole-frame medians in the Modelshop: truck 34.7 → 34.0 ms, Drake 67.5 → 64.1, Mule 59.7 → 56.3 (CPU shading → GPU with both shadow maps). The per-face CPU shading it replaced cost more than the depth pass.
+- `cabLightLast()` (windshield.js) returns the last frame's light, for a console or a bench.
+- `__street`'s first call after a reload draws no cockpit, with either setting. Call it twice.
+
 ## Sea state from the wind
 
 - The sea reads wind in knots. `windFromView().fly` is `clamp(kt/18)`, the windsock's curve, which saturates at Force 5. Sea state instead uses JONSWAP fetch-limited growth, `Hs = 4·U·sqrt(1.6e-7·F/g)`: 0.29 m at Force 2 to 3.23 m at Force 10.
@@ -1301,6 +1330,28 @@ Trap: the first gate was `v.biomeBelow`, a string only some callers set (the hel
 Trap: the submersion was first computed beside the fog, sixty lines above `const t = seaClock(…)`, which is a temporal-dead-zone `ReferenceError` on every frame. The pass catches, logs once and falls back to 2-D, so the whole GL renderer would have turned off with one console line. Same shape as the `cam.ox` bug.
 
 Trap: two separate questions. "Is the camera under" is one scalar and sets how much water you look through. "Is this fragment seen from below" is `gl_FrontFacing` and decides whether it's a ceiling. With the eye at the waterline and a crest between it and the horizon, half the surface is over you and half is in front of you, and a single camera-wide switch shades half of it wrong.
+
+## Chase camera following the Drake under
+
+The external chase follows her down at her own rate and keeps her framed, so she goes under first (seen through the waterline split) and the camera follows a moment later.
+
+- **The arc already sinks with her.** The chase arc is centred on her model, and `ownShipBaseWz` carries `rideZ`, so the eye goes down exactly as far as she does. Don't add `rideZ` to the eye as well. A `chaseSubSink` term did, and the eye sank at twice the hull's rate.
+- **The arc's floor goes down with her too.** `groundPitch` kept the camera 0.06 over the sea surface, so as she dived it swung the orbit up over the top, and `topFrac` pulled it out 2.4x. By 8 m the camera was looking down on a speck. Under water the floor is `0.06 + rideZ`, which matches the surface's at the start of a dive, and never lower than the seabed under her and under the camera (`floorZAt`, only once `seabedWindowReady()`; before that it answers 0, which is the surface).
+- **The eye doesn't stop in the wave band** (`chaseWaterline`). A lens a few centimetres under the mean surface has the troughs hanging below it, and from under water a trough is a bright mirror: a crescent of light across her. She can hold any depth from `SUB_CEIL`, so cruising at about 3 m parked the camera there. The eye keeps a side. Below, it stays at least `b` under, where `b` is half the significant wave height plus 0.015 tile, and it eases back to its true depth over the next `b` down. It changes side only 5 mm past the surface, and the offset eases over 0.1 s, so the crossing is one quick pass.
+- **The crossing is drawn.** The chase lens gets `drawCrossing` (the plunge, the breach and the lens under water) as the free camera does, at the free camera's mass (0.15), not the hull's, so a follow doesn't white out.
+- **The waterline split is off once the eye is under.** Its gate only asked whether the camera was near the water, and being under it passes that, so a fake waterline and murk sat over the underwater pass all the way to the seabed. Birds are off under water too.
+
+Picture: `__glSeaShot({ shore: true, extra: { cls: 'drake', external: true, drakeWater: true, drakeFloat: 1, subHull: m, rideZ: -m / 7, extPitch: Math.asin(0.405 / 2.95) } })` in the Modelshop, stepping `m` through the crossing. Each shot takes a new WebGL context and the page runs out after about nine, and the frames go black, so reload between sweeps.
+
+## Seabed view
+
+The Drake under water (plugins/submersible). `seabed-scene.js` builds the floor, rocks, weed, scatter and wrecks as geometry; `gl/seabed.js` draws it with the water behind it. It was reported as "the land cuts off in front".
+
+- **The water's colour is a function of the view ray.** `waterAlong` (GLSL in `gl/seabed.js`, a JS twin in `seabed-scene.js`) is lighter looking up and darker looking down. The backdrop is that colour, and the floor, its props and the bubbles fog toward it along their own ray, so whatever dissolves lands on exactly the colour behind it. The backdrop used to be a screen-height gradient while the floor fogged to one flat colour, nearly twice as bright as the water behind it near the horizon, so the far edge of the floor showed as a line.
+- **The patch is 30 tiles and banded.** A quarter tile to 6 tiles, a half to 14, a whole tile to 30 (`GRID_AXIS`), the idea `water.js` uses for the surface. Every band edge is a whole tile, so the coarse lines land on the same world positions after each rebuild. Rocks, weed and small scatter stop at `SEABED_NEAR_R` (12); wrecks and the kinds in `SCATTER_FAR` go to the edge.
+- **Extinction is `SEABED_EXT`**, 0.33 of the surface's per-channel curve: a third of the floor's colour left at ten tiles, dissolved between `SEABED_FADE` (17 and 28.5 tiles). The other layers (hulls, pier legs) fog linearly in world.js's band to `SEABED_FOG_FAR`, where the floor's green is down to a tenth, toward the horizon colour.
+- **Dry land in the patch isn't drawn.** It has depth 0, a flat sheet level with the surface, and from below it read as a sand ceiling over the city.
+- **Cost.** A rebuild on a tile crossing is 22 to 32 ms over the Coldwater coast, the same as the 12-tile patch was. Most of the old cost was pushing vertices onto a plain array and copying it; `triS` writes straight into a `Float32Array`. `wreckInCell` rolls its dice before the 48-ring shore search: the chance never passes `WRECK_MAX_CHANCE`, so a roll over it is no wreck at any depth. Same answers, checked over 644 queries, at a fifth of the time.
 
 ## Wet glass after surfacing
 

@@ -1,25 +1,32 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The road here is more suggestion than surface: compacted gravel, broken kerbstones, a storm drain choked with silt. Somebody dragged a mattress halfway across it and gave up.",
+  "description": "The Gate Road runs into a roofed box of grey plate, the Curtain's light at the far end. A lamp strip runs down each wall and along the roof, all one colour at a time. Green, you roll. Amber, you stop and somebody walks the rig. Stop bars are painted across the drain every few metres.",
   "exits": {
-    "east": "zone_district_912_918",
     "north": "zone_district_911_917",
     "south": "zone_district_911_919",
     "west": "zone_district_910_918"
   },
   "flags": {
+    "artery": [
+      "Meltwater Row"
+    ],
     "district": "ashway",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_roadside_junk",
-    "street_life": true,
-    "terrain": "road"
+    "terrain": "road",
+    "gate_lock": {
+      "name": "the South Lock",
+      "k": "hall",
+      "search": true,
+      "gate": "zone_district_911_919",
+      "seg": 0
+    }
   },
   "grid_x": 911,
   "grid_y": 918,
   "grid_z": 0,
   "id": "zone_district_911_918",
   "map_id": "map_world",
-  "name": "Meltwater Row",
+  "name": "The South Lock",
   "parent_zone": null
 }

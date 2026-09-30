@@ -150,6 +150,8 @@ void main() {
   outColor = vec4(graded * a, a);
 }`;
 
+import { declareProgram, takeWarm } from './programs.js';
+
 function compile(gl, type, src) {
   const sh = gl.createShader(type);
   gl.shaderSource(sh, src);
@@ -163,6 +165,9 @@ function compile(gl, type, src) {
 }
 
 function link(gl, fsrc) {
+  // Prewarmed with the context when it can be (programs.js).
+  const warm = takeWarm(gl, FULL_VERT, fsrc);
+  if (warm) return gl.getProgramParameter(warm, gl.LINK_STATUS) ? warm : null;
   const prog = gl.createProgram();
   let vs, fs;
   try { vs = compile(gl, gl.VERTEX_SHADER, FULL_VERT); fs = compile(gl, gl.FRAGMENT_SHADER, fsrc); }
@@ -459,3 +464,5 @@ export function createHDRLayer(gl) {
     // drawing somewhere else can say so without asking the driver (see cloudvol.js).
     get drawFbo() { return bound ? msFbo : null; } };
 }
+
+for (const f of [BRIGHT_FRAG, BLUR_FRAG, DOWN_FRAG, COMPOSITE_FRAG, FXAA_FRAG]) declareProgram(FULL_VERT, f);

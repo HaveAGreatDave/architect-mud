@@ -2692,18 +2692,23 @@ The weighbridge used to be a flag on a tile twelve miles out on the Glacis, at *
 place just inside the South Gate. It's now **outside the Curtain**, under the roof of the Outer Lock
 (see *The South Lock* below), and the ground is laid out so that stopping is a decision:
 
-|       | 916 | 917 | 918 | 919 |
+|       | 909 | 910 | 911 | 912 |
 |---|---|---|---|---|
-| **917** | scrub | old lane (gravel) | **the South Lock** | Mains Squeeze |
-| **918** | scrub | old deck (gravel) | **the South Lock** | Long Stay |
+| **917** | Best Offer | Engine Trouble | **the South Lock** | grass |
+| **918** | Windrow Lane | Windrow Lane | **the South Lock** | grass |
 | **919** | Curtain | Curtain | **SOUTH GATE** | Curtain |
 | **920** | waste | the weigh lane | **the Outer Lock** | waste |
 | **921** | **the booth** | **the deck** | **the Outer Lock** | waste |
 | **922** | waste | the weigh ramp | **the Outer Lock** | waste |
 
-A rig coming north up the Glacis goes under the lock roof at 918,922. It either carries straight on
-up 918 — the bypass — or takes the ramp at **917,922** onto the deck at **917,921**, the tile
-carrying `flags.weigh_station`, and rejoins by the weigh lane at 917,920 just short of the gate.
+The gate stands at the south end of Meltwater Row. It used to be at the end of the Gate Road
+(918,919), and moved one road west on 2026-09-30; 918,919 is plain Curtain now, and the Gate Road
+runs out against it. Outside, the dirt road leaves the shed at 911,923 and runs east along row 923 to
+meet the old road south at 918,923.
+
+A rig coming north up the Glacis goes under the lock roof at 911,922. It either carries straight on
+up 911 (the bypass) or takes the ramp at **910,922** onto the deck at **910,921**, the tile
+carrying `flags.weigh_station`, and rejoins by the weigh lane at 910,920 just short of the gate.
 Every one of those tiles is covered (`flags.gate_lock`).
 
 The deck is its own road type, `terrain: 'weighbridge'`: a road for every rule that asks (it's in
@@ -2728,7 +2733,7 @@ The old deck and lane inside the wall are gravel now, with the scars described i
 
 **Long Stay** is that lot: 919,918, where the fence *Thumb On The Scale* stood until this build
 moved it to Rag Row. It is an ordinary building with an ordinary `truck_depot` yard, so buying the
-rig back is a walk to a gate rather than a line of prose about a low-loader.
+rig back is a walk up the Gate Road rather than a line of prose about a low-loader.
 
 **And the plazas got the gate's treatment.** The office on a highway plaza was `building_type:
 'garage'` — a borrowed silhouette — and is `weigh_station` now, so a station in the waste and the
@@ -2765,8 +2770,8 @@ smuggle without importing it. Neither direction of dependency is created.
 **STATUS: BUILT.** `plugins/trucking/lock.js`, drawn by `drawGateLock` in `windshield.js`.
 
 The South Gate is an airlock. Outside, the Glacis road runs under a shed of grey plate for three
-tiles (the Outer Lock, 918,920–922), with the weigh ramp, the deck and the weigh lane under the same
-roof. Inside, the Gate Road runs through two covered tiles (the South Lock, 918,917–918) that carry
+tiles (the Outer Lock, 911,920–922), with the weigh ramp, the deck and the weigh lane under the same
+roof. Inside, Meltwater Row runs through two covered tiles (the South Lock, 911,917–918) that carry
 `gate_lock.search`. Content marks every covered tile with `flags.gate_lock`; walls are derived in
 `deriveSurfaceCell` from the neighbours (any side that isn't lock, gate or road is plate), so nothing
 authors a wall by hand.
@@ -2793,8 +2798,10 @@ authors a wall by hand.
   searched, and the run ends; `drive` again to roll on.
 - The lock searches and the scale weighs, and neither knows about the other: "weight, not
   contraband" still holds at the deck outside.
-- Long Stay's gate opens into the lock, so a rig bought out of the pound mounts inside it. Mounting
-  doesn't arm the lock; only entering it does.
+- Long Stay (919,918) stayed on the Gate Road when the gate moved west, so its gate opens onto
+  ordinary road now. Engine Trouble's doors (910,917) open into the lock hall at 911,917, and
+  Windrow Lane joins it from the west at 911,918. Mounting doesn't arm the lock; only entering it
+  does, from whichever side.
 
 ## The inspection plaza — the scale house as a place
 

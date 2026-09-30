@@ -12,5 +12,5 @@ export default async function regress({ check }) {
   check('ignores a null zone', _test.warningFor(null) === null, 'null zone');
 
   // ── seenKey — one suppression flag per gate tile ──────────────────────────────
-  check('seenKey is namespaced per zone', _test.seenKey('zone_district_918_919') === 'gate_warned:zone_district_918_919', _test.seenKey('zone_district_918_919'));
+  check('seenKey is namespaced per zone', _test.seenKey('zone_district_911_919') === 'gate_warned:zone_district_911_919', _test.seenKey('zone_district_911_919'));
 }

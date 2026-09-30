@@ -252,6 +252,11 @@ export const DETAIL_SCHEMA = {
     // A mark on a badge is a logo; a name on a board is a name.
     plain: { color: 'string', ink: 'string', label: 'string', face: 'string', font: 'string', picto: 'string', bare: 'boolean', badge: 'boolean' }, px: 7 },
 
+  // A picture bent in neon and mounted on the wall, by name from NEON_ART in windshield.js. `z` is
+  // its centre, `half` and `hh` its half-extents; the artwork keeps its own aspect inside them.
+  neonArt: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', hh: 'h' }, required: ['z', 'half', 'hh'],
+    plain: { art: 'string', face: 'string' }, px: 8 },
+
   // ── THE STREET ITSELF ───────────────────────────────────────────────────────
   // Building parts rather than ground scatter, so they know the footprint, the entrance and the
   // palette — see the note above `streetLamp` in windshield.js.
@@ -307,11 +312,11 @@ export const DETAIL_SCHEMA = {
   // so its screen-size floor is the single biggest lever on what a dense frame costs. At 7 a window
   // was still being queued at 2.6 tiles, where it is a few pixels of frame and reads as noise.
   windowBay: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', hh: 'h', depth: 'fh' }, required: ['z', 'half', 'hh'],
-    plain: { pal: 'string', glow: 'string', glass: 'string', bars: 'number', transom: 'number' }, px: 9 },
+    plain: { pal: 'string', glow: 'string', glass: 'string', bars: 'number', transom: 'number', face: 'string' }, px: 9 },
   // A slab cantilevered over the storey below, with an authored soffit. Not `balcony`: that is a
   // tray with a rail whose underside comes off the wall palette.
   canopy: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', out: 'fh', hh: 'h' }, required: ['z', 'half', 'out'],
-    plain: { pal: 'string', soffit: 'string', strip: 'string' }, px: 9 },
+    plain: { pal: 'string', soffit: 'string', strip: 'string', face: 'string' }, px: 9 },
   // A billboard standing on a roof, on its own legs. `rise` is the leg height; the board sits on
   // top of it, so a gantry cannot be drawn anywhere its structure is not.
   signGantry: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', hh: 'h', rise: 'h' }, required: ['z', 'half', 'hh'],

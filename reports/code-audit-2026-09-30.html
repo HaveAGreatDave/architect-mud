@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Architect Code Audit II</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&family=Big+Shoulders+Display:wght@700;800&display=swap">
+<style>
+/* Layout: a field report, second pass. Summary strip, then yesterday vs today, charts, map, findings, fix order. */
+:root{
+  --bg:#eef0ec; --panel:#ffffff; --fg:#1b1f1c; --muted:#5d665f; --line:#d3d8d2;
+  --accent:#2f6f5e;
+  --crit:#b3261e; --major:#c26a00; --minor:#5a6b8c; --good:#2e7d32; --mine:#8a3ffc;
+  --display:"Big Shoulders Display",Impact,sans-serif;
+  --body:"IBM Plex Sans",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141816; --panel:#1c211e; --fg:#e4e8e3; --muted:#9aa49c; --line:#2e3631;
+  --accent:#6fc2a8; --crit:#ff6b5e; --major:#f0a040; --minor:#93a6cc; --good:#6fcf76; --mine:#b98cff; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141816; --panel:#1c211e; --fg:#e4e8e3; --muted:#9aa49c; --line:#2e3631;
+  --accent:#6fc2a8; --crit:#ff6b5e; --major:#f0a040; --minor:#93a6cc; --good:#6fcf76; --mine:#b98cff; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.55 var(--body)}
+.wrap{max-width:1100px;margin:0 auto;padding-inline:16px;padding-block:32px 64px;display:grid;gap:36px}
+h1{font:800 clamp(2.2rem,6vw,3.6rem)/1 var(--display);letter-spacing:.02em;margin:0;text-transform:uppercase}
+h2{font:700 1.7rem/1.1 var(--display);text-transform:uppercase;letter-spacing:.04em;margin:0 0 14px;text-wrap:balance}
+h3{font-size:1rem;margin:0}
+.sub{color:var(--muted);max-width:72ch;margin:8px 0 0}
+code,.mono{font-family:var(--mono);font-size:.85em}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.tile{background:var(--panel);border:1px solid var(--line);padding:14px 16px}
+.tile b{display:block;font:800 2.2rem/1 var(--display);font-variant-numeric:tabular-nums}
+.tile span{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.tile.crit b{color:var(--crit)}.tile.major b{color:var(--major)}.tile.minor b{color:var(--minor)}.tile.good b{color:var(--good)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px}
+.card{background:var(--panel);border:1px solid var(--line);padding:18px;min-width:0}
+.card p.note{color:var(--muted);font-size:.82rem;margin:10px 0 0}
+.bars{display:grid;gap:7px}
+.bar{display:grid;grid-template-columns:minmax(90px,180px) 1fr 80px;gap:10px;align-items:center;font-size:.82rem}
+.bar .lbl{font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar .trk{height:14px;background:var(--line)}
+.bar .fill{height:100%;background:var(--accent);display:block}
+.bar .fill.hot{background:var(--crit)}.bar .fill.warm{background:var(--major)}.bar .fill.old{background:var(--muted)}
+.bar .v{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+svg text{fill:var(--fg);font-family:var(--mono);font-size:11px}
+.map{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.zone{border:1px solid var(--line);padding:12px;background:var(--panel)}
+.zone h3{font-family:var(--mono);font-size:.85rem;margin-bottom:8px}
+.pips{display:flex;gap:4px;flex-wrap:wrap}
+.pip{font:600 .7rem var(--mono);padding:2px 6px;color:#fff}
+.pip.c{background:var(--crit)}.pip.M{background:var(--major)}.pip.m{background:var(--minor)}.pip.g{background:var(--good)}
+.health{height:6px;margin-top:10px;background:var(--line)}
+.health i{display:block;height:100%}
+table{border-collapse:collapse;width:100%;font-size:.86rem}
+.tbl{overflow-x:auto}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+td.sev{white-space:nowrap}
+.chip{display:inline-block;font:600 .7rem var(--mono);padding:2px 8px;text-transform:uppercase;letter-spacing:.06em;color:#fff}
+.chip.c{background:var(--crit)}.chip.M{background:var(--major)}.chip.m{background:var(--minor)}.chip.g{background:var(--good)}
+.tag{display:inline-block;font:600 .66rem var(--mono);padding:1px 6px;margin-left:6px;border:1px solid var(--mine);color:var(--mine);text-transform:uppercase;letter-spacing:.05em}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.filters button{font:600 .78rem var(--mono);padding:6px 12px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer}
+.filters button[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+.filters button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+ol.plan{margin:0;padding-left:22px;display:grid;gap:8px}
+footer{color:var(--muted);font-size:.8rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="mono" style="color:var(--muted)">THOMAS / ARCHITECT · main @ a0d60ee05 · 2026-09-30 · second audit · fixes in 433ee46, 7642dc3</div>
+  <h1>Code audit &amp; performance review II</h1>
+  <p class="sub">A fresh read-only audit of the current tree, done after yesterday's fixes by two independent reviewers (server and client) who didn't see yesterday's findings. Every finding here was checked against the code. The two criticals, the open player list and the plaintext password were re-checked by hand as well. Items marked <span class="tag">from our fixes</span> are problems introduced by yesterday's lazy-loading work.</p>
+</header>
+
+<section class="tiles" aria-label="Summary">
+  <div class="tile crit"><b id="t-c">0</b><span>Critical</span></div>
+  <div class="tile major"><b id="t-M">0</b><span>Major</span></div>
+  <div class="tile minor"><b id="t-m">0</b><span>Minor</span></div>
+  <div class="tile good"><b id="t-g">0</b><span>Doing well</span></div>
+  <div class="tile"><b>826 KB</b><span>JS at boot (brotli)</span></div>
+  <div class="tile"><b>149</b><span>Boot modules</span></div>
+  <div class="tile"><b>10,482</b><span>regress checks passing</span></div>
+  <div class="tile"><b>7</b><span>Commits not pushed</span></div>
+</section>
+
+<section>
+  <h2>Yesterday vs today</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>JS the game downloads at boot (KB, brotli)</h3>
+      <div class="bars" style="margin-top:12px" id="boot"></div>
+      <p class="note">The static import graph from <code>main.js</code>, which the server modulepreloads. Classic scripts and CSS aren't included; they're below.</p>
+    </div>
+    <div class="card">
+      <h3>Findings by severity: first audit vs this one</h3>
+      <svg viewBox="0 0 380 200" width="100%" role="img" aria-label="Grouped bars comparing findings by severity">
+        <g id="cmp" transform="translate(40,10)"></g>
+      </svg>
+      <p class="note">Yesterday's criticals (path traversal, recipe and card XSS) are fixed and still hold. These two are new: other player-text paths nobody had traced.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>What the boot still costs</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>Largest boot modules (KB brotli)</h3>
+      <div class="bars" style="margin-top:12px" id="mods"></div>
+      <p class="note"><code>birds.js</code> is in the boot graph for one five-line function (<code>doyOf</code>).</p>
+    </div>
+    <div class="card">
+      <h3>Render-blocking and classic scripts (KB brotli)</h3>
+      <div class="bars" style="margin-top:12px" id="classic"></div>
+      <p class="note">All of these are parsed before <code>main.js</code> runs. <code>hockey-sfx.js</code> is only used by the rink.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Risk map</h2>
+  <p class="sub" style="margin-bottom:14px">Each subsystem with its findings. The bar shows the share that are strengths.</p>
+  <div class="map" id="map"></div>
+</section>
+
+<section>
+  <h2>Where player text meets HTML</h2>
+  <div class="card tbl">
+    <svg viewBox="0 0 640 250" width="100%" style="min-width:560px" role="img" aria-label="Diagram of player-text paths and whether each is escaped">
+      <g font-size="11">
+        <text x="10" y="20" style="font-weight:600">PLAYER TYPES</text>
+        <text x="250" y="20" style="font-weight:600">SERVER</text>
+        <text x="470" y="20" style="font-weight:600">CLIENT RENDER</text>
+        <g id="flows"></g>
+      </g>
+    </svg>
+    <p class="note">The client puts server HTML straight into <code>innerHTML</code> for most message types, and there's no CSP behind it. So each of these paths is safe only if the server escapes it. Red paths don't.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Findings</h2>
+  <div class="filters" role="group" aria-label="Filter findings">
+    <button id="f-all" data-f="all" aria-pressed="true">All</button>
+    <button id="f-c" data-f="c" aria-pressed="false">Critical</button>
+    <button id="f-M" data-f="M" aria-pressed="false">Major</button>
+    <button id="f-m" data-f="m" aria-pressed="false">Minor</button>
+    <button id="f-g" data-f="g" aria-pressed="false">Doing well</button>
+    <button id="f-mine" data-f="mine" aria-pressed="false">From our fixes</button>
+  </div>
+  <div class="card tbl" style="padding:0">
+    <table>
+      <thead><tr><th>Severity</th><th>Area</th><th>Finding</th><th>Where</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>Fix order</h2>
+  <div class="card">
+    <ol class="plan">
+      <li><b>Escape the two stored-XSS paths.</b> Escape <code>origin_fragment</code> on write in <code>apiUpdateOwnProfile</code>, and again in <code>describePlayerAppearance</code> so existing rows are covered. Escape the yell text in <code>propagateYell</code> and in the yeller's own echo. Then grep for any other <code>type:'output'</code> broadcast that interpolates raw player text.</li>
+      <li><b>Fix the two lazy-loading regressions.</b> Make <code>cabinAudio</code> and <code>flightSimFireworks</code> no-ops until the cockpit has loaded, and make <code>close*</code> wait for a pending load instead of dropping.</li>
+      <li><b>Close the open GET routes.</b> Put auth on <code>/players/online</code>, <code>/zones</code>, and the flight, broadcast and audio GETs.</li>
+      <li><b>Stop storing the password.</b> "Remember me" should keep a revocable token, not <code>mud_remember_pass</code>.</li>
+      <li><b>Guard boot-time storage reads</b> in <code>main.js</code> (lines 104 and 455), and <b>strip the query string</b> (and percent-decode) in the static server.</li>
+      <li><b>Add a CSP and basic security headers,</b> once inline handlers like <code>[spoiler]</code>'s <code>onclick</code> are moved out.</li>
+      <li><b>Decide the deploy questions:</b> which <code>X-Forwarded-For</code> hop to trust (plus a per-account login limit), TLS verification for Neon, and CORS.</li>
+    </ol>
+  </div>
+</section>
+
+<footer>Second audit, 2026-09-30. Metrics come from <code>git ls-files</code>, <code>git grep</code> and <code>server/modulegraph.js</code> at a0d60ee05. Findings come from two independent read-only reviews, and each was checked against the code. Yesterday's report is <code>code-audit-2026-09-29.html</code>.</footer>
+</div>
+
+<script>
+const BOOT=[["Start of 29 Sep",4140,"old"],["After 3-D views",1200,""],["After tablet",1011,""],["Today",826,""]];
+const MODS=[["birds.js",53],["gameday-rink.js",45],["dispatch.js",34],["tv.js",25],["minimap.js",23],["workspace.js",21],["cardpack.js",21],["smartbar-macros.js",19],["sea-swell.js",19],["main.js",16]];
+const CLASSIC=[["styles.css",150],["audio-engine.js",59],["procedural-sfx.js",28],["sfx-catalog.js",10],["hockey-sfx.js",5],["mod-parser.js",4],["themes.css",3]];
+const FIRST={c:2,M:12,m:18};
+// [sev, area, finding, where, mine]
+const F=[
+["c","Server XSS","FIXED 433ee46: escaped on render in examine, and < > dropped on write. Was: Stored XSS through origin_fragment. PUT /api/players/me/profile only trims and cuts to 200 chars. describePlayerAppearance puts it raw into the examine message, and the client renders examine with innerHTML, so anyone who examines the player runs it, staff included.","routes.js:3042, commands/world.js:412-425, dispatch.js:838"],
+["c","Server XSS","FIXED 433ee46: broadcast, muffled copy and echo escaped after upper-casing. Was: Stored XSS through yell and shout (and any all-caps say). propagateYell upper-cases the text but never escapes it before broadcasting type 'output' to the zone and its neighbours, which the client renders as HTML. Upper-casing doesn't stop a payload. The yeller's own echo is unescaped too.","engine/sounds.js:266-284, commands/social.js:201, 229"],
+["M","Server auth","FIXED 433ee46: anonymous callers get names only; staff get zone and role. Was: GET /api/players/online needs no auth. It returns every online player's id, handle, role and current zone, plus active staff, so anyone can track anyone.","routes.js:516-521"],
+["M","Server auth","FIXED 433ee46: flight and broadcast are dev-only for every method; audio stays open for sound assets. Was: Some plugin routes only gate non-GET methods. GET /api/flight/aircraft (a four-table join over every aircraft with owner handles), /api/flight/debug, SELECT * FROM media_broadcasts and the audio GETs are all open to anonymous callers.","plugins/flight/index.js:2384, broadcast/index.js:10049, audio/index.js:1577"],
+["M","Server auth","PARTLY FIXED 433ee46: failed logins now counted per account (10 per 15 min, both doors). Which forwarded hop to trust is still your call. Was: The rate-limit key trusts the leftmost X-Forwarded-For, so rotating it gets a fresh allowance each time, and an attacker can drain the global bucket to lock every player out of login. There's no per-account limit on guesses against one username.","api/rate-limit.js:47-58"],
+["M","Server","FIXED 433ee46: verified in db.js and the content pipeline (checked against prod); DB_SSL_NO_VERIFY=1 opts out. Was: The Neon connection doesn't verify TLS: ssl { rejectUnauthorized: false }.","models/db.js:51"],
+["M","Client security","FIXED 433ee46: a signed 30-day token instead; old saved passwords are swapped for a token on first use and deleted. Was: \"Remember me\" stores the plaintext password in localStorage (mud_remember_pass) and replays it to auto-login.","client/game/js/net.js:335, 46, 182; main.js:456"],
+["M","Client boot","FIXED 433ee46: boot-time reads guarded. Was: localStorage is read at module top level without try/catch. Where storage is blocked, the getter throws, main.js stops evaluating and the client never boots.","client/game/js/main.js:104, 455-456"],
+["M","Static server","FIXED 433ee46: query string dropped, path percent-decoded, bad encoding is 400. Was: Query strings aren't stripped and paths aren't percent-decoded, so /js/main.js?v=1 returns 404 (confirmed live). Nothing uses ?v= today, but a normal cache-bust would break boot.","server/index.js:404, 563-567"],
+["M","Lazy loading","FIXED 7642dc3: cabin sound plays through engine audio (28 KB); fireworks feed no longer loads the cockpit. Was: cabin_audio downloads the whole cockpit and GLASS (about 3 MB brotli) for walkable-cabin passengers whose HUD never opens, and flightSimFireworks does the same for every airborne occupant. They should be no-ops until the cockpit has loaded.","panels/lazy-views.js:65, dispatch.js:1465, plugins/flight/state.js:1805","mine"],
+["M","Lazy loading","FIXED 7642dc3: calls during a load are queued behind it. Was: A close that arrives while its view is still loading is dropped (close* are no-ops until loaded), so the view opens anyway after a fast close. helmSetWorld is also dropped during the load.","panels/lazy-views.js:46-49, 63, 117","mine"],
+["M","Client hardening","PARTLY FIXED 433ee46: nosniff, referrer policy and a report-only CSP. Enforcing needs the inline scripts and onclick moved out. Was: No Content-Security-Policy, X-Content-Type-Options or frame headers. Most message types are rendered as server HTML, so every string has to be escaped server-side with no second layer. A third-party analytics script runs with full page access.","server/index.js, client/game/index.html:81"],
+["m","Server","CORS Access-Control-Allow-Origin: * on every API response. Combined with the open GETs, any website can read that data.","server/index.js:406"],
+["m","Server","API 500 responses return err.message, which leaks Postgres table and column names.","server/index.js:466-471"],
+["m","Server","Staff can spoof a channel sender (from is taken from the request body), and any logged-in user can post an arbitrary handle to /admin/presence, which feeds the public online list.","routes.js:522-544"],
+["m","Server","FIXED 433ee46: dev only. Was: GET /api/zones and /api/zones/:id return full zone rows, flags included, without auth. That gives away the map and secret rooms.","routes.js:332"],
+["m","Server WS","msg.command isn't type-checked. {type:'command'} without a string throws in handleCommand, which becomes a logged unhandled rejection.","commands/index.js:135"],
+["m","Server WS","There's no per-IP or total connection cap, and each new socket runs SELECT 1 before auth. A connection flood keeps Neon awake and competes for the 10-slot pool.","server/index.js:990-1006"],
+["m","Server","Reincarnation runs per-table DELETEs one at a time with no transaction, each with .catch(()=>{}), so a failure partway through leaves a half-wiped player.","commands/world.js:1206-1212"],
+["m","Server","The disconnect checkpoint and the relation and mutation flushes swallow their errors. The DB logs the failed write, but nothing tells the player.","server/index.js:950-968"],
+["m","Server","autoEquipOnLogin runs one UPDATE per item. It's on the login path, so it's cheap, but one ANY() statement would do.","server/index.js:1236-1243"],
+["m","Server","The switchTokens Map is only pruned when a token is consumed. Growth is bounded because only dev roles can mint them.","routes.js:100-106"],
+["m","Server","Raw timers outside scheduler.js: the token prune, dreamscape, game-table and trip. Most cancel themselves, and the 1 s tick is idle-gated inside.","index.js:164, dreamscape.js:274, game-table.js:588, trip/index.js:238"],
+["m","Server XSS","Self-XSS pattern: some output replies echo the player's own argument unescaped. Only the sender sees it, but it's easy to copy into a broadcast.","plugins/flight/index.js:2315"],
+["m","Client load","birds.js (53 KB brotli, the biggest boot module) is in the boot graph for one five-line function, doyOf.","panels/environment.js:4"],
+["m","Client load","The gameday rink (via tv.js) and cardpack load at boot, and hockey-sfx.js is a classic boot script used only by the rink.","tv.js:17, dispatch.js:24, index.html:2601"],
+["m","Client load","styles.css (150 KB brotli) is render-blocking, and the classic audio scripts (about 100 KB brotli) are parsed before main.js.","client/game/index.html:79, 2594-2602"],
+["m","Server","modulegraph maps a nested shared file to the wrong URL, and its regex doesn't blank comments, so a commented-out import gets preloaded.","server/modulegraph.js:74"],
+["m","Server","FIXED 433ee46. Was: /dev is matched by prefix, so /devices.js is served from client/devpanel as ices.js.","server/index.js:533"],
+["m","Client perf","The minimap requests a frame every frame, even when idle: a full blit with shadowBlur and a layout read at display rate.","panels/minimap-canvas.js:578, 534, 126"],
+["m","Client","The minimap's visibilitychange listener restarts rAF after hideCanvas() has stopped it, drawing into a detached canvas.","panels/minimap-canvas.js:100, 116-122"],
+["m","Lazy loading","A lazy view that fails to load tells the console but not the player; the call just does nothing.","panels/lazy-views.js:44","mine"],
+["m","Client","The auto-reauth fallback leaves out displayRung, so the display rung can reset on that path.","client/game/js/net.js:181-186"],
+["m","Client","ws.js swallows errors from net.js's own message handler, and a command typed during an outage is dropped with no feedback.","client/shared/ws.js:63, 71"],
+["m","Client a11y","[spoiler] markup is a span with an onclick, with no tabindex or role, so keyboard and screen-reader users can't reveal it.","client/game/js/markup.js:128-129"],
+["m","Client XSS","Defence in depth: handles and custom item names go into innerHTML unescaped. That's safe only because of the registration allowlist, which the admin rename script bypasses.","players.js:40, who.js:43, stats.js:51, container.js:349"],
+["g","SQL","No SQL injection found. Every dynamic column list comes from a server-side allowlist, and values are always $n parameters.","routes.js:905, 2897, 3348; atm/index.js:677"],
+["g","Auth","Passwords use salted scrypt, a constant-time compare, and a legacy-hash upgrade only after a correct password. Both login doors share it.","engine/passwords.js:45-80"],
+["g","Auth","Tokens are HMAC-signed and checked with timingSafeEqual, with a 24 h TTL. A role change revokes tokens and closes live sockets.","auth-tokens.js:96-133, routes.js:3058"],
+["g","XSS","Chat and whisper escape first, then apply BBCode with allowlisted colours. say and /me render as text. Handles, recipe names, card faces, trade, CB and voidwalk all sanitise.","markup.js:90-155, render.js:168, cards/index.js, cooking/recipes.js:45"],
+["g","Edges","HTTP bodies are capped at 5 MB (413) and WS frames at 1 MB, with a socket error listener. Path traversal is blocked per branch, and plugin scripts are allowlisted.","server/index.js:400-443, 562-566, 642, 677"],
+["g","Edges","Two token buckets (commands, and everything else), with WS login sharing the HTTP limiter. Macro and config sync are size-capped and throttled.","server/index.js:792-850, 1134, 1637-1657"],
+["g","DB","The pool has connect and statement timeouts, a pool error handler, and transaction rollback. Failed writes are logged once a minute per statement.","models/db.js:58-64, 238"],
+["g","Hot path","Moves don't write through. Positions checkpoint only on an interior crossing, and the rest is batched by an idle-gated flush.","movement.js:815-833"],
+["g","Reliability","uncaughtException exits cleanly so Render restarts the process. Token and rate-limit Maps are pruned. The player object sent to the client is built from an explicit field list, so no hash or email goes out.","server/index.js:164-175, 1303, 2023"],
+["g","Client","WebSocket handlers are bound per socket, and backoff runs 1 to 15 s with ±25% jitter. The ping interval is cleared, and close() clears every timer.","client/shared/ws.js:23-63"],
+["g","Client","handleServerMsg catches and logs each handler's errors and logs unknown types. #output is role=log. Status checks in lazy-views never trigger a download.","dispatch.js:2021-2034, index.html:1126"]
+];
+const AREAS={"Server XSS":"player text → HTML","Client XSS":"player text → HTML","XSS":"player text → HTML","Server auth":"auth & routes","Auth":"auth & routes","SQL":"DB","DB":"DB","Server":"server core","Server WS":"server core","Edges":"server core","Reliability":"server core","Hot path":"server core","Static server":"static serving","Client security":"client core","Client boot":"client core","Client":"client core","Client a11y":"client core","Client hardening":"client core","Client perf":"client core","Client load":"boot size","Lazy loading":"lazy loading"};
+const FLOWS=[["recipe save / rename","dishName strips markup","container, loot",true],["card quote (mintquote, say)","renderCard escapes","card face",true],["say / emote","sent as text","textContent",true],["chat / whisper","parseMarkup escapes","markup.js",true],["handle at register","allowlist A-Z 0-9 _.'-","who, stats, dialogue",true],["origin (profile PUT)","trim + slice only","examine → innerHTML",false],["yell / shout","toUpperCase only","output → innerHTML",false]];
+
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function bars(el,data,cls){const max=Math.max(...data.map(d=>d[1]));el.innerHTML=data.map(([k,v,c])=>`<div class="bar"><span class="lbl" title="${esc(k)}">${esc(k)}</span><span class="trk"><span class="fill ${c||(cls?cls(v):'')}" style="width:${(v/max*100).toFixed(1)}%"></span></span><span class="v">${v.toLocaleString()}</span></div>`).join('')}
+bars($('boot'),BOOT);
+bars($('mods'),MODS);
+bars($('classic'),CLASSIC,v=>v>100?'warm':'');
+
+const NAMES={c:'Critical',M:'Major',m:'Minor',g:'Doing well'};
+for(const k of ['c','M','m','g'])$('t-'+k).textContent=F.filter(r=>r[0]===k).length;
+
+const NOW={c:0,M:0,m:0};F.forEach(r=>{if(r[0]in NOW)NOW[r[0]]++});
+const COL={c:'var(--crit)',M:'var(--major)',m:'var(--minor)'};
+const maxv=Math.max(...Object.values(FIRST),...Object.values(NOW)),H=140;
+let s='';
+['c','M','m'].forEach((k,i)=>{const x=i*110;
+ [[FIRST[k],'var(--muted)','29 Sep'],[NOW[k],COL[k],'30 Sep']].forEach(([v,c,l],j)=>{const h=v/maxv*H,bx=x+j*38;
+  s+=`<rect x="${bx}" y="${10+H-h}" width="32" height="${h}" fill="${c}"/><text x="${bx+16}" y="${6+H-h}" text-anchor="middle">${v}</text>`;});
+ s+=`<text x="${x+35}" y="${H+30}" text-anchor="middle">${NAMES[k]}</text>`;});
+s+=`<rect x="0" y="${H+42}" width="10" height="10" fill="var(--muted)"/><text x="16" y="${H+51}">29 Sep</text><rect x="80" y="${H+42}" width="10" height="10" fill="var(--major)"/><text x="96" y="${H+51}">30 Sep</text>`;
+$('cmp').innerHTML=s;
+
+const groups={};for(const r of F){const a=AREAS[r[1]]||r[1];(groups[a]??=[]).push(r)}
+$('map').innerHTML=Object.entries(groups).map(([n,rows])=>{const c={c:0,M:0,m:0,g:0};rows.forEach(r=>c[r[0]]++);const t=rows.length,ok=c.g/t,col=c.c?'var(--crit)':c.M?'var(--major)':ok>=.5?'var(--good)':'var(--minor)';
+ return `<div class="zone"><h3>${esc(n)}</h3><div class="pips">${['c','M','m','g'].filter(k=>c[k]).map(k=>`<span class="pip ${k}">${c[k]} ${NAMES[k].split(' ')[0].toLowerCase()}</span>`).join('')}</div><div class="health"><i style="width:${Math.max(ok*100,4)}%;background:${col}"></i></div></div>`}).join('');
+
+$('flows').innerHTML=FLOWS.map(([a,b,c,ok],i)=>{const y=44+i*29,col=ok?'var(--good)':'var(--crit)';
+ return `<text x="10" y="${y}">${esc(a)}</text><line x1="200" y1="${y-4}" x2="245" y2="${y-4}" stroke="${col}" stroke-width="2"/><text x="250" y="${y}" style="fill:${col}">${esc(b)}</text><line x1="420" y1="${y-4}" x2="465" y2="${y-4}" stroke="${col}" stroke-width="2"/><text x="470" y="${y}">${esc(c)}</text>`}).join('');
+
+function render(f){$('rows').innerHTML=F.filter(r=>f==='all'||r[0]===f||(f==='mine'&&r[4])).map(([sv,a,t,w,mine])=>`<tr><td class="sev"><span class="chip ${sv}">${NAMES[sv]}</span></td><td>${esc(a)}${mine?'<span class="tag">from our fixes</span>':''}</td><td>${esc(t)}</td><td class="mono">${esc(w)}</td></tr>`).join('')}
+document.querySelectorAll('.filters button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.filters button').forEach(x=>x.setAttribute('aria-pressed',x===b));render(b.dataset.f)});
+render('all');
+</script>
+</body>
+</html>

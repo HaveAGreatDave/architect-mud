@@ -39,6 +39,7 @@
 // the absence of a code path — which is what makes the flag's `0` provably the old renderer.
 import { viewProjMatrix, mat4f } from './camera.js';
 import { makeVertexStream } from './stream.js';
+import { declareProgram, takeWarm } from './programs.js';
 
 // What alpha counts as the SHAPE rather than as its edge, in the depth-only prepass. A billboard is
 // baked from flat fills, so its interior is 1 and only the rim is between; half is the middle of
@@ -191,10 +192,14 @@ const MAX_TEX = 256;
 // species, the world anchor, the quad's size in SCREEN PIXELS, and where inside that quad the
 // anchor sits (ax across from the left, ay down from the top, both in pixels).
 export function createBillboardLayer(gl) {
-  const prog = gl.createProgram();
-  gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
-  gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
-  gl.linkProgram(prog);
+  // Prewarmed with the context when it can be (programs.js); built here otherwise.
+  let prog = takeWarm(gl, VERT, FRAG);
+  if (!prog) {
+    prog = gl.createProgram();
+    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
+    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
+    gl.linkProgram(prog);
+  }
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('billboard link: ' + gl.getProgramInfoLog(prog));
 
   const loc = {
@@ -431,3 +436,5 @@ export function createBillboardLayer(gl) {
 
   return { upload, draw, get textures() { return texes.size; } };
 }
+
+declareProgram(VERT, FRAG);

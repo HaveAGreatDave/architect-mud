@@ -23,8 +23,9 @@
 <body>
 <header>
   <b>ACTOR LAB</b>
-  <label>shot <select id="shot"><option>street</option><option>portraits</option><option>faces</option></select></label>
+  <label>shot <select id="shot"><option>street</option><option>portraits</option><option>faces</option><option>gala</option></select></label>
   <label><input type="checkbox" id="built"> as built</label>
+  <label><input type="checkbox" id="mats" checked> materials</label>
   <label>weather <select id="weather"><option>clear</option><option selected>rain</option><option>cold</option></select></label>
   <label><input type="checkbox" id="night" checked> night</label>
   <label><input type="checkbox" id="shadows" checked> contact shadows</label>
@@ -41,7 +42,10 @@
 // A look at the street figures (client/game/js/panels/actor3d.js), dressed by district. The west
 // street is mostly Ascendants with a few Null, the east mostly Long Watch with some Wildblood. Both
 // read the real bake, so they draw the mesh the game does. "as built" draws the look that ships;
-// "portraits" and "faces" line people up at head height so the faces can be judged.
+// "portraits" and "faces" line people up at head height so the faces can be judged. "materials"
+// lights each garment as what it's made of (the game's version is envAt in gl/actors.js), and
+// "gala" is its A/B: four people in evening dress, lit as metal, satin and leather on the left and
+// as cloth on the right.
 //
 // An order's dress is the street's, never the NPC's: a figure in the west wears the west's colours
 // because of where it walks, which says nothing about who it is (see ACTOR_OUTFITS in actor3d.js).
@@ -345,6 +349,16 @@ vec3 reshape(vec3 r, int f) {
       vec3 q = r + normalize(l) * 0.007 * vnoise(r * 40.0 + uSeed);
       return q + vec3(l.x * 0.35 * back * low, -0.16 * back * low, -0.03 * back * low);
     }
+    if (uHairStyle == 4) {
+      // A quiff over an undercut: the front of the crown swept up and forward, the sides and the
+      // nape cut close to the scalp.
+      float front = smoothstep(-0.04, 0.07, l.z);
+      float top = smoothstep(0.0, 0.07, l.y);
+      float side = smoothstep(0.045, 0.075, abs(l.x)) * (1.0 - smoothstep(0.0, 0.04, l.y));
+      float nape = smoothstep(-0.02, -0.08, l.z) * smoothstep(0.03, -0.02, l.y);
+      vec3 q = r - normalize(l) * 0.012 * max(side, nape);
+      return q + vec3(0.0, 0.045 * front * top, 0.03 * front * top * top);
+    }
     return r;
   }
   // A fuller neck, tapering back to the bake's where it goes up into the head.
@@ -481,6 +495,9 @@ uniform float uMid;
 uniform float uHairFront;
 uniform float uTorsoTop;
 uniform float uCoatX;
+uniform float uMatOn;
+uniform vec3 uMats;
+uniform vec3 uShirt;
 out vec4 outColor;
 float fw;
 vec3 gHair;
@@ -506,6 +523,27 @@ vec3 bump(vec3 n, vec3 p, float h) {
   float det = dot(dx, r1);
   vec3 g = sign(det) * (hx * r1 + hy * r2);
   return normalize(abs(det) * n - g);
+}
+
+// What a shiny surface sees, with no environment map: ground below, sky above, a bright band where
+// they meet, the key as a soft box and the rim light as a second, coloured one behind. Rougher
+// blurs the lot. Metal and gloss read as metal and gloss because of this, not because of a colour.
+vec3 envAt(vec3 R, float rough) {
+  float w = mix(0.05, 0.5, rough);
+  vec3 c = mix(uGnd * 0.6, uSky * 1.1, smoothstep(-w, w, R.y));
+  c += mix(uSky, uKeyC, 0.5) * 0.45 * exp(-sq(R.y / (w + 0.06)));
+  // At night the horizon is the city's lights, not a sky.
+  c += mix(uKeyC, uRimC, 0.5) * uNight * 0.9 * exp(-sq((R.y - 0.05) / (w + 0.12)));
+  float kd = max(dot(R, uKey), 0.0);
+  c += uKeyC * (pow(kd, mix(90.0, 5.0, rough)) * mix(5.0, 0.8, rough) + 0.8 * kd * kd);
+  vec3 back = normalize(vec3(-uKey.x, 0.25, -uKey.z));
+  c += uRimC * pow(max(dot(R, back), 0.0), mix(40.0, 4.0, rough)) * mix(3.0, 0.6, rough);
+  return c;
+}
+// Distance to a diamond lattice s metres across, in 0..0.5 of a cell.
+float diamond(vec2 p, float s) {
+  vec2 g = abs(fract(vec2(p.x + p.y, p.x - p.y) / s) - 0.5);
+  return min(g.x, g.y);
 }
 
 // The face, painted on the head's skin. Coordinates are rest-shape metres from the anchors: q runs
@@ -639,6 +677,10 @@ void main() {
   float h = 0.0;
   float rough = 1.0;
   bool isHair = false;
+  // Paint that isn't the garment's own cloth (a shirt, a yoke, a button) keeps the plain light.
+  float matte = 0.0;
+  // The weave's fine noise, kept so a smooth material can take it back off.
+  float micro = 0.0;
   if (uOrder == 0) {
     if (m == 1) {
       float front = step(0.0, r.z);
@@ -658,7 +700,8 @@ void main() {
       h += 0.0018 * sin(r.y * 55.0 + vnoise(r * 7.0 + uSeed) * 5.0) * line(r.y - 0.25, 0.22);
       if (uOrder != 4) h += 0.0008 * line(vRestN.x, 0.12) * step(0.5, vRestN.z) * step(0.3, r.y);
     }
-    h += vnoise(r * 260.0) * 0.00035;
+    micro = vnoise(r * 260.0) * 0.00035;
+    h += micro;
     if (uOrder == 1) {
       // Ascendant: a clean pale coat, a high collar, lit piping on the front edge, hem and cuffs,
       // a badge on the breast, glossy shoes.
@@ -735,6 +778,43 @@ void main() {
         }
       }
       if (m == 3) { col = mix(col, vec3(0.85, 0.84, 0.8), 1.0 - smoothstep(0.024, 0.03, r.y)); col = mix(col, vec3(0.8), line(r.y - 0.06, 0.004) * step(0.5, abs(vRestN.x))); }
+    } else if (uOrder == 5) {
+      // Evening dress: a hip-length jacket open in a V to one button, a banded shirt inside it,
+      // patterned yokes either side of the V, and the shirt's cuffs showing past the sleeves.
+      if (m == 1) {
+        float front = frontN * vPart;
+        float top = uTorsoTop;
+        float vB = 1.06;
+        float halfW = 0.088 * clamp((r.y - vB) / (top - vB), 0.0, 1.0);
+        float ax = abs(cx);
+        float inV = step(vB, r.y) * (1.0 - smoothstep(halfW - 0.0015, halfW + 0.0015, ax)) * front;
+        float band = smoothstep(top - 0.034, top - 0.028, r.y) * vPart;
+        float cuff = (f == 13 || f == 14) ? smoothstep(0.9, 0.894, r.y) : 0.0;
+        float shirt = max(max(inV, band), cuff);
+        // The yoke runs from the V's edge out toward the shoulder, its lower edge rising outward.
+        float yb = 1.255 + (ax - halfW) * 0.55;
+        float yoke = smoothstep(yb - 0.002, yb + 0.002, r.y) * (1.0 - smoothstep(0.15, 0.155, ax)) * front * (1.0 - shirt);
+        vec3 yc = uAcc * (0.7 + 0.6 * vnoise(r * 70.0 + uSeed)) * (0.85 + 0.3 * vnoise(r * 240.0));
+        col = mix(col, yc, yoke);
+        col *= 1.0 - 0.5 * lineAA(r.y - yb, 0.0015) * step(ax, 0.155) * front * (1.0 - shirt);
+        // The shirt: faint stripes, a placket down the middle with its buttons, a line under the band.
+        vec3 sc = uShirt * (0.95 + 0.05 * step(0.5, fract(cx / 0.006)));
+        sc *= 1.0 - 0.12 * lineAA(ax - 0.011, 0.0008);
+        float btn = (1.0 - smoothstep(0.0035, 0.0045 + fw, length(vec2(cx, fract((r.y - vB) / 0.055) * 0.055 - 0.0275)))) * step(r.y, top - 0.04);
+        sc = mix(sc, uShirt * 0.35, btn);
+        sc *= 1.0 - 0.25 * lineAA(r.y - (top - 0.034), 0.001) * vPart;
+        // Where the jacket's edge stands off the shirt, the shirt is in its shadow.
+        sc *= 1.0 - 0.4 * (1.0 - smoothstep(0.0, 0.014, halfW - ax)) * inV;
+        col = mix(col, sc, shirt);
+        h -= 0.004 * inV;
+        h += 0.0015 * lineAA(ax - halfW - 0.004, 0.004) * front * step(vB, r.y) * (1.0 - band);
+        // One button at the foot of the V.
+        float b1 = 1.0 - smoothstep(0.009, 0.0105 + fw, length(vec2(cx, r.y - (vB - 0.012))));
+        col = mix(col, uAcc * 0.4, b1 * front);
+        h += 0.0015 * b1 * front;
+        matte = max(max(shirt, yoke), b1 * front);
+      }
+      if (m == 3) col *= 1.0 - 0.5 * (1.0 - smoothstep(0.012, 0.02, r.y));
     } else if (uOrder == 4) {
       // Wildblood: a red cloak with a ragged hem and a woven band, marked skin, a necklace of
       // teeth, wrapped shins.
@@ -772,7 +852,8 @@ void main() {
         float rimY = -0.028 + 0.6 * max(lh.z, -0.1);
         float fade = smoothstep(-0.03, -0.004, lh.y - rimY) * smoothstep(0.07, 0.02, lh.z);
         float strand = vnoise(vec3(atan(lh.x, lh.z) * 24.0, lh.y * 16.0, uSeed));
-        col = mix(col, gHair * (0.78 + 0.4 * strand) * 0.9, fade * 0.9);
+        vec3 fc = uHairStyle == 4 ? mix(col, gHair * 0.45, 0.4 * (0.7 + 0.6 * vnoise(r * 900.0))) : gHair * (0.78 + 0.4 * strand) * 0.9;
+        col = mix(col, fc, fade * 0.9);
       }
     }
     if (f == 5) {
@@ -802,7 +883,16 @@ void main() {
         col = gHair * (0.78 + 0.4 * strand);
         h += 0.0007 * strand;
         if (uHairStyle == 1) col *= 1.0 - 0.55 * lineAA(lh.x - 0.024, 0.0014) * smoothstep(0.03, 0.06, lh.y) * smoothstep(-0.03, 0.02, lh.z);
-        rough = uHairStyle == 1 ? 0.35 : 0.6;
+        if (uHairStyle == 4) {
+          // Swept back: the strands run front to back, and the cut sides are skin through stubble.
+          strand = vnoise(vec3(lh.x * 320.0, lh.y * 60.0 - lh.z * 20.0, uSeed));
+          col = gHair * (0.72 + 0.5 * strand);
+          h += 0.0009 * strand;
+          float cut = smoothstep(0.05, 0.068, abs(lh.x)) * (1.0 - smoothstep(0.02, 0.055, lh.y));
+          cut = max(cut, smoothstep(-0.03, -0.075, lh.z) * (1.0 - smoothstep(0.0, 0.035, lh.y)));
+          col = mix(col, mix(uSkin, gHair * 0.45, 0.45 * (0.7 + 0.6 * vnoise(r * 900.0))), cut);
+        }
+        rough = uHairStyle == 1 || uHairStyle == 4 ? 0.35 : 0.6;
         isHair = true;
       }
     }
@@ -831,6 +921,32 @@ void main() {
     }
     if (inside) col = uOrder == 1 ? uAcc * 0.55 : col * 0.42;
   }
+  // The material of the garment under this pixel: 0 cloth, 1 satin, 2 leather, 3 vinyl, 4 metal.
+  // A Long Watch boot is the trousers' mesh painted as a boot, so it takes the shoes' material.
+  int mk = 0;
+  if (uMatOn > 0.5 && uOrder != 0 && !inside) {
+    if (m == 1) mk = int(uMats.x + 0.5);
+    else if (m == 2) mk = int((uOrder == 2 && r.y < 0.27 ? uMats.z : uMats.y) + 0.5);
+    else if (m == 3) mk = int(uMats.z + 0.5);
+    if (matte > 0.5 || (uScarf > 0.5 && vPart > 0.5 && r.y > uTorsoTop - 0.03)) mk = 0;
+  }
+  if (mk > 0) {
+    vec2 p2 = abs(vRestN.x) > abs(vRestN.z) ? vec2(r.z, r.y) : vec2(r.x, r.y);
+    // Under a sharp reflection the weave's noise glitters, so vinyl and metal are smooth.
+    if (mk >= 3) h -= micro;
+    if (mk == 4) {
+      // Lame: a quilted diamond lattice, sunk at the lines and puffed in the cells.
+      float s = 0.008;
+      float d = diamond(p2, s);
+      float fade = 1.0 - smoothstep(s * 0.08, s * 0.25, fw);
+      h += (0.00012 * smoothstep(0.0, 0.25, d) - 0.00014 * (1.0 - smoothstep(0.0, 0.06, d))) * fade;
+    } else if (mk == 2) {
+      // Leather: grain, and the odd crease where it bends.
+      h += 0.0003 * vnoise(r * 700.0) + 0.0008 * smoothstep(0.7, 0.9, vnoise(r * 40.0 + uSeed));
+    } else if (mk == 1) {
+      h += 0.0002 * sin(p2.y * 900.0 + vnoise(r * 30.0) * 6.0) * (1.0 - smoothstep(0.0003, 0.001, fw));
+    }
+  }
   col *= 1.0 - 0.22 * uWet * step(0.5, float(m != 0 && m != 6));
   vec3 n = normalize(vN);
   if (inside) n = -n;
@@ -851,6 +967,22 @@ void main() {
   float nh = max(dot(n, hv), 0.0);
   float shine = skinLike ? 0.1 : mix(0.03, 0.5, 1.0 - rough) + 0.35 * uWet;
   lit += uKeyC * pow(nh, mix(18.0, 60.0, 1.0 - rough)) * shine;
+  if (mk > 0) {
+    float mr = mk == 1 ? 0.42 : mk == 2 ? 0.55 : mk == 3 ? 0.1 : 0.36;
+    float ndv = max(dot(n, v), 0.0);
+    float fr = pow(1.0 - ndv, 5.0);
+    vec3 E = envAt(reflect(-v, n), mr) * ao;
+    if (mk == 4) {
+      // Metal has next to no diffuse: its colour is the colour of what it reflects.
+      lit = col * amb * ao * 0.15 + mix(col, vec3(1.0), fr * 0.5) * E + rim * uRimC * 0.3;
+    } else {
+      // Satin's sheen takes the fibre's colour and brightens where the cloth turns away;
+      // leather and vinyl reflect white, vinyl hard.
+      float kr = mk == 1 ? mix(0.06, 0.5, fr) + 0.12 * sq(1.0 - ndv) : mk == 2 ? mix(0.035, 0.3, fr) : mix(0.05, 0.8, fr);
+      vec3 tint = mk == 1 ? mix(vec3(1.0), col / max(0.05, max(col.r, max(col.g, col.b))), 0.7) : vec3(1.0);
+      lit = lit * (1.0 - kr) + tint * E * kr * (mk == 3 ? 1.6 : 1.0);
+    }
+  }
   // Hair: a soft band of sheen round the crown.
   if (isHair) lit += uKeyC * 0.12 * exp(-sq((nh - 0.72) / 0.12)) * (0.4 + dot(gHair, vec3(0.33)));
   lit += glow;
@@ -1166,8 +1298,26 @@ const ORDERS = {
        glow: [[0, 0, 0]], body: [[4, 1]], girth: [0.95, 1.12], iris: [[220, 150, 40], [200, 190, 60], [230, 110, 40]],
        collar: [0, 1.05], hairStyle: 3, mood: 0, brow: -0.3, skin: [[196, 120, 120], [160, 128, 170], [150, 150, 120], [200, 140, 110]] },
 };
+// 5 isn't an order: it's evening dress, for the gala shot, where the materials are the point.
+ORDERS[5] = { ...ORDERS[1], body: [[1, 1]], collar: [0.03, 1.0], hairStyle: 4, mood: 0.1, brow: 0 };
 const DISTRICT = { W: [[1, 5], [3, 1.5]], E: [[2, 5], [4, 2]] };
-const BROLLY = { 1: [[230, 230, 240], [40, 44, 90]], 2: [[20, 20, 22], [60, 50, 36]], 3: [[14, 14, 16]], 4: [[120, 24, 30]] };
+const BROLLY = { 1: [[230, 230, 240], [40, 44, 90]], 2: [[20, 20, 22], [60, 50, 36]], 3: [[14, 14, 16]], 4: [[120, 24, 30]], 5: [[20, 20, 22]] };
+// What each order's clothes are made of, as [coat, trousers, shoes]: 0 cloth, 1 satin, 2 leather,
+// 3 vinyl, 4 metal. Drawn from its own generator so turning materials on doesn't reshuffle a crowd.
+function matsFor(order, R) {
+  if (order === 1) return [R() < 0.3 ? 3 : R() < 0.55 ? 1 : 0, R() < 0.4 ? 1 : 0, 3];
+  if (order === 2) return [R() < 0.3 ? 2 : 0, 0, 2];
+  if (order === 3) return [R() < 0.25 ? 3 : 0, 0, R() < 0.5 ? 3 : 0];
+  if (order === 4) return [0, 0, 2];
+  return [0, 0, 0];
+}
+// The gala line-up: the reference's gold and silver first, then chrome, white satin and oxblood leather.
+const GALA = [
+  { coat: [236, 178, 64], legs: [206, 208, 222], shoes: [214, 214, 222], hair: [24, 150, 160], acc: [74, 46, 82], mats: [4, 4, 3], hairStyle: 4 },
+  { coat: [150, 156, 168], legs: [22, 22, 28], shoes: [16, 16, 20], hair: [18, 16, 20], acc: [30, 30, 40], mats: [4, 1, 3], hairStyle: 1 },
+  { coat: [232, 230, 238], legs: [30, 34, 60], shoes: [20, 20, 26], hair: [60, 40, 30], acc: [120, 110, 160], mats: [1, 1, 3], hairStyle: 1 },
+  { coat: [112, 26, 30], legs: [26, 26, 30], shoes: [44, 30, 22], hair: [215, 212, 200], acc: [40, 20, 22], mats: [2, 2, 2], hairStyle: 4 },
+];
 
 function crowd(seed, district, orders = null) {
   const R = mulberry(seed * 9973 + (district === 'W' ? 1 : 77) + (orders ? orders.length * 131 : 0));
@@ -1195,6 +1345,7 @@ function crowd(seed, district, orders = null) {
       age: Math.pow(R(), 1.3), brow: O.brow + (R() - 0.5) * 0.6, mood: O.mood + (R() - 0.5) * 0.4, iris: pick(O.iris),
       beard: order === 2 ? (R() < 0.3 ? 2 : R() < 0.5 ? 1 : 0) : order === 3 ? (R() < 0.25 ? 1 : 0) : order === 1 ? (R() < 0.08 ? 1 : 0) : 0,
       prop, strap: order === 2 ? (prop === 'rifle' ? 1 : prop === 'pack' ? 2 : 0) : 0,
+      mats: matsFor(order, mulberry(seed * 7919 + i * 31 + order)),
       x: (i - 3) * 0.95 + (R() - 0.5) * 0.2, z: (i % 3) * -0.7 };
   });
 }
@@ -1203,11 +1354,24 @@ const SHOTS = {
   street: { eye: [2.2, 1.5, 5.4], at: [0, 0.95, -0.6] },
   portraits: { eye: [0.35, 1.5, 2.4], at: [0, 1.3, 0], n: 4, gap: 0.5 },
   faces: { eye: [0.08, 1.64, 0.95], at: [0, 1.615, 0], n: 2, gap: 0.36 },
+  gala: { eye: [0.45, 1.3, 3.9], at: [0, 0.98, 0], n: 4, gap: 0.55 },
 };
 function lineup(seed, district, n, gap) {
   const [a, b] = DISTRICT[district].map(([o]) => o);
   const people = crowd(seed, district, Array.from({ length: n }, (_, i) => (i % 2 ? b : a)));
   people.forEach((p, i) => { p.x = (i - (n - 1) / 2) * gap; p.z = 0; p.clip = 'idle'; p.face = true; });
+  return people;
+}
+// The same four people on both sides; only the west has materials on.
+function gala(seed) {
+  const people = crowd(seed, 'W', GALA.map(() => 5));
+  people.forEach((p, i) => {
+    const G = GALA[i];
+    Object.assign(p.o, { coat: G.coat, legs: G.legs, shoes: G.shoes, hair: G.hair });
+    Object.assign(p, { acc: G.acc, mats: G.mats, hairStyle: G.hairStyle, body: 1, girth: 1.02, height: 1.0, age: 0.15,
+      brolly: false, scarf: false, prop: null, strap: 0, glove: 0, beard: 0, makeup: false, cyber: false, implant: false, bun: false,
+      x: (i - (GALA.length - 1) / 2) * SHOTS.gala.gap, z: 0, clip: 'idle', face: true });
+  });
   return people;
 }
 
@@ -1217,7 +1381,7 @@ let crowds = {};
 const recrowd = () => {
   const s = +$('seed').value || 0;
   crowds = {};
-  for (const d of ['W', 'E']) crowds[d] = { street: crowd(s, d), portraits: lineup(s, d, 4, SHOTS.portraits.gap), faces: lineup(s, d, 2, SHOTS.faces.gap) };
+  for (const d of ['W', 'E']) crowds[d] = { street: crowd(s, d), portraits: lineup(s, d, 4, SHOTS.portraits.gap), faces: lineup(s, d, 2, SHOTS.faces.gap), gala: gala(s) };
 };
 recrowd();
 $('seed').oninput = recrowd;
@@ -1265,7 +1429,12 @@ function frame(now) {
   const rain = weather === 'rain', cold = weather === 'cold', shot = $('shot').value, S = SHOTS[shot];
   views.forEach((V) => {
     const { gl } = V, cv = gl.canvas, people = crowds[V.district][shot];
-    const L = lightFor(V.district, night, weather);
+    // The gala shot is an A/B of the materials, so both sides get the west's light.
+    const L = lightFor(shot === 'gala' ? 'W' : V.district, night, weather);
+    const matOn = built ? 0 : shot === 'gala' ? (V.district === 'W' ? 1 : 0) : $('mats').checked ? 1 : 0;
+    const label = cv.parentElement.querySelector('span');
+    label.dataset.home ??= label.textContent;
+    label.textContent = shot === 'gala' ? (matOn ? 'EVENING DRESS · MATERIALS' : 'EVENING DRESS · FLAT') : label.dataset.home;
     const dpr = devicePixelRatio || 1, w = cv.clientWidth * dpr | 0, h = cv.clientHeight * dpr | 0;
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
     gl.viewport(0, 0, w, h);
@@ -1347,10 +1516,13 @@ function frame(now) {
       const armOff = sub(posAt(f.c, f.ph, SHOULDER_V), R3(SHOULDER_V));
       gl.uniform1f(U.uHold, f.holds ? 1 : 0);
       gl.uniform3fv(U.uArmOff, armOff);
-      const hood = !built && (p.order === 3 || (rain && !p.brolly && !p.cap && p.order !== 4) || (cold && p.hoodR < 0.5 && !p.cap));
+      const hood = !built && p.order !== 5 && (p.order === 3 || (rain && !p.brolly && !p.cap && p.order !== 4) || (cold && p.hoodR < 0.5 && !p.cap));
       gl.uniform1f(U.uHood, hood ? 1 : 0);
-      gl.uniform1i(U.uHairStyle, built ? 0 : O.hairStyle);
+      gl.uniform1i(U.uHairStyle, built ? 0 : p.hairStyle ?? O.hairStyle);
       gl.uniform2fv(U.uCollar, built ? [0, 1] : O.collar);
+      gl.uniform1f(U.uMatOn, matOn);
+      gl.uniform3fv(U.uMats, p.mats);
+      c3(U.uShirt, [236, 234, 226]);
       gl.uniform1f(U.uEarPoint, !built && p.earPoint ? 1 : 0);
       gl.uniform1f(U.uScarf, !built && p.scarf && (p.order === 2 || cold) ? 1 : 0);
       gl.uniform1f(U.uWet, !built && rain ? (f.holds ? 0.3 : 1) : 0);

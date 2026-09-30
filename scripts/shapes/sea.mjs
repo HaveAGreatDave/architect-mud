@@ -1711,7 +1711,11 @@ if (rasterSrc) {
   const BV = read('client/game/js/panels/boat-view.js');
   const pose = WS.slice(WS.indexOf('function seaPoseAt('), WS.indexOf('export function hullSurfGain('));
   if (!/hullSurfGain\(wx, wy, a\.roll, a\.wind\)/.test(pose)) fail.push('windshield.js: seaPoseAt does not scale by the surf gain — the Echelon rides the open sea up the beach');
-  else if (!/hullSurfGain\(st\.sim\.x, st\.sim\.y/.test(BV)) fail.push('boat-view.js: the hydro does not scale its sea by the surf gain');
+  // The hydro reads the mesh's whole gate (surf, shelter, waterness) through hullSeaGains, which
+  // must still carry the surf term and fall back to hullSurfGain with no GL floor.
+  else if (!/hullSeaGains\(st\.sim\.x, st\.sim\.y/.test(BV)) fail.push('boat-view.js: the hydro does not scale its sea by the mesh gain');
+  else if (!/export function hullSeaGains[\s\S]*?surfGain\(hM, H0\)[\s\S]*?\n}/.test(WS) || !/hullSurfGain\(wx, wy, roll, wind\)/.test(WS))
+    fail.push('windshield.js: hullSeaGains has lost the surf term or its fallback — the hydro rides the open sea up the beach');
   else if (!/!seabedWindowReady\(\)\) return 1;/.test(WS)) fail.push('windshield.js: hullSurfGain reads an unknown depth as sand — every hull goes flat before the first window');
   else ok.push('the Echelon and the hydro both ride the surf gain');
   if (!/glSeaSurf:\s*[\d.]+/.test(WS)) fail.push('windshield.js: glSeaSurf is not in RENDER_TUNE');

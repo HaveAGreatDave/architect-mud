@@ -131,6 +131,7 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 - [docs/systems-demolition.md](docs/systems-demolition.md): breaching charges (as built). A detonation always charges a crime, so don't fail a quest on an untargeted `witnessed`
 - [docs/systems-stealth.md](docs/systems-stealth.md): sneaking and knockouts (as built); combat stays to the death
 - [docs/systems-dreams.md](docs/systems-dreams.md): per-player dream instances (as built). Check the wake-path table before touching anything that ends sleep
+- [docs/systems-admin.md](docs/systems-admin.md): staff controls, the `sysop` verb and the Tablet Admin app (weather and time built). The app is a skin over the verbs and re-checks the role itself; a time skip goes through `devSkipTime`, never `devAdvanceTime`
 - [docs/systems-display-mode.md](docs/systems-display-mode.md): the visual/textgames/log ladder and seat keyboard ownership (as built). The middle rung's stored value is `textgames`, never `text`
 - [docs/systems-accessibility.md](docs/systems-accessibility.md): `A11Y_OPTIONS`, voice input and Read Aloud (as built). Voice never auto-sends `drop`/`give`/`attack`/`buy`
 - [docs/systems-posture.md](docs/systems-posture.md): the `player.posture`/`sittingOn` contract

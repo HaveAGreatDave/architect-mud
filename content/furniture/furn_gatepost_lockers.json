@@ -1,0 +1,8 @@
+{
+  "description": "A bank of grey lockers with names on tape, most of them crossed out and written over. One has no name, a better lock than the rest, and a dent at kicking height.",
+  "flags": {},
+  "id": "furn_gatepost_lockers",
+  "name": "the lockers",
+  "object_type": "fixture",
+  "zone_id": "zone_gatepost_office"
+}

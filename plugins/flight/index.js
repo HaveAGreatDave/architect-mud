@@ -108,7 +108,7 @@ function breakOffAttackers(player) {
 // `name` falls back to the type name so "embark mule" matches an unlettered craft.
 async function parkedPool(zoneId) {
   const { rows } = await query(
-    `SELECT a.id, a.name, a.type_id, a.is_wreck, a.owner_id, a.hangar_id, a.rental, a.custom_data, t.name tname
+    `SELECT a.id, a.name, a.type_id, a.is_wreck, a.owner_id, a.hangar_id, a.rental, a.custom_data, t.name tname, t.class tclass
      FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.parked_zone_id=$1`, [zoneId]);
   return rows.filter(r => !r.is_wreck && r.custom_data?.charter !== true)
     .map(r => ({ ...r, name: r.name || r.tname }));
@@ -348,7 +348,7 @@ async function boardIntoHangar(player, acId, broadcast) {
   const found = (await parkedPool(field.id)).find(r => r.id === acId);
   if (!found) return { type: 'emote', message: "She isn't parked here." };
   if (found.owner_id !== player.id) return { type: 'emote', message: 'Only her owner takes her out of here.' };
-  const tile = hangarTileFor(field);
+  const tile = hangarTileFor(field, found.tclass === 'heavy');
   return boardFound(found, player, broadcast, tile ? { at: tile } : {});
 }
 setHangarBoarder(boardIntoHangar);
@@ -1110,6 +1110,10 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
     // strip and the hangar aren't the same tile, as at Buzzard Field) — resolve to the field
     // the runway serves so it parks here instead of towing home off-strip.
     if (!field?.flags?.airfield_id && field?.flags?.runway) field = airfieldForRunway(field) || field;
+    // Taxied into a hangar and shut down on its floor. The shed is a building tile with no runway
+    // flag, and a pilot who left the runway before the ramp never rolled over the field tile that
+    // `rolloutField` records, so the hangar names its field.
+    if (!field?.flags?.airfield_id && field?.flags?.aircraft_hangar) field = getZone(field.flags.hangar_field || field.flags.world_exit_zone) || field;
     // Fixed-wing sets down on a real airfield; a VTOL (the Dragonfly) can flare onto any
     // cleared surface tile below it. STOL craft (the Reaper) are rated for rough-field ops
     // too, so like a VTOL they simply put down where they landed instead of being towed home.

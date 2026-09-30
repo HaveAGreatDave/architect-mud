@@ -224,6 +224,8 @@ void main() {
   outColor = vec4(s / 16.0);
 }`;
 
+import { declareProgram, takeWarm } from './programs.js';
+
 function compile(gl, type, src) {
   const sh = gl.createShader(type);
   gl.shaderSource(sh, src);
@@ -237,6 +239,10 @@ function compile(gl, type, src) {
 }
 
 function link(gl, vsrc, fsrc, bindPos) {
+  // Prewarmed with the context when it can be (programs.js). The depth program binds the mass
+  // program's aPos, which is only known here, so it always builds cold.
+  const warm = bindPos == null ? takeWarm(gl, vsrc, fsrc) : null;
+  if (warm) return gl.getProgramParameter(warm, gl.LINK_STATUS) ? warm : null;
   const prog = gl.createProgram();
   let vs, fs;
   try { vs = compile(gl, gl.VERTEX_SHADER, vsrc); fs = compile(gl, gl.FRAGMENT_SHADER, fsrc); }
@@ -270,9 +276,8 @@ function colorTarget(gl, w, h) {
 // the reason shadow.js gives: a VAO records its pointers against LOCATIONS, and this layer draws
 // the mass program's own VAO rather than building a second copy of the city.
 export function createSSAOLayer(gl, posLoc) {
-  const withTaps = (s) => s.split('SSAO_TAPS').join(String(SSAO_TAPS));
   const depthProg = link(gl, DEPTH_VERT, DEPTH_FRAG, posLoc);
-  const aoProg = link(gl, FULL_VERT, withTaps(AO_FRAG));
+  const aoProg = link(gl, FULL_VERT, AO_FRAG_TAPS);
   const blurProg = link(gl, FULL_VERT, BLUR_FRAG);
   if (!depthProg || !aoProg || !blurProg) return null;
 
@@ -405,3 +410,8 @@ export function createSSAOLayer(gl, posLoc) {
 
   return { render, dispose, get size() { return [W, H]; } };
 }
+
+// The tap count stamped once, so the prewarm and the layer hand over the same source.
+const AO_FRAG_TAPS = AO_FRAG.split('SSAO_TAPS').join(String(SSAO_TAPS));
+declareProgram(FULL_VERT, AO_FRAG_TAPS);
+declareProgram(FULL_VERT, BLUR_FRAG);

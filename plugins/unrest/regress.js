@@ -605,13 +605,16 @@ export default async function regress({ check, getPlayer }) {
     const hadOverride = !!signals.ambientOverrideAt(cell);
     check('a staged ambient override is live', hadOverride);
     const tagZone = signals.anchorZone(cell);
-    const hadTag = !!graffiti.tagAt(tagZone);
+    // A tile carries a tag per wall and the dev DB may already hold some, so the check is that
+    // exactly the one the incident put up came down.
+    const tagsBefore = graffiti.tagsAt(tagZone).length;
 
     await incidents.teardown(inc.instanceId);
     check('teardown clears the ambient override', !signals.ambientOverrideAt(cell));
     check('teardown returns the gossip pool to its prior size',
       pool.all().length === poolBefore, `${poolBefore} -> ${pool.all().length}`);
-    if (hadTag) check('teardown scrubs the wall', !graffiti.tagAt(tagZone));
+    if (tagsBefore) check('teardown scrubs the wall', graffiti.tagsAt(tagZone).length === tagsBefore - 1,
+      `${tagsBefore} -> ${graffiti.tagsAt(tagZone).length}`);
     check('teardown removes the live instance', incidents.liveIncidents().length === 0);
     // ⚠ …but the cooldown SURVIVES teardown. Otherwise tearing an incident down
     // is how you get the same one back on the very next tick.

@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_cw_tower",
+  "id": "map_int_cw_tower",
+  "name": "Coldwater Regional Tower",
+  "parent_zone_id": "zone_district_924_901"
+}

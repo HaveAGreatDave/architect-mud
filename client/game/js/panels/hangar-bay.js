@@ -16,6 +16,7 @@ import { sendCmdSilent } from '../net.js';
 import { drawHangarFloorBay, drawPaintBooth, MODEL_SCALE, meshIdFor, meshParams } from './aircraft3d.js';
 import { paintVehicleCard, paintSlotCard, cardStyleFor, cardSeed, ensureCardStyles, barTone } from './vehicle-card.js';
 import { updateHangarAmbience, stopHangarAmbience } from './hangar-ambience.js';
+import { suppressWeatherFx } from './weather-fx.js';
 import { drawWireframe3D, drawKnob, drawPerfRadar, themeColor, rgbTriplet } from './wireframe-plane.js';
 import { showConfirmDialog } from './confirm.js';
 import { openColorPicker, closeColorPicker } from './color-picker.js';
@@ -54,6 +55,9 @@ export function openHangarBay(data) {
   // background refresh (a remote tablet sale) re-asserting it over a player who reopened the log.
   // The buttons light themselves off the body class at render, so there is nothing to pass here.
   if (freshOpen) compactHidePanel('hb-hidepanel');
+  // The bay draws its own weather (the ambience bed, lightning through the doors). The outdoor
+  // rain overlay on top is wrong, and a second full-pane canvas redrawn every frame.
+  suppressWeatherFx(true, 'hangar');
   window.dispatchEvent(new Event('pane:claimed'));   // a phone keeps #area-pane collapsed until told; an app that mounts there has to say so
   B = B || { screen: 'floor', selId: null, work: null };
   B.data = data || {};
@@ -80,6 +84,7 @@ export function openCharterScreen(data) {
 
 export function closeHangarBay() {
   closeColorPicker({ silent: true });
+  suppressWeatherFx(false, 'hangar');
   stopHangarAmbience();   // the render loop drove the weather bed; it stops now, so silence it
   document.body.classList.remove('hb-fullscreen', 'hb-hidepanel');   // drop the immersive layout so the room look isn't left with the log/command box hidden
   window.dispatchEvent(new Event('pane:released'));  // hand the collapsed pane back to the phone layout
@@ -1171,7 +1176,7 @@ function startSpin() {
   let last = 0;
   const loop = (t) => {
     const root = document.getElementById('hb-root');
-    if (!root) { raf = null; return; }
+    if (!root) { raf = null; suppressWeatherFx(false, 'hangar'); return; }   // the pane was repainted out from under the bay
     const dt = last ? Math.min(0.05, (t - last) / 1000) : 0;
     yaw += dt * 0.55;
     last = t;

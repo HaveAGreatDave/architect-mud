@@ -1,0 +1,6 @@
+{
+  "name": "admin",
+  "version": "1.0.0",
+  "description": "In-game staff controls. The `sysop` verb and the Tablet Admin app (staff roles only: dev, admin, builder, designer). Phase 1 is weather: read the live state, force a condition, temperature or precipitation chance, start a named event, or return to the forecast. Time, players and the staff channel follow.",
+  "commands": ["sysop"]
+}

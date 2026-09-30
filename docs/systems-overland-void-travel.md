@@ -1313,7 +1313,7 @@ The geography makes The Reach the natural first destination:
 - So the road to The Reach **runs through the Wildblood badlands and keeps going.** The Wildlands
   aren't a separate project — they're the **near leg** of the Reach crossing. Finishing them *is*
   building the first half of the trail.
-- Route: `Coldwater → South Gate (918_919) → the Thornwarren → [the void] → Buzzard Field's back door`.
+- Route: `Coldwater → South Gate (911_919) → the Thornwarren → [the void] → Buzzard Field's back door`.
 
 Because The Reach is `flags.lawless`, dying in the void while wanted-elsewhere does not jail you
 (consistent with the existing lawless-respawn gate) — you just clone-vat respawn.

@@ -2,10 +2,10 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#5f6f7a",
-  "description": "The Coldwater Regional hangar: a cavernous prefab of corrugated steel, its floor a map of old oil stains and tyre scuffs. Tool racks and a battered workbench line one wall; a wheeled ops desk with a bank of flight monitors faces the other. The big bay doors stand open to the west, framing the ramp and the aircraft parked out on it. Beyond the apron a taxiway peels off and runs dead-straight to a long runway: a broad grey ribbon stretched to the horizon, its dashed centreline dwindling to a pale seam, threshold numbers shimmering in the heat off the tarmac, a lone windsock snapping at the far end. It smells of avgas, hot metal and cold coffee.",
+  "description": "The Coldwater Regional hangar: a prefab of corrugated steel, its floor a map of oil stains and tyre scuffs. Tool racks and a battered workbench line one wall; a wheeled ops desk with a bank of flight monitors faces the other. The roller door on the south wall stays down until something needs to roll through it. It smells of avgas, hot metal and cold coffee.",
   "exits": {
     "down": "zone_util_zone_hangar_outskirts",
-    "east": "zone_district_924_903"
+    "south": "zone_district_927_902"
   },
   "flags": {
     "floor": "concrete",
@@ -26,5 +26,5 @@
   "id": "zone_hangar_outskirts",
   "map_id": "map_int_hangar_outskirts",
   "name": "Coldwater Regional Hangar",
-  "parent_zone": "zone_district_924_903"
+  "parent_zone": "zone_district_927_902"
 }

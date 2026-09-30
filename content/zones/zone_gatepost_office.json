@@ -1,0 +1,31 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#1c2230",
+  "description": "One room and a cage. A counter runs under the armoured glass with the pad on the other side of it, a board of plates wanted and plates cleared, a kettle, a gun rack with a padlocked bar, and in the back corner a holding cage with a bench in it and nobody in it yet.",
+  "exits": {
+    "west": "zone_district_913_921"
+  },
+  "flags": {
+    "building_name": "The Gate Post",
+    "building_type": "police",
+    "district": "wilds",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "A slot of armoured glass at cab height looking straight onto the search pad. The officer on the counter can read a plate through it without standing up.",
+      "light": 0.6,
+      "name": "the armoured glass",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_913_921"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_gatepost_office",
+  "map_id": "map_int_gatepost",
+  "name": "The Gate Post",
+  "parent_zone": "zone_district_913_921"
+}

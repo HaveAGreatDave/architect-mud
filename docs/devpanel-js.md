@@ -374,18 +374,6 @@ The World State panel and the persistent server-status sidebar.
 - `openGhostMode()` / `confirmGhostMode()` / `closeGhostModal()` — the Ghost Mode zone-picker overlay.
 - `showPlayButton()` / `launchPlayerClient()` — the 🎮 Play button in the header.
 
-### `validator.js`
-The Zone Validator panel (data integrity checks).
-
-- `renderValidatorPanel()` — entry point; runs auto-check if enabled.
-- `runFullValidation()` / `runZoneValidation(zoneId)` — hit the validator API and render results.
-- `renderValidatorResults(r)` — renders issue list with severity icons and fix buttons.
-- **Orphan cleanup**: `deleteOrphan()`, `deleteAllOrphans()`.
-- **Map geometry**: `runMapGeometryValidation()`, `renderValidatorMapResults()`.
-- **Auto-fix helpers**: `vFixRemoveExit()`, `vFixAddReciprocal()`, `vFixGeometry()`.
-- **Item integrity**: `runItemValidation()` scans every item client-side against `TAG_CATALOG` for null columns (name/weight/value), non-object tags, and unknown/malformed tags. `validateItem()`/`tagValueError()`/`deriveItemName()` do detection; `renderItemValidatorResults()` renders a checkbox list (mirrors the Changes screen — Select All/None + per-row Fix/Remove select). `resolveSelectedItemIssues()` routes each choice through staging (Fix = full-object PUT to `/items/:id`; Remove = staged item delete), so resolutions land in the Changes panel to publish.
-- `toggleValidatorAutoRun()`, `exportValidatorReport()`.
-
 ### `tags.js`
 `renderTagsPanel(data)` — the Tag Catalog panel. `data` is `{ catalog, supertags }`. Two sections:
 

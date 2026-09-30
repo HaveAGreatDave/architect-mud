@@ -1360,6 +1360,16 @@ is where it was finally reported.
 its own words in its own colour and read as a blank rectangle. `ink` is now its own field and
 defaults to whichever of dark/bone can actually be read against the board.
 
+## Neon pictures
+
+`neonArt` mounts a picture bent in neon flat on a wall, named from `NEON_ART` in `windshield.js`.
+`z` is its centre, `half` and `hh` its half-extents, and the artwork keeps its own aspect inside
+them. The glass is a baked canvas mapped onto the wall the way sign lettering is, so it gets the
+same fit, depth and bloom. The two stand-off rails behind it are metal and go in the mesh.
+
+Jolene's is the only one so far. Its strokes are in `client/shared/neon-art.js`, traced off the
+owner's own sign rather than drawn by hand, so change it by retracing it, not by editing numbers.
+
 ## The searchlight, and the one adornment that leaves the building
 
 `skyBeam` is the twelfth adornment kind and the first whose geometry is not on the building at all:

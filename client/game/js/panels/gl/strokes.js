@@ -24,6 +24,7 @@
 // bake, one draw call for every wire in the city.
 import { viewProjMatrix, mat4f, zRow, NEAR } from './camera.js';
 import { makeVertexStream } from './stream.js';
+import { declareProgram, takeWarm } from './programs.js';
 
 // NDC depth is A + B/f, from the ONE place NEAR and FAR are named. See sprites.js for the twin.
 // ⚠ PER FRAME, BECAUSE THE PLANE IS. These two were module constants off NEAR/FAR, which
@@ -140,10 +141,14 @@ function compile(gl, type, src, label) {
 // and how many pixels of soft halo to lay round it (the 2-D renderer's `shadowBlur`, which is the
 // single most expensive thing it does and here is one more quad).
 export function createStrokeLayer(gl) {
-  const prog = gl.createProgram();
-  gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
-  gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
-  gl.linkProgram(prog);
+  // Prewarmed with the context when it can be (programs.js); built here otherwise.
+  let prog = takeWarm(gl, VERT, FRAG);
+  if (!prog) {
+    prog = gl.createProgram();
+    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
+    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
+    gl.linkProgram(prog);
+  }
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('stroke link: ' + gl.getProgramInfoLog(prog));
 
   const loc = {
@@ -256,3 +261,5 @@ export function createStrokeLayer(gl) {
 
   return { upload, draw, get strokes() { return count / 6; } };
 }
+
+declareProgram(VERT, FRAG);

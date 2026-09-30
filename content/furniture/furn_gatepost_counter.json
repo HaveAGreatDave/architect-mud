@@ -1,0 +1,8 @@
+{
+  "description": "A steel counter under the armoured glass, a plate reader bolted to it and a logbook chained to the reader. Every vehicle through the gate is in the book, in three different hands.",
+  "flags": {},
+  "id": "furn_gatepost_counter",
+  "name": "the counter",
+  "object_type": "fixture",
+  "zone_id": "zone_gatepost_office"
+}

@@ -400,9 +400,18 @@ function ensureStyles() {
   document.head.appendChild(st);
 }
 
-const WALL_OPT = (w, sel) => `<option value="${esc(w.dir)}"${w.dir === sel ? ' selected' : ''}>${esc(w.dir)}: ${esc(w.name)}</option>`;
+// A front is just the building, as it always was; a side or back wall says which it is.
+const WALL_NAME = (w) => (w.side === 'side' || w.side === 'back' ? `${w.side} of ${w.name}` : w.name);
+const WALL_OPT = (w, sel) => `<option value="${esc(w.dir)}"${w.dir === sel ? ' selected' : ''}>${esc(w.dir)}: ${esc(WALL_NAME(w))}</option>`;
 
-// msg: { walls:[{dir,name}], wall, saved, maxLen, saveCap, can:{name,quantity}, over }
+// Whose paint is on the wall you've picked. Per wall, because a tag is: one side of an alley
+// can be bare while the other is somebody's.
+function overNote() {
+  const w = S?.walls.find(x => x.dir === S.wall);
+  note(w?.over ? `${w.over}'s tag is up on that wall. Yours goes straight over it.` : '');
+}
+
+// msg: { walls:[{dir,name,side,over}], wall, saved, maxLen, saveCap, can:{name,quantity} }
 export function openSprayCan(msg) {
   ensureStyles();
   closeSprayCan();
@@ -516,7 +525,7 @@ export function openSprayCan(msg) {
   for (const b of overlay.querySelectorAll('[data-face]')) {
     b.addEventListener('click', () => { S.face = TAG_FACES.includes(b.getAttribute('data-face')) ? b.getAttribute('data-face') : null; paint(); });
   }
-  $('sp-wall').addEventListener('change', (e) => { S.wall = e.target.value; });
+  $('sp-wall').addEventListener('change', (e) => { S.wall = e.target.value; overNote(); });
   $('sp-rainbow').addEventListener('click', rainbow);
   $('sp-strip-btn').addEventListener('click', strip);
   $('sp-fade').addEventListener('click', fade);
@@ -578,7 +587,7 @@ export function openSprayCan(msg) {
   $('sp-go').addEventListener('click', sprayIt);
   $('sp-cancel').addEventListener('click', () => close());
 
-  if (msg.over) note(`${msg.over.handle}'s tag is up here. Yours goes straight over it.`);
+  overNote();
   paint();
   input.focus();
 }

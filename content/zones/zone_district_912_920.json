@@ -1,24 +1,28 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Cracked hardpan stretches off in every direction, the color of old rust. The wind has scoured it bare of anything loose.",
+  "description": "A side lane off the Glacis road under the same grey plate roof, marked for police vehicles only in paint nobody has touched up. It runs south past the Gate Post to the search pad.",
   "exits": {
-    "east": "zone_district_913_920",
     "south": "zone_district_912_921",
     "west": "zone_district_911_920"
   },
   "flags": {
     "district": "wilds",
-    "radiation": 30,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "road",
+    "gate_lock": {
+      "name": "the Outer Lock",
+      "k": "ramp",
+      "gate": "zone_district_911_919",
+      "seg": 0
+    }
   },
   "grid_x": 912,
   "grid_y": 920,
   "grid_z": 0,
   "id": "zone_district_912_920",
   "map_id": "map_world",
-  "name": "Mesa Shelf",
-  "parent_zone": null
+  "name": "The Post Lane",
+  "parent_zone": null,
+  "color": "#9a9ea4"
 }

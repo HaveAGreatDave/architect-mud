@@ -171,9 +171,11 @@ function buildBody(lod = 0) {
     [1.33, 0.195, 0.125, 0, 0.0],
     [1.24, 0.180, 0.128, 0, 0.005],
     [1.13, 0.165, 0.118, 0, 0.0],
-    [1.02, 0.160, 0.112, 0, -0.005],
-    [0.92, 0.175, 0.120, 0, -0.005],
-    [0.78, 0.190, 0.135, 0, 0.0],
+    // The hips are wider than the thighs' tops with room to spare: at 0.175 the tops poked out of
+    // the coat's front corners and read as a patch of trouser colour, like a pocket.
+    [1.02, 0.168, 0.118, 0, -0.005],
+    [0.92, 0.190, 0.130, 0, -0.005],
+    [0.78, 0.200, 0.142, 0, 0.0],
     [0.62, 0.205, 0.150, 0, 0.005],
   ]), N, SUB, coatW, COAT);
   loft(M, [[1.57, 0.047, 0.05, 0, 0.0], [1.46, 0.052, 0.056, 0, -0.005]], N, SUB,
@@ -207,7 +209,7 @@ function buildBody(lod = 0) {
     ell([x, 0.795, 0.005], [0.026, 0.068, 0.043], 10, 8, rigid(B['hand' + L]), SKIN);
     if (!far) ellipsoid(M, [x, 0.83, 0.038], [0.016, 0.03, 0.016], 8, 6, rigid(B['hand' + L]), SKIN);
     loft(M, thin([
-      [0.965, 0.085, 0.092, lx, -0.005], [0.88, 0.082, 0.088, lx, 0.0], [0.76, 0.072, 0.078, lx, 0.005],
+      [0.965, 0.075, 0.085, lx, -0.005], [0.88, 0.080, 0.086, lx, 0.0], [0.76, 0.072, 0.078, lx, 0.005],
       [0.62, 0.060, 0.064, lx, 0.005], [0.53, 0.053, 0.057, lx, 0.0], [0.47, 0.053, 0.058, lx, 0.0],
       [0.40, 0.055, 0.062, lx, -0.008], [0.30, 0.050, 0.055, lx, -0.005], [0.18, 0.045, 0.048, lx, 0.0],
       [0.10, 0.050, 0.052, lx, 0.0],
@@ -476,6 +478,18 @@ export const ACTOR_OUTFITS = {
   ],
 };
 const PARTS = ['coat', 'legs', 'skin', 'hair', 'shoes'];
+// What the coat, the trousers and the shoes are made of, by weight: the codes gl/actors.js lights.
+// Plain cloth is the street; the rest are what catch the eye up close. Picked off the token like the
+// colours, and for the same reason.
+export const ACTOR_MATERIAL = { cloth: 0, satin: 1, leather: 2, vinyl: 3, metal: 4 };
+export const ACTOR_MATERIALS = {
+  coat: [[0, 70], [1, 8], [2, 12], [3, 7], [4, 3]],
+  legs: [[0, 86], [1, 5], [2, 8], [4, 1]],
+  shoes: [[0, 25], [2, 55], [3, 20]],
+};
+// Their slots in rand(k), clear of the colours' 0-4 and of 6-9, which windshield.js hashes for
+// height, gait, heading and phase.
+const MAT_K = { coat: 10, legs: 11, shoes: 12 };
 function pick(list, r) {
   let total = 0;
   for (const [, w] of list) total += w;
@@ -484,11 +498,13 @@ function pick(list, r) {
   return list[list.length - 1][0];
 }
 // `rand(k)` is a stable 0..1 per part index k (windshield.js passes the actor hash). Returns the five
-// colours plus `tone`, the blob's six-way bucket, taken from the coat's lightness so a figure keeps
-// roughly its brightness when it crosses between the mesh and the billboard.
+// colours, `mat` ([coat, trousers, shoes] as ACTOR_MATERIAL codes), and `tone`, the blob's six-way
+// bucket, taken from the coat's lightness so a figure keeps roughly its brightness when it crosses
+// between the mesh and the billboard.
 export function actorOutfit(rand) {
   const o = {};
   PARTS.forEach((p, k) => { o[p] = pick(ACTOR_OUTFITS[p], rand(k)); });
+  o.mat = ['coat', 'legs', 'shoes'].map((p) => pick(ACTOR_MATERIALS[p], rand(MAT_K[p])));
   const [r, g, b] = o.coat;
   const luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
   o.tone = Math.max(0, Math.min(5, Math.floor(luma * 1.9 * 6)));

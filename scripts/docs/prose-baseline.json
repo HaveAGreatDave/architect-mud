@@ -1306,9 +1306,6 @@
     "plugins/yacht/README.md": {
       "em-dash": 21
     },
-    "plugins/zone-validator/README.md": {
-      "em-dash": 5
-    },
     "tools/modelshop/README.md": {
       "vocab": 1,
       "constructed-irony": 5,

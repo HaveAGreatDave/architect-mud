@@ -20,14 +20,19 @@ const TRUCK = {
 };
 
 const problems = [];
-const tuneWas = { gl: ws.RENDER_TUNE.gl, glShip: ws.RENDER_TUNE.glShip };
+// The face-colour checks are the CPU path (RENDER_TUNE.cabGPU 0). On the GPU path the faces carry
+// albedo, and the same three facts are checked on the light the frame uploads, at the end.
+const tuneWas = { gl: ws.RENDER_TUNE.gl, glShip: ws.RENDER_TUNE.glShip, cabGPU: ws.RENDER_TUNE.cabGPU };
+ws.RENDER_TUNE.cabGPU = 0;
+let lastLight = null;
 function faces(view) {
   let seen = null;
   ws.RENDER_TUNE.gl = 1; ws.RENDER_TUNE.glShip = 1;
-  ws.installGLWorld((cells, cam, opts) => { seen = opts.ship ? opts.ship.filter((q) => q.interior) : null; return null; });
+  ws.installGLWorld((cells, cam, opts) => { seen = opts.ship ? opts.ship.filter((q) => q.interior) : null; lastLight = opts.ship ? opts.ship.interiorLight : null; return null; });
   try { ws.paintWindshield('__cl', view); } finally { ws.installGLWorld(null); }
   return seen || [];
 }
+const light = (view) => { faces(view); return lastLight; };
 const lum = (fs) => fs.length ? fs.reduce((a, q) => a + 0.3 * q.rgb[0] + 0.59 * q.rgb[1] + 0.11 * q.rgb[2], 0) / fs.length : NaN;
 
 // Full moon is up and high at midnight; a new moon is not.
@@ -126,6 +131,24 @@ else {
   if (!(hi > lo * 1.03)) problems.push(`inverted, the light did not move off the upward faces onto the downward ones (down-facing x${hi.toFixed(3)}, up-facing x${lo.toFixed(3)})`);
 }
 
-ws.RENDER_TUNE.gl = tuneWas.gl; ws.RENDER_TUNE.glShip = tuneWas.glShip;
+// THE GPU PATH: the same three facts, on the uniforms the cabin shader lights the room by.
+ws.RENDER_TUNE.cabGPU = 1;
+{
+  const f3 = (x) => (x == null ? 'none' : x.toFixed(3));
+  const nm = light({ ...TRUCK, hour: 0, moon: 0 }), fm = light({ ...TRUCK, hour: 0, moon: 0.5 });
+  if (!nm || !fm) problems.push('the GPU path uploaded no cabin light');
+  else {
+    if (!(fm.amb > nm.amb * 1.03)) problems.push(`GPU: a full moon did not light the cab (amb new ${f3(nm.amb)}, full ${f3(fm.amb)})`);
+    const op = light({ ...TRUCK }), sh = light({ ...TRUCK, map: mkMap('bay') }), gt = light({ ...TRUCK, map: mkMap('gate') });
+    if (!(sh.amb < op.amb * 0.9)) problems.push(`GPU: a shed did not darken the cab (amb open ${f3(op.amb)}, shed ${f3(sh.amb)})`);
+    if (!(gt.amb < op.amb * 0.97 && gt.amb > sh.amb)) problems.push(`GPU: the gate yoke is not a partial shade (${f3(op.amb)} / ${f3(gt.amb)} / ${f3(sh.amb)})`);
+    if (!op.sunC || !op.lightMat) problems.push('GPU: no direct sun or sun shadow map in an open cab at noon');
+    if (sh.sunC) problems.push('GPU: the sun reached into a shed');
+    const lv = light({ ...TRUCK, cls: 'drake', phase: 'air', alt: 800, bank: 0, pitch: 0 });
+    const iv = light({ ...TRUCK, cls: 'drake', phase: 'air', alt: 800, bank: 180, pitch: 0 });
+    if (!(lv && iv && lv.up[2] > 0.5 && iv.up[2] < -0.5)) problems.push(`GPU: inverted, the sky did not turn under the floor (up.z level ${f3(lv && lv.up[2])}, inverted ${f3(iv && iv.up[2])})`);
+  }
+}
+ws.RENDER_TUNE.gl = tuneWas.gl; ws.RENDER_TUNE.glShip = tuneWas.glShip; ws.RENDER_TUNE.cabGPU = tuneWas.cabGPU;
 globalThis.performance = clock;
 if (problems.length) { for (const p of problems) console.log('  FAIL  ' + p); process.exit(1); }

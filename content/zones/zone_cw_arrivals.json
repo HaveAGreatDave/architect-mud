@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#5f6f7a",
+  "description": "Arrivals. One baggage belt, stopped. A row of bolted chairs, a vending machine selling one flavour of everything, and a dead flight board that nobody has bothered to take down. The floor is polished enough to show you the neon on the ceiling.",
+  "exits": {
+    "east": "zone_district_924_902"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_cw_arrivals",
+  "map_id": "map_int_cw_arrivals",
+  "name": "Coldwater Regional Airport",
+  "parent_zone": "zone_district_924_902"
+}

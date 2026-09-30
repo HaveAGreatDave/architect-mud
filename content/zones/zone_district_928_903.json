@@ -1,9 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "bg_color": "#1f3646",
-  "color": "#4f83a8",
-  "description": "Dirty shallows with a coloured film on top. Reeds have got a hold in the silt.",
+  "color": "#9aa0b0",
+  "description": "The taxiway crosses the water on pilings here, and the slab rings when anything heavy rolls over it. The Basin slaps at the posts underneath.",
   "exits": {
     "east": "zone_district_929_903",
     "north": "zone_district_928_902",
@@ -11,14 +10,17 @@
     "west": "zone_district_927_903"
   },
   "flags": {
+    "district": "docks",
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "runway": "pad",
+    "scavenging_table_id": "scav_industrial_salvage",
+    "terrain": "asphalt"
   },
   "grid_x": 928,
   "grid_y": 903,
   "grid_z": 0,
   "id": "zone_district_928_903",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "name": "Taxiway",
   "parent_zone": null
 }

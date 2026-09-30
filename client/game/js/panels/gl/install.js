@@ -114,15 +114,13 @@ function paletteMap() {
 // The pass is handed the canvas this frame belongs to, so installing it is a call with no
 // arguments and no knowledge of which view is painting — four seats share one installation.
 // ── WHETHER THE CLOUD VOLUME RUNS ON "AUTO" ───────────────────────────────────────────────────
-// A raymarch is exactly the per-pixel work an integrated or software GPU is worst at, and every
-// cost number for it was measured on one discrete card. So auto only runs it on a renderer string
-// that does NOT look integrated, mobile or software. This is the first gate. windshield.js adds a
-// second one on measured frame time, which catches whatever this list misses.
+// Auto runs it on every real GPU, integrated and mobile included, and leaves the judging to the
+// frame-time probe in windshield.js (cloudVolProbe), which hands the deck back to the cards for the
+// session when the volume is measured to cost frames. Only a software renderer is refused here: a
+// raymarch on the CPU is never going to pass, so there's no point spending four slow seconds proving it.
 // ⚠ The renderer string is what the browser chooses to report, and some browsers mask it
-// ("ANGLE (Unknown…)", "WebKit WebGL"). An unrecognised string is treated as NOT safe. That errs
-// toward the card deck, which is the renderer that has always shipped.
-const WEAK_GPU = /intel|uhd|iris|mali|adreno|powervr|apple (m\d|gpu)|videocore|swiftshader|llvmpipe|software|microsoft basic|mesa offscreen|radeon\(tm\) graphics|vega \d+ graphics|unknown|webkit webgl/i;
-const STRONG_GPU = /nvidia|geforce|quadro|rtx|gtx|radeon (rx|pro)|\brx \d{3,4}|arc a\d/i;
+// ("ANGLE (Unknown…)", "WebKit WebGL"). A masked string gets the volume and the probe decides.
+const SOFTWARE_GPU = /swiftshader|llvmpipe|software|microsoft basic|mesa offscreen/i;
 export function volumeAutoVerdict() {
   try {
     const cv = document.createElement('canvas');
@@ -131,9 +129,8 @@ export function volumeAutoVerdict() {
     const dbg = gl.getExtension('WEBGL_debug_renderer_info');
     const renderer = String(dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
     const lose = gl.getExtension('WEBGL_lose_context'); if (lose) lose.loseContext();
-    if (WEAK_GPU.test(renderer) && !STRONG_GPU.test(renderer)) return { ok: false, renderer, reason: 'integrated, mobile or software GPU' };
-    if (!STRONG_GPU.test(renderer)) return { ok: false, renderer, reason: 'unrecognised GPU' };
-    return { ok: true, renderer, reason: 'discrete GPU' };
+    if (SOFTWARE_GPU.test(renderer)) return { ok: false, renderer, reason: 'software renderer' };
+    return { ok: true, renderer, reason: 'GPU (the frame-time probe decides)' };
   } catch (e) { return { ok: false, reason: String(e && e.message || e) }; }
 }
 

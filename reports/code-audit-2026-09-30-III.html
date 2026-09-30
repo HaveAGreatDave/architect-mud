@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Architect Code Audit III</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&family=Big+Shoulders+Display:wght@700;800&display=swap">
+<style>
+/* Layout: a field report, second pass. Summary strip, then yesterday vs today, charts, map, findings, fix order. */
+:root{
+  --bg:#eef0ec; --panel:#ffffff; --fg:#1b1f1c; --muted:#5d665f; --line:#d3d8d2;
+  --accent:#2f6f5e;
+  --crit:#b3261e; --major:#c26a00; --minor:#5a6b8c; --good:#2e7d32; --mine:#8a3ffc;
+  --display:"Big Shoulders Display",Impact,sans-serif;
+  --body:"IBM Plex Sans",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141816; --panel:#1c211e; --fg:#e4e8e3; --muted:#9aa49c; --line:#2e3631;
+  --accent:#6fc2a8; --crit:#ff6b5e; --major:#f0a040; --minor:#93a6cc; --good:#6fcf76; --mine:#b98cff; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141816; --panel:#1c211e; --fg:#e4e8e3; --muted:#9aa49c; --line:#2e3631;
+  --accent:#6fc2a8; --crit:#ff6b5e; --major:#f0a040; --minor:#93a6cc; --good:#6fcf76; --mine:#b98cff; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.55 var(--body)}
+.wrap{max-width:1100px;margin:0 auto;padding-inline:16px;padding-block:32px 64px;display:grid;gap:36px}
+h1{font:800 clamp(2.2rem,6vw,3.6rem)/1 var(--display);letter-spacing:.02em;margin:0;text-transform:uppercase}
+h2{font:700 1.7rem/1.1 var(--display);text-transform:uppercase;letter-spacing:.04em;margin:0 0 14px;text-wrap:balance}
+h3{font-size:1rem;margin:0}
+.sub{color:var(--muted);max-width:72ch;margin:8px 0 0}
+code,.mono{font-family:var(--mono);font-size:.85em}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.tile{background:var(--panel);border:1px solid var(--line);padding:14px 16px}
+.tile b{display:block;font:800 2.2rem/1 var(--display);font-variant-numeric:tabular-nums}
+.tile span{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.tile.crit b{color:var(--crit)}.tile.major b{color:var(--major)}.tile.minor b{color:var(--minor)}.tile.good b{color:var(--good)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px}
+.card{background:var(--panel);border:1px solid var(--line);padding:18px;min-width:0}
+.card p.note{color:var(--muted);font-size:.82rem;margin:10px 0 0}
+.bars{display:grid;gap:7px}
+.bar{display:grid;grid-template-columns:minmax(90px,180px) 1fr 80px;gap:10px;align-items:center;font-size:.82rem}
+.bar .lbl{font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar .trk{height:14px;background:var(--line)}
+.bar .fill{height:100%;background:var(--accent);display:block}
+.bar .fill.hot{background:var(--crit)}.bar .fill.warm{background:var(--major)}.bar .fill.old{background:var(--muted)}
+.bar .v{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+svg text{fill:var(--fg);font-family:var(--mono);font-size:11px}
+.map{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.zone{border:1px solid var(--line);padding:12px;background:var(--panel)}
+.zone h3{font-family:var(--mono);font-size:.85rem;margin-bottom:8px}
+.pips{display:flex;gap:4px;flex-wrap:wrap}
+.pip{font:600 .7rem var(--mono);padding:2px 6px;color:#fff}
+.pip.c{background:var(--crit)}.pip.M{background:var(--major)}.pip.m{background:var(--minor)}.pip.g{background:var(--good)}
+.health{height:6px;margin-top:10px;background:var(--line)}
+.health i{display:block;height:100%}
+table{border-collapse:collapse;width:100%;font-size:.86rem}
+.tbl{overflow-x:auto}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+td.sev{white-space:nowrap}
+.chip{display:inline-block;font:600 .7rem var(--mono);padding:2px 8px;text-transform:uppercase;letter-spacing:.06em;color:#fff}
+.chip.c{background:var(--crit)}.chip.M{background:var(--major)}.chip.m{background:var(--minor)}.chip.g{background:var(--good)}
+.tag{display:inline-block;font:600 .66rem var(--mono);padding:1px 6px;margin-left:6px;border:1px solid var(--mine);color:var(--mine);text-transform:uppercase;letter-spacing:.05em}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.filters button{font:600 .78rem var(--mono);padding:6px 12px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer}
+.filters button[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+.filters button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+ol.plan{margin:0;padding-left:22px;display:grid;gap:8px}
+footer{color:var(--muted);font-size:.8rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="mono" style="color:var(--muted)">THOMAS / ARCHITECT · main @ 7642dc38b · 2026-09-30 · third audit · fixes in 39066cd</div>
+  <h1>Code audit &amp; performance review III</h1>
+  <p class="sub">A third read-only audit, run after the fixes from audit II. Two new reviewers (server and client) worked from the committed tree, not the working tree, and saw neither earlier report. Every finding was checked against the code, and the two criticals, the remote shop, the builder toggles, the open ATM route and the client boot and lazy-loading items were re-checked by hand. Items marked <span class="tag">from our fixes</span> are gaps in the last two days' work.</p>
+</header>
+
+<section class="tiles" aria-label="Summary">
+  <div class="tile crit"><b id="t-c">0</b><span>Critical</span></div>
+  <div class="tile major"><b id="t-M">0</b><span>Major</span></div>
+  <div class="tile minor"><b id="t-m">0</b><span>Minor</span></div>
+  <div class="tile good"><b id="t-g">0</b><span>Doing well</span></div>
+  <div class="tile"><b>826 KB</b><span>JS at boot (brotli)</span></div>
+  <div class="tile"><b>149</b><span>Boot modules</span></div>
+  <div class="tile"><b>10,513</b><span>regress checks passing</span></div>
+  <div class="tile"><b>9</b><span>Commits not pushed</span></div>
+</section>
+
+<section>
+  <h2>Yesterday vs today</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>JS the game downloads at boot (KB, brotli)</h3>
+      <div class="bars" style="margin-top:12px" id="boot"></div>
+      <p class="note">The static import graph from <code>main.js</code>, which the server modulepreloads. Classic scripts and CSS aren't included; they're below.</p>
+    </div>
+    <div class="card">
+      <h3>Findings by severity across the three audits</h3>
+      <svg viewBox="0 0 380 200" width="100%" role="img" aria-label="Grouped bars comparing findings by severity">
+        <g id="cmp" transform="translate(40,10)"></g>
+      </svg>
+      <p class="note">Every critical from the first two audits is fixed and still holds. These two are new: WebSocket messages that trust client fields (a node id and a quantity) nobody had checked.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>What the boot still costs</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>Largest boot modules (KB brotli)</h3>
+      <div class="bars" style="margin-top:12px" id="mods"></div>
+      <p class="note"><code>birds.js</code> is in the boot graph for one five-line function (<code>doyOf</code>).</p>
+    </div>
+    <div class="card">
+      <h3>Render-blocking and classic scripts (KB brotli)</h3>
+      <div class="bars" style="margin-top:12px" id="classic"></div>
+      <p class="note">All of these are parsed before <code>main.js</code> runs. <code>hockey-sfx.js</code> is only used by the rink.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Risk map</h2>
+  <p class="sub" style="margin-bottom:14px">Each subsystem with its findings. The bar shows the share that are strengths.</p>
+  <div class="map" id="map"></div>
+</section>
+
+<section>
+  <h2>Where player text meets HTML</h2>
+  <div class="card tbl">
+    <svg viewBox="0 0 640 250" width="100%" style="min-width:560px" role="img" aria-label="Diagram of player-text paths and whether each is escaped">
+      <g font-size="11">
+        <text x="10" y="20" style="font-weight:600">PLAYER TYPES</text>
+        <text x="250" y="20" style="font-weight:600">SERVER</text>
+        <text x="470" y="20" style="font-weight:600">CLIENT RENDER</text>
+        <g id="flows"></g>
+      </g>
+    </svg>
+    <p class="note">The known player-text paths now all escape. The remaining red path is the dev panel's player editor, which can set a handle without the registration check.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Findings</h2>
+  <div class="filters" role="group" aria-label="Filter findings">
+    <button id="f-all" data-f="all" aria-pressed="true">All</button>
+    <button id="f-c" data-f="c" aria-pressed="false">Critical</button>
+    <button id="f-M" data-f="M" aria-pressed="false">Major</button>
+    <button id="f-m" data-f="m" aria-pressed="false">Minor</button>
+    <button id="f-g" data-f="g" aria-pressed="false">Doing well</button>
+    <button id="f-mine" data-f="mine" aria-pressed="false">From our fixes</button>
+  </div>
+  <div class="card tbl" style="padding:0">
+    <table>
+      <thead><tr><th>Severity</th><th>Area</th><th>Finding</th><th>Where</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>Fix order</h2>
+  <div class="card">
+    <ol class="plan"><li><b>Close the two WebSocket exploits.</b> Accept a dialogue choice only if it is an option of the node the player is on, with the NPC in the room; clamp the sell quantity to a positive integer, as buying already does.</li><li><b>Tie shop messages to the open shop</b>: the NPC must be the one the player opened and in the same room, and selling must need a vendor.</li><li><b>Tighten staff routes</b>: the three server-wide toggles admin-only; apiUpdatePlayer revokes tokens on a role change, validates handles and stops returning password_hash; ATM GETs dev-only.</li><li><b>Remember-me revocation</b>: revoke the token server-side on sign-out (or store a per-token id), and don't answer a rate-limited attempt as expired.</li><li><b>Finish the lazy and boot gaps</b>: lightning and boat_fuel as ifLoaded, guard tv.js and the sessionStorage calls, and tell the player when a view fails to load.</li><li><b>Batch the fishing, mining and scavenging table loads</b> into one read and one write per action, or cache the tables.</li><li><b>Then the minors</b>: type-check login fields, a password minimum, single-use reset and verify tokens, generic 500s, keyboard-reachable action links, and moving the inline handlers out ahead of an enforced CSP.</li></ol>
+  </div>
+</section>
+
+<footer>Third audit, 2026-09-30. Metrics come from <code>git grep</code> and <code>server/modulegraph.js</code> at 7642dc38b. Findings come from two independent read-only reviews of the committed tree, each checked against the code. Earlier reports: <code>code-audit-2026-09-29.html</code>, <code>code-audit-2026-09-30.html</code>.</footer>
+</div>
+
+<script>
+const BOOT=[["Start of 29 Sep",4140,"old"],["After 3-D views",1200,""],["After tablet",1011,""],["30 Sep, audit II",826,""],["Now",828,""]];
+const MODS=[["birds.js",53],["gameday-rink.js",45],["dispatch.js",34],["tv.js",25],["minimap.js",23],["workspace.js",21],["cardpack.js",21],["smartbar-macros.js",19],["sea-swell.js",19],["main.js",17]];
+const CLASSIC=[["styles.css",150],["audio-engine.js",59],["procedural-sfx.js",28],["sfx-catalog.js",10],["hockey-sfx.js",5],["mod-parser.js",4],["themes.css",3]];
+const HIST={"29 Sep":{c:2,M:12,m:18},"30 Sep (II)":{c:2,M:10,m:24}};
+// [sev, area, finding, where, mine]
+const F=[
+["c","Server WS","FIXED 39066cd: only a choice offered on the frame the player was sent, for that NPC, in that room. Was: Dialogue node jumping. handleDialogue takes msg.choice as the target node (target = choice) and never checks it's reachable from the node the player is on, that a talk session exists, or that the player is in the NPC's room. A crafted {type:'dialogue', npcId, choice} fires any node's actions and grants_item (items, quest and rep changes), repeatedly and from anywhere, and can open back-room shop shelves. The typed reply path is safe because it indexes options.","engine/dialogue.js:356, 385-423; server/index.js:1801-1841"],
+["c","Server WS","FIXED 39066cd: positive whole numbers only. Was: Negative sell quantity duplicates items. handleSellToNpc passes msg.quantity unvalidated, and sellToVendor uses Math.min(quantity, held), so -N makes the price negative (charged as a spend) and 'quantity - $1' adds N items: buying anything you hold at its own sell price. A non-numeric quantity throws. Buying is clamped correctly.","server/index.js:2037, engine/vendor.js:634"],
+["M","Server WS","FIXED 39066cd: only the NPC whose shop the player opened, in their room. Was: Remote shopping. buy_npc, buy_many_npc, sell_npc and sell_all_npc look the NPC up by id with no room check and no check it's the shop the player opened, and selling doesn't even require a vendor. Any player can trade with any NPC from anywhere, at drug-buyer and bounty-buyer prices, even while dead or jailed.","server/index.js:1960, 1991, 2029, 2047; engine/vendor.js:616"],
+["M","Auth","FIXED 39066cd: sign-out revokes every saved login of the player (persisted cutoff). Was: Remember-me tokens can't be revoked one at a time. Each login mints a new 30-day token and old ones stay valid; sign-out only deletes the local copy. A token lifted by any XSS keeps working for 30 days after the victim signs out. Only a password or role change kills them.","engine/auth-tokens.js:99-126, client/game/js/main.js:747-756","mine"],
+["M","Server auth","FIXED 39066cd: dev and admin only. Was: Builders and designers can flip server-wide security switches: MIS, email verification and registrations. A content role can turn off email verification for the whole server.","server/api/routes.js:267-292"],
+["M","Server auth","FIXED 39066cd: handle and role validated, tokens revoked on role change, no password_hash. Was: apiUpdatePlayer edits role, handle and username without the role route's safeguards: no token revocation on a demotion, no handle check (a markup handle is stored XSS through every handle sink), and RETURNING * sends password_hash to the dev panel.","server/api/routes.js:2897-2940"],
+["M","Server auth","FIXED 39066cd: dev only. Was: GET /api/atm/units is public (the ATM plugin gates only non-GET). It returns every ATM's cash stock, hack difficulty, broken flag and zone, which is a target list for ATM hacking, via a 4-table join per request.","plugins/atm/index.js:639-649"],
+["M","Server perf","FIXED 39066cd: one shared loader, parallel reads, batched writes. Was: Fishing, mining and scavenging run 3 SELECTs per cast, dig or search, plus an INSERT or UPDATE per table entry in a loop: 4 to 15 or more awaited round trips to Neon per player action.","plugins/fishing/index.js:200-275, mining:77, scavenging:62"],
+["M","Client boot","FIXED 39066cd. Was: tv.js reads localStorage at module top level. It's in the boot graph, so where storage is blocked, the client fails to boot. It's the one unguarded top-level read left.","client/game/js/panels/tv.js:37"],
+["M","Client boot","FIXED 39066cd: session-store.js. Was: sessionStorage is used bare in the socket-open path, so with storage blocked onOpen throws before auto-login or the auth screen.","client/game/js/net.js:25-40, 173; dispatch.js:370, 396, 456"],
+["M","Lazy loading","FIXED 39066cd: every no-op feed is now ifLoaded. Was: A lightning strike downloads the cockpit and GLASS (about 3 MB) for walkable-cabin passengers: lightning_strike goes to every occupant, and flightSimLightning is a loading call. The same gap cabinAudio and fireworks had.","panels/lazy-views.js:96, plugins/flight/index.js:1892","mine"],
+["M","Lazy loading","FIXED 39066cd. Was: Refuelling a boat probably downloads boat-view and GLASS: boat_fuel is sent on every fill, including the text-rung path, and boatSetWorld is a loading call.","panels/lazy-views.js:109, plugins/powerboat/fuel.js:146","mine"],
+["M","Client hardening","The client renders about 40 server message types as HTML, and the CSP is report-only. One unescaped handle, item or zone name in any plugin is stored XSS with nothing behind it.","client/game/js/render.js:189, 213; dispatch.js:359-892"],
+["m","Rate limit","PARTLY FIXED 39066cd: a rate-limited remember-me login is no longer treated as expired. The forwarded-hop choice is still yours. Was: The per-address bucket trusts a spoofable X-Forwarded-For, so the global login bucket can be drained to lock everyone out. A rate-limited remember-me login is answered as 'expired', which deletes a real player's saved sign-in under load.","api/rate-limit.js:47, server/index.js:1216","mine"],
+["m","Auth","Any account can be locked out for 15 minutes with 10 wrong guesses (a known trade-off of the per-account limit).","api/rate-limit.js","mine"],
+["m","Server WS","Login fields aren't type-checked: a non-string username throws (handleAuth) or returns a 500 (apiLogin, apiRegister).","server/index.js:1178, routes.js:664"],
+["m","Auth","Registration has no minimum password length (reset enforces 8), and doesn't validate email or the username charset.","routes.js:577, 805"],
+["m","Auth","Reset and email-verify tokens check 'used' and then update it separately, so two concurrent requests can both succeed.","routes.js:681-686, 808-825"],
+["m","Auth","Resend-verification says whether an address is registered and returns raw mailer errors, which undoes the forgot-password flow's no-oracle design.","routes.js:708"],
+["m","Server","API 500 responses return raw exception text, including Postgres errors.","server/index.js:495"],
+["m","Server","GET /api/factions runs a correlated subquery per call and /districts is public; neither is cached or rate-limited.","routes.js:335, 397"],
+["m","Server","Staff chat can post under any handle (from comes from the body). It's escaped when rendered.","routes.js:543-552"],
+["m","Server XSS","Self-XSS: wardrobe outfit names are stored raw and echoed into HTML replies. Only the owner sees them.","plugins/wardrobe/index.js:119, 209, 413, 465"],
+["m","Server","ATM delete is two writes without a transaction, and evidence lock-up inserts one row per item in a loop.","plugins/atm/index.js, plugins/jail/index.js:122-129"],
+["m","Server perf","Per-row UPDATEs in loops: the consort billing tick, cargo drops and autoEquipOnLogin.","consort/hire.js:367, flight/contracts.js:886, server/index.js:1297"],
+["m","Server","The switchTokens Map is only pruned on consume. Only staff can mint them, so growth is slow.","routes.js:100"],
+["m","Remember-me","FIXED 39066cd. Was: Auto-reauth reads (and deletes) a legacy saved password even when the socket is down and the send is dropped, so that player loses it without logging in.","client/game/js/net.js:171-186, remember.js:47","mine"],
+["m","Remember-me","A rejected token is only cleared when the server sets rememberExpired; any other rejection keeps hiding the login form on every load.","client/game/js/dispatch.js:452","mine"],
+["m","Lazy loading","A view that fails to load tells the console but not the player, so a click does nothing.","panels/lazy-views.js:30-44","mine"],
+["m","Client","A received whisper expands $tokens against the reader's own stats (parseMarkup instead of renderMarkup).","whisper.js:895, markup.js:74, 152"],
+["m","Client load","birds.js (53 KB brotli, the largest boot module) is in the graph for one function; the gameday rink and cardpack load at boot.","panels/environment.js:4, tv.js:17, dispatch.js:25"],
+["m","Client load","About 413 KB raw of classic scripts are parsed before main.js, with no defer. mod-parser (AMP deck only) and hockey-sfx (rink only) could be lazy.","client/game/index.html:2594-2604"],
+["m","Client a11y","About 123 action links in the log are spans with no tabindex or role, bound to click only, so exits, doors and prompts aren't reachable by keyboard. Typed commands still work.","main.js:741, 1098-1115"],
+["m","Client","Inline code blocks an enforced CSP: an inline onsubmit, two inline scripts and the [spoiler] onclick.","index.html:82, 411, 2491; markup.js:130"],
+["m","Server","The module-graph preload scanner is a raw regex. A stray match only adds a preload.","server/modulegraph.js:35-37"],
+["g","SQL","Parameterized throughout. Dynamic column lists come from fixed allowlists, and forgot-password is one read, one ANY invalidate and one UNNEST insert, with the same reply either way.","routes.js, atm/index.js"],
+["g","Economy","Money writes are atomic: adjustCredits is one guarded UPDATE, and selling and corp founding run in transactions. Buying clamps quantity to 1 to 99.","economy.js:27, server/index.js:1956"],
+["g","Auth","Session tokens use an HMAC with timingSafeEqual; the remember MAC is domain-separated so it can't pass as an API token; revocation is persisted and a password reset kills live sockets.","engine/auth-tokens.js, server/index.js:148-162"],
+["g","Edges","Static serving decodes, rejects NUL and checks containment per root; the body cap, WS frame cap, per-socket error listener and two token buckets all hold.","server/index.js:457-590, 676, 1696"],
+["g","XSS","The player-text paths hold: handles are allowlisted, origin is stripped and escaped, yell is escaped, say and emotes use textContent, and corps, graffiti, trade, bounty, gossip, cards, storefront and recipes escape or strip.","social.js:230, commands/world.js:414, routes.js:583"],
+["g","Routes","Every plugin route handler except the ATM and audio GETs is dev- or admin-gated, CONTENT_READONLY blocks writes first, and /players/online strips zone and role for anonymous callers.","plugins/*/index.js routeHandler"],
+["g","Client","remember.js stores no password, guards every storage call, and uses a legacy password once then deletes it.","client/game/js/remember.js","mine"],
+["g","Client","lazy-views ordering is sound: calls during a load queue behind it, a failed load retries, and cabinAudio avoids the cockpit.","panels/lazy-views.js:45-54","mine"],
+["g","Client","The WebSocket wrapper binds handlers per socket, backs off with jitter, guards retryNow, and clears every timer on close; send-while-offline tells the player.","client/shared/ws.js, net.js"],
+["g","Client a11y","One global focus manager traps Tab in any panel, maps Escape to its close control and sets aria-modal.","client/game/js/a11y-focus.js"],
+["g","Client perf","The weather loop idles once effects fade or the tab hides; fps-meter and flame loops are bounded.","weather-fx.js:1102-1128"]
+];
+const AREAS={"Server WS":"server core","Server":"server core","Edges":"server core","Server perf":"performance","Client perf":"performance","Client load":"boot size","Auth":"auth","Server auth":"auth","Rate limit":"auth","Remember-me":"remember-me","Economy":"economy","SQL":"DB","Lazy loading":"lazy loading","Client boot":"client core","Client":"client core","Client a11y":"client core","Client hardening":"player text → HTML","XSS":"player text → HTML","Server XSS":"player text → HTML","Routes":"auth"};
+const FLOWS=[["recipe save / rename","dishName strips markup","container, loot",true],["card quote","renderCard escapes","card face",true],["say / emote","sent as text","textContent",true],["yell / shout","escapeHtml","output",true],["origin (profile)","stripped + escaped","examine",true],["handle at register","allowlist","who, stats, dialogue",true],["handle via dev PUT","not checked","every handle sink",false]];
+
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function bars(el,data,cls){const max=Math.max(...data.map(d=>d[1]));el.innerHTML=data.map(([k,v,c])=>`<div class="bar"><span class="lbl" title="${esc(k)}">${esc(k)}</span><span class="trk"><span class="fill ${c||(cls?cls(v):'')}" style="width:${(v/max*100).toFixed(1)}%"></span></span><span class="v">${v.toLocaleString()}</span></div>`).join('')}
+bars($('boot'),BOOT);bars($('mods'),MODS);bars($('classic'),CLASSIC,v=>v>100?'warm':'');
+const NAMES={c:'Critical',M:'Major',m:'Minor',g:'Doing well'};
+for(const k of ['c','M','m','g'])$('t-'+k).textContent=F.filter(r=>r[0]===k).length;
+const NOW={c:0,M:0,m:0};F.forEach(r=>{if(r[0]in NOW)NOW[r[0]]++});
+const SETS=[["29 Sep",HIST["29 Sep"],'var(--muted)'],["30 Sep (II)",HIST["30 Sep (II)"],'var(--minor)'],["Now (III)",NOW,null]];
+const COL={c:'var(--crit)',M:'var(--major)',m:'var(--accent)'};
+const maxv=Math.max(...SETS.flatMap(s=>Object.values(s[1]))),H=140;let s='';
+['c','M','m'].forEach((k,i)=>{const x=i*110;SETS.forEach(([l,d,c],j)=>{const v=d[k],h=v/maxv*H,bx=x+j*30;s+=`<rect x="${bx}" y="${10+H-h}" width="26" height="${h}" fill="${c||COL[k]}"/><text x="${bx+13}" y="${6+H-h}" text-anchor="middle">${v}</text>`});s+=`<text x="${x+42}" y="${H+30}" text-anchor="middle">${NAMES[k]}</text>`});
+s+=`<rect x="0" y="${H+42}" width="10" height="10" fill="var(--muted)"/><text x="14" y="${H+51}">29 Sep</text><rect x="70" y="${H+42}" width="10" height="10" fill="var(--minor)"/><text x="84" y="${H+51}">30 Sep II</text><rect x="165" y="${H+42}" width="10" height="10" fill="var(--major)"/><text x="179" y="${H+51}">now</text>`;
+$('cmp').innerHTML=s;
+const groups={};for(const r of F){const a=AREAS[r[1]]||r[1];(groups[a]??=[]).push(r)}
+$('map').innerHTML=Object.entries(groups).map(([n,rows])=>{const c={c:0,M:0,m:0,g:0};rows.forEach(r=>c[r[0]]++);const t=rows.length,ok=c.g/t,col=c.c?'var(--crit)':c.M?'var(--major)':ok>=.5?'var(--good)':'var(--minor)';return `<div class="zone"><h3>${esc(n)}</h3><div class="pips">${['c','M','m','g'].filter(k=>c[k]).map(k=>`<span class="pip ${k}">${c[k]} ${NAMES[k].split(' ')[0].toLowerCase()}</span>`).join('')}</div><div class="health"><i style="width:${Math.max(ok*100,4)}%;background:${col}"></i></div></div>`}).join('');
+$('flows').innerHTML=FLOWS.map(([a,b,c,ok],i)=>{const y=44+i*29,col=ok?'var(--good)':'var(--crit)';return `<text x="10" y="${y}">${esc(a)}</text><line x1="200" y1="${y-4}" x2="245" y2="${y-4}" stroke="${col}" stroke-width="2"/><text x="250" y="${y}" style="fill:${col}">${esc(b)}</text><line x1="420" y1="${y-4}" x2="465" y2="${y-4}" stroke="${col}" stroke-width="2"/><text x="470" y="${y}">${esc(c)}</text>`}).join('');
+function render(f){$('rows').innerHTML=F.filter(r=>f==='all'||r[0]===f||(f==='mine'&&r[4])).map(([sv,a,t,w,mine])=>`<tr><td class="sev"><span class="chip ${sv}">${NAMES[sv]}</span></td><td>${esc(a)}${mine?'<span class="tag">from our fixes</span>':''}</td><td>${esc(t)}</td><td class="mono">${esc(w)}</td></tr>`).join('')}
+document.querySelectorAll('.filters button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.filters button').forEach(x=>x.setAttribute('aria-pressed',x===b));render(b.dataset.f)});
+render('all');
+
+</script>
+</body>
+</html>

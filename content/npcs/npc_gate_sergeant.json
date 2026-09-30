@@ -62,7 +62,7 @@
     "posted": true
   },
   "home_activities": [],
-  "home_zone": "zone_district_918_919",
+  "home_zone": "zone_gatepost_office",
   "hp": 110,
   "hp_max": 110,
   "id": "npc_gate_sergeant",
@@ -77,5 +77,5 @@
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_district_918_919"
+  "work_zone_id": "zone_gatepost_office"
 }

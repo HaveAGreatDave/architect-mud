@@ -4,6 +4,8 @@
   "color": "#b5744a",
   "description": "Red hardpan under a bleached sky. It's so flat that the horizon seems closer than it is.",
   "exits": {
+    "east": "zone_district_917_920",
+    "south": "zone_district_916_921",
     "west": "zone_district_915_920"
   },
   "flags": {

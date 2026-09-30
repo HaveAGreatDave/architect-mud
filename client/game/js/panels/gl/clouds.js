@@ -33,6 +33,7 @@
 // canvas could not afford it.
 import { viewProjMatrix, mat4f } from './camera.js';
 import { makeVertexStream } from './stream.js';
+import { declareProgram, takeWarm } from './programs.js';
 
 // pos3, corner2, half-extent px 2, alpha1, lit1, kind1
 const STRIDE = 10;
@@ -205,10 +206,14 @@ function compile(gl, type, src, label) {
 // the vertical squash, the alpha, where it sits between the base and lit tints, and which of the
 // three kinds it is (0 fair, 1 stormy, 2 the occlusion pool).
 export function createCloudLayer(gl) {
-  const prog = gl.createProgram();
-  gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
-  gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
-  gl.linkProgram(prog);
+  // Prewarmed with the context when it can be (programs.js); built here otherwise.
+  let prog = takeWarm(gl, VERT, FRAG);
+  if (!prog) {
+    prog = gl.createProgram();
+    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
+    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
+    gl.linkProgram(prog);
+  }
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('cloud link: ' + gl.getProgramInfoLog(prog));
 
   const loc = {
@@ -310,3 +315,5 @@ export function createCloudLayer(gl) {
 
   return { upload, draw, setNoise, get cards() { return count / 6; } };
 }
+
+declareProgram(VERT, FRAG);

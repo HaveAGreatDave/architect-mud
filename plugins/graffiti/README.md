@@ -1,9 +1,9 @@
 # graffiti
 
-**Purpose** — spraying a tag on the front of a building. The `graffiti` crime has sat in the registry (`server/engine/crimes.js`) at 0.3★ since the crime system was built, charging nobody, because there was no verb. This is the verb.
+**Purpose** — spraying a tag on any wall of a building: the front, a side or the back. The `graffiti` crime has sat in the registry (`server/engine/crimes.js`) at 0.3★ since the crime system was built, charging nobody, because there was no verb. This is the verb.
 
 ## Commands
-- `tag <direction|building> <text>` — spray up to 48 characters on a facade next door. `tag` alone lists the walls to hand.
+- `tag <direction|building|side|back> <text>` — spray up to 48 characters on a wall next door. `tag` alone lists the walls to hand.
 - `spraycan [wall]` — the same act with the lid off: the in-browser can (per-letter colour, weight, saved designs). `tag <dir>` with no words and a can in hand opens it too, which is how anybody finds it.
 
 The verb is **`spraycan`, not `spray`** — the flight plugin already owns `spray` (the Locust's crop-duster boom), and plugins beat engine builtins but never each other; the later loader would simply have eaten one of them.
@@ -12,13 +12,19 @@ Removal is **not** here — it's `clean` in the [cleaning](../cleaning/README.md
 
 ## The three rules
 
-**1. You spray a BUILDING, not a tile.** `tag` resolves a facade on an adjacent exit (`flags.is_building`) and refuses on open ground. That's the difference between graffiti and a text field: it lands on a thing that exists in the world, and the room line says which thing — *"Somebody's tagged the front of Bodega Vu: …"*. The check is `wallsNear()`, and if it ever returns a non-building the premise is gone, which is why regress guards it.
+**1. You spray a BUILDING, not a tile.** `tag` finds the buildings (`flags.is_building`) on the four tiles around you and refuses on open ground. That's the difference between graffiti and a text field: it lands on a thing that exists in the world, and the room line says which thing and which wall of it: *"Somebody's tagged the side of Bodega Vu: …"*. The check is `wallsNear()`, and if it ever returns a non-building the premise is gone, which is why regress guards it.
+
+**Any wall will do.** Since 2026-09-30 the walls are found on the grid, not through exits. A building tile has one exit, on its entrance side, so reading exits could only ever find a front, and the blank flank of a building (where graffiti actually goes, and where the renderer has the most bare brick to put it) couldn't be reached from the street running past it. Each wall is named by which one it is: the `front` faces `flags.entrance`, the `back` faces away from it, and anything else is a `side`. A building with no `entrance` flag calls the wall with its door the front. The front reads as the building's name, the others as *"the side of …"* and *"the back of …"*, and `tag side …` or `tag back …` picks one.
+
+Three limits keep that honest. Only tiles on `map_world` look at the grid, since every other map is a local frame. Standing on a building tile, the building next door shares a party wall with yours and isn't offered. And exits are still read after the grid, so a facade that isn't the tile next door stays sprayable as its front.
 
 Since 2026-08-01 the room line sits **with the room's prose** rather than up among the `[SAFE]`/district/light chips — a tag describes a thing that is in the room. That placement is `describe.js`'s, and it moved every `zone.describeRoom` contributor with it (elevator readouts, shop shutters, airfield notes), which is the right home for all of them.
 
-**2. One tag per street tile, and anyone may paint over anyone.** The cap isn't a limit, it's the design — the wall is a contested slot, so the question stops being "what shall I write" and becomes "whose tag is up". It's also what makes the cap a **PRIMARY KEY** rather than a rule somebody enforces: `zone_graffiti` can never hold more than one row per street tile in the world, and painting over is an UPSERT. The buried author isn't notified; you find out by walking past.
+**2. One tag per wall, and anyone may paint over anyone.** The cap isn't a limit, it's the design. The wall is a contested slot, so the question stops being "what shall I write" and becomes "whose tag is up". It's also what makes the cap a **PRIMARY KEY** rather than a rule somebody enforces: a wall is the pair `(zone_id, target_zone_id)`, the tile you **stand in** and the building you paint, `zone_graffiti` can never hold more than one row per wall in the world, and painting over is an UPSERT. The buried author isn't notified; you find out by walking past.
 
-Keyed on the street tile you **stand in**, not the facade you paint, because that's the room it gets read from.
+The tile you stand in is half the key because that's the room a tag is read from, and the room line prints one line per tagged wall. The building is the other half because an alley has a building on each side, and tagging one mustn't paint over the other. Until 2026-09-30 the key was the tile alone. Indoors, both halves are the room.
+
+The unrest sim's own paint (`tagFromWorld`) takes a bare wall when a tile has one, and its teardown scrubs only the wall it painted.
 
 **3. It comes down on its own, eventually.** A tag ages out after `TAG_LIFE_DAYS` (3) **game** days, derived from the game DATE via `gameDayIndex` (the same trick as `zone-filth.js`) rather than a counter or a tick. Stateless: no column to reset, no sweep to schedule, and a restart can't repaint the city. Expiry is **lazy** — asked on read, and it fails toward *"the tag is still there"*, because a clock hiccup silently erasing every wall in the city is much worse than one stale tag.
 
@@ -26,7 +32,7 @@ At the default `timeScale: 1`, three game days is three real days.
 
 ## The teeth
 
-`clean` removes a tag, but **only with a real `cleaning_tool`** — bare hands do floor filth, not brickwork. That asymmetry is deliberate and it is the whole point: floor filth yields to a determined scrub because requiring a tool would mean nobody ever cleans, but if defacing a shopfront cost the owner nothing to undo it wouldn't mean anything. A storefront owner goes and buys a solvent like everybody else.
+`clean` removes every tag on the walls around you, but **only with a real `cleaning_tool`** — bare hands do floor filth, not brickwork. That asymmetry is deliberate and it is the whole point: floor filth yields to a determined scrub because requiring a tool would mean nobody ever cleans, but if defacing a shopfront cost the owner nothing to undo it wouldn't mean anything. A storefront owner goes and buys a solvent like everybody else.
 
 ## The crime
 

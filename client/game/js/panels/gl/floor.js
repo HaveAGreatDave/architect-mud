@@ -43,6 +43,7 @@
 import { NEAR, zRow } from './camera.js';
 import { HEIGHT_FOG_GLSL } from './fog.js';
 import { seaSlopeVariance } from '../../../../shared/sea-swell.js';
+import { declareProgram, takeWarm } from './programs.js';
 import { SEA_GLSL } from './sea-glsl.js';   // the ONE GLSL copy of the swell — water.js includes the same string, and client/shared/sea-swell.js is the JS original
 
 // A screen-filling triangle rather than a quad: no diagonal seam, one fewer vertex, and the
@@ -681,15 +682,19 @@ void main() {
   // on 32-bit ints; mod() and abs() do not reproduce that for negative coordinates, and half the
   // world has negative coordinates. GLSL ES 3.00 has the same operators on the same width, so the
   // shader can run the identical expression rather than something that looks similar.
-  int tx = int(floor(wxf * 2.0)), ty = int(floor(wyf * 2.0));
-  float grad = ((wxf - floor(wxf)) + (wyf - floor(wyf))) * 0.03 - 0.03;
-  float chk = ((tx + ty) & 1) != 0 ? 0.022 : -0.022;
-  float spk = (((tx * 5) ^ (ty * 3)) & 3) == 0 ? 0.018 : 0.0;
-  float tex = 1.0 + (chk + spk + grad) * detail;
+  // ⚠ NEVER A CHECKERBOARD. This was a (tx + ty) & 1 chessboard plus hashed square cells, and
+  // low over bare ground every cell was a screen-sized square. Smooth value noise only: broad
+  // patches, a mid mottle and a fine grit, none of them on the tile grid.
+  float bP = vnoise2(wxf * 1.3 + 11.0, wyf * 1.3 - 7.0) - 0.5;
+  float bM = vnoise2(wxf * 4.1 - 2.0, wyf * 4.1 + 9.0) - 0.5;
+  float bG = vnoise2(wx * 9.7 + 3.0, wy * 9.7 - 5.0) - 0.5;
+  float tex = 1.0 + (bP * 0.09 + bM * 0.05 + bG * 0.035) * detail;
 
   if (grassW > 0.002) {
-    int gx = int(floor(wx * 5.3)), gy = int(floor(wy * 5.3));
-    float g = float(((gx * 7) ^ (gy * 13)) & 3) * 0.05 - 0.075;
+    // Clumps at two scales: turf patches a couple of tiles across, tufts inside them.
+    float gC = vnoise2(wx * 1.7 + 3.0, wy * 1.7 + 1.0) - 0.5;
+    float gT = vnoise2(wx * 5.3, wy * 5.3) - 0.5;
+    float g = gC * 0.16 + gT * 0.12;
     tex = tex * (1.0 - grassW) + (1.0 + g * detail) * grassW;
   }
 
@@ -702,7 +707,8 @@ void main() {
   if (dryW > 0.02 && detail > 0.3) {
     float rip = sin(wx * 2.4 + wy * 0.8) + 0.6 * sin(wx * 0.9 - wy * 1.7);
     float clay = vnoise2(wx * 0.85 + 5.0, wy * 0.85 - 3.0) - 0.5;
-    tex *= 1.0 + (rip * 0.025 + clay * 0.11) * dryW * detail;
+    float crust = vnoise2(wx * 3.3 - 8.0, wy * 3.3 + 2.0) - 0.5;
+    tex *= 1.0 + (rip * 0.025 + clay * 0.11 + crust * 0.07) * dryW * detail;
   }
 
   // ── WATER AND SHORELINE ────────────────────────────────────────────────────
@@ -877,8 +883,10 @@ void main() {
       if (wv2 > 0.7) cr = max(cr, (wv2 - 0.7) * 2.6 * nearK * waterW);
       if (wv2 > 0.86) cap = max(cap, (wv2 - 0.86) * 6.0 * nearK * waterW);
     } else {
-      int gnx = int(floor(wx * 14.7)), gny = int(floor(wy * 14.7));
-      tex *= 1.0 + (float(((gnx * 7) ^ (gny * 13)) & 3) * 0.045 - 0.065) * nearK;
+      // Fine dirt and gravel: two smooth octaves, never hashed squares (see the base material).
+      float n1 = vnoise2(wx * 14.7, wy * 14.7) - 0.5;
+      float n2 = vnoise2(wx * 31.0 + 7.0, wy * 31.0 - 4.0) - 0.5;
+      tex *= 1.0 + (n1 * 0.16 + n2 * 0.09) * nearK;
     }
   }
 
@@ -1159,10 +1167,14 @@ const MAX_ROAD = 48;
 const ROAD_SEG = new Float32Array(MAX_ROAD * 4);
 
 export function createFloorLayer(gl) {
-  const prog = gl.createProgram();
-  gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
-  gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
-  gl.linkProgram(prog);
+  // Prewarmed with the context when it can be (programs.js); built here otherwise.
+  let prog = takeWarm(gl, VERT, FRAG);
+  if (!prog) {
+    prog = gl.createProgram();
+    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
+    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
+    gl.linkProgram(prog);
+  }
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('floor link: ' + gl.getProgramInfoLog(prog));
 
   const U = (n) => gl.getUniformLocation(prog, n);
@@ -1386,3 +1398,5 @@ export function createFloorLayer(gl) {
   // tile COLOUR, which is a number between 0 and 1 that varies plausibly and is not shelter.
   return { draw, get lut() { return t0 ? { tex: t0, tex1: t1, tex2: t2, mh: lutN } : null; } };
 }
+
+declareProgram(VERT, FRAG);

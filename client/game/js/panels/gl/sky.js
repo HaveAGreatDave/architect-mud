@@ -168,6 +168,8 @@ void main() {
   outColor = vec4(clamp(col, 0.0, 1.0), 1.0);
 }`;
 
+import { declareProgram, takeWarm } from './programs.js';
+
 function compile(gl, type, src, label) {
   const sh = gl.createShader(type);
   gl.shaderSource(sh, src);
@@ -185,11 +187,15 @@ const layers = new WeakMap();
 function layerFor(gl) {
   let L = layers.get(gl);
   if (L) return L;
-  const prog = gl.createProgram();
-  gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
-  gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
-  gl.bindAttribLocation(prog, 0, 'aPos');
-  gl.linkProgram(prog);
+  // Prewarmed with the context when it can be (programs.js); built here otherwise.
+  let prog = takeWarm(gl, VERT, FRAG, SKY_BIND);
+  if (!prog) {
+    prog = gl.createProgram();
+    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
+    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
+    gl.bindAttribLocation(prog, 0, 'aPos');
+    gl.linkProgram(prog);
+  }
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('sky link: ' + gl.getProgramInfoLog(prog));
   const U = (n) => gl.getUniformLocation(prog, n);
   const loc = {
@@ -281,3 +287,6 @@ export function drawSky(gl, canvas, s) {
   }
   return true;
 }
+
+const SKY_BIND = [[0, 'aPos']];
+declareProgram(VERT, FRAG, SKY_BIND);

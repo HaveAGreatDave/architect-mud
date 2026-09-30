@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_929_904",
+  "b": "zone_heavy_bay",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_district_929_904_east_hv01",
+  "lockable": true,
+  "one_way": false
+}

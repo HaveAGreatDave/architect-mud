@@ -12,8 +12,11 @@
 //     thing it exists to hold is a hangar you taxi out of through the wall.
 //   · …AND UNDER THE DOOR HEAD, AND INSIDE THE SHED, nose to tail. The head climbs into the gable,
 //     so it is checked against her profile across the span, not a box as tall as her fin.
-//   · THE DOOR OPENS FOR AN AEROPLANE. The occupant list used to take trucks only, so an aircraft
-//     rolling at a hangar door found it shut in the picture and open in nothing.
+//   · THE DOOR OPENS FOR AN AEROPLANE ARRIVING OR LEAVING, AND ONLY THEN. The occupant list used to
+//     take trucks only, so an aircraft rolling at a hangar door found it shut. Then the door covered
+//     the whole shed from inside, so it stood open all the time an aircraft was parked in it. Now it
+//     has a motor and a memory (airDoorOpen): up for an approach, for an engine running on the floor
+//     and for one that came in through it; down for one put on the floor cold.
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
 
 const ws = await loadWindshield();
@@ -36,7 +39,8 @@ const BASE = {
 };
 
 const clock = globalThis.performance;
-globalThis.performance = { ...clock, now: () => 1e6 };
+let NOW = 1e6;   // the hangar door takes time to travel, so section 4 moves this on
+globalThis.performance = { ...clock, now: () => NOW };
 // The same pins the bay gate takes, for the same reason: this scene's sprite and face lists are
 // meant to be one building's, and birds and vents would be counted as its own.
 ws.RENDER_TUNE.geese = 0;
@@ -79,11 +83,16 @@ try {
 
   // ── 3. EVERY AIRFRAME FITS ───────────────────────────────────────────────────
   const MARGIN = 0.01;
-  const classes = [['prop'], ['heavy'], ['gunship'], ['divebomber'], ['locust'], ['grasshopper'], ['ultralight'], ['drake'], ['heli'], ['heli', true]];
+  // The Leviathan has her own shed (the heavy bay, `bk: 'heavy'`); everything else goes in the
+  // regular one, and she is checked against both so the heavy bay can't quietly stop holding her.
+  const HEAVY = { ...AIR, bk: 'heavy' }, DH = ws.bayDims(HEAVY);
+  if (DH === D) problems.push('bayDims gives a heavy bay the regular hangar\'s dimensions');
+  const classes = [['prop'], ['heavy', false, DH], ['gunship'], ['divebomber'], ['locust'], ['grasshopper'], ['ultralight'], ['drake'], ['heli'], ['heli', true]];
   const fits = [];
-  for (const [cls, armed] of classes) {
+  for (const [cls, armed, dims] of classes) {
     const f = ws.hangarFit(cls, !!armed);
-    const name = cls + (armed ? ' (armed)' : '');
+    const name = cls + (armed ? ' (armed)' : '') + (dims ? ' (heavy bay)' : '');
+    const D = dims || ws.bayDims(AIR);
     if (!f || !Number.isFinite(f.wid) || !Number.isFinite(f.top)) { problems.push(`hangarFit(${name}) gave no answer`); continue; }
     fits.push(`${name} ${(2 * f.wid).toFixed(2)}x${(2 * f.len).toFixed(2)}x${f.top.toFixed(2)}`);
     if (f.wid > D.DOOR_W - MARGIN) problems.push(`the ${name} is ${(2 * f.wid).toFixed(3)} tiles across and the hangar door is ${(2 * D.DOOR_W).toFixed(3)}: she does not fit through it`);
@@ -101,22 +110,38 @@ try {
     if (f.len > D.HL - MARGIN) problems.push(`the ${name} is ${(2 * f.len).toFixed(3)} tiles long and the hangar is ${(2 * D.HL).toFixed(3)} deep`);
   }
 
-  // ── 4. THE DOOR OPENS FOR AN AEROPLANE ───────────────────────────────────────
-  // The own ship sits at the frame origin; put the hangar's doorway just ahead of it and ask.
+  // ── 4. THE DOOR: SHUT UNLESS SOMETHING IS ARRIVING OR LEAVING ────────────────
+  // The own ship sits at the frame origin and the shed is put around her. The door takes time to
+  // travel, so each step runs `secs` of 50 ms frames and reads the last one. A null view resets
+  // every door's memory.
   const cellN = { ...AIR, ent: 'south' };
-  ws.setBayVehicles({ cls: 'prop' });
-  const openNear = ws.bayDoorOpen(0, -(D.HL + 0.3), cellN);
-  ws.setBayVehicles({ cls: 'prop' });
-  const openFar = ws.bayDoorOpen(0, -(D.HL + 6), cellN);
-  // …and from INSIDE it is up while she stands on the hangar floor. The sensor measures her centre
-  // and her nose is up to half a tile ahead of it, so the truck's 0.40 had her nose through the
-  // door before it lifted.
-  ws.setBayVehicles({ cls: 'prop' });
-  const openInside = ws.bayDoorOpen(0, 0, cellN);
+  const NEAR = [0, -(D.HL + 0.3)], FAR = [0, -(D.HL + 6)], FLOOR = [0, 0];
+  const cold = { cls: 'prop' }, running = { cls: 'prop', altOn: true };
+  const step = (secs, view, [dx, dy]) => {
+    let o = 0;
+    for (let t = 0; t < secs * 1000; t += 50) { NOW += 50; ws.setBayVehicles(view); o = ws.bayDoorOpen(dx, dy, cellN); }
+    return o;
+  };
   ws.setBayVehicles(null);
-  if (!(openInside > 0.99)) problems.push(`an aircraft parked in the middle of the hangar leaves its door ${openInside.toFixed(2)} open: her nose meets it before it lifts`);
-  if (!(openNear > 0.5)) problems.push(`an aircraft 0.3 tiles off the hangar door leaves it ${openNear.toFixed(2)} open: the door does not see aeroplanes`);
+  const openNear = step(3, running, NEAR);
+  const openAway = step(3, running, FAR);   // …and she rolls on down the taxiway
+  ws.setBayVehicles(null);
+  const openFar = step(3, running, FAR);
+  ws.setBayVehicles(null);
+  const openPut = step(3, cold, FLOOR);     // Launch and Maintain: stood on the floor, cold
+  const openStart1 = step(0.05, running, FLOOR);
+  const openStart = step(3, running, FLOOR);
+  ws.setBayVehicles(null);
+  step(3, running, NEAR);
+  const openTaxiedIn = step(3, cold, FLOOR);   // came in through it, then shut down on the floor
+  ws.setBayVehicles(null);
+  if (!(openNear > 0.99)) problems.push(`an aircraft 0.3 tiles off the hangar door leaves it ${openNear.toFixed(2)} open: the door does not see aeroplanes`);
+  if (!(openAway < 0.01)) problems.push(`an aircraft that rolled six tiles away from the hangar leaves its door ${openAway.toFixed(2)} open: it should come down behind her`);
   if (!(openFar < 0.01)) problems.push(`an aircraft six tiles away leaves the hangar door ${openFar.toFixed(2)} open: it should be shut`);
+  if (!(openPut < 0.01)) problems.push(`an aircraft put on the hangar floor cold leaves its door ${openPut.toFixed(2)} open: it should be shut until she leaves`);
+  if (!(openStart1 < 0.1)) problems.push(`the hangar door is ${openStart1.toFixed(2)} open one frame after her engine starts: it should roll up, not appear`);
+  if (!(openStart > 0.99)) problems.push(`an aircraft on the hangar floor with her engine running leaves its door ${openStart.toFixed(2)} open: she can't get out`);
+  if (!(openTaxiedIn > 0.99)) problems.push(`an aircraft that taxied in and shut down leaves its door ${openTaxiedIn.toFixed(2)} open: it should stay up behind her`);
 
   if (!problems.length) console.log(`✓ hangar: ${on.bay.length} faces, ${D.RIDGE} to the ridge, eaves ${D.WALL}, door ${(2 * D.DOOR_W).toFixed(2)}x${D.DOOR_H} (${ws.bayDoorHead(D.DOOR_W, D).toFixed(2)} at the jambs); fits ${fits.join(', ')}`);
 } finally {

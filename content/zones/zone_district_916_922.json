@@ -4,6 +4,8 @@
   "color": "#b5744a",
   "description": "Rust-red hardpan, dead level. The cracks run in long lines and short ones, and the wind whistles through the deeper ones.",
   "exits": {
+    "east": "zone_district_917_922",
+    "north": "zone_district_916_921",
     "south": "zone_district_916_923",
     "west": "zone_district_915_922"
   },

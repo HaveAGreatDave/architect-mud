@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_cw_arrivals",
+  "id": "map_int_cw_arrivals",
+  "name": "Coldwater Regional Airport",
+  "parent_zone_id": "zone_district_924_902"
+}

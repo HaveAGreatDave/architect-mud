@@ -1,25 +1,32 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "A wide run of packed gravel and grit, graded flat by traffic and rain into something almost like a road. Puddles stand in the ruts, skinned with a chemical sheen. Nothing grows in the margins.",
+  "description": "The town end of the lock, a roofed mouth of grey plate. A shutter hangs up in the lintel and under it a gantry of lamps faces the road: green, amber, or once in a while red with a klaxon behind it. A stencil on the wall says all vehicles may be searched.",
   "exits": {
-    "east": "zone_district_912_917",
     "north": "zone_district_911_916",
     "south": "zone_district_911_918",
     "west": "zone_district_910_917"
   },
   "flags": {
+    "artery": [
+      "Meltwater Row"
+    ],
     "district": "ashway",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_roadside_junk",
-    "street_life": true,
-    "terrain": "road"
+    "terrain": "road",
+    "gate_lock": {
+      "name": "the South Lock",
+      "k": "hall",
+      "search": true,
+      "gate": "zone_district_911_919",
+      "seg": 1
+    }
   },
   "grid_x": 911,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_911_917",
   "map_id": "map_world",
-  "name": "Meltwater Row",
+  "name": "The South Lock",
   "parent_zone": null
 }

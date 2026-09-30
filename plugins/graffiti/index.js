@@ -7,15 +7,16 @@
  *
  * Three rules shape the whole thing, and they're worth stating before the code:
  *
- *  1. YOU SPRAY A BUILDING, NOT A TILE. `tag` will not fire on open ground — it
- *     resolves a facade on an adjacent exit (flags.is_building) and refuses if
- *     there isn't one. That's the difference between graffiti and a text field:
- *     it lands on a thing that exists in the world and it says which thing.
- *  2. ONE PER STREET TILE, AND ANYONE MAY PAINT OVER ANYONE. The cap isn't a
- *     limit, it's the design — the wall is a contested slot, so the interesting
- *     question is never "what shall I write" but "whose tag is up". It's also
- *     what makes the table a PRIMARY KEY instead of a rule somebody enforces:
- *     one row per street tile in the world, forever, upserted.
+ *  1. YOU SPRAY A BUILDING, NOT A TILE. `tag` will not fire on open ground. It
+ *     finds the buildings on the four tiles around you (flags.is_building), any
+ *     face of them, and refuses if there isn't one. That's the difference between
+ *     graffiti and a text field: it lands on a thing that exists in the world and
+ *     it says which thing.
+ *  2. ONE PER WALL, AND ANYONE MAY PAINT OVER ANYONE. The cap isn't a limit, it's
+ *     the design. The wall is a contested slot, so the interesting question is
+ *     never "what shall I write" but "whose tag is up". It's also what makes the
+ *     table a PRIMARY KEY instead of a rule somebody enforces: one row per
+ *     (street tile, building) pair, which is one row per wall, upserted.
  *  3. IT COMES DOWN ON ITS OWN, EVENTUALLY. A tag ages out after TAG_LIFE_DAYS
  *     game days, derived from the game DATE (zone-filth.js gameDayIndex) rather
  *     than a counter or a tick, so it's stateless — a restart can't repaint the
@@ -46,8 +47,9 @@
  * works bare-handed on floor filth, but paint on brick needs a real tool. You have
  * to own a mop to undo this, which is the teeth.
  */
-import { getZone } from '../../server/engine/world.js';
-import { allExits } from '../../server/engine/exits.js';
+import { getZone, zoneAtTile } from '../../server/engine/world.js';
+import { allExits, exitTargets } from '../../server/engine/exits.js';
+import { DIR_OFFSET, OPPOSITE } from '../../server/engine/directions.js';
 import { gameDayIndex } from '../../server/engine/zone-filth.js';
 import { gameToday } from '../../server/engine/apartments.js';
 import { emit } from '../../server/engine/events.js';
@@ -84,8 +86,24 @@ const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').
 
 // --- The RAM authority ------------------------------------------------------
 
-const tags = new Map();   // streetZoneId -> { text, style, face, authorId, authorHandle, targetZoneId, targetName, dayIndex }
+// streetZoneId -> Map<targetZoneId, { text, style, face, authorId, authorHandle, targetZoneId, targetName, dayIndex }>
+//
+// Two levels because a tag is keyed on the WALL, and a wall is the pair: the tile you stand on and
+// the building you paint. An alley has a building on each side and each side carries its own tag.
+// The outer key is still the tile you stand on, because that's the room a tag is read from, and
+// the room line wants all of that room's walls in one Map lookup.
+const tags = new Map();
 let hydrated = null;      // the one-time load promise, memoized
+
+// The one place a tag enters the map, so the index beside it can't be skipped. An interior tag's
+// wall is the room itself, so a row with no target is keyed on its own tile.
+function putTag(zoneId, entry) {
+  const target = entry.targetZoneId || zoneId;
+  indexTag(zoneId, target);
+  let room = tags.get(zoneId);
+  if (!room) { room = new Map(); tags.set(zoneId, room); }
+  room.set(target, entry);
+}
 
 async function hydrate() {
   if (!hydrated) {
@@ -95,11 +113,10 @@ async function hydrate() {
           'SELECT zone_id, target_zone_id, target_name, author_id, author_handle, text, style, face, day_index FROM zone_graffiti'
         );
         for (const r of rows) {
-          indexTag(r.zone_id, r.target_zone_id);
-          tags.set(r.zone_id, {
+          putTag(r.zone_id, {
             text: r.text, style: Array.isArray(r.style) ? r.style : null, face: safeFace(r.face),
             authorId: r.author_id, authorHandle: r.author_handle,
-            targetZoneId: r.target_zone_id, targetName: r.target_name, dayIndex: r.day_index,
+            targetZoneId: r.target_zone_id || r.zone_id, targetName: r.target_name, dayIndex: r.day_index,
           });
         }
       } catch { /* table absent in a bare test DB → nothing is tagged, which is fine */ }
@@ -121,25 +138,49 @@ function expired(entry, today = gameToday()) {
 }
 
 /**
- * The live tag on a street tile, or null. Sync and query-free by contract — it is
- * called from the room-description path. Returns null for an expired tag without
- * deleting it; the row is reaped on the next write or scrub, and an orphan row is
- * one row on a tile nobody has visited.
+ * The live tag on one wall: the building `targetZoneId` as seen from the tile `zoneId`
+ * (for an interior, pass the room as both). Null when there isn't one. Sync and
+ * query-free by contract, since the room-description path calls it. Returns null for
+ * an expired tag without deleting it; the row is reaped on the next write or scrub,
+ * and an orphan row is one row on a tile nobody has visited.
  */
-export function tagAt(zoneId, today = gameToday()) {
-  const e = tags.get(zoneId);
+export function tagOn(zoneId, targetZoneId, today = gameToday()) {
+  const e = tags.get(zoneId)?.get(targetZoneId);
   if (!e || expired(e, today)) return null;
   return e;
 }
 
-/** Remove the tag on a tile. Returns what was there, or null. Used by `clean`. */
-export async function removeTag(zoneId) {
-  const had = tagAt(zoneId);
+/** Every live tag you can read from this tile, one per wall. Sync and query-free, like tagOn. */
+export function tagsAt(zoneId, today = gameToday()) {
+  const room = tags.get(zoneId);
+  if (!room) return [];
+  const out = [];
+  for (const e of room.values()) if (!expired(e, today)) out.push(e);
+  return out;
+}
+
+/** Remove the tag on one wall. Returns what was there, or null. */
+export async function removeTag(zoneId, targetZoneId) {
+  const room = tags.get(zoneId);
+  if (!room?.has(targetZoneId)) return null;
+  const had = tagOn(zoneId, targetZoneId);
   // ⚠ `byBuilding` IS DELIBERATELY NOT PRUNED HERE. It is a hint whose every entry is checked
-  // back through `tagAt` before it is used, so a scrubbed wall drops out of the render on the
+  // back through `tagOn` before it is used, so a scrubbed wall drops out of the render on the
   // next snapshot with no second delete path to keep in step with this one.
+  room.delete(targetZoneId);
+  if (!room.size) tags.delete(zoneId);
+  // The row goes even when the tag had already weathered off, which is the reaping tagOn promises.
+  await query('DELETE FROM zone_graffiti WHERE zone_id=$1 AND target_zone_id=$2', [zoneId, targetZoneId]).catch(() => {});
+  return had;
+}
+
+/** Remove every tag readable from this tile. Returns the live ones that were there. Used by `clean`. */
+export async function removeTagsAt(zoneId) {
+  const room = tags.get(zoneId);
+  if (!room) return [];
+  const had = tagsAt(zoneId);
   tags.delete(zoneId);
-  if (had) await query('DELETE FROM zone_graffiti WHERE zone_id=$1', [zoneId]).catch(() => {});
+  await query('DELETE FROM zone_graffiti WHERE zone_id=$1', [zoneId]).catch(() => {});
   return had;
 }
 
@@ -155,7 +196,7 @@ export async function removeTag(zoneId) {
 // ⚠ THE INDEX IS A HINT AND THE READ RE-VALIDATES, which is what makes it safe to keep a second
 // copy of a relationship at all. `tags` has three writers and `_test` hands the map out whole, so
 // an index maintained beside it can go stale; every id it yields is therefore checked back through
-// `tagAt` — the one function that already owns expiry — and a stale entry drops out rather than
+// `tagOn`, the one function that already owns expiry, and a stale entry drops out rather than
 // painting a wall somebody scrubbed. Over-listing is harmless; wrong-listing is impossible.
 const byBuilding = new Map();   // buildingZoneId -> Set<streetZoneId>
 
@@ -172,15 +213,15 @@ function indexTag(streetId, targetZoneId) {
 // into a "<" that was never sprayed.
 const unesc = (s) => String(s ?? '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 
-// At most this many tags on one facade. A building tile has four sides and each can only carry the
-// one tag its own street tile holds, so this is already the ceiling — it is here so that a corrupt
-// index can never hand the renderer an unbounded list to bake textures from.
+// At most this many tags on one building. A building tile has four walls and each carries one tag,
+// so this is already the ceiling. It's here so that a corrupt index can never hand the renderer an
+// unbounded list to bake textures from.
 const WALL_TAGS_MAX = 4;
 
 /**
  * `wall.tags` — what is sprayed on this building, for the flight window to paint.
  *
- * ⚠ SYNC AND QUERY-FREE BY CONTRACT, the same as `tagAt` and for a harder reason: this is called
+ * ⚠ SYNC AND QUERY-FREE BY CONTRACT, the same as `tagOn` and for a harder reason: this is called
  * from `deriveSurfaceCell`, which derives thousands of cells per snapshot. It is gated there on the
  * tile being a building, and it does one Map lookup for the tiles that are.
  *
@@ -203,8 +244,8 @@ function wallTags(zone, gx, gy) {
   const out = [];
   for (const streetId of ids) {
     if (out.length >= WALL_TAGS_MAX) break;
-    const t = tagAt(streetId);
-    if (!t || t.targetZoneId !== zone.id) continue;     // scrubbed, weathered, or painted over
+    const t = tagOn(streetId, zone.id);
+    if (!t) continue;                                   // scrubbed or weathered
     const s = getZone(streetId);
     if (!s || s.grid_x == null || s.grid_y == null) continue;
     const dx = s.grid_x - bx, dy = s.grid_y - by;
@@ -228,8 +269,46 @@ function wallTags(zone, gx, gy) {
 
 // --- Finding a wall ---------------------------------------------------------
 
-// Every building facade on an adjacent exit, as [{ dir, id, name }]. This is the
-// whole "you can't tag thin air" rule: no entries, no spraying.
+const COMPASS = ['north', 'east', 'south', 'west'];
+
+// Is this zone a real tile on the world map? Only there does a neighbour on the grid mean a wall
+// you can walk up to. Every other map is a local frame (an apartment at (1,0), a flight deck at
+// (0,-1)) and interiors sit at 0,0, so a grid test anywhere else would find walls that aren't there.
+const onWorldGrid = (z) => z?.map_id === 'map_world' && z.grid_x != null && z.grid_y != null;
+
+const buildingName = (b) => b.flags?.building_name || b.name;
+
+// Which of the building's walls looks at you: 'front', 'side' or 'back'. `dir` is the way you
+// face to see it, so the wall is the building's OPPOSITE[dir] side.
+//
+// The front is the entrance side (flags.entrance). A row without one falls back to the door: the
+// wall with an exit through it between the two tiles is the front, and any other is a side,
+// because with no entrance recorded there's nothing to say which wall is the back.
+function sideOf(zone, bld, dir) {
+  const wall = OPPOSITE[dir];
+  const ent = bld.flags?.entrance;
+  if (COMPASS.includes(ent)) return ent === wall ? 'front' : ent === dir ? 'back' : 'side';
+  return exitTargets(bld, wall).includes(zone.id) || exitTargets(zone, dir).includes(bld.id) ? 'front' : 'side';
+}
+
+// The same answer for a tag already on a wall, where only the two zone ids are known. A wall
+// reached through an exit rather than across the grid (a facade that isn't the tile next door)
+// has always been the front, so that's what it stays.
+function sideOfIds(zoneId, targetZoneId) {
+  const z = getZone(zoneId), b = getZone(targetZoneId);
+  if (!onWorldGrid(z) || !onWorldGrid(b)) return 'front';
+  const dir = COMPASS.find(d => b.grid_x - z.grid_x === DIR_OFFSET[d][0] && b.grid_y - z.grid_y === DIR_OFFSET[d][1]);
+  return dir ? sideOf(z, b, dir) : 'front';
+}
+
+// Every building wall you can reach from here, as [{ dir, id, name, side }]. This is the whole
+// "you can't tag thin air" rule: no entries, no spraying.
+//
+// ⚠ THE WALLS ARE FOUND ON THE GRID, NOT THROUGH THE EXITS. A building tile has one exit, on its
+// entrance side, so looking only through exits could only ever find a front, and the side of a
+// building (a blank wall with nothing on it, which is where graffiti actually goes) was
+// unreachable from the street running past it. The exits are still read afterwards so a facade
+// that isn't the tile next door stays sprayable, as it always was.
 function wallsNear(zone) {
   // Indoors there is no facade to stand in front of, and a back room with no wall
   // to tag was never the rule — it was a side effect of only ever looking OUTWARD.
@@ -238,24 +317,35 @@ function wallsNear(zone) {
   // you put it on. Here those are the same zone, which is exactly what the room
   // line reads to word itself (describeTag).
   if (zone?.flags?.is_interior || zone?.flags?.is_apartment) {
-    return [{ dir: 'wall', id: zone.id, name: zone.name || 'the wall' }];
+    return [{ dir: 'wall', id: zone.id, name: zone.name || 'the wall', side: null }];
   }
   const out = [];
   const seen = new Set();
+  // Standing on a building tile, the building next door shares a wall with this one, and nobody
+  // can get a can into the gap between them.
+  if (onWorldGrid(zone) && !zone.flags?.is_building) {
+    for (const dir of COMPASS) {
+      const [dx, dy] = DIR_OFFSET[dir];
+      const t = zoneAtTile(zone.map_id, zone.grid_x + dx, zone.grid_y + dy, zone.grid_z ?? 0);
+      if (!t?.flags?.is_building || seen.has(t.id)) continue;
+      seen.add(t.id);
+      out.push({ dir, id: t.id, name: buildingName(t), side: sideOf(zone, t, dir) });
+    }
+  }
   for (const { dir, target } of allExits(zone)) {
     if (seen.has(target)) continue;
     const t = getZone(target);
     if (!t?.flags?.is_building) continue;
     seen.add(target);
-    out.push({ dir, id: target, name: t.flags.building_name || t.name });
+    out.push({ dir, id: target, name: buildingName(t), side: 'front' });
   }
   return out;
 }
 
-// Match what the player typed against the walls to hand — a direction ("north"),
-// a leading letter of one ("n"), or any part of the building's name ("bodega").
-// Returns { wall } | { ambiguous } | {} so the caller can say something useful
-// about each case rather than a flat "no".
+// Match what the player typed against the walls to hand: a direction ("north"), a
+// leading letter of one ("n"), any part of the building's name ("bodega"), or which
+// wall of it ("side", "back"). Returns { wall } | { ambiguous } | {} so the caller can
+// say something useful about each case rather than a flat "no".
 function pickWall(walls, wordRaw) {
   const word = (wordRaw || '').toLowerCase();
   if (!word) return walls.length === 1 ? { wall: walls[0] } : {};
@@ -263,11 +353,17 @@ function pickWall(walls, wordRaw) {
   if (byDir.length === 1) return { wall: byDir[0] };
   const byName = walls.filter(w => w.name.toLowerCase().includes(word));
   if (byName.length === 1) return { wall: byName[0] };
-  if (byDir.length > 1 || byName.length > 1) return { ambiguous: [...byDir, ...byName] };
+  const bySide = walls.filter(w => w.side && w.side === word);
+  if (bySide.length === 1) return { wall: bySide[0] };
+  if (byDir.length > 1 || byName.length > 1 || bySide.length > 1) return { ambiguous: [...new Set([...byDir, ...byName, ...bySide])] };
   return {};
 }
 
-const wallList = (walls) => walls.map(w => `<b>${esc(w.dir)}</b> (${esc(w.name)})`).join(', ');
+// How a wall is named to the player. The front of a building is just the building, as it always
+// was; any other wall says which one it is.
+const wallLabel = (w) => (w.side === 'side' || w.side === 'back' ? `the ${w.side} of ${w.name}` : w.name);
+
+const wallList = (walls) => walls.map(w => `<b>${esc(w.dir)}</b> (${esc(wallLabel(w))})`).join(', ');
 
 // --- The verb ---------------------------------------------------------------
 
@@ -299,7 +395,7 @@ async function doTag(args, raw, player) {
   // only be able to tell you the same thing at the end.
   if (!text) {
     if (await carriedCan(player)) return doSpray(args, `spraycan ${picked.wall.dir}`, player);
-    return { type: 'output', message: `Spray <i>what</i> on ${esc(picked.wall.name)}?\n<span class="text-dim">tag ${picked.wall.dir} &lt;what to write&gt;, or <b>spraycan ${picked.wall.dir}</b> for the colours</span>` };
+    return { type: 'output', message: `Spray <i>what</i> on ${esc(wallLabel(picked.wall))}?\n<span class="text-dim">tag ${picked.wall.dir} &lt;what to write&gt;, or <b>spraycan ${picked.wall.dir}</b> for the colours</span>` };
   }
   if (text.length > TAG_MAX_LEN) {
     return { type: 'output', message: `That's a mural, not a tag. ${TAG_MAX_LEN} characters, tops: you're ${text.length - TAG_MAX_LEN} over.` };
@@ -317,13 +413,13 @@ async function doTag(args, raw, player) {
 // The row write, shared by the player's hand and the world's. Kept in one place
 // so the RAM map and the table can never disagree about what is on a wall.
 async function persistTag(zoneId, entry) {
-  indexTag(zoneId, entry.targetZoneId);
-  tags.set(zoneId, entry);
+  entry.targetZoneId ||= zoneId;       // it's half the key, so it's never null in the table
+  putTag(zoneId, entry);
   await query(
     `INSERT INTO zone_graffiti (zone_id, target_zone_id, target_name, author_id, author_handle, text, style, face, day_index)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-     ON CONFLICT (zone_id) DO UPDATE SET
-       target_zone_id=EXCLUDED.target_zone_id, target_name=EXCLUDED.target_name,
+     ON CONFLICT (zone_id, target_zone_id) DO UPDATE SET
+       target_name=EXCLUDED.target_name,
        author_id=EXCLUDED.author_id, author_handle=EXCLUDED.author_handle,
        text=EXCLUDED.text, style=EXCLUDED.style, face=EXCLUDED.face, day_index=EXCLUDED.day_index,
        created_at=EXTRACT(EPOCH FROM NOW())`,
@@ -344,11 +440,16 @@ async function persistTag(zoneId, entry) {
  * The result is an ordinary tag in every other respect, including the lazy
  * three-game-day expiry, which is why an incident that never gets torn down (a
  * process that died mid-staging) leaves a wall that simply weathers.
+ *
+ * It takes a bare wall when there is one, so the city's own paint doesn't go over
+ * a player's while the wall beside it is empty. The returned entry's targetZoneId
+ * says which wall, and is what a teardown hands back to removeTag.
  */
 export async function tagFromWorld(zoneId, text, authorHandle = 'someone') {
   const zone = getZone(zoneId);
   if (!zone) return null;
-  const wall = wallsNear(zone)[0] || { id: zoneId, name: zone.name || 'the wall' };
+  const walls = wallsNear(zone);
+  const wall = walls.find(w => !tagOn(zoneId, w.id)) || walls[0] || { id: zoneId, name: zone.name || 'the wall' };
   const entry = {
     text: esc(String(text).slice(0, TAG_MAX_LEN)),
     style: null,
@@ -373,7 +474,7 @@ export async function tagFromWorld(zoneId, text, authorHandle = 'someone') {
  * letterform picked in the can, or null to let the wall roll one.
  */
 async function applyTag(player, wall, text, runs, can, face = null) {
-  const over = tagAt(player.current_zone);
+  const over = tagOn(player.current_zone, wall.id);
   const style = coalesceRuns(normalizeRuns(runs, text.length));
   const entry = {
     text: esc(text),
@@ -394,7 +495,7 @@ async function applyTag(player, wall, text, runs, can, face = null) {
   // nothing here decides whether you got away with it.
   emit('graffiti.tagged', { player, zoneId: player.current_zone, targetZoneId: wall.id });
 
-  let msg = `You shake the can and put it up on ${wall.id === player.current_zone ? 'the wall' : esc(wall.name)}: ${paintedText(entry)}`;
+  let msg = `You shake the can and put it up on ${wall.id === player.current_zone ? 'the wall' : esc(wallLabel(wall))}: ${paintedText(entry)}`;
   if (over) {
     msg += over.authorId === player.id
       ? `\n<span class="text-dim">Straight over your own last one. Nobody will ever know.</span>`
@@ -435,7 +536,12 @@ async function doSpray(args, raw, player) {
 
   return {
     type: 'spray_editor',
-    walls: walls.map(w => ({ dir: w.dir, name: w.name })),
+    // `over` is per wall because the tag is: the dialog says whose paint is under the wall
+    // you've picked, and changes its mind when you pick another.
+    walls: walls.map((w) => {
+      const up = tagOn(zone.id, w.id);
+      return { dir: w.dir, name: w.name, side: w.side, over: up ? (up.authorHandle || 'somebody') : null };
+    }),
     wall: picked.wall ? picked.wall.dir : (walls.length === 1 ? walls[0].dir : null),
     saved: await savedSprays(player.id),
     // What the can can actually do, which is the tag limit until the paint runs
@@ -444,7 +550,6 @@ async function doSpray(args, raw, player) {
     maxLen: Math.min(TAG_MAX_LEN, can.paint),
     saveCap: SAVE_CAP,
     can: { name: can.name, quantity: can.quantity ?? 1, paint: can.paint },
-    over: tagAt(player.current_zone) ? { handle: tagAt(player.current_zone).authorHandle || 'somebody' } : null,
     message: `<span class="msg-system">You pop the lid. Caps rattle around inside it.</span>`,
   };
 }
@@ -588,17 +693,20 @@ function paintedText(t) {
 
 function describeTag(zone) {
   hydrate();
-  const t = tagAt(zone?.id);
-  if (!t) return undefined;
+  const all = tagsAt(zone?.id);
+  if (!all.length) return undefined;
   // A paragraph of its own beneath the room prose (describe.js prints the gathered
   // room-lines there), dim and italic like the rest of the ambient beat — with the
   // paint itself in `graffiti-ink`, which sets its own weight and colour back so a
-  // red tag is red and a bold one is bold.
+  // red tag is red and a bold one is bold. One line per wall.
   // Inside vs. outside is DERIVED, never stored: a tag whose wall is the tile it is
   // keyed on was sprayed on the room's own wall, which only ever happens indoors.
-  const inside = t.targetZoneId && t.targetZoneId === zone.id;
-  const where = inside ? 'the wall in here' : `the front of ${esc(t.targetName || 'the building')}`;
-  return `<span class="room-graffiti">Somebody's tagged ${where}: <span class="graffiti-ink">${paintedText(t)}</span></span>`;
+  // Which wall of a building it is gets derived the same way, off the two grid positions.
+  return all.map((t) => {
+    const inside = t.targetZoneId === zone.id;
+    const where = inside ? 'the wall in here' : `the ${sideOfIds(zone.id, t.targetZoneId)} of ${esc(t.targetName || 'the building')}`;
+    return `<span class="room-graffiti">Somebody's tagged ${where}: <span class="graffiti-ink">${paintedText(t)}</span></span>`;
+  }).join('\n');
 }
 
 export const hooks = {
@@ -614,6 +722,6 @@ export const commands = {
   spraydel: doSprayDelete,
 };
 
-export const _test = { wallsNear, pickWall, expired, tags, hydrate, esc, applyTag, paintedText, wallTags, byBuilding, unesc };
+export const _test = { wallsNear, pickWall, expired, tags, putTag, hydrate, esc, applyTag, paintedText, wallTags, byBuilding, unesc, wallLabel };
 
 console.log('[graffiti] Plugin loaded.');

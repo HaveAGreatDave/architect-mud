@@ -1,9 +1,9 @@
 {
-  "a": "zone_district_916_920",
-  "b": "zone_district_917_920",
+  "a": "zone_district_911_917",
+  "b": "zone_district_912_917",
   "blocked": true,
   "dir": "east",
-  "id": "conn_district_916_920_east_lk01",
+  "id": "conn_district_911_917_east_lk01",
   "lockable": false,
   "name": "the lock wall",
   "one_way": false

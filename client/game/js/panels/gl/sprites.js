@@ -21,6 +21,7 @@
 // computes, handed over rather than re-derived.
 import { viewProjMatrix, mat4f, zRow, NEAR } from './camera.js';
 import { makeVertexStream } from './stream.js';
+import { declareProgram, takeWarm } from './programs.js';
 
 // The z row of the projection, from the ONE place NEAR and FAR are named. NDC depth is A + B/f,
 // which is what lets the shader express its nudge as a distance instead of as a depth-buffer step.
@@ -132,10 +133,14 @@ function compile(gl, type, src, label) {
 // A sprite is `{ x, y, z, r, rgb: [0-255 ×3], a, hard, add }` — the world point, the screen radius
 // in pixels, the colour, the alpha, which profile, and whether it adds light or lays it over.
 export function createSpriteLayer(gl) {
-  const prog = gl.createProgram();
-  gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
-  gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
-  gl.linkProgram(prog);
+  // Prewarmed with the context when it can be (programs.js); built here otherwise.
+  let prog = takeWarm(gl, VERT, FRAG);
+  if (!prog) {
+    prog = gl.createProgram();
+    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
+    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
+    gl.linkProgram(prog);
+  }
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('sprite link: ' + gl.getProgramInfoLog(prog));
 
   const loc = {
@@ -229,3 +234,5 @@ export function createSpriteLayer(gl) {
 
   return { upload, draw, get sprites() { return count / 6; } };
 }
+
+declareProgram(VERT, FRAG);

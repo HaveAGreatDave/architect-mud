@@ -1,0 +1,205 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "type": "start",
+        "next": "is_late"
+      },
+      "is_late": {
+        "type": "condition",
+        "condition_type": "HOUR_RANGE",
+        "params": {
+          "from": 1,
+          "to": 5
+        },
+        "ifTrue": "go_home",
+        "ifFalse": "is_evening"
+      },
+      "go_home": {
+        "type": "action",
+        "action_type": "GO_HOME",
+        "next": "sleep"
+      },
+      "sleep": {
+        "type": "action",
+        "action_type": "AT_HOME_LIFE",
+        "next": "start"
+      },
+      "is_evening": {
+        "type": "condition",
+        "condition_type": "HOUR_RANGE",
+        "params": {
+          "from": 19,
+          "to": 1
+        },
+        "ifTrue": "to_fire",
+        "ifFalse": "day_pick"
+      },
+      "to_fire": {
+        "type": "action",
+        "action_type": "GO_TO_WORK",
+        "params": {
+          "zone_id": "zone_district_925_918"
+        },
+        "next": "fire_pick"
+      },
+      "fire_pick": {
+        "type": "random",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          }
+        ],
+        "branch_0": "fire_0",
+        "branch_1": "fire_1",
+        "branch_2": "fire_2",
+        "branch_3": "fire_3",
+        "branch_4": "fire_4",
+        "branch_5": "fire_5"
+      },
+      "fire_wait": {
+        "type": "wait",
+        "seconds": 150,
+        "jitter": 90,
+        "next": "start"
+      },
+      "day_pick": {
+        "type": "random",
+        "branches": [
+          {
+            "weight": 3
+          },
+          {
+            "weight": 2
+          }
+        ],
+        "branch_0": "day_home",
+        "branch_1": "day_walk"
+      },
+      "day_home": {
+        "type": "action",
+        "action_type": "GO_HOME",
+        "next": "day_wait"
+      },
+      "day_walk": {
+        "type": "action",
+        "action_type": "PATROL",
+        "params": {
+          "waypoints": [
+            "zone_district_927_917",
+            "zone_district_920_918",
+            "zone_district_921_918",
+            "zone_district_922_918",
+            "zone_district_925_918"
+          ],
+          "loop": true,
+          "mode": "walk"
+        },
+        "next": "day_wait"
+      },
+      "day_wait": {
+        "type": "wait",
+        "seconds": 240,
+        "jitter": 180,
+        "next": "start"
+      },
+      "fire_0": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "holds both hands over the drum until the heat is almost too much, then a little longer."
+        },
+        "next": "fire_wait"
+      },
+      "fire_1": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "feeds a broken chair leg into the drum and watches it decide whether to catch."
+        },
+        "next": "fire_wait"
+      },
+      "fire_2": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "balances a dented can on the rim of the drum and stirs it with a bent fork."
+        },
+        "next": "fire_wait"
+      },
+      "fire_3": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "sips from the thermos and offers it to nobody."
+        },
+        "next": "fire_wait"
+      },
+      "fire_4": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "mentions a load due through the lock tomorrow, to no one in particular."
+        },
+        "next": "fire_wait"
+      },
+      "fire_5": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "counts the trucks queued at the gate out loud, very quietly."
+        },
+        "next": "fire_wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Nice rig you came in on. Be a shame.\"",
+    "jots down a plate number on her wrist in biro."
+  ],
+  "description": "She sits by the wall with a thermos and a view of the South Gate, and trucks that stop too long get a phone call made about them. Whose phone and who answers, she won't say.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "mis_willing": false,
+    "personality": "lowlife"
+  },
+  "home_activities": [
+    "watches the gate through a cracked monocular.",
+    "makes a short call, says one word, hangs up.",
+    "\"I don't steal. I just know where things are.\""
+  ],
+  "home_zone": "zone_district_927_917",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_pitch_bexley",
+  "name": "Bexley Ortolan",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

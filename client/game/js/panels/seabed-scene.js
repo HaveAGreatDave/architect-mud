@@ -19,12 +19,53 @@ import { seabedDepth, seabedMaterial, shoreField, wrecksNear, scatterAt, SCATTER
 import { hn2h } from '../../../shared/landform.js';
 import { SEA_TILE_M } from '../../../shared/sea-swell.js';
 
-// ⚠ 7 WAS TOO LITTLE: in clear water 25 m down the far edge of the patch was in plain view as a hard
-// line across the frame, and the floor read as a wall. gl/seabed.js fades the floor into the murk
-// over the outer part of this radius, so the bottom slopes away into dark water instead of ending.
-export const SEABED_R = 12;       // tiles of seabed built round the camera
-export const SEABED_STEP = 0.25;  // tiles between samples
+// ── HOW FAR YOU CAN SEE ───────────────────────────────────────────────────────
+// ⚠ 12 TILES WAS TOO LITTLE, AND SO WAS 7 BEFORE IT. At 12 the floor was gone by 11 tiles, and it
+// faded toward a flat water colour while the water behind it was up to twice as dark, so where the
+// patch ended read as the land stopping in a hard line across the frame. The patch now reaches
+// SEABED_R, and the grid coarsens with distance as the sea surface's does (gl/water.js PATCH_*), so
+// the extra reach costs a few thousand triangles rather than four times the count.
+// ⚠ EVERY BAND EDGE IS A WHOLE TILE. The grid is rebuilt round the camera's tile, so a coarse line
+// that sat between tiles would land somewhere else on each rebuild and the far floor would swim.
+export const SEABED_R = 30;       // tiles of seabed built round the camera
+export const SEABED_STEP = 0.25;  // tiles between samples near the eye
+export const SEABED_FINE_R = 6;   // SEABED_STEP out to here, twice it to SEABED_MID_R, a whole tile past that
+export const SEABED_MID_R = 14;
+// The small stuff (rocks, weed, bottles, tyres) is a few pixels past this and is not built beyond
+// it; the wrecks and the big scatter (SCATTER_FAR) go out to the edge of the patch.
+export const SEABED_NEAR_R = 12;
+// Extinction per tile, per channel: red goes first, then green, then blue, the curve water.js uses
+// for the surface from below. 0.33 of that curve's strength puts the floor at a third of its colour
+// ten tiles off and gone by about 25, where gl/seabed.js dissolves the last of it (SEABED_FADE).
+export const SEABED_EXT = [1.05 * 0.33, 0.34 * 0.33, 0.22 * 0.33];
+export const SEABED_FADE = [SEABED_R * 0.58, SEABED_R * 0.95];
+// Where the floor's green is down to a tenth: the other layers (hulls, the Echelon's keel, pier
+// legs) fog linearly in world.js's band and are gone here, so they don't vanish ahead of the floor.
+export const SEABED_FOG_FAR = Math.LN10 / SEABED_EXT[1];
+// ⚠ THE WATER'S COLOUR DEPENDS ON WHICH WAY YOU LOOK: lighter toward the surface, darker toward the
+// deep. gl/seabed.js paints the backdrop with this and fogs the floor toward it along the same ray,
+// so a thing dissolving into the distance lands on exactly the colour behind it and shows no edge.
+// This JS twin is for the layers that fog to one colour (world.js's band), which get the horizon.
+export const WATER_UP_SPAN = 0.6;   // sin(elevation) at which the ray counts as looking straight up
+export function waterAlong(w, dz) {
+  const up = Math.max(-1, Math.min(1, dz / WATER_UP_SPAN));
+  const k = 0.55 + 0.45 * up + 0.35 * Math.max(up, 0);
+  return [w[0] * k, w[1] * k, w[2] * k];
+}
 const M = SEA_TILE_M;
+// Kinds big enough to read past SEABED_NEAR_R: two metres and up, or a metre and pale.
+const SCATTER_FAR = new Set(['car', 'pipe', 'anchor', 'whalefall', 'cablespool', 'chimney', 'dish', 'fridge', 'crate', 'mine']);
+
+// Grid lines, as offsets from the camera tile's corner, symmetric about the tile's centre.
+const GRID_AXIS = (() => {
+  const a = [];
+  const band = (from, to, step) => { for (let t = from; t < to - 1e-9; t += step) a.push(t); };
+  const F = SEABED_FINE_R, Md = SEABED_MID_R, R = SEABED_R;
+  band(-R + 1, -Md + 1, 1); band(-Md + 1, -F + 1, 0.5); band(-F + 1, F, SEABED_STEP);
+  band(F, Md, 0.5); band(Md, R + 1, 1);
+  a.push(R + 1);
+  return Float64Array.from(a);
+})();
 
 const MAT_RGB = {
   sand: [0.74, 0.66, 0.46], silt: [0.40, 0.37, 0.30], rock: [0.34, 0.36, 0.38], debris: [0.46, 0.33, 0.24],
@@ -44,17 +85,37 @@ function landFromLUT(LUT, mh, Cx, Cy) {
   };
 }
 
+// ⚠ THE MESH IS WRITTEN STRAIGHT INTO A Float32Array. It used to be pushed onto a plain array and
+// copied at the end, and profiled that way 60% of a rebuild was the pushing, the copy and the
+// collector cleaning up after both, not the seabed. 6 floats a vertex: x, y, z, r, g, b.
+function meshOut(cap) { return { f: new Float32Array(cap), n: 0 }; }
+function room(out, k) {
+  if (out.n + k > out.f.length) {
+    const g = new Float32Array(Math.max(out.f.length * 2, out.n + k));
+    g.set(out.f.subarray(0, out.n)); out.f = g;
+  }
+  return out.f;
+}
+const meshOf = (out) => out.f.subarray(0, out.n);
+
 // Push one flat-shaded triangle: 3 × (x, y, z, r, g, b).
-function tri(out, a, b, c, rgb, shade) {
-  const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
-  const vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+function triS(out, ax, ay, az, bx, by, bz, cx, cy, cz, rgb, shade) {
+  const ux = bx - ax, uy = by - ay, uz = bz - az;
+  const vx = cx - ax, vy = cy - ay, vz = cz - az;
   let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
-  const l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l;
-  if (nz < 0) { nx = -nx; ny = -ny; nz = -nz; }
+  const l = Math.hypot(nx, ny, nz) || 1; nx /= l; nz /= l;
+  if (nz < 0) { nx = -nx; nz = -nz; }
   // Light comes down through the water from above, a little from the west.
   const k = shade * (0.45 + 0.55 * Math.max(0, nz * 0.9 - nx * 0.3));
-  for (const p of [a, b, c]) out.push(p[0], p[1], p[2], rgb[0] * k, rgb[1] * k, rgb[2] * k);
+  const r = rgb[0] * k, g = rgb[1] * k, b = rgb[2] * k;
+  const f = room(out, 18);
+  let n = out.n;
+  f[n++] = ax; f[n++] = ay; f[n++] = az; f[n++] = r; f[n++] = g; f[n++] = b;
+  f[n++] = bx; f[n++] = by; f[n++] = bz; f[n++] = r; f[n++] = g; f[n++] = b;
+  f[n++] = cx; f[n++] = cy; f[n++] = cz; f[n++] = r; f[n++] = g; f[n++] = b;
+  out.n = n;
 }
+function tri(out, a, b, c, rgb, shade) { triS(out, a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2], rgb, shade); }
 function quad(out, a, b, c, d, rgb, shade = 1) { tri(out, a, b, c, rgb, shade); tri(out, a, c, d, rgb, shade); }
 
 // A box on the seabed, yawed, for the wrecks.
@@ -344,47 +405,56 @@ function scatterMesh(out, o, x, y, z) {
   }
 }
 
+let lastFloats = 1 << 20;   // the last build's size, so the next one starts big enough not to grow
 function buildStatic(Cx, Cy, cx, cy, isLand) {
-  const n = Math.round(2 * SEABED_R / SEABED_STEP) + 1;
-  const x0 = cx - SEABED_R, y0 = cy - SEABED_R;           // window tiles
+  const A = GRID_AXIS, n = A.length, R = SEABED_R;
   const pad = SHORE_SEARCH;
-  const F = shoreField(Math.floor(x0 + Cx) - pad, Math.floor(y0 + Cy) - pad,
-    Math.ceil(2 * SEABED_R) + 2 * pad + 2, Math.ceil(2 * SEABED_R) + 2 * pad + 2, isLand);
+  const F = shoreField(cx + Cx - R - pad, cy + Cy - R - pad, 2 * R + 2 * pad + 2, 2 * R + 2 * pad + 2, isLand);
   const zAt = (wx, wy) => { const sx = wx + Cx, sy = wy + Cy; return -seabedDepth(sx, sy, isLand, F.at(sx, sy)) / M; };
-  const Z = new Float32Array(n * n), C = new Array(n * n);
+  const Z = new Float32Array(n * n), H = new Float32Array(n * n);
+  const sand = MAT_RGB.sand;   // the whole bottom is sand; seabedMaterial still places rocks and wrecks
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
-    const wx = x0 + i * SEABED_STEP, wy = y0 + j * SEABED_STEP;
-    const sx = wx + Cx, sy = wy + Cy, d = F.at(sx, sy);
+    const sx = cx + A[i] + Cx, sy = cy + A[j] + Cy, d = F.at(sx, sy);
     Z[j * n + i] = -seabedDepth(sx, sy, isLand, d) / M;
-    const mat = 'sand'; // the whole bottom is sand; seabedMaterial still places rocks and wrecks
-    const base = MAT_RGB[mat] || MAT_RGB.sand, v = 0.85 + 0.3 * hn2h(Math.floor(sx * 4), Math.floor(sy * 4));
-    C[j * n + i] = [base[0] * v, base[1] * v, base[2] * v];
+    H[j * n + i] = hn2h(Math.floor(sx * 4), Math.floor(sy * 4)) - 0.5;
   }
-  const out = [];
+  const out = meshOut(lastFloats);
+  const rgb = [0, 0, 0];
   for (let j = 0; j < n - 1; j++) for (let i = 0; i < n - 1; i++) {
-    const P = (a, b) => [x0 + (i + a) * SEABED_STEP, y0 + (j + b) * SEABED_STEP, Z[(j + b) * n + i + a]];
-    const rgb = C[j * n + i];
-    quad(out, P(0, 0), P(1, 0), P(1, 1), P(0, 1), rgb);
+    const z00 = Z[j * n + i], z10 = Z[j * n + i + 1], z11 = Z[(j + 1) * n + i + 1], z01 = Z[(j + 1) * n + i];
+    // Dry land is depth 0 all over, a flat sheet level with the surface. From below it read as a sand
+    // ceiling over the city, where the water should give way to the surface's own mirror.
+    if (z00 >= 0 && z10 >= 0 && z11 >= 0 && z01 >= 0) continue;
+    const x0 = cx + A[i], x1 = cx + A[i + 1], y0 = cy + A[j], y1 = cy + A[j + 1];
+    // The mottling is a quarter-tile hash; on a coarse cell it would be a big bold check, so it
+    // flattens as the cells grow.
+    const v = 1 + H[j * n + i] * 0.3 * SEABED_STEP / Math.max(x1 - x0, y1 - y0);
+    rgb[0] = sand[0] * v; rgb[1] = sand[1] * v; rgb[2] = sand[2] * v;
+    triS(out, x0, y0, z00, x1, y0, z10, x1, y1, z11, rgb, 1);
+    triS(out, x0, y0, z00, x1, y1, z11, x0, y1, z01, rgb, 1);
   }
   // Rocks: a few boulders per rocky tile, hashed so they stay put.
-  const rocks = [];
-  for (let ty = Math.floor(y0 + Cy); ty <= Math.ceil(y0 + Cy + 2 * SEABED_R); ty++) {
-    for (let tx = Math.floor(x0 + Cx); tx <= Math.ceil(x0 + Cx + 2 * SEABED_R); tx++) {
+  const rocks = [], NR = SEABED_NEAR_R;
+  for (let ty = cy + Cy - R; ty <= cy + Cy + R; ty++) {
+    for (let tx = cx + Cx - R; tx <= cx + Cx + R; tx++) {
+      const near = Math.max(Math.abs(tx - cx - Cx), Math.abs(ty - cy - Cy)) <= NR;
+      // Scatter: tyres, barrels, coral and the rest, hashed per tile slot (shared/seabed.js). Past
+      // SEABED_NEAR_R only the kinds big enough to see from there.
+      for (let k = 0; k < SCATTER_SLOTS; k++) {
+        const o = scatterAt(tx, ty, k, isLand, F.at);
+        if (o && (near || SCATTER_FAR.has(o.kind))) scatterMesh(out, o, o.x - Cx, o.y - Cy, zAt(o.x - Cx, o.y - Cy));
+      }
+      if (!near) continue;
       for (let k = 0; k < 3; k++) {
         const h = hn2h(tx * 31 + k, ty * 17 - k);
+        if (h > 0.55) continue;   // too high a draw even for rock: skip the material test
         const sx = tx + hn2h(tx + k * 7, ty - 3), sy = ty + hn2h(tx - 5, ty + k * 11);
         const d = F.at(sx, sy); if (d <= 0) continue;
-        const mat = seabedMaterial(sx, sy, isLand, d, F.at);
-        if (h > (mat === 'rock' ? 0.55 : 0.08)) continue;
+        if (h > 0.08 && seabedMaterial(sx, sy, isLand, d, F.at) !== 'rock') continue;
         const wx = sx - Cx, wy = sy - Cy, z = zAt(wx, wy), s = 0.04 + 0.12 * hn2h(tx - k, ty + 9);
         const top = [wx, wy, z + s * 1.2];
         const ring = [0, 1, 2, 3, 4].map((q) => { const a = q / 5 * Math.PI * 2 + h * 6; return [wx + Math.cos(a) * s, wy + Math.sin(a) * s, z - 0.01]; });
         for (let q = 0; q < 5; q++) tri(out, ring[q], ring[(q + 1) % 5], top, [0.33, 0.34, 0.36], 1);
-      }
-      // Scatter: tyres, barrels, coral and the rest, hashed per tile slot (shared/seabed.js).
-      for (let k = 0; k < SCATTER_SLOTS; k++) {
-        const o = scatterAt(tx, ty, k, isLand, F.at);
-        if (o) scatterMesh(out, o, o.x - Cx, o.y - Cy, zAt(o.x - Cx, o.y - Cy));
       }
       // Weed: roots only here; the fronds move, so they are built per frame.
       const hw = hn2h(tx * 7 - 1, ty * 3 + 5);
@@ -399,13 +469,16 @@ function buildStatic(Cx, Cy, cx, cy, isLand) {
   // Wrecks, hashed by seabed.js so every client puts them in the same place.
   const wrecks = wrecksNear(cx + Cx, cy + Cy, SEABED_R + 2, isLand);
   for (const w of wrecks) wreckMesh(out, w, w.x - Cx, w.y - Cy, zAt(w.x - Cx, w.y - Cy));
-  return { terrain: new Float32Array(out), weed: rocks, wrecks };
+  lastFloats = out.n + 4096;
+  return { terrain: meshOf(out), weed: rocks, wrecks };
 }
 
-// Weed fronds, bubbles and the particles in the water — rebuilt every frame.
+// Weed fronds, bubbles and the particles in the water, rebuilt every frame. The fronds go into one
+// buffer kept between frames (gl/seabed.js uploads them before the next frame reuses it).
+const PROPS = meshOut(1 << 14);
 function buildMoving(st, now, ship) {
   const t = now / 1000;
-  const props = [];
+  const props = PROPS; props.n = 0;
   for (const w of st.weed) {
     for (let k = 0; k < 3; k++) {
       const ang = w.seed * 20 + k * 2.1, ox = Math.cos(ang) * 0.03, oy = Math.sin(ang) * 0.03;
@@ -479,7 +552,7 @@ function buildMoving(st, now, ship) {
       pts.push(x, y, z, 0.004 + 0.004 * hn2h(i, 4), 0.5, 1);
     }
   }
-  return { props: new Float32Array(props), points: new Float32Array(pts) };
+  return { props: meshOf(props), points: new Float32Array(pts) };
 }
 
 // ── THE BOTTOM, FOR A CAMERA THAT MIGHT GO THROUGH IT ─────────────────────────
@@ -537,11 +610,13 @@ export function underwaterScene({ LUT, mh, mapCenter, cam, ship, sub, now, night
   const moving = buildMoving(st || { sub: 0, weed: [] }, now, ship);
   // The colour of the water itself: blue-green by day, deeper and darker the further down she is.
   const depthM = sub * M, lit = (1 - 0.85 * (night || 0)) * Math.exp(-depthM / 90);
+  const water = [0.03 + 0.05 * lit, 0.14 + 0.22 * lit, 0.19 + 0.25 * lit];
   return {
     sub, key: cache.key,
     terrain: sub > 0 ? cache.terrain : null,
     props: moving.props, points: moving.points,
-    water: [0.03 + 0.05 * lit, 0.14 + 0.22 * lit, 0.19 + 0.25 * lit],
-    lit,
+    water, lit,
+    // What a level ray sees, and how far: world.js fogs the other layers toward this.
+    horizon: waterAlong(water, 0), fogFar: SEABED_FOG_FAR,
   };
 }

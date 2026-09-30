@@ -332,7 +332,7 @@ export function setHangarBoarder(fn) { boardIntoHangar = fn; }
 function servicedCraft(player, field) {
   const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
   if (!live || live.row.airborne || live.row.parked_zone_id !== field.id) return null;
-  const spot = hangarTileFor(field) || field;
+  const spot = hangarTileFor(field, live.type?.class === 'heavy') || field;
   if (spot.grid_x == null) return null;
   const fx = live.fx ?? live.row.grid_x, fy = live.fy ?? live.row.grid_y;
   return Math.hypot(fx - spot.grid_x, fy - spot.grid_y) < 0.5 ? live : null;

@@ -56,7 +56,9 @@ killing floor.
 1. **The Curtain** — the energy wall along the land edges (south, east, west). Renders as a field on
    boundary tiles; impassable.
 2. **The Gates** — the Curtain parts only at gates. **Phase 1 ships one Main Gate on the SOUTH edge at
-   `zone_district_918_919`** (pinned — see below). Room for a future WEST gate (→ Ascendant) and minor
+   `zone_district_918_919`** (pinned — see below). *As built, the gate has since moved one road west
+   to Meltwater Row, `zone_district_911_919`, and 918,919 is plain Curtain again; the 918 coordinates
+   in this doc are the original plan.* Room for a future WEST gate (→ Ascendant) and minor
    gates later.
 3. **The Killing Ground** — a thin glacis of blasted no-man's-land the turrets sweep, facing
    *outward*. This is "eradicate anything that tries to invade." Sparse, cratered, deadly to the

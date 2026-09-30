@@ -1519,6 +1519,39 @@ function ensureStyles() {
     /* Action buttons — solid accent fill, raised bevel, so they read as the
        brightest / most "pressable" thing on the screen. Text color is computed
        against the accent itself (--tos-btn-fg), not --bg2. */
+    #tablet-os-overlay .tos-hero { display:flex; align-items:center; gap:14px; margin:10px 0 12px; padding:14px 16px; border-radius:10px;
+      background:linear-gradient(150deg, color-mix(in srgb, var(--mg-accent) 22%, var(--tos-surface, #10201d)), var(--tos-surface, #10201d) 70%);
+      border:1px solid color-mix(in srgb, var(--mg-accent) 35%, transparent); box-shadow:inset 0 1px 0 var(--tos-bevel-hi), 0 4px 14px rgba(0,0,0,0.25); }
+    #tablet-os-overlay .tos-hero-icon { font-size:2.4rem; line-height:1; filter:drop-shadow(0 2px 6px rgba(0,0,0,0.35)); }
+    #tablet-os-overlay .tos-hero-txt { flex:1; min-width:0; }
+    #tablet-os-overlay .tos-hero-title { font-size:1.5rem; font-weight:bold; color:var(--tos-fg); letter-spacing:0.5px; font-variant-numeric:tabular-nums; }
+    #tablet-os-overlay .tos-hero-sub { font-size:0.8125rem; color:var(--tos-fg-dim); margin-top:2px; }
+    #tablet-os-overlay .tos-hero-badge { align-self:flex-start; font-size:0.6875rem; font-weight:bold; letter-spacing:1px; text-transform:uppercase; padding:3px 8px; border-radius:999px;
+      color:var(--tos-btn-fg, #04120f); background:var(--mg-accent); }
+    #tablet-os-overlay .tos-hero-badge.warn { background:#f2b01e; color:#1a1200; }
+    #tablet-os-overlay .tos-tiles { display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:8px; margin-bottom:14px; }
+    #tablet-os-overlay .tos-tile-stat { display:flex; flex-direction:column; gap:3px; padding:9px 11px; border-radius:7px; background:var(--tos-surface-lo, rgba(255,255,255,0.04));
+      border:1px solid color-mix(in srgb, var(--tos-fg-dim) 18%, transparent); }
+    #tablet-os-overlay .tos-tile-stat span { font-size:0.6875rem; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-tile-stat b { font-size:0.9375rem; color:var(--tos-fg); font-variant-numeric:tabular-nums; }
+    #tablet-os-overlay .tos-section-hd { font-size:0.6875rem; font-weight:bold; letter-spacing:1.5px; text-transform:uppercase; color:var(--tos-fg-dim); margin:14px 0 6px; }
+    #tablet-os-overlay .tos-chips { display:flex; flex-wrap:wrap; gap:6px; }
+    #tablet-os-overlay .tos-chip { font:inherit; font-size:0.78rem; padding:6px 11px; border-radius:999px; cursor:pointer; color:var(--tos-fg);
+      background:var(--tos-surface-lo, rgba(255,255,255,0.05)); border:1px solid color-mix(in srgb, var(--tos-fg-dim) 30%, transparent); }
+    #tablet-os-overlay .tos-chip:hover { border-color:var(--mg-accent); }
+    #tablet-os-overlay .tos-chip:focus-visible { outline:2px solid var(--mg-accent); outline-offset:2px; }
+    #tablet-os-overlay .tos-chip.on { background:var(--mg-accent); color:var(--tos-btn-fg, #04120f); border-color:var(--mg-accent); font-weight:bold;
+      box-shadow:0 0 10px color-mix(in srgb, var(--mg-accent) 45%, transparent); }
+    #tablet-os-overlay .tos-notice-ok { font-size:0.8125rem; color:var(--tos-fg); padding:8px 11px; margin-bottom:10px; border-radius:6px;
+      background:color-mix(in srgb, var(--mg-accent) 16%, transparent); border-left:3px solid var(--mg-accent); }
+    #tablet-os-overlay .tos-btn.tos-btn-danger { background:linear-gradient(165deg, #ff8a8a, #d84a4a 55%, #a83232); border-color:#8a2626; color:#1a0404; box-shadow:0 0 10px rgba(216,74,74,0.4), inset 0 1px 0 var(--tos-bevel-hi); }
+    #tablet-os-overlay .tos-btn.tos-btn-ghost { background:transparent; color:var(--tos-fg); border-color:color-mix(in srgb, var(--tos-fg-dim) 40%, transparent); box-shadow:none; }
+    #tablet-os-overlay .tos-sliders { display:flex; flex-direction:column; gap:12px; margin-top:12px; padding:12px 14px; border-radius:8px;
+      background:var(--tos-surface-lo, rgba(255,255,255,0.03)); border:1px solid color-mix(in srgb, var(--tos-fg-dim) 18%, transparent); }
+    #tablet-os-overlay .tos-slider { display:flex; flex-direction:column; gap:4px; font-size:0.8125rem; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-slider-hd { display:flex; justify-content:space-between; gap:8px; }
+    #tablet-os-overlay .tos-slider-hd b { color:var(--tos-fg); font-variant-numeric:tabular-nums; }
+    #tablet-os-overlay .tos-slider input[type=range] { width:100%; accent-color:var(--mg-accent); cursor:pointer; }
     #tablet-os-overlay .tos-actions { display:flex; gap:9px; margin-top:12px; flex-wrap:wrap; }
     #tablet-os-overlay .tos-btn { padding:9px 14px; border-radius:5px; font-family:'Courier New',monospace; font-size:0.8438rem; font-weight:bold; letter-spacing:1px; text-transform:uppercase; cursor:pointer;
       color:var(--tos-btn-fg, #04120f); border:1px solid color-mix(in srgb, var(--mg-accent) 85%, black);
@@ -9904,13 +9937,55 @@ function renderObjectives(objectives) {
 // wireBody() asks via window.prompt() (same convention as who.js's kick-reason
 // prompt) before sending the action, instead of every app inventing its own
 // input widget.
+// A 'slider' action ({ slider: { min, max, step, value, unit } }) draws as a
+// labelled range with a live readout and fires its action with the value when
+// the thumb is let go (change, not input), so a drag sends one command, not fifty.
+function renderSlider(appId, a) {
+  const sl = a.slider || {};
+  const v = sl.value ?? sl.min ?? 0;
+  const unit = esc(sl.unit || '');
+  return `<label class="tos-slider"><span class="tos-slider-hd"><span>${esc(a.label)}</span><b data-slider-out>${esc(String(v))}${unit}</b></span>`
+    + `<input type="range" min="${esc(String(sl.min ?? 0))}" max="${esc(String(sl.max ?? 100))}" step="${esc(String(sl.step ?? 1))}" value="${esc(String(v))}"`
+    + ` data-slider-act="${esc(a.id)}" data-slider-app="${esc(appId)}" data-slider-unit="${unit}"${a.disabled ? ' disabled' : ''} aria-label="${esc(a.label)}"></label>`;
+}
+
+// A detail's optional status card: { icon, title, sub, badge, badgeKind }.
+// badgeKind 'warn' is amber, anything else is the accent.
+function renderHero(h) {
+  if (!h) return '';
+  return `<div class="tos-hero">${h.icon ? `<div class="tos-hero-icon" aria-hidden="true">${esc(h.icon)}</div>` : ''}`
+    + `<div class="tos-hero-txt"><div class="tos-hero-title">${esc(h.title || '')}</div>${h.sub ? `<div class="tos-hero-sub">${esc(h.sub)}</div>` : ''}</div>`
+    + `${h.badge ? `<span class="tos-hero-badge${h.badgeKind === 'warn' ? ' warn' : ''}">${esc(h.badge)}</span>` : ''}</div>`;
+}
+
+// A grid of small read-outs: [{ label, value }].
+function renderTiles(tiles) {
+  if (!tiles?.length) return '';
+  return `<div class="tos-tiles">${tiles.map(t => `<div class="tos-tile-stat"><span>${esc(t.label)}</span><b>${esc(String(t.value ?? ''))}</b></div>`).join('')}</div>`;
+}
+
+// A 'chips' action ({ chips: { options: [{ value, label, icon? }], active } }) is
+// a labelled row of buttons, one per option, with the current one lit. Tapping
+// fires the action with that option's value: no dialog in between.
+function renderChips(appId, a) {
+  const ch = a.chips || {};
+  const opts = (ch.options || []).map(o => {
+    const on = o.value === ch.active;
+    return `<button type="button" class="tos-chip${on ? ' on' : ''}" data-chip-act="${esc(a.id)}" data-chip-app="${esc(appId)}" data-chip-val="${esc(o.value)}" aria-pressed="${on}">${o.icon ? `<span aria-hidden="true">${esc(o.icon)}</span> ` : ''}${esc(o.label)}</button>`;
+  }).join('');
+  return `<div class="tos-chips-row"><div class="tos-section-hd">${esc(a.label)}</div><div class="tos-chips">${opts}</div></div>`;
+}
+
 function renderActions(appId, actions, params) {
   if (!actions || !actions.length) return '';
-  return `<div class="tos-actions">${actions.map(a =>
+  const sliders = actions.filter(a => a.slider);
+  const chips = actions.filter(a => a.chips);
+  actions = actions.filter(a => !a.slider && !a.chips);
+  return `${sliders.length ? `<div class="tos-sliders">${sliders.map(a => renderSlider(appId, a)).join('')}</div>` : ''}${chips.map(a => renderChips(appId, a)).join('')}${actions.length ? `<div class="tos-actions">${actions.map(a =>
     a.disabled
       ? `<button class="tos-btn disabled" disabled>${esc(a.label)}</button>`
-      : `<button class="tos-btn" data-act-id="${esc(a.id)}" data-act-app="${esc(appId)}" data-act-params="${esc(params || '')}"${a.prompt ? ` data-act-prompt="${esc(a.prompt)}"` : ''}${a.pick ? ` data-act-pick="${esc(JSON.stringify(a.pick)).replace(/"/g, '&quot;')}"` : ''}${a.confirm ? ` data-act-confirm="${esc(a.confirm)}"` : ''}${a.launch ? ` data-act-launch="${esc(a.launch)}"` : ''}>${esc(a.label)}</button>`
-  ).join('')}</div>`;
+      : `<button class="tos-btn${a.kind ? ` tos-btn-${esc(a.kind)}` : ''}" data-act-id="${esc(a.id)}" data-act-app="${esc(appId)}" data-act-params="${esc(params || '')}"${a.prompt ? ` data-act-prompt="${esc(a.prompt)}"` : ''}${a.pick ? ` data-act-pick="${esc(JSON.stringify(a.pick)).replace(/"/g, '&quot;')}"` : ''}${a.confirm ? ` data-act-confirm="${esc(a.confirm)}"` : ''}${a.title ? ` data-act-title="${esc(a.title)}"` : ''}${a.launch ? ` data-act-launch="${esc(a.launch)}"` : ''}>${esc(a.label)}</button>`
+  ).join('')}</div>` : ''}`;
 }
 
 // DEADHEAD — the Leviathan crew-dispatch console: a normalized map of the base + every airfield
@@ -10396,9 +10471,11 @@ function renderBody() {
     // something much older than the tablet.
     const isBook = d.appId === 'library';
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}${renderTosTabs(d)}
-      ${d.notice ? `<div class="tos-error" style="text-align:left;padding:0 0 10px">${esc(d.notice)}</div>` : ''}
-      <div class="tos-detail-name${isBook ? ' tos-book-title' : ''}">${esc(det.name || '')}</div>
+      ${d.notice ? (d.noticeKind === 'ok' ? `<div class="tos-notice-ok" role="status">${esc(d.notice)}</div>` : `<div class="tos-error" style="text-align:left;padding:0 0 10px">${esc(d.notice)}</div>`) : ''}
+      ${det.name ? `<div class="tos-detail-name${isBook ? ' tos-book-title' : ''}">${esc(det.name)}</div>` : ''}
       ${det.desc ? `<div class="tos-detail-desc">${esc(det.desc)}</div>` : ''}
+      ${renderHero(det.hero)}
+      ${renderTiles(det.tiles)}
       ${renderObjectives(d.quest?.objectives)}
       ${d.narratable ? renderNarrateBar() : ''}
       ${det.body ? `<div class="tos-detail-body${isBook ? ' tos-book' : ''}${d.comic ? ' tos-comic' : ''}">${
@@ -10985,8 +11062,17 @@ function wireBody() {
     sfx(TOS_SELECT_DEF);
     act('deadhead', 'loiter', `${gx} ${gy}`);
   });
+  _overlay.querySelectorAll('[data-chip-act]').forEach(el => {
+    el.addEventListener('click', () => { if (el.classList.contains('on')) return; sfx(TOS_SELECT_DEF); act(el.getAttribute('data-chip-app'), el.getAttribute('data-chip-act'), el.getAttribute('data-chip-val')); });
+  });
+  _overlay.querySelectorAll('[data-slider-act]').forEach(el => {
+    const out = el.closest('.tos-slider')?.querySelector('[data-slider-out]');
+    el.addEventListener('input', () => { if (out) out.textContent = el.value + (el.getAttribute('data-slider-unit') || ''); });
+    el.addEventListener('change', () => { sfx(TOS_SELECT_DEF); act(el.getAttribute('data-slider-app'), el.getAttribute('data-slider-act'), el.value); });
+  });
   _overlay.querySelectorAll('[data-act-id]').forEach(el => {
     el.addEventListener('click', () => {
+      const actTitle = el.getAttribute('data-act-title');
       const appId = el.getAttribute('data-act-app');
       const actionId = el.getAttribute('data-act-id');
       const confirmText = el.getAttribute('data-act-confirm');
@@ -11030,8 +11116,8 @@ function wireBody() {
         let options = [];
         try { options = JSON.parse(pickJson); } catch { options = []; }
         showSelectDialog({
-          title: 'Invite Player',
-          prompt: options.length ? 'Choose a player to invite:' : undefined,
+          title: actTitle || 'Invite Player',
+          prompt: options.length ? (actTitle ? undefined : 'Choose a player to invite:') : undefined,
           options,
           empty: 'No other players are online to invite.',
         }, (val) => fire(val));
@@ -11041,7 +11127,7 @@ function wireBody() {
       // In-browser dialogs instead of the browser's native confirm()/prompt() —
       // themed, draggable, and rendered above the tablet (confirm.js).
       if (promptText) {
-        showPromptDialog({ title: 'Corporation', prompt: promptText, confirmLabel: 'Submit' }, (val) => fire(val));
+        showPromptDialog({ title: actTitle || 'Corporation', prompt: promptText, confirmLabel: 'Submit' }, (val) => fire(val));
         return;
       }
       if (confirmText) {

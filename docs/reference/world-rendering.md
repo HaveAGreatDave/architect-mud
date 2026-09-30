@@ -739,6 +739,17 @@ the birds.
   skin, tuned to average the old brightness so the LOD switch doesn't pop. The pattern's seed is the
   outfit colour, so it adds nothing a watcher could track. `ACTOR_LOOK.on = 0` brings back the flat
   shading; `tools/modelshop/actor-lab.html` compares the two.
+- **Materials.** Coat, trousers and shoes each have a material as well as a colour: cloth, satin,
+  leather, vinyl or metal (`ACTOR_MATERIAL`), picked by weight from `ACTOR_MATERIALS` off the
+  token like the colours, with most of the street in cloth. `gl/actors.js` packs the three codes
+  into one instance float and lights a shiny garment by what it reflects (`envAt`: ground, sky, a
+  bright horizon, the key as a soft box, and at night a band of city light), with a bump for the
+  weave that fades out before it's smaller than a pixel. Metal takes its colour from the
+  reflection and has almost no diffuse, which is what makes a gold coat read as gold rather than
+  yellow. `ACTOR_LOOK.mat = 0` lights everything as cloth. The Actor Lab's `gala` shot is the A/B.
+- **The hips cover the thighs.** The coat's hip stations are wider than the tops of the thighs.
+  At 0.175 m the thighs poked through the coat's front corners and read as trouser-coloured
+  patches, like pockets.
 - **Standing on the kerb.** The pavement band is raised a kerb's height (`kerbHeight`, 0.028
   tiles, about 40% of a person) on single-width straight streets. `drawGroundSurfaces` marks each
   tile it raises in `RAISED_WALK`, and the actor pass stands people on those tiles at the kerb top,

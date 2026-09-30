@@ -1,6 +1,6 @@
 // One-shot: flag the city's land-edge tiles with the Curtain (perimeter wall).
 // Land edges (water is the north bay): south row y919, west col x891 (land y902-919),
-// east col x927 (land y909-919). Excludes the South Gate (918_919) and any missing tiles.
+// east col x927 (land y909-919). Excludes the South Gate (911_919) and any missing tiles.
 // Adds flags.curtain=true to every edge tile; appends a curtain line only to generic
 // "Grasslands" tiles so bespoke rooms (SAM nests, piers) keep their prose.
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
@@ -13,7 +13,7 @@ const coords = new Set();
 for (let x = 891; x <= 927; x++) coords.add(`${x}_919`);        // south row
 for (let y = 902; y <= 919; y++) coords.add(`891_${y}`);        // west column (land)
 for (let y = 909; y <= 919; y++) coords.add(`927_${y}`);        // east column (land)
-coords.delete('918_919');                                       // the gate is the one break
+coords.delete('911_919');                                       // the gate is the one break
 
 let flagged = 0, prosed = 0, missing = 0, water = 0;
 for (const key of coords) {

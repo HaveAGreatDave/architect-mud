@@ -1,0 +1,294 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "type": "start",
+        "next": "is_late"
+      },
+      "is_late": {
+        "type": "condition",
+        "condition_type": "HOUR_RANGE",
+        "params": {
+          "from": 1,
+          "to": 5
+        },
+        "ifTrue": "go_home",
+        "ifFalse": "is_evening"
+      },
+      "go_home": {
+        "type": "action",
+        "action_type": "GO_HOME",
+        "next": "sleep"
+      },
+      "sleep": {
+        "type": "action",
+        "action_type": "AT_HOME_LIFE",
+        "next": "start"
+      },
+      "is_evening": {
+        "type": "condition",
+        "condition_type": "HOUR_RANGE",
+        "params": {
+          "from": 19,
+          "to": 1
+        },
+        "ifTrue": "is_bar",
+        "ifFalse": "day_pick"
+      },
+      "to_fire": {
+        "type": "action",
+        "action_type": "GO_TO_WORK",
+        "params": {
+          "zone_id": "zone_district_925_918"
+        },
+        "next": "fire_pick"
+      },
+      "fire_pick": {
+        "type": "random",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          }
+        ],
+        "branch_0": "fire_0",
+        "branch_1": "fire_1",
+        "branch_2": "fire_2",
+        "branch_3": "fire_3",
+        "branch_4": "fire_4",
+        "branch_5": "fire_5"
+      },
+      "fire_wait": {
+        "type": "wait",
+        "seconds": 150,
+        "jitter": 90,
+        "next": "start"
+      },
+      "day_pick": {
+        "type": "random",
+        "branches": [
+          {
+            "weight": 3
+          },
+          {
+            "weight": 2
+          }
+        ],
+        "branch_0": "day_home",
+        "branch_1": "day_walk"
+      },
+      "day_home": {
+        "type": "action",
+        "action_type": "GO_HOME",
+        "next": "day_wait"
+      },
+      "day_walk": {
+        "type": "action",
+        "action_type": "PATROL",
+        "params": {
+          "waypoints": [
+            "zone_district_927_918",
+            "zone_district_920_918",
+            "zone_district_921_918",
+            "zone_district_922_918",
+            "zone_district_925_918"
+          ],
+          "loop": true,
+          "mode": "walk"
+        },
+        "next": "day_wait"
+      },
+      "day_wait": {
+        "type": "wait",
+        "seconds": 240,
+        "jitter": 180,
+        "next": "start"
+      },
+      "is_bar": {
+        "type": "condition",
+        "condition_type": "HOUR_RANGE",
+        "params": {
+          "from": 20,
+          "to": 0
+        },
+        "ifTrue": "to_bar",
+        "ifFalse": "to_fire"
+      },
+      "to_bar": {
+        "type": "action",
+        "action_type": "GO_TO_WORK",
+        "params": {
+          "zone_id": "zone_jolenes_bar"
+        },
+        "next": "bar_pick"
+      },
+      "bar_pick": {
+        "type": "random",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          }
+        ],
+        "branch_0": "bar_0",
+        "branch_1": "bar_1",
+        "branch_2": "bar_2",
+        "branch_3": "bar_3",
+        "branch_4": "bar_4"
+      },
+      "bar_wait": {
+        "type": "wait",
+        "seconds": 180,
+        "jitter": 120,
+        "next": "start"
+      },
+      "bar_0": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "nurses the same drink it bought an hour ago, making it last."
+        },
+        "next": "bar_wait"
+      },
+      "bar_1": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "sings along to the jukebox, two words behind and not sorry."
+        },
+        "next": "bar_wait"
+      },
+      "bar_2": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "leans on the bar and tells whoever is nearest how it used to be."
+        },
+        "next": "bar_wait"
+      },
+      "bar_3": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "counts coins onto the bar, comes up short, and gets poured one anyway."
+        },
+        "next": "bar_wait"
+      },
+      "bar_4": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "taps a boot to the song on the set, out of time and happy about it."
+        },
+        "next": "bar_wait"
+      },
+      "fire_0": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "holds both hands over the drum until the heat is almost too much, then a little longer."
+        },
+        "next": "fire_wait"
+      },
+      "fire_1": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "feeds a broken chair leg into the drum and watches it decide whether to catch."
+        },
+        "next": "fire_wait"
+      },
+      "fire_2": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "balances a dented can on the rim of the drum and stirs it with a bent fork."
+        },
+        "next": "fire_wait"
+      },
+      "fire_3": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "passes something small to someone at the drum in a handshake that goes on too long."
+        },
+        "next": "fire_wait"
+      },
+      "fire_4": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "stands where the firelight doesn't quite reach him."
+        },
+        "next": "fire_wait"
+      },
+      "fire_5": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "asks after someone's family, warmly, by name, which is a threat."
+        },
+        "next": "fire_wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Nobody's unemployed, friend. Some people just haven't come to see me yet.\"",
+    "counts a thin fold of credits without looking at it."
+  ],
+  "description": "A neat man in a clean coat, which out here is the most suspicious thing a person can wear. He doesn't live in the Pitch so much as operate it. Everybody owes Ruel, and Ruel remembers.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "mis_willing": false,
+    "personality": "thug"
+  },
+  "home_activities": [
+    "writes something in a small book, then tears the page out and burns it.",
+    "sits in a folding chair facing the lane, watching who comes and goes.",
+    "\"Jory. JORY. I can see your feet.\""
+  ],
+  "home_zone": "zone_district_927_918",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_pitch_ruel",
+  "name": "Ruel Gattis",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

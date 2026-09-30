@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_gatepost_office",
+  "id": "map_int_gatepost",
+  "name": "The Gate Post: Interior",
+  "parent_zone_id": "zone_district_913_921"
+}

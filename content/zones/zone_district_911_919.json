@@ -1,18 +1,32 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Loose stone crunches underfoot, greyed with dust and old oil. A dead streetlight leans at the verge, and the wind carries grit that finds your teeth. Tyre tracks braid off into the haze. The Architect's Curtain seals the edge here: a floor-to-sky sheet of humming hard light. There's no way through but the South Gate.",
+  "description": "THE SOUTH GATE. Meltwater Row climbs to a throat of scorched rockcrete where the Architect's Curtain parts in a single lit gap. Twin turret masts flank it, barrels sweeping the killing ground in slow arcs. Grey-uniformed perimeter guards under a caged amber beacon wave traffic through and log everyone who walks south. The gate is open.",
   "exits": {
     "east": "zone_district_912_919",
     "north": "zone_district_911_918",
+    "south": "zone_district_911_920",
     "west": "zone_district_910_919"
   },
   "flags": {
-    "curtain": true,
+    "artery": [
+      "Meltwater Row"
+    ],
+    "checkpoint_cfg": {
+      "checks": [
+        "wanted",
+        "smuggle",
+        "contraband"
+      ],
+      "fromDistrict": "wilds",
+      "guards": "the gate guards",
+      "wantedMode": "bluff"
+    },
     "district": "ashway",
+    "gate_warning": "One of the grey-uniformed gate guards steps into your path before you reach the throat of light. \"Hold up. I don't know your face, so you'll hear this once. Nobody walks the waste without it.\" She tips her head at the Curtain, where the road simply ends. \"Past this wall there's no road, no rescue, and no clone-vat waiting on you if it goes bad out there. It's open killing ground: the turrets sweep it, the wind moves it, and it buries its own. Most who walk south don't walk back. Carry water. Carry people. Don't carry a warrant.\" She thumbs at two smudges on the far horizon. \"Two places worth reaching, if you must. South, past the deep waste, lies <b>The Reach</b>, an air-town that takes the kind the city won't. East is <b>Exodus</b>, for those done with allegiances. Everything between is just the going.\" She steps aside and waves you toward the gap. \"That's your warning. Feet forward, and don't look back for whoever falls.\"",
+    "light_beacon": true,
+    "perimeter_gate": true,
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_roadside_junk",
-    "street_life": true,
     "terrain": "road"
   },
   "grid_x": 911,
@@ -20,6 +34,6 @@
   "grid_z": 0,
   "id": "zone_district_911_919",
   "map_id": "map_world",
-  "name": "Meltwater Row",
+  "name": "The South Gate",
   "parent_zone": null
 }

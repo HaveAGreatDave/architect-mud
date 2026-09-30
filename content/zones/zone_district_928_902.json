@@ -7,8 +7,7 @@
   "exits": {
     "east": "zone_district_929_902",
     "north": "zone_district_928_901",
-    "south": "zone_district_928_903",
-    "west": "zone_district_927_902"
+    "south": "zone_district_928_903"
   },
   "flags": {
     "region_id": "region_coldwater",

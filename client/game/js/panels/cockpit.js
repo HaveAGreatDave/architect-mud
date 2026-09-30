@@ -17,6 +17,7 @@ import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
 import { updateBoatContacts, stopBoatContacts, KT_TO_MPH } from './boat-audio.js';
 import { playCabinAudio, updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, varioTick, gearFx, quackStart, visorFx, detentFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, missileRippleFx, flareFx, spraySfx, diveSiren } from './engine-audio.js';
+import { navHomeHTML, drawNavHome } from './nav-home.js';   // the HOME arrow on the water, boat or sub
 import { drakeWaterFrame, judgeWaterTouchdown, seaRough, drakeFeetAnim, BOAT_MAX_KT, SUB_MAX_KT } from './drake-water.js';   // the Drake on the water: hull landings, boat and sub modes
 import { depthMAt } from './seabed-scene.js';
 // Metres of water the Drake needs under her to dive. The server's own figure is plugins/submersible/sub.js
@@ -1574,8 +1575,8 @@ const FSIM_TUNE = [
   // after the world and tests against what the world left — so the deck painted over the flock
   // whatever its altitude. 0 puts both back to writing none, which is what shipped.
   ['glAirDepth', 'What flies in the depth buffer', 0, 1, 1],
-  // The cloud deck raymarched as a volume instead of the card swarm. -1 is auto (on for a
-  // discrete GPU, off for the session if the frame time stays high), 0 is the cards, 1 forces it.
+  // The cloud deck raymarched as a volume instead of the card swarm. -1 is auto (on for any
+  // non-software GPU, off for the session if the frame time stays high), 0 is the cards, 1 forces it.
   ['glCloudVol', 'Volumetric clouds (-1 auto)', -1, 1, 1],
   ['cloudVolRes', 'Cloud volume resolution', 0.125, 1, 0.125],
   ['cloudVolSteps', 'Cloud volume ray steps', 16, 128, 8],
@@ -3097,6 +3098,7 @@ export function openFlightSim(opts = {}) {
     // Start the craft exactly where it's parked (no forward hop onto the strip). The takeoff
     // rolls out from the parked spot down the runway.
     pos: { x: opts.gx || 0, y: opts.gy || 0 },
+    home: { x: opts.gx || 0, y: opts.gy || 0 },   // where the seat was taken: the HOME marker's target
     mapCenter: { x: Math.round(opts.gx || 0), y: Math.round(opts.gy || 0) },
     rollDist: 0, travel: 0,
     // World-fixed departure runway anchor. When the server sends a runway pose derived
@@ -5648,6 +5650,11 @@ function fsimFrameBody(now) {
       const inWater = F.dk.onWater || F.dk.submerged > 0;
       if (box) box.style.display = inWater ? '' : 'none';
       if (inWater) drawSubGauge(F.dk);
+      {
+        let hm = document.getElementById('fsim-navhome');
+        if (!hm && inWater && box?.parentElement) { box.parentElement.insertAdjacentHTML('beforeend', navHomeHTML()); hm = box.parentElement.lastElementChild; hm.id = 'fsim-navhome'; }
+        drawNavHome(hm, { x: F.pos.x, y: F.pos.y, heading: s.heading, homeX: F.home.x, homeY: F.home.y, show: inWater });
+      }
       const rd = inWater && document.getElementById('fsim-subread');
       if (rd) {
         const air = F.dk.subAir, max = F.dk.subAirMax;
@@ -5928,7 +5935,7 @@ function fsimFrameBody(now) {
       // our eye level. Airborne contacts stay camera-relative on their altitude delta as before.
       const brk = surfaceBreakup(c.surfaces);   // a battle-damaged bogey renders its sheared wing/tail GONE, not pristine
       const cv = c.onGround
-        ? { id: c.id, dx, dy, groundZ: 0, altDiff: 0, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, armed: c.armed, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery, ...(c.cls === 'drake' && c.livery?.variant && c.livery.variant !== 'stock' ? { variant: c.livery.variant } : {}), firing: c.firing, breakup: brk, anim: c.anim || null, gearAnim: c.gear }
+        ? { id: c.id, dx, dy, groundZ: 0, altDiff: 0, ias: c.ias || 0, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, armed: c.armed, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery, ...(c.cls === 'drake' && c.livery?.variant && c.livery.variant !== 'stock' ? { variant: c.livery.variant } : {}), firing: c.firing, breakup: brk, anim: c.anim || null, gearAnim: c.gear }
         : { id: c.id, dx, dy, altDiff: (c.alt || 0) - s.altitude, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, armed: c.armed, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery, ...(c.cls === 'drake' && c.livery?.variant && c.livery.variant !== 'stock' ? { variant: c.livery.variant } : {}), firing: c.firing, breakup: brk, anim: c.anim || null, gearAnim: c.gear };
       contactView.push(cv);
       if (bore < bestBore) { bestBore = bore; designated = cv; }

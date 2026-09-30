@@ -110,7 +110,6 @@ The server **does not** touch the schema or world content on boot. The two are m
 │       ├── routes.js              # REST endpoints for the dev panel (zones/enemies/items/npcs/apartments/world state)
 │       ├── backup.routes.js       # GET /admin/export-dump — full schema+content SQL dump (admin only)
 │       ├── environment.routes.js  # REST endpoints for time/weather/power dev tools, mounted from routes.js
-│       └── worldvalidator.routes.js  # REST endpoint that fires the zone-validator plugin's hooks
 ├── client/
 │   ├── game/                 # Player client — index.html + styles.css + js/ modules, no framework, no build step
 │   ├── devpanel/             # Dev panel — same approach; see docs/devpanel-js.md for the js/ file reference
@@ -667,7 +666,7 @@ export const routeHandler = (path, method, body, auth) => { /* dev CRUD */ };
 
 **The hook reference — every hook the engine fires, its firing site, args and whether its return is used — lives in [server.md → Hook reference](server.md#hook-reference).** Not duplicated here.
 
-**Hooks can be called into, not just reacted to.** `fireHook`'s "last non-undefined return wins" behavior means a hook isn't only a notification — a route handler can `fireHook('worldValidator.runFull')` and use the plugin's return value directly as the HTTP response. That is how the zone-validator's dev-panel button works end to end with zero changes to `plugins.js`.
+**Hooks can be called into, not just reacted to.** `fireHook`'s "last non-undefined return wins" behavior means a hook isn't only a notification — a route handler can `fireHook('some.hook')` and use the plugin's return value directly as the HTTP response, with no changes to `plugins.js`.
 
 Plugins load at server start by scanning `/plugins/*/plugin.json`. There is no in-panel plugin manager UI yet — enabling/disabling is still done by adding/removing the folder and restarting. Plugins own player-typed commands (a `commands` export + `plugin.json` declaration; plugin commands win dispatch over engine builtins), dev-panel routes (`routeHandler` + `routePrefix`), specialized actions, and input matchers. See [reference/plugin-architecture-analysis.md](reference/plugin-architecture-analysis.md) for the historical extraction review and [plugin-standard.md](plugin-standard.md) for the current plugin contract.
 

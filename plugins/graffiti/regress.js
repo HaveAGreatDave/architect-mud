@@ -16,14 +16,14 @@
 // indices have to survive escaping — `esc` changes the LENGTH of the string, and a
 // renderer that indexed the escaped text would slice an entity in half and put a
 // live `<` back on the wall.
-import { _test, TAG_MAX_LEN, TAG_LIFE_DAYS, CAN_CAPACITY, tagAt, removeTag, tagFromWorld } from './index.js';
+import { _test, TAG_MAX_LEN, TAG_LIFE_DAYS, CAN_CAPACITY, tagOn, tagsAt, removeTag, removeTagsAt, tagFromWorld } from './index.js';
 import { normalizeRuns, coalesceRuns, renderStyled, decodePayload, safeColor, safeFace, escapedChars } from './paint.js';
 import { TAG_FACES } from '../../client/shared/tag-strokes.js';
-import { world } from '../../server/engine/world.js';
+import { world, clearTileIndex } from '../../server/engine/world.js';
 import { gameDayIndex } from '../../server/engine/zone-filth.js';
 
 export default async function regress({ run, check }) {
-  const { wallsNear, pickWall, expired, esc, tags, wallTags, unesc } = _test;
+  const { wallsNear, pickWall, expired, esc, tags, putTag, wallTags, unesc, wallLabel } = _test;
 
   let r = await run('tag');
   check('tag verb routed', r?.type !== undefined, JSON.stringify(r));
@@ -87,27 +87,29 @@ export default async function regress({ run, check }) {
   check('a tag with no day survives an unknown clock', expired({ dayIndex: null }, today) === false);
   check('an unparseable game date expires nothing', expired({ dayIndex: idx - 99 }, 'not-a-date') === false);
 
-  // --- tagAt reads through expiry, and never queries -------------------------
+  // --- tagOn reads through expiry, and never queries -------------------------
   // The date is passed explicitly rather than left to the live game clock: the
   // harness boots the world without the environment, so gameToday() is null there
   // — which is exactly the fail-safe (an unknown clock expires nothing), and would
   // make an implicit-clock assertion here test nothing at all.
   const nowIdx = idx;
-  tags.set(street.id, { text: 'TEST', targetName: 'Bodega Vu', authorId: 'p1', authorHandle: 'ZERO', dayIndex: nowIdx });
-  check('tagAt returns a live tag', tagAt(street.id, today)?.text === 'TEST');
-  tags.set(street.id, { text: 'OLD', targetName: 'Bodega Vu', dayIndex: nowIdx - 99 });
-  check('tagAt hides an expired tag without deleting it', tagAt(street.id, today) === null && tags.has(street.id));
-  check('tagAt with no clock keeps the tag up rather than erasing it', tagAt(street.id, null)?.text === 'OLD');
-  check('tagAt on an untagged tile is null', tagAt('__rg_field__') === null);
-  check('tagAt on an unknown zone is null', tagAt('__no_such_zone__') === null);
+  putTag(street.id, { text: 'TEST', targetZoneId: shop.id, targetName: 'Bodega Vu', authorId: 'p1', authorHandle: 'ZERO', dayIndex: nowIdx });
+  check('tagOn returns a live tag', tagOn(street.id, shop.id, today)?.text === 'TEST');
+  putTag(street.id, { text: 'OLD', targetZoneId: shop.id, targetName: 'Bodega Vu', dayIndex: nowIdx - 99 });
+  check('tagOn hides an expired tag without deleting it', tagOn(street.id, shop.id, today) === null && tags.get(street.id)?.has(shop.id));
+  check('tagOn with no clock keeps the tag up rather than erasing it', tagOn(street.id, shop.id, null)?.text === 'OLD');
+  check('tagsAt leaves an expired tag out', tagsAt(street.id, today).length === 0);
+  check('tagOn on an untagged tile is null', tagOn('__rg_field__', shop.id) === null);
+  check('tagOn on an unknown zone is null', tagOn('__no_such_zone__', shop.id) === null);
+  check('tagsAt on an untagged tile is empty', tagsAt('__rg_field__').length === 0);
 
   // --- The room line --------------------------------------------------------
-  tags.set(street.id, { text: 'NO GODS NO LANDLORDS', targetName: 'Bodega Vu', dayIndex: nowIdx });
+  putTag(street.id, { text: 'NO GODS NO LANDLORDS', targetZoneId: shop.id, targetName: 'Bodega Vu', dayIndex: nowIdx });
   const line = await (await import('./index.js')).hooks['zone.describeRoom'](street);
   check("the room line names the building it's sprayed on", /Bodega Vu/.test(line || ''), line);
   check('the room line carries the tag text', /NO GODS NO LANDLORDS/.test(line || ''), line);
   // Inside vs. outside is derived from the wall being the tile itself.
-  tags.set(backroom.id, { text: 'HI', targetZoneId: backroom.id, targetName: backroom.name, dayIndex: nowIdx });
+  putTag(backroom.id, { text: 'HI', targetZoneId: backroom.id, targetName: backroom.name, dayIndex: nowIdx });
   const inLine = await (await import('./index.js')).hooks['zone.describeRoom'](backroom);
   check('an interior tag reads as the wall in here', /wall in here/.test(inLine || ''), inLine);
   check("an interior tag doesn't claim a shopfront", !/front of/.test(inLine || ''), inLine);
@@ -170,9 +172,9 @@ export default async function regress({ run, check }) {
   check('a payload with no letterform leaves it to the wall', decoded?.face === null, JSON.stringify(decoded));
 
   // --- The room line, painted ------------------------------------------------
-  tags.set(street.id, {
+  putTag(street.id, {
     text: esc('NO GODS'), style: [{ n: 2, c: '#ff2d55', f: 1 }, { n: 5, c: null, f: 0 }],
-    targetName: 'Bodega Vu', dayIndex: nowIdx,
+    targetZoneId: shop.id, targetName: 'Bodega Vu', dayIndex: nowIdx,
   });
   const painted = await (await import('./index.js')).hooks['zone.describeRoom'](street);
   check('a painted tag carries its colour into the room line', painted.includes('#ff2d55'), painted);
@@ -218,11 +220,11 @@ export default async function regress({ run, check }) {
     check('the words arrive as the player typed them', got[0] && got[0].t === 'ACAB & CO', got[0] && got[0].t);
     check('a tag nobody picked letters for sends none', got[0] && got[0].f === undefined, JSON.stringify(got[0]));
     // The letterform picked in the can rides to the renderer alongside the words.
-    tags.get(street.id).face = 'sharp';
+    tags.get(street.id).get(shop.id).face = 'sharp';
     const sharp = wallTags(shop, shop.grid_x, shop.grid_y) || [];
     check('a picked letterform reaches the renderer', sharp[0] && sharp[0].f === 'sharp', JSON.stringify(sharp[0]));
-    tags.get(street.id).face = null;
-    check('and the stored text is still escaped', (tagAt(street.id) || {}).text === 'ACAB &amp; CO', (tagAt(street.id) || {}).text);
+    tags.get(street.id).get(shop.id).face = null;
+    check('and the stored text is still escaped', (tagOn(street.id, shop.id) || {}).text === 'ACAB &amp; CO', (tagOn(street.id, shop.id) || {}).text);
 
     // A building nobody sprayed answers nothing — the index is a hint, and a hint that fires on
     // the wrong wall would paint graffiti across buildings at random.
@@ -230,8 +232,8 @@ export default async function regress({ run, check }) {
 
     // ⚠ AND A SCRUBBED WALL STOPS ANSWERING WITHOUT THE INDEX BEING PRUNED. `byBuilding` keeps
     // its entry on purpose (see removeTag); what makes that safe is that every id it yields is
-    // re-checked through `tagAt`. If that check is ever dropped, this is the case that catches it.
-    await removeTag(street.id);
+    // re-checked through `tagOn`. If that check is ever dropped, this is the case that catches it.
+    await removeTag(street.id, shop.id);
     check('a scrubbed wall stops being painted', wallTags(shop, shop.grid_x, shop.grid_y) === undefined);
     check('…while the index deliberately still holds it', _test.byBuilding.get(shop.id)?.size === 1);
 
@@ -240,8 +242,85 @@ export default async function regress({ run, check }) {
     // four characters they typed, not to a "<" that was never sprayed.
     check('unesc does not double-decode', unesc(esc('&lt;')) === '&lt;', unesc(esc('&lt;')));
   }
-  await removeTag(street.id);
-  check('removeTag clears the wall', tagAt(street.id) === null);
+  await removeTag(street.id, shop.id);
+  check('removeTag clears the wall', tagOn(street.id, shop.id) === null);
+
+  // --- Any face of a building, found on the grid ------------------------------
+  //
+  // ⚠ THE WHOLE FEATURE IS THAT NONE OF THESE HAS AN EXIT. A building tile has one exit, on its
+  // entrance side, so a street running past its flank can only find it on the grid. If wallsNear
+  // ever goes back to reading exits alone, the alley below comes back with no walls at all.
+  //
+  // An alley at (11,41) on the world map, far off the real grid (which starts at x 726):
+  //   north (11,40): North Block, entrance south, so the alley sees its FRONT
+  //   east  (12,41): East Block, entrance east, so the alley sees its BACK
+  //   west  (10,41): West Block, entrance north, so the alley sees its SIDE
+  //   south (11,42): open ground, no wall
+  //   (9,41): Far Block, sharing a party wall with West Block
+  {
+    const sets = () => ({ players: new Set(), enemies: new Set(), npcs: new Set() });
+    const at = (id, name, x, y, flags = {}) => ({ id, name, map_id: 'map_world', grid_x: x, grid_y: y, grid_z: 0, flags, ...sets() });
+    const alley = at('__rg_alley__', 'Alley', 11, 41);
+    const north = at('__rg_bn__', 'n tile', 11, 40, { is_building: true, building_name: 'North Block', entrance: 'south' });
+    const east = at('__rg_be__', 'e tile', 12, 41, { is_building: true, building_name: 'East Block', entrance: 'east' });
+    const west = at('__rg_bw__', 'w tile', 10, 41, { is_building: true, building_name: 'West Block', entrance: 'north' });
+    const ground = at('__rg_ground__', 'Waste', 11, 42);
+    const far = at('__rg_bf__', 'f tile', 9, 41, { is_building: true, building_name: 'Far Block', entrance: 'south' });
+    // The same layout on a map that is not the world: a local frame, where a grid neighbour is not a wall.
+    const local = { ...at('__rg_local__', 'Flat', 11, 41), map_id: '__rg_map__' };
+    const localBld = { ...at('__rg_localb__', 'l tile', 12, 41, { is_building: true, building_name: 'Local Block' }), map_id: '__rg_map__' };
+    const fakes = [alley, north, east, west, ground, far, local, localBld];
+    for (const z of fakes) world.zones.set(z.id, z);
+    clearTileIndex();   // the tile index is built once and lazily, so it has to be told about the fakes
+    try {
+      const ws = wallsNear(alley);
+      const byId = (id) => ws.find(w => w.id === id);
+      check('an alley with no exits finds the buildings on either side of it', ws.length === 3, JSON.stringify(ws));
+      check('the wall facing the entrance is the front', byId(north.id)?.side === 'front', JSON.stringify(byId(north.id)));
+      check('the wall opposite the entrance is the back', byId(east.id)?.side === 'back', JSON.stringify(byId(east.id)));
+      check('any other wall is a side', byId(west.id)?.side === 'side', JSON.stringify(byId(west.id)));
+      check('each wall carries the direction you face to see it',
+        byId(north.id)?.dir === 'north' && byId(east.id)?.dir === 'east' && byId(west.id)?.dir === 'west', JSON.stringify(ws));
+      check('open ground on the grid is not a wall', !byId(ground.id));
+      check('a side wall is named as one', wallLabel(byId(west.id)) === 'the side of West Block', wallLabel(byId(west.id)));
+      check('a front is named as the building, as it always was', wallLabel(byId(north.id)) === 'North Block');
+      check('pickWall takes "side"', pickWall(ws, 'side')?.wall?.id === west.id);
+      check('pickWall takes "back"', pickWall(ws, 'back')?.wall?.id === east.id);
+      check('standing on a building, the one next door is a party wall and not sprayable', !wallsNear(west).some(w => w.id === far.id));
+      check('a grid neighbour off the world map is not a wall', wallsNear(local).length === 0, JSON.stringify(wallsNear(local)));
+
+      // One tag per WALL: two walls of one alley hold two tags, and the world's hand takes a bare
+      // wall before it paints over somebody's.
+      const one = await tagFromWorld(alley.id, 'ONE', 'nobody');
+      const two = await tagFromWorld(alley.id, 'TWO', 'nobody');
+      check('the world tags a bare wall rather than painting over one', one && two && one.targetZoneId !== two.targetZoneId,
+        JSON.stringify([one?.targetZoneId, two?.targetZoneId]));
+      check('two walls from one tile carry two tags', tagsAt(alley.id).length === 2, JSON.stringify(tagsAt(alley.id).map(t => t.text)));
+      check('the first tag is still up after the second', tagOn(alley.id, one.targetZoneId)?.text === 'ONE');
+
+      const three = await tagFromWorld(alley.id, 'THREE', 'nobody');
+      check('a third tag takes the last bare wall', new Set([one, two, three].map(t => t?.targetZoneId)).size === 3);
+
+      // The renderer gets the side wall's own normal: from the building out to the alley, +x.
+      const westPaint = wallTags(west, west.grid_x, west.grid_y) || [];
+      check('a side wall reaches the renderer facing the alley', westPaint.length === 1 && westPaint[0].n[0] === 1 && westPaint[0].n[1] === 0,
+        JSON.stringify(westPaint));
+
+      const room = await (await import('./index.js')).hooks['zone.describeRoom'](alley);
+      check('the room line gives every wall its own line', (room || '').split('\n').length === 3, room);
+      check('the room line says which wall of a building it is',
+        /the side of West Block/.test(room || '') && /the back of East Block/.test(room || '') && /the front of North Block/.test(room || ''), room);
+
+      await removeTag(alley.id, west.id);
+      check('removeTag takes one wall and leaves the others', tagsAt(alley.id).length === 2 && !tagOn(alley.id, west.id));
+      const gone = await removeTagsAt(alley.id);
+      check('removeTagsAt takes every wall in reach', gone.length === 2 && tagsAt(alley.id).length === 0);
+    } finally {
+      await removeTagsAt(alley.id);
+      for (const z of fakes) world.zones.delete(z.id);
+      clearTileIndex();
+    }
+  }
 
   world.zones.delete(street.id);
   world.zones.delete(shop.id);

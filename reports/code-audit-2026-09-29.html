@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Architect Code Audit</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&family=Big+Shoulders+Display:wght@700;800&display=swap">
+<style>
+/* Layout: a field report. Status strip, before/after, charts, then findings with a fixed/open state, then what's left. */
+:root{
+  --bg:#eef0ec; --panel:#ffffff; --fg:#1b1f1c; --muted:#5d665f; --line:#d3d8d2;
+  --accent:#2f6f5e;
+  --crit:#b3261e; --major:#c26a00; --minor:#5a6b8c; --good:#2e7d32; --fixed:#2f6f5e;
+  --display:"Big Shoulders Display",Impact,sans-serif;
+  --body:"IBM Plex Sans",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141816; --panel:#1c211e; --fg:#e4e8e3; --muted:#9aa49c; --line:#2e3631;
+  --accent:#6fc2a8; --crit:#ff6b5e; --major:#f0a040; --minor:#93a6cc; --good:#6fcf76; --fixed:#6fc2a8; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141816; --panel:#1c211e; --fg:#e4e8e3; --muted:#9aa49c; --line:#2e3631;
+  --accent:#6fc2a8; --crit:#ff6b5e; --major:#f0a040; --minor:#93a6cc; --good:#6fcf76; --fixed:#6fc2a8; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.55 var(--body)}
+.wrap{max-width:1100px;margin:0 auto;padding-inline:16px;padding-block:32px 64px;display:grid;gap:36px}
+h1{font:800 clamp(2.2rem,6vw,3.6rem)/1 var(--display);letter-spacing:.02em;margin:0;text-transform:uppercase}
+h2{font:700 1.7rem/1.1 var(--display);text-transform:uppercase;letter-spacing:.04em;margin:0 0 14px;text-wrap:balance}
+h3{font-size:1rem;margin:0}
+.sub{color:var(--muted);max-width:72ch;margin:8px 0 0}
+.mono,code{font-family:var(--mono);font-size:.85em}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.tile{background:var(--panel);border:1px solid var(--line);padding:14px 16px}
+.tile b{display:block;font:800 2.2rem/1 var(--display);font-variant-numeric:tabular-nums}
+.tile span{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.tile.crit b{color:var(--crit)}.tile.major b{color:var(--major)}.tile.minor b{color:var(--minor)}.tile.good b{color:var(--good)}.tile.fixed b{color:var(--fixed)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px}
+.card{background:var(--panel);border:1px solid var(--line);padding:18px;min-width:0}
+.card p.note{color:var(--muted);font-size:.82rem;margin:10px 0 0}
+.bars{display:grid;gap:7px}
+.bar{display:grid;grid-template-columns:minmax(90px,170px) 1fr 70px;gap:10px;align-items:center;font-size:.82rem}
+.bar .lbl{font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar .trk{height:14px;background:var(--line)}
+.bar .fill{height:100%;background:var(--accent);display:block}
+.bar .fill.hot{background:var(--crit)}.bar .fill.warm{background:var(--major)}
+.bar .v{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.stack{display:grid;gap:10px}
+.srow{display:grid;grid-template-columns:80px 1fr 60px;gap:10px;align-items:center;font-size:.82rem}
+.strk{display:flex;height:18px;background:var(--line)}
+.strk i{display:block;height:100%}
+svg text{fill:var(--fg);font-family:var(--mono);font-size:11px}
+.map{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.zone{border:1px solid var(--line);padding:12px;background:var(--panel)}
+.zone h3{font-family:var(--mono);font-size:.85rem;margin-bottom:8px}
+.pips{display:flex;gap:4px;flex-wrap:wrap}
+.pip{font:600 .7rem var(--mono);padding:2px 6px;color:#fff}
+.pip.c{background:var(--crit)}.pip.M{background:var(--major)}.pip.m{background:var(--minor)}.pip.g{background:var(--good)}.pip.f{background:var(--fixed)}
+.health{height:6px;margin-top:10px;background:var(--line)}
+.health i{display:block;height:100%}
+table{border-collapse:collapse;width:100%;font-size:.86rem}
+.tbl{overflow-x:auto}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+td.sev{white-space:nowrap}
+tr.done td:not(.sev):not(.st){color:var(--muted)}
+.chip{display:inline-block;font:600 .7rem var(--mono);padding:2px 8px;text-transform:uppercase;letter-spacing:.06em;color:#fff}
+.chip.c{background:var(--crit)}.chip.M{background:var(--major)}.chip.m{background:var(--minor)}.chip.g{background:var(--good)}
+.st{font:600 .72rem var(--mono);white-space:nowrap}
+.st.fixed{color:var(--fixed)}.st.open{color:var(--major)}.st.part{color:var(--minor)}
+.fixnote{display:block;margin-top:4px;font-size:.8rem;color:var(--fixed)}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.filters button{font:600 .78rem var(--mono);padding:6px 12px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer}
+.filters button[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+.filters button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+ol.plan{margin:0;padding-left:22px;display:grid;gap:8px}
+.verify{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.verify div{border:1px solid var(--line);background:var(--panel);padding:10px 12px;font-size:.84rem}
+.verify b{font-family:var(--mono);color:var(--fixed)}
+footer{color:var(--muted);font-size:.8rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="mono" style="color:var(--muted)">THOMAS / ARCHITECT · main @ da0d2dcfa + working tree · 2026-09-29 · revision 6</div>
+  <h1>Code audit &amp; performance review</h1>
+  <p class="sub">A read-only audit of <code>server/</code>, <code>plugins/</code> and <code>client/</code>, followed by a round of fixes. This revision shows where each finding stands now. The fixes are in b17f5d00a, fe23286be and 02a05156e (pushed) and e27406c39, ba3ebaf1f, 4c2578151 96ba68b25 and a58d1a364 (lazy loading, the lexicon, the tablet, batched generator and door queries; not pushed). <code>node tests/regress.js</code> passes 10,460/10,460, and the client parse and import gates are green. The one red gate, a stale <code>wildlands-field.js</code>, was already stale before these changes.</p>
+</header>
+
+<section class="tiles" aria-label="Summary">
+  <div class="tile fixed"><b id="t-fixed">0</b><span>Fixed this session</span></div>
+  <div class="tile crit"><b id="t-c">0</b><span>Critical open</span></div>
+  <div class="tile major"><b id="t-M">0</b><span>Major open</span></div>
+  <div class="tile minor"><b id="t-m">0</b><span>Minor open</span></div>
+  <div class="tile good"><b id="t-g">0</b><span>Doing well</span></div>
+  <div class="tile"><b>~654k</b><span>JS lines (tracked)</span></div>
+  <div class="tile"><b>143</b><span>Plugins</span></div>
+  <div class="tile"><b>10,460</b><span>regress checks passing</span></div>
+</section>
+
+<section>
+  <h2>Before and after</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>Issues by severity: fixed vs open</h3>
+      <div class="stack" style="margin-top:14px" id="ba"></div>
+      <p class="note">Strengths aren't counted. One critical was downgraded to major after measuring: the renderer is lazy-loaded and served brotli-compressed.</p>
+    </div>
+    <div class="card">
+      <h3>Status mix</h3>
+      <svg viewBox="0 0 360 200" width="100%" role="img" aria-label="Donut chart of findings by status">
+        <g id="donut" transform="translate(100,100)"></g>
+        <g id="legend" transform="translate(200,50)"></g>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Verified live</h2>
+  <p class="sub" style="margin-bottom:14px">Run against a local server on :3000, not only read in the code.</p>
+  <div class="verify">
+    <div><b>404</b> for <code>/../../.env</code>, <code>/..%2f..%2f.env</code>, <code>/shared/../../../.env</code> and <code>/dev/../../.env</code>. <code>/</code> still returns 200.</div>
+    <div><b>413</b> for a 6 MB API body. <b>400</b> for malformed JSON.</div>
+    <div><b>20 / 5</b>: of 25 WebSocket login guesses, 20 were checked and 5 refused before the password hash.</div>
+    <div><b>1009</b>: a 2 MB frame closes that socket, and <code>/health</code> still returns 200 afterwards.</div>
+    <div><b>500 ms</b>: with the statement timeout set to 500 ms, <code>pg_sleep(2)</code> was cancelled. The default is 2 min.</div>
+    <div><b>4</b> failed writes the suite used to hide are now logged, all from the suite's fake player.</div>
+  </div>
+</section>
+
+<section>
+  <h2>Where the code lives</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>Lines of JS by area</h3>
+      <div class="bars" style="margin-top:12px" id="loc"></div>
+      <p class="note">The client is 41% of all code, and 27% of the client is one file.</p>
+    </div>
+    <div class="card">
+      <h3>Largest client files (KB raw)</h3>
+      <div class="bars" style="margin-top:12px" id="kb"></div>
+      <p class="note"><code>windshield.js</code> goes over the wire at about 1,450 KB brotli, and only when a flight or vehicle view opens.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Risk map</h2>
+  <p class="sub" style="margin-bottom:14px">Each subsystem with its findings. The bar shows the share that is now fixed or was already a strength.</p>
+  <div class="map" id="map"></div>
+</section>
+
+<section>
+  <h2>Request path, now</h2>
+  <div class="card">
+    <svg viewBox="0 0 520 230" width="100%" role="img" aria-label="Diagram of request guards after fixes">
+      <g font-size="11">
+        <rect x="10" y="20" width="110" height="36" fill="none" stroke="var(--muted)"/><text x="20" y="43">HTTP static</text>
+        <rect x="10" y="95" width="110" height="36" fill="none" stroke="var(--muted)"/><text x="20" y="118">HTTP /api/*</text>
+        <rect x="10" y="170" width="110" height="36" fill="none" stroke="var(--muted)"/><text x="20" y="193">WebSocket</text>
+        <line x1="120" y1="38" x2="360" y2="38" stroke="var(--fixed)" stroke-width="2"/><text x="135" y="30" style="fill:var(--fixed)">root containment per branch</text>
+        <line x1="120" y1="113" x2="360" y2="113" stroke="var(--fixed)" stroke-width="2"/><text x="135" y="105" style="fill:var(--fixed)">5 MB cap · 400 on bad JSON · auth rate limit</text>
+        <line x1="120" y1="188" x2="360" y2="188" stroke="var(--fixed)" stroke-width="2"/><text x="135" y="180" style="fill:var(--fixed)">1 MB frames · login limit · flood bucket</text>
+        <rect x="360" y="20" width="150" height="186" fill="none" stroke="var(--good)"/>
+        <text x="372" y="56">requireDev /</text><text x="372" y="72">requireAdmin</text>
+        <text x="372" y="106">parameterized SQL</text><text x="372" y="122">2 min stmt timeout</text>
+        <text x="372" y="156">idle-gated</text><text x="372" y="172">scheduler</text>
+      </g>
+    </svg>
+    <p class="note">All three edges now have limits. What's still open there is CORS <code>*</code> and trusting <code>X-Forwarded-For</code>.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Findings</h2>
+  <div class="filters" role="group" aria-label="Filter findings">
+    <button id="f-all" data-f="all" aria-pressed="true">All</button>
+    <button id="f-open" data-f="open" aria-pressed="false">Open</button>
+    <button id="f-fixed" data-f="fixed" aria-pressed="false">Fixed</button>
+    <button id="f-c" data-f="c" aria-pressed="false">Critical</button>
+    <button id="f-M" data-f="M" aria-pressed="false">Major</button>
+    <button id="f-m" data-f="m" aria-pressed="false">Minor</button>
+    <button id="f-g" data-f="g" aria-pressed="false">Doing well</button>
+  </div>
+  <div class="card tbl" style="padding:0">
+    <table>
+      <thead><tr><th>Severity</th><th>Status</th><th>Area</th><th>Finding</th><th>Where</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>What's left</h2>
+  <div class="card">
+    <ol class="plan">
+      <li><b>Push the five client and engine commits.</b> Run <code>npm run wildlands:bake</code> first so the gate run is green. After the deploy, watch the logs for <code>⚠ DB write failed</code> (real bugs that were hidden until now) and for statement-timeout cancels in CI. <code>DB_STATEMENT_TIMEOUT_MS=0</code> turns the limit off for a job.</li>
+      <li><b>Check prod handles.</b> Look for any existing handle containing <code>&lt;</code> or <code>&amp;</code>. The new rule only applies to new accounts.</li>
+      <li><b>Split <code>styles.css</code> by panel.</b> It is the largest thing left on the boot path.</li>
+      
+      <li><b>Narrow CORS</b> to the known dev origins (Studio, Modelshop).</li>
+      <li><b>Move the client's local <code>esc()</code> copies</b> onto <code>/shared/dom.js</code>.</li><li><b>Decide on the X-Forwarded-For key:</b> use the rightmost hop Render appends. That needs knowing whether anything sits in front of Render.</li>
+    </ol>
+  </div>
+</section>
+
+<footer>Revision 3, written after two rounds of fixes. Counts come from <code>git ls-files</code> and <code>git grep</code> at da0d2dcfa, with worktrees excluded.</footer>
+</div>
+
+<script>
+const LOC=[["client",270296],["plugins",200612],["scripts",97343],["server",62262],["tools",16294],["tests",6904]];
+const KB=[["windshield.js",5290],["tablet-os.js",892],["vehicle-meshes.js",825],["styles.css",772],["aircraft3d.js",618],["cockpit.js",568],["cab-view.js",453],["formant-cmudict.js",435],["building-shapes.js",260],["audio-engine.js",203]];
+// [severity, status, area, finding, where, fix note]
+const F=[
+["c","fixed","Server","Static file server allowed path traversal: raw req.url was joined onto client/game, so ../../.env resolved to the repo root.","server/index.js","Every static branch now has a root and a containment check, and returns 404 outside it."],
+["c","fixed","Cooking","Stored XSS: recipe save and recipe rename stored raw player text as a dish name, which other players see rendered as HTML.","plugins/cooking/recipes.js","Markup characters are stripped at save and rename. The container, loot and wardrobe panels also escape item names."],
+["M","fixed","Security","WebSocket login had no rate limit: unlimited guesses at a 16 MB scrypt each.","server/index.js handleAuth","Shares the HTTP /auth/login bucket per address (20 per 5 min)."],
+["M","fixed","Security","No maxPayload on the WebSocketServer (the ws default is 100 MB), parsed before auth.","server/index.js","Capped at 1 MB. A socket error handler added so a bad frame can't crash the process."],
+["M","fixed","Security","HTTP /api/* bodies were buffered with no size cap, unauthenticated.","server/index.js","5 MB cap, 413 over it. The largest content file is 1.8 MB."],
+["M","fixed","Security","Only 'command' messages were throttled. buy/sell, dialogue, panel_data and ghost messages bypassed it.","server/index.js","A shared flood bucket (40 burst, 15/s) for every other message type."],
+["M","fixed","Reliability","uncaughtException was swallowed, and the process kept running with half-changed state.","server/index.js","Logs, runs the graceful shutdown and exits with code 1 so Render restarts it, with a 5 s forced exit if the pool won't drain."],
+["M","fixed","Reliability","~380 .catch(()=>{}) on DB writes, so failed saves left no trace.","server/models/db.js","query() logs any failed INSERT/UPDATE/DELETE, at most once a minute per statement."],
+["M","fixed","Performance","The DB pool had no query timeout and no connect timeout, so a hung query held its slot for good.","server/models/db.js","2 min statement_timeout and 15 s connect timeout. DB_STATEMENT_TIMEOUT_MS overrides the statement limit."],
+["M","part","Client XSS","Dialogue text set via innerHTML. It carries engine spans by design, and the only player text in it is ${player.handle}.","dialogue.js:242, server/engine/dialogue.js","Registration now restricts handles to 2 to 24 letters, digits, spaces and _ . ' -. Existing prod handles still need a check."],
+["c","fixed","Cards","Stored XSS: a card quote (typed with mintquote, or overheard from say) was rendered raw on a card other players collect.","plugins/cards/index.js renderCard","Every text region is escaped at render, which also covers cards already struck. Found by tracing the cardmint sink."],
+["M","fixed","Client XSS","Server strings rendered as HTML in cardmint, mediadeck, tablet-a11y and workspace.","cardmint.js, mediadeck.js, tablet-a11y.js, workspace.js","Traced: cardmint was real (see Cards). tablet-a11y and workspace already escape. mediadeck is a dev-only SVG preview."],
+["M","fixed","Client load","windshield.js (5.3 MB raw) was in the boot graph after all: dispatch, input and main imported the 3-D views statically, and environment.js fetched it at load for the bird season.","client/game/js/panels/lazy-views.js","The views are fetched on first use through lazy-views.js, and environment hands GLASS the season through wireGlass(). windshield.js no longer loads on the login screen (checked in the browser)."],
+["M","part","Client load","Boot graph was 267 modules, 16.3 MB raw / 4.1 MB brotli, all modulepreloaded.","server/modulegraph.js, lazy-views.js","Now 163 modules, 3.7 MB raw / 1.0 MB brotli. The tablet is lazy (its quest journal moved to quest-log.js), and the 435 KB ORACLE lexicon is fetched after load. Still eager: the gameday rink (45 KB br) and styles.css (150 KB br, render-blocking). The lazy panels already inject their own CSS, so what's left in styles.css belongs to panels that still load at startup (TV and gameday about 650 rule groups, workspace, poker, chess, intro). Splitting it only pays once those panels are lazy too."],
+["M","open","Client load","A 772 KB stylesheet loads on every page, most of it panel-specific.","client/game/styles.css",""],
+["m","fixed","Security","Environment GET routes (weathermap, power map, generators, zones) needed no auth, and several query.","server/api/environment.routes.js","Behind dev auth. Only the dev panel calls them."],
+["m","fixed","Performance","flickerOverloadedZones ran one query per zone, and the call was never awaited or caught.","server/engine/environment.js","One ANY($1) query with row_number to cap 3 lights per zone. The call's errors are now caught."],
+["m","fixed","Performance","readFileSync on every request for plugin panel scripts.","server/index.js","Served through the getAsset cache."],
+["m","fixed","Reliability","Malformed API JSON silently became {}.","server/index.js","Returns 400."],
+["m","fixed","Client","The reconnect backoff had no jitter, so clients redialled in lockstep after a restart.","client/shared/ws.js","±25% jitter."],
+["m","fixed","Client","The ping interval kept running while disconnected.","client/shared/ws.js","Cleared on close."],
+["m","part","Client","No shared escape helper, as reported. Wrong: /shared/dom.js already exported escapeHtml, and nothing used it.","client/shared/dom.js","Now used by three panels. At least 12 local esc() copies remain."],
+["m","fixed","Auth","The role is baked into a 24 h signed token, so a demoted dev kept their rights until it expired.","server/api/routes.js apiSetPlayerRole","A role change revokes their tokens and closes their sockets."],
+["m","open","Security","CORS Access-Control-Allow-Origin: * on the API. Bearer auth, not cookies, limits the impact.","server/index.js","Left as is: the prod dev panel probes localhost cross-origin, and narrowing it could break callers I can't see. Your call."],
+["m","open","Security","The rate-limit key trusts X-Forwarded-For, so an attacker can use up the global login bucket for 5 min.","server/api/rate-limit.js:47",""],
+["m","part","Performance","Queries in loops on dev, admin and init paths (N round trips to Neon).","environment.js, doors.js:326, routes.js","The generator and region-plant installs (3 queries per zone, hundreds per region) are now two set-based statements, and the doors.js owner lookup is one query. The routes.js loops are one-off dev building tools and stay."],
+["m","part","Performance","look ground runs an awaited query.","server/engine/commands/movement.js:287","Won't fix: it runs once per typed command, not a hot path, and ground items aren't cached anywhere."],
+["m","fixed","Reliability","A running MIS event had no logout hook. It already stopped itself on the next tick.","plugins/mis/index.js","Stopped on player.logout."],
+["m","open","Timers","Raw setIntervals outside scheduler.js. Most cancel themselves, and the 1 s tick is deliberate.","gameLoop.js:74, dreamscape.js:274, game-table.js:588",""],
+["m","open","Client","Two devpanel sockets bypass the shared ws wrapper.","ghost-mode.js:517, broadcast.js:2853",""],
+["m","open","Client","A module-level 1 s setInterval in tablet-os is never cleared (commented as deliberate).","tablet-os.js:207",""],
+["m","fixed","Client","Possible listener leaks: far fewer removes than adds. Not traced.","client/game/js","Traced all 57 listeners added inside functions: none leak. Each is removed as a pair on close, registered once from an init, or guarded (once, a wired flag, a singleton)."],
+["m","open","Client","About 484 allocation sites in windshield.js, with past rAF-violation notes. Needs a profile.","windshield.js:544, 1719",""],
+["m","open","Tooling","Gate run red: client/shared/wildlands-field.js is stale. It was stale before this session.","scripts/shapes/wildlands.mjs","Run npm run wildlands:bake."],
+["g","","Security","API SQL is parameterized. Every interpolated identifier comes from a server-side whitelist.","routes.js:915, 2905; content-sync.js:36",""],
+["g","","Security","scrypt with a per-row salt, legacy-hash upgrade, and HMAC tokens compared with timingSafeEqual.","passwords.js:22, auth-tokens.js:110",""],
+["g","","Security","Dev routes are consistently gated, and CONTENT_READONLY blocks prod content writes.","routes.js:155, 208",""],
+["g","","Security","/dev/plugin/ scripts: a strict pattern, a manifest check and resolved-path containment. It was the model for the traversal fix.","server/index.js",""],
+["g","","Security","Chat (say, emote) is rendered via textContent, so it was never an XSS path.","client/game/js/render.js appendMsg",""],
+["g","","Performance","Move positions are checkpointed, not written per step.","movement.js:817-830",""],
+["g","","Performance","Scheduled work is idle-gated, and keepalive hits /health only, so Neon can scale to zero.","scheduler.js:56-64",""],
+["g","","Performance","Static assets are cached and served brotli or gzip, with mtime checks.","server/index.js getAsset",""],
+["g","","Memory","Tokens, rate-limit buckets and dead sockets are swept on timers.","server/index.js",""],
+["g","","Client","WebSocket reconnect has a capped backoff, a stale-socket guard, retryNow and a silent session resume.","client/shared/ws.js, net.js",""],
+["g","","Audio","SIREN uses a fixed 32-voice pool with priority stealing.","audio-engine.js:346-372",""],
+["g","","Testing","Deploys are regress-gated: 10,460 checks, 141 CPU-budgeted gates, import and parse smokes.","tests/regress.js, scripts/gates/",""]
+];
+const MAP=[["server/index.js (edge)","c"],["auth + rate limits"],["DB + SQL"],["engine ticks"],["client GLASS"],["client panels (XSS)"],["client load + CSS"],["net / ws"],["cooking plugin"],["SIREN audio"],["tests + gates"]];
+const AREA={"server/index.js (edge)":r=>/server\/index\.js/.test(r[4])&&r[2]!=="Performance"&&r[2]!=="Client",
+ "auth + rate limits":r=>/Auth|rate-limit|passwords|WebSocket login/.test(r[2]+r[4]+r[3]),
+ "DB + SQL":r=>/db\.js|SQL|routes\.js:915/.test(r[4]+r[3]),
+ "engine ticks":r=>/environment\.js|scheduler|gameLoop|movement|mis/.test(r[4]),
+ "client GLASS":r=>/windshield/.test(r[4]),
+ "client panels (XSS)":r=>/Client XSS/.test(r[2])||/dom\.js|render\.js/.test(r[4]),
+ "client load + CSS":r=>/Client load/.test(r[2]),
+ "net / ws":r=>/ws\.js|net\.js|ghost-mode/.test(r[4]),
+ "cooking plugin":r=>/cooking/.test(r[4]),
+ "SIREN audio":r=>/audio-engine/.test(r[4]),
+ "tests + gates":r=>/regress|gates|wildlands/.test(r[4])};
+
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function bars(el,data,cls){const max=Math.max(...data.map(d=>d[1]));el.innerHTML=data.map(([k,v])=>`<div class="bar"><span class="lbl" title="${k}">${k}</span><span class="trk"><span class="fill ${cls?cls(v):''}" style="width:${(v/max*100).toFixed(1)}%"></span></span><span class="v">${v.toLocaleString()}</span></div>`).join('')}
+bars($('loc'),LOC);
+bars($('kb'),KB,v=>v>1000?'hot':v>500?'warm':'');
+
+const issues=F.filter(r=>r[0]!=='g');
+const fixed=issues.filter(r=>r[1]==='fixed').length;
+$('t-fixed').textContent=fixed;
+for(const k of ['c','M','m'])$('t-'+k).textContent=issues.filter(r=>r[0]===k&&r[1]!=='fixed').length;
+$('t-g').textContent=F.filter(r=>r[0]==='g').length;
+
+const NAMES={c:'Critical',M:'Major',m:'Minor',g:'Doing well'};
+$('ba').innerHTML=['c','M','m'].map(k=>{const all=issues.filter(r=>r[0]===k),f=all.filter(r=>r[1]==='fixed').length,p=all.filter(r=>r[1]==='part').length,o=all.length-f-p,max=20;
+ return `<div class="srow"><span class="mono">${NAMES[k]}</span><span class="strk"><i style="width:${f/max*100}%;background:var(--fixed)" title="fixed ${f}"></i><i style="width:${p/max*100}%;background:var(--minor)" title="partly ${p}"></i><i style="width:${o/max*100}%;background:var(--major)" title="open ${o}"></i></span><span class="mono">${f}/${all.length}</span></div>`}).join('')
+ +`<div class="srow"><span></span><span class="mono" style="font-size:.72rem;color:var(--muted)"><span style="color:var(--fixed)">■</span> fixed &nbsp;<span style="color:var(--minor)">■</span> partly &nbsp;<span style="color:var(--major)">■</span> open</span><span></span></div>`;
+
+const SEG=[["Fixed",fixed,'var(--fixed)'],["Partly fixed",issues.filter(r=>r[1]==='part').length,'var(--minor)'],["Open",issues.filter(r=>r[1]==='open').length,'var(--major)'],["Doing well",F.filter(r=>r[0]==='g').length,'var(--good)']];
+let a=-Math.PI/2,tot=F.length,R=80,r=48,svg='';
+for(const [,n,col] of SEG){if(!n)continue;const s=n/tot*2*Math.PI,b=a+s,l=s>Math.PI?1:0;
+ const p=(ang,rad)=>`${(Math.cos(ang)*rad).toFixed(2)},${(Math.sin(ang)*rad).toFixed(2)}`;
+ svg+=`<path d="M${p(a,R)} A${R},${R} 0 ${l} 1 ${p(b,R)} L${p(b,r)} A${r},${r} 0 ${l} 0 ${p(a,r)}Z" fill="${col}"/>`;a=b}
+svg+=`<text text-anchor="middle" y="6" style="font-size:20px;font-weight:600">${tot}</text>`;
+$('donut').innerHTML=svg;
+$('legend').innerHTML=SEG.map(([n,v,c],i)=>`<rect y="${i*26}" width="12" height="12" fill="${c}"/><text x="20" y="${i*26+10}">${n} ${v}</text>`).join('');
+
+$('map').innerHTML=Object.keys(AREA).map(n=>{const rows=F.filter(AREA[n]);if(!rows.length)return'';
+ const c={f:0,c:0,M:0,m:0,g:0};for(const r of rows){if(r[0]==='g')c.g++;else if(r[1]==='fixed')c.f++;else c[r[0]]++}
+ const t=rows.length,ok=(c.f+c.g)/t,col=c.c?'var(--crit)':c.M?'var(--major)':ok>=.5?'var(--good)':'var(--minor)';
+ const lab={f:'fixed',c:'critical',M:'major',m:'minor',g:'good'};
+ return `<div class="zone"><h3>${n}</h3><div class="pips">${['f','c','M','m','g'].filter(k=>c[k]).map(k=>`<span class="pip ${k}">${c[k]} ${lab[k]}</span>`).join('')}</div><div class="health"><i style="width:${Math.max(ok*100,4)}%;background:${col}"></i></div></div>`}).join('');
+
+const STL={fixed:'Fixed',open:'Open',part:'Partly',"":'n/a'};
+function render(f){$('rows').innerHTML=F.filter(r=>f==='all'||r[0]===f||(f==='open'&&r[0]!=='g'&&r[1]!=='fixed')||(f==='fixed'&&r[1]==='fixed')).map(([s,st,a,t,w,fx])=>`<tr class="${st==='fixed'?'done':''}"><td class="sev"><span class="chip ${s}">${NAMES[s]}</span></td><td class="st ${st}">${s==='g'?'':STL[st]}</td><td>${esc(a)}</td><td>${esc(t)}${fx?`<span class="fixnote">${esc(fx)}</span>`:''}</td><td class="mono">${esc(w)}</td></tr>`).join('')}
+document.querySelectorAll('.filters button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.filters button').forEach(x=>x.setAttribute('aria-pressed',x===b));render(b.dataset.f)});
+render('all');
+</script>
+</body>
+</html>

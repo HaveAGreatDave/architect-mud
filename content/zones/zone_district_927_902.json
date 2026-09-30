@@ -1,24 +1,31 @@
 {
   "ambient_events": [],
-  "ambient_theme": "coast",
-  "color": "#7fd3ff",
-  "description": "Cold water laps at the shoreline over a bottom that drops fast. Past here the channel is deep and impassable on foot.",
+  "ambient_theme": "indoors",
+  "bg_color": "#3a3550",
+  "color": "#e8e0ff",
+  "description": "A corrugated steel hangar at the head of the east taxiway. The roller door stays down until something rolls at it. A tug with one flat tyre sits where somebody left it, and the teal band under the eaves is the only paint. The floor is north; the taxiway is south.",
   "exits": {
-    "east": "zone_district_928_902",
-    "north": "zone_district_927_901",
-    "south": "zone_district_927_903",
-    "west": "zone_district_926_902"
+    "north": "zone_hangar_outskirts",
+    "south": "zone_district_927_903"
   },
   "flags": {
-    "district": "water",
+    "aircraft_hangar": true,
+    "building_name": "Coldwater Regional Hangar",
+    "building_type": "hangar",
+    "district": "docks",
+    "entrance": "south",
+    "facade": true,
+    "hangar_field": "zone_district_925_903",
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "world_exit_zone": "zone_district_927_903"
   },
   "grid_x": 927,
   "grid_y": 902,
   "grid_z": 0,
   "id": "zone_district_927_902",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "marker": "CR",
+  "name": "Coldwater Regional Hangar",
   "parent_zone": null
 }

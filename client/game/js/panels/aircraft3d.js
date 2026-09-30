@@ -2197,6 +2197,24 @@ export function drawRotorFX(ctx, cls, projFn, opts = {}) {
   FX_SINK = opts.sink || null;
   try { drawRotorFXInner(ctx, cls, projFn, opts); } finally { FX_SINK = null; }
 }
+// Parked blades as depth-buffer faces for the hangar renderers. Painted on the canvas after the hull,
+// a blade behind the Drake's head was drawn over it. Parked blades are near-opaque, so they go in as
+// solid faces and the depth test decides what hides them. `projM` is model space to screen.
+export function pushParkedRotorFaces(drawn, cls, armed, spin, projM, near) {
+  const polys = [];
+  drawRotorFX(null, cls, (v) => { const q = projM(v); return q.z <= near ? null : q; },
+    { parked: true, spin, armed, sink: { poly: (pts, rgba) => polys.push([pts, rgba]), line() {} } });
+  for (const [pts, rgba] of polys) {
+    const P = pts.map(projM);
+    if (P.some((q) => q.z <= near)) continue;
+    const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(rgba);
+    const rv = m ? [+m[1], +m[2], +m[3]] : [38, 43, 49];
+    let z = 0, nf = Infinity, xf = -Infinity;
+    for (const q of P) { z += q.z; if (q.z < nf) nf = q.z; if (q.z > xf) xf = q.z; }
+    const avgZ = z / P.length;
+    drawn.push({ P, role: 'rotor', avgZ, alpha: 1, nf, xf, hf: null, af: avgZ, i: drawn.length, rv, col: `rgb(${rv[0]},${rv[1]},${rv[2]})` });
+  }
+}
 // How a `run` rotor comes up to speed on its channel: a smoothstep, flat at both ends.
 const RUN_EASE = (k) => k * k * (3 - 2 * k);
 function drawRotorFXInner(ctx, cls, projFn, { spin = 0, power = 0.7, parked = false, disc = null, spool = null, bladeFade = 0, armed = false, anim = null } = {}) {
@@ -7493,6 +7511,7 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
   // depth per part can order. See the note on modelDepthPass.
   // The hero shot is the SUBJECT of its camera, so it takes the pass at any size — see the `min`
   // the floor scene passes, which is for a row of machines rather than one.
+  if (!wreck) pushParkedRotorFaces(drawn, cls, armed, 2.3, (v) => { const t = modelV(v); return proj(t[0], t[1], t[2]); }, 0.2);
   const rasterOK = modelDepthPass(ctx, drawn, { budget });
   if (!rasterOK) {
     if (cls === 'truck') sortTruckFaces(drawn, { id: `bay:${cls}:${variant || ''}` }, 1);
@@ -7541,9 +7560,8 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
     if (cls === 'truck') drawTruckDoorArt(ctx, projM, variant || 'hauler', 1, livery, occD, MODEL_NEAR_Z);
     else drawNoseArt(ctx, projM, cls, livery, occD, MODEL_NEAR_Z);
   }
-  // Props/rotors — engines off in here, so crisp STOPPED blades (not a blur),
-  // projected through this same camera so they spin with the turntable.
-  if (!wreck) drawRotorFX(ctx, cls, (v) => { const t = modelV(v); const q = proj(t[0], t[1], t[2]); return q.z <= 0.2 ? null : q; }, { parked: true, spin: 2.3, armed });
+  // Props/rotors: crisp stopped blades, already in `drawn` (pushParkedRotorFaces) so the depth
+  // pass can hide them behind the hull.
   // THE CONTACT PATCH, handed back to the caller. An effects layer that wants to put light and
   // dust on the ground under this machine needs to know where the ground under it IS on screen,
   // and this function is the only thing in the process that knows the camera. Guessing it from
@@ -8592,6 +8610,8 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
     // so the same integer means a different box in a different variant, and a lot that swaps a
     // hauler for a drayman under one id would hand the new mesh the old mesh's part order.
     const faces = grp.faces;
+    if (!grp.entry.wreck) pushParkedRotorFaces(faces, grp.entry.cls, !!grp.entry.armed, 1.9 + grp.laneG * 0.6,
+      (v0) => { const v = grp.tilt ? grp.tilt(v0) : v0; return proj(v[0] * grp.sc, grp.laneG + v[1] * grp.sc, v[2] * grp.sc); }, 0.15);
     // A budget shared across the row: eight rigs at full device resolution is eight times the most
     // expensive thing in the frame, and the sharpening is what gives way — never the pass.
     const rasterOK = modelDepthPass(ctx, faces, { min: RASTER_MIN_PX, budget: RASTER_BUDGET_PX / Math.max(1, n) });
@@ -8613,11 +8633,6 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
       // as a wireframe over the panel in front of it. Half its job was hiding sort seams anyway.
       if (!rasterOK) { ctx.strokeStyle = 'rgba(8,10,14,0.5)'; ctx.lineWidth = 1; ctx.stroke(); }
     }
-    // Parked craft: crisp stopped blades, angled differently lane to lane so the
-    // row doesn't read as clones.
-    if (!grp.entry.wreck) drawRotorFX(ctx, grp.entry.cls,
-      (v0) => { const v = grp.tilt ? grp.tilt(v0) : v0; const q = proj(v[0] * grp.sc, grp.laneG + v[1] * grp.sc, v[2] * grp.sc); return q.z <= 0.15 ? null : q; },
-      { parked: true, spin: 1.9 + grp.laneG * 0.6, armed: !!grp.entry.armed });
     // A thin bright outline on the SELECTED craft — reads at a glance in a room
     // full of other planes, where a colour cue alone would be too subtle. ONLY where there is
     // something to tell it apart FROM: on every body/wing quad of a lone machine it stops reading

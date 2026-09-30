@@ -4,7 +4,6 @@
   "color": "#9aa0b0",
   "description": "A broad grey ribbon of cracked asphalt, its painted centreline dwindling to a pale seam in the heat-shimmer. Weeds push up through the expansion joints. A windsock hangs limp at the far edge.",
   "exits": {
-    "east": "zone_district_927_902",
     "north": "zone_district_926_901",
     "south": "zone_district_926_903",
     "west": "zone_district_925_902"

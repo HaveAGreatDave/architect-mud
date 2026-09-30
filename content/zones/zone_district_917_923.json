@@ -5,6 +5,7 @@
   "description": "The hardpan here is split into thousands of red tiles. Nothing grows in the cracks, and the wind keeps them swept.",
   "exits": {
     "east": "zone_district_918_923",
+    "north": "zone_district_917_922",
     "south": "zone_district_917_924",
     "west": "zone_district_916_923"
   },
@@ -12,7 +13,7 @@
     "district": "wilds",
     "radiation": 30,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "dirt_road"
   },
   "grid_x": 917,
   "grid_y": 923,

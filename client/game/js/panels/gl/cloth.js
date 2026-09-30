@@ -19,6 +19,7 @@
 import { viewProjMatrix } from './camera.js';
 import { makeVertexStream } from './stream.js';
 import { clothBake, CLOTH_KINDS, CLOTH_BANDS, CLOTH_FRAMES } from '../cloth3d.js';
+import { declareProgram, takeWarm } from './programs.js';
 
 // Per instance: x, y, z, heading | sx, sy, sz, wind | phase, seed, alpha, lum | colour A rgb |
 // colour B rgb | warm rgb | patch u0 v0 u1 v1 | paint cell, u0, v0, size | weathering
@@ -180,10 +181,14 @@ function compile(gl, type, src, label) {
 }
 
 export function createClothLayer(gl) {
-  const prog = gl.createProgram();
-  gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
-  gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
-  gl.linkProgram(prog);
+  // Prewarmed with the context when it can be (programs.js); built here otherwise.
+  let prog = takeWarm(gl, VERT, FRAG);
+  if (!prog) {
+    prog = gl.createProgram();
+    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
+    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
+    gl.linkProgram(prog);
+  }
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('cloth link: ' + gl.getProgramInfoLog(prog));
   const A = (n) => gl.getAttribLocation(prog, n);
   const U = (n) => gl.getUniformLocation(prog, n);
@@ -347,3 +352,5 @@ export function createClothLayer(gl) {
 
   return { upload, draw, get instances() { return n; } };
 }
+
+declareProgram(VERT, FRAG);

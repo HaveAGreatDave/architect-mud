@@ -542,7 +542,8 @@ export function closeFreelook() {
 // ⚠ IT MAY ANSWER null — the mount reads the centre cell, and a window whose centre is not what the
 // vantage said it was is a window this camera has no business standing in. The caller falls back to
 // the flying camera rather than putting the eye somewhere invented.
-const FPS_EYE = 0.12;
+// A standing eye, 1.6 m against a 3.5 m storey (windshield.js ACTOR_S). It was 0.12, about 2.2 m.
+const FPS_EYE = 0.09;
 function deckEyeAt(s, fv, now) {
   if (!s.map || !fv) return null;
   const R = (s.map.length - 1) / 2, c = s.map?.[R]?.[R];

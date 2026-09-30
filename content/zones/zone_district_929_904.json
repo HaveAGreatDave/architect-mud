@@ -1,23 +1,32 @@
 {
   "ambient_events": [],
-  "ambient_theme": "city",
-  "color": "#3f7fb0",
-  "description": "The swell rides over a lot of water here. It's cold. Something breaks the surface far off.",
+  "ambient_theme": "indoors",
+  "bg_color": "#3a3550",
+  "color": "#e8e0ff",
+  "description": "A hangar built for one aeroplane, standing on pilings at the end of the east taxiway. Its roller door is three storeys of steel and stays down until something comes or goes. The whole shed hums when the wind leans on it. Stencilled across the lintel: HEAVY. The floor is east; the taxiway is west.",
   "exits": {
-    "east": "zone_district_930_904",
-    "north": "zone_district_929_903",
-    "south": "zone_district_929_905",
+    "east": "zone_heavy_bay",
     "west": "zone_district_928_904"
   },
   "flags": {
+    "aircraft_hangar": true,
+    "building_name": "Coldwater Regional Heavy Hangar",
+    "building_type": "hangar",
+    "district": "docks",
+    "entrance": "west",
+    "facade": true,
+    "hangar_field": "zone_district_925_903",
+    "heavy_hangar": true,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "world_exit_zone": "zone_district_928_904"
   },
   "grid_x": 929,
   "grid_y": 904,
   "grid_z": 0,
   "id": "zone_district_929_904",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "marker": "HH",
+  "name": "Coldwater Regional Heavy Hangar",
   "parent_zone": null
 }

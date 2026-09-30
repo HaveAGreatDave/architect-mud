@@ -1462,8 +1462,6 @@ async function _bcStudioConfirmContinue() {
       _bcChannels.push({ ...(res || {}), id: _bcImportChannelId, name, number });
     } catch (err) { toast(err.message, true); return; }
   }
-  // Run world validator to fix any dangling exits from studio creation
-  directAPI('/worldvalidator/run-full', 'POST', { autoRepair: true }).catch(() => {});
   await _bcImportDependencies(compiled);
 }
 

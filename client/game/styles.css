@@ -1400,6 +1400,15 @@ body.rainbow-sky.rainbow-triple .weather-event {
 	color: var(--text-dim);
 	font-style: italic;
 }
+/* Public address: a time skip or other world announcement from the street horns. */
+.msg-pa {
+	color: #f2c14e;
+	font-weight: bold;
+	letter-spacing: 0.3px;
+	border-left: 3px solid #f2c14e;
+	padding-left: 8px;
+	margin: 4px 0;
+}
 .msg-echo {
 	color: var(--text-dim);
 	opacity: 0.75;

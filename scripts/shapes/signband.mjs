@@ -164,6 +164,9 @@ for (const f of files) {
       if (o === s) continue;
       const wraps = o.kind === 'parapet' || o.kind === 'cornice';
       if (!wraps && ((o.cy || 0) >= 0) !== sFront) continue;
+      // `face: 'x'` puts a part on a flank, where cx runs along a different wall, so a flank part and
+      // a front board never share a band however their numbers line up.
+      if (!wraps && (o.face === 'x') !== (s.face === 'x')) continue;
       for (const oe of extent(o)) {
         const dz = over(se.z0, se.z1, oe.z0, oe.z1);
         if (dz <= 1e-9) continue;

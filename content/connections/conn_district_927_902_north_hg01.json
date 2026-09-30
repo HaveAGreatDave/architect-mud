@@ -1,9 +1,9 @@
 {
-  "a": "zone_district_924_903",
+  "a": "zone_district_927_902",
   "b": "zone_hangar_outskirts",
   "blocked": false,
-  "dir": "west",
-  "id": "conn_district_924_903_west_nmw7",
+  "dir": "north",
+  "id": "conn_district_927_902_north_hg01",
   "lockable": true,
   "one_way": false
 }

@@ -1,25 +1,28 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "color": "#8f9256",
-  "description": "Half-dead grey scrub, low and stiff, rooted in broken ground.",
+  "color": "#b5744a",
+  "description": "The off-ramp to the scales, peeling off the lock road under the same long roof. Amber studs down both edges run toward the plates one after another, all night. A sign on a frame says every rig stops on the plates.",
   "exits": {
     "east": "zone_district_911_922",
-    "north": "zone_district_910_921",
-    "south": "zone_district_910_923",
-    "west": "zone_district_909_922"
+    "north": "zone_district_910_921"
   },
   "flags": {
     "district": "wilds",
-    "radiation": 25,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "road",
+    "gate_lock": {
+      "name": "the Outer Lock",
+      "k": "ramp",
+      "gate": "zone_district_911_919",
+      "seg": 2
+    }
   },
   "grid_x": 910,
   "grid_y": 922,
   "grid_z": 0,
   "id": "zone_district_910_922",
   "map_id": "map_world",
-  "name": "Dead Scrub",
+  "name": "The Weigh Ramp",
   "parent_zone": null
 }

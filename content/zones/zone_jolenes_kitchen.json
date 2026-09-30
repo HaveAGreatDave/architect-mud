@@ -18,7 +18,7 @@
     "floor": "tile",
     "is_building": true,
     "is_interior": true,
-    "world_exit_zone": "zone_district_906_913"
+    "world_exit_zone": "zone_district_917_916"
   },
   "grid_x": 0,
   "grid_y": -1,
@@ -26,5 +26,5 @@
   "id": "zone_jolenes_kitchen",
   "map_id": "map_int_jolenes",
   "name": "Jolene's — Kitchen",
-  "parent_zone": "zone_district_906_913"
+  "parent_zone": "zone_district_917_916"
 }

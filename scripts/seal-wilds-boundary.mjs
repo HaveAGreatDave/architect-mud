@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import pg from 'pg';
 
 // The only city↔wilds crossing present on prod — the single existing gate. Keep it.
-const PRESERVE = new Set(['zone_district_918_919|zone_district_918_920']);
+const PRESERVE = new Set(['zone_district_911_919|zone_district_911_920']);
 
 const APPLY = process.argv.includes('--apply');
 const url = (() => { const m = readFileSync('.env', 'utf8').match(/^DATABASE_URL=(.+)$/m); return m[1].trim().replace(/^["']|["']$/g, ''); })();

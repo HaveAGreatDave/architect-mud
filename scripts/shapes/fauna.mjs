@@ -1326,10 +1326,10 @@ const spreadOf = (r) => {
   const cx = g.reduce((a, q) => a + q.wx, 0) / g.length, cy = g.reduce((a, q) => a + q.wy, 0) / g.length;
   return g.reduce((a, q) => a + Math.hypot(q.wx - cx, q.wy - cy), 0) / g.length;
 };
-const calm = spreadOf(paint(viewAt({ x: ANCHOR.ax, y: ANCHOR.ay + 14 }, 0, 12)));
-const spooked = spreadOf(paint(viewAt({ x: ANCHOR.ax, y: ANCHOR.ay + 2 }, 0, 12)));
+const calm = spreadOf(paint(viewAt({ x: ANCHOR.ax, y: ANCHOR.ay + Math.round(154 / BIRD_M_PER_TILE) }, 0, 12)));   // 154 m, on a whole tile (the map window needs one)
+const spooked = spreadOf(paint(viewAt({ x: ANCHOR.ax, y: ANCHOR.ay + Math.round(22 / BIRD_M_PER_TILE) }, 0, 12)));   // 22 m
 if (calm == null || spooked == null) problems.push('the startle check could not see the anchor flock from both distances — it is vacuous');
-else if (!(spooked > calm * 1.15)) problems.push(`geese did not fan out when approached: spread ${calm.toFixed(3)} calm vs ${spooked.toFixed(3)} at two tiles`);
+else if (!(spooked > calm * 1.15)) problems.push(`geese did not fan out when approached: spread ${calm.toFixed(3)} calm vs ${spooked.toFixed(3)} at 22 m`);
 else notes.push(`startle spreads the flock ${(spooked / calm).toFixed(2)}×`);
 
 // ── 3. DETERMINISTIC AT A FIXED CLOCK ─────────────────────────────────────────
@@ -1697,10 +1697,10 @@ T = T_GROUND ?? 1e6;
       const v0 = viewAt(CENTRE, 0, 12);
       const base = { ...v0, acX: CENTRE.x + (v0.mapOffset?.x || 0), acY: CENTRE.y + (v0.mapOffset?.y || 0) };
       const cx = st.cx - base.acX, cy = st.cy - base.acY;
-      // Coming from the west at about 40 m/s, a tile from the flock on the second frame.
+      // Coming from the west at 40 m/s, 11 m from the flock on the second frame.
       const T0 = T;
-      T = tAir - 100; paint({ ...base, contacts: on ? [{ id: 7, cls: 'cessna', dx: cx - 1.36, dy: cy, altDiff: ft }] : [] });
-      T = tAir; const r = paint({ ...base, contacts: on ? [{ id: 7, cls: 'cessna', dx: cx - 1.0, dy: cy, altDiff: ft }] : [] });
+      T = tAir - 100; paint({ ...base, contacts: on ? [{ id: 7, cls: 'cessna', dx: cx - 15 / BIRD_M_PER_TILE, dy: cy, altDiff: ft }] : [] });
+      T = tAir; const r = paint({ ...base, contacts: on ? [{ id: 7, cls: 'cessna', dx: cx - 11 / BIRD_M_PER_TILE, dy: cy, altDiff: ft }] : [] });
       T = T0;
       return airborne(r);
     };

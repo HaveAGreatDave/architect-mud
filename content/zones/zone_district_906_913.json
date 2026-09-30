@@ -1,29 +1,22 @@
 {
   "ambient_events": [],
-  "ambient_theme": "indoors",
-  "bg_color": "#3b2a1c",
-  "color": "#ffd9a0",
-  "description": "The face of Jolene's.",
+  "ambient_theme": "city",
+  "color": "#8a7a64",
+  "description": "A gap in the Meltwater frontage where a roadhouse stood. The boardwalk's footings are still in the dirt, and somebody has already had the porch boards.",
   "exits": {
     "east": "zone_district_907_913",
-    "west": "zone_jolenes_bar"
+    "west": "zone_district_905_913"
   },
   "flags": {
-    "building_name": "Jolene's",
-    "building_type": "honkytonk",
     "district": "commercial",
-    "entrance": "east",
-    "facade": true,
-    "is_building": true,
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_907_913"
+    "terrain": "concrete"
   },
   "grid_x": 906,
   "grid_y": 913,
   "grid_z": 0,
   "id": "zone_district_906_913",
   "map_id": "map_world",
-  "marker": "JL",
-  "name": "Jolene's",
+  "name": "Empty Lot",
   "parent_zone": null
 }

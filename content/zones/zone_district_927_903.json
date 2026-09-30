@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "coast",
-  "color": "#7fd3ff",
-  "description": "The water closes cold around your shins and the ground under it falls away. The deep channel ahead needs a boat.",
+  "ambient_theme": "city",
+  "color": "#9aa0b0",
+  "description": "A spur of concrete off the east apron, its yellow centreline worn to a guess. The Regional's hangar door is north. The taxiway runs east to the heavy hangar.",
   "exits": {
     "east": "zone_district_928_903",
     "north": "zone_district_927_902",
@@ -10,15 +10,17 @@
     "west": "zone_district_926_903"
   },
   "flags": {
-    "district": "water",
+    "district": "docks",
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "runway": "pad",
+    "scavenging_table_id": "scav_industrial_salvage",
+    "terrain": "asphalt"
   },
   "grid_x": 927,
   "grid_y": 903,
   "grid_z": 0,
   "id": "zone_district_927_903",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "name": "Taxiway",
   "parent_zone": null
 }

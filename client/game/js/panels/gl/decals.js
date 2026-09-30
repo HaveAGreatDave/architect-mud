@@ -37,6 +37,7 @@
 // into the depth buffer ahead of it. With no batch asking, the prepass is the absence of a code path.
 import { viewProjMatrix, mat4f } from './camera.js';
 import { makeVertexStream } from './stream.js';
+import { declareProgram, takeWarm } from './programs.js';
 
 // pos3, uv2, alpha1, emit1, seed1
 const STRIDE = 8;
@@ -379,10 +380,14 @@ function keySeed(key) {
   return v;
 }
 export function createDecalLayer(gl) {
-  const prog = gl.createProgram();
-  gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
-  gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
-  gl.linkProgram(prog);
+  // Prewarmed with the context when it can be (programs.js); built here otherwise.
+  let prog = takeWarm(gl, VERT, FRAG);
+  if (!prog) {
+    prog = gl.createProgram();
+    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
+    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
+    gl.linkProgram(prog);
+  }
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('decal link: ' + gl.getProgramInfoLog(prog));
 
   const loc = {
@@ -635,3 +640,5 @@ export function createDecalLayer(gl) {
   // filling and starts evicting something every frame.
   return { upload, draw, get textures() { return texes.size; }, get batches() { return batches.length; }, get minted() { return MINTED; } };
 }
+
+declareProgram(VERT, FRAG);

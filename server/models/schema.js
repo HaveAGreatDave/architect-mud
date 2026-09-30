@@ -3142,24 +3142,32 @@ export const SCHEMA_SQL = `
     created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
   );
 
-  -- Graffiti (graffiti plugin): one tag per street tile, sprayed onto the face of
-  -- a building on an adjacent exit. Keyed on the zone you STAND in rather than the
-  -- facade you paint, because that's the room it gets read from — and it's what
-  -- makes "one per zone" a primary key instead of a rule somebody has to enforce.
-  -- Painting over is an UPSERT, so this table can never exceed one row per street
-  -- tile in the world. day_index is the game-day it went up (zone-filth.js
-  -- gameDayIndex); expiry is derived from it lazily on read, so there's no tick
-  -- and a restart can't wipe the city's walls. Runtime data, never content.
+  -- Graffiti (graffiti plugin): one tag per WALL, sprayed onto any face of a
+  -- building on a tile next to you. A wall is the pair (zone_id, target_zone_id):
+  -- the zone you STAND in, because that's the room it gets read from, and the
+  -- building you paint, because an alley has a building on each side and each side
+  -- takes its own tag. For an interior both are the room. Painting over is an
+  -- UPSERT, so this table can never exceed one row per wall in the world.
+  -- day_index is the game-day it went up (zone-filth.js gameDayIndex); expiry is
+  -- derived from it lazily on read, so there's no tick and a restart can't wipe
+  -- the city's walls. Runtime data, never content.
   CREATE TABLE IF NOT EXISTS zone_graffiti (
-    zone_id TEXT PRIMARY KEY,
-    target_zone_id TEXT,
+    zone_id TEXT NOT NULL,
+    target_zone_id TEXT NOT NULL,
     target_name TEXT,
     author_id TEXT,
     author_handle TEXT,
     text TEXT NOT NULL,
     day_index INTEGER,
-    created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+    created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    PRIMARY KEY (zone_id, target_zone_id)
   );
+  -- The key was the street tile alone until 2026-09-30, when tags stopped being
+  -- fronts only. Every row written before then has a target, but the backfill
+  -- makes sure, since a key column can't hold a null.
+  UPDATE zone_graffiti SET target_zone_id = zone_id WHERE target_zone_id IS NULL;
+  ALTER TABLE zone_graffiti DROP CONSTRAINT IF EXISTS zone_graffiti_pkey;
+  ALTER TABLE zone_graffiti ADD CONSTRAINT zone_graffiti_pkey PRIMARY KEY (zone_id, target_zone_id);
   -- Per-letter colour and weight, as RUNS ([{n,c,f}]) rather than markup. The text
   -- column keeps its contract untouched — escaped on the way in, stored escaped —
   -- and style rides alongside it as data that can only ever hold a validated

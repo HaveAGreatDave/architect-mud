@@ -1,0 +1,22 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#5f6f7a",
+  "description": "The only roof in the city a Leviathan fits under. The floor is one poured slab with a yellow nose line and a tail line forty paces apart. Scissor lifts, a tug the size of a truck and a wall of jet-fuel drums keep to the edges. Nobody sweeps. The sweepings would need their own hangar.",
+  "exits": {
+    "west": "zone_district_929_904"
+  },
+  "flags": {
+    "floor": "concrete",
+    "hangar_interior": true,
+    "hangar_ramp": "zone_district_925_903",
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_heavy_bay",
+  "map_id": "map_int_heavy_bay",
+  "name": "Coldwater Regional Heavy Hangar",
+  "parent_zone": "zone_district_929_904"
+}

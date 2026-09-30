@@ -1,9 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "bg_color": "#1f3646",
-  "color": "#4f83a8",
-  "description": "Brackish shallows, warmer than the channel and dirty, with a film on the surface that turns colours. Reeds grow here. The bank is grit and old plastic.",
+  "color": "#9aa0b0",
+  "description": "Yellow chevrons end at the heavy hangar's door, east. The concrete is stained with jet fuel, and the ring bolts are sized for something a lot bigger than a car.",
   "exits": {
     "east": "zone_district_929_904",
     "north": "zone_district_928_903",
@@ -11,14 +10,17 @@
     "west": "zone_district_927_904"
   },
   "flags": {
+    "district": "docks",
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "runway": "pad",
+    "scavenging_table_id": "scav_industrial_salvage",
+    "terrain": "asphalt"
   },
   "grid_x": 928,
   "grid_y": 904,
   "grid_z": 0,
   "id": "zone_district_928_904",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "name": "Taxiway",
   "parent_zone": null
 }

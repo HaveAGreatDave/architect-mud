@@ -1345,8 +1345,8 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // every pass below takes its eye height off `cam` and `viewMatrix` is happy with a negative one.
   // What cannot come along is the floor and the roads — both are the ground seen from ABOVE — and
   // the mirror, which reflects about a surface we are now under; the seabed replaces the first two.
-  // Everything else still draws, fogged to the water's own colour over a few tiles through the one
-  // fog band every layer already reads, which is honest: you can see three or four tiles down there.
+  // Everything else still draws, fogged to the water's own colour through the one fog band every
+  // layer already reads, over the distance the seabed fades in (seabed-scene.js SEABED_FOG_FAR).
   // ⚠ It rides FLOOR_STATE rather than a new opts key, so the install.js allowlist (and gl:opts) is
   // not involved.
   const SUB = opts.floor && opts.floor.sub > 0 ? opts.floor.sub : 0;
@@ -1354,7 +1354,11 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // The eye goes down with her before it goes under: awash, the camera is simply lower.
   if (opts.floor && opts.floor.camEH != null && cam) cam = { ...cam, EH: opts.floor.camEH };
   if (SUB && cam) {
-    const wc = (SUBSCENE && SUBSCENE.water) || [0.05, 0.25, 0.32];
+    // ⚠ THE HORIZON COLOUR, NOT THE WATER'S BASE COLOUR: the backdrop behind a level ray is only
+    // 0.55 of it (waterAlong in seabed-scene.js), so fogging to the base colour made every hull a
+    // pale ghost that stood out against the water it was meant to vanish into.
+    const wc = (SUBSCENE && SUBSCENE.horizon) || [0.03, 0.14, 0.18];
+    const far = (SUBSCENE && SUBSCENE.fogFar) || 3.6;
     // The city's lights, signs, wires, trees and birds are all above the surface too; left in, they
     // hang in the water with nothing under them. Emptied rather than skipped so every layer still
     // runs its own bookkeeping on an empty list.
@@ -1362,7 +1366,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // thin and reaches far, and it closes to the full murk as she goes down, so the city fades into
     // the water instead of vanishing on one frame. The lights go at the half-way point, with the rest.
     const fk = Math.min(1, SUB / 0.14);
-    opts = { ...opts, fogBand: { col: wc, amt: 0.35 + 0.65 * fk, near: 0.2, far: 3.6 + (1 - fk) * 30 }, glMirror: 0, glFogH: 0,
+    opts = { ...opts, fogBand: { col: wc, amt: 0.35 + 0.65 * fk, near: 0.2, far: far + (1 - fk) * 30 }, glMirror: 0, glFogH: 0,
       ...(fk > 0.5 ? { sprites: [], curtain: [], decals: [], strokes: [], scatter: [] } : null) };
   } else if (opts.floor && (opts.floor.dunkFog ?? opts.floor.seaUnder) > 0.01 && cam) {
     // ── A WAVE OVER THE LENS (glSeaDunk) ────────────────────────────────────
@@ -1635,7 +1639,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   const room = (opts.ship || []).filter((f) => f.interior);
   const rig = room.length ? (opts.ship || []).filter((f) => !f.interior) : opts.ship;
   if (g.view.uploadSolids) g.view.uploadSolids([rig, opts.bay, opts.fauna]);
-  if (g.view.uploadInterior) g.view.uploadInterior(room, (opts.ship && opts.ship.interiorModel) || null);
+  if (g.view.uploadInterior) g.view.uploadInterior(room, (opts.ship && opts.ship.interiorModel) || null, (opts.ship && opts.ship.interiorLight) || null);
   const mirrorGain = opts.glMirror > 0 ? opts.glMirror : 0;
   // ⚠ AND THE SEA WANTS IT TOO, WHICH IS WHY THIS GATE IS NO LONGER ONLY ABOUT WET TARMAC. The
   // prepass was gated on 'glWet' because a puddle was its only client; over open water in clear

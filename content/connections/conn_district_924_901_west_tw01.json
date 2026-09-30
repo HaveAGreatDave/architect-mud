@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_924_901",
+  "b": "zone_cw_tower",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_district_924_901_west_tw01",
+  "lockable": true,
+  "one_way": false
+}

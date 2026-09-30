@@ -1929,26 +1929,26 @@ async function regressBody({ run, check, getPlayer }) {
   // moved OUT through the wall), the render seam, and the law's two decisions.
   {
     const Z = (x, y) => world.zones.get(`zone_district_${x}_${y}`);
-    const gate = Z(918, 919);
-    const hallA = Z(918, 918), hallB = Z(918, 917);
+    const gate = Z(911, 919);
+    const hallA = Z(911, 918), hallB = Z(911, 917);
     if (gate && hallA && hallB) {
       check('the South Lock is two covered search tiles in front of the gate',
         !!hallA.flags?.gate_lock?.search && !!hallB.flags?.gate_lock?.search
         && hallA.flags.gate_lock.gate === gate.id && hallB.flags.gate_lock.gate === gate.id);
       const decks = [...world.zones.values()].filter((z) => z.map_id === 'map_world' && z.flags?.weigh_station
-        && Math.abs((z.grid_x ?? 0) - 918) <= 4 && Math.abs((z.grid_y ?? 0) - 919) <= 4);
+        && Math.abs((z.grid_x ?? 0) - 911) <= 4 && Math.abs((z.grid_y ?? 0) - 919) <= 4);
       check('the Glacis Weigh stands OUTSIDE the Curtain now',
         decks.length === 1 && decks[0].grid_y > gate.grid_y, JSON.stringify(decks.map((z) => [z.id, z.grid_x, z.grid_y])));
       check('…on its own road type, under the lock roof',
         decks[0]?.flags?.terrain === 'weighbridge' && decks[0]?.flags?.gate_lock?.k === 'deck' && isRoadCell(decks[0]));
-      const outer = [Z(918, 920), Z(918, 921), Z(918, 922)];
+      const outer = [Z(911, 920), Z(911, 921), Z(911, 922)];
       check('the Glacis road runs under a covered shed outside the gate',
         outer.every((z) => z?.flags?.gate_lock && !z.flags.gate_lock.search && isRoadCell(z)));
       // The render seam: the cell ships a 'lock' mark and the walls derived from its neighbours.
-      const win = mapWindow({ grid_x: 918, grid_y: 918 }, 1);
+      const win = mapWindow({ grid_x: 911, grid_y: 918 }, 1);
       const c = win[1][1];
       check('a lock tile renders as a lock mark with its walls', c.mark === 'lock' && c.lk?.s === 1
-        && c.lk.wl.includes('w') && !c.lk.wl.includes('s') && c.lk.st === 'green', JSON.stringify(c.lk));
+        && c.lk.wl.includes('e') && !c.lk.wl.includes('s') && c.lk.st === 'green', JSON.stringify(c.lk));
       const dwin = mapWindow({ grid_x: decks[0]?.grid_x, grid_y: decks[0]?.grid_y }, 1);
       check('the deck carries its terminal toward the booth', dwin[1][1].lk?.k === 'deck' && dwin[1][1].lk?.term === 'w'
         && !dwin[1][1].lk.wl.includes('w'), JSON.stringify(dwin[1][1].lk));
@@ -1967,15 +1967,15 @@ async function regressBody({ run, check, getPlayer }) {
       try {
         _forceLockDraw(true);
         const rig = { playerId: player.id, leg: 'city', speed: 30, truckId: null };
-        check('the lock arms as the rig enters it', (await lockTick(player, rig, hallB, Z(918, 916))) === 'armed'
+        check('the lock arms as the rig enters it', (await lockTick(player, rig, hallB, Z(911, 916))) === 'armed'
           && rig._lock?.from === 'town' && rig._lockSig?.st === 'amber');
-        check('…and turning round out of it costs nothing', (await lockTick(player, rig, Z(918, 916), hallB)) === 'clear' && !rig._lock);
+        check('…and turning round out of it costs nothing', (await lockTick(player, rig, Z(911, 916), hallB)) === 'clear' && !rig._lock);
         _forceLockDraw(false);
         const g = { playerId: player.id, leg: 'city', speed: 30, truckId: null };
         await lockTick(player, g, hallA, gate);
         check('an unpicked driver sees green', g._lockSig?.st === 'green' && g._lock?.flagged === false);
-        check('…and drives through clear', (await lockTick(player, g, Z(918, 916), hallB)) === 'clear');
-        check('nowhere near the gate, the lock is free', (await lockTick(player, { leg: 'city' }, Z(918, 916), null)) === null);
+        check('…and drives through clear', (await lockTick(player, g, Z(911, 916), hallB)) === 'clear');
+        check('nowhere near the gate, the lock is free', (await lockTick(player, { leg: 'city' }, Z(911, 916), null)) === null);
       } finally { _forceLockDraw(null); }
     }
   }

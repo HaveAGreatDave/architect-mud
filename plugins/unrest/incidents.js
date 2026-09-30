@@ -124,12 +124,14 @@ registerStep('news', async (ctx, step) => {
 registerStep('graffiti', async (ctx, step) => {
   const zone = ctx.zone;
   if (!zone) return null;
-  await tagFromWorld(zone, fill(step.text, ctx), step.author || 'someone');
+  const put = await tagFromWorld(zone, fill(step.text, ctx), step.author || 'someone');
   signals.noteSignal(ctx.key, ctx.writes);
+  if (!put) return null;
   // ⚠ Teardown removes it, but a process that dies mid-incident leaves it — and
   // that is fine, because a tag has its own lazy three-game-day expiry and an
   // orphan reads as exactly what it is: a wall nobody has scrubbed yet.
-  return async () => { await removeTag(zone); };
+  // Only the wall it went on: a tile can carry a tag per wall, and the others aren't ours.
+  return async () => { await removeTag(zone, put.targetZoneId); };
 });
 
 registerStep('ambient', (ctx, step) => {

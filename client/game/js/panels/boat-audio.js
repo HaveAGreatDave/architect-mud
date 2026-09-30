@@ -455,7 +455,7 @@ export function stopBoatContacts() {
   _voices.clear();
 }
 
-export function stopBoatAudio() { stopBoatEngine(true); stopBoatContacts(); }
+export function stopBoatAudio() { stopBoatEngine(true); stopBoatContacts(); stopBoatWater(); }
 
 export function boatAudioState() {
   return { own: !!_own, voices: _voices.size, ids: [..._voices.keys()] };
@@ -471,3 +471,108 @@ export const _test = {
   makeV8, rampV8, scheduleBarks, fireBark, stopV8,
   HEAR_TILES, MAX_VOICES, DOPPLER_MPH, DOPPLER_LO, DOPPLER_HI, BARK_AHEAD,
 };
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+//  THE HULL ON THE WATER
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+//
+// The sound of the hull cutting water, separate from the motor because it follows WAY, not revs:
+// a dead boat still coasting hisses, and a screaming one in the air makes none. Two noise bands, a
+// low slap under the hull and a high hiss off the chines, both scaled by speed. ⚠ AIRBORNE CUTS IT
+// IN ABOUT 60 MS, which is what sells the jump: the water goes quiet under you and only the motor
+// is left, over-revving on a drive with nothing to push.
+
+let _hull = null;
+
+function makeHull(eng) {
+  const { ctx, bus, noise } = eng;
+  const master = ctx.createGain(); master.gain.value = 0; master.connect(bus);
+  const src = [];
+  const band = (type, f, q, g0) => {
+    const n = ctx.createBufferSource(); n.buffer = noise; n.loop = true;
+    n.playbackRate.value = rnd(0.9, 1.1);
+    const f1 = ctx.createBiquadFilter(); f1.type = type; f1.frequency.value = f; f1.Q.value = q;
+    const g = ctx.createGain(); g.gain.value = g0;
+    n.connect(f1).connect(g).connect(master); n.start(); src.push(n);
+    return { f: f1, g };
+  };
+  const slap = band('lowpass', 180, 0.8, 0.9);
+  const hiss = band('bandpass', 2200, 0.7, 0.35);
+  // A slow wobble on the slap so it reads as water hitting the hull, not a fan.
+  const lfo = ctx.createOscillator(); lfo.frequency.value = 5.5;
+  const lfoG = ctx.createGain(); lfoG.gain.value = 0.35;
+  lfo.connect(lfoG).connect(slap.g.gain); lfo.start(); src.push(lfo);
+  return { ctx, master, slap, hiss, lfo, src };
+}
+
+// `spd01` is way as a 0..1 of top speed; `airborne`/`aground` silence it.
+export function updateBoatWater({ spd01 = 0, airborne = false, aground = false } = {}) {
+  if (!_hull) { const eng = nodes(); if (!eng) return false; _hull = makeHull(eng); }
+  const H = _hull;
+  try {
+    const now = H.ctx.currentTime, v = c01(spd01);
+    const target = (airborne || aground) ? 0 : clamp(0.05 + v * 0.55, 0, 0.6) * (v > 0.01 ? 1 : 0);
+    H.master.gain.setTargetAtTime(target, now, airborne ? 0.02 : 0.08);
+    H.slap.f.frequency.setTargetAtTime(140 + v * 260, now, 0.1);
+    H.hiss.f.frequency.setTargetAtTime(1400 + v * 2600, now, 0.1);
+    H.hiss.g.gain.setTargetAtTime(0.15 + v * 0.55, now, 0.1);
+    H.lfo.frequency.setTargetAtTime(3 + v * 9, now, 0.2);
+  } catch { /* dead context */ }
+  return true;
+}
+
+export function stopBoatWater() {
+  const H = _hull; _hull = null; if (!H) return;
+  try {
+    const now = H.ctx.currentTime;
+    H.master.gain.cancelScheduledValues(now);
+    H.master.gain.setTargetAtTime(0, now, 0.05);
+    setTimeout(() => { try { H.src.forEach((n) => { try { n.stop(); } catch { /* stopped */ } }); H.master.disconnect(); } catch { /* gone */ } }, 400);
+  } catch { /* gone */ }
+}
+
+// ── THE LANDING ──────────────────────────────────────────────────────────────
+//
+// An FM thump: a low sine carrier whose pitch drops, bent by a modulator at a non-integer ratio
+// with its index decaying fast, so the attack is a woody, hollow knock and the tail is a plain
+// boom. That is what a hull slapping flat water sounds like from inside it. Under it, a short burst
+// of low-passed noise for the splash. `power` is 0..1; a slam hands in more.
+export function boatLandThump(power = 0.5) {
+  const eng = nodes(); if (!eng) return false;
+  const { ctx, bus, noise } = eng;
+  try {
+    const p = c01(power), now = ctx.currentTime, dur = 0.35 + p * 0.45;
+    const out = ctx.createGain(); out.gain.value = 0; out.connect(bus);
+    out.gain.setValueAtTime(0, now);
+    out.gain.linearRampToValueAtTime(0.5 + p * 0.7, now + 0.006);
+    out.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+    const f0 = rnd(62, 74) - p * 18;
+    const car = ctx.createOscillator(); car.type = 'sine';
+    car.frequency.setValueAtTime(f0 * 1.9, now);
+    car.frequency.exponentialRampToValueAtTime(f0 * 0.7, now + dur * 0.6);
+    const mod = ctx.createOscillator(); mod.type = 'sine';
+    mod.frequency.setValueAtTime(f0 * 1.9 * 1.41, now);
+    mod.frequency.exponentialRampToValueAtTime(f0 * 0.7 * 1.41, now + dur * 0.6);
+    const idx = ctx.createGain();
+    idx.gain.setValueAtTime(f0 * (3 + p * 6), now);
+    idx.gain.exponentialRampToValueAtTime(1, now + 0.12);
+    mod.connect(idx).connect(car.frequency);
+    car.connect(out);
+
+    const n = ctx.createBufferSource(); n.buffer = noise;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(1800 + p * 1800, now);
+    lp.frequency.exponentialRampToValueAtTime(200, now + 0.25);
+    const ng = ctx.createGain();
+    ng.gain.setValueAtTime(0.35 + p * 0.4, now);
+    ng.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+    n.connect(lp).connect(ng).connect(bus);
+
+    const end = now + dur + 0.05;
+    car.start(now); mod.start(now); n.start(now, Math.random() * 0.5);
+    car.stop(end); mod.stop(end); n.stop(now + 0.35);
+    setTimeout(() => { try { out.disconnect(); ng.disconnect(); } catch { /* gone */ } }, (dur + 0.2) * 1000);
+  } catch { return false; }
+  return true;
+}

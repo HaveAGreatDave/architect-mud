@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#1e2024",
+  "description": "One bay, oil-dark concrete, a pit with a board over it and a roller door onto the lane. Tyres on the wall, a fuel can on a chain, and a patrol wagon parked nose out so it can leave without reversing, because nobody here ever has time to reverse.",
+  "exits": {
+    "west": "zone_district_913_922"
+  },
+  "flags": {
+    "building_name": "The Motor Pool",
+    "district": "wilds",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_913_922"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_gatepost_motorpool",
+  "map_id": "map_int_gatepost_motorpool",
+  "name": "The Motor Pool",
+  "parent_zone": "zone_district_913_922"
+}

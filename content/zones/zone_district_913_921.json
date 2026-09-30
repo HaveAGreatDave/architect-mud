@@ -1,25 +1,28 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#8f9256",
-  "description": "Low grey brush pushes up through broken ground, brittle and half dead. It shivers even when there's no wind.",
+  "ambient_theme": "city",
+  "color": "#5a6478",
+  "description": "A squat police post on a blast plinth outside the wall, grey plate with a slot of armoured glass facing the pad. A caged blue lamp over the door, a rack of spike strips by the step, and a sign saying all visitors will be searched, which is a promise.",
   "exits": {
-    "east": "zone_district_914_921",
-    "north": "zone_district_913_920",
-    "south": "zone_district_913_922",
+    "east": "zone_gatepost_office",
     "west": "zone_district_912_921"
   },
   "flags": {
+    "building_name": "The Gate Post",
+    "building_type": "police",
     "district": "wilds",
-    "radiation": 25,
+    "entrance": "west",
+    "facade": true,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "world_exit_zone": "zone_district_912_921"
   },
   "grid_x": 913,
   "grid_y": 921,
   "grid_z": 0,
   "id": "zone_district_913_921",
   "map_id": "map_world",
-  "name": "Brittlebrush Draw",
+  "marker": "GP",
+  "name": "The Gate Post",
   "parent_zone": null
 }

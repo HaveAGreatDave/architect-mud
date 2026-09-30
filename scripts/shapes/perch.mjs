@@ -21,8 +21,8 @@
 // `client/game/flightsim-world.json` is the same baked snapshot `__street` reads.
 import { readFileSync } from 'node:fs';
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
-import { SPECIES, spOf, perchedNow, perchesHigh, flockSize, flockAt, flockState, speciesAt, placeOf, habitatState, U_GROUND, GOOSE_SETTLE_MS } from '../../client/shared/birds.js';
-import { FAUNA_TILE, faunaRecordFaces } from '../../client/game/js/panels/fauna3d.js';
+import { SPECIES, spOf, perchedNow, perchesHigh, flockSize, flockAt, flockState, speciesAt, placeOf, habitatState, U_GROUND, GOOSE_SETTLE_MS, BIRD_M_PER_TILE } from '../../client/shared/birds.js';
+import { FAUNA_TILE, faunaRecordFaces, faunaScale } from '../../client/game/js/panels/fauna3d.js';
 import { BIRD_ROWS } from '../../client/shared/fauna-models.js';
 
 const ws = await loadWindshield();
@@ -164,7 +164,7 @@ for (const [k, c] of Object.entries(cells)) {
 // there — the rule has to be interrogated rather than inferred.
 if (perchableDepth(0)) problems.push("a window painted flat on a wall counts as a perch");
 if (perchableDepth(0.002)) problems.push("a 2 cm reveal counts as a perch — no bird stands on that");
-if (!perchableDepth(0.02)) problems.push("a 22 cm sill is refused — the floor is set too high to be real");
+if (!perchableDepth(0.02)) problems.push("a 36 cm sill is refused — the floor is set too high to be real");
 
 if (kitOff) problems.push(`${kitOff} of ${kitPts} kit perch points stand off the end of the part — worst ${kitOffWorst.toFixed(3)} tiles at ${kitOffAt}`);
 if (kitFlatRing) problems.push(kitFlatRing + " coping rings are collinear — they are being laid across the roof instead of round it");
@@ -249,11 +249,27 @@ if (!MERIDIAN) problems.push('The Meridian is not in the baked world — re-run 
 else {
   const [mk, mc] = MERIDIAN;
   const [mx, my] = mk.split(',').map(Number);
-  const ls = buildLedges(mc, mx, my) || [];
+  // ⚠ THE MASS AND THE COPINGS TOGETHER. Where a coping covers a setback's edge the coping is the
+  // perch and the deck under it is not (`underCoping` in windshield.js), so a count of mass alone
+  // loses the Meridian's two crown setbacks while the birds stand on them.
+  const ls = [...(buildLedges(mc, mx, my) || []), ...((kitLedges(mc, mx, my) || []).filter((l) => l.ring))];
   const heights = [...new Set(ls.map((l) => Math.round(l.z * 100) / 100))].sort((a, b) => a - b);
   if (heights.length < 4) problems.push(`The Meridian offers ${heights.length} distinct ledge heights, wanted at least 4 — the setbacks are not being seen`);
   const big = ls.filter((l) => l.len > 0.9);
   if (big.length < 3) problems.push(`The Meridian offers ${big.length} ledges long enough for a flock, wanted at least 3`);
+  // ⚠ AND A BIRD STANDS ON A COPING, NEVER INSIDE ONE. The kit lays a coping round the crown deck
+  // and round the cornice under it, and the mass ledge for each deck ran 0.015 tiles in from the drop:
+  // under the cap. The falcon that hunts from this tower spent every landing inside the parapet,
+  // invisible from every angle. So each coping must be offered, with no mass ledge left on its deck.
+  // Put `underCoping` back to false and the deck ledges return, the dedupe drops the copings, and
+  // the count below goes to zero.
+  const caps = (kitLedges(mc, mx, my) || []).filter((l) => l.ring);
+  if (caps.length < 2) problems.push(`The Meridian offers ${caps.length} coping perches, wanted its two crown copings — a bird is being stood on the deck under them`);
+  for (const k of caps) {
+    const deck = k.z - (k.deep || 0);
+    const under = (buildLedges(mc, mx, my) || []).find((l) => Math.abs(l.z - deck) < 0.01);
+    if (under) problems.push(`The Meridian still offers the deck at ${under.z.toFixed(3)} under its coping at ${k.z.toFixed(3)} — a bird there stands inside the parapet`);
+  }
 }
 
 // ── 3. WHO PERCHES, AND WHERE ────────────────────────────────────────────────
@@ -406,8 +422,9 @@ for (const [wx, wy] of anchors.slice(0, 240)) {
     const maxZ = Math.max(...ref.map((l) => l.z));
     if (perchesHigh(fl) && (L.z < maxZ * HUNT_BAND - 1e-9 || (edges.length && L.len < HUNT_MIN_LEDGE))) highWrong++;
     const n = Math.max(1, flockSize(fl));
-    const fits = pool.filter((l) => l.len >= n * 0.03);
-    if (fits.length) { roomPossible++; if (L.len < n * 0.03) roomShort++; }
+    const ROOM = 0.33 / BIRD_M_PER_TILE;   // PERCH_ROOM in windshield.js: 0.33 m of ledge a bird
+    const fits = pool.filter((l) => l.len >= n * ROOM);
+    if (fits.length) { roomPossible++; if (L.len < n * ROOM) roomShort++; }
     // and the birds land on the ledge they were given
     for (let i = 0; i < n; i++) {
       const s = perchSpot(L, fl, i, n, 1.7e12, 0);
@@ -700,7 +717,7 @@ try {
     const sized = birds.filter((b) => b.width > 0 && BIRD_ROWS[b.sp]?.span);
     const byKind = new Map();
     for (const b of sized) {
-      const k = b.width / (BIRD_ROWS[b.sp].span * FAUNA_TILE);
+      const k = b.width / (BIRD_ROWS[b.sp].span * FAUNA_TILE * faunaScale('bird', b.sp));
       const e = byKind.get(b.sp) || [];
       e.push(k); byKind.set(b.sp, e);
     }
@@ -731,6 +748,95 @@ try {
   RT.geese = held.geese; RT.gl = held.gl; RT.glFloor = held.floor; RT.birdPerch = held.perch;
 }
 
+// ── 7. A HUNTER IS DRAWN, AND FOUND, WHERE IT SITS ───────────────────────────
+//
+// A hunter perches up to HUNT_REACH tiles from its anchor, and two things measured it from the
+// anchor anyway: the draw cull, so the Meridian's falcon (anchored on The Strand, six tiles off)
+// was never drawn from the street under the tower it sat on; and freelook's raptor finder, which
+// aimed H at the anchor's pavement while the bird was 60 m up. Both now ask `hunterSpot`.
+//
+// So: a perched hunter whose ledge is well away from its anchor, and a camera past the ledge,
+// inside the species' draw range of the bird and outside it of the anchor. Measure from the anchor
+// again and the bird is not in the frame; read the anchor again and H points at the ground.
+let spotNote = '';
+{
+  const DENS7 = 1, R7 = 18, T0 = 1.7e12;
+  const bare7 = { kind: 'land' };
+  const win7 = (cx, cy) => Array.from({ length: R7 * 2 + 1 }, (_, j) =>
+    Array.from({ length: R7 * 2 + 1 }, (_, i) => cells[(cx + i - R7) + ',' + (cy + j - R7)] || bare7));
+  const placeAt7 = (wx, wy) => {
+    const c = cells[wx + ',' + wy];
+    if (!c) return null;
+    let bld = 0, shore = false;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue;
+      const nn = cells[(wx + dx) + ',' + (wy + dy)];
+      if (!nn) continue;
+      if (nn.bt) bld++;
+      if (nn.kind === 'water') shore = true;
+    }
+    return placeOf(c.biome, bld, shore);
+  };
+  let site7 = null;
+  for (const [k, c] of Object.entries(cells)) {
+    if (c.bt || !c.biome) continue;
+    const [wx, wy] = k.split(',').map(Number);
+    const sid = speciesAt(placeAt7(wx, wy), wx, wy, { road: !!c.road, airfield: c.kind === 'field' });
+    if (sid !== 'peregrine' && sid !== 'hawk') continue;
+    const fl = flockAt(wx, wy, DENS7, sid);
+    if (!fl) continue;
+    const map = win7(wx, wy), per = SPECIES[sid].period;
+    for (let i = 0; i < 400 && !site7; i++) {
+      const t = T0 + i * per * 0.37;
+      const st = flockState(fl, t);
+      if (st.airborne || !perchedNow(fl, t)) continue;
+      const p = ws.hunterSpot(map, R7, wx, wy, fl, t, null);
+      if (p && p[2] > 0.5 && Math.hypot(p[0] - wx, p[1] - wy) >= 5) site7 = { fl, sid, t, p };
+    }
+    if (site7) break;
+  }
+  if (!site7) problems.push('no hunter in the city perches five tiles or more from its anchor — the cull check below has nothing to look at');
+  else {
+    const { fl, sid, t, p } = site7;
+    const ux = (p[0] - fl.ax) / Math.hypot(p[0] - fl.ax, p[1] - fl.ay), uy = (p[1] - fl.ay) / Math.hypot(p[0] - fl.ax, p[1] - fl.ay);
+    const range = SPECIES[sid].drawRange;
+    // Stepped out past the ledge until the anchor is clearly beyond the range. The bird has to stay
+    // well inside it, and inside the lens's own cut at this canvas width (FLOCK_RESOLVE_F, ~9.6).
+    let cx = 0, cy = 0;
+    for (let s = 3; s <= 8; s += 0.5) {
+      cx = Math.round(p[0] + ux * s); cy = Math.round(p[1] + uy * s);
+      if (Math.hypot(fl.ax - cx, fl.ay - cy) > range + 0.5) break;
+    }
+    const dBird = Math.hypot(p[0] - cx, p[1] - cy), dAnchor = Math.hypot(fl.ax - cx, fl.ay - cy);
+    if (!(dBird < Math.min(range, 9) && dAnchor > range)) problems.push(`the hunter-cull camera is ${dBird.toFixed(1)} tiles from the bird and ${dAnchor.toFixed(1)} from its anchor against a ${range}-tile range — it proves nothing`);
+    const held7 = { geese: RT.geese, gl: RT.gl, floor: RT.glFloor, dot: RT.faunaDot };
+    try {
+      RT.geese = DENS7; RT.gl = 1; RT.glFloor = 1; RT.faunaDot = 0;
+      Date.now = () => t;
+      stubCanvas('__hunt', 480, 300);
+      const cv = globalThis.document.createElement('canvas'); cv.width = 480; cv.height = 300;
+      let recs = [];
+      ws.installGLWorld((glCells, cam, o) => { recs = o.fauna || []; return { faces: 1, canvas: cv }; });
+      const view = { cls: 'truck', phase: 'cruise', worldBlend: 1, height: 0, eyeH: 0.3, speed: 0, hour: 12, weather: 'clear',
+        heading: Math.atan2(p[0] - cx, -(p[1] - cy)) * 180 / Math.PI, map: win7(cx, cy),
+        mapCenter: { x: cx, y: cy }, mapOffset: { x: 0, y: 0 }, resFloor: 1, tune: { gl: 1, perfDS: 0 } };
+      ws.paintWindshield('__hunt', view);
+      ws.paintWindshield('__hunt', view);
+      ws.installGLWorld(null);
+      const drawn = recs.find((r) => r.sp === sid && Math.hypot(r.x + cx - p[0], r.y + cy - p[1]) < 0.3);
+      if (!drawn) problems.push(`the ${sid} perched at ${p[0].toFixed(2)},${p[1].toFixed(2)} is ${dBird.toFixed(1)} tiles from the camera and was not drawn — it is being culled by its anchor, ${dAnchor.toFixed(1)} tiles off`);
+      const found = ws.raptorsNow(t).find((q) => q.sp === sid && Math.hypot(q.x - p[0], q.y - p[1]) < 0.3 && Math.abs(q.z - p[2]) < 0.05);
+      if (!found) problems.push(`raptorsNow does not report the ${sid} on its ledge at ${p[0].toFixed(2)},${p[1].toFixed(2)} z ${p[2].toFixed(2)} — H would aim at the anchor`);
+      spotNote = `a ${sid} anchored at ${fl.ax},${fl.ay} and perched ${Math.hypot(p[0] - fl.ax, p[1] - fl.ay).toFixed(1)} tiles away, ${p[2].toFixed(2)} up, is drawn from ${dBird.toFixed(1)} tiles and found by H on its ledge.`;
+    } catch (e) {
+      problems.push(`the hunter-cull check threw — ${e.message}`);
+    } finally {
+      Date.now = realNow;
+      RT.geese = held7.geese; RT.gl = held7.gl; RT.glFloor = held7.floor; RT.faunaDot = held7.dot;
+    }
+  }
+}
+
 if (problems.length) {
   console.error(`✗ perch: ${problems.length} problem${problems.length === 1 ? '' : 's'}`);
   for (const p of problems.slice(0, 24)) console.error(`  ✗ ${p}`);
@@ -743,6 +849,7 @@ console.log(`  · the detail kit adds ${kitLedgeCount} perches on ${kitTiles} bu
 console.log(`  · the highest thing to stand on in the city is ${tallest.toFixed(2)} tiles up, on ${tallestAt}.`);
 console.log(`  · ${perchers.join(', ')} perch and a goose never does; a hunter took a real edge in its upper band on all ${placed} streets tried, and no flock was crowded onto a small one.`);
 console.log(`  · the badlands offer ${wildCount} hoodoo tops on ${wildTiles} tiles — caprocks, shears and stumps, never a spire tip.`);
+if (spotNote) console.log('  · ' + spotNote);
 if (poleNote) console.log('  · ' + poleNote);
 for (const n of notesPole) console.log('  · ' + n);
 console.log(`  · rendered: ${e2eUp} birds standing on a building and ${e2eDown} on the deck (${e2eSite}), and the flag puts every one of them back down.`);

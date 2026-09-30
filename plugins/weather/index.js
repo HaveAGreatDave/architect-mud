@@ -630,6 +630,11 @@ export function heroEventPresentation(type) {
   return def ? { type, label: def.label, benign: !!def.benign, severity: def.severity, ...def.present } : null;
 }
 
+// Every named event, for a picker (the admin app). Order is NAMED_EVENTS order.
+export function heroEventTypes() {
+  return Object.keys(NAMED_EVENTS).map(type => ({ type, label: NAMED_EVENTS[type].label, benign: !!NAMED_EVENTS[type].benign }));
+}
+
 // The three fields a forecast row carries for a hero day. Attached HERE rather
 // than looked up in the engine's WEATHER_ICON table, because the plugin owns
 // what a hero event looks like and the engine must not import the plugin.

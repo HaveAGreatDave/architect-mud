@@ -181,11 +181,11 @@ export default async function regress({ run, check, getPlayer }) {
   const doomed = createBoatState(p);
   // ⚠ THREE TIMES THE TOP OF THE SCALE, DELIBERATELY. This claim is about the DAMAGE MODEL —
   // that a hull can be destroyed and only the hard way — so it wants a sea harder than any the
-  // weather can make. At the real gale the hydro is down to 0.93 after four minutes and never
-  // holes, which is the model working rather than the model being untested.
+  // weather can make. She is built to last several passages in bad weather: flat out into the
+  // real gale she loses about a quarter of the hull in five minutes, so this sea is given ten.
   doomed.seaRoll = FULL.roll * 3; doomed.seaWind = FULL.wind * 3;
   let holed = false;
-  for (let i = 0; i < 60 * 240 && !holed; i++) {
+  for (let i = 0; i < 60 * 600 && !holed; i++) {
     step(doomed, { throttle: 1, surface: 'chop' }, p, 1 / 60);
     for (const e of doomed.events) if (e === 'holed') holed = true;
   }

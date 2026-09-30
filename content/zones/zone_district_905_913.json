@@ -3,6 +3,7 @@
   "ambient_theme": "city",
   "description": "Halfway up, where the surfacing changes from the estate stone to something cheaper that was laid first and kept. The join runs straight across the road and you feel it through the wheel.",
   "exits": {
+    "east": "zone_district_906_913",
     "north": "zone_district_905_912",
     "south": "zone_district_905_914",
     "west": "zone_district_904_913"

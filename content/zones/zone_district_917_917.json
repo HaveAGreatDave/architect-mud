@@ -2,9 +2,9 @@
   "ambient_events": [],
   "ambient_theme": "city",
   "color": "#8d8f93",
-  "description": "A strip of hard grey pour that goes nowhere now. The kerbstones are still shunted out of true, and a sign at the top says Rejoin: Give Way to a road that's been walled off. The lock's side plate runs along the east edge.",
+  "description": "A strip of hard grey pour off the side of the Gate Road that goes nowhere. The kerbstones are still shunted out of true, and a sign at the top says Rejoin: Give Way.",
   "exits": {
-    "north": "zone_district_917_916",
+    "east": "zone_district_918_917",
     "south": "zone_district_917_918",
     "west": "zone_district_916_917"
   },

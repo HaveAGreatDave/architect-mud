@@ -1,11 +1,12 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The town end of the lock, a roofed mouth of grey plate. A shutter hangs up in the lintel and under it a gantry of lamps faces the road: green, amber, or once in a while red with a klaxon behind it. A stencil on the wall says all vehicles may be searched.",
+  "description": "The Gate Road, patched and repatched, with Mains Squeeze on the east side. A row of bolt holes across the tarmac is where the lock's shutter stood, before the South Gate moved west to Meltwater Row.",
   "exits": {
     "east": "zone_district_919_917",
     "north": "zone_district_918_916",
-    "south": "zone_district_918_918"
+    "south": "zone_district_918_918",
+    "west": "zone_district_917_917"
   },
   "flags": {
     "artery": [
@@ -13,20 +14,13 @@
     ],
     "district": "ashway",
     "region_id": "region_coldwater",
-    "terrain": "road",
-    "gate_lock": {
-      "name": "the South Lock",
-      "k": "hall",
-      "search": true,
-      "gate": "zone_district_918_919",
-      "seg": 1
-    }
+    "terrain": "road"
   },
   "grid_x": 918,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_918_917",
   "map_id": "map_world",
-  "name": "The South Lock",
+  "name": "The Gate Road",
   "parent_zone": null
 }

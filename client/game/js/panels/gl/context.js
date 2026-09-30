@@ -47,6 +47,7 @@ import { createSkylineStrip } from './skyline.js';
 // The clip range the matrix is built with. The SSAO pass inverts the depth buffer back to tiles and
 // has to use the same two constants the vertices went through.
 import { NEAR, zRow } from './camera.js';
+import { declareProgram, takeWarm, prewarmPrograms } from './programs.js';
 
 // Floats per vertex: position 3, normal 3, colour 3, atlas uv 2, wall ramp 1, alpha 1, flat 1,
 // haze jitter 1, baked occlusion 1, material family 1, edge distances 4.
@@ -938,11 +939,17 @@ export function createGLView(canvas, opts = {}) {
   // possible at all; the pass asks `lost()` each frame and hands the world back to the 2-D
   // renderer the moment the answer is yes.
   canvas.addEventListener('webglcontextlost', (e) => e.preventDefault(), false);
+  // Every declared layer program starts compiling now, side by side, before anything asks for one.
+  prewarmPrograms(gl);
 
-  const prog = gl.createProgram();
-  gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, withLights(VERT), 'vertex'));
-  gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, withLights(FRAG), 'fragment'));
-  gl.linkProgram(prog);
+  // Prewarmed with the context when it can be (programs.js); built here otherwise.
+  let prog = takeWarm(gl, withLights(VERT), withLights(FRAG));
+  if (!prog) {
+    prog = gl.createProgram();
+    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, withLights(VERT), 'vertex'));
+    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, withLights(FRAG), 'fragment'));
+    gl.linkProgram(prog);
+  }
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('link: ' + gl.getProgramInfoLog(prog));
 
   const loc = {
@@ -1352,6 +1359,9 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     // city above it about what it is made of.
     const into = opts.intoTarget || null;
     const sun = (into || opts.skipMass) ? null : sunPass(opts);
+    // The city's sun map, kept for the cabin: a cockpit parked in a building's shadow is in it too.
+    // ⚠ A COPY OF THE MATRIX, never mat4f's: that one is a shared scratch the next draw overwrites.
+    if (!into) worldSun = sun ? { tex: sun.tex, vp: new Float32Array(opts.sunShadow.lightVP), texel: sun.texel, bias: opts.sunShadow.bias } : null;
     const W = into ? into[0] : canvas.width, H = into ? into[1] : canvas.height;
     const ssaoTex = into ? null : ssaoPass(cam, opts, W, H);
     if (!into) { beginTarget(opts); gl.viewport(0, 0, W, H); }
@@ -1947,18 +1957,19 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // path, one set of state; what differs is the buffer and the clip range. A copy would be a
   // second place for the flat-shaded triangle soup to be defined, and the first edit would land
   // in one of them.
-  let intQuads = 0, intl = null;
-  const interiorLayer = () => (intl || (intl = createSolidsLayer(gl)));
+  let intQuads = 0, intl = null, worldSun = null;
+  const interiorLayer = () => (intl || (intl = createSolidsLayer(gl, { cabin: true })));
   // `model`, when the interior sends one, is its local-to-world matrix: the faces arrive in the cab's own
   // frame and only the parts that moved are re-sent (see the incremental mode in solids.js).
-  function uploadInterior(list, model = null) {
-    intQuads = list && list.length ? interiorLayer().upload(list, model && list.every((q) => q.mp) ? model : null) : 0;
+  // `light` is the frame's cabin light (pushInteriorShell): the room is shaded per pixel from it.
+  function uploadInterior(list, model = null, light = null) {
+    intQuads = list && list.length ? interiorLayer().upload(list, model && list.every((q) => q.mp) ? model : null, light) : 0;
     return intQuads;
   }
   function drawInterior(cam, cssH, opts) {
     if (!intQuads) return 0;
     gl.clear(gl.DEPTH_BUFFER_BIT);
-    const n = interiorLayer().draw(cam, cssH || canvas.height, { ...(opts || {}), near: INTERIOR_NEAR, far: INTERIOR_FAR });
+    const n = interiorLayer().draw(cam, cssH || canvas.height, { ...(opts || {}), near: INTERIOR_NEAR, far: INTERIOR_FAR, worldSun });
     // THE GLASS, after the room: see-through, tested against the room and writing no depth (film).
     interiorLayer().draw(cam, cssH || canvas.height, { ...(opts || {}), near: INTERIOR_NEAR, far: INTERIOR_FAR, film: true });
     return n;
@@ -1982,7 +1993,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     gl.depthMask(true);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    const n = interiorLayer().draw(cam, cssH || canvas.height, { near: INTERIOR_NEAR, far: INTERIOR_FAR, under: aloneUnder, underD: aloneUnderD });
+    const n = interiorLayer().draw(cam, cssH || canvas.height, { near: INTERIOR_NEAR, far: INTERIOR_FAR, under: aloneUnder, underD: aloneUnderD, worldSun });
     interiorLayer().draw(cam, cssH || canvas.height, { near: INTERIOR_NEAR, far: INTERIOR_FAR, film: true, under: aloneUnder, underD: aloneUnderD });
     return n;
   }
@@ -2029,3 +2040,5 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     // the silent failure this whole layer is written around.
     get bounds() { return bounds; }, get shadowSize() { return shadow ? shadow.size : 0; } };
 }
+
+declareProgram(withLights(VERT), withLights(FRAG));

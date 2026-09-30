@@ -2986,7 +2986,25 @@ return out;
         comp.connect(vs).connect(trim);
         voiceTail = trim;
       }
-      voiceTail.connect(out);
+      // PUBLIC ADDRESS (`opt.pa`): the voice as heard through a street horn. A
+      // horn passes roughly the phone band, clips when it's pushed, and every
+      // wall down the street answers it. Never on the 'ui' channel.
+      if (opt.pa && !ui) {
+        const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 420; hp.Q.value = 0.9;
+        const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3200; lp.Q.value = 1.4;
+        const horn = c.createBiquadFilter(); horn.type = 'peaking'; horn.frequency.value = 1600; horn.Q.value = 1.2; horn.gain.value = 6;
+        const clip = c.createWaveShaper(); clip.curve = driveCurve(0.45); clip.oversample = '2x';
+        const dry = c.createGain(); dry.gain.value = 0.8;
+        voiceTail.connect(hp).connect(lp).connect(horn).connect(clip).connect(dry).connect(out);
+        // Two slaps off the buildings opposite, no feedback loop so nothing rings on.
+        for (const [t, g] of [[0.13, 0.32], [0.29, 0.16]]) {
+          const d = c.createDelay(0.5); d.delayTime.value = t;
+          const dg = c.createGain(); dg.gain.value = g;
+          clip.connect(d).connect(dg).connect(out);
+        }
+      } else {
+        voiceTail.connect(out);
+      }
 
       const glot = c.createOscillator(); glot.frequency.value = F0;
       glot.setPeriodicWave(glottalWave(c, V.oq));

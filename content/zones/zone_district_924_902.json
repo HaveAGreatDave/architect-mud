@@ -1,29 +1,29 @@
 {
   "ambient_events": [],
-  "ambient_theme": "city",
+  "ambient_theme": "indoors",
   "color": "#9aa0b0",
-  "description": "Open apron stretching flat in every direction, tie-down rings rusted into the concrete. The wind has nothing to break it here and comes at you sideways, carrying grit and the ghost of jet fuel.",
+  "description": "Arrivals: a long glass hall under a curved roof, with a canopy over the kerb and a baggage tug parked where it gave up. Neon trims every edge, cyan and pink. One blade by the door says COLDWATER REGIONAL AIRPORT, the only word on the whole field. The door is west; the apron is east.",
   "exits": {
     "east": "zone_district_925_902",
-    "north": "zone_district_924_901",
-    "west": "zone_district_923_902"
+    "west": "zone_cw_arrivals"
   },
   "flags": {
-    "building_name": "Coldwater Regional Terminal",
-    "building_type": "hangar",
+    "building_name": "Coldwater Regional Airport",
+    "building_type": "arrivals",
     "district": "docks",
     "entrance": "east",
-    "floors": 1,
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "runway": "pad",
-    "scavenging_table_id": "scav_industrial_salvage",
-    "terrain": "asphalt"
+    "world_exit_zone": "zone_district_925_902"
   },
   "grid_x": 924,
   "grid_y": 902,
   "grid_z": 0,
   "id": "zone_district_924_902",
   "map_id": "map_world",
-  "name": "Runway",
+  "marker": "AX",
+  "name": "Coldwater Regional Airport",
   "parent_zone": null
 }

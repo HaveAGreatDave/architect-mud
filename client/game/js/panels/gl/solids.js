@@ -55,8 +55,19 @@
 import { viewProjMatrix, eyePos } from './camera.js';
 const IDENT = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
 import { makeVertexStream } from './stream.js';
+import { declareProgram, takeWarm } from './programs.js';
 
 const STRIDE = 15;   // pos3, colour3, alpha1, normal3, metal1, local3, tex1
+// ── THE CABIN VARIANT ────────────────────────────────────────────────────────
+// The interior layer is this layer with CABIN defined: 24 more floats a vertex, and the cockpit's
+// light model run per pixel in the cab's own frame (vLocal, metres about the eye, y forward, z up).
+// The per-face record is `q.cab`, built by pushInteriorShell (windshield.js cabGpuParams):
+//   0-2  normal (cab frame)        3-6  k, emis, mat spec, mat pow
+//   7-10 kind, spec, pow, coat     kind: -1 passthrough (glass, panes), 0 surface, 1 metal ramp, 2 lacquer
+//   11-14 envK (-1 = no env), glint, hash, sun shine on    15-17 ramp dark  18-20 ramp bright  21-23 metal albedo
+// The frame's light arrives as uniforms (`light` on upload), including a sun shadow map of the room.
+const CAB = 24;
+const CAB_NONE = new Float32Array(CAB); CAB_NONE[7] = -1;
 // ⚠ `local` IS THE COCKPIT'S OWN FRAME, IN METRES, and it is what the surface textures are drawn
 // in. `aPos` is where the face is in the WORLD, which moves with the aircraft, so grain sampled
 // off it would crawl across the dash every frame the aircraft moved. Only interior faces carry it;
@@ -91,6 +102,10 @@ centroid out vec3 vN;
 centroid out float vMetal;
 centroid out vec3 vLocal;
 flat out int vTex;
+#ifdef CABIN
+in vec3 aCN; in vec4 aCA; in vec4 aCB; in vec4 aCC; in vec3 aR0; in vec3 aR1; in vec3 aMA;
+centroid out vec3 vCN; flat out vec4 vCA; flat out vec4 vCB; flat out vec4 vCC; flat out vec3 vR0; flat out vec3 vR1; flat out vec3 vMA;
+#endif
 void main() {
   // uModel is the identity for every layer but the cab interior (see upload), and multiplying by an
   // exact identity is exact, so the other layers compute what they always did.
@@ -108,6 +123,9 @@ void main() {
   vAlpha = aAlpha;
   vPos = wp.xyz; vN = mat3(uModel) * aNormal * uNScale; vMetal = aMetal;
   vLocal = aLocal; vTex = int(aTex + 0.5);
+#ifdef CABIN
+  vCN = aCN; vCA = aCA; vCB = aCB; vCC = aCC; vR0 = aR0; vR1 = aR1; vMA = aMA;
+#endif
   float ff = clamp((clip.w - uFogNear) / max(1e-3, uFogFar - uFogNear), 0.0, 1.0);
   vFog = ff * ff * uFogAmt;
 }`;
@@ -272,6 +290,142 @@ vec2 surfaceTex(int kind, vec3 L) {
   float v = (h - 0.5) * a.x + slope * a.y;
   return vec2(1.0 + v, v * 0.05);
 }
+#ifdef CABIN
+centroid in vec3 vCN; flat in vec4 vCA; flat in vec4 vCB; flat in vec4 vCC; flat in vec3 vR0; flat in vec3 vR1; flat in vec3 vMA;
+uniform vec3 uKey;        // what comes in through the glass, 0..1
+uniform vec3 uUp;         // the sky's direction in the cab frame
+uniform float uOutK;      // how much of the outside reaches the room
+uniform float uAmb;       // the room's overall light
+uniform vec4 uBox;        // back, front, floor, roof (metres)
+uniform float uNormalLit; // the profile lights by face direction
+uniform vec3 uFloodRgb; uniform float uFloodK; uniform vec4 uFloods[8]; uniform int uFloodN;
+uniform vec3 uSunC;       // the sun in the cab frame
+uniform float uSunCOn;    // the sun is up and not roofed over
+uniform float uSunCK;     // how strong the direct sun is
+uniform vec3 uCabBack; uniform vec3 uCabLow; uniform vec3 uCabHigh; uniform float uCabEnvOn;
+uniform highp sampler2D uShadow; uniform mat4 uLightMat; uniform float uShadowOn; uniform float uShadowTexel;
+uniform highp sampler2D uWSun; uniform mat4 uWVP; uniform float uWOn; uniform float uWTexel; uniform float uWBias;
+// ⚠ THE SAME MODEL pushInteriorShell RAN PER FACE, now per pixel, plus the one thing it couldn't do:
+// the direct sun, occluded by the room itself (a shadow map from the sun, drawn by this layer).
+float cabShadow(vec3 P, vec3 n, float nd) {
+  if (uShadowOn < 0.5) return 1.0;
+  vec4 q = uLightMat * vec4(P + n * 0.012, 1.0);
+  vec3 sc = q.xyz * 0.5 + 0.5;
+  if (sc.x < 0.0 || sc.x > 1.0 || sc.y < 0.0 || sc.y > 1.0 || sc.z > 1.0) return 1.0;
+  float bias = 0.0008 + 0.0025 * (1.0 - nd);
+  float v = 0.0;
+  for (int i = -1; i <= 1; i++) for (int j = -1; j <= 1; j++)
+    v += step(sc.z - bias, textureLod(uShadow, sc.xy + vec2(float(i), float(j)) * uShadowTexel * 1.25, 0.0).r);
+  return v / 9.0;
+}
+// The city's own sun map at this pixel's world position: a building's shadow falls into the cab.
+float worldSunVis(vec3 wp, vec3 n) {
+  if (uWOn < 0.5) return 1.0;
+  vec3 p = (uWVP * vec4(wp, 1.0)).xyz * 0.5 + 0.5;
+  if (p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0 || p.z > 1.0) return 1.0;
+  float r = clamp(p.z - uWBias * 2.0, 0.0, 1.0), t = uWTexel;
+  float s = step(r, textureLod(uWSun, p.xy + vec2(-0.5, -0.5) * t, 0.0).r) + step(r, textureLod(uWSun, p.xy + vec2(0.5, -0.5) * t, 0.0).r)
+          + step(r, textureLod(uWSun, p.xy + vec2(-0.5, 0.5) * t, 0.0).r) + step(r, textureLod(uWSun, p.xy + vec2(0.5, 0.5) * t, 0.0).r);
+  return s * 0.25;
+}
+vec3 cabinShade(vec3 base) {
+  vec3 P = vLocal;
+  vec3 n = vCN; bool hasN = dot(n, n) > 0.01;
+  n = hasN ? normalize(n) : vec3(0.0, -1.0, 0.0);
+  vec3 vv = normalize(-P);
+  if (hasN && dot(n, vv) < 0.0 && vCB.x > 0.5) n = -n;
+  float k = vCA.x, day = clamp(uOutK, 0.0, 1.0);
+  vec3 shaded;
+  if (uNormalLit > 0.5 && hasN) {
+    float lam = max(0.0, n.x * 0.10 + n.y * -0.62 + 0.78 * dot(n, uUp));
+    float back = max(0.0, n.y * 0.9 + n.z * 0.3);
+    float side = 0.5 * abs(n.x);
+    float yf = clamp((P.y - uBox.x) / (uBox.y - uBox.x), 0.0, 1.0), zf0 = clamp((P.z - uBox.z) / (uBox.w - uBox.z), 0.0, 1.0);
+    float zf = uUp.z >= 0.0 ? zf0 : zf0 + (1.0 - 2.0 * zf0) * -uUp.z;
+    float fac = (0.70 + 0.85 * lam + 0.45 * back + 0.30 * side) * (0.74 + 0.26 * yf) * (0.76 + 0.24 * zf) * (1.0 + 0.18 * k);
+    fac *= 0.55 + 0.45 * uOutK;
+    shaded = fac <= 1.0 ? base * fac : mix(min(base * fac, vec3(1.0)), uKey, clamp((fac - 1.2) * 0.4, 0.0, 0.35));
+    if (vCA.z > 0.0) {
+      vec3 hv = normalize(vv + vec3(0.10, 0.62, 0.78));
+      float sp = vCA.z * pow(max(0.0, dot(n, hv)), max(vCA.w, 1.0)) * uOutK;
+      shaded = mix(shaded, uKey, clamp(sp, 0.0, 0.8));
+    }
+  } else shaded = k >= 0.0 ? mix(base, uKey, k * uOutK * 0.62) : mix(base, vec3(0.012, 0.016, 0.024), -k * 0.55);
+  vec3 lit = shaded * uAmb;
+  float emis = clamp(vCA.y, 0.0, 1.0);
+  if (emis > 0.0) lit = mix(lit, base, emis);
+  // Panel floods, per pixel: pools that fall off across the board instead of one value a face.
+  if (uFloodK > 0.0 && hasN && emis <= 0.0) {
+    float e = 0.0;
+    for (int i = 0; i < 8; i++) {
+      if (i >= uFloodN) break;
+      vec3 d = uFloods[i].xyz - P; float dl = max(length(d), 1e-4), r = dl / uFloods[i].w;
+      float ci = dot(n, d) / dl;
+      if (ci > 0.0) e += ci / (1.0 + r * r * 4.0);
+    }
+    if (e > 0.002) lit = min(lit + base * uFloodRgb * clamp(e * uFloodK, 0.0, 1.2), vec3(1.0));
+  }
+  // THE DIRECT SUN, through the glass and stopped by the room: sun patches on the panel and the
+  // seats, the pillars' and the frame's shadows across them, turning as the airframe banks.
+  float sunVis = 0.0;
+  if (uSunCOn > 0.5 && hasN) {
+    float nd = dot(n, uSunC);
+    sunVis = cabShadow(P, n, max(nd, 0.0)) * worldSunVis(vPos, n);
+    if (nd > 0.0 && emis < 1.0) lit += base * vec3(1.0, 0.93, 0.80) * nd * uSunCK * sunVis * (1.0 - emis);
+  }
+  float kind = vCB.x;
+  if (kind > 0.5 && kind < 1.5 && hasN) {
+    // A polished metal: a ramp by where it faces, then what it reflects, then the glint.
+    vec3 hv = normalize(vv + vec3(0.10, 0.62, 0.78));
+    float nd = max(0.0, dot(n, hv));
+    vec3 g = mix(vR0, vR1, pow(nd, 1.4));
+    float dn = dot(vv, n);
+    if (vCC.x >= 0.0) {
+      vec3 rr = normalize(2.0 * dn * n - vv);
+      vec3 env;
+      if (rr.y > -0.15) {
+        float hz = rr.z;
+        vec3 sky = mix(vec3(0.894, 0.910, 0.925), vec3(0.463, 0.620, 0.839), clamp(hz * 1.6, 0.0, 1.0));
+        vec3 gnd = mix(vec3(0.588, 0.549, 0.463), vec3(0.227, 0.251, 0.196), clamp(-hz * 3.0, 0.0, 1.0));
+        env = mix(gnd, sky, clamp(hz * 30.0 + 0.5, 0.0, 1.0));
+        env = mix(env, vec3(1.0, 0.988, 0.941), exp(-(hz * hz) / 0.0009) * 0.6);
+        env = mix(env * 0.06, env, day);
+        env = mix(uCabEnvOn > 0.5 ? uCabBack : vec3(0.180, 0.110, 0.063), env, clamp((rr.y + 0.15) * 4.0, 0.0, 1.0));
+      } else {
+        float up = clamp(rr.z * 0.6 + 0.5, 0.0, 1.0);
+        env = uCabEnvOn > 0.5 ? mix(uCabLow, uCabHigh, up * up) : mix(vec3(0.275, 0.173, 0.094), vec3(0.839, 0.769, 0.659), up * up);
+        env = mix(env, vec3(0.973, 0.957, 0.910), exp(-pow(rr.z - 0.55, 2.0) / 0.01) * 0.45);
+        env = mix(env * 0.4, env, day);
+      }
+      float fres = pow(1.0 - clamp(abs(dn), 0.0, 1.0), 5.0);
+      g = mix(g, mix(env * vMA, env, fres * 0.6), vCC.x);
+    }
+    g = mix(g * uAmb, g, 0.35);
+    float h = vCC.z;
+    vec3 nj = normalize(n + (vec3(h, fract(h * 97.13), fract(h * 311.7)) - 0.5) * 0.5);
+    vec3 Lg = uSunCOn > 0.5 ? uSunC : vec3(0.10, 0.62, 0.78);
+    float tw = pow(max(0.0, dot(nj, normalize(vv + Lg))), 90.0) * vCC.y * (uSunCOn > 0.5 ? 1.6 * sunVis : 0.8);
+    lit = mix(g, vec3(1.0, 0.980, 0.894), clamp(pow(nd, vCB.z) * 0.7 + tw, 0.0, 0.85));
+  }
+  if (kind > 1.5 && hasN && uNormalLit > 0.5) {
+    // A lacquer: its own colour under a thin clear coat that reflects the glass and the cabin.
+    vec3 hv = normalize(vv + vec3(0.10, 0.62, 0.78));
+    float nd = max(0.0, dot(n, hv));
+    float sheen = vCB.y * pow(nd, max(6.0, vCB.z * 0.6)) * (0.35 + 0.65 * day);
+    float dn = dot(vv, n);
+    vec3 rr = 2.0 * dn * n - vv;
+    vec3 env = rr.y > -0.1 ? mix(vec3(0.157, 0.173, 0.204), vec3(0.886, 0.910, 0.941), day) : mix(vec3(0.118, 0.078, 0.047), vec3(0.588, 0.471, 0.353), day);
+    float fres = 0.04 + 0.96 * pow(1.0 - clamp(abs(dn), 0.0, 1.0), 5.0);
+    lit = mix(lit, env, clamp(vCB.w * fres, 0.0, 0.45));
+    if (sheen > 0.004) lit = mix(lit, vec3(1.0, 0.965, 0.894), clamp(sheen, 0.0, 0.7));
+  }
+  if (uSunCOn > 0.5 && vCC.w > 0.5 && hasN) {
+    float sp = vCB.y * pow(max(0.0, dot(n, normalize(vv + uSunC))), vCB.z) * uOutK * sunVis;
+    if (sp > 0.004) lit = mix(lit, vec3(1.0, 0.973, 0.886), clamp(sp, 0.0, 1.0));
+  }
+  return lit;
+}
+#endif
 void main() {
   if (vAlpha <= 0.002) discard;
   vec3 c = vColor;
@@ -343,6 +497,9 @@ void main() {
     float wet = uWaterZ > -1e8 ? (1.0 - smoothstep(0.0, 0.03, vPos.z - uWaterZ)) : 0.0;
     c *= 1.0 - wet * 0.18;
   } else if (vTex > 0) { vec2 tx = surfaceTex(vTex, vLocal); c = max(c * tx.x + tx.y, 0.0); }
+#ifdef CABIN
+  if (vCB.x > -0.5 && vTex != 10) c = cabinShade(c);
+#endif
   // PER PIXEL: the view ray changes across every face and the normal is smoothed across the
   // facets (upload), so a hub or a barrel carries one continuous reflection rather than a band per
   // face. A metal (vMetal > 0) takes the reflection tinted by its own colour; a clear coat
@@ -424,6 +581,20 @@ void main() {
   outColor = vec4(c * alpha, alpha);   // premultiplied, like every other layer on this canvas
 }`;
 
+const withCabin = (src) => src.replace('#version 300 es\n', '#version 300 es\n#define CABIN\n');
+const VERT_C = withCabin(VERT), FRAG_C = withCabin(FRAG);
+// The room's depth from the sun. A kind of -1 (a pane) is thrown out of the clip volume: glass lets
+// the sun through.
+const SH_VERT = `#version 300 es
+in vec3 aLocal;
+in vec4 aCB;
+uniform mat4 uLightMat;
+void main() { gl_Position = aCB.x < -0.5 ? vec4(2.0, 2.0, 2.0, 1.0) : uLightMat * vec4(aLocal, 1.0); }`;
+const SH_FRAG = `#version 300 es
+precision mediump float;
+void main() {}`;
+const SHADOW_SIZE = 1024;
+
 function compile(gl, type, src, label) {
   const sh = gl.createShader(type);
   gl.shaderSource(sh, src);
@@ -436,11 +607,17 @@ function compile(gl, type, src, label) {
   return sh;
 }
 
-export function createSolidsLayer(gl) {
-  const prog = gl.createProgram();
-  gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
-  gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
-  gl.linkProgram(prog);
+export function createSolidsLayer(gl, opt = {}) {
+  const cabin = !!opt.cabin;
+  const VS = cabin ? VERT_C : VERT, FS = cabin ? FRAG_C : FRAG, ST = cabin ? STRIDE + CAB : STRIDE;
+  // Prewarmed with the context when it can be (programs.js); built here otherwise.
+  let prog = takeWarm(gl, VS, FS);
+  if (!prog) {
+    prog = gl.createProgram();
+    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VS, 'vertex'));
+    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FS, 'fragment'));
+    gl.linkProgram(prog);
+  }
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('solids link: ' + gl.getProgramInfoLog(prog));
 
   const loc = {
@@ -474,7 +651,15 @@ export function createSolidsLayer(gl) {
   // One stream, set up once: the attribute pointers are recorded into the VAO here and never
   // touched again, and the storage grows by doubling instead of being reallocated every frame.
   // See gl/stream.js.
-  const stream = makeVertexStream(gl, vao, STRIDE, [[loc.pos, 3, 0], [loc.color, 3, 12], [loc.alpha, 1, 24], [loc.normal, 3, 28], [loc.metal, 1, 40], [loc.local, 3, 44], [loc.tex, 1, 56]], 8192);
+  const attrs = [[loc.pos, 3, 0], [loc.color, 3, 12], [loc.alpha, 1, 24], [loc.normal, 3, 28], [loc.metal, 1, 40], [loc.local, 3, 44], [loc.tex, 1, 56]];
+  const cl = {};
+  if (cabin) {
+    for (const [name, n, off] of [['aCN', 3, 0], ['aCA', 4, 3], ['aCB', 4, 7], ['aCC', 4, 11], ['aR0', 3, 15], ['aR1', 3, 18], ['aMA', 3, 21]])
+      attrs.push([gl.getAttribLocation(prog, name), n, (STRIDE + off) * 4]);
+    for (const u of ['uKey', 'uUp', 'uOutK', 'uAmb', 'uBox', 'uNormalLit', 'uFloodRgb', 'uFloodK', 'uFloods', 'uFloodN', 'uSunC', 'uSunCOn', 'uSunCK',
+      'uCabBack', 'uCabLow', 'uCabHigh', 'uCabEnvOn', 'uShadow', 'uLightMat', 'uShadowOn', 'uShadowTexel', 'uWSun', 'uWVP', 'uWOn', 'uWTexel', 'uWBias']) cl[u] = gl.getUniformLocation(prog, u);
+  }
+  const stream = makeVertexStream(gl, vao, ST, attrs, 8192);
   let data = new Float32Array(1 << 13);
   let count = 0;
 
@@ -554,7 +739,9 @@ export function createSolidsLayer(gl) {
   // buffer every frame for a room that had barely changed. Anything that changes the LAYOUT (a
   // different vertex count, a regrown buffer) sends everything, exactly as before.
   let model = null, prevCount = -1, dirty = [];
-  function upload(quads, mdl = null) {
+  let light = null, shadowDirty = false;
+  function upload(quads, mdl = null, lt = null) {
+    light = lt; shadowDirty = !!(lt && lt.lightMat);
     count = quads && quads.length ? tris(quads) : 0;
     filmAt = count;
     env = null;
@@ -563,7 +750,7 @@ export function createSolidsLayer(gl) {
     if (!count) { prevCount = -1; return 0; }
     smooth(quads);
     let fresh = false;
-    if (data.length < count * STRIDE) { data = new Float32Array(Math.max(count * STRIDE, 1 << 13)); fresh = true; }
+    if (data.length < count * ST) { data = new Float32Array(Math.max(count * ST, 1 << 13)); fresh = true; }
     const full = !incr || fresh || count !== prevCount;
     prevCount = incr ? count : -1;
     dirty.length = 0;
@@ -581,7 +768,9 @@ export function createSolidsLayer(gl) {
       w(o + 10, mk);
       const L = q.lp ? q.lp[j] : null;
       w(o + 11, L ? L[0] : 0); w(o + 12, L ? L[1] : 0); w(o + 13, L ? L[2] : 0);
-      w(o + 14, L ? tx : 0); o += STRIDE;
+      w(o + 14, L ? tx : 0);
+      if (cabin) { const C = q.cab || CAB_NONE; for (let i = 0; i < CAB; i++) w(o + STRIDE + i, C[i]); }
+      o += ST;
     } : (q, r, g, b, qa, mk, tx, j) => {
       const v = q.p[j];
       data[o] = v[0]; data[o + 1] = v[1]; data[o + 2] = v[2];
@@ -594,7 +783,9 @@ export function createSolidsLayer(gl) {
       data[o + 10] = mk;
       const L = q.lp ? q.lp[j] : null;
       data[o + 11] = L ? L[0] : 0; data[o + 12] = L ? L[1] : 0; data[o + 13] = L ? L[2] : 0;
-      data[o + 14] = L ? tx : 0; o += STRIDE;
+      data[o + 14] = L ? tx : 0;
+      if (cabin) { const C = q.cab || CAB_NONE; for (let i = 0; i < CAB; i++) data[o + STRIDE + i] = C[i]; }
+      o += ST;
     };
     const put1 = (q) => {
       const c = q.rgb, qa = q.a == null ? 1 : q.a;
@@ -609,19 +800,109 @@ export function createSolidsLayer(gl) {
     };
     let film = 0;
     for (const q of quads) { if (q.film) film++; else put1(q); }
-    filmAt = o / STRIDE;
+    filmAt = o / ST;
     if (film) for (const q of quads) if (q.film) put1(q);
     // A handful of scattered spans is cheaper as spans; past that the driver is better off with one.
-    if (full || dirty.length > 48) stream.write(data, count * STRIDE);
+    if (full || dirty.length > 48) stream.write(data, count * ST);
     else for (const [a, b] of dirty) stream.writeRange(data, a, b - a);
     return quads.length;
   }
 
   // `opts.film` draws the film range instead of the solid one; see above.
+  // ── THE SUN'S VIEW OF THE ROOM ─────────────────────────────────────────────
+  // Depth only, from the sun, over the room's own box (light.lightMat, built in cab metres), once a
+  // frame before the room's first draw. Faces are drawn by their LOCAL points (aLocal), so the same
+  // map serves the level and the banked cockpit alike: the sun is turned into the cab frame instead.
+  let sh = null;
+  function shadowPass() {
+    if (!sh) {
+      const p = gl.createProgram();
+      gl.attachShader(p, compile(gl, gl.VERTEX_SHADER, SH_VERT, 'shadow vertex'));
+      gl.attachShader(p, compile(gl, gl.FRAGMENT_SHADER, SH_FRAG, 'shadow fragment'));
+      gl.linkProgram(p);
+      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('cabin shadow link: ' + gl.getProgramInfoLog(p));
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT24, SHADOW_SIZE, SHADOW_SIZE, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      // ⚠ A PLAIN DEPTH READ, NOT THE COMPARE SAMPLER: through ANGLE on D3D11 the compare came back
+      // saturated for the city's map (see gl/shadow.js), so both maps compare by hand.
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_MODE, gl.NONE);
+      const fbo = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, tex, 0);
+      const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+      const svao = gl.createVertexArray();
+      gl.bindVertexArray(svao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, stream.buf);
+      const lL = gl.getAttribLocation(p, 'aLocal'), lB = gl.getAttribLocation(p, 'aCB');
+      if (lL >= 0) { gl.enableVertexAttribArray(lL); gl.vertexAttribPointer(lL, 3, gl.FLOAT, false, ST * 4, 44); }
+      if (lB >= 0) { gl.enableVertexAttribArray(lB); gl.vertexAttribPointer(lB, 4, gl.FLOAT, false, ST * 4, (STRIDE + 7) * 4); }
+      gl.bindVertexArray(null);
+      sh = { p, tex, fbo, svao, ok, mat: gl.getUniformLocation(p, 'uLightMat') };
+    }
+    if (!sh.ok) return false;
+    const prevFb = gl.getParameter(gl.FRAMEBUFFER_BINDING), vp = gl.getParameter(gl.VIEWPORT);
+    const scis = gl.isEnabled(gl.SCISSOR_TEST), blend = gl.isEnabled(gl.BLEND);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, sh.fbo);
+    gl.viewport(0, 0, SHADOW_SIZE, SHADOW_SIZE);
+    gl.disable(gl.SCISSOR_TEST); gl.disable(gl.BLEND);
+    gl.depthMask(true); gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL);
+    gl.clear(gl.DEPTH_BUFFER_BIT);
+    gl.useProgram(sh.p);
+    gl.uniformMatrix4fv(sh.mat, false, light.lightMat);
+    gl.bindVertexArray(sh.svao);
+    gl.drawArrays(gl.TRIANGLES, 0, filmAt);
+    gl.bindVertexArray(null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, prevFb);
+    gl.viewport(vp[0], vp[1], vp[2], vp[3]);
+    if (scis) gl.enable(gl.SCISSOR_TEST);
+    if (blend) gl.enable(gl.BLEND);
+    return true;
+  }
+  function cabinUniforms(ws) {
+    const L = light || {};
+    const v3 = (u, a, d) => { const x = a || d; gl.uniform3f(cl[u], x[0], x[1], x[2]); };
+    v3('uKey', L.key, [0.5, 0.5, 0.5]); v3('uUp', L.up, [0, 0, 1]);
+    gl.uniform1f(cl.uOutK, L.outK ?? 1); gl.uniform1f(cl.uAmb, L.amb ?? 1);
+    const B = L.box || [-1, 1, -1, 1]; gl.uniform4f(cl.uBox, B[0], B[1], B[2], B[3]);
+    gl.uniform1f(cl.uNormalLit, L.normalLit ? 1 : 0);
+    v3('uFloodRgb', L.floodRgb, [0, 0, 0]); gl.uniform1f(cl.uFloodK, L.floodRgb ? (L.floodK || 0) : 0);
+    const fl = L.floods || [];
+    if (fl.length) gl.uniform4fv(cl.uFloods, fl);
+    gl.uniform1i(cl.uFloodN, Math.min(8, fl.length / 4));
+    v3('uSunC', L.sunC, [0, 0, 1]); gl.uniform1f(cl.uSunCOn, L.sunC ? 1 : 0); gl.uniform1f(cl.uSunCK, L.sunK || 0);
+    const E = L.cabEnv; gl.uniform1f(cl.uCabEnvOn, E ? 1 : 0);
+    v3('uCabBack', E && E.back, [0, 0, 0]); v3('uCabLow', E && E.low, [0, 0, 0]); v3('uCabHigh', E && E.high, [0, 0, 0]);
+    const shOn = !!(L.lightMat && sh && sh.ok);
+    gl.uniform1f(cl.uShadowOn, shOn ? 1 : 0);
+    gl.uniform1f(cl.uShadowTexel, 1 / SHADOW_SIZE);
+    if (L.lightMat) gl.uniformMatrix4fv(cl.uLightMat, false, L.lightMat);
+    // ⚠ A SHADOW SAMPLER MUST ALWAYS HAVE A DEPTH TEXTURE BOUND, even when it isn't read, or the
+    // draw is invalid on some drivers. Unit 7, clear of the atlas on 0.
+    if (sh) { gl.activeTexture(gl.TEXTURE7); gl.bindTexture(gl.TEXTURE_2D, sh.tex); gl.uniform1i(cl.uShadow, 7); }
+    // The city's map on unit 6; with none, the room's own map stands in so the sampler is never empty.
+    const wOn = !!(ws && ws.tex && ws.vp && L.sunC && L.worldSun !== false);
+    gl.uniform1f(cl.uWOn, wOn ? 1 : 0);
+    if (wOn) { gl.uniformMatrix4fv(cl.uWVP, false, ws.vp); gl.uniform1f(cl.uWTexel, ws.texel || 0); gl.uniform1f(cl.uWBias, ws.bias || 0); }
+    const wt = wOn ? ws.tex : (sh && sh.tex);
+    if (wt) { gl.activeTexture(gl.TEXTURE6); gl.bindTexture(gl.TEXTURE_2D, wt); gl.uniform1i(cl.uWSun, 6); }
+    gl.activeTexture(gl.TEXTURE0);
+  }
   function draw(cam, cssH, opts = {}) {
     const first = opts.film ? filmAt : 0, n = opts.film ? count - filmAt : filmAt;
     if (!n) return 0;
+    if (cabin && !opts.film && shadowDirty && light && filmAt > 0) { shadowPass(); shadowDirty = false; }
+    if (cabin && !sh) {
+      // Build the map once even on a frame with no sun, so the sampler always has its texture.
+      const keep = light; light = { lightMat: new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]) };
+      try { shadowPass(); } finally { light = keep; }
+    }
     gl.useProgram(prog);
+    if (cabin) cabinUniforms(opts.worldSun);
     // ⚠ THE CLIP RANGE IS THE CALLER'S WHEN IT STATES ONE. Every world client leaves it out and
     // gets exactly the matrix it always got — `viewProjMatrix` defaults to NEAR/FAR — which is what
     // makes this safe under the rig, the shed and the fauna at once. The interior states one
@@ -666,3 +947,6 @@ export function createSolidsLayer(gl) {
 
   return { upload, draw, get faces() { return count / 3; } };
 }
+
+declareProgram(VERT, FRAG);
+declareProgram(VERT_C, FRAG_C);

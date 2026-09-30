@@ -1,7 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "city",
-  "description": "Roofed road across the Glacis, walled on the east in blast-scabbed plate and open on the west to the weighbridge under the same roof. Lane arrows are stencilled on the pour. The turrets on the Curtain watch the whole length of it through slots in the roof.",
+  "ambient_theme": "wasteland",
+  "color": "#b5744a",
+  "description": "The clay here dried a long time ago and cracked as it went. The plates curl slightly at the edges and crumble when stepped on.",
   "exits": {
     "east": "zone_district_919_921",
     "north": "zone_district_918_920",
@@ -9,26 +10,16 @@
     "west": "zone_district_917_921"
   },
   "flags": {
-    "danger": "high",
     "district": "wilds",
-    "glacis": true,
+    "radiation": 30,
     "region_id": "region_coldwater",
-    "terrain": "road",
-    "artery": [
-      "The Gate Road"
-    ],
-    "gate_lock": {
-      "name": "the Outer Lock",
-      "k": "shed",
-      "gate": "zone_district_918_919",
-      "seg": 1
-    }
+    "terrain": "redrock"
   },
   "grid_x": 918,
   "grid_y": 921,
   "grid_z": 0,
   "id": "zone_district_918_921",
   "map_id": "map_world",
-  "name": "The Outer Lock",
+  "name": "Mesa Shelf",
   "parent_zone": null
 }

@@ -1,0 +1,13 @@
+{
+  "description": "A holding cage in the back corner, mesh on a steel frame, with a bench bolted inside it. The bench is worn pale where people have sat and waited to find out what happens next.",
+  "flags": {
+    "interactions": [
+      "sit"
+    ]
+  },
+  "id": "furn_gatepost_cage",
+  "name": "holding cage",
+  "object_type": "furniture",
+  "price": 0,
+  "zone_id": "zone_gatepost_office"
+}

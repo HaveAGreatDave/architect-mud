@@ -3098,6 +3098,23 @@ export async function devAdvanceTime(minutesToAdd) {
   return devSetTime({ minutes: state.minutes + Number(minutesToAdd || 0) });
 }
 
+// A forward skip that behaves like time passing: each midnight crossed runs
+// tick24h once (date, forecast, power, the daily hooks), the same as the 1m tick
+// does, then one tick30m for the environment. devAdvanceTime above only moves the
+// hands, wrapping at midnight without turning the calendar. Capped at 7 days so
+// a typo can't run a month of daily ticks.
+export async function devSkipTime(minutesToAdd) {
+  const add = Math.floor(Number(minutesToAdd));
+  if (!Number.isFinite(add) || add <= 0 || add > 7 * 1440) throw new Error('Skip must be 1 minute to 7 days');
+  const sum = state.minutes + add;
+  const days = Math.floor(sum / 1440);
+  state.minutes = sum % 1440;
+  state.lastTick1m = Date.now();
+  for (let i = 0; i < days; i++) await tick24h().catch(logError);
+  await tick30m().catch(logError);
+  return devSetTime({ minutes: state.minutes });
+}
+
 // Game-speed knob: game minutes elapsed per real minute. 1 = the historical 1:1
 // clock; 3 = an 8-hour game day. Re-anchors lastTick1m to now so the change in
 // rate takes effect from this instant with NO discontinuity — the clock neither

@@ -98,7 +98,9 @@ export async function installSeatDom(prefixes = [], extraIds = ['marks-ws']) {
   const realGet = globalThis.document.getElementById;
   const canvases = new Map();
   globalThis.document.getElementById = (id) => {
-    const want = typeof id === 'string'
+    // `<seat>-veil` is the loading veil (glass-veil.js), not a canvas. Found, it holds the first
+    // paints back, and a smoke that steps one frame would see nothing reach the renderer.
+    const want = typeof id === 'string' && !id.endsWith('-veil')
       && (extraIds.includes(id) || prefixes.some((p) => id.startsWith(p)));
     if (want) {
       if (!canvases.has(id)) canvases.set(id, fakeEl('CANVAS'));

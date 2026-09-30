@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_913_921",
+  "b": "zone_gatepost_office",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_district_913_921_east_gp01",
+  "lockable": true,
+  "one_way": false
+}

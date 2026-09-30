@@ -187,7 +187,7 @@ function startWorldStatePolling() {
   setInterval(async () => {
     if (document.hidden) return; // tab not visible — skip; sidebar refreshes on next visible tick
     const [data, esp] = await Promise.allSettled([
-      API('/world/state'),
+      API('/world/state?zones=0'),
       directAPI('/emergency/state'),
     ]);
     if (data.status === 'fulfilled') {

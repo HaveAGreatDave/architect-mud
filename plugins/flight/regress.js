@@ -1438,10 +1438,17 @@ async function regressBody({ run, check, getPlayer }) {
   {
     const ramp = getZone('zone_district_925_903');
     const tile = hangarTileFor(ramp);
-    check('Coldwater Regional finds its GLASS hangar', tile?.id === 'zone_district_924_903', tile?.id);
+    check('Coldwater Regional finds its GLASS hangar', tile?.id === 'zone_district_927_902', tile?.id);
     const { surfaceAt, deriveSurfaceCell } = await import('./state.js');
-    const hc = surfaceAt(924, 903), hcell = hc ? deriveSurfaceCell(hc, 924, 903, surfaceAt) : null;
+    const hc = surfaceAt(927, 902), hcell = hc ? deriveSurfaceCell(hc, 927, 902, surfaceAt) : null;
     check('…and its tile derives as an aircraft bay', hcell?.mark === 'bay' && hcell?.bk === 'air', JSON.stringify({ mark: hcell?.mark, bk: hcell?.bk }));
+    // Both hangars stand on the east taxiway, off the ramp, so each names its field with `hangar_field`.
+    // The heavy bay (Coldwater Regional Heavy Hangar, 929,904) takes a Leviathan; everything else goes
+    // to the regular one.
+    const heavyTile = hangarTileFor(ramp, true);
+    check('…and a heavy aircraft is sent to the heavy bay', heavyTile?.id === 'zone_district_929_904', heavyTile?.id);
+    const vc = surfaceAt(929, 904), vcell = vc ? deriveSurfaceCell(vc, 929, 904, surfaceAt) : null;
+    check('…which derives as the heavy bay', vcell?.mark === 'bay' && vcell?.bk === 'heavy', JSON.stringify({ mark: vcell?.mark, bk: vcell?.bk }));
     const hid = 'aircraft_regress_hangar';
     const savedZone = p.current_zone, savedBc = getBroadcast(), sent = [];
     await query('DELETE FROM aircraft WHERE id=$1', [hid]);
@@ -1454,16 +1461,28 @@ async function regressBody({ run, check, getPlayer }) {
       const live = liveAircraft.get(hid);
       check('hangaract service seats you in her', p.aircraftId === hid, r?.message);
       check('…standing on the hangar floor, nose to the door',
-        !!live && live.row.grid_x === 924 && live.row.grid_y === 903 && toDeg(live.row.heading) === 90,
+        !!live && live.row.grid_x === 927 && live.row.grid_y === 902 && toDeg(live.row.heading) === 180,
         live && JSON.stringify({ x: live.row.grid_x, y: live.row.grid_y, h: live.row.heading }));
       check('…still parked at the field, so paint, fuel and repair resolve', live?.row.parked_zone_id === 'zone_district_925_903');
       const bay = sent.find(x => x.message?.type === 'hangar_bay_open')?.message?.data;
       check('…and the bench comes to the cockpit', bay?.service === true && bay?.serviceId === hid && bay?.hangar === true,
         JSON.stringify({ service: bay?.service, id: bay?.serviceId, hangar: bay?.hangar }));
+      // Taxied back in and shut down on the hangar floor: the shed names its field, so she parks at
+      // the ramp. It's a building tile with no runway flag, so without that she read as off-strip
+      // and the recovery crew towed her home and billed for it.
+      if (live) live.row.airborne = 1;
+      const landed = await run('flightevent land B 100 927.00 902.00');
+      check('a landing that stops on the hangar floor parks her at the field, not off-strip',
+        !!live && live.row.airborne === 0 && live.row.parked_zone_id === 'zone_district_925_903',
+        live && JSON.stringify({ air: live.row.airborne, parked: live.row.parked_zone_id, seat: p.seat, r: landed?.message }));
     } finally {
       setBroadcast(savedBc);
       liveAircraft.delete(hid);
       await query('DELETE FROM aircraft WHERE id=$1', [hid]);
+      // The landing climbed the pilot out into the hangar office, and that arrival stamps the pacing
+      // plugin's step clock: left set, the Leviathan cabin walk below is queued instead of taken.
+      getZone('zone_hangar_outskirts')?.players?.delete(p.id);
+      p._lastStepAt = 0;
       p.current_zone = savedZone; delete p.aircraftId; delete p.seat; delete p.textTravel;
     }
   }

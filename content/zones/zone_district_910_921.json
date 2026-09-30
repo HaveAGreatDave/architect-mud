@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Rust-red hardpan, dead level. The cracks run in long lines and short ones, and the wind whistles through the deeper ones.",
+  "color": "#9a9ea4",
+  "description": "The weighbridge: a raised deck of steel plate a hand above the road, with a short ramp at each end and a joint you feel through the seat. It's covered and floodlit. On the west edge, under the driver's window, a terminal on a post faces the booth, and its board shows nothing until something stands on the plates.",
   "exits": {
     "east": "zone_district_911_921",
     "north": "zone_district_910_920",
@@ -11,15 +11,25 @@
   },
   "flags": {
     "district": "wilds",
-    "radiation": 30,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "weighbridge",
+    "weigh_station": {
+      "name": "the Glacis Weigh",
+      "pound": "zone_gatepound_lot"
+    },
+    "gate_lock": {
+      "name": "the Outer Lock",
+      "k": "deck",
+      "gate": "zone_district_911_919",
+      "seg": 1,
+      "term": "w"
+    }
   },
   "grid_x": 910,
   "grid_y": 921,
   "grid_z": 0,
   "id": "zone_district_910_921",
   "map_id": "map_world",
-  "name": "The Slag Pan",
+  "name": "The Glacis Weigh",
   "parent_zone": null
 }

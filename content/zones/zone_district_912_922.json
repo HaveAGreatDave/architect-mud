@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Hardpan, red and hard and split into polygons. A skin of grit slides over it whenever the wind picks up.",
+  "description": "The south end of the police lane, where it drops off the pad and comes out from under the roof onto the dirt road. The Motor Pool's door is on the east side, and there are tyre marks from vehicles leaving in a hurry.",
   "exits": {
     "east": "zone_district_913_922",
     "north": "zone_district_912_921",
@@ -11,15 +10,21 @@
   },
   "flags": {
     "district": "wilds",
-    "radiation": 30,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "road",
+    "gate_lock": {
+      "name": "the Outer Lock",
+      "k": "ramp",
+      "gate": "zone_district_911_919",
+      "seg": 2
+    }
   },
   "grid_x": 912,
   "grid_y": 922,
   "grid_z": 0,
   "id": "zone_district_912_922",
   "map_id": "map_world",
-  "name": "Oxide Barrens",
-  "parent_zone": null
+  "name": "The Post Ramp",
+  "parent_zone": null,
+  "color": "#9a9ea4"
 }

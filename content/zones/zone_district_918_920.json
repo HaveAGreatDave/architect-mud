@@ -1,34 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "city",
-  "description": "The inside of a long shed of grey plate laid over the Glacis road, open at both ends: the gate's light filling the north mouth, the red waste in the south. Caged worklamps run down the roof. On the west side the weigh lane comes back in. Beyond this there's only the gate.",
+  "ambient_theme": "wasteland",
+  "color": "#b5744a",
+  "description": "Hardpan, red and hard and split into polygons. A skin of grit slides over it whenever the wind picks up.",
   "exits": {
     "east": "zone_district_919_920",
-    "north": "zone_district_918_919",
     "south": "zone_district_918_921",
     "west": "zone_district_917_920"
   },
   "flags": {
-    "danger": "high",
     "district": "wilds",
-    "glacis": true,
+    "radiation": 30,
     "region_id": "region_coldwater",
-    "terrain": "road",
-    "artery": [
-      "The Gate Road"
-    ],
-    "gate_lock": {
-      "name": "the Outer Lock",
-      "k": "shed",
-      "gate": "zone_district_918_919",
-      "seg": 0
-    }
+    "terrain": "redrock"
   },
   "grid_x": 918,
   "grid_y": 920,
   "grid_z": 0,
   "id": "zone_district_918_920",
   "map_id": "map_world",
-  "name": "The Outer Lock",
+  "name": "The Slag Pan",
   "parent_zone": null
 }

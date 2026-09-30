@@ -5,7 +5,6 @@
   "description": "Deep, cold water. Now and then something shows on the surface further out and goes under again.",
   "exits": {
     "east": "zone_district_930_905",
-    "north": "zone_district_929_904",
     "south": "zone_district_929_906",
     "west": "zone_district_928_905"
   },

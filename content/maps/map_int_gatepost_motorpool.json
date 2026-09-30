@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_gatepost_motorpool",
+  "id": "map_int_gatepost_motorpool",
+  "name": "The Motor Pool: Interior",
+  "parent_zone_id": "zone_district_913_922"
+}

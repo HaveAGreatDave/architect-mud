@@ -27,6 +27,7 @@ import { faunaPoseSlot, faunaPoseBake, FAUNA_BEAT_STEPS, FAUNA_GLIDE_ROW, FAUNA_
 import { zRow, NEAR } from './camera.js';
 import { LIGHT_PULL } from './sprites.js';
 import { PULSE_MAX } from '../murmur.js';
+import { declareProgram, takeWarm } from './programs.js';
 
 // Per instance: x, y, z, scale | heading, pitch, roll, row | alpha
 const STRIDE = 9;
@@ -482,10 +483,14 @@ export function createFaunaLayer(gl) {
   const u2i = (l, a, b) => { if (l && fresh(l, a, b, 0, 0)) gl.uniform2i(l, a, b); };
   const u3f = (l, a, b, c) => { if (l && fresh(l, a, b, c, 0)) gl.uniform3f(l, a, b, c); };
   const u4f = (l, a, b, c, d) => { if (l && fresh(l, a, b, c, d)) gl.uniform4f(l, a, b, c, d); };
-  const prog = gl.createProgram();
-  gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
-  gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
-  gl.linkProgram(prog);
+  // Prewarmed with the context when it can be (programs.js); built here otherwise.
+  let prog = takeWarm(gl, VERT, FRAG);
+  if (!prog) {
+    prog = gl.createProgram();
+    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
+    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
+    gl.linkProgram(prog);
+  }
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('fauna link: ' + gl.getProgramInfoLog(prog));
   const loc = {
     color: gl.getAttribLocation(prog, 'aColor'),
@@ -607,10 +612,13 @@ export function createFaunaLayer(gl) {
   function cloudProgs() {
     if (cp) return cp;
     const link = (v, fr, label) => {
-      const pr = gl.createProgram();
-      gl.attachShader(pr, compile(gl, gl.VERTEX_SHADER, v, label + ' vertex'));
-      gl.attachShader(pr, compile(gl, gl.FRAGMENT_SHADER, fr, label + ' fragment'));
-      gl.linkProgram(pr);
+      let pr = takeWarm(gl, v, fr);
+      if (!pr) {
+        pr = gl.createProgram();
+        gl.attachShader(pr, compile(gl, gl.VERTEX_SHADER, v, label + ' vertex'));
+        gl.attachShader(pr, compile(gl, gl.FRAGMENT_SHADER, fr, label + ' fragment'));
+        gl.linkProgram(pr);
+      }
       if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(label + ' link: ' + gl.getProgramInfoLog(pr));
       const u = {};
       const n = gl.getProgramParameter(pr, gl.ACTIVE_UNIFORMS);
@@ -788,3 +796,7 @@ export function createFaunaLayer(gl) {
     get groups() { return groups.size; },
   };
 }
+
+declareProgram(VERT, FRAG);
+declareProgram(VERT_CLOUD, FRAG);
+declareProgram(VERT_DOT, FRAG_DOT);

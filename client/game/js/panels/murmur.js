@@ -73,12 +73,14 @@
 // shrinking at every relay. That is `agitation` below. The constant rolling bands this file used to lay
 // on every flock, every 0.75 s, are gone: no undisturbed flock does that.
 
+import { BIRD_M_PER_TILE } from '../../../shared/birds.js';
+
 export const K_NEIGHBOURS = 7;   // Ballerini: six or seven, whatever the density
 const DT_MAX = 0.05;             // s. A stalled tab must not hand the integrator a second of travel.
 
-// ⚠ ONE STATEMENT OF THE TILE SCALE. A starling is 1.09 tiles/s at 12 m/s, so a tile is 11.0 m and
-// every metric figure below derives from this.
-const TILE_PER_M = 1.09 / 12;
+// ⚠ THE TILE SCALE IS birds.js's BIRD_M_PER_TILE (a storey is 0.196 tiles = 3.5 m, so 17.9 m), and
+// every metric figure below derives from it. It was 11 m here, stated separately, until 2026-09-29.
+const TILE_PER_M = 1 / BIRD_M_PER_TILE;
 const G_TILES = 9.81 * TILE_PER_M;
 
 // ⚠ HOW FAR APART TWO BIRDS FLY, as measured on the GPU flock the envelope below produces (median nearest
@@ -88,8 +90,8 @@ const G_TILES = 9.81 * TILE_PER_M;
 export const MURMUR_NND_TILES = 0.82 * TILE_PER_M;
 
 // ── THE HAWK'S PULSE TRAIN ──────────────────────────────────────────────────────────────────────
-const WAVE_SPEED = 1.21;         // tiles/s: 13.4 m/s, measured (Procaccini 2011)
-const WAVE_WIDTH = 0.35;         // tiles: how wide one dark band is
+const WAVE_SPEED = 13.4 * TILE_PER_M;   // 13.4 m/s, measured (Procaccini 2011)
+const WAVE_WIDTH = 3.85 * TILE_PER_M;   // how wide one dark band is, 3.85 m
 const WAVE_LIFE = 2.6;           // s before one pulse has damped to nothing
 const PULSE_GAP = 0.86;          // s between pulses (Storms 2019: 0.86 ± 0.44)
 const PULSE_DECAY = 0.72;        // each relay banks less than the last (Hemelrijk 2019)
@@ -115,7 +117,8 @@ const frac = (n) => { const x = Math.sin(n) * 43758.5453; return x - Math.floor(
 // ── THE BODY ────────────────────────────────────────────────────────────────────────────────────
 //
 // The ellipsoid's semi-axes, in units of the record's `spread` (0.35 x cbrt(n / 20) x murmurPack in
-// the game). At the shipping pack of 0.5 that makes 1,000 birds a rim 5.0 x 1.7 x 1.0 tiles across.
+// the game, in metres through TILE_PER_M). At the shipping pack of 0.5 that makes 1,000 birds a rim
+// about 55 x 19 x 11 m across.
 // ⚠ THE RIM IS NOT 1 : 2.8 : 5.6, AND THE BODY INSIDE IT IS. Birds fill the rim unevenly — more of its width
 // along the course, less of its depth — so these were set by measuring the body the birds actually make:
 // 1 : 2.8 : 5.1 at 0.82 m apart on the game's own path (__glMurmurParity), against Ballerini's 1 : 2.8 : 5.6.
@@ -347,7 +350,7 @@ export function flockFrame(c, cx, cy, cz, now, spread, opts = {}) {
 // ⚠ THE RULE'S NUMBERS, IN ONE PLACE. gl/murmur-gpu.js interpolates these into its shader rather than
 // retyping them.
 //
-// sepR, how close is too close: 0.15 tiles (1.65 m), smooth fall-off. StarDisplay's separation radii of
+// sepR, how close is too close: 1.32 m, smooth fall-off. StarDisplay's separation radii of
 // 1.6-5.4 m gave nearest neighbours of 0.70-1.54 m (Hildenbrandt, Carere & Hemelrijk, Behav Ecol
 // 21:1349, 2010); this sits at the dense end, where the low compact flocks are.
 //
@@ -374,11 +377,11 @@ export const MURMUR_MEASURED = new Map();
 
 export const MURMUR_RULES = Object.freeze({
   wSep: 2.2, wAli: 1.6, wCoh: 0.55, wCmd: 4.0, wEnv: 3.2, wScare: 9.0,
-  Z_SOFT: 0.2, SCARE_R: 1.15,
+  Z_SOFT: 0.2, SCARE_R: 12.65 * TILE_PER_M,
   // an aircraft: noticed at 60 m (a flock sees further than birdEvade's single bird at 40), pushing
   // birds within about 18 m of its line
   AC_DETECT: 60 * TILE_PER_M, AC_LANE: 18 * TILE_PER_M, TILE_PER_M, G_TILES, K: K_NEIGHBOURS, DT_MAX, SHOW_FADE_S,
   WAVE_SPEED, WAVE_WIDTH, WAVE_LIFE, PULSE_GAP, PULSE_DECAY, PULSE_MAX, ENV_IN, CMD_N,
-  sepR: 0.12, speed: 11 * TILE_PER_M, speedLo: 6 * TILE_PER_M, speedHi: 16 * TILE_PER_M,
+  sepR: 1.32 * TILE_PER_M, speed: 11 * TILE_PER_M, speedLo: 6 * TILE_PER_M, speedHi: 16 * TILE_PER_M,
   speedDev: 0.035, turnG: 3.0, blindCos: -Math.SQRT1_2, catchK: 0.30, rollTau: 0.12, rollMax: 1.25,
 });

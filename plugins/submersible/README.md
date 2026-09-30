@@ -17,12 +17,12 @@ The Drake goes under. A salvage frontier on a procedural seabed.
 - **The air supply belongs to the Drake, not to the dive.** A dive starts with what is in the tanks and spends it; they refill only while she is up (not submerged) and her engine is running, full from empty in 90 s. She will not go under below 15%. The figure lives in RAM (`live.subAir`) and is banked to `custom_data.sub_air`, so a restart does not hand out full tanks. `sonar` shows it on the surface.
 - `index.js` reads the live aircraft from `plugins/flight/state.js`, steps every submerged Drake once a second, and narrates. Crush is ordinary `row.damage`; at 1 it is flight's `crash(live, 'imploded')`.
 - The client is told with a `drake_sub` message, and `drake-water.js` puts her in a `submerged` phase: in SUB mode the tail rotor drives her (up to 14 kt), and no wave touches her. She can only dive from BOAT mode, in 3 m of water or more.
+- The view under water is `seabed-scene.js` (the floor, scatter and wrecks as geometry, rebuilt when the camera crosses a tile) and `gl/seabed.js` (the draw). The floor is built 30 tiles round the camera, finer near the eye, and dissolves into the water over its outer third. See [the seabed view](../../docs/reference/glass-notes.md#seabed-view) in glass-notes.
 
 State is RAM only. A restart surfaces every Drake.
 
 ## Not built yet
 
-- The rendered underwater view (phase 3).
 - Salvage from wrecks, lift bags, underwater rooms for divers, fauna, and the Sub Standard yard where hulls are refitted.
 - **What lives in the Deep.** The water is built (below); what happens in it is not. The intent is that it is SEEDED DETERMINISTICALLY off position the way the seabed and the wrecks are — events, scavenging, monsters and the rest, the specifics still to be decided — so two players diving the same spot meet the same things and nothing has to be stored.
 

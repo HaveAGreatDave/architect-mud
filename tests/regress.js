@@ -5044,7 +5044,7 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   // meaning the gate had been walled up and the wilds made unreachable on foot —
   // which is the same map defect wearing the opposite sign.
   check(`the curtain is pierced, and only at the gate (${crossings.length} crossing(s))`,
-    crossings.length === 2 && crossings.every(c => c.from === 'zone_district_918_919' || c.to === 'zone_district_918_919'),
+    crossings.length === 2 && crossings.every(c => c.from === 'zone_district_911_919' || c.to === 'zone_district_911_919'),
     crossings.map(c => `${c.from} —${c.dir}→ ${c.to}`).join(' | '));
 }
 

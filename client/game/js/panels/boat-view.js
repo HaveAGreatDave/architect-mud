@@ -28,12 +28,13 @@
 // against its own water. That is the trucking rule quoted, and it holds harder here: there is no
 // corridor on the Basin, so a self-reported distance would be a number nobody could check at all.
 
-import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, lastViewState, seaAmpsNow, hullSurfGain, interiorHotspots, RENDER_TUNE } from './windshield.js';
+import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, lastViewState, seaAmpsNow, hullSeaGains, interiorHotspots, RENDER_TUNE } from './windshield.js';
 import { airHornOn, airHornOff } from './engine-audio.js';
 import { seaClock, SEA_TILE_M } from '../../../shared/sea-swell.js';
-import { stepBoat, TYPES, CRANK_S } from './flight-model.js';
+import { navHomeHTML, drawNavHome } from './nav-home.js';
+import { stepBoat, shiftBoatOrigin, TYPES, CRANK_S } from './flight-model.js';
 import { createHelmWheel } from './helm-wheel.js';
-import { startBoatEngine, updateBoatEngine, stopBoatEngine, updateBoatContacts, stopBoatContacts } from './boat-audio.js';
+import { startBoatEngine, updateBoatEngine, stopBoatEngine, updateBoatContacts, stopBoatContacts, updateBoatWater, stopBoatWater, boatLandThump } from './boat-audio.js';
 import { claimSeatKeyboard, endSeatKeyboard } from './seat-keys.js';
 import { seatHidePanel } from '../../../shared/compact-view.js';
 import { bindBigScreenButton, exitBigScreen, BIGSCREEN_GLYPH, BIGSCREEN_TITLE } from './bigscreen.js';
@@ -71,6 +72,10 @@ const LEVER_UP = 0.70, LEVER_DOWN = 1.30;
 const TRIM_RATE = 0.55;
 // How much of the sea the hull still answers to with the gyro stabiliser running.
 const STAB_K = 0.35;
+// The R shove off a beach: astern way in tiles/s, held while R is down on the sand, and how many
+// seconds it takes to run down after. A tap moves her about 0.56 tiles; flat out she only runs
+// 0.35 up the sand, so one tap always floats her with a few lengths to spare.
+const SHOVE_V = 1.4, SHOVE_TAU = 0.4;
 
 function readInput(dt) {
   const k = st.keys;
@@ -193,12 +198,13 @@ function fendOff(px, py) {
   }
 }
 
+const isWet = (c) => c.biome === 'water' || !!c.sub;
 function surfaceUnder() {
   // ⚠ THE HULL IS AT (sim.x, sim.y) FROM THE WINDOW'S CENTRE. This read cellAt(0, 0) — the centre
   // itself — so a boat anywhere inside the six-tile recentre radius was asking about a tile up to
   // six away, and drove straight up a beach that the check never looked at.
   const c = cellAt(st.sim.x, st.sim.y);
-  if (c.biome === 'water' || c.sub) return c.rough ? 'chop' : 'open';
+  if (isWet(c)) return c.rough ? 'chop' : 'open';
   return 'land';
 }
 
@@ -250,6 +256,7 @@ export function openBoat(ctx = {}) {
     + '<div class="boat-read"></div>'
     + '<div class="boat-keys"></div>'
     + '</div>'
+    + navHomeHTML()
     // Every held control is a button as well, so a mouse or a thumb can drive the whole boat: the
     // ignition key (tap to start, tap again to stop), the tabs and the bottle.
     + '<div class="boat-panel">'
@@ -275,8 +282,8 @@ export function openBoat(ctx = {}) {
     // than a seat with no key in it.
     // ⚠ AND THE CHASE CAMERA IS V/F, for the same reason and off the same pair: the cab takes both
     // because V is the cockpit's and F is what everybody's hands do anyway.
-    // Beached: a held button for the Z shove, shown only while she is on the sand.
-    + '<button class="boat-chip boat-hold boat-push" data-key="z" type="button" hidden title="hold to shove her back off the beach (Z), shuts the lever">⇤ PUSH OFF</button>'
+    // Beached: a held button for the R shove, shown only while she is on the sand.
+    + '<button class="boat-chip boat-hold boat-push" data-key="r" type="button" hidden title="shove her back off the beach (R), shuts the lever">⇤ PUSH OFF</button>'
     + '<button class="boat-chip boat-ext" type="button" title="external / helm view (V)">◎ EXT</button>'
     + '<button class="boat-chip boat-ride" type="button" title="helm camera motion: full / soft / steady (N), the boat still rides the full sea">RIDE FULL</button>'
     + '<button class="boat-chip boat-help-btn" type="button" title="controls (?)">?</button>'
@@ -320,9 +327,10 @@ export function openBoat(ctx = {}) {
     },
     fuel: ctx.fuel ?? 1,
     cx: ctx.gx ?? 0, cy: ctx.gy ?? 0,          // the window's centre tile
+    homeX: ctx.gx ?? 0, homeY: ctx.gy ?? 0,    // where she was boarded: the HOME marker's target (nav-home.js)
     ox: (ctx.gx ?? 0) - RAD, oy: (ctx.gy ?? 0) - RAD,
     tiles: ctx.map || [],
-    surface: 'open', aground: false,
+    surface: 'open', aground: false, shove: 0,
     lever: 0, steer: 0, trim: 0,
     // The gauge lights' switch. Off until you turn it on; lit only while she has power.
     dials: false,
@@ -454,6 +462,7 @@ export function closeBoat() {
   st.lever3d?.destroy?.();
   stopBoatEngine(true);
   stopBoatContacts();
+  stopBoatWater();
   airHornOff();
   // ⚠ THE MODE OWNS THE PAGE, so nothing else takes it down with the view — climbing out in big
   // screen would otherwise strand the player with no sidebar, no log and no command box, and the
@@ -717,7 +726,7 @@ function buildHelp() {
     + '<dt>N</dt><dd>ride comfort: full, soft or steady helm camera motion. The boat still rides the full sea.</dd>'
     + '<dt>A / Z</dt><dd>throttle up / down, as in the flight sim. It is a lever and stays where you leave it. You can also drag it.</dd>'
     + '<dt>X / C</dt><dd>steer (or the arrows). She has no rudder at rest: you point her by moving her.</dd>'
-    + '<dt>Z (beached)</dt><dd>with the lever shut, shove her back off the sand.</dd>'
+    + '<dt>R (beached)</dt><dd>shut the lever and shove her back off the sand.</dd>'
     + '<dt>L</dt><dd>gauge lights. They need power, so they only come up with the engine running.</dd>'
     + '<dt>I / W / H</dt><dd>cabin lamp, wipers, horn (held). Every switch on the dash is clickable too.</dd>'
     + '<dt>G</dt><dd>gyro stabiliser. Takes most of the roll and pitch out of the swell while the engine runs.</dd>'
@@ -880,33 +889,51 @@ function frame(now) {
     if (st.fuel <= 0) { st.lever = 0; input.throttle = 0; }
     else if (st.sim.running) st.fuel = Math.max(0, st.fuel - (0.00042 + 0.0035 * st.sim.pedal) * dt);
 
-    // ⚠ THE SEA SHE RIDES IS THE SEA THE RENDERER DRAWS: its amplitudes, its clock and its WORLD
-    // coordinates. None of the three was ever handed over, so `boatSeaPose` returned zero on every
-    // frame — no heave, no pitch, no roll, and no face to be thrown off, which is why she never
-    // caught air. The sim position is window-relative, hence the window centre as the offset.
+    // ⚠ THE SEA SHE RIDES IS THE SEA THE RENDERER DRAWS: its amplitudes, its clock and its frame.
+    // None of the three was ever handed over, so `boatSeaPose` returned zero on every frame — no
+    // heave, no pitch, no roll, and no face to be thrown off, which is why she never caught air.
+    // ⚠ AND THE FRAME IS THE MAP WINDOW'S, NOT THE WORLD'S. The floor and the mesh sample the sea at
+    // window-relative positions (gl/water.js `uA + aOff`, no window centre added), so `ssx`/`ssy`
+    // stay 0. She used to add the window centre, which put her on a stretch of sea nobody draws: in
+    // phase with the picture by luck, and under a crest about half the time.
     const amps = seaAmpsNow();
-    // ⚠ AND THE SURF: in shallow water the swell under her grows and then breaks, exactly as the
-    // mesh draws it, so she is thrown about in the break rather than riding the open sea up the beach.
-    const surfG = hullSurfGain(st.sim.x, st.sim.y, amps.roll, amps.wind);
-    // ⚠ THE GYRO STABILISER (STAB switch, G). It takes out most of the swell she answers to — a
-    // flywheel resisting roll and pitch — and it runs off the engine, so a dead boat rides freely.
-    const stabK = st.stab && st.sim.running ? STAB_K : 1;
-    st.sim.seaRoll = amps.roll * surfG * stabK; st.sim.seaWind = amps.wind * surfG * stabK;
-    st.sim.seaChop = amps.chop * (stabK < 1 ? 0.6 : 1);
-    st.sim.ssx = st.cx; st.sim.ssy = st.cy;
+    // ⚠ AND THE REST OF WHAT THE MESH DOES TO THE SEA: it grows and breaks in shallow water, it is
+    // smaller in the lee of land, and round the eye it carries the chop as geometry. Given only the
+    // first, she rode the open swell inside every harbour and sat under the drawn crests.
+    const gain = hullSeaGains(st.sim.x, st.sim.y, st.cx, st.cy, amps.roll, amps.wind);
+    // ⚠ THE GYRO STABILISER (STAB switch, G): a flywheel resisting roll and pitch, run off the
+    // engine, so a dead boat rides freely. ⚠ IT GOES TO THE MODEL AS `stab`, NEVER ONTO THE SWELL.
+    // Scaling the amplitudes here made her ride a lower sea than the mesh draws, so she sat inside
+    // the crests. See `stepBoat`.
+    st.sim.stab = st.stab && st.sim.running ? STAB_K : 1;
+    st.sim.seaRoll = amps.roll * gain.swell; st.sim.seaWind = amps.wind * gain.swell;
+    st.sim.seaChop = amps.chop;
+    st.sim.seaChopH = (amps.drawn || 0) * gain.chop;
     input.now = seaClock(Date.now()) * 1000;
     const px = st.sim.x, py = st.sim.y;
     stepBoat(st.sim, input, st.p, dt);
-    fendOff(px, py);
-    // ⚠ BEACHED, Z WITH THE LEVER SHUT IS A SHOVE OFF. She has no astern, so without this a boat run
+    // ⚠ BEACHED, R IS A SHOVE OFF, AND IT SHUTS THE LEVER. She has no astern, so without this a boat run
     // up the sand is a boat you can never leave: stepping off aground is refused, and the throttle
-    // only drives her further up. Walked backwards off her own keel at a crawl until she floats.
-    if (st.sim.beached && st.keys.has('z')) {
+    // only drives her further up.
+    // ⚠ IT IS A BUMP WITH WAY ON IT, NOT A WALK THAT STOPS AT THE WATERLINE. The walk quit the frame
+    // she floated, so she sat with her stern a hand's width off the sand and the first touch of the
+    // lever put her straight back up it. The astern way is held at SHOVE_V while she is on the sand
+    // and runs down by itself once she floats, so a tap is enough. Afloat it only carries her over
+    // water: gliding up the far bank would be a second grounding, and the server prices every one.
+    if (st.sim.beached && st.keys.has('r')) {
       st.lever = 0;   // shoving and driving at once is not a thing; the shove wins
-      const h = st.sim.heading * Math.PI / 180;
-      st.sim.x -= Math.sin(h) * 0.5 * dt;
-      st.sim.y += Math.cos(h) * 0.5 * dt;
+      if (st.shove < 0.1) boatLandThump(0.35);
+      st.shove = SHOVE_V;
     }
+    if (st.shove > 0) {
+      const h = st.sim.heading * Math.PI / 180;
+      const nx = st.sim.x - Math.sin(h) * st.shove * dt, ny = st.sim.y + Math.cos(h) * st.shove * dt;
+      if (st.sim.beached || isWet(cellAt(nx, ny))) {
+        st.sim.x = nx; st.sim.y = ny;
+        st.shove = st.shove > 0.02 ? st.shove * Math.exp(-dt / SHOVE_TAU) : 0;
+      } else st.shove = 0;
+    }
+    fendOff(px, py);
     for (const ev of st.sim.events || []) onEvent(ev);
     if (st.clickCrank) st.clickCrankLeft -= dt;
     if (st.clickCrank && (st.sim.running || st.clickCrankLeft <= 0)) { st.starter = false; st.clickCrank = false; }
@@ -914,10 +941,11 @@ function frame(now) {
     // Recentre the window when the hull has crossed far enough that the rim is in reach. The
     // server streams a fresh one on the next sync; until it arrives the old tiles are re-indexed
     // about the new centre, which is why `cellAt` works in absolute grid coordinates.
+    // ⚠ THROUGH `shiftBoatOrigin`, because the drawn sea is in the window's frame and jumps with it.
     const dx = st.sim.x, dy = st.sim.y;
     if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
       st.cx += Math.round(dx); st.cy += Math.round(dy);
-      st.sim.x -= Math.round(dx); st.sim.y -= Math.round(dy);
+      shiftBoatOrigin(st.sim, st.p, -Math.round(dx), -Math.round(dy));
     }
 
     const spd01 = clamp(Math.abs(st.sim.speed) / Math.max(1, st.p.topSpeed || 138), 0, 1);
@@ -928,6 +956,8 @@ function frame(now) {
     // it was the blower follower's noise rather than the engine's, with no throttle response on it
     // at all. `s.rpm` is the sim's own 0..1 crank figure and `s.pedal` the lever follower.
     updateBoatEngine({ rpm: st.sim.rpm, pedal: st.sim.pedal });
+    // The hull on the water: follows way, not revs, and goes quiet in the air.
+    updateBoatWater({ spd01, airborne: st.sim.airborne, aground: st.aground });
     updateBoatContacts({ x: st.cx + st.sim.x, y: st.cy + st.sim.y, heading: st.sim.heading, speed: st.sim.speed }, st.contacts);
 
     paintWindshield(ID, {
@@ -944,7 +974,7 @@ function frame(now) {
       // ⚠ RIDE COMFORT SCALES WHAT THE HELM CAMERA IS SHOWN, NEVER THE HULL: the sim, the packet
       // and the chase view keep the full attitude, so a steadier seat is not a calmer sea.
       pitch: (st.sim.pitch || 0) * 180 / Math.PI * rideK(), bank: (st.sim.roll || 0) * 180 / Math.PI * rideK(), roll: (st.sim.roll || 0) * 180 / Math.PI * rideK(),
-      rideZ: st.external ? (st.sim.heave || 0) + (st.sim.z || 0) : 0,
+      rideZ: st.external ? (st.sim.heave || 0) + (st.sim.chopH || 0) + (st.sim.z || 0) : 0,
       // ⚠ THE SHOULDER-CHECK IS SUPPRESSED OUT THERE, NOT MERELY UNUSED. The chase camera is
       // already showing you what a look astern is for, and yawing a third-person view off the
       // boat it is following is just lost — the cab's own wording, and it is the same renderer
@@ -958,7 +988,7 @@ function frame(now) {
       // that rose a fifth as far as the hull sank under every crest she climbed.
       ...(st.external
         ? { external: true, extYaw: st.extYaw, extPitch: st.extPitch, extZoom: 1.15 * st.extZoom }
-        : { height: 0, metreTiles: METRE_TILES, eyeH: Math.max(0.02, EYE_TILES + (st.sim.heave || 0) + (st.sim.z || 0)) }),
+        : { height: 0, metreTiles: METRE_TILES, eyeH: Math.max(0.02, EYE_TILES + (st.sim.heave || 0) + (st.sim.chopH || 0) + (st.sim.z || 0)) }),
       speed: st.sim.speed,
       // The cabin lights (the profile's floods) and the dome lift come on with the engine.
       powered: !!st.sim.running, dome: !!st.sim.running && st.cabin,
@@ -976,7 +1006,10 @@ function frame(now) {
       wxField: st.wxField, wxGround: st.wxGround,
       acX: st.cx + st.sim.x, acY: st.cy + st.sim.y,
       // No wake and no foam while she is off the water: a hull in the air cuts nothing.
-      ownWake: { spd: (st.sim.airborne || st.aground) ? 0 : spd01, turn: st.steer, beam: 0.30 },
+      // The beam is the hull as DRAWN (about 0.4 tiles long, 0.12 across the sponsons): it sets
+      // how wide and how tall the wake stands (collectWakes), and at the Echelon's 0.30 it stood
+      // three hulls high.
+      ownWake: { spd: (st.sim.airborne || st.aground) ? 0 : spd01, turn: st.steer, beam: 0.12 },
       contacts: st.contacts,
       // The live cluster. These are the shell's own keys — see `instrumentFaces` — and every one of
       // them is a number the sim already has, which is the point of the dials being geometry.
@@ -1039,6 +1072,8 @@ const EYE_TILES = HELM.eyeM * METRE_TILES;
 
 function onEvent(ev) {
   if (ev === 'holed' || ev === 'aground' || ev === 'slam') send('boatevent ' + ev);
+  // Back on the water: an FM thump sized by how hard she came down (0.9 tiles/s is a big one).
+  if (ev === 'land' || ev === 'slam') boatLandThump(Math.min(1, (st.sim.landImpact || 0) / 0.9 + (ev === 'slam' ? 0.3 : 0)));
   // ⚠ THE MOTOR IS STARTED AND STOPPED BY THE MODEL'S OWN EVENTS, never beside the keypress. The
   // key ARMS a starter and the model decides whether she catches — dry, she never does — so audio
   // hung off the press would have a boat roaring into life on an empty tank.
@@ -1063,13 +1098,17 @@ function drawRead() {
   el.textContent = head + '   HULL ' + Math.round(st.sim.hull * 100) + '%   FUEL '
     + Math.round(st.fuel * 100) + '%   BOTTLE ' + Math.round(st.sim.nitro * 100) + '%   ' + tab;
   el.classList.toggle('boat-dead', !st.sim.running);
+  drawNavHome(st.root?.querySelector?.('.nav-home'), { x: st.cx + st.sim.x, y: st.cy + st.sim.y, heading: st.sim.heading, homeX: st.homeX, homeY: st.homeY });
 
   const keys = st.root?.querySelector?.('.boat-keys');
   // ⚠ THE LINE FOLLOWS THE MODE RATHER THAN LISTING EVERYTHING, the free camera's own rule: a strip
   // advertising the lever and the tabs while you are orbiting the boat is advertising two controls
   // that do nothing out there.
   if (keys) {
-    keys.textContent = st.external
+    // Beached, the one control that does anything is the shove, whichever view you are in.
+    keys.textContent = st.sim.beached
+      ? 'BEACHED: R push off · V ' + (st.external ? 'helm view' : 'external') + ' · ? controls'
+      : st.external
       ? 'drag swing · wheel back off · V helm view · ? controls · ESC step off'
       : (st.sim.running
         ? 'A/Z throttle · X/C steer · [ ] tabs · SHIFT bottle · H horn · I/W/L cabin wipe dials · K stop · V external · ? controls'

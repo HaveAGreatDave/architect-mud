@@ -248,12 +248,22 @@ export const WRECK_KINDS = [
 // Probability that a cell holds a wreck, as a function of the depth at its candidate site.
 // ⚠ Capped well under 1: a first cut at 0.85 put a wreck in nearly every abyssal cell, and a find
 // that is everywhere is not a find.
-export const wreckChance = (depthM) => depthM < 4 ? 0 : Math.min(0.4, 0.14 + depthM / 2600);
+export const WRECK_MAX_CHANCE = 0.4;
+export const wreckChance = (depthM) => depthM < 4 ? 0 : Math.min(WRECK_MAX_CHANCE, 0.14 + depthM / 2600);
+
+// Where a cell's wreck would lie, if it has one: hashed, so it needs no land or depth.
+function wreckSite(cx, cy) {
+  const jx = hn2h(cx + 101, cy - 77), jy = hn2h(cx - 311, cy + 29);
+  return [(cx + 0.15 + 0.7 * jx) * WRECK_CELL, (cy + 0.15 + 0.7 * jy) * WRECK_CELL];
+}
 
 export function wreckInCell(cx, cy, isLand) {
   const r0 = hn2h(cx * 7 + 11, cy * 13 - 5);
-  const jx = hn2h(cx + 101, cy - 77), jy = hn2h(cx - 311, cy + 29);
-  const x = (cx + 0.15 + 0.7 * jx) * WRECK_CELL, y = (cy + 0.15 + 0.7 * jy) * WRECK_CELL;
+  // ⚠ THE ROLL BEFORE THE SEARCH. The chance never passes WRECK_MAX_CHANCE, so a roll at or over it
+  // is no wreck at any depth, and the shore search (48 rings out at sea) is skipped for 60% of cells
+  // with the same answer.
+  if (r0 >= WRECK_MAX_CHANCE) return null;
+  const [x, y] = wreckSite(cx, cy);
   const d = shoreDistance(x, y, isLand);
   if (d <= 0) return null;
   const depth = seabedDepth(x, y, isLand, d);
@@ -274,8 +284,10 @@ export function wrecksNear(x, y, radius, isLand) {
   const c0x = Math.floor((x - radius) / WRECK_CELL), c1x = Math.floor((x + radius) / WRECK_CELL);
   const c0y = Math.floor((y - radius) / WRECK_CELL), c1y = Math.floor((y + radius) / WRECK_CELL);
   for (let cx = c0x; cx <= c1x; cx++) for (let cy = c0y; cy <= c1y; cy++) {
+    const [sx, sy] = wreckSite(cx, cy);
+    if (Math.hypot(sx - x, sy - y) > radius) continue;   // out of range: no need to ask
     const w = wreckInCell(cx, cy, isLand);
-    if (w && Math.hypot(w.x - x, w.y - y) <= radius) out.push(w);
+    if (w) out.push(w);
   }
   return out;
 }

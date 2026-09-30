@@ -264,7 +264,7 @@ function _initDeployClock() {
     // report than this card, and falling back to the arithmetic is exactly the old behaviour.
     // `directAPI`, like the rest of this panel: a GET needs none of the staging interception `API`
     // wraps every call in, and this one runs on a timer.
-    directAPI('/staging/deployments').then((d) => {
+    directAPI('/staging/deployments/latest').then((d) => {
       const t = d?.deployments?.[0]?.deployedAt;
       const ms = t ? Date.parse(t) : NaN;
       if (!Number.isNaN(ms)) _lastDeployAt = ms;

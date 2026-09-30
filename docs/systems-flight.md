@@ -1139,17 +1139,31 @@ other people's aircraft can't be modified.
 **The GLASS hangar and the card floor** (as built). The hangar panel opens on a hand of cards, one
 per aircraft at the field (`vehicle-card.js`, the marina's and depot's cards). Under each card are
 **Maintain** and **Launch**; clicking the card selects her for refuel, inspect, store and sell.
-- **A field with a hangar building** (`flags.aircraft_hangar` on the facade whose `world_exit_zone` is
-  the ramp; `hangarTileFor` in `state.js`) is drawn by GLASS as a taxi-in shed at aircraft scale
-  (see [glass-notes.md](reference/glass-notes.md)). `hangaract service <id>` and `hangaract launch <id>`
-  board your aircraft standing on that tile, nose to the door (`boardFound`'s `at`). Only her position
-  moves; `parked_zone_id` stays the field, so every service still resolves.
+- **A field with a hangar building** (`flags.aircraft_hangar` on a facade that names the field in
+  `hangar_field`, or whose `world_exit_zone` is the ramp; `hangarTileFor` in `state.js`) is drawn by
+  GLASS as a taxi-in shed at aircraft scale (see [glass-notes.md](reference/glass-notes.md)).
+  `hangaract service <id>` and `hangaract launch <id>` board your aircraft standing on that tile, nose
+  to the door (`boardFound`'s `at`). Only her position moves; `parked_zone_id` stays the field, so every
+  service still resolves. Shutting down on a hangar floor after a flight parks her at the hangar's
+  field (the `land` event resolves the facade through `hangar_field`), not off-strip.
+- **The heavy bay.** A Leviathan doesn't fit the regular hangar. A field can have a second one with
+  `flags.heavy_hangar`, and `hangarTileFor(field, true)` sends heavy-class aircraft there.
+- **Coldwater Regional's hangars have their own taxiway**, away from the tower (924,901) and arrivals
+  (924,902) on the runway's west edge. It runs east off the apron over 927–928 × 903–904. The Hangar
+  is at 927,902 with its door south onto 927,903; the Heavy Hangar is at 929,904 at the end of the
+  spur, door west onto 928,904, so the Leviathan rolls out along the taxiway. Keep any taxiway tile
+  within three tiles of the ramp (925,903): that's the reach of `airfieldForRunway`, and a shutdown
+  past it reads as off-strip.
+- **The doors are roller doors, shut by default.** One goes up as an aircraft taxis at it, stays up
+  while one that came in through it is inside, goes up when an aircraft on the floor starts her engine,
+  and comes down behind one rolling away down the taxiway. One put on the floor by Launch or Maintain
+  stands in a shut shed until she starts up. It takes about two seconds to travel.
 - **Maintain** pushes the bay with `service: true`: `hangar-bay.js` docks the bench on the cockpit
   (`cockpitServiceHost`), the camera goes outside her at 3/4 (`cockpitView('ext', { quarter })`), and
   the working paint rides to the model as a preview (`cockpitPreview`). Nothing is charged until Apply.
-  **Launch ▸** folds the bench away and switches to the seat. The hangar door is up while she stands
-  in the front of the shed, so you start her and taxi out.
-- **Launch** from the card boards you straight into the seat on the hangar floor.
+  **Launch ▸** folds the bench away and switches to the seat. The hangar door rolls up when you start
+  her, and you taxi out.
+- **Launch** from the card boards you straight into the seat on the hangar floor, door down.
 - **A field without one** does the same where she is parked, so its pad is the 3D area: the helipads,
   the Echelon's deck and the Solenne's roof (which has a stair head in its rear corner, outside the
   touchdown circle). Only Coldwater Regional has a hangar building so far. A pilot without a licence

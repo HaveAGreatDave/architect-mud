@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#5f6f7a",
+  "description": "The tower lobby: a round glass room at the foot of the shaft, one lift, one stair and a desk nobody sits at. The lift only goes up, which is all it needs to do. A speaker on the wall reads out wind and pressure to an empty room.",
+  "exits": {
+    "east": "zone_district_924_901"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_cw_tower",
+  "map_id": "map_int_cw_tower",
+  "name": "Coldwater Regional Tower",
+  "parent_zone": "zone_district_924_901"
+}

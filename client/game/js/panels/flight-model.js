@@ -1500,9 +1500,30 @@ const HULL_LAND = 0.34;        // driving it onto the beach: catastrophic, and m
 // it. The free drop is now under what an ordinary sea produces, and the cost is squared — so a
 // hundred small landings are cheap and the one that drops the hull flat off a big face is not,
 // which is the difference between a maintenance tax and a mistake.
-const HULL_SLAM = 0.35;
-// Raised from 0.30: an ordinary swell's landings are free again; a big sea or a gale still costs.
-const HULL_FREE_VS = 0.48;
+// The lip launch (step 6): how hard the water must fall away (tiles/s^2) before she leaves it, the
+// least upward speed that counts as a jump, how much of that speed she keeps, and the chop share.
+const LIP_G = 0.11, LIP_MIN_UP = 0.06, LIP_THROW = 2.0, LIP_CHOP = 0.25;
+// The hull's attitude on the water is a spring and damper toward the sea's (step 9): stiffness in
+// rad/s, damping ratio, and how much of the chop reaches it at all.
+const RIDE_W = 7, RIDE_Z = 0.85, RIDE_CHOP = 0.3;
+// Climbing a face at speed the bow comes up past it (step 9): the share of the face's slope added
+// on top, reached from 0.3 tiles/s up to CLIMB_TPS, how many seconds of the water's tilt it leads
+// by, and the most bow-up (rad) the lift will take her to. In the air the nose follows the flight
+// path at AIR_UP climbing and AIR_DOWN falling, eased over AIR_TAU seconds.
+const CLIMB_LIFT = 0.9, CLIMB_TPS = 1.0, CLIMB_LEAD = 0.12, CLIMB_MAX = 0.5;
+const AIR_UP = 1.4, AIR_DOWN = 0.45, AIR_TAU = 0.12;
+// ⚠ SHE IS BUILT TO TAKE A BEATING. Measured over five minutes flat out: a 45 kt gale taken head-on
+// (the worst there is) costs about a quarter of the hull, 30 kt head-on under 3%, and any sea off
+// the bow a percent or two. So it takes several passages in bad weather to lose her. At 0.35 with
+// the free drop at 0.48, the same gale head-on took the whole hull in five minutes.
+const HULL_SLAM = 0.035;
+// An ordinary swell's landings are free; a big sea or a gale still costs.
+const HULL_FREE_VS = 0.55;
+// The most one landing can cost, however it was arrived at.
+const HULL_SLAM_MAX = 0.02;
+// How far the sea's clock may run apart from the frame's dt (seconds) before the step is taken as
+// a jump in the water rather than a rise (step 3).
+const SEA_JUMP_S = 0.1;
 // ⚠ PER SECOND, SO IT IS SMALL. At 0.020 a minute of running hard across the swell took the hull
 // from 100% to 47% — which is not "a decision rather than a shortcut", it is a boat that dissolves
 // while you are looking at the scenery. At 0.004, sustained worst-case costs about a tenth of the
@@ -1555,9 +1576,9 @@ export function boatSeaPose(s, p, t) {
   const u = s.x + (s.ssx || 0), v = s.y + (s.ssy || 0);
   // ⚠ THE ROLL AND THE WIND SEA, AND NOT THE CHOP — the same two terms `seaPoseAt` answers with and
   // the same two the MESH displaces, because a hull has to ride the water somebody is drawing.
-  // The chop is about a tile and is a normal map rather than geometry, so a boat fitted to it would
-  // be pitching to something nobody can see; the wind sea is 3.2 tiles and the roll 8.6, and this
-  // hull is 0.07 of a tile, so both are real swell to it.
+  // The chop is about a tile and is geometry only round the eye, so her HEIGHT rides it
+  // (`hullChopAt`) and her attitude takes a low-passed share of it (step 9); the wind sea is 3.2
+  // tiles and the roll 8.6, and this hull is 0.07 of a tile, so both are real swell to it.
   const [du, dv] = seaSlope(u, v, t, rollA, 0, windA);
   const h = (s.heading || 0) * D2R, sh = Math.sin(h), ch = Math.cos(h);
   // The basis `step` moves in: forward is (sin h, -cos h) and right is (cos h, sin h). Taken from
@@ -1571,6 +1592,37 @@ export function boatSeaPose(s, p, t) {
     roll: Math.atan(alongR),     // starboard up when the water to starboard is higher
     du, dv,
   };
+}
+
+// The chop the mesh displaces under her centre: `seaChopH` is its drawn amplitude, handed over by
+// the seat. Absent (every headless caller) is none, so they keep the old heave exactly.
+function hullChopAt(s, t) {
+  if (!(s.seaChopH > 0)) return 0;
+  return seaChop(s.x + (s.ssx || 0), s.y + (s.ssy || 0), t) * s.seaChopH;
+}
+
+// ── MOVING HER ORIGIN ────────────────────────────────────────────────────────
+//
+// ⚠ THE SEA IS DRAWN IN THE MAP WINDOW'S FRAME, so when a seat recentres its window the drawn sea
+// jumps under her by the shift, and a hull that rides the drawn sea jumps with it. Moved on its own,
+// every figure the model remembers about the water (the heave a frame ago, the rise under her, her
+// height in the air) still describes the old water, and the one-frame step reads as a face hundreds
+// of tiles a second steep: a launch out of nothing, or a landing in mid-air. So everything that
+// remembers the water moves by the same step, and she keeps her height above it.
+export function shiftBoatOrigin(s, p, dx, dy) {
+  const t = s.clock || 0;
+  const w0 = boatSeaPose(s, p, t).heave, c0 = hullChopAt(s, t);
+  s.x += dx; s.y += dy;
+  const dw = boatSeaPose(s, p, t).heave - w0, dc = hullChopAt(s, t) - c0;
+  // `heave` is the swell alone; `alt` is measured against the swell plus the chop.
+  if (s.heave !== undefined) s.heave += dw;
+  if (s.prevHeave !== undefined) s.prevHeave += dw;
+  if (s.chopH !== undefined) s.chopH += dc;
+  if (s.alt !== undefined) s.alt += dw + dc;
+  // The RATES start again rather than reading the jump: the water here rises at its own rate, and
+  // the change from the old one looked like a lip to the launch.
+  if (s.rideUp !== undefined) s.rideUp = undefined;
+  s.seaPitch0 = undefined;
 }
 
 export function boatReadout(s, p) {
@@ -1652,6 +1704,7 @@ export function stepBoat(s, input, p, dt) {
   const running = ignitionStep(s, input, dt);
   const lever = running ? clamp(input.throttle || 0, 0, 1) : 0;
   const surf = WATER[input.surface] || WATER.open;
+  const tPrev = s.clock;
   s.clock = input.now != null ? input.now * 0.001 : (s.clock || 0) + dt;
   const t = s.clock;
 
@@ -1695,7 +1748,25 @@ export function stepBoat(s, input, p, dt) {
 
   // ── 3. THE SEA ─────────────────────────────────────────────────────────────
   const pose = boatSeaPose(s, p, t);
+  s.prevHeave = s.heave;
   s.heave = pose.heave;
+  // The drawn chop under her. Her HEIGHT rides it, because the mesh displaces it round the eye;
+  // her launch does not (step 6), because its 0.6-tile faces would be most of the jumps.
+  const chop0 = s.chopH || 0;
+  s.chopH = hullChopAt(s, t);
+  const surfZ = pose.heave + s.chopH;
+  // ⚠ THE SEA RUNS ON THE WALL CLOCK AND THE HULL ON THE FRAME'S dt, CAPPED AT 0.05 s. They agree
+  // to a few milliseconds a frame, and not at all across a hitch or a hidden tab: the clock jumps a
+  // second or ten while the hull moves one frame, and the whole of that jump in the water read as a
+  // rise hundreds of tiles a second steep. It threw her into a three-second flight and the landing
+  // took the entire hull in one slam. A jump is a new sea under her, handled as a recentre is: she
+  // keeps her height above it and the rates start again.
+  if (tPrev !== undefined && dt > 0 && Math.abs((t - tPrev) - dt) > SEA_JUMP_S) {
+    if (s.alt !== undefined) s.alt += surfZ - ((s.prevHeave ?? pose.heave) + chop0);
+    s.prevHeave = pose.heave;
+    s.rideUp = undefined;
+    s.seaPitch0 = undefined;
+  }
 
   // ── 4. LONGITUDINAL ────────────────────────────────────────────────────────
   // The truck's integration, with the gearbox taken out and the hump put in. Thrust only reaches
@@ -1833,57 +1904,66 @@ export function stepBoat(s, input, p, dt) {
   else if (s.slip < 0.28) s.wasSliding = false;
 
   // ── 6. AIR ─────────────────────────────────────────────────────────────────
-  // Leaving a crest, and coming back. A hull driven fast up a rising face gets thrown, and the
-  // faster and the steeper, the further it goes.
+  // Leaving a crest, and coming back.
+  //
+  // ⚠ SHE LEAVES AT THE LIP, BECAUSE THAT IS WHERE WATER LETS GO OF A HULL. Riding a face, her
+  // vertical speed is the water's (`surfUp`, the rate the surface under her is rising). Over the
+  // crest that rise turns into a fall, and when the water falls away faster than she can drop
+  // (its vertical acceleration beats `LIP_G` downward) she keeps her upward speed and flies. So a
+  // jump is a place on the wave you aim at, the Wave Race read, and not a hop that can happen
+  // anywhere on a face. It used to be slope x speed past a bar, which fired all the way up every
+  // face and, with the chop in it, 30-odd times a minute.
   const GRAV = 1.35;                                 // tiles/s^2 — tuned for a readable hang, not for Earth
+  const surfUp = dt > 0 && s.prevHeave !== undefined ? (pose.heave - s.prevHeave) / dt : 0;
   if (!s.airborne) {
-    // The launch. The hull is tangent to the face, so its vertical rate IS the slope it is climbing
-    // times how fast it is climbing it. Past a threshold the water lets go.
-    // ⚠ PLUS THE CHOP, WHEN THE SEAT HANDS ONE OVER (`s.seaChop`, its amplitude in tiles). The pose
-    // above deliberately ignores it — a hull fitted to one-tile ripples would jitter — but a race boat
-    // at speed is thrown by exactly those: it crosses a short steep face every half second, and that
-    // is where a boat gets air on an ordinary day. Rising faces only; a falling one does not throw.
-    // Absent (every headless gate, the text helm) it is 0 and the launch is what it always was.
-    let chopClimb = 0;
+    // ⚠ THE CHOP ADDS A LITTLE, NOT THE LAUNCH. It is 4-8 m ripples the mesh does not even draw,
+    // and at full weight it was nearly every jump in the game. A quarter of it still roughens a
+    // lip, so the same wave is never quite the same jump.
+    let chopUp = 0;
     if (s.seaChop > 0 && tps > 0.45) {
       const hh = (s.heading || 0) * D2R, fx = Math.sin(hh), fy = -Math.cos(hh), e = 0.08;
       const u0 = s.x + (s.ssx || 0), v0 = s.y + (s.ssy || 0);
       const g = (seaChop(u0 + fx * e, v0 + fy * e, t) - seaChop(u0 - fx * e, v0 - fy * e, t)) / (2 * e) * s.seaChop;
-      chopClimb = Math.max(0, g) * tps;
+      chopUp = Math.max(0, g) * tps * LIP_CHOP;
     }
-    const climb = pose.pitch * tps + chopClimb;      // tiles/s of rise being forced on the hull
-    const kick = climb * (p.launchVs ?? 0.55) * (1 + (want ? 0.35 : 0)) * (1 + TRIM_FLY * trim);
-    // ⚠ TUNED AGAINST THE SEA THE RENDERER ACTUALLY DRAWS, not against a guess — and ⚠ THAT SEA
-    // HAS CHANGED SINCE, WHICH IS WHY 'launchVs' CARRIES THE STORY NOW. This threshold was fitted
-    // when the swell was a fixed roll 0.32 / wind 0.20 topping out around 25-28 degrees of face.
-    // The amplitudes are derived from the wind through JONSWAP now and are about half that, so the
-    // bar stayed where it was and nothing could reach it. The bar is still right; what it is
-    // measuring had to be rescaled. See the ⚠ on 'launchVs' for the measurement.
-    //
-    // ⚠ A NUMBER FITTED AGAINST ANOTHER SYSTEM'S OUTPUT GOES STALE WITHOUT ANYBODY EDITING IT, and
-    // it goes stale SILENTLY: a boat that never leaves the water looks exactly like a boat being
-    // driven carefully. Same shape as the wall wash's gain being calibrated against last month's
-    // city, one system over.
-    if (kick > 0.25 && tps > 0.45) {
-      s.airborne = true; s.vs = kick; s.z = 0.0001;
+    // Her own upward speed: what the face was doing to her a frame ago (she has mass, the water
+    // does not), plus the chop's share.
+    const hullUp = (s.rideUp ?? surfUp) + chopUp;
+    const accel = dt > 0 ? (surfUp - (s.rideUp ?? surfUp)) / dt : 0;
+    const bonus = (p.launchVs ?? 0.55) / 0.9 * (1 + (want ? 0.35 : 0)) * (1 + TRIM_FLY * trim);
+    if (tps > 0.45 && hullUp > LIP_MIN_UP && accel < -LIP_G / bonus) {
+      // The flight is flown in WORLD height (`alt`), not height above the water: see below.
+      s.airborne = true; s.vs = hullUp * LIP_THROW * bonus; s.z = 0.0001; s.alt = surfZ + s.z;
       s.events.push('launch');
     }
   }
+  s.rideUp = s.airborne ? undefined : surfUp;
   if (s.airborne) {
-    s.vs -= GRAV * dt;
-    s.z += s.vs * dt;
-    // The water has moved while you were off it — which is the point. You come down on whatever is
-    // there now, and a trough is a much longer fall than the crest you left.
+    // ⚠ THE HANG. Gravity eases off over the top of the arc, so a hull thrown off a face floats for
+    // a beat before it drops. The landing still comes in at the full rate.
+    const apex = clamp(Math.abs(s.vs) / 0.35, 0, 1);
+    s.vs -= GRAV * (0.5 + 0.5 * apex) * dt;
+    if (s.alt === undefined) s.alt = surfZ + s.z;
+    s.alt += s.vs * dt;
+    // ⚠ WORLD HEIGHT FIRST, THEN HEIGHT ABOVE THE WATER. `z` used to integrate on its own, so the
+    // hull traced the swell's shape through the air: it dropped into a trough with the water instead
+    // of flying over it. Now the sea falling away under her is air she keeps, and a trough really is
+    // a longer fall than the crest you left.
+    s.z = s.alt - surfZ;
     if (s.z <= 0) {
-      const impact = Math.abs(s.vs);
-      s.airborne = false; s.z = 0; s.vs = 0;
+      // The hit is the closing speed, hull down against water coming up, not the fall alone.
+      const surfVs = dt > 0 ? (pose.heave - (s.prevHeave ?? pose.heave)) / dt : 0;
+      const impact = Math.abs(s.vs - surfVs);
+      s.airborne = false; s.z = 0; s.vs = 0; s.alt = undefined;
+      s.fromAir = true;        // the ride spring restarts from the air attitude, not the lip's rate
+      s.landImpact = impact;   // for the seat's landing thump
       // ⚠ BEAM-ON IS WHAT BREAKS A BOAT, not height. Landing flat across a face drops the whole
       // length of one sponson onto rising water at once; landing bow-first onto the same face is
       // what the hull is shaped to do. So the roll the sea is holding you at multiplies the drop.
       const beam = Math.min(1, Math.abs(pose.roll) * 2.2);
       const over2 = Math.max(0, impact - HULL_FREE_VS);
       if (over2 > 0) {
-        s.hullHit += over2 * over2 * HULL_SLAM * (1 + beam);
+        s.hullHit += Math.min(HULL_SLAM_MAX, over2 * over2 * HULL_SLAM * (1 + beam));
         s.events.push(over2 > 0.18 ? 'slam' : 'land');
       } else s.events.push('land');
       // A hard landing scrubs way, which is the racing consequence of flying badly.
@@ -1917,11 +1997,21 @@ export function stepBoat(s, input, p, dt) {
     s.hull = clamp((s.hull ?? 1) - s.hullHit, 0, 1);
     if (s.hull <= 0 && !s.wasHoled) { s.events.push('holed'); s.wasHoled = true; }
   }
+  // How fast the water under her is tilting bow-up: the ride spring's lead into a face (below).
+  const seaTiltUp = dt > 0 && s.seaPitch0 !== undefined ? Math.max(0, (pose.pitch - s.seaPitch0) / dt) : 0;
+  s.seaPitch0 = pose.pitch;
   // Out of the water the sea no longer lifts her; she settles on her keel with a slight list.
-  if (aground) { s.pitch = 0.04; s.roll = 0.06; s.heave = 0; }
+  if (aground) { s.pitch = 0.04; s.roll = 0.06; s.heave = 0; s.chopH = 0; }
   // In the air the nose follows the flight path: up off the face, over at the top, down to land.
-  else if (s.airborne) { s.pitch = clamp(Math.atan2(s.vs, Math.max(0.3, tps)) * 0.8, -0.35, 0.4); s.roll = pose.roll * 0.5; }
-  else {
+  // ⚠ UP MORE THAN DOWN, AND EASED. At 0.8 each way she left the lip nearly flat and came down
+  // nose-first, so the bow went through the back of the crest she was jumping and into the next
+  // face. A race hull flies bow-high and lands flat. Eased so the launch is not a snap of the nose.
+  else if (s.airborne) {
+    const path = Math.atan2(s.vs, Math.max(0.3, tps));
+    const aim = clamp(path * (path > 0 ? AIR_UP : AIR_DOWN), -0.2, 0.6);
+    s.pitch += (aim - s.pitch) * (1 - Math.exp(-dt / AIR_TAU));
+    s.roll = pose.roll * 0.5;
+  } else {
     // The chop, in the attitude as well as the launch: a race boat at speed is thrown about by the
     // short faces it crosses, and a hull that only followed the long swell sat level at 130 mph.
     // Low-passed (about 0.12 s) so it reads as slamming rather than jitter. Only the seat hands a
@@ -1938,7 +2028,28 @@ export function stepBoat(s, input, p, dt) {
     const kf = 1 - Math.exp(-dt / 0.12);
     s.chopPitch = (s.chopPitch || 0) + (cp - (s.chopPitch || 0)) * kf;
     s.chopRoll = (s.chopRoll || 0) + (cr - (s.chopRoll || 0)) * kf;
-    s.pitch = pose.pitch + s.chopPitch; s.roll = pose.roll + s.chopRoll;
+    // ⚠ THE GYRO TAKES ATTITUDE, NOT HEIGHT. `stab` is the share of the sea's pitch and roll the
+    // hull still answers to (absent is 1, all of it). It used to scale the swell's AMPLITUDE at the
+    // seat, so she rode a lower sea than the one drawn, sat inside the crests and rarely launched.
+    // The launch reads `pose` above, so a stabilised boat still flies.
+    const sk = s.stab ?? 1;
+    // ⚠ UNDER WAY SHE CLIMBS A FACE BOW-HIGH, AND THE GYRO DOES NOT HOLD THE BOW DOWN ON ONE. The
+    // spring lags the face, so a hull aimed at the slope alone sat with her bow in the water all the
+    // way up it (a fifth of the time at 30 kt, a third with the gyro on) and jumped from inside the
+    // crest. So the target sits above a rising face, and leads it by CLIMB_LEAD seconds of the
+    // water's own tilt so the bow is already coming up at the foot. Only bow-up and only with way
+    // on, so a boat at rest still bobs level.
+    const way = clamp((Math.abs(tps) - 0.3) / (CLIMB_TPS - 0.3), 0, 1);
+    const climb = way * (Math.max(0, pose.pitch) * (CLIMB_LIFT + 1 - sk) + Math.min(0.25, seaTiltUp * CLIMB_LEAD));
+    // ⚠ SPRUNG, NOT TRACED. She has mass, so she follows the swell's shape and the chop only nudges
+    // her; traced, every ripple was a twitch of the bow (30 degrees a second of nose travel at 22 kt).
+    const tp0 = (pose.pitch + s.chopPitch * RIDE_CHOP) * sk;
+    const tp = tp0 + Math.min(climb, Math.max(0, CLIMB_MAX - tp0));
+    const tr = (pose.roll + s.chopRoll * RIDE_CHOP) * sk;
+    if (s.pitchV === undefined || s.fromAir) { s.pitchV = 0; s.rollV = 0; s.fromAir = false; }
+    const h = Math.min(dt, 0.05);
+    s.pitchV += (RIDE_W * RIDE_W * (tp - s.pitch) - 2 * RIDE_Z * RIDE_W * s.pitchV) * h; s.pitch += s.pitchV * h;
+    s.rollV += (RIDE_W * RIDE_W * (tr - s.roll) - 2 * RIDE_Z * RIDE_W * s.rollV) * h; s.roll += s.rollV * h;
   }
   return s;
 }

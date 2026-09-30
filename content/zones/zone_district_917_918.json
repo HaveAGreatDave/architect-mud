@@ -2,8 +2,9 @@
   "ambient_events": [],
   "ambient_theme": "city",
   "color": "#8d8f93",
-  "description": "Two long scars in the rockcrete where the plates were lifted out, and a painted box round nothing. The weighbridge went out through the wall to the Glacis and took its board with it, leaving four bolt stubs. East is the grey plate of the lock wall.",
+  "description": "Two long scars in the rockcrete where the plates were lifted out, and a painted box round nothing. The weighbridge went out past the Curtain and took its board with it, leaving four bolt stubs.",
   "exits": {
+    "east": "zone_district_918_918",
     "north": "zone_district_917_917",
     "south": "zone_district_917_919",
     "west": "zone_district_916_918"

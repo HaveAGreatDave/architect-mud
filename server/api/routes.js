@@ -59,7 +59,6 @@ function formatScheduleBoard(npc) {
   return `${npc.name}'s Schedule\n${shopLine}\n${lines.join('\n')}`;
 }
 import { handleEnvironmentApi } from './environment.routes.js';
-import { handleWorldValidatorApi } from './worldvalidator.routes.js';
 import { handleStagingApi } from './staging.routes.js';
 import { handleBackupApi } from './backup.routes.js';
 import { fireRoutes, fireHook } from '../engine/plugins.js';
@@ -165,7 +164,7 @@ function requireAdmin(auth, fn) {
 // With CONTENT_READONLY=1, production accepts NO content writes over HTTP: git
 // is the only writer of world content to prod (CI applies content/ on push to
 // main). This single gate sits ahead of ALL dispatch — core routes, staging,
-// environment, worldvalidator, backup, and every plugin routeHandler — so a new
+// environment, backup, and every plugin routeHandler — so a new
 // plugin's authoring routes are covered by default.
 //
 // Reads always pass. Writes pass only for OPS routes: live-server operations
@@ -247,9 +246,6 @@ async function dispatchApiRequest(url, method, body, headers) {
 
   const envResult = await handleEnvironmentApi(path, method, body, auth);
   if (envResult) return envResult;
-
-  const wvResult = await handleWorldValidatorApi(path, method, body, auth);
-  if (wvResult) return wvResult;
 
   const stagingResult = await handleStagingApi(path, method, body, auth);
   if (stagingResult) return stagingResult;
@@ -516,7 +512,7 @@ async function dispatchApiRequest(url, method, body, headers) {
   if (path==='/dev/identities/automatch' && method==='POST') return requireDev(auth, apiAutomatchDevIdentities);
   if (path==='/dev/identities' && method==='GET') return requireDev(auth, apiGetDevIdentities);
   if (path==='/dev/identities' && method==='POST') return requireDev(auth, ()=>apiSetDevIdentity(body));
-  if (path==='/world/state' && method==='GET') return requireDev(auth, apiWorldState);
+  if (path==='/world/state' && method==='GET') return requireDev(auth, ()=>apiWorldState(url));
   if (path==='/world/reload' && method==='POST') return requireDev(auth, ()=>apiReloadZone(body));
   if (path==='/players/online' && method==='GET') {
     const live = getAllLivePlayers().map(p => ({ id: p.id, handle: p.handle, role: p.role, current_zone: p.current_zone }));
@@ -913,9 +909,8 @@ export async function apiCreateZone(body,auth,opts={}) {
     if (body.flags?.is_apartment) await ensureApartmentRow(id);
     await reloadZone(id);
     // skipHooks: bulk callers (e.g. region_create) insert a batch of tiles whose exits
-    // reference siblings not yet inserted. The zone-validator's async zone.create autoRepair
-    // strips those as "dangling", disconnecting the fresh grid — so the batch caller suppresses
-    // the per-tile hook and re-validates ONCE after the whole batch is in.
+    // reference siblings not yet inserted, so a zone.create listener would see a half-built
+    // grid. The batch caller suppresses the per-tile hook.
     if (!opts.skipHooks) fireHook('zone.create', id, body).catch(() => {});
     return {status:201,body:{id,message:'Zone created and live'}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
@@ -2861,13 +2856,16 @@ async function apiGetDevContributions() {
   return { status: 200, body: { ranges: out, needsSync: out.all.length === 0 } };
 }
 
-async function apiWorldState() {
+async function apiWorldState(fullUrl) {
+  // ?zones=0: the sidebar polls this every 10s for three counts. The zone list is MB of Render
+  // egress per call, so only the panels that render it ask for it.
+  const withZones = new URL('http://x' + (fullUrl||'')).searchParams.get('zones') !== '0';
   const players = getAllLivePlayers().map(p => ({ handle: p.handle, role: p.role, current_zone: p.current_zone }));
   // db_meter: round trips/min + the heaviest statements. The number that matters
   // is per-player SLOPE, so it ships alongside the online count deliberately —
   // read them together (see docs/architecture.md → Read Tiers).
   return {status:200,body:{
-    zones:getAllZones(),
+    ...(withZones ? { zones:getAllZones() } : {}),
     online_players:players,
     live_enemies:world.enemies.size,
     live_corpses:world.corpses.size,

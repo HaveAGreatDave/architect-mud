@@ -49,7 +49,7 @@
     "posted": true
   },
   "home_activities": [],
-  "home_zone": "zone_district_918_919",
+  "home_zone": "zone_district_912_921",
   "hp": 80,
   "hp_max": 80,
   "id": "npc_gate_trooper",
@@ -64,5 +64,5 @@
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_district_918_919"
+  "work_zone_id": "zone_district_912_921"
 }

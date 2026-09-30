@@ -36,15 +36,24 @@ file so the two cannot drift apart.
 The rows live in `SPECIES` in [birds.js](../client/shared/birds.js) and are the source of truth;
 this table is a reading of them, not a second copy to keep in step.
 
+**The birds are on the world's one scale**: a storey is 0.196 tiles and 3.5 m, so a tile is 17.9 m
+(`BIRD_M_PER_TILE` in birds.js; murmur.js and windshield.js read it). Anything metric about a bird (a
+speed, a spacing, a circuit radius flown at a speed, the murmuration's volumes) is written in metres and
+converted through it. What's written in tiles is a fact about the map: how big a field is, how near a
+building may be, circuit ceilings against the skyline. Every drawn wingspan is the real bird's:
+`FAUNA_TILE` puts the goose row at `GOOSE_SPAN` (1.65 m), and each other row's `scale` shrinks its whole
+mesh uniformly, so proportions come from the row and size from `scale`. Each draw range is where the
+bird is about 1.5 px across on the 640-wide reference frame.
+
 | | goose | gull | pigeon | songbird | hawk | vulture |
 |---|---|---|---|---|---|---|
-| wingspan (model units) | 0.85 | 1.1 | 0.5 | 0.155 | 1.02 | 1.3 |
+| drawn wingspan | 1.65 m | 1.4 m | 0.67 m | 0.4 m | 1.2 m | 1.7 m |
 | birds in a flock | 3–6 | 4–12 | 4–10 | 450–1,700 (a grand roost 4,000–300,000) | 1 | 3–7 |
 | cycle | 100 s | 55 s | 27 s | 300 s | 150 s | 210 s |
 | share of it on the ground | 40% | 25% | 78% | 70% | 18% | 42% |
-| ceiling / circuit radius | 2.2 / 3.4 | 1.6 / 5.0 | 0.9 / 1.6 | 5.0 / sweeps a roost of 5, slowly | 3.6 / 1.9 | 4.4 / 3.2 |
+| ceiling (tiles) / circuit radius | 2.2 / 99 m | 1.6 / 105 m | 0.9 / 18 m | 2.2 / sweeps a roost of 27.5 m, slowly | 3.6 / 21 m | 4.4 / 35 m |
 | wingbeat | 1.5 Hz | 1.5 Hz | 1.5 Hz | 10 Hz, with glides | 1.5 Hz | 1.5 Hz |
-| drawn out to | 14 tiles | 13 | 7 | 6 | 16 | 18 |
+| drawn out to | 14 tiles | 12 | 5.5 | 3.5 | 10 | 14.5 |
 | about between | 06–20 | 05–21 | 06–20 | 05–18:35 | 08–18 | 08–18 |
 | perches | never | 42% | 55% | 50% | 70%, highest | 30%, highest |
 | a hawk will take one | no | yes | yes | yes | — | no |
@@ -81,7 +90,7 @@ stood frozen in the formation it landed in for 50.2% of its time on the ground a
 alive.
 
 **The startle is a fan, not a flush.** `alarmAt` measures from the player to the flock anchor over
-`STARTLE_R` (5 tiles) and widens the milling radius and the shuffle rate. The birds do not take off
+`STARTLE_R` (55 m, about 3 tiles) and widens the milling radius and the shuffle rate. The birds do not take off
 because you approached — take-off is on the flock's own cycle. That is deliberate, and the pigeon row
 is tuned for it: a short period with most of it on the ground is what makes a passing truck look like
 the cause of something the birds were going to do anyway.
@@ -126,6 +135,14 @@ tiles up**. 364 of the city's 375 building tiles offer at least one.
 ledge is — so the sample ring is the inset boundary. Scattered over the top face instead they read as
 birds standing about on a roof, which is a thing that happens and is not what anybody pictures.
 
+**A coping is the perch, not the deck under it.** The detail kit lays a coping round most roof decks,
+and the deck's ledge ran 0.015 tiles in from the drop, which is under the cap. A bird there stood inside
+the parapet, hidden from the street and from above; about a third of the city's roof-edge standing
+points were like that, the Meridian's two crown setbacks among them. `buildLedges` now drops the deck
+points a coping covers (`underCoping`) and `kitLedges` offers the coping in their place, so the bird
+stands on top of it. The overhead wire still reads the uncovered ledges (`roofLedgesFor`), because it
+is asking how tall the building is, not where a bird stands.
+
 **A ledge has to hold the flock.** The Meridian alone offers 21 perches and seven of them are
 gargoyles, so an unweighted pick sends most flocks onto a finial. A ledge is a candidate only if it is
 long enough for the birds standing on it, and among the candidates a longer one is likelier. ⚠ It is a
@@ -155,6 +172,14 @@ in reverse for free.
 **A hunter takes the highest ledge in reach.** That is the whole of what `perch.high` buys, and it is
 what puts a hawk on the top setback of a tower looking down on a street the pigeons are working rather
 than on the awning beside them.
+
+⚠ **A hunter is measured from where it sits.** Its ledge can be up to `HUNT_REACH` (6) tiles from its
+anchor. The draw cull and freelook's raptor finder (`raptorsNow`, the H key) both measured from the
+anchor, so the Meridian's peregrine, anchored six tiles away on The Strand, was culled from the street
+under the tower it sat on, and H aimed at the pavement. Both now ask `hunterSpot`: the ledge while it
+is perched, the bent leg while it flies to or from one, the circuit otherwise. It answers null when the
+bird's perch pool runs off the map window, because a clipped pool picks a different ledge as the
+window moves. `scripts/shapes/perch.mjs` section 7 checks both.
 
 ## The hunt
 

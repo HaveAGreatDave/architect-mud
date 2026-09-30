@@ -1,30 +1,23 @@
 {
   "ambient_events": [],
-  "ambient_theme": "indoors",
-  "bg_color": "#3a3550",
-  "color": "#e8e0ff",
-  "description": "A hangar of corrugated steel long enough to lose a conversation in, its sliding doors parked open on a rail packed solid with grit. Oil has printed the apron in overlapping black rings, and a row of chocks and a tug with one flat tyre sit where somebody last left them. Along the top of the doors, in letters six feet high and faded but still legible from the air: COLDWATER REGIONAL. The hangar floor is west; the runway is east.",
+  "ambient_theme": "coast",
+  "color": "#7fd3ff",
+  "description": "The apron stops at a concrete lip and the Basin starts a step below it. The water is cold and brown, and the channel past the lip is too deep to wade.",
   "exits": {
     "east": "zone_district_925_903",
-    "west": "zone_hangar_outskirts"
+    "south": "zone_district_924_904",
+    "west": "zone_district_923_903"
   },
   "flags": {
-    "aircraft_hangar": true,
-    "building_name": "Coldwater Regional Hangar",
-    "building_type": "hangar",
-    "district": "docks",
-    "entrance": "east",
-    "facade": true,
-    "is_building": true,
+    "district": "water",
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_925_903"
+    "terrain": "water"
   },
   "grid_x": 924,
   "grid_y": 903,
   "grid_z": 0,
   "id": "zone_district_924_903",
   "map_id": "map_world",
-  "marker": "CR",
-  "name": "Coldwater Regional Hangar",
+  "name": "Coldwater Basin",
   "parent_zone": null
 }

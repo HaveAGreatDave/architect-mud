@@ -244,6 +244,15 @@ function playWelcomeVoice(handle, player) {
 // softening in poker-sfx.js.)
 const GAME_SFX_GAIN = 0.6;
 
+// The public-address chime: a falling major third (E5 to C5) on struck metal,
+// band-limited like the horn it comes out of.
+const PA_CHIME = { id: 'pa-chime', category: 'sfx', priority: 8, config: { duration: 0.05, layers: [
+  { waveform: 'sine',     freq: 659,  filter: { type: 'bandpass', freq: 1200, q: 0.7 }, adsr: { a: 0.004, d: 0.7, s: 0, r: 0.2 }, gain: 0.16 },
+  { waveform: 'triangle', freq: 1318, filter: { type: 'bandpass', freq: 1600, q: 0.8 }, adsr: { a: 0.004, d: 0.4, s: 0, r: 0.1 }, gain: 0.05 },
+  { waveform: 'sine',     freq: 523,  delay: 0.42, filter: { type: 'bandpass', freq: 1100, q: 0.7 }, adsr: { a: 0.004, d: 0.9, s: 0, r: 0.25 }, gain: 0.16 },
+  { waveform: 'triangle', freq: 1046, delay: 0.42, filter: { type: 'bandpass', freq: 1500, q: 0.8 }, adsr: { a: 0.004, d: 0.5, s: 0, r: 0.12 }, gain: 0.05 },
+] } };
+
 // A compass direction as a stereo position. North and south are DEAD CENTRE and
 // that is not a shortcoming: this is a headphone pan, which carries left/right
 // and cannot carry front/back at all, so a sound from ahead and a sound from
@@ -1777,6 +1786,14 @@ const handlers = {
   // (propagateAudio in server/engine/sounds.js) — the doorway it came through and
   // the number of walls in the way. The mapping from a compass direction to a pan
   // lives here rather than on the server, which sends the fact and not the sound.
+  // A public-address announcement: two-tone chime, the line in the log, then
+  // the words through the street horn (ORACLE's `pa` chain). The log line is
+  // written whether or not the voice is audible.
+  pa_announce: (msg) => {
+    appendMsg(`📢 ${msg.message}`, 'pa');
+    window.AudioEngine?.playSfx(PA_CHIME, GAME_SFX_GAIN);
+    setTimeout(() => window.AudioEngine?.speak(msg.speech || msg.message, { seed: msg.seed || 'public_address', pa: true }), 1150);
+  },
   audio_sfx: (msg) => { window.AudioEngine?.playSfx(msg.def, (msg.gain ?? 1) * GAME_SFX_GAIN, { pan: panForDir(msg.from), muffle: msg.hops || 0 }); },
   // Procedural cue: the server sent PARAMETERS and a seed, not layers. We build
   // the sound here from the shared generator — same seed, same field, ~100 bytes

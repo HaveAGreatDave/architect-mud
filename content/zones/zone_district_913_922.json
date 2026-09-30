@@ -1,25 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Rust-red hardpan, dead level. The cracks run in long lines and short ones, and the wind whistles through the deeper ones.",
+  "ambient_theme": "city",
+  "color": "#6a6f78",
+  "description": "A one-bay shed of grey plate with a roller door on the lane, big enough for a patrol wagon and a bit of swearing. The door is kept half up. Inside, something with a light bar ticks as it cools.",
   "exits": {
-    "east": "zone_district_914_922",
-    "north": "zone_district_913_921",
-    "south": "zone_district_913_923",
+    "east": "zone_gatepost_motorpool",
     "west": "zone_district_912_922"
   },
   "flags": {
+    "building_name": "The Motor Pool",
+    "building_type": "truck_depot",
     "district": "wilds",
-    "radiation": 30,
+    "entrance": "west",
+    "facade": true,
+    "floors": 1,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "vehicle_bay": true,
+    "world_exit_zone": "zone_district_912_922"
   },
   "grid_x": 913,
   "grid_y": 922,
   "grid_z": 0,
   "id": "zone_district_913_922",
   "map_id": "map_world",
-  "name": "Red Hardpan",
+  "marker": "MP",
+  "name": "The Motor Pool",
   "parent_zone": null
 }

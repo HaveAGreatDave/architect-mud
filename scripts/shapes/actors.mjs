@@ -17,7 +17,7 @@
 // nothing on a record can name an NPC, a walker
 // faces the way they're going, the gait follows distance, the hitcher faces the camera, and with the
 // switch off the frame is the billboard frame it always was.
-import { actorBake, actorOutfit, actorStrideM, ACTOR_OUTFITS } from '../../client/game/js/panels/actor3d.js';
+import { actorBake, actorOutfit, actorStrideM, ACTOR_OUTFITS, ACTOR_MATERIALS, ACTOR_MATERIAL } from '../../client/game/js/panels/actor3d.js';
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
 import { readFileSync } from 'node:fs';
 
@@ -106,6 +106,8 @@ for (const [name, c] of Object.entries(clips)) {
   const hash = (s, k) => { let h = 0x811c9dc5 ^ k; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return (h >>> 8) / 0x1000000; };
   const tok = (i) => (Math.imul(i + 1, 2654435761) >>> 0).toString(36);   // six or seven mixed characters, like the server's
   const seen = { coat: new Set(), legs: new Set(), skin: new Set(), hair: new Set(), shoes: new Set() };
+  const MAT_PARTS = ['coat', 'legs', 'shoes'];
+  const matSeen = { coat: new Set(), legs: new Set(), shoes: new Set() };
   const combos = new Set();
   for (let i = 0; i < 5000; i++) {
     const t = tok(i), o = actorOutfit((k) => hash(t, 20 + k));
@@ -118,10 +120,21 @@ for (const [name, c] of Object.entries(clips)) {
     }
     if (!(o.tone >= 0 && o.tone <= 5 && Number.isInteger(o.tone))) problems.push(`outfit tone ${o.tone} is outside the blob's six buckets`);
     if (i < 500) combos.add(o.coat.join() + '|' + o.legs.join() + '|' + o.skin.join());
+    // Materials: gl/actors.js packs each code into three bits, so anything outside its part's list
+    // (or past 7) would light a garment as something else.
+    if (!Array.isArray(o.mat) || o.mat.length !== 3) { problems.push(`outfit materials are ${JSON.stringify(o.mat)}, not [coat, trousers, shoes]`); break; }
+    MAT_PARTS.forEach((p, k) => {
+      if (!ACTOR_MATERIALS[p].some(([c]) => c === o.mat[k])) problems.push(`a ${p} is material ${o.mat[k]}, which isn't in ACTOR_MATERIALS.${p}`);
+      matSeen[p].add(o.mat[k]);
+    });
   }
   for (const p of Object.keys(seen)) {
     if (seen[p].size !== ACTOR_OUTFITS[p].length) problems.push(`only ${seen[p].size} of ${ACTOR_OUTFITS[p].length} ${p} colours turned up in 5,000 figures`);
   }
+  for (const p of MAT_PARTS) {
+    if (matSeen[p].size !== ACTOR_MATERIALS[p].length) problems.push(`only ${matSeen[p].size} of ${ACTOR_MATERIALS[p].length} ${p} materials turned up in 5,000 figures`);
+  }
+  if (Object.values(ACTOR_MATERIAL).some((c) => !(Number.isInteger(c) && c >= 0 && c <= 7))) problems.push('an ACTOR_MATERIAL code won\'t fit the three bits gl/actors.js packs it into');
   report(`outfits: ${combos.size} distinct coat/trouser/skin combinations over 500 figures`);
   if (combos.size < 200) problems.push(`500 figures wore only ${combos.size} distinct coat/trouser/skin combinations`);
 }

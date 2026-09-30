@@ -606,7 +606,7 @@ export const BUILDING_TYPE_ICON = Object.freeze({
   shop: 'bldg_shop', store: 'bldg_shop', grocery: 'bldg_shop',
   bar: 'bldg_bar', club: 'bldg_club', nightclub: 'bldg_club', boutique: 'bldg_shop', police: 'bldg_police',
   corporate_office: 'bldg_office', hotel: 'bldg_hotel', power: 'bldg_power',
-  hangar: 'bldg_hangar', studio: 'bldg_studio', clinic: 'bldg_clinic', diner: 'bldg_diner',
+  hangar: 'bldg_hangar', control_tower: 'bldg_control_tower', arrivals: 'bldg_arrivals', studio: 'bldg_studio', clinic: 'bldg_clinic', diner: 'bldg_diner',
   gun_shop: 'bldg_gunshop', casino: 'bldg_casino', fence: 'bldg_fence', chem_supply: 'bldg_chem',
   butcher: 'bldg_butcher',
   // The Grand Ole Apron — Molly Darton's roadhouse on Meltwater Row. A honky-tonk is a bar

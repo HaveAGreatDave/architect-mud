@@ -33,6 +33,7 @@
 import { viewProjMatrix, mat4f } from './camera.js';
 import { makeVertexStream } from './stream.js';
 import { HEIGHT_FOG_GLSL, LIGHT_SHAFT_GLSL } from './fog.js';
+import { declareProgram, takeWarm } from './programs.js';
 
 // pos3, colour3
 const STRIDE = 10;  // pos3, colour3, alpha1, road1, lat1, kerb1
@@ -1351,10 +1352,14 @@ function compile(gl, type, src, label) {
 // mass mesh uses, so the caller hands both to the same shifted camera and they cannot disagree
 // about where a kerb is.
 export function createGroundLayer(gl) {
-  const prog = gl.createProgram();
-  gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
-  gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
-  gl.linkProgram(prog);
+  // Prewarmed with the context when it can be (programs.js); built here otherwise.
+  let prog = takeWarm(gl, VERT, FRAG);
+  if (!prog) {
+    prog = gl.createProgram();
+    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
+    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
+    gl.linkProgram(prog);
+  }
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('ground link: ' + gl.getProgramInfoLog(prog));
 
   const loc = {
@@ -1721,3 +1726,5 @@ export function createGroundLayer(gl) {
 
   return { upload, draw, get quads() { return count / 6; } };
 }
+
+declareProgram(VERT, FRAG);

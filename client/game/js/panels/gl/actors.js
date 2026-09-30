@@ -18,16 +18,19 @@
 import { viewProjMatrix, viewMatrix } from './camera.js';
 import { makeVertexStream } from './stream.js';
 import { actorBakeReady } from '../actor3d.js';
+import { declareProgram, takeWarm } from './programs.js';
 
 // Per instance: x, y, z, tiles per metre | clip A row0, frames, phase, heading | clip B row0, frames,
-// phase, share of B | coat rgb | trousers rgb | skin rgb | hair rgb | shoes rgb | brightness, alpha
-const STRIDE = 29;
+// phase, share of B | coat rgb | trousers rgb | skin rgb | hair rgb | shoes rgb | brightness, alpha |
+// materials (coat + trousers·8 + shoes·64, ACTOR_MATERIAL codes)
+const STRIDE = 30;
 // Units no other layer binds: 0-5 are the world pass's, 7 is fauna.js's pose, 8-17 are the
 // murmuration's simulation and its drawing.
 const POS_UNIT = 20, NRM_UNIT = 21;
 // The look: 1 is seams, grime and the fuller light (see FRAG), 0 the flat shading as first shipped.
-// Flip it from the console to compare.
-export const ACTOR_LOOK = { on: 1 };
+// `mat` 1 lights each garment as what it's made of (satin, leather, vinyl, metal; see envAt), 0 lights
+// everything as cloth. Flip either from the console to compare.
+export const ACTOR_LOOK = { on: 1, mat: 1 };
 
 const VERT = `#version 300 es
 precision highp float;
@@ -43,6 +46,7 @@ in vec3 iSkin;
 in vec3 iHair;
 in vec3 iShoe;
 in vec2 iLit;
+in float iMats;
 uniform highp sampler2D uPosT;
 uniform highp sampler2D uNrmT;
 uniform int uW;
@@ -57,6 +61,10 @@ out vec3 vN;
 out vec3 vNv;
 out vec3 vRest;
 flat out int vMat;
+flat out int vMk;
+out vec3 vNm;
+out vec3 vW;
+out vec3 vToEye;
 out float vFog;
 out float vAlpha;
 out float vLum;
@@ -95,6 +103,15 @@ void main() {
   vRest = aRest;
   int m = int(aMat + 0.5);
   vMat = m;
+  // The garment's material, three bits apiece for coat, trousers and shoes. Skin and hair are 0.
+  int pk = int(iMats + 0.5);
+  vMk = m == 1 ? pk & 7 : m == 2 ? (pk >> 3) & 7 : m == 3 ? (pk >> 6) & 7 : 0;
+  // For the reflections: the normal in the mesh's own frame (to pick a weave's plane), the position
+  // in metres (the weave's bump is in metres), and the way back to the eye. The view matrix is a
+  // rotation and a translation, so the eye is minus the translation turned back.
+  vNm = n;
+  vW = w / iPos.w;
+  vToEye = -transpose(mat3(uView)) * uView[3].xyz - w;
   vColor = m == 0 ? iSkin : m == 1 ? iCoat : m == 2 ? iLegs : m == 3 ? iShoe
          : m == 4 ? iHair : m == 5 ? vec3(0.035) : iSkin * vec3(0.78, 0.55, 0.55);
   vLum = iLit.x;
@@ -112,12 +129,17 @@ in vec3 vN;
 in vec3 vNv;
 in vec3 vRest;
 flat in int vMat;
+flat in int vMk;
+in vec3 vNm;
+in vec3 vW;
+in vec3 vToEye;
 in float vFog;
 in float vAlpha;
 in float vLum;
 uniform vec3 uFog;
 uniform vec3 uKeyDir;
 uniform float uLook;
+uniform float uMat;
 uniform float uTop;
 out vec4 outColor;
 float h1(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
@@ -129,6 +151,33 @@ float vnoise(vec3 p) {
              mix(mix(h1(i + vec3(0, 0, 1)), h1(i + vec3(1, 0, 1)), f.x), mix(h1(i + vec3(0, 1, 1)), h1(i + vec3(1, 1, 1)), f.x), f.y), f.z);
 }
 float line(float x, float w) { return 1.0 - smoothstep(0.0, w, abs(x)); }
+float sq(float x) { return x * x; }
+// What a shiny garment sees, with no environment map: ground below, sky above (the colours the
+// ambient light already uses), a bright band where they meet, the key as a soft box, and at night a
+// band of the city's lights on the horizon. Rougher blurs the lot. World z is up.
+vec3 envAt(vec3 R, float rough, vec3 keyC, float nightK) {
+  float w = mix(0.05, 0.5, rough);
+  vec3 sky = vec3(0.46, 0.5, 0.58), gnd = vec3(0.34, 0.29, 0.24);
+  vec3 c = mix(gnd * 0.6, sky * 1.1, smoothstep(-w, w, R.z));
+  c += mix(sky, keyC, 0.5) * 0.45 * exp(-sq(R.z / (w + 0.06)));
+  c += mix(keyC, vec3(0.2, 0.3, 0.45), 0.5) * nightK * 0.9 * exp(-sq((R.z - 0.05) / (w + 0.12)));
+  float kd = max(dot(R, uKeyDir), 0.0);
+  return c + keyC * (pow(kd, mix(90.0, 5.0, rough)) * mix(5.0, 0.8, rough) + 0.8 * kd * kd);
+}
+// Distance to a diamond lattice s metres across, in 0..0.5 of a cell.
+float diamond(vec2 p, float s) {
+  vec2 g = abs(fract(vec2(p.x + p.y, p.x - p.y) / s) - 0.5);
+  return min(g.x, g.y);
+}
+// Bump from a height field by screen derivatives. p and h are both in metres.
+vec3 bump(vec3 n, vec3 p, float h) {
+  vec3 dx = dFdx(p), dy = dFdy(p);
+  float hx = dFdx(h), hy = dFdy(h);
+  vec3 r1 = cross(dy, n), r2 = cross(n, dx);
+  float det = dot(dx, r1);
+  vec3 g = sign(det) * (hx * r1 + hy * r2);
+  return normalize(abs(det) * n - g);
+}
 void main() {
   if (vAlpha <= 0.002) discard;
   vec3 n = normalize(vN);
@@ -162,6 +211,26 @@ void main() {
     } else if (skinLike) {
       col *= 0.94 + 0.08 * vnoise(r * 90.0);
     }
+    // The garment's material: 0 cloth, 1 satin, 2 leather, 3 vinyl, 4 metal (ACTOR_MATERIAL). Its
+    // surface detail is a bump in metres, faded out before it's smaller than a pixel, where it
+    // would only glitter.
+    int mk = uMat > 0.5 ? vMk : 0;
+    if (mk > 0) {
+      float fw = length(fwidth(r));
+      float h = 0.0;
+      vec2 p2 = abs(vNm.x) > abs(vNm.z) ? vec2(r.z, r.y) : vec2(r.x, r.y);
+      if (mk == 4) {
+        // Lame: a quilted diamond lattice, sunk at the lines and puffed in the cells.
+        float d = diamond(p2, 0.008);
+        h = (0.00012 * smoothstep(0.0, 0.25, d) - 0.00014 * (1.0 - smoothstep(0.0, 0.06, d))) * (1.0 - smoothstep(0.00064, 0.002, fw));
+      } else if (mk == 2) {
+        // Leather: grain, and the odd crease where it bends.
+        h = (0.0003 * vnoise(r * 700.0) * (1.0 - smoothstep(0.0005, 0.0015, fw))) + 0.0008 * smoothstep(0.7, 0.9, vnoise(r * 40.0 + seed));
+      } else if (mk == 1) {
+        h = 0.0002 * sin(p2.y * 900.0 + vnoise(r * 30.0) * 6.0) * (1.0 - smoothstep(0.0003, 0.001, fw));
+      }
+      n = bump(n, vW, h);
+    }
     // Wrap key, sky over warm ground, fake occlusion, a rim off the camera and a little sheen on
     // skin. How dark the night is comes from the figure's own dimming, so the billboard still matches.
     float night = clamp(1.0 - vLum, 0.0, 1.0);
@@ -172,8 +241,27 @@ void main() {
     ao *= 1.0 - 0.3 * line(r.y - 0.93, 0.08) * (1.0 - smoothstep(0.03, 0.09, abs(r.x)));
     ao *= 1.0 - 0.25 * step(abs(r.x), 0.24) * step(0.18, abs(r.x)) * line(r.y - uTop * 0.75, 0.1);
     float rim = pow(1.0 - abs(normalize(vNv).z), 3.0);
-    c = col * (amb * ao + keyC * wrap) + rim * mix(vec3(0.12, 0.13, 0.15), vec3(0.2, 0.3, 0.45), night);
+    vec3 rimC = mix(vec3(0.12, 0.13, 0.15), vec3(0.2, 0.3, 0.45), night);
+    c = col * (amb * ao + keyC * wrap) + rim * rimC;
     if (skinLike) c += keyC * pow(max(dot(n, normalize(uKeyDir + vec3(0.0, 0.0, 1.0))), 0.0), 24.0) * 0.1;
+    if (mk > 0) {
+      vec3 v = normalize(vToEye);
+      float ndv = max(dot(n, v), 0.0);
+      float fr = pow(1.0 - ndv, 5.0);
+      float mr = mk == 1 ? 0.42 : mk == 2 ? 0.55 : mk == 3 ? 0.1 : 0.36;
+      // vLum bottoms out at 0.62 at night, so night itself only reaches 0.38.
+      vec3 E = envAt(reflect(-v, n), mr, keyC, clamp(night / 0.38, 0.0, 1.0)) * ao;
+      if (mk == 4) {
+        // Metal has next to no diffuse: its colour is the colour of what it reflects.
+        c = col * amb * ao * 0.15 + mix(col, vec3(1.0), fr * 0.5) * E + rim * rimC * 0.3;
+      } else {
+        // Satin's sheen takes the fibre's colour and brightens where the cloth turns away;
+        // leather and vinyl reflect white, vinyl hard.
+        float kr = mk == 1 ? mix(0.06, 0.5, fr) + 0.12 * sq(1.0 - ndv) : mk == 2 ? mix(0.035, 0.3, fr) : mix(0.05, 0.8, fr);
+        vec3 tint = mk == 1 ? mix(vec3(1.0), col / max(0.05, max(col.r, max(col.g, col.b))), 0.7) : vec3(1.0);
+        c = c * (1.0 - kr) + tint * E * kr * (mk == 3 ? 1.6 : 1.0);
+      }
+    }
   }
   c = mix(c * vLum, uFog, vFog);
   outColor = vec4(c * vAlpha, vAlpha);
@@ -188,15 +276,19 @@ function compile(gl, type, src, label) {
 }
 
 export function createActorLayer(gl) {
-  const prog = gl.createProgram();
-  gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
-  gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
-  gl.linkProgram(prog);
+  // Prewarmed with the context when it can be (programs.js); built here otherwise.
+  let prog = takeWarm(gl, VERT, FRAG);
+  if (!prog) {
+    prog = gl.createProgram();
+    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
+    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
+    gl.linkProgram(prog);
+  }
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('actors link: ' + gl.getProgramInfoLog(prog));
   const A = (n) => gl.getAttribLocation(prog, n);
   const loc = {
     mat: A('aMat'), pos: A('iPos'), clipA: A('iClipA'), clipB: A('iClipB'),
-    coat: A('iCoat'), legs: A('iLegs'), skin: A('iSkin'), hair: A('iHair'), shoe: A('iShoe'), lit: A('iLit'),
+    coat: A('iCoat'), legs: A('iLegs'), skin: A('iSkin'), hair: A('iHair'), shoe: A('iShoe'), lit: A('iLit'), mats: A('iMats'),
     posT: gl.getUniformLocation(prog, 'uPosT'),
     nrmT: gl.getUniformLocation(prog, 'uNrmT'),
     w: gl.getUniformLocation(prog, 'uW'),
@@ -209,6 +301,7 @@ export function createActorLayer(gl) {
     keyDir: gl.getUniformLocation(prog, 'uKeyDir'),
     view: gl.getUniformLocation(prog, 'uView'),
     look: gl.getUniformLocation(prog, 'uLook'),
+    matOn: gl.getUniformLocation(prog, 'uMat'),
     top: gl.getUniformLocation(prog, 'uTop'),
     rest: A('aRest'),
   };
@@ -247,11 +340,11 @@ export function createActorLayer(gl) {
     const at = (l, n, off) => [l, n, off * 4];
     const stream = makeVertexStream(gl, vao, STRIDE, [
       at(loc.pos, 4, 0), at(loc.clipA, 4, 4), at(loc.clipB, 4, 8), at(loc.coat, 3, 12), at(loc.legs, 3, 15),
-      at(loc.skin, 3, 18), at(loc.hair, 3, 21), at(loc.shoe, 3, 24), at(loc.lit, 2, 27),
+      at(loc.skin, 3, 18), at(loc.hair, 3, 21), at(loc.shoe, 3, 24), at(loc.lit, 2, 27), at(loc.mats, 1, 29),
     ], STRIDE * 64);
     // One advance per instance, not per vertex. The divisor is VAO state, so it is set once, here.
     gl.bindVertexArray(vao);
-    for (const l of [loc.pos, loc.clipA, loc.clipB, loc.coat, loc.legs, loc.skin, loc.hair, loc.shoe, loc.lit]) if (l >= 0) gl.vertexAttribDivisor(l, 1);
+    for (const l of [loc.pos, loc.clipA, loc.clipB, loc.coat, loc.legs, loc.skin, loc.hair, loc.shoe, loc.lit, loc.mats]) if (l >= 0) gl.vertexAttribDivisor(l, 1);
     gl.bindVertexArray(null);
     const tex = (unit, data) => {
       const t = gl.createTexture();
@@ -301,6 +394,8 @@ export function createActorLayer(gl) {
       data[o + 8] = Bc ? Bc.row0 : 0; data[o + 9] = Bc ? Bc.len : 1; data[o + 10] = r.ph2 || 0; data[o + 11] = Bc ? (r.mix || 0) : 0;
       c(o + 12, r.o.coat); c(o + 15, r.o.legs); c(o + 18, r.o.skin); c(o + 21, r.o.hair); c(o + 24, r.o.shoes);
       data[o + 27] = r.lum == null ? 1 : r.lum; data[o + 28] = r.a == null ? 1 : r.a;
+      const mt = r.o.mat;
+      data[o + 29] = mt ? (mt[0] & 7) + (mt[1] & 7) * 8 + (mt[2] & 7) * 64 : 0;
       M.n++; n++;
     }
     const r0 = recs[0];
@@ -322,6 +417,7 @@ export function createActorLayer(gl) {
     gl.uniform3f(loc.keyDir, key[0], key[1], key[2]);
     gl.uniformMatrix4fv(loc.view, false, viewMatrix(cam));
     gl.uniform1f(loc.look, ACTOR_LOOK.on ? 1 : 0);
+    gl.uniform1f(loc.matOn, ACTOR_LOOK.mat ? 1 : 0);
     gl.uniform1i(loc.posT, POS_UNIT);
     gl.uniform1i(loc.nrmT, NRM_UNIT);
     gl.enable(gl.DEPTH_TEST);
@@ -356,3 +452,5 @@ export function createActorLayer(gl) {
     get instances() { return n; },
   };
 }
+
+declareProgram(VERT, FRAG);
