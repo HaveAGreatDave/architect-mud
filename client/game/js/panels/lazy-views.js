@@ -26,12 +26,25 @@ function wireGlass() {
     .then(([glass, env]) => env.wireGlass(glass)).catch(() => {});
 }
 
+// ⚠ Only gl/install.js turns on GLASS's GL pass. cockpit.js runs it on import, and
+// while the cockpit was in the boot graph that covered every seat. Lazy, a boat, cab
+// or depot opened before any cockpit ran on the 2-D renderer, and the 3-D interior
+// only draws in GL, so the helm came up with no cockpit at all. It's awaited before
+// the view opens, so the first frame is already GL. If the install fails the view
+// stays on the 2-D renderer, as it does in windshield-lazy.js.
+let glInstall = null;
+function installGlass() {
+  return (glInstall ??= import('./gl/install.js')
+    .then((g) => { g.installGL(); })
+    .catch((e) => console.error('[lazy-views] GL install failed, staying on the 2-D renderer:', e?.message)));
+}
+
 function lazy(name, loader, { glass = true } = {}) {
   let mod = null, pending = null;
   return {
     get: () => mod,
     pending: () => (mod ? null : pending),
-    load: () => (pending ??= loader().then((m) => { mod = m; if (glass) wireGlass(); return m; }).catch((e) => {
+    load: () => (pending ??= loader().then(async (m) => { if (glass) { await installGlass(); wireGlass(); } mod = m; return m; }).catch((e) => {
       pending = null;   // let the next call retry
       console.error(`[lazy-views] ${name} failed to load:`, e);
       throw e;
