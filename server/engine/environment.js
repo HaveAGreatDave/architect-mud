@@ -49,7 +49,7 @@ const TICK_30M_MS = 30 * 60 * 1000;
 // outage so a very stale clock can't stall startup with day-by-day sims.
 const MAX_CATCHUP_DAYS = 30;
 
-const WEATHER_TYPES = ['clear','cloudy','overcast','rain','sleet','thunderstorm','storm','snow','blizzard','fog','haze','ash'];
+export const WEATHER_TYPES = ['clear','cloudy','overcast','rain','sleet','thunderstorm','storm','snow','blizzard','fog','haze','ash'];
 const PRECIP_FORECAST_TYPES = new Set(['rain','thunderstorm','storm','sleet','snow','blizzard']);
 
 // Intensity tables — mirrors plugins/clothing-wetness/index.js.
@@ -3197,7 +3197,7 @@ export async function devRecalculateForecast({ monthly_temp_c, monthly_precip_ch
   return payload;
 }
 
-export async function devOverrideWeather({ weatherType, tempC, precipChance }) {
+export async function devOverrideWeather({ weatherType, tempC, precipChance, windKph }) {
   const { query, broadcast, emitHook } = deps;
   if (!WEATHER_TYPES.includes(weatherType)) throw new Error(`Unknown weather type: ${weatherType}`);
   if (!state.weatherOverrideActive) {
@@ -3208,10 +3208,11 @@ export async function devOverrideWeather({ weatherType, tempC, precipChance }) {
   // tempC from the client is already offset-adjusted (getHUDPayload adds diurnalOffset).
   // Strip the offset before storing so the base value stays stable across applies.
   if (tempC !== undefined) state.tempC = Number(tempC) - diurnalOffset(state.minutes);
-  await query(`UPDATE weather_forecast SET weather_type = $1, temp_c = $2 WHERE forecast_day = 0`, [weatherType, state.tempC]);
+  const wind = windKph !== undefined && Number.isFinite(Number(windKph)) ? Math.max(0, Math.round(Number(windKph))) : null;
+  await query(`UPDATE weather_forecast SET weather_type = $1, temp_c = $2, wind_kph = COALESCE($3, wind_kph) WHERE forecast_day = 0`, [weatherType, state.tempC, wind]);
   await query(`UPDATE world_clock SET weather_override_active = TRUE, weather_override_backup = $1 WHERE id = 1`,
     [JSON.stringify(state.weatherOverrideBackup)]);
-  state.forecast[0] = { ...state.forecast[0], weatherType, tempC: state.tempC, ...(precipChance !== undefined ? { precipChance: Number(precipChance) } : {}) };
+  state.forecast[0] = { ...state.forecast[0], weatherType, tempC: state.tempC, ...(precipChance !== undefined ? { precipChance: Number(precipChance) } : {}), ...(wind !== null ? { windKph: wind } : {}) };
   // Roll current precip against the new precipChance, replacing whatever was active.
   rollAndSetCurrentPrecip(weatherType, state.tempC + diurnalOffset(state.minutes), Number(precipChance ?? state.forecast[0]?.precipChance ?? 0.05));
   // Re-seed the moving field to match the forced weather/intensity.
@@ -3382,6 +3383,35 @@ export function powerAnchorOf(zone) {
   return placed(facade) ? asAnchor(facade) : null;
 }
 
+// Point a set of zones at a generator and refresh their fixture counts: two
+// statements for the whole set. This used to be three awaited queries per zone,
+// which for a region's plant was hundreds of round trips to the remote DB.
+async function attachZonesToGenerator(zones, sourceType, generatorId, capacity) {
+  const byId = new Map();
+  for (const z of zones) if (z?.id) byId.set(z.id, z.name || z.id);   // ON CONFLICT can't touch a row twice
+  if (!byId.size) return;
+  const ids = [...byId.keys()];
+  const { query } = deps;
+  await query(
+    `INSERT INTO power_zones (id, name, source_type, generator_id, capacity_kw, current_load_kw, status)
+     SELECT z.id, z.name, $3, $4, $5, 0, 'powered' FROM unnest($1::text[], $2::text[]) AS z(id, name)
+     ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, source_type=EXCLUDED.source_type,
+       generator_id=EXCLUDED.generator_id, capacity_kw=EXCLUDED.capacity_kw`,
+    [ids, [...byId.values()], sourceType, generatorId, capacity]
+  );
+  await query(
+    `INSERT INTO lighting_states (zone_id, has_emergency_lighting, artificial_light_level, fixture_count, total_lumens)
+     SELECT z.id, 0, 0, COALESCE(f.cnt, 0), COALESCE(f.lm, 0)
+     FROM unnest($1::text[]) AS z(id)
+     LEFT JOIN (
+       SELECT zone_id, COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(lumen_output,0)),0)::int AS lm
+       FROM furniture WHERE zone_id = ANY($1) AND object_type='light' GROUP BY zone_id
+     ) f ON f.zone_id = z.id
+     ON CONFLICT (zone_id) DO UPDATE SET fixture_count=EXCLUDED.fixture_count, total_lumens=EXCLUDED.total_lumens`,
+    [ids]
+  );
+}
+
 export async function installGenerator({ zoneId, generatorType = 'junction_box', capacityKw, name, cityGeneratorId }) {
   markPowerTopologyDirty(); // writes power_zones/generators below
   const { query } = deps;
@@ -3476,23 +3506,11 @@ export async function installGenerator({ zoneId, generatorType = 'junction_box',
     [id, zoneId, genName, generatorType, capacity, cityGenId]
   );
 
-  for (const zid of networkZoneIds) {
-    const { rows: zRows } = await query('SELECT name FROM zones WHERE id=$1', [zid]);
-    const zName = zRows[0]?.name || zid;
-    await query(
-      `INSERT INTO power_zones (id, name, source_type, generator_id, capacity_kw, current_load_kw, status)
-       VALUES ($1,$2,$3,$4,$5,0,'powered')
-       ON CONFLICT (id) DO UPDATE SET name=$2, source_type=$3, generator_id=$4, capacity_kw=$5`,
-      [zid, zName, generatorType === 'city_plant' ? 'city_grid' : 'junction_box', id, capacity]
-    );
-    const { rows: fixtureRows } = await query(`SELECT COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(lumen_output,0)),0)::int AS lm FROM furniture WHERE zone_id=$1 AND object_type='light'`, [zid]);
-    await query(
-      `INSERT INTO lighting_states (zone_id, has_emergency_lighting, artificial_light_level, fixture_count, total_lumens)
-       VALUES ($1,0,0,$2,$3)
-       ON CONFLICT (zone_id) DO UPDATE SET fixture_count=$2, total_lumens=$3`,
-      [zid, fixtureRows[0]?.cnt || 0, fixtureRows[0]?.lm || 0]
-    );
-  }
+  const { rows: zRows } = await query('SELECT id, name FROM zones WHERE id = ANY($1)', [networkZoneIds]);
+  const nameOf = new Map(zRows.map((r) => [r.id, r.name]));
+  await attachZonesToGenerator(
+    networkZoneIds.map((zid) => ({ id: zid, name: nameOf.get(zid) || zid })),
+    generatorType === 'city_plant' ? 'city_grid' : 'junction_box', id, capacity);
 
   await recomputePower();
   return { id, zoneId, name: genName, generatorType, capacityKw: capacity, poweredZones: networkZoneIds };
@@ -3544,20 +3562,7 @@ export async function installRegionPlant({ regionId, zoneId = null, capacityKw, 
   );
 
   // city_grid power_zones for the region's outdoor tiles ONLY (the scoping fix).
-  for (const t of tiles) {
-    await query(
-      `INSERT INTO power_zones (id, name, source_type, generator_id, capacity_kw, current_load_kw, status)
-       VALUES ($1,$2,'city_grid',$3,$4,0,'powered')
-       ON CONFLICT (id) DO UPDATE SET name=$2, source_type='city_grid', generator_id=$3, capacity_kw=$4`,
-      [t.id, t.name || t.id, id, capacity]
-    );
-    const { rows: fx } = await query(`SELECT COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(lumen_output,0)),0)::int AS lm FROM furniture WHERE zone_id=$1 AND object_type='light'`, [t.id]);
-    await query(
-      `INSERT INTO lighting_states (zone_id, has_emergency_lighting, artificial_light_level, fixture_count, total_lumens)
-       VALUES ($1,0,0,$2,$3) ON CONFLICT (zone_id) DO UPDATE SET fixture_count=$2, total_lumens=$3`,
-      [t.id, fx[0]?.cnt || 0, fx[0]?.lm || 0]
-    );
-  }
+  await attachZonesToGenerator(tiles.map((t) => ({ id: t.id, name: t.name || t.id })), 'city_grid', id, capacity);
 
   // Re-point the region's building junction boxes to this plant: utility room →
   // parent facade → region_id. Their interior power still flows through the JB, but the
