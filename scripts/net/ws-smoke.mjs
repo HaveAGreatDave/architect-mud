@@ -21,11 +21,22 @@
 // do on demand. Hence a test rather than a manual check.
 import { setTimeout as sleep } from 'node:timers/promises';
 
-// The wrapper grows its backoff BEFORE arming the retry, so the first redial
-// lands at 1.5s, not 1s. Waiting 1.1s here is how the first draft of this test
+// The wrapper grows its backoff BEFORE arming the retry, so the first redial is
+// based on 1.5s, not 1s. Waiting 1.1s here is how the first draft of this test
 // managed to fail against correct code.
-const BACKOFF = 1700;
+//
+// ⚠ AND IT IS JITTERED, 0.75x to 1.25x (ws.js), so the first redial lands
+// anywhere from 1125 to 1875ms. This used to sleep a fixed 1700ms, which missed
+// the redial whenever the jitter rolled above ~1.13: about one run in four, on
+// any machine, and it read as CI load. So the test waits FOR the socket, up to
+// the latest the jitter allows plus a margin, and never guesses a time.
+const RETRY_MAX = 1500 * 1.25 + 400;
 const COLD_WAIT = 5300;
+async function waitForSocket(n, ms = RETRY_MAX) {
+	const until = Date.now() + ms;
+	while (SOCKETS.length < n && Date.now() < until) await sleep(20);
+	return SOCKETS[n - 1];
+}
 
 // ── A WebSocket that does what it's told ─────────────────────────────────────
 const SOCKETS = [];
@@ -83,8 +94,7 @@ function harness() {
 	a.open();
 	a.readyState = FakeSocket.CLOSED;
 	a.onclose();                       // the real close, handled normally
-	await sleep(BACKOFF);                 // let the 1s backoff dial socket B
-	const b = SOCKETS[1];
+	const b = await waitForSocket(2);  // the jittered backoff dials socket B
 	check('a retry dialled a second socket', !!b, `${SOCKETS.length} socket(s)`);
 	b?.open();
 	const before = log.length;
@@ -120,8 +130,7 @@ function harness() {
 	const { conn, log } = harness();
 	SOCKETS[0].open();
 	SOCKETS[0].die();
-	await sleep(BACKOFF);
-	SOCKETS[1]?.open();
+	(await waitForSocket(2))?.open();
 	const before = log.length;
 	await sleep(COLD_WAIT);
 	check('a reconnect inside the wait suppresses the overlay',
