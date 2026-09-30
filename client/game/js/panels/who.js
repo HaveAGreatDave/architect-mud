@@ -9,7 +9,11 @@ export async function openWhoModal() {
   document.getElementById('who-search').value = '';
   document.getElementById('who-list').innerHTML = '<div style="padding:16px;color:var(--text-dim);font-size:0.75rem">Loading…</div>';
   try {
-    const r = await fetch('/api/players/online');
+    // Staff have a token (set at login) and get each player's zone back; players
+    // don't, and get names only.
+    let token = null;
+    try { token = sessionStorage.getItem('devpanel-token'); } catch { /* storage blocked */ }
+    const r = await fetch('/api/players/online', token ? { headers: { Authorization: `Bearer ${token}` } } : undefined);
     const data = await r.json();
     const myHandle = document.getElementById('handle-display')?.textContent?.trim();
     _whoPlayers = Array.isArray(data) ? data.filter(p => p.handle !== myHandle) : [];

@@ -2381,7 +2381,9 @@ const AIRCRAFT_KIND = (r) => {
 };
 export const routeHandler = async (path, method, body, auth) => {
   if (!path.startsWith('/flight')) return null;
-  if (method !== 'GET' && !devOk(auth)) return { status: 403, body: { error: 'Dev access required' } };
+  // Every method, reads included: the aircraft list carries owner handles and
+  // parked zones, and /flight/debug runs a charter dump. Only the dev panel calls these.
+  if (!devOk(auth)) return { status: 403, body: { error: 'Dev access required' } };
   const parts = path.split('/').filter(Boolean);
   if (parts[1] === 'debug' && method === 'GET') return { status: 200, body: await charterDebug() };
 

@@ -41,7 +41,12 @@ function needsSsl(url) {
 // Single connection pool, reused across all requests
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: needsSsl(process.env.DATABASE_URL) ? { rejectUnauthorized: false } : false,
+  // The certificate is verified: Neon serves a publicly trusted one, and without
+  // the check the link would accept anyone who can sit between us and the DB.
+  // DB_SSL_NO_VERIFY=1 turns it off for a host with a self-signed certificate.
+  ssl: needsSsl(process.env.DATABASE_URL)
+    ? { rejectUnauthorized: process.env.DB_SSL_NO_VERIFY !== '1' }
+    : false,
   // Max simultaneous connections this process holds. Prod is Neon (the old
   // Supabase-pooler cap that forced 5 is gone): even Neon's smallest compute
   // allows ~112 connections, so 10 gives the game server real headroom — every

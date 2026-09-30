@@ -170,6 +170,7 @@ Incoming messages are dispatched by `type`:
 |---|---|---|
 | `auth` | `handleAuth()` | Validates credentials, builds the in-memory player object, sends room description |
 | `auth_token` | `handleAuthToken()` | Same, but for dev-panel account-switching via a one-time token |
+| `auth_remember` | `handleAuthRemember()` | Same, from a "remember me" token (`signRememberToken`, 30 days, revoked on a password change). Replies with a fresh `remember_token`. The client stores the token, never the password (`client/game/js/remember.js`) |
 | `command` | `handleGameCommand()` | Looks up the live player, calls `handleCommand()` in `commands.js` |
 | `dialogue` | `handleDialogue()` | Looks up NPC, resolves the chosen dialogue node, optionally grants items |
 | `ping` | inline | Responds with `pong`, also resets the socket liveness flag |

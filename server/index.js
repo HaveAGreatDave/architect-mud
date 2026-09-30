@@ -6,7 +6,7 @@ import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
 import { randomUUID } from "crypto";
 import { verifyAndUpgrade } from "./engine/passwords.js";
-import { loadAuthSecret, onRevoke, signToken } from "./engine/auth-tokens.js";
+import { loadAuthSecret, onRevoke, signToken, signRememberToken, verifyRememberToken } from "./engine/auth-tokens.js";
 
 import {
 	initWorld,
@@ -82,7 +82,7 @@ import { reloadAliases } from "./engine/commands/aliases.js";
 import { loadMutations, hydrateMutations, flushMutations } from "./engine/mutations.js";
 import { loadBanterLibrary } from "./engine/npc-banter.js";
 import { loadScriptTriggers } from "./engine/script-triggers.js";
-import { checkRateLimit, clientKey } from "./api/rate-limit.js";
+import { checkRateLimit, clientKey, accountLocked, noteFailedLogin } from "./api/rate-limit.js";
 import {
 	handleApiRequest,
 	AUTH_LIMITS,
@@ -397,6 +397,31 @@ function getAsset(filePath) {
 	return entry;
 }
 
+// Headers on every static file. nosniff stops a browser running a file as a
+// type it guessed; the referrer policy keeps full URLs off other sites. The CSP
+// is REPORT-ONLY: the page still has inline scripts, an inline onclick
+// ([spoiler]) and the analytics script, so enforcing it would break the client.
+// It logs what it would block in the browser console, which is the list to
+// clear before it can be enforced. Framing isn't restricted, because the game
+// may be embedded elsewhere.
+const STATIC_SECURITY_HEADERS = {
+	"X-Content-Type-Options": "nosniff",
+	"Referrer-Policy": "strict-origin-when-cross-origin",
+};
+const HTML_CSP_REPORT_ONLY = [
+	"default-src 'self'",
+	"script-src 'self' https://cloud.umami.is",
+	"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+	"font-src 'self' data: https://fonts.gstatic.com",
+	"img-src 'self' data: blob:",
+	"media-src 'self' data: blob:",
+	"connect-src 'self' ws: wss: https://cloud.umami.is https://api-gateway.umami.dev",
+	"worker-src 'self' blob:",
+	"frame-src https://discord.com",
+	"object-src 'none'",
+	"base-uri 'self'",
+].join("; ");
+
 const API_BODY_MAX = 5 * 1024 * 1024;   // bytes; dev-panel saves are the big ones
 const WS_MAX_PAYLOAD = 1024 * 1024;     // bytes; commands are tiny, macro syncs are not
 
@@ -523,35 +548,42 @@ const httpServer = createServer(async (req, res) => {
 		return;
 	}
 
+	// The path a static file is looked up by: the query string and fragment go (a
+	// cache-bust like /js/main.js?v=2 must still find main.js), and it is percent-
+	// decoded, so /a%20b.js finds "a b.js". A path that won't decode, or carries a
+	// NUL, is refused. Containment is still checked on the result, below.
+	let staticPath = url.split(/[?#]/)[0];
+	try { staticPath = decodeURIComponent(staticPath); } catch { res.writeHead(400); res.end("Bad request"); return; }
+	if (staticPath.includes("\0")) { res.writeHead(400); res.end("Bad request"); return; }
 	let filePath;
 	let fileRoot;
-	if (url === "/admin" || url === "/admin/") {
+	if (staticPath === "/admin" || staticPath === "/admin/") {
 		// Same app, same file — the client reads location.pathname and prunes
 		// itself to the ops panels. One HTML file means the two views can't drift.
 		fileRoot = join(__dirname, "../client/devpanel");
 		filePath = join(fileRoot, "index.html");
-	} else if (url.startsWith("/dev")) {
+	} else if (staticPath === "/dev" || staticPath.startsWith("/dev/")) {
 		fileRoot = join(__dirname, "../client/devpanel");
 		filePath = join(
 			fileRoot,
-			url === "/dev" || url === "/dev/"
+			staticPath === "/dev" || staticPath === "/dev/"
 				? "index.html"
-				: url.replace("/dev", ""),
+				: staticPath.slice("/dev".length),
 		);
-	} else if (url.startsWith("/shared/")) {
+	} else if (staticPath.startsWith("/shared/")) {
 		fileRoot = join(__dirname, "../client/shared");
 		filePath = join(
 			fileRoot,
-			url.slice("/shared/".length),
+			staticPath.slice("/shared/".length),
 		);
 	} else {
 		fileRoot = join(__dirname, "../client/game");
 		filePath = join(
 			fileRoot,
-			url === "/" ? "index.html" : url,
+			staticPath === "/" ? "index.html" : staticPath,
 		);
 	}
-	// ⚠ req.url is raw, so "/../../.env" joins to the repo root. Every static
+	// ⚠ The path is client-controlled, so "/../../.env" joins to the repo root. Every static
 	// path must stay under the folder its branch serves.
 	const rel = relative(fileRoot, filePath);
 	if (rel.startsWith("..") || isAbsolute(rel)) {
@@ -562,7 +594,7 @@ const httpServer = createServer(async (req, res) => {
 		// requests). A missing .js/.css file is a module-wiring bug — return a real
 		// 404 so the browser console shows a useful error instead of an HTML parse
 		// failure that silently breaks the module graph.
-		if (extname(url)) {
+		if (extname(staticPath)) {
 			res.writeHead(404);
 			res.end("Not found");
 			return;
@@ -610,6 +642,8 @@ const httpServer = createServer(async (req, res) => {
 			// to a client that never advertised support.
 			...(COMPRESSIBLE.has(ext) ? { "Vary": "Accept-Encoding" } : {}),
 			...(encoding ? { "Content-Encoding": encoding } : {}),
+			...STATIC_SECURITY_HEADERS,
+			...(ext === ".html" ? { "Content-Security-Policy-Report-Only": HTML_CSP_REPORT_ONLY } : {}),
 			...devPolicy,
 		});
 		res.end(body);
@@ -709,6 +743,7 @@ wss.on("connection", (ws, req) => {
 		if (!UNTHROTTLED_TYPES.has(msg.type) && !messageAllowed(session)) return;
 		if (msg.type === "auth") return handleAuth(ws, session, msg);
 		if (msg.type === "auth_token") return handleAuthToken(ws, session, msg);
+		if (msg.type === "auth_remember") return handleAuthRemember(ws, session, msg);
 		if (msg.type === "auth_reconnect")
 			return handleReconnect(ws, session, msg);
 		if (msg.type === "command") return handleGameCommand(ws, session, msg);
@@ -1136,6 +1171,10 @@ async function handleAuth(ws, session, msg) {
 		ws.send(JSON.stringify({ type: "auth_fail", message: "Too many attempts. Wait a few minutes and try again." }));
 		return;
 	}
+	if (accountLocked(msg.username)) {
+		ws.send(JSON.stringify({ type: "auth_fail", message: "Too many failed attempts on this account. Wait a few minutes and try again." }));
+		return;
+	}
 	const { rows } = await query("SELECT * FROM players WHERE username=$1", [
 		msg.username?.toLowerCase(),
 	]);
@@ -1144,6 +1183,7 @@ async function handleAuth(ws, session, msg) {
 	// WebSocket login that only VERIFIED the legacy format would leave the bulk
 	// of the table on unsalted sha256 for ever.
 	if (!rows.length || !(await verifyAndUpgrade(rows[0], msg.password))) {
+		noteFailedLogin(msg.username);
 		ws.send(
 			JSON.stringify({
 				type: "auth_fail",
@@ -1165,6 +1205,23 @@ async function handleAuth(ws, session, msg) {
 	// the screen simply remembering last time's — which is the difference between
 	// an order and a seed. See seedDisplayRungIfUnset / setDisplayRung.
 	await finishAuth(ws, session, rows[0], msg.displayRung, !!msg.displayRungExplicit);
+	// "Remember me": the client keeps this token, never the password.
+	if (msg.remember) ws.send(JSON.stringify({ type: "remember_token", token: signRememberToken(rows[0].id) }));
+}
+
+// Auto-login from a "remember me" token (see signRememberToken). Rate-limited
+// like a password login, although a forged token can't be guessed; each use
+// hands back a fresh token, so an active player stays signed in.
+async function handleAuthRemember(ws, session, msg) {
+	const gate = checkRateLimit("/auth/login", session.addrKey || "unknown", AUTH_LIMITS["/auth/login"]);
+	const playerId = gate.ok ? verifyRememberToken(msg.token) : null;
+	const { rows } = playerId ? await query("SELECT * FROM players WHERE id=$1", [playerId]) : { rows: [] };
+	if (!rows.length || (isEmailVerificationEnabled() && !rows[0].email_verified)) {
+		ws.send(JSON.stringify({ type: "auth_fail", message: "Your saved sign-in has expired. Please log in again.", rememberExpired: true }));
+		return;
+	}
+	await finishAuth(ws, session, rows[0], msg.displayRung, false);
+	ws.send(JSON.stringify({ type: "remember_token", token: signRememberToken(rows[0].id) }));
 }
 
 async function handleAuthToken(ws, session, msg) {

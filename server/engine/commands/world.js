@@ -18,6 +18,7 @@ import { statCost, raiseStat, RAISABLE_STATS, getNetXp, maxHpForEndurance } from
 import { ensureTunables } from '../tunables.js';
 import { physicalDescription, soilDescription, randomAppearance } from '../appearance.js';
 import { isMisActive } from '../mis.js';
+import { escapeHtml } from '../html.js';
 import { itemVerbs } from '../itemActions.js';
 import { logRender } from '../minigame.js';
 import { getHelpTopic, listHelpTopics } from '../help.js';
@@ -409,7 +410,8 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
   }
 
   const handle = target.handle;
-  const origin = target.origin_fragment || '';
+  // Player-written (the profile's origin line), and examine renders as HTML.
+  const origin = escapeHtml(target.origin_fragment || '');
   const mutated = target.visibly_mutated;
 
   const bodyPieces = BODY_SLOTS.filter(s => bySlot[s]).map(s =>

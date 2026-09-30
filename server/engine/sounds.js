@@ -1,6 +1,7 @@
 import { world, doorOnLink } from './world.js';
 import { allExits } from './exits.js';
 import { OPPOSITE } from './directions.js';
+import { escapeHtml } from './html.js';
 
 // Minimum intensity for a sound to be heard at a given distance.
 const HEAR_THRESHOLD = 0.5;
@@ -272,7 +273,7 @@ export function propagateYell(originZoneId, senderId, senderHandle, text, broadc
       // Others in origin zone hear the full yell; sender gets their own echo via command return.
       broadcastFn(zoneId, {
         type: 'output',
-        message: `<span class="speech-line yell">${senderHandle} yells, "${upped}"</span>`,
+        message: `<span class="speech-line yell">${escapeHtml(senderHandle)} yells, "${escapeHtml(upped)}"</span>`,
       }, senderId); // excludePlayerId — sender gets their own echo via command return
     } else {
       // Adjacent zones: muffled, some words dropped
@@ -280,7 +281,7 @@ export function propagateYell(originZoneId, senderId, senderHandle, text, broadc
       if (!muffled) continue;
       broadcastFn(zoneId, {
         type: 'output',
-        message: `<span class="speech-line distant">Somewhere nearby, someone yells, "${muffled}"</span>`,
+        message: `<span class="speech-line distant">Somewhere nearby, someone yells, "${escapeHtml(muffled)}"</span>`,
       });
     }
   }

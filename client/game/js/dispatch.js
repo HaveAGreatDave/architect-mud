@@ -1,4 +1,5 @@
 import { state } from './state.js';
+import { saveRememberToken, forgetRememberToken } from './remember.js';
 import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane, setPaneSilent, showSkyBanner, pointAtRoomTarget, setRoomBeacon, clearRoomBeacons, isAreaPaneVisible } from './render.js';
 import { sendCmd, sendCmdSilent, sendRaw, closeConnection, attemptAutoReauth, showVerifyScreen, rememberDisplayRung } from './net.js';
 import { setVerbs } from './complete.js';
@@ -445,7 +446,10 @@ const handlers = {
   // will not complete, and every one of them still works when typed in full.
   verbs: (msg) => setVerbs(msg.verbs),
 
+  // "Remember me": the server signs this browser a token after a remembered login.
+  remember_token: (msg) => { saveRememberToken(msg.token); },
   auth_fail: (msg) => {
+    if (msg.rememberExpired) forgetRememberToken();
     clearTimeout(state.authTimeout);
     state.authPending = false;
     state.player = null;

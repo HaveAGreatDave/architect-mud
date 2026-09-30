@@ -10046,7 +10046,9 @@ export const _test = {
 
 export const routeHandler = async (path, method, body, auth) => {
   if (!path.startsWith('/broadcast')) return null;
-  if (method !== 'GET' && !devOk(auth)) return { status: 403, body: { error: 'Dev access required' } };
+  // Reads too: these are raw table dumps (SELECT * FROM media_broadcasts) for the
+  // dev panel. The game gets broadcasts over the socket.
+  if (!devOk(auth)) return { status: 403, body: { error: 'Dev access required' } };
 
   const parts = path.split('/').filter(Boolean); // ['broadcast', resource, id?, sub?]
   const resource = parts[1];

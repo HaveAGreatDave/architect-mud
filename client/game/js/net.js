@@ -1,6 +1,7 @@
 import { connectWS } from '/shared/ws.js';
 import { state } from './state.js';
 import { appendMsg } from './render.js';
+import { autoLoginMessage, setRemember } from './remember.js';
 
 const WS_PROTOCOL = location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_URL = `${WS_PROTOCOL}//${location.host}`;
@@ -41,12 +42,9 @@ export function initNet(messageHandler) {
           sessionStorage.removeItem('game-switch-token');
           _connection.send({ type: 'auth_token', token: switchToken });
         } else if (!state.player) {
-          // Auto-login with remembered credentials
-          const username = localStorage.getItem('mud_remember_user');
-          const password = localStorage.getItem('mud_remember_pass');
-          if (username && password) {
-            _connection.send({ type: 'auth', username, password, displayRung: storedDisplayRung() });
-          }
+          // Auto-login with the remember-me token (remember.js)
+          const auto = autoLoginMessage(storedDisplayRung());
+          if (auto) _connection.send(auto);
         }
       }
     },
@@ -177,11 +175,10 @@ export function attemptAutoReauth() {
     _connection?.send({ type: 'auth_reconnect', token: reconnectToken });
     return;
   }
-  // Fall back to stored credentials if available
-  const username = localStorage.getItem('mud_remember_user');
-  const password = localStorage.getItem('mud_remember_pass');
-  if (username && password) {
-    _connection?.send({ type: 'auth', username, password });
+  // Fall back to the remember-me token if there is one
+  const auto = autoLoginMessage(storedDisplayRung());
+  if (auto) {
+    _connection?.send(auto);
     return;
   }
   // No credentials available — show auth screen so the user can log in manually
@@ -330,13 +327,9 @@ export function doAuth() {
   }
 
   const remember = document.getElementById('auth-remember').checked;
-  if (remember) {
-    localStorage.setItem('mud_remember_user', username);
-    localStorage.setItem('mud_remember_pass', password);
-  } else {
-    localStorage.removeItem('mud_remember_user');
-    localStorage.removeItem('mud_remember_pass');
-  }
+  // The server answers a remembered login with a token (remember_token in
+  // dispatch.js); the password itself is never stored.
+  setRemember(remember, username);
 
   // Ride the auth message rather than following it. A `displaymode` command sent
   // after auth_success loses the race: the prologue's `player.login` handler has
@@ -383,7 +376,7 @@ export function doAuth() {
           : 'Account created. Check your email for a verification link before logging in.');
         return;
       }
-      _connection.send({ type: 'auth', username, password, displayRung, displayRungExplicit });
+      _connection.send({ type: 'auth', username, password, remember, displayRung, displayRungExplicit });
     }).catch(err => {
       clearTimeout(state.authTimeout);
       state.authPending = false;
@@ -393,7 +386,7 @@ export function doAuth() {
       errEl.style.color = 'var(--red)';
     });
   } else {
-    _connection.send({ type: 'auth', username, password, displayRung, displayRungExplicit });
+    _connection.send({ type: 'auth', username, password, remember, displayRung, displayRungExplicit });
   }
 }
 

@@ -85,6 +85,7 @@ import { isHangarBayWalkActive } from "./panels/lazy-views.js";
 import { seatHoldsKeyboard } from "./panels/seat-keys.js";
 import { runBootScreen } from "./panels/bootscreen.js";
 import { installFpsMeter } from "./fps-meter.js";
+import { rememberedUser, hasAutoLogin, forgetRememberToken } from "./remember.js";
 installFpsMeter();   // F3: debug FPS counter + frame-time graph (fps-meter.js)
 
 // Started before anything else is wired, and deliberately NOT awaited: the POST
@@ -101,7 +102,11 @@ const _isTouch =
 	/Android|iPhone|iPad|iPod|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
 	(globalThis.matchMedia?.("(pointer: coarse)")?.matches ?? false);
 const _isMobile = () => _isTouch || window.innerWidth < 720;
-if (!localStorage.getItem(SETTINGS_KEY) && _isMobile()) {
+// Guarded: this runs at module top level, and where storage is blocked the
+// getter throws, which would stop main.js and the client would never boot.
+let _hasSavedSettings = false;
+try { _hasSavedSettings = !!localStorage.getItem(SETTINGS_KEY); } catch { /* storage blocked */ }
+if (!_hasSavedSettings && _isMobile()) {
 	settings.fontSize = "19";
 }
 // Display density (desktop/mobile layout) is not a player setting — it's fixed
@@ -451,14 +456,15 @@ setWhoModalHandler(openWhoModal);
 // available to whatever else owns them.
 setMinigameCommandHandler((cmd) => textBreachCommand(cmd) || textHololockCommand(cmd) || textVaultCommand(cmd) || textSignalCommand(cmd) || textFishingCommand(cmd) || textCalibrationCommand(cmd) || textNullCommand(cmd) || textDemolitionCommand(cmd) || textAlarmCommand(cmd));
 
-// Auth form — restore remembered credentials
-const _savedUser = localStorage.getItem("mud_remember_user");
-const _savedPass = localStorage.getItem("mud_remember_pass");
-if (_savedUser && _savedPass) {
+// Auth form: fill in the remembered name. The password is never stored
+// (remember.js); a remembered browser signs in with a token instead.
+const _savedUser = rememberedUser();
+if (_savedUser) {
 	document.getElementById("auth-username").value = _savedUser;
-	document.getElementById("auth-password").value = _savedPass;
 	document.getElementById("auth-remember").checked = true;
-	// Auto-login is in flight (see net.js onOpen) — hide the form to avoid a flash
+}
+if (hasAutoLogin()) {
+	// Auto-login is in flight (see net.js onOpen): hide the form to avoid a flash
 	document.getElementById("auth-screen").style.display = "none";
 }
 
@@ -742,6 +748,8 @@ window.addEventListener("glass:struggling", () => {
 function doSignout() {
 	// Flag to prevent auto-login on next page load
 	sessionStorage.setItem("signed-out", "1");
+	// Signing out forgets the saved login on this browser (the name stays in the form).
+	forgetRememberToken();
 	sessionStorage.removeItem("reconnect-token");
 	sessionStorage.removeItem("game-switch-token");
 	closeConnection();

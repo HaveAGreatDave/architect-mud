@@ -61,6 +61,32 @@ export function checkRateLimit(name, key, { limit, windowMs, globalLimit }) {
   return retryAfter == null ? { ok: true } : { ok: false, retryAfter };
 }
 
+// ── Per-account failed logins ──────────────────────────────────────────────────
+// The per-address bucket above is keyed on an address a caller can spoof, so on
+// its own it can't stop somebody guessing one account's password from a rotating
+// set of addresses. This counts FAILURES per username, so a real player who logs
+// in often is never limited, and it's shared by both login doors (HTTP and WS).
+// The cost: somebody can lock one account out for the rest of the window.
+const LOGIN_FAIL_LIMIT = 10;
+const LOGIN_FAIL_WINDOW_MS = 15 * 60_000;
+
+const failKey = (username) => `login-fail:${String(username || '').toLowerCase()}`;
+
+/** → seconds to wait when this account has too many recent failures, else null. */
+export function accountLocked(username) {
+  const now = Date.now();
+  const b = buckets.get(failKey(username));
+  if (!b || now >= b.resetAt || b.count < LOGIN_FAIL_LIMIT) return null;
+  return Math.max(1, Math.ceil((b.resetAt - now) / 1000));
+}
+
+export function noteFailedLogin(username) {
+  if (!username) return;
+  const now = Date.now();
+  sweep(now);
+  hit(failKey(username), LOGIN_FAIL_LIMIT, LOGIN_FAIL_WINDOW_MS, now);
+}
+
 // Tests only — the buckets are process-global and a suite that logs in twenty
 // times shouldn't poison the one that runs after it.
 export function resetRateLimits() {

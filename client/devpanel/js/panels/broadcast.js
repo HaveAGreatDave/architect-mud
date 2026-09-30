@@ -1178,11 +1178,9 @@ async function _bcImportChPickOccupied(zoneId, zoneName, el) {
 
   let info = null;
   try {
-    const r = await fetch('/api/broadcast/studio-info', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ exterior_zone_id: zoneId }),
-    });
-    if (r.ok) info = await r.json();
+    // directAPI sends the dev token (the route is dev-gated) and skips staging.
+    info = await directAPI('/broadcast/studio-info', 'POST', { exterior_zone_id: zoneId });
+    if (info?.error) info = null;
   } catch (_) {}
 
   let studioZoneId = null;

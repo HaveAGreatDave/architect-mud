@@ -93,6 +93,39 @@ function secret() {
 
 const mac = (payload) => createHmac('sha256', secret()).update(payload).digest('base64url');
 
+// ── "Remember me" tokens ──────────────────────────────────────────────────────
+// What the client keeps in localStorage instead of the player's password. Signed
+// under a separate domain ('remember:'), so one can never pass as an API token,
+// and it carries no role: logging in with it loads the player row fresh. It lives
+// 30 days and dies with the same revocation cutoff as everything else (a password
+// change), and each use hands back a new one, so an active player stays signed in.
+const REMEMBER_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const rememberMac = (body) => mac(`remember:${body}`);
+
+export function signRememberToken(playerId) {
+  const body = Buffer.from(`${playerId}:${Date.now()}`).toString('base64url');
+  return `${body}.${rememberMac(body)}`;
+}
+
+/** → playerId, or null when the token is forged, expired or revoked. */
+export function verifyRememberToken(raw) {
+  const token = String(raw || '').trim();
+  const dot = token.lastIndexOf('.');
+  if (dot < 1) return null;
+  const body = token.slice(0, dot);
+  const given = Buffer.from(token.slice(dot + 1));
+  const want = Buffer.from(rememberMac(body));
+  if (given.length !== want.length || !timingSafeEqual(given, want)) return null;
+  let playerId, issuedAt;
+  try { [playerId, issuedAt] = Buffer.from(body, 'base64url').toString().split(':'); } catch { return null; }
+  const issued = Number(issuedAt);
+  if (!playerId || !Number.isFinite(issued)) return null;
+  if (Date.now() - issued > REMEMBER_TTL_MS) return null;
+  const cutoff = _revokedBefore.get(playerId);
+  if (cutoff != null && issued < cutoff) return null;
+  return playerId;
+}
+
 export function signToken(playerId, role) {
   const body = Buffer.from(`${playerId}:${role}:${Date.now()}`).toString('base64url');
   return `${body}.${mac(body)}`;

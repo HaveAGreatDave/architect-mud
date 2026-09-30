@@ -11,6 +11,7 @@ import { getNpcChitchat } from '../npc-personality.js';
 import { fireHook } from '../plugins.js';
 import { emit } from '../events.js';
 import { findNpcTransformByName } from '../phantoms.js';
+import { escapeHtml } from '../html.js';
 
 async function cmdTalk(targetStr, player, broadcast) {
   if (!targetStr) return { type:'error', message:'Talk to whom?' };
@@ -226,7 +227,7 @@ function cmdYell(text, player, broadcast) {
   if (!text.trim()) return { type:'error', message:'Yell what?' };
   propagateYell(player.current_zone, player.id, player.handle, text.trim(), broadcast);
   emit('player.spoke', { player, zoneId: player.current_zone, loud: true });
-  return { type:'output', message:`<span class="speech-line">You yell, "${text.trim().toUpperCase()}"</span>` };
+  return { type:'output', message:`<span class="speech-line">You yell, "${escapeHtml(text.trim().toUpperCase())}"</span>` };
 }
 
 // IRC-style freeform emote: `me leans on the bar`, `/me` and `.me` too (the

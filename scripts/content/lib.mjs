@@ -86,7 +86,8 @@ export async function connectTarget({ prod = false, yes = false, purpose = 'oper
       if (answer.trim() !== host) throw new Error('Confirmation did not match — aborted.');
     }
   }
-  const client = new pg.Client({ connectionString: url, ssl: needsSsl(url) ? { rejectUnauthorized: false } : false });
+  // Certificate verified, as in server/models/db.js; DB_SSL_NO_VERIFY=1 opts out.
+  const client = new pg.Client({ connectionString: url, ssl: needsSsl(url) ? { rejectUnauthorized: process.env.DB_SSL_NO_VERIFY !== '1' } : false });
   await client.connect();
   if (prod) meterProdEgress(client, host, purpose);
   return { client, host, url };

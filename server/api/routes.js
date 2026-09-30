@@ -20,7 +20,7 @@ import { reloadItem, deleteItemCache, getItemCache } from '../engine/items-cache
 import { randomUUID, randomBytes } from 'crypto';
 import { hashPassword, verifyAndUpgrade } from '../engine/passwords.js';
 import { signToken, verifyToken, revokeTokensFor } from '../engine/auth-tokens.js';
-import { checkRateLimit, clientKey } from './rate-limit.js';
+import { checkRateLimit, clientKey, accountLocked, noteFailedLogin } from './rate-limit.js';
 import { readFileSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { CORE_SEAM_FILES, coreIntensityTier, gitAuthorKey } from '../engine/dev-history.js';
@@ -329,7 +329,9 @@ async function dispatchApiRequest(url, method, body, headers) {
       return { status:200, body:{ token } };
     });
   }
-  if (path==='/zones' && method==='GET') return apiGetZones();
+  // Full zone rows, flags included (secret rooms, puzzle state): dev only. The
+  // game client never reads these; it gets the world over the socket.
+  if (path==='/zones' && method==='GET') return requireDev(auth, apiGetZones);
   if (path==='/districts' && method==='GET') return apiGetDistricts();
   if (path==='/zones' && method==='POST') return requireDev(auth, ()=>apiCreateZone(body,auth));
   if (path==='/maps' && method==='GET') return requireDev(auth, apiGetMaps);
@@ -356,7 +358,7 @@ async function dispatchApiRequest(url, method, body, headers) {
   if (path.startsWith('/zones/') && path.endsWith('/tag')          && method==='PATCH') return requireDev(auth,  ()=>apiPatchZoneTag(_zoneIdSub(path),body));
   if (path.startsWith('/zones/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteZone(_zoneId(path)));
   if (path.startsWith('/zones/') && method==='PUT')    return requireDev(auth,   ()=>apiUpdateZone(_zoneId(path),body));
-  if (path.startsWith('/zones/') && method==='GET')    return apiGetZone(_zoneId(path));
+  if (path.startsWith('/zones/') && method==='GET')    return requireDev(auth, ()=>apiGetZone(_zoneId(path)));
   if (path==='/spawns' && method==='GET') return requireDev(auth, apiGetAllSpawns);
   if (path==='/spawns' && method==='POST') return requireDev(auth, ()=>apiCreateSpawn(body));
   if (path.startsWith('/spawns/') && method==='PUT')    return requireDev(auth, ()=>apiUpdateSpawn(path.split('/')[2],body));
@@ -517,7 +519,12 @@ async function dispatchApiRequest(url, method, body, headers) {
     const live = getAllLivePlayers().map(p => ({ id: p.id, handle: p.handle, role: p.role, current_zone: p.current_zone }));
     const liveIds = new Set(live.map(p => p.id));
     const devAdmins = getActiveDevAdmins().filter(a => !liveIds.has(a.id)).map(a => ({ id: a.id, handle: a.handle, role: a.role, current_zone: null }));
-    return { status: 200, body: [...live, ...devAdmins] };
+    const all = [...live, ...devAdmins];
+    // Players (who, the players panel, whisper) call this with no token and only
+    // need names. Where everyone is standing, and who is staff, is for staff:
+    // unauthenticated, this used to let anyone track any player.
+    if (['dev','admin','builder','designer'].includes(auth?.role)) return { status: 200, body: all };
+    return { status: 200, body: all.map(p => ({ id: p.id, handle: p.handle })) };
   }
   if (path==='/admin/presence' && method==='POST') {
     if (!auth) return { status:401, body:{error:'Unauthorized'} };
@@ -652,11 +659,16 @@ async function apiRegister(body) {
 async function apiLogin(body) {
   const {username,password} = body||{};
   if (!username||!password) return {status:400,body:{error:'username and password required'}};
+  const wait = accountLocked(username);
+  if (wait) return { status: 429, headers: { 'Retry-After': String(wait) }, body: { error: 'Too many failed attempts on this account. Wait a few minutes and try again.' } };
   const {rows} = await query('SELECT * FROM players WHERE username=$1',[username.toLowerCase()]);
   // verifyAndUpgrade, not a comparison: it accepts the old unsalted sha256 rows
   // and re-hashes them to scrypt on the way through, so accounts migrate as
   // their owners sign in rather than all at once.
-  if (!rows.length || !(await verifyAndUpgrade(rows[0], password))) return {status:401,body:{error:'Invalid credentials'}};
+  if (!rows.length || !(await verifyAndUpgrade(rows[0], password))) {
+    noteFailedLogin(username);
+    return {status:401,body:{error:'Invalid credentials'}};
+  }
   const p = rows[0];
   if (isEmailVerificationEnabled() && !p.email_verified) return {status:403,body:{error:'Please verify your email before logging in.',needsVerification:true}};
   fireHook('player.login', { id: p.id, handle: p.handle, role: p.role }).catch(() => {});
@@ -3041,7 +3053,9 @@ async function apiGotoPlayer(targetId, auth) {
 
 async function apiUpdateOwnProfile(auth, body) {
   if (!auth?.playerId) return {status:401,body:{error:'Not authenticated'}};
-  const text = (body?.origin_fragment ?? '').toString().trim().slice(0, 200);
+  // Markup characters are dropped at the door as well; examine also escapes on
+  // render, which covers rows written before this.
+  const text = (body?.origin_fragment ?? '').toString().replace(/[<>]/g, '').trim().slice(0, 200);
   await query('UPDATE players SET origin_fragment=$1 WHERE id=$2', [text || null, auth.playerId]);
   const live = getAllLivePlayers().find(p => p.id === auth.playerId);
   if (live) live.origin_fragment = text;
