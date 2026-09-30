@@ -738,6 +738,24 @@ const GROUND_FX = {
 };
 export function groundFx(kind) { const ae = AE(); const d = GROUND_FX[kind] || GROUND_FX.touchdown; try { ae?.init?.(); ae?.playSfx?.(d); } catch {} }
 
+// Engine sound for an occupant WALKING a walkable cabin (the Leviathan): they're in
+// a real MUD room, not on the cockpit HUD, so this drives only the engine loops.
+// It lives here, not in cockpit.js, so a passenger never has to download the
+// cockpit and GLASS to hear it (lazy-views.js). cockpit.cabinAudio adds the check
+// that the pilot's own view isn't already driving the bus.
+//
+// Forced to the 'cabin' perspective: whoever hears this is back in a room, so the
+// engines arrive muffled through the structure. The spool arc is a one-shot on an
+// edge, fired here rather than left to the steady-state loop, and the touchdown
+// chirp is the cue that the flight is over when you can't see out.
+export function playCabinAudio(s) {
+  const sp = s?.spool;
+  if (sp === 'up') { try { spoolUp(s.class); } catch {} }
+  else if (sp === 'down') { try { spoolDown(s.class); } catch {} }
+  if (s?.thump) { try { groundFx(s.thump); } catch {} }
+  updateEngineAudio({ ...(s || {}), perspective: 'cabin' });
+}
+
 const FLAP_FX = { config: { duration: 0.5, layers: [
   { waveform: 'sawtooth', freq: 210, tremolo: { rate: 34, depth: 0.55 }, filter: { type: 'bandpass', freq: 880, q: 2 }, adsr: { a: 0.03, d: 0.42, s: 0.5, r: 0.1 }, gain: 0.05 },
   { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1200, q: 1.5 }, adsr: { a: 0.03, d: 0.42, s: 0.4, r: 0.1 }, gain: 0.022 } ] } };

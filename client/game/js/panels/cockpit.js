@@ -16,7 +16,7 @@ import { setAreaPane } from '../render.js';
 import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
 import { updateBoatContacts, stopBoatContacts, KT_TO_MPH } from './boat-audio.js';
-import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, varioTick, gearFx, quackStart, visorFx, detentFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, missileRippleFx, flareFx, spraySfx, diveSiren } from './engine-audio.js';
+import { playCabinAudio, updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, varioTick, gearFx, quackStart, visorFx, detentFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, missileRippleFx, flareFx, spraySfx, diveSiren } from './engine-audio.js';
 import { drakeWaterFrame, judgeWaterTouchdown, seaRough, drakeFeetAnim, BOAT_MAX_KT, SUB_MAX_KT } from './drake-water.js';   // the Drake on the water: hull landings, boat and sub modes
 import { depthMAt } from './seabed-scene.js';
 // Metres of water the Drake needs under her to dive. The server's own figure is plugins/submersible/sub.js
@@ -307,21 +307,11 @@ export function closeCockpit() {
 // (idle/power/wind, throttle- and speed-reactive) without mounting any panel over the
 // room view. Fed the slim `cabin_audio` payload each flight tick; stopped by the
 // `cockpit_close` the landing/disembark flow already sends (closeCockpit → stopEngineAudio).
+// The body is playCabinAudio in engine-audio.js, so a passenger can hear it without
+// this module loaded (lazy-views.js).
 export function cabinAudio(s) {
   if (isFlightSimActive() || isCockpitHudActive()) return;   // the pilot's cockpit / an open window overlay already owns the bus
-  // Forced to the 'cabin' perspective: whoever is listening is back in a room, not at the controls,
-  // so the engines arrive muffled through the structure. Set here rather than trusted from the
-  // server payload, because this entry point is BY DEFINITION the walking-the-cabin one.
-  // The start-up / shut-down arc is a ONE-SHOT on an edge, so it's fired here and not left to the
-  // steady-state loop — you hear the engines spin up from the cabin the way the pilot does, just
-  // through a bulkhead.
-  const sp = s?.spool;
-  if (sp === 'up') { try { spoolUp(s.class); } catch {} }
-  else if (sp === 'down') { try { spoolDown(s.class); } catch {} }
-  // Wheels leaving / wheels arriving. The touchdown chirp is the single most legible cue that the
-  // flight is over when you can't see out — you feel the aeroplane arrive before anyone announces it.
-  if (s?.thump) { try { groundFx(s.thump); } catch {} }
-  updateEngineAudio({ ...(s || {}), perspective: 'cabin' });
+  playCabinAudio(s);
 }
 
 // ── The per-frame animation loop ──────────────────────────────────────────────

@@ -30,6 +30,7 @@ function lazy(name, loader, { glass = true } = {}) {
   let mod = null, pending = null;
   return {
     get: () => mod,
+    pending: () => (mod ? null : pending),
     load: () => (pending ??= loader().then((m) => { mod = m; if (glass) wireGlass(); return m; }).catch((e) => {
       pending = null;   // let the next call retry
       console.error(`[lazy-views] ${name} failed to load:`, e);
@@ -43,9 +44,17 @@ const call = (L, fn) => (...args) => {
   if (m) return m[fn](...args);
   L.load().then((mm) => mm[fn](...args)).catch(() => {});
 };
+// ⚠ While the module is still LOADING, the call is queued behind the load
+// rather than dropped: a close (or a helm/freelook update) that arrives between
+// an open and the module landing has to run after that open, or the view opens
+// anyway. It is a no-op only when nothing has asked for the module at all. The
+// caller gets the fallback either way, since the answer isn't known yet.
 const ifLoaded = (L, fn, fallback) => (...args) => {
   const m = L.get();
-  return m ? m[fn](...args) : fallback;
+  if (m) return m[fn](...args);
+  const p = L.pending();
+  if (p) p.then((mm) => mm[fn](...args)).catch(() => {});
+  return fallback;
 };
 
 const cockpit = lazy('cockpit', () => import('./cockpit.js'));
@@ -62,7 +71,15 @@ export const isFlightSimActive = ifLoaded(cockpit, 'isFlightSimActive', false);
 export const isCockpitHudActive = ifLoaded(cockpit, 'isCockpitHudActive', false);
 export const closeCockpit = ifLoaded(cockpit, 'closeCockpit');
 export const updateCockpit = call(cockpit, 'updateCockpit');
-export const cabinAudio = call(cockpit, 'cabinAudio');
+// Sent to walkable-cabin passengers whose HUD never opens, every flight tick, so
+// it must not download the cockpit (about 3 MB with GLASS). With the cockpit
+// loaded, its own cabinAudio checks the pilot's view isn't already driving the
+// bus; without it, no cockpit view can be open, so engine audio (28 KB) plays it.
+export function cabinAudio(s) {
+  const c = cockpit.get() || null;
+  if (c) return c.cabinAudio(s);
+  engineAudio.load().then((m) => m.playCabinAudio(s)).catch(() => {});
+}
 export const openTargeting = call(cockpit, 'openTargeting');
 export const openFlightSim = call(cockpit, 'openFlightSim');
 export const flightSimContext = call(cockpit, 'flightSimContext');
@@ -75,7 +92,7 @@ export const flightSimAirHit = call(cockpit, 'flightSimAirHit');
 export const flightSimKill = call(cockpit, 'flightSimKill');
 export const flightSimAaTracer = call(cockpit, 'flightSimAaTracer');
 export const flightSimAirThreat = call(cockpit, 'flightSimAirThreat');
-export const flightSimFireworks = call(cockpit, 'flightSimFireworks');
+export const flightSimFireworks = ifLoaded(cockpit, 'flightSimFireworks');   // sent to every airborne occupant
 export const flightSimLightning = call(cockpit, 'flightSimLightning');
 
 // cab-view.js
