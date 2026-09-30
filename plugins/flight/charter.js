@@ -21,6 +21,7 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
+import { adjustCredits } from '../../server/engine/economy.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { getZoneNpcs, getAllZones, getNpcsByFlag, moveNpcToZone } from '../../server/engine/world.js';
 import { regionalTiles } from '../../server/engine/commands/movement.js';
@@ -338,6 +339,9 @@ export async function cmdCharterBook(args, raw, player) {
   const fare = charterFare(field.grid_x, field.grid_y, dest.grid_x, dest.grid_y, anywhere);
   if ((player.credits || 0) < fare)
     return { type: 'emote', message: `That run runs <b>${fare}₵</b>. You're short. ${pilot.name} can't roll without the fare.` };
+  // Charge NOW (at booking), before the aircraft row exists, so a refused debit leaves nothing behind.
+  if (!(await adjustCredits(player, -fare, undefined, 'charter:fare')))
+    return { type: 'emote', message: `That run runs <b>${fare}₵</b>. You're short. ${pilot.name} can't roll without the fare.` };
 
   const destName = fieldName(dest);
   const acId = `aircraft_charter_${randomUUID().slice(0, 10)}`;
@@ -349,9 +353,7 @@ export async function cmdCharterBook(args, raw, player) {
   const live = await loadAircraft(acId);
   live.charter = true;
 
-  // Charge NOW (at booking). The pilot readies the machine and holds it on the ramp.
-  player.credits -= fare;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  // The fare was charged above. The pilot readies the machine and holds it on the ramp.
 
   const ch = {
     aircraftId: acId, typeId: t.id, class: t.class, pilotId: pilot.id, pilotName: pilot.name,
@@ -719,8 +721,7 @@ async function cancelCharter(ch, msg) {
   if (ch.paid > 0) {
     const payee = getLivePlayer(ch.playerId || ch.chartererId);
     if (payee) {
-      payee.credits = (payee.credits || 0) + ch.paid;
-      await query('UPDATE players SET credits=$1 WHERE id=$2', [payee.credits, payee.id]).catch(() => {});
+      await adjustCredits(payee, ch.paid, undefined, 'charter:refund');
       sendToPlayer(payee.id, { type: 'player_update', player: { credits: payee.credits } });
     }
     ch.paid = 0;

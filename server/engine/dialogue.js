@@ -334,6 +334,9 @@ export function renderTalkLog({ npcName, text, options, stage }) {
 const openFrames = new Map();   // playerId → { npcId, node, zone }
 on('player.logout', ({ id }) => { if (id) openFrames.delete(id); });
 
+/** The conversation is over: nothing more may be chosen from it. */
+export function clearDialogueFrame(playerId) { if (playerId) openFrames.delete(playerId); }
+
 /** Record a frame on its way to a player. Anything that isn't one is ignored. */
 // `zone` is where the player stood when it was sent: walking away ends it.
 export function noteDialogueFrame(playerId, message, zone = null) {
@@ -354,7 +357,13 @@ export async function checkDialogueChoice({ npc, player, choice, optionIndex, co
   if (open.zone && player.current_zone && open.zone !== player.current_zone) {
     return { ok: false, message: `You've walked away from ${npc.name}.` };
   }
-  if (choice === 'root') return { ok: true, prevNode: open.node };
+  // Back only, never with an option index: advanceDialogue runs the actions of
+  // the option at optionIndex, so {choice:'root', optionIndex:k} used to fire
+  // option k's rewards and land back on root, as often as the player liked.
+  if (choice === 'root') {
+    if (optionIndex != null) return { ok: false, message: 'That option is no longer there.' };
+    return { ok: true, prevNode: open.node };
+  }
   // The injected Browse option exists only where renderDialogueNode adds it: at
   // root, for a vendor with stock that isn't covert. Anywhere else a shop door is
   // an authored option and goes through the index check below like any other,

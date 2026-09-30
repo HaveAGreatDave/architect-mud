@@ -13,6 +13,7 @@ import { escAttr } from '../../server/engine/text.js';
 import { loggedPanelsSync } from '../../server/engine/presentation.js';
 import { textRender } from '../../server/engine/minigame.js';
 import { query } from '../../server/models/db.js';
+import { adjustCredits } from '../../server/engine/economy.js';
 import { getZone, getZonePlayers, getZoneNpcs, getZoneEnemies, getLivePlayer, getAllLivePlayers, spawnEnemySync, removeEnemyInstance, hasActivePlayers, world, insertFurniture, updateFurniture, deleteFurniture } from '../../server/engine/world.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 // Pathing, stepping and neighbour lookups all left with `huntStep` — the search is
@@ -2735,8 +2736,7 @@ async function cmdBribe(args, raw, player) {
   if (s.stars > 2) return { type: 'error', message: `${cop.name} won't touch a manhunt this hot. Bribes are for petty heat.` };
   const cost = s.stars * 250;
   if ((player.credits || 0) < cost) return { type: 'error', message: `${cop.name} wants ${cost}₵ to look the other way. You're short.` };
-  player.credits -= cost;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  if (!(await adjustCredits(player, -cost, undefined, 'wanted:bribe'))) return { type: 'error', message: `${cop.name} wants ${cost}₵ to look the other way. You're short.` };
   await setStars(player, s.stars - 1, `${cop.name} pockets ${cost}₵ and loses your file. ${starBar(Math.max(0, s.stars))}`);
   return { type: 'output', message: `You slip ${cop.name} ${cost}₵. They suddenly have somewhere else to be.`, player_update: { credits: player.credits } };
 }
@@ -2774,8 +2774,7 @@ async function cmdSubmit(args, raw, player) {
   if (!tags.length) return { type: 'error', message: `${cop.name} skims the footage and shrugs. "Nothing chargeable here. No bounty."` };
 
   const reward = 100 + 150 * tags.length;
-  player.credits = (player.credits || 0) + reward;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  await adjustCredits(player, reward, undefined, 'wanted:reward');
   await query('DELETE FROM player_inventory WHERE id=$1', [chip.inv_id]);
   // The evidence is now in police hands — the clip is spent. Reap its row, its
   // hidden clip broadcast, and the (now unheld) chip definition so submissions

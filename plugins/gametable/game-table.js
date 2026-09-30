@@ -7,6 +7,7 @@ import { query } from '../../server/models/db.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { emit } from '../../server/engine/events.js';
 import { getZonePlayers, getZoneNpcs } from '../../server/engine/world.js';
+import { syncLiveCredits } from './table-base.js';
 import { TableBase, activeTables } from './table-base.js';
 import { HoldemGame } from './games/holdem.js';
 import { renderPane } from './render-pane.js';
@@ -268,6 +269,7 @@ export class GameTable extends TableBase {
     } else if (chips > 0) {
       await query('UPDATE players SET credits = credits + $1 WHERE id = $2', [chips, playerId]);
       const { rows } = await query('SELECT credits FROM players WHERE id=$1', [playerId]);
+      if (rows.length) syncLiveCredits(playerId, rows[0].credits);
       if (rows.length) sendToPlayer(playerId, { type: 'player_update', credits: rows[0].credits });
       const net = chips - (seat.buyIn || 0);
       const msg = net > 0 ? `You leave the table up ₵ ${net.toLocaleString()}.`

@@ -12,6 +12,7 @@
 import { randomUUID } from 'crypto';
 import { logRender } from '../../server/engine/minigame.js';
 import { query } from '../../server/models/db.js';
+import { adjustCredits } from '../../server/engine/economy.js';
 import { getZoneFurniture, getZone, world, getOrg, getPlayerMembership } from '../../server/engine/world.js';
 import { isPluggedIn } from '../appliances/index.js';
 import { getGameDateTime } from '../../server/engine/environment.js';
@@ -457,8 +458,7 @@ async function cmdMint(args, raw, player, broadcast) {
     return { type: 'error', message: `You minted too recently. The Mint will take you again in ${days} day${days === 1 ? '' : 's'}.` };
   }
 
-  player.credits -= MINT_FEE;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  if (!(await adjustCredits(player, -MINT_FEE, undefined, 'cards:mint'))) return { type: 'error', message: `Minting costs ₵${MINT_FEE}. You have ₵${player.credits || 0}.` };
   const zone = getZone(player.current_zone);
   const struck = await insertCard(card, { zoneId: player.current_zone });
   await grant(player.id, struck.id);
@@ -597,8 +597,7 @@ async function cmdBuyPack(args, raw, player, broadcast) {
     return { type: 'error', message: `Coil ${slot} turns, catches, and gives you nothing. Try another.` };
   }
 
-  player.credits -= PACK_PRICE;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  if (!(await adjustCredits(player, -PACK_PRICE, undefined, 'cards:pack'))) return { type: 'error', message: `A sleeve is ₵${PACK_PRICE}. You have ₵${player.credits || 0}.` };
   await giveSleeve(player.id, { ...taken, machine: machine.name });
 
   broadcast(player.current_zone, { type: 'zone_event', message: `The ${machine.name} grinds, and drops an Architect Draft sleeve into its tray for ${player.handle}.` }, player.id);
@@ -764,8 +763,7 @@ async function cmdScrap(args, raw, player) {
     total += extra * SCRAP_VALUE;
     await query('UPDATE card_holdings SET qty=1 WHERE player_id=$1 AND card_id=$2', [player.id, r.card_id]);
   }
-  player.credits = (player.credits || 0) + total;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  await adjustCredits(player, total, undefined, 'cards:scrap');
   return { type: 'output', message: `The ${machine.name} eats ${rows.length} stack${rows.length === 1 ? '' : 's'} of duplicates and pays out <b>₵${total}</b>.` };
 }
 

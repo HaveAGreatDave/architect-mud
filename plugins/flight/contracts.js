@@ -787,8 +787,7 @@ export async function checkCargoDropDelivery(player, live, fieldZoneId) {
     const cd = live.row.custom_data || {};
     cd.cargoWeight = Math.max(0, (cd.cargoWeight || 0) - d.weight_kg);
     live.row.custom_data = cd; await persist(live);
-    player.credits = (player.credits || 0) + d.reward;
-    await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+    await adjustCredits(player, d.reward, undefined, 'flight:freight');
     out(player.id, `<span class="item-grant">${d.label} handed off to a courier here: it'll be waiting at home. Paid <b>${d.reward}₵</b>.</span>`);
   }
   if (!fence.length) return;

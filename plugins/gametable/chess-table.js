@@ -17,6 +17,7 @@
 import { query } from '../../server/models/db.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { world } from '../../server/engine/world.js';
+import { syncLiveCredits } from './table-base.js';
 import { emit } from '../../server/engine/events.js';
 import { TableBase } from './table-base.js';
 import { ChessGame, fromAlgebraic, toAlgebraic, generateMoves } from './games/chess.js';
@@ -224,6 +225,7 @@ export class ChessTable extends TableBase {
           return false;
         }
         const { rows } = await query('SELECT credits FROM players WHERE id=$1', [seat.playerId]);
+        if (rows.length) syncLiveCredits(seat.playerId, rows[0].credits);
         if (rows.length) sendToPlayer(seat.playerId, { type: 'player_update', credits: rows[0].credits });
       }
       seat.chips = stake;
@@ -394,6 +396,7 @@ export class ChessTable extends TableBase {
       }
       await query('UPDATE players SET credits = credits + $1 WHERE id = $2', [amount, seat.playerId]);
       const { rows } = await query('SELECT credits FROM players WHERE id=$1', [seat.playerId]);
+      if (rows.length) syncLiveCredits(seat.playerId, rows[0].credits);
       if (rows.length) sendToPlayer(seat.playerId, { type: 'player_update', credits: rows[0].credits });
       const net = amount - (seat.buyIn || 0);
       if (net > 0) {
@@ -446,6 +449,7 @@ export class ChessTable extends TableBase {
     if (!seat.isBot && seat.chips > 0) {
       await query('UPDATE players SET credits = credits + $1 WHERE id = $2', [seat.chips, playerId]);
       const { rows } = await query('SELECT credits FROM players WHERE id=$1', [playerId]);
+      if (rows.length) syncLiveCredits(playerId, rows[0].credits);
       if (rows.length) sendToPlayer(playerId, { type: 'player_update', credits: rows[0].credits });
     }
 

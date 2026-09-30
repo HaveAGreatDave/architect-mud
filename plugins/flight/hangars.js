@@ -6,6 +6,7 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
+import { adjustCredits } from '../../server/engine/economy.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { liveAircraft, persist, out, effStats, fieldFor as fieldOf,
   SEAT_KG, isConfigurable, loadoutBudget, effLoadout, sendToPlayer, skyState, inHangarInterior,
@@ -470,8 +471,7 @@ async function cmdPaintset(args, raw, player) {
   if (JSON.stringify(next) !== JSON.stringify(prev)) {
     const fee = paintCost({ class: ac.class });
     if ((player.credits || 0) < fee) { await pushHangarBay(player); return { type: 'emote', message: `A respray on the ${ac.tname} runs ${fee}₵. You're short.` }; }
-    player.credits -= fee;
-    await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+    if (!(await adjustCredits(player, -fee, undefined, 'hangar:respray'))) { await pushHangarBay(player); return { type: 'emote', message: `A respray on the ${ac.tname} runs ${fee}₵. You're short.` }; }
     await writeLivery(ac, next);
     sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
     out(player.id, `<span class="item-grant">The ${ac.tname} rolls out of the paint bay in fresh colours: ${fee}₵.</span>`);
@@ -545,8 +545,7 @@ async function applyLook(player, ac, look, label) {
   if (JSON.stringify(next) === JSON.stringify(prev)) { out(player.id, `She's already wearing ${label}.`); return null; }
   const fee = paintCost({ class: ac.class });
   if ((player.credits || 0) < fee) return { type: 'emote', message: `A respray on the ${ac.tname} runs ${fee}₵. You're short.` };
-  player.credits -= fee;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  if (!(await adjustCredits(player, -fee, undefined, 'hangar:respray'))) return { type: 'emote', message: `A respray on the ${ac.tname} runs ${fee}₵. You're short.` };
   await writeLivery(ac, next);
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   out(player.id, `<span class="item-grant">The ${ac.tname} rolls out of the paint bay in ${label}: ${fee}₵.</span>`);
@@ -635,8 +634,7 @@ async function cmdHangar(args, raw, player) {
     if (mine.length) return { type: 'emote', message: 'You already rent a hangar here.' };
     const cost = 200;
     if ((player.credits || 0) < cost) return { type: 'emote', message: `A hangar runs ${cost}₵/period. You're short.` };
-    player.credits -= cost;
-    await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+    if (!(await adjustCredits(player, -cost, undefined, 'hangar:rent'))) return { type: 'emote', message: `A hangar runs ${cost}₵/period. You're short.` };
     await query('INSERT INTO hangars (id,field_zone,name,owner_id,rent_paid_until,rent_per_period) VALUES ($1,$2,$3,$4,$5,$6)',
       [randomUUID(), field.id, `Bay ${Math.floor(Math.random() * 40 + 1)}`, player.id, nowSec() + 7 * 86400, cost]);
     return { type: 'output', message: `<span class="item-grant">Hangar rented. Your aircraft is safe behind a locked door here now: <b>hangar store</b> to put one away.</span>`, player_update: { credits: player.credits } };
@@ -690,8 +688,7 @@ async function cmdRepair(args, raw, player) {
   if (pro) {
     const cost = Math.ceil(ac.damage * ac.hull_hp * 15);   // ~2.5× DIY — you pay for certainty
     if ((player.credits || 0) < cost) return { type: 'emote', message: `The hangar wants ${cost}₵ for a full shop repair. You're short. (Or <b>repair</b> her yourself for less.)` };
-    player.credits -= cost;
-    await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+    if (!(await adjustCredits(player, -cost, undefined, 'hangar:repair'))) return { type: 'emote', message: `The hangar wants ${cost}₵ for a full shop repair. You're short. (Or <b>repair</b> her yourself for less.)` };
     await query("UPDATE aircraft SET damage=0, custom_data = COALESCE(custom_data,'{}'::jsonb) - 'surfaces' WHERE id=$1", [tgt.id]);
     if (tgt.live) { tgt.live.row.damage = 0; resetSurfaces(tgt.live.row); }
     return { type: 'output', message: `<span class="item-grant">The hangar's mechanics do it right: the ${ac.name} is back to 100% for ${cost}₵.</span>`, player_update: { credits: player.credits } };
@@ -701,10 +698,9 @@ async function cmdRepair(args, raw, player) {
   if ((player.credits || 0) < cost) return { type: 'emote', message: `Parts for a DIY repair run ~${cost}₵. You're short.` };
   const chk = await skillCheck(player, 'fabrication', 5);
   const fixed = chk.success ? ac.damage : ac.damage * 0.5;   // botch it and you only get half back
-  player.credits -= cost;
+  if (!(await adjustCredits(player, -cost, undefined, 'hangar:diy-repair'))) return { type: 'emote', message: `Parts for a DIY repair run ~${cost}₵. You're short.` };
   const newDmg = Math.max(0, ac.damage - fixed);
   const full = newDmg === 0;   // a full field fix reattaches structure; a botched partial leaves the wing hanging
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
   await query(`UPDATE aircraft SET damage=$1${full ? ", custom_data = COALESCE(custom_data,'{}'::jsonb) - 'surfaces'" : ''} WHERE id=$2`, [newDmg, tgt.id]);
   if (tgt.live) { tgt.live.row.damage = newDmg; if (full) resetSurfaces(tgt.live.row); }
   await awardSkillUse(player.id, 'fabrication', chk.margin);
@@ -719,8 +715,7 @@ async function cmdSalvage(args, raw, player) {
   if (!w) return { type: 'emote', message: "There's no wreck here to strip." };
   const chk = await skillCheck(player, 'scavenging', 5);
   const scrap = Math.ceil((w.price_buy || 400) * 0.05 * (chk.success ? 1.6 : 0.8));
-  player.credits = (player.credits || 0) + scrap;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  await adjustCredits(player, scrap, undefined, 'hangar:salvage');
   await awardSkillUse(player.id, 'scavenging', chk.margin);
   // Stripping guts the wreck: after it's picked over it can no longer be rebuilt.
   await query("UPDATE aircraft SET custom_data = jsonb_set(COALESCE(custom_data,'{}'), '{stripped}', 'true') WHERE id=$1", [w.id]);
@@ -757,8 +752,7 @@ async function cmdRebuild(args, raw, player) {
   // A rebuilt Carcass rolls a random real type.
   const { rows: types } = await query("SELECT id, name FROM aircraft_types WHERE class <> 'wreck' ORDER BY random() LIMIT 1");
   const rolled = types[0];
-  player.credits -= cost;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  if (!(await adjustCredits(player, -cost, undefined, 'hangar:rebuild'))) return { type: 'emote', message: `A rebuild runs ${cost}₵ in parts. You're short.` };
   await query("UPDATE aircraft SET is_wreck=0, damage=0.5, type_id=$1, owner_id=$2, engine_on=0, throttle=0, parked_zone_id=$3, custom_data = COALESCE(custom_data,'{}'::jsonb) - 'surfaces' WHERE id=$4",
     [rolled.id, player.id, field.id, w.id]);
   await awardSkillUse(player.id, 'fabrication', mech.margin);
@@ -835,8 +829,7 @@ async function cmdInstallKit(args, raw, player) {
   const kits = installedKits(cd);
   if (kits.includes(kitId)) { await pushHangarBay(player); return { type: 'emote', message: `The ${kit.name} is already fitted.` }; }
   if ((player.credits || 0) < kit.price) { await pushHangarBay(player); return { type: 'emote', message: `The ${kit.name} runs ${kit.price}₵. You're short.` }; }
-  player.credits -= kit.price;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  if (!(await adjustCredits(player, -kit.price, undefined, 'hangar:kit'))) { await pushHangarBay(player); return { type: 'emote', message: `The ${kit.name} runs ${kit.price}₵. You're short.` }; }
   cd.kits = [...kits, kitId];
   await saveCd(tgt, cd);
   await awardSkillUse(player.id, 'fabrication', 0);
@@ -922,8 +915,7 @@ async function cmdBuyPart(player, tgt, words) {
   if (!slotsFor(type).some(s => s.id === part.slot))
     return { type: 'emote', message: `The ${type.name} has no ${part.slot} slot: nowhere to hang it.` };
   if ((player.credits || 0) < part.price) return { type: 'emote', message: `The ${part.name} runs ${part.price}₵. You're short.` };
-  player.credits -= part.price;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  if (!(await adjustCredits(player, -part.price, undefined, 'hangar:part'))) return { type: 'emote', message: `The ${part.name} runs ${part.price}₵. You're short.` };
   await query('INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,1,1.0)',
     [randomUUID(), player.id, part.item]);
   emit('inventory.changed', { actor: player });
@@ -1187,8 +1179,7 @@ export async function sellAircraft(player, aircraftId) {
   if (live) liveAircraft.delete(aircraftId);
   await query('DELETE FROM aircraft WHERE id=$1', [aircraftId]);
   await query('DELETE FROM insurance_policies WHERE aircraft_id=$1', [aircraftId]);
-  player.credits = (player.credits || 0) + value;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  await adjustCredits(player, value, undefined, 'hangar:sell');
   return { type: 'output', message: `<span class="item-grant">Sold the ${clean(ac.tname)} for ${value}₵.</span>`, player_update: { credits: player.credits } };
 }
 

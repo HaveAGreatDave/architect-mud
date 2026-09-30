@@ -40,6 +40,7 @@ import { on, emit } from '../../server/engine/events.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { setPosture } from '../../server/engine/posture.js';
 import { query } from '../../server/models/db.js';
+import { adjustCredits } from '../../server/engine/economy.js';
 import { randomUUID } from 'crypto';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { prefersTextMinigamesOrDefault, prefersLoggedPanelsOrDefault } from '../../server/engine/presentation.js';
@@ -1037,8 +1038,7 @@ async function deliver(player, rig) {
   if (!job) return { type: 'noop' };
   rig.cargo = null;
   rig.speed = 0;
-  player.credits = (player.credits || 0) + job.pay;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+  await adjustCredits(player, job.pay, undefined, 'trucking:delivery');
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   pushCab(rig, { stopped: true });
   sendToPlayer(player.id, {
@@ -1092,9 +1092,8 @@ async function yardRent(player, bay, depot, typeArg) {
   if (have) return say(`You already have the ${have.type.name} out on hire. <span class="text-dim">Hand it back first: ${teachVerb('yard return', 'yard return')}.</span>`);
   const fee = rentFee(type);
   if ((player.credits || 0) < fee) return say(`The ${type.name} is ${fee}₵ for the day and you have ${player.credits || 0}₵.`);
-  player.credits -= fee;
+  if (!(await adjustCredits(player, -fee, undefined, 'trucking:rental'))) return say(`That's ${fee}₵ and you have ${player.credits || 0}₵.`);
   await makeRental(player.id, type.id, bay.id, fee);
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   await repush(player, 'fleet');
   return say(`<span class="item-grant">Hired: the ${type.name}, for ${RENT_TERM_MS / 3600000} hours. ${fee}₵.</span>\n`
@@ -1702,12 +1701,11 @@ async function yardBuy(player, here, depot, typeId, plate) {
   // tow bill attached. The ambiguity that rule was avoiding is answered where it arises now, by
   // `pickParked` and one prompt (see above), and only ever when there is something to be ambiguous
   // about.
-  player.credits -= type.price;
+  if (!(await adjustCredits(player, -type.price, undefined, 'trucking:buy-truck'))) return say(`That's ${type.price}₵ and you have ${player.credits || 0}₵.`);
   // It is bought INTO THE BAY, not onto the street: a truck you just paid for is inside, under a
   // roof, and `drive` is what brings it out. (The row's zone is the bay's, which is also what makes
   // the garage floor able to show it standing next to the rest of your fleet.)
   await buyTruck(player.id, key, here.id, plate);
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   await repush(player, 'fleet');
   return say(`<span class="item-grant">Bought: the ${type.name}${plate ? `, "${plate}"` : ''}. ${type.price}₵.</span>\n`
@@ -1749,9 +1747,8 @@ async function yardBuyTrailer(player, here, depot, t) {
   // the BOX. Repainting it afterwards is its own job: `yard paint`.
   const mine = await trucksAt(player.id, depotZonesOf(here, depot));
   const stamp = sanitizePaint({}, (mine[0]?.custom_data || {}).paint || {}).base;
-  player.credits -= t.price;
+  if (!(await adjustCredits(player, -t.price, undefined, 'trucking:buy-trailer'))) return say(`That's ${t.price}₵ and you have ${player.credits || 0}₵.`);
   await buyTrailer(player.id, t.id, outside?.id || here.id, pose, stamp);
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   // It is standing there NOW, so it is drawn from the next frame rather than from the next time
   // somebody happens to arrive in the zone — a driver already sitting in the cab is the commonest
@@ -1791,8 +1788,7 @@ async function yardSellTrailer(player, here, depot, id) {
     rig.trailer = null;
   }
   if (!await sellTrailer(box.id, player.id)) return say('Somebody is towing it.');
-  player.credits = (player.credits || 0) + value;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+  await adjustCredits(player, value, undefined, 'trucking:sell-trailer');
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   await Promise.all(zones.map(z => refreshStanding(z)));   // it stops being on the glass now, not on the next arrival
   await repush(player, 'fleet');
@@ -1823,8 +1819,7 @@ async function yardPaintTrailer(player, bay, depot, want, colour) {
   if (!/^#[0-9a-f]{6}$/.test(c)) return say(`A colour, like <span class="text-dim">#8e0f18</span>. <span class="text-dim">yard paint ${box.id} #8e0f18</span>`);
   if ((player.credits || 0) < BOX_PAINT_FEE) return say(`Painting a box is ${BOX_PAINT_FEE}₵ and you have ${player.credits || 0}₵.`);
   if (!await paintTrailer(box.id, player.id, c)) return say("That box isn't yours to paint.");
-  player.credits -= BOX_PAINT_FEE;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+  if (!(await adjustCredits(player, -BOX_PAINT_FEE, undefined, 'trucking:box-paint'))) return say(`That's ${BOX_PAINT_FEE}₵ and you have ${player.credits || 0}₵.`);
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   // It is standing there NOW, so it changes colour on the glass rather than the next time somebody
   // happens to arrive in the zone — see the same call in yardBuyTrailer.
@@ -1913,8 +1908,7 @@ async function yardRecall(player, here, id) {
   }
   const moved = await recoverTruckTo(t.id, player.id, t.depot_zone, here.id);
   if (!moved) return say('Somebody has already moved it.');
-  player.credits = (player.credits || 0) - fee;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+  await adjustCredits(player, -fee, undefined, 'trucking:recover');
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   await repush(player, 'fleet');
   return say(`<span class="text-green">A low-loader goes out for it.</span> <span class="text-dim">Some hours later the ${t.type.name} comes off the ramps `
@@ -1949,8 +1943,7 @@ async function yardSell(player, here, depot, id) {
   const onPin = await trailerOnTruck(t.id);
   if (onPin) await dropTrailer(onPin.id, t.depot_zone, null);
   await sellTruck(t.id, player.id);
-  player.credits = (player.credits || 0) + value;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+  await adjustCredits(player, value, undefined, 'trucking:sell-truck');
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   // It is standing here NOW — the same argument the trailer sale makes two functions up. Without
   // this the box arrives on the glass whenever somebody next happens to walk into the zone.
@@ -2059,9 +2052,8 @@ async function marketBuy(player, rig, here, region, good, qtyArg) {
       : `The trailer takes ${capacityFor(key, deckKg)} of those. <span class="text-dim">market buy ${key} full</span>`);
   }
   const cost = qty * unit;
-  player.credits -= cost;
+  if (!(await adjustCredits(player, -cost, undefined, 'trucking:market-buy'))) return say(`That's ${cost}₵ and you have ${player.credits || 0}₵.`);
   await setDeckCargo(player, deck, { kind: 'goods', key, name: c.name, qty, kg: qty * c.kg, unitPaid: unit }, 'market');
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   return say(`<span class="item-grant">Loaded ${qty} × ${c.name} at ${unit}₵: <b>${cost}₵</b> gone. ${qty * c.kg} kg on the deck.</span>`);
 }
@@ -2076,10 +2068,9 @@ async function marketSell(player, rig, here, region) {
   const take = deck.cargo.qty * unit;
   const spent = deck.cargo.qty * deck.cargo.unitPaid;
   const profit = take - spent;
-  player.credits = (player.credits || 0) + take;
+  await adjustCredits(player, take, undefined, 'trucking:market-sell');
   const sold = deck.cargo;
   await setDeckCargo(player, deck, null, 'market');
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   const verdict = profit > 0
     ? `<span class="item-grant">Cleared <b>${profit}₵</b> on the run.</span>`
@@ -2164,8 +2155,7 @@ async function pumpParked(player, want = '') {
   // Fuel first, money second, exactly as the cab path does it: a failed write must never bill for a
   // fill that did not happen.
   await setFuel(truck.id, player.id, Math.min(1, (truck.fuel ?? 1) + take));
-  player.credits -= cost;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+  await adjustCredits(player, -cost, undefined, 'trucking:fuel');
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   await repush(player, 'fleet');
 
@@ -2209,10 +2199,9 @@ async function pumpFuel(player, want, { typed }) {
   const { take, cost } = pumpClamp(player.credits, rig.fuel, Number.isFinite(want) ? want : room);
   if (take < 0.01) return say(`You can't cover so much as a splash. Diesel is ${FUEL_FULL}₵ a tank.`);
 
-  player.credits -= cost;
+  if (!(await adjustCredits(player, -cost, undefined, 'trucking:fuel'))) return say(`That's ${cost}₵ and you have ${player.credits || 0}₵.`);
   rig.fuel = Math.min(1, rig.fuel + take);
   rig.dry = false; rig.dryTold = false; rig.warnedLow = false;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   // `extra` forces the push past the once-a-second floor: the gauge has to move on the same beat
   // the credits do, or the driver watches their money go and their needle sit still.
@@ -2886,8 +2875,7 @@ async function cmdTow(args, raw, player) {
     [homeId, canPay ? 0 : fee, truck.id, player.id]
   ).catch(() => {});
   if (canPay) {
-    player.credits = (player.credits || 0) - fee;
-    await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+    await adjustCredits(player, -fee, undefined, 'trucking:tow');
     sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   }
 
@@ -3691,14 +3679,12 @@ async function cmdDropoff(args, raw, player) {
     extra = `<span class="item-grant">He takes you off the road at a place you would have driven straight past, and you come back onto it a good way further along with more in the tank than the distance says you should have.</span>`;
   } else if (who.id === 'chancer') {
     const purse = 120 + Math.round((rig.travelled || 0) / 4);
-    player.credits = (player.credits || 0) + purse;
-    await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+    await adjustCredits(player, purse, undefined, 'trucking:hitcher');
     sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
     extra = `<span class="item-grant">They count it out on the seat before they go. ${purse}₵.</span>`;
   } else if (who.id === 'fugitive') {
     const purse = 400;
-    player.credits = (player.credits || 0) + purse;
-    await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+    await adjustCredits(player, purse, undefined, 'trucking:hitcher');
     sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
     extra = `<span class="item-grant">They put ${purse}₵ on the seat, and they're gone off the shoulder before you have picked it up.</span>`;
   }

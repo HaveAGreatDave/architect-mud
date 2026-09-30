@@ -34,6 +34,7 @@ import { sendToPlayer } from '../../server/engine/messaging.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { skillCheck } from '../../server/engine/skills.js';
 import { query } from '../../server/models/db.js';
+import { adjustCredits } from '../../server/engine/economy.js';
 import { declaredKg, actualKg, stashKg } from './trailers.js';
 import { getCrimeStars } from '../../server/engine/crimes.js';
 
@@ -263,8 +264,7 @@ export async function customsAnswer(player, rig, what) {
     if (rig.trailer) { rig.trailer.stash = null; await saveStash(rig.trailer.id, null); }
     const fined = i.fine && (player.credits || 0) >= i.fine ? i.fine : Math.min(i.fine, player.credits || 0);
     if (fined) {
-      player.credits = (player.credits || 0) - fined;
-      await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+      await adjustCredits(player, -fined, undefined, 'trucking:customs-fine');
       sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
     }
     return { type: 'emote', message:
@@ -284,8 +284,7 @@ export async function customsAnswer(player, rig, what) {
       return { type: 'emote', message: `You reach for it and there isn't enough there. It would take about ${ask}₵ to make this go away, and you don't have it. <span class="text-dim">customs open · customs bolt</span>` };
     }
     const ok = (await skillCheck(player, 'deception', 6)).success;
-    player.credits -= ask;
-    await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+    if (!(await adjustCredits(player, -ask, undefined, 'trucking:customs-bribe'))) return { type: 'emote', message: `You reach for it and there isn't enough there. It would take about ${ask}₵ to make this go away, and you don't have it. <span class="text-dim">customs open · customs bolt</span>` };
     sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
     if (ok) {
       return { type: 'emote', message:
@@ -362,8 +361,7 @@ export async function releaseImpound(player, truckRow) {
   if ((player.credits || 0) < fee) {
     return { released: false, type: 'emote', message: `The lot wants <b>${fee}₵</b> to release it and you have ${player.credits || 0}₵. It isn't going anywhere until that changes.` };
   }
-  player.credits -= fee;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+  if (!(await adjustCredits(player, -fee, undefined, 'trucking:impound'))) return { released: false, type: 'emote', message: `The lot wants <b>${fee}₵</b> to release it and you have ${player.credits || 0}₵. It isn't going anywhere until that changes.` };
   await query('UPDATE trucks SET impound_fee = NULL WHERE id = $1', [truckRow.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   return { released: true, type: 'emote', message:

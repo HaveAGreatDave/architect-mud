@@ -36,6 +36,7 @@
  */
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
+import { adjustCredits } from '../../server/engine/economy.js';
 import { getZoneFurniture } from '../../server/engine/world.js';
 import { getItem } from '../../server/engine/items-cache.js';
 import { getGameDateTime } from '../../server/engine/environment.js';
@@ -193,8 +194,7 @@ async function cmdBorrow(args, raw, player) {
   }
 
   const day = today();
-  player.credits -= RENTAL_FEE;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  if (!(await adjustCredits(player, -RENTAL_FEE, undefined, 'videostore:rent'))) return { type: 'error', message: `It's ₵${RENTAL_FEE} to take one out. You have ₵${player.credits || 0}.` };
   await query(
     'INSERT INTO tape_rentals (id, player_id, item_id, furniture_id, taken_day, due_day) VALUES ($1,$2,$3,$4,$5,$6)',
     [randomUUID(), player.id, id, wall.id, day, day + LOAN_DAYS]
@@ -251,8 +251,7 @@ async function cmdReturn(args, raw, player) {
   const shortfall = fee - paid;
 
   if (paid) {
-    player.credits = credits - paid;
-    await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+    await adjustCredits(player, -paid, undefined, 'videostore:late-fee');
   }
   await query('UPDATE tape_rentals SET returned_day=$1, debt=$2 WHERE id=$3', [day, shortfall, row.id]);
 
@@ -289,8 +288,7 @@ async function cmdSettle(args, raw, player) {
     return { type: 'error', message: `You owe ₵${debt} and you have ₵${player.credits || 0}. He waits, and keeps waiting.` };
   }
 
-  player.credits -= debt;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  if (!(await adjustCredits(player, -debt, undefined, 'videostore:debt'))) return { type: 'error', message: `You owe ₵${debt} and you have ₵${player.credits || 0}. He waits, and keeps waiting.` };
   await query('UPDATE tape_rentals SET debt=0 WHERE player_id=$1 AND debt > 0', [player.id]);
 
   return {

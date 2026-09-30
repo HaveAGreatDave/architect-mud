@@ -8,6 +8,7 @@
 // re-checking both the buyer's funds and that the seller still holds the goods.
 // Handing a controlled substance is `drug_dealing` — we emit `item.given` on the
 // SELLER at accept, so the surveillance witness-roll charges the dealer as usual.
+import { escapeHtml } from '../../server/engine/html.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { withTransaction, query } from '../../server/models/db.js';
 import { getZonePlayers, getLivePlayer } from '../../server/engine/world.js';
@@ -79,7 +80,7 @@ async function cmdPeddle(args, raw, player) {
   if (px < lo || px > hi) return { type: 'error', message: `A fair price for the ${row.name} (potency ${Math.round(potency * 100)}%) is <b>₵${lo}–₵${hi}</b>. No gouging, no dumping.` };
 
   clearOffer(buyer.id);
-  const nm = cd.name || row.name;
+  const nm = escapeHtml(cd.name || row.name);   // a player-named item (a splice) is player text
   const timer = setTimeout(() => {
     const o = pendingDeal.get(buyer.id);
     if (!o || o.sellerId !== player.id) return;
@@ -128,7 +129,7 @@ async function cmdAcceptDeal(args, raw, player) {
 
   // The hand-off: charges the SELLER with dealing (witness-rolled by surveillance).
   emit('item.given', { actor: seller, item: { item_id: offer.itemId } });
-  const nm = offer.cd?.name || offer.itemName;
+  const nm = escapeHtml(offer.cd?.name || offer.itemName);
   sendToPlayer(seller.id, { type: 'output', message: `<span class="msg-system">${player.handle} takes the ${nm}: ₵${offer.price} in your pocket. (Balance: ₵${seller.credits})</span>` });
   return { type: 'output', message: `You palm the ${nm} from ${seller.handle} for ₵${offer.price}. (Balance: ₵${player.credits})`, player_update: { credits: player.credits } };
 }

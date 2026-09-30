@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { join, dirname } from 'path';
 import { query } from '../../server/models/db.js';
+import { adjustCredits } from '../../server/engine/economy.js';
 import { adjustSanity } from '../../server/engine/condition.js';
 import { getLivePlayer, getAllLivePlayers, getZone, getMinimapData, insertFurniture, updateFurnitureWhere } from '../../server/engine/world.js';
 import { autoResolvePower, recalcZoneLoad, syncZoneLighting, getZonePowerStatus, devTriggerWeatherEvent } from '../../server/engine/environment.js';
@@ -151,8 +152,7 @@ async function cmdMakeItRain(args, raw, player, broadcast) {
   // of the economy that need a balance to see at all. Put the ['admin', 'dev']
   // role check back before launch.
   const GRANT = 100000;
-  player.credits = (player.credits || 0) + GRANT;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  await adjustCredits(player, GRANT, undefined, 'dev:makeitrain');
   if (broadcast) {
     broadcast(player.current_zone, {
       type: 'zone_event',

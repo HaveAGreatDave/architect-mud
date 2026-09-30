@@ -32,6 +32,7 @@
 // stamped `custom_data.roadtest` and deleted the moment the ride ends — plus a sweep at boot, so a
 // server that died mid-lesson does not leave school rigs standing in yards for ever.
 import { query } from '../../server/models/db.js';
+import { adjustCredits } from '../../server/engine/economy.js';
 import { on } from '../../server/engine/events.js';
 import { sendToPlayer, teachVerb } from '../../server/engine/messaging.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
@@ -183,8 +184,7 @@ export async function roadTestPark(player, rig) {
 
 async function pass(player, ride) {
   await setFlag('player', LICENSE_FLAG, '1', player).catch(() => {});
-  player.credits = (player.credits || 0) + PURSE;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+  await adjustCredits(player, PURSE, undefined, 'trucking:roadtest');
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   // The dents ARE the report card, and they are the only mark anybody gives you: a first lesson with
   // nothing bent is worth saying out loud, and one with a mirror missing is worth not making a fuss

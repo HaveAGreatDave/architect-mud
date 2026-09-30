@@ -15,6 +15,7 @@
 // forward by the time it spent inside on the way out. No hook, no tick, and the preservation plugin
 // never learns this box exists.
 import { query } from '../../server/models/db.js';
+import { adjustCredits } from '../../server/engine/economy.js';
 import { fireHook } from '../../server/engine/plugins.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { liveAircraft } from './state.js';
@@ -266,12 +267,11 @@ function makeCmd(store) {
         return { type: 'info', message: `A refit takes the ${S.label} to ${nx.cap} slots and ${nx.grams / 1000} kg for ₵${cost}. <span class="text-dim">(${store} upgrade confirm)</span>` };
       }
       if ((player.credits || 0) < cost) return { type: 'error', message: `The refit is ₵${cost}. You have ₵${player.credits || 0}.` };
-      player.credits -= cost;
+      if (!(await adjustCredits(player, -cost, undefined, 'drake:refit'))) return { type: 'error', message: `The refit is ₵${cost}. You have ₵${player.credits || 0}.` };
       const cd = { ...(live.row.custom_data || {}) };
       cd.stores = { ...(cd.stores || {}), [store]: t + 1 };
       live.row.custom_data = cd;
       await Promise.all([
-        query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]),
         query('UPDATE aircraft SET custom_data=$1 WHERE id=$2', [JSON.stringify(cd), live.row.id]),
       ]);
       const L = limits(live, store);

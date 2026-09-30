@@ -23,6 +23,15 @@
 import { query } from '../../server/models/db.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { getLivePlayer, getZoneNpcs, world, updateNpc } from '../../server/engine/world.js';
+
+// ⚠ Keep the live player in step with the DB. Other code writes the balance
+// back from memory (SET credits=$1 with player.credits), so a DB-only change
+// here left memory stale and the next such write undid it: a buy-in refunded
+// itself, winnings vanished.
+export function syncLiveCredits(playerId, credits) {
+  const live = getLivePlayer(playerId);
+  if (live && Number.isFinite(Number(credits))) live.credits = Number(credits);
+}
 import { moveEntity } from '../../server/engine/ai-behaviour.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 
@@ -120,12 +129,13 @@ export class TableBase {
     if (buyIn > 0) {
       if ((player.credits || 0) < buyIn) return { ok: false, error: `You need at least ₵ ${buyIn} to join.` };
 
-      // Deduct credits
-      const { rowCount } = await query(
-        'UPDATE players SET credits = credits - $1 WHERE id = $2 AND credits >= $1',
+      // Deduct credits, and keep the live balance in step (see syncLiveCredits).
+      const { rowCount, rows: paid } = await query(
+        'UPDATE players SET credits = credits - $1 WHERE id = $2 AND credits >= $1 RETURNING credits',
         [buyIn, player.id]
       );
       if (!rowCount) return { ok: false, error: `You need at least ₵ ${buyIn} to join.` };
+      player.credits = paid[0].credits;
     }
 
     // Assign seat

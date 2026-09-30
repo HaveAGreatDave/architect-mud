@@ -48,7 +48,11 @@ async function stealFrom(target, player, broadcast) {
 		target.credits,
 		Math.ceil(target.credits * (0.1 + Math.random() * 0.2)),
 	);
-	await adjustCredits(target, -amount, undefined, 'thievery:steal');
+	// Only pay out what was actually taken: if the victim's guarded debit fails
+	// (their live balance was ahead of the DB), the thief used to be paid anyway.
+	if (amount <= 0 || !(await adjustCredits(target, -amount, undefined, 'thievery:steal'))) {
+		return { type: "error", message: `You go through ${target.handle}'s pockets. Nothing worth taking.` };
+	}
 	await adjustCredits(player, amount, undefined, 'thievery:steal');
 	return {
 		type: "steal",

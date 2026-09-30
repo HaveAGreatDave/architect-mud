@@ -52,6 +52,7 @@
  *   BUYORDER  — standing offers to buy, funded from the till, so people can sell
  *               INTO the shop when nobody's home.
  */
+import { escapeHtml } from '../../server/engine/html.js';
 import { randomUUID } from 'crypto';
 import { textRender } from '../../server/engine/minigame.js';
 import { query, withTransaction } from '../../server/models/db.js';
@@ -384,7 +385,9 @@ function waresBoard(zone, deed, listings) {
     // ("beef and potato stew") and the band it was cooked to. Listing every one
     // as "plated dish" would hide the entire quality system at the only moment
     // it decides whether the price is fair.
-    const shown = cd.name || l.name;
+    // Escaped: a player-named item (a splice) can carry markup into every
+    // visitor's look, in the element and in the data-raw-cmd attribute.
+    const shown = escapeHtml(cd.name || l.name);
     const band = cd.cook_quality ? ` <span class="text-dim">(${cd.cook_quality})</span>` : '';
     const state = l.freshness ? ` <span class="text-dim">${l.freshness}</span>` : '';
     return `  <span class="action-link" data-raw-cmd="buyware ${shown}" title="Buy ${shown}">${shown}</span>${band}` +

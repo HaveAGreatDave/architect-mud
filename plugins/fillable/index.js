@@ -16,6 +16,7 @@
  */
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
+import { adjustCredits } from '../../server/engine/economy.js';
 import { tagValue } from '../../server/engine/tags.js';
 import { resolveInventoryItem, burnCharge } from '../../server/engine/inventory.js';
 import { applyThirst } from '../../server/engine/bodily.js';
@@ -219,8 +220,7 @@ async function fill(args, raw, player) {
 
   // The money moves AFTER the fluid, so a failed write cannot bill for a fill that did not happen.
   if (charged > 0) {
-    player.credits -= charged;
-    await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+    await adjustCredits(player, -charged, undefined, 'fillable:fill');
   }
 
   const flavour = fluidType === DRUG_CARRIER

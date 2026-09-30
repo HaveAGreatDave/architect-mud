@@ -59,7 +59,32 @@ function fmStall1g(p) {
   return null;
 }
 
-export default async function regress({ run, check, getPlayer }) {
+// Credits are read from the DB now (every change goes through adjustCredits),
+// so a test that wants the player to hold a balance has to put it in the DB as
+// well as in memory. The harness player has no players row, so setBalance
+// creates one when it's missing and the wrapper below removes it again.
+let _balanceRowCreated = false;
+async function setBalance(p, n) {
+  const { rows } = await query('SELECT 1 FROM players WHERE id=$1', [p.id]);
+  if (rows.length) await query('UPDATE players SET credits=$2 WHERE id=$1', [p.id, n]);
+  else {
+    await query("INSERT INTO players (id, username, password_hash, handle, credits) VALUES ($1,$1,'x',$1,$2)", [p.id, n]);
+    _balanceRowCreated = true;
+  }
+  p.credits = n;
+}
+async function dropBalanceRow(p) {
+  if (!_balanceRowCreated || !p?.id) return;
+  _balanceRowCreated = false;
+  await query('DELETE FROM players WHERE id=$1', [p.id]).catch(() => {});
+}
+
+export default async function regress(ctx) {
+  try { return await regressBody(ctx); }
+  finally { await dropBalanceRow(ctx.getPlayer?.()); }
+}
+
+async function regressBody({ run, check, getPlayer }) {
   const p = getPlayer();
 
   // ── Flight model: the stall is an ANGLE OF ATTACK event ─────────────────────
@@ -741,6 +766,7 @@ export default async function regress({ run, check, getPlayer }) {
       `INSERT INTO aircraft (id,type_id,name,owner_id,rental,is_wreck,airborne,damage) VALUES ($1,$2,'REGR-01',$3,0,0,0,0.2)`,
       [soldId, acType.id, p.id]
     );
+    await setBalance(p, p.credits || 0);
     const before = p.credits || 0;
     let sr = await sellAircraft(p, soldId);
     check('sellAircraft pays out and reports the aircraft', sr?.type === 'output' && /Sold/.test(sr.message || ''), JSON.stringify(sr));
@@ -796,7 +822,7 @@ export default async function regress({ run, check, getPlayer }) {
     await query(`INSERT INTO aircraft (id,type_id,name,owner_id,rental,is_wreck,airborne) VALUES ($1,'ac_drake','REGR-LV1',$2,0,0,0)`, [lvId, p.id]);
     const savedCredits = p.credits;
     try {
-      p.credits = 100000;
+      await setBalance(p, 100000);
       const load = async () => (await query("SELECT a.id, a.custom_data, t.class, t.name tname FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.id=$1", [lvId])).rows[0];
       const ac = await load();
       check('an unpainted Drake reads as her default set', normalizeLivery(ac.custom_data, ac.class).pattern === 'factory');
@@ -809,7 +835,7 @@ export default async function regress({ run, check, getPlayer }) {
       check('…and paints the whole set on (exterior scheme, cockpit, plate)', lv.variant === 'quackhawk' && lv.itrim === 'quackhawk' && lv.plate === 'QUACKHAWK DOWN', JSON.stringify(lv));
       await _liveryTest.applyLook(p, after, liveryFromSet(set), set.name);
       check('wearing the set she already has costs nothing', p.credits === 100000 - fee, `credits=${p.credits}`);
-      p.credits = 0;
+      await setBalance(p, 0);
       const refused = await _liveryTest.applyLook(p, after, liveryFromSet(liveryById('aircraft', 'drake', 'darkwing')), 'Darkwing');
       check('a pilot who cannot pay is refused and nothing is painted', /short/i.test(refused?.message || '') && normalizeLivery((await load()).custom_data, 'drake').variant === 'quackhawk', refused?.message);
     } finally {

@@ -5,6 +5,7 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
+import { adjustCredits } from '../../server/engine/economy.js';
 import { getZone, liveAircraft, persist, pushHud, sendToPlayer, REFUEL_PRICE_PER_UNIT, effStats, partDefs, partEnvelope, fieldFor as fieldOf, inHangarInterior, rentalOpFee, vtolOnlyField, acquirableTypes, airfieldOf, fieldName } from './state.js';
 import { allExits } from '../../server/engine/exits.js';
 import { getMinimapData, addPlayerToZone, removePlayerFromZone } from '../../server/engine/world.js';
@@ -124,8 +125,7 @@ async function acquire(args, raw, player, kind) {
     ? 'You already own the most aircraft you can. Sell or scrap one before buying another.'
     : "You've got too many aircraft out as it is. Return or scrap one first." };
 
-  player.credits -= price;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  if (!(await adjustCredits(player, -price, undefined, 'flight:acquire'))) return { type: 'emote', message: `That's ${price}₵. You're short.` };
 
   const id = `aircraft_${kind}_${player.id.slice(0, 6)}_${randomUUID().slice(0, 8)}`;
   const tailNum = `${kind === 'buy' ? '' : 'R-'}${(player.handle || 'PLT').slice(0, 3).toUpperCase()}${Math.floor(Math.random() * 900 + 100)}`;
@@ -180,10 +180,9 @@ export async function refuelAt(args, raw, player) {
   const want = Number.isFinite(asked) ? Math.min(need, Math.max(0, asked)) : need;
   const cost = Math.ceil(want * REFUEL_PRICE_PER_UNIT);
   if ((player.credits || 0) < cost) return { type: 'emote', message: `Fuel runs ${REFUEL_PRICE_PER_UNIT}₵/unit. You can't cover ${cost}₵.` };
-  player.credits -= cost;
+  if (!(await adjustCredits(player, -cost, undefined, 'flight:refuel'))) return { type: 'emote', message: `Fuel runs ${REFUEL_PRICE_PER_UNIT}₵/unit. You can't cover ${cost}₵.` };
   live.row.fuel = Math.min(cap, live.row.fuel + want);
   live.starving = false;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
   await persist(live);
   pushHud(live);
   return { type: 'output', message: `You pump ${Math.round(want)} units of ${live.type.fuel_type} for ${cost}₵. Tank: ${Math.round(live.row.fuel)}/${Math.round(cap)}.`,
@@ -215,8 +214,7 @@ export async function refuelParked(player, craftId) {
   if (need <= 0.5) return { type: 'emote', message: `The ${a.tname}'s tank is already full.` };
   const cost = Math.ceil(need * REFUEL_PRICE_PER_UNIT);
   if ((player.credits || 0) < cost) return { type: 'emote', message: `Topping her off is ${cost}₵. You're short.` };
-  player.credits -= cost;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  if (!(await adjustCredits(player, -cost, undefined, 'flight:refuel'))) return { type: 'emote', message: `Topping her off is ${cost}₵. You're short.` };
   const live = liveAircraft.get(craftId);
   if (live) { live.row.fuel = cap; live.starving = false; await persist(live); }
   else await query('UPDATE aircraft SET fuel=$1 WHERE id=$2', [cap, craftId]);

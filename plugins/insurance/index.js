@@ -11,6 +11,7 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
+import { adjustCredits } from '../../server/engine/economy.js';
 import { getZone, getLivePlayer, airfieldOf } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
@@ -121,8 +122,7 @@ async function cmdInsure(args, raw, player) {
   const premium = quotePremium(value, paid);
   if ((player.credits || 0) < premium) return { type: 'emote', message: `The premium on the ${craft.tname} is ${premium}₵, and you're short. Halcyon doesn't do instalments.` };
 
-  player.credits -= premium;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  if (!(await adjustCredits(player, -premium, undefined, 'insurance:premium'))) return { type: 'emote', message: `The premium on the ${craft.tname} is ${premium}₵, and you're short. Halcyon doesn't do instalments.` };
   const expires = nowSec() + PERIOD_SEC;
   if (craft.policy_id) {
     await query('UPDATE insurance_policies SET insured_value=$1, premium_paid=$2, expires_at=$3 WHERE id=$4', [value, premium, expires, craft.policy_id]);
@@ -150,8 +150,7 @@ async function cmdClaim(args, raw, player) {
   const c = want ? rows.find(r => r.id === want || r.id.endsWith(want) || (r.type_name || '').toLowerCase().includes(want)) : rows[0];
   if (!c) return { type: 'emote', message: `No open claim matches "${want}". Type <b>claim</b> to list them.` };
 
-  player.credits = (player.credits || 0) + c.payout;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  await adjustCredits(player, c.payout, undefined, 'insurance:payout');
   await query("UPDATE insurance_claims SET status='paid', paid_at=$1 WHERE id=$2", [nowSec(), c.id]);
   // The insurer keeps the wreck: mark it written-off so the ex-owner can't also rebuild it.
   if (c.aircraft_id) await query("UPDATE aircraft SET custom_data = jsonb_set(COALESCE(custom_data,'{}'), '{stripped}', 'true') WHERE id=$1", [c.aircraft_id]);
@@ -182,8 +181,7 @@ async function cmdInsureBind(args, raw, player) {
   const value = craft.price_buy;
   const premium = quotePremium(value, paid);
   if ((player.credits || 0) < premium) return { type: 'emote', message: `Cover on the ${craft.tname} runs ${premium}₵, and you're short right now. She'll fly uninsured; bind it later at the Halcyon desk.` };
-  player.credits -= premium;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  if (!(await adjustCredits(player, -premium, undefined, 'insurance:premium'))) return { type: 'emote', message: `Cover on the ${craft.tname} runs ${premium}₵, and you're short right now. She'll fly uninsured; bind it later at the Halcyon desk.` };
   await query('INSERT INTO insurance_policies (id, owner_id, aircraft_id, insured_value, premium_paid, expires_at, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
     [`pol_${randomUUID().slice(0, 10)}`, player.id, craft.id, value, premium, nowSec() + PERIOD_SEC, nowSec()]);
   const { deductible, payout } = settlement(value);

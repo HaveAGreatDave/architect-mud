@@ -10,6 +10,7 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
+import { adjustCredits } from '../../server/engine/economy.js';
 import { effectiveSkill, awardSkillUse, skillCheck } from '../../server/engine/skills.js';
 import { grantSkillIp } from '../../server/engine/ip.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
@@ -1043,8 +1044,7 @@ async function retrieveOffField(live, player, { abort = false } = {}) {
   const home = nearestAirfield(live.row.grid_x, live.row.grid_y, { needsRunway: !craftIsVtol(live) });   // a helipad is only a tow destination for something that can operate off one
   const fee = Math.max(120, Math.round((live.type.price_buy || 400) * 0.05));
   const paid = Math.min(player.credits || 0, fee);
-  player.credits = Math.max(0, (player.credits || 0) - fee);
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  if (paid > 0) await adjustCredits(player, -paid, undefined, 'flight:tow');
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   const where = spot?.name || 'open country';
   // No airfield in the world to tow to (shouldn't happen) — just leave her parked where she sits.
@@ -1549,8 +1549,7 @@ async function billRental(live) {
   if (!renter) return;   // renter offline — skip this window (no debt modelled)
   const fee = rentalOpFee(live.type);
   const pay = Math.min(fee, renter.credits || 0);
-  renter.credits = (renter.credits || 0) - pay;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [renter.credits, renter.id]);
+  if (pay > 0) await adjustCredits(renter, -pay, undefined, 'flight:rental');
   sendToPlayer(renter.id, { type: 'player_update', credits: renter.credits });
   out(renter.id, `<span class="text-amber">⏱ Rental meter: <b>${fee}₵</b> for the last half-hour aloft (gas &amp; upkeep).${pay < fee ? ' <span class="text-red">You couldn\'t cover it: the desk will settle up when you return her.</span>' : ''} Balance ${renter.credits}₵.</span>`);
 }

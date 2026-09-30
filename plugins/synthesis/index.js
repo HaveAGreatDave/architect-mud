@@ -521,7 +521,10 @@ async function cmdSplicePreview(args, raw, player) {
 async function cmdSpliceBegin(args, raw, player, broadcast) {
   let payload;
   try { payload = JSON.parse(Buffer.from(args[0] || '', 'base64').toString('utf8')); } catch { return { type: 'error', message: 'Malformed splice payload.' }; }
-  const name = String(payload.name || '').slice(0, 40).trim() || null;
+  // A splice name becomes the item's name, which other players see on shop
+  // boards and in deals, and those render HTML: markup characters are dropped
+  // here, as recipe names drop them (cooking/recipes.js dishName).
+  const name = String(payload.name || '').replace(/[<>&"`]/g, '').slice(0, 40).trim() || null;
   const cache = getDrugCache();
   const inputs = buildInputs(payload, cache);
   if (!inputs || inputs.length < 2) return { type: 'error', message: 'Pick a base drug and a splice drug.' };

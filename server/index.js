@@ -72,7 +72,7 @@ import { emit } from "./engine/events.js";
 import { getNetXp, maxHpForEndurance, maxStaminaForEndurance } from "./engine/ip.js";
 // Side-effect imports: register the Flag store and graph-engine Actions
 // (SET_FLAG, CLEAR_FLAG, GRANT_ITEM, TELEPORT, EXECUTE_SCRIPT, …) at boot.
-import { advanceDialogue, renderTalkLog, setLogTalk, endLogTalk, noteDialogueFrame, checkDialogueChoice } from "./engine/dialogue.js";
+import { advanceDialogue, renderTalkLog, setLogTalk, endLogTalk, noteDialogueFrame, checkDialogueChoice, clearDialogueFrame } from "./engine/dialogue.js";
 import "./engine/graph.js";
 import { loadRecipes } from "./engine/crafting.js";
 import { loadDrugs, clearActiveDrugBuffs } from "./engine/drugs.js";
@@ -1868,6 +1868,7 @@ async function handleDialogue(ws, session, msg) {
 	// would let a crafted message fire any node's rewards from anywhere.
 	const check = await checkDialogueChoice({ npc, player, choice: msg.choice, optionIndex: msg.optionIndex, context: { broadcast, npc } });
 	if (!check.ok) {
+		clearDialogueFrame(session.playerId);
 		ws.send(JSON.stringify({ type: "dialogue_end", message: check.message }));
 		return;
 	}
@@ -1893,6 +1894,7 @@ async function handleDialogue(ws, session, msg) {
 	}
 	if (step.type === "end") {
 		endLogTalk(session.playerId);
+		clearDialogueFrame(session.playerId);   // over: nothing more may be chosen from it
 		ws.send(JSON.stringify({ type: "dialogue_end", message: step.message }));
 		return;
 	}

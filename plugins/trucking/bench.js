@@ -39,6 +39,7 @@ import { FITTINGS, FIT_IDS, SLOTS, installedFits, fitInSlot, priceFor } from './
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
 import { query } from '../../server/models/db.js';
+import { adjustCredits } from '../../server/engine/economy.js';
 import { randomUUID } from 'crypto';
 import { HITCH_MPH } from '../../client/game/js/panels/flight-model.js';
 import { trucksAt, getTruck, setCondition, saveTruckData, setFuel } from './fleet.js';
@@ -196,8 +197,7 @@ async function rigParts(player, what) {
   }
   const spec = PART_ITEMS[part], cost = PART_PRICE[part];
   if ((player.credits || 0) < cost) return say(`${cap(spec.label)} is <b>${cost}₵</b>. <span class="text-dim">You have ${player.credits || 0}₵.</span>`);
-  player.credits -= cost;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+  if (!(await adjustCredits(player, -cost, undefined, 'trucking:part'))) return say(`That's ${cost}₵ and you have ${player.credits || 0}₵.`);
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   const owner = spec.carry ? player.id : GROUND(player.current_zone);
   const { rows } = await query('SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 LIMIT 1', [owner, spec.item]);
@@ -217,8 +217,7 @@ async function rigSpares(player, nArg) {
   if ((player.credits || 0) < cost) {
     return say(`A box of spares is <b>${SPARES_PRICE}₵</b>. <span class="text-dim">You have ${player.credits || 0}₵.</span>`);
   }
-  player.credits -= cost;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+  if (!(await adjustCredits(player, -cost, undefined, 'trucking:spares'))) return say(`That's ${cost}₵ and you have ${player.credits || 0}₵.`);
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   const have = await sparesInHand(player);
   if (have) await query('UPDATE player_inventory SET quantity = quantity + $1 WHERE id=$2', [n, have.id]);
@@ -352,8 +351,7 @@ async function rigFit(player, truck, cd, arg) {
   cd.fits = [...installedFits(cd).filter((k) => FITTINGS[k].slot !== f.slot), id];
   await saveTruckData(truck.id, player.id, cd);
   if (cost) {
-    player.credits -= cost;
-    await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+    if (!(await adjustCredits(player, -cost, undefined, 'trucking:fitting'))) return say(`That's ${cost}₵ and you have ${player.credits || 0}₵.`);
     sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   }
   // THE LIVE RIG TOO, for the same reason the wash zeroes it: the suffix is assembled from the bag,
@@ -473,8 +471,7 @@ async function rigCab(player, truck, cd, args) {
   cd.cab = [...installedTrinkets(cd).filter((k) => TRINKETS[k].slot !== t.slot), id];
   await saveTruckData(truck.id, player.id, cd);
   if (cost) {
-    player.credits -= cost;
-    await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+    if (!(await adjustCredits(player, -cost, undefined, 'trucking:trailer'))) return say(`That's ${cost}₵ and you have ${player.credits || 0}₵.`);
     sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   }
   const live = rigOf(player);
@@ -560,8 +557,7 @@ async function rigWash(player, truck, cd) {
   // just paid to have cleaned. The row and the rig are the same truck and must agree.
   const live = rigOf(player);
   if (live?.truckId === truck.id) live.grime = 0;
-  player.credits -= cost;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+  if (!(await adjustCredits(player, -cost, undefined, 'trucking:wash'))) return say(`That's ${cost}₵ and you have ${player.credits || 0}₵.`);
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   await repush(player, 'bench');
   return say(`<span class="item-grant">Hot water and a long brush, and ${cost}₵ of somebody's afternoon. `
@@ -592,7 +588,7 @@ async function rigRepair(player, truck, cd, mode, part) {
     return say(`That is ${cost}₵ of parts and labour and you have ${player.credits || 0}₵.`);
   }
   await consumeParts(player, dmg, PARTS);
-  player.credits -= cost;
+  await adjustCredits(player, -cost, undefined, 'trucking:repair');
   let to, note = '';
   if (pro) {
     to = 1;
@@ -613,7 +609,6 @@ async function rigRepair(player, truck, cd, mode, part) {
   cd.dmg = dmg;
   await saveTruckData(truck.id, player.id, cd);
   await setCondition(truck.id, player.id, overall(dmg));
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   await repush(player, 'bench');
   const band = bandOf(overall(dmg));
@@ -638,7 +633,7 @@ async function rigRepairPart(player, truck, cd, dmg, part, pro) {
   const cost = partCost(truck.type, dmg, part, pro);
   if ((player.credits || 0) < cost) return say(`That is ${cost}₵ of parts and labour and you have ${player.credits || 0}₵.`);
   await consumeParts(player, dmg, [part]);
-  player.credits -= cost;
+  if (!(await adjustCredits(player, -cost, undefined, 'trucking:repair'))) return say(`That's ${cost}₵ and you have ${player.credits || 0}₵.`);
   let to, note = '';
   if (pro) to = 1;
   else {
@@ -651,7 +646,6 @@ async function rigRepairPart(player, truck, cd, dmg, part, pro) {
   cd.dmg = dmg;
   await saveTruckData(truck.id, player.id, cd);
   await setCondition(truck.id, player.id, overall(dmg));
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   await repush(player, 'bench');
   return say(`<span class="item-grant">${pro ? 'The fitters have it out and back in' : 'You do the ' + label.toLowerCase() + ' yourself'}: ${cost}₵. `
@@ -683,10 +677,9 @@ async function rigKit(player, truck, cd, kitId) {
   const fitted = installedKits(cd);
   if (fitted.includes(kitId)) return say(`The ${kit.name} is already on it.`);
   if ((player.credits || 0) < kit.price) return say(`The ${kit.name} is ${kit.price}₵ and you have ${player.credits || 0}₵.`);
-  player.credits -= kit.price;
+  if (!(await adjustCredits(player, -kit.price, undefined, 'trucking:kit'))) return say(`That's ${kit.price}₵ and you have ${player.credits || 0}₵.`);
   cd.kits = [...fitted, kitId.toLowerCase()];
   await saveTruckData(truck.id, player.id, cd);
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   await awardSkillUse(player.id, 'fabrication', 0);
   await repush(player, 'bench');
@@ -746,10 +739,9 @@ async function rigPaint(player, truck, cd, args) {
   const changed = JSON.stringify(next) !== JSON.stringify(sanitizePaint({}, prev));
   if (!changed) { await repush(player, 'bench'); return { type: 'noop' }; }
   if ((player.credits || 0) < cost) return say(`A respray on something that size is ${cost}₵ and you have ${player.credits || 0}₵.`);
-  player.credits -= cost;
+  if (!(await adjustCredits(player, -cost, undefined, 'trucking:respray'))) return say(`That's ${cost}₵ and you have ${player.credits || 0}₵.`);
   cd.paint = next;
   await saveTruckData(truck.id, player.id, cd);
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   await repush(player, 'bench');
   return say(`<span class="item-grant">Resprayed: ${cost}₵.</span> <span class="text-dim">${(FINISHES.find(f => f.id === next.finish) || {}).label || 'Gloss'}, and it comes out of the booth still smelling of it.</span>`);
@@ -816,10 +808,9 @@ async function rigTrim(player, truck, cd, args) {
   const next = sanitizeTrim({ ...now, ...want }, now);
   if (JSON.stringify(next) === JSON.stringify(now)) { await repush(player, 'bench'); return { type: 'noop' }; }
   if ((player.credits || 0) < cost) return say(`Retrimming a cab is ${cost}₵ and you have ${player.credits || 0}₵.`);
-  player.credits -= cost;
+  if (!(await adjustCredits(player, -cost, undefined, 'trucking:retrim'))) return say(`That's ${cost}₵ and you have ${player.credits || 0}₵.`);
   cd.trim = next;
   await saveTruckData(truck.id, player.id, cd);
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   await repush(player, 'bench');
   const said = [next.mat && DASH_MATERIALS[next.mat]?.label,
@@ -855,9 +846,8 @@ async function rigFuel(player, truck, bay, depot) {
   if (need < 0.02) return say("It's already full.");
   const cost = Math.round(need * FUEL_FULL);
   if ((player.credits || 0) < cost) return say(`Filling it is ${cost}₵ and you have ${player.credits || 0}₵.`);
-  player.credits -= cost;
+  if (!(await adjustCredits(player, -cost, undefined, 'trucking:fill'))) return say(`That's ${cost}₵ and you have ${player.credits || 0}₵.`);
   await setFuel(truck.id, player.id, 1);
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   await repush(player, 'fleet');
   return say(`<span class="item-grant">Tanks filled. ${cost}₵.</span>`);
@@ -884,10 +874,9 @@ async function rigService(player, truck, cd, what) {
   }
   const cost = servicePrice(truck.type, which);
   if ((player.credits || 0) < cost) return say(`That's ${cost}₵ and you have ${player.credits || 0}₵.`);
-  player.credits -= cost;
+  if (!(await adjustCredits(player, -cost, undefined, 'trucking:bench'))) return say(`That's ${cost}₵ and you have ${player.credits || 0}₵.`);
   const next = stampService(cd, truck.odometer, which);
   await saveTruckData(truck.id, player.id, next);
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   await repush(player, 'bench');
   const line = which === 'all'
@@ -915,8 +904,7 @@ async function rigHorn(player, truck, cd, id) {
   if (id === 'stock') delete next.horn; else next.horn = id;
   if (id !== 'stock') next.owned_horns = [...new Set([...(Array.isArray(cd.owned_horns) ? cd.owned_horns : []), id])];
   if (cost) {
-    player.credits -= cost;
-    await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+    if (!(await adjustCredits(player, -cost, undefined, 'trucking:horn'))) return say(`That's ${cost}₵ and you have ${player.credits || 0}₵.`);
     sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   }
   await saveTruckData(truck.id, player.id, next);

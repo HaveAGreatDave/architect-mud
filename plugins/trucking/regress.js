@@ -60,7 +60,32 @@ const mkZone = (id, name, extra = {}) => ({
   players: new Set(), npcs: new Set(), enemies: new Set(), corpses: new Set(), ...extra,
 });
 
-export default async function regress({ run, check, getPlayer }) {
+// Credits are read from the DB now (every change goes through adjustCredits),
+// so a test that wants the player to hold a balance has to put it in the DB as
+// well as in memory. The harness player has no players row, so setBalance
+// creates one when it's missing and the wrapper below removes it again.
+let _balanceRowCreated = false;
+async function setBalance(p, n) {
+  const { rows } = await query('SELECT 1 FROM players WHERE id=$1', [p.id]);
+  if (rows.length) await query('UPDATE players SET credits=$2 WHERE id=$1', [p.id, n]);
+  else {
+    await query("INSERT INTO players (id, username, password_hash, handle, credits) VALUES ($1,$1,'x',$1,$2)", [p.id, n]);
+    _balanceRowCreated = true;
+  }
+  p.credits = n;
+}
+async function dropBalanceRow(p) {
+  if (!_balanceRowCreated || !p?.id) return;
+  _balanceRowCreated = false;
+  await query('DELETE FROM players WHERE id=$1', [p.id]).catch(() => {});
+}
+
+export default async function regress(ctx) {
+  try { return await regressBody(ctx); }
+  finally { await dropBalanceRow(ctx.getPlayer?.()); }
+}
+
+async function regressBody({ run, check, getPlayer }) {
   const VOIDKEY = 'region_coldwater';
   const vdef = VOIDS[VOIDKEY];
   const DESTKEY = vdef.dests[0].key;              // the Reach limb
@@ -3770,7 +3795,7 @@ export default async function regress({ run, check, getPlayer }) {
       check('…and an empty fleet is an empty fleet', Array.isArray(yard?.fleet));
 
       const savedCredits = player.credits || 0;
-      player.credits = 40000;
+      await setBalance(player, 40000);
       const tooRich = await run('yard buy continental');
       check('a truck you can afford is bought', !!tooRich && !/cannot|have \d/.test(tooRich?.message || ''), tooRich?.message?.slice(0, 45));
       check('…and it cost the sticker price', player.credits === 40000 - TYPES.continental.price, player.credits);
@@ -3821,7 +3846,7 @@ export default async function regress({ run, check, getPlayer }) {
       // only true until something writes the wrong row, and the symptom of that would be a whole
       // fleet turning the colour of the last thing you resprayed.
       const [tA, tB] = both.map(r => r.id);
-      player.credits = 40000;
+      await setBalance(player, 40000);
       await run(`rig paint ${tA} base=#101820 flash=flame`);
       await run(`rig paint ${tB} base=#e0d8c0 flash=scallop`);
       const { rows: painted } = await query(
@@ -3915,7 +3940,7 @@ export default async function regress({ run, check, getPlayer }) {
       // dealer — the assertions above are about owning two, not about the fixture keeping them.
       await query('DELETE FROM trucks WHERE id=$1', [tB]);
       await query("UPDATE trucks SET custom_data='{}'::jsonb WHERE id=$1", [both[0].id]);
-      player.credits = 40000 - TYPES.continental.price;
+      await setBalance(player, 40000 - TYPES.continental.price);
 
       // ── Recovery: a truck you did not drive home ──────────────────────────
       // The whole point of the verb is a rig that is somewhere else, so the case has to put one
@@ -3933,14 +3958,14 @@ export default async function regress({ run, check, getPlayer }) {
         check("a truck parked elsewhere can't be driven from here",
           !rigOf(player) && /not here|another yard|parked at/i.test(denied?.message || ''), denied?.message?.slice(0, 50));
 
-        player.credits = 60;
+        await setBalance(player, 60);
         const broke = await run(`yard recall ${truckId}`);
         check('…and recovery quotes a price rather than happening on credit',
           /Recovery from/i.test(broke?.message || ''), broke?.message?.slice(0, 50));
         const stillAway = await query('SELECT depot_zone FROM trucks WHERE id=$1', [truckId]);
         check('…and nothing moved', stillAway.rows[0]?.depot_zone === (away?.id || null));
 
-        player.credits = 40000;
+        await setBalance(player, 40000);
         const before = player.credits;
         const towed = await run(`yard recall ${truckId}`);
         check('a low-loader fetches it home for a fee', /low-loader/i.test(towed?.message || ''), towed?.message?.slice(0, 45));
@@ -3951,7 +3976,7 @@ export default async function regress({ run, check, getPlayer }) {
         const again = await run(`yard recall ${truckId}`);
         check("…and fetching one that's already here is refused, not billed twice",
           /already standing here/i.test(again?.message || ''), again?.message?.slice(0, 40));
-        player.credits = 40000 - TYPES.continental.price;
+        await setBalance(player, 40000 - TYPES.continental.price);
       }
 
       // WHAT THE CLIENT IS ACTUALLY HANDED AT THE TURN OF THE KEY. This is captured rather than
@@ -4964,7 +4989,7 @@ export default async function regress({ run, check, getPlayer }) {
       removePlayerFromZone(player.id, savedZone);
       player.current_zone = FORECOURT; addPlayerToZone(player.id, FORECOURT);
       setLivePlayer(player.id, player);
-      player.credits = 100000;
+      await setBalance(player, 100000);
 
       const filled = await run('fuel');
       const { rows: after } = await query('SELECT fuel FROM trucks WHERE id=$1', [tid]);
