@@ -629,6 +629,9 @@ async function cmdClaimHQ(player) {
   const now = Math.floor(Date.now() / 1000);
   const buildingName = zone.flags?.building_name || zone.name;
 
+  // Claim the unit only if it's still vacant in the DB; if it isn't, roll back
+  // so the treasury isn't charged for a unit somebody else got.
+  let taken = false;
   const result = await withTransaction(async (q) => {
     const dec = await q('UPDATE orgs SET treasury = treasury - $1 WHERE id=$2 AND treasury >= $1 RETURNING treasury', [HQ_FEE, org.id]);
     if (!dec.rowCount) return null;
@@ -636,10 +639,13 @@ async function cmdClaimHQ(player) {
       `INSERT INTO apartments (zone_id, owner_id, owner_handle, owner_type, owner_org_id, is_locked, lock_difficulty, rent_cost, purchased_at, date_rented, building_name)
        VALUES ($1,$2,$3,'org',$2,0,$4,$5,$6,$6,$7)
        ON CONFLICT (zone_id) DO UPDATE SET owner_id=$2, owner_handle=$3, owner_type='org', owner_org_id=$2, is_locked=0, lock_difficulty=$4, purchased_at=$6, date_rented=$6, building_name=$7
+         WHERE apartments.owner_id IS NULL
        RETURNING *`,
       [zone.id, org.id, org.name, HQ_LOCK_DIFFICULTY, HQ_FEE, now, buildingName]);
+    if (!upd.rows.length) { taken = true; throw new Error('rollback'); }
     return { treasury: dec.rows[0].treasury, apt: upd.rows[0] };
-  });
+  }).catch(e => { if (taken) return null; throw e; });
+  if (taken) return err('Somebody else just took this unit.');
   if (!result) return err(`The treasury doesn't have ${HQ_FEE}₵.`);
   setApartmentCache(zone.id, result.apt);
   await ensureCorpTerminal(zone.id);

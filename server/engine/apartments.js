@@ -1,4 +1,4 @@
-import { query } from "../models/db.js";
+import { query, withTransaction } from "../models/db.js";
 import { getApartment, setApartmentCache, getZone, world, setDoorCache, getPlayerMembership, moveNpcToZone, updateNpc, clearNpcHomeOverride, getConnection } from "./world.js";
 import { findPath } from "./pathfinding.js";
 import { skillCheck, awardSkillUse } from "./skills.js";
@@ -537,7 +537,7 @@ export async function cmdRent(player) {
 	}
 
 	const cost = authoredRentCost(zone);
-	if (!(await adjustCredits(player, -cost, undefined, 'apartment:rent-claim')))
+	if ((player.credits || 0) < cost)
 		return {
 			type: "error",
 			message: `You need ${cost}₵ to claim this unit. You have ${player.credits}₵.`,
@@ -551,14 +551,32 @@ export async function cmdRent(player) {
 	const gToday = gameToday();
 	const rentDue = gToday ? addGameDays(gToday, RENT_PERIOD_DAYS) : null;
 
-	const updated = await query(
-		`INSERT INTO apartments (zone_id, owner_id, owner_handle, is_locked, lock_difficulty, rent_cost, purchased_at, date_rented, building_name, rent_due_date)
+	// Claim the unit first, only if it's still vacant in the DB (the cache check
+	// above can be stale), then take the money in the same transaction. A lost
+	// claim or a failed debit leaves nothing changed.
+	let outcome = null;
+	const claimed = await withTransaction(async (q) => {
+		const updated = await q(
+			`INSERT INTO apartments (zone_id, owner_id, owner_handle, is_locked, lock_difficulty, rent_cost, purchased_at, date_rented, building_name, rent_due_date)
      VALUES ($1,$2,$3,0,$4,$5,$6,$6,$7,$8)
      ON CONFLICT (zone_id) DO UPDATE SET owner_id=$2, owner_handle=$3, is_locked=0, lock_difficulty=$4, purchased_at=$6, date_rented=$6, building_name=$7, rent_due_date=$8
+       WHERE apartments.owner_id IS NULL
      RETURNING *`,
-		[zone.id, player.id, player.handle, BASE_LOCK_DIFFICULTY, cost, now, buildingName, rentDue],
-	);
-	setApartmentCache(zone.id, updated.rows[0]);
+			[zone.id, player.id, player.handle, BASE_LOCK_DIFFICULTY, cost, now, buildingName, rentDue],
+		);
+		if (!updated.rows.length) { outcome = 'taken'; throw new Error('rollback'); }
+		if (!(await adjustCredits(player, -cost, q, 'apartment:rent-claim'))) { outcome = 'funds'; throw new Error('rollback'); }
+		return updated.rows[0];
+	}).catch(err => { if (outcome) return null; throw err; });
+	if (!claimed) {
+		if (outcome === 'taken')
+			return { type: "error", message: "Somebody else just signed for this unit." };
+		return {
+			type: "error",
+			message: `You need ${cost}₵ to claim this unit. You have ${player.credits}₵.`,
+		};
+	}
+	setApartmentCache(zone.id, claimed);
 	emit('gossip.housing', { player: { id: player.id, handle: player.handle }, zoneId: zone.id });
 
 	const nextDueStr = rentDue ? formatGameDate(rentDue) : 'next rent cycle';

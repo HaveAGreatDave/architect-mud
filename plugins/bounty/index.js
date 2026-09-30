@@ -332,14 +332,16 @@ async function cmdRedeem(args, raw, player, broadcast) {
       out.push(`The board won't pay you for your own head. It does note, drily, that you tried.`);
       continue;
     }
-    const contracts = bountiesOn(victimId);
+    // Only contracts posted before the kill: a head can't pay paper put up after it.
+    const takenAt = Number(cd.taken_at) || Infinity;
+    const contracts = bountiesOn(victimId).filter(c => Number(c.posted_at) < takenAt);
     if (!contracts.length) {
       out.push(`<span class="text-dim">Nothing outstanding on ${escHtml(cd.victim_handle || 'them')} any more: the sheet came down. You're holding a head nobody is buying.</span>`);
       continue;
     }
     out.push(`<span class="text-dim">${recLine(rec, 'accept')}</span>`);
-    for (const row of contracts) await settleClaim(row, player, broadcast, out);
-    paid += contracts.reduce((a, c) => a + c.amount, 0);
+    // Count only what settleClaim actually paid; a lost race pays 0.
+    for (const row of contracts) paid += await settleClaim(row, player, broadcast, out);
     await query('DELETE FROM player_inventory WHERE id=$1', [head.id]).catch(() => {});
   }
 
@@ -360,10 +362,10 @@ async function settleClaim(row, claimant, broadcast, out) {
     `UPDATE bounties SET status='claimed', claimed_by=$2, claimed_handle=$3, claimed_at=$4
       WHERE id=$1 AND status='open'`,
     [row.id, String(claimant.id), claimant.handle, Date.now()]);
-  if (!res.rowCount) { unindex(row.id); return; }
+  if (!res.rowCount) { unindex(row.id); return 0; }
   unindex(row.id);
 
-  await adjustCredits(claimant, row.amount, undefined, 'bounty:claim');
+  if (!await adjustCredits(claimant, row.amount, undefined, 'bounty:claim')) return 0;
   out.push(`<span class="text-success">The board pays out on ${escHtml(row.target_handle)}: <b>${money(row.amount)}</b>.</span>`
     + (row.note ? `\n<span class="text-dim">The sheet said: ${escHtml(row.note)}</span>` : ''));
 
@@ -377,6 +379,7 @@ async function settleClaim(row, claimant, broadcast, out) {
     message: `<span class="text-danger">✱ The contract on you has been collected.</span>\n`
       + `<span class="text-dim">${escHtml(claimant.handle)} walked ${money(row.amount)} out of a board with your name on the receipt.</span>`,
   });
+  return Number(row.amount) || 0;
 }
 
 // ── withdrawal, expiry, un-masking ────────────────────────────────────────────

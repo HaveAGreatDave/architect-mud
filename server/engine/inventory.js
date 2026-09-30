@@ -259,7 +259,13 @@ export const MERGEABLE_SQL = `${NOT_INSTANCED_SQL} AND (condition IS NULL OR con
 // Move a ground inventory row into a player's inventory. Stacking-aware: a
 // stackable item merges into an existing unequipped stack the player already
 // holds. Returns the resulting row id.
+// Returns the row id it ended up in, or null when someone else got there first.
+// ⚠ Only a row still held where it was read from (row.player_id, the ground or a
+// container owner): the per-connection queue stops one player racing themself,
+// but two players taking the same ground item both used to succeed, the second
+// pulling it out of the first one's pack.
 export async function pickUp(row, player) {
+  const from = row.player_id || null;
   if (isStackable(row) && rowIsMergeable(row)) {
     const { rows } = await query(
       `SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0
@@ -271,20 +277,27 @@ export async function pickUp(row, player) {
       // (add, then delete) paid twice when two copies of one command raced: both
       // added before either deleted. Now the loser of the race removes nothing
       // and adds nothing.
-      const taken = await takeRowQuantity(row.id);
-      if (taken > 0) await query('UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2', [taken, rows[0].id]);
+      const taken = await takeRowQuantity(row.id, from);
+      if (!taken) return null;
+      await query('UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2', [taken, rows[0].id]);
       return rows[0].id;
     }
   }
-  await query('UPDATE player_inventory SET player_id=$1 WHERE id=$2', [player.id, row.id]);
-  return row.id;
+  const { rowCount } = from
+    ? await query('UPDATE player_inventory SET player_id=$1 WHERE id=$2 AND player_id=$3', [player.id, row.id, from])
+    : await query('UPDATE player_inventory SET player_id=$1 WHERE id=$2', [player.id, row.id]);
+  return rowCount ? row.id : null;
 }
 
 // Delete a row and return the quantity it held, or 0 when it was already gone
 // (another command got there first). The one-statement way to move a stack
 // without a race: whoever deletes the row is the only one who gets its contents.
-export async function takeRowQuantity(rowId) {
-  const { rows } = await query('DELETE FROM player_inventory WHERE id=$1 RETURNING quantity', [rowId]);
+// `ownerId`, when given, must still hold the row: a row that another player
+// took in the meantime is left alone.
+export async function takeRowQuantity(rowId, ownerId = null) {
+  const { rows } = ownerId
+    ? await query('DELETE FROM player_inventory WHERE id=$1 AND player_id=$2 RETURNING quantity', [rowId, ownerId])
+    : await query('DELETE FROM player_inventory WHERE id=$1 RETURNING quantity', [rowId]);
   return rows.length ? (Number(rows[0].quantity) || 0) : 0;
 }
 
@@ -378,7 +391,8 @@ export async function burnCharge(row, itemTags) {
 }
 
 // Hand a player's inventory row to another player. Stacking-aware, mirroring pickUp.
-export async function giveToPlayer(row, toPlayer) {
+// Returns false when the giver no longer holds the row (fromId: the giver).
+export async function giveToPlayer(row, toPlayer, fromId = row.player_id || null) {
   if (isStackable(row) && rowIsMergeable(row)) {
     const { rows } = await query(
       `SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0 AND container_id IS NULL
@@ -387,12 +401,16 @@ export async function giveToPlayer(row, toPlayer) {
     );
     if (rows.length) {
       // Source first, then only what it held: see pickUp.
-      const taken = await takeRowQuantity(row.id);
-      if (taken > 0) await query('UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2', [taken, rows[0].id]);
-      return;
+      const taken = await takeRowQuantity(row.id, fromId);
+      if (!taken) return false;
+      await query('UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2', [taken, rows[0].id]);
+      return true;
     }
   }
-  await query('UPDATE player_inventory SET player_id=$1, is_equipped=0, slot=NULL, layer=NULL, container_id=NULL WHERE id=$2', [toPlayer.id, row.id]);
+  const { rowCount } = fromId
+    ? await query('UPDATE player_inventory SET player_id=$1, is_equipped=0, slot=NULL, layer=NULL, container_id=NULL WHERE id=$2 AND player_id=$3', [toPlayer.id, row.id, fromId])
+    : await query('UPDATE player_inventory SET player_id=$1, is_equipped=0, slot=NULL, layer=NULL, container_id=NULL WHERE id=$2', [toPlayer.id, row.id]);
+  return rowCount > 0;
 }
 
 // Equip a row into a slot/layer, first clearing whatever occupies that slot+layer.

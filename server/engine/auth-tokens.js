@@ -109,12 +109,20 @@ const REMEMBER_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const rememberMac = (body) => mac(`remember:${body}`);
 
 export function signRememberToken(playerId) {
-  const body = Buffer.from(`${playerId}:${Date.now()}`).toString('base64url');
+  // The third part is a random id, recorded when the token is used (see
+  // consumeRememberToken), so each token signs in once and a copy dies with it.
+  const body = Buffer.from(`${playerId}:${Date.now()}:${randomBytes(9).toString('base64url')}`).toString('base64url');
   return `${body}.${rememberMac(body)}`;
 }
 
 /** → playerId, or null when the token is forged, expired or revoked. */
 export function verifyRememberToken(raw) {
+  return readRememberToken(raw)?.playerId || null;
+}
+
+// → { playerId, issued, jti } for a valid token (jti is absent on tokens signed
+// before single use), or null.
+function readRememberToken(raw) {
   const token = String(raw || '').trim();
   const dot = token.lastIndexOf('.');
   if (dot < 1) return null;
@@ -122,16 +130,40 @@ export function verifyRememberToken(raw) {
   const given = Buffer.from(token.slice(dot + 1));
   const want = Buffer.from(rememberMac(body));
   if (given.length !== want.length || !timingSafeEqual(given, want)) return null;
-  let playerId, issuedAt;
-  try { [playerId, issuedAt] = Buffer.from(body, 'base64url').toString().split(':'); } catch { return null; }
+  let playerId, issuedAt, jti;
+  try { [playerId, issuedAt, jti] = Buffer.from(body, 'base64url').toString().split(':'); } catch { return null; }
   const issued = Number(issuedAt);
   if (!playerId || !Number.isFinite(issued)) return null;
   if (Date.now() - issued > REMEMBER_TTL_MS) return null;
   const cutoff = _revokedBefore.get(playerId);
   if (cutoff != null && issued < cutoff) return null;
+  // <=, unlike the password cutoff: a token minted in the same millisecond as
+  // a sign-out must not survive it.
   const signedOut = _rememberRevokedBefore.get(playerId);
-  if (signedOut != null && issued < signedOut) return null;
-  return playerId;
+  if (signedOut != null && issued <= signedOut) return null;
+  return { playerId, issued, jti: jti || null };
+}
+
+/**
+ * Sign in with a remember-me token, once. → playerId, or null when it is
+ * forged, expired, revoked, or already used. Each use is recorded (a
+ * player_flags row per token id, cleared once it would have expired anyway),
+ * so a copied token stops working as soon as either copy is used. Tokens
+ * signed before this change carry no id and stay valid until they expire.
+ */
+export async function consumeRememberToken(raw) {
+  const t = readRememberToken(raw);
+  if (!t) return null;
+  if (!t.jti) return t.playerId;
+  const expires = t.issued + REMEMBER_TTL_MS;
+  const { rowCount } = await query(
+    'INSERT INTO player_flags (player_id, flag_key, flag_value) VALUES ($1,$2,$3) ON CONFLICT (player_id, flag_key) DO NOTHING',
+    [t.playerId, `remember_used:${t.jti}`, String(expires)]
+  );
+  if (!rowCount) return null;
+  query('DELETE FROM player_flags WHERE player_id=$1 AND flag_key LIKE $2 AND flag_value::bigint < $3',
+    [t.playerId, 'remember_used:%', Date.now()]).catch(() => {});
+  return t.playerId;
 }
 
 /** Signing out: every saved login of this player stops working. */

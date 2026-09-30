@@ -50,7 +50,8 @@ export async function loadZoneStock(zoneId, tableId, extraCols = []) {
   if (!stateRows.length) {
     const now = nowSec();
     await Promise.all([
-      query('INSERT INTO scavenging_zone_state (zone_id, table_id, last_replenish) VALUES ($1,$2,$3)', [zoneId, tableId, now]),
+      // ON CONFLICT: two first visits at once used to throw out of a cast or dig.
+      query('INSERT INTO scavenging_zone_state (zone_id, table_id, last_replenish) VALUES ($1,$2,$3) ON CONFLICT (zone_id) DO NOTHING', [zoneId, tableId, now]),
       query(
         `INSERT INTO scavenging_zone_stock (zone_id, item_id, current_qty)
          SELECT $1, u.item_id, u.qty FROM unnest($2::text[], $3::int[]) AS u(item_id, qty)
@@ -77,30 +78,47 @@ export async function loadZoneStock(zoneId, tableId, extraCols = []) {
       [zoneId, missing.map((e) => e.item_id)]
     );
   }
-  const writes = [];
-
   // Top up one unit per interval elapsed, weighted, never past max.
   const interval = Math.max(1, table.replenish_interval_seconds);
-  const steps = Math.floor((nowSec() - lastReplenish) / interval);
+  const now = nowSec();
+  const steps = Math.floor((now - lastReplenish) / interval);
+  if (steps <= 0) return { table, entries };
+  const added = new Map();
   let applied = 0;
   while (applied < steps) {
     const room = entries.filter((e) => e.current_qty < e.max_qty);
     if (!room.length) break;
-    pickWeighted(room).current_qty++;
+    const e = pickWeighted(room);
+    e.current_qty++;
+    added.set(e.item_id, (added.get(e.item_id) || 0) + 1);
     applied++;
   }
-  if (applied > 0) {
-    writes.push(query(
-      `UPDATE scavenging_zone_stock s SET current_qty = u.qty
-       FROM unnest($2::text[], $3::int[]) AS u(item_id, qty)
-       WHERE s.zone_id = $1 AND s.item_id = u.item_id`,
-      [zoneId, entries.map((e) => e.item_id), entries.map((e) => e.current_qty)]
-    ));
-    writes.push(query(
-      'UPDATE scavenging_zone_state SET last_replenish=$1 WHERE zone_id=$2',
-      [lastReplenish + applied * interval, zoneId]
-    ));
+  // ⚠ A full zone does NOT bank its refills. The clock used to stay put while
+  // everything was full, so after hours full every unit taken came straight
+  // back, up to the hours banked: bottomless. Hitting full moves the clock to
+  // now; otherwise it moves by the intervals actually used.
+  const nextClock = applied < steps ? now : lastReplenish + applied * interval;
+  // Claim the clock before adding stock: only the one caller whose UPDATE still
+  // sees the old value tops up, so two players arriving together can't both
+  // apply the same refill. The loser keeps the stock it read.
+  const { rowCount } = await query(
+    'UPDATE scavenging_zone_state SET last_replenish=$1 WHERE zone_id=$2 AND last_replenish=$3',
+    [nextClock, zoneId, stateRows[0].last_replenish]
+  );
+  if (!rowCount) {
+    for (const e of entries) e.current_qty = stockMap.get(e.item_id) ?? 0;
+    return { table, entries };
   }
-  if (writes.length) await Promise.all(writes);
+  if (added.size) {
+    // Relative and capped, so a take by another player between our read and
+    // this write isn't overwritten (an absolute write used to put it back).
+    const ids = [...added.keys()];
+    await query(
+      `UPDATE scavenging_zone_stock s SET current_qty = LEAST(u.max_qty, s.current_qty + u.delta)
+       FROM unnest($2::text[], $3::int[], $4::int[]) AS u(item_id, delta, max_qty)
+       WHERE s.zone_id = $1 AND s.item_id = u.item_id`,
+      [zoneId, ids, ids.map((id) => added.get(id)), ids.map((id) => entries.find((e) => e.item_id === id).max_qty)]
+    );
+  }
   return { table, entries };
 }

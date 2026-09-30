@@ -6,7 +6,7 @@ import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
 import { randomUUID } from "crypto";
 import { verifyAndUpgrade } from "./engine/passwords.js";
-import { loadAuthSecret, onRevoke, signToken, signRememberToken, verifyRememberToken, revokeRememberTokens } from "./engine/auth-tokens.js";
+import { loadAuthSecret, onRevoke, signToken, signRememberToken, consumeRememberToken, revokeRememberTokens } from "./engine/auth-tokens.js";
 
 import {
 	initWorld,
@@ -1228,7 +1228,9 @@ async function handleAuthRemember(ws, session, msg) {
 		ws.send(JSON.stringify({ type: "auth_fail", message: "Too many sign-in attempts right now. Wait a few minutes and try again." }));
 		return;
 	}
-	const playerId = verifyRememberToken(msg.token);
+	// Single use: a token that has already signed in once is refused, so a copy
+	// lifted from storage dies the moment either copy is used.
+	const playerId = await consumeRememberToken(msg.token);
 	const { rows } = playerId ? await query("SELECT * FROM players WHERE id=$1", [playerId]) : { rows: [] };
 	if (!rows.length) {
 		ws.send(JSON.stringify({ type: "auth_fail", message: "Your saved sign-in has expired. Please log in again.", rememberExpired: true }));
@@ -1727,11 +1729,21 @@ function messageAllowed(session) {
 // settles would stall the player for good, so the queue moves on after
 // INORDER_TIMEOUT_MS (the handler keeps running; only the wait ends).
 const INORDER_TIMEOUT_MS = 30_000;
+// Past this many waiting, further messages are dropped, as the flood limit
+// drops excess commands. The per-command bucket runs inside the queue, so
+// without a cap a flooding client grew it without bound behind one slow
+// handler (a closure and a timer per message).
+const INORDER_MAX_DEPTH = 32;
 function inOrder(session, fn) {
+	if ((session.queueDepth || 0) >= INORDER_MAX_DEPTH) return Promise.resolve();
+	session.queueDepth = (session.queueDepth || 0) + 1;
 	const run = () => new Promise((resolve) => {
-		const t = setTimeout(resolve, INORDER_TIMEOUT_MS);
+		const t = setTimeout(() => {
+			console.warn(`⚠ a handler has run ${INORDER_TIMEOUT_MS / 1000}s; releasing the queue for`, session.playerId || "(no player)");
+			resolve();
+		}, INORDER_TIMEOUT_MS);
 		Promise.resolve().then(fn).catch((e) => console.error("⚠ handler failed:", e)).finally(() => { clearTimeout(t); resolve(); });
-	});
+	}).finally(() => { session.queueDepth--; });
 	const next = (session.queue || Promise.resolve()).then(run);
 	session.queue = next;
 	return next;

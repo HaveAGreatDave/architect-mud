@@ -545,14 +545,23 @@ async function cmdSellShop(player) {
   const h = await here(player, { needOwner: true, needSold: true });
   if (h.error) return { type: 'error', message: h.error };
   const paid = h.deed.payments_made * h.deed.weekly_payment;
-  const takings = h.deed.till_credits || 0;
 
   // Walking away hands back everything on the shelf and whatever's in the till —
   // you're giving up the deed, not being robbed. Repossession is the punitive path.
-  await query(`UPDATE player_inventory SET player_id=$1, custom_data = custom_data - 'list_price' WHERE player_id=$2`,
-    [player.id, stockOwner(h.zone.id)]);
-  await releaseShop(h.zone.id);
-  if (takings > 0) await adjustCredits(player, takings, undefined, 'storefront:surrender');
+  // Claim the deed first and pay the till the DB actually held, so a vault crack
+  // or a second sellshop racing this one can't pay out the same credits twice.
+  const takings = await withTransaction(async (q) => {
+    const { rows } = await q('DELETE FROM storefronts WHERE zone_id=$1 AND owner_id=$2 RETURNING till_credits',
+      [h.zone.id, player.id]);
+    if (!rows.length) return null;
+    await q(`UPDATE player_inventory SET player_id=$1, custom_data = custom_data - 'list_price' WHERE player_id=$2`,
+      [player.id, stockOwner(h.zone.id)]);
+    const till = Number(rows[0].till_credits) || 0;
+    if (till > 0) await adjustCredits(player, till, q, 'storefront:surrender');
+    return till;
+  });
+  if (takings === null) return { type: 'error', message: `The deed isn't yours to hand back any more.` };
+  setDeed(h.zone.id, null);
 
   return { type: 'output', player_update: { credits: player.credits }, message:
     `<span style="color:var(--accent)">You hand the keys back.</span> ${h.zone.name} goes back on the board.\n\n` +
@@ -788,6 +797,33 @@ export async function mortgageTick(todayOverride = null) {
     const fromCarried = Math.min(p.credits || 0, rest);
     rest -= fromCarried;
 
+    // Take the money under guards: the balances above were read without a lock,
+    // and the owner may have spent or banked since. If any guard fails, nothing
+    // moves and it counts as a missed payment, same as a plain shortfall.
+    const paymentsMade = deed.paid_off ? deed.payments_made : deed.payments_made + 1;
+    const nowPaidOff = deed.paid_off ? 1 : (paymentsMade >= deed.payments_total ? 1 : 0);
+    let paidRow = null;
+    if (rest <= 0) {
+      paidRow = await withTransaction(async (q) => {
+        let bal = null;
+        if (fromBank || fromCarried) {
+          const { rows: pb } = await q(
+            `UPDATE players SET bank_credits=bank_credits-$1, credits=credits-$2
+              WHERE id=$3 AND bank_credits >= $1 AND credits >= $2 RETURNING credits, bank_credits`,
+            [fromBank, fromCarried, p.id]);
+          if (!pb.length) throw new Error('short');
+          bal = pb[0];
+        }
+        const { rows: sr } = await q(
+          `UPDATE storefronts SET till_credits=till_credits-$1, payments_made=$2, paid_off=$3, missed=0, due_date=$4
+            WHERE zone_id=$5 AND till_credits >= $1 RETURNING till_credits`,
+          [fromTill, paymentsMade, nowPaidOff, next, deed.zone_id]);
+        if (!sr.length) throw new Error('short');
+        return { bal, till: sr[0].till_credits };
+      }).catch(err => { if (err?.message === 'short') return null; throw err; });
+      if (!paidRow) rest = owed;
+    }
+
     if (rest > 0) {
       // Can't cover the lot. Lay the staff off first and see if the bill alone
       // fits — a shop that can still pay its mortgage keeps its building, and the
@@ -809,21 +845,14 @@ export async function mortgageTick(todayOverride = null) {
       continue;
     }
 
-    if (fromBank || fromCarried) {
-      await query('UPDATE players SET bank_credits=bank_credits-$1, credits=credits-$2 WHERE id=$3', [fromBank, fromCarried, p.id]);
-    }
-    const paymentsMade = deed.paid_off ? deed.payments_made : deed.payments_made + 1;
-    const nowPaidOff = deed.paid_off ? 1 : (paymentsMade >= deed.payments_total ? 1 : 0);
-    await query(
-      `UPDATE storefronts SET till_credits=till_credits-$1, payments_made=$2, paid_off=$3, missed=0, due_date=$4 WHERE zone_id=$5`,
-      [fromTill, paymentsMade, nowPaidOff, next, deed.zone_id]);
-    setDeed(deed.zone_id, { ...deed, till_credits: (deed.till_credits || 0) - fromTill,
+    setDeed(deed.zone_id, { ...deed, till_credits: paidRow.till,
       payments_made: paymentsMade, paid_off: nowPaidOff, missed: 0, due_date: next });
 
+    // Live balance from what the DB now holds, not a local subtraction.
     const live = getLivePlayer(p.id);
-    if (live) {
-      live.bank_credits = Math.max(0, (live.bank_credits || 0) - fromBank);
-      live.credits = Math.max(0, (live.credits || 0) - fromCarried);
+    if (live && paidRow.bal) {
+      live.bank_credits = Number(paidRow.bal.bank_credits) || 0;
+      live.credits = Number(paidRow.bal.credits) || 0;
     }
     const source = fromTill >= owed ? 'straight out of the till'
       : fromTill > 0 ? `${fromTill}₵ from the till, the rest from you`

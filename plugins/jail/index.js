@@ -560,13 +560,14 @@ export async function custodyOf(playerId) {
 
 // ── Release (guard walks you out) ────────────────────────────────────────────
 async function release(playerId) {
-  const { rows } = await query('SELECT * FROM jail_prisoners WHERE player_id = $1', [playerId]);
+  // Claim the row: only the caller whose DELETE returns it returns the goods and
+  // the cash. A timer and an escape (or a pardon) racing each other get one winner.
+  const { rows } = await query('DELETE FROM jail_prisoners WHERE player_id = $1 RETURNING *', [playerId]);
   const rec = rows[0];
   if (!rec) return;
   clearTimer(playerId);
   releasing.add(playerId);
   try {
-    await query('DELETE FROM jail_prisoners WHERE player_id = $1', [playerId]);
     markFreed(playerId);
     // File the stint before the row is gone from memory: fine actually paid and
     // minutes actually served. setFlagById works for an offline release (the
@@ -681,11 +682,11 @@ async function readChargeSheet(args, raw, player) {
 
 // ── Escape (any exit from the cell that isn't the guard) ─────────────────────
 async function escape(player) {
-  const { rows } = await query('SELECT * FROM jail_prisoners WHERE player_id = $1', [player.id]);
+  // Claim the row first; if a release or pardon already took it, do nothing.
+  const { rows } = await query('DELETE FROM jail_prisoners WHERE player_id = $1 RETURNING *', [player.id]);
   const rec = rows[0];
   if (!rec) return;
   clearTimer(player.id);
-  await query('DELETE FROM jail_prisoners WHERE player_id = $1', [player.id]);
   markFreed(player.id);
   // Skipped processing — the legal gear the desk was holding gets bagged into
   // evidence too. Nothing comes back.
@@ -885,10 +886,15 @@ export const routeHandler = async (path, method, body, auth) => {
   if (path === '/jail/pardon' && method === 'POST') {
     const playerId = String(body?.playerId || '');
     if (!playerId) return { status: 400, body: { error: 'playerId required' } };
-    const { rows } = await query('SELECT player_id, fine FROM jail_prisoners WHERE player_id = $1', [playerId]);
+    // Strike the fine and read what it was in one guarded step. release() below
+    // then claims the row with DELETE ... RETURNING, so a pardon racing the timer
+    // or an escape refunds once at most.
+    const { rows } = await query(
+      `UPDATE jail_prisoners j SET fine = 0, release_at = NOW()
+         FROM jail_prisoners o WHERE j.player_id = $1 AND o.player_id = j.player_id
+       RETURNING o.fine`, [playerId]);
     if (!rows[0]) return { status: 404, body: { error: "That player isn't in jail" } };
     const forgiven = Number(rows[0].fine) || 0;
-    await query('UPDATE jail_prisoners SET fine = 0, release_at = NOW() WHERE player_id = $1', [playerId]);
     // The guard's line reads as a normal walk-out; the pardon itself is announced
     // separately so a released prisoner knows the fine was struck, not paid.
     const player = getLivePlayer(playerId);

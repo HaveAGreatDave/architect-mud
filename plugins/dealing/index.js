@@ -105,13 +105,19 @@ async function cmdAcceptDeal(args, raw, player) {
   let failed = null;
   try {
     await withTransaction(async (tx) => {
-      const { rows } = await tx('SELECT quantity FROM player_inventory WHERE id=$1 AND player_id=$2', [offer.invId, seller.id]);
+      // Lock the seller's row: a seller can have one row on offer to two buyers,
+      // and only the first accept may take it.
+      const { rows } = await tx(
+        'SELECT quantity FROM player_inventory WHERE id=$1 AND player_id=$2 AND container_id IS NULL FOR UPDATE',
+        [offer.invId, seller.id]);
       if (!rows.length || rows[0].quantity < 1) { failed = 'gone'; throw new Error('rollback'); }
+      const splitting = rows[0].quantity > 1;
+      const moved = splitting
+        ? await tx('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1 AND player_id=$2 AND quantity > 1', [offer.invId, seller.id])
+        : await tx('DELETE FROM player_inventory WHERE id=$1 AND player_id=$2', [offer.invId, seller.id]);
+      if (!moved.rowCount) { failed = 'gone'; throw new Error('rollback'); }
       if (!(await adjustCredits(player, -offer.price, tx, 'dealing:trade'))) { failed = 'funds'; throw new Error('rollback'); }
       await adjustCredits(seller, offer.price, tx, 'dealing:trade');
-      const splitting = rows[0].quantity > 1;
-      if (splitting) await tx('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [offer.invId]);
-      else await tx('DELETE FROM player_inventory WHERE id=$1', [offer.invId]);
       // `charges` describes ONE opened pack, not each unit of a stack. When the
       // whole row moves, copying it is right. When we split a stack the seller
       // keeps their row — and its charges — so copying them here would mint a

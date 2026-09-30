@@ -72,7 +72,7 @@ registerAction({
     if (cd.ownerId && cd.ownerId !== actor.id) {
       return { type: 'error', message: `The ${row.name} is cipher-locked to someone else; it won't come with you.` };
     }
-    await inv.pickUp(row, actor);
+    if (!(await inv.pickUp(row, actor))) return { type: 'error', message: `Someone got to the ${row.name} first.` };
     const displayName = row.name;
     const article = /^[aeiou]/i.test(displayName) ? 'an' : 'a';
     context.broadcast?.(actor.current_zone, { type:'zone_event', message:`${actor.handle} picks up ${article} ${displayName}.`, refresh: true }, actor.id);
@@ -88,6 +88,7 @@ registerAction({
     const { row } = params;
     const explicit = params.qty != null;
     const dropQty = await inv.dropToGround(row, actor.current_zone, params.qty);
+    if (!dropQty) return { type: 'error', message: `You don't have that many ${row.name} any more.` };
     const qtyStr = (explicit && dropQty > 1) ? ` x${dropQty}` : '';
     context.broadcast?.(actor.current_zone, { type:'zone_event', message:`${actor.handle} drops ${row.name}${qtyStr}.`, refresh: true }, actor.id);
     emit('item.dropped', { actor, item: row, zone: actor.current_zone });
@@ -100,7 +101,9 @@ registerAction({
   type: 'GIVE',
   handler: async ({ actor, params, context, emit }) => {
     const { row, toPlayer } = params;
-    await inv.giveToPlayer(row, toPlayer);
+    // The row must still be where it was read from: the giver's pack, or a
+    // container they're passing out of (passid), whose rows aren't theirs.
+    if (!(await inv.giveToPlayer(row, toPlayer, row.player_id || actor.id))) return { type: 'error', message: `You don't have the ${row.name} any more.` };
     context.broadcast?.(null, { type:'output', message:`<span class="msg-ambient">${actor.handle} hands you ${row.name}.</span>` }, null, toPlayer.id);
     emit('item.given', { actor, recipient: toPlayer, item: row });
     emit('inventory.changed', { actor });

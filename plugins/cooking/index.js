@@ -1020,12 +1020,18 @@ async function plateVessel(vessel, player) {
         ...(hazards ? { hazards } : {}),
       };
 
-  await query(
+  // The dish exists only if this call removed the ingredients. Two people
+  // plating one shared pot: the second DELETE finds nothing and inserts nothing.
+  const consumedIds = [...inVessel, ...medium].map(r => r.inv_id);
+  const plated = await query(
     `WITH consumed AS (DELETE FROM player_inventory WHERE id = ANY($1) RETURNING 1)
      INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, custom_data)
-     SELECT $2, $3, $4, 1, 1.0, $5::jsonb`,
-    [[...inVessel, ...medium].map(r => r.inv_id), randomUUID(), player.id, produced, JSON.stringify(stamp)]
+     SELECT $2, $3, $4, 1, 1.0, $5::jsonb
+      WHERE (SELECT count(*) FROM consumed) > 0`,
+    [consumedIds, randomUUID(), player.id, produced, JSON.stringify(stamp)]
   );
+  if (!plated.rowCount)
+    return { type: 'error', message: `Somebody's already served what was in there.` };
 
   // Does the pan keep anything? A sear leaves fond; a sauce lifts it and leaves
   // nothing. Either way the vessel's old state is spent, so this one write both

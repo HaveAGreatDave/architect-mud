@@ -12,9 +12,9 @@
  * the credits server-side so the payout can't be spoofed. A failed attempt
  * triggers a 5-minute lockout per player.
  */
-import { query } from '../../server/models/db.js';
+import { query, withTransaction } from '../../server/models/db.js';
 import { textRender } from '../../server/engine/minigame.js';
-import { getZone, getZoneNpcs, world, updateNpc, getZoneFurniture } from '../../server/engine/world.js';
+import { getZone, getZoneNpcs, world, updateNpc, syncNpc, getZoneFurniture } from '../../server/engine/world.js';
 import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { emit } from '../../server/engine/events.js';
@@ -195,9 +195,19 @@ async function cmdSafeCrackResolve(args, raw, player) {
     return { type: 'output', message: `The ${safe.name} swings open, but the accounts ran dry before you cracked it. Nothing to take.` };
   }
 
-  const stolen = npc.vendor_credits;
+  // Drain under a row lock and pay what the DB held, not the cached figure, so
+  // two crackers (or a crack and the shift-end collection) can't both take it.
+  const stolen = await withTransaction(async (q) => {
+    const { rows: cur } = await q('SELECT vendor_credits FROM npcs WHERE id=$1 FOR UPDATE', [npcId]);
+    const amount = Number(cur[0]?.vendor_credits) || 0;
+    if (amount <= 0) return 0;
+    await q('UPDATE npcs SET vendor_credits=0 WHERE id=$1', [npcId]);
+    return amount;
+  });
+  syncNpc(npcId, { vendor_credits: 0 });
+  if (stolen <= 0)
+    return { type: 'output', message: `The ${safe.name} swings open, but the accounts ran dry before you cracked it. Nothing to take.` };
   await adjustCredits(player, stolen, undefined, 'vendorsafe:loot');
-  await updateNpc(npcId, { vendor_credits: 0 });
   await awardSkillUse(player.id, 'hacking', await breachMargin(player, (safe.flags || {}).hack_difficulty));
   // Robbed blind — the vendor holds a grudge even if they never caught you in
   // the act (they come back to a drained safe and know exactly who to blame).
