@@ -1814,9 +1814,29 @@
 
     // CMUdict subset (25k words, single-char encoded) — decoded lazily on first use.
     let CMU = null;
+    // ⚠ The game page doesn't load the 435 KB lexicon at boot any more; requestCmu()
+    // fetches it after the page has loaded. Until it lands, lookups miss and words go
+    // through the letter-to-sound rules, and nothing is cached, so the first lookup
+    // after it arrives builds the real map. Pages and gates that load it themselves
+    // (the dev panel, scripts/voice/*) never reach the fetch.
+    let cmuRequested = false;
+    function requestCmu(){
+      if (cmuRequested || global.CMUDICT || typeof document === 'undefined' || !document.head) return;
+      cmuRequested = true;
+      const s = document.createElement('script');
+      s.src = '/shared/formant-cmudict.js';
+      s.async = true;
+      s.onerror = () => { cmuRequested = false; };   // let a later lookup try again
+      document.head.appendChild(s);
+    }
+    if (typeof document !== 'undefined' && typeof addEventListener === 'function') {
+      const soon = () => (global.requestIdleCallback || ((f) => setTimeout(f, 1500)))(requestCmu);
+      if (document.readyState === 'complete') soon(); else addEventListener('load', soon, { once: true });
+    }
     function cmuBuild(){
+      const D = global.CMUDICT;
+      if (!D) { requestCmu(); return; }
       CMU = new Map();
-      const D = global.CMUDICT; if (!D) return;
       CMU._A = D.alpha; CMU._P = D.phones;
       for (const line of D.blob.split('\n')) {
         const sp = line.indexOf(' '); if (sp < 0) continue;
@@ -1833,6 +1853,7 @@
     // "happuh". They lose length and loudness in the synthesis loop instead.
     function cmuLook(w){
       if (!CMU) cmuBuild();
+      if (!CMU) return null;   // lexicon still loading: letter-to-sound takes it
       const enc = CMU.get(w); if (!enc) return null;
       const out = [];
       for (const ch of enc) {

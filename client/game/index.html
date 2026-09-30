@@ -2592,7 +2592,9 @@
 		</div>
 
 		<script src="/shared/audio-engine.js"></script>
-		<script src="/shared/formant-cmudict.js"></script>
+		<!-- formant-cmudict.js (the 435 KB ORACLE lexicon) is fetched by audio-engine.js
+		     after load; until then speech uses the letter-to-sound rules. -->
+
 		<!-- hockey-sfx.js is a BANK: it must load BEFORE sfx-catalog.js, which folds its
 		     presets into the editable catalog. Loading it after would leave the CPhL
 		     sounds playable but invisible to the dev panel. -->
