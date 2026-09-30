@@ -1,0 +1,128 @@
+// LAZY 3-D VIEWS. The cockpit, cab, boat, truck depot, hangar bay and spray can
+// all pull in GLASS (windshield.js), about 12 MB raw and 3 MB brotli of the
+// 4 MB the game used to download at boot, for views most sessions never open.
+// Core files (dispatch, input, main) import from here instead, under the same
+// names, and the real module is fetched the first time it's needed.
+//
+// Two kinds of export:
+//   open/update/telemetry  load the module, then call. Calls made while it's
+//                          loading chain on one promise, so they keep their order.
+//   isXActive / close*     answer from the module only if it's loaded. A view
+//                          that was never loaded can't be open, so false (or a
+//                          no-op) is the right answer, and a status check never
+//                          triggers a 5 MB download.
+//
+// ⚠ Don't add a static import of a heavy view to a core file. It pulls the view
+// and everything under it back into the boot graph, and the server preloads the
+// whole static graph (server/modulegraph.js). Import it from here.
+
+// A view with GLASS in its static graph has already fetched windshield.js by the
+// time it resolves, so this import is a module-map hit, not a download. It hands
+// GLASS the bird season and weather environment.js has been keeping.
+function wireGlass() {
+  Promise.all([import('./windshield.js'), import('./environment.js')])
+    .then(([glass, env]) => env.wireGlass(glass)).catch(() => {});
+}
+
+function lazy(name, loader, { glass = true } = {}) {
+  let mod = null, pending = null;
+  return {
+    get: () => mod,
+    load: () => (pending ??= loader().then((m) => { mod = m; if (glass) wireGlass(); return m; }).catch((e) => {
+      pending = null;   // let the next call retry
+      console.error(`[lazy-views] ${name} failed to load:`, e);
+      throw e;
+    })),
+  };
+}
+
+const call = (L, fn) => (...args) => {
+  const m = L.get();
+  if (m) return m[fn](...args);
+  L.load().then((mm) => mm[fn](...args)).catch(() => {});
+};
+const ifLoaded = (L, fn, fallback) => (...args) => {
+  const m = L.get();
+  return m ? m[fn](...args) : fallback;
+};
+
+const cockpit = lazy('cockpit', () => import('./cockpit.js'));
+const cab = lazy('cab-view', () => import('./cab-view.js'));
+const boat = lazy('boat-view', () => import('./boat-view.js'));
+const depot = lazy('truck-depot', () => import('./truck-depot.js'));
+const spray = lazy('spraycan', () => import('./spraycan.js'));
+// hangar-bay reaches GLASS through windshield-lazy.js, only when a view opens, so
+// wiring on its load would fetch the renderer for a menu. It stays unwired.
+const hangar = lazy('hangar-bay', () => import('./hangar-bay.js'), { glass: false });
+
+// cockpit.js
+export const isFlightSimActive = ifLoaded(cockpit, 'isFlightSimActive', false);
+export const isCockpitHudActive = ifLoaded(cockpit, 'isCockpitHudActive', false);
+export const closeCockpit = ifLoaded(cockpit, 'closeCockpit');
+export const updateCockpit = call(cockpit, 'updateCockpit');
+export const cabinAudio = call(cockpit, 'cabinAudio');
+export const openTargeting = call(cockpit, 'openTargeting');
+export const openFlightSim = call(cockpit, 'openFlightSim');
+export const flightSimContext = call(cockpit, 'flightSimContext');
+export const drakeSubmerged = call(cockpit, 'drakeSubmerged');
+export const flightBurst = call(cockpit, 'flightBurst');
+export const flightSimContacts = call(cockpit, 'flightSimContacts');
+export const flightSimAASites = call(cockpit, 'flightSimAASites');
+export const flightSimHopper = call(cockpit, 'flightSimHopper');
+export const flightSimAirHit = call(cockpit, 'flightSimAirHit');
+export const flightSimKill = call(cockpit, 'flightSimKill');
+export const flightSimAaTracer = call(cockpit, 'flightSimAaTracer');
+export const flightSimAirThreat = call(cockpit, 'flightSimAirThreat');
+export const flightSimFireworks = call(cockpit, 'flightSimFireworks');
+export const flightSimLightning = call(cockpit, 'flightSimLightning');
+
+// cab-view.js
+export const isCabActive = ifLoaded(cab, 'isCabActive', false);
+export const closeCab = ifLoaded(cab, 'closeCab');
+export const openCab = call(cab, 'openCab');
+export const cabContext = call(cab, 'cabContext');
+export const cabGalley = call(cab, 'cabGalley');
+
+// boat-view.js
+export const isBoatActive = ifLoaded(boat, 'isBoatActive', false);
+export const closeBoat = ifLoaded(boat, 'closeBoat');
+export const openBoat = call(boat, 'openBoat');
+export const boatSetWorld = call(boat, 'boatSetWorld');
+
+// truck-depot.js
+export const isTruckDepotActive = ifLoaded(depot, 'isTruckDepotActive', false);
+export const closeTruckDepot = ifLoaded(depot, 'closeTruckDepot');
+export const closeBayService = ifLoaded(depot, 'closeBayService');
+export const openTruckDepot = call(depot, 'openTruckDepot');
+
+// spraycan.js
+export const openSprayCan = call(spray, 'openSprayCan');
+export const updateSprayShelf = call(spray, 'updateSprayShelf');
+
+// hangar-bay.js
+export const isHangarBayActive = ifLoaded(hangar, 'isHangarBayActive', false);
+export const isHangarBayWalkActive = ifLoaded(hangar, 'isHangarBayWalkActive', false);
+export const closeHangarBay = ifLoaded(hangar, 'closeHangarBay');
+export const openHangarBay = call(hangar, 'openHangarBay');
+export const openCharterScreen = call(hangar, 'openCharterScreen');
+
+// helm-mode.js (the Echelon chase view, via helm-view.js). Every helmSet* is a
+// no-op until a helm is open, so they only run once the module is loaded.
+const helm = lazy('helm-mode', () => import('./helm-mode.js'));
+export const isHelmActive = ifLoaded(helm, 'isHelmActive', false);
+export const closeHelm = ifLoaded(helm, 'closeHelm');
+export const helmSetSky = ifLoaded(helm, 'helmSetSky');
+export const helmSetWorld = ifLoaded(helm, 'helmSetWorld');
+export const helmSetContacts = ifLoaded(helm, 'helmSetContacts');
+export const helmEndTransit = ifLoaded(helm, 'helmEndTransit');
+export const helmBeginTransit = ifLoaded(helm, 'helmBeginTransit');
+export const openHelm = call(helm, 'openHelm');
+
+// marina-panel.js (the berth, with a boat preview from boat-view.js).
+const marina = lazy('marina-panel', () => import('./marina-panel.js'));
+export const isMarinaActive = ifLoaded(marina, 'isMarinaActive', false);
+export const closeMarina = ifLoaded(marina, 'closeMarina');
+export const closeMarinaService = ifLoaded(marina, 'closeMarinaService');
+export const marinaSetData = call(marina, 'marinaSetData');   // opens the marina when none is open
+export const openMarina = call(marina, 'openMarina');
+export const openMarinaService = call(marina, 'openMarinaService');

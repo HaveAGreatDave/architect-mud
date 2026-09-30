@@ -15,13 +15,19 @@ import { moonPhaseOf } from '/shared/moon.js';
 // So the owner of the fact hands it over, optionally, exactly as helm-view and freelook-view import
 // THIS module — a renderer that is not there simply never gets told, and `BIRD_DOY` stays null,
 // which `seasonalSize` reads as "no season information" and answers unseasoned.
+//
+// ⚠ AND ONLY ONCE THE RENDERER IS ALREADY HERE. This used to `import('./windshield.js')` at load,
+// which fetched all 5 MB of GLASS on the login screen for every player. Now whoever loads a view
+// with GLASS in it (lazy-views.js) hands the module over through wireGlass(), and the values this
+// module has been keeping are pushed across at that point.
 let _setBirdSeason = null, _setBirdWeather = null;
-import('./windshield.js').then((m) => {
+export function wireGlass(m) {
+  if (!m || _setBirdSeason || _setBirdWeather) return;
   _setBirdSeason = m.setBirdSeason || null;
   _setBirdWeather = m.setBirdWeather || null;
-  if (_setBirdSeason && envDoy != null) _setBirdSeason(envDoy);   // the clock may have beaten the import
+  if (_setBirdSeason && envDoy != null) _setBirdSeason(envDoy);   // the clock may have beaten the renderer
   if (_setBirdWeather && (envWxToday || envWxTomorrow)) _setBirdWeather(envWxToday, envWxTomorrow);
-}).catch(() => {});
+}
 let envDoy = null;
 // Today's weather and tomorrow's, for the hawks (weatherTell in birds.js). Tomorrow only arrives on the
 // messages that carry the forecast (sync, daily), so it is kept between them.

@@ -5,15 +5,15 @@ import { MARKUP_HELP_HTML, STATUS_TEMPLATE } from './markup.js';
 import { appendToWhisperLog, sendToActiveTab } from './panels/whisper.js';
 import { openMusicPlayerPanel } from './panels/musicplayer.js';
 import { DISCORD_INVITE } from './panels/tablet-os.js';
-import { isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
-import { isHangarBayWalkActive } from './panels/hangar-bay.js';
+import { isFlightSimActive, isCockpitHudActive } from './panels/lazy-views.js';
+import { isHangarBayWalkActive } from './panels/lazy-views.js';
 import { isPianoKeysLive } from './panels/piano.js';
 // THE CAB owns A/Z/X/C, the arrows, the comma and the full stop — nearly the whole letter row.
 // Without this guard every one of them is also a printable character, so the auto-focus below
 // pulled the caret into the command box on the first press and the rest of the drive went into it
 // as 'aaaaaaaaazzzzzzzz'. Every other panel that owns the keyboard is already listed here; the cab
 // was the one that never was.
-import { isCabActive } from './panels/cab-view.js';
+import { isCabActive } from './panels/lazy-views.js';
 import { isFreelookActive } from './panels/freelook-view.js';
 import { seatHoldsKeyboard } from './panels/seat-keys.js';
 import { toggleAutoWalk, startAutoWalk, cancelAutoWalk, isAutoWalkPromptPending, answerAutoWalkPrompt } from './panels/minimap.js';

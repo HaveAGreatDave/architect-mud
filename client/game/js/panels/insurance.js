@@ -3,7 +3,9 @@
 // dedicated markup/CSS, themed in the insurer's amber rather than a bank's green,
 // plus a wireframe silhouette of the selected aircraft instead of a balance screen.
 import { sendCmdSilent } from '../net.js';
-import { drawWireframe3D, themeColor } from './wireframe-plane.js';
+// wireframe-plane.js pulls in aircraft3d and the vehicle meshes (about 1.4 MB),
+// so it loads when the panel opens, not at boot. See lazy-views.js.
+let wf3d = null;
 
 let data = null;
 let selId = null;
@@ -14,6 +16,7 @@ let selId = null;
 let wfRaf = null, wfYaw = 0;
 function startWfSpin() {
   if (wfRaf) return;
+  if (!wf3d) import('./wireframe-plane.js').then((m) => { wf3d = m; }).catch((e) => console.error('[insurance] wireframe failed to load:', e));
   let last = 0;
   const loop = (t) => {
     if (!data) { wfRaf = null; return; }
@@ -21,7 +24,7 @@ function startWfSpin() {
     last = t;
     const wf = document.getElementById('ins-wf');
     const sel = data.fleet.find(f => f.id === selId) || null;
-    if (wf && sel) drawWireframe3D(wf.getContext('2d'), { cls: sel.class, armed: sel.class === 'heli' && (sel.hardpoints > 0), w: wf.width, h: wf.height, accent: themeColor('--yellow', '#ffb43a'), yaw: wfYaw });
+    if (wf && sel && wf3d) wf3d.drawWireframe3D(wf.getContext('2d'), { cls: sel.class, armed: sel.class === 'heli' && (sel.hardpoints > 0), w: wf.width, h: wf.height, accent: wf3d.themeColor('--yellow', '#ffb43a'), yaw: wfYaw });
     else if (wf) wf.getContext('2d').clearRect(0, 0, wf.width, wf.height);
     wfRaf = requestAnimationFrame(loop);
   };
