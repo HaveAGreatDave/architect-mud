@@ -1,4 +1,5 @@
 import { state } from '../state.js';
+import { escapeHtml } from '/shared/dom.js';
 import { openWhisperTab } from './whisper.js';
 
 // Sidebar "Online" roster. A first-class .sidebar-section, so the sidebar-order
@@ -33,11 +34,11 @@ function render() {
   const sorted = [..._players].sort((a, b) => a.handle.localeCompare(b.handle));
   list.innerHTML = sorted.map(p => {
     const isSelf = p.handle === myHandle;
-    const safe = p.handle.replace(/"/g, '&quot;');
+    const safe = escapeHtml(p.handle);
     const whisper = isSelf ? '' : `<button class="players-online-whisper" data-whisper="${safe}" title="Whisper ${safe}">✉</button>`;
     return `<div class="players-online-row">
       <div class="players-online-who">
-        <span class="players-online-handle${isSelf ? ' is-self' : ''}">${p.handle}${isSelf ? ' (you)' : ''}</span>
+        <span class="players-online-handle${isSelf ? ' is-self' : ''}">${escapeHtml(p.handle)}${isSelf ? ' (you)' : ''}</span>
       </div>
       ${whisper}
     </div>`;

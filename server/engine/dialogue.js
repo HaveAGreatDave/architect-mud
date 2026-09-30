@@ -343,9 +343,9 @@ export function noteDialogueFrame(playerId, message, zone = null) {
 
 /**
  * → { ok: true, prevNode } when the player may make this choice, else
- * { ok: false, message }. 'root' (the Back button) and '__shop__' (the injected
- * Browse option) are always offered; anything else has to be the `next` of the
- * option at optionIndex on the open node, filtered exactly as it was shown.
+ * { ok: false, message }. 'root' (the Back button) is always offered, and
+ * '__shop__' where the injected Browse option is; anything else has to be the
+ * `next` of the option at optionIndex on the open node, filtered as it was shown.
  */
 export async function checkDialogueChoice({ npc, player, choice, optionIndex, context }) {
   const open = openFrames.get(player?.id);
@@ -354,7 +354,14 @@ export async function checkDialogueChoice({ npc, player, choice, optionIndex, co
   if (open.zone && player.current_zone && open.zone !== player.current_zone) {
     return { ok: false, message: `You've walked away from ${npc.name}.` };
   }
-  if (choice === 'root' || choice === '__shop__') return { ok: true, prevNode: open.node };
+  if (choice === 'root') return { ok: true, prevNode: open.node };
+  // The injected Browse option exists only where renderDialogueNode adds it: at
+  // root, for a vendor with stock that isn't covert. Anywhere else a shop door is
+  // an authored option and goes through the index check below like any other,
+  // so a gate in front of a shop can't be skipped.
+  if (choice === '__shop__' && open.node === 'root' && npc.vendor_inventory?.length && !npc.flags?.covert) {
+    return { ok: true, prevNode: open.node };
+  }
   const node = (npc.dialogue_tree || {})[open.node];
   if (!node || !Number.isInteger(optionIndex)) return { ok: false, message: 'That option is no longer there.' };
   const shown = await filterDialogueOptions(node.options, npc.dialogue_tree, player, context);

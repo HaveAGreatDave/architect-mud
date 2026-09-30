@@ -101,7 +101,13 @@ function _emojiAutoReplace(inp) {
 		return _swap(token.length, emoji);
 	}
 }
+// ⚠ Stored WITH ITS OWNER'S ID and loaded only after login, for that player.
+// It used to be one browser-wide key, loaded at boot and kept through sign-out,
+// so the next person to sign in on a shared machine read the last one's private
+// messages. Anything saved under another player, or in the old unowned shape,
+// is dropped rather than shown. Sign-out clears it (forgetWhisperHistory).
 const WHISPER_CONVO_KEY = "whisper_convos";
+let _owner = null;
 const WHISPER_PERSIST_MAX = 100;
 
 // Channels the server told us this player has access to: id -> { id, permanent, systemOnly }
@@ -160,8 +166,8 @@ function _saveConvos() {
 			if (_channels.has(handle) || handle === USERS_TAB) continue;
 			toSave[handle] = convo.messages.slice(-WHISPER_PERSIST_MAX);
 		}
-		if (Object.keys(toSave).length === 0) return;
-		localStorage.setItem(WHISPER_CONVO_KEY, JSON.stringify(toSave));
+		if (!_owner || Object.keys(toSave).length === 0) return;
+		localStorage.setItem(WHISPER_CONVO_KEY, JSON.stringify({ owner: _owner, convos: toSave }));
 	} catch (e) {
 		console.error("[whisper] save failed:", e);
 	}
@@ -169,9 +175,7 @@ function _saveConvos() {
 
 function _restoreOrCreate(handle) {
 	try {
-		const saved = JSON.parse(
-			localStorage.getItem(WHISPER_CONVO_KEY) || "{}",
-		);
+		const saved = _savedConvos();
 		const messages = saved[handle];
 		if (Array.isArray(messages) && messages.length > 0) {
 			return { messages, scrollTop: 999999, unread: 0 };
@@ -180,10 +184,37 @@ function _restoreOrCreate(handle) {
 	return { messages: [], scrollTop: 999999, unread: 0 };
 }
 
+// This player's saved conversations, or {} (and the stale copy is removed)
+// when they belong to someone else or no one is logged in.
+function _savedConvos() {
+	let blob = null;
+	try { blob = JSON.parse(localStorage.getItem(WHISPER_CONVO_KEY) || "null"); } catch { blob = null; }
+	if (!blob) return {};
+	if (!_owner || blob.owner !== _owner || !blob.convos) {
+		if (_owner) try { localStorage.removeItem(WHISPER_CONVO_KEY); } catch { /* storage blocked */ }
+		return {};
+	}
+	return blob.convos;
+}
+
+/** Called on login: load this player's history, and only theirs. */
+export function setWhisperOwner(playerId) {
+	if (!playerId || playerId === _owner) return;
+	for (const [key] of _whisperConvos) if (!_channels.has(key) && key !== USERS_TAB) _whisperConvos.delete(key);
+	_owner = playerId;
+	_loadConvos();
+	_emitChatUpdate();
+}
+
+/** Called on sign-out: nothing private stays in this browser. */
+export function forgetWhisperHistory() {
+	_owner = null;
+	try { localStorage.removeItem(WHISPER_CONVO_KEY); } catch { /* storage blocked */ }
+}
+
 function _loadConvos() {
 	try {
-		const raw = localStorage.getItem(WHISPER_CONVO_KEY);
-		const saved = JSON.parse(raw || "{}");
+		const saved = _savedConvos();
 		for (const [handle, messages] of Object.entries(saved)) {
 			if (!Array.isArray(messages) || messages.length === 0) continue;
 			_whisperConvos.set(handle, {
@@ -1305,7 +1336,8 @@ export function sendToActiveTab(text) {
 
 export function initWhisperPanel() {
 	_loadSettings();
-	_loadConvos();
+	// Conversations load on login (setWhisperOwner), not here: at boot we don't
+	// know whose they would be.
 
 	window.addEventListener("beforeunload", _saveConvos);
 

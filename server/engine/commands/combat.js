@@ -1,10 +1,10 @@
 import { query } from "../../models/db.js";
-import { getZoneCorpses, getZonePlayers, getCorpse } from "../world.js";
+import { getZoneCorpses, getZonePlayers, getCorpse, getLivePlayer } from "../world.js";
 import { getZoneProtection } from "../protection.js";
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from "../sift.js";
 import { awardSkillUse, skillCheck } from "../skills.js";
 import { isStackable } from "../tags.js";
-import { rowIsMergeable, MERGEABLE_SQL } from "../inventory.js";
+import { rowIsMergeable, MERGEABLE_SQL, takeRowQuantity } from "../inventory.js";
 import { titleCaseName } from "../text.js";
 import { emit } from "../events.js";
 import { loggedPanelsSync } from "../presentation.js";
@@ -109,11 +109,14 @@ async function giveRowToPlayer(item, player) {
 			[player.id, item.item_id],
 		);
 		if (existing.length) {
+			// Source first, then only what it held (see pickUp in inventory.js): two
+			// loots racing on one corpse must not both collect the stack.
+			const taken = await takeRowQuantity(item.id);
+			if (!taken) return null;
 			await query(
 				"UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2",
-				[item.quantity, existing[0].id],
+				[taken, existing[0].id],
 			);
-			await query("DELETE FROM player_inventory WHERE id=$1", [item.id]);
 			emit('item.taken', { actor: player, item, zone: player.current_zone });
 			emit('inventory.changed', { actor: player, zone: player.current_zone });
 			return item.name;
@@ -144,6 +147,7 @@ async function cmdLootCorpse(targetStr, player, broadcast) {
 		if (!match)
 			return { type: "error", message: `No "${itemStr.trim()}" on ${corpse.name}.` };
 		const name = await giveRowToPlayer(match, player);
+		if (!name) return { type: "error", message: `Someone got to it first.` };
 		return { type: "loot", message: `You loot ${name} from ${corpse.name}.` };
 	}
 	const corpse = resolveCorpse(targetStr, player);
@@ -239,10 +243,21 @@ async function attemptSneakyLoot(player, targetPlayer, broadcast) {
 export async function resolveCorpseOrPlayer(corpseId, player) {
 	const corpse = corpseId ? getCorpse(corpseId) : null;
 	if (corpse) return corpse;
-	// Check if it's a sleeping/offline player still in the zone
-	if (!corpseId) return null;
+	// Check if it's a sleeping/offline player still in the zone.
+	// ⚠ ONLY a body that can't object. This used to take any player whose saved
+	// current_zone matched, awake and online included (and that row lags up to a
+	// minute), so `lootall <id>` stripped a living player of everything they wore.
+	// Online: they must be asleep, with the body in this room, read from the live
+	// world. Offline: the same offline_sleeping body the other plugins look for.
+	if (!corpseId || corpseId === player.id) return null;
+	const live = getLivePlayer(corpseId);
+	if (live) {
+		const bodyZone = live.sleeping?.bodyZone || live._bodyZone || live.current_zone;
+		if (!live.sleeping || bodyZone !== player.current_zone) return null;
+		return { id: live.id, name: live.handle, zoneId: player.current_zone, butcher_table: [] };
+	}
 	const { rows } = await query(
-		`SELECT id, handle FROM players WHERE id=$1 AND current_zone=$2`,
+		`SELECT id, handle FROM players WHERE id=$1 AND current_zone=$2 AND offline_sleeping=TRUE`,
 		[corpseId, player.current_zone],
 	);
 	if (!rows.length) return null;
@@ -265,8 +280,7 @@ async function cmdLootAll(args, player) {
 	}
 	let taken = 0;
 	for (const item of items) {
-		await giveRowToPlayer(item, player);
-		taken++;
+		if (await giveRowToPlayer(item, player)) taken++;   // null: someone else took it first
 	}
 	const view = await buildLootView(corpse, player);
 	view.notify = `${taken} item${taken !== 1 ? 's' : ''} transferred to inventory.`;
@@ -315,6 +329,7 @@ async function cmdLootId(args, player) {
 		name = row.name;
 	} else {
 		name = await giveRowToPlayer(row, player);
+		if (!name) return { type: "error", message: `Someone got to it first.` };
 	}
 
 	const view = await buildLootView(corpse, player);

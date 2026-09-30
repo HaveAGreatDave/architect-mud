@@ -267,8 +267,12 @@ export async function pickUp(row, player) {
       [player.id, row.item_id]
     );
     if (rows.length) {
-      await query('UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2', [row.quantity, rows[0].id]);
-      await query('DELETE FROM player_inventory WHERE id=$1', [row.id]);
+      // ⚠ Remove the source FIRST and add only what that removed. The other order
+      // (add, then delete) paid twice when two copies of one command raced: both
+      // added before either deleted. Now the loser of the race removes nothing
+      // and adds nothing.
+      const taken = await takeRowQuantity(row.id);
+      if (taken > 0) await query('UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2', [taken, rows[0].id]);
       return rows[0].id;
     }
   }
@@ -276,12 +280,23 @@ export async function pickUp(row, player) {
   return row.id;
 }
 
+// Delete a row and return the quantity it held, or 0 when it was already gone
+// (another command got there first). The one-statement way to move a stack
+// without a race: whoever deletes the row is the only one who gets its contents.
+export async function takeRowQuantity(rowId) {
+  const { rows } = await query('DELETE FROM player_inventory WHERE id=$1 RETURNING quantity', [rowId]);
+  return rows.length ? (Number(rows[0].quantity) || 0) : 0;
+}
+
 // Move a player's inventory row to the ground. With a partial qty, splits the
 // stack and leaves the remainder carried. Returns the quantity dropped.
 export async function dropToGround(row, zoneId, qty) {
   const dropQty = (qty && qty > 0 && qty < row.quantity) ? qty : row.quantity;
   if (dropQty < row.quantity) {
-    await query('UPDATE player_inventory SET quantity=quantity-$1 WHERE id=$2', [dropQty, row.id]);
+    // Only if the stack still holds more than this: two drops racing on one
+    // stack could otherwise take it below zero and mint the difference.
+    const { rowCount } = await query('UPDATE player_inventory SET quantity=quantity-$1 WHERE id=$2 AND quantity > $1', [dropQty, row.id]);
+    if (!rowCount) return 0;
     await query('INSERT INTO player_inventory (id,player_id,item_id,quantity,is_equipped) VALUES ($1,$2,$3,$4,0)', [randomUUID(), groundOwner(zoneId), row.item_id, dropQty]);
   } else {
     await query('UPDATE player_inventory SET player_id=$1, is_equipped=0, slot=NULL, layer=NULL, container_id=NULL WHERE id=$2', [groundOwner(zoneId), row.id]);
@@ -371,8 +386,9 @@ export async function giveToPlayer(row, toPlayer) {
       [toPlayer.id, row.item_id]
     );
     if (rows.length) {
-      await query('UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2', [row.quantity, rows[0].id]);
-      await query('DELETE FROM player_inventory WHERE id=$1', [row.id]);
+      // Source first, then only what it held: see pickUp.
+      const taken = await takeRowQuantity(row.id);
+      if (taken > 0) await query('UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2', [taken, rows[0].id]);
       return;
     }
   }

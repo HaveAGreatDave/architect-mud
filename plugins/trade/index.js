@@ -307,9 +307,13 @@ async function cmdTradecancel(args, raw, player) {
 
 // ── The swap ──────────────────────────────────────────────────────────────────
 // Move `qty` units of an inventory row to another player, splitting the stack when
-// it's a partial move. Throws if the row vanished or is now equipped (→ rollback).
-async function moveItem(tx, invId, toPlayerId, qty) {
-  const { rows } = await tx('SELECT id, item_id, quantity, condition, is_equipped, custom_data FROM player_inventory WHERE id=$1', [invId]);
+// it's a partial move. Throws if the row vanished, is now equipped, or no longer
+// belongs to the player who offered it (→ rollback).
+// ⚠ The owner check and the lock matter: an offer is staged minutes before the
+// swap, and without them an item sold or dropped in the meantime was pulled back
+// out of its new owner's pack into the trade.
+async function moveItem(tx, invId, fromPlayerId, toPlayerId, qty) {
+  const { rows } = await tx('SELECT id, item_id, quantity, condition, is_equipped, custom_data FROM player_inventory WHERE id=$1 AND player_id=$2 FOR UPDATE', [invId, fromPlayerId]);
   const r = rows[0];
   if (!r || r.is_equipped) throw new Error('gone');
   const q = Math.min(qty, r.quantity);
@@ -337,8 +341,8 @@ async function executeTrade(session) {
 
   try {
     await withTransaction(async (tx) => {
-      for (const it of aOff.items) await moveItem(tx, it.invId, bId, it.qty);
-      for (const it of bOff.items) await moveItem(tx, it.invId, aId, it.qty);
+      for (const it of aOff.items) await moveItem(tx, it.invId, aId, bId, it.qty);
+      for (const it of bOff.items) await moveItem(tx, it.invId, bId, aId, it.qty);
       if (aOff.credits > 0) {
         if (!(await adjustCredits(aP || { id: aId, credits: 0 }, -aOff.credits, tx, 'trade:credits'))) throw new Error('credits');
         await adjustCredits(bP || { id: bId, credits: 0 }, aOff.credits, tx, 'trade:credits');

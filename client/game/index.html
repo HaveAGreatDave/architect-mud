@@ -82,13 +82,18 @@
 		<script>
 			// Auto-login is in flight when remembered credentials exist — hide the
 			// auth screen before first paint so it never flashes on refresh.
-			if (
-				localStorage.getItem("mud_remember_user") &&
-				localStorage.getItem("mud_remember_pass") &&
-				!sessionStorage.getItem("signed-out")
-			) {
-				document.write("<style>#auth-screen{display:none}</style>");
-			}
+			// Same test as hasAutoLogin in js/remember.js: a saved token, or an old
+			// saved password not yet swapped for one. Guarded, because this script
+			// also applies the saved theme below, and a throw here would stop that.
+			try {
+				if (
+					(localStorage.getItem("mud_remember_token") ||
+						(localStorage.getItem("mud_remember_user") && localStorage.getItem("mud_remember_pass"))) &&
+					!sessionStorage.getItem("signed-out")
+				) {
+					document.write("<style>#auth-screen{display:none}</style>");
+				}
+			} catch (e) { /* storage blocked: show the form */ }
 			// Apply saved theme/layout before first paint so the default
 			// template never flashes on refresh (the module that calls
 			// applySettings is deferred and runs after first paint).

@@ -530,10 +530,18 @@ async function dispatchApiRequest(url, method, body, headers) {
     return { status: 200, body: all.map(p => ({ id: p.id, handle: p.handle })) };
   }
   if (path==='/admin/presence' && method==='POST') {
-    if (!auth) return { status:401, body:{error:'Unauthorized'} };
-    const { handle } = body || {};
-    if (handle) updateDevPresence(auth.playerId, handle, auth.role);
-    return { status:200, body:{ok:true} };
+    // ⚠ Staff only, and the handle is the account's own, looked up here. Any
+    // logged-in player could post one before, and the public online list served
+    // it to panels that render handles as HTML: stored XSS.
+    return requireDev(auth, async () => {
+      let handle = devPresence.get(auth.playerId)?.handle;
+      if (!handle) {
+        const { rows } = await query('SELECT handle FROM players WHERE id=$1', [auth.playerId]);
+        handle = rows[0]?.handle;
+      }
+      if (handle) updateDevPresence(auth.playerId, handle, auth.role);
+      return { status:200, body:{ok:true} };
+    });
   }
   if (path==='/channels/messages' && method==='GET') {
     if (!auth || !['admin','dev','builder','designer'].includes(auth.role)) return { status:403, body:{error:'Forbidden'} };
@@ -570,7 +578,12 @@ async function dispatchApiRequest(url, method, body, headers) {
   if (path==='/tag-catalog' && method==='PUT') return requireDev(auth, ()=>apiPutTagCatalog(body));
   if (path==='/tag-supertags' && method==='GET') return requireDev(auth, apiGetSupertags);
   if (path==='/tag-supertags' && method==='PUT') return requireDev(auth, ()=>apiPutSupertags(body));
-  if (path==='/spawn' && method==='POST') return requireDev(auth, ()=>apiSpawnItem(body));
+  // Minting items works on prod (it's on the ops allowlist), so dev and admin
+  // only, not the content roles.
+  if (path==='/spawn' && method==='POST') {
+    if (!auth || !['dev','admin'].includes(auth.role)) return { status:403, body:{error:'Dev or admin access required'} };
+    return apiSpawnItem(body);
+  }
   if (path==='/motd' && method==='GET') return requireDev(auth, apiGetMotd);
   if (path==='/motd' && method==='PUT') return requireDev(auth, ()=>apiSetMotd(body));
   if (path==='/motd/push' && method==='POST') return requireDev(auth, () => apiPushMotd(body));
@@ -3885,11 +3898,14 @@ async function apiPutSupertags(body) {
 async function apiSpawnItem(body) {
   const { item_id, zone_id, quantity = 1 } = body || {};
   if (!item_id || !zone_id) return { status:400, body:{ error:'item_id and zone_id required' } };
+  const qty = Math.floor(Number(quantity));
+  if (!Number.isFinite(qty) || qty < 1 || qty > 999) return { status:400, body:{ error:'quantity must be a whole number from 1 to 999' } };
+  if (!getZone(zone_id)) return { status:404, body:{ error:`No zone "${zone_id}"` } };
   const { rows } = await query('SELECT id FROM items WHERE id=$1', [item_id]);
   if (!rows.length) return { status:404, body:{ error:`No item "${item_id}"` } };
   const invId = `inv_spawn_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
   await query('INSERT INTO player_inventory (id,player_id,item_id,quantity) VALUES ($1,$2,$3,$4)',
-    [invId, `_ground_${zone_id}`, item_id, quantity]);
+    [invId, `_ground_${zone_id}`, item_id, qty]);
   return { status:201, body:{ ok:true } };
 }
 

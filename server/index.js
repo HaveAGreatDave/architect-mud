@@ -750,13 +750,17 @@ wss.on("connection", (ws, req) => {
 		if (msg.type === "auth_forget") { if (session.playerId) revokeRememberTokens(session.playerId).catch(() => {}); return; }
 		if (msg.type === "auth_reconnect")
 			return handleReconnect(ws, session, msg);
-		if (msg.type === "command") return handleGameCommand(ws, session, msg);
-		if (msg.type === "dialogue") return handleDialogue(ws, session, msg);
+		// ⚠ One at a time per connection. These read state and then write it (move a
+		// stack, pour a drink, pay out), and two copies of one command sent in the
+		// same packet used to interleave: both read before either wrote, and items
+		// were paid out twice. Queued, the second sees what the first did.
+		if (msg.type === "command") return inOrder(session, () => handleGameCommand(ws, session, msg));
+		if (msg.type === "dialogue") return inOrder(session, () => handleDialogue(ws, session, msg));
 		if (msg.type === "shop_close") { if (session.playerId) closeShopSession(session.playerId); return; }
-		if (msg.type === "buy_npc") return handleBuyFromNpc(ws, session, msg);
-		if (msg.type === "buy_many_npc") return handleBuyManyFromNpc(ws, session, msg);
-		if (msg.type === "sell_npc") return handleSellToNpc(ws, session, msg);
-		if (msg.type === "sell_all_npc") return handleSellAllToNpc(ws, session, msg);
+		if (msg.type === "buy_npc") return inOrder(session, () => handleBuyFromNpc(ws, session, msg));
+		if (msg.type === "buy_many_npc") return inOrder(session, () => handleBuyManyFromNpc(ws, session, msg));
+		if (msg.type === "sell_npc") return inOrder(session, () => handleSellToNpc(ws, session, msg));
+		if (msg.type === "sell_all_npc") return inOrder(session, () => handleSellAllToNpc(ws, session, msg));
 		if (msg.type === "auth_ghost") return handleGhostAuth(ws, session, msg);
 		if (msg.type === "ghost_command") return handleGhostCommand(ws, session, msg);
 		if (msg.type === "ghost_jump") return handleGhostJump(ws, session, msg);
@@ -1226,8 +1230,14 @@ async function handleAuthRemember(ws, session, msg) {
 	}
 	const playerId = verifyRememberToken(msg.token);
 	const { rows } = playerId ? await query("SELECT * FROM players WHERE id=$1", [playerId]) : { rows: [] };
-	if (!rows.length || (isEmailVerificationEnabled() && !rows[0].email_verified)) {
+	if (!rows.length) {
 		ws.send(JSON.stringify({ type: "auth_fail", message: "Your saved sign-in has expired. Please log in again.", rememberExpired: true }));
+		return;
+	}
+	// Not expired, just unverified: the same answer the password login gives, so
+	// the player gets the verify screen and keeps the saved login.
+	if (isEmailVerificationEnabled() && !rows[0].email_verified) {
+		ws.send(JSON.stringify({ type: "auth_fail", message: "Please verify your email before logging in.", needsVerification: true }));
 		return;
 	}
 	await finishAuth(ws, session, rows[0], msg.displayRung, false);
@@ -1713,6 +1723,20 @@ function messageAllowed(session) {
 	return true;
 }
 
+// Run fn after everything this connection queued before it. A handler that never
+// settles would stall the player for good, so the queue moves on after
+// INORDER_TIMEOUT_MS (the handler keeps running; only the wait ends).
+const INORDER_TIMEOUT_MS = 30_000;
+function inOrder(session, fn) {
+	const run = () => new Promise((resolve) => {
+		const t = setTimeout(resolve, INORDER_TIMEOUT_MS);
+		Promise.resolve().then(fn).catch((e) => console.error("⚠ handler failed:", e)).finally(() => { clearTimeout(t); resolve(); });
+	});
+	const next = (session.queue || Promise.resolve()).then(run);
+	session.queue = next;
+	return next;
+}
+
 function commandAllowed(session) {
 	const now = Date.now();
 	const b = session.cmdBucket || (session.cmdBucket = { tokens: CMD_BUCKET_CAP, last: now, notifiedAt: 0 });
@@ -1965,6 +1989,12 @@ async function buyOneFromNpc(player, npc, itemId, quantity, shelfKey) {
 	const boughtItem = getItem(itemId);
 	if (boughtItem && boughtItem.type === "furniture") {
 		const { buyFurniture } = await import("./engine/furniture-shop.js");
+		// ⚠ Only what this counter is actually selling to this player: the same
+		// shelf, trust and rotation rules as the panel's own listing. Without it any
+		// furniture in the game could be bought here at its base value.
+		const { getVendorStock } = await import("./engine/vendor.js");
+		const onSale = await getVendorStock(npc, player.id, shelfKey);
+		if (!onSale.some(e => e.item_id === itemId)) return { message: `${npc.name} doesn't sell that.`, success: false };
 		const catalogueEntry = (npc.vendor_inventory || []).find(e => e.item_id === itemId);
 		const fr = await buyFurniture(player, npc, boughtItem, catalogueEntry);
 		return { message: fr.message, success: fr.type === "buy" };
@@ -1974,7 +2004,8 @@ async function buyOneFromNpc(player, npc, itemId, quantity, shelfKey) {
 	// The GUI shop can request a quantity (stepper / Max button). Clamp it, and
 	// force a single unit for non-stackable items so a stack can't collapse a
 	// unique into one over-counted row.
-	let qty = Math.max(1, Math.min(99, Number(quantity) || 1));
+	// A whole number: 1.5 used to reach the price and the SQL.
+	let qty = Math.max(1, Math.min(99, Math.floor(Number(quantity)) || 1));
 	if (boughtItem && !isStackable(boughtItem)) qty = 1;
 	return await buyFromVendor(player, npc, itemId, qty, shelfKey);
 }

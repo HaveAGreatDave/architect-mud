@@ -61,7 +61,7 @@ import { initWorkspacePanel } from "./panels/workspace.js";
 import { initLootPanel } from "./panels/loot.js";
 import { initDialogue } from "./panels/dialogue.js";
 import { initForecast } from "./panels/forecast.js";
-import { initWhisperPanel, debugFakeWhisper } from "./panels/whisper.js";
+import { initWhisperPanel, debugFakeWhisper, forgetWhisperHistory } from "./panels/whisper.js";
 import { initWho, openWhoModal } from "./panels/who.js";
 import { initPlayersPanel } from "./panels/players.js";
 import { showAmountDialog, showDangerDialog, showConfirmDialog, makeDraggable } from "./panels/confirm.js";
@@ -86,6 +86,7 @@ import { seatHoldsKeyboard } from "./panels/seat-keys.js";
 import { runBootScreen } from "./panels/bootscreen.js";
 import { installFpsMeter } from "./fps-meter.js";
 import { rememberedUser, hasAutoLogin, forgetRememberToken } from "./remember.js";
+import { sessionSet, sessionRemove, localGet, localSet } from "./session-store.js";
 installFpsMeter();   // F3: debug FPS counter + frame-time graph (fps-meter.js)
 
 // Started before anything else is wired, and deliberately NOT awaited: the POST
@@ -747,14 +748,17 @@ window.addEventListener("glass:struggling", () => {
 // Wire signout
 function doSignout() {
 	// Flag to prevent auto-login on next page load
-	sessionStorage.setItem("signed-out", "1");
+	// Guarded: with storage blocked this used to throw first, and none of the
+	// sign-out below ran, so the saved login survived.
+	sessionSet("signed-out", "1");
 	// Signing out forgets the saved login here, and tells the server to end every
 	// saved login of this player, so a copied token stops working too. The name
 	// stays in the form.
 	sendRaw({ type: "auth_forget" });
 	forgetRememberToken();
-	sessionStorage.removeItem("reconnect-token");
-	sessionStorage.removeItem("game-switch-token");
+	forgetWhisperHistory();   // private messages don't outlive the session on a shared machine
+	sessionRemove("reconnect-token");
+	sessionRemove("game-switch-token");
 	closeConnection();
 	location.reload();
 }
@@ -881,12 +885,12 @@ if (mobDpadSize) {
 		else document.documentElement.dataset.dpadSize = size;
 		mobDpadSize.title = `D-Pad size: ${size} (tap to change)`;
 	};
-	const savedSize = localStorage.getItem("architect_dpad_size");
+	const savedSize = localGet("architect_dpad_size");
 	applyDpadSize(SIZES.includes(savedSize) ? savedSize : "small");
 	mobDpadSize.addEventListener("click", () => {
 		const cur = document.documentElement.dataset.dpadSize || "small";
 		const next = SIZES[(SIZES.indexOf(cur) + 1) % SIZES.length];
-		localStorage.setItem("architect_dpad_size", next);
+		localSet("architect_dpad_size", next);
 		applyDpadSize(next);
 	});
 }
@@ -904,11 +908,11 @@ if (locDpad) {
 			resizeBtn.title = `D-Pad size: ${mode} (click to change)`;
 		}
 	};
-	const saved = localStorage.getItem("architect_dpad_mode");
+	const saved = localGet("architect_dpad_mode");
 	applyMode(MODES.includes(saved) ? saved : "auto");
 	resizeBtn?.addEventListener("click", () => {
 		const next = MODES[(MODES.indexOf(locDpad.dataset.dpadMode) + 1) % MODES.length];
-		localStorage.setItem("architect_dpad_mode", next);
+		localSet("architect_dpad_mode", next);
 		applyMode(next);
 	});
 	wireDpadPressRelease(locDpad);

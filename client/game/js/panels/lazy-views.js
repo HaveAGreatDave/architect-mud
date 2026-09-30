@@ -117,7 +117,7 @@ export const openTruckDepot = call(depot, 'openTruckDepot');
 
 // spraycan.js
 export const openSprayCan = call(spray, 'openSprayCan');
-export const updateSprayShelf = call(spray, 'updateSprayShelf');
+export const updateSprayShelf = ifLoaded(spray, 'updateSprayShelf');   // returns at once with no spray view open
 
 // hangar-bay.js
 export const isHangarBayActive = ifLoaded(hangar, 'isHangarBayActive', false);

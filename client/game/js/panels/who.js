@@ -1,4 +1,5 @@
 import { state } from '../state.js';
+import { escapeHtml } from '/shared/dom.js';
 import { openWhisperTab } from './whisper.js';
 
 let _whoPlayers = [];
@@ -38,13 +39,13 @@ function _renderWhoList(players) {
   const myHandle = document.getElementById('handle-display')?.textContent?.trim();
   list.innerHTML = players.map(p => {
     const isSelf = p.handle === myHandle;
-    const whisperBtn = isSelf ? '' : `<button data-whisper="${p.handle.replace(/"/g,'&quot;')}" title="Whisper ${p.handle}" style="background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:var(--font-mono);font-size:0.625rem;padding:2px 6px;cursor:pointer;border-radius:2px">✉</button>`;
+    const whisperBtn = isSelf ? '' : `<button data-whisper="${escapeHtml(p.handle)}" title="Whisper ${escapeHtml(p.handle)}" style="background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:var(--font-mono);font-size:0.625rem;padding:2px 6px;cursor:pointer;border-radius:2px">✉</button>`;
     const adminBtns = (!isSelf && IS_ADMIN()) ? `
-      <button data-smite-id="${p.id}" data-smite-handle="${p.handle.replace(/"/g,'&quot;')}" style="background:transparent;border:1px solid var(--red);color:var(--red);font-family:var(--font-mono);font-size:0.625rem;padding:2px 6px;cursor:pointer;border-radius:2px">⚡</button>
-      <button data-kick-id="${p.id}" data-kick-handle="${p.handle.replace(/"/g,'&quot;')}" style="background:transparent;border:1px solid var(--red);color:var(--red);font-family:var(--font-mono);font-size:0.625rem;padding:2px 6px;cursor:pointer;border-radius:2px">kick</button>` : '';
+      <button data-smite-id="${p.id}" data-smite-handle="${escapeHtml(p.handle)}" style="background:transparent;border:1px solid var(--red);color:var(--red);font-family:var(--font-mono);font-size:0.625rem;padding:2px 6px;cursor:pointer;border-radius:2px">⚡</button>
+      <button data-kick-id="${p.id}" data-kick-handle="${escapeHtml(p.handle)}" style="background:transparent;border:1px solid var(--red);color:var(--red);font-family:var(--font-mono);font-size:0.625rem;padding:2px 6px;cursor:pointer;border-radius:2px">kick</button>` : '';
     return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid var(--border)">
       <div>
-        <span style="font-weight:600;color:${isSelf?'var(--accent)':'var(--text-bright)'};font-size:0.75rem">${p.handle}${isSelf?' (you)':''}</span>
+        <span style="font-weight:600;color:${isSelf?'var(--accent)':'var(--text-bright)'};font-size:0.75rem">${escapeHtml(p.handle)}${isSelf?' (you)':''}</span>
         ${IS_ADMIN() ? `<span style="color:var(--text-dim);font-size:0.625rem;margin-left:8px">${p.current_zone||''}</span>` : ''}
       </div>
       <div style="display:flex;gap:4px;align-items:center">${whisperBtn}${adminBtns}</div>

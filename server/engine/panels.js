@@ -72,8 +72,9 @@ export async function handlePanelData(session, msg) {
   const playerId = session?.playerId;
   if (!playerId) return;
   const values = {};
-  for (const key of Array.isArray(msg.fields) ? msg.fields : []) {
-    if (RESOLVERS[key]) values[key] = await RESOLVERS[key](playerId);
-  }
+  // Known fields only, each once: some resolvers query the DB, and a single
+  // frame could otherwise list one field tens of thousands of times.
+  const wanted = new Set((Array.isArray(msg.fields) ? msg.fields : []).filter((k) => typeof k === 'string' && Object.hasOwn(RESOLVERS, k)));
+  for (const key of wanted) values[key] = await RESOLVERS[key](playerId);
   sendToPlayer(playerId, { type: 'panel_data', values });
 }

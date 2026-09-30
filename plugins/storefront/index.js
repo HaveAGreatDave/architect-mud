@@ -1354,10 +1354,14 @@ async function fillOrder(order, player) {
     if ((t[0]?.till_credits ?? 0) < order.price) return false;
     const { rows: o } = await q('SELECT wanted FROM storefront_orders WHERE id=$1 FOR UPDATE', [order.id]);
     if (!o.length || o[0].wanted < 1) return false;
+    // ⚠ The goods, locked inside the same transaction. The row was found before
+    // it began, so two `supply` commands at once both paid out for one item.
+    const { rows: held } = await q('SELECT quantity FROM player_inventory WHERE id=$1 AND player_id=$2 AND is_equipped=0 FOR UPDATE', [row.inv_id, player.id]);
+    if (!held.length) return 'gone';
     await q('UPDATE storefronts SET till_credits = till_credits - $1 WHERE zone_id=$2', [order.price, zone.id]);
     await q('UPDATE storefront_orders SET wanted = wanted - 1 WHERE id=$1', [order.id]);
     // One unit only: split the stack if they're carrying several.
-    if ((row.quantity || 1) > 1) {
+    if ((held[0].quantity || 1) > 1) {
       await q('UPDATE player_inventory SET quantity = quantity - 1 WHERE id=$1', [row.inv_id]);
       await q(`INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, custom_data)
                VALUES ($1,$2,$3,1,$4,$5)`,
@@ -1368,6 +1372,7 @@ async function fillOrder(order, player) {
     }
     return true;
   });
+  if (paid === 'gone') return { type: 'error', message: `You aren't carrying a ${order.name} any more.` };
   if (!paid) return { type: 'error', message: `The till can't cover ${order.price}₵. The offer's still up, but the money isn't there.` };
 
   await adjustCredits(player, order.price, undefined, 'storefront:supply');

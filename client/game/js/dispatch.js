@@ -13,7 +13,7 @@ import { updateInventoryCache, consumeSilentInventory, refreshWeaponChip } from 
 import { renderRecipesPanel } from './panels/recipes.js';
 import { renderStatsPanel } from './panels/stats.js';
 import { renderSkillsPanel } from './panels/skills.js';
-import { receiveWhisper, sentWhisper, receiveChannelMsg, initChannels, initChannelHistory, receiveMOTD, refreshOnlinePlayers, rollbackSelfEcho, removeCorpChannels } from './panels/whisper.js';
+import { receiveWhisper, sentWhisper, receiveChannelMsg, initChannels, initChannelHistory, receiveMOTD, refreshOnlinePlayers, rollbackSelfEcho, removeCorpChannels, setWhisperOwner } from './panels/whisper.js';
 import { openContainerPanel, refreshContainerPanel, getActiveContainerId, showContainerNotify } from './panels/container.js';
 import { openWardrobePanel, refreshWardrobePanel, getActiveWardrobeId, showWardrobeNotify } from './panels/wardrobe.js';
 import { openLootPanel, closeLootPanel } from './panels/loot.js';
@@ -369,6 +369,7 @@ const handlers = {
 
   auth_success: (msg) => {
     sessionRemove('signed-out');
+    setWhisperOwner(msg.player?.id);   // this player's saved whispers, and only theirs
     const wasReconnect = !!state.player;
     clearTimeout(state.authTimeout);
     state.authPending = false;
