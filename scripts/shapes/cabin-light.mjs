@@ -1,5 +1,5 @@
 // The world's light reaches the room you sit in: the moon brightens a cab at night, a roof dims it
-// at noon (a shed, the gate's lock road, the gate, a hangar), and rolled inverted the light comes up off the floor (cabinEnvLight in windshield.js).
+// at noon (a shed, the gate's lock road, the gate, a hangar, a bridge or arch overhead), street lamps and neon light it after dark from the side they're on, and rolled inverted the light comes up off the floor (cabinEnvLight in windshield.js).
 // Measured on the interior faces the frame collects, as mean luminance, so it proves direction and
 // not taste.
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
@@ -46,6 +46,57 @@ for (const [k, x] of [['shed', shed], ['lock road', lock], ['covered seat', said
   if (!(x < open * 0.9)) problems.push(`the ${k} did not darken the cab at noon (open ${open.toFixed(1)}, ${k} ${x.toFixed(1)})`);
 }
 if (!(gate < open * 0.97 && gate > shed)) problems.push(`the gate yoke is not a partial shade (open ${open.toFixed(1)}, gate ${gate.toFixed(1)}, shed ${shed.toFixed(1)})`);
+
+// Under a bridge: parked beneath the Air Rights arch (a named model whose mass starts above a
+// truck's eye), against the same spot with no building. overheadAt answers from the captured
+// segments, so this is the real model, not a stand-in.
+{
+  const arch = { kind: 'land', biome: 'downtown', bt: 'chrome_arch', bn: 'Air Rights', flr: 3, ent: 'south' };
+  const m = mkMap(null); m[20][20] = arch;
+  if (!ws.overheadAt(100, 100, arch, 99.8, 100, 0.12)) problems.push('overheadAt no longer finds the Air Rights arch over a truck');
+  const under = lum(faces({ ...TRUCK, map: m, mapOffset: { x: -0.2, y: 0 } }));
+  const clear = lum(faces({ ...TRUCK, mapOffset: { x: -0.2, y: 0 } }));
+  if (!(under < clear * 0.9)) problems.push(`driving under the Air Rights arch did not darken the cab (clear ${clear.toFixed(1)}, under ${under.toFixed(1)})`);
+  // A stacked building is mass above every point of it, and being in it is not being under it.
+  const wh = { kind: 'land', biome: 'freight', bt: 'warehouse', flr: 2, ent: 'south' };
+  if (ws.overheadAt(100, 100, wh, 100, 100, 0.12)) problems.push('overheadAt called the inside of a warehouse wall a bridge');
+}
+
+// Street light: a lit shop beside the road at night reaches into the cab, on the side it's on, and
+// nothing changes by day. Measured with `cabStreet` off against on, same frame otherwise.
+{
+  const shopAt = (sx, sy = 0) => { const m = mkMap(null); m[20 + sy][20 + sx] = { kind: 'land', biome: 'downtown', bt: 'shop', bn: 'Ohm Sweet Ohm', flr: 2, ent: sx > 0 ? 'west' : 'east' }; return m; };
+  const pair = (view) => {
+    ws.RENDER_TUNE.cabStreet = 0; const a = faces(view);
+    ws.RENDER_TUNE.cabStreet = 1; const b = faces(view);
+    return [a, b];
+  };
+  const night = { ...TRUCK, hour: 0, moon: 0, mapOffset: { x: 0, y: 0 } };
+  // Which side of the cab a face is on, off its world position: the cab's right is (cos h, sin h)
+  // and the eye is at the origin. Light coming in through the glass on one side lands on the
+  // surfaces facing it, which are on the OTHER side of the room: a lamp to the right lights the
+  // left door and the left of the dash.
+  const sideGain = ([a, b], hdg) => {
+    const c = Math.cos(hdg * Math.PI / 180), sn = Math.sin(hdg * Math.PI / 180);
+    let R = 0, Lf = 0;
+    for (let i = 0; i < a.length; i++) {
+      const g = lum([b[i]]) - lum([a[i]]);
+      const x = a[i].p.reduce((t, p) => t + p[0] * c + p[1] * sn, 0) / a[i].p.length;
+      if (x > 0) R += g; else Lf += g;
+    }
+    return { R, L: Lf };
+  };
+  // The shop's one lit sign faces west, onto the road. Heading north with the shop east, it is ahead
+  // and right; heading south with the shop a tile further south, it is ahead and left. Ahead both
+  // times, because a light behind the camera is never drawn and so never reaches the sink.
+  const right = pair({ ...night, heading: 0, map: shopAt(1) }), left = pair({ ...night, heading: 180, map: shopAt(1, 1) });
+  if (!(lum(right[1]) > lum(right[0]) * 1.03)) problems.push(`a lit shop beside the road did not light the cab at night (off ${lum(right[0]).toFixed(1)}, on ${lum(right[1]).toFixed(1)})`);
+  const r = sideGain(right, 0), l = sideGain(left, 180);
+  if (!(r.L > r.R && l.R > l.L)) problems.push(`street light did not come in from the side the lamp is on (lamp right: R ${r.R.toFixed(0)} L ${r.L.toFixed(0)}; lamp left: R ${l.R.toFixed(0)} L ${l.L.toFixed(0)})`);
+  const day = pair({ ...night, heading: 0, hour: 13, map: shopAt(1) });
+  if (Math.abs(lum(day[1]) - lum(day[0])) > 0.01) problems.push(`street light changed the cab at noon (${lum(day[0]).toFixed(2)} -> ${lum(day[1]).toFixed(2)})`);
+  ws.RENDER_TUNE.cabStreet = 1;
+}
 
 // Upside down: the upper half of the room loses to the lower half compared with level. Per-face
 // comparison on the same slots, split by each face's height in the level frame.

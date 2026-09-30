@@ -1101,8 +1101,16 @@ So `gl/water.js` is a real mesh. It displaces the 8.6-tile roll and the fragment
 `cabinEnvLight` (windshield.js) feeds `pushInteriorShell` the three things the room's light used to ignore, all off fields already on the view:
 
 - The moon: `moonIllum(phase) × elev`, only after dark and cut by cloud. It lifts the cab's ambient and cools the window key toward silver, so a full-moon cab reads and a new-moon one doesn't.
-- Cover: off the mark under the vehicle, `COVER_BY_MARK`: a `bay` shed and the South Gate's covered `lock` road 0.8, the `gate` yoke 0.45 (a band of shade you drive under). Only below 40 ft, so a plane over a shed isn't in it. A seat that knows better sets `v.covered`; the hangar bay's cockpit booth sends 0.9. Cover dims the daylight, kills the sun glint, and counts as dark for the panel floods and cabin glare. The world has no tunnel or bridge type; a new roofed mark gets a row in the table.
+- Cover: off the mark under the vehicle, `COVER_BY_MARK`: a `bay` shed and the South Gate's covered `lock` road 0.8, the `gate` yoke 0.45 (a band of shade you drive under). Only below 40 ft, so a plane over a shed isn't in it. A seat that knows better sets `v.covered`; the hangar bay's cockpit booth sends 0.9. Cover dims the daylight, kills the sun glint, and counts as dark for the panel floods and cabin glare. Bridges, overpasses, sky links and arches have no tile type; they're building mass, so `overheadAt` asks the captured segments (the ones CFIT reads) whether any segment starts above the eye at that point with nothing solid at eye height. Five probes around the eye give a fraction, so driving out from under one fades. A new roofed mark gets a row in the table.
+
+Trap: "mass above the eye" alone is true over every stacked building, so the first cut called the inside of a warehouse wall a bridge. The clear-air condition is what makes it an underside.
 - Attitude: the sky's direction in cab space from `bank` and `pitch`. The overhead share of each face's light and the roof-bright height falloff follow it, so inverted the footwells are lit and the roof is not, and the sun glint is turned with the airframe.
+
+- Street light: `applyCabinStreetLight` adds street lamps, neon and lit signs to the cab after dark. The lights are the `SPRITE_SINK` list the wall wash reads, which fills while the city draws, after the cab is shaded, so the pass runs just before the GL hook and adds onto the faces already in `OWNSHIP_SINK` (the interior upload compares every value, so the change is sent). Each lamp is one direction and strength across the whole cab, since the cab is hundredths of a tile across; the strongest six within 1.4 tiles are kept. `RENDER_TUNE.cabStreet` 0 turns it off.
+
+Trap: a lamp to the right lights the LEFT of the room. Light through the right-hand glass lands on the surfaces facing it; the first version of the check expected the right side to brighten and failed on correct lighting.
+
+Trap: only lights that were drawn reach the sink, so a lamp behind the camera doesn't light the cab. Lighting from behind would need the world pass to push off-screen lights, which costs every frame.
 
 Trap: the up vector is in the shade cache's frame key. It's rounded to hundredths so a steady bank still hits the cache. `scripts/shapes/cabin-light.mjs` checks all three by direction.
 

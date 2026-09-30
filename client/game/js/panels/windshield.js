@@ -269,6 +269,7 @@ export const RENDER_TUNE = {
   // canopy arch, the cowl and the painted side windows all stand down. 0 is the hybrid that shipped:
   // painted forward board, 3-D room behind it. See full3d().
   cockpit3d: 1,
+  cabStreet: 1,        // street lamps and neon light the 3-D cockpit (applyCabinStreetLight); 0 is the cab lit by the sky alone
   cockpitTex: 1,
   cockpitGlass: 1,      // translucent, reflective cockpit panes (a profile's `glass`); 0 is open apertures        // per-pixel surface textures on cockpit faces (gl/solids.js); 0 is flat shading
   // How far the head may turn and tip in the seat, in degrees. The yaw is a full circle and is
@@ -19033,6 +19034,39 @@ export function modelTopAt(wx, wy, cell, px, py, inFeet) {
   return inFeet ? altForRoofZ(best) : best;
 }
 
+// IS THERE A BUILDING OVER THIS POINT, ABOVE THIS EYE? The same captured segments modelTopAt
+// reads, asked the other way up: not "how high is the mass here" but "does any of it start above
+// me". That is a bridge, a sky link, an arch, an overpass or a soffit, whatever the arm called it,
+// and it is how the cockpit knows it has driven under one (cabinEnvLight). World-z, like the eye.
+// A bay is not asked here: its roof has its own row in COVER_BY_MARK.
+export function overheadAt(wx, wy, cell, px, py, eyeZ) {
+  if (!cell || isBay(cell) || buildingHeightZ(wx, wy, cell) <= 0) return false;
+  const m = modelFor(cell);
+  if (!m) return false;   // an archetype square is solid to the ground: you are in it, not under it
+  const seed = (wx + 512) * 73 + (wy + 512) * 149;
+  const segs = shapeForModel(m, seed);
+  if (!segs || !segs.length) return false;
+  const h = floorHeight(cell, seed);
+  if (!(h > 0)) return false;
+  const fh = (BUILDING_FOOT + frac(seed + 2) * 0.06) * (RENDER_TUNE.bldgFoot || 1);
+  const E = faceVec(cell.ent), th = Math.atan2(-E[0], E[1]), ct = Math.cos(th), st = Math.sin(th);
+  const ox = px - wx, oy = py - wy;
+  const lx = ox * ct + oy * st, ly = -ox * st + oy * ct;
+  const V = (q) => q[0] * fh + q[1] * h + q[2];
+  // ⚠ AND THE EYE MUST BE IN CLEAR AIR. A stacked building has mass above every point of its
+  // footprint; that is being inside a wall, not under a bridge. Covered means something starts
+  // above you and nothing is solid where you are.
+  let over = false;
+  for (const sg of segs) {
+    const z0 = V(sg.z0);
+    if (z0 <= eyeZ && V(sg.z1) < eyeZ) continue;       // wholly below the eye: a kerb, a plinth
+    if (!segContains(sg, lx, ly, V)) continue;
+    if (z0 <= eyeZ) return false;                      // solid at eye height
+    over = true;
+  }
+  return over;
+}
+
 // Is a MODEL-LOCAL point inside this segment's footprint? Extracted so the aircraft's CFIT probe
 // (modelTopAt) and the ground vehicle's obstruction probe (groundObstructionAt) share one answer.
 // They ask different questions — "how high is the mass here" vs "is the mass here in my way" — but
@@ -22527,16 +22561,74 @@ function texOf(f) {
 // was missing, all off fields already on the view, so nothing new goes on the wire:
 //   · moon  — what the moon adds after dark: its phase times its height, gone behind cloud.
 //   · cover — 0 open sky, ~1 a roof overhead, off the mark under the vehicle (COVER_BY_MARK: the
-//             shed, the gate's lock road, the gate). A seat that knows better (the hangar bay's
+//             shed, the gate's lock road, the gate), or any building mass whose underside is above
+//             the eye (overheadAt: a bridge, an overpass, a sky link, an arch). A seat that knows better (the hangar bay's
 //             cockpit booth) says so with `v.covered`.
 //   · up    — the sky's direction in the cab's own frame (x right, y forward, z up). Level it is
 //             [0, 0, 1]; rolled inverted it is [0, 0, −1] and the light comes up off the floor.
 // Pure and cheap, so the frame key below can carry it and a steady cab still hits the cache.
+// ── THE STREET COMES IN THROUGH THE GLASS ────────────────────────────────────
+// A lamp post, a neon sign, a lit shopfront: every light the world pass hands the GPU goes through
+// pushLight into SPRITE_SINK, which fills while the city is drawn, after the cab is shaded. So the
+// cab is shaded as ever and then this adds the street onto the faces already in the sink, just
+// before the GL pass reads them. Nothing new is authored or collected, and a colour change reaches
+// the GPU because the interior upload compares every value.
+//
+// ⚠ EACH LAMP IS A DIRECTION, NOT A POINT. The cab is a few hundredths of a tile across and a lamp is
+// tenths away, so across the room one lamp lights from one direction at one strength. Only the
+// strongest few are kept (CAB_STREET_N), which is the cost ceiling: faces × a handful.
+// ⚠ A sprite's position is in the frame the GPU adds `cam.ox/oy` to, the same one the cab is
+// anchored in with the eye at the origin (see pickLights), so the lamp relative to the eye is
+// (x, y, z − EH).
+let CAB_STREET = null;
+const CAB_STREET_N = 6, CAB_STREET_REACH = 1.4, CAB_STREET_R = 0.45, CAB_STREET_GAIN = 1.6;
+function applyCabinStreetLight() {
+  const st = CAB_STREET; CAB_STREET = null;
+  if (!st || !st.faces.length || !SPRITE_SINK || !SPRITE_SINK.length || st.sink !== OWNSHIP_SINK) return 0;
+  const best = [];
+  for (const L of SPRITE_SINK) {
+    if (L.air || !(L.a > 0.02)) continue;
+    const dx = L.x, dy = L.y, dz = (L.z || 0) - st.ez, d = Math.hypot(dx, dy, dz);
+    if (!(d < CAB_STREET_REACH) || !(d > 1e-4)) continue;
+    const c = L.rgb || [255, 255, 255];
+    const w = Math.min(1, L.a) / (1 + (d / CAB_STREET_R) * (d / CAB_STREET_R));
+    if (best.length === CAB_STREET_N && w <= best[CAB_STREET_N - 1].w) continue;
+    // World → cab: the heading turn is its own inverse (see pushInteriorShell), then the attitude.
+    let dir = [(dx * st.ch + dy * st.sh) / d, (dx * st.sh - dy * st.ch) / d, dz / d];
+    if (st.rot) dir = st.rot(dir);
+    best.push({ w, dir, c });
+    best.sort((a, b) => b.w - a.w);
+    if (best.length > CAB_STREET_N) best.length = CAB_STREET_N;
+  }
+  if (!best.length) return 0;
+  const K = st.k * CAB_STREET_GAIN;
+  const F = st.faces;
+  let touched = 0;
+  for (let i = 0; i < F.length; i += 3) {
+    const q = st.sink[F[i]], b = F[i + 1], nn = F[i + 2];
+    if (!q) continue;
+    let r = 0, g = 0, bl = 0;
+    for (const L of best) {
+      const cI = nn[0] * L.dir[0] + nn[1] * L.dir[1] + nn[2] * L.dir[2];
+      if (cI <= 0) continue;
+      const e = cI * L.w * K;
+      r += L.c[0] / 255 * e; g += L.c[1] / 255 * e; bl += L.c[2] / 255 * e;
+    }
+    if (r + g + bl < 0.004) continue;
+    const c = q.rgb;
+    q.rgb = [Math.min(255, c[0] + b[0] * r) | 0, Math.min(255, c[1] + b[1] * g) | 0, Math.min(255, c[2] + b[2] * bl) | 0];
+    touched++;
+  }
+  if (PERF.on) PERF.n.cabStreet = touched;
+  return touched;
+}
+
 // How much sky each roofed mark takes away from a vehicle standing on it. A shed (`bay`) and the
 // covered lock road either side of the South Gate (`lock`, roof at LCK_ROOF_Z, open at its ends)
 // are most of it; the gate itself is a yoke across the carriageway, a band of shade you pass under.
 const COVER_BY_MARK = { bay: 0.8, lock: 0.8, gate: 0.45 };
-function cabinEnvLight(v, murk) {
+const OVERHEAD_PROBES = [[0, 0], [0.06, 0], [-0.06, 0], [0, 0.06], [0, -0.06]];
+function cabinEnvLight(v, murk, eyeZ) {
   const hour = v.hour == null ? 12 : v.hour;
   const ph = v.moon != null ? ((v.moon % 1) + 1) % 1 : 0.5;
   const mA = moonArc(hour, ph);
@@ -22546,7 +22638,20 @@ function cabinEnvLight(v, murk) {
   const here = mid >= 0 && v.map[mid] ? v.map[mid][mid] : null;
   // ⚠ A ROOF IS ONLY A ROOF TO SOMETHING UNDER IT. An aircraft 500 ft over a shed is not in it.
   const low = v.alt == null || v.alt < 40;
-  const cover = clamp(Number.isFinite(v.covered) ? v.covered : (here && low ? COVER_BY_MARK[here.mark] || 0 : 0), 0, 1);
+  let cover = Number.isFinite(v.covered) ? v.covered : (here && low ? COVER_BY_MARK[here.mark] || 0 : 0);
+  // A bridge, an overpass, a sky link or an arch: building mass whose underside is above the eye.
+  // Five probes (the eye and a step each way) so driving out from under one fades rather than snaps.
+  if (!Number.isFinite(v.covered) && eyeZ != null && v.mapCenter && mid >= 0) {
+    const cx = v.mapCenter.x + ((v.mapOffset && v.mapOffset.x) || 0), cy = v.mapCenter.y + ((v.mapOffset && v.mapOffset.y) || 0);
+    let hits = 0;
+    for (const [ex, ey] of OVERHEAD_PROBES) {
+      const px = cx + ex, py = cy + ey, wx = Math.round(px), wy = Math.round(py);
+      const row = v.map[mid + wy - v.mapCenter.y];
+      if (row && overheadAt(wx, wy, row[mid + wx - v.mapCenter.x], px, py, eyeZ)) hits++;
+    }
+    cover = Math.max(cover, 0.85 * hits / OVERHEAD_PROBES.length);
+  }
+  cover = clamp(cover, 0, 1);
   const b = (v.bank || 0) * Math.PI / 180, p = (v.pitch || 0) * Math.PI / 180;
   const cb = Math.cos(b), sb = Math.sin(b), cp = Math.cos(p), sp = Math.sin(p);
   // World → cab: the body's right, forward and up in the level-heading frame (pitch, then roll,
@@ -22560,6 +22665,7 @@ function cabinEnvLight(v, murk) {
 const INT_LIT = [];   // per face slot: the last shaded colour and everything it was shaded from — see pushInteriorShell
 function pushInteriorShell(cam, v) {
   INTERIOR_NV = null;
+  CAB_STREET = null;
   if (!OWNSHIP_SINK || !RENDER_TUNE.interior || v.external || v.bare) { INTERIOR_HOTSPOTS = null; return 0; }
   const P = shellProfileFor(v.cls, v.armed, v.drakeCab && v.drakeCab.trim);
   if (!P) return 0;
@@ -22604,7 +22710,7 @@ function pushInteriorShell(cam, v) {
     : v.weather === 'overcast' ? 0.22 : 0;
   const litK = clamp(Math.max(sky.night, murk), 0, 1);
   // The moon, a roof overhead and which way is up — see cabinEnvLight.
-  const E = cabinEnvLight(v, murk), UP = E.up;
+  const E = cabinEnvLight(v, murk, cam.EH), UP = E.up;
   // How dark it is where the lamps are concerned: the night, or a shed at noon.
   const darkK = clamp(Math.max(litK, E.cover * 0.75), 0, 1);
   // A moonlit cab takes the moon's cold silver into what comes through the glass.
@@ -22668,6 +22774,11 @@ function pushInteriorShell(cam, v) {
   // A cabin lit that brightly at night shows itself in its own glass (applyCabinGlare).
   if (floodRgb && P.glare && darkK > 0.2) INTERIOR_GLARE = { k: P.glare * clamp((darkK - 0.2) / 0.6, 0, 1) * (nvOn ? 0.35 : 1), rgb: floodRgb };
 
+  // What applyCabinStreetLight needs once the frame's lights exist: where the cab is, how it's
+  // turned, how dark it is, and which sink slots are shadeable faces (index, base colour, normal).
+  const streetK = clamp((darkK - 0.2) / 0.5, 0, 1);
+  const STREET = RENDER_TUNE.cabStreet && streetK > 0 ? { faces: [], S, ch, sh, ez, rot: E.att ? E.rot : null, k: streetK, sink: OWNSHIP_SINK } : null;
+  CAB_STREET = STREET;
   let n = 0;
   // ── ⚠ A FACE'S COLOUR IS REUSED WHEN NOTHING IT READS HAS CHANGED ─────────────────────────────
   // The shading below is a pure function of the face (its centre, normal, tone, k, colour, material,
@@ -22893,9 +23004,11 @@ function pushInteriorShell(cam, v) {
     INT_LIT[fi] = { fk: frameKey, tone: f.tone, k: f.k, emis: f.emis, len: f.p.length, cx: cx0, cy: cy0, cz: cz0, shv,
       r0: rg ? rg[0] : undefined, r1: rg ? rg[1] : undefined, r2: rg ? rg[2] : undefined,
       n0: nn0 ? nn0[0] : undefined, n1: nn0 ? nn0[1] : undefined, n2: nn0 ? nn0[2] : undefined,
-      mt: !!mt, lv: mt ? mt.lv : undefined, sp: mt ? mt.spec : undefined, pw: mt ? mt.pow : undefined, gr: mt ? mt.grain : undefined, lit, f };
+      mt: !!mt, lv: mt ? mt.lv : undefined, sp: mt ? mt.spec : undefined, pw: mt ? mt.pow : undefined, gr: mt ? mt.grain : undefined, lit, f, bs: base };
     }
     }
+    // A face the street lights can reach: lit by the room, facing somewhere, not a lamp or a pane.
+    if (STREET && f.n && !(f.emis > 0.3) && !PANE.has(f.rgb) && INT_LIT[fi] && INT_LIT[fi].bs) STREET.faces.push(OWNSHIP_SINK.length, INT_LIT[fi].bs, f.n);
     OWNSHIP_SINK.push({
       p: f.p.map((q0) => {
         const q = att ? att(q0) : q0;
@@ -67759,6 +67872,8 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       // …and every vehicle standing on the ground beside it — see collectSolidContacts. Claimed in
       // `bakeContacts` before this pass opened the sink, collected here while it is open.
       collectSolidContacts(cam, v, sun, now);
+      // Street lamps and neon into the cab, now that this frame's lights are all in the sink.
+      applyCabinStreetLight();
       if (STROKE_SINK) STROKE_SINK.deep = TUNE.glNeonDepth !== 0;
       const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, skyBand: SKY_BAND, light: LIGHT_STATE, sprites: SPRITE_SINK, strokes: STROKE_SINK, ownWater: OWN_WATER_Z, glLights: TUNE.glLights, glNeonTube: TUNE.glNeonTube, glNeonFlicker: TUNE.glNeonFlicker, glAO: TUNE.glAO, glBakedAo: TUNE.glBakedAo, msaa: TUNE.glMsaa, glFxaa: TUNE.glFxaa, glShadow: TUNE.glShadow, glWet: wetGround(), glPond: pondGround(), glFogH: fogGround(), glScatter: scatterGround(), glPool: TUNE.glPool, glNightDark: TUNE.nightDark, glSnow: snowGround(), glPudRoad: TUNE.glPudRoad, glPuddle: TUNE.glPuddle, glMirrorMass: TUNE.glMirrorMass, glMirrorSky: TUNE.glMirrorSky, glWetDark: TUNE.glWetDark, glGroundBias: TUNE.glGroundBias, lids: lidUpload(), glRipple: TUNE.glRipple, glGlint: TUNE.glGlint, glMirror: TUNE.glMirror, glMirrorRes: TUNE.glMirrorRes, glMat: TUNE.glMat, glSpec: TUNE.glSpec, glBump: TUNE.glBump, glEnvCity: TUNE.glEnvCity, glEnvDim: TUNE.glEnvDim, glBevel: TUNE.glBevel, glSsao: TUNE.glSsao, glSsaoRes: TUNE.glSsaoRes, glLightSlots: TUNE.glLightSlots, nearFit: TUNE.nearFit, glHdr: TUNE.glHdr, glBloom: TUNE.glBloom, glTonemap: TUNE.glTonemap, glExposure: TUNE.glExposure, sun, worldBlend: WORLD_BLEND,
         // ⚠ THE DECK, FOR THE REFLECTION AND FOR NOTHING ELSE IN THIS PASS. It is DRAWN by the
