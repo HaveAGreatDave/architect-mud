@@ -265,7 +265,8 @@ async function dispatchApiRequest(url, method, body, headers) {
     return { status:200, body:{ enabled: isMisServerEnabled() } };
   }
   if (path==='/mis/toggle' && method==='POST') {
-    if (!auth || !['dev','admin','builder','designer'].includes(auth.role)) return { status:403, body:{error:'Dev access required'} };
+    // Server-wide switch: dev and admin only, not the content roles.
+    if (!auth || !['dev','admin'].includes(auth.role)) return { status:403, body:{error:'Dev or admin access required'} };
     const enable = !!body?.enable;
     await setServerMisEnabled(enable);
     return { status:200, body:{ enabled: enable } };
@@ -275,7 +276,8 @@ async function dispatchApiRequest(url, method, body, headers) {
     return { status:200, body:{ enabled: isEmailVerificationEnabled(), mailerConfigured: isMailerConfigured(), mailerProblem: mailerConfigProblem() } };
   }
   if (path==='/email-verification/toggle' && method==='POST') {
-    if (!auth || !['dev','admin','builder','designer'].includes(auth.role)) return { status:403, body:{error:'Dev access required'} };
+    // Server-wide switch: dev and admin only, not the content roles.
+    if (!auth || !['dev','admin'].includes(auth.role)) return { status:403, body:{error:'Dev or admin access required'} };
     const enable = !!body?.enable;
     await setEmailVerificationEnabled(enable);
     return { status:200, body:{ enabled: enable } };
@@ -287,7 +289,8 @@ async function dispatchApiRequest(url, method, body, headers) {
     return { status:200, body:{ open: areRegistrationsOpen(), message: registrationsClosedMessage() } };
   }
   if (path==='/registrations/toggle' && method==='POST') {
-    if (!auth || !['dev','admin','builder','designer'].includes(auth.role)) return { status:403, body:{error:'Dev access required'} };
+    // Server-wide switch: dev and admin only, not the content roles.
+    if (!auth || !['dev','admin'].includes(auth.role)) return { status:403, body:{error:'Dev or admin access required'} };
     await setRegistrationsOpen(!!body?.open, body?.message);
     return { status:200, body:{ open: areRegistrationsOpen(), message: registrationsClosedMessage() } };
   }
@@ -580,7 +583,7 @@ async function apiRegister(body) {
   // ⚠ A handle is shown to other players, and dialogue interpolates it into HTML
   // (`${player.handle}`), so markup here would be stored XSS. Letters, digits,
   // spaces and _ . ' - only.
-  if (typeof handle !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9 _.'-]{1,23}$/.test(handle)) {
+  if (typeof handle !== 'string' || !HANDLE_RE.test(handle)) {
     return {status:400,body:{error:"Handle must be 2 to 24 characters: letters, numbers, spaces and _ . ' - (starting with a letter or number)."}};
   }
   // Starting appearance is fully randomized here (sex included) so the chargen
@@ -2895,6 +2898,11 @@ async function apiGetPlayerProgression(id) {
   }};
 }
 
+// A handle is shown to other players and interpolated into HTML across the
+// engine, so registration and the admin editor both hold it to this.
+const HANDLE_RE = /^[A-Za-z0-9][A-Za-z0-9 _.'-]{1,23}$/;
+const PLAYER_ROLES = ['player','builder','designer','dev','admin'];
+
 async function apiUpdatePlayer(id, body) {
   const EDITABLE = [
     'handle','username','role','current_zone','anchor_zone',
@@ -2905,6 +2913,12 @@ async function apiUpdatePlayer(id, body) {
   ];
   const {rows:existing}=await query('SELECT * FROM players WHERE id=$1',[id]);
   if (!existing.length) return {status:404,body:{error:'Player not found'}};
+  // The same rules the dedicated routes apply, which this editor used to skip.
+  if ('handle' in body && (typeof body.handle !== 'string' || !HANDLE_RE.test(body.handle))) {
+    return {status:400,body:{error:"Handle must be 2 to 24 characters: letters, numbers, spaces and _ . ' -"}};
+  }
+  if ('role' in body && !PLAYER_ROLES.includes(body.role)) return {status:400,body:{error:'Invalid role'}};
+  if ('origin_fragment' in body && body.origin_fragment != null) body.origin_fragment = String(body.origin_fragment).replace(/[<>]/g, '').slice(0, 200);
 
   const sets=[]; const vals=[];
   for (const key of EDITABLE) {
@@ -2922,6 +2936,10 @@ async function apiUpdatePlayer(id, body) {
   vals.push(id);
   const {rows}=await query(`UPDATE players SET ${sets.join(',')} WHERE id=$${vals.length} RETURNING *`,vals);
   const updated=rows[0];
+  // A demotion (or any role change) has to end the old role's tokens and
+  // sockets, as apiSetPlayerRole does, or it keeps its rights for up to 24 h.
+  if ('role' in body && body.role !== existing[0].role) await revokeTokensFor(id);
+  delete updated.password_hash;   // never back over the wire
 
   // Sync live player object if online
   const live=getAllLivePlayers().find(p=>p.id===id);

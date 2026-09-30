@@ -320,6 +320,49 @@ export function renderTalkLog({ npcName, text, options, stage }) {
   return lines.join('\n');
 }
 
+// ── The frame each player is actually looking at ─────────────────────────────
+//
+// ⚠ A dialogue choice arrives over the socket as { npcId, choice, optionIndex },
+// and choice is the NODE to go to. Trusted as sent, a crafted message could jump
+// to any node of any NPC's tree, from anywhere, and fire its actions (item grants,
+// quest steps, rep) as often as it liked. So the server remembers the last frame
+// it sent each player, at the choke points every frame passes (broadcast's
+// sendToPlayer branch, a command's result, handleDialogue's own reply), and
+// checkDialogueChoice only lets a choice through that the player could have
+// clicked on that frame. The typed `reply <n>` route is already safe: it indexes
+// its own stored options (logTalks).
+const openFrames = new Map();   // playerId → { npcId, node, zone }
+on('player.logout', ({ id }) => { if (id) openFrames.delete(id); });
+
+/** Record a frame on its way to a player. Anything that isn't one is ignored. */
+// `zone` is where the player stood when it was sent: walking away ends it.
+export function noteDialogueFrame(playerId, message, zone = null) {
+  if (!playerId || message?.type !== 'dialogue' || !message.npcId) return;
+  openFrames.set(playerId, { npcId: message.npcId, node: message.node || 'root', zone });
+}
+
+/**
+ * → { ok: true, prevNode } when the player may make this choice, else
+ * { ok: false, message }. 'root' (the Back button) and '__shop__' (the injected
+ * Browse option) are always offered; anything else has to be the `next` of the
+ * option at optionIndex on the open node, filtered exactly as it was shown.
+ */
+export async function checkDialogueChoice({ npc, player, choice, optionIndex, context }) {
+  const open = openFrames.get(player?.id);
+  if (!open || open.npcId !== npc.id) return { ok: false, message: `You're not talking to ${npc.name}.` };
+  // The PLAYER walking off ends it; the NPC wandering a step (routines) doesn't.
+  if (open.zone && player.current_zone && open.zone !== player.current_zone) {
+    return { ok: false, message: `You've walked away from ${npc.name}.` };
+  }
+  if (choice === 'root' || choice === '__shop__') return { ok: true, prevNode: open.node };
+  const node = (npc.dialogue_tree || {})[open.node];
+  if (!node || !Number.isInteger(optionIndex)) return { ok: false, message: 'That option is no longer there.' };
+  const shown = await filterDialogueOptions(node.options, npc.dialogue_tree, player, context);
+  const opt = shown[optionIndex];
+  if (!opt || opt.next !== choice || opt._turninDisabled) return { ok: false, message: 'That option is no longer there.' };
+  return { ok: true, prevNode: open.node };
+}
+
 // ── Advancing the conversation ───────────────────────────────────────────────
 //
 // ONE step of a dialogue, from whatever the player just picked to the next thing

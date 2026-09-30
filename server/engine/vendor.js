@@ -632,7 +632,12 @@ export async function sellToVendor(player, npc, inventoryId, quantity = 1) {
   if (invItem.tags?.quest_item) return { success: false, message: "You can't sell quest items." };
   if (invItem.is_equipped) return { success: false, message: 'Unequip it first.' };
 
-  const sellQty = Math.min(quantity, invItem.quantity);
+  // ⚠ A positive whole number, checked here for every caller. The quantity comes
+  // off the socket, and a negative one ran the sale backwards: a negative price
+  // charged as a spend, and quantity - (-N) ADDING N of the item.
+  const want = Math.floor(Number(quantity));
+  if (!Number.isFinite(want) || want < 1) return { success: false, message: 'Sell how many?' };
+  const sellQty = Math.min(want, invItem.quantity);
   const discount = await vendorDiscount(player.id, npc);
   const cd = typeof invItem.custom_data === 'string' ? (() => { try { return JSON.parse(invItem.custom_data); } catch { return {}; } })() : (invItem.custom_data || {});
   const sellPrice = computeSellUnitPrice(invItem.value, invItem.stat_cool, discount, { potency: Number(cd?.potency) || 1, drugBuyer: !!npc.flags?.drug_buyer && !!invItem.tags?.drug, cookQuality: cd?.cook_quality || null, foodBuyer: !!npc.flags?.food_buyer && !!cd?.cook_quality, bountyBuyer: !!npc.flags?.bounty_buyer && !!invItem.tags?.vermin_part, portion: (Number(cd?.portion) || 1) * (Number(cd?.yield) || 1) }) * sellQty;

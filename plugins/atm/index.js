@@ -636,7 +636,9 @@ function devOk(auth) {
 
 export const routeHandler = async (path, method, body, auth) => {
   if (!path.startsWith('/atm')) return null;
-  if (method !== 'GET' && !devOk(auth)) return { status: 403, body: { error: 'Dev access required' } };
+  // Reads too: the unit list carries every ATM's cash stock and hack difficulty,
+  // which is a target list for ATM hacking. Only the dev panel calls these.
+  if (!devOk(auth)) return { status: 403, body: { error: 'Dev access required' } };
 
   const parts = path.split('/').filter(Boolean); // ['atm', resource, id?, sub?]
   const resource = parts[1];

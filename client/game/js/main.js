@@ -748,7 +748,10 @@ window.addEventListener("glass:struggling", () => {
 function doSignout() {
 	// Flag to prevent auto-login on next page load
 	sessionStorage.setItem("signed-out", "1");
-	// Signing out forgets the saved login on this browser (the name stays in the form).
+	// Signing out forgets the saved login here, and tells the server to end every
+	// saved login of this player, so a copied token stops working too. The name
+	// stays in the form.
+	sendRaw({ type: "auth_forget" });
 	forgetRememberToken();
 	sessionStorage.removeItem("reconnect-token");
 	sessionStorage.removeItem("game-switch-token");

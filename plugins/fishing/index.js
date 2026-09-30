@@ -39,6 +39,7 @@ import { setPosture, forceStand } from '../../server/engine/posture.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { repairItem, conditionBand, destroyItem } from '../../server/engine/durability.js';
 import { escAttr } from '../../server/engine/text.js';
+import { loadZoneStock } from '../../server/engine/zone-stock.js';
 
 const ATTEMPT_MS = 4200;    // per-cast cadence — a touch slower than scavenging; fishing is patient
 const MAX_SWING = 14;       // best possible 2d8-2d8 roll — reachability ceiling
@@ -197,87 +198,9 @@ export function fishingTableFor(zone) {
   return bordersWater(zone) ? DEFAULT_FISHING_TABLE : null;
 }
 
-async function loadZoneTable(zoneId, tableId) {
-  const { rows: tRows } = await query(
-    'SELECT id, name, replenish_interval_seconds, messages, fishing_monsters, fishing_bait_catches FROM scavenging_tables WHERE id=$1',
-    [tableId]
-  );
-  if (!tRows.length) return null;
-  const table = tRows[0];
-
-  const { rows: entries } = await query(
-    `SELECT si.item_id, si.difficulty, si.weight, si.max_qty, it.name
-     FROM scavenging_table_items si JOIN items it ON it.id = si.item_id
-     WHERE si.table_id = $1`,
-    [tableId]
-  );
-  if (!entries.length) return { table, entries: [] };
-
-  const { rows: stateRows } = await query(
-    'SELECT last_replenish FROM scavenging_zone_state WHERE zone_id=$1',
-    [zoneId]
-  );
-  let lastReplenish;
-  if (!stateRows.length) {
-    lastReplenish = nowSec();
-    await query(
-      'INSERT INTO scavenging_zone_state (zone_id, table_id, last_replenish) VALUES ($1,$2,$3)',
-      [zoneId, tableId, lastReplenish]
-    );
-    for (const e of entries) {
-      await query(
-        `INSERT INTO scavenging_zone_stock (zone_id, item_id, current_qty) VALUES ($1,$2,$3)
-         ON CONFLICT (zone_id, item_id) DO NOTHING`,
-        [zoneId, e.item_id, e.max_qty]
-      );
-      e.current_qty = e.max_qty;
-    }
-    return { table, entries };
-  }
-  lastReplenish = Number(stateRows[0].last_replenish) || 0;
-
-  const { rows: stock } = await query(
-    'SELECT item_id, current_qty FROM scavenging_zone_stock WHERE zone_id=$1',
-    [zoneId]
-  );
-  const stockMap = new Map(stock.map(s => [s.item_id, s.current_qty]));
-  for (const e of entries) {
-    if (!stockMap.has(e.item_id)) {
-      await query(
-        `INSERT INTO scavenging_zone_stock (zone_id, item_id, current_qty) VALUES ($1,$2,0)
-         ON CONFLICT (zone_id, item_id) DO NOTHING`,
-        [zoneId, e.item_id]
-      );
-      e.current_qty = 0;
-    } else {
-      e.current_qty = stockMap.get(e.item_id);
-    }
-  }
-
-  const interval = Math.max(1, table.replenish_interval_seconds);
-  const steps = Math.floor((nowSec() - lastReplenish) / interval);
-  if (steps > 0) {
-    let applied = 0;
-    while (applied < steps) {
-      const room = entries.filter(e => e.current_qty < e.max_qty);
-      if (!room.length) break;
-      pickWeighted(room).current_qty++;
-      applied++;
-    }
-    if (applied > 0) {
-      for (const e of entries) {
-        await query(
-          'UPDATE scavenging_zone_stock SET current_qty=$1 WHERE zone_id=$2 AND item_id=$3',
-          [e.current_qty, zoneId, e.item_id]
-        );
-      }
-      await query(
-        'UPDATE scavenging_zone_state SET last_replenish=$1 WHERE zone_id=$2',
-        [lastReplenish + applied * interval, zoneId]
-      );
-    }
-  }
-  return { table, entries };
+// Shared with the other gathering plugins; see server/engine/zone-stock.js.
+function loadZoneTable(zoneId, tableId) {
+  return loadZoneStock(zoneId, tableId, ['fishing_monsters', 'fishing_bait_catches']);
 }
 
 function flavorPools(table) {

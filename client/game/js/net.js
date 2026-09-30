@@ -2,6 +2,7 @@ import { connectWS } from '/shared/ws.js';
 import { state } from './state.js';
 import { appendMsg } from './render.js';
 import { autoLoginMessage, setRemember } from './remember.js';
+import { sessionGet, sessionRemove } from './session-store.js';
 
 const WS_PROTOCOL = location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_URL = `${WS_PROTOCOL}//${location.host}`;
@@ -22,13 +23,13 @@ export function initNet(messageHandler) {
       // opens before the boot module has loaded and subscribed.
       window.__architectSocketOpen = true;
       window.dispatchEvent(new Event('game-connected'));
-      const signedOut = sessionStorage.getItem('signed-out');
+      const signedOut = sessionGet('signed-out');
       if (signedOut) {
         // Show auth screen — don't auto-login; flag cleared on auth_success
         document.getElementById('auth-screen').style.display = 'flex';
         return;
       }
-      const reconnectToken = sessionStorage.getItem('reconnect-token');
+      const reconnectToken = sessionGet('reconnect-token');
       if (reconnectToken && state.player) {
         // Silent reconnect — token validated server-side; auth_success or auth_fail follows
         _connection.send({ type: 'auth_reconnect', token: reconnectToken });
@@ -37,9 +38,9 @@ export function initNet(messageHandler) {
         // welcome line is written on auth_success (dispatch.js) using the exact
         // words the Architect's welcome voice speaks.
         if (state.player) appendMsg(`Connected to ARCHITECT as ${state.player.handle}.`, 'system');
-        const switchToken = sessionStorage.getItem('game-switch-token');
+        const switchToken = sessionGet('game-switch-token');
         if (switchToken && !state.player) {
-          sessionStorage.removeItem('game-switch-token');
+          sessionRemove('game-switch-token');
           _connection.send({ type: 'auth_token', token: switchToken });
         } else if (!state.player) {
           // Auto-login with the remember-me token (remember.js)
@@ -170,15 +171,18 @@ export function closeConnection() {
 }
 
 export function attemptAutoReauth() {
-  const reconnectToken = sessionStorage.getItem('reconnect-token');
+  const reconnectToken = sessionGet('reconnect-token');
   if (reconnectToken && state.player) {
     _connection?.send({ type: 'auth_reconnect', token: reconnectToken });
     return;
   }
-  // Fall back to the remember-me token if there is one
+  // Fall back to the remember-me token if there is one. Only with the socket
+  // open: autoLoginMessage uses up an old saved password, and a send while
+  // disconnected is dropped, which would lose it for nothing. onOpen tries again.
+  if (!_connection?.isOpen()) return;
   const auto = autoLoginMessage(storedDisplayRung());
   if (auto) {
-    _connection?.send(auto);
+    _connection.send(auto);
     return;
   }
   // No credentials available — show auth screen so the user can log in manually

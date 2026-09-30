@@ -6,7 +6,7 @@ import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
 import { randomUUID } from "crypto";
 import { verifyAndUpgrade } from "./engine/passwords.js";
-import { loadAuthSecret, onRevoke, signToken, signRememberToken, verifyRememberToken } from "./engine/auth-tokens.js";
+import { loadAuthSecret, onRevoke, signToken, signRememberToken, verifyRememberToken, revokeRememberTokens } from "./engine/auth-tokens.js";
 
 import {
 	initWorld,
@@ -72,7 +72,7 @@ import { emit } from "./engine/events.js";
 import { getNetXp, maxHpForEndurance, maxStaminaForEndurance } from "./engine/ip.js";
 // Side-effect imports: register the Flag store and graph-engine Actions
 // (SET_FLAG, CLEAR_FLAG, GRANT_ITEM, TELEPORT, EXECUTE_SCRIPT, …) at boot.
-import { advanceDialogue, renderTalkLog, setLogTalk, endLogTalk } from "./engine/dialogue.js";
+import { advanceDialogue, renderTalkLog, setLogTalk, endLogTalk, noteDialogueFrame, checkDialogueChoice } from "./engine/dialogue.js";
 import "./engine/graph.js";
 import { loadRecipes } from "./engine/crafting.js";
 import { loadDrugs, clearActiveDrugBuffs } from "./engine/drugs.js";
@@ -107,7 +107,7 @@ import { mailerConfigProblem, mailerSender } from "./mailer.js";
 import { initEnvironment, getHUDPayload, getZoneTemperature } from "./engine/environment.js";
 import { getPlayerChannels, getChannelHistory } from "./engine/channels.js";
 import { getMotd } from "./engine/motd.js";
-import { openShopSession, closeShopSession } from "./engine/vendor-session.js";
+import { openShopSession, closeShopSession, getNpcForShopper } from "./engine/vendor-session.js";
 import { getSoundReach } from "./engine/sounds.js";
 import { getFlag, hydratePlayerFlags, evictPlayerFlags } from "./engine/flags.js";
 import { hydrateDisplayRung, loggedPanelsSync, seedDisplayRungIfUnset, setDisplayRung, RUNGS as DISPLAY_RUNGS } from "./engine/presentation.js";
@@ -193,6 +193,7 @@ function broadcast(
 		// returns before `deliver` ever runs — so without this line a flavour-marked
 		// message aimed at one player would quietly bypass the whole filter.
 		if (message.flavour && loggedPanelsSync(getLivePlayer(targetPlayerId))) return;
+		if (message?.type === "dialogue") noteDialogueFrame(targetPlayerId, message, getLivePlayer(targetPlayerId)?.current_zone);   // what handleDialogue may accept next
 		const ws = playerSockets.get(targetPlayerId);
 		if (ws?.readyState === 1) ws.send(payload);
 		return;
@@ -744,6 +745,9 @@ wss.on("connection", (ws, req) => {
 		if (msg.type === "auth") return handleAuth(ws, session, msg);
 		if (msg.type === "auth_token") return handleAuthToken(ws, session, msg);
 		if (msg.type === "auth_remember") return handleAuthRemember(ws, session, msg);
+		// Signing out: the client sends this just before it closes, and every saved
+		// login of this player stops working (a copied token included).
+		if (msg.type === "auth_forget") { if (session.playerId) revokeRememberTokens(session.playerId).catch(() => {}); return; }
 		if (msg.type === "auth_reconnect")
 			return handleReconnect(ws, session, msg);
 		if (msg.type === "command") return handleGameCommand(ws, session, msg);
@@ -1214,7 +1218,13 @@ async function handleAuth(ws, session, msg) {
 // hands back a fresh token, so an active player stays signed in.
 async function handleAuthRemember(ws, session, msg) {
 	const gate = checkRateLimit("/auth/login", session.addrKey || "unknown", AUTH_LIMITS["/auth/login"]);
-	const playerId = gate.ok ? verifyRememberToken(msg.token) : null;
+	// Busy is not expired: answering a rate-limited attempt as expired made the
+	// client delete a real player's saved login whenever the limiter was full.
+	if (!gate.ok) {
+		ws.send(JSON.stringify({ type: "auth_fail", message: "Too many sign-in attempts right now. Wait a few minutes and try again." }));
+		return;
+	}
+	const playerId = verifyRememberToken(msg.token);
 	const { rows } = playerId ? await query("SELECT * FROM players WHERE id=$1", [playerId]) : { rows: [] };
 	if (!rows.length || (isEmailVerificationEnabled() && !rows[0].email_verified)) {
 		ws.send(JSON.stringify({ type: "auth_fail", message: "Your saved sign-in has expired. Please log in again.", rememberExpired: true }));
@@ -1769,6 +1779,7 @@ async function handleGameCommand(ws, session, msg) {
 	// about to send. One site, and it cannot drift out of sync with the server.
 	ws.send(JSON.stringify({ type: 'sleep_state', sleeping: !!player.sleeping, dreaming: !!player.sleeping?.inDream }));
 	if (result) {
+		noteDialogueFrame(player.id, result, player.current_zone);   // `talk` opens a conversation this way
 		ws.send(JSON.stringify(stampToLog(player, result, !!msg.silent)));
 		if (result.player_update)
 			ws.send(
@@ -1826,6 +1837,16 @@ async function handleDialogue(ws, session, msg) {
 	}
 
 	const player = getLivePlayer(session.playerId);
+	if (!player) return;
+
+	// Only a choice the player could have clicked on the frame they were sent
+	// (see checkDialogueChoice): the choice is a node id, and trusted as sent it
+	// would let a crafted message fire any node's rewards from anywhere.
+	const check = await checkDialogueChoice({ npc, player, choice: msg.choice, optionIndex: msg.optionIndex, context: { broadcast, npc } });
+	if (!check.ok) {
+		ws.send(JSON.stringify({ type: "dialogue_end", message: check.message }));
+		return;
+	}
 
 	// ONE step of the conversation. The shop doors, the vendor-hours re-check, the
 	// option-level actions and the GOTO_NODE override all live in
@@ -1836,7 +1857,7 @@ async function handleDialogue(ws, session, msg) {
 		npc, player,
 		choice: msg.choice,
 		optionIndex: msg.optionIndex,
-		prevNode: session.dialogueNode,
+		prevNode: check.prevNode,
 		context: { broadcast, npc },
 	});
 
@@ -1855,6 +1876,7 @@ async function handleDialogue(ws, session, msg) {
 	// Track the current node in session so option-level actions can be resolved
 	// on the player's next dialogue message.
 	session.dialogueNode = step.node;
+	noteDialogueFrame(session.playerId, { type: "dialogue", npcId: npc.id, node: step.node }, player.current_zone);
 
 	// Bottom rung: this player has no dialogue panel, so the frame is written into
 	// the log and answered with `reply <n>`. Reached when a plugin pushes a
@@ -1957,12 +1979,25 @@ async function buyOneFromNpc(player, npc, itemId, quantity, shelfKey) {
 	return await buyFromVendor(player, npc, itemId, qty, shelfKey);
 }
 
+// The NPC a shop message may act on: the one whose shop this player actually
+// opened, in the room they're standing in. The socket names the NPC, so without
+// this a crafted message could trade with any NPC in the world (or a non-vendor,
+// at its buyer prices) from anywhere, dead or jailed. null means refused.
+function shopNpcFor(ws, player, msg) {
+	const npc = world.npcs.get(msg.npcId);
+	if (!npc || getNpcForShopper(player.id) !== npc.id || (npc.zone_id && npc.zone_id !== player.current_zone)) {
+		ws.send(JSON.stringify({ type: "error", message: "You're not at that counter." }));
+		return null;
+	}
+	return npc;
+}
+
 async function handleBuyFromNpc(ws, session, msg) {
 	if (!session.playerId) return;
 	const player = getLivePlayer(session.playerId);
 	if (!player) return;
-	const npc = world.npcs.get(msg.npcId);
-	if (!npc) { ws.send(JSON.stringify({ type: "error", message: "NPC not found." })); return; }
+	const npc = shopNpcFor(ws, player, msg);
+	if (!npc) return;
 	const { getShopShelf } = await import("./engine/vendor-session.js");
 	const result = await buyOneFromNpc(player, npc, msg.itemId, msg.quantity, getShopShelf(session.playerId));
 	await sendShopPanel(ws, npc, session.playerId, {
@@ -1992,8 +2027,8 @@ async function handleBuyManyFromNpc(ws, session, msg) {
 	if (!session.playerId) return;
 	const player = getLivePlayer(session.playerId);
 	if (!player) return;
-	const npc = world.npcs.get(msg.npcId);
-	if (!npc) { ws.send(JSON.stringify({ type: "error", message: "NPC not found." })); return; }
+	const npc = shopNpcFor(ws, player, msg);
+	if (!npc) return;
 	// A shelf is finite and so is this: the cap is a backstop against a crafted
 	// payload, not a limit any real shelf reaches.
 	const itemIds = (Array.isArray(msg.itemIds) ? msg.itemIds : []).filter(id => typeof id === "string").slice(0, 60);
@@ -2030,8 +2065,8 @@ async function handleSellToNpc(ws, session, msg) {
 	if (!session.playerId) return;
 	const player = getLivePlayer(session.playerId);
 	if (!player) return;
-	const npc = world.npcs.get(msg.npcId);
-	if (!npc) { ws.send(JSON.stringify({ type: "error", message: "NPC not found." })); return; }
+	const npc = shopNpcFor(ws, player, msg);
+	if (!npc) return;
 	const { sellToVendor } = await import("./engine/vendor.js");
 	const result = await sellToVendor(player, npc, msg.inventoryId, msg.quantity || 1);
 	await sendShopPanel(ws, npc, session.playerId, {
@@ -2048,8 +2083,8 @@ async function handleSellAllToNpc(ws, session, msg) {
 	if (!session.playerId) return;
 	const player = getLivePlayer(session.playerId);
 	if (!player) return;
-	const npc = world.npcs.get(msg.npcId);
-	if (!npc) { ws.send(JSON.stringify({ type: "error", message: "NPC not found." })); return; }
+	const npc = shopNpcFor(ws, player, msg);
+	if (!npc) return;
 	const { sellToVendor, getSellableInventory } = await import("./engine/vendor.js");
 	const sellable = await getSellableInventory(player, npc);
 	const creditsBefore = player.credits || 0;

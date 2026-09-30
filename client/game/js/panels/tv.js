@@ -34,7 +34,10 @@ function _esc(str) {
 // Read-aloud is one player-level preference shared by every surface — toggling it
 // on the tablet turns it off on the wall set too, which is what a single "read the
 // broadcast to me" setting should do.
-let _readAloud = localStorage.getItem('tvReadAloud') === '1';
+// Guarded: this runs at module load and tv.js is in the boot graph, so a throw
+// from blocked storage would stop the whole client booting.
+let _readAloud = false;
+try { _readAloud = localStorage.getItem('tvReadAloud') === '1'; } catch { /* storage blocked */ }
 
 // Every live instance, so dispatch.js can fan a server message out to whichever
 // surface(s) are actually tuned to that channel.

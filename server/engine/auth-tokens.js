@@ -32,6 +32,11 @@ let _warnedEphemeral = false;
 
 // playerId → ms. A token issued at or before this is dead.
 const _revokedBefore = new Map();
+// playerId → ms, for remember-me tokens only: signing out moves it, which ends
+// every saved login of that player (every device) without touching live
+// sessions or dev tokens. Persisted like the password cutoff.
+const REMEMBER_EPOCH_FLAG = 'auth_remember_revoked_before';
+const _rememberRevokedBefore = new Map();
 
 // Things that also need tearing down when a player's credentials change but that
 // this module has no business knowing about — the live WebSocket session and its
@@ -68,11 +73,12 @@ export async function loadAuthSecret() {
   }
 
   const { rows: epochs } = await query(
-    'SELECT player_id, flag_value FROM player_flags WHERE flag_key=$1', [EPOCH_FLAG]
+    'SELECT player_id, flag_key, flag_value FROM player_flags WHERE flag_key = ANY($1)', [[EPOCH_FLAG, REMEMBER_EPOCH_FLAG]]
   );
   for (const row of epochs) {
     const at = Number(row.flag_value);
-    if (Number.isFinite(at)) _revokedBefore.set(row.player_id, at);
+    if (!Number.isFinite(at)) continue;
+    (row.flag_key === REMEMBER_EPOCH_FLAG ? _rememberRevokedBefore : _revokedBefore).set(row.player_id, at);
   }
 }
 
@@ -123,7 +129,18 @@ export function verifyRememberToken(raw) {
   if (Date.now() - issued > REMEMBER_TTL_MS) return null;
   const cutoff = _revokedBefore.get(playerId);
   if (cutoff != null && issued < cutoff) return null;
+  const signedOut = _rememberRevokedBefore.get(playerId);
+  if (signedOut != null && issued < signedOut) return null;
   return playerId;
+}
+
+/** Signing out: every saved login of this player stops working. */
+export async function revokeRememberTokens(playerId) {
+  if (!playerId) return;
+  const now = Date.now();
+  _rememberRevokedBefore.set(playerId, now);
+  try { await setFlagById(playerId, REMEMBER_EPOCH_FLAG, String(now)); }
+  catch (e) { console.error('[auth] could not persist remember-me revocation for', playerId, e.message); }
 }
 
 export function signToken(playerId, role) {

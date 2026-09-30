@@ -1,5 +1,6 @@
 import { state } from './state.js';
 import { saveRememberToken, forgetRememberToken } from './remember.js';
+import { sessionGet, sessionSet, sessionRemove } from './session-store.js';
 import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane, setPaneSilent, showSkyBanner, pointAtRoomTarget, setRoomBeacon, clearRoomBeacons, isAreaPaneVisible } from './render.js';
 import { sendCmd, sendCmdSilent, sendRaw, closeConnection, attemptAutoReauth, showVerifyScreen, rememberDisplayRung } from './net.js';
 import { setVerbs } from './complete.js';
@@ -367,7 +368,7 @@ const handlers = {
   pong: () => {},
 
   auth_success: (msg) => {
-    sessionStorage.removeItem('signed-out');
+    sessionRemove('signed-out');
     const wasReconnect = !!state.player;
     clearTimeout(state.authTimeout);
     state.authPending = false;
@@ -393,10 +394,10 @@ const handlers = {
     // rides alongside it — otherwise the auto-authed panel knows WHAT you are
     // and never WHO (its auth badge said just "[admin]" for that reason).
     if (msg.apiToken) {
-      sessionStorage.setItem('devpanel-token', msg.apiToken);
-      sessionStorage.setItem('devpanel-handle', state.player.handle || '');
+      sessionSet('devpanel-token', msg.apiToken);
+      sessionSet('devpanel-handle', state.player.handle || '');
     }
-    if (msg.reconnectToken) sessionStorage.setItem('reconnect-token', msg.reconnectToken);
+    if (msg.reconnectToken) sessionSet('reconnect-token', msg.reconnectToken);
     state.myRole = state.player.role;
     // Mirror the rung the SERVER settled on back into the auth screen's local
     // memory. Note the direction: the server is the authority here, so a player
@@ -453,7 +454,7 @@ const handlers = {
     clearTimeout(state.authTimeout);
     state.authPending = false;
     state.player = null;
-    sessionStorage.removeItem('reconnect-token');
+    sessionRemove('reconnect-token');
     if (msg.needsVerification) {
       showVerifyScreen('', msg.message);
       return;

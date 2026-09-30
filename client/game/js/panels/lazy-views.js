@@ -70,6 +70,7 @@ const hangar = lazy('hangar-bay', () => import('./hangar-bay.js'), { glass: fals
 export const isFlightSimActive = ifLoaded(cockpit, 'isFlightSimActive', false);
 export const isCockpitHudActive = ifLoaded(cockpit, 'isCockpitHudActive', false);
 export const closeCockpit = ifLoaded(cockpit, 'closeCockpit');
+// Everything below that is ifLoaded only feeds an OPEN view (each returns at once// with no view), so none of it may download one. Only updateCockpit, openTargeting// and the open* calls mount something, so only they load. Checked against each// function's first line; add a new feed as ifLoaded unless it opens a view.
 export const updateCockpit = call(cockpit, 'updateCockpit');
 // Sent to walkable-cabin passengers whose HUD never opens, every flight tick, so
 // it must not download the cockpit (about 3 MB with GLASS). With the cockpit
@@ -82,31 +83,31 @@ export function cabinAudio(s) {
 }
 export const openTargeting = call(cockpit, 'openTargeting');
 export const openFlightSim = call(cockpit, 'openFlightSim');
-export const flightSimContext = call(cockpit, 'flightSimContext');
-export const drakeSubmerged = call(cockpit, 'drakeSubmerged');
-export const flightBurst = call(cockpit, 'flightBurst');
-export const flightSimContacts = call(cockpit, 'flightSimContacts');
-export const flightSimAASites = call(cockpit, 'flightSimAASites');
-export const flightSimHopper = call(cockpit, 'flightSimHopper');
-export const flightSimAirHit = call(cockpit, 'flightSimAirHit');
-export const flightSimKill = call(cockpit, 'flightSimKill');
-export const flightSimAaTracer = call(cockpit, 'flightSimAaTracer');
-export const flightSimAirThreat = call(cockpit, 'flightSimAirThreat');
+export const flightSimContext = ifLoaded(cockpit, 'flightSimContext');
+export const drakeSubmerged = ifLoaded(cockpit, 'drakeSubmerged');
+export const flightBurst = ifLoaded(cockpit, 'flightBurst');
+export const flightSimContacts = ifLoaded(cockpit, 'flightSimContacts');
+export const flightSimAASites = ifLoaded(cockpit, 'flightSimAASites');
+export const flightSimHopper = ifLoaded(cockpit, 'flightSimHopper');
+export const flightSimAirHit = ifLoaded(cockpit, 'flightSimAirHit');
+export const flightSimKill = ifLoaded(cockpit, 'flightSimKill');
+export const flightSimAaTracer = ifLoaded(cockpit, 'flightSimAaTracer');
+export const flightSimAirThreat = ifLoaded(cockpit, 'flightSimAirThreat');
 export const flightSimFireworks = ifLoaded(cockpit, 'flightSimFireworks');   // sent to every airborne occupant
-export const flightSimLightning = call(cockpit, 'flightSimLightning');
+export const flightSimLightning = ifLoaded(cockpit, 'flightSimLightning');   // sent to every airborne occupant, passengers included
 
 // cab-view.js
 export const isCabActive = ifLoaded(cab, 'isCabActive', false);
 export const closeCab = ifLoaded(cab, 'closeCab');
 export const openCab = call(cab, 'openCab');
-export const cabContext = call(cab, 'cabContext');
-export const cabGalley = call(cab, 'cabGalley');
+export const cabContext = ifLoaded(cab, 'cabContext');
+export const cabGalley = ifLoaded(cab, 'cabGalley');
 
 // boat-view.js
 export const isBoatActive = ifLoaded(boat, 'isBoatActive', false);
 export const closeBoat = ifLoaded(boat, 'closeBoat');
 export const openBoat = call(boat, 'openBoat');
-export const boatSetWorld = call(boat, 'boatSetWorld');
+export const boatSetWorld = ifLoaded(boat, 'boatSetWorld');   // boat_fuel arrives on every refuel, text rung included; a no-op with no boat view open
 
 // truck-depot.js
 export const isTruckDepotActive = ifLoaded(depot, 'isTruckDepotActive', false);
