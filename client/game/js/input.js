@@ -14,7 +14,7 @@ import { isPianoKeysLive } from './panels/piano.js';
 // as 'aaaaaaaaazzzzzzzz'. Every other panel that owns the keyboard is already listed here; the cab
 // was the one that never was.
 import { isCabActive } from './panels/lazy-views.js';
-import { isFreelookActive } from './panels/freelook-view.js';
+import { isFreelookActive } from './panels/lazy-views.js';
 import { seatHoldsKeyboard } from './panels/seat-keys.js';
 import { toggleAutoWalk, startAutoWalk, cancelAutoWalk, isAutoWalkPromptPending, answerAutoWalkPrompt } from './panels/minimap.js';
 import { runMacroByName, runMacroByKey, runMacro, abortMacros } from './panels/smartbar-macros.js';

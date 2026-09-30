@@ -147,3 +147,27 @@ export const openTabletToBinder = call(tablet, 'openTabletToBinder');
 export function noteQuestLog(msg) {
   if (recordQuestLog(msg)) tablet.get()?.questLogChanged(msg.quest_id);
 }
+
+// Smaller views that core files used to import statically. None of them has
+// GLASS in its static graph, so none wires it.
+const freelook = lazy('freelook-view', () => import('./freelook-view.js'), { glass: false });
+export const isFreelookActive = ifLoaded(freelook, 'isFreelookActive', false);
+export const closeFreelook = ifLoaded(freelook, 'closeFreelook');
+export const freelookSetSky = ifLoaded(freelook, 'freelookSetSky');
+export const freelookSetActors = ifLoaded(freelook, 'freelookSetActors');
+export const openFreelook = call(freelook, 'openFreelook');
+
+const chess3d = lazy('chess3d', () => import('./chess3d.js'), { glass: false });
+export const mountChess3D = call(chess3d, 'mountChess3D');
+
+const intro = lazy('intro-cinematic', () => import('./intro-cinematic.js'), { glass: false });
+export const playIntroCinematic = call(intro, 'playIntroCinematic');
+
+const splice = lazy('splicelab', () => import('./splicelab.js'), { glass: false });
+export const applySplicePreview = ifLoaded(splice, 'applySplicePreview');
+export const openSpliceSelect = call(splice, 'openSpliceSelect');
+export const openSpliceStages = call(splice, 'openSpliceStages');
+
+const engineAudio = lazy('engine-audio', () => import('./engine-audio.js'), { glass: false });
+export const stopEngineAudio = ifLoaded(engineAudio, 'stopEngineAudio');
+export const airHorn = call(engineAudio, 'airHorn');

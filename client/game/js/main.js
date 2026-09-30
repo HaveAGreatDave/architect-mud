@@ -79,7 +79,7 @@ import { initTvPanel } from "./panels/tv.js";
 import { initMediaDeckPanel } from "./panels/mediadeck.js";
 import { initAudio } from "./panels/audio.js";
 import { initMusicPlayerPanel, stopMusicPlayer } from "./panels/musicplayer.js";
-import { stopEngineAudio } from "./panels/engine-audio.js";
+import { stopEngineAudio } from "./panels/lazy-views.js";
 import { isFlightSimActive } from "./panels/lazy-views.js";
 import { isHangarBayWalkActive } from "./panels/lazy-views.js";
 import { seatHoldsKeyboard } from "./panels/seat-keys.js";
