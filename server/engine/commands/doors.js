@@ -323,14 +323,16 @@ export async function detectBathroomSide(door) {
 // `hololock.breached` react to *whose* place was broken into (e.g. an NPC
 // vendor holding a grudge), not just where the breach was witnessed.
 async function burgledApartmentOwner(door) {
-  for (const zid of [door.zone_id, ...doorFarZoneIds(door)]) {
-    if (!zid) continue;
-    const { rows } = await query(
-      'SELECT owner_id, owner_type FROM apartments WHERE zone_id=$1 AND owner_id IS NOT NULL',
-      [zid]
-    );
-    if (rows.length) return { ownerId: rows[0].owner_id, ownerType: rows[0].owner_type || 'player', apartmentZone: zid };
-  }
+  const zids = [door.zone_id, ...doorFarZoneIds(door)].filter(Boolean);
+  if (!zids.length) return {};
+  // One round trip; array_position keeps the old order (this side before the far side).
+  const { rows } = await query(
+    `SELECT zone_id, owner_id, owner_type FROM apartments
+      WHERE zone_id = ANY($1) AND owner_id IS NOT NULL
+      ORDER BY array_position($1::text[], zone_id) LIMIT 1`,
+    [zids]
+  );
+  if (rows.length) return { ownerId: rows[0].owner_id, ownerType: rows[0].owner_type || 'player', apartmentZone: rows[0].zone_id };
   return {};
 }
 
