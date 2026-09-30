@@ -1106,6 +1106,12 @@ So `gl/water.js` is a real mesh. It displaces the 8.6-tile roll and the fragment
 Trap: "mass above the eye" alone is true over every stacked building, so the first cut called the inside of a warehouse wall a bridge. The clear-air condition is what makes it an underside.
 - Attitude: the sky's direction in cab space from `bank` and `pitch`. The overhead share of each face's light and the roof-bright height falloff follow it, so inverted the footwells are lit and the roof is not, and the sun glint is turned with the airframe.
 
+- Street light: `applyCabinStreetLight` adds street lamps, neon and lit signs to the cab after dark. The lights are the `SPRITE_SINK` list the wall wash reads, which fills while the city draws, after the cab is shaded, so the pass runs just before the GL hook and adds onto the faces already in `OWNSHIP_SINK` (the interior upload compares every value, so the change is sent). Each lamp is one direction and strength across the whole cab, since the cab is hundredths of a tile across; the strongest six within 1.4 tiles are kept. `RENDER_TUNE.cabStreet` 0 turns it off.
+
+Trap: a lamp to the right lights the LEFT of the room. Light through the right-hand glass lands on the surfaces facing it; the first version of the check expected the right side to brighten and failed on correct lighting.
+
+Trap: only lights that were drawn reach the sink, so a lamp behind the camera doesn't light the cab. Lighting from behind would need the world pass to push off-screen lights, which costs every frame.
+
 Trap: the up vector is in the shade cache's frame key. It's rounded to hundredths so a steady bank still hits the cache. `scripts/shapes/cabin-light.mjs` checks all three by direction.
 
 ## Sea state from the wind
