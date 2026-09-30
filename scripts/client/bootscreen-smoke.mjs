@@ -155,7 +155,7 @@ async function run() {
 		check('warm sequence is a few seconds, not a flash', ms > 1500 && ms < 5000, `took ${ms}ms`);
 		check('warm sequence names the machine', lines(log).some((l) => l.includes('SESSION DETECTED')));
 		check('warm sequence runs the memory check to completion',
-			lines(log).some((l) => /MEMORY TEST :\s+262144 KB\s+OK/.test(l)),
+			lines(log).some((l) => /WETWARE BUFFER TEST :\s+\d+ KB\s+OK/.test(l)),
 			`got: ${JSON.stringify(lines(log))}`);
 		// The three things the host page's layout is borrowed FOR. Each is a
 		// silent failure otherwise: a line with no clock is a splash, a log with
@@ -189,8 +189,14 @@ async function run() {
 		console.log(`    (cold sequence ran ${ms}ms, socket opened at 1200ms)`);
 		check('cold load completes', overlay._classes.has('boot-out'), 'overlay never faded out');
 		check('cold sequence is longer than warm', ms > 3000, `took ${ms}ms`);
-		check('cold sequence enumerates the world',
-			lines(log).some((l) => l.includes('COLDWATER BASIN')));
+		// Each subsystem line reports something the page really loaded or holds.
+		check('cold sequence reports the subsystems',
+			['THOMAS KERNEL', 'SIREN', 'ORACLE', 'GLASS'].every((w) => lines(log).some((l) => l.includes(w))),
+			`got: ${JSON.stringify(lines(log))}`);
+		// A reader that throws must print its plain form, never an empty row.
+		check('no line prints blank',
+			lines(log).every((l) => /[A-Z]/.test(l.replace(/^\d\d:\d\d:\d\d/, ''))),
+			`got: ${JSON.stringify(lines(log))}`);
 		// The closing beat is held back until the socket is actually open, so it
 		// is evidence the wait resolved rather than that a timer elapsed.
 		check('cold sequence ends on the line it held back',

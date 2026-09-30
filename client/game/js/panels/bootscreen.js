@@ -20,7 +20,7 @@
  *
  *   • COLD — the player just sat through a wake. Full POST, ~4s, paced against
  *     real events rather than a script (see `finishWhenReady`).
- *   • QUICK — warm server. Header, memory check, one drive, ~1.6s. The same
+ *   • QUICK — warm server. Header, memory check, the kernel, ~1.6s. The same
  *     machine saying less, not a different screen — enough to read as itself
  *     without taxing somebody who logs in six times a day.
  *
@@ -59,41 +59,79 @@ const READY_TIMEOUT_MS = 6000;
 // for why it exists anyway.
 const MAX_TOTAL_MS = 12000;
 
-// Cold POST lines. Deliberately fixed, in this order: a boot screen that
-// shuffles is a screensaver. The pauses are what carries the machine, so they
-// are authored per line rather than a constant tick. Upper case throughout,
-// because that is the register the host page hands us mid-sentence.
+// ── WHAT THE LINES SAY ────────────────────────────────────────────────────────
+// Every line reports something this page really did or really has, read at the
+// moment it prints: the device's memory and threads, the modules the server
+// preloaded, the bytes pulled so far, SIREN's voice pool, whether ORACLE's
+// lexicon has streamed in yet, GLASS held back until a view needs it, and the
+// socket. The words dress it up as a simulation coming online; the numbers
+// are never made up. A `text` may be a function of the boot context.
+//
+// Fixed order, because a boot screen that shuffles is a screensaver. The pauses
+// carry the machine, so they are authored per line rather than a constant tick.
+// Upper case throughout: that is the register the host page hands us.
+
+// Chrome reports device memory in GB and caps it at 8; elsewhere it's absent,
+// and the count falls back to the old 256 MB figure.
+const memKB = () => Math.round(((typeof navigator !== 'undefined' && navigator.deviceMemory) || 0.25) * 1024 * 1024);
+const threads = () => (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) || 1;
+// Every reader below falls back instead of throwing: a line that fails to read
+// prints its plain form rather than a blank row.
+const preloaded = () => { try { return document.querySelectorAll('link[rel=modulepreload]').length; } catch { return 0; } };
+const pulledKB = () => {
+	try {
+		const bytes = performance.getEntriesByType('resource').reduce((a, e) => a + (e.transferSize || e.encodedBodySize || 0), 0);
+		return Math.max(1, Math.round(bytes / 1024));
+	} catch { return 0; }
+};
+const voicePool = () => { try { return window.AudioEngine?._voiceStats?.().size || 0; } catch { return 0; } };
+const lexicon = () => {
+	const blob = window.CMUDICT?.blob;
+	return blob ? `${blob.split('\n').length.toLocaleString('en-US')} WORDS INDEXED` : 'STREAMING IN';
+};
+const rung = () => {
+	try { return (JSON.parse(localStorage.getItem('architect_settings') || '{}').displayRung || 'visual').toUpperCase(); }
+	catch { return 'VISUAL'; }
+};
+const n = (x) => Number(x).toLocaleString('en-US');
+
 const COLD_LINES = [
-	{ t: 240, text: 'INCOMING SESSION DETECTED' },
-	{ t: 300, text: 'SUBSTRATE WAKING UP' },
+	{ t: 240, text: 'INCOMING SESSION. CONSCIOUSNESS NOT YET BOUND' },
+	{ t: 300, text: (c) => c.uptime < Infinity ? `SUBSTRATE WAKING. HOST AWAKE ${Math.round(c.uptime)}S` : 'SUBSTRATE WAKING' },
 	{ t: 280, banner: true },
 	{ t: 300, text: 'POWER-ON SELF TEST' },
-	{ t: 380, text: 'MEMORY', count: 262144, unit: 'KB' },
-	{ t: 240, text: 'COPROCESSOR PRESENT' },
-	{ t: 220, text: 'BUS INTERFACE NOMINAL' },
-	{ t: 300, text: 'DETECTING DRIVES' },
-	{ t: 240, text: '  CH-0  COLDWATER BASIN      4836 TILES' },
-	{ t: 230, text: '  CH-1  THE UNDER            OFFSET Z-1' },
-	{ t: 240, text: '  CH-2  SCARLETWASTES        REDROCK' },
+	{ t: 380, text: 'WETWARE BUFFER', count: memKB, unit: 'KB' },
+	{ t: 240, text: () => `COPROCESSOR LATTICE. ${threads()} THREADS ONLINE` },
+	{ t: 260, text: () => preloaded() ? `THOMAS KERNEL. ${n(preloaded())} MODULES MOUNTED` : 'THOMAS KERNEL MOUNTED' },
+	{ t: 220, text: () => `${n(pulledKB())} KB PULLED DOWN THE WIRE` },
+	{ t: 240, text: () => voicePool() ? `SIREN AUDIO BUS. ${voicePool()} VOICES ARMED` : 'SIREN AUDIO BUS. STANDING BY' },
+	{ t: 240, text: () => `ORACLE LEXICON. ${lexicon()}` },
+	{ t: 230, text: 'GLASS RENDERER. HELD UNTIL YOU LOOK' },
+	{ t: 220, text: () => `DISPLAY RUNG. ${rung()}` },
 	{ t: 320, text: 'UPLINK HANDSHAKE' },
 ];
 
-// Warm. Keeps the header, the memory check and one drive line, and drops the
-// enumeration. The plate is up from the first frame rather than revealed —
-// a wordmark that appears and is gone inside a second is a flash, not a brand.
+// Warm. The same machine saying less: header, memory, the kernel, one line for
+// the voice and sound, then the uplink. The plate is up from the first frame
+// rather than revealed; a wordmark that's gone inside a second is a flash.
 const QUICK_LINES = [
 	{ t: 110, banner: true },
 	{ t: 140, text: 'SESSION DETECTED' },
-	{ t: 260, text: 'MEMORY', count: 262144, unit: 'KB', fast: true },
-	{ t: 220, text: 'COPROCESSOR PRESENT' },
-	{ t: 240, text: '  CH-0  COLDWATER BASIN      4836 TILES' },
+	{ t: 260, text: 'WETWARE BUFFER', count: memKB, unit: 'KB', fast: true },
+	{ t: 200, text: () => preloaded() ? `THOMAS KERNEL. ${n(preloaded())} MODULES, ${n(pulledKB())} KB` : 'THOMAS KERNEL MOUNTED' },
+	{ t: 220, text: () => `SIREN ${voicePool() || 'STANDBY'}${voicePool() ? ' VOICES' : ''}. ORACLE ${window.CMUDICT ? 'INDEXED' : 'STREAMING'}` },
 	{ t: 280, text: 'UPLINK ESTABLISHED' },
 ];
 
 // The one line with a voice in it, held back until the socket is actually open
-// so that the flourish lands on a fact rather than on a guess. The host page
-// ends on the same beat, in bold, immediately before it hands over.
-const READY_LINE = 'COLD BOOT. LONG NIGHT. THE BASIN IS ALMOST AWAKE';
+// so that the flourish lands on a fact rather than on a guess. The count is the
+// server's open sockets (/health), taken when the boot started. It may or may
+// not include this page's own socket yet, so it's worded as signals on the line,
+// which is true either way, rather than as other players.
+const readyLine = (c) => {
+	if (!Number.isFinite(c.players) || c.players < 1) return 'COLD BOOT. LONG NIGHT. THE BASIN IS ALMOST AWAKE';
+	return `${n(c.players)} SIGNAL${c.players === 1 ? '' : 'S'} ON THE LINE. THE BASIN IS AWAKE`;
+};
 
 let _done = false;
 let _timers = [];
@@ -127,17 +165,21 @@ function forcedQuick() {
  * wake, so a failure falls back to QUICK rather than guessing COLD and making
  * every player sit through the long version because a fetch went wrong.
  */
-async function serverUptime() {
+async function serverHealth() {
+	const none = { uptime: Infinity, players: NaN };
 	try {
 		const ctl = new AbortController();
 		const bail = setTimeout(() => ctl.abort(), 2500);
 		const res = await fetch('/health', { cache: 'no-store', signal: ctl.signal });
 		clearTimeout(bail);
-		if (!res.ok) return Infinity;
+		if (!res.ok) return none;
 		const body = await res.json();
-		return typeof body.uptime === 'number' ? body.uptime : Infinity;
+		return {
+			uptime: typeof body.uptime === 'number' ? body.uptime : Infinity,
+			players: typeof body.players === 'number' ? body.players : NaN,
+		};
 	} catch {
-		return Infinity;
+		return none;
 	}
 }
 
@@ -236,7 +278,7 @@ function setStatus(overlay, text, ok) {
 }
 
 /** Run a line list to completion, or bail early if something skipped us. */
-async function play(overlay, host, lines, caret) {
+async function play(overlay, host, lines, caret, ctx) {
 	for (const line of lines) {
 		if (_done) return;
 		await new Promise((r) => later(line.t, r));
@@ -245,8 +287,14 @@ async function play(overlay, host, lines, caret) {
 			revealBanner(overlay, host);
 			continue;
 		}
-		const body = emit(host, line.count ? '' : line.text, caret);
-		if (line.count) await countUp(body, line.text, line.count, line.unit, line.fast ? 620 : 900);
+		// Read at print time, not when the list was built: the byte count and the
+		// lexicon are still changing while the POST runs.
+		let text;
+		try { text = typeof line.text === 'function' ? line.text(ctx) : line.text; }
+		catch { text = ''; }
+		const total = typeof line.count === 'function' ? line.count() : line.count;
+		const body = emit(host, total ? '' : text, caret);
+		if (total) await countUp(body, text, total, line.unit, line.fast ? 620 : 900);
 		host.scrollTop = host.scrollHeight;
 	}
 }
@@ -324,10 +372,11 @@ export async function runBootScreen() {
 	// a backstop rather than confidence.
 	later(MAX_TOTAL_MS, () => finish(overlay));
 
-	const uptime = forcedQuick() ? Infinity : await serverUptime();
-	const cold = uptime < COLD_UPTIME_S;
+	// Reduced motion still asks, for the connection count; it just never goes cold.
+	const ctx = await serverHealth();
+	const cold = !forcedQuick() && ctx.uptime < COLD_UPTIME_S;
 
-	await play(overlay, host, cold ? COLD_LINES : QUICK_LINES, caret);
+	await play(overlay, host, cold ? COLD_LINES : QUICK_LINES, caret, ctx);
 	if (_done) return;
 
 	if (cold) {
@@ -336,7 +385,7 @@ export async function runBootScreen() {
 		// supposed to be the quick one.
 		await finishWhenReady();
 		if (_done) return;
-		emit(host, READY_LINE, caret);
+		emit(host, readyLine(ctx), caret);
 		setStatus(overlay, 'UPLINK ESTABLISHED', true);
 		await new Promise((r) => later(520, r));
 	} else {
