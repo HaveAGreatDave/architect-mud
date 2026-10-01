@@ -912,11 +912,16 @@ const QUACK_HELD = { category: 'sfx', priority: 6, config: { duration: 0.2, laye
   qLayer(700, 2.2, 0.061, 0.7, 560), qLayer(1650, 4, 0.159, 0.45, 1250), qLayer(2100, 5, 0.105, 0.35, 1700),
   qLayer(420, 1.5, 0.012, 0.7, 0, 'lowpass', 'square'),
   { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1800, q: 1 }, tremolo: { rate: 31, depth: 0.5 }, adsr: { a: 0.005, d: 0.12, s: 0.55, r: 0.05 }, gain: 0.083 },
-  qLayer(340, 3, 0.11, 0.8), qLayer(2600, 4, 0.033, 0.3) ] } };
+  qLayer(340, 3, 0.11, 0.8), qLayer(2600, 4, 0.033, 0.3),
+  // The squeeze: a brassy strain that fades in only as the quack is held, so a long one hardens.
+  { ...qLayer(2900, 3, 0.07, 1, 3400), adsr: { a: 1.6, d: 0.1, s: 1, r: 0.06 } },
+  { ...qLayer(1100, 2, 0.05, 1, 1400, 'bandpass', 'square'), adsr: { a: 1.2, d: 0.1, s: 1, r: 0.06 } } ] } };
+// How long a held quack takes to reach full pressure. The cockpit's button sinks over the same time.
+export const QUACK_SQUEEZE_MS = 1800;
 // Starts a quack and returns a function that ends it (idempotent). Never throws.
 export function quackStart() {
   const ae = AE(); let h = null; const t0 = performance.now();
-  try { ae?.init?.(); h = ae?.playSfx?.(QUACK_HELD, 1, { sustain: true, maxHold: 4 }); } catch {}
+  try { ae?.init?.(); h = ae?.playSfx?.(QUACK_HELD, 0.75, { sustain: true, maxHold: 4, swell: { to: 1.35, time: QUACK_SQUEEZE_MS / 1000 } }); } catch {}
   let ended = false;
   return () => {
     if (ended) return; ended = true;

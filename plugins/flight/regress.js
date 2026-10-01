@@ -1993,6 +1993,27 @@ async function regressBody({ run, check, getPlayer }) {
     }
   }
 
+  // ── The Drake's champagne: drink a glass, an empty bottle refuses, a refuel refills ──
+  {
+    const { glassesOf, refillChampagne, CHAMPAGNE_FULL } = await import('./champagne.js');
+    check('champagne: an unopened Drake has a full bottle', glassesOf({}) === CHAMPAGNE_FULL);
+    const cd = { champagne: 1 };
+    check('champagne: a refuel tops the bottle up', refillChampagne(cd) && cd.champagne === CHAMPAGNE_FULL);
+    const off = await run('champagne');
+    check('champagne: refused off a Drake', /no champagne/i.test(off?.message || ''), off?.message);
+    const acId = 'aircraft_regress_champagne', savedAc = p.aircraftId;
+    try {
+      liveAircraft.set(acId, { row: { id: acId, name: 'REGR-FIZZ', custom_data: { champagne: 0 } }, type: { class: 'drake' }, occupants: new Set([p.id]) });
+      p.aircraftId = acId;
+      const dry = await run('champagne');
+      check('champagne: an empty bottle pours nothing', /empty/i.test(dry?.message || ''), dry?.message);
+      const alone = (liveAircraft.get(acId).row.custom_data.champagne = 2, await run('champagne pour'));
+      check('champagne: pouring with nobody aboard serves nobody', /nobody/i.test(alone?.message || '') && liveAircraft.get(acId).row.custom_data.champagne === 2, alone?.message);
+      const look = await run('champagne look');
+      check('champagne: look counts the glasses', /2 glasses/.test(look?.message || ''), look?.message);
+    } finally { liveAircraft.delete(acId); p.aircraftId = savedAc; }
+  }
+
   // ── The Drake's galley: the pantry's view, with the people aboard ─────────
   // The pantry answers with the ordinary container panel marked `galley`, and lists everyone else
   // aboard as `company`, so a click on food can pass it to them (`pantry sendid`). A stand-in live

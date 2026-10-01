@@ -16,7 +16,7 @@ import { setAreaPane } from '../render.js';
 import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
 import { updateBoatContacts, stopBoatContacts, KT_TO_MPH } from './boat-audio.js';
-import { playCabinAudio, updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, varioTick, gearFx, quackStart, visorFx, detentFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, missileRippleFx, flareFx, spraySfx, diveSiren } from './engine-audio.js';
+import { playCabinAudio, updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, varioTick, gearFx, quackStart, QUACK_SQUEEZE_MS, visorFx, detentFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, missileRippleFx, flareFx, spraySfx, diveSiren } from './engine-audio.js';
 import { navHomeHTML, drawNavHome } from './nav-home.js';   // the HOME arrow on the water, boat or sub
 import { drakeWaterFrame, judgeWaterTouchdown, seaRough, drakeFeetAnim, BOAT_MAX_KT, SUB_MAX_KT } from './drake-water.js';   // the Drake on the water: hull landings, boat and sub modes
 import { depthMAt } from './seabed-scene.js';
@@ -48,7 +48,7 @@ import { createState, step, readout, TYPES } from './flight-model.js';
 import { thermalLift, heatOfCell } from '../../../shared/thermals.js';
 import { windGust, windVeer, stormOf } from '../../../shared/wind-gust.js';
 import { applyFlightDrugFx, clearFlightDrugFx } from './flight-drugfx.js';
-import { sendCmdSilent } from '../net.js';
+import { sendCmd, sendCmdSilent } from '../net.js';
 import { MURMUR_MEASURED } from './murmur.js';
 import { hex2rgb, visorSpecFor, VIPER_SCALE } from './aircraft3d.js';
 import { createFreeCam, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
@@ -4321,6 +4321,8 @@ export function openFlightSim(opts = {}) {
       // The door animates open and the ordinary container panel comes up over it; closing the panel,
       // or folding it to its title bar, shuts the door again (container.js fires drake-store-close),
       // and expanding a folded one opens it (drake-store-open).
+      // The ice bucket: a click drinks a glass, a shift-click pours one for everyone else aboard.
+      bucket: (e) => sendCmd(e?.shiftKey ? 'champagne pour' : 'champagne drink'),
       pantry: () => { F.dk.pantry = !F.dk.pantry; if (F.dk.pantry) sendCmdSilent('pantry view'); },
       locker: () => { F.dk.locker = !F.dk.locker; if (F.dk.locker) sendCmdSilent('locker view'); },
     };
@@ -4397,6 +4399,7 @@ export function openFlightSim(opts = {}) {
       gps2: () => ['GPS · DAMAGE', 'hull plan'], gps3: () => ['GPS · AMMO', 'rounds and missiles'],
       conv: () => ['CONVERGENCE', `guns meet at ${drakeConv().toFixed(1)} · click to step, wheel to fine-tune`],
       pantry: () => ['PANTRY', 'stasis larder · click to open'],
+      bucket: () => ['CHAMPAGNE', DK_CHAMPAGNE === 0 ? 'empty · refilled when you refuel' : `${DK_CHAMPAGNE ?? 6} glasses · click to drink, shift-click to pour for passengers`],
       locker: () => ['WEAPONS LOCKER', 'dry storage · click to open'],
       ramp: () => ['RAMP', 'rear loading ramp'],
       throttle: () => ['THROTTLE', `${Math.round((F.input.throttle || 0) * 100)}% · drag up and down`],
@@ -4432,7 +4435,7 @@ export function openFlightSim(opts = {}) {
       e.preventDefault(); e.stopImmediatePropagation();
       F.dkPress = { id: best.id, t: performance.now() };   // a flash on the control that was pressed
       if (best.kind !== 'click') view.style.cursor = 'grabbing';
-      if (best.kind === 'click') DK_ACT[best.id]?.();
+      if (best.kind === 'click') DK_ACT[best.id]?.(e);
       // The pedals in the dash-top well are the rudder: held, exactly like the ,/. keys.
       else if (best.kind === 'rudder') { F.dkRudHold = best.id === 'rudderL' ? -1 : 1; F.pedalKey = F.dkRudHold; }
       else dragStart(best.kind, e, best.kind === 'yoke' ? 110 : 90);
@@ -6356,7 +6359,7 @@ function fsimFrameBody(now) {
     // The Drake's moving parts (mesh channels) and its cockpit's switches (interior-drake.js).
     anim: F.dk ? drakeAnim(F.dk) : undefined,
     drakeCab: F.dk ? { ...drakeAnim(F.dk), ramp: F.dk.ramp, nv: F.dk.nv, gunsArmed: F.armed, gear: F.gearRetract ? clampNum(F.gearAnim ?? 1, 0, 1) : 1,
-      quack: !!F.dk.quackHeld || performance.now() - F.dk.quackT < 400, ammo: F.gunRounds, convert: F.dk.conv, wingTarget: !!F.dk.wing,
+      quack: !!F.dk.quackHeld || performance.now() - F.dk.quackT < 400, champagne: DK_CHAMPAGNE, quackP: F.dk.quackHeld ? Math.min(1, (performance.now() - F.dk.quackT) / QUACK_SQUEEZE_MS) : 0, ammo: F.gunRounds, convert: F.dk.conv, wingTarget: !!F.dk.wing,
       hover: F.dkHover || null, press: F.dkPress && performance.now() - F.dkPress.t < 220 ? F.dkPress.id : null,
       gps: drakeGps(F), plate: F.livery?.plate || '', trim: F.livery?.itrim || (F.livery?.variant === 'noir' || F.livery?.variant === 'quackhawk' ? F.livery.variant : 'stock'), mode: F.drakeModeNow ? F.drakeModeNow() : 0, ready: [0, 1, 2, 3].map((k) => F.drakeModeReady ? F.drakeModeReady(k) : false), dive: { boat: !!F.dk.boat && (!!F.dk.onWater && !(F.dk.submerged > 0)), under: F.dk.submerged > 0 && !(F.dk.subBlowLocal ?? F.dk.subBlow ?? true), moving: (F.dk.ventFlood || 0) > 0.05 || (F.dk.ventBlow || 0) > 0.05 }, pantry: dkEase(F.dk, 'pantry'), locker: dkEase(F.dk, 'locker') } : null,
     noseVisor: F.hasVisor ? clampNum(F.noseVisor ?? 0, 0, 1) : 0,   // Leviathan cargo visor: raised when parked/cold, lowered under power (drives the external model swing)
@@ -6953,6 +6956,10 @@ export function flightBurst(msg) {
 // The Drake under the water (plugins/submersible). Depth in metres, 0 when she is up. Its own
 // message rather than a field on flight_ctx, because flight_ctx assigns some fields unconditionally
 // and a partial one would wipe the roads and actors off the canopy.
+// The glasses left in the Drake's champagne (plugins/flight/champagne.js). null until the server
+// has said, which draws a full bottle: an unopened Drake has one.
+let DK_CHAMPAGNE = null;
+export function drakeChampagne(n) { DK_CHAMPAGNE = Number.isFinite(n) ? n : null; }
 export function drakeSubmerged(msg) {
   const F = _fsim; if (!F?.dk || !msg) return;
   F.dk.submerged = Math.max(0, +msg.depth || 0);

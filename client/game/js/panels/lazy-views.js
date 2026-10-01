@@ -98,6 +98,7 @@ export const openTargeting = call(cockpit, 'openTargeting');
 export const openFlightSim = call(cockpit, 'openFlightSim');
 export const flightSimContext = ifLoaded(cockpit, 'flightSimContext');
 export const drakeSubmerged = ifLoaded(cockpit, 'drakeSubmerged');
+export const drakeChampagne = ifLoaded(cockpit, 'drakeChampagne');
 export const flightBurst = ifLoaded(cockpit, 'flightBurst');
 export const flightSimContacts = ifLoaded(cockpit, 'flightSimContacts');
 export const flightSimAASites = ifLoaded(cockpit, 'flightSimAASites');

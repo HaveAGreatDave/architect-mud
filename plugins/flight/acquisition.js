@@ -7,6 +7,7 @@ import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { getZone, liveAircraft, persist, pushHud, sendToPlayer, REFUEL_PRICE_PER_UNIT, effStats, partDefs, partEnvelope, fieldFor as fieldOf, inHangarInterior, rentalOpFee, vtolOnlyField, acquirableTypes, airfieldOf, fieldName } from './state.js';
+import { refillChampagne, pushChampagne } from './champagne.js';
 import { allExits } from '../../server/engine/exits.js';
 import { getMinimapData, addPlayerToZone, removePlayerFromZone } from '../../server/engine/world.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
@@ -183,8 +184,11 @@ export async function refuelAt(args, raw, player) {
   if (!(await adjustCredits(player, -cost, undefined, 'flight:refuel'))) return { type: 'emote', message: `Fuel runs ${REFUEL_PRICE_PER_UNIT}₵/unit. You can't cover ${cost}₵.` };
   live.row.fuel = Math.min(cap, live.row.fuel + want);
   live.starving = false;
+  // The pumps top up the Drake's champagne with the tank (champagne.js).
+  const bubbly = live.type.class === 'drake' && refillChampagne(live.row.custom_data ||= {});
   await persist(live);
   pushHud(live);
+  if (bubbly) pushChampagne(live);
   return { type: 'output', message: `You pump ${Math.round(want)} units of ${live.type.fuel_type} for ${cost}₵. Tank: ${Math.round(live.row.fuel)}/${Math.round(cap)}.`,
     player_update: { credits: player.credits } };
 }
@@ -197,7 +201,7 @@ export async function refuelParked(player, craftId) {
   const field = fieldOf(player);
   if (!field) return { type: 'emote', message: 'Head to the airfield to refuel.' };
   const { rows } = await query(
-    `SELECT a.id, a.owner_id, a.parked_zone_id, a.fuel, a.custom_data, t.fuel_capacity, t.fuel_type, t.name tname
+    `SELECT a.id, a.owner_id, a.parked_zone_id, a.fuel, a.custom_data, t.fuel_capacity, t.fuel_type, t.name tname, t.class tclass
        FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.id=$1`, [craftId]);
   if (!rows.length) return { type: 'emote', message: 'No such aircraft here.' };
   const a = rows[0];
@@ -216,8 +220,12 @@ export async function refuelParked(player, craftId) {
   if ((player.credits || 0) < cost) return { type: 'emote', message: `Topping her off is ${cost}₵. You're short.` };
   if (!(await adjustCredits(player, -cost, undefined, 'flight:refuel'))) return { type: 'emote', message: `Topping her off is ${cost}₵. You're short.` };
   const live = liveAircraft.get(craftId);
-  if (live) { live.row.fuel = cap; live.starving = false; await persist(live); }
-  else await query('UPDATE aircraft SET fuel=$1 WHERE id=$2', [cap, craftId]);
+  const drake = a.tclass === 'drake';
+  if (live) { live.row.fuel = cap; live.starving = false; if (drake) refillChampagne(live.row.custom_data ||= {}); await persist(live); if (drake) pushChampagne(live); }
+  else if (drake) {
+    const cd = a.custom_data || {}; refillChampagne(cd);
+    await query('UPDATE aircraft SET fuel=$1, custom_data=$2 WHERE id=$3', [cap, JSON.stringify(cd), craftId]);
+  } else await query('UPDATE aircraft SET fuel=$1 WHERE id=$2', [cap, craftId]);
   return { type: 'output', message: `You top off the ${a.tname} with ${Math.round(need)} units of ${a.fuel_type} for ${cost}₵. Full tank.`,
     player_update: { credits: player.credits } };
 }

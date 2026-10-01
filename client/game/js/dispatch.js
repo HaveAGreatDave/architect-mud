@@ -64,7 +64,7 @@ import { pullConfig, receiveConfig } from './configsync.js';
 import { setTabletAccess, showTabletOffer } from './panels/smartbar.js';
 import { offerInterfaceTour, startInterfaceTour, startTabletTour, consumeTourHandoff } from './panels/tour.js';
 import { playIntroCinematic } from './panels/lazy-views.js';
-import { updateCockpit, closeCockpit, cabinAudio, openTargeting, openFlightSim, flightSimContext, drakeSubmerged, flightBurst, flightSimContacts, flightSimAASites, flightSimHopper, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive } from './panels/lazy-views.js';
+import { updateCockpit, closeCockpit, cabinAudio, openTargeting, openFlightSim, flightSimContext, drakeSubmerged, drakeChampagne, flightBurst, flightSimContacts, flightSimAASites, flightSimHopper, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive } from './panels/lazy-views.js';
 import { openTextCockpit, updateTextCockpit, closeTextCockpit, isTextCockpitActive } from './panels/textcockpit.js';
 import { openHelm, closeHelm, isHelmActive, helmSetSky, helmSetWorld, helmSetContacts, helmEndTransit, helmBeginTransit } from './panels/lazy-views.js';
 import { openCab, closeCab, cabContext, cabGalley, isCabActive } from './panels/lazy-views.js';
@@ -1461,6 +1461,7 @@ const handlers = {
 
   // ── Flight (cockpit HUD + takeoff/landing minigames) ─────────────────────
   cockpit_update: (msg) => { updateCockpit(msg.state); },
+  drake_champagne: (msg) => { drakeChampagne(msg.n); },
   // The birds our aircraft hit, so the canopy stops drawing them until their flock lands (bird-strikes.js).
   bird_strike: (msg) => { noteBirdStrikes(msg.flocks); },
   cockpit_close: () => { closeCockpit(); closeTextCockpit(); sendCmdSilent('look'); },   // hand the area pane back to the room view

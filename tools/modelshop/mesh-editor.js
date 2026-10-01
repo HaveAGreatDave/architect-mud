@@ -738,7 +738,7 @@ export async function seatShot(cls, o = {}) {
       speed: 0.2, heading: 0, mapOffset: { x: 0.1, y: -0.2 }, pitch: 0, bank: 0, lookYaw: o.yaw || 0, lookPitch: o.pitch || 0,
       dome: !!o.dome, map: seatMap(),
       instr: Object.assign({ ias: 88, alt: 640, hdg: 12, rpm: 0.97, throttle: 0.6, fuel: 0.72, pitch: 3, bank: -8, vsi: 300,
-        wings: 0, rotorFold: 0, hour: 10.25 }, o.instr || {}) };
+        wings: 0, rotorFold: 0, hour: 10.25 }, o.instr || {}), ...(o.extra || {}) };
     for (let i = 0; i < 3; i++) paintWindshield(cv.id, v);
     return await postShot(cv, o.name || ('seat-' + cls + '-' + Math.round(o.yaw || 0) + '-' + Math.round(o.pitch || 0)));
   } finally { Object.assign(RENDER_TUNE, keep); if (typeof un === 'function') un(); holder.remove(); }

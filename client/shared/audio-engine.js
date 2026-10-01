@@ -1031,9 +1031,12 @@
       p.connect(destination);
       destination = p;
     }
-    if (gainMultiplier !== 1) {
+    // `swell: { to, time }` ramps the cue's gain from gainMultiplier to `to` over `time` seconds,
+    // for a held cue that builds the longer it is held (the Drake's quack).
+    if (gainMultiplier !== 1 || opts.swell) {
       const g = c.createGain();
-      g.gain.value = gainMultiplier;
+      g.gain.setValueAtTime(gainMultiplier, time);
+      if (opts.swell) g.gain.linearRampToValueAtTime(opts.swell.to, time + Math.max(0.01, opts.swell.time));
       g.connect(destination);
       destination = g;
     }

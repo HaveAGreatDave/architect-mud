@@ -146,6 +146,11 @@ PANE.set(HUD_GLASS, 0.45);
 // The glass over each dial catches a crescent of window light.
 const DIAL_GLINT = [255, 252, 244];
 PANE.set(DIAL_GLINT, 0.22);
+// The domed crystal: nearly clear at the centre, thicker toward the rim, a dark edge where the glass
+// meets the bezel, and one hot spot. Its own arrays, since PANE alpha is per colour.
+const DOME = [[226, 236, 248], [214, 226, 242], [196, 210, 230], [170, 186, 210]], DOME_EDGE = [18, 24, 34], DOME_HOT = [255, 255, 255];
+[0.04, 0.07, 0.11, 0.17].forEach((a, i) => PANE.set(DOME[i], a));
+PANE.set(DOME_EDGE, 0.35); PANE.set(DOME_HOT, 0.55);
 // Contact shadows (drakeShadows): a soft outer ring and a darker core, both see-through black.
 const SHADE_SOFT = [0, 0, 0], SHADE_CORE = [1, 0, 0];
 PANE.set(SHADE_SOFT, 0.16); PANE.set(SHADE_CORE, 0.26);
@@ -196,6 +201,11 @@ for (const c of [T.walnut, T.walnutDk, T.burl]) TEXTURE.set(c, 'wood');   // the
 }
 SHINY.set(T.leather, { spec: 0.22, pow: 10, coat: 0.08 }); SHINY.set(T.leatherDk, { spec: 0.18, pow: 10, coat: 0.06 });
 SHINY.set(T.cream, { spec: 0.2, pow: 10, coat: 0.06 }); SHINY.set(T.creamDk, { spec: 0.16, pow: 10, coat: 0.05 });
+// The champagne in the aft bucket: dark bottle glass that takes a hard highlight, a cream label, two
+// tones of ice. Their own arrays so SHINY keys them alone.
+const BOTTLE_GLASS = [16, 48, 30], BOTTLE_LABEL = [238, 228, 200], BOTTLE_ICE = [[214, 232, 242], [186, 212, 230]];
+SHINY.set(BOTTLE_GLASS, { spec: 1, pow: 110, ramp: [[6, 20, 12], [120, 190, 150]], glint: 0.9, envK: 0.9 });
+for (const c of BOTTLE_ICE) SHINY.set(c, { spec: 0.9, pow: 70, glint: 0.6, coat: 0.6 });
 // Carbon fibre: two tones of a 2x2 twill, lacquered, so the weave catches the light a little.
 const CARBON_A = [22, 24, 28], CARBON_B = [48, 52, 60];
 SHINY.set(CARBON_A, { spec: 0.4, pow: 40 }); SHINY.set(CARBON_B, { spec: 0.55, pow: 40 });
@@ -842,7 +852,8 @@ function nameplate_(Pn, ca, cb, h, name = 'DRAKE', maxW = Infinity) {
   }
   // The special edition's badge carries a red and white rule under the letters, inlaid in the cut.
   if (T.stripeRed) {
-    const r0 = ca - W / 2 - pad * 0.2, r1 = ca + W / 2 + pad * 0.2, y = cb - h * 0.62, th = h * 0.07;
+    // Low enough to clear the letters' feet: at 0.62 it ran through the serifs.
+    const r0 = ca - W / 2 - pad * 0.2, r1 = ca + W / 2 + pad * 0.2, y = cb - h * 0.69, th = h * 0.04;
     cut([[r0, y - th * 1.5], [r1, y - th * 1.5], [r1, y + th * 1.5], [r0, y + th * 1.5]]);
     Pn.rect(r0, y - th * 1.5, r1, y - th * 0.5, T.stripeRed, 0.15, 0.0068);
     Pn.rect(r0, y - th * 0.5, r1, y + th * 0.5, T.stripeWhite, 0.15, 0.0068);
@@ -886,10 +897,31 @@ function luxDial_(Pn, ca, cb, R, frac, o = {}) {
       Pn.plate([[ca + c * r0, cb + s * r0], [ca + c * rm - s * w, cb + s * rm + c * w], [ca + c * r1, cb + s * r1], [ca + c * rm + s * w, cb + s * rm - c * w]], col, red ? 0.6 : 0.2, 0.0048);
     } else Pn.spoke(ca, cb, t, R * 0.82, R * 0.93, R * 0.02, col, red ? 0.6 : 0.2, 0.0048);
   }
+  // Numerals inside the majors, one per entry of `nums` from the start of the sweep, and the dial's
+  // name above the pivot. Both in the legend face, under the needles.
+  if (o.nums) {
+    const n = o.nums.length, step = sweep >= TAU - 1e-6 ? sweep / n : sweep / Math.max(1, n - 1);
+    o.nums.forEach((s, i) => {
+      if (s === '') return;
+      const t = a0 - i * step, r = R * 0.55;
+      Pn.fitText(String(s), ca + Math.cos(t) * r, cb + Math.sin(t) * r, R * 0.36, R * 0.15, ink, 0.3, 0.0046);
+    });
+  }
+  if (o.name) Pn.fitText(o.name, ca, cb + R * (o.nameAt ?? 0.3), R * 0.5, R * 0.14, ink, 0.3, 0.0046);
   if (frac != null) luxHands(Pn, ca, cb, R, frac, o);
   Pn.disc(ca, cb, R * 0.09, T.gold, 0.2, 0.0088, 10);
-  // The glass: a soft crescent of reflected light across the top-left, over everything.
-  Pn.annulus(ca, cb, R * 0.55, R * 0.94, DIAL_GLINT, 1, 0.0098, 8, Math.PI * 0.55, Math.PI * 0.95);
+  domeGlass_(Pn, ca, cb, R);
+}
+// A domed crystal over a dial. There is no refraction in the cockpit, so the lens is faked the way it
+// reads: rings stepping up toward the middle, clear in the centre and thicker, darker and more
+// reflective toward the rim, a crescent of window light top-left and a small counter-glint bottom-right.
+function domeGlass_(Pn, ca, cb, R) {
+  const rs = [0, 0.45, 0.7, 0.86, 1.0];
+  for (let i = 0; i < 4; i++) Pn.annulus(ca, cb, R * rs[i], R * rs[i + 1], DOME[i], 1, 0.0122 - i * 0.0007, i ? 18 : 16);
+  Pn.annulus(ca, cb, R * 0.93, R * 1.0, DOME_EDGE, 0, 0.0124, 18);
+  Pn.annulus(ca, cb, R * 0.5, R * 0.86, DIAL_GLINT, 1, 0.0128, 8, Math.PI * 0.55, Math.PI * 0.95);
+  Pn.disc(ca - R * 0.32, cb + R * 0.4, R * 0.09, DOME_HOT, 1, 0.013, 8);
+  Pn.annulus(ca, cb, R * 0.72, R * 0.84, DIAL_GLINT, 1, 0.0128, 6, -Math.PI * 0.42, -Math.PI * 0.2);
 }
 // A dial's needles, alone: drawn every frame while the rest of the dial stays cached (luxDial).
 function luxHands(Pn, ca, cb, R, frac, o = {}) {
@@ -910,6 +942,7 @@ function goldRim_(Pn, ca, cb, R) {
   // A rounded gold ring rather than a flat washer: it reflects the room, and a flat one could only
   // ever reflect one thing (windshield.js, the metals' environment term).
   Pn.torus(ca, cb, R * 1.02, R * 1.28, T.gold, 0.06, 0.0045, 28, 4);
+  domeGlass_(Pn, ca, cb, R);
 }
 
 // ── WALNUT, FIGURED ──────────────────────────────────────────────────────────
@@ -1247,7 +1280,7 @@ const STEAM = [[236, 244, 250], [237, 244, 250], [238, 244, 250]];
 PANE.set(STEAM[0], 0.16); PANE.set(STEAM[1], 0.10); PANE.set(STEAM[2], 0.05);
 // Where the two compartment handles are, in shell metres, for the hotspots. Filled in the first time
 // the fascia is built, since it depends on the room's floor height.
-const DRAKE_STORE_AT = { pantry: null, locker: null };
+const DRAKE_STORE_AT = { pantry: null, locker: null, bucket: null };
 function drakeFascia(K, L, { dxL, dxR, dY0, fl, zTop, rud, cons }) {
   const N = [0, -1, 0], y = dY0;
   const hw = 0.17, zH = fl + Math.min(0.42, (zTop - fl) * 0.72), D = 0.22;
@@ -1556,7 +1589,7 @@ export function drakeHotspots(live) {
   // A click steps the convergence; the mouse wheel over it fine-tunes it (cockpit.js).
   out.push({ id: 'conv', p: add(DRAKE_CONV_KNOB.c, [0, 0, 0.02]), r: 0.02, kind: 'click' });
   // The two compartments under the dash, at their handles (drakeFascia records where those are).
-  for (const id of ['pantry', 'locker']) if (DRAKE_STORE_AT[id]) out.push({ id, p: DRAKE_STORE_AT[id], r: 0.05, kind: 'click' });
+  for (const id of ['pantry', 'locker', 'bucket']) if (DRAKE_STORE_AT[id]) out.push({ id, p: DRAKE_STORE_AT[id], r: 0.05, kind: 'click' });
   // The RAMP button on the console, where drakeFit draws it (Cn.pt(0.085, -0.13) turned onto its side
   // panel, 0.014 proud). Usually below the forward view; clickable whenever the head is turned to it.
   out.push({ id: 'ramp', p: [0.535, -0.12, -0.603], r: 0.022, kind: 'click' });
@@ -1770,7 +1803,7 @@ export function drakeFit(P, live, push) {
   const po = [0, 0.49, -0.208];   // centred under the screen, straight ahead of the pilot
   // HDR: the header band over the gauges, the name's ALONE, so a long one ('QUACKHAWK DOWN') reads
   // the full width. FTR: the strip under the gauges, where the fuel bar and the jewel lamps live.
-  const HW = 0.30, HH = 0.048, HDR = 0.07, FTR = 0.03;
+  const HW = 0.30, HH = 0.048, HDR = 0.07, FTR = 0.04;
   const mid = (HDR - FTR) / 2, half = HH + (HDR + FTR) / 2;   // the housing spans footer + gauges + header
   const back = panelCorners(add(po, [0, 0, mid]), HW + 0.02, half + 0.02, 0.06);
   const front = panelCorners(add(po, [0, 0, mid]), HW + 0.02, half + 0.02, -0.004);
@@ -1780,31 +1813,54 @@ export function drakeFit(P, live, push) {
   }
   const Pn = facingPanel(K, po);
   Pn.plate(roundRect(-HW - 0.012, -HH - FTR - 0.012, HW + 0.012, HH + HDR + 0.012, 0.03), T.gold, 0.05, 0);
-  Pn.plate(roundRect(-HW, -HH - FTR, HW, HH + HDR, 0.024), T.burl, 0, 0.001);
-  woodGrain(Pn, -HW + 0.012, -HH - FTR + 0.012, HW - 0.012, HH + HDR - 0.012, 0.0014);
+  if (T.quackhawk) {
+    // Quackhawk: deep navy lacquer behind the dials, a chrome footer for the fuel bar and lamps, and a
+    // red-white-red rule along both seams, so the pod wears the livery instead of one flat blue.
+    Pn.plate(roundRect(-HW, -HH - FTR, HW, HH + HDR, 0.024), T.walnutDk, 0, 0.001);
+    Pn.plate(roundRect(-HW + 0.008, -HH - FTR + 0.008, HW - 0.008, -HH - 0.004, 0.012), T.gold, 0.08, 0.0014);
+    for (const b of [-HH - 0.004, HH + 0.004]) {
+      const s = 0.0034;
+      Pn.rect(-HW + 0.006, b - 1.5 * s, HW - 0.006, b - 0.5 * s, T.stripeRed, 0.15, 0.0016);
+      Pn.rect(-HW + 0.006, b - 0.5 * s, HW - 0.006, b + 0.5 * s, T.stripeWhite, 0.15, 0.0016);
+      Pn.rect(-HW + 0.006, b + 0.5 * s, HW - 0.006, b + 1.5 * s, T.stripeRed, 0.15, 0.0016);
+    }
+  } else {
+    Pn.plate(roundRect(-HW, -HH - FTR, HW, HH + HDR, 0.024), T.burl, 0, 0.001);
+    woodGrain(Pn, -HW + 0.012, -HH - FTR + 0.012, HW - 0.012, HH + HDR - 0.012, 0.0014);
+  }
   goldBead(K, Pn, HW + 0.006, HH + 0.006, HDR, FTR);
   // The name across the top of the gauges: the one thing on the panel that is not an instrument.
   nameplate(Pn, 0, HH + HDR / 2 - 0.004, 0.026, (live && live.plate) || (T.quackhawk ? 'QUACKHAWK DOWN' : T.noir ? 'DARKWING' : 'DRAKE'), 2 * HW - 0.03);
   // ⚠ ONE ROW OF SEVEN, so the pod is short enough to leave the yoke room under it in the forward
   // view. It was two rows of four and reached the bottom of the frame on its own.
   const R = 0.036, gx = (i) => -0.255 + i * 0.085;
-  luxDial(Pn, gx(0), 0, R, clamp(ias / 200, 0, 1), { ticks: 20, major: 4, arcs: [[0.08, 0.55, C.green], [0.55, 0.82, C.amber]], red: 0.9 });
+  luxDial(Pn, gx(0), 0, R, clamp(ias / 200, 0, 1), { ticks: 20, major: 4, arcs: [[0.08, 0.55, C.green], [0.55, 0.82, C.amber]], red: 0.9, nums: [0, '', 80, '', 160, ''], name: 'KTS', nameAt: -0.45 });
   Pn.attitude(gx(1), 0, R, pitch, bank); goldRim(Pn, gx(1), 0, R);
-  luxDial(Pn, gx(2), 0, R, (alt % 1000) / 1000, { a0: Math.PI / 2, sweep: TAU, ticks: 10, major: 1, frac2: (alt % 10000) / 10000 });
+  luxDial(Pn, gx(2), 0, R, (alt % 1000) / 1000, { a0: Math.PI / 2, sweep: TAU, ticks: 10, major: 1, frac2: (alt % 10000) / 10000, nums: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], name: 'ALT', nameAt: -0.27 });
   // The dual tacho: the rotor and the pusher, which in this aircraft are the two things you fly on.
-  luxDial(Pn, gx(3), 0, R, clamp(rpm * (1 - fold), 0, 1), { ticks: 10, major: 2, frac2: pusher, hand2: C.amber, arcs: [[0.85, 0.95, C.green]], red: 0.97 });
+  luxDial(Pn, gx(3), 0, R, clamp(rpm * (1 - fold), 0, 1), { ticks: 10, major: 2, frac2: pusher, hand2: C.amber, arcs: [[0.85, 0.95, C.green]], red: 0.97, nums: [0, '', 4, '', 8, ''], name: 'RPM', nameAt: -0.45 });
   Pn.compass(gx(4), 0, R, hdg); goldRim(Pn, gx(4), 0, R);
-  luxDial(Pn, gx(5), 0, R, clamp(0.5 + vsi / 3000, 0, 1), { a0: Math.PI, sweep: Math.PI * 1.8, ticks: 8, major: 2 });
+  luxDial(Pn, gx(5), 0, R, clamp(0.5 + vsi / 3000, 0, 1), { a0: Math.PI, sweep: Math.PI * 1.8, ticks: 8, major: 2, nums: ['', '', 'UP', '', 0, '', 'DN', '', ''], name: 'VSI', nameAt: 0.28 });
   modeDial(Pn, gx(6), 0, R, wings, fold);
   // Fuel along the left of the footer, and the jewel lamps along its right: off the header, so
   // nothing sits beside the name.
-  const hv = -HH - FTR / 2 + 0.002, fz = fuel < 0.15 ? C.red : C.green;
+  // Each carries its name on an enamel chip under it, lettered like the switch strips.
+  const hv = -HH - FTR / 2 + 0.0075, fz = fuel < 0.15 ? C.red : C.green, lv = hv - 0.0145, LH = 0.006;
+  const chip = (str, u) => {
+    const w = textWidth(str) * LH;
+    Pn.plate(roundRect(u - w / 2 - 0.003, lv - LH * 0.9, u + w / 2 + 0.003, lv + LH * 0.9, 0.0025), T.enamel, 0, 0.0024);
+    hudText(Pn, str, u, lv, LH, LABEL_INK, 0.0032);
+  };
   Pn.rect(-0.27, hv - 0.007, -0.13, hv + 0.007, C.black, 0, 0.003);
   Pn.rect(-0.268, hv - 0.005, -0.268 + 0.136 * fuel, hv + 0.005, fz, 0.85, 0.005);
-  [[fuel < 0.15, C.amber], [rpm < 0.85 && powered && fold < 0.5, C.red], [!!L.stall, C.red], [!powered, C.amber]]
-    .forEach(([lit, rgb], i) => {
-      Pn.disc(0.165 + i * 0.03, hv, 0.011, T.gold, 0.1, 0.002, 10);
-      Pn.disc(0.165 + i * 0.03, hv, 0.0075, lit ? rgb : rgb.map((c) => c * 0.2), lit ? 1 : 0, 0.0035, 8);
+  for (let i = 1; i < 4; i++) Pn.rect(-0.268 + 0.034 * i - 0.0006, hv - 0.005, -0.268 + 0.034 * i + 0.0006, hv - 0.001, C.black, 0, 0.0055);
+  chip('E', -0.268); chip('FUEL', -0.2); chip('F', -0.132);
+  [[fuel < 0.15, C.amber, 'FUEL'], [rpm < 0.85 && powered && fold < 0.5, C.red, 'RPM'], [!!L.stall, C.red, 'STALL'], [!powered, C.amber, 'PWR']]
+    .forEach(([lit, rgb, name], i) => {
+      const u = 0.135 + i * 0.04;
+      Pn.disc(u, hv, 0.0095, T.gold, 0.1, 0.002, 10);
+      Pn.disc(u, hv, 0.0065, lit ? rgb : rgb.map((c) => c * 0.2), lit ? 1 : 0, 0.0035, 8);
+      chip(name, u);
     });
 
   // ── THE MIDDLE OF THE DASH: the clock, on a walnut stand both seats can see ──
@@ -1901,7 +1957,9 @@ export function drakeFit(P, live, push) {
       } else if (id === 'quack') {
         lab('QUACK', u);
         Sp.disc(u, v, 0.019, T.gold, 0.1, 0.0037, 14);
-        domeBtn(Sp, u, v, eased('quack', L.quack ? 0.009 : 0.015, 30), 0.015, T.ruff, L.quack ? 0.9 : 0.25, 'quack');
+        // Held, it keeps sinking and brightening as the pressure builds (quackP, 0..1 over the squeeze).
+        const qp = clamp(num(L.quackP), 0, 1);
+        domeBtn(Sp, u, v, eased('quack', L.quack ? 0.009 - qp * 0.005 : 0.015, 30), 0.015, T.ruff, L.quack ? 0.7 + qp * 0.3 : 0.25, 'quack');
       } else if (id === 'gear') {
         // Down is gear down, the knob a little gold webbed foot; amber while it travels, green when locked.
         lab('GEAR', u);
@@ -2027,9 +2085,47 @@ export function drakeFit(P, live, push) {
   }
   // At the aft end, where the passenger can reach it: a gold ice bucket with a bottle in it.
   const bk = [cX + 0.02, cy0 + 0.13, cTop];
-  K.rod(bk, add(bk, [0, 0, 0.13]), 0.07, 'dash', 0.35, T.gold, 0.1, 12);
-  K.rod(add(bk, [-0.01, 0.01, 0.06]), add(bk, [-0.05, 0.05, 0.24]), 0.032, 'dash', 0.3, [26, 70, 42], 0.05, 8);
-  K.rod(add(bk, [-0.046, 0.046, 0.225]), add(bk, [-0.062, 0.062, 0.29]), 0.014, 'dash', 0.3, T.gold, 0.1, 6);
+  // The bucket: a rolled lip, two ring handles, and ice showing round the bottle.
+  K.rod(bk, add(bk, [0, 0, 0.13]), 0.07, 'dash', 0.35, T.gold, 0.1, 16);
+  K.rod(add(bk, [0, 0, 0.124]), add(bk, [0, 0, 0.136]), 0.076, 'dash', 0.35, T.gold, 0.15, 16);
+  K.rod(add(bk, [0, 0, 0.128]), add(bk, [0, 0, 0.1305]), 0.066, 'dash', 0.3, BOTTLE_ICE[1], 0.2, 16);
+  for (const s of [-1, 1]) K.rod(add(bk, [s * 0.074, 0, 0.1]), add(bk, [s * 0.084, 0, 0.1]), 0.012, 'dash', 0.35, T.gold, 0.1, 8);
+  for (let i = 0; i < 7; i++) {
+    const a = i * 0.9 + 0.4, r = 0.045 + (i % 2) * 0.01, x = bk[0] + Math.cos(a) * r, y = bk[1] + Math.sin(a) * r, s = 0.009 + (i % 3) * 0.002;
+    K.box(x - s, y - s, bk[2] + 0.128, x + s, y + s, bk[2] + 0.128 + s * 1.4, 'dash', 0.3, BOTTLE_ICE[i % 2], 0.25);
+  }
+  // The bottle, turned like one: body, a rounded shoulder, the neck, a foil capsule and a label.
+  DRAKE_STORE_AT.bucket = add(bk, [0, 0, 0.14]);
+  // Empty (L.champagne 0, plugins/flight/champagne.js), the bucket holds only ice until the next refuel.
+  if (L.champagne !== 0) {
+    const b0 = add(bk, [-0.004, 0.004, 0.05]), bD = norm([-0.05, 0.05, 0.18]);
+    const at = (d) => add(b0, mul(bD, d));
+    // Turned on a lathe: a profile of (distance along, radius) swept round the axis, so the shoulder is
+    // one smooth curve rather than a stack of discs.
+    const e1 = norm(cross(bD, [1, 0, 0])), e2 = cross(bD, e1), NS = 16;
+    const lathe = (prof, rgb, emis = 0.05) => {
+      for (let j = 0; j + 1 < prof.length; j++) {
+        const [d0, r0] = prof[j], [d1, r1] = prof[j + 1];
+        for (let i = 0; i < NS; i++) {
+          const t0 = (i / NS) * TAU, t1 = ((i + 1) / NS) * TAU, tm = (t0 + t1) / 2;
+          const rim = (d, r, t) => add(at(d), add(mul(e1, Math.cos(t) * r), mul(e2, Math.sin(t) * r)));
+          const n = norm(add(add(mul(e1, Math.cos(tm)), mul(e2, Math.sin(tm))), mul(bD, (r0 - r1) / Math.max(1e-4, d1 - d0))));
+          K.face([rim(d0, r0, t0), rim(d0, r0, t1), rim(d1, r1, t1), rim(d1, r1, t0)], n, 'dash', 0.35, rgb, emis);
+        }
+      }
+    };
+    const band = (d0, d1, r, rgb, emis = 0.12) => lathe([[d0, r], [d1, r]], rgb, emis);
+    const shoulder = [];
+    for (let k = 0; k <= 8; k++) { const t = k / 8; shoulder.push([0.17 + t * 0.05, 0.0105 + 0.0205 * Math.cos(t * Math.PI / 2)]); }
+    lathe([[0, 0.031], [0.17, 0.031], ...shoulder.slice(1), [0.25, 0.0105], [0.256, 0.0118]], BOTTLE_GLASS);
+    const red = T.quackhawk ? T.stripeRed : T.gold;
+    lathe([[0.232, 0.0112], [0.236, 0.0121], [0.28, 0.0121], [0.284, 0.0098], [0.285, 0.001]], red, 0.1);   // the foil, domed
+    band(0.234, 0.239, 0.0124, T.quackhawk ? T.stripeWhite : T.goldDk);
+    band(0.075, 0.15, 0.0316, BOTTLE_LABEL, 0.1);                                   // the label
+    band(0.082, 0.087, 0.0319, red, 0.15); band(0.138, 0.143, 0.0319, red, 0.15);
+    band(0.1, 0.122, 0.0319, T.quackhawk ? T.enamel : [120, 24, 34], 0.1);           // its crest band
+    band(0.19, 0.198, 0.0262, red, 0.15);                                            // a ribbon on the shoulder
+  }
 
   // ── THE THROTTLE: a brass lever in a walnut quadrant, right of the pod ────
   // Back toward you is idle, forward is full. In the forward view on purpose (see the switch panel).

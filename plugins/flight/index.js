@@ -9,6 +9,7 @@
 // continuous cockpit, not commanded. See state.js for the shared substrate.
 
 import { randomUUID } from 'crypto';
+import { cmdChampagne } from './champagne.js';
 import { query } from '../../server/models/db.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { effectiveSkill, awardSkillUse, skillCheck } from '../../server/engine/skills.js';
@@ -2353,6 +2354,7 @@ export const commands = {
   flightwaypoint: cmdFlightWaypoint,
   checkride: cmdCheckride,
   quack: cmdQuack,   // the Drake's loudspeaker
+  champagne: cmdChampagne,   // the ice bucket (champagne.js)
   ...hazardCommands, ...drakeStoreCommands, ...acquisitionCommands, ...combatCommands, ...contractCommands, ...hangarCommands, ...charterCommands,
 };
 
