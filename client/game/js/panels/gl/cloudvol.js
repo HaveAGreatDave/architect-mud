@@ -39,6 +39,10 @@ import { viewProjMatrix, mat4f } from './camera.js';
 const NOISE_N = 64;
 const COVER_N = 64;          // coverage texels a side
 export const COVER_RANGE = 56;   // tiles either side of the camera the coverage map spans
+const GLOW_R = 4;                 // tiles a lit tile's glow spreads across the base
+const GLOW_GAIN = 0.12;           // how many summed sources it takes to saturate (1 - e^-gain·sum)
+const GLOW_STR = 0.55;            // the glow's full-night strength on the base
+const GLOW_COL = [1.0, 0.62, 0.32];   // sodium orange
 
 const FULL_VS = `#version 300 es
 void main() {
@@ -81,6 +85,11 @@ uniform vec3 uLitCol;
 uniform vec3 uStormBase;
 uniform vec3 uStormLit;
 uniform vec2 uWind;
+// City underglow: lit ground under the deck, on the coverage map's grid, lifting the base from below.
+uniform sampler2D uGlow;
+uniform float uGlowStr;
+uniform vec3 uGlowCol;
+uniform vec2 uGlowOff;          // the map is baked about the whole tile; this is the eye's fraction off it
 // Temporal accumulation: last frame's march result, the matrix it was drawn with, and how far the
 // camera-relative origin moved since (the frame is camera-relative, so a world point's coordinates
 // change by exactly that between frames).
@@ -146,6 +155,12 @@ void main() {
       float hf = clamp((p.z - uBase) / (uTop - uBase), 0.0, 1.0);
       vec3 bc = mix(uBaseCol, uStormBase, cs.y), lc = mix(uLitCol, uStormLit, cs.y);
       vec3 col = mix(bc, lc, clamp(sunT * powder * uSunStr + hf * 0.35, 0.0, 1.0));
+      if (uGlowStr > 0.0) {
+        // Light from below reaches the base and dies going up through the cloud above it.
+        float g = texture(uGlow, (p.xy - uGlowOff) / (2.0 * uCoverRange) + 0.5).r;
+        float up = 1.0 - hf;
+        col += uGlowCol * (g * uGlowStr * up * up * up);
+      }
       float a = 1.0 - exp(-dn * dt * 1.4);
       float w = T * a;
       acc += w * col; wsum += w; tsum += w * t;
@@ -259,6 +274,7 @@ export function createCloudVolume(gl) {
     far: U(march, 'uFar'), time: U(march, 'uTime'), frame: U(march, 'uFrame'), cum: U(march, 'uCum'), steps: U(march, 'uSteps'),
     sun: U(march, 'uSun'), sunStr: U(march, 'uSunStr'), baseCol: U(march, 'uBaseCol'), litCol: U(march, 'uLitCol'),
     stormBase: U(march, 'uStormBase'), stormLit: U(march, 'uStormLit'), wind: U(march, 'uWind'),
+    glow: U(march, 'uGlow'), glowStr: U(march, 'uGlowStr'), glowCol: U(march, 'uGlowCol'), glowOff: U(march, 'uGlowOff'),
     hist: U(march, 'uHist'), prevVP: U(march, 'uPrevVP'), shift: U(march, 'uShift'), histW: U(march, 'uHistW'),
   };
   const uc = {
@@ -282,6 +298,38 @@ export function createCloudVolume(gl) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+  // The underglow map: the same grid as the coverage, so one uv serves both.
+  const glowTex = gl.createTexture();
+  const glowAcc = new Float32Array(COVER_N * COVER_N), glowData = new Uint8Array(COVER_N * COVER_N);
+  gl.bindTexture(gl.TEXTURE_2D, glowTex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, COVER_N, COVER_N, 0, gl.RED, gl.UNSIGNED_BYTE, glowData);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  let glowFrom = null;   // the point list last baked; the caller memoises it, so same list = same map
+
+  // Each source is splatted as a soft disc a few tiles wide (light scatters before it reaches the
+  // base), summed, then rolled off so a dense downtown saturates rather than clipping hard.
+  function bakeGlow(pts) {
+    if (pts === glowFrom) return;
+    glowFrom = pts;
+    glowAcc.fill(0);
+    const step = (2 * COVER_RANGE) / COVER_N, R = GLOW_R / step, R2 = R * R;
+    for (const p of pts) {
+      const gx = (p.x + COVER_RANGE) / step, gy = (p.y + COVER_RANGE) / step;
+      const x0 = Math.max(0, Math.floor(gx - R)), x1 = Math.min(COVER_N - 1, Math.ceil(gx + R));
+      const y0 = Math.max(0, Math.floor(gy - R)), y1 = Math.min(COVER_N - 1, Math.ceil(gy + R));
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+        const dx = x + 0.5 - gx, dy = y + 0.5 - gy, d2 = (dx * dx + dy * dy) / R2;
+        if (d2 < 1) glowAcc[x + COVER_N * y] += p.w * (1 - d2) * (1 - d2);
+      }
+    }
+    for (let k = 0; k < glowAcc.length; k++) glowData[k] = Math.round(255 * (1 - Math.exp(-glowAcc[k] * GLOW_GAIN)));
+    gl.bindTexture(gl.TEXTURE_2D, glowTex);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, COVER_N, COVER_N, gl.RED, gl.UNSIGNED_BYTE, glowData);
+  }
 
   // The low-resolution march target: premultiplied colour, and the packed hit distance. The colour
   // target is a PAIR that swaps roles every frame — one is written while the other is read as the
@@ -388,12 +436,20 @@ export function createCloudVolume(gl) {
     gl.uniform3f(um.stormBase, sb[0], sb[1], sb[2]); gl.uniform3f(um.stormLit, sl[0], sl[1], sl[2]);
     const wd = vol.wind || [0.05, 0.02];
     gl.uniform2f(um.wind, wd[0], wd[1]);
+    const glowOn = !!(vol.glow && vol.glow.length && vol.glowStr > 0);
+    if (glowOn) bakeGlow(vol.glow);
+    gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, glowTex); gl.uniform1i(um.glow, 3);
+    gl.uniform1f(um.glowStr, glowOn ? vol.glowStr * GLOW_STR : 0);
+    gl.uniform3f(um.glowCol, GLOW_COL[0], GLOW_COL[1], GLOW_COL[2]);
+    const go = vol.glowOff || [0, 0];
+    gl.uniform2f(um.glowOff, go[0], go[1]);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, hist); gl.uniform1i(um.hist, 2);
     gl.uniformMatrix4fv(um.prevVP, false, new Float32Array(prevVP || vp));
     gl.uniform2f(um.shift, ox - prevOx, oy - prevOy);
     gl.uniform1f(um.histW, histW);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, null);
     prevVP = vp; prevOx = ox; prevOy = oy; histOK = true;
 
     // Pass 2: the composite, at full resolution, on the caller's depth buffer.

@@ -1581,6 +1581,7 @@ const FSIM_TUNE = [
   ['cloudVolRes', 'Cloud volume resolution', 0.125, 1, 0.125],
   ['cloudVolSteps', 'Cloud volume ray steps', 16, 128, 8],
   ['cloudVolTemporal', 'Cloud volume history blend', 0, 0.95, 0.05],
+  ['cloudVolGlow', 'Cloud volume city underglow', 0, 2, 0.1],
   ['occlude', 'Occlusion cull', 0, 1, 1],
   ['shapeShadow', 'Shape shadows', 0, 1, 1],
   // The hero model's own per-pixel sun shadow and lamp spill (model-raster.js). Both double as an

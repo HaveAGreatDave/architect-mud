@@ -1291,6 +1291,7 @@ export const RENDER_TUNE = {
   cloudVolRes: 0.25,   // fraction of the frame's resolution the march runs at
   cloudVolSteps: 48,   // march steps a ray
   cloudVolTemporal: 0.85,   // how much of last frame each pixel keeps (gl/cloudvol.js); 0 is the raw jittered march
+  cloudVolGlow: 1,     // city underglow on the volume's base at night (cityGlowPts); 0 is off
   cloudUnder: 1,      // 1: on the 2-D path, from under the deck, paint the cards BEFORE the world so buildings cover them; 0 paints them over everything as before
   cloudFloor: 1,      // 1: from under the deck, the part of a cloud card below the base never covers a bird (gl/clouds.js uFloorZ); 0 is the deck as it shipped
   // What FLIES lays its silhouette into the depth buffer, so the deck above can sort against it.
@@ -17833,6 +17834,37 @@ function bakePuffSprite(col, shade) {
 // ⚠ THE IMMERSION INTEGRATES IN THE COLLECT HALF ONLY. `st.cloudImm` is eased toward its target by
 // `dt` every call, so running both halves would advance it twice a frame and the whiteout would
 // bloom at double speed in exactly the weather it is built for.
+// The lit ground under the cloud volume, for its underglow (gl/cloudvol.js): one point per tile
+// that puts light into the sky, camera-relative, weighted by what it is and whether its feed is up.
+// A building is a full source, a bare road a third of one; a brownout is half, a dark or
+// emergency-only tile nothing (an emergency circuit emits nothing outside, see setTilePower).
+// Memoised on the map window and the whole tile the eye is over, since the city does not move.
+let CITY_GLOW_MEMO = null;
+function cityGlowPts(v, ax, ay) {
+  if (!v || !Array.isArray(v.map) || !v.map.length || !v.mapCenter) return null;
+  const ex = Math.round(ax), ey = Math.round(ay);
+  const m = CITY_GLOW_MEMO;
+  if (m && m.map === v.map && m.ex === ex && m.ey === ey) return m.pts;
+  const map = v.map, R = (map.length - 1) / 2, cx = v.mapCenter.x, cy = v.mapCenter.y;
+  const pts = [];
+  for (let j = 0; j < map.length; j++) {
+    const row = map[j];
+    if (!row) continue;
+    for (let i = 0; i < row.length; i++) {
+      const c = row[i];
+      if (!c || (!c.bt && !c.road)) continue;
+      const win = winModeForCell(c);
+      const pw = win === WIN_ON ? 1 : win === WIN_BROWN ? 0.5 : 0;
+      if (pw <= 0) continue;
+      // Relative to the whole tile, not the eye, so the list survives a sub-tile move; the
+      // volume is handed the fraction separately (CLOUD_VOL.glowOff).
+      pts.push({ x: cx + i - R - ex, y: cy + j - R - ey, w: pw * (c.bt ? 1 : 0.35) });
+    }
+  }
+  CITY_GLOW_MEMO = { map: v.map, ex, ey, pts };
+  return pts;
+}
+
 function drawVolumetricClouds(ctx, cam, st, v, base, lit, alpha, storm, night, dt, W, H, horizonY, wx, lightX, lightY, lightStr, phase = 'both') {
   // 'under' (2-D path, eye below the deck): build and paint the cards only, BEFORE the world pass,
   // so every building painted after it covers the deck. 'over' then paints the screen-space layers
@@ -17923,6 +17955,11 @@ function drawVolumetricClouds(ctx, cam, st, v, base, lit, alpha, storm, night, d
     CLOUD_VOL.cum = cumF;
     CLOUD_VOL.ox = ax; CLOUD_VOL.oy = ay;
     CLOUD_VOL.far = RANGE;
+    // City underglow: only worth a bake once the street lights are up.
+    const gk = RENDER_TUNE.cloudVolGlow * clamp((night - 0.3) / 0.4, 0, 1);
+    CLOUD_VOL.glow = gk > 0.01 ? cityGlowPts(v, ax, ay) : null;
+    CLOUD_VOL.glowStr = gk;
+    CLOUD_VOL.glowOff = [Math.round(ax) - ax, Math.round(ay) - ay];
   }
   // Frustum cull: only puffs inside the forward view cone are worth projecting. cam.sinh/cosh split
   // a world offset into forward (fwd) + lateral (lat); |lat| under fwd·halfExt means it lands within
