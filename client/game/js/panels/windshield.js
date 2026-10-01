@@ -23001,7 +23001,13 @@ function pushInteriorShell(cam, v) {
       e = { key: trimKey, P, cab, rgb: [alb[0] | 0, alb[1] | 0, alb[2] | 0], a: (isPane ? PANE.get(f.rgb) : undefined) ?? 1 };
       CAB_GPU.set(f, e);
     }
-    const fp = f.p, np = fp.length, wp = new Array(np);
+    // ⚠ THE SAME RECORD AS LAST FRAME, for a level seat. A face the memo handed back unchanged, under
+    // the same trim, sends exactly the same floats in incremental mode, and gl/solids.js skips a
+    // record it finds at the same slot as last frame. Only the world points move, rewritten in place.
+    // A banked seat (`att`) sends world points, not local ones, so it gets a fresh record as before.
+    let rec = att ? null : e.rec;
+    const fresh = !rec;
+    const fp = f.p, np = fp.length, wp = fresh ? new Array(np) : rec.p;
     for (let j = 0; j < np; j++) {
       const p0 = fp[j];
       if (p0[0] < bx0) bx0 = p0[0]; if (p0[0] > bx1) bx1 = p0[0];
@@ -23009,10 +23015,13 @@ function pushInteriorShell(cam, v) {
       if (p0[2] < bz0) bz0 = p0[2]; if (p0[2] > bz1) bz1 = p0[2];
       const q = att ? att(p0) : p0;
       const rx = q[0] * S, fy = q[1] * S;
-      wp[j] = [rx * ch + fy * sh + ox, rx * sh - fy * ch + oy, ez + q[2] * S];
+      const wx = rx * ch + fy * sh + ox, wy = rx * sh - fy * ch + oy, wz = ez + q[2] * S;
+      if (fresh) wp[j] = [wx, wy, wz]; else { const w = wp[j]; w[0] = wx; w[1] = wy; w[2] = wz; }
     }
-    const rec = { p: wp, rgb: e.rgb, a: e.a, interior: 1, lp: fp, tex: texOf(f) || 0, cab: e.cab };
-    if (!att) rec.mp = fp;
+    if (fresh) {
+      rec = { p: wp, rgb: e.rgb, a: e.a, interior: 1, lp: fp, tex: texOf(f) || 0, cab: e.cab };
+      if (!att) { rec.mp = fp; e.rec = rec; }
+    }
     OWNSHIP_SINK.push(rec);
   };
   let fi = -1;

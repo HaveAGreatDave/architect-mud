@@ -734,12 +734,34 @@ export function createSolidsLayer(gl, opt = {}) {
   // `upload(quads, model)` with a model matrix takes each face's LOCAL points (`q.mp`) and draws them
   // through that matrix. The cab interior is the one caller: it is rebuilt every frame in the same
   // order, and in its own frame almost none of it moves — only the needles, the wheel and a lamp or
-  // two. So the buffer is written as always, every float is compared with what was there last frame,
-  // and only the spans that differ are sent. Measured at ~1.9 ms of a cab frame to send the whole
+  // two. So a quad unchanged since last frame is skipped, every other one is written and compared
+  // with what was there last frame, and only the spans that differ are sent. Measured at ~1.9 ms of a cab frame to send the whole
   // buffer every frame for a room that had barely changed. Anything that changes the LAYOUT (a
   // different vertex count, a regrown buffer) sends everything, exactly as before.
   let model = null, prevCount = -1, dirty = [];
   let light = null, shadowDirty = false;
+  // Last frame's buffer, as sent, and both buffers' bits: a bitwise compare is exact and needs no
+  // Math.fround. A quad that wrote anything is compared over its own range only.
+  let prev = null, prevBits = null, dataBits = null;
+  // ⚠ AND A QUAD THAT IS THE SAME OBJECT, IN THE SAME SLOT, AT THE SAME OFFSET, IS NOT WRITTEN AT ALL.
+  // The cab hands back last frame's record for every face the part memo returned unchanged (see
+  // cabFace in windshield.js), and in this mode a record's floats are all local or per-face, so they
+  // are the floats already in `data`. That holds only while the caller never edits a record it
+  // re-sends: one that does must send a new object. The offset check catches a quad ahead of it
+  // changing its vertex count, which moves everything after it.
+  const slotQ = [], slotO = [];
+  function ensurePrev() {
+    if (!prev || prev.length !== data.length) { prev = new Float32Array(data.length); prevBits = new Int32Array(prev.buffer); }
+    if (!dataBits || dataBits.buffer !== data.buffer) dataBits = new Int32Array(data.buffer);
+  }
+  function markDirty(a, b) {
+    let i = a;
+    while (i < b && dataBits[i] === prevBits[i]) i++;
+    if (i === b) return;
+    prev.set(data.subarray(a, b), a);
+    const last = dirty.length ? dirty[dirty.length - 1] : null;
+    if (last && a - last[1] <= 3 * ST) last[1] = b; else dirty.push([a, b]);
+  }
   function upload(quads, mdl = null, lt = null) {
     light = lt; shadowDirty = !!(lt && lt.lightMat);
     count = quads && quads.length ? tris(quads) : 0;
@@ -754,25 +776,14 @@ export function createSolidsLayer(gl, opt = {}) {
     const full = !incr || fresh || count !== prevCount;
     prevCount = incr ? count : -1;
     dirty.length = 0;
-    let o = 0, qStart = 0, qDirty = false;
-    // One vertex into the buffer. A plain function over the face's fields rather than a closure
-    // minted per face: the buffer layout is unchanged, the per-face allocation is gone.
-    const w = (i, x) => { if (!qDirty && data[i] !== Math.fround(x)) qDirty = true; data[i] = x; };
-    const put = incr ? (q, r, g, b, qa, mk, tx, j) => {
-      const v = q.mp[j];
-      w(o, v[0]); w(o + 1, v[1]); w(o + 2, v[2]);
-      w(o + 3, r); w(o + 4, g); w(o + 5, b);
-      w(o + 6, qa);
-      const nn = q.vn ? q.vn[j] : q.amb ? q.n : null;
-      w(o + 7, nn ? nn[0] : 0); w(o + 8, nn ? nn[1] : 0); w(o + 9, nn ? nn[2] : 0);
-      w(o + 10, mk);
-      const L = q.lp ? q.lp[j] : null;
-      w(o + 11, L ? L[0] : 0); w(o + 12, L ? L[1] : 0); w(o + 13, L ? L[2] : 0);
-      w(o + 14, L ? tx : 0);
-      if (cabin) { const C = q.cab || CAB_NONE; for (let i = 0; i < CAB; i++) w(o + STRIDE + i, C[i]); }
-      o += ST;
-    } : (q, r, g, b, qa, mk, tx, j) => {
-      const v = q.p[j];
+    if (incr) ensurePrev();
+    let o = 0, qi = 0;
+    // One vertex into the buffer. Incremental mode writes the same way and finds what changed
+    // afterwards, in one pass over two typed arrays (see `diffSpans`). Comparing as it wrote, one
+    // closure call and one Math.fround per float, cost ~7 ms a cab frame for a room where nothing
+    // had changed and nothing was sent.
+    const put = (q, r, g, b, qa, mk, tx, j) => {
+      const v = incr ? q.mp[j] : q.p[j];
       data[o] = v[0]; data[o + 1] = v[1]; data[o + 2] = v[2];
       data[o + 3] = r; data[o + 4] = g; data[o + 5] = b;
       data[o + 6] = qa;
@@ -791,17 +802,17 @@ export function createSolidsLayer(gl, opt = {}) {
       const c = q.rgb, qa = q.a == null ? 1 : q.a;
       const r = c ? c[0] / 255 : 0, g = c ? c[1] / 255 : 0, b = c ? c[2] / 255 : 0;
       const mk = q.m || 0, tx = q.tex || 0, len = q.p.length;
-      qStart = o; qDirty = false;
+      const slot = qi++, a0 = o;
+      if (incr && !full && slotQ[slot] === q && slotO[slot] === a0) { o += Math.max(0, len - 2) * 3 * ST; return; }
       for (let i = 1; i + 1 < len; i++) { put(q, r, g, b, qa, mk, tx, 0); put(q, r, g, b, qa, mk, tx, i); put(q, r, g, b, qa, mk, tx, i + 1); }
-      if (incr && qDirty && !full) {
-        const last = dirty.length ? dirty[dirty.length - 1] : null;
-        if (last && last[1] === qStart) last[1] = o; else dirty.push([qStart, o]);
-      }
+      if (incr) { slotQ[slot] = q; slotO[slot] = a0; if (!full) markDirty(a0, o); }
     };
     let film = 0;
     for (const q of quads) { if (q.film) film++; else put1(q); }
     filmAt = o / ST;
     if (film) for (const q of quads) if (q.film) put1(q);
+    if (incr) { slotQ.length = qi; slotO.length = qi; if (full) prev.set(data.subarray(0, count * ST)); }
+    else { slotQ.length = 0; slotO.length = 0; }
     // A handful of scattered spans is cheaper as spans; past that the driver is better off with one.
     if (full || dirty.length > 48) stream.write(data, count * ST);
     else for (const [a, b] of dirty) stream.writeRange(data, a, b - a);
