@@ -23708,7 +23708,63 @@ export function bowTally() { return BOW_TALLY; }
 let LAST_BOW = null;
 export function lastBow() { return LAST_BOW; }
 // Run it now, or once there is a depth buffer to run it against.
-function emitGroundLate(fn) { if (GROUND_LATE) GROUND_LATE.push(fn); else fn(); }
+function emitGroundLate(fn) { GROUND_LATE_N++; if (GROUND_LATE) GROUND_LATE.push(fn); else fn(); }
+let GROUND_LATE_N = 0;   // how many ground-late closures were ever queued: the ground-tile cache reads a tile as dynamic if it queued one
+
+// ── ⚠ A ROAD TILE'S MESH IS RECORDED ONCE AND REPLAYED ───────────────────────────────────────────
+// On the GL path a plain road tile's whole output is GROUND_MESH records in the map window's frame
+// (plus its gullies and its raised-walk mark), and it was rebuilt every frame: about 3.5 MB of
+// garbage a frame from the air, the largest single share of the frame's allocation. So a tile is
+// recorded the first time and replayed while its key holds: where it sits in the window, the
+// window's centre and its size (an edge tile's neighbour may be outside it), the night band and the
+// frame's DPR. The kerb lines scale with distance, so they are kept as their ends and rebuilt on
+// replay. Alpha (the far fade) is stored as a ratio to the tile's own alpha and refreshed on
+// replay. ⚠ A TILE THAT DOES ANYTHING ELSE IS NEVER REPLAYED: one that drew on the canvas (a
+// junction's corner squares), queued a ground-late closure (windsock, PAPI, runway lights) or
+// pushed to any other sink is marked dynamic and keeps running every frame. Nothing downstream
+// writes into a ground record. `groundCache` 0 turns it off.
+const GROUND_TILE = new WeakMap();
+// ⚠ AND THE TUNE. A slider (roadArc, the kerb heights, the paint widths) changes what a tile draws,
+// and the roadpaint gate caught a cached tile ignoring one. So every RENDER_TUNE value goes into one
+// number, worked out once a frame, and that number is part of every tile's key.
+function tuneSig(T = RENDER_TUNE) {
+  let h = 0;
+  for (const k in T) {
+    const v = T[k];
+    const n = typeof v === 'number' ? v : typeof v === 'boolean' ? (v ? 1 : 0) : typeof v === 'string' ? v.length * 7 + (v.charCodeAt(0) || 0) : 0;
+    h = (h * 31 + n * 1009 + k.length) % 2147483647;
+  }
+  return h;
+}
+let GT_PEND = null, GT_OPS = 0;
+const gtSinks = () => (SPRITE_SINK ? SPRITE_SINK.length : 0) + (DECAL_SINK ? DECAL_SINK.length : 0) + (STROKE_SINK ? STROKE_SINK.length : 0)
+  + (SCATTER_SINK ? SCATTER_SINK.length : 0) + (BAY_SINK ? BAY_SINK.length : 0) + (CURTAIN_SINK ? CURTAIN_SINK.length : 0) + (FACE_SINK ? FACE_SINK.length : 0);
+function gtFinish() {
+  const P = GT_PEND;
+  if (!P) return;
+  GT_PEND = null;
+  if (GT_OPS !== P.ops || GROUND_LATE_N !== P.late || gtSinks() !== P.sinks) { GROUND_TILE.set(P.c, { fk: P.fk, gx: P.gx, gy: P.gy, dyn: true }); return; }
+  const recs = GROUND_MESH.slice(P.g0);
+  // ⚠ AND IT MUST COME OUT THE SAME TWICE. Some ground paint moves with the clock rather than the
+  // camera (a pulsing ring's radius and alpha), which no key can see. So a tile is recorded on two
+  // different frames and replayed only if both recordings agree; one that changes is dynamic.
+  // A kerb line (`_e`) is width-by-distance, so it is kept as its ends and rebuilt on replay, in its
+  // own slot so the draw order does not change; only its ends and colour count toward stability.
+  let sig = recs.length;
+  for (const r of recs) {
+    sig = sig * 31 + (r.a / P.tileA) * 7;
+    if (r.rgb) sig += r.rgb[0] * 3 + r.rgb[1] * 5 + r.rgb[2] * 11;
+    const pts = r._e ? [[r._e[0], r._e[1], 0], [r._e[2], r._e[3], 0]] : r.p;
+    for (const q of pts) sig += q[0] * 13 + q[1] * 17 + q[2] * 19;
+    sig %= 1e9;
+  }
+  const prev = P.prev;
+  if (!prev) { GROUND_TILE.set(P.c, { fk: P.fk, gx: P.gx, gy: P.gy, probe: true, sig, frame: P.frame }); return; }
+  if (prev.sig !== sig) { GROUND_TILE.set(P.c, { fk: P.fk, gx: P.gx, gy: P.gy, dyn: true }); return; }
+  GROUND_TILE.set(P.c, { fk: P.fk, gx: P.gx, gy: P.gy, dyn: false,
+    recs: recs.map((r) => (r._e ? { edge: r._e, rgb: r.rgb, road: r.road } : r)), ratio: recs.map((r) => r.a / P.tileA),
+    gullies: GULLY_ALL ? GULLY_ALL.slice(P.u0) : [], walk: RAISED_WALK.get(P.c) === _walkGen });
+}
 // What drawMode7Floor would have rastered, as uniforms plus two LUT planes. See gl/floor.js.
 let FLOOR_STATE = null;
 // ── THE GROUND'S OWN STATE ──────────────────────────────────────────────────────────────────
@@ -27093,8 +27149,8 @@ function cliffCorner(cx, cy) {
 // On the GL path, past 10 tiles (no near clip, no canvas strokes), a cliff tile's whole output is
 // GROUND_MESH quads, and they depend only on what the key holds: the tile, the step, which sides
 // face the eye, the light, the hour, the eye height and the rounded distance (the rim's thickness).
-// Rebuilding them was ~4.4 ms for 58 tiles from the air (loaded machine). Quads are stored relative
-// to the tile and offset on replay. `cliffCache` 0 turns it off.
+// Rebuilding them was ~4.4 ms for 58 tiles from the air (loaded machine). Quads are stored in the
+// map window's frame and pushed as they are (see the key). `cliffCache` 0 turns it off.
 const CLIFF_CACHE = new Map();
 const CLIFF_SN = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 function drawCliffMass(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun, wx, wy) {
@@ -27113,22 +27169,22 @@ function drawCliffMass(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun, wx
   const q = (v) => Math.round(v * 200);
   const key = wx + ',' + wy + '|' + run + '|' + biome + '|' + (cen.f > 22 ? 1 : 2) + '|' + mask + '|' + q(lx) + ',' + q(ly) + ',' + q(lz)
     + '|' + Math.round((night || 0) * 64) + '|' + alpha + '|' + (RENDER_TUNE.glStrata ? 1 : 0) + '|' + Math.round((cam.EH || 0) * 200)
-    + '|' + Math.round(cen.f) + '|' + Math.round(cam.FL || 0);
-  const ox = dx + (cam.ox || 0), oy = dy + (cam.oy || 0);
+    + '|' + Math.round(cen.f) + '|' + Math.round(cam.FL || 0)
+    // ⚠ AND WHERE THE TILE SITS IN THE MAP WINDOW. The quads are recorded in the window's frame
+    // (dx + cam.ox is the tile's own whole-number offset), so a hit can push the very same objects
+    // with no copy: nothing downstream writes into a ground record. The window moves when the map
+    // re-centres, and that is a new key.
+    + '|' + Math.round((dx + (cam.ox || 0)) * 1000) + ',' + Math.round((dy + (cam.oy || 0)) * 1000);
   let rec = CLIFF_CACHE.get(key);
   if (!rec) {
     const start = gm.length;
     drawCliffMassRaw(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun, wx, wy);
-    rec = [];
-    for (let i = start; i < gm.length; i++) {
-      const e = gm[i];
-      rec.push({ ...e, p: e.p.map((w) => [w[0] - ox, w[1] - oy, w[2]]) });
-    }
+    rec = gm.slice(start);
     if (CLIFF_CACHE.size > 4096) CLIFF_CACHE.clear();
     CLIFF_CACHE.set(key, rec);
     return;
   }
-  for (const e of rec) gm.push({ ...e, p: e.p.map((w) => [w[0] + ox, w[1] + oy, w[2]]) });
+  for (let i = 0; i < rec.length; i++) gm.push(rec[i]);
 }
 function drawCliffMassRaw(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun, wx, wy) {
   const NEAR = 0.08, BENCH = 0.42;
@@ -28908,16 +28964,29 @@ function hoodooGeom(seed, sides) {
   HOODOO_GEOM.set(key, g);
   return g;
 }
+// ⚠ AND THE RECORDS THEMSELVES ARE KEPT, per tile and window position: a tile's offset in the map
+// window (tx, ty) is fixed until the window re-centres, so its quads' points never change and only
+// the colour (fog by distance) and alpha are refreshed. Nothing downstream writes into a BAY_SINK
+// record, so the same objects go back every frame instead of five new arrays a face.
+const HOODOO_RECS = new Map();
 function hoodooSolidCached(cam, dx, dy, seed, sides, nm, alpha, f) {
   const g = hoodooGeom(seed, sides);
   const ex = (cam.ex || 0) - dx, ey = (cam.ey || 0) - dy;
   const tx = dx + (cam.ox || 0), ty = dy + (cam.oy || 0);
-  for (const s of g) {
+  const key = seed * 16 + sides + '|' + Math.round(tx * 1000) + ',' + Math.round(ty * 1000);
+  let recs = HOODOO_RECS.get(key);
+  if (!recs) {
+    if (HOODOO_RECS.size > 4096) HOODOO_RECS.clear();
+    recs = g.map((s) => { const P = s.p; return { p: [[P[0][0] + tx, P[0][1] + ty, P[0][2]], [P[1][0] + tx, P[1][1] + ty, P[1][2]],
+      [P[2][0] + tx, P[2][1] + ty, P[2][2]], [P[3][0] + tx, P[3][1] + ty, P[3][2]]], rgb: null, a: alpha }; });
+    HOODOO_RECS.set(key, recs);
+  }
+  for (let i = 0; i < g.length; i++) {
+    const s = g[i];
     if (s.nx * (ex - s.mx) + s.ny * (ey - s.my) <= 0) continue;
-    const c = s.c, P = s.p;
-    BAY_SINK.push({ p: [[P[0][0] + tx, P[0][1] + ty, P[0][2]], [P[1][0] + tx, P[1][1] + ty, P[1][2]],
-      [P[2][0] + tx, P[2][1] + ty, P[2][2]], [P[3][0] + tx, P[3][1] + ty, P[3][2]]],
-      rgb: fogTint([c[0] * nm, c[1] * nm, c[2] * nm], f), a: alpha });
+    const c = s.c, r = recs[i];
+    r.rgb = fogTint([c[0] * nm, c[1] * nm, c[2] * nm], f); r.a = alpha;
+    BAY_SINK.push(r);
   }
 }
 function hoodooSpires(ctx, cam, dx, dy, night, seed, alpha) {
@@ -38138,6 +38207,20 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {  _walkGen++; con
   const _wv = windFromView(v), windKt = _wv.kt, windDeg = _wv.dir;
   const at = (rx, ry) => (ry >= 0 && ry < map.length && rx >= 0 && rx < map[ry].length) ? map[ry][rx] : null;
   const kindOf = (c) => !c ? null : c.kind === 'field' ? 'field' : c.road ? 'road' : null;   // an airfield tile paints as runway even if it also carries a road icon
+  // The ground-tile cache (see GROUND_TILE): a tile that touches the canvas is dynamic, so the canvas
+  // calls are counted while the loop runs, on this context only, and put back after it.
+  const gcOn = !!(GROUND_FULL && GROUND_MESH && RENDER_TUNE.groundCache !== 0);
+  const gcTune = gcOn ? tuneSig() * 7 + (TUNE !== RENDER_TUNE ? tuneSig(TUNE) : 0) : 0;   // the view's own overrides too (a cab's CAB_VIEW_TUNE)
+  const gcFK = gcOn ? map.length + '|' + wcx + ',' + wcy + '|' + Math.round(nite * 64) + '|' + _frameDpr + '|' + gcTune : '';   // a tile's key is this plus its place in the window
+  const gcWrapped = [];
+  if (gcOn) for (const k of ['fill', 'stroke', 'drawImage', 'fillRect', 'strokeRect', 'fillText', 'strokeText', 'putImageData']) {
+    const fn = ctx[k];
+    if (typeof fn !== 'function') continue;
+    const own = Object.prototype.hasOwnProperty.call(ctx, k);
+    ctx[k] = function (...a) { GT_OPS++; return fn.apply(this, a); };
+    gcWrapped.push([k, own, fn]);
+  }
+  try {
   for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
     // …and a ROOFTOP pad (a field tile carrying a building) keeps its street: the pad is up on the roof, not painted on the block.
     const c = map[ry][rx], surf = kindOf(c); if (!surf || c.mark === 'yacht' || (surf === 'field' && c.bt)) continue;   // the yacht's own deck is drawn as a 3D model over open water — no runway concrete
@@ -38149,13 +38232,53 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {  _walkGen++; con
     // and keep the tile while ANY corner is still ahead of the camera: a section straddling the near
     // plane just clamps its near edge off the bottom of the screen instead of vanishing. `back` folds
     // in the chase camera (which sits `back` tiles behind the craft).
-    const rawF = (x, y) => (x - (cam.ex || 0)) * cam.sinh - (y - (cam.ey || 0)) * cam.cosh;
-    const cf = [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]].map(([a, b]) => rawF(dx + a, dy + b));
-    if (cf.every(z => z <= 0.06) || f > FAR) continue;
+    // The four corners' depths against the near plane, without an array or a closure per tile: this
+    // runs for every road tile in the window, cached or not.
+    const f0 = (dx - (cam.ex || 0)) * cam.sinh - (dy - (cam.ey || 0)) * cam.cosh, hs = 0.5 * cam.sinh, hc = 0.5 * cam.cosh;
+    if ((f0 - hs + hc <= 0.06 && f0 + hs + hc <= 0.06 && f0 + hs - hc <= 0.06 && f0 - hs - hc <= 0.06) || f > FAR) continue;
     // Match the buildings' long draw distance + far fade so pavement ghosts up out of the
     // haze at the horizon instead of a hard line snapping in. The fade reaches zero AT the limit,
     // whatever the limit turns out to be, so no window size can leave an edge behind.
     ctx.globalAlpha = baseAlpha * clamp((FAR - f) / 6, 0, 1);
+    if (gcOn) {
+      gtFinish();
+      const tileA = ctx.globalAlpha == null ? 1 : ctx.globalAlpha;
+      const khw = Math.max(0.004, Math.min(0.05, Math.max(0.75, 0.5 / Math.max(0.05, _frameDpr)) * Math.max(f, 0.2) / cam.FL));
+      // The key without a string per tile: the frame-wide part (gcFK) is built once per call, and a
+      // tile compares that and its own place in the window.
+      const gx = rx - R, gy = ry - R;
+      const ge = GROUND_TILE.get(c);
+      const geSame = !!(ge && ge.fk === gcFK && ge.gx === gx && ge.gy === gy);
+      if (tileA > 1e-6 && geSame && !ge.dyn && !ge.probe) {
+        const rs = ge.recs, rt = ge.ratio;
+        for (let i = 0; i < rs.length; i++) {
+          const r = rs[i];
+          if (r.edge) {
+            // The kerb line, at this frame's width (see `edge` in the loop body, which this repeats),
+            // in one record kept with the slot and rewritten in place.
+            const E = r.edge, ex = E[2] - E[0], ey = E[3] - E[1], L = Math.hypot(ex, ey) || 1, nx = -ey / L * khw, ny = ex / L * khw;
+            const o = r.obj || (r.obj = { p: [[0, 0, ROAD_EPS], [0, 0, ROAD_EPS], [0, 0, ROAD_EPS], [0, 0, ROAD_EPS]], paint: 1, rgb: r.rgb, a: 0, road: r.road, _e: E });
+            const p = o.p;
+            p[0][0] = E[0] + nx; p[0][1] = E[1] + ny; p[1][0] = E[2] + nx; p[1][1] = E[3] + ny;
+            p[2][0] = E[2] - nx; p[2][1] = E[3] - ny; p[3][0] = E[0] - nx; p[3][1] = E[1] - ny;
+            o.a = rt[i] * tileA;
+            GROUND_MESH.push(o);
+            continue;
+          }
+          r.a = rt[i] * tileA; GROUND_MESH.push(r);
+        }
+        if (GULLY_ALL) for (const u of ge.gullies) GULLY_ALL.push(u);
+        if (ge.walk) RAISED_WALK.set(c, _walkGen);
+        continue;
+      }
+      if (tileA > 1e-6 && !(geSame && ge.dyn)) {
+        // A first recording, or the second one on a LATER frame that settles whether it is stable.
+        const prev = geSame && ge.probe && ge.frame !== _walkGen ? ge : null;
+        if (!(geSame && ge.probe && ge.frame === _walkGen)) {
+          GT_PEND = { c, fk: gcFK, gx, gy, tileA, g0: GROUND_MESH.length, u0: GULLY_ALL ? GULLY_ALL.length : 0, ops: GT_OPS, late: GROUND_LATE_N, sinks: gtSinks(), prev, frame: _walkGen };
+        }
+      }
+    }
     // The world point rides along with the projected one: a kerb is a stroke between two corners,
     // and on the GPU it is a quad between the same two corners.
     const corner = (sx, sy) => { const p = cam.proj(dx + sx * 0.5, dy + sy * 0.5, 0); p.wx = (rx - R) + sx * 0.5; p.wy = (ry - R) + sy * 0.5; return p; };
@@ -38256,7 +38379,10 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {  _walkGen++; con
           // pavement band it edges by its own width, and two depth-writing quads on one plane
           // stipple against each other.
           paint: 1,
-          rgb: sk.rgb, a: sk.a * (ctx.globalAlpha == null ? 1 : ctx.globalAlpha), road: surf === "road" ? 1 : 0 });
+          rgb: sk.rgb, a: sk.a * (ctx.globalAlpha == null ? 1 : ctx.globalAlpha), road: surf === "road" ? 1 : 0,
+          // The ground-tile cache rebuilds this line on replay (its width follows the distance), so
+          // the record carries its ends; see gtFinish.
+          _e: [a.wx, a.wy, b.wx, b.wy] });
         return;
       }
       ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
@@ -38867,12 +38993,19 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {  _walkGen++; con
           const k = WALK_HW;
           const cs = [q(-k, -k), q(k, -k), q(k, k), q(-k, k)];
           if (cs.some(p => p.f <= 0.05)) continue;
+          // ⚠ NOT ON THE GL PATH: the GPU's ground is composited over this canvas, and painted bright
+          // magenta these squares showed 0 pixels in 12 views with GL on (thousands with it off). They
+          // were invisible work, and the one canvas call that kept a junction out of the ground cache.
+          if (GROUND_FULL) continue;
           ctx.fillStyle = WALK; ctx.beginPath();
           cs.forEach((p, i) => (i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)));
           ctx.closePath(); ctx.fill();
         }
       }
     }
+  }
+  } finally {
+    if (gcOn) { gtFinish(); for (const [k, own, fn] of gcWrapped) { if (own) ctx[k] = fn; else delete ctx[k]; } }
   }
 }
 
@@ -61103,6 +61236,9 @@ function detailPx(cam, f, dz) { return Math.abs(cam.depth * dz / Math.max(0.06, 
 let SIGNS_ONLY = false;
 function detailQuad(ctx, cam, F, pts, fill, alpha, opts) {
   if (SIGNS_ONLY && !(opts && opts.paint)) return;
+  // emitFlat drops exactly this case on the GL path (the flat is already in the mesh), so return
+  // before mapping every point through F: that map was a top allocator of the frame.
+  if (FLAT_OFF && !SHAPE_SINK && !MESH_SINK && !(opts && opts.paint) && cssRgb(fill)) return;
   emitFlat(ctx, cam, pts.map(([lx, ly, z]) => { const [wx, wy] = F(lx, ly); return [wx, wy, z]; }), fill, alpha, opts);
 }
 
@@ -62596,6 +62732,21 @@ const AUTHORED_DETAIL = {
   },
 };
 export const AUTHORED_DETAIL_KINDS = Object.keys(AUTHORED_DETAIL);
+// ── DETAIL KINDS THAT ONLY EVER LAY FLATS ────────────────────────────────────────────────────────
+// On the GL path every flat a detail lays is already in the building's mesh and emitFlat drops it,
+// so a kind made of nothing else draws nothing there and only allocates (collar, parapet, pipe…: a
+// top share of the frame's garbage). Read off each kind's own source: it qualifies only if every
+// call in it is one of these and it never asks for `paint` (paint is not in the mesh). `Q` and `rgba`
+// are locals each kind defines in its own body, which is scanned with it; dripStain only lays flats
+// and the rest are pure. Anything
+// else, a sign, a lamp, a helper this list does not name, keeps running.
+const FLAT_ONLY_CALLS = new Set(['detailQuad', 'shadeOf', 'dripStain', 'faceY', 'nearOrMesh', 'bracketCol', 'dRand', 'Q', 'rgba', 'V', 'F', 'cos', 'sin', 'max', 'min', 'abs', 'hypot', 'sqrt', 'atan2', 'floor', 'ceil', 'round', 'pow', 'sign', 'clamp', 'frac', 'mix', 'push', 'map', 'forEach', 'slice', 'concat', 'fill', 'from', 'isArray', 'for', 'if', 'while', 'return', 'Number', 'isFinite']);
+export const FLAT_ONLY_KINDS = new Set(Object.keys(AUTHORED_DETAIL).filter((k) => {
+  const src = String(AUTHORED_DETAIL[k]);
+  if (/\bpaint\b/.test(src)) return false;
+  for (const m of src.matchAll(/\b([A-Za-z_$][\w$]*)\s*\(/g)) if (!FLAT_ONLY_CALLS.has(m[1]) && m[1] !== k) return false;
+  return true;
+}));
 // ⚠ WRITTEN OUT TWICE ON PURPOSE, and checked by value. windshield.js cannot import the schema
 // module from scripts/, so the per-kind screen floors live here and in DETAIL_SCHEMA, and
 // shapes:smoke compares them — a kind whose floor is only in one of them either never draws or
@@ -67088,9 +67239,11 @@ function detailLayer(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E) {
   // building drawn after it in the frame would silently lose its trim to a flag about signs.
   SIGNS_ONLY = signsOnly;
   try {
+  const skipFlat = FLAT_OFF && !MESH_SINK && !SHAPE_SINK && RENDER_TUNE.flatSkip !== 0;   // see FLAT_ONLY_KINDS
   for (const d of list) {
     const fn = AUTHORED_DETAIL[d.kind];
     if (!fn) continue;
+    if (skipFlat && FLAT_ONLY_KINDS.has(d.kind)) continue;
     // Nothing to letter → nothing this pass owes it. `picto` counts: a blade carrying a mark and
     // no name is lettering as far as the decal layer is concerned, and it is what the kit hangs
     // on a bar whose name is too long to set down a panel.
@@ -68035,6 +68188,12 @@ function scatterEvery(c, wild) {
 }
 
 // Collect visible tiles, sort far→near, draw each (textured box / billboard).
+// The sweep's per-tile items, reused frame to frame: one object per visible tile was a top allocator.
+// Nothing keeps an item past its frame (the occluded set is rebuilt each call). ⚠ A call that starts
+// while another is in flight gets fresh objects, so a nested paint can never overwrite the outer
+// one's items; a throw leaves ITEMS_BUSY set and every later call simply allocates, as before.
+const ITEM_POOL = [];
+let ITEMS_BUSY = false;
 function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   // The pixel-identity guarantee, asserted rather than assumed: no paint path may ever leave a
   // shape sink installed. If this fires, a capture leaked (it failed to restore in a finally) and
@@ -68076,6 +68235,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   pBegin('world:sweep');
   LID_ALL = [];   // the sewer openings, refilled by steamManhole during this sweep
   const items = [], wildF = v._wildFill;
+  const itemPooled = !ITEMS_BUSY && RENDER_TUNE.itemPool !== 0; if (itemPooled) ITEMS_BUSY = true; let itemN = 0;
   // ── GLASS 2: THE MASS GOES TO THE GPU ────────────────────────────────────
   // Collected here, at the very top of the sweep, because everything below this line is a CAMERA
   // question and none of them may reach the vertex buffer. The near clip, the far cull, the haze
@@ -68274,7 +68434,11 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // — that check the flag.
     const off = !!(TUNE.frustum && c.bt && !c.mark && offCanvasLaterally(cam, dx, dy, _frameW));
     if (off && PERF.on) PERF.n.offscreen++;
-    items.push({ dx, dy, f, c, alpha, off, seed: tileSeed(wx, wy), wx, wy, rx, ry, wild });   // stable, positive, frac-friendly
+    // From the pool when this is the only call in flight (see ITEM_POOL): the same objects each frame.
+    const it0 = itemPooled ? (ITEM_POOL[itemN] || (ITEM_POOL[itemN] = {})) : {}; itemN++;
+    it0.dx = dx; it0.dy = dy; it0.f = f; it0.c = c; it0.alpha = alpha; it0.off = off; it0.seed = tileSeed(wx, wy);   // stable, positive, frac-friendly
+    it0.wx = wx; it0.wy = wy; it0.rx = rx; it0.ry = ry; it0.wild = wild;
+    items.push(it0);
   }
   if (glOn && !glHit) {
     GL_CELL_CACHE.delete(GL_ID); GL_CELL_CACHE.set(GL_ID, { ...glKey, cells: GL_CELLS, taken: GL_TAKEN });
@@ -69227,6 +69391,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     }
   }
   FOG_STATE = null; LIGHT_STATE = null; WIND_STATE = null;   // scoped to this world pass only — never bleed into the HUD/deck/yacht draws
+  if (itemPooled) ITEMS_BUSY = false;
 }
 
 // ── THE FISHERMAN OF COLDWATER ───────────────────────────────────────────────

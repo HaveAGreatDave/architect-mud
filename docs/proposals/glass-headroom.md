@@ -1,7 +1,38 @@
 # GLASS frame headroom
 
-**Status: Stage 1 started (the bench fixed, per-frame GL state queries removed); Stages 2-3 design.** The vertex-animated layers it follows from are built (actors,
+**Status: Stage 1 started (the bench fixed, per-frame GL state queries removed); the 2026-10-01 record caches built (below); Stage 1b started; Stages 2-3 design.** The vertex-animated layers it follows from are built (actors,
 birds, cloth; see [glass-notes.md](../reference/glass-notes.md#vertex-animated-layers-actors-birds-cloth)).
+
+## Measured 2026-10-01: garbage is the tail
+
+On a quiet machine (an RTX 2070 SUPER, under 25% CPU), a headless V8 allocation profile of the GL
+path over Halcyon put the frame at **12 MB allocated in the cab and 23 MB in the cockpit**. The
+collector ran every few frames, and that's where the long frames came from: the dearest item moved
+between runs (bays one run, the yacht the next, redrock the next) because a GC pause landed in
+whichever item was running. The allocation was spread over dozens of sites, the largest being the
+ground surfaces at about 3.5 MB a frame.
+
+Plain frames at Halcyon, pinned dials: the cockpit went from 88 ms in the morning to 38.9 ms
+(bench) by the end of the day; the cab from 26 ms to 15-29 ms. Neither is at 16.7 ms.
+
+## Built 2026-10-01
+
+Each is behind a `RENDER_TUNE` switch (0 is the old path) and was checked against the old path:
+
+- **Own ship in its own frame** (`glShipLocal`): local points, local normal, the sun term in the
+  shader; one matrix a frame and an incremental upload. Pixel-identical on an empty map.
+- **Cockpit interior** records reused; the seat attitude applied in the vertex shader (`seatAtt`).
+- **Ground tiles** (`groundCache`): a road tile's GROUND_MESH records recorded once and replayed;
+  kerb lines rebuilt from their ends. A tile that touches the canvas, queues ground-late work or
+  pushes to another sink is never replayed, and a tile has to record the same twice before it is.
+  Every record matched within 1e-12 over 20 views.
+- **Flat-only detail kinds** (`flatSkip`): 22 kinds that only lay flats the mesh already holds are
+  skipped on the GL path. Identical sinks and canvas calls over 60 views.
+- **Decal fills** (`decoFast`): the `signSquare` pull done in world space. Exact over 9,083 calls.
+- **Cliffs** (`cliffCache`), **camps**, **hoodoos**: recorded or replayed in the map window's frame.
+
+Tried and backed out: a retained layer for hoodoo solids. Their colour carries CPU fog by distance,
+so most records changed every frame anyway (no gain, 46-55 ms against 47-48).
 
 ## Where the time goes
 
@@ -47,6 +78,24 @@ What the first attempt found (in a cloud container, SwiftShader, no GPU):
 - The remaining per-frame sync is in `gl/murmur-gpu.js`, which saves and restores about ten pieces
   of state with `getParameter` while a murmuration is in view. Same fix, not done yet.
 
+## Stage 1b: an allocation budget
+
+**Started 2026-10-01.**
+
+Frame time on a shared machine swings 3x between runs; bytes allocated per frame don't. So the
+measure that later stages are judged on is allocation, taken headless.
+
+- A script paints a fixed real scene (Halcyon, cab and cockpit) headless with the GL path on (a
+  stub hook that reports a canvas), under V8's sampling heap profiler with collected objects kept,
+  and prints MB per frame and the top allocating functions.
+- A gate holds MB per frame on that scene against a committed baseline and fails a rise over 10%.
+- An exactness checker paints the same views with a `RENDER_TUNE` switch off and on and compares
+  every sink (sprites, strokes, decals, scatter, ground, bay, curtain) and every canvas call with
+  its arguments. This is how the 2026-10-01 work was checked; it's what Stages 2-3 need.
+- ⚠ The DOM stub hands out a fresh 2-D context per `getContext`, so a cache keyed on a context
+  (bakeQuadTex) misses every time headless. A top allocator that's a bake is that, not a finding:
+  check it in the browser before chasing it.
+
 ## Stage 2: cache each building's adornment output
 
 - Record the records an arm pushes (decal, stroke, sprite and billboard, all in world space) the first
@@ -62,6 +111,13 @@ What the first attempt found (in a cloud container, SwiftShader, no GPU):
 - An arm that reads `now`, the camera or `cam.unproj` (`emitDecoQuad` does) is uncacheable. Mark it,
   or split it so only its live part runs each frame. Flags, signs that flicker and anything using
   `motionOn` fall here.
+- (2026-10-01) The decal pull doesn't need the projection: with `signSquare` it's one fraction of
+  every corner's depth, a uniform scale about the eye, so a replayed decal call can compute its
+  corners from the depths alone (`campFillFast`, and `emitDecoFill`'s fast path, both exact). Wires
+  and sprite sizes still need the camera.
+- (2026-10-01) Detect, don't predict: the ground cache marks a tile dynamic if it touched the canvas
+  or another sink while recording, and requires two matching recordings on different frames
+  before it replays (that's what caught clock-animated ground marks). Do the same per building.
 - Invalidate on a tier change, a light-band change, a content change to the cell, or an LRU limit.
 - Start with `shell_tower`, then the dearest arms from the stage 1 table.
 - Behind `RENDER_TUNE.armCache`; 0 is today's path. A/B with a Modelshop pixel diff at every
@@ -78,6 +134,18 @@ What the first attempt found (in a cloud container, SwiftShader, no GPU):
   to keep going through the single DPR funnel (glass-notes "DPR").
 - Sprites, strokes and decals first. Clouds, billboards and ground need their alpha fades and sorts
   moved off the CPU first, and are last.
+- (2026-10-01) Solids carry CPU fog (`fogTint`) in their colour, which changes with distance and
+  heading, so a retained solids range rewrites itself every frame; the attempt for hoodoos gained
+  nothing. Move that fog into the solids shader (it already fogs by `clip.w`) before retaining them.
+  The own ship's sun term moved the same way and that range now sends almost nothing.
+
+## Also measured, not yet staged
+
+- **The occlusion pre-pass** (`world:occlude`, about 3 ms in the cockpit) re-projects every
+  building's boxes every frame (`boxQuads`). Cache each building's occluder corners per map window
+  and only project them, or cull with last frame's GPU depth read back small.
+- **Cockpit instruments** rebuild their kit parts whenever a needle moves (`interior-kit.js`
+  `plate`, about 0.4 MB a frame while turning). Draw needles as transforms of cached parts.
 - `scripts/shapes/glstream.mjs` scans for layers uploading the old way. A retained range must pass it
   or be added to it deliberately.
 
