@@ -564,8 +564,11 @@ try {
   const R2 = 12;
   const win2 = (cx, cy) => Array.from({ length: R2 * 2 + 1 }, (_, j) =>
     Array.from({ length: R2 * 2 + 1 }, (_, i) => cells[(cx + i - R2) + ',' + (cy + j - R2)] || { kind: 'land', biome: 'citycore' }));
-  const win = (cx, cy) => Array.from({ length: R2 * 2 + 1 }, (_, j) =>
-    Array.from({ length: R2 * 2 + 1 }, (_, i) => cells[(cx + i - R2) + ',' + (cy + j - R2)] || { kind: 'land', biome: 'citycore' }));
+  // The view's window is the game's: the server sends 36 tiles. At 12, a hunter framed on a ledge
+  // six tiles from its anchor fell out of `hunterSpot`'s reach and was never drawn.
+  const RV = 18;
+  const win = (cx, cy) => Array.from({ length: RV * 2 + 1 }, (_, j) =>
+    Array.from({ length: RV * 2 + 1 }, (_, i) => cells[(cx + i - RV) + ',' + (cy + j - RV)] || { kind: 'land', biome: 'citycore' }));
 
   // ⚠ THE SITE IS PREFERENTIALLY ONE WHERE THE PLACE AND THE PAINT DISAGREE, which is the only way
   // this check can see the other bug the perch work turned up. `drawGeese` chose its anchors through
@@ -618,7 +621,7 @@ try {
       if (!probe) continue;
       const place = placeOf(c.biome, bld, shore);
       const strict = !!habitatState(sid, place) && !habitatState(sid, c.biome);
-      const found = { wx, wy, sid, t, strict, place, paint: c.biome };
+      const found = { wx, wy, sid, t, strict, place, paint: c.biome, fl };
       if (strict) { site = found; } else if (!fallback) { fallback = found; }
       break;
     }
@@ -645,7 +648,12 @@ try {
     // inside VISIBLE_NEAR_F, so a camera parked on the anchor tile itself throws away the very birds
     // it was pointed at — the first cut of this check reported "no standing birds at all" for a
     // flock that was being placed perfectly.
-    const CAM = { x: site.wx, y: site.wy + 3 };
+    // ⚠ A HUNTER IS FRAMED ON ITS LEDGE, NOT ITS ANCHOR. The renderer draws a peregrine or hawk where
+    // `hunterSpot` puts it, which can be six tiles off the anchor, and culls it by that distance. A
+    // camera three tiles off the anchor looked away from a peregrine sitting behind it at 918,908.
+    const aim = perchesHigh(site.fl) ? ws.hunterSpot(win(site.wx, site.wy), RV, site.wx, site.wy, site.fl, site.t, null) : null;
+    const AX = aim ? aim[0] : site.wx, AY = aim ? aim[1] : site.wy;
+    const CAM = { x: Math.round(AX), y: Math.round(AY) + 3 };
     const view = { cls: 'truck', phase: 'cruise', worldBlend: 1, height: 0, eyeH: 0.3, speed: 0,
       hour: 11, weather: 'clear', heading: 0, map: win(CAM.x, CAM.y),
       mapCenter: { ...CAM }, mapOffset: { x: 0, y: 0 },
@@ -690,7 +698,7 @@ try {
     // on somebody else's birds — which is exactly how the settle mutant walked through this check:
     // the site species was pinned at the wrong phase and the pigeons two streets over were fine.
     const mine = standing.filter((b) => b.sp === site.sid
-      && Math.hypot((b.x + CAM.x) - site.wx, (b.y + CAM.y) - site.wy) < 2.5);
+      && Math.hypot((b.x + CAM.x) - AX, (b.y + CAM.y) - AY) < 2.5);
     if (mine.length && !mine.some((b) => b.z > 0.10)) {
       problems.push(`the ${site.sid} flock at ${site.wx},${site.wy} is the one this moment was chosen for and all ${mine.length} of its birds are on the deck`);
     }
