@@ -46,10 +46,20 @@ for (const f of files) {
   // .join(String(SSAO_TAPS))` — so the token is gone before `shaderSource` is called. Read off
   // the substitution itself rather than from a list, or the list is a second copy of it.
   const substituted = [...src.matchAll(/\.split\(\s*['"]([A-Z_][A-Z0-9_]*)['"]\s*\)/g)].map((m0) => m0[1]);
+  // ⚠ A SNIPPET THE SAME FILE SPLICES IN IS PART OF THE SHADER. seabed.js declares its lamp
+  // uniforms once in `const LAMP = \`...\`` and splices `${LAMP}` into three shaders; cutting the
+  // interpolation (below) hid those declarations and reported every use of them. So a `${NAME}`
+  // naming a plain template-literal const in this file is expanded first. Anything else (an
+  // imported snippet, an expression) is still cut, as before.
+  const snippets = new Map();
+  for (const s of src.matchAll(/\bconst\s+([A-Za-z_]\w*)\s*=\s*`([^`]*)`/g)) {
+    if (!/^#version/.test(s[2])) snippets.set(s[1], s[2]);
+  }
+  const expand = (s) => s.replace(/\$\{\s*([A-Za-z_]\w*)\s*\}/g, (all, n) => (snippets.has(n) ? snippets.get(n) : all));
   const re = /`#version 300 es([\s\S]*?)`/g;
   let m;
   while ((m = re.exec(src))) {
-    const body = stripComments(m[1]);
+    const body = stripComments(expand(m[1]));
     bodies.push(body);
     shaders++;
     const declared = new Set();
