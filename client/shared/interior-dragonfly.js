@@ -538,7 +538,7 @@ function clipHalf(poly, s) {
 // ── THE SHELL, AS interior-shell.js CALLS IT ─────────────────────────────────
 function dragonflyShell(P, live, push, rich) {
   const D = P.dragonfly;
-  for (const f of D.faces) push([{ p: f.p, n: f.n }], f.tone, f.k, false, f.rgb, f.emis || 0);
+  for (const f of D.faces) push(f.one || (f.one = Object.assign([{ p: f.p, n: f.n }], { stable: true })), f.tone, f.k, false, f.rgb, f.emis || 0);
   seats(P, push);
   if (rich) dragonflyFit(P, live, push);
 }

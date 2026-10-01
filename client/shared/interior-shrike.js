@@ -642,7 +642,7 @@ function levers(P, live) {
 // ── EVERYTHING THAT MOVES ────────────────────────────────────────────────────
 function shrikeShell(P, live, push, rich) {
   const D = P.shrike;
-  for (const f of D.faces) push([{ p: f.p, n: f.n }], f.tone, f.k, false, f.rgb, f.emis || 0);
+  for (const f of D.faces) push(f.one || (f.one = Object.assign([{ p: f.p, n: f.n }], { stable: true })), f.tone, f.k, false, f.rgb, f.emis || 0);
   if (!rich) return;
   for (const s of D.static) push(...s);
   shrikeFit(P, live, push);

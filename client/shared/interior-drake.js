@@ -91,7 +91,8 @@ export const DRAKE_TRIM_NOIR = {
 // brightwork in CHROME. Every bezel, rim, rule and letter that is gold on the stock Drake is polished
 // chrome here (its own `gold` array, registered below as chrome); the walnut becomes a deep navy
 // candy lacquer with a hard clear coat; the seats are white hide piped in red on navy leather walls
-// over a red carpet; the dials are white faces with navy numerals and red needles; and the nameplate
+// over a red carpet; the dials are navy faces with white numerals, a red ring and red needles, in a
+// metallic-blue pod; and the nameplate
 // is a navy enamel badge under a glass-thick coat, chrome letters on it and a red and white rule.
 export const DRAKE_TRIM_QUACKHAWK = {
   ...DRAKE_TRIM, quackhawk: true,
@@ -105,7 +106,8 @@ export const DRAKE_TRIM_QUACKHAWK = {
   ivory: [248, 248, 244], blued: [196, 22, 38],
   plate: [236, 236, 232], chip: [26, 40, 100], chipInk: [244, 242, 236],
   console: [14, 22, 60],
-  dialFace: [246, 246, 242], dialInk: [18, 28, 84], dialHand: [200, 22, 38],
+  dialFace: [22, 36, 104], dialInk: [248, 248, 244], dialHand: [214, 26, 44], dialRing: [196, 22, 38],
+  podBlue: [38, 70, 150],                                          // the pilot's pod: metallic blue
   stripeRed: [200, 24, 40], stripeWhite: [246, 246, 242],
 };
 // The nameplate is engraved metal: a brushed face, cuts with a dark floor, a shadowed wall and a
@@ -187,6 +189,8 @@ for (const c of [T.walnut, T.walnutDk, T.burl]) TEXTURE.set(c, 'wood');   // the
   SHINY.set(Q.goldDk, { spec: 0.8, pow: 30, ramp: [[40, 44, 52], [200, 206, 216]], glint: 0.4, albedo: [220, 226, 234], envK: 0.8 });
   for (const c of [Q.walnut, Q.walnutDk, Q.burl, Q.console]) SHINY.set(c, { spec: 0.85, pow: 80, coat: 0.75 });
   SHINY.set(Q.enamel, { spec: 1, pow: 110, coat: 0.9 });
+  // The pod's blue is metal, not paint: a deep-to-bright blue ramp that reflects the room.
+  SHINY.set(Q.podBlue, { spec: 1, pow: 40, ramp: [[14, 28, 72], [150, 186, 250]], glint: 0.5, albedo: [140, 170, 240], envK: 0.7 });
   for (const c of [Q.stripeRed, Q.stripeWhite]) SHINY.set(c, { spec: 0.9, pow: 90, coat: 0.8 });
   for (const c of [Q.leather, Q.leatherDk, Q.cream, Q.creamDk]) { SHINY.set(c, { spec: 0.32, pow: 16, coat: 0.16 }); TEXTURE.set(c, 'leather'); }
   TEXTURE.set(Q.carpet, 'carpet'); TEXTURE.set(Q.carpetEdge, 'carpet');
@@ -565,7 +569,7 @@ function buildRoom({ H, m, X, Y, Z, toShell, inset, rims, cab, head }) {
 function drakeShell(P, live, push, rich) {
   T = trimOf(P);
   const D = P.drake;
-  for (const f of D.faces) push([{ p: f.p, n: f.n }], f.tone, f.k, false, f.rgb, f.emis || 0);
+  for (const f of D.faces) push(f.one || (f.one = Object.assign([{ p: f.p, n: f.n }], { stable: true })), f.tone, f.k, false, f.rgb, f.emis || 0);
   eyeFrames(P, push);
   screenFrame(P, live, push);
   if (rich) { drakeFit(P, live, push); eyeHuds(P, live, push); }
@@ -880,7 +884,7 @@ function luxDial_(Pn, ca, cb, R, frac, o = {}) {
   // Segment counts are set for a dial a hand's breadth from the eye: 20 round a bezel is still a
   // circle at that size, and each dial was ~240 faces lit on the CPU every frame.
   Pn.torus(ca, cb, R * 1.08, R * 1.28, T.gold, 0.06, 0.0045, 20, 3);
-  Pn.annulus(ca, cb, R * 1.0, R * 1.08, T.enamel, 0, 0.005, 18);
+  Pn.annulus(ca, cb, R * 1.0, R * 1.08, T.dialRing || T.enamel, 0, 0.005, 18);
   Pn.disc(ca, cb, R, faceRgb, o.glow ?? 0.22, 0.0028, 20);
   // A shadow ring inside the bezel: the face is recessed, so its rim is darker than its middle.
   Pn.annulus(ca, cb, R * 0.86, R, mix(faceRgb, [30, 22, 16], 0.32), o.glow ?? 0.22, 0.0032, 18);
@@ -1551,13 +1555,17 @@ TEXTURE.set(DW_NOIR.carbon, 'fabric'); TEXTURE.set(DW_NOIR.rubber, 'leather');
 SHINY.set(DW_NOIR.carbon, { spec: 0.55, pow: 46, coat: 0.55 });
 // Quackhawk Down: a navy candy-lacquer body, white hide grips with a red bead, and chrome where the gold was.
 const QH_CHROME = DRAKE_TRIM_QUACKHAWK.gold;
-const DW_QH = { carbon: DRAKE_TRIM_QUACKHAWK.walnut, weave: DRAKE_TRIM_QUACKHAWK.burl, rubber: DRAKE_TRIM_QUACKHAWK.cream, bead: QH_CHROME,
+// The grips are their own white, not the seats' cream, so the hide's grain and shine key on them alone.
+const QH_HIDE = [240, 238, 231];
+const DW_QH = { carbon: DRAKE_TRIM_QUACKHAWK.walnut, weave: DRAKE_TRIM_QUACKHAWK.burl, rubber: QH_HIDE, bead: QH_CHROME,
+  hide: true, hideDk: [168, 164, 156], hideLip: [255, 254, 250], stitch: [200, 24, 40],
   buttons: DW.buttons.map(b => ({ ...b, rgb: b.rgb[0] === 230 ? QH_CHROME : b.rgb[1] === 150 ? [26, 40, 110] : b.rgb })),
   knobs: DW.knobs.map((k, i) => ({ ...k, rgb: i ? [200, 24, 40] : QH_CHROME })), wheels: DW.wheels.map(w => ({ ...w, rgb: QH_CHROME })) };
 const dwOf = () => (T.noir ? { ...DW, ...DW_NOIR } : T.quackhawk ? { ...DW, ...DW_QH } : DW);
 // The yoke's figure and the grips' perforation are drawn per pixel by the GL solids pass rather than as
 // geometry (see the weave and the grips in drakeFit): the yoke is rebuilt every frame it moves.
 TEXTURE.set(DW.carbon, 'wood'); TEXTURE.set(DW.rubber, 'leather');
+TEXTURE.set(QH_HIDE, 'leather'); SHINY.set(QH_HIDE, { spec: 0.4, pow: 22, coat: 0.18 });
 // Drawn at this fraction of full size: small enough to clear the switch strips either side.
 const DRAKE_WHEEL_SC = 0.72;
 // ── THE GPS ──────────────────────────────────────────────────────────────────
@@ -1814,16 +1822,9 @@ export function drakeFit(P, live, push) {
   const Pn = facingPanel(K, po);
   Pn.plate(roundRect(-HW - 0.012, -HH - FTR - 0.012, HW + 0.012, HH + HDR + 0.012, 0.03), T.gold, 0.05, 0);
   if (T.quackhawk) {
-    // Quackhawk: deep navy lacquer behind the dials, a chrome footer for the fuel bar and lamps, and a
-    // red-white-red rule along both seams, so the pod wears the livery instead of one flat blue.
-    Pn.plate(roundRect(-HW, -HH - FTR, HW, HH + HDR, 0.024), T.walnutDk, 0, 0.001);
+    // Quackhawk: metallic blue behind the dials and a chrome footer for the fuel bar and lamps.
+    Pn.plate(roundRect(-HW, -HH - FTR, HW, HH + HDR, 0.024), T.podBlue, 0, 0.001);
     Pn.plate(roundRect(-HW + 0.008, -HH - FTR + 0.008, HW - 0.008, -HH - 0.004, 0.012), T.gold, 0.08, 0.0014);
-    for (const b of [-HH - 0.004, HH + 0.004]) {
-      const s = 0.0034;
-      Pn.rect(-HW + 0.006, b - 1.5 * s, HW - 0.006, b - 0.5 * s, T.stripeRed, 0.15, 0.0016);
-      Pn.rect(-HW + 0.006, b - 0.5 * s, HW - 0.006, b + 0.5 * s, T.stripeWhite, 0.15, 0.0016);
-      Pn.rect(-HW + 0.006, b + 0.5 * s, HW - 0.006, b + 1.5 * s, T.stripeRed, 0.15, 0.0016);
-    }
   } else {
     Pn.plate(roundRect(-HW, -HH - FTR, HW, HH + HDR, 0.024), T.burl, 0, 0.001);
     woodGrain(Pn, -HW + 0.012, -HH - FTR + 0.012, HW - 0.012, HH + HDR - 0.012, 0.0014);
@@ -2273,6 +2274,29 @@ export function drakeFit(P, live, push) {
       // stitched seam down its middle, which is what makes green read as hide rather than paint.
       // The perforation is the GL pass's 'leather' texture on DWc.rubber (registered with DW, below) —
       // 534 one-millimetre squares rebuilt every frame with the yoke, before. The seam stays geometry.
+      if (DWc.hide) {
+        // Quackhawk's white hide: plain white showed no detail at all, so the grip carries its own.
+        // Finger grooves across it (a shadow line with a lit lip under it), and a sunk seam down the
+        // middle closed with red cross-stitch either side.
+        const xs = (y) => { let a = null, b = null; for (let x = 0.096; x <= 0.148; x += 0.001) if (inPoly(g, sx * x, y)) { a ??= x; b = x; } return a == null ? null : [a + 0.003, b - 0.003]; };
+        for (const y of [-0.03, -0.048, -0.066, -0.084]) {
+          const r = xs(y); if (!r) continue;
+          const [a, b] = sx > 0 ? r : [-r[1], -r[0]];
+          Wp.rect(a, y - 0.0012, b, y + 0.0004, DWc.hideDk, 0, 0.0064);
+          Wp.rect(a, y - 0.0022, b, y - 0.0012, DWc.hideLip, 0, 0.0064);
+        }
+        const x = sx * 0.123;
+        Wp.rect(x - 0.0007, -0.11, x + 0.0007, 0.016, DWc.hideDk, 0, 0.0064);
+        for (let j = 0; j < 22; j++) {
+          const y = 0.013 - j * 0.0055;
+          if (!inPoly(g, x, y)) continue;
+          for (const s of [-1, 1]) {
+            const u = x + s * 0.0028;
+            Wp.plate([[u - 0.0014, y - 0.0016], [u - 0.0005, y - 0.0016], [u + 0.0014, y + 0.0016], [u + 0.0005, y + 0.0016]].map(([p, q]) => [p, s > 0 ? q : 2 * y - q]), DWc.stitch, 0.1, 0.0068);
+          }
+        }
+        continue;
+      }
       const stitch = mix(DWc.rubber, [230, 220, 190], 0.55);
       for (let j = 0; j < 16; j++) {
         const x = sx * 0.123, y = 0.012 - j * 0.0075;

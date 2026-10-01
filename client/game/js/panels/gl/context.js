@@ -1962,8 +1962,8 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // `model`, when the interior sends one, is its local-to-world matrix: the faces arrive in the cab's own
   // frame and only the parts that moved are re-sent (see the incremental mode in solids.js).
   // `light` is the frame's cabin light (pushInteriorShell): the room is shaded per pixel from it.
-  function uploadInterior(list, model = null, light = null) {
-    intQuads = list && list.length ? interiorLayer().upload(list, model && list.every((q) => q.mp) ? model : null, light) : 0;
+  function uploadInterior(list, model = null, light = null, att = null) {
+    intQuads = list && list.length ? interiorLayer().upload(list, model && list.every((q) => q.mp) ? model : null, light, att) : 0;
     return intQuads;
   }
   function drawInterior(cam, cssH, opts) {

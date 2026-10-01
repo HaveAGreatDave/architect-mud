@@ -2217,6 +2217,10 @@ export function pushParkedRotorFaces(drawn, cls, armed, spin, projM, near) {
 }
 // How a `run` rotor comes up to speed on its channel: a smoothstep, flat at both ends.
 const RUN_EASE = (k) => k * k * (3 - 2 * k);
+// A folding rotor's stop angle, held from the frame its fold began until it is back at 0, and how far
+// up its blades stand while they swing aft and ride down (drawRotorFXInner, the folding rotor).
+const FOLD_STOP = new Map();
+const FOLD_TILT = 80 * Math.PI / 180;
 function drawRotorFXInner(ctx, cls, projFn, { spin = 0, power = 0.7, parked = false, disc = null, spool = null, bladeFade = 0, armed = false, anim = null } = {}) {
   const dsc = disc != null ? disc : power;      // blur-disc opacity
   const spl = spool != null ? spool : 1;        // blade motion amount
@@ -2248,20 +2252,37 @@ function drawRotorFXInner(ctx, cls, projFn, { spin = 0, power = 0.7, parked = fa
       // blades are stopped, and they swing the short way round to lie aft together, `spread` degrees
       // apart, the way a folding rotor stows for fixed-wing flight. From wherever the rotor stopped.
       const ft = r.fold ? clampN(anim?.[r.fold.ch] ?? 0, 0, 1) : 0;
+      if (!(ft > 0)) FOLD_STOP.delete(r);
       if (ft > 0) {
+        // ⚠ THE BLADES STOP FIRST. `spin` keeps running through a fold (it is the engine's phase, and
+        // the pusher still turns), so the blades are held at the angle they had when the fold began.
+        // Keyed on the rotor, so two of one class folding at the same moment share a stop angle.
+        if (!FOLD_STOP.has(r)) FOLD_STOP.set(r, sp);
+        const s0 = FOLD_STOP.get(r);
+        // ⚠ AND THEY NEVER SWEEP FLAT THROUGH THE TAIL. Swung aft at hub height they cut straight
+        // through the boom, so the fold is staged: blades fold UP (0–0.2), swing aft while standing
+        // up (0.2–0.5), ride down with the mast (to 0.75), and only then lie flat on the crutch.
+        const seg = (a, b) => RUN_EASE(clampN((ft - a) / (b - a), 0, 1));
+        const tilt = FOLD_TILT * (seg(0, 0.2) - seg(0.75, 1)), swing = seg(0.2, 0.5);
         const n = r.blades, step = Math.PI * 2 / n, aft = (r.fold.aft ?? 180) * Math.PI / 180, spr = (r.fold.spread ?? 10) * Math.PI / 180;
-        const angs = [];
-        for (let i = 0; i < n; i++) {
-          const a0 = sp + i * step, a1 = aft + (i - (n - 1) / 2) * spr;
-          const d = ((a1 - a0) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
-          angs.push(a0 + d * ft);
-        }
         // ⚠ AND IT CAN TUCK: `fold.tuck` is where the hub goes at a full fold, so the stopped blades
         // come down with a mast that telescopes into the back (the mast is a mesh part sliding on the
-        // same channel, and the two offsets have to be the same number).
+        // same channel, LINEARLY, and the two offsets have to be the same number, so this stays linear).
         const tk = r.fold.tuck;
         const hub = tk ? [at[0] + tk[0] * ft, at[1] + tk[1] * ft, at[2] + tk[2] * ft] : at;
-        spinDisc(ctx, projFn, hub, r.U, r.V, r.r, sp, 0, 0, true, n, r.lead, bladeFade, angs);
+        // Up, off the disc: the plane's normal, turned to point skyward whichever way the rotor spins.
+        let N = [r.U[1] * r.V[2] - r.U[2] * r.V[1], r.U[2] * r.V[0] - r.U[0] * r.V[2], r.U[0] * r.V[1] - r.U[1] * r.V[0]];
+        if (N[2] < 0) N = N.map((v) => -v);
+        const ct = Math.cos(tilt), st = Math.sin(tilt);
+        for (let i = 0; i < n; i++) {
+          const a0 = s0 + i * step, a1 = aft + (i - (n - 1) / 2) * spr;
+          const d = ((a1 - a0) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
+          const a = a0 + d * swing, ca = Math.cos(a), sa = Math.sin(a);
+          // Each blade in a frame of its own: along it (tilted up by `tilt`) and across it.
+          const D = [0, 1, 2].map((k) => (r.U[k] * ca + r.V[k] * sa) * ct + N[k] * st);
+          const W = [0, 1, 2].map((k) => r.V[k] * ca - r.U[k] * sa);
+          spinDisc(ctx, projFn, hub, D, W, r.r, 0, 0, 0, true, 1, r.lead, bladeFade, [0]);
+        }
         continue;
       }
       spinDisc(ctx, projFn, at, r.U, r.V, r.r, sp, dsc, spl, parked, r.blades, r.lead, bladeFade);

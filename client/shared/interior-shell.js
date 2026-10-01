@@ -500,6 +500,9 @@ function wallWithHole(k, nx, y0, y1, z0, z1, hy0, hy1, hz0, hz1) {
 // ⚠ `opts.rich` IS THE FIT-OUT AND DEFAULTS ON. At false the room is exactly the one that shipped
 // before the fit-outs existed — which is what a renderer still painting a 2-D dashboard wants,
 // since it would otherwise get two dashboards a few centimetres apart.
+// A symbol on the point array, not a WeakMap: most faces are built fresh every frame, and thousands
+// of WeakMap entries a frame cost more than the wrappers they save.
+const WRAP_K = Symbol('shellWrap');
 export function shellFaces(profile, live = null, opts = {}) {
   const rich = opts.rich !== false;
   const P = profile;
@@ -516,10 +519,19 @@ export function shellFaces(profile, live = null, opts = {}) {
   // `mat` is optional too: { lv, spec, pow } — a value multiplier on the colourway key and a sheen.
   // It scales the key rather than replacing it, so a retrim still reaches every surface.
   const collect = (arr) => (fs, tone, k, fwd, rgb, emis, mat) => {
+    // ⚠ THE SAME FACE OBJECT FOR THE SAME INPUTS, for a list its caller marks `stable` (muleShell's
+    // statics). Pushed afresh every frame, a new wrapper each time made the renderer treat 2,000
+    // unchanged faces as new: its per-face GPU entry rebuilt and the interior upload rewrote them.
+    // Only marked lists: tagging the thousands of faces built fresh every frame cost more than it saved.
+    const stable = fs.stable === true;
     for (const f of fs) {
+      const c = stable ? f[WRAP_K] : null;
+      if (c && c.n === f.n && c.tone === tone && c.k === k && c.fwd === (fwd ? 1 : 0)
+          && c.rgb === (rgb || undefined) && (rgb ? c.emis === (emis || 0) : true) && c.mat === (mat || undefined)) { arr.push(c); continue; }
       const o = { p: f.p, n: f.n, tone, k, fwd: fwd ? 1 : 0 };
       if (rgb) { o.rgb = rgb; o.emis = emis || 0; }
       if (mat) o.mat = mat;
+      if (stable) f[WRAP_K] = o;
       arr.push(o);
     }
   };

@@ -46,7 +46,7 @@ import { hfCastFor, hfTint, hfSkinFor } from '../../../shared/hf-tint.js';
 import { TRUCK_LOCK_RAD } from './helm-wheel.js';
 import { veilHTML, VEIL_CSS, veilHold, veilPainted, veilReset } from './glass-veil.js';
 import { setVehicleParams, clearVehicleParams, vehicleParamBase, vehicleParamIds, aircraftFaces, wingtipStation, meshLamps, vehicleLamps, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, PROP_STATIONS, drawCockpitProp, glassSheen, drawNoseArt, drawTruckDoorArt, drawBoatHullArt, boatExhaustPorts, deflectSurface, hingeVisorFace, visorHidden, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, sortTruckFaces, _resetTruckOrder, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE, depthPassBuild, depthPassCommit , truckMeta, rotorsFor, hasMainRotor, meshParams, meshIds } from './aircraft3d.js';
-import { rasterDepth, depthTarget, lightBasis, rasterShadow, shadeRaster, readPixels } from './model-raster.js';
+import { rasterDepth, depthTarget, lightBasis, rasterShadow, shadeRaster, readPixels, depthWinAt } from './model-raster.js';
 import { playThunderSample } from './engine-audio.js';
 import { FLOOR_Z, BUILDING_FOOT, floorsFor } from '../../../shared/skyline-scale.js';
 import { hnoise2, fbm2 } from '../../../shared/landform.js';
@@ -1803,7 +1803,11 @@ export const RENDER_TUNE = {
   // right and costs nearly what the full model cost (gradients + shadowBlur, not face count, are
   // the expense). 1 = the CHEAP lights only — blinking aviation beacons, masts, dishes: no gradient,
   // no blur, so a tower is still identifiable and still warns you it's tall. 0 = nothing.
-  lodAdorn: 1,
+  // ⚠ 0 SINCE 2026-10-01, FOR FRAMES. On the GPU path a far arm re-runs its whole model every frame
+  // to emit those few lights: about 10 ms of a 56 ms aircraft frame over Halcyon (loaded machine),
+  // for ~320 of 921,600 pixels at 1280x720. Set 1 to bring the far beacons back. The truck cab
+  // keeps its own 2 (cab-render-tune.js).
+  lodAdorn: 0,
   lodNear: 20,        // tiles: full model closer than this, captured segments beyond
   // The near-detail tier: an arm this close runs at ADORN_NEAR and paints detail that only reads at
   // arm’s length (recessed doors, sill depth, frontage clutter). It is affordable because of the
@@ -4332,12 +4336,18 @@ function paintWindshieldFrame(id, view) {
       if (st.fpsGood > (RENDER_TUNE.fpsPromoteS || 8)) st.fpsFails = 0;
       if (st.fpsEvid > (RENDER_TUNE.fpsDemoteS || 3) && (st.faunaQ != null && st.faunaQ <= 0.02)) {
         st.fpsTier = 1; st.fpsEvid = 0; st.fpsGood = 0;
+        st.fpsHoldMs = st.frameMs;
         st.fpsFails = (st.fpsFails || 0) + 1;
         const wait = Math.min(RENDER_TUNE.fpsRetryMaxS || 120, (RENDER_TUNE.fpsRetryS || 6) * Math.pow(2, st.fpsFails - 1));
         st.fpsRetryAt = now + wait * 1000;
       }
     }
-    const tgtMs = st.fpsTier ? backMs : wantMs;
+    // ⚠ THE FALLBACK MAY NOT SPEND THE SLACK IT WAS HANDED. Demotion fires with the birds already at
+    // their floor, so the load is elsewhere and the frame sits wherever that puts it, say 20 ms. Aimed
+    // at the full fallback (28 ms after headroom), the budget grew birds into the gap and dragged the
+    // frame down to 30 itself, then the retry shed them and demoted again: the 60/30 sawing. Capped at
+    // the frame time demotion measured, the birds stay at the floor and the frame keeps its uneven 50.
+    const tgtMs = st.fpsTier ? Math.min(backMs, st.fpsHoldMs || backMs) : wantMs;
     // ⚠ THE BUDGET AIMS SHORT OF THE TARGET, BECAUSE IT IS NOT THE ONLY CONTROLLER IN THE FRAME.
     // The resolution dial, the Mode-7 downscale and the cloud budget are three more loops reading
     // the same frame time, and an integrator that grows until the frame IS the target will always
@@ -22913,7 +22923,9 @@ function pushInteriorShell(cam, v) {
   // the eye offset — so it goes to the GPU as a matrix and each face also carries its LOCAL points
   // (`mp`). The interior layer then re-sends only the faces that moved (see solids.js). `p` stays in
   // world space for everything else that reads the sink. A banked cockpit (att) keeps the old path.
-  OWNSHIP_SINK.interiorModel = att ? null : new Float32Array([S * ch, S * sh, 0, 0, S * sh, -S * ch, 0, 0, 0, 0, S, 0, ox, oy, ez, 1]);
+  // An attitude seat sends local points too, and the shader applies `att` before this matrix.
+  OWNSHIP_SINK.interiorModel = new Float32Array([S * ch, S * sh, 0, 0, S * sh, -S * ch, 0, 0, 0, 0, S, 0, ox, oy, ez, 1]);
+  OWNSHIP_SINK.interiorAtt = att ? att.params : null;
   // THE SUN, IN THE CABIN'S OWN FRAME, for the metals (SHINY). The same east-south-west arc the world
   // pass lights by, turned by the vehicle's heading, so gold glints when you turn or bank toward it
   // and goes quiet when you turn away: the one thing a flat colour cannot do.
@@ -23001,11 +23013,12 @@ function pushInteriorShell(cam, v) {
       e = { key: trimKey, P, cab, rgb: [alb[0] | 0, alb[1] | 0, alb[2] | 0], a: (isPane ? PANE.get(f.rgb) : undefined) ?? 1 };
       CAB_GPU.set(f, e);
     }
-    // ⚠ THE SAME RECORD AS LAST FRAME, for a level seat. A face the memo handed back unchanged, under
-    // the same trim, sends exactly the same floats in incremental mode, and gl/solids.js skips a
-    // record it finds at the same slot as last frame. Only the world points move, rewritten in place.
-    // A banked seat (`att`) sends world points, not local ones, so it gets a fresh record as before.
-    let rec = att ? null : e.rec;
+    // ⚠ THE SAME RECORD AS LAST FRAME. A face the memo handed back unchanged, under the same trim,
+    // sends exactly the same floats in incremental mode, and gl/solids.js skips a record it finds at
+    // the same slot as last frame. Only the world points move, rewritten in place. A pitched or
+    // banked seat too: the GL interior applies `att` in its vertex shader (seatAtt), so the record
+    // still carries local points.
+    let rec = e.rec;
     const fresh = !rec;
     const fp = f.p, np = fp.length, wp = fresh ? new Array(np) : rec.p;
     for (let j = 0; j < np; j++) {
@@ -23020,7 +23033,7 @@ function pushInteriorShell(cam, v) {
     }
     if (fresh) {
       rec = { p: wp, rgb: e.rgb, a: e.a, interior: 1, lp: fp, tex: texOf(f) || 0, cab: e.cab };
-      if (!att) { rec.mp = fp; e.rec = rec; }
+      rec.mp = fp; e.rec = rec;
     }
     OWNSHIP_SINK.push(rec);
   };
@@ -23261,7 +23274,7 @@ function pushInteriorShell(cam, v) {
       // A PANE (interior-kit) is glass the cabin looks through: its own colour, see-through by its alpha.
       rgb: isPane ? f.rgb : [lit[0] | 0, lit[1] | 0, lit[2] | 0], a: (isPane ? PANE.get(f.rgb) : undefined) ?? 1, interior: 1,
     };
-    if (!att) rec.mp = fp;
+    rec.mp = fp;   // local even under `att`: the GL interior applies it in its vertex shader
     // WHAT IT IS MADE OF, drawn per pixel by gl/solids.js in the cockpit's own frame (`lp`, metres
     // about the eye, before any attitude), so the grain stays on the dash and does not crawl. Named by
     // the face, else by its colour (TEXTURE), else by its tone; never on glass or on anything lit.
@@ -23279,7 +23292,7 @@ function pushInteriorShell(cam, v) {
     if (!g || g.length < 3) continue;
     OWNSHIP_SINK.push({
       p: g.map((q0) => { const q = att ? att(q0) : q0; const rx = q[0] * S, fy = q[1] * S; return [rx * ch + fy * sh + ox, rx * sh - fy * ch + oy, ez + q[2] * S]; }),
-      rgb: [150, 176, 196], a: 1, interior: 1, film: 1, lp: g, tex: texIndex('glass'), ...(att ? null : { mp: g }),
+      rgb: [150, 176, 196], a: 1, interior: 1, film: 1, lp: g, tex: texIndex('glass'), mp: g,
     });
     n++;
   }
@@ -23605,7 +23618,7 @@ function seatAttitude(cam, v) {
   const sx = tX, sy = tY - dyPitch;
   const ly = (v.lookYaw || 0) * Math.PI / 180;
   const cy = Math.cos(ly), syaw = Math.sin(ly);
-  return (q) => {
+  const fn = (q) => {
     // Vehicle → camera: forward f, right r, up u.
     const f = q[1] * cy + q[0] * syaw, r = q[0] * cy - q[1] * syaw, u = q[2];
     // Roll about the view axis by +b (counter to the canvas's −b).
@@ -23616,6 +23629,10 @@ function seatAttitude(cam, v) {
     if (f > 0) { r2 += sx * f / FL; u2 -= sy * f / D; }
     return [r2 * cy + f * syaw, f * cy - r2 * syaw, u2];
   };
+  // The same transform as numbers, for the cabin vertex shader (seatAtt in gl/solids.js), so the GL
+  // interior can send cab-local points under any attitude. Keep the two in step.
+  fn.params = { cy, sy: syaw, cb, sb, kr: D / FL, ku: FL / D, hr: sx / FL, hu: sy / D };
+  return fn;
 }
 // AND THE CONTACTS, FOR THE MIRROR-IMAGE REASON. The shadow is painted too EARLY (before the
 // sinks open) and a contact is painted too LATE — drawContacts runs after drawWorldObjects has
@@ -27010,7 +27027,49 @@ function cliffCorner(cx, cy) {
 //
 // `seed` is deliberately unused, and that is the point of decision 5 — it is kept in the
 // signature only because every other mass draw in this file takes one.
+//
+// ── ⚠ A CLIFF TILE PAST TEN TILES IS RECORDED ONCE AND REPLAYED ─────────────────────────────────
+// On the GL path, past 10 tiles (no near clip, no canvas strokes), a cliff tile's whole output is
+// GROUND_MESH quads, and they depend only on what the key holds: the tile, the step, which sides
+// face the eye, the light, the hour, the eye height and the rounded distance (the rim's thickness).
+// Rebuilding them was ~4.4 ms for 58 tiles from the air (loaded machine). Quads are stored relative
+// to the tile and offset on replay. `cliffCache` 0 turns it off.
+const CLIFF_CACHE = new Map();
+const CLIFF_SN = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 function drawCliffMass(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun, wx, wy) {
+  const gm = GROUND_MESH;
+  if (!gm || SHAPE_SINK || MESH_SINK || RENDER_TUNE.cliffCache === 0) return drawCliffMassRaw(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun, wx, wy);
+  const cen = cam.proj(dx, dy, 0);
+  if (!(cen.f >= 10)) return drawCliffMassRaw(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun, wx, wy);
+  const ex = cam.ex || 0, ey = cam.ey || 0;
+  let mask = 0;
+  for (let si = 0; si < 4; si++) {
+    const mx = CLIFF_SN[si][0] * 0.5, my = CLIFF_SN[si][1] * 0.5;
+    if (mx * (dx + mx) + my * (dy + my) - (mx * ex + my * ey) < 0) mask |= 1 << si;
+  }
+  const [lx, ly] = keyDir(sun, [-0.62, -0.62]);
+  const lz = sun && sun.elev > 0.05 ? sun.elev : (sun && sun.moonElev > 0.05 ? sun.moonElev : 0.55);
+  const q = (v) => Math.round(v * 200);
+  const key = wx + ',' + wy + '|' + run + '|' + biome + '|' + (cen.f > 22 ? 1 : 2) + '|' + mask + '|' + q(lx) + ',' + q(ly) + ',' + q(lz)
+    + '|' + Math.round((night || 0) * 64) + '|' + alpha + '|' + (RENDER_TUNE.glStrata ? 1 : 0) + '|' + Math.round((cam.EH || 0) * 200)
+    + '|' + Math.round(cen.f) + '|' + Math.round(cam.FL || 0);
+  const ox = dx + (cam.ox || 0), oy = dy + (cam.oy || 0);
+  let rec = CLIFF_CACHE.get(key);
+  if (!rec) {
+    const start = gm.length;
+    drawCliffMassRaw(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun, wx, wy);
+    rec = [];
+    for (let i = start; i < gm.length; i++) {
+      const e = gm[i];
+      rec.push({ ...e, p: e.p.map((w) => [w[0] - ox, w[1] - oy, w[2]]) });
+    }
+    if (CLIFF_CACHE.size > 4096) CLIFF_CACHE.clear();
+    CLIFF_CACHE.set(key, rec);
+    return;
+  }
+  for (const e of rec) gm.push({ ...e, p: e.p.map((w) => [w[0] + ox, w[1] + oy, w[2]]) });
+}
+function drawCliffMassRaw(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun, wx, wy) {
   const NEAR = 0.08, BENCH = 0.42;
   // The SAME key the Mode-7 floor hillshades with — the same `keyDir` and the same fill, so a
   // massif's lit face and the shadow the ground draws beside it can never disagree about where
@@ -28711,6 +28770,95 @@ function hoodooKind(kr) {
   return kind;
 }
 const HOODOO_H = 0.19;   // world z of a mid-sized column. A storey is ~0.06, so two to four of them.
+// ── HOODOO SOLIDS, BUILT ONCE PER SEED ─────────────────────────────────────────────────────────
+// A tile's spires are a pure function of its seed and the ring count, in the tile's own frame, and
+// hoodooSpires rebuilt all of them every frame: about 0.09 ms a tile, two thirds of a redrock
+// tile's cost from the air. Cached here as tile-local quads with their unfogged colour; the frame
+// only offsets, culls, tints and pushes. This is the GL path only; the canvas path is unchanged.
+const HOODOO_GEOM = new Map();
+function hoodooGeom(seed, sides) {
+  const key = seed * 16 + sides;
+  let g = HOODOO_GEOM.get(key);
+  if (g) return g;
+  if (HOODOO_GEOM.size > 4096) HOODOO_GEOM.clear();
+  g = [];
+  const ROCK = [158, 84, 54];
+  const n = 1 + (seed % 3);
+  for (let i = 0; i < n; i++) {
+    const q = (k) => frac(seed * 7.13 + i * 31.7 + k * 5.9);
+    const ox = (q(1) - 0.5) * 0.54, oy = (q(2) - 0.5) * 0.54;
+    let H = HOODOO_H * (0.58 + q(3) * 1.05);
+    const r0 = H * (0.15 + q(4) * 0.08);
+    const lx = (q(5) - 0.5) * H * 0.26, ly = (q(6) - 0.5) * H * 0.26;
+    const cap = 1.12 + q(7) * 0.42;
+    const waist = 0.46 + q(8) * 0.22;
+    const kind = hoodooKind(q(9));
+    H *= kind.hs;
+    const ecc = kind.ecc * (0.88 + q(10) * 0.26);
+    const yaw = q(11) * 6.2832;
+    const PROF = kind.prof === 'capped'
+      ? [[0, 1.0], [0.16, 0.90], [0.52, waist], [0.80, waist * 0.86],
+         [0.83, cap], [0.95, cap * 1.02], [1.0, cap * 0.78]]
+      : kind.prof === 'spire'
+      ? [[0, 1.0], [0.22, 0.82], [0.48, 0.60], [0.72, 0.38], [0.90, 0.19], [1.0, 0.05]]
+      : kind.prof === 'stump'
+      ? [[0, 1.0], [0.30, 0.92], [0.62, 0.78], [0.85, 0.62], [1.0, 0.46]]
+      : kind.prof === 'fin'
+      ? [[0, 1.0], [0.28, 0.94], [0.60, 0.80], [0.86, 0.60], [1.0, 0.34]]
+      : [[0, 1.0], [0.34, 0.93], [0.68, 0.84], [0.92, 0.78], [1.0, 0.76]];
+    const stations = PROF.slice();
+    for (const zc of STRATA_Z) {
+      const t = zc / H;
+      if (!(t > 0.02 && t < 0.98)) continue;
+      let j = 0; while (j < PROF.length - 2 && PROF[j + 1][0] < t) j++;
+      const [t0, m0] = PROF[j], [t1, m1] = PROF[j + 1];
+      const u = t1 === t0 ? 0 : (t - t0) / (t1 - t0);
+      stations.push([t, m0 + (m1 - m0) * u]);
+    }
+    stations.sort((p1, p2) => p1[0] - p2[0]);
+    const cyw = Math.cos(yaw), syw = Math.sin(yaw);
+    const rings = stations.map(([t, rm]) => {
+      const z = H * t, cx = ox + lx * t, cy = oy + ly * t;
+      const rx = r0 * rm * ecc, ry = r0 * rm / ecc;
+      const ring = [];
+      for (let j = 0; j < sides; j++) {
+        const a = j / sides * 6.2832, ca = Math.cos(a), sa = Math.sin(a);
+        const px = ca * rx, py = sa * ry;
+        let gx = ca / rx, gy = sa / ry;
+        const gl = Math.hypot(gx, gy) || 1; gx /= gl; gy /= gl;
+        ring.push([cx + px * cyw - py * syw, cy + px * syw + py * cyw, z,
+                   gx * cyw - gy * syw, gx * syw + gy * cyw]);
+      }
+      return { ring, z };
+    });
+    for (let b = 0; b < rings.length - 1; b++) {
+      const A = rings[b], B = rings[b + 1];
+      const bed = STRATA_BED[Math.min(bedOf((A.z + B.z) * 0.5), STRATA_BED.length - 1)];
+      for (let j = 0; j < sides; j++) {
+        const k = (j + 1) % sides, p = A.ring[j], r = A.ring[k];
+        const nx = (p[3] + r[3]) / 2, ny = (p[4] + r[4]) / 2;
+        const sh = (0.82 + 0.34 * Math.max(0, nx * -0.62 + ny * -0.62)) * bed.k;
+        g.push({ mx: (p[0] + r[0]) / 2, my: (p[1] + r[1]) / 2, nx, ny,
+          c: [(ROCK[0] + bed.warm) * sh, (ROCK[1] + bed.warm * 0.55) * sh, (ROCK[2] - bed.warm * 0.45) * sh],
+          p: [[p[0], p[1], A.z], [r[0], r[1], A.z], [B.ring[k][0], B.ring[k][1], B.z], [B.ring[j][0], B.ring[j][1], B.z]] });
+      }
+    }
+  }
+  HOODOO_GEOM.set(key, g);
+  return g;
+}
+function hoodooSolidCached(cam, dx, dy, seed, sides, nm, alpha, f) {
+  const g = hoodooGeom(seed, sides);
+  const ex = (cam.ex || 0) - dx, ey = (cam.ey || 0) - dy;
+  const tx = dx + (cam.ox || 0), ty = dy + (cam.oy || 0);
+  for (const s of g) {
+    if (s.nx * (ex - s.mx) + s.ny * (ey - s.my) <= 0) continue;
+    const c = s.c, P = s.p;
+    BAY_SINK.push({ p: [[P[0][0] + tx, P[0][1] + ty, P[0][2]], [P[1][0] + tx, P[1][1] + ty, P[1][2]],
+      [P[2][0] + tx, P[2][1] + ty, P[2][2]], [P[3][0] + tx, P[3][1] + ty, P[3][2]]],
+      rgb: fogTint([c[0] * nm, c[1] * nm, c[2] * nm], f), a: alpha });
+  }
+}
 function hoodooSpires(ctx, cam, dx, dy, night, seed, alpha) {
   const ex = cam.ex || 0, ey = cam.ey || 0, ez = cam.EH || 0;
   const base = cam.proj(dx, dy, 0);
@@ -28720,6 +28868,10 @@ function hoodooSpires(ctx, cam, dx, dy, night, seed, alpha) {
   // an eight-sided one without them does not.
   const sides = base.f < 3 ? 8 : base.f < 6 ? 6 : 5;
   const nm = night ? 0.5 : 1;
+  if (BAY_SINK && RENDER_TUNE.glBay !== 0 && RENDER_TUNE.hoodooSolid !== 0) {
+    hoodooSolidCached(cam, dx, dy, seed, sides, nm, alpha, base.f);
+    return;
+  }
   const ROCK = [158, 84, 54];
   // ⚠ FIVE KINDS, AND THE CAPPED ONE IS A MINORITY. Every spire used to end in a cap wider than
   // its neck, which is the textbook hoodoo and, repeated, is a field of mushrooms — the second
@@ -36158,6 +36310,58 @@ function glRotorSink(c, cam, Wp) {
 // How far back along its view ray a hull lamp is slid before the sprite layer pulls it forward
 // by LIGHT_PULL (0.05, gl/sprites.js — not imported: windshield.js never imports gl/). Leaves 0.004.
 const AIR_LAMP_PUSH = 0.046;
+let OWN_FACES = null;   // the own ship's faces from this frame's collect pass — see the ⚠ at the face loop
+// ── `seen` FOR A FEW FACES, WITHOUT RASTERISING THE MODEL ───────────────────────────────────────
+// depthPassCommit stamps `seen` from one sample at each face's centre: the model's nearest depth
+// there must be the face's own (within 2%), or deeper for a translucent face, and no world occluder
+// may stand in front. This answers the same question for the faces `need` names, with no raster:
+// the nearest solid face over that point by barycentric depth on its screen triangles (rasterDepth
+// interpolates depth the same way), and the occluders in a one-pixel window at it. Faces `need`
+// does not name are left unseen, which the detail loop skips — they had nothing to paint.
+const OWN_SEEN_MAX = 64;
+function stampSeenCheap(cam, c, faces, need) {
+  const cf = cam.proj(c.dx || 0, c.dy || 0, 0);
+  const ownF = cf && cf.f > 0.05 ? cf.f : 0;
+  const solid = [];
+  for (const fc of faces) {
+    if (!((fc.alpha ?? 1) >= 0.999)) continue;
+    const P = fc.pts;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const q of P) { if (q.sx < x0) x0 = q.sx; if (q.sx > x1) x1 = q.sx; if (q.sy < y0) y0 = q.sy; if (q.sy > y1) y1 = q.sy; }
+    solid.push({ P, x0, y0, x1, y1 });
+  }
+  for (const fc of faces) {
+    fc.offBuf = !((fc.alpha ?? 1) >= 0.999);
+    if (!need(fc)) { fc.seen = false; continue; }
+    const P = fc.pts, n = P.length;
+    let cx = 0, cy = 0, cz = 0;
+    for (const q of P) { cx += q.sx; cy += q.sy; cz += q.f; }
+    cx /= n; cy /= n; const zc = cz / n;
+    let dmin = Infinity;
+    for (const s of solid) {
+      if (cx < s.x0 || cx > s.x1 || cy < s.y0 || cy > s.y1) continue;
+      const Q = s.P, a = Q[0];
+      for (let t = 1; t + 1 < Q.length; t++) {
+        const b = Q[t], d = Q[t + 1];
+        const den = (b.sy - d.sy) * (a.sx - d.sx) + (d.sx - b.sx) * (a.sy - d.sy);
+        if (!(Math.abs(den) > 1e-9)) continue;
+        const w0 = ((b.sy - d.sy) * (cx - d.sx) + (d.sx - b.sx) * (cy - d.sy)) / den;
+        const w1 = ((d.sy - a.sy) * (cx - d.sx) + (a.sx - d.sx) * (cy - d.sy)) / den;
+        const w2 = 1 - w0 - w1;
+        if (w0 < 0 || w1 < 0 || w2 < 0) continue;
+        const z = w0 * a.f + w1 * b.f + w2 * d.f;
+        if (z < dmin) dmin = z;
+      }
+    }
+    let ok = fc.offBuf ? dmin > zc : Math.abs(dmin - zc) < Math.max(1e-4, zc * 0.02);
+    if (ok && ownF) {
+      const win = occluderWindow(cx - 0.5, cy - 0.5, 1, 1, 1, ownF);
+      if (win && depthWinAt(win, 0, 0) + OCC_PIXEL_BIAS < zc) ok = false;
+    }
+    fc.seen = ok;
+  }
+  return true;
+}
 function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   const SIZE = (CONTACT_SIZE[c.cls] || 0.11) * (c.sizeMul || 1), VS = CONTACT_VS;
   const hr = (c.hdg || 0) * Math.PI / 180, roll = (c.bank || 0) * Math.PI / 180, pitch = (c.pitch || 0) * Math.PI / 180;
@@ -36274,7 +36478,23 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // bay doors that close as the legs come up. A contact's gear is stowed, so its doors are shut.
   // `noseVisor` too: the Leviathan's mesh file swings its cargo nose on that channel.
   const animCh = { ...(c.anim || null), gear: showGear ? gearDown : 0, noseVisor: c.noseVisor || 0 };
-  for (let face of aircraftFaces(c.cls, detail, !!c.armed, c.variant || '')) {
+  // ⚠ THE OWN SHIP'S FACES ARE BUILT ONCE A FRAME. In the external view the GL pass collects the
+  // model (`collect`) and the canvas pass then draws its details over the GPU body (`bodyOnGL`),
+  // and both ran this whole loop for the same model under the same camera. The collect pass leaves
+  // its faces in OWN_FACES; a bodyOnGL pass on the same camera, frame time, class and LOD takes them
+  // instead of rebuilding. What differs between the two calls is the sun term in `col`, and under
+  // bodyOnGL no face is filled, so `col` is never read. The GL sink is closed by then, so the loop's
+  // only other side effect here is VEHICLE_PICK, replayed from the same record.
+  const ownReuse = !!(c.bodyOnGL && c.own && OWN_FACES && OWN_FACES.cam === cam && OWN_FACES.now === now
+    && OWN_FACES.cls === c.cls && OWN_FACES.detail === detail && OWN_FACES.variant === (c.variant || '') && OWN_FACES.armed === !!c.armed);
+  const ownPick = c.collect && c.own ? [] : null;
+  if (ownReuse) {
+    const R0 = OWN_FACES;
+    for (const fc of R0.faces) faces.push(fc);
+    minx = R0.minx; maxx = R0.maxx; miny = R0.miny; maxy = R0.maxy; drawn = R0.drawn;
+    if (VEHICLE_PICK) for (const e of R0.pick) VEHICLE_PICK.push(e);
+  }
+  if (!ownReuse) for (let face of aircraftFaces(c.cls, detail, !!c.armed, c.variant || '')) {
     const srcFace = face;   // `face` may be swapped for a hinged copy below; the pick sink wants the mesh's own
     if (face.role === 'rotor') continue;                            // spinning surfaces drawn by drawRotorFX below
     if (visorHidden(face, c.noseVisor, animCh)) continue;           // hold + stowed ramp exist only while the cargo nose is open; a `when` face only while its channel is
@@ -36455,6 +36675,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     // `wv`/`nrm` ride along for the light pass: the same polygon in world 3-space, and the outward
     // normal that was computed for the cull and the sun term above and then thrown away.
     if (VEHICLE_PICK) VEHICLE_PICK.push({ pts, nf, src: srcFace });
+    if (ownPick) ownPick.push({ pts, nf, src: srcFace });
     faces.push({ pts, af: af / pts.length, nf, xf, part: face.part, col, rv, role: face.role, alpha: isGear ? gearDown : 1, uv, cuv: face.uv, cart: face.art, i: faces.length, wv, nrm: haveN ? [nx, ny, nz] : null }); drawn++;
   }
   // ⚠ COLLECT-ONLY STOPS HERE, AND HERE IS THE WHOLE POINT. Everything above this line is geometry
@@ -36466,6 +36687,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // gone to the GPU, so a rotor collected there reaches no depth buffer; this is the only pass that
   // can put it in front of, or behind, the hull and the city. See glRotorSink.
   if (c.collect) {
+    if (ownPick) OWN_FACES = { cam, now, cls: c.cls, detail, variant: c.variant || '', armed: !!c.armed, faces: faces.slice(), minx, maxx, miny, maxy, drawn, pick: ownPick };
     if (OWNSHIP_SINK && (c.own || c.solid) && hasRotorFX(c)) {
       drawRotorFX(null, c.cls, (lp) => { const q = P(lp); return q.f <= 0.08 ? null : q; },
         { ...rotorFxOpts(c, now), sink: glRotorSink(c, cam, Wp) });
@@ -36529,7 +36751,21 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // `depthPassCommit`. Everything this view does that a panel does not — the world mask, the sun,
   // the deferred blit — rides as options and hooks, because `occluderWindow` and `vehicleLightRig`
   // are world-pass concerns that cannot move into a hangar file.
-  const pass = depthPassBuild(ctx, faces, {
+  // ⚠ WITH THE BODY ON THE GPU, THE RASTER IS ONLY THERE TO STAMP `seen` FOR THE FACE LOOP BELOW,
+  // and under `bodyOnGL` that loop paints three things: jazz splatter, canopy art and the gloss
+  // highlight. A model with none of them paints nothing there, so its software depth raster (most
+  // of the own ship's paint pass in the external view) answers a question nobody asks. Skipped.
+  // …and a model with only a FEW such faces (the canopy art: 12-16 faces) asks the raster one point
+  // each, since depthPassCommit decides `seen` from ONE sample at the face's centre. Those are
+  // answered directly (stampSeenCheap): the nearest solid face over that point, and the world's
+  // occluders in a one-pixel window there. Past OWN_SEEN_MAX (a gloss finish asks for every body
+  // face) the raster is still the cheaper way to ask.
+  const glossy = lv.finish === 'gloss';
+  const needSeen = (fc) => (fc.uv && jazzImg) || (fc.cuv && detail) || (glossy && fc.role === 'body');
+  const nNeed = c.bodyOnGL ? faces.reduce((n, fc) => n + (needSeen(fc) ? 1 : 0), 0) : -1;
+  const skipDepth = !!c.bodyOnGL && nNeed === 0;
+  const cheapSeen = !!c.bodyOnGL && nNeed > 0 && nNeed <= OWN_SEEN_MAX;
+  const pass = (skipDepth || cheapSeen) ? null : depthPassBuild(ctx, faces, {
     min: c.own ? 0 : RASTER_MIN_PX,
     budget: RASTER_BUDGET_PX,
     // Supersample to the frame's DPR, but never past the budget. The chase camera can be dollied
@@ -36573,7 +36809,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // The fallback, and for a model the pass declined the only path: a mean-depth painter's sort,
   // which is the right answer for one smooth convex hull and the wrong one for a pile of bolted-on
   // boxes.
-  if (!pass) {
+  if (!pass && !skipDepth && !cheapSeen) {
     if (BOX_BUILT.has(c.cls)) sortTruckFaces(faces, c, SIZE);
     else faces.sort((a, b) => b.af - a.af);
   }
@@ -36617,7 +36853,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // most of what you are looking at (measured: 677 px and a 57×26 silhouette down to 131 px and
   // 41×14). So the pass still RUNS — it is what stamps `seen`, and `seen` is what stops a face
   // painting its glass onto the building hiding it — and only the image is suppressed.
-  const rasterOK = depthPassCommit(ctx, pass, faces, { skipBlit: !!c.bodyOnGL });
+  const rasterOK = skipDepth ? false : cheapSeen ? stampSeenCheap(cam, c, faces, needSeen) : depthPassCommit(ctx, pass, faces, { skipBlit: !!c.bodyOnGL });
   if (pass && !rasterOK) {
     // The blit failed after all — fall the whole way back.
     // ⚠ AND AN AIRFRAME FALLS BACK TO ITS OWN SORT, NOT THE TRUCK'S. `sortTruckFaces` keys off
@@ -36627,7 +36863,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     if (BOX_BUILT.has(c.cls)) sortTruckFaces(faces, c, SIZE);
     else faces.sort((a, b) => b.af - a.af);
   }
-  for (const fc of faces) {
+  for (const fc of (skipDepth ? [] : faces)) {
     if (rasterOK && !fc.seen) continue;                             // hidden: its detail would paint over the winner
     ctx.globalAlpha = fc.alpha ?? 1;                                // gear fades as it retracts (alpha < 1)
     ctx.beginPath(); ctx.moveTo(fc.pts[0].sx, fc.pts[0].sy);
@@ -38973,6 +39209,41 @@ function campGlow(ctx, cam, x, y, z, rgb, s0, alpha) {
 function campLive(ctx, cam, alpha, now, fn) {
   if (CAMP_REC) campRec({ t: 5, fn }); else fn(ctx, cam, 0, 0, alpha, now);
 }
+// ── A RECORDED CAMP FILL STRAIGHT TO THE DECAL SINK ───────────────────────────────────────────
+// emitDecoFill projects each corner and unprojects it with a pull, and with `signSquare` that pull
+// is ONE fraction of every corner's own depth (unprojQuad): each corner slides along its own ray to
+// (1 − frac) of the way out. That is a uniform scale about the eye, so it can be done in world space
+// from the depths alone — no projection there and back, which was most of a camp's replay (~1,100
+// fills a frame in Old Coldwater). Returns false, and the caller takes the old path, whenever that
+// path would do anything else: a corner near the eye (campClip would cut it), no GL decals, or the
+// non-square pull.
+function campFillFast(cam, r, dx, dy, alpha) {
+  if (!DECAL_SINK || SHAPE_SINK || !cam.unproj || !cam.rawF || !TUNE.glDeco || !RENDER_TUNE.signSquare) return false;
+  const W = r.W, n = W.length;
+  if (n < 3) return false;
+  let sum = 0;
+  const d = CAMP_D.length >= n ? CAMP_D : (CAMP_D = new Array(n));
+  for (let i = 0; i < n; i++) {
+    const p = W[i], f = cam.rawF(p[0] + dx, p[1] + dy, p[2]);
+    if (!(f > 0.13)) return false;
+    d[i] = f; sum += f;
+  }
+  const pull = PULL_OFF ? 0 : Math.min(r.lift === undefined ? DECO_LIFT : r.lift, DECO_PULL);   // emitDecoFill's own default
+  const fm = sum / n;
+  const k = pull > 0 ? 1 - Math.min(0.5, pull / fm) : 1;
+  const ex = cam.fx - cam.back * cam.sinh, ey = cam.fy + cam.back * cam.cosh, ez = cam.EH;
+  const w = new Array(n);
+  for (let i = 0; i < n; i++) {
+    const p = W[i];
+    w[i] = [ex + (p[0] + dx - ex) * k, ey + (p[1] + dy - ey) * k, ez + (p[2] - ez) * k];
+  }
+  const KEY = r._key || (r._key = (r.tag ? r.tag + '|' : '') + 'solid|' + r.css), IMG = solidTex(r.css);
+  if (n === 3) DECAL_SINK.push({ key: KEY, img: IMG, alpha, solid: false, lit: false, p: [w[0], w[1], w[2], w[2]] });
+  else if (n === 4) DECAL_SINK.push({ key: KEY, img: IMG, alpha, solid: false, lit: false, p: w });
+  else for (let i = 1; i + 1 < n; i++) DECAL_SINK.push({ key: KEY, img: IMG, alpha, solid: false, lit: false, p: [w[0], w[i], w[i + 1], w[i + 1]] });
+  return true;
+}
+let CAMP_D = [];
 function campReplay(ctx, cam, list, dx, dy, alpha, now) {
   const ex = (cam.ex || 0) - dx, ey = (cam.ey || 0) - dy, ez = cam.EH || 0;
   const T = (p) => [p[0] + dx, p[1] + dy, p[2]];
@@ -38986,7 +39257,7 @@ function campReplay(ctx, cam, list, dx, dy, alpha, now) {
       if (!ok) continue;
     }
     switch (r.t) {
-      case 0: { const q = campClip(cam, r.W.map(T)); if (q) emitDecoFill(ctx, cam, q, r.css, alpha * r.a, r.lift, r.tag); break; }
+      case 0: { if (campFillFast(cam, r, dx, dy, alpha * r.a)) break; const q = campClip(cam, r.W.map(T)); if (q) emitDecoFill(ctx, cam, q, r.css, alpha * r.a, r.lift, r.tag); break; }
       case 1: { const q = campClip(cam, r.W.map(T)); if (q) clothFill(ctx, cam, q, r.css, alpha, DECO_LIFT * 0.1, r.tag, 'cloth', true); break; }
       case 2: emitWire(ctx, cam, T(r.A), T(r.B), r.px, r.css, alpha * r.a, r.o); break;
       case 3: glowPool(ctx, cam, r.x + dx, r.y + dy, r.z, r.rgb, r.s0, alpha * r.a); break;
@@ -52049,7 +52320,11 @@ function drawTypeModelArm(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E
         // than a stack of quads, because an arch is the whole vocabulary of this building and a
         // stepped one reads as a mistake at every distance. Fourteen segments: this is the part of
         // the model a driver stops in front of, and a curve is where the faces are worth spending.
+        // On the GL path these flats are already in the mesh and emitFlat would drop every one
+        // (FLAT_OFF, solid rgb fills, no `paint`), so skip building and projecting them at all.
+        const flatsDropped = FLAT_OFF && !MESH_SINK && !SHAPE_SINK;
         const arched = (O, A, N, cu, hwd, z0, z1, fill, lift) => {
+          if (flatsDropped) return;
           const zs = z1 - hwd, P = [], eps = standOff(lift);
           const put = (u, z) => P.push([O[0] + (cu + u) * A[0] + N[0] * eps,
                                         O[1] + (cu + u) * A[1] + N[1] * eps, z]);
@@ -52064,6 +52339,7 @@ function drawTypeModelArm(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E
         // ironwork inside one, and both take their winding from the same `facing` so neither can
         // end up shaded as a face turned into the building.
         const panel = (O, A, N, u0, u1, z0, z1, fill, lift) => {
+          if (flatsDropped) return;
           const eps = standOff(lift);
           const put = (u, z) => [O[0] + u * A[0] + N[0] * eps, O[1] + u * A[1] + N[1] * eps, z];
           emitFlat(ctx, cam, facing([put(u0, z1), put(u1, z1), put(u1, z0), put(u0, z0)], N[0], N[1])

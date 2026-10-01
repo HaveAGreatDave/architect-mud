@@ -367,7 +367,7 @@ function buildRoom(G) {
 // ── THE SHELL, AS interior-shell.js CALLS IT ─────────────────────────────────
 function reaperShell(P, live, push, rich) {
   const D = P.reaper;
-  for (const f of D.faces) push([{ p: f.p, n: f.n }], f.tone, f.k, false, f.rgb, f.emis || 0);
+  for (const f of D.faces) push(f.one || (f.one = Object.assign([{ p: f.p, n: f.n }], { stable: true })), f.tone, f.k, false, f.rgb, f.emis || 0);
   // The frame and the things bolted to the room that nothing moves: built once, kept.
   if (!D.frameStatic) {
     const acc = [];

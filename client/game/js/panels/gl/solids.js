@@ -105,11 +105,25 @@ flat out int vTex;
 #ifdef CABIN
 in vec3 aCN; in vec4 aCA; in vec4 aCB; in vec4 aCC; in vec3 aR0; in vec3 aR1; in vec3 aMA;
 centroid out vec3 vCN; flat out vec4 vCA; flat out vec4 vCB; flat out vec4 vCC; flat out vec3 vR0; flat out vec3 vR1; flat out vec3 vMA;
+// The seat's attitude (seatAttitude in windshield.js), applied to the cab-local point before the
+// model matrix: look yaw, the anisotropic roll and the screen shear on points ahead of the eye.
+// x,y = cos/sin look yaw, z,w = cos/sin roll; B = D/FL, FL/D, shear r/f, shear u/f. Off = identity.
+uniform vec4 uAttA; uniform vec4 uAttB; uniform float uAttOn;
+vec3 seatAtt(vec3 q) {
+  if (uAttOn < 0.5) return q;
+  float cy = uAttA.x, sy = uAttA.y, cb = uAttA.z, sb = uAttA.w;
+  float f = q.y * cy + q.x * sy, r = q.x * cy - q.y * sy, u = q.z;
+  float r2 = r * cb + uAttB.x * u * sb, u2 = u * cb - uAttB.y * r * sb;
+  if (f > 0.0) { r2 += uAttB.z * f; u2 -= uAttB.w * f; }
+  return vec3(r2 * cy + f * sy, f * cy - r2 * sy, u2);
+}
+#else
+vec3 seatAtt(vec3 q) { return q; }
 #endif
 void main() {
   // uModel is the identity for every layer but the cab interior (see upload), and multiplying by an
   // exact identity is exact, so the other layers compute what they always did.
-  vec4 wp = uModel * vec4(aPos, 1.0);
+  vec4 wp = uModel * vec4(seatAtt(aPos), 1.0);
   // Under the surface the outline wavers, as anything seen through moving water does. Only below
   // uWaterZ, which is far under the world unless a hull is afloat, so every other solid is untouched.
   float wdz = uWaterZ - wp.z;
@@ -210,6 +224,25 @@ float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32);
 float vnoise(vec2 p) {
   vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y);
+}
+// What a mirror sees. Chrome reads as chrome only by the contrast in what it reflects, and envAt's
+// two gradients have none, so metal reflecting them read as grey paint. This adds a skyline of
+// distant land along the horizon that rises and falls with bearing, and soft cloud banks above it.
+// Bearing is taken from the unit vector, not atan, so there is no seam behind the eye. 'w' is the
+// horizon's half-width: wide for a flat plate (see the metal block), a pixel's spread for a curve.
+vec3 envRich(vec3 R, float w) {
+  float rz = R.z;
+  vec2 az = normalize(R.xy + vec2(1e-5));
+  vec3 hot = mix(uSkyHor, vec3(1.0, 0.98, 0.925), 1.0 - uNight);
+  vec3 sky = mix(uSkyHor, uSkyTop, clamp(rz * 1.8, 0.0, 1.0));
+  float cl = smoothstep(0.45, 0.8, vnoise(az * 3.0 + vec2(rz * 7.0, 11.0))) * smoothstep(0.03, 0.15, rz) * (1.0 - smoothstep(0.45, 0.85, rz));
+  sky = mix(sky, hot, cl * 0.45);
+  vec3 gnd = mix(uSkyHor * vec3(0.5, 0.5, 0.48), vec3(40.0, 44.0, 36.0) / 255.0 * (1.0 - uNight * 0.8), clamp(-rz * 3.0, 0.0, 1.0));
+  float ridge = 0.012 + 0.055 * vnoise(az * 2.5 + vec2(3.1, 7.7)) + 0.018 * vnoise(az * 9.0 + vec2(1.3));
+  vec3 env = mix(gnd, sky, smoothstep(-w, w, rz));
+  env = mix(env, hot, exp(-pow(rz - ridge, 2.0) / 0.0012) * 0.45);
+  vec3 land = mix(gnd, uSkyHor, 0.3) * 0.62;
+  return mix(env, land, smoothstep(w, -w, rz - ridge) * smoothstep(-w, w, rz));
 }
 // How much of a feature of freq cycles per metre survives at this pixel's footprint.
 float fade(float freq, float px) { return clamp(1.6 - px * freq * 2.2, 0.0, 1.0); }
@@ -388,7 +421,10 @@ vec3 cabinShade(vec3 base) {
         vec3 sky = mix(vec3(0.894, 0.910, 0.925), vec3(0.463, 0.620, 0.839), clamp(hz * 1.6, 0.0, 1.0));
         vec3 gnd = mix(vec3(0.588, 0.549, 0.463), vec3(0.227, 0.251, 0.196), clamp(-hz * 3.0, 0.0, 1.0));
         env = mix(gnd, sky, clamp(hz * 30.0 + 0.5, 0.0, 1.0));
-        env = mix(env, vec3(1.0, 0.988, 0.941), exp(-(hz * hz) / 0.0009) * 0.6);
+        // A skyline out the glass, so cabin chrome has an edge to reflect (envRich).
+        float ridge = 0.015 + 0.05 * vnoise(normalize(rr.xy + vec2(1e-5)) * 2.5 + vec2(3.1, 7.7));
+        env = mix(env, vec3(1.0, 0.988, 0.941), exp(-pow(hz - ridge, 2.0) / 0.0009) * 0.6);
+        env = mix(env, mix(gnd, sky, 0.3) * 0.62, smoothstep(0.012, -0.012, hz - ridge) * clamp(hz * 60.0, 0.0, 1.0));
         env = mix(env * 0.06, env, day);
         env = mix(uCabEnvOn > 0.5 ? uCabBack : vec3(0.180, 0.110, 0.063), env, clamp((rr.y + 0.15) * 4.0, 0.0, 1.0));
       } else {
@@ -529,7 +565,9 @@ void main() {
     // sharp horizon in envAt turns the whole plate into one colour at once (the square of sky beside
     // the minigun). envSoft has no horizon line, only a slow gradient, so the small change in R.z
     // across a plate reads as a sheen running over it rather than a switch.
-    vec3 env = flatPlate ? envSoft(R.z) : envAt(R.z);
+    // envRich at a wide horizon keeps the plate from switching all at once and still gives it a
+    // skyline to carry; a curve gets the horizon as sharp as its pixels allow, no sharper (shimmer).
+    vec3 env = flatPlate ? envRich(R, 0.2) : envRich(R, max(0.012, fwidth(R.z) * 1.5));
     float fres = pow(1.0 - clamp(abs(dn), 0.0, 1.0), 5.0);
     if (mtl > 0.0) {
       // Tinted by the metal, but never below a floor: dark gun metal still reflects a good share of
@@ -626,6 +664,7 @@ export function createSolidsLayer(gl, opt = {}) {
     alpha: gl.getAttribLocation(prog, 'aAlpha'),
     viewProj: gl.getUniformLocation(prog, 'uViewProj'),
     model: gl.getUniformLocation(prog, 'uModel'),
+    attA: gl.getUniformLocation(prog, 'uAttA'), attB: gl.getUniformLocation(prog, 'uAttB'), attOn: gl.getUniformLocation(prog, 'uAttOn'),
     nScale: gl.getUniformLocation(prog, 'uNScale'),
     fog: gl.getUniformLocation(prog, 'uFog'),
     fogNear: gl.getUniformLocation(prog, 'uFogNear'),
@@ -762,7 +801,11 @@ export function createSolidsLayer(gl, opt = {}) {
     const last = dirty.length ? dirty[dirty.length - 1] : null;
     if (last && a - last[1] <= 3 * ST) last[1] = b; else dirty.push([a, b]);
   }
-  function upload(quads, mdl = null, lt = null) {
+  // `att` is the seat's attitude for the cab (see seatAtt in the vertex shader), so a banked or
+  // pitched seat still sends local points and stays incremental.
+  let attP = null;
+  function upload(quads, mdl = null, lt = null, att = null) {
+    attP = att;
     light = lt; shadowDirty = !!(lt && lt.lightMat);
     count = quads && quads.length ? tris(quads) : 0;
     filmAt = count;
@@ -922,6 +965,11 @@ export function createSolidsLayer(gl, opt = {}) {
     // draw, and the whole room clips away to nothing. See drawInterior.
     gl.uniformMatrix4fv(loc.viewProj, false, viewProjMatrix(cam, cssH, opts.near, opts.far));
     gl.uniformMatrix4fv(loc.model, false, model || IDENT);
+    if (cabin) {
+      const A = model ? attP : null;
+      gl.uniform1f(loc.attOn, A ? 1 : 0);
+      if (A) { gl.uniform4f(loc.attA, A.cy, A.sy, A.cb, A.sb); gl.uniform4f(loc.attB, A.kr, A.ku, A.hr, A.hu); }
+    }
     gl.uniform1f(loc.nScale, model ? 1 / Math.hypot(model[0], model[1], model[2]) : 1);
     const f = opts.fog;
     gl.uniform3f(loc.fog, f ? f.col[0] : 0, f ? f.col[1] : 0, f ? f.col[2] : 0);

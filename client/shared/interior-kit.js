@@ -273,8 +273,8 @@ export function makeKit(push, fwd = true) {
         if (s >= 0) { sky.push([ca + px, cb + pz]); gnd.push([ca + px - nx * s, cb + pz - nz * s]); }
         else { gnd.push([ca + px, cb + pz]); sky.push([ca + px - nx * s, cb + pz - nz * s]); }
       }
-      plate(sky, C.sky, 0.45, 0.002);
-      plate(gnd, C.ground, 0.40, 0.002);
+      plate(sky, C.sky, 0.45, 0.0028);
+      plate(gnd, C.ground, 0.40, 0.0028);
       // The horizon bar itself, and two pitch ladder rungs either side of it.
       for (const [dv, w] of [[0, 0.95], [R * 0.33, 0.35], [-R * 0.33, 0.35]]) {
         const cx = ca - nx * (off - dv), cz = cb - nz * (off - dv);
@@ -298,7 +298,7 @@ export function makeKit(push, fwd = true) {
     // A rose that turns under a fixed lubber line, north in red. Heading-up, like the real one.
     function compass(ca, cb, R, hdgDeg) {
       annulus(ca, cb, R, R * 1.16, C.bezel, 0.04, 0.004, 22);
-      disc(ca, cb, R, C.face, 0, 0.001, 22);
+      disc(ca, cb, R, C.face, 0, 0.0025, 22);   // 2.5 mm: at 1 mm it z-fought the Drake pod plate under it
       const h = (hdgDeg || 0) * Math.PI / 180;
       for (let i = 0; i < 36; i++) {
         const t = Math.PI / 2 + h - (i / 36) * TAU, big = i % 9 === 0;

@@ -4343,6 +4343,7 @@ export function openFlightSim(opts = {}) {
     };
     const dragEnd = () => {
       if (F.dkRudHold) { if (F.pedalKey === F.dkRudHold) F.pedalKey = 0; F.dkRudHold = 0; }
+      if (F.dkQuackHold) { F.dkQuackHold = false; drakeQuackUp(); }
       if (!dkDrag) return;
       if (dkDrag.kind === 'yoke') F.yokeDrag = false;
       if (dkDrag.kind === 'throttle') F.thrDrag = false;
@@ -4435,7 +4436,9 @@ export function openFlightSim(opts = {}) {
       e.preventDefault(); e.stopImmediatePropagation();
       F.dkPress = { id: best.id, t: performance.now() };   // a flash on the control that was pressed
       if (best.kind !== 'click') view.style.cursor = 'grabbing';
-      if (best.kind === 'click') DK_ACT[best.id]?.(e);
+      // The quack is held, not clicked: it sounds and stays sunk until the window's pointerup (dragEnd).
+      if (best.id === 'quack') { F.dkQuackHold = true; drakeQuackDown(); }
+      else if (best.kind === 'click') DK_ACT[best.id]?.(e);
       // The pedals in the dash-top well are the rudder: held, exactly like the ,/. keys.
       else if (best.kind === 'rudder') { F.dkRudHold = best.id === 'rudderL' ? -1 : 1; F.pedalKey = F.dkRudHold; }
       else dragStart(best.kind, e, best.kind === 'yoke' ? 110 : 90);

@@ -481,7 +481,7 @@ function buildRoom(G) {
 
 // ── THE SHELL, AS interior-shell.js CALLS IT ─────────────────────────────────
 function carcassShell(P, live, push, rich) {
-  for (const f of P.carcass.faces) push([{ p: f.p, n: f.n }], f.tone, f.k, false, f.rgb, f.emis, f.mat);
+  for (const f of P.carcass.faces) push(f.one || (f.one = Object.assign([{ p: f.p, n: f.n }], { stable: true })), f.tone, f.k, false, f.rgb, f.emis, f.mat);
   if (rich) carcassFit(P, live, push);
 }
 

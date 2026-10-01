@@ -409,9 +409,9 @@ function buildRoom({ S, P3, inner, toShell, iFront, iBack, zFloor, halfAt, X, Y,
 // ── THE SHELL, AS interior-shell.js CALLS IT ─────────────────────────────────
 function mayflyShell(P, live, push, rich) {
   const D = P.mayfly;
-  for (const f of D.faces) push([{ p: f.p, n: f.n }], f.tone, f.k, false, f.rgb, f.emis || 0);
+  for (const f of D.faces) push(f.one || (f.one = Object.assign([{ p: f.p, n: f.n }], { stable: true })), f.tone, f.k, false, f.rgb, f.emis || 0);
   if (!D.fixed) D.fixed = recordFixed(P);
-  for (const f of D.fixed) push([{ p: f.p, n: f.n }], f.tone, f.k, f.fwd, f.rgb, f.emis);
+  for (const f of D.fixed) push(f.one || (f.one = Object.assign([{ p: f.p, n: f.n }], { stable: true })), f.tone, f.k, f.fwd, f.rgb, f.emis);
   if (rich) mayflyFit(P, live, push);
   else seatsOnly(P, push);
 }

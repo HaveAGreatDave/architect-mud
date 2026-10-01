@@ -1639,7 +1639,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   const room = (opts.ship || []).filter((f) => f.interior);
   const rig = room.length ? (opts.ship || []).filter((f) => !f.interior) : opts.ship;
   if (g.view.uploadSolids) g.view.uploadSolids([rig, opts.bay, opts.fauna]);
-  if (g.view.uploadInterior) g.view.uploadInterior(room, (opts.ship && opts.ship.interiorModel) || null, (opts.ship && opts.ship.interiorLight) || null);
+  if (g.view.uploadInterior) g.view.uploadInterior(room, (opts.ship && opts.ship.interiorModel) || null, (opts.ship && opts.ship.interiorLight) || null, (opts.ship && opts.ship.interiorAtt) || null);
   const mirrorGain = opts.glMirror > 0 ? opts.glMirror : 0;
   // ⚠ AND THE SEA WANTS IT TOO, WHICH IS WHY THIS GATE IS NO LONGER ONLY ABOUT WET TARMAC. The
   // prepass was gated on 'glWet' because a puddle was its only client; over open water in clear

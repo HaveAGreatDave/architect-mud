@@ -395,7 +395,7 @@ function buildStatic(P) {
 function levShell(P, live, push, rich) {
   const L = P.lev;
   if (!L.staticFaces) buildStatic(P);
-  for (const f of L.staticFaces) push([{ p: f.p, n: f.n }], f.tone, f.k, f.fwd, f.rgb, f.emis, f.mat);
+  for (const f of L.staticFaces) push(f.one || (f.one = Object.assign([{ p: f.p, n: f.n }], { stable: true })), f.tone, f.k, f.fwd, f.rgb, f.emis, f.mat);
   if (rich) liveFit(P, live, push);
 }
 
