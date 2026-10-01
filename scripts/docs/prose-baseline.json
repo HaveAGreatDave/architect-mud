@@ -99,6 +99,7 @@
       "caps-run": 2
     },
     "content/npcs": {
+      "object-contraction": 1,
       "negative-parallelism": 46,
       "constructed-irony": 17,
       "staged-reveal": 2,
@@ -124,7 +125,7 @@
       "constructed-irony": 54,
       "aphoristic-closer": 4,
       "fiction-cliche": 34,
-      "caps-run": 129,
+      "caps-run": 128,
       "em-dash": 264,
       "over-length": 720
     },
@@ -243,7 +244,7 @@
       "em-dash": 78
     },
     "docs/devpanel-js.md": {
-      "em-dash": 142
+      "em-dash": 138
     },
     "docs/flags-keys.md": {
       "vocab": 1,
@@ -282,7 +283,7 @@
       "jargon-metaphor": 36,
       "aphoristic-closer": 5,
       "caps-run": 11,
-      "em-dash": 569
+      "em-dash": 567
     },
     "docs/proposals/ascendant-stronghold.md": {
       "jargon-metaphor": 2,
@@ -545,7 +546,7 @@
     "docs/server.md": {
       "jargon-metaphor": 2,
       "caps-run": 7,
-      "em-dash": 127
+      "em-dash": 126
     },
     "docs/systems-accessibility.md": {
       "jargon-metaphor": 1,
@@ -783,7 +784,7 @@
       "constructed-irony": 5,
       "aphoristic-closer": 6,
       "caps-run": 70,
-      "em-dash": 904
+      "em-dash": 902
     },
     "docs/systems-unrest.md": {
       "jargon-metaphor": 4,
@@ -1049,7 +1050,7 @@
       "em-dash": 6
     },
     "plugins/graffiti/README.md": {
-      "em-dash": 23
+      "em-dash": 21
     },
     "plugins/hackrig/README.md": {
       "aphoristic-closer": 1,
