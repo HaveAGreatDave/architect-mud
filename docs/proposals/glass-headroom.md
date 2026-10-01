@@ -80,18 +80,23 @@ What the first attempt found (in a cloud container, SwiftShader, no GPU):
 
 ## Stage 1b: an allocation budget
 
-**Started 2026-10-01.**
+**Built 2026-10-01.**
 
 Frame time on a shared machine swings 3x between runs; bytes allocated per frame don't. So the
 measure that later stages are judged on is allocation, taken headless.
 
-- A script paints a fixed real scene (Halcyon, cab and cockpit) headless with the GL path on (a
-  stub hook that reports a canvas), under V8's sampling heap profiler with collected objects kept,
-  and prints MB per frame and the top allocating functions.
-- A gate holds MB per frame on that scene against a committed baseline and fails a rise over 10%.
-- An exactness checker paints the same views with a `RENDER_TUNE` switch off and on and compares
-  every sink (sprites, strokes, decals, scatter, ground, bay, curtain) and every canvas call with
-  its arguments. This is how the 2026-10-01 work was checked; it's what Stages 2-3 need.
+- `npm run perf:alloc` ([scripts/perf/alloc.mjs](../../scripts/perf/alloc.mjs)) paints real
+  Coldwater headless with the GL path on (a stub hook that reports a canvas, from
+  [scene.mjs](../../scripts/perf/scene.mjs)) under V8's sampling heap profiler with collected
+  objects kept. `--detail` lists the top allocating functions; `--tune groundCache=0` measures one
+  switch. It's a gate in the `shapes` group: MB per frame against `scripts/perf/alloc.json`, failing
+  a rise over 10%. Run to run it moved under 2%. Baseline: Halcyon cab 12.9, Halcyon cockpit 24.7,
+  residential cockpit 20.0 MB a frame. With `groundCache` and `flatSkip` off it fails by 29-40%.
+- `npm run perf:exact -- <tuneKey> [off] [on]` ([scripts/perf/exact.mjs](../../scripts/perf/exact.mjs))
+  paints 60 views (5 places, cab and cockpit, noon and night, 3 headings) with a switch off and on
+  and compares every sink (sprites, strokes, decals, scatter, ground, bay, curtain, ship) to 1e-9
+  and every canvas draw with its path, style and transform. `groundCache`, `flatSkip`, `decoFast`
+  and `itemPool` pass; `roadArc 1 0` fails, as it should. About 14 s.
 - ⚠ The DOM stub hands out a fresh 2-D context per `getContext`, so a cache keyed on a context
   (bakeQuadTex) misses every time headless. A top allocator that's a bake is that, not a finding:
   check it in the browser before chasing it.

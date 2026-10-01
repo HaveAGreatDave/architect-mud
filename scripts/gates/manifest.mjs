@@ -98,6 +98,7 @@ export const GROUPS = [
       'scripts/shapes/walltex.mjs',
       'scripts/shapes/pathreuse.mjs',
       'scripts/shapes/framecost.mjs',
+      'scripts/perf/alloc.mjs',          // MB allocated a frame over real Coldwater, against scripts/perf/alloc.json
       'scripts/shapes/glparity.mjs',
       'scripts/shapes/glmirror.mjs',
       'scripts/shapes/atlasfit.mjs',

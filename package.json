@@ -35,6 +35,8 @@
     "imports:smoke": "node scripts/imports/smoke.mjs",
     "auth:smoke": "node scripts/auth/smoke.mjs",
     "shapes:smoke": "node scripts/gates/run.mjs shapes",
+    "perf:alloc": "node scripts/perf/alloc.mjs",
+    "perf:exact": "node scripts/perf/exact.mjs",
     "rink:smoke": "node scripts/shapes/rink-smoke.mjs",
     "chess3d:smoke": "node scripts/shapes/chess3d-smoke.mjs",
     "ws:smoke": "node scripts/net/ws-smoke.mjs",
