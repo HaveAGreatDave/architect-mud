@@ -84,6 +84,10 @@ in float aTex;
 uniform mat4 uViewProj;
 uniform mat4 uModel;
 uniform float uNScale;
+// The own ship's layer: its model matrix scales height unevenly (CONTACT_VS), so its normals take
+// the inverse-transpose rather than mat3(uModel). Every draw sets uNMatOn; see setShip.
+uniform mat3 uNMat;
+uniform float uNMatOn;
 uniform float uFogNear;
 uniform float uFogFar;
 uniform float uFogAmt;
@@ -135,7 +139,7 @@ void main() {
   gl_Position = clip;
   vColor = aColor;
   vAlpha = aAlpha;
-  vPos = wp.xyz; vN = mat3(uModel) * aNormal * uNScale; vMetal = aMetal;
+  vPos = wp.xyz; vN = uNMatOn > 0.5 ? uNMat * aNormal : mat3(uModel) * aNormal * uNScale; vMetal = aMetal;
   vLocal = aLocal; vTex = int(aTex + 0.5);
 #ifdef CABIN
   vCN = aCN; vCA = aCA; vCB = aCB; vCC = aCC; vR0 = aR0; vR1 = aR1; vMA = aMA;
@@ -168,6 +172,9 @@ uniform float uWaterZ;
 uniform float uWaterT;
 uniform float uUnder;   // 0..1, how far under the eye is: the cockpit seen from inside the sea
 uniform float uUnderD;  // metres of water over the eye: caustics fade and blur with it
+uniform vec3 uLmSun;    // the own ship's sun term (setShip); off on every other draw
+uniform float uLmOn;
+uniform float uLmK;
 out vec4 outColor;
 // ── THE CAUSTIC NET, AS REAL ONES BEHAVE ──────────────────────────────────────────────────────
 // Bright lines where drifting ripples cross zero, anchored in the WORLD so on a moving hull they slide
@@ -546,6 +553,9 @@ void main() {
   // carries a normal takes the tint of the half of the world it faces — sky above, ground below —
   // and a belly facing the ground goes a shade darker. Hue from the environment, not brightness,
   // or the night sky would just black the model out.
+  // THE OWN SHIP'S SUN TERM, moved here from drawAircraftModel so its faces stay the same from frame
+  // to frame: 0.82 + 0.5 · max(0, n·sun) · strength, on the face's own normal, as the CPU baked it.
+  if (uLmOn > 0.5 && dot(vN, vN) > 0.01) c *= 0.82 + 0.5 * max(0.0, dot(normalize(vN), uLmSun)) * uLmK;
   if (dot(vN, vN) > 0.01 && vMetal <= 0.0) {
     vec3 na = normalize(vN);
     vec3 a = envAt(na.z * 0.5);
@@ -603,7 +613,9 @@ void main() {
   {
     float dz = uWaterZ - vPos.z;
     if (dz > 0.0) {
-      vec3 ext = exp(-dz * vec3(70.0, 28.0, 18.0));
+      // Per tile (7 m): red is mostly gone a couple of metres down, blue still half there at four.
+      // It was 70/28/18, which turned anything a metre under into a flat teal shape.
+      vec3 ext = exp(-dz * vec3(4.0, 1.4, 0.9));
       // Seen through a moving surface: the light on her ripples in bands (caustics) that slide with
       // the water, and the colour wavers with them. Fades in over the first few centimetres of depth.
       float wob = sin(vPos.x * 420.0 + sin(vPos.y * 310.0 + uWaterT * 2.1) * 2.0 + uWaterT * 1.6)
@@ -665,6 +677,8 @@ export function createSolidsLayer(gl, opt = {}) {
     viewProj: gl.getUniformLocation(prog, 'uViewProj'),
     model: gl.getUniformLocation(prog, 'uModel'),
     attA: gl.getUniformLocation(prog, 'uAttA'), attB: gl.getUniformLocation(prog, 'uAttB'), attOn: gl.getUniformLocation(prog, 'uAttOn'),
+    nMat: gl.getUniformLocation(prog, 'uNMat'), nMatOn: gl.getUniformLocation(prog, 'uNMatOn'),
+    lmSun: gl.getUniformLocation(prog, 'uLmSun'), lmOn: gl.getUniformLocation(prog, 'uLmOn'), lmK: gl.getUniformLocation(prog, 'uLmK'),
     nScale: gl.getUniformLocation(prog, 'uNScale'),
     fog: gl.getUniformLocation(prog, 'uFog'),
     fogNear: gl.getUniformLocation(prog, 'uFogNear'),
@@ -704,7 +718,7 @@ export function createSolidsLayer(gl, opt = {}) {
 
   // A fan, so a triangle, a quad and the occasional ring out of the mesh builders all go through
   // one loop — the same shape ground.js fills for the same reason.
-  const tris = (list) => list.reduce((n, q) => n + Math.max(0, q.p.length - 2) * 3, 0);
+  const tris = (list) => list.reduce((n, q) => n + Math.max(0, (q.mp || q.p).length - 2) * 3, 0);   // `mp` first: a cab record solves `p` only when read
 
   // ── FILM: THE TRANSLUCENT THINGS A SOLID CARRIES ─────────────────────────────
   // A quad marked `film` (a rotor blade, its blur disc) is tested against depth and writes none, and
@@ -735,14 +749,27 @@ export function createSolidsLayer(gl, opt = {}) {
     b.push(e);
     return e.l;
   }
+  // ⚠ A RECORD CAN COME BACK NEXT FRAME (the own ship's do, see drawAircraftModel), so this must be
+  // idempotent: the flat-plate tag is applied to the record's ORIGINAL metal value (`m0`), never to
+  // a value it already tagged. Points are grouped in the record's own frame (`mp`) where it has one,
+  // so the answer does not move with the model; and when every metal record is the same object as
+  // last time, last time's normals are still right and the work is skipped.
+  let smoothedLast = [];
   function smooth(quads) {
+    const metals = [];
+    for (const q of quads) if (q.m && q.n) metals.push(q);
+    let same = metals.length === smoothedLast.length;
+    for (let i = 0; same && i < metals.length; i++) if (metals[i] !== smoothedLast[i]) same = false;
+    smoothedLast = metals;
+    if (same && metals.length) { for (const q of metals) if (q.env) env = q.env; return; }
     const at = new Map();
-    for (const q of quads) if (q.m && q.n) for (const v of q.p) smoothCell(at, v, true).push(q.n);
-    for (const q of quads) {
-      if (!(q.m && q.n)) continue;
+    for (const q of metals) for (const v of (q.mp || q.p)) smoothCell(at, v, true).push(q.n);
+    for (const q of metals) {
+      if (q.m0 === undefined) q.m0 = q.m;
+      q.m = q.m0;
       if (q.env) env = q.env;
       let curved = false;
-      q.vn = q.p.map((v) => {
+      q.vn = (q.mp || q.p).map((v) => {
         let x = 0, y = 0, z = 0;
         for (const m of smoothCell(at, v, false) || []) {
           const d = m[0] * q.n[0] + m[1] * q.n[1] + m[2] * q.n[2];
@@ -804,8 +831,12 @@ export function createSolidsLayer(gl, opt = {}) {
   // `att` is the seat's attitude for the cab (see seatAtt in the vertex shader), so a banked or
   // pitched seat still sends local points and stays incremental.
   let attP = null;
-  function upload(quads, mdl = null, lt = null, att = null) {
-    attP = att;
+  // `ship` is the own ship's frame state when this layer carries it in model space: `nmat` the
+  // normal matrix, `sun`/`k` the sun term the CPU used to bake into every face (see the fragment
+  // shader). Only read while a model matrix is set.
+  let shipP = null;
+  function upload(quads, mdl = null, lt = null, att = null, ship = null) {
+    attP = att; shipP = ship;
     light = lt; shadowDirty = !!(lt && lt.lightMat);
     count = quads && quads.length ? tris(quads) : 0;
     filmAt = count;
@@ -844,7 +875,7 @@ export function createSolidsLayer(gl, opt = {}) {
     const put1 = (q) => {
       const c = q.rgb, qa = q.a == null ? 1 : q.a;
       const r = c ? c[0] / 255 : 0, g = c ? c[1] / 255 : 0, b = c ? c[2] / 255 : 0;
-      const mk = q.m || 0, tx = q.tex || 0, len = q.p.length;
+      const mk = q.m || 0, tx = q.tex || 0, len = (q.mp || q.p).length;
       const slot = qi++, a0 = o;
       if (incr && !full && slotQ[slot] === q && slotO[slot] === a0) { o += Math.max(0, len - 2) * 3 * ST; return; }
       for (let i = 1; i + 1 < len; i++) { put(q, r, g, b, qa, mk, tx, 0); put(q, r, g, b, qa, mk, tx, i); put(q, r, g, b, qa, mk, tx, i + 1); }
@@ -965,6 +996,13 @@ export function createSolidsLayer(gl, opt = {}) {
     // draw, and the whole room clips away to nothing. See drawInterior.
     gl.uniformMatrix4fv(loc.viewProj, false, viewProjMatrix(cam, cssH, opts.near, opts.far));
     gl.uniformMatrix4fv(loc.model, false, model || IDENT);
+    // ⚠ SET ON EVERY DRAW, ON or OFF. A prewarmed program can be shared by more than one layer, and a
+    // uniform left on by the ship's draw would light the next layer's faces with the ship's sun.
+    const S = model ? shipP : null;
+    gl.uniform1f(loc.nMatOn, S && S.nmat ? 1 : 0);
+    if (S && S.nmat) gl.uniformMatrix3fv(loc.nMat, false, S.nmat);
+    gl.uniform1f(loc.lmOn, S && S.sun ? 1 : 0);
+    if (S && S.sun) { gl.uniform3f(loc.lmSun, S.sun[0], S.sun[1], S.sun[2]); gl.uniform1f(loc.lmK, S.k || 0); }
     if (cabin) {
       const A = model ? attP : null;
       gl.uniform1f(loc.attOn, A ? 1 : 0);

@@ -5045,8 +5045,11 @@ function stepCrashBreakup(F, now) {
   const wreckFx = null;                                   // no fire/smoke — she just comes apart and crumples
   paintWindshield('fsim-ws', {
     external: true, hideOwnShip: false, phase: 'cruise', worldBlend: 1,
-    cls: F.cls, heading: C.hdg, bank, pitch, livery: F.livery, gearAnim: F.gearAnim ?? 1,
-    enginePct: 0, engineOn: false, breakup: { t, parts, state: C }, wreckFx,
+    // The same airframe and paint the chase view was drawing a moment ago: a Drake's livery variant
+    // is a different mesh, and leaving it off broke a painted Drake up into stock parts.
+    cls: F.cls, armed: F.cls === 'heli' && F.hardpoints > 0, heading: C.hdg, bank, pitch, livery: F.livery,
+    ...(F.cls === 'drake' && F.livery?.variant && F.livery.variant !== 'stock' ? { variant: F.livery.variant } : {}),
+    gearAnim: F.gearAnim ?? 1, enginePct: 0, engineOn: false, breakup: { t, parts, state: C }, wreckFx,
     extYaw: (F.extOrbit || 0) + 26 * t, extPitch: F.extPitch ?? REST_PITCH, extZoom: F.extZoom || 1,
     height, speed: 0, hour: F.sky?.hour, moon: F.sky?.moon, weather: F.sky?.weather, wxField: F.sky?.field, wxGround: F.sky?.ground,
     map: F.map, mapCenter: F.mapCenter, mapOffset: { x: F.pos.x - F.mapCenter.x, y: F.pos.y - F.mapCenter.y },

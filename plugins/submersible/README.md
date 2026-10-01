@@ -19,6 +19,8 @@ The Drake goes under. A salvage frontier on a procedural seabed.
 - The client is told with a `drake_sub` message, and `drake-water.js` puts her in a `submerged` phase: in SUB mode the tail rotor drives her (up to 14 kt), and no wave touches her. She can only dive from BOAT mode, in 3 m of water or more.
 - The view under water is `seabed-scene.js` (the floor, scatter and wrecks as geometry, rebuilt when the camera crosses a tile) and `gl/seabed.js` (the draw). The floor is built 30 tiles round the camera, finer near the eye, and dissolves into the water over its outer third. See [the seabed view](../../docs/reference/glass-notes.md#seabed-view) in glass-notes.
 
+- Her LIGHTS switch is her floods under water: `subLamp` in windshield.js aims a cone off her nose (12° below her pitch), and gl/seabed.js lights the floor, the wrecks and the drifting particles with it and draws the beam in the water. With the eye under, the hull and every other solid take the water's tint and caustics (`uUnder` in gl/solids.js), not the waterline shading, which is for an eye above the surface.
+
 State is RAM only. A restart surfaces every Drake.
 
 ## Not built yet

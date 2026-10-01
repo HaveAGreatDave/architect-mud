@@ -15366,6 +15366,18 @@ function eyeFloor(v) {
   if (v.freeCam) { const o = v.mapOffset || { x: 0, y: 0 }; return Math.min(0.05, floorZAt(o.x + v.freeCam.x, o.y + v.freeCam.y) + 0.04); }
   return v.subHull > 0 ? -200 : 0.05;
 }
+// HER LAMPS UNDER THE WATER (plugins/submersible). The LIGHTS switch, the same `landingLight` the
+// beam over the road reads, becomes a pair of floods on her nose once she is down: a cone that
+// lights the seabed and anything in it, tilted a little below her pitch so the floor ahead is what
+// it finds. Position and direction in window tiles; gl/seabed.js does the light.
+function subLamp(v, off, hullT) {
+  if (!v.landingLight || !(hullT > 0)) return null;
+  const h = (v.ownHdg ?? v.heading ?? 0) * Math.PI / 180;
+  const p = ((v.pitch || 0) - 12) * Math.PI / 180;
+  const fx = Math.sin(h), fy = -Math.cos(h), cp = Math.cos(p);
+  const x = off ? off.x : 0, y = off ? off.y : 0;
+  return { x: x + fx * 0.25, y: y + fy * 0.25, z: -hullT, dx: fx * cp, dy: fy * cp, dz: Math.sin(p) };
+}
 // A CHASE eye goes down with the Drake by itself: the arc is centred on her model, which carries
 // `rideZ`, so the camera sinks exactly as far as she does. ⚠ DON'T ADD `rideZ` TO THE EYE AGAIN. A
 // `chaseSubSink` term did, on top of the arc, and the eye sank twice as fast as the hull. What held
@@ -17270,6 +17282,7 @@ function drawMode7Floor(ctx, W, H, horizonY, depth0, v, sky, gTop, now, sun, cha
           speed: (v.ias || 0) * 0.0025,
           vent: v.drakeVent || null,   // the ballast vents (cockpit.js): bubbles off her flanks
         },
+        lamp: subLamp(v, off, hullT),
       }) : null,
       seaAmp: SEA_NOW.amp,
       sunDir: sun && sun.dir ? sun.dir : [0, 0], sunElev: sun ? (sun.elev || 0) : 0,
@@ -22827,6 +22840,22 @@ const CAB_GPU = new WeakMap();
 // The last frame's cabin light, for a bench or a console to read (cabLightLast).
 let CAB_LIGHT_LAST = null;
 export const cabLightLast = () => CAB_LIGHT_LAST;
+// This frame's cab placement, for an interior record's world points (see the getter in cabFace):
+// solved on first read and kept for the rest of the frame, the same numbers the loop used to write.
+let CAB_XF = null, CAB_XF_ID = 0;
+function cabWorldPoints(rec) {
+  const X = CAB_XF;
+  if (!X) return rec._p || [];
+  if (rec._pf === X.id && rec._p) return rec._p;
+  const fp = rec.mp, n = fp.length, out = rec._p && rec._p.length === n ? rec._p : new Array(n);
+  for (let j = 0; j < n; j++) {
+    const q = X.att ? X.att(fp[j]) : fp[j];
+    const rx = q[0] * X.S, fy = q[1] * X.S;
+    out[j] = [rx * X.ch + fy * X.sh + X.ox, rx * X.sh - fy * X.ch + X.oy, X.ez + q[2] * X.S];
+  }
+  rec._p = out; rec._pf = X.id;
+  return out;
+}
 function pushInteriorShell(cam, v) {
   INTERIOR_NV = null;
   CAB_STREET = null;
@@ -22980,6 +23009,7 @@ function pushInteriorShell(cam, v) {
   const gpu = RENDER_TUNE.cabGPU !== 0;
   const trimKey = gpu ? v.tier + '|' + v.trim + '|' + (cabinMap ? cabin : '') : '';
   let bx0 = Infinity, by0 = Infinity, bz0 = Infinity, bx1 = -Infinity, by1 = -Infinity, bz1 = -Infinity;
+  CAB_XF = { S, ch, sh, ox, oy, ez, att, id: ++CAB_XF_ID };
   const cabFace = (f) => {
     let e = CAB_GPU.get(f);
     if (!e || e.key !== trimKey || e.P !== P) {
@@ -23018,23 +23048,28 @@ function pushInteriorShell(cam, v) {
     // the same slot as last frame. Only the world points move, rewritten in place. A pitched or
     // banked seat too: the GL interior applies `att` in its vertex shader (seatAtt), so the record
     // still carries local points.
+    // ⚠ AND ITS WORLD POINTS ARE WORKED OUT ONLY IF SOMETHING ASKS. The GL interior draws the local
+    // points (`mp`) through the frame's matrix and never reads `p`; the shape gates do. So `p` is a
+    // getter that solves this frame's placement (CAB_XF) on first read and keeps it for the frame.
+    // Recomputing every vertex through `att` every frame was most of the cockpit's sweep:interior.
     let rec = e.rec;
-    const fresh = !rec;
-    const fp = f.p, np = fp.length, wp = fresh ? new Array(np) : rec.p;
-    for (let j = 0; j < np; j++) {
-      const p0 = fp[j];
-      if (p0[0] < bx0) bx0 = p0[0]; if (p0[0] > bx1) bx1 = p0[0];
-      if (p0[1] < by0) by0 = p0[1]; if (p0[1] > by1) by1 = p0[1];
-      if (p0[2] < bz0) bz0 = p0[2]; if (p0[2] > bz1) bz1 = p0[2];
-      const q = att ? att(p0) : p0;
-      const rx = q[0] * S, fy = q[1] * S;
-      const wx = rx * ch + fy * sh + ox, wy = rx * sh - fy * ch + oy, wz = ez + q[2] * S;
-      if (fresh) wp[j] = [wx, wy, wz]; else { const w = wp[j]; w[0] = wx; w[1] = wy; w[2] = wz; }
+    const fp = f.p;
+    if (!rec) {
+      rec = { rgb: e.rgb, a: e.a, interior: 1, lp: fp, tex: texOf(f) || 0, cab: e.cab, mp: fp, _p: null, _pf: -1 };
+      Object.defineProperty(rec, 'p', { enumerable: true, get() { return cabWorldPoints(this); } });
+      let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
+      for (const p0 of fp) {
+        if (p0[0] < x0) x0 = p0[0]; if (p0[0] > x1) x1 = p0[0];
+        if (p0[1] < y0) y0 = p0[1]; if (p0[1] > y1) y1 = p0[1];
+        if (p0[2] < z0) z0 = p0[2]; if (p0[2] > z1) z1 = p0[2];
+      }
+      rec._bb = [x0, y0, z0, x1, y1, z1];
+      e.rec = rec;
     }
-    if (fresh) {
-      rec = { p: wp, rgb: e.rgb, a: e.a, interior: 1, lp: fp, tex: texOf(f) || 0, cab: e.cab };
-      rec.mp = fp; e.rec = rec;
-    }
+    const bb = rec._bb;
+    if (bb[0] < bx0) bx0 = bb[0]; if (bb[3] > bx1) bx1 = bb[3];
+    if (bb[1] < by0) by0 = bb[1]; if (bb[4] > by1) by1 = bb[4];
+    if (bb[2] < bz0) bz0 = bb[2]; if (bb[5] > bz1) bz1 = bb[5];
     OWNSHIP_SINK.push(rec);
   };
   let fi = -1;
@@ -25011,6 +25046,32 @@ function rampTex(a, b) {
 // replaces the fill on the GPU (the Shingles' weathered tarps, `clothTex`). The 2-D fallback still
 // paints `css`, which the caller sets to the page's own base colour, so the two agree at a glance.
 function emitDecoFill(ctx, cam, W, css, alpha, lift = DECO_LIFT, tag = '', solid = false, ramp = null, skin = null) {
+  // ⚠ THE GL PATH WITHOUT THE ROUND TRIP. With `signSquare` the pull is ONE fraction of every
+  // corner's own depth (unprojQuad), so projecting each corner and unprojecting it again is a
+  // uniform scale about the eye, done here from the depths alone (campFillFast is the same thing for
+  // a camp's records, and was checked against this function to 1e-15). Every case the old path would
+  // treat differently falls through to it: a corner near the eye, or one the unproject would clamp.
+  if (DECAL_SINK && !SHAPE_SINK && cam.unproj && cam.rawF && TUNE.glDeco && RENDER_TUNE.signSquare && W.length >= 3 && RENDER_TUNE.decoFast !== 0) {
+    const n = W.length;
+    let sum = 0, fmin = Infinity;
+    for (let i = 0; i < n; i++) { const p = W[i], f = cam.rawF(p[0], p[1], p[2]); if (!(f > 0.1)) { fmin = -1; break; } sum += f; if (f < fmin) fmin = f; }
+    if (fmin > 0) {
+      const pull = PULL_OFF ? 0 : Math.min(lift, DECO_PULL);
+      const k = pull > 0 ? 1 - Math.min(0.5, pull / (sum / n)) : 1;
+      if (fmin * k > 0.06) {
+        const ex = cam.fx - cam.back * cam.sinh, ey = cam.fy + cam.back * cam.cosh, ez = cam.EH;
+        const w = new Array(n);
+        for (let i = 0; i < n; i++) { const p = W[i]; w[i] = [ex + (p[0] - ex) * k, ey + (p[1] - ey) * k, ez + (p[2] - ez) * k]; }
+        const KEY = (tag ? tag + '|' : '') + (skin ? skin.key : ramp ? 'ramp|' + ramp[0] + '|' + ramp[1] : 'solid|' + css),
+              IMG = skin ? skin.img : ramp ? rampTex(ramp[0], ramp[1]) : solidTex(css), SOL = solid && TUNE.glBoardDepth !== 0;
+        const LIT = !!(skin && skin.lit);
+        if (n === 3) DECAL_SINK.push({ key: KEY, img: IMG, alpha, solid: SOL, lit: LIT, p: [w[0], w[1], w[2], w[2]] });
+        else if (n === 4) DECAL_SINK.push({ key: KEY, img: IMG, alpha, solid: SOL, lit: LIT, p: w });
+        else for (let i = 1; i + 1 < n; i++) DECAL_SINK.push({ key: KEY, img: IMG, alpha, solid: SOL, lit: LIT, p: [w[0], w[i], w[i + 1], w[i + 1]] });
+        return;
+      }
+    }
+  }
   const pr = W.map((q) => cam.proj(q[0], q[1], q[2]));
   if (pr.some((q) => q.f <= 0.1)) return;
   const paint = () => {
@@ -36311,6 +36372,7 @@ function glRotorSink(c, cam, Wp) {
 // by LIGHT_PULL (0.05, gl/sprites.js — not imported: windshield.js never imports gl/). Leaves 0.004.
 const AIR_LAMP_PUSH = 0.046;
 let OWN_FACES = null;   // the own ship's faces from this frame's collect pass — see the ⚠ at the face loop
+const SHIP_REC = new WeakMap();   // mesh face → its own-ship GL record and the inputs it was built from
 // ── `seen` FOR A FEW FACES, WITHOUT RASTERISING THE MODEL ───────────────────────────────────────
 // depthPassCommit stamps `seen` from one sample at each face's centre: the model's nearest depth
 // there must be the face's own (within 2%), or deeper for a translucent face, and no world occluder
@@ -36494,6 +36556,33 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     minx = R0.minx; maxx = R0.maxx; miny = R0.miny; maxy = R0.maxy; drawn = R0.drawn;
     if (VEHICLE_PICK) for (const e of R0.pick) VEHICLE_PICK.push(e);
   }
+  // ── ⚠ THE OWN SHIP GOES TO THE GPU IN ITS OWN FRAME ───────────────────────────────────────────
+  // Its faces used to be sent as world points, lit by this frame's sun on the CPU, so every one of
+  // them changed every frame and the whole model was rebuilt and re-uploaded (the Drake: 5,159 faces,
+  // most of an external-view frame). Now each GL record carries the face's LOCAL points (`mp`), a
+  // local normal and its colour WITHOUT the sun term; the frame's placement is one matrix
+  // (OWNSHIP_SINK.shipModel) and the sun term is applied in the shader (OWNSHIP_SINK.shipState, see
+  // solids.js). Only the own ship, never a break-up (its parts fly apart in world space), and only
+  // with glMetal on (off, a metal bakes a camera-dependent reflection into its colour). `glShipLocal`
+  // 0 is the world-space path exactly as it was.
+  const shipLocal = !!(c.collect && c.own && OWNSHIP_SINK && !c.breakup && RENDER_TUNE.glMetal && RENDER_TUNE.glShipLocal !== 0);
+  let glEnvC = null;
+  const glEnvOf = () => glEnvC || (glEnvC = { hor: AIRCRAFT_SKY?.hor, top: AIRCRAFT_SKY?.top, night: AIRCRAFT_SKY?.night ?? (sun?.night || 0), sun: toSun, sunK: sunStr });
+  if (c.collect && c.own && OWNSHIP_SINK) { OWNSHIP_SINK.shipModel = null; OWNSHIP_SINK.shipState = null; }
+  if (shipLocal) {
+    const T = Wp([0, 0, 0]), F = Wp([1, 0, 0]), G = Wp([0, 1, 0]), H = Wp([0, 0, 1]);
+    const L = [F[0] - T[0], F[1] - T[1], F[2] - T[2], G[0] - T[0], G[1] - T[1], G[2] - T[2], H[0] - T[0], H[1] - T[1], H[2] - T[2]];   // columns
+    OWNSHIP_SINK.shipModel = new Float32Array([L[0], L[1], L[2], 0, L[3], L[4], L[5], 0, L[6], L[7], L[8], 0,
+      T[0] + (cam.ox || 0), T[1] + (cam.oy || 0), T[2], 1]);
+    // The normal matrix: the inverse-transpose of L. With L column-major as [a b c] (columns), the
+    // inverse-transpose's columns are (b×c, c×a, a×b) / det.
+    const a3 = [L[0], L[1], L[2]], b3 = [L[3], L[4], L[5]], c3 = [L[6], L[7], L[8]];
+    const cr = (u, v) => [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+    const bc = cr(b3, c3), ca = cr(c3, a3), ab = cr(a3, b3);
+    const det = a3[0] * bc[0] + a3[1] * bc[1] + a3[2] * bc[2] || 1;
+    OWNSHIP_SINK.shipState = { nmat: new Float32Array([bc[0] / det, bc[1] / det, bc[2] / det, ca[0] / det, ca[1] / det, ca[2] / det, ab[0] / det, ab[1] / det, ab[2] / det]),
+      sun: toSun, k: sunStr };
+  }
   if (!ownReuse) for (let face of aircraftFaces(c.cls, detail, !!c.armed, c.variant || '')) {
     const srcFace = face;   // `face` may be swapped for a hinged copy below; the pick sink wants the mesh's own
     if (face.role === 'rotor') continue;                            // spinning surfaces drawn by drawRotorFX below
@@ -36633,7 +36722,9 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     // The cabin's own metals do the same thing indoors (pushInteriorShell).
     if (haveN && cam && cam.EH != null && !c.wreck) {
       mk = metalKOf(face, pal);
-      if (mk) brgb = reflectEnv(brgb, mk, [nx, ny, nz], [cx3 - (cam.ex || 0), cy3 - (cam.ey || 0), cz3 - cam.EH], sun, toSun, sunStr);
+      // The baked reflection only reaches `col` and `rv`, and with the body on the GPU neither is read
+      // (the GPU mirrors the metal per pixel itself when glMetal is on).
+      if (mk && !((c.collect || c.bodyOnGL) && RENDER_TUNE.glMetal)) brgb = reflectEnv(brgb, mk, [nx, ny, nz], [cx3 - (cam.ex || 0), cy3 - (cam.ey || 0), cz3 - cam.EH], sun, toSun, sunStr);
     }
     const col = shadeRgb(brgb, shk);
     const rv = [clamp(brgb[0] * shk, 0, 255) | 0, clamp(brgb[1] * shk, 0, 255) | 0, clamp(brgb[2] * shk, 0, 255) | 0];
@@ -36648,7 +36739,45 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     // uses; the mesh, the road quads and the GL camera are all in the window's. The conversion is
     // the sub-tile camera offset, exactly as drawGroundSurfaces adds it back on — get it wrong and
     // the rig floats a fraction of a tile off the road it is standing on.
-    if (toGL && wv && wv.length >= 3) {
+    if (shipLocal && wv && wv.length >= 3 && dp.length >= 3) {
+      // THE OWN SHIP IN ITS OWN FRAME — see the ⚠ above the loop. The same record object comes back
+      // while its inputs are the same objects and values, so the incremental upload skips it; only
+      // the world points (`p`, for the smoother and the gates) and the frame's sky move with it.
+      const ox = cam.ox || 0, oy = cam.oy || 0;
+      const kU = face.sh * pal.fmul;
+      const r0 = clamp(brgb0[0] * kU, 0, 255) | 0, g0 = clamp(brgb0[1] * kU, 0, 255) | 0, b0 = clamp(brgb0[2] * kU, 0, 255) | 0;
+      const a = (isGear ? gearDown : 1) * (c.solidAlpha == null ? 1 : c.solidAlpha);
+      const m = mk || 0;
+      let e = SHIP_REC.get(srcFace);
+      // An animated face is handed NEW point arrays every frame (animFacePoints, the hinge, the gear
+      // tuck) even when nothing has moved, so the identity test alone rebuilds them all. Same values,
+      // same record: the record keeps the arrays it was built with, which hold the same numbers.
+      if (e && e.lp !== dp && e.lp.length === dp.length) {
+        let eq = true;
+        for (let j = 0; eq && j < dp.length; j++) { const u = dp[j], w = e.lp[j]; if (u[0] !== w[0] || u[1] !== w[1] || u[2] !== w[2]) eq = false; }
+        if (eq) e.lp = dp;
+      }
+      let rec = e && e.lp === dp && e.r === r0 && e.g === g0 && e.b === b0 && e.a === a && e.m === m && e.cls === c.cls ? e.rec : null;
+      if (!rec) {
+        // The local normal, flipped outward exactly as the world one is: n·d is the same number in
+        // both frames when n takes the inverse-transpose, so the test agrees.
+        const p0 = dp[0], p1 = dp[1], p2 = dp[2];
+        const ax = p1[0] - p0[0], ay = p1[1] - p0[1], az = p1[2] - p0[2], bx = p2[0] - p0[0], by = p2[1] - p0[1], bz = p2[2] - p0[2];
+        let lx = ay * bz - az * by, ly = az * bx - ax * bz, lz = ax * by - ay * bx;
+        const ll = Math.hypot(lx, ly, lz) || 1; lx /= ll; ly /= ll; lz /= ll;
+        const rc = face.cen || [0, 0, 0];
+        const qx = (p0[0] + p1[0] + p2[0]) / 3 - rc[0], qy = (p0[1] + p1[1] + p2[1]) / 3 - rc[1], qz = (p0[2] + p1[2] + p2[2]) / 3 - rc[2];
+        if (lx * qx + ly * qy + lz * qz < 0) { lx = -lx; ly = -ly; lz = -lz; }
+        rec = { p: wv.map((v) => [v[0] + ox, v[1] + oy, v[2]]), mp: dp, rgb: [r0, g0, b0], a,
+          ...(m ? { m, n: [lx, ly, lz] } : haveN ? { amb: true, n: [lx, ly, lz] } : null),
+          ...((!m && RENDER_TUNE.glHullTex > 0 && WATER_CLASSES().has(c.cls)) ? { lp: dp.map((v) => [v[0] * 6, v[1] * 6, v[2] * 6]), tex: 11 } : null) };
+        SHIP_REC.set(srcFace, { rec, lp: dp, r: r0, g: g0, b: b0, a, m, cls: c.cls });
+      } else {
+        for (let j = 0; j < wv.length; j++) { const w = rec.p[j]; w[0] = wv[j][0] + ox; w[1] = wv[j][1] + oy; w[2] = wv[j][2]; }
+      }
+      if (rec.n) rec.env = glEnvOf();
+      OWNSHIP_SINK.push(rec);
+    } else if (toGL && wv && wv.length >= 3) {
       const ox = cam.ox || 0, oy = cam.oy || 0;
       // ⚠ `solidAlpha` MULTIPLIES, IT DOES NOT REPLACE — a retracting gear leg is already fading on
       // its own axis, and a contact carrying a haze fade has to dim WITH it rather than instead of

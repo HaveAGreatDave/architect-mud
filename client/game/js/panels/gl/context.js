@@ -1911,12 +1911,25 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     clothInst = (clothRecs.length || cll) ? clothLayer().upload(clothRecs) : 0;
     return solidQuads;
   }
+  // ── THE OWN SHIP, IN ITS OWN FRAME ──────────────────────────────────────────────────────────────
+  // A layer of its own so its records can stay put from frame to frame: they carry the model's local
+  // points (`mp`) and the frame's placement arrives as one matrix, so the incremental upload sends
+  // only the faces that moved (gear, flaps, the gun). `ship` is the normal matrix and the sun term
+  // the shader now applies (see solids.js). Drawn wherever the other solids are: film and mirror too.
+  let shpOwn = null, ownQuads = 0;
+  const ownLayer = () => (shpOwn || (shpOwn = createSolidsLayer(gl)));
+  function uploadShip(list, model, ship) {
+    ownQuads = list && list.length && model ? ownLayer().upload(list, model, null, null, ship) : 0;
+    return ownQuads;
+  }
   function drawSolids(cam, cssH, opts) {
     let n = 0;
     // The translucent range alone (rotor blades and discs): see `film` in solids.js. The birds and
     // the murmuration are drawn by the solid call and must not be drawn twice.
-    if (opts && opts.film) return solidQuads ? solidsLayer().draw(cam, cssH || canvas.height, opts) : 0;
+    if (opts && opts.film) return (solidQuads ? solidsLayer().draw(cam, cssH || canvas.height, opts) : 0)
+      + (ownQuads ? ownLayer().draw(cam, cssH || canvas.height, opts) : 0);
     if (solidQuads) n += solidsLayer().draw(cam, cssH || canvas.height, opts || {});
+    if (ownQuads) n += ownLayer().draw(cam, cssH || canvas.height, opts || {});
     if (faunaInst) faunaLayer().draw(cam, cssH || canvas.height, opts || {});
     if (clothInst) clothLayer().draw(cam, cssH || canvas.height, opts || {});
     // People only when asked: the main pass draws them after the ground instead (drawActors, and the
@@ -2033,7 +2046,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // Handed the window's cells and the eye in the MESH frame; see gl/skyline.js and the ⚠ on 
   // in world.js. Called before , because the strip is a uniform that draw reads.
   function setSkyline(cells, eye, facesOf) { try { skylineLayer().update(cells, eye, facesOf); } catch { /* no strip is the flat environment, which is the picture that shipped */ } }
-  return { murmurGPU: () => mg, gl, setSkyline, upload, uploadGroups, draw, beginTarget, composite, hdrPeak, drawSeabed, drawSeabedPoints, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawBillboards, billboardTextures, drawGround, drawFloor, drawWater, drawCloudDeck, drawCloudVolume, drawMirror, mirrorPeak, uploadSolids, drawSolids, drawActors, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => gl.isContextLost(),
+  return { murmurGPU: () => mg, gl, setSkyline, upload, uploadGroups, draw, beginTarget, composite, hdrPeak, drawSeabed, drawSeabedPoints, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawBillboards, billboardTextures, drawGround, drawFloor, drawWater, drawCloudDeck, drawCloudVolume, drawMirror, mirrorPeak, uploadSolids, uploadShip, drawSolids, drawActors, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => gl.isContextLost(),
     maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; },
     // The mesh's own box, for the caller that has to fit a light projection to it — and the shadow
     // map's size, which is 0 when the driver refused it. A zero there next to a sun that is up is

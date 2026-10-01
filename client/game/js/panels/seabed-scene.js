@@ -594,7 +594,10 @@ export function floorZAt(wx, wy) {
 
 // The whole scene for this frame, or null when there is nothing to draw.
 // `sub` is the camera's depth in tiles below mean sea level (0 on the surface).
-export function underwaterScene({ LUT, mh, mapCenter, cam, ship, sub, now, night }) {
+// `lamp`, when her LIGHTS are on: { x, y, z, dx, dy, dz } in window tiles, her nose and the unit
+// direction the beam points. gl/seabed.js lights the floor, the wrecks and the particles with it and
+// draws the beam itself in the water. It only exists once the eye is under (sub > 0).
+export function underwaterScene({ LUT, mh, mapCenter, cam, ship, sub, now, night, lamp }) {
   if (!LUT || !mh || !mapCenter) return null;
   const Cx = mapCenter.x | 0, Cy = mapCenter.y | 0;
   let st = null;
@@ -618,5 +621,6 @@ export function underwaterScene({ LUT, mh, mapCenter, cam, ship, sub, now, night
     water, lit,
     // What a level ray sees, and how far: world.js fogs the other layers toward this.
     horizon: waterAlong(water, 0), fogFar: SEABED_FOG_FAR,
+    lamp: sub > 0 && lamp ? lamp : null,
   };
 }

@@ -1384,6 +1384,13 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     opts = { ...opts, fogBand: { col: wc, amt: fk, near: 0.2, far: 3.6 + (1 - fk) * 30 }, glMirror: 0, glFogH: 0 };
     if (fk > 0.5) opts = { ...opts, sprites: [], curtain: [], decals: [], strokes: [], scatter: [] };
   }
+  // ⚠ THE WATERLINE SHADING IS FOR AN EYE IN THE AIR. Seen from above the surface, a sunk hull is
+  // dark and blue-green under the line (solids.js THE WATERLINE). With the eye under the water too,
+  // that same term painted her as one solid teal silhouette, because every face is under the line
+  // and the extinction runs on depth below the surface rather than distance from the eye. Down here
+  // the band fog above already does the distance; she gets the water's tint and the caustic net the
+  // cockpit gets (uUnder), and no waterline at all.
+  const SOLID_WATER = SUB ? { under: Math.min(1, SUB / 0.14), underD: SUB * 7 } : { water: opts.ownWater };
   if (cam) cam.near = nearFor(cam, cssH, opts.nearFit == null ? 1 : opts.nearFit);
   if (!W || !H) return null;
   const g = sceneGL(id, W, H, opts.msaa == null ? 1 : opts.msaa);
@@ -1638,7 +1645,14 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // from a feature that does nothing. `gl:opts` exists because that has now happened three times.
   const room = (opts.ship || []).filter((f) => f.interior);
   const rig = room.length ? (opts.ship || []).filter((f) => !f.interior) : opts.ship;
-  if (g.view.uploadSolids) g.view.uploadSolids([rig, opts.bay, opts.fauna]);
+  // The own ship's faces that arrive in its own frame (`mp`, with `shipModel` set) go to their own
+  // incremental layer; anything else on the rig keeps the world-space path. Called every frame, empty
+  // or not, so a frame with no ship clears the layer.
+  const shipModel = opts.ship && opts.ship.shipModel;
+  const own = shipModel && rig ? rig.filter((f) => f.mp) : null;
+  const rest = own && own.length ? rig.filter((f) => !f.mp) : rig;
+  if (g.view.uploadShip) g.view.uploadShip(own || [], shipModel || null, (opts.ship && opts.ship.shipState) || null);
+  if (g.view.uploadSolids) g.view.uploadSolids([rest, opts.bay, opts.fauna]);
   if (g.view.uploadInterior) g.view.uploadInterior(room, (opts.ship && opts.ship.interiorModel) || null, (opts.ship && opts.ship.interiorLight) || null, (opts.ship && opts.ship.interiorAtt) || null);
   const mirrorGain = opts.glMirror > 0 ? opts.glMirror : 0;
   // ⚠ AND THE SEA WANTS IT TOO, WHICH IS WHY THIS GATE IS NO LONGER ONLY ABOUT WET TARMAC. The
@@ -1709,7 +1723,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // triangles of own ship in a cab view with no own ship in it. The two LIST lengths are reported
   // beside it, because a diagnostic that cannot tell a shed that arrived from a rig that did is the
   // reason this was hard to see in the first place.
-  const solids = g.view.drawSolids ? g.view.drawSolids(camAt, cssH, { fog: opts.fogBand, water: opts.ownWater }) : 0;
+  const solids = g.view.drawSolids ? g.view.drawSolids(camAt, cssH, { fog: opts.fogBand, ...SOLID_WATER }) : 0;
 
   const fl = opts.floor;
   // ⚠ THE WET TERMS STAY OFF AND THE SNOW GOES ON, WHICH IS NOT AN INCONSISTENCY. The floor own
@@ -1883,7 +1897,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // here: after the floor, the sea and the road, because they write no depth and have to blend over
   // whatever is behind them. Tested against depth, so the hull and the city still hide them. See
   // `film` in solids.js. The mirror prepass draws the solid range only.
-  const film = g.view.drawSolids ? g.view.drawSolids(camAt, cssH, { fog: opts.fogBand, film: true, water: opts.ownWater }) : 0;
+  const film = g.view.drawSolids ? g.view.drawSolids(camAt, cssH, { fog: opts.fogBand, film: true, ...SOLID_WATER }) : 0;
   // ⚠ THE LIGHTS ARE IN THE CAMERA'S OWN FRAME, NOT THE WINDOW'S. The mesh is built at map-window
   // tiles so it can be cached; a light is collected fresh every frame from the arm that owns it,
   // in the camera-relative coordinates the arm works in. So it takes the plain camera, and the
