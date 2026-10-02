@@ -76,9 +76,21 @@ unless noted.
    a truck or a low aircraft went straight through the perimeter. The `perimeter_gate` tile carries
    `cur` too (so the flanking wall butts into its pylons) and is skipped by BOTH on `mark === 'gate'`.
 
-3. **`drawTypeModel`** is a big `switch (m.type)`. Each `case` composes a building out of
-   `draw3DBoxAt` calls plus decoration helpers. This is where every landmark's look lives
-   (`luxtower` = Halcyon Towers, `hangar` = airports, `power`, `clone`, `office`, …).
+3. **`drawTypeModel`** draws a building through its **arm**: a function keyed by `m.type` that
+   composes it out of `draw3DBoxAt` calls plus decoration helpers. This is where every landmark's
+   look lives (`luxtower` = Halcyon Towers, `hangar` = airports, `power`, `clone`, `office`, …).
+   The arms are in one file per region under `client/game/js/panels/glass/models/`
+   (`downtown.js`, `halcyon-fields.js`, `the-reach.js`, …), which
+   [index.js](../../client/game/js/panels/glass/models/index.js) gathers. `drawTypeModelArm` in
+   windshield.js runs the shared prologue, picks the arm (`typeArm`), and runs the detail pass
+   after it; a type with no arm, and `shop`, falls to the generic storefront still in its switch.
+   They were `case` arms in that switch until 2026-10-01. Every arm takes the same positional
+   arguments, `(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F,
+   W3, frontVis)`, and ends early with `return`. An arm module imports what it needs from
+   windshield.js; the list it can reach is the `export { … }; // glass-internal` block above
+   `drawTypeModelArm`, which `bake-lazy-view.mjs` keeps off the panel facade. `npm run
+   shapes:smoke` runs [armtables.mjs](../../scripts/shapes/armtables.mjs), which fails a region
+   file `index.js` doesn't list, a type claimed twice, or an arm whose parameter list has drifted.
 
 ## The core primitive: `draw3DBoxAt`
 
@@ -636,8 +648,12 @@ model or you'll get two.
 
 ## Recipe: add or edit a named building model
 
-1. **Model code** (engine, git-only, no DB): add/extend a `case` in `drawTypeModel`, composing
-   `draw3DBoxAt` boxes + helpers. Add a `ty_*` palette to `WALL_COL` if it needs its own colour.
+1. **Model code** (engine, git-only, no DB): add or extend an arm in the region's file under
+   `client/game/js/panels/glass/models/`, composing `draw3DBoxAt` boxes + helpers (see step 3 of
+   the pipeline above for the signature). A helper the file doesn't import yet goes in its
+   `import { … } from '../../windshield.js'` list, and into the `glass-internal` export block in
+   windshield.js if it isn't exported. A new region file is one more line in `index.js`. Add a
+   `ty_*` palette to `WALL_COL` if it needs its own colour.
 2. **Register it**: add a `NAMED_MODELS[<bldgSlug(name)>] = { type, pal, … }` entry (bespoke,
    keyed by building name) **or** a `TYPE_MODEL[<building_type>]` entry (type default). `modelFor`
    prefers named over type.

@@ -116,6 +116,7 @@ export const GROUPS = [
       'scripts/shapes/seabed.mjs',
       'scripts/shapes/exhaust.mjs',
       'scripts/shapes/hftint.mjs',
+      'scripts/shapes/armtables.mjs',
       'scripts/shapes/envstrip.mjs',
       'scripts/shapes/signstand.mjs',
       'scripts/shapes/signband.mjs',

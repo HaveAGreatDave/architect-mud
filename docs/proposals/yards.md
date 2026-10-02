@@ -136,8 +136,9 @@ dormancy/revive → console for any type; the `warehouse` entry is a stub. This 
 
 ## Workstream 3 — Engine: bespoke flight-sim models (`client/game/js/panels/windshield.js`)
 
-Per [reference/world-rendering.md](../reference/world-rendering.md): each model is a `case` in
-`drawTypeModel` (composed from `draw3DBoxAt` / `drawFacetDrum` / `drawBarrelRoof` + decoration
+Per [reference/world-rendering.md](../reference/world-rendering.md): each model is an arm in
+[glass/models/yards.js](../../client/game/js/panels/glass/models/yards.js), a `case` in
+`drawTypeModel` until 2026-10-01 (composed from `draw3DBoxAt` / `drawFacetDrum` / `drawBarrelRoof` + decoration
 helpers, all routed through `emitFace`), a `ty_*` palette in `WALL_COL`, and a `TYPE_MODEL[<key>]`
 registration; the tile carries the matching `building_type` flag (under `flags`). There is **no**
 existing warehouse/industrial model today — warehouses fall back to the generic `drawFreight` shed — so

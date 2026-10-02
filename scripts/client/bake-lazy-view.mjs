@@ -101,6 +101,13 @@ function exportsOf(file) {
 
   // `export { a, b as c }` — resolve each to how it was declared in this file.
   for (const m of s.matchAll(/^export\s*\{([^}]*)\}\s*;?/gm)) {
+    // A list tagged `// glass-internal` after its closing brace is for windshield.js's own
+    // submodules (the building-model arms under glass/models/), not for panels, so it stays off
+    // the facade. A panel that imports one of these fails imports:smoke instead of getting it.
+    // The tag is a comment, so it's read from the raw text; blank() keeps offsets.
+    const close = m.index + m[0].lastIndexOf('}');
+    const eol = raw.indexOf('\n', close);
+    if (/\/\/\s*glass-internal\b/.test(raw.slice(close, eol < 0 ? raw.length : eol))) continue;
     for (const part of m[1].split(',')) {
       const bits = part.trim().split(/\s+as\s+/);
       const local = bits[0]?.trim();

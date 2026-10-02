@@ -510,7 +510,7 @@ export function renderEditor(host, key, redraw) {
     const m = window.__msModel(key);
     const note = el('div', 'dim');
     note.textContent = m && m.type !== 'authored'
-      ? 'This is a hand-written arm in windshield.js. Fork it to get an editable copy of its mass, or start a new model below.'
+      ? 'This is a hand-written arm in client/game/js/panels/glass/models/. Fork it to get an editable copy of its mass, or start a new model below.'
       : 'No authored source for this model.';
     host.append(note);
     if (m && m.type !== 'authored') host.append(forkRow(key, m, redraw));

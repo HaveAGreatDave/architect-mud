@@ -105,13 +105,12 @@ else {
 }
 
 // ── 6. the six arms ─────────────────────────────────────────────────────────
-if (s.includes("    case 'chrome_tower': {")) done.push('campaign-2 arms');
-else if (ARMS) {
-  const at = s.indexOf("    case 'sentinel': {");
-  if (at < 0) throw new Error('arm insertion point missing');
-  s = s.slice(0, at) + fs.readFileSync(ARMS, 'utf8').replace(/\r\n/g, '\n') + s.slice(at);
-  fixed.push('campaign-2 arms');
-} else fixed.push('campaign-2 arms MISSING — re-run with the arms file as argv[2]');
+// The arms left windshield.js on 2026-10-01 and are methods in glass/models/halcyon-fields.js now,
+// so a `case` block can't be spliced back in. This only checks they're there.
+const HF_ARMS = 'client/game/js/panels/glass/models/halcyon-fields.js';
+if (/^  chrome_tower\(/m.test(fs.readFileSync(HF_ARMS, 'utf8'))) done.push('campaign-2 arms');
+else if (ARMS) throw new Error(`the campaign-2 arms are missing from ${HF_ARMS}; they're methods there now, so re-add them by hand rather than from ${ARMS}`);
+else fixed.push(`campaign-2 arms MISSING from ${HF_ARMS}; re-add them by hand`);
 
 fs.writeFileSync(WS, s);
 

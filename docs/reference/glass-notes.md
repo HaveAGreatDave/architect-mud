@@ -818,8 +818,8 @@ Trap: `__street` can't measure this. It freezes no clock by design, so the same 
 
 Gate: `npm run gl:hftint` ([scripts/shapes/hftint.mjs](../../scripts/shapes/hftint.mjs)), in the `pretest:regress` chain and in `shapes:smoke`. Mutation-tested 7 of 7.
 
-- Its arm scan is bounded to `drawTypeModelArm`. A sweep for `\n    case '…':` over the whole file collects other switches at the same indent; the first run reported `skullbob` (a cab trinket) and failed it for not being tinted.
-- Its leak check is a source check on purpose. All 152 `hfChrome`/`hfGlass` call sites are inside `drawTypeModelArm` and `drawTypeModel` re-arms on entry, so deleting the `finally` restore is unobservable today. It guards a future nested arm.
+- It finds the polished arms in the loaded tables under `glass/models/` and reads each arm function's own source. Before the arms moved out of windshield.js (2026-10-01) it swept the text instead, and had to bound itself to `drawTypeModelArm`: a sweep for `\n    case '…':` over the whole file collected other switches at the same indent, and the first run reported `skullbob` (a cab trinket) and failed it for not being tinted.
+- Its leak check is a source check on purpose. All 152 `hfChrome`/`hfGlass` call sites are inside the building arms and `drawTypeModel` re-arms on entry, so deleting the `finally` restore is unobservable today. It guards a future nested arm.
 
 ## Lit drums (`RENDER_TUNE.glDrumLit`, 2026-09-27)
 

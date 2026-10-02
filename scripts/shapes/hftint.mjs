@@ -26,27 +26,23 @@ const ws = await loadWindshield();
 const REPORT = process.argv.includes('--report');
 const FH = 0.4, H = 1;
 
-// The quarter, as the arms that paint with the polished ramp. Read off the source rather than
-// listed here, so an arm that joins the set is covered the day it is written.
+// The quarter, as the arms that paint with the polished ramp. Read off the arms themselves rather
+// than listed here, so an arm that joins the set is covered the day it is written.
 //
-// ⚠ BOUNDED TO `drawTypeModelArm`, AND THE FIRST CUT WAS NOT. A bare sweep for `\n    case '…':`
-// over the whole file collects cases from every other switch in it at the same indent — the first
-// run reported `skullbob`, which is a CAB TRINKET hanging off a mirror, and then failed it for not
-// being tinted. A scanner that does not know where it is invents findings rather than missing them.
+// ⚠ READ FROM THE LOADED ARM TABLES, NOT FROM A TEXT SWEEP. The arms live in the region modules
+// under glass/models/ (they were `case` arms in drawTypeModelArm until 2026-10-01), and each one is
+// a function, so its own source is exactly its body. The text sweep this replaced had to bound
+// itself to drawTypeModelArm: a bare sweep for `\n    case '…':` over windshield.js collected
+// cases from every other switch at the same indent, reported `skullbob` (a CAB TRINKET hanging off
+// a mirror) and failed it for not being tinted.
 const SRC = readFileSync('client/game/js/panels/windshield.js', 'utf8');
 const ARMS = [];
 {
-  const from = SRC.indexOf('function drawTypeModelArm(');
-  if (from < 0) throw new Error('cannot find drawTypeModelArm — the arm scan has nothing to bound itself to');
-  const to = SRC.indexOf('\nfunction ', from + 1);
-  const BODY = SRC.slice(from, to > 0 ? to : SRC.length);
-  const re = /\n    case '([a-z_0-9]+)':/g;
-  let m; const marks = [];
-  while ((m = re.exec(BODY))) marks.push({ t: m[1], i: from + m.index });
-  for (let a = 0; a < marks.length; a++) {
-    const body = SRC.slice(marks[a].i, marks[a + 1] ? marks[a + 1].i : marks[a].i + 8000);
-    if (/hfChrome\(|hfGlass\(/.test(body)) ARMS.push(marks[a].t);
+  const tables = await import('../../client/game/js/panels/glass/models/index.js');
+  for (const table of Object.values(tables)) {
+    for (const [t, arm] of Object.entries(table)) if (/hfChrome\(|hfGlass\(/.test(String(arm))) ARMS.push(t);
   }
+  if (!ARMS.length) throw new Error('no arm in glass/models/ paints with hfChrome or hfGlass; the arm scan has gone stale');
 }
 const REG = ws.TYPE_MODEL || {};
 const MODELS = ARMS.map((t) => REG[t] || { type: t, pal: 'ty_hft_glass' }).filter(Boolean);
@@ -173,7 +169,7 @@ if (savedDrumMat) {
 //
 // ⚠ THIS ONE IS A SOURCE CHECK AND THAT IS DELIBERATE, because the behavioural version CANNOT
 // FAIL TODAY and it was written first. Measured: all 152 `hfChrome`/`hfGlass` call sites are
-// inside `drawTypeModelArm`, and `drawTypeModel` re-arms the cast on the way in — so a leaked
+// inside the building arms (glass/models/), and `drawTypeModel` re-arms the cast on the way in, so a leaked
 // cast is overwritten by the very next building and nothing downstream can observe it. Deleting
 // the restore therefore survives every behavioural probe, which is exactly the shape of mutant a
 // budget-style check waves through.

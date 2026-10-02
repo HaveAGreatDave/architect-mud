@@ -205,7 +205,7 @@ all, and from a cockpit that is the only thing about it you can read.
 
 ## 3. The eight new silhouettes
 
-All in `drawTypeModelArm` (`client/game/js/panels/windshield.js`), all on the existing palette.
+All in [glass/models/halcyon-fields.js](../../client/game/js/panels/glass/models/halcyon-fields.js) (they were `case` arms in `drawTypeModelArm` in windshield.js until 2026-10-01), all on the existing palette.
 
 | Type | The shape | Used |
 |---|---|---|
