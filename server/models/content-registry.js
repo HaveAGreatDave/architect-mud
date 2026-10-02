@@ -381,6 +381,7 @@ export const REGISTRY = [
   { table: 'player_augments', class: 'player' },     // installed cybernetics (plugins/augments)
   { table: 'player_backups', class: 'player' },      // cortical-backup snapshots + prepaid restores (plugins/augments)
   { table: 'player_flags', class: 'player' },
+  { table: 'player_feedback', class: 'player' },    // feedback reports: handle, body and context (plugins/feedback)
   { table: 'player_macros', class: 'player' },       // smartbar macros following the account — the player's own button scripts; never authored, never exported
   { table: 'player_client_config', class: 'player' }, // the rest of the client's setup (triggers, aliases, timers, highlights, variables) following the account
   { table: 'player_npc_relations', class: 'player' }, // relations substrate — who a player has met and how it went; accumulated by play, never authored

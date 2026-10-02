@@ -3258,7 +3258,8 @@ export const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_cards_subject ON cards(subject_type, subject_ref);
 
   -- Player feedback (plugins/feedback): one row per report sent from the header
-  -- button or the feedback verb. Runtime only, never in the content registry.
+  -- button or the feedback verb. Classed 'player' in the content registry, so
+  -- its rows are never exported.
   -- SET NULL keeps a report after its sender's row goes. The inbox list never
   -- selects the two JSONB columns; the detail view reads them one row at a time.
   CREATE TABLE IF NOT EXISTS player_feedback (

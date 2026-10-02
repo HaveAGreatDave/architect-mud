@@ -108,7 +108,7 @@ export async function purgePlayers(ids) {
   await query('UPDATE aircraft SET owner_id=NULL, hangar_id=NULL WHERE owner_id = ANY($1)', [offline]).catch(() => {});
   await query('UPDATE apartments SET owner_id=NULL, owner_handle=NULL, is_locked=0, purchased_at=NULL, date_rented=NULL WHERE owner_id = ANY($1)', [offline]).catch(() => {});
   for (const ap of world.apartments?.values?.() || []) {
-    if (offline.includes(ap.owner_id)) { ap.owner_id = null; ap.owner_handle = null; }
+    if (ap && offline.includes(ap.owner_id)) { ap.owner_id = null; ap.owner_handle = null; }
   }
   // Independent tables, so they go out together. A table this DB lacks is skipped.
   await Promise.all([
