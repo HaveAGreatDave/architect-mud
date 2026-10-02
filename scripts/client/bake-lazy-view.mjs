@@ -1,39 +1,41 @@
 // GENERATE THE LAZY FACADES FOR THE TWO BIG 3-D MODULES.
 //
-// `windshield.js` is 3.8 MB and `aircraft3d.js` is 510 KB — together 1,435 KB brotli, 43.6% of the
-// cold boot payload, and NOT ONE BYTE of it is needed until a player opens an immersive view. They
-// were in the eager graph because seven view panels import them statically, so every player who has
-// never flown, never driven and never taken a helm downloaded and parsed the whole 3-D stack before
-// they could type `look`.
+// windshield-lazy.js and aircraft3d-lazy.js have the same export names as windshield.js (GLASS)
+// and aircraft3d.js. A panel that imports from the facade changes one import line and awaits one
+// loader (`loadWindshield()` or `loadAircraft3d()`) on the path that opens its view, and the real
+// module isn't fetched until then. That's cheaper and safer than rewriting every call site to go
+// through a stashed module object, where each missed site is a view that doesn't open.
 //
-// The obvious fix — rewrite all 136 call sites to go through a stashed module object — is 136
-// chances to miss one, in files of 6,000 lines, where a miss is a cockpit that does not open. This
-// is the cheap version of the same thing: a facade with the SAME export names, so a panel changes
-// one import line and nothing else, plus one `await loadWindshield()` on the path that opens it.
+// The facades were written when seven view panels imported both modules statically, so every
+// player downloaded the whole 3-D stack at boot. lazy-views.js now defers those panels whole. A
+// facade is still for a panel that loads without GLASS and fetches it later: hangar-bay.js opens
+// a menu first and only needs the renderer once a view opens. Nothing imports aircraft3d-lazy.js
+// at the moment, but it's baked and checked like the other.
 //
 // ⚠ ESM LIVE BINDINGS ARE WHAT MAKE THE VALUE EXPORTS WORK. A wrapper can forward a function call,
-// but `RENDER_TUNE` and `ROOF_CATCH_R` are values and there is nothing to forward. `export let X`
-// re-assigned after the dynamic import is seen by every importer, because an ESM import is a live
-// binding rather than a copy — so the facade declares them, fills them on load, and a consumer that
-// reads one after `loadWindshield()` sees the real thing.
+// but `RENDER_TUNE` and `ROOF_CATCH_R` are values and there's nothing to forward. The facade
+// declares them with `export let` and assigns them once the dynamic import lands. Every importer
+// sees the new value, because an ESM import is a live binding. Read one before the loader resolves
+// and it's undefined.
 //
-// ⚠ AND A WRAPPER CALLED BEFORE THE LOAD THROWS BY NAME. The whole residual risk of this refactor
-// is a panel that uses a symbol without having awaited the loader, and the default failure for that
-// is `_m is null` — a TypeError from inside a generated file, naming nothing. Each wrapper names
-// itself and says what to do instead, so a missed await is a one-line diagnosis rather than an
-// afternoon.
+// ⚠ A WRAPPER CALLED BEFORE THE LOAD THROWS BY NAME. The risk left in this design is a panel that
+// uses a symbol without having awaited the loader. The default failure for that is `_m is null`, a
+// TypeError from inside a generated file that names nothing, so each wrapper names itself and says
+// what to do instead.
 //
-// ⚠ IT IS A CHECKED-IN GENERATED FILE, like `client/shared/building-models.js`. There is no build
-// step in this repo; a facade computed at runtime would be a second module graph.
+// ⚠ IT'S A CHECKED-IN GENERATED FILE, like `client/shared/building-models.js`. There's no build
+// step in this repo, and a facade computed at runtime would be a second module graph.
 //
-// ⚠ AND IT CHECKS ITSELF, because a generated file that has gone stale is worse than no generated
-// file: an export added to `windshield.js` is simply absent from the facade, and the panel that
-// wanted it gets `undefined` rather than an error. `--check` re-bakes in memory and fails if the
-// result differs from what is on disk, which is the same shape as `content:check-stale`. It runs in
-// `pretest:regress`, so the facade cannot drift from the module it fronts.
+// ⚠ AND IT CHECKS ITSELF. `--check` re-bakes in memory and fails if the result differs from what's
+// on disk, the same shape as `content:check-stale`. It's a gate in the client group of
+// scripts/gates/manifest.mjs, so `pretest:regress` and the pre-push hook run it. A stale facade
+// breaks in two ways. An export removed or renamed in the module stays on the facade, and a panel
+// that uses it gets undefined from a value, or a TypeError at the call from a wrapper, with nothing
+// at load time to say why. An export added to the module is missing from the facade, so a panel
+// that imports it fails to link, which imports:smoke reports.
 //
-//   npm run client:bake-lazy          # regenerate after adding an export to either module
-//   npm run client:bake-lazy -- --check   # fail if the checked-in facade is out of date
+//   npm run client:bake-lazy          # regenerate after changing an export in either module
+//   npm run client:bake-lazy:check    # fail if a checked-in facade is out of date
 import fs from 'node:fs';
 import path from 'node:path';
 import { blank } from '../lib/blank-scanner.mjs';
@@ -92,7 +94,9 @@ function exportsOf(file) {
       const d = /^\s*([A-Za-z_$][\w$]*)\s*(=([\s\S]*))?$/.exec(part);
       if (!d) continue;
       const rhs = d[3] || '';
-      const isFn = /^\s*(?:async\s*)?(?:function\b|\([^)]*\)\s*=>|[A-Za-z_$][\w$]*\s*=>)/.test(rhs);
+      // The parameter list may not hold a paren, so an IIFE such as `GL_TIER = (() => { ... })()`
+      // stays a value: it starts `((`, and its result is what gets exported.
+      const isFn = /^\s*(?:async\s*)?(?:function\b|\([^()]*\)\s*=>|[A-Za-z_$][\w$]*\s*=>)/.test(rhs);
       (isFn ? fns : vals).add(d[1]);
     }
   }
@@ -111,7 +115,7 @@ function exportsOf(file) {
     }
   }
   const declaresFn = (text, name) => new RegExp('^\\s*(?:export\\s+)?(?:async\\s+)?function\\s*\\*?\\s*' + name + '\\b', 'm').test(text)
-    || new RegExp('^\\s*(?:export\\s+)?(?:const|let|var)\\s+' + name + '\\s*=\\s*(?:async\\s*)?(?:function\\b|\\([^)]*\\)\\s*=>|[A-Za-z_$][\\w$]*\\s*=>)', 'm').test(text);
+    || new RegExp('^\\s*(?:export\\s+)?(?:const|let|var)\\s+' + name + '\\s*=\\s*(?:async\\s*)?(?:function\\b|\\([^()]*\\)\\s*=>|[A-Za-z_$][\\w$]*\\s*=>)', 'm').test(text);
 
   // `export { a, b as c }` — resolve each to how it was declared in this file.
   for (const m of s.matchAll(/^export\s*\{([^}]*)\}\s*;?/gm)) {
@@ -197,8 +201,7 @@ for (const job of JOBS) {
 if (CHECK) {
   if (stale.length) {
     console.error(`\n✗ bake-lazy-view: ${stale.join(', ')} ${stale.length > 1 ? 'are' : 'is'} out of date.`);
-    console.error('  An export was added to windshield.js or aircraft3d.js without re-baking the facade,');
-    console.error('  so a panel importing it would get undefined rather than an error.');
+    console.error('  An export in windshield.js or aircraft3d.js changed without a re-bake.');
     console.error('  Run: npm run client:bake-lazy\n');
     process.exit(1);
   }

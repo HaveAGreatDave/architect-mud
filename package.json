@@ -32,6 +32,8 @@
     "content:lint": "node scripts/content/lint.mjs",
     "docs:lint": "node scripts/gates/run.mjs docs",
     "client:smoke": "node scripts/gates/run.mjs client",
+    "client:bake-lazy": "node scripts/client/bake-lazy-view.mjs",
+    "client:bake-lazy:check": "node scripts/client/bake-lazy-view.mjs --check",
     "imports:smoke": "node scripts/imports/smoke.mjs",
     "auth:smoke": "node scripts/auth/smoke.mjs",
     "shapes:smoke": "node scripts/gates/run.mjs shapes",

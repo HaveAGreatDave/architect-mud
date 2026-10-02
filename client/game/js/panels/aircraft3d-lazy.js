@@ -11,7 +11,7 @@ let _pending = null;
 // after `loadAircraft3d()` has resolved sees the real value, because an import binds rather
 // than copies. Read one before that and it is undefined, which is why the loader is awaited
 // at the door rather than at the first use.
-export let CP_TH, CP_TW, CUB_GROUND_PITCH, JAZZ_ROLE, MODEL_NEAR_Z, MODEL_SCALE, OCCLUDE_ROLE, PROP_STATIONS, VIPER_GROUND_PITCH, VIPER_SCALE, truckLivery;
+export let CP_TH, CP_TW, CUB_GROUND_PITCH, JAZZ_ROLE, MODEL_NEAR_Z, MODEL_SCALE, OCCLUDE_ROLE, PROP_STATIONS, VIPER_GROUND_PITCH, VIPER_SCALE;
 
 export function isLoaded() { return !!_m; }
 
@@ -30,7 +30,6 @@ export function loadAircraft3d() {
     PROP_STATIONS = m.PROP_STATIONS;
     VIPER_GROUND_PITCH = m.VIPER_GROUND_PITCH;
     VIPER_SCALE = m.VIPER_SCALE;
-    truckLivery = m.truckLivery;
     _m = m;
     return m;
   })();
@@ -63,6 +62,7 @@ export function drawCockpitProp(...a) { return (_m || _cold('drawCockpitProp')).
 export function drawHangarFloorBay(...a) { return (_m || _cold('drawHangarFloorBay')).drawHangarFloorBay(...a); }
 export function drawHangarScene(...a) { return (_m || _cold('drawHangarScene')).drawHangarScene(...a); }
 export function drawNoseArt(...a) { return (_m || _cold('drawNoseArt')).drawNoseArt(...a); }
+export function drawPaintBooth(...a) { return (_m || _cold('drawPaintBooth')).drawPaintBooth(...a); }
 export function drawRotorFX(...a) { return (_m || _cold('drawRotorFX')).drawRotorFX(...a); }
 export function drawTruckDoorArt(...a) { return (_m || _cold('drawTruckDoorArt')).drawTruckDoorArt(...a); }
 export function drawTurntable(...a) { return (_m || _cold('drawTurntable')).drawTurntable(...a); }
@@ -81,9 +81,11 @@ export function meshFacesById(...a) { return (_m || _cold('meshFacesById')).mesh
 export function meshHull(...a) { return (_m || _cold('meshHull')).meshHull(...a); }
 export function meshIdFor(...a) { return (_m || _cold('meshIdFor')).meshIdFor(...a); }
 export function meshIds(...a) { return (_m || _cold('meshIds')).meshIds(...a); }
+export function meshLamps(...a) { return (_m || _cold('meshLamps')).meshLamps(...a); }
 export function meshParams(...a) { return (_m || _cold('meshParams')).meshParams(...a); }
 export function overlayJazz(...a) { return (_m || _cold('overlayJazz')).overlayJazz(...a); }
 export function pickSceneHit(...a) { return (_m || _cold('pickSceneHit')).pickSceneHit(...a); }
+export function pushParkedRotorFaces(...a) { return (_m || _cold('pushParkedRotorFaces')).pushParkedRotorFaces(...a); }
 export function rotorTrace(...a) { return (_m || _cold('rotorTrace')).rotorTrace(...a); }
 export function rotorTraceLegacy(...a) { return (_m || _cold('rotorTraceLegacy')).rotorTraceLegacy(...a); }
 export function rotorsFor(...a) { return (_m || _cold('rotorsFor')).rotorsFor(...a); }
@@ -93,6 +95,7 @@ export function setVehicleParams(...a) { return (_m || _cold('setVehicleParams')
 export function shadeRgb(...a) { return (_m || _cold('shadeRgb')).shadeRgb(...a); }
 export function slideEase(...a) { return (_m || _cold('slideEase')).slideEase(...a); }
 export function sortTruckFaces(...a) { return (_m || _cold('sortTruckFaces')).sortTruckFaces(...a); }
+export function truckLivery(...a) { return (_m || _cold('truckLivery')).truckLivery(...a); }
 export function truckMeta(...a) { return (_m || _cold('truckMeta')).truckMeta(...a); }
 export function vehicleLamps(...a) { return (_m || _cold('vehicleLamps')).vehicleLamps(...a); }
 export function vehicleParamBase(...a) { return (_m || _cold('vehicleParamBase')).vehicleParamBase(...a); }
@@ -101,5 +104,4 @@ export function viperXf(...a) { return (_m || _cold('viperXf')).viperXf(...a); }
 export function visorHidden(...a) { return (_m || _cold('visorHidden')).visorHidden(...a); }
 export function visorSpecFor(...a) { return (_m || _cold('visorSpecFor')).visorSpecFor(...a); }
 export function wingtipStation(...a) { return (_m || _cold('wingtipStation')).wingtipStation(...a); }
-export function meshLamps(...a) { return (_m || _cold('meshLamps')).meshLamps(...a); }
 

@@ -28,9 +28,11 @@ export const GROUPS = [
   },
   {
     name: 'client',
-    // Every client file parses, and the client state machines behave headless.
+    // Every client file parses, the lazy facades match their modules, and the client state
+    // machines behave headless.
     gates: [
       'scripts/client/parse-smoke.mjs',
+      'scripts/client/bake-lazy-view.mjs --check',   // with --check it only reads files
       'scripts/client/automation-smoke.mjs',
       'scripts/client/bootscreen-smoke.mjs',
       'scripts/client/freelook-smoke.mjs',
