@@ -91,6 +91,11 @@ unless noted.
    `drawTypeModelArm`, which `bake-lazy-view.mjs` keeps off the panel facade. `npm run
    shapes:smoke` runs [armtables.mjs](../../scripts/shapes/armtables.mjs), which fails a region
    file `index.js` doesn't list, a type claimed twice, or an arm whose parameter list has drifted.
+   Three more blocks left windshield.js the same day: the model registries (`NAMED_MODELS`,
+   `TYPE_MODEL`) in `glass/model-registry.js`, the detail kinds (`AUTHORED_DETAIL`) in
+   `glass/authored-detail.js`, and the derived kit (`derivedTrim`, `derivedKit`) in
+   `glass/derived-kit.js`. None of them reads a windshield.js value while it loads, which is what
+   keeps the import cycle safe whichever file is loaded first; keep it that way.
 
 ## The core primitive: `draw3DBoxAt`
 
@@ -656,7 +661,8 @@ model or you'll get two.
    `ty_*` palette to `WALL_COL` if it needs its own colour.
 2. **Register it**: add a `NAMED_MODELS[<bldgSlug(name)>] = { type, pal, … }` entry (bespoke,
    keyed by building name) **or** a `TYPE_MODEL[<building_type>]` entry (type default). `modelFor`
-   prefers named over type.
+   prefers named over type. Both tables are in
+   [glass/model-registry.js](../../client/game/js/panels/glass/model-registry.js).
 3. **Place it** (content): the tile must carry the flag the model keys off — `building_name`
    (→ `bn`) for a named model, or `building_type` (→ `bt`) for a type model — on a `map_world`
    zone. That's a content edit (one zone JSON + local DB; prod via the CODEX deploy). Airfield

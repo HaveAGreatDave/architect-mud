@@ -99,6 +99,20 @@ function exportsOf(file) {
   // a bare `export let X;` with no initialiser is a value
   for (const m of s.matchAll(/^export\s+(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*;/gm)) vals.add(m[1]);
 
+  // Where a re-exported name is declared. windshield.js passes on some names it doesn't declare
+  // (its building-model tables and kit live under glass/), either as `export { a } from './x.js'`
+  // or as an import plus a bare `export { a }`. Those are classified by how ./x.js declares them,
+  // or a function would come out as a value. Relative specifiers only.
+  const origin = new Map();   // name as written in the export list -> [file, name in that file]
+  for (const m of s.matchAll(/^(import|export)\s*\{([^}]*)\}\s*from\s*['"](\.{1,2}\/[^'"]+)['"]/gm)) {
+    for (const part of m[2].split(',')) {
+      const [a, b] = part.trim().split(/\s+as\s+/).map((x) => x && x.trim());
+      if (a) origin.set(m[1] === 'import' ? (b || a) : a, [path.resolve(path.dirname(file), m[3]), a]);
+    }
+  }
+  const declaresFn = (text, name) => new RegExp('^\\s*(?:export\\s+)?(?:async\\s+)?function\\s*\\*?\\s*' + name + '\\b', 'm').test(text)
+    || new RegExp('^\\s*(?:export\\s+)?(?:const|let|var)\\s+' + name + '\\s*=\\s*(?:async\\s*)?(?:function\\b|\\([^)]*\\)\\s*=>|[A-Za-z_$][\\w$]*\\s*=>)', 'm').test(text);
+
   // `export { a, b as c }` — resolve each to how it was declared in this file.
   for (const m of s.matchAll(/^export\s*\{([^}]*)\}\s*;?/gm)) {
     // A list tagged `// glass-internal` after its closing brace is for windshield.js's own
@@ -114,8 +128,9 @@ function exportsOf(file) {
       const shown = (bits[1] || bits[0] || '').trim();
       if (!shown || !/^[A-Za-z_$][\w$]*$/.test(shown)) continue;
       if (fns.has(shown) || vals.has(shown)) continue;
-      const declFn = new RegExp('^\\s*(?:async\\s+)?function\\s*\\*?\\s*' + local + '\\b', 'm').test(s)
-        || new RegExp('^\\s*(?:const|let|var)\\s+' + local + '\\s*=\\s*(?:async\\s*)?(?:function\\b|\\([^)]*\\)\\s*=>|[A-Za-z_$][\\w$]*\\s*=>)', 'm').test(s);
+      const from = origin.get(local);
+      const declFn = declaresFn(s, local)
+        || (!!from && fs.existsSync(from[0]) && declaresFn(blank(fs.readFileSync(from[0], 'utf8')), from[1]));
       (declFn ? fns : vals).add(shown);
     }
   }

@@ -76,8 +76,12 @@ const NEON = { concert_hall: '#bfe8ff', members_club: '#e6dcc2', auction_house: 
   land_office: '#7fd8ff', hydro: '#9fe4ff', winter_garden: '#7fe6b4', pumping_station: '#5ac8ff',
   cooling_plant: '#8fd8ff', gasholder: '#6fbcff', substation: '#ffd24a', exchange: '#6fa8cc',
   fire_station: '#ff5a4a', incinerator: '#74a8ff', water_tower: '#8fd0ff' };
+// The TYPE_MODEL rows this pass and the next one edit left windshield.js on 2026-10-01; they're in
+// the model registry now.
+const REG = 'client/game/js/panels/glass/model-registry.js';
+let r = fs.readFileSync(REG, 'utf8');
 let nTouched = 0;
-s = s.split('\n').map((ln) => {
+r = r.split('\n').map((ln) => {
   const m = ln.match(/^\s*([a-z_]+):\s+\{ type: '/);
   if (!m || !NEON[m[1]]) return ln;
   const want = `neon: '${NEON[m[1]]}'`;
@@ -91,10 +95,10 @@ s = s.split('\n').map((ln) => {
 // ⚠ REGISTERING IS NOT OPTIONAL: an arm that never lands here bakes no shape, gets no LOD,
 // casts no shadow, collides with nothing and is invisible to shapes:smoke.
 const TM_ANCHOR = "  water_tower:       { type: 'water_tower',       pal: 'ty_hwm',          neon: '#8fd0ff' },";
-if (s.includes("chrome_tower:      { type:")) done.push('type models');
+if (r.includes("chrome_tower:      { type:")) done.push('type models');
 else {
-  if (!s.includes(TM_ANCHOR)) throw new Error('TYPE_MODEL anchor missing — the accent pass above should have created it');
-  s = s.replace(TM_ANCHOR, TM_ANCHOR + `
+  if (!r.includes(TM_ANCHOR)) throw new Error('TYPE_MODEL anchor missing; the accent pass above should have created it');
+  r = r.replace(TM_ANCHOR, TM_ANCHOR + `
   chrome_tower:      { type: 'chrome_tower',      pal: 'ty_hft_glass',    neon: '#7fd8ff' },
   chrome_slab:       { type: 'chrome_slab',       pal: 'ty_hft_glass',    neon: '#9fe0ff' },
   pavilion:          { type: 'pavilion',          pal: 'ty_hfp_glass',    neon: '#7fe6b4' },
@@ -103,6 +107,7 @@ else {
   transit_halt:      { type: 'transit_halt',      pal: 'ty_hf_chrome',    neon: '#5ac8ff' },`);
   fixed.push('type models');
 }
+fs.writeFileSync(REG, r);
 
 // ── 6. the six arms ─────────────────────────────────────────────────────────
 // The arms left windshield.js on 2026-10-01 and are methods in glass/models/halcyon-fields.js now,
