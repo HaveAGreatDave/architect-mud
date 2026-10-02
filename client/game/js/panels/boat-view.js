@@ -39,6 +39,7 @@ import { claimSeatKeyboard, endSeatKeyboard } from './seat-keys.js';
 import { seatHidePanel } from '../../../shared/compact-view.js';
 import { bindBigScreenButton, exitBigScreen, BIGSCREEN_GLYPH, BIGSCREEN_TITLE } from './bigscreen.js';
 import { HELM } from '../../../shared/boat-house.js';
+import { wildlandsAt } from '../../../shared/wildlands.js';
 
 const ID = 'boat-sim';
 const RAD = 16;                     // map window half-width, in tiles
@@ -141,10 +142,21 @@ function readInput(dt) {
 // boat under way will reach its edge between streams, and a rim of land is a wall that appears out
 // of nothing and grounds you. Open water is the honest default on a basin.
 const OPEN = { kind: 'land', biome: 'water', road: 0 };
+// ⚠ A GAP BETWEEN REGIONS COMES DOWN AS `kind: 'air'` WITH NO BIOME, and `isWet` read that as land,
+// so open sea the floor paints as water beached her. The gap is sea wherever `wildlandsAt` says so,
+// the same answer the floor draws from. Boat-only: it adds no tile to `surfaceAt`.
+const gapSea = new Map();
+function gapIsSea(gx, gy) {
+  const k = gx + ',' + gy;
+  let v = gapSea.get(k);
+  if (v === undefined) { v = !!wildlandsAt(gx, gy).sea; if (gapSea.size > 20000) gapSea.clear(); gapSea.set(k, v); }
+  return v;
+}
 function cellAt(dx, dy) {
   const gx = Math.round(st.cx + dx), gy = Math.round(st.cy + dy);
   const row = st.tiles[gy - st.oy];
   const c = row && row[gx - st.ox];
+  if (c && c.kind === 'air') return gapIsSea(gx, gy) ? OPEN : c;
   return c || OPEN;
 }
 function buildWindow() {

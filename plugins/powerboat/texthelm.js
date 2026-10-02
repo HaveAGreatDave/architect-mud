@@ -38,6 +38,7 @@ import { sendToPlayer } from '../../server/engine/messaging.js';
 import { query } from '../../server/models/db.js';
 import { stepBoat, TYPES } from '../../client/game/js/panels/flight-model.js';
 import { surfaceAt } from '../flight/state.js';
+import { wildlandsAt } from '../../client/shared/wildlands.js';
 import { aboard } from './yard.js';
 import { effBoatParams } from './service.js';
 import { rigs } from './index.js';
@@ -277,8 +278,10 @@ async function tick() {
     // makes this a helmsman rather than a teleport: she comes round at the rate the hull allows,
     // and a hard order at speed is a slide, exactly as it is in the panel.
     const err = ((norm(c.want.bearing) - norm(c.s.heading) + 540) % 360) - 180;
-    const cell = surfaceAt(Math.round(c.s.x), Math.round(c.s.y));
-    const wet = cell && (cell.biome === 'water' || cell.sub);
+    const rx = Math.round(c.s.x), ry = Math.round(c.s.y);
+    const cell = surfaceAt(rx, ry);
+    // A gap between regions is sea where the floor paints it sea (boat-view.js `cellAt`, same rule).
+    const wet = cell ? (cell.biome === 'water' || cell.sub) : !!wildlandsAt(rx, ry).sea;
     // ⚠ THE GAIN IS THE HULL'S OWN LOCK TIMES THE TICK, AND A CONSTANT MADE HER WEAVE. At `err / 25`
     // she settled cleanly on every bell except SLOW, where she crossed her ordered bearing nineteen
     // times in two minutes — and that is not a tuning problem, it is discrete time: rudder authority

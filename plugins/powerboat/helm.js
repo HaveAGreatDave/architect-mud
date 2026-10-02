@@ -27,6 +27,7 @@ import { fuelServesAt } from './fuel.js';
 import { effBoatParams, boatLiveryOf, stampBoatIfMissing, wetChange, boatRentalExpired, boatRental, PROP_KNOCK } from './service.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { surfaceAt } from '../flight/state.js';
+import { wildlandsAt } from '../../client/shared/wildlands.js';
 // ⚠ A CYCLE, AND IT IS SAFE FOR ONE STATED REASON: `rigs` is only ever touched inside a function
 // body here, so by the time anything reads it both modules have finished evaluating. Move a use of
 // it to the top level of this file and it is a temporal-dead-zone throw at plugin load — see the
@@ -92,6 +93,7 @@ export function seawardHeading(x, y) {
   try { map = mapWindow({ grid_x: x, grid_y: y }, R); } catch { return 0; }
   const wet = (dx, dy) => {
     const c = map?.[dy + R]?.[dx + R];
+    if (c && c.kind === 'air') return !!wildlandsAt(x + dx, y + dy).sea;   // a gap is sea where the floor paints it so
     return !c || c.biome === 'water' || !!c.sub;
   };
   let best = 0, bestRun = -1;
