@@ -68,6 +68,22 @@ const STRIDE = 15;   // pos3, colour3, alpha1, normal3, metal1, local3, tex1
 // The frame's light arrives as uniforms (`light` on upload), including a sun shadow map of the room.
 const CAB = 24;
 const CAB_NONE = new Float32Array(CAB); CAB_NONE[7] = -1;
+// One vertex into `d` at `o`; returns the next offset. `C` is the cabin record, or null on a layer
+// without one. Module level, with the buffer passed in, so every write is to a local typed array.
+function putVertex(d, o, v, r, g, b, qa, nn, mk, L, tx, C) {
+  d[o] = v[0]; d[o + 1] = v[1]; d[o + 2] = v[2];
+  d[o + 3] = r; d[o + 4] = g; d[o + 5] = b;
+  d[o + 6] = qa;
+  // A quad with no normal writes (0,0,0), which the shader reads as "not lit by the world": the cab,
+  // the shed and every caller that never asked. `amb` (an aircraft's painted faces) asks.
+  if (nn) { d[o + 7] = nn[0]; d[o + 8] = nn[1]; d[o + 9] = nn[2]; } else { d[o + 7] = 0; d[o + 8] = 0; d[o + 9] = 0; }
+  d[o + 10] = mk;
+  if (L) { d[o + 11] = L[0]; d[o + 12] = L[1]; d[o + 13] = L[2]; d[o + 14] = tx; }
+  else { d[o + 11] = 0; d[o + 12] = 0; d[o + 13] = 0; d[o + 14] = 0; }
+  if (!C) return o + STRIDE;
+  for (let i = 0; i < CAB; i++) d[o + STRIDE + i] = C[i];
+  return o + STRIDE + CAB;
+}
 // ⚠ `local` IS THE COCKPIT'S OWN FRAME, IN METRES, and it is what the surface textures are drawn
 // in. `aPos` is where the face is in the WORLD, which moves with the aircraft, so grain sampled
 // off it would crawl across the dash every frame the aircraft moved. Only interior faces carry it;
@@ -719,7 +735,17 @@ export function createSolidsLayer(gl, opt = {}) {
 
   // A fan, so a triangle, a quad and the occasional ring out of the mesh builders all go through
   // one loop — the same shape ground.js fills for the same reason.
-  const tris = (list) => list.reduce((n, q) => n + Math.max(0, (q.mp || q.p).length - 2) * 3, 0);   // `mp` first: a cab record solves `p` only when read
+  // `mp` first: a cab record solves `p` only when read. The same pass collects the metals for smooth(),
+  // into a fresh array (smooth keeps last frame's to compare against).
+  const tris = (list, metals) => {
+    let n = 0;
+    for (let i = 0; i < list.length; i++) {
+      const q = list[i];
+      n += Math.max(0, (q.mp || q.p).length - 2) * 3;
+      if (metals && q.m && q.n) metals.push(q);
+    }
+    return n;
+  };
 
   // ── FILM: THE TRANSLUCENT THINGS A SOLID CARRIES ─────────────────────────────
   // A quad marked `film` (a rotor blade, its blur disc) is tested against depth and writes none, and
@@ -756,9 +782,7 @@ export function createSolidsLayer(gl, opt = {}) {
   // so the answer does not move with the model; and when every metal record is the same object as
   // last time, last time's normals are still right and the work is skipped.
   let smoothedLast = [];
-  function smooth(quads) {
-    const metals = [];
-    for (const q of quads) if (q.m && q.n) metals.push(q);
+  function smooth(metals) {
     let same = metals.length === smoothedLast.length;
     for (let i = 0; same && i < metals.length; i++) if (metals[i] !== smoothedLast[i]) same = false;
     smoothedLast = metals;
@@ -836,16 +860,104 @@ export function createSolidsLayer(gl, opt = {}) {
   // normal matrix, `sun`/`k` the sun term the CPU used to bake into every face (see the fragment
   // shader). Only read while a model matrix is set.
   let shipP = null;
-  function upload(quads, mdl = null, lt = null, att = null, ship = null) {
+  // One record's fan into `d` at `w`, from its points `P` (`len` of them); returns the next offset.
+  // ⚠ THE RECORD IS READ ONCE PER QUAD, NEVER PER VERTEX. Records come from a dozen producers in a
+  // dozen shapes, so every property read here is a megamorphic lookup, and this used to make four
+  // per vertex: 5.6 ms of a loaded cockpit frame's 8.6 ms in uploadSolids, against 0.17 ms for the
+  // GPU write. Each vertex goes through `putVertex` with its own point, normal and local point,
+  // fetched from arrays the quad read once.
+  function writeQuad(d, w, q, P, len) {
+    const c = q.rgb, qa = q.a == null ? 1 : q.a;
+    const r = c ? c[0] / 255 : 0, g = c ? c[1] / 255 : 0, b = c ? c[2] / 255 : 0;
+    const mk = q.m || 0, tx = q.tex || 0;
+    const VN = q.vn, N0 = VN ? null : (q.amb ? q.n : null), LP = q.lp, C = cabin ? (q.cab || CAB_NONE) : null;
+    const v0 = P[0], n0 = VN ? VN[0] : N0, l0 = LP ? LP[0] : null;
+    for (let i = 1; i + 1 < len; i++) {
+      w = putVertex(d, w, v0, r, g, b, qa, n0, mk, l0, tx, C);
+      w = putVertex(d, w, P[i], r, g, b, qa, VN ? VN[i] : N0, mk, LP ? LP[i] : null, tx, C);
+      w = putVertex(d, w, P[i + 1], r, g, b, qa, VN ? VN[i + 1] : N0, mk, LP ? LP[i + 1] : null, tx, C);
+    }
+    return w;
+  }
+  // ── RETAINED GROUPS ───────────────────────────────────────────────────────────────────────────
+  // An array of records the caller hands back unchanged frame after frame (bayGroup in
+  // windshield.js: a depot's shell, a hoodoo tile) is written ONCE into a buffer of its own and drawn
+  // from there for as long as the same array keeps arriving. Arrays are placed end to end; when the
+  // buffer is full it is rebuilt from this frame's groups alone, which is also what drops the ones no
+  // longer seen. Drawn before the per-frame records, in buffer order: that differs from the sink's
+  // order only for two translucent faces of two different groups overlapping on screen.
+  // ⚠ A GROUP CARRIES NO FILM AND NO METAL. Film is drawn as its own range after the world and a
+  // metal's smoothed normals depend on its neighbours; neither is handled here (bayGroup's promise).
+  // ⚠ A FULL BUFFER KEEPS THE WORKING SET, NOT JUST THIS FRAME'S. Rebuilt from this frame's groups
+  // alone, a turn that brings a different set of tiles into view every frame rebuilt it every frame,
+  // which is the old per-frame write with extra steps. So it keeps every group seen in the last
+  // RETAIN_KEEP frames and grows to twice that when they don't fit.
+  const RETAIN_KEEP = 120;
+  let ret = null;
+  function retain(groups) {
+    if (!groups || !groups.length) { if (ret) { ret.runs = []; ret.n = 0; } return 0; }
+    if (!ret) {
+      const rv = gl.createVertexArray();
+      ret = { vao: rv, stream: makeVertexStream(gl, rv, ST, attrs, 1 << 16), data: new Float32Array(1 << 16), used: 0, map: new Map(), runs: [], n: 0, frame: 0 };
+    }
+    const R = ret, now = ++R.frame;
+    const place = (recs, seen = now) => {
+      if (R.map.has(recs)) return;
+      const at = R.used;
+      let w = at;
+      for (let i = 0; i < recs.length; i++) { const q = recs[i], P = q.p; w = writeQuad(R.data, w, q, P, P.length); }
+      R.map.set(recs, { at: at / ST, n: (w - at) / ST, seen });
+      R.used = w;
+    };
+    let add = 0, quads = 0;
+    for (const recs of groups) {
+      quads += recs.length;
+      const e = R.map.get(recs);
+      if (e) e.seen = now; else add += tris(recs) * ST;
+    }
+    if (add) {
+      if (R.used + add > R.data.length) {
+        const keep = [];
+        let need = add;
+        for (const [recs, e] of R.map) if (now - e.seen < RETAIN_KEEP) { keep.push([recs, e.seen]); need += e.n * ST; }
+        if (need * 2 > R.data.length) R.data = new Float32Array(Math.max(need * 2, R.data.length * 2));
+        R.map.clear(); R.used = 0;
+        for (const [recs, seen] of keep) place(recs, seen);
+        for (const recs of groups) place(recs);
+        R.stream.write(R.data, R.used);
+      } else {
+        const at0 = R.used;
+        for (const recs of groups) place(recs);
+        if (R.used > R.stream.capacity) R.stream.write(R.data, R.used);
+        else R.stream.writeRange(R.data, at0, R.used - at0);
+      }
+    }
+    // This frame's ranges in buffer order, neighbours merged into one draw.
+    const spans = groups.map((recs) => R.map.get(recs)).sort((a, b) => a.at - b.at);
+    const runs = [];
+    let n = 0;
+    for (const s of spans) {
+      const last = runs.length ? runs[runs.length - 1] : null;
+      if (last && last[0] + last[1] === s.at) last[1] += s.n;
+      else if (!last || s.at >= last[0] + last[1]) runs.push([s.at, s.n]);
+      else continue;   // the same array twice in one frame: drawn once
+      n += s.n;
+    }
+    R.runs = runs; R.n = n;
+    return quads;
+  }
+  function upload(quads, mdl = null, lt = null, att = null, ship = null, groups = null) {
     attP = att; shipP = ship;
     light = lt; shadowDirty = !!(lt && lt.lightMat);
-    count = quads && quads.length ? tris(quads) : 0;
+    const kept = retain(groups);
+    const metals = [];
+    count = quads && quads.length ? tris(quads, metals) : 0;
     filmAt = count;
     env = null;
     const incr = !!mdl;
     model = mdl;
-    if (!count) { prevCount = -1; return 0; }
-    smooth(quads);
+    if (!count) { prevCount = -1; return kept; }
+    smooth(metals);
     let fresh = false;
     if (data.length < count * ST) { data = new Float32Array(Math.max(count * ST, 1 << 13)); fresh = true; }
     const full = !incr || fresh || count !== prevCount;
@@ -856,30 +968,12 @@ export function createSolidsLayer(gl, opt = {}) {
     // One vertex into the buffer. Incremental mode writes the same way and finds what changed
     // afterwards, in one pass over two typed arrays (see `diffSpans`). Comparing as it wrote, one
     // closure call and one Math.fround per float, cost ~7 ms a cab frame for a room where nothing
-    // had changed and nothing was sent.
-    const put = (q, r, g, b, qa, mk, tx, j) => {
-      const v = incr ? q.mp[j] : q.p[j];
-      data[o] = v[0]; data[o + 1] = v[1]; data[o + 2] = v[2];
-      data[o + 3] = r; data[o + 4] = g; data[o + 5] = b;
-      data[o + 6] = qa;
-      // A quad with no normal writes (0,0,0), which the shader reads as "not lit by the world" — the
-      // cab, the shed and every caller that never asked. `amb` (an aircraft's painted faces) asks.
-      const nn = q.vn ? q.vn[j] : q.amb ? q.n : null;
-      data[o + 7] = nn ? nn[0] : 0; data[o + 8] = nn ? nn[1] : 0; data[o + 9] = nn ? nn[2] : 0;
-      data[o + 10] = mk;
-      const L = q.lp ? q.lp[j] : null;
-      data[o + 11] = L ? L[0] : 0; data[o + 12] = L ? L[1] : 0; data[o + 13] = L ? L[2] : 0;
-      data[o + 14] = L ? tx : 0;
-      if (cabin) { const C = q.cab || CAB_NONE; for (let i = 0; i < CAB; i++) data[o + STRIDE + i] = C[i]; }
-      o += ST;
-    };
+    // had changed and nothing was sent. The record itself is read once, in writeQuad.
     const put1 = (q) => {
-      const c = q.rgb, qa = q.a == null ? 1 : q.a;
-      const r = c ? c[0] / 255 : 0, g = c ? c[1] / 255 : 0, b = c ? c[2] / 255 : 0;
-      const mk = q.m || 0, tx = q.tex || 0, len = (q.mp || q.p).length;
       const slot = qi++, a0 = o;
+      const P = incr ? q.mp : q.p, len = (q.mp || q.p).length;
       if (incr && !full && slotQ[slot] === q && slotO[slot] === a0) { o += Math.max(0, len - 2) * 3 * ST; return; }
-      for (let i = 1; i + 1 < len; i++) { put(q, r, g, b, qa, mk, tx, 0); put(q, r, g, b, qa, mk, tx, i); put(q, r, g, b, qa, mk, tx, i + 1); }
+      o = writeQuad(data, o, q, P, len);
       if (incr) { slotQ[slot] = q; slotO[slot] = a0; if (!full) markDirty(a0, o); }
     };
     let film = 0;
@@ -891,7 +985,7 @@ export function createSolidsLayer(gl, opt = {}) {
     // A handful of scattered spans is cheaper as spans; past that the driver is better off with one.
     if (full || dirty.length > 48) stream.write(data, count * ST);
     else for (const [a, b] of dirty) stream.writeRange(data, a, b - a);
-    return quads.length;
+    return quads.length + kept;
   }
 
   // `opts.film` draws the film range instead of the solid one; see above.
@@ -980,7 +1074,8 @@ export function createSolidsLayer(gl, opt = {}) {
   }
   function draw(cam, cssH, opts = {}) {
     const first = opts.film ? filmAt : 0, n = opts.film ? count - filmAt : filmAt;
-    if (!n) return 0;
+    const runs = !opts.film && ret && ret.n ? ret.runs : null;
+    if (!n && !runs) return 0;
     if (cabin && !opts.film && shadowDirty && light && filmAt > 0) { shadowPass(); shadowDirty = false; }
     if (cabin && !sh) {
       // Build the map once even on a frame with no sun, so the sampler always has its texture.
@@ -1036,14 +1131,14 @@ export function createSolidsLayer(gl, opt = {}) {
     gl.disable(gl.CULL_FACE);   // see the ⚠ at the top — sheets, and a mirrored winding
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    gl.bindVertexArray(vao);
-    gl.drawArrays(gl.TRIANGLES, first, n);
+    if (runs) { gl.bindVertexArray(ret.vao); for (const [a, k] of runs) gl.drawArrays(gl.TRIANGLES, a, k); }
+    if (n) { gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLES, first, n); }
     gl.bindVertexArray(null);
     if (opts.film) gl.depthMask(true);
-    return n / 3;
+    return (n + (runs ? ret.n : 0)) / 3;
   }
 
-  return { upload, draw, get faces() { return count / 3; } };
+  return { upload, draw, get faces() { return (count + (ret ? ret.n : 0)) / 3; } };
 }
 
 declareProgram(VERT, FRAG);

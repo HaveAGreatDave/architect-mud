@@ -327,7 +327,9 @@ export function createCloudVolume(gl) {
       }
     }
     for (let k = 0; k < glowAcc.length; k++) glowData[k] = Math.round(255 * (1 - Math.exp(-glowAcc[k] * GLOW_GAIN)));
-    gl.bindTexture(gl.TEXTURE_2D, glowTex);
+    // Its own unit: by the time the march calls this, unit 1 holds the coverage map, and binding
+    // here on whatever unit is active swapped the city in for the clouds for one frame.
+    gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, glowTex);
     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, COVER_N, COVER_N, gl.RED, gl.UNSIGNED_BYTE, glowData);
   }
 

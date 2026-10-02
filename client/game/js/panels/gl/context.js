@@ -1889,12 +1889,25 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     actorRecs.length = 0;
     clothRecs.length = 0;
     cloudList.length = 0;
-    const clouds = [];
-    for (const l of lists) if (l && l.length) for (const q of l) {
-      if (q.cloud) clouds.push(q);
-      else if (q.actor) actorRecs.push(q);
-      else if (q.cloth) clothRecs.push(q);
-      else (q.inst ? instRecs : all).push(q);
+    const clouds = [], groups = [];
+    for (const l of lists) if (l && l.length) {
+      // ⚠ A RETAINED GROUP (bayGroup in windshield.js) goes over whole and its records are skipped
+      // here, so they reach the GPU once rather than every frame. A group whose records aren't where
+      // it says they are (a sink truncated after a throw) is ignored, and its records go as usual.
+      const G = l.groups;
+      let gi = 0;
+      for (let i = 0; i < l.length; i++) {
+        while (G && gi < G.length && G[gi].at < i) gi++;
+        if (G && gi < G.length && G[gi].at === i) {
+          const recs = G[gi++].recs, n = recs.length;
+          if (n && i + n <= l.length && l[i] === recs[0] && l[i + n - 1] === recs[n - 1]) { groups.push(recs); i += n - 1; continue; }
+        }
+        const q = l[i];
+        if (q.cloud) clouds.push(q);
+        else if (q.actor) actorRecs.push(q);
+        else if (q.cloth) clothRecs.push(q);
+        else (q.inst ? instRecs : all).push(q);
+      }
     }
     // every cloud of the frame stepped under one save of the GL state, not one each
     if (clouds.length) {
@@ -1905,7 +1918,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       }
     }
     if (mg && clouds.length) mg.sweep(clouds[0].now);
-    solidQuads = all.length ? solidsLayer().upload(all) : 0;
+    solidQuads = all.length || groups.length || shp ? solidsLayer().upload(all, null, null, null, null, groups) : 0;
     faunaInst = (instRecs.length || fnl) ? faunaLayer().upload(instRecs) : 0;
     actorInst = (actorRecs.length || acl) ? actorLayer().upload(actorRecs) : 0;
     clothInst = (clothRecs.length || cll) ? clothLayer().upload(clothRecs) : 0;

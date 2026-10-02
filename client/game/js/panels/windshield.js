@@ -1001,6 +1001,8 @@ export const RENDER_TUNE = {
   // with markHidden — the all-or-nothing probe — between it and whatever stands in front of it.
   glBay: 1,
   bayCache: 1,   // a shed's GL shell is built once per key and its records replayed (BAY_SHELL); 0 builds it every frame
+  glRetain: 1,   // record arrays that come back unchanged (a shed's shell, a hoodoo tile) stay on the GPU (bayGroup); 0 sends them every frame
+  hoodooStable: 1,   // hoodoo solids carry no CPU fog (the shader fogs them once) and send every facet, so their records never change; 0 is the old double fog
   glBeam: 0.52,
   // ── ⚠ AND HOW MUCH OF THE SCREEN-SPACE GLARE A WET ROAD TAKES AWAY ───────────────
   //
@@ -22241,6 +22243,14 @@ let OWNSHIP_SINK = null;
 // shed cannot simply join the GL mass, and the ⚠ at the bay's draw site for why it has to be
 // collected INLINE rather than from inside an emitFace closure.
 let BAY_SINK = null;
+// Push `recs` into BAY_SINK as one retained group (`groups` in gl/solids.js): while the same array
+// comes back the GL layer keeps its vertices on the GPU instead of writing them every frame. ⚠ THE
+// CALLER PROMISES NEVER TO CHANGE A RECORD IN AN ARRAY IT HANDS BACK, and to put no film and no
+// metal in it. `glRetain` 0 pushes the records alone, which the layer writes every frame as before.
+function bayGroup(recs) {
+  if (TUNE.glRetain !== 0) (BAY_SINK.groups || (BAY_SINK.groups = [])).push({ recs, at: BAY_SINK.length });
+  for (let i = 0; i < recs.length; i++) BAY_SINK.push(recs[i]);
+}
 // ── AND THE ANIMALS, AS GEOMETRY ────────────────────────────────────────────
 // The third client of gl/solids.js, and the one that arrived as a bug report. A goose was a baked
 // CARD — a fixed viewpoint painted into a texture, hung off the depth of its own feet — so every
@@ -29042,6 +29052,25 @@ function hoodooSolidCached(cam, dx, dy, seed, sides, nm, alpha, f) {
   const g = hoodooGeom(seed, sides);
   const ex = (cam.ex || 0) - dx, ey = (cam.ey || 0) - dy;
   const tx = dx + (cam.ox || 0), ty = dy + (cam.oy || 0);
+  // ── ⚠ STABLE RECORDS: NO CPU FOG, AND EVERY FACET ─────────────────────────────────────────────
+  // The solids shader fogs by depth with the same band `fogTint` uses, so a fogged colour here was
+  // fogged twice. That came in when the spires moved from the decal layer, which has no fog of its own, to the solids
+  // layer, which does: at 20 tiles a spire took nearly twice the haze of the building beside it. With the colour left to the shader and the back facets sent as well (the depth
+  // buffer hides them; the layer doesn't cull), nothing in a tile's records depends on the camera, so
+  // the same array goes back every frame as one retained group (bayGroup). `hoodooStable` 0 is the
+  // old path: fogged here, back facets culled here.
+  if (RENDER_TUNE.hoodooStable !== 0) {
+    const key = seed * 16 + sides + '|' + Math.round(tx * 1000) + ',' + Math.round(ty * 1000) + '|' + nm + '|' + alpha;
+    let recs = HOODOO_RECS.get(key);
+    if (!recs) {
+      if (HOODOO_RECS.size > 4096) HOODOO_RECS.clear();
+      recs = g.map((s) => { const P = s.p, c = s.c; return { p: [[P[0][0] + tx, P[0][1] + ty, P[0][2]], [P[1][0] + tx, P[1][1] + ty, P[1][2]],
+        [P[2][0] + tx, P[2][1] + ty, P[2][2]], [P[3][0] + tx, P[3][1] + ty, P[3][2]]], rgb: [c[0] * nm, c[1] * nm, c[2] * nm], a: alpha }; });
+      HOODOO_RECS.set(key, recs);
+    }
+    bayGroup(recs);
+    return;
+  }
   const key = seed * 16 + sides + '|' + Math.round(tx * 1000) + ',' + Math.round(ty * 1000);
   let recs = HOODOO_RECS.get(key);
   if (!recs) {
@@ -70598,7 +70627,7 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
     ? Math.round((dx + gox) * 1e6) + ',' + Math.round((dy + goy) * 1e6) + '|' + !night + '|' + interior + '|' + open + '|' + alpha + '|' + (TUNE.glSignDepth !== 0) : null;
   const shell = shellKey ? BAY_SHELL.get(cell) : null;
   if (shell && shell.key === shellKey) {
-    for (const r of shell.recs) BAY_SINK.push(r);
+    bayGroup(shell.recs);
     for (const a of shell.legends) floorText(...a);
   } else {
   const shell0 = toGL ? BAY_SINK.length : 0;

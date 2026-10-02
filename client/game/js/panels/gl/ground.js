@@ -37,6 +37,15 @@ import { declareProgram, takeWarm } from './programs.js';
 
 // pos3, colour3
 const STRIDE = 10;  // pos3, colour3, alpha1, road1, lat1, kerb1
+// One ground vertex into `d` at `o`, the `i`th corner of its quad; returns the next offset.
+function putGround(d, o, v, i, cs, r, g, b, as, qa, rdw, lats, kb) {
+  const k = cs && cs[i];
+  d[o] = v[0]; d[o + 1] = v[1]; d[o + 2] = v[2];
+  d[o + 3] = k ? k[0] / 255 : r; d[o + 4] = k ? k[1] / 255 : g; d[o + 5] = k ? k[2] / 255 : b;
+  d[o + 6] = as ? as[i] : qa; d[o + 7] = rdw;
+  d[o + 8] = lats ? lats[i] : 0; d[o + 9] = kb;
+  return o + STRIDE;
+}
 // ⚠ THE SAME SIX AS THE SHADER'S OWN MAX_WET, AND THEY HAVE TO AGREE. The GLSL one is inside a
 // template literal and cannot be read from here, so this is the second copy — the shader would
 // accept a longer array and silently ignore the tail, which is a reflection that is there on one
@@ -1458,17 +1467,20 @@ export function createGroundLayer(gl) {
   // moment the camera pulls away. Paint TESTS depth (a building still hides the road behind it) and
   // writes none, so what is drawn later composites on top, which is the answer the canvas has
   // always given. The order within the range is the push order, which is the paint order.
+  // ⚠ NO CLOSURE PER QUAD, AND EACH RANGE IS COUNTED ONCE. This made a `put` closure for every quad
+  // (about 2,800 a frame in a cockpit) and walked the lists four times to count them. The quad's
+  // fields are read once here and each vertex goes through `putGround`.
   function upload(quads) {
     const base = [], paint = [], add = [], over = [];
     for (const q of quads) (q.add ? add : q.over ? over : q.paint ? paint : base).push(q);
-    quads = base.concat(paint, add, over);
-    splitA = tris(base);
-    splitP = splitA + tris(paint);
-    splitB = splitP + tris(add);
-    count = tris(quads);
+    const nB = tris(base), nP = tris(paint), nA = tris(add);
+    splitA = nB; splitP = nB + nP; splitB = splitP + nA;
+    count = splitB + tris(over);
     if (data.length < count * STRIDE) data = new Float32Array(Math.max(count * STRIDE, 1 << 16));
+    const d = data;
     let o = 0;
-    for (const q of quads) {
+    for (const list of [base, paint, add, over]) for (let qi = 0; qi < list.length; qi++) {
+      const q = list[qi];
       const p = q.p, c = q.rgb, qa = q.a == null ? 1 : q.a;
       // ⚠ COLOUR IS PER VERTEX IN THE BUFFER AND USUALLY PER QUAD IN THE CALLER, and the two are
       // not in tension — a road has one colour and writes it four times. `rgbs` is for the caller
@@ -1487,19 +1499,16 @@ export function createGroundLayer(gl) {
       // has no other place to put a per-quad number, and writing it four times costs nothing
       // measurable against the four positions already being written beside it.
       const lats = q.lat, kb = q.kerb == null ? 0 : q.kerb;
-      const put = (v, i) => {
-        const k = cs && cs[i];
-        data[o] = v[0]; data[o + 1] = v[1]; data[o + 2] = v[2];
-        data[o + 3] = k ? k[0] / 255 : r; data[o + 4] = k ? k[1] / 255 : g; data[o + 5] = k ? k[2] / 255 : b;
-        data[o + 6] = as ? as[i] : qa; data[o + 7] = rdw;
-        data[o + 8] = lats ? lats[i] : 0; data[o + 9] = kb; o += STRIDE;
-      };
       // A fan, because a shadow is the convex hull of a footprint and its offset copy and can
       // carry up to eight corners; a road quad is the four-point case of the same loop.
-      for (let i = 1; i + 1 < p.length; i++) { put(p[0], 0); put(p[i], i); put(p[i + 1], i + 1); }
+      for (let i = 1; i + 1 < p.length; i++) {
+        o = putGround(d, o, p[0], 0, cs, r, g, b, as, qa, rdw, lats, kb);
+        o = putGround(d, o, p[i], i, cs, r, g, b, as, qa, rdw, lats, kb);
+        o = putGround(d, o, p[i + 1], i + 1, cs, r, g, b, as, qa, rdw, lats, kb);
+      }
     }
     stream.write(data, count * STRIDE);
-    return quads.length;
+    return base.length + paint.length + add.length + over.length;
   }
 
   function draw(cam, H, opts = {}) {

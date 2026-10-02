@@ -47,6 +47,26 @@ Browser bench at Halcyon (`__glWhere`, best of three): the cockpit went from 38.
 the cab stayed at about 15.5 ms. Headless allocation: cockpit 24.7 to 21.9 MB a frame,
 residential 20.0 to 17.1.
 
+Then the GL uploads, where the browser showed the cockpit's world solids at about 6 ms:
+
+- **The vertex writers** in gl/solids.js and gl/ground.js read each record once instead of four
+  times a vertex (records come in a dozen shapes, so each read is a megamorphic lookup), and the
+  ground writer stopped making a closure per quad. Byte-identical buffers over 72 and 64 frames
+  against the committed files under a fake GL. Node, Halcyon cockpit: world solids 1.6 to 1.1 ms,
+  the cab interior 1.0 to 0.5, ground 1.9 to 1.4.
+- **Retained groups** (`glRetain`): an array of records the caller hands back unchanged
+  (`bayGroup`: a depot's shell, a hoodoo tile) is written once into a second buffer and drawn from
+  there. The same triangles as before over 120 frames under a fake GL, once each view had been
+  painted once (a first paint at a new view draws more, retained or not). About 1,700 of 3,000
+  bay-sink records a frame, two new arrays a frame while turning. World solids 0.95 to 0.74 ms in
+  node; what's still sent every frame is the statue (shaded by the view direction on the CPU) and the
+  canal locks (normals flipped toward the eye, a flashing signal). Both need that shading in the
+  shader before they can be retained.
+- **Hoodoos were fogged twice** (`hoodooStable`): the CPU fogged their colour and the solids shader
+  fogged it again, since they moved from the decal layer (no fog) to the solids layer. Now the
+  shader alone fogs them and every facet is sent, so a tile's records never change. This one moves
+  the picture, on purpose: 0.1 to 1% of pixels at Halcyon, where spires are.
+
 Tried and backed out: a retained layer for hoodoo solids. Their colour carries CPU fog by distance,
 so most records changed every frame anyway (no gain, 46-55 ms against 47-48).
 
