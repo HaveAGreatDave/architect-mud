@@ -575,9 +575,10 @@ void main() {
     // sharp horizon in envAt turns the whole plate into one colour at once (the square of sky beside
     // the minigun). envSoft has no horizon line, only a slow gradient, so the small change in R.z
     // across a plate reads as a sheen running over it rather than a switch.
-    // envRich at a wide horizon keeps the plate from switching all at once and still gives it a
-    // skyline to carry; a curve gets the horizon as sharp as its pixels allow, no sharper (shimmer).
-    vec3 env = flatPlate ? envRich(R, 0.2) : envRich(R, max(0.012, fwidth(R.z) * 1.5));
+    // ⚠ NOT envRich, NOT EVEN AT A WIDE HORIZON: its clouds and skyline are a picture, and a flat plate
+    // shows that picture whole, a square of sky over the gun (476d794fc did this; reverted).
+    // A curve gets the horizon as sharp as its pixels allow, no sharper (shimmer).
+    vec3 env = flatPlate ? envSoft(R.z) : envRich(R, max(0.012, fwidth(R.z) * 1.5));
     float fres = pow(1.0 - clamp(abs(dn), 0.0, 1.0), 5.0);
     if (mtl > 0.0) {
       // Tinted by the metal, but never below a floor: dark gun metal still reflects a good share of

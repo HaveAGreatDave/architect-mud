@@ -89,6 +89,7 @@ import {
 	setBroadcast,
 	consumeSwitchToken,
 	setGhostTokenStore,
+	claimGuestAccount,
 } from "./api/routes.js";
 import { cmdGhostLook, cmdGhostMove, cmdGhostHaunt, cmdGhostPowerDrain, makeGhostBroadcast } from "./engine/commands/ghost.js";
 import { activateForcefield, deactivateForcefield, reconcileApartmentDoorLocks, reconcileNpcHomesVsOwnership } from "./engine/apartments.js";
@@ -101,7 +102,9 @@ import { handlePanelData, sendPanelCatalog } from "./engine/panels.js";
 import pool, { query, logActivity } from "./models/db.js";
 import { loadMisSettings, isMisServerEnabled } from "./engine/mis.js";
 import { loadEmailVerificationSetting, isEmailVerificationEnabled } from "./engine/emailVerification.js";
-import { loadRegistrationSettings, areRegistrationsOpen } from "./engine/registrations.js";
+import { loadRegistrationSettings, areRegistrationsOpen, registrationsClosedMessage } from "./engine/registrations.js";
+import { handleProblem, handleTaken, insertNewPlayer } from "./engine/new-player.js";
+import { GUEST_ROLE, isGuest } from "./engine/guest.js";
 import { mailerConfigProblem, mailerSender } from "./mailer.js";
 
 import { initEnvironment, getHUDPayload, getZoneTemperature } from "./engine/environment.js";
@@ -745,6 +748,8 @@ wss.on("connection", (ws, req) => {
 		if (msg.type === "auth") return handleAuth(ws, session, msg);
 		if (msg.type === "auth_token") return handleAuthToken(ws, session, msg);
 		if (msg.type === "auth_remember") return handleAuthRemember(ws, session, msg);
+		if (msg.type === "auth_guest") return handleAuthGuest(ws, session, msg);
+		if (msg.type === "claim_account") return handleClaimAccount(ws, session, msg);
 		// Signing out: the client sends this just before it closes, and every saved
 		// login of this player stops working (a copied token included).
 		if (msg.type === "auth_forget") { if (session.playerId) revokeRememberTokens(session.playerId).catch(() => {}); return; }
@@ -779,6 +784,14 @@ wss.on("connection", (ws, req) => {
 		if (msg.type === "instrument_note") {
 			if (session.playerId)
 				emit("instrument.note", { playerId: session.playerId, note: msg.note, velocity: msg.velocity, off: msg.off === true });
+			return;
+		}
+		// A report from the header's feedback button (plugins/feedback). Same shape
+		// as instrument_note: the route only emits, and the plugin validates,
+		// rate-limits and answers with feedback_ok or feedback_err.
+		if (msg.type === "feedback") {
+			if (session.playerId)
+				emit("feedback.submit", { playerId: session.playerId, category: msg.category, text: msg.text, client: msg.client });
 			return;
 		}
 		if (msg.type === "panel_watch" || msg.type === "panel_unwatch") {
@@ -1244,6 +1257,63 @@ async function handleAuthRemember(ws, session, msg) {
 	}
 	await finishAuth(ws, session, rows[0], msg.displayRung, false);
 	ws.send(JSON.stringify({ type: "remember_token", token: signRememberToken(rows[0].id) }));
+}
+
+// Play as a guest: a real players row with role 'guest', no username, password
+// or email to type, only the name to go by (engine/guest.js). The browser keeps
+// a remember token, which is the only way back in; an unclaimed guest is purged
+// a week after it was last seen (plugins/guest).
+async function handleAuthGuest(ws, session, msg) {
+	const fail = (message) => ws.send(JSON.stringify({ type: "auth_fail", message, guest: true }));
+	if (session.playerId) return;
+	if (!areRegistrationsOpen()) return fail(registrationsClosedMessage());
+	const gate = checkRateLimit("/auth/guest", session.addrKey || "unknown", AUTH_LIMITS["/auth/guest"]);
+	if (!gate.ok) return fail("Too many new characters from here. Wait a while and try again.");
+	const handle = typeof msg.handle === "string" ? msg.handle.trim() : "";
+	const bad = handleProblem(handle);
+	if (bad) return fail(bad);
+	let id;
+	try {
+		if (await handleTaken(handle)) return fail("That name is taken.");
+		id = await insertNewPlayer({
+			username: `guest_${randomUUID().slice(0, 12)}`,
+			handle,
+			role: GUEST_ROLE,
+			displayRung: msg.displayRung,
+		});
+		// No email to verify. Set here so the verification gate on auth_remember
+		// lets the guest back in.
+		await query("UPDATE players SET email_verified=TRUE WHERE id=$1", [id]);
+	} catch (e) {
+		if (e.code === "23505") return fail("That name is taken.");
+		console.error("[guest] create failed:", e.message);
+		return fail("Couldn't make that character. Try again.");
+	}
+	logActivity("guest_created", handle);
+	const { rows } = await query("SELECT * FROM players WHERE id=$1", [id]);
+	await finishAuth(ws, session, rows[0], msg.displayRung, !!msg.displayRungExplicit);
+	ws.send(JSON.stringify({ type: "remember_token", token: signRememberToken(id) }));
+}
+
+// Guest → account, from inside the session (routes.js claimGuestAccount).
+async function handleClaimAccount(ws, session, msg) {
+	if (!session.playerId) return;
+	const live = getLivePlayer(session.playerId);
+	if (!isGuest(live)) {
+		ws.send(JSON.stringify({ type: "claim_result", ok: false, error: "This character already has an account." }));
+		return;
+	}
+	const gate = checkRateLimit("/auth/register", session.addrKey || "unknown", AUTH_LIMITS["/auth/register"]);
+	if (!gate.ok) {
+		ws.send(JSON.stringify({ type: "claim_result", ok: false, error: "Too many attempts. Wait a few minutes and try again." }));
+		return;
+	}
+	const r = await claimGuestAccount(session.playerId, msg);
+	if (r.ok) {
+		live.role = "player";
+		session.role = "player";
+	}
+	ws.send(JSON.stringify({ type: "claim_result", ...r }));
 }
 
 async function handleAuthToken(ws, session, msg) {

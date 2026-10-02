@@ -144,6 +144,64 @@ Fallout's low-Intelligence dialogue gets pity, dismissal, gifts and occasionally
 
 Set it for each district, building or quest line: horror in the Under, farce in a corp's HR floor, plain sadness in Old Coldwater. The same city can hold all three. Decide the dial before writing the room.
 
+## From GTA IV and V
+
+Fallout is the model for objects, rooms and documents. GTA IV and V are better models for three things Fallout has little of: a city's media, people passing in the street, and talk while something else is happening. As with Fallout, we take techniques and never text, names or brands. Added 2026-10-01.
+
+How Rockstar worked: Dan Houser and Lazlow Jones wrote the radio and ads together, passing scripts back and forth until neither knew who wrote which line, and judged a line by whether it made the other one laugh ([GamingBible](https://www.gamingbible.com/news/how-iconic-gta-radio-stations-were-made-130072-20251113), [ShortList](https://www.shortlist.com/news/the-making-of-the-grand-theft-auto-games-with-lazlow-jones-404579)). Houser wrote as an outsider and an insider to the country he was mocking ([Gameranx](https://gameranx.com/updates/id/554209/article/dan-houser-wrote-grand-theft-autos-satire-as-an-outsider-and-insider-in-the-us/)). IV was meant as an immigrant's view of a city that both charms and shuts him out, and Houser says the character worked once he could be incredulous at a lie and, separately, quietly sad ([GTABoom](https://www.gtaboom.com/grand-theft-auto-ivs-creator-just-admitted-he-originally-wanted-to-kill-niko-bellic-aa95)).
+
+GTA is louder than Fallout. Its media voice shouts and its people swear. We keep the techniques and turn the volume down to our register: the rules in [The default register](#the-default-register) still hold, and so does [What we don't do](#what-we-dont-do).
+
+### 12. Push it one step past real, then stop
+
+Lazlow's account of the method: take something real and push it just past plausible; the joke needs that gap. His warning is that reality catches up, and when it does the better target is how calmly everyone accepts it ([GTABoom](https://www.gtaboom.com/former-rockstar-writer-confirms-gta-6-satire-problem-262f)). That second form is already ours (technique 6). For Architect, pick the real-world thing (a subscription prompt, a loyalty tier, a wellness app) and move it one step: the loyalty tier now applies to your reprint.
+
+- Fails: two steps. Once it's impossible, it's a sketch, and nobody in the city would say it.
+
+### 13. The ad sells the flaw
+
+GTA's ads and fake brands state the product's worst property as a selling point, in a voice that's proud of it. It's technique 1 with a product attached. Keep it to one flaw an ad, and put it where an ad puts its strongest claim.
+
+- Works: "Vatfresh Linen (proposal). Smells like nobody wore it before you. Legally."
+- Fails: listing three flaws, or the ad noticing its own joke.
+
+### 14. The station has a point of view, and it's not the narrator's
+
+Each GTA station is a person: a format, a host with a grievance, callers who make it worse. The talk host is wrong in a consistent direction, and the satire comes from letting them be. Our hosts stay warm gossips (technique 9); the point of view lives in the format. A Halcyon money hour, a Long Watch dawn roster read on air, a call-in show for people whose reprint came out wrong. A caller is one ordinary person with one problem.
+
+- Fails: every station in one voice, or a host who's secretly the author.
+
+### 15. A bark is a whole person in a few words
+
+GTA V sorts street people by type (business, tourist, jogger, rural) and gives each pools of lines by situation: noticing you, being bumped, being frightened, running away, chatting to each other, on the phone ([Game Developer](https://www.gamedeveloper.com/design/breaking-down-gta-v-s-pedestrian-dialogue-system-an-analysis-with-speculative-examples)). The lines are short and generic on purpose, so they work anywhere; the type is placed by district so the street sounds right. The best ones are half of a phone call: you hear one side of somebody else's problem and walk past.
+
+- Architect's version: ambient NPC lines and banter threads, keyed by type and by what just happened, with the district choosing who's on the street. Half a conversation is a strong form for a MUD; the player overhears it while moving.
+- Fails: barks about the player's quest, or barks that want a reply.
+
+### 16. Talk while the player is busy
+
+GTA's best character work happens in the car on the way to a job. The player is driving, so the talk can be long, loose and off-topic, and it ends when the car stops. Exposition rides in it unnoticed because nobody is waiting for it.
+
+- Architect's surfaces: a companion or quest-giver walking with you, a cab ride, a flight crew on the intercom, the trucking radio. Break it into lines spaced by movement, let it drop mid-sentence when you arrive, and never repeat it.
+- Fails: stopping the player to deliver it.
+
+### 17. Lie to the newcomer, and let them notice
+
+IV opens on a cousin's lies about the good life, and the protagonist's flat disbelief is the joke. A new player in Coldwater is the same immigrant. Let the people who greet them oversell the city, and let the room description disagree without comment.
+
+- Works: a recruiter's line says the flats are all river-view; the flat looks at a wall.
+- Fails: the narrator pointing out that the recruiter lied.
+
+### 18. Sadness arrives once, flat, and isn't followed up
+
+The line Houser remembers is a single quiet sentence about war in a game full of jokes, and the next scene doesn't mention it. A funny character gets one plain, true sentence, said like it's nothing. Nobody responds to it. This is the order-voice version of technique 5.
+
+- Fails: a speech, a swell of music, or anyone saying "that's deep".
+
+### 19. Three registers, one city
+
+V runs three leads who speak differently: tired middle-aged comfort, young ambition, and someone with no brakes at all. They describe the same city and agree on nothing. Architect's orders already have voices; use the same trick on quest-givers in one arc, so that the same job sounds different from each of them.
+
 ## Surfaces
 
 Lengths are from the sampled Fallout text; ours are the targets.
@@ -156,6 +214,9 @@ Lengths are from the sampled Fallout text; ours are the targets.
 | Audio / voice log | 60–180 words | Spoken: false starts, background noise in brackets, addressed to someone specific. The speaker doesn't know it's the last one. |
 | Broadcast item | 30–60 words | Greeting, a news item told as gossip, a sign-off into the next thing. |
 | Room description | 2–5 sentences | Objects and positions; what people left. No caption. |
+| Ad | 15–40 words | One product, one flaw sold as its best feature, a tagline. |
+| Street bark | 2–12 words | One type, one situation; often half of a phone call. |
+| Talk on the move | 1 line a step | Spaced by movement, off-topic is fine, drops when you arrive. |
 | NPC greeting | 1–2 lines | Sincere, busy, about their own problem. |
 | Arc rank-up / ending line | 1–3 sentences, past tense | Cause, then a consequence, good and bad in the same line, no verdict. |
 | Death / vat message | 1–3 sentences | Bureaucratic, polite, and it bills you. |

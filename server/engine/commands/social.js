@@ -280,7 +280,7 @@ async function cmdWho() {
   const online = getAllLivePlayers().filter(p => p.role !== 'admin' && p.role !== 'ghost');
   if (!online.length) return { type:'who', message:'No other survivors currently online.' };
   let msg = '<span class="who-header">SURVIVORS ONLINE</span>\n';
-  for (const p of online) msg += `  ${p.handle.padEnd(20)} ${p.current_zone}\n`;
+  for (const p of online) msg += `  ${(p.role === 'guest' ? `${p.handle} (guest)` : p.handle).padEnd(28)} ${p.current_zone}\n`;
   return { type:'who', message:msg };
 }
 

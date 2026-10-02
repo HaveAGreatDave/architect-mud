@@ -1,0 +1,6 @@
+{
+  "name": "guest",
+  "version": "1.0.0",
+  "description": "Guest characters: `register` opens the form that gives a guest a username, password and email and keeps everything; a login reminder; and an idle-gated sweep that purges a guest unseen for 7 days. Creation is the WebSocket auth_guest handler; the verb limits are engine/guest.js.",
+  "commands": ["register"]
+}

@@ -90,7 +90,7 @@ import { applyAmpUnlocks, addAmpUnlock } from './panels/musicplayer.js';
 import { applyEspState, handleEspWarning } from './esp.js';
 import { handleAlarmChirp, applyAlarmState, clearAlarmState } from './alarm.js';
 import { playPokerSfx } from './poker-sfx.js';
-import { showConfirmDialog, showAmountDialog } from './panels/confirm.js';
+import { showConfirmDialog, showAmountDialog, showClaimDialog } from './panels/confirm.js';
 import { openSiftPanel, closeSiftPanel } from './panels/sift-select.js';
 import { showArrestNotice } from './panels/arrest.js';
 import { openApprehendPrompt } from './panels/apprehend.js';
@@ -102,6 +102,7 @@ import { renderMarkup } from './markup.js';
 import { onPanelData, onPanelFeed, onPanelCatalog, syncPanels, refreshCustomPanels } from './panels/custom/manager.js';
 import { loadSettings, sfxDetail } from '/shared/settings.js';
 import { noteBirdStrikes } from './panels/bird-strikes.js';
+import { onFeedbackOk, onFeedbackErr } from './feedback-telemetry.js';
 
 
 const DEV_ROLES = ['admin', 'dev', 'builder', 'designer'];
@@ -372,6 +373,9 @@ function autoResolved(msg, onResult) {
   onResult({ won: !!msg.autoWon, score: msg.autoScore ?? (msg.autoWon ? 100 : 0) });
   return true;
 }
+// Reopens the claim form with the server's refusal (see claim_form).
+let claimRetry = null;
+
 const handlers = {
   connected: () => {},
   pong: () => {},
@@ -471,7 +475,7 @@ const handlers = {
     }
     const submitBtn = document.getElementById('auth-submit');
     submitBtn.disabled = false;
-    submitBtn.textContent = state.isRegister ? 'Register' : 'Enter';
+    submitBtn.textContent = state.isGuest ? 'Play' : state.isRegister ? 'Register' : 'Enter';
     document.getElementById('auth-screen').style.display = 'flex';
     const errEl = document.getElementById('auth-error');
     errEl.textContent = msg.message;
@@ -1226,6 +1230,27 @@ const handlers = {
   instrument_panel: (msg) => { openPianoPanel(msg); },
   instrument_note: (msg) => { onRoomNote(msg); },
   instrument_close: () => { closePianoPanel(); },
+  // A guest making the character permanent (plugins/guest `register`). The
+  // password goes straight to the server over the socket and is kept nowhere.
+  claim_form: (msg) => {
+    if (msg.message) appendMsg(msg.message, 'system');
+    let last = {};
+    const send = (fields) => { last = fields; sendRaw({ type: 'claim_account', ...fields }); };
+    claimRetry = (error) => showClaimDialog({ handle: msg.handle, error, username: last.username, email: last.email }, send);
+    showClaimDialog({ handle: msg.handle }, send);
+  },
+  claim_result: (msg) => {
+    if (!msg.ok) { claimRetry?.(msg.error); return; }
+    claimRetry = null;
+    if (state.player) state.player.role = 'player';
+    appendMsg(msg.needsVerification
+      ? 'Done. This character is yours to keep. Check your email for a link to verify the address before you next log in.'
+      : 'Done. This character is yours to keep. Log in with that username and password from now on.', 'system');
+  },
+
+  // The answer to the header's ⚑ report (plugins/feedback).
+  feedback_ok: (msg) => { onFeedbackOk(msg); },
+  feedback_err: (msg) => { onFeedbackErr(msg); },
   // An AUTHORED instrument's synth config, sent once per sit and per room entry
   // rather than per note — which is what keeps the note relay at ~40 bytes.
   instrument_voice: (msg) => { onVoiceConfig(msg); },

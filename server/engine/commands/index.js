@@ -7,6 +7,7 @@ import { handlers as housingHandlers } from './housing.js';
 import { handlers as worldHandlers } from './world.js';
 import { fireCommand, fireInputMatchers } from '../plugins.js';
 import { deactivateForcefield } from '../apartments.js';
+import { guestVerbGate } from '../guest.js';
 import { fireSpecializedAction } from '../specializedActions.js';
 import { getSelectionState, advanceSelectionState, formatSelectionPage } from '../sift.js';
 import { getLivePlayer } from '../world.js';
@@ -207,6 +208,12 @@ export async function handleCommand(input, player, broadcast, opts = {}) {
   // Rebuild raw with the canonical verb so handlers that re-parse it see the real
   // command, not the alias. No-op when no alias applied.
   if (cmd !== parts[0]) raw = [cmd, ...raw.trim().split(/\s+/).slice(1)].join(' ');
+
+  // Guests can't move value to another player or leave lasting public text
+  // (engine/guest.js). Here, after alias resolution, so a plugin verb is covered
+  // without the plugin knowing.
+  const _guestNo = guestVerbGate(player, cmd);
+  if (_guestNo) return _guestNo;
 
   // Let plugins react to the player taking any action — fired BEFORE the command
   // runs, so a move/act that lands on a tile doesn't cancel the very task it's about

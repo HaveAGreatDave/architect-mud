@@ -65,6 +65,7 @@ import { initWhisperPanel, debugFakeWhisper, forgetWhisperHistory } from "./pane
 import { initWho, openWhoModal } from "./panels/who.js";
 import { initPlayersPanel } from "./panels/players.js";
 import { showAmountDialog, showDangerDialog, showConfirmDialog, makeDraggable } from "./panels/confirm.js";
+import { openFeedback, installErrorRing } from "./feedback-telemetry.js";
 import { initSidebarOrder } from "./panels/sidebar-order.js";
 import { mountCustomPanels } from "./panels/custom/manager.js";
 import { initCustomPanelButton } from "./panels/custom/builder.js";
@@ -512,9 +513,34 @@ fetch("/api/registrations/status")
 		notice.textContent = data.message || "";
 		notice.style.display = "";
 		wrap.style.display = "none";
+		const guestWrap = document.getElementById("auth-guest-wrap");
+		if (guestWrap) guestWrap.style.display = "none";
 		if (state.isRegister) document.getElementById("auth-toggle-link").click();
+		if (state.isGuest) document.getElementById("auth-guest-link").click();
 	})
 	.catch(() => {});
+
+// Guest mode: the name is the only field. Everything else on the form belongs
+// to an account, so it hides rather than sitting there unused. The server side
+// is the auth_guest message (server/index.js).
+document.getElementById("auth-guest-link").addEventListener("click", (e) => {
+	if (state.isRegister) document.getElementById("auth-toggle-link").click();
+	state.isGuest = !state.isGuest;
+	const show = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on ? "" : "none"; };
+	document.getElementById("handle-field").classList.toggle("visible", state.isGuest);
+	for (const id of ["username-field", "password-field", "remember-field", "forgot-link-wrap", "auth-toggle-wrap"]) show(id, !state.isGuest);
+	document.getElementById("auth-guest-text").textContent = state.isGuest ? "Have an account?" : "Just looking?";
+	document.getElementById("auth-guest-link").textContent = state.isGuest ? "Log in" : "Play as a guest";
+	document.getElementById("auth-submit").textContent = state.isGuest ? "Play" : "Enter";
+	document.getElementById("auth-error").textContent = "";
+	if (!e.isTrusted) return;
+	const status = document.getElementById("auth-mode-status");
+	if (status)
+		status.textContent = state.isGuest
+			? "Guest mode. Only a name is needed. Name field added above."
+			: "Login mode.";
+	document.getElementById(state.isGuest ? "auth-handle" : "auth-username").focus();
+});
 
 document.getElementById("auth-toggle-link").addEventListener("click", (e) => {
 	state.isRegister = !state.isRegister;
@@ -762,7 +788,19 @@ function doSignout() {
 	closeConnection();
 	location.reload();
 }
+installErrorRing();
+document.getElementById("feedback-btn").addEventListener("click", () => openFeedback());
 document.getElementById("signout-btn").addEventListener("click", () => {
+	// A guest has no password: signing out forgets the only key back to the
+	// character, so this outranks the safe-at-home shortcut.
+	if (state.player?.role === "guest") {
+		showDangerDialog({
+			title: "Sign Out",
+			prompt: "You're playing as a guest. Signing out forgets this character for good, and nobody can bring it back. Type register first to give it a login.",
+			confirmLabel: "Lose This Character",
+		}, doSignout);
+		return;
+	}
 	// Safe at home (your own locked apartment) — no warning, just log out.
 	if (state.currentZone && state.currentZone === state.player?.home_zone) {
 		doSignout();

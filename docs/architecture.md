@@ -28,7 +28,7 @@ THOMAS is a **platform**, not this game's front end: with modification — throu
 | **Frontend** | Vanilla JS, single-file HTML | Player client + Dev panel — no build step |
 | **Database** | PostgreSQL via Neon | Persistent world state, players, items — single source of truth |
 | **Query layer** | `pg` (node-postgres), raw SQL | No ORM — schema is hand-written in `schema.js` |
-| **Auth** | Opaque random session tokens (`crypto.randomBytes(32)`) + SHA-256 password hashing | Player accounts, dev/admin roles. **Not JWT** — this row said `jsonwebtoken` for months while nothing imported it; the dependency was removed 2026-08-18 |
+| **Auth** | HMAC-signed tokens (`server/engine/auth-tokens.js`) + scrypt password hashing (`passwords.js`) | Player accounts, guests (`role='guest'`), dev/admin roles. Not JWT. See [server.md](server.md) |
 | **Hosting** | Render (free Web Service tier) | Node server, auto-deploys on git push |
 
 ### Why this stack, in practice

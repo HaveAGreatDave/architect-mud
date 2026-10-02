@@ -718,7 +718,10 @@ const GLYPH = {
   S: { w: 0.78, p: [...bowl(0.40, 0.735, 0.30, 0.265, 0.12, 0.205, 10, 0.3, Math.PI * 1.5), ...bowl(0.40, 0.265, 0.30, 0.265, 0.12, 0.205, 10, -Math.PI + 0.3, Math.PI * 0.5)] },
   W: { w: 0.96, p: [[[0, 1], [0.12, 1], [0.30, 0], [0.22, 0]], [[0.22, 0], [0.30, 0], [0.52, 1], [0.44, 1]], [[0.44, 1], [0.52, 1], [0.74, 0], [0.66, 0]], [[0.66, 0], [0.74, 0], [0.96, 1], [0.84, 1]]] },
   U: { w: 0.86, p: [Rq(0.10, 0.34, 0.30, 1), Rq(0.66, 0.34, 0.73, 1), Rq(0, 0.93, 0.40, 1), Rq(0.54, 0.93, 0.86, 1),
-    ...bowl(0.415, 0.34, 0.315, 0.34, 0.12, 0.27, 10, Math.PI, TAU)] },
+    // Heavy left, hairline right: the right half's inner edge ends at the thin stem (0.66), or the
+    // bowl's end stands proud of it as a tooth.
+    ...bowl(0.415, 0.34, 0.315, 0.34, 0.12, 0.27, 5, Math.PI, Math.PI * 1.5),
+    ...bowl(0.415, 0.34, 0.315, 0.34, 0.245, 0.27, 5, Math.PI * 1.5, TAU)] },
 };
 // The switch labels' letters, in the same face: heavy stems, hairline bars, flat serifs.
 Object.assign(GLYPH, {
@@ -819,20 +822,19 @@ function nameplate_(Pn, ca, cb, h, name = 'DRAKE', maxW = Infinity) {
   Pn.plate(roundRect(a0 + h * 0.14, b0 + h * 0.12, a1 - h * 0.14, b1 - h * 0.1, h * 0.28), E.shadow, 0, 0.0026);
   Pn.plate(roundRect(a0 + h * 0.14, b0 + h * 0.16, a1 - h * 0.14, b1 - h * 0.14, h * 0.28), E.lip, 0.2, 0.0029);
   Pn.plate(roundRect(a0 + h * 0.16, b0 + h * 0.16, a1 - h * 0.16, b1 - h * 0.16, h * 0.26), E.face, 0.12, 0.0032);
-  // Mirror chrome (Quackhawk): the face shows the world, not a brush. Sky in the top half, a dark
-  // horizon band across the middle, ground below, and two bright diagonal streaks of window light,
-  // all clipped to the face and lying under the cuts.
+  // Mirror chrome (Quackhawk): the face shows the world, not a brush. Sky in the top half, ground
+  // below with no horizon band between them (a dark band read as a strike-through), and bright
+  // diagonal streaks of window light, all clipped to the face and lying under the cuts.
   if (E.mirror) {
     const f0 = a0 + h * 0.2, f1 = a1 - h * 0.2, g0 = b0 + h * 0.2, g1 = b1 - h * 0.2, mid = (g0 + g1) / 2;
     const box = (poly) => [(q) => q[0] - f0, (q) => f1 - q[0], (q) => q[1] - g0, (q) => g1 - q[1]].reduce(clipHalf, poly);
-    Pn.plate(box([[f0, mid + h * 0.08], [f1, mid + h * 0.08], [f1, g1], [f0, g1]]), E.mirror.sky, 0.25, 0.0036);
-    Pn.plate(box([[f0, mid - h * 0.1], [f1, mid - h * 0.1], [f1, mid + h * 0.08], [f0, mid + h * 0.08]]), E.mirror.horizon, 0, 0.0036);
-    Pn.plate(box([[f0, g0], [f1, g0], [f1, mid - h * 0.1], [f0, mid - h * 0.1]]), E.mirror.ground, 0.05, 0.0036);
+    Pn.plate(box([[f0, mid], [f1, mid], [f1, g1], [f0, g1]]), E.mirror.sky, 0.5, 0.0036);
+    Pn.plate(box([[f0, g0], [f1, g0], [f1, mid], [f0, mid]]), E.mirror.ground, 0.25, 0.0036);
     const span = f1 - f0, sk = (g1 - g0) * 0.6;
-    for (const [at, w] of [[0.22, 0.09], [0.3, 0.025], [0.68, 0.05]]) {
+    for (const [at, w] of [[0.12, 0.04], [0.22, 0.09], [0.3, 0.025], [0.55, 0.03], [0.68, 0.05], [0.86, 0.07]]) {
       const x = f0 + span * at, ww = h * w * 6;
       const q = box([[x - sk, g0], [x - sk + ww, g0], [x + sk + ww, g1], [x + sk, g1]]);
-      if (q.length >= 3) Pn.plate(q, E.mirror.streak, 0.6, 0.004);
+      if (q.length >= 3) Pn.plate(q, E.mirror.streak, 0.9, 0.004);
     }
   }
   // Everything on the face is CUT into it: a shadow on the upper-left wall of each cut, the lower-right
@@ -853,15 +855,6 @@ function nameplate_(Pn, ca, cb, h, name = 'DRAKE', maxW = Infinity) {
     if (!G) { x += (0.5 + TRACK) * h; continue; }
     for (const poly of G.p) cut(poly.map(([u, v]) => [x + u * h, lb + v * h]));
     x += (G.w + TRACK) * h;
-  }
-  // The special edition's badge carries a red and white rule under the letters, inlaid in the cut.
-  if (T.stripeRed) {
-    // Low enough to clear the letters' feet: at 0.62 it ran through the serifs.
-    const r0 = ca - W / 2 - pad * 0.2, r1 = ca + W / 2 + pad * 0.2, y = cb - h * 0.69, th = h * 0.04;
-    cut([[r0, y - th * 1.5], [r1, y - th * 1.5], [r1, y + th * 1.5], [r0, y + th * 1.5]]);
-    Pn.rect(r0, y - th * 1.5, r1, y - th * 0.5, T.stripeRed, 0.15, 0.0068);
-    Pn.rect(r0, y - th * 0.5, r1, y + th * 0.5, T.stripeWhite, 0.15, 0.0068);
-    Pn.rect(r0, y + th * 0.5, r1, y + th * 1.5, T.stripeRed, 0.15, 0.0068);
   }
   // A lozenge either side of the name, cut like the letters.
   for (const s of [-1, 1]) {
@@ -1556,16 +1549,16 @@ SHINY.set(DW_NOIR.carbon, { spec: 0.55, pow: 46, coat: 0.55 });
 // Quackhawk Down: a navy candy-lacquer body, white hide grips with a red bead, and chrome where the gold was.
 const QH_CHROME = DRAKE_TRIM_QUACKHAWK.gold;
 // The grips are their own white, not the seats' cream, so the hide's grain and shine key on them alone.
-const QH_HIDE = [240, 238, 231];
+const QH_HIDE = [228, 226, 219];
 const DW_QH = { carbon: DRAKE_TRIM_QUACKHAWK.walnut, weave: DRAKE_TRIM_QUACKHAWK.burl, rubber: QH_HIDE, bead: QH_CHROME,
-  hide: true, hideDk: [168, 164, 156], hideLip: [255, 254, 250], stitch: [200, 24, 40],
+  hide: true, hideDk: [168, 164, 156], hideLip: [255, 254, 250],
   buttons: DW.buttons.map(b => ({ ...b, rgb: b.rgb[0] === 230 ? QH_CHROME : b.rgb[1] === 150 ? [26, 40, 110] : b.rgb })),
   knobs: DW.knobs.map((k, i) => ({ ...k, rgb: i ? [200, 24, 40] : QH_CHROME })), wheels: DW.wheels.map(w => ({ ...w, rgb: QH_CHROME })) };
 const dwOf = () => (T.noir ? { ...DW, ...DW_NOIR } : T.quackhawk ? { ...DW, ...DW_QH } : DW);
 // The yoke's figure and the grips' perforation are drawn per pixel by the GL solids pass rather than as
 // geometry (see the weave and the grips in drakeFit): the yoke is rebuilt every frame it moves.
 TEXTURE.set(DW.carbon, 'wood'); TEXTURE.set(DW.rubber, 'leather');
-TEXTURE.set(QH_HIDE, 'leather'); SHINY.set(QH_HIDE, { spec: 0.4, pow: 22, coat: 0.18 });
+TEXTURE.set(QH_HIDE, 'fabric'); SHINY.set(QH_HIDE, { spec: 0.22, pow: 12, coat: 0.06 });
 // Drawn at this fraction of full size: small enough to clear the switch strips either side.
 const DRAKE_WHEEL_SC = 0.72;
 // ── THE GPS ──────────────────────────────────────────────────────────────────
@@ -2276,24 +2269,14 @@ export function drakeFit(P, live, push) {
       // 534 one-millimetre squares rebuilt every frame with the yoke, before. The seam stays geometry.
       if (DWc.hide) {
         // Quackhawk's white hide: plain white showed no detail at all, so the grip carries its own.
-        // Finger grooves across it (a shadow line with a lit lip under it), and a sunk seam down the
-        // middle closed with red cross-stitch either side.
+        // Finger grooves across it (a shadow line with a lit lip under it) over a woven wrap, all
+        // white: the red cross-stitch that was here read as a cut.
         const xs = (y) => { let a = null, b = null; for (let x = 0.096; x <= 0.148; x += 0.001) if (inPoly(g, sx * x, y)) { a ??= x; b = x; } return a == null ? null : [a + 0.003, b - 0.003]; };
         for (const y of [-0.03, -0.048, -0.066, -0.084]) {
           const r = xs(y); if (!r) continue;
           const [a, b] = sx > 0 ? r : [-r[1], -r[0]];
           Wp.rect(a, y - 0.0012, b, y + 0.0004, DWc.hideDk, 0, 0.0064);
           Wp.rect(a, y - 0.0022, b, y - 0.0012, DWc.hideLip, 0, 0.0064);
-        }
-        const x = sx * 0.123;
-        Wp.rect(x - 0.0007, -0.11, x + 0.0007, 0.016, DWc.hideDk, 0, 0.0064);
-        for (let j = 0; j < 22; j++) {
-          const y = 0.013 - j * 0.0055;
-          if (!inPoly(g, x, y)) continue;
-          for (const s of [-1, 1]) {
-            const u = x + s * 0.0028;
-            Wp.plate([[u - 0.0014, y - 0.0016], [u - 0.0005, y - 0.0016], [u + 0.0014, y + 0.0016], [u + 0.0005, y + 0.0016]].map(([p, q]) => [p, s > 0 ? q : 2 * y - q]), DWc.stitch, 0.1, 0.0068);
-          }
         }
         continue;
       }

@@ -3257,6 +3257,25 @@ export const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_cards_pool ON cards(series, pool_weight);
   CREATE INDEX IF NOT EXISTS idx_cards_subject ON cards(subject_type, subject_ref);
 
+  -- Player feedback (plugins/feedback): one row per report sent from the header
+  -- button or the feedback verb. Runtime only, never in the content registry.
+  -- SET NULL keeps a report after its sender's row goes. The inbox list never
+  -- selects the two JSONB columns; the detail view reads them one row at a time.
+  CREATE TABLE IF NOT EXISTS player_feedback (
+    id         BIGSERIAL PRIMARY KEY,
+    player_id  TEXT REFERENCES players(id) ON DELETE SET NULL,
+    handle     TEXT,
+    category   TEXT NOT NULL,
+    body       TEXT NOT NULL,
+    zone_id    TEXT,
+    server_ctx JSONB,
+    client_ctx JSONB,
+    status     TEXT NOT NULL DEFAULT 'open',
+    staff_note TEXT,
+    created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())
+  );
+  CREATE INDEX IF NOT EXISTS idx_player_feedback_status ON player_feedback(status, created_at DESC);
+
   -- Hot-path indexes: per-zone entity fetches (room render), container lookups,
   -- and jsonb tag gates. Kept at the end of the script — some indexed columns
   -- (items.tags, doors.tags) are added by ALTERs above, so a fresh DB must

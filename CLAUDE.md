@@ -26,6 +26,7 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 
 **Start here**
 
+- [docs/goals.md](docs/goals.md): what the game is for, the current priorities in order, and the non-goals. Read it before choosing what to build next
 - [README.md](README.md): deploy, player commands, world overview, what's built and what's next
 - [docs/architecture.md](docs/architecture.md): stack, repo structure, DB schema, persistence and read tiers. Read the tiers before adding any `query()` to a hot path
 - [docs/design.md](docs/design.md): design intent for combat, survival, ideology, economy and housing. A `systems-*.md` doc wins any disagreement
@@ -113,6 +114,7 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 - [docs/systems-jobboard.md](docs/systems-jobboard.md): rotating early-money gigs
 - [docs/systems-casino.md](docs/systems-casino.md): The Lucky Bastard: `slots` and a `gametable` poker table
 - [docs/systems-chess.md](docs/systems-chess.md): chess on `gametable` (as built). `move` must fall through so `move north` still walks
+- [docs/systems-guests.md](docs/systems-guests.md): guest characters, made from a name alone and kept with `register` (as built). A new transfer or public-text verb needs adding to `GUEST_DENIED_VERBS`
 - [docs/systems-bounties.md](docs/systems-bounties.md): player-funded bounties paid for the head item (as built). A claim closes the row before any credit moves
 - [docs/systems-atm.md](docs/systems-atm.md): ATMs: networks, fees, hacking, replenish, power
 - [docs/systems-instruments.md](docs/systems-instruments.md): playable instruments (as built). Notes use the `instrument_note` route, not dispatch
@@ -131,6 +133,7 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 - [docs/systems-demolition.md](docs/systems-demolition.md): breaching charges (as built). A detonation always charges a crime, so don't fail a quest on an untargeted `witnessed`
 - [docs/systems-stealth.md](docs/systems-stealth.md): sneaking and knockouts (as built); combat stays to the death
 - [docs/systems-dreams.md](docs/systems-dreams.md): per-player dream instances (as built). Check the wake-path table before touching anything that ends sleep
+- [docs/systems-feedback.md](docs/systems-feedback.md): the ⚑ header button and `feedback` verb, the telemetry stored with each report, the dev panel inbox and the Discord webhook (as built)
 - [docs/systems-admin.md](docs/systems-admin.md): staff controls, the `sysop` verb and the Tablet Admin app (weather and time built). The app is a skin over the verbs and re-checks the role itself; a time skip goes through `devSkipTime`, never `devAdvanceTime`
 - [docs/systems-display-mode.md](docs/systems-display-mode.md): the visual/textgames/log ladder and seat keyboard ownership (as built). The middle rung's stored value is `textgames`, never `text`
 - [docs/systems-accessibility.md](docs/systems-accessibility.md): `A11Y_OPTIONS`, voice input and Read Aloud (as built). Voice never auto-sends `drop`/`give`/`attack`/`buy`

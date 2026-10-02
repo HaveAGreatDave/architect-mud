@@ -34,6 +34,7 @@ async function readBulletin(args, raw, player) {
      FROM players p
      LEFT JOIN (SELECT player_id, SUM(ip) AS skill_ip
                 FROM player_skills GROUP BY player_id) s ON s.player_id = p.id
+     WHERE p.role <> 'guest'
      ORDER BY total_xp DESC, p.created_at ASC
      LIMIT 5`
   );

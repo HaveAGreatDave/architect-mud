@@ -314,6 +314,8 @@ export function doAuth() {
 
   if (state.authPending) return;
 
+  if (state.isGuest) { doGuestAuth(handle, errEl, submitBtn); return; }
+
   const email = document.getElementById('auth-email').value.trim();
   if (!username || !password) { errEl.textContent = 'Username and password required.'; errEl.style.color = ''; return; }
   if (state.isRegister && !handle) { errEl.textContent = 'Handle required.'; errEl.style.color = ''; return; }
@@ -392,6 +394,33 @@ export function doAuth() {
   } else {
     _connection.send({ type: 'auth', username, password, remember, displayRung, displayRungExplicit });
   }
+}
+
+// A guest sends only a name. The server answers like a login (auth_success),
+// then a remember token, which is this browser's only way back to the
+// character, so it's kept whatever the Remember box says.
+function doGuestAuth(handle, errEl, submitBtn) {
+  if (!handle) { errEl.textContent = 'Pick a name.'; errEl.style.color = ''; return; }
+  if (!_connection?.isOpen()) {
+    errEl.textContent = 'Not connected. The server may take up to a minute to wake up. Reconnecting.';
+    errEl.style.color = 'var(--red)';
+    return;
+  }
+  const displayRung = pickedDisplayRung();
+  const displayRungExplicit = displayRungTouched && !!displayRung;
+  if (displayRung) rememberDisplayRung(displayRung);
+  errEl.textContent = '';
+  state.authPending = true;
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Arriving...';
+  state.authTimeout = setTimeout(() => {
+    state.authPending = false;
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Play';
+    errEl.textContent = 'No response from server. Check your connection and try again.';
+    errEl.style.color = 'var(--red)';
+  }, 10000);
+  _connection.send({ type: 'auth_guest', handle, displayRung, displayRungExplicit });
 }
 
 export function showVerifyScreen(email, message) {

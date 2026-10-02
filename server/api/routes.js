@@ -31,6 +31,7 @@ import { sendPasswordResetEmail, sendVerificationEmail, isMailerConfigured, mail
 import { isEmailVerificationEnabled, setEmailVerificationEnabled } from '../engine/emailVerification.js';
 import { areRegistrationsOpen, registrationsClosedMessage, setRegistrationsOpen } from '../engine/registrations.js';
 import { randomAppearance } from '../engine/appearance.js';
+import { HANDLE_RE, handleProblem, handleTaken, insertNewPlayer, purgePlayers } from '../engine/new-player.js';
 import { RUNGS as DISPLAY_RUNGS, DISPLAY_MODE_FLAG } from '../engine/presentation.js';
 import { setFlagById } from '../engine/flags.js';
 import { DEFAULT_CHITCHAT_LINES, isVendorWorkTime } from '../engine/ai-behaviour.js';
@@ -145,6 +146,9 @@ schedule('1m', async () => {
 export const AUTH_LIMITS = {
   '/auth/login':               { limit: 20, windowMs:  5 * 60_000, globalLimit: 600 },
   '/auth/register':            { limit: 10, windowMs: 60 * 60_000, globalLimit: 200 },
+  // A guest costs nothing to make, so it gets a tighter door than an account.
+  // Checked by the WebSocket `auth_guest` handler (server/index.js).
+  '/auth/guest':               { limit:  5, windowMs: 60 * 60_000, globalLimit: 100 },
   '/auth/forgot-password':     { limit:  5, windowMs: 60 * 60_000, globalLimit: 200 },
   '/auth/reset-password':      { limit: 10, windowMs: 60 * 60_000, globalLimit: 200 },
   '/auth/resend-verification': { limit:  5, windowMs: 60 * 60_000, globalLimit: 200 },
@@ -589,56 +593,12 @@ async function dispatchApiRequest(url, method, body, headers) {
 async function apiRegister(body) {
   const {username,password,handle,email,displayRung} = body||{};
   if (!username||!password||!handle||!email) return {status:400,body:{error:'username, password, handle, email required'}};
-  // ⚠ A handle is shown to other players, and dialogue interpolates it into HTML
-  // (`${player.handle}`), so markup here would be stored XSS. Letters, digits,
-  // spaces and _ . ' - only.
-  if (typeof handle !== 'string' || !HANDLE_RE.test(handle)) {
-    return {status:400,body:{error:"Handle must be 2 to 24 characters: letters, numbers, spaces and _ . ' - (starting with a letter or number)."}};
-  }
-  // Starting appearance is fully randomized here (sex included) so the chargen
-  // terminal opens on a random look the player then reshapes — nothing is a fixed
-  // default. Sex and the rest are all finalized at the MORPHEX terminal.
-  const biological_sex = Math.random() < 0.5 ? 'male' : 'female';
+  const bad = handleProblem(handle);
+  if (bad) return {status:400,body:{error:bad}};
   try {
-    const id = randomUUID();
-    await ensureTunables();
-    // No starting XP. Fresh souls carry bonus_xp = 0; the chargen holosign hands
-    // out the free +1-to-all stats (refunded in statSpent), so Total XP stays a
-    // pure count of earned IP and bonus_xp is reserved for future non-skill grants.
-    const bonusXp = 0;
-    const app = randomAppearance(biological_sex);
-    // Stats start blank (0 — see stat_brawn etc. below); hp/hp_max derive from
-    // endurance 0 (see maxHpForEndurance). The prologue teaches growth from here.
-    const startHp = maxHpForEndurance(0);
-    // Hoisted out of the parameter array below: hashing is async now, and an
-    // un-awaited call there binds a Promise as the password hash.
-    const passwordHash = await hashPassword(password);
-    // New souls spawn into the prologue (zone_the_inbetween), not the clone vat.
-    // anchor_zone is left to its schema DEFAULT ('zone_start'), so once they leave
-    // the prologue every death respawns them at the clone facility — the prologue
-    // is one-way and unreachable again (see plugins/prologue).
-    await query(
-      `INSERT INTO players
-        (id,username,password_hash,handle,role,bonus_xp,hp,hp_max,stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_cool,stat_senses,
-         biological_sex,hair_style,hair_length,hair_color,eye_color,height_cm,weight_kg,appearance_data,email,sexuality,current_zone)
-       VALUES ($1,$2,$3,$4,'player',$5,${startHp},${startHp},0,0,0,0,0,0,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'zone_the_inbetween')`,
-      [id, username.toLowerCase(), passwordHash, handle, bonusXp,
-       biological_sex, app.hair_style, app.hair_length, app.hair_color, app.eye_color,
-       app.height_cm, app.weight_kg, JSON.stringify(app.appearance_data), email.toLowerCase().trim(),
-       'Female']
-    );
-    // No starting inventory — new souls arrive with nothing. The prologue is
-    // the only way into the world now, and it hands out gear on its own terms
-    // (see plugins/prologue's Broadcast-room kit drop).
-    // The auth screen's pre-login Display Mode choice, written before the
-    // character has ever had a prompt. This is the path that actually matters:
-    // the prologue's wordless ~50-second cold open fires on this account's very
-    // first login, and the rung has to already be on the row by then. Only a
-    // real selection reaches us (the disclosure has nothing checked by default),
-    // so the never-chosen state survives for everyone who left it alone.
-    if (DISPLAY_RUNGS.includes(displayRung)) {
-      await setFlagById(id, DISPLAY_MODE_FLAG, displayRung).catch(() => {});
-    }
+    if (await handleTaken(handle)) return {status:409,body:{error:'That name is taken.'}};
+    // No starting inventory: the prologue hands out gear on its own terms.
+    const id = await insertNewPlayer({ username, password, handle, email, displayRung });
     logActivity('char_created', handle);
     fireHook('player.create', { id, handle, username: username.toLowerCase(), role: 'player' }).catch(() => {});
     if (isEmailVerificationEnabled()) {
@@ -665,6 +625,47 @@ async function apiRegister(body) {
     if (e.code === '23505') return {status:409,body:{error:'Username or handle already taken'}};
     console.error('[register] unexpected error:', e.message);
     return {status:500,body:{error:'Registration failed. Please try again.'}};
+  }
+}
+
+// A guest becoming an account: the same row gets a login, a password and an
+// email, and keeps its handle and everything it has done. Called by the
+// WebSocket `claim_account` handler (server/index.js) for the signed-in guest,
+// so no token changes hands. Returns { ok, needsVerification?, error? }.
+export async function claimGuestAccount(playerId, body) {
+  const {username,password,email} = body||{};
+  if (!username||!password||!email) return {ok:false,error:'Username, password and email are all needed.'};
+  if (String(password).length < 8) return {ok:false,error:'Passwords are 8 characters or more.'};
+  if (!/^[a-z0-9_.-]{3,24}$/i.test(username)) return {ok:false,error:'Usernames are 3 to 24 letters, numbers and _ . -'};
+  const {rows} = await query('SELECT role FROM players WHERE id=$1',[playerId]);
+  if (rows[0]?.role !== 'guest') return {ok:false,error:'This character already has an account.'};
+  try {
+    const passwordHash = await hashPassword(password);
+    const verify = isEmailVerificationEnabled();
+    await query(
+      `UPDATE players SET username=$1, password_hash=$2, email=$3, role='player', email_verified=$4
+       WHERE id=$5 AND role='guest'`,
+      [username.toLowerCase(), passwordHash, email.toLowerCase().trim(), !verify, playerId]
+    );
+    // No token revocation: a remember token carries no role and loads the row
+    // fresh, and revokeTokensFor would close the very socket that claimed.
+    logActivity('guest_claimed', username.toLowerCase());
+    if (!verify) return {ok:true};
+    const verifyToken = randomBytes(32).toString('hex');
+    await query(
+      'INSERT INTO email_verification_tokens (player_id, token, expires_at) VALUES ($1,$2,$3)',
+      [playerId, verifyToken, Date.now() + 24 * 60 * 60 * 1000]
+    );
+    try {
+      await sendVerificationEmail(email.toLowerCase().trim(), `${clientBaseUrl()}/game?verify_token=${verifyToken}`);
+    } catch (e) {
+      console.error('[claim] verification email failed:', e.message);
+    }
+    return {ok:true,needsVerification:true};
+  } catch (e) {
+    if (e.code === '23505') return {ok:false,error:'That username is taken.'};
+    console.error('[claim] unexpected error:', e.message);
+    return {ok:false,error:'That didn\'t work. Try again.'};
   }
 }
 
@@ -2909,10 +2910,9 @@ async function apiGetPlayerProgression(id) {
   }};
 }
 
-// A handle is shown to other players and interpolated into HTML across the
-// engine, so registration and the admin editor both hold it to this.
-const HANDLE_RE = /^[A-Za-z0-9][A-Za-z0-9 _.'-]{1,23}$/;
-const PLAYER_ROLES = ['player','builder','designer','dev','admin'];
+// HANDLE_RE (engine/new-player.js) holds the admin editor to the same shape
+// registration uses.
+const PLAYER_ROLES = ['guest','player','builder','designer','dev','admin'];
 
 async function apiUpdatePlayer(id, body) {
   const EDITABLE = [
@@ -2971,13 +2971,10 @@ async function apiUpdatePlayer(id, body) {
 async function apiDeletePlayer(id) {
   const {rows}=await query('SELECT handle FROM players WHERE id=$1',[id]);
   if (!rows.length) return {status:404,body:{error:'Player not found'}};
-  await query('DELETE FROM player_inventory WHERE player_id=$1',[id]);
-  await query('DELETE FROM player_skills WHERE player_id=$1',[id]);
-  await query('DELETE FROM player_ideology_rep WHERE player_id=$1',[id]);
-  await query('DELETE FROM player_mutations WHERE player_id=$1',[id]);
-  await query('DELETE FROM player_drug_state WHERE player_id=$1',[id]);
-  await query('DELETE FROM players WHERE id=$1',[id]);
-  broadcastFn(null,{type:'kicked',message:'Your account has been deleted by an administrator.'},null,id);
+  // purgePlayers clears every per-player table, but only for an offline player:
+  // deleting the row under a live session leaves a body nothing can save.
+  if (world.players.has(id)) return {status:409,body:{error:'Player is online. Kick them first.'}};
+  await purgePlayers([id]);
   return {status:200,body:{deleted:true,handle:rows[0].handle}};
 }
 

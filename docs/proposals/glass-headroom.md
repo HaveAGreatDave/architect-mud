@@ -31,6 +31,22 @@ Each is behind a `RENDER_TUNE` switch (0 is the old path) and was checked agains
 - **Decal fills** (`decoFast`): the `signSquare` pull done in world space. Exact over 9,083 calls.
 - **Cliffs** (`cliffCache`), **camps**, **hoodoos**: recorded or replayed in the map window's frame.
 
+Later the same day, each exact over the 60 views of `perf:exact`:
+
+- **Cockpit faces by slot** (`cabSlot`): a face at the same slot as last frame, under the same
+  profile and trim, pushes last frame's record without asking `CAB_GPU`. One shared world-points
+  getter (`cabGetter`): a getter per record put every record after the first in V8's dictionary
+  mode, so every read of one was a hash lookup.
+- **A flock's ledge pool** (`perchMemo`): kept per map window; only the landing pick reads the
+  clock. A hawk asked for its pool seven times a frame over 169 tiles, 1.5 ms of a cockpit frame.
+- **The depot's shell** (`bayCache`): recorded once per key (window position, day or night,
+  inside or out, the door, alpha) and its records replayed; the floor legends, lights and lettering
+  stay live.
+
+Browser bench at Halcyon (`__glWhere`, best of three): the cockpit went from 38.8 to 29.0 ms and
+the cab stayed at about 15.5 ms. Headless allocation: cockpit 24.7 to 21.9 MB a frame,
+residential 20.0 to 17.1.
+
 Tried and backed out: a retained layer for hoodoo solids. Their colour carries CPU fog by distance,
 so most records changed every frame anyway (no gain, 46-55 ms against 47-48).
 
@@ -127,6 +143,14 @@ measure that later stages are judged on is allocation, taken headless.
 - Start with `shell_tower`, then the dearest arms from the stage 1 table.
 - Behind `RENDER_TUNE.armCache`; 0 is today's path. A/B with a Modelshop pixel diff at every
   district: the picture must not move.
+- (2026-10-01) Measured before building it, per item with the arms profiler: building arms are
+  3.2 ms of a Halcyon cockpit frame (205 runs at 16 µs) and 6.3 ms of a cab frame (107 at 59 µs),
+  spread thin: the dearest callees are `detailLayer` (2 ms, no painter over 0.6) and authored
+  models (1.4). Marks, the cockpit itself and the birds cost as much and were cheaper to fix, and
+  were fixed first (Built, above). What's left in the cockpit is as much the GL upload as the arms:
+  `uploadSolids` re-sends all ~3,000 world solids every frame (no model matrix, so no incremental
+  mode), and fewer than half are the same record at the same slot as last frame, because hoodoo
+  records rewrite their fogged colour in place and the count moves with the heading.
 
 ## Stage 3: retained static buffers
 

@@ -4,6 +4,7 @@ export const state = {
   currentZone: null,
   currentNpcId: null,
   isRegister: false,
+  isGuest: false,      // the auth screen is in "Play as a guest" mode
   cmdHistory: [],
   historyIdx: -1,
   authPending: false,

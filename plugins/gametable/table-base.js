@@ -34,6 +34,7 @@ export function syncLiveCredits(playerId, credits) {
 }
 import { moveEntity } from '../../server/engine/ai-behaviour.js';
 import { findPath } from '../../server/engine/pathfinding.js';
+import { isGuest, guestRefusal } from '../../server/engine/guest.js';
 
 const SEAT_RETAIN_MS = 60_000; // hold seat for a disconnected player before standing them up
 
@@ -127,6 +128,8 @@ export class TableBase {
 
     const buyIn = this.buyInFor(player);
     if (buyIn > 0) {
+      // Chips lost at a table are credits moved to another player.
+      if (isGuest(player)) return { ok: false, error: guestRefusal('play for money').message };
       if ((player.credits || 0) < buyIn) return { ok: false, error: `You need at least ₵ ${buyIn} to join.` };
 
       // Deduct credits, and keep the live balance in step (see syncLiveCredits).

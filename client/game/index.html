@@ -432,7 +432,7 @@
 						aria-describedby="auth-error"
 						autocomplete="email" />
 				</div>
-				<div class="auth-field">
+				<div class="auth-field" id="username-field">
 					<label for="auth-username">Username</label>
 					<input
 						type="text"
@@ -441,7 +441,7 @@
 						aria-describedby="auth-error"
 						autocomplete="username" />
 				</div>
-				<div class="auth-field">
+				<div class="auth-field" id="password-field">
 					<label for="auth-password">Password</label>
 					<input
 						type="password"
@@ -451,7 +451,7 @@
 						autocomplete="current-password" />
 				</div>
 
-				<div class="auth-field auth-remember">
+				<div class="auth-field auth-remember" id="remember-field">
 					<label
 						><input type="checkbox" id="auth-remember" /> Remember
 						me</label
@@ -576,6 +576,15 @@
 					id="auth-registrations-closed"
 					role="status"
 					style="display: none"></div>
+				<!-- Guest play: only a name, no account. A real button for the same
+				     reason the Register toggle is one. Hidden with Register when a
+				     dev has closed registrations, since a guest is a new character. -->
+				<div class="auth-toggle" id="auth-guest-wrap">
+					<span id="auth-guest-text">Just looking?</span>
+					<button type="button" class="auth-linkbtn" id="auth-guest-link">
+						Play as a guest
+					</button>
+				</div>
 				<div
 					id="forgot-link-wrap"
 					style="margin-top: 6px; text-align: center">
@@ -945,6 +954,9 @@
 				title="Equipped weapon"
 				>⚔ fists</span
 			>
+			<button id="feedback-btn" title="Send feedback" aria-label="Send feedback">
+				⚑
+			</button>
 			<button
 				id="settings-btn"
 				title="Settings"

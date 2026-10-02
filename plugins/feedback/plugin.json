@@ -1,0 +1,26 @@
+{
+  "name": "feedback",
+  "version": "1.0.0",
+  "description": "Player feedback. The header's flag button (the `feedback` WS message) and the `feedback` verb store a report with where the player was and what they were doing, read from the live player, plus the client's own state. One INSERT per report, a 60 s cooldown per player, an optional Discord webhook (FEEDBACK_WEBHOOK_URL), and a staff inbox in the dev panel.",
+  "routePrefix": "/feedback",
+  "commands": ["feedback"],
+  "events": {
+    "emits": [],
+    "consumes": ["feedback.submit"]
+  },
+  "config": {
+    "COOLDOWN_MS": "60000: one report a minute per player, in RAM",
+    "MAX_TEXT": "2000 characters",
+    "MAX_CLIENT_BYTES": "16000: client telemetry over this is replaced by a size note",
+    "FEEDBACK_WEBHOOK_URL": "env var; unset means no Discord post"
+  },
+  "dataSchema": {
+    "tables": ["player_feedback"],
+    "note": "Runtime table, not in the content registry. The inbox list never selects the JSONB columns."
+  },
+  "devPanel": {
+    "id": "feedback",
+    "nav": "⚑ Feedback",
+    "scripts": ["panel.js"]
+  }
+}

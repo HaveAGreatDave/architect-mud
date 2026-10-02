@@ -340,6 +340,148 @@ export function showPromptDialog(opts, onConfirm) {
   input.focus();
 }
 
+let _feedbackEl = null;
+
+export function closeFeedbackDialog() {
+  _feedbackEl?.remove();
+  _feedbackEl = null;
+}
+
+// The header's ⚑ window: a category, a text box and Send. The caller sends it
+// and decides what happens after; this only collects.
+// opts: { category?, value?, error? }, onSend: ({ category, text }) => void
+export function showFeedbackDialog(opts, onSend) {
+  closeFeedbackDialog();
+  const MAX = 2000;
+  const el = document.createElement('div');
+  el.className = 'confirm-window feedback-window';
+  asDialog(el, 'Send feedback');
+  el.innerHTML = `
+    <div class="confirm-drag-handle">
+      <span class="confirm-title">Send feedback</span>
+      <button class="confirm-x" title="Cancel">✕</button>
+    </div>
+    <div class="confirm-body">
+      <p class="confirm-prompt">Found a bug, a typo or an idea? Tell us.</p>
+      <select class="confirm-input feedback-category" aria-label="Category">
+        <option value="bug">Bug</option>
+        <option value="idea">Idea</option>
+        <option value="typo">Typo</option>
+        <option value="other">Other</option>
+      </select>
+      <textarea class="confirm-input feedback-text" maxlength="${MAX}" aria-label="Your feedback"
+        placeholder="What happened, and what did you expect?"></textarea>
+      <div class="feedback-count"></div>
+      <p class="feedback-note">Sent with where you are and some details about your game and browser, to help us find it.</p>
+      <div class="confirm-actions">
+        <button class="confirm-cancel">Cancel</button>
+        <button class="confirm-ok">Send</button>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+  _feedbackEl = el;
+
+  const sel = el.querySelector('.feedback-category');
+  const text = el.querySelector('.feedback-text');
+  const count = el.querySelector('.feedback-count');
+  const prompt = el.querySelector('.confirm-prompt');
+  if (opts?.category) sel.value = opts.category;
+  if (opts?.value) text.value = opts.value;
+  if (opts?.error) { prompt.textContent = opts.error; prompt.style.color = 'var(--red)'; }
+  const recount = () => { count.textContent = `${text.value.length} / ${MAX}`; };
+  recount();
+
+  const send = () => {
+    const v = text.value.trim();
+    if (!v) { text.focus(); return; }
+    const category = sel.value;
+    closeFeedbackDialog();   // first, so onSend can reopen it with an error
+    onSend({ category, text: v });
+  };
+
+  // Keys typed here belong to the form, not to a seat listening on the window.
+  el.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Escape') closeFeedbackDialog();
+    else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) send();
+  });
+  el.addEventListener('keyup', (e) => e.stopPropagation());
+  text.addEventListener('input', recount);
+  makeDraggable(el, el.querySelector('.confirm-drag-handle'));
+  el.querySelector('.confirm-x').addEventListener('click', closeFeedbackDialog);
+  el.querySelector('.confirm-cancel').addEventListener('click', closeFeedbackDialog);
+  el.querySelector('.confirm-ok').addEventListener('click', send);
+  text.focus();
+}
+
+let _claimEl = null;
+
+export function closeClaimDialog() {
+  _claimEl?.remove();
+  _claimEl = null;
+}
+
+// A guest making the character permanent: username, password, email. Opened by
+// the server's claim_form (plugins/guest `register`); the caller sends the fields
+// as claim_account and reopens this with the error if the server says no.
+// opts: { handle?, error?, username?, email? }, onSend: ({ username, password, email }) => void
+export function showClaimDialog(opts, onSend) {
+  closeClaimDialog();
+  const el = document.createElement('div');
+  el.className = 'confirm-window claim-window';
+  asDialog(el, 'Keep this character');
+  el.innerHTML = `
+    <div class="confirm-drag-handle">
+      <span class="confirm-title">Keep this character</span>
+      <button class="confirm-x" title="Cancel">✕</button>
+    </div>
+    <div class="confirm-body">
+      <p class="confirm-prompt"></p>
+      <label class="claim-label">Username
+        <input class="confirm-input claim-username" type="text" autocomplete="username" maxlength="24"></label>
+      <label class="claim-label">Password
+        <input class="confirm-input claim-password" type="password" autocomplete="new-password"></label>
+      <label class="claim-label">Email
+        <input class="confirm-input claim-email" type="email" autocomplete="email"></label>
+      <div class="confirm-actions">
+        <button class="confirm-cancel">Cancel</button>
+        <button class="confirm-ok">Keep it</button>
+      </div>
+    </div>`;
+  const prompt = el.querySelector('.confirm-prompt');
+  prompt.textContent = opts?.error
+    || `Give ${opts?.handle || 'this character'} a login. Everything stays: your name, your gear, your progress.`;
+  if (opts?.error) prompt.style.color = 'var(--red)';
+  document.body.appendChild(el);
+  _claimEl = el;
+
+  const user = el.querySelector('.claim-username');
+  const pass = el.querySelector('.claim-password');
+  const mail = el.querySelector('.claim-email');
+  if (opts?.username) user.value = opts.username;
+  if (opts?.email) mail.value = opts.email;
+  const send = () => {
+    const username = user.value.trim(), password = pass.value, email = mail.value.trim();
+    if (!username) { user.focus(); return; }
+    if (password.length < 8) { prompt.textContent = 'Passwords are 8 characters or more.'; prompt.style.color = 'var(--red)'; pass.focus(); return; }
+    if (!email) { mail.focus(); return; }
+    closeClaimDialog();
+    onSend({ username, password, email });
+  };
+  // Keys typed here belong to the form, not to a seat listening on the window.
+  el.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Escape') closeClaimDialog();
+    else if (e.key === 'Enter') send();
+  });
+  el.addEventListener('keyup', (e) => e.stopPropagation());
+  makeDraggable(el, el.querySelector('.confirm-drag-handle'));
+  el.querySelector('.confirm-x').addEventListener('click', closeClaimDialog);
+  el.querySelector('.confirm-cancel').addEventListener('click', closeClaimDialog);
+  el.querySelector('.confirm-ok').addEventListener('click', send);
+  user.focus();
+}
+
 let _selectEl = null;
 
 function closeSelect() {

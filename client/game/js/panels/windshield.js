@@ -268,6 +268,8 @@ export const RENDER_TUNE = {
   // and frame shadows). 0: the per-face CPU shading below, as before. `cabSun` 0 drops the direct sun
   // and its shadows and keeps the rest on the GPU.
   cabGPU: 1,
+  cabSlot: 1,   // a face at the same slot as last frame pushes last frame's record (CAB_SLOT); 0 asks CAB_GPU every face
+  cabGetter: 1, // every cab record shares one world-points getter (CAB_P); 0 gives each its own, as before
   cabSun: 1,
   cabWorldSun: 1,   // the city's shadows fall into the cabin (the world sun map, sampled per pixel)
   cabSunGain: 2.5,   // the direct sun's strength in the cabin, on top of the room light. At 1 the patches drowned in the sky light.
@@ -998,6 +1000,7 @@ export const RENDER_TUNE = {
   // The depot shed as depth-buffer geometry rather than canvas paint. 0 puts it back on the canvas
   // with markHidden — the all-or-nothing probe — between it and whatever stands in front of it.
   glBay: 1,
+  bayCache: 1,   // a shed's GL shell is built once per key and its records replayed (BAY_SHELL); 0 builds it every frame
   glBeam: 0.52,
   // ── ⚠ AND HOW MUCH OF THE SCREEN-SPACE GLARE A WET ROAD TAKES AWAY ───────────────
   //
@@ -1431,6 +1434,8 @@ export const RENDER_TUNE = {
   perchLeg: 1,
   // Ledges higher than a flock can climb to in one flight are not offered (perchFor); 0 lifts the limit.
   perchReach: 1,
+  // A flock's ledge pool is kept per map window and only the landing pick runs per call (perchFor); 0 rebuilds it every call.
+  perchMemo: 1,
   // ── THE SHADING BEVEL, AS A WIDTH IN TILES ──────────────────────────────────
   //
   // Every edge in this city is a hard 90°, because every model is made of boxes and drums and a box
@@ -22874,12 +22879,21 @@ function cabinEnvLight(v, murk, eyeZ) {
 const INT_LIT = [];   // per face slot: the last shaded colour and everything it was shaded from — see pushInteriorShell
 // The GPU record per cabin face (see cabFace in pushInteriorShell).
 const CAB_GPU = new WeakMap();
+// Last frame's face and record per slot, and what they were built under. A slot holding the same face
+// object under the same profile, trim and painted aperture pushes last frame's record without asking
+// CAB_GPU. Most of a cockpit's 5,000-odd faces are that, and the lookups cost 2 ms a frame.
+const CAB_SLOT = { P: null, key: null, painted: null, f: [], r: [] };
 // The last frame's cabin light, for a bench or a console to read (cabLightLast).
 let CAB_LIGHT_LAST = null;
 export const cabLightLast = () => CAB_LIGHT_LAST;
 // This frame's cab placement, for an interior record's world points (see the getter in cabFace):
 // solved on first read and kept for the rest of the frame, the same numbers the loop used to write.
 let CAB_XF = null, CAB_XF_ID = 0;
+// ⚠ ONE GETTER FOR EVERY RECORD. V8 shares an object's hidden class only when the accessor is the
+// same function; a fresh getter per record sent every one after the first to dictionary mode, and
+// each property read on 5,000 of them a frame (cabFace, the upload loop, smooth) was a hash lookup:
+// 2 ms of the cockpit's interior upload went on faces it then skipped.
+const CAB_P = { enumerable: true, get() { return cabWorldPoints(this); } };
 function cabWorldPoints(rec) {
   const X = CAB_XF;
   if (!X) return rec._p || [];
@@ -23093,7 +23107,7 @@ function pushInteriorShell(cam, v) {
     const fp = f.p;
     if (!rec) {
       rec = { rgb: e.rgb, a: e.a, interior: 1, lp: fp, tex: texOf(f) || 0, cab: e.cab, mp: fp, _p: null, _pf: -1 };
-      Object.defineProperty(rec, 'p', { enumerable: true, get() { return cabWorldPoints(this); } });
+      Object.defineProperty(rec, 'p', RENDER_TUNE.cabGetter !== 0 ? CAB_P : { enumerable: true, get() { return cabWorldPoints(this); } });
       let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
       for (const p0 of fp) {
         if (p0[0] < x0) x0 = p0[0]; if (p0[0] > x1) x1 = p0[0];
@@ -23108,13 +23122,30 @@ function pushInteriorShell(cam, v) {
     if (bb[1] < by0) by0 = bb[1]; if (bb[4] > by1) by1 = bb[4];
     if (bb[2] < bz0) bz0 = bb[2]; if (bb[5] > bz1) bz1 = bb[5];
     OWNSHIP_SINK.push(rec);
+    return rec;
   };
+  const slot = CAB_SLOT, slotOn = gpu && RENDER_TUNE.cabSlot !== 0;
+  if (slot.P !== P || slot.key !== trimKey || slot.painted !== CAB_PAINTED || !slotOn) {
+    slot.P = P; slot.key = trimKey; slot.painted = CAB_PAINTED; slot.f.length = 0; slot.r.length = 0;
+  }
+  const sf = slot.f, sr = slot.r;
   let fi = -1;
   for (const f of faces) {
     fi++;
+    if (slotOn && sf[fi] === f) {
+      const rec = sr[fi];
+      if (rec) {
+        const bb = rec._bb;
+        if (bb[0] < bx0) bx0 = bb[0]; if (bb[3] > bx1) bx1 = bb[3];
+        if (bb[1] < by0) by0 = bb[1]; if (bb[4] > by1) by1 = bb[4];
+        if (bb[2] < bz0) bz0 = bb[2]; if (bb[5] > bz1) bz1 = bb[5];
+        OWNSHIP_SINK.push(rec); n++;
+      }
+      continue;
+    }
     // The forward aperture, for as long as the painted one is up — see the ⚠ in interior-shell.js.
-    if (f.fwd && CAB_PAINTED) continue;
-    if (gpu) { cabFace(f); n++; continue; }
+    if (f.fwd && CAB_PAINTED) { if (slotOn) { sf[fi] = f; sr[fi] = null; } continue; }
+    if (gpu) { const rec = cabFace(f); if (slotOn) { sf[fi] = f; sr[fi] = rec; } n++; continue; }
     // A lacquer with a `coat` never reads the sun (see the clear-coat block below), so it keeps the
     // heading-free key and does not re-shade on every turn.
     const shv1 = f.rgb ? SHINY.get(f.rgb) : undefined;
@@ -23354,6 +23385,7 @@ function pushInteriorShell(cam, v) {
     OWNSHIP_SINK.push(rec);
     n++;
   }
+  if (slotOn && sf.length > faces.length) { sf.length = faces.length; sr.length = faces.length; }
   // ── THE GLASS ─────────────────────────────────────────────────────────────
   // A profile's `glass` is its panes, in the same metres, kept OUT of shellFaces so every sight-line
   // gate still casts through open apertures. Drawn as film after the room (gl/context.js) with the
@@ -31545,7 +31577,58 @@ export const perchCap = (l) => (l.wire
 // A sustained climb for a bird in flapping flight, in m/s: what perchFor lets a flock reach in one flight.
 // Pigeons and starlings climb at a few metres a second on the wing; 4 is the generous end of that.
 const BIRD_CLIMB_MS = 4;
+// ⚠ THE POOL IS THE WINDOW'S AND THE PICK IS THE CLOCK'S. Everything up to the lap hash reads the map
+// window, the flock and the tune, never `now`, and a hunter asks seven times a frame over 169 tiles
+// (perchLeg, perchStrikeBase): 1.5 ms of a cockpit frame at Halcyon. So the plan is kept per flock
+// until the map, the window, the flock's size or a tune it reads changes, and only the pick runs per
+// call. `RENDER_TUNE.perchMemo` 0 builds it every call.
+const PERCH_PLAN = new WeakMap();
 export function perchFor(map, R, wcx, wcy, fl, wantHigh, now) {
+  const memo = RENDER_TUNE.perchMemo !== 0;
+  const n = Math.max(1, flockSize(fl)), high = !!wantHigh;
+  const hn = RENDER_TUNE.hoodooNear, pr = RENDER_TUNE.perchReach, wr = RENDER_TUNE.wireRare;
+  let pl = memo ? PERCH_PLAN.get(fl) : null;
+  if (!pl || pl.map !== map || pl.R !== R || pl.wcx !== wcx || pl.wcy !== wcy || pl.high !== high
+      || pl.n !== n || pl.hn !== hn || pl.pr !== pr || pl.wr !== wr) {
+    pl = perchPlan(map, R, wcx, wcy, fl, high, n);
+    pl.map = map; pl.R = R; pl.wcx = wcx; pl.wcy = wcy; pl.high = high; pl.n = n; pl.hn = hn; pl.pr = pr; pl.wr = wr;
+    if (memo) PERCH_PLAN.set(fl, pl);
+  }
+  if (!pl.usable) return null;
+  const lap = now == null ? 0 : Math.floor(now / flockPeriod(fl));
+  if (high) {
+    const top = pl.top;
+    return top[Math.floor(frac(fl.ax * 5.31 + fl.ay * 7.77 + lap * 1.917) * top.length) % top.length];
+  }
+  const room = pl.room;
+  let pick = frac(fl.ax * 4.11 + fl.ay * 9.37 + lap * 2.713) * pl.total;
+  let head = room[room.length - 1];
+  for (const l of room) { pick -= l.len; if (pick <= 0) { head = l; break; } }
+
+  // ⚠ A FLOCK THAT WILL NOT FIT SPREADS, RATHER THAN STACKING. One ledge was chosen and every
+  // bird went on it, so a hundred pigeons stood in each other on one gutter and a wire took more
+  // birds than it has length. Real flocks fill a perch and carry on to the next one, which is what
+  // a street of them looks like: the near wire full, the far gutter taking the rest.
+  //
+  // ⚠ THE HEAD KEEPS ITS WEIGHTED PICK and the rest are taken in length order behind it, so the
+  // flock still chooses where it MOSTLY is and only the overflow is deterministic. Ordering the
+  // whole plan by length would put every flock on the same ledge every time and undo the variety
+  // the lap hash above exists for.
+  const cap0 = perchCap(head);
+  if (n <= cap0) return head;
+  const spill = [];
+  let held = cap0;
+  for (const l of pl.byLen || (pl.byLen = pl.usable.slice().sort((a, b) => b.len - a.len))) {
+    if (l === head || held >= n) continue;
+    if (l.wire && perchCap(l) < 1) continue;
+    spill.push(l);
+    held += perchCap(l);
+    if (spill.length >= PERCH_SPILL_MAX) break;
+  }
+  return spill.length ? { ...head, spill } : head;
+}
+// Everything perchFor decides before the clock: the usable ledges, and the shortlist the pick is made from.
+function perchPlan(map, R, wcx, wcy, fl, wantHigh, n) {
   const pool = [];
   // ⚠ THE TILE THE FLOCK IS STANDING ON COUNTS, WHICH IS TRUE OF NOTHING ELSE HERE. A parapet is
   // on a building and a flock never stands on one, so the loop below skips the middle -- but a wire
@@ -31608,11 +31691,10 @@ export function perchFor(map, R, wcx, wcy, fl, wantHigh, now) {
   const reachZ = RENDER_TUNE.perchReach === 0 ? Infinity
     : (BIRD_CLIMB_MS * flockPeriod(fl) * (1 - spOf(fl).uGround) / 1000) * MURMUR_RULES.TILE_PER_M;
   const usable = (wantHigh ? pool.filter((l) => !l.wire) : pool).filter((l) => l.z <= reachZ);
-  if (!usable.length) return null;
+  if (!usable.length) return { usable: null };
   // Big enough for the birds that want it. ⚠ NOT A HARD FLOOR — if nothing is big enough the flock
   // takes the longest ledge there is and stands closer together, because the alternative is a flock
   // that flatly refuses to perch anywhere on a street full of ledges.
-  const n = Math.max(1, flockSize(fl));
   let room = usable.filter((l) => l.len >= n * PERCH_ROOM);
   // ⚠ THE FALLBACK TAKES THE LONGEST FEW, NOT THE SINGLE LONGEST. A murmuration is fifteen hundred
   // birds and no parapet in Coldwater is long enough for it, so this branch is the ONLY one a
@@ -31651,9 +31733,7 @@ export function perchFor(map, R, wcx, wcy, fl, wantHigh, now) {
     const pool2 = edges.length ? edges : room;
     let top = 0;
     for (const l of pool2) if (l.z > top) top = l.z;
-    const high = pool2.filter((l) => l.z >= top * HUNT_BAND);
-    const lap = now == null ? 0 : Math.floor(now / flockPeriod(fl));
-    return high[Math.floor(frac(fl.ax * 5.31 + fl.ay * 7.77 + lap * 1.917) * high.length) % high.length];
+    return { usable, top: pool2.filter((l) => l.z >= top * HUNT_BAND) };
   }
   // Weighted by length, so a parapet is likelier than a chimney and both are possible.
   //
@@ -31683,34 +31763,9 @@ export function perchFor(map, R, wcx, wcy, fl, wantHigh, now) {
     for (const l of usable) if (l.len > longest.len) longest = l;
     room = [longest];
   }
-  const lap = now == null ? 0 : Math.floor(now / flockPeriod(fl));
   let total = 0;
   for (const l of room) total += l.len;
-  let pick = frac(fl.ax * 4.11 + fl.ay * 9.37 + lap * 2.713) * total;
-  let head = room[room.length - 1];
-  for (const l of room) { pick -= l.len; if (pick <= 0) { head = l; break; } }
-
-  // ⚠ A FLOCK THAT WILL NOT FIT SPREADS, RATHER THAN STACKING. One ledge was chosen and every
-  // bird went on it, so a hundred pigeons stood in each other on one gutter and a wire took more
-  // birds than it has length. Real flocks fill a perch and carry on to the next one, which is what
-  // a street of them looks like: the near wire full, the far gutter taking the rest.
-  //
-  // ⚠ THE HEAD KEEPS ITS WEIGHTED PICK and the rest are taken in length order behind it, so the
-  // flock still chooses where it MOSTLY is and only the overflow is deterministic. Ordering the
-  // whole plan by length would put every flock on the same ledge every time and undo the variety
-  // the lap hash above exists for.
-  const cap0 = perchCap(head);
-  if (n <= cap0) return head;
-  const spill = [];
-  let held = cap0;
-  for (const l of usable.slice().sort((a, b) => b.len - a.len)) {
-    if (l === head || held >= n) continue;
-    if (l.wire && perchCap(l) < 1) continue;
-    spill.push(l);
-    held += perchCap(l);
-    if (spill.length >= PERCH_SPILL_MAX) break;
-  }
-  return spill.length ? { ...head, spill } : head;
+  return { usable, room, total };
 }
 
 // Where bird `i` of `n` is standing on this ledge, and which way it is looking.
@@ -70359,6 +70414,8 @@ function bayCutaway(cam, dx, dy, cell) {
   return { cut, inside, subjectInside, camLX, camLY, ct, st };
 }
 export const _bayCutaway = bayCutaway;
+// A shed's GL shell records per cell, with the key they were built under. See drawVehicleBay.
+const BAY_SHELL = new WeakMap();
 function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   if (MASS_OFF) return;
   // ⚠ THE HAND THIS SHED LETTERS ITSELF IN, STATED RATHER THAN INHERITED — see the ⚠ on `_signFace`.
@@ -70518,13 +70575,39 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   const ASPHALT = [58, 60, 66];    // the road's own tarmac (SURFACE_COL.asphalt) — see the floor note
   const YELLOW = night ? 'rgb(196,164,54)' : 'rgb(222,186,58)';
   const YELLOW_DIM = night ? 'rgba(196,164,54,0.55)' : 'rgba(222,186,58,0.6)';
+  const FZ = 0.0015, MZ = 0.003;   // slab, then paint a hair above it (they never z-fight — see `layer`)
+  // Stencilled bay legends. Small, and the only text on the floor — a driver reads them coming IN,
+  // so they are laid out for somebody facing the back wall (top of the letters deeper into the shed).
+  const legends = [];
+  const floorText = (label, cx, cy, halfW, halfL, colour) => {
+    legends.push([label, cx, cy, halfW, halfL, colour]);
+    const tex = bakeSignText(label, colour, 0, false);
+    if (!tex) return;
+    bayFace([[cx + halfW, cy - halfL, MZ], [cx - halfW, cy - halfL, MZ], [cx - halfW, cy + halfL, MZ], [cx + halfW, cy + halfL, MZ]],
+      null, { layer: 1, tex });
+  };
+
+  // ── ⚠ ON GL THE SHELL IS BUILT ONCE AND REPLAYED ───────────────────────────
+  // Everything from the floor to the fittings goes to BAY_SINK in map-window tiles, and none of it
+  // reads the camera except through `interior`. The rest of what it reads is the cell, the window
+  // position, day or night, the door and the alpha. So a shed whose key matches the last build pushes
+  // that build's records (nothing downstream writes into a BAY_SINK record), and only the floor
+  // legends, which are decals in the camera's frame, are pushed fresh. About 0.8 ms of a frame with a
+  // depot in it. `RENDER_TUNE.bayCache` 0 builds the shell every frame.
+  const shellKey = toGL && TUNE.bayCache !== 0
+    ? Math.round((dx + gox) * 1e6) + ',' + Math.round((dy + goy) * 1e6) + '|' + !night + '|' + interior + '|' + open + '|' + alpha + '|' + (TUNE.glSignDepth !== 0) : null;
+  const shell = shellKey ? BAY_SHELL.get(cell) : null;
+  if (shell && shell.key === shellKey) {
+    for (const r of shell.recs) BAY_SINK.push(r);
+    for (const a of shell.legends) floorText(...a);
+  } else {
+  const shell0 = toGL ? BAY_SINK.length : 0;
 
   // ── THE FLOOR IS ROAD ──────────────────────────────────────────────────────
   // Not a concrete slab: a haulage shed's floor is the yard's own tarmac carried indoors, and the
   // truck drives from one onto the other without a lip. So it is painted in the asphalt the ground
   // pass paints the road in, and the apron tongue runs it out past the threshold to the tile edge —
   // which is what welds the inside to the street instead of ending the building at a doorstep.
-  const FZ = 0.0015, MZ = 0.003;   // slab, then paint a hair above it (they never z-fight — see `layer`)
   // A hangar floor is sealed concrete, pale so the high-bays light it: a workshop for aeroplanes is
   // swept, and a dark floor under a white fuselage reads as a cave.
   const FLOOR = air ? [148, 150, 146] : ASPHALT;
@@ -70577,14 +70660,6 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
       if (poly.length >= 3) bayFace(poly, YELLOW_DIM, { layer: 1 });
     }
   }
-  // Stencilled bay legends. Small, and the only text on the floor — a driver reads them coming IN,
-  // so they are laid out for somebody facing the back wall (top of the letters deeper into the shed).
-  const floorText = (label, cx, cy, halfW, halfL, colour) => {
-    const tex = bakeSignText(label, colour, 0, false);
-    if (!tex) return;
-    bayFace([[cx + halfW, cy - halfL, MZ], [cx - halfW, cy - halfL, MZ], [cx - halfW, cy + halfL, MZ], [cx + halfW, cy + halfL, MZ]],
-      null, { layer: 1, tex });
-  };
   if (air) {
     floorText('STOP', 0, -HL * 0.4 - 0.05, 0.06, 0.022, '#d8ba3a');
   } else {
@@ -70818,6 +70893,8 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   prism(-HW + 0.12, -HL + 0.28, 0.014, 0, 0.042, [150, 44, 40], 0.9);
   // Cones either side of the doorway — the one thing every yard in the world has at its door.
   for (const cx of [-DOOR_W / 2 - 0.05, DOOR_W / 2 + 0.05]) cone(cx, HL - 0.05, 0.012, 0.03);
+  }
+  if (shellKey) BAY_SHELL.set(cell, { key: shellKey, recs: BAY_SINK.slice(shell0), legends: legends.slice() });
   }
 
   // ── PAINT ──────────────────────────────────────────────────────────────────

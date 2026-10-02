@@ -360,6 +360,7 @@ html[data-density="compact"] #header .weapon-display { display: none; }
 @media (max-width: 720px) {
 	#header .weapon-display { display: none; }
 }
+html[data-density="compact"] #feedback-btn,
 html[data-density="compact"] #settings-btn,
 html[data-density="compact"] #signout-btn {
 	font-size: 0.8125rem;
@@ -2955,6 +2956,29 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 	border-color: var(--accent);
 	color: var(--accent);
 }
+
+/* Feedback button: the settings button's box, without the spin */
+#feedback-btn {
+	background: transparent;
+	border: 1px solid var(--border);
+	color: var(--text-dim);
+	font-size: 0.875rem;
+	width: 2em;
+	height: 2em;
+	cursor: pointer;
+	border-radius: 2px;
+	transition: all 0.15s;
+	line-height: 1;
+}
+#feedback-btn:hover {
+	border-color: var(--accent);
+	color: var(--accent);
+}
+.feedback-window { width: min(440px, calc(100vw - 32px)); }
+.feedback-window .confirm-input { margin-bottom: 10px; }
+.feedback-window textarea.confirm-input { min-height: 120px; resize: vertical; }
+.feedback-window .feedback-note { font-size: 0.75rem; color: var(--text-dim); margin: 0 0 12px; }
+.feedback-window .feedback-count { font-size: 0.6875rem; color: var(--text-dim); text-align: right; margin: -6px 0 10px; }
 
 /* Settings button */
 #settings-btn {
@@ -6292,6 +6316,7 @@ html[data-density="compact"] .qty-dialog-ok,
 html[data-density="compact"] .qty-dialog-cancel,
 html[data-density="compact"] .qty-dialog-pick { padding: 11px 0; font-size: 0.9375rem; }
 html[data-density="compact"] .dialogue-opt { padding: 9px 12px; }
+html[data-density="compact"] #feedback-btn,
 html[data-density="compact"] #settings-btn,
 html[data-density="compact"] #signout-btn,
 html[data-density="compact"] #dialogue-close,
@@ -6299,6 +6324,7 @@ html[data-density="compact"] #workspace-close,
 html[data-density="compact"] .confirm-x { position: relative; }
 /* The header pair sit 6px apart, so they grow up and down more than sideways
    and never into each other. */
+html[data-density="compact"] #feedback-btn::after,
 html[data-density="compact"] #settings-btn::after,
 html[data-density="compact"] #signout-btn::after { content: ""; position: absolute; inset: -8px -3px; }
 html[data-density="compact"] #dialogue-close::after,

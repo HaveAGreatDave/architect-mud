@@ -107,6 +107,15 @@ function frame(now) {
   g.fillText('30', W - 14, y(1000 / 30) - 2);
 }
 
+// A summary of the current window for the feedback report, or null while the
+// meter is off and so has nothing to say.
+export function fpsSummary() {
+  if (!raf || !n) return null;
+  const v = Array.from({ length: n }, (_, i) => ms[(head - n + i + N) % N]).sort((a, b) => a - b);
+  const mean = v.reduce((a, b) => a + b, 0) / n;
+  return { fps: Math.round(1000 / mean), p95ms: Math.round(v[Math.floor(n * 0.95)] * 10) / 10, samples: n, renderer: renderer() };
+}
+
 export function setFpsMeter(on) {
   if (on) {
     if (!el) build();
