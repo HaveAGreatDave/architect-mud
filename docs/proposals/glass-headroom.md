@@ -172,21 +172,74 @@ measure that later stages are judged on is allocation, taken headless.
   mode), and fewer than half are the same record at the same slot as last frame, because hoodoo
   records rewrite their fogged colour in place and the count moves with the heading.
 
-## Stage 3: retained static buffers
+## Stage 3: the city stays on the GPU
 
-- Once a building's records are cached they don't change, so they don't need re-uploading. Give each
-  cached building a range in its layer's stream and write it with `stream.writeRange` (it exists and
-  nothing uses it) only when the cache entry changes.
-- Most records carry a pixel size the caller worked out from distance (`clamp(k / f)`), which is
-  the camera dependence that forces a rebuild. Move it into the vertex shader: pass `k`, `lo` and
-  `hi` per record, compute the size from `clip.w`, and multiply by a `uDpr` uniform. Every size has
-  to keep going through the single DPR funnel (glass-notes "DPR").
-- Sprites, strokes and decals first. Clouds, billboards and ground need their alpha fades and sorts
-  moved off the CPU first, and are last.
-- (2026-10-01) Solids carry CPU fog (`fogTint`) in their colour, which changes with distance and
-  heading, so a retained solids range rewrites itself every frame; the attempt for hoodoos gained
-  nothing. Move that fog into the solids shader (it already fogs by `clip.w`) before retaining them.
-  The own ship's sun term moved the same way and that range now sends almost nothing.
+**Plan, 2026-10-02. Not started.**
+
+### Why this and not more caches
+
+Browser bench, Halcyon, quiet machine, 2026-10-02: the cab is 12.5 ms and the cockpit 26.2 ms
+(build about 14.5, GL upload about 7.3). Every cache so far has kept the JavaScript that builds a
+record and only stopped it being built twice. The cockpit has to lose about 10 ms, and the arms
+(7 to 9 ms) and the uploads (7 ms) are most of it. Neither goes away while every adornment is
+rebuilt and re-sent each frame because its numbers depend on the camera.
+
+So the goal: **a building's adornments are built once, in the map window's frame, uploaded once, and
+drawn by the GPU from any camera.** The CPU's per-frame work becomes "which retained groups are in
+view", not "what does each one look like from here".
+
+### What makes a record camera-dependent today
+
+Each of these has to move into a shader, or into a cache key, before a building can be retained:
+
+| Dependence | Where | Where it goes |
+|---|---|---|
+| Coordinates relative to the camera (`dx`, `dy`) | every sink except solids and ground | records in the map window's frame; shaders take `camAt` like solids do |
+| Pixel sizes from distance (`clamp(k / f, lo, hi)`) | 23 `pushLight` sites, `pushStroke`, glow helpers | record `k`, `lo`, `hi`; the vertex shader sizes from `clip.w` and `uDpr` |
+| The decal pull toward the eye | `emitDecoFill`, `emitDecoQuad`, `emitSurfaceText` | record raw corners and the pull; the shader scales about the eye by `1 - min(0.5, pull / meanDepth)` (exact, see `decoFast`) |
+| Screen-point inputs (`emitSurfaceText`, `emitDecoQuad` take projected corners) | signs, lettering | take world corners instead; the projection was only used to unproject again |
+| Near-plane clipping on the CPU | `emitWire`, `campClip` | the GPU clips; a segment crossing the eye plane is the one case to test |
+| Culls on distance or facing (`p.f > 0.12`, `frontVis`, back-face tests) | most arms | facing goes in the cache key (it changes rarely); distance culls move to the shader as a fade; back faces are depth-hidden |
+| Detail tier by distance (`ADORN_TIER`, `webBays`) | `drawTypeModel` call site | a cache key: one entry per tier, switched as the building crosses a ring |
+| CPU fog in a colour | hoodoos (fixed), statue, locks | the solids shader's fog |
+| View-dependent shading | statue, canal locks | port to the solids shader, or leave them live (they're two items) |
+| The clock (`now`, flicker, blink, flags) | some signs, beacons, flags | leave live: a building with any of these keeps a live part beside its retained part |
+
+### Phases
+
+Each phase ships behind a `RENDER_TUNE` switch, with `perf:exact` or a fake-GL triangle check
+proving it draws the same, and the browser bench before and after.
+
+1. **Sprite and stroke sizes in the shader.** `pushLight` and `pushStroke` take a size spec
+   (`k`, `lo`, `hi`) as an alternative to a pixel size; convert the helpers first (`glowPool`,
+   `blinkLight`, `groundLamp`, `emitLightRunner`, `emitWire`), then the direct arm calls. Check:
+   sizes match the CPU numbers to a pixel over the 60 `perf:exact` views. No speed gain on its own.
+2. **Map-window frame for sprites, strokes and decals.** Same as the solids already are. The layers
+   take `camAt`. Check: fake-GL screen positions match to 1e-6.
+3. **Decals: raw corners, pull in the shader, world-space lettering.** `emitSurfaceText` and
+   `emitDecoQuad` get world-corner entry points. Check: `decoFast` is already the exact reference.
+4. **Retained groups in every layer.** Generalise `retain()` (gl/solids.js) into the stream helper
+   so sprites, strokes and decals keep groups the same way. Check: the fake-GL triangle comparison,
+   extended to those layers.
+5. **Retain building arms.** Record each building's sink output once per key (building, tier,
+   facing, night band, power state) into groups. Detect rather than predict, as the ground cache
+   does: an arm that reads the camera outside a converted primitive, touches the canvas or reads the
+   clock is marked live and runs every frame as now; a key must record the same twice before it's
+   kept. Gate: the share of arms retained per district, which should rise as stragglers convert.
+   This is where the arms' 7 to 9 ms goes.
+6. **The occlusion pre-pass** (about 2 ms): with buildings retained, cache each one's occluder
+   corners per map window, or cull against last frame's depth.
+
+### Expected result, and the risk
+
+If phases 1 to 5 retain most buildings, the cockpit loses most of the arms and the uploads of what's
+retained: an estimate of 10 to 12 ms, which is the gap. The risk is the long tail. Some 170 arms
+call primitives in their own ways, and every one still reading the camera stays live. Phase 5's gate
+says how far the tail goes before the work is done, so the order is chosen to pay back at every
+phase from 4 on rather than only at the end.
+
+Out of scope: ground (already cached per tile), clouds and billboards (they need their sorts and
+fades moved off the CPU first), the cockpit interior (already incremental).
 
 ## Also measured, not yet staged
 
