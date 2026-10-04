@@ -1,0 +1,17 @@
+{
+  "description": "Wide shallow pendants on long cables, warmer than the lights out front.",
+  "flags": {
+    "is_light": true,
+    "light_type": "overhead"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_cw_lounge",
+  "light_type": "overhead",
+  "lumen_output": 2500,
+  "name": "pendant lights",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": null,
+  "zone_id": "zone_cw_lounge"
+}

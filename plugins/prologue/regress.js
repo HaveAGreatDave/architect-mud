@@ -18,6 +18,7 @@ export default async function regress({ check }) {
     cmdTabletDone, pointAtAdvert, autoReadAdvert, F_ADVERT, F_ADVERT_READ,
     LOG_TOUR, LOG_TABLET_TOUR,
     NUDGES, NUDGE_DELAYS, NUDGE_TIMERS, armNudge, clearNudge, stepOfBeacon,
+    onTerminalOpened,
   } = _test;
 
   // ── The cold open's skyline manifest ───────────────────────────────────────
@@ -135,6 +136,15 @@ export default async function regress({ check }) {
   // ── Gate 1: north out of The Inbetween (→ The Lattice) needs alignment ──────
   const g1blocked = await prologueMoveGate({ player: { ...p, current_zone: Z_INBETWEEN }, to: { id: Z_LATTICE } });
   check('inbetween→lattice blocked before alignment', g1blocked?.block === true, JSON.stringify(g1blocked)?.slice(0, 60));
+
+  // …and bringing the terminal up is all it takes. Nobody is made to change
+  // their shape: no appearance.changed fires here, only the open.
+  await onTerminalOpened({ actor: { ...p, current_zone: Z_LATTICE } });
+  check('opening a terminal outside the Inbetween aligns nobody', !(await isSet(p, F_ALIGNED)));
+  await onTerminalOpened({ actor: { ...p, current_zone: Z_INBETWEEN } });
+  check('opening the terminal aligns you', await isSet(p, F_ALIGNED));
+  const g1open = await prologueMoveGate({ player: { ...p, current_zone: Z_INBETWEEN }, to: { id: Z_LATTICE } });
+  check('inbetween→lattice opens without changing a thing', g1open === undefined, JSON.stringify(g1open)?.slice(0, 60));
 
   // ── The holosign self-gates outside the lattice ────────────────────────────
   const wrongZone = await useHolosign(['holosign'], 'use holosign', { ...p, current_zone: Z_INBETWEEN });

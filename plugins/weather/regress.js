@@ -7,7 +7,8 @@
 // stops a future third event shipping with no icon, no bed, and no pools).
 import { heroEventForDate, heroEventPresentation, heroEventAnnounce, _testWeather } from './index.js';
 import { recomputeInsulation } from '../../server/engine/commands/inventory.js';
-import { skyVantage, isIndoorZone, getWindowsForZone, setWindowState, getWindKph, getWindKphAtGrid, registerWeatherField, WIND_STORM_GAIN } from '../../server/engine/environment.js';
+import { skyVantage, isIndoorZone, getWindowsForZone, setWindowState, getWindKph, getWindKphAtGrid, registerWeatherField, WIND_STORM_GAIN,
+  getEnvironmentState, setWeatherState, setCurrentPrecip, getPrecipAtGrid, getWeatherTypeAtGrid, getZonePrecip } from '../../server/engine/environment.js';
 import { world } from '../../server/engine/world.js';
 
 const PRESENT_KEYS = ['icon', 'fx', 'audio', 'pool', 'sky', 'severe'];
@@ -142,12 +143,12 @@ export default async function regress({ check, getPlayer }) {
   for (let i = 0; i < 800; i++) {
     const day = new Date(Date.UTC(2031, 0, 1) + i * 86400000).toISOString().slice(0, 10);
     const t = heroEventForDate(day);
-    if (t === 'rainbow' || t === 'triple_rainbow') { check('rainbows are never scheduled', false, day); break; }
+    if (t === 'rainbow' || t === 'double_rainbow' || t === 'triple_rainbow') { check('rainbows are never scheduled', false, day); break; }
     if (i === 799) check('rainbows are never scheduled', true);
   }
 
   // ── Every event is fully presented ──
-  for (const type of ['ion_storm', 'acid_rain', 'rainbow', 'triple_rainbow']) {
+  for (const type of ['ion_storm', 'acid_rain', 'rainbow', 'double_rainbow', 'triple_rainbow']) {
     const p = heroEventPresentation(type);
     check(`${type} has a presentation block`, !!p);
     for (const k of PRESENT_KEYS) {
@@ -160,7 +161,7 @@ export default async function regress({ check, getPlayer }) {
   // A rainbow must never lift the severity floor. currentBaseSeverity() takes the
   // max of the day and the active event, so a non-zero severity here would put
   // every gear-gated lethal channel on alert because the sky looked nice.
-  for (const type of ['rainbow', 'triple_rainbow']) {
+  for (const type of ['rainbow', 'double_rainbow', 'triple_rainbow']) {
     const p = heroEventPresentation(type);
     check(`${type} is benign`, p.benign === true);
     check(`${type} carries no severity`, p.severity === 0, `${p.severity}`);
@@ -173,7 +174,7 @@ export default async function regress({ check, getPlayer }) {
   // horizon. `inside` falls back to `line` so an unauthored event still works,
   // which is exactly why the fallback must not be allowed to hide an unwritten
   // line: an indoor variant identical to the outdoor one is the bug coming back.
-  for (const type of ['ion_storm', 'acid_rain', 'rainbow', 'triple_rainbow']) {
+  for (const type of ['ion_storm', 'acid_rain', 'rainbow', 'double_rainbow', 'triple_rainbow']) {
     for (const phase of ['approach', 'peak', 'passing']) {
       const a = heroEventAnnounce(type, phase);
       for (const vantage of ['open', 'window', 'sealed']) {
@@ -333,6 +334,45 @@ async function regressEmpFootprint({ check }) {
       }
     } finally {
       registerWeatherField(_testWeather.sampleWeatherAt);
+    }
+  }
+
+  // ── Rain falls only under a cell ─────────────────────────────────────────────
+  // Until 2026-10-03 a precipFloor raised every outdoor tile to the day's headline rate, so a rain
+  // day rained on the whole map and the cells only made it heavier. Now a tile between cells is
+  // dry and grey and says so, a cell rains on nobody while the 30-minute roll is off, and nothing
+  // falls indoors. The field and the precip state are swapped for known ones and put back.
+  {
+    const env = getEnvironmentState();
+    const was = { type: env.currentPrecip, rate: env.precipRate, wx: env.weatherType };
+    const fake = (x) => x < 0
+      ? { cloudCover: 0.72, precipRate: 0, precipType: 'none', tempOffset: 0, stormIntensity: 0, severity: 0 }
+      : { cloudCover: 0.9, precipRate: 0.7, precipType: 'rain', tempOffset: 0, stormIntensity: 0, severity: 0 };
+    registerWeatherField(fake);
+    setWeatherState('rain');
+    setCurrentPrecip('rain', 0.6);
+    try {
+      const dry = getPrecipAtGrid(-5, 0), wet = getPrecipAtGrid(5, 0);
+      check('rain: a tile between cells is dry on a rain day', dry.precipRate === 0 && dry.precipType === 'none', JSON.stringify(dry));
+      check('rain: a tile under a cell gets the cell\'s own rain', wet.precipRate === 0.7 && wet.precipType === 'rain', JSON.stringify(wet));
+      check('rain: between cells the sky word is grey, not rain', getWeatherTypeAtGrid(-5, 0) === 'overcast', getWeatherTypeAtGrid(-5, 0));
+      check('rain: under a cell the sky word is the day\'s', getWeatherTypeAtGrid(5, 0) === 'rain', getWeatherTypeAtGrid(5, 0));
+      // A zone resolves through the same rule. Any outdoor map tile will do; the fake field is
+      // dry west of x=0 and raining east of it, so the expectation follows the tile's own x.
+      const outdoor = [...world.zones.values()].find(z => z.map_id === 'map_world' && z.grid_x != null && z.grid_y != null && !isIndoorZone(z));
+      if (outdoor) {
+        const zp = getZonePrecip(outdoor.id), expect = outdoor.grid_x < 0 ? 0 : 0.7;
+        check('rain: a zone takes its own tile\'s rain, not the headline', zp.precipRate === expect, `${outdoor.id} @${outdoor.grid_x}: ${JSON.stringify(zp)}`);
+      }
+      const indoor = [...world.zones.values()].find(z => isIndoorZone(z) && !z.flags?.open_sky);
+      if (indoor) check('rain: nothing falls indoors', getZonePrecip(indoor.id).precipRate === 0, `${indoor.id}: ${JSON.stringify(getZonePrecip(indoor.id))}`);
+      setCurrentPrecip('none', 0);
+      const idle = getPrecipAtGrid(5, 0);
+      check('rain: with the roll off, a cell rains on nobody', idle.precipRate === 0 && idle.precipType === 'none', JSON.stringify(idle));
+    } finally {
+      registerWeatherField(_testWeather.sampleWeatherAt);
+      setWeatherState(was.wx);
+      setCurrentPrecip(was.type, was.rate);
     }
   }
 }

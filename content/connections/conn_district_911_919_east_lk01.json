@@ -1,0 +1,10 @@
+{
+  "a": "zone_district_911_919",
+  "b": "zone_district_912_919",
+  "blocked": true,
+  "dir": "east",
+  "id": "conn_district_911_919_east_lk01",
+  "lockable": false,
+  "name": "the gate tube",
+  "one_way": false
+}

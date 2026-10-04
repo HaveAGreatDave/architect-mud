@@ -27,17 +27,17 @@ import { loadWindshield, stubCanvas } from './dom-stub.mjs';
 const REPORT = process.argv.includes('--report');
 
 // The packet shape is `weatherFieldForClient` in plugins/flight/state.js. Two fields: one overcast
-// day that is raining on the whole map (a high `baseCloud` and a `precipFloor`), and one clear day
-// with a single shower cell in the corner of it — which is the pair the second half of the gate is
-// about, because on the second one most of the map must stay dry.
+// day (a high `baseCloud`, grey over the whole map) with a big shower cell in the middle of it, and
+// one clear day with a single small shower in the corner. Rain has no floor: on BOTH days it falls
+// only under the cell, which is what the second and third halves of the gate are about.
 const OVERCAST = {
   tick: 30, bounds: { minX: 80, maxX: 120, minY: 80, maxY: 120 }, wind: { dir: 220, kph: 18 },
-  baseCloud: 0.75, precipFloor: 0.5, floorType: 'rain',
+  baseCloud: 0.75, falling: true,
   cells: [{ x: 100, y: 100, r: 16, vx: 0, vy: 0, type: 'precip', intensity: 0.8, precip: 'rain' }],
 };
 const ONE_SHOWER = {
   tick: 30, bounds: { minX: 80, maxX: 120, minY: 80, maxY: 120 }, wind: { dir: 220, kph: 18 },
-  baseCloud: 0, precipFloor: 0, floorType: 'none',
+  baseCloud: 0, falling: true,
   cells: [{ x: 92, y: 92, r: 7, vx: 0, vy: 0, type: 'precip', intensity: 0.9, precip: 'rain' }],
 };
 
@@ -70,6 +70,10 @@ const seen = watch(el);
 
 const clock = globalThis.performance;
 globalThis.performance = { ...clock, now: () => 1e6 };
+// A coarse floor: this file counts the curtain, not the ground, and at the default of 1 the per-texel
+// Mode-7 raster under the DOM stub was most of its CPU (see CLAUDE.md, pretest gates).
+const pixelWas = ws.RENDER_TUNE.pixel;
+ws.RENDER_TUNE.pixel = 16;
 
 // How much curtain one frame lays down. Painted twice — the first warms every lazy cache, and a
 // cache miss is canvas work that has nothing to do with the weather.
@@ -124,7 +128,28 @@ for (const weather of ['rain', 'storm']) {
   if (!(outsideOff > 0)) problems.push(`${weather}: the control is dry too — with rainGate 0 the clear-air frame drew ${outsideOff}, so nothing here is measuring the cover`);
 }
 
+// ── 3. CLOUD IS NOT RAIN ────────────────────────────────────────────────────
+// The overcast covers the whole map at 0.75, and until 2026-10-03 that cover was the gate, so it
+// rained on every tile of a grey day. Rain falls out of a CELL: 25 tiles from the shower, under
+// the same grey sky, it must be dry. And under the shower itself, with the server's precip roll
+// off (`falling: false`), it must be dry too, because the room text and the sound say so.
+const NOT_FALLING = { ...OVERCAST, falling: false };
+for (const weather of ['rain', 'storm', 'snow']) {
+  const base = { cls: 'prop', phase: 'cruise', worldBlend: 1, map: SCENE, heading: 0, speed: 0.4, hour: 13,
+    weather, height: 0.06 };
+  const grey = run(`${weather} under the overcast, off the shower`, { ...base, wxField: OVERCAST, acX: 118, acY: 118 }, 1);
+  const greyOff = run(`${weather} under the overcast, off the shower`, { ...base, wxField: OVERCAST, acX: 118, acY: 118 }, 0);
+  const idle = run(`${weather} under the shower, nothing falling`, { ...base, wxField: NOT_FALLING, acX: 100, acY: 100 }, 1);
+  const idleOff = run(`${weather} under the shower, nothing falling`, { ...base, wxField: NOT_FALLING, acX: 100, acY: 100 }, 0);
+  if (grey === null || greyOff === null || idle === null || idleOff === null) continue;
+  if (grey > 0) problems.push(`${weather}: ${grey} of curtain drawn under a grey sky 25 tiles from the only rain cell — the cloud floor is raining`);
+  if (!(greyOff > 0)) problems.push(`${weather}: the control is dry too — with rainGate 0 the overcast frame drew ${greyOff}, so nothing here is measuring the cell`);
+  if (idle > 0) problems.push(`${weather}: ${idle} of curtain drawn under a cell while the server says nothing is falling`);
+  if (!(idleOff > 0)) problems.push(`${weather}: the control is dry too — with rainGate 0 the not-falling frame drew ${idleOff}, so nothing here is measuring \`falling\``);
+}
+
 ws.RENDER_TUNE.rainGate = 1;
+ws.RENDER_TUNE.pixel = pixelWas;
 globalThis.performance = clock;
 
 if (REPORT) {
@@ -139,6 +164,6 @@ if (problems.length) {
 }
 
 const lo = rows.filter((r) => r.n > 0).map((r) => r.n);
-console.log(`✓ rainceiling: rain stops at the cloud base and outside the cover, across ${WET.length} precipitating weathers `
+console.log(`✓ rainceiling: rain stops at the cloud base and outside the rain cells, across ${WET.length} precipitating weathers `
   + `— ${rows.length} frames, ${Math.min(...lo)}–${Math.max(...lo)} of curtain where it should fall and 0 where it should not.`);
 console.log('  Every dry case is mutation-tested with rainGate 0, which rains: the ceiling is what stops it, not a guard higher up.');

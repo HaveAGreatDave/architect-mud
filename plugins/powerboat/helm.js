@@ -18,12 +18,12 @@
 
 import { query } from '../../server/models/db.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
-import { getZone } from '../../server/engine/world.js';
+import { getZone, getAllZones } from '../../server/engine/world.js';
 import { mapWindow, skyState, aircraftNearCoord } from '../flight/state.js';
 import { streetActors } from '../../server/engine/street-actors.js';
 import { aboard, berthKind, berthsNear, berthCapacity, myBoats, pickBoat, coveredSlot, coveredRoomAtTile, isOpenWater, MOVE_IN, recoverAboard } from './yard.js';
 import { adjustCredits } from '../../server/engine/economy.js';
-import { fuelServesAt } from './fuel.js';
+import { fuelAlongside, fuelBox } from './fuel.js';
 import { effBoatParams, boatLiveryOf, stampBoatIfMissing, wetChange, boatRentalExpired, boatRental, PROP_KNOCK } from './service.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { surfaceAt } from '../flight/state.js';
@@ -38,6 +38,7 @@ import { rigs } from './index.js';
 import { prefersTextMinigamesOrDefault } from '../../server/engine/presentation.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { startTextHelm, isConning, stopTextHelm } from './texthelm.js';
+import { TYPES } from '../../client/game/js/panels/flight-model.js';
 
 const RADIUS = 16;                     // must match `RAD` in client/game/js/panels/boat-view.js
 const HULL_FLOOR = 0.0;
@@ -105,12 +106,46 @@ export function seawardHeading(x, y) {
   return best;
 }
 
+// ── THE BOXES ON THE WATER ───────────────────────────────────────────────────
+//
+// Where to stop: the strip alongside each fuel float's pumps (fuel.js `fuelBox`) and each covered
+// slot under its roof, in world tiles, as `{ kind, id, x, y, hdg, hl, hw, name }` (centre, the
+// bearing of the long axis, half length, half width). The seat draws them on the water once she is
+// near and lights its prompt off them; it decides nothing.
+//
+// ⚠ THE SERVER'S OWN TESTS ARE THE BOX OR LARGER, NEVER SMALLER. The fuel gate is the box plus a
+// margin (`fuelAlongside`) and the slot is its whole tile (`coveredRoomAtTile`), and both boxes sit
+// inside those, so a box the seat shows green is one the server will act on.
+//
+// Content-keyed and built once, the `_slotIndex` idiom: it is asked on every window the seat is sent.
+const DOCK_BOX = { hl: 0.36, hw: 0.26 };
+let _marks = null;
+function allMarks() {
+  if (_marks) return _marks;
+  _marks = [];
+  for (const z of getAllZones()) {
+    const fb = fuelBox(z);
+    if (fb) _marks.push({ ...fb, name: z.name });
+    const slot = coveredSlot(z);
+    // Bow out, the way the hull is put in the slot (`berthGrid`), so the box is the shape she is.
+    if (slot) _marks.push({ kind: 'dock', id: z.id, x: slot.x, y: slot.y, hdg: seawardHeading(slot.x, slot.y) ?? slot.heading, ...DOCK_BOX, name: z.name });
+  }
+  return _marks;
+}
+export function berthMarksNear(x, y, r = RADIUS) {
+  return allMarks().filter((m) => Math.abs(m.x - x) <= r + 1 && Math.abs(m.y - y) <= r + 1);
+}
+export const _forgetMarks = () => { _marks = null; };
+
 // ── THE PAYLOAD ──────────────────────────────────────────────────────────────
 export function helmContext(boat, at, playerId = null) {
   const sky = skyState(at.x, at.y) || {};
   return {
     type: 'boat_ctx',
     name: boat.name || 'her',
+    // ⚠ WHICH HULL, AS ITS OWN FIELD. `params` cannot say: a TYPES row carries no id, so the seat
+    // painted every boat as the hydro and sat every driver in the hydro's pilothouse.
+    typeId: boat.type_id || 'hydro',
     gx: at.x, gy: at.y,
     map: mapWindow({ grid_x: at.x, grid_y: at.y }, RADIUS),
     heading: at.heading ?? (Number(boat.custom_data?.heading) || 0),
@@ -129,6 +164,8 @@ export function helmContext(boat, at, playerId = null) {
     contacts: aircraftNearCoord ? (aircraftNearCoord(at.x, at.y) || []) : [],
     // The people on the quay, so a boat coming alongside sees them as the cab and the cockpit do.
     actors: streetActors(at.x, at.y, RADIUS, playerId),
+    // The fuel berths and covered slots in this window, which the seat marks on the water.
+    marks: berthMarksNear(at.x, at.y),
   };
 }
 
@@ -238,7 +275,7 @@ export const svcState = new Map();
 function svcTick(player, rig) {
   const cell = surfaceAt(Math.round(rig.x), Math.round(rig.y));
   const tile = cell?.id ? getZone(cell.id) : null;
-  const want = !tile ? null : coveredRoomAtTile(tile.id) ? 'dock' : fuelServesAt(tile) ? 'fuel' : null;
+  const want = !tile ? null : coveredRoomAtTile(tile.id) ? 'dock' : fuelAlongside(rig.x, rig.y) ? 'fuel' : null;
   const cur = svcState.get(player.id);
   if (cur && cur.mode !== want) {
     svcState.delete(player.id);
@@ -371,7 +408,7 @@ export async function cmdBoatSync(args = [], raw, player) {
     sendToPlayer(player.id, { type: 'boat_ctx', gx: cx, gy: cy, map: mapWindow({ grid_x: cx, grid_y: cy }, RADIUS),
       hour: sky.hour, weather: sky.weather, wxField: sky.field || null, wxGround: sky.ground || null,
       contacts: aircraftNearCoord ? (aircraftNearCoord(cx, cy) || []) : [],
-      actors: streetActors(cx, cy, RADIUS, player.id) });
+      actors: streetActors(cx, cy, RADIUS, player.id), marks: berthMarksNear(cx, cy) });
     was.actAt = Date.now();
   } else if (Date.now() - (was.actAt || 0) > ACTOR_PUSH_MS) {
     // The street population on its own clock: people walk while the window stays put. RAM only.
@@ -399,7 +436,9 @@ async function seedRig(player, boatId) {
   const rig = {
     playerId: player.id, boatId: b.id, typeId: b.type_id || 'hydro',
     name: b.name || 'boat', livery: b.custom_data?.livery || null,
-    topSpeed: 138,
+    // Her own ceiling, which the wake and the wreck severity are scaled against. The text rung
+    // already reads it off the row; this one said 138 for every hull.
+    topSpeed: TYPES[b.type_id]?.topSpeed || 138,
     hull: clamp01(b.condition), fuel: clamp01(b.fuel), nitro: clamp01(b.custom_data?.nitro ?? 1),
     x: null, y: null, heading: Number(b.heading) || 0, speed: 0,
     pedal: 0, rich: 0, bang: 0, roll: 0, pitch: 0, nitroOn: false,
@@ -485,4 +524,4 @@ export async function cmdBoatEvent(args = [], raw, player) {
   return null;
 }
 
-export const _test = { berthGrid, helmContext, RADIUS };
+export const _test = { berthGrid, helmContext, RADIUS, berthMarksNear, DOCK_BOX };

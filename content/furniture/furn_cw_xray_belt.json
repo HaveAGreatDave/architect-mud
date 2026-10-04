@@ -1,0 +1,14 @@
+{
+  "description": "A rubber belt running into a lead-curtained box, with a monitor on a swing arm. Grey plastic trays are stacked at the near end.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cw_xray_belt",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the X-ray belt",
+  "object_type": "fixture",
+  "power_draw_kw": 1,
+  "price": 0,
+  "zone_id": "zone_cw_security"
+}

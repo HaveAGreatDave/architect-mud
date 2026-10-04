@@ -11,7 +11,7 @@ let _pending = null;
 // after `loadWindshield()` has resolved sees the real value, because an import binds rather
 // than copies. Read one before that and it is undefined, which is why the loader is awaited
 // at the door rather than at the first use.
-export let ADORN_CHEAP, ADORN_NEAR, ADORN_RICH, AUTHORED_ADORN_KINDS, AUTHORED_DETAIL_KINDS, BERTH_LIFTS, BERTH_SETDOWN, BERTH_SLOTS, BUILDING_FOOT, CAB_TRIM, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, CLIMBOUT_MAX_F, CONTACT_NEAR_F, CURTAIN_H, CURTAIN_HALF_W, DETAIL_PX, DRUM_MAT_FAMILIES, FAUNA_INK_GAIN, FAUNA_INK_R, FLASH_AREA, FLASH_BANK, FLASH_FLOOR, FLAT_ONLY_KINDS, FT_PER_FLOOR, GL_TIER, HUNT_BAND, HUNT_MIN_LEDGE, HUNT_REACH, LEGACY_MODELS, MAT_ORDER, MODEL_MAX_EXTENT, NEON_ART, NO_TILE_FIT, PHONE_TIER, RENDER_TUNE, RIDE_ROLL_W, RIDE_ROLL_ZETA, RIDE_W, ROAD_RIG_MUL, ROOF_CATCH_CEIL_Z, ROOF_CATCH_R, SHELTER_MARCH, SIGN_FONT, SIGN_PICTO, SIGN_TRACK, TILE_REACH, TRUCK_STEP_Z, TRUCK_VARIANTS, VEHICLE_CLASSES, VEHICLE_PARAM_TABLE, VISIBLE_FAR_F, VISIBLE_NEAR_F, WIRE_RING_S, _bayCutaway;
+export let ADORN_CHEAP, ADORN_NEAR, ADORN_RICH, AUTHORED_ADORN_KINDS, AUTHORED_DETAIL_KINDS, BERTH_LIFTS, BERTH_SETDOWN, BERTH_SLOTS, BUILDING_FOOT, CAB_TRIM, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, CLIMBOUT_MAX_F, CONTACT_NEAR_F, CURTAIN_H, CURTAIN_HALF_W, DETAIL_PX, DRUM_MAT_FAMILIES, FAUNA_INK_GAIN, FAUNA_INK_R, FLASH_AREA, FLASH_BANK, FLASH_FLOOR, FLAT_ONLY_KINDS, FT_PER_FLOOR, GL_TIER, HUNT_BAND, HUNT_MIN_LEDGE, HUNT_REACH, LEGACY_MODELS, MAT_ORDER, MODEL_MAX_EXTENT, NEON_ART, NO_TILE_FIT, PHONE_TIER, RENDER_TUNE, RIDE_ROLL_W, RIDE_ROLL_ZETA, RIDE_W, ROAD_RIG_MUL, ROOF_CATCH_CEIL_Z, ROOF_CATCH_R, SHELTER_MARCH, SIGN_FONT, SIGN_PICTO, SIGN_TRACK, TILE_REACH, TRUCK_STEP_Z, TRUCK_VARIANTS, VEHICLE_CLASSES, VEHICLE_PARAM_TABLE, VISIBLE_FAR_F, VISIBLE_NEAR_F, WIRE_RING_S, _bayCutaway, _lifeGeo, armKeepStats;
 
 export function isLoaded() { return !!_m; }
 
@@ -75,6 +75,8 @@ export function loadWindshield() {
     VISIBLE_NEAR_F = m.VISIBLE_NEAR_F;
     WIRE_RING_S = m.WIRE_RING_S;
     _bayCutaway = m._bayCutaway;
+    _lifeGeo = m._lifeGeo;
+    armKeepStats = m.armKeepStats;
     _m = m;
   try { (await import('./gl/install.js')).installGL?.(); } catch (e) { console.error('[windshield-lazy] GL install failed, staying on the 2-D renderer:', e?.message); }
     return m;
@@ -98,6 +100,7 @@ export function altRestingOnZ(...a) { return (_m || _cold('altRestingOnZ')).altR
 export function armSignsItself(...a) { return (_m || _cold('armSignsItself')).armSignsItself(...a); }
 export function authoredAdornSmoke(...a) { return (_m || _cold('authoredAdornSmoke')).authoredAdornSmoke(...a); }
 export function authoredDetailSmoke(...a) { return (_m || _cold('authoredDetailSmoke')).authoredDetailSmoke(...a); }
+export function bakedSurfaces(...a) { return (_m || _cold('bakedSurfaces')).bakedSurfaces(...a); }
 export function bayDims(...a) { return (_m || _cold('bayDims')).bayDims(...a); }
 export function bayDoorHead(...a) { return (_m || _cold('bayDoorHead')).bayDoorHead(...a); }
 export function bayDoorOpen(...a) { return (_m || _cold('bayDoorOpen')).bayDoorOpen(...a); }
@@ -147,9 +150,11 @@ export function ensureWindshieldStyles(...a) { return (_m || _cold('ensureWindsh
 export function facePalsSmoke(...a) { return (_m || _cold('facePalsSmoke')).facePalsSmoke(...a); }
 export function falconDiveState(...a) { return (_m || _cold('falconDiveState')).falconDiveState(...a); }
 export function fasciaKindOf(...a) { return (_m || _cold('fasciaKindOf')).fasciaKindOf(...a); }
+export function floorLutBytes(...a) { return (_m || _cold('floorLutBytes')).floorLutBytes(...a); }
 export function foamFeed(...a) { return (_m || _cold('foamFeed')).foamFeed(...a); }
 export function foamReset(...a) { return (_m || _cold('foamReset')).foamReset(...a); }
 export function foamUpload(...a) { return (_m || _cold('foamUpload')).foamUpload(...a); }
+export function footfallFill(...a) { return (_m || _cold('footfallFill')).footfallFill(...a); }
 export function forecourtDriveSmoke(...a) { return (_m || _cold('forecourtDriveSmoke')).forecourtDriveSmoke(...a); }
 export function freeCam(...a) { return (_m || _cold('freeCam')).freeCam(...a); }
 export function freeCamState(...a) { return (_m || _cold('freeCamState')).freeCamState(...a); }
@@ -181,12 +186,14 @@ export function isAirBay(...a) { return (_m || _cold('isAirBay')).isAirBay(...a)
 export function keepsReach(...a) { return (_m || _cold('keepsReach')).keepsReach(...a); }
 export function keyDir(...a) { return (_m || _cold('keyDir')).keyDir(...a); }
 export function kitLedges(...a) { return (_m || _cold('kitLedges')).kitLedges(...a); }
+export function landSite(...a) { return (_m || _cold('landSite')).landSite(...a); }
 export function lastBow(...a) { return (_m || _cold('lastBow')).lastBow(...a); }
 export function lastFloorState(...a) { return (_m || _cold('lastFloorState')).lastFloorState(...a); }
 export function lastOwnShipMask(...a) { return (_m || _cold('lastOwnShipMask')).lastOwnShipMask(...a); }
 export function lastViewState(...a) { return (_m || _cold('lastViewState')).lastViewState(...a); }
 export function lightVisibilitySmoke(...a) { return (_m || _cold('lightVisibilitySmoke')).lightVisibilitySmoke(...a); }
 export function limbTilt(...a) { return (_m || _cold('limbTilt')).limbTilt(...a); }
+export function looseOf(...a) { return (_m || _cold('looseOf')).looseOf(...a); }
 export function makeCam(...a) { return (_m || _cold('makeCam')).makeCam(...a); }
 export function markRenderSmoke(...a) { return (_m || _cold('markRenderSmoke')).markRenderSmoke(...a); }
 export function materialIdOf(...a) { return (_m || _cold('materialIdOf')).materialIdOf(...a); }
@@ -202,15 +209,18 @@ export function navMarks(...a) { return (_m || _cold('navMarks')).navMarks(...a)
 export function navMarksOn(...a) { return (_m || _cold('navMarksOn')).navMarksOn(...a); }
 export function nearTierSmoke(...a) { return (_m || _cold('nearTierSmoke')).nearTierSmoke(...a); }
 export function normalizeWx(...a) { return (_m || _cold('normalizeWx')).normalizeWx(...a); }
+export function noteSkyline(...a) { return (_m || _cold('noteSkyline')).noteSkyline(...a); }
 export function occludedCount(...a) { return (_m || _cold('occludedCount')).occludedCount(...a); }
 export function offCanvasLaterally(...a) { return (_m || _cold('offCanvasLaterally')).offCanvasLaterally(...a); }
 export function overheadAt(...a) { return (_m || _cold('overheadAt')).overheadAt(...a); }
+export function ownHullScale(...a) { return (_m || _cold('ownHullScale')).ownHullScale(...a); }
 export function paintFoot(...a) { return (_m || _cold('paintFoot')).paintFoot(...a); }
 export function paintWindshield(...a) { return (_m || _cold('paintWindshield')).paintWindshield(...a); }
 export function panelControlRects(...a) { return (_m || _cold('panelControlRects')).panelControlRects(...a); }
 export function perchCap(...a) { return (_m || _cold('perchCap')).perchCap(...a); }
 export function perchFor(...a) { return (_m || _cold('perchFor')).perchFor(...a); }
 export function perchLegState(...a) { return (_m || _cold('perchLegState')).perchLegState(...a); }
+export function perchPoint(...a) { return (_m || _cold('perchPoint')).perchPoint(...a); }
 export function perchSeat(...a) { return (_m || _cold('perchSeat')).perchSeat(...a); }
 export function perchSpot(...a) { return (_m || _cold('perchSpot')).perchSpot(...a); }
 export function perchableDepth(...a) { return (_m || _cold('perchableDepth')).perchableDepth(...a); }
@@ -233,6 +243,7 @@ export function segFit(...a) { return (_m || _cold('segFit')).segFit(...a); }
 export function setBayVehicles(...a) { return (_m || _cold('setBayVehicles')).setBayVehicles(...a); }
 export function setBirdSeason(...a) { return (_m || _cold('setBirdSeason')).setBirdSeason(...a); }
 export function setBirdWeather(...a) { return (_m || _cold('setBirdWeather')).setBirdWeather(...a); }
+export function setLockBoardFeed(...a) { return (_m || _cold('setLockBoardFeed')).setLockBoardFeed(...a); }
 export function setObjectTexture(...a) { return (_m || _cold('setObjectTexture')).setObjectTexture(...a); }
 export function setTilePlace(...a) { return (_m || _cold('setTilePlace')).setTilePlace(...a); }
 export function setVehicleParams(...a) { return (_m || _cold('setVehicleParams')).setVehicleParams(...a); }

@@ -1,0 +1,9 @@
+{
+  "a": "zone_cw_arrivals",
+  "b": "zone_cw_checkin",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_cw_arrivals_south_ck01",
+  "lockable": false,
+  "one_way": false
+}

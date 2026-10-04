@@ -12,6 +12,8 @@ import {
   drawRing, drawSmoke, easeIO, emitFlat, emitSurfaceText, emitWire, faceYaw, frac, glowPool,
   marqueeBand, motionPhase, movingBox,
 } from '../../windshield.js';
+// Second Helpings and the clone facility share a main and a clock; the clone's arm owns both.
+import { GUT, gutPhase, slugLine, tubeRun } from './downtown.js';
 
 export const OUTPOST_ARMS = {
 
@@ -1304,15 +1306,24 @@ export const OUTPOST_ARMS = {
       awning(ctx, cam, dx, dy, E, fh * 0.68, fh * 1.26, head + h * 0.02, head + h * 0.05,
         'ty_helpings_trim', seed + 30, night, alpha, fh * 0.40);
     }
-    // 3) THE PARTY WALL — a blind blade standing proud of the frontage and taller than this
-    //    building, because the thing on the other side of it is not a shop — in `ty_clone_wall`,
-    //    which is the facility's colour without the facility's windows, because BLIND is the word
-    //    this comment has always used and `ty_clone` is a window-grid material. It is also where
-    //    the trunk main ends: `fd` turns it from the square POST it used to be into a wall
-    //    running the depth of the plot, which is the only thing on this tile wide enough and tall
-    //    enough to swallow a run at 1.03fh. See the ⚠ above `secondhelpings`.
-    { const [px, py] = F(-fh * 1.00, fh * 0.15);
-      draw3DBoxAt(ctx, cam, px, py, fh * 0.07, 0, fascia + h * 0.30, 'ty_clone_wall', seed + 20, night, alpha, true, yaw, fh * 1.05); }
+    // 3) THE PARTY WALL — a blind blade standing proud of the frontage and a little over the
+    //    fascia, because the thing on the other side of it is not a shop. At 1.12·h, in the clone's
+    //    tile, it read as a third building standing between the two. It is in the clone
+    //    facility's tile, because it is the plant's wall, and it is where the clone's glass main
+    //    ends. ⚠ ITS PLAN IS IN TILES (`GUT.wall`), NOT fh: the main is drawn by the clone's arm
+    //    from the clone's own footprint, and the only way two rolls of fh agree about where a wall
+    //    is is for neither of them to decide it. See GUT in downtown.js.
+    const Wl = GUT.wall, dusk = 1 - 0.55 * (night ? clamp(night, 0, 1) : 0);
+    { const [px, py] = F(Wl.lx, (Wl.front + Wl.back) / 2);
+      draw3DBoxAt(ctx, cam, px, py, Wl.half, 0, fascia + h * 0.08, 'ty_clone_tile', seed + 20, night, alpha, true, yaw, (Wl.front - Wl.back) / 2); }
+    // The main's second half: out of the wall's north face at this building's own height, and up
+    // the corner to the masher, in the same glass the clone's run is made of. The riser and the
+    // downcomer beside it are in tiles for the wall's reason: at fh in it the riser stood inside
+    // the wall at the top of the range.
+    const RISER = -0.33, DOWN = -0.27, cyR = fh * 1.02, zS = h * 0.52, zIn = fascia + h * 0.10, rR = GUT.r * 0.7;
+    tubeRun(ctx, cam, W3, [Wl.lx, cyR, zS], [RISER, cyR, zS], rR, 8, [104, 196, 150], 'glass', alpha, dusk);
+    tubeRun(ctx, cam, W3, [RISER, cyR, h * 0.50], [RISER, cyR, zIn], rR, 8, [104, 196, 150], 'glass', alpha, dusk);
+    for (const z of [zS, zIn - h * 0.06]) tubeRun(ctx, cam, W3, [RISER, cyR, z - 0.008], [RISER, cyR, z + 0.008], rR * 1.3, 10, [184, 196, 200], 'chrome', alpha, dusk);
     // 4) THE MASHER — the machine the whole frontage is an argument for.
     //
     // What comes through the wall is not food yet, and this is the thing that says so: a mixing
@@ -1373,9 +1384,31 @@ export const OUTPOST_ARMS = {
     // …and the two runs that tie it to the frontage: raw up the south corner into the drum's
     // shoulder, product out of its front and back down into the header. Strokes, because a pipe
     // crossing a roof is a line and a mass box that size would be a wall.
-    { const ry = FR - fh * 0.02, zIn = fascia + h * 0.10, zOut = fascia + h * 0.035;
-      emitWire(ctx, cam, W3(-fh * 0.86, ry, zIn), W3(mrx - mR * 1.02, mry, zIn), 2.8, 'rgba(170,180,186,0.95)', alpha, { pull: 0.05 });
-      emitWire(ctx, cam, W3(mrx + mR * 0.25, mry + mR * 1.00, zOut), W3(-fh * 0.70, ry, zOut), 3.4, 'rgba(182,190,194,0.95)', alpha, { pull: 0.05 }); }
+    { const zOut = fascia + h * 0.035;
+      emitWire(ctx, cam, W3(RISER, cyR, zIn), W3(mrx - mR * 1.02, mry, zIn), 2.8, 'rgba(170,180,186,0.95)', alpha, { pull: 0.05 });
+      emitWire(ctx, cam, W3(mrx + mR * 0.25, mry + mR * 1.00, zOut), W3(DOWN, cyR, zOut), 3.4, 'rgba(182,190,194,0.95)', alpha, { pull: 0.05 }); }
+    // The slug from the clone facility, on the second half of its trip (see gutPhase): out of the
+    // party wall, up the riser and across the roof into the drum. ⚠ `air`: light on the glass,
+    // which must not light the shop as well.
+    { const gu = gutPhase(now);
+      if (gu >= 0.52 && gu < 0.68) {
+        const path = [[Wl.lx + Wl.half, cyR + rR, zS], [RISER, cyR + rR, zS], [RISER, cyR + rR, zIn], [mrx - mR * 1.02, mry, zIn]];
+        const seg = path.slice(1).map((p, i) => Math.hypot(p[0] - path[i][0], p[1] - path[i][1], p[2] - path[i][2]));
+        const total = seg.reduce((a, b) => a + b, 0), lead = total * (gu - 0.52) / 0.16;
+        const at = (d) => {
+          for (let i = 0; i < seg.length; i++, d -= seg[i - 1]) if (d <= seg[i] || i === seg.length - 1) {
+            const t = clamp(d / seg[i], 0, 1), a = path[i], b = path[i + 1];
+            return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+          }
+        };
+        slugLine(ctx, cam, W3, path, lead - 0.10, lead, night, alpha);
+        for (let j = 0; j < 4; j++) {
+          const d = lead - j * 0.03;
+          if (d < 0 || d > total) continue;
+          const p = at(d), [gx, gy] = F(p[0], p[1]);
+          glowPool(ctx, cam, gx, gy, p[2], '140,255,170', 6 - j * 1.1, alpha * (night ? 0.9 : 0.6) * (1 - j * 0.22), { air: true });
+        }
+      } }
     // 5) A bin, and it is the fullest object on the tile. Round the north flank rather than on
     //    the frontage: the rank and its canopy occupy the whole of that, and two opaque boxes in
     //    one place is a bin growing out of a vending machine.
@@ -1400,12 +1433,26 @@ export const OUTPOST_ARMS = {
     // ⚠ THE QUAD IS SIZED TO THE TEXTURE'S OWN ASPECT, roughly — `fitSignPts` insets whichever
     // way it has to, so a board twice as tall as its lettering needs prints the name at half the
     // size it could have been. One line of 15 characters bakes about seven to one.
+    // ⚠ HALF-WIDTH 0.60, NOT 0.70: the downcomers in front of the wall stand at -0.70 and 0.84, so a
+    // wider band put its end letters behind them and they flickered in and out. The lift keeps the
+    // paint off the wall plane, where it lost the depth test every few frames.
     if (frontVis) {
-      const nhw = fh * 0.70, nz0 = h * 0.685, nz1 = h * 0.795, ny = FR + FACE_EPS;
-      const q = [P3(-nhw, ny, nz1), P3(nhw, ny, nz1), P3(nhw, ny, nz0), P3(-nhw, ny, nz0)];
-      const tex = bakeSignText('SECOND HELPINGS', '#2f9a58', 0, false, true, true,
-        { font: 'condensed' });
-      if (tex && q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha);
+      // Two lines, each at the size the bare name had: the name on the old band, the trade under it.
+      const nhw = fh * 0.60, ny = FR + FACE_EPS;
+      for (const [label, nz0, nz1] of [['SECOND HELPINGS', h * 0.685, h * 0.795], ['SOYLENT SOLUTIONS', h * 0.575, h * 0.685]]) {
+        const q = [P3(-nhw, ny, nz1), P3(nhw, ny, nz1), P3(nhw, ny, nz0), P3(-nhw, ny, nz0)];
+        const tex = bakeSignText(label, '#2f9a58', 0, false, true, true, { font: 'condensed' });
+        if (tex && q.every((p) => p.f > 0.12)) {
+          // Raised letters: dark copies stepped down and right behind the face read as the shaded
+          // returns of block letters, the same treatment as the clone facility's name next door.
+          const side = bakeSignText(label, '#123d22', 0, false, true, true, { font: 'condensed' });
+          if (side) for (let k = 3; k >= 1; k--) {
+            const ox = fh * 0.005 * k, oz = -h * 0.004 * k;
+            emitSurfaceText(ctx, cam, [P3(-nhw + ox, ny, nz1 + oz), P3(nhw + ox, ny, nz1 + oz), P3(nhw + ox, ny, nz0 + oz), P3(-nhw + ox, ny, nz0 + oz)], side, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * (2.5 - 0.35 * k));
+          }
+          emitSurfaceText(ctx, cam, q, tex, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
+        }
+      }
     }
   },
 };

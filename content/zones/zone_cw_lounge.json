@@ -1,0 +1,28 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#5f6f7a",
+  "description": "Rows of linked seats face a long window onto the apron, where the charters taxi past. A snack machine, a drinks machine and a coffee machine stand along the back wall under a departures screen. Security is north and Gate 1 south.",
+  "exits": {
+    "north": "zone_cw_security",
+    "south": "zone_cw_gate"
+  },
+  "flags": {
+    "floor": "carpet",
+    "hangar_ramp": "zone_district_925_903",
+    "is_interior": true,
+    "window": {
+      "description": "A long pane onto the apron. Tyre marks, a fuel bowser, and the boarding stair at Gate 1.",
+      "light": 0.8,
+      "name": "the lounge window",
+      "visibility": 0.9
+    }
+  },
+  "grid_x": -1,
+  "grid_y": 1,
+  "grid_z": 0,
+  "id": "zone_cw_lounge",
+  "map_id": "map_int_cw_departures",
+  "name": "Departure Lounge",
+  "parent_zone": "zone_district_924_903"
+}

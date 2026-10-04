@@ -104,7 +104,7 @@ import { loadMisSettings, isMisServerEnabled } from "./engine/mis.js";
 import { loadEmailVerificationSetting, isEmailVerificationEnabled } from "./engine/emailVerification.js";
 import { loadRegistrationSettings, areRegistrationsOpen, registrationsClosedMessage } from "./engine/registrations.js";
 import { handleProblem, handleTaken, insertNewPlayer } from "./engine/new-player.js";
-import { GUEST_ROLE, isGuest } from "./engine/guest.js";
+import { GUEST_ROLE, isGuest, guestHomeZoneId } from "./engine/guest.js";
 import { mailerConfigProblem, mailerSender } from "./mailer.js";
 
 import { initEnvironment, getHUDPayload, getZoneTemperature } from "./engine/environment.js";
@@ -1283,7 +1283,8 @@ async function handleAuthGuest(ws, session, msg) {
 		});
 		// No email to verify. Set here so the verification gate on auth_remember
 		// lets the guest back in.
-		await query("UPDATE players SET email_verified=TRUE WHERE id=$1", [id]);
+		// The hostel is a guest's home from the first breath (guest.js guestHomeZoneId).
+		await query("UPDATE players SET email_verified=TRUE, home_zone=$2 WHERE id=$1", [id, guestHomeZoneId()]);
 	} catch (e) {
 		if (e.code === "23505") return fail("That name is taken.");
 		console.error("[guest] create failed:", e.message);

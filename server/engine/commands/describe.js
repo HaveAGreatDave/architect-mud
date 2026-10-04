@@ -1591,7 +1591,7 @@ export async function describeZone(zone, player, out = {}) {
 	if (zone.dreamWeather) {
 		weatherLine = ` <span class="msg-ambient">${zone.dreamWeather}</span>`;
 	} else if (!isInteriorZone(zone) && vis.category !== "pitch_dark") {
-		const wd = getWeatherDescription();
+		const wd = getWeatherDescription(zone.id);
 		if (wd) {
 			const warp = getWeatherWarp(player.id, zone.id);
 			weatherLine = warp ? ` ${wd} <span class="msg-ambient">${warp}</span>` : ` ${wd}`;

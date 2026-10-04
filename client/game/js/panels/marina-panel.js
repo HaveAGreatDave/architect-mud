@@ -321,11 +321,12 @@ function drawService() {
     : sv.mode === 'fuel' ? fuelBody(b) : sv.tab === 'paint' ? paintBody(b, d) : sv.tab === 'name' ? nameBody(b) : serviceBody(b);
   el.innerHTML = `<div class="mar-svc-head"><span class="mar-name">${sv.mode === 'fuel' ? '⛽' : '⚓'} ${esc(b?.name || 'her')}</span>
       <span class="mar-credits">${money(d.credits)}</span><span class="mar-spacer"></span>
+      ${sv.mode === 'dock' && b ? '<button class="mar-go pri" data-cmd="disembark" title="The slings take her out of the water and you step up into the Dock Hall (P)">⚓ Dock her</button>' : ''}
       <button class="mar-go" data-svc="fold" title="Fold this away">${sv.mode === 'fuel' ? 'Carry on ▸' : 'Cast off ▸'}</button></div>
     ${b?.rental ? `<div class="mar-svc-hire">Hire boat · ${esc(b.rental.leftText)} · step off in the slot to hand her back with <b>boat return</b></div>` : ''}
     ${tabs ? `<div class="mar-tabs">${tabs}</div>` : ''}
     <div class="mar-svc-body">${body}</div>
-    <div class="mar-dim mar-svc-foot">${sv.mode === 'fuel' ? 'The pump goes when you pull away from the float.' : 'Open the lever and she leaves the slot. Stop in it again and the shipwright comes back.'}</div>`;
+    <div class="mar-dim mar-svc-foot">${sv.mode === 'fuel' ? 'The pump goes when you pull away from the float.' : 'Dock her and the slings lift her out while you step up into the hall. Open the lever instead and she leaves the slot; stop in it again and the shipwright comes back.'}</div>`;
   syncPreview();
 }
 
@@ -342,7 +343,7 @@ function serviceBody(b) {
       <div class="mar-acts"><button class="mar-go${b.hull < 0.9 ? ' pri' : ''}" data-cmd="refit ${esc(b.id)}" ${b.hull >= 0.999 ? 'disabled title="Sound"' : ''}>Repair the hull</button></div></div>
     <div class="mar-card"><div class="mar-card-head"><span class="mar-boat">Servicing</span></div>${rows}
       <div class="mar-acts"><button class="mar-go${svc.anyDue ? ' pri' : ''}" data-cmd="refit service ${esc(b.id)} all">Everything · ${money(svc.full)}</button></div></div>
-    <p class="mar-dim mar-small">Fuel is at the float, on the pontoon off the hardstanding, bring her alongside and stop.</p>`;
+    <p class="mar-dim mar-small">Fuel is at the float: lie her alongside the pumps, inside the amber box on the water, and stop.</p>`;
 }
 
 // ⚠ A SCHEME IS PREVIEWED ON THE HULL BEFORE IT IS BOUGHT: clicking a swatch shows it out of the chase

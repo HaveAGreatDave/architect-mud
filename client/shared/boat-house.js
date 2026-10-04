@@ -45,6 +45,12 @@
 //
 // Where the driver's eye is, and it is the one thing here that is not read off the exterior —
 // there is no helm feature in the mesh to derive it from. Everything else on this page is.
+//
+// ⚠ EVERY FIELD HERE IS THE HYDRO'S AND A ROW MAY OVERRIDE IT (`helmEyeM`, `helmF`, `helmG`,
+// `helmUp`). A canopy cat sits its driver low and far forward; a pilothouse cruiser sits them up
+// and back. What a row must NOT do is pick `helmEyeM` to frame the view: it sets metres per unit,
+// so every hull's eye is solved to one fleet scale (`FLEET_M_PER_UNIT`), and shell.mjs fails a
+// hull whose metre is not the hydro's metre.
 export const HELM = {
   // Metres above the water. See the scale bridge above: this number sizes the boat.
   eyeM: 1.35,
@@ -89,7 +95,30 @@ function build(S) {
   // deliberately finer than it looks it should be, because that is what a deep-V is.
   const st = (f, k, cw, cz, sw, sz) => ({ f, k, cw, cz, sw, sz });
   const B1 = BEAM, DK = DECK, BW = BOW;
-  const STATIONS = [
+  // ── ⚠ TWO HULL FORMS, ONE TABLE SHAPE ──────────────────────────────────────
+  // `hullForm: 'cat'` is an offshore tunnel catamaran: two sponsons, each its own small vee, with an
+  // air tunnel between them roofed by the deck. It is a different table and not a different
+  // builder, because everything that stands ON a hull (the deck, the topside, the chine, the house,
+  // the room you sit in) only asks a station for its chine and its sheer, and a cat has both. What
+  // a cat adds is three numbers per station that only the BOTTOM reads:
+  //   tw  the tunnel's half-width, which is where each sponson's inner wall stands
+  //   tz  the tunnel roof, the underside of the deck between the sponsons
+  //   iz  the inner chine, where the tunnel wall meets the sponson's own bottom
+  // ⚠ AND THE NOSE IS BLUNT ON PURPOSE. A monohull's stem closes to a point, so a tunnel that is a
+  // fraction of the chine width closes with it and the two sponsons fuse into one vee for the last
+  // tenth of the boat, which from dead ahead is a monohull. The cat's stem station is a third of the
+  // beam wide, so the two sponson tips are still two tips at the very front.
+  const CAT = S.hullForm === 'cat';
+  const STATIONS = (CAT ? [
+    { ...st( 1.000 * LEN, 0.038, 0.30 * B1, 0.056, 0.34 * B1, BW), tw: 0.14 * B1, tz: BW - 0.022, iz: 0.056 },
+    { ...st( 0.860 * LEN, 0.004, 0.62 * B1, 0.044, 0.68 * B1, BW * 0.97), tw: 0.30 * B1, tz: 0.074, iz: 0.046 },
+    { ...st( 0.640 * LEN, -0.020, 0.85 * B1, 0.032, 0.88 * B1, DK + (BW - DK) * 0.70), tw: 0.38 * B1, tz: 0.062, iz: 0.034 },
+    { ...st( 0.380 * LEN, -0.030, 0.96 * B1, 0.026, 0.97 * B1, DK + (BW - DK) * 0.45), tw: 0.42 * B1, tz: 0.054, iz: 0.027 },
+    { ...st( 0.060 * LEN, -0.034, 1.00 * B1, 0.021, 1.00 * B1, DK + (BW - DK) * 0.22), tw: 0.44 * B1, tz: 0.049, iz: 0.022 },
+    { ...st(-0.320 * LEN, -0.034, 1.00 * B1, CH + 0.002, 1.00 * B1, DK + (BW - DK) * 0.08), tw: 0.44 * B1, tz: 0.046, iz: CH + 0.002 },
+    { ...st(-0.700 * LEN, -0.032, 0.99 * B1, CH, 0.99 * B1, DK + (BW - DK) * 0.02), tw: 0.44 * B1, tz: 0.044, iz: CH },
+    { ...st(-1.000 * LEN, -0.030, 0.98 * B1, CH, 0.98 * B1, DK), tw: 0.44 * B1, tz: 0.042, iz: CH },
+  ].map((s) => ({ ...s, k: s.k * (KEEL / 0.034) })) : [
     st( 1.000 * LEN, -0.004, 0.012 * B1 / 0.25, 0.055, 0.016 * B1 / 0.25, BW),
     st( 0.860 * LEN, -0.030, 0.19 * B1, 0.050, 0.25 * B1, BW * 0.97),
     st( 0.640 * LEN, -0.052, 0.45 * B1, 0.036, 0.54 * B1, DK + (BW - DK) * 0.80),
@@ -98,22 +127,31 @@ function build(S) {
     st(-0.320 * LEN, -0.060, 1.00 * B1, CH + 0.004, 1.00 * B1, DK + (BW - DK) * 0.12),
     st(-0.700 * LEN, -0.050, 0.98 * B1, CH, 0.99 * B1, DK + (BW - DK) * 0.04),
     st(-1.000 * LEN, -0.038, 0.94 * B1, CH, 0.96 * B1, DK),
-  ].map((s) => ({ ...s, k: s.k * (KEEL / 0.060) }));
+  ].map((s) => ({ ...s, k: s.k * (KEEL / 0.060) })));
+  // Where a sponson's keel runs: off-centre, a little outboard of the middle of the sponson, so its
+  // inner bottom (the tunnel side) is the steeper face. Null on a monohull, whose keel is the
+  // centreline.
+  for (const s of STATIONS) if (s.tw != null) s.kg = s.tw + (s.cw - s.tw) * 0.46;
 
   // The hull at a fore-aft position, interpolated between the two stations bracketing it. Every
   // part that stands ON the hull — the house, the well coaming, the sole — is placed through this
   // rather than against a literal, so a retuned beam or sheer carries all of them with it.
+  // ⚠ IT ANSWERS THE KEEL AND THE TUNNEL TOO, which nothing standing on the hull asks for but the
+  // bottom does: a step or a strake cut part-way between two stations has to know how deep the
+  // vee is there, and on a cat where the sponson's keel and the tunnel roof are.
+  const lerpSt = (a, b, t) => {
+    const L = (k) => a[k] + (b[k] - a[k]) * t;
+    const o = { f: L('f'), k: L('k'), cw: L('cw'), cz: L('cz'), sw: L('sw'), sz: L('sz') };
+    if (a.tw != null) { o.tw = L('tw'); o.tz = L('tz'); o.iz = L('iz'); o.kg = L('kg'); }
+    return o;
+  };
   const atF = (f) => {
     for (let i = 0; i < STATIONS.length - 1; i++) {
       const a = STATIONS[i], b = STATIONS[i + 1];
-      if (f <= a.f && f >= b.f) {
-        const t = (a.f - f) / ((a.f - b.f) || 1);
-        return { cw: a.cw + (b.cw - a.cw) * t, cz: a.cz + (b.cz - a.cz) * t,
-                 sw: a.sw + (b.sw - a.sw) * t, sz: a.sz + (b.sz - a.sz) * t };
-      }
+      if (f <= a.f && f >= b.f) return lerpSt(a, b, (a.f - f) / ((a.f - b.f) || 1));
     }
     const e = f > STATIONS[0].f ? STATIONS[0] : STATIONS[STATIONS.length - 1];
-    return { cw: e.cw, cz: e.cz, sw: e.sw, sz: e.sz };
+    return lerpSt(e, e, 0);
   };
 
   // ── THE PILOTHOUSE ─────────────────────────────────────────────────────────
@@ -133,9 +171,12 @@ function build(S) {
   // sides, the screen, the roof, the struts and now the room inside all have to agree about where
   // the wall IS, and a second copy of a taper is a strut standing in mid-air or a headlining that
   // does not meet its own wall.
+  // `houseWidth` is how much of the deck the house takes: nearly all of it on a pilothouse boat,
+  // about half on a cat, whose canopy is a capsule on the centreline with open deck either side.
+  const HWID = S.houseWidth ?? 0.92;
   const hw = (f, t) => {
     const fwd = clampN((f - hF0) / ((hF1 - hF0) || 1), 0, 1);
-    return atF(f).sw * 0.92 * (1 - NOSE * fwd * fwd) * (1 - TUM * t);
+    return atF(f).sw * HWID * (1 - NOSE * fwd * fwd) * (1 - TUM * t);
   };
   const hz = (f, t) => atF(f).sz + hH * t;
   const cen = [(hF0 + hF1) / 2, 0, (hz(hF0, 0) + hz(hF1, 1)) / 2];
@@ -184,22 +225,33 @@ function build(S) {
   // ⚠ THE WELL'S FLOOR, NOT A NEW NUMBER. The deck aft of the house is cut away and floored at
   // `DK * 0.34`, and the door in the bulkhead joins the two — so a cabin sole at any other height
   // is a step you can see through the doorway from outside and fall down from inside.
-  const soleZ = DK * 0.34;
+  // ⚠ ON A CAT THE WELL FLOOR HAS TO CLEAR THE TUNNEL ROOF. At `DK * 0.34` it is below the
+  // underside of the deck between the sponsons, so the cabin sole would hang down into the tunnel
+  // as a shelf across it, visible from every angle low enough to see daylight through her. The
+  // floor sits a deck's thickness over the highest tunnel roof under the house and the well.
+  const tunnelTop = CAT ? Math.max(...STATIONS.filter((s) => s.f <= hF1 + 0.1 && s.f >= (S.cockpitF0 ?? -0.88) - 0.1).map((s) => s.tz)) : -Infinity;
+  const soleZ = S.soleZ ?? Math.max(DK * 0.34, tunnelTop + 0.010);
 
   // ── WHERE THE DRIVER'S EYE IS ──────────────────────────────────────────────
-  const helmF = hF1 - HELM.fFrac * (hF1 - hF0);
+  const H = { eyeM: S.helmEyeM ?? HELM.eyeM, fFrac: S.helmF ?? HELM.fFrac, gFrac: S.helmG ?? HELM.gFrac, upFrac: S.helmUp ?? HELM.upFrac };
+  const helmF = hF1 - H.fFrac * (hF1 - hF0);
   const roofUnder = rz(helmF);
-  const helmZ = soleZ + HELM.upFrac * (roofUnder - soleZ);
-  const helmG = HELM.gFrac * hw(helmF, (helmZ - hz(helmF, 0)) / (hH || 1));
+  const helmZ = soleZ + H.upFrac * (roofUnder - soleZ);
+  const helmG = H.gFrac * hw(helmF, (helmZ - hz(helmF, 0)) / (hH || 1));
+  // ⚠ A SECOND HULL STATES THE FLEET'S METRE, NOT ITS OWN EYE. Written as an eye height, a cat whose
+  // driver sits low would be handed the hydro's 1.35 m and come out a third bigger than her, in
+  // metres, than she is in the water beside her. `mPerUnit` on the row is the hydro's own figure
+  // copied, and the eye falls out of where the seat is; shell.mjs holds every row to the hydro's.
+  if (S.mPerUnit != null && S.helmEyeM == null) H.eyeM = helmZ * S.mPerUnit;
   const helm = {
     f: helmF, g: helmG, z: helmZ,
-    eyeM: HELM.eyeM,
+    eyeM: H.eyeM,
     // The one relation that makes the inside and the outside the same size. See the header.
-    mPerUnit: HELM.eyeM / helmZ,
+    mPerUnit: H.eyeM / helmZ,
   };
 
   return {
-    S, LEN, BEAM, DECK, BOW, KEEL, CH,
+    S, LEN, BEAM, DECK, BOW, KEEL, CH, CAT,
     STATIONS, atF,
     hF0, hF1, hH, rake, TUM, WRAP, NOSE, fw, fwT, rF, sideF1,
     hw, hz, cen,

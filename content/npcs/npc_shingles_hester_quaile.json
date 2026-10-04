@@ -1,0 +1,208 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "type": "start",
+        "next": "is_late"
+      },
+      "is_late": {
+        "type": "condition",
+        "condition_type": "HOUR_RANGE",
+        "params": {
+          "from": 1,
+          "to": 6
+        },
+        "ifTrue": "go_home",
+        "ifFalse": "day_pick"
+      },
+      "go_home": {
+        "type": "action",
+        "action_type": "GO_HOME",
+        "next": "sleep"
+      },
+      "sleep": {
+        "type": "action",
+        "action_type": "AT_HOME_LIFE",
+        "next": "start"
+      },
+      "day_pick": {
+        "type": "random",
+        "branches": [
+          {
+            "weight": 3
+          },
+          {
+            "weight": 2
+          },
+          {
+            "weight": 1
+          }
+        ],
+        "branch_0": "mill",
+        "branch_1": "to_fire",
+        "branch_2": "day_home"
+      },
+      "mill": {
+        "type": "action",
+        "action_type": "PATROL",
+        "params": {
+          "waypoints": [
+            "zone_district_921_918",
+            "zone_district_921_917",
+            "zone_district_921_916",
+            "zone_district_922_916",
+            "zone_district_923_916",
+            "zone_district_924_916"
+          ],
+          "loop": true,
+          "mode": "walk"
+        },
+        "next": "mill_wait"
+      },
+      "mill_wait": {
+        "type": "wait",
+        "seconds": 200,
+        "jitter": 160,
+        "next": "start"
+      },
+      "day_home": {
+        "type": "action",
+        "action_type": "GO_HOME",
+        "next": "mill_wait"
+      },
+      "to_fire": {
+        "type": "action",
+        "action_type": "GO_TO_WORK",
+        "params": {
+          "zone_id": "zone_district_923_918"
+        },
+        "next": "fire_pick"
+      },
+      "fire_pick": {
+        "type": "random",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          }
+        ],
+        "branch_0": "fire_0",
+        "branch_1": "fire_1",
+        "branch_2": "fire_2",
+        "branch_3": "fire_3"
+      },
+      "fire_wait": {
+        "type": "wait",
+        "seconds": 150,
+        "jitter": 90,
+        "next": "start"
+      },
+      "fire_0": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "tells the drum, \"I wired half this quarter. The Architect laid me off by not needing anyone.\""
+        },
+        "next": "fire_wait"
+      },
+      "fire_1": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "holds her gloves to the fire, then thinks better of the gloves."
+        },
+        "next": "fire_wait"
+      },
+      "fire_2": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "nods at the Curtain. \"Somebody built that. Nobody I can find.\""
+        },
+        "next": "fire_wait"
+      },
+      "fire_3": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "mutters, \"Grid's running at a hundred and two percent. It doesn't need us. Ask yourself why it keeps us.\""
+        },
+        "next": "fire_wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Weather doesn't charge rent.\"",
+    "spits in the general direction of the Curtain.",
+    "\"Eleven years. Not one flicker. Show me a fuse that good.\""
+  ],
+  "description": "A tall woman in a Halcyon Power field jacket with the logo unpicked, leaving a cleaner patch the shape of the logo. Lineman's gloves through her belt, a tester clipped to the pocket. She stands with her back to the Curtain and doesn't turn round when it hums.",
+  "dialogue_tree": {
+    "root": {
+      "options": [
+        {
+          "label": "What have you got against the Architect?",
+          "next": "gripe"
+        },
+        {
+          "label": "Bye.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Still here,\" says Quaile. \"Same as the wall.\"",
+      "text_by_relation": {
+        "first": "The woman by the fire looks at your boots, then at the Curtain behind you, as if one of you might be responsible.\n\n\"Quaile. I was Halcyon line crew until the lines stopped needing crew.\" She nods past you at the hard light. \"That went up through my mother's kitchen. You want to tell me it keeps us safe, there's the door. There isn't a door. That's my point.\"",
+        "known": "\"You again.\" She shifts over to give you some of the fire. \"Wall's still up.\"",
+        "familiar": "Quaile hands you the warmer end of the fire without being asked.\n\n\"If it ever flickers, you come and get me. I want to see it do something it didn't plan.\""
+      }
+    },
+    "gripe": {
+      "options": [
+        {
+          "label": "Right.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It runs the power, the water, the trains, the vat, the rent. It runs the lot and it's never once said why.\" She pulls a glove on. \"A thing that does everything for you and won't say why isn't a god. It's a contractor who's stopped sending invoices. You start to wonder what you're paying with.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "Hester goes back to the lane."
+    }
+  },
+  "faction": null,
+  "flags": {
+    "mis_willing": false,
+    "personality": "unemployed"
+  },
+  "home_activities": [
+    "strips a length of cable with her teeth and coils it.",
+    "tests a dead battery with her tongue, out of habit."
+  ],
+  "home_zone": "zone_district_921_918",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_shingles_hester_quaile",
+  "name": "Hester Quaile",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

@@ -191,6 +191,15 @@ uniform float uUnderD;  // metres of water over the eye: caustics fade and blur 
 uniform vec3 uLmSun;    // the own ship's sun term (setShip); off on every other draw
 uniform float uLmOn;
 uniform float uLmK;
+// The city's own lights, the same list the mass shader takes (world.js pickLights), and the night
+// outside them. Off (0 lights, dim 1) on every draw that does not hand them over.
+uniform int uWLN;
+uniform vec3 uWLP[12];
+uniform vec3 uWLC[12];
+uniform float uWLR[12];
+uniform float uWLDim;
+uniform float uWLWrap;
+uniform float uWLFocus;
 out vec4 outColor;
 // ── THE CAUSTIC NET, AS REAL ONES BEHAVE ──────────────────────────────────────────────────────
 // Bright lines where drifting ripples cross zero, anchored in the WORLD so on a moving hull they slide
@@ -614,6 +623,25 @@ void main() {
     float lobe = pow(sd, 14.0) * 0.28;
     c = mix(c, vec3(1.0, 0.98, 0.93), clamp((core + lobe) * uSunK * max(0.3, abs(mtl)), 0.0, 0.95));
   }
+  // ── THE CITY'S LIGHTS ON A SOLID ───────────────────────────────────────────
+  // A face with a normal is a surface; one without is a light line or a lamp and keeps its colour.
+  // Dimmed first so the lamps stand out of a darker plate, then each light added as the mass adds
+  // it: wrapped lambert, the reach from world.js, the same falloff. Without this the lock, the depot
+  // and the bastions stood beside their own lamps as if the lamps were painted on.
+  if (dot(vN, vN) > 0.01 && vTex != 10) {
+    c *= uWLDim;
+    vec3 n = normalize(vN);
+    if (dot(n, uEye - vPos) < 0.0) n = -n;
+    for (int i = 0; i < 12; i++) {
+      if (i >= uWLN) break;
+      vec3 d = uWLP[i] - vPos;
+      float dist = length(d);
+      float att = clamp(1.0 - dist / max(0.001, uWLR[i]), 0.0, 1.0);
+      if (att <= 0.0) continue;
+      float diff = max(0.0, (dot(n, d / max(0.001, dist)) + uWLWrap) / (1.0 + uWLWrap));
+      c += uWLC[i] * (pow(att, uWLFocus) * diff);
+    }
+  }
   if (uUnder > 0.001 && vTex != 10) {
     vec3 nn = dot(vN, vN) > 0.01 ? normalize(vN) : vec3(0.0, 0.0, 1.0);
     float up = clamp(nn.z * 0.75 + 0.25, 0.0, 1.0);          // lit from the surface overhead
@@ -715,7 +743,12 @@ export function createSolidsLayer(gl, opt = {}) {
     waterT: gl.getUniformLocation(prog, 'uWaterT'),
     under: gl.getUniformLocation(prog, 'uUnder'),
     underD: gl.getUniformLocation(prog, 'uUnderD'),
+    wlN: gl.getUniformLocation(prog, 'uWLN'), wlP: gl.getUniformLocation(prog, 'uWLP'),
+    wlC: gl.getUniformLocation(prog, 'uWLC'), wlR: gl.getUniformLocation(prog, 'uWLR'),
+    wlDim: gl.getUniformLocation(prog, 'uWLDim'), wlWrap: gl.getUniformLocation(prog, 'uWLWrap'),
+    wlFocus: gl.getUniformLocation(prog, 'uWLFocus'),
   };
+  const wlP = new Float32Array(36), wlC = new Float32Array(36), wlR = new Float32Array(12);
 
   const vao = gl.createVertexArray();
   // One stream, set up once: the attribute pointers are recorded into the VAO here and never
@@ -793,6 +826,10 @@ export function createSolidsLayer(gl, opt = {}) {
       if (q.m0 === undefined) q.m0 = q.m;
       q.m = q.m0;
       if (q.env) env = q.env;
+      // A face that brings its own vertex normals (`bent`, one per point) keeps them, and is curved
+      // by definition: a flat wall bowed in its normals alone, as the South Lock's end walls are,
+      // reflects in bands the way the barrel roof over it does.
+      if (q.bent) { q.vn = q.bent; continue; }
       let curved = false;
       q.vn = (q.mp || q.p).map((v) => {
         let x = 0, y = 0, z = 0;
@@ -995,7 +1032,14 @@ export function createSolidsLayer(gl, opt = {}) {
   // map serves the level and the banked cockpit alike: the sun is turned into the cab frame instead.
   let sh = null;
   function shadowPass() {
+    // ⚠ CAPTURED BEFORE THE MAP IS BUILT, NOT AFTER. Building it binds its own framebuffer, and with
+    // these two lines below that, the first call saved THAT as "the caller's" and put it back: the
+    // room's first draw then went into its own shadow map while sampling it on unit 7, a feedback
+    // loop the driver rejects, so the cabin was missing on the frame each scene built its map.
+    const prevFb = gl.getParameter(gl.FRAMEBUFFER_BINDING), vp = gl.getParameter(gl.VIEWPORT);
     if (!sh) {
+      // And the active unit's texture goes back after the build binds the new one on it.
+      const prevTex = gl.getParameter(gl.TEXTURE_BINDING_2D);
       const p = gl.createProgram();
       gl.attachShader(p, compile(gl, gl.VERTEX_SHADER, SH_VERT, 'shadow vertex'));
       gl.attachShader(p, compile(gl, gl.FRAGMENT_SHADER, SH_FRAG, 'shadow fragment'));
@@ -1022,10 +1066,10 @@ export function createSolidsLayer(gl, opt = {}) {
       if (lL >= 0) { gl.enableVertexAttribArray(lL); gl.vertexAttribPointer(lL, 3, gl.FLOAT, false, ST * 4, 44); }
       if (lB >= 0) { gl.enableVertexAttribArray(lB); gl.vertexAttribPointer(lB, 4, gl.FLOAT, false, ST * 4, (STRIDE + 7) * 4); }
       gl.bindVertexArray(null);
+      gl.bindTexture(gl.TEXTURE_2D, prevTex);
       sh = { p, tex, fbo, svao, ok, mat: gl.getUniformLocation(p, 'uLightMat') };
     }
-    if (!sh.ok) return false;
-    const prevFb = gl.getParameter(gl.FRAMEBUFFER_BINDING), vp = gl.getParameter(gl.VIEWPORT);
+    if (!sh.ok) { gl.bindFramebuffer(gl.FRAMEBUFFER, prevFb); return false; }
     const scis = gl.isEnabled(gl.SCISSOR_TEST), blend = gl.isEnabled(gl.BLEND);
     gl.bindFramebuffer(gl.FRAMEBUFFER, sh.fbo);
     gl.viewport(0, 0, SHADOW_SIZE, SHADOW_SIZE);
@@ -1124,6 +1168,18 @@ export function createSolidsLayer(gl, opt = {}) {
     gl.uniform1f(loc.waterT, (performance.now() / 1000) % 1000);
     gl.uniform1f(loc.under, opts.under || 0);
     gl.uniform1f(loc.underD, opts.underD || 0);
+    // ⚠ SET ON EVERY DRAW for the reason the ship's sun is: a shared program keeps the last value.
+    // Positions arrive in the frame the vertices are in (world.js shifts them for the mass already).
+    const WL = opts.lights || [], nW = Math.min(12, WL.length);
+    for (let i = 0; i < nW; i++) {
+      const L = WL[i];
+      wlP.set(L.p, i * 3); wlC.set(L.lamp || L.rgb, i * 3); wlR[i] = L.rl || (L.rw == null ? L.r : L.rw);
+    }
+    gl.uniform1i(loc.wlN, nW);
+    if (nW) { gl.uniform3fv(loc.wlP, wlP); gl.uniform3fv(loc.wlC, wlC); gl.uniform1fv(loc.wlR, wlR); }
+    gl.uniform1f(loc.wlDim, opts.nightDim == null ? 1 : opts.nightDim);
+    gl.uniform1f(loc.wlWrap, opts.lightWrap || 0);
+    gl.uniform1f(loc.wlFocus, opts.lightFocus || 2);
     // ⚠ DEPTH-WRITE ON. This is a solid object: it has to hide what is behind it and be hidden by
     // what is in front, which is the whole point of moving it here. Off for film, and put back.
     gl.enable(gl.DEPTH_TEST);

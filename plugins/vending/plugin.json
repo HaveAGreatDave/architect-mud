@@ -23,6 +23,7 @@
   ],
   "extensionPoints": [
     "A new dispenser is content: furniture flags.vends (the item id), plus flags.vend_line and flags.vend_cooldown_s.",
+    "A dispenser that charges adds flags.vend_price (credits per vend). On a plain machine this plugin takes it in the dispense transaction; on a vend_drink machine the drinks plugin owns the price.",
     "A dispenser that FILLS what it hands over adds flags.vend_drink. This plugin knows nothing about what a drink is — it offers the new inventory row to drinks.serveVended and prints whatever comes back."
   ],
   "notes": [

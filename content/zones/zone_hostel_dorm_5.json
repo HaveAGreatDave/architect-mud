@@ -1,0 +1,34 @@
+{
+  "ambient_events": [
+    "The sign overhead buzzes, cuts out, and the room goes dark for a breath before it comes back red.",
+    "Somebody turns over on a pallet and pulls the blanket over their eyes against the red.",
+    "Wind whistles through the gaps between the planks.",
+    "From up here you can hear the clone facility door bang, and then someone on the stairs, a long way down."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#221d18",
+  "color": "#c9a86a",
+  "description": "A plank cabin at the top of the stack, with the sign's frame bolted through its roof. The FREE ROOMS tube buzzes overhead all night and turns the room red, then dark, then red. Mattresses lie on pallets in rows. A ladder goes up to a hatch in the ceiling, and the hatch is nailed shut.",
+  "exits": {
+    "down": "zone_hostel_dorm_4"
+  },
+  "flags": {
+    "allow_sleep": true,
+    "building_name": "Hostel Takeover",
+    "building_type": "hostel",
+    "floor": "boards",
+    "is_building": true,
+    "is_dwelling": true,
+    "is_interior": true,
+    "region_id": "region_coldwater",
+    "sanctuary": true,
+    "world_exit_zone": "zone_district_917_903"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 5,
+  "id": "zone_hostel_dorm_5",
+  "map_id": "map_int_trackmarks",
+  "name": "Hostel Takeover, fifth floor",
+  "parent_zone": "zone_district_917_903"
+}

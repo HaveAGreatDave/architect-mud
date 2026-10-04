@@ -1,0 +1,14 @@
+{
+  "description": "Bunks three high, welded from pipe and bolted to the signal posts. Each thin mattress has a number in marker. Nobody owns one. You get the one that's empty.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_bunks",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "bunks",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hostel_dorm"
+}

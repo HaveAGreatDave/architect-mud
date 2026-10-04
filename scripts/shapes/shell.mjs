@@ -418,10 +418,20 @@ console.log('    ' + inSeat.length + ' faces at the windscreen + ' + APERTURE + 
 // metres instead would re-derive the exterior through the interior's arithmetic, and a claim that
 // restates one of its sides in terms of the other cannot fail.
 console.log('\nthe room is the inside of the house');
-{
-  const row = BOAT_ROWS.hydro;
+// ⚠ EVERY HULL, NOT THE FIRST ONE. A second hull is a second row with its own house, and the
+// Gamecock's first fit-out stood a console and a locker through the side of her canopy while every
+// line below passed on the Rooster. Each hull's room is held to its own house.
+const FLEET_M = boatGeom(BOAT_ROWS.hydro).helm.mPerUnit;
+for (const hullId of Object.keys(BOAT_ROWS)) {
+  console.log('  ' + hullId);
+  const okH = (c, msg) => ok(c, hullId + ': ' + msg);
+  const row = BOAT_ROWS[hullId];
   const G = boatGeom(row);
-  const P = SHELL_PROFILES.boat;
+  const P = hullId === 'hydro' ? SHELL_PROFILES.boat : shellProfileFor(hullId);
+  okH(!!P && P.hull === hullId, 'the seat does not sit in its own hull\'s room (' + (P && P.hull) + ')');
+  // ONE METRE ACROSS THE FLEET. Each hull's eye is solved from the hydro's metre (`mPerUnit` on the
+  // row, boat-house.js); a hull on its own metre is a cabin at the wrong size against the sea.
+  okH(Math.abs(G.helm.mPerUnit / FLEET_M - 1) < 1e-3, 'her metre is not the fleet\'s: ' + G.helm.mPerUnit.toFixed(4) + ' m per unit against ' + FLEET_M.toFixed(4));
   const faces = shellFaces(P);
   const m = G.helm.mPerUnit, E = G.helm;
   // Metres about the eye -> model units. The inverse of what `boatProfile` does, stated once.
@@ -432,21 +442,21 @@ console.log('\nthe room is the inside of the house');
   // 1. THE SCALE BRIDGE. `mPerUnit = eyeM / eyeZ` is the whole of why the two are the same size,
   //    and it is one line in boat-house.js — so it is worth one line here. Exact, not near: it is
   //    a definition rather than a measurement.
-  ok(Math.abs(G.helm.mPerUnit * E.z - G.helm.eyeM) < 1e-12,
+  okH(Math.abs(G.helm.mPerUnit * E.z - G.helm.eyeM) < 1e-12,
      'the scale bridge does not hold: mPerUnit * eyeZ is ' + (G.helm.mPerUnit * E.z).toFixed(6)
      + ' and eyeM is ' + G.helm.eyeM);
 
   // 2. THE DRIVER IS IN THE HOUSE. Not in the room — in the HOUSE, which is the exterior's own
   //    envelope. An eye outside it is a camera floating beside a boat with a cabin drawn round it.
   const roofAtHelm = G.roof.rz(E.f);
-  ok(E.f > G.hF0 && E.f < G.hF1, 'the helm is not between the bulkhead and the screen');
-  ok(E.z > G.soleZ && E.z < roofAtHelm, 'the helm eye is not between the sole and the headlining');
-  ok(Math.abs(E.g) < G.hw(E.f, (E.z - G.hz(E.f, 0)) / G.hH),
+  okH(E.f > G.hF0 && E.f < G.hF1, 'the helm is not between the bulkhead and the screen');
+  okH(E.z > G.soleZ && E.z < roofAtHelm, 'the helm eye is not between the sole and the headlining');
+  okH(Math.abs(E.g) < G.hw(E.f, (E.z - G.hz(E.f, 0)) / G.hH),
      'the helm eye is outside the house wall at its own height');
 
   // 3. THE SURFACES ARE THE SAME SURFACES. Each of these was a separate authored number on each
   //    side, and each pair is now one expression read twice.
-  const near = (a, b, tol, what) => ok(Math.abs(a - b) < tol,
+  const near = (a, b, tol, what) => okH(Math.abs(a - b) < tol,
     what + ': interior ' + a.toFixed(4) + ' vs exterior ' + b.toFixed(4) + ' (model units)');
   near(toF(P.back), G.roof.rf0, 1e-9, 'the aft face of the room is not the aft edge of the hardtop');
   near(toF(P.front), G.hF1, 1e-9, 'the forward face of the room is not the foot of the screen');
@@ -457,7 +467,7 @@ console.log('\nthe room is the inside of the house');
   // putting the literal back in `buildBoat`, so the thing to ask is the FACE the exterior emits:
   // the flat floor in the well, which the door in the bulkhead opens onto.
   {
-    const ext = A3.aircraftFaces('hydro', 1, false, '');
+    const ext = A3.aircraftFaces(hullId, 1, false, '');
     const cpF0 = row.cockpitF0 ?? -0.88;
     let wellSole = null;
     for (const f of ext) {
@@ -467,7 +477,7 @@ console.log('\nthe room is the inside of the house');
       if (!f.p.every((q) => q[0] <= G.hF0 + 1e-9 && q[0] >= cpF0 - 1e-9)) continue;  // in the well
       if (!wellSole || z < wellSole) wellSole = z;
     }
-    ok(wellSole != null, 'the exterior draws no floor in the well to compare the cabin sole with');
+    okH(wellSole != null, 'the exterior draws no floor in the well to compare the cabin sole with');
     if (wellSole != null) near(toZ(P.floor), wellSole, 1e-9, 'the cabin sole is not the well sole');
   }
   near(toZ(P.roof), G.roof.rz(G.rF) + G.roof.crownH, 1e-9, 'the top of the room is not the hardtop');
@@ -477,7 +487,7 @@ console.log('\nthe room is the inside of the house');
   //    lining, so the two are the same door only up to that inset, and asserting they are equal
   //    would be asserting the lining does not exist.
   const dwIn = toG(P.xCentre + P.door.halfW) - toG(P.xCentre);
-  ok(dwIn <= G.door.halfW + 1e-9 && dwIn > G.door.halfW * 0.9,
+  okH(dwIn <= G.door.halfW + 1e-9 && dwIn > G.door.halfW * 0.9,
      'the door you walk through is not the door on the back of the house: ' + dwIn.toFixed(4)
      + ' against ' + G.door.halfW.toFixed(4));
   near(toZ(P.door.top), G.hz(G.hF0, G.door.topT), 1e-9, 'the door head is not the exterior door head');
@@ -500,7 +510,7 @@ console.log('\nthe room is the inside of the house');
       ff - G.hF1);                                           // out the front
     if (over > 1e-6) { outside++; if (over > worst) { worst = over; worstWhy = f.tone; } }
   }
-  ok(outside === 0, outside + ' interior vertices are outside the house they are inside — worst '
+  okH(outside === 0, outside + ' interior vertices are outside the house they are inside — worst '
      + (worst * m).toFixed(3) + ' m on a ' + worstWhy + ' face');
 
   // 6. THE SIDE WINDOW IS THE SIDE WINDOW. Aimed along the exterior's own aperture: at each of
@@ -569,7 +579,12 @@ console.log('\nthe room is the inside of the house');
         // ⚠ FORWARD OF `rF` THE TOP OF THE HOUSE IS GLASS, NOT ROOF. The screen is raked, so the
         // wedge between its head and the hardtop's leading edge is windscreen — called roof, it
         // reported forty-two perfectly good rays out of the top of the screen as holes.
-        if (zz > G.roof.rz(Math.min(ff, G.rF)) + 1e-6) { via = ff > G.rF - STEP * 1.5 ? 'the windscreen' : 'THE ROOF'; break; }
+        // ⚠ THE ROOF IS CROWNED, so its underside is `rz + cr(u) - THK` and not `rz`. A crown smaller
+        // than the slab's own thickness never tells the two apart, which is why the Rooster's never
+        // did; a canopy domed more than its thickness puts the headlining itself above `rz` at the
+        // centreline, and every ray that reached it read as leaving through the roof.
+        const crownAt = G.roof.cr(Math.max(-1, Math.min(1, gg / (G.roof.rw(Math.min(ff, G.rF)) || 1))));
+        if (zz > G.roof.rz(Math.min(ff, G.rF)) + Math.max(0, crownAt - G.roof.THK) + 1e-6) { via = ff > G.rF - STEP * 1.5 ? 'the windscreen' : 'THE ROOF'; break; }
         if (zz < G.soleZ - 1e-6) { via = 'THE SOLE'; break; }
         if (Math.abs(gg) > G.hw(ff, t) * LIN) {
           if (ff > G.sideF1) { via = 'the wrapped screen'; break; }
@@ -583,9 +598,9 @@ console.log('\nthe room is the inside of the house');
     }
   }
   const leaks = [...openings].filter(([k]) => k === k.toUpperCase());
-  ok(leaks.length === 0, 'rays leave the cabin through solid house: '
+  okH(leaks.length === 0, 'rays leave the cabin through solid house: '
      + leaks.map(([k, n]) => n + ' via ' + k).join(', '));
-  ok(rays > 200, 'only ' + rays + ' rays leave the cabin at all — the sweep is not exercising it');
+  okH(rays > 200, 'only ' + rays + ' rays leave the cabin at all — the sweep is not exercising it');
 
   // ── 8. AND THE SEAM THE SWEEP CANNOT SEE ───────────────────────────────────
   //
@@ -605,9 +620,9 @@ console.log('\nthe room is the inside of the house');
       reach = Math.min(reach, lining - zz);
     }
   }
-  ok(high === 0, high + ' wall vertices stand above the headlining — the wall runs past the panel '
+  okH(high === 0, high + ' wall vertices stand above the headlining — the wall runs past the panel '
      + 'hung under it and leaves a slot the length of the cabin');
-  ok(Math.abs(reach) < 1e-9, 'the wall never reaches the headlining — nearest approach '
+  okH(Math.abs(reach) < 1e-9, 'the wall never reaches the headlining — nearest approach '
      + (reach * m).toFixed(4) + ' m');
   // And the lip that closes the same seam at the FRONT, where the lining's leading edge meets the
   // top of the screen. Asked at the outboard corner, because the crown carries the centreline up
@@ -617,16 +632,20 @@ console.log('\nthe room is the inside of the house');
     if (f.tone !== 'hdr') continue;
     for (const q of f.p) {
       if (Math.abs(modelF(q[1]) - G.rF) > 1e-6) continue;
-      if (Math.abs(q[0] - P.xCentre) < (P.halfW * 0.8)) continue;      // outboard corners only
+      // Outboard corners only: the outer fifth of the LIP'S OWN span. Against `P.halfW` (the room's
+      // widest, at the floor) a tumbled canopy's roof is narrower than the threshold and the check
+      // found "no geometry there" on a lip that was there.
+      const lipHalf = G.hw(G.rF, 1) * (G.INSET - 0.014) * m;
+      if (Math.abs(q[0] - P.xCentre) < lipHalf * 0.8) continue;
       lipAt = Math.max(lipAt, modelZ(q[2]));
     }
   }
-  ok(lipAt >= G.roof.rz(G.rF) - 1e-9, 'nothing closes the slot between the headlining and the top '
+  okH(lipAt >= G.roof.rz(G.rF) - 1e-9, 'nothing closes the slot between the headlining and the top '
      + 'of the screen at the outboard corner: ' + (lipAt === -Infinity ? 'no geometry there' : lipAt.toFixed(5))
      + ' against ' + G.roof.rz(G.rF).toFixed(5));
-  ok(holes === STN.length * 2, holes + ' of ' + (STN.length * 2)
+  okH(holes === STN.length * 2, holes + ' of ' + (STN.length * 2)
      + ' rays through the exterior aperture got out — the hole inside is not the hole outside');
-  ok(cards === STN.length * 2, cards + ' of ' + (STN.length * 2)
+  okH(cards === STN.length * 2, cards + ' of ' + (STN.length * 2)
      + ' rays under the sill hit a wall — there is daylight where the house has topside');
 
   // ⚠ AND ABOVE THE HEAD LINE TOO, which is the half that is easy to leave out — mutation-tested:
@@ -644,7 +663,7 @@ console.log('\nthe room is the inside of the house');
       if (castFrom(walls, [0, 0, 0], aim)) shoulders++;
     }
   }
-  ok(shoulders === HIGH.length * 2, shoulders + ' of ' + (HIGH.length * 2)
+  okH(shoulders === HIGH.length * 2, shoulders + ' of ' + (HIGH.length * 2)
      + ' rays over the head line hit a wall — there is daylight where the house has shoulder');
 
   console.log('    a ' + (2 * G.LEN * m).toFixed(1) + ' m hull: ' + ((G.hF1 - G.hF0) * m).toFixed(2)

@@ -321,6 +321,15 @@ function weatherKey(w) {
   if (/fog|mist|haze/.test(w)) return 'fog';
   return null;   // clear / cloudy → silence
 }
+// …refined by what is falling on the aircraft's own tile (`sky.here`, plugins/flight/state.js).
+// Rain only falls under a cell, so the day's word alone hissed on the canopy the whole way across
+// a dry sky. A sky without `here` keeps the word.
+function localWeatherKey(sky) {
+  const k = weatherKey(sky?.weather), here = sky?.here;
+  if (!here) return k;
+  if (here.precipRate > 0) return k === 'storm' ? 'storm' : (here.precipType === 'snow' ? 'snow' : 'rain');
+  return k === 'rain' || k === 'storm' || k === 'snow' ? null : k;
+}
 let curWeather = null, _lastThunder = 0;
 
 // Recorded thunder claps — the same samples the ground weather plays on `weather.thunder`
@@ -360,7 +369,7 @@ function stormProximity(s) {
 function applyWeather(s) {
   const ae = AE(); if (!ae) return;
   const sky = s?.sky, airborne = !!s?.airborne;
-  const key = airborne ? weatherKey(sky?.weather) : null;
+  const key = airborne ? localWeatherKey(sky) : null;
   if (key !== curWeather) {
     if (curWeather) { ae.setLoopGain?.('flt-weather', 0, 0.7); setTimeout(() => { try { ae.stopLoop('flt-weather'); } catch {} }, 800); }
     curWeather = key;

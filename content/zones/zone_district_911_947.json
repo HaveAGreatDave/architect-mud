@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "wasteland",
   "color": "#b5744a",
-  "description": "A vast stained plain, hard underfoot. Every so often there's a track pressed into it, sharp-edged and long dry.",
+  "description": "The last hard surface before the map gives up. Two long scars in the rockcrete show where the weighbridge plates were lifted out and the holes filled with something paler that has not worn the same, and the booth beside them is a concrete plinth with four bolt stubs in it. They weigh at the gate now, where the road can be made to slow down.\n\nPast the plates the dirt runs south into a rust-stained plain hammered flat and hard, printed here and there with the tracks of things that crossed it once.",
   "exits": {
     "east": "zone_district_912_947",
     "north": "zone_district_911_946",
@@ -13,13 +13,13 @@
     "radiation": 42,
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "redrock"
+    "terrain": "dirt_road"
   },
   "grid_x": 911,
   "grid_y": 947,
   "grid_z": 0,
   "id": "zone_district_911_947",
   "map_id": "map_world",
-  "name": "Ochre Draw",
+  "name": "Ironpan",
   "parent_zone": null
 }

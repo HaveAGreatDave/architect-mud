@@ -1,0 +1,23 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#5f6f7a",
+  "description": "Six check-in desks stand in a row, each with a belt scale beside it and a number box over it. Only the box over desk 2 is lit. A departures board hangs from the ceiling on chains. Security is west, the arrivals hall north, the apron east.",
+  "exits": {
+    "east": "zone_district_924_903",
+    "north": "zone_cw_arrivals",
+    "west": "zone_cw_security"
+  },
+  "flags": {
+    "floor": "tile",
+    "hangar_ramp": "zone_district_925_903",
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_cw_checkin",
+  "map_id": "map_int_cw_departures",
+  "name": "Check-in Hall",
+  "parent_zone": "zone_district_924_903"
+}

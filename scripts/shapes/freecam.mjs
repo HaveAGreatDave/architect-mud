@@ -432,6 +432,161 @@ ck(ft.view().z < u0, 'F still drops');
 console.log(`  ${cbad ? '✗' : '✓'} freecam turn-in-place — ${cbad} problem(s) total`);
 if (cbad) process.exit(1);
 
+// ── FOLLOWING A SUBJECT ─────────────────────────────────────────────────────
+// freelook's H: the camera flies in on a bird and stays with it. What matters is that the subject
+// stays dead centre whatever turns the camera or moves the bird, that the distance is the one asked
+// for, and that the keys which move the eye let go of it rather than being swallowed.
+{
+  const { TRACK_NEAR } = await import('../../client/game/js/panels/freecam.js');
+  const DEGR = Math.PI / 180;
+  // How far off the optical axis the subject is, in radians, and how far away.
+  const offAxis = (cam, [x, y, z]) => {
+    const v = cam.view(), dx = x - v.x, dy = y - v.y, dz = z - v.z, D = Math.hypot(dx, dy, dz);
+    const cp = Math.cos(v.pitch), f = [Math.sin(v.yaw * DEGR) * cp, -Math.cos(v.yaw * DEGR) * cp, Math.sin(v.pitch)];
+    return { ang: Math.acos(Math.min(1, (dx * f[0] + dy * f[1] + dz * f[2]) / D)), D };
+  };
+  const settle = (cam, s = 4, at = null) => { for (let i = 0; i < s * 10; i++) { if (at) cam.track(...at()); cam.step(0.1); } };
+
+  ck(createFreeCam().track(1, 1, 1) === false, 'a closed camera follows nothing');
+  const fk = createFreeCam();
+  fk.open({ yaw: 0, z: 1 });
+  ck(!fk.tracking, 'it opens following nothing');
+  const bird = [3, 4, 1.5];
+  ck(fk.track(...bird) === true && fk.tracking, 'track starts a follow');
+  ck(offAxis(fk, bird).ang < 1e-9, '…and turns the lens onto the subject before it has moved');
+  const f0 = fk.view().fov;
+  settle(fk);
+  let o = offAxis(fk, bird);
+  ck(Math.abs(o.D - TRACK_NEAR) < 0.01 * TRACK_NEAR, `it flies in to ${TRACK_NEAR} tiles (got ${o.D.toFixed(3)})`);
+  ck(o.ang < 1e-6, 'with the subject centred');
+  ck(fk.view().fov > f0 * 1.5, `and zooms the lens on the way (${f0} → ${fk.view().fov.toFixed(2)})`);
+
+  // A subject on the move: the eye keeps its distance and its aim every frame, not just once settled.
+  let worst = 0, worstD = 0;
+  for (let i = 0; i < 60; i++) {
+    const a = i * 0.05, p = [3 + Math.cos(a) * 2, 4 + Math.sin(a) * 2, 1.5 + Math.sin(a * 3) * 0.4];
+    fk.track(...p); fk.step(1 / 60);
+    const q = offAxis(fk, p);
+    worst = Math.max(worst, q.ang); worstD = Math.max(worstD, Math.abs(q.D - TRACK_NEAR));
+  }
+  ck(worst < 1e-6 && worstD < 0.01, `a moving subject stays centred and at distance (worst ${worst.toExponential(1)} rad, ${worstD.toFixed(4)} tiles)`);
+  const last = [3 + Math.cos(59 * 0.05) * 2, 4 + Math.sin(59 * 0.05) * 2, 1.5 + Math.sin(59 * 0.15) * 0.4];
+
+  // The mouse swings the eye ROUND the subject: it moves, and the subject stays put in the frame.
+  const e0 = { ...fk.view() };
+  fk.look(120, 0); fk.step(0.016);
+  o = offAxis(fk, last);
+  ck(Math.hypot(fk.view().x - e0.x, fk.view().y - e0.y) > 0.3 * TRACK_NEAR, 'the mouse moves the eye round the subject');
+  ck(o.ang < 1e-6 && Math.abs(o.D - TRACK_NEAR) < 0.01, '…keeping it centred and at distance');
+  fk.look(0, 40); fk.step(0.016);
+  ck(fk.view().z > e0.z, 'looking down lifts the eye above it');
+  const z1 = fk.view().z;
+  fk.orbit(0, -40); fk.step(0.016);
+  ck(fk.view().z > z1 && offAxis(fk, last).ang < 1e-6, 'a middle drag upward lifts it too, still centred');
+
+  // Wheel and arrows: one notch is TRACK_STEP closer, eased.
+  fk.dolly(-1); settle(fk, 4, () => last);
+  const near = offAxis(fk, last).D;
+  ck(near < TRACK_NEAR * 0.85 && near > TRACK_NEAR * 0.75, `a notch in brings it closer (${near.toFixed(3)})`);
+  fk.dolly(1); settle(fk, 4, () => last);
+  ck(Math.abs(offAxis(fk, last).D - TRACK_NEAR) < 0.01, 'and a notch out puts it back');
+
+  // A second subject: the first frame is the shot you had, then it swings over rather than cutting.
+  const before = { ...fk.view() };
+  const other = [last[0] + 6, last[1] - 3, 2];
+  fk.track(...other, true);
+  ck(Math.hypot(fk.view().x - before.x, fk.view().y - before.y) < 1e-9, 'a new subject does not cut on the frame it is named');
+  fk.step(0.1);
+  const moved = Math.hypot(fk.view().x - before.x, fk.view().y - before.y);
+  ck(moved > 0.05 && moved < 6, `it swings over (${moved.toFixed(2)} tiles in the first tenth of a second)`);
+  settle(fk, 8, () => other);   // the swing is exponential: 4 s leaves ~1e-4 rad of it, 8 s nothing
+  o = offAxis(fk, other);
+  ck(o.ang < 1e-6 && Math.abs(o.D - TRACK_NEAR) < 0.01, `and settles on the new subject (${o.ang.toExponential(1)} rad, ${o.D.toFixed(4)})`);
+
+  // The world window re-centring under the camera moves the subject's numbers with it.
+  fk.rebase(-5, 2); const moved2 = [other[0] - 5, other[1] + 2, other[2]];
+  fk.step(0.016);
+  ck(offAxis(fk, moved2).ang < 1e-6, 'a rebase carries the subject with the eye');
+
+  // The ground pushing the eye up tips the lens back onto the subject.
+  fk.clampFloor(fk.view().z + 0.2);
+  ck(offAxis(fk, moved2).ang < 1e-6, 'the floor clamp re-aims at the subject');
+
+  // The wheel takes the lens off the fly-in's hands.
+  const fresh = createFreeCam(); fresh.open({ yaw: 0, z: 1 }); fresh.track(0, 5, 1); fresh.step(0.1);
+  fresh.zoom(1); const zf = fresh.view().fov; fresh.step(0.5);
+  ck(fresh.view().fov === zf, 'a wheel notch stops the fly-in zoom');
+
+  // W lets go where the camera is, and then flies it.
+  const g0 = { ...fk.view() };
+  ck(fk.onKey('w', true) === true && !fk.tracking, 'W lets go of the subject');
+  ck(fk.view().x === g0.x && fk.view().y === g0.y, '…without moving the camera');
+  for (let i = 0; i < 5; i++) fk.step(0.1);
+  ck(Math.hypot(fk.view().x - g0.x, fk.view().y - g0.y) > 0.1, '…and then flies it');
+  fk.onKey('w', false);
+  // The arrows only turn: they are not a let-go key, so freelook can spend them on cycling.
+  fk.track(0, 0, 1); fk.onKey('arrowleft', true);
+  ck(fk.tracking, 'an arrow does not let go'); fk.onKey('arrowleft', false);
+  // Standing up ends it, and a standing camera cannot start one.
+  fk.setStand(true, { leash: 0 });
+  ck(!fk.tracking && fk.track(1, 1, 1) === false, 'standing ends the follow and refuses a new one');
+  fk.setStand(false);
+  fk.track(1, 1, 1); fk.close(); fk.open({});
+  ck(!fk.tracking, 'closing ends it');
+
+  // ── AND IT KEEPS OUT OF THE BUILDINGS ──
+  // A reach marched against a predicate, the way freelook marches the map. The subject sits on the
+  // face of a wall (everything south of y = 3 is solid), and the camera starts on the wall's side,
+  // so the straight line in from where it was is through the wall.
+  const reachOf = (solid) => (x, y, z, ux, uy, uz, max) => {
+    for (let d = 0.02; d <= max; d += 0.01) if (solid(x + ux * d, y + uy * d, z + uz * d)) return d - 0.01;
+    return Infinity;
+  };
+  const wall = (x, y) => y < 2.98;
+  const fw = createFreeCam();
+  fw.setTrackReach(reachOf(wall));
+  fw.open({ yaw: 0, z: 1 });          // at (0, 0): south of the wall, inside it as far as the subject is concerned
+  const ledge = [0, 3, 1];
+  fw.track(...ledge);
+  let inside = 0;
+  for (let i = 0; i < 80; i++) { fw.track(...ledge); fw.step(0.05); if (wall(fw.view().x, fw.view().y)) inside++; }
+  o = offAxis(fw, ledge);
+  // ⚠ "Out of the wall", not "past it": a bearing along the wall's face is clear, and the 30° search
+  // can land on one, so y = 3 is a right answer here.
+  ck(!wall(fw.view().x, fw.view().y), `the fly-in swings round out of the wall (eye at y ${fw.view().y.toFixed(2)})`);
+  ck(o.ang < 1e-6 && Math.abs(o.D - TRACK_NEAR) < 0.01, `and settles there at the follow distance (${o.D.toFixed(3)})`);
+  ck(inside < 40, `without spending the fly-in inside the wall (${inside} of 80 frames)`);
+
+  // Something between the eye and the subject pulls the eye in at once, and when it goes the eye
+  // eases back out rather than jumping.
+  fw.setTrackReach(() => 0.1);
+  fw.track(...ledge); fw.step(0.016);
+  ck(Math.abs(offAxis(fw, ledge).D - 0.1) < 1e-6, 'an obstruction pulls the eye in to it on the same frame');
+  fw.setTrackReach(null);
+  fw.track(...ledge); fw.step(0.05);
+  const out1 = offAxis(fw, ledge).D;
+  ck(out1 > 0.1 && out1 < TRACK_NEAR - 0.01, `and it eases back out when the way is clear (${out1.toFixed(3)} after one frame)`);
+  settle(fw, 4, () => ledge);
+  ck(Math.abs(offAxis(fw, ledge).D - TRACK_NEAR) < 0.01, '…all the way out');
+
+  // A bird that lands puts something across a line that was clear: the camera swings to a clear one
+  // on its own, as long as nobody has turned it by hand.
+  const fr = createFreeCam();
+  fr.open({ yaw: 0, z: 1 });
+  const roost = [0, 3, 1];
+  fr.track(...roost); settle(fr, 4, () => roost);                       // nothing solid yet
+  const sideBefore = fr.view().y;
+  const landed = (x, y) => sideBefore < 3 ? y < 2.98 : y > 3.02;   // a wall on the side the eye is on
+  ck(landed(fr.view().x, fr.view().y), '(the eye starts inside the new wall)');
+  fr.setTrackReach(reachOf(landed));
+  settle(fr, 6, () => roost);
+  o = offAxis(fr, roost);
+  ck(!landed(fr.view().x, fr.view().y), `a line that becomes blocked swings the camera out of the wall (eye at y ${fr.view().y.toFixed(2)})`);
+  ck(o.ang < 1e-6 && Math.abs(o.D - TRACK_NEAR) < 0.01, `and it ends at the follow distance, centred (${o.D.toFixed(3)})`);
+}
+console.log(`  ${cbad ? '✗' : '✓'} freecam follow — ${cbad} problem(s) total`);
+if (cbad) process.exit(1);
+
 // ── STANDING UP ─────────────────────────────────────────────────────────────
 // The same camera under three constraints — feet on something, an eye height that is handed in,
 // and a leash. Every one of them is silent when it is wrong: a standing camera that quietly flies

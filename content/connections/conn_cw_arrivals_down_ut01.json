@@ -1,0 +1,9 @@
+{
+  "a": "zone_cw_arrivals",
+  "b": "zone_util_zone_cw_arrivals",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_cw_arrivals_down_ut01",
+  "lockable": false,
+  "one_way": false
+}

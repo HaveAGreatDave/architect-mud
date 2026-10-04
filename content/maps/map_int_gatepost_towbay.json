@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_gatepost_towbay",
+  "id": "map_int_gatepost_towbay",
+  "name": "The Tow Bay: Interior",
+  "parent_zone_id": "zone_district_909_922"
+}

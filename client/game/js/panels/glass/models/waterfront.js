@@ -1071,6 +1071,49 @@ export const WATERFRONT_ARMS = {
       drawFacetDrum(ctx, cam, dx, dy, MB, MT, fh * 0.022, fh * 0.010, 8, alpha, metal, metal, CH);
       blinkLight(ctx, cam, dx, dy, MT + h * 0.005, '255,64,56', now, seed + 60, alpha, 2.2); }
 
+    // ── THE SLOT ──────────────────────────────────────────────────────────
+    // The water under the plate is the covered dock, and from a helm it read as a channel running
+    // straight into Halcyon Quay: nothing said where the water stopped or where a hull lies. So the
+    // two quay edges round it get a lit nosing and a chrome rail, with a gangway gap in the side
+    // one, fenders on that face where a hull comes alongside, and the hoist's spreaders tucked up
+    // under the soffit (the slings that lift her out, in the Dock Hall's own prose).
+    // ⚠ STROKES ONLY. The arm's mass is baked (client/shared/building-shapes.js) and none of this is
+    //   anything a collision should meet.
+    // ⚠ THE QUAY EDGES ARE TILE EDGES, NOT THE SLAB'S FACE. The slab stands back from the edge of
+    //   its own tile, so the water starts at local x 0.5 (the slot's side) and stops at local y 0.5
+    //   (its head, the north edge of the quay tile).
+    { const QX = 0.5, QY = 0.5, RAIL = FL * 0.34, END = PX1 - 0.07;
+      const railCol = night ? 'rgba(206,224,236,0.85)' : 'rgba(198,212,224,0.95)';
+      const noseCol = night ? 'rgba(120,224,255,0.9)' : 'rgba(150,196,214,0.6)';
+      for (const [ax, ay, bx, by] of [[QX, -PHY, QX, -0.13], [QX, 0.13, QX, QY], [QX, QY, END, QY]]) {
+        emitWire(ctx, cam, W3(ax, ay, h * 0.004), W3(bx, by, h * 0.004), 2.0, noseCol, alpha, { pull: FACE_EPS });
+        emitWire(ctx, cam, W3(ax, ay, RAIL), W3(bx, by, RAIL), 1.4, railCol, alpha, { pull: DECO_PULL });
+        const n = Math.max(1, Math.round(Math.hypot(bx - ax, by - ay) / 0.16));
+        for (let i = 0; i <= n; i++) {
+          const px = ax + (bx - ax) * (i / n), py = ay + (by - ay) * (i / n);
+          emitWire(ctx, cam, W3(px, py, 0), W3(px, py, RAIL), 1.2, railCol, alpha, { pull: DECO_PULL });
+        }
+      }
+      // The fenders, hung on the side face either side of the gangway, and the ladder in it.
+      for (const fy of [-0.32, -0.20, 0.20, 0.32]) {
+        emitWire(ctx, cam, W3(QX + 0.008, fy, -FL * 0.12), W3(QX + 0.008, fy, FL * 0.08), 5, 'rgba(30,34,40,0.95)', alpha, { pull: FACE_EPS });
+      }
+      for (const ly of [-0.05, 0.05]) {
+        emitWire(ctx, cam, W3(QX + 0.006, ly, -FL * 0.2), W3(QX + 0.006, ly, RAIL), 1.2, railCol, alpha, { pull: FACE_EPS });
+      }
+      for (let r = 0; r < 4; r++) {
+        const rz = -FL * 0.15 + r * FL * 0.11;
+        emitWire(ctx, cam, W3(QX + 0.006, -0.05, rz), W3(QX + 0.006, 0.05, rz), 1.0, railCol, alpha, { pull: FACE_EPS });
+      }
+      // The hoist: two spreaders across the slot under the soffit, on their falls, raised.
+      const SPR = PLATE - FL * 0.16, mid = (QX + END) / 2;
+      for (const sy of [-0.13, 0.13]) {
+        emitWire(ctx, cam, W3(mid - 0.17, sy, SPR), W3(mid + 0.17, sy, SPR), 2.4, 'rgba(198,158,44,0.95)', alpha, { pull: DECO_PULL });
+        for (const sx of [-0.13, 0.13]) {
+          emitWire(ctx, cam, W3(mid + sx, sy, PLATE - h * 0.002), W3(mid + sx, sy, SPR), 1.0, 'rgba(60,64,70,0.9)', alpha, { pull: DECO_PULL });
+        }
+      } }
+
     // ── THE LIGHT ─────────────────────────────────────────────────────────
     // ⚠ LIT HARDER THAN ITS NEIGHBOURS ON PURPOSE. The facade's prose is 'lit from inside at every
     //   hour and the light does not change colour after dark', and at the draft values it was one
@@ -1094,12 +1137,15 @@ export const WATERFRONT_ARMS = {
           glowPool(ctx, cam, lxp, lyp, PLATE - h * 0.012, '236,226,198', 6, alpha * 0.30);
         }
         // ⚠ AND THE TWO THAT ARE NOT DECORATION. Red to port and green to starboard ON ENTERING,
-        //   which is the rule of the road and fixes which side each one goes: a boat comes in off
-        //   the basin heading WEST, so its port hand is the SOUTH side of the fairway. They are
-        //   the smallest lights on the building and the only two that mean anything, and they are
-        //   on the END SCREEN, which is the first thing a skipper sees.
-        { const [rx, ry] = F(PX1 - 0.05, PHY * 0.92);
-          const [gx, gy] = F(PX1 - 0.05, -PHY * 0.92);
+        //   which is the rule of the road and fixes which side each one goes. ⚠ A BOAT COMES IN
+        //   FROM THE BASIN SIDE (local -Y), NOT FROM THE EAST: the screen closes the east end down
+        //   to the water and the Slip's concrete is beyond it, so the way in is the mouth along the
+        //   plate's basin edge, past the fuel berth. Heading in toward the quay her port hand is
+        //   local +X, so red stands at the screen's end of the mouth and green where the plate
+        //   meets the slab. They were on the screen's two ends, which was right for a way in that
+        //   is a wall.
+        { const [rx, ry] = F(PX1 - 0.05, -PHY * 0.92);
+          const [gx, gy] = F(HX + 0.06, -PHY * 0.92);
           glowPool(ctx, cam, rx, ry, PLATE + h * 0.010, '255,72,64', 4, alpha * 0.70);
           glowPool(ctx, cam, gx, gy, PLATE + h * 0.010, '64,255,132', 4, alpha * 0.70); }
       } }

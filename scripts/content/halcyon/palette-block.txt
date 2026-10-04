@@ -53,7 +53,7 @@
   ty_holder: [96, 114, 132], ty_holder_drum: [166, 180, 190],
   ty_current: [142, 156, 170], ty_current_fence: [88, 104, 120],
   ty_wires: [46, 68, 90], ty_wires_louvre: [158, 172, 184],
-  // Engine Trouble keeps its red, and it is now the ONLY warm surface in fifteen buildings.
+  // Fire Station 4 keeps its red, and it is now the ONLY warm surface in fifteen buildings.
   // That is what makes it findable: in a quarter of cyan and pearl, the one red thing on the
   // skyline is the thing you look for when something is burning.
   ty_engine: [196, 62, 68], ty_engine_brick: [152, 166, 178],

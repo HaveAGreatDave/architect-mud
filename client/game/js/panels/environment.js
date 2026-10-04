@@ -25,6 +25,7 @@ export function wireGlass(m) {
   if (!m || _setBirdSeason || _setBirdWeather) return;
   _setBirdSeason = m.setBirdSeason || null;
   _setBirdWeather = m.setBirdWeather || null;
+  m.setLockBoardFeed?.(lockBoardFeed);
   if (_setBirdSeason && envDoy != null) _setBirdSeason(envDoy);   // the clock may have beaten the renderer
   if (_setBirdWeather && (envWxToday || envWxTomorrow)) _setBirdWeather(envWxToday, envWxTomorrow);
 }
@@ -95,9 +96,15 @@ let envDateStr = '';
 // been told the date yet — indistinguishable, from the seat, from the bug this replaced.
 let envMoon = null;
 let envWeatherIcon = '—';
+let envDayWeatherIcon = '—';   // the day's icon off the HUD payload, put back when you go indoors
 let envTempC = null;
 let envCurrentWeatherType = null;
 let envCurrentPrecipIntensity = null;
+// ⚠ WHO OWNS THE CURRENT-WEATHER LINE. Outdoors it is the tile you stand on (the zone tick and
+// the visibility payload); indoors it is the city's (clockTick / sync). Rain only falls under a
+// cell, and the per-minute clockTick used to overwrite the local line with the day's headline,
+// so a dry street on a rain day said "Light rain" for most of every minute.
+let envLocalWx = false;
 let envBodyTempC = null;
 let envWindKph = null;
 let envHumidity = null;
@@ -364,10 +371,10 @@ export function updateEnvironmentHUD(env) {
     if (_setBirdSeason) _setBirdSeason(envDoy);
   }
   if (clientMinutes === null) return; // not ready yet
-  if (env.weatherIcon !== undefined) envWeatherIcon = env.weatherIcon || '—';
+  if (env.weatherIcon !== undefined) { envDayWeatherIcon = env.weatherIcon || '—'; if (!envLocalWx) envWeatherIcon = envDayWeatherIcon; }
   if (env.tempC !== undefined) envTempC = env.tempC;
-  if (env.currentWeatherType !== undefined) envCurrentWeatherType = env.currentWeatherType;
-  if (env.currentIntensity !== undefined) envCurrentPrecipIntensity = env.currentIntensity;
+  if (env.currentWeatherType !== undefined && !envLocalWx) envCurrentWeatherType = env.currentWeatherType;
+  if (env.currentIntensity !== undefined && !envLocalWx) envCurrentPrecipIntensity = env.currentIntensity;
   if (env.windKph !== undefined) envWindKph = env.windKph;
   if (env.humidityPct !== undefined) envHumidity = env.humidityPct;
   if (env.feelsLikeC !== undefined) envFeelsLikeC = env.feelsLikeC;
@@ -404,15 +411,8 @@ export function updateZoneTempHUD(tempC, local) {
   // Indoor updates carry no weather payload — there's no wind chill indoors, so
   // feels-like tracks the ambient temp (matches the server's apparent temp).
   if (!(local && local.cloudCover !== undefined)) envFeelsLikeC = tempC;
-  if (local && local.cloudCover !== undefined) {
-    if (local.precipType !== undefined && local.precipType !== 'none') {
-      envCurrentWeatherType = local.precipType;
-      envCurrentPrecipIntensity = localPrecipLabel(local.precipType, local.precipRate || 0);
-    } else {
-      envCurrentWeatherType = local.cloudCover >= 0.5 ? 'overcast' : (local.cloudCover >= 0.2 ? 'cloudy' : 'clear');
-      envCurrentPrecipIntensity = '';
-    }
-  }
+  if (local && local.cloudCover !== undefined) applyLocalWeather(local);
+  else if (local) leaveLocalWeather();   // indoors: the city's line, from the next clockTick
   // Weather-FX side-channel. Only touch indoor/precip state when a real zoneTempTick
   // carries `local` — the move handler calls us with tempC only, and the per-room
   // visibility fetch is the authoritative indoor/outdoor source for that path.
@@ -426,6 +426,31 @@ export function updateZoneTempHUD(tempC, local) {
     refreshWeatherFx();
   }
   renderEnvironmentHUD();
+}
+
+// The current-weather line for the tile you're on, from a zone tick or the visibility payload.
+// The server sends its own words (`current`/`currentIcon`/`currentIntensity`, getZoneWeather) so
+// both sources say the same thing; a payload without them derives a line from the numbers.
+function applyLocalWeather(local) {
+  if (local.current !== undefined) {
+    envCurrentWeatherType = local.current;
+    envCurrentPrecipIntensity = local.currentIntensity || '';
+    if (local.currentIcon) envWeatherIcon = local.currentIcon;
+  } else if (local.precipType !== undefined && local.precipType !== 'none') {
+    envCurrentWeatherType = local.precipType;
+    envCurrentPrecipIntensity = localPrecipLabel(local.precipType, local.precipRate || 0);
+  } else {
+    envCurrentWeatherType = local.cloudCover >= 0.5 ? 'overcast' : (local.cloudCover >= 0.2 ? 'cloudy' : 'clear');
+    envCurrentPrecipIntensity = '';
+  }
+  envLocalWx = true;
+}
+
+// Indoors the line is the city's again. The icon comes back at once, because the clockTick that
+// will restore the words never carries an icon.
+function leaveLocalWeather() {
+  if (envLocalWx) envWeatherIcon = envDayWeatherIcon;
+  envLocalWx = false;
 }
 
 // Coarse local intensity label from a 0..1 precip rate (the fine server labels
@@ -581,6 +606,9 @@ export function refreshZoneVisibility(preloaded) {
         fxPrecipRate = v.precipRate || 0;
         if (v.windKph !== undefined) envWindKph = v.windKph;
         refreshWeatherFx();
+        // …and the HUD's current-weather line, which is this tile's outdoors (see envLocalWx).
+        if (v.outdoor) applyLocalWeather(v); else leaveLocalWeather();
+        renderEnvironmentHUD();
       }
 
       const lc = LIGHT_CATS[v.category] || LIGHT_CATS.clear;
@@ -647,3 +675,13 @@ setInterval(() => {
   renderEnvironmentHUD();
 }, 60_000);
 
+
+// The gate lock's board in GLASS (lockBoardText in windshield.js). Also left on globalThis, because
+// a seat that loads GLASS statically never goes through wireGlass.
+function lockBoardFeed() {
+  const e = getEnvSnapshot();
+  if (!e) return null;
+  return { time: e.time, weather: e.weatherType ? String(e.weatherType).replace(/_/g, ' ').toUpperCase() : null,
+    temp: e.tempC != null ? formatTemp(e.tempC) : null };
+}
+globalThis.__lockBoardFeed = lockBoardFeed;

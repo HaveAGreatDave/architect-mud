@@ -26,7 +26,7 @@ import { makeKit, C, clamp, roundWheel, pedal, richSeat } from './interior-kit.j
 // The clickable switch row and the grab points, shared with every craft cockpit.
 import { craftControls } from './interior-fit-craft.js';
 import { memoPart } from './interior-memo.js';
-import { hydroDetail } from './interior-hydro.js';
+import { hydroDetail, consoleSpan, HY } from './interior-hydro.js';
 
 const num = (v, d = 0) => (Number.isFinite(+v) ? +v : d);
 
@@ -1149,9 +1149,24 @@ export function boatFit(P, live, push) {
   Sp.bar(0.125, -0.045, 0.045, 0.008, 0.5 + trim * 0.5, C.green);
   // The race seat, in the round, and a foot brace angled up off the sole.
   richSeat(K, 0, P, [40, 44, 52], false);
-  K.obox([0, 0.62, P.floor + 0.10], [1, 0, 0], [0, 0.6, 0.8], [0, -0.8, 0.6], 0.16, 0.10, 0.012, 'dash', 0.05, C.steel);
+  // The foot brace: a raked rest you jam your feet against when she comes off a wave. A grip-taped
+  // pad in a billet frame on two rails off the sole. ⚠ NOT POLISHED STEEL: a bright mirror tilted up
+  // at the eye picked up the sky as a noisy white patch and was the brightest thing in the footwell.
+  {
+    const c = [0, 0.62, P.floor + 0.10], U = [0, 0.6, 0.8], Nn = [0, -0.8, 0.6];
+    K.obox(c, [1, 0, 0], U, Nn, 0.16, 0.10, 0.010, 'dash', 0.05, [30, 32, 36]);
+    const at2 = (a, b, d = 0) => [c[0] + a, c[1] + U[1] * b + Nn[1] * d, c[2] + U[2] * b + Nn[2] * d];
+    for (const [a0, b0, a1, b1] of [[-0.16, -0.10, 0.16, -0.10], [-0.16, 0.10, 0.16, 0.10], [-0.16, -0.10, -0.16, 0.10], [0.16, -0.10, 0.16, 0.10]]) {
+      K.rod(at2(a0, b0, 0.012), at2(a1, b1, 0.012), 0.007, 'dash', 0.1, HY.billet, 0.05, 6);
+    }
+    // Two ribs across it, which is where a sole finds purchase.
+    for (const b of [-0.035, 0.035]) K.rod(at2(-0.14, b, 0.014), at2(0.14, b, 0.014), 0.004, 'dash', 0.1, HY.billet, 0.05, 5);
+    for (const a of [-0.13, 0.13]) K.rod([a, 0.58, P.floor + 0.002], at2(a, -0.06, -0.004), 0.009, 'dash', 0.1, C.black, 0, 6);
+  }
   // An extinguisher strapped by the door.
-  K.rod([P.xCentre + 0.35, P.back + 0.25, P.floor], [P.xCentre + 0.35, P.back + 0.25, P.floor + 0.30], 0.04, 'dash', 0.1, C.fireRed, 0.05, 10);
+  // Starboard of the doorway and inboard of the wall: on the old `xCentre + 0.35` it stood in the door.
+  const exX = Math.min(P.xCentre + (P.door ? P.door.halfW : 0.3) + 0.10, (P.wallAt ? P.wallAt(P.back + 0.25, P.floor + 0.15).stbd : P.xCentre + P.halfW) - 0.08);
+  K.rod([exX, P.back + 0.25, P.floor], [exX, P.back + 0.25, P.floor + 0.30], 0.04, 'dash', 0.1, C.fireRed, 0.05, 10);
   // A grab rail across the passenger's side of the dash.
   const px = 2 * P.xCentre - cx;
   if (Math.abs(px - cx) > 0.3) {
@@ -1160,7 +1175,7 @@ export function boatFit(P, live, push) {
   }
   boatCowl(push, cx);
   boatFascia(K, push, P, cx, px, on);
-  boatPlotter(K, L, cx, on);
+  boatPlotter(K, L, cx, on, P);
   boatConsole(K, push, P, L, on);
   boatOverhead(K, P, on);
   boatCoDriver(K, push, P, px);
@@ -1198,25 +1213,31 @@ function boatFascia(K, push, P, cx, px, on) {
   F.rect(-0.26, P.floor + 0.52, 0.26, -0.70 + 0.5, [8, 9, 11], 0, 0.001);
   // (The switch strip that stood here, behind the wheel where nobody could see it, moved to the
   // port panel in interior-hydro.js.)
+  // How far either way the fascia runs at this height before it meets the wall, about the helm.
+  const wl = P.wallAt ? P.wallAt(y, -0.40) : { port: cx - 0.9, stbd: cx + 0.9 };
+  const reachS = wl.stbd - cx - 0.07, reachP = cx - wl.port - 0.07;
   // Eyeball vents either side of the pod.
-  for (const vx of [-0.70, 0.70]) {
+  for (const vx of [-Math.min(0.70, reachP), Math.min(0.70, reachS)]) {
     F.annulus(vx, 0.12, 0.035, 0.045, C.chrome, 0.05, 0.003, 16);
     F.disc(vx, 0.12, 0.035, [14, 15, 18], 0, 0.002, 16);
     F.grille(vx - 0.022, 0.10, vx + 0.022, 0.14, 4);
   }
   // A speaker each side, low.
-  for (const vx of [-0.55, 0.52]) { F.annulus(vx, -0.10, 0.05, 0.058, [30, 32, 36], 0, 0.002, 18); F.disc(vx, -0.10, 0.05, [16, 17, 20], 0, 0.001, 18); F.disc(vx, -0.10, 0.014, [40, 42, 48], 0, 0.003, 10); }
-  // The co-driver's glovebox, and its latch.
+  for (const vx of [-Math.min(0.55, reachP - 0.02), Math.min(0.52, reachS - 0.04)]) { F.annulus(vx, -0.10, 0.05, 0.058, [30, 32, 36], 0, 0.002, 18); F.disc(vx, -0.10, 0.05, [16, 17, 20], 0, 0.001, 18); F.disc(vx, -0.10, 0.014, [40, 42, 48], 0, 0.003, 10); }
+  // The co-driver's glovebox, and its latch — narrower where the wall comes in on her side.
+  const gw = Math.max(0.12, Math.min(0.24, px - wl.port - 0.06));
   const G = K.panel([px, y, -0.52], [1, 0, 0], [0, 0, 1]);
-  G.rect(-0.24, -0.10, 0.24, 0.10, [34, 37, 43], 0, 0.003);
+  G.rect(-gw, -0.10, gw, 0.10, [34, 37, 43], 0, 0.003);
   G.stud(0, 0.07, 0.04, 0.008, 0.01, C.chrome, 0.1);
-  seam(push, [[px - 0.24, y - 0.004, -0.42], [px + 0.24, y - 0.004, -0.42], [px + 0.24, y - 0.004, -0.62], [px - 0.24, y - 0.004, -0.62], [px - 0.24, y - 0.004, -0.42]], n, { w: 0.004 });
+  seam(push, [[px - gw, y - 0.004, -0.42], [px + gw, y - 0.004, -0.42], [px + gw, y - 0.004, -0.62], [px - gw, y - 0.004, -0.62], [px - gw, y - 0.004, -0.42]], n, { w: 0.004 });
 }
 
 // THE PLOTTER: a chart on a stalk to the right of the pod. The chart is the one screen a race boat
 // carries that a truck does not, and it is lit only while she is running.
-function boatPlotter(K, L, cx, on) {
-  const x = cx + 0.66, y = 0.83, z = -0.15;
+function boatPlotter(K, L, cx, on, P) {
+  // On its stalk to the right of the pod, and in from the wall where the screen's corner closes in.
+  const y = 0.83, z = -0.15;
+  const x = Math.min(cx + 0.66, (P && P.wallAt ? P.wallAt(y, z).stbd : Infinity) - 0.19);
   K.rod([x, y + 0.02, z - 0.08], [x, y + 0.05, -0.30], 0.014, 'dash', 0.1, C.black, 0, 6);
   const tu = [0, Math.sin(0.466), Math.cos(0.466)], tn = [0, Math.cos(0.466), -Math.sin(0.466)];
   K.obox([x, y + 0.012, z], [1, 0, 0], tu, tn, 0.15, 0.10, 0.012, 'dash', 0.1, C.black);
@@ -1239,7 +1260,7 @@ function boatPlotter(K, L, cx, on) {
 // cover, the trim rockers, a cup holder, and on its inboard face the key and the kill cord clipped
 // to your leg — the one thing on a race boat that stops the engine when you leave the seat.
 function boatConsole(K, push, P, L, on) {
-  const x0 = 0.74, x1 = Math.min(0.98, P.xCentre + P.halfW - 0.02), y0 = -0.35, y1 = 0.60, zt = -0.47, zf = P.floor;
+  const { x0, x1, y0, y1, zt } = consoleSpan(P), zf = P.floor;
   quadSub(push, [x0, y0, zt], [x1, y0, zt], [x1, y1, zt], [x0, y1, zt], 2, 4, 'dash', 0.2, true, BOAT_MAT.carbon);
   quadSub(push, [x0, y0, zf], [x0, y1, zf], [x0, y1, zt], [x0, y0, zt], 4, 2, 'dash', -0.05, true, BOAT_MAT.dash);
   faceEye(push, [[x0, y1, zf], [x1, y1, zf], [x1, y1, zt], [x0, y1, zt]], 'dash', 0.05, true, null, 0, BOAT_MAT.dash);
@@ -1275,7 +1296,16 @@ function boatConsole(K, push, P, L, on) {
 
 // OVERHEAD: the VHF in a pod off the lining, its handset on a clip, and a dome lamp.
 function boatOverhead(K, P, on) {
-  const z1 = P.roof - 0.035, z0 = P.roof - 0.105, x0 = 0.06, x1 = 0.48, y0 = 0.10, y1 = 0.62;
+  // ⚠ UNDER THE HEADLINING, WHEREVER THAT ENDS. In the Rooster's pilothouse the roof runs well forward
+  // of the eye and the pod hangs over the dash; under a Gamecock's raked canopy the headlining stops
+  // a hand's breadth forward of your head, and the same numbers hung the radio in mid-air in front
+  // of the screen. It slides aft to stay under the roof, and in from the wall where the canopy's
+  // tumblehome closes in over your shoulder.
+  const z1 = P.roof - 0.035, z0 = P.roof - 0.105;
+  const y1 = Math.min(0.62, (P.roofFront ?? 1) - 0.06), y0 = y1 - 0.52;
+  if (y0 < P.back + 0.3) return;
+  const wallX = P.wallAt ? Math.min(P.wallAt(y0, z0).stbd, P.wallAt(y1, z0).stbd) - 0.04 : 0.48;
+  const x1 = Math.min(0.48, wallX), x0 = x1 - 0.42;
   K.box(x0, y0, z0, x1, y1, z1, 'hdr', -0.25);
   const V = K.panel([(x0 + x1) / 2, y0 - 0.001, (z0 + z1) / 2], [1, 0, 0], [0, 0, 1], 'hdr', -0.2);
   V.rect(-0.22, -0.028, 0.22, 0.028, [16, 17, 20], 0, 0.001);
@@ -1310,23 +1340,42 @@ function boatCoDriver(K, push, P, px) {
   K.box(x1 - 0.05, y0, sz, x1, y1, sz + 0.05, 'seat', 0.08);
   K.box(x0, y0 - 0.10, sz, x1, y0 - 0.02, -0.12, 'seat', -0.02);
   seam(push, [[x0 + 0.05, y1, sz + 0.001], [x1 - 0.05, y1, sz + 0.001]], () => [0, 0.3, 1], { stitch: true });
-  // A grab handle across the top of the back, for the ride over a sea.
-  K.rod([x0 + 0.04, y0 - 0.06, -0.12], [x0 + 0.04, y0 - 0.06, -0.05], 0.01, 'dash', 0.1, C.chrome, 0.1, 5);
-  K.rod([x1 - 0.04, y0 - 0.06, -0.12], [x1 - 0.04, y0 - 0.06, -0.05], 0.01, 'dash', 0.1, C.chrome, 0.1, 5);
-  K.rod([x0 + 0.04, y0 - 0.06, -0.05], [x1 - 0.04, y0 - 0.06, -0.05], 0.012, 'dash', 0.1, C.chrome, 0.1, 6);
+  // A grab handle across the top of the back, for the ride over a sea. ⚠ LOW, for the same reason the
+  // back is: standing 7 cm proud it was a chrome bar 5 cm under the eye line, and in a canopy, where
+  // the port glass is closer and lower, the gate's rays through that window hit it.
+  const gTop = -0.085;
+  K.rod([x0 + 0.04, y0 - 0.06, -0.12], [x0 + 0.04, y0 - 0.06, gTop], 0.01, 'dash', 0.1, C.chrome, 0.1, 5);
+  K.rod([x1 - 0.04, y0 - 0.06, -0.12], [x1 - 0.04, y0 - 0.06, gTop], 0.01, 'dash', 0.1, C.chrome, 0.1, 5);
+  K.rod([x0 + 0.04, y0 - 0.06, gTop], [x1 - 0.04, y0 - 0.06, gTop], 0.012, 'dash', 0.1, C.chrome, 0.1, 6);
 }
 
 // BEHIND YOU: the lifejacket locker and the flare canister either side of the door.
+// ⚠ BETWEEN THE WALL AND THE DOOR, BOTH ASKED. The locker was authored at -1.50..-0.86 m, which in the
+// Rooster runs 0.28 m into her own doorway and in a narrower room stands through the side. Its outboard
+// edge is the wall at its own height and its inboard edge is the door jamb; too narrow a gap and there
+// is no locker, which is the honest answer for a canopy with no room either side of the hatch.
 function boatLockers(K, P) {
   const b = P.back + 0.005;
-  K.box(-1.50, b, -0.95, -0.86, b + 0.26, -0.18, 'post', -0.1);
-  for (let i = 0; i < 3; i++) {
-    const z = -0.90 + i * 0.24;
-    K.box(-1.46, b + 0.26, z, -0.90, b + 0.34, z + 0.20, 'dash', 0.1, [226, 112, 34], 0.05);
-    K.box(-1.47, b + 0.34, z + 0.08, -0.89, b + 0.345, z + 0.11, 'dash', 0, C.black);
+  const dHalf = P.door ? P.door.halfW : 0.3;
+  const wall = P.wallAt ? P.wallAt(b + 0.2, -0.18) : { port: P.xCentre - P.halfW, stbd: P.xCentre + P.halfW };
+  const lx0 = Math.max(-1.50, wall.port + 0.05), lx1 = Math.min(-0.86, P.xCentre - dHalf - 0.03);
+  // Standing on the sole, wherever that is: a canopy's is 0.23 m higher under the eye than the Rooster's.
+  const lz0 = Math.max(-0.95, P.floor + 0.002);
+  if (lx1 - lx0 >= 0.26) {
+    K.box(lx0, b, lz0, lx1, b + 0.26, -0.18, 'post', -0.1);
+    for (let i = 0; i < 3; i++) {
+      const z = lz0 + 0.05 + i * (0.72 + (-0.95 - lz0)) / 3;
+      if (z + 0.20 > -0.18) break;
+      K.box(lx0 + 0.04, b + 0.26, z, lx1 - 0.04, b + 0.34, z + 0.20, 'dash', 0.1, [226, 112, 34], 0.05);
+      K.box(lx0 + 0.03, b + 0.34, z + 0.08, lx1 - 0.03, b + 0.345, z + 0.11, 'dash', 0, C.black);
+    }
   }
-  K.box(0.80, b, -0.36, 0.96, b + 0.04, -0.34, 'dash', 0, C.steel);
-  K.rod([0.88, b + 0.10, -0.62], [0.88, b + 0.10, -0.30], 0.05, 'dash', 0.1, [214, 62, 28], 0.05, 8);
+  // The flare canister, starboard of the door and in from the wall.
+  const fx = Math.max(P.xCentre + dHalf + 0.10, Math.min(0.88, wall.stbd - 0.09));
+  if (fx < wall.stbd - 0.06) {
+    K.box(fx - 0.08, b, -0.36, fx + 0.08, b + 0.04, -0.34, 'dash', 0, C.steel);
+    K.rod([fx, b + 0.10, -0.62], [fx, b + 0.10, -0.30], 0.05, 'dash', 0.1, [214, 62, 28], 0.05, 8);
+  }
 }
 
 // ── THE ECHELON'S WHEELHOUSE ─────────────────────────────────────────────────

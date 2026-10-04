@@ -1,0 +1,35 @@
+{
+  "ambient_events": [
+    "The wind leans on the shed, and every hammock swings a little to the same side.",
+    "A loose sheet of corrugated iron bangs twice and goes quiet.",
+    "Somebody new asks, very quietly, whether it is meant to move like that.",
+    "A scaffold clamp creaks somewhere under the floorboards."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#221d18",
+  "color": "#c9a86a",
+  "description": "A shed of corrugated sheet on scaffold poles, with more washers holding the roof down than bolts. Hammocks are slung three deep between the poles, because bunks would weigh too much this high up. When the wind gets up the whole floor sways a little. The regulars sleep through it, and the new ones lie very still.",
+  "exits": {
+    "down": "zone_hostel_dorm_3",
+    "up": "zone_hostel_dorm_5"
+  },
+  "flags": {
+    "allow_sleep": true,
+    "building_name": "Hostel Takeover",
+    "building_type": "hostel",
+    "floor": "boards",
+    "is_building": true,
+    "is_dwelling": true,
+    "is_interior": true,
+    "region_id": "region_coldwater",
+    "sanctuary": true,
+    "world_exit_zone": "zone_district_917_903"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 4,
+  "id": "zone_hostel_dorm_4",
+  "map_id": "map_int_trackmarks",
+  "name": "Hostel Takeover, fourth floor",
+  "parent_zone": "zone_district_917_903"
+}

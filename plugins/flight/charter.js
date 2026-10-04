@@ -29,7 +29,7 @@ import { getEnvironmentState } from '../../server/engine/environment.js';
 import {
   getZone, liveAircraft, loadAircraft, persist, detach, out, toOccupants, pushHud,
   sendToZone, sendToPlayer, getLivePlayer, surfaceAt, setPosture, forceStand, bearingDeg, degToCardinal, effStats,
-  fieldFor as fieldOf, inHangarInterior, vtolOnlyField, airfieldOf, fieldName,
+  fieldFor as fieldOf, vtolOnlyField, airfieldOf, fieldName,
   isWalkableCabin, isCabinZone, boardCabin,
 } from './state.js';
 import { removePlayerFromZone } from '../../server/engine/world.js';
@@ -143,9 +143,12 @@ function hangarInteriorOf(cp) { return getZone(cp.field)?.flags?.hangar_interior
 // Where a set-down passenger actually ends up at a destination: INSIDE the walk-in
 // hangar when the field has one (so they arrive at the desk, not out on the runway),
 // else the field/ramp tile itself. Mirrors the self-flown landing (parkAt in state.js).
+// Where a charter passenger is set down: the field's arrivals hall if its ramp names
+// one (`arrivals_zone`), else its walk-in hangar, else the ramp itself.
 function dropZoneOf(destZoneId) {
-  const hangar = getZone(destZoneId)?.flags?.hangar_interior_zone;
-  return getZone(hangar) ? hangar : destZoneId;
+  const f = getZone(destZoneId)?.flags;
+  for (const z of [f?.arrivals_zone, f?.hangar_interior_zone]) if (z && getZone(z)) return z;
+  return destZoneId;
 }
 // "At work" = out on a flight, OR present at their field — either sitting at the
 // desk inside the walk-in hangar OR standing on the ramp tile itself.
@@ -259,7 +262,9 @@ function openDeskElsewhere(exceptField) {
 function charterGate(player) {
   const field = fieldOf(player);
   if (!airfieldOf(field)?.charter) return { err: { type: 'emote', message: "There's no charter desk here." } };
-  if (field.flags.hangar_interior_zone && !inHangarInterior(player))
+  // The desk is indoors: the walk-in hangar, or a terminal room that names this ramp
+  // (`hangar_ramp`, which every hangar interior also carries): Coldwater Regional's gate.
+  if (field.flags.hangar_interior_zone && !getZone(player.current_zone)?.flags?.hangar_ramp)
     return { err: { type: 'emote', message: 'The charter desk is inside the hangar. Step <b>in</b> off the ramp to book a flight.' } };
   if (player.aircraftId) return { err: { type: 'emote', message: "You're already aboard something. Disembark first." } };
 

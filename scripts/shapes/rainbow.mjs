@@ -23,7 +23,7 @@ const N = 41, R = 20, CX = 500, CY = 500;
 const map = Array.from({ length: N }, () => Array.from({ length: N }, () => ({ kind: 'land', biome: 'grassland', flr: 0 })));
 const field = (cells) => ({
   tick: 30, bounds: { minX: CX - 80, maxX: CX + 80, minY: CY - 80, maxY: CY + 80 },
-  wind: { dir: 220, kph: 10 }, baseCloud: 0.1, precipFloor: 0, floorType: 'none',
+  wind: { dir: 220, kph: 10 }, baseCloud: 0.1,
   cells: cells.map(([x, y, r]) => ({ x, y, r, vx: 0, vy: 0, type: 'precip', intensity: 0.9, precip: 'rain' })),
 });
 

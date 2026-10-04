@@ -75,15 +75,23 @@ const WX_SKY = {
   ash:    [0.45, ['cloud', 'precip']],
   dust:   [0.35, ['cloud', 'cloud']],
 };
+// ⚠ AND A SHOWER OVER THE SEAT FOR THE THREE THAT FALL. Rain only falls under a precip or storm
+// cell (windshield.js precipGate, since 2026-10-03), and the cells above are parked AROUND the seat,
+// none of them over it, so `weather: 'rain'` drew a grey sky and a dry street. This one sits still
+// on the seat so the word still buys what it says.
+const WET_SEAT = { rain: 'rain', storm: 'rain', snow: 'snow' };
 function skyField(wx, x, y) {
   const [baseCloud, kinds] = WX_SKY[wx] || WX_SKY.clear;
   return {
     tick: 30, bounds: { minX: x - 40, maxX: x + 40, minY: y - 40, maxY: y + 40 },
-    wind: { dir: 220, kph: 18 }, baseCloud, precipFloor: 0, floorType: 'none',
-    cells: kinds.map((k, i) => ({
-      x: x + (i - 1) * 9, y: y - 12 + i * 8, r: 13 - i * 2, vx: 0.4 - i * 0.3, vy: 0.2 + i * 0.2,
-      type: k, intensity: 0.9 - i * 0.1, precip: k === 'cloud' ? 'none' : 'rain',
-    })),
+    wind: { dir: 220, kph: 18 }, baseCloud,
+    cells: [
+      ...kinds.map((k, i) => ({
+        x: x + (i - 1) * 9, y: y - 12 + i * 8, r: 13 - i * 2, vx: 0.4 - i * 0.3, vy: 0.2 + i * 0.2,
+        type: k, intensity: 0.9 - i * 0.1, precip: k === 'cloud' ? 'none' : 'rain',
+      })),
+      ...(WET_SEAT[wx] ? [{ x, y, r: 7, vx: 0, vy: 0, type: wx === 'storm' ? 'storm' : 'precip', intensity: 0.8, precip: WET_SEAT[wx] }] : []),
+    ],
   };
 }
 

@@ -25,23 +25,10 @@ export const NAMED_MODELS = {
   chromecourt:                    { type: 'chrome',    pal: 'ty_chrome' },
   themeridianlobby:               { type: 'meridian',  pal: 'ty_meridian', penthouse: true },
   precinct9:                      { type: 'police',    pal: 'ty_police' },
-  // ⚠ THE OTHER END OF SECOND HELPINGS' TRUNK MAIN IS NOT HERE, AND A RISER ON THIS TILE IS WHY IT
-  // STOPPED IN THE AIR TWICE. This record carried a standpipe on its north flank for the shop's
-  // main to land on, on the reasoning that a vertical pipe needs no agreement about height — it
-  // spans the band, so wherever the main arrives it arrives ON it. The shape of the argument is
-  // right and the number was not: the riser topped out at 0.55·h and the main arrives at 0.92 of
-  // the SHOP's h, which measured is 0.39 against 0.71. It reached 54% of the way up and the pipes
-  // hung over the alley, which is exactly what the riser was added to fix.
-  //
-  // Making the band wide enough is arithmetic — both tiles are four storeys (`store` has no
-  // TYPE_FLOORS row and falls to `default`; `clinic` is 4), so the two `h` rolls are within
-  // 0.82–1.22 of each other and a riser to 1.22·h would catch every seed. It is still the wrong
-  // shape: that ratio is an accident of two defaults, a `flags.floors` on either tile ends it
-  // silently, and the riser would then stand a third of its length clear of this building's own
-  // roofline holding nothing up. The junction moved onto the SHOP's tile instead, where the run
-  // and the party wall it dies in share one `fh` and one `h` and nothing has to be assumed about
-  // the neighbour — see the ⚠ above 'secondhelpings'. Nothing replaces it here; the kit fills the
-  // riser section this list used to own.
+  // ⚠ THE MAIN TO SECOND HELPINGS IS DRAWN BY THIS BUILDING'S ARM, with its plan in tiles rather
+  // than fh (GUT in glass/models/downtown.js). Three earlier junctions tried to make the two tiles
+  // agree on a height each one rolls for itself, and every one left a pipe in the air or through
+  // the sign. The kit's riser section is declined (KIT_DECLINE): the arm draws the plant.
   coldwaterclonefacility:         { type: 'clone',     pal: 'ty_clone' },
   ksabtvstudiostage:              { type: 'ksabstudio', pal: 'ty_ksab', neon: '#39d6ff' },
   ksabwriterswing:                { type: 'studiogate', pal: 'ty_ksab', neon: '#39d6ff' },
@@ -165,70 +152,22 @@ export const NAMED_MODELS = {
   sentimentalvaluepawn:           { type: 'sentimental', pal: 'ty_sentimental', neon: '#ffcf3e' },
   grindhouse:                     { type: 'grindhouse',  pal: 'ty_grind', neon: '#ff8a2a' },    // twin: Second Amendment keeps `armory`
   trackmarksfreight:              { type: 'signalbox',   pal: 'ty_signalbox' },
-  // ⚠ THE TRUNK MAIN IS THE POINT OF THIS BUILDING AND IT IS DRAWN NOW. The arm's own comment said
-  // "the trunk pipe through the party wall is not drawn, it is there", which is a good joke and a
-  // building nobody can read: the whole reason Second Helpings shares a wall with the Coldwater
-  // Clone Facility is where the food comes from, and a viewer on Ironside Street had nothing in
-  // front of them that said so. A pale clinical line in the FACILITY's palette, crossing the
-  // shopfront, says it without a word of prose.
+  // ⚠ THE TRUNK MAIN IS THE POINT OF THIS BUILDING. The shop shares a wall with the Coldwater Clone
+  // Facility because that is where the food comes from, and a viewer on Ironside Street should see
+  // it arrive without a word of prose: a glass main from the clone's vats into the party wall, up
+  // the shop's south corner into the masher on the roof, back down into a header, and a leg into
+  // every dispenser. Once a minute a slug of product goes the whole way (`gutPhase`).
   //
-  // ⚠ AND THE SOUTH END DIES IN THE PARTY WALL, WHICH IS THE ONLY THING ON THIS TILE TALL ENOUGH
-  // TO SWALLOW IT. Two earlier attempts both aimed the run at the NEIGHBOUR and both left it
-  // hanging in open air, which is the report this came from — a line somebody drew rather than
-  // plant. The first buried the end in the facility's north wall; the second put a riser on the
-  // facility for it to land on. Neither can work, and the arithmetic says why: the run was at
-  // 0.92·h on THIS tile and the facility's own `h` is a separate roll of the same formula, so the
-  // arrival height is somewhere in 0.75–1.12 of the neighbour's `h` depending on two seeds nobody
-  // holds at once. The riser topped out at 0.55 of it — 0.39 against an arrival at 0.71 — and the
-  // wall it was meant to bury in is only 0.80 of it. ⚠ WORSE, BOTH ARE 0.82–1.22 OF EACH OTHER
-  // ONLY WHILE THE TWO TILES CARRY THE SAME FLOOR COUNT (`store` has no TYPE_FLOORS row and falls
-  // to `default` 4; `clinic` is 4), so even the band is an accident a `flags.floors` would end.
+  // ⚠ THE CROSSING IS DRAWN BY THE CLONE'S ARM, AND THE PARTY WALL, THE RISER AND THE DOWNCOMER ARE
+  // IN TILES. The two tiles roll fh and h separately, so a pipe written in either one's basis meets
+  // the other somewhere it wasn't put. Every earlier version of this junction tried to make the two
+  // rolls agree, and left a pipe in the air or, on the live seeds, through the clone's sign plate.
+  // Now neither side decides where the wall is: both read `GUT` (glass/models/downtown.js), and each
+  // side's pipe dies in the wall at its own height, which the wall hides. The riser and its stub
+  // out of the wall are glass and drawn in the arm with `tubeRun`; this list is the shop's own pipework.
   //
-  // So the junction is on ONE tile and shares ONE basis. The blade at −1.00fh is a mass box in the
-  // facility's own pale palette, standing 1.12·h — well clear of the run — and the main stops dead
-  // in the middle of it. Nothing is asserted about the neighbour at all.
-  //
-  // ⚠ AND THE RUN NOW CROSSES ANYWAY, ON A TARGET THAT IS A CONSTANT RATHER THAN A ROLL. Keeping
-  // the junction on one tile left the building honest and left the player looking at a pipe coming
-  // out of a wall, with nothing on screen saying what is on the other side of it — which is the
-  // whole point of this shop. What killed both earlier attempts was aiming at a height the
-  // neighbour rolls for itself. The facility's main block does not roll the thing that matters
-  // here: it is authored at fh·1.18 and `draw3DBoxAt` caps a half-width at 0.44, so it is ALWAYS
-  // clamped, and its north face is therefore ALWAYS 0.56 of a tile from this tile's centre
-  // whatever either seed says. The crossing states that end as a CONSTANT (−0.66, a tenth of a
-  // tile inside the block) and its north end in fh, inside the blade at every footprint the
-  // renderer can produce.
-  //
-  // ⚠ AND IT IS LOW, WHICH IS THE ONLY PART STILL RESTING ON THE TWO h ROLLS. The block is solid
-  // to 0.8·h_facility, so a crossing at 0.55·h_shop needs h_shop/h_facility < 1.45 and the pair
-  // sit in 0.82–1.22 — 19% of margin, against the negative margin the run at 0.92·h had. It is
-  // also why the crossing is a SEPARATE tube rather than the main dropped to meet it: the main is
-  // at 0.79 to stay inside the fascia band and clear of the marquee, and a service line painted
-  // through a shop sign is the thing this comment has already refused once. The blade is opaque
-  // and 1.12·h tall, so it hides the step between them — which is what a main through a party
-  // wall looks like from the street.
-  //
-  // ⚠ AND THE BLADE IS PUSHED FORWARD ON ITS OWN PLOT, WHICH IS THE `fd` CLAMP TALKING. It swallows
-  // the end only while the end is inside its DEPTH, and `draw3DBoxAt` caps both half-extents at
-  // 0.44 of a tile — so a blade centred on the plot reaches 0.44 at the top of fh's range (0.38–
-  // 0.44) while the run it has to cover is at 1.03fh + r = 0.486, and the last few hundredths poke
-  // out the far side. Offsetting the blade 0.15fh toward the street buys 0.02–0.04 of margin at
-  // every fh, and a party wall that projects past the frontage and stops short of the back of the
-  // plot is what one between a shop and a plant looks like anyway.
-  //
-  // ⚠ AND IT RUNS ON THE FASCIA, NOT OVER THE PARAPET, WHICH IS WHAT `anchored` IS FOR. The run
-  // used to sit at 0.92·h with the building's own top at 0.82 — above every wall it could have
-  // been bolted to, and above the roof it could have stood on. That is `anchored`'s FLOATING case
-  // exactly, and its own ⚠ says why nothing else catches it: a part hanging in the air draws
-  // perfectly and identically every frame.
-  //
-  // ⚠ AND THE HEADER CAME DOWN TO 0.50 SO THE FASCIA COULD CARRY THE NAME. It sat at 0.79, inside
-  // the fascia box's own z band, which put it exactly where a shopfront letters itself — so the
-  // sign was driven down onto the wall below, and while the sign was a `marqueeBand` the size of
-  // the building nobody noticed it had been. With the name painted on the fascia where it belongs,
-  // the two swap: lettering in the band, plant on the wall under it. A service line painted
-  // through a shop sign is what makes a building look like two drawings on top of each other, and
-  // there is still only one facade for the two of them to share.
+  // ⚠ AND THE HEADER RUNS AT 0.50, UNDER THE FASCIA, SO THE FASCIA CAN CARRY THE NAME. A service
+  // line painted through a shop sign makes a building look like two drawings on top of each other.
   secondhelpings: {
     type: 'helpings', pal: 'ty_helpings_w', neon: '#6aff9a',
     // ⚠ TRIPLES, NOT NUMBERS. A model FILE is authored in plain units and `compileModel` turns each
@@ -238,27 +177,18 @@ export const NAMED_MODELS = {
     // guard in these painters. It draws nothing, throws nothing, and reaches the commit: the first
     // cut of this list did exactly that and looked like the parts had simply not been wired up.
     detail: [
-      // ── THE MAIN, AND WHERE IT ACTUALLY GOES ────────────────────────────────────────────────
-      // Out of the party wall at the height it crossed at, up the south corner of the frontage to
-      // the roof, into the masher the arm draws, back down beside itself, and along a header with
-      // a leg into every dispenser. What changed is the far end: the old run came out of a wall
-      // and went into a wall, which is a service riser and not plant.
-      //
-      // ⚠ THE RISER STANDS JUST NORTH OF THE BLADE, NOT ON IT. The party wall spans −1.07fh to
-      // −0.93fh, so a pipe on its own centre is buried in it and draws nothing at all through a
-      // depth buffer — which is what the old link up the wall was doing, and why it could be
-      // deleted without losing a pixel. −0.86fh clears the blade's north face at every footprint
-      // the renderer can produce, and the blade's own corner still hides the jog from the
-      // crossing, which is the argument that put it there.
-      { kind: 'pipe', cx: [-0.86, 0, 0], cy: [1.02, 0, 0], z0: [0, 0.50, 0], z1: [0, 0.92, 0], r: [0.040, 0, 0], pal: 'ty_clone' },      // raw, up the corner and over the parapet
-      { kind: 'pipe', cx: [-0.70, 0, 0], cy: [1.02, 0, 0], z0: [0, 0.50, 0], z1: [0, 0.855, 0], r: [0.046, 0, 0], pal: 'ty_clone' },     // …and product back down beside it, fatter, because it is carrying more than it went up with
-      { kind: 'conduit', cx: [0.07, 0, 0], cy: [1.02, 0, 0], z: [0, 0.50, 0], half: [0.77, 0, 0], r: [0.040, 0, 0], pal: 'ty_clone' },   // the header, over the shopfront
+      // The product back down beside the riser, fatter because it's carrying more than it went up
+      // with, and the header from it across the shopfront to the north end of the wall. The south
+      // end is in tiles for the riser's reason: in fh the pair stood inside the party wall at the
+      // top of fh's range.
+      { kind: 'pipe', cx: [0, 0, -0.27], cy: [1.02, 0, 0], z0: [0, 0.50, 0], z1: [0, 0.855, 0], r: [0.046, 0, 0], pal: 'ty_clone' },
+      { kind: 'conduit', cx: [0.42, 0, -0.135], cy: [1.02, 0, 0], z: [0, 0.50, 0], half: [0.42, 0, 0.135], r: [0.040, 0, 0], pal: 'ty_clone' },
       { kind: 'conduit', cx: [0.08, 0, 0], cy: [1.00, 0, 0], z: [0, 0.462, 0], half: [0.72, 0, 0], r: [0.016, 0, 0], pal: 'ty_2cell' },  // the return beside it — one tube is a prop, two is plant
-      // ⚠ AND THE TRUNK IS THE PLANT'S COLOUR WHILE THE LEGS ARE THE SHOP'S. The main, the riser,
-      // the downcomer and the crossing are all `ty_clone` on purpose — a pale clinical line in the
-      // FACILITY's own palette is what says where the food comes from without a word of prose. The
-      // seven legs and the return are ordinary galvanised (`ty_2cell`), which is both true (they are
-      // the shop's own pipework, not the plant's) and the only way they READ: `ty_clone` is
+      // ⚠ AND THE TRUNK IS THE PLANT'S COLOUR WHILE THE LEGS ARE THE SHOP'S. The downcomer and the
+      // header are `ty_clone` on purpose: a pale clinical line in the FACILITY's palette says where the
+      // food comes from. The seven legs and the return are ordinary galvanised (`ty_2cell`), which
+      // is both true (they are the shop's own pipework, not the plant's) and the only way they
+      // READ: `ty_clone` is
       // [176,200,204] against a `ty_helpings_w` wall at [214,220,220], so seven evenly spaced pale
       // bars on a pale wall came out as fluting rather than as plumbing.
       // ⚠ AND SEVEN LEGS OFF IT, ON THE CABINETS' OWN CENTRES. This is the part that says the
@@ -275,30 +205,6 @@ export const NAMED_MODELS = {
       // perfectly and identically every frame and is exactly the case that gate exists for.
       { kind: 'pipe', cx: [0.84, 0, 0], cy: [1.02, 0, 0], z0: [0, 0.26, 0], z1: [0, 0.50, 0], r: [0.040, 0, 0], pal: 'ty_clone' },        // …and down the north end of the wall into the shop
       { kind: 'vent', cx: [0.79, 0, 0], cy: [1.00, 0, 0], z: [0, 0.24, 0], w: [0.12, 0, 0], hh: [0, 0.055, 0], drip: 0.5, pal: 'ty_clone' }, // where it goes in, and what it has left down the wall
-      // …and THE CROSSING, which is the half that was missing: the main comes out of the
-      // FACILITY rather than out of a wall the player has to be told is shared. See the ⚠ above.
-      //
-      // ⚠ AND ITS STAND-OFF IS WHAT DECIDES WHETHER ANY OF IT IS VISIBLE, WHICH IS NOT OBVIOUS AND
-      // COST A DRAFT. The gap between the two plots is only 0.09–0.20 of a tile, and the party wall
-      // runs the depth of the plot and stands 0.20fh PROUD of this building's own frontage — so it
-      // is a slot, and anything set back inside it is behind a wall from every angle a player
-      // stands at. Authored at 0.80fh the crossing drew 87 pixels of an 780×520 frame; brought
-      // forward to the frontage plane, the same tube at the same radius drew 2,209.
-      //
-      // ⚠ AND IT RUNS ALONG THE FACILITY'S OWN WALL RATHER THAN ACROSS THE GAP, WHICH IS THE ONLY
-      // PLACE THERE IS TO SEE IT. The two frontages are flush and the plots are 0.09–0.20 of a tile
-      // apart, so from the street the gap is not a gap — the party wall's end covers it at every
-      // heading a player stands at, and a tube crossing inside it measured 0 pixels of a 780×520
-      // frame from nine separate seats. The facility's east facade is open, and it is where a main
-      // like this would be clipped anyway.
-      //
-      // ⚠ SO THE STAND-OFF IS AN ABSOLUTE 0.45 AND NOT A MULTIPLE OF fh. The wall it is mounted on
-      // belongs to the neighbour, and the neighbour's east face is at a CONSTANT 0.44 from this
-      // tile's centre — its block is authored at fh·1.18 and `draw3DBoxAt` caps a half-width at
-      // 0.44, so it is clamped at every footprint the renderer can produce. 0.45 is a hundredth of
-      // a tile proud of that wall at every scale: mounted, never buried, never z-fighting. In fh it
-      // would be inside the wall at one end of the range and off the corner at the other.
-      { kind: 'conduit', cx: [-0.475, 0, -0.475], cy: [0, 0, 0.45], z: [0, 0.55, 0], half: [-0.475, 0, 0.475], r: [0.075, 0, 0], pal: 'ty_clone' },
     ],
   },
   // ── DEADWATER — the Null's works ───────────────────────────────────────────
@@ -399,6 +305,10 @@ export const NAMED_MODELS = {
   frondmemories:                  { type: 'hf_palmhouse', pal: 'ty_hfp_glass', neon: '#7fe6b4' },
   rootcause:                      { type: 'hf_rootfarm',  pal: 'ty_hfv_glass', neon: '#e07ad8' },
   lineofenquiry:                  { type: 'hf_stophalt',  pal: 'ty_hf_chrome', neon: '#5ac8ff' },
+  // The two rooms the Outer Lock's hall swallows (old-coldwater.js). Named, so the `weigh_station`
+  // and `police` arms stay as they are for the plazas on the void highway and Precinct 9.
+  theglacisweigh:                 { type: 'glacis_booth', pal: 'ty_hf_mirror' },
+  thegatepost:                    { type: 'gate_post',    pal: 'ty_hf_mirror' },
 };
 export function namedModel(name) { return NAMED_MODELS[bldgSlug(name)] || null; }
 
@@ -445,6 +355,7 @@ export const TYPE_MODEL = {
   hangar:           { type: 'hangar',    pal: 'ty_hangar_a' },
   control_tower:    { type: 'atc',       pal: 'ty_arrivals', noKit: true },   // the airfield's buildings are authored whole; see UNSIGNED_TRADE
   arrivals:         { type: 'arrivals',  pal: 'ty_arrivals', noKit: true },
+  departures:       { type: 'departures', pal: 'ty_arrivals', noKit: true },   // the terminal's south half; see the arrivals arm
   gun_shop:         { type: 'armory',    pal: 'ty_armory', neon: '#ff6a4a' },
   blade_shop:       { type: 'armory',    pal: 'ty_forge',  neon: '#ff8a2a' },
   casino:           { type: 'casino',    pal: 'ty_casino', neon: '#ff3e8a' },

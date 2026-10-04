@@ -44,8 +44,6 @@ const FIELD = (precip) => ({
   bounds: { minX: 80, maxX: 120, minY: 80, maxY: 120 },
   wind: { dir: 220, kph: 18 },
   baseCloud: 0.55,
-  precipFloor: precip ? 0.4 : 0,
-  floorType: precip || 'none',
   cells: [
     { x: 100, y: 92, r: 14, vx: 0.4, vy: 0.2, type: 'cloud', intensity: 0.8, precip: 'none' },
     { x: 108, y: 104, r: 10, vx: -0.3, vy: 0.5, type: 'precip', intensity: 0.7, precip: 'rain' },

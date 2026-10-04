@@ -30,7 +30,7 @@ import { rigs, driveToZone, crossToNode, surfaceUnder, announceBreak, cbLine, pa
   tryDoorBoard, doorBoardLine } from './state.js';
 import { TILES_PER_ROOM, nodeAt } from './corridor.js';
 import { afterDrive } from './scale.js';
-import { lockTick } from './lock.js';
+import { lockTick, doorDown, DOOR_DOWN } from './lock.js';
 import { hitcherAt } from './hitchers.js';
 import { wearFor, breakdownRoll } from './rig.js';
 import { roadTestTick } from './roadtest.js';
@@ -300,11 +300,14 @@ async function stepRun(player, rig, run) {
     runs.delete(player.id);
     return;
   }
-  run.step++;
   const z = getZone(next);
+  const prevZone = getZone(player.current_zone);
+  // The Outer Lock's door, down for a lockdown. The route was found over exits that are there in
+  // peacetime, so the rig drives up to the door and stops at it, as a cab would.
+  if (doorDown(prevZone, z)) { narrate(player, DOOR_DOWN); runs.delete(player.id); return; }
+  run.step++;
   if (z?.grid_x != null) { rig.x = z.grid_x; rig.y = z.grid_y; }
   burn(rig, 1);
-  const prevZone = getZone(player.current_zone);
   const zone = driveToZone(player, rig, next);
   await afterDrive(player, rig, zone);      // the same weighbridge — one law, both rungs
   // The South Lock. A text driver pulled for a search is stopped in it and searched; `drive` again

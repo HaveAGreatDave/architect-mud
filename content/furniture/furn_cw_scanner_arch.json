@@ -1,0 +1,14 @@
+{
+  "description": "A grey walk-through metal detector with a strip of lights down one post. It beeps at belt buckles and keys.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cw_scanner_arch",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the scanner arch",
+  "object_type": "fixture",
+  "power_draw_kw": 0.3,
+  "price": 0,
+  "zone_id": "zone_cw_security"
+}

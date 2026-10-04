@@ -9,11 +9,28 @@
 // covered without touching the plugin. A verb shared with harmless uses (a
 // gametable `join`) is gated in its own handler with isGuest() instead.
 
+import { world } from './world.js';
+
 export const GUEST_ROLE = 'guest';
 export const GUEST_TTL_DAYS = 7;
 
 export function isGuest(player) {
   return player?.role === GUEST_ROLE;
+}
+
+// Where a guest lives: the zone content flags `guest_home` (the clone hostel's
+// dorm today). Read off the flag so the engine never names a room. A guest gets it
+// as home_zone at creation; a guest made before the flag existed still resolves
+// here, through homeZoneOf.
+export function guestHomeZoneId() {
+  for (const z of world.zones.values()) if (z.flags?.guest_home) return z.id;
+  return null;
+}
+
+// A player's home: the bound home_zone, or for a guest with none, the hostel.
+export function homeZoneOf(player) {
+  if (player?.home_zone && world.zones.has(player.home_zone)) return player.home_zone;
+  return isGuest(player) ? guestHomeZoneId() : null;
 }
 
 // Verb -> what the refusal names. Value out of the account, or text that stays

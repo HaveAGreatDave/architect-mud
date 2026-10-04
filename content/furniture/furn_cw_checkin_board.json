@@ -1,0 +1,14 @@
+{
+  "description": "A split-flap board hung on chains: TO, TIME, GATE. Every row says GATE 1.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cw_checkin_board",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the departures board",
+  "object_type": "fixture",
+  "power_draw_kw": 0.2,
+  "price": 0,
+  "zone_id": "zone_cw_checkin"
+}

@@ -879,9 +879,10 @@ export const AUTHORED_DETAIL = {
       // ⚠ `|| ''` IS LOAD-BEARING NOW THAT A MARK ALONE GETS HERE. An empty label is the whole
       // point of a badge — `bakeSignText` handles `''` by laying out no glyph run and centring the
       // mark — but `undefined` reaches `label.length` and throws inside the detail layer.
-      const tex = bakeSignText(say, d.ink || inkFor(bare ? shadeOf(d.pal || c.pal, 1) : board), c.night ? 1 : 0, false, true, true, d);
+      // `nightInk` is a backlit name: dark letters on the board by day, lit letters after dark.
+      const tex = bakeSignText(say, (c.night && d.nightInk) || d.ink || inkFor(bare ? shadeOf(d.pal || c.pal, 1) : board), c.night ? 1 : 0, false, true, true, d);
       const w = pts.map(([lx, ly, z2]) => { const [wx, wy] = c.F(lx, ly); return c.cam.proj(wx, wy, z2); });
-      if (w.every((q) => q.f > 0.12)) {
+      if (w.every((q) => q.f > 0.065)) {   // proj clamps at 0.06; 0.12 blanked the words as you walked up to the board
         // `perTile` boards are canvas-painted, so their lettering has to be too — see the ⚠ on
         // `onCanvas` in emitSurfaceText, or the board covers its own words in GLASS 2.
         // ⚠ AND BARE LETTERING CLEARS ONLY ITS OWN BRICKWORK. There is no board to get in front
@@ -1052,7 +1053,7 @@ export const AUTHORED_DETAIL = {
       const rod = bracketCol();
       const rise = out * 0.95;
       for (const sx of [-1, 1]) {
-        const bx = c.lx + sx * half * 0.8;
+        const bx = c.lx + sx * (half - rt);   // at the slab's ends: inboard, they crossed the signboard over the door
         Q([[bx - rt, y1, z + hh], [bx + rt, y1, z + hh], [bx + rt, y0, z + hh + rise], [bx - rt, y0, z + hh + rise]], rod, c.alpha,
           { lift: DETAIL_LIFT * 1.5 });
       }

@@ -88,6 +88,8 @@ function numeral(Pn, ch, a, b, h, rgb, glow, lift) {
 // ⚠ EVERY SWITCH HERE DOES SOMETHING. The helm used to carry two rocker banks that were set dressing
 // (bilge, blower, anchor light…) with nothing behind them; they are gone. A switch that is drawn is
 // a switch boat-view acts on: the dome lamp, the wipers, the horn and the gauge lights.
+// The word on each hull's fascia badge. In the legend face's glyph set (see the ⚠ at the top).
+const HULL_BADGE = { hydro: 'ROOSTER', spur: 'SPUR', gamecock: 'GAMECOCK' };
 export const HYDRO_SWITCHES = [
   { id: 'cabin', label: 'CABIN', lamp: C.amber },
   { id: 'wipe', label: 'WIPE', lamp: C.green },
@@ -103,8 +105,20 @@ function fasciaPanels(K, P) {
   const Rt = bevel(K, F, 0.26, -0.03, 0.60, 0.20, 0.012, 0.008, HY.carbon);
   return { F, Lp, Rt };
 }
+// ⚠ THE CONSOLE'S SPAN, ONCE, FOR BOTH FILES THAT DRAW IT. `boatConsole` (interior-fit.js) builds the
+// carbon box and this file caps it, and the two used to restate x0 = 0.74 separately. In a room
+// narrower than the Rooster's the outboard edge comes in to the wall (`wallAt`, interior-shell.js) at
+// the console's own top, which is where the tumblehome makes the wall narrowest, and the console
+// keeps at least a forearm's width.
+export function consoleSpan(P) {
+  const y0 = -0.35, y1 = 0.60, zt = -0.47;
+  const wall = P.wallAt ? Math.min(...[y0, (y0 + y1) / 2, y1].map((y) => P.wallAt(y, zt).stbd)) : P.xCentre + P.halfW;
+  const x1 = Math.min(0.98, wall - 0.02, P.xCentre + P.halfW - 0.02);
+  const x0 = Math.min(0.74, x1 - 0.20);
+  return { x0, x1, y0, y1, zt };
+}
 function consolePanels(K, P) {
-  const x0 = 0.74, x1 = Math.min(0.98, P.xCentre + P.halfW - 0.02), y0 = -0.35, y1 = 0.60, zt = -0.47;
+  const { x0, x1, y0, y1, zt } = consoleSpan(P);
   const T = K.panel([(x0 + x1) / 2, (y0 + y1) / 2, zt + 0.001], [1, 0, 0], [0, 1, 0]);
   const S = K.panel([x0 - 0.001, 0.22, -0.64], [0, 1, 0], [0, 0, 1]);
   return { x0, y0, y1, zt, T, S };
@@ -173,13 +187,16 @@ export function hydroDetail(P, live, push) {
   // ── THE FASCIA ─────────────────────────────────────────────────────────────
   const { F, Lp, Rt } = fasciaPanels(K, P);
   // A red pinstripe right across the fascia under the dash lip, broken by the wheel column.
-  for (const [a0, a1] of [[-0.95, -0.22], [0.22, 0.95]]) F.rect(a0, 0.222, a1, 0.230, HY.anod, 0.1, 0.002);
+  // It runs to the wall either side, which in a canopy is well short of the Rooster's 0.95 m.
+  const fw = P.wallAt ? P.wallAt(P.dashY, -0.28) : { port: cx - 0.95, stbd: cx + 0.95 };
+  for (const [a0, a1] of [[-Math.min(0.95, cx - fw.port - 0.03), -0.22], [0.22, Math.min(0.95, fw.stbd - cx - 0.03)]]) F.rect(a0, 0.222, a1, 0.230, HY.anod, 0.1, 0.002);
   // Two raised carbon panels either side of the column, in the band of fascia the eye actually
   // reaches, each a slab with a chamfered billet edge. Port is the helm's one switch panel (the
   // strip that used to sit behind the wheel moved here). Starboard: oil and water, on white faces
   // in billet bezels.
+  // The badge is the hull's own name, the way a builder letters the helm of what it built.
   Lp.rect(-0.55, 0.145, -0.31, 0.185, HY.anod, 0.05, 0.002);
-  label(Lp, 'OFFSHORE', -0.43, 0.165, 0.020, 0.004);
+  label(Lp, HULL_BADGE[P.hull] || 'OFFSHORE', -0.43, 0.165, (HULL_BADGE[P.hull] || '').length > 7 ? 0.017 : 0.020, 0.004);
   HYDRO_SWITCHES.forEach((sw, i) => {
     const a = SW_U(i), st = switchOn(sw.id, L);
     // The horn is a push button (held, like the truck's cord); the rest are toggles with a lamp over
@@ -227,9 +244,13 @@ export function hydroDetail(P, live, push) {
   if (TQ) {
     const side = TQ.side ?? 1, tqx = cx + side * (TQ.x ?? 0.44) - side * 0.001;
     const py = TQ.y ?? 0.34, pz = TQ.z ?? -0.44;
-    const Q = K.panel([tqx, py, pz], [0, 1, 0], [0, 0, 1]);
-    label(Q, 'IDLE', -0.060, 0.105, 0.012, 0.002);
-    label(Q, 'AHEAD', 0.075, 0.105, 0.012, 0.002);
+    // ⚠ ACROSS IS AFT, NOT FORWARD. The panel faces the driver, who looks at it outboard; facing
+    // starboard, forward is to your LEFT, so with `r` pointing forward every letter read right to
+    // left and the gate said DAƎHA. Aft is reading order from the seat, so IDLE (aft) is at +u.
+    const Q = K.panel([tqx, py, pz], [0, -side, 0], [0, 0, 1]);
+    // On the binnacle's inboard face, under its billet cap (interior-shell.js throttleFaces).
+    label(Q, 'IDLE', 0.060 * side, -0.030, 0.012, 0.002);
+    label(Q, 'AHEAD', -0.065 * side, -0.030, 0.012, 0.002);
   }
   // The panel lights' own pool: a soft warm wash across each slab when the dials are lit.
   if (lit) for (const Pp of [Lp, Rt]) Pp.rect(Pp === Lp ? -0.59 : 0.27, -0.02, Pp === Lp ? -0.27 : 0.59, 0.19, HY.glow, 1, 0.0012);

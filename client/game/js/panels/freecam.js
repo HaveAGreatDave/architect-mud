@@ -171,6 +171,34 @@ const ORBIT_MIN = 1.2;
 // Exported because the harness asserts the subject stays centred, and it cannot ask that question
 // without knowing what the subject is; a copy of the number there would be a second opinion.
 export const ORBIT_PIVOT_Z = 0.3;
+// ── FOLLOWING A SUBJECT ──────────────────────────────────────────────────────
+// The orbit above goes round the window's origin, which in a seat is the vehicle and in freelook is
+// nothing. `track` gives the camera a subject that moves: the panel hands in where it is every frame
+// and the eye is put `d` tiles back from it along the aim. So everything that already AIMS the camera
+// (the mouse, the rim, Q/E, the middle drag) swings it round the subject instead, with no new control.
+// A bird is drawn at true size (a hawk's wingspan is ~0.07 tiles, a perched falcon ~0.02 tall), so
+// the default is close and the lens goes to its longest stop on the way in. At 6 m and 2× a perched
+// peregrine was a speck.
+export const TRACK_NEAR = 0.15;                // tiles back from the subject; about 2.7 m (exported for the harness)
+const TRACK_MIN = 0.08, TRACK_MAX = 8, TRACK_STEP = 1.25;
+const TRACK_FOV = FOV_MAX;                     // the lens it zooms to on the way in
+const TRACK_EASE = 3;                          // per second: how fast the fly-in and a swing to a new subject settle
+// The keys that move the eye. Pressing one while tracking lets go of the subject where the camera
+// is, and the key then flies it as usual.
+const TRACK_LETGO = new Set(['w', 'a', 's', 'd', 'r', 'f']);
+// ⚠ AND THE EYE MUST STAY OUT OF THE BUILDINGS. A hawk on a tower ledge has a wall a hand's breadth
+// behind it, so the straight line in from wherever the camera was put the eye inside the tower and the
+// whole shot was wall. The panel has the map, so it answers `reach` (see setTrackReach): how far the eye
+// can back off the subject along a direction before something solid is in the way. The fly-in swings
+// round to the nearest bearing that is clear at the follow distance, and while following the eye is
+// pulled in to the first solid thing on the line, snapping in and easing back out like any
+// third-person camera. The closest it is pulled is TRACK_HUG, just past the near clip.
+const TRACK_HUG = 0.07;
+// How long after a hand last turned the camera before a blocked line swings it on its own (ms).
+const TRACK_HANDS_OFF = 1500;
+// The bearings tried on the way in: the approach the camera is already on, then 30° steps either side,
+// at the elevation it came in at, then from above, then from a little below.
+const TRACK_TRY_YAW = [0, 30, -30, 60, -60, 90, -90, 120, -120, 150, -150, 180];
 // The three mouse buttons, named for what they do rather than for which finger presses them.
 const BTNS = new Set(['up', 'down', 'orbit']);
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
@@ -179,7 +207,10 @@ export function createFreeCam() {
   const st = { on: false, x: 0, y: 0, z: 0.45, yaw: 0, pitch: 0, roll: 0, fov: 1, speed: 1, px: 0, py: 0, keys: new Set(), btn: new Set(), notify: null, hold: true, holdNotify: null,
     // The standing constraints. `stand` off is the flying camera that always shipped, and every
     // expression below that reads these is written so that `stand: false` is the line it was.
-    stand: false, eye: STAND_EYE, leash: 0, ax: 0, ay: 0 };
+    stand: false, eye: STAND_EYE, leash: 0, ax: 0, ay: 0,
+    // The subject being followed ({ x, y, z, ox, oy, oz, d, want, cur, yawWant, pitchWant }, see
+    // `track`), the lens the camera is easing toward, and the panel's answer to "how far is clear".
+    trk: null, fovWant: null, reach: null };
   const held = (k) => st.keys.has(k);
 
   // ── ONE PLACE WHERE THE EYE IS PUT SOMEWHERE ────────────────────────────────
@@ -205,6 +236,7 @@ export function createFreeCam() {
   // the rate the hand was turning it, and a second copy of this arithmetic is a second answer to
   // that. See EDGE_PX for why the push arrives as pixels rather than as degrees.
   const aim = (dx, dy) => {
+    if (st.trk) handTrack();   // the hand has the aim; the fly-in's swing stops where it is
     st.yaw = ((st.yaw + dx * MOUSE_YAW) % 360 + 360) % 360;
     st.pitch = clamp(st.pitch - dy * MOUSE_PITCH, -PITCH_LIM, PITCH_LIM);
   };
@@ -212,6 +244,59 @@ export function createFreeCam() {
   // — the pointer handed back, the lock arriving, the camera stowed, a blur — comes through here, and
   // a push left set by one of them is a camera turning on its own with nothing on screen doing it.
   const stopPush = () => { st.px = 0; st.py = 0; };
+
+  // Where the subject is, with the swing offset still to ease out (see `track`).
+  const trkAt = () => { const t = st.trk; return [t.x + t.ox, t.y + t.oy, t.z + t.oz]; };
+  // Turn the lens onto a point from where the eye is now: forward is (sin, −cos), so the yaw is
+  // atan2(dx, −dy) and the pitch is the elevation of the line.
+  const faceTo = (x, y, z) => {
+    const dx = x - st.x, dy = y - st.y;
+    st.yaw = ((Math.atan2(dx, -dy) / DEG) % 360 + 360) % 360;
+    st.pitch = clamp(Math.atan2(z - st.z, Math.max(1e-3, Math.hypot(dx, dy))), -PITCH_LIM, PITCH_LIM);
+  };
+  // The unit vector from the subject back to the eye, for an aim (yaw degrees, pitch radians).
+  const backOf = (yaw, pitch) => {
+    const cp = Math.cos(pitch);
+    return [-Math.sin(yaw * DEG) * cp, Math.cos(yaw * DEG) * cp, -Math.sin(pitch)];
+  };
+  const reachAlong = (p, u, max) => {
+    if (!st.reach) return Infinity;
+    const r = st.reach(p[0], p[1], p[2], u[0], u[1], u[2], max);
+    return Number.isFinite(r) ? r : Infinity;
+  };
+  // The eye `d` back from the subject along the aim, so the subject stays centred whatever turns it,
+  // and pulled in to whatever solid thing is on that line (see TRACK_HUG). `ease` is this frame's.
+  // Returns how much of the line was clear.
+  const trackPlace = (ease) => {
+    const t = st.trk, p = trkAt(), u = backOf(st.yaw, st.pitch);
+    const r = reachAlong(p, u, t.d);
+    const d = Math.max(TRACK_HUG, Math.min(t.d, r));
+    // ⚠ NOT SNAPPED IN WHILE A SWING IS GOING. The fly-in starts on whatever line the camera was on,
+    // which is often straight through the building the bird is sitting on, and snapping to the wall
+    // jumped the eye into the bird's face on the first frame and then backed it out again.
+    if (t.cur == null) t.cur = t.d;
+    t.cur = (d < t.cur && t.yawWant == null) ? d : t.cur + (d - t.cur) * ease;
+    place(p[0] + u[0] * t.cur, p[1] + u[1] * t.cur, p[2] + u[2] * t.cur);
+    return r;
+  };
+  // A turn by hand ends any swing in progress, and holds off the automatic one (TRACK_HANDS_OFF).
+  const handTrack = () => { st.trk.yawWant = null; st.trk.handAt = performance.now(); };
+  // The bearing the fly-in swings round to: the first in TRACK_TRY_YAW that is clear at the follow
+  // distance, or failing all of them the one with the most room.
+  const clearAim = (p, yaw0, pitch0) => {
+    let best = null;
+    for (const pitch of [pitch0, -0.35, -0.75, 0.15]) {
+      for (const dy of TRACK_TRY_YAW) {
+        const yaw = ((yaw0 + dy) % 360 + 360) % 360, r = reachAlong(p, backOf(yaw, pitch), TRACK_NEAR * 1.5);
+        if (r >= TRACK_NEAR * 1.5) return { yaw, pitch };
+        if (!best || r > best.r) best = { yaw, pitch, r };
+      }
+    }
+    return best;
+  };
+  // The short way round from one bearing to another, in degrees.
+  const yawGap = (a, b) => ((b - a + 540) % 360) - 180;
+  const untrack = () => { st.trk = null; st.fovWant = null; };
 
   // ── WHO HAS THE MOUSE ───────────────────────────────────────────────────────
   // Two states, and the camera opens in the first. HELD: the cursor is gone, pinned inside the view,
@@ -267,10 +352,11 @@ export function createFreeCam() {
       // hands over is one it can honestly describe, and opening at last session's 5x would read as
       // the camera arriving with the throttle stuck open. See SPEED_STEP.
       st.speed = 1;
+      untrack();
       stopPush();
       st.notify?.(true);
     },
-    close() { st.on = false; st.keys.clear(); st.btn.clear(); stopPush(); st.notify?.(false); },
+    close() { st.on = false; st.keys.clear(); st.btn.clear(); stopPush(); untrack(); st.notify?.(false); },
     toggle(seed) { if (st.on) this.close(); else this.open(seed); return st.on; },
 
     // The surface asking to be told when the camera comes out and goes back on its mount, so it can
@@ -313,6 +399,7 @@ export function createFreeCam() {
         if (down) st.speed = clamp(k === SPEED_UP ? st.speed * SPEED_STEP : st.speed / SPEED_STEP, SPEED_MIN, SPEED_MAX);
         return true;
       }
+      if (st.trk && down && TRACK_LETGO.has(k)) untrack();
       if (!OWNED.has(k)) return false;
       if (down) st.keys.add(k); else st.keys.delete(k);
       return true;
@@ -327,6 +414,41 @@ export function createFreeCam() {
       st.pitch = clamp(pitch || 0, -PITCH_LIM, PITCH_LIM);
       return true;
     },
+
+    // Follow a subject at (x, y, z), in the same offset tiles as `view()`. Call it every frame with
+    // where the subject is now. The first call turns the lens onto it and flies in from the distance
+    // it is at, zooming the lens to TRACK_FOV on the way. `fresh` says this is a DIFFERENT subject
+    // from the last call's: the old one's place is kept as an offset that eases out, so the camera
+    // swings across to the new one instead of cutting. Refused while standing, whose eye is not the
+    // camera's to move.
+    track(x, y, z, fresh = false) {
+      if (!st.on || st.stand || !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return false;
+      const t = st.trk;
+      if (!t) {
+        faceTo(x, y, z);
+        st.trk = { x, y, z, ox: 0, oy: 0, oz: 0, d: Math.max(TRACK_MIN, Math.hypot(x - st.x, y - st.y, z - st.z)), want: TRACK_NEAR, cur: null };
+        // Swing round on the way in to a bearing with room for the eye, starting from the approach
+        // the camera is on, levelled off so it does not arrive straight up or straight down.
+        const aimTo = clearAim([x, y, z], st.yaw, clamp(st.pitch, -0.5, 0.3));
+        st.trk.yawWant = aimTo.yaw; st.trk.pitchWant = aimTo.pitch;
+        st.fovWant = clamp(Math.max(st.fov, TRACK_FOV), FOV_MIN, FOV_MAX);
+        return true;
+      }
+      if (fresh) {
+        t.ox += t.x - x; t.oy += t.y - y; t.oz += t.z - z;
+        // A new bird has its own walls round it: swing to a clear bearing on it, as on the way in.
+        const aimTo = clearAim([x, y, z], st.yaw, st.pitch);
+        t.yawWant = aimTo.yaw; t.pitchWant = aimTo.pitch;
+      }
+      t.x = x; t.y = y; t.z = z;
+      return true;
+    },
+    untrack() { untrack(); },
+    get tracking() { return !!st.trk; },
+    // `fn(x, y, z, ux, uy, uz, max)`: how far from (x, y, z) along the unit vector (ux, uy, uz) is
+    // clear, up to `max`, in the same offset tiles as `view()`. Anything not finite means all of it.
+    // One per camera, set by the panel that has the map; without one nothing is ever in the way.
+    setTrackReach(fn) { st.reach = typeof fn === 'function' ? fn : null; },
     releaseAll() { st.keys.clear(); st.btn.clear(); stopPush(); },
     // Narrower, for the one case that is not a teardown: the pointer lock going away with a button
     // still down. That leaves the camera rising or falling with nothing the player can press to stop
@@ -384,6 +506,9 @@ export function createFreeCam() {
       // has no answer to it that is not "walk off the deck". Refused at the top rather than run
       // and then clawed back by the leash, which would grind the shot against the tether.
       if (!st.on || st.stand) return false;
+      // Following something, the turntable goes round IT, and the aim already does that (see
+      // `track`). Dragging up lifts the eye, as it does round the origin below.
+      if (st.trk) { aim(dx, -dy); return true; }
       let ex = st.x, ey = st.y, ez = st.z - ORBIT_PIVOT_Z;
       let D = Math.hypot(ex, ey, ez);
       if (D < ORBIT_MIN) {
@@ -457,6 +582,7 @@ export function createFreeCam() {
     // stretch rather than as a lens.
     zoom(dir) {
       if (!st.on) return false;
+      st.fovWant = null;   // the hand has the lens; a fly-in still easing it would fight the wheel
       st.fov = clamp(st.fov * (dir < 0 ? FOV_STEP : 1 / FOV_STEP), FOV_MIN, FOV_MAX);
       return true;
     },
@@ -466,6 +592,8 @@ export function createFreeCam() {
     // about the shot, and nothing above changes it.
     dolly(dir) {
       if (!st.on) return false;
+      // Following, a notch is the distance to the subject, eased to like the fly-in.
+      if (st.trk) { st.trk.want = clamp(dir < 0 ? st.trk.want / TRACK_STEP : st.trk.want * TRACK_STEP, TRACK_MIN, TRACK_MAX); return true; }
       const s = Math.sin(st.yaw * DEG), c = Math.cos(st.yaw * DEG);
       // Standing, a step is along the GROUND — the same sentence W is written in below, and for the
       // same reason: a dolly is a walk here, and walking while looking up is not climbing.
@@ -506,6 +634,42 @@ export function createFreeCam() {
       if ((st.px || st.py) && performance.now() - (st.pushAt || 0) > PUSH_IDLE_MS) { st.px = 0; st.py = 0; }
       if (st.px || st.py) aim(st.px * EDGE_PX * d, st.py * EDGE_PX * d);
       st.yaw = ((st.yaw % 360) + 360) % 360;
+
+      // The lens and the distance ease in log space, so a fly-in from twenty tiles and a nudge from
+      // half a tile take the same time.
+      const ease = 1 - Math.exp(-TRACK_EASE * d);
+      if (st.fovWant != null) {
+        st.fov = clamp(st.fov * Math.pow(st.fovWant / st.fov, ease), FOV_MIN, FOV_MAX);
+        if (Math.abs(st.fov / st.fovWant - 1) < 1e-3) { st.fov = st.fovWant; st.fovWant = null; }
+      }
+      // Following, the eye is the subject's to place and nothing below moves it: W/A/S/D/R/F have
+      // already let go in `onKey` if they were pressed, and the buttons are inert.
+      if (st.trk) {
+        const t = st.trk;
+        t.ox -= t.ox * ease; t.oy -= t.oy * ease; t.oz -= t.oz * ease;
+        t.d *= Math.pow(t.want / t.d, ease);
+        // The swing to a clear bearing, given up the moment a turn key is used.
+        if (['q', 'e', 'arrowleft', 'arrowright', 'arrowup', 'arrowdown'].some(held)) handTrack();
+        if (t.yawWant != null) {
+          st.yaw = ((st.yaw + yawGap(st.yaw, t.yawWant) * ease) % 360 + 360) % 360;
+          st.pitch = clamp(st.pitch + (t.pitchWant - st.pitch) * ease, -PITCH_LIM, PITCH_LIM);
+          if (Math.abs(yawGap(st.yaw, t.yawWant)) < 0.01 && Math.abs(t.pitchWant - st.pitch) < 1e-4) t.yawWant = null;
+        }
+        const r = trackPlace(ease);
+        // ⚠ A BIRD THAT LANDS CHANGES WHICH SIDE IS CLEAR. One that comes down on a roof puts the roof
+        // across a line from below that was open sky a second ago, and pulling in along it only hugs
+        // the bird from inside the building. So a line blocked well short of the follow distance
+        // swings to a clear bearing, unless a hand has turned the camera in the last TRACK_HANDS_OFF
+        // (somebody steering into a wall meant to) or a swing is already going. At most once a
+        // second, because when nothing round the bird is clear the search finds nothing new.
+        const now = performance.now();
+        if (r < t.d * 0.6 && t.yawWant == null && now - (t.handAt || -1e9) > TRACK_HANDS_OFF && now - (t.repickAt || -1e9) > 1000) {
+          t.repickAt = now;
+          const aimTo = clearAim(trkAt(), st.yaw, st.pitch);
+          if (aimTo.yaw !== st.yaw || aimTo.pitch !== st.pitch) { t.yawWant = aimTo.yaw; t.pitchWant = aimTo.pitch; }
+        }
+        return;
+      }
 
       // ⚠ THE LADDER MULTIPLIES THROUGH THE MODIFIERS rather than sitting beside them, so [ and ]
       // move the walk, the sprint and the crawl together. See SPEED_STEP.
@@ -557,7 +721,12 @@ export function createFreeCam() {
     // ⚠ AND THE ANCHOR GOES WITH IT. The leash is a circle about a place in the world, so an origin
     // that moved under the camera moved it under the tether too — leave the anchor behind and the
     // whole re-centre is spent walking the shot to the edge of a leash that is now somewhere else.
-    rebase(dx, dy) { if (!st.on) return false; st.x += dx || 0; st.y += dy || 0; st.ax += dx || 0; st.ay += dy || 0; return true; },
+    rebase(dx, dy) {
+      if (!st.on) return false;
+      st.x += dx || 0; st.y += dy || 0; st.ax += dx || 0; st.ay += dy || 0;
+      if (st.trk) { st.trk.x += dx || 0; st.trk.y += dy || 0; }
+      return true;
+    },
 
     // ── THE GROUND UNDER A STANDING CAMERA CAN MOVE ───────────────────────────
     // The eye height is handed in rather than flown to, so whatever put this camera down owns it
@@ -567,7 +736,13 @@ export function createFreeCam() {
     // The ground or seabed under the camera, from the view: it may not sink through it. Keeps the
     // camera's own state honest, so pushing down into the floor does not bank height you then have
     // to climb back out of before anything on screen moves.
-    clampFloor(min) { if (st.on && !st.stand && Number.isFinite(min) && st.z < min) st.z = min; },
+    // Following, the ground has pushed the eye up off the line to the subject, so the lens is tipped
+    // back onto it; the next frame's eye is then placed along that line and sits on the ground.
+    clampFloor(min) {
+      if (!st.on || st.stand || !Number.isFinite(min) || !(st.z < min)) return;
+      st.z = min;
+      if (st.trk) faceTo(...trkAt());
+    },
 
     // ── PUTTING YOUR FEET DOWN WITHOUT LOSING THE SHOT ──────────────────────
     //
@@ -595,6 +770,7 @@ export function createFreeCam() {
       if (want === st.stand) return st.stand;
       st.stand = want;
       if (want) {
+        untrack();   // a person cannot follow a bird through the air
         st.eye = Number.isFinite(opts.eye) ? opts.eye : STAND_EYE;
         st.leash = Number.isFinite(opts.leash) ? opts.leash : STAND_LEASH;
         st.ax = st.x; st.ay = st.y;

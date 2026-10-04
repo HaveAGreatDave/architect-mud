@@ -49,6 +49,14 @@ const FINISH_MUL = { gloss: 1.06, satin: 1.0, matte: 0.88, weathered: 0.82 };
 export function liveryPalette(lv, cls = null) {
   const noLivery = !lv;
   lv = lv || {};
+  // ⚠ A HULL'S FACTORY COLOURS ARE ITS OWN. Unpainted, every boat fell through to the airframe
+  // grey below, so three different hulls on one pontoon were three grey boats. A boat row carries
+  // `paintBase`/`paintTrim`/`paintGlow`/`paintFinish`, and an unpainted hull of that row wears them.
+  // Only when NOTHING was chosen: a player's scheme is never second-guessed.
+  if (cls && (noLivery || (!lv.base && !lv.trim && !lv.pattern))) {
+    const bs = boatShape(cls);
+    if (bs && bs.paintBase) lv = { base: bs.paintBase, trim: bs.paintTrim, glow: bs.paintGlow, finish: bs.paintFinish || 'gloss' };
+  }
   let base = hex2rgb(lv.base) || [90, 95, 102];
   const trim = hex2rgb(lv.trim) || [138, 144, 153];
   const pat = lv.pattern || 'bare';
@@ -243,6 +251,13 @@ export function faceBaseRgb(face, pal) {
   // model. Absent on every aircraft facet, so nothing that flies takes this branch at all.
   if (face.pk === 'bright') return pal.chrome === 0 ? (pal.hw || [44, 48, 54]) : (pal.bright || face.tint || [226, 232, 240]);
   if (face.pk === 'glow') return pal.glow || face.tint || [96, 196, 214];
+  // A hull's BOTTOM wears the trim, as her deck already does (TRIM_ROLE): the light topside then
+  // reads as a band between two of the scheme's own dark, split at the chine, which is how every
+  // offshore boat is painted. Stamped by `buildBoat` only, so nothing else takes this branch.
+  if (face.pk === 'trim') return finishCoat(pal.trim, pal, face);
+  // A boat part with its own literal colour (`fixed`, stamped by `buildBoat`): machinery, the house,
+  // the cushions. No livery reaches it and no finish either: a metallic coat is paint.
+  if (face.fixed && face.tint) return face.tint;
   // Glass is SCALED, not flooded. Every pane is authored as a shade of the door glass, so tinting
   // by the ratio keeps the windscreen lighter than the sleeper porthole instead of dropping one
   // flat colour into eight different holes — and at the default (which IS the door pane) it is the
@@ -3218,6 +3233,17 @@ function meshNavLamp(cls) {
 // strobe/beacon stations land inside the body and shine through it. `n` is the outward normal, so
 // the renderer can hide a lamp on the far side. Null when the file declares none.
 export function meshLamps(cls) {
+  // A hull publishes its lamps as it is built (`buildBoat`, META.lamps): sidelights, the masthead and
+  // the stern light, each over the lens the mesh drew. The mesh is already built by the time the
+  // lamp pass asks — the model loop runs first — so this reads either detail tier's record and only
+  // builds as a fallback.
+  if (boatShape(cls)) {
+    const m = BOAT_META.get(cls + ':1') || BOAT_META.get(cls + ':0');
+    if (m) return m.lamps && m.lamps.length ? m.lamps : null;
+    aircraftFaces(cls, 0);
+    const m0 = BOAT_META.get(cls + ':0');
+    return m0 && m0.lamps && m0.lamps.length ? m0.lamps : null;
+  }
   const id = meshIdFor(cls, false);
   const row = id && meshRow(id);
   return (row && Array.isArray(row.lamps) && row.lamps.length) ? row.lamps : null;
@@ -3420,13 +3446,31 @@ function buildBoat(id = 'hydro', detail = 1) {
   // written about. Polished steel is a literal here and stays a literal.
   const PIPE = [224, 231, 240];      // zoomies, chromed
   const RUBBER = [30, 32, 36];
-  const PKB = (t) => (t === CHROME ? 'bright' : t === ACCENT ? 'glow' : null);
+  // The well's coaming and bulkheads: moulded non-skid, a shade off the house so the opening reads
+  // as a recess rather than as more house. A literal for the reason the machinery's are.
+  const HOUSE_TONE_WELL = [58, 62, 70];
+  // Cushions: cream marine vinyl, which every one of these boats has and no livery paints.
+  const VINYL = [226, 220, 204];
+  // `BOTTOM` is the bottom paint: keyed to the livery's trim (faceBaseRgb), so a hull is two-tone
+  // at the chine. The array is only an identity and a fallback colour.
+  const BOTTOM = [70, 74, 82];
+  const PKB = (t) => (t === CHROME ? 'bright' : t === ACCENT ? 'glow' : t === BOTTOM ? 'trim' : null);
   // What each surface is MADE of, for the reflection pass (windshield.js metalKOf reads `mk`). A boat
   // is gelcoat, chrome, cast iron and glass, and one flat finish across all four is what made the
   // hull read as a painted block. Positive is a metal (tinted mirror), negative a clear coat.
   const MKB = (t, role) => (t === CHROME || t === POLISH || t === PIPE ? 0.92 : t === BLOCK ? 0.38
     : t === RUBBER || t === DARK ? -0.08 : t === ACCENT ? 0 : role === 'body' || role === 'deck' ? -0.34 : undefined);
-  const tag = (q, role, tint) => { const m = MKB(tint, role); if (m !== undefined) q.mk = m; return q; };
+  // ⚠ A LITERAL COLOUR IS A FIXED COLOUR, AND IT HAS TO SAY SO. `faceBaseRgb` paints every `body` face
+  // in the livery's base and never reads `tint` for one, so the near-black pilothouse, the cast-iron
+  // block, the polished blower, the chromed zoomies and the black outboards all came out the hull's
+  // own paint. Grey factory paint hid it; a cream Rooster had a cream V8, and a player's orange one an
+  // orange V8, which is the bug the MACHINERY note above was written to forbid. `fixed` is how a face
+  // keeps its literal; a paint-keyed tint (chrome, glow, the bottom) still goes through its key.
+  const tag = (q, role, tint) => {
+    const m = MKB(tint, role); if (m !== undefined) q.mk = m;
+    if (tint && !PKB(tint) && role !== 'glass') q.fixed = 1;
+    return q;
+  };
 
   // A quad with its part id and the centre backface culling measures "outward" from.
   // ⚠ `cen` GOES ON THE CENTRELINE FOR A HULL PANEL, not at the panel's own centroid. The renderer
@@ -3505,37 +3549,133 @@ function buildBoat(id = 'hydro', detail = 1) {
   // ⚠ ONE OBJECT, FILLED AS THE HULL IS BUILT. The exhaust ports below are stamped into this same
   // record rather than into a second `set`, because a later `set` on the same key replaces the
   // stations and a painter that reads them gets an empty hull.
-  const META = { stations: STATIONS, ports: [], pipeTint: PIPE };
+  // ⚠ LAMPS ARE PUBLISHED HERE TOO, for `meshLamps`: a boat used to fall through the renderer's
+  // lamp chain to the aircraft default, which hangs a white tail strobe off the transom and a red
+  // anti-collision beacon UNDER THE KEEL — a red light glowing up through the water under every
+  // hull in the Basin. Sidelights, a stern light and a masthead are a boat's grammar, and they go
+  // where this mesh built their lenses.
+  const META = { stations: STATIONS, ports: [], pipeTint: PIPE, lamps: [] };
   BOAT_META.set(id + ':' + (fine ? 1 : 0), META);
+  const RED_LENS = [214, 44, 40], GREEN_LENS = [44, 196, 92], WHITE_LENS = [236, 238, 232];
 
-  for (let i = 0; i < STATIONS.length - 1; i++) {
-    const a = STATIONS[i], b = STATIONS[i + 1];
-    const cen = [(a.f + b.f) / 2, 0, (a.k + b.sz) / 2];
+  // ── THE BOTTOM, AS A POLYLINE PER STATION ──────────────────────────────────
+  //
+  // ⚠ ONE LOFT FOR THREE BOTTOMS. A deep-V is keel → chine; a STEPPED vee is the same with the keel
+  // let up a notch at each step; a CAT is tunnel roof → tunnel wall → sponson keel → chine. Each is
+  // a list of (half-width, height) points out from the centreline, the same length at every
+  // station, and the loft between neighbours does not care which. Written as three loops, the
+  // transom, the strakes and the culling centres would each have three copies to keep in step.
+  //
+  // THE STEPS. A stepped hull has transverse notches across her bottom so air is drawn in under
+  // the planing surface behind each one; that is where a Spur's extra speed and her habit of
+  // sliding through a corner both come from. Each step lets the keel up by `STEP_H` and the riser
+  // between the two is a face of its own, dark, because it faces aft into the shadow of the hull.
+  const NSTEP = G.CAT ? 0 : Math.max(0, Math.min(3, Math.round(S.steps ?? 0)));
+  const STEP_F = ({ 1: [-0.18], 2: [0.10, -0.34], 3: [0.18, -0.12, -0.42] }[NSTEP] || []).map((x) => x * LEN);
+  const STEP_H = 0.007;
+  const notches = (f) => STEP_F.filter((x) => x > f + 1e-9).length;
+  const BOT = [];
+  for (let i = 0; i < STATIONS.length; i++) {
+    const a = STATIONS[i];
+    BOT.push({ ...a, k: a.k + STEP_H * notches(a.f) });
+    const b = STATIONS[i + 1];
+    if (!b) break;
+    for (const x of STEP_F) {
+      if (!(x < a.f && x > b.f)) continue;
+      const m = atF(x), n = notches(x);
+      BOT.push({ ...m, k: m.k + STEP_H * n }, { ...m, k: m.k + STEP_H * (n + 1), riser: true });
+    }
+  }
+  const botLine = (st) => (st.tw != null
+    ? [[0, st.tz], [st.tw, st.tz], [st.tw, st.iz], [st.kg, st.k], [st.cw, st.cz]]
+    : [[0, st.k], [st.cw, st.cz]]);
+  // Per segment of the line: how bright, and where "inside" is for the culler. The tunnel roof
+  // looks down, so its centre is above it on the centreline; the tunnel wall and both faces of a
+  // sponson look away from the middle of THAT sponson, so a centre on the boat's centreline would
+  // call the tunnel wall a back face and cut it out.
+  const segShade = G.CAT ? [0.30, 0.56, 0.40, 0.46] : [0.46];
+  for (let i = 0; i < BOT.length - 1; i++) {
+    const a = BOT[i], b = BOT[i + 1];
+    const la = botLine(a), lb = botLine(b), fm = (a.f + b.f) / 2;
     for (const s of [-1, 1]) {
-      // The bottom: keel out to the chine. This is the vee, and it is what you see of a boat
-      // running — a cigarette at speed shows a lot of it.
       // ⚠ QUADS, NOT TRIANGLES — the opposite of the house sides, and for the same underlying
       // reason. A station-to-station hull panel is very nearly planar (the vee angle barely changes
       // between neighbours), so one quad is one tone and the hull reads smooth. Split into two
       // triangles each takes its own normal, and the whole topside came out as a quilted diamond
       // mesh. Triangulate what is genuinely twisted; leave flat things flat.
-      strip([[
-        [a.f, 0, a.k], [b.f, 0, b.k], [b.f, s * b.cw, b.cz], [a.f, s * a.cw, a.cz],
-      ]], s < 0 ? 0.46 : 0.40, cen);
-      // The topside: chine up to the sheer. Nearly vertical, and the brightest big surface on the
-      // boat, which is why a two-tone hull puts its split right here.
+      if (b.riser) {
+        // The riser: the keel let up by one notch, a triangle facing aft.
+        face([[a.f, 0, a.k], [b.f, 0, b.k], [b.f, s * b.cw, b.cz]], 0.24, [fm + 0.05, 0, a.k], 'body', BOTTOM);
+        continue;
+      }
+      for (let j = 0; j < la.length - 1; j++) {
+        const cen = !G.CAT ? [fm, 0, (a.k + b.sz) / 2]
+          : j === 0 ? [fm, 0, (a.sz + b.sz) / 2 + 0.02]
+          : [fm, s * (a.tw + a.cw) / 2, (a.iz + a.sz) / 2];
+        const sh = G.CAT ? (j === 3 ? (s < 0 ? 0.46 : 0.40) : segShade[j]) : (s < 0 ? 0.46 : 0.40);
+        strip([[
+          [a.f, s * la[j][0], la[j][1]], [b.f, s * lb[j][0], lb[j][1]],
+          [b.f, s * lb[j + 1][0], lb[j + 1][1]], [a.f, s * la[j + 1][0], la[j + 1][1]],
+        // The tunnel's roof and walls are bare laminate, never paint: nobody signwrites a ceiling.
+        ]], sh, cen, 'body', G.CAT && j < 2 ? DARK : BOTTOM);
+      }
+    }
+  }
+  // The topside: chine up to the sheer. Nearly vertical, and the brightest big surface on the
+  // boat, which is why a two-tone hull puts its split right here. Off the plain stations: a step
+  // is in the bottom and never in the topside.
+  for (let i = 0; i < STATIONS.length - 1; i++) {
+    const a = STATIONS[i], b = STATIONS[i + 1];
+    const cen = [(a.f + b.f) / 2, 0, (a.k + b.sz) / 2];
+    for (const s of [-1, 1]) {
       strip([[
         [a.f, s * a.cw, a.cz], [b.f, s * b.cw, b.cz], [b.f, s * b.sw, b.sz], [a.f, s * a.sw, a.sz],
       ]], s < 0 ? 0.80 : 0.68, cen);
     }
   }
 
-  // The transom: flat, wide, and where everything bolts on.
+  // The transom: flat, wide, and where everything bolts on. ⚠ OFF THE BOTTOM'S OWN LAST STATION,
+  // so a stepped hull's transom closes on a keel let up by every step, and a cat's is two sponson
+  // ends with the tunnel open between them rather than a plate across the hole.
+  const TR = BOT[BOT.length - 1];
   {
-    const t = STATIONS[STATIONS.length - 1];
+    const t = TR;
     const cen = [t.f + 0.05, 0, (t.k + t.sz) / 2];
-    face([[t.f, -t.cw, t.cz], [t.f, t.cw, t.cz], [t.f, t.sw, t.sz], [t.f, -t.sw, t.sz]], 0.55, cen);
-    face([[t.f, -t.cw, t.cz], [t.f, 0, t.k], [t.f, t.cw, t.cz]], 0.48, cen);
+    if (t.tw != null) {
+      face([[t.f, -t.tw, t.tz], [t.f, t.tw, t.tz], [t.f, t.tw, t.sz], [t.f, -t.tw, t.sz]], 0.50, cen);
+      for (const s of [-1, 1]) {
+        const sc = [t.f + 0.05, s * (t.tw + t.cw) / 2, (t.k + t.sz) / 2];
+        face([[t.f, s * t.tw, t.sz], [t.f, s * t.sw, t.sz], [t.f, s * t.cw, t.cz], [t.f, s * t.tw, t.iz]], 0.55, sc);
+        face([[t.f, s * t.tw, t.iz], [t.f, s * t.cw, t.cz], [t.f, s * t.kg, t.k]], 0.48, sc, 'body', BOTTOM);
+      }
+    } else {
+      face([[t.f, -t.cw, t.cz], [t.f, t.cw, t.cz], [t.f, t.sw, t.sz], [t.f, -t.sw, t.sz]], 0.55, cen);
+      face([[t.f, -t.cw, t.cz], [t.f, 0, t.k], [t.f, t.cw, t.cz]], 0.48, cen, 'body', BOTTOM);
+    }
+  }
+
+  // ── THE STRAKES ────────────────────────────────────────────────────────────
+  // Running strakes: lips down the bottom that throw spray off sideways and give a vee its lift.
+  // Seen from anywhere low they are the lines that say the bottom is a SHAPE rather than two flat
+  // planes, and at speed they are the bright creases the light catches as she rolls. Fine detail
+  // only; the inner one runs further forward than the outer, as they do on a real bottom.
+  const NSTRK = G.CAT ? 0 : Math.max(0, Math.min(3, Math.round(S.strakes ?? 0)));
+  if (fine && NSTRK) {
+    const us = { 1: [0.5], 2: [0.36, 0.68], 3: [0.28, 0.52, 0.76] }[NSTRK];
+    us.forEach((u, j) => {
+      const fMax = LEN * (0.80 - j * 0.12);
+      for (const s of [-1, 1]) {
+        const quads = [];
+        for (let i = 0; i < BOT.length - 1; i++) {
+          const a = BOT[i], b = BOT[i + 1];
+          if (b.riser || a.f > fMax + 1e-9) continue;
+          const on = (st) => [st.f, s * st.cw * u, st.k + (st.cz - st.k) * u];
+          const lip = (st) => { const p = on(st); return [p[0], p[1] + s * 0.007, p[2] - 0.0035]; };
+          quads.push([on(a), on(b), lip(b), lip(a)]);
+        }
+        if (quads.length) strip(quads, 0.74, [0, 0, 0.06], 'body', BOTTOM);
+      }
+    });
   }
 
   // ── THE CHINE ──────────────────────────────────────────────────────────────
@@ -3563,18 +3703,24 @@ function buildBoat(id = 'hydro', detail = 1) {
   // wrong about it; the house owns the edge and the well begins at it.
   const cpF1 = S.cockpitF1 ?? (S.houseF0 ?? -0.54), cpF0 = S.cockpitF0 ?? -0.88;
   const crown = S.crown ?? 0.012;
-  for (let i = 0; i < STATIONS.length - 1; i++) {
-    const a = STATIONS[i], b = STATIONS[i + 1];
+  // ⚠ THE WELL IS CUT AT ITS OWN TWO ENDS, NOT AT WHICHEVER STATIONS HAPPEN TO FALL IN IT. The deck
+  // used to taper to a fifth of the beam at any station inside the well, so the opening was a
+  // lozenge whose shape was set by where the hull's stations are rather than by the well: on the
+  // Rooster most of the cockpit was decked over, and a well short enough to hold no station (a
+  // cat's) was not cut at all. Both ends are stations of the deck loft now and the deck between
+  // them is simply absent; the gunwale cap and the well's own walls below are what you see.
+  const DECK_ST = [...STATIONS.map((x) => x.f), cpF1, cpF0].filter((f, i, a) => a.indexOf(f) === i)
+    .sort((x, y) => y - x).map((f) => ({ ...atF(f), f }));
+  for (let i = 0; i < DECK_ST.length - 1; i++) {
+    const a = DECK_ST[i], b = DECK_ST[i + 1];
     // The deck is cut away over the cockpit — the well is an ABSENCE, the same rule the windscreen
     // aperture follows: a lid over a hole would be a second description of the same shape.
-    const inWell = (f) => f < cpF1 && f > cpF0;
-    if (inWell(a.f) && inWell(b.f)) continue;
+    if (a.f <= cpF1 + 1e-9 && b.f >= cpF0 - 1e-9) continue;
     const cen = [(a.f + b.f) / 2, 0, (a.sz + b.sz) / 2 - 0.05];
-    const aw = inWell(a.f) ? a.sw * 0.22 : 0, bw = inWell(b.f) ? b.sw * 0.22 : 0;
     for (const s of [-1, 1]) {
       strip([[
         [a.f, s * a.sw, a.sz], [b.f, s * b.sw, b.sz],
-        [b.f, s * bw, b.sz + crown * (bw ? 0 : 1)], [a.f, s * aw, a.sz + crown * (aw ? 0 : 1)],
+        [b.f, 0, b.sz + crown], [a.f, 0, a.sz + crown],
       ]], 1.00, cen, 'deck');
     }
   }
@@ -3603,9 +3749,34 @@ function buildBoat(id = 'hydro', detail = 1) {
     // ⚠ AND IT IS THE CABIN'S FLOOR TOO (`G.soleZ`). The door in the bulkhead joins the two, so a
     // sole authored at one height here and another inside is a step you can see through the open
     // doorway from the aft deck and fall down from the helm.
-    const [wa] = gz(cpF1), [wb] = gz(cpF0);
+    const [wa, za] = gz(cpF1), [wb, zb] = gz(cpF0);
     face([[cpF1, -wa * 0.78, G.soleZ], [cpF1, wa * 0.78, G.soleZ],
           [cpF0, wb * 0.78, G.soleZ], [cpF0, -wb * 0.78, G.soleZ]], 0.66, [(cpF0 + cpF1) / 2, 0, 0]);
+    // ⚠ AND THE WELL HAS WALLS. With the deck cut at the well's true ends there is a real hole, and
+    // a hull is a shell of outward faces: looking into the well from the quay you saw the BACK of
+    // the far topside, which the culler drops, so the sea showed through the boat. The coaming runs
+    // down from the gunwale cap's inner edge to the sole on both sides, and the two ends close it —
+    // aft, a bulkhead under the aft deck; forward, the bulkhead under the house, with the doorway
+    // left open so the door (below) reaches the sole the way the cabin's own does.
+    const wall = [];
+    for (let i = 0; i < N; i++) {
+      const f0 = cpF1 + (cpF0 - cpF1) * (i / N), f1 = cpF1 + (cpF0 - cpF1) * ((i + 1) / N);
+      const [w0, z0] = gz(f0), [w1, z1] = gz(f1);
+      for (const s of [-1, 1]) {
+        wall.push({ s, q: [[f0, s * w0 * 0.80, z0 - 0.030], [f1, s * w1 * 0.80, z1 - 0.030],
+          [f1, s * w1 * 0.78, G.soleZ], [f0, s * w0 * 0.78, G.soleZ]] });
+      }
+    }
+    for (const s of [-1, 1]) {
+      strip(wall.filter((w) => w.s === s).map((w) => w.q), 0.50, [(cpF0 + cpF1) / 2, s * wa * 1.6, G.soleZ], 'body', HOUSE_TONE_WELL);
+    }
+    face([[cpF0, -wb * 0.78, G.soleZ], [cpF0, wb * 0.78, G.soleZ], [cpF0, wb * 0.80, zb - 0.030], [cpF0, -wb * 0.80, zb - 0.030]],
+      0.62, [cpF0 - 0.05, 0, G.soleZ], 'body', HOUSE_TONE_WELL);
+    const dW = G.door.halfW;
+    for (const s of [-1, 1]) {
+      face([[cpF1, s * dW, G.soleZ], [cpF1, s * wa * 0.78, G.soleZ], [cpF1, s * wa * 0.80, za - 0.030], [cpF1, s * dW, za]],
+        0.44, [cpF1 + 0.05, s * wa * 0.5, G.soleZ], 'body', HOUSE_TONE_WELL);
+    }
   }
 
   // ── THE PILOTHOUSE ─────────────────────────────────────────────────────────
@@ -3989,8 +4160,11 @@ function buildBoat(id = 'hydro', detail = 1) {
       face([at(-wb, 0), at(-dW, 0), at(-dW, 1), at(-wb, 1)], 0.50, cen, 'body', HOUSE);
       face([at(dW, 0), at(wb, 0), at(wb, 1), at(dW, 1)], 0.50, cen, 'body', HOUSE);
       face([at(-dW, dH), at(dW, dH), at(dW, 1), at(-dW, 1)], 0.50, cen, 'body', HOUSE);
-      // The door, set INTO the opening from inside so the jamb has depth.
-      box(hF0 + 0.004, hF0 + 0.020, dW * 0.94, zb, zb + (zt - zb) * dH, 'body', HOUSE);
+      // The door, set INTO the opening from inside so the jamb has depth. ⚠ DOWN TO THE SOLE when
+      // the well opens straight onto the house: the well's forward bulkhead leaves the doorway open
+      // below the deck line, and a door that stopped at the deck was a hatch over a hole.
+      const dz0 = Math.abs(cpF1 - hF0) < 1e-6 ? G.soleZ : zb;
+      box(hF0 + 0.004, hF0 + 0.020, dW * 0.94, dz0, zb + (zt - zb) * dH, 'body', HOUSE);
       if (rich(0.5)) box(hF0 + 0.000, hF0 + 0.006, dW * 0.14, zb + (zt - zb) * 0.42,
         zb + (zt - zb) * 0.54, 'body', CHROME, dW * 0.58);
     }
@@ -4053,6 +4227,24 @@ function buildBoat(id = 'hydro', detail = 1) {
   }
 
 
+  // ── THE MAST ───────────────────────────────────────────────────────────────
+  // A short raked mast on the aft end of the hardtop: a radome, a whip antenna either side, and the
+  // white lights a boat under way shows — the masthead looking forward and the stern light looking
+  // aft. It is the one thing that breaks the hardtop's silhouette, which is what a top with nothing
+  // on it lacks: from the beam it was a lid.
+  if ((S.mast ?? 0) > 0) {
+    const { rf0, crownH } = G.roof;
+    const fb = rf0 + (G.rF - rf0) * 0.22, zb = G.roof.rz(fb) + crownH;
+    const top = [fb - 0.030, 0, zb + 0.072];
+    tube([fb, 0, zb - 0.002], top, 0.0055, 'body', HOUSE, 6);
+    // The radome: a squat white drum on the mast, the thing a radar mast is recognised by.
+    tube([fb - 0.014, 0, zb + 0.030], [fb - 0.016, 0, zb + 0.044], 0.024, 'body', [222, 226, 228], 10);
+    box(top[0] - 0.006, top[0] + 0.006, 0.005, top[2], top[2] + 0.008, 'body', WHITE_LENS);
+    if (fine) for (const s of [-1, 1]) tube([fb - 0.004, s * G.roof.rw(fb) * 0.62, zb], [fb - 0.020, s * G.roof.rw(fb) * 0.66, zb + 0.110], 0.0018, 'body', DARK, 4);
+    META.lamps.push({ at: [top[0] + 0.007, 0, top[2] + 0.004], n: [1, 0, 0.25], rgb: '255,250,236' });
+    META.lamps.push({ at: [top[0] - 0.007, 0, top[2] + 0.004], n: [-1, 0, 0.25], rgb: '255,250,236' });
+  }
+
   // ⚠ THE ARCH IS GONE, AND THAT IS THE HARDTOP REPLACING IT RATHER THAN A DELETION. An arch and a
   // hardtop are two answers to the same question — what stands above the sheer — and a boat with
   // both has a roof with a frame over it. The light bar that lived on the arch is on the hardtop's
@@ -4062,22 +4254,203 @@ function buildBoat(id = 'hydro', detail = 1) {
   // A bank of them on the transom, which is what a modern one of these has instead of a blower
   // standing out of the deck. ⚠ THE COUNT IS AUTHORED and it is the loudest thing about the boat:
   // four is a statement, and it is the detail every one of these photographs is really about.
+  // ── A PROPELLER ────────────────────────────────────────────────────────────
+  // A hub and its blades, in the plane across the shaft. The blades are emitted twice, once facing
+  // each way, because a blade is a sheet and the culler would otherwise show it from astern only.
+  const prop = (f, g, z, r, n = 3) => {
+    tube([f + 0.010, g, z], [f - 0.008, g, z], r * 0.26, 'body', POLISH, 6);
+    if (!fine) return;
+    for (const dir of [1, -1]) {
+      const bl = [];
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2 + 0.4, b = a + 0.62;
+        const P = (ang, rr, df) => [f + df, g + Math.cos(ang) * rr, z + Math.sin(ang) * rr];
+        bl.push([P(a, r * 0.24, 0.002), P(a, r, -0.002), P(b, r * 0.86, -0.004), P(b, r * 0.28, 0)]);
+      }
+      strip(bl, 0.86, [f + dir * 0.05, g, z], 'body', POLISH);
+    }
+  };
+  const TS = STATIONS[STATIONS.length - 1];      // the transom's own station (no steps in the topside)
+  // The swim platform: a shelf aft of the transom a hand above the water. It is where you board from
+  // a tender and where the drive and the tabs hang under, and without it a transom is a cliff.
+  const PLAT = Math.max(0, S.platform ?? 0);
+  const platZ = TS.cz + 0.030;
+
   const mot = Math.max(0, Math.round(S.motors ?? 4));
   if (mot > 0) {
-    const t = STATIONS[STATIONS.length - 1];
+    const t = TS;
     // ⚠ SIZED AGAINST THE HULL, NOT AGAINST A GUESS. The first cut gave each cowl a half-width of
     // 0.034 and a height of 0.114 — TALLER THAN THE SHEER IS HIGH — so four of them read as a wall
     // of black slabs bolted to the back of the boat rather than as engines on it. A bank of
     // outboards is tight, low and tucked against the transom; it is the loudest detail on the boat
     // and it is still a detail.
+    // ⚠ ON A BRACKET WHEN THERE IS A PLATFORM. Hung off the transom they stood up through the shelf;
+    // a real boat with a platform carries her outboards on a bracket aft of it, which is also what
+    // pushes the props back into clean water.
+    const off = PLAT > 0 ? PLAT + 0.014 : 0;
     const span = t.sw * 1.44, step = mot > 1 ? span / (mot - 1) : 0;
+    if (off) box(t.f - off - 0.004, t.f + 0.002, span / 2 + 0.026, t.cz - 0.006, t.cz + 0.018, 'body', DARK);
     for (let i = 0; i < mot; i++) {
       const g = mot > 1 ? -span / 2 + i * step : 0;
-      const f0 = t.f - 0.088, f1 = t.f + 0.006;
-      box(f0, f1, 0.021, t.cz + 0.004, t.cz + 0.072, 'body', DARK, g);                  // the cowl
+      const f0 = t.f - 0.088 - off, f1 = t.f + 0.006 - off;
+      box(f0, f1, 0.021, t.cz + 0.004, t.cz + 0.050, 'body', DARK, g);                  // the lower cowl
+      // The top cowl, a shade off the lower and a size smaller, so the motor has a waist and a lid
+      // rather than being one black brick.
+      box(f0 + 0.004, f1 - 0.003, 0.019, t.cz + 0.050, t.cz + 0.074, 'body', [50, 54, 62], g);
       box(f0 + 0.022, f1 - 0.014, 0.010, t.cz - 0.034, t.cz + 0.008, 'body', null, g);  // the leg
-      if (fine) box(f0 + 0.014, f0 + 0.038, 0.016, t.cz - 0.050, t.cz - 0.030, 'body', null, g);  // the skeg
+      if (fine) {
+        box(f0 + 0.012, f1 - 0.006, 0.017, t.cz - 0.019, t.cz - 0.016, 'body', DARK, g);   // anti-ventilation plate
+        box(f0 + 0.014, f0 + 0.038, 0.004, t.cz - 0.050, t.cz - 0.030, 'body', null, g);   // the skeg
+        prop(f0 + 0.010, g, t.cz - 0.031, 0.020);
+      }
       if (rich(0.5)) box(f0 + 0.003, f0 + 0.011, 0.019, t.cz + 0.054, t.cz + 0.068, 'body', ACCENT, g);
+    }
+  }
+  if (PLAT > 0) {
+    const w = TS.sw * 0.90;
+    box(TS.f - PLAT, TS.f + 0.004, w, platZ - 0.010, platZ, 'deck', null);
+    // A boarding ladder folded under the starboard side of it, and the grab rail that goes with it.
+    if (fine) {
+      for (const dz of [0.000, -0.010, -0.020]) box(TS.f - PLAT + 0.006, TS.f - PLAT + 0.030, 0.004, platZ - 0.014 + dz, platZ - 0.012 + dz, 'body', CHROME, w * 0.62);
+      tube([TS.f - 0.004, w * 0.70, platZ + 0.002], [TS.f - 0.004, w * 0.70, TS.sz + 0.016], 0.0035, 'body', CHROME, 5);
+    }
+  }
+  // ── THE DRIVE ──────────────────────────────────────────────────────────────
+  // A surface drive out of the transom for an inboard: the leg runs straight aft under the
+  // platform with the prop half out of the water at speed, which is the rooster tail. The trim ram
+  // over it is the visible half of what `[` and `]` do.
+  if ((S.drives ?? 0) > 0 && (S.v8 ?? 1) !== 0) {
+    const t = TR, z = t.k + 0.026, tip = TS.f - Math.max(PLAT, 0.04) - 0.050;
+    tube([TS.f + 0.006, 0, z + 0.004], [tip, 0, z], 0.010, 'body', DARK, 6);
+    box(tip + 0.012, TS.f - 0.004, 0.003, z - 0.030, z - 0.004, 'body', DARK);   // the skeg under it
+    if (fine) tube([TS.f - 0.002, 0, TS.cz + 0.012], [tip + 0.030, 0, z + 0.010], 0.004, 'body', POLISH, 5);
+    prop(tip - 0.004, 0, z, 0.026, 4);
+  }
+  // ── THE TABS ───────────────────────────────────────────────────────────────
+  // Two plates at the foot of the transom, one each side, with their rams. A boat that trims on
+  // tabs and shows none is a boat whose trim is a number.
+  if ((S.tabs ?? 0) > 0 && fine) {
+    for (const s of [-1, 1]) {
+      const g = s * TS.cw * 0.62;
+      box(TS.f - 0.034, TS.f + 0.001, 0.032, TS.cz - 0.006, TS.cz - 0.002, 'body', DARK, g);
+      tube([TS.f - 0.003, g, TS.cz + 0.020], [TS.f - 0.022, g, TS.cz - 0.002], 0.003, 'body', POLISH, 5);
+    }
+  }
+
+  // ── THE CAT'S STERN ────────────────────────────────────────────────────────
+  // Two inboards, one in each sponson under its own hatch, each breathing through a scoop at the
+  // front of the hatch and exhausting through the transom, each driving its own prop with a
+  // rudder beside it — and a wing on two fins over the whole thing, which on a boat that flies off
+  // the top of every swell is there to hold the bow down.
+  const twin = Math.max(0, Math.round(S.twin ?? 0));
+  if (twin > 0 && G.CAT) {
+    const t = TR;
+    const hf1 = cpF0 - 0.024, hf0 = -0.80 * LEN;
+    for (const s of [-1, 1]) {
+      const a = atF((hf0 + hf1) / 2);
+      const g = s * (a.tw + a.cw) / 2, hwid = (a.cw - a.tw) * 0.40;
+      const zt = Math.max(atF(hf0).sz, atF(hf1).sz) + 0.014;
+      box(hf0, hf1, hwid, a.sz - 0.004, zt, 'body', null, g);                                 // the hatch
+      if (fine) {
+        box(hf0 + 0.010, hf1 - 0.010, hwid * 0.72, zt, zt + 0.002, 'body', HOUSE_TONE_WELL, g);   // the louvred top
+        for (let i = 0; i < 4; i++) {
+          const fz = hf0 + 0.04 + i * 0.022;
+          box(fz, fz + 0.008, hwid * 0.6, zt + 0.002, zt + 0.004, 'body', DARK, g);
+        }
+      }
+      // The scoop: a forward-facing intake standing off the front of the hatch, with a dark mouth.
+      box(hf1 - 0.062, hf1 - 0.004, hwid * 0.52, zt, zt + 0.026, 'body', null, g);
+      face([[hf1 - 0.003, g - hwid * 0.44, zt + 0.004], [hf1 - 0.003, g + hwid * 0.44, zt + 0.004],
+            [hf1 - 0.003, g + hwid * 0.44, zt + 0.022], [hf1 - 0.003, g - hwid * 0.44, zt + 0.022]],
+        0.20, [hf1 - 0.03, g, zt + 0.013], 'body', DARK);
+      // The exhaust, out through the transom above the sponson's bottom: two chromed tips each.
+      for (const k of [-1, 1]) {
+        const ge = s * (t.kg + k * 0.022), ze = t.iz + 0.020;
+        const base = [t.f + 0.024, ge, ze], tip = [t.f - 0.020, ge, ze + 0.004];
+        if (fine) tube(base, tip, 0.008, 'body', PIPE, 6);
+        const d = [tip[0] - base[0], tip[1] - base[1], tip[2] - base[2]], m = Math.hypot(...d) || 1;
+        META.ports.push({ p: tip, d: [d[0] / m, d[1] / m, d[2] / m], side: s, bore: 0.010 });
+      }
+      // The drive and its prop, under the sponson's keel line.
+      const zd = t.k + 0.018, gd = s * t.kg, tipF = t.f - 0.075;
+      tube([t.f + 0.006, gd, zd + 0.004], [tipF, gd, zd], 0.008, 'body', DARK, 6);
+      prop(tipF - 0.004, gd, zd, 0.024, 4);
+      // The rudder, outboard of the drive: a raked blade, both faces.
+      if ((S.rudders ?? 0) > 0) {
+        const gr = s * (t.kg + (t.cw - t.kg) * 0.55);
+        const blade = [[t.f - 0.010, gr, t.cz + 0.012], [t.f - 0.050, gr, t.cz + 0.010],
+                       [t.f - 0.064, gr, t.k - 0.006], [t.f - 0.026, gr, t.k - 0.004]];
+        face(blade, 0.62, [t.f - 0.04, gr - s * 0.05, t.cz], 'body', DARK);
+        face(blade.slice().reverse(), 0.70, [t.f - 0.04, gr + s * 0.05, t.cz], 'body', DARK);
+        if (fine) tube([t.f + 0.004, gr, t.cz + 0.016], [t.f - 0.020, gr, t.cz + 0.016], 0.004, 'body', POLISH, 5);
+      }
+    }
+    // The wing. ⚠ A WEDGE, NOT A SLAB: thick at the leading edge and closing to a trailing edge, so
+    // from the side it reads as an aerofoil rather than as a plank on two posts.
+    if ((S.wing ?? 0) > 0) {
+      const wf1 = -0.86 * LEN, wf0 = -0.955 * LEN;
+      const ws = atF(wf0).sw * 0.86, wz = atF(wf0).sz + 0.074;
+      for (const s of [-1, 1]) {
+        const gf = s * atF(wf0).sw * 0.80, zDeck = atF((wf0 + wf1) / 2).sz;
+        const fin = [[wf1 + 0.020, gf, zDeck], [wf0 + 0.010, gf, zDeck], [wf0 + 0.014, gf, wz - 0.004], [wf1 - 0.010, gf, wz - 0.004]];
+        face(fin, 0.66, [(wf0 + wf1) / 2, gf - s * 0.05, zDeck + 0.03], 'body', DARK);
+        face(fin.slice().reverse(), 0.74, [(wf0 + wf1) / 2, gf + s * 0.05, zDeck + 0.03], 'body', DARK);
+      }
+      const le = wf1, te = wf0, th = 0.008;
+      const wcen = [(le + te) / 2, 0, wz];
+      // Carbon, never the livery: the wing is a bolt-on aerofoil and reads as one against any paint.
+      strip([[[le, -ws, wz + th * 0.5], [le, ws, wz + th * 0.5], [te, ws, wz + 0.002], [te, -ws, wz + 0.002]]], 1.00, wcen, 'body', DARK);   // the top
+      strip([[[te, -ws, wz], [te, ws, wz], [le, ws, wz - th * 0.5], [le, -ws, wz - th * 0.5]]], 0.40, wcen, 'body', DARK);                // the underside
+      face([[le, -ws, wz - th * 0.5], [le, ws, wz - th * 0.5], [le, ws, wz + th * 0.5], [le, -ws, wz + th * 0.5]], 0.84, wcen, 'body', DARK);
+      for (const s of [-1, 1]) face([[le, s * ws, wz - th * 0.5], [te, s * ws, wz], [te, s * ws, wz + 0.002], [le, s * ws, wz + th * 0.5]], 0.60, wcen, 'body', DARK);
+      if (rich(0.5)) box(le - 0.010, le + 0.001, ws * 0.96, wz + th * 0.5 - 0.0015, wz + th * 0.5 + 0.0005, 'body', ACCENT);
+      // The stern light rides the wing, on the centreline, looking aft.
+      box(te - 0.002, te + 0.008, 0.006, wz + 0.002, wz + 0.008, 'body', WHITE_LENS);
+      META.lamps.push({ at: [te - 0.003, 0, wz + 0.005], n: [-1, 0, 0.15], rgb: '255,250,236' });
+    }
+  }
+
+  // ── THE BENCH ──────────────────────────────────────────────────────────────
+  // A bench across the aft end of an open well: cream vinyl, a squab and a back against the aft
+  // bulkhead. It is what makes the well read as somewhere people sit rather than as a pit.
+  if ((S.seatsAft ?? 0) > 0) {
+    const a = atF(cpF0 + 0.05);
+    const w = a.sw * 0.74, z0 = G.soleZ;
+    box(cpF0 + 0.004, cpF0 + 0.080, w, z0, z0 + 0.032, 'body', VINYL);
+    box(cpF0 + 0.002, cpF0 + 0.020, w, z0 + 0.032, Math.min(a.sz - 0.004, z0 + 0.072), 'body', VINYL);
+    if (fine) box(cpF0 + 0.020, cpF0 + 0.078, w * 0.98, z0 + 0.032, z0 + 0.034, 'body', [196, 190, 174]);   // the welt
+  }
+
+  // ── THE RUB RAIL ───────────────────────────────────────────────────────────
+  // A rubber rail proud of the sheer with a chrome insert along its crown — the hard edge every
+  // boat that comes alongside anything has, and the line that makes the sheer read as an edge
+  // against a deck of the same colour.
+  if (fine) {
+    const rail = [], insert = [];
+    for (let i = 1; i < STATIONS.length; i++) {
+      const a = STATIONS[i - 1], b = STATIONS[i];
+      if (a.f > LEN * 0.90) continue;
+      const P = (st, o, dz) => [st.f, st.sw + o, st.sz + dz];
+      rail.push([P(a, 0.006, -0.001), P(b, 0.006, -0.001), P(b, 0.006, -0.010), P(a, 0.006, -0.010)]);
+      insert.push([P(a, 0.0068, -0.003), P(b, 0.0068, -0.003), P(b, 0.0068, -0.006), P(a, 0.0068, -0.006)]);
+    }
+    for (const s of [-1, 1]) {
+      const m = (q) => q.map((p) => [p[0], s * p[1], p[2]]);
+      strip(rail.map(m), 0.60, [0, 0, 0.05], 'body', RUBBER);
+      if (rich(0.5)) strip(insert.map(m), 0.96, [0, 0, 0.05], 'body', CHROME);
+    }
+  }
+
+  // ── THE SIDELIGHTS ─────────────────────────────────────────────────────────
+  // Red to port and green to starboard, let into the topside forward, each a lens the renderer
+  // lights through `meshLamps` (see the ⚠ on META). Aimed forward of the beam, which is the arc a
+  // sidelight shows.
+  {
+    const fS = LEN * 0.58, a = atF(fS);
+    for (const s of [-1, 1]) {
+      const g = s * (a.sw + 0.0015), z = a.sz - 0.016;
+      box(fS - 0.018, fS + 0.004, 0.0025, z - 0.006, z + 0.003, 'body', s < 0 ? RED_LENS : GREEN_LENS, g);
+      META.lamps.push({ at: [fS - 0.007, g + s * 0.004, z - 0.0015], n: [0.34, s * 0.94, 0], rgb: s < 0 ? '255,55,55' : '60,255,95' });
     }
   }
 
@@ -4147,6 +4520,19 @@ function buildBoat(id = 'hydro', detail = 1) {
     const hw = atF((eF0 + eF1) / 2).sw * 0.46;
     const blk = sole + (S.v8H ?? 0.072);
     box(eF0, eF1, hw, sole, blk, 'body', BLOCK);                              // the block
+    // The engine rails it is bedded on, and a polished valve cover along the top of each bank —
+    // the two bright lines either side of the blower that say "V8" before you have counted pipes.
+    if (fine) {
+      for (const s of [-1, 1]) {
+        box(eF0 - 0.030, eF1 + 0.020, 0.008, G.soleZ, sole + 0.004, 'body', DARK, s * hw * 0.80);
+        box(eF0 + 0.010, eF1 - 0.010, hw * 0.20, blk - 0.006, blk + 0.010, 'body', POLISH, s * hw * 0.70);
+      }
+      // The blower drive on the nose of the motor: a pulley on the crank, one on the case, and the
+      // toothed belt between them, standing proud of the front of the block.
+      tube([eF1, 0, sole + 0.020], [eF1 + 0.012, 0, sole + 0.020], 0.014, 'body', POLISH, 8);
+      tube([eF1, 0, blk + 0.018], [eF1 + 0.012, 0, blk + 0.018], 0.011, 'body', POLISH, 8);
+      box(eF1 + 0.002, eF1 + 0.010, 0.010, sole + 0.010, blk + 0.026, 'body', RUBBER);
+    }
     const caseTop = blk + 0.030;
     box(eF0 + 0.020, eF1 - 0.020, hw * 0.82, blk, caseTop, 'body', POLISH);    // the blower case
     // The injector hat — forward-facing, so it is a scoop rather than a lid.
@@ -7655,8 +8041,14 @@ function drawOutsideWorld(ctx, x0, yTop, x1, yBot, sky) {
   //
   // Deterministic per streak (index → x, speed, phase) plus wall-clock, so it animates without
   // holding any state and without a per-frame Math.random that would teleport every drop.
-  if (pal.weather === 'rain' || pal.weather === 'storm') {
-    const heavy = pal.weather === 'storm';
+  // ⚠ RAIN ON THE FIELD OUTSIDE, NOT RAIN SOMEWHERE TODAY. `sky.here` is what is falling on the
+  // apron (hangars.js); rain only falls under a cell, so the day's word alone rained through the
+  // door on every dry field of a wet day. A payload without `here` keeps the word.
+  const here = sky?.here;
+  const raining = here ? (here.precipRate > 0 && here.precipType !== 'snow')
+    : (pal.weather === 'rain' || pal.weather === 'storm');
+  if (raining) {
+    const heavy = pal.weather === 'storm' || (here?.precipRate || 0) > 0.6;
     const t = performance.now() / 1000, spanY = groundY - yTop, spanX = x1 - x0;
     ctx.lineWidth = 1;
     for (let i = 0; i < (heavy ? 46 : 30); i++) {

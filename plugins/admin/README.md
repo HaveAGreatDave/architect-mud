@@ -16,9 +16,10 @@
 - `sysop time skip <4|8|12|24>`: skip forward. Midnights crossed run the daily tick, and the street horns announce it to everyone online.
 - `sysop time set <HH:MM>`: set the clock (also announced).
 - `sysop time freeze` / `unfreeze`, and `sysop time speed <1|2|3|6>`.
+- `sysop esp`: whether the city is locked down. `sysop esp on [message]` starts the ESP (sirens, the Curtain shut, the South Lock down); `sysop esp off` ends it. Same lockdown as the devpanel's button, through the emergency plugin's `ESP_ACTIVATE`/`ESP_DEACTIVATE` actions.
 
 ## Tablet app
-`tablet-app.js` registers `admin`, with Weather and Time tabs. Each shows a hero card and tiles for the live state, with sliders, chip rows and buttons to change it. Each control calls the same function its verb does. The shell doesn't re-check `visible` on `tabletnav`/`tabletaction`, so `buildScreen` and `handleAction` both check the role themselves.
+`tablet-app.js` registers `admin`, with Weather, Time and ESP tabs. Each shows a hero card and tiles for the live state, with sliders, chip rows and buttons to change it. Each control calls the same function its verb does. The shell doesn't re-check `visible` on `tabletnav`/`tabletaction`, so `buildScreen` and `handleAction` both check the role themselves.
 
 ## Data
 None of its own. Weather goes through the engine's override (`devOverrideWeather`/`devClearWeatherOverride` in `server/engine/environment.js`). Every change is written to the activity log as `admin_cmd`.

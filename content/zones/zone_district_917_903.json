@@ -2,17 +2,18 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#a8895e",
-  "description": "A dead signal box at the top of the cut, three storeys of rusted lever frame with the windows knocked out and replaced by freight manifests. Somebody has painted TRACK MARKS FREIGHT across the boards in yard-marking yellow, and under it, smaller and much older, the rail company's name nobody says out loud any more. A weighbridge plate is set into the ground at the door, worn to a shine.",
+  "description": "A dead signal box with four more storeys stacked on its roof: two shipping containers, a corrugated shed and a plank cabin, each a different rust. HOSTEL TAKEOVER is painted across the containers in yard yellow. A sign on top says FREE ROOMS in red tube. The front door has no lock on it, and never has.",
   "exits": {
     "north": "zone_trackmarks_shop",
     "south": "zone_district_917_904"
   },
   "flags": {
-    "building_name": "Track Marks Freight",
-    "building_type": "forwarder",
+    "building_name": "Hostel Takeover",
+    "building_type": "hostel",
     "district": "yards",
     "entrance": "south",
     "facade": true,
+    "floors": 6,
     "is_building": true,
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_west_wastes",
@@ -24,6 +25,6 @@
   "id": "zone_district_917_903",
   "map_id": "map_world",
   "marker": "TK",
-  "name": "Track Marks Freight",
+  "name": "Hostel Takeover",
   "parent_zone": null
 }

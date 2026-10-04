@@ -3,8 +3,9 @@
 // cannot tell a working gate from a broken verb (see powerboat's regress on the same point).
 import { newSub, stepSub, HULL_TIERS, tierOf, crushRate, bearing, MIN_WATER, regenAir, REGEN_S, MIN_AIR_FRAC, FLOOD_S, DESCEND_MS, PLANE_MS, SUB_CEIL } from './sub.js';
 import { subs, subTick, regenTick, isLandTile, floorUnder, airMaxOf } from './index.js';
-import { liveAircraft } from '../flight/state.js';
+import { liveAircraft, bounds, surfaceAt } from '../flight/state.js';
 import { getAllZones, zoneTerrain } from '../../server/engine/world.js';
+import { wildlandsAt } from '../../client/shared/wildlands.js';
 
 export default async function regress({ run, check, getPlayer }) {
   // ── The ladder ─────────────────────────────────────────────────────────────
@@ -103,6 +104,22 @@ export default async function regress({ run, check, getPlayer }) {
     if (!best || d > best.d) best = { z, d };
   }
   check('the world has water deep enough to dive in', !!best && best.d >= MIN_WATER, best ? best.d.toFixed(1) : 'none');
+
+  // Off the map the server's sea is the painted one (wildlandsAt, what fillOffMap draws from). A
+  // private rule here once read land under 31,000 tiles of open sea the cockpit's SUB gate let her
+  // dive in, so every dive out there was refused.
+  {
+    const b = bounds();
+    let wrong = null, deep = null;
+    for (let y = b.miny - 40; y < b.miny && !wrong; y += 3) for (let x = b.minx - 40; x <= b.maxx + 40 && !wrong; x += 7) {
+      if (surfaceAt(x, y)) continue;
+      const sea = !!wildlandsAt(x, y).sea;
+      if (isLandTile(x, y) === sea) wrong = `${x},${y}`;
+      else if (sea && !deep && floorUnder({ fx: x, fy: y, row: {} }) >= MIN_WATER) deep = `${x},${y}`;
+    }
+    check('off the map, the server reads the sea the floor paints', !wrong, wrong || '');
+    check('…and there is open sea past the map deep enough to dive', !!deep);
+  }
   if (!best || best.d < MIN_WATER) return;
 
   const p = await getPlayer();

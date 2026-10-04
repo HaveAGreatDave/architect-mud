@@ -72,6 +72,47 @@ camera in a seat too. They are built around the seat (pinned on a ring at `(W/2,
 *which way do I turn*) and a detached camera is not in the seat. The switch is `navMarks()` in
 `windshield.js`; <kbd>N</kbd> throws it by hand from a cab, a cockpit or a wheelhouse.
 
+## Following a raptor
+
+<kbd>H</kbd> flies the camera in on the nearest hawk or peregrine the renderer has in its flock window
+and stays with it. While following:
+
+| Key | Does |
+|---|---|
+| <kbd>→</kbd> or <kbd>H</kbd> | the next raptor |
+| <kbd>←</kbd> or <kbd>Shift</kbd>+<kbd>H</kbd> | the previous one |
+| <kbd>↑</kbd> <kbd>↓</kbd>, <kbd>Shift</kbd>+wheel | nearer, further |
+| mouse, middle drag, <kbd>Q</kbd> <kbd>E</kbd> | swing round the bird |
+| wheel | the lens |
+| <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>R</kbd> <kbd>F</kbd> | let go, leaving the camera where it is |
+
+It is freecam's `track`: freelook hands it the bird's position every frame and the eye sits a set
+distance back along the aim, so anything that aims the camera orbits it round the bird. It closes to
+about 2.7 m (0.15 tiles) with the lens eased to its longest stop, 3.2×, because birds are drawn at true
+size: a hawk's wingspan is about 0.07 tiles and a perched falcon is about 0.02 tall. At 6 m and 2× a
+perched peregrine was a speck. A swing to the next bird eases across rather than cutting.
+
+**The eye stays out of the buildings.** freelook gives the camera a `reach` (`setTrackReach`): how far
+the eye can back off the bird along a line before it's inside a building's mass, the Curtain or the
+ground. The fly-in swings round to the first bearing that's clear at the follow distance (30° steps
+from the approach it's on, then from above, then from a little below). While following, something
+between the eye and the bird pulls the eye in at once and it eases back out when the way clears. A line
+blocked well short of the distance (a bird landing on a roof, say) swings the camera to a clear bearing
+by itself, unless you've turned it by hand in the last 1.5 s. Without this, the line in from wherever
+the camera opened put the eye inside the tower the bird was sitting on.
+
+The order <kbd>←</kbd> <kbd>→</kbd> walk is fixed when the follow starts. Re-sorted by distance on
+every press, the nearest bird to the one you're on is usually the one you just left, and the
+arrows ping-ponged between two.
+
+The bird's position comes from `raptorsNow` in `windshield.js`, which has to report where the bird
+is **drawn**: the circuit with its clearance, the ledge, and the stoop. The cull's `hunterSpot` has
+none of the stoop, and mid-dive it's off by tiles. `scripts/shapes/perch.mjs` paints a peregrine half
+way down a stoop and checks the two agree.
+
+Standing (a vantage, or FPS), <kbd>H</kbd> only turns the lens onto the bird, because a camera on its
+feet can't fly to one. A bird gone for two seconds (out of the window, or dusk) ends the follow.
+
 ## Vantages — the same camera, bolted down
 
 Furniture carrying `flags.telescope` is a **place you can stand and look from**. `telescope` opens

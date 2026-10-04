@@ -1,0 +1,20 @@
+{
+  "description": "A coin-op coffee machine with a picture of steam on the front and a stack of paper cups behind a window. It takes about a minute.",
+  "flags": {
+    "aliases": "coffee, cup, cups",
+    "brew_tier": "machine",
+    "vend_drink": "black_coffee",
+    "vend_line": "The machine drops a paper cup into the bay and fills it in two long hisses.",
+    "vends": "item_paper_cup"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cw_coffee_machine",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "coffee machine",
+  "object_type": "fixture",
+  "power_draw_kw": 1.2,
+  "price": 0,
+  "zone_id": "zone_cw_lounge"
+}

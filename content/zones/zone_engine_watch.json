@@ -5,18 +5,18 @@
     "down": "zone_engine_bay"
   },
   "flags": {
-    "building_name": "Engine Trouble",
+    "building_name": "Fire Station 4",
     "building_type": "fire_station",
     "floor": "linoleum",
     "is_building": true,
     "is_interior": true,
-    "world_exit_zone": "zone_district_910_917"
+    "world_exit_zone": "zone_district_906_913"
   },
   "grid_x": 0,
   "grid_y": 0,
   "grid_z": 0,
   "id": "zone_engine_watch",
   "map_id": "map_int_engine",
-  "name": "Engine Trouble — The Watch Room",
-  "parent_zone": "zone_district_910_917"
+  "name": "Fire Station 4 — The Watch Room",
+  "parent_zone": "zone_district_906_913"
 }

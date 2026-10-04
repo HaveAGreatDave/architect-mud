@@ -1,0 +1,17 @@
+{
+  "description": "Long white panels set into the ceiling, one of them dead over desk 5.",
+  "flags": {
+    "is_light": true,
+    "light_type": "overhead"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_cw_checkin",
+  "light_type": "overhead",
+  "lumen_output": 3000,
+  "name": "ceiling panel lights",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": null,
+  "zone_id": "zone_cw_checkin"
+}

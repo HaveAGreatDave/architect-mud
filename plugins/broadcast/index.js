@@ -4981,6 +4981,36 @@ function _graphCastIds(graph) {
 // short window, because the runner only ticks while somebody is watching — a channel that
 // goes unobserved must let its cast go home rather than pinning them on set forever.
 const ON_AIR_CAST_HOLD_MS = 60 * 1000;
+
+// ── THE ON AIR LAMP ─────────────────────────────────────────────────────────
+// Is a show being taped right now? The KSAB plot's ON AIR box lights from this (client
+// `studio_live`). It's read off the timetable and the studio floor, not off the graph
+// runner, because the runner only walks a channel somebody is watching and the cast go
+// to work whether anyone's tuned in or not. A taping is an acted slot on the grid now
+// (not a weather read), at least one of its cast on the stage, and a working camera
+// there with a way to get the picture home. All of it is in memory.
+let _studioLiveSent = false;
+function _studioLiveNow() {
+  const { minutes, dayOfWeek } = getEnvironmentState() || {};
+  const gameSecs = (minutes ?? 0) * 60;
+  for (const state of channelRuntime.values()) {
+    if (!state.studioZoneId || state.scheduleMode !== 'daily') continue;
+    const slot = _pickDailySlot(state.playlist, gameSecs, dayOfWeek);
+    if (!slot?.npcStaff?.length || slot.playback_mode === 'weather') continue;
+    const stage = slot.locationZoneId || state.studioZoneId;
+    const present = getZone(stage)?.npcs;
+    if (!present?.size || !slot.npcStaff.some((id) => present.has(id))) continue;
+    if (_camerasIn(stage).length && _uplinkOk(state, stage)) return true;
+  }
+  return false;
+}
+function _pushStudioLive() {
+  const live = _studioLiveNow();
+  if (live === _studioLiveSent) return;
+  _studioLiveSent = live;
+  for (const id of world.players.keys()) sendToPlayer(id, { type: 'studio_live', live });
+}
+on('player.login', ({ id }) => { if (id) sendToPlayer(id, { type: 'studio_live', live: _studioLiveNow() }); });
 function _stampOnAirCast(state, graph, nowMs) {
   const ids = _graphCastIds(graph);
   if (!ids?.size) return;
@@ -5009,6 +5039,7 @@ async function broadcastTick() {
   // watchers and no one on a spy feed, so nothing this tick does is observable.
   if (!hasActivePlayers()) return;
   const nowMs = Date.now();
+  _pushStudioLive();
   // Channels the zone loop below will drive this tick (a tuned zone with players).
   // The deck-preview pass skips these so the stateful graph walker isn't advanced
   // twice in one tick.

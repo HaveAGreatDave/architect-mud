@@ -1,0 +1,14 @@
+{
+  "description": "A work lamp in a wire cage, hung off a hook welded to the roof.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_hostel_dorm_3",
+  "light_type": "overhead",
+  "lumen_output": 1500,
+  "name": "caged lamp",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_hostel_dorm_3"
+}

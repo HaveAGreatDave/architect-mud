@@ -243,7 +243,7 @@ for (const [key, why] of MUST_MOVE) {
   const RR = 8, N2 = RR * 2 + 1;
   const sea = Array.from({ length: N2 }, () => Array.from({ length: N2 }, () => ({ kind: 'land', biome: 'water', flr: 0 })));
   sea[RR - 3][RR] = { kind: 'land', biome: 'water', bt: 'pier', ent: 'south', flr: 1 };
-  const field = (dir) => ({ tick: 1, bounds: { minX: 0, maxX: 200, minY: 0, maxY: 200 }, wind: { dir, kph: 34 }, baseCloud: 0.2, precipFloor: 0, floorType: 'none', cells: [] });
+  const field = (dir) => ({ tick: 1, bounds: { minX: 0, maxX: 200, minY: 0, maxY: 200 }, wind: { dir, kph: 34 }, baseCloud: 0.2, cells: [] });
   const shot = (dir) => {
     const v = { cls: 'prop', phase: 'cruise', worldBlend: 1, map: sea, heading: 0, speed: 0, hour: 13, height: 0.02, weather: 'clear', wxField: field(dir), acX: 100, acY: 100 };
     ws.paintWindshield('__moving', v); ops = []; ws.paintWindshield('__moving', v); return ops.join('|');

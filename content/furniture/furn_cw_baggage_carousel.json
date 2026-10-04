@@ -1,0 +1,14 @@
+{
+  "description": "An oval belt of overlapping rubber slats round a steel island. It runs for a minute after each charter lands, then stops with a clank.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cw_baggage_carousel",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the baggage carousel",
+  "object_type": "fixture",
+  "power_draw_kw": 1.5,
+  "price": 0,
+  "zone_id": "zone_cw_baggage"
+}

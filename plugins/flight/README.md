@@ -34,7 +34,7 @@ startup / takeoff / landing and widens the minigame safe bands.
 - **Contracts:** `contracts`/`jobs` · `accept` · `manifest`
 - **Ownership:** `hangar` · `repair` · `salvage` · `rebuild` · `tune` · `modify` (the customisation sheet — tune curves, tail, livery, profiles, **and the parts bench**)
 - **Parts & slots:** `modify parts` · `modify buy <part>` · `modify fit <part>` · `modify pull <slot>`. Deliberately **sub-verbs, not new verbs** — `install`/`uninstall` are the doors/augments plugins' and `parts` is trucking's, and a plugin verb silently beats both the engine builtin and the other plugin depending on load order. A part is an ordinary inventory ITEM out of the aircraft (so it trades, drops off a stripped wreck, and can be carried), and `state.PARTS`/`PART_SLOTS` is the authored mechanic. See [docs/systems-flight.md](../../docs/systems-flight.md#parts--slots--the-discrete-layer-as-built).
-- **Silent resolvers:** `strafresolve` · `flightsync` · `flightevent`
+- **Silent resolvers:** `strafresolve` · `flightsync` · `flightevent` · `flightresume` (the cockpit re-seats its pilot after a re-login; see the server-restart note in [systems-flight.md](../../docs/systems-flight.md))
 
 Bare compass verbs (`n`/`north`/…) are intercepted by an **input matcher** only while
 airborne (set heading); otherwise they fall through to the ground mover.

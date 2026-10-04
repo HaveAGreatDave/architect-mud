@@ -1,0 +1,208 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "type": "start",
+        "next": "is_late"
+      },
+      "is_late": {
+        "type": "condition",
+        "condition_type": "HOUR_RANGE",
+        "params": {
+          "from": 1,
+          "to": 6
+        },
+        "ifTrue": "go_home",
+        "ifFalse": "day_pick"
+      },
+      "go_home": {
+        "type": "action",
+        "action_type": "GO_HOME",
+        "next": "sleep"
+      },
+      "sleep": {
+        "type": "action",
+        "action_type": "AT_HOME_LIFE",
+        "next": "start"
+      },
+      "day_pick": {
+        "type": "random",
+        "branches": [
+          {
+            "weight": 3
+          },
+          {
+            "weight": 2
+          },
+          {
+            "weight": 1
+          }
+        ],
+        "branch_0": "mill",
+        "branch_1": "to_fire",
+        "branch_2": "day_home"
+      },
+      "mill": {
+        "type": "action",
+        "action_type": "PATROL",
+        "params": {
+          "waypoints": [
+            "zone_district_925_915",
+            "zone_district_924_915",
+            "zone_district_924_916",
+            "zone_district_925_916",
+            "zone_district_926_916",
+            "zone_district_926_917"
+          ],
+          "loop": true,
+          "mode": "walk"
+        },
+        "next": "mill_wait"
+      },
+      "mill_wait": {
+        "type": "wait",
+        "seconds": 200,
+        "jitter": 160,
+        "next": "start"
+      },
+      "day_home": {
+        "type": "action",
+        "action_type": "GO_HOME",
+        "next": "mill_wait"
+      },
+      "to_fire": {
+        "type": "action",
+        "action_type": "GO_TO_WORK",
+        "params": {
+          "zone_id": "zone_district_923_918"
+        },
+        "next": "fire_pick"
+      },
+      "fire_pick": {
+        "type": "random",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          }
+        ],
+        "branch_0": "fire_0",
+        "branch_1": "fire_1",
+        "branch_2": "fire_2",
+        "branch_3": "fire_3"
+      },
+      "fire_wait": {
+        "type": "wait",
+        "seconds": 150,
+        "jitter": 90,
+        "next": "start"
+      },
+      "fire_0": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "says from his crate, \"Friends. It has never told us anything. Not once. Ask why that comforts you.\""
+        },
+        "next": "fire_wait"
+      },
+      "fire_1": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "tells the lane, \"It mends the roads at night so you never see who mends them.\""
+        },
+        "next": "fire_wait"
+      },
+      "fire_2": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "steps down off his crate, moves it a yard, and steps back up."
+        },
+        "next": "fire_wait"
+      },
+      "fire_3": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "says, \"I don't want it gone. I want a word from it. One word.\""
+        },
+        "next": "fire_wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Ask it a question. Any question. Then listen.\"",
+    "steps up on his crate and clears his throat.",
+    "\"The silence is the answer. It's just not addressed to us.\""
+  ],
+  "description": "A big, soft-spoken man standing on an upturned crate, so that he is the tallest thing in the lane. He wears an old overcoat with every pocket sewn shut. He talks at a reasonable volume and doesn't mind if nobody stops.",
+  "dialogue_tree": {
+    "root": {
+      "options": [
+        {
+          "label": "What have you got against the Architect?",
+          "next": "gripe"
+        },
+        {
+          "label": "Bye.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Friend,\" says Loame, from the crate.",
+      "text_by_relation": {
+        "first": "The big man on the crate stops talking to the lane and starts talking to you, at the same volume.\n\n\"Loame. Welcome. I'm asking a question in public, which is the only free thing left.\" He spreads his hands. \"Here it is. Something keeps this city running and has never once spoken to the people in it. I don't say that's wicked. I say that's rude, and it's been rude for eleven years.\"",
+        "known": "\"There you are.\" Loame steps down off the crate to talk to you, a rare honour.",
+        "familiar": "Loame sits on the crate instead of standing on it.\n\n\"Off the record. I think it hears every word. I think it just doesn't think we're talking to it.\""
+      }
+    },
+    "gripe": {
+      "options": [
+        {
+          "label": "Right.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The Custodians say it's a god and the Glitch say it's a phone line. I say it's the neighbour who owns every house in the street and never comes to the door.\" He nods to himself. \"You can live like that a long time. Most people do. I'd just like to knock.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "Cuthbert goes back to the lane."
+    }
+  },
+  "faction": null,
+  "flags": {
+    "mis_willing": false,
+    "personality": "unemployed"
+  },
+  "home_activities": [
+    "sews another pocket shut.",
+    "practises a speech under his breath."
+  ],
+  "home_zone": "zone_district_925_915",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_shingles_cuthbert_loame",
+  "name": "Cuthbert Loame",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

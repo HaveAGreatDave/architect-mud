@@ -1,0 +1,14 @@
+{
+  "description": "Chrome posts with retractable belts, set out in a zigzag for about forty people.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cw_queue_belts",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the queue belts",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_cw_gate"
+}

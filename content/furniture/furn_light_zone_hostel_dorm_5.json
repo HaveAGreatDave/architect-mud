@@ -1,0 +1,14 @@
+{
+  "description": "One bulb on a flex over the ladder. Most of the light up here comes from the sign.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_hostel_dorm_5",
+  "light_type": "overhead",
+  "lumen_output": 1200,
+  "name": "hanging bulb",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_hostel_dorm_5"
+}

@@ -23,20 +23,23 @@ import { viewProjMatrix, mat4f } from './camera.js';
 import { makeVertexStream } from './stream.js';
 import { declareProgram, takeWarm } from './programs.js';
 
-// pos3, uv2, alpha1
-const STRIDE = 6;
+// pos3, uv2, alpha1, red1
+const STRIDE = 7;
 
 const VERT = `#version 300 es
 in vec3 aPos;
 in vec2 aUV;
 in float aAlpha;
+in float aRed;
 uniform mat4 uViewProj;
 out vec2 vUV;
 out float vAlpha;
+out float vRed;
 void main() {
   gl_Position = uViewProj * vec4(aPos, 1.0);
   vUV = aUV;
   vAlpha = aAlpha;
+  vRed = aRed;
 }`;
 
 // ⚠ THE LINE WIDTHS ARE IN PIXELS AND THE SHADER WORKS IN UV, so every one of them is derived
@@ -46,6 +49,7 @@ const FRAG = `#version 300 es
 precision highp float;
 in vec2 vUV;
 in float vAlpha;
+in float vRed;
 uniform float uTime;
 out vec4 outColor;
 
@@ -96,6 +100,14 @@ void main() {
   vec3 add = rgb * a + lit * band + vec3(190.0, 240.0, 255.0) / 255.0 * rain
            + vec3(225.0, 252.0, 255.0) / 255.0 * crown;
   float outA = (a + band + rain + crown) * vAlpha;
+  // LOCKDOWN (vRed): the same field in alarm red, swelling on the airlock's own clock (0.0063 per
+  // ms), so the wall and the lock's lamps flash together. CURTAIN_RED in windshield.js is the 2-D copy.
+  if (vRed > 0.5) {
+    float swell = 0.35 + 0.65 * (0.5 + 0.5 * sin(uTime * 0.0063));
+    float lum = dot(add, vec3(0.30, 0.45, 0.25));
+    add = vec3(1.0, 0.16, 0.10) * lum * 1.7 * swell + vec3(1.0, 0.55, 0.45) * crown * swell;
+    outA *= 0.6 + 0.6 * swell;
+  }
   // ⚠ ADDITIVE, and the alpha rides along. The 2-D pass drew this with 'lighter' straight onto the
   // finished frame; here it lands in a buffer that is BLITTED source-over, so a wall standing
   // against open sky has to carry its own alpha or it would composite onto nothing and vanish.
@@ -115,7 +127,7 @@ function compile(gl, type, src, label) {
   return sh;
 }
 
-// A segment is `{ ax, ay, bx, by, h, alpha }` — the wall's two ground points in the same
+// A segment is `{ ax, ay, bx, by, h, alpha, red }` — the wall's two ground points in the same
 // camera-relative tile frame the lights use, its world-z height, and the fade the world pass
 // already computed for it.
 export function createCurtainLayer(gl) {
@@ -133,6 +145,7 @@ export function createCurtainLayer(gl) {
     pos: gl.getAttribLocation(prog, 'aPos'),
     uv: gl.getAttribLocation(prog, 'aUV'),
     alpha: gl.getAttribLocation(prog, 'aAlpha'),
+    red: gl.getAttribLocation(prog, 'aRed'),
     viewProj: gl.getUniformLocation(prog, 'uViewProj'),
     time: gl.getUniformLocation(prog, 'uTime'),
   };
@@ -141,7 +154,7 @@ export function createCurtainLayer(gl) {
   // One stream, set up once: the attribute pointers are recorded into the VAO here and never
   // touched again, and the storage grows by doubling instead of being reallocated every frame.
   // See gl/stream.js.
-  const stream = makeVertexStream(gl, vao, STRIDE, [[loc.pos, 3, 0], [loc.uv, 2, 12], [loc.alpha, 1, 20]], 512);
+  const stream = makeVertexStream(gl, vao, STRIDE, [[loc.pos, 3, 0], [loc.uv, 2, 12], [loc.alpha, 1, 20], [loc.red, 1, 24]], 512);
   let data = new Float32Array(0);
   let count = 0;
 
@@ -149,13 +162,15 @@ export function createCurtainLayer(gl) {
     count = segs.length * 6;
     if (data.length < count * STRIDE) data = new Float32Array(Math.max(count * STRIDE, 512));
     let o = 0;
+    let r = 0;
     const put = (x, y, z, u, v, a) => {
       data[o] = x; data[o + 1] = y; data[o + 2] = z;
-      data[o + 3] = u; data[o + 4] = v; data[o + 5] = a;
+      data[o + 3] = u; data[o + 4] = v; data[o + 5] = a; data[o + 6] = r;
       o += STRIDE;
     };
     for (const s of segs) {
       const a = s.alpha == null ? 1 : s.alpha, h = s.h;
+      r = s.red ? 1 : 0;
       // top-left, top-right, bottom-right / top-left, bottom-right, bottom-left
       put(s.ax, s.ay, h, 0, 0, a); put(s.bx, s.by, h, 1, 0, a); put(s.bx, s.by, 0, 1, 1, a);
       put(s.ax, s.ay, h, 0, 0, a); put(s.bx, s.by, 0, 1, 1, a); put(s.ax, s.ay, 0, 0, 1, a);

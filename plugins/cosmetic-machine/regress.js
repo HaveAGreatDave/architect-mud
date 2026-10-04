@@ -3,6 +3,7 @@
 // machine, or a panel when it does — both prove the verb is routed.
 import { displayRung, setDisplayRung, DISPLAY_MODE_FLAG } from '../../server/engine/presentation.js';
 import { setFlag } from '../../server/engine/flags.js';
+import { on, off } from '../../server/engine/events.js';
 
 export default async function regress({ run, check, getPlayer }) {
   let r = await run('morphex');
@@ -11,8 +12,23 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('use somejunkitem');
   check('use falls through machine intercept', r?.type === 'error' && !/Unknown command/.test(r.message || ''), r?.message);
 
+  // Opening the panel is announced. The prologue's first door opens on it, so a
+  // new player never has to change anything to leave The Inbetween.
+  {
+    const { _test } = await import('./index.js');
+    let opened = null;
+    const seen = ({ actor }) => { opened = actor; };
+    on('cosmetic.opened', seen);
+    try {
+      _test.openPanel(getPlayer());
+      check('opening the panel emits cosmetic.opened', opened?.id === getPlayer().id, `actor=${opened?.id}`);
+    } finally {
+      off('cosmetic.opened', seen);
+    }
+  }
+
   // ── The bottom rung gets a sheet, not a modal ──────────────────────────────
-  // Chargen is BLOCKING: the prologue's first move gate wants `appearance.changed`
+  // Chargen is BLOCKING: the prologue's first move gate wants `cosmetic.opened`
   // and this machine is the only thing that emits it. A player who cannot operate
   // a panel has to be able to read the same data and be told the commands.
   //

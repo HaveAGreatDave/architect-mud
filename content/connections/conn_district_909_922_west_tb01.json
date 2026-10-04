@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_909_922",
+  "b": "zone_gatepost_towbay",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_district_909_922_west_tb01",
+  "lockable": true,
+  "one_way": false
+}

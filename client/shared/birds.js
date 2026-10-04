@@ -1862,6 +1862,12 @@ export const SPECIES = {
     // Starlings line a parapet, a wire and a gutter before they go up, and come back to the same
     // one after. The pre-roost gathering is most of what anybody has ever watched them do.
     perch: { share: 0.5 },
+    // ⚠ WHERE IT COMES DOWN IS NOT WHERE IT LIVES. Most starling anchors are road or paving, and a
+    // starling feeds on short grass and waits on wires; it does not stand about on a road. The renderer
+    // takes the party up to `reach` tiles to a wire or a lawn, and to the road only when there is
+    // neither and no ledge either (landSite in windshield.js). `perchedNow` still says which cycles
+    // are spent up on something, so the room text and the picture agree about that much.
+    land: { reach: 3 },
   },
 
   // The hawk. Solitary, high, and the only bird here that is dangerous to the others.

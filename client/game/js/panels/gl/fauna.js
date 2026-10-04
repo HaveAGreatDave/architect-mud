@@ -37,6 +37,7 @@ const UNIT = 7;
 // The murmuration's state textures when drawing, 12-14: clear of the simulation's own 8-11 in
 // gl/murmur-gpu.js, so neither pass can find a texture of the other's still bound where it samples.
 const CLOUD_UNIT = 12;
+const NO_SAG = new Float32Array(8);
 
 const VERT = `#version 300 es
 in vec3 aColor;
@@ -130,6 +131,10 @@ uniform vec2 uBank;        // bank per stored unit, bank max
 uniform ivec2 uTierClamp;  // the finest and coarsest level drawn for this cloud (see tierSpan)
 uniform highp sampler2D uStat2; // the ground mill's phase, for the bob
 uniform vec3 uGround;      // 1 when the flock is down; the bob's phase; the bob's height in tiles
+uniform highp sampler2D uStat4; // a flock on ledges or wires: each bird's spot, the height of what it is on, its place along a wire
+uniform highp sampler2D uStat5; // ...its heading there, which ledge, its shuffle's phase (bakePerch in murmur-gpu.js)
+uniform vec2 uPerchD;      // 1 when the flock is down on ledges or wires; the shuffle's phase
+uniform float uSag[8];     // how far each of those ledges hangs at the middle now (a loaded wire), tiles
 uniform vec4 uSil;         // the eye (the birds' frame) and how far a bird against the sky goes to silhouette
 // ⚠ A BIRD ABOVE YOU IS SEEN AGAINST THE SKY, AND THE SKY IS BRIGHTER THAN ANY LIT FEATHER. The vertex
 // colours are the bird lit from outside, which is right from above (against the ground) and wrong from
@@ -157,11 +162,12 @@ float sunFront(vec3 w) {
   vec3 L = vec3(uSun.xy * ce, uSun.z);
   return clamp(-dot(v, L) * 1.4 + 0.2, 0.0, 1.0) * smoothstep(-0.05, 0.08, uSun.z);
 }
-// the sun's light on the bird, with no silhouette: what an edge-on bird is lifted toward
-vec3 sunLit(vec3 w) { return vec3(1.0) + uSunCol * (uSun.w * sunFront(w)); }
-vec3 silhouette(vec3 w) {
+// the sun's light on the bird, with no silhouette: what an edge-on bird is lifted toward.
+// k is how much of the sky's light the bird takes (Bird.sky): 1 in the air, 0 standing on the ground.
+vec3 sunLit(vec3 w, float k) { return vec3(1.0) + uSunCol * (uSun.w * k * sunFront(w)); }
+vec3 silhouette(vec3 w, float k) {
   float f = sunFront(w);
-  return sunLit(w) * (1.0 - silhouetteK(w) * (1.0 - uSun.w * f * 0.85));
+  return sunLit(w, k) * (1.0 - k * silhouetteK(w) * (1.0 - uSun.w * f * 0.85));
 }
 const int TW = 64;
 ivec2 at(int i) { return ivec2(i % TW, i / TW); }
@@ -176,7 +182,7 @@ int tierOf(float px) {
   return t;
 }
 // Everything both programs need about one bird. ok = false collapses it.
-struct Bird { bool ok; vec3 w; float a; float px; float heading; float roll; float beat; float h; float vz; float hv; };
+struct Bird { bool ok; vec3 w; float a; float px; float heading; float roll; float beat; float h; float vz; float hv; float sky; };
 Bird bird(int id, int wantTier) {
   Bird b; b.ok = false;
   ivec2 t = at(id);
@@ -213,6 +219,11 @@ Bird bird(int id, int wantTier) {
   }
   b.ok = true; b.w = w; b.a = a; b.px = px;
   b.h = P.z; b.vz = V.z; b.hv = length(V.xy);   // height off the ground and climb rate, before the walking bob: they pick the landing pose
+  // ⚠ THE SKY'S LIGHT IS EACH BIRD'S, NOT THE FLOCK'S. A flock coming down or going up in waves is in ground
+  // mode the whole time, and the silhouette and the sun were switched off for every bird in it, so the
+  // hundreds still wheeling overhead went from a dark cloud to their pale lit colour for about 27 s at
+  // each end of a flight. Only a bird near the ground gives them up.
+  b.sky = uGround.x > 0.5 ? smoothstep(${ALOFT_H}, ${BRAKE_H}, P.z) : 1.0;
   b.heading = atan(V.y, V.x);
   b.roll = clamp((P.w + ag) * uBank.x, -uBank.y, uBank.y);
   b.beat = texelFetch(uStat0, t, 0).w;
@@ -220,7 +231,19 @@ Bird bird(int id, int wantTier) {
   // ground that the flock's own settle scales down while it is still arriving (drawGooseGround).
   if (uGround.x > 0.5) {
     b.roll = 0.0;
-    b.w.z += abs(sin(uGround.y + texelFetch(uStat2, t, 0).w * 6.28)) * uGround.z;   // 6.28, as drawGooseGround has it
+    if (uPerchD.x > 0.5) {
+      // ⚠ ON A LEDGE OR A WIRE A BIRD'S HEIGHT IS MEASURED FROM WHAT IT STANDS ON, NOT FROM THE GROUND. The
+      // pose is chosen off that height (flying above ALOFT_H, braking below BRAKE_H), so measured from the
+      // street every starling on a wire was drawn in flight. And a perched bird faces the way its perch
+      // faces (across a wire, out from a parapet), turning a little, rather than the way it last moved:
+      // standing still, its velocity points nowhere in particular.
+      vec4 Q = texelFetch(uStat4, t, 0), Q2 = texelFetch(uStat5, t, 0);
+      b.h = P.z - (Q.z - uSag[clamp(int(Q2.y + 0.5), 0, 7)] * (1.0 - Q.w * Q.w));
+      float ph = Q2.x + sin(uPerchD.y + Q2.z * 6.2831853) * 0.22;
+      float k = (1.0 - smoothstep(0.004, 0.03, b.hv)) * (1.0 - smoothstep(${ALOFT_H}, ${BRAKE_H}, b.h));
+      vec2 hd = mix(vec2(cos(b.heading), sin(b.heading)), vec2(cos(ph), sin(ph)), k);
+      b.heading = atan(hd.y, hd.x + 1e-6);
+    } else b.w.z += abs(sin(uGround.y + texelFetch(uStat2, t, 0).w * 6.28)) * uGround.z;   // 6.28, as drawGooseGround has it
   }
   return b;
 }
@@ -300,7 +323,7 @@ void main() {
   if (walking) {
     float mv = smoothstep(0.008, 0.035, b.hv);
     m = mix(texelFetch(uPose, ivec2(gl_VertexID, 0), 0).xyz, poseAt(fract(uGround.y / 6.2831853 * 3.0 + b.beat * 3.7)), mv);
-    float pk = smoothstep(0.55, 0.95, sin(uGround.y * 2.0 + b.beat * 23.0)) * (1.0 - mv);
+    float pk = smoothstep(0.55, 0.95, sin(uGround.y * 2.0 + b.beat * 23.0)) * (1.0 - mv) * (1.0 - uPerchD.x);   // nothing to peck at on a wire
     if (pk > 0.0) m = mix(m, texelFetch(uPose, ivec2(gl_VertexID, ${FAUNA_PECK_ROW}), 0).xyz, pk);
   } else if (row >= 0) m = texelFetch(uPose, ivec2(gl_VertexID, row), 0).xyz;
   else {
@@ -334,7 +357,7 @@ void main() {
   vec3 S = S0 * cr + U0 * sr, U = U0 * cr - S0 * sr;
   vec4 clip = uViewProj * vec4(b.w + F * m.x + S * m.y + U * m.z, 1.0);
   gl_Position = clip;
-  vColor = aColor * silhouette(b.w); vAlpha = a;
+  vColor = aColor * silhouette(b.w, b.sky); vAlpha = a;
   float ff = clamp((clip.w - uFogNear) / max(1e-3, uFogFar - uFogNear), 0.0, 1.0);
   vFog = ff * ff * uFogAmt;
 }`;
@@ -356,7 +379,7 @@ void main() {
   vCorner = CORNERS[gl_VertexID];
   vSil = vec3(1.0);
   if (!b.ok) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); vAlpha = 0.0; return; }
-  vSil = silhouette(b.w);
+  vSil = silhouette(b.w, b.sky);
   // ⚠ THE FLASH IS HOW MUCH WING THE BIRD SHOWS YOU: the wing plane's normal against the line of sight,
   // so a bird banked toward the eye shows its whole planform and one banked away shows its edge. That is
   // what a dark band is (Hemelrijk 2015), and seen from below a flock rolling through a sharp turn goes
@@ -379,7 +402,7 @@ void main() {
   // bird's colour, so an edge-on bird's COLOUR is lifted toward its lit value too (uFlashX.y, 0 is off),
   // which survives stacking. Against the sky that is a lighter band, what a flock turning edge-on
   // overhead does (Costanzo 2021).
-  if (uFlash > 0.0) vSil = mix(vSil, sunLit(b.w), clamp(uFlash * uFlashX.y * smoothstep(0.45, 0.85, 1.0 - face), 0.0, 1.0));
+  if (uFlash > 0.0) vSil = mix(vSil, sunLit(b.w, b.sky), clamp(uFlash * uFlashX.y * smoothstep(0.45, 0.85, 1.0 - face), 0.0, 1.0));
   float dim = uFlash > 0.0 ? (1.0 - uFlash) + uFlash * (uFlashK.x + (1.0 - uFlashK.x) * shown) : 1.0;
   float area = uFlash > 0.0 ? 1.0 - uFlash * uFlashK.z + uFlash * uFlashK.z * (0.55 + 0.9 * shown) : 1.0;
   // ink conserved: drawn wide enough to reach a pixel centre, faint by the area it was given
@@ -632,6 +655,7 @@ export function createFaunaLayer(gl) {
       gl.useProgram(P.pr);
       const set = (n, k) => { if (P.u[n] != null) gl.uniform1i(P.u[n], k); };
       set('uPosT', CLOUD_UNIT); set('uVelT', CLOUD_UNIT + 1); set('uStat0', CLOUD_UNIT + 2); set('uStat2', CLOUD_UNIT + 3); set('uPosP', CLOUD_UNIT + 4); set('uVelP', CLOUD_UNIT + 5); set('uPose', UNIT);
+      set('uStat4', CLOUD_UNIT + 6); set('uStat5', CLOUD_UNIT + 7);
     }
     gl.useProgram(null);
     return cp;
@@ -676,8 +700,15 @@ export function createFaunaLayer(gl) {
     u1f(u.uLerp, st.lerp ?? 1);
     const G = r.ground || r.hold;
     u3f(u.uGround, G ? 1 : 0, G ? G.bob[0] : 0, G ? G.bob[1] : 0);
-    u4f(u.uSil, r.eye[0], r.eye[1], r.eye[2], G ? 0 : (r.sil || 0));
-    u4f(u.uSun, (r.sun && r.sun[0]) || 0, (r.sun && r.sun[1]) || 0, (r.sun && r.sun[2]) || 0, G ? 0 : ((r.sun && r.sun[3]) || 0));
+    // a flock on ledges or wires (bakePerch in murmur-gpu.js): its spots, and how far each wire hangs now
+    const Pp = G && G.perch;
+    tex(CLOUD_UNIT + 6, (Pp && st.stat4) || st.stat0);
+    tex(CLOUD_UNIT + 7, (Pp && st.stat5) || st.stat0);
+    u2f(u.uPerchD, Pp ? 1 : 0, Pp ? Pp.wob : 0);
+    if (u.uSag) gl.uniform1fv(u.uSag, Pp ? Pp.sag : NO_SAG);
+    // the silhouette and the sun go to every cloud; a bird standing on the ground drops them itself (Bird.sky)
+    u4f(u.uSil, r.eye[0], r.eye[1], r.eye[2], r.sil || 0);
+    u4f(u.uSun, (r.sun && r.sun[0]) || 0, (r.sun && r.sun[1]) || 0, (r.sun && r.sun[2]) || 0, (r.sun && r.sun[3]) || 0);
     u3f(u.uSunCol, (r.sunCol && r.sunCol[0]) || 0, (r.sunCol && r.sunCol[1]) || 0, (r.sunCol && r.sunCol[2]) || 0);
   }
 
@@ -784,7 +815,7 @@ export function createFaunaLayer(gl) {
     }
     gl.depthMask(true);
     gl.bindVertexArray(null);
-    for (const k of [UNIT, CLOUD_UNIT, CLOUD_UNIT + 1, CLOUD_UNIT + 2, CLOUD_UNIT + 3]) { gl.activeTexture(gl.TEXTURE0 + k); gl.bindTexture(gl.TEXTURE_2D, null); }
+    for (const k of [UNIT, CLOUD_UNIT, CLOUD_UNIT + 1, CLOUD_UNIT + 2, CLOUD_UNIT + 3, CLOUD_UNIT + 6, CLOUD_UNIT + 7]) { gl.activeTexture(gl.TEXTURE0 + k); gl.bindTexture(gl.TEXTURE_2D, null); }
     gl.activeTexture(gl.TEXTURE0);
     return drawn;
   }

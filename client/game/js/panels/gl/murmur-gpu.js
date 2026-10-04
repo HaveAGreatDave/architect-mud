@@ -58,12 +58,13 @@
 // (groundSpotParts) so there is one copy of where a landed starling stands. It used to become a CPU
 // flock at touchdown, drawn bird by bird and thinned to the face budget, which dropped a grand roost
 // from twenty thousand birds to eighteen hundred the moment it landed and jumped every bird from the
-// cloud to a formation it had never flown. On a ledge a flock is still the CPU's: perching is ledge and
-// wire geometry, and a grand roost never perches (perchedNow).
+// cloud to a formation it had never flown. On a ledge or a wire it is still this flock, in PERCH MODE:
+// windshield.js hands over each bird's spot on the perch (the per-bird path's own seating), baked once
+// per landing (bakePerch), and how far each wire hangs under the birds on it now (uSag).
 //
 // ⚠ THERE IS NO CPU FALLBACK IN THE GAME (decided 2026-09-23). A machine that cannot render to a
 // float texture draws no murmuration at all.
-import { flockFrame, seedPoints, scatterOf, MURMUR_RULES as R, MURMUR_MEASURED } from '../murmur.js';
+import { flockFrame, seedPoints, scatterOf, MURMUR_RULES as R, MURMUR_MEASURED, WAVE_GROUPS, WAVE_JITTER, TRICKLE_POW } from '../murmur.js';
 
 const W = 64;                       // birds per texture row
 const UNIT0 = 8;                    // texture units 8-16: no other layer binds these during the sim
@@ -73,6 +74,14 @@ const IDLE_EVICT_MS = 4000;         // murmur.js's own eviction rule, for the sa
 // doing so (18 m/s, a starling's own flight speed, as a GLSL literal in tiles/s), so none is ever placed
 // there in a jump.
 const LAND_TAU = '0.45', LAND_VMAX = (18 * R.TILE_PER_M).toFixed(4);
+// ⚠ A PARTY IS NOT ALWAYS ONE BODY (rec.loose, 0..1, from windshield.js): for a spell its birds give up
+// LOOSE_ALIGN of their heading-matching, wander up to LOOSE_WANDER times further on their own (some much
+// more than others), keep LOOSE_SEP more room and may stray LOOSE_ROOST further from the centre before
+// the roost pulls them in. A feeding party of starlings goes like that between bouts of flying as one.
+const LOOSE_ALIGN = 0.6, LOOSE_WANDER = 4.0, LOOSE_SEP = 1.0, LOOSE_ROOST = 1.5;
+// How long a bird whose turn to land has come takes to swing onto its line in (seconds).
+const LAND_TURN = '0.35';
+const NO_SAG = new Float32Array(8);
 const MAX_CLOUDS = 12;
 // ⚠ A BIG CLOUD IS STEPPED EVERY 2ND OR 3RD FRAME AND DRAWN BETWEEN ITS LAST TWO STEPS (gl/fauna.js,
 // uLerp), so the flock is drawn one step behind itself. Each cloud takes its own phase, so two big roosts
@@ -328,6 +337,12 @@ uniform vec4 uAc1;                 // the second nearest
 uniform vec4 uAcV1;
 uniform vec4 uFree;                // the free rules (FREE_RULES): on, course weight, roost pull, height pull
 uniform vec4 uWave;                // the flock taking off or coming down in waves: mode (0 none, 1 up, 2 down), seconds into it, spread, each bird's settle
+uniform float uTrickle;            // 1: one bird at a time rather than in waves (waveTurn)
+uniform float uLoose;              // 0..1: how far a party has come apart into birds just now (looseOf in windshield.js)
+uniform int uPerch;                // 1: the flock is down on ledges or wires, each bird's spot baked in uStat4/5
+uniform float uSag[8];             // how far each of those ledges hangs at the middle now, in tiles (a loaded wire)
+uniform highp sampler2D uStat4;    // on a perch: x, y, the ledge's or cable's height, place along a wire (-1..1)
+uniform highp sampler2D uStat5;    // on a perch: heading, which ledge (into uSag)
 uniform float uAirZ;               // the height a bird still waiting to come down holds
 uniform vec4 uSplit;               // a side of the flock peeling off: direction (x, y), strength, reach (tiles)
 uniform vec4 uCent;                // the flock's measured centre of mass (xyz), 1 when there is one
@@ -442,15 +457,25 @@ void main() {
   // after group, and lift off the same way. Each bird's turn comes off its rank (four waves with a little
   // jitter), so going up the rest keep walking until theirs, and coming down the rest keep wheeling overhead.
   // Drawing only: the shared flock is down or up exactly when it always was.
-  float myT = (floor(S0.z * 4.0) * 0.25 * 0.85 + fract(S0.z * 7.13) * 0.15) * uWave.z;
+  float myT = (uTrickle > 0.5 ? pow(S0.z, ${f(TRICKLE_POW)})
+    : floor(S0.z * ${f(WAVE_GROUPS)}) / ${f(WAVE_GROUPS)} * ${f(1 - WAVE_JITTER)} + fract(S0.z * 7.13) * ${f(WAVE_JITTER)}) * uWave.z;
   bool waiting = uWave.y < myT;
   bool walk = uGround == 1 ? !(uWave.x > 1.5 && waiting) : (uWave.x > 0.5 && uWave.x < 1.5 && waiting);
   if (walk) {
-    vec4 G0 = texelFetch(uStat2, me, 0), G1 = texelFetch(uStat3, me, 0);
-    float gr = uGR * G0.z;
-    vec2 spot = uAnchor + vec2(G0.x * gr + G1.x, G0.y * gr + G1.y)
-              + vec2(cos(uMillA.x + G0.w * 6.283185307), sin(uMillA.y + G1.z * 6.283185307)) * uMill;
-    vec3 tgt = vec3(spot, uGround == 1 ? uLift : 0.0);
+    vec3 tgt;
+    if (uPerch == 1) {
+      // ⚠ ON A LEDGE OR A WIRE THE SPOT IS BAKED, and a wire's sags by the weight on it now, which is how
+      // many birds have landed: the cable bends as the party comes down onto it, one bird at a time.
+      vec4 Q = texelFetch(uStat4, me, 0);
+      int k = clamp(int(texelFetch(uStat5, me, 0).y + 0.5), 0, 7);
+      tgt = vec3(Q.xy, Q.z - uSag[k] * (1.0 - Q.w * Q.w));
+    } else {
+      vec4 G0 = texelFetch(uStat2, me, 0), G1 = texelFetch(uStat3, me, 0);
+      float gr = uGR * G0.z;
+      vec2 spot = uAnchor + vec2(G0.x * gr + G1.x, G0.y * gr + G1.y)
+                + vec2(cos(uMillA.x + G0.w * 6.283185307), sin(uMillA.y + G1.z * 6.283185307)) * uMill;
+      tgt = vec3(spot, uGround == 1 ? uLift : 0.0);
+    }
     // coming down, each bird has its own deadline, its turn plus the settle; otherwise the flock's
     float LL = uWave.x > 1.5 ? max(0.0, myT + uWave.w - uWave.y) : (uGround == 1 ? uLandLeft : 0.0);
     // ⚠ A BIRD IS NEVER PLACED ON ITS SPOT, IT FLIES THERE. With no landing time left this was 'np = tgt',
@@ -459,8 +484,18 @@ void main() {
     // each step is capped at a starling's own speed, so every bird comes in on its own path and settles;
     // once down, the same easing is what carries it round the slow mill, so nothing changes there.
     vec3 dp = (tgt - p) * min(1.0, uDt / max(LL, ${LAND_TAU}));
+    // ⚠ AND IT TURNS ONTO ITS LINE IN, RATHER THAN SNAPPING ONTO IT. The step above is a straight line at
+    // constant speed from wherever the bird was the instant its turn came, so a bird wheeling at 10 m/s
+    // changed course and speed in one frame. While there is time in hand its velocity is eased toward that
+    // line over LAND_TURN seconds, so it banks out of the circle and slows; the line is re-aimed every frame
+    // from what is left, so it still arrives on time, and the last LAND_TAU is the easing above.
+    if (LL > ${LAND_TAU} && dot(v, v) > 0.0) dp = mix(v * uDt, dp, 1.0 - exp(-uDt / ${LAND_TURN}));
     float dl = length(dp), mx = ${LAND_VMAX} * uDt;
     vec3 np = p + (dl > mx ? dp * (mx / dl) : dp);
+    // ⚠ AND IT NEVER DIPS BELOW WHAT IT IS LANDING ON on the way in. A bird still diving when its turn came
+    // carried that dive on through the ease and went into the turf (__glMurmurLanding counted 123,789 bird-
+    // frames below ground); one coming in from above may not pass under the height it is landing at.
+    np.z = max(np.z, min(p.z, tgt.z));
     ${emit('vec4(np, 0.0)', 'vec4((np - p) / max(uDt, 1e-4), vis)', true)}
   }
 
@@ -551,6 +586,9 @@ void main() {
   // grows toward the edge, and what keeps the flock over its roost is a pull that starts only past a radius,
   // horizontal, plus a soft band of height round the centre's. Everything inside that is the birds.
   float wCmd = ${f(R.wCmd)}, wCoh = ${f(R.wCoh)};
+  // ⚠ A LOOSE SPELL (uLoose, a party's): each bird follows its neighbours' heading less and its own way more,
+  // so the flock comes apart into birds for a while; when the spell passes, cohesion and the roost bring it back.
+  float wAli = ${f(R.wAli)} * (1.0 - ${f(LOOSE_ALIGN)} * uLoose);
   vec3 home = vec3(0.0);
   if (uFree.x > 0.5) {
     wCmd *= uFree.y;
@@ -571,7 +609,9 @@ void main() {
     home.z = dz / max(uFree2.z, 1e-3) * uFree.w;
     // each bird's own small wander, slow and smooth, so the flock has something inside it to amplify
     float ph = float(i) * 0.6180339;
-    home += vec3(sin(ph * 12.9 + uNoise.y * 2.0), cos(ph * 7.3 + uNoise.y), 0.15 * sin(ph * 5.1 + uNoise.y * 3.0)) * uFree2.w;   // whole multiples: uNoise.y wraps at 2 pi
+    // (in a loose spell some birds go their own way much further than others: the beat offset is a hash per bird)
+    float own = 1.0 + uLoose * ${f(LOOSE_WANDER)} * (0.3 + 1.4 * fract(S0.w * 7.31 + 0.17));
+    home += vec3(sin(ph * 12.9 + uNoise.y * 2.0), cos(ph * 7.3 + uNoise.y), 0.15 * sin(ph * 5.1 + uNoise.y * 3.0)) * uFree2.w * own;   // whole multiples: uNoise.y wraps at 2 pi
   }
   // ⚠ BUILDINGS AND THE CURTAIN: a bird looks along its course and climbs, and turns down the slope of
   // the height map, when what is ahead is within a margin of its own height. The margin and the look
@@ -591,12 +631,12 @@ void main() {
     }
   }
   vec3 acc;
-  acc.xy = sep.xy * ${f(R.wSep)} + ali.xy * ${f(R.wAli)} + coh.xy * wCoh + steer.xy * wCmd + env.xy * ${f(R.wEnv)} + e.xy * ${f(R.wScare)} + home.xy + avoid.xy;
+  acc.xy = sep.xy * ${f(R.wSep)} + ali.xy * wAli + coh.xy * wCoh + steer.xy * wCmd + env.xy * ${f(R.wEnv)} + e.xy * ${f(R.wScare)} + home.xy + avoid.xy;
   // ⚠ SEPARATION ACTS IN FULL VERTICALLY; ONLY FOLLOWING NEIGHBOURS IS DAMPED THERE. With the vertical
   // share of all three damped, nothing ever spread the birds apart in height, cohesion slowly pressed them
   // into a sheet, and a flock measured 1 : 12.9 thick-to-wide against the 1 : 2.8 of real ones. The body's
   // own thin axis is what holds it flat now.
-  acc.z = sep.z * ${f(R.wSep)} + (ali.z * ${f(R.wAli)} + coh.z * wCoh) * (uFree.x > 0.5 ? 1.0 : ${f(R.Z_SOFT)})
+  acc.z = sep.z * ${f(R.wSep)} + (ali.z * wAli + coh.z * wCoh) * (uFree.x > 0.5 ? 1.0 : ${f(R.Z_SOFT)})
         + steer.z * wCmd + env.z * ${f(R.wEnv)} + e.z * ${f(R.wScare)} + home.z + avoid.z;
   vec3 nv = v + acc * uDt;
   float sp = length(nv); sp = sp > 0.0 ? sp : 1e-4;
@@ -658,7 +698,7 @@ function link(gl, vs, fs, label) {
 
 const STEP_UNIFORMS = ['uPos', 'uVel', 'uStat0', 'uStat1', 'uN', 'uDt', 'uSpeed', 'uSepR', 'uTurn',
   'uShow', 'uFadeK', 'uC', 'uCmd', 'uCmdDt', 'uRelay', 'uSide', 'uEnv', 'uEnvDir', 'uNoise', 'uScare', 'uAc0', 'uAcV0', 'uAc1', 'uAcV1', 'uShift', 'uFrozen', 'uProbe',
-  'uFree', 'uFree2', 'uStat2', 'uStat3', 'uGround', 'uAnchor', 'uGR', 'uMill', 'uMillA', 'uLandLeft', 'uLift', 'uFloorZ', 'uObsT', 'uObs', 'uSpin', 'uCent', 'uWave', 'uAirZ', 'uSplit'];
+  'uFree', 'uFree2', 'uStat2', 'uStat3', 'uGround', 'uAnchor', 'uGR', 'uMill', 'uMillA', 'uLandLeft', 'uLift', 'uFloorZ', 'uObsT', 'uObs', 'uSpin', 'uCent', 'uWave', 'uAirZ', 'uSplit', 'uTrickle', 'uLoose', 'uPerch', 'uSag', 'uStat4', 'uStat5'];
 
 export function createMurmurGPU(gl) {
 
@@ -699,7 +739,7 @@ export function createMurmurGPU(gl) {
     // with every bind was a uniform1i per texture per pass per cloud — over two hundred GL calls a frame
     // with a roost in view, each one costing the frame about as much as a draw.
     gl.useProgram(prog);
-    const units = { uPos: 0, uVel: 1, uStat0: 2, uStat1: 3, uGrid: 4, uNbrA: 5, uNbrB: 6, uStat2: 7, uStat3: 8, uObsT: 9 };
+    const units = { uPos: 0, uVel: 1, uStat0: 2, uStat1: 3, uGrid: 4, uNbrA: 5, uNbrB: 6, uStat2: 7, uStat3: 8, uObsT: 9, uStat4: 10, uStat5: 11 };
     for (const [n, k] of Object.entries(units)) u1i(loc[n], UNIT0 + k);
     gl.useProgram(fileProg);
     u1i(floc.uPos, UNIT0); u1i(floc.uVel, UNIT0 + 1); u1i(floc.uPrev, UNIT0 + 4);
@@ -800,6 +840,8 @@ export function createMurmurGPU(gl) {
     const C = {
       key: rec.key, n, H, tex: t, nb, fbo, cur: 0,
       stat0: tex(W, H, s0), stat1: tex(W, H, s1), stat2: tex(W, H, s2), stat3: tex(W, H, s3),
+      // where each bird stands on a ledge or wire, baked by bakePerch when the flock comes down on one
+      stat4: tex(W, H, new Float32Array(W * H * 4)), stat5: tex(W, H, new Float32Array(W * H * 4)), perchKey: null,
       c: { last: null, seen: rec.now, sd },
       bound: null,
       // how many grid layers this cloud files, and the query that says whether its last one was used
@@ -848,6 +890,7 @@ export function createMurmurGPU(gl) {
     if (C.sFence) gl.deleteSync(C.sFence);
     for (const t of [...C.tex, ...C.nb]) gl.deleteTexture(t);
     gl.deleteTexture(C.stat0); gl.deleteTexture(C.stat1); gl.deleteTexture(C.stat2); gl.deleteTexture(C.stat3);
+    gl.deleteTexture(C.stat4); gl.deleteTexture(C.stat5);
     for (const fb of C.fbo) if (fb) gl.deleteFramebuffer(fb);
     clouds.delete(C.key);
   }
@@ -958,6 +1001,24 @@ export function createMurmurGPU(gl) {
     }
   }
 
+  // ⚠ WHERE EACH BIRD STANDS ON A LEDGE OR WIRE, from windshield.js (perch.parts(i): x, y, height, place
+  // along a wire, heading, which ledge, shuffle phase), uploaded once per landing rather than every frame.
+  function bakePerch(C, P) {
+    const s4 = new Float32Array(W * C.H * 4), s5 = new Float32Array(W * C.H * 4);
+    for (let i = 0; i < C.n; i++) {
+      const q = P.parts(i), o = i * 4;
+      s4[o] = q[0]; s4[o + 1] = q[1]; s4[o + 2] = q[2]; s4[o + 3] = q[3];
+      s5[o] = q[4]; s5[o + 1] = q[5]; s5[o + 2] = q[6];
+    }
+    gl.activeTexture(gl.TEXTURE0 + UNIT0);
+    gl.bindTexture(gl.TEXTURE_2D, C.stat4);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, W, C.H, gl.RGBA, gl.FLOAT, s4);
+    gl.bindTexture(gl.TEXTURE_2D, C.stat5);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, W, C.H, gl.RGBA, gl.FLOAT, s5);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    C.perchKey = P.key;
+  }
+
   // The last timed step's cost, once the GPU has it, folded into a running average.
   function readTimer(C) {
     if (!C.tqBusy || !gl.getQueryParameter(C.tq, gl.QUERY_RESULT_AVAILABLE)) return;
@@ -1009,6 +1070,9 @@ export function createMurmurGPU(gl) {
     C.c.seen = rec.now;
     readTimer(C);
     readSample(C);
+    // a flock on a ledge or wire: its spots, baked once per landing (the key changes with the perch)
+    const Pp = (rec.ground && rec.ground.perch) || (rec.hold && rec.hold.perch) || null;
+    if (Pp && Pp.key !== C.perchKey) bakePerch(C, Pp);
     const stride = rec.brute || rec.ground || rec.frozen ? 1 : (rec.stride ?? strideOf(C, rec));
     C.stride = stride;
     if (stride > 1 && C.stepAt != null && (C.tick = (C.tick + 1) % stride) !== 0) return C;
@@ -1021,8 +1085,8 @@ export function createMurmurGPU(gl) {
       if (!shift[0] && !shift[1] && !shift[2]) return C;
     } else { C.c.fx = rec.cx; C.c.fy = rec.cy; C.c.fz = rec.cz; }
     if (rec.ground) {
-      const G = rec.ground, pr = G.R + G.mill + 0.3;
-      const pb = { x: G.anchor[0], y: G.anchor[1], z: 0, r: pr };
+      const G = rec.ground, pr = G.perch ? G.perch.box[3] : G.R + G.mill + 0.3;
+      const pb = G.perch ? { x: G.perch.box[0], y: G.perch.box[1], z: G.perch.box[2], r: pr } : { x: G.anchor[0], y: G.anchor[1], z: 0, r: pr };
       // still coming down: the sphere that holds where the cloud was and the patch it is going to
       if (G.landLeft > 0 && C.bound && !C.bound.ground) {
         const d = Math.hypot(C.bound.x - pb.x, C.bound.y - pb.y, C.bound.z - pb.z);
@@ -1030,7 +1094,11 @@ export function createMurmurGPU(gl) {
       } else C.bound = { ...pb, ground: G.landLeft <= 0 };
     } else if (!shift) C.bound = boundOf(rec, F, C);
     else if (C.bound) { C.bound.x += shift[0]; C.bound.y += shift[1]; C.bound.z += shift[2]; }
-    const time = timer && rec.stride == null && !C.tqBusy;
+    // ⚠ NOT WHILE SOMEBODY ELSE'S TIMER IS OPEN. WebGL2 allows one TIME_ELAPSED query at a time: a
+    // bench timing the whole frame (__glWhere, __glMurmurGpuFrame) had this begin fail, and then this
+    // endQuery closed the BENCH's query mid-frame, and C.tq, never begun, left tqBusy stuck for good.
+    // Standing aside holds the last verdict, which is what no measurement already means.
+    const time = timer && rec.stride == null && !C.tqBusy && !gl.getQuery(timer.TIME_ELAPSED_EXT, gl.CURRENT_QUERY);
     if (time) { if (!C.tq) C.tq = gl.createQuery(); gl.beginQuery(timer.TIME_ELAPSED_EXT, C.tq); }
     pass(C, rec, F, shift, !!rec.brute, 0);
     if (time) { gl.endQuery(timer.TIME_ELAPSED_EXT); C.tqBusy = true; }
@@ -1061,7 +1129,11 @@ export function createMurmurGPU(gl) {
     u1i(L.uGround, rec.ground ? 1 : 0);
     const Wv = rec.wave;
     u4f(L.uWave, Wv ? Wv.mode : 0, Wv ? Wv.t : 0, Wv ? Wv.spread : 0, Wv ? Wv.settle : 0);
+    u1f(L.uTrickle, Wv && Wv.trickle ? 1 : 0);
     u1f(L.uAirZ, rec.airZ ?? rec.cz);
+    const Pp = G && G.perch;
+    u1i(L.uPerch, Pp ? 1 : 0);
+    if (L.uSag) gl.uniform1fv(L.uSag, Pp ? Pp.sag : NO_SAG);
     if (G) {
       u2f(L.uAnchor, G.anchor[0], G.anchor[1]);
       u1f(L.uGR, G.R);
@@ -1072,7 +1144,9 @@ export function createMurmurGPU(gl) {
     }
     u1f(L.uDt, F.dt);
     u1f(L.uSpeed, rec.speed ?? R.speed);
-    u1f(L.uSepR, rec.sep ?? R.sepR);
+    const lo = rec.loose || 0;
+    u1f(L.uSepR, (rec.sep ?? R.sepR) * (1 + LOOSE_SEP * lo));
+    u1f(L.uLoose, lo);
     u1f(L.uTurn, rec.turnG ?? R.turnG);
     u1f(L.uShow, Math.min(1, Math.max(0, rec.show ?? 1)));
     u1f(L.uFadeK, F.dt / Math.max(0.05, rec.showFade ?? R.SHOW_FADE_S));
@@ -1105,7 +1179,7 @@ export function createMurmurGPU(gl) {
     // radius and height band scale with the body the flock was sized for, so a roost of 300,000 is not
     // squeezed into the room a party of 450 needs
     u4f(L.uFree, Fr.on ? 1 : 0, Fr.cmd, Fr.roost, Fr.alt);
-    u4f(L.uFree2, Fr.roostR * E.aL, Fr.edge, Fr.band * E.aT, Fr.wander);
+    u4f(L.uFree2, Fr.roostR * E.aL * (1 + LOOSE_ROOST * lo), Fr.edge * (1 - 0.5 * lo), Fr.band * E.aT, Fr.wander);
     u1f(L.uSpin, Fr.spin ?? 0);
     // the split: every SPLIT_EVERY seconds a side peels off for SPLIT_FOR, on a bearing hashed off the cloud
     // and the cycle so no two roosts split together; only in flight and only with a measured centre
@@ -1185,6 +1259,8 @@ export function createMurmurGPU(gl) {
     bind(UNIT0 + 6, gl.TEXTURE_2D, C.nb[src * 2 + 1]);
     bind(UNIT0 + 7, gl.TEXTURE_2D, C.stat2);
     bind(UNIT0 + 8, gl.TEXTURE_2D, C.stat3);
+    bind(UNIT0 + 10, gl.TEXTURE_2D, C.stat4);
+    bind(UNIT0 + 11, gl.TEXTURE_2D, C.stat5);
     // the height map round the roost, uploaded when windshield.js hands over a new one (it is rebuilt only
     // when the map window moves)
     const O = rec.obst;
@@ -1266,7 +1342,7 @@ export function createMurmurGPU(gl) {
   function state(key) {
     const C = clouds.get(key);
     if (!C || C.bad) return null;
-    const out = { pos: C.tex[C.cur * 2], vel: C.tex[C.cur * 2 + 1], stat0: C.stat0, stat2: C.stat2, n: C.n, W, bound: C.bound, stride: C.stride, stepMs: C.stepMs, layers: C.layers, cent: C.cent };
+    const out = { pos: C.tex[C.cur * 2], vel: C.tex[C.cur * 2 + 1], stat0: C.stat0, stat2: C.stat2, stat4: C.stat4, stat5: C.stat5, n: C.n, W, bound: C.bound, stride: C.stride, stepMs: C.stepMs, layers: C.layers, cent: C.cent };
     // a cloud stepped every other frame is drawn between its last two states, one step behind itself
     if (C.stride > 1 && C.stepGap > 0) {
       out.prevPos = C.tex[(1 - C.cur) * 2]; out.prevVel = C.tex[(1 - C.cur) * 2 + 1];

@@ -1,23 +1,29 @@
 {
   "ambient_events": [],
-  "ambient_theme": "coast",
-  "color": "#7fd3ff",
-  "description": "The apron stops at a concrete lip and the Basin starts a step below it. The water is cold and brown, and the channel past the lip is too deep to wade.",
+  "ambient_theme": "indoors",
+  "color": "#9aa0b0",
+  "description": "Departures: the south half of the terminal, under the same curved roof, with a glazed walkway reaching out over the apron to a boarding stair. A lit board over the doors reads DEPARTURES. The door is west; the apron is east.",
   "exits": {
     "east": "zone_district_925_903",
-    "south": "zone_district_924_904",
-    "west": "zone_district_923_903"
+    "west": "zone_cw_checkin"
   },
   "flags": {
-    "district": "water",
+    "building_name": "Coldwater Regional Airport",
+    "building_type": "departures",
+    "district": "docks",
+    "entrance": "east",
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "world_exit_zone": "zone_district_925_903"
   },
   "grid_x": 924,
   "grid_y": 903,
   "grid_z": 0,
   "id": "zone_district_924_903",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "marker": "DP",
+  "name": "Coldwater Regional Departures",
   "parent_zone": null
 }

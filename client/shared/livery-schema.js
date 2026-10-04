@@ -27,7 +27,7 @@ export const LIVERY_KINDS = ['aircraft', 'boat', 'truck'];
 // are per class), a truck on its type id, a boat on its hull.
 export const LIVERY_MODELS = {
   aircraft: ['prop', 'gunship', 'heavy', 'locust', 'divebomber', 'heli', 'ultralight', 'grasshopper', 'drake'],
-  boat: ['hydro'],
+  boat: ['hydro', 'spur', 'gamecock'],
   truck: ['scrapper', 'hauler', 'drayman', 'continental'],
 };
 export const ANY_MODEL = 'any';

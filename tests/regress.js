@@ -5913,6 +5913,26 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     check('allow_sleep is not a sanctuary (no forcefield bundle)',
       allowsSleep({ flags: { allow_sleep: true } }) && !isSanctuary({ flags: { allow_sleep: true } }));
 
+    // A sleeper in a sanctuary can't be gone through by id. `loot <name>` refused here
+    // already; `lootall <id>`, `lootid` and stow-by-id resolve the body through
+    // resolveCorpseOrPlayer, which didn't ask.
+    {
+      const { resolveCorpseOrPlayer } = await import('../server/engine/commands/combat.js');
+      const SLEEPER = 'regress-sanctuary-sleeper';
+      setLivePlayer(SLEEPER, { id: SLEEPER, handle: 'RegressSleeper', current_zone: homeZone.id, sleeping: { inDream: false, bodyZone: homeZone.id } });
+      try {
+        check('a sleeper in a sanctuary cannot be looted by id', (await resolveCorpseOrPlayer(SLEEPER, p)) === null);
+        delete homeZone.flags.sanctuary;
+        // The same body outside the sanctuary resolves, so the check above isn't vacuous.
+        if (!getZoneProtection(homeZone.id)) {
+          check('a sleeper outside a sanctuary resolves by id', (await resolveCorpseOrPlayer(SLEEPER, p))?.id === SLEEPER);
+        }
+        homeZone.flags.sanctuary = true;
+      } finally {
+        removeLivePlayer(SLEEPER);
+      }
+    }
+
     // Spawn suppression: a due, weight-100 spawn in a sanctuary zone must not fire.
     const anyTimer = [...world.spawnTimers.values()][0];
     if (anyTimer) {

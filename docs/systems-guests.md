@@ -11,6 +11,10 @@ A guest plays without an account. They type a name on the auth screen and arrive
 - **Names** go through `handleProblem` and `handleTaken` (`server/engine/new-player.js`), which registration now shares. A name has to match `HANDLE_RE`, can't be a reserved word (`me`, `all`, `admin`, `architect` and so on), and can't match an NPC's name or another player's handle in any letter case.
 - **Claiming** is `register` → the `claim_form` window → `claim_account` → `claimGuestAccount` (`server/api/routes.js`). One UPDATE sets the username, password, email and `role='player'`. The password travels over the socket, never as a typed command, so it stays out of the log. When email verification is on, the address has to be verified before the next login. The current session carries on.
 
+## Home
+
+A guest's home is the zone content flags `guest_home`: the first floor of Hostel Takeover, the free hostel beside the clone facility at 917,903. The hostel has five floors of communal bunks (`zone_hostel_dorm` to `zone_hostel_dorm_5`) over the desk, with no lock on any door. Every room in it is a `sanctuary`, so anyone can sleep there and a body left there by logging off can't be attacked, looted, robbed or shoved. Only the first floor carries `guest_home`. `handleAuthGuest` writes it as `home_zone` at creation; `homeZoneOf(player)` in `server/engine/guest.js` falls back to it for a guest with none, so `gohome` and `gps $home` work for guests made before the flag. Renting a unit replaces it, for guests and players alike. `scripts/backfill-home-zone.mjs` homes existing guests and tenants.
+
 ## What a guest can't do
 
 Guests can't move value to another player or leave public text that outlives them. A guest costs nothing to make, so without this every guest would be a free alt for a main account.

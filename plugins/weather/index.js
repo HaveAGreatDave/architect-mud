@@ -14,7 +14,7 @@ import { sendToPlayer } from '../../server/engine/messaging.js';
 import { recomputeEquipped } from '../../server/engine/commands/inventory.js';
 import { registerAction } from '../../server/engine/actions.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
-import { devTriggerWeatherEvent, registerWeatherEventCurrent, getEnvironmentState, seasonForDate, empReaches } from '../../server/engine/environment.js';
+import { devTriggerWeatherEvent, registerWeatherEventCurrent, getEnvironmentState, getBirdClock, seasonForDate, empReaches } from '../../server/engine/environment.js';
 import { gatherHook } from '../../server/engine/plugins.js';
 
 const SEASON_BASE_TEMP_C  = { winter: 2,    spring: 12, summer: 24, autumn: 11 };
@@ -467,6 +467,9 @@ export const _testWeather = {
 const NAMED_EVENTS = {
   ion_storm: {
     label: 'ion storm', severity: 0.9,
+    // A heavy, low deck and very little rain: the storm is the lightning, not
+    // the water. Both ramp like severity (half in approach/passing).
+    cloudFloor: 0.95, precipScale: 0.25,
     present: { icon: '⚡', fx: 'ion_storm', audio: 'ion', pool: 'ion', sky: 'ion_storm', severe: 'catastrophic' },
     phases: {
       approach: {
@@ -548,7 +551,36 @@ const NAMED_EVENTS = {
       },
     },
   },
-  // Rarer again, and the one worth stopping for. Same shape, longer peak, and
+  // The common good one. A real secondary bow shows in maybe a third of good
+  // bows: fainter, wider, colours reversed, with a darker band of sky between
+  // the two. The client draws two arcs.
+  double_rainbow: {
+    label: 'double rainbow', severity: 0, benign: true,
+    present: { icon: '🌈', fx: 'double_rainbow', audio: 'rainbow', pool: 'rainbow', sky: 'clear', severe: 'none' },
+    phases: {
+      approach: {
+        secs: 30,
+        line: 'The last of the rain walks off east and the light comes back all at once, low and gold and wrong-coloured.',
+        window: "The rain stops running down the glass. Outside, the light has come back low and gold, and something in it is beginning to bend.",
+        inside: 'The drumming overhead stops. Whatever light finds its way in has gone warm and strange at the edges.',
+      },
+      peak: {
+        secs: 150,
+        line: 'A rainbow stands over the rooftops with a second one above it, fainter and backwards, and the sky between them has gone dark. People point. Nobody can explain the dark bit.',
+        window: 'Two rainbows stand in the window frame, the upper one faint and backwards, and the strip of sky between them is darker than the rest.',
+        inside: "Banded colour comes in under the door, doubled, one set fainter than the other, thrown from something outside you can't see.",
+      },
+      passing: {
+        secs: 30,
+        line: 'The upper bow goes first. The lower one holds a little longer, then lets the sky go back to being the sky.',
+        window: 'The fainter bow goes first, then the other, and the window is just a window again.',
+        inside: 'The doubled light on the wall fades out, and the room goes back to its ordinary colours.',
+      },
+    },
+  },
+  // A real tertiary bow stands on the SUN's side of the sky and is almost never
+  // seen, so three nested arcs opposite the sun is deliberately impossible: the
+  // sky here is wrong sometimes. Same shape, longer peak, and
   // every line written a rung brighter — the client renders three arcs and turns
   // the shimmer up to match (see RAINBOW_TYPES on both sides).
   triple_rainbow: {
@@ -581,7 +613,7 @@ const PHASE_ORDER = ['approach', 'peak', 'passing'];
 // would put rainbows in the seven-day forecast and hand them a severity slot.
 // Everything in NAMED_EVENTS stays directly triggerable (dev panel, VINE).
 const SCHEDULABLE_EVENTS = Object.keys(NAMED_EVENTS).filter(t => !NAMED_EVENTS[t].benign);
-const RAINBOW_TYPES = new Set(['rainbow', 'triple_rainbow']);
+const RAINBOW_TYPES = new Set(['rainbow', 'double_rainbow', 'triple_rainbow']);
 // An unscheduled event can still ambush you, but it's now the rare case — the
 // ordinary path is a scheduled day (below), which the forecast has been warning
 // about for a week.
@@ -665,6 +697,17 @@ function eventSeverity() {
   const mult = activeEvent.phase === 'peak' ? 1 : 0.5;
   return NAMED_EVENTS[activeEvent.type].severity * mult;
 }
+// Cloud floor and precip scale an event lays over the field, phase-ramped like
+// severity. No event: floor 0, scale 1.
+function eventCloudFloor() {
+  const f = activeEvent && NAMED_EVENTS[activeEvent.type].cloudFloor;
+  return f ? f * (activeEvent.phase === 'peak' ? 1 : 0.6) : 0;
+}
+function eventPrecipScale() {
+  const k = activeEvent && NAMED_EVENTS[activeEvent.type].precipScale;
+  if (k == null) return 1;
+  return activeEvent.phase === 'peak' ? k : (1 + k) / 2;
+}
 // Acid precip override applies only at peak.
 function eventPrecipOverride() {
   if (!activeEvent || activeEvent.phase !== 'peak') return null;
@@ -715,8 +758,13 @@ registerWeatherEventCurrent(currentEventSnapshot);
 // The one hero event with a CONDITION instead of a schedule. A rainbow is not a
 // kind of day, it is a moment at the back edge of a shower, so it is rolled
 // against the live field rather than against the date: the shower has to have
-// been real, it has to have moved off, the sky has to have opened, and the sun
-// has to still be up. Fail any of those and there is nothing to roll for.
+// been real, it has to be moving off with rain still falling somewhere, the sky
+// has to have opened, and the sun has to be up but LOW: a primary bow sits 42°
+// from the antisolar point, so a sun higher than that puts the whole arc under
+// the horizon. That rules out the middle of the day, as it does outside.
+//
+// Each shower gets ONE roll, the first step its trailing edge meets a low sun.
+// Rolling every 30s across the memory window made a bow near-certain (1 - 0.95^50).
 //
 // The field is sampled on a coarse grid rather than at one point, because "it
 // stopped raining" asked of a single tile is answered by a cell drifting two
@@ -725,11 +773,12 @@ registerWeatherEventCurrent(currentEventSnapshot);
 const RAINBOW_GRID = 5;                          // samples per axis across the map
 const RAINBOW_MEMORY_MS = 25 * 60 * 1000;        // how long after a shower the light can still catch it
 const RAINBOW_WET_ENOUGH = 0.20;                 // map fraction under rain that counts as "it rained"
-const RAINBOW_DRY_ENOUGH = 0.06;                 // ...and the fraction it has to fall back to
 const RAINBOW_CLEAR_ENOUGH = 0.50;               // map fraction still under thick cloud
-const RAINBOW_SUN = 0.35;                        // ambient light floor: the sun is genuinely up
-const RAINBOW_CHANCE_PER_30S = 0.05;             // rare even once every gate is open
-const TRIPLE_SHARE = 0.05;                       // ...and 1 in 20 of those is the good one
+const RAINBOW_SUN_MIN_DEG = 3;                   // the sun is genuinely up
+const RAINBOW_SUN_MAX_DEG = 38;                  // crown clears the horizon by a few degrees (42° is the cutoff)
+const RAINBOW_CHANCE_PER_SHOWER = 0.28;          // the one roll each shower gets
+const DOUBLE_SHARE = 0.33;                       // a visible secondary: common in good conditions
+const TRIPLE_SHARE = 0.005;                      // the impossible one, 1 in 200 bows
 let lastRainAtMs = 0;
 
 function sampleSkyCoarse() {
@@ -759,18 +808,32 @@ function noteWetSky() {
 }
 
 // Returns 'rainbow' | 'triple_rainbow' | null, given this step's sampled sky.
+// Sun elevation in degrees, the same curve the client draws the sky with
+// (windshield.js: sin((hour-6)/12 · π) · 62). The two must agree, or the server
+// announces a bow the canopy then refuses to draw.
+function sunElevationDeg() {
+  const hour = getBirdClock().hour;
+  if (hour <= 5.5 || hour >= 18.5) return -1;
+  const dayT = Math.min(1, Math.max(0, (hour - 6) / 12));
+  return Math.sin(dayT * Math.PI) * 62;
+}
+
+// Returns 'rainbow' | 'double_rainbow' | 'triple_rainbow' | null, given this step's sampled sky.
 function rollRainbow(sky) {
   if (!sky) return null;
   const now = Date.now();
-  if (sky.wetFrac >= RAINBOW_WET_ENOUGH) return null;                           // still raining on the map
+  if (sky.wetFrac >= RAINBOW_WET_ENOUGH) return null;                           // the shower is still overhead
   if (!lastRainAtMs || now - lastRainAtMs > RAINBOW_MEMORY_MS) return null;     // no shower to be the back edge of
-  if (sky.wetFrac > RAINBOW_DRY_ENOUGH || sky.cloudFrac > RAINBOW_CLEAR_ENOUGH) return null;
+  if (sky.wetFrac <= 0) return null;                                            // a bow needs rain still falling somewhere
+  if (sky.cloudFrac > RAINBOW_CLEAR_ENOUGH) return null;                        // ...and open sky for the sun to come through
   // Snow and sleet make no rainbow, and acid rain has other things on its mind.
   if (field.precipType !== 'rain') return null;
-  if ((getEnvironmentState().ambientLight ?? 0) < RAINBOW_SUN) return null;     // the sun has to be up to do this
-  if (Math.random() >= RAINBOW_CHANCE_PER_30S) return null;
-  lastRainAtMs = 0;   // one rainbow per shower, however long the light holds
-  return Math.random() < TRIPLE_SHARE ? 'triple_rainbow' : 'rainbow';
+  const el = sunElevationDeg();
+  if (el < RAINBOW_SUN_MIN_DEG || el > RAINBOW_SUN_MAX_DEG) return null;        // wait: the sun may still drop into range
+  lastRainAtMs = 0;   // this shower has had its roll, hit or miss
+  if (Math.random() >= RAINBOW_CHANCE_PER_SHOWER) return null;
+  const r = Math.random();
+  return r < TRIPLE_SHARE ? 'triple_rainbow' : r < TRIPLE_SHARE + DOUBLE_SHARE ? 'double_rainbow' : 'rainbow';
 }
 
 function stepWeatherEvent() {
@@ -974,7 +1037,7 @@ function advectField() {
 // entire job is showing you where the cells are. Cheap to carry both; impossible to recover
 // either from the other afterwards.
 function sampleWeatherAt(gx, gy) {
-  let cloudCover = field.baseCloud, precipRate = 0, stormIntensity = 0, tempOffset = 0;
+  let cloudCover = Math.max(field.baseCloud, eventCloudFloor()), precipRate = 0, stormIntensity = 0, tempOffset = 0;
   let cloudCell = 0;                  // cell-only cloud, floor excluded — see above
   let precipType = 'none';
   let wetCell = null;                 // the cell actually raining on this tile (owns the acid roll)
@@ -1005,6 +1068,7 @@ function sampleWeatherAt(gx, gy) {
     // rains less often, and burns when it does.
     if (bias.acid && precipRate > 0 && wetCell && wetCell.seed < bias.acid) precipType = 'acid';
   }
+  precipRate *= eventPrecipScale();
   // Local severity: the day-level floor (lifted by any named event), intensified
   // where a storm cell sits overhead or precip runs torrential on this tile.
   const precipSev = precipRate >= PRECIP_SEVERE ? (precipRate - PRECIP_SEVERE) / (1 - PRECIP_SEVERE) : 0;
@@ -1032,7 +1096,8 @@ function getWeatherFieldSnapshot() {
     // takes the max over the cells, so a snapshot that omitted it described a sky 0.5–0.8
     // less cloudy everywhere than the one the ground was standing under. The flight sim
     // consumes exactly this snapshot and opened its own sampler at zero to match.
-    baseCloud: field.baseCloud,
+    baseCloud: Math.max(field.baseCloud, eventCloudFloor()),
+    precipScale: eventPrecipScale(),
     wind: field.wind,
     regionBias: field.regionBoxes.map(b => ({ id: b.id, temp: b.temp, dryness: b.dryness, acid: b.acid })),
     systems: field.systems.map(s => ({

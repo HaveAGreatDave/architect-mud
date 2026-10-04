@@ -1,22 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "city",
-  "color": "#8a7a64",
-  "description": "A gap in the Meltwater frontage where a roadhouse stood. The boardwalk's footings are still in the dirt, and somebody has already had the porch boards.",
+  "ambient_theme": "urban",
+  "bg_color": "#1d1416",
+  "color": "#c06052",
+  "description": "Three tall red bay doors over aprons swept to bare concrete. Above them, two storeys of watch room and dormitory. At the north end, a square hose tower rises three more storeys, louvred, with a hoist beam at the top. A working bell hangs over the middle door.",
   "exits": {
     "east": "zone_district_907_913",
-    "west": "zone_district_905_913"
+    "west": "zone_engine_bay"
   },
   "flags": {
+    "building_name": "Fire Station 4",
+    "building_type": "fire_station",
     "district": "commercial",
+    "entrance": "east",
+    "facade": true,
+    "floors": 3,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "concrete"
+    "world_exit_zone": "zone_district_907_913"
   },
   "grid_x": 906,
   "grid_y": 913,
   "grid_z": 0,
   "id": "zone_district_906_913",
   "map_id": "map_world",
-  "name": "Empty Lot",
+  "marker": "ET",
+  "name": "Fire Station 4",
   "parent_zone": null
 }

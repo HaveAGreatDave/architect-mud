@@ -72,10 +72,26 @@ uniform vec2 uViewport;
 uniform float uFogNear;
 uniform float uFogFar;
 uniform float uFogAmt;
+// The city's lights (world.js pickLights), already moved into this layer's plain-camera frame.
+uniform int uWLN;
+uniform vec3 uWLP[12];
+uniform vec3 uWLC[12];
+uniform float uWLR[12];
 out vec2 vUV;
 out float vAlpha;
 out float vFog;
+out vec3 vLamp;
 void main() {
+  // ⚠ PER ANCHOR, NOT PER PIXEL: a card has no normal and no depth to its picture, so a lamp lights
+  // the whole tree or rock it stands beside, taken a little above the ground point so a lamp on a
+  // pole still reaches the thing under it.
+  vLamp = vec3(0.0);
+  vec3 P = aPos + vec3(0.0, 0.0, 0.12);
+  for (int i = 0; i < 12; i++) {
+    if (i >= uWLN) break;
+    float att = clamp(1.0 - length(uWLP[i] - P) / max(0.001, uWLR[i]), 0.0, 1.0);
+    vLamp += uWLC[i] * (att * att * 0.8);
+  }
   vec4 clip = uViewProj * vec4(aPos, 1.0);
   // The corner offset is in PIXELS, applied after the perspective divide — the same trick the
   // lights use, and what makes the billboard exactly the size the 2-D painter draws.
@@ -95,6 +111,7 @@ precision highp float;
 in vec2 vUV;
 in float vAlpha;
 in float vFog;
+in vec3 vLamp;
 uniform sampler2D uTex;
 uniform vec3 uFog;
 uniform float uCut;
@@ -169,6 +186,8 @@ void main() {
       - texture(uTex, vUV + vec2(0.0, -reach       )).a;
     c = mix(c, uSnowCol, clamp(open * 0.25 * sw * SNOW_GAIN, 0.0, 1.0));
   }
+  // The lamps nearby, coloured by what they land on.
+  c += vLamp * (0.35 + 0.65 * c / max(0.2, max(c.r, max(c.g, c.b))));
   c = mix(c, uFog, vFog);
   float a = t.a * vAlpha;
   outColor = vec4(c * a, a);
@@ -363,9 +382,22 @@ export function createBillboardLayer(gl) {
     return quads;
   }
 
-  function draw(cam, W, H, cssH, fog, snow) {
+  const wlP = new Float32Array(36), wlC = new Float32Array(36), wlR = new Float32Array(12);
+  const wl = {};
+  function draw(cam, W, H, cssH, fog, snow, lights) {
     if (!batches.length) return 0;
     gl.useProgram(prog);
+    // ⚠ SET ON EVERY DRAW. The lights arrive in the map-window frame the mass is built in; this
+    // layer draws with the plain camera, so each is moved back by the window offset.
+    if (!wl.N) { wl.N = gl.getUniformLocation(prog, 'uWLN'); wl.P = gl.getUniformLocation(prog, 'uWLP'); wl.C = gl.getUniformLocation(prog, 'uWLC'); wl.R = gl.getUniformLocation(prog, 'uWLR'); }
+    const WL = lights || [], nW = Math.min(12, WL.length), ox = cam.ox || 0, oy = cam.oy || 0;
+    for (let i = 0; i < nW; i++) {
+      const Q = WL[i];
+      wlP[i * 3] = Q.p[0] - ox; wlP[i * 3 + 1] = Q.p[1] - oy; wlP[i * 3 + 2] = Q.p[2];
+      wlC.set(Q.lamp || Q.rgb, i * 3); wlR[i] = Q.rl || (Q.rw == null ? Q.r : Q.rw);
+    }
+    gl.uniform1i(wl.N, nW);
+    if (nW) { gl.uniform3fv(wl.P, wlP); gl.uniform3fv(wl.C, wlC); gl.uniform1fv(wl.R, wlR); }
     gl.uniformMatrix4fv(loc.viewProj, false, mat4f(viewProjMatrix(cam, cssH || H)));
     gl.uniform2f(loc.viewport, W, H);
     const f = fog || {};

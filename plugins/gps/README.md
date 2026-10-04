@@ -4,7 +4,8 @@
 
 ## Commands
 - `gps <place>` — plot the route.
-- `run` / `walk` — movement mode.
+- `run` / `walk`: movement mode.
+- `gohome`: plot a route to your home and walk there (the dpad ⌂ button). A guest with no home goes to the zone flagged `guest_home`.
 
 ## Actions
 - Registers `gps.navigate`.

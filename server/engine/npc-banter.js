@@ -25,7 +25,7 @@ import { world } from './world.js';
 import { query } from '../models/db.js';
 import { isNpcScheduledNow, isZoneWatched } from './broadcast-bridge.js';
 import { formatChitchat, isNpcAsleep } from './ai-behaviour.js';
-import { getEnvironmentState } from './environment.js';
+import { getEnvironmentState, getZoneWeatherType, isIndoorZone } from './environment.js';
 import { dispatchAction } from './actions.js';
 
 // ── Tunables ──────────────────────────────────────────────────────────────────
@@ -137,7 +137,11 @@ async function getTopicContext(zoneId) {
   try {
     const env = getEnvironmentState();
     if (env) {
-      tokens.weather = WEATHER_WORD[env.weatherType] || 'the weather';
+      // Out on a street it is the sky over that tile: rain only falls under a cell, and two people
+      // complaining about 'this rain' in a dry street read as a bug. Indoors they mean the city's day.
+      const z = world.zones.get(zoneId);
+      const wx = z && !isIndoorZone(z) ? getZoneWeatherType(zoneId) : env.weatherType;
+      tokens.weather = WEATHER_WORD[wx] || 'the weather';
       tokens.temp = `${Math.round(env.feelsLikeC ?? env.tempC ?? 0)}°`;
       const wind = Math.round(env.windKph ?? 0);
       if (wind >= 5) tokens.wind = `${wind} kph`;

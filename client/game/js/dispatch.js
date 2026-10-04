@@ -64,7 +64,7 @@ import { pullConfig, receiveConfig } from './configsync.js';
 import { setTabletAccess, showTabletOffer } from './panels/smartbar.js';
 import { offerInterfaceTour, startInterfaceTour, startTabletTour, consumeTourHandoff } from './panels/tour.js';
 import { playIntroCinematic } from './panels/lazy-views.js';
-import { updateCockpit, closeCockpit, cabinAudio, openTargeting, openFlightSim, flightSimContext, drakeSubmerged, drakeChampagne, flightBurst, flightSimContacts, flightSimAASites, flightSimHopper, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive } from './panels/lazy-views.js';
+import { updateCockpit, closeCockpit, cabinAudio, openTargeting, openFlightSim, flightSimContext, drakeSubmerged, drakeChampagne, flightBurst, flightSimContacts, flightSimAASites, flightSimHopper, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive, resumeFlightAfterLogin } from './panels/lazy-views.js';
 import { openTextCockpit, updateTextCockpit, closeTextCockpit, isTextCockpitActive } from './panels/textcockpit.js';
 import { openHelm, closeHelm, isHelmActive, helmSetSky, helmSetWorld, helmSetContacts, helmEndTransit, helmBeginTransit } from './panels/lazy-views.js';
 import { openCab, closeCab, cabContext, cabGalley, isCabActive } from './panels/lazy-views.js';
@@ -107,8 +107,8 @@ import { onFeedbackOk, onFeedbackErr } from './feedback-telemetry.js';
 
 const DEV_ROLES = ['admin', 'dev', 'builder', 'designer'];
 
-// The station's spoken login greeting — the formant voice (seeded to a single
-// steady "Architect" machine voice) welcomes the player by name. Mostly the plain
+// The station's spoken login greeting. The formant voice (the warm woman's
+// voice NAMED_VOICES.architect in audio-engine.js) welcomes the player by name. Mostly the plain
 // line; ~1 in 4 logins something quieter and more ominous — but always their name.
 // It's a TV-narrator voice, so it obeys TV Audio and, on top of that, its own
 // dedicated switch (Sound → Welcome Voice) so it can be silenced independently.
@@ -442,6 +442,9 @@ const handlers = {
     // …and the rest of the client setup: triggers, aliases, timers, state rules,
     // highlights, variables. One round trip for the lot.
     pullConfig();
+    // A cockpit still flying from before this login (a server restart drops the seat while the
+    // sim flies on) asks for it back. No open sim, nothing sent. See cockpit.js.
+    resumeFlightAfterLogin();
   },
 
   // The account's macros. See receiveMacros() for the three arrival states and
@@ -1548,7 +1551,7 @@ const handlers = {
     // camera flies anywhere, so past that edge the buildings, lights, signs and the Curtain simply
     // stop being in the payload — see RECENTER_R in freelook-view.js. It fires the same verb a
     // person types, which is what keeps the re-centre one path on both sides of the wire.
-    openFreelook({ gx: msg.gx, gy: msg.gy, map: msg.map, sky: msg.sky, actors: msg.actors, stand: msg.stand || null,
+    openFreelook({ gx: msg.gx, gy: msg.gy, map: msg.map, skyline: msg.skyline, sky: msg.sky, actors: msg.actors, stand: msg.stand || null,
       onRecenter: (x, y) => sendCmdSilent('freelook ' + x + ' ' + y + ' follow'),
       onExit: () => sendCmdSilent('freelook close') });
   },
@@ -1916,6 +1919,9 @@ const handlers = {
 
   blackout_start: () => { startBlackoutFx(); },
   blackout_end:   () => { endBlackoutFx(); },
+
+  // A live show is going out (broadcast plugin). Lights the ON AIR box on the KSAB plot.
+  studio_live:    (msg) => { state.studioLive = !!msg.live; },
 };
 
 // ── Blackout FX ──────────────────────────────────────────────────────────────
@@ -1977,7 +1983,7 @@ function startTripFx(msg) {
 // rather than vantage-keyed: only the PROSE knows whether you can see the sky
 // (server side, skyVantage), exactly as the ion storm's overlay already works.
 function setRainbowSky(type, phase) {
-  const bow = type === 'rainbow' || type === 'triple_rainbow';
+  const bow = type === 'rainbow' || type === 'double_rainbow' || type === 'triple_rainbow';
   document.body.classList.toggle('rainbow-sky', bow);
   document.body.classList.toggle('rainbow-triple', type === 'triple_rainbow');
   document.body.classList.toggle('rainbow-peak', bow && phase === 'peak');

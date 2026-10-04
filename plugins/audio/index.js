@@ -1387,7 +1387,7 @@ on('weather.thunder', ({ zoneId }) => {
 // answer rather than an omission: the sky going quiet after a shower is the
 // sound of a rainbow. The route exists so a bed can be given one later without
 // touching this file.
-const WEATHER_EVENT_ROUTES = { ion_storm: 'weather.event.ion', acid_rain: 'weather.event.acid', rainbow: 'weather.event.rainbow', triple_rainbow: 'weather.event.rainbow' };
+const WEATHER_EVENT_ROUTES = { ion_storm: 'weather.event.ion', acid_rain: 'weather.event.acid', rainbow: 'weather.event.rainbow', double_rainbow: 'weather.event.rainbow', triple_rainbow: 'weather.event.rainbow' };
 const WEATHER_EVENT_FALLBACK = {
   // Electrical hum + high crackle, with random arcing zaps (sparkle one-shots).
   ion_storm: { id: 'wx_ev_ion', name: 'wx_ev_ion', category: 'ambient', priority: 3, config: { gain: 0.6,

@@ -360,11 +360,11 @@ shop sign.
 
 - The canteen board is gone.
 - All six trades are in `UNSIGNED_TRADE` and `NO_AD_TRADE`, and decline the kit sections that
-  assume money through one list, `SLUM_DECLINE` in windshield.js: `sign`, `signRoof`, `neon`,
-  `ground`, `roof`, `stair`, `cope`, `wall`, `paint` and `pier`.
-- `paint` and `pier` are sections only this list names. `paint` gates the kit's graffiti pass;
-  `pier` gates the rear and flank pilaster ranks, pale fins that read as the tidiest thing in the
-  district. `TAG_DENSE` and `TAG_EASE` are deleted: nothing else read them.
+  assume money through one list, `SLUM_DECLINE` in derived-kit.js: `sign`, `signRoof`, `neon`,
+  `ground`, `roof`, `stair`, `cope`, `wall` and `paint`.
+- `paint` is a section only this list names: it gates the kit's graffiti pass. (It named
+  `pier` too, the rear and flank pilaster ranks, until the kit stopped drawing them.)
+  `TAG_DENSE` and `TAG_EASE` are deleted: nothing else read them.
 - The arms draw their own paint with `slumScrawl`: zigzag passes and drips in the kit's spray
   colours, with no letters. The ruin's five throw-ups became five scrawls.
 - The camp's slogans are gone (see the camp tier below).

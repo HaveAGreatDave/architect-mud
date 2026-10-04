@@ -13,60 +13,42 @@
 // (`drake_sub`), because depth, air and crush are judgements a client must not make for itself.
 
 import { schedule } from '../../server/engine/scheduler.js';
-import { getZone, zoneTerrain } from '../../server/engine/world.js';
+import { getZone } from '../../server/engine/world.js';
+import { biomeOf } from '../flight/biomes.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { liveAircraft, surfaceAt, bounds, persist, pushHud, crash, toOccupants } from '../flight/state.js';
 import { seabedDepth, seabedMaterial, wrecksNear } from '../../client/shared/seabed.js';
+import { wildlandsAt } from '../../client/shared/wildlands.js';
 import { newSub, stepSub, tierOf, bearing, regenAir, MIN_WATER, MIN_AIR_FRAC, HULL_TIERS, FLOOD_S, BLOW_S } from './sub.js';
 
 // aircraftId → sub state (see sub.js newSub)
 export const subs = new Map();
 
 // ── LAND, AS THE SERVER KNOWS IT ────────────────────────────────────────────────────────────────
-// The seabed takes land as a predicate. Here it comes from the zones: a tile is water when a zone
-// sits on it and resolves to water terrain.
+// The seabed takes land as a predicate, and it is the render LUT's own rule (windshield.js groundLUT),
+// because the cockpit's SUB gate reads its depth off that LUT. A tile with a zone is water when the
+// biome the map window sends for it is water or hotspring (flight/biomes.js biomeOf), which takes in
+// the Deadwater's hot lake and the Echelon's mooring as well as painted water terrain.
 //
-// THE DEEP. A tile with NO zone is open sea when it lies north of a column whose northernmost
-// authored tile is water, and land otherwise. That is the renderer's own off-map rule
-// (windshield.js fillOffMap: sea runs on past the rim only where the nearest built water lies to
-// the SOUTH), so the sea a pilot sees past the bay and the sea the seabed is measured against are
-// one sea. With it, shore distance grows past the harbour mouth and the shelf, the drop-off and the
-// abyss in seabed.js appear on their own. A column with no tiles borrows the nearest one within
-// DEEP_REACH, so the sea also runs on past the map's north-east and north-west corners.
+// THE DEEP. A tile with NO zone is open sea where `wildlandsAt` says so (client/shared/wildlands.js),
+// which is the answer the floor is painted from (windshield.js fillOffMap). So the sea a pilot sees
+// past the bay and the sea the seabed is measured against are one sea, and shore distance grows past
+// the harbour mouth until the shelf, the drop-off and the abyss in seabed.js appear on their own.
 // ⚠ The client's copy of this rule is the render LUT itself (seabed-scene.js landFromLUT reads the
 // filled window), so changing one side without the other makes the SUB gate and the server disagree.
-const DEEP_REACH = 48;
-const isWaterZone = (z) => !!(z && (zoneTerrain(z) === 'water' || z.flags?.water || z.flags?.terrain === 'water'));
-let colTops = null, colTopsFor = null;   // x → { y: northernmost authored row, water }
-function columnTops() {
-  const b = bounds();
-  if (colTops && colTopsFor === b) return colTops;
-  colTops = new Map(); colTopsFor = b;
-  for (let x = b.minx; x <= b.maxx; x++) {
-    for (let y = b.miny; y <= b.maxy; y++) {
-      const s = surfaceAt(x, y);
-      if (s) { colTops.set(x, { y, water: isWaterZone(getZone(s.id)) }); break; }
-    }
-  }
-  landCache.clear();
-  return colTops;
-}
-function openSeaAt(ix, iy) {
-  const tops = columnTops();
-  for (let d = 0; d <= DEEP_REACH; d++) {
-    const t = tops.get(ix - d) || tops.get(ix + d);
-    if (t) return t.water && iy < t.y;
-  }
-  return false;
-}
+// It did: this used its own column rule after fillOffMap moved to wildlandsAt, and on about 31,000
+// off-map tiles the cockpit read deep water while the server read land and refused every dive.
+const isWaterZone = (z) => { const bi = biomeOf(z); return bi === 'water' || bi === 'hotspring'; };
 const landCache = new Map();
+let landFor = null;   // the bounds() object the cache was filled against; a rebuilt world index is a new one
 export function isLandTile(ix, iy) {
-  columnTops();   // rebuilds (and clears landCache) if the world index was rebuilt
+  const b = bounds();
+  if (b !== landFor) { landCache.clear(); landFor = b; }
   const k = ix + ',' + iy;
   let v = landCache.get(k);
   if (v === undefined) {
     const s = surfaceAt(ix, iy);
-    v = s ? !isWaterZone(getZone(s.id)) : !openSeaAt(ix, iy);
+    v = s ? !isWaterZone(getZone(s.id)) : !wildlandsAt(ix, iy).sea;
     if (landCache.size > 20000) landCache.clear();
     landCache.set(k, v);
   }
@@ -112,6 +94,14 @@ function tell(live, sub) {
 }
 
 const fmt = (m) => `${m < 10 ? m.toFixed(1) : Math.round(m)} m`;
+
+// A dive refused from the surface. The sentence goes to the log as the reply; the short reason goes
+// to the cockpit as well, because the SUB button otherwise only learns that nothing happened and
+// can say no more than that she would not go under.
+function refuse(player, message, why) {
+  sendToPlayer(player.id, { type: 'drake_sub', refused: why });
+  return { type: 'emote', message };
+}
 function status(sub, live) {
   const floor = floorUnder(live);
   return `Depth ${fmt(sub.depth)} of ${fmt(floor)} to the bottom. Hull rated to ${sub.rating} m. ` +
@@ -148,11 +138,11 @@ async function cmdSubmerge(args, raw, player) {
 
   if (!sub) {
     if (!live.shape?.boat || live.cont?.onGround === false) {
-      return { type: 'emote', message: 'She has to be on the water in BOAT mode before she can go under.' };
+      return refuse(player, 'She has to be on the water in BOAT mode before she can go under.', 'not settled on the water in BOAT');
     }
-    if (floor < MIN_WATER) return { type: 'emote', message: `There's ${fmt(floor)} of water under her. Not enough to hide a duck in.` };
+    if (floor < MIN_WATER) return refuse(player, `There's ${fmt(floor)} of water under her. Not enough to hide a duck in.`, `${fmt(floor)} under her by sonar, needs ${MIN_WATER} m`);
     const air = airOf(live), max = airMaxOf(live);
-    if (air < max * MIN_AIR_FRAC) return { type: 'emote', message: `The air gauge reads ${airClock(air)} of ${airClock(max)}. Not enough to go under on. Run the engine on the surface to refill her.` };
+    if (air < max * MIN_AIR_FRAC) return refuse(player, `The air gauge reads ${airClock(air)} of ${airClock(max)}. Not enough to go under on. Run the engine on the surface to refill her.`, `air ${airClock(air)} of ${airClock(max)}, run the engine to refill`);
     sub = newSub(live.row.custom_data?.hull_tier || 1, target, air);
     subs.set(live.row.id, sub);
     tell(live, sub);

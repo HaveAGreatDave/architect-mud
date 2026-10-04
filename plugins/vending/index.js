@@ -11,7 +11,9 @@
 //                          hands you instead of handing it over empty, and charges
 //                          for it. Everything about what that means lives in
 //                          plugins/drinks — see FILL_ACTION below.
-//   flags.vend_price       flat price override, read by that plugin (0 = free).
+//   flags.vend_price       the price. On a machine with vend_drink it is a flat override
+//                          read by the drinks plugin; on a plain dispenser this plugin
+//                          charges it itself (0 or absent = free).
 // The clone-facility soylent dispenser is the first customer — free, joyless food
 // so a fresh clone isn't dead of hunger before it reaches the street.
 import { query, withTransaction } from '../../server/models/db.js';
@@ -20,6 +22,7 @@ import { isStackable } from '../../server/engine/tags.js';
 import { getZoneFurniture } from '../../server/engine/world.js';
 import { getItem } from '../../server/engine/items-cache.js';
 import { isPluggedIn } from '../appliances/index.js';
+import { adjustCredits } from '../../server/engine/economy.js';
 import { randomUUID } from 'crypto';
 
 // playerId:furnitureId -> last-vend timestamp. In-memory: a soft anti-spam guard,
@@ -74,8 +77,15 @@ async function cmdVend(args, raw, player, broadcast) {
   if (!item) return { type: 'error', message: `The ${machine.name} grinds emptily. Whatever it once dispensed is long gone.` };
   const stack = isStackable(item);
 
+  // A PLAIN DISPENSER CAN CHARGE TOO. A drinks machine's price belongs to the drinks
+  // plugin (below), so `vend_price` is read here only when there is no `vend_drink`.
+  // The debit is inside the same transaction as the dispense: you pay and get the
+  // packet, or neither happens.
+  const price = machine.flags?.vend_drink ? 0 : Math.max(0, Math.round(Number(machine.flags?.vend_price) || 0));
+  let broke = false;
   let invId = null;
   await withTransaction(async (q) => {
+    if (price > 0 && !(await adjustCredits(player, -price, q, 'vending:vend'))) { broke = true; return; }
     let existing = [];
     if (stack) {
       const r = await q('SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0 LIMIT 1', [player.id, item.id]);
@@ -87,6 +97,7 @@ async function cmdVend(args, raw, player, broadcast) {
       await q('INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,1,1.0)', [invId, player.id, item.id]);
     }
   });
+  if (broke) return { type: 'error', message: `The ${machine.name} wants ₵${price}, and you haven't got it.` };
 
   // SOME DISPENSERS FILL WHAT THEY HAND YOU. An espresso rig makes the cup AND
   // puts a coffee in it, which this plugin deliberately knows nothing about: it
@@ -114,7 +125,7 @@ async function cmdVend(args, raw, player, broadcast) {
   // A FILLED VESSEL REPLACES THE TAIL rather than following it: "you take the
   // paper cup" and then "a flat white" is the same cup described twice, in the
   // wrong order. The machine's own vend_line has already said a cup arrived.
-  const tail = filled?.note || `You take the <span class="item">${item.name}</span>.`;
+  const tail = filled?.note || `You take the <span class="item">${item.name}</span>.${price > 0 ? ` ₵${price}.` : ''}`;
   return { type: 'output', message: `${flavour} ${tail}` };
 }
 

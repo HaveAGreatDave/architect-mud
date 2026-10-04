@@ -1,0 +1,290 @@
+{
+  "banter": [
+    [
+      {
+        "npc": "self",
+        "text": "turns a page of the ledger and reads the same name three times down it."
+      },
+      {
+        "npc": "self",
+        "text": "\"Same name, different handwriting. Every one of them thinks they're the first.\""
+      }
+    ],
+    [
+      {
+        "npc": "self",
+        "text": "tops up the kettle from a jerrycan without looking at either."
+      },
+      {
+        "npc": "self",
+        "text": "\"Tea's free. Bunks are free. Dying is extremely not free, so don't.\""
+      }
+    ],
+    [
+      {
+        "npc": "self",
+        "text": "listens to the clone facility door bang next door, and counts on her fingers."
+      },
+      {
+        "npc": "self",
+        "text": "\"That's six tonight. I'll put the big pot on.\""
+      }
+    ]
+  ],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Pennock licks a pencil and writes a time in the ledger.",
+    "She bangs the side of the kettle until it stops whining.",
+    "Pennock looks at the stairs, listens, and decides the bunks are quiet enough."
+  ],
+  "description": "A short, square woman in a cardigan with more darns than wool, who has run this doss-house since before anyone can remember it being anything else. She signs in every clone that wanders over from the vats, damp and blinking, and treats each one as a regular. Her rules are on the wall.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Boots off upstairs. Mind the third step. And the fourth floor moves, so don't mention it.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What are the rules?",
+          "next": "rules"
+        },
+        {
+          "label": "Anything to eat?",
+          "next": "__shop__"
+        },
+        {
+          "label": "Just passing.",
+          "next": "bye"
+        }
+      ],
+      "text": "Pennock looks up from the ledger. \"Name? Doesn't matter if it's not yours yet. Bunks are up, five floors of them, first come. Wash is through the back, tea's on the counter.\"",
+      "text_by_relation": {
+        "familiar": "\"There you are.\" Pennock is already pouring a second mug. \"Your bunk's empty. I kept it that way, which is more than I do for most.\"",
+        "first": "A woman behind the counter looks you over: the vat-damp hair, the borrowed clothes, the look. She pushes the ledger across. \"Fresh out? Sign there. Any name you like. Most people pick the one they woke up with.\"",
+        "known": "\"Back again.\" Pennock doesn't look up. \"Same bunk if it's free. Kettle's on.\""
+      }
+    },
+    "rules": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Three rules. No fighting. No dying. No asking me what year it is.\" She taps the board. \"There's not a lock on a door in this building, so don't ask me for a key. You won't need one. Nobody lays a hand on you in here, awake or asleep, and if they try, they leave, and they don't come back. You'll have a place of your own one day. Until then, you've got this one.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a brown cardigan darned at both elbows and one shoulder",
+      "a flowered housecoat over a work shirt",
+      "felt slippers with the toes worn through",
+      "a ring of locker keys on a bootlace round her neck"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_hostel_dorm",
+  "hp": 18,
+  "hp_max": 18,
+  "id": "npc_hostel_warden",
+  "name": "Mina Pennock",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_glass_tea",
+      "price": 3
+    },
+    {
+      "item_id": "item_ersatz_noodle",
+      "price": 4
+    },
+    {
+      "item_id": "item_steam_bun",
+      "price": 3
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "mon": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sat": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sun": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "wed": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ]
+  },
+  "vendor_shop_name": "Hostel Takeover",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_trackmarks_shop"
+}

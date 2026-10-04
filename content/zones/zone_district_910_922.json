@@ -2,10 +2,11 @@
   "ambient_events": [],
   "ambient_theme": "wasteland",
   "color": "#b5744a",
-  "description": "The off-ramp to the scales, peeling off the lock road under the same long roof. Amber studs down both edges run toward the plates one after another, all night. A sign on a frame says every rig stops on the plates.",
+  "description": "The off-ramp to the scales, peeling off the lock road under the same long roof. Amber lamps set in both kerbs run toward the plates one after another, all night, so nobody has to read anything to know where to go. The Tow Bay's door is on the west side.",
   "exits": {
     "east": "zone_district_911_922",
-    "north": "zone_district_910_921"
+    "north": "zone_district_910_921",
+    "west": "zone_district_909_922"
   },
   "flags": {
     "district": "wilds",

@@ -495,7 +495,7 @@ export const TYPES = {
     blurb: 'Krell stopped making these long enough ago that nobody agrees which decade. Three of them in a trenchcoat. The heater works, which the previous owner mentioned first and at length.',
   },
 
-  // ── THE BASIN — a blown picklefork tunnel hull ─────────────────────────────
+  // ── THE BASIN — a blown deep-V with a pilothouse ───────────────────────────
   //
   // `water: true` is the whole hook-up: `step()` reads it exactly as it reads `ground` and `heli`,
   // and everything else about this row is ordinary. The shape of the bet is the opposite of the
@@ -557,7 +557,57 @@ export const TYPES = {
     // ground the boat again.
     launchVs: 0.9,
     hullKg: 700, tank: 260, price: 14500,
-    blurb: 'Vaskin build about nine of these a year and will not tell you who buys them. Two sponsons, a tunnel, and an engine somebody has clearly been inside recently. It does not have brakes. It was never going to have brakes.',
+    blurb: 'Vaskin build about nine of these a year and will not tell you who buys them. A deep-V, a pilothouse, and a blown V8 standing open in the well. It does not have brakes. It was never going to have brakes.',
+  },
+
+  // ── THE LINE ABOVE HER ─────────────────────────────────────────────────────
+  //
+  // Two more hulls from the same yard, and they are DIFFERENT BOATS rather than the Rooster with the
+  // numbers turned up. Each trades something real for its speed, and the trade is the decision:
+  //
+  //   SPUR       a stepped deep-V on four outboards. The steps let air under her, so she is quicker
+  //              and SLIDES further (driftTau up): a stepped hull carries its way through a corner
+  //              that a plain vee would bite. Outboards steer by pointing the thrust, so she has more
+  //              lock at rest. Heavier, slower off the pontoon, a much bigger tank.
+  //   GAMECOCK   an offshore tunnel cat. The tunnel packs air under her, which is the top speed, the
+  //              flatter corner (driftTau down) and the habit of leaving the water off any swell
+  //              (launchVs up); the rudder dies at speed harder than either vee (turnFade). Thirsty.
+  //
+  // `dragP` is solved the hydro's way, a hair under thrustMax / topSpeed^2, so the ceiling stays a
+  // backstop. `burn` scales the tank fraction both rungs spend per second; absent is the Rooster's
+  // 1, so every passage driven before it existed burns exactly what it burned.
+  // `hullLen`/`hullBeam` are the swell sample, scaled off the hydro's by the mesh's own len and beam.
+  spur: {
+    name: 'Vaskin Spur', water: true, tier: 2,
+    mass: 0.74,
+    thrustMax: 26.5, topSpeed: 152, tileMph: 95,
+    waterFric: 2.0,
+    dragP: 0.001135, brake: 3.0,
+    hump: 44, humpDrag: 4.9,
+    turnLock: 40, turnFade: 0.70,
+    driftTau: 1.6,
+    hullLen: 0.040, hullBeam: 0.0156,
+    nitroMul: 1.28, nitroBurn: 0.20, nitroCool: 0.12,
+    launchVs: 0.82,
+    burn: 0.85,
+    hullKg: 1150, tank: 420, price: 26800,
+    blurb: "Vaskin's stepped deep-V, four outboards across the transom. The steps put air under her at speed, so she outruns the Rooster and slides further in a corner. A hardtop, a bench for three, and a bigger tank she empties faster.",
+  },
+  gamecock: {
+    name: 'Vaskin Gamecock', water: true, tier: 3,
+    mass: 0.62,
+    thrustMax: 34, topSpeed: 176, tileMph: 95,
+    waterFric: 1.7,
+    dragP: 0.001085, brake: 2.8,
+    hump: 38, humpDrag: 3.8,
+    turnLock: 28, turnFade: 0.80,
+    driftTau: 1.05,
+    hullLen: 0.035, hullBeam: 0.0162,
+    nitroMul: 1.30, nitroBurn: 0.25, nitroCool: 0.10,
+    launchVs: 1.05,
+    burn: 1.35,
+    hullKg: 1350, tank: 520, price: 52000,
+    blurb: 'An offshore tunnel cat with a fighter canopy, two blown motors under the deck and a wing over the stern. Past ninety the tunnel packs air under her and she leaves the water off swell the Rooster would cut through. There is a hammer clipped inside the canopy.',
   },
 };
 
@@ -1592,6 +1642,77 @@ export function boatSeaPose(s, p, t) {
     roll: Math.atan(alongR),     // starboard up when the water to starboard is higher
     du, dv,
   };
+}
+
+// ── THE RIDE THE PICTURE SHOWS ───────────────────────────────────────────────────────────────
+//
+// ⚠ THE PHYSICS AND THE PICTURE RIDE DIFFERENT HULLS, AND ONLY ONE OF THEM IS THE PHYSICS' SIZE.
+// `boatSeaPose` is right for the sim: the hull it integrates is `hullLen` long, a fiftieth of the
+// swell, and a point on a face is what launches her. But nobody LOOKS at that hull. The chase camera
+// draws her about 0.4 tiles long and the helm seats you in her at full size, about two tiles — and
+// the drawn chop is about a tile long. Posed by her centre alone, from the helm the sea stood over
+// her deck up to 8% of the time running across a 20-30 kt sea, over a metre of it at worst and
+// mostly at the transom in the middle of a jump. Posed by this fit it is under 3% from the helm and
+// none in the chase view (scripts/shapes/boatride.mjs). The "big waves wash over the boat" report
+// was mostly the green-water sheet's threshold rather than the pose: see `ownHullWash`.
+//
+// So the picture is posed by the WATER UNDER THE HULL IT DRAWS: a least-squares plane through the
+// drawn sea (swell, wind sea and chop, the three things the mesh displaces) at fifteen points over
+// her footprint at that view's own size. A boat bridges the short waves and lies along the long
+// ones, and a plane through her whole plan is both of those at once.
+//
+//   vr        the drawn hull's vertical scale over its plan scale (the renderer exaggerates height,
+//             CONTACT_VS), so a water slope b is a hull pitch of atan(b / vr) — posed with the true
+//             angle, her bow would stand 1.6 times as high off the face as the water does
+//   trim      the tabs, -1..1: a planing hull runs bow-up a few degrees, and the tabs set how many
+//   spd01     way on, 0..1 of her ceiling, which is what puts her on the plane
+//
+// Off the water the sim's own attitude takes over (the nose following the flight path), and it
+// hands back over a quarter of a second after she lands rather than snapping. Her height in the
+// air is the sim's `z` on top of the fitted surface. ⚠ ROLL IS STARBOARD-UP POSITIVE, the sim's
+// convention: the renderer's `bank` is starboard DOWN, so a caller negates it (boat-view does).
+// `r` is the caller's state, one per view, so a camera that changes scale does not inherit a ride.
+export function boatFitPose(s, t, halfLen, halfBeam) {
+  const rollA = s.seaRoll || 0, windA = s.seaWind || 0, chopA = s.seaChopH > 0 ? s.seaChopH : 0;
+  if (!(rollA > 1e-4 || windA > 1e-4 || chopA > 0)) return { heave: 0, slopeF: 0, slopeR: 0 };
+  const h = (s.heading || 0) * D2R, sh = Math.sin(h), ch = Math.cos(h);
+  const u0 = s.x + (s.ssx || 0), v0 = s.y + (s.ssy || 0);
+  let n = 0, sz = 0, sFz = 0, sGz = 0, sFF = 0, sGG = 0;
+  for (const fu of [-1, -0.5, 0, 0.5, 1]) for (const gu of [-1, 0, 1]) {
+    const F = fu * halfLen, G = gu * halfBeam;
+    // Forward is (sin h, -cos h) and right is (cos h, sin h), the integrator's own basis.
+    const u = u0 + sh * F + ch * G, v = v0 - ch * F + sh * G;
+    const z = seaRoll(u, v, t, rollA) + seaWind(u, v, t, windA) + (chopA ? seaChop(u, v, t) * chopA : 0);
+    n++; sz += z; sFz += F * z; sGz += G * z; sFF += F * F; sGG += G * G;
+  }
+  // The samples are symmetric about her centre, so the plane's three terms separate exactly.
+  return { heave: sz / n, slopeF: sFF > 0 ? sFz / sFF : 0, slopeR: sGG > 0 ? sGz / sGG : 0 };
+}
+const RIDE_HEAVE_TAU = 0.05, RIDE_TILT_TAU = 0.09, RIDE_LAND_TAU = 0.25, RIDE_RUN_TRIM = 2.5 * D2R, RIDE_TAB_TRIM = 1.5 * D2R;
+export function stepBoatRide(r, s, dt, { halfLen, halfBeam, vr = 1, trim = 0, spd01 = 0 } = {}) {
+  const fit = boatFitPose(s, s.clock || 0, halfLen, halfBeam);
+  let pitch = Math.atan(fit.slopeF / vr), roll = Math.atan(fit.slopeR / vr);
+  // Running trim: bow-up on the plane, set by the tabs (down is -1, bow down).
+  const plane = clamp((spd01 - 0.15) / 0.35, 0, 1);
+  pitch += plane * (RIDE_RUN_TRIM + RIDE_TAB_TRIM * clamp(trim, -1, 1)) / vr;
+  const k = (tau) => (dt > 0 ? 1 - Math.exp(-dt / tau) : 1);
+  r.air = (r.air ?? 0) + ((s.airborne ? 1 : 0) - (r.air ?? 0)) * k(s.airborne ? 0.04 : RIDE_LAND_TAU);
+  // ⚠ IN THE AIR SHE TILTS OFF THE WATER ONLY AS FAR AS THE AIR UNDER HER ALLOWS. The sim flies her
+  // bow-high, up to thirty degrees, which is right for the hull it integrates — a fiftieth of a wave
+  // long. Drawn two tiles long, the same angle swung her transom half a tile down through the water
+  // she had just left: every wet frame the gate found on a Gamecock was her stern, mid-jump. So the
+  // excursion from the water's own plane is held to the angle whose sine is her height over her half
+  // length (and half beam): she flies nose-up, and clear.
+  const zAir = Math.max(0, s.z || 0);
+  const limP = Math.asin(Math.min(1, zAir / Math.max(1e-6, vr * halfLen)));
+  const limR = Math.asin(Math.min(1, zAir / Math.max(1e-6, vr * halfBeam)));
+  pitch += clamp((s.pitch || 0) / vr - pitch, -limP, limP) * r.air;
+  roll += clamp((s.roll || 0) / vr - roll, -limR, limR) * r.air;
+  if (r.heave == null) { r.heave = fit.heave; r.pitch = pitch; r.roll = roll; }
+  r.heave += (fit.heave - r.heave) * k(RIDE_HEAVE_TAU);
+  r.pitch += (pitch - r.pitch) * k(RIDE_TILT_TAU);
+  r.roll += (roll - r.roll) * k(RIDE_TILT_TAU);
+  return { heave: r.heave + (s.z || 0), pitch: r.pitch, roll: r.roll };
 }
 
 // The chop the mesh displaces under her centre: `seaChopH` is its drawn amplitude, handed over by

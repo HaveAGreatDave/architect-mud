@@ -16,6 +16,10 @@ import './glbench.js';
 import './street.js';
 // __glWhere() / __glWheres() — where the frame goes in a REAL district. See districtcost.js.
 import './districtcost.js';
+// __glAtlasHash() — every baked wall and roof surface, hashed, to prove a painter change left the albedo alone.
+import './atlashash.js';
+// __glRefShots() — real districts at four times of day, saved and diffed across a code change.
+import './refshots.js';
 import {
   shapeModelRegistry, renderModelPreview, shapeForModel, shapeWireList,
   shapeConstantWarnings, shapeAdornCost, shapeLinearityError, shapeIsSeedVariant,

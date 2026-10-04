@@ -541,12 +541,17 @@ void main() {
       // reach as the scale rather than a second authored distance. A distant sign is dimmer and is
       // never absent, which is what a harbour looks like.
       float dl = length(L.xy - vWorld) / max(0.001, L.w);
-      neon += uNeonC[i] * (g / (1.0 + dl * dl));
+      // ⚠ AND NO REFLECTION OUTSHINES ITS OWN LAMP. The gain was swept against lights many reaches
+      // off the water, where 1/(1+dl^2) is a few per cent; a lamp within its own reach of the water
+      // (a fuel float's pumps, a pontoon's pedestals) has that term near 1 and came out a hundred
+      // times over, a blown white ellipse on the water a boat lying alongside could not see past.
+      // Capped per light at the lamp's own colour, so the far field is exactly as swept.
+      neon += uNeonC[i] * min(uNeonGain * g / (1.0 + dl * dl), 1.0);
     }
     // ⚠ GATED ON THE WATER AND ON THE NIGHT. Signage is drawn by day too, and a pink streak across
     // a bay at noon is not a reflection, it is a decal — the same sentence floor.js writes over the
     // wet road. 'gate' is the waterness-and-rim term every other water add here is weighed by.
-    col += neon * (uNeonGain * gate * clamp(uNight, 0.0, 1.0));
+    col += neon * (gate * clamp(uNight, 0.0, 1.0));
   }
 
   // Whitecaps, scattered so they do not land on the swell's own regular spacing.

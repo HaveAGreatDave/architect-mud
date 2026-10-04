@@ -266,7 +266,7 @@ Three of them are corrections rather than restyles:
 - ⚠ **Four `blinkLight` calls had their arguments in the wrong order** — `(rgb, alpha, now, r)`
   against a signature of `(rgb, now, seed, alpha, r)`. A blink phase driven by the frame's alpha is
   a light that does not blink, and an aviation light that ignores `alpha` is one that stays at full
-  brightness into the haze. Two are in this restyle (Holding Pattern, Engine Trouble); the other
+  brightness into the haze. Two are in this restyle (Holding Pattern, Fire Station 4); the other
   two are the same typo in the same file (Ash Management, High Water Mark) and are fixed with them
   rather than left as two of four.
 

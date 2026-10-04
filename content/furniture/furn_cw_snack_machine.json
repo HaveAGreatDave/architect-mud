@@ -1,0 +1,19 @@
+{
+  "description": "A glass-fronted machine of spiral coils, most of them empty. The full ones hold beef jerky in red foil.",
+  "flags": {
+    "aliases": "snacks, snack, machine, jerky",
+    "vend_line": "The coil turns, the packet tips off the end and drops into the hatch.",
+    "vend_price": 12,
+    "vends": "item_beef_jerky"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cw_snack_machine",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "snack machine",
+  "object_type": "fixture",
+  "power_draw_kw": 0.3,
+  "price": 0,
+  "zone_id": "zone_cw_lounge"
+}

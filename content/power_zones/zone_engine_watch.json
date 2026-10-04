@@ -2,6 +2,6 @@
   "capacity_kw": 5000,
   "generator_id": "gen_zone_util_zone_engine_bay",
   "id": "zone_engine_watch",
-  "name": "Engine Trouble — The Watch Room",
+  "name": "Fire Station 4 — The Watch Room",
   "source_type": "junction_box"
 }

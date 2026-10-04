@@ -58,12 +58,13 @@ const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
  * the player sees falling. So a snow HEADLINE with a rain CELL over you drew rain streaks, wet the
  * road AND deepened the snow at full rate, all three at once.
  *
- * ⚠ THE LOCAL CELL DECIDES THE TYPE AND THE HEADLINE ONLY SUPPLIES A RATE IT CANNOT BEAT. The
- * renderer's `sampleWeatherCells` already floors the local rate at the day's own `precipFloor` and
- * names it `floorType`, so wherever the spatial field is plumbed the headline is ALREADY inside the
- * sample; the word is still needed for the case where it is not, which is its own recorded bug (the
- * road stayed dry through rain it was raining). Taking the larger of the two rates leaves every
- * existing figure exactly where it was — nothing gets weaker — and moves only the ATTRIBUTION.
+ * ⚠ THE LOCAL CELL DECIDES THE TYPE AND THE HEADLINE ONLY SUPPLIES A RATE IT CANNOT BEAT. Rain
+ * only falls under a cell (since 2026-10-03 there is no map-wide floor), so wherever the spatial
+ * field is plumbed the renderer passes `headline` as null and the cell alone decides; passing the
+ * word there wet the road on every tile of a rain day. The word is still needed where there is no
+ * field, which is its own recorded bug (the road stayed dry through rain it was raining), and the
+ * server's `groundAccum` seed integrates the headline alone. Taking the larger of the two rates
+ * leaves every existing figure where it was and moves only the ATTRIBUTION.
  *
  * @param {string}  headline   the day's weather word ('rain' | 'storm' | 'snow' | anything else)
  * @param {?string} localType  the precipitation type of the cell overhead, or null for none

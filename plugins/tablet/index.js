@@ -68,7 +68,7 @@
 
 import { query } from '../../server/models/db.js';
 import { getOrg, getPlayerMembership, getZone } from '../../server/engine/world.js';
-import { getGameDateTime, getHUDPayload } from '../../server/engine/environment.js';
+import { getGameDateTime, getHUDPayload, getZoneWeather } from '../../server/engine/environment.js';
 import { getNetXp } from '../../server/engine/ip.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { getTabletApps, findTabletApp } from './registry.js';
@@ -157,11 +157,14 @@ async function buildHomePayload(player) {
   // of it is in-memory engine state (no query), and it's a snapshot — the client
   // animates from it and re-syncs on the next home render.
   const hud = getHUDPayload() || {};
+  // Outdoors it is the sky over your tile: rain only falls under a cell, and the day's
+  // headline rained on the wallpaper of every dry street. Indoors keeps the city's day.
+  const zw = zone && !zone.flags?.is_interior ? getZoneWeather(player.current_zone) : null;
   const sky = {
     phase: hud.timePhase || 'day',
     minutes: hudMinutes(time),
-    weather: hud.currentWeatherType || hud.weatherType || 'clear',
-    intensity: hud.currentIntensity || null,
+    weather: zw ? zw.current : (hud.currentWeatherType || hud.weatherType || 'clear'),
+    intensity: zw ? (zw.intensity || null) : (hud.currentIntensity || null),
     tempC: Math.round(hud.tempC ?? 0),
     windKph: Math.round(hud.windKph ?? 0),
     indoors: !!zone?.flags?.is_interior,   // the environment model's own indoors flag

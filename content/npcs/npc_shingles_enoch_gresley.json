@@ -1,0 +1,208 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "type": "start",
+        "next": "is_late"
+      },
+      "is_late": {
+        "type": "condition",
+        "condition_type": "HOUR_RANGE",
+        "params": {
+          "from": 1,
+          "to": 6
+        },
+        "ifTrue": "go_home",
+        "ifFalse": "day_pick"
+      },
+      "go_home": {
+        "type": "action",
+        "action_type": "GO_HOME",
+        "next": "sleep"
+      },
+      "sleep": {
+        "type": "action",
+        "action_type": "AT_HOME_LIFE",
+        "next": "start"
+      },
+      "day_pick": {
+        "type": "random",
+        "branches": [
+          {
+            "weight": 3
+          },
+          {
+            "weight": 2
+          },
+          {
+            "weight": 1
+          }
+        ],
+        "branch_0": "mill",
+        "branch_1": "to_fire",
+        "branch_2": "day_home"
+      },
+      "mill": {
+        "type": "action",
+        "action_type": "PATROL",
+        "params": {
+          "waypoints": [
+            "zone_district_926_915",
+            "zone_district_926_916",
+            "zone_district_925_916",
+            "zone_district_925_917",
+            "zone_district_926_918",
+            "zone_district_927_916"
+          ],
+          "loop": true,
+          "mode": "walk"
+        },
+        "next": "mill_wait"
+      },
+      "mill_wait": {
+        "type": "wait",
+        "seconds": 200,
+        "jitter": 160,
+        "next": "start"
+      },
+      "day_home": {
+        "type": "action",
+        "action_type": "GO_HOME",
+        "next": "mill_wait"
+      },
+      "to_fire": {
+        "type": "action",
+        "action_type": "GO_TO_WORK",
+        "params": {
+          "zone_id": "zone_district_923_918"
+        },
+        "next": "fire_pick"
+      },
+      "fire_pick": {
+        "type": "random",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          }
+        ],
+        "branch_0": "fire_0",
+        "branch_1": "fire_1",
+        "branch_2": "fire_2",
+        "branch_3": "fire_3"
+      },
+      "fire_wait": {
+        "type": "wait",
+        "seconds": 150,
+        "jitter": 90,
+        "next": "start"
+      },
+      "fire_0": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "sets his chair facing the Curtain and says, \"There's my old front step. Forty feet. Eleven years.\""
+        },
+        "next": "fire_wait"
+      },
+      "fire_1": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "says, \"The vat wanted me. I told it I'd already been born once and that was sufficient.\""
+        },
+        "next": "fire_wait"
+      },
+      "fire_2": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "raps the stick on a drum. \"Before the Architect we had potholes. We had our own potholes.\""
+        },
+        "next": "fire_wait"
+      },
+      "fire_3": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "dozes in his chair with his hat over his eyes."
+        },
+        "next": "fire_wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"I was here before the wall. So was the street.\"",
+    "unfolds his chair and sits down with a grunt.",
+    "\"I've died the once. It took. I'm keeping it.\""
+  ],
+  "description": "A very old man in a demob overcoat and a flat cap, leaning on a walking stick cut from a curtain rail. His face is weathered and his hands are steady. He keeps a folding chair on his back and sets it up wherever he stops.",
+  "dialogue_tree": {
+    "root": {
+      "options": [
+        {
+          "label": "What have you got against the Architect?",
+          "next": "gripe"
+        },
+        {
+          "label": "Bye.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Mind the chair,\" says Gresley.",
+      "text_by_relation": {
+        "first": "The old man takes his time looking at you, from his folding chair.\n\n\"Gresley. I lived on Ropewalk when it went all the way along.\" He points his stick at the Curtain. \"My front step's on the other side of that. I can see it from here. They tell me the Architect saved the city. Saved it from what, I ask. Nobody's ever said.\"",
+        "known": "\"Pull up some mud,\" says Gresley. \"Chair's spoken for.\"",
+        "familiar": "Gresley lifts his cap an inch.\n\n\"You're all right. Don't let it reprint you too often. Something goes, every time. Ask Varga.\""
+      }
+    },
+    "gripe": {
+      "options": [
+        {
+          "label": "Right.",
+          "next": "root"
+        }
+      ],
+      "text": "\"When I was a boy a man ran this city, and he was a crook, and you could vote him out.\" He settles his hands on the stick. \"Now there's nobody to vote out and nothing to vote on, and it's cleaner, and the water comes. Everybody says that as if it were the end of the argument. It's the start of it.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "Enoch goes back to the lane."
+    }
+  },
+  "faction": null,
+  "flags": {
+    "mis_willing": false,
+    "personality": "unemployed"
+  },
+  "home_activities": [
+    "folds his chair, then unfolds it again to sit down.",
+    "winds a pocket watch that stopped years ago."
+  ],
+  "home_zone": "zone_district_926_915",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_shingles_enoch_gresley",
+  "name": "Enoch Gresley",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

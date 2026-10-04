@@ -58,6 +58,7 @@
     "gl:perch": "node scripts/shapes/perch.mjs",
     "gl:falcondive": "node scripts/shapes/falcondive.mjs",
     "gl:snow": "node scripts/shapes/snow.mjs --report",
+    "gl:footfall": "node scripts/shapes/footfall.mjs",
     "gl:bow": "node scripts/shapes/rainbow.mjs --report",
     "gl:glsl": "node scripts/shapes/glsl-smoke.mjs",
     "gl:pool": "node scripts/shapes/lamppool.mjs --report",
@@ -141,7 +142,10 @@
     "wildlands:bake": "node scripts/content/bake-wildlands.mjs",
     "gl:wildlands": "node scripts/shapes/wildlands.mjs",
     "docs:prose": "node scripts/docs/prose.mjs",
-    "gates:list": "node scripts/gates/run.mjs --list"
+    "gates:list": "node scripts/gates/run.mjs --list",
+    "perf:sizes": "node scripts/perf/sizes.mjs",
+    "perf:retain": "node scripts/perf/retain-check.mjs",
+    "perf:armkeep": "node scripts/perf/armkeep-check.mjs"
   },
   "dependencies": {
     "@getbrevo/brevo": "^5.0.4",

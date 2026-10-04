@@ -160,9 +160,12 @@ async function cmdBoard(args, raw, player, broadcast) {
   // Aircraft sit on the ramp, but you BOARD from inside the walk-in hangar (less
   // ambiguity). From the hangar office, reach the aircraft parked on the linked ramp;
   // standing on the ramp of a field that HAS a hangar, you're pointed inside instead.
+  // A terminal room that names its ramp (`hangar_ramp` without `hangar_interior`:
+  // Coldwater Regional's departure gate) boards the same way, so a charter booked at
+  // the gate desk is embarked at the gate.
   const here = getZone(player.current_zone);
   let parkZoneId = player.current_zone;
-  if (here?.flags?.hangar_interior && here.flags.hangar_ramp) {
+  if (here?.flags?.hangar_ramp) {
     parkZoneId = here.flags.hangar_ramp;
   } else if (here?.flags?.airfield_id && here.flags.hangar_interior_zone) {
     const verb = (raw || '').trim().toLowerCase().split(/\s+/)[0];
@@ -954,6 +957,7 @@ function sendFlightSim(player, live) {
   const ctx = contextPayload(live);
   sendToPlayer(player.id, {
     type: 'flight_sim',
+    aircraftId: live.row.id,   // the cockpit hands it back in `flightresume` if the server forgets the seat
     craftType: live.type.id.replace(/^ac_/, ''),
     craftClass: live.type.class,
     livery: normalizeLivery(live.row.custom_data, live.type.class),   // paint-bay scheme the external chase model renders in
@@ -1072,6 +1076,11 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
     live.row.airborne = 1; live.row.parked_zone_id = null; live.starving = false; live.runup = false; live.rolloutField = null;
     live.lastSync = Date.now();   // fresh unattended-recovery clock at wheels-up
     if (!live.flightStartMs) live.flightStartMs = Date.now();   // trip clock for landing-IP eligibility (persists across touch-and-goes)
+    // Who is flying her, on the ROW. Everything else that says so (`occupants`, `pilotId`,
+    // `player.aircraftId`) is RAM, and a server restart mid-flight wiped it: the cockpit flew on,
+    // every sync and the landing were dropped as "not aboard", and climbing out left the pilot in
+    // the room they boarded from. `flightresume` reads this to seat them again. parkAt clears it.
+    live.row.custom_data = { ...(live.row.custom_data || {}), aloft: { pilot: player.id, home: live.homeField || null } };
     initFloat(live);
     for (const pid of live.occupants) {
       const p = getLivePlayer(pid); if (!p) continue;
@@ -1809,8 +1818,21 @@ async function describeHangarInterior(zone, player) {
 // Fires unconditionally per zone (unlike zone.furniturePanel, which only fires
 // when the zone has furniture rows) — several airfields have none, so this is
 // the only reliable way to surface "there's a hangar here" at every field.
+// A terminal room that names its ramp but is not its hangar (Coldwater Regional's check-in,
+// lounge and gate): the charter desk, and the way aboard once your booked flight is waiting.
+function describeTerminal(zone, player) {
+  const ramp = getZone(zone.flags.hangar_ramp);
+  if (!ramp || !fieldOpenTo(ramp, player)) return undefined;
+  const lines = [];
+  if (airfieldOf(ramp)?.charter) lines.push(`<span class="furniture-label">Charter:</span> ${svcLink('charter', 'charter')} <span class="text-dim">book a seat on a flight out</span>`);
+  const ch = charterParkedAt(ramp.id);
+  if (ch && ch.chartererId === player.id) lines.push(`<span class="furniture-label">Your flight:</span> ${svcLink('embark', 'embark')} <span class="text-dim">${ch.pilotName} is on the ramp, ready to go</span>`);
+  return lines.length ? lines.join('\n') : undefined;
+}
+
 async function describeAirfield(zone, player) {
   if (zone?.flags?.hangar_interior) return await describeHangarInterior(zone, player);
+  if (zone?.flags?.hangar_ramp) return describeTerminal(zone, player);
   // Walkable-base flight deck (the Leviathan): the seat that flies the whole ship.
   if (zone?.flags?.flightdeck)
     return `<span class="furniture-label">Controls:</span> ${svcLink('takecontrols', 'take the controls')} <span class="text-dim">· drop into the seat and fly her; step back out with <b>handoff</b> once she's down</span>`
@@ -1888,12 +1910,12 @@ on('player.death', ({ player }) => {
 // to render it as a bolt out the canopy, so pilots see the SAME lightning the
 // ground does. View push only — the flash + rare kill are the engine's.
 const LIGHTNING_VIEW_DIST2 = 70 * 70;   // tiles² — just past the client's bolt cull
-on('weather.lightningStrike', ({ gx, gy, intensity }) => {
+on('weather.lightningStrike', ({ gx, gy, intensity, cc }) => {
   for (const live of liveAircraft.values()) {
     if (!live.row.airborne) continue;
     const dx = (live.row.grid_x || 0) - gx, dy = (live.row.grid_y || 0) - gy;
     if (dx * dx + dy * dy > LIGHTNING_VIEW_DIST2) continue;
-    for (const pid of live.occupants) sendToPlayer(pid, { type: 'lightning_strike', gx, gy, intensity });
+    for (const pid of live.occupants) sendToPlayer(pid, { type: 'lightning_strike', gx, gy, intensity, cc: !!cc });
   }
 });
 
@@ -1917,6 +1939,47 @@ on('player.login', async ({ id }) => {
     return;
   }
 });
+
+// ── Resume a flight the server forgot ─────────────────────────────────────────
+// `flightresume <aircraftId>`, sent by the cockpit after any login while its sim is still open.
+// The login hook above re-seats a reconnecting pilot from `liveAircraft`, which is RAM; a server
+// restart (a deploy, or `node --watch` on any file save) empties it while the cockpit keeps
+// flying. The pilot then logs back in to a server that thinks they are standing in the room they
+// boarded from: every `flightsync`, the landing and `disembark` are dropped as "not aboard", and
+// they climb out of a Drake on the Threshold Helipad into the Coldwater Regional hangar.
+//
+// The row is the only record that survives, so it decides who may take the seat back: an
+// airborne craft goes to the pilot stamped on it at wheels-up (custom_data.aloft), never merely
+// its owner, so a thief's flight can't be claimed by the owner and the other way round. A craft
+// still on the ground (the restart came during the taxi) goes to its owner. Anyone else gets
+// nothing, and a craft this loaded only to refuse is dropped again, so a guessed id can't wake
+// somebody's stranded aircraft into the tick.
+async function cmdFlightResume(args, raw, player) {
+  const id = String(args[0] || '');
+  if (!id || player.aircraftId) return { type: 'noop' };   // already seated: the login hook got there first
+  const wasLive = liveAircraft.has(id);
+  const live = await loadAircraft(id);
+  if (!live) return { type: 'noop' };
+  const a = live.row, other = pilotOf(live);
+  const mine = a.airborne ? a.custom_data?.aloft?.pilot === player.id : a.owner_id === player.id;
+  if (!mine || a.is_wreck || !isContinuous(live) || a.custom_data?.charter === true || (other && other.id !== player.id)) {
+    if (!wasLive) liveAircraft.delete(id);
+    return { type: 'noop' };
+  }
+  live.occupants.add(player.id);
+  live.pilotId = player.id;
+  player.aircraftId = id;
+  player.seat = 'pilot';
+  if (a.airborne) {
+    getZone(player.current_zone)?.players.delete(player.id);
+    setPosture(player, 'flying');
+    live.lastSync = Date.now();   // a fresh unattended-recovery clock, as at wheels-up
+    if (!live.homeField) live.homeField = a.custom_data?.aloft?.home || null;   // where a tow takes her
+    if (!live.flightStartMs) live.flightStartMs = Date.now();
+  }
+  pushContext(live);
+  return { type: 'noop' };
+}
 
 // ── Admin: free test-fly any aircraft from a field ────────────────────────────
 async function cmdTestFly(args, raw, player) {
@@ -2350,7 +2413,7 @@ export const commands = {
   // have no banded-craft equivalent, so they answer only for a text pilot.
   turn: cmdTurnVerb, descend: cmdDive, level: cmdLevelVerb,
   flaps: cmdFlapsVerb, gear: cmdGearVerb, status: cmdStatusVerb,
-  flightsync: cmdFlightSync, flocksync: cmdFlockSync, flightevent: cmdFlightEvent, airhome: cmdAirHome,
+  flightsync: cmdFlightSync, flocksync: cmdFlockSync, flightevent: cmdFlightEvent, flightresume: cmdFlightResume, airhome: cmdAirHome,
   flightwaypoint: cmdFlightWaypoint,
   checkride: cmdCheckride,
   quack: cmdQuack,   // the Drake's loudspeaker

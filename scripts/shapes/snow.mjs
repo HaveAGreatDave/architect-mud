@@ -583,7 +583,7 @@ try {
   // them could have caught it.
   const cellField = (ptype) => ({
     tick: 30, bounds: { minX: 880, minY: 880, maxX: 920, maxY: 920 },
-    baseCloud: 0.8, precipFloor: 0, floorType: 'none',
+    baseCloud: 0.8,
     cells: [{ x: 900, y: 900, r: 20, vx: 0, vy: 0, type: 'precip', intensity: 0.8, precip: ptype }],
   });
   const overhead = (headline, ptype, frames) =>

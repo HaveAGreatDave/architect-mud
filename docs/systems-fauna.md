@@ -176,10 +176,13 @@ than on the awning beside them.
 ⚠ **A hunter is measured from where it sits.** Its ledge can be up to `HUNT_REACH` (6) tiles from its
 anchor. The draw cull and freelook's raptor finder (`raptorsNow`, the H key) both measured from the
 anchor, so the Meridian's peregrine, anchored six tiles away on The Strand, was culled from the street
-under the tower it sat on, and H aimed at the pavement. Both now ask `hunterSpot`: the ledge while it
-is perched, the bent leg while it flies to or from one, the circuit otherwise. It answers null when the
-bird's perch pool runs off the map window, because a clipped pool picks a different ledge as the
-window moves. `scripts/shapes/perch.mjs` section 7 checks both.
+under the tower it sat on, and H aimed at the pavement. The cull now asks `hunterSpot`: the ledge while
+it is perched, the bent leg while it flies to or from one, the circuit otherwise. It answers null when
+the bird's perch pool runs off the map window, because a clipped pool picks a different ledge as the
+window moves. `raptorsNow` goes one step further and reports where the bird is drawn, clearance and
+stoop included, because H now follows the bird from a few metres off
+([plugins/freelook/README.md](../plugins/freelook/README.md#following-a-raptor)) and a stoop moves it
+tiles off its circuit. `scripts/shapes/perch.mjs` section 7 checks the ledge, the cull and the dive.
 
 ## The hunt
 
@@ -440,11 +443,12 @@ where `groundSpot` puts it, and no bird went below the ground. A floor now stops
 0.03 tiles, because a flock coming in to land is centred on a point at the ground and half of it
 used to fly through the turf.
 
-⚠ **A perched flock is still the CPU's**, because a ledge and a wire are geometry the GPU flock has
-never seen, and **a grand roost never perches** (`perchedNow`, shared with the room text): ten thousand
-starlings do not line one gutter, and a perched flock is thinned to about 1,800. An ordinary flock on a
-parapet is under that anyway. `RENDER_TUNE.murmurGround` 0 hands landed flocks back to the per-bird
-path, for the A/B.
+⚠ **A perched flock is the GPU's too** (since 2026-10-03): every bird's spot on the ledge or wire is
+baked into the cloud once per landing, so the party comes down onto it out of the cloud bird by bird.
+See [Where a starling party comes down](#where-a-starling-party-comes-down-and-how-as-built).
+**A grand roost never perches** (`perchedNow`, shared with the room text): ten thousand starlings do
+not line one gutter. `RENDER_TUNE.murmurGround` 0 hands landed flocks back to the per-bird path, and
+`starlingPerchGPU` 0 hands back only the perched ones, for the A/B.
 
 **What it costs, on the machine it was measured on** (RTX 2070 SUPER, 1280x720, `__glMurmurGpuFrame`,
 a GPU timer query round the whole frame). With a grand roost of 20,000 landed round the cab: GPU 11.3
@@ -863,6 +867,20 @@ vertex shader in `gl/fauna.js` does two things with them:
 never blurred. Adding baked steps would not show at full beat speed: the limit is the frame rate sampling
 a 13 Hz beat, not missing poses. `RENDER_TUNE.wingBlur` 0 draws the sharp wing as shipped (blending stays).
 
+## Dark against the sky (as built)
+
+A murmuration's colour comes from two terms in `gl/fauna.js`. `silhouette` darkens a bird seen against
+the sky (`RENDER_TUNE.murmurSil`, 0.75), and `sunFront` takes that back and adds warm light when the sun
+is behind the viewer (`murmurSun`, `murmurSunGain`). The gain is 0.7. At 2.2 a front-lit starling came
+out pale khaki, about luminance 107 against a dusk cloud of about 130, and the flock vanished into the
+cloud.
+
+⚠ **Each bird drops them on its own, near the ground** (`Bird.sky`). They used to be switched off for
+the whole cloud whenever the flock was in ground mode, and a flock coming down or going up in waves is
+in ground mode the whole time. So for about 27 s at each end of a flight, every bird still overhead was
+drawn in its pale lit colour. Measured with `__glMurmurDim` at 17:36, the darkest quarter of the bird
+pixels went from blocking 35% of the sky behind them to 41%.
+
 ## The starling's day (as built)
 
 `BIRD_TUNE.dusk` (on) is the evening half of the season code on its own: the flock size curve round dusk
@@ -901,6 +919,65 @@ ends cohesion and the roost bring it home. ⚠ **By position, never by rank**: a
 pulled away stretches the whole flock rather than splitting it. Off during waves and on the ground.
 Measured in `__glMurmurShape`: three sub-flocks at 13 s, a hook peeling off at 21 s, pieces apart and back
 by 51 s; the checks, grid and parity benches all still pass.
+
+## Where a starling party comes down, and how (as built)
+
+Added 2026-10-03. Four parts, each with a `RENDER_TUNE` switch whose 0 is the flock as it was.
+
+**It comes down on a wire or on grass, not on the road** (`landSite` in windshield.js, `land` on the
+songbird row, `starlingSite`). The anchor is where a flock lives, and in the baked city 11 of the 21
+starling anchors are road and the other 10 paving; none is grass. So a ground cycle used to put the
+party on the tarmac. Where it comes down is now chosen per landing from what is within `land.reach`
+(3) tiles: a perched cycle takes a wire, then a lawn, then a ledge; a ground cycle takes a lawn (its own
+tile first), then a wire, then a ledge. Last of all it takes its own tile, unless that is a road with
+open ground beside it. A lawn is weighted by how much green surrounds it, because a big party's patch
+is wider than a tile. ⚠ A wire run has to hold the whole party (`perchCap`), because a cable is the one
+perch that may not be crowded; a party too big for the spans in reach goes to its next choice. ⚠ A
+grand roost takes a lawn or its last choice, never a wire. `perchedNow` is still the shared half, so
+the room text and the picture agree about which cycles are spent up on something, and the room's
+ground lines already say grass and turf. The flight bends onto the lawn the way it bends onto a ledge
+(`perchAim`), so the party flies there rather than walking. Measured on the snapshot at 11:00: the
+flock at 917,907 now takes a wire on 23 landings in 40 and a lawn on the rest; 909,907 takes the park
+three tiles south every time, because no wire survives the rarity roll near it.
+
+⚠ **The ledge pick counts the flock's own cycle.** `perchFor` hashed `now / period` with no phase, and
+that count rolls over part way through most flocks' ground phase, so the ledge was re-picked while the
+birds stood on it, and a flock could fly in to one ledge and leave from another. It now counts the cycle
+`perchedNow` counts. This fixed every perching species, not only the starling.
+
+**It lands one bird at a time** (`murmurTrickle`). The GPU flock already came down in four waves off
+each bird's rank, which reads right for a roost of thousands and like squads for a party of thirty. A
+flock under `MURMUR_TRICKLE_N` (300) now trickles: bird `r` goes at `r^1.6` of the spread (`waveTurn`
+in murmur.js, which the shader's copy is generated from), so the first few drop close together and a few
+stragglers come last. The spread is 5 s plus 0.02 s a bird (5.6 s for thirty), and take-off takes 0.4 of
+that. The ones still waiting circle `STARLING_WAIT_Z` (about 5 m) over the spot rather than at the
+species' 39 m. A bird whose turn comes now eases onto its line in over `LAND_TURN` (0.35 s) instead of
+switching course and speed in one frame, and may not dip below the height it is landing at on the way in.
+⚠ Without that floor the ease carried a diving bird into the turf: `__glMurmurLanding` counted 123,789
+bird-frames below ground. (That bench also reports a 1.09-tile spot error, which HEAD's own
+gl/murmur-gpu.js reproduces exactly, so it predates this work.)
+
+**A perched party stays the GPU flock** (`starlingPerchGPU`, perch mode in gl/murmur-gpu.js). Until
+now it went to the per-bird path at touchdown, which jumped every bird from the cloud into a skein
+formation and then settled all of them onto the wire together in 2.6 s. Now each bird's spot on the
+ledge or wire (`perchSeat`, then `perchPoint`) is baked into two textures once per landing, and the bird
+flies to it out of the cloud on its own turn. Along a wire the spot lies between the cable's sampled
+points, so two birds never share one. The wire bends by the birds on it now (`perchedShare`: the same
+schedule counted over the flock's ranks), so it droops as the party arrives, straightens as it leaves,
+and rings after the last one goes. The draw measures a perched bird's height from what it stands on, so
+it is drawn standing rather than flying, and faces the way the perch faces.
+
+**A party comes apart and pulls together** (`starlingLoose`, `looseOf`). A few dozen starlings flying
+between feeding spots are a flock some of the time and a scatter of birds the rest. A flock under 150
+birds has loose spells off two slow swells of the clock (23 s and 9.5 s, phased per flock), and is loose
+for the first and last eighth of each flight and while it circles a landing. In a spell each bird gives
+up 60% of its heading-matching, wanders up to four times further on its own (some much more than
+others), keeps twice the spacing and may stray further from the centre before the roost pulls it in.
+It fades out by 600 birds: a murmuration is one body.
+
+`__glStarlingLand` in the Modelshop films a landing in the real city from the baked snapshot, with
+`tune: { starlingSite: 0, … }` as the before. `perch.mjs` pins `faunaMinPx` off for its mesh-size check:
+the far-bird magnifier drew a starling flock six tiles off 2.8 spans wide beside a near peregrine.
 
 ## The hawk strikes (as built)
 
@@ -1190,6 +1267,10 @@ would mean shipping the shape capture to the server.
 | `RENDER_TUNE.birdFaces` / `birdFacesGL` | the canvas and mesh budgets |
 | `RENDER_TUNE.faunaDot` | no sprite LOD — every bird is a mesh at every range |
 | `RENDER_TUNE.faunaFlash` | no orientation flash; a murmuration is a cloud of identical dots again |
+| `RENDER_TUNE.starlingSite` | a starling party comes down on its own tile (road or not), or a ledge on a perched cycle |
+| `RENDER_TUNE.starlingPerchGPU` | a perched starling flock goes to the per-bird path and settles all at once |
+| `RENDER_TUNE.murmurTrickle` | a party comes down in four waves like a roost |
+| `RENDER_TUNE.starlingLoose` | a party flies as one body all the time |
 
 `npm run shapes:smoke` runs both gates, and both are in the push chain:
 

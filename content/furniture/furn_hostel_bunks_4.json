@@ -1,0 +1,14 @@
+{
+  "description": "Canvas hammocks slung three deep between the scaffold poles, each with a number stencilled on the end. Lie still and it holds.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_bunks_4",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "hammocks",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hostel_dorm_4"
+}

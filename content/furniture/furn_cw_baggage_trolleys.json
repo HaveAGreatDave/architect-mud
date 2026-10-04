@@ -1,0 +1,14 @@
+{
+  "description": "Steel trolleys nested in a rack and chained together. Each has a coin lock that takes a token the airport stopped selling.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cw_baggage_trolleys",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a rack of luggage trolleys",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_cw_baggage"
+}

@@ -2935,6 +2935,29 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 	z-index: 1;
 	transition: border-color 0.1s, color 0.1s;
 }
+/* Go home: the corner opposite the size toggle. Absolute, so the pad never grows
+   (the sidebar must not scroll). Sends `gohome`, which plots and walks. */
+.dpad-home-btn {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 18px;
+	height: 18px;
+	padding: 0;
+	line-height: 1;
+	font-size: 0.75rem;
+	background: var(--bg3);
+	border: 1px solid var(--border);
+	color: var(--text-dim);
+	border-radius: 2px;
+	cursor: pointer;
+	z-index: 1;
+}
+.dpad-home-btn:hover {
+	border-color: var(--accent);
+	color: var(--accent);
+}
+#mob-dpad { position: relative; }
 .dpad-resize-btn:hover {
 	border-color: var(--accent);
 	color: var(--accent);

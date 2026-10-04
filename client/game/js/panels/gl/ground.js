@@ -58,6 +58,12 @@ const MAX_TRACK_PTS = 40;
 // ⚠ MUST MATCH `MAX_LID` IN THE SHADER, the same contract MAX_TRACK_PTS carries: the array is
 // declared a fixed size in GLSL and over-filling it from here writes past the uniform.
 const MAX_LID_N = 12;
+// ⚠ THE SAME THIRTY-TWO AS THE SHADER'S OWN MAX_POOL, the contract MAX_WET carries. The pool had
+// borrowed the road's six reflection slots, ranked nearest the eye first, so from the air a lit city
+// had four or five lamps throwing light on the ground and the rest standing over dark tarmac.
+const MAX_POOL = 32;
+const POOL_P = new Float32Array(MAX_POOL * 3);
+const POOL_C = new Float32Array(MAX_POOL * 3);
 const WET_P = new Float32Array(MAX_WET * 3);
 const WET_C = new Float32Array(MAX_WET * 3);
 const WET_R = new Float32Array(MAX_WET);
@@ -204,6 +210,10 @@ uniform float uWet;             // how wet the ground is, 0-1
 // with everything drawn on it. Tarmac is the one surface in a night city whose whole job is to
 // carry the pool a lamp throws on it: there is nothing on a road for it to drown.
 uniform float uPool;
+const int MAX_POOL = 32;
+uniform int   uNPool;
+uniform vec3  uPoolP[MAX_POOL];   // the lamp's xy + its height, as uWetP
+uniform vec3  uPoolC[MAX_POOL];
 uniform float uNightDim;   // 1 - night * nightDark: the road's share of the dark, before the lights
 // The night, 0 by day. ⚠ THE LIST ITSELF CARRIES NO NIGHT TERM — 'rgbRaw' is deliberately
 // unweighted so a wet road goes on reflecting neon at four in the afternoon (see pickLights) — so
@@ -1297,14 +1307,14 @@ void main() {
   // stands VERGE (0.38 tiles) off its own tile centre, so what reaches the next tile is a seventh
   // of the peak; if that ever reads as an edge, the fix is to hand the floor the same list under
   // its own name — 'seaLights' is the precedent — and not to widen anything here.
-  if (uPool > 0.001 && uNWet > 0 && uNight > 0.01 && uSurface > 0.5) {
+  if (uPool > 0.001 && uNPool > 0 && uNight > 0.01 && uSurface > 0.5) {
     vec3 pool = vec3(0.0);
-    for (int i = 0; i < MAX_WET; i++) {
-      if (i >= uNWet) break;
-      vec2 rel = vWorld.xy - uWetP[i].xy;
-      float h = max(0.14, uWetP[i].z);
+    for (int i = 0; i < MAX_POOL; i++) {
+      if (i >= uNPool) break;
+      vec2 rel = vWorld.xy - uPoolP[i].xy;
+      float h = max(0.14, uPoolP[i].z);
       float r2 = dot(rel, rel) + h * h;
-      pool += uWetC[i] * ((h * h * h) / (r2 * sqrt(r2)));
+      pool += uPoolC[i] * ((h * h * h) / (r2 * sqrt(r2)));
     }
     // ⚠ IT ADDS INTO THE HEADROOM RATHER THAN ONTO THE ROAD. 'c + k' saturates a pale kerb to
     // white long before it saturates the tarmac beside it, so a pool crossing a painted line
@@ -1390,6 +1400,9 @@ export function createGroundLayer(gl) {
     night: gl.getUniformLocation(prog, 'uNight'),
     nWet: gl.getUniformLocation(prog, 'uNWet'),
     wetP: gl.getUniformLocation(prog, 'uWetP'),
+    nPool: gl.getUniformLocation(prog, 'uNPool'),
+    poolP: gl.getUniformLocation(prog, 'uPoolP'),
+    poolC: gl.getUniformLocation(prog, 'uPoolC'),
     wetC: gl.getUniformLocation(prog, 'uWetC'),
     wetR: gl.getUniformLocation(prog, 'uWetR'),
     wet: gl.getUniformLocation(prog, 'uWet'),
@@ -1577,6 +1590,20 @@ export function createGroundLayer(gl) {
       gl.uniform3fv(loc.wetP, WET_P.subarray(0, nw * 3));
       gl.uniform3fv(loc.wetC, WET_C.subarray(0, nw * 3));
       gl.uniform1fv(loc.wetR, WET_R.subarray(0, nw));
+    }
+    // The pool's own list: every light the walls got, not the road's six. Same colour the old
+    // path read from the six ('rgbRaw'), so a lamp near the eye is unchanged.
+    const pl = (opts.pool > 0 ? (opts.poolLights || opts.wetLights) : null) || EMPTY_WET;
+    const np = Math.min(MAX_POOL, pl.length);
+    for (let i = 0; i < np; i++) {
+      const L = pl[i], lc = L.rgbRaw || L.rgb;
+      POOL_P[i * 3] = L.p[0]; POOL_P[i * 3 + 1] = L.p[1]; POOL_P[i * 3 + 2] = L.p[2];
+      POOL_C[i * 3] = lc[0]; POOL_C[i * 3 + 1] = lc[1]; POOL_C[i * 3 + 2] = lc[2];
+    }
+    gl.uniform1i(loc.nPool, np);
+    if (np) {
+      gl.uniform3fv(loc.poolP, POOL_P.subarray(0, np * 3));
+      gl.uniform3fv(loc.poolC, POOL_C.subarray(0, np * 3));
     }
     gl.uniform1f(loc.hazeNear, opts.hazeNear == null ? 1e9 : opts.hazeNear);
     gl.uniform1f(loc.hazeFar, opts.hazeFar == null ? 1e9 : opts.hazeFar);

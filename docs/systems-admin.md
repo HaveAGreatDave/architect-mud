@@ -1,6 +1,6 @@
 # Admin controls
 
-**Status:** Phases 1 and 2 (weather, time) built; phases 3 to 5 are design.
+**Status:** Phases 1 and 2 (weather, time) and the ESP built; phases 3 to 5 are design.
 
 Staff controls in the game, in the Tablet Admin app and the `sysop` verb ([plugins/admin](../plugins/admin/README.md)). Staff means the dev, admin, builder and designer roles. Every tab shows the live value and lets you change it. The buttons run the verbs' own code, so the app holds no logic.
 
@@ -12,6 +12,9 @@ Staff controls in the game, in the Tablet Admin app and the `sysop` verb ([plugi
 
 - A skip goes through `devSkipTime` in `server/engine/environment.js`, which runs `tick24h` once for each midnight crossed and then one `tick30m`, as the clock does. `devAdvanceTime` only moves the hands and never turns the calendar, so don't use it for a skip.
 - A skip or a set sends `pa_announce` to every live player. The client plays a two-tone chime, writes the line to the log (`.msg-pa`), then speaks it through ORACLE with `pa: true`: a band-pass, a horn peak, soft clipping and two slapback echoes. The lines are in `plugins/admin/time.js`, and the time is read in words ("oh six hundred hours").
+
+## The ESP ✅
+*Built:* `sysop esp [on [message]|off]` and the ESP tab. Starts and stops the city lockdown: the sirens, the Curtain shut across the South Gate, and the South Lock's outer door down ([systems-trucking.md](systems-trucking.md#the-outer-door-and-the-lockdown)). It dispatches `ESP_ACTIVATE`/`ESP_DEACTIVATE` and reads its state off `esp.changed`, so it agrees with the devpanel's button. Lockdown with a message sets the warning players see.
 
 ## Phase 3: Players
 The online list, with chat (a staff DM), kick, mute and set role (admin only).

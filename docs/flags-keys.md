@@ -81,7 +81,8 @@ nothing, silently; wire a reader first.
 | `greeter` | jobboard | greeter NPC gate zone |
 | `hangar_interior` | flight | inside a hangar |
 | `hangar_interior_zone` | flight | link from ramp to hangar interior |
-| `hangar_ramp` | flight | hangar ramp (aircraft parking) |
+| `hangar_ramp` | flight | the ramp an indoor room belongs to. On a hangar interior, and on a terminal room (Coldwater Regional's check-in, lounge and gate), where `fieldFor` resolves the field, `charter` books and `embark` boards |
+| `arrivals_zone` | flight | on a ramp: the room a charter passenger is set down in on arrival (before `hangar_interior_zone`) |
 | `insurance_desk` | flight | aircraft insurance vendor here |
 | `gate_warning` | gatewarn plugin | one-time gate-guard border briefing, delivered on first entry to the tile |
 | `intro_lore` | lore plugin | one-time lore text on first visit |

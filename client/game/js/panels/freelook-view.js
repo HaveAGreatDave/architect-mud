@@ -25,12 +25,13 @@
 // downloads and parses the whole 3-D stack before they can type `look`. The facade has the same
 // export names, so nothing below this line changed; what changed is that the bytes arrive when the
 // seat is opened. See scripts/client/bake-lazy-view.mjs.
-import { loadWindshield, isLoaded as windshieldLoaded, paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, normalizeWx, navMarks, raptorsNow, yachtScopeMount, yachtDeckEye } from './windshield-lazy.js';
+import { loadWindshield, isLoaded as windshieldLoaded, paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, normalizeWx, navMarks, raptorsNow, yachtScopeMount, yachtDeckEye, modelTopZAt, curtainTopZAt } from './windshield-lazy.js';
 export { loadWindshield };
 import { createFreeCam, FREECAM_HINT, FREECAM_STAND_HINT, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
 import { bindBigScreenButton, exitBigScreen, setSidebarHidden, bindSidebarButton, BIGSCREEN_GLYPH, BIGSCREEN_TITLE, SIDEBAR_GLYPH, SIDEBAR_TITLE } from './bigscreen.js';
 import { claimSeatKeyboard, endSeatKeyboard } from './seat-keys.js';
-import { floorZAt } from './seabed-scene.js';   // the ground or seabed under the camera (plugins/submersible)
+import { floorZAt } from './seabed-scene.js';
+import { suppressWeatherFx } from './weather-fx.js';   // the 2-D overlay would paint its rain and rainbow over the 3-D scene   // the ground or seabed under the camera (plugins/submersible)
 
 // Live world clock/weather through the shared env system — loaded OPTIONALLY, exactly as helm-view
 // loads it, so a context that cannot provide it still runs on the sky the server sent rather than
@@ -127,6 +128,28 @@ const MOUNTS = {
 // crisper wall for a city with no texture on it at all would be the opposite of this feature.
 const STAND_TUNE = { lodNear: 32, decoFar: 26, glowFar: 20, shadowFar: 26 };
 
+// What the hint calls each raptor raptorsNow can report.
+const RAPTOR_NAME = { peregrine: 'peregrine', hawk: 'red-tailed hawk' };
+
+// How far the eye can back off a followed bird before it is inside something: a building's mass
+// (solid from the ground up to modelTopZAt), the Curtain, or the ground. freecam's `setTrackReach`.
+// Marched from REACH_SKIP out rather than from the bird, because a perched bird is sitting ON the mass
+// and the line would hit it at once. Offset tiles in, like the camera's own.
+const REACH_STEP = 0.02, REACH_SKIP = 0.06, REACH_PAD = 0.015;
+function reachFrom(s, x, y, z, ux, uy, uz, max) {
+  if (!s?.map) return Infinity;
+  const R = (s.map.length - 1) / 2;
+  for (let d = REACH_SKIP; d <= max; d += REACH_STEP) {
+    const ox = x + ux * d, oy = y + uy * d, pz = z + uz * d;
+    const px = s.gx + ox, py = s.gy + oy, wx = Math.round(px), wy = Math.round(py);
+    const c = s.map[wy - s.gy + R]?.[wx - s.gx + R];
+    let top = floorZAt(ox, oy);
+    if (c) top = Math.max(top, modelTopZAt(wx, wy, c, px, py) || 0, curtainTopZAt(wx, wy, c, px, py) || 0);
+    if (pz < top + REACH_PAD) return d - REACH_STEP;
+  }
+  return Infinity;
+}
+
 let st = null;
 
 export function isFreelookActive() { return !!st; }
@@ -170,7 +193,7 @@ export function openFreelook(ctx = {}) {
   if (st && ctx.map && (ctx.stand?.mount || null) !== (st.stand?.mount || null)) { closeFreelook(); }
   if (st && ctx.map) {
     const ogx = st.gx, ogy = st.gy;
-    st.map = ctx.map; st.gx = ctx.gx ?? st.gx; st.gy = ctx.gy ?? st.gy;
+    st.map = ctx.map; st.gx = ctx.gx ?? st.gx; st.gy = ctx.gy ?? st.gy; if (ctx.skyline) st.skyline = ctx.skyline;
     // ⚠ AND THE CAMERA IS REBASED ONLY WHEN IT ASKED. The two re-centres arrive down the same wire
     // and want opposite things: a person typing `freelook 918 903` is naming a place to LOOK AT and
     // keeps the shot while the world slides under it, and the drift follow above is moving the
@@ -233,11 +256,14 @@ export function openFreelook(ctx = {}) {
 
   const root = mount.querySelector('.fl-root');
   const freeCam = createFreeCam();
+  freeCam.setTrackReach((x, y, z, ux, uy, uz, max) => reachFrom(st, x, y, z, ux, uy, uz, max));
 
+  suppressWeatherFx(true, 'freelook');   // this view draws its own sky; the room-pane overlay's bow lay flat across the towers
   st = {
     id, mount, root, freeCam,
     gx: ctx.gx ?? 0, gy: ctx.gy ?? 0,
     map: ctx.map || null,
+    skyline: ctx.skyline || null,     // the tall towers outside the window (windshield.js noteSkyline)
     actors: ctx.actors || [],
     want: null,                       // the re-centre this view has asked for and not yet been given
     onRecenter: ctx.onRecenter || null,
@@ -264,6 +290,9 @@ export function openFreelook(ctx = {}) {
     : { yaw: 0, z: OPEN_Z });
 
   const hintEl = root.querySelector('.fl-hint');
+  // The raptor being followed ({ id, sp, n, of, lostAt }), and the order ← → walk. See findRaptor.
+  // Declared before the first paintHint, which reads it.
+  let follow = null, ring = [];
   // The seats' own hint, with the one line that differs replaced: O stows the camera there and
   // closes the view here, and a hint that lied about the way out is worse than no hint.
   //
@@ -273,9 +302,13 @@ export function openFreelook(ctx = {}) {
   // is advertising three controls that now refuse, which is the first minute of somebody deciding
   // the camera is broken.
   function paintHint() {
+    if (follow) {
+      hintEl.textContent = `FOLLOWING ${(RAPTOR_NAME[follow.sp] || 'raptor').toUpperCase()} ${follow.n}/${follow.of} · ← → or H next · ↑ ↓ nearer/further · mouse orbits · wheel zoom · WASD lets go · O close`;
+      return;
+    }
     hintEl.textContent = freeCam.standing
       ? FREECAM_STAND_HINT.replace('O steps back', stand ? 'O or ✕ steps back' : 'O or ✕ closes')
-      : FREECAM_HINT.replace('O exit', 'H raptor · O close');
+      : FREECAM_HINT.replace('O exit', 'H follow raptor · O close');
   }
   paintHint();
 
@@ -289,6 +322,7 @@ export function openFreelook(ctx = {}) {
     // END and paintWindshield has no try/catch of its own, so one throw would freeze the view for
     // good while everything around it carried on.
     try {
+      if (follow) followStep();
       freeCam.step(dt);
       const env = liveEnv();
       const hour = env ? env.hour : st.hour;
@@ -328,7 +362,7 @@ export function openFreelook(ctx = {}) {
         external: true, hideOwnShip: true, phase: 'cruise', worldBlend: 1,
         heading: 0, height: 0, speed: 0,
         hour, moon, weather, wxField: st.field, wxGround: st.ground, event: st.event,
-        map: st.map, mapCenter: { x: st.gx, y: st.gy }, mapOffset: { x: 0, y: 0 },
+        map: st.map, skyline: st.skyline, mapCenter: { x: st.gx, y: st.gy }, mapOffset: { x: 0, y: 0 },
         acX: st.gx, acY: st.gy, airport: 'default',
         tune: (st.stand || freeCam.standing) ? STAND_TUNE : undefined,   // see STAND_TUNE — a seat that cannot move can afford to draw more
         freeCam: freeCam.view(),
@@ -374,28 +408,78 @@ export function openFreelook(ctx = {}) {
     // module flag the seats throw, so a builder who turns it off out here has turned it off in the
     // cab they get into next, which is very likely what they meant.
     if (k === 'n' && down && !e.repeat) { e.preventDefault(); navMarks(); return; }
-    if (k === 'h' && down && !e.repeat) { e.preventDefault(); findRaptor(); return; }
+    if (k === 'h' && down && !e.repeat) { e.preventDefault(); findRaptor(e.shiftKey ? -1 : 1); return; }
+    // Following, the arrows are the bird's: ← → step through the raptors and ↑ ↓ bring the camera in
+    // or send it back. The release still goes to the camera, so an arrow held from before the follow
+    // started is let go of rather than left turning it.
+    if (follow && k.startsWith('arrow')) {
+      e.preventDefault();
+      if (!down) freeCam.onKey(k, false);
+      else if (k === 'arrowleft' || k === 'arrowright') { if (!e.repeat) findRaptor(k === 'arrowright' ? 1 : -1); }
+      else freeCam.dolly(k === 'arrowup' ? -1 : 1);
+      return;
+    }
     if (freeCam.onKey(k, down)) e.preventDefault();
   }
-  // H: turn to the nearest hawk or peregrine the renderer has in its flock window. Pressing again
-  // steps to the next-nearest, so a sky with three in it can be walked through. It only turns the
-  // lens; flying there is still the player's job.
+  // ── H: FOLLOW A RAPTOR ──────────────────────────────────────────────────────
+  // H flies the camera in on the nearest hawk or peregrine the renderer has in its flock window and
+  // stays with it: freecam's `track`, fed where the bird is drawn every frame. ← → (or H and SHIFT+H)
+  // step through the others, ↑ ↓ and SHIFT+wheel set the distance, the mouse swings round the bird,
+  // and W/A/S/D/R/F let go where the camera is.
+  // ⚠ THE ORDER IS FIXED WHEN THE FOLLOW STARTS. Sorted by distance from the eye on every press, the
+  // nearest other bird to the one you are on is usually the one you just left, so → ping-ponged
+  // between two and never reached a third. Birds that leave the window drop out of the ring and new
+  // ones join the end.
+  // ⚠ STANDING, H ONLY TURNS THE LENS. A camera on its feet (a vantage, or FPS) cannot fly to a bird,
+  // and a telescope swung onto one is what H always did there.
   let raptorIdx = -1, raptorAt = 0;
-  function findRaptor() {
+  function raptorList() {
     const fv = freeCam.view();
-    if (!fv) return;
+    if (!fv) return [];
     const ex = st.gx + fv.x, ey = st.gy + fv.y;
-    const list = raptorsNow().map((r) => ({ ...r, d: Math.hypot(r.x - ex, r.y - ey) })).sort((a, b) => a.d - b.d);
+    return raptorsNow().map((r) => ({ ...r, d: Math.hypot(r.x - ex, r.y - ey) })).sort((a, b) => a.d - b.d);
+  }
+  function findRaptor(step) {
+    const list = raptorList();
     if (!list.length) { flash('No raptors in range.'); return; }
+    if (freeCam.standing) {
+      const fv = freeCam.view();
+      const now = performance.now();
+      raptorIdx = (now - raptorAt < 8000) ? (raptorIdx + 1) % list.length : 0;
+      raptorAt = now;
+      const r = list[raptorIdx];
+      freeCam.aimAt(Math.atan2(r.x - st.gx - fv.x, -(r.y - st.gy - fv.y)) * 180 / Math.PI, Math.atan2(r.z - fv.z, Math.max(0.05, r.d)));
+      const nm = RAPTOR_NAME[r.sp] || 'raptor';
+      flash(`${nm[0].toUpperCase() + nm.slice(1)} · ${r.d.toFixed(1)} tiles (${raptorIdx + 1}/${list.length})`);
+      return;
+    }
+    if (!follow) ring = list.map((r) => r.id);
+    else {
+      const live = new Set(list.map((r) => r.id));
+      ring = ring.filter((id) => live.has(id));
+      for (const r of list) if (!ring.includes(r.id)) ring.push(r.id);
+    }
+    const at = follow ? ring.indexOf(follow.id) : -1;
+    const id = at < 0 ? ring[0] : ring[((at + step) % ring.length + ring.length) % ring.length];
+    const r = list.find((q) => q.id === id);
+    const fresh = !!follow && follow.id !== id;
+    follow = { id, sp: r.sp, n: ring.indexOf(id) + 1, of: ring.length, lostAt: 0 };
+    freeCam.track(r.x - st.gx, r.y - st.gy, r.z, fresh);
+    paintHint();
+  }
+  // Every frame, before the camera steps: where the bird is now. A bird missing for a moment is a
+  // re-centre in flight; missing for two seconds it has gone (out of the window, or dusk).
+  function followStep() {
+    if (!freeCam.tracking) { follow = null; paintHint(); return; }   // a movement key or FPS let go
+    const r = raptorsNow(Date.now(), follow.id)[0];
+    if (r) { follow.lostAt = 0; freeCam.track(r.x - st.gx, r.y - st.gy, r.z); return; }
     const now = performance.now();
-    raptorIdx = (now - raptorAt < 8000) ? (raptorIdx + 1) % list.length : 0;
-    raptorAt = now;
-    const r = list[raptorIdx];
-    const dx = r.x - ex, dy = r.y - ey;
-    const yaw = Math.atan2(dx, -dy) * 180 / Math.PI;
-    const pitch = Math.atan2(r.z - fv.z, Math.max(0.05, r.d));
-    freeCam.aimAt(yaw, pitch);
-    flash(`${r.sp === 'peregrine' ? 'Peregrine' : 'Red-tailed hawk'} · ${r.d.toFixed(1)} tiles (${raptorIdx + 1}/${list.length})`);
+    if (!follow.lostAt) follow.lostAt = now;
+    else if (now - follow.lostAt > 2000) {
+      const sp = follow.sp;
+      freeCam.untrack(); follow = null;
+      flash(`Lost the ${RAPTOR_NAME[sp] || 'raptor'}.`);
+    }
   }
   let flashT = null;
   function flash(msg) {
@@ -456,6 +540,12 @@ export function openFreelook(ctx = {}) {
     fsBtn.classList.toggle('on', lit);
     if (lit) { document.body.classList.remove('fl-hidepanel'); hideBtn?.classList.remove('on'); }
   });
+  // The view opens on ⊟: the whole column is picture and the command box stays, so O, chat and
+  // every verb still work without a click on the ladder first. ⊟ again gives the log back.
+  document.body.classList.remove('fl-fullscreen');
+  document.body.classList.add('fl-hidepanel');
+  hideBtn?.classList.add('on');
+  fsBtn?.classList.remove('on');
 
   // ── FPS: THE CAMERA PUTS ITS FEET DOWN ──────────────────────────────────────
   //
@@ -518,6 +608,7 @@ export function closeFreelook() {
   if (!st) return;
   const s = st; st = null;
   s.alive = false;
+  suppressWeatherFx(false, 'freelook');
   cancelAnimationFrame(s.raf);
   try { s.teardown?.(); } catch { /* a half-built view still has to come down */ }
   // ⚠ THE GL SCENE GOES WITH IT. This view mints a fresh canvas id per open (the helm's own trap,

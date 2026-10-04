@@ -177,6 +177,14 @@
           "next": "sell_hydro"
         },
         {
+          "label": "I'll take the Spur.",
+          "next": "sell_spur"
+        },
+        {
+          "label": "I'll take the Gamecock.",
+          "next": "sell_gamecock"
+        },
+        {
           "label": "Back up.",
           "next": "root"
         }
@@ -188,6 +196,44 @@
         {
           "action": "BOAT_SELL",
           "hull": "hydro"
+        }
+      ],
+      "options": [
+        {
+          "label": "How do I take her out?",
+          "next": "drive"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ]
+    },
+    "sell_spur": {
+      "text": "She opens the berth book at the next clean line.",
+      "actions": [
+        {
+          "action": "BOAT_SELL",
+          "hull": "spur"
+        }
+      ],
+      "options": [
+        {
+          "label": "How do I take her out?",
+          "next": "drive"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ]
+    },
+    "sell_gamecock": {
+      "text": "She opens the berth book at the next clean line, with the better pen.",
+      "actions": [
+        {
+          "action": "BOAT_SELL",
+          "hull": "gamecock"
         }
       ],
       "options": [
@@ -215,6 +261,14 @@
           "next": "hire_hydro"
         },
         {
+          "label": "Hire the Spur.",
+          "next": "hire_spur"
+        },
+        {
+          "label": "Hire the Gamecock.",
+          "next": "hire_gamecock"
+        },
+        {
           "label": "I'm bringing a hire back.",
           "next": "return"
         },
@@ -230,6 +284,44 @@
         {
           "action": "BOAT_HIRE",
           "hull": "hydro"
+        }
+      ],
+      "options": [
+        {
+          "label": "How do I take her out?",
+          "next": "drive"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ]
+    },
+    "hire_spur": {
+      "text": "She checks the board for a free bay.",
+      "actions": [
+        {
+          "action": "BOAT_HIRE",
+          "hull": "spur"
+        }
+      ],
+      "options": [
+        {
+          "label": "How do I take her out?",
+          "next": "drive"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ]
+    },
+    "hire_gamecock": {
+      "text": "She checks the board for a free bay.",
+      "actions": [
+        {
+          "action": "BOAT_HIRE",
+          "hull": "gamecock"
         }
       ],
       "options": [

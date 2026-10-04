@@ -151,6 +151,22 @@ export function murmurEnvelope(spread) {
   return { aL: ENV_L * spread, aW: ENV_W * spread, aT: ENV_T * spread };
 }
 
+// A bird's rank, 0..1: its place in the thinning order and in the landing and take-off order (waveTurn).
+// The ranks of any n birds are the same n numbers whatever order the birds are stored in.
+export const rankOf = (i) => (i * 0.7548776662466927) % 1;
+
+// ⚠ WHEN EACH BIRD GOES DOWN OR UP, OFF ITS RANK. Ranks are spread evenly, so the share of a flock ranked
+// under r is r. A big flock pours down and lifts off in WAVE_GROUPS waves with a little jitter. A party
+// (`trickle`) goes one bird at a time instead, the first few close together and a few stragglers last
+// (rank to the power TRICKLE_POW): four tidy waves of seven starlings read as squads, not as a party
+// dropping onto a lawn. The step shader's copy (gl/murmur-gpu.js) is generated from these numbers, and
+// windshield.js counts the birds already down off this function for the weight on a wire.
+export const WAVE_GROUPS = 4, WAVE_JITTER = 0.15, TRICKLE_POW = 1.6;
+export function waveTurn(r, spread, trickle) {
+  if (trickle) return Math.pow(r, TRICKLE_POW) * spread;
+  return (Math.floor(r * WAVE_GROUPS) / WAVE_GROUPS * (1 - WAVE_JITTER) + ((r * 7.13) % 1) * WAVE_JITTER) * spread;
+}
+
 // ⚠ THE CLOUD'S FIRST ARRANGEMENT, AS A PURE FUNCTION: the body's own ellipsoid, broadside to the course
 // it starts on. The GPU flock starts from exactly these birds.
 export function seedPoints(key, n, cx, cy, cz, spread, heading = 0) {
@@ -171,7 +187,7 @@ export function seedPoints(key, n, cx, cy, cz, spread, heading = 0) {
       // every PREFIX of the order is spread evenly through the flock; a hash clumps at any threshold, and
       // a clump is a hole in the cloud rather than a thinner cloud. The plastic number, because scatterOf
       // already spends the golden ratio's neighbourhood on position.
-      rank: (i * 0.7548776662466927) % 1,
+      rank: rankOf(i),
     });
   }
   // ⚠ IN SPACE ORDER, SO BIRDS THAT ARE NEAR EACH OTHER ARE NEAR EACH OTHER IN MEMORY. The GPU step reads

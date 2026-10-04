@@ -378,5 +378,34 @@ export default async function regress({ run, check, getPlayer }) {
     }
   }
 
+  // gohome: plots to home_zone and sets off without asking; a guest with no home
+  // falls back to the guest_home hostel.
+  {
+    const savedHome = p.home_zone, savedRole = p.role;
+    const here = getZone(p.current_zone);
+    const near = getAllZones().find(z => z.id !== here?.id && z.map_id === here?.map_id &&
+      (findPath(p.current_zone, resolveLanding(z.id), { roads: false, maxDistance: 60 }) || []).length >= 2);
+    if (near) {
+      p.home_zone = near.id;
+      const r = await run('gohome');
+      check('gohome plots to home_zone and walks without a prompt',
+        r?.type === 'gps_route' && r.autostart === true && !r.promptAutoWalk,
+        `type=${r?.type} autostart=${r?.autostart} msg="${r?.message}"`);
+    }
+    p.home_zone = null; p.role = 'player';
+    let r = await run('gohome');
+    check('gohome with no home refuses', r?.type === 'error' && /no home/i.test(r?.message || ''), `type=${r?.type}`);
+    const hostel = getAllZones().find(z => z.flags?.guest_home);
+    check('a zone is flagged guest_home', !!hostel);
+    if (hostel) {
+      p.role = 'guest';
+      r = await run('gohome');
+      check('a homeless guest goes home to the guest_home hostel',
+        r?.type === 'gps_route' ? r.path[r.path.length - 1] === resolveLanding(hostel.id) : /already at/i.test(r?.message || ''),
+        `type=${r?.type} msg="${r?.message}"`);
+    }
+    p.home_zone = savedHome; p.role = savedRole;
+  }
+
   p.current_zone = savedZone;
 }

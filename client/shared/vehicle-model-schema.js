@@ -42,7 +42,7 @@ export const VEHICLE_KINDS = ['fw', 'truck', 'boat', 'mesh'];
 export const VEHICLE_IDS = {
   fw: ['prop', 'gunship', 'heavy', 'locust', 'divebomber'],
   truck: ['scrapper', 'hauler', 'drayman', 'continental'],
-  boat: ['hydro'],
+  boat: ['hydro', 'spur', 'gamecock'],
   mesh: ['heli', 'heli_armed', 'ultralight', 'grasshopper', 'wreck', 'drake', 'prop', 'heavy', 'gunship', 'divebomber', 'locust'],
 };
 

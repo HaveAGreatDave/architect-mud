@@ -1,0 +1,14 @@
+{
+  "description": "A dented electric kettle the size of a bucket, always just off the boil. A sign taped to it says FREE. A smaller sign under that says MEANS FREE.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_kettle",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "kettle",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_trackmarks_shop"
+}

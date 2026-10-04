@@ -1,0 +1,35 @@
+{
+  "ambient_events": [
+    "Rain starts on the container roof, and the whole floor turns into a drum.",
+    "Somebody counts ribs under their breath on the way to the far end: green, white, green, white.",
+    "A boot drops off a top bunk and rings on the steel floor. Nobody wakes.",
+    "The stove pipe passes through on its way up, warm as a radiator."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#221d18",
+  "color": "#c9a86a",
+  "description": "A shipping container laid across the signal box roof, its doors welded shut at one end and cut through at the other for the stair. Bunks run down both walls the gangway between just wide enough to turn in. The ribs inside are painted in alternating colours, so you can count your way to a bunk in the dark.",
+  "exits": {
+    "down": "zone_hostel_dorm",
+    "up": "zone_hostel_dorm_3"
+  },
+  "flags": {
+    "allow_sleep": true,
+    "building_name": "Hostel Takeover",
+    "building_type": "hostel",
+    "floor": "metal",
+    "is_building": true,
+    "is_dwelling": true,
+    "is_interior": true,
+    "region_id": "region_coldwater",
+    "sanctuary": true,
+    "world_exit_zone": "zone_district_917_903"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 2,
+  "id": "zone_hostel_dorm_2",
+  "map_id": "map_int_trackmarks",
+  "name": "Hostel Takeover, second floor",
+  "parent_zone": "zone_district_917_903"
+}

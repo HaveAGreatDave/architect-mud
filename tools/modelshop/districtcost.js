@@ -29,7 +29,7 @@ import { paintWindshield, RENDER_TUNE, setWindshieldProfiler, perfSnapshot } fro
 import { installGL, glLastFrame } from '/client/game/js/panels/gl/install.js';
 
 let _world = null;
-async function world() {
+export async function world() {
   if (_world) return _world;
   const res = await fetch('/api/world');
   if (!res.ok) throw new Error('no baked flight world (' + res.status + ') — run `npm run snapshot:flight`');
@@ -40,7 +40,7 @@ async function world() {
 // The same two seats `__street` offers, for the same reason: a cab at eye height 0 and an
 // aeroplane at half a tile are looking at different buildings, and a district judged only from the
 // air is judged on its roofs.
-const SEATS = {
+export const SEATS = {
   cab: { cls: 'truck', height: 0, eyeH: 0.12, speed: 0.15, r: 14 },
   air: { cls: 'prop', height: 0.5, eyeH: undefined, speed: 0.4, r: 36 },
 };
@@ -83,6 +83,42 @@ function rig(W, H) {
   return { el: _rig.el, uninstall: installGL(() => _rig.el) };
 }
 
+// ── AND THE GPU'S OWN CLOCK ─────────────────────────────────────────────────────────────────────
+//
+// Every phase above is JavaScript time. A shader change (a material term, a light loop) costs on
+// the GPU and moves none of them, so each measured paint is also wrapped in a timer query on the
+// world pass's context: the sky, the city, the cloud deck and the composites, everything the frame
+// issued on it. `glLastFrame().canvas` is that context's canvas, and asking a canvas for the type
+// it already has returns the same context. Null without EXT_disjoint_timer_query_webgl2.
+// ⚠ RESULTS ARRIVE A FEW FRAMES LATE, so they're gathered after the loop, and a disjoint reading
+// (the GPU clock jumped) throws the whole set away rather than keep a number that isn't one.
+function gpuClock() {
+  const c = (glLastFrame() || {}).canvas;
+  const gl = c && c.getContext('webgl2');
+  const ext = gl && gl.getExtension('EXT_disjoint_timer_query_webgl2');
+  if (!ext) return null;
+  gl.getParameter(ext.GPU_DISJOINT_EXT);   // reading it clears it, so a jump before the run doesn't count
+  const qs = [];
+  return {
+    time(fn) {
+      const q = gl.createQuery();
+      gl.beginQuery(ext.TIME_ELAPSED_EXT, q);
+      try { fn(); } finally { gl.endQuery(ext.TIME_ELAPSED_EXT); qs.push(q); }
+    },
+    async read() {
+      const last = qs[qs.length - 1];
+      for (let k = 0; k < 200 && last && !gl.getQueryParameter(last, gl.QUERY_RESULT_AVAILABLE); k++) {
+        await new Promise((r) => setTimeout(r, 10));
+      }
+      const disjoint = !!gl.getParameter(ext.GPU_DISJOINT_EXT);
+      const ms = qs.map((q) => (gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE) ? gl.getQueryParameter(q, gl.QUERY_RESULT) / 1e6 : NaN))
+        .filter(Number.isFinite).sort((a, b) => a - b);
+      for (const q of qs) gl.deleteQuery(q);
+      return disjoint || !ms.length ? null : ms;
+    },
+  };
+}
+
 function pinned(fn) {
   const res = RENDER_TUNE.resFloor, ds = RENDER_TUNE.perfDS;
   RENDER_TUNE.resFloor = 1; RENDER_TUNE.perfDS = 0;
@@ -118,14 +154,19 @@ export async function where(opts = {}) {
     // ⚠ `builds` IS A PROCESS-WIDE RUNNING TOTAL, not a per-run count — read straight across a
     // sweep of eight districts it counts 1, 2, 3 … 8 and reads exactly like one rebuild each.
     const b0 = (glLastFrame() || {}).builds || 0;
+    const clock = opts.gpu === false ? null : gpuClock();
     setWindshieldProfiler(true, { arms: !!opts.arms });
     const t0 = performance.now();
-    for (let i = 0; i < frames; i++) paintWindshield('__where', { ...view, heading: (i * 11) % 360 });
+    for (let i = 0; i < frames; i++) {
+      const paint = () => paintWindshield('__where', { ...view, heading: (i * 11) % 360 });
+      if (clock) clock.time(paint); else paint();
+    }
     const wall = (performance.now() - t0) / frames;
     const s = perfSnapshot();
     setWindshieldProfiler(false);
-    return { s, last: glLastFrame(), wall, b0 };
+    return { s, last: glLastFrame(), wall, b0, clock };
   });
+  const gpu = out.clock ? await out.clock.read() : null;
   uninstall();
 
   const { s, last, wall, b0 } = out;
@@ -135,6 +176,10 @@ export async function where(opts = {}) {
     // The wall clock over the whole paint, which is the only honest total: the windshield phases
     // NEST, so summing the columns double-counts (see the ⚠ on inclusive phases above).
     ms: +wall.toFixed(2),
+    // The GPU's median and 90th percentile over the same frames; null with no timer extension or
+    // after a disjoint reading.
+    gpu: gpu ? +gpu[Math.floor(gpu.length / 2)].toFixed(2) : null,
+    gpuP90: gpu ? +gpu[Math.floor(gpu.length * 0.9)].toFixed(2) : null,
     build: per('world:build'), arms: per('world:arms'), sweep: per('world:sweep'),
     occlude: per('world:occlude'), shadow: per('world:shadow'), gl: per('world:gl'),
     flush: per('world:flush'), ground: per('ground'), weather: per('weather'),

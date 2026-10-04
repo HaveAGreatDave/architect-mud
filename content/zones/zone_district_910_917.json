@@ -1,30 +1,22 @@
 {
   "ambient_events": [],
   "ambient_theme": "urban",
-  "bg_color": "#1d1416",
-  "color": "#c06052",
-  "description": "Three tall red bay doors over aprons swept to bare concrete. Above them, two storeys of watch room and dormitory. At the north end, a square hose tower rises three more storeys, louvred, with a hoist beam at the top. A working bell hangs over the middle door.",
+  "color": "#8ba36a",
+  "description": "A square of rough grass between the estate and the lock wall, with a ring of poured footings in it that nothing was ever bolted to.",
   "exits": {
-    "east": "zone_district_911_917",
-    "west": "zone_engine_bay"
+    "north": "zone_district_910_916",
+    "south": "zone_district_910_918"
   },
   "flags": {
-    "building_name": "Engine Trouble",
-    "building_type": "fire_station",
     "district": "halcyon_fields",
-    "entrance": "east",
-    "facade": true,
-    "floors": 3,
-    "is_building": true,
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_911_917"
+    "terrain": "grass"
   },
   "grid_x": 910,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_910_917",
   "map_id": "map_world",
-  "marker": "ET",
-  "name": "Engine Trouble",
+  "name": "Grasslands",
   "parent_zone": null
 }

@@ -1,0 +1,14 @@
+{
+  "description": "A split-flap board over the desk: FROM, DUE, STATUS. Most rows read CHARTER, and the status column says LANDED or SEE DESK.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cw_arrivals_board",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the arrivals board",
+  "object_type": "fixture",
+  "power_draw_kw": 0.2,
+  "price": 0,
+  "zone_id": "zone_cw_arrivals"
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_924_903",
+  "b": "zone_cw_checkin",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_district_924_903_west_dp01",
+  "lockable": true,
+  "one_way": false
+}

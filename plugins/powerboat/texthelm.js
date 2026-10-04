@@ -69,7 +69,9 @@ export async function startTextHelm(player, boat, at) {
   // Her wear on her, as the visual rung has it (service.js) — one set of numbers on both rungs.
   const p = effBoatParams(boat.type_id, boat.custom_data || {});
   conning.set(player.id, {
-    playerId: player.id, boatId: boat.id, name: boat.name || 'her', p,
+    // The hull's TYPE, kept beside its params: `effBoatParams` hands back a row with no id on it, so
+    // reading the type off `p` made every text-conned boat a Rooster to everybody else on the water.
+    playerId: player.id, boatId: boat.id, typeId: boat.type_id || 'hydro', name: boat.name || 'her', p,
     // The sim state, seeded from the row exactly as the panel seeds it.
     s: {
       x: at.x, y: at.y, heading: at.heading ?? (Number(boat.custom_data?.heading) || 0),
@@ -309,7 +311,7 @@ async function tick() {
     if (c.fuel <= 0) { input.throttle = 0; c.want.bell = 'stop'; }
     // ⚠ AND A DEAD MOTOR BURNS NOTHING HERE EITHER — the base figure is the IDLE burn, so left
     // unconditional a hull left conned but shut down would drink her tank dry sitting still.
-    else if (c.s.running !== false) c.fuel = Math.max(0, c.fuel - (0.00042 + 0.0035 * c.s.pedal) * dt);
+    else if (c.s.running !== false) c.fuel = Math.max(0, c.fuel - (0.00042 + 0.0035 * c.s.pedal) * (c.p.burn ?? 1) * dt);
     if (c.s.nitro <= 0) c.want.bottle = false;
 
     stepBoat(c.s, input, c.p, dt);
@@ -321,7 +323,7 @@ async function tick() {
     // ⚠ THE SAME RECORD THE PANEL FILLS. See the header: a text driver missing from `rigs` is a
     // boat that does not exist to anybody else on the water.
     rigs.set(pid, Object.assign(rigs.get(pid) || {}, {
-      playerId: pid, boatId: c.boatId, typeId: c.p.id || 'hydro', name: c.name,
+      playerId: pid, boatId: c.boatId, typeId: c.typeId || 'hydro', name: c.name,
       topSpeed: c.p.topSpeed || 138,
       x: c.s.x, y: c.s.y, heading: norm(c.s.heading), speed: Math.abs(c.s.speed),
       pedal: c.s.pedal, rich: c.s.rich || 0, bang: c.s.bang || 0,

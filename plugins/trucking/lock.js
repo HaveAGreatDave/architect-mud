@@ -22,9 +22,16 @@
 //
 // ⚠ THE FOUR STARS GO THROUGH WANTED_RAISE, NOT A WITNESS ROLL. The lock is the apparatus. It read
 // the plate and it knows; nobody has to happen to see it. `chargeAt(…, true, …)` is that path.
+//
+// THE OUTER DOOR. The Outer Lock has one way in from the waste, the middle mouth, and it stays open
+// except while the city is locked down (the ESP, plugins/emergency). Then the door is down: a
+// walker is refused here, a text driver is stopped (textdrive.js), and a cab hits the door GLASS
+// draws, because deriveSurfaceCell names the side in `lk.dn` and the truck probe reads it.
 
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { dispatchAction } from '../../server/engine/actions.js';
+import { on } from '../../server/engine/events.js';
+import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { cabCheckAt, chargeAt } from './scale.js';
 
 const RUN_CRIME = 'running_an_inspection';
@@ -48,6 +55,25 @@ export const lockAt = (zone) => {
   return f && typeof f === 'object' ? f : null;
 };
 const searchTile = (zone) => !!lockAt(zone)?.search;
+
+let lockdown = false;
+on('esp.changed', ({ active } = {}) => { lockdown = !!active; });
+export function _setLockdown(v) { lockdown = !!v; }
+
+export const DOOR_DOWN = '<span class="text-amber">The lock\'s outer door is down: a slab of plate the width of the road, hazard paint along its foot and one red lamp over it. Coldwater is locked down, and nothing goes in or out until the siren stops.</span>';
+
+// Is this step through the Outer Lock's mouth while the city is locked down? One side is a tile of
+// the outer hall (a lock that isn't the inner `hall`, as deriveSurfaceCell tells them apart) and the
+// other is open ground on the world map that is no lock, gate or building: the waste. A room's own
+// door inside the hall is a building, so the booth and the Gate Post stay reachable.
+export function doorDown(from, to) {
+  if (!lockdown || !from || !to) return false;
+  const outer = (z) => { const f = lockAt(z); return !!f && f.k !== 'hall'; };
+  const waste = (z) => z.map_id === 'map_world' && !lockAt(z) && !z.flags?.perimeter_gate
+    && !z.flags?.building_type && !z.flags?.is_building;
+  return (outer(from) && waste(to)) || (outer(to) && waste(from));
+}
+registerMoveGate(({ from, to }) => (doorDown(from, to) ? { block: true, message: DOOR_DOWN } : undefined), 'trucking:lock');
 
 // Is this driver pulled for a search this window? Pure.
 export function lockSelects(pid, truckId, t = Date.now()) {

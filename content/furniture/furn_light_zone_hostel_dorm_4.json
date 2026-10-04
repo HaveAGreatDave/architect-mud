@@ -1,0 +1,14 @@
+{
+  "description": "A string of bare bulbs looped from pole to pole along the ridge.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_hostel_dorm_4",
+  "light_type": "overhead",
+  "lumen_output": 1500,
+  "name": "bulb string",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_hostel_dorm_4"
+}

@@ -97,7 +97,17 @@ const QUAD = [{ p: [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]], rgb: [60, 60, 6
   const ground = createGroundLayer(g.gl);
   ground.upload(QUAD);
   ground.draw(CAM, H, { pool: 1.2, night: 1, wet: 0, wetLights: [LIGHT] });
-  ok(g.wrote.get('uNWet') === 1, 'the ground pass got no lights on a DRY night with the pool on — uNWet is ' + g.wrote.get('uNWet') + ', so the pool loop breaks on its first iteration and a lamp lights nothing.');
+  ok(g.wrote.get('uNPool') === 1, 'the ground pass got no pool lights on a DRY night with the pool on — uNPool is ' + g.wrote.get('uNPool') + ', so the pool loop breaks on its first iteration and a lamp lights nothing.');
+
+  // ⚠ THE POOL TAKES ITS OWN LIST, NOT THE ROAD'S SIX. Cut to the six reflection slots, ranked
+  // nearest the eye, a city seen from the air had pools under four or five lamps and none under
+  // the rest. Twelve lights in, twelve pools out.
+  const m = recordingGL();
+  const many = createGroundLayer(m.gl);
+  many.upload(QUAD);
+  const twelve = Array.from({ length: 12 }, (_, k) => ({ ...LIGHT, p: [LIGHT.p[0] + k, LIGHT.p[1], LIGHT.p[2]] }));
+  many.draw(CAM, H, { pool: 1.2, night: 1, wet: 0, wetLights: twelve.slice(0, 6), poolLights: twelve });
+  ok(m.wrote.get('uNPool') === 12, 'the pool got ' + m.wrote.get('uNPool') + ' of 12 lights; it is back on the road six, and from the air only the nearest lamps light the ground.');
 
   const f = recordingGL();
   const fog = createGroundLayer(f.gl);
@@ -132,7 +142,7 @@ const QUAD = [{ p: [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]], rgb: [60, 60, 6
   if (i > 0) {
     const gate = src.slice(i, src.indexOf(')', i) + 1);
     const wants = [
-      ['uNWet > 0', 'without it the loop runs over an empty list on every fragment'],
+      ['uNPool > 0', 'without it the loop runs over an empty list on every fragment'],
       ['uNight', 'without it a lamp lays its pool on sunlit tarmac at noon — the bug the wall wash had'],
       ['uSurface > 0.5', 'without it the irradiance is laid over a headlight beam as though the beam were a road'],
     ];
@@ -157,7 +167,7 @@ const QUAD = [{ p: [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]], rgb: [60, 60, 6
     ok(body.includes('(1.0 - gfog)'),
       'the pool no longer fades into the fog — its falloff is measured from the light rather than from the eye, so a distant pool draws at full strength over a road that has receded into the haze.');
     // And the floor under the height, without which a light sitting ON the ground is a singularity.
-    ok(/float h = max\(0\.1[0-9]?, uWetP\[i\]\.z\)/.test(body),
+    ok(/float h = max\(0\.1[0-9]?, uPoolP\[i\]\.z\)/.test(body),
       'the lamp height has lost its floor — h^3/r^3 as d goes to 0 is a white pinhole on the tarmac, which is a worse ball than the one this replaced.');
   }
 }

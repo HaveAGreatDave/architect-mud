@@ -85,17 +85,14 @@ const KNOWN = new Map([
     "not across them. The census sees it once the lettering sits flush on its plate (zero stand-off) " +
     "and the camera is below the frieze looking up past the tube."],
   ['named:chromeclinic',
-    "the asc_clinic arm under a name, so the same two-walls coincidence as `type:asc_clinic` below. " +
-    "It showed once the roof hoarding's lettering came in to FACE_EPS * 2 off its board (it stood " +
-    "0.03 of a tile out, which slid the words off small boards from a low oblique seat)."],
+    "the asc_clinic arm under a name, so the same crossing as `type:asc_clinic` below."],
   ['type:asc_clinic',
-    "the lit pilaster rank is on the FRONT face at x ±0.117 and the gable ad panel is on the −x " +
-    "FLANK (`face: 'x'`, half 0.273, spanning most of that wall), so they are on two different " +
-    "walls and coincide only in screen space, from ONE heading out of four. Narrowing the rank " +
-    "cannot reach it — the fins are already 0.32 of a tile inside the corner, because the two " +
-    "front blades reserve it — and the panel is what the blank flank of a building is FOR. A lit " +
-    "vertical on a frontage passing a foreshortened advertisement on the side wall beside it is a " +
-    "city rather than a defect, which is the same call the two entries above record."],
+    "the cyan tube on the roof cross (`roofCross` → `emblemSlab`) against the roof hoarding's " +
+    "lettering at heading 45, and it is the census rather than the building. The tube is 0.12 of a " +
+    "tile BEHIND the hoarding's plane, so the " +
+    "depth buffer hides it; this test compares a stroke with the sign quad's MEAN depth, and on an " +
+    "oblique quad the tube's near end is nearer than the mean while still behind the sign at that x. " +
+    "Until 2026-10-02 the first crossing found here was the kit's lit pier rank, which is gone."],
   ['named:thecoyotesrest',
     "a saloon with a full-width porch, whose rail the arm draws as STROKES standing 0.6 of a tile " +
     "proud of the wall. The kit's Chinese trade blade is hung on that frontage and is therefore " +

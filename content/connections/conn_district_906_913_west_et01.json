@@ -1,9 +1,9 @@
 {
-  "a": "zone_district_910_917",
+  "a": "zone_district_906_913",
   "b": "zone_engine_bay",
   "blocked": false,
   "dir": "west",
-  "id": "conn_hf_district_910_917_west",
+  "id": "conn_district_906_913_west_et01",
   "lockable": true,
   "one_way": false
 }

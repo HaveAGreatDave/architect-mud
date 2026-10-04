@@ -137,14 +137,6 @@ void main() {
   if (rr > 1.0) discard;
   vec2 p = vec2(vCorner.x, vCorner.y * vYs);
 
-  // The ambient-occlusion pool sunk under the lobes: concentric, one colour, a straight fade.
-  if (vKind > 1.5) {
-    float t = clamp((length(p) - 0.1) / 0.9, 0.0, 1.0);
-    float a = vAlpha * (1.0 - t);
-    outColor = vec4(vec3(18.0, 24.0, 32.0) / 255.0 * a, a);
-    return;
-  }
-
   float storm = step(0.5, vKind);
   vec3 bt = mix(uBase, uStormBase, storm);
   vec3 lt = mix(uLitCol, uStormLit, storm);
@@ -204,7 +196,8 @@ function compile(gl, type, src, label) {
 
 // A card is `{ x, y, z, s, ys, a, lit, kind }` — the world point, the half-extent in DEVICE pixels,
 // the vertical squash, the alpha, where it sits between the base and lit tints, and which of the
-// three kinds it is (0 fair, 1 stormy, 2 the occlusion pool).
+// two kinds it is (0 fair, 1 stormy). A third, a dark occlusion pool sunk under the lobes, was
+// removed: what showed of it was a smear on open sky below the puff.
 export function createCloudLayer(gl) {
   // Prewarmed with the context when it can be (programs.js); built here otherwise.
   let prog = takeWarm(gl, VERT, FRAG);

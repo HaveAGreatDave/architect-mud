@@ -10,6 +10,7 @@ import { registerTabletApp } from '../tablet/registry.js';
 const TABS = [
   { id: 'weather', label: '☁ Weather' },
   { id: 'time', label: '⏱ Time' },
+  { id: 'esp', label: '🚨 ESP' },
   { id: 'players', label: '👥 Players' },
   { id: 'staff', label: '💬 Staff chat' },
 ];
@@ -80,6 +81,32 @@ async function timeScreen(res) {
   return frame('time', detail, actions, res);
 }
 
+// The city lockdown: sirens, the Curtain shut across the gate and the South Lock's door down.
+async function espScreen(res) {
+  const { espView } = await import('./esp.js');
+  const on = espView().active;
+  const detail = {
+    hero: {
+      icon: '🚨',
+      title: on ? 'Lockdown' : 'All clear',
+      sub: on ? 'Sirens are sounding. The Curtain is shut and the South Lock is down.' : 'The Emergency Siren Protocol is off.',
+      badge: on ? 'Active' : 'Off',
+      badgeKind: on ? 'warn' : undefined,
+    },
+    tiles: [
+      { label: 'Curtain', value: on ? 'Shut' : 'Open' },
+      { label: 'South Lock', value: on ? 'Door down' : 'Open' },
+    ],
+  };
+  const actions = on
+    ? [{ id: 'e_off', label: 'End the lockdown', confirm: 'Stop the sirens and open the Curtain?' }]
+    : [
+      { id: 'e_on', label: 'Lock down the city', kind: 'danger', confirm: 'Sound the sirens city-wide, shut the Curtain and drop the South Lock?' },
+      { id: 'e_on_msg', label: 'Lock down with a message', kind: 'ghost', title: 'Lockdown message', prompt: 'The warning everyone sees with the sirens.' },
+    ];
+  return frame('esp', detail, actions, res);
+}
+
 function soonScreen(tab) {
   const t = TABS.find(x => x.id === tab);
   return frame(tab, {
@@ -92,6 +119,7 @@ async function buildScreen(player, screenId, params, res) {
   if (!isStaff(player)) return DENIED;
   const tab = String(screenId || 'weather').toLowerCase();
   if (tab === 'time') return timeScreen(res);
+  if (tab === 'esp') return espScreen(res);
   if (tab === 'players' || tab === 'staff') return soonScreen(tab);
   return weatherScreen(res);
 }
@@ -110,6 +138,12 @@ async function handleAction(player, actionId, params) {
     else if (actionId === 't_freeze') res = time.setFrozen(player, !time.timeView().frozen);
     else if (actionId === 't_speed') res = await time.setSpeed(player, val);
     return timeScreen(res);
+  }
+
+  if (actionId.startsWith('e_')) {
+    const { setEsp } = await import('./esp.js');
+    const res = actionId === 'e_off' ? await setEsp(player, false) : await setEsp(player, true, actionId === 'e_on_msg' ? val : '');
+    return espScreen(res);
   }
 
   let res;

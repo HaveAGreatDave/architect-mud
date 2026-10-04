@@ -1,0 +1,35 @@
+{
+  "ambient_events": [
+    "A freight horn sounds a long way down the cut, and the bus windows hum with it.",
+    "One of the flag curtains is drawn back, then quietly drawn again.",
+    "The container ticks and settles as the night cools it.",
+    "Two people whisper an argument about a stolen blanket, decide it was theirs all along, and stop."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#221d18",
+  "color": "#c9a86a",
+  "description": "The second container, stacked on the first and turned a quarter round, so this floor points down the cut. Two portholes have been cut in the side with a gas axe and glazed with bus windows. A curtain of old flags hangs between each bunk and the next, which is as close to a private room as this building gets.",
+  "exits": {
+    "down": "zone_hostel_dorm_2",
+    "up": "zone_hostel_dorm_4"
+  },
+  "flags": {
+    "allow_sleep": true,
+    "building_name": "Hostel Takeover",
+    "building_type": "hostel",
+    "floor": "metal",
+    "is_building": true,
+    "is_dwelling": true,
+    "is_interior": true,
+    "region_id": "region_coldwater",
+    "sanctuary": true,
+    "world_exit_zone": "zone_district_917_903"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 3,
+  "id": "zone_hostel_dorm_3",
+  "map_id": "map_int_trackmarks",
+  "name": "Hostel Takeover, third floor",
+  "parent_zone": "zone_district_917_903"
+}

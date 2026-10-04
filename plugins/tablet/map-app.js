@@ -8,7 +8,7 @@
 import { registerTabletApp } from './registry.js';
 import { buildMapPayload } from '../../server/engine/commands/movement.js';
 import { getZone, world } from '../../server/engine/world.js';
-import { getHUDPayload } from '../../server/engine/environment.js';
+import { getHUDPayload, getZoneWeather } from '../../server/engine/environment.js';
 
 // ── Home widget: where you are ───────────────────────────────────────────────
 // The most useful thing a new player can be told, and the question a text game
@@ -28,7 +28,10 @@ function buildWidget(player) {
   const where = [region, inside ? 'indoors' : f.terrain || 'outdoors'].filter(Boolean).join(' · ');
   // The glyph does the talking: a roof if you're under one, otherwise whatever the
   // sky is currently doing to you. Reads before the words do.
-  const icon = inside ? '⌂' : (hud.currentWeatherIcon || hud.weatherIcon || '☼');
+  // ⚠ TO YOU, NOT TO THE CITY. Rain only falls under a cell, so the day's headline
+  // answered "is it raining on me" with yes on every dry street of a rain day.
+  const wx = inside ? null : getZoneWeather(player.current_zone);
+  const icon = inside ? '⌂' : (wx.icon || hud.weatherIcon || '☼');
   return {
     id: 'place',
     title: 'Where you are',
@@ -36,7 +39,7 @@ function buildWidget(player) {
     icon,
     lines: [
       { text: z.name || player.current_zone, sub: hud.time || '' },
-      { text: where || '—', sub: inside ? 'sheltered' : `${hud.currentWeatherType || ''}`.trim() },
+      { text: where || '—', sub: inside ? 'sheltered' : `${wx.current || ''}`.trim() },
     ],
   };
 }

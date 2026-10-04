@@ -67,5 +67,6 @@
     ]
   },
   "wander_zones": [],
-  "wanders": 0
+  "wanders": 0,
+  "work_zone_id": "zone_bld_907_907_lobby"
 }

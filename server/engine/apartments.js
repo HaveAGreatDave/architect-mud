@@ -577,12 +577,16 @@ export async function cmdRent(player) {
 		};
 	}
 	setApartmentCache(zone.id, claimed);
+	// A new lease is your home now: gohome walks here and the HoloLock binds without
+	// a separate `home`.
+	player.home_zone = zone.id;
+	await query('UPDATE players SET home_zone=$1 WHERE id=$2', [zone.id, player.id]);
 	emit('gossip.housing', { player: { id: player.id, handle: player.handle }, zoneId: zone.id });
 
 	const nextDueStr = rentDue ? formatGameDate(rentDue) : 'next rent cycle';
 	return {
 		type: "rent",
-		message: `Congratulations, you're the proud new owner of <span style="color:var(--accent)">${zone.name}</span>!\n\n<span class="text-dim">Rented:</span> ${gToday ? formatGameDate(gToday) : '—'}\n<span class="text-dim">Rent (per ${RENT_PERIOD_DAYS}-day cycle):</span> <span style="color:var(--yellow)">${cost}₵</span>\n<span class="text-dim">First payment due:</span> ${nextDueStr}\n\nType LOCK to secure the door when you leave. Type UNRENT to give the place up.`,
+		message: `Congratulations, you're the proud new owner of <span style="color:var(--accent)">${zone.name}</span>!\n\n<span class="text-dim">Rented:</span> ${gToday ? formatGameDate(gToday) : '—'}\n<span class="text-dim">Rent (per ${RENT_PERIOD_DAYS}-day cycle):</span> <span style="color:var(--yellow)">${cost}₵</span>\n<span class="text-dim">First payment due:</span> ${nextDueStr}\n\nThis is your home now: GOHOME walks you back here from anywhere. Type LOCK to secure the door when you leave. Type UNRENT to give the place up.`,
 	};
 }
 

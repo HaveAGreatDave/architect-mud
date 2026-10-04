@@ -606,7 +606,7 @@ export const BUILDING_TYPE_ICON = Object.freeze({
   shop: 'bldg_shop', store: 'bldg_shop', grocery: 'bldg_shop',
   bar: 'bldg_bar', club: 'bldg_club', nightclub: 'bldg_club', boutique: 'bldg_shop', police: 'bldg_police',
   corporate_office: 'bldg_office', hotel: 'bldg_hotel', power: 'bldg_power',
-  hangar: 'bldg_hangar', control_tower: 'bldg_control_tower', arrivals: 'bldg_arrivals', studio: 'bldg_studio', clinic: 'bldg_clinic', diner: 'bldg_diner',
+  hangar: 'bldg_hangar', control_tower: 'bldg_control_tower', arrivals: 'bldg_arrivals', departures: 'bldg_departures', studio: 'bldg_studio', clinic: 'bldg_clinic', diner: 'bldg_diner',
   gun_shop: 'bldg_gunshop', casino: 'bldg_casino', fence: 'bldg_fence', chem_supply: 'bldg_chem',
   butcher: 'bldg_butcher',
   // The Grand Ole Apron — Molly Darton's roadhouse on Meltwater Row. A honky-tonk is a bar
@@ -699,6 +699,9 @@ export const BUILDING_TYPE_ICON = Object.freeze({
   // weighbridge DECK is not in here and must not be: it is paved ground with a flag on it, never a
   // building, or it becomes a rig-shaped hole you cannot drive onto (see plugins/trucking/scale.js).
   weigh_station: 'bldg_weigh_station', vehicle_pound: 'bldg_vehicle_pound',
+  // Hostel Takeover at 917,903, the doss-house beside the clone facility: a bunk frame with a Z over
+  // it, shipped with the tile and the model. Not `bldg_flophouse`, which is the slum's own glyph.
+  hostel: 'bldg_hostel',
 });
 
 // Gated on the `facade` tag so interior tiles (which also carry is_building) never

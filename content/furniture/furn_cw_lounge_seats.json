@@ -1,0 +1,18 @@
+{
+  "description": "Moulded seats on steel beams, all facing the window. A charging point is fitted under every third armrest.",
+  "flags": {
+    "interactions": [
+      "sit"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cw_lounge_seats",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "rows of linked seats",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_cw_lounge"
+}

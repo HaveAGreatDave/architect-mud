@@ -1,0 +1,14 @@
+{
+  "description": "Pipe-frame bunks three high down both walls of the container, welded to the ribs. The mattresses are numbered in marker carrying on from the floor below. Nobody owns one. You get the one that's empty.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_bunks_2",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "bunks",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hostel_dorm_2"
+}

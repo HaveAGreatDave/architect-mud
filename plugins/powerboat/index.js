@@ -111,7 +111,10 @@ function boatContactsNear(x, y, range = 26) {
       ias: Math.round((rig.speed || 0) * 0.8689),      // mph on the dial -> knots on the wire
       wake: Math.max(0, Math.min(1.25, (rig.speed || 0) / Math.max(1, rig.topSpeed || 138))),
       alt: 0, band: 'ground', onGround: true, groundZ: 0, altDiff: 0,
-      bank: (rig.roll || 0) * 180 / Math.PI,
+      // ⚠ NEGATED: the sim's roll is starboard UP and a contact's `bank` is starboard DOWN (the
+      // renderer's aircraft sense). Unsigned, every boat in somebody else's windscreen leaned into
+      // the water rising beside her.
+      bank: -(rig.roll || 0) * 180 / Math.PI,
       pitch: (rig.pitch || 0) * 180 / Math.PI,
       vs: 0,
       hullPct: Math.max(0, Math.round((rig.hull ?? 1) * 100)),

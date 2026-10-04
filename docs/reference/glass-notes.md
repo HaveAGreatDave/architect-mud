@@ -13,6 +13,7 @@ Engineering notes for the GLASS renderer (`client/game/js/panels/windshield.js` 
 - [See-through fixes: putting 2-D surfaces on the depth buffer](#see-through-fixes-putting-2-d-surfaces-on-the-depth-buffer)
 - [Projection matrix units](#projection-matrix-units)
 - [Which tiles belong to which renderer](#which-tiles-belong-to-which-renderer)
+- [The skyline past the window (`noteSkyline`)](#the-skyline-past-the-window-noteskyline)
 - [Model quality board (`npm run models:quality`)](#model-quality-board-npm-run-modelsquality)
 - [Ground shader (`RENDER_TUNE.glFloor`)](#ground-shader-render_tuneglfloor)
 - [Clip plane fitting (`RENDER_TUNE.nearFit`)](#clip-plane-fitting-render_tunenearfit)
@@ -49,6 +50,7 @@ Engineering notes for the GLASS renderer (`client/game/js/panels/windshield.js` 
 - [Trade words on signs](#trade-words-on-signs)
 - [Voltage and Aurelia rebuild (2026-09-20)](#voltage-and-aurelia-rebuild-2026-09-20)
 - [Snow on the ground](#snow-on-the-ground)
+- [Trodden ground and ground grain (`RENDER_TUNE.glWear`, `glGrain`)](#trodden-ground-and-ground-grain-render_tuneglwear-glgrain)
 - [Plinth and crown bands](#plinth-and-crown-bands)
 - [Sign stand-off](#sign-stand-off)
 - [Clear wall band for a name](#clear-wall-band-for-a-name)
@@ -56,8 +58,9 @@ Engineering notes for the GLASS renderer (`client/game/js/panels/windshield.js` 
 - [Graffiti hands](#graffiti-hands)
 - [Halcyon Fields tint (`RENDER_TUNE.hfTint`)](#halcyon-fields-tint-render_tunehftint)
 - [Lit drums (`RENDER_TUNE.glDrumLit`, 2026-09-27)](#lit-drums-render_tunegldrumlit-2026-09-27)
-- [Pilaster ranks (`RENDER_TUNE.glPier`)](#pilaster-ranks-render_tuneglpier)
+- [Pilaster ranks (removed)](#pilaster-ranks-removed)
 - [Cloud deck on the depth buffer (`RENDER_TUNE.glClouds`)](#cloud-deck-on-the-depth-buffer-render_tuneglclouds)
+- [Nothing in the cloud deck is cut (2026-10-02)](#nothing-in-the-cloud-deck-is-cut-2026-10-02)
 - [Flying things write depth (`RENDER_TUNE.glAirDepth`)](#flying-things-write-depth-render_tuneglairdepth)
 - [Baked billboards are for landmarks](#baked-billboards-are-for-landmarks)
 - [Depot shed as geometry (`RENDER_TUNE.glBay`)](#depot-shed-as-geometry-render_tuneglbay)
@@ -256,6 +259,17 @@ GL takes a tile on `massTile(c) && modelFor(c)`. The 2-D pass suppressed its wal
 
 `worldBlend` was the same kind of miss. The 2-D pass fades every world object by it and culls below 0.02, which is how the Mode-7 city gives way to the flat airport scene on the deck. GL collected the whole window regardless and drew the city over the airport on every landing: 17.0% of the frame at `worldBlend: 0` and 12.2% mid-crossfade, now 0.00% and 2.78%.
 
+## The skyline past the window (`noteSkyline`)
+
+Everything used to fade out at `VISIBLE_FAR_F` (34 tiles), a corner shop and the Spire alike, because the map window the server sends ends at 36 and nothing past it was known. Now a tower whose drawn height is 14 storeys or more is skyline, and it stays drawn out to its own reach: 34 tiles plus 2.5 per storey, up to 110. The rule is [client/shared/skyline-tall.js](../../client/shared/skyline-tall.js), and both the server and the client import it.
+
+- Height comes from the baked shapes (`BUILDING_SHAPES`), not the floor count. The Solenne is an 8-storey `apartment` whose model rises to about 27 storeys.
+- The flight and freelook payloads carry `skyline`: the tall towers outside the window and inside their reach, as `[x, y, bt, bn, flr, ent]` (`skylineNear` in plugins/flight/state.js). The windshield keeps every tower it has been sent, by world tile, so a cab or helm view draws the towers a flight or vantage received.
+- Past the window the tower is the same model: on GLASS 2 a GL cell, on the 2-D path an ordinary item. Its fade is pushed out by giving it a negative haze jitter (`SKYLINE_BASE_FAR - reach`), since the shader dissolves over `FAR - jit`. Inside the window a skyline tower gets the same jitter, so handing over at the window edge swaps one copy for an identical one.
+- The governor's shortened `FAR` doesn't apply to a skyline tower on the 2-D path.
+- `GL_TAKEN` marks a cell by identity, so each skyline record keeps one cell object for good.
+- Gate: `scripts/shapes/skyline.mjs` paints a cockpit 54 tiles south of the Spire on both renderers.
+
 ## Model quality board (`npm run models:quality`)
 
 Every model is scored out of four on things the renderer already produces: a roof face, a light at night, more than one wall palette, and any trim. At the start 8 of 173 models had any trim and 5 scored four; later it was 143 and 107. It's a report and not a gate (`--fail-under N` exists for when the pass is done), because a gate would fail as soon as someone added a model and until they finished it.
@@ -411,7 +425,7 @@ Its noise floor is now measured with the subject present (the wall-only floor mi
 
 `have` keeps the kit out of a section somebody has drawn; `KIT_DECLINE` keeps it out of a section nobody should. One entry: `meridian`, a 1930s deco apartment landmark (stone lantern under a verdigris cupola, name cut in a limestone frieze), which was getting a backlit hoarding on legs over the roof. The rest of its kit stays. Add an entry only if the part would be wrong on that building whoever built it; an arm with preferences about its own facade should draw the facade.
 
-Two sections exist only to be declined, because no arm draws them: `paint` (the kit's graffiti pass; every piece it places is a word) and `pier` (the rear and flank pilaster ranks). The six Old Coldwater trades decline both, through one list, `SLUM_DECLINE`. See [old-coldwater.md](../proposals/old-coldwater.md#the-shanty-pass-2026-09-28).
+One section exists only to be declined, because no arm draws it: `paint`, the kit's graffiti pass, since every piece it places is a word. The six Old Coldwater trades decline it through one list, `SLUM_DECLINE`. See [old-coldwater.md](../proposals/old-coldwater.md#the-shanty-pass-2026-09-28).
 
 ## What's left on the canvas
 
@@ -438,6 +452,8 @@ Other hardware is untested: every number here is one machine with a discrete NVI
 ## A pass that didn't draw
 
 The mass is suppressed because the GL pass exists, so a pass that returns nothing leaves floating lights over no buildings. No WebGL2 and a driver removing the context both get there without throwing, so the pass returns null and the flag goes back to 0, as with a throw. The context-lost listener calls `preventDefault` (otherwise the loss is permanent) and `lost()` is checked every frame.
+
+A draw can also be dropped on its own, with only a console warning: "Feedback loop formed between Framebuffer and active Texture" means the program samples a texture that's attached to the framebuffer it's drawing into, and the driver skips the draw. The one found (2026-10-03) was the cabin's room shadow: `shadowPass` in gl/solids.js built its framebuffer before saving the caller's, so on the frame each scene built its map the room drew into its own shadow map and was missing. Save state before building anything. To find the next one, wrap `drawArrays` and friends on `WebGL2RenderingContext.prototype` to call `getError()` after each draw, and on `INVALID_OPERATION` compare each active sampler's bound texture with the draw framebuffer's attachments and keep the stack. Don't query `DEPTH_STENCIL_ATTACHMENT` in that probe: it raises its own error, which the next draw's check then blames on itself.
 
 ## Phones (2026-09-28)
 
@@ -487,6 +503,19 @@ A stroke's screen width can be expressed in a vertex shader: `client/game/js/pan
 - A baked billboard was tried and removed: `markBillboard` re-bakes per instance per frame (repaint plus `texImage2D`), fine for a few landmarks but below GLASS 1's framerate for parts on ordinary buildings.
 - A 0.8 px brace is drawn one device pixel wide at 80% alpha; width is floored at one device pixel and the shortfall goes into alpha, or a lattice breaks into dropouts.
 - A neon wire's night `shadowBlur` halo is one more quad, additive and sorted last.
+- A core stroke can carry a soft edge: `feather` below 1 fades its sides over that share of the width. A wire leaves it unset and stays hard, and 1 is still the halo's glow profile.
+
+### Rain columns (`RENDER_TUNE.rainColumns`)
+
+Heavy rain seen from a distance: `drawRainColumns` in windshield.js hangs soft grey strokes (`tag: 'raincolumn'`) from the cloud base to the ground across the heavy core of each precip or storm cell, with the foot raked downwind. It's armed beside the world rainbow and spent in the world pass with the sinks open. Being on the depth buffer, a building in front hides a column and a far one is a thin stripe on the horizon.
+
+- Only while something is falling (`field.falling`), never snow, and only for a cell whose strength times `precipScale` clears `RAIN_COL_MIN`.
+- Nothing within `RAIN_COL_NEAR` (4 tiles) of the eye, because the canopy's curtain is the rain there, and nothing past 70 tiles.
+- The 2-D virga in `drawVolumetricClouds` is painted over the finished city, so it skips any cell drawn as a column (`RAIN_COL_CELLS`).
+- It has to be darker than the sky. The first cut was a mid grey at 0.15 a band: every stroke drew and none showed against a storm overcast.
+- Many overlapping bands, not a few spaced ones; spaced out they read as a row of pillars.
+- Under water the GL pass empties the stroke list, so a free camera parked on the bay shows none. Judge it from land.
+- Gate: `scripts/shapes/raincolumns.mjs` (heavy draws; light, snow, roll-off, out-of-range and switched-off draw none; every band in the core, ground to base, laid over the scene with a soft edge).
 
 ### Billboards, fills and recesses
 
@@ -621,6 +650,8 @@ Reported as "can we make signs have a bloom and that be the wash light instead o
 
 `RENDER_TUNE.glMat` (0 puts the city on one BRDF); `glBump` is the relief half. Sixteen material families already decided what a wall looks like; none decided how it responds to light: brick, copper, glass and timber all used one half-Lambert key and two overlay tints, which is why metal never read as metal. Metal is view dependence (a reflection in its own hue), wood is its absence, frost is it blurred; none is expressible as albedo, and the fragment shader had no eye position. It has one now (`eyePos` in camera.js, solved for the point `viewMatrix` sends to the origin, asserted by `gl:parity` at 972 cameras including under pitch) and a five-column table per family, authored in windshield.js beside the painters.
 
+The plan for linear colour, a GGX highlight, a prefiltered environment and per-texel material data is [glass-materials.md](../proposals/glass-materials.md).
+
 - **The family is derived.** Palette keys already resolve to a family through `wallMaterialOf`, so 284 keys and 8,223 mass faces over 173 models got a response with no content change. The index is resolved once per model beside `texKey`, never per vertex.
 - Trap: an index out of range is undefined behaviour in GLSL ES. On this driver it reads zeros, gloss 0 gives `pow(x, 0.0)` = 1.0, a full mirror, with nothing logged. `npm run gl:mat` is the only check for this (`gl:mesh` compares geometry, `gl:glsl` names; both pass with every building pointing at family 41).
 - **The environment comes off the reflected ray, never the normal.** Every facade is vertical, so a blend off `n` is one flat tint. The reflection gives sky at a tower's foot and ground at its top, which is what stopped the Solenne being a pale wash.
@@ -640,6 +671,7 @@ Reported as "can we make signs have a bloom and that be the wash light instead o
 - Its `bump` is near zero for `lattice`'s reason: relief reads the albedo gradient as geometry, and the biggest gradient here is the horizon, which would emboss a ridge across every panel.
 - A new family rather than retuning `PLAIN_WALL`, which carries 40 keys (soffits, painted kerbs, kiosk flanks, lighthouse shells, crane bodies); `metal: 0.88` there would chrome every kerb in Coldwater.
 - Trap: `MAT_ORDER` is appended only. The index rides in the vertex buffer, so an insertion renumbers the city (19 → 20, against a shader array of 24).
+- Trap: a drum in a frost (or any `DRUM_MAT`) palette can't glow after dark. It takes the family's texture on the GPU, and a textured face ignores the night capture's colour, so it keeps its day look at midnight. The clone facility's vats (2026-10) use a plain key, `ty_clone_wall`, with a `litStyle(..., 'frost')` style: lit as frost by day, and a bright night albedo above the night-dim cutoff, so they glow.
 - `FROST_WALL` had held one key, making it a coolant tank rather than a material; etched glass is what a nightclub's dance hall and a couture vitrine are lit through.
 
 ## Sky beam
@@ -717,6 +749,26 @@ Reported as "weak overall, and the sign is hidden behind stuff". Aurelia's name 
 - Gated in `gl:snow` (mutation-tested 3 of 3): the gauge moves with the rig (a continental and a scrapper differ, and each spacing-to-width ratio is its own model's); a bend costs more points than the same arc length straight, worst kink under 15°; 15 s of snow buries further than 15 s clear, with `snowForce` pinned both sides (otherwise a depth-keyed burial measures 0 in both).
 - The mass pass gets no tracks (nothing drives on a roof); the gate asserts it. A rectangle reject before the loop bounds the cost, since 39 segments per fragment is far more than the wet reflections' six.
 - It can't be a tracking mechanic: `CONTACT_RANGE` is 12 tiles, so you only record tracks of somebody already visible, and each client's set differs. Mostly you see your own: NPC traffic isn't in the contact feed and only `seat === 'pilot'` receives one.
+
+## Trodden ground and ground grain (`RENDER_TUNE.glWear`, `glGrain`)
+
+Both are on by default, and 0 gives the floor as it was. GLASS 2 only: they're uniforms on the floor shader, and the 2-D raster doesn't see them. Old Coldwater was the report: its lanes drew as flat desert tan and its yards as lawn, because `dirt` terrain is the `badlands` biome and a building tile is `citycore` turf.
+
+**Where people walk (`glWear`).** `footfallFill` in windshield.js runs inside `groundLUT` and puts four numbers on each land tile's LUT entry, uploaded as the floor's fourth plane (`uLut3`): wear, path bits (N 1, E 2, S 4, W 8), litter, and how green the open country round the tile is. Nothing is authored; it reads the cells the window already has.
+
+- A camp (`mark: 'camp'`) is fully worn. Bare ground (an `ARID_BIOMES` tile) is a lane when buildings and camps round it weigh in (`S >= 1` over a 5x5) and one stands, camps or runs as road right beside it. Otherwise the desert past a town's last house would turn to mud.
+- Wear spreads one tile: a building whose yard meets a lane is 0.7, turf next to one gains 0.3, and turf in a dense block wears up to 0.3 on its own.
+- Paths: a building's only path is out of its door (`ent`), and the tile its door faces gets the matching bit. Worn ground (0.3 and up) joins worn ground. A lane beside a street cuts through to it on a third of its edges (hashed off the world, so the choice stays put) and always once if it's a dead end.
+- The Curtain (`cur`) is a wall: a Curtain tile carries no path and at most 0.35 wear, and ground beyond it gets no settlement credit through it. Bare ground touching water is a beach: no lane, at most 0.3 wear.
+- In the shader, turf gives way to mud in patches as the wear rises (a level against a field, as the snow lies). Each path runs from a hub near the tile's middle to edge crossings hashed off the edge, so the two tiles either side agree. A straight run's hub sits on its line, or every tile kinks. Lanes worn past 0.75 carry two wheel ruts with banks; camps and yards don't. Then come puddles (more with `uMud`, the ground's pond level), boot-prints near to, fire pits on camp ground, and rubbish that drifts into heaps.
+- Mud is wet in green country and dry in the desert, from the green vote, so a desert yard reads as dust. The tint toward the tile's own colour takes the smooth four-tap blend; the sharpened one put a tile-sized step in the mud.
+
+**Less flat ground (`glGrain`).** The raster faded every land term on one distance ramp (`detail`, minimum at 1.4 tiles), because its chunky texels aliased early. `ldet(f, …)` fades a term of frequency `f` against the pixel's own ground footprint instead, so fine grain goes first and broad patches carry to the horizon. On top of that: a field-sized light/dark drift, straw and lush patches and a hue mottle in grass, damp and bleached patches in dry ground, shaded stones and clods, and land grit that's no longer held to the nearest rows.
+
+- The new terms hash off the absolute world position (`gwx`), since `wx` hops a tile when the window recentres. The exception is the finest grit (over about 60 cycles a tile), which uses `wx`: at a world coordinate near 900 a float has no room for a lattice that fine, and grain hopping on a recentre can't be seen.
+- No widths inside these branches use `fwidth`, because the branches aren't uniform. They use the footprint `fpx`, as `trackCut` does.
+
+Gate: `npm run gl:footfall` ([scripts/shapes/footfall.mjs](../../scripts/shapes/footfall.mjs), in the push chain) runs the derivation on a synthetic window (camp, lane, doors, desert, beach, Curtain), checks the plane packs as the shader unpacks it, and checks that the floor writes `uWear`, `uGrain` and `uMud` every frame. It can't see the picture; look in the Modelshop with `__street`.
 
 ## Plinth and crown bands
 
@@ -827,25 +879,15 @@ The mass shader's `aFlat` has a third value, 2: the face's own colour lit as a w
 
 Chrome drums take `tile`, because both reflective metal rows leave almost no diffuse and the spiral decks came out black with bright rims from the street. The derived kit already dresses a drum shaft (collars and a `drumfin` rank); it deliberately doesn't hang flat-wall parts on a cylinder.
 
-## Pilaster ranks (`RENDER_TUNE.glPier`)
+## Pilaster ranks (removed)
 
-`glPier` 0 puts every frontage back to a flat plane with windows in it.
+The derived kit used to stand a rank of pale fins on about two thirds of the city: on the frontage between the glazing columns, and on the back wall and the service flank. `RENDER_TUNE.glPier` switched both. They were removed on 2026-10-02. The fins ran most of the height of the wall and stood proud of it, so they crossed whatever the building carried (Precinct 9's badge, painted works names, gable ads), and on most buildings they read as a row of columns bolted to a wall.
 
-Answering the "big yawn" half of the same report. The note under `windowBay` already says why greebles couldn't: "a flat wall wearing forty greebles is a flat wall". Earlier detail kinds bolt onto a wall; `pilaster` is a rank of vertical fins standing proud of it from plinth to crown, with glazing set back between them.
+The `pilaster` part kind stays for models that author one: the Sentinel, Jolene's, Voltage, Aurelia, the Ascension Gate and a few more. What building the ranks taught still applies there:
 
-- One part draws `n` fins (the `bollard` rule). Otherwise every fin would claim a `KIT_MAX` slot, and a rhythm means nothing at a count of one.
-- Both periods are the same part: a stone fin gathered into a stepped capital is art deco, the same fin with a lit line up it is this game's skyline. Which one a building gets is read off `period` and `mod`, so a street carries both with nothing authored. `glowFrom` shortens the run to the fin's crown, as a 1930s tower does.
-- The light is a stroke (`emitLightRunner`, one quad in the stroke layer); a glowing face would be a mesh quad per fin per building. So geometry is rationed: front face always, the two returns in the mesh only, a cap when asked.
-- Rich list only, so the 2-D fallback is unchanged and `framecost` didn't move. Measured: +2,219 mesh faces over the registry (+4.4%) for a rank on 68% of buildings.
-
-Placement beside the window grid:
-
-- A fin stands at a column boundary (the `cw` comment has always said "leave a pier at each end"). Deriving the pitch anywhere else would be a second copy of the column rhythm and would drift into fins across windows.
-- It's charged to the window share and pushed before the grid. `spent` is one counter for every section and the name board is pushed last, so charging the general budget cost buildings their names: `gl:mesh` failed nine models with "the rich kit LOST sign".
-- It takes the trim palette. A shade of the wall measured correctly in the mesh and was invisible on the building, because most of the city is dark and a seventh of near-black is near-black (see `feedback_detail_parts_need_own_palette`).
-- A building that letters its own front gets no light up the fins. The kit knows a frontage carries lettering (`armSignsItself`) but not where, and `sign:fit` found thirteen models with a neon line through their name, on false fronts and fascias from z 0.58 to 1.06. The fins stay, since they sit between the letters.
-- The end fins come off when a corner is reserved. The outermost boundaries are the band's edges, so an end fin overhangs the corner by its half-width and lands under the blade there. `cols - 1` fins at the same pitch stay centred.
-- A rank on a podium isn't lit. Fins stand on the front-most mass, which puts them in front of whatever that box carries. On `main`'s own plane the rank leaks 22 more stroke points into its building (`glself`); forward it crosses three more signs (`sign:fit`). So the fins go forward, the light comes off, and neither number moves.
+- One part draws `n` fins (the `bollard` rule), so a rank costs one `KIT_MAX` slot.
+- Give it a trim palette, not a shade of the wall. On this city's dark walls a shade is correct in the mesh and invisible on the building (see `feedback_detail_parts_need_own_palette`).
+- Keep it off lettering. Stop the fins under the name, or put the name between them; a lit runner through a name is what `sign:fit` catches.
 
 ## Cloud deck on the depth buffer (`RENDER_TUNE.glClouds`)
 
@@ -859,6 +901,21 @@ On the GPU each card is a quad: 1,200–1,595 canvas calls saved and 0.5–1.0 m
 - It's a second hook at a second moment. The deck collects after the world blit, so a sink the world pass reads would fill and never draw, silently (the Curtain's trap).
 - The sort is kept: cards are translucent, so composite order changes colour; depth only decides what the deck is behind.
 - Every card gets the full treatment. In 2-D a card wider than 26 px gets a sun-raked gradient and value-noise mottle and smaller ones blit one of twelve top-lit sprites; the fragment shader solves the two-circle cone per pixel and reads the curdle tile, so there's no tier. Same argument as the mesh capturing at `ADORN_NEAR`.
+
+## Nothing in the cloud deck is cut (2026-10-02)
+
+Reported as clouds popping in and out, with fake shadows under them. Every pop was a hard threshold somewhere in the deck, and every shadow was a dark shape drawn on open sky. The rule now: anything that enters or leaves the sky fades, and nothing dark is drawn outside a cloud's own outline.
+
+- **Dark shapes, removed.** Each dome sprite had a "grounding shadow", a flat dark ellipse wider than the cloud and hung below it. Each near card puff had an occlusion pool: a near-black disc sorted behind the lobes. The lobes are nearly opaque at the core, so what showed of the pool was the part outside the puff. Both are gone; the base slab and base lobes (`CLOUD_CARDS`, `litBias` about 0.1) shade the underside from inside.
+- **Dome sprites** fade in from 70 to 60 tiles and, with the deck live, fade out from 52 to 40. They were cut at 70 and at 44.
+- **The volume** thins over the last 30% of its march (`uFar`), the same band the dome sprites fade in over. The march used to end in a wall at 48 tiles, about 9° above the horizon from under an overcast. Cells are taken by their near edge (`d - r`), not their centre.
+- **Thermal caps** grow in from zero between 250 and 600 ft/min and fade over the last 8 tiles inside the edge of the columns the view collects. They arrived at 35% strength (floored to half by the card pass), and every tile crossed brought a ring of them in or out at 30 tiles.
+- **The puff budget is a reach.** It was spent nearest cell first with a hard stop, so two caps swapping order at the end of the queue blinked, and `cloudQ` follows the live frame time, so the stop moved whenever a frame breathed. Now puffs fade over 6 tiles past `st.cloudReach`, which eases toward wherever this frame's budget ran out.
+- **A cell's seed is its identity.** The server crops the cell list to the viewer and the seed was the list index, so a cell coming into range re-scattered every cell after it. It is a hash of radius, drift and strength, which are fixed for a cell's day. A packet also no longer re-seats a cell that is within a step of it: the server advects in 30 s steps and the client glides, so each `flight_ctx` hopped every cloud back by up to half a tile.
+- **Volume and cards crossfade** over 0.8 s (`st.volMix`). The governor, the frame-time verdict and F9 each swapped them in one frame.
+- **The frame-time probe keeps the volume.** It ran the cards for 1.5 s to compare, which under 30 fps meant a different set of clouds for a second and a half about once a minute. It now runs the volume at an eighth of the resolution and 16 steps, which draws the same clouds, softer.
+
+Measured in the Modelshop by flying a free camera north at 1.5 tiles/s over open ground with the clock pinned, counting sky pixels that change by more than 24 levels between frames. Clear day (caps, one cell): the worst frame went from 7,741 to 1,161 pixels and frames over six times the median from 65 to 5. Cloudy: 1,209 to 1,127, all of it rain. Trap: `freeCam.x/y` is added to the craft, which already sits at `mapCenter + mapOffset`, so a harness passing the sub-tile offset to both moves the camera twice and reads every tile crossing as a pop.
 
 ## Flying things write depth (`RENDER_TUNE.glAirDepth`)
 
@@ -1684,9 +1741,13 @@ wingbeats), `gl/actors.js` (pedestrian clips) and `gl/cloth.js` (windsocks, the 
 Pitch's shelters). Each arrives as a record in `FAUNA_SINK` (`inst`, `actor`, `cloth`), which
 `context.js` splits by kind. Texture units: 7 fauna, 20–21 actors, 24–25 cloth.
 
-- **Actors have two bodies.** `actor3d.js` bakes a close-up body (2,284 vertices) and a far one
-  (`bk.far`, 327). Between `RENDER_TUNE.actorFarPx` and `actorMeshPx` a figure is a `lod: 1` record;
+- **Actors have two bodies.** `actor3d.js` bakes a close-up body (2,380 vertices) and a far one
+  (`bk.far`, 343). Between `RENDER_TUNE.actorFarPx` and `actorMeshPx` a figure is a `lod: 1` record;
   under `actorFarPx` it's still the canvas billboard. `scripts/shapes/actors.mjs` holds the split.
+- **A standing figure's spot is street life's.** With `RENDER_TUNE.actorLife` on, where somebody
+  stands, which clip they play and which way they face come from `glass/street-life.js`, not
+  `vergeOffset`, and a gait reads the drawn position. A gate that expects everybody idle at the kerb
+  spot facing along the street must turn it off first, as part 3 of `actors.mjs` does.
 - **Birds have no CPU face path.** `pushFauna` always sends an instance record on GL frames. A gate
   that measures bird geometry expands records with `faunaRecordFaces` (fauna3d.js), the transform
   the shader mirrors.

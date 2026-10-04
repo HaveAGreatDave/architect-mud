@@ -4,6 +4,6 @@
   "blocked": false,
   "dir": "north",
   "id": "conn_district_917_903_north_c5e9",
-  "lockable": true,
+  "lockable": false,
   "one_way": false
 }

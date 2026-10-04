@@ -5,7 +5,6 @@
   "description": "A dry red pan. Every surface is cracked, every crack is full of grit, and the wind keeps the grit moving.",
   "exits": {
     "east": "zone_district_910_923",
-    "north": "zone_district_909_922",
     "south": "zone_district_909_924",
     "west": "zone_district_908_923"
   },

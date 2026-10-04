@@ -17,7 +17,13 @@
 // nothing on a record can name an NPC, a walker
 // faces the way they're going, the gait follows distance, the hitcher faces the camera, and with the
 // switch off the frame is the billboard frame it always was.
+//
+// The fifth part is street life (glass/street-life.js): what people do while they stand. Nobody
+// leaves the pavement band, two on one stretch of kerb face each other and take turns to talk,
+// somebody on their own does more than one thing, a stroll moves the feet as far as the figure, and
+// on a road three tiles wide everybody stands on its outer pavement rather than in a lane.
 import { actorBake, actorOutfit, actorStrideM, ACTOR_OUTFITS, ACTOR_MATERIALS, ACTOR_MATERIAL } from '../../client/game/js/panels/actor3d.js';
+import { LIFE } from '../../client/game/js/panels/glass/street-life.js';
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
 import { readFileSync } from 'node:fs';
 
@@ -44,7 +50,8 @@ if (W > 2048 || H > 2048) problems.push(`the pose texture is ${W}×${H}, past We
 if (W * rows < nv) problems.push(`${W}×${rows} texels a frame can't hold ${nv} vertices`);
 if (nv >= 65536) problems.push(`${nv} vertices won't index with UNSIGNED_SHORT`);
 if (bk.pos.length !== W * H * 4 || bk.nrm.length !== W * H * 4) problems.push('a pose texture is not W×H×4 halves');
-for (const name of ['walk', 'idle', 'wave']) if (!clips[name]) problems.push(`the bake has no ${name} clip`);
+// walk, idle and wave for the pass itself; the rest are what glass/street-life.js stands people in.
+for (const name of ['walk', 'idle', 'wave', 'talk', 'listen', 'wait', 'phone', 'smoke']) if (!clips[name]) problems.push(`the bake has no ${name} clip`);
 if (!(top > 1.65 && top < 1.9)) problems.push(`the figure stands ${top.toFixed(3)} m tall; the sizing in windshield.js assumes about 1.75`);
 
 const at = (F, v) => [preview[(F * nv + v) * 3], preview[(F * nv + v) * 3 + 1], preview[(F * nv + v) * 3 + 2]];
@@ -168,6 +175,10 @@ const clock = globalThis.performance;
 let T = 1e6;
 globalThis.performance = { ...clock, now: () => T };
 const glWas = ws.RENDER_TUNE.gl, floorWas = ws.RENDER_TUNE.glFloor, meshWas = ws.RENDER_TUNE.actorMesh, farWas = ws.RENDER_TUNE.actorFarPx;
+// Parts 3 and 4 are the pass as it shipped: everybody standing still at their kerb spot. Part 5 turns
+// street life back on.
+const lifeWas = ws.RENDER_TUNE.actorLife;
+ws.RENDER_TUNE.actorLife = 0;
 
 let got = null;
 function frame(view) {
@@ -288,6 +299,153 @@ for (const f of ['cab-view.js', 'cockpit.js', 'freelook-view.js', 'boat-view.js'
   if (!/\bactors:\s*(st|F)\.actors\b/.test(readFileSync(new URL(`../../client/game/js/panels/${f}`, import.meta.url), 'utf8'))) problems.push(`${f} never hands the renderer its street actors`);
 }
 
+// ── 5. Street life ──────────────────────────────────────────────────────────────────────────────────
+// What people standing on the pavement do. A record carries nothing that names anybody, so each
+// figure is followed from frame to frame by nearest position: people in a ring stand 0.06 tiles
+// apart at the closest and nobody moves more than about 0.025 in a 250 ms frame (a leg is a tile in
+// 15 s, plus letting go of up to half a tile of standing offset), so the nearest match is the same
+// person, and anything over 0.03 is a jump.
+ws.RENDER_TUNE.actorLife = 1;
+ws.RENDER_TUNE.actorFarPx = 0.5;   // everybody in view is a record, so everybody can be read
+{
+  const G = ws._lifeGeo, stride = actorStrideM();
+  const hash = (s, k) => { let h = 0x811c9dc5 ^ k; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return (h >>> 8) / 0x1000000; };
+  const tok = (i) => (Math.imul(i + 1, 2654435761) >>> 0).toString(36);
+  const pick = (want, from) => { for (let i = from; ; i++) if (want(tok(i))) return tok(i); };
+  const angle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+  const social = (t) => hash(t, 60) < LIFE.social;
+  // Clear the street: whoever the parts above left standing fades and is forgotten.
+  const clear = (view) => { frame({ ...view, actors: [] }); T += 60000; frame({ ...view, actors: [] }); T += 1000; };
+  // Run a scene for `secs`, a frame every 250 ms, and follow everybody in it.
+  const run = (view, secs) => {
+    const tracks = new Map();
+    let prev = [], next = 0;
+    for (let s = 0; s < secs * 4; s++) {
+      T += 250;
+      const recs = frame(view).recs.filter((r) => r.clip !== 'wave'), cur = new Array(recs.length);
+      const pairs = [];
+      prev.forEach((p, i) => recs.forEach((r, j) => pairs.push([Math.hypot(p.r.x - r.x, p.r.y - r.y), i, j])));
+      pairs.sort((a, b) => a[0] - b[0]);
+      const ui = new Set(), uj = new Set();
+      for (const [d, i, j] of pairs) { if (d > 0.08 || ui.has(i) || uj.has(j)) continue; ui.add(i); uj.add(j); cur[j] = { id: prev[i].id, r: recs[j] }; }
+      recs.forEach((r, j) => { if (!cur[j]) cur[j] = { id: next++, r }; });
+      for (const c of cur) { if (!tracks.has(c.id)) tracks.set(c.id, []); tracks.get(c.id).push({ s, ...c.r }); }
+      prev = cur;
+    }
+    return [...tracks.values()];
+  };
+  // A track's own checks: on the band the whole time, no jumps, and a figure on the move faces
+  // the way it's going (once it has had a second to turn) with feet that cover the ground it does.
+  const checkTrack = (tr, label, onBand) => {
+    for (let i = 0; i < tr.length; i++) {
+      const r = tr[i];
+      if (!onBand(r)) { problems.push(`${label}: a figure stood off the pavement, at ${r.x.toFixed(3)}, ${r.y.toFixed(3)}`); return; }
+      if (!i) continue;
+      const q = tr[i - 1], d = Math.hypot(r.x - q.x, r.y - q.y);
+      if (d > 0.03) { problems.push(`${label}: a figure jumped ${d.toFixed(3)} tiles in one frame`); return; }
+      if (r.clip === 'walk' && q.clip === 'walk' && d > 0.004 && i >= 5 && tr.slice(i - 5, i).every((u) => u.clip === 'walk')) {
+        const off = Math.abs(angle(r.hd - Math.atan2(r.y - q.y, r.x - q.x)));
+        if (off > 0.1) { problems.push(`${label}: a figure walking faces ${(off * 180 / Math.PI).toFixed(0)}° off the way it's going`); return; }
+        let dph = r.ph - q.ph; if (dph < 0) dph += 1;
+        const covered = dph * stride * r.s;
+        if (Math.abs(covered - d) > d * 0.1 + 1e-4) { problems.push(`${label}: the gait covered ${covered.toFixed(4)} tiles while the figure moved ${d.toFixed(4)}; the feet slide`); return; }
+      }
+    }
+  };
+  const band = (lat) => Math.abs(lat) >= G.VERGE - G.WALK_HW - 1e-6 && Math.abs(lat) <= G.VERGE + G.WALK_HW + 1e-6;
+
+  // A one-tile street: two who'll stand together on the west kerb of 97, and three on their own.
+  // The two have kerb spots at opposite ends of the tile (hash 2 is the old vergeOffset's along), so
+  // whichever of them leaves later has a spot a good way from the ring, and a walk that forgot where
+  // they were standing would jump.
+  const p1 = pick((t) => social(t) && hash(t, 1) < 0.5 && hash(t, 2) < 0.1, 9000);
+  const p2 = pick((t) => social(t) && hash(t, 1) < 0.5 && hash(t, 2) > 0.9, 9000);
+  const lone = [9100, 9200, 9300].map((i) => pick(() => true, i));
+  const cast = [{ t: p1, x: 100, y: 97 }, { t: p2, x: 100, y: 97 }, ...lone.map((t, i) => ({ t, x: 100, y: 95 - 2 * i }))];
+  const SV = { ...VIEW, roadside: null, actors: cast };
+  clear(SV);
+  frame(SV);   // born, at zero alpha
+  const tracks = run(SV, 60);
+  const tile = (tr) => Math.round(tr[0].y + C.y);
+  const pair = tracks.filter((tr) => tile(tr) === 97 && tr.length > 200), alone = tracks.filter((tr) => tile(tr) !== 97 && tr.length > 200);
+  report(`street life: ${tracks.length} tracks, ${pair.length} in the pair, ${alone.length} alone`);
+  if (pair.length !== 2 || alone.length !== 3) problems.push(`street life: followed ${pair.length} in the pair and ${alone.length} on their own, not 2 and 3`);
+  for (const tr of tracks) checkTrack(tr, 'street life', (r) => band(r.x) && Math.abs(r.y + C.y - tile(tr)) <= 0.5);
+  if (pair.length === 2) {
+    // Facing each other, a metre apart, every frame; one talking and the other listening, by turns.
+    let faced = 0, talks = [0, 0];
+    const n = Math.min(pair[0].length, pair[1].length);
+    for (let i = 0; i < n; i++) {
+      const a = pair[0][i], b = pair[1][i], d = Math.hypot(a.x - b.x, a.y - b.y);
+      const faces = (u, v) => Math.abs(angle(u.hd - Math.atan2(v.y - u.y, v.x - u.x))) < 0.15;
+      if (Math.abs(d - 2 * LIFE.pairR) < 0.004 && faces(a, b) && faces(b, a)) faced++;
+      if (a.clip === 'talk') talks[0]++;
+      if (b.clip === 'talk') talks[1]++;
+      if (a.clip === 'talk' && b.clip === 'talk') { problems.push('street life: both of a pair are talking at once'); break; }
+    }
+    report(`street life: the pair faced each other ${faced} of ${n} frames; talked ${talks[0]} and ${talks[1]} frames`);
+    if (faced < n * 0.95) problems.push(`street life: the pair faced each other a metre apart in only ${faced} of ${n} frames`);
+    if (!talks[0] || !talks[1]) problems.push(`street life: in a minute only one of the pair ever talked (${talks.join(' and ')} frames)`);
+  }
+  // On their own, everybody does more than one thing in a minute, and somebody strolls.
+  let strolled = 0;
+  for (const tr of alone) {
+    const clips = new Set(tr.map((r) => r.clip));
+    let moved = 0;
+    for (const r of tr) moved = Math.max(moved, Math.hypot(r.x - tr[0].x, r.y - tr[0].y));
+    if (clips.has('walk')) strolled++;
+    report(`street life: alone on ${tile(tr)}: ${[...clips].join(', ')}; furthest ${moved.toFixed(3)} tiles from where they started`);
+    if (clips.size < 2 && moved < 0.03) problems.push(`street life: somebody on their own on ${tile(tr)} stood doing one thing for a minute`);
+  }
+  if (!strolled) problems.push('street life: nobody on their own strolled in a minute');
+
+  // One of the pair sets off for the next tile: whichever has the kerb spot further from the ring.
+  // The walk starts from their spot in the ring, with no jump, and stays on the kerb all the way.
+  const ringY = pair.length === 2 ? (pair[0][pair[0].length - 1].y + pair[1][pair[1].length - 1].y) / 2 : 0;
+  const kerbY = (t) => 97 - C.y + (hash(t, 2) - 0.5) * 0.5;
+  const leaver = Math.abs(kerbY(p1) - ringY) > Math.abs(kerbY(p2) - ringY) ? p1 : p2;
+  report(`street life: the leaver's kerb spot is ${Math.abs(kerbY(leaver) - ringY).toFixed(3)} tiles from the ring`);
+  const moved2 =cast.map((a) => (a.t === leaver ? { ...a, y: 96 } : a));
+  const legs = run({ ...SV, actors: moved2 }, 20);
+  const walker = legs.find((tr) => tr.length > 70 && Math.round(tr[tr.length - 1].y + C.y) === 96);
+  if (!walker) problems.push('street life: lost the figure who walked off from the pair');
+  else {
+    checkTrack(walker, 'street life, leaving the ring', (r) => band(r.x));
+    const first = walker[0], last = pair.length ? [pair[0], pair[1]].map((tr) => tr[tr.length - 1]) : [];
+    const gap = Math.min(...last.map((r) => Math.hypot(r.x - first.x, r.y - first.y)));
+    report(`street life: the walker set off ${gap.toFixed(4)} tiles from where they stood in the ring`);
+    if (!(gap < 0.03)) problems.push(`street life: the walker started their leg ${gap.toFixed(3)} tiles from their spot in the ring`);
+  }
+
+  // A road three tiles wide has pavement only along its outer edges. Somebody on an edge tile who
+  // would have taken its inner side, and two on the middle tile, all stand on the outer pavement.
+  const wide = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => {
+    if (Math.abs(x - R) <= 1) return { kind: 'land', biome: 'city', flr: 0, road: 1, rd: 'ns', pw: 1 };
+    if (Math.abs(x - R) === 2) return { kind: 'land', biome: 'city', flr: 0, bt: 'shop', is_building: 1, floors: 3 };
+    return { kind: 'land', biome: 'city', flr: 0 };
+  }));
+  const pw = 1.5 - (0.5 - G.VERGE);
+  const wcast = [
+    { t: pick((t) => hash(t, 1) >= 0.5, 9400), x: 99, y: 96 },   // west edge tile, east side: in the lane, as shipped
+    { t: pick((t) => hash(t, 1) < 0.5, 9500), x: 101, y: 94 },   // east edge tile, west side
+    { t: pick(() => true, 9600), x: 100, y: 95 }, { t: pick(() => true, 9700), x: 100, y: 93 },
+  ];
+  const WV = { ...VIEW, map: wide, roadside: null, actors: wcast };
+  clear(WV);
+  frame(WV);
+  const wtracks = run(WV, 30);
+  report(`street life, wide road: ${wtracks.length} tracks`);
+  if (wtracks.filter((tr) => tr.length > 100).length !== 4) problems.push(`street life, wide road: followed ${wtracks.length} figures, not 4`);
+  for (const tr of wtracks) {
+    // An edge tile's people stand on its own outer pavement, inside the tile; a middle tile's on
+    // either one, the width of the road away.
+    const who = wcast.find((a) => a.y === Math.round(tr[0].y + C.y)), reach = who && who.x === 100 ? pw + G.WALK_HW : 0.5;
+    checkTrack(tr, 'street life, wide road', (r) => Math.abs(Math.abs(r.x) - pw) <= G.WALK_HW + 1e-6 && !!who && Math.abs(r.x + C.x - who.x) <= reach + 1e-6);
+  }
+  clear(VIEW); settle(VIEW);
+  ws.RENDER_TUNE.actorFarPx = farWas;
+}
+
 // Off: the frame is the billboard frame it always was.
 ws.RENDER_TUNE.actorMesh = 0;
 const off = frame(VIEW);
@@ -299,7 +457,7 @@ if (unplugged.recs.length) problems.push(`${unplugged.recs.length} actor records
 if (unplugged.boards !== 5) problems.push(`${unplugged.boards} actor billboards with the mesh pass not installed; all four pavement figures and the hitcher should be billboards`);
 
 ws.installGLWorld(null);
-ws.RENDER_TUNE.gl = glWas; ws.RENDER_TUNE.glFloor = floorWas; ws.RENDER_TUNE.actorMesh = meshWas; ws.RENDER_TUNE.actorFarPx = farWas;
+ws.RENDER_TUNE.gl = glWas; ws.RENDER_TUNE.glFloor = floorWas; ws.RENDER_TUNE.actorMesh = meshWas; ws.RENDER_TUNE.actorFarPx = farWas; ws.RENDER_TUNE.actorLife = lifeWas;
 globalThis.performance = clock;
 
 if (problems.length) {
@@ -307,4 +465,4 @@ if (problems.length) {
   for (const p of [...new Set(problems)]) console.error('  ' + p);
   process.exit(1);
 }
-console.log(`✓ actors: ${nv}-vertex figure and a ${bk.far.nv}-vertex far one, ${frames} baked frames that loop and keep a foot down, varied outfits, and the sweep hands near figures to the mesh pass and nothing else.`);
+console.log(`✓ actors: ${nv}-vertex figure and a ${bk.far.nv}-vertex far one, ${frames} baked frames that loop and keep a foot down, varied outfits, and the sweep hands near figures to the mesh pass and nothing else, and people standing about stay on the pavement.`);

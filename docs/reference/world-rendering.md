@@ -707,7 +707,9 @@ deliberately has *no* ground collision (the verge is slow, past the half-width y
 blocked — see [systems-trucking.md](../systems-trucking.md)), so a collidable pedestrian would put a
 wall into the one system whose whole design is that there isn't one. You drive through them. Kerb
 placement comes from the cell's own `rd` connector letters, with the side held per-figure off the
-token so nobody hops kerbs mid-block.
+token so nobody hops kerbs mid-block. On a road two to four tiles wide (`blockSpan`) the pavement is
+only at the block's outer edges, so street life (below) stands an edge tile's people on its outer
+side and a middle tile's on the nearer edge, never in a lane.
 
 **Far away the figure is an abstraction; close up it's a person.** The billboard is a head on a
 body with no limbs, because at a few pixels legs read as jitter and the bob carries the motion. On
@@ -731,11 +733,18 @@ window, the empty-is-a-real-answer case and the indoors exclusion.
 ### Close figures as meshes (as built)
 
 [actor3d.js](../../client/game/js/panels/actor3d.js) builds one skinned body (coat, trousers,
-shoes, hands and a face) on a 17-bone skeleton, with three looping clips: walk, idle and wave. The
+shoes, hands and a face) on a 19-bone skeleton, with eight looping clips: walk, idle and wave, and
+the five that street life stands people in (talk, listen, wait with arms folded, phone, smoke). The
 walk's joint curves follow clinical gait data, and its root motion is solved so the foot that's
-down stays still. The bake skins every vertex for every frame and writes two RGBA16F textures,
-positions and normals, with a column per vertex and three rows per frame: 762×336 texels, about
-4 MB for the pair. [gl/actors.js](../../client/game/js/panels/gl/actors.js) draws everybody in one
+down stays still. The last two bones are the balls of the feet: in late stance the toes bend by
+exactly the foot's pitch, worked out from the pose, so the heel comes up while the toes stay flat,
+and they let go once the other heel is down, because flat toes behind can't stay still against a
+heel in front and scrub. The legs turn out 6° and land 2° inside the hip, so the feet fall about
+12 cm apart; the arms lag the legs, the forearms lag the arms. The standing clips' arm angles were
+solved numerically for a hand position (the smoker's fingertips at the mouth, folded forearms one
+over the other) with the forearms kept clear of the coat. The bake skins every vertex for every
+frame and writes two RGBA16F textures, positions and normals, with a column per vertex and three
+rows per frame: 794×720 texels, about 9 MB for the pair. [gl/actors.js](../../client/game/js/panels/gl/actors.js) draws everybody in one
 instanced call, picking and blending texture rows by `gl_VertexID` the way `gl/fauna.js` does for
 the birds.
 
@@ -780,16 +789,49 @@ the birds.
 - **Draw order.** The main pass draws people after the ground, not with the solids, as the
   billboards are: the band is translucent paint, and a figure drawn before it gets the paint laid
   over any part of it below the band. The mirror prepass still draws them with the solids.
-- **The bake is incremental.** It costs about 2 ms a frame for 112 frames, so the street pass runs
-  it 2 ms at a time and draws billboards until it's done.
+- **The bake is incremental.** Both bodies, 240 frames each, took about 200 ms in one go in the
+  Modelshop, so the street pass runs it 2 ms at a time and draws billboards until it's done.
 
-Gate: `npm run gl:actors` ([scripts/shapes/actors.mjs](../../scripts/shapes/actors.mjs)) checks
-the bake (texture size, clean loops, a foot always on the ground, outward winding, planted feet),
-the outfits (deterministic per token, varied, every colour reachable) and the sweep: near figures
-become records and far ones stay billboards, no record carries a token or an id, a walker faces its
-heading and its gait matches the distance moved, the hitcher faces the camera, and nothing changes
-with the switch off. The pixels are checked in the Modelshop with `__glActors()`, which renders the
-street with the mesh on and off, from the cab or the standing camera.
+### What people do while they stand (as built)
+
+NPCs stand on a tile for minutes between legs, so a figure that only walked spent most of its life
+as a statue. [glass/street-life.js](../../client/game/js/panels/glass/street-life.js) decides what
+they do in between. It's the same kind of fiction as the walk: invented business, never an invented
+person or a wrong tile.
+
+- **Groups.** Everybody standing on one stretch of pavement (one tile, one side of the street) forms
+  a ring and talks: one speaker at a time, the turn passing every 4.2 s, listeners turned toward the
+  speaker. Two stand about a metre apart, three or four in a ring 1.6 m across; more than four make
+  a second ring along the kerb. About one in five keep to themselves.
+- **On their own,** somebody picks from stand, stroll along the pavement, look in a shop window,
+  lean on the wall (arms folded, or smoking), check a phone, or wait at the kerb facing the road.
+  Window and wall need a building behind the pavement. Somebody who has just stopped walking stands
+  for 1.5 to 5 s first; somebody first seen standing is already mid-activity.
+- **Nobody leaves the pavement.** Every spot is inside the band the pavement is painted on (`VERGE`
+  and `WALK_HW`, handed in as `LIFE_GEO`, never restated) and inside the figure's own tile, apart
+  from a wide road's middle tile, whose pavement is the block's edge. Junctions and bends keep
+  people at their corner; worn, dirt and curved roads and dead ends have no pavement, so people
+  there stay at the verge and only change pose.
+- **Setting off.** A new leg starts from wherever they were standing, and the offset from the kerb
+  spot is let go over the leg, so the walk is a straight line to the next tile's kerb spot with no
+  jump. Heading follows the actual direction of travel.
+- **Deterministic.** Groups are keyed by tile and pavement side, members in token order, and every
+  choice comes off the token and a plan counter, so the same pushes give the same street.
+- `RENDER_TUNE.actorLife = 0` is everybody standing still at their kerb spot, as shipped. `LIFE` in
+  the module holds the speeds, spacings and timings and can be changed from the console.
+
+Gate: [scripts/shapes/actors.mjs](../../scripts/shapes/actors.mjs), in `shapes:smoke`, checks
+the bake (texture size, clean loops, a foot always on the ground, outward winding, planted feet,
+every clip present), the outfits (deterministic per token, varied, every colour reachable) and the
+sweep: near figures become records and far ones stay billboards, no record carries a token or an
+id, a walker faces its heading and its gait matches the distance moved, the hitcher faces the
+camera, and nothing changes with the switch off. Street life gets a minute of simulated street:
+everybody stays on the band and in their tile, nobody jumps, a pair faces each other and both talk,
+everybody alone does more than one thing and somebody strolls with feet that keep pace, the one who
+leaves the pair sets off from their spot in the ring, and on a road three tiles wide everybody
+stands on its outer pavement. The pixels are checked in the Modelshop with `__glActors()`, which
+renders the street with the mesh on and off, from the cab or the standing camera; the Actor Lab
+plays each clip.
 
 ## Street furniture — pavement, crossings, lamps, signals (as built)
 

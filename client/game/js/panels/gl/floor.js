@@ -77,6 +77,12 @@ uniform float uViewH;
 
 uniform sampler2D uLut0;   // rgb = tile colour, a = waterness
 uniform sampler2D uLut1;   // r = grassness, g = hillshade/2, b = paved
+// Footfall, from footfallFill in windshield.js: r = wear, g = path bits x 16 (N 1, E 2, S 4, W 8),
+// b = litter, a = how green the open country round the tile is.
+uniform sampler2D uLut3;
+uniform float uWear;       // RENDER_TUNE.glWear; 0 is the ground as it was
+uniform float uGrain;      // RENDER_TUNE.glGrain; 0 is the material as it was
+uniform float uMud;        // the ground's pond level, 0-1: puddles in the mud grow with it
 uniform int   uMh;         // the LUT is uMh x uMh
 uniform float uR;          // the window's half-width in tiles
 
@@ -312,6 +318,28 @@ vec4 lut1At(int x, int y) {
 float pavedAt(float fx, float fy) {
   return lut1At(int(floor(fx)), int(floor(fy))).b;
 }
+vec4 lut3At(int x, int y) {
+  return texelFetch(uLut3, ivec2(clamp(x, 0, uMh - 1), clamp(y, 0, uMh - 1)), 0);
+}
+// How much of a land texture term of frequency f (cycles per tile) this pixel can hold. The raster
+// faded every term together on one distance ramp ('detail'), because its chunky texels aliased
+// early; on the GPU a term only has to go once its own wavelength nears the pixel, so the fine
+// grain goes first and the broad patches carry on to the horizon. glGrain blends from the old ramp
+// to this one, so 0 is the floor as it was.
+float ldet(float f, float fp, float det) {
+  return mix(det, clamp((0.25 - fp * f) / 0.15, 0.0, 1.0), uGrain);
+}
+float segDist(vec2 p, vec2 a, vec2 b) {
+  vec2 ab = b - a, pa = p - a;
+  float t = clamp(dot(pa, ab) / max(dot(ab, ab), 1e-6), 0.0, 1.0);
+  return length(pa - ab * t);
+}
+// A footpath from the tile's hub out through one edge. The last stretch meets the edge square and
+// runs on a little past it, so the neighbour's half lines up and nothing is capped at the seam.
+float pathArm(vec2 p, vec2 hub, vec2 e, vec2 nrm) {
+  vec2 a = e - nrm * 0.14;
+  return min(segDist(p, hub, a), segDist(p, a, e + nrm * 0.12));
+}
 float seamF(float u) {
   float t = clamp((u - 0.5 + uSeamEB) / (2.0 * uSeamEB), 0.0, 1.0);
   return t * t * (3.0 - 2.0 * t);
@@ -489,6 +517,9 @@ void main() {
   // Fading the AMPLITUDE with distance is the cheap mip-map the 2-D pass uses, and dropping it
   // would put the shimmer back.
   float detail = clamp(1.15 - d * 0.7, 0.15, 1.0);
+  // Half this pixel's ground footprint, in tiles: a screen row is a depth, so the vertical span is
+  // d*d / (EH * depth) and the lateral one is the ray spread. The paths, the litter and ldet read it.
+  float fpx = 0.5 * max(d * d / max(uEH * uDepth, 1e-4), d * uLAT / max(uHalfW, 1.0));
   // Schlick, for the water: a steep view sees the body colour, a grazing one mirrors the sky.
   // ⚠ 'd' IS THE FORWARD DISTANCE AND NOT THE GROUND RANGE, which is a real error this term has
   // always carried: the range to the point is sqrt(d² + l²), and dropping 'l' overstates cosI at
@@ -584,6 +615,15 @@ void main() {
   float grassW = m00.r * w00 + m10.r * w10 + m01.r * w01 + m11.r * w11;
   float shadeW = (m00.g * w00 + m10.g * w10 + m01.g * w01 + m11.g * w11) * 2.0;
   float pavedW = m00.b * w00 + m10.b * w10 + m01.b * w01 + m11.b * w11;
+  // Footfall takes the smooth blend, like the materials: wear, litter and the green vote.
+  float wearW = 0.0, litW = 0.0, greenW = 0.5;
+  if (uWear > 0.001) {
+    vec4 u00 = lut3At(ix, iy),     u10 = lut3At(ix + 1, iy);
+    vec4 u01 = lut3At(ix, iy + 1), u11 = lut3At(ix + 1, iy + 1);
+    wearW = (u00.r * w00 + u10.r * w10 + u01.r * w01 + u11.r * w11) * uWear;
+    litW = (u00.b * w00 + u10.b * w10 + u01.b * w01 + u11.b * w11) * uWear;
+    greenW = u00.a * w00 + u10.a * w10 + u01.a * w01 + u11.a * w11;
+  }
 
   // Past the window edge all four taps above are the same clamped boundary tile. Replace what the
   // ground LOOKS like with the synthesis, keeping the waterness the clamp gave us — see farGround.
@@ -648,6 +688,8 @@ void main() {
     shadeW = mix(shadeW, far.a, kl);
     grassW *= 1.0 - k;
     pavedW *= 1.0 - k;
+    wearW *= 1.0 - k;
+    litW *= 1.0 - k;
     // Half the ground footprint of this pixel, in tiles. A screen row IS a depth here, so the
     // vertical span is d*d / (EH * depth) and the lateral one is the ray spread; the road takes
     // whichever is coarser, because that is the axis it can dissolve along.
@@ -688,14 +730,42 @@ void main() {
   float bP = vnoise2(wxf * 1.3 + 11.0, wyf * 1.3 - 7.0) - 0.5;
   float bM = vnoise2(wxf * 4.1 - 2.0, wyf * 4.1 + 9.0) - 0.5;
   float bG = vnoise2(wx * 9.7 + 3.0, wy * 9.7 - 5.0) - 0.5;
-  float tex = 1.0 + (bP * 0.09 + bM * 0.05 + bG * 0.035) * detail;
+  float tex = 1.0 + bP * 0.09 * ldet(1.3 * uFreq, fpx, detail) + bM * 0.05 * ldet(4.1 * uFreq, fpx, detail)
+                  + bG * 0.035 * ldet(9.7, fpx, detail);
+
+  // The world position for every term below that is newer than the raster. wx/wy are relative to
+  // the window, which recentres a whole tile at a time, and a pattern hashed off them jumps with it.
+  float gwx = wx + uWc.x, gwy = wy + uWc.y;
+  float landK = 1.0 - clamp(waterW * 4.0, 0.0, 1.0);
+  // Field-sized drift in light and dark, so a district of one biome isn't one flat plate from the
+  // air. Low frequency, so it needs no distance fade.
+  float macro = 1.0;
+  if (uGrain > 0.001) {
+    float mA = vnoise2(gwx * 0.071 + 3.3, gwy * 0.071 - 1.9) - 0.5;
+    float mB = vnoise2(gwx * 0.23 - 7.0, gwy * 0.23 + 4.4) - 0.5;
+    macro = 1.0 + (mA * 0.30 + mB * 0.15) * uGrain * landK * (1.0 - pavedW);
+    tex *= macro;
+  }
 
   if (grassW > 0.002) {
     // Clumps at two scales: turf patches a couple of tiles across, tufts inside them.
     float gC = vnoise2(wx * 1.7 + 3.0, wy * 1.7 + 1.0) - 0.5;
     float gT = vnoise2(wx * 5.3, wy * 5.3) - 0.5;
-    float g = gC * 0.16 + gT * 0.12;
-    tex = tex * (1.0 - grassW) + (1.0 + g * detail) * grassW;
+    float g = gC * (0.16 + 0.08 * uGrain) * ldet(1.7, fpx, detail) + gT * (0.12 + 0.05 * uGrain) * ldet(5.3, fpx, detail);
+    tex = tex * (1.0 - grassW) + (1.0 + g) * grassW;
+    if (uGrain > 0.001) {
+      // Colour as well as light: straw where it has dried out, a darker blue-green where it grows
+      // thick, a mottle between the two, and a fine warm/cool speckle through the tufts.
+      float dryP = smoothstep(0.42, 0.72, vnoise2(gwx * 0.37 + 1.1, gwy * 0.37 + 8.3));
+      float lushP = smoothstep(0.45, 0.75, vnoise2(gwx * 0.83 - 3.7, gwy * 0.83 + 2.1));
+      float gk = grassW * uGrain;
+      vec3 g0 = base;
+      base = mix(base, g0 * vec3(1.36, 1.14, 0.66), dryP * 0.70 * gk);
+      base = mix(base, g0 * vec3(0.70, 0.86, 0.80), lushP * 0.60 * gk);
+      float mo = vnoise2(gwx * 2.3 - 9.0, gwy * 2.3 + 1.5) - 0.5;
+      float tf = vnoise2(gwx * 6.1 + 2.0, gwy * 6.1 - 6.0) - 0.5;
+      base *= 1.0 + vec3(0.16, 0.06, -0.08) * (mo * ldet(2.3, fpx, 1.0) + tf * ldet(6.1, fpx, 1.0)) * gk;
+    }
   }
 
   // Relief hillshade on land only — water is flat and carries its own wave shading below.
@@ -704,11 +774,172 @@ void main() {
   // Arid ground: wind-blown sand ripple over broad cracked-clay patches, so the dry wildlands read
   // as textured desert rather than a flat tinted plate. Near and mid field only, like the water
   // mottle, so the far plain stays flat instead of aliasing into a checker.
-  if (dryW > 0.02 && detail > 0.3) {
+  if (dryW > 0.02 && (detail > 0.3 || uGrain > 0.001)) {
     float rip = sin(wx * 2.4 + wy * 0.8) + 0.6 * sin(wx * 0.9 - wy * 1.7);
     float clay = vnoise2(wx * 0.85 + 5.0, wy * 0.85 - 3.0) - 0.5;
     float crust = vnoise2(wx * 3.3 - 8.0, wy * 3.3 + 2.0) - 0.5;
-    tex *= 1.0 + (rip * 0.025 + clay * 0.11 + crust * 0.07) * dryW * detail;
+    tex *= 1.0 + (rip * 0.025 * ldet(0.45, fpx, detail) + clay * 0.11 * ldet(0.85, fpx, detail)
+                + crust * 0.07 * ldet(3.3, fpx, detail)) * dryW;
+  }
+  if (dryW > 0.02 && uGrain > 0.001) {
+    // Dry ground varies in colour too: darker damp earth and wind-bleached dust, in patches.
+    float dk = smoothstep(0.42, 0.75, vnoise2(gwx * 0.55 + 4.0, gwy * 0.55 - 9.0));
+    float pale = smoothstep(0.48, 0.80, vnoise2(gwx * 0.31 - 2.5, gwy * 0.31 + 6.5));
+    float ak = dryW * uGrain;
+    base = mix(base, base * vec3(0.78, 0.74, 0.71), dk * 0.60 * ak);
+    base = mix(base, min(base * 1.14 + 0.03, vec3(1.0)), pale * 0.45 * ak);
+  }
+
+  // ── TRODDEN GROUND ───────────────────────────────────────────────────────────────────────────
+  //
+  // Wear, path bits and litter come per tile from footfallFill in windshield.js. The turf gives
+  // way in patches as the wear rises (a level against a field, the shape the snow cover takes).
+  // Paths run from a hub near the tile's middle out through the edges the bits name, with two
+  // wheel ruts on a lane worn enough to carry carts. Puddles stand in the low middle of a track,
+  // and old fire pits mark the camp ground.
+  //
+  // ⚠ Widths are set against this pixel's ground footprint, never fwidth: these branches aren't
+  // uniform, and a derivative taken inside one is undefined along its edge.
+  float mudW = 0.0;
+  if (wearW > 0.004 && landK > 0.0) {
+    vec2 fu = vec2(uR + wx, uR + wy);
+    vec2 tcen = floor(fu + 0.5);
+    vec4 uo = lut3At(int(tcen.x), int(tcen.y));
+    float wOwn = uo.r * uWear;
+    int bits = int(floor(uo.g * 255.0 / 16.0 + 0.5));
+    ivec2 tw = ivec2(floor(tcen - uR + uWc + 0.5));   // the world tile, for hashes a neighbour shares
+    float pathW = 0.0, rutW = 0.0, bermW = 0.0;
+    if (bits != 0 && detail > 0.2) {
+      vec2 lp = fu - tcen;
+      // The meander is a warp pinned to the world, so a bend carries across the tile edge.
+      vec2 mq = lp + vec2(vnoise2(gwx * 2.1 + 1.7, gwy * 2.1 - 4.1) - 0.5,
+                          vnoise2(gwx * 2.1 - 6.2, gwy * 2.1 + 2.9) - 0.5) * 0.16;
+      vec2 hub = (vec2(vn2h(tw.x * 3 + 11, tw.y * 5 + 7), vn2h(tw.x * 7 + 3, tw.y * 11 + 2)) - 0.5) * 0.24;
+      // Where a path crosses an edge is hashed off the EDGE, so the tiles either side agree on it.
+      vec2 eN = vec2((vn2h(tw.x * 2 + 1, tw.y * 2) - 0.5) * 0.3, -0.5);
+      vec2 eS = vec2((vn2h(tw.x * 2 + 1, tw.y * 2 + 2) - 0.5) * 0.3, 0.5);
+      vec2 eW = vec2(-0.5, (vn2h(tw.x * 2, tw.y * 2 + 1) - 0.5) * 0.3);
+      vec2 eE = vec2(0.5, (vn2h(tw.x * 2 + 2, tw.y * 2 + 1) - 0.5) * 0.3);
+      // A straight run goes straight through, its hub between the two crossings; a zigzag at every
+      // tile reads as a row of kinks, not a lane.
+      if (bits == 5) hub = vec2((eN.x + eS.x) * 0.5 + hub.x * 0.2, hub.y * 0.5);
+      if (bits == 10) hub = vec2(hub.x * 0.5, (eW.y + eE.y) * 0.5 + hub.y * 0.2);
+      float dp = 1e9;
+      if ((bits & 1) != 0) dp = min(dp, pathArm(mq, hub, eN, vec2(0.0, -1.0)));
+      if ((bits & 4) != 0) dp = min(dp, pathArm(mq, hub, eS, vec2(0.0, 1.0)));
+      if ((bits & 8) != 0) dp = min(dp, pathArm(mq, hub, eW, vec2(-1.0, 0.0)));
+      if ((bits & 2) != 0) dp = min(dp, pathArm(mq, hub, eE, vec2(1.0, 0.0)));
+      float hw = (0.05 + 0.08 * wOwn) * (0.8 + 0.4 * vnoise2(gwx * 3.7 - 2.0, gwy * 3.7 + 5.0));
+      // Ink is conserved at range, the rule trackCut and roadCoverage follow: a path thinner than
+      // its pixel is drawn faint rather than as a dotted line that crawls. The edge is soft, because
+      // a trodden line fades into the ground beside it.
+      float hwE = max(hw, fpx);
+      pathW = (1.0 - smoothstep(hwE * 0.55 - fpx, hwE + fpx, dp)) * min(1.0, hw / max(fpx, 1e-5));
+      // Two wheel ruts, on a lane worn enough to carry carts and nowhere else: not in a camp (the
+      // litter byte marks one) and not in a building's yard (wear 0.7).
+      float rk = smoothstep(0.75, 0.9, wOwn) * (1.0 - step(0.8, uo.b));
+      if (rk > 0.0) {
+        float rw = max(0.02, hw * 0.2), rwE = max(rw, fpx);
+        float rx = abs(dp - hw * 0.5) / rwE, ink = min(1.0, rw / max(fpx, 1e-5)) * rk;
+        rutW = exp(-rx * rx * 1.6) * ink;
+        // The mud a wheel pushed aside, banked up either side of its rut and catching the light.
+        bermW = exp(-(rx - 1.45) * (rx - 1.45) * 3.0) * ink;
+      }
+    }
+    // Three octaves, the finest faded at its own wavelength, so the edge of the bare ground is
+    // ragged near to rather than airbrushed.
+    float trod = vnoise2(gwx * 1.45 + 5.3, gwy * 1.45 - 2.2) * 0.5 + vnoise2(gwx * 4.6 - 1.0, gwy * 4.6 + 3.0) * 0.3
+               + (vnoise2(gwx * 13.0 + 6.0, gwy * 13.0 - 4.0) - 0.5) * 0.25 * ldet(13.0, fpx, detail) + 0.1;
+    float lvl = 1.02 - wearW * 1.1;
+    float band = max(0.03, fpx * 2.5);
+    mudW = max(smoothstep(lvl - band, lvl + band, trod), pathW * smoothstep(0.0, 0.2, wOwn)) * landK;
+    // Wet in green country and dry in the desert; wetter along a track, in its ruts, and in rain.
+    float damp = (0.30 + wearW * 0.35 + pathW * 0.18 + rutW * 0.25) * mix(0.45, 1.0, greenW) + uMud * 0.40;
+    damp = clamp(damp + (vnoise2(gwx * 2.7 + 8.0, gwy * 2.7 - 1.0) - 0.5) * 0.45, 0.0, 1.0);
+    vec3 mudCol = mix(vec3(0.40, 0.33, 0.25), vec3(0.19, 0.15, 0.11), damp);
+    // Ash ground stays grey and red clay stays red. The tint takes the SMOOTH blend of the four
+    // tiles and only off bare ground: the sharpened one puts a tile-sized step in the mud, and turf
+    // under it would green it.
+    vec3 baseSm = s00.rgb * w00 + s10.rgb * w10 + s01.rgb * w01 + s11.rgb * w11;
+    mudCol = mix(mudCol, baseSm * 0.85, 0.25 * (1.0 - grassW));
+    // Churn: boot-prints and clods, each octave fading at its own wavelength. The hillshade and the
+    // field drift stay, as they do under snow: mud buries the turf, not the landform.
+    float ch = (vnoise2(gwx * 9.0 + 4.0, gwy * 9.0 - 2.0) - 0.5) * 0.30 * ldet(9.0, fpx, detail)
+             + (vnoise2(gwx * 23.0, gwy * 23.0) - 0.5) * 0.18 * ldet(23.0, fpx, detail)
+             + (vnoise2(wx * 61.0 - 3.0, wy * 61.0 + 8.0) - 0.5) * 0.16 * ldet(61.0, fpx, 0.0)
+             + (vnoise2(wx * 157.0 + 5.0, wy * 157.0 - 1.0) - 0.5) * 0.14 * ldet(157.0, fpx, 0.0)
+             + (vnoise2(wx * 389.0 - 7.0, wy * 389.0 + 2.0) - 0.5) * 0.12 * ldet(389.0, fpx, 0.0);
+    // ⚠ The three fine octaves above run on the WINDOW position, not the world one. At a world
+    // coordinate near 900 a 32-bit float has no room left for a lattice of several hundred cells a
+    // tile, so the grit would come out in steps. It's grain, so the hop when the window recentres
+    // can't be seen.
+    // Boot-prints along a path, near to: a heel-and-toe oval pressed in, its rim lit.
+    if (pathW > 0.05 && fpx < 0.003) {
+      vec2 bc = vec2(gwx, gwy) * 16.0;
+      ivec2 bi = ivec2(floor(bc));
+      if (vn2h(bi.x * 5 + 1, bi.y * 9 + 4) < 0.40 * pathW) {
+        float ba = vn2h(bi.x - 13, bi.y + 21) * 6.2832;
+        vec2 bq = fract(bc) - 0.5 - (vec2(vn2h(bi.x + 3, bi.y - 8), vn2h(bi.x - 6, bi.y + 2)) - 0.5) * 0.3;
+        bq = vec2(bq.x * cos(ba) + bq.y * sin(ba), -bq.x * sin(ba) + bq.y * cos(ba));
+        float be = length(bq / vec2(0.20, 0.085));
+        float pressK = clamp((0.003 - fpx) / 0.0015, 0.0, 1.0);
+        ch += (-0.12 * (1.0 - smoothstep(0.7, 1.0, be)) + 0.05 * smoothstep(0.85, 1.0, be) * (1.0 - smoothstep(1.0, 1.3, be))) * pressK;
+      }
+    }
+    base = mix(base, mudCol, mudW);
+    tex = mix(tex, shadeW * macro * (1.0 + ch - rutW * 0.18 + bermW * 0.09 - pathW * 0.05), mudW);
+    // Standing water: a few puddles always, many more after rain, more often in a rut.
+    if (mudW > 0.02 && wearW > 0.3) {
+      float pf = vnoise2(gwx * 3.1 + 9.1, gwy * 3.1 - 7.7) * 0.7 + vnoise2(gwx * 7.9 - 3.0, gwy * 7.9 + 5.0) * 0.3;
+      float plv = mix(0.80, 0.60, clamp(uMud, 0.0, 1.0)) - rutW * 0.09 - pathW * wOwn * 0.05;
+      float pb = max(0.02, fpx * 3.0);
+      float pud = smoothstep(plv - pb, plv + pb, pf) * mudW * smoothstep(0.3, 0.6, wearW);
+      float rim = clamp(smoothstep(plv - 0.10, plv, pf) - pud, 0.0, 1.0) * mudW;
+      tex *= 1.0 - rim * 0.25;
+      if (pud > 0.001) {
+        // Muddy water: a brown body that a grazing look turns into the sky.
+        vec3 pc = mix(vec3(0.11, 0.09, 0.07), uHor * 0.85, 0.12 + 0.62 * fres);
+        base = mix(base, pc, pud);
+        tex = mix(tex, 1.0, pud);
+      }
+    }
+    // An old fire pit on camp ground, one a tile at most: charcoal in a ring of grey ash.
+    if (uo.b > 0.8 && detail > 0.3) {
+      vec2 fc = (vec2(vn2h(tw.x * 5 + 2, tw.y * 3 + 9), vn2h(tw.x * 9 + 4, tw.y * 7 + 1)) - 0.5) * 0.6;
+      float fr = 0.05 + 0.04 * vn2h(tw.x + 3, tw.y + 8);
+      float fd = length(fu - tcen - fc) / fr + (vnoise2(gwx * 13.0, gwy * 13.0) - 0.5) * 0.5;
+      float burnt = 1.0 - smoothstep(0.45, 1.0, fd);
+      float ashR = smoothstep(0.6, 1.0, fd) * (1.0 - smoothstep(1.0, 1.7, fd));
+      base = mix(base, vec3(0.11, 0.10, 0.09), burnt * 0.75);
+      base = mix(base, vec3(0.40, 0.39, 0.37), ashR * 0.40);
+    }
+  }
+  // Rubbish: paper, cardboard, a bag, a can, a bottle. It drifts into heaps rather than lying evenly,
+  // so the chance is shaped by a broad field. Near and middle distance only; past that a piece is
+  // under a pixel and would only crawl.
+  if (litW > 0.01) {
+    float lk = clamp(1.8 - d * 0.5, 0.0, 1.0) * landK;
+    vec2 lc = vec2(gwx, gwy) * 7.0;
+    ivec2 li = ivec2(floor(lc));
+    float heap = smoothstep(0.35, 0.75, vnoise2(gwx * 1.6 + 2.0, gwy * 1.6 - 5.0));
+    if (lk > 0.0 && vn2h(li.x * 13 + 5, li.y * 17 + 3) < litW * (0.04 + 0.30 * heap)) {
+      float h2 = vn2h(li.x + 911, li.y - 377), h3 = vn2h(li.x - 53, li.y + 1201), h4 = vn2h(li.x * 3 - 7, li.y * 5 + 11);
+      float an = h2 * 6.2832, ca = cos(an), sa = sin(an);
+      vec2 q = fract(lc) - 0.5 - (vec2(h3, h4) - 0.5) * 0.3;
+      q = vec2(q.x * ca + q.y * sa, -q.x * sa + q.y * ca);
+      vec2 sz = vec2(0.10 + 0.14 * h3, 0.05 + 0.07 * h2);
+      float px7 = fpx * 7.0;   // the pixel's footprint, in this lattice's cells
+      float inside = (1.0 - smoothstep(sz.x - px7, sz.x + px7, abs(q.x))) * (1.0 - smoothstep(sz.y - px7, sz.y + px7, abs(q.y)));
+      int pick = int(h4 * 6.0);
+      vec3 lcol = pick == 0 ? vec3(0.74, 0.72, 0.66)    // paper
+                : pick == 1 ? vec3(0.52, 0.40, 0.26)    // cardboard
+                : pick == 2 ? vec3(0.26, 0.36, 0.50)    // a faded blue bag
+                : pick == 3 ? vec3(0.44, 0.24, 0.13)    // a rusted can
+                : pick == 4 ? vec3(0.18, 0.34, 0.22)    // green glass
+                : vec3(0.07, 0.07, 0.08);               // a black bag
+      base = mix(base, lcol, inside * lk);
+      tex = mix(tex, shadeW, inside * lk * 0.6);
+    }
   }
 
   // ── WATER AND SHORELINE ────────────────────────────────────────────────────
@@ -873,7 +1104,11 @@ void main() {
   // as a hole in the floor. A finer grain whose strength rises as the ground nears carries real
   // world-space texture down to the bottom edge. On a cab frame this is most of the picture.
   float nearK = clamp((0.55 - d) / 0.55, 0.0, 1.0);
-  if (nearK > 0.01) {
+  // With glGrain the land's grit isn't held to the near rows: the GPU has no near smear to hide,
+  // so it runs as far as the pixel can hold it. The water keeps its own ramp.
+  float grit1 = max(nearK, uGrain * clamp((0.25 - fpx * 14.7) / 0.15, 0.0, 1.0));
+  float grit2 = max(nearK, uGrain * clamp((0.25 - fpx * 31.0) / 0.15, 0.0, 1.0));
+  if (nearK > 0.01 || (grit1 > 0.01 && waterW <= 0.002)) {
     if (waterW > 0.002) {
       float nwx = wx, nwy = wy;
       float nph = sin(nwx * 2.3 - nwy * 1.7 + uT * 0.4);
@@ -886,7 +1121,31 @@ void main() {
       // Fine dirt and gravel: two smooth octaves, never hashed squares (see the base material).
       float n1 = vnoise2(wx * 14.7, wy * 14.7) - 0.5;
       float n2 = vnoise2(wx * 31.0 + 7.0, wy * 31.0 - 4.0) - 0.5;
-      tex *= 1.0 + (n1 * 0.16 + n2 * 0.09) * nearK;
+      tex *= 1.0 + n1 * 0.16 * grit1 + n2 * 0.09 * grit2;
+      // And one finer, near to: at a walker's eye the coarser two are a hand's width across.
+      if (uGrain > 0.001) tex *= 1.0 + (vnoise2(wx * 83.0 + 1.0, wy * 83.0 - 3.0) - 0.5) * 0.12 * uGrain * clamp((0.25 - fpx * 83.0) / 0.15, 0.0, 1.0);
+    }
+  }
+  // Stones and clods underfoot: a few cells in a hundred hold one, pale or dark, more of them on
+  // bare and trodden ground than in turf. Out to a couple of tiles, then gone before they alias.
+  if (uGrain > 0.001 && landK > 0.0) {
+    float sk = clamp(1.5 - d * 0.55, 0.0, 1.0) * (1.0 - pavedW);
+    vec2 sc = vec2(gwx, gwy) * 15.0;
+    ivec2 si = ivec2(floor(sc));
+    float sh = vn2h(si.x * 7 + 3, si.y * 13 + 1);
+    float dens = 0.05 + 0.06 * dryW + 0.05 * mudW;
+    if (sk > 0.0 && sh < dens) {
+      vec2 sf = fract(sc) - 0.5 - (vec2(vn2h(si.x + 77, si.y - 31), vn2h(si.x - 19, si.y + 53)) - 0.5) * 0.4;
+      float rr = 0.05 + 0.09 * vn2h(si.x + 5, si.y + 9);
+      float pxs = fpx * 15.0;
+      float st = 1.0 - smoothstep(rr - pxs, rr + pxs, length(sf));
+      // A dome, lit on the side toward the light (+lit, the hillshade's own key), with a shadow
+      // thrown off the other side; a flat disc of colour reads as a spot, not a stone.
+      vec2 ld = normalize(lit);
+      float face = dot(sf / rr, ld);
+      float thrown = (1.0 - smoothstep(rr * 0.9, rr * 1.6, length(sf + ld * rr * 0.5))) * (1.0 - st);
+      float tone = sh < dens * 0.45 ? 0.08 : -0.16;
+      tex *= 1.0 + (st * (tone + 0.32 * face) - thrown * 0.28) * sk * uGrain;
     }
   }
 
@@ -1085,12 +1344,13 @@ void main() {
       vec4 L = uNeonP[i];
       float g = seaGlitter(vec2(wx, wy), uA, max(0.02, uEH), L.xyz, uSeaWindDir, uSig2.x, uSig2.y);
       float dl = length(L.xy - vec2(wx, wy)) / max(0.001, L.w);
-      neon += uNeonC[i] * (g / (1.0 + dl * dl));
+      // Capped per light at the lamp's own colour, the mesh's rule (water.js), so the two agree.
+      neon += uNeonC[i] * min(uNeonGain * g / (1.0 + dl * dl), 1.0);
     }
     // ⚠ WEIGHED ON 'wdeep' AND NOT ON 'waterW', the same term the mesh uses. waterW rises across the
     // shore seam and doubles as a shoreline coordinate, so weighing on it lays neon along the wet
     // sand and into the surf band — which is a beach glowing pink rather than a harbour.
-    col += neon * (uNeonGain * wdeep * clamp(uNight, 0.0, 1.0));
+    col += neon * (wdeep * clamp(uNight, 0.0, 1.0));
   }
 
   // N64 distance fog, last and uniformly over every material, so the far field recedes into the
@@ -1181,7 +1441,8 @@ export function createFloorLayer(gl) {
   const loc = {
     EH: U('uEH'), pitch: U('uPitch'), horizonY: U('uHorizonY'), depth: U('uDepth'), cx: U('uCx'), halfW: U('uHalfW'),
     LAT: U('uLAT'), sinh: U('uSinh'), cosh: U('uCosh'), A: U('uA'), dpr: U('uDpr'), viewH: U('uViewH'),
-    lut0: U('uLut0'), lut1: U('uLut1'), mh: U('uMh'), R: U('uR'),
+    lut0: U('uLut0'), lut1: U('uLut1'), lut3: U('uLut3'), mh: U('uMh'), R: U('uR'),
+    wear: U('uWear'), grain: U('uGrain'), mud: U('uMud'),
     hor: U('uHor'), hz: U('uHz'), hazeMax: U('uHazeMax'), nm: U('uNm'),
     freq: U('uFreq'), cwarp: U('uCwarp'), wc: U('uWc'), seamEB: U('uSeamEB'),
     farDirt: U('uFarDirt'), farRock: U('uFarRock'), farOn: U('uFarOn'),
@@ -1203,7 +1464,7 @@ export function createFloorLayer(gl) {
   };
 
   const vao = gl.createVertexArray();   // nothing bound: the triangle is synthesised from gl_VertexID
-  let t0 = null, t1 = null, t2 = null, lutTag = null, lutN = 0, tW = null, wildTag = null;
+  let t0 = null, t1 = null, t2 = null, t3 = null, lutTag = null, lutN = 0, tW = null, wildTag = null;
 
   function tex(unit) {
     const t = gl.createTexture();
@@ -1219,10 +1480,13 @@ export function createFloorLayer(gl) {
   // ⚠ RE-UPLOADED ONLY WHEN THE LUT CHANGES. groundLUT already caches on (map, window centre, sun,
   // sky) and hands back the same object when nothing moved, so the tag is that object's own
   // identity plus its size — no hashing, and no texture upload on a frame that is standing still.
-  function setLut(n, a0, a1, tag, a2) {
+  function setLut(n, a0, a1, tag, a2, a3) {
     if (tag != null && tag === lutTag && n === lutN) return;
     lutTag = tag; lutN = n;
-    if (!t0) { t0 = tex(0); t1 = tex(1); t2 = tex(1); }
+    if (!t0) { t0 = tex(0); t1 = tex(1); t2 = tex(1); t3 = tex(2); }
+    // The footfall plane. A caller with none (a bench, a gate) gets bare ground, never last window's.
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, t3);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, n, n, 0, gl.RGBA, gl.UNSIGNED_BYTE, a3 || new Uint8Array(n * n * 4));
     // The seabed depth plane is the WATER layer's, not the floor's; the floor only owns it because
     // it owns the window's other two and they must be built on the same tag.
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, t2);
@@ -1236,9 +1500,14 @@ export function createFloorLayer(gl) {
   function draw(s, near = NEAR) {
     if (!s || !s.lut0 || !s.n) return 0;
     gl.useProgram(prog);
-    setLut(s.n, s.lut0, s.lut1, s.tag, s.lut2);
+    setLut(s.n, s.lut0, s.lut1, s.tag, s.lut2, s.lut3);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, t3); gl.uniform1i(loc.lut3, 2);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, t0); gl.uniform1i(loc.lut0, 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, t1); gl.uniform1i(loc.lut1, 1);
+    // Written every frame, like every other switch here: a uniform keeps its last value.
+    gl.uniform1f(loc.wear, s.wear == null ? 1 : s.wear);
+    gl.uniform1f(loc.grain, s.grain == null ? 1 : s.grain);
+    gl.uniform1f(loc.mud, s.mud > 0 ? Math.min(1, s.mud) : 0);
     gl.uniform1f(loc.EH, s.EH); gl.uniform1f(loc.pitch, s.pitch || 0); gl.uniform1f(loc.horizonY, s.horizonY); gl.uniform1f(loc.depth, s.depth);
     gl.uniform1f(loc.cx, s.cx); gl.uniform1f(loc.halfW, s.halfW); gl.uniform1f(loc.LAT, s.LAT);
     gl.uniform1f(loc.sinh, s.sinh); gl.uniform1f(loc.cosh, s.cosh);

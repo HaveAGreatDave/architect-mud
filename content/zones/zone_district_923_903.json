@@ -4,7 +4,6 @@
   "color": "#7fd3ff",
   "description": "Dark, cold water at the shore, shelving away steeply. This is as far as walking goes: the channel needs a boat.",
   "exits": {
-    "east": "zone_district_924_903",
     "north": "zone_district_923_902",
     "south": "zone_district_923_904"
   },

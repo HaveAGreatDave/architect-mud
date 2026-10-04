@@ -64,6 +64,7 @@ flat out int vMat;
 flat out int vMk;
 out vec3 vNm;
 out vec3 vW;
+out vec3 vWT;
 out vec3 vToEye;
 out float vFog;
 out float vAlpha;
@@ -111,6 +112,7 @@ void main() {
   // rotation and a translation, so the eye is minus the translation turned back.
   vNm = n;
   vW = w / iPos.w;
+  vWT = w;
   vToEye = -transpose(mat3(uView)) * uView[3].xyz - w;
   vColor = m == 0 ? iSkin : m == 1 ? iCoat : m == 2 ? iLegs : m == 3 ? iShoe
          : m == 4 ? iHair : m == 5 ? vec3(0.035) : iSkin * vec3(0.78, 0.55, 0.55);
@@ -132,6 +134,7 @@ flat in int vMat;
 flat in int vMk;
 in vec3 vNm;
 in vec3 vW;
+in vec3 vWT;
 in vec3 vToEye;
 in float vFog;
 in float vAlpha;
@@ -141,6 +144,14 @@ uniform vec3 uKeyDir;
 uniform float uLook;
 uniform float uMat;
 uniform float uTop;
+// The city's lights (world.js pickLights), in the tile frame vWT is in. 0 lights: nothing added.
+uniform int uWLN;
+// The wall's night dim (world.js nightDim). The figure's own vLum floors at 0.62, the walls go to
+// 1 - nightDark; this brings a figure in an unlit lot down to the wall beside them. 1 is off.
+uniform float uDim;
+uniform vec3 uWLP[12];
+uniform vec3 uWLC[12];
+uniform float uWLR[12];
 out vec4 outColor;
 float h1(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
 float vnoise(vec3 p) {
@@ -263,7 +274,21 @@ void main() {
       }
     }
   }
-  c = mix(c * vLum, uFog, vFog);
+  c *= vLum;
+  c *= min(1.0, uDim / mix(1.0, 0.62, clamp((1.0 - vLum) / 0.38, 0.0, 1.0)));
+  // ── THE STREETLIGHT ON THEM ──────────────────────────────────────────────
+  // A figure under a lamp takes its colour on the side facing it, coloured by what they wear, so
+  // somebody walking past a sign at night is lit by it and dark again beyond it.
+  for (int i = 0; i < 12; i++) {
+    if (i >= uWLN) break;
+    vec3 d = uWLP[i] - vWT;
+    float dist = length(d);
+    float att = clamp(1.0 - dist / max(0.001, uWLR[i]), 0.0, 1.0);
+    if (att <= 0.0) continue;
+    float diff = max(0.0, (dot(n, d / max(0.001, dist)) + 0.4) / 1.4);
+    c += col * uWLC[i] * (att * att * diff * 1.6);
+  }
+  c = mix(c, uFog, vFog);
   outColor = vec4(c * vAlpha, vAlpha);
 }`;
 
@@ -304,7 +329,11 @@ export function createActorLayer(gl) {
     matOn: gl.getUniformLocation(prog, 'uMat'),
     top: gl.getUniformLocation(prog, 'uTop'),
     rest: A('aRest'),
+    dim: gl.getUniformLocation(prog, 'uDim'),
+    wlN: gl.getUniformLocation(prog, 'uWLN'), wlP: gl.getUniformLocation(prog, 'uWLP'),
+    wlC: gl.getUniformLocation(prog, 'uWLC'), wlR: gl.getUniformLocation(prog, 'uWLR'),
   };
+  const wlP = new Float32Array(36), wlC = new Float32Array(36), wlR = new Float32Array(12);
 
   // Each body's mesh and textures go up once, the first time anybody is drawn with it. Index 0 is the
   // close-up body and 1 the far one (actor3d.js bk.far); both play through the one program, and both
@@ -418,6 +447,12 @@ export function createActorLayer(gl) {
     gl.uniformMatrix4fv(loc.view, false, viewMatrix(cam));
     gl.uniform1f(loc.look, ACTOR_LOOK.on ? 1 : 0);
     gl.uniform1f(loc.matOn, ACTOR_LOOK.mat ? 1 : 0);
+    // Set on every draw, on or off: the mirror prepass draws people with no list.
+    const WL = opts.lights || [], nW = Math.min(12, WL.length);
+    for (let i = 0; i < nW; i++) { const L = WL[i]; wlP.set(L.p, i * 3); wlC.set(L.lamp || L.rgb, i * 3); wlR[i] = L.rl || (L.rw == null ? L.r : L.rw); }
+    gl.uniform1i(loc.wlN, nW);
+    gl.uniform1f(loc.dim, opts.nightDim > 0 ? opts.nightDim : 1);
+    if (nW) { gl.uniform3fv(loc.wlP, wlP); gl.uniform3fv(loc.wlC, wlC); gl.uniform1fv(loc.wlR, wlR); }
     gl.uniform1i(loc.posT, POS_UNIT);
     gl.uniform1i(loc.nrmT, NRM_UNIT);
     gl.enable(gl.DEPTH_TEST);

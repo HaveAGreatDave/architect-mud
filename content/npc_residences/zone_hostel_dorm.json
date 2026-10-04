@@ -1,0 +1,5 @@
+{
+  "note": "The warden sleeps in the bottom bunk by the stair.",
+  "npc_id": "npc_hostel_warden",
+  "zone_id": "zone_hostel_dorm"
+}

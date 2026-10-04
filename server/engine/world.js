@@ -390,7 +390,7 @@ const POI_POWER_RE = /coolant|turbine|reactor|powerplant/i;
 const POI_BY_BUILDING = {
   // Somewhere people live. A hotel is in here because the Embassy is a place with rooms
   // that happens to have a bar, not a bar that happens to have rooms.
-  apartment: 'residence', residential: 'residence', hotel: 'residence',
+  apartment: 'residence', residential: 'residence', hotel: 'residence', hostel: 'residence',
   restaurant: 'restaurant', diner: 'restaurant', noodle_bar: 'restaurant',
   // Food you carry out, one hue over from food you sit down to.
   grocery: 'grocery', bodega: 'grocery', butcher: 'grocery',
@@ -411,7 +411,7 @@ const POI_BY_BUILDING = {
   // Fuel is its own class rather than a depot: a driver looking for a tank is not
   // looking for a freight office, and on the map the two are one hue apart.
   fuel_yard: 'fuel', gas_station: 'fuel', fuel_station: 'fuel', charging_station: 'fuel',
-  hangar: 'airfield', control_tower: 'airfield', arrivals: 'airfield',
+  hangar: 'airfield', control_tower: 'airfield', arrivals: 'airfield', departures: 'airfield',
 };
 // Ranked highest-first, and this only decides what a tile inherits from its NEIGHBOURS.
 // A tile's OWN type is not ranked at all — it wins outright (see poiStatic), which is the

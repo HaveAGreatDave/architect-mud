@@ -1081,7 +1081,52 @@ export default async function regress({ run, check, getPlayer }) {
       // ⚠ IT SELLS TO THE WATER ON ITS PYLON SIDE, NOT TO ITS OWN DECK: a hull lies alongside.
       check('…whose pylons face east (derived from a south entrance)', FUEL.fuelSideOf(float) === 'east');
       if (getZone('zone_district_894_901')) check('…and it serves the boat lying east of it', FUEL.fuelServesAt(getZone('zone_district_894_901')));
-      check('…and not a boat parked on top of it', !FUEL.fuelServesAt(float));
+      // ⚠ AND A HULL TIED UP AT THE FLOAT IS AT THE PUMPS. Her `berth_zone` is the float itself, and
+      // this used to answer no, so `fuel` from the deck said there was no pump where she was lying.
+      check('…and the boat moored at it', FUEL.fuelServesAt(float));
+
+      // ── ALONGSIDE IS A BOX BESIDE THE PUMPS, NOT A TILE ──────────────────────────────────────
+      // The deck's pylon face is 0.38 from its middle, so a hull lying against the pumps is on the
+      // float's own tile; the tile rule refused exactly that hull.
+      const box = FUEL.fuelBox(float);
+      check('the fuel float has a berth box', !!box && box.kind === 'fuel', JSON.stringify(box));
+      if (box) {
+        check('…out on the pylon side, along the deck edge',
+          box.x > float.grid_x + 0.38 && Math.abs(box.y - float.grid_y) < 1e-9 && box.hdg % 180 === 0, JSON.stringify(box));
+        check('a hull lying against the pumps is alongside', FUEL.fuelAlongside(float.grid_x + 0.45, float.grid_y)?.id === FLOAT);
+        check('…as is one in the middle of the box', FUEL.fuelAlongside(box.x, box.y)?.id === FLOAT);
+        check('…but not one out on the far side of the next tile', !FUEL.fuelAlongside(float.grid_x + 1.4, float.grid_y));
+        check('…nor one off the end of the deck', !FUEL.fuelAlongside(box.x, float.grid_y + 0.75));
+        check('…nor one on the far side of the float, away from the pumps', !FUEL.fuelAlongside(float.grid_x - 0.55, float.grid_y));
+        // ⚠ THE SEAT SHOWS THIS BOX GREEN, SO EVERY POINT IN IT HAS TO BE ONE THE SERVER FUELS.
+        const h = box.hdg * Math.PI / 180, out = [];
+        for (const [a, r] of [[0, 0], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+          const x = box.x + Math.sin(h) * box.hl * a + Math.cos(h) * box.hw * r;
+          const y = box.y - Math.cos(h) * box.hl * a + Math.sin(h) * box.hw * r;
+          if (FUEL.fuelAlongside(x, y)?.id !== FLOAT) out.push(x.toFixed(2) + ',' + y.toFixed(2));
+        }
+        check('…and every corner of the drawn box is accepted', !out.length, out.join(' '));
+      }
+      // The seat is sent both boxes with its window, and the slot's box sits inside the slot's tile,
+      // which is the server's own test for docking (`coveredRoomAtTile` on the tile under her).
+      const H = await import('./helm.js');
+      const marks = H._test.berthMarksNear(float.grid_x, float.grid_y);
+      check('the window carries the fuel box', marks.some((m) => m.kind === 'fuel' && m.id === FLOAT));
+      const dock = marks.find((m) => m.kind === 'dock');
+      if (getZone('zone_consv_hall')) {
+        check('…and the covered slot\'s box', !!dock && dock.id === 'zone_consv_hall', JSON.stringify(dock));
+        if (dock) {
+          const h = dock.hdg * Math.PI / 180, out = [];
+          for (const [a, r] of [[0, 0], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+            const x = dock.x + Math.sin(h) * dock.hl * a + Math.cos(h) * dock.hw * r;
+            const y = dock.y - Math.cos(h) * dock.hl * a + Math.sin(h) * dock.hw * r;
+            const { surfaceAt } = await import('../flight/state.js');
+            const cell = surfaceAt(Math.round(x), Math.round(y));
+            if (Y.coveredRoomAtTile(cell?.id)?.id !== 'zone_consv_hall') out.push(x.toFixed(2) + ',' + y.toFixed(2));
+          }
+          check('…every corner of which is in the slot', !out.length, out.join(' '));
+        }
+      }
       // ⚠ A PONTOON IS A DECK, NOT WATER, and that is the one property a `terrain: water` tile has
       // to be overridden out of. Without it the pump stands in the Basin: you tread water at your
       // own fuel float, the swim tick bleeds you while you fill up, and `isOpenWater` calls a real

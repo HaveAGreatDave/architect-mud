@@ -20,7 +20,8 @@
  *
  * No engine files are imported in reverse; the only engine touch-points are the
  * generic seams (move gates, events, flags, specialized `use`, the no_attack NPC
- * flag on the attendant, and cosmetic-machine's appearance.changed event).
+ * flag on the attendant, and cosmetic-machine's cosmetic.opened/closed and
+ * appearance.changed events).
  */
 import { randomUUID } from 'crypto';
 import { loggedPanelsSync } from '../../server/engine/presentation.js';
@@ -57,7 +58,7 @@ const KIT = [
 ];
 
 // Flags (player scope, string values via the flag store).
-const F_ALIGNED     = 'prologue_aligned';        // chargen applied at the terminal
+const F_ALIGNED     = 'prologue_aligned';        // brought the terminal up (changing anything is optional)
 const F_INTERFACED  = 'prologue_interfaced';     // touched the holosign (first IP + kit)
 const F_BROADCAST   = 'prologue_broadcast_open';  // holocaster used → broadcast door open
 const F_PLAYED      = 'prologue_broadcast_played';// welcome script has run
@@ -661,42 +662,75 @@ export const specializedActions = [
 ];
 
 // ── Chargen alignment: the attendant "predicts" your answer ───────────────────
-// A single "Apply Changes" click can fire several morphex sub-commands back to
-// back (one per changed attribute), each emitting appearance.changed. emit()
-// doesn't await its subscribers, so without a guard all of them can race past
-// the `isSet` check before the first one's flag write commits — five identical
-// alignment lines. actor._prologueAligning claims the moment SYNCHRONOUSLY
-// (before any await), so whichever invocation runs first wins and every other
-// invocation from the same burst short-circuits immediately.
-on('appearance.changed', async ({ actor }) => {
+// Bringing the terminal up is the whole requirement. Nobody has to change their
+// shape to leave: the body you arrived in is a valid answer, and the attendant
+// predicted that one too. So the north door opens the moment the panel does
+// (cosmetic.opened), and the reaction waits for whichever comes first after
+// that: a change (appearance.changed) or the panel being put down
+// (cosmetic.closed, the client's silent report from the ✕ or the backdrop).
+// It can't ride the open itself, because the panel is a modal and a reaction
+// delivered behind it may as well not have happened. At the `log` rung there is
+// no modal: the sheet printed in the log is the whole visit, so the open is the
+// cue there too.
+async function onTerminalOpened({ actor }) {
   if (!actor || actor.current_zone !== Z_INBETWEEN) return;
+  if (!(await isSet(actor, F_ALIGNED))) await raise(actor, F_ALIGNED);
+  if (loggedPanelsSync(actor)) alignWith(actor, 'looked', 1500);
+}
+on('cosmetic.opened', onTerminalOpened);
+
+// Only after an open: `morphex closed` is a typeable verb, and typing it must not
+// stand in for ever bringing the terminal up.
+on('cosmetic.closed', async ({ actor }) => {
+  if (!actor || actor.current_zone !== Z_INBETWEEN) return;
+  if (await isSet(actor, F_ALIGNED)) alignWith(actor, 'looked');
+});
+
+on('appearance.changed', ({ actor }) => {
+  if (!actor || actor.current_zone !== Z_INBETWEEN) return;
+  alignWith(actor, 'changed');
+});
+
+const ALIGN_OPENERS = {
+  changed: `The terminal goes quiet mid-cycle, as though it has been switched off from somewhere else. The attendant is already looking at you. It started before the machine finished.`,
+  looked:  `You look up from the terminal. The attendant is already looking at you. It started before you did.`,
+};
+
+// A single "Apply Changes" click can fire several morphex sub-commands back to
+// back (one per changed attribute), each emitting appearance.changed, and a ✕
+// can land in the same breath. emit() doesn't await its subscribers, so
+// actor._prologueAligning claims the moment SYNCHRONOUSLY (before any await):
+// whichever caller runs first wins and every other one short-circuits. It's
+// in memory, not a flag, so a player who reconnects in this room and uses the
+// terminal again gets the north exit pointed out again, since a reconnect
+// drops every beacon the client was drawing.
+async function alignWith(actor, how, lead = 0) {
   if (actor._prologueAligning) return;
   actor._prologueAligning = true;
-  if (await isSet(actor, F_ALIGNED)) return;
-  await raise(actor, F_ALIGNED);
+  if (!(await isSet(actor, F_ALIGNED))) await raise(actor, F_ALIGNED);
 
-  // The reaction is IMMEDIATE and it MOVES. The terminal releases you (the panel
-  // is a modal — a reaction delivered behind it may as well not have happened),
-  // the attendant steps aside and motions north, and the exit takes up the
-  // shimmer the terminal just put down. No step of the prologue is ever left
-  // without a lit object in the room pane.
-  setTimeout(() => sendToPlayer(actor.id, { type: 'morphex_close' }), 900);
-  playSoundscript(actor, [{ at: 900, def: SFX.grant, gain: 0.6 }]);
+  // The reaction is IMMEDIATE and it MOVES. After a change the terminal releases
+  // you (the player closed it themselves on the other path), the attendant steps
+  // aside and motions north, and the exit takes up the shimmer the terminal just
+  // put down. No step of the prologue is ever left without a lit object in the
+  // room pane.
+  if (how === 'changed') setTimeout(() => sendToPlayer(actor.id, { type: 'morphex_close' }), 900);
+  playSoundscript(actor, [{ at: lead + 900, def: SFX.grant, gain: 0.6 }]);
 
-  out(actor, `The terminal goes quiet mid-cycle, as though it has been switched off from somewhere else. The attendant is already looking at you. It started before the machine finished.`);
+  setTimeout(() => out(actor, ALIGN_OPENERS[how]), lead);
   setTimeout(() => {
     out(actor, `"Yes," it says. "This is exactly how I predicted you would answer. You're in alignment." It sounds pleased, and completely sure.`);
-  }, 2200);
+  }, lead + 2200);
   setTimeout(() => {
     // The motion forward: a body language beat, not a hint line. The hint rides
     // along behind it because a first-timer still needs the verb spelled out.
     out(actor, `<span class="ambient">Then it does something it hasn't done since I got here: it MOVES. One long chrome arm comes up and unfolds northward, and it steps out of my way, and it holds the gesture like an usher at a door I can't see. There's nowhere else in this room to be.</span> <span class="hint">(go ${teachVerb('north', 'go', 'north')})</span>`);
     setBeacons(actor, [B_NORTH]);
-  }, 5000);
+  }, lead + 5000);
   setTimeout(() => {
     out(actor, `It adds, almost as an afterthought, without lowering the arm: "If that shape isn't the whole of you, there's a word for the rest. Type <b>.describe</b> and whatever you write, others will see when they look at you."`);
-  }, 8600);
-});
+  }, lead + 8600);
+}
 
 // ── The Broadcast: sitting plays the welcome ──────────────────────────────────
 // Guarded by a per-player in-memory cooldown rather than the permanent F_PLAYED
@@ -1439,6 +1473,7 @@ export const _test = {
   coldwaterSkyline, coldwaterShore, speakArrival, readTwocellAdvert, Z_CLONEVAT,
   cmdTabletDone, pointAtAdvert, autoReadAdvert, F_ADVERT, F_ADVERT_READ, F_TABLET,
   NUDGES, NUDGE_DELAYS, NUDGE_TIMERS, armNudge, clearNudge, stepOfBeacon, setBeacons,
+  onTerminalOpened,
 };
 
 console.log('[prologue] Plugin loaded.');

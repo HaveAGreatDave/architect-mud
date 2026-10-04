@@ -86,15 +86,20 @@ export function boatFuelAt(zone) {
 // that arm are the two halves of one decision.
 const CCW = { south: 'east', east: 'north', north: 'west', west: 'south' };
 const STEP = { north: [0, -1], east: [1, 0], south: [0, 1], west: [-1, 0] };
+const BEARING = { north: 0, east: 90, south: 180, west: 270 };
 export function fuelSideOf(zone) {
   const f = zone?.flags;
   if (!f?.boat_fuel || f.building_type !== 'fuel_dock') return null;
   return CCW[f.entrance] || 'east';
 }
+// ⚠ THE FLOAT'S OWN TILE COUNTS AS WELL. A hull tied up at the fuel float has `berth_zone` on the
+// float itself (that is what `disembark` alongside writes), and she is lying against its pumps; the
+// first cut answered false for that tile, so `fuel` told somebody standing on the float that there
+// was no pump where their boat was.
 export function fuelServesAt(zone) {
   const z = zone && zone.flags ? zone : (zone?.id ? getZone(zone.id) : null);
   if (!z) return false;
-  if (z.flags?.boat_fuel && z.flags.building_type !== 'fuel_dock') return true;
+  if (z.flags?.boat_fuel) return true;
   if (!(z.grid_x || z.grid_y)) return false;
   for (const [dir, [sx, sy]] of Object.entries(STEP)) {
     // The neighbour that would have to be pointing back at us lies on the OPPOSITE side.
@@ -103,6 +108,55 @@ export function fuelServesAt(zone) {
     if (n && fuelSideOf(n) === dir) return true;
   }
   return false;
+}
+
+// ── THE BOX A HULL LIES IN ───────────────────────────────────────────────────
+//
+// ⚠ ALONGSIDE IS MEASURED FROM THE PUMPS, NOT READ OFF A TILE. The deck's pylon face is 0.38 of a
+// tile from its middle and the tile boundary is at 0.5, so a hull lying right against the pumps
+// (her centre within a beam of the face, which is where the seat's fender stops her) is on the
+// float's own tile. The tile rule sold fuel only on the NEXT tile, so the one place a skipper
+// would actually stop to fill up was refused, and stopping further out was accepted.
+//
+// So the berth is a box in world tiles: centred `off` out from the deck's middle on the pylon side,
+// its long axis along the deck edge. The seat draws exactly this box (helm.js `berthMarksNear`)
+// and `fuelAlongside` accepts the box plus `SLACK` all round and everything between it and the
+// deck, so a box the seat shows green is one this file accepts.
+export const FUEL_BOX = { off: 0.66, hl: 0.42, hw: 0.26 };
+const SLACK = 0.15;
+
+/** The drawn berth beside a fuel float's pumps, or null for anything that is not one. */
+export function fuelBox(zone) {
+  const side = fuelSideOf(zone);
+  if (!side || !(zone.grid_x || zone.grid_y)) return null;
+  const [nx, ny] = STEP[side];
+  return { kind: 'fuel', id: zone.id, x: zone.grid_x + nx * FUEL_BOX.off, y: zone.grid_y + ny * FUEL_BOX.off,
+    // The long axis runs along the deck edge, a quarter turn off the way the pumps face.
+    hdg: (BEARING[side] + 270) % 360, hl: FUEL_BOX.hl, hw: FUEL_BOX.hw };
+}
+
+/**
+ * The fuel float a hull at world (x, y) is lying alongside, or null.
+ *
+ * ⚠ SYNC AND CHEAP, because `svcTick` asks it four times a second per helmsman: nine `surfaceAt`
+ * reads and arithmetic. An older float of any other building type still serves its own tile.
+ */
+export function fuelAlongside(x, y) {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  const rx = Math.round(x), ry = Math.round(y);
+  // The diagonals too: the slack runs past the half tile along the deck, into the next row.
+  for (const [sx, sy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+    const cell = surfaceAt(rx + sx, ry + sy);
+    const z = cell?.id ? getZone(cell.id) : null;
+    if (!z?.flags?.boat_fuel) continue;
+    const side = fuelSideOf(z);
+    if (!side) { if (!sx && !sy) return z; continue; }
+    const [nx, ny] = STEP[side];
+    const dx = x - z.grid_x, dy = y - z.grid_y;
+    const across = dx * nx + dy * ny, along = Math.abs(dy * nx - dx * ny);
+    if (across >= 0 && across <= FUEL_BOX.off + FUEL_BOX.hw + SLACK && along <= FUEL_BOX.hl + SLACK) return z;
+  }
+  return null;
 }
 
 /**
@@ -207,13 +261,13 @@ registerAction({
 
     // ⚠ UNDER WAY, SHE IS WHERE THE HULL IS, NOT WHERE SHE WAS BERTHED. `berth_zone` is the slot she
     // came out of, so a helmsman who brought her alongside the float was told there was no pump —
-    // at the pump. The live position answers it, and she has to have stopped: nobody fuels a boat
-    // going past the float at forty.
-    const { livePosition, zoneUnder } = await import('./adrift.js');
+    // at the pump. The live position answers it, against the box (`fuelAlongside`) rather than a
+    // tile, and she has to have stopped: nobody fuels a boat going past the float at forty.
+    const { livePosition } = await import('./adrift.js');
     const live = seated ? livePosition(player.id) : null;
     if (live && live.speed > 2) return say(`<span class="text-dim">Bring ${name} to a stop alongside first.</span>`);
-    const where = live ? zoneUnder(live.x, live.y) : (boat.berth_zone ? getZone(boat.berth_zone) : null);
-    if (!fuelServesAt(where)) {
+    const atPump = live ? !!fuelAlongside(live.x, live.y) : fuelServesAt(boat.berth_zone ? getZone(boat.berth_zone) : null);
+    if (!atPump) {
       // ⚠ A DRY HULL GETS TOLD THE WAY OUT. "Bring her alongside the fuel float" is a fine
       // instruction to somebody with fuel and a useless one to somebody with none, and this is the
       // verb they will reach for first when the engine stops — so it is the one place `tow` has to
@@ -267,4 +321,4 @@ export function fuelPrices(zone) {
   };
 }
 
-export const _test = { tankPrice, boatFuelAt, fuelClamp, FUEL_PER_UNIT };
+export const _test = { tankPrice, boatFuelAt, fuelClamp, FUEL_PER_UNIT, fuelBox, fuelAlongside, FUEL_BOX, SLACK };

@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The south mouth of the lock, where the Glacis road goes under a roof. A gantry hung from the first frame reads Weigh Lane Left in amber, and the ramp to the scales peels off west under the same roof. Past the mouth is open waste.",
+  "description": "The south mouth of the lock, where the Glacis road goes under a chrome roof. A board on the roof reads Welcome to Coldwater Basin under a lit eye. Over the mouth a red arrow points west: All Trucks, Scales. Past the mouth is open waste.",
   "exits": {
     "east": "zone_district_912_922",
     "north": "zone_district_911_921",
@@ -21,7 +21,15 @@
       "name": "the Outer Lock",
       "k": "shed",
       "gate": "zone_district_911_919",
-      "seg": 2
+      "seg": 2,
+      "sign": {
+        "lines": [
+          "Welcome to",
+          "Coldwater Basin"
+        ],
+        "back": "Now leaving Coldwater Basin",
+        "eye": true
+      }
     }
   },
   "grid_x": 911,

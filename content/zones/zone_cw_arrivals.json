@@ -2,19 +2,28 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#5f6f7a",
-  "description": "Arrivals. One baggage belt, stopped. A row of bolted chairs, a vending machine selling one flavour of everything, and a dead flight board that nobody has bothered to take down. The floor is polished enough to show you the neon on the ceiling.",
+  "description": "A long hall with the apron on the other side of a wall of glass. The arrivals desk faces the doors under the arrivals board, and a row of bolted chairs runs along the window. The terrazzo is polished enough to show the neon in the ceiling. Baggage reclaim is west, check-in south, the apron east.",
   "exits": {
-    "east": "zone_district_924_902"
+    "down": "zone_util_zone_cw_arrivals",
+    "east": "zone_district_924_902",
+    "south": "zone_cw_checkin",
+    "west": "zone_cw_baggage"
   },
   "flags": {
-    "floor": "concrete",
-    "is_interior": true
+    "floor": "tile",
+    "is_interior": true,
+    "window": {
+      "description": "Floor-to-ceiling glass onto the apron and the runway past it. Whatever is taxiing, you see it here first.",
+      "light": 0.8,
+      "name": "the window wall",
+      "visibility": 0.9
+    }
   },
   "grid_x": 0,
   "grid_y": 0,
   "grid_z": 0,
   "id": "zone_cw_arrivals",
   "map_id": "map_int_cw_arrivals",
-  "name": "Coldwater Regional Airport",
+  "name": "Arrivals Hall",
   "parent_zone": "zone_district_924_902"
 }

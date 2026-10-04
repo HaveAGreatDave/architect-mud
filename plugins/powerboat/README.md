@@ -3,8 +3,60 @@
 **STATUS: BUILT.** The physics, the hull, the wreck, the boatyard, the seat on both Display Mode
 rungs, and the yard as a screen.
 
-A blown picklefork race boat you drive on the water. The water half of THE LONG HAUL, and built to
-its shape on purpose — with one deliberate exception, which is the interesting part.
+Three race boats you drive on the water (see [The line](#the-line)). The water half of THE LONG HAUL,
+and built to its shape on purpose — with one deliberate exception, which is the interesting part.
+
+## The line
+
+Three hulls from one yard, each a different boat rather than the last one with bigger numbers. The
+rows are in `flight-model.js` (`TYPES`, filtered by `water`), the meshes in
+`content/vehicle_models/boat_<id>.json`.
+
+| Hull | Price | What she is | What she trades |
+| --- | --- | --- | --- |
+| Vaskin Rooster (`hydro`) | 14,500₵ | deep-V, pilothouse, a blown V8 open in the well on a surface drive | the baseline |
+| Vaskin Spur (`spur`) | 26,800₵ | stepped deep-V, 16.6 m, four outboards on a bracket, hardtop, a bench aft | quicker, slides further in a corner, thirstier per tank but a bigger tank |
+| Vaskin Gamecock (`gamecock`) | 52,000₵ | offshore tunnel cat, fighter canopy, two blown inboards under hatches, a wing | fastest, corners flat, leaves the water off any swell, rudder dies at speed |
+
+⚠ **A hull is a row and a file, and almost nothing else.** The renderer's per-class tables
+(`CONTACT_SIZE`, the chase multiplier, the part sort, the seat attitude, the Modelshop subjects) all
+derive from the boat rows, so a fourth hull is a `TYPES` row, a mesh file, `VEHICLE_IDS.boat` and
+`LIVERY_MODELS.boat`, and a sell and a hire node in both clerks' trees. `npm run vehicles:bake` after
+the mesh file.
+
+⚠ **Every hull is in the hydro's units and the hydro's metre.** A bigger boat is a bigger `len`, never a
+bigger `CONTACT_SIZE`; and a second row states `mPerUnit` (the hydro's figure) so its eye height falls
+out of where its seat is (`client/shared/boat-house.js`). `scripts/shapes/shell.mjs` holds every hull's
+room inside its own house and every metre to the hydro's.
+
+⚠ **`burn`** on a row scales what a running motor drinks against the Rooster (absent is 1), on both
+rungs. `tank` is still only the price of a fill.
+
+## The ride the picture shows
+
+The sim poses her by the sea at a point, which is right for the hull it integrates: `hullLen`, a
+fiftieth of the swell. Nobody sees that hull. The chase camera draws her about 0.4 tiles long and the
+helm seats you in her at full size, about two tiles, and the drawn chop is about a tile long. Posed by
+her centre, from the helm the sea stood over her deck up to 8% of the time running across a 20-30 kt
+sea, over a metre of it at worst.
+
+So the picture is posed by `stepBoatRide` (`flight-model.js`): a plane through the drawn sea (swell,
+wind sea and chop) at fifteen points over her footprint at that view's size, smoothed by her inertia,
+bow-up a few degrees on the plane and set by the tabs. In the air the sim's attitude takes over, held
+to the angle the air under her allows, so a jump does not swing her transom through the water she has
+just left. The physics is untouched: launches and slams still come off the sim.
+
+⚠ **`bank` is starboard DOWN and the sim's roll is starboard UP.** Both the seat and the contact feed
+negate it. Handed over unsigned, every boat leaned into the water rising beside her.
+
+⚠ **The green-water sheet is at her deck, and that was most of the "waves wash over her" report.**
+`ownHullWash` in windshield.js whitened the water over her plan once it rose a few centimetres over
+her KEEL, which ordinary chop does all the time: the sheet was up on 53-68% of frames at 10-30 kt
+while the sea reached her deck on 0-2.4% of them.
+
+`scripts/shapes/boatride.mjs` drives the real sim and the real ride through 20 and 30 kt on five
+headings for every hull and fails a view that has the sea over her deck more than 3% of the time, or
+a lean that runs against the water under her.
 
 ## The shape it borrows
 
@@ -137,10 +189,16 @@ about four minutes long.
 [fuel.js](fuel.js) is the pump. `boat_fuel` on a tile is one, and Fairweather's is the **fuel
 berth** (`zone_district_893_901`, `building_type: fuel_dock`): a floating deck moored against the
 slab's north face, where the channel out of the covered dock turns into open basin, so every hull
-leaving or coming home passes it. ⚠ **It serves the water tile on its pylon side, not its own deck**
-(`fuelServesAt`): a hull lies alongside. The side is derived from the entrance, 90° counter-clockwise
-(`fuelSideOf`; a south entrance puts the pylons east), because the GLASS arm draws them on its local
-+X by the same rule and a shared mesh cannot read a per-tile flag. The visitor pontoon west of it
+leaving or coming home passes it. ⚠ **A hull under way fuels in a box beside the pumps, not on a
+tile** (`fuelBox`, `fuelAlongside`). The deck's pylon face is 0.38 of a tile from its middle, so a
+hull lying against the pumps is on the float's own tile; the first rule sold fuel only on the next
+tile over, which refused the one place a skipper would stop and accepted stopping further out. The
+box is centred 0.66 out from the deck on the pylon side, and the server accepts it plus a margin, so
+a box the seat shows green is one it fuels (regress checks every corner). A hull moored at the float
+(`berth_zone` on the float itself) is at the pumps too (`fuelServesAt`). The side is derived from the
+entrance, 90° counter-clockwise (`fuelSideOf`; a south entrance puts the pylons east), because the
+GLASS arm draws them on its local +X by the same rule and a shared mesh cannot read a per-tile flag.
+The visitor pontoon west of it
 (`zone_district_892_901`, once the fuel float) was the game's first `marina_berths`, a flag the yard has
 read since the day it was written and no content had ever carried.
 
@@ -316,10 +374,11 @@ for the same thing.
 
 ⚠ **No `fitRef`, and that is a decision with a date on it.** `fitRef` is what keeps a *line* of
 vehicles a line — fit each mesh to its own frame and the cheapest hull draws exactly as big as the
-flagship, so the tier ladder vanishes. There is one hull, so there is no ladder to flatten. It
-cannot simply be switched on when a second one ships either: `fitRef` is spent as a **variant**, and
-`aircraftFaces` dispatches a boat on its **class** (`boatShape(cls) ? buildBoat(cls)`), so a boat
-family needs a reference *class* and `wireframe-plane.js` has nowhere to put one yet.
+flagship, so the tier ladder vanishes. There are three hulls now and each card is still fitted to its
+own frame, so the Spur, 16.6 m, draws the same size as the 14.2 m Gamecock. It cannot simply be
+switched on: `fitRef` is spent as a **variant**, and `aircraftFaces` dispatches a boat on its
+**class** (`boatShape(cls) ? buildBoat(cls)`), so a boat family needs a reference *class* and
+`wireframe-plane.js` has nowhere to put one yet. The price and the blurb carry the ladder meanwhile.
 
 ⚠ **And the card says what she leaves the shed with.** She has always been sold brimmed — the insert
 writes `fuel, condition` as `1, 1` — and until fuel could be *spent* that was a detail nobody could
@@ -426,11 +485,22 @@ slot lifts her back into the hall (adrift.js `intoTheShed`) rather than leaving 
 own shed.
 
 **The seat's overlay** (marina-panel.js service mode). In the covered slot it is the shipwright:
-the hull, servicing, paint, a decal and her name (`refit service|paint|decal|name`). Stopped at the
-fuel float it is the pump, and `BOAT_FUEL` now checks the live position rather than the berth she
-came out of. `svcTick` opens and closes the overlay on transitions only. `applyLive` pushes every
-change into `rigs` and the seat, because the telemetry's one-way clamp would otherwise undo a
-repair.
+the hull, servicing, paint, a decal and her name (`refit service|paint|decal|name`), and **Dock her**,
+which is `disembark` and so `intoTheShed`. Stopped in the fuel box it is the pump, and `BOAT_FUEL`
+checks the live position against the box rather than the berth she came out of. `svcTick` opens and
+closes the overlay on transitions only. `applyLive` pushes every change into `rigs` and the seat,
+because the telemetry's one-way clamp would otherwise undo a repair.
+
+**The boxes on the water.** The helm's payload and every fresh window carry `marks`
+(helm.js `berthMarksNear`): the box beside each fuel float's pumps and the box in each covered slot,
+as a centre, a bearing and two half extents in world tiles. Within 4.5 tiles of one the seat draws it
+on the water ([glass/berth-marks.js](../../client/game/js/panels/glass/berth-marks.js), from
+`drawWorldObjects` with the sinks open, so the pilothouse hides it) and puts a line on the glass
+saying what it is: amber for the pumps, cyan for the slot, green once she is stopped inside. Stopped
+inside, the line carries the act as a button and as **P** (the cab's park key): `fuel` at the pumps,
+`disembark` in the slot. The seat decides nothing; the server's tests are the box or larger (the fuel
+box plus a margin, the slot's whole tile), so green always means the server will act. The line hides
+while the marina's overlay is open, since that carries the same button, and P still works.
 
 **The window follows her.** `cmdBoatSync` now streams a fresh map once she is eight tiles from the
 last one. The seat's comment had always expected this, and nothing sent it, so past 33 tiles the

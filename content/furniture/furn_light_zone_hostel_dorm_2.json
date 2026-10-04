@@ -1,0 +1,14 @@
+{
+  "description": "A fluorescent tube cable-tied along the container roof. It takes a while to decide to come on.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_hostel_dorm_2",
+  "light_type": "overhead",
+  "lumen_output": 1500,
+  "name": "strip light",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_hostel_dorm_2"
+}

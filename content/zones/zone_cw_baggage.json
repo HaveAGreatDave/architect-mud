@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#5f6f7a",
+  "description": "A low room built round one baggage carousel, its rubber slats worn grey. A sign over the hatch asks you to let your bags come to you. Trolleys stand chained in a rack by the wall, and the lost-property window has its blind down. The arrivals hall is east.",
+  "exits": {
+    "east": "zone_cw_arrivals"
+  },
+  "flags": {
+    "floor": "tile",
+    "is_interior": true
+  },
+  "grid_x": -1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_cw_baggage",
+  "map_id": "map_int_cw_arrivals",
+  "name": "Baggage Reclaim",
+  "parent_zone": "zone_district_924_902"
+}

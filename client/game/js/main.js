@@ -910,6 +910,11 @@ function wireDpadPressRelease(container) {
 	container.addEventListener("pointercancel", (e) => end(e, false));
 }
 
+// The go-home corner button on both pads. A plain click, not press-release: it
+// isn't a direction and has no exit to light up.
+for (const b of document.querySelectorAll(".dpad-home-btn[data-home-cmd]"))
+	b.addEventListener("click", () => sendCmd(b.dataset.homeCmd));
+
 // Mobile dpad — send movement commands without opening the keyboard
 wireDpadPressRelease(document.getElementById("mob-dpad"));
 

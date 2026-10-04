@@ -21,7 +21,7 @@
 // `client/game/flightsim-world.json` is the same baked snapshot `__street` reads.
 import { readFileSync } from 'node:fs';
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
-import { SPECIES, spOf, perchedNow, perchesHigh, flockSize, flockAt, flockState, speciesAt, placeOf, habitatState, U_GROUND, GOOSE_SETTLE_MS, BIRD_M_PER_TILE } from '../../client/shared/birds.js';
+import { SPECIES, spOf, falconStoop, perchedNow, perchesHigh, flockSize, flockAt, flockState, speciesAt, placeOf, habitatState, U_GROUND, GOOSE_SETTLE_MS, BIRD_M_PER_TILE } from '../../client/shared/birds.js';
 import { FAUNA_TILE, faunaRecordFaces, faunaScale } from '../../client/game/js/panels/fauna3d.js';
 import { BIRD_ROWS } from '../../client/shared/fauna-models.js';
 
@@ -36,6 +36,12 @@ if (process.env.NO_POLES) RT.wirePoles = 0;
 // genuinely broken ledge search. It said exactly that the day the LOD landed: 23 standing birds
 // and not one up on anything, on a build whose ledges were fine.
 RT.faunaDot = 0;
+// ⚠ AND SO IS THE FAR-BIRD MAGNIFIER, because the mesh check below measures how WIDE each bird is drawn.
+// `faunaMinPx` draws a bird under a couple of pixels bigger than it is, so a far starling measured beside a
+// near peregrine read 2.8 spans wide against the peregrine's 0.54 and failed as "the wrong mesh". It did
+// that the day starlings started coming down on a lawn a few tiles off their road anchor (landSite), which
+// put a flock six tiles from this camera; with the magnifier off the same birds read 1.07.
+RT.faunaMinPx = 0;
 
 const world = JSON.parse(readFileSync('client/game/flightsim-world.json', 'utf8'));
 const cells = world.cells;
@@ -766,7 +772,7 @@ try {
 // So: a perched hunter whose ledge is well away from its anchor, and a camera past the ledge,
 // inside the species' draw range of the bird and outside it of the anchor. Measure from the anchor
 // again and the bird is not in the frame; read the anchor again and H points at the ground.
-let spotNote = '';
+let spotNote = '', diveNote = '';
 {
   const DENS7 = 1, R7 = 18, T0 = 1.7e12;
   const bare7 = { kind: 'land' };
@@ -843,6 +849,75 @@ let spotNote = '';
       RT.geese = held7.geese; RT.gl = held7.gl; RT.glFloor = held7.floor; RT.faunaDot = held7.dot;
     }
   }
+
+  // ── AND WHERE IT IS WHILE IT STOOPS ────────────────────────────────────────
+  // freelook's follow camera sits about 6 m off the bird and is placed from raptorsNow every frame,
+  // so the finder has to report where the bird is DRAWN rather than the cull's hunterSpot. The two
+  // differ most in a stoop, so this paints a peregrine half way down a dive and asks both.
+  let dive = null;
+  for (const [k, c] of Object.entries(cells)) {
+    if (dive) break;
+    if (c.bt || !c.biome) continue;
+    const [wx, wy] = k.split(',').map(Number);
+    if (speciesAt(placeAt7(wx, wy), wx, wy, { road: !!c.road, airfield: c.kind === 'field' }) !== 'peregrine') continue;
+    const fl = flockAt(wx, wy, DENS7, 'peregrine');
+    if (!fl) continue;
+    // Its prey, rolled the way the draw rolls every flock in reach.
+    const near = [];
+    for (let dy = -9; dy <= 9; dy++) for (let dx = -9; dx <= 9; dx++) {
+      const n = cells[(wx + dx) + ',' + (wy + dy)];
+      if (!n || n.bt || !n.biome) continue;
+      const sp = speciesAt(placeAt7(wx + dx, wy + dy), wx + dx, wy + dy, { road: !!n.road, airfield: n.kind === 'field' });
+      const f = sp && SPECIES[sp]?.preyable ? flockAt(wx + dx, wy + dy, DENS7, sp) : null;
+      if (f) near.push(f);
+    }
+    if (!near.length) continue;
+    for (let t = T0; t < T0 + 6 * 3600e3 && !dive; t += 1000) {
+      const s = falconStoop(fl, t, near);
+      if (s) dive = { fl, s, t: s.at + 500 };   // half way down: the dive is FALCON_DIVE_S, 1 s
+    }
+  }
+  if (!dive) problems.push('no peregrine in the city stoops within six hours — the dive check has nothing to look at');
+  else {
+    const { fl, s, t } = dive;
+    const id = 'peregrine:' + fl.ax + ',' + fl.ay;
+    const p0 = ws.hunterSpot(win7(fl.ax, fl.ay), R7, fl.ax, fl.ay, fl, t, null);
+    // Half way down the bird is half way to its prey. The camera stands three tiles off that point,
+    // square to the line of the dive, looking at it.
+    const mx = (p0[0] + s.x) / 2, my = (p0[1] + s.y) / 2, L = Math.hypot(s.x - p0[0], s.y - p0[1]) || 1;
+    const cx = Math.round(mx - (s.y - p0[1]) / L * 3), cy = Math.round(my + (s.x - p0[0]) / L * 3);
+    const held8 = { geese: RT.geese, gl: RT.gl, floor: RT.glFloor, dot: RT.faunaDot };
+    try {
+      RT.geese = DENS7; RT.gl = 1; RT.glFloor = 1; RT.faunaDot = 0;
+      Date.now = () => t;
+      stubCanvas('__dive', 480, 300);
+      const cv = globalThis.document.createElement('canvas'); cv.width = 480; cv.height = 300;
+      let recs = [];
+      ws.installGLWorld((glCells, cam, o) => { recs = o.fauna || []; return { faces: 1, canvas: cv }; });
+      const view = { cls: 'truck', phase: 'cruise', worldBlend: 1, height: 0, eyeH: 0.3, speed: 0, hour: 12, weather: 'clear',
+        heading: Math.atan2(mx - cx, -(my - cy)) * 180 / Math.PI, map: win7(cx, cy),
+        mapCenter: { x: cx, y: cy }, mapOffset: { x: 0, y: 0 }, resFloor: 1, tune: { gl: 1, perfDS: 0 } };
+      ws.paintWindshield('__dive', view);
+      ws.paintWindshield('__dive', view);
+      ws.installGLWorld(null);
+      const rep = ws.raptorsNow(t, id)[0];
+      const drawn = rep && recs.filter((r) => r.sp === 'peregrine')
+        .map((r) => ({ r, d: Math.hypot(r.x + cx - rep.x, r.y + cy - rep.y, r.z - rep.z) })).sort((a, b) => a.d - b.d)[0];
+      if (!rep) problems.push(`raptorsNow does not report the stooping peregrine ${id} at all`);
+      else if (!drawn) problems.push(`the stooping peregrine ${id} was not drawn from ${cx},${cy}, so its dive cannot be compared`);
+      else {
+        const off = Math.hypot(rep.x - p0[0], rep.y - p0[1], rep.z - p0[2]);
+        if (drawn.d > 0.01) problems.push(`mid-stoop, raptorsNow puts the peregrine ${drawn.d.toFixed(3)} tiles from where it is drawn — the follow camera would lose it`);
+        if (off < 0.1) problems.push(`the peregrine is not diving at ${t} (${off.toFixed(3)} tiles off its circuit), so the stoop check proves nothing`);
+        else diveNote = `a peregrine half way down a stoop is drawn ${off.toFixed(2)} tiles off its circuit, and raptorsNow reports it within ${drawn.d.toExponential(1)} tiles of the drawn bird.`;
+      }
+    } catch (e) {
+      problems.push(`the stoop check threw — ${e.message}`);
+    } finally {
+      Date.now = realNow;
+      RT.geese = held8.geese; RT.gl = held8.gl; RT.glFloor = held8.floor; RT.faunaDot = held8.dot;
+    }
+  }
 }
 
 if (problems.length) {
@@ -858,6 +933,7 @@ console.log(`  · the highest thing to stand on in the city is ${tallest.toFixed
 console.log(`  · ${perchers.join(', ')} perch and a goose never does; a hunter took a real edge in its upper band on all ${placed} streets tried, and no flock was crowded onto a small one.`);
 console.log(`  · the badlands offer ${wildCount} hoodoo tops on ${wildTiles} tiles — caprocks, shears and stumps, never a spire tip.`);
 if (spotNote) console.log('  · ' + spotNote);
+if (diveNote) console.log('  · ' + diveNote);
 if (poleNote) console.log('  · ' + poleNote);
 for (const n of notesPole) console.log('  · ' + n);
 console.log(`  · rendered: ${e2eUp} birds standing on a building and ${e2eDown} on the deck (${e2eSite}), and the flag puts every one of them back down.`);

@@ -2,7 +2,7 @@
 //
 // The figure `drawActorFigure` draws on the pavement is a head on a body, which is right at a few
 // pixels and reads as a placeholder once somebody is close. This module is the close-up figure: one
-// skinned body (coat, trousers, shoes, hands, a face) on a 17-bone skeleton, three looping clips
+// skinned body (coat, trousers, shoes, hands, a face) on a 19-bone skeleton, three looping clips
 // (walk, idle, wave), and a bake that skins every vertex for every frame once and returns the result
 // as texture data. gl/actors.js draws it the way gl/fauna.js draws the birds: two rows of the pose
 // texture picked by gl_VertexID and blended, one instanced draw for everybody.
@@ -50,6 +50,10 @@ const BONES = [
   ['thighR', 0, [-0.095, -0.03, 0]],
   ['shinR', 14, [0, -0.43, 0]],
   ['footR', 15, [0, -0.41, 0]],
+  // The ball of each foot, so the heel can lift while the toes stay down. Last, so no other bone's
+  // index moves.
+  ['toeL', 13, [0, -0.06, 0.095]],
+  ['toeR', 16, [0, -0.06, 0.095]],
 ];
 export const ACTOR_BONES = BONES.length;
 const B = {};
@@ -218,7 +222,9 @@ function buildBody(lod = 0) {
       { y: 0.49, a: B['thigh' + L], b: B['shin' + L], h: 0.04 },
       { y: 0.095, a: B['shin' + L], b: B['foot' + L], h: 0.02 },
     ]), LEGS);
-    ell([lx, 0.052, 0.045], [0.048, 0.052, 0.122], 12, 7, rigid(B['foot' + L]), SHOE, flatSole);
+    // The shoe bends at the ball: behind it rides the foot, in front the toes.
+    const toeW = (x, y, z) => [B['foot' + L], B['toe' + L], 1 - smooth(0.072, 0.118, z)];
+    ell([lx, 0.052, 0.045], [0.048, 0.052, 0.122], 20, 7, toeW, SHOE, flatSole);
   }
   return M;
 }
@@ -228,19 +234,22 @@ function buildBody(lod = 0) {
 function bump(q, c, w) { let d = q - c; d -= Math.round(d); return Math.exp(-0.5 * (d / w) * (d / w)); }
 
 // The walk: sagittal joint curves shaped after clinical gait data. Right heel strike at 0, left at 0.5.
-// The hip flexes 30° at heel strike and extends 10° at toe-off; the knee has its small loading bend
-// and its big swing bend (about 60° at 72%); the ankle rolls, pushes off hard at 62%, then clears.
+// The hip flexes 30° at heel strike and extends 12° at toe-off, peaking in late swing; the knee has
+// its small loading bend and its big swing bend (about 60° at 72%); the ankle rolls, the heel comes
+// up from 40% while the toes bend at the ball and stay down, it pushes off at 62%, then clears. Each
+// leg turns out a few degrees and lands a little inside the hip, so the feet fall about 12 cm apart
+// rather than hip-width.
 function walkPose(p) {
   const P = newPose();
-  const leg = (q, s) => {
-    const hip = 10 + 20 * Math.cos(TAU * q) + 2 * Math.sin(2 * TAU * q);
+  const leg = (q, s, side) => {
+    const hip = 9 + 21 * Math.cos(TAU * (q - 0.03)) + 2.5 * Math.sin(2 * TAU * q);
     const knee = 4 + 14 * bump(q, 0.13, 0.06) + 58 * bump(q, 0.72, 0.11);
-    const ank = -6 * bump(q, 0.06, 0.035) + 10 * bump(q, 0.42, 0.10) - 22 * bump(q, 0.62, 0.05) + 4 * bump(q, 0.82, 0.08);
-    setR(P, 'thigh' + s, -hip * DEG, 0, 0);
+    const ank = -6 * bump(q, 0.05, 0.035) + 11 * bump(q, 0.4, 0.11) - 20 * bump(q, 0.62, 0.055) + 4 * bump(q, 0.82, 0.08);
+    setR(P, 'thigh' + s, -hip * DEG, side * 6 * DEG, -side * 2 * DEG);
     setR(P, 'shin' + s, knee * DEG, 0, 0);
     setR(P, 'foot' + s, -ank * DEG, 0, 0);
   };
-  leg(p, 'R'); leg((p + 0.5) % 1, 'L');
+  leg(p, 'R', -1); leg((p + 0.5) % 1, 'L', 1);
   const c = Math.cos(TAU * p), s = Math.sin(TAU * p);
   // The pelvis turns toward the swinging leg, drops on the swing side and shifts over the stance foot.
   setR(P, 'pelvis', 2 * DEG, 5 * DEG * c, -4 * DEG * s);
@@ -250,13 +259,28 @@ function walkPose(p) {
   setR(P, 'chest', 1 * DEG, -4 * DEG * c, 1 * DEG * s);
   setR(P, 'neck', -1 * DEG, 1.5 * DEG * c, 0);
   setR(P, 'head', -1.5 * DEG + 1.2 * DEG * Math.cos(2 * TAU * p), 1.5 * DEG * c, -0.5 * DEG * s);
-  // The arms swing against the legs: the right arm comes forward with the left leg.
-  setR(P, 'uarmR', -(3 - 17 * c) * DEG, 0, -0.10);
-  setR(P, 'uarmL', -(3 + 17 * c) * DEG, 0, 0.10);
-  setR(P, 'farmR', -(16 + 14 * (0.5 - 0.5 * c)) * DEG, 0, 0);
-  setR(P, 'farmL', -(16 + 14 * (0.5 + 0.5 * c)) * DEG, 0, 0);
-  setR(P, 'handR', -8 * DEG, 0, 0);
-  setR(P, 'handL', -8 * DEG, 0, 0);
+  // The arms swing against the legs: the right arm comes forward with the left leg. They hang from
+  // the shoulder and lag the legs a little; the forearm lags the upper arm, the hand lags the
+  // forearm, and both swing a touch across the body.
+  const ca = Math.cos(TAU * (p - 0.05)), ce = Math.cos(TAU * (p - 0.12)), sh = Math.sin(TAU * (p - 0.1));
+  setR(P, 'uarmR', -(4 - 18 * ca) * DEG, 4 * DEG, -0.10);
+  setR(P, 'uarmL', -(4 + 18 * ca) * DEG, -4 * DEG, 0.10);
+  setR(P, 'farmR', -(14 + 18 * (0.5 - 0.5 * ce)) * DEG, 0, 0);
+  setR(P, 'farmL', -(14 + 18 * (0.5 + 0.5 * ce)) * DEG, 0, 0);
+  setR(P, 'handR', (-8 - 7 * sh) * DEG, 0, 0);
+  setR(P, 'handL', (-8 + 7 * sh) * DEG, 0, 0);
+  // The toes. Through late stance the ball of the foot bends by exactly as much as the heel has come
+  // up, so the toes lie flat on the ground and stay where they are. Once the other heel is down
+  // (double support, from 50%) they let go and the foot rolls off over its tip: with both feet
+  // down, flat toes behind can't stay still against the heel in front, and they scrub. After toe-off
+  // they come back straight, and they lift a little to meet the ground at heel strike.
+  const W = fk(P);
+  for (const [s, q] of [['R', p], ['L', (p + 0.5) % 1]]) {
+    const m = W[B['foot' + s]];
+    const pitch = Math.atan2(m[9], Math.hypot(m[8], m[10]));
+    const flat = Math.max(0, -pitch) * smooth(0.26, 0.34, q) * (1 - smooth(0.48, 0.6, q));
+    setR(P, 'toe' + s, -(flat + 6 * DEG * bump(q, 0.97, 0.05)), 0, 0);
+  }
   return P;
 }
 
@@ -294,12 +318,119 @@ function wavePose(p) {
   return P;
 }
 
+// ── Standing about with somebody, or with nothing to do. glass/street-life.js picks between these. ──
+// Each starts from idle's legs and hips held near one phase, so the stance is the same person's, and
+// re-poses the arms and head. The arm rotations are the walk's conventions: flexion about X is
+// negative forward, the right arm's abduction is negative outward and the left's positive, and a
+// twist about the upper arm's own Y turns the forearm across the body (positive for the right arm).
+const ARMS = ['neck', 'head', 'uarmR', 'farmR', 'handR', 'uarmL', 'farmL', 'handL'];
+function stance(p) {
+  const P = idlePose(0.25 + 0.06 * Math.sin(TAU * p));
+  for (const b of ARMS) zeroR(P, b);
+  return P;
+}
+
+// Talking: the right hand does most of it, opening out on three beats a cycle, the left joins on
+// the second, and the head nods on each and turns between the listeners.
+function talkPose(p) {
+  const P = stance(p);
+  const beat = bump(p, 0.18, 0.06) + bump(p, 0.52, 0.05) + bump(p, 0.80, 0.07);
+  const g = Math.sin(2 * TAU * p);
+  setR(P, 'uarmR', (-16 - 10 * beat) * DEG, 14 * DEG, -0.14 - 0.10 * beat);
+  setR(P, 'farmR', (-66 - 16 * g) * DEG, 0, 0);
+  setR(P, 'handR', -12 * DEG, 0, (-8 - 18 * beat) * DEG);
+  const two = bump(p, 0.52, 0.09);
+  setR(P, 'uarmL', (-8 - 10 * two) * DEG, -10 * DEG, 0.09 + 0.06 * two);
+  setR(P, 'farmL', (-30 - 34 * two - 5 * Math.sin(3 * TAU * p + 1.1)) * DEG, 0, 0);
+  setR(P, 'handL', -8 * DEG, 0, 10 * two * DEG);
+  setR(P, 'chest', 2.5 * beat * DEG, 3 * DEG * Math.sin(TAU * p), 0);
+  setR(P, 'neck', 0, 7 * DEG * Math.sin(TAU * p), 0);
+  setR(P, 'head', (2 + 6 * beat) * DEG, 9 * DEG * Math.sin(TAU * p + 0.6), 2.5 * DEG * g);
+  return P;
+}
+
+// The arm angles in the next four were solved rather than eyeballed: a random search over each arm's
+// four angles for a hand position (and an elbow position, so the elbows stay near the body), with the
+// forearm kept clear of the coat and, folded, of the other forearm, and the upper arm's twist held
+// under about 80°, past which the shoulder of the coat shows a corner. Hence the odd decimals.
+
+// Listening: hands loosely together at the belt, weight shifting, a nod now and then.
+function listenPose(p) {
+  const P = idlePose(p);
+  for (const b of ARMS) zeroR(P, b);
+  const nod = bump(p, 0.30, 0.04) + 0.7 * bump(p, 0.37, 0.035) + bump(p, 0.78, 0.05);
+  setR(P, 'uarmR', -10.4 * DEG, 59.7 * DEG, -0.171);
+  setR(P, 'farmR', -68.5 * DEG, 0, 0);
+  setR(P, 'handR', -10 * DEG, 0, 0);
+  setR(P, 'uarmL', -15.2 * DEG, -64.4 * DEG, 0.168);
+  setR(P, 'farmL', -63.3 * DEG, 0, 0);
+  setR(P, 'handL', -10 * DEG, 0, 0);
+  setR(P, 'neck', 2 * DEG, 4 * DEG * Math.sin(TAU * p), 0);
+  setR(P, 'head', (3 + 9 * nod) * DEG, 6 * DEG * Math.sin(TAU * p + 2.0), -3 * DEG * Math.sin(TAU * p));
+  return P;
+}
+
+// Waiting: arms folded, the left over the right, looking up and down the street.
+function waitPose(p) {
+  const P = stance(p);
+  setR(P, 'uarmR', -26.2 * DEG, 80.0 * DEG, 0.043);
+  setR(P, 'farmR', -74.0 * DEG, 0, 0);
+  setR(P, 'uarmL', -39.2 * DEG, -77.7 * DEG, -0.019);
+  setR(P, 'farmL', -88.9 * DEG, 0, 0);
+  setR(P, 'handR', 0, 0, 8 * DEG);
+  setR(P, 'handL', 0, 0, -8 * DEG);
+  const look = Math.sin(TAU * p);
+  setR(P, 'neck', 0, 10 * DEG * look, 0);
+  setR(P, 'head', 1 * DEG, 24 * DEG * look + 4 * DEG * Math.sin(2 * TAU * p), 0);
+  return P;
+}
+
+// On the phone: both hands up in front of the chest, head down, glancing up once a cycle.
+function phonePose(p) {
+  const P = stance(p);
+  const up = bump(p, 0.70, 0.07);
+  setR(P, 'uarmR', -20 * DEG, 34 * DEG, -0.04);
+  setR(P, 'farmR', (-84 + 3 * Math.sin(4 * TAU * p)) * DEG, 0, 0);
+  setR(P, 'handR', -14 * DEG, 0, 10 * DEG);
+  setR(P, 'uarmL', -18 * DEG, -30 * DEG, 0.04);
+  setR(P, 'farmL', -80 * DEG, 0, 0);
+  setR(P, 'handL', -14 * DEG, 0, -10 * DEG);
+  setR(P, 'neck', (10 - 7 * up) * DEG, 0, 0);
+  setR(P, 'head', (24 - 20 * up) * DEG, 14 * DEG * up * Math.sin(TAU * p * 2), 0);
+  return P;
+}
+
+// Smoking: the left forearm across the waist holding the right elbow, the right hand coming up to
+// the mouth once a cycle, held there, and back down; the head lifts a little as they let it out.
+function smokePose(p) {
+  const P = stance(p);
+  // 0 down, 1 at the mouth: up over 0.10 to 0.24, held to 0.40, down by 0.54.
+  const lift = smooth(0.10, 0.24, p) * (1 - smooth(0.40, 0.54, p));
+  const out = bump(p, 0.62, 0.06);
+  const mix = (a, b) => a + (b - a) * lift;
+  setR(P, 'uarmL', -42.3 * DEG, -110.8 * DEG, -0.233);
+  setR(P, 'farmL', -64.1 * DEG, 0, 0);
+  setR(P, 'handL', 0, 0, -6 * DEG);
+  setR(P, 'uarmR', mix(-16.0, -76.1) * DEG, mix(30.2, 71.5) * DEG, mix(0.010, 0.629));
+  setR(P, 'farmR', mix(-104.6, -110.0) * DEG, 0, 0);
+  setR(P, 'handR', mix(-20, -27.4) * DEG, 0, 6 * DEG);
+  setR(P, 'neck', 0, 5 * DEG * Math.sin(TAU * p), 0);
+  setR(P, 'head', (2 - 3 * lift - 9 * out) * DEG, (-6 * lift + 8 * Math.sin(TAU * p + 1.4)) * DEG, 0);
+  return P;
+}
+
 // Frames per clip and seconds per cycle. The walk's cycle time is only its nominal pace: in the game
 // its phase follows the distance walked (see actorStrideM), so it is never read as a clock.
+// The standing clips are slow, so they bake few frames; the shader blends between neighbours.
 const CLIPS = [
   { name: 'walk', frames: 32, dur: 1.10, fn: walkPose, walk: true },
   { name: 'idle', frames: 48, dur: 4.0, fn: idlePose },
   { name: 'wave', frames: 32, dur: 1.6, fn: wavePose },
+  { name: 'talk', frames: 32, dur: 4.4, fn: talkPose },
+  { name: 'listen', frames: 24, dur: 6.0, fn: listenPose },
+  { name: 'wait', frames: 16, dur: 6.0, fn: waitPose },
+  { name: 'phone', frames: 20, dur: 6.0, fn: phonePose },
+  { name: 'smoke', frames: 36, dur: 9.0, fn: smokePose },
 ];
 export const ACTOR_CLIPS = CLIPS.map(({ name, frames, dur }) => ({ name, frames, dur }));
 export const actorClipPose = (name, p) => CLIPS.find((c) => c.name === name).fn(p);
@@ -314,14 +445,19 @@ function solveRoot(clip) {
   if (clip.surge) return;
   // Points along each sole in the foot bone's own frame, heel to toe. The one lowest on the ground is
   // what the foot is pivoting on, so it's the one that has to stay still: locking the ankle instead
-  // lets the heel skate at strike and the toes skate at push-off.
-  const SOLE = [-0.075, -0.03, 0.03, 0.09, 0.15].map((z) => [0, -0.076, z + 0.045]);
+  // lets the heel skate at strike and the toes skate at push-off. Past the ball of the foot a point
+  // rides the toe bone, which stays flat while the heel comes up.
+  const SOLE = [-0.03, 0.015, 0.06, 0.095, 0.13, 0.16].map((z) => [0, -0.076, z]);
+  const BALL = BONES[B.toeL][2];
   const S = 256, pts = [];
   for (let i = 0; i <= S; i++) {
     const W = fk(clip.fn((i / S) % 1));
-    pts.push([B.footL, B.footR].map((f) => {
+    pts.push([[B.footL, B.toeL], [B.footR, B.toeR]].map(([f, t]) => {
       const m = W[f];
-      return { ankle: m[13], sole: SOLE.map(([x, y, z]) => [m[1] * x + m[5] * y + m[9] * z + m[13], m[2] * x + m[6] * y + m[10] * z + m[14]]) };
+      return { ankle: m[13], sole: SOLE.map(([x, y, z]) => {
+        const [M, px, py, pz] = z > BALL[2] ? [W[t], x - BALL[0], y - BALL[1], z - BALL[2]] : [m, x, y, z];
+        return [M[1] * px + M[5] * py + M[9] * pz + M[13], M[2] * px + M[6] * py + M[10] * pz + M[14]];
+      }) };
     }));
   }
   const v = new Float64Array(S);

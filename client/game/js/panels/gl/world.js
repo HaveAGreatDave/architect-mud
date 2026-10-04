@@ -325,6 +325,10 @@ export const LIGHT_TUNE = {
   // AND THIS NUMBER IS PARKED rather than wrong: it is the ratio to restore alongside the gain.
   washK: 0.072,
   wet: 0.45, wrap: 0.35, rise: 0.22, fall: 0.38,
+  // The lamps giving the night back (context.js, 'lamp'). Unlike the wash this cannot brighten a
+  // wall past its daytime tone, so it can't drown a sign: it only undoes the night dim near a light,
+  // tinted by it. 'lift' is the strength, 0 off; 'liftR' the share of the road's reach it takes.
+  lift: 2.2, liftR: 0.8,
 };
 
 // ── CONTACT OCCLUSION, AS TWO NUMBERS ───────────────────────────────────────
@@ -424,7 +428,8 @@ function pickLights(cam, sprites, night, held, slots = MAX_LIGHTS) {
   // ⚠ A DAYLIGHT REFLECTION BEING FAINT IS THE SCENE, NOT A RULE. It is drawn at full strength and
   // sits on ground that is already bright, so it washes out on its own — which is what a wet road
   // actually looks like at four in the afternoon. Gating it would be deciding that in advance.
-  const nightGain = LIGHT_TUNE.gain * Math.min(1, Math.max(0, night));
+  const nightK = Math.min(1, Math.max(0, night));
+  const nightGain = LIGHT_TUNE.gain * nightK;
   const { sinh, cosh, back, fx = 0, fy = 0 } = cam;
   const tx = back * sinh - fx, ty = -back * cosh - fy;
   const ox = cam.ox || 0, oy = cam.oy || 0;
@@ -473,6 +478,11 @@ function pickLights(cam, sprites, night, held, slots = MAX_LIGHTS) {
       // What the WALL reaches, as opposed to what the road does. ⚠ A SEPARATE FIELD RATHER THAN A
       // SHRUNK `r`, because `r` is the road's and context.js is the only reader that wants this one.
       rw,
+      // How far the lamp gives the night back on a wall (context.js 'lamp').
+      rl: r * LIGHT_TUNE.liftR,
+      // The lamp as a solid object catches it: night-weighted, WITHOUT the wall wash's gain. Actors,
+      // solids and scatter read this; when they read 'rgb' they got the wash's 0 and no lamp lit them.
+      lamp: [c[0] / 255 * s.a * nightK, c[1] / 255 * s.a * nightK, c[2] / 255 * s.a * nightK],
       key,
       wash: isWash,
       score: I * r / f,
@@ -1555,7 +1565,11 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // arithmetic rather than by a guard.
   const scatterNow = (opts.glScatter || 0) * Math.min(1, Math.max(0, opts.night || 0));
   const scatterOn = scatterNow > 0;
-  const wallLights = (washOn || wetOn || scatterOn) ? lightList : null;
+  // ⚠ A FOURTH: the lamps lift the night dim off the walls near them, so a building under a lamp
+  // is lit and one in a dark lot isn't. Only at night, and only when the night actually dims.
+  const lampLift = LIGHT_TUNE.lift * Math.min(1, Math.max(0, opts.night || 0)) / (LIGHT_TUNE.wet || 1);
+  const liftOn = lampLift > 0.01 && (opts.glNightDark || 0) > 0;
+  const wallLights = (washOn || wetOn || scatterOn || liftOn) ? lightList : null;
   // ── THE CITY THE GLASS REFLECTS ───────────────────────────────────────────────────────────
   //
   // ⚠ BUILT FROM THE SAME `cells` THE MASS IS, AND FROM THE SAME EYE. It is one texel per bearing —
@@ -1564,7 +1578,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // gl/skyline.js for why this is a probe rather than a planar mirror or a screen-space trace.
   // ⚠ AND IT IS BEFORE `draw`, because the strip is a uniform that `draw` binds and reads.
   if ((opts.glEnvCity == null ? 1 : opts.glEnvCity) > 0 && g.view.setSkyline) g.view.setSkyline(cells, eyePos(camAt), (it) => tileMesh(deps, it));
-  const drawOpts = { ...(opts.draw || {}), lights: wallLights, lightWrap: LIGHT_TUNE.wrap,
+  const drawOpts = { ...(opts.draw || {}), lights: wallLights, lampLift: liftOn ? lampLift : 0, lightWrap: LIGHT_TUNE.wrap,
     lightFocus: LIGHT_TUNE.focus, cssH,
     ao: opts.glAO || 0, aoFall: AO_TUNE.fall, bakedAo: opts.glBakedAo || 0, sunShadow: sunShadowFor(g, opts),
     // ── THE MATERIAL RESPONSE ───────────────────────────────────────────────────────────────
@@ -1685,6 +1699,9 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     : null;
   if (SUB) drawOpts.skipMass = true;   // under the sea: see skipMass in context.js
   g.view.draw(camAt, drawOpts);
+  // What the layers below are really drawing into. `opts.hdr` is only the ask: a device that refused
+  // the float format keeps it at 1 and renders into the eight-bit canvas, where a gain clips.
+  const hdrLive = g.view.hdrLive ? g.view.hdrLive() : opts.hdr > 0;
   // ⚠ AFTER THE MASS, AND THAT IS NOT AN ORDERING PREFERENCE. `draw()` OPENS with
   // gl.clear(COLOR | DEPTH) — so a floor drawn before it is drawn and then wiped, every frame.
   // It cost an afternoon: the result looked like a floor (the backstop wash showed through the
@@ -1723,7 +1740,10 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // triangles of own ship in a cab view with no own ship in it. The two LIST lengths are reported
   // beside it, because a diagnostic that cannot tell a shed that arrived from a rig that did is the
   // reason this was hard to see in the first place.
-  const solids = g.view.drawSolids ? g.view.drawSolids(camAt, cssH, { fog: opts.fogBand, ...SOLID_WATER }) : 0;
+  // The city's lights and its night, as the mass takes them, so a lit lock is lit by its lamps.
+  const solids = g.view.drawSolids ? g.view.drawSolids(camAt, cssH, { fog: opts.fogBand, ...SOLID_WATER,
+    lights: lightList, lightWrap: LIGHT_TUNE.wrap, lightFocus: LIGHT_TUNE.focus,
+    nightDim: 1 - (opts.night || 0) * (opts.glNightDark || 0) }) : 0;
 
   const fl = opts.floor;
   // ⚠ THE WET TERMS STAY OFF AND THE SNOW GOES ON, WHICH IS NOT AN INCONSISTENCY. The floor own
@@ -1732,6 +1752,8 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // opposite case: it is gated to the ground GROUND_FULL does NOT draw, which is the open terrain
   // outside the city, so the floor is the only pass that can put it there.
   if (fl) { fl.wet = 0; fl.wetLights = null; fl.snow = opts.glSnow > 0 ? opts.glSnow : 0; }
+  // Standing water in trodden mud reads the ground's pond level, the same figure the road puddles take.
+  if (fl) fl.mud = opts.glPond == null ? (opts.glWet > 0 ? opts.glWet : 0) : opts.glPond;
   // ── ⚠ AND THE SEA GETS ITS OWN, WHICH IS NOT THE LINE ABOVE BEING UNDONE ────────────────────
   //
   // 'wetLights' is nulled for a reason that is entirely about TARMAC: every surface that term is
@@ -1844,6 +1866,9 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // road reserves two of its six for washes and fills the rest with the best sources — the same
     // policy `WASH_SLOTS` applies one layer up, for the same reason.
     wetLights: roadLights(lightList),
+    // The lamp pools take the whole list; the six above are the road's REFLECTION budget, and a
+    // pool cut to them lit the ground only under the nearest lamps, which from the air was most.
+    poolLights: lightList,
     // ⚠ `cam.ox/oy` AND NOT A BARE `ox`. Those names are LOCAL TO `pickLights`, and reaching for
     // them here threw `ReferenceError: ox is not defined` on every frame — which the pass catches,
     // logs once per frame and falls back to 2-D from. So the whole feature was off, every
@@ -1891,7 +1916,8 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // it replaces, so drawn before the ground the band blended over the bottom 40% of every person on
   // it. After the ground they cover the paint the way the billboards do. The mirror prepass still
   // draws them with the solids (see context.js), because a reflection has no pavement over it.
-  const actors = g.view.drawActors ? g.view.drawActors(camAt, cssH, { fog: opts.fogBand }) : 0;
+  const actors = g.view.drawActors ? g.view.drawActors(camAt, cssH, { fog: opts.fogBand, lights: lightList,
+    nightDim: 1 - (opts.night || 0) * (opts.glNightDark || 0) }) : 0;
   // ── AND THE TRANSLUCENT HALF OF THE SOLIDS ──────────────────────────────────────────────────
   // A rotor's blades and blur disc, in the same buffer as the hull that carries them but drawn
   // here: after the floor, the sea and the road, because they write no depth and have to blend over
@@ -1905,7 +1931,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // ⚠ THE GAIN ONLY EXISTS WHERE THERE IS SOMEWHERE TO PUT IT. Against the 8-bit canvas a glow at
   // 3.0 clamps on the way into the buffer and every one of them comes out flat white; the headroom
   // to hold it is the float target, so the gain is conditional on it and is exactly 1 without it.
-  const lights = g.view.drawSprites(cam, opts.sprites, cssH, opts.hdr > 0 ? EMISSIVE_GAIN : 1);
+  const lights = g.view.drawSprites(cam, opts.sprites, cssH, hdrLive ? EMISSIVE_GAIN : 1);
   // ⚠ AFTER THE MASS, ALWAYS. It is depth-TESTED and writes none of its own, so the buildings
   // have to be in the buffer before it is asked what stands in front of it.
   const curtains = g.view.drawCurtain(cam, opts.curtain, cssH, opts.now);
@@ -1923,7 +1949,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     gain: clothN, lights: lightList.map((L) => ({ p: L.p, r: (L.r || 1) * LIGHT_TUNE.clothR,
       rgb: (L.rgbRaw || L.rgb).map((v) => v / (LIGHT_TUNE.wet || 1)) })),
   } : null;
-  const decals = g.view.drawDecals(cam, opts.decals, cssH, opts.hdr > 0 ? SIGN_EMISSIVE_GAIN : 0,
+  const decals = g.view.drawDecals(cam, opts.decals, cssH, hdrLive ? SIGN_EMISSIVE_GAIN : 0,
     { tube: opts.glNeonTube, flicker: opts.glNeonFlicker, now: opts.now }, clothLit);
   const decalBinds = g.view.decalCost ? g.view.decalCost() : null;
   // The wires — masts, rails, braces, cables, light-runners. After the mass for the same reason
@@ -1945,7 +1971,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // arrives here as an exact zero and the layer skips the branch on a uniform — one A/B for the
   // scatter alone, without turning the snow off underneath it.
   const scatter = g.view.drawBillboards(cam, opts.scatter, cssH, opts.fogBand,
-    { depth: opts.snowBB > 0 ? opts.snowBB : 0, col: opts.snowCol });
+    { depth: opts.snowBB > 0 ? opts.snowBB : 0, col: opts.snowCol }, lightList);
 
   // ── THE ROOM YOU ARE SITTING IN, AFTER EVERYTHING THE WORLD DRAWS ─────────
   //

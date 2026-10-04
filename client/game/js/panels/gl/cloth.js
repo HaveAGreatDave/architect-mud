@@ -125,6 +125,11 @@ uniform vec3 uShadow;
 uniform float uStr;
 uniform sampler2D uTagT;
 uniform vec2 uTagGrid;
+// The city's lights (world.js pickLights), in the tile frame vW is in. 0 lights: nothing added.
+uniform int uWLN;
+uniform vec3 uWLP[12];
+uniform vec3 uWLC[12];
+uniform float uWLR[12];
 out vec4 outColor;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 void main() {
@@ -168,6 +173,18 @@ void main() {
   vec3 shaded = mix(mix(surf, topCol, aTop), mix(surf, uShadow, aBot), clamp(uv.y, 0.0, 1.0));
   // Firelight is coloured by the cloth it lands on, the way a lamp's is.
   vec3 c = shaded * vLum + vWarm * (0.35 + 0.65 * base / max(0.2, max(base.r, max(base.g, base.b)))) * (0.5 + 0.5 * lit);
+  // The city's lamps as well as the camp's fires: wrapped and two-sided, as decals.js lights a tarp,
+  // because a lamp on the far side of a sheet still shows through it.
+  vec3 dye = 0.35 + 0.65 * base / max(0.2, max(base.r, max(base.g, base.b)));
+  for (int i = 0; i < 12; i++) {
+    if (i >= uWLN) break;
+    vec3 d = uWLP[i] - vW;
+    float dist = length(d);
+    float att = clamp(1.0 - dist / max(0.001, uWLR[i]), 0.0, 1.0);
+    if (att <= 0.0) continue;
+    float diff = (abs(dot(n, d / max(0.001, dist))) + 0.5) / 1.5;
+    c += uWLC[i] * dye * (att * att * diff);
+  }
   c = mix(c, uFog, vFog);
   outColor = vec4(c * vAlpha, vAlpha);
 }`;
@@ -198,6 +215,7 @@ export function createClothLayer(gl) {
     patch: A('iPatch'), tag: A('iTag'), weather: A('iWeather'),
     posT: U('uPosT'), w: U('uW'), bands: U('uBands'), frames: U('uFrames'), viewProj: U('uViewProj'),
     fog: U('uFog'), fogNear: U('uFogNear'), fogFar: U('uFogFar'), fogAmt: U('uFogAmt'),
+    wlN: U('uWLN'), wlP: U('uWLP'), wlC: U('uWLC'), wlR: U('uWLR'),
     eye: U('uEye'), keyDir: U('uKeyDir'), key: U('uKey'), sky: U('uSky'), shadow: U('uShadow'), str: U('uStr'),
     tagT: U('uTagT'), tagGrid: U('uTagGrid'),
   };
@@ -302,6 +320,7 @@ export function createClothLayer(gl) {
     return n;
   }
 
+  const wlP = new Float32Array(36), wlC = new Float32Array(36), wlR = new Float32Array(12);
   function draw(cam, cssH, opts = {}) {
     if (!n) return 0;
     gl.useProgram(prog);
@@ -318,6 +337,11 @@ export function createClothLayer(gl) {
     gl.uniform3f(loc.sky, L.sky[0] / 255, L.sky[1] / 255, L.sky[2] / 255);
     gl.uniform3f(loc.shadow, L.shadow[0] / 255, L.shadow[1] / 255, L.shadow[2] / 255);
     gl.uniform1f(loc.str, L.str ?? 1);
+    // Set on every draw: the mirror prepass draws cloth with no list.
+    const WL = opts.lights || [], nW = Math.min(12, WL.length);
+    for (let i = 0; i < nW; i++) { const Q = WL[i]; wlP.set(Q.p, i * 3); wlC.set(Q.rgb, i * 3); wlR[i] = Q.rw == null ? Q.r : Q.rw; }
+    gl.uniform1i(loc.wlN, nW);
+    if (nW) { gl.uniform3fv(loc.wlP, wlP); gl.uniform3fv(loc.wlC, wlC); gl.uniform1fv(loc.wlR, wlR); }
     gl.uniform1i(loc.posT, POS_UNIT);
     gl.uniform1i(loc.tagT, TAG_UNIT);
     gl.uniform2f(loc.tagGrid, tagGrid[0], tagGrid[1]);

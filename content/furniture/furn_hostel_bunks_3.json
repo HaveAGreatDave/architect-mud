@@ -1,0 +1,14 @@
+{
+  "description": "Bunks two high behind curtains made of old flags, none of them from a country anyone here could name. Each mattress has a number in marker. First come.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_bunks_3",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "bunks",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hostel_dorm_3"
+}

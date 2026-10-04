@@ -3,7 +3,7 @@ import { formatBattleCry } from '../combat.js';
 import { renderMapBriefing, renderMapChart } from '../map-text.js';
 import { loggedPanelsSync, textMinigamesSync } from '../presentation.js';
 import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, doorOnLink, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, frontDoorOf, getMapByParentZone, buildingIconSvg, buildingTypeOf, zoneTerrain, tileIconSvg, buildingEntranceDir, interiorExitDirs, interiorOpenDirs, interiorLockedDirs, facadeStreetTile, applyMinimapVisibility, specOf, persistableZone, propsOf, poiOf } from '../world.js';
-import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature, getZoneSeverity } from '../environment.js';
+import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature, getZoneSeverity, getZoneWeatherType } from '../environment.js';
 import { describeZone, resolveNamedDestination, isInteriorZone } from './describe.js';
 import { exitTargets, allExits, primaryExits } from '../exits.js';
 import { checkLockAuth, getLockTagPublic, syncApartmentLock } from './doors.js';
@@ -226,7 +226,12 @@ async function cmdLookThroughWindow(win, player) {
   if (!win.zone_exterior) {
     const { getHUDPayload } = await import('../environment.js');
     const env = getHUDPayload();
-    const weatherDesc = { clear:'clear skies', cloudy:'overcast skies', overcast:'heavy overcast', rain:'rain falling steadily', thunderstorm:'a thunderstorm raging overhead', storm:'a raging storm', snow:'snow coming down', blizzard:'a blinding blizzard', fog:'thick fog rolling in', haze:'a heavy haze in the air', ash:'ash falling from the sky' }[env.weatherType] || env.weatherType;
+    // The sky over the tile this building stands on, not the day's headline: rain only falls under
+    // a cell, so on a rain day most windows look out on a grey, dry street.
+    const here = getZone(player.current_zone);
+    const outside = here?.flags?.world_exit_zone || here?.parent_zone;
+    const sky = outside ? getZoneWeatherType(outside) : env.weatherType;
+    const weatherDesc = { clear:'clear skies', cloudy:'overcast skies', overcast:'heavy overcast', rain:'rain falling steadily', thunderstorm:'a thunderstorm raging overhead', storm:'a raging storm', snow:'snow coming down', blizzard:'a blinding blizzard', fog:'thick fog rolling in', haze:'a heavy haze in the air', ash:'ash falling from the sky' }[sky] || sky;
     return { type:'examine', message:`Through ${win.name} you see ${weatherDesc} outside. It is ${env.time}, ${env.season}.${win.glass_state === 'broken' ? ' Cold air drifts in through the broken glass.' : ''}` };
   }
   const otherZone = getZone(win.zone_exterior);
@@ -273,7 +278,8 @@ function cmdLookSky(player) {
     haze: 'A dirty haze sits over everything, muting the sky to a dull brown-grey.',
     ash: 'Ash falls from a rust-coloured sky. The air tastes of smoke.',
   };
-  const base = weatherLines[env.weatherType] || 'You look up at the sky.';
+  // The sky over this tile (getZoneWeatherType), not the day's headline: rain only falls under a cell.
+  const base = weatherLines[getZoneWeatherType(player.current_zone)] || 'You look up at the sky.';
   const timeNote = env.timePhase ? ` It is ${env.timePhase}.` : '';
   const tempNote = env.tempC !== undefined ? ` The temperature is ${Math.round(env.tempC)}°C.` : '';
   return { type: 'examine', message: base + timeNote + tempNote };

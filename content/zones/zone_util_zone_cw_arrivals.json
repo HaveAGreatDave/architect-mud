@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#5f6f7a",
+  "description": "A low concrete room under the arrivals hall. Conduit runs across the ceiling to the junction box, and a mop bucket has dried to the floor. The stairs go up.",
+  "exits": {
+    "up": "zone_cw_arrivals"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_cw_arrivals",
+  "map_id": "map_int_cw_arrivals",
+  "name": "Airport Utility Room",
+  "parent_zone": "zone_district_924_902"
+}

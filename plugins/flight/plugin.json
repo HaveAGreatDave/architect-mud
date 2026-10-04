@@ -30,6 +30,7 @@
     "flightsync",
     "flocksync",
     "flightevent",
+    "flightresume",
     "airhome",
     "flightwaypoint",
     "checkride",

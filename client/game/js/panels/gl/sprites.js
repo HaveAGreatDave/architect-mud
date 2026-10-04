@@ -21,6 +21,7 @@
 // computes, handed over rather than re-derived.
 import { viewProjMatrix, mat4f, zRow, NEAR } from './camera.js';
 import { makeVertexStream } from './stream.js';
+import { createArena } from './retain.js';
 import { declareProgram, takeWarm } from './programs.js';
 
 // The z row of the projection, from the ONE place NEAR and FAR are named. NDC depth is A + B/f,
@@ -35,12 +36,16 @@ import { declareProgram, takeWarm } from './programs.js';
 export const LIGHT_PULL = 0.05;   // exported: gl/fauna.js draws murmuration dots at the same nudge
 
 // centre 3, corner 2, radius 1, colour 3, alpha 1, hardness 1
-const STRIDE = 11;
+const STRIDE = 15;
 
 const VERT = `#version 300 es
 in vec3 aCenter;
 in vec2 aCorner;
 in float aRadius;
+// A size worked out here rather than on the CPU: radius = clamp(k / max(fmin, depth), lo, hi), in
+// device pixels, with depth the light's own clip.w (the CPU's cam.proj f, exactly). k 0 means use
+// aRadius. A record that carries it doesn't change as the camera moves (Stage 3 of glass-headroom).
+in vec4 aSize;
 in vec3 aColor;
 in float aAlpha;
 in float aHard;
@@ -61,7 +66,8 @@ void main() {
   // The corner offset is in PIXELS, applied after the perspective divide — which is what makes a
   // light the same size on screen as the disc the 2-D renderer paints, rather than a world-space
   // sphere that grows and shrinks on its own terms.
-  clip.xy += aCorner * (2.0 * aRadius / uViewport) * clip.w;
+  float rad = aSize.x > 0.0 ? clamp(aSize.x / max(aSize.w, clip.w), aSize.y, aSize.z) : aRadius;
+  clip.xy += aCorner * (2.0 * rad / uViewport) * clip.w;
   // A HAIR TOWARD THE CAMERA, AND IT HAS TO BE A HAIR AT EVERY DISTANCE. A glow sits ON the roof
   // or wall it belongs to, so at exactly that depth it z-fights the surface into a stipple.
   //
@@ -147,6 +153,7 @@ export function createSpriteLayer(gl) {
     center: gl.getAttribLocation(prog, 'aCenter'),
     corner: gl.getAttribLocation(prog, 'aCorner'),
     radius: gl.getAttribLocation(prog, 'aRadius'),
+    size: gl.getAttribLocation(prog, 'aSize'),
     color: gl.getAttribLocation(prog, 'aColor'),
     alpha: gl.getAttribLocation(prog, 'aAlpha'),
     hard: gl.getAttribLocation(prog, 'aHard'),
@@ -161,7 +168,8 @@ export function createSpriteLayer(gl) {
   // One stream, set up once: the attribute pointers are recorded into the VAO here and never
   // touched again, and the storage grows by doubling instead of being reallocated every frame.
   // See gl/stream.js.
-  const stream = makeVertexStream(gl, vao, STRIDE, [[loc.center, 3, 0], [loc.corner, 2, 12], [loc.radius, 1, 20], [loc.color, 3, 24], [loc.alpha, 1, 36], [loc.hard, 1, 40]], 4096);
+  const ATTRS = [[loc.center, 3, 0], [loc.corner, 2, 12], [loc.radius, 1, 20], [loc.color, 3, 24], [loc.alpha, 1, 36], [loc.hard, 1, 40], [loc.size, 4, 44]];
+  const stream = makeVertexStream(gl, vao, STRIDE, ATTRS, 4096);
   let data = new Float32Array(0);
   let count = 0, split = 0;
 
@@ -171,7 +179,25 @@ export function createSpriteLayer(gl) {
   // whatever happens, and sorting once here is cheaper than binding twice per light — a bloom adds
   // light to what is behind it and a ground glow lays colour over it, and painting one as the other
   // is the difference between a lit window and a grey smear.
-  function upload(sprites) {
+  // `ox`/`oy` move the records from the camera's frame into the map window's, for a draw with the
+  // shifted camera (Stage 3 phase 2 of glass-headroom). 0 is the old frame.
+  //
+  // `groups` are retained ones (gl/retain.js): `{ recs, ox, oy }`, the offset being the one the
+  // records were collected under. Each keeps its normal-blend lights in one arena and its additive ones
+  // in another, drawn before this frame's own.
+  const arenaOver = createArena(gl, STRIDE, ATTRS), arenaAdd = createArena(gl, STRIDE, ATTRS);
+  const KEYS = new WeakMap();
+  function upload(sprites, ox = 0, oy = 0, groups = null) {
+    const gOver = [], gAdd = [];
+    if (groups) for (const G of groups) {
+      let k = KEYS.get(G.recs);
+      if (!k || k.ox !== G.ox || k.oy !== G.oy) { k = { ox: G.ox, oy: G.oy, over: {}, add: {} }; KEYS.set(G.recs, k); }
+      const ov = [], ad = [];
+      for (const r of G.recs) (r.add ? ad : ov).push(r);
+      if (ov.length) gOver.push({ key: k.over, floats: ov.length * 6 * STRIDE, write: (d, o) => { for (const r of ov) o = putSprite(d, o, r, G.ox, G.oy); return o; } });
+      if (ad.length) gAdd.push({ key: k.add, floats: ad.length * 6 * STRIDE, write: (d, o) => { for (const r of ad) o = putSprite(d, o, r, G.ox, G.oy); return o; } });
+    }
+    arenaOver.retain(gOver); arenaAdd.retain(gAdd);
     const over = [], add = [];
     for (const s of sprites) (s.add ? add : over).push(s);
     const all = over.concat(add);
@@ -179,7 +205,12 @@ export function createSpriteLayer(gl) {
     count = all.length * 6;
     if (data.length < count * STRIDE) data = new Float32Array(Math.max(count * STRIDE, 4096));
     let o = 0;
-    for (const s of all) {
+    for (const s of all) o = putSprite(data, o, s, ox, oy);
+    if (count) stream.write(data, count * STRIDE);
+    return count / 6 + (arenaOver.verts + arenaAdd.verts) / 6;
+  }
+  function putSprite(data, o, s, ox, oy) {
+    {
       const [r, g, b] = s.rgb || [255, 255, 255];
       const cr = r / 255, cg = g / 255, cb = b / 255;
       // ⚠ A NUMBER, NOT A BOOLEAN, AND THE SHADER ALWAYS SAID SO. `vHard` is a MIX between the two
@@ -188,25 +219,27 @@ export function createSpriteLayer(gl) {
       // across the shaft with a soft rim, because a pure glow chain beads at any spacing worth
       // paying for and a pure lamp chain is a tube with an edge on it.
       // `true` is still 1 and `false`/absent still 0, so every existing caller is bit-identical.
-      const hard = +s.hard || 0;
+      const hard = +s.hard || 0, sz = s.sz;
       for (const [cx, cy] of CORNERS) {
-        data[o] = s.x; data[o + 1] = s.y; data[o + 2] = s.z;
+        data[o] = s.x + ox; data[o + 1] = s.y + oy; data[o + 2] = s.z;
         data[o + 3] = cx; data[o + 4] = cy;
         data[o + 5] = s.r;
         data[o + 6] = cr; data[o + 7] = cg; data[o + 8] = cb;
         data[o + 9] = s.a;
         data[o + 10] = hard;
+        if (sz) { data[o + 11] = sz[0]; data[o + 12] = sz[1]; data[o + 13] = sz[2]; data[o + 14] = sz[3]; }
+        else { data[o + 11] = 0; data[o + 12] = 0; data[o + 13] = 0; data[o + 14] = 0; }
         o += STRIDE;
       }
     }
-    stream.write(data, count * STRIDE);
-    return count / 6;
+    return o;
   }
 
   // `H` is the CANVAS height (device px) and sizes the viewport, because `aRadius` is already in
   // device pixels. `cssH` is the CAMERA's own frame height, which is what the matrix is built from.
   function draw(cam, W, H, cssH, intensity) {
-    if (!count) return 0;
+    const rO = arenaOver.runs, rA = arenaAdd.runs;
+    if (!count && !rO.length && !rA.length) return 0;
     gl.useProgram(prog);
     gl.uniformMatrix4fv(loc.viewProj, false, mat4f(viewProjMatrix(cam, cssH || H)));
     gl.uniform2f(loc.viewport, W, H);
@@ -216,20 +249,24 @@ export function createSpriteLayer(gl) {
     gl.enable(gl.DEPTH_TEST);
     gl.depthMask(false);          // a light is the appearance of a thing, not a thing
     gl.enable(gl.BLEND);
-    gl.bindVertexArray(vao);
     // ⚠ ONE, AND NOT THE GAIN, FOR THE LAY-OVER BATCH. Those glows are colour laid on a surface
     // rather than light added to it, so scaling them pushes no emitter into the headroom — it
     // paints a brighter smear, and the composite clamp cannot take that back.
     gl.uniform1f(loc.intensity, 1);
-    if (split) { gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); gl.drawArrays(gl.TRIANGLES, 0, split); }
-    if (count > split) {
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    if (rO.length) { gl.bindVertexArray(arenaOver.vao); for (const [a, n] of rO) gl.drawArrays(gl.TRIANGLES, a, n); }
+    gl.bindVertexArray(vao);
+    if (split) gl.drawArrays(gl.TRIANGLES, 0, split);
+    if (count > split || rA.length) {
       gl.uniform1f(loc.intensity, intensity > 0 ? intensity : 1);
-      gl.blendFunc(gl.ONE, gl.ONE); gl.drawArrays(gl.TRIANGLES, split, count - split);
+      gl.blendFunc(gl.ONE, gl.ONE);
+      if (rA.length) { gl.bindVertexArray(arenaAdd.vao); for (const [a, n] of rA) gl.drawArrays(gl.TRIANGLES, a, n); gl.bindVertexArray(vao); }
+      if (count > split) gl.drawArrays(gl.TRIANGLES, split, count - split);
     }
     gl.bindVertexArray(null);
     gl.depthMask(true);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    return count / 6;
+    return count / 6 + (arenaOver.verts + arenaAdd.verts) / 6;
   }
 
   return { upload, draw, get sprites() { return count / 6; } };

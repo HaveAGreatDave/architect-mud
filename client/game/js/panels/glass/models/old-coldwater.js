@@ -8,12 +8,63 @@
 // An arm that ends early uses `return` where the case used `break`. How a tile becomes a building
 // is in docs/reference/world-rendering.md.
 import {
-  ADORN_NEAR, ADORN_TIER, DECO_LIFT, FACE_EPS, LCK_ROOF_Z, SLUM_PULL, SLUM_RUST, SLUM_TIN, TARPS,
+  ADORN_NEAR, ADORN_TIER, DECO_LIFT, DECO_PULL, FACE_EPS, LCK_ROOF_Z, SLUM_PULL, SLUM_RUST, SLUM_TIN, TARPS,
   TR, awning, bakeSignText, blinkLight, clamp, draw3DBoxAt, drawBarrelRoof, drawFacetDrum, drawRing,
   emitDecoFill, emitSurfaceText, emitWire, faceYaw, frac, glowPool, hfChrome, hfGlass, marqueeBand,
   neonBlade, roofClutter, slumCurtain, slumDrape, slumFaceVis, slumHole, slumOpening, slumRope,
   slumScrawl, slumSheet,
 } from '../../windshield.js';
+
+// The pod both of the Outer Lock's rooms are built as (see `glacis_booth`). Two parts, and the
+// split is the design:
+//   THE HOUSING is the lock's own chrome reaching in to take the room: a back slab against the
+//     hall's wall, two cheeks running forward to the lane and a hood over the lot, so from the lane
+//     the room sits in a bay of the airlock rather than standing in it like a hut on a forecourt.
+//   THE POD inside it is the room: a rounded glass prow on a chrome base, capped in chrome, bulging
+//     out between the cheeks toward the lane. Round because nothing else in the lock is, and a drum
+//     is the one shape here that can be chrome all the way round (see hfChrome on why it isn't black).
+// `accent` is the room's colour: the light lines on the cheeks and hood lip and the ring at the
+// foot of the glass. Every height is a share of LCK_ROOF_Z, for the reason on the arms below.
+function lockPod(ctx, cam, dx, dy, fh, seed, night, alpha, E, F, accent) {
+  // ⚠ THE HOOD IS AS HIGH AS THE ARCH ALLOWS AT THE BACK OF THE TILE, where the hall's wall turns
+  // into the roof at about 0.92 of LCK_ROOF_Z, less a hand. Lower and the pod is a kiosk in a hangar.
+  const R = LCK_ROOF_Z, zp = R * 0.04, zb = R * 0.08, zg = R * 0.58, zk = R * 0.64, zh = R * 0.72, zt = R * 0.78;
+  const yaw = faceYaw(E);
+  // The plinth, the whole footprint, and the housing on it.
+  draw3DBoxAt(ctx, cam, dx, dy, fh * 1.0, 0, zp, 'ty_hf_mirror_dk', seed, night, alpha, true, yaw, fh * 0.98);
+  { const [bx, by] = F(0, -fh * 0.80);
+    draw3DBoxAt(ctx, cam, bx, by, fh * 0.98, zp, zh, 'ty_hf_mirror', seed + 1, night, alpha, false, yaw, fh * 0.18); }
+  for (const s of [-1, 1]) {
+    const [cx, cy] = F(s * fh * 0.88, -fh * 0.02);
+    draw3DBoxAt(ctx, cam, cx, cy, fh * 0.10, zp, zh, 'ty_hf_mirror', seed + 2, night, alpha, false, yaw, fh * 0.94);
+  }
+  { const [hx, hy] = F(0, -fh * 0.02);
+    draw3DBoxAt(ctx, cam, hx, hy, fh * 1.0, zh, zt, 'ty_hf_mirror_dk', seed + 3, night, alpha, true, yaw, fh * 0.96); }
+  // The pod: base, glass, cap. The prow's centre sits forward of the tile's so the front half of
+  // the drum is what shows between the cheeks and the back half is buried in the slab.
+  const [px, py] = F(0, fh * 0.12);
+  drawFacetDrum(ctx, cam, px, py, zp, zb, fh * 0.68, fh * 0.66, 14, alpha, hfChrome([84, 96, 110], [196, 210, 222], 2.0), null, 'ty_hf_chrome_dk');
+  drawFacetDrum(ctx, cam, px, py, zb, zg, fh * 0.62, fh * 0.62, 14, alpha, hfGlass(night, [44, 78, 108]), null, 'ty_hf_glass');
+  drawFacetDrum(ctx, cam, px, py, zg, zk, fh * 0.66, fh * 0.58, 14, alpha, hfChrome([112, 128, 144], [236, 244, 250], 2.2), hfChrome([120, 136, 150], [214, 226, 236], 1.4), 'ty_hf_chrome');
+  // Light: a ring at the foot of the glass and one under the cap, a line down the front of each
+  // cheek and one along the hood's lip. Adornment, so none of it reaches the capture.
+  const line = 'rgb(' + accent + ')';
+  drawRing(ctx, cam, px, py, zb + R * 0.006, fh * 0.635, 18, line, 1.4, alpha);
+  drawRing(ctx, cam, px, py, zg - R * 0.006, fh * 0.635, 18, line, 1.0, alpha * 0.7);
+  // ⚠ DECO_PULL, NOT emitWire's DEFAULT: the default lift drew these lines 0.41 of a tile out
+  // through the next building along (glneighbour). They lie on the pod's own faces, so all they
+  // need is the tie-breaker.
+  for (const s of [-1, 1]) {
+    const [ex, ey] = F(s * fh * 0.80, fh * 0.93);
+    emitWire(ctx, cam, [ex, ey, zp + R * 0.02], [ex, ey, zh - R * 0.02], 1.4, line, alpha, { pull: DECO_PULL });
+  }
+  { const a = F(-fh * 0.96, fh * 0.95), b = F(fh * 0.96, fh * 0.95);
+    emitWire(ctx, cam, [a[0], a[1], zh + R * 0.004], [b[0], b[1], zh + R * 0.004], 1.6, line, alpha, { pull: DECO_PULL }); }
+  // The room lit behind its glass, and its colour thrown on the deck in front of it.
+  const [lx, ly] = F(0, fh * 0.80);
+  glowPool(ctx, cam, lx, ly, R * 0.10, accent, 10, alpha * (night ? 0.45 : 0.18));
+  if (night) glowPool(ctx, cam, px, py, R * 0.30, '226,240,255', 9, alpha * 0.32);
+}
 
 export const OLD_COLDWATER_ARMS = {
   // ── OLD COLDWATER (docs/proposals/old-coldwater.md) ──────────────────────
@@ -245,7 +296,10 @@ export const OLD_COLDWATER_ARMS = {
     }
     if (night) { const [gx, gy] = F(0, fh * 0.52); glowPool(ctx, cam, gx, gy, h * 0.24, '255,214,150', 7, alpha * 0.20); }
   },
-  weigh_station(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE GLACIS WEIGH — THE LOCK'S CONTROL ROOM, BUILT INTO ITS WALL.
+  weigh_station(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // A WEIGH OFFICE BUILT INTO A LOCK WALL.
+    // ⚠ THE GLACIS WEIGH ITSELF NO LONGER DRAWS HERE. The Outer Lock became one hall that swallows
+    // the booth, and the booth is the named `glacis_booth` arm below; this one is what a
+    // `weigh_station` with no name of its own gets, which today is the office on a void plaza.
     // It used to be a municipal box under a canopy on two posts, standing apart from the covered
     // lane like a bus shelter somebody forgot. Now it is part of the Outer Lock: the same grey
     // plate, the same roof line (LCK_ROOF_Z), and its glass face IS the lock's wall on the booth
@@ -273,6 +327,43 @@ export const OLD_COLDWATER_ARMS = {
       glowPool(ctx, cam, lx, ly, sill - h * 0.02, '120,244,255', 10, alpha * (night ? 0.45 : 0.22));
       glowPool(ctx, cam, lx, ly, eaves - h * 0.06, '120,244,255', 8, alpha * (night ? 0.35 : 0.15)); }
     if (night) { const [wx, wy] = F(0, fh * 0.30); glowPool(ctx, cam, wx, wy, sill + h * 0.2, '226,240,255', 9, alpha * 0.30); }
+  },
+  // ── THE TWO ROOMS INSIDE THE OUTER LOCK ───────────────────────────────────
+  // The Outer Lock is one hall now, and it swallows the booth and the Gate Post (see the hall in
+  // deriveSurfaceCell and drawGateLockGL): its chrome roof runs over both and its wall stands
+  // outside them. So these are rooms under a roof, not buildings in the weather: a chrome pod in a
+  // bay of the lock's own plate (see lockPod), facing its lane, low enough to clear the arch where
+  // it comes down to the wall. Both are bound by name; the `weigh_station` arm above stays for the
+  // offices on the void highway's plazas, which stand in the open.
+  // ⚠ EVERY HEIGHT HERE IS A SHARE OF LCK_ROOF_Z, NOT OF `h`. These have to fit under the lock's
+  // roof whatever the building's floor count says, and a constant keeps the capture affine.
+  glacis_booth(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE GLACIS WEIGH: THE WEIGHMASTER'S POD.
+    // The scale's cyan, which is the lock's scanner colour too.
+    lockPod(ctx, cam, dx, dy, fh, seed, night, alpha, E, F, '120,244,255');
+    // A readout over the prow: a slim chrome bar off the hood's lip with a lit face, which is
+    // where the weighmaster's number would be if anybody outside could read it.
+    const R = LCK_ROOF_Z, yaw = faceYaw(E);
+    { const [rx, ry] = F(0, fh * 0.86);
+      draw3DBoxAt(ctx, cam, rx, ry, fh * 0.42, R * 0.655, R * 0.705, 'ty_hf_mirror_dk', seed + 7, night, alpha, true, yaw, fh * 0.05);
+      const [gx, gy] = F(0, fh * 0.91 + FACE_EPS);
+      draw3DBoxAt(ctx, cam, gx, gy, fh * 0.36, R * 0.665, R * 0.695, 'ty_lh_eye', seed + 8, night, alpha, false, yaw, fh * 0.004); }
+    // A fin on the hood, at the back, so the pod has a top from the gantry as well as a face.
+    { const [fx, fy] = F(fh * 0.40, -fh * 0.45);
+      draw3DBoxAt(ctx, cam, fx, fy, fh * 0.03, R * 0.78, R * 0.88, 'ty_hf_mirror', seed + 9, night, alpha, true, yaw, fh * 0.34); }
+  },
+  gate_post(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE GATE POST: THE POLICE WATCH POD.
+    lockPod(ctx, cam, dx, dy, fh, seed, night, alpha, E, F, '90,150,255');
+    // A glass watch cupola on the hood, set back from the pad so it sees over the whole hall: a
+    // glass drum under a chrome lid, and the blue lamp on the lid.
+    // ⚠ The lamp tops out under 0.97 of LCK_ROOF_Z, where the arch over this spot is about 1.12.
+    const R = LCK_ROOF_Z, zt = R * 0.78, zc = R * 0.90;
+    const [ux, uy] = F(0, -fh * 0.22);
+    drawFacetDrum(ctx, cam, ux, uy, zt, zc, fh * 0.40, fh * 0.36, 12, alpha, hfGlass(night, [40, 66, 110]), null, 'ty_hf_glass');
+    drawFacetDrum(ctx, cam, ux, uy, zc, zc + R * 0.04, fh * 0.44, fh * 0.30, 12, alpha, hfChrome([112, 128, 144], [236, 244, 250], 2.2), hfChrome([120, 136, 150], [214, 226, 236], 1.4), 'ty_hf_chrome');
+    drawRing(ctx, cam, ux, uy, zt + R * 0.006, fh * 0.41, 16, 'rgb(90,150,255)', 1.2, alpha);
+    draw3DBoxAt(ctx, cam, ux, uy, fh * 0.06, zc + R * 0.04, zc + R * 0.07, 'ty_cont_b', seed + 12, night, alpha, true, faceYaw(E), fh * 0.06);
+    glowPool(ctx, cam, ux, uy, zc + R * 0.06, '90,150,255', 8, alpha * (night ? 0.5 : 0.25));
+    if (night) glowPool(ctx, cam, ux, uy, zt + R * 0.08, '200,220,255', 7, alpha * 0.3);
   },
   vehicle_pound(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // LONG STAY — A COMPOUND, WHICH IS A SILHOUETTE WITH A HOLE IN IT.
     // Every other building in this city is mass you cannot see into. This one is a fence with

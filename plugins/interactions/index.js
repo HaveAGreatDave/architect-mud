@@ -1,6 +1,8 @@
 import {
 	getEnvironmentState,
 	getZoneVisibility,
+	getZonePrecip,
+	getZoneWeatherType,
 } from "../../server/engine/environment.js";
 import {
 	getZone,
@@ -51,6 +53,16 @@ function getCtx(player) {
 	let env, vis;
 	try {
 		env = getEnvironmentState();
+		// The sky over THIS tile, not the day's headline: rain only falls under a cell, and
+		// nothing falls indoors, so `reflect` no longer has rain running down your face in a bar.
+		// Every emote below reads these three keys, so they're overridden once here.
+		const { precipType, precipRate } = getZonePrecip(player.current_zone);
+		env = {
+			...env,
+			currentPrecip: precipRate > 0 ? (precipType === "snow" ? "snow" : "rain") : "none",
+			precipRate,
+			weatherType: getZoneWeatherType(player.current_zone),
+		};
 	} catch {
 		env = {};
 	}

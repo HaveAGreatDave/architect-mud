@@ -145,7 +145,12 @@ void main() {
     float t = t0 + (float(i) + jit) * dt;
     vec3 p = ro + rd * t;
     vec2 cs = cover(p);
-    float dn = density(p, cs.x);
+    // ⚠ THE FAR END IS A FADE, NOT A WALL. The march stops at uFar, and a cloud at uFar minus a hair
+    // was full density, so weather arrived as a hard line about 9° above the horizon and grew down
+    // out of it as you flew in. It thins over the last 30% of the reach instead, which is the band
+    // the dome sprites fade in over ('edge' in paintWindshieldFrame), so the two hand over rather than swap. The
+    // light march below is left alone: a far cloud is fainter, not lit differently.
+    float dn = density(p, cs.x) * (1.0 - smoothstep(uFar * 0.7, uFar, t));
     if (dn > 0.002) {
       // Four short steps toward the sun for self-shadowing, reusing this sample's coverage.
       float ld = 0.0;
@@ -203,9 +208,10 @@ uniform vec2 uLowRes;    // the march target
 uniform sampler2D uCol;
 uniform sampler2D uDist;
 uniform float uFar;
+uniform float uFade;     // the crossfade with the card deck (st.volMix in windshield.js); 1 is all volume
 void main() {
   vec2 uv = gl_FragCoord.xy / uRes;
-  vec4 c = texture(uCol, uv);
+  vec4 c = texture(uCol, uv) * uFade;
   if (c.a < 0.003) discard;
   ivec2 q = clamp(ivec2(uv * uLowRes), ivec2(0), ivec2(uLowRes) - 1);
   vec4 dp = texelFetch(uDist, q, 0);
@@ -279,7 +285,7 @@ export function createCloudVolume(gl) {
   };
   const uc = {
     invVP: U(comp, 'uInvVP'), vp: U(comp, 'uVP'), res: U(comp, 'uRes'), lowRes: U(comp, 'uLowRes'),
-    col: U(comp, 'uCol'), dist: U(comp, 'uDist'), far: U(comp, 'uFar'),
+    col: U(comp, 'uCol'), dist: U(comp, 'uDist'), far: U(comp, 'uFar'), fade: U(comp, 'uFade'),
   };
 
   const noiseTex = gl.createTexture();
@@ -465,6 +471,7 @@ export function createCloudVolume(gl) {
     gl.uniform2f(uc.res, W, H);
     gl.uniform2f(uc.lowRes, w, h);
     gl.uniform1f(uc.far, far);
+    gl.uniform1f(uc.fade, opts.fade == null ? 1 : Math.max(0, Math.min(1, opts.fade)));
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, colTexs[cur]); gl.uniform1i(uc.col, 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, distTex); gl.uniform1i(uc.dist, 1);
     gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.depthMask(false);

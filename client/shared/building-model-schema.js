@@ -220,7 +220,7 @@ export const DETAIL_SCHEMA = {
   // ⚠ `font` AND `picto` ARE THE SAME TWO KEYS ON ALL THREE SIGN KINDS, deliberately. They are
   // properties of LETTERING rather than of a particular fitting, and a board that could take a
   // script hand while a gantry could not is a rule nobody would remember. `font` is one of
-  // SIGN_FONT's keys (mono, script, block, slab, deco, condensed, stencil, techno, gothic, western, hanzi, estate, tube, neonscript, showcard, marker, stencil2, techno2)
+  // SIGN_FONT's keys (mono, script, block, slab, deco, condensed, stencil, techno, gothic, western, hanzi, estate, couture, tube, neonscript, showcard, marker, stencil2, techno2)
   // — `hanzi` being a CJK face, for a short trade word rather than a name; `picto` is one of
   // SIGN_PICTO's (martini, mug, fork, bed, bolt, pill, fuel, arrow, pan, hook, eye, money, balls, stamp) and defaults to none. Both
   // live in windshield.js, and an unknown value FALLS BACK rather than throwing — a typo in a
@@ -250,7 +250,7 @@ export const DETAIL_SCHEMA = {
     // `badge` drops the flat board quad and paints a ROUNDED plate into the sign's own texture
     // instead — the only way this renderer can show a curve, since every surface it has is a quad.
     // A mark on a badge is a logo; a name on a board is a name.
-    plain: { color: 'string', ink: 'string', label: 'string', face: 'string', font: 'string', picto: 'string', bare: 'boolean', badge: 'boolean' }, px: 7 },
+    plain: { color: 'string', ink: 'string', nightInk: 'string', label: 'string', face: 'string', font: 'string', picto: 'string', bare: 'boolean', badge: 'boolean' }, px: 7 },
 
   // A picture bent in neon and mounted on the wall, by name from NEON_ART in windshield.js. `z` is
   // its centre, `half` and `hh` its half-extents; the artwork keeps its own aspect inside them.

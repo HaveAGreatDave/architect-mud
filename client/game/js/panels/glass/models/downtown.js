@@ -13,10 +13,232 @@ import {
   clipToAperture, decoHidden, dish, doorReveal, draw3DBoxAt, drawBarrelRoof, drawFacetDrum,
   drawGargoyle, drawRing, drawSmoke, dutyPhase, emitDecoFill, emitFace, emitFlat, emitLightRunner,
   emitRecessBay, emitSurfaceText, emitWire, facePals, facePt, faceYaw, frac, glowPool, helideck,
-  hoistLine, keptOnCanvas, latticeTower, markHidden, marqueeBand, mast, motionOn, motionPhase,
+  hoistLine, keptOnCanvas, latticeTower, litStyle, markHidden, marqueeBand, mast, motionOn, motionPhase,
   moveSeg, movingBox, mullions, neonBlade, reserveSignBand, rgb, roofClutter, roofCross, shadeOf,
-  slideToPlane, wallBadge, wallDisc, wallRose,
+  SIGN_PICTO, slideToPlane, wallBadge, wallDisc, wallRose,
 } from '../../windshield.js';
+import { state } from '../../../state.js';
+
+// A halo-lit nameplate: a rim of light round the plate on the plane just behind its face, which
+// is what a plate stood off the stone and lit from behind throws onto the wall. In daylight the
+// same rim is the plate's shadow, so the plate reads as raised in both. The four bars sit outside
+// the plate's own outline, so nothing here overlaps the plate or fights it for depth.
+function haloRim(ctx, cam, F, y, hw, z0, z1, t, fill, alpha) {
+  const L = (x, z) => { const [wx, wy] = F(x, y); return [wx, wy, z]; };
+  const Q = (x0, x1, za, zb) => emitFlat(ctx, cam, [L(x0, zb), L(x1, zb), L(x1, za), L(x0, za)], fill, alpha, { lift: DETAIL_LIFT });
+  Q(-hw - t, hw + t, z1, z1 + t); Q(-hw - t, hw + t, z0 - t, z0);
+  Q(-hw - t, -hw, z0, z1); Q(hw, hw + t, z0, z1);
+}
+// ── COLDWATER REGIONAL'S TERMINAL: TWO TILES, ONE BUILDING ─────────────────────────────────────
+// `arrivals` and `departures` are the two halves of one terminal on the runway's west edge, and
+// this draws what they share: a hall long along the frontage under twin barrel vaults, the airside
+// glazing with its mullions, the livery fascia, and HALF of the glazed link that joins them. `side`
+// is which local x the partner stands on: −1 for arrivals (departures is on its left as you face
+// the door), +1 for departures.
+//
+// ⚠ THE LINK IS IN CONSTANTS AND EVERYTHING ELSE IS IN fh AND h. Both are rolled per tile, so two
+// halves of one corridor written in either would meet the boundary at two different heights. In
+// tiles, each half runs from inside its own hall to x = ±0.5, and they meet edge to edge.
+// ⚠ EVERY RECTANGULAR BOX HERE TAKES `yawE`. The old arrivals hall passed yaw 0 with a long side and
+// a short one, so on its east-facing tile the hall ran east–west under a roof, placed through F,
+// that ran north–south. `gl:mesh` is the gate for this.
+// ⚠ AND THE VAULTS DARKEN WITH THE NIGHT. A barrel roof is a flat mesh face in its `base` colour,
+// lit by nothing, so a pale roof is as pale at midnight as at noon: the control tower's complaint.
+// Scaling `base` by `dusk` gives the night capture a darker roof to record.
+function terminalHalf(ctx, cam, dx, dy, fh, h, seed, night, alpha, E, F, o) {
+  const yawE = faceYaw(E), dusk = 1 - 0.72 * (night ? clamp(night, 0, 1) : 0);
+  const { HW, D, top, vault, side } = o;
+  const roofRgb = [184 * dusk, 192 * dusk, 200 * dusk];
+  draw3DBoxAt(ctx, cam, dx, dy, HW, 0, top, 'ty_arrivals', seed, night, alpha, false, yawE, D);
+  drawBarrelRoof(ctx, cam, F, -HW / 2, HW / 2, D, top, vault, 10, alpha, roofRgb);
+  drawBarrelRoof(ctx, cam, F, HW / 2, HW / 2, D, top, vault, 10, alpha, roofRgb);
+  // The airside glazing, the livery fascia over it, and a mullion every fifth of the half-length.
+  const [gx, gy] = F(0, D + 0.003);
+  draw3DBoxAt(ctx, cam, gx, gy, HW * 0.92, h * 0.04, top * 0.84, 'ty_tower_slot', seed + 1, night, alpha, false, yawE, 0.004);
+  const [lx, ly] = F(0, D + 0.006);
+  draw3DBoxAt(ctx, cam, lx, ly, HW, top * 0.87, top, 'ty_airport_band', seed + 2, night, alpha, false, yawE, 0.005);
+  for (let i = -4; i <= 4; i++) {
+    const [mx, my] = F(i * HW * 0.2, D + 0.008);
+    emitWire(ctx, cam, [mx, my, h * 0.04], [mx, my, top * 0.84], 1, 'rgba(30,36,44,0.85)', alpha, { pull: DECO_PULL });
+  }
+  // Half of the glazed link, from inside this hall to the tile edge, with a dark roof slab on it.
+  const [kx, ky] = F(side * 0.42, 0);
+  draw3DBoxAt(ctx, cam, kx, ky, 0.08, 0, 0.19, 'ty_tower_slot', seed + 30, night, alpha, false, yawE, 0.15);
+  draw3DBoxAt(ctx, cam, kx, ky, 0.08, 0.19, 0.205, 'ty_precast_dk', seed + 31, night, alpha, true, yawE, 0.165);
+  return { yawE, dusk };
+}
+
+// Raised lettering: the name baked twice, a dark copy dropped down and right under the face, so
+// the letters cast a shadow onto their own plate. `quad(dx, dz)` returns the four projected corners
+// with that offset in plate units.
+function embossText(ctx, cam, quad, text, face, shadow, night, alpha, opts) {
+  const sh = bakeSignText(text, shadow, 0, false, true, undefined, opts);
+  const fc = bakeSignText(text, face, night ? 1 : 0, false, true, undefined, opts);
+  const S = quad(1, -1), Fq = quad(0, 0);
+  if (sh && S.every((p) => p.f > 0.065)) emitSurfaceText(ctx, cam, S, sh, false, alpha * 0.85);
+  if (fc && Fq.every((p) => p.f > 0.065)) emitSurfaceText(ctx, cam, Fq, fc, false, alpha);
+}
+
+// ── THE CLONE FACILITY AND SECOND HELPINGS SHARE A MAIN AND A CLOCK ───────────────────────────
+// The two tiles are one plant. The vats print people onto Ironside Street, and what's left over
+// goes down a glass main into the party wall and comes out of Second Helpings' dispensers. Both
+// arms read this, so the slug of product that leaves the vats is the one that climbs the riser
+// next door.
+//
+// ⚠ THE MAIN'S PLAN POSITION IS IN TILES, NOT fh. Each tile rolls its own footprint, so a run
+// written in either one's fh meets the party wall somewhere the other one didn't put it. `ly` is
+// how far in front of the tile centre the main runs, and `end` is where it stops in the clone's
+// frame: inside the party wall, which Second Helpings draws from `wall` in its own frame, one tile
+// further along +lx. The height is each side's own; the wall is taller than both buildings and
+// hides the step. The old crossing was written in the SHOP's h, and on the live seeds it ran
+// through the bottom of the clone's sign plate.
+export const GUT = {
+  ly: 0.49, r: 0.026, end: 0.60,
+  wall: { lx: -0.40, half: 0.045, front: 0.53, back: -0.36 },   // Second Helpings' frame
+  seed: 70.31, period: 60000,
+};
+// The shared minute: 0–0.30 a vat prints, 0.30–0.40 the doors open and the new arrival walks out,
+// 0.34–0.62 what's left goes down the main (the clone's side until 0.52, the shop's riser after),
+// and the rest of it is still. −1 when the clock is parked, which every reader takes as "nothing
+// moving" and draws the closed, full, empty-main pose.
+export function gutPhase(now) { return motionPhase(now, GUT.seed, GUT.period, 1); }
+const ease = (u) => { const t = clamp(u, 0, 1); return t * t * (3 - 2 * t); };
+
+// Newell's normal for a polygon, the same sum `emitFlat` uses, so a face can be turned to point
+// where the caller says before it reaches the mesh. A lit mesh face is shaded off this normal.
+function facing(q, out) {
+  let nx = 0, ny = 0, nz = 0;
+  for (let i = 0; i < q.length; i++) {
+    const a = q[i], b = q[(i + 1) % q.length];
+    nx += (a[1] - b[1]) * (a[2] + b[2]); ny += (a[2] - b[2]) * (a[0] + b[0]); nz += (a[0] - b[0]) * (a[1] + b[1]);
+  }
+  return nx * out[0] + ny * out[1] + nz * out[2] < 0 ? q.slice().reverse() : q;
+}
+// A round tube between two points of the model's own frame, as `N` lit facets. The GPU shades each
+// facet as `fam` off its own normal; the canvas gets the same facets shaded by hand. `dusk` darkens
+// the albedo after dark, because a pale lit face is above the shader's night-dim cutoff.
+export function tubeRun(ctx, cam, W3, A, B, r, N, col, fam, alpha, dusk) {
+  if (SHAPE_SINK) return;
+  let dx = B[0] - A[0], dy = B[1] - A[1], dz = B[2] - A[2];
+  const L = Math.hypot(dx, dy, dz);
+  if (!(L > 1e-6)) return;
+  dx /= L; dy /= L; dz /= L;
+  // Two axes across the tube: d×z for anything that isn't vertical, d×x for anything that is.
+  let ux = dy, uy = -dx, uz = 0;
+  if (Math.abs(dz) > 0.9) { ux = 0; uy = dz; uz = -dy; }
+  const ul = Math.hypot(ux, uy, uz); ux /= ul; uy /= ul; uz /= ul;
+  const vx = dy * uz - dz * uy, vy = dz * ux - dx * uz, vz = dx * uy - dy * ux;
+  const at = (P, a) => { const c = Math.cos(a) * r, s = Math.sin(a) * r; return W3(P[0] + c * ux + s * vx, P[1] + c * uy + s * vy, P[2] + c * uz + s * vz); };
+  const A0 = W3(A[0], A[1], A[2]);
+  const alb = [col[0] * dusk, col[1] * dusk, col[2] * dusk];
+  for (let k = 0; k < N; k++) {
+    const a0 = k / N * 6.2832, a1 = (k + 1) / N * 6.2832, m = at(A, (a0 + a1) / 2);
+    const ox = m[0] - A0[0], oy = m[1] - A0[1], oz = m[2] - A0[2], ol = Math.hypot(ox, oy, oz) || 1;
+    const q = facing([at(A, a0), at(B, a0), at(B, a1), at(A, a1)], [ox, oy, oz]);
+    // The painter's own key: from above, and from (−0.7, −0.7) in plan, as `drawFacetDrum` has it.
+    const k2 = clamp(0.64 + 0.28 * oz / ol - 0.14 * (ox + oy) / ol, 0.32, 1.12);
+    emitFlat(ctx, cam, q, rgb([alb[0] * k2, alb[1] * k2, alb[2] * k2]), alpha,
+      { lit: fam, albedo: alb, lift: DETAIL_LIFT, cullN: Math.abs(oz / ol) < 0.8 ? [ox, oy] : undefined });
+  }
+}
+// The slug in the main: the stretch of a polyline (in the model's frame) between distances d0 and
+// d1 along it, drawn as a bright line through the glass. ⚠ A LINE AS WELL AS THE GLOWS, because a
+// green glow on green glass is all but invisible by day. `pull` brings it out through the tube
+// wall it is drawn inside.
+export function slugLine(ctx, cam, W3, path, d0, d1, night, alpha) {
+  const pts = [];
+  let run = 0;
+  for (let i = 1; i < path.length; i++) {
+    const a = path[i - 1], b = path[i], L = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+    const lo = Math.max(d0, run), hi = Math.min(d1, run + L);
+    if (hi > lo && L > 0) {
+      const p = (d) => { const t = (d - run) / L; return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; };
+      if (!pts.length) pts.push(p(lo));
+      pts.push(p(hi));
+    }
+    run += L;
+  }
+  for (let i = 1; i < pts.length; i++) {
+    emitWire(ctx, cam, W3(...pts[i - 1]), W3(...pts[i]), 5, 'rgba(190,255,204,0.95)', alpha,
+      { pull: 0.03, glow: night ? 8 : 0, glowCss: 'rgb(120,255,170)' });
+  }
+}
+// A lit band round a drum, the half that faces the eye only. ⚠ NOT `drawRing`, which spends
+// DECO_PULL on the whole circle: the back half is behind the drum, and pulling it 0.05 toward the
+// eye brings the ends of it out round the silhouette (`glself`). The near half needs a hair.
+function frontRing(ctx, cam, cx, cy, z, r, N, css, lw, alpha) {
+  const ex = cam.ex || 0, ey = cam.ey || 0;
+  for (let i = 0; i < N; i++) {
+    const a0 = i / N * 6.2832, a1 = (i + 1) / N * 6.2832;
+    const away = (a) => { const nx = Math.cos(a), ny = Math.sin(a); return nx * (cx + nx * r - ex) + ny * (cy + ny * r - ey) >= 0; };
+    if (away(a0) || away(a1)) continue;   // turned away, or on the silhouette
+    emitWire(ctx, cam, [cx + Math.cos(a0) * r, cy + Math.sin(a0) * r, z], [cx + Math.cos(a1) * r, cy + Math.sin(a1) * r, z], lw, css, alpha, { pull: 0.01 });
+  }
+}
+// A flat face in the model's own frame, turned to face `out` (a local direction).
+function flatOut(ctx, cam, W3, pts, out, fill, alpha, opts = {}) {
+  if (SHAPE_SINK) return;
+  const O = W3(0, 0, 0), D = W3(out[0], out[1], out[2]);
+  const o = [D[0] - O[0], D[1] - O[1], D[2] - O[2]];
+  emitFlat(ctx, cam, facing(pts.map((p) => W3(p[0], p[1], p[2])), o), fill, alpha,
+    Object.assign({ lift: DETAIL_LIFT, cullN: Math.abs(o[2]) < 0.8 ? [o[0], o[1]] : undefined }, opts));
+}
+// A body, as a silhouette through frosted glass: curled up (0), floating upright (1), or standing
+// in a doorway (2). Baked once per pose and per day/night, and painted as a decal on the glass.
+const _cloneBody = new Map();
+function cloneBodyTex(pose, night) {
+  const key = pose * 2 + (night ? 1 : 0);
+  let c = _cloneBody.get(key);
+  if (c) return c;
+  c = document.createElement('canvas'); c.width = 40; c.height = 104;
+  const g = c.getContext('2d');
+  if (g) {
+    const ink = pose === 2 ? (night ? 'rgba(10,18,20,0.92)' : 'rgba(16,24,28,0.86)') : (night ? 'rgba(6,30,24,0.86)' : 'rgba(12,46,40,0.6)');
+    g.fillStyle = ink; g.strokeStyle = ink; g.shadowColor = ink; g.shadowBlur = pose === 2 ? 1 : 3;
+    const E = (x, y, rx, ry, rot = 0) => { g.beginPath(); g.ellipse(x, y, rx, ry, rot, 0, 6.2832); g.fill(); };
+    if (pose === 0) {          // knees to the chest, head down, one arm round them
+      E(22, 30, 7, 8); E(19, 54, 9, 16, 0.25); E(25, 68, 7, 12, -0.5); E(22, 82, 5, 10, 0.3); E(14, 54, 3, 12, 0.15);
+    } else if (pose === 1) {   // upright, head bowed, arms loose
+      E(20, 16, 6, 7); E(20, 42, 9, 16); E(20, 67, 7, 13); E(17, 89, 3.5, 12); E(23, 89, 3.5, 12);
+      E(10, 46, 2.6, 14, 0.12); E(30, 46, 2.6, 14, -0.12);
+    } else {                   // standing, feet apart, arms at the sides
+      E(20, 10, 5.5, 6.5); E(20, 34, 8.5, 15); E(20, 54, 7, 7); E(16, 78, 3.4, 20, 0.05); E(24, 78, 3.4, 20, -0.05);
+      E(10, 38, 2.6, 15, 0.08); E(30, 38, 2.6, 15, -0.08);
+    }
+    if (pose !== 2) {          // the feed line, from the vat's crown to the body
+      g.shadowBlur = 0; g.lineWidth = 1.5;
+      g.beginPath(); g.moveTo(20, 0); g.quadraticCurveTo(25, 10, pose ? 20 : 22, pose ? 10 : 22); g.stroke();
+    }
+  }
+  c._lit = 0;
+  _cloneBody.set(key, c);
+  return c;
+}
+
+// The Halcyon seal: the calm closed eye on a dark roundel. ⚠ BAKED HERE, NOT BY `bakeSignText`,
+// because pictograms were taken off the city's signs (`draw = null` in that function), and the
+// seal on this wall had been an empty ring ever since. The path is still `SIGN_PICTO.eye`.
+const _seal = [null, null];
+function haloSealTex(night) {
+  const k = night ? 1 : 0;
+  if (_seal[k]) return _seal[k];
+  const S = 96, c = document.createElement('canvas'); c.width = S; c.height = S;
+  const g = c.getContext('2d');
+  if (g) {
+    const ink = '#7fe8d2';
+    g.fillStyle = '#10202a'; g.beginPath(); g.arc(S / 2, S / 2, S * 0.47, 0, 6.2832); g.fill();
+    g.lineWidth = S * 0.035; g.strokeStyle = ink; g.globalAlpha = 0.6; g.stroke(); g.globalAlpha = 1;
+    g.save(); g.translate(S / 2, S / 2); g.scale(S * 0.78, S * 0.78);
+    g.lineCap = 'round'; g.lineJoin = 'round'; g.strokeStyle = ink; g.lineWidth = 5 / (S * 0.78);
+    g.shadowColor = ink; g.shadowBlur = night ? 8 : 0;
+    g.beginPath(); SIGN_PICTO.eye(g); g.stroke();
+    g.shadowBlur = 0; g.stroke();
+    g.restore();
+  }
+  c._lit = k;
+  _seal[k] = c;
+  return c;
+}
 
 export const DOWNTOWN_ARMS = {
   bank(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // Citadel Financial — a windowless marble strongbox pretending to be a temple.
@@ -237,6 +459,22 @@ export const DOWNTOWN_ARMS = {
     for (const s of [-1, 1]) { const [jx, jy] = F(s * fh * 0.23, fh * 1.04); draw3DBoxAt(ctx, cam, jx, jy, fh * 0.045, 0, zBar - h * 0.02, trim, seed + 41 + s, night, alpha, true); }
     { const [cx, cy] = F(0, fh * 1.17); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.30, zBar - h * 0.07, zBar - h * 0.055, iron, seed + 44, night, alpha, true); }
     for (const s of [-1, 1]) { const [bx, by] = F(s * fh * 0.26, fh * 1.09); draw3DBoxAt(ctx, cam, bx, by, fh * 0.03, zBar - h * 0.055, zBar - h * 0.02, iron, seed + 46 + s, night, alpha, false); }
+    // 6b) A BACKLIT LIGHTBOX standing on the canopy: a lit opal face with HOTEL & BAR cut dark
+    //     out of it. By day it's a cream panel in an iron frame; after dark the face glows.
+    { const sy = fh * 1.40, sw = fh * 0.24, sz0 = zBar - h * 0.055, sz1 = zBar - h * 0.008;
+      const L = (x, z) => { const [wx, wy] = F(x, sy); return [wx, wy, z]; };
+      const lit = !!night;
+      haloRim(ctx, cam, F, sy, sw, sz0, sz1, (sz1 - sz0) * 0.10, 'rgb(34,30,28)', alpha);
+      emitFlat(ctx, cam, [L(-sw, sz1), L(sw, sz1), L(sw, sz0), L(-sw, sz0)], lit ? 'rgb(255,236,198)' : 'rgb(214,204,182)', alpha, { lift: DETAIL_LIFT });
+      if (frontVis) {
+        const iz0 = sz0 + (sz1 - sz0) * 0.2, iz1 = sz1 - (sz1 - sz0) * 0.2, iw = sw * 0.86;
+        const [lx, ly] = F(-iw, sy + fh * 0.004), [rx, ry] = F(iw, sy + fh * 0.004);
+        const Q = [cam.proj(lx, ly, iz1), cam.proj(rx, ry, iz1), cam.proj(rx, ry, iz0), cam.proj(lx, ly, iz0)];
+        const t = bakeSignText('HOTEL & BAR', '#2a1c12', 0, false, true);
+        if (t && Q.every((q) => q.f > 0.065)) emitSurfaceText(ctx, cam, Q, t, false, alpha);
+      }
+      if (lit) { const [gx, gy] = F(0, sy + fh * 0.02); glowPool(ctx, cam, gx, gy, (sz0 + sz1) * 0.5, '255,226,170', 14, alpha * 0.5, { add: true }); }
+    }
     for (const s of [-1, 1]) { const [lx, ly] = F(s * fh * 0.30, fh * 1.14); glowPool(ctx, cam, lx, ly, zBar - h * 0.08, '255,186,110', 6, alpha * (night ? 0.5 : 0.24)); }
     // 7) CORBEL COURSE under the cornice — a run of small stone blocks on the frontage and the two
     //    flanks. It's the cheapest detail here and it's the one that says 'brick hotel'.
@@ -254,10 +492,17 @@ export const DOWNTOWN_ARMS = {
       const nhw = fh * 0.62, [nlx, nly] = F(-nhw, fh * 1.01), [nrx, nry] = F(nhw, fh * 1.01);
       const TL = cam.proj(nlx, nly, zPara - h * 0.012), TR = cam.proj(nrx, nry, zPara - h * 0.012);
       const BR = cam.proj(nrx, nry, zCorn + h * 0.012), BL = cam.proj(nlx, nly, zCorn + h * 0.012);
-      if ([TL, TR, BR, BL].every((q) => q.f > 0.12)) {
+      if ([TL, TR, BR, BL].every((q) => q.f > 0.065)) {   // proj clamps at 0.06; 0.12 dropped the name as you walked under it
         const nam = bakeSignText('EMBASSY HOTEL', '#d8cdb4', night ? 1 : 0, false);
         emitSurfaceText(ctx, cam, [TL, TR, BR, BL], nam, false, alpha);
       }
+    }
+    // 8c) The parapet name is HALO-LIT after dark: lamps behind the letters wash the stone warm,
+    //     so the name reads from the street instead of vanishing into a dark band.
+    if (night) {
+      const [gx, gy] = F(0, fh * 1.03), gz = (zCorn + zPara) * 0.5;
+      for (const s of [-0.6, 0, 0.6]) { const [px, py] = F(s * fh, fh * 1.03); glowPool(ctx, cam, px, py, gz, '255,214,150', 12, alpha * 0.38, { add: true }); }
+      glowPool(ctx, cam, gx, gy, gz, '255,200,130', 26, alpha * 0.18, { add: true });
     }
     // 9) THE CORNER CLOCK TURRET — a square lead-roofed turret on the front-left corner with a pale
     //     dial facing the street. It's the crown, and on a building this short the crown is the
@@ -278,104 +523,229 @@ export const DOWNTOWN_ARMS = {
       glowPool(ctx, cam, dx, dy, (zBar + zShaft) * 0.5, '196,214,238', 13, alpha * 0.14);
     }
   },
-  clone(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // Coldwater Clone Facility: clean lab shell, breathing bio-vats, a reactor dome, the Halcyon seal
-    // ⚠ THIS IS THE FIRST BUILDING EVERY PLAYER EVER SEES, and it is worth knowing before you
-    // change anything here. `zone_district_918_903`'s own arrival prose opens "The Clone Facility
-    // door sighs shut behind you", so this frontage is the establishing shot of the entire game.
-    // What stood on it was a pale box, four grey cabinets, and a roof glow commented "reactor
-    // dome" with no dome anywhere underneath it.
-    const bio = '90,255,200';
-    const blockTop = h * 0.8, capTop = blockTop + h * 0.05;
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.22, 0, h * 0.06, 'ty_clone_wall', seed + 30, night, alpha, false);     // the plinth it stands on
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.18, h * 0.06, blockTop, pal, seed, night, alpha, true);                // clinical main block
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.21, blockTop, capTop, 'ty_clone_wall', seed + 31, night, alpha, true); // capping course — a lab is a box, and a box needs an edge
-    { const [sx, sy] = F(-fh * 0.36, -fh * 0.1); draw3DBoxAt(ctx, cam, sx, sy, fh * 0.5, capTop, h * 1.15, pal, seed + 1, night, alpha, true); }   // set-back upper lab
-    // ── THE REACTOR DOME, WHICH NOW EXISTS ──────────────────────────────────────────────────
-    // Two facet drums — a wide shoulder and a small cap — which is the closest GLASS gets to a
-    // curve, and the same trick the power plant's cooling towers use. It vents from its own
-    // crown rather than from a pipe on the far side of the roof, which is where the steam was.
-    const [rx, ry] = F(fh * 0.54, -fh * 0.02);   // forward of the roof's middle, or the frontage never sees it at all
-    // ⚠ PALE, NOT DARK. The first cut shaded from 0.46 and came out as a grey-green boulder sitting
-    // on a white roof; this building's whole palette is clinical, and the dome is the cleanest
-    // thing on it.
-    const shell = (f) => { const s = 0.58 + f.nl * 0.42; return `rgb(${(206 * s) | 0},${(222 * s) | 0},${(224 * s) | 0})`; };
-    drawFacetDrum(ctx, cam, rx, ry, capTop, capTop + h * 0.20, fh * 0.38, fh * 0.30, 14, alpha, shell, 'rgb(158,180,186)');
-    drawFacetDrum(ctx, cam, rx, ry, capTop + h * 0.20, capTop + h * 0.32, fh * 0.30, fh * 0.11, 14, alpha, shell, 'rgb(186,212,208)');
-    drawRing(ctx, cam, rx, ry, capTop + h * 0.20, fh * 0.39, 14, night ? 'rgba(120,255,220,0.65)' : 'rgba(140,210,196,0.4)', 2, alpha);   // containment band
+  clone(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // Coldwater Clone Facility, YOU AGAIN: a tiled lab block, a door, four vats, the main to Second Helpings
+    // ⚠ THIS IS THE FIRST BUILDING EVERY PLAYER SEES. `zone_district_918_903`'s arrival prose opens
+    // "The Clone Facility door sighs shut behind you", so this frontage is the establishing shot of
+    // the game, and it reads in that order: the door you just came out of, the vats you came out of,
+    // and the main that takes what was left of the batch next door to Second Helpings.
+    //
+    // ⚠ THE DOOR IS ON THE LEFT AND THE VATS ARE ON THE RIGHT, BESIDE THE SHOP. The main runs from
+    // the vats into the party wall, so with the vats next to the shop it never crosses the door. It
+    // used to: the door stood between the vats and the shop, and the main ran across it at the
+    // height of the sign plate.
+    const yaw = faceYaw(E), dn = night ? clamp(night, 0, 1) : 0, dusk = 1 - 0.55 * dn;
+    const bio = '90,255,200', STEEL = [184, 196, 200];
+    const blockTop = h * 0.80, capTop = h * 0.85;
+    // The front wall's plane. The block is exactly fh wide, so `draw3DBoxAt`'s 0.44 clamp never
+    // touches it and everything mounted on the front is measured from where the wall really is.
+    const WF = fh;
+    // 1) THE SHELL: a dark stone plinth, the tiled block, a steel capping course, and the set-back
+    //    upper lab in curtain glass with a steel lid. The marble, the mirror steel and the glass are
+    //    Halcyon Fields' own (`ty_hf_*`), because Halcyon owns the place; only the tile is new.
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.06, 0, h * 0.04, 'ty_hf_marble_dk', seed + 30, night, alpha, true);
+    draw3DBoxAt(ctx, cam, dx, dy, fh, h * 0.04, blockTop, 'ty_clone_tile', seed, night, alpha, false);
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.04, blockTop, capTop, 'ty_hf_mirror', seed + 31, night, alpha, true);
+    { const [sx, sy] = F(-fh * 0.36, -fh * 0.10);
+      draw3DBoxAt(ctx, cam, sx, sy, fh * 0.50, capTop, h * 1.12, 'ty_hf_glass', seed + 1, night, alpha, false);
+      draw3DBoxAt(ctx, cam, sx, sy, fh * 0.52, h * 1.12, h * 1.14, 'ty_hf_mirror', seed + 2, night, alpha, true); }
+    // 2) THE DOME: frosted glass on a steel ring, lit from inside, venting from its own crown.
+    // ⚠ PALE, NOT DARK. Shaded from 0.46 it came out as a grey-green boulder on a white roof.
+    const [rx, ry] = F(fh * 0.54, -fh * 0.02);
+    const shell = (f) => { const s = (0.62 + f.nl * 0.38) * dusk; return `rgb(${(208 * s) | 0},${(228 * s) | 0},${(224 * s) | 0})`; };
+    const steelS = (f) => { const s = (0.56 + f.nl * 0.44) * dusk; return `rgb(${(182 * s) | 0},${(196 * s) | 0},${(200 * s) | 0})`; };
+    drawFacetDrum(ctx, cam, rx, ry, capTop, capTop + h * 0.025, fh * 0.40, fh * 0.40, 14, alpha, steelS, 'rgb(170,184,188)', 'ty_hf_mirror');
+    drawFacetDrum(ctx, cam, rx, ry, capTop + h * 0.025, capTop + h * 0.20, fh * 0.37, fh * 0.30, 14, alpha, shell, null, 'ty_clone_vat');
+    drawFacetDrum(ctx, cam, rx, ry, capTop + h * 0.20, capTop + h * 0.32, fh * 0.30, fh * 0.11, 14, alpha, shell, 'rgb(196,220,214)', 'ty_clone_vat');
+    frontRing(ctx, cam, rx, ry, capTop + h * 0.20, fh * 0.31, 14, night ? 'rgba(120,255,220,0.7)' : 'rgba(120,196,184,0.45)', 2, alpha);   // containment band
     drawSmoke(ctx, cam, rx, ry, capTop + h * 0.32, '206,232,226', alpha * 0.6, now, seed + 2);
-    // ── THE PRINT CYCLE ─────────────────────────────────────────────────────────────────────
-    // ⚠ THE ONE THING THIS BUILDING HAS NEVER DONE ON SCREEN IS MAKE ANYBODY. It runs one tank at
-    // a time, on a long clock, and the dome surges with it — so the facility that printed you is
-    // occasionally seen printing somebody else. `work` is a third, so most of the time it is a
-    // quiet lab; the tank is picked off the TILE, so two facilities never run the same one.
-    const vp = motionPhase(now, seed + 41, 46000, 0.34), vu = vp < 0 ? 0 : vp;
-    const run = vp < 0 ? 0 : Math.sin(Math.PI * vu);                    // 0 → 1 → 0 across the print
-    const printing = vp < 0 ? -1 : Math.floor(frac(seed + 5) * 4);
+    // 3) THE CYCLE — see `gutPhase`. The vat that prints is picked off the cycle, so it moves along
+    //    the row from one minute to the next, and the dome surges with it.
+    const gu = gutPhase(now);
+    const cycle = Math.floor((now || 0) / GUT.period + frac(GUT.seed));
+    const printing = gu < 0 ? -1 : (cycle * 3 + (seed | 0)) & 3;
+    const run = gu >= 0 && gu < 0.30 ? Math.sin(Math.PI * gu / 0.30) : 0;
     glowPool(ctx, cam, rx, ry, capTop + h * 0.26, '120,255,220', 22 + run * 12, clamp(alpha * (night ? 0.42 : 0.24) * (1 + run * 1.3), 0, 1));
-    // ── THE VATS, WHICH BREATHE ─────────────────────────────────────────────────────────────
-    // Four tanks that were four grey cabinets with a speck of green in each. A vat holds
-    // something alive, so the glow rises and falls — slowly, and each on its own clock, because
-    // four tanks pulsing in unison is a fairground ride and four out of step is a plant.
-    // ⚠ THE ROW MOVED OFF CENTRE, which is what buys the entrance bay below it: a door needs a
-    // gap and the old row left one nine hundredths of a footprint wide, dead centre.
+    // 4) THE VATS. Round, frosted glass between a steel foot and a steel lid, on the forecourt under
+    //    the main they feed. Each one holds somebody: a silhouette through the frost, curled up or
+    //    floating, drifting on its feed line. The one that prints surges; when the doors open it is
+    //    empty, and it fills back up over the rest of the minute.
+    // ⚠ THEY STAND ON `GUT.ly`, A CONSTANT, because the main runs straight over their lids and its
+    // plan position is fixed in tiles. At the widest footprint the back of a vat touches the wall.
+    const vatR = fh * 0.115, vatLx = [0.02, 0.30, 0.58, 0.86], vb = h * 0.045, vt = h * 0.40, vatTop = h * 0.44;
+    const zT = h * 0.50, R = GUT.r;
+    // ⚠ LIT AS FROST BY DAY AND BRIGHT GREEN AFTER DARK, WHICH IS WHY THE PALETTE IS A PLAIN KEY. A
+    // drum in a frost-family palette takes the frost texture on the GPU, and a textured face keeps its
+    // day colour after dark, so the vats could not glow. In `ty_clone_wall` the style decides: frost
+    // by day (`litStyle`), and a night albedo over the shader's night-dim cutoff.
+    const vatGlass = night ? [150, 255, 204] : [150, 196, 182];
+    const frost = litStyle((f) => { const s = 0.72 + f.nl * 0.28; return `rgb(${(vatGlass[0] * s) | 0},${(vatGlass[1] * s) | 0},${(vatGlass[2] * s) | 0})`; }, vatGlass, 'frost');
     for (let i = 0; i < 4; i++) {
-      const lx = (-0.34 + (-0.75 + i * 0.5) * 0.7) * fh;
-      const [vx, vy] = F(lx, fh * 1.32);
-      draw3DBoxAt(ctx, cam, vx, vy, fh * 0.13, 0, h * 0.52, 'ty_clone_vat', seed + 12 + i, night, alpha, true);
+      const lx = vatLx[i] * fh, [vx, vy] = F(lx, GUT.ly);
+      drawFacetDrum(ctx, cam, vx, vy, 0, vb, vatR * 1.14, vatR * 1.14, 12, alpha, steelS, 'rgb(170,184,188)', 'ty_hf_mirror');
+      drawFacetDrum(ctx, cam, vx, vy, vb, vt, vatR, vatR, 12, alpha, frost, null, 'ty_clone_wall');
+      drawFacetDrum(ctx, cam, vx, vy, vt, vatTop, vatR * 1.10, vatR * 1.04, 12, alpha, steelS, 'rgb(196,208,212)', 'ty_hf_mirror');
+      tubeRun(ctx, cam, W3, [lx, GUT.ly, vatTop], [lx, GUT.ly, zT - R * 0.5], fh * 0.028, 6, STEEL, 'chrome', alpha, dusk);   // up into the main
       const breath = motionOn() ? 0.72 + 0.28 * Math.sin((now || 0) * 0.0009 + frac(seed + i * 7) * 6.283) : 1;
       const surge = i === printing ? run * 2.1 : 0;
-      // The inspection window. ⚠ NOT A `drawRing` — a ring is four facets round a DRUM and these
-      // tanks are boxes, so it bakes as a teal lozenge hanging in the air in front of each one.
-      // It is a lit strip across the tank's own front face, which is the thing you look through.
-      const [wl] = [F(lx - fh * 0.115, fh * 1.455)], wr = F(lx + fh * 0.115, fh * 1.455);
-      emitWire(ctx, cam, [wl[0], wl[1], h * 0.31], [wr[0], wr[1], h * 0.31], 2.4,
-        `rgba(${bio},${clamp(0.34 + 0.4 * breath + surge * 0.3, 0, 1).toFixed(2)})`, alpha, { pull: 0.03, glow: night ? 7 : 0, glowCss: `rgb(${bio})` });
-      // ⚠ AND THE POOL SITS OUTSIDE THE TANK, NOT IN THE MIDDLE OF IT. A glow at the box's own
-      // centre is inside a solid, so the depth buffer hides it and the probe hid most of it too —
-      // which is why four lit tanks had one green speck each. What a lit tank does is light the
-      // yard in front of it.
-      glowPool(ctx, cam, wl[0] + (wr[0] - wl[0]) / 2, wl[1] + (wr[1] - wl[1]) / 2, h * 0.30, bio,
-        8 * (1 + surge * 0.5), clamp(alpha * (night ? 0.6 : 0.34) * breath * (1 + surge), 0, 1));
+      // ⚠ THE GLOW SITS ON THE GLASS, NOT AT THE DRUM'S CENTRE. Inside a solid, the depth buffer
+      // hides it; what a lit tank does is light the yard in front of it.
+      { const [gx, gy] = F(lx, GUT.ly + vatR * 1.05);
+        glowPool(ctx, cam, gx, gy, h * 0.24, bio, 9 * (1 + surge * 0.5), clamp(alpha * (night ? 0.62 : 0.30) * breath * (1 + surge), 0, 1)); }
+      const band = night ? `rgba(120,255,214,${clamp(0.55 + 0.3 * breath + surge * 0.2, 0, 1).toFixed(2)})` : 'rgba(150,206,192,0.55)';
+      frontRing(ctx, cam, vx, vy, vb + h * 0.012, vatR * 1.02, 12, band, 1.6, alpha);
+      frontRing(ctx, cam, vx, vy, vt - h * 0.012, vatR * 1.02, 12, band, 1.6, alpha);
+      if (frontVis) {
+        // The body. A decal, because it moves: it bobs, and the printing vat's fades out and back.
+        let fa = 1;
+        if (i === printing && gu >= 0.30) fa = gu < 0.36 ? 1 - (gu - 0.30) / 0.06 : ease((gu - 0.45) / 0.55);
+        const bob = motionOn() ? Math.sin((now || 0) * 0.0006 + i * 1.7) * h * 0.006 : 0;
+        const tex = fa > 0.02 ? cloneBodyTex((i + (seed | 0)) & 1, night) : null;
+        if (tex) {
+          const fy = GUT.ly + vatR + FACE_EPS * 2, hw = vatR * 0.62, z0 = vb + h * 0.03 + bob, z1 = vt - h * 0.035 + bob;
+          const q = [[-hw, z1], [hw, z1], [hw, z0], [-hw, z0]].map(([u, z]) => { const [wx, wy] = F(lx + u, fy); return cam.proj(wx, wy, z); });
+          if (q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha * fa * (night ? 0.95 : 0.8), DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
+        }
+        // Bubbles, rising on the glass.
+        if (motionOn()) for (let k = 0; k < 2; k++) {
+          const t = ((now || 0) * 0.00011 + k * 0.5 + frac(seed + i * 3.1)) % 1;
+          const [bx, by] = F(lx + vatR * 0.45 * Math.sin(t * 9 + i + k * 2), GUT.ly + vatR + 0.004);
+          glowPool(ctx, cam, bx, by, vb + (vt - vb) * t, '200,255,236', 2.5, alpha * (night ? 0.7 : 0.45) * Math.sin(Math.PI * t), { air: true });
+        }
+      }
     }
-    // The service gantry over the row — a handrail on posts, which is what ties four tanks on a
-    // forecourt to the building behind them instead of leaving them standing there like bins.
-    { const gz = h * 0.58, [ga] = [F(-fh * 0.92, fh * 1.32)], gb = F(fh * 0.26, fh * 1.32);
-      emitWire(ctx, cam, [ga[0], ga[1], gz], [gb[0], gb[1], gz], 1.6, 'rgba(150,168,172,0.9)', alpha, { pull: 0.05 });
-      emitWire(ctx, cam, [ga[0], ga[1], gz - h * 0.05], [gb[0], gb[1], gz - h * 0.05], 1.1, 'rgba(150,168,172,0.75)', alpha, { pull: 0.05 });
-      for (const p of [ga, gb]) emitWire(ctx, cam, [p[0], p[1], h * 0.52], [p[0], p[1], gz], 1.4, 'rgba(150,168,172,0.9)', alpha, { pull: 0.05 });
-      if (night) glowPool(ctx, cam, (ga[0] + gb[0]) / 2, (ga[1] + gb[1]) / 2, gz + h * 0.02, '200,240,235', 9, alpha * 0.3); }
-    // ── THE HALCYON SEAL ────────────────────────────────────────────────────────────────────
+    // 5) THE MAIN. Out of the wall through a steel collar, past a red handwheel, along the vat lids,
+    //    across the gap and into Second Helpings' party wall. Glass with the product in it, so it
+    //    reads as a pipe full of something rather than a rail. See GUT for why its plan is in tiles.
+    const lxS = -fh * 0.22, PRODUCT = [104, 196, 150];
+    const wallFace = 1 + GUT.wall.lx - GUT.wall.half;   // the party wall's south face, in this frame
+    tubeRun(ctx, cam, W3, [lxS, WF - 0.004, zT], [lxS, GUT.ly, zT], R, 8, PRODUCT, 'glass', alpha, dusk);                // out of the wall
+    tubeRun(ctx, cam, W3, [lxS, WF - 0.002, zT], [lxS, WF + 0.014, zT], R * 1.6, 10, STEEL, 'chrome', alpha, dusk);   // the wall collar
+    tubeRun(ctx, cam, W3, [lxS - R * 1.2, GUT.ly, zT], [GUT.end, GUT.ly, zT], R, 8, PRODUCT, 'glass', alpha, dusk);   // the run
+    for (const x of [lxS, ...vatLx.map((u) => u * fh), fh + 0.02, wallFace - 0.009]) {                              // flanges
+      tubeRun(ctx, cam, W3, [x - 0.009, GUT.ly, zT], [x + 0.009, GUT.ly, zT], R * 1.28, 10, STEEL, 'chrome', alpha, dusk);
+    }
+    // The valve, on the stub between the wall and the run: a bonnet and a red handwheel on top,
+    // kept low and short of the name plate, which `signfit` caught it standing across.
+    { const vy2 = (WF + GUT.ly) / 2, [wx, wy] = F(lxS, vy2), wz = zT + R * 1.6, wr = R * 1.25;
+      tubeRun(ctx, cam, W3, [lxS, vy2, zT + R * 0.6], [lxS, vy2, wz], R * 0.42, 6, STEEL, 'chrome', alpha, dusk);
+      drawRing(ctx, cam, wx, wy, wz, wr, 10, 'rgba(204,54,42,0.95)', 2.2, alpha);
+      emitWire(ctx, cam, W3(lxS - wr, vy2, wz), W3(lxS + wr, vy2, wz), 1.4, 'rgba(204,54,42,0.95)', alpha, { pull: 0.03 });
+      emitWire(ctx, cam, W3(lxS, vy2 - wr, wz), W3(lxS, vy2 + wr, wz), 1.4, 'rgba(204,54,42,0.95)', alpha, { pull: 0.03 }); }
+    // Brackets back to the wall between the vats, and one post under the crossing.
+    for (const u of [0.16, 0.44, 0.72]) {
+      const x = u * fh;
+      emitWire(ctx, cam, W3(x, WF, zT - R * 2.4), W3(x, GUT.ly, zT - R * 0.9), 1.8, 'rgba(120,132,138,0.95)', alpha, { pull: 0.03 });
+      emitWire(ctx, cam, W3(x, WF, zT), W3(x, GUT.ly - R * 0.9, zT), 1.8, 'rgba(120,132,138,0.95)', alpha, { pull: 0.03 });
+    }
+    { const x = (fh + wallFace) / 2;
+      tubeRun(ctx, cam, W3, [x, GUT.ly, 0], [x, GUT.ly, zT - R], 0.008, 6, STEEL, 'chrome', alpha, dusk); }
+    // The slug: what's left of the batch, going next door, as light on the glass while it moves.
+    // After dark the main is lit faintly the rest of the time. ⚠ `air`: these are on the pipe and
+    // must not light the building as well.
+    if (night) for (let x = lxS + 0.06; x < wallFace - 0.03; x += 0.11) { const [gx, gy] = F(x, GUT.ly + R); glowPool(ctx, cam, gx, gy, zT, bio, 4, alpha * 0.22, { air: true }); }
+    if (gu >= 0.34 && gu < 0.52) {
+      const slug = lxS + (GUT.end - lxS) * (gu - 0.34) / 0.18, cut = wallFace - 0.01;
+      slugLine(ctx, cam, W3, [[lxS, GUT.ly + R * 0.7, zT + R * 0.25], [cut, GUT.ly + R * 0.7, zT + R * 0.25]], slug - lxS - 0.10, slug - lxS, night, alpha);
+      for (let j = 0; j < 4; j++) {
+        const x = slug - j * 0.03;
+        if (x < lxS || x > wallFace - 0.01) continue;
+        const [gx, gy] = F(x, GUT.ly + R * 0.95);
+        glowPool(ctx, cam, gx, gy, zT, '140,255,170', 7 - j * 1.3, alpha * (night ? 0.9 : 0.6) * (1 - j * 0.22), { air: true });
+      }
+    }
+    // 6) THE DOOR: two steel pylons under a deep canopy, a pair of sliding glass doors, and a lit
+    //    transom saying what the door is for.
+    // ⚠ IT WAS A CANOPY ON TWO POSTS IN FRONT OF A WINDOW. The derived kit's glazing put a pane
+    // exactly where the door should have been and the arm never drew a door at all, so the kit's
+    // `wall` section is declined now (KIT_DECLINE) and the frontage is drawn here.
+    const lxD = -fh * 0.60, dw = fh * 0.13, dz0 = h * 0.04 + 0.002, dTop = h * 0.21, pyl = fh * 0.20, tw = pyl - fh * 0.055;
+    for (const s of [-1, 1]) { const [px, py] = F(lxD + s * pyl, fh * 1.12);
+      draw3DBoxAt(ctx, cam, px, py, fh * 0.055, 0, h * 0.335, 'ty_hf_mirror', seed + 34 + s, night, alpha, true, yaw, fh * 0.12); }
+    { const [cx2, cy2] = F(lxD, fh * 1.19);
+      draw3DBoxAt(ctx, cam, cx2, cy2, fh * 0.30, h * 0.335, h * 0.37, 'ty_hf_mirror', seed + 33, night, alpha, true, yaw, fh * 0.17); }
+    const glowLine = (A, B) => emitWire(ctx, cam, A, B, 2, night ? 'rgba(130,255,222,0.95)' : 'rgba(150,200,190,0.7)', alpha, { pull: 0.02, glow: night ? 6 : 0, glowCss: 'rgb(110,255,214)' });
+    for (const s of [-1, 1]) glowLine(W3(lxD + s * pyl, fh * 1.24 + 0.003, h * 0.02), W3(lxD + s * pyl, fh * 1.24 + 0.003, h * 0.32));
+    glowLine(W3(lxD - fh * 0.28, fh * 1.355, h * 0.333), W3(lxD + fh * 0.28, fh * 1.355, h * 0.333));   // under the canopy's front edge
+    const yD = WF + FACE_EPS * 3;
+    // The lobby behind the glass: dim by day, bright after dark, and what you see when the doors part.
+    flatOut(ctx, cam, W3, [[lxD - dw, yD, dTop], [lxD + dw, yD, dTop], [lxD + dw, yD, dz0], [lxD - dw, yD, dz0]], [0, 1, 0],
+      night ? 'rgb(206,240,232)' : 'rgb(46,64,66)', alpha);
+    // The head of the opening, the transom over it, and a mat in front of it.
+    const head = [STEEL[0] * dusk, STEEL[1] * dusk, STEEL[2] * dusk], t0 = dTop + h * 0.024, t1 = h * 0.325;
+    flatOut(ctx, cam, W3, [[lxD - tw, yD + 0.002, t0 - h * 0.006], [lxD + tw, yD + 0.002, t0 - h * 0.006], [lxD + tw, yD + 0.002, dTop], [lxD - tw, yD + 0.002, dTop]], [0, 1, 0], rgb(head), alpha, { lit: 'chrome', albedo: head });
+    // ⚠ THE LIGHTBOX IS ON THE PYLONS' FRONT PLANE, NOT ON THE WALL. On the wall it was 0.24·fh
+    // behind the pylons' lit edges, which crossed its lettering from 22° off (`signfit`); out here
+    // the two are one plane, and the door stands in a recess behind it, which is what a portal is.
+    const yP = fh * 1.24 + 0.002;
+    flatOut(ctx, cam, W3, [[lxD - tw, yP, t1], [lxD + tw, yP, t1], [lxD + tw, yP, t0], [lxD - tw, yP, t0]], [0, 1, 0], 'rgb(18,30,32)', alpha);
+    flatOut(ctx, cam, W3, [[lxD - tw, yP, t0], [lxD + tw, yP, t0], [lxD + tw, WF, t0], [lxD - tw, WF, t0]], [0, 0, -1], 'rgb(34,44,46)', alpha);   // its soffit, back to the wall
+    flatOut(ctx, cam, W3, [[lxD - dw, fh * 1.06 + 0.05, 0.004], [lxD + dw, fh * 1.06 + 0.05, 0.004], [lxD + dw, fh * 1.06, 0.004], [lxD - dw, fh * 1.06, 0.004]], [0, 0, 1], 'rgb(30,34,36)', alpha);   // the mat, at the foot of the step
+    if (night) for (const s of [-0.5, 0.5]) { const [gx, gy] = F(lxD + s * dw * 2, fh * 1.22); glowPool(ctx, cam, gx, gy, h * 0.30, '200,246,236', 10, alpha * 0.45); }
+    { const [gx, gy] = F(lxD, WF + 0.03); glowPool(ctx, cam, gx, gy, dTop * 0.6, '190,240,255', 12, alpha * (night ? 0.5 : 0.18)); }   // the light over the door, on at any hour
+    if (frontVis) {
+      const tex = bakeSignText('ARRIVALS', '#8ff3dc', night ? 1 : 0, false, true, true, { font: 'condensed', sub: 'WELCOME BACK' });
+      if (tex) {
+        const q = [[-tw * 0.9, t1 - h * 0.008], [tw * 0.9, t1 - h * 0.008], [tw * 0.9, t0 + h * 0.008], [-tw * 0.9, t0 + h * 0.008]]
+          .map(([u, z]) => { const [wx, wy] = F(lxD + u, yP + 0.002); return cam.proj(wx, wy, z); });
+        if (q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
+      }
+      // The doors. ⚠ DECALS, NOT MESH, BECAUSE THEY MOVE: a mesh face is captured once, so on the
+      // GPU it would stand shut for ever. Each leaf is cut to the opening as it slides into its
+      // pocket, which is all of a sliding door anybody sees.
+      const open = gu < 0.30 || gu >= 0.40 ? 0 : 0.9 * (gu < 0.32 ? ease((gu - 0.30) / 0.02) : gu < 0.38 ? 1 : 1 - ease((gu - 0.38) / 0.02));
+      if (open > 0.15) {   // whoever just came out of a vat, in the doorway
+        const q = [[-dw * 0.42, dTop * 0.88], [dw * 0.42, dTop * 0.88], [dw * 0.42, dz0], [-dw * 0.42, dz0]]
+          .map(([u, z]) => { const [wx, wy] = F(lxD + u, yD + 0.003); return cam.proj(wx, wy, z); });
+        if (q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, cloneBodyTex(2, night), false, alpha * clamp((open - 0.15) / 0.5, 0, 1), DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.2);
+      }
+      const leaf = night ? ['rgb(176,230,220)', 'rgb(112,170,160)'] : ['rgb(150,178,186)', 'rgb(64,86,92)'];
+      const yL = yD + 0.006;
+      for (const s of [-1, 1]) {
+        const a = lxD + s * dw * open, b = lxD + s * dw, u0 = Math.min(a, b), u1 = Math.max(a, b);
+        if (u1 - u0 < 0.002) continue;
+        emitDecoFill(ctx, cam, [W3(u0, yL, dTop), W3(u1, yL, dTop), W3(u1, yL, dz0), W3(u0, yL, dz0)], leaf[1], alpha, 0.012, 'clonedoor', false, leaf);
+        emitWire(ctx, cam, W3(a, yL + 0.002, dz0), W3(a, yL + 0.002, dTop), 1.4, 'rgba(150,164,170,0.95)', alpha, { pull: 0.02 });   // the meeting stile
+        emitWire(ctx, cam, W3(u0 + (u1 - u0) * 0.15, yL + 0.003, (dz0 + dTop) * 0.45), W3(u1 - (u1 - u0) * 0.15, yL + 0.003, (dz0 + dTop) * 0.45), 1.2, 'rgba(196,208,212,0.95)', alpha, { pull: 0.02 });   // the push bar
+      }
+    }
+    // A clerestory over the door: frosted glass lighting the lobby, lit from inside after dark.
+    { const c0 = h * 0.41, c1 = h * 0.53, x0 = -fh * 0.90, x1 = -fh * 0.40, y = WF + 0.002;
+      flatOut(ctx, cam, W3, [[x0 - 0.006, y, c1 + 0.006], [x1 + 0.006, y, c1 + 0.006], [x1 + 0.006, y, c0 - 0.006], [x0 - 0.006, y, c0 - 0.006]], [0, 1, 0], rgb(head), alpha, { lit: 'chrome', albedo: head });
+      flatOut(ctx, cam, W3, [[x0, y + 0.002, c1], [x1, y + 0.002, c1], [x1, y + 0.002, c0], [x0, y + 0.002, c0]], [0, 1, 0], night ? 'rgb(176,240,226)' : 'rgb(126,168,164)', alpha);
+      for (let k = 1; k < 4; k++) { const x = x0 + (x1 - x0) * k / 4; emitWire(ctx, cam, W3(x, y + 0.004, c0), W3(x, y + 0.004, c1), 1.4, 'rgba(150,164,170,0.95)', alpha, { pull: 0.02 }); } }
+    // 7) THE NAME. A dark plate under the capping course, rimmed in steel and underlit, with the
+    //    Halcyon seal over the door and the name over the vats.
     // ⚠ WHY HALCYON OWNS THIS BUILDING IS ALREADY WRITTEN, and nothing here invents it.
-    // `plugins/augments/backup.js` sells the restore policy at Halcyon and then prints you HERE —
-    // "That was settled at Halcyon long before today" — and the seal on the adjuster's screen is
-    // described as "a calm closed eye". So it goes on the wall of the place the policy is
-    // redeemed, which is the one building in the city where that transaction becomes a person.
-    // See the ⚠ on the `eye` pictogram.
+    // `plugins/augments/backup.js` sells the restore policy at Halcyon and then prints you HERE, and
+    // the seal on the adjuster's screen is "a calm closed eye". See the ⚠ on the `eye` pictogram.
+    const pz0 = h * 0.575, pz1 = h * 0.785, pY = fh * 1.11;
+    { const [px, py] = F(0, fh * 1.055);
+      draw3DBoxAt(ctx, cam, px, py, fh * 0.97, pz0, pz1, 'ty_door', seed + 35, night, alpha, true, yaw, fh * 0.055); }
+    haloRim(ctx, cam, F, pY + 0.002, fh * 0.97, pz0, pz1, 0.006, rgb(head), alpha);
+    if (night) emitWire(ctx, cam, W3(-fh * 0.95, pY + 0.004, pz0 - 0.004), W3(fh * 0.95, pY + 0.004, pz0 - 0.004), 2, 'rgba(130,255,222,0.9)', alpha, { pull: 0.02, glow: 7, glowCss: 'rgb(110,255,214)' });
     if (frontVis) {
-      const tex = bakeSignText('', '#7fe8d2', night ? 1 : 0, false, true, true, { picto: 'eye', badge: true, color: '#10202a' });
-      if (tex) {
-        const q = [[-fh * 0.62, capTop - h * 0.03], [-fh * 0.18, capTop - h * 0.03], [-fh * 0.18, capTop - h * 0.27], [-fh * 0.62, capTop - h * 0.27]]
-          .map(([lx, z2]) => { const [wx, wy] = F(lx, fh * 1.18); return cam.proj(wx, wy, z2); });
-        if (q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
+      const P = (u, z) => { const [wx, wy] = F(u, pY + FACE_EPS); return cam.proj(wx, wy, z); };
+      const seal = haloSealTex(night);
+      if (seal) {
+        const q = [P(-fh * 0.90, pz1 - h * 0.02), P(-fh * 0.30, pz1 - h * 0.02), P(-fh * 0.30, pz0 + h * 0.02), P(-fh * 0.90, pz0 + h * 0.02)];
+        if (q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, seal, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
       }
-    }
-    // ── THE NAME ────────────────────────────────────────────────────────────────────────────
-    // Beside the seal, on the same band under the capping course. What the place is called by
-    // the people it prints is what it is called: YOU AGAIN.
-    if (frontVis) {
+      // Raised letters: three dark copies stepped down and right behind the face are the shaded
+      // returns of block letters standing off the plate. They stay unlit after dark.
       const tex = bakeSignText('YOU AGAIN', '#7fe8d2', night ? 1 : 0, false, true, true, { font: 'condensed', sub: 'CLONE FACILITY' });
-      if (tex) {
-        const q = [[-fh * 0.10, capTop - h * 0.05], [fh * 1.02, capTop - h * 0.05], [fh * 1.02, capTop - h * 0.25], [-fh * 0.10, capTop - h * 0.25]]
-          .map(([lx, z2]) => { const [wx, wy] = F(lx, fh * 1.18); return cam.proj(wx, wy, z2); });
-        if (q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
+      const side = bakeSignText('YOU AGAIN', '#14332e', 0, false, true, true, { font: 'condensed', sub: 'CLONE FACILITY' });
+      const quad = (ox, oz) => [[-fh * 0.12, pz1 - h * 0.02], [fh * 0.95, pz1 - h * 0.02], [fh * 0.95, pz0 + h * 0.02], [-fh * 0.12, pz0 + h * 0.02]]
+        .map(([lx, z2]) => P(lx + ox, z2 + oz));
+      if (tex && quad(0, 0).every((p) => p.f > 0.12)) {
+        if (side) for (let k = 3; k >= 1; k--) emitSurfaceText(ctx, cam, quad(fh * 0.006 * k, -h * 0.005 * k), side, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * (2.5 - 0.35 * k));
+        emitSurfaceText(ctx, cam, quad(0, 0), tex, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
       }
     }
-    // The intake bay, at the end of the frontage the tank row leaves clear. This is the door.
-    if (frontVis) {
-      const [cx2, cy2] = F(fh * 0.70, fh * 1.16);
-      draw3DBoxAt(ctx, cam, cx2, cy2, fh * 0.30, h * 0.30, h * 0.36, 'ty_clone_wall', seed + 33, night, alpha, false);        // canopy slab
-      for (const s of [-1, 1]) { const [px, py] = F(fh * (0.70 + s * 0.24), fh * 1.28); draw3DBoxAt(ctx, cam, px, py, fh * 0.035, 0, h * 0.30, 'ty_clone_wall', seed + 34 + s, night, alpha, false); }
-      glowPool(ctx, cam, cx2, cy2, h * 0.12, '190,240,255', 12, alpha * (night ? 0.5 : 0.2));                                 // the light over the door, on at any hour
+    // 8) THE FLANKS: a rank of slit windows down each side, lit from the labs after dark.
+    for (const s of [-1, 1]) for (const v of [-0.60, 0, 0.60]) {
+      const y0 = (v - 0.035) * fh, y1 = (v + 0.035) * fh, z0 = h * 0.10, z1 = h * 0.74, e = 0.006;
+      flatOut(ctx, cam, W3, [[s * (fh + 0.002), y0 - e, z1 + e], [s * (fh + 0.002), y1 + e, z1 + e], [s * (fh + 0.002), y1 + e, z0 - e], [s * (fh + 0.002), y0 - e, z0 - e]], [s, 0, 0], rgb(head), alpha, { lit: 'chrome', albedo: head });
+      flatOut(ctx, cam, W3, [[s * (fh + 0.004), y0, z1], [s * (fh + 0.004), y1, z1], [s * (fh + 0.004), y1, z0], [s * (fh + 0.004), y0, z0]], [s, 0, 0], night ? 'rgb(150,236,214)' : 'rgb(40,72,74)', alpha);
     }
     { const [mx, my] = F(-fh * 0.9, fh * 0.5); mast(ctx, cam, mx, my, blockTop, h * 1.55, alpha, now, seed + 4); }
     blinkLight(ctx, cam, dx, dy, h * 1.15, bio, now, seed, alpha, 2);
@@ -463,12 +833,25 @@ export const DOWNTOWN_ARMS = {
     // the doors are simply not there and the entrance reads as an open bay. The jambs, the lintel
     // and the doors are disjoint in x and z, so one plane costs nothing and the depth comes from
     // the canopy standing off it instead.
-    for (const s of [-1, 1]) { const [jx, jy] = F(s * podW * 0.42, podW * 0.96);
-      draw3DBoxAt(ctx, cam, jx, jy, podW * 0.045, 0, headZ, stone, seed + 30 + s, night, alpha, true, eY, podW * 0.10); }
-    { const [lx, ly] = F(0, podW * 0.96);
-      draw3DBoxAt(ctx, cam, lx, ly, podW * 0.48, doorZ, headZ, stone, seed + 32, night, alpha, true, eY, podW * 0.10); }
-    { const [gx, gy] = F(0, podW * 0.96);                                                        // the glazed bronze doors between the jambs
-      draw3DBoxAt(ctx, cam, gx, gy, podW * 0.33, 0, doorZ, bronze, seed + 33, night, alpha, false, eY, podW * 0.10); }
+    // ⚠ AND THAT PLANE IS THE WALL `segFit` ACTUALLY LEAVES, NOT `podW * 0.96`. A box's half-width
+    // is capped at 0.44, so the podium's front is at min(podW, 0.44) however wide it was authored.
+    // Measured off `podW`, the reveal straddled the plot line, lost its front to the trim and sat
+    // coplanar with the podium glass: the doorway rendered as a dark hole with the wall fighting
+    // through it. Stood off the real wall, it is in front of it and inside the plot.
+    const entD = 0.02, entY = Math.min(podW, 0.44) + entD;   // the wall as segFit leaves it (half-width capped at 0.44), and the reveal standing off it
+    for (const s of [-1, 1]) { const [jx, jy] = F(s * podW * 0.42, entY);
+      draw3DBoxAt(ctx, cam, jx, jy, podW * 0.045, 0, headZ, stone, seed + 30 + s, night, alpha, true, eY, entD); }
+    { const [lx, ly] = F(0, entY);
+      draw3DBoxAt(ctx, cam, lx, ly, podW * 0.48, doorZ, headZ, stone, seed + 32, night, alpha, true, eY, entD); }
+    // The glazed bronze doors between the jambs: flat, flush with the jamb fronts, so no angle puts
+    // them behind the stone. Not a box, because a box wears its palette's window skin.
+    { const yDr = entY + entD + 0.002, dw = podW * 0.375;
+      const L = (x, z, back = 0) => { const [wx, wy] = F(x, yDr - back); return [wx, wy, z]; };
+      const Pq = (x0, x1, z0, z1, fill, back) => emitFlat(ctx, cam, [L(x0, z1, back), L(x1, z1, back), L(x1, z0, back), L(x0, z0, back)], fill, alpha, { lift: DETAIL_LIFT });
+      const glass = night ? 'rgba(255,214,150,0.97)' : 'rgba(70,86,96,0.97)', frame = 'rgb(78,58,34)';
+      Pq(-dw, dw, 0, doorZ, frame, 0.003);                                                     // the bronze frame, a hair behind the glass
+      for (const s of [-1, 1]) { const a = s * podW * 0.012, b = s * (dw - podW * 0.02);
+        Pq(Math.min(a, b), Math.max(a, b), doorZ * 0.04, doorZ * 0.94, glass, 0); } }
     // 1b) The canopy over the pavement, on two slim columns. `awning` places a slab by its FRONT
     //     edge, which is the edge the tile fit trims, so the part that survives is the part that
     //     overhangs — a shallower canopy rather than one buried in its own facade.
@@ -498,25 +881,33 @@ export const DOWNTOWN_ARMS = {
     // renderer may move out from under the words. A constant is still affine (`[0, 0, c]`, which
     // is what the kit's own `A()` produces), so the band is authored to stop just inside the plot
     // line and the lettering sits a hair in front of it.
-    const sgnY = 0.485, sgnZ0 = baseZ * 0.66, sgnZ1 = baseZ * 0.92;
-    { const [bx, bz] = F(0, sgnY - 0.016);
-      draw3DBoxAt(ctx, cam, bx, bz, podW * 0.50, sgnZ0, sgnZ1, bronze, seed + 37, night, alpha, true, eY, 0.016); }
-    reserveSignBand(podW * 0.50, (sgnZ0 + sgnZ1) * 0.5);
+    // ⚠ BIG ON PURPOSE. The plate fills the fascia from the canopy to just under the parapet and
+    // nearly the width of the podium wall (capped at 0.42, inside the 0.44 `segFit` leaves).
+    const sgnY = 0.485, sgnZ0 = baseZ * 0.68, sgnZ1 = baseZ * 0.97, pw = Math.min(podW * 0.66, 0.42);
+    // ⚠ THE PLATE IS FLAT, NOT A BOX. A box wears its palette's window skin a FACE_EPS in front of
+    // its face, which put a grid of panes over the plate and in front of the lettering on it. A
+    // flat bronze plate held clear of the podium is also what makes the backlight read.
+    { const L = (x, z) => { const [wx, wy] = F(x, sgnY); return [wx, wy, z]; };
+      emitFlat(ctx, cam, [L(-pw, sgnZ1), L(pw, sgnZ1), L(pw, sgnZ0), L(-pw, sgnZ0)], 'rgb(30,24,18)', alpha, { lift: DETAIL_LIFT }); }
+    reserveSignBand(pw, (sgnZ0 + sgnZ1) * 0.5);
     if (frontVis) {
       // ⚠ BAKED UNCONDITIONALLY, because `bakeSignText` is what registers this arm as signing
       // itself and it registers on the way IN — a bake skipped for want of a name during the
       // capture leaves `armSignsItself` false and the kit hangs a second board on the building.
-      // ⚠ SCRIPT, AND SO IN THE NAME'S OWN CASE. The Solenne letters its podium in a cursive hand, the
-      // one address in the city that signs itself like an invitation. `sign` is the name uppercased
-      // for every board that wants capitals, and script set in capitals is a row of loops nobody can
-      // read, so this takes `name` as authored.
-      const nam = bakeSignText((name || '').trim() || 'Solenne Residences', '#f0d29a', night ? 1 : 0, false, undefined, undefined, { font: 'script' });
-      const nhw = podW * 0.42, [nlx, nly] = F(-nhw, sgnY), [nrx, nry] = F(nhw, sgnY);
-      const iz0 = sgnZ0 + (sgnZ1 - sgnZ0) * 0.24, iz1 = sgnZ1 - (sgnZ1 - sgnZ0) * 0.24;
-      const TL = cam.proj(nlx, nly, iz1), TR = cam.proj(nrx, nry, iz1), BR = cam.proj(nrx, nry, iz0), BL = cam.proj(nlx, nly, iz0);
-      if (nam && [TL, TR, BR, BL].every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, [TL, TR, BR, BL], nam, false, alpha);
+      // The modern luxury hand (`couture`): the first word of the name in wide hairline capitals,
+      // the rest under it, smaller. 'Solenne Residences' becomes SOLENNE over RESIDENCES.
+      const words = ((name || '').trim() || 'Solenne Residences').split(/\s+/);
+      const nhw = pw * 0.90, iz0 = sgnZ0 + (sgnZ1 - sgnZ0) * 0.10, iz1 = sgnZ1 - (sgnZ1 - sgnZ0) * 0.10;
+      const quad = (ox, oz) => { const y = sgnY + (ox ? 0.002 : 0.004), sx = ox * podW * 0.004, sz = oz * (sgnZ1 - sgnZ0) * 0.02;
+        const [lx, ly] = F(-nhw + sx, y), [rx, ry] = F(nhw + sx, y);
+        return [cam.proj(lx, ly, iz1 + sz), cam.proj(rx, ry, iz1 + sz), cam.proj(rx, ry, iz0 + sz), cam.proj(lx, ly, iz0 + sz)]; };
+      embossText(ctx, cam, quad, words[0].toUpperCase(), '#f3dcae', '#0a0704', night, alpha,
+        { font: 'couture', sub: words.slice(1).join(' ').toUpperCase() || undefined });
     }
-    if (night) { const [sx2, sy2] = F(0, 0.50); glowPool(ctx, cam, sx2, sy2, (sgnZ0 + sgnZ1) * 0.5, gold, 11, alpha * 0.42); }   // the nameplate's own uplight
+    // Backlit: the plate stands off the podium and throws a rim of warm light round itself onto
+    // the glass behind it after dark, and its shadow by day.
+    haloRim(ctx, cam, F, sgnY - 0.012, pw, sgnZ0, sgnZ1, (sgnZ1 - sgnZ0) * 0.05, night ? `rgba(${gold},0.95)` : 'rgba(24,18,10,0.7)', alpha);
+    if (night) { const [sx2, sy2] = F(0, sgnY - 0.02); glowPool(ctx, cam, sx2, sy2, (sgnZ0 + sgnZ1) * 0.5, gold, 16, alpha * 0.45, { add: true }); }   // the halo behind the plate
     // A lobby is lit in the daytime too — weakly, because the sun is doing most of it, but a dark
     // hole behind the glass is the one thing that reads as a building nobody is in.
     // ⚠ AND EVERY ONE OF THESE STANDS AT THE PLOT LINE RATHER THAN WHERE THE LAMP IS. A glow is a
@@ -651,22 +1042,91 @@ export const DOWNTOWN_ARMS = {
     // 1) Stepped lobby podium, capped by a broad projecting cornice ledge.
     draw3DBoxAt(ctx, cam, dx, dy, fh * 1.34, 0, zPod, pal, seed + 5, night, alpha, true);              // podium
     draw3DBoxAt(ctx, cam, dx, dy, fh * 1.40, zPod, zPod + h * 0.045, ledge, seed + 6, night, alpha, true);   // base cornice band
-    // 1b) GRAND BRONZE STREET ENTRANCE on the frontage (E): a tall glazed-bronze portal in a fluted stone
-    //     surround, a projecting marquee canopy over the sidewalk, and flanking amber torchère pylons. The
-    //     front-centre pilaster (§3) is skipped so the bay reads clear between the corner piers.
-    { const [ex, ey] = F(0, fh * 1.30); draw3DBoxAt(ctx, cam, ex, ey, fh * 0.30, 0, zPod + h * 0.02, bronze, seed + 40, night, alpha, false); }   // glazed bronze doors / lobby
-    for (const s of [-1, 1]) { const [jx, jy] = F(s * fh * 0.34, fh * 1.34); draw3DBoxAt(ctx, cam, jx, jy, fh * 0.055, 0, zPod + h * 0.06, trim, seed + 41 + s, night, alpha, true); }   // fluted stone jambs framing the doors
-    { const [cx, cy] = F(0, fh * 1.42); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.34, zPod + h * 0.02, zPod + h * 0.05, bronze, seed + 44, night, alpha, true); }   // projecting bronze marquee canopy over the sidewalk
-    for (const s of [-1, 1]) { const [tx, ty] = F(s * fh * 0.5, fh * 1.5); draw3DBoxAt(ctx, cam, tx, ty, fh * 0.05, 0, zPod, trim, seed + 45 + s, night, alpha, true); glowPool(ctx, cam, tx, ty, zPod + h * 0.01, '255,190,110', 6, alpha * (night ? 0.5 : 0.26)); }   // torchère pylons + steady amber lamp
+    // 1b) THE STREET ENTRANCE: a stepped stone portal in three receding orders, the way a 1930s
+    //     lobby door is framed, round a pair of bronze-framed glass doors under a sunburst
+    //     fanlight. Built OUT from the podium face rather than cut into it, so the outer order
+    //     stands proudest and each one steps back toward the doors. Lit from inside after dark,
+    //     with a lantern either side. The front-centre pilaster (§3) is skipped for this bay.
+    { const L = (x, y, z) => { const [wx, wy] = F(x, y); return [wx, wy, z]; };
+      const yaw = Math.atan2(-E[0], E[1]);
+      const RB = (x, y, hw, fd, z0, z1, p, s) => { const [bx, by] = F(x, y); draw3DBoxAt(ctx, cam, bx, by, hw, z0, z1, p, seed + s, night, alpha, true, yaw, fd); };
+      const face = Math.min(fh * 1.34, 0.44), open = fh * 0.25, zOpen = zPod * 0.80, zTop = zPod + h * 0.03, dz = (zTop - zOpen) / 3;
+      for (let i = 0; i < 3; i++) {                                                                    // the orders, inner first
+        const d = fh * 0.035 * (3 - i), yc = face + d / 2, jx = open + fh * 0.06 * (i + 0.5);
+        for (const s of [-1, 1]) RB(s * jx, yc, fh * 0.03, d / 2, 0, zOpen + dz * i, trim, 40 + i * 2 + (s > 0));
+        RB(0, yc, open + fh * 0.06 * (i + 1), d / 2, zOpen + dz * i, zOpen + dz * (i + 1), trim, 47 + i);
+      }
+      RB(0, face + fh * 0.15, fh * 0.46, fh * 0.05, 0, h * 0.008, trim, 51);                           // a single broad stone step
+      // ⚠ THE DOORS STAND FLUSH WITH THE INNER ORDER'S FRONT, NOT BACK AT THE PODIUM FACE. Set back,
+      // they were flat decals at the bottom of a 0.1-tile tunnel between the jambs, and DETAIL_LIFT
+      // pulled them through the jambs at any oblique angle: the fanlight came out as torn wedges
+      // over the stone. The doors and the jambs are disjoint in x and z, so one plane costs nothing
+      // (the Solenne's lesson), and the stepped orders still read from the lintels above.
+      const yD = face + fh * 0.107, Pq = (pts, fill, back = 0) => emitFlat(ctx, cam, pts.map(([x, z]) => L(x, yD - back, z)), fill, alpha, { lift: DETAIL_LIFT });
+      const glass = night ? 'rgba(255,200,128,0.98)' : 'rgba(64,80,94,0.98)';
+      const bronzeC = 'rgb(72,52,30)', gilt = 'rgb(214,170,92)';
+      const zDoor = zOpen * 0.62, zBar = zDoor + h * 0.008;
+      Pq([[-open, zOpen], [open, zOpen], [open, 0], [-open, 0]], bronzeC, fh * 0.003);   // a hair behind the glass, or the two decals fight and the frame wins                             // the bronze frame filling the opening
+      for (const s of [-1, 1]) {                                                                       // two glazed leaves, a brass pull on each
+        const a = s * fh * 0.015, b = s * (open - fh * 0.025);
+        Pq([[a, zDoor - h * 0.006], [b, zDoor - h * 0.006], [b, h * 0.012], [a, h * 0.012]], glass);
+        const px = s * fh * 0.035;
+        Pq([[px - fh * 0.004, zDoor * 0.62], [px + fh * 0.004, zDoor * 0.62], [px + fh * 0.004, zDoor * 0.38], [px - fh * 0.004, zDoor * 0.38]], gilt);
+      }
+      Pq([[-open, zBar], [open, zBar], [open, zDoor], [-open, zDoor]], gilt);                          // the gilt transom bar
+      { const r = Math.min(open - fh * 0.025, zOpen - zBar - h * 0.006), N = 16, fan = [[0, zBar]];  // the sunburst fanlight
+        for (let k = 0; k <= N; k++) { const t = Math.PI * k / N; fan.push([Math.cos(t) * r, zBar + Math.sin(t) * r]); }
+        Pq(fan, glass);
+        for (let k = 1; k < 8; k++) {                                                                  // seven bronze rays
+          const t = Math.PI * k / 8, c = Math.cos(t), sn = Math.sin(t), w = fh * 0.005;
+          Pq([[-sn * w, zBar], [sn * w, zBar], [c * r + sn * w, zBar + sn * r - c * w], [c * r - sn * w, zBar + sn * r + c * w]], bronzeC);
+        }
+      }
+      for (const s of [-1, 1]) {                                                                       // bronze lanterns on the outer order
+        const lx = s * (open + fh * 0.24);
+        RB(lx, face + fh * 0.12, fh * 0.03, fh * 0.03, zOpen * 0.55, zOpen * 0.80, bronze, 52 + (s > 0));
+        const [gx, gy] = F(lx, face + fh * 0.16);
+        glowPool(ctx, cam, gx, gy, zOpen * 0.68, '255,196,120', 6, alpha * (night ? 0.55 : 0.22));
+      }
+      if (night) { const [gx, gy] = F(0, face + fh * 0.2); glowPool(ctx, cam, gx, gy, zOpen * 0.4, '255,190,110', 12, alpha * 0.4); }   // the lobby spilling out
+    }
     // 2) Main shaft.
     draw3DBoxAt(ctx, cam, dx, dy, fh * 1.06, zPod + h * 0.045, zShaft, pal, seed, night, alpha, true);
-    // 2b) Gilt "THE MERIDIAN" engraved on a stone frieze band over the entrance — surface text, never billboarded.
-    { const friZ0 = zPod + h * 0.07, friZ1 = zPod + h * 0.17;
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.10, friZ0, friZ1, trim, seed + 46, night, alpha, false);    // stone frieze band on the lower shaft
+    // 2b) "THE MERIDIAN" in gilt on a dark bronze plate set into the stone frieze, a gilt fillet
+    //     round the plate and a gilt sunburst at each end. Surface text, never billboarded, and
+    //     floodlit from below after dark.
+    { const friZ0 = zPod + h * 0.07, friZ1 = zPod + h * 0.17, fr = Math.min(fh * 1.10, 0.44);   // the frieze as segFit leaves it: a box never reaches past 0.44, a decal does
+      draw3DBoxAt(ctx, cam, dx, dy, fr, friZ0, friZ1, trim, seed + 46, night, alpha, false);    // stone frieze band on the lower shaft
+      const L = (x, y, z) => { const [wx, wy] = F(x, y); return [wx, wy, z]; };
+      const pz0 = friZ0 + h * 0.008, pz1 = friZ1 - h * 0.008, phw = fh * 0.78, yP = fr + 0.022, yG = yP + 0.002;
+      const Pq = (y, pts, fill) => emitFlat(ctx, cam, pts.map(([x, z]) => L(x, y, z)), fill, alpha, { lift: DETAIL_LIFT });
+      const giltC = 'rgb(214,170,92)', ft = h * 0.004, fw = fh * 0.008;
+      // ⚠ THE PLATE STANDS 0.022 OFF THE STONE, CLEAR OF THE WINDOW SKIN. A wall's window skin is decals
+      // FACE_EPS (0.006) in front of it, so a plate a hair off the frieze (and still one at 0.012) lost the depth test to the
+      // windows and the letters floated on bare facade. Nor can it be a box: a box wears its
+      // palette's window skin. The gap is also what the backlight shines out of.
+      // The plate is backlit: a warm rim round it on the stone after dark, its shadow by day.
+      haloRim(ctx, cam, F, yP - 0.004, phw, pz0, pz1, h * 0.006, night ? 'rgba(255,206,130,0.95)' : 'rgba(30,22,14,0.75)', alpha);
+      if (night) glowPool(ctx, cam, ...F(0, yP - 0.006), (pz0 + pz1) * 0.5, '255,200,120', 14, alpha * 0.3, { add: true });
+      Pq(yP, [[-phw, pz1], [phw, pz1], [phw, pz0], [-phw, pz0]], 'rgb(40,30,20)');
+      Pq(yG, [[-phw, pz1], [phw, pz1], [phw, pz1 - ft], [-phw, pz1 - ft]], giltC);
+      Pq(yG, [[-phw, pz0 + ft], [phw, pz0 + ft], [phw, pz0], [-phw, pz0]], giltC);
+      for (const s of [-1, 1]) {
+        Pq(yG, [[s * phw - s * fw, pz1], [s * phw, pz1], [s * phw, pz0], [s * phw - s * fw, pz0]], giltC);
+        const cx = s * fh * 0.66, zc = pz0 + ft * 2, r = (pz1 - pz0) * 0.72;                          // a five-ray sunburst
+        for (let k = 1; k < 6; k++) {
+          const t = Math.PI * k / 6, c = Math.cos(t), sn = Math.sin(t), w = fh * 0.004;
+          Pq(yG, [[cx - sn * w, zc], [cx + sn * w, zc], [cx + c * r + sn * w, zc + sn * r - c * w], [cx + c * r - sn * w, zc + sn * r + c * w]], giltC);
+        }
+      }
+      if (night) { const [gx, gy] = F(0, fr + fh * 0.14); glowPool(ctx, cam, gx, gy, friZ0, '255,214,150', 9, alpha * 0.4); }
       if (frontVis) {
-        const nhw = fh * 0.66, [nlx, nly] = F(-nhw, fh * 1.11), [nrx, nry] = F(nhw, fh * 1.11);
-        const TL = cam.proj(nlx, nly, friZ1 - h * 0.012), TR = cam.proj(nrx, nry, friZ1 - h * 0.012), BR = cam.proj(nrx, nry, friZ0 + h * 0.012), BL = cam.proj(nlx, nly, friZ0 + h * 0.012);
-        if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const nam = bakeSignText('THE MERIDIAN', '#e8c878', night ? 1 : 0, false); emitSurfaceText(ctx, cam, [TL, TR, BR, BL], nam, false, alpha); }
+        // Raised gilt letters, each casting a shadow down and right onto the bronze plate.
+        const nhw = fh * 0.56, zt = friZ1 - h * 0.014, zb = friZ0 + h * 0.014;
+        const quad = (ox, oz) => { const y = yG + fh * (ox ? 0.001 : 0.003), sx = ox * fh * 0.006, sz = oz * h * 0.0025;
+          const [lx, ly] = F(-nhw + sx, y), [rx, ry] = F(nhw + sx, y);
+          return [cam.proj(lx, ly, zt + sz), cam.proj(rx, ry, zt + sz), cam.proj(rx, ry, zb + sz), cam.proj(lx, ly, zb + sz)]; };
+        embossText(ctx, cam, quad, 'THE MERIDIAN', '#e8c878', '#120c06', night, alpha);   // solid: cut gilt, not a tube, so no dead letter
       } }
     // 3) Vertical pilaster ribs standing proud of the shaft — corners + mid-face (front-centre skipped for the
     //    entrance bay), so the deco piers read from any camera angle (each box is backface-culled per face).
@@ -1524,7 +1984,7 @@ export const DOWNTOWN_ARMS = {
       glowPool(ctx, cam, gx, gy, gf * 0.6, '210,240,235', 15, alpha * (night ? 0.6 : 0.22)); }
     glowPool(ctx, cam, dx, dy, h * 0.4, '120,220,150', 16, alpha * (night ? 0.28 : 0.14));
   },
-  ksabstudio(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // KSAB-9 — the basin's television station, and a TRANSMISSION SITE before it is
+  ksabstudio(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // KSAB-7 — the basin's television station, and a TRANSMISSION SITE before it is
     // anything else: a light-tight sound stage, the fly tower over it, a plant deck, a precast
     // production wing carrying the only windows on the plot, a small glazed public front, and the mast
     // that is the whole reason the station is on this corner rather than any other.
@@ -1617,24 +2077,48 @@ export const DOWNTOWN_ARMS = {
       emitWire(ctx, cam, L(cxo - cw * 0.9, y1, zc), L(cxo + cw * 0.9, y1, zc), 1.2,
         night ? 'rgba(120,226,255,0.85)' : 'rgba(150,186,204,0.7)', alpha, { pull: DECO_PULL, glow: night ? 6 : 0, glowCss: KSABc });
       for (const s of [-1, 1]) emitWire(ctx, cam, L(cxo + s * cw * 0.86, y1, zc), L(cxo + s * cw * 0.86, y1, apron), 1.3, 'rgba(150,160,170,0.7)', alpha, { pull: DECO_PULL }); }
-    // 8) The name, across the lobby fascia.
-    marqueeBand(ctx, cam, ox, oy, E, lobHalf, lobTop + h * 0.022, KSABc, night, alpha, 'KSAB-9');
+    // 8) The lobby fascia stays bare. The station's name goes up once, on the stage wall below; a
+    //    second "KSAB" marquee over the door read as the same sign twice. The band is still
+    //    reserved so the generic name sign doesn't take the fascia instead.
     reserveSignBand(lobHalf, lobTop + h * 0.022);
-    // 9) THE CALL LETTERS, painted large on the blind stage wall — the thing a television plant does
-    //    with the one enormous blank elevation it owns, and the reason the shell being windowless is
-    //    an opportunity rather than a problem.
-    { const bz0 = apron + h * 0.34, bz1 = apron + h * 0.51, bx = sgx - fh * 0.16, bw = fh * 0.42;
-      // ⚠ THE CALL SIGN, NOT THE TILE'S NAME. `_bladeSign` is "KSAB-TV STUDIO STAGE" here, and the
-      // whole point of painting a stage wall is that it is four letters two storeys high; set the
-      // full name into the same box and it is a thin grey line nobody can read from the road.
+    // 9) THE STATION LOGO, painted large on the blind stage wall: the thing a television plant does
+    //    with the one enormous blank elevation it owns. A dark board with a cyan rule under it,
+    //    KSAB in the station cyan, and the channel number reversed out of a cyan disc, the way a
+    //    station bug looks in the corner of the picture.
+    // ⚠ THE CALL SIGN, NOT THE TILE'S NAME. `_bladeSign` is "KSAB-TV STUDIO STAGE" here; set the
+    // full name into this box and it's a thin grey line nobody can read from the road.
+    // ⚠ IT ENDS AT x = 0. The ON AIR box starts at fh * 0.02 at the same height.
+    { const bz0 = apron + h * 0.33, bz1 = apron + h * 0.52, bxL = sgx - fh * 0.56, bxR = -fh * 0.01;
+      const fz = face + FACE_EPS;
+      emitDecoFill(ctx, cam, [L(bxL, face, bz1), L(bxR, face, bz1), L(bxR, face, bz0), L(bxL, face, bz0)],
+        night ? 'rgba(12,22,30,0.96)' : 'rgba(22,34,44,0.96)', alpha, DECO_LIFT, 'ksablogo');
+      // The rule along the foot of the board.
+      const rz0 = bz0 + (bz1 - bz0) * 0.08, rz1 = bz0 + (bz1 - bz0) * 0.14;
+      emitDecoFill(ctx, cam, [L(bxL + fh * 0.03, fz, rz1), L(bxR - fh * 0.03, fz, rz1), L(bxR - fh * 0.03, fz, rz0), L(bxL + fh * 0.03, fz, rz0)],
+        night ? 'rgba(90,220,255,0.95)' : 'rgba(57,190,230,0.95)', alpha, DECO_LIFT, 'ksabrule');
+      // The disc, at the right-hand end, and the 7 in it.
+      const dz = bz0 + (bz1 - bz0) * 0.58, r = Math.min(fh * 0.085, (bz1 - bz0) * 0.38), dcx = bxR - fh * 0.03 - r;
+      const ring = [];
+      for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2; ring.push(L(dcx + Math.cos(a) * r, fz, dz + Math.sin(a) * r)); }
+      emitDecoFill(ctx, cam, ring, night ? 'rgba(90,220,255,0.97)' : 'rgba(57,190,230,0.97)', alpha, DECO_LIFT, 'ksabbug');
+      const seven = bakeSignText('7', '#0c161e', 0, false, true);
+      const s = r * 0.78, f2 = fz + FACE_EPS;
+      const sq = [P(dcx - s, f2, dz + s), P(dcx + s, f2, dz + s), P(dcx + s, f2, dz - s), P(dcx - s, f2, dz - s)];
+      if (seven && sq.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, sq, seven, false, alpha);
+      // KSAB, filling the board to the left of the disc and above the rule.
       const tex = bakeSignText('KSAB', KSABc, night ? 1 : 0, false);
-      const TL = P(bx - bw, face, bz1), TR = P(bx + bw, face, bz1), BR = P(bx + bw, face, bz0), BL = P(bx - bw, face, bz0);
+      const tx0 = bxL + fh * 0.04, tx1 = dcx - r - fh * 0.04, tz0 = rz1 + (bz1 - bz0) * 0.06, tz1 = bz1 - (bz1 - bz0) * 0.06;
+      const TL = P(tx0, f2, tz1), TR = P(tx1, f2, tz1), BR = P(tx1, f2, tz0), BL = P(tx0, f2, tz0);
       if (tex && [TL, TR, BR, BL].every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, [TL, TR, BR, BL], tex, false, alpha); }
     // 10) ON AIR. One lamp, and the only thing on the plot that tells you whether anybody is working.
     // ⚠ PARKED IS ON AIR. `RENDER_TUNE.motion` 0 promises a still city, not a dead one, and a dark
     // ON AIR box is the single state of this machine with nothing to look at — so the pose it comes
     // home to is the station transmitting, which is also what every capture and every gate sees.
-    const live = motionOn() ? dutyPhase(now, seed + 21, 210000, 0.66) >= 0 : true;
+    // Live means a live show is going out right now (`studio_live` from the broadcast plugin).
+    // With no server to ask (the Modelshop, a gate) it falls back to the old duty cycle.
+    const live = !motionOn() ? true
+      : typeof state.studioLive === 'boolean' ? state.studioLive
+      : dutyPhase(now, seed + 21, 210000, 0.66) >= 0;
     // ⚠ THE PANEL IS THE LAMP AND THE LETTERING IS PAINT ON IT, WHICH IS THE OPPOSITE OF EVERY
     // OTHER SIGN HERE AND IS WHAT THE THING ACTUALLY IS. Lettered the usual way round — a dark
     // board with `bakeSignText` ink on it — it measured ZERO red pixels at any hour: the neon
@@ -1882,14 +2366,39 @@ export const DOWNTOWN_ARMS = {
     //              own reflections), a flat roof, a turning radar and the mast. Coldwater dresses it in
     //              neon: magenta up the legs' outer edges and cyan round every rim. No sign: it is a tower.
     const NF = 20, NEON_A = '255,64,200', NEON_B = '80,236,255';
-    const white = (f) => { const s = 0.66 + f.nl * 0.38; return `rgb(${226 * s | 0},${226 * s | 0},${222 * s | 0})`; };
-    const steel = (r, g2, b) => (f) => { const s = 0.5 + f.nl * 0.5; return `rgb(${r * s | 0},${g2 * s | 0},${b * s | 0})`; };
-    const glass = (f, tp, bt) => {
-      const g = ctx.createLinearGradient(0, tp, 0, bt), s = 0.55 + f.nl * 0.45;
+    // ⚠ THE CONCRETE AND THE STEEL ARE LIT, THE GLASS IS NOT. Every drum here used to take the
+    // building's palette, `ty_arrivals`, which is METAL_WALL, so on the GPU the whole tower was that
+    // one pale material, and the legs were decals in a fixed white: one shade, as bright at midnight
+    // as at noon, in a city that goes dark round it. Now each drum names its own palette (`WP`, `SP`,
+    // `GP`) and the white and steel are `litStyle`, which the mesh draws in the arm's colour lit as a
+    // wall, so they take the sun by day and the dark by night. The glass keeps an unlit fill on
+    // purpose: after dark it is a lit room seen from outside, so it glows, the cab most.
+    // ⚠ AND THE NIGHT IS IN THE ALBEDO TOO (`dusk`), FOR BOTH RENDERERS. The 2-D painter has no
+    // lighting, so it needs it. The mesh needs it as well, which is less obvious: the mass shader
+    // dims a wall after dark only while its shaded colour is below about 0.55 luminance, because
+    // anything brighter is taken for a lit window in the night atlas. A white albedo is above that,
+    // so lit white concrete counted as a light source and stayed pale all night. The palette walls
+    // round it never hit this, because their night atlas is already dark; `dusk` is the same thing
+    // for a colour the arm owns, and the night capture records it as the face's `rgbN`.
+    const WP = 'ty_atc_white', SP = 'ty_atc_steel', GP = 'ty_atc_glass';
+    // ⚠ AND EVERY GLOW HERE IS A HALO, NOT A LAMP. On the GPU a glowPool is also a point light,
+    // with a reach set by its colour and not by its size, and these sit on the tower's own skin.
+    // The cab's teal one alone lit the whole tower: at 23:00 it kept 42% of its noon brightness
+    // with it and 21% without, which is what the buildings round it keep. `air` keeps the halo and
+    // drops the light. The cab still reads as lit, because its glass is lit (`glassOf`).
+    const AIR = { air: true };
+    const dusk = 1 - 0.74 * (night ? clamp(night, 0, 1) : 0);
+    const WHITE = [212 * dusk, 212 * dusk, 208 * dusk];
+    const white = litStyle((f) => { const s = (0.66 + f.nl * 0.38) * dusk; return `rgb(${226 * s | 0},${226 * s | 0},${222 * s | 0})`; }, WHITE, 'plain');
+    const whiteCap = litStyle(() => { const s = 0.94 * dusk; return `rgb(${226 * s | 0},${226 * s | 0},${222 * s | 0})`; }, WHITE, 'plain');
+    const steel = (r, g2, b) => litStyle((f) => { const s = (0.5 + f.nl * 0.5) * dusk; return `rgb(${r * s | 0},${g2 * s | 0},${b * s | 0})`; }, [r * 0.9 * dusk, g2 * 0.9 * dusk, b * 0.9 * dusk], 'plain');
+    const steelCap = (r, g2, b) => litStyle(() => `rgb(${r * dusk | 0},${g2 * dusk | 0},${b * dusk | 0})`, [r * dusk, g2 * dusk, b * dusk], 'plain');
+    const glassOf = (glow) => (f, tp, bt) => {
+      const g = ctx.createLinearGradient(0, tp, 0, bt), s = (0.55 + f.nl * 0.45) * glow;
       if (night) {
         g.addColorStop(0, `rgba(${40 * s | 0},${120 * s | 0},${140 * s | 0},0.96)`);
         g.addColorStop(0.6, `rgba(${30 * s | 0},${84 * s | 0},${104 * s | 0},0.96)`);
-        g.addColorStop(1, 'rgba(120,220,210,0.96)');                                          // the consoles, lit teal
+        g.addColorStop(1, `rgba(${120 * glow | 0},${220 * glow | 0},${210 * glow | 0},0.96)`);   // the consoles, lit teal
       } else {
         g.addColorStop(0, `rgba(${70 + f.nl * 60 | 0},${120 + f.nl * 60 | 0},${120 + f.nl * 50 | 0},0.97)`);   // green-tinted curtain glass
         g.addColorStop(0.5, `rgba(${30 + f.nl * 40 | 0},${80 + f.nl * 50 | 0},${84 + f.nl * 40 | 0},0.97)`);
@@ -1899,13 +2408,14 @@ export const DOWNTOWN_ARMS = {
     };
     const podH = h * 0.1, legTop = h * 0.595, eqBot = h * 0.6, eqTop = h * 0.7, neckTop = h * 0.735, cabTop = h * 0.9, roofTop = h * 0.915;
     // 1. The podium: a glass drum with a white base ring and a white lid.
-    drawFacetDrum(ctx, cam, dx, dy, 0, podH * 0.18, fh * 0.6, fh * 0.6, NF, alpha, white);
-    drawFacetDrum(ctx, cam, dx, dy, podH * 0.18, podH * 0.9, fh * 0.56, fh * 0.56, NF, alpha, glass);
-    drawFacetDrum(ctx, cam, dx, dy, podH * 0.9, podH, fh * 0.6, fh * 0.6, NF, alpha, white, 'rgb(212,212,208)');
+    drawFacetDrum(ctx, cam, dx, dy, 0, podH * 0.18, fh * 0.6, fh * 0.6, NF, alpha, white, undefined, WP);
+    drawFacetDrum(ctx, cam, dx, dy, podH * 0.18, podH * 0.9, fh * 0.56, fh * 0.56, NF, alpha, glassOf(0.4), undefined, GP);
+    drawFacetDrum(ctx, cam, dx, dy, podH * 0.9, podH, fh * 0.6, fh * 0.6, NF, alpha, white, whiteCap, WP);
     // 2. The core, a plain white column from the podium to the drum.
-    drawFacetDrum(ctx, cam, dx, dy, podH, eqBot, fh * 0.19, fh * 0.16, NF, alpha, white);
+    drawFacetDrum(ctx, cam, dx, dy, podH, eqBot, fh * 0.19, fh * 0.16, NF, alpha, white, undefined, WP);
     // 3. The legs: three tapered white prisms from the podium's rim to just under the drum, each
-    //    with a magenta neon line up its outer edge.
+    //    with a magenta neon line up its outer edge. They are mesh faces lit as walls (`lit`), with
+    //    each face walked so its normal points out of the leg, since a lit face is shaded off it.
     const E3 = _bladeBasis.E, yaw0 = Math.atan2(E3[1], E3[0]);
     for (let k = 0; k < 3; k++) {
       const a = yaw0 + k * (Math.PI * 2 / 3), ux = Math.cos(a), uy = Math.sin(a), tx = -uy, ty = ux;
@@ -1914,71 +2424,124 @@ export const DOWNTOWN_ARMS = {
       const zb = podH + 0.003;   // standing ON the podium's lid and meeting the core at its skin, never inside either
       const b = [P(Rb, -wb, db, zb), P(Rb, wb, db, zb), P(Rb, wb, -db, zb), P(Rb, -wb, -db, zb)];
       const t = [P(Rt, -wt, dt, legTop), P(Rt, wt, dt, legTop), P(Rt, wt, -dt, legTop), P(Rt, -wt, -dt, legTop)];
-      const shade = [0.98, 0.84, 0.62, 0.8];   // outer, one flank, inner, the other flank
+      const shade = [0.98, 0.84, 0.62, 0.8];   // outer, one flank, inner, the other flank (the 2-D painter's light)
+      let lcx = 0, lcy = 0;
+      for (const p of [...b, ...t]) { lcx += p[0] / 8; lcy += p[1] / 8; }
       for (let i = 0; i < 4; i++) {
-        const j = (i + 1) % 4, s = shade[i];
-        emitDecoFill(ctx, cam, [b[i], b[j], t[j], t[i]], `rgb(${226 * s | 0},${226 * s | 0},${222 * s | 0})`, alpha, DECO_PULL, 'atc-leg', true);
+        const j = (i + 1) % 4, s = shade[i] * dusk;
+        let q = [b[i], b[j], t[j], t[i]], nx = 0, ny = 0, mx = 0, my = 0;
+        for (let v = 0; v < 4; v++) { const p0 = q[v], p1 = q[(v + 1) % 4]; nx += (p0[1] - p1[1]) * (p0[2] + p1[2]); ny += (p0[2] - p1[2]) * (p0[0] + p1[0]); mx += p0[0] / 4; my += p0[1] / 4; }
+        if (nx * (mx - lcx) + ny * (my - lcy) < 0) { q = q.reverse(); nx = -nx; ny = -ny; }
+        emitFlat(ctx, cam, q, `rgb(${226 * s | 0},${226 * s | 0},${222 * s | 0})`, alpha, { lit: 'plain', albedo: WHITE, cullN: [nx, ny] });
       }
       const o0 = P(Rb, 0, db + 0.002, zb), o1 = P(Rt, 0, dt + 0.002, legTop);
       emitWire(ctx, cam, o0, o1, 2, `rgba(${NEON_A},0.95)`, alpha, { pull: DECO_PULL });
-      if (night) glowPool(ctx, cam, (o0[0] + o1[0]) / 2, (o0[1] + o1[1]) / 2, (podH + legTop) / 2, NEON_A, 12, alpha * 0.35);
+      if (night) glowPool(ctx, cam, (o0[0] + o1[0]) / 2, (o0[1] + o1[1]) / 2, (podH + legTop) / 2, NEON_A, 12, alpha * 0.35, AIR);
     }
     // 4. The equipment drum (glass, with white floor bands) and the neck up to the cab.
-    drawFacetDrum(ctx, cam, dx, dy, eqBot, eqTop, fh * 0.3, fh * 0.3, NF, alpha, glass);
-    for (const t of [0.34, 0.67]) drawRing(ctx, cam, dx, dy, eqBot + (eqTop - eqBot) * t, fh * 0.305, NF, 'rgba(220,224,222,0.8)', 1.4, alpha);
-    drawFacetDrum(ctx, cam, dx, dy, eqTop, neckTop, fh * 0.22, fh * 0.2, NF, alpha, white, 'rgb(212,212,208)');
+    drawFacetDrum(ctx, cam, dx, dy, eqBot, eqTop, fh * 0.3, fh * 0.3, NF, alpha, glassOf(0.45), undefined, GP);
+    for (const t of [0.34, 0.67]) drawRing(ctx, cam, dx, dy, eqBot + (eqTop - eqBot) * t, fh * 0.305, NF, `rgba(${220 * dusk | 0},${224 * dusk | 0},${222 * dusk | 0},0.8)`, 1.4, alpha);
+    drawFacetDrum(ctx, cam, dx, dy, eqTop, neckTop, fh * 0.22, fh * 0.2, NF, alpha, white, whiteCap, WP);
     // 5. The cab: glass flaring out, a white catwalk ring under it, the flat roof over it.
-    drawFacetDrum(ctx, cam, dx, dy, neckTop, neckTop + h * 0.012, fh * 0.34, fh * 0.34, NF, alpha, white);
-    drawFacetDrum(ctx, cam, dx, dy, neckTop + h * 0.012, cabTop, fh * 0.34, fh * 0.52, NF, alpha, glass);
+    drawFacetDrum(ctx, cam, dx, dy, neckTop, neckTop + h * 0.012, fh * 0.34, fh * 0.34, NF, alpha, white, undefined, WP);
+    drawFacetDrum(ctx, cam, dx, dy, neckTop + h * 0.012, cabTop, fh * 0.34, fh * 0.52, NF, alpha, glassOf(1), undefined, GP);
     for (let i = 0; i < NF; i += 2) {
       const a = (i / NF) * Math.PI * 2, c = Math.cos(a), s2 = Math.sin(a);
       emitWire(ctx, cam, [dx + c * fh * 0.345, dy + s2 * fh * 0.345, neckTop + h * 0.012], [dx + c * fh * 0.525, dy + s2 * fh * 0.525, cabTop], 1, 'rgba(10,20,22,0.7)', alpha, { pull: DECO_PULL });
     }
-    drawFacetDrum(ctx, cam, dx, dy, cabTop, roofTop, fh * 0.54, fh * 0.54, NF, alpha, steel(54, 60, 66), 'rgb(66,72,78)');
+    drawFacetDrum(ctx, cam, dx, dy, cabTop, roofTop, fh * 0.54, fh * 0.54, NF, alpha, steel(54, 60, 66), steelCap(66, 72, 78), SP);
     // 6. The neon rims: podium, drum top and bottom, the cab's lip.
     for (const [z, r] of [[podH, fh * 0.61], [eqBot, fh * 0.31], [eqTop, fh * 0.31], [cabTop, fh * 0.545]]) {
       drawRing(ctx, cam, dx, dy, z, r, NF, `rgba(${NEON_B},0.95)`, 2, alpha);
-      if (night) glowPool(ctx, cam, dx, dy, z, NEON_B, 10, alpha * 0.3);
+      if (night) glowPool(ctx, cam, dx, dy, z, NEON_B, 10, alpha * 0.3, AIR);
     }
     // 7. The radar turning on the roof, the mast beside it, and the beacon.
     const ang = (now || 0) * 0.0021 + seed, ca = Math.cos(ang) * fh * 0.22, sa = Math.sin(ang) * fh * 0.22, rz = roofTop + h * 0.05;
-    drawFacetDrum(ctx, cam, dx, dy, roofTop, rz - h * 0.01, fh * 0.06, fh * 0.05, 8, alpha, steel(150, 154, 158), 'rgb(160,164,168)');
+    drawFacetDrum(ctx, cam, dx, dy, roofTop, rz - h * 0.01, fh * 0.06, fh * 0.05, 8, alpha, steel(150, 154, 158), steelCap(160, 164, 168), SP);
     emitWire(ctx, cam, [dx - ca, dy - sa, rz], [dx + ca, dy + sa, rz], 4, 'rgba(214,218,222,0.95)', alpha, { pull: DECO_PULL });
     const [mx, my] = F(fh * 0.34, -fh * 0.2), mastTop = roofTop + h * 0.12;
     mast(ctx, cam, mx, my, roofTop, mastTop, alpha, now, seed + 6);
     if (night) {
-      glowPool(ctx, cam, dx, dy, (neckTop + cabTop) / 2, '120,230,220', 16, alpha * 0.45);
+      glowPool(ctx, cam, dx, dy, (neckTop + cabTop) / 2, '120,230,220', 16, alpha * 0.45, AIR);   // the cab's glass is lit on its own (glassOf); this is its halo
       blinkLight(ctx, cam, dx, dy, rz + h * 0.01, '120,255,150', now, seed + 7, alpha, 2.1);            // the aerodrome beacon: green and white
       blinkLight(ctx, cam, dx, dy, rz + h * 0.01, '235,245,255', now, seed + 7 + Math.PI, alpha, 1.9);
     }
   },
-  arrivals(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // ARRIVALS: the field's passenger hall, two storeys under a shallow barrel roof, glazed
-    //                   the full width of the airside front, a kerb canopy on columns, the livery band
-    //                   along the fascia and the baggage train standing out on the apron.
-    const hallTop = h * 0.78, hw = fh * 0.95, hd = fh * 0.62;
-    draw3DBoxAt(ctx, cam, dx, dy, hw, 0, hallTop, 'ty_arrivals', seed, night, alpha, false, 0, hd);
-    drawBarrelRoof(ctx, cam, F, 0, hw, hd, hallTop, h * 0.2, 12, alpha, [184, 192, 200]);
-    { const [gx, gy] = F(0, hd + 0.003);
-      draw3DBoxAt(ctx, cam, gx, gy, hw * 0.92, h * 0.04, hallTop * 0.84, 'ty_tower_slot', seed + 1, night, alpha, false, 0, 0.004);   // the airside glazing
-      const [lx, ly] = F(0, hd + 0.006);
-      draw3DBoxAt(ctx, cam, lx, ly, hw, hallTop * 0.87, hallTop, 'ty_airport_band', seed + 2, night, alpha, false, 0, 0.005); }       // the livery fascia
-    // The kerb canopy: a thin slab out from the glass on four columns.
-    { const cz = h * 0.4, [cx, cy] = F(0, hd + fh * 0.17);
-      draw3DBoxAt(ctx, cam, cx, cy, hw * 0.8, cz, cz + h * 0.04, 'ty_precast_dk', seed + 3, night, alpha, true, 0, fh * 0.16);
-      for (const s of [-0.7, -0.24, 0.24, 0.7]) { const [px, py] = F(hw * s, hd + fh * 0.3); emitWire(ctx, cam, [px, py, 0], [px, py, cz], 2, 'rgba(200,204,210,0.95)', alpha, { pull: DECO_PULL }); }
-      if (night) glowPool(ctx, cam, cx, cy, cz * 0.5, '255,226,170', 18, alpha * 0.45); }
-    // The baggage train on the apron: a tug in the livery and two trailers behind it.
-    for (let i = 0; i < 3; i++) { const [bx, by] = F(-hw * 0.5 + i * fh * 0.2, hd + fh * 0.62);
-      draw3DBoxAt(ctx, cam, bx, by, fh * 0.07, 0.004, h * 0.06, i ? 'ty_precast_dk' : 'ty_airport_band', seed + 10 + i, night, alpha, true, 0, fh * 0.05); }
-    // The tower's neon: cyan along the canopy's front edge, magenta under the fascia, and the
-    // airfield's one sign, a lit board on the fascia carrying the building's name.
-    if (frontVis) { const cz = h * 0.44, [a0x, a0y] = F(-hw * 0.8, hd + fh * 0.33), [a1x, a1y] = F(hw * 0.8, hd + fh * 0.33);
+  arrivals(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // ARRIVALS: the terminal's north half. A glazed hall under twin vaults with the airport
+    //                   offices rising through its north end, a kerb canopy over the doors, the baggage
+    //                   train on the apron, and the building's name on the fascia. `departures` is the
+    //                   other half, on this one's left as you face the door; see terminalHalf.
+    const HW = fh * 0.95, D = fh * 0.62, hallTop = h * 0.74;
+    const { yawE } = terminalHalf(ctx, cam, dx, dy, fh, h, seed, night, alpha, E, F, { HW, D, top: hallTop, vault: h * 0.22, side: -1 });
+    const AIR = { air: true };   // a halo on the building's own skin must not light it (see the atc arm)
+    // 1. The offices: two storeys over the north end of the hall, set back from the glass, with a
+    //    window grid that is lit after dark, plant and an aerial on the flat roof.
+    { const roofZ = h * 1.38, [ox, oy] = F(HW * 0.7, -D * 0.2);
+      draw3DBoxAt(ctx, cam, ox, oy, fh * 0.24, 0, roofZ, 'ty_precast', seed + 4, night, alpha, true, yawE, D * 0.75);
+      const [ux, uy] = F(HW * 0.8, -D * 0.6);
+      draw3DBoxAt(ctx, cam, ux, uy, fh * 0.06, roofZ, roofZ + h * 0.06, 'ty_precast_dk', seed + 5, night, alpha, true, yawE, fh * 0.05);
+      const [mx, my] = F(HW * 0.62, -D * 0.2);
+      emitWire(ctx, cam, [mx, my, roofZ], [mx, my, roofZ + h * 0.3], 1.5, 'rgba(60,64,70,0.9)', alpha, { pull: DECO_PULL });
+      blinkLight(ctx, cam, mx, my, roofZ + h * 0.3, '255,70,70', now, seed + 6, alpha, 1.6); }
+    // 2. The kerb canopy on four columns, and the doors under it.
+    { const cz = h * 0.4, [cx, cy] = F(-HW * 0.1, D + fh * 0.17);
+      draw3DBoxAt(ctx, cam, cx, cy, HW * 0.7, cz, cz + h * 0.035, 'ty_precast_dk', seed + 3, night, alpha, true, yawE, fh * 0.16);
+      for (const s of [-0.75, -0.3, 0.15, 0.55]) { const [px, py] = F(HW * s, D + fh * 0.3); emitWire(ctx, cam, [px, py, 0], [px, py, cz], 2, 'rgba(200,204,210,0.95)', alpha, { pull: DECO_PULL }); }
+      const [ddx, ddy] = F(-HW * 0.1, D + 0.01);
+      draw3DBoxAt(ctx, cam, ddx, ddy, fh * 0.14, 0, h * 0.3, 'ty_door', seed + 7, night, alpha, false, yawE, 0.006);
+      if (night) glowPool(ctx, cam, cx, cy, cz * 0.5, '255,226,170', 18, alpha * 0.45); }   // the kerb lights, which do light the apron
+    // 3. On the apron, inside the tile: a tug in the livery and three baggage carts behind it.
+    for (let i = 0; i < 4; i++) { const [bx, by] = F(-HW * 0.55 + i * fh * 0.16, 0.44);
+      draw3DBoxAt(ctx, cam, bx, by, fh * 0.06, 0.004, h * (i ? 0.05 : 0.07), i ? 'ty_precast_dk' : 'ty_airport_band', seed + 10 + i, night, alpha, true, yawE, fh * 0.04); }
+    // 4. The neon, cyan along the canopy's front edge and magenta under the fascia, and the lit
+    //    board on the fascia carrying the building's name. DEPARTURES letters the other half.
+    if (frontVis) { const cz = h * 0.44, [a0x, a0y] = F(-HW * 0.8, D + fh * 0.33), [a1x, a1y] = F(HW * 0.6, D + fh * 0.33);
       emitWire(ctx, cam, [a0x, a0y, cz], [a1x, a1y, cz], 2, 'rgba(80,236,255,0.95)', alpha, { pull: DECO_PULL });
-      const [b0x, b0y] = F(-hw, hd + 0.008), [b1x, b1y] = F(hw, hd + 0.008);
+      const [b0x, b0y] = F(-HW, D + 0.008), [b1x, b1y] = F(HW, D + 0.008);
       emitWire(ctx, cam, [b0x, b0y, hallTop * 0.86], [b1x, b1y, hallTop * 0.86], 2, 'rgba(255,64,200,0.95)', alpha, { pull: DECO_PULL });
-      if (night) { glowPool(ctx, cam, (a0x + a1x) / 2, (a0y + a1y) / 2, cz, '80,236,255', 16, alpha * 0.3); glowPool(ctx, cam, (b0x + b1x) / 2, (b0y + b1y) / 2, hallTop * 0.86, '255,64,200', 16, alpha * 0.3); }
-      marqueeBand(ctx, cam, dx, dy, _bladeBasis.E, hw * 0.62, hallTop * 0.935, '#50ecff', night, alpha); }   // flat on the fascia: the building's own name
-    if (night) glowPool(ctx, cam, dx, dy, hallTop * 0.5, '255,222,166', 26, alpha * 0.35);   // the hall lit behind its glass
+      if (night) { glowPool(ctx, cam, (a0x + a1x) / 2, (a0y + a1y) / 2, cz, '80,236,255', 16, alpha * 0.3, AIR); glowPool(ctx, cam, (b0x + b1x) / 2, (b0y + b1y) / 2, hallTop * 0.86, '255,64,200', 16, alpha * 0.3, AIR); }
+      marqueeBand(ctx, cam, dx, dy, _bladeBasis.E, HW * 0.62, hallTop * 0.935, '#50ecff', night, alpha); }   // flat on the fascia: the building's own name
+    if (night) { const [gx, gy] = F(HW * 0.2, D + 0.02); glowPool(ctx, cam, gx, gy, hallTop * 0.45, '255,222,166', 26, alpha * 0.3, AIR); }   // the hall lit behind its glass
+  },
+  departures(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // DEPARTURES: the terminal's south half, where people get on planes. A lower concourse
+    //                   under the same twin vaults, the gate's glazed walkway out over the apron to a
+    //                   boarding stair, a fuel bowser waiting by it, and a board that says DEPARTURES:
+    //                   the building's name is on the arrivals fascia, and a building gets its name
+    //                   once. `arrivals` is the other half, on this one's right; see terminalHalf.
+    const HW = fh * 0.95, D = fh * 0.55, hallTop = h * 0.62;
+    const { yawE, dusk } = terminalHalf(ctx, cam, dx, dy, fh, h, seed, night, alpha, E, F, { HW, D, top: hallTop, vault: h * 0.17, side: 1 });
+    const AIR = { air: true };
+    // 1. Gate 1's walkway: a glazed box on legs from the front of the concourse at its south end,
+    //    out over the apron, and a stair from its end down to the tarmac. Kept inside the tile.
+    { const GX = -HW * 0.45, y0 = D, y1 = 0.42, wz0 = h * 0.2, wz1 = h * 0.36;
+      const [wx, wy] = F(GX, (y0 + y1) / 2);
+      draw3DBoxAt(ctx, cam, wx, wy, 0.045, wz0, wz1, 'ty_tower_slot', seed + 40, night, alpha, true, yawE, (y1 - y0) / 2);
+      for (const t of [0.3, 0.85]) for (const s of [-1, 1]) {
+        const [lx, ly] = F(GX + s * 0.032, y0 + (y1 - y0) * t);
+        emitWire(ctx, cam, [lx, ly, 0], [lx, ly, wz0 - 0.004], 2, 'rgba(150,156,164,0.95)', alpha, { pull: DECO_PULL });
+      }
+      // The stair: one lit sloping face (walked so its normal faces up, since it is shaded off it)
+      // and a handrail each side.
+      let q = [W3(GX - 0.035, y1, wz0), W3(GX + 0.035, y1, wz0), W3(GX + 0.035, y1 + 0.07, 0.004), W3(GX - 0.035, y1 + 0.07, 0.004)];
+      let nz = 0;
+      for (let v = 0; v < 4; v++) { const a = q[v], b = q[(v + 1) % 4]; nz += (a[0] - b[0]) * (a[1] + b[1]); }
+      if (nz < 0) q = q.reverse();
+      emitFlat(ctx, cam, q, `rgb(${150 * dusk | 0},${154 * dusk | 0},${160 * dusk | 0})`, alpha, { lit: 'plain', albedo: [150 * dusk, 154 * dusk, 160 * dusk] });
+      for (const s of [-1, 1]) emitWire(ctx, cam, W3(GX + s * 0.035, y1, wz0 + h * 0.06), W3(GX + s * 0.035, y1 + 0.07, h * 0.06), 1, 'rgba(200,204,210,0.9)', alpha, { pull: DECO_PULL });
+      // Pink neon along both eaves of the walkway, and the gate lamp at its end.
+      if (frontVis) for (const s of [-1, 1]) emitWire(ctx, cam, W3(GX + s * 0.052, y0 + 0.01, wz1), W3(GX + s * 0.052, y1, wz1), 2, 'rgba(255,64,200,0.95)', alpha, { pull: DECO_PULL });
+      if (night) { const [ex, ey] = F(GX, y1); glowPool(ctx, cam, ex, ey, wz1, '255,190,110', 10, alpha * 0.5, AIR); } }
+    // 2. The apron kit by the stair: a fuel bowser and a ground-power cart.
+    { const [fx, fy] = F(HW * 0.15, 0.45);
+      draw3DBoxAt(ctx, cam, fx, fy, fh * 0.12, 0.004, h * 0.08, 'ty_fuel_white', seed + 41, night, alpha, true, yawE, fh * 0.05);
+      const [px, py] = F(HW * 0.55, 0.45);
+      draw3DBoxAt(ctx, cam, px, py, fh * 0.05, 0.004, h * 0.05, 'ty_airport_band', seed + 42, night, alpha, true, yawE, fh * 0.04); }
+    // 3. The neon under the fascia, and the board.
+    if (frontVis) { const [b0x, b0y] = F(-HW, D + 0.008), [b1x, b1y] = F(HW, D + 0.008);
+      emitWire(ctx, cam, [b0x, b0y, hallTop * 0.86], [b1x, b1y, hallTop * 0.86], 2, 'rgba(80,236,255,0.95)', alpha, { pull: DECO_PULL });
+      if (night) glowPool(ctx, cam, (b0x + b1x) / 2, (b0y + b1y) / 2, hallTop * 0.86, '80,236,255', 16, alpha * 0.3, AIR);
+      marqueeBand(ctx, cam, dx, dy, _bladeBasis.E, HW * 0.5, hallTop * 0.935, '#ffb347', night, alpha, 'DEPARTURES'); }
+    if (night) { const [gx, gy] = F(HW * 0.25, D + 0.02); glowPool(ctx, cam, gx, gy, hallTop * 0.45, '255,222,166', 22, alpha * 0.28, AIR); }
   },
   power(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE POWER PLANT — 5 tiles. It had the mass (five segments) and still scored
     //                  3/4, because all five were the same palette and, worse, the two COOLING

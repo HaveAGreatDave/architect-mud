@@ -1,0 +1,9 @@
+{
+  "a": "zone_hostel_dorm_2",
+  "b": "zone_hostel_dorm_3",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_hostel_dorm_2_up_tk03",
+  "lockable": false,
+  "one_way": false
+}

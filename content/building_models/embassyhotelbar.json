@@ -278,15 +278,16 @@
       }
     },
     {
-      "color": "#8e7a52",
+      "color": "#d99aa8",
       "cx": 0,
       "cy": 0.408,
       "font": "deco",
       "half": 0.295,
       "hh": 0.028,
-      "ink": "#2a2014",
+      "ink": "#3a1622",
       "kind": "signBoard",
       "label": "EMBASSY HOTEL",
+      "nightInk": "#ffe2a8",
       "z": 0.957
     },
     {

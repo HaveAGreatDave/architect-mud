@@ -498,11 +498,11 @@ SPECS.push({
   },
 });
 
-// ── Engine Trouble ───────────────────────────────────────────────────────────
+// ── Fire Station 4 ───────────────────────────────────────────────────────────
 // A fire station: a hose tower, three bay doors and a crew who are very good at a job they
 // are almost never called to do, in a quarter that is mostly grass.
 SPECS.push({
-  slug: 'engine', name: 'Engine Trouble', type: 'fire_station',
+  slug: 'engine', name: 'Fire Station 4', type: 'fire_station',
   x: 910, y: 917, entrance: 'east', floors: 3, marker: 'ET', district: 'halcyon_fields',
   facade: {
     bgColor: '#1d1416', color: '#c06052',
@@ -542,7 +542,7 @@ SPECS.push({
   ],
   npc: {
     id: 'npc_engine_thorne', name: 'Dilys Thorne', sex: 'female', hp: 46,
-    homeRoom: 'watch', workRoom: 'bay', shopName: 'Engine Trouble',
+    homeRoom: 'watch', workRoom: 'bay', shopName: 'Fire Station 4',
     description: 'A square, capable woman in her forties in shirtsleeves and braces, standing in the bay with a mug in one hand and her attention on the doors. She has the specific calm of somebody whose job is nearly all waiting and occasionally all of everything, and she does not waste any of it on being pleasant for its own sake, which somehow comes out as warmth.',
     clothing: ['a service shirt with the sleeves turned back and the collar open, braces over it', 'uniform trousers with a crease and a hard belt', 'boots she can step into the leggings from, kept by the cab', 'a vest and plain underthings'],
     inventory: [

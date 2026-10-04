@@ -3,7 +3,7 @@
   "ambient_theme": "city",
   "description": "The east end of the lane, hard against Meltwater Row, where the estate stone gives out and the older city takes over at a different level. The ramp between them was an afterthought and rides like one.",
   "exits": {
-    "east": "zone_district_911_918",
+    "north": "zone_district_910_917",
     "south": "zone_district_910_919",
     "west": "zone_district_909_918"
   },

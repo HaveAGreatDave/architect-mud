@@ -1,0 +1,16 @@
+{
+  "description": "A narrow desk with a microphone on a stalk and a boarding-card printer. A sign on it asks charter passengers to have their booking ready.",
+  "flags": {
+    "click_cmd": "charter"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cw_gate_desk",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the gate desk",
+  "object_type": "fixture",
+  "power_draw_kw": 0.3,
+  "price": 0,
+  "zone_id": "zone_cw_gate"
+}

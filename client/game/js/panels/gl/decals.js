@@ -35,12 +35,13 @@
 // antialiased edge texel between the two cuts from the picture. So the colour pass is byte-for-byte
 // the one that always shipped, and a second draw with `colorMask` off lays the board's silhouette
 // into the depth buffer ahead of it. With no batch asking, the prepass is the absence of a code path.
-import { viewProjMatrix, mat4f } from './camera.js';
+import { viewProjMatrix, mat4f, eyePos } from './camera.js';
 import { makeVertexStream } from './stream.js';
+import { createArena } from './retain.js';
 import { declareProgram, takeWarm } from './programs.js';
 
 // pos3, uv2, alpha1, emit1, seed1
-const STRIDE = 8;
+const STRIDE = 12;
 // What alpha counts as the BOARD rather than as its edge, in the depth-only prepass. A `solid` decal
 // is one flat fill, so its interior is 1 and only the rim is between — but `vAlpha` carries the
 // world's own distance fade, and a board fading out at the edge of the window must stop writing
@@ -100,6 +101,12 @@ in vec2 aUV;
 in float aAlpha;
 in float aEmit;
 in float aSeed;
+// The pull toward the eye, done here (Stage 3 phase 3 of glass-headroom): the whole quad scales about
+// the eye by 1 - min(0.5, pull / depth of its centroid), which is unprojQuad's square pull (depth is
+// affine, so the centroid's depth is the corners' mean). aPull 0 means aPos arrives already pulled.
+in vec3 aCen;
+in float aPull;
+uniform vec3 uEye;
 uniform mat4 uViewProj;
 out vec2 vUV;
 out float vAlpha;
@@ -108,8 +115,13 @@ out vec3 vWorld;
 flat out float vSeed;
 void main() {
   vSeed = aSeed;
-  vWorld = aPos;
-  gl_Position = uViewProj * vec4(aPos, 1.0);
+  vec3 P = aPos;
+  if (aPull > 0.0) {
+    float fm = (uViewProj * vec4(aCen, 1.0)).w;
+    P = uEye + (aPos - uEye) * (1.0 - min(0.5, aPull / fm));
+  }
+  vWorld = P;
+  gl_Position = uViewProj * vec4(P, 1.0);
   vUV = aUV;
   vAlpha = aAlpha;
   vEmit = aEmit;
@@ -396,6 +408,9 @@ export function createDecalLayer(gl) {
     alpha: gl.getAttribLocation(prog, 'aAlpha'),
     emit: gl.getAttribLocation(prog, 'aEmit'),
     seed: gl.getAttribLocation(prog, 'aSeed'),
+    cen: gl.getAttribLocation(prog, 'aCen'),
+    pullA: gl.getAttribLocation(prog, 'aPull'),
+    eye: gl.getUniformLocation(prog, 'uEye'),
     tube: gl.getUniformLocation(prog, 'uTube'),
     flick: gl.getUniformLocation(prog, 'uFlick'),
     time: gl.getUniformLocation(prog, 'uTime'),
@@ -417,7 +432,9 @@ export function createDecalLayer(gl) {
   // One stream, set up once: the attribute pointers are recorded into the VAO here and never
   // touched again, and the storage grows by doubling instead of being reallocated every frame.
   // See gl/stream.js.
-  const stream = makeVertexStream(gl, vao, STRIDE, [[loc.pos, 3, 0], [loc.uv, 2, 12], [loc.alpha, 1, 20], [loc.emit, 1, 24], [loc.seed, 1, 28]], 1024);
+  const ATTRS = [[loc.pos, 3, 0], [loc.uv, 2, 12], [loc.alpha, 1, 20], [loc.emit, 1, 24], [loc.seed, 1, 28], [loc.cen, 3, 32], [loc.pullA, 1, 44]];
+  let keptLive = [];
+  const stream = makeVertexStream(gl, vao, STRIDE, ATTRS, 1024);
   let data = new Float32Array(0);
   const texes = new Map();          // key → WebGLTexture
   let batches = [];                 // { tex, first, count, cull, solid }
@@ -483,7 +500,58 @@ export function createDecalLayer(gl) {
 
   // ⚠ GROUPED BY TEXTURE, because a bind is the expensive part and two signs reading the same
   // baked canvas — every branch of the same chain, every "HOTEL" in the city — are one draw call.
-  function upload(list) {
+  // `ox`/`oy`: see the sprite layer's upload.
+  // One decal's two triangles into `D` at `o`; returns the next offset. `sd` is the artwork's flicker
+  // seed; `ox`/`oy` see the sprite layer's upload.
+  function putDecal(D, o, d, sd, ox, oy) {
+    let cx = 0, cy = 0, cz = 0, pl = 0;
+    // A quad with its pull still to do (d.pl, see emitDecoFill) sends its raw corners and centroid.
+    const raw = d.pl > 0 && d.rp;
+    const [TL, TR, BR, BL] = raw ? d.rp : d.p, al = d.alpha == null ? 1 : d.alpha;
+    if (raw) { const R = d.rp, n = d.rn || 4; cx = ox; cy = oy; for (let i = 0; i < n; i++) { const c = d.rc ? d.rc[i] : R[i]; cx += c[0] / n; cy += c[1] / n; cz += c[2] / n; } pl = d.pl; }
+    // 0 is "this is paint" and is the default, so a producer that has never heard of emission
+    // draws exactly what it drew before at any gain — see the ⚠ in the fragment shader.
+    // -1 is lit cloth, which is never also an emitter.
+    const em = d.lit ? -1 : d.emit > 0 ? d.emit : 0;
+    const put = (p, u, v) => {
+      D[o] = p[0] + ox; D[o + 1] = p[1] + oy; D[o + 2] = p[2];
+      D[o + 3] = u; D[o + 4] = v; D[o + 5] = al; D[o + 6] = em; D[o + 7] = sd;
+      D[o + 8] = cx; D[o + 9] = cy; D[o + 10] = cz; D[o + 11] = pl;
+      o += STRIDE;
+    };
+    put(TL, 0, 0); put(TR, 1, 0); put(BR, 1, 1);
+    put(TL, 0, 0); put(BR, 1, 1); put(BL, 0, 1);
+    return o;
+  }
+  // `groups` are retained ones (gl/retain.js): `{ recs, ox, oy }`. Each is split into one entry per
+  // texture and kind (solid or not), as the frame's own list is batched, and each entry is drawn as its
+  // own range with its own texture: `spans`, not `runs`.
+  const arena = createArena(gl, STRIDE, ATTRS);
+  const KEYS = new WeakMap();
+  function upload(list, ox = 0, oy = 0, groups = null) {
+    const gEntries = [], gLive = [];
+    if (groups) for (const G of groups) {
+      let k = KEYS.get(G.recs);
+      if (!k || k.ox !== G.ox || k.oy !== G.oy) {
+        // Split once per array: the records in it never change (bayGroup's promise).
+        const by = new Map();
+        for (const d of G.recs) {
+          if (!d || !d.img || !d.p || d.p.length !== 4) continue;
+          const gk = (d.cull ? 'B:' : 'F:') + d.key + (d.solid ? '|S' : '|C');
+          let a = by.get(gk); if (!a) by.set(gk, a = { key: d.key, img: d.img, cull: !!d.cull, smooth: !!d.smooth, solid: !!d.solid, items: [] });
+          a.items.push(d);
+        }
+        k = { ox: G.ox, oy: G.oy, parts: [...by.values()].map((a) => ({ ...a, id: {} })) };
+        KEYS.set(G.recs, k);
+      }
+      for (const a of k.parts) {
+        gLive.push(a);
+        const sd = keySeed(a.key);
+        gEntries.push({ key: a.id, part: a, floats: a.items.length * 6 * STRIDE, write: (D, o) => { for (const d of a.items) o = putDecal(D, o, d, sd, G.ox, G.oy); return o; } });
+      }
+    }
+    arena.retain(gEntries);
+    keptLive = gLive;
     MINTED = 0;
     const byKey = new Map();
     for (const d of list) {
@@ -505,6 +573,7 @@ export function createDecalLayer(gl) {
     // Which TEXTURES this frame draws — `a.key`, never the grouping key. See the ⚠ on evict.
     const liveTex = new Set();
     for (const a of byKey.values()) liveTex.add(a.key);
+    for (const a of keptLive) liveTex.add(a.key);
     // ── WHICH PRODUCER IS MINTING THEM, WHEN THE CACHE IS OVER ITS CAP ────────
     //
     // `textures` can sit at more than twice MAX_TEX with `batches` exactly equal to it, which says
@@ -528,20 +597,7 @@ export function createDecalLayer(gl) {
     batches = [];
     let o = 0, first = 0;
     let sd = 0;
-    const put = (p, u, v, a, e) => {
-      data[o] = p[0]; data[o + 1] = p[1]; data[o + 2] = p[2];
-      data[o + 3] = u; data[o + 4] = v; data[o + 5] = a; data[o + 6] = e; data[o + 7] = sd;
-      o += STRIDE;
-    };
-    const quad = (d) => {
-      const [TL, TR, BR, BL] = d.p, al = d.alpha == null ? 1 : d.alpha;
-      // 0 is "this is paint" and is the default, so a producer that has never heard of emission
-      // draws exactly what it drew before at any gain — see the ⚠ in the fragment shader.
-      // -1 is lit cloth, which is never also an emitter.
-      const em = d.lit ? -1 : d.emit > 0 ? d.emit : 0;
-      put(TL, 0, 0, al, em); put(TR, 1, 0, al, em); put(BR, 1, 1, al, em);
-      put(TL, 0, 0, al, em); put(BR, 1, 1, al, em); put(BL, 0, 1, al, em);
-    };
+    const quad = (d) => { o = putDecal(data, o, d, sd, ox, oy); };
     for (const a of byKey.values()) {
       // The TEXTURE cache is keyed on the appearance alone — the same artwork culled and unculled
       // is one upload — so `a.key` and not the grouping key.
@@ -566,7 +622,23 @@ export function createDecalLayer(gl) {
   // flat white — the same mistake EMISSIVE_GAIN shipped at 3 and had to be walked back from. The
   // headroom to hold it is the float target, so the caller only ever sends a gain when there is one.
   function draw(cam, H, emitGain = 0, neon = null, lit = null) {
-    if (!batches.length) return 0;
+    const kept = arena.spans;
+    if (!batches.length && !kept.length) return 0;
+    const keptRun = (solidOnly) => {
+      if (!kept.length) return 0;
+      gl.bindVertexArray(arena.vao);
+      let n = 0;
+      for (const sp of kept) {
+        const a = sp.g.part;
+        if (solidOnly && !a.solid) continue;
+        gl.uniform1f(loc.cull, a.cull ? 1 : 0);
+        gl.bindTexture(gl.TEXTURE_2D, textureFor(a.key, a.img, a.smooth));
+        gl.drawArrays(gl.TRIANGLES, sp.at, sp.n);
+        n += sp.n / 6;
+      }
+      gl.bindVertexArray(vao);
+      return n;
+    };
     gl.useProgram(prog);
     const ls = lit && lit.lights ? lit.lights : [];
     const nL = Math.min(ls.length, LIT_MAX);
@@ -585,6 +657,7 @@ export function createDecalLayer(gl) {
     gl.uniform1f(loc.time, neon && neon.now ? (neon.now / 1000) % 3600 : 0);
     gl.uniform1f(loc.emitGain, emitGain > 0 ? emitGain : 0);
     gl.uniformMatrix4fv(loc.viewProj, false, mat4f(viewProjMatrix(cam, H)));
+    { const e = eyePos(cam); gl.uniform3f(loc.eye, e[0], e[1], e[2]); }
     // Whether this camera reflects the world — see the ⚠ on `uFlip`. Read off the camera itself so
     // a caller cannot hand over a mirrored matrix and forget to say so.
     gl.uniform1f(loc.flip, cam.mirrorZ == null ? 0 : 1);
@@ -605,10 +678,12 @@ export function createDecalLayer(gl) {
     // decal including these; all this leaves behind is a depth the CLOUD deck can sort against.
     let deep = 0;
     for (const b of batches) if (b.solid) deep++;
+    for (const sp of kept) if (sp.g.part.solid) deep++;
     if (deep) {
       gl.uniform1f(loc.cut, DEPTH_CUT);
       gl.colorMask(false, false, false, false);
       gl.depthMask(true);
+      keptRun(true);
       for (const b of batches) {
         if (!b.solid) continue;
         gl.uniform1f(loc.cull, b.cull ? 1 : 0);
@@ -619,7 +694,7 @@ export function createDecalLayer(gl) {
       gl.colorMask(true, true, true, true);
     }
     gl.uniform1f(loc.cut, COLOUR_CUT);
-    let n = 0;
+    let n = keptRun(false);
     for (const b of batches) {
       gl.uniform1f(loc.cull, b.cull ? 1 : 0);
       gl.bindTexture(gl.TEXTURE_2D, b.tex);

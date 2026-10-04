@@ -42,8 +42,17 @@ import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { adjustSanity } from '../../server/engine/condition.js';
 import { adjustRelation } from '../../server/engine/relations.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
-import { getEnvironmentState } from '../../server/engine/environment.js';
+import { getEnvironmentState, getZonePrecip } from '../../server/engine/environment.js';
 import { query } from '../../server/models/db.js';
+
+// The day's weather with `currentPrecip` swapped for what is falling on THIS tile. Rain only
+// falls under a cell and never indoors, so off the headline she sheltered from rain in a dry
+// street and shook it off in somebody's kitchen.
+function localEnv(zoneId) {
+  const env = getEnvironmentState();
+  const { precipType, precipRate } = getZonePrecip(zoneId);
+  return { ...env, currentPrecip: precipRate > 0 ? (precipType === 'snow' ? 'snow' : 'rain') : 'none', precipRate };
+}
 import { BEHAVIOURS, pickBehaviour } from './behaviours.js';
 import { moodToward, recordPet, recordKill, petsBy, killsBy, PET_COOLDOWN_MS, GIFT_PETS } from './memory.js';
 
@@ -187,7 +196,7 @@ async function buildCtx(zoneId) {
     zone, zoneId, players, player: focus,
     mood: focusMood, pets: focusPets,
     furniture: getZoneFurniture(zoneId) || [],
-    env: getEnvironmentState(),
+    env: localEnv(zoneId),
   };
 }
 

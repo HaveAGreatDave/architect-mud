@@ -1,0 +1,9 @@
+{
+  "a": "zone_trackmarks_shop",
+  "b": "zone_hostel_dorm",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_trackmarks_shop_up_hc01",
+  "lockable": false,
+  "one_way": false
+}

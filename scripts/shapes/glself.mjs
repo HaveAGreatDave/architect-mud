@@ -205,7 +205,9 @@ const KNOWN = new Map([
   // authored against geometry that is still moving. Fix it and this number owes eight points back.
   // 610 → 654 is `named:coldwaterregionalterminal`: the airport model's tower mast and whips,
   // counted a second time for the terminal beside Coldwater Regional's hangar. Same strokes, same reason.
-  ['stroke', { budget: 654, why:
+  // 654 → 604 on 2026-10-02: it was already down to 612 at HEAD, and removing the kit's lit pier
+  // ranks took the last 8.
+  ['stroke', { budget: 604, why:
    'masts, fire stairs, catwalk rails and guy wires are authored INSIDE the host they hang off — a '
    + 'mast at its tile centre is 0.44 tiles behind its own front wall — so `emitWire` still spends '
    + 'the full DECO_LIFT and they are pulled clear on purpose. The Dynamo lost its entire external '
@@ -236,7 +238,8 @@ const KNOWN = new Map([
   // started putting per-tile lettering on a roof again.
   // 7 → 9 when board and lettering started writing depth (glBoardDepth/glSignDepth): the slab's back
   // board and soffit are the two points, on type:bank, named:thechorusden and type:archive.
-  ['decal:gantry', { budget: 9, why:
+  // 9 → 7 on 2026-10-02, re-blessed to what HEAD already measured.
+  ['decal:gantry', { budget: 7, why:
    'a rooftop hoarding stands at its own tile CENTRE on legs, so its back board, its soffit and the '
    + 'far edge return are inside the roof mass they are standing on — the same shape of reason as the '
    + 'mast in `stroke`, and the same fix: they have to come out or they are simply not drawn. It is '
@@ -248,13 +251,8 @@ const KNOWN = new Map([
   // that talks about doorways. The number was real and the label was wrong, which is the failure a
   // shared catch-all category has: it passes because it is big, and it is big because of something
   // nobody meant to put in it. 2 is what the doorways actually cost.
-  // The control tower's three legs (the `atc` arm in windshield.js) are structure, not paint: each
-  // one stands on the podium's lid and meets the equipment drum under the cab, so its foot and its
-  // head are flush against its own building by construction. Four points, all at those two joints.
-  ['decal:atc-leg', { budget: 4, why:
-   'the control tower\'s legs, whose feet stand on the podium lid and whose heads meet the '
-   + 'equipment drum. A leg that met neither would be a leg hanging in the air; the only points '
-   + 'the tie-breaker brings out are the ones sitting on those two surfaces.' }],
+  // `decal:atc-leg` (budget 4) went on 2026-10-03: the control tower's legs are lit mesh faces now
+  // (`emitFlat` with `lit`), so they take the dark at night, and a mesh face is not on this path.
   ['decal:solid', { budget: 2, why:
    'the recessed doorway panels. `emitDecoFill` is already capped at DECO_PULL, and these are the '
    + 'few that are authored far enough INTO their own facade that even a 0.05 tie-breaker brings '

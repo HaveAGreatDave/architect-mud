@@ -23,6 +23,7 @@ import { pilotStatusForField, charterParkedAt } from './charter.js';
 import { isPilotLicensed } from './checkride.js';
 import { prefersTextMinigamesOrDefault } from '../../server/engine/presentation.js';
 import { emit } from '../../server/engine/events.js';
+import { getZonePrecip } from '../../server/engine/environment.js';
 // `tune` also belongs to broadcast (tune a channel); flight wins it and hands
 // back when you're not tuning an aircraft. `repair` shadows the engine gear-repair
 // builtin — cmdRepair returns undefined out of aircraft context to fall through.
@@ -423,7 +424,10 @@ export async function pushHangarBay(player, selectId, opts = {}) {
     select: selectId || null,   // client pre-selects this craft (from `view <tail>`)
     pilot: pilotStatusForField(field.id),
     charterWaiting,
-    sky: skyState(),   // time-of-day + weather, visible through the open bay door
+    // Time-of-day + weather, visible through the open bay door. `here` is what is falling on the
+    // field outside it: rain only falls under a cell, so the day's word rained through the door
+    // of every hangar in the game.
+    sky: { ...skyState(), here: getZonePrecip(field.id) },
     canBuy, canRent, lots, licensed, isAdmin,
     catalog: { patterns: PATTERNS, finishes: FINISHES, uphol: UPHOLSTERY, decals: DECALS, trims: TRIMS, cabinTrims: CABIN_TRIMS, plateDefault: PLATE_DEFAULT, plateChars: PLATE_CHARS, plateMax: PLATE_MAX },
     tuneParams: Object.entries(TUNE_PARAMS).map(([id, p]) => ({ id, label: p.label, lo: p.lo, hi: p.hi, desc: p.desc })),

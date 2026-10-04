@@ -2,7 +2,7 @@
 
 **Purpose** — the pre-world tutorial. New souls spawn in The Inbetween and walk a **one-way corridor** before they ever reach Coldwater:
 
-1. **Chargen** at the MORPHEX terminal.
+1. **Chargen** at the MORPHEX terminal. Bringing the panel up opens the way north; changing anything is optional.
 2. The **holosign** — first Architect Interface IP and your holocaster.
 3. An **eerie welcome broadcast**.
 4. Collapse into the Coldwater clone vat, where the reinstatement machine issues your **tablet**.
@@ -80,7 +80,7 @@ goes on talking stops being a hint and becomes a nag.
 - `use`, `read`
 
 ## Events consumed
-- `appearance.changed` · `posture.changed` · `zone.entered` · `enemy.killed` · `player.login`
+- `cosmetic.opened` · `cosmetic.closed` · `appearance.changed` · `posture.changed` · `zone.entered` · `enemy.killed` · `player.login`
 
 ## Load order
 `after: ["cosmetic-machine", "interactions", "tablet"]` — the corridor drives all three.

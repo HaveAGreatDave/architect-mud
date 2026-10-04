@@ -466,6 +466,7 @@ function paintWindow(id, a, s) {
     // once the server's own payload has moved on) — `worldBlend` above decides how much
     // of each windshield.js actually paints, not which one is available.
     map: s.map || _lastMap,
+    skyline: s.skyline,   // the tall towers outside the window; windshield.js keeps every one it has been sent
     phase: onGround ? 'ground' : 'cruise',
     worldBlend,
     airport: s.ground?.theme || _lastGround?.theme,
@@ -3089,6 +3090,7 @@ export function openFlightSim(opts = {}) {
 
   const F = {
     P, s, cls: opts.craftClass || 'ultralight', livery: opts.livery || opts.craftLivery,
+    aircraftId: opts.aircraftId || null,   // handed back in `flightresume` (resumeFlightAfterLogin)
     input: { elevator: 0, aileron: 0, throttle: 0, flaps: 0, pedal: 0, trim: 0 },
     // A helicopter (Dragonfly/Mini 500) flies the hover model: the throttle lever is the
     // COLLECTIVE, the yoke is the CYCLIC, and the rudder pedals (,/. or X/C) work the tail
@@ -5053,7 +5055,7 @@ function stepCrashBreakup(F, now) {
     gearAnim: F.gearAnim ?? 1, enginePct: 0, engineOn: false, breakup: { t, parts, state: C }, wreckFx,
     extYaw: (F.extOrbit || 0) + 26 * t, extPitch: F.extPitch ?? REST_PITCH, extZoom: F.extZoom || 1,
     height, speed: 0, hour: F.sky?.hour, moon: F.sky?.moon, weather: F.sky?.weather, wxField: F.sky?.field, wxGround: F.sky?.ground,
-    map: F.map, mapCenter: F.mapCenter, mapOffset: { x: F.pos.x - F.mapCenter.x, y: F.pos.y - F.mapCenter.y },
+    map: F.map, skyline: F.skyline, mapCenter: F.mapCenter, mapOffset: { x: F.pos.x - F.mapCenter.x, y: F.pos.y - F.mapCenter.y },
     acX: F.pos.x, acY: F.pos.y, biomeBelow: F.biomeBelow || 'default', airport: F.airport || 'default', helipad: !!F.helipad,
   });
   if (t >= 1 && !C.reported) {
@@ -6292,7 +6294,7 @@ function fsimFrameBody(now) {
     hour: F.sky?.hour, moon: F.sky?.moon, weather: F.sky?.weather, wind: F.sky?.wind, heading: s.heading,
     // Spatial weather cells + our absolute world position → real clouds/rain out the canopy.
     wxField: F.sky?.field, wxGround: F.sky?.ground, acX: F.pos.x, acY: F.pos.y,
-    map: F.map, mapCenter: F.mapCenter, roads: F.roads, phase: 'cruise', airport: F.airport, helipad: !!F.helipad, biomeBelow: F.biomeBelow,
+    map: F.map, skyline: F.skyline, mapCenter: F.mapCenter, roads: F.roads, phase: 'cruise', airport: F.airport, helipad: !!F.helipad, biomeBelow: F.biomeBelow,
     actors: F.actors,   // the street population under us — drawn only on a low pass (see drawStreetActors)
     regions: F.regions,   // drives the windshield region atmosphere grade (The Reach dust, …)
     mapOffset: { x: F.pos.x - F.mapCenter.x, y: F.pos.y - F.mapCenter.y }, travel: F.travel,
@@ -6969,6 +6971,13 @@ let DK_CHAMPAGNE = null;
 export function drakeChampagne(n) { DK_CHAMPAGNE = Number.isFinite(n) ? n : null; }
 export function drakeSubmerged(msg) {
   const F = _fsim; if (!F?.dk || !msg) return;
+  // The server said no to a dive, and why (plugins/submersible refuse). Stop filling the tanks now
+  // rather than after the frame's three-second wait, and say the reason instead of a shrug.
+  if (msg.refused) {
+    F.dk.subBlowLocal = null; F.dk.subAskAt = 0; F.dk.subPending = null;
+    fsimToast('SUB: ' + msg.refused);
+    return;
+  }
   F.dk.submerged = Math.max(0, +msg.depth || 0);
   F.dk.subAir = msg.air ?? null;
   F.dk.subAirMax = msg.airMax ?? null;
@@ -6990,6 +6999,7 @@ export function flightSimContext(msg) {
   if (msg.fuelCap != null) F.fuelCap = msg.fuelCap;
   // Update the map AND its window centre together so they stay paired (no recenter jump).
   if (msg.map) { F.map = msg.map; if (msg.mapX != null) F.mapCenter = { x: msg.mapX, y: msg.mapY }; }
+  if (msg.skyline) F.skyline = msg.skyline;   // the tall towers outside that window (windshield.js noteSkyline)
   // The highway past the edge of that window, as polylines in absolute world tiles. Assigned
   // unconditionally for the same reason `actors` is: the server sends null the moment there is no
   // road in range, and reading that as no news would leave a highway drawn across an empty desert
@@ -7170,7 +7180,7 @@ export function flightSimFireworks(msg) {
 // windshield, which renders it as a 3-D bolt out the canopy when it's within view.
 export function flightSimLightning(msg) {
   if (!msg) return;
-  pushLightningStrike(msg.gx, msg.gy, msg.intensity);
+  pushLightningStrike(msg.gx, msg.gy, msg.intensity, !!msg.cc);
 }
 
 // The ag-plane's hopper, answered by `hopperbay`. Draws the tank's gauge and one row per
@@ -7230,6 +7240,19 @@ export function flightSimAASites(msg) {
 // True while the continuous cockpit owns the area pane — dispatch uses this to stop
 // room `look`/`move` renders from clobbering the cockpit out from under the pilot.
 export function isFlightSimActive() { return !!_fsim; }
+
+// Called on every login. The sim outlives the socket, so a server restart mid-flight leaves this
+// cockpit flying an aircraft the server no longer seats anyone in: syncs, the landing and
+// 'disembark' all fell on the floor, and climbing out on the far pad put the pilot back in the
+// room they boarded from. 'flightresume' asks for the seat back (the server checks the row says
+// it is ours). Still flying, she then re-reports wheels-up, which the server ignores if it already
+// has her airborne and treats as the takeoff it missed if the restart came during the taxi.
+export function resumeFlightAfterLogin() {
+  const F = _fsim;
+  if (!F || !F.aircraftId) return;
+  sendCmdSilent('flightresume ' + F.aircraftId);
+  if (F.reportedAirborne) sendCmdSilent('flightevent takeoff');
+}
 
 // ── THE HANGAR'S HOOKS ───────────────────────────────────────────────────────
 // The hangar bench comes to the cockpit when she is standing on the hangar floor (hangar-bay.js,

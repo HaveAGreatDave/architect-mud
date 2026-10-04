@@ -13,7 +13,7 @@
     "radiation": 40,
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "dirt_road"
+    "terrain": "redrock"
   },
   "grid_x": 918,
   "grid_y": 944,

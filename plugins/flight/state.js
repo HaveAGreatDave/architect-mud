@@ -12,16 +12,17 @@ import { getZone, getAllZones, getLivePlayer, getMinimapData, buildingEntranceDi
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { biomeOf, districtBiome } from './biomes.js';
 import { thermalLiftMax, heatOfCell } from '../../client/shared/thermals.js';
+import { skylineFar } from '../../client/shared/skyline-tall.js';
 import { normalizeLivery } from './livery.js';
 import { sendToPlayer, sendToZone, sendToZoneExcept } from '../../server/engine/messaging.js';
 import { setPosture, forceStand } from '../../server/engine/posture.js';
 import { handlePlayerDeath } from '../../server/engine/gameLoop.js';
-import { emit } from '../../server/engine/events.js';
+import { emit, on } from '../../server/engine/events.js';
 import { streetActors } from '../../server/engine/street-actors.js';
 import { applyCrashCollateral, isSeverelyImpaired } from './collateral.js';
 import { setDownCompanions, killCompanions } from './companions.js';
 import { isResidentOf } from '../../server/engine/apartments.js';
-import { getEnvironmentState, getWeatherFieldSnapshot, getWeatherEvent, getZonePowerStatus, getZoneEmergencyLighting, getZoneOnGrid, groundAccum, getWindKphAtGrid } from '../../server/engine/environment.js';
+import { getEnvironmentState, getWeatherFieldSnapshot, getWeatherEvent, getZonePowerStatus, getZoneEmergencyLighting, getZoneOnGrid, groundAccum, getWindKphAtGrid, getPrecipAtGrid } from '../../server/engine/environment.js';
 import { gatherHookSync } from '../../server/engine/plugins.js';
 
 export const TICK_MS = 3000;
@@ -308,7 +309,7 @@ export function bounds() { if (!_bounds) buildCoordIndex(); return _bounds; }
 // ⚠ `_bounds` GOES WITH IT. It is derived in the same pass and cached in its own variable, so
 // leaving it behind would give the next caller a fresh index inside a stale rectangle — which is
 // worse than either being stale on its own, because the two would disagree.
-export function invalidateCoordIndex() { _coordIndex = null; _bounds = null; }
+export function invalidateCoordIndex() { _coordIndex = null; _bounds = null; _skyline = null; }
 
 // ── THE RENDER OVERLAY — GROUND THAT IS THERE WITHOUT BEING PLACED ───────────
 //
@@ -1067,6 +1068,11 @@ export function curtainRun(cx, cy, at = surfaceAt) {
 // They did, twice, while snapshot.js kept its own copy: the bake lost painted-only street tiles
 // and then lost park features. `live` is false for the bake, which skips the wall-clock yacht
 // wake/transit pose (a snapshot must not freeze a moving hull into the file).
+// Whether the city is locked down (the ESP; plugins/emergency announces it). The South Lock's outer
+// door comes down for it; see the lock below. Live only, so a bake never freezes a shut door.
+let _lockdown = false;
+on('esp.changed', ({ active } = {}) => { _lockdown = !!active; });
+export function _setLockdown(v) { _lockdown = !!v; }
 export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // Each surface cell carries its derived biome, whether a road runs through it, and its
   // danger tier — the windshield renders the real world. A tile counts as road if it's a
@@ -1163,25 +1169,92 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   const plzDrawn = plz && plz.k !== 'apron' ? 1 : 0;
   // THE SOUTH LOCK — the covered road either side of the South Gate (plugins/trucking/lock.js). A
   // mark and not a building for the plaza's reason: it is a roof you drive UNDER, and a building
-  // would join the collision sweep. `wl` is the sides that are walled (a neighbour that is not lock,
-  // gate or road), derived here so content only has to say which tiles are covered. `st` is the
-  // signal: green by default, and the cab push repaints it per driver (see cabContext).
+  // would join the collision sweep. The walls and the hall's shape are derived here (below), so
+  // content only has to say which tiles are covered. `st` is the signal: green by default, and the
+  // cab push repaints it per driver (see cabContext).
   let lk;
   const lkf = cell.flags?.gate_lock;
   if (lkf && typeof lkf === 'object') {
-    // A vehicle bay opening onto the lock (the Motor Pool beside the police lane) is a door, not a wall.
-    const open = (c) => !!(c && (c.flags?.gate_lock || c.flags?.perimeter_gate || isRoadCell(c) || c.flags?.vehicle_bay
-      || ((c.flags?.building_type === 'weigh_station' || c.flags?.building_type === 'police') && lkf.k === 'deck')));
+    // THE HALL. A lock is drawn as ONE building, not as a row of tiles each with its own roof: the
+    // lanes side by side used to be three vaults with a gutter between each pair, and the booth and
+    // the Gate Post stood outside them in gaps in the plate. So this works out the whole hall and
+    // tells each tile which slice of it to draw.
+    //   1) its LANES: every covered tile reachable from this one under the same name and gate;
+    //   2) its ROOMS: a building beside a lane that opens onto it (the booth and the Gate Post beside
+    //      a deck, a vehicle bay beside any lane) is swallowed, and the hall's wall goes outside it;
+    //   3) the BOX: the lanes' rows, widened across to take the rooms. Lanes run north-south (the
+    //      gate is always at one end), so the hall only ever widens in x.
+    // ⚠ A ROOM OR AN EMPTY CORNER HAS NO LOCK TILE TO DRAW ITS ROOF, so each lane claims the tiles
+    // beside it: the gap up to the next lane east, and the run out to the hall's west wall when no
+    // lane stands west of it. Every tile in the box has exactly one owner that way.
+    const isLock = (c) => !!(c?.flags?.gate_lock && typeof c.flags.gate_lock === 'object');
+    const sameHall = (c) => isLock(c) && (c.flags.gate_lock.name || '') === (lkf.name || '')
+      && (c.flags.gate_lock.gate || '') === (lkf.gate || '');
+    const lanes = new Set([x + ',' + y]), seen = new Set([x + ',' + y]), q = [[x, y, lkf.k]];
+    let x0 = x, x1 = x, y0 = y, y1 = y, scale = cell.flags?.weigh_station ? x : null;
+    for (let i = 0; i < q.length && q.length < 64; i++) {
+      const [qx, qy] = q[i];
+      for (const [ox, oy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
+        const nx = qx + ox, ny = qy + oy, key = nx + ',' + ny;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const c = at(nx, ny);
+        if (!sameHall(c)) continue;
+        lanes.add(key); q.push([nx, ny, c.flags.gate_lock.k]);
+        if (nx < x0) x0 = nx; if (nx > x1) x1 = nx; if (ny < y0) y0 = ny; if (ny > y1) y1 = ny;
+        if (c.flags.weigh_station && scale == null) scale = nx;
+      }
+    }
+    const room = (c, k) => !!(c?.flags?.building_type && (c.flags.vehicle_bay
+      || ((c.flags.building_type === 'weigh_station' || c.flags.building_type === 'police') && k === 'deck')));
+    for (const [qx, qy, k] of q) {
+      if (room(at(qx - 1, qy), k) && qx - 1 < x0) x0 = qx - 1;
+      if (room(at(qx + 1, qy), k) && qx + 1 > x1) x1 = qx + 1;
+    }
+    let cw = 0, ce = 0;
+    { let k = 1; while (x - k >= x0 && !lanes.has((x - k) + ',' + y)) k++; if (x - k < x0) cw = k - 1; }
+    while (x + ce + 1 <= x1 && !lanes.has((x + ce + 1) + ',' + y)) ce++;
+    // ⚠ A DOOR IS WHERE THE MOVEMENT GRAPH HAS AN EXIT, NOT WHERE THE NEXT TILE IS ROAD. The Post
+    // Ramp ends on the same dirt road as the Glacis road beside it, so reading the neighbour drew
+    // two mouths on the waste end of the Outer Lock. Its exit is walled in content
+    // (conn_district_912_922_south_lk01), so it draws as wall and a rig stops at it. With no exits
+    // to read (a synthesised tile), every side is taken as linked, which is how it read before.
+    // ⚠ FROM THE ZONE, BY ID. `surfaceAt`'s index keeps id, name, flags and danger and nothing else,
+    // so neither the cell nor `at()` carries exits; the first cut of this read them there and the
+    // bake came out with the wall still open.
+    const ex = cell.exits || (cell.id && getZone(cell.id)?.exits) || null;
+    const linked = (d) => !ex || !!ex[d];
+    // `wl` is the sides of THIS TILE'S SLICE that are walled. Across, that is the hall's own wall and
+    // nothing else, so a lock never stands open at the side: Windrow Lane meets the inner hall at a
+    // wall, as the Curtain does. At an end, a row on the hall's edge is walled unless it opens onto
+    // road, the gate or a bay through an exit.
+    const openEnd = (c, d) => linked(d) && !!(c && (isLock(c) || c.flags?.perimeter_gate || isRoadCell(c) || c.flags?.vehicle_bay));
     let wl = '';
-    if (!open(at(x, y - 1))) wl += 'n';
-    if (!open(at(x + 1, y))) wl += 'e';
-    if (!open(at(x, y + 1))) wl += 's';
-    if (!open(at(x - 1, y))) wl += 'w';
+    if (y === y0 && !openEnd(at(x, y - 1), 'north')) wl += 'n';
+    if (x + ce === x1) wl += 'e';
+    if (y === y1 && !openEnd(at(x, y + 1), 'south')) wl += 's';
+    if (x - cw === x0) wl += 'w';
+    // `he`: which ends of the hall this row is on, so a claimed tile walls its own end of the hall.
+    const he = (y === y0 ? 'n' : '') + (y === y1 ? 's' : '');
+    // `ha`: the hall's west and east tiles, relative to this one. Only a hall wider than a lane
+    // needs it, and the renderer draws the narrow vault without it.
+    const ha = x1 > x0 ? [x0 - x, x1 - x] : undefined;
     // A MOUTH is a side opening onto road that is not itself covered: where the gantry hangs.
     let mo = '';
-    const mouth = (c) => !!(c && !c.flags?.gate_lock && !c.flags?.perimeter_gate && isRoadCell(c));
-    if (mouth(at(x, y - 1))) mo += 'n';
-    if (mouth(at(x, y + 1))) mo += 's';
+    const mouth = (c, d) => linked(d) && !!(c && !c.flags?.gate_lock && !c.flags?.perimeter_gate && isRoadCell(c));
+    if (mouth(at(x, y - 1), 'north')) mo += 'n';
+    if (mouth(at(x, y + 1), 'south')) mo += 's';
+    // `dn`: the doors that are DOWN. While the city is locked down the Outer Lock's mouth onto the
+    // waste is shut: it leaves `mo`, joins `wl` (so the 2-D painter closes it too) and is named here,
+    // so GLASS draws a door in it and not plain wall. The inner lock stays open onto the town, so
+    // whoever is in the airlock when the siren starts can still get back in.
+    // `ld` goes on every tile of the outer hall, so the whole of it can show the lockdown in its lamps.
+    let dn = '';
+    const ld = live && _lockdown && lkf.k !== 'hall';
+    if (ld && mo) {
+      for (const s of mo) { dn += s; if (!wl.includes(s)) wl += s; }
+      mo = '';
+    }
     // `gx`: the side shared with the perimeter gate. The renderer carries the roof half a tile over
     // the gate from each side, so the inner hall and the outer shed meet with no sky between them.
     let gx = '';
@@ -1190,7 +1263,13 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
     if (isGate(at(x + 1, y))) gx += 'e';
     if (isGate(at(x, y + 1))) gx += 's';
     if (isGate(at(x - 1, y))) gx += 'w';
-    lk = { k: lkf.k, s: lkf.search ? 1 : undefined, seg: Number(lkf.seg) || 0, term: lkf.term || undefined, wl, mo: mo || undefined, gx: gx || undefined, st: 'green' };
+    // `sg`: the board over the hall's mouth, authored on the one tile that carries it (`sign` in
+    // the flag), and `sc`, how many tiles across the weigh lane is from it, so its arrow points at
+    // the scale. Both ride on that tile alone.
+    const sg = lkf.sign && typeof lkf.sign === 'object' ? lkf.sign : undefined;
+    lk = { k: lkf.k, s: lkf.search ? 1 : undefined, seg: Number(lkf.seg) || 0, term: lkf.term || undefined, wl, mo: mo || undefined, gx: gx || undefined, st: 'green',
+      dn: dn || undefined, ld: ld ? 1 : undefined, cw: cw || undefined, ce: ce || undefined, he: he || undefined, ha,
+      sg, sc: sg && scale != null && scale !== x ? scale - x : undefined };
   }
   // An airfield's hangar is the same shed at aircraft scale (windshield.js bayDims): a `bay` mark,
   // told apart by `bk`, so every reader of the shed (door, CFIT roof, occlusion) takes it for free.
@@ -1244,11 +1323,17 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   if (im) rd = im[1] === 'x' ? 'nesw' : im[1];
   else if (cell.flags?.terrain === 'road' || cell.flags?.terrain === 'dirt_road' || cell.flags?.terrain === 'weighbridge') {
     // Painted road/dirt_road with no authored icon: auto-tile the connector from adjacent road cells.
+    // ⚠ NEVER ACROSS A LOCK'S SIDE. A lock is walled down both sides (the hall, above) and its
+    // lanes run north-south, so an arm from one lane to the lane beside it, or from a street to the
+    // lock's wall, paints a junction into plate. The Outer Lock's floor came out as nine crossroads
+    // of zebra crossings, and Windrow Lane ran its centreline into the inner lock's wall.
+    const lockAt = (c) => !!(c?.flags?.gate_lock && typeof c.flags.gate_lock === 'object');
+    const across = (c) => isRoadCell(c) && !lk && !lockAt(c);
     let s = '';
     if (isRoadCell(at(x, y - 1))) s += 'n';
-    if (isRoadCell(at(x + 1, y))) s += 'e';
+    if (across(at(x + 1, y))) s += 'e';
     if (isRoadCell(at(x, y + 1))) s += 's';
-    if (isRoadCell(at(x - 1, y))) s += 'w';
+    if (across(at(x - 1, y))) s += 'w';
     rd = s || 'nesw';
   }
   // A road that does not run along an axis carries its own heading in degrees, and the windshield
@@ -1273,6 +1358,9 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // (it's the gap) but still needs the wall's run — read it off its Curtain neighbours so the
   // gate's flanking pylons line up with the wall it breaches.
   const cur = (cell.flags?.curtain || cell.flags?.perimeter_gate) ? curtainRun(x, y, at) : undefined;
+  // `cld`: the Curtain is in lockdown. The field closes across the gate, the gate's blast doors come
+  // down, and every emitter, anchor and bastion runs its lamps red. Live only, like the lock's `ld`.
+  const cld = cur && live && _lockdown ? 1 : undefined;
   // A camp pitched ON a Curtain tile (Old Coldwater's east wall) has to know which side is in, so the
   // windshield can keep its tents off the wall. The wall is the authored exit block, so the side with
   // no exit is out and its opposite, if that one has an exit, is in. `ci` is those inward unit vectors.
@@ -1442,8 +1530,12 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // and nothing is authored. Undefined on every other tile in the world, so it costs no egress there.
   const prp = (cell.flags?.boat_fuel && cell.flags?.building_type !== 'fuel_dock') ? 'fuel' : cell.flags?.boat_hardstanding ? 'hard'
     : (cell.flags?.truck_yard && cell.flags?.truck_fuel) ? 'apron' : undefined;
-  const bk = cell.flags?.aircraft_hangar && cell.flags?.heavy_hangar ? 'heavy' : cell.flags?.aircraft_hangar ? 'air' : undefined;
-  return { prp, kind, biome, road, danger: cell.danger, pad, bt, bn, ent, flr, mark, bk, strip, rd, rdeg, rt, rw, rl, wr, rc, wake, sub, heading, cur, ci, ft, hi, cf, pf: cell.flags?.park_feature, pw, em, og, sl, sgn, plz, lk, bf, bq, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
+  // `lock`: a truck bay standing beside a lock lane is a room of that hall (see `room` above), so it
+  // wears the hall's livery rather than a yard shed's. Same dimensions as any truck bay.
+  const besideLock = mark === 'bay' && !cell.flags?.aircraft_hangar
+    && [[-1, 0], [1, 0]].some(([ox, oy]) => { const c = at(x + ox, y + oy); return !!(c?.flags?.gate_lock && typeof c.flags.gate_lock === 'object'); });
+  const bk = cell.flags?.aircraft_hangar && cell.flags?.heavy_hangar ? 'heavy' : cell.flags?.aircraft_hangar ? 'air' : besideLock ? 'lock' : undefined;
+  return { prp, kind, biome, road, danger: cell.danger, pad, bt, bn, ent, flr, mark, bk, strip, rd, rdeg, rt, rw, rl, wr, rc, wake, sub, heading, cur, cld, ci, ft, hi, cf, pf: cell.flags?.park_feature, pw, em, og, sl, sgn, plz, lk, bf, bq, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
 }
 
 // The flight window's half-width, named so the things that have to AGREE with it can say so
@@ -1454,6 +1546,39 @@ export const FLIGHT_RADIUS = 36;
 // rather than as haze, and cheap to be generous with: the cost of this number is a few more
 // points surviving simplification, not a wider grid.
 export const FAR_ROAD_R = 320;
+
+// ── THE SKYLINE PAST THE WINDOW ──────────────────────────────────────────────
+// The window stops at FLIGHT_RADIUS, so on its own a client can't draw the Spire from 40 tiles out
+// and it dropped out of the sky at the window's edge. This is every tower tall enough to be seen
+// from further away (client/shared/skyline-tall.js decides which), listed once per index build.
+// `skylineNear` sends the ones OUTSIDE the window and inside their own reach, as
+// [x, y, bt, bn, flr, ent]; the ones inside the window are already in the map.
+let _skyline = null;
+function skylineList() {
+  if (_skyline) return _skyline;
+  if (!_coordIndex) buildCoordIndex();
+  const out = [];
+  for (const [key, cell] of _coordIndex) {
+    const f = cell.flags, bt = f.building_type;
+    if (!bt) continue;
+    const reach = skylineFar(bt, f.building_name, f.floors);
+    if (!reach) continue;
+    const [x, y] = key.split(',').map(Number);
+    const z = getZone(cell.id);
+    out.push({ x, y, reach, row: [x, y, bt, f.building_name || null, f.floors || null, (z && buildingEntranceDir(z)) || f.entrance || null] });
+  }
+  return (_skyline = out);
+}
+export function skylineNear(x, y, radius = FLIGHT_RADIUS) {
+  const out = [];
+  for (const t of skylineList()) {
+    const dx = t.x - x, dy = t.y - y;
+    if (Math.abs(dx) <= radius && Math.abs(dy) <= radius) continue;
+    if (dx * dx + dy * dy > t.reach * t.reach) continue;
+    out.push(t.row);
+  }
+  return out;
+}
 
 export function mapWindow(a, radius = FLIGHT_RADIUS, at = surfaceAt) {
   const rows = [];
@@ -1631,6 +1756,7 @@ export function gaugePayload(live) {
     // paint the city skyline BEFORE takeoff instead of having it pop in during the
     // climb — the client fades it up under the airport scenery.
     map: mapWindow(a),
+    skyline: skylineNear(a.grid_x, a.grid_y),
     // Sent on the ground too when the ground is WATER: a Drake afloat needs it for BOAT and SUB
     // (cockpit.js drakeModeBlock), and nulling it on touchdown left her "not on the water".
     biomeBelow: below ? districtBiome(below) : (() => { const b = districtBiome(surfaceAt(a.grid_x, a.grid_y)); return b === 'water' ? b : null; })(),
@@ -1666,6 +1792,10 @@ export function skyState(cx = null, cy = null) {
       // the spray are all driven by this, and the day's flat figure never blew harder under a storm
       // cell. See getZoneWindKph in environment.js.
       weather: skyWeatherToken(env), wind: (cx != null && cy != null ? getWindKphAtGrid(cx, cy) : env.windKph) || 0,
+      // ⚠ WHAT IS FALLING ON THE VIEWER'S TILE, when there is one. `weather` is the day's word and
+      // drives the sky's whole look; rain only falls under a cell, so anything that asks "is it
+      // raining on me" without the cells (the hangar doorway, the airframe's rain bed) reads this.
+      here: cx != null && cy != null ? getPrecipAtGrid(Math.round(cx), Math.round(cy)) : null,
       // Tonight's moon (0 new … 0.5 full), derived from the world calendar. The canopy draws the
       // phase; nobody stores it.
       moon: env.moonPhase,
@@ -1714,12 +1844,12 @@ function skyWeatherToken(env) {
 // Compact the engine's weather-field snapshot for the wire: just the cells the renderer needs
 // (position, radius, velocity, kind, strength) plus the map bounds it wraps within.
 //
-// ⚠ AND THE TWO FLOORS THE CELLS SIT ON TOP OF. The ground reads its sky through
-// sampleWeatherAt, which opens at `baseCloud` and floors the local rate at the day's headline
-// `precipRate` (environment.js precipFloor) — so light rain is seen and heard on every tile,
-// not only under a passing cell. Sending cells alone gave the canopy a sky with the floors
-// removed: roughly half the map carries no cell precip on a storm day, and a pilot crossing
-// those tiles flew through clear air over players standing in a downpour.
+// ⚠ AND THE CLOUD FLOOR THE CELLS SIT ON, AND WHETHER ANYTHING IS FALLING. The ground reads its
+// sky through sampleWeatherAt, which opens at `baseCloud`, so the canopy needs it too or a grey
+// day looks clear from the air. Rain has no floor: it falls only under a precip or storm cell,
+// and only while the 30-minute roll says something is falling (environment.js getZonePrecip).
+// `falling` carries that roll, so the canopy doesn't rain under a cell the ground calls dry.
+// (Until 2026-10-03 this also sent a `precipFloor`, the day's headline rate on every tile.)
 //
 // ⚠ AND IT IS CROPPED TO THE VIEWER, because the cells stopped being single-digit on 2026-09-10.
 // Sizing a cell in tiles rather than as a fraction of the map (plugins/weather CELL_R_MIN) put ~60
@@ -1747,8 +1877,8 @@ function weatherFieldForClient(env, cx = null, cy = null) {
     tick: 30,   // advectField() steps once per 30s environment tick; vx/vy are grid units per tick
     bounds: snap.bounds, wind,
     baseCloud: snap.baseCloud || 0,
-    precipFloor: falling ? (env.precipRate || 0) : 0,
-    floorType: falling ? env.currentPrecip : 'none',
+    falling: !!falling,
+    precipScale: snap.precipScale ?? 1,
     // Rounded on the way out: a full float is 17 digits of a tile position the renderer reads at
     // sprite resolution and re-seats from every push. 2dp on a tile, 4dp on a per-30s-tick
     // velocity, and the list is ~45% smaller for a difference nothing downstream can resolve.
@@ -1950,7 +2080,7 @@ export function contextPayload(live) {
   return {
     type: 'flight_ctx',
     fuel: Math.round(a.fuel), fuelCap: Math.round(cap), fuelPct: Math.max(0, Math.round(a.fuel / cap * 100)),
-    map: mapWindow(a, FLIGHT_RADIUS, cellAt), mapX: a.grid_x, mapY: a.grid_y, sky: skyState(a.grid_x, a.grid_y),   // window centre → client keeps map+centre paired (no recenter pop)
+    map: mapWindow(a, FLIGHT_RADIUS, cellAt), mapX: a.grid_x, mapY: a.grid_y, skyline: skylineNear(a.grid_x, a.grid_y), sky: skyState(a.grid_x, a.grid_y),   // window centre → client keeps map+centre paired (no recenter pop)
     // The highway past the edge of that window, as geometry rather than as cells — see
     // registerFarRoads. Airborne only: on the deck the window already covers everything the
     // canopy can see past the nose, and the airport scene does not draw a floor to put it on.
@@ -2313,6 +2443,7 @@ export async function parkAt(live, zoneId) {
   live.runup = false;
   live.engines = null;
   live.coldStart = 0;
+  if (live.row.custom_data?.aloft) delete live.row.custom_data.aloft;   // down: nobody is flying her now (see `flightresume`)
   // The aircraft comes to rest on the ramp (parked_zone_id above, boardable from the
   // hangar), but you taxi it into the walk-in hangar to shut down and climb out — so
   // occupants disembark INSIDE the hangar office when the field has one (mirrors the
@@ -2372,7 +2503,8 @@ export async function crash(live, reason = 'crash', byPlayer = null) {
   live.row.parked_zone_id = wreckZone;
   // Stamp when it went down so the flight plugin's wreck-maintenance sweep can age it
   // out (players get a salvage window first; see wreckSweep in index.js).
-  live.row.custom_data = { ...(live.row.custom_data || {}), crashed_at: Date.now() };
+  const { aloft, ...cd } = live.row.custom_data || {};   // a wreck has no pilot to resume
+  live.row.custom_data = { ...cd, crashed_at: Date.now() };
   live.hazard = null;
   live.aaThreat = null;
   live.aaWarned = false;

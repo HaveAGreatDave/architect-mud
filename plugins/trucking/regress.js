@@ -44,7 +44,8 @@ import { TRAILER_TYPES, trailersAt, trailersOf, getTrailer, buyTrailer, hitchTra
   posed, stockPose, stockSlots, findStockPose, STOCK_GAP, standStock, boxColour, boxLivery, paintTrailer, BOX_GREY,
   sellTrailer, trailerResale } from './trailers.js';
 import { runScale, scaleAt, clearCustoms, afterDrive } from './scale.js';
-import { lockTick, lockVerdict, lockSelects, _forceLockDraw, _test as lockTest } from './lock.js';
+import { lockTick, lockVerdict, lockSelects, _forceLockDraw, doorDown, _test as lockTest } from './lock.js';
+import { emit } from '../../server/engine/events.js';
 import { hitcherAt, hitcherAhead, hitcherSOf, HITCHER_KINDS } from './hitchers.js';
 import { roadNetwork, roadCellAt, worldRoadProvider, clearRoadNet, farRoadLines, FAR_TOL } from './roadnet.js';
 import { tryDoorBoard, rigLocked, passHitcher } from './state.js';
@@ -1947,11 +1948,51 @@ async function regressBody({ run, check, getPlayer }) {
       // The render seam: the cell ships a 'lock' mark and the walls derived from its neighbours.
       const win = mapWindow({ grid_x: 911, grid_y: 918 }, 1);
       const c = win[1][1];
+      // Both of the inner lock's sides are walled, Windrow Lane's included, and the gate end is open.
       check('a lock tile renders as a lock mark with its walls', c.mark === 'lock' && c.lk?.s === 1
-        && c.lk.wl.includes('e') && !c.lk.wl.includes('s') && c.lk.st === 'green', JSON.stringify(c.lk));
+        && c.lk.wl.includes('e') && c.lk.wl.includes('w') && !c.lk.wl.includes('s') && c.lk.st === 'green', JSON.stringify(c.lk));
+      check('…and no road is painted across a lock\'s side', c.rd === 'ns' && win[1][0]?.rd && !win[1][0].rd.includes('e'),
+        JSON.stringify([c.rd, win[1][0]?.rd]));
+      // The deck's slice of the Outer Lock takes in the booth beside it, so the hall's wall stands
+      // outside the booth rather than between it and the plates.
       const dwin = mapWindow({ grid_x: decks[0]?.grid_x, grid_y: decks[0]?.grid_y }, 1);
-      check('the deck carries its terminal toward the booth', dwin[1][1].lk?.k === 'deck' && dwin[1][1].lk?.term === 'w'
-        && !dwin[1][1].lk.wl.includes('w'), JSON.stringify(dwin[1][1].lk));
+      const dk = dwin[1][1].lk;
+      check('the deck carries its terminal toward the booth, inside the hall', dk?.k === 'deck' && dk?.term === 'w'
+        && dk.cw === 1 && Array.isArray(dk.ha) && dk.ha[1] > dk.ha[0], JSON.stringify(dk));
+
+      // ONE WAY IN AND ONE WAY OUT. The Outer Lock has one mouth onto the waste (the Glacis road's),
+      // the inner lock opens onto the town and the gate and nothing else, and the gate's own sides
+      // are shut, so nothing walks round the inner lock along the Curtain.
+      const lkAt = (x, y) => mapWindow({ grid_x: x, grid_y: y }, 0)[0][0].lk;
+      const mouths = [[910, 922], [911, 922], [912, 922]].filter(([x, y]) => lkAt(x, y)?.mo?.includes('s'));
+      check('the Outer Lock has one mouth onto the waste, the middle one', mouths.length === 1 && mouths[0][0] === 911,
+        JSON.stringify(mouths));
+      check('…and the Post Ramp\'s end is wall, in the drawing and in the exits', lkAt(912, 922)?.wl.includes('s')
+        && !Z(912, 922).exits?.south, JSON.stringify([lkAt(912, 922), Z(912, 922).exits]));
+      check('nothing opens off the side of the inner lock', !hallA.exits?.west && !hallA.exits?.east
+        && !hallB.exits?.west && !hallB.exits?.east, JSON.stringify([hallA.exits, hallB.exits]));
+      check('the gate is a way through and not a junction', Object.keys(gate.exits || {}).sort().join(',') === 'north,south',
+        JSON.stringify(gate.exits));
+      check('Fire Station 4\'s doors are on Kerbstone Row now', Z(910, 917)?.flags?.entrance === 'north'
+        && Z(910, 917).exits?.north === 'zone_district_910_916' && Z(910, 916)?.exits?.south === 'zone_district_910_917');
+
+      // THE LOCKDOWN. The ESP announces it on `esp.changed`; the derive drops the outer door and the
+      // lock's move gate holds the mouth. Driven through the event, so both listeners are on it.
+      try {
+        emit('esp.changed', { active: true });
+        const m = lkAt(911, 922);
+        check('a lockdown drops the outer door', m?.dn === 's' && !m.mo && m.wl.includes('s') && m.ld === 1, JSON.stringify(m));
+        check('…lights the whole outer hall for it', lkAt(910, 920)?.ld === 1 && lkAt(912, 921)?.ld === 1);
+        check('…and leaves the inner lock open onto the town', lkAt(911, 917)?.mo === 'n' && !lkAt(911, 917)?.dn);
+        check('a walker is held at the door', doorDown(Z(911, 922), Z(911, 923)) && doorDown(Z(911, 923), Z(911, 922)));
+        check('…and not at a room\'s own door inside the hall', !doorDown(Z(910, 921), Z(909, 921)) && !doorDown(Z(911, 922), Z(911, 921)));
+        // The Curtain shuts with it: the gate's field closes and its blast doors come down (`cld`).
+        const gc = mapWindow({ grid_x: 911, grid_y: 919 }, 0)[0][0];
+        check('a lockdown closes the Curtain across the gate', gc?.mark === 'gate' && gc.cld === 1 && !!gc.cur, JSON.stringify(gc && { mark: gc.mark, cur: gc.cur, cld: gc.cld }));
+      } finally { emit('esp.changed', { active: false }); }
+      check('the siren stops and the door goes back up', lkAt(911, 922)?.mo === 's' && !lkAt(911, 922)?.dn
+        && !doorDown(Z(911, 922), Z(911, 923)));
+      check('…and the gate opens again', !mapWindow({ grid_x: 911, grid_y: 919 }, 0)[0][0].cld);
 
       // The law. Pure verdicts first: amber and unsearched out the far end is running it; out the
       // end you came in by is turning round; searched, or green, is nothing.

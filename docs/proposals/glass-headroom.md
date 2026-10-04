@@ -174,7 +174,64 @@ measure that later stages are judged on is allocation, taken headless.
 
 ## Stage 3: the city stays on the GPU
 
-**Plan, 2026-10-02. Not started.**
+**Plan, 2026-10-02. Phases 1 to 5 built; phase 6 to do.**
+
+Phase 5, as built (`armKeep`, `drawTypeModelKept` in windshield.js): with the mass on the GPU, a
+building's arm output is recorded and, once proven, replayed as retained groups. Keyed on the
+building's window position, tier, front facing, night, fade, power and dpr. Proven means: two
+recordings at camera poses at least `ARM_GAP` frames apart and visibly different came out the same
+in the window frame, plus a shadow run with `now` moved by 1.2 s that came out the same too (a slow
+blink can match itself twice). Recorded only while the building stands well in front of the eye and
+with `decoHidden` off, so a kept set holds every part. A canvas call, a 2-D closure, a push to any
+other sink, a ground-late job or a rain light marks it live. Kept sets are shifted each frame by the
+change in `ox`/`oy` (cheap; the CPU readers stay right) and re-recorded every `ARM_RECHECK` frames,
+two a frame. `npm run perf:armkeep` (scripts/perf/armkeep-check.mjs) flies three places with it off
+and on: no live triangle missing from the kept draw over 180 frames, and a 300-frame flight ran 101
+rechecks with none dropped. Kept, headless: Halcyon cockpit at night 100 of 185 (neon flicker and
+beacons keep the rest live), residential by day 63 of 63. Headless Halcyon cockpit: arms 11.9 to
+8.7 ms, frame 20.8 to 17.2 ms. Not yet measured in the browser on a quiet machine.
+
+Next for phase 5: a building with one blinking part goes wholly live. Splitting an arm's live part
+from its kept part (the plan's "a building with any of these keeps a live part beside its retained
+part") would keep most of the 85 at Halcyon by night.
+
+Phase 4, as built: gl/retain.js (`createArena`) is the solids' retained buffer in general form, and
+the sprite, stroke and decal layers each keep groups in it: sprites by blend mode (two arenas),
+strokes as glowing cores, plain cores and haloes (three, the first also in the depth prepass), decals
+one arena drawn per group-and-texture (`spans`), with kept textures marked live so the cache can't
+evict them. A sink hands groups over as `list.groups` (`{ recs, at, ox, oy }`, `splitGroups` in
+gl/context.js). Nothing registers light, wire or decal groups yet; that is phase 5.
+`npm run perf:retain` (scripts/perf/retain-check.mjs) marks chunks of real frames as groups, some
+handed back across frames, and compares the triangles drawn with and without: 180 layer-frames
+identical, and a dropped record fails every one. Allocation: phases 1 to 3 add 0.4 to 1.5 MB a frame
+of raw-corner arrays, which go away when phase 5 stops rebuilding kept buildings.
+
+Phase 3, as built (`glSizeGPU`): a decal can carry its raw corners (`rp`), the polygon it came from
+(`rc`, whose centroid's depth is the mean the square pull uses, since depth is affine) and the pull
+(`pl`); the decal shader scales about the eye by `1 - min(0.5, pl / depth(centroid))`. Set by the
+`emitDecoFill` and camp fast paths, by `emitDecoQuad`, and by `emitSurfaceText`, which recovers the
+raw quad itself as the zero-pull unproject of the caller's screen points (`fitSignPts` insets by
+proportion, so it commutes with the scale), so no caller changed. `perf:sizes`: 95% of decals, every
+corner within 2.3e-14 tiles. Browser, frozen clocks: 3 to 43 pixels in 400,000 against a noise of 2
+to 38. What's left is signal-mast lenses and moving things.
+
+Phase 2, as built (`setWindowFrame` in gl/context.js): the sprite, stroke and decal layers add the
+camera's `ox`/`oy` as they write and draw with the shifted camera, the solids' frame. The records the
+CPU reads are unchanged (still the camera's frame), so a retained group (phase 4) converts at the
+moment it's recorded. In the browser with frozen clocks, old frame against window frame differs on 0
+to 4 pixels against a noise of 0 to 11. The decal lights (`pickLights`) were already in this frame,
+so lit cloth was lit from up to a tile off; it now matches, though no view tried showed it.
+
+Phase 1, as built (`glSizeGPU`): `pushLightSized` gives a light a size spec and the sprite shader
+sizes it from `clip.w`, which equals the CPU's `f` exactly (checked over 6,237 lights). `emitWire`
+hands the strokes shader its raw ends and the pull, and the shader pulls each end along its own ray.
+Both keep the CPU numbers on the record for the CPU's readers. Converted: the depot lamps,
+`glowPool`, `drawCityBloom`, `groundLamp`, `helideck`, `facadeLights`, and every pulled wire.
+`npm run perf:sizes` (scripts/perf/sizes.mjs) recomputes the shader's numbers: 51% of lights and 98%
+of wires, all exact to 1e-14. In the browser with frozen clocks, off against on differs on 10 to 27
+pixels in 400,000 (32-bit floats on the GPU). Not converted: lights on things that move every frame
+(steam, smoke, exhaust, birds, aircraft, the yacht, the freighter), and the depth-based widths of
+signal masts and street lamps (`wPx(r0, r1, f)`), which are street furniture, not building arms.
 
 ### Why this and not more caches
 

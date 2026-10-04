@@ -6,6 +6,7 @@ import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { impairmentOf } from '../../server/engine/impairment.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { floorFor } from '../elevator/floors.js';
+import { homeZoneOf } from '../../server/engine/guest.js';
 
 // The exact direction to step at each hop: dirs[k] is the exit direction from
 // path[k] to path[k+1]. The client auto-walker follows these directly instead of
@@ -162,9 +163,10 @@ function cmdGps(args, raw, player) {
   // command box (where nothing interpolates them). Plot a route to the player's bound
   // home apartment straight from its zone id, bypassing name matching entirely.
   if (/^\$home(_id)?$/i.test(query)) {
-    if (!player.home_zone)
-      return { type: 'error', message: "You've no home set. Rent an apartment, then `home` to bind it." };
-    const dest = getZone(player.home_zone);
+    const homeId = homeZoneOf(player);
+    if (!homeId)
+      return { type: 'error', message: "You've no home set. Rent somewhere and it becomes your home." };
+    const dest = getZone(homeId);
     if (!dest) return { type: 'error', message: "Your bound home no longer exists." };
     return plotRoute(player, dest, routeOpts);
   }
@@ -305,4 +307,10 @@ function cmdRun(args, raw, player) {
 }
 function cmdWalk(args, raw, player) { return setRunning(player, false); }
 
-export const commands = { gps: cmdGps, run: cmdRun, walk: cmdWalk };
+// GOHOME — the dpad's ⌂ button. `gps $home` with the question already answered:
+// plot the route and start walking.
+function cmdGohome(args, raw, player) {
+  return cmdGps(['$home', '!go'], raw, player);
+}
+
+export const commands = { gps: cmdGps, run: cmdRun, walk: cmdWalk, gohome: cmdGohome };

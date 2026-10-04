@@ -1219,7 +1219,7 @@ function questionContext(npc, keeper, zoneId) {
     charge: (wanted.charges || []).slice(-1)[0] || null,
     tempC: safe(() => getZoneTemperature(zoneId), 18),
     severity: safe(() => getZoneSeverity(zoneId), 0),
-    weather: safe(() => getWeatherDescription(), 'filthy weather') || 'filthy weather',
+    weather: safe(() => getWeatherDescription(zoneId), 'filthy weather') || 'filthy weather',
     impaired: safe(() => (impairmentOf(keeper)?.notes || []).length, 0),
     companionName: companionFor(npc, zoneId)?.name || null,
   };

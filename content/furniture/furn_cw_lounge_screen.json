@@ -1,0 +1,14 @@
+{
+  "description": "A screen on a pole by the window: FLIGHT, TO, GATE, STATUS. A booked charter comes up as CHARTER, GATE 1, BOARDING.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cw_lounge_screen",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the departures screen",
+  "object_type": "fixture",
+  "power_draw_kw": 0.2,
+  "price": 0,
+  "zone_id": "zone_cw_lounge"
+}

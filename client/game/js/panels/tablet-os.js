@@ -1120,6 +1120,45 @@ function ensureStyles() {
       text-shadow:0 0 10px color-mix(in srgb, var(--mg-accent) 70%, transparent);
       box-shadow:0 0 12px color-mix(in srgb, var(--mg-accent) 40%, transparent), inset 0 0 7px color-mix(in srgb, var(--mg-accent) 22%, transparent); }
 
+    /* ── Modern tiles ──────────────────────────────────────────────────────
+       The tile itself goes quiet (no border, no bevel) and the icon carries it:
+       each glyph sits on a rounded plate tinted by the app's hue (--ic-h, from
+       TOS_APP_HUES), white on colour, with rounded strokes. The plate is padding
+       on the svg, so every density/size rule above that sets the svg's width
+       still scales the plate with it. */
+    #tablet-os-overlay .tos-tile:not(.tos-tile-add):not(.tos-tile-gap) { background:color-mix(in srgb, var(--tos-surface-hi) 38%, transparent);
+      border:1px solid color-mix(in srgb, var(--tos-fg) 7%, transparent); border-radius:14px; box-shadow:none;
+      transition:background .15s, transform .12s; }
+    #tablet-os-overlay .tos-tile:not(.tos-tile-add):not(.tos-tile-gap):hover { filter:none; box-shadow:none;
+      background:color-mix(in srgb, var(--tos-surface-hi) 70%, transparent); transform:translateY(-1px); }
+    #tablet-os-overlay .tos-tile:not(.tos-tile-add):active { transform:scale(.96); box-shadow:none; }
+    #tablet-os-overlay .tos-grp-inner .tos-tile:not(.tos-tile-gap) { background:transparent; border-color:transparent; border-radius:10px; }
+    #tablet-os-overlay .tos-tile .tos-icon svg, .tos-tile-drag .tos-icon svg, #tablet-os-overlay .tos-tile .tos-ic-emoji, .tos-tile-drag .tos-ic-emoji {
+      box-sizing:content-box; padding:.3em; border-radius:30%; color:#fff;
+      background:linear-gradient(160deg, oklch(0.72 0.13 var(--ic-h,250)), oklch(0.5 0.15 calc(var(--ic-h,250) + 18)));
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.28), inset 0 -1px 0 rgba(0,0,0,.18), 0 2px 6px oklch(0.35 0.12 var(--ic-h,250) / .45); }
+    #tablet-os-overlay .tos-tile .tos-icon svg *, .tos-tile-drag .tos-icon svg * { stroke-linejoin:round; stroke-linecap:round; }
+    #tablet-os-overlay .tos-tile .tos-icon svg .dim, .tos-tile-drag .tos-icon svg .dim { color:#fff; }
+    #tablet-os-overlay .tos-tile .tos-ic-emoji, .tos-tile-drag .tos-ic-emoji { display:inline-flex; align-items:center; justify-content:center;
+      width:1.05em; height:1.05em; line-height:1; font-size:1em; }
+    #tablet-os-overlay .tos-tile .tos-icon { margin-bottom:6px; }
+    #tablet-os-overlay .tos-tile .tos-name { letter-spacing:.2px; font-weight:500; opacity:.92; }
+    #tablet-os-overlay .tos-tile-glow .tos-icon svg { box-shadow:0 0 0 2px var(--mg-accent), 0 0 12px color-mix(in srgb, var(--mg-accent) 70%, transparent); }
+    [data-motion="off"] #tablet-os-overlay .tos-tile:hover { transform:none; }
+    /* Icon Colours → Theme: every plate from the theme's accent, glyph in the accent. */
+    html.tos-icons-theme #tablet-os-overlay .tos-tile .tos-icon svg, html.tos-icons-theme .tos-tile-drag .tos-icon svg,
+    html.tos-icons-theme #tablet-os-overlay .tos-tile .tos-ic-emoji, html.tos-icons-theme .tos-tile-drag .tos-ic-emoji {
+      color:var(--mg-accent);
+      background:linear-gradient(160deg, color-mix(in srgb, var(--mg-accent) 26%, var(--tos-surface-hi)), color-mix(in srgb, var(--mg-accent) 12%, var(--tos-surface-lo)));
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi, rgba(255,255,255,.12)), inset 0 0 0 1px color-mix(in srgb, var(--mg-accent) 30%, transparent), 0 2px 6px rgba(0,0,0,.25); }
+    /* Shade per type group (--ic-s). Relative colour syntax; a browser without it keeps the flat accent above. */
+    html.tos-icons-theme #tablet-os-overlay .tos-tile .tos-icon svg, html.tos-icons-theme .tos-tile-drag .tos-icon svg,
+    html.tos-icons-theme #tablet-os-overlay .tos-tile .tos-ic-emoji, html.tos-icons-theme .tos-tile-drag .tos-ic-emoji {
+      --ic-ac:oklch(from var(--mg-accent) clamp(0.4, calc(l + (var(--ic-s,2) - 2) * 0.06), 0.92) c calc(h + (var(--ic-s,2) - 2) * 28));
+      color:var(--ic-ac);
+      background:linear-gradient(160deg, color-mix(in srgb, var(--ic-ac) 42%, var(--tos-surface-hi)), color-mix(in srgb, var(--ic-ac) 22%, var(--tos-surface-lo)));
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi, rgba(255,255,255,.12)), inset 0 0 0 1px color-mix(in srgb, var(--ic-ac) 34%, transparent), 0 2px 6px rgba(0,0,0,.25); }
+    html.tos-icons-theme #tablet-os-overlay .tos-tile .tos-icon svg .dim, html.tos-icons-theme .tos-tile-drag .tos-icon svg .dim { color:var(--ic-ac, var(--mg-accent)); }
     /* List view — same raised-bevel treatment as tiles, just row-shaped. */
     /* A navigating row is a <button> (see renderList) — these four declarations are
        the whole cost of that: a button brings its own font, centres its text, and
@@ -4487,6 +4526,34 @@ const TOS_APP_ICONS = {
   bliss: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M12 20.5S3.5 15 3.5 9.2A4.7 4.7 0 0 1 12 6.4a4.7 4.7 0 0 1 8.5 2.8c0 5.8-8.5 11.3-8.5 11.3z" fill="currentColor" fill-opacity=".28" stroke="none"/><path d="M12 20.5S3.5 15 3.5 9.2A4.7 4.7 0 0 1 12 6.4a4.7 4.7 0 0 1 8.5 2.8c0 5.8-8.5 11.3-8.5 11.3z"/><path d="M7.6 9.4a2.6 2.6 0 0 1 2.3-1.7" stroke-opacity=".55"/></svg>`,
 };
 
+// Each tile's icon sits on a tinted plate; this is the plate's hue (OKLCH degrees),
+// grouped by what the app is about: money gold, body red, places green, media
+// violet, people blue. An app with no entry gets a hue hashed from its id, so a new
+// app still gets a stable colour without anyone touching this table.
+const TOS_APP_HUES = {
+  corp: 250, bank: 85, properties: 150, quests: 60, settings: 260, gear: 40, skills: 75,
+  weather: 220, vehicles: 230, specter: 0, chat: 245, news: 30, bar: 330, sports: 140,
+  codex: 280, ideology: 300, music: 310, help: 200, calendar: 20, map: 160, frontier: 190,
+  crafting: 50, party: 235, deadhead: 210, health: 15, library: 55, tv: 295, cookbook: 45,
+  storefront: 120, alarm: 25, binder: 270, accolades: 80, bliss: 350,
+};
+function tosAppHue(id) {
+  if (TOS_APP_HUES[id] != null) return TOS_APP_HUES[id];
+  let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return h % 360;
+}
+// Under Icon Colours → Theme the hue is the accent's, so the type groups are told
+// apart by a step (0-4) off the accent: each step shifts its hue 28° and its
+// lightness a little, so the grid reads as one palette but the groups still differ.
+function tosAppShade(id) {
+  return Math.floor(tosAppHue(id) / 72) % 5;
+}
+function tosTileIcon(a) {
+  const svg = TOS_APP_ICONS[a.id];
+  const inner = svg ? svg : `<span class="tos-ic-emoji">${esc(a.icon || '▫')}</span>`;
+  return `<span class="tos-icon${a.id === 'arcade' ? ' tos-icon-bare' : ''}" aria-hidden="true" style="--ic-h:${tosAppHue(a.id)};--ic-s:${tosAppShade(a.id)}">${inner}</span>`;
+}
+
 // Client-only tablet apps — appended to the server-registered roster. Unlike the
 // other apps (which round-trip a tablet_panel screen), Music launches the AMP
 // walkman overlay (openMusicPlayerPanel), a native panel that lives outside the
@@ -4749,8 +4816,6 @@ function homeTile(a, stashed, extra) {
   // itself while you're arranging (see .tos-tile-gap), and it IS a drop target —
   // dropping a tile on one is how an app gets moved into empty space.
   if (a.gap) return `<div class="tos-tile tos-tile-gap${extra ? ' ' + extra : ''}" data-home-gap="${esc(a.id)}"></div>`;
-  const svg = TOS_APP_ICONS[a.id];
-  const icon = svg ? svg : esc(a.icon || '▫');
   // A positive `notify` count (e.g. SPECTER reels waiting to be clipped) lights a
   // red badge on the tile.
   const n = Number(a.notify) || 0;
@@ -4767,7 +4832,7 @@ function homeTile(a, stashed, extra) {
   const aria = n > 0 ? ` aria-label="${esc(a.name)}, ${n} waiting"` : '';
   return `<button type="button" class="tos-tile${glow}${stashed ? ' tos-tile-stashed' : ''}${extra ? ' ' + extra : ''}" ${attr}`
     + `${aria}${stashed ? ' title="Stashed: tap to put it back"' : ''}>`
-    + `${badge}<span class="tos-icon" aria-hidden="true">${icon}</span><span class="tos-name">${esc(a.name)}</span></button>`;
+    + `${badge}${tosTileIcon(a)}<span class="tos-name">${esc(a.name)}</span></button>`;
 }
 
 function renderHomeApps(apps) {
@@ -4865,6 +4930,18 @@ function renderHomeApps(apps) {
       + `<span class="tos-appgroup-swatch"></span><span class="tos-appgroup-nm">${esc(g.name || 'Group')}</span></div>`
       + `<div class="tos-grid tos-appgrid tos-grp-inner" data-group-grid="${esc(g.id)}">${inner}</div></div>`;
   }).join('');
+  // EVERY EMPTY CELL IS A DROP TARGET. A page has sixteen cells, but only the ones
+  // up to its last app were ever elements: past that the grid was bare background,
+  // so a tile dropped there swapped with the nearest app instead, and the free cells
+  // on a short last page could never be filled. Pad the page out to sixteen with
+  // throwaway holes. They're ordinary gap tiles, so aiming, the swap and tap-to-add
+  // treat them like any hole; `data-home-pad` tells persistHomeArrangement to skip
+  // the ones still trailing after the page's last app, so padding never writes a
+  // phantom hole into the order. The grid packs dense, so a 1×1 pad also fills any
+  // cell a group box left open.
+  const used = page.blocks.reduce((n, b) => n + homeBlockCost(b), 0);
+  const pads = Array.from({ length: Math.max(0, HOME_SLOTS - used) },
+    () => `<div class="tos-tile tos-tile-gap" data-home-gap="${newHomeGap()}" data-home-pad="1"></div>`).join('');
   // Selection mode: tiles toggle instead of opening, dragging anywhere lassoes, and
   // a bar along the bottom holds the count and the commit.
   const bar = _tosSelectMode ? `<div class="tos-selbar">
@@ -4873,7 +4950,7 @@ function renderHomeApps(apps) {
       <button type="button" class="tos-grp-btn" data-sel-group>Group</button>
     </div>` : '';
   return `<div class="tos-home-apps${_tosSelectMode ? ' tos-selecting' : ''}" data-home-page-now="${_homePage}">`
-    + `<div class="tos-grid tos-appgrid tos-homegrid" data-group-grid="">${body}</div>`
+    + `<div class="tos-grid tos-appgrid tos-homegrid" data-group-grid="">${body}${pads}</div>`
     + renderHomePager(pages.length)
     + renderHomeToolbar(false)
     + `${bar}</div>`;
@@ -5037,15 +5114,16 @@ function tickInstall() {
 // band's forced line break and its label row — neither of which happens any more, so
 // the honest simple count is back. The grid packs `dense`, so a small tile backfills
 // any hole a wide box leaves, which keeps the visual and this count in step.
+function homeBlockCost(b) {
+  return b.kind === 'group' ? groupCols(b.g) * Math.ceil(b.members.length / groupCols(b.g)) : 1;
+}
 function paginateHome(blocks) {
   const pages = [];
   let cur = { blocks: [], left: HOME_SLOTS };
   const push = () => { pages.push(cur); cur = { blocks: [], left: HOME_SLOTS }; };
 
   for (const b of blocks) {
-    const cost = b.kind === 'group'
-      ? groupCols(b.g) * Math.ceil(b.members.length / groupCols(b.g))
-      : 1;
+    const cost = homeBlockCost(b);
     // A box too big for a page of its own still gets one and is allowed to run over —
     // clamping it would silently hide apps, which is worse than an odd-looking page.
     if (cost > cur.left && cur.blocks.length) push();
@@ -5089,6 +5167,18 @@ function widgetsEnabled() {
 }
 function setWidgetsEnabled(on) {
   try { localStorage.setItem(TABLET_WIDGETS_KEY, on ? 'on' : 'off'); } catch {}
+  _applyWidgetChrome();
+}
+
+// Icon colours: 'app' tints each plate by the app's own hue (TOS_APP_HUES), 'theme'
+// draws every plate from the tablet theme's accent so the grid matches the skin.
+// Set on <html> rather than the overlay so the drag clone on <body> follows it too.
+const TABLET_ICON_COLOR_KEY = 'architect_tablet_icon_color';
+function iconsThemed() {
+  try { return localStorage.getItem(TABLET_ICON_COLOR_KEY) === 'theme'; } catch { return false; }
+}
+function setIconsThemed(on) {
+  try { localStorage.setItem(TABLET_ICON_COLOR_KEY, on ? 'theme' : 'app'); } catch {}
   _applyWidgetChrome();
 }
 
@@ -5144,6 +5234,7 @@ function renderHiddenCardsRow() {
 // sheds the height it was only holding for them. Called on open and on every toggle,
 // so the device resizes in the same gesture that switches the cards.
 function _applyWidgetChrome() {
+  document.documentElement.classList.toggle('tos-icons-theme', iconsThemed());
   if (!_overlay) return;
   _overlay.classList.toggle('tos-no-widgets', !widgetsEnabled());
 }
@@ -5236,9 +5327,7 @@ function openAddAppsSheet(intoGap) {
   // that's what keeps the whole stash on screen without a scrollbar.
   const body = apps.length
     ? `<div class="tos-addsheet-grid">${apps.map(a => {
-        const svg = TOS_APP_ICONS[a.id];
-        const icon = svg ? svg : esc(a.icon || '▫');
-        return `<div class="tos-tile" data-readd-app="${esc(a.id)}" title="${esc(a.name)}"><span class="tos-icon">${icon}</span><span class="tos-name">${esc(a.name)}</span></div>`;
+        return `<div class="tos-tile" data-readd-app="${esc(a.id)}" title="${esc(a.name)}">${tosTileIcon(a)}<span class="tos-name">${esc(a.name)}</span></div>`;
       }).join('')}</div>`
     : '<div class="tos-empty">Everything is on your home screen. Drag an app off the tablet to stash it here.</div>';
   const sheet = document.createElement('div');
@@ -5262,6 +5351,18 @@ function openAddAppsSheet(intoGap) {
     if (intoGap) {
       const order = loadAppOrder();
       if (order.includes(intoGap)) saveAppOrder(order.map(x => (x === intoGap ? appId : x)));
+      else {
+        // A padding cell isn't in the saved order yet. Put the app in it on screen
+        // and save the page, which writes down the cells in front of it as holes.
+        const pad = _overlay.querySelector(`[data-home-gap="${CSS.escape(intoGap)}"]`);
+        const home = _overlay.querySelector('.tos-home-apps');
+        if (pad && home) {
+          pad.removeAttribute('data-home-gap');
+          pad.removeAttribute('data-home-pad');
+          pad.setAttribute('data-nav-app', appId);
+          persistHomeArrangement(home);
+        }
+      }
     }
     beginInstall(appId);
     close();
@@ -5630,7 +5731,7 @@ function wireGroupDrag(container) {
     const target = _homePage + dir;
     // A box that's the only thing on its page has nowhere new to go — flipping would
     // just redraw the same screen one page along, forever.
-    const alone = grid().querySelectorAll('.tos-homegrid > *').length <= 1;
+    const alone = grid().querySelectorAll('.tos-homegrid > :not(.tos-tile-gap)').length <= 1;
     if (!group || target < 0 || target > homePageCount() || (target >= homePageCount() && alone)) {
       markPageEdge(''); drag.edgeSide = null; return;
     }
@@ -5739,13 +5840,19 @@ function persistHomeArrangement(container) {
   // group's saved position "wherever it sits", which is what the renderer reads back.
   const home = container.querySelector('.tos-homegrid');
   const visible = [];
+  // Padding cells (see renderHomeApps) are held back until something real follows
+  // them: one in front of an app is holding that app's place and is saved as a hole,
+  // one still trailing at the end of the page is just empty grid and is dropped.
+  let pads = [];
   for (const el of (home ? [...home.children] : [])) {
     if (el.classList.contains('tos-tile')) {
       const id = el.getAttribute('data-nav-app') || el.getAttribute('data-home-gap');
-      if (id) visible.push(id);
+      if (!id) continue;
+      if (el.hasAttribute('data-home-pad')) { pads.push(id); continue; }
+      visible.push(...pads, id); pads = [];
     } else if (el.classList.contains('tos-appgroup')) {
       const inner = el.querySelector('.tos-grp-inner');
-      if (inner) visible.push(...idsOf(inner));
+      if (inner) { visible.push(...pads, ...idsOf(inner)); pads = []; }
     }
   }
 
@@ -5837,7 +5944,7 @@ function homePageStarts(order) {
 // A `targetPage` one past the last is legal and means "a new page" — which is how
 // dragging past the right edge of the last page creates one.
 function moveIdsToPage(container, ids, targetPage) {
-  const visible = [...(container?.querySelectorAll('.tos-appgrid .tos-tile') || [])]
+  const visible = [...(container?.querySelectorAll('.tos-appgrid .tos-tile:not([data-home-pad])') || [])]
     .map(t => t.getAttribute('data-nav-app') || t.getAttribute('data-home-gap')).filter(Boolean);
   // The DOM only holds the CURRENT page, so start from the saved order (which spans
   // all of them) and fall back to the visible one if nothing has been saved yet.
@@ -6021,8 +6128,11 @@ function wireDragScroll(scroll) {
   // (see the alarm wiring). Without this the same press would scrub the reel and
   // pan the screen behind it at once, and the time you let go on wouldn't be the
   // time you dragged to.
+  // `.tos-fake` is the ARCHITECT app's fake game. Its chips, links and nested
+  // tablets are plain spans and divs, so a tap that wobbled 6px turned into a pan
+  // and lost its click, and the tunnel's small ARCHITECT tile looked dead.
   const isInteractive = (el) =>
-    el.closest('input, textarea, select, button, [contenteditable], .tos-tile, .tos-color, input[type=range], .tos-al-reel, #tos-worldmap');
+    el.closest('input, textarea, select, button, [contenteditable], .tos-tile, .tos-color, input[type=range], .tos-al-reel, #tos-worldmap, .tos-fake');
 
   const onMove = (e) => {
     if (!start) return;
@@ -6681,6 +6791,10 @@ function renderTabletSettings(d) {
         <div class="tos-opt${!widgetsEnabled() ? ' selected' : ''}" data-set-widgets="off" title="Hide home widgets">Off</div>
       </div></div>` +
       renderHiddenCardsRow() +
+      `<div class="tos-set-row"><span class="tos-set-label">Icon Colours<span class="tos-set-val">Per app, or the tablet theme's accent</span></span><div class="tos-opts">
+        <div class="tos-opt${!iconsThemed() ? ' selected' : ''}" data-set-iconcolor="app" title="Each app its own colour">App</div>
+        <div class="tos-opt${iconsThemed() ? ' selected' : ''}" data-set-iconcolor="theme" title="Match the tablet theme">Theme</div>
+      </div></div>` +
       `<div class="tos-set-row"><span class="tos-set-label">Sidebar Order<span class="tos-set-val">Drag order &amp; hidden panels</span></span>
         <span class="tos-btn-sub" data-reset-sidebar="1" style="margin:0">Reset to Default</span></div>` +
       `<div class="tos-set-row"><span class="tos-set-label">Home App Layout<span class="tos-set-val">Tile order, groups &amp; stashed apps</span></span>
@@ -11404,6 +11518,13 @@ function wireTabletSettings() {
     el.addEventListener('click', () => {
       sfx(TOS_SELECT_DEF);
       setWidgetsEnabled(el.getAttribute('data-set-widgets') === 'on');
+      render();
+    });
+  });
+  _overlay.querySelectorAll('[data-set-iconcolor]').forEach(el => {
+    el.addEventListener('click', () => {
+      sfx(TOS_SELECT_DEF);
+      setIconsThemed(el.getAttribute('data-set-iconcolor') === 'theme');
       render();
     });
   });

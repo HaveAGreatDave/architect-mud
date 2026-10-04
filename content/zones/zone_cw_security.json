@@ -1,0 +1,21 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#5f6f7a",
+  "description": "A walk-through scanner arch stands at the end of a roped lane, beside an X-ray belt and a stack of grey trays. A perspex bin by the arch holds what people weren't allowed to take through. The check-in hall is east and the departure lounge south.",
+  "exits": {
+    "east": "zone_cw_checkin",
+    "south": "zone_cw_lounge"
+  },
+  "flags": {
+    "floor": "linoleum",
+    "is_interior": true
+  },
+  "grid_x": -1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_cw_security",
+  "map_id": "map_int_cw_departures",
+  "name": "Security Screening",
+  "parent_zone": "zone_district_924_903"
+}

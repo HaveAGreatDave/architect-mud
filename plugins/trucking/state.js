@@ -21,6 +21,9 @@ import { emit } from '../../server/engine/events.js';
 import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messaging.js';
 import { query } from '../../server/models/db.js';
 import { mapWindow, surfaceAt, isRoadCell, aircraftNearCoord, skyState, farRoadsNear, FAR_ROAD_R } from '../flight/state.js';
+import { getWeatherTypeAtGrid } from '../../server/engine/environment.js';
+// The weather words filth.js keys on, from the full WEATHER_TYPES vocabulary.
+const GRIME_WX = { thunderstorm: 'storm', blizzard: 'snow', sleet: 'rain' };
 import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM,
   nodeAt, sOfNode, roomLenOf, addWreck, wreckAhead, signsBetween, ARROW_WORDS, pavedAt,
   attachSigns, joinRoutes, reverseRoute, pairKey, composeRoad, milesOf, sliceRoute } from './corridor.js';
@@ -1162,7 +1165,10 @@ export function reconcileTruck(rig, d, now = Date.now()) {
     // never reach `applyDamage`, or the headline condition starts counting dirt as damage and a
     // run through a car wash quietly makes the engine healthier. See the rules at the top of
     // filth.js.
-    accrueGrime(rig, moved, { surface: surfaceUnder(rig), weather: skyState()?.weather });
+    // The sky over the rig's own tile: rain only falls under a cell, so the day's word washed every
+    // truck on the road whether or not it was raining on it. Folded onto filth.js's five words.
+    const wxHere = getWeatherTypeAtGrid(Math.round(rig.x), Math.round(rig.y));
+    accrueGrime(rig, moved, { surface: surfaceUnder(rig), weather: GRIME_WX[wxHere] || wxHere });
     // A GAUGE THAT NEVER BITES IS DECORATION. For a long time this counted down to zero and the
     // truck simply carried on, which made every tank number in the fleet a label rather than a
     // constraint. Running dry now stops it dead, and the low warning fires once on the way past so

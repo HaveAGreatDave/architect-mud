@@ -29,7 +29,7 @@ import { eligibleNpcs } from '../../server/engine/npc-banter.js';
 import { world, getZonePlayers } from '../../server/engine/world.js';
 import { query } from '../../server/models/db.js';
 import { adjustSanity } from '../../server/engine/condition.js';
-import { getEnvironmentState } from '../../server/engine/environment.js';
+import { getEnvironmentState, getZoneWeatherType } from '../../server/engine/environment.js';
 import { propagateSound } from '../../server/engine/sounds.js';
 import { sendToZone, getBroadcast } from '../../server/engine/messaging.js';
 import { adjustCredits } from '../../server/engine/economy.js';
@@ -224,7 +224,7 @@ function routineTick() {
   ticking = true;
   try {
     const now = Date.now();
-    const { timePhase, weatherType } = getEnvironmentState();
+    const { timePhase } = getEnvironmentState();
 
     // Only zones with a player in them are candidates (someone to witness it).
     const candidates = new Set();
@@ -238,7 +238,9 @@ function routineTick() {
       const zone = world.zones.get(zoneId);
       if (!isStreetZone(zone) || !getZonePlayers(zoneId).length) continue;
       if (Math.random() > START_CHANCE) continue;
-      const routine = pickRoutine(zone, timePhase, weatherType);
+      // The sky over this street, not the day's word: rain only falls under a cell, so a
+      // rain-gated routine (umbrellas, shop awnings) belongs to the streets it is falling on.
+      const routine = pickRoutine(zone, timePhase, getZoneWeatherType(zoneId));
       if (routine) fireRoutine(zoneId, routine);
     }
   } finally {

@@ -32,7 +32,7 @@ import { query, logActivity } from '../models/db.js';
 import { addSweat } from './hygiene.js';
 import { warmthBonus, tickWarmth } from './warmth.js';
 import { appetiteMessages } from './appetite.js';
-import { getEnvironmentState, getZoneTemperature, feltAmbientC, waterTemperature, getZoneHumidity, getWindKph, recordLightningKill, getZoneStormIntensity, getWeatherFieldSnapshot, getZonePrecip, seasonForDate } from './environment.js';
+import { getEnvironmentState, getZoneTemperature, feltAmbientC, waterTemperature, getZoneHumidity, getWindKph, recordLightningKill, getZoneStormIntensity, getWeatherFieldSnapshot, getZonePrecip, getZoneWeatherType, seasonForDate, activeWeatherEvent, strikeableBuildings, overloadJunctionBoxes, powerAnchorOf } from './environment.js';
 import { tickDrugDecayAll, tickDrugs, tickOnsets, tickWithdrawalAll, clearActiveDrugState } from './drugs.js';
 import { getTimeScale } from './gametime.js';
 import { escAttr } from './text.js';
@@ -916,10 +916,6 @@ export async function handlePlayerDeath(player, killer, cause = null) {
 const WEATHER_AMBIENT_TYPES = new Set(['rain','sleet','thunderstorm','storm','snow','blizzard','fog','haze','ash']);
 
 async function ambientTick() {
-  const { weatherType } = getEnvironmentState();
-  const weatherTheme = `weather_${weatherType}`;
-  const hasWeatherSounds = WEATHER_AMBIENT_TYPES.has(weatherType);
-
   for (const [zoneId, zone] of world.zones) {
     if (zone.players.size === 0 || Math.random() > 0.4) continue;
 
@@ -951,9 +947,12 @@ async function ambientTick() {
     propagateSound(zoneId, ambient.message, ambient.loudness, broadcastFn, true);
 
     // For exterior zones during active weather, occasionally layer a weather sound.
+    // ⚠ THE SKY OVER THIS TILE, NOT THE DAY'S WORD. Rain only falls under a cell, so a rain day
+    // keyed off the headline told every street in the city that rain was drumming on it.
     const isExterior = !zone.flags?.is_interior;
-    if (isExterior && hasWeatherSounds && Math.random() < 0.4) {
-      const weatherAmbient = getWeatherAmbient(zoneId, weatherTheme);
+    const zoneWx = isExterior ? getZoneWeatherType(zoneId) : null;
+    if (isExterior && WEATHER_AMBIENT_TYPES.has(zoneWx) && Math.random() < 0.4) {
+      const weatherAmbient = getWeatherAmbient(zoneId, `weather_${zoneWx}`);
       if (weatherAmbient && interrupt <= weatherAmbient.loudness * 1.5) {
         propagateSound(zoneId, weatherAmbient.message, weatherAmbient.loudness, broadcastFn);
       }
@@ -1012,7 +1011,103 @@ export function occupiedBodyZones() {
   return occupied;
 }
 
+// ── Ion storm lightning ──────────────────────────────────────────────────────
+// An ion storm doesn't change the day's weather type, so the ordinary storm roll
+// below never sees it. This pass runs instead: far more flashes than any storm,
+// more than half of them cloud to cloud (visual only, `cc: true` on the strike),
+// and the rest coming down on BUILDINGS. A building strike overloads its junction
+// box, so the storm leaves a scatter of dark blocks behind it. Nobody is killed by
+// these; the ion storm's danger is the pulse and the gear rules.
+//
+// Strikes favour the ground near somebody, because a strike nobody sees or loses
+// lights to is wasted. RAM only, except one batched UPDATE when a box goes.
+const ION_STRIKES_PER_TICK = { approach: 1.5, peak: 6, passing: 1.5 };   // per 5s tick
+const ION_CC_SHARE = 0.55;            // share of flashes that stay inside the cloud
+const ION_NEAR_TILES = 16;            // how close to a body a "near" flash lands
+const ION_NEAR_SHARE = 0.7;           // share of flashes placed near a body
+const ION_OVERLOAD_CHANCE = 0.65;     // a building strike that blows the box
+const ION_FLASH_TILES = 6;            // outdoor rooms this close see a ground strike
+
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+const cheb = (a, b) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+
+const ION_STRIKE_LINES = [
+  (b) => `Lightning hits ${b} square on the roof. The crack and the light arrive together.`,
+  (b) => `A bolt comes down on ${b}, and something inside it bangs like a gunshot.`,
+  (b) => `Lightning finds ${b}. Sparks rain off the roofline into the street.`,
+];
+const ION_SHAKE_LINES = [
+  'The whole building jumps with a crack overhead. Somewhere in the walls the junction box bangs, and the lights go.',
+  'Lightning hits the roof. A fizzing pop comes out of the wall, and the power dies with it.',
+];
+const ION_CC_LINES = [
+  '<span class="msg-ambient">Lightning runs sideways through the cloud deck, cloud to cloud, lighting it from inside.</span>',
+  '<span class="msg-ambient">The clouds overhead flicker white from within. No bolt reaches the ground.</span>',
+];
+
+async function ionStormTick() {
+  const ev = activeWeatherEvent();
+  if (ev?.type !== 'ion_storm') return;
+  const rate = ION_STRIKES_PER_TICK[ev.phase] || 0;
+  if (!rate) return;
+  const occupied = [...occupiedBodyZones()];
+  const anchors = [];
+  for (const zid of occupied) { const a = powerAnchorOf(world.zones.get(zid)); if (a) anchors.push(a); }
+  const buildings = strikeableBuildings();
+  const count = Math.floor(rate) + (Math.random() < rate % 1 ? 1 : 0);
+  const struck = [];
+  for (let i = 0; i < count; i++) {
+    const near = anchors.length && Math.random() < ION_NEAR_SHARE ? pick(anchors) : null;
+    if (Math.random() < ION_CC_SHARE) {
+      const c = near || (buildings.length ? pick(buildings) : null);
+      if (!c) continue;
+      const gx = c.x + (Math.random() * 2 - 1) * ION_NEAR_TILES, gy = c.y + (Math.random() * 2 - 1) * ION_NEAR_TILES;
+      setTimeout(() => emit('weather.lightningStrike', { gx, gy, intensity: 0.85, cc: true }), Math.random() * 4500);
+      continue;
+    }
+    let pool = buildings;
+    if (near) { const close = buildings.filter(b => cheb(b, near) <= ION_NEAR_TILES); if (close.length) pool = close; }
+    if (pool.length) struck.push(pick(pool));
+  }
+
+  // Ground strikes: the bolt, the flash for anyone outdoors close by, the line.
+  const overload = [];
+  for (const b of struck) {
+    emit('weather.lightningStrike', { gx: b.x, gy: b.y, intensity: 1 });
+    if (Math.random() < ION_OVERLOAD_CHANCE) overload.push(b.genId);
+    const name = world.zones.get(b.zoneId)?.name || 'a building';
+    const line = `<span class="msg-ambient">${pick(ION_STRIKE_LINES)(name)}</span>`;
+    for (const zid of occupied) {
+      const z = world.zones.get(zid);
+      if (!z || z.map_id !== 'map_world' || z.grid_x == null) continue;
+      if (z.flags?.is_interior || z.flags?.is_apartment || z.flags?.is_building) continue;
+      if (cheb({ x: z.grid_x, y: z.grid_y }, b) > ION_FLASH_TILES) continue;
+      broadcastFn(zid, { type: 'lightning' });
+      broadcastFn(zid, { type: 'ambient', message: line, flavour: true });
+    }
+  }
+  // A cloud-to-cloud flicker line now and then for people outdoors, so the text
+  // game knows the sky is busy even when nothing lands near them.
+  if (Math.random() < 0.35) {
+    const msg = pick(ION_CC_LINES);
+    for (const zid of occupied) {
+      const z = world.zones.get(zid);
+      if (!z || z.map_id !== 'map_world') continue;
+      if (z.flags?.is_interior || z.flags?.is_apartment || z.flags?.is_building) continue;
+      broadcastFn(zid, { type: 'lightning' });
+      broadcastFn(zid, { type: 'ambient', message: msg, flavour: true });
+    }
+  }
+  if (!overload.length) return;
+  const darkened = await overloadJunctionBoxes(overload);
+  for (const zid of occupied) {
+    if (!darkened.has(zid)) continue;
+    broadcastFn(zid, { type: 'ambient', message: `<span class="msg-ambient">${pick(ION_SHAKE_LINES)}</span>` });
+  }
+}
+
 async function stormTick() {
+  await ionStormTick();
   const { weatherType } = getEnvironmentState();
   if (!STORM_WEATHER_TYPES.has(weatherType)) return;
 

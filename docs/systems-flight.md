@@ -351,6 +351,33 @@ the "content is deliberate" rule. Instead:
     available, being server-authoritative dice already. RWR lock/launch warnings reach a
     text pilot as text rather than as an instrument strip.
 
+### A server restart mid-flight *(as built, 2026-10-03)*
+The seat lives in RAM: `live.occupants`, `live.pilotId` and `player.aircraftId`. The `player.login`
+hook re-seats a reconnecting pilot from `liveAircraft`, which covers a dropped socket but not a
+restart, since a restart empties it. A deploy restarts the server, and so does `node --watch` on any
+file save in dev. The cockpit doesn't notice. It keeps flying, the pilot logs back in, and the server
+treats them as standing in the room they boarded from. Every `flightsync`, the landing and
+`disembark` are dropped as "not aboard". A Drake flown from Coldwater Regional and set down on the
+Threshold Helipad climbed its pilot out into the Regional hangar, and the row stayed `airborne=1` a
+few tiles off the Regional ramp, where it was last persisted.
+
+The fix has two halves:
+
+- **The row names the pilot.** Wheels-up writes `custom_data.aloft = { pilot, home }` in the persist
+  it already does. `parkAt` and `crash` clear it.
+- **The cockpit asks for the seat back.** `flight_sim` carries `aircraftId`, and on every
+  `auth_success` an open sim sends `flightresume <id>` (cockpit.js `resumeFlightAfterLogin`). If the
+  sim still thinks she's flying, it also sends `flightevent takeoff`. The server ignores that when it
+  already has her airborne, and treats it as the missed takeoff when the restart came during the taxi.
+
+`flightresume` re-seats only the pilot the row names while she's airborne, never merely the owner,
+so an owner can't take back a stolen craft mid-air and a thief can't take an owner's. A craft still
+on the ground goes back to its owner. A refused resume unloads anything it loaded, so a guessed id
+can't drag somebody's stranded aircraft into the tick.
+
+Not covered: a hard refresh after a restart. The page reload closes the sim, so nothing asks, and the
+row stays airborne until the tablet's `flushairborne` tows her home.
+
 ### NPC companions — somebody in the back *(as built, 2026-08-04)*
 The charter pilot proved an NPC can be an occupant: pulled out of the world (no zone),
 frozen from the AI tick by `npc._aboard` (`gameLoop`), set back down when the craft comes
@@ -497,7 +524,10 @@ engine-off aircraft may claim), the red-tail hawk in `birds.js` (where it spiral
   hawks: 69% of climbing time is in lift over 150 ft/min.
 - **What the pilot sees** (windshield.js, `RENDER_TUNE.thermalCaps` / `dustDevils` / `thermalDebug`):
   a cumulus cap at the top of any column past 250 ft/min, and a dust devil for about a minute at the
-  foot of a strong column over bare dry ground. ⚠ **The caps are cards even when the raymarched cloud
+  foot of a strong column over bare dry ground. A cap grows in from nothing between 250 and 600 ft/min
+  and thins out over the last 8 tiles before the edge of the columns the view collects
+  (`THERMAL_VIEW_R`, or the map window if that is nearer), so none appears or vanishes in one frame
+  (`thermalCapCells`). ⚠ **The caps are cards even when the raymarched cloud
   volume is on**: the volume models the weather's one deck and has no per-column base, so the card
   pass runs with only the cap cards. Without that a clear day had no cloud at all, since its only
   cloud is a cap. `thermalStats()` reports columns, caps and devils for the last frame; each is
@@ -1123,6 +1153,19 @@ from inside, resolved to the ramp aircraft) is what rolls it. The interiors are 
 content (`content/zones/zone_hangar_*.json`).
 Room text: `describeAirfield`/`describeHangarInterior` share a `serviceBits` builder.
 
+**Coldwater Regional's terminal** *(as built, 2026-10-03)* is the passenger side of the same
+desk. It's two facades, arrivals (924,902) and departures (924,903), over seven rooms: Arrivals
+Hall, Baggage Reclaim and a utility room on `map_int_cw_arrivals`, and Check-in Hall, Security
+Screening, Departure Lounge and Gate 1 on `map_int_cw_departures`, joined by an internal link
+from the arrivals hall south to check-in. Check-in, the lounge and the gate carry
+`flags.hangar_ramp` without `hangar_interior`, so `fieldFor` resolves the field there: `charter`
+books at the gate desk (`charterGate` accepts any room naming the ramp), and you board from the
+gate (`cmdBoard` follows `hangar_ramp` alone), while buy, rent and the hangar bay stay in the
+hangar. `describeTerminal` gives those rooms a Charter line and, when your booked flight is on the
+ramp, a link to board it. The ramp's `flags.arrivals_zone` sets a charter passenger down in the
+Arrivals Hall (`dropZoneOf`, before `hangar_interior_zone`). The lounge's snack and drinks
+machines charge through the vending plugin's `vend_price`; its coffee machine is a drinks rig.
+
 **Ownership** (`hangars.js`). `hangar rent/store/pull` (stored = theft-
 proof; an owned craft on an open ramp can be stolen — grand theft, +3 stars);
 `repair` (Fabrication + credits); `salvage` a wreck for scrap; `rebuild` a Carcass
@@ -1148,8 +1191,8 @@ per aircraft at the field (`vehicle-card.js`, the marina's and depot's cards). U
   field (the `land` event resolves the facade through `hangar_field`), not off-strip.
 - **The heavy bay.** A Leviathan doesn't fit the regular hangar. A field can have a second one with
   `flags.heavy_hangar`, and `hangarTileFor(field, true)` sends heavy-class aircraft there.
-- **Coldwater Regional's hangars have their own taxiway**, away from the tower (924,901) and arrivals
-  (924,902) on the runway's west edge. It runs east off the apron over 927–928 × 903–904. The Hangar
+- **Coldwater Regional's hangars have their own taxiway**, away from the tower (924,901) and the
+  terminal (arrivals 924,902, departures 924,903) on the runway's west edge. It runs east off the apron over 927–928 × 903–904. The Hangar
   is at 927,902 with its door south onto 927,903; the Heavy Hangar is at 929,904 at the end of the
   spur, door west onto 928,904, so the Leviathan rolls out along the taxiway. Keep any taxiway tile
   within three tiles of the ramp (925,903): that's the reach of `airfieldForRunway`, and a shutdown

@@ -11,6 +11,7 @@
   },
   "flags": {
     "airfield_id": "af_regional",
+    "arrivals_zone": "zone_cw_arrivals",
     "district": "docks",
     "hangar_interior_zone": "zone_hangar_outskirts",
     "icon": "runway_ns",

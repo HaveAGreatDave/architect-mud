@@ -1494,7 +1494,7 @@ zero-sized are still skipped — which is what already excludes the room-pane st
 at this rung, since `log-rung` collapses `#area-pane`.)*
 
 **Chargen had no written form, and it is BLOCKING.** By this doc's own
-classification test: the prologue's first move gate wants `appearance.changed`,
+classification test: the prologue's first move gate wants `cosmetic.opened`,
 and the MORPHEX 9000 is the only thing in the game that emits it. Every
 sub-command was already a typed verb (`morphex hair color black`) — the hole was
 that nothing but the modal ever *named* them, and the toast saying what changed

@@ -9,19 +9,9 @@
   "id": "door_shop_trackmarks_shop",
   "is_locked": 0,
   "is_open": 0,
-  "lock_state": "locked",
+  "lock_state": null,
   "name": null,
-  "tags": {
-    "lock:shoplock": {
-      "canHack": true,
-      "difficulty": 4,
-      "messages": {
-        "denied": "The shop lock reads your hand and declines to recognise it.",
-        "lock": "The bolt drops and the shopfront goes quiet.",
-        "unlock": "The bolt lifts. The shop door swings in."
-      }
-    }
-  },
+  "tags": {},
   "target_zone": "zone_trackmarks_shop",
   "zone_id": "zone_district_917_903"
 }

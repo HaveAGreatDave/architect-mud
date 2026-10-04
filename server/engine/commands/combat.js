@@ -250,6 +250,10 @@ export async function resolveCorpseOrPlayer(corpseId, player) {
 	// Online: they must be asleep, with the body in this room, read from the live
 	// world. Offline: the same offline_sleeping body the other plugins look for.
 	if (!corpseId || corpseId === player.id) return null;
+	// ⚠ AND NOT IN A PROTECTED ROOM. `loot <name>` has always refused there, but
+	// `lootall <id>`, `lootid` and stow-by-id come through here and never asked, so a
+	// sleeper in a sanctuary could be stripped by anyone holding their id.
+	if (getZoneProtection(player.current_zone)) return null;
 	const live = getLivePlayer(corpseId);
 	if (live) {
 		const bodyZone = live.sleeping?.bodyZone || live._bodyZone || live.current_zone;

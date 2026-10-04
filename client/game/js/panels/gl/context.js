@@ -220,6 +220,10 @@ uniform vec3 uLightC[GLASS_MAX_LIGHTS];
 uniform vec3 uLightRaw[GLASS_MAX_LIGHTS];
 uniform float uLightR[GLASS_MAX_LIGHTS];
 uniform float uLightWrap;
+// The lamp's share of the night: how far each light gives back what the night took away
+// (uLightLR, its reach in tiles) and how strongly (uLampLift, 0 off). See the loop below.
+uniform float uLightLR[GLASS_MAX_LIGHTS];
+uniform float uLampLift;
 // The falloff exponent over the reach. 2.0 is the broad wash this pass shipped with; above it the
 // same energy moves in toward the source — a hot core, a fast edge, a faint tail. See LIGHT_TUNE.
 uniform float uLightFocus;
@@ -783,12 +787,20 @@ void main() {
   // The night outside its lights. Dimmed BEFORE the lights are added, so a lamp or a sign stands
   // out of a darker wall rather than dimming with it. A texel already bright here is a lit window
   // baked into the night atlas, which is a light source too, so it keeps its brightness.
+  vec3 undimmed = base;
   base *= mix(uNightDim, 1.0, smoothstep(0.28, 0.55, dot(base, vec3(0.299, 0.587, 0.114))));
+  // The lamps give back what the night took, and no more. Each light lifts the dimmed wall toward
+  // its own undimmed colour, tinted by the lamp, capped at 1 per channel, so a wall under a lamp is
+  // never brighter than it is by day. The cap is what the additive wash below lacked (it drowned the
+  // signage and was switched off); this term cannot.
+  vec3 lamp = vec3(0.0);
   // The city own lights, added on top of the key shading.
   for (int i = 0; i < GLASS_MAX_LIGHTS; i++) {
     if (i >= uNLight) break;
     vec3 d = uLightP[i] - vWorld;
     float dist = length(d);
+    float la = clamp(1.0 - dist / max(0.001, uLightLR[i]), 0.0, 1.0);
+    lamp += uLightRaw[i] * (la * la * max(0.0, (dot(n, d / max(0.001, dist)) + 0.5) / 1.5));
     float att = clamp(1.0 - dist / max(0.001, uLightR[i]), 0.0, 1.0);
     if (att <= 0.0) continue;
     // ⚠ WRAPPED, AND MEASURED INTO IT RATHER THAN CHOSEN. Straight lambert is the obvious term and
@@ -845,6 +857,7 @@ void main() {
       base += uLightRaw[i] * (pow(max(0.0, dot(n, Hl)), WET_LOBE) * WET_NEON * wetW * fall);
     }
   }
+  base += max(vec3(0.0), undimmed - base) * min(vec3(1.0), lamp * uLampLift);
   // ⚠ AND THERE IS NO EMISSION TERM HERE, WHICH WAS MEASURED RATHER THAN ASSUMED. One sat on this
   // line and moved 0.0% of wall pixels at every seat: everything above IS light arriving at a wall,
   // and every emissive surface in the city is a FLAT face, which 'solid' has already excused from
@@ -930,6 +943,41 @@ function compile(gl, type, src, label) {
 // drop the view and make a new one; `sceneGL` treats it the way it already treats a resize. Which
 // is also why it is not a per-frame decision — a dial that flipped it under load would rebuild the
 // context, the atlas and the whole vertex buffer twice a second.
+// ── THE MAP WINDOW'S FRAME FOR LIGHTS, WIRES AND DECALS ──────────────────────────────────────
+// Their records are collected in the camera's frame. Drawn in the map window's instead, the frame the
+// mass and the solids are in, a record's numbers stop depending on where the camera sits inside its
+// tile, which a record kept on the GPU needs (Stage 3 phase 2 of glass-headroom). The layer adds
+// (ox, oy) as it writes and draws with the shifted camera, so the picture is the same. The decal
+// lights (pickLights) were already in this frame. WINDOW_FRAME false is the old frame.
+let WINDOW_FRAME = true;
+export const setWindowFrame = (on) => { WINDOW_FRAME = !!on; };
+// A sink's retained groups (`list.groups`, each `{ recs, at, ox, oy }`), checked and split out: the
+// groups go to the layer whole and their records are left out of the frame's own list. A group whose
+// records aren't where it says (a sink truncated after a throw) is dropped and its records go as usual.
+// `ox`/`oy` default to this frame's, the offset a group collected this frame was taken under.
+function splitGroups(list, ox, oy) {
+  const G = list && list.groups;
+  if (!G || !G.length) return { rest: list, groups: null };
+  const rest = [], groups = [];
+  if (list.deep) rest.deep = list.deep;   // the strokes' prepass flag rides on the array
+  let gi = 0;
+  for (let i = 0; i < list.length; i++) {
+    while (gi < G.length && G[gi].at < i) gi++;
+    if (gi < G.length && G[gi].at === i) {
+      const g = G[gi++], recs = g.recs, n = recs.length;
+      if (n && i + n <= list.length && list[i] === recs[0] && list[i + n - 1] === recs[n - 1]) {
+        groups.push({ recs, ox: g.ox == null ? ox : g.ox, oy: g.oy == null ? oy : g.oy });
+        i += n - 1; continue;
+      }
+    }
+    rest.push(list[i]);
+  }
+  return { rest, groups };
+}
+function windowFrame(cam) {
+  const ox = (WINDOW_FRAME && cam && cam.ox) || 0, oy = (WINDOW_FRAME && cam && cam.oy) || 0;
+  return { ox, oy, cam: ox || oy ? { ...cam, fx: (cam.fx || 0) + ox, fy: (cam.fy || 0) + oy } : cam };
+}
 export function createGLView(canvas, opts = {}) {
   const gl = canvas.getContext('webgl2', { antialias: opts.msaa !== 0, alpha: true, depth: true });
   if (!gl) return null;
@@ -989,6 +1037,8 @@ export function createGLView(canvas, opts = {}) {
     lightC: gl.getUniformLocation(prog, 'uLightC'),
     lightRaw: gl.getUniformLocation(prog, 'uLightRaw'),
     lightR: gl.getUniformLocation(prog, 'uLightR'),
+    lightLR: gl.getUniformLocation(prog, 'uLightLR'),
+    lampLift: gl.getUniformLocation(prog, 'uLampLift'),
     lightWrap: gl.getUniformLocation(prog, 'uLightWrap'),
     lightFocus: gl.getUniformLocation(prog, 'uLightFocus'),
     ao: gl.getUniformLocation(prog, 'uAo'),
@@ -1033,6 +1083,7 @@ export function createGLView(canvas, opts = {}) {
   const lightP = new Float32Array(MAX_LIGHTS * 3), lightC = new Float32Array(MAX_LIGHTS * 3);
 const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   const lightR = new Float32Array(MAX_LIGHTS);
+  const lightLR = new Float32Array(MAX_LIGHTS);
   // The material table, flattened once and re-flattened only when the caller hands over a different
   // one. It is a constant of the build in practice — 19 rows that come from windshield.js — so
   // rebuilding it per frame would be pure garbage on the hot path, and uploading it per frame is two
@@ -1064,6 +1115,10 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   let shadow = null, shadowTried = false;
   let ssao = null, ssaoTried = false;
   let hdr = null, hdrTried = false;
+  // Whether the last `beginTarget` actually bound the float buffer. ⚠ `opts.hdr` IS ONLY THE ASK:
+  // a driver that refused the float format leaves it at 1 while everything renders into the
+  // eight-bit canvas, and a gain chosen on the ask clips there. See `hdrLive`.
+  let targetLive = false;
   let warnedShadowShape = false;   // once per view — see the ⚠ on `opts.shadow` in draw()
 
   // One texture for the whole city. See gl/atlas.js for why this is an atlas rather than a bind
@@ -1320,14 +1375,20 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   //
   // Returns whether the float path is live, so the caller knows whether a composite is owed.
   function beginTarget(opts) {
+    targetLive = false;
     if (!(opts.hdr > 0)) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); return false; }
     if (!hdr && !hdrTried) {
       hdrTried = true;                        // one attempt per view; a driver that refused once will refuse again
       try { hdr = createHDRLayer(gl); } catch { hdr = null; }
     }
     if (!hdr || !hdr.bind(canvas.width, canvas.height)) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); return false; }
+    targetLive = true;
     return true;
   }
+
+  // Whether this frame's layers are drawing into the float buffer. The emissive gains read this
+  // rather than `opts.hdr`, which is only what was asked for.
+  function hdrLive() { return targetLive; }
 
   // And the other end of it. A no-op when the float path is not live, which is what makes the
   // caller free to call it unconditionally.
@@ -1459,10 +1520,13 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       // and `r` is the WET ROAD'S — a streak on tarmac is as long as it was swept at. A caller that
       // sets neither (a bench, a preview) gets exactly what it always did.
       lightR[i] = L.rw == null ? L.r : L.rw;
+      // The lamp's reach for the lift: the road's reach, or 0 for a caller that sets no lift.
+      lightLR[i] = L.rl || 0;
     }
     gl.uniform1i(loc.nLight, nL);
+    gl.uniform1f(loc.lampLift, opts.lampLift > 0 ? opts.lampLift : 0);
     if (nL) {
-      gl.uniform3fv(loc.lightP, lightP); gl.uniform3fv(loc.lightC, lightC); gl.uniform3fv(loc.lightRaw, lightRaw); gl.uniform1fv(loc.lightR, lightR);
+      gl.uniform3fv(loc.lightP, lightP); gl.uniform3fv(loc.lightC, lightC); gl.uniform3fv(loc.lightRaw, lightRaw); gl.uniform1fv(loc.lightR, lightR); gl.uniform1fv(loc.lightLR, lightLR);
       gl.uniform1f(loc.lightWrap, opts.lightWrap == null ? 0 : opts.lightWrap);
       // ⚠ DEFAULTS TO 2, THE TERM THIS PASS SHIPPED WITH, so a caller that has never heard of the
       // focus knob renders what it always rendered rather than pow(att, 0.0) — which is 1.0 at
@@ -1591,10 +1655,10 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // wants the CANVAS's (device px), because a sprite's radius arrives already scaled by the
   // frame's dpr. Passing one for the other lifts every light off the building it sits on.
   function drawSprites(cam, list, cssH, intensity) {
-    if (!list || !list.length) return 0;
-    const L = spriteLayer();
-    L.upload(list);
-    return L.draw(cam, canvas.width, canvas.height, cssH, intensity);
+    if ((!list || !list.length) && !sprites) return 0;
+    const L = spriteLayer(), w = windowFrame(cam), sp = splitGroups(list || [], w.ox, w.oy);
+    L.upload(sp.rest, w.ox, w.oy, sp.groups);
+    return L.draw(w.cam, canvas.width, canvas.height, cssH, intensity);
   }
 
   // The fly-through cloud deck, drawn in a SECOND pass over the same buffer. See gl/clouds.js:
@@ -1640,10 +1704,10 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   let decals = null;
   const decalLayer = () => (decals || (decals = createDecalLayer(gl)));
   function drawDecals(cam, list, cssH, emitGain = 0, neon = null, lit = null) {
-    if (!list || !list.length) return 0;
-    const L = decalLayer();
-    L.upload(list);
-    return L.draw(cam, cssH || canvas.height, emitGain, neon, lit);
+    if ((!list || !list.length) && !decals) return 0;
+    const L = decalLayer(), w = windowFrame(cam), sp = splitGroups(list || [], w.ox, w.oy);
+    L.upload(sp.rest, w.ox, w.oy, sp.groups);
+    return L.draw(w.cam, cssH || canvas.height, emitGain, neon, lit);
   }
   // What that cost in BINDS, which is the figure that tracks the clock — see the ⚠ in decals.js.
   const decalCost = () => (decals ? { batches: decals.batches, textures: decals.textures, minted: decals.minted } : { batches: 0, textures: 0, minted: 0 });
@@ -1653,10 +1717,10 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   let strokes = null;
   const strokeLayer = () => (strokes || (strokes = createStrokeLayer(gl)));
   function drawStrokes(cam, list, cssH) {
-    if (!list || !list.length) return 0;
-    const L = strokeLayer();
-    L.upload(list);
-    return L.draw(cam, canvas.width, canvas.height, cssH);
+    if ((!list || !list.length) && !strokes) return 0;
+    const L = strokeLayer(), w = windowFrame(cam), sp = splitGroups(list || [], w.ox, w.oy);
+    L.upload(sp.rest, w.ox, w.oy, sp.groups);
+    return L.draw(w.cam, canvas.width, canvas.height, cssH);
   }
 
   // Ground scatter, on the same depth buffer. Lazy like the others.
@@ -1666,11 +1730,11 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // visible in the picture until it starts evicting live entries, at which point it looks like
   // corrupted artwork rather than like a cache.
   const billboardTextures = () => (bbs ? bbs.textures : 0);
-  function drawBillboards(cam, list, cssH, fog, snow) {
+  function drawBillboards(cam, list, cssH, fog, snow, lights) {
     if (!list || !list.length) return 0;
     const L = bbLayer();
     L.upload(list);
-    return L.draw(cam, canvas.width, canvas.height, cssH, fog, snow);
+    return L.draw(cam, canvas.width, canvas.height, cssH, fog, snow, lights);
   }
 
   // ── THE PUDDLE REFLECTION, AS A PREPASS ────────────────────────────────────
@@ -2059,7 +2123,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // Handed the window's cells and the eye in the MESH frame; see gl/skyline.js and the ⚠ on 
   // in world.js. Called before , because the strip is a uniform that draw reads.
   function setSkyline(cells, eye, facesOf) { try { skylineLayer().update(cells, eye, facesOf); } catch { /* no strip is the flat environment, which is the picture that shipped */ } }
-  return { murmurGPU: () => mg, gl, setSkyline, upload, uploadGroups, draw, beginTarget, composite, hdrPeak, drawSeabed, drawSeabedPoints, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawBillboards, billboardTextures, drawGround, drawFloor, drawWater, drawCloudDeck, drawCloudVolume, drawMirror, mirrorPeak, uploadSolids, uploadShip, drawSolids, drawActors, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => gl.isContextLost(),
+  return { murmurGPU: () => mg, gl, setSkyline, upload, uploadGroups, draw, beginTarget, hdrLive, composite, hdrPeak, drawSeabed, drawSeabedPoints, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawBillboards, billboardTextures, drawGround, drawFloor, drawWater, drawCloudDeck, drawCloudVolume, drawMirror, mirrorPeak, uploadSolids, uploadShip, drawSolids, drawActors, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => gl.isContextLost(),
     maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; },
     // The mesh's own box, for the caller that has to fit a light projection to it — and the shadow
     // map's size, which is 0 when the driver refused it. A zero there next to a sun that is up is

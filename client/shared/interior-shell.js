@@ -171,6 +171,16 @@ export const eyeMetresOf = (P) => (P && P.eyeM) || EYE_M;
 
 // The hydro's derived profile, built on first ask. See the getter in SHELL_PROFILES.
 let BOAT_PROFILE = null;
+// ⚠ ONE PILOTHOUSE PER HULL, AND EACH IS THE INSIDE OF ITS OWN OUTSIDE. A second hull is a second
+// row, so a room derived off the hydro's row for every boat would put a Gamecock's driver in a
+// pilothouse a metre wider than her canopy. `SHELL_PROFILES.boat` stays the hydro's (the gate and
+// the Modelshop name it); every other hull is built off its own row on first ask and kept, because
+// callers rely on a profile having a stable identity.
+const BOAT_PROFILES = {};
+export function boatProfileFor(id) {
+  if (!id || id === 'hydro' || !BOAT_ROWS[id]) return SHELL_PROFILES.boat;
+  return (BOAT_PROFILES[id] ||= boatProfile(BOAT_ROWS[id], id));
+}
 
 // ── THE PROFILES ─────────────────────────────────────────────────────────────
 //
@@ -237,7 +247,7 @@ export const SHELL_PROFILES = {
   // inside this literal takes the whole module down at import with "Cannot access ROOM before
   // initialization", which is the same trap the exterior's own `fw` note is written about. Built on
   // first ask and kept, because callers rely on a profile having a stable identity.
-  get boat() { return (BOAT_PROFILE ||= boatProfile(BOAT_ROWS.hydro)); },
+  get boat() { return (BOAT_PROFILE ||= boatProfile(BOAT_ROWS.hydro, 'hydro')); },
   // ── THE DRAKE: the pilot sits in the eye ───────────────────────────────────
   // Derived, like the boat: the room is measured off the mesh file's `cabin` block, which names
   // the head it is the inside of and the eye glass its windows are cut along. A profile that
@@ -405,6 +415,8 @@ const SHELL_CLASS = {
 // cockpit view already tells them apart the same way (`armed` = a heli with hardpoints).
 export function shellProfileFor(cls, armed = false, trim = null) {
   if (cls === 'heli' && armed) return SHELL_PROFILES.viper;
+  // Every other hull: its own room off its own row, the hydro's way. See `boatProfileFor`.
+  if (cls && cls !== 'hydro' && BOAT_ROWS[cls]) return boatProfileFor(cls);
   if (cls === 'drake' && trim === 'noir') return SHELL_PROFILES.drakeNoir;
   if (cls === 'drake' && trim === 'quackhawk') return SHELL_PROFILES.drakeQuackhawk;
   const key = cls && SHELL_CLASS[cls];
@@ -952,19 +964,32 @@ function wheelFaces(P, live, push) {
   // The column, back into the dash, and the quick-release hub on it.
   K.rod(at(0, 0, -0.012), at(0, 0, -0.26), 0.022, 'dash', 0.1, KC.black, 0, 8);
   K.rod(at(0, 0, -0.012), at(0, 0, -0.04), 0.034, 'dash', 0.1, KC.steel, 0.05, 10);
-  // The body: a carbon plate with a waist, as two boxes — the wide top and the narrower bottom.
-  K.obox(at(0, R * 0.14), across, up, N, R * 0.74, R * 0.34, 0.012, 'dash', 0.2, CARBON);
-  K.obox(at(0, -R * 0.30), across, up, N, R * 0.50, R * 0.16, 0.012, 'dash', 0.2, CARBON);
-  // The grips: fat, rubber, and standing proud of the plate on both faces.
+  // ── ⚠ AN OPEN FRAME, NOT A SLAB ──────────────────────────────────────────────
+  // The body was a carbon plate the full width of the grips, so from the seat the wheel was one dark
+  // box with two darker boxes stuck to its sides: a game controller, not a wheel. What makes a
+  // butterfly read as a wheel is the DAYLIGHT in it — two grips, a rim across the top and a bar
+  // across the bottom, and the face plate held in the middle on spokes with a gap all round it. The
+  // grips bow outward at the hands, which is the shape a palm closes round.
+  K.obox(at(0, R * 0.04), across, up, N, R * 0.50, R * 0.30, 0.011, 'dash', 0.2, CARBON);
   for (const s of [-1, 1]) {
-    K.obox(at(s * (R - 0.012), 0), across, up, N, 0.022, R * 0.54, 0.024, 'dash', 0.1, KC.grip);
-    K.obox(at(s * (R - 0.012), -R * 0.46, 0.006), across, up, N, 0.024, 0.008, 0.028, 'dash', 0.1, KC.black);
-    // The shift paddle behind each grip.
+    // The spokes from the plate out to each grip, carbon, a little thinner than the plate.
+    K.obox(at(s * R * 0.72, R * 0.06), across, up, N, R * 0.24, R * 0.10, 0.008, 'dash', 0.2, CARBON);
+    // The grip: three rubber segments bowing outboard, fat, standing proud on both faces.
+    const gp = [[s * (R - 0.018), -R * 0.50], [s * (R + 0.004), -R * 0.16], [s * (R + 0.004), R * 0.18], [s * (R - 0.018), R * 0.50]];
+    for (let i = 0; i < gp.length - 1; i++) K.rod(at(gp[i][0], gp[i][1]), at(gp[i + 1][0], gp[i + 1][1]), 0.021, 'dash', 0.1, KC.grip, 0, 8);
+    // The thumb rest at the top of each grip, and the shift paddle behind it.
+    K.obox(at(s * (R - 0.030), R * 0.40, 0.004), across, up, N, 0.016, 0.014, 0.016, 'dash', 0.1, KC.black);
     K.obox(at(s * (R - 0.02), R * 0.18, -0.03), across, up, N, 0.034, 0.022, 0.004, 'dash', 0.2, KC.chrome);
   }
-  // The flattened top rim and the shorter bottom, as tubes so they read edge-on too.
-  K.rod(at(-(R - 0.02), R * 0.50), at(R - 0.02, R * 0.50), 0.011, 'dash', 0.1, RIM, 0, 6);
-  K.rod(at(-R * 0.46, -R * 0.47), at(R * 0.46, -R * 0.47), 0.010, 'dash', 0.1, RIM, 0, 6);
+  // The flattened top rim and the shorter bottom bar, as tubes so they read edge-on too, each meeting
+  // its grips at the corners.
+  const topR = [[-(R - 0.018), R * 0.50], [-R * 0.45, R * 0.60], [R * 0.45, R * 0.60], [R - 0.018, R * 0.50]];
+  for (let i = 0; i < topR.length - 1; i++) K.rod(at(topR[i][0], topR[i][1]), at(topR[i + 1][0], topR[i + 1][1]), 0.012, 'dash', 0.1, RIM, 0, 6);
+  K.rod(at(-(R - 0.018), -R * 0.50), at(-R * 0.40, -R * 0.56), 0.011, 'dash', 0.1, RIM, 0, 6);
+  K.rod(at(-R * 0.40, -R * 0.56), at(R * 0.40, -R * 0.56), 0.011, 'dash', 0.1, RIM, 0, 6);
+  K.rod(at(R * 0.40, -R * 0.56), at(R - 0.018, -R * 0.50), 0.011, 'dash', 0.1, RIM, 0, 6);
+  // And the plate's own stem down to the bottom bar, so the face is carried and not floating.
+  K.obox(at(0, -R * 0.40), across, up, N, R * 0.10, R * 0.15, 0.008, 'dash', 0.2, CARBON);
   // The face: a screen with the speed on it, a row of buttons and two rotaries.
   const F = K.panel(at(0, 0, 0.0125), across, up, 'dash', 0.2);
   F.rect(-0.036, -0.012, 0.036, 0.022, [6, 10, 12], 0, 0.001);
@@ -997,30 +1022,43 @@ function throttleFaces(P, live, push) {
   const x = ((P.instr && P.instr.cx != null) ? P.instr.cx : P.xCentre) + side * (T.x ?? 0.44);
   const py = T.y ?? 0.34, pz = T.z ?? -0.44;             // the pivot
   const len = T.len ?? 0.15;
-  // A quadrant plate for the lever to run in, so the arm has something to be mounted TO.
-  const nrm = [-side, 0, 0];
-  const face = (pts, rgb, emis) => push([quad(pts.map(([qy, qz]) => [x, qy, qz]), nrm)], 'dash', 0.16, true, rgb, emis);
-  face([[py - 0.085, pz - 0.030], [py + 0.105, pz - 0.030], [py + 0.105, pz + 0.120], [py - 0.085, pz + 0.120]],
-    [24, 26, 31], 0);
+  // ── ⚠ A BINNACLE AND LEVERS IN THE ROUND, NOT PLATES ON A WALL ──────────────
+  // This was a dark rectangle with a billet stripe and a red square on it, all in one plane: from the
+  // seat, a sticker of a throttle. It is a carbon housing now with a billet cap, a slot per lever,
+  // and each lever a round arm with a knob you could get a hand round — the kit's parts, lit per
+  // face, so the arm catches the light as it swings. Twin hulls get two levers (`P.levers`): one
+  // throttle in the sim, so they move together, as a pair ganged by a racing throttleman's palm do.
+  // The housing's INBOARD face is the old plate's plane, so the legend (interior-hydro.js) sits on it.
+  const K = makeKit(push);
+  const n = Math.max(1, Math.min(2, P.levers || 1));
+  const W = 0.020 + 0.026 * n;                            // the housing's width, outboard of `x`
+  const xo = x + side * W, xm = (x + xo) / 2;
+  const top = pz - 0.004;
+  K.box(Math.min(x, xo), py - 0.090, pz - 0.120, Math.max(x, xo), py + 0.105, top, 'dash', 0.12, HY.carbon);
+  K.box(Math.min(x, xo) - 0.002, py - 0.094, top, Math.max(x, xo) + 0.002, py + 0.109, top + 0.006, 'dash', 0.1, HY.billet);
   // The gate the lever runs in: idle at the back, full ahead forward.
   const A_IDLE = -0.62, A_FULL = 0.72;                   // radians from vertical, aft negative
   const a = A_IDLE + (A_FULL - A_IDLE) * clampN(L.throttle ?? 0, 0, 1);
   const sy = Math.sin(a), sz = Math.cos(a);
-  const w = 0.010;
-  // The arm, as a bar from the pivot. Perpendicular in the y-z plane is (-sz, sy).
-  face([
-    [py - sz * w, pz + sy * w], [py + sz * w, pz - sy * w],
-    [py + sy * len + sz * w, pz + sz * len - sy * w], [py + sy * len - sz * w, pz + sz * len + sy * w],
-  ], HY.billet, 0);
-  // The knob, which is what your hand is actually on.
-  const ky = py + sy * len, kz = pz + sz * len;
-  face([[ky - 0.020, kz - 0.020], [ky + 0.020, kz - 0.020], [ky + 0.020, kz + 0.020], [ky - 0.020, kz + 0.020]],
-    HY.anod, 0.25);
-  // ⚠ AND A TELL-TALE THAT THE BOTTLE IS OPEN, on the knob rather than on the panel — because the
-  // hand that fires it is this one, and a light six inches from your eyes is a light you see with
-  // the boat still in your peripheral vision.
-  if (L.nitroOn) face([[ky - 0.010, kz + 0.022], [ky + 0.010, kz + 0.022], [ky + 0.010, kz + 0.030], [ky - 0.010, kz + 0.030]],
-    LAMP_ON, 1);
+  for (let i = 0; i < n; i++) {
+    const xi = n === 1 ? xm : x + side * (0.022 + i * 0.026);
+    // The slot in the cap, dark, the length of the lever's travel.
+    K.box(xi - 0.0045, py - 0.078, top + 0.006, xi + 0.0045, py + 0.092, top + 0.0068, 'dash', 0, [6, 7, 9]);
+    const p0 = [xi, py, top], p1 = [xi, py + sy * len, top + sz * len];
+    K.rod(p0, p1, 0.0065, 'dash', 0.1, HY.billet, 0.05, 8);
+    // The knob, which is what your hand is actually on: a fat anodised grip on the end of the arm.
+    const dir = [0, sy, sz];
+    const k0 = [p1[0], p1[1] - dir[1] * 0.012, p1[2] - dir[2] * 0.012], k1 = [p1[0], p1[1] + dir[1] * 0.034, p1[2] + dir[2] * 0.034];
+    K.rod(k0, k1, 0.017, 'dash', 0.2, HY.anod, 0.08, 10);
+    K.rod(k0, [k0[0], k0[1] + dir[1] * 0.004, k0[2] + dir[2] * 0.004], 0.019, 'dash', 0.1, HY.billet, 0.05, 10);
+    // ⚠ AND A TELL-TALE THAT THE BOTTLE IS OPEN, on the knob rather than on the panel — because the
+    // hand that fires it is this one, and a light six inches from your eyes is a light you see with
+    // the boat still in your peripheral vision. On the outboard knob only: one bottle, one lamp.
+    if (i === n - 1) {
+      const e = [k1[0], k1[1] + dir[1] * 0.002, k1[2] + dir[2] * 0.002];
+      K.rod(k1, e, 0.008, 'dash', 0.2, L.nitroOn ? LAMP_ON : [60, 22, 20], L.nitroOn ? 1 : 0, 8);
+    }
+  }
 }
 
 
@@ -1093,8 +1131,21 @@ export function shellBounds(profile) {
 // `halfW` is a bound on vertices these counts decide, so two grids means a wall outside its own
 // room by a rounding error.
 const ROOM = { NF: 10, NR: 4, NT: 18, NV: 4 };
+// The stations a run of the room is built at: `n` even steps along the house, plus every hull
+// station and the screen's head inside it. ⚠ THE KINKS ARE STATIONS, because the house's top and
+// sides are piecewise in f (the sheer under them is a station table) and a chord across a kink rides
+// off the curve: on the Spur, whose stations fall mid-room, the wall top crossed one and stood a
+// tenth of a millimetre over her own headlining, which the gate counts and is right to.
+function roomGrid(G, n) {
+  const out = [];
+  for (let i = 0; i <= n; i++) out.push(G.hF0 + (G.hF1 - G.hF0) * (i / n));
+  // …and the window's own two ends: at its aft point the aperture opens as an ellipse, steepest exactly
+  // there, and a chord from the nearest grid station cut a sliver of solid house open beside it.
+  for (const f of [...G.STATIONS.map((x) => x.f), G.rF, G.gAft, G.sideF1]) if (f > G.hF0 + 1e-6 && f < G.hF1 - 1e-6) out.push(f);
+  return out.sort((a, b) => a - b).filter((f, i, a) => i === 0 || f - a[i - 1] > 1e-6);
+}
 
-function boatProfile(row) {
+function boatProfile(row, id = 'hydro') {
   const G = boatGeom(row);
   const m = G.helm.mPerUnit;       // model units -> metres. See the scale bridge in boat-house.js.
   const E = G.helm;
@@ -1118,9 +1169,7 @@ function boatProfile(row) {
   // are the wall of. A bound and the thing it bounds have to be sampled together.
   let maxHW = 0;
   for (const n of [ROOM.NF, ROOM.NT]) {
-    for (let i = 0; i <= n; i++) {
-      maxHW = Math.max(maxHW, G.hw(G.hF0 + (G.hF1 - G.hF0) * (i / n), 0) * LIN);
-    }
+    for (const f of roomGrid(G, n)) maxHW = Math.max(maxHW, G.hw(f, 0) * LIN);
   }
 
   // The dash top IS the window sill carried round to the screen corner — one line round the whole
@@ -1132,9 +1181,21 @@ function boatProfile(row) {
 
   const floor = Z(G.soleZ);
   const roofZ = Z(G.roof.rz(G.rF) + G.roof.crownH);
+  // The lining's inner face at (y, z) in metres off the eye. See `wallAt` on the profile below.
+  const wallAtM = (y, z) => {
+    const f = y / m + E.f, zz = z / m + E.z;
+    const ff = Math.max(G.hF0, Math.min(G.hF1, f));
+    const t = Math.max(0, Math.min(1, (zz - G.hz(ff, 0)) / (G.hH || 1)));
+    const half = G.hw(ff, t) * LIN;
+    return { port: X(-half), stbd: X(half) };
+  };
 
   return {
-    label: 'pilothouse',
+    label: G.CAT ? 'canopy' : 'pilothouse',
+    // Which hull this is the inside of. The fit-out reads it for the things that differ by boat
+    // and are not geometry: the badge on the fascia, how many levers, how many engines to gauge.
+    hull: id,
+    levers: Math.max(1, Math.round(row.levers ?? 1)),
     // ── measured off the house ──
     xCentre: X(0),
     halfW: maxHW * m,
@@ -1182,7 +1243,9 @@ function boatProfile(row) {
       // the bottom of the picture, so a driver never saw the thing they were steering with.
       wheel: { y: 0.48, z: -0.30, r: 0.175, rakeY: 0.06, rakeZ: 0.20, lock: 105 },
       // Outboard on the starboard side, where your hand falls with your elbow up on the coaming.
-      throttle: { side: 1, x: X(0) + maxHW * m - 0.16, y: 0.34, z: -0.42, len: 0.20 },
+      // ⚠ IN FROM THE WALL AT THE LEVER'S OWN HEIGHT: the tumblehome brings a canopy's side in well
+      // inside its floor-level width, and a quadrant set off the widest point stood through it.
+      throttle: { side: 1, x: Math.min(X(0) + maxHW * m - 0.16, wallAtM(0.34, -0.40).stbd - 0.12), y: 0.34, z: -0.42, len: 0.20 },
     },
     // The cabin lights: three lamps under the dash lip and one in the roof over the seat. The
     // renderer only lights them while `powered` is set, which boat-view ties to the ignition, so a
@@ -1198,6 +1261,15 @@ function boatProfile(row) {
     hotspots(live) { return hydroHotspots(this, live); },
     // The curves themselves, for the loft below. Its presence is what selects the lofted room.
     loft: { G, m, X, Y, Z, LIN },
+    // ⚠ WHERE THE WALL IS, ASKED BY THE FIT-OUT. The things a person reaches for are authored in
+    // metres off the eye, which is right (an arm does not scale with the hull), and every one of them
+    // was placed for the Rooster's pilothouse: a starboard console 0.98 m out, lockers a metre
+    // either side of the door. A Gamecock's canopy wall is 0.76 m out, so the same numbers stood a
+    // console and a locker through the side of her. Each part now asks this for the lining's inner
+    // face at its own station and height, and stays inboard of it.
+    wallAt: wallAtM,
+    // How far forward the headlining reaches, in metres off the eye: forward of it is screen.
+    roofFront: Y(G.rF),
   };
 }
 
@@ -1224,7 +1296,11 @@ function loftedRoom(P, push) {
   // hung under it — a hairline gap the whole length of the cabin, on both sides, which is a bright
   // line along the top of the wall in a depth-buffered render. Every part that meets the ceiling
   // reads this: the side walls, the bulkhead and the screen pillars.
-  const ceil = (f) => G.hz(f, 1) - G.roof.THK;
+  // ⚠ AND FORWARD OF THE SCREEN'S HEAD THE HEADLINING IS FLAT AT ITS LEADING EDGE (`rz` clamps at
+  // `rF`) while the sheer under the house keeps rising, so `hz(f, 1)` there is ABOVE the panel. The
+  // Rooster never builds wall that far forward; a Spur, whose screen head is nearly at its wrap, did,
+  // and stood eight vertices a millimetre proud of her own ceiling. `rz` is what the lining is.
+  const ceil = (f) => G.roof.rz(f) - G.roof.THK;
 
   const fA = G.hF0, fB = G.hF1;
   const fAt = (i, n) => fA + (fB - fA) * (i / n);
@@ -1232,8 +1308,9 @@ function loftedRoom(P, push) {
   // ── THE SOLE ───────────────────────────────────────────────────────────────
   {
     const fs = [];
-    for (let i = 0; i < NF; i++) {
-      const f0 = fAt(i, NF), f1 = fAt(i + 1, NF);
+    const FS = roomGrid(G, NF);
+    for (let i = 0; i < FS.length - 1; i++) {
+      const f0 = FS[i], f1 = FS[i + 1];
       const w0 = wxAt(f0, G.soleZ), w1 = wxAt(f1, G.soleZ);
       fs.push(quad([pt(f0, -w0, G.soleZ), pt(f1, -w1, G.soleZ),
                     pt(f1, w1, G.soleZ), pt(f0, w0, G.soleZ)], [0, 0, 1]));
@@ -1248,8 +1325,9 @@ function loftedRoom(P, push) {
     const fs = [];
     const THK = G.roof.THK;
     const hzTop = (f, u) => G.roof.rz(f) + G.roof.cr(u) - THK;
-    for (let i = 0; i < NF; i++) {
-      const f0 = fAt(i, NF), f1 = Math.min(fAt(i + 1, NF), G.rF);
+    const FS = roomGrid(G, NF);
+    for (let i = 0; i < FS.length - 1; i++) {
+      const f0 = FS[i], f1 = Math.min(FS[i + 1], G.rF);
       if (f1 <= f0) break;
       for (let j = 0; j < NR; j++) {
         const u0 = -1 + 2 * (j / NR), u1 = -1 + 2 * ((j + 1) / NR);
@@ -1335,8 +1413,9 @@ function loftedRoom(P, push) {
     for (const s of [-1, 1]) {
       const n = [-s, 0, 0];
       const below = [], above = [];
-      for (let i = 0; i < NT; i++) {
-        const f0 = G.hF0 + (G.hF1 - G.hF0) * (i / NT), f1 = G.hF0 + (G.hF1 - G.hF0) * ((i + 1) / NT);
+      const TS = roomGrid(G, NT);
+      for (let i = 0; i < TS.length - 1; i++) {
+        const f0 = TS[i], f1 = TS[i + 1];
         // Under the glass: from the sole up to the sill. Forward of the wrap there is no side
         // aperture at all — that is where the screen turns the corner — so the wall runs up to the
         // sill line the dash top sits on and stops.
@@ -1353,9 +1432,12 @@ function loftedRoom(P, push) {
         // a thin band — it draws an INVERTED one. Forward of about amidships the aperture's head
         // climbs past the panel's underside, so `1 - headAt` is still comfortably positive while
         // `tCeil - headAt` has gone negative, and the wall is emitted upside down between them.
-        const tCeil = 1 - G.roof.THK / (G.hH || 1);
-        const h0 = Math.min(tCeil, G.headAt(f0)), h1 = Math.min(tCeil, G.headAt(f1));
-        if (Math.min(tCeil - h0, tCeil - h1) <= 0.004) continue;
+        // Per station, because the ceiling is (see `ceil`): the same height as `1 - THK/hH` wherever
+        // the roofline is the house's own top, and lower forward of the screen's head.
+        const tC = (f) => (ceil(f) - G.hz(f, 0)) / (G.hH || 1);
+        const c0 = tC(f0), c1 = tC(f1);
+        const h0 = Math.min(c0, G.headAt(f0)), h1 = Math.min(c1, G.headAt(f1));
+        if (Math.min(c0 - h0, c1 - h1) <= 0.004) continue;
         above.push(
           tri(pt(f0, s * wx(f0, h0), G.hz(f0, h0)), pt(f1, s * wx(f1, h1), G.hz(f1, h1)), pt(f1, s * wx(f1, 1), ceil(f1)), n),
           tri(pt(f0, s * wx(f0, h0), G.hz(f0, h0)), pt(f1, s * wx(f1, 1), ceil(f1)), pt(f0, s * wx(f0, 1), ceil(f0)), n));

@@ -1,0 +1,18 @@
+{
+  "description": "Five moulded plastic seats on one steel beam, bolted to the floor along the window. The middle one is cracked.",
+  "flags": {
+    "interactions": [
+      "sit"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cw_arrivals_chairs",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a row of bolted chairs",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_cw_arrivals"
+}

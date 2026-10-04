@@ -2250,6 +2250,19 @@ things two keys already did. ⚠ **Hidden by POINTER, not by width** — `(hover
 (pointer:fine)` — because a small window on a desktop still has a keyboard and a tablet in landscape
 still does not.
 
+**The touch shelf carries only what a leg needs** *(2026-10-03)*. On any touch screen (`TOUCH_MQ`,
+so a phone held sideways counts) the shelf is one line: steer left and right, the key, the park
+brake, reverse, brake and throttle. Three more come and go with the world: the trailer valve under a
+pin, the pump handle at a pump, and the exit door once the park brake is set at a standstill. The
+manual gearbox is gone from touch entirely. `setAuto` and `setAutoClutch` refuse to switch off
+there, without saving that as the driver's choice, and `pressCtl` ignores the painted gearbox
+switches. The wipers are automatic on touch too (`touchWipers`: low in rain or snow, high in a
+storm). Everything else (Jake, lamps, dome, cruise, CB, doors, galley, the look buttons, the horn)
+still works from the painted dash, a key or its verb. On a 375×812 phone the shelf went from 419px
+to 92px and the road from 393px to 720px. ⚠ **Reverse must stay**: the automatic never picks it for
+you. ⚠ **The legends set their size in the touch block**: the base rules write `font:700 8px/1
+inherit`, which is invalid, so the browser drops it and the legend takes the button's 15px.
+
 **The shelf is spread, not centred** *(2026-08-14)*. `justify-content:center` put every control in
 the middle of the pane — which is exactly where the painted wheel and the binnacle are, so the
 hardware ended up stacked over the one part of the dash that was already busy. The wheel sits at 42%
@@ -2694,7 +2707,7 @@ place just inside the South Gate. It's now **outside the Curtain**, under the ro
 
 |       | 909 | 910 | 911 | 912 |
 |---|---|---|---|---|
-| **917** | Best Offer | Engine Trouble | **the South Lock** | grass |
+| **917** | Best Offer | grass | **the South Lock** | grass |
 | **918** | Windrow Lane | Windrow Lane | **the South Lock** | grass |
 | **919** | Curtain | Curtain | **SOUTH GATE** | Curtain |
 | **920** | waste | the weigh lane | **the Outer Lock** | waste |
@@ -2703,8 +2716,9 @@ place just inside the South Gate. It's now **outside the Curtain**, under the ro
 
 The gate stands at the south end of Meltwater Row. It used to be at the end of the Gate Road
 (918,919), and moved one road west on 2026-09-30; 918,919 is plain Curtain now, and the Gate Road
-runs out against it. Outside, the dirt road leaves the shed at 911,923 and runs east along row 923 to
-meet the old road south at 918,923.
+runs out against it. Outside, the dirt road leaves the shed at 911,923 and runs due south down
+x=911 to the rim at 911,947 (Ironpan), where the highway takes over. Until 2026-10-02 it jogged east
+along row 923 to the old road down x=918, so it left the mouth at a right angle.
 
 A rig coming north up the Glacis goes under the lock roof at 911,922. It either carries straight on
 up 911 (the bypass) or takes the ramp at **910,922** onto the deck at **910,921**, the tile
@@ -2767,14 +2781,115 @@ smuggle without importing it. Neither direction of dependency is created.
 
 ## The South Lock — the gate as an airlock
 
-**STATUS: BUILT.** `plugins/trucking/lock.js`, drawn by `drawGateLock` in `windshield.js`.
+**STATUS: BUILT.** `plugins/trucking/lock.js`, drawn by `drawGateLockGL` (GLASS 2) and
+`drawGateLock` (the 2-D painter) in `windshield.js`.
 
-The South Gate is an airlock. Outside, the Glacis road runs under a shed of grey plate for three
-tiles (the Outer Lock, 911,920–922), with the weigh ramp, the deck and the weigh lane under the same
-roof. Inside, Meltwater Row runs through two covered tiles (the South Lock, 911,917–918) that carry
-`gate_lock.search`. Content marks every covered tile with `flags.gate_lock`; walls are derived in
-`deriveSurfaceCell` from the neighbours (any side that isn't lock, gate or road is plate), so nothing
-authors a wall by hand.
+The South Gate is an airlock. Outside, the Glacis road runs into a chrome hall (the Outer Lock,
+910–912 × 920–922): the weigh lane on the west, the Glacis road in the middle, the police lane on the
+east, and the booth and the Gate Post inside it as rooms. Inside the wall, Meltwater Row runs through
+two covered tiles (the South Lock, 911,917–918) that carry `gate_lock.search`. Content only marks
+which tiles are covered (`flags.gate_lock`); everything about the shape is derived.
+
+### The hall
+
+`deriveSurfaceCell` works out each lock as one building and tells every tile which slice of it to
+draw:
+
+- **Lanes** are the covered tiles reachable from each other under the same `name` and `gate`.
+- **Rooms** are buildings beside a lane that open onto it: a `weigh_station` or `police` beside a
+  deck, or any `vehicle_bay`. The hall widens across to take them, so its wall stands outside the
+  booth and the Gate Post instead of leaving a gap in the plate where each one is.
+- **The box** is the lanes' rows, widened across for the rooms: 909–913 × 920–922 for the Outer Lock,
+  911 × 917–918 for the inner one. Lanes always run north-south, because the gate is at one end.
+- **Claims** (`cw`/`ce`): a room or an empty corner has no lock tile of its own, so the lane beside
+  it draws its roof. Each lane claims the gap up to the next lane east, and the run to the hall's west
+  wall if no lane stands west of it. Every tile in the box has one owner.
+- **Walls** (`wl`) are the hall's own. A lock is never open at the side: Windrow Lane meets the inner
+  lock's west wall, and the road auto-tiler draws no arm across a lock's side, so the hall's floor is
+  straight lanes and not a grid of crossroads. An end on the hall's edge is open onto road (a
+  mouth, `mo`), onto the gate (`gx`), or shut.
+- **A door is where the exits say.** An end is a mouth only if the tile has an exit that way, read
+  off the zone by id. The Post Ramp ends on the same dirt road as the Glacis road, so reading the
+  neighbour drew two mouths; its exit is walled in content and it draws as wall.
+- `he` says which ends of the hall a row is on, and `ha` gives the hall's west and east tiles, so the
+  renderer can lay one arch across the whole width.
+
+GLASS draws a hall wider than a lane as one ribbed barrel of mirror plate, sampled on a grid fixed to
+the hall so the slices meet with no seam. A one-lane hall keeps the narrow chamfered vault. A lane
+end gets a portal only where there's a way through: a gantry of lamps over open road, or the tube to
+the gate. A lane end that goes nowhere is plain wall with a pilaster down its middle. So the Outer
+Lock shows the waste one door, and the gate one tube.
+
+### One way in, one way out
+
+The airlock's walls are in the movement graph as well as the picture, as `blocked` connections named
+"the lock wall" or "the gate tube":
+
+- the inner lock's west side at 911,918 (Windrow Lane is a dead end from the west now);
+- the gate's two sides at 911,919, so nobody walks round the inner lock along the Curtain tiles;
+- the Post Ramp's south end at 912,922.
+
+Fire Station 4 stood at 910,917 and opened into the lock at 911,917, and its model clipped the
+lock's plate. It moved to the empty lot at 906,913 on 2026-10-02, doors east onto Meltwater Row, and
+910,917 is grass. So the only ways in or out of the airlock are
+Meltwater Row at the town end and the Glacis road through the middle mouth.
+
+**A truck stops at the plate.** The lock is a mark and not a building, so the building sweep never
+saw it and a cab drove in through the side. `groundObstructionAt` reads the lock's walls off the same
+`lk` fields when the caller passes `cellAt`, a lookup of the cells round the point (`lockWallZAt` in
+`windshield.js`). It needs the neighbours because a lane draws the wall of the empty tiles it claims.
+cab-view.js passes it, and skips it for a rig that starts the frame inside a wall's band, so a rig
+caught in the doorway when the door drops can back out. `scripts/shapes/lockwall.mjs` drives a rig
+across every wall both ways on the baked world, and through the one way in.
+
+### The outer door and the lockdown
+
+The middle mouth is always open, except while the city is locked down. The emergency plugin emits
+`esp.changed` when the ESP starts and stops. Two listeners read it, and neither imports the
+emergency plugin:
+
+- `deriveSurfaceCell` (live cells only, never the bake) moves the Outer Lock's mouth out of `mo`,
+  into `wl` and into `dn`, the door that's down. It also puts `ld` on every tile of the outer hall.
+  GLASS draws the shut door with its red lamp in the portal, runs the hall's lamps and the end wall's
+  light lines red with a slow swell, and drops the arrow to the scales. A truck hits the door.
+- `lock.js` registers the `trucking:lock` move gate, which refuses a step between the outer hall
+  and open waste while it lasts. A room's own door inside the hall is a building, so the booth and
+  the Gate Post stay reachable. The text rung's route stops at the door with the same line
+  (`doorDown` in textdrive.js).
+
+The inner lock stays open onto the town, so anyone in the airlock when the siren starts can get
+back in.
+
+**The Curtain shuts with it.** The same derive puts `cld` on every Curtain and gate tile (live only):
+
+- The South Gate's field comes down to the road, and two blast-door leaves close across the
+  carriageway in a finger joint, six courses with a tooth each way across the seam (`drawSouthGate`).
+  `curtainTopZAt` stops treating the gate as the way through, so a rig hits the closed field.
+- The outer door is the same finger joint: seven courses, a red line down each tooth and a lit bolt
+  where it seats.
+- The wall runs alarm red with a swell on the lock's clock (`vRed` in `gl/curtain.js`, `CURTAIN_RED`
+  on the 2-D path). Every lamp on the gate, the end anchors and the corner and end bastions turns red
+  and flashes with it, and the anchors and bastions gain strobes.
+
+`scripts/shapes/curtainlockdown.mjs` checks the gate is solid, every wall segment reaches the GPU red,
+and a frame with all of it in lockdown paints.
+
+**The board.** The tile that carries `gate_lock.sign` puts a board on the roof over its mouth,
+centred on the hall: `{ "lines": ["Welcome to", "Coldwater Basin"], "back": "Now leaving Coldwater
+Basin", "eye": true }` on 911,922. Content writes the words in ordinary case and the board sets them
+in capitals; `back` is what the board says to someone behind it. `eye` adds a lit eye in a chrome lid
+above the board, which turns to follow the camera and blinks for a quarter of a second every eleven.
+Under the board, over the mouth, a red arrow points at the lane carrying `weigh_station` (`sc`,
+derived), lettered All Trucks and Scales. The words are content; nothing in the renderer names the
+city.
+
+**The rooms** are named models, `glacis_booth` and `gate_post` in `models/old-coldwater.js`, both
+built by `lockPod`: a housing of the lock's own chrome (a back slab against the hall wall, two
+cheeks and a hood) around a rounded glass prow on a chrome base, under a chrome cap. The booth's
+light lines are the scanner's cyan and it carries a readout bar over the prow; the Gate Post's are
+police blue, with a glass watch cupola and a beacon on the hood. Every height is a share of
+`LCK_ROOF_Z`, so they clear the arch where it comes down to the wall. The `weigh_station` and
+`police` type arms are unchanged for the plazas and Precinct 9.
 
 **The lamps are the order.** Every driver entering the inner lock is drawn for a search, seeded on
 (player, truck, 20-minute window) at about one in three:
@@ -2799,9 +2914,7 @@ authors a wall by hand.
 - The lock searches and the scale weighs, and neither knows about the other: "weight, not
   contraband" still holds at the deck outside.
 - Long Stay (919,918) stayed on the Gate Road when the gate moved west, so its gate opens onto
-  ordinary road now. Engine Trouble's doors (910,917) open into the lock hall at 911,917, and
-  Windrow Lane joins it from the west at 911,918. Mounting doesn't arm the lock; only entering it
-  does, from whichever side.
+  ordinary road now. Mounting doesn't arm the lock; only entering it does, from whichever end.
 
 ## The inspection plaza — the scale house as a place
 

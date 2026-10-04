@@ -2,16 +2,18 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#241f19",
-  "description": "Up under the roof, where the signalman used to sit and watch a mile of track. The glass is gone and the view is scaffolding now. A camp bed, a kettle, and a wall of tally marks that stopped being counted at some point and were never wiped off.",
+  "description": "A back room tiled by three different people who never met. Two showers run cold and one runs colder. The sink is a steel trough, with a mirror screwed above it at the height of nobody in particular. Somebody has scratched a tally of first mornings into the grout.",
   "exits": {
     "south": "zone_trackmarks_shop"
   },
   "flags": {
-    "building_name": "Track Marks Freight",
-    "building_type": "forwarder",
+    "building_name": "Hostel Takeover",
+    "building_type": "hostel",
     "floor": "tile",
     "is_building": true,
     "is_interior": true,
+    "region_id": "region_coldwater",
+    "sanctuary": true,
     "world_exit_zone": "zone_district_917_903"
   },
   "grid_x": 0,
@@ -19,6 +21,6 @@
   "grid_z": 0,
   "id": "zone_trackmarks_back",
   "map_id": "map_int_trackmarks",
-  "name": "Track Marks Freight — Signal Loft",
+  "name": "Hostel Takeover, the wash",
   "parent_zone": "zone_district_917_903"
 }

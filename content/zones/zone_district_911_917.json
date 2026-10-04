@@ -4,8 +4,7 @@
   "description": "The town end of the lock, a roofed mouth of grey plate. A shutter hangs up in the lintel and under it a gantry of lamps faces the road: green, amber, or once in a while red with a klaxon behind it. A stencil on the wall says all vehicles may be searched.",
   "exits": {
     "north": "zone_district_911_916",
-    "south": "zone_district_911_918",
-    "west": "zone_district_910_917"
+    "south": "zone_district_911_918"
   },
   "flags": {
     "artery": [

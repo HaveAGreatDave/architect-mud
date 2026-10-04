@@ -1594,7 +1594,7 @@ function writeGeneratorRemaining(genRow, remainingKw) {
   genRow.remaining_kw = remainingKw;
 }
 
-async function simulatePowerNetwork(query, { weatherType, reason = 'unknown', silentBlackout = false } = {}) {
+async function simulatePowerNetwork(query, { weatherType, reason = 'unknown', silentBlackout = false, noFaults = false } = {}) {
   // An EMP blacks out every zone at once; one "the lights cut out" line per zone
   // would bury the event's own sky-wide announce, so the caller can mute them.
   const lightOpts = silentBlackout ? { silent: true } : undefined;
@@ -1672,7 +1672,9 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown', si
       const { recover_after, ...rest } = flags;                       // window elapsed — clear the scar
       flags = rest; flagsChanged = true;
     }
-    if (gen.generator_type === 'junction_box' && !inRecovery && status !== 'offline'
+    // `noFaults`: a lightning resim already decided which boxes went; rolling the
+    // ordinary storm faults again on every strike would multiply the fault rate.
+    if (gen.generator_type === 'junction_box' && !inRecovery && status !== 'offline' && !noFaults
         && severity >= STORM_FAULT_SEVERITY && Math.random() < STORM_GENERATOR_FAULT_CHANCE * severity) {
       status = 'offline';
       const recoverMs = (STORM_RECOVER_BASE_MIN + severity * STORM_RECOVER_SPAN_MIN) * 60_000;
@@ -2051,7 +2053,7 @@ export function getZoneVisibility(zoneId) {
   // instant a room is entered (the 30s zoneTempTick still keeps it live). Indoor
   // zones report outdoor:false → the client suppresses the effect. Additive keys;
   // existing consumers read only visibility/category.
-  const precipActive = !isInterior && state.currentPrecip !== 'none';
+  const lp = isInterior ? DRY : getZonePrecip(zoneId);
   return {
     visibility, category, ambientLight: ambientContrib, artificialLight: artificial, windowLight,
     // READABILITY, not perception. `daylight` is the raw sky level and `buried`
@@ -2067,11 +2069,23 @@ export function getZoneVisibility(zoneId) {
     buried: skyVantage(zoneId) === 'buried',
     outdoor: !isInterior,
     weatherType: state.weatherType,
-    precipType: precipActive ? state.currentPrecip : 'none',
-    precipRate: precipActive ? precipFloor(f ? f.precipRate : 0) : 0,
+    // The tile's own precipitation, the same answer the 30s zoneTempTick gives. This sent the
+    // day's headline TYPE, so a tile between cells drew the overlay's rain for the moment
+    // between entering it and the next tick.
+    precipType: lp.precipType,
+    precipRate: lp.precipRate,
     cloudCover: f ? f.cloudCover : 0,
     windKph: getZoneWindKph(zoneId),
+    // The HUD's current-weather line for this tile (getZoneWeather), so the label beside the
+    // clock says what is falling HERE. The per-minute clockTick carries the city's.
+    ...(isInterior ? {} : currentWeatherKeys(zoneId)),
   };
+}
+
+// The three keys getZoneVisibility and the 30s zoneTempTick both send for a tile's HUD line.
+function currentWeatherKeys(zoneId) {
+  const zw = getZoneWeather(zoneId);
+  return { current: zw.current, currentIcon: zw.icon, currentIntensity: zw.intensity };
 }
 
 // Ordered light ladder (dimmest → brightest), matching the category thresholds
@@ -2504,27 +2518,114 @@ function fieldAt(zoneId) {
   return sampleField(z.gridX, z.gridY);
 }
 
-// Global precip FLOOR. The moving field cells decide where precip INTENSIFIES, but on any
-// precipitating day the map-wide headline rate (state.precipRate) is felt on EVERY outdoor
-// tile — so a gentle light rain is both SEEN and HEARD everywhere, not only under a passing
-// cell. Before this, precip lived solely inside the cells: most tiles rendered rain (from the
-// headline TYPE) yet played no audio, because the audio beds gate on the local RATE, which sat
-// at 0 between cells. That's why light rain was silent. Returns the local rate on a dry day.
-function precipFloor(localRate) {
-  const r = localRate || 0;
-  return state.currentPrecip !== 'none' ? Math.max(r, state.precipRate || 0) : r;
+// Which world tile's sky is over this zone, or null when it has none. A map_world zone is its own
+// tile. An open_sky interior deck (roofless but on its own building map, e.g. the Echelon's sun
+// deck) is climatically outdoors, so it borrows the tile it sits on (world_exit_zone /
+// parent_zone); for the yacht that tile moves as she sails. Read off world.zones, the live coords,
+// since a deck isn't necessarily in the power model's state.zones. broadcastZoneWeather and
+// getZonePrecip both resolve through this, so a deck hears, sees and gets soaked by the same sky.
+function skyTileOf(zoneId) {
+  const wz = world.zones.get(zoneId);
+  if (wz?.map_id === 'map_world' && wz.grid_x != null && wz.grid_y != null) return { gx: wz.grid_x, gy: wz.grid_y };
+  if (!wz) {
+    const z = state.zones.get(zoneId);
+    return z && z.mapId === 'map_world' && z.gridX != null ? { gx: z.gridX, gy: z.gridY } : null;
+  }
+  if (!wz.flags?.open_sky) return null;
+  const worldId = wz.flags.world_exit_zone || wz.parent_zone;
+  const ext = worldId ? world.zones.get(worldId) : null;
+  if (!ext || ext.map_id !== 'map_world' || ext.grid_x == null) return null;
+  return { gx: ext.grid_x, gy: ext.grid_y };
+}
+function skyFieldAt(zoneId) {
+  const t = sampleField ? skyTileOf(zoneId) : null;
+  return t ? sampleField(t.gx, t.gy) : null;
 }
 
-// Local precipitation for a zone. The global 30-minute roll stays the map-wide
-// "is precip active" gate; the field decides which tiles are actually under it.
-export function getZonePrecip(zoneId) {
-  const f = fieldAt(zoneId);
-  if (!f) return { precipType: state.currentPrecip, precipRate: state.precipRate };
+// What is falling on one tile, given its field sample `f`. The global 30-minute roll is the
+// map-wide "is anything falling" switch; the field decides WHERE. Rain falls only under a precip
+// or storm cell: between cells the sky is grey (the plugin's baseCloud) and the ground is dry.
+// A zone the field can't place (no `f`) falls back to the day's headline.
+//
+// ⚠ THERE IS NO FLOOR, ON PURPOSE. Until 2026-10-03 a `precipFloor` raised every outdoor tile to
+// the day's headline rate, so on a rain day it rained everywhere and the cells only made it
+// heavier. It went in because the renderer drew rain everywhere off the headline WORD while the
+// audio, gated on the local rate, stayed silent between cells. Now every reader takes this one
+// answer (room overlay, HUD, audio, wetness, the flight canopy through `falling`), so they agree
+// without it. The cell rate already arrives scaled by any hero event from the plugin's sampler.
+//
+// ⚠ ONE DERIVATION. getZonePrecip (and through it the per-room visibility payload,
+// broadcastZoneWeather and getZoneWeatherType, the per-tile weather WORD for prose and the HUD),
+// getPrecipAtGrid and the dev weather map all call this, so they cannot disagree about a tile.
+function localPrecip(f) {
   if (state.currentPrecip === 'none') return { precipType: 'none', precipRate: 0 };
-  return {
-    precipType: f.precipType === 'none' ? state.currentPrecip : f.precipType,
-    precipRate: precipFloor(f.precipRate),
-  };
+  if (!f) return { precipType: state.currentPrecip, precipRate: state.precipRate || 0 };
+  const rate = f.precipRate || 0;
+  if (rate <= 0) return { precipType: 'none', precipRate: 0 };
+  return { precipType: f.precipType && f.precipType !== 'none' ? f.precipType : state.currentPrecip, precipRate: rate };
+}
+
+const DRY = Object.freeze({ precipType: 'none', precipRate: 0 });
+
+// Local precipitation for a zone. See localPrecip.
+// ⚠ NOTHING FALLS INDOORS. A building zone has no tile of its own, so it used to land on the
+// headline fallback and report the day's rain: `wash` found rain to wash in inside a building.
+// isIndoorZone is the SSOT for "sheltered", sewers included.
+export function getZonePrecip(zoneId) {
+  const wz = world.zones.get(zoneId);
+  if (wz && isIndoorZone(wz)) return DRY;
+  return localPrecip(skyFieldAt(zoneId));
+}
+
+// The weather WORD for one zone: what the sky is doing over this tile, in WEATHER_TYPES.
+//
+// ⚠ state.weatherType IS THE DAY'S HEADLINE, NOT THE SKY OVER YOU. It says 'rain' on every tile of
+// a rain day, and since rain only falls under a cell (see localPrecip) that is wrong for most of
+// the map. Anything that tells a player what the weather is doing where they stand (the room's
+// weather line, `look sky`, ambient lines, emotes, the HUD) asks this instead. A forecast or a
+// city-wide report keeps the headline, because that is what it is.
+//
+// Under a cell it is the day's own word when that agrees on rain or snow, since it says more
+// (sleet, blizzard, thunderstorm), and the cell's word otherwise. On a wet day with nothing
+// falling here, it is the cloud overhead, which on a wet day is grey. A dry day's word (clear,
+// fog, haze, ash, cloudy, overcast) is the same on every tile.
+export function getZoneWeatherType(zoneId) {
+  return weatherWordFor(getZonePrecip(zoneId), skyFieldAt(zoneId));
+}
+// The same two questions for a world grid position rather than a zone, for things that move
+// between tiles (a truck, an aircraft) and are placed by coordinates.
+export function getPrecipAtGrid(gx, gy) {
+  return localPrecip(sampleField ? sampleField(gx, gy) : null);
+}
+export function getWeatherTypeAtGrid(gx, gy) {
+  const f = sampleField ? sampleField(gx, gy) : null;
+  return weatherWordFor(localPrecip(f), f);
+}
+function weatherWordFor({ precipType, precipRate }, f) {
+  const day = state.weatherType;
+  if (precipRate > 0) {
+    const snow = precipType === 'snow';
+    if (PRECIP_FORECAST_TYPES.has(day) && (day === 'snow' || day === 'blizzard') === snow) return day;
+    return snow ? 'snow' : 'rain';
+  }
+  if (!PRECIP_FORECAST_TYPES.has(day)) return day;
+  const cover = f ? f.cloudCover : 0.72;
+  return cover >= 0.5 ? 'overcast' : cover >= 0.2 ? 'cloudy' : 'clear';
+}
+
+// The HUD's "current weather" for one zone, in the vocabulary of getHUDPayload's
+// `currentWeatherType`: what is falling here ('rain', 'snow', 'acid') or, when nothing is, the
+// sky's word. With its icon and an intensity label for this tile's own rate. For anything that
+// answers "is it raining on me" (the tablet's place card and wallpaper).
+export function getZoneWeather(zoneId) {
+  const { precipType, precipRate } = getZonePrecip(zoneId);
+  const current = precipRate > 0 ? precipType : getZoneWeatherType(zoneId);
+  let intensity = '';
+  if (precipRate > 0) {
+    const r = Math.min(1, Math.max(0.1, Math.round(precipRate * 10) / 10));
+    intensity = (precipType === 'snow' ? SNOW_INTENSITY_LABELS : RAIN_INTENSITY_LABELS).get(r) ?? '';
+  }
+  return { current, icon: WEATHER_ICON[current === 'acid' ? 'rain' : current], intensity };
 }
 
 // Local storm intensity (0..1) driving lightning frequency/lethality per tile.
@@ -2561,20 +2662,18 @@ export async function getWeatherMap() {
     for (const z of rows) {
       const f = sampleField ? sampleField(z.grid_x, z.grid_y) : null;
       const cloud  = f ? f.cloudCover : 0;
-      // ⚠ BOTH CHANNELS, BECAUSE THE MAP AND THE GAME ARE ASKING DIFFERENT QUESTIONS.
+      // ⚠ BOTH CLOUD CHANNELS, BECAUSE THE MAP AND THE GAME ARE ASKING DIFFERENT QUESTIONS.
       //
-      // 'precip'/'cloud' are EFFECTIVE — the floors folded in, exactly what getZonePrecip and
-      // broadcastZoneWeather hand the player. This readout used to omit the precip floor, so it
-      // reported "precip 0%" on tiles that were being rained on at the headline rate, and a dev
-      // map that disagrees with the game is worse than no dev map because it gets believed.
+      // 'cloud' is EFFECTIVE, the day's baseCloud floor folded in: what a player stands under.
+      // 'cloudCell' is the CELL CONTRIBUTION ALONE. At a storm's 0.8 floor every tile reads alike,
+      // so an overlay shaded by the effective value went flat and the cells (the only thing on
+      // this screen that varies, and the whole reason to open it) disappeared into the floor.
       //
-      // 'precipCell'/'cloudCell' are the CELL CONTRIBUTION ALONE. Applying the floors and stopping
-      // there swapped one broken readout for another: at Max Storm every tile reads the headline
-      // 1.0 and the storm floor is 0.8, so both overlays went flat and the cells — the only thing
-      // on this screen that varies, and the whole reason to open it — disappeared into the floor.
-      // The panel shades by the cell and reports the effective value in the tooltip.
-      const precip     = (f && active) ? precipFloor(f.precipRate) : 0;
-      const precipCell = (f && active) ? f.precipRate : 0;
+      // Rain has no floor (see localPrecip), so 'precip' is what getZonePrecip and
+      // broadcastZoneWeather hand the player AND the cell's own rain. 'precipCell' is the same
+      // number, kept because the panel shades by it.
+      const lp = f ? localPrecip(f) : { precipType: 'none', precipRate: 0 };
+      const precip = lp.precipRate;
       // Day humidity is the floor; tiles under cloud / active precip read damper.
       const localHum = localHumidity(baseHum, cloud, precip);
       zones.push({
@@ -2583,22 +2682,20 @@ export async function getWeatherMap() {
         cloudCover: cloud,
         cloudCell: f ? (f.cloudCell || 0) : 0,
         precipRate: precip,
-        precipCell,
-        // Same fallback the zone broadcast uses: a floored tile is falling the day's headline
-        // precip, and the cell it is between has no type of its own to lend it.
-        precipType: (active && precip > 0) ? ((f && f.precipType !== 'none') ? f.precipType : state.currentPrecip) : 'none',
+        precipCell: precip,
+        precipType: lp.precipType,
         humidityPct: localHum,
         severity: f ? f.severity : 0,
       });
     }
   }
-  // 'baseCloud'/'precipFloorRate' are the two floors themselves, so the panel's legend can NAME
-  // what it has subtracted rather than leaving a dev to wonder why a tile shaded 0 on a day the
-  // whole map is under cloud.
+  // 'baseCloud' is the cloud floor itself, so the panel's legend can NAME what it has subtracted
+  // rather than leaving a dev to wonder why a tile shaded 0 on a day the whole map is under cloud.
+  // 'falling' is the 30-minute roll, so a precip overlay with nothing on it can say why.
   return {
     bounds: snap.bounds, systems: snap.systems, zones, regionBias: snap.regionBias || [],
     baseCloud: snap.baseCloud || 0,
-    precipFloorRate: active ? (state.precipRate || 0) : 0,
+    falling: active,
   };
 }
 
@@ -2654,43 +2751,28 @@ function broadcastZoneWeather(occupied) {
   const base = state.tempC + diurnalOffset(state.minutes);
   const active = state.currentPrecip !== 'none';
   for (const zoneId of occupied) {
-    // Which world tile's weather is over this zone? A map_world zone samples itself. An open_sky
-    // interior deck — roofless but sitting on its own building map (e.g. the Echelon's sun deck) —
-    // is climatically outdoors yet not on map_world, so it borrows the weather over its world tile
-    // (world_exit_zone / parent_zone). For the yacht that tile tracks her as she sails, so the deck
-    // gets whatever sky she's currently under. Resolved off world.zones (authoritative live coords),
-    // since these decks aren't necessarily in the power model's state.zones.
-    let gx, gy;
-    const z = state.zones.get(zoneId);
-    if (z && z.mapId === 'map_world') { gx = z.gridX; gy = z.gridY; }
-    else {
-      const wz = world.zones.get(zoneId);
-      if (!wz?.flags?.open_sky) continue;
-      const worldId = wz.flags.world_exit_zone || wz.parent_zone;
-      const ext = worldId ? world.zones.get(worldId) : null;
-      if (!ext || ext.map_id !== 'map_world' || ext.grid_x == null) continue;
-      gx = ext.grid_x; gy = ext.grid_y;
-    }
-    const f = sampleField(gx, gy);
-    // Floor the local cell rate at the day's headline rate so light rain is heard (and shown)
-    // on every tile, not just under a passing cell — the muffle-a-neighbour bleed below still
-    // layers a heavier nearby storm on top of the floor.
-    let precipRate = active ? precipFloor(f.precipRate) : 0;
-    // Local precip TYPE comes from the field (rain/snow, plus 'acid' where a region or a hero
-    // event makes it burn) rather than the global roll, so a passing cell renders and sounds
-    // like what it actually is over this exact tile. This is the single source both the visual
-    // FX and the audio ambience derive from, so they can never disagree: see it → hear it.
+    // Which world tile's weather is over this zone: see skyTileOf (open_sky decks borrow theirs).
+    const t = skyTileOf(zoneId);
+    if (!t) continue;
+    const f = sampleField(t.gx, t.gy);
+    // What is falling on this tile (getZonePrecip → localPrecip): the cell's own rain, or nothing.
+    // Local precip TYPE comes from the field (rain/snow, plus 'acid' where a region or a hero event
+    // makes it burn) rather than the global roll, so a passing cell renders and sounds like what it
+    // actually is over this exact tile. The overlay, the HUD line and the audio bed all start from
+    // this, so they can never disagree: see it → hear it.
     // ⚠ Two words wide, not the fuller list this comment used to name — see precipTypeForFieldTemp.
-    let localType = precipRate > 0 ? f.precipType : 'none';
+    const { precipType: localType, precipRate } = getZonePrecip(zoneId);
+    // ⚠ THE BLEED IS HEARD, NOT SEEN. A tile beside a downpour borrows a fainter copy of it for the
+    // audio bed, so the street next to a shower isn't silent. It used to go to the overlay too,
+    // which drew rain on a tile with no cell over it, and rain only falls under a cell.
+    let heardRate = precipRate, heardType = localType;
     let muffled = false;
     let muffleHops = 0;
     if (active && precipRate < MUFFLE_LOCAL_THRESHOLD) {
       const { rate: bleed, hops } = muffledNeighborPrecip(zoneId);
-      // Hearing/seeing a neighbouring cell's storm — the bleed carries no type of its
-      // own, so fall back to the day's headline precip for the type.
-      if (bleed > precipRate) { precipRate = bleed; muffled = true; muffleHops = hops; localType = state.currentPrecip; }
+      // The bleed carries no type of its own, so it takes the day's headline precip.
+      if (bleed > heardRate) { heardRate = bleed; muffled = true; muffleHops = hops; heardType = state.currentPrecip; }
     }
-    if (precipRate > 0 && (!localType || localType === 'none')) localType = state.currentPrecip;
     broadcast(zoneId, {
       type: 'environment.zoneTempTick',
       tempC: Math.round(base + f.tempOffset),
@@ -2698,16 +2780,17 @@ function broadcastZoneWeather(occupied) {
       precipType: localType,
       precipRate,
       severity: f.severity,
+      ...currentWeatherKeys(zoneId),
     });
-    // Signal the audio layer what weather ambience this tile is under, from the SAME
-    // localType/precipRate the FX overlay just got. The audio plugin runs two reactive
-    // beds off this: a precip bed (gated + gain-scaled by precipRate, further cut if
-    // `muffled`) and a wind bed (gain-scaled by the day's windKph).
+    // Signal the audio layer what weather ambience this tile is under: the SAME
+    // localType/precipRate the FX overlay just got, or a neighbour's bleed when it is louder.
+    // The audio plugin runs two reactive beds off this: a precip bed (gated + gain-scaled by
+    // precipRate, further cut if `muffled`) and a wind bed (gain-scaled by the day's windKph).
     emit('weather.zoneAmbience', {
       zoneId,
-      precipType: localType,
-      active: precipRate > 0,
-      precipRate,
+      precipType: heardType,
+      active: heardRate > 0,
+      precipRate: heardRate,
       windKph: getZoneWindKph(zoneId),
       muffled,
       muffleHops,
@@ -2750,9 +2833,11 @@ const WEATHER_DESCRIPTIONS = {
   ash:          ['Grey ash drifts down from somewhere upwind, coating every surface.', 'A fine layer of ash has settled over everything. The air smells of burning.'],
 };
 
-export function getWeatherDescription() {
+// With a zone, the line is for the sky over that tile (getZoneWeatherType): on a rain day a street
+// between showers is grey and dry, and its room text says so. Without one it is the day's headline.
+export function getWeatherDescription(zoneId = null) {
   if (!state.ready) return null;
-  const descs = WEATHER_DESCRIPTIONS[state.weatherType];
+  const descs = WEATHER_DESCRIPTIONS[zoneId != null ? getZoneWeatherType(zoneId) : state.weatherType];
   if (!descs?.length) return null;
   return descs[Math.floor(Math.random() * descs.length)];
 }
@@ -4356,6 +4441,58 @@ export async function forceGridBlackout({ minutes = 6, jitterMinutes = 6, reason
   const darkened = new Set();
   for (const [zoneId, pz] of powerZones) if (pz.generator_id && hitGens.has(pz.generator_id)) darkened.add(zoneId);
   return { ok: true, generators: writes.length, epicentre: takeAll ? null : epi, wholeGrid: takeAll, darkened };
+}
+
+// ── Lightning on buildings ──────────────────────────────────────────────────
+// Every building on the world map that a junction box feeds, one entry per box
+// at its facade: [{ x, y, genId, zoneId }]. RAM only (powerZones + generatorRows),
+// so it is fine on the 5s storm tick.
+export function strikeableBuildings() {
+  const byGen = new Map();
+  for (const [zoneId, pz] of powerZones) {
+    if (!pz.generator_id || byGen.has(pz.generator_id)) continue;
+    const gen = generatorRows.get(pz.generator_id);
+    if (!gen || gen.generator_type !== 'junction_box') continue;
+    const anchor = powerAnchorOf(world.zones.get(zoneId));
+    if (!anchor) continue;
+    byGen.set(gen.id, { x: anchor.x, y: anchor.y, genId: gen.id, zoneId: anchor.id });
+  }
+  return [...byGen.values()];
+}
+
+// A strike that lands on a building overloads its junction box. It's the same
+// `recover_after` scar a storm fault leaves, so recovery, persistence and the
+// 5-minute tick staying alive come for free. One UPDATE for the lot, then one
+// resim with the fault roll off. Not silent: the people inside get the ordinary
+// "the lights cut out" line. Returns the zones that went dark.
+export async function overloadJunctionBoxes(genIds, { minutes = 8, jitterMinutes = 10 } = {}) {
+  const { query } = deps;
+  const now = Date.now();
+  const writes = [];
+  for (const id of new Set(genIds)) {
+    const gen = generatorRows.get(id);
+    if (!gen || gen.generator_type !== 'junction_box') continue;
+    const until = gen.flags?.recover_after ? new Date(gen.flags.recover_after).getTime() : 0;
+    if (until > now) continue;                       // already down
+    const ms = (minutes + Math.random() * jitterMinutes) * 60_000;
+    const flags = { ...(gen.flags || {}), recover_after: new Date(now + ms).toISOString() };
+    gen.flags = flags;
+    gen.status = 'offline';
+    writes.push([gen.id, JSON.stringify(flags)]);
+  }
+  if (!writes.length) return new Set();
+  await query(
+    `UPDATE generators SET status='offline', flags = d.flags::jsonb
+       FROM (SELECT * FROM unnest($1::text[], $2::text[]) AS t(id, flags)) d
+      WHERE generators.id = d.id`,
+    [writes.map(w => w[0]), writes.map(w => w[1])]
+  );
+  await simulatePowerNetwork(query, { weatherType: state.weatherType, reason: 'lightning', noFaults: true });
+  loadZonePowerAndLighting();
+  const hit = new Set(writes.map(w => w[0]));
+  const darkened = new Set();
+  for (const [zoneId, pz] of powerZones) if (pz.generator_id && hit.has(pz.generator_id)) darkened.add(zoneId);
+  return darkened;
 }
 
 // Ghost-mode sabotage: force a zone fully offline right now. Zeroes its supply

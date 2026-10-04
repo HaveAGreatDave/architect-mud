@@ -1,0 +1,21 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#5f6f7a",
+  "description": "A desk at the head of a zigzag of queue belts, and past it a glass door onto a covered walkway that runs out over the apron to the boarding stair. Charters are booked at the desk and boarded through the door. The lounge is north.",
+  "exits": {
+    "north": "zone_cw_lounge"
+  },
+  "flags": {
+    "floor": "carpet",
+    "hangar_ramp": "zone_district_925_903",
+    "is_interior": true
+  },
+  "grid_x": -1,
+  "grid_y": 2,
+  "grid_z": 0,
+  "id": "zone_cw_gate",
+  "map_id": "map_int_cw_departures",
+  "name": "Gate 1",
+  "parent_zone": "zone_district_924_903"
+}

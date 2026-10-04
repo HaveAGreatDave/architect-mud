@@ -1512,6 +1512,72 @@ async function regressBody({ run, check, getPlayer }) {
     }
   }
 
+  // ── A server restart mid-flight, and `flightresume` ─────────────────────────────
+  // The seat is RAM. A restart forgot it while the cockpit flew on, so a Drake flown from Coldwater
+  // Regional and set down on the Threshold Helipad climbed its pilot out into the Regional hangar,
+  // the room they boarded from, and left the row airborne a few tiles off the Regional ramp.
+  {
+    const hid = 'aircraft_regress_resume';
+    const savedZone = p.current_zone, savedPosture = p.posture, savedBc = getBroadcast();
+    await query('DELETE FROM aircraft WHERE id=$1', [hid]);
+    await query(`INSERT INTO aircraft (id,type_id,name,owner_id,rental,is_wreck,airborne,parked_zone_id,grid_x,grid_y,fuel) VALUES ($1,'ac_drake','REGR-RS','someone_else',0,0,0,'zone_district_925_903',925,903,400)`, [hid]);
+    setBroadcast(() => {});
+    const forget = () => { liveAircraft.delete(hid); delete p.aircraftId; delete p.seat; p.posture = 'standing'; };
+    try {
+      // Board her by hand (the seat is what is under test, not the boarding gates), then lift off.
+      p.current_zone = 'zone_hangar_outskirts';
+      const live = await loadAircraft(hid);
+      live.occupants.add(p.id); live.pilotId = p.id; p.aircraftId = hid; p.seat = 'pilot';
+      await run('flightsync 925.00 903.00 0 0 270 40 0 1 0');
+      await run('flightevent takeoff');
+      check('wheels-up writes the pilot onto the row', live.row.custom_data?.aloft?.pilot === p.id && live.row.custom_data.aloft.home === 'zone_district_925_903',
+        JSON.stringify(live.row.custom_data?.aloft));
+      await run('flightsync 922.00 903.00 400 120 260 70 0 0 0');
+      await query('UPDATE aircraft SET grid_x=922, grid_y=903 WHERE id=$1', [hid]);
+
+      // The restart. Somebody else's resume is refused (she is not theirs to fly) and must not
+      // leave her loaded into the tick either.
+      forget();
+      await query(`UPDATE aircraft SET custom_data = jsonb_set(custom_data, '{aloft,pilot}', '"another_pilot"') WHERE id=$1`, [hid]);
+      await run(`flightresume ${hid}`);
+      check('flightresume refuses an airborne craft the row says somebody else is flying', !p.aircraftId && !liveAircraft.has(hid), p.aircraftId);
+      await query(`UPDATE aircraft SET custom_data = jsonb_set(custom_data, '{aloft,pilot}', to_jsonb($2::text)) WHERE id=$1`, [hid, p.id]);
+
+      await run(`flightresume ${hid}`);
+      const back = liveAircraft.get(hid);
+      check('…and seats the pilot the row names, still airborne', p.aircraftId === hid && p.seat === 'pilot' && back?.pilotId === p.id && back?.row.airborne === 1,
+        JSON.stringify({ ac: p.aircraftId, seat: p.seat, air: back?.row.airborne }));
+      check('…with her home field back for a tow', back?.homeField === 'zone_district_925_903', back?.homeField);
+
+      // She flies on to the pad and sets down, and climbing out puts you THERE.
+      await run('flightsync 893.10 909.05 0 0 260 10 0 1 0');
+      await run('disembark');
+      check('after a restart, climbing out on the Threshold Helipad puts you at the Threshold Helipad',
+        p.current_zone === 'zone_hangar_threshold' && !p.aircraftId, p.current_zone);
+      const { rows: [row] } = await query('SELECT airborne, parked_zone_id, custom_data FROM aircraft WHERE id=$1', [hid]);
+      check('…she is parked on the pad, and nobody is flying her', row?.airborne === 0 && row?.parked_zone_id === 'zone_district_893_909' && !row?.custom_data?.aloft,
+        JSON.stringify({ air: row?.airborne, parked: row?.parked_zone_id, aloft: row?.custom_data?.aloft }));
+
+      // A restart during the taxi: she is still on the ground, so she goes back to her owner only.
+      forget();
+      await run(`flightresume ${hid}`);
+      check('flightresume refuses a parked craft to anyone but its owner', !p.aircraftId && !liveAircraft.has(hid), p.aircraftId);
+      await query('UPDATE aircraft SET owner_id=$2 WHERE id=$1', [hid, p.id]);
+      await run(`flightresume ${hid}`);
+      check('…and seats the owner', p.aircraftId === hid && p.seat === 'pilot', p.aircraftId);
+    } finally {
+      setBroadcast(savedBc);
+      const live = liveAircraft.get(hid);
+      if (live) for (const pid of [...live.occupants]) live.occupants.delete(pid);
+      liveAircraft.delete(hid);
+      await query('DELETE FROM aircraft WHERE id=$1', [hid]);
+      getZone('zone_hangar_threshold')?.players?.delete(p.id);
+      getZone('zone_hangar_outskirts')?.players?.delete(p.id);
+      p._lastStepAt = 0;
+      p.current_zone = savedZone; p.posture = savedPosture; delete p.aircraftId; delete p.seat; delete p.textTravel;
+    }
+  }
+
   // ── Walkable aircraft cabin — the Leviathan flying base, Phase 1 ─────────────
   // Pure seams: which craft carry a walkable interior.
   check('leviathan is a walkable-cabin craft; the mayfly is not',

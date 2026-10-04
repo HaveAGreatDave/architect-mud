@@ -6,13 +6,13 @@
   "flags": {
     "floor": "concrete",
     "is_interior": true,
-    "world_exit_zone": "zone_district_910_917"
+    "world_exit_zone": "zone_district_906_913"
   },
   "grid_x": 0,
   "grid_y": 0,
   "grid_z": -1,
   "id": "zone_util_zone_engine_bay",
   "map_id": "map_int_engine",
-  "name": "Engine Trouble — The Pump Store",
-  "parent_zone": "zone_district_910_917"
+  "name": "Fire Station 4 — The Pump Store",
+  "parent_zone": "zone_district_906_913"
 }

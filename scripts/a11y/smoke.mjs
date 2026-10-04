@@ -306,7 +306,7 @@ if (/id="cmd-input"[\s\S]{0,200}?aria-label=/.test(html) || /aria-label=[\s\S]{0
 
 // ── Chargen ──────────────────────────────────────────────────────────────────
 // A BLOCKING surface by the classification test in docs/systems-display-mode.md:
-// the prologue's first move gate wants `appearance.changed`, and the MORPHEX is
+// the prologue's first move gate wants `cosmetic.opened`, and the MORPHEX is
 // the only thing that emits it. Every sub-command was already typed — the hole
 // was that nothing but a modal ever NAMED them, and the toast saying what
 // changed rode the panel payload and never reached the log.

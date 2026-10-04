@@ -4,6 +4,7 @@
   "description": "The last of the row before it meets Meltwater Row, cut square to it, the join patched with a different stone entirely.",
   "exits": {
     "east": "zone_district_911_916",
+    "south": "zone_district_910_917",
     "west": "zone_district_909_916"
   },
   "flags": {

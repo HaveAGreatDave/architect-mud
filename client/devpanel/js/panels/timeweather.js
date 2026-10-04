@@ -355,11 +355,11 @@ function buildWeatherMapSVG(data, overlay) {
   let tiles = '';
   for (const z of zones) {
     const x = px(z.grid_x), y = py(z.grid_y);
-    // ⚠ SHADE BY THE CELL, REPORT THE EFFECTIVE. The floors (the day's ambient cloud, the headline
-    // precip rate) are identical on every tile, so they are the one part of the number that can
-    // tell you nothing about WHERE — and on a storm day they are most of it: floor 0.8 cloud and
-    // 1.0 precip put the whole map in one shade and made every cell invisible. The cell channel is
-    // what varies, so that is what gets the ink; the tooltip carries the number the game applies.
+    // ⚠ SHADE BY THE CELL, REPORT THE EFFECTIVE. The day's ambient cloud floor is identical on
+    // every tile, so it is the one part of the number that can tell you nothing about WHERE, and
+    // on a storm day it is most of it: a 0.8 floor put the whole map in one shade and made every
+    // cell invisible. The cell channel is what varies, so that is what gets the ink; the tooltip
+    // carries the number the game applies. Rain has no floor, so its two numbers are the same.
     const cloud = z.cloudCover || 0, precip = z.precipRate || 0;
     const cloudC = z.cloudCell ?? cloud, precipC = z.precipCell ?? precip;
     let fill = 'var(--bg3)', label = '';
@@ -368,7 +368,7 @@ function buildWeatherMapSVG(data, overlay) {
     // rather than as an empty map — the floor is visible as ground, the cells as figure.
     else if (overlay === 'cloud')  { fill = `rgba(200,206,220,${(0.10 * (data.baseCloud || 0) + 0.90 * cloudC).toFixed(2)})`; }
     else if (overlay === 'precip') {
-      const a = (0.10 * (data.precipFloorRate || 0) + 0.90 * precipC).toFixed(2);
+      const a = (0.90 * precipC).toFixed(2);
       fill = z.precipType === 'snow' ? `rgba(235,240,255,${a})` : `rgba(70,120,240,${a})`;
     }
     else if (overlay === 'humid')  { fill = wmHumidColor(z.humidityPct); if (z.humidityPct != null) label = `${z.humidityPct}%`; }
@@ -497,19 +497,18 @@ function paintWeatherMap() {
   } else {
     host.innerHTML = buildWeatherMapSVG(scoped, overlay);
   }
-  // ⚠ NAME THE FLOOR THAT WAS SUBTRACTED. The overlays shade by the CELL contribution, because
-  // the floors are the same on every tile and so are the one part of the number that cannot show
-  // you where anything is — on a storm day they are 0.8 cloud and 1.0 precip, which flattened the
-  // whole map into one shade and hid every cell. But a floor that is silently removed reads as a
-  // bug ("why is it 0% when it is pouring"), so the legend says what it is and the tooltip carries
-  // the effective figure.
+  // ⚠ NAME THE FLOOR THAT WAS SUBTRACTED. The cloud overlay shades by the CELL contribution,
+  // because the day's cloud floor is the same on every tile and so cannot show you where anything
+  // is. A floor that is silently removed reads as a bug ("why is it 0% under an overcast"), so
+  // the legend says what it is and the tooltip carries the effective figure. Rain has no floor:
+  // it falls only under a cell, and only while the 30-minute roll is on.
   const legend = document.getElementById('tw-wm-legend');
   if (legend) {
     let text = WM_LEGEND[overlay] || '';
     if (overlay === 'cloud')  text += ` Day floor: ${Math.round((data.baseCloud || 0) * 100)}% on every tile.`;
-    if (overlay === 'precip') text += (data.precipFloorRate > 0)
-      ? ` Headline rate: ${Math.round(data.precipFloorRate * 100)}% on every outdoor tile.`
-      : ' Nothing is falling right now, so every tile is cell-only.';
+    if (overlay === 'precip') text += data.falling
+      ? ' Rain falls only under a cell; every other tile is dry.'
+      : ' Nothing is falling right now (the 30-minute roll is off), so every tile is dry.';
     legend.textContent = text;
   }
 }

@@ -2,22 +2,25 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#241f19",
-  "description": "The old lever floor, cleared of levers. Manifests hang from bulldog clips on wire strung wall to wall, so you walk through paper to get anywhere. A pigeonhole rack behind the counter holds a slot for every siding in the Basin, most of them empty, three of them stuffed. The whole room smells of axle grease and carbon paper.",
+  "description": "The old locking room, with a counter where the lever rods came down through the ceiling. A sign-in ledger lies chained open on it beside a kettle that's never been switched off. Lockers line the east wall, half of them missing doors. A painted arrow points up the stairs: BUNKS, FIVE FLOORS, FIRST COME. The wash is north.",
   "exits": {
     "down": "zone_util_zone_trackmarks_shop",
     "north": "zone_trackmarks_back",
-    "south": "zone_district_917_903"
+    "south": "zone_district_917_903",
+    "up": "zone_hostel_dorm"
   },
   "flags": {
-    "building_name": "Track Marks Freight",
-    "building_type": "forwarder",
+    "building_name": "Hostel Takeover",
+    "building_type": "hostel",
     "floor": "tile",
     "is_building": true,
     "is_interior": true,
+    "region_id": "region_coldwater",
+    "sanctuary": true,
     "window": {
-      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it's doing it in plain view.",
+      "description": "A full-height pane onto the street, kept just clean enough to see who's coming. Whatever the weather is doing out there, it's doing it in plain view.",
       "light": 0.85,
-      "name": "the shopfront window",
+      "name": "the front window",
       "visibility": 0.9
     },
     "world_exit_zone": "zone_district_917_903"
@@ -27,6 +30,6 @@
   "grid_z": 0,
   "id": "zone_trackmarks_shop",
   "map_id": "map_int_trackmarks",
-  "name": "Track Marks Freight — Shop",
+  "name": "Hostel Takeover, the desk",
   "parent_zone": "zone_district_917_903"
 }

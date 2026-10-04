@@ -67,7 +67,7 @@ async function markChargenMode(player) {
 // ── The BioSculpt sheet, written out ─────────────────────────────────────────
 // The panel is a BLOCKING surface by docs/systems-display-mode.md's own test:
 // delete it and a brand-new player cannot leave The Inbetween, because the
-// prologue's first move gate wants `appearance.changed` and only this machine
+// prologue's first move gate wants `cosmetic.opened` and only this machine
 // emits it. Every sub-command was already a typed verb — the hole was that the
 // only thing that ever NAMED them was a modal, and a player on the bottom rung
 // got the modal and no log line at all, not even the toast saying what changed.
@@ -170,6 +170,15 @@ function buildPanelData(player, toast = null) {
   };
 }
 
+// Bringing the panel up is announced, and so is a chargen panel being put down
+// (`morphex closed`, below). The prologue's first door opens on the open,
+// whether or not anything gets changed, and the attendant answers when the
+// panel goes away; see plugins/prologue.
+function openPanel(player) {
+  emit('cosmetic.opened', { actor: player });
+  return buildPanelData(player);
+}
+
 function chargeCheck(player) {
   // A chargen terminal (the prologue's) never charges: the player is being made,
   // has no credits, and this shouldn't burn their real first-free change either.
@@ -181,15 +190,15 @@ function chargeCheck(player) {
 }
 
 async function applyCharge(player, cost) {
-  // In chargen mode, don't consume the one-time free change — that belongs to a
-  // real terminal later — but still emit so the prologue's alignment gate fires.
+  // In chargen mode, don't consume the one-time free change (that belongs to a
+  // real terminal later), but still emit so the prologue's attendant answers.
   if (!player._morphexChargen) {
     player.appearance_free_used = 1;
     await query('UPDATE players SET appearance_free_used=1 WHERE id=$1', [player.id]);
   }
   if (cost > 0) await adjustCredits(player, -cost, undefined, 'cosmetics:surgery');
   // Past-tense notification: the player reshaped themselves. The prologue listens
-  // to gate chargen; harmless elsewhere.
+  // for its attendant's reaction; harmless elsewhere.
   emit('appearance.changed', { actor: player });
 }
 
@@ -206,7 +215,14 @@ async function cmdMorphex(args, raw, player) {
   const rest = remaining.slice(1);
 
   // No sub-command → open panel
-  if (!sub) return buildPanelData(player);
+  if (!sub) return openPanel(player);
+
+  // The client's silent report that a chargen panel was closed by its ✕ or its
+  // backdrop. Nothing to say back.
+  if (sub === 'closed') {
+    emit('cosmetic.closed', { actor: player });
+    return null;
+  }
 
   // sex reassignment
   if (sub === 'sex') {
@@ -389,13 +405,13 @@ async function cmdMorphex(args, raw, player) {
   }
 
   // Unknown sub-command — just open the panel
-  return buildPanelData(player);
+  return openPanel(player);
 }
 
 async function openCosmeticMachine(player) {
   if (!await markChargenMode(player))
     return { type: 'error', message: `There's no MORPHEX 9000 terminal here.` };
-  return buildPanelData(player);
+  return openPanel(player);
 }
 
 // The engine furniture router (`use <cosmetic_machine furniture>` in
@@ -418,7 +434,7 @@ export const specializedActions = [{
     if (!await markChargenMode(player)) {
       return { type: 'error', message: `There's no MORPHEX 9000 terminal here.` };
     }
-    return buildPanelData(player);
+    return openPanel(player);
   },
 }];
 
@@ -432,6 +448,6 @@ export const commands = {
 // production). The written sheet is otherwise only reachable through a zone that
 // actually holds a machine, which the harness's does not — so the one surface a
 // player who cannot operate the panel depends on would go untested.
-export const _test = { renderMorphexText };
+export const _test = { renderMorphexText, openPanel };
 
 console.log('[cosmetic-machine] Plugin loaded.');

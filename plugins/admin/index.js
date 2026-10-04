@@ -3,7 +3,7 @@
 // Tablet app in tablet-app.js is a skin over these verbs: every button runs a
 // sysop subcommand, so everything the app can do can also be typed.
 //
-// Built: weather and time. Players and the staff channel follow; see
+// Built: weather, time and the ESP. Players and the staff channel follow; see
 // docs/systems-admin.md.
 import {
   WEATHER_TYPES, getHUDPayload, getForecast, getWeatherEvent,
@@ -12,6 +12,7 @@ import {
 import { logActivity } from '../../server/models/db.js';
 import { heroEventTypes } from '../weather/index.js';
 import { timeView, skipTime, setClock, setFrozen, setSpeed } from './time.js';
+import { espView, setEsp } from './esp.js';
 import './tablet-app.js';
 
 export const STAFF_ROLES = ['dev', 'admin', 'builder', 'designer'];
@@ -92,11 +93,16 @@ const USAGE = [
   'sysop weather reset',
   'sysop time  |  sysop time skip &lt;4|8|12|24&gt;  |  sysop time set &lt;HH:MM&gt;',
   'sysop time freeze  |  sysop time unfreeze  |  sysop time speed &lt;1|2|3|6&gt;',
+  'sysop esp  |  sysop esp on [message]  |  sysop esp off',
 ].map(l => `<span class="text-dim">${l}</span>`).join('<br>');
 
 function timeText() {
   const t = timeView();
   return `<b>Time</b>: ${t.time}, ${t.dayOfWeek || ''} ${t.date} (${t.phase}) · ${t.frozen ? 'FROZEN' : 'running'} · ${t.scale}x speed`;
+}
+
+function espText() {
+  return `<b>ESP</b>: ${espView().active ? 'ACTIVE. The city is locked down.' : 'off'}`;
 }
 
 async function cmdTime(player, sub, rest) {
@@ -116,8 +122,14 @@ const out = (res) => res.ok
 async function cmdSysop(args, raw, player) {
   if (!isStaff(player)) return DENIED;
   const [area, sub, ...rest] = args || [];
-  if (!area) return { type: 'output', message: `${weatherText()}<br>${timeText()}<br><br>${USAGE}` };
+  if (!area) return { type: 'output', message: `${weatherText()}<br>${timeText()}<br>${espText()}<br><br>${USAGE}` };
   if (area === 'time') return cmdTime(player, sub, rest);
+  if (area === 'esp') {
+    if (!sub) return { type: 'output', message: espText() };
+    if (sub === 'on' || sub === 'start') return out(await setEsp(player, true, rest.join(' ')));
+    if (sub === 'off' || sub === 'stop') return out(await setEsp(player, false));
+    return { type: 'error', message: USAGE };
+  }
   if (area !== 'weather') return { type: 'error', message: `Unknown sysop area "${area}".<br>${USAGE}` };
 
   if (!sub) return { type: 'output', message: weatherText() };

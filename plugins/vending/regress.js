@@ -81,6 +81,48 @@ export default async function regress({ run, check, getPlayer }) {
       await deleteFurniture(FURN2).catch(() => {});
     }
 
+    // ── A PLAIN DISPENSER THAT CHARGES (`vend_price`, no `vend_drink`) ────────
+    // The airport's snack and can machines. The debit sits in the dispense
+    // transaction, so a broke player gets nothing and pays nothing.
+    {
+      const PAID = 'furn_vend_regress_paid';
+      const ZP = 'zone_vend_regress_paid';
+      try {
+        await insertFurniture({
+          id: PAID, name: 'paid dispenser', description: 'a test dispenser that charges', object_type: 'fixture',
+          zone_id: ZP, flags: JSON.stringify({ vends: ITEM, vend_cooldown_s: 0, vend_price: 7 }),
+        }, 'ON CONFLICT (id) DO UPDATE SET flags=EXCLUDED.flags, zone_id=EXCLUDED.zone_id');
+        // adjustCredits is a guarded UPDATE, so the fake player needs a real row.
+        await query(
+          `INSERT INTO players (id, username, password_hash, handle, credits) VALUES ($1,$2,'x',$3,20)
+           ON CONFLICT (id) DO UPDATE SET credits=20`,
+          [player.id, `vendtest_${player.id}`, player.handle || 'Regressor']);
+        player.credits = 20;
+        await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id=$2', [player.id, ITEM]);
+        player.current_zone = ZP;
+
+        r = await run('vend');
+        inv = await query('SELECT COALESCE(SUM(quantity),0)::int AS qty FROM player_inventory WHERE player_id=$1 AND item_id=$2', [player.id, ITEM]);
+        check('a paid dispenser serves and charges its vend_price',
+          r?.type === 'output' && inv.rows[0].qty === 1 && player.credits === 13, `${JSON.stringify(r)?.slice(0, 120)} qty=${inv.rows[0].qty} credits=${player.credits}`);
+        check('...and says the price', /₵7/.test(r?.message || ''), (r?.message || '').slice(0, 160));
+
+        await query('UPDATE players SET credits=6 WHERE id=$1', [player.id]);
+        player.credits = 6;
+        r = await run('vend');
+        inv = await query('SELECT COALESCE(SUM(quantity),0)::int AS qty FROM player_inventory WHERE player_id=$1 AND item_id=$2', [player.id, ITEM]);
+        check('a paid dispenser refuses a player who cannot pay',
+          r?.type === 'error' && /₵7/.test(r.message || ''), JSON.stringify(r)?.slice(0, 160));
+        check('...and hands nothing over and takes nothing',
+          inv.rows[0].qty === 1 && player.credits === 6, `qty=${inv.rows[0].qty} credits=${player.credits}`);
+      } finally {
+        await deleteFurniture(PAID).catch(() => {});
+        await query('DELETE FROM players WHERE id=$1', [player.id]).catch(() => {});
+        player.credits = 0;
+        player.current_zone = Z;
+      }
+    }
+
     // VEND shows on examine. This was filed as a permanent KNOWN GAP on the
     // grounds that availableActions can't read flag VALUES — true, and beside
     // the point: `requiredFlag` gates on the flag KEY. Before it, a dispenser

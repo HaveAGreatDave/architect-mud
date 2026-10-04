@@ -5,6 +5,7 @@
 import { findTabletApp } from '../tablet/registry.js';
 import { weatherView, weatherEventOptions, setWeather } from './index.js';
 import { spokenTime, parseClock, skipTime, setClock, setSpeed } from './time.js';
+import { espView, setEsp } from './esp.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const p = getPlayer();
@@ -69,7 +70,24 @@ export default async function regress({ run, check, getPlayer }) {
     check('Time tab has a hero, the four skips and the speed chips',
       tscr?.activeTab === 'time' && !!tscr.detail.hero && ['t_skip_4', 't_skip_8', 't_skip_12', 't_skip_24'].every(id => tscr.actions.some(a => a.id === id && a.confirm)) && tscr.actions.some(a => a.id === 't_speed' && a.chips),
       JSON.stringify(tscr?.actions?.map(a => a.id)));
-    check('Weather tab carries the four tabs', screen?.tabs?.length === 4 && screen.activeTab === 'weather');
+    check('Weather tab carries the five tabs', screen?.tabs?.length === 5 && screen.activeTab === 'weather');
+
+    // The ESP: on and off through the verb, the tab following it, and a player refused.
+    const escr = await app.buildScreen(p, 'esp', '');
+    check('ESP tab offers a lockdown while it is off', escr?.activeTab === 'esp' && escr.actions.some(a => a.id === 'e_on' && a.confirm), JSON.stringify(escr?.actions?.map(a => a.id)));
+    try {
+      r = await run('sysop esp on regress lockdown');
+      check('sysop esp on starts the lockdown', espView().active === true && /ESP on/.test(r?.message || ''), r?.message);
+      const on = await app.buildScreen(p, 'esp', '');
+      check('…and the tab shows it with a way to end it', on?.detail?.hero?.badge === 'Active' && on.actions.some(a => a.id === 'e_off'), JSON.stringify(on?.detail?.hero));
+      r = await run('sysop esp off');
+      check('sysop esp off ends it', espView().active === false && /ESP off/.test(r?.message || ''), r?.message);
+    } finally { if (espView().active) await setEsp(p, false); }
+    p.role = 'player';
+    r = await run('sysop esp on');
+    check('sysop esp refused for a player', /unknown command/i.test(r?.message || '') && !espView().active, r?.message);
+    const pe = await app.handleAction(p, 'e_on', '');
+    check('the ESP tab refuses a player', pe?.view === 'error' && !espView().active, JSON.stringify(pe)?.slice(0, 120));
   } finally {
     p.role = savedRole;
   }

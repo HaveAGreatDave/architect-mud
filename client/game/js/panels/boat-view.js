@@ -28,17 +28,18 @@
 // against its own water. That is the trucking rule quoted, and it holds harder here: there is no
 // corridor on the Basin, so a self-reported distance would be a number nobody could check at all.
 
-import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, lastViewState, seaAmpsNow, hullSeaGains, interiorHotspots, RENDER_TUNE } from './windshield.js';
+import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, lastViewState, seaAmpsNow, hullSeaGains, interiorHotspots, ownHullScale, RENDER_TUNE } from './windshield.js';
 import { airHornOn, airHornOff } from './engine-audio.js';
 import { seaClock, SEA_TILE_M } from '../../../shared/sea-swell.js';
 import { navHomeHTML, drawNavHome } from './nav-home.js';
-import { stepBoat, shiftBoatOrigin, TYPES, CRANK_S } from './flight-model.js';
+import { stepBoat, shiftBoatOrigin, stepBoatRide, TYPES, CRANK_S } from './flight-model.js';
 import { createHelmWheel } from './helm-wheel.js';
 import { startBoatEngine, updateBoatEngine, stopBoatEngine, updateBoatContacts, stopBoatContacts, updateBoatWater, stopBoatWater, boatLandThump } from './boat-audio.js';
 import { claimSeatKeyboard, endSeatKeyboard } from './seat-keys.js';
 import { seatHidePanel } from '../../../shared/compact-view.js';
 import { bindBigScreenButton, exitBigScreen, BIGSCREEN_GLYPH, BIGSCREEN_TITLE } from './bigscreen.js';
-import { HELM } from '../../../shared/boat-house.js';
+import { boatGeom } from '../../../shared/boat-house.js';
+import { BOAT_ROWS } from '../../../shared/vehicle-models.js';
 import { wildlandsAt } from '../../../shared/wildlands.js';
 
 const ID = 'boat-sim';
@@ -310,6 +311,8 @@ export function openBoat(ctx = {}) {
     // keystroke with wildly different outcomes. Both verbs already exist; this is the affordance.
     + '<div class="boat-out" hidden></div>'
     + '<div class="boat-help" hidden></div>'
+    // The berth prompt: what the marked box ahead is, and the act once she is stopped in it.
+    + '<div class="boat-berth" hidden></div>'
     + '</div>';
 
   // ⚠ A PHONE KEEPS #area-pane COLLAPSED UNTIL AN APP SAYS IT OWNS IT, and this was the one seat
@@ -322,6 +325,8 @@ export function openBoat(ctx = {}) {
   st = {
     ownsPane,
     p,
+    // Which hull: her mesh, her pilothouse and her eye height all key off it (helm.js sends it).
+    typeId: BOAT_ROWS[ctx.typeId] ? ctx.typeId : 'hydro',
     name: ctx.name || 'her',
     livery: ctx.livery || null, preview: null,
     // The sim state `stepBoat` owns. ⚠ SEEDED FROM THE SERVER AND NOT FROM ZERO: hull and fuel are
@@ -367,6 +372,8 @@ export function openBoat(ctx = {}) {
     wxField: ctx.wxField || null, wxGround: ctx.wxGround || null,
     contacts: [],
     actors: ctx.actors || [],   // the people on the quay, in absolute tiles (street-actors.js)
+    marks: ctx.marks || [],     // the fuel berths and covered slots in the window (helm.js berthMarksNear)
+    berthNow: null, berthDraw: [], berthKey: '', actAt: 0,
     lastSync: 0, last: performance.now(), alive: true, raf: 0,
     onSend: ctx.onSend || null,
     onExit: ctx.onExit || (() => send('disembark')),
@@ -416,6 +423,9 @@ export function openBoat(ctx = {}) {
   st.pane = document.getElementById(ID)?.closest?.('.ws-wrap') || root;
   st.helpEl = root.querySelector?.('.boat-help') || null;
   st.outEl = root.querySelector?.('.boat-out') || null;
+  st.berthEl = root.querySelector?.('.boat-berth') || null;
+  st.berthEl?.addEventListener?.('click', (e) => { if (e.target.closest?.('[data-berth-act]')) berthAct(); });
+  st.svcOpen = () => !!root.querySelector?.('.mar-svc.open');
   bindBigScreenButton(root.querySelector?.('.boat-big'));
   // ⊟: the log folds away and the command bar stays. The seat opens that way, like every vehicle.
   const hideBtn = root.querySelector?.('.boat-hidebtn');
@@ -517,6 +527,9 @@ function bindKeys() {
       if (k === 'i') { e.preventDefault(); flipSwitch('cabin'); return; }
       if (k === 'w') { e.preventDefault(); flipSwitch('wipe'); return; }
       if (k === 'g') { e.preventDefault(); flipSwitch('stab'); return; }
+      // The marked berth's act: fill her at the pumps, or dock her under the roof. P is the cab's
+      // park key, and tying up is what a boat does instead of parking.
+      if (k === 'p') { e.preventDefault(); berthAct(); return; }
       // The shoulder-checks, and they are the cab's three letters. ⚠ SNAP AND LATCH rather than
       // held: a boat is steered with two hands and there is no third one to hold a look key with.
       // Q / E / S are HELD shoulder-checks, the cab's and the cockpit's own three keys.
@@ -746,6 +759,7 @@ function buildHelp() {
     + '<dt>SHIFT</dt><dd>the bottle. It costs hull, not fuel.</dd>'
     + '<dt>V</dt><dd>external view. Middle-drag to swing round her, wheel to back off.</dd>'
     + '<dt>Q / E / S</dt><dd>hold to look port, starboard, astern. Middle-drag looks anywhere.</dd>'
+    + '<dt>P</dt><dd>at a marked berth, stopped inside the box: fill her at the fuel pumps, or dock her under the marina roof.</dd>'
     + '<dt>ESC</dt><dd>step off: alongside to moor her, or over the side into the water.</dd>'
     + '</dl>'
     + '<p class="boat-help-foot">Everything here is also a button. Press <b>?</b> or <b>Esc</b> to close.</p>';
@@ -787,6 +801,86 @@ function toggleOut(show) {
         ? 'Alongside a berth you will tie her up and step onto it. Anywhere else you go into the water and she floats where you left her, with the engine still running.'
         : 'Alongside a berth you will tie her up and step onto it. Anywhere else you go into the water and she floats where you left her.';
   }
+}
+
+// ── THE BERTHS ON THE WATER ──────────────────────────────────────────────────
+//
+// The server sends the fuel berths and covered slots in the window (helm.js `berthMarksNear`), each
+// a box in world tiles. Near one, the seat marks the box on the water (glass/berth-marks.js) and
+// puts a line on the glass saying what it is; stopped inside it, the line carries the act, which is
+// a button and P: fill her at the pumps, or dock her under the roof.
+//
+// ⚠ THE SEAT DECIDES NOTHING. The act is the typed verb (`fuel`, and `disembark`, which in the slot
+// is the slings lifting her into the hall), and the server's own tests are the box or larger, so a
+// box shown green is one the server accepts. "Stopped" here is under the server's 2 mph after its
+// rounding, for the same reason.
+const MARK_NEAR = 4.5;     // tiles from the box's centre: the box fades in from here
+const MARK_STOP = 1.4;     // mph
+const ACT_GAP_MS = 1500;   // one act per press, however long the key is held or the button mashed
+
+function markLocal(m, x, y) {
+  const h = (m.hdg || 0) * Math.PI / 180, dx = x - m.x, dy = y - m.y;
+  return { along: dx * Math.sin(h) - dy * Math.cos(h), across: dx * Math.cos(h) + dy * Math.sin(h) };
+}
+
+function updateBerth() {
+  const x = st.cx + st.sim.x, y = st.cy + st.sim.y;
+  const stopped = Math.abs(st.sim.speed) < MARK_STOP && !st.sim.airborne;
+  let best = null;
+  const draw = [];
+  for (const m of st.marks || []) {
+    const d = Math.hypot(m.x - x, m.y - y);
+    if (d > MARK_NEAR) continue;
+    const l = markLocal(m, x, y);
+    const inside = Math.abs(l.along) <= m.hl && Math.abs(l.across) <= m.hw;
+    const state = inside ? (stopped ? 'ready' : 'in') : 'near';
+    draw.push({ kind: m.kind, x: m.x, y: m.y, hdg: m.hdg, hl: m.hl, hw: m.hw, state, fade: clamp((MARK_NEAR - d) / 1.2, 0, 1) });
+    // The one the prompt is about: the box she is in, else the nearest.
+    if (!best || (inside && !best.inside) || (inside === best.inside && d < best.d)) best = { m, d, inside, state };
+  }
+  st.berthDraw = draw;
+  st.berthNow = best;
+  drawBerthPrompt();
+}
+
+// What the line on the glass says. Rebuilt only when it would read differently, so the button
+// under a finger is not replaced sixty times a second.
+function drawBerthPrompt() {
+  const el = st.berthEl;
+  if (!el) return;
+  // ⚠ NOT UNDER THE MARINA'S OWN OVERLAY. Open, it carries the same act as a button (marina-panel.js
+  // service mode) and covers this corner of the glass; P still works while it is up.
+  const b = st.svcOpen?.() ? null : st.berthNow;
+  const full = st.fuel >= 0.99;
+  const key = !b ? '' : `${b.m.id}|${b.m.kind}|${b.state}|${full ? 1 : 0}|${b.m.kind === 'fuel' && b.state === 'ready' ? Math.round(st.fuel * 100) : ''}`;
+  if (key === st.berthKey) return;
+  st.berthKey = key;
+  if (!b) { el.hidden = true; el.innerHTML = ''; return; }
+  const fuel = b.m.kind === 'fuel';
+  const head = fuel ? '⛽ FUEL BERTH' : '⚓ COVERED DOCK';
+  const say = b.state === 'near'
+    ? (fuel ? 'Lie her alongside the pumps, inside the box.' : 'Bring her into the slot under the roof, inside the box.')
+    : b.state === 'in'
+      ? 'In the box. Take the way off her.'
+      : fuel
+        ? (full ? 'She is full.' : `At the pumps. Fuel ${Math.round(st.fuel * 100)}%.`)
+        : 'Under cover. The slings can take her.';
+  const act = b.state !== 'ready' || (fuel && full) ? ''
+    : `<button class="boat-chip boat-berth-go" type="button" data-berth-act="1">${fuel ? 'Fill her' : 'Dock her'} <b>P</b></button>`;
+  el.className = `boat-berth ${fuel ? 'fuel' : 'dock'} ${b.state}`;
+  el.innerHTML = `<span class="boat-berth-head">${head}</span><span class="boat-berth-say">${say}</span>${act}`;
+  el.hidden = false;
+}
+
+function berthAct() {
+  const b = st?.berthNow;
+  if (!b || b.state !== 'ready') return;
+  const now = performance.now();
+  if (now - st.actAt < ACT_GAP_MS) return;
+  st.actAt = now;
+  if (b.m.kind === 'fuel') { if (st.fuel < 0.99) send('fuel'); }
+  // Docking IS stepping off in the slot: the server lifts her into the hall and the seat closes.
+  else if (b.m.kind === 'dock') st.onExit();
 }
 
 // ── THE LEVER, AS A THING YOU CAN GRAB ───────────────────────────────────────
@@ -898,8 +992,10 @@ function frame(now) {
     // is the IDLE burn — it is what she drinks sitting at the pontoon doing nothing — so left
     // unconditional it would empty a tank while the key was off, and the one thing a key is
     // unambiguously for is leaving her somewhere without that happening.
+    // `burn` is the hull's thirst against the Rooster's (flight-model.js); absent is 1. The text
+    // rung multiplies by the same field, or one boat would have two ranges.
     if (st.fuel <= 0) { st.lever = 0; input.throttle = 0; }
-    else if (st.sim.running) st.fuel = Math.max(0, st.fuel - (0.00042 + 0.0035 * st.sim.pedal) * dt);
+    else if (st.sim.running) st.fuel = Math.max(0, st.fuel - (0.00042 + 0.0035 * st.sim.pedal) * (st.p.burn ?? 1) * dt);
 
     // ⚠ THE SEA SHE RIDES IS THE SEA THE RENDERER DRAWS: its amplitudes, its clock and its frame.
     // None of the three was ever handed over, so `boatSeaPose` returned zero on every frame — no
@@ -958,6 +1054,8 @@ function frame(now) {
     if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
       st.cx += Math.round(dx); st.cy += Math.round(dy);
       shiftBoatOrigin(st.sim, st.p, -Math.round(dx), -Math.round(dy));
+      // The drawn ride remembers the water too, and it is new water: start it on the sea she is on.
+      st.ride = null;
     }
 
     const spd01 = clamp(Math.abs(st.sim.speed) / Math.max(1, st.p.topSpeed || 138), 0, 1);
@@ -971,9 +1069,12 @@ function frame(now) {
     // The hull on the water: follows way, not revs, and goes quiet in the air.
     updateBoatWater({ spd01, airborne: st.sim.airborne, aground: st.aground });
     updateBoatContacts({ x: st.cx + st.sim.x, y: st.cy + st.sim.y, heading: st.sim.heading, speed: st.sim.speed }, st.contacts);
+    updateBerth();
+    // How she sits on the water the picture draws, at the size this view draws her (see `drawnRide`).
+    const ride = drawnRide(dt, spd01);
 
     paintWindshield(ID, {
-      cls: 'hydro', phase: 'cruise', worldBlend: 1,
+      cls: st.typeId, phase: 'cruise', worldBlend: 1,
       map: buildWindow(), mapCenter: { x: st.cx, y: st.cy },
       mapOffset: { x: st.sim.x, y: st.sim.y },
       heading: st.sim.heading, ownHdg: st.sim.heading,
@@ -985,8 +1086,14 @@ function frame(now) {
       // a fifth of a degree on a field nothing drew from, and she sat level on a heaving sea.
       // ⚠ RIDE COMFORT SCALES WHAT THE HELM CAMERA IS SHOWN, NEVER THE HULL: the sim, the packet
       // and the chase view keep the full attitude, so a steadier seat is not a calmer sea.
-      pitch: (st.sim.pitch || 0) * 180 / Math.PI * rideK(), bank: (st.sim.roll || 0) * 180 / Math.PI * rideK(), roll: (st.sim.roll || 0) * 180 / Math.PI * rideK(),
-      rideZ: st.external ? (st.sim.heave || 0) + (st.sim.chopH || 0) + (st.sim.z || 0) : 0,
+      // ⚠ THE PICTURE'S RIDE, NOT THE SIM'S. `drawnRide` poses her on the water under the hull this
+      // view draws; the sim's own pitch and roll are the physics' (a point on a face), and posed by
+      // them the drawn chop stood over her deck a third of the time.
+      // ⚠ AND `bank` IS STARBOARD DOWN, THE AIRCRAFT'S SENSE, WHILE THE SIM'S ROLL IS STARBOARD UP.
+      // Handed over unsigned, every boat leaned INTO the water rising beside her: the high side went
+      // down into it. Negated here, once, for the hull and the horizon alike.
+      pitch: ride.pitch * 180 / Math.PI * rideK(), bank: -ride.roll * 180 / Math.PI * rideK(), roll: -ride.roll * 180 / Math.PI * rideK(),
+      rideZ: st.external ? ride.heave : 0,
       // ⚠ THE SHOULDER-CHECK IS SUPPRESSED OUT THERE, NOT MERELY UNUSED. The chase camera is
       // already showing you what a look astern is for, and yawing a third-person view off the
       // boat it is following is just lost — the cab's own wording, and it is the same renderer
@@ -1000,7 +1107,7 @@ function frame(now) {
       // that rose a fifth as far as the hull sank under every crest she climbed.
       ...(st.external
         ? { external: true, extYaw: st.extYaw, extPitch: st.extPitch, extZoom: 1.15 * st.extZoom }
-        : { height: 0, metreTiles: METRE_TILES, eyeH: Math.max(0.02, EYE_TILES + (st.sim.heave || 0) + (st.sim.chopH || 0) + (st.sim.z || 0)) }),
+        : { height: 0, metreTiles: METRE_TILES, eyeH: Math.max(0.02, eyeTilesOf(st.typeId) + ride.heave) }),
       speed: st.sim.speed,
       // The cabin lights (the profile's floods) and the dome lift come on with the engine.
       powered: !!st.sim.running, dome: !!st.sim.running && st.cabin,
@@ -1009,6 +1116,7 @@ function frame(now) {
       ...((st.preview || st.livery) ? { livery: st.preview || st.livery } : {}),
       hour: st.hour, weather: st.weather,
       actors: st.actors,   // pavement people; drawn as meshes up close (gl/actors.js)
+      berthMarks: st.berthDraw,   // the fuel berth / covered slot boxes she is near (glass/berth-marks.js)
       // ⚠ IT IS `wxGround`, AND THIS SENT `ground`. The renderer reads `v.wxGround` to seed how wet
       // and how snowed the world already is, so named wrong the seat starts every passage on dry,
       // bare summer ground and converges over the next ten minutes — a player taking the helm in a
@@ -1021,7 +1129,7 @@ function frame(now) {
       // The beam is the hull as DRAWN (about 0.4 tiles long, 0.12 across the sponsons): it sets
       // how wide and how tall the wake stands (collectWakes), and at the Echelon's 0.30 it stood
       // three hulls high.
-      ownWake: { spd: (st.sim.airborne || st.aground) ? 0 : spd01, turn: st.steer, beam: 0.12 },
+      ownWake: { spd: (st.sim.airborne || st.aground) ? 0 : spd01, turn: st.steer, beam: 0.12 * ((BOAT_ROWS[st.typeId]?.beam ?? 0.25) / 0.25) },
       contacts: st.contacts,
       // The live cluster. These are the shell's own keys — see `instrumentFaces` — and every one of
       // them is a number the sim already has, which is the point of the dials being geometry.
@@ -1080,7 +1188,26 @@ function frame(now) {
 // goes to the renderer as `metreTiles`, which sizes the pilothouse, so the eye and the room stay
 // one scale.
 const METRE_TILES = 1 / SEA_TILE_M;
-const EYE_TILES = HELM.eyeM * METRE_TILES;
+// ⚠ PER HULL. A cat's driver sits a third of a metre lower than the Rooster's, and the eye is read
+// off the same geometry the pilothouse is built from (`boatGeom(row).helm.eyeM`), never a second
+// number: this and the profile's `eyeM` are the two ends of one scale.
+const eyeTilesOf = (id) => boatGeom(BOAT_ROWS[id] || BOAT_ROWS.hydro).helm.eyeM * METRE_TILES;
+
+// ── HOW SHE SITS ON THE WATER THE PICTURE DRAWS ──────────────────────────────
+//
+// `stepBoatRide` (flight-model.js) fits her to the drawn sea over her own footprint; this says which
+// footprint. ⚠ TWO SIZES, BECAUSE THE TWO VIEWS DRAW TWO HULLS. The chase camera draws her at
+// `ownHullScale` (a fifth of her length in sea metres, with her height exaggerated) and the helm seats
+// you in her at full size through `METRE_TILES`. Each is posed by the water under the hull it shows,
+// and each keeps its own state, so swapping views does not drag one ride into the other.
+// Eight tenths of her length and beam: the sheer, not the stem and the chine's outermost point.
+function drawnRide(dt, spd01) {
+  const row = BOAT_ROWS[st.typeId] || BOAT_ROWS.hydro, G = boatGeom(row);
+  const sc = st.external ? ownHullScale(st.typeId) : { plan: G.helm.mPerUnit * METRE_TILES, vert: G.helm.mPerUnit * METRE_TILES };
+  const r = (st.ride ||= { chase: {}, helm: {} })[st.external ? 'chase' : 'helm'];
+  return stepBoatRide(r, st.sim, dt, { halfLen: G.LEN * 0.8 * sc.plan, halfBeam: G.BEAM * 0.8 * sc.plan,
+    vr: sc.vert / sc.plan, trim: st.trim || 0, spd01 });
+}
 
 function onEvent(ev) {
   if (ev === 'holed' || ev === 'aground' || ev === 'slam') send('boatevent ' + ev);
@@ -1147,6 +1274,7 @@ export function boatSetWorld(msg = {}) {
   if (msg.contacts) st.contacts = msg.contacts;
   // An empty list is a real answer (everybody went indoors), so only an absent key keeps the last one.
   if (msg.actors !== undefined) st.actors = msg.actors || [];
+  if (msg.marks) st.marks = msg.marks;
   // ⚠ THE SERVER IS AUTHORITATIVE ABOUT THE ROW AND NOT ABOUT THE POSITION. Hull, fuel and the
   // bottle are things the yard, a refit and a wreck all write, so they are adopted; where the boat
   // IS is what this client just told the server, and adopting it back would fight the sim four
@@ -1245,6 +1373,21 @@ function ensureBoatStyles() {
     .boat-help-foot{ margin:12px 0 0; color:#78828e; font-size:11px; }
     .boat-out-note{ margin:0 0 12px; }
     .boat-out .boat-chip{ margin-right:8px; }
+    /* The berth line: bottom centre, over the water ahead and above the strip, between the lever and
+       wheel on the left and the switch panel on the right. The top centre ran into the chip row.
+       Amber for the pumps, cyan for the dock, green once she is stopped in the box. */
+    .boat-berth{ position:absolute; z-index:5; left:50%; bottom:84px; transform:translateX(-50%);
+      display:flex; align-items:center; gap:10px; max-width:min(480px, calc(100% - 340px)); padding:7px 10px;
+      background:rgba(8,12,18,.82); border:1px solid #2b3846; border-radius:6px;
+      font:500 12px/1.35 ui-monospace,monospace; color:#c6d7e6; }
+    .boat-berth[hidden]{ display:none; }
+    .boat-berth-head{ font-weight:700; letter-spacing:.12em; font-size:11px; white-space:nowrap; }
+    .boat-berth.fuel{ border-color:#8a6a2a; } .boat-berth.fuel .boat-berth-head{ color:#ffc76a; }
+    .boat-berth.dock{ border-color:#2f5f80; } .boat-berth.dock .boat-berth-head{ color:#8fd0ff; }
+    .boat-berth.ready{ border-color:#3f8a5c; box-shadow:0 0 0 1px rgba(79,174,116,.35), 0 4px 14px rgba(0,0,0,.5); }
+    .boat-berth-go{ white-space:nowrap; color:#d8ffe6; border-color:#3f8a5c; background:rgba(22,58,38,.85); }
+    .boat-berth-go b{ margin-left:6px; padding:1px 5px; border:1px solid #5aa878; border-radius:3px; font-size:11px; }
+    @media (max-width:720px){ .boat-berth{ bottom:200px; max-width:calc(100% - 20px); } }
     /* ⚠ AN ALLOW-LIST, NOT A HIDE LIST — see the note at the mount. The picture stays and
        everything else on this glass goes, so the next readout somebody hangs here is outside the
        shot by default rather than by somebody remembering to add it. */

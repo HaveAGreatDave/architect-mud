@@ -189,7 +189,9 @@ of anything, `__glClouds()` for whether the deck is still the same sky,
 `__glBoardSky()` for whether it is in front of the billboards,
 `__glLeak()` for whether anything still shows through a building,
 `__glFrame()` for where the whole frame goes
-now, and `__glBench()` for the original ceiling question.
+now, and `__glBench()` for the original ceiling question. Across a code change and a reload,
+`__glRefShots()` diffs real districts against a saved set and `__glAtlasHash()` says whether any
+baked wall or roof texture moved.
 
 
 The spike answered its four questions, so the pass is wired into `paintWindshield` behind
@@ -678,6 +680,36 @@ that whole wall lighter. Tuned by eye it took a noon cab to 23.7% moved and made
 brighter, which is precisely what that looks like; at a third of the amplitude the same frame is
 8.4% and the material read is carried by the relief, which varies per texel. **When a number here
 goes up, check it is not going up because a wall got repainted.**
+
+It has five seats: a cab at noon, dusk and night, and the air in the afternoon and in a storm. The
+storm seat reseeds `Math.random` before every pair of paints, so the rain falls in the same streaks
+in A and B and stays out of the count.
+
+### Before and after a code change: `__glRefShots()`, `__glAtlasHash()`
+
+Built for the material plan ([glass-materials.md](../../docs/proposals/glass-materials.md)), where
+every stage claims its switch at 0 draws the picture that shipped.
+
+- **`__glRefShots({ save: 'name' })`, then reload and `__glRefShots({ against: 'name' })`.** Halcyon
+  and Marrow Street, from a cab and from the air, at noon, dusk, night and in a storm: sixteen frames
+  at 640x360, kept in IndexedDB. The clock, the date and `Math.random` are pinned and the fades are
+  settled. The whole sequence runs once unrecorded first, because one canvas is one view state carried
+  from shot to shot: without that pass the same noon frame came back 41% different after a storm shot.
+  With it, the floor across a server restart and a reload is 0.01% of pixels or less on every shot. A
+  save takes about 80 seconds on a busy machine, so start it and poll.
+- **`__glAtlasHash({ save: 'name' })` / `({ against: 'name' })`.** Hashes every surface the GL atlas
+  takes (day wall, roof and night wall for each of 436 palette keys, 1,308 canvases) at a pinned
+  `texRes`, through `bakedSurfaces` in windshield.js, which pins the resolution because outside a
+  frame it answers whichever seat painted last. Stable to the bit between runs; moving the neon dial
+  changes 858 surfaces. `allWins: true` adds the blackout, brownout and emergency bakes.
+- **`__glWhere()` reports GPU time** (`gpu`, `gpuP90`) beside the JavaScript phases: each measured
+  paint is wrapped in a timer query on the world pass's context. First reading, Halcyon on a busy
+  machine: 6.8 ms from the cab, 10.6 ms from the air.
+
+⚠ **One timer query at a time.** WebGL2 allows one open `TIME_ELAPSED` query, and the murmuration
+times its own steps. Under a frame timer its begin failed and its end closed the bench's query
+mid-frame, and its own query, never begun, left it unable to time again. It now stands aside while
+another query is open (`gl.getQuery(…, CURRENT_QUERY)`), which also fixes `__glMurmurGpuFrame()`.
 
 ### Does a sign light the wall it is bolted to? — `__glLights()`
 

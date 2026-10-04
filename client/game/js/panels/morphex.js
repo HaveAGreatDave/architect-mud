@@ -59,7 +59,7 @@ export function openMorphexPanel(data) {
     let _downOnBackdrop = false;
     _modal.addEventListener('mousedown', e => { _downOnBackdrop = e.target === _modal; });
     _modal.addEventListener('click', e => {
-      if (e.target === _modal && _downOnBackdrop) _close();
+      if (e.target === _modal && _downOnBackdrop) _dismiss();
       _downOnBackdrop = false;
     });
     document.body.appendChild(_modal);
@@ -72,6 +72,16 @@ export function closeMorphexPanel() { _close(); }
 
 function _close() {
   if (_modal) _modal.style.display = 'none';
+}
+
+// The player putting the panel down (the ✕ or the backdrop), as opposed to the
+// server's own morphex_close. A chargen panel reports it: in the prologue,
+// bringing the terminal up and closing it is a whole visit, change or no change,
+// and the attendant answers when the panel is out of the way.
+function _dismiss() {
+  if (!_modal || _modal.style.display === 'none') return;
+  _close();
+  if (_currentData?.chargen) sendCmdSilent('morphex closed');
 }
 
 function _sel(id, options, selected) {
@@ -233,7 +243,7 @@ function _render(d) {
   </div>`;
 
   // ── Events ────────────────────────────────────────────────────
-  document.getElementById('mx-close').addEventListener('click', _close);
+  document.getElementById('mx-close').addEventListener('click', _dismiss);
 
   document.getElementById('mx-apply').addEventListener('click', () => {
     const d = _currentData;

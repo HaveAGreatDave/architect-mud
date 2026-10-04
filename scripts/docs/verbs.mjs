@@ -38,7 +38,7 @@ const NOT_PLAYER_TYPED = new Set([
   // server decides. Its own handler says so ("Silent — fired by the panel, never typed").
   'readresolve',
   // Client/session handshakes.
-  'introdone', 'tabletdone', 'flightsync', 'flocksync', 'flightevent', 'tabletnav', 'tabletaction',
+  'introdone', 'tabletdone', 'flightsync', 'flocksync', 'flightevent', 'flightresume', 'tabletnav', 'tabletaction',
   // The cab's pump handle reports how long the trigger was held; the server re-derives the money.
   // Same shape as `trucksync` — a control, not a word. The typed way to buy diesel is `fuel`.
   'truckpump',

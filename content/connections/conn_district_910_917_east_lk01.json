@@ -1,9 +1,10 @@
 {
   "a": "zone_district_910_917",
   "b": "zone_district_911_917",
-  "blocked": false,
+  "blocked": true,
   "dir": "east",
-  "id": "conn_hf_district_910_917_east",
+  "id": "conn_district_910_917_east_lk01",
   "lockable": false,
+  "name": "the lock wall",
   "one_way": false
 }

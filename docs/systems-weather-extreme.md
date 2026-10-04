@@ -159,7 +159,7 @@ field owner) — the engine just *drives* them, mirroring how the field advance 
 
 ### Rainbows — a hero event with no teeth *(built 2026-08-13)*
 
-`rainbow` and `triple_rainbow` are hero events by **machinery only**: same lifecycle, same vantage-keyed
+`rainbow`, `double_rainbow` and `triple_rainbow` are hero events by **machinery only**: same lifecycle, same vantage-keyed
 announce, same `weather_event` client signal. Three decisions carry them.
 
 - **`severity: 0`, and regress asserts it.** `currentBaseSeverity()` takes the max of the day floor and
@@ -169,10 +169,15 @@ announce, same `weather_event` client signal. Three decisions carry them.
 - **A condition, not a schedule.** Everything else in this file is a property of a DAY, knowable a week
   out, which is what gives the forecast its teeth. A rainbow is a property of a MOMENT at the back edge of
   a shower, so `rollRainbow()` asks the live **field** instead of the date: it rained across the map
-  (`RAINBOW_WET_ENOUGH`), it has since moved off, the sky has opened, the day's precip is `rain` and not
-  snow, and `ambientLight` says the sun is genuinely up. The field is sampled on a coarse 5×5 grid rather
+  (`RAINBOW_WET_ENOUGH`), it is moving off with rain still falling somewhere, the sky has opened, the day's
+  precip is `rain` and not snow, and the sun is between 3° and 38° up (`sunElevationDeg()`, the same curve
+  the client draws with). A sun above 42° puts the whole bow under the horizon, so there are no noon
+  rainbows. Each shower gets **one** roll (`RAINBOW_CHANCE_PER_SHOWER = 0.28`) the first step all of that
+  holds; rolling every 30s across the 25-minute window made a bow near-certain. Of the bows that fire, a
+  third are doubles (a real secondary is common) and 1 in 200 is the triple, which is deliberately
+  impossible: a real tertiary stands on the sun's side. The field is sampled on a coarse 5×5 grid rather
   than at one point, because "it stopped raining" asked of a single tile is answered by a cell drifting two
-  steps sideways. One rainbow per shower — the wet-memory clock resets on firing, and is stepped **every**
+  steps sideways. One roll per shower — the wet-memory clock resets on rolling, hit or miss, and is stepped **every**
   tick (including during another event) so a shower that fell under an ion storm still counts afterwards.
 - **Delivered by vantage, not globally.** A severe event's client signal is broadcast to everybody,
   because what an ion storm is doing to the city reaches everybody. A benign one goes per zone, skipping
@@ -358,14 +363,33 @@ exercised by anything. It joins by answering `vehicle.crewed` when the drive ver
   `weather_event` WS message (`{eventType, phase}`) for the client **visual FX** *and* re-emits
   `weather.event` for the **audio plugin**:
   - *Visual* — [weather-fx.js](../client/game/js/panels/weather-fx.js) `setWeatherEventFx(type, phase)`
-    composites an overlay over the base precip effect: **ion storm** = sickly-green tint + phase-scaled
-    lightning flashes (renders even with no precip); **acid rain** = caustic yellow-green wash over rain
+    composites an overlay over the base precip effect: **ion storm** = no tint, dense ground flashes
+    and a cloud-to-cloud flicker across the top of the pane (renders even with no precip); **acid rain** = caustic yellow-green wash over rain
     (acid `precipType` maps to the rain effect in `resolveWeatherFx`, tint on top).
   - *Audio* — the [audio plugin](../plugins/audio/index.js) runs a single sky-wide event bed
     (`reconcileWeatherEventBed`, global via `getBroadcast`): **ion storm** = electrical hum + crackle +
     random arc-zaps (sparkle); **acid rain** = caustic hiss. Route-overridable
     (`weather.event.ion`/`weather.event.acid`) with synth fallbacks; gain full at peak, softer in
     approach/passing; late joiners topped up in `reconcilePlayerWeatherAmbient`.
+
+### Ion storm lightning *(built 2026-10-03)*
+
+An ion storm is clear air under a heavy, low deck, very little rain, and a lot of lightning.
+
+- **Sky.** `cloudFloor: 0.95` and `precipScale: 0.25` on the `ion_storm` entry in `NAMED_EVENTS`, both
+  ramped by phase. The cloud floor lifts `sampleWeatherAt` and the snapshot's `baseCloud`; the scale thins
+  the cell rate in `sampleWeatherAt` and, through the flight packet's `precipScale`, in the flight sim's
+  `sampleWeatherCells`. (Rain has had no floor since 2026-10-03; see systems-world.md.) The flight sim gives it
+  no haze (`WX_HAZE.ion_storm = 0.12`), no canopy cast (`WX_EVENT_NO_CAST`) and a low storm deck.
+- **Strikes.** `ionStormTick` in [gameLoop.js](../server/engine/gameLoop.js) runs ahead of `stormTick` on
+  the 5s tick, because the event never changes the weather type. About 6 flashes a tick at the peak, 1.5
+  either side. 55% are cloud to cloud (`cc: true` on `weather.lightningStrike`, which the flight sim draws
+  as the bolt tree laid along a bearing inside the deck), and 70% land within 16 tiles of somebody. They
+  don't kill.
+- **Buildings.** A ground strike hits a building from `strikeableBuildings()` and, 65% of the time,
+  overloads its junction box through `overloadJunctionBoxes()`: the same `recover_after` scar as a storm
+  fault (8 to 18 minutes), one batched UPDATE, and a resim with `noFaults` so the ordinary fault roll isn't
+  repeated on every strike. The people inside get the junction-box line and the usual lights-out line.
 
 ## What a strike looks like *(built)*
 

@@ -1,7 +1,7 @@
 import { query } from '../../server/models/db.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
-import { on } from '../../server/engine/events.js';
+import { on, emit } from '../../server/engine/events.js';
 import { getAmbientDefByName } from '../audio/index.js';
 import { world, spawnEnemySync, removeEnemyInstance, getLivePlayer } from '../../server/engine/world.js';
 import { setEspShelter } from '../../server/engine/ai-behaviour.js';
@@ -236,6 +236,9 @@ async function activate(message) {
   setEspShelter(true);
 
   espActive = true;
+  // The city is locked down. Other plugins hear it here rather than importing this one: the South
+  // Lock drops its outer door on it (plugins/trucking/lock.js, plugins/flight/state.js).
+  emit('esp.changed', { active: true });
 }
 
 function deactivate() {
@@ -262,6 +265,7 @@ function deactivate() {
 
   // Release the global ESP shelter override so normal AI ticks resume.
   setEspShelter(false);
+  emit('esp.changed', { active: false });
 
   // Reset each NPC's AI state so they pick up their normal routine on the
   // next tick rather than staying frozen at their home zone.

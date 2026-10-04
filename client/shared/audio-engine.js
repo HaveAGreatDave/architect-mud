@@ -2605,18 +2605,23 @@ return out;
     // face in the crowd, and so can't be left to the hash. Merged over the
     // derived voice, so anything not overridden still comes from the name.
     //
-    // 'architect' is the login greeting. The hash put it on the HIGH branch at
-    // f0 ≈ 174Hz with fshift > 1 — a short vocal tract talking near the top of
-    // its range, which is the recipe for nasal and thin. The thing welcoming you
-    // to Coldwater should sound like it's standing behind you, so: low and slow,
-    // a long tract, almost no lilt (a flat delivery is menacing when the words
-    // are pleasant), and a deep phrase-final fall.
+    // 'architect' is the login greeting, and it's a woman's voice: warm, unhurried
+    // and pleased to see you. It used to be a low, flat, pressed male drone (f0 78),
+    // on the idea that a flat delivery of pleasant words is menacing. It was mostly
+    // unpleasant to hear every login, and the lines carry the menace on their own:
+    // "We kept your seat warm" lands harder from a voice that sounds like it means it.
+    //
+    // f0 and fshift move together. A female pitch over a male-length tract is what
+    // read as nasal and thin when the hash rolled this seed at 174Hz; the phoneme
+    // table holds adult male formants, and adult female ones sit about 15% higher.
+    // A high open quotient and a little breath soften the source, and a wider lilt
+    // with a gentle final fall is what makes it sound warm rather than read out.
     const NAMED_VOICES = {
       architect: {
-        f0: 78, fshift: 0.86, speed: 1.06, ring: 0,
-        oq: 0.48,            // pressed, not breathy — a closed glottis reads as weight
-        jitter: 0.005, breath: 0,
-        lilt: 0.035, decl: 0.18,
+        f0: 190, fshift: 1.14, speed: 1.16, ring: 0,
+        oq: 0.70,            // open and soft, where a pressed glottis reads as hard
+        jitter: 0.004, breath: 0.006,
+        lilt: 0.085, decl: 0.11,
         // ⚠ A NAMED VOICE IS FULLY AUTHORED, INCLUDING THE TRAITS IT DOESN'T HAVE.
         // Anything absent here falls through to the dice above, so the moment
         // `drive` was added this voice quietly picked up 0.105 of it — a hand-tuned

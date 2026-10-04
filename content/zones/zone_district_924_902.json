@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "color": "#9aa0b0",
-  "description": "Arrivals: a long glass hall under a curved roof, with a canopy over the kerb and a baggage tug parked where it gave up. Neon trims every edge, cyan and pink. One blade by the door says COLDWATER REGIONAL AIRPORT, the only word on the whole field. The door is west; the apron is east.",
+  "description": "Arrivals: the north half of the terminal, a glass hall under a curved roof with a canopy over the kerb and a baggage train parked on the apron. Neon trims every edge, cyan and pink. A lit board on the fascia says COLDWATER REGIONAL AIRPORT. The door is west; the apron is east.",
   "exits": {
     "east": "zone_district_925_902",
     "west": "zone_cw_arrivals"

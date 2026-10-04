@@ -1,0 +1,37 @@
+{
+  "ambient_events": [
+    "Somebody in a top bunk says a name in their sleep, then says it again as a question.",
+    "The stove pipe ticks as it cools.",
+    "A bunk frame creaks through a long, careful turn.",
+    "Down on the street a clone facility door bangs, and someone new walks out into the air.",
+    "The sign on the roof buzzes, cuts out, and comes back."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#221d18",
+  "color": "#c9a86a",
+  "description": "The signal box's old operating floor, windowed on three sides, the lever frame long gone for scrap. Bunks stand three high where the levers were, bolted to the floor plates, the mattresses paper-thin and numbered in marker. A stove pipe runs up the middle to the floors above. A board on the stair says NO FIGHTING. NO DYING. WARDEN'S ORDERS.",
+  "exits": {
+    "down": "zone_trackmarks_shop",
+    "up": "zone_hostel_dorm_2"
+  },
+  "flags": {
+    "allow_sleep": true,
+    "building_name": "Hostel Takeover",
+    "building_type": "hostel",
+    "floor": "boards",
+    "guest_home": true,
+    "is_building": true,
+    "is_dwelling": true,
+    "is_interior": true,
+    "region_id": "region_coldwater",
+    "sanctuary": true,
+    "world_exit_zone": "zone_district_917_903"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 1,
+  "id": "zone_hostel_dorm",
+  "map_id": "map_int_trackmarks",
+  "name": "Hostel Takeover, first floor",
+  "parent_zone": "zone_district_917_903"
+}

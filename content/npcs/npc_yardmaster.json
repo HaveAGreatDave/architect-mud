@@ -131,7 +131,7 @@
     }
   },
   "chitchat": [],
-  "description": "The Yards' yardmaster, a barrel of a man who runs freight, salvage, and the occasional quiet cargo out of a dead signal box. He knows where everything is, whose it is, and what it would cost you to disagree.",
+  "description": "The Yards' yardmaster, a barrel of a man who runs freight, salvage and the occasional quiet cargo from a desk in the corner of the airfreight floor. He knows where everything is, whose it is, and what it would cost you to disagree.",
   "dialogue_tree": {
     "accepted": {
       "actions": [
@@ -291,5 +291,5 @@
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_trackmarks_shop"
+  "work_zone_id": "zone_yard_forwarder"
 }

@@ -1,0 +1,14 @@
+{
+  "description": "A single caged bulb on a chain over the stove pipe, kept dim.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_hostel_dorm",
+  "light_type": "overhead",
+  "lumen_output": 800,
+  "name": "caged bulb",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_hostel_dorm"
+}

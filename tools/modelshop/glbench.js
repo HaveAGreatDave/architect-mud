@@ -22,9 +22,9 @@ import { principalAxes, medianNND, FLOCK_BANDS } from '/client/shared/flock-shap
 import { createGLView } from '/client/game/js/panels/gl/context.js';
 import { installGL, glLastFrame, glCapabilities } from '/client/game/js/panels/gl/install.js';
 import { LIGHT_TUNE } from '/client/game/js/panels/gl/world.js';
-import { perchedNow, perchesHigh, flocksNear, flockState, flockCentreAt, speciesAt, flockSize, falconStoop, isGrandRoost, SPECIES, groundSpot, groundSpotParts, groundPatchR, groundMill } from '/client/shared/birds.js';
+import { perchedNow, perchesHigh, flocksNear, flockState, flockCentreAt, speciesAt, placeOf, flockSize, falconStoop, isGrandRoost, SPECIES, groundSpot, groundSpotParts, groundPatchR, groundMill, flockSpreadScale, BIRD_M_PER_TILE } from '/client/shared/birds.js';
 import { faunaPaintCount } from '/client/game/js/panels/fauna3d.js';
-import { perchFor, perchSeat, perchSpot, perchLegState, paintWindshield, pushLightningStrike, foamReset, shapeModelRegistry, captureModelMesh, wallPaletteInfo, makeCam, RENDER_TUNE, FLASH_FLOOR, FLASH_BANK, murmurFrameBirds, glWorldInstalled, setWindshieldProfiler, perfSnapshot } from '/client/game/js/panels/windshield.js';
+import { perchFor, perchSeat, perchSpot, perchLegState, landSite, looseOf, paintWindshield, pushLightningStrike, foamReset, shapeModelRegistry, captureModelMesh, wallPaletteInfo, makeCam, RENDER_TUNE, FLASH_FLOOR, FLASH_BANK, murmurFrameBirds, glWorldInstalled, setWindshieldProfiler, perfSnapshot } from '/client/game/js/panels/windshield.js';
 
 const R = 16, N = R * 2 + 1;
 
@@ -2508,8 +2508,13 @@ if (typeof window !== 'undefined') window.__glMirrorShot = paintMirrorShot;
 // where the frame is expensive and gets read as the feature under test.
 const MAT_SEATS = [
   { tag: 'cab, noon', R: 14, density: 0.20, hour: 12.5, cls: 'truck' },
+  // Dusk and storm are the two lights the material plan (docs/proposals/glass-materials.md) is
+  // most likely to get wrong: the dusk blend is where the night dim and the lit windows cross over,
+  // and a storm is the sky the reflection has never been shown.
+  { tag: 'cab, dusk', R: 14, density: 0.20, hour: 18.8, cls: 'truck' },
   { tag: 'cab, night', R: 14, density: 0.20, hour: 23, cls: 'truck' },
   { tag: 'air, afternoon', R: 34, density: 0.06, hour: 15.5, cls: 'prop' },
+  { tag: 'air, storm', R: 34, density: 0.06, hour: 15.5, cls: 'prop', weather: 'storm' },
 ];
 const MAT_SWEEP = [0.35, 0.7, 1];
 
@@ -2545,7 +2550,7 @@ export function runMaterials({ W = 640, H = 360, frames = 26, warm = 8 } = {}) {
     }));
   };
 
-  const rows = [], realNow = performance.now.bind(performance);
+  const rows = [], realNow = performance.now.bind(performance), realRandom = Math.random;
   const heldMat = RENDER_TUNE.glMat, heldBump = RENDER_TUNE.glBump;
   try {
     for (const seat of MAT_SEATS) {
@@ -2555,12 +2560,17 @@ export function runMaterials({ W = 640, H = 360, frames = 26, warm = 8 } = {}) {
       const view = (map) => ({
         cls: seat.cls, phase: 'cruise', worldBlend: 1,
         height: seat.cls === 'prop' ? 0.5 : 0, eyeH: seat.cls === 'prop' ? undefined : 0.12,
-        hour: seat.hour, weather: 'clear', speed: 0.4, map, heading: 0,
+        hour: seat.hour, weather: seat.weather || 'clear', speed: 0.4, map, heading: 0,
         mapCenter: { x: 100, y: 100 }, mapOffset: { x: 0.2, y: -0.3 },
         resFloor: 1, tune: { gl: 1, perfDS: 0 },
       });
       RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1;
-      const paint2 = (v) => { paintWindshield(ID, v); paintWindshield(ID, v); };
+      // Reseeded before every pair, so the storm seat's rain falls in the same streaks in A and B.
+      const paint2 = (v) => {
+        let s = 0x2545f491;
+        Math.random = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+        paintWindshield(ID, v); paintWindshield(ID, v);
+      };
       // ⚠ SETTLED, NOT MERELY FROZEN. The wall wash ramps over ELAPSED time, so under a clock that
       // never advances no light ever reaches its slot — and the night seat would be compared against
       // a city with no lights on it, which is not the city. That is the bug that had every row of
@@ -2633,7 +2643,7 @@ export function runMaterials({ W = 640, H = 360, frames = 26, warm = 8 } = {}) {
         ms: msOff.toFixed(2) + ' -> ' + msMat.toFixed(2) + ' -> ' + msBoth.toFixed(2) });
     }
   } finally {
-    performance.now = realNow;
+    performance.now = realNow; Math.random = realRandom;
     RENDER_TUNE.glMat = heldMat; RENDER_TUNE.glBump = heldBump;
     uninstall && uninstall(); holder.remove();
   }
@@ -6256,6 +6266,146 @@ export function runMurmurLanding({ n = 3000, dt = 33 } = {}) {
   return out;
 }
 if (typeof window !== 'undefined') window.__glMurmurLanding = runMurmurLanding;
+
+/**
+ * A STARLING PARTY COMING DOWN IN THE REAL CITY, FILMED. The cells are the baked snapshot (/api/world,
+ * the same file `__street` paints), so the wires, the parapets and the grass are the ones a player
+ * drives past; every other murmuration bench flies over a synthetic field with nothing to land on.
+ *
+ * `ax, ay` is the flock's anchor. The film starts `lead` ms before touchdown number `skip` after the
+ * reference clock, at game hour `hour` (11 is a feeding party of a few dozen; 17.5 is the evening show).
+ * A free camera parked `dist` tiles off where the flock comes down (`landSite`, the renderer's own answer),
+ * on the first side with a clear view of it (`bearing` in degrees pins one), keeps that spot in frame;
+ * `zoom` lengthens the lens. `tune` sets RENDER_TUNE keys for the run (starlingSite 0 and friends are the
+ * before). Posts a contact sheet to /api/shot as `name` and returns where the flock landed and on what.
+ */
+export async function runStarlingLand({ name = 'starling-land', ax = 909, ay = 907, hour = 11, lead = 10000, frames = 540, every = 60,
+  dt = 33.4, dist = 2.2, camZ = 0.2, side = 0, W = 640, H = 360, cols = 3, skip = 0, warmMs = 20000, zoom = 1, aimUp = 0.15, tune = {}, bearing = null } = {}) {
+  const w = await (await fetch('/api/world?map=map_world')).json();
+  const RR = 30, NN = RR * 2 + 1;
+  const bare = { kind: 'land', biome: 'badlands', flr: 0 };
+  const map = Array.from({ length: NN }, (_, j) => Array.from({ length: NN }, (_, i) => w.cells[(ax + i - RR) + ',' + (ay + j - RR)] || bare));
+  const cellAt = (x, y) => map[y - ay + RR]?.[x - ax + RR] || null;
+  // the renderer's own habitat question (drawGeese): the place off the neighbours, the road offered
+  const habitat = (x, y) => {
+    const c = cellAt(x, y);
+    if (!c || c.bt) return false;
+    let bld = 0, shore = false;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue;
+      const n = cellAt(x + dx, y + dy);
+      if (n && n.bt) bld++;
+      if (n && n.kind === 'water') shore = true;
+    }
+    const sp = speciesAt(placeOf(c.biome, bld, shore), x, y, { road: !!c.road });
+    return sp ? { sp } : false;
+  };
+  const A = [...flocksNear(ax, ay, 1, 1, habitat)].find((f) => f.ax === ax && f.ay === ay && f.sp === 'songbird');
+  if (!A) return { ok: false, why: 'no starling flock anchored at ' + ax + ',' + ay };
+  const when = { hour };
+  // the touchdown: the `skip`th time the flock goes from up to down after the reference clock
+  let T = 1.7e12, prev = flockState(A, T, null, when).airborne, seen = 0, down = null;
+  for (let i = 1; i < 400000 && down == null; i++) {
+    const tt = T + i * 50, up = flockState(A, tt, null, when).airborne;
+    if (prev && !up && seen++ === skip) down = tt;
+    prev = up;
+  }
+  if (down == null) return { ok: false, why: 'the flock never landed' };
+  const n = Math.floor(frames / every), rows = Math.ceil(n / cols);
+  const sheet = document.createElement('canvas'), info = [];
+  let sx = null, site = null;
+  withBench(W, H, '__starling', (el, T) => {
+    Object.assign(T, tune);
+    site = landSite(map, RR, ax, ay, A, down + 500, when) || { x: ax, y: ay, z: 0, kind: 'anchor' };
+    const view = { cls: 'truck', variant: 'hauler', phase: 'cruise', worldBlend: 1, height: 0, eyeH: 0.12, fovMul: zoom, hour, weather: 'clear',
+      speed: 0, resFloor: 1, map, heading: 0, mapCenter: { x: ax, y: ay }, mapOffset: { x: 0, y: 0 }, external: true, hideOwnShip: true };
+    // ⚠ PARKED IN THE OPEN, NEVER INSIDE A BUILDING: the first bearing (from due south, round the compass)
+    // whose spot and whose line of sight to the site cross no building tile. `bearing` (degrees) pins it.
+    const clearTo = (x, y) => { for (let k = 0; k <= 12; k++) { const c = cellAt(Math.round(x + (site.x - x) * k / 12), Math.round(y + (site.y - y) * k / 12)); if (c && c.bt && k < 12) return false; } return true; };
+    let bx = site.x, by = site.y + dist;
+    for (let k = 0; k < 24; k++) {
+      const b = ((bearing ?? 180) + k * 15) * Math.PI / 180, x = site.x + Math.sin(b) * dist, y = site.y - Math.cos(b) * dist;
+      if (clearTo(x, y)) { bx = x; by = y; break; }
+      if (bearing != null) { bx = x; by = y; break; }
+    }
+    const cam = { x: bx - ax + side, y: by - ay, z: camZ };
+    const tz = site.z || 0;
+    const yaw = Math.atan2(site.x - ax - cam.x, -(site.y - ay - cam.y)) * 180 / Math.PI;
+    const pitch = Math.atan2(tz - cam.z + aimUp, Math.hypot(site.x - ax - cam.x, site.y - ay - cam.y));
+    view.freeCam = { x: cam.x, y: cam.y, z: cam.z, yaw, pitch, roll: 0, fov: zoom };
+    const seed = () => { let sd = 0x2545f49; Math.random = () => { sd = (sd * 1103515245 + 12345) & 0x7fffffff; return sd / 0x7fffffff; }; };
+    const paintAt = (tt) => { performance.now = () => tt; Date.now = () => tt; seed(); paintWindshield(el.id, view); };
+    let t = down - lead - warmMs;
+    for (; t < down - lead; t += dt) paintAt(t);
+    for (let i = 0; i < frames; i++, t += dt) {
+      paintAt(t);
+      if (!sx) { sheet.width = el.width * cols; sheet.height = el.height * rows; sx = sheet.getContext('2d'); }
+      if ((i + 1) % every === 0) {
+        const j = (i + 1) / every - 1, ox = (j % cols) * el.width, oy = Math.floor(j / cols) * el.height;
+        sx.drawImage(el, ox, oy);
+        const s = ((t - down) / 1000).toFixed(1);
+        sx.fillStyle = 'rgba(0,0,0,0.55)'; sx.fillRect(ox, oy, 250, 26);
+        sx.fillStyle = '#fff'; sx.font = '15px monospace'; sx.fillText('touchdown ' + (s >= 0 ? '+' : '') + s + 's', ox + 8, oy + 18);
+        info.push({ s: +s, birds: murmurFrameBirds() });
+      }
+    }
+  });
+  const blob = await new Promise((r) => sheet.toBlob(r, 'image/png'));
+  const res = await (await fetch('/api/shot?name=' + name, { method: 'POST', body: blob })).json();
+  const out = { file: res.file, n: flockSize(A, when), perched: perchedNow(A, down + 500), site: { kind: site.kind, x: +site.x.toFixed(2), y: +site.y.toFixed(2), z: +(site.z || 0).toFixed(3) }, info };
+  console.log('__glStarlingLand', JSON.stringify(out));
+  return out;
+}
+if (typeof window !== 'undefined') window.__glStarlingLand = runStarlingLand;
+
+/**
+ * A STARLING PARTY'S LOOSE SPELLS, MEASURED (looseOf in windshield.js, LOOSE_* in gl/murmur-gpu.js). One
+ * flight of a real party's course flown on the GPU twice, with its loose spells and without, and read back
+ * every second: how far the birds are from their middle (rms, metres), how far each is from its nearest
+ * (median, metres), and how much they fly one way (polarisation, 1 is every bird on one heading). A party
+ * that comes apart and pulls together shows the first two swelling and shrinking with `loose`; flown
+ * without the spells they hold steady.
+ */
+export function runStarlingLoose({ n = 30, secs = 70, dt = 33, hour = 11 } = {}) {
+  const { mg, done } = murmurGL();
+  if (!mg.ok) { done(); return { ok: false, why: 'no float render targets' }; }
+  const habitat = (wx, wy) => speciesAt('parkland', wx, wy) || false;
+  const f = [...flocksNear(900, 900, 200, 1, habitat)].find((q) => q.sp === 'songbird' && !isGrandRoost(q));
+  if (!f) { done(); return { ok: false, why: 'no starling party in reach' }; }
+  const when = { hour };
+  // the start of a flight
+  let T0 = 1.7e12, prev = flockState(f, T0, null, when).airborne;
+  for (let i = 1; i < 400000; i++) { const tt = 1.7e12 + i * 50, up = flockState(f, tt, null, when).airborne; if (up && !prev) { T0 = tt; break; } prev = up; }
+  const M = BIRD_M_PER_TILE;
+  const fly = (on) => {
+    const key = 'loose-' + (on ? 1 : 0), rows = [];
+    for (let k = 0, t = T0; t < T0 + secs * 1000; k++, t += dt) {
+      const st = flockState(f, t, null, when);
+      if (!st.airborne) break;
+      const spread = Math.max(3.85 / M, (st.r ?? SPECIES.songbird.r) * 0.22) * flockSpreadScale(n) * RENDER_TUNE.murmurPack;
+      const loose = on ? looseOf(f, n, t, st) : 0;
+      mg.step(murmurRec({ key, n, spread, now: t, cx: st.cx, cy: st.cy, cz: st.z, heading: st.heading, free: { on: 1 }, loose,
+        course: (ms) => flockCentreAt(f, ms, null, when), beatOff: (i) => (i * 0.6180339) % 1 }));
+      if (k % Math.round(1000 / dt)) continue;
+      const p = murmurPts(mg, key);
+      let cx = 0, cy = 0, cz = 0, ux = 0, uy = 0;
+      for (const b of p) { cx += b.x; cy += b.y; cz += b.z; const v = Math.hypot(b.vx, b.vy) || 1; ux += b.vx / v; uy += b.vy / v; }
+      cx /= p.length; cy /= p.length; cz /= p.length;
+      let rr = 0; for (const b of p) rr += (b.x - cx) ** 2 + (b.y - cy) ** 2 + (b.z - cz) ** 2;
+      const nn = p.map((a) => { let m = Infinity; for (const b of p) if (b !== a) m = Math.min(m, Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)); return m; }).sort((a, b) => a - b);
+      rows.push({ s: Math.round((t - T0) / 1000), loose: +loose.toFixed(2), rmsM: +(Math.sqrt(rr / p.length) * M).toFixed(1),
+        nndM: +(nn[nn.length >> 1] * M).toFixed(2), pol: +(Math.hypot(ux, uy) / p.length).toFixed(2) });
+    }
+    return rows;
+  };
+  const on = fly(true), off = fly(false);
+  mg.sweep(1e18); done();
+  const span = (rows, k) => { const v = rows.map((r) => r[k]); return [Math.min(...v), Math.max(...v)]; };
+  const out = { n, flock: f.ax + ',' + f.ay, on, off, rmsOn: span(on, 'rmsM'), rmsOff: span(off, 'rmsM'), polOn: span(on, 'pol'), polOff: span(off, 'pol') };
+  console.log('__glStarlingLoose', JSON.stringify(out));
+  return out;
+}
+if (typeof window !== 'undefined') window.__glStarlingLoose = runStarlingLoose;
 
 /**
  * WHAT A STARLING CLOUD COSTS THE CPU, by phase and by GL call. The same scene with no murmuration and

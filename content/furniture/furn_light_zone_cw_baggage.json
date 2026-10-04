@@ -1,0 +1,17 @@
+{
+  "description": "Fluorescent tubes in two long rows. One of them flickers.",
+  "flags": {
+    "is_light": true,
+    "light_type": "overhead"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_cw_baggage",
+  "light_type": "overhead",
+  "lumen_output": 1500,
+  "name": "strip lights",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": null,
+  "zone_id": "zone_cw_baggage"
+}

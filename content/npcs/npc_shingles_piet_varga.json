@@ -1,0 +1,208 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "type": "start",
+        "next": "is_late"
+      },
+      "is_late": {
+        "type": "condition",
+        "condition_type": "HOUR_RANGE",
+        "params": {
+          "from": 1,
+          "to": 6
+        },
+        "ifTrue": "go_home",
+        "ifFalse": "day_pick"
+      },
+      "go_home": {
+        "type": "action",
+        "action_type": "GO_HOME",
+        "next": "sleep"
+      },
+      "sleep": {
+        "type": "action",
+        "action_type": "AT_HOME_LIFE",
+        "next": "start"
+      },
+      "day_pick": {
+        "type": "random",
+        "branches": [
+          {
+            "weight": 3
+          },
+          {
+            "weight": 2
+          },
+          {
+            "weight": 1
+          }
+        ],
+        "branch_0": "mill",
+        "branch_1": "to_fire",
+        "branch_2": "day_home"
+      },
+      "mill": {
+        "type": "action",
+        "action_type": "PATROL",
+        "params": {
+          "waypoints": [
+            "zone_district_924_918",
+            "zone_district_924_917",
+            "zone_district_924_916",
+            "zone_district_923_916",
+            "zone_district_922_916",
+            "zone_district_923_918"
+          ],
+          "loop": true,
+          "mode": "walk"
+        },
+        "next": "mill_wait"
+      },
+      "mill_wait": {
+        "type": "wait",
+        "seconds": 200,
+        "jitter": 160,
+        "next": "start"
+      },
+      "day_home": {
+        "type": "action",
+        "action_type": "GO_HOME",
+        "next": "mill_wait"
+      },
+      "to_fire": {
+        "type": "action",
+        "action_type": "GO_TO_WORK",
+        "params": {
+          "zone_id": "zone_district_923_918"
+        },
+        "next": "fire_pick"
+      },
+      "fire_pick": {
+        "type": "random",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          }
+        ],
+        "branch_0": "fire_0",
+        "branch_1": "fire_1",
+        "branch_2": "fire_2",
+        "branch_3": "fire_3"
+      },
+      "fire_wait": {
+        "type": "wait",
+        "seconds": 150,
+        "jitter": 90,
+        "next": "start"
+      },
+      "fire_0": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "shows the tally on his arm to the fire. \"Two. Not doing three.\""
+        },
+        "next": "fire_wait"
+      },
+      "fire_1": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "says, \"First time I came out, I'd lost a song. Second time, a face. I don't know whose.\""
+        },
+        "next": "fire_wait"
+      },
+      "fire_2": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "tells the drum, \"It prints you from a file. Who edits the file?\""
+        },
+        "next": "fire_wait"
+      },
+      "fire_3": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "params": {
+          "message": "stares into the flames, trying to remember something, and doesn't."
+        },
+        "next": "fire_wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Two times through the vat. Something didn't come back.\"",
+    "adds nothing to the tally on his arm, carefully.",
+    "\"Ask me my sister's name. Go on. I'll wait.\""
+  ],
+  "description": "A thin man with a fresh, unscarred look that doesn't match his age. Down his left forearm, in biro, are two tally marks and a lot of crossings-out. He rolls his sleeve up when he talks so you can see them.",
+  "dialogue_tree": {
+    "root": {
+      "options": [
+        {
+          "label": "What have you got against the Architect?",
+          "next": "gripe"
+        },
+        {
+          "label": "Bye.",
+          "next": "bye"
+        }
+      ],
+      "text": "Varga rolls his sleeve up, out of habit. \"Still two.\"",
+      "text_by_relation": {
+        "first": "The thin man rolls up his sleeve before you've said anything and shows you two tally marks in biro.\n\n\"Varga. That's how many times the Architect's reprinted me.\" He taps each mark. \"Came out fine. Everyone says so. Only there's a gap where my sister used to be, and I can't tell you what's in it, because that's what a gap is.\"",
+        "known": "\"Still two,\" says Varga, before you ask.",
+        "familiar": "Varga pushes his sleeve down for once.\n\n\"If you go back through the vat, write something down first. Something only you'd know. Then check.\""
+      }
+    },
+    "gripe": {
+      "options": [
+        {
+          "label": "Right.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It isn't a hospital. A hospital mends you.\" He rubs the marks. \"That thing reads you off a file and prints a copy that's certain it's the same man. I'm certain. That's the problem. I'd be certain either way.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "Piet goes back to the lane."
+    }
+  },
+  "faction": null,
+  "flags": {
+    "mis_willing": false,
+    "personality": "unemployed"
+  },
+  "home_activities": [
+    "inks over the tally marks on his arm so they don't fade.",
+    "writes his own name on a scrap of card and keeps it in his shoe."
+  ],
+  "home_zone": "zone_district_924_918",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_shingles_piet_varga",
+  "name": "Piet Varga",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

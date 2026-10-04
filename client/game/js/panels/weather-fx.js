@@ -131,10 +131,12 @@ function updateTransition(S, dt) {
 }
 
 // Named "hero" weather event overlay, composited ON TOP of the base effect:
-// ion_storm (green tint + lightning flashes) / acid_rain (caustic yellow-green
+// ion_storm (dense lightning, no tint) / acid_rain (caustic yellow-green
 // wash). Driven by the `weather_event` WS message. `phase` scales intensity.
 let eventFx = { type: null, phase: null };
 let flashA = 0;   // current ion-storm flash alpha, decays each frame
+let ccA = 0;      // cloud-to-cloud flicker across the top of the pane
+let ccX = 0.5;    // where in the deck it is, as a fraction of the width
 let arcs = [];    // live ion-storm discharges — { pts, a }
 let etches = [];  // live acid-rain etch marks — { x, y, r, a }
 let etchTimer = 0;
@@ -869,19 +871,29 @@ function drawEventOverlay(dt, w, h) {
     }
     return;
   }
-  if (eventFx.type === 'rainbow' || eventFx.type === 'triple_rainbow') {
-    drawRainbow(w, h, m, eventFx.type === 'triple_rainbow' ? 3 : 1);
+  if (eventFx.type === 'rainbow' || eventFx.type === 'double_rainbow' || eventFx.type === 'triple_rainbow') {
+    drawRainbow(w, h, m, eventFx.type === 'triple_rainbow' ? 3 : eventFx.type === 'double_rainbow' ? 2 : 1);
     return;
   }
   if (eventFx.type === 'ion_storm') {
-    ctx.fillStyle = `rgba(80,255,140,${0.04 + 0.06 * m})`;   // sickly green tint
-    ctx.fillRect(0, 0, w, h);
-    // Lightning: decay any live flash, randomly ignite a new one (rate/brightness
-    // scale with phase). dt-scaled so frequency is frame-rate independent.
-    flashA = Math.max(0, flashA - dt * 4);
-    const flashesPerSec = eventFx.phase === 'peak' ? 0.7 : 0.28;
+    // No tint: the air is clear and the storm is the lightning. Strikes come
+    // several a second at the peak, and in between the deck flickers with
+    // cloud-to-cloud discharge that never reaches the ground. dt-scaled so the
+    // frequency is frame-rate independent.
+    flashA = Math.max(0, flashA - dt * 5);
+    ccA = Math.max(0, ccA - dt * 3);
+    const flashesPerSec = eventFx.phase === 'peak' ? 1.6 : 0.5;
+    const ccPerSec = eventFx.phase === 'peak' ? 2.4 : 0.9;
     if (Math.random() < flashesPerSec * dt) { flashA = 0.3 + 0.4 * m; spawnArc(w, h, m); }
-    if (flashA > 0.01) { ctx.fillStyle = `rgba(215,255,230,${flashA})`; ctx.fillRect(0, 0, w, h); }
+    if (Math.random() < ccPerSec * dt) { ccA = 0.18 + 0.22 * m * Math.random(); ccX = Math.random(); }
+    if (ccA > 0.01) {
+      const g = ctx.createRadialGradient(ccX * w, 0, 0, ccX * w, 0, w * 0.6);
+      g.addColorStop(0, `rgba(225,232,255,${ccA})`);
+      g.addColorStop(1, 'rgba(225,232,255,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, w, h * 0.6);
+    }
+    if (flashA > 0.01) { ctx.fillStyle = `rgba(230,238,255,${flashA})`; ctx.fillRect(0, 0, w, h); }
     drawArcs(dt);
   }
 }
@@ -956,7 +968,7 @@ function drawArcs(dt) {
     const arc = arcs[i];
     arc.a -= dt * 3.2;
     if (arc.a <= 0) { arcs.splice(i, 1); continue; }
-    ctx.strokeStyle = `rgba(200,255,225,${arc.a})`;
+    ctx.strokeStyle = `rgba(225,235,255,${arc.a})`;
     ctx.lineWidth = 1.4;
     ctx.beginPath();
     ctx.moveTo(arc.pts[0].x, arc.pts[0].y);

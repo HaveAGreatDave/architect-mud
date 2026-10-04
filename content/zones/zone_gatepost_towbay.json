@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#1e2024",
+  "description": "One bay, the Motor Pool turned round: oil-dark concrete, a tow rig backed in with its boom down, and a chalkboard of plates and weights nobody argues with twice. A seized rig's cab lights are still on in the corner because nobody here has the keys.",
+  "exits": {
+    "east": "zone_district_909_922"
+  },
+  "flags": {
+    "building_name": "The Tow Bay",
+    "district": "wilds",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_909_922"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_gatepost_towbay",
+  "map_id": "map_int_gatepost_towbay",
+  "name": "The Tow Bay",
+  "parent_zone": "zone_district_909_922"
+}

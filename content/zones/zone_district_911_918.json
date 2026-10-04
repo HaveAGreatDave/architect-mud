@@ -4,8 +4,7 @@
   "description": "The Gate Road runs into a roofed box of grey plate, the Curtain's light at the far end. A lamp strip runs down each wall and along the roof, all one colour at a time. Green, you roll. Amber, you stop and somebody walks the rig. Stop bars are painted across the drain every few metres.",
   "exits": {
     "north": "zone_district_911_917",
-    "south": "zone_district_911_919",
-    "west": "zone_district_910_918"
+    "south": "zone_district_911_919"
   },
   "flags": {
     "artery": [
