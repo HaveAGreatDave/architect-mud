@@ -76,9 +76,14 @@ export function serverContext(player) {
   };
 }
 
+let warnedUnset = false;
+
 function webhook(row, ctx) {
-  const url = process.env.FEEDBACK_WEBHOOK_URL;
-  if (!url) return;
+  const url = process.env.FEEDBACK_WEBHOOK_URL?.trim();
+  if (!url) {
+    if (!warnedUnset) { warnedUnset = true; console.warn('[feedback] FEEDBACK_WEBHOOK_URL is unset; reports stay in the inbox only'); }
+    return;
+  }
   const where = [ctx.zone?.name || ctx.zone?.id, ctx.district?.name, ctx.anchor ? `${ctx.anchor.x},${ctx.anchor.y}` : null]
     .filter(Boolean).join(' · ');
   const text = row.body.length > 300 ? row.body.slice(0, 300) + '…' : row.body;
@@ -87,6 +92,9 @@ function webhook(row, ctx) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ content: content.slice(0, 1900), allowed_mentions: { parse: [] } }),
+  }).then(async res => {
+    // fetch only rejects on a network error; Discord's 4xx and 429s resolve.
+    if (!res.ok) console.warn(`[feedback] webhook ${res.status}: ${(await res.text().catch(() => '')).slice(0, 200)}`);
   }).catch(e => console.warn('[feedback] webhook failed:', e.message));
 }
 
