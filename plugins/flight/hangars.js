@@ -24,6 +24,7 @@ import { isPilotLicensed } from './checkride.js';
 import { prefersTextMinigamesOrDefault } from '../../server/engine/presentation.js';
 import { emit } from '../../server/engine/events.js';
 import { getZonePrecip } from '../../server/engine/environment.js';
+import { escapeHtml } from '../../server/engine/html.js';
 // `tune` also belongs to broadcast (tune a channel); flight wins it and hands
 // back when you're not tuning an aircraft. `repair` shadows the engine gear-repair
 // builtin — cmdRepair returns undefined out of aircraft context to fall through.
@@ -244,7 +245,8 @@ function textCraftLine(c, detailed) {
   // `salvage`/`rebuild` work off the wreck standing in this zone and take no
   // argument — don't hand them a craft id they'd try to parse.
   if (c.wreck) return `${s}\n   ${link('salvage', 'salvage')} · ${link('rebuild', 'rebuild')}`;
-  const acts = [link(`embark ${c.tail}`, 'embark')];
+  // The tail is player-typed and `clean` keeps quotes, so escape it for the attribute.
+  const acts = [link(`embark ${escapeHtml(c.tail)}`, 'embark')];
   if (c.fuelPct < 100) acts.push(link(`refuel ${c.id}`, 'refuel'));
   // A hopper is a second tank and reads as one: the same rung, the same shape of link.
   if (c.hopperCap > 0) acts.push(`${link(`loadhopper ${c.id}`, 'load hopper')} <span class="text-dim">(${Math.round(c.hopperAmount / c.hopperCap * 100)}%${c.hopperFluid ? `, ${c.hopperFluid}` : ''})</span>`);

@@ -6,6 +6,7 @@ import { world, getZonePlayers, getZone, getZoneNpcs, getZoneEnemies, reloadZone
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messaging.js';
 import { escAttr } from '../../server/engine/text.js';
+import { escapeHtml } from '../../server/engine/html.js';
 import { loggedPanelsSync } from '../../server/engine/presentation.js';
 import { on, emit } from '../../server/engine/events.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
@@ -8079,6 +8080,25 @@ async function cmdPirate(args, raw, player) {
   return textRender(player, { type: 'signal_hijack', deckId: deck.id, deckName: deck.name, stationName, skill, difficulty });
 }
 
+// What a won Signal Hijack does to the deck's flags (pure; the caller saves them).
+function _seizeDeckFlags(dflags, captorId, nowMs) {
+  dflags.pirate_owner = captorId;
+  dflags.pirate_since = nowMs;
+  // Seed the pirate queue from the station's own library so there's something on
+  // air the instant it's seized; the captor edits it from the console.
+  const lib = Array.isArray(dflags.deck_cassettes) ? [...dflags.deck_cassettes] : [];
+  dflags.pirate_queue = Array.isArray(dflags.pirate_queue) && dflags.pirate_queue.length ? dflags.pirate_queue : lib;
+  dflags.pirate_cursor = 0;
+  dflags.pirate_loop = dflags.pirate_loop || 'queue';
+  dflags.pirate_playing = true;
+  dflags.pirate_started_ms = nowMs;
+  delete dflags.pirate_engineer_at; // fresh defend window for the new captor
+  // The crawl is the last captor's taunt, typed by them. It doesn't pass to the
+  // rival who took the air off them: their console opens on an empty field.
+  delete dflags.pirate_crawl;
+  return dflags;
+}
+
 // pirateresolve <deckId> <1|0> — silent; the Signal Hijack overlay fires this.
 async function cmdPirateResolve(args, raw, player) {
   if (!player) return { type: 'noop' };
@@ -8105,17 +8125,7 @@ async function cmdPirateResolve(args, raw, player) {
   }
 
   const priorOwner = dflags.pirate_owner || null;
-  dflags.pirate_owner = player.id;
-  dflags.pirate_since = Date.now();
-  // Seed the pirate queue from the station's own library so there's something on
-  // air the instant it's seized; the captor edits it from the console.
-  const lib = Array.isArray(dflags.deck_cassettes) ? [...dflags.deck_cassettes] : [];
-  dflags.pirate_queue = Array.isArray(dflags.pirate_queue) && dflags.pirate_queue.length ? dflags.pirate_queue : lib;
-  dflags.pirate_cursor = 0;
-  dflags.pirate_loop = dflags.pirate_loop || 'queue';
-  dflags.pirate_playing = true;
-  dflags.pirate_started_ms = Date.now();
-  delete dflags.pirate_engineer_at; // fresh defend window for the new captor
+  _seizeDeckFlags(dflags, player.id, Date.now());
   await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
   _evictDeckZone(deck.zone_id);
   _pirateCache.delete(deck.zone_id);
@@ -9774,7 +9784,7 @@ function _emergencyConsoleText(c) {
   L.push(`  SYSTEM   ${c.on ? '<b>● ON AIR</b>: every set in Architect' : '○ OFF: carrying nothing'}`);
   L.push(`  SOURCE   ${c.mode === 'live' ? 'LIVE CAMERA' : 'CASSETTE'}`);
   L.push(`  FEED     ${escAttr(c.mode === 'live' ? (camLabel || 'no camera in this room') : (c.activeCassetteName || 'nothing loaded'))}`);
-  L.push(`  TICKER   ${c.ticker ? `"${escAttr(c.ticker)}"` : '(none)'}`);
+  L.push(`  TICKER   ${c.ticker ? `"${escapeHtml(c.ticker)}"` : '(none)'}`);
   if (c.cameras.length) {
     L.push(`  CAMERAS  ${c.cameras.map((x, i) => `${i + 1}. ${escAttr(x.label)}${x.key === c.camera ? ' &lt;' : ''}`).join('   ')}`);
   }
@@ -9920,7 +9930,7 @@ async function cmdEbs(args, raw, player, broadcast) {
       _syncOverride({ ticker: dflags.eb_ticker || null });
       sendToPlayer(player.id, { type: 'system', message: off
         ? 'Ticker cleared. The strip along the bottom goes dark.'
-        : `Ticker set: "${escAttr(dflags.eb_ticker)}"${emergencyActive() ? ': it is scrolling across the city now.' : ': it scrolls the moment the system goes to air.'}` });
+        : `Ticker set: "${escapeHtml(dflags.eb_ticker)}"${emergencyActive() ? ': it is scrolling across the city now.' : ': it scrolls the moment the system goes to air.'}` });
       break;
     }
     default:
@@ -9994,7 +10004,7 @@ export const specializedActions = [
 
 // Test seam (never loaded in production) — the pure piracy gate helpers, so the
 // regress suite can assert the deck-lock logic without a live furniture row.
-export const _piracyTest = { canOperateDeck, deckLockError: _deckLockError, nextCursor: _nextCursor, engineerDueAt: _engineerDueAt };
+export const _piracyTest = { canOperateDeck, deckLockError: _deckLockError, nextCursor: _nextCursor, engineerDueAt: _engineerDueAt, seizeDeckFlags: _seizeDeckFlags };
 
 // Test seam (never loaded in production) — the deterministic league engine, so the
 // regress suite can assert same-slot reproducibility and the round-robin schedule.

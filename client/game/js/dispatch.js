@@ -609,7 +609,12 @@ const handlers = {
     // view is open, and at that rung no panel opens. Television was the one system
     // with no written form at all.
     if (msg.toLog) {
-      appendHtml(msg.message, 'broadcast');
+      // A broadcast line is text plus [b]-style markup, the same as the set reads
+      // it (tv.js renders it through renderMarkup). Player text reaches air: a
+      // pirate crawl, the emergency ticker, a room caught on a live camera. So the
+      // log escapes it too. Only an SVG title card goes in as markup, as on the
+      // set, and those are authored in the dev panel.
+      appendHtml(msg.style === 'svg' ? msg.message : renderMarkup(msg.message), 'broadcast');
       return;
     }
     const views = tvViewsForChannel(msg.channel);
