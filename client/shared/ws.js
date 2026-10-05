@@ -1,6 +1,6 @@
 // Parameterized WebSocket wrapper with auto-reconnect, exponential backoff,
 // client-side ping keepalive, and a cold-start notification hook.
-export function connectWS(url, { onOpen, onClose, onRetry, onColdStart, onMessage }) {
+export function connectWS(url, { onOpen, onClose, onRetry, onColdStart, onMessage, onBadFrame }) {
   let ws = null;
   let reconnectDelay = 1000;
   let coldStartTimer = null;
@@ -61,7 +61,9 @@ export function connectWS(url, { onOpen, onClose, onRetry, onColdStart, onMessag
 
     sock.onmessage = (e) => {
       if (sock !== ws) return;
-      try { onMessage?.(JSON.parse(e.data)); } catch {}
+      // A frame that won't parse, or a handler that throws, must not break the stream.
+      // It used to vanish here; onBadFrame lets the caller put it in a bug report.
+      try { onMessage?.(JSON.parse(e.data)); } catch (err) { try { onBadFrame?.(err); } catch { /* reporting must not throw */ } }
     };
   }
 

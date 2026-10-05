@@ -33,6 +33,22 @@ export const MOON_EPOCH_OFFSET = 6.7;
 // What a caller with no date at all gets. ⚠ IT IS 0.5 BY AGREEMENT WITH THE RENDERER, not by
 // taste: `paintWindshield` reads `v.moon != null ? … : 0.5`, and at 0.5 `moonArc` gives the
 // 18:00-06:00 night that every pinned frame, bench and harness in the repo was captured against.
+/**
+ * Day of the year, 1–366, from a `YYYY-MM-DD` game date.
+ *
+ * ⚠ IT TAKES THE GAME DATE AND NEVER A `Date`. Most of birds.js (where this lived) is derived from the
+ * WALL clock, which is right for a cycle measured in seconds and wrong for one measured in months:
+ * the world clock runs at `timeScale` and its calendar is the only thing that knows what month the
+ * Basin is in. A wall-clock month would have the starlings roosting by the machine's own calendar
+ * while the sky over them was in a different season.
+ */
+export function doyOf(dateStr) {
+  if (!dateStr) return null;
+  const [y, m, d] = String(dateStr).slice(0, 10).split('-').map(Number);
+  if (!y || !m || !d) return null;
+  return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(y, 0, 1)) / 86400000) + 1;
+}
+
 // See the migration-invariant check at the top of scripts/shapes/moonarc.mjs.
 export const DEFAULT_MOON_PHASE = 0.5;
 

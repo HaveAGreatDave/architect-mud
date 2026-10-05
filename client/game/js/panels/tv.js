@@ -13,9 +13,17 @@
 
 import { sendCmdSilent, sendRaw } from '../net.js';
 import { renderMarkup } from '../markup.js';
-import { createGamedayView } from './gameday.js';
-import { createRinkView } from './gameday-rink.js';
 import { cphlMark, cphlLockup } from './cphl-brand.js';
+
+// The two sports sub-screens (gameday.js, gameday-rink.js) are about 209 KB, and they
+// were in the boot download for every player. They load on the first sports broadcast
+// instead, which is when the Gameday button appears; opening it awaits the same promise.
+let _gamedayViews = null;
+function loadGamedayViews() {
+  return (_gamedayViews ??= Promise.all([import('./gameday.js'), import('./gameday-rink.js')])
+    .then(([g, r]) => ({ createGamedayView: g.createGamedayView, createRinkView: r.createRinkView }))
+    .catch((err) => { _gamedayViews = null; throw err; }));   // a failed fetch retries next time
+}
 
 // Render an NPC say line in screenplay style: the speaker's name (in the TV
 // accent color) on its own line, their speech directly beneath it — no gap.
@@ -873,7 +881,10 @@ export function createTvView(root, opts = {}) {
   // there's more than one. Switching sports (a hockey game following a ballgame on
   // the same channel) tears the old view down rather than feeding it a payload it
   // can't read.
-  function _gamedayViewFor(gd, hostEl) {
+  // Async because the views load on demand (loadGamedayViews). Everything after the
+  // await runs in one turn, so two calls can't both mount a view.
+  async function _gamedayViewFor(gd, hostEl) {
+    const { createGamedayView, createRinkView } = await loadGamedayViews();
     const want = gd && gd.sport === 'hockey' ? 'hockey' : 'baseball';
     if (_gamedayView && _gamedaySport === want) return _gamedayView;
     _gamedayView?.clear();
@@ -907,7 +918,12 @@ export function createTvView(root, opts = {}) {
     const btn = el('gameday-btn');
     if (btn) btn.classList.add('avail');
     _brandGamedayBtn(gd && gd.sport === 'hockey' ? 'hockey' : 'baseball');
-    if (_gamedayOpen) _gamedayViewFor(gd, el('gameday')).apply(gd);
+    loadGamedayViews().catch(() => { /* retried when the button is pressed */ });
+    if (_gamedayOpen) {
+      _gamedayViewFor(gd, el('gameday'))
+        .then((view) => { if (_gamedayOpen && _lastGameday === gd) view.apply(gd); })
+        .catch((err) => console.error('[tv] gameday view failed to load:', err));
+    }
   }
 
   function _toggleGameday() {
@@ -918,9 +934,15 @@ export function createTvView(root, opts = {}) {
     host.classList.toggle('on', _gamedayOpen);
     btn?.classList.toggle('on', _gamedayOpen);
     if (_gamedayOpen) {
-      const view = _gamedayViewFor(_lastGameday, host);
-      if (_lastGameday) view.apply(_lastGameday);
-      else view.showIdle();   // opened before a play arrived — never blank
+      _gamedayViewFor(_lastGameday, host).then((view) => {
+        if (!_gamedayOpen) return;   // closed again while the views loaded
+        if (_lastGameday) view.apply(_lastGameday);
+        else view.showIdle();   // opened before a play arrived — never blank
+      }).catch((err) => {
+        // A failed chunk (a deploy mid-session, a dropped connection) must not leave
+        // the sub-screen open and blank with nothing said.
+        console.error('[tv] gameday view failed to load:', err);
+      });
     }
   }
 

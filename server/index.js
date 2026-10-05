@@ -1077,6 +1077,11 @@ wss.on("connection", (ws, req) => {
 		JSON.stringify({
 			type: "connected",
 			message: "Connected to ARCHITECT.",
+			// Which build is serving. A tab left open across a deploy reconnects to a new
+			// server while still running the old page, and lazily loads new modules on top
+			// of old ones; the client compares this and offers a reload. Render sets
+			// RENDER_GIT_COMMIT; locally it's absent and the check stays off.
+			build: process.env.RENDER_GIT_COMMIT || null,
 		}),
 	);
 

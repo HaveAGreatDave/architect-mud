@@ -639,21 +639,9 @@ export const isGrandRoost = (f) => {
 // it; the year never thins them. 0 on both is this module as it shipped.
 export const BIRD_TUNE = { season: 0, dusk: 1, flockRange: 1 };
 
-/**
- * Day of the year, 1–366, from a `YYYY-MM-DD` game date.
- *
- * ⚠ IT TAKES THE GAME DATE AND NEVER A `Date`. Everything else in this module is derived from the
- * WALL clock, which is right for a cycle measured in seconds and wrong for one measured in months:
- * the world clock runs at `timeScale` and its calendar is the only thing that knows what month the
- * Basin is in. A wall-clock month would have the starlings roosting by the machine's own calendar
- * while the sky over them was in a different season.
- */
-export function doyOf(dateStr) {
-  if (!dateStr) return null;
-  const [y, m, d] = String(dateStr).slice(0, 10).split('-').map(Number);
-  if (!y || !m || !d) return null;
-  return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(y, 0, 1)) / 86400000) + 1;
-}
+// doyOf lives in moon.js now, beside moonPhaseOf: environment.js needs it at boot, and
+// importing it from here pulled this whole 175 KB module into every first page load.
+export { doyOf } from './moon.js';
 
 const YEAR = 365.2425;
 

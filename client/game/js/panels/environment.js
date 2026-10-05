@@ -1,7 +1,7 @@
 import { state } from '../state.js';
 import { formatTemp } from '/shared/settings.js';
 import { setWeatherFx, setDrugFieldFx as aimDrugSlot } from './weather-fx.js';
-import { doyOf } from '/shared/birds.js';
+import { doyOf } from '/shared/moon.js';
 import { moonPhaseOf } from '/shared/moon.js';
 
 // ── THE RENDERER HAS TO BE TOLD WHAT MONTH IT IS ──────────────────────────────

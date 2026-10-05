@@ -36,6 +36,13 @@ function remember(kind, message, where) {
   if (errors.length > ERR_MAX) errors.shift();
 }
 
+// For errors the page catches itself, so they never reach the window listeners below:
+// a dispatch handler that throws, a frame that won't parse. Without this, a report
+// filed right after one carried no trace of it.
+export function rememberClientError(kind, err, where) {
+  remember(kind, err?.message || err, where || err?.stack?.split('\n')[1]?.trim());
+}
+
 // A ring of the last few uncaught errors. Installed once from main.js.
 export function installErrorRing() {
   if (window.__feedbackErrorRing) return;

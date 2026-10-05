@@ -3,6 +3,7 @@ import { state } from './state.js';
 import { appendMsg } from './render.js';
 import { autoLoginMessage, setRemember } from './remember.js';
 import { sessionGet, sessionRemove } from './session-store.js';
+import { rememberClientError } from './feedback-telemetry.js';
 
 const WS_PROTOCOL = location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_URL = `${WS_PROTOCOL}//${location.host}`;
@@ -79,6 +80,9 @@ export function initNet(messageHandler) {
       if (showing) showColdStart();
       else hideColdStart();
     },
+    // A frame that wouldn't parse goes in the feedback error ring, so a report filed
+    // after one says so. (Handler throws are recorded by dispatch.js itself.)
+    onBadFrame(err) { rememberClientError('frame', err); },
     onMessage(msg) {
       // DB compute wake (Neon free-tier cold start). Handled here so it reuses
       // the cold-start overlay; never forwarded to the game message handler.
