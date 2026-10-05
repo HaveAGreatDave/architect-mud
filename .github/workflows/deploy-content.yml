@@ -209,7 +209,7 @@ jobs:
             npm ci >/dev/null 2>&1 || true
             # Fail-open: if the idle check can't run, deploy rather than risk
             # silently skipping a real change (empty $last never equals $GITHUB_SHA).
-            last=$(node --input-type=module -e "import pg from 'pg'; const c=new pg.Client({connectionString:process.env.PROD_DATABASE_URL, ssl:{rejectUnauthorized:false}}); await c.connect(); const {rows}=await c.query(\"SELECT changes_summary->>'sha' AS sha FROM deployments WHERE deployed_by='ci' ORDER BY deployed_at DESC LIMIT 1\"); await c.end(); process.stdout.write(rows[0]?.sha||'');" || true)
+            last=$(node --input-type=module -e "import pg from 'pg'; const c=new pg.Client({connectionString:process.env.PROD_DATABASE_URL, ssl:{rejectUnauthorized:true}}); await c.connect(); const {rows}=await c.query(\"SELECT changes_summary->>'sha' AS sha FROM deployments WHERE deployed_by='ci' ORDER BY deployed_at DESC LIMIT 1\"); await c.end(); process.stdout.write(rows[0]?.sha||'');" || true)
             if [ "$last" = "$GITHUB_SHA" ]; then
               why="scheduled: HEAD ($GITHUB_SHA) already deployed — skipping the idle reboot"
             else
@@ -337,18 +337,44 @@ jobs:
             echo "::error::RENDER_DEPLOY_HOOK_URL is not set. Render auto-deploy is off, so this hook is the ONLY way code or content reaches prod — without it the live server serves a stale world indefinitely."
             exit 1
           fi
-          if ! curl -fsS -X POST "$HOOK" > /dev/null; then
+          # The deploy the verify step below waits for is the first one created after this.
+          echo "DEPLOY_SINCE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+          # ⚠ PINNED TO THE COMMIT THAT PASSED REGRESS. An unpinned hook builds whatever
+          # main is when it fires, so a push during this run's 10-15 minutes shipped code
+          # that was never gated, against content imported from the older sha. Render's
+          # deploy hooks take a `ref`; if this service refuses it, fall back to the
+          # unpinned POST rather than stop deploying, and say so.
+          sep='?'; case "$HOOK" in *\?*) sep='&' ;; esac
+          if curl -fsS -X POST "${HOOK}${sep}ref=${GITHUB_SHA}" > /dev/null; then
+            echo "Render restart triggered, pinned to ${GITHUB_SHA}."
+          elif curl -fsS -X POST "$HOOK" > /dev/null; then
+            echo "::warning::The deploy hook refused ref=${GITHUB_SHA}, so this deploy builds main's current HEAD, which may include commits regress didn't see."
+          else
             echo "::error::Deploy hook POST failed. Content is already in Neon, but the live server has NOT rebooted onto it. Check the hook URL against Render → architect-mud-live → Settings → Deploy Hook (a 404 means it points at a deleted service)."
             exit 1
           fi
-          echo "Render restart triggered."
+      - name: Wait for prod to come up on the new build
+        # The hook returns once Render QUEUES a build. Recording straight after stamped
+        # a failed build or boot as deployed, and later windows skipped it. This waits
+        # for the deploy to go live; a failed one fails the job so nothing is recorded
+        # and the next window retries. If Render can't be asked (exit 2), it records as
+        # before rather than block every deploy on a monitoring outage.
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          set +e
+          node scripts/ops/verify-deploy.mjs --since "$DEPLOY_SINCE" --sha "$GITHUB_SHA" --timeout-min 20
+          code=$?
+          set -e
+          if [ "$code" = "1" ]; then exit 1; fi
+          exit 0
       - name: Record deployment
         env:
           PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
         run: |
           node --input-type=module -e "
           import pg from 'pg';
-          const c = new pg.Client({ connectionString: process.env.PROD_DATABASE_URL, ssl: { rejectUnauthorized: false } });
+          const c = new pg.Client({ connectionString: process.env.PROD_DATABASE_URL, ssl: { rejectUnauthorized: true } });
           await c.connect();
           await c.query(
             'INSERT INTO deployments (deployed_by, change_count, changes_summary) VALUES (\$1, \$2, \$3)',

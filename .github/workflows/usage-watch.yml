@@ -107,3 +107,68 @@ jobs:
           # push would be a silent gap in the trend.
           git pull --rebase --autostash origin main
           git push origin HEAD:main
+
+  # ── Is prod keeping up with main? ─────────────────────────────────────────────
+  # deploy-content deploys on a GitHub cron, which GitHub fires late or not at all
+  # (3-4 runs a day instead of 6, gaps of 8 hours, in early October 2026), and its
+  # own failure notice only runs when the workflow does. So a skipped day was silent.
+  # This finds the newest successful deploy, checks whether main has commits since
+  # that touch deployable paths (docs-only commits don't need a deploy), and when
+  # they have waited more than 8 hours it opens or updates a deploy-stall issue. It
+  # closes the issue once prod has caught up. Reporting only: like deploy-content's
+  # notify job, a failure here never fails the morning usage report.
+  deploy-freshness:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/github-script@v8
+        with:
+          retries: 3
+          script: |
+            const { owner, repo } = context.repo;
+            const STALL_HOURS = 8;
+            const TITLE = '🚨 prod deploy has stalled';
+            const DEPLOYABLE = [/^content\//, /^server\//, /^plugins\//, /^client\//, /^scripts\/content\//,
+              /^package(-lock)?\.json$/, /^\.github\/workflows\/deploy-content\.yml$/];
+
+            // The newest deploy-content run whose `deploy` job succeeded.
+            const { data: { workflow_runs: runs } } = await github.rest.actions.listWorkflowRuns({
+              owner, repo, workflow_id: 'deploy-content.yml', status: 'success', per_page: 40,
+            });
+            let deployed = null;
+            for (const run of runs) {
+              const { data: { jobs } } = await github.rest.actions.listJobsForWorkflowRun({ owner, repo, run_id: run.id });
+              const job = jobs.find((j) => j.name === 'deploy' && j.conclusion === 'success');
+              if (job) { deployed = { sha: run.head_sha, at: new Date(job.completed_at), url: run.html_url }; break; }
+            }
+            if (!deployed) { core.warning('No successful deploy in the last 40 deploy-content runs.'); return; }
+
+            const { data: branch } = await github.rest.repos.getBranch({ owner, repo, branch: 'main' });
+            let waiting = [];
+            if (branch.commit.sha !== deployed.sha) {
+              const { data: cmp } = await github.rest.repos.compareCommits({ owner, repo, base: deployed.sha, head: branch.commit.sha });
+              const touches = (cmp.files || []).some((f) => DEPLOYABLE.some((re) => re.test(f.filename)));
+              if (touches) waiting = cmp.commits;
+            }
+            const oldest = waiting.length ? new Date(waiting[0].commit.committer.date) : null;
+            const hours = oldest ? (Date.now() - oldest) / 3.6e6 : 0;
+            core.info(`last deploy ${deployed.sha.slice(0, 9)} at ${deployed.at.toISOString()}; ${waiting.length} commit(s) waiting, oldest ${hours.toFixed(1)} h`);
+
+            const { data: open } = await github.rest.issues.listForRepo({ owner, repo, state: 'open', labels: 'deploy-stall' });
+            const existing = open.find((i) => i.title === TITLE);
+            if (hours > STALL_HOURS) {
+              const body = [
+                `${waiting.length} commit(s) on main that touch deployable files have waited **${hours.toFixed(1)} hours** for a deploy.`,
+                `Last successful deploy: \`${deployed.sha.slice(0, 9)}\` at ${deployed.at.toISOString()} (${deployed.url}).`,
+                'The scheduled deploy may not be firing. Run deploy-content by hand (Actions tab, Run workflow) or push a commit with `[deploy]`.',
+              ].join('\n\n');
+              if (existing) await github.rest.issues.createComment({ owner, repo, issue_number: existing.number, body });
+              else await github.rest.issues.create({ owner, repo, title: TITLE, body, labels: ['deploy-stall'] });
+            } else if (existing) {
+              await github.rest.issues.createComment({ owner, repo, issue_number: existing.number, body: `Prod has caught up (last deploy \`${deployed.sha.slice(0, 9)}\`). Closing.` });
+              await github.rest.issues.update({ owner, repo, issue_number: existing.number, state: 'closed' });
+            }
