@@ -67,6 +67,11 @@ unless noted.
      translucent box, parkland/badlands → tree/rock billboards, `biome === 'park'` → `drawParkTile`
      (manicured grove/pond/benches/flowerbeds/path, chosen by `pf` or a position-hash), and a tile
      carrying `cur` → `drawCurtainWall` (the shimmering energy wall).
+   - A park tile's furniture (trees, hedges, benches, lamps, bins, bollards, the pond and bed
+     kerbs) is solid: `parkGeom` builds it once per tile in the tile's frame with baked shading,
+     `parkSolidsGL` pushes it to `BAY_SINK` during the sweep as one retained group, and with GLASS 2
+     off `parkSolids2D` paints the same facets far to near. Water, gravel, mulch and paving stay
+     ground paint; reeds and glows stay strokes. `scripts/shapes/park.mjs` gates it.
 
    ⚠ **The Curtain's arms are DATA, and the collision reads the same list.** `curtainSegs(cur)`
    returns the wall's segments as offsets from the tile centre; `drawCurtainWall` walks it to paint
@@ -352,7 +357,7 @@ other (the "overlapping buildings / bad culling" look on dense clusters):
   geometry of the *same* building **or of a neighbour**.
 - **Buildings** emit their faces straight into the shared sink (`drawTypeModel`/`drawBuilding` →
   `draw3DBoxAt` → `emitFace`) — no per-building begin/flush.
-- **Point-like / atomic objects** drawn in the same loop (statue, yacht, park/tree/rock billboards,
+- **Point-like / atomic objects** drawn in the same loop (statue, yacht, park tiles, tree/rock billboards,
   the Curtain wall, the `nofly` box) are wrapped as one closure at their tile-centre depth
   `od = it.f + cam.back` (the projected-`f` frame box faces use). At flush time the sink is already
   `null`, so the wrapped drawer's own internal `emitFace`s paint immediately — each object stays

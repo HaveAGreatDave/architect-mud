@@ -29362,52 +29362,330 @@ function mownBlocks(ctx, cam, dx, dy, seed, alpha, night) {
     groundPoly(ctx, cam, dx, dy, q, lit, alpha * 0.5, SURF_EPS);
   }
 }
-function drawParkTile(ctx, cam, dx, dy, night, seed, alpha, now, feature) {
-  const p0 = cam.proj(dx, dy, 0); if (!p0 || p0.f <= 0.06) return;
-  const s = clamp(30 / p0.f, 3, 58);
-  const variant = (feature != null && PARK_FEATURE[feature] != null) ? PARK_FEATURE[feature] : (seed % 5);
+// ── THE PARK'S FURNITURE IS SOLID ────────────────────────────────────────────
+// Everything that stands up off a park tile — trees, hedges, benches, lamps, bins, bollards, the
+// kerbs round a pond or a bed — is facets, built once per tile in the tile's own frame and handed
+// to `gl/solids.js` the way a hoodoo tile is. It used to be strokes and cards: a bench was three
+// lines, a hedge was ten posts, and a grove's trees were the scatter billboard, which seen from a
+// pavement is a dark half-disc lying on the mulch. A park is the one place a player walks up to
+// the furniture, so it is the one place that has to hold up close.
+//
+// ⚠ THE SHADING IS BAKED AND DOES NOT DEPEND ON THE CAMERA, which is what lets a tile's records go
+// back unchanged every frame as one retained group (bayGroup). A fixed light from the north-west
+// over the shoulder, the light the hoodoos use, and the night band quantised so dusk rebuilds a
+// tile ten times rather than every frame. Fog is the solids shader's, never added here.
+//
+// ⚠ AND THE CANVAS DRAWS THE SAME FACETS. With GLASS 2 off the tile's facets are projected, culled
+// by their baked normal and painted far to near inside the tile's own queued face, so both
+// renderers show one park. Water, gravel, mulch and paving stay ground paint, and reeds, jets and
+// glows stay strokes: none of those has a side to stand on.
+const PARK_LIGHT = (() => { const v = [-0.46, -0.54, 0.70], l = Math.hypot(v[0], v[1], v[2]); return [v[0] / l, v[1] / l, v[2] / l]; })();
+const PARK_GEOM = new Map();
+const PARK_RECS = new Map();
+// Tile-local facets for one dressing: `[{ p, rgb, n }]`, z up, the tile spanning ±0.5. `lod` 1 is
+// the far version (fewer sides, no blossom), `nq` the night band 0..10.
+function parkGeom(seed, variant, lod, nq) {
+  const key = seed + '|' + variant + '|' + lod + '|' + nq;
+  const hit = PARK_GEOM.get(key);
+  if (hit) return hit;
+  const out = [], night = nq / 10, dim = 1 - 0.58 * night;
+  const SIDES = lod ? 5 : 8;
+  let jn = 0;
+  // One facet. `c` is a point inside the solid it belongs to, so the normal can be turned outward
+  // whichever way the quad happens to wind. `jit` breaks a flat colour up facet by facet (foliage);
+  // `emis` is a light source and takes neither the shading nor the night.
+  const face = (pts, rgb, c, o = {}) => {
+    let nx = 0, ny = 0, nz = 0, cx = 0, cy = 0, cz = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i], b = pts[(i + 1) % pts.length];
+      nx += (a[1] - b[1]) * (a[2] + b[2]); ny += (a[2] - b[2]) * (a[0] + b[0]); nz += (a[0] - b[0]) * (a[1] + b[1]);
+      cx += a[0]; cy += a[1]; cz += a[2];
+    }
+    const nl = Math.hypot(nx, ny, nz); if (!(nl > 1e-12)) return;
+    nx /= nl; ny /= nl; nz /= nl;
+    cx /= pts.length; cy /= pts.length; cz /= pts.length;
+    if (nx * (cx - c[0]) + ny * (cy - c[1]) + nz * (cz - c[2]) < 0) { nx = -nx; ny = -ny; nz = -nz; }
+    let rgb2;
+    if (o.emis) rgb2 = rgb;
+    else {
+      const d = Math.max(0, nx * PARK_LIGHT[0] + ny * PARK_LIGHT[1] + nz * PARK_LIGHT[2]);
+      let k = (nz < -0.3 ? 0.42 : 0.50 + 0.62 * d) * dim;
+      if (o.jit) k *= 1 + (frac(seed * 0.37 + (jn++) * 1.618) - 0.5) * o.jit;
+      rgb2 = [clamp(rgb[0] * k, 0, 255), clamp(rgb[1] * k, 0, 255), clamp(rgb[2] * k, 0, 255)];
+    }
+    out.push({ p: pts, rgb: rgb2, n: [nx, ny, nz] });
+  };
+  // A box: centre (x, y), half-extents, z0 to z1, yawed by `rot`. No underside.
+  const box = (x, y, hx, hy, z0, z1, rot, rgb, o) => {
+    const c = Math.cos(rot || 0), s = Math.sin(rot || 0);
+    const P = (sx, sy, z) => [x + sx * hx * c - sy * hy * s, y + sx * hx * s + sy * hy * c, z];
+    const A = P(-1, -1, z0), B = P(1, -1, z0), C = P(1, 1, z0), D = P(-1, 1, z0);
+    const E = P(-1, -1, z1), F = P(1, -1, z1), G = P(1, 1, z1), H = P(-1, 1, z1);
+    const m = [x, y, (z0 + z1) / 2];
+    face([E, F, G, H], rgb, m, o);
+    face([A, B, F, E], rgb, m, o); face([B, C, G, F], rgb, m, o);
+    face([C, D, H, G], rgb, m, o); face([D, A, E, H], rgb, m, o);
+  };
+  // A solid of revolution about (x, y): `prof` is [[r, z], ...] bottom to top. A ring of radius 0
+  // closes to a point; a last ring with a radius gets a flat cap, a first one a flat underside.
+  const lathe = (x, y, prof, n, rgb, o = {}) => {
+    const sq = o.sq || 1, ph = o.ph || 0;
+    const ring = (r, z) => { const R = []; for (let k = 0; k < n; k++) { const a = ph + k / n * Math.PI * 2; R.push([x + Math.cos(a) * r, y + Math.sin(a) * r * sq, z]); } return R; };
+    const rings = prof.map(([r, z]) => ({ r, z, R: ring(r, z) }));
+    for (let i = 0; i + 1 < rings.length; i++) {
+      const A = rings[i], B = rings[i + 1];
+      for (let k = 0; k < n; k++) {
+        const k1 = (k + 1) % n;
+        // Inside a bulge the outward test wants the centre of THIS band, not of the whole solid.
+        const bm = [x, y, (A.z + B.z) / 2];
+        if (B.r <= 1e-6) face([A.R[k], A.R[k1], [x, y, B.z]], rgb, bm, o);
+        else if (A.r <= 1e-6) face([[x, y, A.z], B.R[k1], B.R[k]], rgb, bm, o);
+        else face([A.R[k], A.R[k1], B.R[k1], B.R[k]], rgb, bm, o);
+      }
+    }
+    const top = rings[rings.length - 1], bot = rings[0];
+    if (top.r > 1e-6) face(top.R.slice(), o.capRgb || rgb, [x, y, top.z - 1], o.capEmis ? { emis: 1 } : o);
+    if (bot.r > 1e-6 && o.under) face(bot.R.slice().reverse(), rgb, [x, y, bot.z + 1], o);
+  };
+  // A raised ring — a kerb, a coping, a hedge round a bed: outside face, top, inside face.
+  const ringWall = (x, y, rOut, rIn, z0, z1, n, rgb, o = {}) => {
+    const zIn = o.zIn == null ? z0 : o.zIn;
+    for (let k = 0; k < n; k++) {
+      const a0 = k / n * Math.PI * 2, a1 = (k + 1) / n * Math.PI * 2;
+      const c0 = Math.cos(a0), s0 = Math.sin(a0), c1 = Math.cos(a1), s1 = Math.sin(a1);
+      const O0 = [x + c0 * rOut, y + s0 * rOut], O1 = [x + c1 * rOut, y + s1 * rOut];
+      const I0 = [x + c0 * rIn, y + s0 * rIn], I1 = [x + c1 * rIn, y + s1 * rIn];
+      const mid = (rOut + rIn) / 2, am = (a0 + a1) / 2, M = [x + Math.cos(am) * mid, y + Math.sin(am) * mid, (z0 + z1) / 2];
+      face([[O0[0], O0[1], z0], [O1[0], O1[1], z0], [O1[0], O1[1], z1], [O0[0], O0[1], z1]], rgb, M, o);
+      face([[O0[0], O0[1], z1], [O1[0], O1[1], z1], [I1[0], I1[1], z1], [I0[0], I0[1], z1]], o.topRgb || rgb, M, o);
+      face([[I0[0], I0[1], z1], [I1[0], I1[1], z1], [I1[0], I1[1], zIn], [I0[0], I0[1], zIn]], o.inRgb || rgb, M, o);
+    }
+  };
+  const q = (k) => frac(seed * 3.17 + k * 7.31);
+  // ── THE KIT ──────────────────────────────────────────────────────────────
+  const IRON = [46, 50, 54], SLAT = [128, 88, 52], STONE = [168, 164, 156], STONE_DK = [132, 128, 122];
+  const BARK = [86, 64, 44], HEDGE = [52, 98, 46];
+  // Leaf colours a kept park plants: two greens, a yellow-green and one copper beech in eight.
+  const LEAF = [[60, 112, 52], [72, 126, 58], [96, 132, 56], [54, 98, 60], [134, 70, 52], [66, 118, 66], [80, 120, 50], [58, 106, 48]];
+  // A broadleaf: a tapered trunk, then two or three canopy clumps, the top one smallest. ⚠ THE
+  // STEM HAS AIR UNDER THE CANOPY, which is what says TREE rather than BUSH from a pavement.
+  const tree = (x, y, sc, k) => {
+    const th = (0.11 + q(k) * 0.04) * sc;
+    lathe(x, y, [[0.019 * sc, 0], [0.013 * sc, th * 0.7], [0.010 * sc, th + 0.03 * sc]], lod ? 4 : 6, BARK);
+    const leaf = LEAF[Math.floor(q(k + 1) * LEAF.length)];
+    const n = lod ? 5 : 7, clumps = lod ? 2 : 3;
+    for (let i = 0; i < clumps; i++) {
+      const a = q(k + 2 + i) * Math.PI * 2, off = i === 0 ? 0 : 0.035 * sc;
+      const r = (i === 0 ? 0.105 : i === 1 ? 0.080 : 0.062) * sc * (0.9 + q(k + 5 + i) * 0.2);
+      const z0 = th + (i === 0 ? 0 : i === 1 ? 0.07 : 0.13) * sc, h = r * 1.55;
+      const cx = x + Math.cos(a) * off, cy = y + Math.sin(a) * off;
+      lathe(cx, cy, [[r * 0.55, z0], [r * 0.95, z0 + h * 0.22], [r, z0 + h * 0.48], [r * 0.78, z0 + h * 0.76], [r * 0.34, z0 + h * 0.95], [0, z0 + h]],
+        n, i === 0 ? leaf : [leaf[0] * 1.08, leaf[1] * 1.08, leaf[2] * 1.06], { jit: 0.22, under: 1, ph: q(k + 9 + i) * 2 });
+    }
+  };
+  // A low clipped shrub: one squat clump straight off the ground.
+  const shrub = (x, y, r, rgb) => lathe(x, y, [[r * 0.8, 0], [r, r * 0.45], [r * 0.7, r * 0.95], [0, r * 1.15]], lod ? 5 : 7, rgb, { jit: 0.25 });
+  // A park bench: cast-iron end frames, three seat slats, two back slats. `ang` is the way it faces.
+  const bench = (x, y, ang) => {
+    const fx = Math.cos(ang), fy = Math.sin(ang);          // forward (the way a sitter looks)
+    const ax = -fy, ay = fx;                                // along the seat
+    const L = 0.085, at = (f, s) => [x + fx * f + ax * s, y + fy * f + ay * s];
+    const rot = Math.atan2(ay, ax);
+    for (const s of [-L, L]) {                              // the end frames, with an armrest
+      const [ex, ey] = at(0, s);
+      box(ex, ey, 0.0035, 0.024, 0, 0.034, rot, IRON);
+      const [rx, ry] = at(-0.016, s);
+      box(rx, ry, 0.0035, 0.004, 0.034, 0.072, rot, IRON);
+      if (!lod) { const [hx, hy] = at(0.004, s); box(hx, hy, 0.004, 0.020, 0.048, 0.053, rot, IRON); }
+    }
+    for (let i = 0; i < (lod ? 1 : 3); i++) {               // seat slats
+      const f = lod ? 0 : -0.014 + i * 0.014, [sx, sy] = at(f, 0);
+      box(sx, sy, L + 0.012, lod ? 0.022 : 0.0058, 0.032, 0.038, rot, SLAT);
+    }
+    for (let i = 0; i < (lod ? 1 : 2); i++) {               // back slats, leaning back a touch
+      const z = lod ? 0.055 : 0.047 + i * 0.016, [bx, by] = at(-0.020 - i * 0.002, 0);
+      box(bx, by, L + 0.012, 0.003, z, z + (lod ? 0.02 : 0.010), rot, SLAT);
+    }
+  };
+  // A lamp standard: a stepped base, a fluted post, a lantern with four glazed sides and a cap.
+  const lamp = (x, y) => {
+    box(x, y, 0.016, 0.016, 0, 0.016, 0, IRON);
+    lathe(x, y, [[0.0085, 0.016], [0.0060, 0.12], [0.0050, 0.205]], lod ? 4 : 8, IRON);
+    box(x, y, 0.010, 0.010, 0.205, 0.212, 0, IRON);
+    const GLASS = night > 0.3 ? [255, 214, 150] : [196, 204, 168];
+    box(x, y, 0.016, 0.016, 0.212, 0.248, Math.PI / 4, GLASS, { emis: night > 0.3 });
+    lathe(x, y, [[0.024, 0.248], [0.006, 0.264], [0.0, 0.272]], 4, IRON, { ph: 0 });
+  };
+  // A litter bin: an octagonal drum with a darker lid.
+  const bin = (x, y) => lathe(x, y, [[0.017, 0], [0.019, 0.05], [0.019, 0.058]], lod ? 5 : 8, [70, 82, 70], { capRgb: [40, 46, 42] });
+  // A bollard: a post with a domed head.
+  const bollard = (x, y) => lathe(x, y, [[0.011, 0], [0.010, 0.05], [0.012, 0.054], [0.009, 0.064], [0, 0.068]], lod ? 5 : 8, [58, 62, 66]);
+  switch (variant) {
+    case 0: {   // TREE GROVE: four trees on a mulch bed inside a timber edging, shrubs between
+      ringWall(0, 0, 0.405, 0.392, 0, 0.012, lod ? 12 : 20, [104, 78, 52]);
+      const th0 = frac(seed) * Math.PI * 2;
+      for (let i = 0; i < 4; i++) {
+        const a = th0 + i * Math.PI / 2, r = 0.15 + frac(seed + i * 7) * 0.09;
+        tree(Math.cos(a) * r, Math.sin(a) * r, 0.92 + frac(seed + i) * 0.24, i * 13);
+        const b = a + Math.PI / 4, rs = 0.26 + q(40 + i) * 0.06;
+        shrub(Math.cos(b) * rs, Math.sin(b) * rs, 0.030 + q(50 + i) * 0.012, [48 + q(60 + i) * 20, 92 + q(61 + i) * 20, 44]);
+      }
+      break;
+    }
+    case 1: {   // ORNAMENTAL POND: a raised stone coping, boulders at the margin
+      ringWall(0, 0, 0.37, 0.32, 0, 0.032, lod ? 14 : 24, STONE, { inRgb: STONE_DK, zIn: 0.012 });
+      // Stones in the margin, wholly inside the water: the coping's inner face is at 0.32, and a
+      // stone straddling it reads as rubble left on the wall rather than as part of the pond.
+      for (let i = 0; i < (lod ? 2 : 4); i++) {
+        const a = q(70 + i) * Math.PI * 2, s = 0.013 + q(72 + i) * 0.010, r = 0.30 - s * 1.3 - q(71 + i) * 0.03;
+        lathe(Math.cos(a) * r, Math.sin(a) * r, [[s, 0.014], [s * 1.05, 0.014 + s * 0.45], [s * 0.6, 0.014 + s * 0.95], [0, 0.014 + s * 1.1]],
+          lod ? 4 : 6, i % 2 ? [120, 124, 104] : [138, 134, 126], { jit: 0.3, ph: q(73 + i) * 3, sq: 0.7 });
+      }
+      break;
+    }
+    case 2: {   // REST SPOT: a lamp standard, three benches facing it, a bin, two planted urns
+      lamp(0, 0);
+      const th0 = frac(seed + 2) * Math.PI * 2;
+      for (let i = 0; i < 3; i++) { const a = th0 + i * Math.PI * 2 / 3; bench(Math.cos(a) * 0.24, Math.sin(a) * 0.24, a + Math.PI); }
+      const bA = th0 + Math.PI / 3; bin(Math.cos(bA) * 0.25, Math.sin(bA) * 0.25);
+      if (!lod) for (const k of [1, 3]) {
+        const a = th0 + k * Math.PI / 3 + Math.PI / 3, r = 0.33;
+        lathe(Math.cos(a) * r, Math.sin(a) * r, [[0.018, 0], [0.012, 0.012], [0.022, 0.03], [0.026, 0.044]], 8, STONE, { capRgb: [64, 48, 36] });
+        shrub(Math.cos(a) * r, Math.sin(a) * r, 0.018, [166, 84, 120]);
+      }
+      break;
+    }
+    case 3: {   // FLOWERBEDS: a stone kerb round the bed, flower clumps, a clipped box hedge, an urn
+      ringWall(0, 0, 0.30, 0.285, 0, 0.018, lod ? 14 : 22, STONE, { zIn: 0.012 });
+      const cols = [[220, 72, 86], [238, 196, 70], [160, 90, 196], [236, 136, 74], [236, 232, 236], [226, 110, 160]];
+      const n = lod ? 7 : 14;
+      for (let i = 0; i < n; i++) {
+        const a = frac(seed + i * 3.7) * Math.PI * 2, r = 0.07 + frac(seed + i * 1.3) * 0.17;
+        const x = Math.cos(a) * r, y = Math.sin(a) * r, s = 0.026 + frac(seed + i * 5) * 0.012;
+        const col = cols[(seed + i) % cols.length];
+        if (lod) { lathe(x, y, [[s, 0.012], [s * 0.8, 0.012 + s * 0.6], [0, 0.012 + s * 0.85]], 4, col, { ph: i }); continue; }
+        lathe(x, y, [[s * 0.9, 0.012], [s, 0.012 + s * 0.35], [s * 0.82, 0.012 + s * 0.62]], 6, [56, 104, 50], { capRgb: col, jit: 0.2, ph: i });
+        lathe(x, y, [[s * 0.62, 0.012 + s * 0.62], [s * 0.4, 0.012 + s * 0.86], [0, 0.012 + s * 0.94]], 5, col, { jit: 0.15, ph: i + 0.5 });
+      }
+      // The urn on its pedestal in the middle, overflowing with trailing green.
+      box(0, 0, 0.02, 0.02, 0.012, 0.05, Math.PI / 4, STONE_DK);
+      lathe(0, 0, [[0.012, 0.05], [0.028, 0.068], [0.034, 0.086], [0.030, 0.094]], lod ? 5 : 8, STONE, { capRgb: [60, 44, 34] });
+      shrub(0, 0, 0.028, [62, 116, 54]);
+      // The hedge: a continuous clipped ring, with an opening on the side the seed picks.
+      const HN = lod ? 14 : 24, gap = Math.floor(q(90) * HN);
+      for (let k = 0; k < HN; k++) {
+        if (k === gap || k === (gap + 1) % HN) continue;
+        const a0 = k / HN * Math.PI * 2, a1 = (k + 1) / HN * Math.PI * 2, rO = 0.36, rI = 0.325, z1 = 0.052;
+        const P = (a, r, z) => [Math.cos(a) * r, Math.sin(a) * r, z], am = (a0 + a1) / 2, M = P(am, (rO + rI) / 2, z1 / 2);
+        const o = { jit: 0.16 };
+        face([P(a0, rO, 0), P(a1, rO, 0), P(a1, rO, z1), P(a0, rO, z1)], HEDGE, M, o);
+        face([P(a0, rO, z1), P(a1, rO, z1), P(a1, rI, z1), P(a0, rI, z1)], [62, 112, 52], M, o);
+        face([P(a0, rI, z1), P(a1, rI, z1), P(a1, rI, 0), P(a0, rI, 0)], HEDGE, M, o);
+        if (k === (gap + 2) % HN) face([P(a0, rO, 0), P(a0, rO, z1), P(a0, rI, z1), P(a0, rI, 0)], HEDGE, P(a1, (rO + rI) / 2, z1 / 2), o);
+        if (k === (gap + HN - 1) % HN) face([P(a1, rO, 0), P(a1, rO, z1), P(a1, rI, z1), P(a1, rI, 0)], HEDGE, P(a0, (rO + rI) / 2, z1 / 2), o);
+      }
+      break;
+    }
+    default: {   // PAVED PATH: kerbed flags, bollards down one side, a lamp and a bench on the other, a tree
+      const across = (seed & 2) === 2;
+      const A = (u, v) => across ? [u, v] : [v, u];    // u along the walk, v across it
+      for (const side of [-1, 1]) {
+        const [kx, ky] = A(0, side * 0.152);
+        box(kx, ky, across ? 0.5 : 0.008, across ? 0.008 : 0.5, 0, 0.012, 0, STONE_DK);
+      }
+      for (const k of [-1, 1]) { const [bx, by] = A(0.24 * k, 0.21); bollard(bx, by); }
+      const [lx, ly] = A(0.06, -0.21); lamp(lx, ly);
+      const [bx, by] = A(-0.16, -0.235); bench(bx, by, across ? Math.PI / 2 : 0);
+      const [tx, ty] = across ? [0.28, -0.30] : [-0.30, 0.28];
+      ringWall(tx, ty, 0.07, 0.062, 0, 0.008, lod ? 8 : 12, IRON);
+      tree(tx, ty, 1, 77);
+      break;
+    }
+  }
+  if (PARK_GEOM.size > 512) PARK_GEOM.clear();
+  PARK_GEOM.set(key, out);
+  return out;
+}
+// The variant a park tile dresses as: its authored `park_feature`, else the tile seed.
+function parkVariant(seed, feature) {
+  return (feature != null && PARK_FEATURE[feature] != null) ? PARK_FEATURE[feature] : (seed % 5);
+}
+function parkLod(cam, dx, dy) { const p = cam.proj(dx, dy, 0); return p && p.f > 7 ? 1 : 0; }
+// ⚠ CALLED DURING THE SWEEP, for the reason the statue's draw site gives: a queued closure runs
+// after the composite has already read BAY_SINK. The records are kept per tile, window position,
+// detail level, night band and alpha, so a tile that has not changed sends the same array back.
+function parkSolidsGL(cam, dx, dy, seed, feature, night, alpha) {
+  const variant = parkVariant(seed, feature), lod = parkLod(cam, dx, dy);
+  const nq = Math.round(clamp(+night || 0, 0, 1) * 10), a = Math.round(alpha * 50) / 50;
+  if (!(a > 0)) return;
+  const tx = dx + (cam.ox || 0), ty = dy + (cam.oy || 0);
+  const key = seed + '|' + variant + '|' + lod + '|' + nq + '|' + a + '|' + Math.round(tx * 1000) + ',' + Math.round(ty * 1000);
+  let recs = PARK_RECS.get(key);
+  if (!recs) {
+    if (PARK_RECS.size > 1024) PARK_RECS.clear();
+    recs = parkGeom(seed, variant, lod, nq).map((f) => ({ p: f.p.map(([x, y, z]) => [x + tx, y + ty, z]), rgb: f.rgb, a }));
+    PARK_RECS.set(key, recs);
+  }
+  bayGroup(recs);
+}
+// The canvas path: the same facets, back faces dropped by their baked normal, painted far to near.
+function parkSolids2D(ctx, cam, dx, dy, seed, variant, night, alpha) {
+  const lod = parkLod(cam, dx, dy), nq = Math.round(clamp(+night || 0, 0, 1) * 10);
+  const EX = (cam.ex || 0) - (cam.ox || 0), EY = (cam.ey || 0) - (cam.oy || 0), EZ = cam.EH == null ? 0.2 : cam.EH;
+  const list = [];
+  for (const f of parkGeom(seed, variant, lod, nq)) {
+    const P = f.p, n = f.n, v = P[0];
+    if (n[0] * (EX - dx - v[0]) + n[1] * (EY - dy - v[1]) + n[2] * (EZ - v[2]) < 0) continue;
+    const pr = [];
+    let d = 0, ok = true;
+    for (const [x, y, z] of P) { const s = cam.proj(dx + x, dy + y, z); if (!s || s.f <= 0.06) { ok = false; break; } pr.push(s); d += s.f; }
+    if (!ok) continue;
+    list.push({ d: d / pr.length, pr, css: `rgb(${f.rgb[0] | 0},${f.rgb[1] | 0},${f.rgb[2] | 0})` });
+  }
+  if (!list.length) return;
+  list.sort((a, b) => b.d - a.d);
+  ctx.save(); ctx.globalAlpha = alpha;
+  for (const s of list) {
+    ctx.fillStyle = s.css;
+    ctx.beginPath(); s.pr.forEach((q, i) => i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy));
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+// `solidOnGL` says the furniture has already gone to BAY_SINK during the sweep; without it the
+// canvas paints the same facets here, after the tile's ground paint.
+function drawParkTile(ctx, cam, dx, dy, night, seed, alpha, now, feature, solidOnGL = false) {
+  // ⚠ ONLY THE CANVAS NEEDS THE TILE CENTRE IN FRONT OF THE EYE. The ground mesh takes world points
+  // and projects nothing, and a tile you are standing on has its centre under you: bailing out
+  // there drew a pond's coping and stones round no water at all.
+  const p0 = cam.proj(dx, dy, 0);
+  const live = p0 && p0.f > 0.06;
+  if (!live && !GROUND_MESH) return;
+  const s = clamp(30 / (live ? p0.f : 0.06), 3, 58);
+  const variant = parkVariant(seed, feature);
   const A = alpha;
   // A flat ground disc on the turf. Convex, so the ground mesh's own fan triangulation is exact.
   const disc = (rad, rgb, a = A, ox = 0, oy = 0, n = 18, z = ROAD_EPS) =>
     groundPoly(ctx, cam, dx, dy, discPts(rad, n, ox, oy), rgb, a, z);
-  // A post: one stroke standing on the tile, at a width that holds up close and does not become a
-  // slab at four tiles. Returns the top so a caller can hang a lamp or a finial on it.
-  const post = (ox, oy, h, wPx, css, a = A) => {
-    emitWire(ctx, cam, [dx + ox, dy + oy, 0], [dx + ox, dy + oy, h], wPx, css, a, { cap: 'round', pull: PARK_PULL });
-    return [dx + ox, dy + oy, h];
-  };
-  // A bench: a seat slab, a back rail and two legs, in the park's own ironwork-and-slat colours.
-  const bench = (ox, oy, ang) => {
-    const c = Math.cos(ang) * 0.13, sn = Math.sin(ang) * 0.13;
-    const seat = 'rgb(104,74,46)', iron = 'rgb(44,48,52)';
-    emitWire(ctx, cam, [dx + ox - c, dy + oy - sn, 0.035], [dx + ox + c, dy + oy + sn, 0.035], Math.max(1.4, s * 0.075), seat, A, { cap: 'butt', pull: PARK_PULL });
-    emitWire(ctx, cam, [dx + ox - c, dy + oy - sn, 0.062], [dx + ox + c, dy + oy + sn, 0.062], Math.max(1, s * 0.05), seat, A * 0.92, { cap: 'butt', pull: PARK_PULL });
-    for (const k of [-0.82, 0.82]) emitWire(ctx, cam, [dx + ox + c * k, dy + oy + sn * k, 0], [dx + ox + c * k, dy + oy + sn * k, 0.035], Math.max(1, s * 0.035), iron, A, { cap: 'butt', pull: PARK_PULL });
-  };
   mownBlocks(ctx, cam, dx, dy, seed, A, night);
   switch (variant) {
-    case 0: {   // TREE GROVE — a ring of four on a bark-mulch bed, the fullest thing in the park
-      disc(0.40, night ? [30, 24, 18] : [58, 44, 30], A * 0.9);
+    case 0: {   // TREE GROVE — bark mulch under the trees, darker in their shade
+      disc(0.40, night ? [30, 24, 18] : [62, 46, 32], A * 0.95);
       const th = frac(seed) * Math.PI * 2;
       for (let i = 0; i < 4; i++) {
         const a = th + i * Math.PI / 2, r = 0.15 + frac(seed + i * 7) * 0.09;
-        const tx = dx + Math.cos(a) * r, ty = dy + Math.sin(a) * r;
-        // ⚠ THE TRUNK IS DRAWN HERE AND `drawTreeBB` HAS NEVER DRAWN ONE. That species is canopy
-        // blobs and nothing else, which is fine scattered across open parkland — a wood reads as
-        // canopy — and is not fine on a mown bed you walk between, where what says TREE rather
-        // than BUSH is a stem with air under it. It is also the one part of this dressing that
-        // does not go through the billboard layer, so the grove keeps a tree's silhouette in both
-        // renderers rather than in whichever one is sizing the scatter the way it likes today.
-        emitWire(ctx, cam, [tx, ty, 0], [tx, ty, 0.085 + frac(seed + i) * 0.03], Math.max(1.4, s * 0.06),
-          night ? 'rgb(34,28,22)' : 'rgb(62,48,34)', A, { cap: 'butt', pull: PARK_PULL });
-        drawTreeBB(ctx, cam, tx, ty, night, seed + i * 5, A);
+        disc(0.085, night ? [22, 18, 14] : [44, 34, 24], A * 0.7, Math.cos(a) * r + 0.02, Math.sin(a) * r + 0.02, 10);
       }
       break;
     }
-    case 1: {   // ORNAMENTAL POND — stone coping, water, two travelling ripples, lily pads
-      disc(0.36, [120, 120, 124], A);                                     // coping
-      disc(0.31, night ? [22, 46, 70] : [50, 108, 140], A);               // water
-      disc(0.24, night ? [18, 38, 60] : [42, 96, 128], A * 0.85);         // the deep middle
+    case 1: {   // ORNAMENTAL POND — water up at the coping, two travelling ripples, lily pads, reeds
+      // ⚠ THE WATER SITS UP UNDER THE COPING, for the fountain basin's reason: the coping stands
+      // proud of the lawn now, and water left on the ground plane is hidden by it from every eye
+      // height a player has.
+      const WZ = 0.026, WATER = night ? [22, 46, 70] : [50, 108, 140];
+      disc(0.322, WATER, A, 0, 0, 24, WZ);
+      disc(0.29, night ? [18, 40, 62] : [44, 98, 130], A * 0.8, 0, 0, 24, WZ);
+      disc(0.17, night ? [26, 54, 80] : [64, 128, 160], A * 0.6, 0, 0, 18, WZ);
       // ⚠ A RIPPLE IS AN ANNULUS AND groundPoly TAKES CONVEX POLYGONS, so it is drawn as the
       // two discs that bound it: a pale one out to the travelling radius, then the water colour
       // laid back over its middle. Paint composites in push order and writes no depth, so the
@@ -29415,59 +29693,69 @@ function drawParkTile(ctx, cam, dx, dy, night, seed, alpha, now, feature) {
       for (let k = 0; k < 2; k++) {
         const t = ((now * 0.00042 + k * 0.5) % 1), rr = 0.30 * (0.22 + 0.72 * t), fade = A * (1 - t) * 0.45;
         if (fade < 0.01) continue;
-        disc(rr, [206, 232, 246], fade);
-        disc(rr * 0.86, night ? [22, 46, 70] : [50, 108, 140], fade);
+        disc(rr, [206, 232, 246], fade, 0, 0, 18, WZ);
+        disc(rr * 0.86, WATER, fade, 0, 0, 18, WZ);
       }
-      for (let i = 0; i < 5; i++) {   // lily pads, still enough to sit on the ripples
-        const a = frac(seed + i * 11) * Math.PI * 2, r = 0.09 + frac(seed + i * 3) * 0.16;
-        disc(0.035 + frac(seed + i) * 0.02, night ? [24, 54, 34] : [46, 96, 52], A * 0.95, Math.cos(a) * r, Math.sin(a) * r, 8);
+      for (let i = 0; i < 6; i++) {   // lily pads, a notch of shadow under each, one in flower
+        const a = frac(seed + i * 11) * Math.PI * 2, r = 0.08 + frac(seed + i * 3) * 0.16;
+        const ox = Math.cos(a) * r, oy = Math.sin(a) * r, pr = 0.032 + frac(seed + i) * 0.02;
+        disc(pr, night ? [24, 54, 34] : [52, 104, 56], A * 0.95, ox, oy, 9, WZ + 0.0004);
+        disc(pr * 0.7, night ? [30, 62, 40] : [70, 128, 66], A * 0.8, ox - pr * 0.15, oy - pr * 0.15, 8, WZ + 0.0006);
+        if (i === 2) disc(pr * 0.32, night ? [150, 120, 140] : [244, 196, 220], A, ox, oy, 6, WZ + 0.0008);
+      }
+      // Reeds in one corner of the margin: green blades, a few with a brown head.
+      const ra = frac(seed + 5) * Math.PI * 2;
+      for (let i = 0; i < 9; i++) {
+        const a = ra + (frac(seed + i * 2.3) - 0.5) * 0.7, r = 0.27 + frac(seed + i * 4.1) * 0.03;
+        const x = dx + Math.cos(a) * r, y = dy + Math.sin(a) * r, h = 0.05 + frac(seed + i * 6.7) * 0.04;
+        const lean = (frac(seed + i * 8.9) - 0.5) * 0.02;
+        emitWire(ctx, cam, [x, y, WZ], [x + lean, y + lean * 0.5, WZ + h], Math.max(1, s * 0.02), night ? 'rgb(30,54,28)' : 'rgb(78,118,52)', A, { cap: 'round', pull: PARK_PULL });
+        if (i % 3 === 0) emitWire(ctx, cam, [x + lean * 0.8, y + lean * 0.4, WZ + h * 0.72], [x + lean * 0.95, y + lean * 0.48, WZ + h * 0.9],
+          Math.max(1.4, s * 0.04), night ? 'rgb(44,30,20)' : 'rgb(96,62,36)', A, { cap: 'round', pull: PARK_PULL });
       }
       break;
     }
-    case 2: {   // REST SPOT — a paved circle, a lamp standard, three benches and a litter bin
-      disc(0.30, night ? [86, 88, 92] : [138, 138, 142], A);
+    case 2: {   // REST SPOT — a paved circle, setts round the lamp, and its light after dark
+      disc(0.32, night ? [70, 72, 76] : [124, 124, 128], A);              // the kerb ring
+      disc(0.30, night ? [86, 88, 92] : [142, 140, 144], A);
       disc(0.11, night ? [72, 74, 78] : [120, 120, 126], A);              // the setts round the post
-      const top = post(0, 0, 0.17, Math.max(1.2, s * 0.045), 'rgb(50,54,58)');
-      // The lantern itself — a short thick stroke at the head, which is what a round-capped wire
-      // an inch long draws. Warm after dark, a dead grey-green glass by day.
-      emitWire(ctx, cam, [top[0], top[1], 0.166], top, Math.max(2, s * 0.10), night ? 'rgb(255,214,150)' : 'rgb(196,204,150)', A,
-        { cap: 'round', pull: PARK_PULL, glow: night ? 9 : 0, glowCss: 'rgb(255,214,150)' });
-      const th = frac(seed + 2) * Math.PI * 2;
-      for (let i = 0; i < 3; i++) { const a = th + i * Math.PI * 2 / 3; bench(Math.cos(a) * 0.26, Math.sin(a) * 0.26, a + Math.PI / 2); }
-      post(0.20, -0.20, 0.075, Math.max(1.6, s * 0.075), 'rgb(58,66,58)');   // litter bin
-      if (night) glowPool(ctx, cam, dx, dy, 0.17, '255,214,150', 14, A * 0.32);
-      break;
-    }
-    case 3: {   // FLOWERBEDS — a gravel border, a turned bed, blooms, and a clipped hedge round it
-      disc(0.36, night ? [72, 70, 62] : [126, 122, 108], A * 0.9);        // raked gravel border
-      disc(0.29, night ? [28, 20, 16] : [58, 42, 32], A);                 // turned earth
-      const cols = [[214, 80, 90], [232, 192, 72], [162, 92, 192], [232, 140, 80], [226, 226, 232]];
-      for (let i = 0; i < 14; i++) {
-        const a = frac(seed + i * 3.7) * Math.PI * 2, r = 0.05 + frac(seed + i * 1.3) * 0.21;
-        disc(0.028 + frac(seed + i * 5) * 0.016, cols[(seed + i) % cols.length], A, Math.cos(a) * r, Math.sin(a) * r, 7);
+      for (let i = 0; i < 8; i++) {                                         // radial joints in the paving
+        const a = i / 8 * Math.PI * 2 + frac(seed) * 0.4, c = Math.cos(a), sn = Math.sin(a);
+        groundPoly(ctx, cam, dx, dy, [[c * 0.11 - sn * 0.004, sn * 0.11 + c * 0.004], [c * 0.30 - sn * 0.004, sn * 0.30 + c * 0.004],
+          [c * 0.30 + sn * 0.004, sn * 0.30 - c * 0.004], [c * 0.11 + sn * 0.004, sn * 0.11 - c * 0.004]], night ? [64, 66, 70] : [112, 112, 116], A * 0.8);
       }
-      for (let i = 0; i < 10; i++) {   // the box hedge: short posts round the rim read as clipped
-        const a = i / 10 * Math.PI * 2;
-        post(Math.cos(a) * 0.33, Math.sin(a) * 0.33, 0.045, Math.max(1.6, s * 0.09), night ? 'rgb(24,44,26)' : 'rgb(40,74,38)', A * 0.95);
+      if (night) {
+        glowPool(ctx, cam, dx, dy, 0.23, '255,214,150', 14, A * 0.32);
+        glowPool(ctx, cam, dx, dy, 0.004, '255,214,150', 22, A * 0.22);
       }
       break;
     }
-    default: {   // PAVED PATH — a flagged walk across the tile, kerbed, with bollards and a tree
+    case 3: {   // FLOWERBEDS — a raked gravel border, the turned bed inside its kerb
+      disc(0.38, night ? [72, 70, 62] : [134, 128, 112], A * 0.9);        // raked gravel border
+      disc(0.287, night ? [28, 20, 16] : [62, 44, 32], A, 0, 0, 22, 0.012);   // turned earth, up at the kerb
+      for (let i = 0; i < 5; i++) {                                         // and the drills raked through it
+        const v = -0.2 + i * 0.1, w = Math.sqrt(Math.max(0, 0.28 * 0.28 - v * v)) * 0.94;
+        groundPoly(ctx, cam, dx, dy, [[-w, v - 0.006], [w, v - 0.006], [w, v + 0.006], [-w, v + 0.006]], night ? [36, 26, 20] : [78, 56, 40], A * 0.7, 0.0124);
+      }
+      break;
+    }
+    default: {   // PAVED PATH — a flagged walk across the tile, its tree pit, a lamp's light
       const across = (seed & 2) === 2;
       const walk = (w) => across ? [[-0.5, -w], [0.5, -w], [0.5, w], [-0.5, w]] : [[-w, -0.5], [-w, 0.5], [w, 0.5], [w, -0.5]];
       groundPoly(ctx, cam, dx, dy, walk(0.16), night ? [96, 98, 102] : [150, 150, 152], A);
-      groundPoly(ctx, cam, dx, dy, walk(0.135), night ? [86, 88, 92] : [138, 138, 140], A);   // the flags inside their kerb
-      for (const k of [-1, 1]) {   // bollards down one side
-        const o = 0.24 * k;
-        post(across ? o : 0.22, across ? 0.22 : o, 0.075, Math.max(1.4, s * 0.055), 'rgb(56,60,64)');
+      groundPoly(ctx, cam, dx, dy, walk(0.144), night ? [86, 88, 92] : [140, 138, 140], A);   // the flags inside their kerb
+      for (let i = -4; i <= 4; i++) {                                                         // and the joints between them
+        const u = i * 0.11, J = across ? [[u - 0.003, -0.144], [u + 0.003, -0.144], [u + 0.003, 0.144], [u - 0.003, 0.144]]
+          : [[-0.144, u - 0.003], [0.144, u - 0.003], [0.144, u + 0.003], [-0.144, u + 0.003]];
+        groundPoly(ctx, cam, dx, dy, J, night ? [74, 76, 80] : [118, 118, 120], A * 0.8);
       }
-      const tx = dx + (across ? 0.28 : -0.30), ty = dy + (across ? -0.30 : 0.28);
-      disc(0.10, night ? [30, 24, 18] : [58, 44, 30], A * 0.9, tx - dx, ty - dy, 9);   // its tree pit
-      emitWire(ctx, cam, [tx, ty, 0], [tx, ty, 0.10], Math.max(1.4, s * 0.06), night ? 'rgb(34,28,22)' : 'rgb(62,48,34)', A, { cap: 'butt', pull: PARK_PULL });
-      drawTreeBB(ctx, cam, tx, ty, night, seed + 3, A);
+      const tx = across ? 0.28 : -0.30, ty = across ? -0.30 : 0.28;
+      disc(0.062, night ? [30, 24, 18] : [58, 44, 30], A * 0.95, tx, ty, 12);   // its tree pit
+      if (night) { const [lx, ly] = across ? [0.06, -0.21] : [-0.21, 0.06]; glowPool(ctx, cam, dx + lx, dy + ly, 0.004, '255,214,150', 16, A * 0.24); }
       break;
     }
   }
+  if (!solidOnGL) parkSolids2D(ctx, cam, dx, dy, seed, variant, night, A);
 }
 
 // ── Airport target guide ──────────────────────────────────────────────────────
@@ -53609,7 +53897,14 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       if (GROUND_MESH) massif(); else emitFace(od, massif);
       continue;
     }
-    if (bi === 'park' && !it.c.bt) { emitGroundFace(od, () => drawParkTile(ctx, cam, it.dx, it.dy, night, it.seed, alpha, now, it.c.pf)); continue; }   // manicured park: authored `park_feature` (symmetry) or a seeded dressing (grove / pond / benches / flowerbeds / path)
+    if (bi === 'park' && !it.c.bt) {   // manicured park: authored `park_feature` (symmetry) or a seeded dressing (grove / pond / benches / flowerbeds / path)
+      // The furniture is solid (see parkGeom): on GL it goes to BAY_SINK now, during the sweep, and
+      // the ground paint goes wherever emitGroundFace sends it.
+      const solid = !!(BAY_SINK && TUNE.glBay !== 0);
+      if (solid) parkSolidsGL(cam, it.dx, it.dy, it.seed, it.c.pf, night, alpha);
+      emitGroundFace(od, () => drawParkTile(ctx, cam, it.dx, it.dy, night, it.seed, alpha, now, it.c.pf, solid));
+      continue;
+    }
     SCATTER_SEED = it.seed;   // vegetation and ground scatter from here down may be thinned by the governor (emitScatterFace)
     if (bi === 'forest' && !it.c.bt && !it.c.road) { emitScatterFace(od, () => drawForestTile(ctx, cam, it.dx, it.dy, night, it.seed, alpha)); continue; }   // painted woodland: a full stand per tile, not the parkland lone tree
     if (bi === 'deadwood' && !it.c.bt && !it.c.road) { emitScatterFace(od, () => drawDeadStand(ctx, cam, it.dx, it.dy, night, it.seed, alpha)); continue; }   // the mirror of forest: a full stand of the snag the ash flats scatter one of
@@ -54020,7 +54315,7 @@ function statueShade(base, n, v, sun, sky, wet, night) {
   // and the midnight monument is the one that always shipped. The film keeps more of its share
   // than the metal does: a wet statue at night genuinely is darker, and that reads as weather.
   const g5 = Math.pow(1 - nv, 5), day = 1 - night;
-  let mMet = (0.20 + 0.55 * g5) * (0.15 + 0.85 * day);  // the casting: hue-carrying, always there
+  let mMet = (0.26 + 0.55 * g5) * (0.15 + 0.85 * day);  // the casting: hue-carrying, always there
   let mFilm = (0.04 + 0.96 * g5) * (0.08 + 0.86 * wet) * (0.55 + 0.45 * day); // the rain on it: a real mirror
   // ⚠ AND THE PAIR IS CLAMPED TOGETHER, NOT EACH ON ITS OWN. At a grazing angle in a downpour they
   // sum past 1.6, and a surface cannot give back more than it takes; scaled in proportion, the
@@ -54043,7 +54338,7 @@ function statueShade(base, n, v, sun, sky, wet, night) {
   if (sun && se > 0.02) {
     const hl = Math.hypot(L[0] + v[0], L[1] + v[1], L[2] + v[2]) || 1;
     const nh = Math.max(0, (n[0] * (L[0] + v[0]) + n[1] * (L[1] + v[1]) + n[2] * (L[2] + v[2])) / hl);
-    spec = Math.pow(nh, 10 + 54 * wet) * (0.20 + 1.15 * wet) * (1 - night) * 210;
+    spec = Math.pow(nh, 10 + 54 * wet) * (0.28 + 1.07 * wet) * (1 - night) * 210;
   }
   return [
     clamp(base[0] * k + env[0] * (mMet * base[0] / mx + mFilm) + spec, 0, 255),
@@ -54189,8 +54484,13 @@ function drawStatue(ctx, cam, dx, dy, fh, seed, night, alpha, now, sun, sky) {
   // ── PALETTE ────────────────────────────────────────────────────────────────
   // Two castings and two stones. The RUN is the darker wash where rain has carried the copper
   // salts down a vertical face, which is what stops a one-tone figure reading as a cut-out.
-  const BRONZE = night ? [78, 104, 88] : [122, 142, 100];
-  const BRONZE_RUN = night ? [56, 80, 68] : [86, 106, 74];
+  // ⚠ THE CASTING IS BROWN BRONZE, NOT VERDIGRIS. It was a sage green, which at any distance read
+  // as a painted figure rather than as metal: a green statue only says "bronze" to somebody who
+  // already knows it is one. A kept civic bronze is waxed, so it stays a warm brown with gold
+  // where the light catches it, and the patina only survives in the runs. The run keeps a hint of
+  // olive for that reason and no more.
+  const BRONZE = night ? [90, 62, 38] : [140, 92, 50];
+  const BRONZE_RUN = night ? [60, 50, 36] : [92, 76, 50];
   const STONE = night ? [92, 90, 94] : [150, 148, 150];
   const STONE_DK = night ? [74, 72, 76] : [120, 118, 122];
   const IRON = night ? [38, 42, 46] : [56, 60, 64];
@@ -54427,14 +54727,14 @@ function drawStatue(ctx, cam, dx, dy, fh, seed, night, alpha, now, sun, sky) {
     const fv = [fTail[0] - fMouth[0], fTail[1] - fMouth[1], fTail[2] - fMouth[2]];
     const FL = Math.hypot(fv[0], fv[1], fv[2]) || 1;
     const spine = (t) => [fMouth[0] + fv[0] * t, fMouth[1] + fv[1] * t, fMouth[2] + fv[2] * t];
-    // ⚠ HE IS POLISHED WHERE THE TOWN HAS BEEN RUBBING HIM. A public bronze goes green everywhere
+    // ⚠ HE IS POLISHED WHERE THE TOWN HAS BEEN RUBBING HIM. A public bronze dulls everywhere
     // nobody can reach and stays bright everywhere they can, and on this monument the one thing at
-    // hand height on the plinth steps is the fish. So it takes a lighter casting than the figure,
-    // which is both true of the object and the reason it separates from the coat behind it.
-    const FISH = night ? [98, 122, 102] : [148, 162, 116];
+    // hand height on the plinth steps is the fish. So it takes a brighter, golder casting than the
+    // figure, which is both true of the object and the reason it separates from the coat behind it.
+    const FISH = night ? [128, 96, 56] : [204, 152, 80];
     // ⚠ AND IT IS A SLIM FISH. At 0.29 of its own length from belly to back the silhouette was a
     // kite rather than a fish — deep-bodied like a bream, which is a shape nobody hauls out of a
-    // cold northern harbour — and against a night sky, where the whole thing is one flat green
+    // cold northern harbour — and against a night sky, where the whole thing is one flat dark
     // shape, that read as a blob on a wire. The section is about two thirds of what it was in
     // both axes, which is a salmon or a pike: the length does the talking and the taper is what
     // makes it legible.

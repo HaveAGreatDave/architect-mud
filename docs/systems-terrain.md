@@ -282,7 +282,7 @@ single-tile pinholes and funnel nobody. A flood-fill pass then **guarantees ever
 (a sealed tableland is unreadable: "no way up here" has to imply "so there is one somewhere else").
 
 `park` is a **manicured** green (distinct from feral `grass`): it maps to its own `park` flight biome
-(designed park — benches, ponds, groves) where `grass`→`parkland` (feral single tree). A park tile can
+(designed park — benches, ponds, groves, drawn as solid furniture) where `grass`→`parkland` (feral single tree). A park tile can
 carry `flags.park_feature` (`grove`/`pond`/`benches`/`flowerbeds`/`path`) to force *which* dressing the
 flight-sim draws for that tile, so a park can be laid out symmetrically instead of by position-hash;
 unset falls back to the tile's position hash. `park_feature` rides the flight cell as `pf` (both the live

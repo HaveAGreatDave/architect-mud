@@ -40,18 +40,20 @@ const REPORT = process.argv.includes('--report');
 const W = 640, H = 480;
 stubCanvas('__statue', W, H);
 
-// A flat park with the monument on one tile, several tiles ahead. ⚠ THE DISTANCE IS THE MARGIN:
+// Flat grass with the monument on one tile, several tiles ahead. ⚠ THE DISTANCE IS THE MARGIN:
 // a facet left in the camera's own frame lands at the EYE, so the further the monument stands from
 // the seat the further such a facet is from where it belongs. At six tiles the mutation is worth
 // six of them against a bar of half a one.
+// ⚠ THE GRASS IS `citycore`, NOT `park`. A park tile's furniture is solid now and goes to the same
+// sink (scripts/shapes/park.mjs holds it), so a lawn of park tiles fills the control with benches.
 const N = 25, C = 12, AHEAD = 6;
 const SX = C, SY = C - AHEAD;
 const map = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => (
   (x === SX && y === SY)
     ? { kind: 'land', biome: 'park', flr: 0, mark: 'statue' }
-    : { kind: 'land', biome: 'park', flr: 0 }
+    : { kind: 'land', biome: 'citycore', flr: 0 }
 )));
-const bare = map.map((row) => row.map((c) => (c.mark ? { ...c, mark: undefined } : c)));
+const bare = map.map((row) => row.map((c) => (c.mark ? { ...c, mark: undefined, biome: 'citycore' } : c)));
 
 const BASE = {
   cls: 'truck', variant: 'hauler', phase: 'ground', worldBlend: 1, height: 0, eyeH: 0.12, fovMul: 1.22,
