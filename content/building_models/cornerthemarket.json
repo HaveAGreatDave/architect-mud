@@ -1,0 +1,306 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0.5,
+      "kind": "glowPool",
+      "rgb": "255,224,150",
+      "s": 13,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Corner the Market"
+    }
+  ],
+  "detail": [
+    {
+      "color": "#c83a2a",
+      "cx": -0.3,
+      "cy": 0.405,
+      "font": "block",
+      "half": 0.058,
+      "hh": 0.033,
+      "ink": "#ffffff",
+      "kind": "signBoard",
+      "label": "COLD BEER",
+      "z": 0.12
+    },
+    {
+      "color": "#2a5ac8",
+      "cx": -0.17,
+      "cy": 0.405,
+      "font": "block",
+      "half": 0.058,
+      "hh": 0.033,
+      "ink": "#ffe040",
+      "kind": "signBoard",
+      "label": "LOTTO",
+      "z": 0.12
+    },
+    {
+      "color": "#1a1a1a",
+      "cx": -0.04,
+      "cy": 0.405,
+      "font": "block",
+      "half": 0.058,
+      "hh": 0.033,
+      "ink": "#e8e8e8",
+      "kind": "signBoard",
+      "label": "SMOKES",
+      "z": 0.12
+    },
+    {
+      "color": "#2aa84a",
+      "cx": 0.09,
+      "cy": 0.405,
+      "font": "block",
+      "half": 0.058,
+      "hh": 0.033,
+      "ink": "#ffffff",
+      "kind": "signBoard",
+      "label": "TOP-UP",
+      "z": 0.12
+    },
+    {
+      "color": "#e8f0f8",
+      "cx": -0.3,
+      "cy": 0.405,
+      "font": "block",
+      "half": 0.058,
+      "hh": 0.033,
+      "ink": "#2a5a9a",
+      "kind": "signBoard",
+      "label": "ICE",
+      "z": 0.2
+    },
+    {
+      "color": "#ffffff",
+      "cx": -0.17,
+      "cy": 0.405,
+      "font": "block",
+      "half": 0.058,
+      "hh": 0.033,
+      "ink": "#c83a2a",
+      "kind": "signBoard",
+      "label": "MILK",
+      "z": 0.2
+    },
+    {
+      "color": "#ffe040",
+      "cx": -0.04,
+      "cy": 0.405,
+      "font": "block",
+      "half": 0.058,
+      "hh": 0.033,
+      "ink": "#1a1a1a",
+      "kind": "signBoard",
+      "label": "NO CREDIT",
+      "z": 0.2
+    },
+    {
+      "color": "#c83a2a",
+      "cx": 0.09,
+      "cy": 0.405,
+      "font": "block",
+      "half": 0.058,
+      "hh": 0.033,
+      "ink": "#ffffff",
+      "kind": "signBoard",
+      "label": "OPEN 6",
+      "z": 0.2
+    },
+    {
+      "bars": 2,
+      "cx": -0.11,
+      "cy": 0.405,
+      "depth": 0.012,
+      "glass": "#2a2a24",
+      "glow": "#ffe8b0",
+      "half": 0.24,
+      "hh": 0.025,
+      "kind": "windowBay",
+      "pal": "ty_oc_brick_dk",
+      "z": 0.29
+    },
+    {
+      "bars": 1,
+      "cx": 0.3,
+      "cy": 0.405,
+      "depth": 0.014,
+      "glass": "#2a2a24",
+      "glow": "#ffd890",
+      "half": 0.055,
+      "hh": 0.12,
+      "kind": "windowBay",
+      "pal": "ty_oc_brick_dk",
+      "transom": 0.82,
+      "z": 0.16
+    },
+    {
+      "cx": 0,
+      "cy": 0.405,
+      "half": 0.38,
+      "hh": 0.008,
+      "kind": "canopy",
+      "out": 0.1,
+      "pal": "ty_reach_awning",
+      "soffit": "#4a3a22",
+      "z": 0.35
+    },
+    {
+      "color": "#1a1a1a",
+      "cx": 0,
+      "cy": 0.425,
+      "font": "block",
+      "half": 0.3,
+      "hh": 0.028,
+      "ink": "#ffe08a",
+      "kind": "signBoard",
+      "label": "CORNER THE MARKET",
+      "z": 0.4
+    },
+    {
+      "cx": -0.25,
+      "cy": 0.455,
+      "d": 0.03,
+      "hh": 0.03,
+      "kind": "binStack",
+      "lid": "#6a8a3a",
+      "n": 2,
+      "pal": "ty_2cell_crate",
+      "w": 0.035,
+      "z": 0.004
+    },
+    {
+      "cx": -0.15,
+      "cy": 0.455,
+      "d": 0.03,
+      "hh": 0.03,
+      "kind": "binStack",
+      "lid": "#d88a2a",
+      "n": 1,
+      "pal": "ty_2cell_crate",
+      "w": 0.035,
+      "z": 0.004
+    },
+    {
+      "cx": 0.1,
+      "cy": 0.455,
+      "d": 0.03,
+      "hh": 0.03,
+      "kind": "binStack",
+      "lid": "#c83a2a",
+      "n": 2,
+      "pal": "ty_2cell_crate",
+      "w": 0.035,
+      "z": 0.004
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.27,
+        "cy": 0.405,
+        "depth": 0.012,
+        "glass": "#22201c",
+        "glow": "#ffd8a0",
+        "half": 0.06,
+        "hh": 0.065,
+        "kind": "windowBay",
+        "pal": "ty_oc_brick_dk",
+        "transom": 0.5,
+        "z": 0.55
+      },
+      "step": {
+        "cx": 0.27
+      }
+    },
+    {
+      "cx": 0.32,
+      "cy": 0.4,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.01,
+      "z0": 0.05,
+      "z1": 0.66
+    },
+    {
+      "cx": 0,
+      "cy": -0.4,
+      "d": 0.04,
+      "drip": 0.6,
+      "face": "x",
+      "hh": 0.03,
+      "kind": "acUnit",
+      "pal": "ty_stack_dk",
+      "w": 0.06,
+      "z": 0.3
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.415,
+      "hh": 0.012,
+      "kind": "parapet",
+      "pal": "ty_oc_brick_dk",
+      "z": 0.7
+    }
+  ],
+  "id": "cornerthemarket",
+  "neon": "#ffe08a",
+  "note": "CORNER THE MARKET — the corner shop on Filament Street.\n\nThe tile's prose: a shopfront of adverts layered so deep that the actual window is down to a\nletterbox of clear glass at head height; crates of whatever is going out on the pavement under an\nawning that winds down with a handle; open at six and not clearly ever closed.\n\nSo the ground floor is a wall of advert boards in two rows, with the letterbox window above them\nand the door at the end, under a wind-down awning with crates in front. The name is on the fascia.\nIt used to draw on the `bodega` type arm, which lettered every bodega BODEGA VU.",
+  "pal": "ty_pocket",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.42,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.05
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_pocket",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.66
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.415,
+      "kind": "box",
+      "pal": "ty_oc_brick_dk",
+      "roof": true,
+      "z0": 0.66,
+      "z1": 0.7
+    },
+    {
+      "cx": 0,
+      "cy": 0.4,
+      "fd": 0.02,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_oc_brick_dk",
+      "roof": true,
+      "z0": 0.36,
+      "z1": 0.44
+    }
+  ],
+  "trade": "bodega"
+}

@@ -1,0 +1,144 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0.4,
+      "kind": "glowPool",
+      "rgb": "255,230,168",
+      "s": 16,
+      "z": 0.17
+    },
+    {
+      "cx": 0,
+      "cy": 0.52,
+      "kind": "glowPool",
+      "rgb": "255,226,160",
+      "s": 24,
+      "z": 0.01
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "The Penny Drops"
+    }
+  ],
+  "detail": [
+    {
+      "bars": 0,
+      "cx": 0,
+      "cy": 0.365,
+      "depth": 0.012,
+      "glass": "#3a2a4a",
+      "glow": "#ffe6a8",
+      "half": 0.32,
+      "hh": 0.13,
+      "kind": "windowBay",
+      "pal": "ty_penny",
+      "z": 0.17
+    },
+    {
+      "bay": true,
+      "cx": 0,
+      "cy": 0.37,
+      "half": 0.33,
+      "hh": 0.025,
+      "kind": "shutter",
+      "pal": "ty_stack_dk",
+      "z": 0.33
+    },
+    {
+      "color": "#2a1a2a",
+      "cx": 0,
+      "cy": 0.37,
+      "font": "showcard",
+      "half": 0.3,
+      "hh": 0.035,
+      "ink": "#ffd060",
+      "kind": "signBoard",
+      "label": "THE PENNY DROPS",
+      "z": 0.405
+    },
+    {
+      "cx": 0.3,
+      "cy": 0.36,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.01,
+      "z0": 0.04,
+      "z1": 0.46
+    },
+    {
+      "cx": 0,
+      "cy": -0.36,
+      "drip": 0.6,
+      "face": "x",
+      "hh": 0.035,
+      "kind": "vent",
+      "pal": "ty_stack_dk",
+      "w": 0.05,
+      "z": 0.3
+    },
+    {
+      "cx": 0.2,
+      "cy": -0.4,
+      "d": 0.035,
+      "hh": 0.035,
+      "kind": "binStack",
+      "lid": "#2a1a2a",
+      "n": 2,
+      "pal": "ty_stack_dk",
+      "w": 0.04,
+      "z": 0.004
+    }
+  ],
+  "id": "thepennydrops",
+  "neon": "#ffd060",
+  "note": "THE PENNY DROPS — the amusement arcade at the foot of Meltwater Row.\n\nThe tile's prose: a deep narrow shed with no front wall. The whole street elevation is a roller\nshutter, up from noon until whenever she decides, so the building opens straight onto the pavement\nand the light comes out at ankle height and lies across the road in a bright rectangle you can see\nfrom the top of Meltwater Row. Above the opening, in bulbs, about a third of them out: THE PENNY\nDROPS.\n\nSo the front is one opening the width of the shed with the roller drum over it, lit hard from\ninside, and a pool of that light on the road. The name is in bulbs on a board over the drum. The\nshed behind is plain brick with a shallow barrel roof.",
+  "pal": "ty_penny",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.42,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.04
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.36,
+      "kind": "box",
+      "pal": "ty_penny",
+      "roof": false,
+      "z0": 0.04,
+      "z1": 0.46
+    },
+    {
+      "archH": 0.06,
+      "base": [
+        74,
+        76,
+        82
+      ],
+      "cx": 0,
+      "cxL": 0,
+      "cy": 0,
+      "hl": 0.37,
+      "hw": 0.37,
+      "kind": "barrel",
+      "nf": 10,
+      "pal": "ty_paws_roof",
+      "z0": 0.46
+    }
+  ],
+  "trade": "amusements"
+}

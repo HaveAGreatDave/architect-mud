@@ -1,0 +1,201 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0.46,
+      "kind": "glowPool",
+      "rgb": "255,200,128",
+      "s": 6,
+      "z": 0.3
+    },
+    {
+      "cx": 0,
+      "cy": 0.5,
+      "kind": "glowPool",
+      "rgb": "255,190,120",
+      "s": 8,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Hulls Angels"
+    }
+  ],
+  "detail": [
+    {
+      "bars": 2,
+      "cx": -0.085,
+      "cy": 0.425,
+      "depth": 0.014,
+      "glass": "#3a2e22",
+      "glow": "#3a2e22",
+      "half": 0.08,
+      "hh": 0.31,
+      "kind": "windowBay",
+      "pal": "ty_oc_board_dk",
+      "z": 0.36
+    },
+    {
+      "bars": 2,
+      "cx": 0.085,
+      "cy": 0.425,
+      "depth": 0.014,
+      "glass": "#3a2e22",
+      "glow": "#3a2e22",
+      "half": 0.08,
+      "hh": 0.31,
+      "kind": "windowBay",
+      "pal": "ty_oc_board_dk",
+      "z": 0.36
+    },
+    {
+      "bars": 0,
+      "cx": 0,
+      "cy": 0.42,
+      "depth": 0.004,
+      "glass": "#ffc880",
+      "glow": "#ffc880",
+      "half": 0.006,
+      "hh": 0.28,
+      "kind": "windowBay",
+      "pal": "ty_oc_board_dk",
+      "z": 0.34
+    },
+    {
+      "color": "#7a5a38",
+      "cx": 0,
+      "cy": 0.425,
+      "font": "western",
+      "half": 0.24,
+      "hh": 0.03,
+      "ink": "#2a1a0a",
+      "kind": "signBoard",
+      "label": "HULLS ANGELS",
+      "z": 0.73
+    },
+    {
+      "cx": 0,
+      "cy": 0.42,
+      "kind": "pilaster",
+      "n": 2,
+      "out": 0.016,
+      "pal": "ty_oc_board_dk",
+      "step": 0.68,
+      "w": 0.022,
+      "z0": 0.04,
+      "z1": 0.84
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 3,
+        "cx": -0.24,
+        "cy": 0.36,
+        "depth": 0.01,
+        "face": "x",
+        "glass": "#2a2420",
+        "glow": "#ffc880",
+        "half": 0.09,
+        "hh": 0.04,
+        "kind": "windowBay",
+        "pal": "ty_oc_board_dk",
+        "z": 0.7
+      },
+      "step": {
+        "cx": 0.24
+      }
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 3,
+        "cx": -0.24,
+        "cy": -0.36,
+        "depth": 0.01,
+        "face": "x",
+        "glass": "#2a2420",
+        "glow": "#ffc880",
+        "half": 0.09,
+        "hh": 0.04,
+        "kind": "windowBay",
+        "pal": "ty_oc_board_dk",
+        "z": 0.7
+      },
+      "step": {
+        "cx": 0.24
+      }
+    },
+    {
+      "cx": 0.2,
+      "cy": -0.38,
+      "hh": 0.12,
+      "kind": "stack",
+      "pal": "ty_stack_dk",
+      "r": 0.025,
+      "z": 0.36
+    }
+  ],
+  "id": "hullsangels",
+  "note": "HULLS ANGELS — a boat shed on Lever Lane, a quarter of a mile from any water.\n\nThe tile's prose: doors tall enough to walk a mast through, not fully opened in living memory;\nHULLS ANGELS cut into a plank above them in letters that took someone a whole winter; through the\ngap, the ribs of something big and unfinished.\n\nSo it is a tall timber shed under a shallow barrel roof, the street face almost all door: two\nleaves the full height, standing a hand's width apart, with the gap lit from inside, and the plank\nwith the name over them. High clerestory windows run down both flanks to light the hull, and a\nlean-to workshop sits against the back.\n\nIt stands in for the `hulls` arm (`replaces`), which stays in LEGACY_MODELS.",
+  "pal": "ty_oc_board",
+  "replaces": "hulls",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.42,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.04
+    },
+    {
+      "cx": 0,
+      "cy": 0.04,
+      "fd": 0.38,
+      "hw": 0.36,
+      "kind": "box",
+      "pal": "ty_oc_board",
+      "roof": false,
+      "z0": 0.04,
+      "z1": 0.84
+    },
+    {
+      "archH": 0.08,
+      "base": [
+        82,
+        74,
+        64
+      ],
+      "cx": 0,
+      "cxL": 0,
+      "cy": 0.04,
+      "hl": 0.39,
+      "hw": 0.37,
+      "kind": "barrel",
+      "nf": 10,
+      "pal": "ty_oc_shake",
+      "z0": 0.84
+    },
+    {
+      "cx": 0,
+      "cy": -0.38,
+      "fd": 0.05,
+      "hw": 0.3,
+      "kind": "box",
+      "pal": "ty_oc_board_dk",
+      "roof": true,
+      "z0": 0.04,
+      "z1": 0.36
+    }
+  ]
+}

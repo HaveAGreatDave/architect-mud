@@ -1,0 +1,494 @@
+{
+  "adorn": [
+    {
+      "cx": 0.4,
+      "cy": 0.38,
+      "kind": "mast",
+      "z0": 0.02,
+      "z1": 0.66
+    },
+    {
+      "cx": 0.4,
+      "cy": 0.38,
+      "kind": "glowPool",
+      "rgb": "255,176,88",
+      "s": 6,
+      "z": 0.66
+    },
+    {
+      "cx": 0,
+      "cy": 0.2,
+      "kind": "glowPool",
+      "rgb": "255,170,80",
+      "s": 18,
+      "z": 0.03
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Stack Overflow"
+    }
+  ],
+  "detail": [],
+  "id": "stackoverflow",
+  "note": "STACK OVERFLOW — a container yard off Kessler Street.\n\nThe tile's prose: intermodal boxes stacked four high in sun-bleached reds and blues, aisles between\nthem like canyons, a reach-stacker sitting idle with its keys long gone; half the containers empty\nand the other half nobody will open on record.\n\nSo the tile is rows of containers at four high, with two aisles running back from the street, and\nthe reach-stacker parked in the front aisle with its boom lowered: a yellow body, a cab and a\nspreader beam. No fence and no sign. A floodlight mast stands at the corner.\n\nIt stands in for the `interstack` arm (`replaces`), which stays in LEGACY_MODELS.",
+  "pal": "ty_yard_tarmac",
+  "replaces": "interstack",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_yard_tarmac",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.02
+    },
+    {
+      "cx": -0.27,
+      "cy": 0.26,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_b",
+      "roof": true,
+      "z0": 0.02,
+      "z1": 0.12
+    },
+    {
+      "cx": -0.27,
+      "cy": 0.26,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_r",
+      "roof": true,
+      "z0": 0.12,
+      "z1": 0.22
+    },
+    {
+      "cx": -0.27,
+      "cy": 0.26,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_y",
+      "roof": true,
+      "z0": 0.22,
+      "z1": 0.32
+    },
+    {
+      "cx": -0.27,
+      "cy": 0.26,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_g",
+      "roof": true,
+      "z0": 0.32,
+      "z1": 0.42
+    },
+    {
+      "cx": -0.27,
+      "cy": 0.12,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_r",
+      "roof": true,
+      "z0": 0.02,
+      "z1": 0.12
+    },
+    {
+      "cx": -0.27,
+      "cy": 0.12,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_y",
+      "roof": true,
+      "z0": 0.12,
+      "z1": 0.22
+    },
+    {
+      "cx": -0.27,
+      "cy": 0.12,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_g",
+      "roof": true,
+      "z0": 0.22,
+      "z1": 0.32
+    },
+    {
+      "cx": -0.27,
+      "cy": 0.12,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_b",
+      "roof": true,
+      "z0": 0.32,
+      "z1": 0.42
+    },
+    {
+      "cx": -0.27,
+      "cy": -0.02,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_g",
+      "roof": true,
+      "z0": 0.02,
+      "z1": 0.12
+    },
+    {
+      "cx": -0.27,
+      "cy": -0.02,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_b",
+      "roof": true,
+      "z0": 0.12,
+      "z1": 0.22
+    },
+    {
+      "cx": -0.27,
+      "cy": -0.02,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_r",
+      "roof": true,
+      "z0": 0.22,
+      "z1": 0.32
+    },
+    {
+      "cx": -0.27,
+      "cy": -0.16,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_y",
+      "roof": true,
+      "z0": 0.02,
+      "z1": 0.12
+    },
+    {
+      "cx": -0.27,
+      "cy": -0.16,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_g",
+      "roof": true,
+      "z0": 0.12,
+      "z1": 0.22
+    },
+    {
+      "cx": -0.27,
+      "cy": -0.16,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_b",
+      "roof": true,
+      "z0": 0.22,
+      "z1": 0.32
+    },
+    {
+      "cx": -0.27,
+      "cy": -0.16,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_r",
+      "roof": true,
+      "z0": 0.32,
+      "z1": 0.42
+    },
+    {
+      "cx": -0.27,
+      "cy": -0.3,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_b",
+      "roof": true,
+      "z0": 0.02,
+      "z1": 0.12
+    },
+    {
+      "cx": -0.27,
+      "cy": -0.3,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_r",
+      "roof": true,
+      "z0": 0.12,
+      "z1": 0.22
+    },
+    {
+      "cx": -0.27,
+      "cy": -0.3,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_y",
+      "roof": true,
+      "z0": 0.22,
+      "z1": 0.32
+    },
+    {
+      "cx": -0.27,
+      "cy": -0.3,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_g",
+      "roof": true,
+      "z0": 0.32,
+      "z1": 0.42
+    },
+    {
+      "cx": 0.27,
+      "cy": 0.26,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_r",
+      "roof": true,
+      "z0": 0.02,
+      "z1": 0.12
+    },
+    {
+      "cx": 0.27,
+      "cy": 0.26,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_y",
+      "roof": true,
+      "z0": 0.12,
+      "z1": 0.22
+    },
+    {
+      "cx": 0.27,
+      "cy": 0.26,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_g",
+      "roof": true,
+      "z0": 0.22,
+      "z1": 0.32
+    },
+    {
+      "cx": 0.27,
+      "cy": 0.12,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_b",
+      "roof": true,
+      "z0": 0.02,
+      "z1": 0.12
+    },
+    {
+      "cx": 0.27,
+      "cy": 0.12,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_r",
+      "roof": true,
+      "z0": 0.12,
+      "z1": 0.22
+    },
+    {
+      "cx": 0.27,
+      "cy": 0.12,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_y",
+      "roof": true,
+      "z0": 0.22,
+      "z1": 0.32
+    },
+    {
+      "cx": 0.27,
+      "cy": 0.12,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_g",
+      "roof": true,
+      "z0": 0.32,
+      "z1": 0.42
+    },
+    {
+      "cx": 0.27,
+      "cy": -0.02,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_y",
+      "roof": true,
+      "z0": 0.02,
+      "z1": 0.12
+    },
+    {
+      "cx": 0.27,
+      "cy": -0.02,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_g",
+      "roof": true,
+      "z0": 0.12,
+      "z1": 0.22
+    },
+    {
+      "cx": 0.27,
+      "cy": -0.02,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_b",
+      "roof": true,
+      "z0": 0.22,
+      "z1": 0.32
+    },
+    {
+      "cx": 0.27,
+      "cy": -0.02,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_r",
+      "roof": true,
+      "z0": 0.32,
+      "z1": 0.42
+    },
+    {
+      "cx": 0.27,
+      "cy": -0.16,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_g",
+      "roof": true,
+      "z0": 0.02,
+      "z1": 0.12
+    },
+    {
+      "cx": 0.27,
+      "cy": -0.16,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_b",
+      "roof": true,
+      "z0": 0.12,
+      "z1": 0.22
+    },
+    {
+      "cx": 0.27,
+      "cy": -0.3,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_r",
+      "roof": true,
+      "z0": 0.02,
+      "z1": 0.12
+    },
+    {
+      "cx": 0.27,
+      "cy": -0.3,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_y",
+      "roof": true,
+      "z0": 0.12,
+      "z1": 0.22
+    },
+    {
+      "cx": 0.27,
+      "cy": -0.3,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_g",
+      "roof": true,
+      "z0": 0.22,
+      "z1": 0.32
+    },
+    {
+      "cx": 0.27,
+      "cy": -0.3,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_b",
+      "roof": true,
+      "z0": 0.32,
+      "z1": 0.42
+    },
+    {
+      "cx": 0,
+      "cy": 0.18,
+      "fd": 0.09,
+      "hw": 0.05,
+      "kind": "box",
+      "pal": "ty_cont_y",
+      "roof": true,
+      "z0": 0.02,
+      "z1": 0.1
+    },
+    {
+      "cx": 0.03,
+      "cy": 0.1,
+      "fd": 0.025,
+      "hw": 0.025,
+      "kind": "box",
+      "pal": "ty_crane_cab",
+      "roof": true,
+      "z0": 0.1,
+      "z1": 0.17
+    },
+    {
+      "cx": 0,
+      "cy": 0.3,
+      "fd": 0.06,
+      "hw": 0.012,
+      "kind": "box",
+      "pal": "ty_cont_y",
+      "roof": true,
+      "z0": 0.1,
+      "z1": 0.13
+    },
+    {
+      "cx": 0,
+      "cy": 0.37,
+      "fd": 0.012,
+      "hw": 0.11,
+      "kind": "box",
+      "pal": "ty_stack_dk",
+      "roof": true,
+      "z0": 0.08,
+      "z1": 0.11
+    }
+  ]
+}

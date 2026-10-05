@@ -2429,7 +2429,9 @@ export const DOWNTOWN_ARMS = {
       const [kx, ky] = F((0.30 + i * 0.34) * fh, fh * 1.06);
       draw3DBoxAt(ctx, cam, kx, ky, fh * 0.13, 0, h * (0.12 + 0.07 * i), 'ty_door', seed + 16 + i, night, alpha, true);
     }
-    if (frontVis) marqueeBand(ctx, cam, dx, dy, E, bdSgnW, bdSgnZ, m.neon || '#ffe08a', night, alpha, 'BODEGA VU', bdRoom);
+    // The tile's own name. This said 'BODEGA VU' for every bodega, so once Bodega Vu got an authored
+    // model the only tile left on this arm, Corner the Market, was wearing its neighbour's name.
+    if (frontVis) marqueeBand(ctx, cam, dx, dy, E, bdSgnW, bdSgnZ, m.neon || '#ffe08a', night, alpha, sign || 'GROCERY', bdRoom);
     if (night) { const [wx, wy] = F(0, fh * 0.94); glowPool(ctx, cam, wx, wy, h * 0.20, '255,215,150', 10, alpha * 0.30); }
   },
   comicshop(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // Mint Condition — a narrow deep shopfront: one barred lit window, a gold blade sign, and a roof unit that runs all night
