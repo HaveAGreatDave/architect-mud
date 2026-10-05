@@ -1,0 +1,134 @@
+{
+  "adorn": [
+    {
+      "cx": -0.06,
+      "cy": 0.43,
+      "kind": "glowPool",
+      "rgb": "255,208,144",
+      "s": 7,
+      "z": 0.11
+    },
+    {
+      "cx": 0,
+      "cy": 0.48,
+      "kind": "glowPool",
+      "rgb": "255,200,140",
+      "s": 8,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Sole Survivor"
+    }
+  ],
+  "detail": [
+    {
+      "bars": 1,
+      "cx": -0.06,
+      "cy": 0.405,
+      "depth": 0.012,
+      "glass": "#3a2a1a",
+      "glow": "#ffd090",
+      "half": 0.07,
+      "hh": 0.045,
+      "kind": "windowBay",
+      "pal": "ty_sole_dk",
+      "z": 0.11
+    },
+    {
+      "bars": 1,
+      "cx": 0.1,
+      "cy": 0.405,
+      "depth": 0.012,
+      "glass": "#2a2018",
+      "glow": "#6a5040",
+      "half": 0.04,
+      "hh": 0.11,
+      "kind": "windowBay",
+      "pal": "ty_sole_dk",
+      "transom": 0.8,
+      "z": 0.15
+    },
+    {
+      "color": "#1c1a18",
+      "cx": 0.1,
+      "cy": 0.405,
+      "font": "western",
+      "half": 0.025,
+      "ink": "#c8b890",
+      "kind": "bladePanel",
+      "label": "BOOTS",
+      "out": 0.07,
+      "pal": "ty_sole_dk",
+      "z0": 0.27,
+      "z1": 0.33
+    },
+    {
+      "bare": true,
+      "cx": -0.06,
+      "cy": 0.405,
+      "font": "western",
+      "half": 0.12,
+      "hh": 0.02,
+      "ink": "#e8d8b0",
+      "kind": "signBoard",
+      "label": "SOLE SURVIVOR",
+      "z": 0.25
+    },
+    {
+      "cx": 0.25,
+      "cy": 0.17,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.008,
+      "z0": 0,
+      "z1": 0.36
+    }
+  ],
+  "id": "solesurvivor",
+  "note": "SOLE SURVIVOR — the cobbler on Filament Street, the smallest building on it.\n\nThe tile's prose: a single-storey lean-to about eleven feet wide, built into the gap where the\nterrace steps down and roofed in one slope off the neighbour's gable. One window at bench height,\nso from the pavement you see a pair of hands and a last and nothing above the elbow. An iron boot\nthe size of a coal scuttle hangs over the door on a wrought bracket, and it has been repaired twice.\n\nSo the shop is a narrow brick lean-to in the middle of the plot with its roof stepping down from\nthe back, a low lit window and the door, and the boot sign standing out on its bracket. The rest of\nthe plot either side is the gap it was built into.",
+  "pal": "ty_sole",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0.02,
+      "fd": 0.38,
+      "hw": 0.17,
+      "kind": "box",
+      "pal": "ty_sole",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.36
+    },
+    {
+      "cx": 0,
+      "cy": -0.14,
+      "fd": 0.24,
+      "hw": 0.18,
+      "kind": "box",
+      "pal": "ty_sole_dk",
+      "roof": true,
+      "z0": 0.36,
+      "z1": 0.42
+    },
+    {
+      "cx": 0,
+      "cy": -0.26,
+      "fd": 0.12,
+      "hw": 0.18,
+      "kind": "box",
+      "pal": "ty_sole_dk",
+      "roof": true,
+      "z0": 0.42,
+      "z1": 0.47
+    }
+  ],
+  "trade": "cobbler"
+}

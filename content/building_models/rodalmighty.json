@@ -1,11 +1,19 @@
 {
   "adorn": [
     {
-      "cx": 0,
-      "cy": 0.4,
+      "cx": -0.12,
+      "cy": 0.44,
       "kind": "glowPool",
-      "rgb": "120,200,235",
-      "s": 13,
+      "rgb": "200,230,240",
+      "s": 10,
+      "z": 0.22
+    },
+    {
+      "cx": 0,
+      "cy": 0.5,
+      "kind": "glowPool",
+      "rgb": "170,210,230",
+      "s": 12,
       "z": 0.02
     }
   ],
@@ -21,82 +29,152 @@
   ],
   "detail": [
     {
-      "cx": 0,
-      "cy": 0,
-      "half": 0.3,
-      "hh": 0.016,
-      "kind": "parapet",
-      "pal": "ty_slip",
-      "z": 0.72
-    },
-    {
-      "bars": 5,
-      "cx": 0,
-      "cy": 0.32,
-      "depth": 0.018,
-      "glass": "#0e1c22",
-      "glow": "#bfe6f2",
-      "half": 0.22,
-      "hh": 0.032,
+      "bars": 8,
+      "cx": -0.16,
+      "cy": 0.405,
+      "depth": 0.016,
+      "glass": "#1e2a30",
+      "glow": "#d0e8f0",
+      "half": 0.17,
+      "hh": 0.14,
       "kind": "windowBay",
-      "pal": "ty_shop_c",
-      "z": 0.11
+      "pal": "ty_reach_merc_dk",
+      "z": 0.22
     },
     {
-      "color": "#0d2530",
+      "bars": 1,
+      "cx": 0.26,
+      "cy": 0.405,
+      "depth": 0.014,
+      "glass": "#1e2a30",
+      "glow": "#8aa8b8",
+      "half": 0.055,
+      "hh": 0.13,
+      "kind": "windowBay",
+      "pal": "ty_reach_merc_dk",
+      "transom": 0.82,
+      "z": 0.19
+    },
+    {
+      "cx": 0.26,
+      "cy": 0.405,
+      "half": 0.07,
+      "hh": 0.008,
+      "kind": "canopy",
+      "out": 0.05,
+      "pal": "ty_reach_merc_dk",
+      "soffit": "#2a2420",
+      "z": 0.35
+    },
+    {
+      "color": "#f0f0ea",
+      "cx": 0.12,
+      "cy": 0.41,
+      "font": "marker",
+      "half": 0.04,
+      "hh": 0.06,
+      "ink": "#1a2a6a",
+      "kind": "signBoard",
+      "label": "MULLET RUNNING · PIER 3 · TAKING WORM",
+      "z": 0.2
+    },
+    {
+      "color": "#10202a",
       "cx": 0,
-      "cy": 0.32,
-      "font": "condensed",
-      "half": 0.21,
-      "hh": 0.028,
-      "ink": "#9fe0f5",
+      "cy": 0.425,
+      "font": "slab",
+      "half": 0.3,
+      "hh": 0.02,
+      "ink": "#5cc7e8",
       "kind": "signBoard",
       "label": "ROD ALMIGHTY",
+      "z": 0.455
+    },
+    {
+      "color": "#10202a",
+      "cx": 0,
+      "cy": 0.425,
+      "font": "slab",
+      "half": 0.22,
+      "hh": 0.01,
+      "ink": "#c8d8e0",
+      "kind": "signBoard",
+      "label": "IF HE COULD DO IT SO CAN YOU",
+      "z": 0.416
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.27,
+        "cy": 0.405,
+        "depth": 0.012,
+        "glass": "#20261e",
+        "glow": "#ffd8a8",
+        "half": 0.06,
+        "hh": 0.07,
+        "kind": "windowBay",
+        "pal": "ty_reach_merc_dk",
+        "transom": 0.5,
+        "z": 0.56
+      },
+      "step": {
+        "cx": 0.27
+      }
+    },
+    {
+      "cx": 0.32,
+      "cy": 0.4,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.01,
+      "z0": 0.06,
+      "z1": 0.68
+    },
+    {
+      "cx": 0,
+      "cy": -0.4,
+      "drip": 0.6,
+      "face": "x",
+      "hh": 0.035,
+      "kind": "vent",
+      "pal": "ty_stack_dk",
+      "w": 0.05,
       "z": 0.3
     },
     {
-      "color": "#e8e2d2",
-      "cx": 0.24,
-      "cy": 0.346,
-      "font": "stencil",
-      "half": 0.06,
-      "hh": 0.018,
-      "ink": "#16242b",
-      "kind": "signBoard",
-      "label": "BAIT",
-      "z": 0.13
+      "cx": 0,
+      "cy": 0,
+      "half": 0.415,
+      "hh": 0.012,
+      "kind": "parapet",
+      "pal": "ty_reach_merc_dk",
+      "z": 0.72
     },
     {
-      "cx": -0.2,
-      "cy": 0.32,
-      "half": 0.07,
-      "hh": 0.045,
-      "kind": "shutter",
-      "pal": "ty_slip",
-      "z": 0.01
-    },
-    {
-      "cx": -0.18,
-      "cy": 0.32,
-      "d": 0.05,
-      "drip": 0.6,
-      "hh": 0.03,
-      "kind": "acUnit",
-      "pal": "ty_slip",
-      "w": 0.09,
-      "z": 0.5
+      "cx": 0.2,
+      "cy": -0.2,
+      "hh": 0.08,
+      "kind": "antennaCluster",
+      "n": 3,
+      "pal": "ty_stack_dk",
+      "r": 0.04,
+      "z": 0.72
     }
   ],
   "id": "rodalmighty",
   "neon": "#5cc7e8",
-  "note": "A tackle shop opposite a bronze fisherman, which its owner regards as the best luck of his life. NARROW, because the plot is: the rods stand upright in a rank against the glass and the shop is organised front to back rather than side to side. The whiteboard by the door faces out and carries the week's water.",
-  "pal": "ty_shop_c",
+  "note": "ROD ALMIGHTY — the tackle shop on Meltwater Row, across the road from the bronze fisherman.\n\nThe tile's prose: rods standing in the window in a rank, tips up; a whiteboard by the door with the\nweek's water in a cramped hand (what's running, where, what they're taking); the sign ROD ALMIGHTY\nand under it, smaller, IF HE COULD DO IT SO CAN YOU.\n\nSo the shop window is a tall bay with close vertical glazing bars that read as the rods, the door\nbeside it under a short hood, the whiteboard on the pier between them, and the two-line sign on a fascia. The\nbuilding is painted timber boarding over a brick plinth, with a lit flat upstairs.",
+  "pal": "ty_reach_board",
   "segs": [
     {
       "cx": 0,
       "cy": 0,
-      "hw": 0.34,
+      "hw": 0.42,
       "kind": "box",
+      "pal": "ty_oc_brick",
       "roof": true,
       "z0": 0,
       "z1": 0.06
@@ -104,21 +182,33 @@
     {
       "cx": 0,
       "cy": 0,
-      "hw": 0.32,
+      "hw": 0.4,
       "kind": "box",
+      "pal": "ty_reach_board",
       "roof": true,
       "z0": 0.06,
-      "z1": 0.58
+      "z1": 0.68
     },
     {
       "cx": 0,
       "cy": 0,
-      "hw": 0.3,
+      "hw": 0.415,
       "kind": "box",
-      "pal": "ty_slip",
+      "pal": "ty_reach_merc_dk",
       "roof": true,
-      "z0": 0.58,
+      "z0": 0.68,
       "z1": 0.72
+    },
+    {
+      "cx": 0,
+      "cy": 0.4,
+      "fd": 0.02,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_reach_merc_dk",
+      "roof": true,
+      "z0": 0.4,
+      "z1": 0.48
     }
   ],
   "trade": "mercantile"

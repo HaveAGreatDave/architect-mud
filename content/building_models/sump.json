@@ -1,0 +1,248 @@
+{
+  "adorn": [
+    {
+      "cx": 0.08,
+      "cy": 0.43,
+      "kind": "glowPool",
+      "rgb": "255,214,150",
+      "s": 5,
+      "z": 0.32
+    },
+    {
+      "cx": 0.08,
+      "cy": 0.47,
+      "kind": "glowPool",
+      "rgb": "255,200,140",
+      "s": 8,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Sump"
+    }
+  ],
+  "detail": [
+    {
+      "bars": 0,
+      "cx": 0.08,
+      "cy": 0.4,
+      "depth": 0.012,
+      "glass": "#3a2c22",
+      "glow": "#3a2c22",
+      "half": 0.055,
+      "hh": 0.13,
+      "kind": "windowBay",
+      "pal": "ty_adequate_dk",
+      "z": 0.15
+    },
+    {
+      "cx": 0,
+      "cy": 0.4,
+      "kind": "pilaster",
+      "n": 2,
+      "out": 0.012,
+      "pal": "ty_adequate_dk",
+      "step": 0.76,
+      "w": 0.02,
+      "z0": 0,
+      "z1": 0.6
+    },
+    {
+      "cx": 0.08,
+      "cy": 0.4,
+      "drip": 0.6,
+      "kind": "grime",
+      "w": 0.14,
+      "z": 0.6
+    },
+    {
+      "cx": -0.22,
+      "cy": 0.4,
+      "drip": 0.4,
+      "kind": "grime",
+      "w": 0.1,
+      "z": 0.6
+    },
+    {
+      "cx": 0,
+      "cy": 0.4,
+      "half": 0.38,
+      "kind": "conduit",
+      "pal": "ty_stack_dk",
+      "r": 0.007,
+      "z": 0.5
+    },
+    {
+      "cx": -0.36,
+      "cy": 0.4,
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.011,
+      "z0": 0,
+      "z1": 0.6
+    },
+    {
+      "cx": 0,
+      "cy": 0.4,
+      "drip": 1,
+      "face": "x",
+      "hh": 0.045,
+      "kind": "vent",
+      "pal": "ty_stack_dk",
+      "w": 0.06,
+      "z": 0.4
+    },
+    {
+      "cx": 0,
+      "cy": 0.4,
+      "face": "x",
+      "kind": "ductRun",
+      "pal": "ty_stack_dk",
+      "r": 0.016,
+      "z0": 0.44,
+      "z1": 0.62
+    },
+    {
+      "cx": 0.25,
+      "cy": -0.4,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.011,
+      "z0": 0,
+      "z1": 0.6
+    },
+    {
+      "bars": 0,
+      "cx": -0.2,
+      "cy": -0.4,
+      "depth": 0.012,
+      "glass": "#2a2420",
+      "glow": "#2a2420",
+      "half": 0.06,
+      "hh": 0.12,
+      "kind": "windowBay",
+      "pal": "ty_stack_dk",
+      "z": 0.13
+    },
+    {
+      "cx": 0.05,
+      "cy": -0.43,
+      "d": 0.025,
+      "hh": 0.035,
+      "kind": "binStack",
+      "lid": "#3a3e3a",
+      "n": 4,
+      "pal": "ty_oc_tank",
+      "w": 0.025,
+      "z": 0.004
+    },
+    {
+      "cx": 0.28,
+      "cy": -0.43,
+      "d": 0.035,
+      "hh": 0.035,
+      "kind": "binStack",
+      "lid": "#3a1410",
+      "n": 2,
+      "pal": "ty_cont_r",
+      "w": 0.04,
+      "z": 0.004
+    },
+    {
+      "cx": -0.2,
+      "cy": -0.14,
+      "d": 0.05,
+      "hh": 0.026,
+      "kind": "acUnit",
+      "pal": "ty_stack_dk",
+      "w": 0.07,
+      "z": 0.6
+    },
+    {
+      "cx": 0.2,
+      "cy": -0.2,
+      "hh": 0.09,
+      "kind": "stack",
+      "pal": "ty_stack_dk",
+      "r": 0.03,
+      "z": 0.6
+    },
+    {
+      "cx": 0.12,
+      "cy": 0.06,
+      "d": 0.08,
+      "hh": 0.05,
+      "kind": "roofBulkhead",
+      "pal": "ty_adequate_dk",
+      "w": 0.09,
+      "z": 0.6
+    }
+  ],
+  "id": "sump",
+  "note": "SUMP: a cellar bar off Kessler Street with no sign.\n\nThe tile's prose: no sign, no window, no name over the door. A steel fire door set in brick and\npainted the same brown as the brick, a bare bulb in a cage above it, and a bootprint at chest\nheight. The only advertising is what comes up through the pavement grille.\n\nSo the street face is blind brick under a stepped false front, with one door in it painted the\nwall's colour, a caged bulb over it, and the grille in the pavement beside it. There are no words\nanywhere on the building. The old model used the `divebar` arm, whose kit hung two TAVERN boards\non it, which is the one thing the prose says it doesn't have.\n\nThe bar is downstairs, so the rest is plant: an extract on the flank dripping down the brick, kegs\nand bins at the back, and vents on the roof.\n\n`ty_adequate_dk` is a plain brick. The arm's `ty_bar_a` is in the window-grid family and would\npaint the windows this building hasn't got.",
+  "pal": "ty_adequate_dk",
+  "replaces": "sump",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_adequate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.6
+    },
+    {
+      "cx": 0,
+      "cy": 0.385,
+      "fd": 0.015,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_adequate_dk",
+      "roof": true,
+      "z0": 0.6,
+      "z1": 0.68
+    },
+    {
+      "cx": 0,
+      "cy": 0.385,
+      "fd": 0.015,
+      "hw": 0.2,
+      "kind": "box",
+      "pal": "ty_adequate_dk",
+      "roof": true,
+      "z0": 0.68,
+      "z1": 0.74
+    },
+    {
+      "cx": -0.18,
+      "cy": 0.43,
+      "fd": 0.014,
+      "hw": 0.08,
+      "kind": "box",
+      "pal": "ty_door",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.004
+    },
+    {
+      "cx": 0.08,
+      "cy": 0.415,
+      "fd": 0.012,
+      "hw": 0.012,
+      "kind": "box",
+      "pal": "ty_stack_dk",
+      "roof": true,
+      "z0": 0.31,
+      "z1": 0.335
+    }
+  ]
+}

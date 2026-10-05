@@ -186,25 +186,6 @@
       "z": 1.05
     },
     {
-      "cx": 0.4,
-      "cy": 0.44,
-      "d": 0.036,
-      "hh": 0.032,
-      "kind": "binStack",
-      "lid": "#2a1e14",
-      "n": 2,
-      "pal": "ty_unit_board",
-      "w": 0.045,
-      "z": 0.004
-    },
-    {
-      "cx": 0.22,
-      "cy": 0.472,
-      "kind": "bollard",
-      "pal": "ty_unit_board",
-      "z": 0.004
-    },
-    {
       "color": "#ff8a4a",
       "cx": -0.32,
       "cy": 0.44,
@@ -226,11 +207,155 @@
       "s": 10,
       "z0": 0,
       "z1": 0.086
+    },
+    {
+      "cx": 0,
+      "cy": 0.42,
+      "kind": "pilaster",
+      "n": 2,
+      "out": 0.02,
+      "pal": "ty_unit_brick",
+      "step": 0.82,
+      "w": 0.03,
+      "z0": 0.05,
+      "z1": 0.96
+    },
+    {
+      "cx": -0.1,
+      "cy": 0.42,
+      "kind": "pilaster",
+      "n": 2,
+      "out": 0.018,
+      "pal": "ty_unit_brick",
+      "step": 0.36,
+      "w": 0.026,
+      "z0": 0.38,
+      "z1": 0.96
+    },
+    {
+      "cx": 0.26,
+      "cy": 0.455,
+      "d": 0.022,
+      "hh": 0.085,
+      "kind": "binStack",
+      "lid": "#3a2618",
+      "n": 1,
+      "pal": "ty_reach_saloon_dk",
+      "w": 0.032,
+      "z": 0.004
+    },
+    {
+      "cx": 0.335,
+      "cy": 0.465,
+      "d": 0.014,
+      "hh": 0.03,
+      "kind": "binStack",
+      "lid": "#4a3020",
+      "n": 2,
+      "pal": "ty_reach_saloon_dk",
+      "w": 0.014,
+      "z": 0.004
+    },
+    {
+      "cx": 0.335,
+      "cy": 0.44,
+      "d": 0.014,
+      "hh": 0.03,
+      "kind": "binStack",
+      "lid": "#4a3020",
+      "n": 2,
+      "pal": "ty_reach_saloon_dk",
+      "w": 0.014,
+      "z": 0.004
+    },
+    {
+      "cx": 0.3,
+      "cy": 0.42,
+      "half": 0.085,
+      "hh": 0.006,
+      "kind": "canopy",
+      "out": 0.07,
+      "pal": "ty_giardia_tarp",
+      "soffit": "#6a5a40",
+      "z": 0.2
+    },
+    {
+      "color": "#d8c8a8",
+      "cx": 0.33,
+      "cy": 0.43,
+      "font": "marker",
+      "half": 0.06,
+      "hh": 0.017,
+      "ink": "#2a1a10",
+      "kind": "signBoard",
+      "label": "EVERYTHING IN HERE OUTLIVED SOMEBODY",
+      "z": 0.025
+    },
+    {
+      "cx": -0.1,
+      "cy": 0.43,
+      "half": 0.11,
+      "kind": "cableRun",
+      "pal": "ty_unit_shut",
+      "r": 0.004,
+      "sag": 0.03,
+      "z": 0.74
+    },
+    {
+      "count": 2,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": -0.18,
+        "cy": -0.42,
+        "depth": 0.012,
+        "face": "x",
+        "glass": "#241a12",
+        "glow": "#3a2c20",
+        "half": 0.055,
+        "hh": 0.05,
+        "kind": "windowBay",
+        "pal": "ty_unit_board",
+        "z": 0.82
+      },
+      "step": {
+        "cx": 0.36
+      }
+    },
+    {
+      "bars": 1,
+      "cx": -0.2,
+      "cy": -0.42,
+      "depth": 0.014,
+      "glass": "#2a2018",
+      "glow": "#4a3828",
+      "half": 0.08,
+      "hh": 0.12,
+      "kind": "windowBay",
+      "pal": "ty_unit_board",
+      "z": 0.2
+    },
+    {
+      "cx": 0,
+      "cy": 0.42,
+      "drip": 0.4,
+      "kind": "grime",
+      "w": 0.4,
+      "z": 0.92
+    },
+    {
+      "cx": -0.22,
+      "cy": 0.18,
+      "hh": 0.06,
+      "kind": "roofTank",
+      "pal": "ty_unit_shut",
+      "r": 0.07,
+      "z": 1.05
     }
   ],
   "id": "velkspreownedfurnishings",
   "neon": "#ff8a4a",
-  "note": "VELK'S PRE-OWNED FURNISHINGS — the second-hand furniture warehouse on Ironside Street.\n\n⚠ THE HOIST IS THE WHOLE DESIGN. A furniture warehouse is a building you get a wardrobe OUT of, so\nwhat it needs is a loading door on the first floor, a beam over it and a shutter under it — and that\none arrangement says more about the trade than any amount of shopfront. The arm drew it as a junk\nshop with a window.\n\n⚠ THE BIG SIGN IS ON THE FLANK, NOT THE FRONT. A gable end is where a real city puts its largest\nadvertisement, because it is the one surface a wall texture cannot make interesting — and the front\nof this building is almost entirely door, so there is nowhere on it for a sign that size. That is\nwhat `face: 'x'` on a `bladePanel` is for.\n\n⚠ AND THE UPPER WINDOWS ARE FEW AND DIRTY. A warehouse is not an office: three small openings up a\nfour-storey wall, not a ribbon, and nothing behind them is lit.",
+  "note": "VELK'S PRE-OWNED FURNISHINGS — the second-hand furniture warehouse on Ironside Street.\n\nThe hoist is the design. A furniture warehouse is a building you get a wardrobe out of, so it has a\nloading door on the first floor, a beam over it and a shutter under it. The arm drew it as a junk\nshop with a window.\n\nThe big sign is on the flank. A gable end is where a city puts its largest advertisement, and the\nfront of this building is mostly door.\n\nThe tile's prose: the shop has outgrown itself and spilled onto the grass. A wardrobe and four\ndining chairs stand out front under a tarpaulin that covers about half of them, and a board\nleaning on the shop front says EVERYTHING IN HERE OUTLIVED SOMEBODY. They are detail parts, not\nmass: the pavement is past the plot line, where `segFit` would trim a box. The name is on the\nfascia, so the board carries only the second line.\n\nThe front is a warehouse elevation in two tones: brick piers at the corners and either side of the\nloading bay over a darker infill, a string course at the first floor, and a corbelled cornice. The\nupper windows are few and dirty, three small openings, and nothing behind them is lit.",
   "pal": "ty_signalbox",
   "replaces": "junkshop",
   "segs": [
@@ -283,6 +408,16 @@
       "roof": true,
       "z0": 1.05,
       "z1": 1.18
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.428,
+      "kind": "box",
+      "pal": "ty_unit_brick",
+      "roof": false,
+      "z0": 0.92,
+      "z1": 0.96
     }
   ]
 }

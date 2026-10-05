@@ -6,9 +6,9 @@
       "kind": "latticeTower",
       "r0": 0.085,
       "r1": 0.045,
+      "rgb": "178,150,112",
       "z0": 0.3,
-      "z1": 1.55,
-      "rgb": "178,150,112"
+      "z1": 1.55
     },
     {
       "cx": -0.04,
@@ -48,6 +48,29 @@
       "rgb": "196,226,255",
       "s": 7,
       "z": 0.06
+    },
+    {
+      "cx": -0.08,
+      "cy": 0.36,
+      "kind": "mast",
+      "z0": 0.04,
+      "z1": 0.62
+    },
+    {
+      "cx": -0.08,
+      "cy": 0.36,
+      "kind": "glowPool",
+      "rgb": "255,176,88",
+      "s": 6,
+      "z": 0.62
+    },
+    {
+      "cx": -0.12,
+      "cy": 0.1,
+      "kind": "glowPool",
+      "rgb": "255,170,80",
+      "s": 18,
+      "z": 0.05
     }
   ],
   "basis": {
@@ -129,16 +152,6 @@
       "z": 0.5
     },
     {
-      "cx": -0.22,
-      "cy": 0.34,
-      "half": 0.26,
-      "kind": "cableRun",
-      "pal": "ty_slagw_corr",
-      "r": 0.008,
-      "sag": 0.04,
-      "z": 0.27
-    },
-    {
       "color": "#ff8a2a",
       "cx": -0.3,
       "cy": 0.34,
@@ -192,11 +205,134 @@
       "s": 10,
       "z0": 0,
       "z1": 0.085
+    },
+    {
+      "count": 4,
+      "kind": "repeat",
+      "of": {
+        "cx": -0.43,
+        "cy": 0.44,
+        "kind": "pipe",
+        "pal": "ty_slagw_corr",
+        "r": 0.005,
+        "z0": 0.04,
+        "z1": 0.32
+      },
+      "step": {
+        "cx": 0.1
+      }
+    },
+    {
+      "cx": -0.13,
+      "cy": 0.44,
+      "kind": "pipe",
+      "pal": "ty_junk_crane",
+      "r": 0.008,
+      "z0": 0.04,
+      "z1": 0.32
+    },
+    {
+      "count": 6,
+      "kind": "repeat",
+      "of": {
+        "cx": -0.41,
+        "cy": 0.44,
+        "half": 0.026,
+        "kind": "cableRun",
+        "pal": "ty_slagw_corr",
+        "r": 0.004,
+        "sag": 0.02,
+        "z": 0.31
+      },
+      "step": {
+        "cx": 0.052
+      }
+    },
+    {
+      "count": 6,
+      "kind": "repeat",
+      "of": {
+        "cx": -0.41,
+        "cy": 0.438,
+        "half": 0.026,
+        "kind": "cableRun",
+        "pal": "ty_slagw_corr",
+        "r": 0.004,
+        "sag": -0.016,
+        "z": 0.295
+      },
+      "step": {
+        "cx": 0.052
+      }
+    },
+    {
+      "color": "#d8ccb0",
+      "cx": -0.29,
+      "cy": 0.442,
+      "font": "marker",
+      "half": 0.115,
+      "hh": 0.045,
+      "ink": "#3a1e10",
+      "kind": "signBoard",
+      "label": "WE BUY ANYTHING · WE ASK NOTHING · CASH, NOT FEELINGS",
+      "z": 0.2
+    },
+    {
+      "cx": 0.26,
+      "cy": 0.38,
+      "half": 0.13,
+      "hh": 0.01,
+      "kind": "canopy",
+      "out": 0.06,
+      "pal": "ty_slagw_corr",
+      "soffit": "#2a2018",
+      "z": 0.3
+    },
+    {
+      "bars": 2,
+      "cx": -0.22,
+      "cy": 0.42,
+      "depth": 0.012,
+      "face": "x",
+      "glass": "#2a1f14",
+      "glow": "#ffcc80",
+      "half": 0.06,
+      "hh": 0.05,
+      "kind": "windowBay",
+      "pal": "ty_junk_shack",
+      "z": 0.26
+    },
+    {
+      "cx": 0.3,
+      "cy": 0.16,
+      "d": 0.04,
+      "hh": 0.024,
+      "kind": "acUnit",
+      "pal": "ty_slagw_corr",
+      "w": 0.05,
+      "z": 0.5
+    },
+    {
+      "cx": 0.12,
+      "cy": 0.38,
+      "kind": "pipe",
+      "pal": "ty_slagw_corr",
+      "r": 0.009,
+      "z0": 0.04,
+      "z1": 0.46
+    },
+    {
+      "cx": 0.26,
+      "cy": 0.38,
+      "drip": 0.6,
+      "kind": "grime",
+      "w": 0.15,
+      "z": 0.46
     }
   ],
   "id": "salvagerites",
   "neon": "#ffb43a",
-  "note": "SALVAGE RITES — the scrapyard on Ironside Street, and the street's one real vertical.\n\n⚠ IT IS BOUND BY NAME AND REPLACES NOTHING, WHICH IS THE WHOLE REASON IT IS A FILE. `type:junkyard`\ndraws FOUR buildings — Slag & Wares, Thumb On The Scale and The Houndyard as well as this one — so\nredesigning the arm would redesign three yards nobody asked about, in three other districts. A name\nbind takes this tile and leaves the type alone, which is the house rule for a twin.\n\n⚠ THE CRANE IS ADORNMENT AND MUST STAY THAT WAY. A lattice derrick is the tallest thing on Ironside\nStreet and it is also open steel you can see the sky through: as mass it would enter CFIT collision,\nthe ground probe and the occluder hulls as a solid block, and a truck would hit a yard full of air.\n`latticeTower` draws it as strokes, which is both the honest shape and the free one.\n\n⚠ AND THE BALES ARE MASS, BECAUSE THEY ARE. Crushed cars stacked two storeys high is a wall — you\ncannot drive through it and it throws a real shadow — so the stacks are boxes and they are what the\nyard is actually made of. The office is the smallest object on the tile, on purpose.\n\n⚠ THE CONTAINERS ARE WHAT MAKES IT READ AS A YARD, AND THE REASON IS COLOUR RATHER THAN SHAPE. This\nwas five brown boxes — `ty_junk_bale` is [126,72,44] and `ty_slag` [74,60,50] — beside a `ty_junk_shack`\noffice at [104,84,62], on redrock, at the end of a street of brick. Every mass on the tile was the same\nhue within a few points, so the whole thing read as one brown lump with a mast on it, and no amount of\ngeometry fixes that. Two stacked boxes take the container palettes (`ty_cont_r`, `ty_cont_y`, `ty_cont_b`)\nand the yard now has the three saturated accents nothing else on Ironside Street has. The CRUSHED CARS\nstay brown, which is what they are — the point is that they are now brown NEXT TO something.\n\n⚠ A CONTAINER IS LONG AND A BOX IS SQUARE UNLESS YOU SAY OTHERWISE. `box` takes `fd` — the half-depth —\nand it defaults to `hw`, so a container asked for at `hw: 0.30` is a 0.6-square cube and reads as a\nwarehouse. Every stacked box here carries an explicit `fd`.\n\n⚠ THE TORCH IS A GLINT BY DAY AND A LIGHT AT NIGHT, WHICH IS WHAT `s` CONTROLS. `AUTHORED_ADORN.glowPool`\ntakes no night term — unlike `neonBlade`, `marqueeBand` and the rest — so a glow sized to read as a\ncutting torch after dark is a white blob in full sun. `s: 7` is under the size of the thing it sits on,\nwhich is the rule: a glint by day, a bloom at night.\n\n⚠ AND THE YARD SAYS ITS NAME ONCE. The board over the door carries the name, a crane hook (`picto: 'hook'`)\nand nothing else; 廢料 — scrap material — goes on a blade round the corner, which is a SECOND SIGN and not\na second name. `junkyard` is in UNSIGNED_TRADE, so the derived kit will not letter this building at all\nand both of these are authored: the kit is right that a yard's name is on the gate, and this one's gate\nis its office door.",
+  "note": "SALVAGE RITES — the scrapyard on Ironside Street, and the street's one real vertical.\n\nIt is bound by name and replaces nothing. `type:junkyard` draws four yards (Slag & Wares, Thumb On\nThe Scale and The Houndyard as well as this one), so a name bind changes this tile and leaves the\nother three alone.\n\nThe crane is adornment. A lattice derrick is open steel, and as mass it would enter CFIT\ncollision, the ground probe and the occluder hulls as a solid block. `latticeTower` draws it as\nstrokes. The bales are mass, because crushed cars stacked two high are a wall you can't drive\nthrough.\n\nThe frontage is the gate, because that is what the tile's prose describes: chain-link on a rolling\ntrack with wire along the top, rolled back so the yard is open, and a hand-painted board wired to\nit. The board carries the slogan and the office board carries the name, so the name appears once.\nBehind the mesh the bales stand in uneven rows of different heights, and the shipping containers\nsupply the three saturated colours nothing else on Ironside has; every other mass on the tile is\nwithin a few points of the same brown.\n\nA container is long and a box is square unless you say otherwise: `box` takes `fd`, the\nhalf-depth, and defaults it to `hw`. Every container and bale row here carries an explicit `fd`.\n\nThe torch on the crane is `s: 7`, under the size of what it sits on, because\n`AUTHORED_ADORN.glowPool` has no night term and a bigger one is a white blob at noon. The yard is\nlit by one sodium floodlight on a pole at the gate, which is amber because this is industry.",
   "pal": "ty_junk_shack",
   "segs": [
     {
@@ -291,6 +427,72 @@
       "roof": true,
       "z0": 0.04,
       "z1": 0.34
+    },
+    {
+      "cx": -0.18,
+      "cy": -0.39,
+      "fd": 0.045,
+      "hw": 0.24,
+      "kind": "box",
+      "pal": "ty_junk_bale",
+      "roof": true,
+      "z0": 0.04,
+      "z1": 0.24
+    },
+    {
+      "cx": -0.24,
+      "cy": -0.39,
+      "fd": 0.04,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_junk_bale_dk",
+      "roof": true,
+      "z0": 0.24,
+      "z1": 0.38
+    },
+    {
+      "cx": 0.36,
+      "cy": -0.24,
+      "fd": 0.07,
+      "hw": 0.07,
+      "kind": "box",
+      "pal": "ty_junk_bale_dk",
+      "roof": true,
+      "z0": 0.04,
+      "z1": 0.42
+    },
+    {
+      "cx": -0.285,
+      "cy": 0.432,
+      "fd": 0.006,
+      "hw": 0.155,
+      "kind": "box",
+      "pal": "ty_bond_fence",
+      "roof": false,
+      "z0": 0.04,
+      "z1": 0.32
+    },
+    {
+      "cx": -0.27,
+      "cy": 0.412,
+      "fd": 0.006,
+      "hw": 0.15,
+      "kind": "box",
+      "pal": "ty_bond_fence",
+      "roof": false,
+      "z0": 0.05,
+      "z1": 0.31
+    },
+    {
+      "cx": -0.16,
+      "cy": 0.432,
+      "fd": 0.008,
+      "hw": 0.28,
+      "kind": "box",
+      "pal": "ty_stack_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.012
     }
   ],
   "trade": "junkyard"

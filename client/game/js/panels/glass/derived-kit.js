@@ -621,6 +621,9 @@ const KIT_DECLINE = { meridian: ['signRoof', 'wall', 'pier'],   // 'wall' and 'p
   // GIARDIA hand-lettered on a plank, so this is not `UNSIGNED_TRADE` — that set is for a shed
   // with a number on it, and both of these are named by hand on purpose.
   slagwares: ['signRoof', 'roof'], campgiardia: ['signRoof', 'roof'],
+  // Sump has no sign, no window and no name over the door, and the prose says so. Without this the
+  // kit read a low brick box as a bar and put SUMP on a lit hoarding on its roof.
+  sump: ['sign', 'signRoof', 'neon', 'wall', 'paint'],
   // The Halcyon building sites. A site's name is printed on its hoarding, which the arm draws, and
   // the kit was standing a lit board on legs on the podium deck, where it ran through the
   // scaffold standards on Completion Date. Nobody puts neon on a building that isn't finished.

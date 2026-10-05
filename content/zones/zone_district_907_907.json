@@ -1,28 +1,24 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "No shopfront and no window at street level, just a door reveal deep enough to stand in out of the rain: brick, then cork, then boards, three feet of wall between Meltwater Row and whatever is behind it. COLD SHOULDER is cut into the lintel and painted white every spring. The gable end runs out over the Basin on piles, and the gantry bolted through it drips all year.",
+  "description": "Greenside Row bends east along the water and drops onto Meltwater Row. A rust-scabbed railing stands between the kerb and the Basin. Someone has chained a bicycle frame to it; the wheels left a long time ago.",
   "exits": {
-    "north": "zone_bld_907_907_lobby",
-    "south": "zone_district_907_908"
+    "north": "zone_district_907_906",
+    "south": "zone_district_907_908",
+    "west": "zone_district_906_907"
   },
   "flags": {
-    "building_name": "Cold Shoulder",
-    "building_type": "ice_house",
     "district": "filaments",
-    "entrance": "south",
-    "facade": true,
-    "floors": 2,
-    "is_building": true,
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_907_908"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 907,
   "grid_y": 907,
   "grid_z": 0,
   "id": "zone_district_907_907",
   "map_id": "map_world",
-  "marker": "IH",
-  "name": "Cold Shoulder",
+  "name": "Greenside Row",
   "parent_zone": null
 }

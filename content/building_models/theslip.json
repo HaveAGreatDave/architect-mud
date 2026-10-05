@@ -1,0 +1,213 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0.46,
+      "kind": "glowPool",
+      "rgb": "255,214,160",
+      "s": 5,
+      "z": 0.3
+    },
+    {
+      "cx": 0,
+      "cy": 0.48,
+      "kind": "glowPool",
+      "rgb": "255,200,140",
+      "s": 9,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "The Slip"
+    }
+  ],
+  "detail": [
+    {
+      "bars": 0,
+      "cx": 0,
+      "cy": 0.43,
+      "depth": 0.016,
+      "glass": "#2a2c30",
+      "glow": "#3a3430",
+      "half": 0.055,
+      "hh": 0.11,
+      "kind": "windowBay",
+      "pal": "ty_stack_dk",
+      "transom": 0.86,
+      "z": 0.15
+    },
+    {
+      "bars": 0,
+      "cx": 0,
+      "cy": 0.43,
+      "depth": 0.004,
+      "glass": "#ffd8a0",
+      "glow": "#ffd8a0",
+      "half": 0.008,
+      "hh": 0.006,
+      "kind": "windowBay",
+      "pal": "ty_stack_dk",
+      "z": 0.19
+    },
+    {
+      "bars": 3,
+      "cx": 0,
+      "cy": 0.43,
+      "depth": 0.012,
+      "glass": "#4a5a52",
+      "glow": "#a8b89a",
+      "half": 0.09,
+      "hh": 0.014,
+      "kind": "windowBay",
+      "pal": "ty_stack_dk",
+      "z": 0.42
+    },
+    {
+      "cx": 0,
+      "cy": 0.42,
+      "kind": "pilaster",
+      "n": 2,
+      "out": 0.012,
+      "pal": "ty_oc_brick_dk",
+      "step": 0.32,
+      "w": 0.02,
+      "z0": 0.05,
+      "z1": 0.66
+    },
+    {
+      "cx": 0,
+      "cy": 0.42,
+      "drip": 0.5,
+      "kind": "grime",
+      "w": 0.15,
+      "z": 0.66
+    },
+    {
+      "cx": 0.3,
+      "cy": 0.38,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.01,
+      "z0": 0.05,
+      "z1": 0.56
+    },
+    {
+      "cx": -0.3,
+      "cy": -0.38,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.01,
+      "z0": 0.05,
+      "z1": 0.56
+    },
+    {
+      "cx": 0,
+      "cy": 0.38,
+      "drip": 0.6,
+      "face": "x",
+      "hh": 0.03,
+      "kind": "vent",
+      "pal": "ty_stack_dk",
+      "w": 0.04,
+      "z": 0.4
+    },
+    {
+      "cx": 0.18,
+      "cy": -0.4,
+      "half": 0.09,
+      "hh": 0.08,
+      "kind": "shutter",
+      "pal": "ty_stack_dk",
+      "z": 0.13
+    },
+    {
+      "cx": -0.2,
+      "cy": -0.43,
+      "d": 0.035,
+      "hh": 0.035,
+      "kind": "binStack",
+      "lid": "#222020",
+      "n": 3,
+      "pal": "ty_stack_dk",
+      "w": 0.04,
+      "z": 0.004
+    },
+    {
+      "cx": 0.2,
+      "cy": -0.2,
+      "hh": 0.08,
+      "kind": "antennaCluster",
+      "n": 3,
+      "pal": "ty_stack_dk",
+      "r": 0.04,
+      "z": 0.56
+    }
+  ],
+  "id": "theslip",
+  "note": "THE SLIP — the fence on Lever Lane that nobody signposts.\n\nThe tile's prose: a narrow frontage between two wider ones, no sign at all, a good steel door\n(steel core, three hinges, a spyhole at the height of a short woman's eye) and a window bricked down\nto a slot glazed with wire glass. People who need to find it find it.\n\nSo the street face is a narrow brick bay standing forward of a plainer, wider block behind it, and\nthe bay carries only the door, the slot and a lamp. There is no lettering anywhere on the building,\nwhich is the one thing on Lever Lane that tells you what it is. The flanks are blank brick with a\ndownpipe; the back is a yard door and bins.\n\nIt stands in for the `slipback` arm (`replaces`), which stays in LEGACY_MODELS.",
+  "pal": "ty_oc_brick",
+  "replaces": "slipback",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.42,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.05
+    },
+    {
+      "cx": 0,
+      "cy": -0.06,
+      "fd": 0.34,
+      "hw": 0.38,
+      "kind": "box",
+      "pal": "ty_oc_brick_dk",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.56
+    },
+    {
+      "cx": 0,
+      "cy": 0.28,
+      "fd": 0.14,
+      "hw": 0.17,
+      "kind": "box",
+      "pal": "ty_oc_brick",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.66
+    },
+    {
+      "cx": 0,
+      "cy": 0.28,
+      "fd": 0.15,
+      "hw": 0.18,
+      "kind": "box",
+      "pal": "ty_stack_dk",
+      "roof": true,
+      "z0": 0.66,
+      "z1": 0.69
+    },
+    {
+      "cx": -0.24,
+      "cy": -0.2,
+      "hw": 0.04,
+      "kind": "box",
+      "pal": "ty_oc_brick_dk",
+      "roof": true,
+      "z0": 0.56,
+      "z1": 0.72
+    }
+  ]
+}

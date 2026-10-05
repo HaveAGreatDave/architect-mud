@@ -1,11 +1,19 @@
 {
   "adorn": [
     {
+      "cx": -0.1,
+      "cy": 0.44,
+      "kind": "glowPool",
+      "rgb": "255,214,150",
+      "s": 12,
+      "z": 0.18
+    },
+    {
       "cx": 0,
       "cy": 0.5,
       "kind": "glowPool",
-      "rgb": "255,200,130",
-      "s": 16,
+      "rgb": "255,200,140",
+      "s": 12,
       "z": 0.02
     }
   ],
@@ -21,105 +29,185 @@
   ],
   "detail": [
     {
+      "bars": 2,
+      "cx": -0.1,
+      "cy": 0.405,
+      "depth": 0.014,
+      "glass": "#c8bca8",
+      "glow": "#ffd8a0",
+      "half": 0.22,
+      "hh": 0.11,
+      "kind": "windowBay",
+      "pal": "ty_oc_board_dk",
+      "transom": 0.78,
+      "z": 0.18
+    },
+    {
+      "bars": 1,
+      "cx": 0.26,
+      "cy": 0.405,
+      "depth": 0.014,
+      "glass": "#3a2a1a",
+      "glow": "#8a6a40",
+      "half": 0.055,
+      "hh": 0.11,
+      "kind": "windowBay",
+      "pal": "ty_oc_board_dk",
+      "transom": 0.8,
+      "z": 0.16
+    },
+    {
+      "color": "#b07a3a",
+      "cx": -0.05,
+      "cy": 0.405,
+      "font": "slab",
+      "half": 0.17,
+      "horiz": true,
+      "ink": "#2a1a0a",
+      "kind": "bladePanel",
+      "label": "LOAFING AROUND",
+      "out": 0.03,
+      "pal": "ty_oc_board_dk",
+      "z0": 0.29,
+      "z1": 0.33
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.27,
+        "cy": 0.405,
+        "depth": 0.012,
+        "glass": "#22201c",
+        "glow": "#ffd8a0",
+        "half": 0.06,
+        "hh": 0.075,
+        "kind": "windowBay",
+        "pal": "ty_oc_board_dk",
+        "transom": 0.5,
+        "z": 0.5
+      },
+      "step": {
+        "cx": 0.27
+      }
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.27,
+        "cy": 0.405,
+        "depth": 0.012,
+        "glass": "#22201c",
+        "glow": "#5a4a38",
+        "half": 0.06,
+        "hh": 0.075,
+        "kind": "windowBay",
+        "pal": "ty_oc_board_dk",
+        "transom": 0.5,
+        "z": 0.72
+      },
+      "step": {
+        "cx": 0.27
+      }
+    },
+    {
+      "cx": 0.32,
+      "cy": 0.4,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.01,
+      "z0": 0.05,
+      "z1": 0.86
+    },
+    {
+      "cx": -0.1,
+      "cy": -0.4,
+      "drip": 0.8,
+      "hh": 0.04,
+      "kind": "vent",
+      "pal": "ty_stack_dk",
+      "w": 0.06,
+      "z": 0.25
+    },
+    {
+      "cx": 0.12,
+      "cy": -0.4,
+      "flights": 2,
+      "half": 0.09,
+      "kind": "fireEscape",
+      "out": 0.05,
+      "pal": "ty_stack_dk",
+      "z0": 0.36,
+      "z1": 0.86
+    },
+    {
       "cx": 0,
       "cy": 0,
-      "half": 0.38,
-      "hh": 0.018,
+      "half": 0.415,
+      "hh": 0.012,
       "kind": "parapet",
-      "pal": "ty_shop_b",
-      "z": 0.74
-    },
-    {
-      "bars": 3,
-      "cx": -0.04,
-      "cy": 0.44,
-      "depth": 0.02,
-      "glass": "#241a10",
-      "glow": "#ffd79a",
-      "half": 0.3,
-      "hh": 0.03,
-      "kind": "windowBay",
-      "pal": "ty_diner",
-      "z": 0.12
-    },
-    {
-      "cx": 0.24,
-      "cy": 0.44,
-      "half": 0.13,
-      "hh": 0.01,
-      "kind": "canopy",
-      "out": 0.1,
-      "pal": "ty_diner",
-      "soffit": "#6b4a24",
-      "strip": "#ffcf8a",
-      "z": 0.29
-    },
-    {
-      "color": "#2a1a0c",
-      "cx": -0.04,
-      "cy": 0.44,
-      "font": "slab",
-      "half": 0.26,
-      "hh": 0.03,
-      "ink": "#ffd79a",
-      "kind": "signBoard",
-      "label": "LOAFING AROUND",
-      "z": 0.37
-    },
-    {
-      "cx": 0.3,
-      "cy": 0.44,
-      "drip": 0.5,
-      "hh": 0.03,
-      "kind": "vent",
-      "pal": "ty_shop_b",
-      "w": 0.1,
-      "z": 0.5
-    },
-    {
-      "cx": -0.34,
-      "cy": 0.4,
-      "d": 0.06,
-      "hh": 0.035,
-      "kind": "binStack",
-      "n": 2,
-      "pal": "ty_shop_b",
-      "w": 0.07,
-      "z": 0.005
+      "pal": "ty_oc_brick_dk",
+      "z": 0.9
     }
   ],
   "id": "loafingaround",
   "neon": "#ffb34d",
-  "note": "The bakery on the south side of the Green. A flat-fronted terrace end with ONE wide window that steams up from the inside all day, wiped clear at eye height by whoever last leaned on it — so the glazing is a single low band rather than a grid, and the warm glow behind it is the whole silhouette after dark. Trays go in at four and the good ones are gone by seven.",
-  "pal": "ty_diner",
+  "note": "LOAFING AROUND — the bakery at the bottom of a terrace on Meltwater Row.\n\nThe tile's prose: the only window on the row that steams up from the inside; trays in the display\nat four in the morning and the good ones gone by seven; a sign shaped like a loaf with a slice cut\nout of it and the words running through the gap; the door paint worn to bare wood at hand height.\n\nSo the ground floor is a wide steamed window, lit warm, and the door beside it. The sign is a\ncrust-brown panel hung proud of the fascia with the name across it. Above it the terrace carries on\nfor two more floors of plain sash windows under a cornice, with a chimney stack for the oven.",
+  "pal": "ty_oc_brick",
   "segs": [
-    {
-      "cx": 0,
-      "cy": 0,
-      "hw": 0.44,
-      "kind": "box",
-      "roof": true,
-      "z0": 0,
-      "z1": 0.07
-    },
     {
       "cx": 0,
       "cy": 0,
       "hw": 0.42,
       "kind": "box",
+      "pal": "ty_gate_dk",
       "roof": true,
-      "z0": 0.07,
-      "z1": 0.6
+      "z0": 0,
+      "z1": 0.05
     },
     {
       "cx": 0,
       "cy": 0,
-      "hw": 0.38,
+      "hw": 0.4,
       "kind": "box",
-      "pal": "ty_shop_b",
+      "pal": "ty_oc_brick",
       "roof": true,
-      "z0": 0.6,
-      "z1": 0.74
+      "z0": 0.05,
+      "z1": 0.86
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.415,
+      "kind": "box",
+      "pal": "ty_oc_brick_dk",
+      "roof": true,
+      "z0": 0.86,
+      "z1": 0.9
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.405,
+      "kind": "box",
+      "pal": "ty_oc_brick_dk",
+      "roof": false,
+      "z0": 0.34,
+      "z1": 0.36
+    },
+    {
+      "cx": -0.26,
+      "cy": -0.1,
+      "hw": 0.05,
+      "kind": "box",
+      "pal": "ty_oc_brick_dk",
+      "roof": true,
+      "z0": 0.86,
+      "z1": 1.04
     }
   ],
   "trade": "diner"

@@ -1,0 +1,284 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0.44,
+      "kind": "glowPool",
+      "rgb": "160,205,235",
+      "s": 12,
+      "z": 0.3
+    },
+    {
+      "cx": 0.3,
+      "cy": 0.44,
+      "kind": "glowPool",
+      "rgb": "255,196,120",
+      "s": 8,
+      "z": 0.5
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Absolute Zero Holdings"
+    }
+  ],
+  "detail": [
+    {
+      "bay": true,
+      "cx": 0,
+      "cy": 0.36,
+      "half": 0.17,
+      "hh": 0.19,
+      "kind": "shutter",
+      "pal": "ty_reefer",
+      "z": 0.3
+    },
+    {
+      "cx": 0,
+      "cy": 0.36,
+      "kind": "pilaster",
+      "n": 2,
+      "out": 0.014,
+      "pal": "ty_cold_unit",
+      "step": 0.44,
+      "w": 0.024,
+      "z0": 0.06,
+      "z1": 0.72
+    },
+    {
+      "cx": 0,
+      "cy": 0.36,
+      "kind": "pilaster",
+      "n": 2,
+      "out": 0.014,
+      "pal": "ty_cold_unit",
+      "step": 0.8,
+      "w": 0.024,
+      "z0": 0.06,
+      "z1": 0.72
+    },
+    {
+      "cx": 0.04,
+      "cy": 0.36,
+      "drip": 1,
+      "kind": "grime",
+      "w": 0.1,
+      "z": 0.72
+    },
+    {
+      "band": "#ffa32e",
+      "count": 2,
+      "cx": -0.24,
+      "cy": 0.45,
+      "kind": "bollard",
+      "pal": "ty_stack_dk",
+      "step": 0.48,
+      "z": 0.004
+    },
+    {
+      "cx": -0.02,
+      "cy": 0.41,
+      "face": "x",
+      "kind": "pilaster",
+      "n": 3,
+      "out": 0.012,
+      "pal": "ty_cold_unit",
+      "step": 0.25,
+      "w": 0.022,
+      "z0": 0.06,
+      "z1": 0.72
+    },
+    {
+      "cx": -0.02,
+      "cy": -0.41,
+      "face": "x",
+      "kind": "pilaster",
+      "n": 3,
+      "out": 0.012,
+      "pal": "ty_cold_unit",
+      "step": 0.25,
+      "w": 0.022,
+      "z0": 0.06,
+      "z1": 0.72
+    },
+    {
+      "cx": 0.12,
+      "cy": 0.41,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.016,
+      "z0": 0.06,
+      "z1": 0.76
+    },
+    {
+      "cx": 0.16,
+      "cy": 0.41,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.016,
+      "z0": 0.06,
+      "z1": 0.76
+    },
+    {
+      "bars": 1,
+      "cx": -0.28,
+      "cy": -0.41,
+      "depth": 0.012,
+      "face": "x",
+      "glass": "#2a3036",
+      "glow": "#c8dcf0",
+      "half": 0.05,
+      "hh": 0.11,
+      "kind": "windowBay",
+      "pal": "ty_cold_unit",
+      "z": 0.17
+    },
+    {
+      "cx": 0.25,
+      "cy": -0.41,
+      "drip": 0.6,
+      "face": "x",
+      "hh": 0.04,
+      "kind": "vent",
+      "pal": "ty_cold_unit",
+      "w": 0.06,
+      "z": 0.45
+    },
+    {
+      "bay": true,
+      "cx": 0.12,
+      "cy": -0.4,
+      "half": 0.13,
+      "hh": 0.16,
+      "kind": "shutter",
+      "pal": "ty_reefer",
+      "z": 0.22
+    },
+    {
+      "cx": -0.24,
+      "cy": -0.4,
+      "drip": 0.6,
+      "half": 0.1,
+      "hh": 0.06,
+      "kind": "louvreBank",
+      "n": 6,
+      "pal": "ty_cold_unit",
+      "z": 0.55
+    },
+    {
+      "cx": 0,
+      "cy": -0.02,
+      "half": 0.415,
+      "hh": 0.01,
+      "kind": "parapet",
+      "pal": "ty_cold_unit",
+      "z": 0.76
+    },
+    {
+      "cx": -0.24,
+      "cy": -0.1,
+      "d": 0.09,
+      "hh": 0.07,
+      "kind": "acUnit",
+      "pal": "ty_cold_unit",
+      "w": 0.11,
+      "z": 0.76
+    },
+    {
+      "cx": 0,
+      "cy": -0.1,
+      "d": 0.09,
+      "hh": 0.07,
+      "kind": "acUnit",
+      "pal": "ty_cold_unit",
+      "w": 0.11,
+      "z": 0.76
+    },
+    {
+      "cx": 0.24,
+      "cy": -0.1,
+      "d": 0.09,
+      "hh": 0.07,
+      "kind": "acUnit",
+      "pal": "ty_cold_unit",
+      "w": 0.11,
+      "z": 0.76
+    },
+    {
+      "cx": -0.24,
+      "cy": 0.2,
+      "d": 0.07,
+      "hh": 0.05,
+      "kind": "roofBulkhead",
+      "pal": "ty_cold",
+      "w": 0.08,
+      "z": 0.76
+    }
+  ],
+  "id": "absolutezeroholdings",
+  "note": "ABSOLUTE ZERO HOLDINGS: the Basin Cold Store, on Dray Lane.\n\nThe tile's prose: a fat insulated box sheathed in frosted panelling, its roller door skinned with\nrime even in summer. Condensers the size of engines hammer away on the roof, dripping a permanent\nblack puddle across the threshold.\n\nSo it is a pale panelled block on a loading dock, with one wide roller door in the middle of the\nfront, white with rime, and steel ribs at the corners and either side of the door. Three big\ncondensers stand on the roof with their pipes coming down the flank. The puddle is a dark plate on\nthe dock under the door, with a drip stain down the wall above it.\n\nIndustry doesn't sign itself (`UNSIGNED_TRADE` has `cold_storage`), and the prose gives it no\nlettering, so it carries none. Chill Out Logistics is its twin across the Yards: dark plate, reefers\nbacked onto a dock, and an ammonia stack.",
+  "pal": "ty_cold",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.43,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.06
+    },
+    {
+      "cx": 0,
+      "cy": -0.02,
+      "fd": 0.38,
+      "hw": 0.41,
+      "kind": "box",
+      "pal": "ty_cold",
+      "roof": true,
+      "z0": 0.06,
+      "z1": 0.72
+    },
+    {
+      "cx": 0,
+      "cy": -0.02,
+      "fd": 0.385,
+      "hw": 0.415,
+      "kind": "box",
+      "pal": "ty_cold_unit",
+      "roof": true,
+      "z0": 0.72,
+      "z1": 0.76
+    },
+    {
+      "cx": 0,
+      "cy": 0.4,
+      "fd": 0.04,
+      "hw": 0.26,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0.06,
+      "z1": 0.11
+    },
+    {
+      "cx": 0.04,
+      "cy": 0.42,
+      "fd": 0.02,
+      "hw": 0.12,
+      "kind": "box",
+      "pal": "ty_door",
+      "roof": true,
+      "z0": 0.11,
+      "z1": 0.113
+    }
+  ]
+}

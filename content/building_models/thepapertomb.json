@@ -1,0 +1,316 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0.43,
+      "kind": "glowPool",
+      "rgb": "226,206,160",
+      "s": 7,
+      "z": 0.25
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "The Paper Tomb"
+    }
+  ],
+  "detail": [
+    {
+      "bare": true,
+      "color": "#00000000",
+      "cx": 0,
+      "cy": 0.43,
+      "font": "slab",
+      "half": 0.15,
+      "hh": 0.022,
+      "ink": "#3c3c38",
+      "kind": "signBoard",
+      "label": "HALL OF RECORDS",
+      "z": 0.67
+    },
+    {
+      "bars": 1,
+      "cx": 0,
+      "cy": 0.39,
+      "depth": 0.03,
+      "glass": "#2c2a24",
+      "glow": "#d8c8a0",
+      "half": 0.07,
+      "hh": 0.22,
+      "kind": "windowBay",
+      "pal": "ty_tomb",
+      "transom": 0.8,
+      "z": 0.34
+    },
+    {
+      "bars": 1,
+      "cx": -0.24,
+      "cy": 0.39,
+      "depth": 0.02,
+      "glass": "#16181a",
+      "glow": "#16181a",
+      "half": 0.035,
+      "hh": 0.28,
+      "kind": "windowBay",
+      "pal": "ty_tomb",
+      "transom": 0.85,
+      "z": 0.52
+    },
+    {
+      "bars": 1,
+      "cx": -0.33,
+      "cy": 0.39,
+      "depth": 0.02,
+      "glass": "#16181a",
+      "glow": "#16181a",
+      "half": 0.035,
+      "hh": 0.28,
+      "kind": "windowBay",
+      "pal": "ty_tomb",
+      "transom": 0.85,
+      "z": 0.52
+    },
+    {
+      "bars": 1,
+      "cx": 0.24,
+      "cy": 0.39,
+      "depth": 0.02,
+      "glass": "#16181a",
+      "glow": "#16181a",
+      "half": 0.035,
+      "hh": 0.28,
+      "kind": "windowBay",
+      "pal": "ty_tomb",
+      "transom": 0.85,
+      "z": 0.52
+    },
+    {
+      "bars": 1,
+      "cx": 0.33,
+      "cy": 0.39,
+      "depth": 0.02,
+      "glass": "#16181a",
+      "glow": "#16181a",
+      "half": 0.035,
+      "hh": 0.28,
+      "kind": "windowBay",
+      "pal": "ty_tomb",
+      "transom": 0.85,
+      "z": 0.52
+    },
+    {
+      "cx": -0.28,
+      "cy": 0.39,
+      "drip": 0.8,
+      "kind": "grime",
+      "w": 0.14,
+      "z": 0.92
+    },
+    {
+      "cx": 0.28,
+      "cy": 0.39,
+      "drip": 0.7,
+      "kind": "grime",
+      "w": 0.14,
+      "z": 0.92
+    },
+    {
+      "cx": 0,
+      "cy": 0.43,
+      "drip": 0.4,
+      "kind": "grime",
+      "w": 0.12,
+      "z": 0.72
+    },
+    {
+      "count": 4,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.27,
+        "cy": 0.39,
+        "depth": 0.02,
+        "face": "x",
+        "glass": "#16181a",
+        "glow": "#16181a",
+        "half": 0.035,
+        "hh": 0.28,
+        "kind": "windowBay",
+        "pal": "ty_tomb",
+        "transom": 0.85,
+        "z": 0.52
+      },
+      "step": {
+        "cx": 0.18
+      }
+    },
+    {
+      "count": 4,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.27,
+        "cy": -0.39,
+        "depth": 0.02,
+        "face": "x",
+        "glass": "#16181a",
+        "glow": "#16181a",
+        "half": 0.035,
+        "hh": 0.28,
+        "kind": "windowBay",
+        "pal": "ty_tomb",
+        "transom": 0.85,
+        "z": 0.52
+      },
+      "step": {
+        "cx": 0.18
+      }
+    },
+    {
+      "bay": true,
+      "cx": 0.18,
+      "cy": -0.39,
+      "half": 0.1,
+      "hh": 0.12,
+      "kind": "shutter",
+      "pal": "ty_tomb",
+      "z": 0.24
+    },
+    {
+      "bars": 1,
+      "cx": -0.2,
+      "cy": -0.39,
+      "depth": 0.016,
+      "glass": "#16181a",
+      "glow": "#16181a",
+      "half": 0.035,
+      "hh": 0.2,
+      "kind": "windowBay",
+      "pal": "ty_tomb",
+      "z": 0.6
+    },
+    {
+      "cx": -0.36,
+      "cy": -0.39,
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.012,
+      "z0": 0.12,
+      "z1": 0.92
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.41,
+      "hh": 0.012,
+      "kind": "parapet",
+      "pal": "ty_tomb",
+      "z": 1.02
+    },
+    {
+      "cx": -0.18,
+      "cy": -0.16,
+      "d": 0.09,
+      "hh": 0.07,
+      "kind": "roofBulkhead",
+      "pal": "ty_dam",
+      "w": 0.1,
+      "z": 1.02
+    },
+    {
+      "cx": 0.2,
+      "cy": -0.18,
+      "d": 0.05,
+      "hh": 0.03,
+      "kind": "acUnit",
+      "pal": "ty_stack_dk",
+      "w": 0.07,
+      "z": 1.02
+    }
+  ],
+  "id": "thepapertomb",
+  "note": "THE PAPER TOMB: the Hall of Records, on Kessler Street one door north of Precinct 9.\n\nThe tile's prose: a squat civic building of poured concrete and tall dark windows. Chiselled above\nthe lintel, half-legible under decades of grime: HALL OF RECORDS · COLDWATER MUNICIPAL. A brass slot\nbeside the door reads DEPOSIT DEEDS HERE. The door stands open, as it usually does.\n\nSo it is a concrete block on a deep plinth under a heavy cornice. The front has a portico of two\nsquare piers carrying a lintel with HALL OF RECORDS cut into it in dark letters, the door open under\nit with a little light from inside, and the brass slot on the pier. Four tall narrow windows flank\nthe portico, dark, because nobody works late in a records hall. The flanks carry the same windows.\nGrime runs down from the cornice.\n\nPrecinct 9 is its opposite: lit, flagged and busy. Nothing on this building is on but the door.\n\nIt stands in for the `thepapertomb` arm (`replaces`), which stays in LEGACY_MODELS.",
+  "pal": "ty_dam",
+  "replaces": "thepapertomb",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.43,
+      "kind": "box",
+      "pal": "ty_tomb",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.12
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.39,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "z0": 0.12,
+      "z1": 0.92
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.41,
+      "kind": "box",
+      "pal": "ty_tomb",
+      "roof": true,
+      "z0": 0.92,
+      "z1": 1.02
+    },
+    {
+      "cx": -0.13,
+      "cy": 0.405,
+      "fd": 0.02,
+      "hw": 0.025,
+      "kind": "box",
+      "pal": "ty_tomb",
+      "roof": true,
+      "z0": 0.12,
+      "z1": 0.62
+    },
+    {
+      "cx": 0.13,
+      "cy": 0.405,
+      "fd": 0.02,
+      "hw": 0.025,
+      "kind": "box",
+      "pal": "ty_tomb",
+      "roof": true,
+      "z0": 0.12,
+      "z1": 0.62
+    },
+    {
+      "cx": 0,
+      "cy": 0.405,
+      "fd": 0.025,
+      "hw": 0.17,
+      "kind": "box",
+      "pal": "ty_tomb",
+      "roof": true,
+      "z0": 0.62,
+      "z1": 0.72
+    },
+    {
+      "cx": 0.13,
+      "cy": 0.428,
+      "fd": 0.003,
+      "hw": 0.012,
+      "kind": "box",
+      "pal": "ty_thumb_brass",
+      "roof": true,
+      "z0": 0.3,
+      "z1": 0.33
+    }
+  ]
+}

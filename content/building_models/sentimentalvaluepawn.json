@@ -1,0 +1,332 @@
+{
+  "adorn": [
+    {
+      "cx": -0.22,
+      "cy": 0.43,
+      "kind": "glowPool",
+      "rgb": "255,196,110",
+      "s": 10,
+      "z": 0.28
+    },
+    {
+      "cx": 0.22,
+      "cy": 0.43,
+      "kind": "glowPool",
+      "rgb": "255,196,110",
+      "s": 10,
+      "z": 0.28
+    },
+    {
+      "cx": 0,
+      "cy": 0.5,
+      "kind": "glowPool",
+      "rgb": "255,180,100",
+      "s": 14,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Sentimental Value Pawn"
+    }
+  ],
+  "detail": [
+    {
+      "bars": 2,
+      "cx": -0.22,
+      "cy": 0.405,
+      "depth": 0.012,
+      "glass": "#2a2420",
+      "glow": "#ffc46e",
+      "half": 0.14,
+      "hh": 0.15,
+      "kind": "windowBay",
+      "pal": "ty_unit_board",
+      "z": 0.28
+    },
+    {
+      "bars": 2,
+      "cx": 0.22,
+      "cy": 0.405,
+      "depth": 0.012,
+      "glass": "#2a2420",
+      "glow": "#ffc46e",
+      "half": 0.14,
+      "hh": 0.15,
+      "kind": "windowBay",
+      "pal": "ty_unit_board",
+      "z": 0.28
+    },
+    {
+      "bars": 1,
+      "cx": 0,
+      "cy": 0.405,
+      "depth": 0.012,
+      "glass": "#241e1a",
+      "glow": "#ffb860",
+      "half": 0.055,
+      "hh": 0.16,
+      "kind": "windowBay",
+      "pal": "ty_unit_board",
+      "transom": 0.8,
+      "z": 0.21
+    },
+    {
+      "cx": 0,
+      "cy": 0.405,
+      "kind": "pilaster",
+      "n": 16,
+      "out": 0.03,
+      "pal": "ty_sentimental_bar",
+      "step": 0.05,
+      "w": 0.005,
+      "z0": 0.05,
+      "z1": 0.48
+    },
+    {
+      "cx": 0,
+      "cy": 0.405,
+      "half": 0.4,
+      "hh": 0.01,
+      "kind": "canopy",
+      "out": 0.035,
+      "pal": "ty_sentimental_bar",
+      "soffit": "#1c1814",
+      "z": 0.5
+    },
+    {
+      "color": "#2a2218",
+      "cx": 0,
+      "cy": 0.425,
+      "font": "slab",
+      "half": 0.32,
+      "hh": 0.032,
+      "ink": "#ffcf3e",
+      "kind": "signBoard",
+      "label": "SENTIMENTAL VALUE",
+      "picto": "balls",
+      "z": 0.79
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": -0.26,
+        "cy": 0.405,
+        "depth": 0.012,
+        "glass": "#221c18",
+        "glow": "#6a5030",
+        "half": 0.06,
+        "hh": 0.06,
+        "kind": "windowBay",
+        "pal": "ty_unit_board",
+        "z": 0.62
+      },
+      "step": {
+        "cx": 0.26
+      }
+    },
+    {
+      "cx": 0,
+      "cy": 0.405,
+      "drip": 0.4,
+      "kind": "grime",
+      "w": 0.38,
+      "z": 0.74
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 4,
+        "cx": -0.24,
+        "cy": 0.405,
+        "depth": 0.012,
+        "face": "x",
+        "glass": "#2a2420",
+        "glow": "#ffc46e",
+        "half": 0.07,
+        "hh": 0.09,
+        "kind": "windowBay",
+        "pal": "ty_unit_board",
+        "z": 0.3
+      },
+      "step": {
+        "cx": 0.24
+      }
+    },
+    {
+      "bare": true,
+      "cx": 0,
+      "cy": 0.405,
+      "face": "x",
+      "font": "slab",
+      "half": 0.3,
+      "hh": 0.06,
+      "ink": "#c8a050",
+      "kind": "signBoard",
+      "label": "$trade",
+      "z": 0.6
+    },
+    {
+      "cx": 0.38,
+      "cy": 0.405,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.011,
+      "z0": 0.05,
+      "z1": 0.74
+    },
+    {
+      "cx": 0.1,
+      "cy": -0.405,
+      "drip": 0.6,
+      "face": "x",
+      "hh": 0.035,
+      "kind": "vent",
+      "pal": "ty_stack_dk",
+      "w": 0.05,
+      "z": 0.5
+    },
+    {
+      "bars": 1,
+      "cx": 0.24,
+      "cy": -0.405,
+      "depth": 0.012,
+      "glass": "#26221e",
+      "glow": "#3a3026",
+      "half": 0.06,
+      "hh": 0.12,
+      "kind": "windowBay",
+      "pal": "ty_unit_board",
+      "z": 0.17
+    },
+    {
+      "cx": -0.18,
+      "cy": -0.405,
+      "flights": 2,
+      "half": 0.08,
+      "kind": "fireEscape",
+      "out": 0.05,
+      "pal": "ty_stack_dk",
+      "z0": 0.3,
+      "z1": 0.74
+    },
+    {
+      "cx": 0.36,
+      "cy": -0.43,
+      "d": 0.035,
+      "hh": 0.035,
+      "kind": "binStack",
+      "lid": "#2a2622",
+      "n": 2,
+      "pal": "ty_stack_dk",
+      "w": 0.04,
+      "z": 0.004
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.42,
+      "hh": 0.012,
+      "kind": "parapet",
+      "pal": "ty_sentimental_bar",
+      "z": 0.84
+    },
+    {
+      "color": "#1a1408",
+      "cx": 0,
+      "cy": 0.2,
+      "font": "slab",
+      "half": 0.16,
+      "hh": 0.05,
+      "ink": "#ffcf3e",
+      "kind": "signGantry",
+      "label": "$trade",
+      "neon": true,
+      "pal": "ty_stack_dk",
+      "rise": 0.06,
+      "trim": "#ffcf3e",
+      "z": 0.84
+    },
+    {
+      "cx": -0.26,
+      "cy": -0.2,
+      "d": 0.05,
+      "hh": 0.024,
+      "kind": "acUnit",
+      "pal": "ty_stack_dk",
+      "w": 0.06,
+      "z": 0.84
+    },
+    {
+      "cx": 0.3,
+      "cy": 0.455,
+      "d": 0.03,
+      "glow": "#ffd68a",
+      "hh": 0.09,
+      "kind": "vendingMachine",
+      "pal": "ty_sentimental_bar",
+      "rgb": "255,214,138",
+      "s": 6,
+      "w": 0.045,
+      "z": 0.004
+    },
+    {
+      "cx": -0.44,
+      "cy": 0.49,
+      "kind": "streetLamp",
+      "out": 0.13,
+      "pal": "ty_stack_dk",
+      "r": 0.026,
+      "rgb": "255,206,140",
+      "s": 9,
+      "z0": 0,
+      "z1": 0.086
+    }
+  ],
+  "id": "sentimentalvaluepawn",
+  "neon": "#ffcf3e",
+  "note": "SENTIMENTAL VALUE PAWN — the other fence, on the corner of Marrow Street and Ironside.\n\nThe tile's prose: barred windows, a half-dead sign, no questions, and whatever you lost in the case\nout front. The bars are the model. It is the only frontage in Coldwater that is entirely behind a\ngrille and still lit for trade, so a rank of bars stands off the glass across the whole ground\nfloor, with two shop windows and the door behind it, lit warm. The case out front is a lit\ndisplay box on the pavement.\n\nThe name is painted on the cornice band (`pawn` and `sentimental` are `painted` fascias), and\nthe lit sign is the trade word on a gantry on the roof. The front faces Marrow Street; the west\nflank is the long side on Ironside, so it carries barred windows, a downpipe and the trade word\npainted large on the wall.\n\nIt stands in for the `sentimental` arm (`replaces`), which stays in LEGACY_MODELS and comes\nback with RENDER_TUNE.legacyArms.",
+  "pal": "ty_sentimental",
+  "replaces": "sentimental",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.42,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.05
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.405,
+      "kind": "box",
+      "pal": "ty_sentimental",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.74
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.42,
+      "kind": "box",
+      "pal": "ty_sentimental_bar",
+      "roof": true,
+      "z0": 0.74,
+      "z1": 0.84
+    }
+  ]
+}

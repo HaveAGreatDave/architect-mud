@@ -207,11 +207,147 @@
       "s": 9,
       "z0": 0,
       "z1": 0.086
+    },
+    {
+      "cx": 0,
+      "cy": 0.42,
+      "kind": "pilaster",
+      "n": 2,
+      "out": 0.02,
+      "pal": "ty_fab_steel",
+      "step": 0.81,
+      "w": 0.026,
+      "z0": 0.05,
+      "z1": 0.6
+    },
+    {
+      "cx": 0.115,
+      "cy": 0.42,
+      "kind": "pilaster",
+      "n": 1,
+      "out": 0.018,
+      "pal": "ty_fab_steel",
+      "w": 0.022,
+      "z0": 0.05,
+      "z1": 0.6
+    },
+    {
+      "cx": 0.16,
+      "cy": 0.455,
+      "d": 0.025,
+      "hh": 0.03,
+      "kind": "binStack",
+      "lid": "#3a2a18",
+      "n": 2,
+      "pal": "ty_2cell_crate",
+      "w": 0.03,
+      "z": 0.004
+    },
+    {
+      "cx": -0.16,
+      "cy": 0.43,
+      "kind": "pilaster",
+      "n": 2,
+      "out": 0.016,
+      "pal": "ty_cont_y",
+      "step": 0.41,
+      "w": 0.014,
+      "z0": 0.05,
+      "z1": 0.43
+    },
+    {
+      "band": "#161206",
+      "count": 3,
+      "cx": -0.16,
+      "cy": 0.49,
+      "kind": "bollard",
+      "pal": "ty_cont_y",
+      "step": 0.12,
+      "z": 0.004
+    },
+    {
+      "color": "#111a0e",
+      "cx": -0.06,
+      "cy": 0.43,
+      "font": "stencil",
+      "half": 0.26,
+      "hh": 0.014,
+      "ink": "#d8e8c8",
+      "kind": "signBoard",
+      "label": "FASTENERS, SOLVENTS AND WHATEVER ELSE",
+      "z": 0.555
+    },
+    {
+      "count": 5,
+      "kind": "repeat",
+      "of": {
+        "cx": 0.18,
+        "cy": 0.36,
+        "hh": 0.09,
+        "kind": "stack",
+        "pal": "ty_fab_steel",
+        "r": 0.006,
+        "z": 0.68
+      },
+      "step": {
+        "cx": 0.03
+      }
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 3,
+        "cx": -0.26,
+        "cy": 0.42,
+        "depth": 0.012,
+        "face": "x",
+        "glass": "#16200f",
+        "glow": "#c8ffb4",
+        "half": 0.06,
+        "hh": 0.035,
+        "kind": "windowBay",
+        "pal": "ty_fab_metal",
+        "z": 0.44
+      },
+      "step": {
+        "cx": 0.26
+      }
+    },
+    {
+      "cx": 0.24,
+      "cy": -0.42,
+      "drip": 1,
+      "half": 0.1,
+      "hh": 0.06,
+      "kind": "louvreBank",
+      "n": 5,
+      "pal": "ty_fab_metal",
+      "z": 0.26
+    },
+    {
+      "cx": 0,
+      "cy": -0.42,
+      "drip": 0.6,
+      "face": "x",
+      "kind": "grime",
+      "w": 0.35,
+      "z": 0.6
+    },
+    {
+      "cx": 0.3,
+      "cy": -0.42,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_fab_metal",
+      "r": 0.012,
+      "z0": 0.05,
+      "z1": 0.6
     }
   ],
   "id": "screwit",
   "neon": "#7dff6a",
-  "note": "SCREW IT — the chemical supply on Ironside Street. A trade counter with a works behind it.\n\n⚠ THE PLANT IS THE BUILDING. Everything a chem supply is actually for happens above the parapet:\nthe scrubber that takes what comes off the drums, and the stack that puts the rest over the roofs.\nThe arm drew a depot with drums outside, which is the storage and not the trade.\n\n⚠ THE STACK IS TALLER THAN THE SCRUBBER AND THAT IS NOT A STYLE CHOICE. A fume stack has to clear\neverything near it or it is a nuisance rather than a stack, and on this street the thing it has to\nclear is the Embassy's shoulder two doors down. It is the second vertical on Ironside — the first is\nthe crane at Salvage Rites — and the two are deliberately different shapes so the street does not\nread as having one landmark twice.\n\n⚠ AND THE HAZARD PLATE IS THE SMALLEST SIGN AND THE ONE PEOPLE READ. A works does not sign itself\n(see UNSIGNED_TRADE) — it carries a placard, a unit number and nothing else. This one signs itself\nanyway because it sells over a counter, which is the stated exception, so it gets both.",
+  "note": "SCREW IT — the chemical supply on Ironside Street. A trade counter with a works behind it.\n\nThe plant is the building. What a chem supply is for happens above the parapet: the scrubber that\ntakes what comes off the drums, and the stack that puts the rest over the roofs. The stack is\ntaller than the scrubber because a fume stack has to clear everything near it, and on this street\nthat is the Embassy's shoulder two doors down. It is the second vertical on Ironside after the\ncrane at Salvage Rites, and a different shape on purpose.\n\nThe tile's prose: stock stacked to the roofline with drums, sacks and racked threaded rod, a yellow\nhazard chevron round the door, and FASTENERS, SOLVENTS AND WHATEVER ELSE under the wordmark. So the\ndoor has yellow posts and a striped kerb, and the stock shows over the parapet as stacked drums, a\nrow of sacks and a rack of threaded rod. Steel piers divide the front into the counter and the\nshutter.\n\nA works doesn't sign itself (see UNSIGNED_TRADE); it carries a placard and a unit number. This one\nalso sells over a counter, which is the stated exception, so it carries both.",
   "pal": "ty_giardia",
   "segs": [
     {
@@ -277,6 +413,65 @@
       "roof": true,
       "z0": 0.68,
       "z1": 0.84
+    },
+    {
+      "cap": true,
+      "cx": -0.4,
+      "cy": 0.37,
+      "kind": "drum",
+      "n": 10,
+      "pal": "ty_cont_b",
+      "rb": 0.026,
+      "rt": 0.026,
+      "z0": 0.68,
+      "z1": 0.755
+    },
+    {
+      "cap": true,
+      "cx": -0.345,
+      "cy": 0.37,
+      "kind": "drum",
+      "n": 10,
+      "pal": "ty_cont_r",
+      "rb": 0.026,
+      "rt": 0.026,
+      "z0": 0.68,
+      "z1": 0.755
+    },
+    {
+      "cap": true,
+      "cx": -0.372,
+      "cy": 0.37,
+      "kind": "drum",
+      "n": 10,
+      "pal": "ty_cont_b",
+      "rb": 0.026,
+      "rt": 0.026,
+      "z0": 0.755,
+      "z1": 0.83
+    },
+    {
+      "cap": true,
+      "cx": 0.05,
+      "cy": 0.37,
+      "kind": "drum",
+      "n": 10,
+      "pal": "ty_cont_g",
+      "rb": 0.024,
+      "rt": 0.024,
+      "z0": 0.68,
+      "z1": 0.75
+    },
+    {
+      "cx": -0.14,
+      "cy": 0.37,
+      "fd": 0.035,
+      "hw": 0.17,
+      "kind": "box",
+      "pal": "ty_giardia_tarp",
+      "roof": true,
+      "z0": 0.68,
+      "z1": 0.72
     }
   ],
   "trade": "chemsupply"

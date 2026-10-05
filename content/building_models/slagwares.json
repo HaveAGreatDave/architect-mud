@@ -1,0 +1,331 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0.2,
+      "kind": "glowPool",
+      "rgb": "255,190,130",
+      "s": 8,
+      "z": 0.66
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Slag & Wares"
+    }
+  ],
+  "detail": [
+    {
+      "bare": true,
+      "color": "#00000000",
+      "cx": 0,
+      "cy": 0.312,
+      "font": "marker",
+      "half": 0.15,
+      "hh": 0.04,
+      "ink": "#e4e0d4",
+      "kind": "signBoard",
+      "label": "SLAG & WARES",
+      "z": 0.25
+    },
+    {
+      "cx": -0.36,
+      "cy": -0.14,
+      "d": 0.03,
+      "hh": 0.03,
+      "kind": "binStack",
+      "lid": "#4a4a44",
+      "n": 2,
+      "pal": "ty_oc_tin",
+      "w": 0.035,
+      "z": 0.14
+    },
+    {
+      "cx": -0.28,
+      "cy": 0.02,
+      "d": 0.022,
+      "hh": 0.02,
+      "kind": "binStack",
+      "lid": "#3a3e3a",
+      "n": 3,
+      "pal": "ty_oc_tank",
+      "w": 0.025,
+      "z": 0.14
+    },
+    {
+      "cx": -0.34,
+      "cy": 0.16,
+      "d": 0.016,
+      "hh": 0.014,
+      "kind": "binStack",
+      "lid": "#5a4420",
+      "n": 3,
+      "pal": "ty_thumb_brass",
+      "w": 0.018,
+      "z": 0.14
+    },
+    {
+      "cx": 0.28,
+      "cy": -0.14,
+      "d": 0.03,
+      "hh": 0.03,
+      "kind": "binStack",
+      "lid": "#4a4a44",
+      "n": 2,
+      "pal": "ty_oc_tin",
+      "w": 0.035,
+      "z": 0.14
+    },
+    {
+      "cx": 0.36,
+      "cy": 0.02,
+      "d": 0.022,
+      "hh": 0.02,
+      "kind": "binStack",
+      "lid": "#3a3e3a",
+      "n": 3,
+      "pal": "ty_oc_tank",
+      "w": 0.025,
+      "z": 0.14
+    },
+    {
+      "cx": 0.3,
+      "cy": 0.16,
+      "d": 0.016,
+      "hh": 0.014,
+      "kind": "binStack",
+      "lid": "#5a4420",
+      "n": 3,
+      "pal": "ty_thumb_brass",
+      "w": 0.018,
+      "z": 0.14
+    },
+    {
+      "cx": -0.06,
+      "cy": 0.06,
+      "d": 0.035,
+      "hh": 0.03,
+      "kind": "binStack",
+      "lid": "#4a4a44",
+      "n": 2,
+      "pal": "ty_oc_tin",
+      "w": 0.04,
+      "z": 0.42
+    },
+    {
+      "cx": 0.07,
+      "cy": -0.14,
+      "d": 0.03,
+      "hh": 0.025,
+      "kind": "binStack",
+      "lid": "#3a3e3a",
+      "n": 2,
+      "pal": "ty_oc_tank",
+      "w": 0.035,
+      "z": 0.42
+    }
+  ],
+  "id": "slagwares",
+  "note": "SLAG & WARES — a salvage pitch where the west road empties out onto the flats.\n\nThe tile's prose: a hand-cart the size of a room, roofed with corrugate and dug into the hardpan;\nsorted salvage on boards either side, in grades; a bell on a pole that rings whenever something\nheavy moves out on the flats; SLAG & WARES chalked on the tailboard.\n\nSo the cart sits low in a spoil bank, the tops of its wheels showing and its shafts down on the\nground. Its tailboard faces the road and carries the name in chalk, which is the only lettering on\nthe pitch. A low corrugate roof on four posts covers the cart and the boards, so the wind goes\nover. The boards stand either side on trestles, the heavy grades at the back and the small ones at\nthe front. The bell hangs on a tall pole at the corner, where it can be heard on the flats.\n\nIt stands in for the `slagwares` arm (`replaces`), which stays in LEGACY_MODELS.",
+  "pal": "ty_oc_board",
+  "replaces": "slagwares",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_slagw",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.035
+    },
+    {
+      "cx": 0,
+      "cy": -0.02,
+      "fd": 0.3,
+      "hw": 0.19,
+      "kind": "box",
+      "pal": "ty_oc_board",
+      "roof": true,
+      "z0": 0.035,
+      "z1": 0.4
+    },
+    {
+      "cx": 0,
+      "cy": -0.02,
+      "fd": 0.31,
+      "hw": 0.2,
+      "kind": "box",
+      "pal": "ty_oc_board_dk",
+      "roof": true,
+      "z0": 0.4,
+      "z1": 0.42
+    },
+    {
+      "cx": 0,
+      "cy": 0.3,
+      "fd": 0.012,
+      "hw": 0.17,
+      "kind": "box",
+      "pal": "ty_oc_board_dk",
+      "roof": true,
+      "z0": 0.12,
+      "z1": 0.37
+    },
+    {
+      "cx": -0.205,
+      "cy": 0.06,
+      "fd": 0.1,
+      "hw": 0.012,
+      "kind": "box",
+      "pal": "ty_oc_board_dk",
+      "roof": true,
+      "z0": 0.035,
+      "z1": 0.18
+    },
+    {
+      "cx": 0.205,
+      "cy": 0.06,
+      "fd": 0.1,
+      "hw": 0.012,
+      "kind": "box",
+      "pal": "ty_oc_board_dk",
+      "roof": true,
+      "z0": 0.035,
+      "z1": 0.18
+    },
+    {
+      "cx": -0.1,
+      "cy": -0.38,
+      "fd": 0.06,
+      "hw": 0.012,
+      "kind": "box",
+      "pal": "ty_oc_board_dk",
+      "roof": true,
+      "z0": 0.035,
+      "z1": 0.06
+    },
+    {
+      "cx": 0.1,
+      "cy": -0.38,
+      "fd": 0.06,
+      "hw": 0.012,
+      "kind": "box",
+      "pal": "ty_oc_board_dk",
+      "roof": true,
+      "z0": 0.035,
+      "z1": 0.06
+    },
+    {
+      "cx": -0.32,
+      "cy": 0.01,
+      "fd": 0.24,
+      "hw": 0.075,
+      "kind": "box",
+      "pal": "ty_oc_board_dk",
+      "roof": true,
+      "z0": 0.035,
+      "z1": 0.14
+    },
+    {
+      "cx": 0.32,
+      "cy": 0.01,
+      "fd": 0.24,
+      "hw": 0.075,
+      "kind": "box",
+      "pal": "ty_oc_board_dk",
+      "roof": true,
+      "z0": 0.035,
+      "z1": 0.14
+    },
+    {
+      "cx": -0.4,
+      "cy": 0.33,
+      "hw": 0.016,
+      "kind": "box",
+      "pal": "ty_oc_board_dk",
+      "roof": true,
+      "z0": 0.035,
+      "z1": 0.72
+    },
+    {
+      "cx": 0.4,
+      "cy": 0.33,
+      "hw": 0.016,
+      "kind": "box",
+      "pal": "ty_oc_board_dk",
+      "roof": true,
+      "z0": 0.035,
+      "z1": 0.72
+    },
+    {
+      "cx": -0.4,
+      "cy": -0.33,
+      "hw": 0.016,
+      "kind": "box",
+      "pal": "ty_oc_board_dk",
+      "roof": true,
+      "z0": 0.035,
+      "z1": 0.7
+    },
+    {
+      "cx": 0.4,
+      "cy": -0.33,
+      "hw": 0.016,
+      "kind": "box",
+      "pal": "ty_oc_board_dk",
+      "roof": true,
+      "z0": 0.035,
+      "z1": 0.7
+    },
+    {
+      "cx": -0.12,
+      "cy": 0,
+      "fd": 0.37,
+      "hw": 0.31,
+      "kind": "box",
+      "pal": "ty_slagw_corr",
+      "roof": true,
+      "z0": 0.71,
+      "z1": 0.735
+    },
+    {
+      "cx": 0.2,
+      "cy": 0.01,
+      "fd": 0.37,
+      "hw": 0.23,
+      "kind": "box",
+      "pal": "ty_slagw_corr",
+      "roof": true,
+      "z0": 0.735,
+      "z1": 0.76
+    },
+    {
+      "cx": 0.4,
+      "cy": 0.42,
+      "hw": 0.013,
+      "kind": "box",
+      "pal": "ty_oc_board_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 1.12
+    },
+    {
+      "cx": 0.4,
+      "cy": 0.42,
+      "kind": "drum",
+      "n": 10,
+      "pal": "ty_thumb_brass",
+      "rb": 0.035,
+      "rt": 0.02,
+      "z0": 0.98,
+      "z1": 1.06
+    }
+  ]
+}

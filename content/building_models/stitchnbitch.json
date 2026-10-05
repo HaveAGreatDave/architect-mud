@@ -1,0 +1,361 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0.3,
+      "frame": [
+        120,
+        126,
+        118
+      ],
+      "kind": "roofCross",
+      "lit": 0.34,
+      "rgb": "106,255,168",
+      "rise": 0.08,
+      "span": 0.12,
+      "z": 0.82
+    },
+    {
+      "cx": -0.25,
+      "cy": 0.43,
+      "kind": "glowPool",
+      "rgb": "150,255,190",
+      "s": 12,
+      "z": 0.3
+    },
+    {
+      "cx": 0.25,
+      "cy": 0.43,
+      "kind": "glowPool",
+      "rgb": "150,255,190",
+      "s": 12,
+      "z": 0.3
+    },
+    {
+      "cx": 0,
+      "cy": 0.5,
+      "kind": "glowPool",
+      "rgb": "150,240,190",
+      "s": 15,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Stitch 'n' Bitch"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0.4,
+      "kind": "pilaster",
+      "n": 2,
+      "out": 0.02,
+      "pal": "ty_ff_white",
+      "step": 0.78,
+      "w": 0.024,
+      "z0": 0.05,
+      "z1": 0.72
+    },
+    {
+      "bars": 3,
+      "cx": -0.25,
+      "cy": 0.41,
+      "depth": 0.016,
+      "glass": "#38584a",
+      "glow": "#9affc8",
+      "half": 0.11,
+      "hh": 0.17,
+      "kind": "windowBay",
+      "pal": "ty_ff_white",
+      "transom": 0.8,
+      "z": 0.31
+    },
+    {
+      "bars": 3,
+      "cx": 0.25,
+      "cy": 0.41,
+      "depth": 0.016,
+      "glass": "#38584a",
+      "glow": "#9affc8",
+      "half": 0.11,
+      "hh": 0.17,
+      "kind": "windowBay",
+      "pal": "ty_ff_white",
+      "transom": 0.8,
+      "z": 0.31
+    },
+    {
+      "bars": 1,
+      "cx": 0,
+      "cy": 0.445,
+      "depth": 0.014,
+      "glass": "#2c443a",
+      "glow": "#b4ffd4",
+      "half": 0.06,
+      "hh": 0.15,
+      "kind": "windowBay",
+      "pal": "ty_stitch",
+      "transom": 0.8,
+      "z": 0.2
+    },
+    {
+      "cx": 0,
+      "cy": 0.445,
+      "half": 0.12,
+      "hh": 0.012,
+      "kind": "canopy",
+      "out": 0.07,
+      "pal": "ty_ff_white",
+      "soffit": "#2a3a32",
+      "strip": "#6affa8",
+      "z": 0.42
+    },
+    {
+      "color": "#10261a",
+      "cx": 0,
+      "cy": 0.425,
+      "font": "block",
+      "half": 0.3,
+      "hh": 0.032,
+      "ink": "#bfffd8",
+      "kind": "signBoard",
+      "label": "STITCH 'N' BITCH",
+      "z": 0.77
+    },
+    {
+      "color": "#0f2a1c",
+      "cx": 0.37,
+      "cy": 0.41,
+      "font": "hanzi",
+      "half": 0.03,
+      "ink": "#6affa8",
+      "kind": "bladePanel",
+      "label": "$trade",
+      "out": 0.07,
+      "pal": "ty_ff_white",
+      "z0": 0.36,
+      "z1": 0.64
+    },
+    {
+      "cx": 0,
+      "cy": 0.41,
+      "half": 0.38,
+      "kind": "conduit",
+      "pal": "ty_stack_dk",
+      "r": 0.009,
+      "z": 0.69
+    },
+    {
+      "cx": -0.25,
+      "cy": 0.41,
+      "drip": 0.5,
+      "kind": "grime",
+      "w": 0.12,
+      "z": 0.72
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": -0.25,
+        "cy": 0.4,
+        "depth": 0.012,
+        "face": "x",
+        "glass": "#2c3c34",
+        "glow": "#d8ffe8",
+        "half": 0.07,
+        "hh": 0.06,
+        "kind": "windowBay",
+        "pal": "ty_ff_white",
+        "z": 0.46
+      },
+      "step": {
+        "cx": 0.25
+      }
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": -0.25,
+        "cy": -0.4,
+        "depth": 0.012,
+        "face": "x",
+        "glass": "#2c3c34",
+        "glow": "#d8ffe8",
+        "half": 0.07,
+        "hh": 0.06,
+        "kind": "windowBay",
+        "pal": "ty_ff_white",
+        "z": 0.46
+      },
+      "step": {
+        "cx": 0.25
+      }
+    },
+    {
+      "cx": 0.36,
+      "cy": 0.4,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.011,
+      "z0": 0.05,
+      "z1": 0.72
+    },
+    {
+      "cx": 0,
+      "cy": -0.4,
+      "drip": 0.6,
+      "face": "x",
+      "hh": 0.035,
+      "kind": "vent",
+      "pal": "ty_stack_dk",
+      "w": 0.05,
+      "z": 0.2
+    },
+    {
+      "bars": 1,
+      "cx": 0.22,
+      "cy": -0.4,
+      "depth": 0.012,
+      "glass": "#26302c",
+      "glow": "#3a4a40",
+      "half": 0.06,
+      "hh": 0.12,
+      "kind": "windowBay",
+      "pal": "ty_ff_white",
+      "z": 0.17
+    },
+    {
+      "cx": -0.18,
+      "cy": -0.4,
+      "drip": 1,
+      "half": 0.12,
+      "hh": 0.07,
+      "kind": "louvreBank",
+      "n": 6,
+      "pal": "ty_stack_dk",
+      "z": 0.46
+    },
+    {
+      "cx": -0.3,
+      "cy": -0.43,
+      "d": 0.035,
+      "hh": 0.035,
+      "kind": "binStack",
+      "lid": "#3a1410",
+      "n": 3,
+      "pal": "ty_cont_r",
+      "w": 0.04,
+      "z": 0.004
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.415,
+      "hh": 0.012,
+      "kind": "parapet",
+      "pal": "ty_ff_white",
+      "z": 0.82
+    },
+    {
+      "cx": -0.24,
+      "cy": -0.14,
+      "d": 0.05,
+      "hh": 0.026,
+      "kind": "acUnit",
+      "pal": "ty_stack_dk",
+      "w": 0.07,
+      "z": 0.82
+    },
+    {
+      "cx": 0.24,
+      "cy": -0.18,
+      "hh": 0.06,
+      "kind": "roofTank",
+      "pal": "ty_stack_dk",
+      "r": 0.065,
+      "z": 0.82
+    },
+    {
+      "band": "#6affa8",
+      "count": 7,
+      "cx": -0.39,
+      "cy": 0.49,
+      "kind": "bollard",
+      "pal": "ty_stack_dk",
+      "step": 0.13,
+      "z": 0.004
+    },
+    {
+      "cx": 0.44,
+      "cy": 0.49,
+      "kind": "streetLamp",
+      "out": 0.13,
+      "pal": "ty_stack_dk",
+      "r": 0.026,
+      "rgb": "200,255,220",
+      "s": 9,
+      "z0": 0,
+      "z1": 0.086
+    }
+  ],
+  "id": "stitchnbitch",
+  "neon": "#6affa8",
+  "note": "STITCH 'N' BITCH — the walk-in clinic on Ironside Street, the twin of Co-Pay & Pray.\n\nThe tile's prose: a walk-in clinic behind reinforced glass, a green cross guttering above the\ndoor, and a queue that started before dawn. Co-Pay & Pray keeps the `clinic` arm; this one is\nsmaller and busier, and the difference is the queue. A rail of bollards runs along the kerb.\n\nThe front is three bays: a pale entrance porch in the middle with a hood over the door, and a\nwindow of wired glass either side of it, lit dull green from inside. Pale piers frame the bays\nunder a parapet band that carries the name. The cross stands on the parapet over the door at a\nthird of its brightness, because it is guttering. The trade word goes on a hanzi blade at the\ncorner, a second sign that says `$trade` rather than repeating the name.\n\nThe pale trim is `ty_ff_white` render. `ty_clinic` is in the window-grid family and would paint\na second set of windows on the porch and the parapet band.\n\nIt stands in for the `stitch` arm (`replaces`), which stays in LEGACY_MODELS and comes back\nwith RENDER_TUNE.legacyArms.",
+  "pal": "ty_stitch",
+  "replaces": "stitch",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.42,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.05
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_stitch",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.72
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.415,
+      "kind": "box",
+      "pal": "ty_ff_white",
+      "roof": true,
+      "z0": 0.72,
+      "z1": 0.82
+    },
+    {
+      "cx": 0,
+      "cy": 0.4,
+      "fd": 0.035,
+      "hw": 0.11,
+      "kind": "box",
+      "pal": "ty_ff_white",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.52
+    }
+  ]
+}

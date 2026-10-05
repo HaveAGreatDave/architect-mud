@@ -1,0 +1,238 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0.05,
+      "kind": "glowPool",
+      "rgb": "255,200,130",
+      "s": 12,
+      "z": 0.32
+    },
+    {
+      "cx": 0.3,
+      "cy": -0.36,
+      "kind": "blinkLight",
+      "r": 1,
+      "rgb": "255,90,70",
+      "z": 0.7
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "The Wet Handoff"
+    }
+  ],
+  "detail": [
+    {
+      "color": "#1c2024",
+      "cx": 0,
+      "cy": 0.355,
+      "font": "stencil",
+      "half": 0.3,
+      "hh": 0.016,
+      "ink": "#d8dcd0",
+      "kind": "signBoard",
+      "label": "THE WET HANDOFF",
+      "z": 0.36
+    },
+    {
+      "count": 4,
+      "cx": -0.36,
+      "cy": -0.42,
+      "kind": "bollard",
+      "pal": "ty_stack_dk",
+      "step": 0.2,
+      "z": 0.004
+    }
+  ],
+  "id": "thewethandoff",
+  "note": "THE WET HANDOFF — the barge wharf where the Yards meet the Basin.\n\nThe tile's prose: a long open-sided shed with a loading crane cantilevered out over the water.\nBarge cargo comes ashore here (nets, drums, the day's catch bound inland), gulls argue over the\nspillage, and the planking is slick and black underfoot.\n\nSo it is a deck, a roof on posts with nothing between them, and drums and net bales standing under\nit, with a stiff-leg crane at the water end and its jib out over the Basin. The roof is the only\nwall-like thing on the tile, so the name is on its fascia. The water side is the back of the tile,\nbecause the door faces Kessler Street.",
+  "pal": "ty_pier_deck",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_pier_deck",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.04
+    },
+    {
+      "cx": -0.36,
+      "cy": 0.3,
+      "hw": 0.018,
+      "kind": "box",
+      "pal": "ty_pier_pile",
+      "roof": false,
+      "z0": 0.04,
+      "z1": 0.34
+    },
+    {
+      "cx": -0.36,
+      "cy": -0.2,
+      "hw": 0.018,
+      "kind": "box",
+      "pal": "ty_pier_pile",
+      "roof": false,
+      "z0": 0.04,
+      "z1": 0.34
+    },
+    {
+      "cx": -0.12,
+      "cy": 0.3,
+      "hw": 0.018,
+      "kind": "box",
+      "pal": "ty_pier_pile",
+      "roof": false,
+      "z0": 0.04,
+      "z1": 0.34
+    },
+    {
+      "cx": -0.12,
+      "cy": -0.2,
+      "hw": 0.018,
+      "kind": "box",
+      "pal": "ty_pier_pile",
+      "roof": false,
+      "z0": 0.04,
+      "z1": 0.34
+    },
+    {
+      "cx": 0.12,
+      "cy": 0.3,
+      "hw": 0.018,
+      "kind": "box",
+      "pal": "ty_pier_pile",
+      "roof": false,
+      "z0": 0.04,
+      "z1": 0.34
+    },
+    {
+      "cx": 0.12,
+      "cy": -0.2,
+      "hw": 0.018,
+      "kind": "box",
+      "pal": "ty_pier_pile",
+      "roof": false,
+      "z0": 0.04,
+      "z1": 0.34
+    },
+    {
+      "cx": 0.36,
+      "cy": 0.3,
+      "hw": 0.018,
+      "kind": "box",
+      "pal": "ty_pier_pile",
+      "roof": false,
+      "z0": 0.04,
+      "z1": 0.34
+    },
+    {
+      "cx": 0.36,
+      "cy": -0.2,
+      "hw": 0.018,
+      "kind": "box",
+      "pal": "ty_pier_pile",
+      "roof": false,
+      "z0": 0.04,
+      "z1": 0.34
+    },
+    {
+      "cx": 0,
+      "cy": 0.05,
+      "fd": 0.3,
+      "hw": 0.42,
+      "kind": "box",
+      "pal": "ty_oc_tin",
+      "roof": true,
+      "z0": 0.34,
+      "z1": 0.38
+    },
+    {
+      "cap": true,
+      "cx": -0.25,
+      "cy": 0.05,
+      "kind": "drum",
+      "n": 10,
+      "pal": "ty_cont_b",
+      "rb": 0.035,
+      "rt": 0.035,
+      "z0": 0.04,
+      "z1": 0.13
+    },
+    {
+      "cap": true,
+      "cx": -0.17,
+      "cy": 0.05,
+      "kind": "drum",
+      "n": 10,
+      "pal": "ty_cont_r",
+      "rb": 0.035,
+      "rt": 0.035,
+      "z0": 0.04,
+      "z1": 0.13
+    },
+    {
+      "cap": true,
+      "cx": -0.21,
+      "cy": 0.12,
+      "kind": "drum",
+      "n": 10,
+      "pal": "ty_cont_b",
+      "rb": 0.035,
+      "rt": 0.035,
+      "z0": 0.04,
+      "z1": 0.13
+    },
+    {
+      "cx": 0.15,
+      "cy": 0.05,
+      "fd": 0.07,
+      "hw": 0.09,
+      "kind": "box",
+      "pal": "ty_giardia_tarp",
+      "roof": true,
+      "z0": 0.04,
+      "z1": 0.14
+    },
+    {
+      "cx": 0.3,
+      "cy": -0.36,
+      "hw": 0.04,
+      "kind": "box",
+      "pal": "ty_junk_crane",
+      "roof": true,
+      "z0": 0.04,
+      "z1": 0.62
+    },
+    {
+      "cx": 0.3,
+      "cy": -0.36,
+      "hw": 0.06,
+      "kind": "box",
+      "pal": "ty_cont_y",
+      "roof": true,
+      "z0": 0.62,
+      "z1": 0.68
+    },
+    {
+      "cx": 0.3,
+      "cy": -0.4,
+      "fd": 0.06,
+      "hw": 0.02,
+      "kind": "box",
+      "pal": "ty_cont_y",
+      "roof": true,
+      "z0": 0.6,
+      "z1": 0.63
+    }
+  ],
+  "trade": "wharf"
+}

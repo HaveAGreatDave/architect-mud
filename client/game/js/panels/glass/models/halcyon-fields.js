@@ -10,7 +10,7 @@
 import {
   DECO_PULL, TR, bakeSignText, blinkLight, clamp, draw3DBoxAt, drawFacetDrum, emitLightRunner,
   emitSurfaceText, emitWire, faceYaw, frac, glowPool, helixRunner, hfChrome, hfGlass, hoistLine,
-  latticeBoom, latticeTower, mast, motionPhase, moveSeg, movingBox, neonBlade, roofClutter,
+  latticeBoom, mast, motionPhase, moveSeg, movingBox, neonBlade, roofClutter,
 } from '../../windshield.js';
 
 export const HALCYON_ARMS = {
@@ -573,9 +573,18 @@ export const HALCYON_ARMS = {
     // that MOVES here is strokes and decals rather than mass: `motionPhase` is parked during
     // either capture, so a jib built out of boxes would be collided and meshed at whatever
     // angle `now = 1000` happened to put it, for ever. See the ⚠ on `movingBox`.
+    //
+    // ⚠ THE MAST IS A BOX IN `ty_junk_crane`, NOT `latticeTower`. That helper is strokes only, it
+    // records no mass, and it returns below ADORN_RICH, so past close range the mast vanished while
+    // the cab and jib (which draw at every tier) went on hanging in the air with nothing under
+    // them. `ty_junk_crane` is in LATTICE_CUT, so the box is see-through lattice on both
+    // renderers, draws whenever the building does, and is mass the CFIT sweep can hit.
     const mastTop = shaftTop + h * 0.16;
     const [mx1, my1] = F(-fh * 0.78, -fh * 0.72);
-    if (craneUp) latticeTower(ctx, cam, mx1, my1, 0, mastTop, fh * 0.085, fh * 0.070, alpha, now, seed, '184,158,70');
+    if (craneUp) {
+      draw3DBoxAt(ctx, cam, mx1, my1, fh * 0.065, 0, mastTop, 'ty_junk_crane', seed + 41, night, alpha, true, faceYaw(E));
+      blinkLight(ctx, cam, mx1, my1, mastTop + fh * 0.26, '255,80,80', now, seed, alpha, 1.8);
+    }
     if (craneUp) { const ph = motionPhase(now, seed + 19, 38000, 0.40), u = ph < 0 ? 0 : ph;
       // The programme: slew out over the plot, pay out, take a load, lift, slew back over the
       // core, set down, stand. Every movement starts and ends at u = 0, which is what makes
@@ -825,18 +834,23 @@ export const HALCYON_ARMS = {
     const podium = h * 0.05, top = h * 0.86, clad = h * 0.44;
     drawFacetDrum(ctx, cam, dx, dy, 0, podium, fh * 0.92, fh * 0.88, 16, alpha, hfChrome([104, 118, 132], [214, 226, 236], 1.8), hfChrome([112, 126, 140], [190, 204, 214], 1.4), 'ty_hf_deck');
     drawFacetDrum(ctx, cam, dx, dy, podium, clad, fh * 0.60, fh * 0.57, 16, alpha, hfGlass(night), null, pal);
+    // The lift core, up through the bare plates to the roof the mast climbs from. Without it the
+    // top plate is a sixth of the bare height below `top` and the mast stood on nothing.
+    drawFacetDrum(ctx, cam, dx, dy, clad, top, fh * 0.24, fh * 0.22, 12, alpha, hfChrome([74, 88, 102], [196, 210, 222], 2.1), hfChrome([80, 94, 108], [178, 190, 202], 1.4), 'ty_hf_chrome_dk');
     for (let i = 0; i < 6; i++) {
       const z = clad + (top - clad) * (i / 6);
       drawFacetDrum(ctx, cam, dx, dy, z, z + h * 0.016, fh * 0.58, fh * 0.58, 16, alpha, hfChrome([92, 102, 112], [178, 190, 200], 1.5), hfChrome([98, 108, 118], [162, 174, 184], 1.2), 'ty_hf_slab');
     }
     draw3DBoxAt(ctx, cam, dx, dy, fh * 0.96, 0, h * 0.05, 'ty_hf_ice', seed + 24, night, alpha, true, faceYaw(E), fh * 0.96);
-    // The mast, dead centre, and the jib over it. ⚠ ONLY THE MAST IS MASS. Everything that
-    // turns is strokes and decals, because `motionPhase` is parked during both captures and a
-    // jib built out of boxes would be meshed and collided at whatever angle `now = 1000` left
-    // it — `shell_tower`'s own warning, and it applies harder here because this mast is not off
-    // to one side where being wrong is cheap.
+    // The mast, dead centre, and the jib over it. Only the mast is mass. Everything that turns
+    // is strokes and decals, because `motionPhase` is parked during both captures and a jib built
+    // out of boxes would be meshed and collided at whatever angle `now = 1000` left it.
+    // ⚠ The mast is a `ty_junk_crane` box for the reason given on `shell_tower`'s crane: drawn
+    // with `latticeTower` it disappeared below ADORN_RICH and left the jib floating over the roof.
+    // A collar at the roof is the climbing frame that ties it into the core.
     const mastTop = top + h * 0.26;
-    latticeTower(ctx, cam, dx, dy, top, mastTop, fh * 0.075, fh * 0.062, alpha, now, seed, '184,158,70');
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.06, top, mastTop, 'ty_junk_crane', seed + 41, night, alpha, true, faceYaw(E));
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.11, top, top + h * 0.03, 'ty_hf_slab', seed + 42, night, alpha, true, faceYaw(E));
     { const ph = motionPhase(now, seed + 25, 44000, 0.34), u = ph < 0 ? 0 : ph;
       let slew = moveSeg(u, 0.00, 0.20, 0, 0.90);
       slew = moveSeg(u, 0.62, 0.82, slew, -0.35);

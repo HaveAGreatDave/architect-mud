@@ -1,0 +1,319 @@
+{
+  "adorn": [
+    {
+      "cx": -0.26,
+      "cy": 0.43,
+      "kind": "blinkLight",
+      "r": 1.4,
+      "rgb": "110,190,255",
+      "z": 0.28
+    },
+    {
+      "cx": 0,
+      "cy": 0.43,
+      "kind": "blinkLight",
+      "r": 1.4,
+      "rgb": "110,190,255",
+      "z": 0.28
+    },
+    {
+      "cx": 0.26,
+      "cy": 0.43,
+      "kind": "blinkLight",
+      "r": 1.4,
+      "rgb": "110,190,255",
+      "z": 0.28
+    },
+    {
+      "cx": 0.34,
+      "cy": -0.36,
+      "kind": "blinkLight",
+      "r": 1.6,
+      "rgb": "255,80,80",
+      "z": 1.46
+    },
+    {
+      "cx": 0,
+      "cy": 0.22,
+      "kind": "glowPool",
+      "rgb": "160,205,235",
+      "s": 12,
+      "z": 0.25
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Chill Out Logistics"
+    }
+  ],
+  "detail": [
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bay": true,
+        "cx": -0.26,
+        "cy": 0.18,
+        "half": 0.08,
+        "hh": 0.1,
+        "kind": "shutter",
+        "pal": "ty_cold_unit",
+        "z": 0.3
+      },
+      "step": {
+        "cx": 0.26
+      }
+    },
+    {
+      "bare": true,
+      "color": "#00000000",
+      "cx": 0,
+      "cy": 0.18,
+      "font": "stencil",
+      "half": 0.3,
+      "hh": 0.035,
+      "ink": "#d8e4ec",
+      "kind": "signBoard",
+      "label": "COLDLINE REEFER DEPOT",
+      "z": 0.66
+    },
+    {
+      "cx": 0,
+      "cy": 0.18,
+      "kind": "pilaster",
+      "n": 2,
+      "out": 0.014,
+      "pal": "ty_cold_unit",
+      "step": 0.8,
+      "w": 0.024,
+      "z0": 0.03,
+      "z1": 0.86
+    },
+    {
+      "cx": 0,
+      "cy": 0.18,
+      "half": 0.38,
+      "kind": "conduit",
+      "pal": "ty_stack_dk",
+      "r": 0.008,
+      "z": 0.5
+    },
+    {
+      "cx": 0.12,
+      "cy": 0.41,
+      "face": "x",
+      "kind": "pilaster",
+      "n": 3,
+      "out": 0.012,
+      "pal": "ty_cold_unit",
+      "step": 0.2,
+      "w": 0.022,
+      "z0": 0.03,
+      "z1": 0.86
+    },
+    {
+      "cx": 0.12,
+      "cy": -0.41,
+      "face": "x",
+      "kind": "pilaster",
+      "n": 3,
+      "out": 0.012,
+      "pal": "ty_cold_unit",
+      "step": 0.2,
+      "w": 0.022,
+      "z0": 0.03,
+      "z1": 0.86
+    },
+    {
+      "bars": 1,
+      "cx": -0.1,
+      "cy": -0.41,
+      "depth": 0.012,
+      "face": "x",
+      "glass": "#262c32",
+      "glow": "#c0d8f0",
+      "half": 0.05,
+      "hh": 0.11,
+      "kind": "windowBay",
+      "pal": "ty_cold_unit",
+      "z": 0.15
+    },
+    {
+      "cx": 0.3,
+      "cy": 0.41,
+      "face": "x",
+      "kind": "ductRun",
+      "pal": "ty_cold_unit",
+      "r": 0.016,
+      "z0": 0.3,
+      "z1": 0.9
+    },
+    {
+      "cx": -0.1,
+      "cy": -0.42,
+      "drip": 0.8,
+      "half": 0.22,
+      "hh": 0.08,
+      "kind": "louvreBank",
+      "n": 8,
+      "pal": "ty_cold_unit",
+      "z": 0.6
+    },
+    {
+      "bay": true,
+      "cx": -0.2,
+      "cy": -0.42,
+      "half": 0.1,
+      "hh": 0.14,
+      "kind": "shutter",
+      "pal": "ty_cold_unit",
+      "z": 0.18
+    },
+    {
+      "cx": 0,
+      "cy": -0.12,
+      "half": 0.415,
+      "hh": 0.01,
+      "kind": "parapet",
+      "pal": "ty_cold_unit",
+      "z": 0.9
+    },
+    {
+      "cx": -0.27,
+      "cy": -0.02,
+      "d": 0.08,
+      "hh": 0.06,
+      "kind": "acUnit",
+      "pal": "ty_cold_unit",
+      "w": 0.09,
+      "z": 0.9
+    },
+    {
+      "cx": -0.09,
+      "cy": -0.02,
+      "d": 0.08,
+      "hh": 0.06,
+      "kind": "acUnit",
+      "pal": "ty_cold_unit",
+      "w": 0.09,
+      "z": 0.9
+    },
+    {
+      "cx": 0.09,
+      "cy": -0.02,
+      "d": 0.08,
+      "hh": 0.06,
+      "kind": "acUnit",
+      "pal": "ty_cold_unit",
+      "w": 0.09,
+      "z": 0.9
+    },
+    {
+      "cx": -0.18,
+      "cy": -0.24,
+      "d": 0.08,
+      "hh": 0.06,
+      "kind": "acUnit",
+      "pal": "ty_cold_unit",
+      "w": 0.09,
+      "z": 0.9
+    }
+  ],
+  "id": "chilloutlogistics",
+  "note": "CHILL OUT LOGISTICS: the Coldline Reefer Depot, in the Yards.\n\nThe tile's prose: a windowless insulated block breathing frost from its door seals, condensers\nroaring on the roof. COLDLINE REEFER DEPOT. Inside, a meat-locker cathedral where the docks' catch\nkeeps. Your breath fogs just standing near the loading dock.\n\nSo it is a tall dark plate block set back on its plot, and the front of the plot is the loading\ndock. Three white reefer boxes stand backed onto it, nose out to the road, each with its blue\ncompressor light. Between and above them are the dock doors, and over those the stencil COLDLINE\nREEFER DEPOT, which is the depot's own lettering and not the trading name. A tall ammonia stack\nstands at the back corner. The roof carries four condensers.\n\nAbsolute Zero Holdings is its twin: a pale frosted box with one door and no lettering at all.\n\nIt stands in for the `chilloutlogistics` arm (`replaces`), which stays in LEGACY_MODELS.",
+  "pal": "ty_reefer_blk",
+  "replaces": "chilloutlogistics",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.43,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.03
+    },
+    {
+      "cx": 0,
+      "cy": -0.12,
+      "fd": 0.3,
+      "hw": 0.41,
+      "kind": "box",
+      "pal": "ty_reefer_blk",
+      "roof": true,
+      "z0": 0.03,
+      "z1": 0.86
+    },
+    {
+      "cx": 0,
+      "cy": -0.12,
+      "fd": 0.305,
+      "hw": 0.415,
+      "kind": "box",
+      "pal": "ty_cold_unit",
+      "roof": true,
+      "z0": 0.86,
+      "z1": 0.9
+    },
+    {
+      "cx": 0,
+      "cy": 0.21,
+      "fd": 0.03,
+      "hw": 0.41,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0.03,
+      "z1": 0.1
+    },
+    {
+      "cx": -0.26,
+      "cy": 0.33,
+      "fd": 0.1,
+      "hw": 0.07,
+      "kind": "box",
+      "pal": "ty_reefer",
+      "roof": true,
+      "z0": 0.03,
+      "z1": 0.27
+    },
+    {
+      "cx": 0,
+      "cy": 0.33,
+      "fd": 0.1,
+      "hw": 0.07,
+      "kind": "box",
+      "pal": "ty_reefer",
+      "roof": true,
+      "z0": 0.03,
+      "z1": 0.27
+    },
+    {
+      "cx": 0.26,
+      "cy": 0.33,
+      "fd": 0.1,
+      "hw": 0.07,
+      "kind": "box",
+      "pal": "ty_reefer",
+      "roof": true,
+      "z0": 0.03,
+      "z1": 0.27
+    },
+    {
+      "cx": 0.34,
+      "cy": -0.36,
+      "hw": 0.024,
+      "kind": "box",
+      "pal": "ty_cold_unit",
+      "roof": true,
+      "z0": 0.03,
+      "z1": 1.45
+    }
+  ]
+}

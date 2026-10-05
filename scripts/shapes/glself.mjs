@@ -205,8 +205,9 @@ const KNOWN = new Map([
   // authored against geometry that is still moving. Fix it and this number owes eight points back.
   // 610 → 654 is `named:coldwaterregionalterminal`: the airport model's tower mast and whips,
   // counted a second time for the terminal beside Coldwater Regional's hangar. Same strokes, same reason.
-  // 654 → 604 on 2026-10-02: it was already down to 612 at HEAD, and removing the kit's lit pier
-  // ranks took the last 8.
+  // 654 → 604: 612 at HEAD on 2026-10-02 and the kit's lit pier ranks took 8 more. The ironside
+  // branch separately took the Halcyon Fields tower cranes' `latticeTower` masts and the Salvage
+  // Rites and Second Amendment wire coils off, which lowers it again.
   ['stroke', { budget: 604, why:
    'masts, fire stairs, catwalk rails and guy wires are authored INSIDE the host they hang off — a '
    + 'mast at its tile centre is 0.44 tiles behind its own front wall — so `emitWire` still spends '
@@ -238,7 +239,8 @@ const KNOWN = new Map([
   // started putting per-tile lettering on a roof again.
   // 7 → 9 when board and lettering started writing depth (glBoardDepth/glSignDepth): the slab's back
   // board and soffit are the two points, on type:bank, named:thechorusden and type:archive.
-  // 9 → 7 on 2026-10-02, re-blessed to what HEAD already measured.
+  // 9 → 7 on 2026-10-02, re-blessed to what HEAD already measured. The Ironside and Kiln Lane
+  // authored models take those tiles out of the derived kit, and the kit's hoardings with them.
   ['decal:gantry', { budget: 7, why:
    'a rooftop hoarding stands at its own tile CENTRE on legs, so its back board, its soffit and the '
    + 'far edge return are inside the roof mass they are standing on — the same shape of reason as the '

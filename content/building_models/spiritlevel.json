@@ -1,0 +1,251 @@
+{
+  "adorn": [
+    {
+      "cx": 0.14,
+      "cy": 0.45,
+      "kind": "glowPool",
+      "rgb": "255,226,158",
+      "s": 4,
+      "z": 0.29
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Spirit Level"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0.405,
+      "half": 0.36,
+      "hh": 0.19,
+      "kind": "shutter",
+      "pal": "ty_pocket_shut",
+      "z": 0.24
+    },
+    {
+      "bars": 0,
+      "cx": 0.14,
+      "cy": 0.425,
+      "depth": 0.014,
+      "glass": "#e8cc8e",
+      "glow": "#ffe2a0",
+      "half": 0.06,
+      "hh": 0.045,
+      "kind": "windowBay",
+      "pal": "ty_stack_dk",
+      "z": 0.29
+    },
+    {
+      "cx": 0.14,
+      "cy": 0.425,
+      "half": 0.075,
+      "hh": 0.008,
+      "kind": "canopy",
+      "out": 0.04,
+      "pal": "ty_stack_dk",
+      "soffit": "#1c1a18",
+      "z": 0.24
+    },
+    {
+      "bars": 9,
+      "cx": 0,
+      "cy": 0.405,
+      "depth": 0.012,
+      "glass": "#96a096",
+      "glow": "#2c2c28",
+      "half": 0.34,
+      "hh": 0.075,
+      "kind": "windowBay",
+      "pal": "ty_spirit_dk",
+      "z": 0.54
+    },
+    {
+      "cx": 0,
+      "cy": 0.405,
+      "kind": "pilaster",
+      "n": 15,
+      "out": 0.03,
+      "pal": "ty_spirit_dk",
+      "step": 0.05,
+      "w": 0.005,
+      "z0": 0.05,
+      "z1": 0.64
+    },
+    {
+      "color": "#1c1a18",
+      "cx": 0,
+      "cy": 0.425,
+      "font": "stencil",
+      "half": 0.28,
+      "hh": 0.032,
+      "ink": "#d8c8a0",
+      "kind": "signBoard",
+      "label": "SPIRIT LEVEL",
+      "z": 0.78
+    },
+    {
+      "cx": 0,
+      "cy": 0.405,
+      "drip": 0.5,
+      "kind": "grime",
+      "w": 0.38,
+      "z": 0.72
+    },
+    {
+      "cx": 0.34,
+      "cy": 0.4,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.011,
+      "z0": 0.05,
+      "z1": 0.72
+    },
+    {
+      "cx": -0.34,
+      "cy": -0.4,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.011,
+      "z0": 0.05,
+      "z1": 0.72
+    },
+    {
+      "cx": 0,
+      "cy": 0.4,
+      "drip": 0.6,
+      "face": "x",
+      "hh": 0.035,
+      "kind": "vent",
+      "pal": "ty_stack_dk",
+      "w": 0.05,
+      "z": 0.5
+    },
+    {
+      "cx": 0.1,
+      "cy": -0.4,
+      "drip": 0.6,
+      "face": "x",
+      "hh": 0.035,
+      "kind": "vent",
+      "pal": "ty_stack_dk",
+      "w": 0.05,
+      "z": 0.3
+    },
+    {
+      "cx": 0,
+      "cy": 0.4,
+      "drip": 0.5,
+      "face": "x",
+      "kind": "grime",
+      "w": 0.38,
+      "z": 0.72
+    },
+    {
+      "bay": true,
+      "cx": -0.2,
+      "cy": -0.4,
+      "half": 0.1,
+      "hh": 0.1,
+      "kind": "shutter",
+      "pal": "ty_pocket_shut",
+      "z": 0.15
+    },
+    {
+      "cx": 0.24,
+      "cy": -0.43,
+      "d": 0.035,
+      "hh": 0.035,
+      "kind": "binStack",
+      "lid": "#2a2622",
+      "n": 3,
+      "pal": "ty_stack_dk",
+      "w": 0.04,
+      "z": 0.004
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.415,
+      "hh": 0.012,
+      "kind": "parapet",
+      "pal": "ty_spirit_dk",
+      "z": 0.84
+    },
+    {
+      "cx": -0.2,
+      "cy": -0.14,
+      "d": 0.05,
+      "hh": 0.024,
+      "kind": "acUnit",
+      "pal": "ty_stack_dk",
+      "w": 0.06,
+      "z": 0.84
+    },
+    {
+      "cx": 0.24,
+      "cy": -0.2,
+      "d": 0.06,
+      "hh": 0.06,
+      "kind": "roofBulkhead",
+      "pal": "ty_spirit_dk",
+      "w": 0.06,
+      "z": 0.84
+    },
+    {
+      "band": "#d8c8a0",
+      "count": 3,
+      "cx": -0.3,
+      "cy": 0.47,
+      "kind": "bollard",
+      "pal": "ty_stack_dk",
+      "step": 0.1,
+      "z": 0.004
+    }
+  ],
+  "id": "spiritlevel",
+  "neon": "#ffd27a",
+  "note": "SPIRIT LEVEL — the off-licence at the bottom of Ironside, the last shop before the South Gate.\n\nThe tile's prose: the whole frontage is behind a folding grille, the window behind the grille is\nglass block, and the only opening is a hatch cut in a steel shutter at chest height, lit from\ninside, with a lipped sill and a turntable so that nothing passes hand to hand. After dark the\nhatch is the only lit thing on the road and the shop behind it is black.\n\nSo the front is a steel shutter across the ground floor with the hatch in it, a band of glass\nblock above, and a rank of grille bars standing off both. The name is painted on the parapet band\n(`off_licence` is a `painted` fascia) and nothing else on the building is lit. The flanks\nare blank brick with a downpipe and a vent each.\n\nIt binds by name and replaces no named arm; `type:off_licence` keeps its arm for any other\noff-licence.",
+  "pal": "ty_spirit",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.42,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.05
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_spirit",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.72
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.415,
+      "kind": "box",
+      "pal": "ty_spirit_dk",
+      "roof": true,
+      "z0": 0.72,
+      "z1": 0.84
+    }
+  ],
+  "trade": "off_licence"
+}

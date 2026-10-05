@@ -1,0 +1,246 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0.22,
+      "kind": "glowPool",
+      "rgb": "232,208,160",
+      "s": 9,
+      "z": 0.2
+    },
+    {
+      "cx": 0,
+      "cy": 0.42,
+      "kind": "glowPool",
+      "rgb": "236,226,200",
+      "s": 12,
+      "z": 0.4
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Past Perfect"
+    }
+  ],
+  "detail": [
+    {
+      "bare": true,
+      "cx": 0,
+      "cy": 0.405,
+      "font": "deco",
+      "half": 0.33,
+      "hh": 0.026,
+      "ink": "#3a3428",
+      "kind": "signBoard",
+      "label": "THE COLDWATER MVSEVM OF THE WORLD BEFORE",
+      "z": 0.55
+    },
+    {
+      "bars": 1,
+      "cx": 0,
+      "cy": 0.165,
+      "depth": 0.012,
+      "glass": "#3a3228",
+      "glow": "#e8d0a0",
+      "half": 0.08,
+      "hh": 0.14,
+      "kind": "windowBay",
+      "pal": "ty_past_stone",
+      "transom": 0.8,
+      "z": 0.2
+    },
+    {
+      "color": "#4a3a24",
+      "cx": 0.2,
+      "cy": 0.165,
+      "font": "deco",
+      "half": 0.04,
+      "hh": 0.025,
+      "ink": "#e8dcc0",
+      "kind": "signBoard",
+      "label": "DONATIONS",
+      "z": 0.16
+    },
+    {
+      "count": 2,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": 0,
+        "cy": 0.32,
+        "depth": 0.012,
+        "face": "x",
+        "glass": "#2a261e",
+        "glow": "#c8b088",
+        "half": 0.06,
+        "hh": 0.08,
+        "kind": "windowBay",
+        "pal": "ty_past_stone",
+        "z": 0.24
+      },
+      "step": {
+        "cx": 0.3
+      }
+    },
+    {
+      "cx": 0.25,
+      "cy": -0.4,
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.01,
+      "z0": 0,
+      "z1": 0.42
+    },
+    {
+      "cx": -0.15,
+      "cy": -0.4,
+      "drip": 0.6,
+      "hh": 0.035,
+      "kind": "vent",
+      "pal": "ty_stack_dk",
+      "w": 0.05,
+      "z": 0.28
+    },
+    {
+      "cx": 0,
+      "cy": 0.32,
+      "drip": 0.5,
+      "face": "x",
+      "kind": "grime",
+      "w": 0.26,
+      "z": 0.42
+    }
+  ],
+  "id": "pastperfect",
+  "note": "PAST PERFECT — the museum on Kiln Lane, four columns and a pediment on a building one room deep.\n\nThe tile's prose: the portico is stone, correct, and about two and a half times the architectural\nseriousness the shed behind it can support. Cut into the pediment, spaced by somebody who ran out\nof room by the fourth word: THE COLDWATER MVSEVM OF THE WORLD BEFORE. The doors are open in the day,\nthere is no charge, and a slotted box on a post beside them says DONATIONS and is almost empty.\n\nSo the portico is the building: three stone steps, four columns with capitals, an entablature with\nthe inscription on the frieze, and a pediment stepped up in three courses. The shed behind it is\nplainly lower, narrower and brick, and the difference is the joke. The doors are lit when it is\nopen.",
+  "pal": "ty_past",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": -0.12,
+      "fd": 0.28,
+      "hw": 0.32,
+      "kind": "box",
+      "pal": "ty_past",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.42
+    },
+    {
+      "cx": 0,
+      "cy": 0.27,
+      "fd": 0.17,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_past_stone",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.03
+    },
+    {
+      "cx": 0,
+      "cy": 0.26,
+      "fd": 0.15,
+      "hw": 0.37,
+      "kind": "box",
+      "pal": "ty_past_stone",
+      "roof": true,
+      "z0": 0.03,
+      "z1": 0.06
+    },
+    {
+      "cx": -0.3,
+      "cy": 0.36,
+      "fd": 0.03,
+      "hw": 0.03,
+      "kind": "box",
+      "pal": "ty_past_stone",
+      "roof": false,
+      "z0": 0.06,
+      "z1": 0.5
+    },
+    {
+      "cx": -0.1,
+      "cy": 0.36,
+      "fd": 0.03,
+      "hw": 0.03,
+      "kind": "box",
+      "pal": "ty_past_stone",
+      "roof": false,
+      "z0": 0.06,
+      "z1": 0.5
+    },
+    {
+      "cx": 0.1,
+      "cy": 0.36,
+      "fd": 0.03,
+      "hw": 0.03,
+      "kind": "box",
+      "pal": "ty_past_stone",
+      "roof": false,
+      "z0": 0.06,
+      "z1": 0.5
+    },
+    {
+      "cx": 0.3,
+      "cy": 0.36,
+      "fd": 0.03,
+      "hw": 0.03,
+      "kind": "box",
+      "pal": "ty_past_stone",
+      "roof": false,
+      "z0": 0.06,
+      "z1": 0.5
+    },
+    {
+      "cx": 0,
+      "cy": 0.22,
+      "fd": 0.18,
+      "hw": 0.37,
+      "kind": "box",
+      "pal": "ty_past_stone",
+      "roof": true,
+      "z0": 0.5,
+      "z1": 0.6
+    },
+    {
+      "cx": 0,
+      "cy": 0.22,
+      "fd": 0.17,
+      "hw": 0.27,
+      "kind": "box",
+      "pal": "ty_past_stone",
+      "roof": true,
+      "z0": 0.6,
+      "z1": 0.66
+    },
+    {
+      "cx": 0,
+      "cy": 0.22,
+      "fd": 0.16,
+      "hw": 0.16,
+      "kind": "box",
+      "pal": "ty_past_stone",
+      "roof": true,
+      "z0": 0.66,
+      "z1": 0.71
+    },
+    {
+      "cx": 0,
+      "cy": 0.22,
+      "fd": 0.15,
+      "hw": 0.06,
+      "kind": "box",
+      "pal": "ty_past_stone",
+      "roof": true,
+      "z0": 0.71,
+      "z1": 0.74
+    }
+  ],
+  "trade": "museum"
+}

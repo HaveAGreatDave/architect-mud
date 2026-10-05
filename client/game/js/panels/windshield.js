@@ -20201,7 +20201,8 @@ const LATTICE_WALL = new Set([
 // mistake this set exists to avoid.
 //
 // The way to add one is to read every `draw3DBoxAt` that passes the key and satisfy yourself that
-// all of them are open structure — which for these three is one call site each.
+// all of them are open structure: the Long Stay palisade and the Salvage Rites fence, the wharf
+// lattice, and for `ty_junk_crane` the scrapyard derrick and the two Halcyon Fields crane masts.
 const LATTICE_CUT = new Set(['ty_junk_crane', 'ty_wharf_lattice', 'ty_bond_fence']);
 // BOARD-FORMED CONCRETE. Poured against timber shuttering and never faced: the horizontal board
 // lines, the grid of tie-holes left by the formwork bolts, the dark bloom of water coming down from

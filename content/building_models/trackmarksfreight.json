@@ -1,0 +1,208 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0.36,
+      "kind": "glowPool",
+      "rgb": "255,224,168",
+      "s": 12,
+      "z": 0.66
+    },
+    {
+      "cx": 0,
+      "cy": 0.42,
+      "kind": "glowPool",
+      "rgb": "255,210,140",
+      "s": 9,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Track Marks Freight"
+    }
+  ],
+  "detail": [
+    {
+      "bars": 7,
+      "cx": 0,
+      "cy": 0.33,
+      "depth": 0.012,
+      "glass": "#e0d8c0",
+      "glow": "#ffe0a8",
+      "half": 0.34,
+      "hh": 0.07,
+      "kind": "windowBay",
+      "pal": "ty_signalbox",
+      "z": 0.66
+    },
+    {
+      "bare": true,
+      "cx": 0,
+      "cy": 0.33,
+      "font": "stencil",
+      "half": 0.32,
+      "hh": 0.03,
+      "ink": "#d8b828",
+      "kind": "signBoard",
+      "label": "TRACK MARKS FREIGHT",
+      "z": 0.555
+    },
+    {
+      "bare": true,
+      "cx": 0,
+      "cy": 0.305,
+      "font": "deco",
+      "half": 0.1,
+      "hh": 0.016,
+      "ink": "#8a7a6a",
+      "kind": "signBoard",
+      "label": "C · B · R",
+      "z": 0.44
+    },
+    {
+      "bars": 1,
+      "cx": 0,
+      "cy": 0.305,
+      "depth": 0.014,
+      "glass": "#2a2018",
+      "glow": "#8a6a40",
+      "half": 0.055,
+      "hh": 0.13,
+      "kind": "windowBay",
+      "pal": "ty_signalbox",
+      "transom": 0.82,
+      "z": 0.16
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": -0.22,
+        "cy": 0.305,
+        "depth": 0.012,
+        "glass": "#e0d8c0",
+        "glow": "#c8b088",
+        "half": 0.045,
+        "hh": 0.06,
+        "kind": "windowBay",
+        "pal": "ty_signalbox",
+        "z": 0.36
+      },
+      "step": {
+        "cx": 0.22
+      }
+    },
+    {
+      "cx": 0,
+      "cy": 0.36,
+      "face": "x",
+      "flights": 2,
+      "half": 0.12,
+      "kind": "fireEscape",
+      "out": 0.05,
+      "pal": "ty_dw_rust",
+      "z0": 0,
+      "z1": 0.5
+    },
+    {
+      "bars": 5,
+      "cx": 0,
+      "cy": -0.38,
+      "depth": 0.012,
+      "face": "x",
+      "glass": "#e0d8c0",
+      "glow": "#ffe0a8",
+      "half": 0.22,
+      "hh": 0.07,
+      "kind": "windowBay",
+      "pal": "ty_signalbox",
+      "z": 0.66
+    },
+    {
+      "cx": -0.3,
+      "cy": -0.305,
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.01,
+      "z0": 0,
+      "z1": 0.5
+    },
+    {
+      "cx": 0,
+      "cy": 0.305,
+      "drip": 0.6,
+      "kind": "grime",
+      "w": 0.32,
+      "z": 0.5
+    }
+  ],
+  "id": "trackmarksfreight",
+  "neon": "#c4a830",
+  "note": "TRACK MARKS FREIGHT — a dead signal box at the top of the cut on Lever Lane.\n\nThe tile's prose: three storeys of rusted lever frame with the windows knocked out and replaced by\nfreight manifests; TRACK MARKS FREIGHT painted across the boards in yard-marking yellow, and under\nit, smaller and much older, the rail company's name nobody says out loud any more; a weighbridge\nplate set into the ground at the door, worn to a shine.\n\nSo it is a signal box: a brick locking room for two storeys, the timber operating floor on top with\nits long run of windows papered over with manifests, a deep overhanging roof, and an outside stair\nup the flank. The new name is painted yellow on the boarding and the old company's initials are a\nfaded line under it. The weighbridge plate is a steel slab flush with the ground at the door.\n\nIt stands in for the `signalbox` arm (`replaces`), which stays in LEGACY_MODELS.",
+  "pal": "ty_signal_brick",
+  "replaces": "signalbox",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.3,
+      "hw": 0.36,
+      "kind": "box",
+      "pal": "ty_signal_brick",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.5
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.32,
+      "hw": 0.38,
+      "kind": "box",
+      "pal": "ty_signalbox",
+      "roof": true,
+      "z0": 0.5,
+      "z1": 0.76
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.36,
+      "hw": 0.42,
+      "kind": "box",
+      "pal": "ty_paws_roof",
+      "roof": true,
+      "z0": 0.76,
+      "z1": 0.8
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.24,
+      "hw": 0.3,
+      "kind": "box",
+      "pal": "ty_paws_roof",
+      "roof": true,
+      "z0": 0.8,
+      "z1": 0.86
+    },
+    {
+      "cx": 0,
+      "cy": 0.36,
+      "fd": 0.06,
+      "hw": 0.12,
+      "kind": "box",
+      "pal": "ty_dw_iron",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.006
+    }
+  ]
+}

@@ -1,0 +1,210 @@
+{
+  "adorn": [
+    {
+      "cx": -0.13,
+      "cy": 0.48,
+      "kind": "glowPool",
+      "rgb": "255,214,150",
+      "s": 13,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Shelf Life"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0.4,
+      "kind": "pilaster",
+      "n": 4,
+      "out": 0.016,
+      "pal": "ty_fab_steel",
+      "step": 0.26,
+      "w": 0.018,
+      "z0": 0.04,
+      "z1": 0.5
+    },
+    {
+      "bay": true,
+      "cx": -0.13,
+      "cy": 0.405,
+      "half": 0.11,
+      "hh": 0.13,
+      "kind": "shutter",
+      "pal": "ty_watts_roller",
+      "z": 0.17
+    },
+    {
+      "cx": -0.13,
+      "cy": 0.405,
+      "half": 0.13,
+      "hh": 0.01,
+      "kind": "canopy",
+      "out": 0.09,
+      "pal": "ty_fab_steel",
+      "soffit": "#2a2c30",
+      "strip": "#ffd890",
+      "z": 0.33
+    },
+    {
+      "bare": true,
+      "cx": -0.13,
+      "cy": 0.41,
+      "font": "stencil",
+      "half": 0.12,
+      "hh": 0.03,
+      "ink": "#c8a838",
+      "kind": "signBoard",
+      "label": "DRY STORE 12",
+      "z": 0.4
+    },
+    {
+      "bars": 1,
+      "cx": 0.26,
+      "cy": 0.405,
+      "depth": 0.012,
+      "glass": "#22262a",
+      "glow": "#d8e0e8",
+      "half": 0.045,
+      "hh": 0.09,
+      "kind": "windowBay",
+      "pal": "ty_fab_steel",
+      "z": 0.13
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 3,
+        "cx": -0.26,
+        "cy": 0.4,
+        "depth": 0.01,
+        "face": "x",
+        "glass": "#2a3036",
+        "glow": "#c8d4dc",
+        "half": 0.1,
+        "hh": 0.025,
+        "kind": "windowBay",
+        "pal": "ty_fab_steel",
+        "z": 0.42
+      },
+      "step": {
+        "cx": 0.26
+      }
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 3,
+        "cx": -0.26,
+        "cy": -0.4,
+        "depth": 0.01,
+        "face": "x",
+        "glass": "#2a3036",
+        "glow": "#c8d4dc",
+        "half": 0.1,
+        "hh": 0.025,
+        "kind": "windowBay",
+        "pal": "ty_fab_steel",
+        "z": 0.42
+      },
+      "step": {
+        "cx": 0.26
+      }
+    },
+    {
+      "cx": 0,
+      "cy": -0.4,
+      "drip": 1,
+      "half": 0.12,
+      "hh": 0.06,
+      "kind": "louvreBank",
+      "n": 6,
+      "pal": "ty_fab_steel",
+      "z": 0.3
+    },
+    {
+      "cx": 0.36,
+      "cy": 0.405,
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.01,
+      "z0": 0.04,
+      "z1": 0.5
+    },
+    {
+      "band": "#d8c018",
+      "count": 2,
+      "cx": -0.24,
+      "cy": 0.47,
+      "kind": "bollard",
+      "pal": "ty_stack_dk",
+      "step": 0.22,
+      "z": 0.004
+    },
+    {
+      "cx": 0.42,
+      "cy": 0.47,
+      "kind": "streetLamp",
+      "out": 0.13,
+      "pal": "ty_stack_dk",
+      "r": 0.026,
+      "rgb": "255,196,120",
+      "s": 9,
+      "z0": 0,
+      "z1": 0.085
+    }
+  ],
+  "id": "shelflife",
+  "note": "SHELF LIFE — a plain dry-goods warehouse on Kessler Street.\n\nThe tile's prose: concrete-floored, echoing, racking bolted to the ceiling, DRY STORE 12 painted\non the roller door in fading yellow. Cheap to hold, steady to run.\n\nSo it is a portal-framed shed in corrugated sheet under a barrel roof, with the frame showing as\nsteel piers, one big roller door with a loading canopy over it, a personnel door beside it, and the\nstore number painted above the door rather than on it. High strip windows light the racking. A\nworks doesn't sign itself (UNSIGNED_TRADE), so the number is the only lettering.",
+  "pal": "ty_wh_metal",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.42,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.04
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_wh_metal",
+      "roof": true,
+      "z0": 0.04,
+      "z1": 0.5
+    },
+    {
+      "archH": 0.07,
+      "base": [
+        96,
+        100,
+        108
+      ],
+      "cx": 0,
+      "cxL": 0,
+      "cy": 0,
+      "hl": 0.4,
+      "hw": 0.41,
+      "kind": "barrel",
+      "nf": 12,
+      "pal": "ty_fab_steel",
+      "z0": 0.5
+    }
+  ],
+  "trade": "warehouse"
+}
