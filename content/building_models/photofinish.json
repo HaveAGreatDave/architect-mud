@@ -1,0 +1,198 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0.22,
+      "kind": "glowPool",
+      "rgb": "255,210,120",
+      "s": 12,
+      "z": 0.78
+    },
+    {
+      "cx": 0,
+      "cy": 0.45,
+      "kind": "glowPool",
+      "rgb": "220,230,180",
+      "s": 8,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Photo Finish"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0.4,
+      "kind": "pilaster",
+      "n": 2,
+      "out": 0.018,
+      "pal": "ty_pfin_dk",
+      "step": 0.78,
+      "w": 0.026,
+      "z0": 0.05,
+      "z1": 0.6
+    },
+    {
+      "bars": 1,
+      "cx": 0,
+      "cy": 0.405,
+      "depth": 0.014,
+      "glass": "#1c2a20",
+      "glow": "#c8d8a0",
+      "half": 0.06,
+      "hh": 0.11,
+      "kind": "windowBay",
+      "pal": "ty_pfin_dk",
+      "transom": 0.82,
+      "z": 0.16
+    },
+    {
+      "color": "#121212",
+      "cx": 0,
+      "cy": 0.41,
+      "font": "deco",
+      "half": 0.34,
+      "hh": 0.045,
+      "ink": "#e0b85a",
+      "kind": "signBoard",
+      "label": "PHOTO FINISH",
+      "z": 0.5
+    },
+    {
+      "color": "#ece6d4",
+      "cx": 0.33,
+      "cy": 0.4,
+      "font": "deco",
+      "half": 0.035,
+      "ink": "#141414",
+      "kind": "bladePanel",
+      "label": "XII",
+      "out": 0.09,
+      "pal": "ty_pfin_dk",
+      "z0": 0.3,
+      "z1": 0.38
+    },
+    {
+      "cx": 0,
+      "cy": 0.4,
+      "drip": 0.4,
+      "kind": "grime",
+      "w": 0.36,
+      "z": 0.45
+    },
+    {
+      "color": "#0c0c0c",
+      "cx": 0,
+      "cy": 0.2,
+      "font": "mono",
+      "half": 0.36,
+      "hh": 0.035,
+      "ink": "#ffc85a",
+      "kind": "signGantry",
+      "label": "2.10 KILN PARK · 7/2 · 9/4 · 11/1 · EVENS FAV",
+      "neon": true,
+      "pal": "ty_pfin_dk",
+      "rise": 0.05,
+      "trim": "#ffd27a",
+      "z": 0.66
+    },
+    {
+      "cx": 0.3,
+      "cy": 0.4,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.01,
+      "z0": 0.05,
+      "z1": 0.6
+    },
+    {
+      "cx": 0,
+      "cy": -0.4,
+      "drip": 0.6,
+      "face": "x",
+      "hh": 0.035,
+      "kind": "vent",
+      "pal": "ty_stack_dk",
+      "w": 0.05,
+      "z": 0.4
+    },
+    {
+      "bars": 1,
+      "cx": -0.2,
+      "cy": -0.4,
+      "depth": 0.012,
+      "glass": "#1c2a20",
+      "glow": "#3a4030",
+      "half": 0.06,
+      "hh": 0.1,
+      "kind": "windowBay",
+      "pal": "ty_pfin_dk",
+      "z": 0.15
+    },
+    {
+      "cx": -0.24,
+      "cy": -0.2,
+      "d": 0.05,
+      "hh": 0.024,
+      "kind": "acUnit",
+      "pal": "ty_stack_dk",
+      "w": 0.06,
+      "z": 0.66
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.415,
+      "hh": 0.012,
+      "kind": "parapet",
+      "pal": "ty_pfin_dk",
+      "z": 0.66
+    }
+  ],
+  "id": "photofinish",
+  "neon": "#ffd27a",
+  "note": "PHOTO FINISH — the bookmaker on Kiln Lane.\n\nThe tile's prose: the only shop on the street with nothing in its window, because it has no\nwindow. The whole street face is one panel of municipal green paint with a door in the middle, and\nacross the top, gold on black, shadowed, done properly by somebody who charged for it: PHOTO\nFINISH. A double-sided clock stands out over the pavement on a wrought bracket. Above the parapet a\nlong lit box runs the width of the building with the figures crawling across it, and men read it at\ntwo in the morning.\n\nSo the front is a blank green panel between dark piers with the door in the middle, the gilt name\nboard across the top, the clock on its bracket at the corner, and the results board standing on\nthe roof on its own legs. The board is the only light, and it is lit all night.",
+  "pal": "ty_pfin",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.42,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.05
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_pfin",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.6
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.415,
+      "kind": "box",
+      "pal": "ty_pfin_dk",
+      "roof": true,
+      "z0": 0.6,
+      "z1": 0.66
+    }
+  ],
+  "trade": "bookmaker"
+}

@@ -2,6 +2,14 @@
   "adorn": [
     {
       "cx": 0,
+      "cy": 0.41,
+      "kind": "glowPool",
+      "rgb": "232,200,130",
+      "s": 7,
+      "z": 0.3
+    },
+    {
+      "cx": 0,
       "cy": 0.42,
       "kind": "glowPool",
       "rgb": "220,185,110",
@@ -30,61 +38,210 @@
       "z": 0.9
     },
     {
-      "bars": 3,
+      "cap": true,
       "cx": 0,
       "cy": 0.34,
+      "kind": "pilaster",
+      "n": 5,
+      "out": 0.016,
+      "pal": "ty_marble_col",
+      "step": 0.17,
+      "w": 0.022,
+      "z0": 0.38,
+      "z1": 0.78
+    },
+    {
+      "cx": 0,
+      "cy": 0.34,
+      "kind": "pilaster",
+      "n": 2,
+      "out": 0.02,
+      "pal": "ty_marble_col",
+      "step": 0.64,
+      "w": 0.03,
+      "z0": 0.1,
+      "z1": 0.36
+    },
+    {
+      "bars": 2,
+      "cx": 0,
+      "cy": 0.365,
+      "depth": 0.014,
+      "glass": "#2a2016",
+      "glow": "#5a4428",
+      "half": 0.05,
+      "hh": 0.1,
+      "kind": "windowBay",
+      "pal": "ty_marble_bronze",
+      "transom": 0.8,
+      "z": 0.2
+    },
+    {
+      "bars": 2,
+      "cx": -0.19,
+      "cy": 0.345,
       "depth": 0.012,
-      "glass": "#1a1812",
-      "glow": "#6b5f45",
-      "half": 0.24,
-      "hh": 0.026,
+      "glass": "#c8c4b8",
+      "glow": "#e8dcc0",
+      "half": 0.1,
+      "hh": 0.09,
       "kind": "windowBay",
       "pal": "ty_marble",
-      "z": 0.14
+      "z": 0.2
     },
     {
-      "bars": 4,
-      "cx": 0,
-      "cy": 0.34,
-      "depth": 0.01,
-      "glass": "#1a1812",
-      "glow": "#e8d5a8",
-      "half": 0.24,
-      "hh": 0.026,
+      "bars": 2,
+      "cx": 0.19,
+      "cy": 0.345,
+      "depth": 0.012,
+      "glass": "#c8c4b8",
+      "glow": "#e8dcc0",
+      "half": 0.1,
+      "hh": 0.09,
       "kind": "windowBay",
       "pal": "ty_marble",
-      "z": 0.46
+      "z": 0.2
     },
     {
-      "color": "#1d1a10",
+      "bare": true,
       "cx": 0,
-      "cy": 0.34,
+      "cy": 0.35,
       "font": "deco",
-      "half": 0.22,
+      "half": 0.28,
       "hh": 0.026,
-      "ink": "#e8c46a",
+      "ink": "#c8a050",
       "kind": "signBoard",
       "label": "LOAN WOLF",
-      "z": 0.3
+      "z": 0.32
     },
     {
+      "color": "#e8e0cc",
+      "cx": 0.24,
+      "cy": 0.37,
+      "font": "mono",
+      "half": 0.04,
+      "hh": 0.02,
+      "ink": "#2a2218",
+      "kind": "signBoard",
+      "label": "RATES",
+      "z": 0.05
+    },
+    {
+      "count": 4,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.255,
+        "cy": 0.34,
+        "depth": 0.012,
+        "glass": "#1a1812",
+        "glow": "#e8d5a8",
+        "half": 0.055,
+        "hh": 0.06,
+        "kind": "windowBay",
+        "pal": "ty_marble",
+        "transom": 0.7,
+        "z": 0.48
+      },
+      "step": {
+        "cx": 0.17
+      }
+    },
+    {
+      "count": 4,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.255,
+        "cy": 0.34,
+        "depth": 0.012,
+        "glass": "#1a1812",
+        "glow": "#4a4232",
+        "half": 0.055,
+        "hh": 0.06,
+        "kind": "windowBay",
+        "pal": "ty_marble",
+        "transom": 0.7,
+        "z": 0.67
+      },
+      "step": {
+        "cx": 0.17
+      }
+    },
+    {
+      "count": 2,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.15,
+        "cy": 0.34,
+        "depth": 0.012,
+        "face": "x",
+        "glass": "#1a1812",
+        "glow": "#bfae88",
+        "half": 0.055,
+        "hh": 0.08,
+        "kind": "windowBay",
+        "pal": "ty_marble",
+        "z": 0.57
+      },
+      "step": {
+        "cx": 0.3
+      }
+    },
+    {
+      "count": 2,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.15,
+        "cy": -0.34,
+        "depth": 0.012,
+        "face": "x",
+        "glass": "#1a1812",
+        "glow": "#4a4232",
+        "half": 0.055,
+        "hh": 0.08,
+        "kind": "windowBay",
+        "pal": "ty_marble",
+        "z": 0.57
+      },
+      "step": {
+        "cx": 0.3
+      }
+    },
+    {
+      "cx": 0.28,
+      "cy": -0.34,
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.01,
+      "z0": 0.1,
+      "z1": 0.78
+    },
+    {
+      "cx": -0.16,
+      "cy": -0.12,
+      "d": 0.05,
+      "hh": 0.024,
+      "kind": "acUnit",
+      "pal": "ty_stack_dk",
+      "w": 0.06,
+      "z": 0.9
+    },
+    {
+      "count": 2,
       "cx": -0.26,
-      "cy": 0.38,
+      "cy": 0.4,
       "kind": "bollard",
       "pal": "ty_marble_col",
-      "z": 0.004
-    },
-    {
-      "cx": 0.26,
-      "cy": 0.38,
-      "kind": "bollard",
-      "pal": "ty_marble_col",
+      "step": 0.52,
       "z": 0.004
     }
   ],
   "id": "loanwolf",
   "neon": "#d8b45c",
-  "note": "A lender on the corner of the Gate Road, positioned so it is the last frontage out of the city and the first one back in — which took some thought. FROSTED to head height with the name in gold leaf across it, so people outside see a shape moving and that is all either side gets. Three floors, a heavy door, and rates on a card in a type size that makes you stop walking.",
+  "note": "LOAN WOLF — a lender on the corner of the Gate Road, the last frontage out of the city and the\nfirst one back in.\n\nThe tile's prose: frosted glass to head height with the name in gold leaf across it, a heavy door,\nand rates on a card in the corner of the window in a type size that makes you stop and lean in.\nThe card is on the plinth under the window rather than on the glass, because a sign over glazing\nreads as two drawings on top of each other.\nThree floors.\n\nIt dresses as a bank and isn't one: a rusticated marble base with pilasters, a heavy bronze door in\na deep surround, two bays of frosted glass with the name gilded across them, and the rates card.\nThe two upper floors are regular windows between pilasters under a cornice, lit only on the first\nfloor where the desks are. Nothing here is lit after dark except the door lamp and the gilt.",
   "pal": "ty_marble",
   "segs": [
     {
@@ -114,6 +271,27 @@
       "roof": true,
       "z0": 0.78,
       "z1": 0.9
+    },
+    {
+      "cx": 0,
+      "cy": 0.33,
+      "fd": 0.03,
+      "hw": 0.08,
+      "kind": "box",
+      "pal": "ty_marble_col",
+      "roof": true,
+      "z0": 0.1,
+      "z1": 0.36
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.35,
+      "kind": "box",
+      "pal": "ty_marble_col",
+      "roof": false,
+      "z0": 0.36,
+      "z1": 0.38
     }
   ],
   "trade": "bank"

@@ -1,0 +1,240 @@
+{
+  "adorn": [
+    {
+      "cx": -0.13,
+      "cy": 0.47,
+      "kind": "glowPool",
+      "rgb": "232,214,160",
+      "s": 9,
+      "z": 0.18
+    },
+    {
+      "cx": -0.13,
+      "cy": 0.5,
+      "kind": "glowPool",
+      "rgb": "232,214,160",
+      "s": 11,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Stuff It"
+    }
+  ],
+  "detail": [
+    {
+      "bars": 2,
+      "cx": -0.13,
+      "cy": 0.445,
+      "depth": 0.012,
+      "glass": "#3a4a3a",
+      "glow": "#e8d8a0",
+      "half": 0.15,
+      "hh": 0.1,
+      "kind": "windowBay",
+      "pal": "ty_stuff",
+      "transom": 0.8,
+      "z": 0.18
+    },
+    {
+      "bars": 1,
+      "cx": 0.24,
+      "cy": 0.405,
+      "depth": 0.014,
+      "glass": "#2a2a24",
+      "glow": "#6a5a40",
+      "half": 0.06,
+      "hh": 0.11,
+      "kind": "windowBay",
+      "pal": "ty_stuff_dk",
+      "transom": 0.8,
+      "z": 0.16
+    },
+    {
+      "bare": true,
+      "cx": -0.02,
+      "cy": 0.405,
+      "font": "slab",
+      "half": 0.3,
+      "hh": 0.045,
+      "ink": "#1a1814",
+      "kind": "signBoard",
+      "label": "STUFF IT",
+      "z": 0.4
+    },
+    {
+      "bare": true,
+      "cx": -0.02,
+      "cy": 0.405,
+      "font": "slab",
+      "half": 0.3,
+      "hh": 0.016,
+      "ink": "#2a2620",
+      "kind": "signBoard",
+      "label": "MOUNTS · TANNING · SKULLS · NO PETS",
+      "z": 0.345
+    },
+    {
+      "color": "#3a3026",
+      "cx": -0.02,
+      "cy": 0.405,
+      "half": 0.11,
+      "horiz": true,
+      "ink": "#3a3026",
+      "kind": "bladePanel",
+      "label": " ",
+      "out": 0.05,
+      "pal": "ty_stuff_dk",
+      "z0": 0.48,
+      "z1": 0.52
+    },
+    {
+      "count": 2,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.2,
+        "cy": 0.405,
+        "depth": 0.012,
+        "glass": "#22261e",
+        "glow": "#c8b080",
+        "half": 0.06,
+        "hh": 0.065,
+        "kind": "windowBay",
+        "pal": "ty_stuff_dk",
+        "transom": 0.5,
+        "z": 0.55
+      },
+      "step": {
+        "cx": 0.4
+      }
+    },
+    {
+      "cx": 0,
+      "cy": 0.405,
+      "drip": 0.4,
+      "kind": "grime",
+      "w": 0.38,
+      "z": 0.66
+    },
+    {
+      "bars": 1,
+      "cx": 0,
+      "cy": 0.4,
+      "depth": 0.012,
+      "face": "x",
+      "glass": "#22261e",
+      "glow": "#c8b080",
+      "half": 0.06,
+      "hh": 0.065,
+      "kind": "windowBay",
+      "pal": "ty_stuff_dk",
+      "z": 0.5
+    },
+    {
+      "cx": 0.32,
+      "cy": -0.4,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.01,
+      "z0": 0.05,
+      "z1": 0.66
+    },
+    {
+      "cx": -0.2,
+      "cy": -0.4,
+      "drip": 0.6,
+      "hh": 0.035,
+      "kind": "vent",
+      "pal": "ty_stack_dk",
+      "w": 0.05,
+      "z": 0.3
+    },
+    {
+      "cx": 0.2,
+      "cy": -0.43,
+      "d": 0.035,
+      "hh": 0.035,
+      "kind": "binStack",
+      "lid": "#222020",
+      "n": 2,
+      "pal": "ty_stack_dk",
+      "w": 0.04,
+      "z": 0.004
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.415,
+      "hh": 0.012,
+      "kind": "parapet",
+      "pal": "ty_stuff_dk",
+      "z": 0.7
+    },
+    {
+      "cx": 0.22,
+      "cy": -0.2,
+      "d": 0.05,
+      "hh": 0.05,
+      "kind": "roofBulkhead",
+      "pal": "ty_stuff_dk",
+      "w": 0.05,
+      "z": 0.7
+    }
+  ],
+  "id": "stuffit",
+  "neon": "#d8c8a0",
+  "note": "STUFF IT — the taxidermist on Kiln Lane, the first shopfront up from the South Gate.\n\nThe tile's prose: a stuffed hare on a green baize plinth behind canted glass, the sign painted\nblack on the cream render (STUFF IT, and under it MOUNTS · TANNING · SKULLS · NO PETS), and above\nthe sign something with a wingspan mounted on a bracket, weathering.\n\nSo the shopfront is a projecting bay window under a cornice, lit warm and green inside, with the\ndoor beside it. The name and the trade line are paint, not boards. The mount over the sign is a\ndark wing-shaped panel on a bracket standing off the wall. The cream render runs round all four\nsides with a plinth and a cornice; the upstairs has two sash windows.",
+  "pal": "ty_stuff",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.42,
+      "kind": "box",
+      "pal": "ty_stuff_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.05
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_stuff",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.66
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.415,
+      "kind": "box",
+      "pal": "ty_stuff_dk",
+      "roof": true,
+      "z0": 0.66,
+      "z1": 0.7
+    },
+    {
+      "cx": -0.13,
+      "cy": 0.4,
+      "fd": 0.04,
+      "hw": 0.17,
+      "kind": "box",
+      "pal": "ty_stuff_dk",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.3
+    }
+  ],
+  "trade": "taxidermist"
+}

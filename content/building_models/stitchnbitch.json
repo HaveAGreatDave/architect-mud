@@ -57,7 +57,7 @@
       "kind": "pilaster",
       "n": 2,
       "out": 0.02,
-      "pal": "ty_clinic",
+      "pal": "ty_ff_white",
       "step": 0.78,
       "w": 0.024,
       "z0": 0.05,
@@ -73,7 +73,7 @@
       "half": 0.11,
       "hh": 0.17,
       "kind": "windowBay",
-      "pal": "ty_clinic",
+      "pal": "ty_ff_white",
       "transom": 0.8,
       "z": 0.31
     },
@@ -87,7 +87,7 @@
       "half": 0.11,
       "hh": 0.17,
       "kind": "windowBay",
-      "pal": "ty_clinic",
+      "pal": "ty_ff_white",
       "transom": 0.8,
       "z": 0.31
     },
@@ -112,7 +112,7 @@
       "hh": 0.012,
       "kind": "canopy",
       "out": 0.07,
-      "pal": "ty_clinic",
+      "pal": "ty_ff_white",
       "soffit": "#2a3a32",
       "strip": "#6affa8",
       "z": 0.42
@@ -139,7 +139,7 @@
       "kind": "bladePanel",
       "label": "$trade",
       "out": 0.07,
-      "pal": "ty_clinic",
+      "pal": "ty_ff_white",
       "z0": 0.36,
       "z1": 0.64
     },
@@ -174,7 +174,7 @@
         "half": 0.07,
         "hh": 0.06,
         "kind": "windowBay",
-        "pal": "ty_clinic",
+        "pal": "ty_ff_white",
         "z": 0.46
       },
       "step": {
@@ -195,7 +195,7 @@
         "half": 0.07,
         "hh": 0.06,
         "kind": "windowBay",
-        "pal": "ty_clinic",
+        "pal": "ty_ff_white",
         "z": 0.46
       },
       "step": {
@@ -233,7 +233,7 @@
       "half": 0.06,
       "hh": 0.12,
       "kind": "windowBay",
-      "pal": "ty_clinic",
+      "pal": "ty_ff_white",
       "z": 0.17
     },
     {
@@ -265,7 +265,7 @@
       "half": 0.415,
       "hh": 0.012,
       "kind": "parapet",
-      "pal": "ty_clinic",
+      "pal": "ty_ff_white",
       "z": 0.82
     },
     {
@@ -312,7 +312,7 @@
   ],
   "id": "stitchnbitch",
   "neon": "#6affa8",
-  "note": "STITCH 'N' BITCH — the walk-in clinic on Ironside Street, the twin of Co-Pay & Pray.\n\nThe tile's prose: a walk-in clinic behind reinforced glass, a green cross guttering above the\ndoor, and a queue that started before dawn. Co-Pay & Pray keeps the `clinic` arm; this one is\nsmaller and busier, and the difference is the queue. A rail of bollards runs along the kerb.\n\nThe front is three bays: a pale entrance porch in the middle with a hood over the door, and a\nwindow of wired glass either side of it, lit dull green from inside. Pale piers frame the bays\nunder a parapet band that carries the name. The cross stands on the parapet over the door at a\nthird of its brightness, because it is guttering. The trade word goes on a hanzi blade at the\ncorner, a second sign that says `$trade` rather than repeating the name.\n\nIt stands in for the `stitch` arm (`replaces`), which stays in LEGACY_MODELS and comes back\nwith RENDER_TUNE.legacyArms.",
+  "note": "STITCH 'N' BITCH — the walk-in clinic on Ironside Street, the twin of Co-Pay & Pray.\n\nThe tile's prose: a walk-in clinic behind reinforced glass, a green cross guttering above the\ndoor, and a queue that started before dawn. Co-Pay & Pray keeps the `clinic` arm; this one is\nsmaller and busier, and the difference is the queue. A rail of bollards runs along the kerb.\n\nThe front is three bays: a pale entrance porch in the middle with a hood over the door, and a\nwindow of wired glass either side of it, lit dull green from inside. Pale piers frame the bays\nunder a parapet band that carries the name. The cross stands on the parapet over the door at a\nthird of its brightness, because it is guttering. The trade word goes on a hanzi blade at the\ncorner, a second sign that says `$trade` rather than repeating the name.\n\nThe pale trim is `ty_ff_white` render. `ty_clinic` is in the window-grid family and would paint\na second set of windows on the porch and the parapet band.\n\nIt stands in for the `stitch` arm (`replaces`), which stays in LEGACY_MODELS and comes back\nwith RENDER_TUNE.legacyArms.",
   "pal": "ty_stitch",
   "replaces": "stitch",
   "segs": [
@@ -341,7 +341,7 @@
       "cy": 0,
       "hw": 0.415,
       "kind": "box",
-      "pal": "ty_clinic",
+      "pal": "ty_ff_white",
       "roof": true,
       "z0": 0.72,
       "z1": 0.82
@@ -352,7 +352,7 @@
       "fd": 0.035,
       "hw": 0.11,
       "kind": "box",
-      "pal": "ty_clinic",
+      "pal": "ty_ff_white",
       "roof": true,
       "z0": 0.05,
       "z1": 0.52

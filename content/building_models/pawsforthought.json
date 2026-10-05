@@ -1,0 +1,234 @@
+{
+  "adorn": [
+    {
+      "cx": -0.17,
+      "cy": 0.44,
+      "kind": "glowPool",
+      "rgb": "255,224,176",
+      "s": 9,
+      "z": 0.16
+    },
+    {
+      "cx": 0.18,
+      "cy": 0.42,
+      "kind": "glowPool",
+      "rgb": "255,214,160",
+      "s": 10,
+      "z": 0.02
+    },
+    {
+      "cx": -0.3,
+      "cy": -0.05,
+      "kind": "glowPool",
+      "rgb": "255,150,80",
+      "s": 4,
+      "z": 0.74
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Paws for Thought"
+    }
+  ],
+  "detail": [
+    {
+      "bars": 2,
+      "cx": -0.17,
+      "cy": 0.415,
+      "depth": 0.012,
+      "glass": "#3a3428",
+      "glow": "#ffe0b0",
+      "half": 0.11,
+      "hh": 0.08,
+      "kind": "windowBay",
+      "pal": "ty_paws_glass",
+      "transom": 0.75,
+      "z": 0.16
+    },
+    {
+      "bars": 1,
+      "cx": 0.18,
+      "cy": 0.345,
+      "depth": 0.014,
+      "glass": "#2a2420",
+      "glow": "#c8a070",
+      "half": 0.055,
+      "hh": 0.11,
+      "kind": "windowBay",
+      "pal": "ty_paws_glass",
+      "transom": 0.82,
+      "z": 0.15
+    },
+    {
+      "cx": 0.18,
+      "cy": 0.345,
+      "half": 0.1,
+      "hh": 0.01,
+      "kind": "canopy",
+      "out": 0.08,
+      "pal": "ty_paws_roof",
+      "soffit": "#3a3028",
+      "strip": "#ffd8a0",
+      "z": 0.29
+    },
+    {
+      "color": "#b89a50",
+      "cx": 0.29,
+      "cy": 0.345,
+      "font": "deco",
+      "half": 0.025,
+      "hh": 0.016,
+      "ink": "#2a2010",
+      "kind": "signBoard",
+      "label": "MRCVS",
+      "z": 0.17
+    },
+    {
+      "cx": 0.3,
+      "cy": 0.37,
+      "d": 0.014,
+      "hh": 0.018,
+      "kind": "binStack",
+      "lid": "#5a4a3a",
+      "n": 1,
+      "pal": "ty_paws_roof",
+      "w": 0.045,
+      "z": 0.004
+    },
+    {
+      "count": 2,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.17,
+        "cy": 0.345,
+        "depth": 0.012,
+        "glass": "#2a2420",
+        "glow": "#ffd8a0",
+        "half": 0.065,
+        "hh": 0.06,
+        "kind": "windowBay",
+        "pal": "ty_paws_glass",
+        "transom": 0.5,
+        "z": 0.4
+      },
+      "step": {
+        "cx": 0.36
+      }
+    },
+    {
+      "count": 2,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.15,
+        "cy": 0.38,
+        "depth": 0.012,
+        "face": "x",
+        "glass": "#2a2420",
+        "glow": "#c8a070",
+        "half": 0.05,
+        "hh": 0.06,
+        "kind": "windowBay",
+        "pal": "ty_paws_glass",
+        "z": 0.3
+      },
+      "step": {
+        "cx": 0.3
+      }
+    },
+    {
+      "cx": 0.3,
+      "cy": -0.38,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.01,
+      "z0": 0.04,
+      "z1": 0.5
+    },
+    {
+      "bars": 1,
+      "cx": 0.1,
+      "cy": -0.34,
+      "depth": 0.012,
+      "glass": "#2a2420",
+      "glow": "#6a5040",
+      "half": 0.06,
+      "hh": 0.1,
+      "kind": "windowBay",
+      "pal": "ty_paws_glass",
+      "z": 0.15
+    }
+  ],
+  "id": "pawsforthought",
+  "note": "PAWS FOR THOUGHT — the vet on Kessler Street, in a house that is still obviously a house.\n\nThe tile's prose: brick, a pitched roof with a chimney lit most evenings, a square bay window left\nof the door with the curtains open and a waiting room behind it. What says it isn't a front room is\nthe canopy over the door, the bench under it, and a small polished brass plate by the bell with a\nname and three letters. A water bowl on the step is filled twice a day.\n\nSo: a brick house with a roof over it and a chimney stack at one end, the square bay standing out\non the left, the door under a canopy on the right with the plate beside it, and a lit first-floor\nwindow. The roof is the renderer's barrel rather than a gable, because no gable primitive exists;\nat street level it reads as a roof, which is what matters.",
+  "pal": "ty_paws",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.04
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.34,
+      "hw": 0.38,
+      "kind": "box",
+      "pal": "ty_paws",
+      "roof": true,
+      "z0": 0.04,
+      "z1": 0.5
+    },
+    {
+      "archH": 0.08,
+      "base": [
+        74,
+        76,
+        82
+      ],
+      "cx": 0,
+      "cxL": 0,
+      "cy": 0,
+      "hl": 0.36,
+      "hw": 0.39,
+      "kind": "barrel",
+      "nf": 10,
+      "pal": "ty_paws_roof",
+      "z0": 0.5
+    },
+    {
+      "cx": -0.3,
+      "cy": -0.05,
+      "hw": 0.04,
+      "kind": "box",
+      "pal": "ty_paws",
+      "roof": true,
+      "z0": 0.5,
+      "z1": 0.72
+    },
+    {
+      "cx": -0.17,
+      "cy": 0.37,
+      "fd": 0.04,
+      "hw": 0.13,
+      "kind": "box",
+      "pal": "ty_paws",
+      "roof": true,
+      "z0": 0.04,
+      "z1": 0.27
+    }
+  ],
+  "trade": "vet"
+}

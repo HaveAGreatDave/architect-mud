@@ -1,0 +1,214 @@
+{
+  "adorn": [
+    {
+      "cx": -0.1,
+      "cy": 0.38,
+      "kind": "glowPool",
+      "rgb": "255,160,70",
+      "s": 14,
+      "z": 0.18
+    },
+    {
+      "cx": -0.1,
+      "cy": 0.5,
+      "kind": "glowPool",
+      "rgb": "255,150,70",
+      "s": 14,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Some Assembly Required"
+    }
+  ],
+  "detail": [
+    {
+      "bars": 0,
+      "cx": -0.1,
+      "cy": 0.405,
+      "depth": 0.014,
+      "glass": "#3a2010",
+      "glow": "#ffa050",
+      "half": 0.17,
+      "hh": 0.16,
+      "kind": "windowBay",
+      "pal": "ty_fab_steel",
+      "z": 0.2
+    },
+    {
+      "bay": true,
+      "cx": -0.1,
+      "cy": 0.41,
+      "half": 0.18,
+      "hh": 0.022,
+      "kind": "shutter",
+      "pal": "ty_fab_steel",
+      "z": 0.385
+    },
+    {
+      "color": "#1a1a1c",
+      "cx": -0.06,
+      "cy": 0.41,
+      "font": "stencil",
+      "half": 0.28,
+      "hh": 0.026,
+      "ink": "#ffb060",
+      "kind": "signBoard",
+      "label": "SOME ASSEMBLY REQUIRED",
+      "z": 0.44
+    },
+    {
+      "cx": -0.06,
+      "cy": 0.4,
+      "kind": "pilaster",
+      "n": 2,
+      "out": 0.016,
+      "pal": "ty_fab_steel",
+      "step": 0.66,
+      "w": 0.022,
+      "z0": 0.04,
+      "z1": 0.48
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 3,
+        "cx": -0.26,
+        "cy": -0.4,
+        "depth": 0.01,
+        "face": "x",
+        "glass": "#2a2a26",
+        "glow": "#ffb070",
+        "half": 0.09,
+        "hh": 0.035,
+        "kind": "windowBay",
+        "pal": "ty_fab_steel",
+        "z": 0.36
+      },
+      "step": {
+        "cx": 0.26
+      }
+    },
+    {
+      "cx": 0.12,
+      "cy": 0.4,
+      "kind": "ductRun",
+      "pal": "ty_fab_steel",
+      "r": 0.026,
+      "run": 0.12,
+      "z0": 0.1,
+      "z1": 0.48
+    },
+    {
+      "cx": -0.06,
+      "cy": -0.4,
+      "drip": 1,
+      "half": 0.12,
+      "hh": 0.06,
+      "kind": "louvreBank",
+      "n": 6,
+      "pal": "ty_fab_steel",
+      "z": 0.3
+    },
+    {
+      "cx": -0.28,
+      "cy": -0.25,
+      "hh": 0.16,
+      "kind": "stack",
+      "pal": "ty_stack_dk",
+      "r": 0.03,
+      "z": 0.48
+    },
+    {
+      "cx": 0.3,
+      "cy": 0.42,
+      "d": 0.03,
+      "hh": 0.035,
+      "kind": "binStack",
+      "lid": "#3a1410",
+      "n": 3,
+      "pal": "ty_cont_r",
+      "w": 0.035,
+      "z": 0.004
+    }
+  ],
+  "id": "someassemblyrequired",
+  "neon": "#ffa04a",
+  "note": "SOME ASSEMBLY REQUIRED — a working fabrication shed on Kessler Street.\n\nThe tile's prose: a gantry crane crawling on overhead rails, sparks fountaining from a cutting\nbench, air that tastes of ozone and hot steel; somebody in here can weld, bend or fake almost\nanything.\n\nSo the shed is a sawtooth-roofed hall with its big door open on a lit, orange interior, and the\ncrane runway carries on out of the building as an external gantry over the yard on the open side,\ntwo steel legs and a beam, which is what a fab shop that lifts things heavier than its door does.\nThe name is on the fascia over the door. A works doesn't sign itself (UNSIGNED_TRADE), and this one\nsells to the public over a counter, which is the stated exception.",
+  "pal": "ty_fab_metal",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.42,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.04
+    },
+    {
+      "cx": -0.06,
+      "cy": 0,
+      "fd": 0.4,
+      "hw": 0.34,
+      "kind": "box",
+      "pal": "ty_fab_metal",
+      "roof": false,
+      "z0": 0.04,
+      "z1": 0.48
+    },
+    {
+      "cx": -0.06,
+      "cy": 0,
+      "edge": "#2b2f34",
+      "glassc": "#9ab0c0",
+      "hx": 0.34,
+      "hy": 0.4,
+      "kind": "sawtooth",
+      "rh": 0.1,
+      "roofc": "#4b5158",
+      "teeth": 4,
+      "z0": 0.48
+    },
+    {
+      "cx": 0.36,
+      "cy": 0.3,
+      "hw": 0.025,
+      "kind": "box",
+      "pal": "ty_junk_crane",
+      "roof": true,
+      "z0": 0.04,
+      "z1": 0.52
+    },
+    {
+      "cx": 0.36,
+      "cy": -0.3,
+      "hw": 0.025,
+      "kind": "box",
+      "pal": "ty_junk_crane",
+      "roof": true,
+      "z0": 0.04,
+      "z1": 0.52
+    },
+    {
+      "cx": 0.36,
+      "cy": 0,
+      "fd": 0.33,
+      "hw": 0.03,
+      "kind": "box",
+      "pal": "ty_cont_y",
+      "roof": true,
+      "z0": 0.52,
+      "z1": 0.56
+    }
+  ],
+  "trade": "fabrication"
+}

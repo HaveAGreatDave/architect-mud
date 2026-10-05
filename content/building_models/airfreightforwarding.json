@@ -1,0 +1,200 @@
+{
+  "adorn": [
+    {
+      "cx": 0.3,
+      "cy": -0.25,
+      "kind": "mast",
+      "z0": 0.52,
+      "z1": 0.68
+    },
+    {
+      "cx": 0,
+      "cy": 0.45,
+      "kind": "glowPool",
+      "rgb": "224,236,244",
+      "s": 12,
+      "z": 0.18
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Airfreight Forwarding"
+    }
+  ],
+  "detail": [
+    {
+      "count": 4,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.27,
+        "cy": 0.405,
+        "depth": 0.01,
+        "glass": "#22282e",
+        "glow": "#e0ecf4",
+        "half": 0.06,
+        "hh": 0.05,
+        "kind": "windowBay",
+        "pal": "ty_fab_steel",
+        "z": 0.18
+      },
+      "step": {
+        "cx": 0.15
+      }
+    },
+    {
+      "bars": 1,
+      "cx": 0.3,
+      "cy": 0.405,
+      "depth": 0.012,
+      "glass": "#22282e",
+      "glow": "#c8d8e4",
+      "half": 0.04,
+      "hh": 0.09,
+      "kind": "windowBay",
+      "pal": "ty_fab_steel",
+      "transom": 0.8,
+      "z": 0.13
+    },
+    {
+      "color": "#1a1e22",
+      "cx": 0,
+      "cy": 0.41,
+      "font": "stencil",
+      "half": 0.3,
+      "hh": 0.022,
+      "ink": "#ffc860",
+      "kind": "signBoard",
+      "label": "AIRFREIGHT FORWARDING",
+      "z": 0.265
+    },
+    {
+      "color": "#14161a",
+      "cx": 0,
+      "cy": 0.245,
+      "font": "stencil",
+      "half": 0.16,
+      "hh": 0.04,
+      "ink": "#ffb43a",
+      "kind": "signBoard",
+      "label": "$trade",
+      "z": 0.43
+    },
+    {
+      "bay": true,
+      "cx": 0,
+      "cy": 0.4,
+      "face": "x",
+      "half": 0.12,
+      "hh": 0.13,
+      "kind": "shutter",
+      "pal": "ty_watts_roller",
+      "z": 0.17
+    },
+    {
+      "bay": true,
+      "cx": 0,
+      "cy": -0.4,
+      "face": "x",
+      "half": 0.12,
+      "hh": 0.13,
+      "kind": "shutter",
+      "pal": "ty_watts_roller",
+      "z": 0.17
+    },
+    {
+      "bay": true,
+      "cx": -0.15,
+      "cy": -0.4,
+      "half": 0.12,
+      "hh": 0.13,
+      "kind": "shutter",
+      "pal": "ty_watts_roller",
+      "z": 0.17
+    },
+    {
+      "bay": true,
+      "cx": 0.15,
+      "cy": -0.4,
+      "half": 0.12,
+      "hh": 0.13,
+      "kind": "shutter",
+      "pal": "ty_watts_roller",
+      "z": 0.17
+    },
+    {
+      "cx": 0.2,
+      "cy": 0.3,
+      "d": 0.04,
+      "hh": 0.022,
+      "kind": "acUnit",
+      "pal": "ty_stack_dk",
+      "w": 0.05,
+      "z": 0.3
+    },
+    {
+      "cx": -0.25,
+      "cy": -0.2,
+      "hh": 0.08,
+      "kind": "antennaCluster",
+      "n": 3,
+      "pal": "ty_stack_dk",
+      "r": 0.04,
+      "z": 0.52
+    },
+    {
+      "band": "#ffb43a",
+      "count": 3,
+      "cx": -0.3,
+      "cy": 0.47,
+      "kind": "bollard",
+      "pal": "ty_stack_dk",
+      "step": 0.3,
+      "z": 0.004
+    }
+  ],
+  "id": "airfreightforwarding",
+  "neon": "#ffb43a",
+  "note": "AIRFREIGHT FORWARDING — the air-cargo forwarder on Kessler Street.\n\nThe tile's prose: a low prefab office ringed by roller-shuttered bays, the airfield aprons close\nenough that jet-wash rattles the signs. Clipboards, barcode guns and a coffee urn that never cools.\n\nSo the front is a lit office strip of prefab panels with a band of windows and a door, standing\nforward of a taller shed that carries a roller bay on each flank and the back. The name is on the\noffice fascia and FREIGHT goes on a board on the shed above it, so the second sign says the trade\nrather than the name again. A windsock on the shed roof is for the airfield next door.",
+  "pal": "ty_fwd_metal",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.42,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.04
+    },
+    {
+      "cx": 0,
+      "cy": -0.08,
+      "fd": 0.32,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_fwd_metal",
+      "roof": true,
+      "z0": 0.04,
+      "z1": 0.52
+    },
+    {
+      "cx": 0,
+      "cy": 0.3,
+      "fd": 0.1,
+      "hw": 0.36,
+      "kind": "box",
+      "pal": "ty_yard_hut",
+      "roof": true,
+      "z0": 0.04,
+      "z1": 0.3
+    }
+  ],
+  "trade": "freight_forwarder"
+}

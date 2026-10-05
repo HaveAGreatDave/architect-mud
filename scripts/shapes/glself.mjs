@@ -205,7 +205,9 @@ const KNOWN = new Map([
   // authored against geometry that is still moving. Fix it and this number owes eight points back.
   // 610 → 654 is `named:coldwaterregionalterminal`: the airport model's tower mast and whips,
   // counted a second time for the terminal beside Coldwater Regional's hangar. Same strokes, same reason.
-  ['stroke', { budget: 654, why:
+  // 654 → 606 when the two Halcyon Fields tower cranes swapped their `latticeTower` masts for
+  // `ty_junk_crane` boxes, and the Salvage Rites and Second Amendment wire coils came off.
+  ['stroke', { budget: 606, why:
    'masts, fire stairs, catwalk rails and guy wires are authored INSIDE the host they hang off — a '
    + 'mast at its tile centre is 0.44 tiles behind its own front wall — so `emitWire` still spends '
    + 'the full DECO_LIFT and they are pulled clear on purpose. The Dynamo lost its entire external '
@@ -236,7 +238,9 @@ const KNOWN = new Map([
   // started putting per-tile lettering on a roof again.
   // 7 → 9 when board and lettering started writing depth (glBoardDepth/glSignDepth): the slab's back
   // board and soffit are the two points, on type:bank, named:thechorusden and type:archive.
-  ['decal:gantry', { budget: 9, why:
+  // 9 → 7 when the Ironside and Kiln Lane buildings got authored models: an authored detail list
+  // takes a model out of the derived kit, and the kit's hoardings on those tiles went with it.
+  ['decal:gantry', { budget: 7, why:
    'a rooftop hoarding stands at its own tile CENTRE on legs, so its back board, its soffit and the '
    + 'far edge return are inside the roof mass they are standing on — the same shape of reason as the '
    + 'mast in `stroke`, and the same fix: they have to come out or they are simply not drawn. It is '

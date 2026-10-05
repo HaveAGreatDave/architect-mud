@@ -1,6 +1,14 @@
 {
   "adorn": [
     {
+      "cx": -0.1,
+      "cy": 0.38,
+      "kind": "glowPool",
+      "rgb": "232,200,120",
+      "s": 7,
+      "z": 0.33
+    },
+    {
       "cx": -0.06,
       "cy": 0.38,
       "kind": "glowPool",
@@ -26,78 +34,167 @@
       "half": 0.3,
       "hh": 0.02,
       "kind": "parapet",
-      "pal": "ty_precast_dk",
+      "pal": "ty_trm_blast",
       "z": 0.62
     },
     {
-      "bars": 3,
-      "cx": 0.08,
+      "cx": 0,
       "cy": 0.3,
-      "depth": 0.008,
-      "glass": "#141210",
-      "glow": "#e8d49a",
-      "half": 0.09,
-      "hh": 0.014,
-      "kind": "windowBay",
-      "pal": "ty_precast",
-      "z": 0.36
+      "kind": "pilaster",
+      "n": 2,
+      "out": 0.018,
+      "pal": "ty_quay_deck",
+      "step": 0.56,
+      "w": 0.024,
+      "z0": 0.08,
+      "z1": 0.52
     },
     {
-      "cx": -0.14,
+      "bars": 2,
+      "cx": -0.1,
+      "cy": 0.33,
+      "depth": 0.012,
+      "glass": "#262420",
+      "glow": "#3a3226",
+      "half": 0.05,
+      "hh": 0.11,
+      "kind": "windowBay",
+      "pal": "ty_stack_dk",
+      "z": 0.2
+    },
+    {
+      "cx": -0.1,
+      "cy": 0.33,
+      "half": 0.07,
+      "hh": 0.008,
+      "kind": "canopy",
+      "out": 0.05,
+      "pal": "ty_stack_dk",
+      "soffit": "#1c1a16",
+      "strip": "#e8c34a",
+      "z": 0.34
+    },
+    {
+      "bars": 3,
+      "cx": 0.12,
       "cy": 0.3,
-      "half": 0.09,
-      "hh": 0.06,
-      "kind": "shutter",
-      "pal": "ty_precast_dk",
-      "z": 0.01
+      "depth": 0.01,
+      "glass": "#141210",
+      "glow": "#e8d49a",
+      "half": 0.11,
+      "hh": 0.016,
+      "kind": "windowBay",
+      "pal": "ty_quay_deck",
+      "z": 0.4
     },
     {
       "color": "#241d0d",
-      "cx": 0.06,
-      "cy": 0.3,
+      "cx": 0,
+      "cy": 0.31,
       "font": "stencil",
-      "half": 0.15,
-      "hh": 0.024,
+      "half": 0.24,
+      "hh": 0.026,
       "ink": "#f0d98f",
       "kind": "signBoard",
       "label": "THE ACID TEST",
-      "z": 0.18
+      "z": 0.47
     },
     {
-      "cx": -0.24,
-      "cy": 0.34,
-      "kind": "bollard",
-      "pal": "ty_precast_dk",
-      "z": 0.004
+      "color": "#9a7a3a",
+      "cx": 0.12,
+      "cy": 0.31,
+      "font": "deco",
+      "half": 0.08,
+      "hh": 0.035,
+      "ink": "#1a1408",
+      "kind": "signBoard",
+      "label": "WEIGHED AND STATED · NO OPINIONS OFFERED",
+      "z": 0.2
     },
     {
-      "cx": 0.24,
-      "cy": 0.34,
-      "kind": "bollard",
-      "pal": "ty_precast_dk",
-      "z": 0.004
-    },
-    {
-      "cx": -0.24,
+      "cx": 0.2,
       "cy": 0.3,
       "drip": 0.6,
-      "hh": 0.022,
+      "hh": 0.02,
       "kind": "vent",
-      "pal": "ty_precast_dk",
-      "w": 0.07,
+      "pal": "ty_trm_blast",
+      "w": 0.04,
+      "z": 0.3
+    },
+    {
+      "band": "#e8c34a",
+      "count": 5,
+      "cx": -0.2,
+      "cy": 0.37,
+      "kind": "bollard",
+      "pal": "ty_trm_blast",
+      "step": 0.1,
+      "z": 0.004
+    },
+    {
+      "bars": 2,
+      "cx": 0,
+      "cy": 0.3,
+      "depth": 0.01,
+      "face": "x",
+      "glass": "#141210",
+      "glow": "#e8d49a",
+      "half": 0.06,
+      "hh": 0.016,
+      "kind": "windowBay",
+      "pal": "ty_quay_deck",
       "z": 0.42
+    },
+    {
+      "cx": -0.22,
+      "cy": -0.3,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_trm_blast",
+      "r": 0.01,
+      "z0": 0.08,
+      "z1": 0.52
+    },
+    {
+      "bay": true,
+      "cx": 0.1,
+      "cy": -0.3,
+      "half": 0.08,
+      "hh": 0.06,
+      "kind": "shutter",
+      "pal": "ty_trm_blast",
+      "z": 0.14
+    },
+    {
+      "cx": -0.12,
+      "cy": -0.1,
+      "d": 0.04,
+      "hh": 0.022,
+      "kind": "acUnit",
+      "pal": "ty_trm_blast",
+      "w": 0.05,
+      "z": 0.62
+    },
+    {
+      "cx": 0,
+      "cy": 0.3,
+      "drip": 0.5,
+      "kind": "grime",
+      "w": 0.26,
+      "z": 0.52
     }
   ],
   "id": "acidtest",
   "neon": "#e8c34a",
-  "note": "An assay counter for people who have come back in off the flats with something heavy in a bag. Small frontage, HEAVY door, and a slot of window up above head height with a bar across it — you cannot see the street from in there and you cannot be seen from it, and both of those were the point. There is a queue outside it some mornings and never at any other time.",
-  "pal": "ty_precast",
+  "note": "THE ACID TEST — an assay counter on Kiln Lane for people back in off the flats with something\nheavy in a bag.\n\nThe tile's prose: a small frontage, a heavy door, a brass plate reading THE ACID TEST, WEIGHED AND\nSTATED, NO OPINIONS OFFERED, and a queue outside some mornings. The window is a slot above head\nheight with a bar across it: nobody inside can see the street and nobody outside can see in.\n\nSo the front is mostly wall: precast piers at the corners, the heavy door in a steel surround under\na hood, the barred slot high up, the name on the fascia and the brass plate by the door. A rail of\nbollards marks where the queue stands. A lamp over the door is the only light, because it opens\nearly.\n\nThe walls are board-formed concrete. They were `ty_precast`, which is in the window-grid family\nand painted a row of windows onto a building whose point is that you can't see in.",
+  "pal": "ty_quay_deck",
   "segs": [
     {
       "cx": 0,
       "cy": 0,
       "hw": 0.32,
       "kind": "box",
+      "pal": "ty_quay_deck",
       "roof": true,
       "z0": 0,
       "z1": 0.08
@@ -107,6 +204,7 @@
       "cy": 0,
       "hw": 0.3,
       "kind": "box",
+      "pal": "ty_quay_deck",
       "roof": true,
       "z0": 0.08,
       "z1": 0.52
@@ -116,10 +214,21 @@
       "cy": 0,
       "hw": 0.3,
       "kind": "box",
-      "pal": "ty_precast_dk",
+      "pal": "ty_trm_blast",
       "roof": true,
       "z0": 0.52,
       "z1": 0.62
+    },
+    {
+      "cx": -0.1,
+      "cy": 0.3,
+      "fd": 0.025,
+      "hw": 0.08,
+      "kind": "box",
+      "pal": "ty_dw_iron",
+      "roof": true,
+      "z0": 0.08,
+      "z1": 0.36
     }
   ],
   "trade": "assay"
