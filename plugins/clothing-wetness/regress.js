@@ -4,8 +4,10 @@
 // and the BARE SKIN rule, which is where the original interesting bug was.
 import { _test } from './index.js';
 import { applyTopical } from '../../server/engine/topical.js';
+import { fireHook } from '../../server/engine/plugins.js';
+import { getZone } from '../../server/engine/world.js';
 
-export default async function regress({ check }) {
+export default async function regress({ check, getPlayer }) {
   const { rainWettingRate, snowWettingRate, dryMultiplier, windMultiplier, humidityMultiplier,
           skinWetnessStep, SKIN_DRY_FACTOR, COVERED_SKIN_DRY_FACTOR,
           layerPassthrough, layerRank, slotsOf, stackFlux, drivenRainMultiplier,
@@ -161,4 +163,39 @@ export default async function regress({ check }) {
   check('the layer walk reports what reached skin',
     exposed.skinExposure === 1, String(exposed.skinExposure));
   check('…but it still soaks them', (cold.wetness ?? 0) > 50, String(cold.wetness));
+
+  // ── Through the loader ─────────────────────────────────────────────────────
+  // The rest of this suite calls the module directly, and it passed for months while
+  // plugin.json declared no hooks: the loader never called the tick, so rain wet nobody and
+  // nothing dried. These go through fireHook, the way the minute tick does. The fake player
+  // wears nothing, so this is the bare-skin path; the zone flag is set in RAM and put back.
+  {
+    const p = getPlayer();
+    const zone = getZone(p.current_zone);
+    const saved = { flags: zone.flags, submerged: p._submerged, wetness: p.wetness, skin: p._skinWetness };
+    const sent = [];
+    const broadcast = (zoneId, payload, exclude, toPlayer) => { if (toPlayer === p.id) sent.push(payload); };
+    const hud = () => sent.filter(m => m?.type === 'resource_tick' && m.player_update?.wetness != null);
+    try {
+      p._submerged = true;
+      p.wetness = 0;
+      delete p._skinWetness;
+      await fireHook('tick.minute', { broadcast });
+      check('tick.minute reaches clothing-wetness: a swimmer is soaked', p.wetness === 100, String(p.wetness));
+      check('…and the HUD hears it', hud().some(m => m.player_update.wetness === 100), JSON.stringify(sent));
+
+      // Indoors, so no weather can reach the tile whatever the regress sky is doing.
+      p._submerged = false;
+      zone.flags = { ...(saved.flags || {}), is_interior: true };
+      sent.length = 0;
+      await fireHook('tick.minute', { broadcast });
+      check('…and out of the water, bare skin dries', p.wetness > 0 && p.wetness < 100, String(p.wetness));
+      check('…which the HUD hears too', hud().some(m => m.player_update.wetness < 100), JSON.stringify(sent));
+    } finally {
+      zone.flags = saved.flags;
+      p._submerged = saved.submerged;
+      p.wetness = saved.wetness;
+      if (saved.skin) p._skinWetness = saved.skin; else delete p._skinWetness;
+    }
+  }
 }

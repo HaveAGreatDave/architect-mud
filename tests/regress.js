@@ -170,6 +170,23 @@ section('layer 1: manifest contracts');
   }
   check(`manifest contracts hold for ${getLoadedPlugins().length} plugins`, drift.length === 0, drift.join('; '));
 
+  // …and the reverse. The loader wires only what plugin.json lists, so a handler the
+  // module exports but the manifest doesn't name is never called, and nothing says so.
+  // frostbite, warmth and clothing-wetness shipped like that: rain never wet anyone and
+  // frostbite never accrued, while suites that called the module directly stayed green.
+  // The import is the loader's own module instance (same file URL), so nothing re-runs.
+  const undeclared = [];
+  for (const p of getLoadedPlugins()) {
+    const mod = await import(pathToFileURL(join(PLUGINS_DIR, p.dirName, 'index.js')).href);
+    for (const [kind, declared] of [['hooks', p.hooks], ['commands', p.commands]]) {
+      for (const [name, fn] of Object.entries(mod[kind] || {})) {
+        if (typeof fn === 'function' && !declared.includes(name)) undeclared.push(`${p.name}: ${kind} "${name}"`);
+      }
+    }
+  }
+  check('every exported hook and command is declared in plugin.json', undeclared.length === 0,
+    `${undeclared.join('; ')}: add it to the plugin.json "hooks"/"commands" array, or the loader never wires it`);
+
   // ── Scheduler discipline ───────────────────────────────────────────────────
   // A recurring world tick must be registered through engine/scheduler.js, never
   // a raw setInterval. The scheduler idle-gates on hasActivePlayers() BY DEFAULT

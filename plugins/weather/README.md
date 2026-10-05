@@ -7,6 +7,9 @@
 - `environment.advanceWeather`
 - `environment.recalculateForecast`
 - `environment.weatherFieldSync`
+- `environment.scheduleForecastDay`: the dev panel's Schedule Future Weather. Until 2026-10-04 it
+  was exported but not declared in plugin.json, so the loader never wired it and the button did
+  nothing.
 
 ## Data schema
 - `weather_forecast`

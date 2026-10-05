@@ -6,7 +6,12 @@
 None — entirely passive, driven off exposure.
 
 ## Hooks
-None declared.
+`tick.minute`: one batched read of every online player's worn items, the wetting and drying
+below, then one batched write of the garments whose rounded wetness changed. It reads every minute
+someone is online and writes only when a garment's number moves.
+
+Until 2026-10-04 plugin.json declared no hooks, so the loader never called the tick: rain wet
+nobody and nothing dried. Regress now fails any plugin that exports a hook its manifest doesn't list.
 
 ## Rules worth knowing
 - **Water runs outside-in.** Rain lands on your outermost layer and only what that layer *passes*

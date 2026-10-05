@@ -10,7 +10,12 @@ superb coat could be done indefinitely at no cost.
 None — entirely passive, driven off exposure.
 
 ## Hooks
-`tick.minute` — advances a 0–100 meter and swaps the stage's status effect.
+- `tick.minute`: advances a 0–100 meter and swaps the stage's status effect.
+- `item.consumed`: the `treat_frostbite` field-kit tag (below). With nothing frozen it answers
+  `{ idle }`, so a medkit that treated a wound doesn't also say nothing needed it.
+
+Until 2026-10-04 plugin.json declared neither hook, so the loader never called them: frostbite never
+accrued and kits never treated it.
 
 ## How it works
 - **Skin temperature, not room temperature.** Reads the windproofed apparent temperature with

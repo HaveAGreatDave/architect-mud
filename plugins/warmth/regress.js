@@ -3,8 +3,11 @@
 // the thermostat semantics, and the carried-warmth taper.
 import { _test } from './index.js';
 import { applyWarmth, warmthBonus, tickWarmth } from '../../server/engine/warmth.js';
+import { fireHook, gatherHook } from '../../server/engine/plugins.js';
+import { world } from '../../server/engine/world.js';
+import { getTimeScale } from '../../server/engine/gametime.js';
 
-export default async function regress({ check }) {
+export default async function regress({ check, getPlayer }) {
   const { heaterTarget, isHeater, capacityOf } = _test;
 
   // ── What counts as a heater ────────────────────────────────────────────────
@@ -66,4 +69,38 @@ export default async function regress({ check }) {
   }
   check('nothing is warmed by a zero-degree source',
     (() => { const p = {}; applyWarmth(p, 0, 10); return warmthBonus(p); })() === 0, 'no-op');
+
+  // ── Through the loader ─────────────────────────────────────────────────────
+  // The checks above call the module directly, and they passed for months while plugin.json
+  // declared no hooks, so heater batteries never drained and hand warmers did nothing. These
+  // go through fireHook/gatherHook, the way the minute tick and the consumable path do.
+  //
+  // The heater lives only in the furniture Map, in a room with no power-model entry (so it
+  // runs on battery), and comes out again afterwards. Its charge flush is an UPDATE against
+  // an id with no row, so it writes nothing.
+  {
+    const heater = {
+      id: `regress_heater_${process.pid}`, zone_id: 'regress_warmth_room', name: 'regress heater',
+      flags: { heater_target_c: 20, heater_charge_min: 100 },
+    };
+    world.furniture.set(heater.id, heater);
+    try {
+      await fireHook('tick.minute', { broadcast: () => {} });
+      const expected = 100 - Math.max(0, getTimeScale() || 1);
+      check('tick.minute reaches warmth: an unpowered heater runs down its battery',
+        Math.abs(_test.charge.get(heater.id) - expected) < 1e-9, `${_test.charge.get(heater.id)} vs ${expected}`);
+    } finally {
+      world.furniture.delete(heater.id);
+      _test.charge.delete(heater.id);
+    }
+  }
+  {
+    const p = getPlayer();
+    tickWarmth(p, 1000);   // start cold, whatever an earlier suite left on the fake player
+    const notes = await gatherHook('item.consumed', p, { warming: { degrees: 5, minutes: 20 } });
+    check('item.consumed reaches warmth: a hand warmer warms', warmthBonus(p) === 5, String(warmthBonus(p)));
+    check('…and says so', notes.some(n => typeof n === 'string' && /hot/.test(n)), JSON.stringify(notes));
+    tickWarmth(p, 1000);
+    check('…and the fake player is left cold again', warmthBonus(p) === 0, String(warmthBonus(p)));
+  }
 }
