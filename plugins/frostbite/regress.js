@@ -2,9 +2,12 @@
 // No verbs; this is a per-minute meter. So the suite pins the staging rules and the
 // exposure maths, which is where the design decisions actually live.
 import { _test, frostbiteReport, treatFrostbite, clearFrostbite } from './index.js';
-import { getRegisteredStatusEffects, applyEffect, effectStatBonus } from '../../server/engine/effects.js';
+import { getRegisteredStatusEffects, applyEffect, clearEffect, effectStatBonus } from '../../server/engine/effects.js';
+import { fireHook, gatherHook } from '../../server/engine/plugins.js';
+import { getZone } from '../../server/engine/world.js';
+import { injuryReport } from '../injury/index.js';
 
-export default async function regress({ check }) {
+export default async function regress({ check, getPlayer }) {
   const { STAGES, stageFor, ONSET_C, THAW_C, THAW_PER_MIN, ACCRUAL_PER_DEGREE, COVERED_FLOOR } = _test;
 
   // ── Staging ─────────────────────────────────────────────────────────────────
@@ -98,4 +101,63 @@ export default async function regress({ check }) {
     Math.max(0, 0.2 - THAW_PER_MIN) === 0, 'thaws clean');
   // …and a reversible case still takes a serious, memorable stretch of warmth to walk off.
   check('a full meter takes a long thaw', 90 / THAW_PER_MIN > 120, `${(90 / THAW_PER_MIN).toFixed(0)} min`);
+
+  // ── Through the loader ──────────────────────────────────────────────────────
+  // Everything above calls the module directly, and it all passed for months while
+  // plugin.json declared no hooks and the loader never called either handler. These
+  // go through fireHook/gatherHook, the way the minute tick and the consumable path do.
+  // The cold comes from the fake player's own room: `temp_offset` is the per-zone
+  // offset peripheralTempC already reads, set in RAM and put back afterwards.
+  {
+    const p = getPlayer();
+    const zone = getZone(p.current_zone);
+    const saved = { flags: zone.flags, exposure: p.extremityExposure, submerged: p._submerged };
+    const sent = [];
+    const broadcast = (zoneId, payload, exclude, toPlayer) => { if (toPlayer === p.id) sent.push(payload); };
+    const has = (name) => (p.statuses || []).some(s => s.name === name);
+    try {
+      p._submerged = false;
+      p.extremityExposure = 1;
+
+      zone.flags = { ...(saved.flags || {}), temp_offset: -60 };
+      p._frostbite = 24.9;
+      p._frostbiteFloor = 0;
+      await fireHook('tick.minute', { broadcast });
+      check('tick.minute reaches frostbite: bare hands in deep cold accrue', p._frostbite > 24.9, String(p._frostbite));
+      check('…crossing 25 puts frostnip on', has('frostnip'), JSON.stringify(p.statuses));
+      check('…and tells the player', sent.some(m => /sting/.test(m?.message || '')), JSON.stringify(sent));
+
+      zone.flags = { ...(saved.flags || {}), temp_offset: 20 };
+      sent.length = 0;
+      p._frostbite = 25.1;
+      await fireHook('tick.minute', { broadcast });
+      check('…and warmth thaws it back under the line', p._frostbite < 25, String(p._frostbite));
+      check('…which takes frostnip off', !has('frostnip'), JSON.stringify(p.statuses));
+      check('…and says so', sent.some(m => /sting fades/.test(m?.message || '')), JSON.stringify(sent));
+
+      // A trauma kit carries treat_injury AND treat_frostbite. On an unwounded body the
+      // injury handler has nothing to do, and its line must not bury the one saying the
+      // frostbite was treated, which is what a last-return-wins fireHook did. If an earlier
+      // suite left the fake player wounded, the injury tag stays off so this can't treat it.
+      const unwounded = injuryReport(p).length === 0;
+      p._frostbite = 95;
+      p._frostbiteFloor = 90;
+      const kit = { treat_frostbite: { steps: 2, floor: 1 }, ...(unwounded ? { treat_injury: { all: true, floor: 1, steps: 1 } } : {}) };
+      const notes = await gatherHook('item.consumed', p, kit);
+      check('item.consumed reaches frostbite: a trauma kit walks a deep case back', p._frostbite < 95, String(p._frostbite));
+      check("…and says so in a line of its own, not as an idle 'nothing to do'",
+        notes.some(n => typeof n === 'string' && /circulation/.test(n)), JSON.stringify(notes));
+      if (unwounded) {
+        check('…while the injury handler, with nothing to treat, answers idle',
+          notes.some(n => /nothing on you/i.test(n?.idle || '')), JSON.stringify(notes));
+      }
+    } finally {
+      zone.flags = saved.flags;
+      p.extremityExposure = saved.exposure;
+      p._submerged = saved.submerged;
+      p._frostbite = 0;
+      p._frostbiteFloor = 0;
+      for (const s of STAGES) clearEffect(p, s.name);
+    }
+  }
 }

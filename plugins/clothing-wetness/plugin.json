@@ -1,5 +1,6 @@
 {
   "name": "clothing-wetness",
   "version": "1.0.0",
-  "description": "Per-item wetness accumulation from rain/snow and its effect on body temperature."
+  "description": "Per-item wetness accumulation from rain/snow and its effect on body temperature.",
+  "hooks": ["tick.minute"]
 }

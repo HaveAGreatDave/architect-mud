@@ -207,7 +207,8 @@ export const hooks = {
   'item.consumed': async (player, tags) => {
     const rx = tags?.treat_frostbite;
     if (!rx) return undefined;
-    if (!frostbiteReport(player)) return 'Nothing on you is frozen. You put it away.';
+    // `idle`: shown only if no other handler treated anything (a medkit also treats wounds).
+    if (!frostbiteReport(player)) return { idle: 'Nothing on you is frozen. You put it away.' };
     const moved = await treatFrostbite(player, rx);
     if (!moved) return 'You warm and wrap what you can. The damage is past what this can reach.';
     return moved.to

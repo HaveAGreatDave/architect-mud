@@ -391,7 +391,8 @@ export const hooks = {
     if (!rx) return undefined;
 
     const injuries = injuryReport(player);
-    if (!injuries.length) return 'Nothing on you needs it. You put it away.';
+    // `idle`: shown only if no other handler treated anything (a medkit also treats frostbite).
+    if (!injuries.length) return { idle: 'Nothing on you needs it. You put it away.' };
 
     // `types` narrows an item to the wounds it's actually for — a splint sets a
     // fracture and does nothing at all for a burn. This is what makes damage type

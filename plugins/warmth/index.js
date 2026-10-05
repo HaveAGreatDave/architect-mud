@@ -17,7 +17,7 @@
  * Reuses `plug`/`unplug` from the appliances plugin for on/off — a heater is an appliance with
  * `power_draw_kw`, so it inherits those verbs and needs no new ones.
  */
-import { getAllZones, getZoneFurniture, updateFurniture, getZonePlayers } from '../../server/engine/world.js';
+import { world, getZoneFurniture, updateFurniture, getZonePlayers } from '../../server/engine/world.js';
 import { getZonePowerStatus, registerHeatSource } from '../../server/engine/environment.js';
 import { isPluggedIn } from '../appliances/index.js';
 import { sendToZone } from '../../server/engine/messaging.js';
@@ -83,31 +83,31 @@ export const hooks = {
     // straight off the speed knob — the battery is specified in GAME hours, and at 3× a night
     // is three times shorter. Charge is a float in RAM, so fractional scales just work.
     const gm = Math.max(0, getTimeScale() || 1);
-    for (const zone of getAllZones()) {
-      const furniture = getZoneFurniture(zone.id) || [];
-      for (const f of furniture) {
-        if (!isHeater(f) || !isPluggedIn(f)) continue;
-        const cap = capacityOf(f);
-        const before = chargeOf(f);
-        const onMains = getZonePowerStatus(f.zone_id) === 'powered';
-        if (onMains) {
-          // Mains runs it AND tops it up, at half the discharge rate — a full recharge is a
-          // day, so a heater that carried you through last night's outage is not automatically
-          // ready for tonight's.
-          charge.set(f.id, Math.min(cap, before + 0.5 * gm));
-        } else if (before > 0) {
-          const now = Math.max(0, before - gm);
-          charge.set(f.id, now);
-          // Tell the room when it dies. A heater going out in a blackout is the single most
-          // consequential thing that can happen in a cold snap and it must never be silent.
-          if (before > 0 && now === 0 && getZonePlayers(f.zone_id).length) {
-            sendToZone(f.zone_id, `<span style="color:var(--orange)">The ${f.name} ticks, dims, and stops. The cold starts coming back in.</span>`);
-            await flush(f, true);
-            continue;
-          }
+    // Scan the furniture Map for heaters rather than every zone for furniture: getAllZones()
+    // builds a projection of all ~17k tiles to find the few rooms that hold one. Collected
+    // before the first await, because flush() re-caches the rows it writes.
+    const heaters = [...world.furniture.values()].filter(f => isHeater(f) && isPluggedIn(f));
+    for (const f of heaters) {
+      const cap = capacityOf(f);
+      const before = chargeOf(f);
+      const onMains = getZonePowerStatus(f.zone_id) === 'powered';
+      if (onMains) {
+        // Mains runs it AND tops it up, at half the discharge rate. A full recharge is a
+        // day, so a heater that carried you through last night's outage is not automatically
+        // ready for tonight's.
+        charge.set(f.id, Math.min(cap, before + 0.5 * gm));
+      } else if (before > 0) {
+        const now = Math.max(0, before - gm);
+        charge.set(f.id, now);
+        // Tell the room when it dies. A heater going out in a blackout is the single most
+        // consequential thing that can happen in a cold snap and it must never be silent.
+        if (before > 0 && now === 0 && getZonePlayers(f.zone_id).length) {
+          sendToZone(f.zone_id, `<span style="color:var(--orange)">The ${f.name} ticks, dims, and stops. The cold starts coming back in.</span>`);
+          await flush(f, true);
+          continue;
         }
-        if (charge.get(f.id) !== before) await flush(f);
       }
+      if (charge.get(f.id) !== before) await flush(f);
     }
   },
 

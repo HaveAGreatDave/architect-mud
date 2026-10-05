@@ -15,7 +15,7 @@ import { computeSellUnitPrice } from '../vendor.js';
 import { resolveCorpseOrPlayer, buildLootView, lootReply } from './combat.js';
 import { titleCaseName } from '../text.js';
 import { getItem } from '../items-cache.js';
-import { fireHook } from '../plugins.js';
+import { fireHook, gatherHook } from '../plugins.js';
 import { applyEffect } from '../effects.js';
 import { sendToPlayer } from '../messaging.js';
 import { sectionize, facetOf, AXIS_ORDER, storageFacet } from '../classify.js';
@@ -878,8 +878,13 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
   // Anything else a consumable does that the engine has no business knowing
   // about. Injuries are the first user (a splint sets a fracture); the handler
   // reads whatever tag it owns off `t` and returns a line to show, or nothing.
-  const consumedNote = await fireHook('item.consumed', player, t);
-  if (consumedNote) messages.push(consumedNote);
+  // GATHERED, because one item can carry several such tags: a medkit treats a
+  // wound and frostbite. A handler that owns a tag but found nothing to treat
+  // returns { idle: line }, shown only when no handler did anything, so a kit
+  // that thawed your hands doesn't also say nothing on you needed it.
+  const consumedNotes = await gatherHook('item.consumed', player, t);
+  const treatedNotes = consumedNotes.filter(n => typeof n === 'string');
+  messages.push(...(treatedNotes.length ? treatedNotes : consumedNotes.map(n => n?.idle).filter(Boolean).slice(-1)));
   }
 
   let madeIll = false;

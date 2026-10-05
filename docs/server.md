@@ -432,7 +432,7 @@ makes, and a developer trusting it would have concluded that a load-bearing seam
 | `speech.transform` | `commands/social.js:73` | `{ player, text }` | Yes — replaces the spoken text |
 | `player.say` | `commands/social.js:79` | `{ player, text, zoneId, broadcast }` | No |
 | `player.appearanceNotes` | `commands/world.js:312` | `{ target, viewer, isSelf }` | Yes |
-| `item.consumed` | `commands/inventory.js` (consumable path) | `(player, tags)` | Yes — a line appended to the use output |
+| `item.consumed` | `commands/inventory.js` (consumable path) | `(player, tags)` | **GATHERED**, because one item can carry several handlers' tags (a medkit has `treat_injury` and `treat_frostbite`). Every string returned is appended to the use output. A handler that owns a tag but found nothing to treat returns `{ idle: line }` instead, and an idle line shows only when no handler returned a string (the last one wins), so a kit that thawed your hands doesn't also say nothing needed it. |
 | `player.appearanceMisNotes` | `commands/world.js:351,386` | `{ target, viewer, isSelf, broadcast, naked, … }` | Yes |
 | `furniture.describe` | `commands/world.js:476` | `(furniture, player)` | Yes |
 | `door.describe` | `commands/world.js` `describeDoor` | `(door, player)` | **GATHERED** — each contributor's line is appended to `examine door <dir>`, above the action links. A gather rather than a fire because a door can carry more than one thing worth reading (a shop's trading hours, a notice, a warning) and none of them overwrites the others. The engine keeps the door and its lock; what a shopfront says about its hours is `plugins/commerce` knowledge and is contributed from there. |

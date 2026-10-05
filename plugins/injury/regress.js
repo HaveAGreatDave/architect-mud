@@ -254,8 +254,10 @@ export default async function regress({ run, check, getPlayer }) {
   check('an ordinary bandage treats only one',
     injuryReport(single).filter(i => i.severity === HURT).length === 1);
 
+  // An `idle` line: the engine shows it only when no other item.consumed handler treated
+  // anything, so a medkit that thawed frostbite doesn't also report nothing to do.
   check('using a kit on an unhurt body is a gentle no-op',
-    /nothing on you/i.test(treat(body(), { steps: 1, floor: 1 }) || ''));
+    /nothing on you/i.test(treat(body(), { steps: 1, floor: 1 })?.idle || ''));
 
   // The surgical tier — the only thing that makes you whole.
   const forSurgery = body({ left_leg: [MAIMED, 'kinetic', 0], head: [BRUISED, 'edged', 0] });

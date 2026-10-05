@@ -8,12 +8,16 @@ None. A heater is an appliance with `power_draw_kw`, so it inherits **`plug` / `
 [appliances](../appliances/README.md) plugin for on/off and needs no verbs of its own.
 
 ## Hooks
-- `tick.minute` — battery discharge/recharge for every heater in the world.
-- `item.consumed` — the `warming` tag on carried heat (hand warmers, heat patches).
+- `tick.minute`: battery discharge/recharge for every heater in the world.
+- `item.consumed`: the `warming` tag on carried heat (hand warmers, heat patches).
 - Registers a **heat source** with the engine (`registerHeatSource`, environment.js), which folds
   into `getZoneTemperature` so the body-temp drift, frostbite's peripheral skin temperature and the
   HUD thermometer all read the same number. A fire that warmed your core but not your fingers would
   be a bug nobody could find.
+
+Until 2026-10-04 plugin.json declared neither hook, so the loader never called them: batteries never
+drained and hand warmers did nothing. The heat source, registered at module load, always worked, so
+an unpowered heater had a battery that never ran out.
 
 ## Why this needed a mechanic first
 Until the drift's rewarming rate became a **gradient**, a heater would have been a decoration: a cold
