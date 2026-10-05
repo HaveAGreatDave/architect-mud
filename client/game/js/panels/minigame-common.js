@@ -18,7 +18,9 @@ export function sfx(idOrDef) {
 
 export const clampInt = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(v)));
 export const clampNum = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-export const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+// The shared escaper, which also escapes quotes: the overlays put server text
+// into attributes as well as between tags.
+export { escapeHtml as esc } from '../../../shared/dom.js';
 
 // ── Physical-device chrome ───────────────────────────────────────────────────
 // Shared "hardware" dressing modelled directly on the ATM terminal (#atm-box):

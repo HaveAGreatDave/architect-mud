@@ -1251,6 +1251,19 @@ export default async function regress({ check, run, getPlayer }) {
   check('engineer is due one defend window after seizure', engineerDueAt({ pirate_since: 1000 }) === 1000 + 120000, String(engineerDueAt({ pirate_since: 1000 })));
   check('a stamped retry time overrides the default window', engineerDueAt({ pirate_since: 1000, pirate_engineer_at: 5000 }) === 5000, String(engineerDueAt({ pirate_since: 1000, pirate_engineer_at: 5000 })));
 
+  // ── Counter-hack: the rival takes the deck, not the last captor's crawl ─────────
+  // The crawl is player-typed and the console renders it. A crawl that survived a
+  // seizure landed in the rival's console, which is how a stored payload in it
+  // reached a second player. The queue still carries over.
+  const { seizeDeckFlags } = _piracyTest;
+  const seized = seizeDeckFlags({
+    pirate_owner: 'p_first', pirate_since: 1, pirate_crawl: 'x" onmouseover="alert(1)', pirate_queue: [{ id: 'bc_a' }], pirate_engineer_at: 9,
+  }, 'p_rival', 5000);
+  check('a counter-hack hands the deck to the rival', seized.pirate_owner === 'p_rival' && seized.pirate_since === 5000, JSON.stringify(seized));
+  check('a counter-hack drops the last captor\'s crawl', !('pirate_crawl' in seized), JSON.stringify(seized.pirate_crawl));
+  check('a counter-hack keeps the queue and opens a fresh defend window',
+    seized.pirate_queue?.[0]?.id === 'bc_a' && !('pirate_engineer_at' in seized), JSON.stringify(seized));
+
   // ── Emergency broadcast override (the Echelon's special MediaDeck) ────────────
   // Verbs are admin-gated; the fake player is a plain 'player'.
   let r = await run('airemergency');

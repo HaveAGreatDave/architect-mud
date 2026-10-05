@@ -12,11 +12,11 @@
 // at all.
 
 import { sendCmdSilent } from '../net.js';
+import { escapeHtml as esc } from '../../../shared/dom.js';
 
 let _overlay = null;
 let _data = null;
 
-const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const send = (cmd) => sendCmdSilent(cmd);
 
 function ensureStyles() {
@@ -109,7 +109,7 @@ function render() {
     <div class="eb-row${c.key === d.camera ? ' cur' : ''}" data-cam="${i + 1}">
       <span class="eb-num">${String(i + 1).padStart(2, '0')}</span>
       <span class="eb-name">${esc(c.label)}</span>
-      <span class="eb-num">${c.droid ? 'DROID' : esc(String(c.direction || 'all')).toUpperCase()}</span>
+      <span class="eb-num">${c.droid ? 'DROID' : esc(String(c.direction || 'all').toUpperCase())}</span>
       ${c.key === d.camera ? '<span class="eb-air">◉ CUT TO</span>' : ''}
     </div>`).join('') : '<div class="eb-empty">NO CAMERA IN THIS ROOM</div>';
 
