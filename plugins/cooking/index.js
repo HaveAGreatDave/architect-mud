@@ -1389,8 +1389,8 @@ async function cmdButter(args, raw, player) {
 // rules and every dish's `needs`. Rows, and all of them already understand it.
 //
 // ⚠ IT MUST FALL THROUGH FOR ANYTHING THAT ISN'T A COOKING FAT. Specialized
-// actions fire alphabetically and `cooking` sorts before `drinks` and
-// `fillable`, so this handler sees `pour` FIRST — for canteens, cups, jerry
+// actions fire in load order, and `drinks` and `fillable` declare after:
+// cooking, so this handler sees `pour` FIRST — for canteens, cups, jerry
 // cans, everything. Returning undefined is what hands those back, and every
 // early exit below is doing that rather than reporting an error.
 // WHAT COUNTS AS FLUID IN A PAN.

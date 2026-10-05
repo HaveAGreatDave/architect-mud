@@ -2,7 +2,7 @@
   "name": "jail",
   "version": "1.0.0",
   "description": "Downed-while-wanted players respawn in Precinct 9 holding, serve 1 min/star, have their gear confiscated, and are walked out by a guard.",
-  "after": ["surveillance", "doors"],
+  "after": ["surveillance", "doors", "augments"],
   "commands": ["conceal", "concealresolve", "sentence", "time"],
   "specializedActions": [{ "verb": "read", "requiredTag": "charge_sheet" }],
   "hooks": ["player.respawnZone"],

@@ -438,8 +438,8 @@ makes, and a developer trusting it would have concluded that a load-bearing seam
 | `door.describe` | `commands/world.js` `describeDoor` | `(door, player)` | **GATHERED** — each contributor's line is appended to `examine door <dir>`, above the action links. A gather rather than a fire because a door can carry more than one thing worth reading (a shop's trading hours, a notice, a warning) and none of them overwrites the others. The engine keeps the door and its lock; what a shopfront says about its hours is `plugins/commerce` knowledge and is contributed from there. |
 | `forcefield.gate` | `apartments.js:144` | `{ player, zoneId }` | Yes — a non-empty return blocks the forcefield |
 | `drug.used` / `drug.overdose` | `drugs.js:520,541,570` / `:479` | `{ player, drug, potency\|lethal, broadcast }` | No |
-| `player.create` / `player.login` | `api/routes.js:496,523` | `{ id, handle, username?, role }` | No |
-| `zone.create` / `zone.update` / `zone.delete` | `api/routes.js:658,686,711,1668` | `(id, body)` / `(id, deletedIds)` | No |
+| `player.create` / `player.login` | `api/routes.js:612,696` | `{ id, handle, username?, role }` | No |
+| `zone.create` / `zone.update` / `zone.delete` | `api/routes.js:926,959,984,1973` | `(id, body)` / `(id, deletedIds)` | No |
 | `environment.init` | `environment.js:361` boot | `{ setWeatherState, setCurrentPrecip, climateProfile, registerWeatherField, registerWeatherFieldSnapshot, registerWeatherFieldAdvance, registerWeatherEventStep, registerWeatherEventTrigger, registerWeatherRegionRefresh }` | No |
 | `environment.advanceWeather` | `environment.js:1039` 24h tick | `{ setWeatherState, rollAndSetCurrentPrecip, getHUDPayload, broadcast, currentForecast, currentDate, climateProfile }` | No |
 | `environment.tick30m` / `environment.tick24h` | `environment.js:1002,1047` | payload + `{ setCurrentPrecip, getHUDPayload, broadcast }` on 30m | No |
@@ -462,7 +462,7 @@ makes, and a developer trusting it would have concluded that a load-bearing seam
 | `container.view` | `commands/inventory.js:1463` | `{ view, container, player }` | No — contributors **mutate `view` in place**. How a cooking vessel shows its contents as a pan rather than as a bag |
 | `zone.smells` | `commands/world.js:1758` | `(zone, player)` | **GATHERED** — a string, or `{ text, strength }`. The canonical gather: a kitchen smells of burnt fat AND the floor smells of piss, and neither overwrites the other. ⚠ Contributors are **in-memory only by contract** ([systems-senses.md](systems-senses.md)) |
 | `zone.sounds` | `commands/world.js:1881` | `(there, player, { distance, here })` | **GATHERED** — same shape, but fired for *neighbouring* zones too, so a contributor is asked about a room the player is not in |
-| `sense.acuity` | `senses.js:151` | `(player, sense)` | **GATHERED** — each contribution is a number or `{ bonus }`, and they are **summed**. Gear, statuses and mutations all sharpen one nose through here |
+| `sense.acuity` | `senses.js:151` | `(player, sense)` | **GATHERED** — each contribution is a number or `{ bonus }`, and they are **summed**. The seam for gear, statuses and augments that sharpen a sense; **nothing subscribes yet** (checked 2026-10-04), so acuity today is the base from `senses.js` alone |
 | `enemy.appearanceNotes` | `commands/world.js:987` | `{ target, viewer }` | Yes — a line appended to examining an enemy. The [injury](../plugins/injury/README.md) counterpart to `player.appearanceNotes` |
 | `npc.petAttempt` | `commands/social.js:340` | `{ player, npc, zoneId, broadcast }` | Yes — **short-circuits the verb**: any non-`undefined` return is the command's whole result, so a plugin can answer `pet` for its own animal ([systems-strays.md](systems-strays.md)) |
 | `sleep.dream` | `dreams.js:178` | `(player)` | **GATHERED** — a string or `{ text }` per contributor, folded into the dreamscape |

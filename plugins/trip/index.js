@@ -615,8 +615,8 @@ function enterPhantom(player, hallu, state) {
 // works out for free (commands index.js): plugin commands fire first (so
 // flight's in-cockpit `examine`/`look` win while airborne), then these
 // specialized actions, then the engine builtins. For `attack`/`kill`/`k` the
-// weapon plugin is also a specialized action; the loader's alphabetical base
-// order puts `trip` ahead of `weapon`, so a phantom-only target whiffs here
+// weapon plugin is also a specialized action; weapon/plugin.json declares
+// after: trip, so `trip` runs ahead of `weapon` and a phantom-only target whiffs here
 // before weapon can error on it — and matchPhantom already defers to any real
 // enemy/npc/player, so a real attack is never stolen.
 //

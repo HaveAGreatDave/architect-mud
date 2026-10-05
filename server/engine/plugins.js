@@ -25,6 +25,8 @@ const PLUGINS_DIR = join(__dirname, '../../plugins');
 // Registry: hookName -> [{ pluginName, handler }]
 const hooks = new Map();
 const loadedPlugins = [];
+// Plugins that threw on import or setup, by folder: regress fails on any (see getFailedPlugins).
+const failedPlugins = [];
 
 // Command registry: commandName -> handler(args, raw, player, broadcast)
 // Checked by commands.js before the built-in switch statement.
@@ -153,6 +155,7 @@ export async function loadPlugins() {
         throw new Error(`Critical plugin "${name}" failed to load: ${e.message}`);
       }
       console.error(`  ✗ Plugin ${dirName} failed to load: ${e.message}`);
+      failedPlugins.push({ dirName, name, error: e.message });
     }
   }
 
@@ -325,6 +328,9 @@ export async function fireRoutes(path, method, body, auth, reqHeaders) {
 // --- Introspection ---
 
 export function getLoadedPlugins() { return [...loadedPlugins]; }
+// A plugin that fails to load is logged and skipped, so it also vanished from every check
+// that walks getLoadedPlugins(). This is the list of those, for regress to fail on.
+export function getFailedPlugins() { return [...failedPlugins]; }
 
 /**
  * Every plugin-declared dev-panel tab, in plugin LOAD ORDER.

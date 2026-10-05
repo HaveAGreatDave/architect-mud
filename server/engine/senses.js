@@ -59,8 +59,8 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 // it: the stat sets how deep your one sense goes, and only the deep end of the
 // stat spills over into a second at all.
 //
-// Augments are the other axis entirely — they contribute through `sense.acuity`
-// like anything else, but their real job is ABILITIES a normal nose can't do at
+// Augments are the other axis entirely — they would contribute through `sense.acuity`
+// like anything else (nothing subscribes to it yet), but their real job is ABILITIES a normal nose can't do at
 // any acuity (tracking a scent to the exit it left by, hearing through a wall).
 // Depth is bought with the stat; capability is bought with chrome.
 const DOMINANT_BY_STAT = [

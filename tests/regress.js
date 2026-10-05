@@ -32,7 +32,7 @@ import { cmdMove, dragFollowers } from '../server/engine/commands/movement.js';
 import { resolveNamedDestination, _test as describeTest } from '../server/engine/commands/describe.js';
 import { tickOnsets } from '../server/engine/drugs.js';
 import { getSelectionState, clearSelectionState, takePendingSelection, advanceSelectionState } from '../server/engine/sift.js';
-import { loadPlugins, getLoadedPlugins, getRegisteredCommands, getRegisteredHooks } from '../server/engine/plugins.js';
+import { loadPlugins, getLoadedPlugins, getFailedPlugins, getRegisteredCommands, getRegisteredHooks } from '../server/engine/plugins.js';
 import { getHelpTopic, listHelpTopics } from '../server/engine/help.js';
 import { TOPIC_VERBS } from '../server/engine/help-topics.js';
 import { getAlias } from '../server/engine/commands/aliases.js';
@@ -169,6 +169,13 @@ section('layer 1: manifest contracts');
     }
   }
   check(`manifest contracts hold for ${getLoadedPlugins().length} plugins`, drift.length === 0, drift.join('; '));
+
+  // A plugin that throws on load is logged and skipped, which also took it out of every
+  // check in this file: they all walk getLoadedPlugins(). Its importers fail with it, each
+  // under its own name, so this names the root failure.
+  const failedLoads = getFailedPlugins();
+  check('every plugin loads', failedLoads.length === 0,
+    failedLoads.map((f) => `${f.dirName}: ${f.error}`).join('; '));
 
   // …and the reverse. The loader wires only what plugin.json lists, so a handler the
   // module exports but the manifest doesn't name is never called, and nothing says so.

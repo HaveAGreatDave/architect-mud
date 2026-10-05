@@ -172,7 +172,8 @@ export async function cmdAssurance(args, raw, player) {
  * ⚠ THIS FUNCTION SPENDS NOTHING AND WRITES NOTHING, DELIBERATELY.
  *
  * fireHook keeps the LAST non-undefined return, and plugins load in directory
- * order, so `augments` runs before `jail`. The old version decremented a
+ * order, so `augments` runs before `jail` (jail/plugin.json declares after: augments, so
+ * that holds even if a folder is renamed). The old version decremented a
  * restore here — which meant a player whose death jail went on to claim had
  * already been charged ₵2500 for a restore that never happened, with no
  * rollback anywhere. Every write now lives in reprint.js, which runs off
