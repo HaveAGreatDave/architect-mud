@@ -23,6 +23,14 @@
       "rgb": "150,210,235",
       "s": 16,
       "z": 0.02
+    },
+    {
+      "cx": 0,
+      "cy": 0.28,
+      "kind": "glowPool",
+      "rgb": "200,236,255",
+      "s": 9,
+      "z": 0.72
     }
   ],
   "basis": {
@@ -55,20 +63,6 @@
       "z": 0.8
     },
     {
-      "bars": 5,
-      "cx": -0.06,
-      "cy": 0.43,
-      "depth": 0.018,
-      "glass": "#1a2830",
-      "glow": "#dff2ff",
-      "half": 0.3,
-      "hh": 0.15,
-      "kind": "windowBay",
-      "pal": "ty_ff_white",
-      "transom": 0.74,
-      "z": 0.3
-    },
-    {
       "bars": 1,
       "cx": 0.32,
       "cy": 0.435,
@@ -92,18 +86,6 @@
       "soffit": "#2b3a42",
       "strip": "#7fe3ff",
       "z": 0.47
-    },
-    {
-      "color": "#12202a",
-      "cx": -0.06,
-      "cy": 0.43,
-      "font": "condensed",
-      "half": 0.27,
-      "hh": 0.028,
-      "ink": "#9fe8ff",
-      "kind": "signBoard",
-      "label": "THE WASH",
-      "z": 0.513
     },
     {
       "cx": 0,
@@ -221,11 +203,129 @@
       "s": 10,
       "z0": 0,
       "z1": 0.09
+    },
+    {
+      "count": 4,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.293,
+        "cy": 0.43,
+        "depth": 0.012,
+        "glass": "#1a2830",
+        "glow": "#dff2ff",
+        "half": 0.07,
+        "hh": 0.145,
+        "kind": "windowBay",
+        "pal": "ty_ff_white",
+        "transom": 0.78,
+        "z": 0.305
+      },
+      "step": {
+        "cx": 0.155
+      }
+    },
+    {
+      "cx": -0.06,
+      "cy": 0.42,
+      "kind": "pilaster",
+      "n": 5,
+      "out": 0.016,
+      "pal": "ty_ff_white",
+      "step": 0.155,
+      "w": 0.011,
+      "z0": 0.05,
+      "z1": 0.48
+    },
+    {
+      "color": "#12202a",
+      "cx": -0.06,
+      "cy": 0.445,
+      "font": "tube",
+      "half": 0.24,
+      "hh": 0.03,
+      "ink": "#9fe8ff",
+      "kind": "signBoard",
+      "label": "THE WASH",
+      "z": 0.52
+    },
+    {
+      "bars": 6,
+      "cx": 0,
+      "cy": 0.3,
+      "depth": 0.01,
+      "glass": "#22343e",
+      "glow": "#cfeaff",
+      "half": 0.22,
+      "hh": 0.05,
+      "kind": "windowBay",
+      "pal": "ty_ff_white",
+      "z": 0.71
+    },
+    {
+      "bars": 6,
+      "cx": 0,
+      "cy": 0.3,
+      "depth": 0.01,
+      "face": "x",
+      "glass": "#22343e",
+      "glow": "#cfeaff",
+      "half": 0.22,
+      "hh": 0.05,
+      "kind": "windowBay",
+      "pal": "ty_ff_white",
+      "z": 0.71
+    },
+    {
+      "bars": 6,
+      "cx": 0,
+      "cy": -0.3,
+      "depth": 0.01,
+      "face": "x",
+      "glass": "#22343e",
+      "glow": "#cfeaff",
+      "half": 0.22,
+      "hh": 0.05,
+      "kind": "windowBay",
+      "pal": "ty_ff_white",
+      "z": 0.71
+    },
+    {
+      "bare": true,
+      "cx": 0.02,
+      "cy": -0.43,
+      "face": "x",
+      "font": "block",
+      "half": 0.3,
+      "hh": 0.075,
+      "ink": "#3f8fb0",
+      "kind": "signBoard",
+      "label": "$trade",
+      "z": 0.38
+    },
+    {
+      "cx": 0.1,
+      "cy": -0.43,
+      "drip": 0.5,
+      "face": "x",
+      "kind": "grime",
+      "w": 0.28,
+      "z": 0.6
+    },
+    {
+      "cx": -0.38,
+      "cy": -0.43,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_cold",
+      "r": 0.01,
+      "z0": 0.05,
+      "z1": 0.62
     }
   ],
   "id": "thewash",
   "neon": "#7fe3ff",
-  "note": "THE WASH — the launderette on the west side of Ironside Street, and the lowest thing on it.\n\nIt was the plainest building on the street by measurement rather than by opinion: four mass\nsegments, two wall palettes and a roof at 0.61, against a street whose next-plainest was 0.70.\n\n⚠ THE HEIGHT IS THE EXTRACT, NOT THE BUILDING. A launderette is one room and has no business being\ntall, so the shed stays low and what puts it on the skyline is the flue — which is also the only\nhonest answer to where the steam goes. The lantern over the machines is the same argument one\nstorey down: it is how a single-storey room with thirty tumble dryers in it gets any light at all.\n\n⚠ AND THE GLAZING IS ONE BAND WITH THE DOOR BESIDE IT, not a pair of punched windows. Everybody\ninside is waiting, so the whole frontage is a window with people sitting behind it, which is what a\nlaunderette looks like from the far pavement at ten at night.",
+  "note": "THE WASH — the launderette on the west side of Ironside Street, and the lowest thing on it.\n\nThe tile's prose: a single-storey shopfront that is almost entirely window, blue-white light hard\nenough to lay a rectangle over the kerb, THE WASH in cold tube neon over the door, and somebody on\nthe bench inside doing nothing in particular.\n\nThe shed stays low. What puts it on the skyline is the flue, which is also where the steam goes,\nand the lantern over the machines, which is how a one-room shed full of dryers gets daylight. The\nlantern is glazed on three sides and lit at night, so from up the street the building is a low\nbright box with a second, smaller bright box on top of it.\n\nThe glazing is one band in four bays between slim white piers, over a tiled stall riser, with the\ndoor at the north end. The fascia above it is a separate white band standing proud of the wall,\nand the name is on it in the `tube` hand. The south flank is blank, so the trade word is painted\non it large; it is a second sign, so it says `$trade` and not the name. The north flank keeps its\nrow of dryer vents.",
   "pal": "ty_trm_wash",
   "segs": [
     {
@@ -279,6 +379,28 @@
       "rt": 0.045,
       "z0": 0.96,
       "z1": 1.3
+    },
+    {
+      "cx": -0.06,
+      "cy": 0.42,
+      "fd": 0.016,
+      "hw": 0.32,
+      "kind": "box",
+      "pal": "ty_cod",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.15
+    },
+    {
+      "cx": 0,
+      "cy": 0.42,
+      "fd": 0.024,
+      "hw": 0.42,
+      "kind": "box",
+      "pal": "ty_ff_white",
+      "roof": true,
+      "z0": 0.48,
+      "z1": 0.56
     }
   ],
   "trade": "laundromat"

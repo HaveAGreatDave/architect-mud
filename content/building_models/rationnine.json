@@ -95,18 +95,6 @@
       "z": 0.5
     },
     {
-      "color": "#20220f",
-      "cx": 0.16,
-      "cy": 0.43,
-      "font": "stencil",
-      "half": 0.22,
-      "hh": 0.022,
-      "ink": "#d8d0b0",
-      "kind": "signBoard",
-      "label": "RATION STATION 9 · COLDWATER",
-      "z": 0.5
-    },
-    {
       "cx": -0.02,
       "cy": -0.42,
       "drip": 1,
@@ -155,36 +143,6 @@
       "z": 0.7
     },
     {
-      "band": "#ffcf70",
-      "count": 2,
-      "cx": -0.34,
-      "cy": 0.472,
-      "kind": "bollard",
-      "pal": "ty_trm_board",
-      "step": 0.1,
-      "z": 0.004
-    },
-    {
-      "band": "#ffcf70",
-      "count": 2,
-      "cx": 0,
-      "cy": 0.472,
-      "kind": "bollard",
-      "pal": "ty_trm_board",
-      "step": 0.1,
-      "z": 0.004
-    },
-    {
-      "band": "#ffcf70",
-      "count": 2,
-      "cx": 0.34,
-      "cy": 0.472,
-      "kind": "bollard",
-      "pal": "ty_trm_board",
-      "step": 0.1,
-      "z": 0.004
-    },
-    {
       "cx": -0.42,
       "cy": -0.4,
       "d": 0.036,
@@ -218,11 +176,151 @@
       "s": 10,
       "z0": 0,
       "z1": 0.086
+    },
+    {
+      "cx": 0,
+      "cy": 0.42,
+      "kind": "pilaster",
+      "n": 2,
+      "out": 0.024,
+      "pal": "ty_guard",
+      "step": 0.82,
+      "w": 0.03,
+      "z0": 0.05,
+      "z1": 0.62
+    },
+    {
+      "cx": -0.01,
+      "cy": 0.42,
+      "kind": "pilaster",
+      "n": 1,
+      "out": 0.022,
+      "pal": "ty_guard",
+      "w": 0.026,
+      "z0": 0.05,
+      "z1": 0.62
+    },
+    {
+      "color": "#1c2416",
+      "cx": 0.17,
+      "cy": 0.43,
+      "font": "marker",
+      "half": 0.17,
+      "hh": 0.058,
+      "ink": "#e8e4d0",
+      "kind": "signBoard",
+      "label": "PROTEIN 4 · OIL 9 · SALT 2 · RICE 6 · WATER 1",
+      "z": 0.505
+    },
+    {
+      "color": "#20220f",
+      "cx": 0,
+      "cy": 0.445,
+      "font": "stencil",
+      "half": 0.26,
+      "hh": 0.018,
+      "ink": "#d8d0b0",
+      "kind": "signBoard",
+      "label": "RATION STATION 9 · COLDWATER",
+      "z": 0.66
+    },
+    {
+      "band": "#ffcf70",
+      "count": 7,
+      "cx": -0.39,
+      "cy": 0.49,
+      "kind": "bollard",
+      "pal": "ty_trm_board",
+      "step": 0.13,
+      "z": 0.004
+    },
+    {
+      "cx": 0.02,
+      "cy": 0.455,
+      "d": 0.03,
+      "hh": 0.035,
+      "kind": "binStack",
+      "lid": "#3a3c34",
+      "n": 3,
+      "pal": "ty_cold",
+      "w": 0.03,
+      "z": 0.004
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 3,
+        "cx": -0.26,
+        "cy": 0.42,
+        "depth": 0.012,
+        "face": "x",
+        "glass": "#1c1e16",
+        "glow": "#ffd690",
+        "half": 0.06,
+        "hh": 0.03,
+        "kind": "windowBay",
+        "pal": "ty_trm_board",
+        "z": 0.48
+      },
+      "step": {
+        "cx": 0.26
+      }
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 3,
+        "cx": -0.26,
+        "cy": -0.42,
+        "depth": 0.012,
+        "face": "x",
+        "glass": "#1c1e16",
+        "glow": "#ffd690",
+        "half": 0.06,
+        "hh": 0.03,
+        "kind": "windowBay",
+        "pal": "ty_trm_board",
+        "z": 0.48
+      },
+      "step": {
+        "cx": 0.26
+      }
+    },
+    {
+      "cx": 0.38,
+      "cy": 0.42,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_cold",
+      "r": 0.011,
+      "z0": 0.05,
+      "z1": 0.62
+    },
+    {
+      "cx": 0,
+      "cy": -0.42,
+      "drip": 0.5,
+      "face": "x",
+      "kind": "grime",
+      "w": 0.35,
+      "z": 0.62
+    },
+    {
+      "cx": 0.3,
+      "cy": 0.18,
+      "d": 0.06,
+      "hh": 0.06,
+      "kind": "roofBulkhead",
+      "pal": "ty_trm_board",
+      "w": 0.06,
+      "z": 0.7
     }
   ],
   "id": "rationnine",
   "neon": "#ffb43a",
-  "note": "RATION NINE — the municipal ration store on the east side of Ironside Street.\n\n⚠ THE QUEUE IS THE BUILDING. Everything a ration store does happens on the pavement outside it, so\nthe composition is a long canopy on posts with shutters behind it and almost nothing else: one hall,\none awning, two hatches and a number. A shopfront would be wrong — there is nothing to display and\nnobody is browsing.\n\n⚠ AND THE NUMBER IS BIGGER THAN THE NAME. Nine is what people call it and NINE is what is painted on\nit; the full name is the small lettering underneath, the way a municipal building actually signs\nitself. That is also why the hand is stencil and the palette is olive rather than anything a shop\nwould choose: this is issued, not sold.\n\n⚠ IT REPLACES ITS OWN ARM RATHER THAN STANDING BESIDE IT. `rationnine` is a NAMED arm drawing this\none tile, so the bind key and the arm key are the same and `replaces` is a true statement about the\nrevert path as well as about the trade — `LEGACY_MODELS` holds the arm and `RENDER_TUNE.legacyArms`\nputs it back. A file that merely bound by name would lose to it (the registry merge is `??=`).",
+  "note": "RATION NINE — the municipal ration store on the east side of Ironside Street.\n\nThe queue is the building. Everything a ration store does happens on the pavement, so the\ncomposition is a long canopy on posts with two hatches behind it, and almost nothing else. There\nis nothing to display and nobody is browsing, so there is no shopfront.\n\nThe number is bigger than the name. NINE is what people call it and what is painted on it; the\nfull name is a small plate on the parapet band, the way a municipal building signs itself. The hand\nis stencil and the palette is olive because this is issued, not sold.\n\nThe tile's prose gives the rest: the front wall above the canopy is a hand-painted price board,\nrevised by wiping a column off with a rag, and three trolleys are chained together by the door.\nConcrete piers divide the front into two bays, one per hatch, and the queue rail runs along the\nkerb. The flanks carry high barred windows and the back keeps the louvres.\n\nIt replaces its own arm. `rationnine` is a named arm drawing this one tile, so `replaces` is\nthe revert path: `LEGACY_MODELS` holds the arm and `RENDER_TUNE.legacyArms` puts it back.",
   "pal": "ty_fallow",
   "replaces": "rationnine",
   "segs": [
