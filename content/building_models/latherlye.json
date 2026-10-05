@@ -119,48 +119,6 @@
       "z": 0.55
     },
     {
-      "count": 3,
-      "kind": "repeat",
-      "of": {
-        "bars": 1,
-        "cx": 0.08,
-        "cy": 0.36,
-        "depth": 0.01,
-        "face": "x",
-        "glass": "#2c403c",
-        "glow": "#9fe8cf",
-        "half": 0.04,
-        "hh": 0.035,
-        "kind": "windowBay",
-        "pal": "ty_ff_white",
-        "z": 0.72
-      },
-      "step": {
-        "cx": 0.12
-      }
-    },
-    {
-      "count": 3,
-      "kind": "repeat",
-      "of": {
-        "bars": 1,
-        "cx": 0.08,
-        "cy": -0.36,
-        "depth": 0.01,
-        "face": "x",
-        "glass": "#2c403c",
-        "glow": "#9fe8cf",
-        "half": 0.04,
-        "hh": 0.035,
-        "kind": "windowBay",
-        "pal": "ty_ff_white",
-        "z": 0.72
-      },
-      "step": {
-        "cx": 0.12
-      }
-    },
-    {
       "bars": 2,
       "cx": -0.25,
       "cy": 0.4,
@@ -199,11 +157,37 @@
       "cx": 0,
       "cy": -0.4,
       "drip": 1,
-      "half": 0.2,
+      "half": 0.16,
       "hh": 0.06,
       "kind": "louvreBank",
       "n": 8,
       "pal": "ty_stack_dk",
+      "z": 0.72
+    },
+    {
+      "bars": 1,
+      "cx": -0.3,
+      "cy": -0.4,
+      "depth": 0.01,
+      "glass": "#2c403c",
+      "glow": "#9fe8cf",
+      "half": 0.05,
+      "hh": 0.04,
+      "kind": "windowBay",
+      "pal": "ty_ff_white",
+      "z": 0.72
+    },
+    {
+      "bars": 1,
+      "cx": 0.3,
+      "cy": -0.4,
+      "depth": 0.01,
+      "glass": "#2c403c",
+      "glow": "#9fe8cf",
+      "half": 0.05,
+      "hh": 0.04,
+      "kind": "windowBay",
+      "pal": "ty_ff_white",
       "z": 0.72
     },
     {
@@ -277,7 +261,7 @@
     }
   ],
   "id": "latherlye",
-  "note": "LATHER & LYE: a barber's and bathhouse on Marrow Street.\n\nThe tile's prose: a barber's pole turning in a bracket over a doorway breathing steam into the\nstreet. The window is tiled halfway up in green and lettered LATHER & LYE · CUT, SHAVE, HOT WATER,\nwith HOT WATER twice the size of the rest, because it's the part that sells.\n\nSo it is a low brick shop with the bath hall rising behind it. The front is one wide window over a\nriser of green tile, and the door at the right with the pole on its bracket beside it. The name is\non the fascia over the window. HOT WATER is painted on the tile riser, larger than the name, which\nis the prose's joke. The words can't go on the glass itself, because a sign over glazing fails\nsignband.\n\nThe bath hall at the back carries the steam: two vent stacks with a pale glow over them at night,\nand a louvre bank on its rear wall. Its flanks have small high windows, lit green.\n\nAn earlier authored model drew this as municipal public baths: a tiled wall with no shopfront,\nhigh windows and a copper vault. That fought the prose, which has a lettered window tiled halfway\nup, and from the street it read as a blank box. The vault idea survives as the bath hall behind.\n\nIt stands in for the `latherlye` arm (`replaces`), which stays in LEGACY_MODELS. `ty_soak`, the\narm's palette, is in the window-grid family.",
+  "note": "LATHER & LYE: a barber's and bathhouse on Marrow Street.\n\nThe tile's prose: a barber's pole turning in a bracket over a doorway breathing steam into the\nstreet. The window is tiled halfway up in green and lettered LATHER & LYE · CUT, SHAVE, HOT WATER,\nwith HOT WATER twice the size of the rest, because it's the part that sells.\n\nSo it is a low brick shop with the bath hall rising behind it. The front is one wide window over a\nriser of green tile, and the door at the right with the pole on its bracket beside it. The name is\non the fascia over the window. HOT WATER is painted on the tile riser, larger than the name, which\nis the prose's joke. The words can't go on the glass itself, because a sign over glazing fails\nsignband.\n\nThe bath hall at the back carries the steam: two vent stacks with a pale glow over them at night,\nand a louvre bank between two small green-lit windows on its rear wall.\n\nAn earlier authored model drew this as municipal public baths: a tiled wall with no shopfront,\nhigh windows and a copper vault. That fought the prose, which has a lettered window tiled halfway\nup, and from the street it read as a blank box. The vault idea survives as the bath hall behind.\n\nIt stands in for the `latherlye` arm (`replaces`), which stays in LEGACY_MODELS. `ty_soak`, the\narm's palette, is in the window-grid family.",
   "pal": "ty_forge",
   "replaces": "latherlye",
   "segs": [
@@ -317,7 +301,7 @@
       "cx": 0,
       "cy": -0.2,
       "fd": 0.2,
-      "hw": 0.36,
+      "hw": 0.4,
       "kind": "box",
       "pal": "ty_forge",
       "roof": true,
@@ -328,7 +312,7 @@
       "cx": 0,
       "cy": -0.2,
       "fd": 0.21,
-      "hw": 0.37,
+      "hw": 0.41,
       "kind": "box",
       "pal": "ty_ff_white",
       "roof": true,
