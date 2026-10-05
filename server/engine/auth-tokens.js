@@ -175,6 +175,46 @@ export async function revokeRememberTokens(playerId) {
   catch (e) { console.error('[auth] could not persist remember-me revocation for', playerId, e.message); }
 }
 
+// ── Reconnect tokens ──────────────────────────────────────────────────────────
+// What a client hands back when its socket drops, to resume without a password.
+// They used to be random ids in a Map in server/index.js, so a restart (every
+// deploy is one) killed them all and logged every player out. Signed under their
+// own domain ('reconnect:') they survive a restart; one can never pass as an API
+// or remember-me token, and the password-change cutoff kills them like the rest.
+// Single use is per process: `_reconnectUsed` is RAM, so a token minted before a
+// restart can be used once more after it, inside its ten minutes. That is the
+// whole point, and it is the same exposure the old token had before a restart.
+const RECONNECT_TTL_MS = 10 * 60 * 1000;
+const reconnectMac = (body) => mac(`reconnect:${body}`);
+const _reconnectUsed = new Map();   // jti -> ms it would have expired
+
+export function signReconnectToken(playerId) {
+  const body = Buffer.from(`${playerId}:${Date.now()}:${randomBytes(9).toString('base64url')}`).toString('base64url');
+  return `${body}.${reconnectMac(body)}`;
+}
+
+/** → playerId, once, or null when the token is forged, expired, revoked or used. */
+export function consumeReconnectToken(raw) {
+  const token = String(raw || '').trim();
+  const dot = token.lastIndexOf('.');
+  if (dot < 1) return null;
+  const body = token.slice(0, dot);
+  const given = Buffer.from(token.slice(dot + 1));
+  const want = Buffer.from(reconnectMac(body));
+  if (given.length !== want.length || !timingSafeEqual(given, want)) return null;
+  let playerId, issuedAt, jti;
+  try { [playerId, issuedAt, jti] = Buffer.from(body, 'base64url').toString().split(':'); } catch { return null; }
+  const issued = Number(issuedAt);
+  const now = Date.now();
+  if (!playerId || !jti || !Number.isFinite(issued) || now - issued > RECONNECT_TTL_MS) return null;
+  const cutoff = _revokedBefore.get(playerId);
+  if (cutoff != null && issued < cutoff) return null;
+  if (_reconnectUsed.has(jti)) return null;
+  _reconnectUsed.set(jti, issued + RECONNECT_TTL_MS);
+  if (_reconnectUsed.size > 2000) for (const [k, exp] of _reconnectUsed) if (exp < now) _reconnectUsed.delete(k);
+  return playerId;
+}
+
 export function signToken(playerId, role) {
   const body = Buffer.from(`${playerId}:${role}:${Date.now()}`).toString('base64url');
   return `${body}.${mac(body)}`;

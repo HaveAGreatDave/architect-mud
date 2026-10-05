@@ -6,7 +6,7 @@ import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
 import { randomUUID } from "crypto";
 import { verifyAndUpgrade } from "./engine/passwords.js";
-import { loadAuthSecret, onRevoke, signToken, signRememberToken, consumeRememberToken, revokeRememberTokens } from "./engine/auth-tokens.js";
+import { loadAuthSecret, onRevoke, signToken, signRememberToken, consumeRememberToken, revokeRememberTokens, signReconnectToken, consumeReconnectToken } from "./engine/auth-tokens.js";
 
 import {
 	initWorld,
@@ -79,7 +79,7 @@ import { loadDrugs, clearActiveDrugBuffs } from "./engine/drugs.js";
 import { loadItems, getItem } from "./engine/items-cache.js";
 import { reloadCrimes } from "./engine/crimes.js";
 import { reloadAliases } from "./engine/commands/aliases.js";
-import { loadMutations, hydrateMutations, flushMutations } from "./engine/mutations.js";
+import { loadMutations, hydrateMutations, flushMutations, flushAllMutations } from "./engine/mutations.js";
 import { loadBanterLibrary } from "./engine/npc-banter.js";
 import { loadScriptTriggers } from "./engine/script-triggers.js";
 import { checkRateLimit, clientKey, accountLocked, noteFailedLogin } from "./api/rate-limit.js";
@@ -115,8 +115,8 @@ import { getSoundReach } from "./engine/sounds.js";
 import { getFlag, hydratePlayerFlags, evictPlayerFlags } from "./engine/flags.js";
 import { hydrateDisplayRung, loggedPanelsSync, seedDisplayRungIfUnset, setDisplayRung, RUNGS as DISPLAY_RUNGS } from "./engine/presentation.js";
 import { stampToLog } from "./engine/room-brief.js";
-import { hydrateRelations, flushRelations } from "./engine/relations.js";
-import { flushWear } from "./engine/durability.js";
+import { hydrateRelations, flushRelations, flushAllRelations } from "./engine/relations.js";
+import { flushWear, flushAllWear } from "./engine/durability.js";
 import { hydrateIdeologyProfile } from "./engine/ideologies.js";
 import { DOMINANT_FLAG, SECOND_FLAG } from "./engine/senses.js";
 import { DEFAULT_STANCE } from "./engine/stance.js";
@@ -130,29 +130,18 @@ const playerSockets = new Map(); // playerId -> ws
 // zone.players. Kept as their own small set so the zone broadcast fast path can
 // serve them without falling back to scanning every connected client.
 const ghostSockets = new Set();
-const reconnectTokens = new Map(); // token -> { playerId, expires }
 const ghostTokens = new Map(); // token -> { playerId, zoneId, expires }
-
-function issueReconnectToken(playerId) {
-	const token = randomUUID();
-	reconnectTokens.set(token, {
-		playerId,
-		expires: Date.now() + 10 * 60 * 1000,
-	});
-	return token;
-}
+// Reconnect tokens are signed by auth-tokens.js (signReconnectToken) rather than kept
+// here, so they outlive a restart: a deploy no longer logs every player out.
 
 // ⚠ A PASSWORD RESET HAS TO REACH THE LIVE SESSION, NOT JUST THE TOKEN.
 // auth-tokens.js can revoke what it issued, and that is the smaller half: whoever
 // prompted the reset is most likely signed in RIGHT NOW, on a socket that was
-// authenticated once and never asks again, plus a one-shot reconnect token good
-// for ten minutes. Revoke the API token alone and they simply keep playing.
-// Registered here rather than reached for from routes.js because this file owns
-// both maps and nothing else should be given them.
+// authenticated once and never asks again. Revoke the API token alone and they
+// simply keep playing. (Their reconnect token dies with the same revocation
+// cutoff, in consumeReconnectToken.) Registered here rather than reached for from
+// routes.js because this file owns the socket map and nothing else should be given it.
 onRevoke((playerId) => {
-	for (const [token, entry] of reconnectTokens) {
-		if (entry.playerId === playerId) reconnectTokens.delete(token);
-	}
 	for (const [ws, session] of clients) {
 		if (session.playerId !== playerId) continue;
 		try {
@@ -168,9 +157,6 @@ onRevoke((playerId) => {
 setInterval(
 	() => {
 		const now = Date.now();
-		for (const [token, entry] of reconnectTokens) {
-			if (entry.expires < now) reconnectTokens.delete(token);
-		}
 		for (const [token, entry] of ghostTokens) {
 			if (entry.expires < now) ghostTokens.delete(token);
 		}
@@ -963,6 +949,13 @@ wss.on("connection", (ws, req) => {
 
 	ws.on("close", async () => {
 		const session = clients.get(ws);
+		// During a shutdown the drain has already checkpointed everyone, and the pool is
+		// about to close; a per-socket logout here would only race it.
+		if (_shuttingDown) {
+			clients.delete(ws);
+			ghostSockets.delete(ws);
+			return;
+		}
 		try {
 			if (session?.playerId) {
 				// Only clean up if this socket is still the active one for this player.
@@ -1367,9 +1360,9 @@ async function handleAuthToken(ws, session, msg) {
 }
 
 async function handleReconnect(ws, session, msg) {
-	const entry = reconnectTokens.get(msg.token || "");
-	if (!entry || entry.expires < Date.now()) {
-		reconnectTokens.delete(msg.token || "");
+	// Signed, single-use, ten minutes, and it survives a restart (see auth-tokens.js).
+	const playerId = consumeReconnectToken(msg.token);
+	if (!playerId) {
 		ws.send(
 			JSON.stringify({
 				type: "auth_fail",
@@ -1378,9 +1371,8 @@ async function handleReconnect(ws, session, msg) {
 		);
 		return;
 	}
-	reconnectTokens.delete(msg.token); // one-time use
 	const { rows } = await query("SELECT * FROM players WHERE id=$1", [
-		entry.playerId,
+		playerId,
 	]);
 	if (!rows.length) {
 		ws.send(
@@ -1674,7 +1666,7 @@ async function finishAuth(ws, session, player, seedDisplayRung, explicitDisplayR
 	const apiToken = DEV_ROLES.includes(player.role)
 		? signToken(player.id, player.role)
 		: null;
-	const reconnectToken = issueReconnectToken(player.id);
+	const reconnectToken = signReconnectToken(player.id);
 	ws.send(
 		JSON.stringify({
 			type: "auth_success",
@@ -2373,16 +2365,75 @@ async function boot() {
 	});
 }
 
+// ⚠ A DEPLOY IS A SIGTERM, AND IT USED TO BE HANDLED LIKE A CRASH. Render sends
+// SIGTERM and waits up to 30 s; shutdown() closed the pool and exited inside five,
+// so every pending batch (positions, hp, wear, relations, mutations) was lost and
+// nobody was checkpointed asleep or had their forcefield raised. This does what a
+// logout does, for everyone at once: one batched checkpoint, the flushers, the
+// forcefields, then the sockets close with 1012 (Service Restart) so the client
+// reconnects with its signed reconnect token instead of landing on the login screen.
+const DRAIN_BUDGET_MS = 15_000;
+async function drainForRestart() {
+	const players = [...world.players.values()];
+	try {
+		broadcast(null, { type: "system", message: "The server is restarting. You'll be reconnected in a moment." });
+	} catch { /* a dead socket doesn't stop the drain */ }
+	if (players.length) {
+		const rows = [];
+		const params = [];
+		players.forEach((p, i) => {
+			// Same order as logout: drug buffs come off before the snapshot, or a raised
+			// cap would be saved as if it were base.
+			try { clearActiveDrugBuffs(p); } catch { /* checkpoint what's there */ }
+			const b = i * 4;
+			rows.push(`($${b + 1}::text, $${b + 2}::text, $${b + 3}::int, $${b + 4}::int)`);
+			params.push(p.id, persistableZone(p), Math.round(p.hp ?? p.hp_max ?? 0), Math.round(p.stamina ?? p.stamina_max ?? 100));
+		});
+		try {
+			await query(
+				`UPDATE players AS pl
+				    SET last_seen = EXTRACT(EPOCH FROM NOW()), current_zone = v.zone, hp = v.hp, stamina = v.stam, offline_sleeping = TRUE
+				   FROM (VALUES ${rows.join(", ")}) AS v(id, zone, hp, stam)
+				  WHERE pl.id = v.id`,
+				params,
+			);
+			for (const p of players) { p._posDirty = false; p._resDirty = false; }
+		} catch (err) {
+			console.error(`[shutdown] checkpoint failed: ${err?.message || err}`);
+		}
+	}
+	const results = await Promise.allSettled([
+		flushAllWear(),
+		flushAllRelations(),
+		flushAllMutations(),
+		...players.map((p) => activateForcefield(p, broadcast)),
+	]);
+	const failed = results.filter((r) => r.status === "rejected").length;
+	console.log(`[shutdown] drained ${players.length} player(s)${failed ? `, ${failed} step(s) failed` : ""}`);
+	for (const ws of clients.keys()) {
+		try { ws.close(1012, "Server restarting"); } catch { /* already gone */ }
+	}
+}
+
 // Graceful shutdown: release DB connections immediately on Ctrl-C / kill so a
 // restart starts clean and doesn't leave connections lingering on the pooler.
+// SIGTERM and SIGINT drain first; an uncaught exception doesn't, because the
+// process state that threw is not state worth writing.
 let _shuttingDown = false;
 async function shutdown(signal, code = 0) {
 	if (_shuttingDown) return;
 	_shuttingDown = true;
 	console.log(`\n${signal} — shutting down…`);
+	const graceful = signal === "SIGTERM" || signal === "SIGINT";
 	// A pool that won't drain must not keep a broken process alive.
-	setTimeout(() => process.exit(code), 5000).unref();
+	setTimeout(() => process.exit(code), graceful ? DRAIN_BUDGET_MS + 5000 : 5000).unref();
 	httpServer.close();
+	if (graceful) {
+		await Promise.race([
+			drainForRestart().catch((err) => console.error(`[shutdown] drain failed: ${err?.stack || err}`)),
+			new Promise((resolve) => setTimeout(resolve, DRAIN_BUDGET_MS)),
+		]);
+	}
 	try { await pool.end(); } catch { /* pool already closed */ }
 	process.exit(code);
 }

@@ -132,6 +132,11 @@ export async function clearFlag(scope, key, player) {
   }
 }
 
+/** Every world flag whose key starts with `prefix`, as [key, value] pairs, from the cache. */
+export async function getWorldFlagsByPrefix(prefix) {
+  return [...(await worldFlags())].filter(([k]) => k.startsWith(prefix));
+}
+
 // --- Funnel: id-based + multi-key variants ---------------------------------
 //
 // These exist so callers that used to reach past setFlag/clearFlag with raw SQL

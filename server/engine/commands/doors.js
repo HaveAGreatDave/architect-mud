@@ -1,6 +1,7 @@
 import { query } from '../../models/db.js';
 import { textRender } from '../minigame.js';
-import { getDoorForExit, doorOnLink, getDoorById, getZoneDoors, setDoorCache, getZone, frontDoorOf, world, getApartment, setApartmentCache } from '../world.js';
+import { getDoorForExit, doorOnLink, getDoorById, getZoneDoors, setDoorCache, getZone, frontDoorOf, world, getApartment, setApartmentCache, DOOR_LOCK_FLAG_PREFIX } from '../world.js';
+import { setFlag, clearFlag } from '../flags.js';
 import { resolveLockAuth, getLockType, getAllLockTypes } from '../locks.js';
 import { propagateSound } from '../sounds.js';
 import { isOnCooldown, setCooldown, getCooldownRemaining } from '../combat.js';
@@ -151,11 +152,25 @@ export async function checkLockAuth(lockTag, door, player) {
   return resolveLockAuth(lockTag, door, player);
 }
 
+// A player-installed lock (its tag carries the kitItemId install recorded) is written
+// to world_flags so it survives a reboot; world.js restoreInstalledLocks lays it back
+// on. An authored lock has no kitItemId and belongs to content, so it's left alone.
+function recordInstalledLock(door) {
+  const tags = tagsOf(door);
+  const tag = Object.keys(tags).find((k) => k.startsWith('lock:'));
+  if (!tag || !tags[tag]?.kitItemId) return Promise.resolve();
+  const rec = { tag, data: tags[tag], lock_state: door.lock_state === 'locked' ? 'locked' : 'unlocked' };
+  return setFlag('world', DOOR_LOCK_FLAG_PREFIX + door.id, JSON.stringify(rec))
+    .catch((err) => console.error(`[doors] could not record the installed lock on ${door.id}: ${err.message}`));
+}
+
 async function updateDoor(door, changes) {
   // Door state (is_open/lock_state/hp/tags) is runtime-only, held in world.doors
   // and never persisted — doors reset to their authored state on reboot. The
-  // apartment lock, however, is durable housing state and still gets mirrored.
+  // apartment lock, however, is durable housing state and still gets mirrored,
+  // and so is a player-installed lock (recordInstalledLock).
   Object.assign(door, changes);
+  if (changes.lock_state !== undefined) await recordInstalledLock(door);
   // Any deliberate hand on the lock retires the NPC lock-up marker (ai-behaviour.js):
   // once a person has locked this door, it is their lock, and the walk-out-anyway
   // leniency the move gate grants an auto-locked shop no longer applies.
@@ -713,6 +728,8 @@ async function cmdInstallLock(args, raw, player, broadcast) {
   door.tags = newTags;
   door.lock_state = 'unlocked';
   setDoorCache(door.id, door);
+  // The kit row is already gone, so the lock has to outlive a reboot too.
+  await recordInstalledLock(door);
 
   broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} installs a lock on the door.` }, player.id);
   // No keycard is minted here any more (spec §6). A keycardlock reads whatever
@@ -753,6 +770,8 @@ async function cmdUninstallLock(args, raw, player, broadcast) {
   door.tags = newTags;
   door.lock_state = null;
   setDoorCache(door.id, door);
+  await clearFlag('world', DOOR_LOCK_FLAG_PREFIX + door.id)
+    .catch((err) => console.error(`[doors] could not clear the installed lock record on ${door.id}: ${err.message}`));
 
   // Return the exact kit item that was consumed at install time
   await query(

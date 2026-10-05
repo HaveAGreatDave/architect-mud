@@ -1101,6 +1101,37 @@ async function loadDoors() {
     if (lockCount > 1) console.warn(`[doors] ${door.id} has ${lockCount} lock tags — using first`);
     setDoorCache(door.id, { ...door, flags: door.flags || {}, tags, is_open: door.is_open ?? 0 });
   }
+  await restoreInstalledLocks();
+}
+
+// ⚠ DOORS RESET ON REBOOT, BUT A PLAYER-INSTALLED LOCK MUST NOT. Door state is runtime
+// by design (commands/doors.js updateDoor), and installing a lock deletes the kit
+// row for good, so every deploy used to erase the lock AND keep the kit. Installed
+// locks are recorded in world_flags as `door_lock:<doorId>` (doors.js writes them)
+// and laid back onto the authored doors here, with the state they were left in.
+// A record for a door that no longer exists is logged and left for a human.
+export const DOOR_LOCK_FLAG_PREFIX = 'door_lock:';
+async function restoreInstalledLocks() {
+  let records = [];
+  try {
+    const { getWorldFlagsByPrefix } = await import('./flags.js');
+    records = await getWorldFlagsByPrefix(DOOR_LOCK_FLAG_PREFIX);
+  } catch (err) {
+    console.error(`[doors] could not read installed locks: ${err.message}`);
+    return;
+  }
+  for (const [key, value] of records) {
+    const doorId = key.slice(DOOR_LOCK_FLAG_PREFIX.length);
+    const door = world.doors.get(doorId);
+    let rec;
+    try { rec = JSON.parse(value); } catch { rec = null; }
+    if (!door || !rec?.tag || !rec.data) {
+      console.warn(`[doors] installed lock record ${key} has no door to go on (or is unreadable)`);
+      continue;
+    }
+    door.tags = { ...(door.tags || {}), [rec.tag]: rec.data };
+    door.lock_state = rec.lock_state === 'locked' ? 'locked' : 'unlocked';
+  }
 }
 
 // connection_id -> door. ONE fixture per connection is a unique index in the
