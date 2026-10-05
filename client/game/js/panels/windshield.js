@@ -31526,7 +31526,8 @@ function perchRing(s, V) {
 // one expression.
 //
 // ⚠ FACE-MOUNTED ONLY. These parts hang on one wall, so the outward normal is the sign of
-// their own `cy` and the run is along local x. A `parapet` is mounted at cy 0 and RINGS the
+// their own `cy` and the run is along local x, in the part's frame; a `face: 'x'` part has that
+// frame turned onto a flank, which `kitLedges` undoes. A `parapet` is mounted at cy 0 and RINGS the
 // building, so the same arithmetic would lay a row of birds down the middle of a roof — it wants
 // perchRing, not this, and it is left out until it gets one.
 const KIT_PERCH = {
@@ -31683,6 +31684,13 @@ export function kitLedges(cell, wx, wy) {
   if (!parts || !parts.length) return null;
   const E = faceVec(cell.ent), th = Math.atan2(-E[0], E[1]);
   const ct = Math.cos(th), stn = Math.sin(th);
+  // ⚠ A `face: 'x'` PART IS ON A FLANK, and every number below is in the PART's frame. The detail
+  // renderer turns the frame for it (`Fside` in drawDetailLayer): the part's `cy` becomes the model's
+  // X and its `cx` runs along NEGATIVE Y, so the sign of `cy` picks the flank. Read straight, a flank
+  // window put its birds on a sill on the front or back wall that is not there: Lather & Lye's bath
+  // hall windows came out on the front and back walls at y ±0.394 while the glass was on the sides.
+  const flankOf = (d) => d.face === 'x';
+  const toModel = (flank, a, b) => (flank ? [b, -a] : [a, b]);
   // The heights the MASS still offers on this tile once the copings have taken their decks back
   // (see `underCoping`), so a ring does not duplicate one.
   let near = null;
@@ -31697,7 +31705,8 @@ export function kitLedges(cell, wx, wy) {
       if (!perchableDepth(hh)) continue;            // a flat band with no top to stand on
       const z = V(d.z) + hh;
       if (!(z > PERCH_MIN_Z)) continue;
-      const lx = V(d.cx), ly = V(d.cy);
+      // A square turned a quarter is the same square, so only the centre moves.
+      const [lx, ly] = toModel(flankOf(d), V(d.cx), V(d.cy));
       if (!Number.isFinite(lx) || !Number.isFinite(ly) || !Number.isFinite(z)) continue;
       // The middle of the cap: in from the outer edge by half its depth.
       const r = half - hh * 0.5;
@@ -31763,24 +31772,27 @@ export function kitLedges(cell, wx, wy) {
     if (!perchableDepth(deep)) continue;             // a painted window, not a sill
     const z = V(d.z) + spec.top * hh;
     if (!(z > PERCH_MIN_Z)) continue;
-    const lx = V(d.cx), ly = V(d.cy);
+    // `lx` along the wall and `ly` out from it, in the part's own frame; `toModel` places them.
+    const lx = V(d.cx), ly = V(d.cy), flank = flankOf(d);
     if (!Number.isFinite(lx) || !Number.isFinite(ly) || !Number.isFinite(z)) continue;
     // ⚠ STOOD ON THE OUTER EDGE OF THE RETURN, not in the middle of the wall. A bird on a sill
     // sits at the front of it looking out, and `ly` is the mounting plane.
     const sgn = ly < 0 ? -1 : 1;
     const py = ly + sgn * deep * 0.5;
     const n = Math.max(PERCH_MIN_PTS, Math.round((half * 2) / PERCH_STEP));
-    const o = (sgn < 0 ? -Math.PI / 2 : Math.PI / 2) + th;
+    // Out along the part's own +y: model +y on a front or back wall, model +x on a flank.
+    const o = (flank ? (sgn < 0 ? Math.PI : 0) : (sgn < 0 ? -Math.PI / 2 : Math.PI / 2)) + th;
     const pts = [];
     for (let i = 0; i < n; i++) {
-      const px = lx + (((i + 0.5) / n) * 2 - 1) * half;
-      pts.push({ x: wx + px * ct - py * stn, y: wy + px * stn + py * ct, out: o });
+      const [px, qy] = toModel(flank, lx + (((i + 0.5) / n) * 2 - 1) * half, py);
+      pts.push({ x: wx + px * ct - qy * stn, y: wy + px * stn + qy * ct, out: o });
     }
     // The point on the WALL this part is bolted to. A canopy and a balcony are cantilevers, so
     // the bird stands out past the footprint and the mass behind it is a projection away — the
     // perch is only honest if something is holding it up, and only this function knows where that
     // is. Carried so scripts/shapes/perch.mjs can ask.
-    const mx = wx + lx * ct - ly * stn, my = wy + lx * stn + ly * ct;
+    const [ax, ay] = toModel(flank, lx, ly);
+    const mx = wx + ax * ct - ay * stn, my = wy + ax * stn + ay * ct;
     // ⚠ THE PART IT IS STANDING ON, NOT JUST WHERE THAT PART IS BOLTED. A gate that only checks
     // the mount cannot see the bird at all: slide every perch a third of a tile into the street
     // and the mount is still on its wall, so "every one has a wall behind it" stays true while the
@@ -31807,7 +31819,9 @@ function copingsFor(m, seed, fh, h) {
     if (!ring) continue;
     const half = V(d.half);
     if (!(half > 0)) continue;
-    out.push({ lx: V(d.cx), ly: V(d.cy), half, hh: ring.hOf(V, d, half), z: V(d.z) });
+    // A flank coping's centre is turned the way `kitLedges` turns it.
+    const flank = d.face === 'x';
+    out.push({ lx: flank ? V(d.cy) : V(d.cx), ly: flank ? -V(d.cx) : V(d.cy), half, hh: ring.hOf(V, d, half), z: V(d.z) });
   }
   return out.length ? out : null;
 }

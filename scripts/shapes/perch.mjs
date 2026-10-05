@@ -19,7 +19,7 @@
 // entrance facing rotates it, the floor count scales it, and the per-tile seed picks the variant —
 // so a model swept at one synthetic scale proves nothing about the building anybody flies past.
 // `client/game/flightsim-world.json` is the same baked snapshot `__street` reads.
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
 import { SPECIES, spOf, falconStoop, perchedNow, perchesHigh, flockSize, flockAt, flockState, speciesAt, placeOf, habitatState, U_GROUND, GOOSE_SETTLE_MS, BIRD_M_PER_TILE } from '../../client/shared/birds.js';
 import { FAUNA_TILE, faunaRecordFaces, faunaScale } from '../../client/game/js/panels/fauna3d.js';
@@ -182,6 +182,62 @@ if (kitBad) problems.push(`${kitBad} of ${kitPts} kit perch points have no wall 
 // every coping in the city silently dropped.
 if (!kitRings) problems.push("no coping ring anywhere is offered as a perch — parapets are not being read");
 if (!kitLedgeCount) problems.push("the detail kit offers no perches at all — sills, balconies, awnings and copings are not being read");
+
+// ── 1b, CONTINUED. A FLANK PART PERCHES ON ITS FLANK ────────────────────────
+//
+// `face: 'x'` puts a part on a side wall: the renderer turns its frame so `cy` is the model's X and
+// `cx` runs along negative Y. `kitLedges` read every part as front-or-back, so a flank window's birds
+// stood on a sill on the front or back wall where there is no window. The sweep in 1b only caught it
+// when that phantom sill also had no wall behind it (Lather & Lye's set-back bath hall); on a plain
+// box the phantom sill is against a wall and passes.
+//
+// So this finds the tiles whose model carries a flank window, balcony or canopy, from the content
+// files rather than from anything `kitLedges` reports, and asks two things in the model's own frame:
+// at least one of the tile's kit perches faces along X, and each one that does is mounted on the
+// flank plane (mass just inside the mount, none at the perch height just outside it). Put
+// `face` back out of `kitLedges` and the first fails on every such tile.
+const FLANK_KINDS = new Set(['windowBay', 'balcony', 'canopy']);
+const flankNames = new Set();
+for (const f of readdirSync('content/building_models')) {
+  if (!f.endsWith('.json')) continue;
+  let m = null;
+  try { m = JSON.parse(readFileSync('content/building_models/' + f, 'utf8')); } catch { continue; }
+  if (!(m.detail || []).some((d) => d.face === 'x' && FLANK_KINDS.has(d.kind))) continue;
+  for (const b of (m.bind || [])) if (b.by === 'name' && b.key) flankNames.add(b.key);
+}
+const ENT_VEC = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
+let flankTiles = 0;
+for (const [k, c] of Object.entries(cells)) {
+  if (!c.bt || !flankNames.has(c.bn)) continue;
+  flankTiles++;
+  const [wx, wy] = k.split(',').map(Number);
+  const E = ENT_VEC[c.ent] || [0, 1], th = Math.atan2(-E[0], E[1]);
+  const ct = Math.cos(th), st = Math.sin(th);
+  let ks = null;
+  try { ks = kitLedges(c, wx, wy); } catch { ks = null; }
+  let here = 0;
+  for (const l of (ks || [])) {
+    if (!l.mount) continue;
+    const n = l.mount.out - th;
+    if (Math.abs(Math.cos(n)) < 0.999) continue;          // a front or back part
+    here++;
+    const dx = l.mount.x - wx, dy = l.mount.y - wy;
+    const mX = dx * ct + dy * st;                          // the mount, in the model frame
+    // ⚠ AT THE PART'S OWN HEIGHT, NOT THE TOP OF THE COLUMN. `modelTopAt` is the tallest mass over a
+    // point, so on Jolene's, whose upper storey overhangs the lower wall by a centimetre, "just
+    // outside the window" read 0.57 from the floor above it. Solid at `z` is mass reaching `z` with
+    // nothing starting above it there, which is what `overheadAt` answers.
+    const zp = l.mid != null ? l.mid : l.z - 0.005;
+    const solidAt = (x, y) => modelTopAt(wx, wy, c, x, y, false) >= zp && !ws.overheadAt(wx, wy, c, x, y, zp);
+    const ox = Math.cos(l.mount.out), oy = Math.sin(l.mount.out);
+    const at = `${c.bn} @ ${k}, ${l.kind} at z ${l.z.toFixed(3)}, mount x ${mX.toFixed(3)} in the model frame`;
+    if (Math.sign(mX) !== Math.sign(Math.cos(n))) problems.push(`a flank perch faces into its own building: ${at}`);
+    if (!solidAt(l.mount.x - ox * 0.01, l.mount.y - oy * 0.01)) problems.push(`a flank perch has no wall behind it at its own height: ${at}`);
+    if (solidAt(l.mount.x + ox * 0.01, l.mount.y + oy * 0.01)) problems.push(`a flank perch is mounted inside the mass, not on the flank plane: ${at}`);
+  }
+  if (!here) problems.push(`${c.bn} @ ${k} has a flank window, balcony or canopy and no kit perch faces a flank: kitLedges is not reading \`face\``);
+}
+if (!flankTiles) problems.push('no tile in the baked city uses a model with a flank perch part, so nothing checks that kitLedges reads `face`');
 
 // ── 1c. AND THE BADLANDS HAS SOMETHING TO STAND ON ──────────────────────────
 //

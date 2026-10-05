@@ -143,6 +143,13 @@ points a coping covers (`underCoping`) and `kitLedges` offers the coping in thei
 stands on top of it. The overhead wire still reads the uncovered ledges (`roofLedgesFor`), because it
 is asking how tall the building is, not where a bird stands.
 
+**A flank part perches on its flank.** A detail part with `face: 'x'` is on a side wall: the renderer
+turns its frame so `cy` is the model's X (its sign picks the flank) and `cx` runs along negative Y.
+`kitLedges` used to read every part as front-or-back, so a flank window's birds stood on a sill on the
+front or back wall where no window was. It now turns the part the same way, mount and normal included.
+`perch.mjs` finds every baked tile whose model has a flank window, balcony or canopy (Jolene's at
+917,916 today) and fails if none of its perches faces a flank, or if one isn't on the flank wall.
+
 **A ledge has to hold the flock.** The Meridian alone offers 21 perches and seven of them are
 gargoyles, so an unweighted pick sends most flocks onto a finial. A ledge is a candidate only if it is
 long enough for the birds standing on it, and among the candidates a longer one is likelier. ⚠ It is a
