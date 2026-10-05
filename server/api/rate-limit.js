@@ -39,13 +39,30 @@ function hit(id, limit, windowMs, now) {
 }
 
 /**
- * The address to bucket a caller under. X-Forwarded-For's leftmost entry is the
- * original client where a proxy set it; `x-remote-addr` is injected by the HTTP
+ * The address to bucket a caller under. `x-remote-addr` is injected by the HTTP
  * server from the socket, and is stamped AFTER the real headers are spread, so a
  * caller cannot supply their own.
+ *
+ * ⚠ X-FORWARDED-FOR'S LEFTMOST ENTRY IS WHATEVER THE CLIENT SENT. Each proxy only
+ * appends, so a caller rotating the header gets a fresh per-caller allowance on
+ * every request and can drain the global bucket, which locks everybody out of
+ * login and registration. TRUSTED_PROXY_HOPS is how many proxies in front of us
+ * append (Render's edge); with it set, the key is that many entries from the
+ * right, the address the outermost trusted proxy saw, which no client can forge.
+ * Unset, it stays leftmost, because a wrong count would put every player behind
+ * one shared edge address. The first forwarded request logs how many addresses
+ * the header carries, which is what to set it to on prod (1 for a single
+ * appending proxy).
  */
+const TRUSTED_HOPS = Math.max(0, parseInt(process.env.TRUSTED_PROXY_HOPS || '0', 10) || 0);
+let chainShapeLogged = false;
 export function clientKey(headers) {
-  const forwarded = String(headers?.['x-forwarded-for'] || '').split(',')[0].trim();
+  const chain = String(headers?.['x-forwarded-for'] || '').split(',').map((s) => s.trim()).filter(Boolean);
+  if (chain.length && !chainShapeLogged) {
+    chainShapeLogged = true;
+    console.log(`[rate-limit] X-Forwarded-For carries ${chain.length} address(es); TRUSTED_PROXY_HOPS=${TRUSTED_HOPS}`);
+  }
+  const forwarded = TRUSTED_HOPS > 0 ? (chain[chain.length - TRUSTED_HOPS] ?? chain[0]) : chain[0];
   return forwarded || String(headers?.['x-remote-addr'] || '') || 'unknown';
 }
 

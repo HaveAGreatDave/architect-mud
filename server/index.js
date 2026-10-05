@@ -686,15 +686,45 @@ const IDLE_ACTIVITY_TYPES = new Set([
 	"instrument_note",
 ]);
 
+// Sockets per address, and a deadline to authenticate. Each socket keeps its own
+// deflate context, and a socket that answers pings is kept forever by the heartbeat,
+// so a script holding hundreds of idle, never-authenticated sockets open could run
+// the 512 MB instance out of memory. The cap is generous because a household or a
+// school shares one address, and it only really bites once TRUSTED_PROXY_HOPS keys on
+// an address a client can't forge (see rate-limit.js clientKey). The deadline is long
+// enough for somebody reading the login screen; the client simply reconnects.
+const SOCKETS_PER_ADDR = 24;
+const AUTH_DEADLINE_MS = 5 * 60 * 1000;
+const socketsByAddr = new Map();   // addrKey -> open sockets
+
 wss.on("connection", (ws, req) => {
+	// Same key shape the HTTP limiter uses, so a WS login and an HTTP login from one
+	// address draw on one allowance.
+	const addrKey = clientKey({ ...req.headers, "x-remote-addr": req.socket.remoteAddress });
+	const open = (socketsByAddr.get(addrKey) || 0) + 1;
+	if (open > SOCKETS_PER_ADDR) {
+		try { ws.close(1013, "Too many connections from this address"); } catch { /* already gone */ }
+		return;
+	}
+	socketsByAddr.set(addrKey, open);
+	const authDeadline = setTimeout(() => {
+		const s = clients.get(ws);
+		if (s && !s.playerId && !s.isGhost) {
+			try { ws.close(4001, "Authentication timed out"); } catch { /* already gone */ }
+		}
+	}, AUTH_DEADLINE_MS);
+	ws.on("close", () => {
+		clearTimeout(authDeadline);
+		const left = (socketsByAddr.get(addrKey) || 1) - 1;
+		if (left <= 0) socketsByAddr.delete(addrKey);
+		else socketsByAddr.set(addrKey, left);
+	});
 	clients.set(ws, {
 		playerId: null,
 		handle: null,
 		role: null,
 		isGhost: false,
-		// Same key shape the HTTP limiter uses, so a WS login and an HTTP login
-		// from one address draw on one allowance.
-		addrKey: clientKey({ ...req.headers, "x-remote-addr": req.socket.remoteAddress }),
+		addrKey,
 	});
 
 	// WebSocket keepalive ping/pong
@@ -2277,6 +2307,15 @@ async function boot() {
 	// and the per-player revocation cutoffs, and verifyToken() answers null for
 	// everything until it has run.
 	await loadAuthSecret();
+	// The live service was created by hand, so render.yaml's env never reaches it and
+	// these two exist only in the dashboard. Without CONTENT_READONLY, builder and
+	// designer tokens can write content on prod; without AUTH_SECRET, the token key
+	// lives in the same database it protects. Loud, not fatal: failing boot over a
+	// setting nobody can see from the repo would take prod down on the next deploy.
+	if (process.env.RENDER) {
+		if (!process.env.CONTENT_READONLY) console.error("⚠ [boot] CONTENT_READONLY is not set on Render: content writes over HTTP are OPEN on prod.");
+		if (!process.env.AUTH_SECRET) console.error("⚠ [boot] AUTH_SECRET is not set on Render: the token-signing key is read from server_settings.");
+	}
 	if (!areRegistrationsOpen()) console.log("[boot] Registrations are LOCKED — existing accounts can still log in.");
 	// A verification gate with no working mailer locks every new account out, so
 	// say so at boot rather than letting registrations quietly strand.

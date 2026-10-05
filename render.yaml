@@ -45,6 +45,12 @@ services:
           # RENDER_EXTERNAL_URL (or the custom domain, once there is one).
           - key: CLIENT_BASE_URL
             sync: false
+          # How many proxies in front of the server append to X-Forwarded-For. The
+          # rate limiter keys on that many entries from the right (an address no
+          # client can forge); unset, it keys on the leftmost, which a client sets.
+          # The first forwarded request logs the header's address count: set this to it.
+          - key: TRUSTED_PROXY_HOPS
+            sync: false
           # Transactional email (Brevo). Unset, registration "verification" is a
           # no-op that only logs the link server-side — accounts can never verify.
           - key: BREVO_API_KEY

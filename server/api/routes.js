@@ -554,8 +554,13 @@ async function dispatchApiRequest(url, method, body, headers) {
   if (path.startsWith('/channels/') && path.endsWith('/message') && method==='POST') {
     if (!auth || !['admin','dev','builder','designer'].includes(auth.role)) return { status:403, body:{error:'Forbidden'} };
     const channelId = '#' + path.split('/')[2].replace(/^#/,'');
-    const { message, handle } = body || {};
-    if (!message || !handle) return { status:400, body:{error:'Missing message or handle'} };
+    const { message } = body || {};
+    if (!message) return { status:400, body:{error:'Missing message'} };
+    // The sender is whoever the token says, never a handle in the body: that let any
+    // staff member post to a channel as anybody.
+    const { rows: who } = await query('SELECT handle FROM players WHERE id=$1', [auth.playerId]);
+    const handle = who[0]?.handle;
+    if (!handle) return { status:403, body:{error:'Forbidden'} };
     const fakePlayer = { role: auth.role };
     if (!canAccessChannel(channelId, fakePlayer)) return { status:403, body:{error:'No access to channel'} };
     if (!broadcastFn) return { status:503, body:{error:'Server not ready'} };
@@ -593,6 +598,10 @@ async function dispatchApiRequest(url, method, body, headers) {
 async function apiRegister(body) {
   const {username,password,handle,email,displayRung} = body||{};
   if (!username||!password||!handle||!email) return {status:400,body:{error:'username, password, handle, email required'}};
+  // The same rules claimGuestAccount and the password reset already enforce; this
+  // path took any password and any username.
+  if (String(password).length < 8) return {status:400,body:{error:'Passwords are 8 characters or more.'}};
+  if (!/^[a-z0-9_.-]{3,24}$/i.test(String(username))) return {status:400,body:{error:'Usernames are 3 to 24 letters, numbers and _ . -'}};
   const bad = handleProblem(handle);
   if (bad) return {status:400,body:{error:bad}};
   try {
@@ -715,9 +724,11 @@ async function apiResendVerification(body) {
     'SELECT id, email, email_verified FROM players WHERE email=$1 ORDER BY email_verified ASC, id ASC',
     [email.toLowerCase().trim()]
   );
-  if (!rows.length) return { status:200, body:{ sent:true } }; // don't reveal if account exists
+  // ONE ANSWER for an unknown address and a verified one, as forgot-password does: a
+  // distinct "already verified" told a stranger which addresses have accounts.
+  if (!rows.length) return { status:200, body:{ sent:true } };
   const p = rows[0];
-  if (p.email_verified) return { status:400, body:{ error:'This account is already verified. You can log in.' } };
+  if (p.email_verified) return { status:200, body:{ sent:true } };
   await query('UPDATE email_verification_tokens SET used=TRUE WHERE player_id=$1 AND used=FALSE', [p.id]);
   const token = randomBytes(32).toString('hex');
   await query('INSERT INTO email_verification_tokens (player_id, token, expires_at) VALUES ($1,$2,$3)', [p.id, token, Date.now() + 24 * 60 * 60 * 1000]);
@@ -726,7 +737,7 @@ async function apiResendVerification(body) {
     await sendVerificationEmail(p.email, verifyUrl);
   } catch (e) {
     console.error('[resend-verification] email failed:', e.message);
-    return { status:502, body:{ error:e.message } };
+    return { status:502, body:{ error:"The email didn't send. Try again in a few minutes." } };
   }
   return { status:200, body:{ sent:true } };
 }
@@ -3860,6 +3871,9 @@ async function apiGetTagCatalog() {
 }
 
 async function apiPutTagCatalog(body) {
+  // Rewrites a served source file. CONTENT_READONLY already refuses this on prod (it isn't an
+  // OPS route); this says so here too, so the write can't come back if that gate is ever lifted.
+  if (process.env.NODE_ENV === 'production' || process.env.CONTENT_READONLY) return { status:403, body:{ error:'Tags are edited in git, not on the live server.' } };
   if (!body || typeof body !== 'object') return { status:400, body:{ error:'Expected catalog object' } };
   // Keep the file's leading doc block. It is where the shape vocabulary, the
   // scope semantics and the zone:<column> key convention are written down — a
@@ -3883,6 +3897,9 @@ async function apiGetSupertags() {
 }
 
 async function apiPutSupertags(body) {
+  // Rewrites a served source file. CONTENT_READONLY already refuses this on prod (it isn't an
+  // OPS route); this says so here too, so the write can't come back if that gate is ever lifted.
+  if (process.env.NODE_ENV === 'production' || process.env.CONTENT_READONLY) return { status:403, body:{ error:'Tags are edited in git, not on the live server.' } };
   if (!body || typeof body !== 'object') return { status:400, body:{ error:'Expected supertags object' } };
   const src = `(function(global){\n  var TAG_SUPERTAGS = ${JSON.stringify(body, null, 2)};\n  global.TAG_SUPERTAGS = TAG_SUPERTAGS;\n})(typeof window !== 'undefined' ? window : globalThis);\n`;
   writeFileSync(SUPERTAGS_PATH, src, 'utf8');
