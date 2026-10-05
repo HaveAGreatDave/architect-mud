@@ -1,8 +1,9 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The last few yards of Greenside Row, and they end against the flank of the ice house: three feet of brick with nothing in it and a drip line worn into the kerb below. The Basin is over the railing, close enough to spit into. Whatever this end of the street was for, it was for it before the ice house went up.",
+  "description": "The last few yards of Greenside Row before it bends east along the water. The Basin is over the railing, close enough to spit into, and the kerb is worn smooth where people stop to do exactly that.",
   "exits": {
+    "east": "zone_district_907_907",
     "north": "zone_district_906_906",
     "south": "zone_district_906_908",
     "west": "zone_district_905_907"
