@@ -891,6 +891,9 @@ export async function flushDirtyPositions() {
     // a RAM-only zone id into the durable row.
     params.push(p.id, persistableZone(p), Math.round(p.stamina ?? p.stamina_max ?? 100));
   });
+  // Cleared BEFORE the await, as flushDirtyResources does: a step taken while the write
+  // is in flight must stay dirty for the next flush instead of being marked clean unwritten.
+  for (const p of dirty) p._posDirty = false;
   try {
     await query(
       `UPDATE players AS pl SET current_zone = v.zone, stamina = v.stam
@@ -898,8 +901,8 @@ export async function flushDirtyPositions() {
        WHERE pl.id = v.id`,
       params
     );
-    for (const p of dirty) p._posDirty = false;
   } catch (err) {
+    for (const p of dirty) p._posDirty = true;   // retry on the next flush
     console.error(`flushDirtyPositions failed: ${err.message}`);
   }
 }

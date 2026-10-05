@@ -1517,7 +1517,10 @@ async function execAction(node, entity, ctx) {
         if (!result) return;
         if (result.hit) {
           target.hp = Math.max(0, target.hp - result.damage);
-          query('UPDATE players SET hp=$1 WHERE id=$2', [target.hp, target.id]).catch(() => {});
+          // Coalesced into the 1s flushDirtyResources batch like every other hp change. This was a
+          // fire-and-forget UPDATE per landed hit, on the path every aggressive enemy takes, and
+          // unordered writes could land a stale hp after a newer one.
+          target._resDirty = true;
           broadcast(null, { type: 'combat_incoming', message: result.message, player_update: { hp: target.hp, hp_max: target.hp_max } }, null, target.id);
           if (target.hp <= 0) {
             const { handlePlayerDeath } = await import('./gameLoop.js');

@@ -1503,6 +1503,10 @@ export async function flushDirtyResources() {
     rows.push(`($${b + 1}::text, $${b + 2}::int, $${b + 3}::int)`);
     params.push(p.id, Math.round(p.hp ?? p.hp_max ?? 0), Math.round(p.stamina ?? p.stamina_max ?? 100));
   });
+  // Cleared BEFORE the await: the values are already snapshotted into params, and a hit
+  // that lands while the write is in flight must leave the flag set for the next flush.
+  // Clearing after the await marked that newer hp clean, and it was never written.
+  for (const p of dirty) p._resDirty = false;
   try {
     await query(
       `UPDATE players AS pl SET hp = v.hp, stamina = v.stam
@@ -1510,8 +1514,8 @@ export async function flushDirtyResources() {
        WHERE pl.id = v.id`,
       params
     );
-    for (const p of dirty) p._resDirty = false;
   } catch (err) {
+    for (const p of dirty) p._resDirty = true;   // retry on the next flush
     console.error(`flushDirtyResources failed: ${err.message}`);
   }
 }

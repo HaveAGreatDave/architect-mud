@@ -81,9 +81,12 @@ export function schedule(cadence, callback, opts = {}) {
       // period no matter how many subscribe.
       const gap = Math.min(200, Math.floor(ms / (entry.callbacks.length + 1)));
       entry.callbacks.forEach((cb, i) => {
+        // cb() runs INSIDE the chain. `Promise.resolve(cb())` called it first, so a sync
+        // throw (weather steps, banter and several plugin ticks are plain functions)
+        // escaped the timer, reached uncaughtException and restarted the server.
         setTimeout(() => {
-          Promise.resolve(cb()).catch(err =>
-            console.error(`Scheduler [${cadence}] callback error: ${err.message}`)
+          Promise.resolve().then(() => cb()).catch(err =>
+            console.error(`Scheduler [${cadence}] callback error: ${err?.stack || err}`)
           );
         }, i * gap);
       });

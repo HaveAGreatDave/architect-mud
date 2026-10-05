@@ -225,7 +225,15 @@ export function getQueryMeter(topN = 10) {
 // Run a query. Automatically acquires + releases a connection.
 export async function query(text, params) {
   meterRecord(text);
-  const client = await pool.connect();
+  let client;
+  try {
+    client = await pool.connect();
+  } catch (err) {
+    // A pool timeout or a dropped Neon connection fails HERE, before the query runs.
+    // Log it like any other failed write, or the ~380 `.catch(() => {})` callers swallow it.
+    logFailedWrite(text, err);
+    throw err;
+  }
   try {
     const res = await client.query(text, params);
     return res;

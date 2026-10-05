@@ -71,7 +71,17 @@ let minuteTick = 0;
 
 export function startGameLoop(broadcast) {
   broadcastFn = broadcast;
-  setInterval(tick, 1000); // 1s combat tick stays raw — latency-critical hot path
+  // 1s combat tick stays raw (latency-critical hot path), with an in-flight guard: tick()
+  // awaits a DB flush, so under a slow pool the next tick used to start on top of it and the
+  // overlapping flushes stacked up. A tick that's still running makes the next one skip.
+  let tickBusy = false;
+  setInterval(() => {
+    if (tickBusy) return;
+    tickBusy = true;
+    tick()
+      .catch((err) => console.error(`[combat tick] ${err?.stack || err}`))
+      .finally(() => { tickBusy = false; });
+  }, 1000);
   schedule('1m', minuteTickFn);
   schedule('45s', ambientTick);
   schedule('5s', stormTick);

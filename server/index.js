@@ -116,6 +116,7 @@ import { getFlag, hydratePlayerFlags, evictPlayerFlags } from "./engine/flags.js
 import { hydrateDisplayRung, loggedPanelsSync, seedDisplayRungIfUnset, setDisplayRung, RUNGS as DISPLAY_RUNGS } from "./engine/presentation.js";
 import { stampToLog } from "./engine/room-brief.js";
 import { hydrateRelations, flushRelations } from "./engine/relations.js";
+import { flushWear } from "./engine/durability.js";
 import { hydrateIdeologyProfile } from "./engine/ideologies.js";
 import { DOMINANT_FLAG, SECOND_FLAG } from "./engine/senses.js";
 import { DEFAULT_STANCE } from "./engine/stance.js";
@@ -494,9 +495,12 @@ const httpServer = createServer(async (req, res) => {
 			});
 		} catch (err) {
 			console.error("API error:", url, err);
+			// On prod the detail goes to the log, not the caller: an exception message can
+			// carry a query, a column name or a file path. Locally the dev panel still shows
+			// it. A route that wants to tell the caller something returns its own error.
 			result = {
 				status: 500,
-				body: { error: err.message || "Internal server error" },
+				body: { error: process.env.NODE_ENV === "production" ? "Internal server error" : (err.message || "Internal server error") },
 			};
 		}
 		res.writeHead(result.status, {
@@ -731,6 +735,9 @@ wss.on("connection", (ws, req) => {
 		} catch {
 			return;
 		}
+		// `null`, a number or an array parses fine and then throws on `msg.type` below,
+		// before any handler, as an unhandled rejection.
+		if (!msg || typeof msg !== "object" || Array.isArray(msg)) return;
 		const session = clients.get(ws);
 		// Idle-logoff activity stamp: deliberate player actions refresh the live
 		// player's _lastInputAt (runtime-only; swept by the idle-logoff plugin).
@@ -956,72 +963,91 @@ wss.on("connection", (ws, req) => {
 
 	ws.on("close", async () => {
 		const session = clients.get(ws);
-		if (session?.playerId) {
-			// Only clean up if this socket is still the active one for this player.
-			// If a reconnect already ran finishAuth, playerSockets has been updated
-			// to the new socket — don't undo that by removing the live player here.
-			const isActiveSocket = playerSockets.get(session.playerId) === ws;
-			const player = getLivePlayer(session.playerId);
-			if (isActiveSocket) {
-				if (player) {
-					// Disconnecting is a wake path, and it was the one nobody counted.
-					// Without this the dreamscape is never dissolved (leaking its rooms
-					// for the life of the process) and current_zone stays a dream id —
-					// so a reconnect BEFORE a restart put the player back inside the
-					// dream, awake, with the sleeping state gone. Idempotent, and a
-					// no-op for anyone who wasn't dreaming.
-					wakeFromDream(player);
-					removePlayerFromZone(session.playerId, player.current_zone);
-					broadcast(
-						player.current_zone,
-						{
-							type: "zone_event",
-							message: `${session.handle} has fallen asleep.`,
-						},
-						session.playerId,
-					);
-					for (const [zoneId, dist] of getSoundReach(player.current_zone, 2.0)) {
-						if (dist > 0) broadcast(zoneId, { type: 'ambient', message: `<span class="msg-ambient msg-ambient-distant">Nearby, someone goes quiet.</span>` });
+		try {
+			if (session?.playerId) {
+				// Only clean up if this socket is still the active one for this player.
+				// If a reconnect already ran finishAuth, playerSockets has been updated
+				// to the new socket — don't undo that by removing the live player here.
+				const isActiveSocket = playerSockets.get(session.playerId) === ws;
+				const player = getLivePlayer(session.playerId);
+				if (isActiveSocket) {
+					// ⚠ ANY STEP IN THE try CAN THROW (a pool timeout, a Neon blip), AND THE BOOKKEEPING
+					// IN THE finally MUST RUN ANYWAY. It used to sit after an unguarded await, so a
+					// rejected activateForcefield skipped it: the player stayed in world.players,
+					// hasActivePlayers() stayed true, and the scheduler, the combat tick and the
+					// keepalive ran for nobody until the next restart.
+					try {
+						if (player) {
+							// Disconnecting is a wake path, and it was the one nobody counted.
+							// Without this the dreamscape is never dissolved (leaking its rooms
+							// for the life of the process) and current_zone stays a dream id —
+							// so a reconnect BEFORE a restart put the player back inside the
+							// dream, awake, with the sleeping state gone. Idempotent, and a
+							// no-op for anyone who wasn't dreaming.
+							wakeFromDream(player);
+							removePlayerFromZone(session.playerId, player.current_zone);
+							broadcast(
+								player.current_zone,
+								{
+									type: "zone_event",
+									message: `${session.handle} has fallen asleep.`,
+								},
+								session.playerId,
+							);
+							for (const [zoneId, dist] of getSoundReach(player.current_zone, 2.0)) {
+								if (dist > 0) broadcast(zoneId, { type: 'ambient', message: `<span class="msg-ambient msg-ambient-distant">Nearby, someone goes quiet.</span>` });
+							}
+							// Its own catch, so a failed forcefield still lets the checkpoint below land.
+							await activateForcefield(player, broadcast)
+								.catch((err) => console.error(`[logout] forcefield failed for ${session.handle}: ${err?.message || err}`));
+							// Reverse drug/withdrawal ledger buffs BEFORE the checkpoint write below.
+							// activeDrugs live only in memory, so a buff still applied here would be
+							// saved as if it were a base stat — and reversing a raised cap clamps the
+							// current value under it, which the row must capture.
+							clearActiveDrugBuffs(player);
+							await query(
+								"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), current_zone=$1, hp=$2, stamina=$3, offline_sleeping=TRUE WHERE id=$4",
+								// persistableZone, not current_zone — dropping mid-dream or
+								// mid-void-crossing would otherwise checkpoint a RAM-only zone id
+								// into the row and strand the player somewhere that stops existing.
+								[persistableZone(player), player.hp, player.stamina, session.playerId],
+							).catch(() => {});
+							player._posDirty = false; // authoritative clean-exit checkpoint for position (see cmdMove)
+							player._resDirty = false; // ...and for hp/stamina (see flushDirtyResources) — closes the combat-log window on a graceful logout
+						} else {
+							await query(
+								"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), offline_sleeping=TRUE WHERE id=$1",
+								[session.playerId],
+							).catch(() => {});
+						}
+						// Last chance to persist whatever the session changed about who
+						// knows this player — the live object (and its Map) is discarded
+						// by removeLivePlayer a few lines down. Wear too: it only flushed on
+						// the minute batch, so a logout within a minute of a fight dropped it.
+						if (player) await flushRelations(player).catch(() => {});
+						if (player) await flushMutations(player).catch(() => {});
+						if (player) await flushWear(player).catch(() => {});
+					} catch (err) {
+						console.error(`[logout] teardown step failed for ${session.handle}: ${err?.stack || err}`);
+					} finally {
+						try { closeShopSession(session.playerId); } catch (err) { console.error(`[logout] shop session: ${err?.message || err}`); }
+						// Flags are write-through (no dirty set to flush) — just drop the
+						// cache so the module registry stops pinning a dead player object.
+						evictPlayerFlags(session.playerId);
+						emit('player.logout', { id: session.playerId, handle: session.handle });
+						logActivity('disconnect', session.handle);
+						broadcast(null, { type: 'online_change' });
+						playerSockets.delete(session.playerId);
+						removeLivePlayer(session.playerId);
 					}
-					await activateForcefield(player, broadcast);
-					// Reverse drug/withdrawal ledger buffs BEFORE the checkpoint write below.
-					// activeDrugs live only in memory, so a buff still applied here would be
-					// saved as if it were a base stat — and reversing a raised cap clamps the
-					// current value under it, which the row must capture.
-					clearActiveDrugBuffs(player);
-					await query(
-						"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), current_zone=$1, hp=$2, stamina=$3, offline_sleeping=TRUE WHERE id=$4",
-						// persistableZone, not current_zone — dropping mid-dream or
-						// mid-void-crossing would otherwise checkpoint a RAM-only zone id
-						// into the row and strand the player somewhere that stops existing.
-						[persistableZone(player), player.hp, player.stamina, session.playerId],
-					).catch(() => {});
-					player._posDirty = false; // authoritative clean-exit checkpoint for position (see cmdMove)
-					player._resDirty = false; // ...and for hp/stamina (see flushDirtyResources) — closes the combat-log window on a graceful logout
-				} else {
-					await query(
-						"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), offline_sleeping=TRUE WHERE id=$1",
-						[session.playerId],
-					).catch(() => {});
 				}
-				closeShopSession(session.playerId);
-				// Last chance to persist whatever the session changed about who
-				// knows this player — the live object (and its Map) is discarded
-				// by removeLivePlayer a few lines down.
-				if (player) await flushRelations(player).catch(() => {});
-				if (player) await flushMutations(player).catch(() => {});
-				// Flags are write-through (no dirty set to flush) — just drop the
-				// cache so the module registry stops pinning a dead player object.
-				evictPlayerFlags(session.playerId);
-				emit('player.logout', { id: session.playerId, handle: session.handle });
-				logActivity('disconnect', session.handle);
-				broadcast(null, { type: 'online_change' });
-				playerSockets.delete(session.playerId);
-				removeLivePlayer(session.playerId);
 			}
+		} catch (err) {
+			console.error(`[ws close] ${err?.stack || err}`);
+		} finally {
+			clients.delete(ws);
+			ghostSockets.delete(ws);
 		}
-		clients.delete(ws);
-		ghostSockets.delete(ws);
 	});
 
 	ws.send(
@@ -1514,15 +1540,6 @@ async function finishAuth(ws, session, player, seedDisplayRung, explicitDisplayR
 	const { total: totalXp, net: netXp } = await getNetXp(player.id);
 	livePlayer.xp = Math.floor(netXp);
 	livePlayer.total_xp = totalXp;
-	// Combat stance persists across sessions (player_flags), but is read from the
-	// LIVE object on every to-hit roll — getFlag is a DB round trip and can never
-	// live in that hot path. Login is the one place it's fetched.
-	livePlayer.combat_stance = (await getFlag('player', 'combat_stance', livePlayer)) || DEFAULT_STANCE;
-	// Sense attunement, for exactly the same reason: `smell` is a spammable verb
-	// and acuity is read on every use, so the flags are hydrated once here and
-	// answered from the live object thereafter (docs/architecture.md read tiers).
-	livePlayer._senseDominant = (await getFlag('player', DOMINANT_FLAG, livePlayer)) || null;
-	livePlayer._senseSecond   = (await getFlag('player', SECOND_FLAG, livePlayer)) || null;
 	// Who this player has met, and how it went. ONE indexed query here is the
 	// entire DB cost of the relationship system for the whole session — every
 	// later read (dialogue gates, greetings, vendor manner) is answered from the
@@ -1534,6 +1551,7 @@ async function finishAuth(ws, session, player, seedDisplayRung, explicitDisplayR
 	const priorSession = getLivePlayer(player.id);
 	if (priorSession) await flushRelations(priorSession).catch(() => {});
 	if (priorSession) await flushMutations(priorSession).catch(() => {});
+	if (priorSession) await flushWear(priorSession).catch(() => {});
 	// Independent reads — one round trip's latency, not two.
 	// The ideology profile (stance + strongest path) is hydrated for the same
 	// reason: reputation decay consults it on every vendor price lookup, and five
@@ -1550,6 +1568,17 @@ async function finishAuth(ws, session, player, seedDisplayRung, explicitDisplayR
 		// rest of the login batch.
 		hydrateMutations(livePlayer),
 	]);
+	// Combat stance persists across sessions (player_flags), but is read from the
+	// LIVE object on every to-hit roll — getFlag is a DB round trip and can never
+	// live in that hot path. Login is the one place it's fetched.
+	// Sense attunement, for exactly the same reason: `smell` is a spammable verb
+	// and acuity is read on every use, so the flags are latched once here and
+	// answered from the live object thereafter (docs/architecture.md read tiers).
+	// These sit AFTER hydratePlayerFlags so they're Map lookups; before it, each was
+	// its own round trip on a login that already makes about twenty.
+	livePlayer.combat_stance = (await getFlag('player', 'combat_stance', livePlayer)) || DEFAULT_STANCE;
+	livePlayer._senseDominant = (await getFlag('player', DOMINANT_FLAG, livePlayer)) || null;
+	livePlayer._senseSecond   = (await getFlag('player', SECOND_FLAG, livePlayer)) || null;
 	// Latch the Display Mode rung onto the live player, AFTER the flag cache is
 	// warm so this costs nothing. The room-look renderer runs on every move and
 	// cannot await a preference; it reads this latch instead (presentation.js
@@ -1860,7 +1889,16 @@ async function handleGameCommand(ws, session, msg) {
 		);
 		return;
 	}
-	const result = await handleCommand(msg.command, player, broadcast, { silent: !!msg.silent });
+	let result;
+	try {
+		result = await handleCommand(msg.command, player, broadcast, { silent: !!msg.silent });
+	} catch (err) {
+		// A command that throws used to get no reply at all: the player saw nothing and
+		// typed it again. Tell them, and leave the detail in the log.
+		console.error(`⚠ command failed for ${player.handle}: ${String(msg.command).slice(0, 80)}`, err);
+		if (!msg.silent) ws.send(JSON.stringify({ type: "error", message: "That didn't work. Something broke on our side, and it's been logged." }));
+		return;
+	}
 	// SIFT PICKER RIDES THE REPLY, for the same reason stampToLog does. Sixty-eight
 	// call sites open a disambiguation picker and all of them return plain text;
 	// rather than teach all sixty-eight to also send a dialog, the state records
