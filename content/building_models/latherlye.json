@@ -1,28 +1,36 @@
 {
   "adorn": [
     {
-      "cx": 0,
+      "cx": -0.18,
+      "cy": -0.22,
+      "kind": "glowPool",
+      "rgb": "190,240,225",
+      "s": 9,
+      "z": 1
+    },
+    {
+      "cx": 0.18,
+      "cy": -0.22,
+      "kind": "glowPool",
+      "rgb": "190,240,225",
+      "s": 9,
+      "z": 1
+    },
+    {
+      "cx": 0.28,
       "cy": 0.47,
       "kind": "glowPool",
-      "rgb": "255,214,150",
-      "s": 15,
-      "z": 0.16
-    },
-    {
-      "cx": 0,
-      "cy": 0,
-      "kind": "glowPool",
-      "rgb": "150,232,255",
-      "s": 17,
-      "z": 0.8
-    },
-    {
-      "cx": -0.3,
-      "cy": 0.39,
-      "kind": "glowPool",
-      "rgb": "143,232,255",
+      "rgb": "200,250,230",
       "s": 9,
-      "z": 0.26
+      "z": 0.2
+    },
+    {
+      "cx": -0.09,
+      "cy": 0.46,
+      "kind": "glowPool",
+      "rgb": "170,240,215",
+      "s": 11,
+      "z": 0.3
     }
   ],
   "basis": {
@@ -37,238 +45,372 @@
   ],
   "detail": [
     {
-      "bars": 2,
-      "cx": 0,
-      "cy": 0.47,
-      "depth": 0.018,
-      "glass": "#1b2628",
-      "glow": "#ffe2a8",
-      "half": 0.098,
-      "hh": 0.072,
+      "bars": 4,
+      "cx": -0.09,
+      "cy": 0.432,
+      "depth": 0.016,
+      "glass": "#3c5450",
+      "glow": "#bff0e0",
+      "half": 0.26,
+      "hh": 0.11,
       "kind": "windowBay",
-      "pal": "ty_dw_brass",
-      "transom": 0.66,
-      "z": 0.135
+      "pal": "ty_ff_white",
+      "transom": 0.8,
+      "z": 0.31
     },
     {
-      "cx": 0,
-      "cy": 0.47,
-      "half": 0.155,
-      "hh": 0.011,
-      "kind": "canopy",
-      "out": 0.085,
-      "pal": "ty_dw_brass",
-      "soffit": "#1c4a4a",
-      "strip": "#8fe8ff",
-      "z": 0.216
+      "bare": true,
+      "color": "#00000000",
+      "cx": -0.09,
+      "cy": 0.432,
+      "font": "slab",
+      "half": 0.22,
+      "hh": 0.045,
+      "ink": "#f2eee0",
+      "kind": "signBoard",
+      "label": "HOT WATER",
+      "z": 0.12
     },
     {
-      "color": "#16302f",
-      "cx": 0,
-      "cy": 0.47,
+      "color": "#18322c",
+      "cx": -0.06,
+      "cy": 0.42,
       "font": "deco",
-      "half": 0.135,
-      "hh": 0.024,
-      "ink": "#8fe8ff",
+      "half": 0.24,
+      "hh": 0.03,
+      "ink": "#c8f4e4",
       "kind": "signBoard",
       "label": "LATHER & LYE",
-      "z": 0.262
+      "z": 0.5
     },
     {
-      "count": 5,
+      "bars": 1,
+      "cx": 0.28,
+      "cy": 0.42,
+      "depth": 0.016,
+      "glass": "#344a46",
+      "glow": "#d4fff0",
+      "half": 0.055,
+      "hh": 0.14,
+      "kind": "windowBay",
+      "pal": "ty_ff_white",
+      "transom": 0.75,
+      "z": 0.18
+    },
+    {
+      "cx": 0.28,
+      "cy": 0.42,
+      "half": 0.075,
+      "hh": 0.01,
+      "kind": "canopy",
+      "out": 0.05,
+      "pal": "ty_ff_white",
+      "soffit": "#2a3a36",
+      "strip": "#7fe3c0",
+      "z": 0.36
+    },
+    {
+      "cx": 0,
+      "cy": 0.42,
+      "half": 0.39,
+      "kind": "conduit",
+      "pal": "ty_stack_dk",
+      "r": 0.007,
+      "z": 0.55
+    },
+    {
+      "count": 3,
       "kind": "repeat",
       "of": {
         "bars": 1,
-        "cx": -0.33,
-        "cy": 0.42,
-        "depth": 0.013,
-        "glass": "#243436",
-        "glow": "#cfeef2",
-        "half": 0.058,
-        "hh": 0.045,
+        "cx": 0.08,
+        "cy": 0.36,
+        "depth": 0.01,
+        "face": "x",
+        "glass": "#2c403c",
+        "glow": "#9fe8cf",
+        "half": 0.04,
+        "hh": 0.035,
         "kind": "windowBay",
-        "pal": "ty_marble_col",
-        "z": 0.525
+        "pal": "ty_ff_white",
+        "z": 0.72
       },
       "step": {
-        "cx": 0.165
+        "cx": 0.12
       }
     },
     {
-      "color": "#12292a",
-      "cx": -0.3,
-      "cy": 0.368,
-      "font": "hanzi",
-      "half": 0.05,
-      "ink": "#8fe8ff",
-      "kind": "bladePanel",
-      "label": "湯",
-      "out": 0.03,
-      "pal": "ty_marble_col",
-      "z0": 0.1,
-      "z1": 0.345
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": 0.08,
+        "cy": -0.36,
+        "depth": 0.01,
+        "face": "x",
+        "glass": "#2c403c",
+        "glow": "#9fe8cf",
+        "half": 0.04,
+        "hh": 0.035,
+        "kind": "windowBay",
+        "pal": "ty_ff_white",
+        "z": 0.72
+      },
+      "step": {
+        "cx": 0.12
+      }
     },
     {
-      "cx": 0,
-      "cy": 0,
-      "half": 0.432,
-      "hh": 0.012,
-      "kind": "parapet",
-      "pal": "ty_marble_col",
-      "z": 0.615
-    },
-    {
-      "cx": -0.365,
-      "cy": -0.1,
-      "hh": 0.135,
-      "kind": "stack",
-      "pal": "ty_cold",
-      "r": 0.03,
-      "z": 0.615
-    },
-    {
-      "cx": 0.365,
-      "cy": -0.1,
-      "hh": 0.135,
-      "kind": "stack",
-      "pal": "ty_cold",
-      "r": 0.03,
-      "z": 0.615
-    },
-    {
-      "cx": 0.06,
-      "cy": 0.42,
-      "drip": 1,
+      "bars": 2,
+      "cx": -0.25,
+      "cy": 0.4,
+      "depth": 0.012,
       "face": "x",
-      "hh": 0.034,
-      "kind": "vent",
-      "pal": "ty_cold",
-      "w": 0.062,
-      "z": 0.3
+      "glass": "#2c3834",
+      "glow": "#d8f0e8",
+      "half": 0.06,
+      "hh": 0.07,
+      "kind": "windowBay",
+      "pal": "ty_ff_white",
+      "z": 0.32
     },
     {
-      "cx": -0.1,
-      "cy": -0.42,
+      "cx": 0.12,
+      "cy": -0.4,
       "face": "x",
-      "kind": "ductRun",
-      "pal": "ty_cold",
-      "r": 0.018,
-      "run": 0.14,
-      "z0": 0.1,
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.012,
+      "z0": 0.04,
       "z1": 0.6
     },
     {
-      "cx": 0.22,
-      "cy": -0.42,
-      "d": 0.034,
-      "hh": 0.03,
+      "cx": -0.1,
+      "cy": -0.4,
+      "drip": 0.8,
+      "face": "x",
+      "hh": 0.035,
+      "kind": "vent",
+      "pal": "ty_stack_dk",
+      "w": 0.05,
+      "z": 0.3
+    },
+    {
+      "cx": 0,
+      "cy": -0.4,
+      "drip": 1,
+      "half": 0.2,
+      "hh": 0.06,
+      "kind": "louvreBank",
+      "n": 8,
+      "pal": "ty_stack_dk",
+      "z": 0.72
+    },
+    {
+      "cx": -0.3,
+      "cy": -0.4,
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.012,
+      "z0": 0.04,
+      "z1": 0.82
+    },
+    {
+      "cx": 0.26,
+      "cy": -0.43,
+      "d": 0.035,
+      "hh": 0.035,
       "kind": "binStack",
-      "lid": "#2a3434",
+      "lid": "#1e2a22",
       "n": 2,
-      "pal": "ty_cold",
-      "w": 0.042,
+      "pal": "ty_cont_g",
+      "w": 0.04,
       "z": 0.004
     },
     {
-      "cx": -0.175,
-      "cy": 0.472,
-      "kind": "bollard",
-      "pal": "ty_marble_col",
-      "z": 0.004
+      "cx": 0,
+      "cy": 0.06,
+      "half": 0.41,
+      "hh": 0.01,
+      "kind": "parapet",
+      "pal": "ty_ff_white",
+      "z": 0.6
     },
     {
-      "cx": 0.175,
-      "cy": 0.472,
-      "kind": "bollard",
-      "pal": "ty_marble_col",
-      "z": 0.004
+      "cx": -0.18,
+      "cy": -0.22,
+      "hh": 0.12,
+      "kind": "stack",
+      "pal": "ty_stack_dk",
+      "r": 0.035,
+      "z": 0.85
+    },
+    {
+      "cx": 0.18,
+      "cy": -0.22,
+      "hh": 0.12,
+      "kind": "stack",
+      "pal": "ty_stack_dk",
+      "r": 0.035,
+      "z": 0.85
+    },
+    {
+      "cx": 0.22,
+      "cy": 0.24,
+      "hh": 0.05,
+      "kind": "roofTank",
+      "pal": "ty_stack_dk",
+      "r": 0.06,
+      "z": 0.6
+    },
+    {
+      "cx": -0.42,
+      "cy": 0.49,
+      "kind": "streetLamp",
+      "out": 0.12,
+      "pal": "ty_stack_dk",
+      "r": 0.026,
+      "rgb": "200,255,230",
+      "s": 9,
+      "z0": 0,
+      "z1": 0.086
     }
   ],
   "id": "latherlye",
-  "neon": "#8fe8ff",
-  "note": "LATHER & LYE — the public baths, as the one HALL on a street of boxes. A municipal bathhouse is\na single vaulted volume, so it gets the barrel roof the warehouse set uses and nothing else on\nMarrow Street does; the frontage is pale glazed tile because that is what a building you hose down\nis faced in, and the roof is copper because the vault above a swimming hall sweats.\n\n⚠ THE WINDOWS ARE HIGH AND THERE IS NO SHOPFRONT, which is the whole tell. Every other frontage on\nthis street is glazed at eye level to sell you what is inside. A room full of naked people is\nglazed ABOVE head height and nowhere else, so the ground floor is a tiled wall with one door in it\nand the glazing is a clerestory band under the cornice. Getting that backwards would make it a\nshop.\n\n⚠ THE FLUES STAND BESIDE THE VAULT, NOT ON IT. Roof plant needs a DECK — a box with a real roof\nface — and a barrel has none; a stack placed on the vault would hang inside the curve. The main\nbox is 0.42 and the barrel is 0.30, which leaves a ledge of deck either side, and a pair of flues\non that ledge is also where a boiler house actually vents.\n\n⚠ AND THE BARREL RUNS ACROSS THE FRONT. `hl` is the half-length along the barrel's own axis and\n`hw` the half-width across it; laid the other way the street would see a long flat eave instead of\nthe gable, and the gable end is the half of a bath hall anybody recognises.",
-  "pal": "ty_sw_milk",
-  "replaces": "citybathhouse",
+  "note": "LATHER & LYE: a barber's and bathhouse on Marrow Street.\n\nThe tile's prose: a barber's pole turning in a bracket over a doorway breathing steam into the\nstreet. The window is tiled halfway up in green and lettered LATHER & LYE · CUT, SHAVE, HOT WATER,\nwith HOT WATER twice the size of the rest, because it's the part that sells.\n\nSo it is a low brick shop with the bath hall rising behind it. The front is one wide window over a\nriser of green tile, and the door at the right with the pole on its bracket beside it. The name is\non the fascia over the window. HOT WATER is painted on the tile riser, larger than the name, which\nis the prose's joke. The words can't go on the glass itself, because a sign over glazing fails\nsignband.\n\nThe bath hall at the back carries the steam: two vent stacks with a pale glow over them at night,\nand a louvre bank on its rear wall. Its flanks have small high windows, lit green.\n\nAn earlier authored model drew this as municipal public baths: a tiled wall with no shopfront,\nhigh windows and a copper vault. That fought the prose, which has a lettered window tiled halfway\nup, and from the street it read as a blank box. The vault idea survives as the bath hall behind.\n\nIt stands in for the `latherlye` arm (`replaces`), which stays in LEGACY_MODELS. `ty_soak`, the\narm's palette, is in the window-grid family.",
+  "pal": "ty_forge",
+  "replaces": "latherlye",
   "segs": [
-    {
-      "cx": 0,
-      "cy": 0,
-      "hw": 0.44,
-      "kind": "box",
-      "pal": "ty_gate_dk",
-      "roof": true,
-      "z0": 0,
-      "z1": 0.055
-    },
     {
       "cx": 0,
       "cy": 0,
       "hw": 0.42,
       "kind": "box",
-      "pal": "ty_sw_milk",
+      "pal": "ty_gate_dk",
       "roof": true,
-      "z0": 0.055,
-      "z1": 0.615
+      "z0": 0,
+      "z1": 0.04
     },
     {
       "cx": 0,
-      "cy": 0,
-      "hw": 0.435,
+      "cy": 0.06,
+      "fd": 0.36,
+      "hw": 0.4,
       "kind": "box",
-      "pal": "ty_marble_col",
+      "pal": "ty_forge",
       "roof": true,
-      "z0": 0.615,
-      "z1": 0.665
-    },
-    {
-      "archH": 0.3,
-      "base": [
-        78,
-        138,
-        118
-      ],
-      "cx": 0,
-      "cxL": 0,
-      "cy": 0,
-      "hl": 0.42,
-      "hw": 0.3,
-      "kind": "barrel",
-      "nf": 16,
-      "pal": "ty_verdigris",
-      "z0": 0.665
+      "z0": 0.04,
+      "z1": 0.56
     },
     {
       "cx": 0,
-      "cy": 0.325,
-      "fd": 0.145,
-      "hw": 0.145,
+      "cy": 0.06,
+      "fd": 0.37,
+      "hw": 0.41,
       "kind": "box",
-      "pal": "ty_marble_col",
+      "pal": "ty_ff_white",
       "roof": true,
-      "z0": 0.055,
-      "z1": 0.3
+      "z0": 0.56,
+      "z1": 0.6
     },
     {
-      "cx": -0.3,
-      "cy": 0.3,
-      "fd": 0.062,
-      "hw": 0.062,
+      "cx": 0,
+      "cy": -0.2,
+      "fd": 0.2,
+      "hw": 0.36,
       "kind": "box",
-      "pal": "ty_marble_col",
+      "pal": "ty_forge",
       "roof": true,
-      "z0": 0.055,
-      "z1": 0.36
+      "z0": 0.6,
+      "z1": 0.82
     },
     {
-      "cx": 0.3,
-      "cy": 0.3,
-      "fd": 0.062,
-      "hw": 0.062,
+      "cx": 0,
+      "cy": -0.2,
+      "fd": 0.21,
+      "hw": 0.37,
       "kind": "box",
-      "pal": "ty_marble_col",
+      "pal": "ty_ff_white",
       "roof": true,
-      "z0": 0.055,
-      "z1": 0.36
+      "z0": 0.82,
+      "z1": 0.85
+    },
+    {
+      "cx": -0.09,
+      "cy": 0.42,
+      "fd": 0.012,
+      "hw": 0.27,
+      "kind": "box",
+      "pal": "ty_helpings",
+      "roof": true,
+      "z0": 0.04,
+      "z1": 0.2
+    },
+    {
+      "cx": 0.38,
+      "cy": 0.43,
+      "fd": 0.01,
+      "hw": 0.006,
+      "kind": "box",
+      "pal": "ty_stack_dk",
+      "roof": true,
+      "z0": 0.43,
+      "z1": 0.45
+    },
+    {
+      "cx": 0.38,
+      "cy": 0.44,
+      "kind": "drum",
+      "n": 10,
+      "pal": "ty_marble_col",
+      "rb": 0.016,
+      "rt": 0.016,
+      "z0": 0.24,
+      "z1": 0.29
+    },
+    {
+      "cx": 0.38,
+      "cy": 0.44,
+      "kind": "drum",
+      "n": 10,
+      "pal": "ty_butcher",
+      "rb": 0.016,
+      "rt": 0.016,
+      "z0": 0.29,
+      "z1": 0.33
+    },
+    {
+      "cx": 0.38,
+      "cy": 0.44,
+      "kind": "drum",
+      "n": 10,
+      "pal": "ty_marble_col",
+      "rb": 0.016,
+      "rt": 0.016,
+      "z0": 0.33,
+      "z1": 0.38
+    },
+    {
+      "cx": 0.38,
+      "cy": 0.44,
+      "kind": "drum",
+      "n": 10,
+      "pal": "ty_butcher",
+      "rb": 0.016,
+      "rt": 0.016,
+      "z0": 0.38,
+      "z1": 0.42
+    },
+    {
+      "cx": 0.38,
+      "cy": 0.44,
+      "kind": "drum",
+      "n": 10,
+      "pal": "ty_thumb_brass",
+      "rb": 0.02,
+      "rt": 0.012,
+      "z0": 0.42,
+      "z1": 0.44
     }
   ]
 }

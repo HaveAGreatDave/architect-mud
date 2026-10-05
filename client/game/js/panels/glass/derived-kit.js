@@ -611,7 +611,10 @@ const KIT_DECLINE = { meridian: ['signRoof'], clinic: ['signRoof'], stitch: ['si
   // They KEEP the name board: the prose has SLAG & WARES chalked on the tailboard and CAMP
   // GIARDIA hand-lettered on a plank, so this is not `UNSIGNED_TRADE` — that set is for a shed
   // with a number on it, and both of these are named by hand on purpose.
-  slagwares: ['signRoof', 'roof'], campgiardia: ['signRoof', 'roof'] };
+  slagwares: ['signRoof', 'roof'], campgiardia: ['signRoof', 'roof'],
+  // Sump has no sign, no window and no name over the door, and the prose says so. Without this the
+  // kit read a low brick box as a bar and put SUMP on a lit hoarding on its roof.
+  sump: ['sign', 'signRoof', 'neon', 'wall', 'paint'] };
 // ── AND WHICH BUILDINGS DO NOT PUT THEIR NAME UP AT ALL ────────────────────
 //
 // ⚠ THE MATERIAL CANNOT ANSWER THIS, AND `derivedStyle` IS THE ONLY THING THAT WAS ASKED. That
