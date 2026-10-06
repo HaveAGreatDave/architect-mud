@@ -8,12 +8,60 @@
 // An arm that ends early uses `return` where the case used `break`. How a tile becomes a building
 // is in docs/reference/world-rendering.md.
 import {
-  ADORN_NEAR, ADORN_TIER, DECO_LIFT, DECO_PULL, FACE_EPS, LCK_ROOF_Z, SLUM_PULL, SLUM_RUST, SLUM_TIN, TARPS,
-  TR, awning, bakeSignText, blinkLight, clamp, draw3DBoxAt, drawBarrelRoof, drawFacetDrum, drawRing,
-  emitDecoFill, emitSurfaceText, emitWire, faceYaw, frac, glowPool, hfChrome, hfGlass, marqueeBand,
-  neonBlade, roofClutter, slumCurtain, slumDrape, slumFaceVis, slumHole, slumOpening, slumRope,
-  slumScrawl, slumSheet,
+  ADORN_NEAR, ADORN_TIER, DECO_LIFT, DECO_PULL, DETAIL_LIFT, FACE_EPS, LCK_ROOF_Z, SHAPE_SINK, SLUM_PULL,
+  SLUM_RUST, SLUM_TIN, TARPS, TR, WALL_COL, awning, bakeSignText, blinkLight, clamp, draw3DBoxAt,
+  drawBarrelRoof, drawFacetDrum, drawRing, drawSmoke, emitDecoFill, emitFlat, emitSurfaceText, emitWire,
+  faceYaw, frac, glowPool, hfChrome, hfGlass, litStyle, marqueeBand, nearOrMesh, neonBlade, rgb,
+  roofClutter, slumCurtain, slumDrape, slumFaceVis, slumHole, slumOpening, slumRope, slumScrawl,
+  slumSheet,
 } from '../../windshield.js';
+
+// ── Lit flat faces for Ash Management ─────────────────────────────────────────────────────────
+// Newell's normal, turned to point along `out`, which is the same sum `emitFlat` uses: a lit mesh
+// face is shaded off it, so a polygon walked the wrong way round is lit from behind.
+function ashFacing(q, out) {
+  let nx = 0, ny = 0, nz = 0;
+  for (let i = 0; i < q.length; i++) {
+    const a = q[i], b = q[(i + 1) % q.length];
+    nx += (a[1] - b[1]) * (a[2] + b[2]); ny += (a[2] - b[2]) * (a[0] + b[0]); nz += (a[0] - b[0]) * (a[1] + b[1]);
+  }
+  return nx * out[0] + ny * out[1] + nz * out[2] < 0 ? q.slice().reverse() : q;
+}
+// A face in the model's own frame, facing the local direction `out`, that the GPU lights as `fam`
+// from the albedo `alb`. The canvas gets the painter's fixed key off the world normal instead.
+// ⚠ A PALE FACE CARRIES ITS OWN DUSK. The mass shader dims at night only what is darker than about
+// 0.55 luminance, so stone coping lit as a wall would keep its noon brightness at midnight. A dark
+// face is left to the shader, or it would come out darker than the textured wall beside it.
+function ashFlat(ctx, cam, W3, pts, out, alb, fam, alpha, dn) {
+  if (SHAPE_SINK) return;
+  const O = W3(0, 0, 0), D = W3(out[0], out[1], out[2]);
+  const ox = D[0] - O[0], oy = D[1] - O[1], oz = D[2] - O[2], ol = Math.hypot(ox, oy, oz) || 1;
+  const lum = (0.299 * alb[0] + 0.587 * alb[1] + 0.114 * alb[2]) / 255;
+  const d = lum > 0.42 ? 1 - 0.55 * dn : 1, a = [alb[0] * d, alb[1] * d, alb[2] * d];
+  const k = clamp(0.64 + 0.28 * oz / ol - 0.14 * (ox + oy) / ol, 0.32, 1.12) * (1 - 0.55 * dn);
+  emitFlat(ctx, cam, ashFacing(pts.map((p) => W3(p[0], p[1], p[2])), [ox, oy, oz]), rgb([a[0] * k, a[1] * k, a[2] * k]), alpha,
+    { lit: fam, albedo: a, lift: DETAIL_LIFT, cullN: Math.abs(oz / ol) < 0.8 ? [ox, oy] : undefined });
+}
+// A window or an opening: unlit, so it holds `day` by day and `lit` after dark whatever the sun does.
+function ashGlow(ctx, cam, W3, pts, out, day, lit, dn, alpha) {
+  if (SHAPE_SINK) return;
+  const O = W3(0, 0, 0), D = W3(out[0], out[1], out[2]);
+  const ox = D[0] - O[0], oy = D[1] - O[1], oz = D[2] - O[2], ol = Math.hypot(ox, oy, oz) || 1;
+  const c = [0, 1, 2].map((i) => day[i] + (lit[i] - day[i]) * dn);
+  emitFlat(ctx, cam, ashFacing(pts.map((p) => W3(p[0], p[1], p[2])), [ox, oy, oz]), rgb(c), alpha,
+    { lift: DETAIL_LIFT, cullN: Math.abs(oz / ol) < 0.8 ? [ox, oy] : undefined });
+}
+// An iron band round a drum, the half facing the eye only. ⚠ NOT `drawRing`, which pulls the
+// whole circle toward the eye and brings the back half out round the silhouette (`glself`).
+function ashBand(ctx, cam, cx, cy, z, r, N, css, lw, alpha) {
+  const ex = cam.ex || 0, ey = cam.ey || 0;
+  for (let i = 0; i < N; i++) {
+    const a0 = i / N * 6.2832, a1 = (i + 1) / N * 6.2832;
+    const away = (a) => { const nx = Math.cos(a), ny = Math.sin(a); return nx * (cx + nx * r - ex) + ny * (cy + ny * r - ey) >= 0; };
+    if (away(a0) || away(a1)) continue;
+    emitWire(ctx, cam, [cx + Math.cos(a0) * r, cy + Math.sin(a0) * r, z], [cx + Math.cos(a1) * r, cy + Math.sin(a1) * r, z], lw, css, alpha, { pull: 0.01 });
+  }
+}
 
 // The pod both of the Outer Lock's rooms are built as (see `glacis_booth`). Two parts, and the
 // split is the design:
@@ -494,10 +542,12 @@ export const OLD_COLDWATER_ARMS = {
     if (night) {
       // Lit windows up the front, small and few. Most of the beds are taken and most of the
       // people in them are asleep; the landing lamp is the only thing burning all night.
-      const [gx, gy] = F(0, fh * 0.88);
-      glowPool(ctx, cam, gx, gy, s1 - h * 0.07, '255,206,132', 6, alpha * 0.18);
-      glowPool(ctx, cam, gx, gy, s2 - h * 0.07, '255,206,132', 6, alpha * 0.13);
-      glowPool(ctx, cam, gx, gy, eaves - h * 0.07, '255,206,132', 6, alpha * 0.09);
+      // ⚠ EACH ONE JUST PROUD OF ITS OWN STOREY, because the storeys jetty out (0.86, 0.92, 0.97 fh).
+      // At one shared 0.88 the upper two were inside the walls.
+      for (const [ly, z, a] of [[0.90, s1, 0.18], [0.96, s2, 0.13], [1.01, eaves, 0.09]]) {
+        const [gx, gy] = F(0, fh * ly);
+        glowPool(ctx, cam, gx, gy, z - h * 0.07, '255,206,132', 6, alpha * a);
+      }
     }
   },
   soup_kitchen(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // NO SUCH THING — A LONG LOW HALL WITH A CANOPY OVER THE QUEUE, which
@@ -559,7 +609,7 @@ export const OLD_COLDWATER_ARMS = {
       slumHole(ctx, cam, W3, P, fh * 0.40, h * 0.35, fh * 0.09, h * 0.045, 'rgb(78,62,50)', seed, alpha);
       slumScrawl(ctx, cam, W3, P, -fh * 0.40, h * 0.12, fh * 0.18, h * 0.03, seed + 5, nightF, alpha);
     }
-    if (night) { const [gx, gy] = F(0, fh * 0.92); glowPool(ctx, cam, gx, gy, h * 0.20, '255,198,126', 9, alpha * 0.26); }
+    if (night) { const [gx, gy] = F(0, fh * 1.00); glowPool(ctx, cam, gx, gy, h * 0.20, '255,198,126', 9, alpha * 0.26); }   // the hall's face is 0.96
   },
   bonesetter(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // A STITCH IN TIME — ONE ROOM AND ONE WINDOW, and the window is the
     // model. It is the brightest thing on Ropewalk after dark and it is not advertising: the
@@ -679,11 +729,15 @@ export const OLD_COLDWATER_ARMS = {
     //    the head than at the cill reads as a cant from anywhere you can actually see it, and it
     //    stays affine in fh, which a real rotation would not. `ty_stuff_glass` joins SHOP_GLASS:
     //    one sill, one head, a lit interior with things in it, and no floor plates.
-    { const [lx, ly] = F(0, fh * 0.52); draw3DBoxAt(ctx, cam, lx, ly, fh * 0.80, cill, h * 0.30, 'ty_stuff_glass', seed + 2, night, alpha, false, faceYaw(E), fh * 0.10); }
-    { const [ux, uy] = F(0, fh * 0.62); draw3DBoxAt(ctx, cam, ux, uy, fh * 0.84, h * 0.30, headHi, 'ty_stuff_glass', seed + 3, night, alpha, false, faceYaw(E), fh * 0.12); }
+    // ⚠ MEASURED FROM THE SHELL'S FACE AT 0.88 fh. Both panes, the sign ground and the lettering
+    //    used to end between 0.62 and 0.75 fh, inside the render, so the depth buffer hid the whole
+    //    frontage and the kit's generic glazing was what showed. The kit's ground floor is declined
+    //    for this trade now (KIT_DECLINE).
+    { const [lx, ly] = F(0, fh * 0.90); draw3DBoxAt(ctx, cam, lx, ly, fh * 0.80, cill, h * 0.30, 'ty_stuff_glass', seed + 2, night, alpha, false, faceYaw(E), fh * 0.04); }
+    { const [ux, uy] = F(0, fh * 0.94); draw3DBoxAt(ctx, cam, ux, uy, fh * 0.84, h * 0.30, headHi, 'ty_stuff_glass', seed + 3, night, alpha, false, faceYaw(E), fh * 0.06); }
     // 3) THE SIGN GROUND — black painted render above the head of the window, which is what the
     //    lettering is on. Painted, not lit: this shop shuts at six and does not care who knows.
-    { const [sx, sy] = F(0, fh * 0.60); draw3DBoxAt(ctx, cam, sx, sy, fh * 0.90, headHi, h * 0.58, 'ty_stuff_dk', seed + 4, night, alpha, false, faceYaw(E), fh * 0.14); }
+    { const [sx, sy] = F(0, fh * 0.91); draw3DBoxAt(ctx, cam, sx, sy, fh * 0.90, headHi, h * 0.58, 'ty_stuff_dk', seed + 4, night, alpha, false, faceYaw(E), fh * 0.05); }
     // 4) THE MOUNT. A body and a span, as two boxes, which is all a silhouette needs: from the
     //    street it is a shape on a bracket and from the air it is a cruciform on a roofline, and
     //    there is nothing else like it in Coldwater. It is weathering, and everybody has an
@@ -702,7 +756,7 @@ export const OLD_COLDWATER_ARMS = {
     // can read it, and she has never once thought that was a problem worth money.
     if (frontVis) {
       const P = (lx, ly, z) => { const [wx, wy] = F(lx, ly); return cam.proj(wx, wy, z); };
-      const bz0 = headHi + h * 0.018, bz1 = h * 0.566, bhw = fh * 0.76, by = fh * 0.746;
+      const bz0 = headHi + h * 0.018, bz1 = h * 0.566, bhw = fh * 0.76, by = fh * 0.966;
       const TL = P(-bhw, by, bz1), TR = P(bhw, by, bz1), BR = P(bhw, by, bz0), BL = P(-bhw, by, bz0);
       if ([TL, TR, BR, BL].every((q) => q.f > 0.12)) {
         const tex = bakeSignText(sign || 'STUFF IT', '#efe3c6', 0, false);
@@ -712,7 +766,7 @@ export const OLD_COLDWATER_ARMS = {
     if (night) {
       // The picture lights, seen through the cant. Small and warm, and the only light on this
       // building: there is no fascia lighting, no blade and no spill onto the road.
-      const [gx, gy] = F(0, fh * 0.58); glowPool(ctx, cam, gx, gy, h * 0.26, '255,206,140', 8, alpha * 0.22);
+      const [gx, gy] = F(0, fh * 1.02); glowPool(ctx, cam, gx, gy, h * 0.26, '255,206,140', 8, alpha * 0.22);
     }
   },
   lending_library(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // FINE PRINT — the only building in Coldwater that is lit from ABOVE.
@@ -731,7 +785,9 @@ export const OLD_COLDWATER_ARMS = {
     draw3DBoxAt(ctx, cam, dx, dy, fh * 0.92, plinth, wallTop, pal, seed + 1, night, alpha, false);
     // 3) THE HIGH WINDOW BAND. It starts above head height because a reading room does not want
     //    the street in it, and it is drawn as one recessed band rather than as punched openings.
-    { const [bx, by] = F(0, fh * 0.60); draw3DBoxAt(ctx, cam, bx, by, fh * 0.80, cill, h * 0.78, 'ty_fprint_glass', seed + 2, night, alpha, false, faceYaw(E), fh * 0.06); }
+    // ⚠ ON THE FACE (0.92 fh). The band used to end at 0.66, inside the wall, so the one window the
+    //    building has was buried and the kit's grid stood in for it. `wall` is declined for this trade.
+    { const [bx, by] = F(0, fh * 0.93); draw3DBoxAt(ctx, cam, bx, by, fh * 0.80, cill, h * 0.78, 'ty_fprint_glass', seed + 2, night, alpha, false, faceYaw(E), fh * 0.03); }
     // 4) THE CORNICE, oversailing, which is the one piece of expense on the whole elevation.
     draw3DBoxAt(ctx, cam, dx, dy, fh * 1.00, wallTop, cornice, 'ty_fprint_stone', seed + 3, night, alpha, true);
     // 5) THE LANTERN. A long glazed monitor down the ridge — narrow across, nearly the full depth
@@ -750,7 +806,7 @@ export const OLD_COLDWATER_ARMS = {
       // other glowPool in this switch is placed at the front face to wash the street; this one is
       // on the ridge, because what this building does after dark is glow along its own roof.
       glowPool(ctx, cam, dx, dy, lantern, '238,230,196', 16, alpha * 0.40);
-      const [wx, wy] = F(0, fh * 0.62); glowPool(ctx, cam, wx, wy, h * 0.64, '226,214,170', 7, alpha * 0.16);
+      const [wx, wy] = F(0, fh * 0.98); glowPool(ctx, cam, wx, wy, h * 0.64, '226,214,170', 7, alpha * 0.16);
     }
   },
   pool_hall(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // POCKET MONEY — THE FRONT DOOR IS ON THE FIRST FLOOR, and nothing else in
@@ -780,14 +836,19 @@ export const OLD_COLDWATER_ARMS = {
       draw3DBoxAt(ctx, cam, sx, sy, fh * 0.12, 0, lockTop * (0.30 + i * 0.24), 'ty_pocket_stair', seed + 4 + i, night, alpha, true, faceYaw(E), fh * 0.15);
     }
     { const [lx, ly] = F(fh * 0.86, -fh * 0.60); draw3DBoxAt(ctx, cam, lx, ly, fh * 0.16, lockTop * 0.96, lockTop, 'ty_pocket_stair', seed + 8, night, alpha, true, faceYaw(E), fh * 0.20); }
+    // THE DOOR AT THE HEAD OF THE STAIR, in the hall's flank (0.98 fh) over the landing. The stair
+    // used to end at a bare landing, which left the building's one idea without its door.
+    { const [ox, oy] = F(fh * 0.99, -fh * 0.60); draw3DBoxAt(ctx, cam, ox, oy, fh * 0.015, lockTop, lockTop + h * 0.22, 'ty_door', seed + 9, night, alpha, false, faceYaw(E), fh * 0.09); }
     if (frontVis) { const [nx, ny] = F(fh * 0.56, fh * 1.00); neonBlade(ctx, cam, nx, ny, h * 0.28, h * 0.74, m.neon || '#6effa8', night, alpha); }
     if (night) {
+      // ⚠ BOTH POOLS ARE OUTSIDE THE WALLS NOW: the clerestory's on its glass (1.00 fh) and the bulb
+      // just off the flank. At 0.56 and 0.86 they were inside the hall and lit nothing.
       // ⚠ THE POOL IS AT THE CLERESTORY, NOT AT THE PAVEMENT. Eight shaded lamps hung low over
       // eight tables put almost nothing on the ceiling and nothing at all on the street; what
       // escapes goes out sideways through the band. A pool at the door would be a lit entrance,
       // and the entrance to this building is a dark stair with one bulb at the turn.
-      const [gx, gy] = F(0, fh * 0.56); glowPool(ctx, cam, gx, gy, h * 0.74, '186,255,206', 11, alpha * 0.30);
-      const [bx, by] = F(fh * 0.86, -fh * 0.60); glowPool(ctx, cam, bx, by, lockTop, '255,226,170', 5, alpha * 0.20);
+      const [gx, gy] = F(0, fh * 1.04); glowPool(ctx, cam, gx, gy, h * 0.74, '186,255,206', 11, alpha * 0.30);
+      const [bx, by] = F(fh * 1.04, -fh * 0.60); glowPool(ctx, cam, bx, by, lockTop + h * 0.24, '255,226,170', 5, alpha * 0.20);
     }
   },
   amusements(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE PENNY DROPS — THE BUILDING WITH NO FRONT WALL. Every other shopfront
@@ -805,7 +866,9 @@ export const OLD_COLDWATER_ARMS = {
     // 2) THE LIT BACK OF THE ROOM, in the gap. PLAIN_WALL: no courses, no laps, no board lines,
     //    because what you are looking at is eleven cabinets lit from inside and the wash they put
     //    on the wall behind them. Any rhythm in it would be a lie about what is making the light.
-    { const [ix, iy] = F(0, fh * 0.28); draw3DBoxAt(ctx, cam, ix, iy, fh * 0.70, 0, lintel, 'ty_penny_lit', seed + 1, night, alpha, false, faceYaw(E), fh * 0.10); }
+    //    ⚠ ON THE SHED'S FRONT (0.50 fh). It used to end at 0.38, inside the shed, so the opening
+    //    showed plain wall where the cabinets should be.
+    { const [ix, iy] = F(0, fh * 0.52); draw3DBoxAt(ctx, cam, ix, iy, fh * 0.70, 0, lintel, 'ty_penny_lit', seed + 1, night, alpha, false, faceYaw(E), fh * 0.02); }
     // 3) THE PIERS either side of the opening, and the lintel over them. The piers are what stop
     //    the building reading as a hole in the ground.
     for (const t of [-1, 1]) { const [px, py] = F(t * fh * 0.82, fh * 0.44); draw3DBoxAt(ctx, cam, px, py, fh * 0.16, 0, fascia, pal, seed + 2 + t, night, alpha, true, faceYaw(E), fh * 0.22); }
@@ -820,7 +883,7 @@ export const OLD_COLDWATER_ARMS = {
       // lands on the road, and from the top of Meltwater Row it is the brightest patch of ground
       // in the district. Two pools, because the near one is the spill and the far one is the room.
       const [ox, oy] = F(0, fh * 1.16); glowPool(ctx, cam, ox, oy, h * 0.06, '255,206,128', 18, alpha * 0.46);
-      const [cx2, cy2] = F(0, fh * 0.30); glowPool(ctx, cam, cx2, cy2, h * 0.30, '198,150,255', 12, alpha * 0.34);
+      const [cx2, cy2] = F(0, fh * 0.58); glowPool(ctx, cam, cx2, cy2, h * 0.30, '198,150,255', 12, alpha * 0.34);
     }
   },
   fishmonger(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE CODFATHER — A COUNTER WITH A ROOF ON IT. There is no glazing on this
@@ -951,14 +1014,16 @@ export const OLD_COLDWATER_ARMS = {
     draw3DBoxAt(ctx, cam, dx, dy, fh * 0.96, wallTop, inkPar, pal, seed + 2, night, alpha, true);
     // THE STAIR WINDOW. Narrow, and running from the pavement to the first floor in one piece,
     // which is what makes it a STRIP rather than two windows above each other.
-    { const [sx, sy] = F(fh * 0.62, fh * 0.50); draw3DBoxAt(ctx, cam, sx, sy, fh * 0.13, h * 0.06, h * 0.86, 'ty_regerts_glass', seed + 3, night, alpha, false, faceYaw(E), fh * 0.05); }
+    // ⚠ ON THE FACE (0.90 fh), not at 0.55 where it used to end, inside the wall: the strip and both
+    //    glows were buried and the kit's window grid was what showed. `wall` is declined for this trade.
+    { const [sx, sy] = F(fh * 0.62, fh * 0.92); draw3DBoxAt(ctx, cam, sx, sy, fh * 0.13, h * 0.06, h * 0.86, 'ty_regerts_glass', seed + 3, night, alpha, false, faceYaw(E), fh * 0.03); }
     if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.70, h * 0.50, m.neon || '#ff5ac8', night, alpha);
     if (night) {
       // ⚠ TWO POOLS, ONE TALL AND ONE SMALL, and the tall one is the building. It sits at the
       // MIDDLE of the strip rather than at the pavement, so the light reads as coming off a
       // vertical thing rather than out of a door.
-      const [sx, sy] = F(fh * 0.62, fh * 0.54); glowPool(ctx, cam, sx, sy, h * 0.46, '255,196,236', 8, alpha * 0.34);
-      const [dx2, dy2] = F(-fh * 0.30, fh * 0.52); glowPool(ctx, cam, dx2, dy2, h * 0.14, '255,150,210', 4, alpha * 0.18);
+      const [sx, sy] = F(fh * 0.62, fh * 0.98); glowPool(ctx, cam, sx, sy, h * 0.46, '255,196,236', 8, alpha * 0.34);
+      const [dx2, dy2] = F(-fh * 0.30, fh * 0.94); glowPool(ctx, cam, dx2, dy2, h * 0.14, '255,150,210', 4, alpha * 0.18);
     }
   },
   vet(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // PAWS FOR THOUGHT — THE ONLY DOMESTIC BUILDING IN COLDWATER DOING BUSINESS. It is
@@ -981,7 +1046,8 @@ export const OLD_COLDWATER_ARMS = {
     if (night) {
       // A lit front room and a lit chimney, and nothing on the road. She does not advertise and
       // the people who need her at three in the morning already know which house it is.
-      const [gx, gy] = F(-fh * 0.34, fh * 0.80); glowPool(ctx, cam, gx, gy, h * 0.26, '255,220,168', 6, alpha * 0.30);
+      // On the bay's glass (0.92 fh): at 0.80 it was inside the bay and lit nothing.
+      const [gx, gy] = F(-fh * 0.34, fh * 0.96); glowPool(ctx, cam, gx, gy, h * 0.26, '255,220,168', 6, alpha * 0.30);
     }
   },
   off_licence(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // SPIRIT LEVEL — ONE LIT RECTANGLE ON A BLACK BUILDING. The last shop before
@@ -994,17 +1060,19 @@ export const OLD_COLDWATER_ARMS = {
     draw3DBoxAt(ctx, cam, dx, dy, fh * 0.96, wallTop, offPar, 'ty_spirit_dk', seed + 1, night, alpha, true);
     // THE SHUTTER across the whole frontage — steel, drawn down, and the reason there is nothing
     // else to look at.
-    { const [sx, sy] = F(0, fh * 0.52); draw3DBoxAt(ctx, cam, sx, sy, fh * 0.86, 0, h * 0.52, 'ty_pocket_shut', seed + 2, night, alpha, false, faceYaw(E), fh * 0.06); }
+    // ⚠ ON THE FACE (0.90 fh). The shutter, the hatch and the block all used to end near 0.6, inside
+    //    the wall, so the kit's shopfront was what you saw. Its `ground` and `wall` are declined now.
+    { const [sx, sy] = F(0, fh * 0.91); draw3DBoxAt(ctx, cam, sx, sy, fh * 0.86, 0, h * 0.52, 'ty_pocket_shut', seed + 2, night, alpha, false, faceYaw(E), fh * 0.02); }
     // THE HATCH. Small, at chest height, and the only thing on this building that is not shut.
-    { const [hx, hy] = F(fh * 0.14, fh * 0.58); draw3DBoxAt(ctx, cam, hx, hy, fh * 0.15, h * 0.22, h * 0.36, 'ty_spirit_hatch', seed + 3, night, alpha, false, faceYaw(E), fh * 0.04); }
+    { const [hx, hy] = F(fh * 0.14, fh * 0.94); draw3DBoxAt(ctx, cam, hx, hy, fh * 0.15, h * 0.22, h * 0.36, 'ty_spirit_hatch', seed + 3, night, alpha, false, faceYaw(E), fh * 0.02); }
     // The glass block above it, which lets light out and nothing else through.
-    { const [bx, by] = F(-fh * 0.36, fh * 0.56); draw3DBoxAt(ctx, cam, bx, by, fh * 0.26, h * 0.30, h * 0.48, 'ty_spirit_block', seed + 4, night, alpha, false, faceYaw(E), fh * 0.05); }
+    { const [bx, by] = F(-fh * 0.36, fh * 0.94); draw3DBoxAt(ctx, cam, bx, by, fh * 0.26, h * 0.30, h * 0.48, 'ty_spirit_block', seed + 4, night, alpha, false, faceYaw(E), fh * 0.02); }
     if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.78, h * 0.60, m.neon || '#ffd27a', night, alpha);
     if (night) {
       // ⚠ ONE SMALL POOL AND IT IS AT THE HATCH. Every instinct says light a shopfront; this
       // building's whole argument is that it does not. The pool is deliberately tight, so from
       // up the road it is a bright hole rather than a lit shop.
-      const [gx, gy] = F(fh * 0.14, fh * 0.62); glowPool(ctx, cam, gx, gy, h * 0.29, '255,226,158', 4, alpha * 0.38);
+      const [gx, gy] = F(fh * 0.14, fh * 1.00); glowPool(ctx, cam, gx, gy, h * 0.29, '255,226,158', 4, alpha * 0.38);
     }
   },
   museum(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // PAST PERFECT — FOUR COLUMNS AND A PEDIMENT ON A BUILDING ONE ROOM DEEP. The
@@ -1030,10 +1098,13 @@ export const OLD_COLDWATER_ARMS = {
     { const [ex, ey] = F(0, fh * 0.66); draw3DBoxAt(ctx, cam, ex, ey, fh * 0.94, colTop, h * 0.83, 'ty_past_stone', seed + 8, night, alpha, false, faceYaw(E), fh * 0.30); }
     { const [fx2, fy2] = F(0, fh * 0.66); draw3DBoxAt(ctx, cam, fx2, fy2, fh * 0.58, h * 0.83, ped, 'ty_past_stone', seed + 9, night, alpha, true, faceYaw(E), fh * 0.26); }
     if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.84, h * 0.78, m.neon || '#e2dcc4', night, alpha);
+    // ⚠ THE DOORS, on the hall's face (0.38 fh) between the middle columns. The portico led to a
+    //    blank wall, and the night glow sat at 0.30, inside the hall; it lights the doorway now.
+    { const [ox, oy] = F(0, fh * 0.39); draw3DBoxAt(ctx, cam, ox, oy, fh * 0.12, h * 0.09, h * 0.52, 'ty_door', seed + 10, night, alpha, false, faceYaw(E), fh * 0.02); }
     if (night) {
       // Eleven lit cases in a dark room, seen through two tall windows shuttered to two-thirds.
       // It is open in the day and he is in there most of the night writing labels.
-      const [gx, gy] = F(0, fh * 0.30); glowPool(ctx, cam, gx, gy, h * 0.40, '244,226,170', 7, alpha * 0.20);
+      const [gx, gy] = F(0, fh * 0.46); glowPool(ctx, cam, gx, gy, h * 0.40, '244,226,170', 7, alpha * 0.20);
     }
   },
   concert_hall(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // SOUND INVESTMENT — THE ONLY FLY TOWER IN COLDWATER, and that is the
@@ -1116,8 +1187,11 @@ export const OLD_COLDWATER_ARMS = {
     // 3) THE PORTICO — two chrome columns and a flat hood over four steps, and it is the one
     //    part of the building that still has a corner in it. Shallow, because this is not making
     //    a civic claim; it is making a domestic one, expensively.
+    // ⚠ THE DRUM'S FACE IS AT ABOUT 0.86 fh AT DOOR HEIGHT (0.88 tapering, 20 facets). The columns,
+    //    the door and the lamp were all placed inside it, so the portico was a hood over nothing.
+    //    The columns now stand under the hood's front edge (1.00) and the door sits on the face.
     for (const t of [-0.34, 0.34]) {
-      const [cx3, cy3] = F(t * fh, fh * 0.80);
+      const [cx3, cy3] = F(t * fh, fh * 0.95);
       drawFacetDrum(ctx, cam, cx3, cy3, h * 0.05, h * 0.34, fh * 0.07, fh * 0.065, 10, alpha, hfChrome([88, 102, 118], [232, 242, 248], 2.3), null, 'ty_hf_chrome');
     }
     { const [hx, hy] = F(0, fh * 0.80); draw3DBoxAt(ctx, cam, hx, hy, fh * 0.46, h * 0.34, h * 0.40, 'ty_hf_chrome', seed + 5, night, alpha, true, faceYaw(E), fh * 0.20); }
@@ -1126,10 +1200,10 @@ export const OLD_COLDWATER_ARMS = {
     // 4) THE DOOR. Smoked glass with nothing behind it lit, recessed under the hood, and the only
     //    dark thing on the elevation. ⚠ It is the club's whole argument and it survives the
     //    restyle unchanged: absence reads the same in any material.
-    { const [dx4, dy4] = F(0, fh * 0.74); draw3DBoxAt(ctx, cam, dx4, dy4, fh * 0.13, h * 0.05, h * 0.30, 'ty_vested_dk', seed + 7, night, alpha, false, faceYaw(E), fh * 0.03); }
+    { const [dx4, dy4] = F(0, fh * 0.87); draw3DBoxAt(ctx, cam, dx4, dy4, fh * 0.13, h * 0.05, h * 0.30, 'ty_vested_dk', seed + 7, night, alpha, false, faceYaw(E), fh * 0.02); }
     // 5) ONE LAMP, over the door, in a bracket. ⚠ No `marqueeBand`, no `neonBlade`, no
     //    `bakeSignText` anywhere in this arm — deliberately, and it is the point of the building.
-    if (night) { const [gx, gy] = F(0, fh * 0.84); glowPool(ctx, cam, gx, gy, h * 0.42, '255,202,122', 7, alpha * 0.34); }
+    if (night) { const [gx, gy] = F(0, fh * 0.92); glowPool(ctx, cam, gx, gy, h * 0.42, '255,202,122', 7, alpha * 0.34); }
   },
   auction_house(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // GOING CONCERN — LIT FROM ABOVE, WHICH DECIDES THE WHOLE SHAPE. A
     // saleroom needs even light on the lots and no light in the bidders' eyes, so the long walls
@@ -1257,7 +1331,7 @@ export const OLD_COLDWATER_ARMS = {
     if (night) {
       // He leaves the office lit. There is a model in the window and he wants it seen, and the
       // board above it is not illuminated at all, which is the one thing he could not get funded.
-      const [gx15, gy15] = F(0, fh * 0.56); glowPool(ctx, cam, gx15, gy15, h * 0.22, '255,238,196', 10, alpha * 0.30);
+      const [gx15, gy15] = F(0, fh * 0.66); glowPool(ctx, cam, gx15, gy15, h * 0.22, '255,238,196', 10, alpha * 0.30);   // on the glass (0.60); 0.56 was inside the drum
     }
   },
   hydro(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // SECOND WIND — A STEPPED SECTION, WHICH IS A SHAPE COLDWATER HAS NOWHERE ELSE.
@@ -1304,7 +1378,9 @@ export const OLD_COLDWATER_ARMS = {
       // Balcony lamps under each soffit, kept low so the glass does not become a mirror, plus the
       // day room behind the south glass. Four small warm bands up the face of the building.
       for (let i = 0; i < 4; i++) {
-        const front = fh * (0.72 - i * 0.13) - i * fh * 0.13;
+        // Just proud of tier i's face (0.78 - 0.26 i), which is where `front` was meant to be; it
+        // was 0.06 fh inside the face, so all four bands were buried.
+        const front = fh * (0.82 - i * 0.13) - i * fh * 0.13;
         const [gx18, gy18] = F(0, front);
         glowPool(ctx, cam, gx18, gy18, h * tops[i] - h * 0.05, '255,232,196', 6, alpha * 0.17);
       }
@@ -1377,7 +1453,8 @@ export const OLD_COLDWATER_ARMS = {
       // in there are old and the engine is maroon. ⚠ IT KEPT ITS WARM LIGHT through the restyle,
       // for `concert_hall`'s reason — the plant was commissioned by people who were proud of it
       // and lights itself the way they left it. Nothing on this building lights the road.
-      const [gx, gy] = F(0, fh * 0.70); glowPool(ctx, cam, gx, gy, h * 0.46, '255,206,138', 9, alpha * 0.24);
+      // On the glazed band's face (about 0.76 fh at this height); at 0.70 it was inside the drum.
+      const [gx, gy] = F(0, fh * 0.82); glowPool(ctx, cam, gx, gy, h * 0.46, '255,206,138', 9, alpha * 0.24);
     }
   },
   cooling_plant(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // COLD COMFORT — EIGHT FANS ON A LATTICE DECK, and the deck is the whole
@@ -1541,42 +1618,192 @@ export const OLD_COLDWATER_ARMS = {
       blinkLight(ctx, cam, dx, dy, bayTop + h * 0.06, '255,90,74', now, seed, alpha, 0.7);
     }
   },
-  incinerator(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // ASH MANAGEMENT — THE TALLEST CHIMNEY IN COLDWATER, standing off the back
-    // of a brick hall with a road ramp up one flank. The ramp is the part that says what this is:
-    // no other building in the city has a road going into its first floor.
-    const hallTop = h * 0.66, rampTop = h * 0.30, stack = h * 1.86;
-    // 1) THE TIPPING HALL — brick, tall, blind. The only holes in it are the ramp and the door.
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.82, 0, hallTop, pal, seed, night, alpha, true);
-    // 2) THE RAMP up one flank to the tipping floor, drawn as a wedge of two boxes, because a
-    //    lorry has to get to first-floor level and this is how it does it.
-    { const [r1x, r1y] = F(fh * 0.74, fh * 0.30); draw3DBoxAt(ctx, cam, r1x, r1y, fh * 0.20, 0, rampTop * 0.5, 'ty_ash_stack', seed + 1, night, alpha, true, faceYaw(E), fh * 0.44); }
-    { const [r2x, r2y] = F(fh * 0.74, -fh * 0.22); draw3DBoxAt(ctx, cam, r2x, r2y, fh * 0.20, 0, rampTop, 'ty_ash_stack', seed + 2, night, alpha, true, faceYaw(E), fh * 0.30); }
-    // 3) THE STACK. Off the back of the hall, square at the base and stepping in twice, and it is
-    //    the tallest mass in the whole registry outside the Ascendant campus. ⚠ Its own palette:
-    //    a stack washed by its own plume is paler than the hall it stands on, permanently.
-    { const [s1x, s1y] = F(-fh * 0.50, -fh * 0.70); draw3DBoxAt(ctx, cam, s1x, s1y, fh * 0.22, 0, h * 0.40, 'ty_ash_stack', seed + 3, night, alpha, false); }
-    { const [s2x, s2y] = F(-fh * 0.50, -fh * 0.70); draw3DBoxAt(ctx, cam, s2x, s2y, fh * 0.16, h * 0.40, stack, 'ty_ash_stack', seed + 4, night, alpha, false); }
-    // 4) THE GATE PLATE, works lettering on green, at the foot of the ramp. Paint, never lit: this
-    //    is a municipal notice board and the only marking on the plot.
-    if (frontVis) {
-      const P = (lx, ly, z) => { const [wx, wy] = F(lx, ly); return cam.proj(wx, wy, z); };
-      const z0 = h * 0.16, z1 = h * 0.26, bhw = fh * 0.42, by = fh * 0.86;
-      const TL = P(-bhw, by, z1), TR = P(bhw, by, z1), BR = P(bhw, by, z0), BL = P(-bhw, by, z0);
-      if ([TL, TR, BR, BL].every((q) => q.f > 0.12)) {
-        const tex = bakeSignText(sign || 'ASH MANAGEMENT', '#c8d0b4', 0, false, true, true);
-        if (tex) emitSurfaceText(ctx, cam, [TL, TR, BR, BL], tex, false, alpha);
+  incinerator(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // ASH MANAGEMENT — a municipal destructor: a brick tipping hall with a
+    // road ramp up one flank to its first floor, the clad bunker house behind it, and off the back
+    // the tallest chimney in this half of the city, venting a thin white plume straight up.
+    // ⚠ IT READ AS A GREY OFFICE WITH A WHITE POST BEHIND IT. `ty_ash` sat in PLAIN_WALL, so the
+    // kit hung its glazing ribbon on the hall and gave it a row of office windows, and the stack was
+    // a square pale box that read as a lift shaft on the tenement next door. The hall is brick now
+    // (BRICK_WALL, so no grid), the kit's `wall` section is declined, and the stack is round.
+    // Local frame: +y is the street, and the ramp is on the −x flank.
+    const yaw = faceYaw(E), dn = night ? clamp(night, 0, 1) : 0, near = nearOrMesh();
+    const BRICK = WALL_COL[pal] || [118, 72, 56], STONE = [172, 162, 142], STEEL = [92, 98, 104];
+    const ASPHALT = [56, 58, 62], DARK_BRICK = [58, 42, 38], GLASS_D = [30, 36, 40], SODIUM = [176, 118, 58];
+    const hallTop = h * 0.46, ridge = h * 0.62, rampTop = h * 0.16;
+    // 1) THE TIPPING HALL: brick under a slate gable that faces the street, a louvred ventilator
+    //    along the ridge, and nothing else on the roof.
+    const hx0 = -fh * 0.60, hx1 = fh * 0.98, hy0 = -fh * 0.34, hy1 = fh * 0.62;
+    const hcx = (hx0 + hx1) / 2, hcy = (hy0 + hy1) / 2;
+    { const [cx, cy] = F(hcx, hcy); draw3DBoxAt(ctx, cam, cx, cy, (hx1 - hx0) / 2, 0, hallTop, pal, seed, night, alpha, true, yaw, (hy1 - hy0) / 2); }
+    for (const [y, s] of [[hy1, 1], [hy0, -1]]) ashFlat(ctx, cam, W3, [[hx0, y, hallTop], [hx1, y, hallTop], [hcx, y, ridge]], [0, s, 0], BRICK, 'brick', alpha, dn);
+    for (const [x, s] of [[hx0 - fh * 0.035, -1], [hx1 + fh * 0.035, 1]]) {
+      ashFlat(ctx, cam, W3, [[x, hy1 + 0.004, hallTop - h * 0.01], [hcx, hy1 + 0.004, ridge], [hcx, hy0 - 0.004, ridge], [x, hy0 - 0.004, hallTop - h * 0.01]], [s * 0.45, 0, 1], [66, 70, 78], 'plain', alpha, dn);
+    }
+    { const [vx, vy] = F(hcx, hcy); draw3DBoxAt(ctx, cam, vx, vy, fh * 0.07, ridge - h * 0.012, ridge + h * 0.025, 'ty_wires_louvre', seed + 2, night, alpha, true, yaw, (hy1 - hy0) * 0.40); }
+    // 2) THE STREET FRONT, all of it on the gable wall: an engineering-brick plinth, a stone string
+    //    course, stone coping up both rakes, a round window in the gable, the ash-bay shutter and a
+    //    door for people. Plinth and string course run round both flanks as well.
+    const yF = hy1 + 0.003;
+    ashFlat(ctx, cam, W3, [[hx0, yF, h * 0.045], [hx1, yF, h * 0.045], [hx1, yF, 0.002], [hx0, yF, 0.002]], [0, 1, 0], DARK_BRICK, 'brick', alpha, dn);
+    ashFlat(ctx, cam, W3, [[hx0, yF, h * 0.405], [hx1, yF, h * 0.405], [hx1, yF, h * 0.39], [hx0, yF, h * 0.39]], [0, 1, 0], STONE, 'stone', alpha, dn);
+    for (const xe of [hx0, hx1]) {
+      ashFlat(ctx, cam, W3, [[xe, yF + 0.002, hallTop], [hcx, yF + 0.002, ridge], [hcx, yF + 0.002, ridge + h * 0.02], [xe, yF + 0.002, hallTop + h * 0.02]], [0, 1, 0], STONE, 'stone', alpha, dn);
+      // Stone quoins up the corner, long and short in turn.
+      const s = xe < hcx ? 1 : -1;
+      for (let i = 0; i < 8; i++) {
+        const z0 = h * (0.05 + i * 0.05), z1 = z0 + h * 0.04, w = fh * (i % 2 ? 0.05 : 0.08);
+        ashFlat(ctx, cam, W3, [[xe, yF + 0.002, z1], [xe + s * w, yF + 0.002, z1], [xe + s * w, yF + 0.002, z0], [xe, yF + 0.002, z0]], [0, 1, 0], STONE, 'stone', alpha, dn);
       }
     }
-    // 5) Plume plant on the hall roof — the induced-draught fans and the grit arrester.
-    roofClutter(ctx, cam, dx, dy, fh * 0.82, hallTop, 'industrial', seed + 6, night, alpha, now);
-    if (night) {
-      // ⚠ ONE AVIATION LIGHT AND ONE LAMP OVER THE WEIGHBRIDGE. The hall itself is not lit from
-      // outside at all — the only glow on this plot is the charging door, which is orange, low,
-      // and comes from inside the building rather than from anything anybody switched on.
-      blinkLight(ctx, cam, dx, dy, stack, '255,138,74', now, seed, alpha, 1.3);
-      const [gx, gy] = F(fh * 0.74, fh * 0.40); glowPool(ctx, cam, gx, gy, rampTop, '255,224,168', 6, alpha * 0.20);
-      const [cx, cy] = F(0, fh * 0.20); glowPool(ctx, cam, cx, cy, h * 0.12, '255,150,70', 5, alpha * 0.22);
+    { const oz = h * 0.535, r = fh * 0.085, ring = [], pane = [];
+      for (let i = 0; i < 12; i++) {
+        const a = i / 12 * 6.2832, c = Math.cos(a), s = Math.sin(a);
+        ring.push([hcx + c * r * 1.3, yF + 0.002, oz + s * r * 1.3]); pane.push([hcx + c * r, yF + 0.003, oz + s * r]);
+      }
+      ashFlat(ctx, cam, W3, ring, [0, 1, 0], STONE, 'stone', alpha, dn);
+      ashGlow(ctx, cam, W3, pane, [0, 1, 0], GLASS_D, SODIUM, dn, alpha);
+      if (near) for (const [ax, az] of [[r, 0], [0, r]]) emitWire(ctx, cam, W3(hcx - ax, yF + 0.004, oz - az), W3(hcx + ax, yF + 0.004, oz + az), 1.4, 'rgba(52,48,44,0.95)', alpha, { pull: 0.02 });
     }
+    const sx0 = fh * 0.30, sx1 = fh * 0.86, shTop = h * 0.21;
+    ashFlat(ctx, cam, W3, [[sx0, yF + 0.002, shTop], [sx1, yF + 0.002, shTop], [sx1, yF + 0.002, 0.002], [sx0, yF + 0.002, 0.002]], [0, 1, 0], [74, 80, 86], 'metal', alpha, dn);
+    ashFlat(ctx, cam, W3, [[sx0 - fh * 0.02, yF + 0.003, shTop + h * 0.02], [sx1 + fh * 0.02, yF + 0.003, shTop + h * 0.02], [sx1 + fh * 0.02, yF + 0.003, shTop], [sx0 - fh * 0.02, yF + 0.003, shTop]], [0, 1, 0], [40, 44, 48], 'metal', alpha, dn);
+    if (near) {
+      for (let k = 1; k < 8; k++) { const z = shTop * k / 8; emitWire(ctx, cam, W3(sx0, yF + 0.004, z), W3(sx1, yF + 0.004, z), 1, 'rgba(40,44,48,0.7)', alpha, { pull: 0.02 }); }
+      for (const x of [sx0 - fh * 0.05, sx1 + fh * 0.05]) emitWire(ctx, cam, W3(x, yF + fh * 0.08, 0), W3(x, yF + fh * 0.08, h * 0.055), 3, 'rgba(214,170,40,0.95)', alpha, { pull: 0.02 });
+    }
+    { const px0 = -fh * 0.18, px1 = -fh * 0.04, pTop = h * 0.12, e = fh * 0.016;
+      ashFlat(ctx, cam, W3, [[px0 - e, yF + 0.002, pTop + h * 0.014], [px1 + e, yF + 0.002, pTop + h * 0.014], [px1 + e, yF + 0.002, 0.002], [px0 - e, yF + 0.002, 0.002]], [0, 1, 0], STONE, 'stone', alpha, dn);
+      ashFlat(ctx, cam, W3, [[px0, yF + 0.003, pTop], [px1, yF + 0.003, pTop], [px1, yF + 0.003, 0.002], [px0, yF + 0.003, 0.002]], [0, 1, 0], [34, 78, 56], 'plain', alpha, dn); }
+    // 3) THE PLATE: works lettering on municipal green enamel, which is the building's name, once,
+    //    and the only lettering on the plot. Paint, never a lit sign; two lamps wash it after dark.
+    { const x0 = -fh * 0.52, x1 = fh * 0.90, z0 = h * 0.245, z1 = h * 0.355, yP = yF + 0.004, b = fh * 0.02;
+      ashFlat(ctx, cam, W3, [[x0 - b, yP - 0.001, z1 + h * 0.012], [x1 + b, yP - 0.001, z1 + h * 0.012], [x1 + b, yP - 0.001, z0 - h * 0.012], [x0 - b, yP - 0.001, z0 - h * 0.012]], [0, 1, 0], [200, 202, 190], 'plain', alpha, dn);
+      ashFlat(ctx, cam, W3, [[x0, yP, z1], [x1, yP, z1], [x1, yP, z0], [x0, yP, z0]], [0, 1, 0], [30, 86, 58], 'plain', alpha, dn);
+      if (frontVis) {
+        const P = (u, z) => { const [wx, wy] = F(u, yP + FACE_EPS); return cam.proj(wx, wy, z); };
+        const q = [P(x0 + b, z1 - h * 0.01), P(x1 - b, z1 - h * 0.01), P(x1 - b, z0 + h * 0.01), P(x0 + b, z0 + h * 0.01)];
+        const tex = bakeSignText(sign || 'ASH MANAGEMENT', '#eceee2', 0, false, true, true, { font: 'condensed', sub: 'TRADE AND MUNICIPAL · WEIGHBRIDGE IN USE' });
+        if (tex && q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
+      }
+      for (const u of [-0.16, 0.56]) {
+        if (near) emitWire(ctx, cam, W3(fh * u, yF, h * 0.40), W3(fh * u, yF + fh * 0.07, h * 0.395), 1.6, 'rgba(40,44,48,0.95)', alpha, { pull: 0.02 });
+        if (dn > 0) { const [gx, gy] = F(fh * u, yF + fh * 0.07); glowPool(ctx, cam, gx, gy, h * 0.385, '255,214,160', 9, alpha * 0.42 * dn); }
+      }
+    }
+    // 4) THE FLANKS: a rank of tall windows under the eaves, dark by day and sodium after dark. The
+    //    ramp side gives up the bay the tipping door takes.
+    for (const s of [-1, 1]) {
+      const x = (s < 0 ? hx0 : hx1) + s * 0.003;
+      ashFlat(ctx, cam, W3, [[x, hy0, h * 0.045], [x, hy1, h * 0.045], [x, hy1, 0.002], [x, hy0, 0.002]], [s, 0, 0], DARK_BRICK, 'brick', alpha, dn);
+      ashFlat(ctx, cam, W3, [[x, hy0, h * 0.405], [x, hy1, h * 0.405], [x, hy1, h * 0.39], [x, hy0, h * 0.39]], [s, 0, 0], STONE, 'stone', alpha, dn);
+      for (const v of [-0.20, 0.06, 0.32, 0.54]) {
+        if (s < 0 && v < 0) continue;
+        const y0 = fh * (v - 0.055), y1 = fh * (v + 0.055), xw = x + s * 0.002;
+        ashFlat(ctx, cam, W3, [[x + s * 0.001, y0 - fh * 0.012, h * 0.222], [x + s * 0.001, y1 + fh * 0.012, h * 0.222], [x + s * 0.001, y1 + fh * 0.012, h * 0.21], [x + s * 0.001, y0 - fh * 0.012, h * 0.21]], [s, 0, 0], STONE, 'stone', alpha, dn);
+        ashGlow(ctx, cam, W3, [[xw, y0, h * 0.37], [xw, y1, h * 0.37], [xw, y1, h * 0.222], [xw, y0, h * 0.222]], [s, 0, 0], GLASS_D, SODIUM, dn, alpha);
+        if (near) {
+          emitWire(ctx, cam, W3(xw + s * 0.001, (y0 + y1) / 2, h * 0.222), W3(xw + s * 0.001, (y0 + y1) / 2, h * 0.37), 1.2, 'rgba(48,46,44,0.95)', alpha, { pull: 0.02 });
+          emitWire(ctx, cam, W3(xw + s * 0.001, y0, h * 0.31), W3(xw + s * 0.001, y1, h * 0.31), 1.2, 'rgba(48,46,44,0.95)', alpha, { pull: 0.02 });
+        }
+      }
+    }
+    // 5) THE RAMP, up the −x flank to the tipping door at first-floor level. The landing at the top
+    //    is mass, because a lorry stands on it; the slope is a wedge of faces.
+    const rx0 = -fh * 1.00, rx1 = -fh * 0.66, ryB = -fh * 0.32, ryT = -fh * 0.08, ryF = fh * 0.70;
+    { const [lx, ly] = F((rx0 + rx1) / 2, (ryB + ryT) / 2); draw3DBoxAt(ctx, cam, lx, ly, (rx1 - rx0) / 2, 0, rampTop, pal, seed + 3, night, alpha, true, yaw, (ryT - ryB) / 2); }
+    ashFlat(ctx, cam, W3, [[rx0, ryB, rampTop + 0.002], [rx1, ryB, rampTop + 0.002], [rx1, ryT, rampTop + 0.002], [rx0, ryT, rampTop + 0.002]], [0, 0, 1], ASPHALT, 'concrete', alpha, dn);
+    ashFlat(ctx, cam, W3, [[rx0, ryT, rampTop + 0.002], [rx1, ryT, rampTop + 0.002], [rx1, ryF, 0.003], [rx0, ryF, 0.003]], [0, 0.4, 1], ASPHALT, 'concrete', alpha, dn);
+    for (const [x, s] of [[rx0, -1], [rx1, 1]]) ashFlat(ctx, cam, W3, [[x, ryT, 0.002], [x, ryT, rampTop], [x, ryF, 0.002]], [s, 0, 0], BRICK, 'brick', alpha, dn);
+    ashFlat(ctx, cam, W3, [[rx1, -fh * 0.28, rampTop + 0.003], [hx0, -fh * 0.28, rampTop + 0.003], [hx0, -fh * 0.10, rampTop + 0.003], [rx1, -fh * 0.10, rampTop + 0.003]], [0, 0, 1], STEEL, 'plate', alpha, dn);   // the dock plate over the gap
+    { const xr = rx0 + 0.004, hr = h * 0.035, rail = 'rgba(176,180,182,0.95)';
+      emitWire(ctx, cam, W3(xr, ryF, hr), W3(xr, ryT, rampTop + hr), 1.8, rail, alpha, { pull: 0.02 });
+      emitWire(ctx, cam, W3(xr, ryT, rampTop + hr), W3(xr, ryB, rampTop + hr), 1.8, rail, alpha, { pull: 0.02 });
+      if (near) for (const t of [0.15, 0.4, 0.65, 0.9]) { const y = ryF + (ryT - ryF) * t, z = rampTop * t; emitWire(ctx, cam, W3(xr, y, z), W3(xr, y, z + hr), 1.4, rail, alpha, { pull: 0.02 }); } }
+    // The tipping door: a roller shutter wound up into its box, and the hall's sodium behind it.
+    { const x = hx0 - 0.004, y0 = -fh * 0.28, y1 = -fh * 0.10, z0 = rampTop + 0.003, z1 = rampTop + h * 0.15;
+      ashGlow(ctx, cam, W3, [[x, y0, z1], [x, y1, z1], [x, y1, z0], [x, y0, z0]], [-1, 0, 0], [24, 22, 20], [200, 136, 64], dn, alpha);
+      ashFlat(ctx, cam, W3, [[x - 0.002, y0 - fh * 0.015, z1 + h * 0.035], [x - 0.002, y1 + fh * 0.015, z1 + h * 0.035], [x - 0.002, y1 + fh * 0.015, z1], [x - 0.002, y0 - fh * 0.015, z1]], [-1, 0, 0], [70, 76, 82], 'metal', alpha, dn);
+      if (dn > 0) { const [gx, gy] = F(hx0 - fh * 0.05, (y0 + y1) / 2); glowPool(ctx, cam, gx, gy, rampTop + h * 0.06, '255,176,96', 9, alpha * 0.40 * dn); } }
+    // 6) THE WEIGHBRIDGE at the foot of the ramp: a steel plate let into the apron in a dark frame
+    //    with yellow ends, the cabin Ezra Studd keeps his docket book in, and a sodium flood over both.
+    { const y0 = fh * 0.74, y1 = fh * 1.08, z = 0.003, e = fh * 0.02;
+      ashFlat(ctx, cam, W3, [[rx0 - e, y0 - e, z], [rx1 + e, y0 - e, z], [rx1 + e, y1 + e, z], [rx0 - e, y1 + e, z]], [0, 0, 1], [38, 40, 42], 'concrete', alpha, dn);
+      ashFlat(ctx, cam, W3, [[rx0, y0, z + 0.001], [rx1, y0, z + 0.001], [rx1, y1, z + 0.001], [rx0, y1, z + 0.001]], [0, 0, 1], [112, 116, 118], 'plate', alpha, dn);
+      for (const y of [y0, y1 - fh * 0.03]) ashFlat(ctx, cam, W3, [[rx0, y, z + 0.002], [rx1, y, z + 0.002], [rx1, y + fh * 0.03, z + 0.002], [rx0, y + fh * 0.03, z + 0.002]], [0, 0, 1], [204, 168, 40], 'plain', alpha, dn);
+      if (near) for (let k = 1; k < 4; k++) { const x = rx0 + (rx1 - rx0) * k / 4; emitWire(ctx, cam, W3(x, y0 + fh * 0.03, z + 0.002), W3(x, y1 - fh * 0.03, z + 0.002), 1, 'rgba(60,64,66,0.8)', alpha, { pull: 0.01 }); } }
+    { const kx0 = -fh * 0.58, kx1 = -fh * 0.26, ky0 = fh * 0.68, ky1 = fh * 0.96, kTop = h * 0.12;
+      const [kx, ky] = F((kx0 + kx1) / 2, (ky0 + ky1) / 2);
+      draw3DBoxAt(ctx, cam, kx, ky, (kx1 - kx0) / 2, 0, kTop, 'ty_ash_stack', seed + 4, night, alpha, true, yaw, (ky1 - ky0) / 2);
+      ashFlat(ctx, cam, W3, [[kx0 - fh * 0.03, ky0 - fh * 0.02, kTop + 0.003], [kx1 + fh * 0.03, ky0 - fh * 0.02, kTop + 0.003], [kx1 + fh * 0.03, ky1 + fh * 0.05, kTop + 0.003], [kx0 - fh * 0.03, ky1 + fh * 0.05, kTop + 0.003]], [0, 0, 1], [44, 48, 52], 'metal', alpha, dn);
+      ashGlow(ctx, cam, W3, [[kx0 - 0.003, ky0 + fh * 0.06, h * 0.095], [kx0 - 0.003, ky1 - fh * 0.06, h * 0.095], [kx0 - 0.003, ky1 - fh * 0.06, h * 0.055], [kx0 - 0.003, ky0 + fh * 0.06, h * 0.055]], [-1, 0, 0], [36, 44, 48], [255, 214, 150], dn, alpha);
+      ashGlow(ctx, cam, W3, [[kx0 + fh * 0.06, ky1 + 0.003, h * 0.095], [kx1 - fh * 0.06, ky1 + 0.003, h * 0.095], [kx1 - fh * 0.06, ky1 + 0.003, h * 0.055], [kx0 + fh * 0.06, ky1 + 0.003, h * 0.055]], [0, 1, 0], [36, 44, 48], [255, 214, 150], dn, alpha); }
+    { const px = rx0 - fh * 0.04, py = fh * 1.10, top = h * 0.30, pole = 'rgba(70,74,78,0.95)';
+      emitWire(ctx, cam, W3(px, py, 0), W3(px, py, top), 2.2, pole, alpha, { pull: 0.03 });
+      emitWire(ctx, cam, W3(px, py, top), W3(px + fh * 0.16, py - fh * 0.10, top), 1.8, pole, alpha, { pull: 0.03 });
+      if (dn > 0) { const [gx, gy] = F(px + fh * 0.16, py - fh * 0.10); glowPool(ctx, cam, gx, gy, top - h * 0.01, '255,186,104', 12, alpha * 0.55 * dn); } }
+    // 7) THE BUNKER HOUSE behind the hall: the pit and the grab over it. Brick to the tipping floor,
+    //    clad above in sheeting the green of the plate, a ribbon of glazing round the crane deck,
+    //    and a louvred monitor along the top.
+    const bx0 = -fh * 0.30, bx1 = fh * 1.00, by0 = -fh * 1.00, by1 = -fh * 0.32;
+    const bcx = (bx0 + bx1) / 2, bcy = (by0 + by1) / 2, bhw = (bx1 - bx0) / 2, bfd = (by1 - by0) / 2;
+    const plinth = h * 0.34, eave = h * 0.92;
+    { const [cx, cy] = F(bcx, bcy);
+      draw3DBoxAt(ctx, cam, cx, cy, bhw, 0, plinth, pal, seed + 5, night, alpha, false, yaw, bfd);
+      draw3DBoxAt(ctx, cam, cx, cy, bhw, plinth, eave, 'ty_ash_stack', seed + 6, night, alpha, true, yaw, bfd);
+      draw3DBoxAt(ctx, cam, cx, cy, bhw * 0.82, eave, eave + h * 0.07, 'ty_wires_louvre', seed + 7, night, alpha, true, yaw, bfd * 0.32); }
+    { const y = by1 + 0.003, x = bx1 + 0.003, za = h * 0.75, zb = h * 0.81;
+      ashGlow(ctx, cam, W3, [[bx0 + fh * 0.08, y, zb], [bx1 - fh * 0.08, y, zb], [bx1 - fh * 0.08, y, za], [bx0 + fh * 0.08, y, za]], [0, 1, 0], GLASS_D, SODIUM, dn, alpha);
+      ashGlow(ctx, cam, W3, [[x, by0 + fh * 0.08, zb], [x, by1 - fh * 0.08, zb], [x, by1 - fh * 0.08, za], [x, by0 + fh * 0.08, za]], [1, 0, 0], GLASS_D, SODIUM, dn, alpha);
+      if (near) for (let k = 1; k < 8; k++) {
+        const u = bx0 + fh * 0.08 + (bx1 - bx0 - fh * 0.16) * k / 8;
+        emitWire(ctx, cam, W3(u, y + 0.002, za), W3(u, y + 0.002, zb), 1.2, 'rgba(60,70,66,0.9)', alpha, { pull: 0.02 });
+      } }
+    const vent = (f) => { const s = (0.50 + f.nl * 0.42) * (1 - 0.5 * dn); return rgb([120 * s, 128 * s, 132 * s]); };
+    for (const [u, v] of [[0.10, -0.88], [0.80, -0.86]]) {
+      const [vx, vy] = F(fh * u, fh * v);
+      drawFacetDrum(ctx, cam, vx, vy, eave, eave + h * 0.06, fh * 0.05, fh * 0.04, 8, alpha, vent, 'rgb(56,60,62)', 'ty_wires_louvre');
+    }
+    // 8) THE STACK, in the back corner on the ramp side: a square brick plinth, then a round shaft
+    //    that tapers to a corbelled crown, banded in iron and sooted darker toward the top. 3h,
+    //    against about 2h for the tenement next door, which is what "by a long way" has to mean.
+    // ⚠ ON THE −x SIDE, NOT BEHIND THE BUNKER HOUSE. Stood in the other back corner it rose straight
+    //   up the face of the brick tenement behind it from the street and lost its outline; on this
+    //   side the ground behind it is open, so it stands against the sky.
+    const sx = -fh * 0.66, sy = -fh * 0.70, sB = h * 0.10, sT = h * 2.88, sTop = h * 3.0;
+    const rB = fh * 0.24, rT = fh * 0.13, rAt = (z) => rB + (rT - rB) * (z - sB) / (sT - sB);
+    const brickStyle = (tone) => litStyle((f) => {
+      const s = (0.58 + f.nl * 0.44) * tone * (1 - 0.5 * dn);
+      return rgb([BRICK[0] * s, BRICK[1] * s, BRICK[2] * s]);
+    }, [BRICK[0] * tone, BRICK[1] * tone, BRICK[2] * tone], 'brick');
+    const [scx, scy] = F(sx, sy);
+    draw3DBoxAt(ctx, cam, scx, scy, fh * 0.28, 0, sB, pal, seed + 8, night, alpha, true);
+    for (const [k0, k1, tone] of [[0.10, 1.10, 1.0], [1.10, 2.10, 0.84], [2.10, 2.88, 0.66]]) {
+      drawFacetDrum(ctx, cam, scx, scy, h * k0, h * k1, rAt(h * k0), rAt(h * k1), 14, alpha, brickStyle(tone), null, pal);
+    }
+    drawFacetDrum(ctx, cam, scx, scy, sT, sTop, rT * 1.22, rT * 1.16, 14, alpha, brickStyle(0.40), 'rgb(22,20,20)', pal);
+    // ⚠ EACH BAND SITS JUST ABOVE THE JOINT IT MARKS, AND THE TOP ONE IS ON THE CROWN. The solid the
+    // gates and the occlusion test use is a drum at its WIDEST radius, top to bottom, so a band at
+    // the top of a tapering section is inside that section's solid however proud of the brick it is,
+    // and its pull drags it out through the stack (`glself`). Just above the joint it is in the next
+    // section up, whose widest radius is its own base.
+    for (const k of [1.10, 2.10]) { const z = h * (k + 0.012); ashBand(ctx, cam, scx, scy, z, rAt(z) * 1.05, 14, 'rgba(34,30,28,0.95)', 2, alpha); }
+    ashBand(ctx, cam, scx, scy, sT + h * 0.025, rT * 1.22 * 1.04, 14, 'rgba(34,30,28,0.95)', 2, alpha);
+    if (near) {
+      const lad = 'rgba(64,60,58,0.95)';
+      for (const u of [-0.035, 0.035]) emitWire(ctx, cam, W3(sx + fh * u, sy + rB + 0.004, sB), W3(sx + fh * u, sy + rT + 0.004, sT), 1.2, lad, alpha, { pull: 0.02 });
+      for (let k = 1; k < 18; k++) { const z = sB + (sT - sB) * k / 18, y = sy + rAt(z) + 0.004; emitWire(ctx, cam, W3(sx - fh * 0.035, y, z), W3(sx + fh * 0.035, y, z), 1, lad, alpha, { pull: 0.02 }); }
+    }
+    blinkLight(ctx, cam, scx, scy, sTop + h * 0.01, '255,64,52', now, seed, alpha, 1.5);
+    { const [bx, by] = F(sx, sy + rAt(h * 1.6) + 0.004); blinkLight(ctx, cam, bx, by, h * 1.6, '255,64,52', now, seed + 1, alpha, 1.1); }
+    // The plume: thin, nearly white, and straight up, so it is four short columns of puffs stacked
+    // one over the next rather than one drift.
+    { const puff = dn > 0.5 ? '120,122,126' : '232,234,236';
+      for (let i = 0; i < 4; i++) drawSmoke(ctx, cam, scx, scy, sTop + h * 0.14 * i, puff, alpha * (1 - i * 0.2), now, seed + i * 0.31); }
+    // 9) THE BREECHING, the flue from the boilers to the stack, in riveted plate on one trestle.
+    { const x0 = sx + rAt(h * 0.64) - fh * 0.02, x1 = bx0 + fh * 0.02, z0 = h * 0.58, z1 = h * 0.70;
+      const [cx, cy] = F((x0 + x1) / 2, sy);
+      draw3DBoxAt(ctx, cam, cx, cy, (x1 - x0) / 2, z0, z1, 'ty_gate_plate', seed + 9, night, alpha, true, yaw, fh * 0.07);
+      draw3DBoxAt(ctx, cam, cx, cy, fh * 0.025, 0, z0, 'ty_gate_plate', seed + 10, night, alpha, false, yaw, fh * 0.05); }
   },
   water_tower(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // HIGH WATER MARK — FOUR LEGS AND A TANK, and almost all of the silhouette
     // is the air between them. Nothing else in Coldwater is mostly gap: every other tall thing here

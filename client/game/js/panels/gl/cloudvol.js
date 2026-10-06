@@ -35,6 +35,7 @@
 // and damped where coverage changed sharply, so a cloud edge crossing the frame leaves no ghost.
 
 import { viewProjMatrix, mat4f } from './camera.js';
+import { linearOut, applyLinOut } from './colour.js';
 
 const NOISE_N = 64;
 const COVER_N = 64;          // coverage texels a side
@@ -198,7 +199,7 @@ void main() {
   outDist = vec4(floor(v / 256.0) / 255.0, mod(floor(v), 256.0) / 255.0, 0.0, 1.0);
 }`;
 
-const COMP_FS = `#version 300 es
+const COMP_FS = linearOut(`#version 300 es
 precision highp float;
 out vec4 outColor;
 ${RAY_GLSL}
@@ -220,7 +221,7 @@ void main() {
   vec4 clip = uVP * vec4(ro + rd * t, 1.0);
   gl_FragDepth = clamp(clip.z / clip.w * 0.5 + 0.5, 0.0, 1.0);
   outColor = c;
-}`;
+}`, 'outColor');
 
 function compile(gl, type, src, label) {
   const sh = gl.createShader(type);
@@ -465,7 +466,7 @@ export function createCloudVolume(gl) {
     gl.viewport(0, 0, W, H);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);           // ⚠ colour only: the city's depth is what we test against
-    gl.useProgram(comp);
+    gl.useProgram(comp); applyLinOut(gl, comp);
     gl.uniformMatrix4fv(uc.invVP, false, new Float32Array(inv));
     gl.uniformMatrix4fv(uc.vp, false, mat4f(vp));
     gl.uniform2f(uc.res, W, H);

@@ -626,12 +626,14 @@ function truckOverhead(S) {
   O.knob(-0.10, 0, 0.014, 0.015, C.chrome, 0.1);
   K.rod([0.40, 0.04, oz], [0.37, 0.00, oz - 0.18], 0.004, 'dash', 0, C.black, 0, 4);
   K.obox([0.37, 0.0, oz - 0.21], [1, 0, 0], [0, 0, 1], [0, -1, 0], 0.025, 0.035, 0.018, 'dash', 0, C.black);
-  const U = K.panel([0.55, 0.60, oz - 0.001], [1, 0, 0], [0, 1, 0], 'hdr', -0.3);
+  // A ceiling ahead of the eye, lettered for reading it facing forward: up on the panel is aft
+  // (docs/reference/cockpit-lettering.md rule 7). With up +y, DOME read mirrored.
+  const U = K.panel([0.55, 0.60, oz - 0.001], [1, 0, 0], [0, -1, 0], 'hdr', -0.3);
   U.rect(-0.07, -0.05, 0.07, 0.05, dome ? [255, 238, 200] : [58, 58, 54], dome ? 1 : 0, 0.002);
   U.rocker(-0.12, 0, dome, C.black, 'DOME');
   if (tier >= 2) {
-    // A pair of map lamps either side of the dome.
-    for (const x of [0.36, 0.74]) U.disc(x - 0.55, -0.12, 0.018, dome ? [255, 238, 200] : [70, 70, 66], dome ? 0.9 : 0.05, 0.002, 10);
+    // A pair of map lamps either side of the dome, aft of it.
+    for (const x of [0.36, 0.74]) U.disc(x - 0.55, 0.12, 0.018, dome ? [255, 238, 200] : [70, 70, 66], dome ? 0.9 : 0.05, 0.002, 10);
   }
   hangingToy(K, [0.40, 0.66, oz], S.toys.hang || null);
   bobbleToy(K, [0.86, 0.70, P.dashZ], S.toys.dash || null);
@@ -1307,7 +1309,13 @@ function boatOverhead(K, P, on) {
   const wallX = P.wallAt ? Math.min(P.wallAt(y0, z0).stbd, P.wallAt(y1, z0).stbd) - 0.04 : 0.48;
   const x1 = Math.min(0.48, wallX), x0 = x1 - 0.42;
   K.box(x0, y0, z0, x1, y1, z1, 'hdr', -0.25);
-  const V = K.panel([(x0 + x1) / 2, y0 - 0.001, (z0 + z1) / 2], [1, 0, 0], [0, 0, 1], 'hdr', -0.2);
+  // ⚠ THE RADIO'S FACE IS THE SIDE OF THE POD YOU CAN SEE. Ahead of the eye that is its aft end. Slid
+  // aft over your head, under a Gamecock's canopy, the aft end is behind you looking at the stern: the
+  // face was drawn into the pod and its channel read mirrored. There the face is the pod's underside
+  // at its forward end, read looking up and forward (docs/reference/cockpit-lettering.md rule 7).
+  const V = y0 > 0
+    ? K.panel([(x0 + x1) / 2, y0 - 0.001, (z0 + z1) / 2], [1, 0, 0], [0, 0, 1], 'hdr', -0.2)
+    : K.panel([(x0 + x1) / 2, y1 - 0.06, z0 - 0.001], [1, 0, 0], [0, -1, 0], 'hdr', -0.2);
   V.rect(-0.22, -0.028, 0.22, 0.028, [16, 17, 20], 0, 0.001);
   V.digits(-0.05, -0.016, 0.03, '16', on ? C.lcd : C.lampOff);
   V.knob(-0.16, 0, 0.012, 0.014, C.chrome, 0.1);
@@ -1491,9 +1499,11 @@ export function bridgeFit(P, live, push) {
   K.rod([tx0 + 0.3, ty0 + 0.6, tz + 0.01], [tx0 + 0.42, ty0 + 0.7, tz + 0.01], 0.004, 'dash', 0, C.chrome, 0.1, 4);
   K.box(xR - 0.55, P.back + 0.05, P.floor, xR - 0.05, P.back + 1.6, -0.95, 'seat', 0.05, [58, 70, 96]);
   K.box(xR - 0.20, P.back + 0.05, -0.95, xR - 0.05, P.back + 1.6, -0.40, 'seat', -0.05, [58, 70, 96]);
-  const Ab = K.panel([-0.35, P.back + 0.001, 0.25], [1, 0, 0], [0, 0, 1], 'post', -0.1);
+  // The aft bulkhead, read turned round: across is −x (docs/reference/cockpit-lettering.md rule 7).
+  // With +x the names read mirrored and the clock ran backwards.
+  const Ab = K.panel([-0.35, P.back + 0.001, 0.25], [-1, 0, 0], [0, 0, 1], 'post', -0.1);
   Ab.dial(0, 0, 0.09, 0.35, { a0: Math.PI / 2, sweep: Math.PI * 2, ticks: 12, major: 3, bezel: C.brass, face: C.white, tick: C.black, needle: C.black, frac2: 0.8, name: 'CLOCK' });
-  Ab.dial(0.30, 0, 0.09, 0.58, { ticks: 10, major: 5, bezel: C.brass, face: C.white, tick: C.black, needle: C.black, name: 'BARO' });
+  Ab.dial(-0.30, 0, 0.09, 0.58, { ticks: 10, major: 5, bezel: C.brass, face: C.white, tick: C.black, needle: C.black, name: 'BARO' });
   // The chair: a pedestal, a footrest ring round it, and armrests.
   const sy = (P.seatY[0] + P.seatY[1]) / 2;
   K.rod([0, sy, P.floor], [0, sy, P.seatZ - 0.16], 0.05, 'dash', 0, C.chrome, 0.1, 8);

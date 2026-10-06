@@ -8,7 +8,8 @@
 // engine-facing seam the whole plugin shares.
 
 import { query } from '../../server/models/db.js';
-import { getZone, getAllZones, getLivePlayer, getMinimapData, buildingEntranceDir, getRegion, addPlayerToZone, removePlayerFromZone, airfieldOf, getZoneFurniture } from '../../server/engine/world.js';
+import { world, getZone, getAllZones, getLivePlayer, getMinimapData, buildingEntranceDir, getRegion, addPlayerToZone, removePlayerFromZone, airfieldOf, getZoneFurniture } from '../../server/engine/world.js';
+import { OPPOSITE } from '../../server/engine/directions.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { biomeOf, districtBiome } from './biomes.js';
 import { thermalLiftMax, heatOfCell } from '../../client/shared/thermals.js';
@@ -309,7 +310,7 @@ export function bounds() { if (!_bounds) buildCoordIndex(); return _bounds; }
 // ⚠ `_bounds` GOES WITH IT. It is derived in the same pass and cached in its own variable, so
 // leaving it behind would give the next caller a fresh index inside a stale rectangle — which is
 // worse than either being stale on its own, because the two would disagree.
-export function invalidateCoordIndex() { _coordIndex = null; _bounds = null; _skyline = null; }
+export function invalidateCoordIndex() { _coordIndex = null; _bounds = null; _skyline = null; _curtainIn.clear(); }
 
 // ── THE RENDER OVERLAY — GROUND THAT IS THERE WITHOUT BEING PLACED ───────────
 //
@@ -1054,6 +1055,63 @@ export function curtainRun(cx, cy, at = surfaceAt) {
   return s || 'ns';   // isolated tile: stand a lone N–S wall so it never vanishes
 }
 
+// Which side of a Curtain tile is in: the inward unit vector for each axis the wall crosses (`cur`
+// is its run, from curtainRun), or undefined where nothing says. deriveSurfaceCell ships it as `ci`.
+// It scans every connection, so it's kept per tile and dropped with the coord index on a zone reload.
+//
+// ⚠ THE BLOCKED CONNECTION IS THE WALL, SO IT'S ASKED FIRST. "No exit is out" alone failed on
+// 927,917: its west neighbour is a building whose door faces north, so neither side had an exit,
+// `ci` came out empty and the camp stood across the wall. Nor is it the old off-map-air test: the
+// Scarletwastes put land east of x927, so both sides read as land.
+// ⚠ THE EXITS ARE A FALLBACK FOR A CAMP ONLY. 927,908 is water at the wall's north end with one exit,
+// east onto the sea, so "the side with an exit is in" would point it out of the city.
+// ⚠ A TILE ITS CONNECTIONS CAN'T SETTLE TAKES ITS NEIGHBOUR'S SIDE. 916,919 is blocked to the north as
+// well as the south, and the wall's two ends (891,901 and 927,908) stand in the sea with nothing
+// blocked at all. The wall doesn't change sides from one tile to the next, so an axis left open is
+// read off the Curtain tile beside it along the run. One step only: that answer is the neighbour's own.
+const _curtainIn = new Map();   // `${id}|${cur}` -> [[x, y], …] or undefined
+const CURTAIN_AXES = [
+  // the wall's run letters, the pair asked across it, and the run neighbours to borrow from
+  { run: /[ns]/, q: ['west', 'east', [-1, 0], [1, 0]], along: [[0, -1, 'n'], [0, 1, 's']] },
+  { run: /[ew]/, q: ['north', 'south', [0, -1], [0, 1]], along: [[1, 0, 'e'], [-1, 0, 'w']] },
+];
+function curtainSides(cell, cur) {
+  const camp = !!cell.flags?.camp;
+  const ex = getZone(cell.id)?.exits || {};
+  const walled = new Set();
+  for (const c of world.connections.values()) {
+    if (!c.blocked) continue;
+    if (c.a === cell.id) walled.add(c.dir);
+    else if (c.b === cell.id) walled.add(OPPOSITE[c.dir]);
+  }
+  // One entry per axis the wall crosses, null where this tile can't tell.
+  return CURTAIN_AXES.filter((A) => A.run.test(cur)).map(({ q: [a, b, va, vb] }) => {
+    if (walled.has(a) !== walled.has(b)) return walled.has(a) ? vb : va;
+    if (camp && !!ex[a] !== !!ex[b]) return ex[a] ? va : vb;
+    return null;
+  });
+}
+function curtainInward(cell, cur, x, y, at) {
+  const key = `${cell.id}|${cur}`;
+  if (_curtainIn.has(key)) return _curtainIn.get(key);
+  const own = curtainSides(cell, cur);
+  const v = CURTAIN_AXES.filter((A) => A.run.test(cur)).map((A, i) => {
+    if (own[i]) return own[i];
+    for (const [dx, dy, d] of A.along) {
+      if (!cur.includes(d)) continue;
+      const n = at(x + dx, y + dy);
+      if (!n?.flags?.curtain) continue;
+      const nc = curtainRun(x + dx, y + dy, at), j = CURTAIN_AXES.filter((B) => B.run.test(nc)).indexOf(A);
+      const got = j >= 0 ? curtainSides(n, nc)[j] : null;
+      if (got) return got;
+    }
+    return null;
+  });
+  const ci = v.some(Boolean) ? v.filter(Boolean) : undefined;
+  _curtainIn.set(key, ci);
+  return ci;
+}
+
 // `at` is the CELL PROVIDER: (x, y) → a surface-cell-shaped { id, name, flags, danger } or null.
 // It defaults to `surfaceAt` (the real world), and every lookup in here — the centre probe, the
 // road auto-tiler's four neighbours, curtainRun — goes through it, so a caller can hand in a
@@ -1155,6 +1213,20 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
     const back = ew ? isStrip(-1, 0) : isStrip(0, -1);
     const fwd = ew ? isStrip(1, 0) : isStrip(0, 1);
     strip = { ax: ew ? 'ew' : 'ns', end: back && fwd ? 0 : back ? 1 : -1 };
+  }
+  // A PAVED RUNWAY, TAXIWAY OR APRON SAYS WHICH, AND WHERE ITS YELLOW LINE GOES. Until this, nothing
+  // on the cell said a tile was any of the three: the runway's centreline tiles carried a
+  // `runway_ns` icon, so `isRoadCell` made them STREETS and the canopy painted Coldwater Regional's
+  // runway with a double yellow line, lane dashes and kerbs, while every taxiway and apron tile was
+  // bare floor colour. `rwy` is the runway's axis ('ns'|'ew') or 'pad' for any other paved airfield
+  // tile; `twy` is the taxiway centreline as the letters of the sides it leaves by, authored as
+  // `flags.taxiway`, because a two-wide taxiway auto-tiled off its neighbours draws a grid of lines.
+  // A pad with no `twy` is apron. ⚠ DUST IS EXCLUDED: a dirt strip gets `strip` above and no paint.
+  let rwy, twy;
+  if (cell.flags?.runway && ft !== 'dust') {
+    const r = String(cell.flags.runway);
+    rwy = r === 'ns' || r === 'ew' ? r : 'pad';
+    if (rwy === 'pad' && cell.flags.taxiway) twy = String(cell.flags.taxiway).replace(/[^nesw]/g, '') || undefined;
   }
   // AN INSPECTION PLAZA'S FURNITURE — the signal gantry over the highway, the lead-in lights down
   // the ramp, the weighbridge plates and the scanner arch over them. A mark rather than a building
@@ -1361,20 +1433,14 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // `cld`: the Curtain is in lockdown. The field closes across the gate, the gate's blast doors come
   // down, and every emitter, anchor and bastion runs its lamps red. Live only, like the lock's `ld`.
   const cld = cur && live && _lockdown ? 1 : undefined;
-  // A camp pitched ON a Curtain tile (Old Coldwater's east wall) has to know which side is in, so the
-  // windshield can keep its tents off the wall. The wall is the authored exit block, so the side with
-  // no exit is out and its opposite, if that one has an exit, is in. `ci` is those inward unit vectors.
-  // ⚠ Not the old off-map-air test: the Scarletwastes put land east of x927, so both sides read as
-  // land and the tents spread straight through the wall.
-  let ci;
-  if (cur && cell.flags?.camp) {
-    const ex = getZone(cell.id)?.exits || {};
-    const has = (d) => !!ex[d];
-    const v = [];
-    if (has('west') !== has('east')) v.push(has('west') ? [-1, 0] : [1, 0]);
-    if (has('north') !== has('south')) v.push(has('north') ? [0, -1] : [0, 1]);
-    if (v.length) ci = v;
-  }
+  // Every Curtain tile says which side is in, so the windshield keeps what stands on it off the wall:
+  // the tents of a camp pitched on it (Old Coldwater's east wall), and the people. The wall runs down
+  // the tile's middle, and the street-actor pass spreads anybody on the tile up to 0.3 of a tile either
+  // side of it, so without this a third of the camp stood out in the wastes. `ci` is those inward unit
+  // vectors, one per axis the wall crosses: a wall running n–s is crossed west–east, and only that pair
+  // is asked. Derived once per tile (curtainInward) because this runs for every tile of every push.
+  // Not on the gate, which is the gap in the wall: people stand on both sides of it.
+  const ci = cell.flags?.curtain ? curtainInward(cell, cur, x, y, at) : undefined;
   // HIGH GROUND — a raised landform, and the sides it CONTINUES on.
   //
   // `hi` says this tile stands a tile-height above the plain; `cf` is the run, exactly
@@ -1535,7 +1601,8 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   const besideLock = mark === 'bay' && !cell.flags?.aircraft_hangar
     && [[-1, 0], [1, 0]].some(([ox, oy]) => { const c = at(x + ox, y + oy); return !!(c?.flags?.gate_lock && typeof c.flags.gate_lock === 'object'); });
   const bk = cell.flags?.aircraft_hangar && cell.flags?.heavy_hangar ? 'heavy' : cell.flags?.aircraft_hangar ? 'air' : besideLock ? 'lock' : undefined;
-  return { prp, kind, biome, road, danger: cell.danger, pad, bt, bn, ent, flr, mark, bk, strip, rd, rdeg, rt, rw, rl, wr, rc, wake, sub, heading, cur, cld, ci, ft, hi, cf, pf: cell.flags?.park_feature, pw, em, og, sl, sgn, plz, lk, bf, bq, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
+  // A runway is not a street (see `rwy` above): no kerbs, no steam vents, no pedestrians on it.
+  return { prp, kind, biome, road: rwy ? 0 : road, danger: cell.danger, pad, bt, bn, ent, flr, mark, bk, strip, rwy, twy, rd, rdeg, rt, rw, rl, wr, rc, wake, sub, heading, cur, cld, ci, ft, hi, cf, pf: cell.flags?.park_feature, pw, em, og, sl, sgn, plz, lk, bf, bq, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
 }
 
 // The flight window's half-width, named so the things that have to AGREE with it can say so

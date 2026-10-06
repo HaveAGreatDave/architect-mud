@@ -124,6 +124,7 @@ export function cabTrim(...a) { return (_m || _cold('cabTrim')).cabTrim(...a); }
 export function cabWheelGeom(...a) { return (_m || _cold('cabWheelGeom')).cabWheelGeom(...a); }
 export function cabWheelHub(...a) { return (_m || _cold('cabWheelHub')).cabWheelHub(...a); }
 export function campCacheSmoke(...a) { return (_m || _cold('campCacheSmoke')).campCacheSmoke(...a); }
+export function campWallSmoke(...a) { return (_m || _cold('campWallSmoke')).campWallSmoke(...a); }
 export function canvasResidue(...a) { return (_m || _cold('canvasResidue')).canvasResidue(...a); }
 export function captureModelMesh(...a) { return (_m || _cold('captureModelMesh')).captureModelMesh(...a); }
 export function captureModelTrace(...a) { return (_m || _cold('captureModelTrace')).captureModelTrace(...a); }
@@ -236,6 +237,7 @@ export function renderModelPreview(...a) { return (_m || _cold('renderModelPrevi
 export function renderVehiclePreview(...a) { return (_m || _cold('renderVehiclePreview')).renderVehiclePreview(...a); }
 export function rollRao(...a) { return (_m || _cold('rollRao')).rollRao(...a); }
 export function roofMaterialId(...a) { return (_m || _cold('roofMaterialId')).roofMaterialId(...a); }
+export function roofSurf(...a) { return (_m || _cold('roofSurf')).roofSurf(...a); }
 export function roofTex(...a) { return (_m || _cold('roofTex')).roofTex(...a); }
 export function seaAmpsNow(...a) { return (_m || _cold('seaAmpsNow')).seaAmpsNow(...a); }
 export function seaRideAt(...a) { return (_m || _cold('seaRideAt')).seaRideAt(...a); }
@@ -293,12 +295,14 @@ export function viewFocal(...a) { return (_m || _cold('viewFocal')).viewFocal(..
 export function viewLatFocal(...a) { return (_m || _cold('viewLatFocal')).viewLatFocal(...a); }
 export function viewRenderSmoke(...a) { return (_m || _cold('viewRenderSmoke')).viewRenderSmoke(...a); }
 export function wallFaceAt(...a) { return (_m || _cold('wallFaceAt')).wallFaceAt(...a); }
+export function wallMatMixed(...a) { return (_m || _cold('wallMatMixed')).wallMatMixed(...a); }
 export function wallMaterialId(...a) { return (_m || _cold('wallMaterialId')).wallMaterialId(...a); }
 export function wallMaterialOf(...a) { return (_m || _cold('wallMaterialOf')).wallMaterialOf(...a); }
 export function wallMaterialTable(...a) { return (_m || _cold('wallMaterialTable')).wallMaterialTable(...a); }
 export function wallPaletteInfo(...a) { return (_m || _cold('wallPaletteInfo')).wallPaletteInfo(...a); }
 export function wallPaletteKeys(...a) { return (_m || _cold('wallPaletteKeys')).wallPaletteKeys(...a); }
 export function wallSpanAt(...a) { return (_m || _cold('wallSpanAt')).wallSpanAt(...a); }
+export function wallSurf(...a) { return (_m || _cold('wallSurf')).wallSurf(...a); }
 export function wallTexMixed(...a) { return (_m || _cold('wallTexMixed')).wallTexMixed(...a); }
 export function wallTexSmoke(...a) { return (_m || _cold('wallTexSmoke')).wallTexSmoke(...a); }
 export function wildLedges(...a) { return (_m || _cold('wildLedges')).wildLedges(...a); }

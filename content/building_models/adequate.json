@@ -45,18 +45,18 @@
   ],
   "detail": [
     {
-      "bars": 9,
-      "cx": 0,
+      "bars": 4,
+      "cx": -0.235,
       "cy": 0.44,
       "depth": 0.028,
       "glass": "#2f1f30",
       "glow": "#ff6fc4",
-      "half": 0.385,
-      "hh": 0.049,
+      "half": 0.15,
+      "hh": 0.071,
       "kind": "windowBay",
       "pal": "ty_adequate_stone",
       "transom": 1,
-      "z": 0.042
+      "z": 0.121
     },
     {
       "cx": 0,
@@ -77,7 +77,7 @@
       "pal": "ty_adequate_dk",
       "soffit": "#8c4a14",
       "strip": "#ffc98a",
-      "z": 0.107
+      "z": 0.214
     },
     {
       "color": "#171009",
@@ -89,7 +89,7 @@
       "ink": "#ffd678",
       "kind": "signBoard",
       "label": "ADEQUATE!",
-      "z": 0.145
+      "z": 0.246
     },
     {
       "cx": 0,
@@ -98,7 +98,7 @@
       "hh": 0.016,
       "kind": "parapet",
       "pal": "ty_adequate_stone",
-      "z": 0.19
+      "z": 0.292
     },
     {
       "count": 3,
@@ -111,13 +111,13 @@
         "glass": "#2c3742",
         "glow": "#bcd6ef",
         "half": 0.345,
-        "hh": 0.036,
+        "hh": 0.03,
         "kind": "windowBay",
         "pal": "ty_adequate",
-        "z": 0.238
+        "z": 0.34
       },
       "step": {
-        "z": 0.112
+        "z": 0.09
       }
     },
     {
@@ -131,13 +131,13 @@
         "glass": "#2c3742",
         "glow": "#bcd6ef",
         "half": 0.345,
-        "hh": 0.036,
+        "hh": 0.03,
         "kind": "windowBay",
         "pal": "ty_adequate",
-        "z": 0.238
+        "z": 0.34
       },
       "step": {
-        "z": 0.112
+        "z": 0.09
       }
     },
     {
@@ -237,7 +237,34 @@
       "half": 0.395,
       "kind": "neonRun",
       "pal": "ty_adequate_stone",
-      "z": 0.181
+      "z": 0.282
+    },
+    {
+      "bars": 4,
+      "cx": 0.235,
+      "cy": 0.44,
+      "depth": 0.028,
+      "glass": "#2f1f30",
+      "glow": "#ff6fc4",
+      "half": 0.15,
+      "hh": 0.071,
+      "kind": "windowBay",
+      "pal": "ty_adequate_stone",
+      "transom": 1,
+      "z": 0.121
+    },
+    {
+      "cx": 0,
+      "cy": 0.44,
+      "depth": 0.016,
+      "door": 2,
+      "glow": "#ff6fc4",
+      "half": 0.07,
+      "hh": 0.083,
+      "kind": "windowBay",
+      "pal": "ty_adequate_stone",
+      "transom": 0.8,
+      "z": 0.11
     }
   ],
   "id": "adequate",
@@ -264,7 +291,7 @@
       "pal": "ty_adequate_stone",
       "roof": true,
       "z0": 0.028,
-      "z1": 0.205
+      "z1": 0.307
     },
     {
       "cx": 0,
@@ -273,7 +300,7 @@
       "kind": "box",
       "pal": "ty_adequate",
       "roof": true,
-      "z0": 0.205,
+      "z0": 0.307,
       "z1": 0.56
     },
     {
@@ -321,4 +348,3 @@
     }
   ]
 }
-

@@ -11,6 +11,7 @@ Engineering notes for the GLASS renderer (`client/game/js/panels/windshield.js` 
 - [Echelon superstructure (`YACHT_TIERS`)](#echelon-superstructure-yacht_tiers)
 - [GLASS 2 as the default renderer (`RENDER_TUNE.gl`)](#glass-2-as-the-default-renderer-render_tunegl)
 - [See-through fixes: putting 2-D surfaces on the depth buffer](#see-through-fixes-putting-2-d-surfaces-on-the-depth-buffer)
+- [The far dissolve, over the ground (`RENDER_TUNE.glHazeSplit`)](#the-far-dissolve-over-the-ground-render_tuneglhazesplit)
 - [Projection matrix units](#projection-matrix-units)
 - [Which tiles belong to which renderer](#which-tiles-belong-to-which-renderer)
 - [The skyline past the window (`noteSkyline`)](#the-skyline-past-the-window-noteskyline)
@@ -247,6 +248,15 @@ A painter's queue hides things by painting over them. With the mass on the GPU, 
 - Trap: a wall-mounted sign must stand proud of its wall. `marqueeBand` mounted at `half * 0.94`, six per cent inside the facade; the 2-D renderer survived by sorting it forward, but the depth test lets the wall win every pixel. Same reason `FACE_EPS` exists.
 - Trap: a surface queued through `emitFace` is collected at flush, after the GL composite has run. The Curtain filled its sink inside the queued closure, never reached the GPU, and drew and reported nothing.
 
+## The far dissolve, over the ground (`RENDER_TUNE.glHazeSplit`)
+
+Buildings fade out over the last `HAZE_BAND` tiles of the draw distance. The mass is drawn first and writes depth, and the floor, the sea and the roads are drawn after it and test against that depth. So a block at 20% opacity in the band still hid the ground behind it, and the other 80% showed the bare canvas under the GL buffer: a dark green cut-out of every building at the edge of the draw distance, most visible from the air.
+
+- The band is split off now. `draw` discards it (`uFadePass` 1), and `drawFade` draws only the band after the ground: a depth-only pass, then a blended colour pass, so only the nearest face of a fading block lays over the ground and its back walls don't show through.
+- `drawFade` reuses the frame's env cube, sun map and SSAO texture rather than running those passes again. All three bind framebuffers of their own, which would unbind the target the floor and roads were just drawn into.
+- The mirror doesn't split (nothing is drawn after it), and nor does a frame with no haze band.
+- `glHazeSplit: 0` is the old single pass. `glLastFrame().hazeFade` is 0 when the second pass didn't run.
+
 ## Projection matrix units
 
 `makeCam` works in CSS pixels; the GL canvas is a backing store in device pixels. `projMatrix`'s x row (`2·FL / cam.W`) happened to use camera terms only, but the y row (`2·depth / H`, `1 − 2·horizonY / H`) took the canvas height, scaling the vertical axis by 1/dpr and displacing the horizon. On a 459×467 pane at dpr 1.2 every building rose 38 px, base and roof by different amounts, so the city was lifted and squashed. The matrix is built in the camera's units now.
@@ -399,6 +409,8 @@ Trap: a `$name` board's slab is a per-tile `paint` quad, so it's in no per-model
 Raising `detailNear` was already measured and rejected (`signfloor.mjs`: 3→6 took a dense night block 21.0 → 24.3 ms, 3→9 to 36.2). Instead, beyond the ring the pass runs with every part that letters nothing skipped and every quad except a `$name` board suppressed. `framecost` is unchanged (the 2-D painter never takes this path: it needs a live decal sink), and a real Coldwater block costs +60–70 decals a frame for 1.5–3× as many lettered signs. The distance follows legibility: 309 px of sign at three tiles, 80 at six, 38 at ten, 24 at twelve on a 1200-wide frame (about seven at the game's 640).
 
 Frame time fell inside `__glFrame`'s spread on a hidden pane; the evidence is `calls2d` (unchanged) and the decal count. The gate is `node scripts/shapes/signrange.mjs` (no npm name), the sibling of `signfloor` one ring out; its mutation control: 119 of 196 models lose lettering with the flag at 0.
+
+Trap: the range is measured from the eye, not the vehicle. A building's `dx`/`dy` in the sweep are offsets from the vehicle, and `cam.ex`/`cam.ey` are where the eye is in that frame (on the vehicle in a cab, `back` behind it in a chase view, anywhere on a detached free camera). The range, `detailNear` and the `lodNear` ring all go through `eyeRange(cam, dx, dy)`. Reported 2026-10-04 as "embassy no signage" from a free camera: the Embassy and Layers were a few tiles from the camera and more than 12 from the truck, so the boards drew from the mesh with no names and no window lights. `signrange` now also checks every model six tiles in front of a free camera 18 tiles from the truck; against the old code 164 of 319 models failed it.
 
 ## Sign occlusion probe removed on GL
 
@@ -628,6 +640,7 @@ The same list the sprite layer draws is fed to the mass shader as point lights (
 - **The diffuse term is wrapped.** The commonest light is mounted flush on its wall, so the wall-to-light direction is nearly perpendicular to the normal and a pure cosine is ~0: straight Lambert moved 0.4% of wall pixels in a dense night frame, wrap 0.5 moved 1.7%. `wrap` then came down 0.6 → 0.35 because a wrapped diffuse lights faces turned away from the light, so an external camera sees walls glowing from a source round the other side (reported as "influenced by the external camera view at certain angles"). At a fixed gain, wrap 0 costs the cab 4.2 points of coverage and the air seat 7.4.
 - **It's scaled by the night**, because signage is drawn by day too: without that, a shopfront showed a pink cast over 19,000 pixels of its own wall at noon.
 - `__glLights()` in the Modelshop measures it: 16.9% of wall pixels moved on a dense night cab frame, 12.8% from the air, 0.3% by day, cost inside this machine's noise.
+- **Solids lift, they never add.** `gl/solids.js` (your aircraft, parked aircraft, the depot shed, the lock) takes the same list through `lamp` and `rl`, and uses the wall lift's rule: the lamps lift the night-dimmed colour back toward the undimmed one, tinted by the lamp and capped at 1. Until 2026-10-04 it added each lamp's colour, with no albedo and no ceiling. A lamp reaches about three tiles and an aircraft is a tenth of one, so every lamp in range lights the whole hull at once; the half-dozen runway and taxiway lights round a parked helicopter at Coldwater Regional took it past white and into the bloom (13,838 near-white pixels in one frame, 69 after). No gate covers it, because headless gates never draw. Check it with `__street` from an external seat at 23:00, with `LIGHT_TUNE.rise`/`fall` at 0 if the clock is frozen, or no light reaches its slot.
 
 ### Gain history
 
@@ -651,6 +664,47 @@ Reported as "can we make signs have a bloom and that be the wash light instead o
 `RENDER_TUNE.glMat` (0 puts the city on one BRDF); `glBump` is the relief half. Sixteen material families already decided what a wall looks like; none decided how it responds to light: brick, copper, glass and timber all used one half-Lambert key and two overlay tints, which is why metal never read as metal. Metal is view dependence (a reflection in its own hue), wood is its absence, frost is it blurred; none is expressible as albedo, and the fragment shader had no eye position. It has one now (`eyePos` in camera.js, solved for the point `viewMatrix` sends to the origin, asserted by `gl:parity` at 972 cameras including under pitch) and a five-column table per family, authored in windshield.js beside the painters.
 
 The plan for linear colour, a GGX highlight, a prefiltered environment and per-texel material data is [glass-materials.md](../proposals/glass-materials.md).
+
+### The material page (`RENDER_TUNE.glMatPage`)
+
+Off by default. On, the atlas gets a twin page at the same rects (unit 4): r glass coverage, g lit coverage, b 1 + the family of the tile's non-glass texels, with b = 0 meaning the page says nothing. The six skins with windows have a page (102 palettes: the default facade, the shopfront, curtain glass, the Spire, the Meridian, the pump); everything else falls back to its face's family and the brightness guess in the night dim. Four traps:
+
+- The page and the albedo share each skin's layout and lit test (`paneLit`, `curtainGrid`, `spireLayout` and the rest beside `wallTex`). Don't write a second loop: a page one texel off shades a stripe of wall as glass.
+- b is constant across a tile. The page is minified with LINEAR filtering, and a blend of two family indices is a third, unrelated family. Glass is r, mixed by the shader; never a second family in b.
+- b is an index, so the dusk page is painted with g scaled, never blended on a canvas, which could round b.
+- Unit 4 is bound on every draw, to the page or to null. A sampler reads whatever its unit holds, branch or no branch, and a render target left there is a dropped draw (see "A pass that didn't draw").
+
+### Linear light (`RENDER_TUNE.glLinear`)
+
+Off by default; 1 makes the float target linear, 2 also lights the city's own shader in linear (gl/colour.js, and stage 2 of [glass-materials.md](../proposals/glass-materials.md)). Traps:
+
+- Only the float target is ever linear. Eight bits of linear light band in the darks, so the mirror buffer, the room drawn alone, the sky pass and every 8-bit intermediate keep display values. A new pass that binds its own target sets `LIN.out` for it.
+- A new fragment shader that draws into the float target goes through `linearOut` and calls `applyLinOut` after `useProgram`, or at level 1 it is the one layer still blending in display values.
+- A factor tuned on display values is not the same factor in linear light. A darkening multiplier k becomes about k^2.2 (`lf` in the city shader). A mix toward a colour has no linear twin, so at level 2 the overlays, the lamp lift and the fog encode, mix as before and decode. The bloom and the composite curve encode first at any linear level. A new term tuned by eye needs the same treatment, or level 2 drifts from level 0 again.
+- Additive halos can't be matched one layer at a time: in linear light the same addition lifts a dark pixel more than a bright one, and a shader can't see what is behind it. Their lighter edges at linear levels are accepted (2026-10-04), so don't "fix" them with a per-layer decode.
+
+### Sky reflections and the GGX highlight (`RENDER_TUNE.glEnvCube`, `glGGX`)
+
+Off by default. `glEnvCube` reflects a cube of the sky (gl/envcube.js) instead of the two-colour gradient, blurred by roughness; `glGGX` swaps the Phong highlight for a GGX lobe with the same peak. Traps:
+
+- The sky has one definition, `SKY_DIR_GLSL` in gl/sky.js, used by the sky pass and the cube. Change the sky there, or the glass reflects a different sky from the one above it.
+- The one deliberate difference is the glow right round the sun. The sky pass passes `SUN_LOBE_SKY` (about 2° to half strength) and the cube `SUN_LOBE_CUBE` (about 6°), because at 32 texels a face the cube can't hold a 2° lobe without it flickering between texels. The old 6° lobe in the sky clipped to a white disc twenty times the sun's size.
+- Unit 5 is a cube unit, bound on every draw to the cube or to null. Pointing a 2-D sampler at unit 5 in the city's program is a draw error.
+- The cube rebuilds only when its rounded inputs change (`keyOf` in envcube.js). A new input to the sky needs adding to the key, or the reflection keeps the old sky.
+- Its levels are a box filter, fine for a smooth sky. Anything sharp moved into the cube (the skyline) would want a per-level blur.
+
+### The surface page (`RENDER_TUNE.glSurfPage`)
+
+Off by default. A third atlas page (unit 6): r height, g a roughness scale, b = 255 where it speaks. Every wall and roof surface has one (`wallSurf`, `roofSurf`) except the four speckled facades with no `FACADE_MAT` entry; the relief reads height there instead of brightness. Traps:
+
+- A painter and its height twin share their geometry through the generators above `matGrain` (materials) and above `wallTex` (skins and roofs). Change where a joint falls there, not in the painter, or the relief embosses the brick and leaves the mortar flat.
+- A new painter or skin needs a twin in `surfOf` or `SURF_TWIN`. `wallTexSmoke` fails a surface without one; without that check it would quietly read brightness again.
+- A stain (lichen, rust, verdigris, moss) goes down with `surfRougher`, which adds to g alone. Painted with `surfPut`, it would overwrite the height and fill the joints under it.
+- A roof page is per kind of deck, not per palette. A deck that starts reading its palette for geometry needs its own key.
+- Height is per palette and resolution, never per hour or grid state. Don't key `wallSurf` on the dusk step.
+- Magnified LINEAR, unlike the atlas and the material page. Height is a field; NEAREST makes every joint a cliff.
+- `glHeightGain` (0.33) converts height to the relief's units. A new twin with bigger height steps reads as deeper relief at the same gain.
+
 
 - **The family is derived.** Palette keys already resolve to a family through `wallMaterialOf`, so 284 keys and 8,223 mass faces over 173 models got a response with no content change. The index is resolved once per model beside `texKey`, never per vertex.
 - Trap: an index out of range is undefined behaviour in GLSL ES. On this driver it reads zeros, gloss 0 gives `pow(x, 0.0)` = 1.0, a full mirror, with nothing logged. `npm run gl:mat` is the only check for this (`gl:mesh` compares geometry, `gl:glsl` names; both pass with every building pointing at family 41).
@@ -724,6 +778,8 @@ Reported as "weak overall, and the sign is hidden behind stuff". Aurelia's name 
 - **The mass uses `n0`, never `n`.** `n` includes recovered relief and the bevel, so snow would sit in mortar joints and every chamfer would grow a white line (the shadow bias's reason too).
 - **The pitch a surface will hold rises with depth:** a dusting sits only on dead-flat surfaces, pitched roofs take a real fall. A fixed threshold whitens every roof at once.
 - **Albedo is substituted before shading** (three lines): snow then gets the overlays, sun shadow, chamfer, both occlusion terms, the screen-space pass and the point lights. Mixed at the end it's a flat white decal.
+- **Snow takes the night in all three passes** (fixed 2026-10-05, reported as "entire stretches of road wash out in bright colour" on a rainy night). The road pass mixed a constant 0.9 white in after `uNightDim`, so lying snow was about nine times the tarmac at midnight and the whole carriageway read as a lit sheet, with the verge (floor, dimmed correctly) a dark strip along the building bases. It now takes `uSnowCol`, which is `SNOW_COL` from windshield.js (the floor's own expression, dimmed by `moonNightDim`), hazed by `gfog`. The mass had the same fault one step removed: a 0.9 albedo is over the night dim's 0.55 lit-window guess, so every snowy roof and awning skipped the dim. `litK *= 1.0 - snowW` keeps snow out of it.
+  - Trap: snow on the ground in rain is legitimate. The server seeds `wxGround` from the global precipitation word, which is 'snow' at or below 1 °C, so a page loaded after a cold spell starts under snow even under a rain cell, and it takes minutes to thaw. A washed-out road at night is worth a `__wsTune.glSnow = 0` before anything about lights.
 - **The antialias band needs a cap as well as the puddle shader's floor.** The floor stops a world-space threshold crawling; the cap is because at the far end of a road one pixel spans several tiles, `fwidth` exceeds the field width, and the edge becomes a ramp that reads as fog.
 - Measured in the Modelshop, pinned clock: 10.4% of the frame at a dusting, 55.6% at half, 85.7% at a full fall, control 0.1%.
 - **No headless gate sees the picture** (every harness's GL hook returns a bare canvas). `npm run gl:snow` ([scripts/shapes/snow.mjs](../../scripts/shapes/snow.mjs), in the push chain and `shapes:smoke`) asserts: snow/rain classified the right way and thawing rather than switching off; both ground layers write `uSnow` every frame (a uniform keeps its last value, so setting it only when snowing leaves the world white after one blizzard); world.js hands depth to all three consumers. That last check locates each hand-off rather than counting (there are three; "at least two" survived deleting one). Mutation-tested 7 of 7.
@@ -950,8 +1006,9 @@ The **Depot in the depth buffer** slider; 0 puts it back on the canvas.
 - The sinks take the polygon whole. `drawVehicleBay` clips faces against its own near plane for 2-D; handing a pre-cut polygon to a depth buffer makes the shape depend on viewpoint (127 faces from the road, 40 from a quarter turn round).
 - Trap: don't hand-wind a world-space quad. The name board went to the decal layer as four world corners in reading order. A `cull` decal is one-sided by NDC winding, and reading order in the shed's local frame survives rotation only up to a mirror, so the lettering was culled on the two `ent` facings where it faces you. `emitSurfaceText` takes screen points and recovers the quad through `cam.unproj`, which can't mirror.
 - Lost: the 1px `stroke` outline, so the GL shed is a shade flatter at the corners (2.7% of a close cab frame, all inside its silhouette).
+- Trap: a `gl/solids.js` record with no normal is read as a light. It skips the night dim (`uWLDim`) and the city's lamps and keeps its own colour. The shed's outside faces (the ones painted in `ex`) carry a normal and `amb` (`out` on `bayFace`); the inside and the fittings don't, because a lit workplace keeps its own light. Before that, Coldwater Regional's two hangars stood pale and flat after dark beside a city the mass pass had dimmed a second time.
 
-Gate: `npm run gl:bay` ([scripts/shapes/bay.mjs](../../scripts/shapes/bay.mjs), in `shapes:smoke` and the push chain) checks the geometry arrives and stands up, orbiting the camera moves none of it, moving the camera inside its own tile moves none of it, `glBay 0` collects none, and a GLASS 1 control still paints one. The `cam.ox/oy` check compares two sub-tile camera positions; a bounding-box check couldn't fail.
+Gate: `npm run gl:bay` ([scripts/shapes/bay.mjs](../../scripts/shapes/bay.mjs), in `shapes:smoke` and the push chain) checks the geometry arrives and stands up, the outside carries unit normals that never point down and the inside carries none, orbiting the camera moves none of it, moving the camera inside its own tile moves none of it, `glBay 0` collects none, and a GLASS 1 control still paints one. The `cam.ox/oy` check compares two sub-tile camera positions; a bounding-box check couldn't fail.
 
 ### One world scale for aircraft
 

@@ -19,6 +19,7 @@ import { viewProjMatrix, viewMatrix } from './camera.js';
 import { makeVertexStream } from './stream.js';
 import { actorBakeReady } from '../actor3d.js';
 import { declareProgram, takeWarm } from './programs.js';
+import { linearOut, applyLinOut } from './colour.js';
 
 // Per instance: x, y, z, tiles per metre | clip A row0, frames, phase, heading | clip B row0, frames,
 // phase, share of B | coat rgb | trousers rgb | skin rgb | hair rgb | shoes rgb | brightness, alpha |
@@ -124,7 +125,7 @@ void main() {
   vFog = ff * ff * uFogAmt;
 }`;
 
-const FRAG = `#version 300 es
+const FRAG = linearOut(`#version 300 es
 precision highp float;
 in vec3 vColor;
 in vec3 vN;
@@ -290,7 +291,7 @@ void main() {
   }
   c = mix(c, uFog, vFog);
   outColor = vec4(c * vAlpha, vAlpha);
-}`;
+}`, 'outColor');
 
 function compile(gl, type, src, label) {
   const s = gl.createShader(type);
@@ -436,7 +437,7 @@ export function createActorLayer(gl) {
 
   function draw(cam, cssH, opts = {}) {
     if (!n) return 0;
-    gl.useProgram(prog);
+    gl.useProgram(prog); applyLinOut(gl, prog);
     gl.uniformMatrix4fv(loc.viewProj, false, viewProjMatrix(cam, cssH, opts.near, opts.far));
     const f = opts.fog;
     gl.uniform3f(loc.fog, f ? f.col[0] : 0, f ? f.col[1] : 0, f ? f.col[2] : 0);

@@ -52,6 +52,7 @@ import { viewProjMatrix, mat4f, zRow, NEAR } from './camera.js';
 import { SEA_GLSL } from './sea-glsl.js';
 import { seaSlopeVariance, SEA_FOAM_LEAD, SEA_FOAM_RAMP, SEA_FOAM_A, SURF_DEPTH_Q } from '../../../../shared/sea-swell.js';
 import { declareProgram, takeWarm } from './programs.js';
+import { linearOut, applyLinOut } from './colour.js';
 
 // ⚠ THE SAME SIX AS THE SHADER'S OWN 'NEON_MAX', AND THEY HAVE TO AGREE — the GLSL one is inside a
 // template literal and cannot read this, which is the arrangement floor.js's MAX_WET already has.
@@ -298,7 +299,7 @@ void main() {
   gl_Position = uViewProj * vec4(w, h, 1.0);
 }`;
 
-const FRAG = `#version 300 es
+const FRAG = linearOut(`#version 300 es
 precision highp float;
 in vec2  vWorld;
 in float vWater;
@@ -826,7 +827,7 @@ void main() {
   }
   if (a < 0.004) discard;
   fragColor = vec4(col * a, a);
-}`;
+}`, 'fragColor');
 
 function compile(gl, type, src, label) {
   const sh = gl.createShader(type);
@@ -935,7 +936,7 @@ export function createWaterLayer(gl) {
     const roll = s.seaRoll || 0;
     if (roll <= 0.0001 || !(s.swell > 0)) return 0;   // no swell, no mesh — the flat floor is the whole sea
     if (!vao) build();
-    gl.useProgram(prog);
+    gl.useProgram(prog); applyLinOut(gl, prog);
     gl.uniformMatrix4fv(loc.viewProj, false, mat4f(viewProjMatrix(cam, cssH)));
     gl.uniform2f(loc.a, s.ax || 0, s.ay || 0);
     gl.uniform1f(loc.t, s.t || 0);

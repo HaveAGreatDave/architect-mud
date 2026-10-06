@@ -39,6 +39,7 @@ import { viewProjMatrix, mat4f, eyePos } from './camera.js';
 import { makeVertexStream } from './stream.js';
 import { createArena } from './retain.js';
 import { declareProgram, takeWarm } from './programs.js';
+import { linearOut, applyLinOut } from './colour.js';
 
 // pos3, uv2, alpha1, emit1, seed1
 const STRIDE = 12;
@@ -127,7 +128,7 @@ void main() {
   vEmit = aEmit;
 }`;
 
-const FRAG = `#version 300 es
+const FRAG = linearOut(`#version 300 es
 precision highp float;
 #define LIT_MAX ${LIT_MAX}
 in vec2 vUV;
@@ -361,7 +362,7 @@ void main() {
     return;
   }
   outColor = vec4(rgb * (1.0 + vEmit * uEmitGain), t.a);
-}`;
+}`, 'outColor');
 
 function compile(gl, type, src, label) {
   const sh = gl.createShader(type);
@@ -639,7 +640,7 @@ export function createDecalLayer(gl) {
       gl.bindVertexArray(vao);
       return n;
     };
-    gl.useProgram(prog);
+    gl.useProgram(prog); applyLinOut(gl, prog);
     const ls = lit && lit.lights ? lit.lights : [];
     const nL = Math.min(ls.length, LIT_MAX);
     for (let i = 0; i < nL; i++) {

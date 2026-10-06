@@ -40,6 +40,7 @@
 import { viewProjMatrix, mat4f } from './camera.js';
 import { makeVertexStream } from './stream.js';
 import { declareProgram, takeWarm } from './programs.js';
+import { linearOut, applyLinOut } from './colour.js';
 
 // What alpha counts as the SHAPE rather than as its edge, in the depth-only prepass. A billboard is
 // baked from flat fills, so its interior is 1 and only the rim is between; half is the middle of
@@ -106,7 +107,7 @@ void main() {
   vFog = ff * ff * uFogAmt;
 }`;
 
-const FRAG = `#version 300 es
+const FRAG = linearOut(`#version 300 es
 precision highp float;
 in vec2 vUV;
 in float vAlpha;
@@ -191,7 +192,7 @@ void main() {
   c = mix(c, uFog, vFog);
   float a = t.a * vAlpha;
   outColor = vec4(c * a, a);
-}`;
+}`, 'outColor');
 
 function compile(gl, type, src, label) {
   const sh = gl.createShader(type);
@@ -386,7 +387,7 @@ export function createBillboardLayer(gl) {
   const wl = {};
   function draw(cam, W, H, cssH, fog, snow, lights) {
     if (!batches.length) return 0;
-    gl.useProgram(prog);
+    gl.useProgram(prog); applyLinOut(gl, prog);
     // ⚠ SET ON EVERY DRAW. The lights arrive in the map-window frame the mass is built in; this
     // layer draws with the plain camera, so each is moved back by the window offset.
     if (!wl.N) { wl.N = gl.getUniformLocation(prog, 'uWLN'); wl.P = gl.getUniformLocation(prog, 'uWLP'); wl.C = gl.getUniformLocation(prog, 'uWLC'); wl.R = gl.getUniformLocation(prog, 'uWLR'); }

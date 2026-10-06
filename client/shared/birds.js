@@ -1759,12 +1759,16 @@ export const SPECIES = {
     // against its own 840 cap — and because a flock is charged WHOLE (half a skein reads as a
     // rendering fault, not as a budget), it would not have been rejected gracefully, it would
     // simply never have drawn. Twenty is what the share buys.
-    minFlock: 450, maxFlock: 150000,
+    minFlock: 450, maxFlock: 60000,
     // ⚠ AND A FEW ROOSTS ARE ENORMOUS. One anchor in `share` draws from `from` to maxFlock instead of
     // from minFlock to `below`; see flockSize. That is what the GPU flock (gl/murmur-gpu.js) was built
     // to afford, and it is a rarity on purpose: a murmuration of that size over every park would be
-    // the ordinary thing rather than the spectacle. The top of the band is 150,000 (it was 300,000, which read as overwhelming rather than as a spectacle; that size measured 17 ms a step on an RTX 2070 SUPER since the grid was made cache-local, stepped every 2nd or 3rd frame by its measured GPU cost — see STEP_BUDGET_MS in gl/murmur-gpu.js; before that 80,000 was 3.5 ms a step on
-    // an RTX 2070 SUPER, against 1.3 at 40,000); under frame-time pressure a roost that big thins to
+    // the ordinary thing rather than the spectacle. The top of the band is capped at 60,000 for now
+    // (2026-10-04). It was 300,000, then 150,000, and both read as overwhelming rather than as a
+    // spectacle. 300,000 measured 17 ms a step on an RTX 2070 SUPER once the grid was made cache-local,
+    // stepped every 2nd or 3rd frame by its measured GPU cost (STEP_BUDGET_MS in gl/murmur-gpu.js);
+    // before that 80,000 was 3.5 ms a step against 1.3 at 40,000. The GPU can afford more, so raising
+    // this again is a taste call, not a cost one. Under frame-time pressure a roost that big thins to
     // RENDER_TUNE.murmurFloor birds rather than to the ordinary floor (see its note in windshield.js).
     // ⚠ AND ONLY WHERE STARLINGS REALLY ROOST: woodland and a city centre (buildings, piers, bridges),
     // never an open field, which is where they FEED. `onShare` is the share of those sites that are

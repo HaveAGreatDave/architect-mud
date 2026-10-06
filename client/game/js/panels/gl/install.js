@@ -8,7 +8,7 @@
 // This module is that call, and it is the only place that knows both halves: it hands the GL pass
 // the renderer's own mesh capture, its own baked textures and its own palette, so nothing here has
 // an opinion about what a building is made of.
-import { installGLWorld, installGLFaunaInstancing, installGLActorMesh, installGLCloth, installGLClouds, installGLCloudVol, installGLInterior, installGLDispose, installGLSky, captureModelMesh, modelSolid, wallTexMixed, roofTex, texEpoch, glPowerForCell, wallPaletteInfo, wallMaterialId, roofMaterialId, wallMaterialTable, glLightState, RENDER_TUNE } from '../windshield.js';
+import { installGLWorld, installGLFaunaInstancing, installGLActorMesh, installGLCloth, installGLClouds, installGLCloudVol, installGLInterior, installGLDispose, installGLSky, captureModelMesh, modelSolid, wallTexMixed, wallMatMixed, wallSurf, roofSurf, roofTex, texEpoch, glPowerForCell, wallPaletteInfo, wallMaterialId, roofMaterialId, wallMaterialTable, glLightState, RENDER_TUNE } from '../windshield.js';
 import { glWorldPass, glCloudPass, glCloudVolPass, glInteriorPass, glDisposeScene, glSkyPass } from './world.js';
 import { NEAR, FAR } from './camera.js';
 import { MAX_LIGHTS, MAX_MATERIALS } from './context.js';   // the uniform budgets the light pass and the material table ask for   // the clip range the matrix is built with — see the depth-buffer note in glCapabilities
@@ -150,7 +150,7 @@ export function installGL(hostFor) {
     const dir = L.dir || [L.sx, L.sy];
     const u = (c) => [c[0] / 255, c[1] / 255, c[2] / 255];
     return (lastStats = glWorldPass(opts.id || host.id || 'ws', host, cells, cam, {
-      captureModelMesh, modelSolid, wallTexMixed, roofTex, texEpoch, palette: paletteMap(),
+      captureModelMesh, modelSolid, wallTexMixed, wallMatMixed, wallSurf, roofSurf, roofTex, texEpoch, palette: paletteMap(),
       // What the grid is doing to a tile's building, ANSWERED BY WINDSHIELD.JS. The mapping from
       // the wire's `pw`/`em` to a wall bake is declared there and read there by the 2-D painter;
       // handing the function over rather than the codes is what stops the two renderers growing
@@ -173,6 +173,12 @@ export function installGL(hostFor) {
       sprites: opts.sprites, glLights: opts.glLights, glAO: opts.glAO, glBakedAo: opts.glBakedAo, msaa: opts.msaa,
       // FXAA — allowlisted, per the note above, or it is inert.
       glFxaa: opts.glFxaa, cssW: opts.cssW, cssH: opts.cssH,
+      // The material page (RENDER_TUNE.glMatPage), allowlisted like everything else here or it is inert.
+      glMatPage: opts.glMatPage,
+      // Stage 3: the reflection cube and the GGX highlight, and the sky the cube renders.
+      glEnvCube: opts.glEnvCube, glGGX: opts.glGGX, envSky: opts.envSky,
+      // Stage 4: the surface page and its gain.
+      glSurfPage: opts.glSurfPage, glHeightGain: opts.glHeightGain,
       // ⚠ AND `glWet` HAS TO BE HERE. This object is an ALLOWLIST, not a spread — two features have
       // shipped inert by being wired at both ends and dropped in the middle, which is exactly what
       // a missing line here produces: the tune key exists, the shader is correct, nothing happens.
@@ -217,6 +223,7 @@ export function installGL(hostFor) {
       // strength, which is indistinguishable from the road it was written to fix.
       glGlint: opts.glGlint,
       glMirrorMass: opts.glMirrorMass,
+      glHazeSplit: opts.glHazeSplit,
       // ⚠ AND THESE TWO. The puddle reflection is the loudest possible version of this failure,
       // because it fails in a way that looks deliberate: `drawMirror` is never called, `reflTex`
       // stays null, the ground shader's `uReflOn` goes to 0 — and the road still reflects, using
@@ -255,7 +262,7 @@ export function installGL(hostFor) {
       // bit canvas exactly as before, and the bloom and the tone curve are computed against a
       // picture that has already clipped. Which is to say the feature reports numbers, moves pixels,
       // and is not the feature.
-      hdr: opts.glHdr, glBloom: opts.glBloom, glTonemap: opts.glTonemap, glExposure: opts.glExposure,
+      hdr: opts.glHdr, glLinear: opts.glLinear, glBloom: opts.glBloom, glTonemap: opts.glTonemap, glExposure: opts.glExposure,
       // And the map window's centre, for the same reason — the ground shader phases its puddles on
       // absolute world tiles off it, and dropped here they would silently crawl along the road.
       wc: opts.wc,

@@ -1039,6 +1039,8 @@ function ensureMgStyles() {
 
 let _fsim = null;
 const lerpN = (a, b, t) => a + (b - a) * t;
+// How long a start takes, as the cockpit shows it: the key held at START and the START lamps lit.
+const ENGINE_START_MS = 2600;
 
 // Checkride guidance: highlight key (from the server's clientView) → the cockpit control
 // it spotlights. Renders the persistent instruction card and glows the target control(s).
@@ -1070,7 +1072,7 @@ const TOUR_STEPS = [
     ? '<b>Trim</b> takes the load off the yoke so you don\'t have to hold a climb by hand. <b>Drag the wheel</b> to the <b>T/O</b> mark for takeoff. Up = nose down, down = nose up.'
     : '<b>Trim</b> takes the load off the yoke so you don\'t have to hold a climb by hand. Drag the wheel, or roll the <span class="k">mouse&nbsp;wheel</span> over it, to the <b>T/O</b> mark for takeoff. Up = nose down, down = nose up.' },
   { id: 'fsim-eng', title: 'TAKEOFF', body: () =>
-    '<b>Takeoff:</b> full throttle straight down the runway. As the speed tape comes alive and she gets light on the wheels, ease the <b>yoke back</b> to lift the nose and climb away, keep the wings level. Then chase the glowing rings.<br><br>Flip the glowing <b>ENGINE&nbsp;master</b> (<span class="k">⏻</span>) to fire her up and begin.' },
+    '<b>Takeoff:</b> full throttle straight down the runway. As the speed tape comes alive and she gets light on the wheels, ease the <b>yoke back</b> to lift the nose and climb away, keep the wings level. Then chase the glowing rings.<br><br>Press <span class="k">I</span> for the <b>ignition</b>, or click the engine key or master switch on the panel in front of you, to fire her up and begin.' },
 ];
 
 function renderTour(F) {
@@ -3805,7 +3807,7 @@ export function openFlightSim(opts = {}) {
     F.dk.subAskAt = performance.now();
     F.syncAcc = 99;
   };
-  const KEYS = new Set(['a', 'z', 'q', 'w', 'e', 's', 'y', 'h', 'f', 'g', 'j', 'v', 'x', 'c', '1', '2', ' ', '[', ']', '\\', ',', '.', 'k', 'r', 't', 'i']);
+  const KEYS = new Set(['a', 'z', 'q', 'w', 'e', 's', 'y', 'h', 'f', 'g', 'j', 'v', 'x', 'c', '1', '2', ' ', '[', ']', '\\', ',', '.', 'k', 'r', 't', 'i', 'n']);
   const onKeyDown = (e) => {
     const tag = (e.target && e.target.tagName) || '';
     if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
@@ -3876,12 +3878,16 @@ export function openFlightSim(opts = {}) {
       case 'y': if (!e.repeat) stepFlap(1); break;   // flaps extend
       case 'h': if (!e.repeat) stepFlap(-1); break;  // flaps retract
       case 'g': if (!e.repeat) toggleGear(); break;
-      // The Drake's own: K converts rotor <-> wing, R the rear ramp, T the quack, N (or I) night vision; M toggles the nav marks.
+      // I is the ignition on every aircraft: the engine master, the same as the ⏻ button and the
+      // cockpit's own key or switch. ⚠ The seat opens with the 2-D rows folded and ⏻ in them, so a
+      // cockpit whose room had no working master could not be started at all. The Mule's could not.
+      case 'i': if (!e.repeat) F.ckMaster?.(); break;
+      // The Drake's own: K converts rotor <-> wing, R the rear ramp, T the quack, N night vision; M toggles the nav marks.
       case 'k': if (!e.repeat && F.dk) drakeConvert(); break;
       case 'l': if (!e.repeat && F.dk) drakeMode(2); break;
       case 'r': if (!e.repeat && F.dk) drakeRamp(); break;
       case 't': if (!e.repeat && F.dk) drakeQuackDown(); break;
-      case 'n': case 'i': if (!e.repeat && F.dk) { F.dk.nv = !F.dk.nv; fsimToast(F.dk.nv ? '◉ NIGHT VISION: centre screen' : '◉ NIGHT VISION OFF'); } break;
+      case 'n': if (!e.repeat && F.dk) { F.dk.nv = !F.dk.nv; fsimToast(F.dk.nv ? '◉ NIGHT VISION: centre screen' : '◉ NIGHT VISION OFF'); } break;
       case 'v': if (!e.repeat) setExternal(!F.external); break;
       case 'j': if (!e.repeat) jettison(); break;
       case 'f': if (!e.repeat && F.reportedAirborne) sendCmdSilent('flares'); break;   // countermeasures (server confirms via air_threat)
@@ -3995,6 +4001,7 @@ export function openFlightSim(opts = {}) {
   add(engBtn, 'click', () => {
     if (!F.engineOn) {
       F.engineOn = true; engBtn.classList.add('on');
+      F.engStartT = performance.now();   // the cockpit's START lamps and key (the payload's 'starting')
       // Start at IDLE — the engine coming alive must never surge the plane forward. You
       // advance the throttle yourself to taxi up to the runway (the lever visual follows
       // input.throttle each frame, so zeroing it here also drops the lever to idle).
@@ -4296,12 +4303,27 @@ export function openFlightSim(opts = {}) {
   {
     F.toggleDome = () => { if (!F.powered) return; F.domeLight = !F.domeLight; F.syncLights?.(); };
     const ckFlap = () => { const before = F.input.flaps; F.stepFlap?.(1); if (F.input.flaps === before) F.stepFlap?.(-9); };
+    // ⚠ A CONTROL THAT REFUSES SAYS SO. The start button and the light toggles return silently when
+    // they will not act (shutting down in the air, a lamp with no power), which from a switch in the
+    // room reads as a switch that is broken. The answer goes in a toast; the action is unchanged.
+    const ckMaster = () => {
+      if (F.engineOn && !(s.onGround && s.airspeed < 5)) { fsimToast('ENGINE: shut down on the ground, stopped'); return; }
+      q('#fsim-eng')?.click();
+    };
+    const needsPower = (fn) => () => {
+      if (!F.powered) { fsimToast(F.engineOn ? 'NO POWER: nothing on the bus' : 'NO POWER: start the engine first'); return; }
+      fn();
+    };
+    F.ckMaster = ckMaster;   // the I key
     const DK_ACT = {
-      'ck:master': () => q('#fsim-eng')?.click(),
-      'ck:land': () => F.toggleLand?.(), 'ck:taxi': () => F.toggleLand?.(),
-      'ck:dome': () => F.toggleDome(),
+      'ck:master': ckMaster,
+      'ck:land': needsPower(() => F.toggleLand?.()), 'ck:taxi': needsPower(() => F.toggleLand?.()),
+      'ck:panel': needsPower(() => F.toggleNight?.()),
+      'ck:dome': needsPower(() => F.toggleDome()),
       'ck:flaps': () => ckFlap(),
-      power: () => q('#fsim-eng')?.click(),
+      'ck:gear': () => toggleGear(),
+      'ck:arm': () => q('#fsim-arm')?.click(),
+      power: ckMaster,
       lights: () => F.toggleLand?.(),
       cabin: () => F.toggleDome(),
       gear: () => toggleGear(),
@@ -4392,6 +4414,15 @@ export function openFlightSim(opts = {}) {
     F.dkTipEl = tip;
     const onOff = (b) => (b ? 'ON' : 'OFF');
     const DK_TIP = {
+      // A kit cockpit's switches (interior-cockpit-kit.js), whatever the panel letters them.
+      'ck:master': () => ['ENGINE', F.engineOn ? 'running · click to shut down (on the ground, stopped)' : 'off · click or press I to start'],
+      'ck:land': () => ['LANDING LIGHTS', onOff(!!F.landingLight)],
+      'ck:taxi': () => ['TAXI LIGHTS', `on the landing-light circuit · ${onOff(!!F.landingLight)}`],
+      'ck:panel': () => ['PANEL LIGHTS', `instrument lighting · ${onOff(!!F.nightLight)}`],
+      'ck:dome': () => ['DOME', `cabin light · ${onOff(!!F.domeLight)}`],
+      'ck:flaps': () => ['FLAPS', `${['UP', '1', '2', 'FULL'][Math.round(clampNum(F.input.flaps || 0, 0, 1) * 3)]} · click for the next notch`],
+      'ck:gear': () => ['GEAR', F.gearUp ? 'up · click to lower' : 'down · click to raise'],
+      'ck:arm': () => ['MASTER ARM', F.armed ? 'ARMED · click to make safe' : 'SAFE · click to arm'],
       power: () => ['POWER', `engine master · ${onOff(!!F.engineOn)}`],
       lights: () => ['LIGHTS', `landing lights · ${onOff(!!F.landingLight)}`],
       cabin: () => ['CABIN', `dome light · ${onOff(!!F.domeLight)}`],
@@ -6263,6 +6294,9 @@ function fsimFrameBody(now) {
     stall: !!(s.stalled || s.stallMargin < 0.35),
     bingo: !!(F.fuel <= 0 || F.warn === 'BINGO'),
     powered: !!F.powered, altOn: !!F.engineOn,
+    // The seconds after the engine master went on: a cockpit holds its key at START and lights its
+    // START lamps for them. Not off the rpm, which is the spooled throttle and reads 0 at idle.
+    starting: !!(F.engineOn && F.engStartT && performance.now() - F.engStartT < ENGINE_START_MS),
     landingLight: !!F.landingLight, panelLight: !!F.nightLight,
     // Use the RAW s.heading, not the whole-degree-rounded readout the PFD tape eases toward
     // (d.hdg). readout() quantises heading to integer degrees; easing the WORLD toward that
@@ -6888,7 +6922,10 @@ function paintLocal(ctx, W, H, F, ox, oy) {
   for (let dy = -drawHalf; dy <= drawHalf; dy++) for (let dx = -drawHalf; dx <= drawHalf; dx++) {
     const c = (map[by + dy] && map[by + dy][bx + dx]) || null;
     const sx = W / 2 + (dx - fx) * cell, sy = H / 2 + (dy - fy) * cell;
-    const col = !c ? '#12202c' : c.kind === 'air' ? '#0a1119' : c.kind === 'field' ? '#5fe0a0' : c.kind === 'nofly' ? '#7a2a2a' : (MFD_BCOL[c.biome] || '#2a3540');
+    // A runway tile is field green and a taxiway or apron a darker one (`rwy`, deriveSurfaceCell): the runway
+    // stopped being a road on the cell, which is what used to draw it here as a tan bar.
+    const col = !c ? '#12202c' : c.kind === 'air' ? '#0a1119' : c.kind === 'field' || c.rwy === 'ns' || c.rwy === 'ew' ? '#5fe0a0'
+      : c.rwy === 'pad' ? '#3c8a68' : c.kind === 'nofly' ? '#7a2a2a' : (MFD_BCOL[c.biome] || '#2a3540');
     ctx.fillStyle = col; ctx.fillRect(sx - cell / 2, sy - cell / 2, cell - 1, cell - 1);
     if (c && c.road) { ctx.fillStyle = 'rgba(150,150,120,0.5)'; ctx.fillRect(sx - cell / 2, sy - 1.5, cell - 1, 3); }
     ctx.strokeStyle = accA(0.14); ctx.lineWidth = 1; ctx.strokeRect(sx - cell / 2, sy - cell / 2, cell - 1, cell - 1);

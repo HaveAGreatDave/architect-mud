@@ -484,7 +484,8 @@ export function grasshopperHotspots(P, live) {
   const Pn = makeKit(() => {}).panel([0, Lo.panelY, Lo.panelTop], [1, 0, 0], [0, 0, 1]);
   return [
     { id: 'ck:master', p: Pn.pt(DIALS.mag[0], DIALS.mag[1], 0.02), r: 0.03, kind: 'click' },
-    { id: 'ck:nav', p: Pn.pt(DIALS.light[0], DIALS.light[1], 0.02), r: 0.02, kind: 'click' },
+    // The toggle lettered LAND, and the landing light is what it shows: it sent 'ck:nav', which nothing acts on.
+    { id: 'ck:land', p: Pn.pt(DIALS.light[0], DIALS.light[1], 0.02), r: 0.02, kind: 'click' },
     { id: 'ck:dome', p: Lo.mapLamp, r: 0.04, kind: 'click' },
     { id: 'yoke', p: add(Q.rear.tip, [0, 0.01, 0.06]), r: 0.08, kind: 'yoke' },
     { id: 'throttle', p: Q.tKnob, r: 0.04, kind: 'throttle' },
@@ -542,13 +543,13 @@ export function grasshopperFit(P, live, push) {
   Pn.spoke(mx, my, Math.PI / 2 - magOn * 1.2, -0.004, 0.014, 0.004, T.chrome, 0.1, 0.02);
   Pn.text('MAG', mx, my - 0.036, 0.0085);
   for (let i = 0; i < 4; i++) Pn.disc(mx + Math.cos(Math.PI / 2 - i * 0.4) * 0.03, my + Math.sin(Math.PI / 2 - i * 0.4) * 0.03, 0.003, T.cream, lumi, 0.003, 5);
-  // The primer: a chrome plunger. The carb heat: a knob on a push-pull cable. The panel light.
+  // The primer: a chrome plunger. The carb heat: a knob on a push-pull cable. The landing-light toggle.
   Pn.knob(DIALS.primer[0], DIALS.primer[1], 0.009, 0.02, T.chrome, 0.1);
   Pn.knob(DIALS.carb[0], DIALS.carb[1], 0.011, 0.018, T.redKnob, 0.05);
   Pn.text('PRIME', DIALS.primer[0], DIALS.primer[1] - 0.022, 0.0085);
   Pn.text('CARB', DIALS.carb[0], DIALS.carb[1] - 0.022, 0.0085);
-  const navOn = !!(powered && L.landingLight);
-  Pn.toggle(DIALS.light[0], DIALS.light[1], navOn, 'LAND');
+  const landOn = !!(powered && L.landingLight);
+  Pn.toggle(DIALS.light[0], DIALS.light[1], landOn, 'LAND');
   // A placard: the type's single limit, painted.
   Pn.rect(-0.05, -0.185, 0.05, -0.172, T.cream, lumi * 0.5, 0.002);
   Pn.fitText('VNE 122 MPH', 0, -0.1785, 0.094, 0.009, T.ink, 0.1, 0.003);

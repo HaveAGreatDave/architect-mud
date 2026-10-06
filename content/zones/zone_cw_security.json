@@ -9,6 +9,7 @@
   },
   "flags": {
     "floor": "linoleum",
+    "hangar_ramp": "zone_district_925_903",
     "is_interior": true
   },
   "grid_x": -1,

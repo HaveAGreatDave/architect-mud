@@ -451,7 +451,9 @@ export function locustHotspots(P, live) {
   return out;
 }
 
-const SWITCHES = ['master', 'land', 'nav', 'strobe'];
+// ⚠ EVERY ONE IS A CIRCUIT THE SIM HAS. NAV and STB were here, and the sim has neither: two switches
+// that took the hand cursor and did nothing. NAV is the panel lights now.
+const SWITCHES = ['master', 'land', 'panel'];
 const SW_U0 = -0.225, SW_V = -0.10;
 function panelOf(K, P) {
   const D = P.locust;
@@ -474,8 +476,10 @@ function locustFit(P, live, push) {
   const R = readLive(live);
   const D = P.locust;
   const on = R.powered;
-  const night = R.hour < 6.5 || R.hour > 19;
-  const glow = on && night ? 0.25 : 0;         // the post lights over the panel, after dark
+  // The post lights over the panel are the PANEL switch (cockpit.js 'ck:panel'); a view that sends no
+  // switch state, a seat shot, lights them after dark.
+  const panelOn = on && (R.L.panelLight != null ? !!R.L.panelLight : R.hour < 6.5 || R.hour > 19);
+  const glow = panelOn ? 0.25 : 0;
 
   // ── THE PANEL (Pawnee C, left to right) ──
   // Flight group on the left under the pilot's eye: airspeed, a small gyro horizon, altimeter; a
@@ -517,8 +521,8 @@ function locustFit(P, live, push) {
   // Their names go over them: under them is the top row of dials.
   for (const [u, s] of [[-0.19, 'FUEL'], [-0.16, 'STALL'], [0.235, 'SPRAY']]) Pn.text(s, u, hh - 0.006, 0.007);
   // The switch row: master red, the rest black, each thrown up when on.
-  const SW_NAME = { master: 'BAT', land: 'LDG', nav: 'NAV', strobe: 'STB' };
-  const st = { master: on, land: R.land && on, nav: on, strobe: on };
+  const SW_NAME = { master: 'BAT', land: 'LDG', panel: 'PNL' };
+  const st = { master: on, land: R.land && on, panel: panelOn };
   SWITCHES.forEach((id, i) => {
     const u = SW_U0 + i * 0.03;
     Pn.rect(u - 0.011, SW_V + 0.018, u + 0.011, SW_V + 0.024, T.cage, 0.1, 0.002);

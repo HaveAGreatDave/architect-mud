@@ -111,6 +111,7 @@ export const GROUPS = [
       'scripts/shapes/glbevel.mjs',
       'scripts/shapes/glssao.mjs',
       'scripts/shapes/glhdr.mjs',
+      'scripts/shapes/glcolour.mjs',
       'scripts/shapes/signtext.mjs',
       'scripts/shapes/signfit.mjs',
       'scripts/shapes/signswim.mjs',
@@ -137,6 +138,7 @@ export const GROUPS = [
       'scripts/shapes/glresidue.mjs',
       'scripts/shapes/power.mjs',
       'scripts/shapes/worldresidue.mjs',
+      'scripts/shapes/campwall.mjs',     // no part of a camp on a Curtain tile stands in the field
       'scripts/shapes/fauna.mjs',
       'scripts/shapes/faunabudget.mjs',
       'scripts/shapes/faunabake.mjs',
@@ -177,6 +179,7 @@ export const GROUPS = [
       'scripts/shapes/cockpit-mayfly.mjs',
       'scripts/shapes/cockpit-dragonfly.mjs',
       'scripts/shapes/cockpit-viper.mjs',
+      'scripts/shapes/cockpit-controls.mjs',   // every seat: each control does something, each label reads true
       'scripts/shapes/cabin-light.mjs',
       'scripts/shapes/cockpit-carcass.mjs',
       'scripts/shapes/bay.mjs',

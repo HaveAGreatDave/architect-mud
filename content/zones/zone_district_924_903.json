@@ -13,7 +13,7 @@
     "district": "docks",
     "entrance": "east",
     "facade": true,
-    "floors": 2,
+    "floors": 4,
     "is_building": true,
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_925_903"

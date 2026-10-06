@@ -208,6 +208,17 @@ for (const { key, m } of ws.shapeModelRegistry()) {
       }
       const poly = d.p.map((w) => cam.proj(w[0], w[1], w[2]));
       if (poly.some((p) => !(p.f > 0.1))) continue;
+      // ⚠ A SIGN SEEN FROM BEHIND IS NOT DRAWN, SO NOTHING IS DRAWN ACROSS IT. emitSurfaceText culls
+      // its lettering (`cull: true`) and winds the quad TL, TR, BR, BL as its reader sees it, so a sign
+      // facing away comes out mirrored on screen: negative area. Without this the census read the
+      // airside mullions of Coldwater Regional's terminal as wires across its LANDSIDE kerb board, a
+      // whole hall behind them. Measured at heading 0: every front-facing sign in the registry
+      // positive, the two kerb boards negative.
+      if (d.cull) {
+        let a2 = 0;
+        for (let i = 0; i < 4; i++) { const p = poly[i], q = poly[(i + 1) % 4]; a2 += p.sx * q.sy - q.sx * p.sy; }
+        if (a2 < 0) continue;
+      }
       const fSign = poly.reduce((a, p) => a + p.f, 0) / 4;
       for (const s of r.sink.strokes) {
         // ⚠ A SIGN'S OWN FRAME IS NOT A WIRE ACROSS IT, AND NO GEOMETRY CAN TELL THOSE APART. A

@@ -23,6 +23,7 @@ import { viewProjMatrix, mat4f, zRow, NEAR } from './camera.js';
 import { makeVertexStream } from './stream.js';
 import { createArena } from './retain.js';
 import { declareProgram, takeWarm } from './programs.js';
+import { linearOut, applyLinOut } from './colour.js';
 
 // The z row of the projection, from the ONE place NEAR and FAR are named. NDC depth is A + B/f,
 // which is what lets the shader express its nudge as a distance instead of as a depth-buffer step.
@@ -36,7 +37,7 @@ import { declareProgram, takeWarm } from './programs.js';
 export const LIGHT_PULL = 0.05;   // exported: gl/fauna.js draws murmuration dots at the same nudge
 
 // centre 3, corner 2, radius 1, colour 3, alpha 1, hardness 1
-const STRIDE = 15;
+const STRIDE = 18;
 
 const VERT = `#version 300 es
 in vec3 aCenter;
@@ -46,6 +47,11 @@ in float aRadius;
 // device pixels, with depth the light's own clip.w (the CPU's cam.proj f, exactly). k 0 means use
 // aRadius. A record that carries it doesn't change as the camera moves (Stage 3 of glass-headroom).
 in vec4 aSize;
+// A blink done here rather than on the CPU: alpha times (b0 + b1 * |sin(uBlinkT + phase)|), the
+// expression blinkLight used. uBlinkT is the clock already reduced mod pi on the CPU, in double
+// precision. b1 0 means steady. A blinking record then doesn't change from frame to frame.
+in vec3 aBlink;
+uniform float uBlinkT;
 in vec3 aColor;
 in float aAlpha;
 in float aHard;
@@ -87,11 +93,11 @@ void main() {
   gl_Position = clip;
   vCorner = aCorner;
   vColor = aColor;
-  vAlpha = aAlpha;
+  vAlpha = aBlink.y > 0.0 ? aAlpha * (aBlink.x + aBlink.y * abs(sin(uBlinkT + aBlink.z))) : aAlpha;
   vHard = aHard;
 }`;
 
-const FRAG = `#version 300 es
+const FRAG = linearOut(`#version 300 es
 precision highp float;
 in vec2 vCorner;
 in vec3 vColor;
@@ -122,7 +128,7 @@ void main() {
   float a = vAlpha * mix(soft, hard, clamp(vHard, 0.0, 1.0));
   // Premultiplied: the canvas is, and an additive blend wants the colour already scaled anyway.
   outColor = vec4(vColor * a * uIntensity, a);
-}`;
+}`, 'outColor');
 
 function compile(gl, type, src, label) {
   const sh = gl.createShader(type);
@@ -154,6 +160,8 @@ export function createSpriteLayer(gl) {
     corner: gl.getAttribLocation(prog, 'aCorner'),
     radius: gl.getAttribLocation(prog, 'aRadius'),
     size: gl.getAttribLocation(prog, 'aSize'),
+    blink: gl.getAttribLocation(prog, 'aBlink'),
+    blinkT: gl.getUniformLocation(prog, 'uBlinkT'),
     color: gl.getAttribLocation(prog, 'aColor'),
     alpha: gl.getAttribLocation(prog, 'aAlpha'),
     hard: gl.getAttribLocation(prog, 'aHard'),
@@ -168,7 +176,7 @@ export function createSpriteLayer(gl) {
   // One stream, set up once: the attribute pointers are recorded into the VAO here and never
   // touched again, and the storage grows by doubling instead of being reallocated every frame.
   // See gl/stream.js.
-  const ATTRS = [[loc.center, 3, 0], [loc.corner, 2, 12], [loc.radius, 1, 20], [loc.color, 3, 24], [loc.alpha, 1, 36], [loc.hard, 1, 40], [loc.size, 4, 44]];
+  const ATTRS = [[loc.center, 3, 0], [loc.corner, 2, 12], [loc.radius, 1, 20], [loc.color, 3, 24], [loc.alpha, 1, 36], [loc.hard, 1, 40], [loc.size, 4, 44], [loc.blink, 3, 60]];
   const stream = makeVertexStream(gl, vao, STRIDE, ATTRS, 4096);
   let data = new Float32Array(0);
   let count = 0, split = 0;
@@ -187,7 +195,11 @@ export function createSpriteLayer(gl) {
   // in another, drawn before this frame's own.
   const arenaOver = createArena(gl, STRIDE, ATTRS), arenaAdd = createArena(gl, STRIDE, ATTRS);
   const KEYS = new WeakMap();
+  let blinkT = 0;
   function upload(sprites, ox = 0, oy = 0, groups = null) {
+    // The frame clock rides on the list (windshield sets SPRITE_SINK.now): blinkLight's argument,
+    // now * 0.004, reduced mod pi here so the shader's float sin stays exact.
+    blinkT = sprites && sprites.now != null ? (sprites.now * 0.004) % Math.PI : 0;
     const gOver = [], gAdd = [];
     if (groups) for (const G of groups) {
       let k = KEYS.get(G.recs);
@@ -229,6 +241,8 @@ export function createSpriteLayer(gl) {
         data[o + 10] = hard;
         if (sz) { data[o + 11] = sz[0]; data[o + 12] = sz[1]; data[o + 13] = sz[2]; data[o + 14] = sz[3]; }
         else { data[o + 11] = 0; data[o + 12] = 0; data[o + 13] = 0; data[o + 14] = 0; }
+        const bl = s.bl;
+        if (bl) { data[o + 15] = bl[0]; data[o + 16] = bl[1]; data[o + 17] = bl[2]; } else { data[o + 15] = 0; data[o + 16] = 0; data[o + 17] = 0; }
         o += STRIDE;
       }
     }
@@ -240,7 +254,7 @@ export function createSpriteLayer(gl) {
   function draw(cam, W, H, cssH, intensity) {
     const rO = arenaOver.runs, rA = arenaAdd.runs;
     if (!count && !rO.length && !rA.length) return 0;
-    gl.useProgram(prog);
+    gl.useProgram(prog); applyLinOut(gl, prog);
     gl.uniformMatrix4fv(loc.viewProj, false, mat4f(viewProjMatrix(cam, cssH || H)));
     gl.uniform2f(loc.viewport, W, H);
     const zr = zRow((cam && cam.near) || NEAR);
@@ -252,6 +266,7 @@ export function createSpriteLayer(gl) {
     // ⚠ ONE, AND NOT THE GAIN, FOR THE LAY-OVER BATCH. Those glows are colour laid on a surface
     // rather than light added to it, so scaling them pushes no emitter into the headroom — it
     // paints a brighter smear, and the composite clamp cannot take that back.
+    gl.uniform1f(loc.blinkT, blinkT);
     gl.uniform1f(loc.intensity, 1);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     if (rO.length) { gl.bindVertexArray(arenaOver.vao); for (const [a, n] of rO) gl.drawArrays(gl.TRIANGLES, a, n); }

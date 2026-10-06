@@ -20,7 +20,11 @@
 
 const PAD = 1;
 
-// `tiles` is [{ key, canvas }]. Returns { canvas, rect: Map(key -> [u0, v0, u1, v1]), size }.
+// `tiles` is [{ key, canvas, mat? }]. Returns { canvas, matCanvas, rect: Map(key -> [u0, v0, u1, v1]), size }.
+// `mat` is a tile's material data (RENDER_TUNE.glMatPage), the same size as its canvas. Every `mat`
+// is drawn into a second page at the SAME rect, so the vertex UVs serve both pages and no attribute
+// is added. A tile without one leaves its rect transparent, which the shader reads as "the page
+// says nothing here". `matCanvas` is null when no tile has one.
 // ⚠ `maxSize` IS NOT OPTIONAL ADVICE. WebGL2 guarantees only that MAX_TEXTURE_SIZE is at least
 // 2048, and the banded packer below is what keeps the city inside it: under the uniform grid it
 // replaced, every palette at `texRes: 2` wanted a 2048×4096 page. On a device at the
@@ -95,6 +99,21 @@ export function buildAtlas(tiles, maxSize = Infinity) {
   const ctx = canvas.getContext('2d');
   ctx.imageSmoothingEnabled = false;
 
+  let matCanvas = null, mctx = null, surfCanvas = null, sctx = null;
+  if (tiles.some((t) => t.mat)) {
+    matCanvas = document.createElement('canvas');
+    matCanvas.width = W; matCanvas.height = H;
+    mctx = matCanvas.getContext('2d');
+    mctx.imageSmoothingEnabled = false;
+  }
+  // And the surface page (height and roughness, RENDER_TUNE.glSurfPage), the same way.
+  if (tiles.some((t) => t.surf)) {
+    surfCanvas = document.createElement('canvas');
+    surfCanvas.width = W; surfCanvas.height = H;
+    sctx = surfCanvas.getContext('2d');
+    sctx.imageSmoothingEnabled = false;
+  }
+
   const rect = new Map();
   for (const band of best.rows) {
     band.g.forEach((t, i) => {
@@ -112,10 +131,20 @@ export function buildAtlas(tiles, maxSize = Infinity) {
       ctx.drawImage(t.canvas, cx - PAD, cy - PAD, tw + PAD * 2, th + PAD * 2);
       ctx.clearRect(cx, cy, tw, th);
       ctx.drawImage(t.canvas, cx, cy);
+      // The same skirt on the material page, or bilinear at the tile edge reads the empty texel
+      // beside it and a wall's family fades to "nothing known" along its border.
+      if (mctx && t.mat && t.mat.width === tw && t.mat.height === th) {
+        mctx.drawImage(t.mat, cx - PAD, cy - PAD, tw + PAD * 2, th + PAD * 2);
+        mctx.drawImage(t.mat, cx, cy);
+      }
+      if (sctx && t.surf && t.surf.width === tw && t.surf.height === th) {
+        sctx.drawImage(t.surf, cx - PAD, cy - PAD, tw + PAD * 2, th + PAD * 2);
+        sctx.drawImage(t.surf, cx, cy);
+      }
       rect.set(t.key, [cx / W, cy / H, (cx + tw) / W, (cy + th) / H]);
     });
   }
-  return { canvas, rect, size: [W, H], cell: [best.rows[0].cw, best.rows[0].ch], count: tiles.length, bands: best.rows.length };
+  return { canvas, matCanvas, surfCanvas, rect, size: [W, H], cell: [best.rows[0].cw, best.rows[0].ch], count: tiles.length, bands: best.rows.length };
 }
 
 function pow2(n) { let p = 1; while (p < n) p *= 2; return p; }

@@ -31,41 +31,203 @@ function haloRim(ctx, cam, F, y, hw, z0, z1, t, fill, alpha) {
 }
 // ── COLDWATER REGIONAL'S TERMINAL: TWO TILES, ONE BUILDING ─────────────────────────────────────
 // `arrivals` and `departures` are the two halves of one terminal on the runway's west edge, and
-// this draws what they share: a hall long along the frontage under twin barrel vaults, the airside
-// glazing with its mullions, the livery fascia, and HALF of the glazed link that joins them. `side`
-// is which local x the partner stands on: −1 for arrivals (departures is on its left as you face
-// the door), +1 for departures.
+// this draws what they share. `side` is which local x the partner stands on: −1 for arrivals
+// (departures is on its left as you face the door), +1 for departures.
 //
-// ⚠ THE LINK IS IN CONSTANTS AND EVERYTHING ELSE IS IN fh AND h. Both are rolled per tile, so two
-// halves of one corridor written in either would meet the boundary at two different heights. In
-// tiles, each half runs from inside its own hall to x = ±0.5, and they meet edge to edge.
-// ⚠ EVERY RECTANGULAR BOX HERE TAKES `yawE`. The old arrivals hall passed yaw 0 with a long side and
-// a short one, so on its east-facing tile the hall ran east–west under a roof, placed through F,
-// that ran north–south. `gl:mesh` is the gate for this.
+// On these east-facing tiles local +y is the AIRSIDE (the runway), −y the LANDSIDE over the basin,
+// and +x north. It is built the way LAX is: a tall glass hall under a WAVE ROOF (three shallow vaults
+// to the half, six along the terminal, the Tom Bradley profile), glass on both faces, jet bridges on
+// the airside, and on the landside a two-level kerb with a row of glass PYLONS washed in slowly
+// rolling colour after dark, which is the thing people picture when they say the airport's name.
+//
+// ⚠ THE LINK, THE KERB DECK AND ITS CANOPY ARE IN CONSTANTS (`TERM`) AND EVERYTHING ELSE IS IN fh
+// AND h. Both are rolled per tile, so two halves of one deck written in either would meet the tile
+// boundary at two different heights. Each half runs to x = ±0.5 and they meet edge to edge.
+// ⚠ EVERY RECTANGULAR BOX HERE TAKES `yawE` (or the yaw of its own run). The old arrivals hall passed
+// yaw 0 with a long side and a short one, so on its east-facing tile the hall ran east–west under a
+// roof, placed through F, that ran north–south. `gl:mesh` is the gate for this.
 // ⚠ AND THE VAULTS DARKEN WITH THE NIGHT. A barrel roof is a flat mesh face in its `base` colour,
 // lit by nothing, so a pale roof is as pale at midnight as at noon: the control tower's complaint.
 // Scaling `base` by `dusk` gives the night capture a darker roof to record.
-function terminalHalf(ctx, cam, dx, dy, fh, h, seed, night, alpha, E, F, o) {
+// ⚠ THE PYLONS' COLOUR IS NOT MASS. Mass is captured once at a frozen clock, so a colour that moves
+// has to live in the layers collected every frame: the body is a pale frosted drum, lit from inside
+// after dark, and the colour is neon up its sides and a halo round it.
+const TERM = { deckY: -0.31, deckD: 0.11, deckZ0: 0.17, deckZ1: 0.19, canY: -0.33, canD: 0.1, canZ0: 0.33, canZ1: 0.342, linkTop: 0.3 };
+// LAX's wash, one hue to a pylon and the hue rolling down the row: magenta, violet, blue, teal,
+// amber, and back. `t` is the clock, held still when motion is off so a capture is deterministic.
+const PYLON_HUES = [[255, 60, 190], [150, 80, 255], [60, 130, 255], [40, 220, 220], [255, 170, 60]];
+function pylonRgb(i, t) {
+  const u = ((t * 0.00006 + i * 0.17) % 1 + 1) % 1 * PYLON_HUES.length, k = Math.floor(u), f = u - k;
+  const a = PYLON_HUES[k], b = PYLON_HUES[(k + 1) % PYLON_HUES.length];
+  return `${a[0] + (b[0] - a[0]) * f | 0},${a[1] + (b[1] - a[1]) * f | 0},${a[2] + (b[2] - a[2]) * f | 0}`;
+}
+function terminalHalf(ctx, cam, dx, dy, fh, h, seed, night, alpha, now, E, F, o) {
   const yawE = faceYaw(E), dusk = 1 - 0.72 * (night ? clamp(night, 0, 1) : 0);
   const { HW, D, top, vault, side } = o;
-  const roofRgb = [184 * dusk, 192 * dusk, 200 * dusk];
+  const AIR = { air: true };
+  const roofRgb = [204 * dusk, 210 * dusk, 216 * dusk];
   draw3DBoxAt(ctx, cam, dx, dy, HW, 0, top, 'ty_arrivals', seed, night, alpha, false, yawE, D);
-  drawBarrelRoof(ctx, cam, F, -HW / 2, HW / 2, D, top, vault, 10, alpha, roofRgb);
-  drawBarrelRoof(ctx, cam, F, HW / 2, HW / 2, D, top, vault, 10, alpha, roofRgb);
-  // The airside glazing, the livery fascia over it, and a mullion every fifth of the half-length.
-  const [gx, gy] = F(0, D + 0.003);
-  draw3DBoxAt(ctx, cam, gx, gy, HW * 0.92, h * 0.04, top * 0.84, 'ty_tower_slot', seed + 1, night, alpha, false, yawE, 0.004);
-  const [lx, ly] = F(0, D + 0.006);
-  draw3DBoxAt(ctx, cam, lx, ly, HW, top * 0.87, top, 'ty_airport_band', seed + 2, night, alpha, false, yawE, 0.005);
-  for (let i = -4; i <= 4; i++) {
-    const [mx, my] = F(i * HW * 0.2, D + 0.008);
-    emitWire(ctx, cam, [mx, my, h * 0.04], [mx, my, top * 0.84], 1, 'rgba(30,36,44,0.85)', alpha, { pull: DECO_PULL });
+  // 1. The wave roof: three vaults to the half, each running the full depth and out past the glass
+  //    as an arched eave on both faces.
+  for (const k of [-1, 0, 1]) drawBarrelRoof(ctx, cam, F, k * HW * 2 / 3, HW / 3, D * 1.14, top, vault, 8, alpha, roofRgb);
+  // 2. Glass on both faces, the livery fascia over it, a mullion every fifth of the half-length and a
+  //    transom at the mezzanine. ⚠ THE GLASS IS AN UNLIT FACE, NOT A PALETTE SLAB: after dark it is a
+  //    lit hall seen from outside, so it holds a warm fill rather than taking the dark (the tower's cab
+  //    is the same). One face whatever the hour, because the night capture is paired to the day one
+  //    face for face (gl/world.js); only its colour changes.
+  const glassFill = night ? 'rgb(236,198,138)' : 'rgb(78,112,128)';
+  for (const s of [1, -1]) {
+    const gy0 = s * (D + 0.003), G = (x, z) => { const [wx, wy] = F(x, gy0); return [wx, wy, z]; };
+    const [ox, oy] = F(0, 0), [sx, sy] = F(0, s);
+    emitFlat(ctx, cam, outFace([G(-HW * 0.94, h * 0.03), G(HW * 0.94, h * 0.03), G(HW * 0.94, top * 0.84), G(-HW * 0.94, top * 0.84)], [sx - ox, sy - oy, 0]), glassFill, alpha);
+    const [lx, ly] = F(0, s * (D + 0.006));
+    draw3DBoxAt(ctx, cam, lx, ly, HW, top * 0.87, top, 'ty_airport_band', seed + (s > 0 ? 2 : 22), night, alpha, false, yawE, 0.005);
+    for (let i = -4; i <= 4; i++) {
+      const [mx, my] = F(i * HW * 0.2, s * (D + 0.008));
+      emitWire(ctx, cam, [mx, my, h * 0.03], [mx, my, top * 0.84], 1, 'rgba(30,36,44,0.85)', alpha, { pull: DECO_PULL });
+    }
+    const [t0x, t0y] = F(-HW * 0.94, s * (D + 0.008)), [t1x, t1y] = F(HW * 0.94, s * (D + 0.008));
+    emitWire(ctx, cam, [t0x, t0y, top * 0.45], [t1x, t1y, top * 0.45], 1.4, 'rgba(36,42,50,0.9)', alpha, { pull: DECO_PULL });
   }
-  // Half of the glazed link, from inside this hall to the tile edge, with a dark roof slab on it.
+  // The hall lit behind its glass after dark, on both faces.
+  if (night) for (const s of [1, -1]) { const [gx, gy] = F(0, s * (D + 0.02)); glowPool(ctx, cam, gx, gy, top * 0.5, '255,222,166', 30, alpha * 0.3, AIR); }
+  // 3. Half of the glazed link, from inside this hall to the tile edge, with a dark roof slab on it.
   const [kx, ky] = F(side * 0.42, 0);
-  draw3DBoxAt(ctx, cam, kx, ky, 0.08, 0, 0.19, 'ty_tower_slot', seed + 30, night, alpha, false, yawE, 0.15);
-  draw3DBoxAt(ctx, cam, kx, ky, 0.08, 0.19, 0.205, 'ty_precast_dk', seed + 31, night, alpha, true, yawE, 0.165);
+  draw3DBoxAt(ctx, cam, kx, ky, 0.08, 0, TERM.linkTop, 'ty_tower_slot', seed + 30, night, alpha, false, yawE, 0.18);
+  draw3DBoxAt(ctx, cam, kx, ky, 0.08, TERM.linkTop, TERM.linkTop + 0.015, 'ty_precast_dk', seed + 31, night, alpha, true, yawE, 0.195);
+  // 4. THE LANDSIDE KERB: an upper deck for departures on columns, the arrivals kerb in its shade,
+  //    and a canopy over the deck. Two boxes to each, because a box is never wider than 0.44.
+  for (const x of [-0.25, 0.25]) {
+    const [cx, cy] = F(x, TERM.deckY);
+    draw3DBoxAt(ctx, cam, cx, cy, 0.25, TERM.deckZ0, TERM.deckZ1, 'ty_precast_dk', seed + 50, night, alpha, true, yawE, TERM.deckD);
+    const [ux, uy] = F(x, TERM.canY);
+    draw3DBoxAt(ctx, cam, ux, uy, 0.25, TERM.canZ0, TERM.canZ1, 'ty_precast', seed + 51, night, alpha, true, yawE, TERM.canD);
+  }
+  for (const x of [-0.38, -0.12, 0.12, 0.38]) {
+    const [cx, cy] = F(x, -0.4);
+    emitWire(ctx, cam, [cx, cy, 0], [cx, cy, TERM.deckZ0], 2.4, 'rgba(176,182,188,0.95)', alpha, { pull: DECO_PULL });
+    emitWire(ctx, cam, [cx, cy, TERM.deckZ1], [cx, cy, TERM.canZ0], 1.4, 'rgba(200,206,212,0.9)', alpha, { pull: DECO_PULL });
+  }
+  { const [a0x, a0y] = F(-0.5, -0.42), [a1x, a1y] = F(0.5, -0.42);
+    emitWire(ctx, cam, [a0x, a0y, TERM.deckZ1], [a1x, a1y, TERM.deckZ1], 2, 'rgba(80,236,255,0.95)', alpha, { pull: DECO_PULL });
+    emitWire(ctx, cam, [a0x, a0y, TERM.canZ1 + 0.002], [a1x, a1y, TERM.canZ1 + 0.002], 1.6, 'rgba(255,236,200,0.9)', alpha, { pull: DECO_PULL });
+    if (night) { const [mx, my] = F(0, -0.36);
+      glowPool(ctx, cam, mx, my, TERM.deckZ0 * 0.5, '255,214,150', 22, alpha * 0.4);          // the arrivals kerb, under the deck
+      glowPool(ctx, cam, mx, my, TERM.canZ0 - 0.02, '255,236,200', 20, alpha * 0.3, AIR); } }  // the canopy's soffit lights
+  // The kerb's board, hung under the canopy's outer edge between the two pylons and lettered for the
+  // level it serves. Seen from the landside, local +x is on the reader's left.
+  if (o.kerb) {
+    const by = -0.425, bz0 = TERM.canZ0 - 0.046, bz1 = TERM.canZ0 - 0.006, bw = 0.2;
+    const [bx, bby] = F(0, by);
+    draw3DBoxAt(ctx, cam, bx, bby, bw, bz0, bz1, 'ty_airport_band', seed + 52, night, alpha, true, yawE, 0.004);
+    const tex = bakeSignText(o.kerb, night ? '#ffe4a8' : '#f4f6f8', night ? 1 : 0, false);
+    const P = (x, z) => { const [wx, wy] = F(x, by - 0.006); return cam.proj(wx, wy, z); };
+    const q = [P(bw * 0.86, bz1 - 0.006), P(-bw * 0.86, bz1 - 0.006), P(-bw * 0.86, bz0 + 0.006), P(bw * 0.86, bz0 + 0.006)];
+    if (tex && q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha);
+  }
+  // 5. THE PYLONS, along the kerb's outer edge: frosted glass columns half a tile apart, a little
+  //    taller toward the middle of the terminal, and after dark each one a colour, the colour rolling
+  //    slowly down the row. ⚠ NONE STANDS AT x = 0: that is where the kerb board hangs, and a pylon
+  //    in front of it hid the middle of ARRIVALS from the landside (signfit).
+  const t = motionOn() ? (now || 0) : 0;
+  const pylonBody = (f) => night ? 'rgb(206,200,222)' : `rgb(${200 + f.nl * 40 | 0},${206 + f.nl * 38 | 0},${214 + f.nl * 36 | 0})`;
+  const pylonCap = () => night ? 'rgb(240,236,250)' : 'rgb(236,240,244)';
+  [-0.25, 0.25].forEach((px, i) => {
+    const idx = (side < 0 ? 2 : 0) + i;              // departures' two, then arrivals' two, south to north
+    const [cx, cy] = F(px, -0.465), ph = h * (0.88 + 0.1 * (1 - Math.abs(px - side * 0.5)));   // the boundary between the halves is x = side * 0.5
+    drawFacetDrum(ctx, cam, cx, cy, 0, ph, fh * 0.085, fh * 0.075, 8, alpha, pylonBody, pylonCap, 'ty_atc_white');
+    if (!night) return;
+    const rgbP = pylonRgb(idx, t), r = fh * 0.09;
+    for (let q = 0; q < 4; q++) {
+      const a = q * Math.PI / 2 + Math.PI / 4, ox = Math.cos(a) * r, oy = Math.sin(a) * r;
+      emitWire(ctx, cam, [cx + ox, cy + oy, 0.01], [cx + ox, cy + oy, ph * 0.98], 2, `rgba(${rgbP},0.8)`, alpha, { pull: DECO_PULL });
+    }
+    glowPool(ctx, cam, cx, cy, ph * 0.35, rgbP, 14, alpha * 0.45, AIR);
+    glowPool(ctx, cam, cx, cy, ph * 0.8, rgbP, 12, alpha * 0.4, AIR);
+    glowPool(ctx, cam, cx, cy, 0.01, rgbP, 14, alpha * 0.25);   // and it washes the kerb at its foot
+  });
   return { yawE, dusk };
+}
+
+// A JET BRIDGE, stowed along the airside glass: a rotunda at the wall, a glazed tunnel on a drive
+// bogie angled off along the face, and the cab at its end with its door shut. `x0` is where it
+// leaves the hall, `s` which way along the face it runs. Everything stays inside the tile on the
+// airside, which `tileFitBox` trims at 0.5.
+function jetBridge(ctx, cam, F, x0, D, h, s, seed, night, alpha) {
+  const [rx, ry] = F(x0, D + 0.03);
+  drawFacetDrum(ctx, cam, rx, ry, 0, h * 0.22, 0.03, 0.03, 8, alpha,
+    (f) => night ? 'rgb(150,150,146)' : `rgb(${170 + f.nl * 50 | 0},${172 + f.nl * 50 | 0},${170 + f.nl * 48 | 0})`, () => night ? 'rgb(120,122,124)' : 'rgb(196,198,198)', 'ty_atc_white');
+  const th = 58 * Math.PI / 180, ux = s * Math.sin(th), uy = Math.cos(th), L = 0.2;
+  const P = (a) => F(x0 + ux * a, D + 0.03 + uy * a);
+  const [c0x, c0y] = P(0.03), [c1x, c1y] = P(0.03 + L);
+  const yaw = faceYaw([c1x - c0x, c1y - c0y]);
+  const [tx, ty] = P(0.03 + L / 2);
+  draw3DBoxAt(ctx, cam, tx, ty, 0.022, h * 0.15, h * 0.2, 'ty_tower_slot', seed, night, alpha, true, yaw, L / 2);
+  const [kx, ky] = P(0.03 + L + 0.02);
+  draw3DBoxAt(ctx, cam, kx, ky, 0.03, h * 0.14, h * 0.21, 'ty_atc_steel', seed + 1, night, alpha, true, yaw, 0.022);
+  // The drive bogie three-quarters out: two legs and the wheel box on the apron.
+  const [bx, by] = P(0.03 + L * 0.75);
+  for (const o of [-0.016, 0.016]) { const lx = bx - uy * o * s, ly = by + ux * o * s;
+    emitWire(ctx, cam, [lx, ly, 0.008], [lx, ly, h * 0.15], 1.6, 'rgba(120,126,132,0.95)', alpha, { pull: DECO_PULL }); }
+  draw3DBoxAt(ctx, cam, bx, by, 0.02, 0, 0.012, 'ty_atc_steel', seed + 2, night, alpha, true, yaw, 0.012);
+  if (night) glowPool(ctx, cam, kx, ky, h * 0.12, '255,214,150', 10, alpha * 0.4);   // the cab's floodlight on the stand
+}
+
+// A quad turned so its Newell normal agrees with `want`: emitFlat lights a face off its winding.
+function outFace(q, want) {
+  let nx = 0, ny = 0, nz = 0;
+  for (let i = 0; i < q.length; i++) {
+    const a = q[i], b = q[(i + 1) % q.length];
+    nx += (a[1] - b[1]) * (a[2] + b[2]); ny += (a[2] - b[2]) * (a[0] + b[0]); nz += (a[0] - b[0]) * (a[1] + b[1]);
+  }
+  return nx * want[0] + ny * want[1] + nz * want[2] < 0 ? q.slice().reverse() : q;
+}
+
+// THE CROWN OF THE ARRIVALS HALF: an observation deck on two crossed parabolic arches over the north
+// end of the hall, LAX's Theme Building said in Coldwater's accent. A saucer on a lift core, the
+// arches landing on the kerb and the apron either side of the hall, and after dark the arches lit
+// from below in the pylons' colour. `x0` is its centre along the terminal.
+function observationCrown(ctx, cam, F, x0, fh, h, seed, night, alpha, t) {
+  const dusk = 1 - 0.7 * (night ? clamp(night, 0, 1) : 0);
+  // The lift core and the saucer: an underside cone, the rim, a glass band and a low dome.
+  const [cx, cy] = F(x0, 0);
+  const plain = (r, g, b) => litStyle((f) => { const s = (0.62 + f.nl * 0.4) * dusk; return `rgb(${r * s | 0},${g * s | 0},${b * s | 0})`; }, [r * dusk, g * dusk, b * dusk], 'plain');
+  const glass = (f) => night ? 'rgb(255,206,140)' : `rgb(${40 + f.nl * 50 | 0},${86 + f.nl * 60 | 0},${100 + f.nl * 54 | 0})`;
+  const zc = h * 0.98, zr = h * 1.06, zg = h * 1.13, zt = h * 1.17;
+  drawFacetDrum(ctx, cam, cx, cy, 0, zc, fh * 0.07, fh * 0.07, 10, alpha, plain(226, 228, 224), undefined, 'ty_atc_white');
+  drawFacetDrum(ctx, cam, cx, cy, zc, zr, fh * 0.12, fh * 0.32, 16, alpha, plain(226, 228, 224), undefined, 'ty_atc_white');
+  drawFacetDrum(ctx, cam, cx, cy, zr, zr + h * 0.015, fh * 0.34, fh * 0.34, 16, alpha, plain(236, 238, 234), undefined, 'ty_atc_white');
+  drawFacetDrum(ctx, cam, cx, cy, zr + h * 0.015, zg, fh * 0.3, fh * 0.27, 16, alpha, glass, undefined, 'ty_atc_glass');
+  drawFacetDrum(ctx, cam, cx, cy, zg, zt, fh * 0.27, fh * 0.12, 16, alpha, plain(226, 228, 224), plain(236, 238, 234), 'ty_atc_white');
+  // The two arches, each a box-section rib on a parabola from foot to foot, crossing over the saucer.
+  const peak = h * 1.42, N = 8, half = 0.016;
+  for (const sx of [-1, 1]) {
+    const A = [x0 - sx * 0.18, -0.42], B = [x0 + sx * 0.18, 0.4];
+    const at = (u) => { const lx = A[0] + (B[0] - A[0]) * u, ly = A[1] + (B[1] - A[1]) * u; const [wx, wy] = F(lx, ly); return [wx, wy, peak * (1 - (2 * u - 1) ** 2)]; };
+    const [ax, ay] = F(A[0], A[1]), [bx2, by2] = F(B[0], B[1]);
+    const run = Math.hypot(bx2 - ax, by2 - ay) || 1, nx = -(by2 - ay) / run * half, ny = (bx2 - ax) / run * half;
+    const Hx = (bx2 - ax) / run, Hy = (by2 - ay) / run;
+    // ⚠ THE RIBS ARE UNLIT FACES, so after dark they hold a floodlit fill instead of taking the dark,
+    // which is how the real arches read at night. Same face count by day and night; only the colour moves.
+    const RIB = night ? [214, 206, 240] : [232, 234, 230];
+    const css = (k2) => `rgb(${RIB[0] * k2 | 0},${RIB[1] * k2 | 0},${RIB[2] * k2 | 0})`;
+    for (let k = 0; k < N; k++) {
+      const p = at(k / N), q = at((k + 1) / N);
+      const l = (v, s2, dz = 0) => [v[0] + nx * s2, v[1] + ny * s2, v[2] + dz];
+      // The two flanks and the back of the rib, each turned to face out (emitFlat takes a face's normal
+      // off its winding). The back's outward normal is the arc's: the tangent turned up and away from the span.
+      const Th = (q[0] - p[0]) * Hx + (q[1] - p[1]) * Hy, Tz = q[2] - p[2];
+      emitFlat(ctx, cam, outFace([l(p, 1), l(q, 1), l(q, 1, -0.02), l(p, 1, -0.02)], [nx, ny, 0]), css(1), alpha, { cullN: [nx, ny] });
+      emitFlat(ctx, cam, outFace([l(p, -1), l(q, -1), l(q, -1, -0.02), l(p, -1, -0.02)], [-nx, -ny, 0]), css(0.86), alpha, { cullN: [-nx, -ny] });
+      emitFlat(ctx, cam, outFace([l(p, -1), l(q, -1), l(q, 1), l(p, 1)], [-Tz * Hx, -Tz * Hy, Th]), css(0.95), alpha);
+    }
+    if (night) {
+      const rgbA = pylonRgb(sx < 0 ? 6 : 7, t);
+      for (const u of [0.14, 0.86]) { const p = at(u); glowPool(ctx, cam, p[0], p[1], p[2], rgbA, 14, alpha * 0.4, { air: true }); }
+      const pk = at(0.5); glowPool(ctx, cam, pk[0], pk[1], pk[2] - 0.04, rgbA, 12, alpha * 0.3, { air: true });
+    }
+  }
+  if (night) glowPool(ctx, cam, cx, cy, (zr + zg) / 2, '255,206,140', 18, alpha * 0.45, { air: true });   // the deck's windows, lit
 }
 
 // Raised lettering: the name baked twice, a dark copy dropped down and right under the face, so
@@ -176,39 +338,87 @@ function frontRing(ctx, cam, cx, cy, z, r, N, css, lw, alpha) {
   }
 }
 // A flat face in the model's own frame, turned to face `out` (a local direction).
-function flatOut(ctx, cam, W3, pts, out, fill, alpha, opts = {}) {
+export function flatOut(ctx, cam, W3, pts, out, fill, alpha, opts = {}) {
   if (SHAPE_SINK) return;
   const O = W3(0, 0, 0), D = W3(out[0], out[1], out[2]);
   const o = [D[0] - O[0], D[1] - O[1], D[2] - O[2]];
   emitFlat(ctx, cam, facing(pts.map((p) => W3(p[0], p[1], p[2])), o), fill, alpha,
     Object.assign({ lift: DETAIL_LIFT, cullN: Math.abs(o[2]) < 0.8 ? [o[0], o[1]] : undefined }, opts));
 }
-// A body, as a silhouette through frosted glass: curled up (0), floating upright (1), or standing
-// in a doorway (2). Baked once per pose and per day/night, and painted as a decal on the glass.
+// A body, as a silhouette through frosted glass: floating upright (0), adrift (1), or standing in
+// a doorway (2). Baked once per pose and per day/night, and painted as a decal on the glass.
+// ⚠ ONE OUTLINE, NOT A STACK OF ELLIPSES. The first cut built each body from five or six separate
+// ovals with a hooked feed line on the crown, and from the street it read as a row of gummy
+// sweets with stalks. Limbs are tapered capsules joined at the shoulder, hip and knee, so the
+// whole figure is one shape. It's drawn opaque and the alpha is applied once afterwards, so where
+// two parts overlap isn't darker. The feed line goes to the navel: run to the nape it looked like
+// a noose.
+// ⚠ AND IT'S FOGGED, BECAUSE IT'S BEHIND FROST. A crisp dark figure reads as painted on the glass.
+// The blur is a box blur run twice each way, added up with 'lighter', so it needs no canvas
+// `filter` (which not every browser has) and the core of the body keeps its full weight.
 const _cloneBody = new Map();
+const CLONE_TORSO = [[17, 23], [23, 23], [28, 25.5], [28.5, 31], [26, 43], [27, 52], [20, 57], [13, 52], [14, 43], [11.5, 31], [12, 25.5]];
+const CLONE_POSES = [
+  // head [x, y, rx, ry, tilt], neck [x0, y0, x1, y1], arm and leg [root, elbow or knee, hand or ankle]
+  { head: [20, 14.5, 4.6, 5.4, 0], neck: [20, 18, 20, 23], dy: 0,                   // floating, head bowed, arms off the sides
+    arms: [[12.5, 27, 8, 43, 7, 58], [27.5, 27, 32, 43, 33, 58]],
+    legs: [[16, 53, 16.5, 75, 17.5, 97], [24, 53, 23.5, 75, 22.5, 97]] },
+  { head: [18.3, 14.5, 4.6, 5.6, -0.35], neck: [19.4, 18.5, 20, 23], dy: 0,         // head fallen aside, arms lifted, a knee drawn up
+    arms: [[12.5, 27, 5.5, 39, 4.5, 52], [27.5, 27, 34, 37, 35.5, 50]],
+    legs: [[16, 53, 14.5, 74, 16, 95], [24, 53, 25.5, 70, 24, 86]] },
+  { head: [20, 9.5, 4.6, 5.6, 0], neck: [20, 13, 20, 19], dy: -4,                   // standing, arms at the sides
+    arms: [[12.5, 23, 10, 39, 10, 55], [27.5, 23, 30, 39, 30, 55]],
+    legs: [[16, 49, 15.5, 74, 15, 100], [24, 49, 24.5, 74, 25, 100]] },
+];
 function cloneBodyTex(pose, night) {
   const key = pose * 2 + (night ? 1 : 0);
   let c = _cloneBody.get(key);
   if (c) return c;
-  c = document.createElement('canvas'); c.width = 40; c.height = 104;
+  const sheet = () => { const s = document.createElement('canvas'); s.width = 80; s.height = 208; return s; };
+  c = sheet();
   const g = c.getContext('2d');
   if (g) {
-    const ink = pose === 2 ? (night ? 'rgba(10,18,20,0.92)' : 'rgba(16,24,28,0.86)') : (night ? 'rgba(6,30,24,0.86)' : 'rgba(12,46,40,0.6)');
-    g.fillStyle = ink; g.strokeStyle = ink; g.shadowColor = ink; g.shadowBlur = pose === 2 ? 1 : 3;
-    const E = (x, y, rx, ry, rot = 0) => { g.beginPath(); g.ellipse(x, y, rx, ry, rot, 0, 6.2832); g.fill(); };
-    if (pose === 0) {          // knees to the chest, head down, one arm round them
-      E(22, 30, 7, 8); E(19, 54, 9, 16, 0.25); E(25, 68, 7, 12, -0.5); E(22, 82, 5, 10, 0.3); E(14, 54, 3, 12, 0.15);
-    } else if (pose === 1) {   // upright, head bowed, arms loose
-      E(20, 16, 6, 7); E(20, 42, 9, 16); E(20, 67, 7, 13); E(17, 89, 3.5, 12); E(23, 89, 3.5, 12);
-      E(10, 46, 2.6, 14, 0.12); E(30, 46, 2.6, 14, -0.12);
-    } else {                   // standing, feet apart, arms at the sides
-      E(20, 10, 5.5, 6.5); E(20, 34, 8.5, 15); E(20, 54, 7, 7); E(16, 78, 3.4, 20, 0.05); E(24, 78, 3.4, 20, -0.05);
-      E(10, 38, 2.6, 15, 0.08); E(30, 38, 2.6, 15, -0.08);
+    g.scale(2, 2);   // drawn in a 40 × 104 frame
+    const ink = pose === 2 ? 'rgb(12,20,24)' : (night ? 'rgb(10,48,40)' : 'rgb(20,60,52)');
+    g.fillStyle = ink; g.strokeStyle = ink;
+    const dot = (x, y, r) => { g.beginPath(); g.arc(x, y, r, 0, 6.2832); g.fill(); };
+    const limb = (ax, ay, ra, bx, by, rb) => {
+      const L = Math.hypot(bx - ax, by - ay) || 1, nx = (ay - by) / L, ny = (bx - ax) / L;
+      g.beginPath();
+      g.moveTo(ax + nx * ra, ay + ny * ra); g.lineTo(bx + nx * rb, by + ny * rb);
+      g.lineTo(bx - nx * rb, by - ny * rb); g.lineTo(ax - nx * ra, ay - ny * ra); g.closePath(); g.fill();
+      dot(ax, ay, ra); dot(bx, by, rb);
+    };
+    const P = CLONE_POSES[pose], [hx, hy, hrx, hry, tilt] = P.head;
+    g.beginPath(); g.ellipse(hx, hy, hrx, hry, tilt, 0, 6.2832); g.fill();
+    limb(P.neck[0], P.neck[1], 2.1, P.neck[2], P.neck[3], 2.5);
+    g.beginPath(); CLONE_TORSO.forEach(([x, y], i) => (i ? g.lineTo(x, y + P.dy) : g.moveTo(x, y + P.dy))); g.closePath(); g.fill();
+    for (const [sx, sy, ex, ey, wx, wy] of P.arms) {
+      limb(sx, sy, 2.7, ex, ey, 1.9); limb(ex, ey, 1.9, wx, wy, 1.4);
+      g.beginPath(); g.ellipse(wx, wy + 1.5, 1.6, 2.6, 0, 0, 6.2832); g.fill();
     }
-    if (pose !== 2) {          // the feed line, from the vat's crown to the body
-      g.shadowBlur = 0; g.lineWidth = 1.5;
-      g.beginPath(); g.moveTo(20, 0); g.quadraticCurveTo(25, 10, pose ? 20 : 22, pose ? 10 : 22); g.stroke();
+    for (const [rx, ry, kx, ky, ax, ay] of P.legs) { limb(rx, ry, 3.8, kx, ky, 2.5); limb(kx, ky, 2.5, ax, ay, 1.5); }
+    if (pose !== 2) {   // the feed line, up from the vat's foot to the navel
+      g.lineWidth = 1.2;
+      g.beginPath(); g.moveTo(6, 104); g.bezierCurveTo(8, 80, 20, 66, 20, 47); g.stroke();
     }
+    // The fog: 3 px in the vats, 1 in the doorway, which has only the door's glass in front of it.
+    const r = pose === 2 ? 1 : 3;
+    for (let pass = 0; pass < 4; pass++) {
+      const out = sheet(), o = out.getContext('2d');
+      o.globalCompositeOperation = 'lighter'; o.globalAlpha = 1 / (2 * r + 1);
+      for (let d = -r; d <= r; d++) o.drawImage(c, pass & 1 ? 0 : d, pass & 1 ? d : 0);
+      c = out;
+    }
+    // Densest at the chest and thinning toward the feet. ⚠ RESET `globalAlpha` FIRST: this context
+    // is the last blur pass's, and its 1/7 would carry into the mask and leave a seventh of a body.
+    const m = c.getContext('2d');
+    m.globalAlpha = 1; m.globalCompositeOperation = 'destination-in';
+    const a = pose === 2 ? [0.92, 0.92, 0.85] : night ? [0.48, 0.72, 0.15] : [0.46, 0.72, 0.12];
+    const gr = m.createLinearGradient(0, 0, 0, 208);
+    gr.addColorStop(0, `rgba(0,0,0,${a[0]})`); gr.addColorStop(0.4, `rgba(0,0,0,${a[1]})`); gr.addColorStop(1, `rgba(0,0,0,${a[2]})`);
+    m.fillStyle = gr; m.fillRect(0, 0, 80, 208);
+    m.globalCompositeOperation = 'source-over';
   }
   c._lit = 0;
   _cloneBody.set(key, c);
@@ -566,8 +776,8 @@ export const DOWNTOWN_ARMS = {
     const run = gu >= 0 && gu < 0.30 ? Math.sin(Math.PI * gu / 0.30) : 0;
     glowPool(ctx, cam, rx, ry, capTop + h * 0.26, '120,255,220', 22 + run * 12, clamp(alpha * (night ? 0.42 : 0.24) * (1 + run * 1.3), 0, 1));
     // 4) THE VATS. Round, frosted glass between a steel foot and a steel lid, on the forecourt under
-    //    the main they feed. Each one holds somebody: a silhouette through the frost, curled up or
-    //    floating, drifting on its feed line. The one that prints surges; when the doors open it is
+    //    the main they feed. Each one holds somebody: a silhouette through the frost, floating
+    //    upright or adrift, bobbing on its feed line. The one that prints surges; when the doors open it is
     //    empty, and it fills back up over the rest of the minute.
     // ⚠ THEY STAND ON `GUT.ly`, A CONSTANT, because the main runs straight over their lids and its
     // plan position is fixed in tiles. At the widest footprint the back of a vat touches the wall.
@@ -595,20 +805,36 @@ export const DOWNTOWN_ARMS = {
       frontRing(ctx, cam, vx, vy, vb + h * 0.012, vatR * 1.02, 12, band, 1.6, alpha);
       frontRing(ctx, cam, vx, vy, vt - h * 0.012, vatR * 1.02, 12, band, 1.6, alpha);
       if (frontVis) {
+        // ⚠ WHAT'S INSIDE TURNS TO THE EYE ROUND THE VAT'S AXIS. The body was a card on the plane
+        // touching the front of the drum, so from 45° off it sat out on the near edge of the vat with
+        // its arms across the outline: a sticker on the glass. A round tank has no side. From
+        // anywhere, the glass in the middle of its outline faces you, so the card goes there, square
+        // to the eye. `G` is a point `u` across that card at radius `r`; the bubbles use it too.
+        const e0 = (cam.ex || 0) - vx, e1 = (cam.ey || 0) - vy;
+        const eu = e0 * E[1] - e1 * E[0], ev = e0 * E[0] + e1 * E[1], el = Math.hypot(eu, ev) || 1;
+        const bs = eu / el, bc = ev / el, front = clamp(bc, 0, 1);   // the bearing off the vat's front
+        const G = (u, r) => F(lx + bs * r + bc * u, GUT.ly + bc * r - bs * u);
         // The body. A decal, because it moves: it bobs, and the printing vat's fades out and back.
         let fa = 1;
         if (i === printing && gu >= 0.30) fa = gu < 0.36 ? 1 - (gu - 0.30) / 0.06 : ease((gu - 0.45) / 0.55);
-        const bob = motionOn() ? Math.sin((now || 0) * 0.0006 + i * 1.7) * h * 0.006 : 0;
+        // It rides the fluid: up and down over about seven seconds, with a slower sideways drift,
+        // each vat on its own phase so the row never moves together. ⚠ THE TRAVEL STAYS INSIDE THE
+        // GLASS: at the top of the bob the head is still under the upper band. At h * 0.006 the old
+        // bob was a pixel or two and the bodies looked pinned.
+        const ph = frac(seed + i * 0.37) * 6.283, tS = (now || 0) * 0.001;
+        const bob = motionOn() ? Math.sin(tS * 0.9 + ph) * h * 0.02 : 0;
+        const sway = motionOn() ? Math.sin(tS * 0.37 + ph * 1.3) * vatR * 0.07 : 0;
         const tex = fa > 0.02 ? cloneBodyTex((i + (seed | 0)) & 1, night) : null;
         if (tex) {
-          const fy = GUT.ly + vatR + FACE_EPS * 2, hw = vatR * 0.62, z0 = vb + h * 0.03 + bob, z1 = vt - h * 0.035 + bob;
-          const q = [[-hw, z1], [hw, z1], [hw, z0], [-hw, z0]].map(([u, z]) => { const [wx, wy] = F(lx + u, fy); return cam.proj(wx, wy, z); });
-          if (q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha * fa * (night ? 0.95 : 0.8), DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
+          // Off the front it narrows and thins, because from the side it's the body's profile.
+          const fr = vatR + FACE_EPS * 2, hw = vatR * 0.62 * (0.7 + 0.3 * front), z0 = vb + h * 0.03 + bob, z1 = vt - h * 0.035 + bob;
+          const q = [[-hw, z1], [hw, z1], [hw, z0], [-hw, z0]].map(([u, z]) => { const [wx, wy] = G(sway + u, fr); return cam.proj(wx, wy, z); });
+          if (q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha * fa * (night ? 0.95 : 0.8) * (0.6 + 0.4 * front), DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
         }
         // Bubbles, rising on the glass.
         if (motionOn()) for (let k = 0; k < 2; k++) {
           const t = ((now || 0) * 0.00011 + k * 0.5 + frac(seed + i * 3.1)) % 1;
-          const [bx, by] = F(lx + vatR * 0.45 * Math.sin(t * 9 + i + k * 2), GUT.ly + vatR + 0.004);
+          const [bx, by] = G(vatR * 0.45 * Math.sin(t * 9 + i + k * 2), vatR + 0.004);
           glowPool(ctx, cam, bx, by, vb + (vt - vb) * t, '200,255,236', 2.5, alpha * (night ? 0.7 : 0.45) * Math.sin(Math.PI * t), { air: true });
         }
       }
@@ -624,6 +850,15 @@ export const DOWNTOWN_ARMS = {
     for (const x of [lxS, ...vatLx.map((u) => u * fh), fh + 0.02, wallFace - 0.009]) {                              // flanges
       tubeRun(ctx, cam, W3, [x - 0.009, GUT.ly, zT], [x + 0.009, GUT.ly, zT], R * 1.28, 10, STEEL, 'chrome', alpha, dusk);
     }
+    // Where it goes through: a bolted steel plate on the party wall, the twin of the one Second
+    // Helpings draws on the far side at its own height, and a biohazard band on the main short of
+    // it. ⚠ THE PLATE'S CENTRE IS HELD BACK FROM THE WALL'S FRONT EDGE, so it can't hang off the end.
+    { const pr = 0.034, pcy = Math.min(GUT.ly, GUT.wall.front - pr - 0.002), [qx, qy] = F(wallFace - 0.004, pcy);
+      draw3DBoxAt(ctx, cam, qx, qy, 0.004, zT - pr, zT + pr, 'ty_hf_mirror', seed + 38, night, alpha, true, yaw, pr);
+      for (const [by, bz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+        tubeRun(ctx, cam, W3, [wallFace - 0.013, pcy + by * pr * 0.72, zT + bz * pr * 0.72], [wallFace - 0.008, pcy + by * pr * 0.72, zT + bz * pr * 0.72], 0.004, 6, [120, 132, 138], 'chrome', alpha, dusk);
+      }
+      for (const x of [wallFace - 0.07, wallFace - 0.045]) tubeRun(ctx, cam, W3, [x - 0.006, GUT.ly, zT], [x + 0.006, GUT.ly, zT], R * 1.08, 10, [232, 112, 34], 'plain', alpha, dusk); }
     // The valve, on the stub between the wall and the run: a bonnet and a red handwheel on top,
     // kept low and short of the name plate, which `signfit` caught it standing across.
     { const vy2 = (WF + GUT.ly) / 2, [wx, wy] = F(lxS, vy2), wz = zT + R * 1.6, wr = R * 1.25;
@@ -1265,9 +1500,10 @@ export const DOWNTOWN_ARMS = {
   church(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // St Garneau's: a twin-tower granite front, a barrel-vaulted nave behind it, and the eye plastered across the middle of it
     // THE CONVERSION IS THE SILHOUETTE. Everything structural here is old and symmetrical —
     // paired towers, a round-headed centre bay, a wheel window, three arched portals — and the
-    // one bright thing on it is a steel plate that was screwed on afterwards and is lit all
-    // night while the building under it is not. Read from the air that is the whole story of
-    // the place, and nothing anywhere says it out loud.
+    // brightest thing on it is a steel plate that was screwed on afterwards and is lit all
+    // night. The only other light is the stained glass in the two towers either side of it
+    // (§3f), which frames the plate rather than competing with it. Read from the air that is
+    // the whole story of the place, and nothing anywhere says it out loud.
     //
     // ⚠ IT WAS A SHED WITH A CHIMNEY. The first cut was one wide box, a barrel roof and a single
     // squat tower parked off to one side at −0.55 — and a lone stub on one flank does not read as
@@ -1514,9 +1750,8 @@ export const DOWNTOWN_ARMS = {
       // Stained glass seen from the OUTSIDE is not the thing photographs of stained glass are:
       // with nothing burning behind it, coloured glass is a DARK panel that happens to be blue.
       // `glassCss` is what carries that — near full value in daylight against grey granite, a
-      // fifth of it after dark — and it is what stops the one rule this building has (§3e: the
-      // plate is what is lit, and nothing else) from quietly becoming untrue the moment somebody
-      // wanted colour in the windows.
+      // fifth of it after dark — for the nave and the wheel. The tower lights (§3f) are the
+      // exception and are lit on purpose; they take their own night colour from the same list.
       //
       // ⚠ AND IT IS MOSTLY TWO COLOURS, WHICH IS THE DIFFERENCE BETWEEN A ROSE AND A DARTBOARD.
       // The first cut was five evenly-spaced hues at even weight, one to a light, and twelve
@@ -1593,9 +1828,9 @@ export const DOWNTOWN_ARMS = {
       //      side by a row of tall narrow lights at one pitch, and the pitch is the bay, which is
       //      the same bay the blind arcade above the doors is divided at.
       //
-      //      ⚠ AND THE COLOUR GOES HERE RATHER THAN OVER THE DOOR. Every window on this building
-      //      is glazed the same way and none of them is lit; §3e's rule is about what BURNS, and
-      //      coloured glass with nothing behind it burns nothing. See `glassCss`.
+      //      ⚠ AND THE COLOUR GOES HERE RATHER THAN OVER THE DOOR. These lights are not lit:
+      //      coloured glass with nothing behind it goes dark after dark. See `glassCss`. The
+      //      tower lights (§3f) are the ones with a light behind them.
       { const s0 = PLTH + (EAVE - PLTH) * 0.30, s1 = PLTH + (EAVE - PLTH) * 0.84, lw = HD * 0.082;
         for (const sd of [-1, 1]) {
           const O = [sd * HW, 0], A = [0, sd], N = [sd, 0];
@@ -1641,8 +1876,8 @@ export const DOWNTOWN_ARMS = {
       //     Emit the eye first and it writes its own depth across the window, the wheel fails
       //     `LEQUAL` at every pixel, and the glass goes opaque with nothing to say why.
       { const [rx, ry] = F(0, HD + FACE_EPS); wallRose(ctx, cam, rx, ry, E, ROSE_Z, ROSE_R, '196,200,208', night, alpha, 12, GLASS); }
-      // 3e) THE EYE. It is the one thing on this building anybody screwed on, and the one thing on
-      //     it that is lit after dark while the church under it is not.
+      // 3e) THE EYE. It is the one thing on this building anybody screwed on, and the brightest
+      //     thing on it after dark.
       //
       //     ⚠ IT WAS A `drawRing`, WHICH IS A HORIZONTAL HOOP AND NOT A CIRCLE ON A WALL. That
       //     helper varies x and y at a fixed z — it is for a band round a tank or a tower — so the
@@ -1674,6 +1909,115 @@ export const DOWNTOWN_ARMS = {
       { const [ex, ey] = F(0, HD + FACE_EPS * 4);
         wallDisc(ctx, cam, ex, ey, E, ROSE_Z, ROSE_R, '176,196,220', night, alpha,
           { lens: true, pupil: 0.15, iris: 0.34, depth: 0.06, opacity: 0.40, markOpacity: 0.94 }); }
+      // 3f) THE TOWER LIGHTS: a window in the front of each tower, level with the eye, and the
+      //     only glass on the building lit from inside. After dark the pair frames the plate.
+      //
+      //     It's plate tracery, which is what a Romanesque tower has: one arched opening filled
+      //     with a stone slab, and two lancets and a roundel cut through the slab. Each lancet is
+      //     a blue field with a beaded border of red and gold and three leaded medallions up the
+      //     middle; the roundel is a six-petal rose. The stone between the lancets is the mullion.
+      //
+      //     ⚠ THE NIGHT COLOUR HAS TO BE BRIGHT, NOT JUST SATURATED. The GL mass shader dims every
+      //     face at night unless its display luminance is over about 0.55, which is how it tells a
+      //     lit window from a wall (see `litK` in gl/context.js), and a dimmed lit window reads as
+      //     an unlit one. So the lit colour is the day glass taken to full value, which puts the
+      //     blues and reds at about 0.5, where the dim takes almost nothing. Lifting them further
+      //     toward white clears the cut completely, and the tonemap then turns them pastel.
+      //
+      //     ⚠ AND THE FACE COUNT DOESN'T CHANGE WITH THE HOUR. GLASS 2 captures the model at noon
+      //     and at midnight and pairs the faces up by index (`tileMesh` in gl/world.js), so only
+      //     the colours may depend on `night`.
+      //
+      //     The leads are dark at every hour: dark lines across lit glass are what make it read as
+      //     a window rather than a lamp. A lead round a medallion is a dark disc a size up behind
+      //     it, which is one face where a ring would be a dozen.
+      { const lt = clamp(night, 0, 1);
+        const lit = (rgb) => {
+          const g = rgb.split(',').map(Number), k = 255 / Math.max(g[0], g[1], g[2]);
+          return g.map((v) => Math.min(255, v * k));
+        };
+        const paneCss = (i) => {
+          const day = GLASS[i % GLASS.length];
+          const d = day.split(',').map(Number), n = lit(day);
+          return 'rgb(' + d.map((v, c) => Math.round(v + (n[c] - v) * lt)).join(',') + ')';
+        };
+        const SAPPHIRE = paneCss(0), RUBY = paneCss(1), COBALT = paneCss(2), GOLD = paneCss(3);
+        const GARNET = paneCss(5), EMERALD = paneCss(6);
+        const [O, A, N] = FRONT;
+        const disc = (u, z, r, fill, lift) => {
+          if (flatsDropped) return;
+          const eps = standOff(lift), P = [];
+          for (let i = 0; i < 12; i++) {
+            const t = -i / 12 * 6.2832, uu = u + Math.cos(t) * r;
+            P.push([O[0] + uu * A[0] + N[0] * eps, O[1] + uu * A[1] + N[1] * eps, z + Math.sin(t) * r]);
+          }
+          emitFlat(ctx, cam, facing(P, N[0], N[1]).map(([x, y, z2]) => W3(x, y, z2)), fill, alpha,
+            { lift, cullN: nOf(N[0], N[1]) });
+        };
+        const L = (k) => DETAIL_LIFT * k;
+        // The opening: its half-width, its sill, the crown of its arch, and where the arch springs.
+        const W0 = TWHW * 0.62, s0 = ROSE_Z - h * 0.32, s1 = ROSE_Z + h * 0.22, zsR = s1 - W0;
+        // A lancet: its offset from the opening's centre, its half-width, its sill and its crown.
+        const LU = W0 * 0.42, lw = W0 * 0.30, l0 = s0 + W0 * 0.16, l1 = zsR - W0 * 0.04;
+        const gw = lw * 0.80, gl0 = l0 + lw * 0.14, gl1 = l1 - lw * 0.10, gzs = gl1 - gw;
+        const band = (gzs - gl0) / 3, rm = Math.min(gw * 0.50, band * 0.40), bar = lw * 0.045;
+        const BEADS = 7, bh = (gzs - gl0) / BEADS;
+        const OZ = zsR + W0 * 0.36, OR = W0 * 0.34;
+        for (const s of [-1, 1]) {
+          const cu = s * TWX;
+          arched(O, A, N, cu, W0 * 1.20, s0 - h * 0.025, s1 + W0 * 0.22, trimCss(1.10), L(1.05));   // the hood
+          arched(O, A, N, cu, W0, s0, s1, dark, L(1.10));                                            // the reveal
+          arched(O, A, N, cu, W0 * 0.90, s0 + W0 * 0.06, s1 - W0 * 0.10, trimCss(0.84), L(1.14));   // the slab
+          for (const k of [-1, 1]) {
+            const lu = cu + k * LU;
+            arched(O, A, N, lu, lw, l0, l1, dark, L(1.18));
+            arched(O, A, N, lu, gw, gl0, gl1, SAPPHIRE, L(1.22));
+            // The border: a lead strip down each side, and the beads set into it with a hair of
+            // lead showing between them.
+            for (const e of [-1, 1]) {
+              const a = lu + e * gw * 0.64, b = lu + e * gw;
+              panel(O, A, N, Math.min(a, b), Math.max(a, b), gl0, gzs, iron, L(1.25));
+              for (let i = 0; i < BEADS; i++) {
+                const c = lu + e * gw * 0.68, d = lu + e * gw * 0.96;
+                panel(O, A, N, Math.min(c, d), Math.max(c, d), gl0 + bh * i + bh * 0.08, gl0 + bh * (i + 1) - bh * 0.08,
+                  (i + (k > 0 ? 1 : 0)) % 2 ? GOLD : RUBY, L(1.27));
+              }
+            }
+            // Three medallions up the middle, one to a band, with the saddle bars between them.
+            for (let i = 0; i < 3; i++) {
+              const zc = gl0 + band * (i + 0.5);
+              disc(lu, zc, rm * 1.16, iron, L(1.28));
+              disc(lu, zc, rm, i === 1 ? GARNET : RUBY, L(1.30));
+              disc(lu, zc, rm * 0.46, i === 1 ? EMERALD : GOLD, L(1.33));
+            }
+            for (let i = 1; i <= 3; i++) {
+              const z = gl0 + band * i;
+              panel(O, A, N, lu - gw, lu + gw, z - bar, z + bar, iron, L(1.36));
+            }
+            // A gold roundel in the head of the lancet.
+            disc(lu, gzs + gw * 0.40, gw * 0.42, iron, L(1.28));
+            disc(lu, gzs + gw * 0.40, gw * 0.34, GOLD, L(1.30));
+          }
+          // The rose over the two lancets: a cobalt field, six garnet petals and a gold boss.
+          disc(cu, OZ, OR, dark, L(1.18));
+          disc(cu, OZ, OR * 0.86, COBALT, L(1.22));
+          for (let i = 0; i < 6; i++) {
+            const t = i / 6 * 6.2832 + Math.PI / 2, pu = cu + Math.cos(t) * OR * 0.50, pz = OZ + Math.sin(t) * OR * 0.50;
+            disc(pu, pz, OR * 0.27, iron, L(1.28));
+            disc(pu, pz, OR * 0.22, GARNET, L(1.30));
+          }
+          disc(cu, OZ, OR * 0.25, iron, L(1.31));
+          disc(cu, OZ, OR * 0.19, GOLD, L(1.33));
+          // The halo, placed at the glass (a pool behind it is hidden by the tower's own wall), and
+          // `air` so it doesn't also light the tower: a glow on a building's own skin is a lamp. Two
+          // of them, at the lancets and at the rose, so it reads as a lit room and not one bulb.
+          const [gx, gy] = F(cu, HD + fh * 0.03);
+          if (lt > 0.02) {
+            glowPool(ctx, cam, gx, gy, (gl0 + gzs) / 2, '170,130,230', 5, alpha * 0.20 * lt, { air: true });
+            glowPool(ctx, cam, gx, gy, OZ, '220,140,170', 4, alpha * 0.16 * lt, { air: true });
+          }
+        }
+      }
     }
   },
   butcher(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // Meat Your Maker: a squat oxblood shopfront under a striped awning, and the smokehouse flue that gives it away from the air
@@ -2467,81 +2811,54 @@ export const DOWNTOWN_ARMS = {
       blinkLight(ctx, cam, dx, dy, rz + h * 0.01, '235,245,255', now, seed + 7 + Math.PI, alpha, 1.9);
     }
   },
-  arrivals(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // ARRIVALS: the terminal's north half. A glazed hall under twin vaults with the airport
-    //                   offices rising through its north end, a kerb canopy over the doors, the baggage
-    //                   train on the apron, and the building's name on the fascia. `departures` is the
+  arrivals(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // ARRIVALS: the terminal's north half, where people come off planes. The tall glass
+    //                   hall under the wave roof (terminalHalf), the observation deck on its crossed
+    //                   arches over the north end, one jet bridge stowed toward the link, the doors
+    //                   in off the runway, and the building's name on the fascia. `departures` is the
     //                   other half, on this one's left as you face the door; see terminalHalf.
-    const HW = fh * 0.95, D = fh * 0.62, hallTop = h * 0.74;
-    const { yawE } = terminalHalf(ctx, cam, dx, dy, fh, h, seed, night, alpha, E, F, { HW, D, top: hallTop, vault: h * 0.22, side: -1 });
-    const AIR = { air: true };   // a halo on the building's own skin must not light it (see the atc arm)
-    // 1. The offices: two storeys over the north end of the hall, set back from the glass, with a
-    //    window grid that is lit after dark, plant and an aerial on the flat roof.
-    { const roofZ = h * 1.38, [ox, oy] = F(HW * 0.7, -D * 0.2);
-      draw3DBoxAt(ctx, cam, ox, oy, fh * 0.24, 0, roofZ, 'ty_precast', seed + 4, night, alpha, true, yawE, D * 0.75);
-      const [ux, uy] = F(HW * 0.8, -D * 0.6);
-      draw3DBoxAt(ctx, cam, ux, uy, fh * 0.06, roofZ, roofZ + h * 0.06, 'ty_precast_dk', seed + 5, night, alpha, true, yawE, fh * 0.05);
-      const [mx, my] = F(HW * 0.62, -D * 0.2);
-      emitWire(ctx, cam, [mx, my, roofZ], [mx, my, roofZ + h * 0.3], 1.5, 'rgba(60,64,70,0.9)', alpha, { pull: DECO_PULL });
-      blinkLight(ctx, cam, mx, my, roofZ + h * 0.3, '255,70,70', now, seed + 6, alpha, 1.6); }
-    // 2. The kerb canopy on four columns, and the doors under it.
-    { const cz = h * 0.4, [cx, cy] = F(-HW * 0.1, D + fh * 0.17);
-      draw3DBoxAt(ctx, cam, cx, cy, HW * 0.7, cz, cz + h * 0.035, 'ty_precast_dk', seed + 3, night, alpha, true, yawE, fh * 0.16);
-      for (const s of [-0.75, -0.3, 0.15, 0.55]) { const [px, py] = F(HW * s, D + fh * 0.3); emitWire(ctx, cam, [px, py, 0], [px, py, cz], 2, 'rgba(200,204,210,0.95)', alpha, { pull: DECO_PULL }); }
-      const [ddx, ddy] = F(-HW * 0.1, D + 0.01);
-      draw3DBoxAt(ctx, cam, ddx, ddy, fh * 0.14, 0, h * 0.3, 'ty_door', seed + 7, night, alpha, false, yawE, 0.006);
-      if (night) glowPool(ctx, cam, cx, cy, cz * 0.5, '255,226,170', 18, alpha * 0.45); }   // the kerb lights, which do light the apron
-    // 3. On the apron, inside the tile: a tug in the livery and three baggage carts behind it.
-    for (let i = 0; i < 4; i++) { const [bx, by] = F(-HW * 0.55 + i * fh * 0.16, 0.44);
-      draw3DBoxAt(ctx, cam, bx, by, fh * 0.06, 0.004, h * (i ? 0.05 : 0.07), i ? 'ty_precast_dk' : 'ty_airport_band', seed + 10 + i, night, alpha, true, yawE, fh * 0.04); }
-    // 4. The neon, cyan along the canopy's front edge and magenta under the fascia, and the lit
-    //    board on the fascia carrying the building's name. DEPARTURES letters the other half.
-    if (frontVis) { const cz = h * 0.44, [a0x, a0y] = F(-HW * 0.8, D + fh * 0.33), [a1x, a1y] = F(HW * 0.6, D + fh * 0.33);
-      emitWire(ctx, cam, [a0x, a0y, cz], [a1x, a1y, cz], 2, 'rgba(80,236,255,0.95)', alpha, { pull: DECO_PULL });
-      const [b0x, b0y] = F(-HW, D + 0.008), [b1x, b1y] = F(HW, D + 0.008);
-      emitWire(ctx, cam, [b0x, b0y, hallTop * 0.86], [b1x, b1y, hallTop * 0.86], 2, 'rgba(255,64,200,0.95)', alpha, { pull: DECO_PULL });
-      if (night) { glowPool(ctx, cam, (a0x + a1x) / 2, (a0y + a1y) / 2, cz, '80,236,255', 16, alpha * 0.3, AIR); glowPool(ctx, cam, (b0x + b1x) / 2, (b0y + b1y) / 2, hallTop * 0.86, '255,64,200', 16, alpha * 0.3, AIR); }
-      marqueeBand(ctx, cam, dx, dy, _bladeBasis.E, HW * 0.62, hallTop * 0.935, '#50ecff', night, alpha); }   // flat on the fascia: the building's own name
-    if (night) { const [gx, gy] = F(HW * 0.2, D + 0.02); glowPool(ctx, cam, gx, gy, hallTop * 0.45, '255,222,166', 26, alpha * 0.3, AIR); }   // the hall lit behind its glass
-  },
-  departures(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // DEPARTURES: the terminal's south half, where people get on planes. A lower concourse
-    //                   under the same twin vaults, the gate's glazed walkway out over the apron to a
-    //                   boarding stair, a fuel bowser waiting by it, and a board that says DEPARTURES:
-    //                   the building's name is on the arrivals fascia, and a building gets its name
-    //                   once. `arrivals` is the other half, on this one's right; see terminalHalf.
-    const HW = fh * 0.95, D = fh * 0.55, hallTop = h * 0.62;
-    const { yawE, dusk } = terminalHalf(ctx, cam, dx, dy, fh, h, seed, night, alpha, E, F, { HW, D, top: hallTop, vault: h * 0.17, side: 1 });
+    const HW = fh * 1.0, D = fh * 0.62, hallTop = h * 0.6;
+    const { yawE } = terminalHalf(ctx, cam, dx, dy, fh, h, seed, night, alpha, now, E, F, { HW, D, top: hallTop, vault: h * 0.16, side: -1, kerb: 'ARRIVALS' });
     const AIR = { air: true };
-    // 1. Gate 1's walkway: a glazed box on legs from the front of the concourse at its south end,
-    //    out over the apron, and a stair from its end down to the tarmac. Kept inside the tile.
-    { const GX = -HW * 0.45, y0 = D, y1 = 0.42, wz0 = h * 0.2, wz1 = h * 0.36;
-      const [wx, wy] = F(GX, (y0 + y1) / 2);
-      draw3DBoxAt(ctx, cam, wx, wy, 0.045, wz0, wz1, 'ty_tower_slot', seed + 40, night, alpha, true, yawE, (y1 - y0) / 2);
-      for (const t of [0.3, 0.85]) for (const s of [-1, 1]) {
-        const [lx, ly] = F(GX + s * 0.032, y0 + (y1 - y0) * t);
-        emitWire(ctx, cam, [lx, ly, 0], [lx, ly, wz0 - 0.004], 2, 'rgba(150,156,164,0.95)', alpha, { pull: DECO_PULL });
-      }
-      // The stair: one lit sloping face (walked so its normal faces up, since it is shaded off it)
-      // and a handrail each side.
-      let q = [W3(GX - 0.035, y1, wz0), W3(GX + 0.035, y1, wz0), W3(GX + 0.035, y1 + 0.07, 0.004), W3(GX - 0.035, y1 + 0.07, 0.004)];
-      let nz = 0;
-      for (let v = 0; v < 4; v++) { const a = q[v], b = q[(v + 1) % 4]; nz += (a[0] - b[0]) * (a[1] + b[1]); }
-      if (nz < 0) q = q.reverse();
-      emitFlat(ctx, cam, q, `rgb(${150 * dusk | 0},${154 * dusk | 0},${160 * dusk | 0})`, alpha, { lit: 'plain', albedo: [150 * dusk, 154 * dusk, 160 * dusk] });
-      for (const s of [-1, 1]) emitWire(ctx, cam, W3(GX + s * 0.035, y1, wz0 + h * 0.06), W3(GX + s * 0.035, y1 + 0.07, h * 0.06), 1, 'rgba(200,204,210,0.9)', alpha, { pull: DECO_PULL });
-      // Pink neon along both eaves of the walkway, and the gate lamp at its end.
-      if (frontVis) for (const s of [-1, 1]) emitWire(ctx, cam, W3(GX + s * 0.052, y0 + 0.01, wz1), W3(GX + s * 0.052, y1, wz1), 2, 'rgba(255,64,200,0.95)', alpha, { pull: DECO_PULL });
-      if (night) { const [ex, ey] = F(GX, y1); glowPool(ctx, cam, ex, ey, wz1, '255,190,110', 10, alpha * 0.5, AIR); } }
-    // 2. The apron kit by the stair: a fuel bowser and a ground-power cart.
-    { const [fx, fy] = F(HW * 0.15, 0.45);
-      draw3DBoxAt(ctx, cam, fx, fy, fh * 0.12, 0.004, h * 0.08, 'ty_fuel_white', seed + 41, night, alpha, true, yawE, fh * 0.05);
-      const [px, py] = F(HW * 0.55, 0.45);
-      draw3DBoxAt(ctx, cam, px, py, fh * 0.05, 0.004, h * 0.05, 'ty_airport_band', seed + 42, night, alpha, true, yawE, fh * 0.04); }
+    // 1. The crown over the north end of the hall.
+    observationCrown(ctx, cam, F, HW * 0.5, fh, h, seed + 60, night, alpha, motionOn() ? (now || 0) : 0);
+    // 2. One jet bridge from the south end of the airside glass, stowed along it toward the link.
+    jetBridge(ctx, cam, F, -HW * 0.62, D, h, -1, seed + 70, night, alpha);
+    // 3. The doors in off the runway, under a short canopy between the bridge and the crown.
+    { const [ddx, ddy] = F(-HW * 0.12, D + 0.01);
+      draw3DBoxAt(ctx, cam, ddx, ddy, fh * 0.14, 0, h * 0.16, 'ty_door', seed + 7, night, alpha, false, yawE, 0.006);
+      const cz = h * 0.17, [cx, cy] = F(-HW * 0.12, D + fh * 0.1);
+      draw3DBoxAt(ctx, cam, cx, cy, fh * 0.2, cz, cz + h * 0.012, 'ty_precast_dk', seed + 3, night, alpha, true, yawE, fh * 0.1);
+      if (night) glowPool(ctx, cam, cx, cy, cz * 0.6, '255,226,170', 14, alpha * 0.4); }
+    // 4. Magenta neon under the airside fascia, cyan along the door canopy, and the lit board on the
+    //    fascia carrying the building's name. DEPARTURES letters the other half.
+    if (frontVis) { const fz = hallTop * 0.855, [b0x, b0y] = F(-HW, D + 0.008), [b1x, b1y] = F(HW, D + 0.008);
+      emitWire(ctx, cam, [b0x, b0y, fz], [b1x, b1y, fz], 2, 'rgba(255,64,200,0.95)', alpha, { pull: DECO_PULL });
+      const cz = h * 0.182, [a0x, a0y] = F(-HW * 0.12 - fh * 0.2, D + fh * 0.2), [a1x, a1y] = F(-HW * 0.12 + fh * 0.2, D + fh * 0.2);
+      emitWire(ctx, cam, [a0x, a0y, cz], [a1x, a1y, cz], 2, 'rgba(80,236,255,0.95)', alpha, { pull: DECO_PULL });
+      if (night) glowPool(ctx, cam, (b0x + b1x) / 2, (b0y + b1y) / 2, fz, '255,64,200', 18, alpha * 0.3, AIR);
+      marqueeBand(ctx, cam, dx, dy, _bladeBasis.E, HW * 0.62, hallTop * 0.95, '#50ecff', night, alpha); }
+  },
+  departures(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // DEPARTURES: the terminal's south half, where people get on planes. The same hall
+    //                   and wave roof a little lower, two jet bridges stowed along the airside glass,
+    //                   a fuel bowser and a ground-power cart on the apron, and a board that says
+    //                   DEPARTURES: the building's name is on the arrivals fascia, and a building gets
+    //                   its name once. `arrivals` is the other half, on this one's right; see terminalHalf.
+    const HW = fh * 1.0, D = fh * 0.58, hallTop = h * 0.57;
+    const { yawE } = terminalHalf(ctx, cam, dx, dy, fh, h, seed, night, alpha, now, E, F, { HW, D, top: hallTop, vault: h * 0.15, side: 1, kerb: 'DEPARTURES' });
+    const AIR = { air: true };
+    // 1. Gates 1 and 2: two jet bridges, both stowed toward the south.
+    jetBridge(ctx, cam, F, HW * 0.62, D, h, -1, seed + 40, night, alpha);
+    jetBridge(ctx, cam, F, -HW * 0.42, D, h, -1, seed + 44, night, alpha);
+    // 2. The apron kit: a fuel bowser at the north end and a ground-power cart between the bridges.
+    { const [fx, fy] = F(HW * 0.95, 0.44);
+      draw3DBoxAt(ctx, cam, fx, fy, fh * 0.05, 0.004, h * 0.06, 'ty_fuel_white', seed + 41, night, alpha, true, yawE, fh * 0.1);
+      const [px, py] = F(HW * 0.12, 0.46);
+      draw3DBoxAt(ctx, cam, px, py, fh * 0.05, 0.004, h * 0.04, 'ty_airport_band', seed + 42, night, alpha, true, yawE, fh * 0.035); }
     // 3. The neon under the fascia, and the board.
-    if (frontVis) { const [b0x, b0y] = F(-HW, D + 0.008), [b1x, b1y] = F(HW, D + 0.008);
-      emitWire(ctx, cam, [b0x, b0y, hallTop * 0.86], [b1x, b1y, hallTop * 0.86], 2, 'rgba(80,236,255,0.95)', alpha, { pull: DECO_PULL });
-      if (night) glowPool(ctx, cam, (b0x + b1x) / 2, (b0y + b1y) / 2, hallTop * 0.86, '80,236,255', 16, alpha * 0.3, AIR);
-      marqueeBand(ctx, cam, dx, dy, _bladeBasis.E, HW * 0.5, hallTop * 0.935, '#ffb347', night, alpha, 'DEPARTURES'); }
-    if (night) { const [gx, gy] = F(HW * 0.25, D + 0.02); glowPool(ctx, cam, gx, gy, hallTop * 0.45, '255,222,166', 22, alpha * 0.28, AIR); }
+    if (frontVis) { const fz = hallTop * 0.855, [b0x, b0y] = F(-HW, D + 0.008), [b1x, b1y] = F(HW, D + 0.008);
+      emitWire(ctx, cam, [b0x, b0y, fz], [b1x, b1y, fz], 2, 'rgba(80,236,255,0.95)', alpha, { pull: DECO_PULL });
+      if (night) glowPool(ctx, cam, (b0x + b1x) / 2, (b0y + b1y) / 2, fz, '80,236,255', 18, alpha * 0.3, AIR);
+      marqueeBand(ctx, cam, dx, dy, _bladeBasis.E, HW * 0.5, hallTop * 0.95, '#ffb347', night, alpha, 'DEPARTURES'); }
   },
   power(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE POWER PLANT — 5 tiles. It had the mass (five segments) and still scored
     //                  3/4, because all five were the same palette and, worse, the two COOLING
@@ -2922,7 +3239,7 @@ export const DOWNTOWN_ARMS = {
       draw3DBoxAt(ctx, cam, sx, sy, fh * 0.22, 0, h * (0.16 + 0.06 * (i & 1)), 'ty_door', seed + 5 + i, night, alpha, true);
     }
     roofClutter(ctx, cam, dx, dy, fh * 1.08, wallTop, 'citycore', seed + 4, night, alpha, now);   // vents and a water tank break the flat roof
-    if (frontVis) marqueeBand(ctx, cam, dx, dy, E, hwSgnW, hwSgnZ, m.neon || '#ffcf3e', night, alpha, 'NUTS TO THAT', hwRoom);
+    if (frontVis) marqueeBand(ctx, cam, dx, dy, E, hwSgnW, hwSgnZ, m.neon || '#ffcf3e', night, alpha, undefined, hwRoom);
   },
   citybathhouse(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // Lather & Lye — a low tiled bathhouse venting steam off the roof all day. The steam IS the sign.
     const wallTop = h * 0.92;
@@ -2936,7 +3253,7 @@ export const DOWNTOWN_ARMS = {
       glowPool(ctx, cam, vx, vy, wallTop + h * 0.14, '170,240,225', 7, alpha * (night ? 0.34 : 0.12));
     }
     { const [px, py] = F(-fh * 0.70, fh * 1.04); draw3DBoxAt(ctx, cam, px, py, fh * 0.07, h * 0.10, h * 0.60, 'ty_marble_col', seed + 7, night, alpha, false); }   // the barber's pole
-    if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 1.00, wallTop * 0.80, m.neon || '#7fe3c0', night, alpha, 'LATHER & LYE');
+    if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 1.00, wallTop * 0.80, m.neon || '#7fe3c0', night, alpha);
     if (night) { const [wx, wy] = F(0, fh * 1.00); glowPool(ctx, cam, wx, wy, h * 0.20, '150,235,215', 12, alpha * 0.26); }
   },
   noodlebar(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // Oyelaran's — one storey, front wall folded open, a steam hood dumping the entire advertising budget into the street
@@ -2948,7 +3265,7 @@ export const DOWNTOWN_ARMS = {
     { const [hx, hy] = F(0, -fh * 0.10);
       draw3DBoxAt(ctx, cam, hx, hy, fh * 0.30, wallTop, wallTop + h * 0.20, 'ty_door', seed + 2, night, alpha, true);
       drawSmoke(ctx, cam, hx, hy, wallTop + h * 0.20, '225,215,200', alpha * 0.60, now, seed + 3); }   // the steam hood
-    if (frontVis) marqueeBand(ctx, cam, dx, dy, E, nbSgnW, nbSgnZ, m.neon || '#ff5a3e', night, alpha, "OYELARAN'S", nbRoom);
+    if (frontVis) marqueeBand(ctx, cam, dx, dy, E, nbSgnW, nbSgnZ, m.neon || '#ff5a3e', night, alpha, undefined, nbRoom);
     // A row of paper lanterns strung the length of the open front — nine stools, nine lamps.
     for (let i = 0; i < 4; i++) {
       const [lx, ly] = F((-0.72 + i * 0.48) * fh * 0.86, fh * 1.00);
@@ -2974,7 +3291,7 @@ export const DOWNTOWN_ARMS = {
       const [mx, my] = F(s * fh * 0.34, fh * 0.86);
       draw3DBoxAt(ctx, cam, mx, my, fh * 0.09, h * 0.06, h * 0.42, 'ty_marble_col', seed + 14 + s, night, alpha, false);
     }
-    if (frontVis) marqueeBand(ctx, cam, dx, dy, E, ofSgnW, ofSgnZ, m.neon || '#ffb43a', night, alpha, 'LAYERS', ofRoom);
+    if (frontVis) marqueeBand(ctx, cam, dx, dy, E, ofSgnW, ofSgnZ, m.neon || '#ffb43a', night, alpha, undefined, ofRoom);
     if (night) { const [wx, wy] = F(0, fh * 0.96); glowPool(ctx, cam, wx, wy, h * 0.22, '255,200,140', 11, alpha * 0.24); }
   },
   bodega(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // Bodega Vu — a tiny corner shop with awnings on BOTH streets, one warm window and a padlocked cooler outside
@@ -2992,7 +3309,7 @@ export const DOWNTOWN_ARMS = {
       const [kx, ky] = F((0.30 + i * 0.34) * fh, fh * 1.06);
       draw3DBoxAt(ctx, cam, kx, ky, fh * 0.13, 0, h * (0.12 + 0.07 * i), 'ty_door', seed + 16 + i, night, alpha, true);
     }
-    if (frontVis) marqueeBand(ctx, cam, dx, dy, E, bdSgnW, bdSgnZ, m.neon || '#ffe08a', night, alpha, 'BODEGA VU', bdRoom);
+    if (frontVis) marqueeBand(ctx, cam, dx, dy, E, bdSgnW, bdSgnZ, m.neon || '#ffe08a', night, alpha, undefined, bdRoom);
     if (night) { const [wx, wy] = F(0, fh * 0.94); glowPool(ctx, cam, wx, wy, h * 0.20, '255,215,150', 10, alpha * 0.30); }
   },
   comicshop(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // Mint Condition — a narrow deep shopfront: one barred lit window, a gold blade sign, and a roof unit that runs all night
@@ -3002,7 +3319,7 @@ export const DOWNTOWN_ARMS = {
     { const [sx, sy] = F(0, fh * 0.68); draw3DBoxAt(ctx, cam, sx, sy, fh * 0.70, wallTop * 0.72, wallTop * 0.84, 'ty_door', seed + 2, night, alpha, false); }     // the black board the gold lettering sits on
     { const [gx, gy] = F(-fh * 0.44, fh * 0.66); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.16, 0, wallTop * 0.66, 'ty_door', seed + 3, night, alpha, false); }         // the security grille rolled up beside the door
     { const [rx, ry] = F(0, -fh * 0.10); draw3DBoxAt(ctx, cam, rx, ry, fh * 0.26, wallTop, wallTop + h * 0.16, 'ty_door', seed + 4, night, alpha, true); }        // the dehumidifier plant on the roof, which never stops
-    if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.58, wallTop * 0.78, m.neon || '#ffd24a', night, alpha, 'MINT CONDITION');
+    if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.58, wallTop * 0.78, m.neon || '#ffd24a', night, alpha);
     if (frontVis) { const [nx, ny] = F(fh * 0.34, fh * 0.62); neonBlade(ctx, cam, nx, ny, wallTop * 0.72, wallTop + h * 0.26, m.neon || '#ffd24a', night, alpha); }
     if (night) { const [wx, wy] = F(0, fh * 0.70); glowPool(ctx, cam, wx, wy, h * 0.18, '255,210,120', 10, alpha * 0.34); }   // nine little display lamps, left on
   },

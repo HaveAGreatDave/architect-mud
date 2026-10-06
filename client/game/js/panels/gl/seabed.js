@@ -20,6 +20,7 @@ import { SEABED_EXT, SEABED_FADE, WATER_UP_SPAN } from '../seabed-scene.js';
 import { viewProjMatrix, mat4f, eyePos } from './camera.js';
 import { invert4 } from './cloudvol.js';
 import { makeVertexStream } from './stream.js';
+import { linearOut, applyLinOut } from './colour.js';
 
 // ⚠ THE WATER'S COLOUR IS A FUNCTION OF THE VIEW RAY, AND EVERY DRAW HERE USES THIS ONE. The
 // backdrop is this colour; the floor, its props and the points all fog toward it along their own
@@ -65,7 +66,7 @@ void main() {
   vNdc = p * 2.0 - 1.0;
   gl_Position = vec4(vNdc, 0.99999, 1.0);
 }`;
-const BG_FRAG = `#version 300 es
+const BG_FRAG = linearOut(`#version 300 es
 precision highp float;
 in vec2 vNdc;
 uniform mat4 uInvVP;
@@ -88,7 +89,7 @@ void main() {
   col += vec3(0.10, 0.18, 0.18) * pow(max(s, 0.0), 3.0) * clamp(dir.z / ${WATER_UP_SPAN.toFixed(3)}, 0.0, 1.0) * uLit;
   col += lampBeam(a.xyz, dir, 16.0);
   frag = vec4(col, 1.0);
-}`;
+}`, 'frag');
 
 const MESH_VERT = `#version 300 es
 layout(location = 0) in vec3 aPos;
@@ -100,7 +101,7 @@ void main() {
   vW = aPos; vC = aCol;
   gl_Position = uViewProj * vec4(aPos, 1.0);
 }`;
-const MESH_FRAG = `#version 300 es
+const MESH_FRAG = linearOut(`#version 300 es
 precision highp float;
 in vec3 vW;
 in vec3 vC;
@@ -136,7 +137,7 @@ void main() {
   // The patch ends at SEABED_R tiles: dissolve into the water well before it, so no edge is ever seen.
   float edge = smoothstep(${SEABED_FADE[0].toFixed(2)}, ${SEABED_FADE[1].toFixed(2)}, length(ray.xy));
   frag = vec4(mix(col * trans + fog * (1.0 - trans), fog, edge) + lampBeam(uEye, ray / max(d, 1e-4), d), 1.0);
-}`;
+}`, 'frag');
 
 const PT_VERT = `#version 300 es
 layout(location = 0) in vec3 aPos;
@@ -159,7 +160,7 @@ void main() {
   vDz = ray.z / max(length(ray), 1e-4);
   vLamp = lampAt(aPos);
 }`;
-const PT_FRAG = `#version 300 es
+const PT_FRAG = linearOut(`#version 300 es
 precision highp float;
 in float vA;
 in float vKind;
@@ -190,7 +191,7 @@ void main() {
   a = min(1.0, a * (1.0 + vLamp * 2.5));
   float fade = uSub > 0.0 ? exp(-vDist * uExt * 0.45) : 1.0;
   frag = vec4(mix(waterAlong(uWater, vDz), col, fade), a * vA * fade);
-}`;
+}`, 'frag', true);
 
 function compile(gl, type, src, label) {
   const s = gl.createShader(type);
@@ -245,7 +246,7 @@ export function createSeabedLayer(gl) {
     let n = 0;
     if (s.terrain && s.terrain.length) {
       if (terrKey !== s.key) { terr.write(s.terrain, s.terrain.length); terrN = s.terrain.length / 6; terrKey = s.key; }
-      gl.useProgram(mesh);
+      gl.useProgram(mesh); applyLinOut(gl, mesh);
       gl.uniformMatrix4fv(L.mesh.vp, false, vp);
       gl.uniform3f(L.mesh.eye, eye[0], eye[1], eye[2]);
       gl.uniform3fv(L.mesh.water, s.water);
@@ -260,7 +261,7 @@ export function createSeabedLayer(gl) {
       }
     }
     // The water behind all of it, at the far plane: fills only what nothing else covered.
-    gl.useProgram(bg);
+    gl.useProgram(bg); applyLinOut(gl, bg);
     gl.uniformMatrix4fv(L.bg.inv, false, mat4f(inv));
     gl.uniform3fv(L.bg.water, s.water);
     gl.uniform1f(L.bg.t, t);
@@ -280,7 +281,7 @@ export function createSeabedLayer(gl) {
     const vp = mat4f(viewProjMatrix(cam, cssH));
     gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.depthMask(false);
     gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    gl.useProgram(pts);
+    gl.useProgram(pts); applyLinOut(gl, pts);
     gl.uniformMatrix4fv(L.pts.vp, false, vp);
     const eye = eyePos(cam);
     gl.uniform3f(L.pts.eye, eye[0], eye[1], eye[2]);

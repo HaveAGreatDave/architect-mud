@@ -55,7 +55,13 @@ in vec2 vUV;
 uniform sampler2D uSrc;
 uniform float uThreshold;
 uniform float uKnee;
+// 1 when the scene is linear light (RENDER_TUNE.glLinear). The threshold, knee and blur were tuned on
+// display values, and in linear light an emitter just over white carries several times the energy
+// above the threshold and its blurred tail lifts when encoded: every glow came out larger. So the
+// bloom is gathered, blurred and added on display values, exactly as at 0.
+uniform float uLinear;
 out vec4 outColor;
+${LINEAR_GLSL}
 void main() {
   vec4 s = texture(uSrc, vUV);
   // ⚠ CLAMPED TO 1, AND THIS ONE LINE IS THE DIFFERENCE BETWEEN A BLOOM AND NO BLOOM AT ALL. The
@@ -67,6 +73,7 @@ void main() {
   // Coverage is a fraction by definition; energy is what is allowed to exceed one.
   float a = clamp(s.a, 1e-4, 1.0);
   vec3 c = s.rgb / a;
+  if (uLinear > 0.5) c = glassSrgb(c);
   float l = max(c.r, max(c.g, c.b));
   // A soft knee, so a surface drifting across the threshold does not pop. The curve is flat below
   // the knee, quadratic through it and linear above.
@@ -115,8 +122,10 @@ uniform sampler2D uBloom1;
 uniform float uBloom;
 uniform float uTonemap;
 uniform float uExposure;
+// 1 when the scene is linear light (RENDER_TUNE.glLinear), which goes back to display values here.
+uniform float uLinear;
 out vec4 outColor;
-
+${LINEAR_GLSL}
 // Narkowicz's fit of the ACES filmic curve. Cheap, and it is the curve almost every real-time
 // renderer means when it says "tonemapped".
 vec3 aces(vec3 x) {
@@ -125,6 +134,10 @@ vec3 aces(vec3 x) {
 
 void main() {
   vec4 s = texture(uScene, vUV);
+  // ⚠ A LINEAR SCENE GOES BACK TO DISPLAY VALUES HERE, BEFORE THE BLOOM AND THE CURVE. Both were tuned
+  // on display values (see uLinear in the bright-pass), so from this line on the composite is the one
+  // that ships at 0. The light was added in linear upstream; this only changes what the curve reads.
+  if (uLinear > 0.5) { float sa = max(s.a, 1e-4); s.rgb = glassSrgb(s.rgb / sa) * sa; }
   // Both octaves are premultiplied energy, exactly as the scene is, so they add directly.
   vec3 bloom = (texture(uBloom0, vUV).rgb + texture(uBloom1, vUV).rgb) * uBloom;
 
@@ -151,6 +164,7 @@ void main() {
 }`;
 
 import { declareProgram, takeWarm } from './programs.js';
+import { LINEAR_GLSL } from './colour.js';
 
 function compile(gl, type, src) {
   const sh = gl.createShader(type);
@@ -255,6 +269,7 @@ export function createHDRLayer(gl) {
     brightSrc: gl.getUniformLocation(bright, 'uSrc'),
     brightT: gl.getUniformLocation(bright, 'uThreshold'),
     brightK: gl.getUniformLocation(bright, 'uKnee'),
+    brightLin: gl.getUniformLocation(bright, 'uLinear'),
     blurSrc: gl.getUniformLocation(blur, 'uSrc'), blurStep: gl.getUniformLocation(blur, 'uStep'),
     downSrc: gl.getUniformLocation(down, 'uSrc'), downStep: gl.getUniformLocation(down, 'uStep'),
     compScene: gl.getUniformLocation(comp, 'uScene'),
@@ -262,6 +277,7 @@ export function createHDRLayer(gl) {
     compBloom: gl.getUniformLocation(comp, 'uBloom'),
     compTone: gl.getUniformLocation(comp, 'uTonemap'),
     compExp: gl.getUniformLocation(comp, 'uExposure'),
+    compLin: gl.getUniformLocation(comp, 'uLinear'),
     fxaaSrc: fxaa ? gl.getUniformLocation(fxaa, 'uSrc') : null,
     fxaaTexel: fxaa ? gl.getUniformLocation(fxaa, 'uTexel') : null,
   };
@@ -372,6 +388,7 @@ export function createHDRLayer(gl) {
           gl.uniform1i(u.brightSrc, 0);
           gl.uniform1f(u.brightT, opts.threshold == null ? 1 : opts.threshold);
           gl.uniform1f(u.brightK, opts.knee == null ? 0.5 : opts.knee);
+          gl.uniform1f(u.brightLin, opts.linear > 0 ? 1 : 0);
         } else {
           use(down, c.bright.fbo, c.bright.w, c.bright.h);
           gl.bindTexture(gl.TEXTURE_2D, chain[i - 1].b.tex);
@@ -407,6 +424,7 @@ export function createHDRLayer(gl) {
     gl.uniform1f(u.compBloom, bloomOn ? opts.bloom : 0);
     gl.uniform1f(u.compTone, opts.tonemap > 0 ? opts.tonemap : 0);
     gl.uniform1f(u.compExp, opts.exposure > 0 ? opts.exposure : 1);
+    gl.uniform1f(u.compLin, opts.linear > 0 ? 1 : 0);
     fullscreen();
     if (aa) {
       // 5. FXAA onto the canvas. ⚠ The source is NEAREST-agnostic: the taps sit on texel centres or

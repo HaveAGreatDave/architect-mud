@@ -1818,16 +1818,20 @@ async function describeHangarInterior(zone, player) {
 // Fires unconditionally per zone (unlike zone.furniturePanel, which only fires
 // when the zone has furniture rows) — several airfields have none, so this is
 // the only reliable way to surface "there's a hangar here" at every field.
-// A terminal room that names its ramp but is not its hangar (Coldwater Regional's check-in,
-// lounge and gate): the charter desk, and the way aboard once your booked flight is waiting.
+// A room that names its ramp but is not its hangar (every other room at Coldwater Regional: the
+// tower, the arrivals hall, reclaim, check-in, security, the lounge and the gate). Your aircraft are
+// chosen here as in the hangar: `hangar` opens the same card floor and Launch boards her on the
+// hangar floor. Then the charter desk, and the way aboard once your booked flight is waiting.
 function describeTerminal(zone, player) {
   const ramp = getZone(zone.flags.hangar_ramp);
   if (!ramp || !fieldOpenTo(ramp, player)) return undefined;
-  const lines = [];
-  if (airfieldOf(ramp)?.charter) lines.push(`<span class="furniture-label">Charter:</span> ${svcLink('charter', 'charter')} <span class="text-dim">book a seat on a flight out</span>`);
+  const af = airfieldOf(ramp);
+  const desks = [af?.dealer && 'buy', af?.rental && 'rent'].filter(Boolean);
+  const lines = [`<span class="furniture-label">Aircraft:</span> ${svcLink('hangar', 'hangar')} <span class="text-dim">choose one of yours and fly her${desks.length ? `, or ${desks.join(' or ')} one` : ''}</span>`];
+  if (af?.charter) lines.push(`<span class="furniture-label">Charter:</span> ${svcLink('charter', 'charter')} <span class="text-dim">book a seat on a flight out</span>`);
   const ch = charterParkedAt(ramp.id);
   if (ch && ch.chartererId === player.id) lines.push(`<span class="furniture-label">Your flight:</span> ${svcLink('embark', 'embark')} <span class="text-dim">${ch.pilotName} is on the ramp, ready to go</span>`);
-  return lines.length ? lines.join('\n') : undefined;
+  return lines.join('\n');
 }
 
 async function describeAirfield(zone, player) {

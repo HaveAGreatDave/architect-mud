@@ -312,7 +312,9 @@ export const DETAIL_SCHEMA = {
   // so its screen-size floor is the single biggest lever on what a dense frame costs. At 7 a window
   // was still being queued at 2.6 tiles, where it is a few pixels of frame and reads as noise.
   windowBay: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', hh: 'h', depth: 'fh' }, required: ['z', 'half', 'hh'],
-    plain: { pal: 'string', glow: 'string', glass: 'string', bars: 'number', transom: 'number', face: 'string' }, px: 9 },
+    // `door` (1 or 2 leaves) draws the bay as a doorway and claims the kit's ground floor; see the
+    // windowBay drawer. `z - hh` is then the threshold, so it sits on the pavement or the plinth.
+    plain: { pal: 'string', glow: 'string', glass: 'string', bars: 'number', transom: 'number', face: 'string', door: 'number' }, px: 9 },
   // A slab cantilevered over the storey below, with an authored soffit. Not `balcony`: that is a
   // tray with a rail whose underside comes off the wall palette.
   canopy: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', out: 'fh', hh: 'h' }, required: ['z', 'half', 'out'],
@@ -360,7 +362,10 @@ export const ADORN_SCHEMA = {
   mast: { geom: { cx: 'fh', cy: 'fh', z0: 'h', z1: 'h' }, required: ['z0', 'z1'], plain: {} },
   dish: { geom: { cx: 'fh', cy: 'fh', z: 'h' }, required: ['z'], plain: { s: 'number' } },
   blinkLight: { geom: { cx: 'fh', cy: 'fh', z: 'h' }, required: ['z'], plain: { rgb: 'string', r: 'number' } },
-  glowPool: { geom: { cx: 'fh', cy: 'fh', z: 'h' }, required: ['z'], plain: { rgb: 'string', s: 'number' } },
+  // `day` is the share of the glow that shows in full daylight, 0 to 1. Omitted it's 1, which is how
+  // every authored glow drew before the field existed. A lamp is 0; a door light "on at any hour"
+  // is about a third, the way the hand-written arms dim theirs.
+  glowPool: { geom: { cx: 'fh', cy: 'fh', z: 'h' }, required: ['z'], plain: { rgb: 'string', s: 'number', day: 'number' } },
   helideck: { geom: { cx: 'fh', cy: 'fh', z: 'h', r: 'fh' }, required: ['z', 'r'], plain: { glow: 'string', paint: 'string', yaw: 'number' } },
   latticeTower: { geom: { cx: 'fh', cy: 'fh', z0: 'h', z1: 'h', r0: 'fh', r1: 'fh' }, required: ['z0', 'z1', 'r0', 'r1'],
     // `rgb` is "r,g,b" and re-tints the whole lattice. Omitted, it is the broadcast mast's own pale

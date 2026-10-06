@@ -23,6 +23,68 @@ const VERT = `#version 300 es
 in vec2 aPos;
 void main() { gl_Position = vec4(aPos, 0.0, 1.0); }`;
 
+// ── THE SKY IN ONE DIRECTION ──────────────────────────────────────────────────────────────────────
+//
+// Everything in the sky that depends on the direction alone: the hour's gradient, the sun's glow, the
+// airglow and the galaxy band. The sky pass below adds the stars and the moon, which are placed and
+// sized in screen pixels; the reflection cube (gl/envcube.js) renders this and nothing else. ⚠ ONE
+// DEFINITION FOR BOTH, so a tower never reflects a sky that disagrees with the one above it.
+// band comes back as the galaxy band's strength, which the sky pass's second star field reads.
+export const SKY_DIR_GLSL = `
+uniform vec3  uTop;       // 0-1
+uniform vec3  uHor;
+uniform vec3  uSunDir;    // world, unit; z up
+uniform vec3  uSunCol;
+uniform float uSunOn;
+// The night. uNightA is how much star light reaches the eye (the hour's darkness less the cloud
+// that takes it); uAirglow is the horizon band's own share, which an overcast keeps some of.
+uniform float uNightA;
+uniform float uAirglow;
+float hash3(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+float noise3(vec3 p) {
+  vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  float a = mix(mix(hash3(i), hash3(i + vec3(1,0,0)), f.x), mix(hash3(i + vec3(0,1,0)), hash3(i + vec3(1,1,0)), f.x), f.y);
+  float b = mix(mix(hash3(i + vec3(0,0,1)), hash3(i + vec3(1,0,1)), f.x), mix(hash3(i + vec3(0,1,1)), hash3(i + vec3(1,1,1)), f.x), f.y);
+  return mix(a, b, f.z);
+}
+// Air mass, the 2-D pass's own curve: a star low down dims and warms.
+float extinction(float e) { return clamp(0.14 + clamp(e, 0.0, 1.0) * 0.98, 0.0, 1.0); }
+// ── THE GLOW RIGHT AROUND THE SUN: (amount, sharpness) of a pow(cos, k) lobe ─────────────────────
+//
+// ⚠ THE SKY'S LOBE IS TIGHT AND THE CUBE'S IS WIDE, AND THAT IS RESOLUTION, NOT DISAGREEMENT. At k 96
+// the lobe is about 6° to half strength, and on top of a bright afternoon sky it clipped to white out
+// to about 11°: a sun twenty times its size. At k 700 it is about 2°. The reflection cube is 32
+// texels a face, near 3° each, so a 2° lobe would land between texels and flicker on chrome as the
+// sun moved; it keeps the wide one, which a blurred reflection can hold.
+const vec2 SUN_LOBE_SKY = vec2(0.40, 700.0);
+const vec2 SUN_LOBE_CUBE = vec2(0.45, 96.0);
+vec3 skyDirColor(vec3 dir, vec2 sunLobe, out float band) {
+  float e = dir.z;
+  vec3 col = mix(uHor, uTop, pow(clamp(e, 0.0, 1.0), 0.5));
+  if (e < 0.0) col = uHor * (1.0 - 0.25 * clamp(-e * 4.0, 0.0, 1.0));
+  if (uSunOn > 0.0) {
+    float c = max(dot(dir, uSunDir), 0.0);
+    col += uSunCol * (0.22 * pow(c, 8.0) + sunLobe.x * pow(c, sunLobe.y)) * uSunOn;
+    // The low sun warms the horizon on its own side of the sky and not the other.
+    vec2 hd = normalize(dir.xy + 1e-5), sd = normalize(uSunDir.xy + 1e-5);
+    float low = 1.0 - clamp(uSunDir.z * 2.5, 0.0, 1.0);
+    float hb = pow(1.0 - abs(e), 6.0);
+    col += uSunCol * 0.30 * hb * pow(max(dot(hd, sd), 0.0), 3.0) * low * uSunOn;
+  }
+  band = 0.0;
+  if (uNightA > 0.0 && e > -0.02) {
+    // Airglow: the faint green band that means a night sky is never black at the horizon.
+    col += vec3(0.20, 0.34, 0.29) * 0.2 * uAirglow * pow(clamp(1.0 - e / 0.3, 0.0, 1.0), 2.0) * step(0.0, e);
+    // The galaxy: a band round one great circle, lumpy, with its own thicker dust of stars.
+    vec3 gN = normalize(vec3(0.42, 0.31, 0.85));
+    float gd = dot(dir, gN);
+    band = exp(-gd * gd / 0.018) * (0.45 + 0.55 * noise3(dir * 7.0)) * (0.6 + 0.4 * noise3(dir * 23.0));
+    col += vec3(0.86, 0.88, 0.96) * 0.10 * band * uNightA * extinction(e);
+  }
+  return col;
+}
+`;
+
 const FRAG = `#version 300 es
 precision highp float;
 uniform vec2  uRes;       // the canvas, device pixels
@@ -35,15 +97,6 @@ uniform float uSinh;
 uniform float uCosh;
 uniform float uBank;      // the canvas bank, radians, undone before the ray is cast
 uniform vec2  uShake;     // the bank pivot's shake offset, CSS px
-uniform vec3  uTop;       // 0-1
-uniform vec3  uHor;
-uniform vec3  uSunDir;    // world, unit; z up
-uniform vec3  uSunCol;
-uniform float uSunOn;
-// The night. uNightA is how much star light reaches the eye (the hour's darkness less the cloud
-// that takes it); uAirglow is the horizon band's own share, which an overcast keeps some of.
-uniform float uNightA;
-uniform float uAirglow;
 uniform float uTime;      // seconds, for the twinkle
 uniform float uPxAng;     // radians per CSS pixel at the centre of the frame — a star's size
 uniform vec3  uMoonDir;   // world, unit
@@ -61,15 +114,7 @@ uniform float uMoonTex;   // 0 = no sprite handed over, fall back to the noise f
 out vec4 outColor;
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
-float hash3(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
-float noise3(vec3 p) {
-  vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
-  float a = mix(mix(hash3(i), hash3(i + vec3(1,0,0)), f.x), mix(hash3(i + vec3(0,1,0)), hash3(i + vec3(1,1,0)), f.x), f.y);
-  float b = mix(mix(hash3(i + vec3(0,0,1)), hash3(i + vec3(1,0,1)), f.x), mix(hash3(i + vec3(0,1,1)), hash3(i + vec3(1,1,1)), f.x), f.y);
-  return mix(a, b, f.z);
-}
-// Air mass, the 2-D pass's own curve: a star low down dims and warms.
-float extinction(float e) { return clamp(0.14 + clamp(e, 0.0, 1.0) * 0.98, 0.0, 1.0); }
+${SKY_DIR_GLSL}
 vec3 starTint(float c) {
   vec3 blue = vec3(0.78, 0.86, 1.0), white = vec3(1.0, 0.98, 0.94), warm = vec3(1.0, 0.82, 0.62);
   return c < 0.5 ? mix(blue, white, c * 2.0) : mix(white, warm, (c - 0.5) * 2.0);
@@ -109,26 +154,10 @@ void main() {
   vec3 dir = normalize(vec3(f0 * uSinh + l * uCosh, -f0 * uCosh + l * uSinh, u));
 
   float e = dir.z;
-  vec3 col = mix(uHor, uTop, pow(clamp(e, 0.0, 1.0), 0.5));
-  if (e < 0.0) col = uHor * (1.0 - 0.25 * clamp(-e * 4.0, 0.0, 1.0));
-
-  if (uSunOn > 0.0) {
-    float c = max(dot(dir, uSunDir), 0.0);
-    col += uSunCol * (0.22 * pow(c, 8.0) + 0.45 * pow(c, 96.0)) * uSunOn;
-    // The low sun warms the horizon on its own side of the sky and not the other.
-    vec2 hd = normalize(dir.xy + 1e-5), sd = normalize(uSunDir.xy + 1e-5);
-    float low = 1.0 - clamp(uSunDir.z * 2.5, 0.0, 1.0);
-    float band = pow(1.0 - abs(e), 6.0);
-    col += uSunCol * 0.30 * band * pow(max(dot(hd, sd), 0.0), 3.0) * low * uSunOn;
-  }
+  float band;
+  vec3 col = skyDirColor(dir, SUN_LOBE_SKY, band);
+  // The stars are sized in pixels (uPxAng), so they stay here and out of skyDirColor.
   if (uNightA > 0.0 && e > -0.02) {
-    // Airglow: the faint green band that means a night sky is never black at the horizon.
-    col += vec3(0.20, 0.34, 0.29) * 0.2 * uAirglow * pow(clamp(1.0 - e / 0.3, 0.0, 1.0), 2.0) * step(0.0, e);
-    // The galaxy: a band round one great circle, lumpy, with its own thicker dust of stars.
-    vec3 gN = normalize(vec3(0.42, 0.31, 0.85));
-    float gd = dot(dir, gN);
-    float band = exp(-gd * gd / 0.018) * (0.45 + 0.55 * noise3(dir * 7.0)) * (0.6 + 0.4 * noise3(dir * 23.0));
-    col += vec3(0.86, 0.88, 0.96) * 0.10 * band * uNightA * extinction(e);
     col += starField(dir, 180.0, 0.004, uNightA);
     col += starField(dir, 420.0, 0.0003 + 0.004 * band, uNightA * 0.45);
   }

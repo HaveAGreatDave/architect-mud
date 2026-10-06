@@ -9,7 +9,9 @@ let _flAircraft = [];
 let _flDebug = {};
 let _flKindFilter = 'all';
 
-function _flEsc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+// Escapes quotes too: aircraft names are player-typed (`modify name`), and the
+// server only strips < and >.
+function _flEsc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 function _flAgo(ts) {
   const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
   if (s < 60) return `${s}s`;
@@ -73,7 +75,7 @@ function _flRenderBody() {
       <td style="${td};color:var(--text-dim)">${_flEsc(a.owner_handle || '—')}</td>
       <td style="${td};color:var(--text-dim)">${_flEsc(a.zone_name || a.parked_zone_id || '—')}</td>
       <td style="${td};color:var(--text-dim)">${a.live ? '<span style="color:#22c55e">● live</span>' : 'parked'}</td>
-      <td style="${td}"><button class="action-btn danger" onclick="_flDeleteAircraft('${a.id}','${_flEsc(a.name || a.id).replace(/'/g, "\\'")}')" style="padding:2px 8px;font-size:10px">Delete</button></td>
+      <td style="${td}"><button class="action-btn danger" data-id="${_flEsc(a.id)}" onclick="_flDeleteAircraft(this.dataset.id)" style="padding:2px 8px;font-size:10px">Delete</button></td>
     </tr>`).join('') || `<tr><td colspan="7" style="${td};color:var(--text-dim)">No aircraft match this filter.</td></tr>`;
 
   panel.innerHTML = `
@@ -111,7 +113,11 @@ function _flRenderBody() {
 
 function _flSetFilter(kind) { _flKindFilter = kind; _flRenderBody(); }
 
-async function _flDeleteAircraft(id, name) {
+// Takes the id alone and looks the name up. The name used to ride in the onclick
+// as a JS string, where a player's tail name could close the attribute.
+async function _flDeleteAircraft(id) {
+  const a = _flAircraft.find(x => String(x.id) === String(id));
+  const name = a?.name || id;
   if (!(await dpConfirm(`Delete aircraft "${name}"? This permanently removes it. If someone's aboard, they'll be dropped out first.`, { danger: true }))) return;
   const res = await directAPI(`/flight/aircraft/${id}`, 'DELETE');
   if (res && res.error) { toast(res.error, true); return; }

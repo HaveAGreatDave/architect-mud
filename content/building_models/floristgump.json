@@ -39,20 +39,20 @@
       "pal": "ty_shop_e",
       "soffit": "#5c2a42",
       "strip": "#ffb0d8",
-      "z": 0.26
+      "z": 0.393
     },
     {
       "bars": 2,
-      "cx": 0.1,
+      "cx": 0.16,
       "cy": 0.38,
       "depth": 0.014,
       "glass": "#1d121a",
       "glow": "#ffd4ea",
-      "half": 0.18,
+      "half": 0.15,
       "hh": 0.024,
       "kind": "windowBay",
       "pal": "ty_shop_e",
-      "z": 0.3
+      "z": 0.45
     },
     {
       "color": "#2b0f1e",
@@ -64,7 +64,7 @@
       "ink": "#ffb0d8",
       "kind": "signBoard",
       "label": "FLORIST GUMP",
-      "z": 0.31
+      "z": 0.45
     },
     {
       "cx": -0.3,
@@ -79,6 +79,31 @@
       "kind": "bollard",
       "pal": "ty_ward",
       "z": 0.004
+    },
+    {
+      "cx": -0.18,
+      "cy": 0.38,
+      "depth": 0.016,
+      "door": 1,
+      "half": 0.065,
+      "hh": 0.156,
+      "kind": "windowBay",
+      "pal": "ty_shop_e",
+      "transom": 0.8,
+      "z": 0.216
+    },
+    {
+      "bars": 2,
+      "cx": 0.12,
+      "cy": 0.38,
+      "depth": 0.014,
+      "glass": "#1d2622",
+      "glow": "#ffe2b8",
+      "half": 0.17,
+      "hh": 0.121,
+      "kind": "windowBay",
+      "pal": "ty_shop_e",
+      "z": 0.229
     }
   ],
   "id": "floristgump",

@@ -21,10 +21,12 @@
 // thousand DOM nodes a second at frame rate for a panel forty columns wide, which
 // is what makes the difference between a text panel and a slideshow.
 
+import { escapeHtml as esc } from '../../../shared/dom.js';
+
 // ── Primitives ───────────────────────────────────────────────────────────────
 
-export const esc = (s) => String(s ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
-const escAttr = (s) => esc(s).replace(/"/g, '&quot;');
+// The shared escaper. It escapes both quotes, so it's safe in an attribute too.
+export { esc };
 export const pad = (s, n) => String(s).padStart(n, ' ');
 export const padEnd = (s, n) => String(s).padEnd(n, ' ');
 export const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
@@ -99,7 +101,7 @@ let _board = null;       // the open board's command(word), or null
 let _tapsWired = false;
 
 export function tap(cmd, label, { press = false, cls = '' } = {}) {
-  return `<span class="pick txui-tap${cls ? ` ${cls}` : ''}" role="button" tabindex="0" data-txcmd="${escAttr(cmd)}"${press ? ' data-txpress="1"' : ''}>${label}</span>`;
+  return `<span class="pick txui-tap${cls ? ` ${cls}` : ''}" role="button" tabindex="0" data-txcmd="${esc(cmd)}"${press ? ' data-txpress="1"' : ''}>${label}</span>`;
 }
 
 // A row of chips that wraps on a narrow screen. The boards are white-space:pre,

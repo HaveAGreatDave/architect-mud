@@ -48,6 +48,8 @@ import { createSkylineStrip } from './skyline.js';
 // has to use the same two constants the vertices went through.
 import { NEAR, zRow } from './camera.js';
 import { declareProgram, takeWarm, prewarmPrograms } from './programs.js';
+import { linearOut, applyLinOut, LIN, linRgb } from './colour.js';
+import { createEnvCube, ENV_MAX_LOD } from './envcube.js';
 
 // Floats per vertex: position 3, normal 3, colour 3, atlas uv 2, wall ramp 1, alpha 1, flat 1,
 // haze jitter 1, baked occlusion 1, material family 1, edge distances 4.
@@ -143,7 +145,7 @@ void main() {
 // number against the device now; it used to compute it and compare it against nothing.
 export const MAX_LIGHTS = 32;   // uniform slots, and the per-fragment loop CEILING
 
-const FRAG = `#version 300 es
+const FRAG = linearOut(`#version 300 es
 precision highp float;
 // How dark a fully shadowed surface goes, before the strength knob. See the ⚠ beside its use: the
 // strength itself is already folded into shK, so this is the shape and RENDER_TUNE.glShadow is the
@@ -191,6 +193,9 @@ uniform float uFogHScale;
 // is 0 in clear weather by arithmetic, which is what makes the loop below free most of the time.
 uniform float uScatter;
 uniform float uHazeFar;
+// Which part of the far dissolve this draw owns: 0 all of it (the mirror, a preview), 1 only what
+// is fully opaque, 2 only what is dissolving. See drawFade.
+uniform float uFadePass;
 // The ground-to-air crossfade. The 2-D pass multiplies every world object by it and drops the
 // object entirely below 0.02, which is how the Mode-7 city gives way to the flat airport scene
 // as you settle onto the deck. The mass had no idea it existed and drew the real city at full
@@ -311,6 +316,32 @@ uniform vec3 uEnvDn;
 // One texel of the atlas page, for the relief taps. The page is repacked whenever the set of
 // surfaces changes, so this is written from setAtlas rather than assumed.
 uniform vec2 uAtlasTexel;
+// The material page (RENDER_TUNE.glMatPage): the atlas's twin, same rects, so vUV reads both. r is
+// glass coverage, g is lit coverage, b is 1 + the wall's family index, and b = 0 is "the page says
+// nothing about this texel", where every term below falls back to what it did before the page.
+uniform highp sampler2D uMatPage;
+uniform float uMatPageOn;
+uniform int uGlassMat;
+// 1 when this layer shades in linear light (RENDER_TUNE.glLinear 2, stage 2 step 2): the albedo,
+// the vertex colour, the snow and the skyline strip are decoded here, the uniform colours were
+// decoded before upload, and the output is already linear so glassOut leaves it alone.
+uniform float uLinIn;
+// A factor tuned on display values, as linear light. A display factor k darkens what the eye sees by
+// k, and in linear light that is about k^2.2; at level 2 every darkening multiplier below goes
+// through this so B keeps A's contrast. 1.0 at level 0, where k is returned as it is.
+float lf(float k) { return uLinIn > 0.5 ? pow(max(k, 0.0), 2.2) : k; }
+// Stage 3 (docs/proposals/glass-materials.md). uEnvCube is the sky as a cube (gl/envcube.js), sampled
+// along the reflected ray at a level picked by roughness; uGGX swaps the Phong highlight for a GGX
+// lobe. Both 0 is the reflection and highlight as shipped.
+// Stage 4: the surface page (height in r, a roughness scale in g, b = 255 where it speaks), and the
+// gain from height to the relief's units.
+uniform highp sampler2D uSurfPage;
+uniform float uSurfPageOn;
+uniform float uHeightGain;
+uniform samplerCube uEnvCube;
+uniform float uEnvCubeOn;
+uniform float uEnvMaxLod;
+uniform float uGGX;
 out vec4 outColor;
 
 // Perceptual-ish luminance. The relief term reads the albedo as a height field, and a green mortar
@@ -362,6 +393,16 @@ float sunShadow(vec3 wp, vec3 n) {
 ${HEIGHT_FOG_GLSL}
 ${LIGHT_SHAFT_GLSL}
 void main() {
+  // ⚠ THE FAR DISSOLVE IS SPLIT ACROSS TWO DRAWS, because the floor and the roads are drawn AFTER
+  // this pass and test against its depth. A building at 20% opacity in the haze band still wrote
+  // its whole silhouette into the depth buffer, so the ground behind it was rejected and what
+  // showed through the other 80% was the bare canvas under the GL buffer: a dark green cut-out of
+  // every block at the edge of the draw distance. Pass 1 leaves the band out of the buffer; pass 2
+  // draws it after the ground, blended over what is really there. Same expression as 'a' below.
+  if (uFadePass > 0.5) {
+    float hz = 1.0 - smoothstep(uHazeNear - vJit, uHazeFar - vJit, vDepth);
+    if (uFadePass < 1.5 ? hz < 0.999 : (hz >= 0.999 || hz < 0.004)) discard;
+  }
   // ⚠ TWO NORMALS, AND THE DIFFERENCE IS LOAD-BEARING. 'n0' is the geometric one the face was built
   // with; 'n' is that with the relief below folded into it. Everything that shades takes 'n'. The
   // shadow bias takes 'n0', because a slope-scaled bias is a statement about the real surface's
@@ -461,15 +502,51 @@ void main() {
   // fixed one. Which axis hardly matters; what it must not be is the zero vector.
   T = tl > 0.001 ? T / tl : vec3(1.0, 0.0, 0.0);
   vec3 B = cross(n0, T);
+  // ── WHAT THE TEXEL IS MADE OF (RENDER_TUNE.glMatPage) ──────────────────────
+  //
+  // Read once, here, because three terms below want it: the relief, the material row and the night
+  // dim. ⚠ textureLod in a uniform branch, for the relief taps' reason. With the page off, 'mpg' is
+  // zero, so 'pageK' is zero, 'wallMat' is vMat and every term reduces to the line it replaced.
+  vec4 mpg = vec4(0.0);
+  if (uMatPageOn > 0.5) mpg = textureLod(uMatPage, vUV, 0.0);
+  // A texel the page speaks for: b is 1 + the family, so anything under half a step is silence.
+  // Times texW, because a flat face samples an atlas entry it doesn't use.
+  float pageK = step(0.5, mpg.b * 255.0) * step(0.5, texW);
+  // ⚠ CLAMPED, because an index past the table is undefined behaviour, not a clamp (see uMat).
+  int wallMat = pageK > 0.5 ? clamp(int(mpg.b * 255.0 + 0.5) - 1, 0, GLASS_MAX_MAT - 1) : int(vMat + 0.5);
+  float glassK = mpg.r * pageK;
+  // The surface page, read once for the relief and the roughness. 0 where it says nothing.
+  vec4 spg = vec4(0.0);
+  if (uSurfPageOn > 0.5) spg = textureLod(uSurfPage, vUV, 0.0);
+  float surfK = step(0.5, spg.b) * step(0.5, texW);
   if (uMatStr > 0.0 && uBumpStr > 0.0) {
     // ⚠ AND THE SNOW BURIES IT. The relief is recovered from the ALBEDO, and under snow the albedo
     // is snow — so leaving this standing embosses the brickwork of the wall underneath onto the
     // drift lying on the ledge. Same argument as the floor mixing its material toward the hillshade
     // rather than toward flat white: what goes is the texture, not the shape.
-    float k = uMat[int(vMat + 0.5)].w * uBumpStr * texW * (1.0 - snowW);
+    float k = uMat[wallMat].w * uBumpStr * texW * (1.0 - snowW);
+    // ⚠ NO RELIEF WHERE ANY OF THE THREE TAPS IS GLASS. A pane is the biggest step in value on a
+    // facade, and the relief reads value as height, so a wall texel beside a lit window embossed a
+    // ridge round it. That is why 'window grid' bump had to stay at 0.18; with the page on, the
+    // wall takes its own family's bump and the panes take none.
+    if (uMatPageOn > 0.5) {
+      float gu = textureLod(uMatPage, vUV + vec2(uAtlasTexel.x, 0.0), 0.0).r;
+      float gv = textureLod(uMatPage, vUV + vec2(0.0, uAtlasTexel.y), 0.0).r;
+      k *= 1.0 - max(mpg.r, max(gu, gv)) * pageK;
+    }
     float l0 = lum(textureLod(uAtlas, vUV, 0.0).rgb);
     float lu = lum(textureLod(uAtlas, vUV + vec2(uAtlasTexel.x, 0.0), 0.0).rgb);
     float lv = lum(textureLod(uAtlas, vUV + vec2(0.0, uAtlasTexel.y), 0.0).rgb);
+    // ⚠ WHERE THE SURFACE PAGE SPEAKS, THE RELIEF READS HEIGHT, NOT BRIGHTNESS. Brightness is the
+    // day-night blend of a painting, so the joints moved with the hour and a stain read as a bump;
+    // height is the painter's own geometry and holds still. Same three taps, on the other page.
+    if (uSurfPageOn > 0.5) {
+      float hu = textureLod(uSurfPage, vUV + vec2(uAtlasTexel.x, 0.0), 0.0).r;
+      float hv = textureLod(uSurfPage, vUV + vec2(0.0, uAtlasTexel.y), 0.0).r;
+      l0 = mix(l0, spg.r * uHeightGain, surfK);
+      lu = mix(lu, hu * uHeightGain, surfK);
+      lv = mix(lv, hv * uHeightGain, surfK);
+    }
     // Bright is proud, so the normal tilts AWAY from the brighter neighbour. v runs down the face in
     // this atlas, which is why the B term is subtracted rather than added.
     n = normalize(n0 - (T * (lu - l0) - B * (lv - l0)) * (k * 6.0));
@@ -551,14 +628,15 @@ void main() {
   // entry it does not use would discard on somebody else's alpha.
   vec4 atl = texture(uAtlas, vUV);
   if (texW > 0.5 && atl.a < 0.5) discard;
-  vec3 surf = mix(vColor, atl.rgb, texW);
+  // Decoded before the mix, because the mix is the start of the lighting (see uLinIn).
+  vec3 surf = uLinIn > 0.5 ? mix(glassLin(vColor), glassLin(atl.rgb), texW) : mix(vColor, atl.rgb, texW);
   // ⚠ HERE, AND NOT AFTER THE SHADING, WHICH IS THE WHOLE REASON THIS IS THREE LINES INSTEAD OF
   // THIRTY. Everything below composes a lit surface out of surf — the two overlays, the sun
   // shadow, the chamfer, both occlusion terms, the screen-space pass and then the point lights.
   // Substituting the albedo before any of that runs means snow is darker in shadow, darker down an
   // alley, darker under a canopy and lit by the neon bolted above it, with not one of those terms
   // knowing it exists. Mixed in at the end it would be a flat white decal over all of them.
-  surf = mix(surf, vec3(0.90, 0.93, 0.98), snowW);
+  surf = mix(surf, uLinIn > 0.5 ? glassLin(vec3(0.90, 0.93, 0.98)) : vec3(0.90, 0.93, 0.98), snowW);
   // ── AND WHAT IS RUNNING DOWN IT ─────────────────────────────────────────────
   //
   // The city has had wet ground since the tarmac pass and nothing above the kerb has ever got wet:
@@ -574,16 +652,25 @@ void main() {
   // ⚠ AND IT IS SUBSTITUTED IN THE ALBEDO FOR THE REASON THE LINE ABOVE IS. Everything below
   // composes a lit surface out of surf, so a wet wall is darker in shadow, darker down an alley
   // and still lit by the sign bolted to it, with no term here knowing any of that exists.
-  surf *= mix(1.0, 1.0 - WET_DARKEN, wetW);
+  surf *= lf(mix(1.0, 1.0 - WET_DARKEN, wetW));
   // wallLit's own two overlays, per fragment instead of as a canvas gradient: a warm top tinted
   // between sky and key by the light dot, and a darker base, both at alphas that depend on that
   // same dot. A flat tint is what this looked like before, and a flat tint reads as a wall painted
   // a lighter colour rather than a wall standing in light.
-  vec3 topCol = mix(uSky, uKey, lit);
+  // ⚠ AT LEVEL 2 THE OVERLAYS RUN ON DISPLAY VALUES AND THE RESULT IS DECODED. A mix toward a
+  // colour has no exact linear twin: the same alpha in linear light weighs a dark target less, and
+  // every wall came out lighter and flatter. Encoding, mixing as A does and decoding gives exactly
+  // A's base, and the light added after it (lamps, highlights, reflection) still adds as light.
+  vec3 surfD = uLinIn > 0.5 ? glassSrgb(surf) : surf;
+  vec3 skyD = uLinIn > 0.5 ? glassSrgb(uSky) : uSky;
+  vec3 keyD = uLinIn > 0.5 ? glassSrgb(uKey) : uKey;
+  vec3 shadowD = uLinIn > 0.5 ? glassSrgb(uShadow) : uShadow;
+  vec3 topCol = mix(skyD, keyD, lit);
   float aTop = uStr * (0.06 + 0.14 * lit);
   float aBot = uStr * (0.30 + 0.22 * (1.0 - lit));
-  vec3 shaded = mix(mix(surf, topCol, aTop), mix(surf, uShadow, aBot), clamp(vRamp, 0.0, 1.0));
-  vec3 base = mix(surf, shaded, clamp(uVLight, 0.0, 1.0) * solid);
+  vec3 shaded = mix(mix(surfD, topCol, aTop), mix(surfD, shadowD, aBot), clamp(vRamp, 0.0, 1.0));
+  vec3 base = mix(surfD, shaded, clamp(uVLight, 0.0, 1.0) * solid);
+  if (uLinIn > 0.5) base = glassLin(base);
   // ⚠ THE SHADOW HAS TO DARKEN THE SURFACE, NOT ONLY STEER THE KEY TERM — and for solid faces it
   // only did the latter, which made the whole feature nearly invisible once its wiring was fixed.
   //
@@ -600,11 +687,11 @@ void main() {
   // ⚠ 'shK' ALREADY CARRIES 'uShadowStr' — sunShadow multiplies by it before returning — so the
   // constant is the shape of the falloff and RENDER_TUNE.glShadow is the knob. Two knobs here would
   // multiply into a strength slider that does not mean what it says.
-  base *= 1.0 - SHADOW_DARK * shK;
+  base *= lf(1.0 - SHADOW_DARK * shK);
   // The chamfer's own contribution, on the surface rather than on an overlay alpha — see the ⚠ in
   // the bevel block. Exactly 1.0 when the width is 0, because bevelK is initialised to 0 and the
   // block that writes it is guarded by that same uniform.
-  base *= 1.0 + BEVEL_SHADE * bevelK;
+  base *= lf(1.0 + BEVEL_SHADE * bevelK);
   // ── CONTACT OCCLUSION ───────────────────────────────────────────────────────
   //
   // Ambient occlusion is a CONTACT effect — the ground robs a surface of sky the closer that
@@ -626,7 +713,7 @@ void main() {
   // doorway with the open sky it cannot reach — which is how a shiny surface gets a bright corner
   // where the matte version of it has a dark one.
   float occ = 1.0 - uAo * exp(-max(0.0, vWorld.z) * uAoFall);
-  base *= occ;
+  base *= lf(occ);
   // ── AND THE CONCAVE HALF, WHICH IS THE ONE THE HEIGHT TERM ABOVE CANNOT SEE ────────────────
   // vBakedAo is 1 where the vertex sees open sky and falls toward 0 in a corner, sampled against
   // the building's own solid volume at mesh-capture time (gl/world.js). Interpolating it across the
@@ -635,7 +722,7 @@ void main() {
   // ⚠ SAME PLACEMENT ARGUMENT AS THE TERM ABOVE — before the lights. Occlusion is a statement about
   // the SKY, and a neon sign in a recessed doorway must still light the doorway.
   occ *= 1.0 - uBakedAo * (1.0 - clamp(vBakedAo, 0.0, 1.0));
-  base *= 1.0 - uBakedAo * (1.0 - clamp(vBakedAo, 0.0, 1.0));
+  base *= lf(1.0 - uBakedAo * (1.0 - clamp(vBakedAo, 0.0, 1.0)));
   // ── AND THE HALF NEITHER OF THOSE CAN SEE: THE BUILDING NEXT DOOR ──────────
   //
   // Both terms above are LOCAL by construction. 'uAo' is a height above the ground and 'vBakedAo'
@@ -655,8 +742,11 @@ void main() {
     // CITY, and every comparison against NaN is false by definition so this rejects one.
     float k = ss >= 0.0 && ss <= 1.0 ? 1.0 - uSsaoStr * (1.0 - ss) : 1.0;
     occ *= k;
-    base *= k;
+    base *= lf(k);
   }
+  // The occlusion also scales the light terms added below (reflection, highlight, sheen), which A
+  // added as display values, so at level 2 it is a linear factor like the ones above.
+  occ = lf(occ);
   // ── AND WHAT THE SURFACE IS MADE OF ─────────────────────────────────────────
   //
   // ⚠ THE BRANCH IS ON A UNIFORM AND NOTHING ELSE, which is the one kind that is safe here: every
@@ -667,10 +757,12 @@ void main() {
   if (uMatStr > 0.0) {
     // ⚠ ROUNDED, NOT TRUNCATED. The attribute travels as a float and comes back through a flat
     // varying, so 6.0 can arrive as 5.999999 and int() would take it to 5 — a building silently
-    // wearing the family next to its own.
-    int mi = int(vMat + 0.5);
-    vec4 M = uMat[mi];
-    float sheen = uSheen[mi];
+    // wearing the family next to its own. ('wallMat' does that rounding, or reads the page.)
+    int mi = wallMat;
+    // A pane is glass whatever the wall round it is made of. glassK is 0 off the page, and mix(a, b,
+    // 0.0) is a, so without the page these are the three reads they always were.
+    vec4 M = mix(uMat[mi], uMat[uGlassMat], glassK);
+    float sheen = mix(uSheen[mi], uSheen[uGlassMat], glassK);
     // ⚠ SNOW IS MATTE, AND THE MATERIAL TABLE UNDERNEATH IT IS NOT. A copper roof, a glazed
     // atrium and a steel canopy are the surfaces most likely to be horizontal enough to hold snow,
     // and they are exactly the rows with the strongest environment and specular response — so
@@ -688,6 +780,17 @@ void main() {
     // ground, and the line between them moves as you drive. That gradient IS what glass looks like.
     vec3 R = reflect(-V, n);
     vec3 env = mix(uEnvDn, uEnvUp, smoothstep(-0.35, 0.55, R.z));
+    // The roughness the table's exponent stands for: Blinn-Phong n is about a GGX alpha of
+    // sqrt(2 / (n + 2)), so curtain glass (90) is 0.15 and weathered render (8) is 0.45. Read by the
+    // cube's level and the GGX lobe below, so the two agree about how blurred a surface is.
+    // The surface page's roughness scale: 0.5 is the family's own, each step of 0.5 doubles or halves it.
+    float alphaR = sqrt(2.0 / (max(1.0, M.x) + 2.0)) * mix(1.0, exp2((spg.g - 0.5) * 2.0), surfK);
+    if (uEnvCubeOn > 0.5) {
+      // ⚠ textureLod, in a uniform branch, for the relief taps' reason. The level is alpha times the
+      // chain's depth: a mirror reads the 32-texel top, a matte wall the 4-texel level.
+      vec3 ec = textureLod(uEnvCube, R, alphaR * uEnvMaxLod).rgb;
+      env = uLinIn > 0.5 ? glassLin(ec) : ec;
+    }
     // ── AND THE CITY IN IT ────────────────────────────────────────────────────
     //
     // Two flat colours make a tower reflect the WEATHER. What every photograph of a curtain wall is
@@ -710,7 +813,7 @@ void main() {
       // Below the skyline is mass; below the ground horizon is ground, which 'env' already has.
       float city = (1.0 - smoothstep(skySlope - 0.09, skySlope + 0.09, raySlope))
                  * smoothstep(-0.03, 0.07, raySlope);
-      env = mix(env, sl.rgb * uEnvDim, clamp(city * uEnvCity, 0.0, 1.0));
+      env = mix(env, (uLinIn > 0.5 ? glassLin(sl.rgb) : sl.rgb) * uEnvDim, clamp(city * uEnvCity, 0.0, 1.0));
     }
     float ndv = clamp(dot(n, V), 0.0, 1.0);
     // Schlick. Near zero face-on, one at grazing, and the fifth power is what makes it hug the
@@ -744,7 +847,7 @@ void main() {
     // ⚠ AND THE DIFFUSE GOES DOWN AS THE METAL GOES UP, before the mix and not after. A conductor
     // has almost no diffuse — what you see IS the reflection — and leaving the diffuse standing is
     // what makes every attempt at chrome come out as light grey paint with a highlight on it.
-    vec3 diff = base * (1.0 - 0.55 * M.y * mk);
+    vec3 diff = base * lf(1.0 - 0.55 * M.y * mk);
     base = mix(diff, env * spc * occ, envAmt);
 
     // ── THE SUN'S OWN HIGHLIGHT ───────────────────────────────────────────────
@@ -756,6 +859,25 @@ void main() {
     // shader is already shading against, so the highlight lands where the lit side is.
     vec3 Hv = normalize(normalize(uKeyDir) + V);
     float sp = pow(max(0.0, dot(n, Hv)), max(1.0, M.x));
+    if (uGGX > 0.5) {
+      // ⚠ A GGX LOBE WITH ITS PEAK HELD AT 1, so the first frame compares with the Phong it replaces:
+      // the same exponent gives the same peak, and what changes is the SHAPE (GGX's long tail, which
+      // is what reads as polish) and the grazing behaviour (Smith shadowing and a Schlick term).
+      // D / D(peak) for GGX is alpha^4 / (nh^2 (alpha^2 - 1) + 1)^2.
+      float a2 = alphaR * alphaR;
+      vec3 Lk = normalize(uKeyDir);
+      float nh = max(0.0, dot(n, Hv)), nl = max(0.0, dot(n, Lk)), nv = max(1e-3, dot(n, V));
+      float dd = nh * nh * (a2 - 1.0) + 1.0;
+      float shape = a2 * a2 / max(1e-6, dd * dd);
+      // Smith G1 for each of light and view: 1 for a smooth surface face-on, falling at grazing.
+      float gL = 2.0 * nl / (nl + sqrt(a2 + (1.0 - a2) * nl * nl));
+      float gV = 2.0 * nv / (nv + sqrt(a2 + (1.0 - a2) * nv * nv));
+      // Schlick against the surface's own F0, as a gain on the face-on value and capped, so a grazing
+      // sun brightens the rim without turning every dielectric edge white.
+      float f0 = mix(0.04, 1.0, M.y);
+      float fr = f0 + (1.0 - f0) * pow(1.0 - max(0.0, dot(V, Hv)), 5.0);
+      sp = shape * gL * gV * nl * min(fr / f0, 4.0);
+    }
     // ⚠ SCALED BY THE REFLECTIVITY COLUMN, or a matte surface gets a full-strength highlight that
     // merely happens to be wide: pow(x, 8.0) still peaks at exactly 1.0. Stucco's 0.10 is what
     // makes a rendered wall look damp rather than polished.
@@ -772,7 +894,7 @@ void main() {
     // their old value in the table. What it was wrong about is the polished families: they live
     // on drums and curtain walls, where the surface really does curve away from the light and a
     // lobe really does travel across it.
-    float specK = mix(0.15 + 0.30 * M.y, uSpec[mi], uSpecStr);
+    float specK = mix(0.15 + 0.30 * M.y, mix(uSpec[mi], uSpec[uGlassMat], glassK), uSpecStr);
     base += uKey * (sp * M.z * specK * mk * (1.0 - shK) * occ);
     // ── SHEEN ─────────────────────────────────────────────────────────────────
     //
@@ -788,7 +910,20 @@ void main() {
   // out of a darker wall rather than dimming with it. A texel already bright here is a lit window
   // baked into the night atlas, which is a light source too, so it keeps its brightness.
   vec3 undimmed = base;
-  base *= mix(uNightDim, 1.0, smoothstep(0.28, 0.55, dot(base, vec3(0.299, 0.587, 0.114))));
+  // ⚠ WHERE THE PAGE SPEAKS, IT SAYS WHICH TEXELS ARE LIT, and the brightness guess stands down.
+  // The guess runs on the LIT colour, so a bright reflection escaped the dim and a lit window in
+  // shadow fell under it; the page's g is the pane loop's own answer. Elsewhere it's the guess.
+  // The guess's thresholds are display values, so a linear base is encoded before it is asked.
+  float litK = mix(smoothstep(0.28, 0.55, dot(uLinIn > 0.5 ? glassSrgb(base) : base, vec3(0.299, 0.587, 0.114))), mpg.g, pageK);
+  // ⚠ SNOW IS NEVER A LIT WINDOW. Its 0.9 albedo sits well over the guess's 0.55, so every snowy
+  // roof, sill and awning was taken for a light source and kept its daylight white at midnight.
+  // snowW is 0 on anything that isn't facing up, so a wall's lit windows are untouched.
+  litK *= 1.0 - snowW;
+  // ⚠ THE DIM WAS TUNED AS A FACTOR ON DISPLAY VALUES. Halving linear light only takes about a
+  // quarter off what the eye sees, so at level 2 the night came out washed grey. A display factor k
+  // is roughly k^2.2 in linear light, which keeps the night as dark as it was tuned.
+  float nightK = lf(uNightDim);
+  base *= mix(nightK, 1.0, litK);
   // The lamps give back what the night took, and no more. Each light lifts the dimmed wall toward
   // its own undimmed colour, tinted by the lamp, capped at 1 per channel, so a wall under a lamp is
   // never brighter than it is by day. The cap is what the additive wash below lacked (it drowned the
@@ -800,7 +935,8 @@ void main() {
     vec3 d = uLightP[i] - vWorld;
     float dist = length(d);
     float la = clamp(1.0 - dist / max(0.001, uLightLR[i]), 0.0, 1.0);
-    lamp += uLightRaw[i] * (la * la * max(0.0, (dot(n, d / max(0.001, dist)) + 0.5) / 1.5));
+    // The lift's weight was tuned on display colours, so it reads them back at level 2.
+    lamp += (uLinIn > 0.5 ? glassSrgb(uLightRaw[i]) : uLightRaw[i]) * (la * la * max(0.0, (dot(n, d / max(0.001, dist)) + 0.5) / 1.5));
     float att = clamp(1.0 - dist / max(0.001, uLightR[i]), 0.0, 1.0);
     if (att <= 0.0) continue;
     // ⚠ WRAPPED, AND MEASURED INTO IT RATHER THAN CHOSEN. Straight lambert is the obvious term and
@@ -857,7 +993,10 @@ void main() {
       base += uLightRaw[i] * (pow(max(0.0, dot(n, Hl)), WET_LOBE) * WET_NEON * wetW * fall);
     }
   }
-  base += max(vec3(0.0), undimmed - base) * min(vec3(1.0), lamp * uLampLift);
+  // A lift toward the undimmed wall is a mix, so at level 2 it runs on display values (see the overlays).
+  vec3 liftW = min(vec3(1.0), lamp * uLampLift);
+  if (uLinIn > 0.5) { vec3 bD = glassSrgb(base); base = glassLin(bD + max(vec3(0.0), glassSrgb(undimmed) - bD) * liftW); }
+  else base += max(vec3(0.0), undimmed - base) * liftW;
   // ⚠ AND THERE IS NO EMISSION TERM HERE, WHICH WAS MEASURED RATHER THAN ASSUMED. One sat on this
   // line and moved 0.0% of wall pixels at every seat: everything above IS light arriving at a wall,
   // and every emissive surface in the city is a FLAT face, which 'solid' has already excused from
@@ -912,8 +1051,10 @@ void main() {
   // than part of the surface, so it is not something the fog should be mixing away — but it does
   // belong to this fragment's own coverage, or a shaft would draw at full strength across the
   // dissolving far edge of the city.
-  outColor = vec4((mix(base, uFog, fog) + scat) * a, a);
-}`;
+  // Fog is a mix toward a colour as well: display values at level 2, then decoded.
+  vec3 fogged = uLinIn > 0.5 ? glassLin(mix(glassSrgb(base), glassSrgb(uFog), fog)) : mix(base, uFog, fog);
+  outColor = vec4((fogged + scat) * a, a);
+}`, 'outColor');
 
 // The shader source carries a symbolic bound so the loop limit and the array sizes cannot drift
 // apart; there is one number and the GLSL is stamped from it.
@@ -959,7 +1100,8 @@ function splitGroups(list, ox, oy) {
   const G = list && list.groups;
   if (!G || !G.length) return { rest: list, groups: null };
   const rest = [], groups = [];
-  if (list.deep) rest.deep = list.deep;   // the strokes' prepass flag rides on the array
+  if (list.deep) rest.deep = list.deep;
+  if (list.now != null) rest.now = list.now;   // the sprites' blink clock, likewise   // the strokes' prepass flag rides on the array
   let gi = 0;
   for (let i = 0; i < list.length; i++) {
     while (gi < G.length && G[gi].at < i) gi++;
@@ -1023,6 +1165,7 @@ export function createGLView(canvas, opts = {}) {
     worldBlend: gl.getUniformLocation(prog, 'uWorldBlend'),
     hazeNear: gl.getUniformLocation(prog, 'uHazeNear'),
     hazeFar: gl.getUniformLocation(prog, 'uHazeFar'),
+    fadePass: gl.getUniformLocation(prog, 'uFadePass'),
     vlight: gl.getUniformLocation(prog, 'uVLight'),
     nightDim: gl.getUniformLocation(prog, 'uNightDim'),
     atlas: gl.getUniformLocation(prog, 'uAtlas'),
@@ -1076,6 +1219,17 @@ export function createGLView(canvas, opts = {}) {
     envCity: gl.getUniformLocation(prog, 'uEnvCity'),
     envDim: gl.getUniformLocation(prog, 'uEnvDim'),
     atlasTexel: gl.getUniformLocation(prog, 'uAtlasTexel'),
+    matPage: gl.getUniformLocation(prog, 'uMatPage'),
+    matPageOn: gl.getUniformLocation(prog, 'uMatPageOn'),
+    glassMat: gl.getUniformLocation(prog, 'uGlassMat'),
+    linIn: gl.getUniformLocation(prog, 'uLinIn'),
+    envCube: gl.getUniformLocation(prog, 'uEnvCube'),
+    envCubeOn: gl.getUniformLocation(prog, 'uEnvCubeOn'),
+    envMaxLod: gl.getUniformLocation(prog, 'uEnvMaxLod'),
+    ggx: gl.getUniformLocation(prog, 'uGGX'),
+    surfPage: gl.getUniformLocation(prog, 'uSurfPage'),
+    surfPageOn: gl.getUniformLocation(prog, 'uSurfPageOn'),
+    heightGain: gl.getUniformLocation(prog, 'uHeightGain'),
   };
 
   // Scratch, filled per frame and never reallocated: the arrays are the same size every frame and
@@ -1144,6 +1298,43 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     hasAtlas = true;
+  }
+
+  // The material page: the atlas's twin (gl/atlas.js), uploaded and sampled the same way so a texel
+  // of one sits over the same texel of the other. ⚠ NEAREST magnification for the atlas's reason: a
+  // pane edge that blurred across two texels would lend the wall beside it half a pane of glass.
+  let matPageTex = null, hasMatPage = false;
+  function setMatPage(canvas) {
+    if (!canvas) { hasMatPage = false; return; }
+    if (!matPageTex) matPageTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, matPageTex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    hasMatPage = true;
+  }
+  // The table row a pane takes, found by name when the table arrives. 0 until then, never -1.
+  let glassRow = 0;
+  // The sky as a cube for reflections (RENDER_TUNE.glEnvCube; gl/envcube.js), built on first use.
+  let envCube = null;
+  // The surface page: height and roughness (RENDER_TUNE.glSurfPage), uploaded like the material page.
+  // ⚠ LINEAR MAGNIFICATION, unlike the other two pages: height is a field, and NEAREST would turn
+  // every joint into a one-texel cliff the relief reads as a step.
+  let surfPageTex = null, hasSurfPage = false;
+  function setSurfPage(canvas) {
+    if (!canvas) { hasSurfPage = false; return; }
+    if (!surfPageTex) surfPageTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, surfPageTex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    hasSurfPage = true;
   }
 
   // ⚠ QUADS ARE FANNED, NOT ASSUMED TO BE FOUR-SIDED. A drum cap is an N-gon and a clipped roof is a
@@ -1376,6 +1567,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // Returns whether the float path is live, so the caller knows whether a composite is owed.
   function beginTarget(opts) {
     targetLive = false;
+    LIN.out = 0;
     if (!(opts.hdr > 0)) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); return false; }
     if (!hdr && !hdrTried) {
       hdrTried = true;                        // one attempt per view; a driver that refused once will refuse again
@@ -1383,6 +1575,8 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     }
     if (!hdr || !hdr.bind(canvas.width, canvas.height)) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); return false; }
     targetLive = true;
+    // Linear light only ever lives in the float target (RENDER_TUNE.glLinear; see colour.js).
+    LIN.out = opts.linear > 0 ? 1 : 0;
     return true;
   }
 
@@ -1393,13 +1587,17 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // And the other end of it. A no-op when the float path is not live, which is what makes the
   // caller free to call it unconditionally.
   function composite(opts = {}) {
-    return hdr ? hdr.composite(opts) : null;
+    // A linear target is encoded back to display values at the end of the composite.
+    return hdr ? hdr.composite({ ...opts, linear: targetLive ? LIN.out : 0 }) : null;
   }
 
   // The peak in the float target, for a bench asking why a bright-pass found nothing. Null when
   // there is no float path — see hdr.js.
   function hdrPeak() { return hdr && hdr.peak ? hdr.peak() : null; }
 
+  // What this frame's main `draw` handed the fade pass: its env cube, sun map and SSAO, or null
+  // when it did not split the band off.
+  let fadeKept = null;
   function draw(cam, opts = {}) {
     // ── ⚠ AND THE MIRROR PASS RE-ENTERS THIS WHOLE FUNCTION ─────────────────────────────────────
     //
@@ -1418,14 +1616,32 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     // Everything else — the materials, the atlas, the lights, the fog, the bevel, the dusk blend —
     // is reused verbatim, which is the only way the city in the puddle cannot disagree with the
     // city above it about what it is made of.
+    // ⚠ THE FADE PASS (drawFade) RE-ENTERS TOO, AND TAKES THIS FRAME'S PREPASSES AS THEY ARE. The
+    // cube, the sun and the SSAO all bind framebuffers of their own, and by then the floor and the
+    // roads are already in the target they would unbind. It skips the target and the clear for the
+    // same reason.
+    const fade = opts.fadePass === 2;
+    if (fade && !fadeKept) return 0;
+    // The reflection cube, refreshed when the sky has changed (a string compare otherwise). Before the
+    // target is bound, because a rebuild binds its own framebuffer and hands the old one back.
+    let envTex = fade ? fadeKept.envTex : null;
+    if (!fade && opts.envCube > 0 && opts.envSky) {
+      if (!envCube) envCube = createEnvCube(gl);
+      envTex = envCube.update(opts.envSky, opts.envDn || null);
+    }
     const into = opts.intoTarget || null;
-    const sun = (into || opts.skipMass) ? null : sunPass(opts);
+    const sun = fade ? fadeKept.sun : (into || opts.skipMass) ? null : sunPass(opts);
     // The city's sun map, kept for the cabin: a cockpit parked in a building's shadow is in it too.
     // ⚠ A COPY OF THE MATRIX, never mat4f's: that one is a shared scratch the next draw overwrites.
-    if (!into) worldSun = sun ? { tex: sun.tex, vp: new Float32Array(opts.sunShadow.lightVP), texel: sun.texel, bias: opts.sunShadow.bias } : null;
+    if (!into && !fade) worldSun = sun ? { tex: sun.tex, vp: new Float32Array(opts.sunShadow.lightVP), texel: sun.texel, bias: opts.sunShadow.bias } : null;
     const W = into ? into[0] : canvas.width, H = into ? into[1] : canvas.height;
-    const ssaoTex = into ? null : ssaoPass(cam, opts, W, H);
-    if (!into) { beginTarget(opts); gl.viewport(0, 0, W, H); }
+    const ssaoTex = fade ? fadeKept.ssaoTex : into ? null : ssaoPass(cam, opts, W, H);
+    if (!into && !fade) beginTarget(opts);
+    if (!into) gl.viewport(0, 0, W, H);
+    // Split only on the screen, with a band to split on and a later pass to draw it: the mirror has
+    // no floor drawn after it, and with no band the second pass would cost a draw to find nothing.
+    const split = !into && !fade && !!opts.fadeSplit && opts.hazeNear != null && !opts.skipMass && count > 0;
+    if (!fade) fadeKept = split ? { envTex, sun, ssaoTex } : null;
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
     // ⚠ NO BACKFACE CULL. The mesh carries every face of every solid, and a building here is not
@@ -1439,7 +1655,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     // ⚠ NOT WHEN DRAWING INTO SOMEBODY ELSE'S TARGET. The mirror buffer is cleared transparent by
     // its own `bind()` — a sky-coloured clear here would fill the water with a rectangle of sky and
     // the ground shader would add it to every wet pixel in the frame.
-    if (!into) {
+    if (!into && !fade) {
       gl.clearColor(sky[0] * ca, sky[1] * ca, sky[2] * ca, ca);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     }
@@ -1447,7 +1663,12 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     if (!count) return 0;
 
-    gl.useProgram(prog);
+    // Level 2 of RENDER_TUNE.glLinear: this layer shades in linear, so its output is already linear
+    // and is not decoded again. Only ever inside the float target (LIN.out; see colour.js).
+    const linIn = LIN.out > 0 && opts.linear >= 2;
+    const cIn = linIn ? linRgb : (c) => c;
+    gl.useProgram(prog); applyLinOut(gl, prog, linIn ? 0 : LIN.out);
+    gl.uniform1f(loc.linIn, linIn ? 1 : 0);
     // The camera's own frame height (CSS px), never the canvas's (device px) — see the ⚠ in
     // world.js. Falls back to H so a caller that already works in one unit is unchanged.
     gl.uniformMatrix4fv(loc.viewProj, false, mat4f(viewProjMatrix(cam, opts.cssH || H)));
@@ -1478,14 +1699,15 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     const key = opts.key || [0.78, 0.59, 0.33];
     let sh = opts.shadow;
     if (sh && !Array.isArray(sh)) { if (!warnedShadowShape) { warnedShadowShape = true; console.warn('GLASS 2: draw({shadow}) wants an [r,g,b]; got', sh, '— the sun descriptor belongs in sunShadow'); } sh = null; }
-    sh = sh || [0.13, 0.16, 0.21];
-    const skyC = opts.skyTint || [0.59, 0.62, 0.59];
-    gl.uniform3f(loc.key, key[0], key[1], key[2]);
+    sh = cIn(sh || [0.13, 0.16, 0.21]);
+    const skyC = cIn(opts.skyTint || [0.59, 0.62, 0.59]);
+    const keyC = cIn(key);
+    gl.uniform3f(loc.key, keyC[0], keyC[1], keyC[2]);
     gl.uniform3f(loc.shadow, sh[0], sh[1], sh[2]);
     gl.uniform3f(loc.sky, skyC[0], skyC[1], skyC[2]);
     gl.uniform1f(loc.str, opts.str == null ? 1 : opts.str);
     gl.uniform1f(loc.worldBlend, opts.worldBlend == null ? 1 : opts.worldBlend);
-    const fogC = opts.fog || sky;
+    const fogC = cIn(opts.fog || sky);
     gl.uniform3f(loc.fog, fogC[0], fogC[1], fogC[2]);
     gl.uniform1f(loc.fogNear, opts.fogNear == null ? 6 : opts.fogNear);
     gl.uniform1f(loc.fogFar, opts.fogFar == null ? 34 : opts.fogFar);
@@ -1494,6 +1716,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     // the bench want. A world pass always gives one.
     gl.uniform1f(loc.hazeNear, opts.hazeNear == null ? 1e6 : opts.hazeNear);
     gl.uniform1f(loc.hazeFar, opts.hazeFar == null ? 1e6 + 1 : opts.hazeFar);
+    gl.uniform1f(loc.fadePass, fade ? 2 : split ? 1 : 0);
     gl.uniform1f(loc.vlight, opts.vlight == null ? 1 : opts.vlight);
     gl.uniform1f(loc.nightDim, opts.nightDim == null ? 1 : opts.nightDim);
     // Contact occlusion. Absent means OFF and the shader multiplies by exactly 1.0.
@@ -1511,10 +1734,13 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     for (let i = 0; i < nL; i++) {
       const L = lights[i];
       lightP[i * 3] = L.p[0]; lightP[i * 3 + 1] = L.p[1]; lightP[i * 3 + 2] = L.p[2];
-      lightC[i * 3] = L.rgb[0]; lightC[i * 3 + 1] = L.rgb[1]; lightC[i * 3 + 2] = L.rgb[2];
+      // ⚠ A LIGHT'S COLOUR ARRIVES ALREADY SCALED BY ITS STRENGTH, so at level 2 the product is decoded
+      // as one display value. The strengths were tuned by eye on display values anyway.
+      const lc = linIn ? linRgb(L.rgb) : L.rgb;
+      lightC[i * 3] = lc[0]; lightC[i * 3 + 1] = lc[1]; lightC[i * 3 + 2] = lc[2];
       // Falls back to the weighted colour for a caller that has never heard of the split (a bench,
       // a preview), so the array is never handed stale numbers from a previous frame.
-      const raw = L.rgbRaw || L.rgb;
+      const raw = linIn ? linRgb(L.rgbRaw || L.rgb) : (L.rgbRaw || L.rgb);
       lightRaw[i * 3] = raw[0]; lightRaw[i * 3 + 1] = raw[1]; lightRaw[i * 3 + 2] = raw[2];
       // ⚠ `rw`, THE WALL'S REACH, NOT `r`. They are the same number until pickLights splits them,
       // and `r` is the WET ROAD'S — a streak on tarmac is as long as it was swept at. A caller that
@@ -1565,6 +1791,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       gl.uniform1f(loc.metalRefl, opts.metalRefl == null ? 1 : opts.metalRefl);
       if (opts.mat !== matSrc) {
         matSrc = opts.mat;
+        glassRow = Math.max(0, Math.min(MAX_MATERIALS - 1, opts.mat.findIndex((r) => r && r.name === 'glass')));
         for (let i = 0; i < MAX_MATERIALS; i++) {
           const r = opts.mat[i];
           // ⚠ A ROW PAST THE END OF THE TABLE KEEPS THE HARMLESS DEFAULT rather than going to zero
@@ -1585,7 +1812,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       gl.uniform1f(loc.specStr, opts.specStr == null ? 1 : opts.specStr);
       const eye = opts.eye || [0, 0, 0];
       gl.uniform3f(loc.eye, eye[0], eye[1], eye[2]);
-      const eu = opts.envUp || skyC, ed = opts.envDn || sh;
+      const eu = opts.envUp ? cIn(opts.envUp) : skyC, ed = opts.envDn ? cIn(opts.envDn) : sh;
       gl.uniform3f(loc.envUp, eu[0], eu[1], eu[2]);
       gl.uniform3f(loc.envDn, ed[0], ed[1], ed[2]);
       // ⚠ ZERO WHEN THERE IS NO PAGE, which makes the relief taps land on the same texel they
@@ -1609,6 +1836,25 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     const textured = hasAtlas && opts.textured !== false;
     gl.uniform1f(loc.textured, textured ? 1 : 0);
     if (textured) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, atlasTex); gl.uniform1i(loc.atlas, 0); }
+    // ⚠ UNIT 4 IS BOUND ON EVERY DRAW, TO THE PAGE OR TO NOTHING. A sampler reads whatever its unit
+    // holds whether or not the branch reads it, and a texture there that is also this frame's
+    // render target is a feedback loop the driver answers by dropping the draw (glass-notes.md, "A
+    // pass that didn't draw"). Nothing bound reads as zero, which is "the page says nothing".
+    const pageOn = textured && hasMatPage && opts.matPage > 0;
+    gl.uniform1f(loc.matPageOn, pageOn ? 1 : 0);
+    gl.uniform1i(loc.glassMat, glassRow);
+    gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, pageOn ? matPageTex : null); gl.uniform1i(loc.matPage, 4);
+    // ⚠ UNIT 5 IS THE CUBE, BOUND ON EVERY DRAW TO THE CUBE OR TO NOTHING, for unit 4's reason. It is
+    // a cube unit and nothing else may point a 2-D sampler at it in this program.
+    gl.uniform1f(loc.envCubeOn, envTex ? 1 : 0);
+    gl.uniform1f(loc.envMaxLod, ENV_MAX_LOD);
+    gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_CUBE_MAP, envTex); gl.uniform1i(loc.envCube, 5);
+    gl.uniform1f(loc.ggx, opts.ggx > 0 ? 1 : 0);
+    // Unit 6: the surface page, bound on every draw to the page or to nothing, for unit 4's reason.
+    const surfOn = textured && hasSurfPage && opts.surfPage > 0;
+    gl.uniform1f(loc.surfPageOn, surfOn ? 1 : 0);
+    gl.uniform1f(loc.heightGain, opts.heightGain > 0 ? opts.heightGain : 0.33);
+    gl.activeTexture(gl.TEXTURE6); gl.bindTexture(gl.TEXTURE_2D, surfOn ? surfPageTex : null); gl.uniform1i(loc.surfPage, 6);
     // ⚠ THE STRENGTH IS WRITTEN ON EVERY FRAME, INCLUDING THE FRAMES WITH NO SUN. A uniform holds
     // its last value, so a pass that only set this when it had a shadow would leave the previous
     // frame's strength standing after sunset, against a depth texture belonging to an hour ago —
@@ -1641,10 +1887,26 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     // skipMass (plugins/submersible): the eye is under the sea, and the city is above it — seen from
     // below only through Snell's window, and everywhere else the surface is a mirror. The clear
     // above still runs; only the city does not.
-    if (!opts.skipMass) gl.drawArrays(gl.TRIANGLES, 0, count);
+    if (fade) {
+      // Depth first, so only the nearest face of a dissolving block blends over the ground. There
+      // is no backface cull (above), and without this its back walls show through its front ones.
+      gl.colorMask(false, false, false, false);
+      gl.drawArrays(gl.TRIANGLES, 0, count);
+      gl.colorMask(true, true, true, true);
+      gl.depthMask(false);
+      gl.drawArrays(gl.TRIANGLES, 0, count);
+      gl.depthMask(true);
+    } else if (!opts.skipMass) gl.drawArrays(gl.TRIANGLES, 0, count);
     gl.bindVertexArray(null);
     return count;
   }
+
+  // ── THE BUILDINGS DISSOLVING AT THE DRAW LIMIT, OVER THE GROUND ─────────────────────────────
+  //
+  // The second half of the split in the shader (uFadePass). Called by the world pass after the
+  // floor, the sea and the roads, with the same camera and options it gave `draw`, so the band
+  // blends over what is actually behind it. 0 when this frame's `draw` did not split.
+  function drawFade(cam, opts = {}) { return draw(cam, { ...opts, fadePass: 2 }); }
 
   // The lights, on the same context and the same depth buffer. Built lazily: a view that never
   // has a light never compiles the program.
@@ -1755,7 +2017,14 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // surface never allocates it, and a machine that refused the context never gets here at all.
   let skyline = null;
   const skylineLayer = () => (skyline || (skyline = createSkylineStrip(gl)));
+  // ⚠ THE MIRROR IS AN EIGHT-BIT BUFFER OF DISPLAY VALUES, whatever the frame's own target is, so
+  // every layer drawn into it is told so (colour.js) and told back afterwards.
   function drawMirror(cam, opts = {}) {
+    const was = LIN.out;
+    LIN.out = 0;
+    try { return drawMirrorInto(cam, opts); } finally { LIN.out = was; }
+  }
+  function drawMirrorInto(cam, opts = {}) {
     const sp = opts.sprites, dc = opts.decals, cl = opts.clouds;
     // ⚠ THE RIG COUNTS AS SOMETHING TO REFLECT. This used to ask only whether there were lights or
     // signs, which was the whole of what the buffer held — so on an unlit stretch of wet road the
@@ -2076,6 +2345,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // default framebuffer, so it takes the multisampled edges the canvas was created with.
   function drawInteriorAlone(cam, cssH, aloneUnder = 0, aloneUnderD = 0) {
     if (!intQuads) return 0;
+    LIN.out = 0;   // straight onto the canvas, which holds display values (colour.js)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.disable(gl.SCISSOR_TEST);
@@ -2123,7 +2393,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // Handed the window's cells and the eye in the MESH frame; see gl/skyline.js and the ⚠ on 
   // in world.js. Called before , because the strip is a uniform that draw reads.
   function setSkyline(cells, eye, facesOf) { try { skylineLayer().update(cells, eye, facesOf); } catch { /* no strip is the flat environment, which is the picture that shipped */ } }
-  return { murmurGPU: () => mg, gl, setSkyline, upload, uploadGroups, draw, beginTarget, hdrLive, composite, hdrPeak, drawSeabed, drawSeabedPoints, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawBillboards, billboardTextures, drawGround, drawFloor, drawWater, drawCloudDeck, drawCloudVolume, drawMirror, mirrorPeak, uploadSolids, uploadShip, drawSolids, drawActors, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => gl.isContextLost(),
+  return { murmurGPU: () => mg, gl, setSkyline, upload, uploadGroups, draw, drawFade, beginTarget, hdrLive, composite, hdrPeak, setMatPage, setSurfPage, drawSeabed, drawSeabedPoints, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawBillboards, billboardTextures, drawGround, drawFloor, drawWater, drawCloudDeck, drawCloudVolume, drawMirror, mirrorPeak, uploadSolids, uploadShip, drawSolids, drawActors, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => gl.isContextLost(),
     maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; },
     // The mesh's own box, for the caller that has to fit a light projection to it — and the shadow
     // map's size, which is 0 when the driver refused it. A zero there next to a sun that is up is

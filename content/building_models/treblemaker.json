@@ -39,17 +39,17 @@
   "detail": [
     {
       "bars": 5,
-      "cx": 0.02,
+      "cx": -0.1,
       "cy": 0.38,
       "depth": 0.032,
       "glass": "#171226",
       "glow": "#e2d0ff",
-      "half": 0.28,
-      "hh": 0.072,
+      "half": 0.16,
+      "hh": 0.081,
       "kind": "windowBay",
       "pal": "ty_shop_a",
       "transom": 0.78,
-      "z": 0.105
+      "z": 0.152
     },
     {
       "cx": 0.02,
@@ -61,7 +61,7 @@
       "pal": "ty_studio",
       "soffit": "#2a1c46",
       "strip": "#c8adff",
-      "z": 0.212
+      "z": 0.259
     },
     {
       "color": "#1c1230",
@@ -69,11 +69,11 @@
       "cy": 0.38,
       "font": "block",
       "half": 0.3,
-      "hh": 0.04,
+      "hh": 0.028,
       "ink": "#d6bcff",
       "kind": "signBoard",
       "label": "TREBLE MAKER",
-      "z": 0.288
+      "z": 0.305
     },
     {
       "cx": 0,
@@ -234,6 +234,18 @@
       "kind": "bollard",
       "pal": "ty_studio",
       "z": 0.004
+    },
+    {
+      "cx": 0.18,
+      "cy": 0.38,
+      "depth": 0.016,
+      "door": 1,
+      "half": 0.06,
+      "hh": 0.096,
+      "kind": "windowBay",
+      "pal": "ty_shop_a",
+      "transom": 0.8,
+      "z": 0.151
     }
   ],
   "id": "treblemaker",

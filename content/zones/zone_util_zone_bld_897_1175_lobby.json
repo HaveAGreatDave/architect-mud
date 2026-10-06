@@ -7,6 +7,7 @@
   },
   "flags": {
     "floor": "concrete",
+    "hangar_ramp": "zone_the_reach_870_1958",
     "is_interior": true,
     "lawless": true,
     "world_exit_zone": "zone_the_reach_870_1958"

@@ -92,7 +92,8 @@ export const REACH_ARMS = {
     draw3DBoxAt(ctx, cam, dx, dy, fh * 0.9, 0, bodyTop, pal, seed, night, alpha, true);
     // THE SHAKE ROOF BEHIND THE FALSE FRONT. The front is a flat board wall and everything behind
     // it is what you actually see from the air, so the body gets a shingled cap — otherwise the
-    // one surface a flight sim spends the whole flight looking down at is generic roof felt.      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.95, bodyTop, bodyTop + h * 0.05, 'ty_reach_shake', seed + 200, night, alpha, true);
+    // one surface a flight sim spends the whole flight looking down at is generic roof felt.
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.95, bodyTop, bodyTop + h * 0.05, 'ty_reach_shake', seed + 200, night, alpha, true);
     { const [fx, fy] = F(0, fh * 0.16); draw3DBoxAt(ctx, cam, fx, fy, fh * 0.86, 0, frontTop, 'ty_reach_saloon_dk', seed + 1, night, alpha, true); }
     // 3) PORCH — a shed awning over the boardwalk on three posts, along the front.
     { const canZ0 = bodyTop * 0.5, canZ1 = bodyTop * 0.58, [cx, cy] = F(0, fh * 1.18);
@@ -236,7 +237,8 @@ export const REACH_ARMS = {
     draw3DBoxAt(ctx, cam, dx, dy, fh * 0.94, 0, bodyTop, pal, seed, night, alpha, true);
     // THE SHAKE ROOF BEHIND THE FALSE FRONT. The front is a flat board wall and everything behind
     // it is what you actually see from the air, so the body gets a shingled cap — otherwise the
-    // one surface a flight sim spends the whole flight looking down at is generic roof felt.      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.99, bodyTop, bodyTop + h * 0.05, 'ty_reach_shake', seed + 200, night, alpha, true);
+    // one surface a flight sim spends the whole flight looking down at is generic roof felt.
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.99, bodyTop, bodyTop + h * 0.05, 'ty_reach_shake', seed + 200, night, alpha, true);
     { const [fx, fy] = F(0, fh * 0.2); draw3DBoxAt(ctx, cam, fx, fy, fh * 0.92, 0, frontTop, 'ty_reach_merc_dk', seed + 1, night, alpha, true); }
     // A cornice board capping the parapet — the one bit of carpentry anybody in town is proud of.
     { const [cx, cy] = F(0, fh * 0.2); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.98, frontTop, frontTop + h * 0.05, 'ty_reach_merc', seed + 2, night, alpha, true); }
@@ -304,7 +306,8 @@ export const REACH_ARMS = {
     draw3DBoxAt(ctx, cam, dx, dy, fh * 0.62, 0, bodyTop, pal, seed, night, alpha, true);
     // THE SHAKE ROOF BEHIND THE FALSE FRONT. The front is a flat board wall and everything behind
     // it is what you actually see from the air, so the body gets a shingled cap — otherwise the
-    // one surface a flight sim spends the whole flight looking down at is generic roof felt.      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.66, bodyTop, bodyTop + h * 0.04, 'ty_reach_shake', seed + 200, night, alpha, true);
+    // one surface a flight sim spends the whole flight looking down at is generic roof felt.
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.66, bodyTop, bodyTop + h * 0.04, 'ty_reach_shake', seed + 200, night, alpha, true);
     { const [fx, fy] = F(0, fh * 0.3); draw3DBoxAt(ctx, cam, fx, fy, fh * 0.6, 0, frontTop, 'ty_reach_grey_dk', seed + 1, night, alpha, true); }
     // 1) SHUTTERED WINDOW — boarded from the inside, so it reads as a flat dead panel, not glass.
     if (frontVis) { const wz0 = bodyTop * 0.3, wz1 = bodyTop * 0.72, whw = fh * 0.24;

@@ -31,12 +31,12 @@
     },
     {
       "bars": 5,
-      "cx": 0,
+      "cx": 0.05,
       "cy": 0.32,
       "depth": 0.018,
       "glass": "#0e1c22",
       "glow": "#bfe6f2",
-      "half": 0.22,
+      "half": 0.17,
       "hh": 0.032,
       "kind": "windowBay",
       "pal": "ty_shop_c",
@@ -52,7 +52,7 @@
       "ink": "#9fe0f5",
       "kind": "signBoard",
       "label": "ROD ALMIGHTY",
-      "z": 0.3
+      "z": 0.393
     },
     {
       "color": "#e8e2d2",
@@ -67,13 +67,17 @@
       "z": 0.13
     },
     {
-      "cx": -0.2,
+      "cx": -0.205,
       "cy": 0.32,
-      "half": 0.07,
-      "hh": 0.045,
-      "kind": "shutter",
-      "pal": "ty_slip",
-      "z": 0.01
+      "depth": 0.016,
+      "door": 1,
+      "glass": "#141210",
+      "glow": "#3a2e1e",
+      "half": 0.065,
+      "hh": 0.145,
+      "kind": "windowBay",
+      "transom": 0.8,
+      "z": 0.205
     },
     {
       "cx": -0.18,

@@ -852,11 +852,13 @@
     hangar_interior_zone: { label: 'Hangar Interior Zone', shape: 'ref', refTable: 'zones', scope: 'zone', group: 'Zone: Flight',
       help: 'Link from ramp to hangar interior zone id.' },
     hangar_ramp: { label: 'Hangar Ramp', shape: 'text', scope: 'zone', group: 'Zone: Flight',
-      help: 'Hangar ramp (aircraft parking) — holds the paired dock zone id. Also set on a terminal room (Coldwater Regional\'s check-in, lounge and gate), where it lets charter book and embark board.' },
+      help: 'Hangar ramp (aircraft parking) — holds the paired dock zone id. Also set on every other room of an airport building (Coldwater Regional\'s tower, terminal rooms and utility rooms), where the hangar card floor, buy, rent, charter and embark all work as they do in the hangar.' },
     arrivals_zone: { label: 'Arrivals Zone', shape: 'ref', refTable: 'zones', scope: 'zone', group: 'Zone: Flight',
       help: 'On a ramp: the room a charter passenger is set down in on arrival. Without it they land in the hangar_interior_zone.' },
     runway: { label: 'Runway', shape: 'enum', options: ['ns', 'ew', 'pad'], scope: 'zone', group: 'Zone: Flight',
       help: 'Marks a runway tile: "ns"/"ew" is the centreline orientation the flight sim aligns its drawn runway to; "pad" is the surrounding asphalt. Stamped by the zone planner on runway tiles.' },
+    taxiway: { label: 'Taxiway', shape: 'text', scope: 'zone', group: 'Zone: Flight',
+      help: 'On a runway "pad" tile: the sides its yellow taxiway centreline leaves by, as letters of nesw ("ns" a straight, "nesw" a crossing). One letter is a parking stand: the line runs in to a stop bar at the centre. A line into a runway tile gets a hold-short marking and guard lights; a line into a hangar door stops at the door face. A pad with none is apron. Drawn by paintAirfieldTile in windshield.js.' },
 
     // --- Zone COLUMNS (scope 'zone_column') ------------------------------------
     // Not flags — real columns of the zones table. Keyed `zone:<column>` so a

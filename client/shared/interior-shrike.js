@@ -617,7 +617,9 @@ const GAUGES = [
 ];
 const PANEL_O = [0, 0.60, -0.43], PANEL_R = [1, 0, 0], PANEL_U = [0, -0.22, 1];
 // The switch row on the right of the foot: master, landing lamp, nav, dome. Same ids as cockpit.js.
-const SWITCHES = [['master', 0.12], ['land', 0.16], ['nav', 0.20], ['dome', 0.24]];
+// ⚠ EVERY ONE IS A CIRCUIT THE SIM HAS. The third was NAV, and the sim has no nav circuit: a switch
+// that took the hand cursor and did nothing. It is the panel lights now, the UV floods on the hood.
+const SWITCHES = [['master', 0.12], ['land', 0.16], ['panel', 0.20], ['dome', 0.24]];
 const SW_Z = -0.155;
 
 // Where the levers are — one table read by the drawing and by the hotspots.
@@ -654,8 +656,10 @@ export function shrikeFit(P, live, push) {
   const on = R.powered;
   const hour = num(L.hour, 12);
   const night = hour < 6.5 || hour > 19.5;
-  // Luminous paint on every numeral, glowing under the UV floods after dark.
-  const tick = night && on ? T.lumin : C.tick;
+  // The UV floods are the PANEL switch (cockpit.js 'ck:panel'); a view that sends no switch state, a
+  // seat shot, has them on after dark. The luminous paint on every numeral glows under them in the dark.
+  const uv = on && (L.panelLight != null ? !!L.panelLight : night);
+  const tick = uv && night ? T.lumin : C.tick;
   const lv = levers(P, live);
 
   // ── THE PANEL'S INSTRUMENTS ──
@@ -706,15 +710,15 @@ export function shrikeFit(P, live, push) {
   // The siren switch, guarded, and the switch row.
   Pn.toggle(0.06, -0.165, !!L.siren);
   Pn.fitText('SIREN', 0.06, -0.186, 0.024, 0.0075, tick, 0.35, 0.004);
-  const st = { master: on, land: !!L.landingLight, nav: on, dome: !!(L.dome && on) };
+  const st = { master: on, land: !!L.landingLight, panel: uv, dome: !!(L.dome && on) };
   for (const [id, x] of SWITCHES) {
     Pn.rect(x - 0.01, SW_Z + 0.017, x + 0.01, SW_Z + 0.023, T.placard, 0.08, 0.002);
     Pn.fitText(id.toUpperCase(), x, SW_Z + 0.020, 0.018, 0.0045, [24, 24, 26], 0, 0.003);
     Pn.rect(x - 0.009, SW_Z - 0.014, x + 0.009, SW_Z + 0.014, [14, 14, 16], 0, 0.003);
     Pn.stud(x, SW_Z + (st[id] ? 0.005 : -0.005), 0.007, 0.008, st[id] ? 0.010 : 0.006, id === 'master' ? [200, 40, 34] : [226, 224, 216], 0, 0.003);
   }
-  // The UV lamps on the panel hood: lit after dark.
-  for (const x of [-0.19, 0.19]) K.obox([x, 0.53, -0.265], [1, 0, 0], [0, 0, 1], [0, 1, 0], 0.03, 0.012, 0.02, 'dash', 0.1, night && on ? [150, 120, 255] : [40, 40, 46], night && on ? 0.9 : 0);
+  // The UV lamps on the panel hood: lit with the PANEL switch.
+  for (const x of [-0.19, 0.19]) K.obox([x, 0.53, -0.265], [1, 0, 0], [0, 0, 1], [0, 1, 0], 0.03, 0.012, 0.02, 'dash', 0.1, uv ? [150, 120, 255] : [40, 40, 46], uv ? 0.9 : 0);
 
   // The Revi's reticle: a ring and a cross on the reflector, lit with the master.
   {

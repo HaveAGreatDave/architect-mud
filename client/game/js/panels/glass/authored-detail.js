@@ -971,7 +971,21 @@ export const AUTHORED_DETAIL = {
     //    thing on the facade, the jambs sit between. The depth itself is a few centimetres and
     //    nobody can measure it by eye; the order is what the eye actually reads.
     Q([[c.lx - half, y, z + hh], [c.lx + half, y, z + hh], [c.lx + half, yo, z + hh], [c.lx - half, yo, z + hh]], head, c.alpha, { lift: DETAIL_LIFT * 1.6 });
-    Q([[c.lx - half, y, z - hh], [c.lx + half, y, z - hh], [c.lx + half, yo, z - hh], [c.lx - half, yo, z - hh]], sill, c.alpha, { lift: DETAIL_LIFT * 1.6 });
+    // ── `door`: THE SAME BAY, READING AS A WAY IN ────────────────────────────────────────────
+    //
+    // A doorway is a window that reaches the ground with leaves in it, which is how the kit has
+    // always drawn its own (a dark bay, "a recess, not a light"). `door` is 1 or 2 leaves. It swaps
+    // the sill for a step standing out past the frame, glazes the leaves warm after dark (a lit
+    // lobby, as the clone's is), and adds a meeting stile, kick plates and push bars below. It also
+    // claims the kit's `ground` section, so no second doorway is hung beside it (SECTION_OF).
+    // ⚠ A FLAG, NOT A NEW KIND, for `shutter`'s `bay` reason: every reader that already knows a
+    // windowBay (face claims, signband, the mesh) keeps working on a door without being told.
+    if (d.door) {
+      const ys = yo + sgn * dep;
+      Q([[c.lx - ho, y, z - hh], [c.lx + ho, y, z - hh], [c.lx + ho, ys, z - hh], [c.lx - ho, ys, z - hh]], shadeOf(P, 0.82), c.alpha, { lift: DETAIL_LIFT * 1.6 });
+    } else {
+      Q([[c.lx - half, y, z - hh], [c.lx + half, y, z - hh], [c.lx + half, yo, z - hh], [c.lx - half, yo, z - hh]], sill, c.alpha, { lift: DETAIL_LIFT * 1.6 });
+    }
     // ⚠ A REVEAL JAMB FACES INWARD, so exactly one of the pair can ever be seen — the near one is
     // turned away from you by definition. Culling the other is free correctness AND the cheapest
     // saving on this pass: `windowBay` is by far the most-instanced part in the kit, so one quad
@@ -995,7 +1009,7 @@ export const AUTHORED_DETAIL = {
     //    window that matches its wall is a painted rectangle again.
     const yg = y + sgn * FACE_EPS;
     Q([[c.lx - half, yg, z + hh], [c.lx + half, yg, z + hh], [c.lx + half, yg, z - hh], [c.lx - half, yg, z - hh]],
-      c.night ? (d.glow || '#cfe6ff') : (d.glass || '#243040'), c.alpha * (c.night ? 0.96 : 0.9), { lift: DETAIL_LIFT * 1.3 });
+      c.night ? (d.glow || (d.door ? '#efd9ae' : '#cfe6ff')) : (d.glass || (d.door ? '#1e262e' : '#243040')), c.alpha * (c.night ? 0.96 : 0.9), { lift: DETAIL_LIFT * 1.3 });
     // 4) Mullions and a transom, on the glazing. A shopfront is one sheet and a tenement window is
     //    four panes, and these two fields are the whole difference between them.
     const bars = MESH_SINK ? clamp(Math.round(d.bars || 0), 0, 6) : 0;   // mesh-only, see above
@@ -1007,6 +1021,20 @@ export const AUTHORED_DETAIL = {
     if (d.transom) {
       const tz = z + hh - 2 * hh * clamp(d.transom, 0.05, 0.95), t = Math.max(hh * 0.035, 0.004);
       Q([[c.lx - half, yb2, tz + t], [c.lx + half, yb2, tz + t], [c.lx + half, yb2, tz - t], [c.lx - half, yb2, tz - t]], jamb, c.alpha, { lift: DETAIL_LIFT * 1.45 });
+    }
+    // The leaves. Drawn in both renderers, unlike the mullions: one door a building is nothing to
+    // pay, and a doorway with no leaves in it reads as a lit window that reaches the pavement.
+    if (d.door) {
+      const n = d.door >= 2 ? 2 : 1, L = { lift: DETAIL_LIFT * 1.45 };
+      const zb = z - hh, zt = d.transom ? z + hh - 2 * hh * clamp(d.transom, 0.05, 0.95) : z + hh;
+      const t = Math.max(half * 0.03, 0.003), bt = Math.max((zt - zb) * 0.012, 0.003);
+      if (n === 2) Q([[c.lx - t, yb2, zt], [c.lx + t, yb2, zt], [c.lx + t, yb2, zb], [c.lx - t, yb2, zb]], jamb, c.alpha, L);   // meeting stile
+      for (let k = 0; k < n; k++) {
+        const l0 = c.lx - half + 2 * half * (k / n), l1 = c.lx - half + 2 * half * ((k + 1) / n), inset = (l1 - l0) * 0.16;
+        const kz = zb + (zt - zb) * 0.14, bz = zb + (zt - zb) * 0.46;
+        Q([[l0 + t, yb2, kz], [l1 - t, yb2, kz], [l1 - t, yb2, zb], [l0 + t, yb2, zb]], head, c.alpha, L);                                  // kick plate
+        Q([[l0 + inset, yb2, bz + bt], [l1 - inset, yb2, bz + bt], [l1 - inset, yb2, bz - bt], [l0 + inset, yb2, bz - bt]], sill, c.alpha, L);   // push bar
+      }
     }
   },
 

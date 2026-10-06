@@ -1,6 +1,6 @@
 # GLASS materials
 
-**Status: Stage 0 built (2026-10-03); stages 1 to 4 design.** This is the plan for bringing GLASS 2's surface shading up to what
+**Status: Stages 0 and 1 built (`glMatPage`); stage 2 steps 1 and 2 built (`glLinear`), steps 3 and 4 to do; stage 3 built (`glEnvCube`, `glGGX`); stage 4 built (`glSurfPage`). Every switch is off by default.** This is the plan for bringing GLASS 2's surface shading up to what
 three.js's `MeshStandardMaterial` does: linear colour with a tone curve, a GGX highlight driven by
 roughness, a prefiltered environment map, and material data per texel. Each stage ships behind a
 `RENDER_TUNE` switch whose 0 is today's picture.
@@ -80,6 +80,39 @@ Nothing changes on screen. The benches are described in the
 
 ## Stage 1: the window mask and facade families (`glMatPage`)
 
+**Built 2026-10-03, for all six skins with windows.** As built:
+
+- `wallMatMixed` picks a page painter with `wallMatKind` (the default facade, the shopfront, curtain
+  glass, the Spire, the Meridian, the pump) and `paintWallMat` runs it from `MAT_PAGE_PAINTERS`. 102
+  palettes of 437 have a page. Each skin's geometry and lit test live in one helper both painters
+  call: `paneGrid`/`panes`/`paneLit`, `shopLayout`, `curtainGrid`/`curtainHash`, `spireLayout`/
+  `spireLit`, `decoLayout`/`decoBayWindows`/`decoLit`, and `PUMP`/`pumpRect`. `buildAtlas` takes a
+  tile's `mat` and returns `matCanvas`; `setMatPage` uploads it to unit 4, which is bound on every
+  draw (to the page or to nothing) so it can never hold a render target.
+- The channels are r glass, g lit, and b = 1 + the family of the tile's non-glass texels, so b also
+  says whether the page speaks for a texel. ⚠ b is constant across a tile: the page is minified
+  with LINEAR filtering, and a blend of two family indices is a third, unrelated family. So a
+  curtain wall is b = metal with r marking the panes, and the shader mixes the metal and glass rows
+  by r. The frames are metal for the shopfront and curtain glass, chrome for the Spire, the
+  Meridian's limestone (`deco`) and the pump's enamel (`pump`). b takes the place of the height
+  channel planned below; stage 4 will need another home for height.
+- Checked for the five extra skins: all 5,244 albedo surfaces byte-identical before and after the
+  painters were refactored onto the shared helpers. On every one of the 102 pages the texels marked
+  lit are far brighter than the unlit glass in the night albedo (the Meridian is 150 against 14).
+  With every skin on, Halcyon from a cab moves about 10% of the frame, from the curtain glass.
+  A saved `__glRefShots` set is only good while the baked world under it holds still; other
+  sessions edit the world, so compare against a set taken in the same sitting.
+- Checked: all 5,244 baked surfaces (437 keys, every grid state, `texRes` 1 and 2) are byte-identical
+  to the commit before, so the shared pane code changed nothing. With the switch at 0, the sixteen
+  reference shots match the commit before inside the noise floor (at most 0.014% of pixels). On, no
+  GL errors, and the change sits on the panes: 0.02% to 1.2% of a reference frame, up to 3% from a
+  cab facing a row of facades. GPU time on and off is inside the run-to-run spread.
+- On ordinary streets the effect is small: a pane's new glass row reflects the same two-colour sky
+  everything else does. Stage 3 is what makes the glass read. `wallTexSmoke` now also fails a
+  `FACADE_MAT` painter with no family.
+
+As planned:
+
 - **A second atlas page**, built beside the albedo from the same keys at the same canvas sizes.
   [gl/atlas.js](../../client/game/js/panels/gl/atlas.js) packs deterministically by key and size, so
   the rects come out identical and no vertex attribute is needed. It binds on texture unit 4; 0 to 3
@@ -112,6 +145,46 @@ Nothing changes on screen. The benches are described in the
 This only applies while the float target is live. Phones (`PHONE_TIER` forces `glHdr` to 0) and
 devices without `EXT_color_buffer_float` stay on today's path.
 
+**Steps 1 and 2 built 2026-10-03.** `RENDER_TUNE.glLinear` is 0 (as shipped), 1 (step 1) or 2
+(step 2). As built:
+
+- [gl/colour.js](../../client/game/js/panels/gl/colour.js) holds the curve both ways (GLSL and JS),
+  `LIN.out` (1 only while the float target is bound), and `linearOut(src, out)`, which renames a
+  fragment shader's `main` and calls it from a new one that decodes the output. Every return and
+  discard path goes through the one conversion. 17 shaders in 16 files are wrapped; each sends the
+  flag after `useProgram` through `applyLinOut`, which only writes when the value changes.
+  `beginTarget` sets the flag, the mirror pass and the room drawn alone force it to 0, and the HDR
+  composite encodes back to sRGB after the curve.
+- Step 2 covers the city's own shader only: the albedo, vertex colour, snow, skyline strip and the
+  uniform colours are decoded, and its output is no longer decoded. The relief taps and the night
+  dim's brightness guess stay on display values.
+- **The display-tuned factors are converted (2026-10-04), so level 2 keeps A's contrast.** Every
+  darkening multiplier goes through `lf(k)`, which is k^2.2 at level 2: wet darkening, sun-shadow
+  darkening, the bevel, the three occlusion terms (and the occlusion that scales the reflection,
+  highlight and sheen), the metal's diffuse drop and the night dim. The mixes toward a colour have
+  no linear twin, so at level 2 they run on display values and the result is decoded: the two
+  overlays, the lamp lift (whose weight reads the light colours back as display values) and the
+  fog. The bloom and the composite run on display values at any linear level: the bright-pass
+  encodes before its threshold, and the composite encodes the scene before the bloom and curve.
+  What stays linear is light added to light: lamp light on walls, highlights, reflection, sheen,
+  light shafts and the blends between layers.
+- Measured on the reference shots: at 0, the cab shots match the earlier set (0 to 0.5%; the air
+  shots drift with the shared world). Level 1 against 0 moves 2 to 13% of a frame by 4 to 12
+  levels, mostly the lamp glows, which bloom harder because an emitter over 1 is much brighter in
+  linear light. Before the factors were converted, level 2 against 1 moved about a quarter of a
+  cab frame and Marrow Street's mean brightness went from 65.7 to 73.2 at noon.
+- After the conversion, against the shipped city with the material page also on (the seven views
+  of the A/B page): mean brightness within about one level everywhere (Marrow Street at noon 56.8
+  against 57.9, Halcyon 59.2 against 58.9, the nights within 0.3), and 6 to 23% of a frame
+  changes. What changes is the glass and frames (the material page) and the lamp and sign halos.
+  A halo is added on top of whatever is behind it, and in linear light the same addition lifts a
+  dark pixel more than a bright one, so the halo's edge comes out lighter. No per-layer decode can
+  match that, because a shader can't see what is behind it. Matching it would take a separate
+  buffer for the additive layers, summed in display values at the composite. **Decided
+  2026-10-04: the halos stay as linear light blends them.** No separate buffer.
+- Left: the other layers (step 3), the tone curve (step 4), and any re-tune away from the shipped
+  look.
+
 1. **A linear buffer with the same picture.** A shared GLSL chunk (a new gl/colour.js with
    `toLinear` and `toSrgb`, using the exact piecewise curve) is used twice. The hdr.js composite
    encodes at the very end, after the tone curve. Every layer that writes the float target decodes
@@ -141,6 +214,34 @@ strengths and the fog were all tuned by eye against display maths. Re-tune at no
 in a storm, in Coldwater, Halcyon Fields (`hfTint`), Old Coldwater and the Scarletwastes.
 
 ## Stage 3: GGX highlight and prefiltered environment (`glGGX`, `glEnvCube`)
+
+**Built 2026-10-04, both behind switches that default to 0.** As built:
+
+- [gl/sky.js](../../client/game/js/panels/gl/sky.js) exports `SKY_DIR_GLSL`: the hour's gradient,
+  the sun's glow, the airglow and the galaxy band as `skyDirColor(dir, sunLobe, band)`. The sky pass
+  calls it and adds the stars itself; the reference shots match the old sky within the noise floor.
+  `sunLobe` is the glow right round the sun: tight in the sky (`SUN_LOBE_SKY`), wide in the cube
+  (`SUN_LOBE_CUBE`), which is too coarse for the tight one.
+- [gl/envcube.js](../../client/game/js/panels/gl/envcube.js) renders that function into a 32-texel
+  RGBA8 cube, with the overcast ceiling over the dome (the 2-D wash's own colour; the sun's glow
+  scaled by 1 - overcast) and the ground colour below the horizon, then `generateMipmap`. It is
+  rebuilt only when its inputs change, rounded to what can be seen. windshield.js gathers the
+  inputs once a frame as `SKY_ENV` after the overcast ceiling is known, and the world pass hands
+  them to the city's draw. Bound on unit 5, to the cube or to null, on every draw.
+- The city's shader reads roughness from the table as alpha = sqrt(2 / (gloss + 2)), samples the
+  cube along the reflected ray at level alpha x 5 (so glass and chrome read the sharp top level and
+  render a soft one), decodes it at linear level 2, and leaves the skyline strip mixed over it as
+  before. The GGX lobe keeps the old peak (D / D(peak)) and adds Smith shadowing, the light's
+  cosine and a Schlick gain capped at 4.
+- Measured on Halcyon at noon: the cube moves 3.1% of the frame and GGX 2.2%, against 0.01% noise.
+  Against stage 2 (the C and B frames of the A/B page) stage 3 moves 0.6 to 4.6% of a frame, mostly
+  darker: the upper floors of glass towers now reflect the zenith rather than the old pale horizon
+  colour, and low windows catch the bright horizon. No GL errors; GPU time inside the run-to-run
+  spread on a busy machine. With both at 0 the reference shots match within the noise floor.
+- Not done: vehicles and street actors on the same cube, diffuse light from the cube's lowest level
+  (`glEnvDiffuse`), and a roughness column in the table.
+
+**As planned:**
 
 **The highlight.**
 
@@ -178,6 +279,51 @@ in a storm, in Coldwater, Halcyon Fields (`hfTint`), Old Coldwater and the Scarl
   strip, which has the clouds in it.
 
 ## Stage 4: height and roughness in the painters
+
+**Built 2026-10-04, behind `glSurfPage` (off by default).** Brick, stone, concrete and stucco went
+first; the rest followed the same day. As built:
+
+- Height got a page of its own, the surface page (unit 6): r height (0.5 the wall's face), g a
+  roughness scale (0.5 the family's own; each 0.5 halves or doubles it), b = 255 where it speaks.
+  The material page had no channel to spare, since its b must stay constant across a tile and
+  alpha can't carry data through a premultiplied canvas. Height doesn't change with the hour or
+  the grid, so `wallSurf` paints a palette once per resolution and never at dusk. Magnified LINEAR,
+  unlike the other two pages, because NEAREST turned every joint into a one-texel cliff.
+- Every painter's geometry moved into shared generators: the thirteen material painters' above
+  `matGrain` (`brickUnits`, `plateBlooms`, `tileCrack`, `grainDabs` and the rest), the ten skins
+  `wallTex` paints inline and the three roof decks above `wallTex` (`timberGrain`, `shakeCourses`,
+  `feltBallast`, the extended `PUMP` table and the rest). Each `surfX` twin paints the same units
+  as height. The albedo came out byte-identical after every move: 2,622 surfaces, every grid state,
+  at `texRes` 1 and 2, roofs included.
+- `surfOf` picks the twin with wallTex's own tests in its own order, and the bare-material branch
+  is one function both call (`bareMat`). Facades take their `FACADE_MAT` painter's twin at
+  `FACADE_AMP` with the panes flat. 433 of 437 walls have a page; the four without are speckled
+  facades with no `FACADE_MAT` entry. `roofSurf` gives every roof one, a page per kind of deck
+  (felt, standing seam, shakes) per resolution, since none reads the palette for more than colour.
+  `wallTexSmoke` bakes every page and fails a surface with no twin.
+- A stain is roughness, not height. `surfRougher` adds to g alone (`'lighter'`, so r and b gain
+  nothing), and lichen, rust (blooms, the runs under the laps, the ring round each rivet),
+  verdigris, moss and copper patina go down that way, so the joints under them keep their depth.
+  The smooth marks: frost where condensation cleared it, ponds on a felt roof (standing water, the
+  smoothest thing up there), copper crowns rubbed back to the metal, bitumen, glaze.
+- Height follows the thing, not the paint. Timber's dark grain stands proud, because weather wears
+  the earlywood back and leaves the latewood. Plate's pitting is height, because on steel the pits
+  are the surface; the other painters' grain isn't, so pinholes stop bumping. The bronze sheen and
+  the structural column's light across its section are painted light, so those faces are flat, and
+  so are marble's veins (under the polish) and chrome's horizon (a reflection).
+- The relief reads `height * glHeightGain` instead of brightness where the page speaks, with the
+  same three taps; the roughness scale multiplies the alpha the cube level and the GGX lobe read.
+  The gain is 0.33, set on paper: a brick face sits about 0.15 brighter than its mortar in a typical
+  palette, and the height step is 0.5. A measurement on concrete agreed in kind: the height relief
+  covers fewer pixels than brightness did, because pinholes and streaks no longer bump.
+- Measured: with the page off the reference shots match `pre-s3` within the noise floor (0.01% at
+  most). With four painters it moved 0 to 1.4% of a frame against stage 3; with every surface, 0.3
+  to 9.4% (Marrow Street from a cab at noon the most, then Halcyon from a cab at 6.3%). In Halcyon
+  the change is the curtain walls' frames: the brightness relief read each mullion's painted
+  gasket-and-return step as a slope, so the tilted texels reflected the street as brown glints
+  along the grid. On the page the frames are flat metal and the glints are gone.
+
+As planned:
 
 - The painters take `(g, W, H, w, tr, amp)` and are deterministic (`frac`, never `Math.random`), but
   they carry about 240 hard-coded colours: baked joint shadows and edge highlights, rust, lichen,

@@ -3,7 +3,7 @@
     {
       "color": "#ff4d4d",
       "cx": 0.28,
-      "cy": -0.3,
+      "cy": 0.38,
       "kind": "neonBlade",
       "label": "WRAP PARTY",
       "z0": 0.24,
@@ -11,15 +11,16 @@
     },
     {
       "cx": 0,
-      "cy": -0.36,
+      "cy": 0.36,
       "kind": "blinkLight",
       "r": 0.9,
       "rgb": "255,60,60",
-      "z": 0.21
+      "z": 0.407
     },
     {
       "cx": 0,
-      "cy": -0.42,
+      "cy": 0.42,
+      "day": 0,
       "kind": "glowPool",
       "rgb": "255,70,70",
       "s": 12,
@@ -47,21 +48,9 @@
       "z": 0.66
     },
     {
-      "color": "#2a1108",
-      "cx": 0,
-      "cy": -0.34,
-      "font": "deco",
-      "half": 0.21,
-      "hh": 0.028,
-      "ink": "#e8c46a",
-      "kind": "signBoard",
-      "label": "WRAP PARTY",
-      "z": 0.3
-    },
-    {
       "color": "#c8a94e",
       "cx": 0.2,
-      "cy": -0.34,
+      "cy": 0.34,
       "font": "deco",
       "half": 0.05,
       "hh": 0.013,
@@ -72,7 +61,7 @@
     },
     {
       "cx": 0,
-      "cy": -0.34,
+      "cy": 0.34,
       "half": 0.1,
       "hh": 0.01,
       "kind": "canopy",
@@ -80,11 +69,11 @@
       "pal": "ty_bar_a",
       "soffit": "#3a0f10",
       "strip": "#ff6a6a",
-      "z": 0.22
+      "z": 0.386
     },
     {
       "cx": -0.26,
-      "cy": -0.3,
+      "cy": 0.3,
       "d": 0.07,
       "hh": 0.04,
       "kind": "binStack",
@@ -96,13 +85,26 @@
     {
       "color": "#7ad6ff",
       "cx": 0.24,
-      "cy": -0.34,
+      "cy": 0.34,
       "hh": 0.035,
       "kind": "tag",
       "n": 2,
+      "v": 7,
       "w": 0.1,
-      "z": 0.16,
-      "v": 7
+      "z": 0.16
+    },
+    {
+      "cx": 0,
+      "cy": 0.34,
+      "depth": 0.016,
+      "door": 1,
+      "glass": "#1c0c0c",
+      "glow": "#8a3424",
+      "half": 0.06,
+      "hh": 0.149,
+      "kind": "windowBay",
+      "transom": 0.8,
+      "z": 0.209
     }
   ],
   "id": "wrapparty",

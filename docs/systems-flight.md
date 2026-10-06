@@ -156,6 +156,52 @@ sites (Redline SAM / wastes autocannon / Slagworks flak / Clone Vats guardian), 
 no-fly cluster, and one downed Carcass to salvage/rebuild. All of it is CODEX content
 (`content/aircraft_types/`, `content/aa_sites/`, `content/zones/`), not a seed script.
 
+### The paved field *(as built, 2026-10-04)*
+
+Coldwater Regional's runway, taxiways and aprons are drawn by `paintAirfieldTile` in
+[windshield.js](../client/game/js/panels/windshield.js), from two fields `deriveSurfaceCell` puts
+on the cell:
+
+- `rwy` is the runway's axis (`ns`/`ew`) on a centreline tile and `pad` on any other paved field
+  tile, from `flags.runway`. A dust strip never gets it; that gets `strip`. A tile with `rwy` is not a
+  road (`road: 0`), whatever its icon says.
+- `twy` is, on a pad, the sides its taxiway centreline leaves by, from `flags.taxiway`. It's
+  authored rather than derived because a taxiway two tiles wide, auto-tiled off its neighbours,
+  draws a grid of lines. One letter is a parking stand; none is apron.
+
+⚠ Until these existed the runway was painted as a city street. Its centreline tiles carry a
+`runway_ns` icon, `isRoadCell` read that as road, and the road branch gave it a double yellow line,
+lane dashes and kerbs. Only the field tile got runway paint, with piano keys at both ends, and every
+taxiway and apron tile was bare floor colour, so the hangars stood on dark ground with nothing
+joining them to the strip. The cockpit's moving map drew the runway as a road bar for the same
+reason; it now draws it field green and the taxiways a darker green.
+
+What the painter lays down:
+
+- **Runway:** edge lines, a dashed centreline stopping short of the numbers, piano keys and the
+  designator at each end (18 at the north, 36 at the south, each upright to a pilot landing over
+  that end), the aiming point one tile in and touchdown-zone bars one tile further. White edge
+  lights turning amber over the last stretch, green and red threshold bars, centreline lights red
+  over the last tile, and the PAPI and windsock on whichever side has no building beside the end.
+- **Approach lights** where the ground past an end isn't pavement: barrettes three tiles out over
+  the water, a crossbar, and a sequenced flasher running in toward the threshold once a second.
+- **Taxiways:** a yellow centreline that turns on a quarter circle, double yellow edge lines where
+  the pavement stops or meets a runway it has no way onto, blue edge lights and green centreline
+  lights.
+- **Hold-short** on every line that runs onto a runway: two solid and two dashed bars, amber guard
+  lights flashing either end, and a red sign carrying the runway's numbers.
+- **Stands:** a lead-in, a stop bar just past the centre, a red safety line round it, concrete slab
+  joints and a sodium wash at night. Apron gets the slab joints alone.
+
+⚠ Paint stops at a shed. The heavy bay overhangs the taxiway it opens onto, so every line and lamp is
+clipped against the plan of any air bay in the 3×3 round the tile, and the same clip is what ends a
+lead-in at a hangar door.
+
+The gate is [scripts/shapes/airfield.mjs](../scripts/shapes/airfield.mjs) §4: it builds a slice of
+the field and fails if any yellow lands on the runway, or if the taxiway paint, the blue and green
+lamps, the guard lights, the approach lights or the hold sign go missing. The terminal it all sits
+beside is described in [world-rendering.md](reference/world-rendering.md#coldwater-regionals-terminal).
+
 ## Architecture (the load-bearing decisions)
 
 ### The canopy shows ground the `zones` table does not place — `registerCellOverlay`
@@ -1157,12 +1203,25 @@ Room text: `describeAirfield`/`describeHangarInterior` share a `serviceBits` bui
 desk. It's two facades, arrivals (924,902) and departures (924,903), over seven rooms: Arrivals
 Hall, Baggage Reclaim and a utility room on `map_int_cw_arrivals`, and Check-in Hall, Security
 Screening, Departure Lounge and Gate 1 on `map_int_cw_departures`, joined by an internal link
-from the arrivals hall south to check-in. Check-in, the lounge and the gate carry
-`flags.hangar_ramp` without `hangar_interior`, so `fieldFor` resolves the field there: `charter`
-books at the gate desk (`charterGate` accepts any room naming the ramp), and you board from the
-gate (`cmdBoard` follows `hangar_ramp` alone), while buy, rent and the hangar bay stay in the
-hangar. `describeTerminal` gives those rooms a Charter line and, when your booked flight is on the
-ramp, a link to board it. The ramp's `flags.arrivals_zone` sets a charter passenger down in the
+from the arrivals hall south to check-in.
+
+**You choose your aircraft from any airport building** *(as built, 2026-10-04)*. Every room inside
+one of the field's buildings carries `flags.hangar_ramp` naming the ramp: the hangars' interiors
+(which also carry `hangar_interior`), and without `hangar_interior` the tower, all seven terminal
+rooms and the utility rooms under them. So `fieldFor` resolves the field in all of them, and with it
+the whole card floor: `hangar` opens it, Launch and Maintain board you on the hangar floor, and buy
+and rent serve you where you stand. Before this the floor opened only in the hangar, on the ramp and
+in check-in, the lounge and the gate, and the tower and the arrivals hall answered `hangar` with
+"Hangars are at the airfields." `charter` books in any of them (`charterGate` accepts any room
+naming the ramp), and `embark` boards from any of them (`cmdBoard` follows `hangar_ramp` alone).
+`describeTerminal` gives each room an Aircraft line with the `hangar` link, a Charter line, and,
+when your booked flight is on the ramp, a link to board it. ⚠ The buy and rent desks used to walk
+anyone not in the hangar interior across the apron to it (`walkIntoHangar`, "You cross the apron and
+step in out of the wind"), which from the check-in hall was a walk from indoors to indoors; the gate
+in `acquire` now asks for any room naming the ramp. The regress check holds every room whose
+building is a hangar, tower or terminal, so a room added to one later is held too.
+
+The ramp's `flags.arrivals_zone` sets a charter passenger down in the
 Arrivals Hall (`dropZoneOf`, before `hangar_interior_zone`). The lounge's snack and drinks
 machines charge through the vending plugin's `vend_price`; its coffee machine is a drinks rig.
 
@@ -1192,11 +1251,18 @@ per aircraft at the field (`vehicle-card.js`, the marina's and depot's cards). U
 - **The heavy bay.** A Leviathan doesn't fit the regular hangar. A field can have a second one with
   `flags.heavy_hangar`, and `hangarTileFor(field, true)` sends heavy-class aircraft there.
 - **Coldwater Regional's hangars have their own taxiway**, away from the tower (924,901) and the
-  terminal (arrivals 924,902, departures 924,903) on the runway's west edge. It runs east off the apron over 927–928 × 903–904. The Hangar
-  is at 927,902 with its door south onto 927,903; the Heavy Hangar is at 929,904 at the end of the
-  spur, door west onto 928,904, so the Leviathan rolls out along the taxiway. Keep any taxiway tile
-  within three tiles of the ramp (925,903): that's the reach of `airfieldForRunway`, and a shutdown
-  past it reads as off-strip.
+  terminal (arrivals 924,902, departures 924,903) on the runway's west edge. It runs east off the
+  parallel taxiway over 927–928 × 903–904. The Hangar is at 927,902 with its door south onto 927,903;
+  the Heavy Hangar is at 929,904 at the end of the spur, door west onto 928,904, so the Leviathan
+  rolls out along the taxiway. Keep any taxiway tile within three tiles of the ramp (925,903):
+  that's the reach of `airfieldForRunway`, and a shutdown past it reads as off-strip. ⚠ The runway's
+  own north end (925,898–899) and the taxiway's north entry (926,899) are past that reach today, which
+  is why the apron stand is 924,900 and not 924,899.
+- **The taxiway network is painted** *(as built, 2026-10-04)*. Each paved tile's `flags.taxiway` is
+  the sides its yellow centreline leaves by: a parallel taxiway down x=926 with exits onto the runway
+  at 899, 901 and 903, the spur east to both hangar doors, a lead-in off the runway's south end
+  (925,904) running down to Kessler Street, and three stands (924,900, 926,905, 927,904). See
+  [The paved field](#the-paved-field-as-built-2026-10-04) for how it is drawn.
 - **The doors are roller doors, shut by default.** One goes up as an aircraft taxis at it, stays up
   while one that came in through it is inside, goes up when an aircraft on the floor starts her engine,
   and comes down behind one rolling away down the taxiway. One put on the floor by Launch or Maintain
@@ -1548,6 +1614,29 @@ is screen furniture rather than something in the cockpit.
 lean with the cursor over a switch threw it — starting near the ignition shut the engine down. It
 tests `e.button === 0` now. A hit test that does not ask which button will be fired by every other
 thing ever bound to the same element.
+
+## Starting the engine from the seat *(2026-10-04)*
+
+The seat opens with the 2-D instrument rows folded (`fsim-noglass`), and the ⏻ button is in them. So
+the 3-D cockpit is the only control in front of you, and a cockpit with no working engine master in
+it can't be started. The Mule was one: the Otter's start switches are overhead behind your head, and
+its BAT switch sent `ck:battery`, an id `DK_ACT` in cockpit.js had no entry for.
+
+- **`I` is the ignition on every aircraft.** It calls the same master as ⏻. The Drake's night vision
+  is on `N` alone now; `N` was missing from the key allowlist, so the button's "(N)" never worked.
+- **Every kit cockpit's engine master is `ck:master`.** That's the id `DK_ACT` maps to the start
+  button. A control with an id `DK_ACT` doesn't list draws a hand cursor and a halo and does nothing.
+- **A refused click says why.** Shutting down in the air and switching a lamp with no power used to
+  return silently, which from a switch in the room reads as a broken switch. Both answer with a toast now.
+- **The Mule has an ENGINE START panel** left of the clock: a key (OFF / ON / START), START and RUN
+  lamps, and PANEL and LAND switches. Those are the only two light circuits the sim has, so the old
+  seven-switch row, five of them dead, is gone. The key is held at START for `ENGINE_START_MS` after
+  the master goes on (payload `starting`); ⚠ not off `rpm`, which is the spooled throttle and reads 0
+  at idle.
+
+`scripts/shapes/cockpit-mule.mjs` holds it: the key must be within 30° of straight ahead with nothing
+between it and the eye at any stick position, and every Mule click control needs a `DK_ACT` action
+and a `DK_TIP` tooltip.
 
 ## Verb-collision routers
 

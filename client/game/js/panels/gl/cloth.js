@@ -20,6 +20,7 @@ import { viewProjMatrix } from './camera.js';
 import { makeVertexStream } from './stream.js';
 import { clothBake, CLOTH_KINDS, CLOTH_BANDS, CLOTH_FRAMES } from '../cloth3d.js';
 import { declareProgram, takeWarm } from './programs.js';
+import { linearOut, applyLinOut } from './colour.js';
 
 // Per instance: x, y, z, heading | sx, sy, sz, wind | phase, seed, alpha, lum | colour A rgb |
 // colour B rgb | warm rgb | patch u0 v0 u1 v1 | paint cell, u0, v0, size | weathering
@@ -100,7 +101,7 @@ void main() {
   vFog = ff * ff * uFogAmt;
 }`;
 
-const FRAG = `#version 300 es
+const FRAG = linearOut(`#version 300 es
 precision highp float;
 in vec3 vW;
 in vec2 vUV;
@@ -187,7 +188,7 @@ void main() {
   }
   c = mix(c, uFog, vFog);
   outColor = vec4(c * vAlpha, vAlpha);
-}`;
+}`, 'outColor');
 
 function compile(gl, type, src, label) {
   const s = gl.createShader(type);
@@ -323,7 +324,7 @@ export function createClothLayer(gl) {
   const wlP = new Float32Array(36), wlC = new Float32Array(36), wlR = new Float32Array(12);
   function draw(cam, cssH, opts = {}) {
     if (!n) return 0;
-    gl.useProgram(prog);
+    gl.useProgram(prog); applyLinOut(gl, prog);
     gl.uniformMatrix4fv(loc.viewProj, false, viewProjMatrix(cam, cssH, opts.near, opts.far));
     const f = opts.fog;
     gl.uniform3f(loc.fog, f ? f.col[0] : 0, f ? f.col[1] : 0, f ? f.col[2] : 0);

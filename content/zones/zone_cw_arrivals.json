@@ -11,6 +11,7 @@
   },
   "flags": {
     "floor": "tile",
+    "hangar_ramp": "zone_district_925_903",
     "is_interior": true,
     "window": {
       "description": "Floor-to-ceiling glass onto the apron and the runway past it. Whatever is taxiing, you see it here first.",

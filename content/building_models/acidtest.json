@@ -1,7 +1,7 @@
 {
   "adorn": [
     {
-      "cx": -0.06,
+      "cx": -0.17,
       "cy": 0.38,
       "kind": "glowPool",
       "rgb": "230,195,110",
@@ -43,20 +43,20 @@
       "z": 0.36
     },
     {
-      "cx": -0.14,
+      "cx": -0.17,
       "cy": 0.3,
-      "half": 0.09,
-      "hh": 0.06,
+      "half": 0.07,
+      "hh": 0.135,
       "kind": "shutter",
       "pal": "ty_precast_dk",
-      "z": 0.01
+      "z": 0.215
     },
     {
       "color": "#241d0d",
-      "cx": 0.06,
+      "cx": 0.09,
       "cy": 0.3,
       "font": "stencil",
-      "half": 0.15,
+      "half": 0.13,
       "hh": 0.024,
       "ink": "#f0d98f",
       "kind": "signBoard",

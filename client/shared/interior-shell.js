@@ -395,7 +395,8 @@ for (const k of ['bubble']) {
 // everything that is not a truck gets the tub — and it would put an enclosed cabin around a Mayfly,
 // which is an open ultralight you can see your own legs hanging out of, and around a helicopter,
 // whose cabin is a glass bubble glazed below the floor line and is the opposite shape to this.
-const SHELL_CLASS = {
+// Exported for scripts/shapes/cockpit-controls.mjs, which checks every seat a class can sit in.
+export const SHELL_CLASS = {
   truck: 'truck',
   prop: 'mule',           // one cockpit per airframe: interior-fit-craft.js
   heavy: 'leviathan',

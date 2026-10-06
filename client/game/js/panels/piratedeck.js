@@ -9,11 +9,11 @@
 // an `air …` command whose reply is a fresh `pirate_console` that re-renders here.
 
 import { sendCmdSilent } from '../net.js';
+import { escapeHtml as esc } from '../../../shared/dom.js';
 
 let _overlay = null;
 let _data = null;
 
-const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const send = (cmd) => sendCmdSilent(cmd);
 
 function ensureStyles() {
