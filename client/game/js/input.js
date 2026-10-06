@@ -78,8 +78,7 @@ function runMurmurCommand(arg) {
     const near = r.near();
     if (!near) {
       const why = r.why && r.why();
-      appendMsg(why === 'high' ? 'Too high to see them. Birds are only drawn low over the ground, come down below the rooftops.'
-        : why === 'dark' ? 'Too dark to see them. Something else is pinning the hour; clear it with __wsTune.hourForce = null.'
+      appendMsg(why === 'dark' ? 'Too dark to see them. Something else is pinning the hour; clear it with __wsTune.hourForce = null.'
         : 'No view is drawing birds. Open the cockpit, the cab, free look or a telescope.', 'system');
       return;
     }

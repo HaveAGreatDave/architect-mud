@@ -1438,7 +1438,13 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // The baked textures the atlas is a COPY of, as they stand this frame. Nothing about the city
   // has to change for them to: crossing a dusk step redraws every wall canvas in place.
   const epoch = deps.texEpoch ? deps.texEpoch(opts.nb || 0) : '';
-  if (key !== g.key || epoch !== g.epoch) {
+  // The material page (RENDER_TUNE.glMatPage) is baked beside the atlas from the same keys, so
+  // turning it on or off is one rebuild like any other change of surfaces.
+  const matOn = opts.glMatPage > 0 && !!deps.wallMatMixed;
+  // The surface page (RENDER_TUNE.glSurfPage), the same way.
+  const surfOn = opts.glSurfPage > 0 && !!deps.wallSurf;
+  if (key !== g.key || epoch !== g.epoch || matOn !== g.matOn || surfOn !== g.surfOn) {
+    g.matOn = matOn; g.surfOn = surfOn;
     // ⚠ THE PLACED MESH IS NEVER MATERIALISED. A tile is its shared face list plus where it stands,
     // handed over as a group; the offset is added on the way into the vertex data. Copying every
     // face to move it allocated an array per face and a point per vertex, per rebuild, for nothing.
@@ -1465,9 +1471,9 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // The atlas is rebuilt on the SET OF SURFACES, not on the set of buildings. Driving down a
     // street changes which buildings are in the window constantly and what they are MADE of almost
     // never, and repacking a texture page is the one part of this that touches the GPU.
-    const akey = [...need].sort().join('|') + '@' + epoch;
+    const akey = [...need].sort().join('|') + '@' + epoch + (matOn ? '#m' : '') + (surfOn ? '#s' : '');
     if (akey !== g.atlasKey) {
-      const { wallTexMixed, roofTex } = deps;
+      const { wallTexMixed, roofTex, wallMatMixed, wallSurf, roofSurf } = deps;
       const tiles = [];
       for (const tk of need) {
         const roof = tk[0] === 'r';
@@ -1477,9 +1483,16 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
         // key with no variant on it produces byte-for-byte the canvas it always produced.
         const win = bar === -1 ? undefined : +tk.slice(bar + 1);
         const canvas = roof ? roofTex(pal, opts.night || 0) : wallTexMixed(pal, opts.nb || 0, win);
-        if (canvas && canvas.width) tiles.push({ key: tk, canvas });
+        // Null for every surface the page has nothing to say about yet, which is all but the facades.
+        const mat = matOn && !roof ? wallMatMixed(pal, opts.nb || 0, win) : null;
+        // Height doesn't change with the hour or the grid, so the page is keyed on the palette alone
+        // (and a roof's on its kind of deck).
+        const surf = !surfOn ? null : roof ? (roofSurf ? roofSurf(pal) : null) : wallSurf(pal);
+        if (canvas && canvas.width) tiles.push({ key: tk, canvas, mat, surf });
       }
       g.atlas = buildAtlas(tiles, g.view.maxTexture || 2048);
+      if (g.view.setMatPage) g.view.setMatPage(g.atlas ? g.atlas.matCanvas : null);
+      if (g.view.setSurfPage) g.view.setSurfPage(g.atlas ? g.atlas.surfCanvas : null);
       // A page the device cannot hold is refused rather than uploaded, and the fragment shader
       // already knows what to do without one: flat palette colours. Said once per scene, because a
       // per-frame warning about a permanent property of the machine is noise.
@@ -1606,6 +1619,12 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // The air near the ground. One density, three shaders — see gl/fog.js.
     fogH: opts.glFogH || 0, fogHScale: FOG_H_SCALE, scatter: scatterNow,
     bumpStr: opts.glBump == null ? 1 : opts.glBump,
+    // Whether the shader reads the material page. The page itself is only built when this is on.
+    matPage: matOn ? 1 : 0,
+    // Stage 3: the reflection cube (with the sky it renders) and the GGX highlight; see context.js.
+    envCube: opts.glEnvCube > 0 ? 1 : 0, envSky: opts.envSky || null, ggx: opts.glGGX > 0 ? 1 : 0,
+    // Stage 4: whether the relief reads the surface page, and how strongly.
+    surfPage: surfOn ? 1 : 0, heightGain: opts.glHeightGain > 0 ? opts.glHeightGain : 0.33,
     metalRefl: opts.glMetalRefl == null ? 1 : opts.glMetalRefl,
     // The shading bevel. Defaults OFF here rather than to 1, because this function is reached by the
     // Modelshop bench and the preview as well as by the game, and a bench that silently got a
@@ -1617,11 +1636,16 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // picture that has already clipped. That is the allowlist failure one layer further down than
     // the one install.js warns about, and it produces numbers rather than nothing.
     hdr: opts.hdr,
+    // Linear light in the float target; see gl/colour.js. beginTarget reads it.
+    // 1 is the linear buffer; 2 also shades the city in linear (context.js uLinIn).
+    linear: opts.glLinear > 0 ? opts.glLinear : 0,
     bevel: opts.glBevel || 0, bevelTilt: BEVEL_TILT,
     // Screen-space occlusion. Same default-off argument as the bevel: the bench and the Modelshop
     // preview reach this function too, and a bench that silently got a term it did not ask for
     // cannot measure it.
     ssao: opts.glSsao || 0, ssaoRes: opts.glSsaoRes, ssaoRadius: SSAO_TUNE.radius, ssaoBias: SSAO_TUNE.bias,
+    // The far dissolve drawn after the ground rather than with the mass. See drawFade below.
+    fadeSplit: (opts.glHazeSplit == null ? 1 : opts.glHazeSplit) > 0,
     mat: deps.matTable || null };
   // ── THE CITY, UPSIDE DOWN, BEFORE ANY OF IT IS DRAWN THE RIGHT WAY UP ──────────────────────
   //
@@ -1852,6 +1876,10 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // needs a light even less than water does — it is an albedo, and it is at its most obvious in
     // flat daylight.
     snow: opts.glSnow > 0 ? opts.glSnow : 0,
+    // …and the colour it comes out, the same one the scatter is handed below. ⚠ It carries the
+    // night: without it the road's snow was a constant white and the only lit-looking surface on a
+    // dark street (see 'uSnowCol' in ground.js).
+    snowCol: opts.snowCol || null,
     pudRoad: opts.glPudRoad,
     tracks: opts.tracks || null,
     lids: opts.lids || null,
@@ -1910,6 +1938,15 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     groundBias: opts.glGroundBias,
     vpW: g.canvas ? g.canvas.width : 0, vpH: g.canvas ? g.canvas.height : 0,
   });
+  // ── AND THE BUILDINGS DISSOLVING AT THE DRAW LIMIT, OVER ALL OF THAT ────────────────────────
+  //
+  // ⚠ AFTER THE FLOOR, THE SEA AND THE ROADS, because it is the one part of the mass that is not
+  // opaque. Drawn with the rest of it, a block at 20% opacity in the haze band still claimed its
+  // whole silhouette in the depth buffer, every layer above lost to it, and the other 80% showed
+  // the bare canvas under this buffer: a dark green cut-out of each building at the edge of the
+  // draw distance. `draw` left the band out (uFadePass 1); this lays it over the real ground.
+  // Before the people, the lights and the signs, which are depth-tested against it as before.
+  const hazeFade = g.view.drawFade ? g.view.drawFade(camAt, drawOpts) : 0;
   // ── AND THE PEOPLE ON THE PAVEMENT, AFTER THE GROUND ─────────────────────────────────────────
   // Solid, but drawn here rather than with the solids above. The pavement band is laid a kerb's
   // height above the road as translucent paint, and a figure stands at road level like the billboard
@@ -2031,6 +2068,6 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // product of three things that can each be zero for a different reason — the tune, the wetness,
   // and whether the framebuffer was accepted — and a reflection that silently never ran looks
   // exactly like one that ran and was too faint to see.
-  return { interior, faces: g.faces || 0, builds, lights, lit: lightList || [], curtains, decals, decalBinds, strokes, scatter, solids, film, ship: (opts.ship || []).length, bay: (opts.bay || []).length, fauna: (opts.fauna || []).length, actors, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, snow: opts.glSnow || 0, tracks: opts.tracks ? opts.tracks.n : 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, hdr: graded, canvas: g.canvas };
+  return { interior, faces: g.faces || 0, builds, lights, lit: lightList || [], curtains, decals, decalBinds, strokes, scatter, solids, film, hazeFade, ship: (opts.ship || []).length, bay: (opts.bay || []).length, fauna: (opts.fauna || []).length, actors, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, snow: opts.glSnow || 0, tracks: opts.tracks ? opts.tracks.n : 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, hdr: graded, canvas: g.canvas };
 }
 

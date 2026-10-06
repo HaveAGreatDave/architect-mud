@@ -65,6 +65,12 @@ are *reusable prompts*; these are the *results* of a sweep):
   ([prompt](doc-correctness-concision-audit.md)), batched by doc. Every verdict carries a
   `file:line`. Batch 1 fixed the dispatch/registry contract docs; batch 2 retired two
   point-in-time docs and found the still-live forgeable admin token.
+- [findings-2026-10-small-buildings.md](findings-2026-10-small-buildings.md): every small building
+  model (192) graded against the clone facility, the bar in
+  [building-styles.md §4.5](../reference/building-styles.md#45-the-clone-facility-is-the-bar-for-a-small-building).
+  Doors and built parts are the furthest from the bar. Seven defects confirmed in code, including
+  three Reach roofs that have never drawn. A first fix pass (2026-10-05) cleared the defects,
+  the buried frontages, the square slabs and the authored lights; doors are the largest open item.
 - [emdash-sweep.md](emdash-sweep.md) — running status of the em dash rule ([story.md](../story.md),
   Tone): the dash is a voice marker reserved for the Architect and the Ascendants, so every other
   line has to lose it. Dialogue and broadcast copy are **done** (~2080 fixes); ~3019 occurrences

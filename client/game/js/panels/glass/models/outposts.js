@@ -8,12 +8,33 @@
 // An arm that ends early uses `return` where the case used `break`. How a tile becomes a building
 // is in docs/reference/world-rendering.md.
 import {
-  DETAIL_LIFT, FACE_EPS, awning, bakeSignText, blinkLight, clamp, draw3DBoxAt, drawFacetDrum,
+  DETAIL_LIFT, FACE_EPS, SHAPE_SINK, awning, bakeSignText, blinkLight, clamp, draw3DBoxAt, drawFacetDrum,
   drawRing, drawSmoke, easeIO, emitFlat, emitSurfaceText, emitWire, faceYaw, frac, glowPool,
   marqueeBand, motionPhase, movingBox,
 } from '../../windshield.js';
 // Second Helpings and the clone facility share a main and a clock; the clone's arm owns both.
-import { GUT, gutPhase, slugLine, tubeRun } from './downtown.js';
+import { GUT, flatOut, gutPhase, slugLine, tubeRun } from './downtown.js';
+
+// The hazard placard on Second Helpings' party wall. Baked here and not by `bakeSignText`, which
+// letters names: this is a label, black on safety yellow, and it never lights. Like that function
+// it bakes nothing during shape capture.
+let _placard = null;
+function placardTex() {
+  if (SHAPE_SINK) return null;
+  if (_placard) return _placard;
+  const c = document.createElement('canvas'); c.width = 128; c.height = 72;
+  const g = c.getContext('2d');
+  if (g) {
+    g.fillStyle = '#e2b42a'; g.fillRect(0, 0, 128, 72);
+    g.strokeStyle = '#141414'; g.lineWidth = 5; g.strokeRect(5, 5, 118, 62);
+    g.fillStyle = '#141414'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = 'bold 18px sans-serif';
+    g.fillText('NOT FOR HUMAN', 64, 27, 106);
+    g.fillText('CONSUMPTION', 64, 47, 106);
+  }
+  c._lit = 0;
+  _placard = c;
+  return c;
+}
 
 export const OUTPOST_ARMS = {
 
@@ -164,9 +185,13 @@ export const OUTPOST_ARMS = {
     draw3DBoxAt(ctx, cam, dx, dy, fh * 1.10, clerTop, ridge, 'ty_trm_hall_dk', seed + 2, night, alpha, true);
     glowPool(ctx, cam, dx, dy, (wallTop + clerTop) * 0.5, '244,228,178', 13, alpha * (night ? 0.44 : 0.14));
     // 2) BUTTRESS PIERS down both flanks — a clear span this wide has to be held apart.
-    for (const t of [-1, 1]) for (const lx of [-0.56, 0.00, 0.56]) {
-      const [bx, by] = F(lx * fh, t * fh * 1.06);
-      draw3DBoxAt(ctx, cam, bx, by, fh * 0.10, 0, wallTop, 'ty_trm_hall_dk', seed + 6 + lx, night, alpha, true, 0, fh * 0.04);
+    // ⚠ LOCAL x RUNS ACROSS THE FRONT, so the flanks are at x = ±1.06 fh. This loop had x and y the
+    // other way round, which put the piers on the front and back walls and the middle front one in
+    // the double doors.
+    const yaw = faceYaw(E);
+    for (const t of [-1, 1]) for (const ly of [-0.56, 0.00, 0.56]) {
+      const [bx, by] = F(t * fh * 1.06, ly * fh);
+      draw3DBoxAt(ctx, cam, bx, by, fh * 0.10, 0, wallTop, 'ty_trm_hall_dk', seed + 6 + ly, night, alpha, true, yaw, fh * 0.04);
     }
     // 3) THE BELL FRAME on the ridge — two posts and a beam. Nothing hangs off it that glows;
     //    the thing that calls the commune together is a sound, and it is drawn as one object.
@@ -176,7 +201,7 @@ export const OUTPOST_ARMS = {
     draw3DBoxAt(ctx, cam, dx, dy, fh * 0.12, ridge + h * 0.18, ridge + h * 0.30, 'ty_trm_hall_dk', seed + 15, night, alpha, false);
     // 4) The double doors — the widest opening in Terminus, because everyone leaves at once.
     if (frontVis) { const [gx, gy] = F(0, fh * 1.06);
-      draw3DBoxAt(ctx, cam, gx, gy, fh * 0.42, 0, wallTop * 0.62, 'ty_door', seed + 16, night, alpha, true, 0, fh * 0.06); }
+      draw3DBoxAt(ctx, cam, gx, gy, fh * 0.42, 0, wallTop * 0.62, 'ty_door', seed + 16, night, alpha, true, yaw, fh * 0.06); }
   },
   trm_gate(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE GATE HOUSE (Terminus) — the Long Watch's checkpoint on its own wall,
     // and it shares that wall's vocabulary deliberately: same poured grey, same rubble batter. Two
@@ -187,7 +212,9 @@ export const OUTPOST_ARMS = {
       draw3DBoxAt(ctx, cam, px, py, fh * 0.30, 0, h * 0.20, 'ty_trm_gate_dk', seed + 1 + t, night, alpha, false);
       draw3DBoxAt(ctx, cam, px, py, fh * 0.24, h * 0.20, pylon, pal, seed + 3 + t, night, alpha, true); }
     // 2) THE BEAM — one slab dropped across the gap. The whole point of the building.
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.62, h * 0.44, h * 0.54, 'ty_trm_gate_dk', seed + 6, night, alpha, false);
+    //    ⚠ ACROSS THE ROAD AND THIN (`fd`). With no depth it was a 1.24 fh square slab, a deck
+    //    between the pylons rather than a barrier across them.
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.62, h * 0.44, h * 0.54, 'ty_trm_gate_dk', seed + 6, night, alpha, false, faceYaw(E), fh * 0.06);
     // 3) THE CABIN, lifted on four legs so the watch can see over the beam and over the parapet.
     for (const tx of [-1, 1]) for (const ty of [-1, 1]) { const [lx, ly] = F(tx * fh * 0.26, ty * fh * 0.26 - fh * 0.60);
       draw3DBoxAt(ctx, cam, lx, ly, fh * 0.05, 0, cabin0, 'ty_trm_gate_dk', seed + 8 + tx + ty, night, alpha, false); }
@@ -216,10 +243,12 @@ export const OUTPOST_ARMS = {
       draw3DBoxAt(ctx, cam, sx, sy, fh * 0.03, lintel + h * 0.30, lintel + h * (0.40 + g * 0.18), 'ty_thorn_tip', seed + 20 + i, night, alpha, false, g); }
     // 3) THE MASK RACK on the inboard post — a rail with the shift's masks hung along it, level
     //    and evenly spaced. The horror is on the road behind you; this is a coat hook.
-    { const [rx, ry] = F(fh * 0.72, -fh * 0.34);
-      draw3DBoxAt(ctx, cam, rx, ry, fh * 0.42, h * 0.62, h * 0.66, 'ty_sw_gate_dk', seed + 30, night, alpha, false); }
+    // ⚠ A RAIL AND FOUR MASKS HUNG FACING THE ROAD. With no `fd` the rail was a 0.84 fh square
+    //    shelf and each mask a cube.
+    { const [rx, ry] = F(fh * 0.74, -fh * 0.34);
+      draw3DBoxAt(ctx, cam, rx, ry, fh * 0.30, h * 0.62, h * 0.66, 'ty_sw_gate_dk', seed + 30, night, alpha, false, faceYaw(E), fh * 0.02); }
     for (const [i, lx] of [[0, 0.50], [1, 0.66], [2, 0.82], [3, 0.98]]) { const [mx, my] = F(lx * fh, -fh * 0.34);
-      draw3DBoxAt(ctx, cam, mx, my, fh * 0.055, h * 0.44, h * 0.62, 'ty_sw_mask', seed + 40 + i, night, alpha, false); }
+      draw3DBoxAt(ctx, cam, mx, my, fh * 0.055, h * 0.44, h * 0.62, 'ty_sw_mask', seed + 40 + i, night, alpha, false, faceYaw(E), fh * 0.015); }
     // 4) One low fire in a pan by the post — warmth for a long shift, not a beacon.
     { const [fx, fy] = F(-fh * 0.72, -fh * 0.40);
       drawFacetDrum(ctx, cam, fx, fy, 0, h * 0.22, fh * 0.10, fh * 0.11, 7, alpha,
@@ -284,11 +313,13 @@ export const OUTPOST_ARMS = {
       drawRing(ctx, cam, bx, by, h * 0.24, fh * 0.135, 9, 'rgba(0,0,0,0.30)', 1, alpha); }
     // 2) THE LINE — two poles and four hung cloths, which is the one thing that tells you from
     //    the air that this building is in daily use by somebody who is not fighting anybody.
+    //    ⚠ The line itself is drawn, and each cloth is a sheet rather than a cube (`fd`).
     for (const t of [-1, 1]) { const [px, py] = F(t * fh * 0.94, -fh * 0.86);
       draw3DBoxAt(ctx, cam, px, py, fh * 0.025, 0, h * 0.62, 'ty_sw_walk_dk', seed + 8 + t, night, alpha, false); }
+    emitWire(ctx, cam, W3(-fh * 0.94, -fh * 0.86, h * 0.61), W3(fh * 0.94, -fh * 0.86, h * 0.61), 1.2, 'rgba(70,58,46,0.9)', alpha, { pull: 0.02 });
     for (const [i, lx] of [[0, -0.62], [1, -0.20], [2, 0.22], [3, 0.64]]) {
       const g = frac(seed * 6 + i), [cx, cy] = F(lx * fh, -fh * 0.86);
-      draw3DBoxAt(ctx, cam, cx, cy, fh * 0.12, h * (0.30 - g * 0.08), h * 0.60, 'ty_sw_cloth', seed + 40 + i, night, alpha, false); }
+      draw3DBoxAt(ctx, cam, cx, cy, fh * 0.12, h * (0.30 - g * 0.08), h * 0.60, 'ty_sw_cloth', seed + 40 + i, night, alpha, false, faceYaw(E), fh * 0.008); }
     // 3) One small high window and a door. The light behind it is on at every hour.
     if (frontVis) { const [wx, wy] = F(fh * 0.34, fh * 0.90);
       glowPool(ctx, cam, wx, wy, wallTop * 0.74, '255,214,164', 5, alpha * (night ? 0.5 : 0.18)); }
@@ -386,9 +417,10 @@ export const OUTPOST_ARMS = {
       drawRing(ctx, cam, tx, ty, plinth + h * 0.44, fh * 0.305, 10, 'rgba(0,0,0,0.30)', 2, alpha);
       drawRing(ctx, cam, tx, ty, plinth + h * 0.84, fh * 0.305, 10, 'rgba(0,0,0,0.30)', 2, alpha);
     }
-    // THE MANIFOLD — a pipe run linking the three at low level, which is the only reason they read
-    // as one installation rather than three drums somebody left out.
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.26, plinth + h * 0.20, plinth + h * 0.28, 'ty_trm_pipe', seed + 8, night, alpha, false);
+    // THE COLLAR — one poured band round the three bases, which is the only reason they read as
+    // one installation rather than three drums somebody left out. ⚠ IT WAS A PIPE MANIFOLD, and a
+    // 2.5 fh square slab for want of an `fd`; Terminus shows no plumbing (building-styles.md 3.4).
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.92, plinth + h * 0.20, plinth + h * 0.28, 'ty_trm_frame', seed + 8, night, alpha, false, faceYaw(E), fh * 0.32);
     // The ladder up the middle tank, and a lamp at the top of it.
     for (const t of [-1, 1]) { const [lx, ly] = F(t * fh * 0.06, fh * 0.30);
       draw3DBoxAt(ctx, cam, lx, ly, fh * 0.025, plinth, tankTop, 'ty_trm_pipe', seed + 12 + t, night, alpha, false); }
@@ -405,13 +437,19 @@ export const OUTPOST_ARMS = {
     }
     draw3DBoxAt(ctx, cam, dx, dy, fh * 1.10, post, roof, pal, seed, night, alpha, true);
     // 2) The only enclosed part — a locked tool store at the back, which is where the value is.
-    { const [sx, sy] = F(-fh * 0.46, -fh * 0.70); draw3DBoxAt(ctx, cam, sx, sy, fh * 0.50, 0, h * 0.62, 'ty_trm_frame', seed + 10, night, alpha, true); }
+    // ⚠ EVERYTHING BELOW HAS A LENGTH, SO EVERYTHING TAKES AN `fd`. Without one the store ran out
+    //    past the back of the tile, the gantry beam was a cube, the tables were squares, and the
+    //    block hung 0.20 fh off the beam from nothing. The legs the beam stands on are drawn now.
+    const yaw = faceYaw(E);
+    { const [sx, sy] = F(-fh * 0.46, -fh * 0.70); draw3DBoxAt(ctx, cam, sx, sy, fh * 0.50, 0, h * 0.62, 'ty_trm_frame', seed + 10, night, alpha, true, yaw, fh * 0.28); }
     // 3) THE GANTRY — a beam down the length of the shed on two legs, with a block hanging off it.
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.10, post - h * 0.14, post - h * 0.06, 'ty_trm_gantry', seed + 12, night, alpha, false);
-    { const [hx, hy] = F(fh * 0.20, 0); draw3DBoxAt(ctx, cam, hx, hy, fh * 0.06, h * 0.48, post - h * 0.14, 'ty_trm_gantry', seed + 13, night, alpha, false); }
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.04, post - h * 0.14, post - h * 0.06, 'ty_trm_gantry', seed + 12, night, alpha, false, yaw, fh * 0.80);
+    for (const t of [-1, 1]) { const [lx, ly] = F(0, t * fh * 0.80);
+      draw3DBoxAt(ctx, cam, lx, ly, fh * 0.03, 0, post - h * 0.06, 'ty_trm_gantry', seed + 14 + t, night, alpha, false); }
+    { const [hx, hy] = F(0, fh * 0.20); draw3DBoxAt(ctx, cam, hx, hy, fh * 0.06, h * 0.48, post - h * 0.14, 'ty_trm_gantry', seed + 13, night, alpha, false); }
     // 4) THE BENCHES themselves — a row of tables down both flanks, which is the building's name.
     for (const t of [-1, 1]) { const [bx, by] = F(t * fh * 0.58, 0);
-      draw3DBoxAt(ctx, cam, bx, by, fh * 0.20, h * 0.28, h * 0.34, 'ty_trm_gantry', seed + 20 + t, night, alpha, true); }
+      draw3DBoxAt(ctx, cam, bx, by, fh * 0.12, h * 0.28, h * 0.34, 'ty_trm_gantry', seed + 20 + t, night, alpha, true, yaw, fh * 0.60); }
     glowPool(ctx, cam, dx, dy, h * 0.40, '255,206,140', 11, alpha * (night ? 0.44 : 0.14));
   },
   trm_charge(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE STANDING CHARGE (Terminus) — the commune's power, and the exact
@@ -453,11 +491,14 @@ export const OUTPOST_ARMS = {
       if (frac(seed * 7 + i) > 0.42) glowPool(ctx, cam, wx, wy, wallTop * 0.62, '255,208,152', 4, alpha * (night ? 0.44 : 0.12));
     }
     // 2) A door at EACH end, because a hundred people cannot leave through one.
+    //    ⚠ Flat on the wall (`fd`): with no depth each door was a cube standing out of it.
+    const yaw = faceYaw(E);
     for (const t of [-1, 1]) { const [gx, gy] = F(t * fh * 0.66, fh * 0.88);
-      draw3DBoxAt(ctx, cam, gx, gy, fh * 0.14, 0, wallTop * 0.58, 'ty_door', seed + 10 + t, night, alpha, false); }
+      draw3DBoxAt(ctx, cam, gx, gy, fh * 0.14, 0, wallTop * 0.58, 'ty_door', seed + 10 + t, night, alpha, false, yaw, fh * 0.02); }
     // 3) BOOT RACKS along the front wall — low, long, and the reason you know it is a dormitory
-    //    and not a store the moment you look down at it.
-    { const [bx, by] = F(0, fh * 1.06); draw3DBoxAt(ctx, cam, bx, by, fh * 0.78, 0, h * 0.12, 'ty_trm_dorm_roof', seed + 14, night, alpha, true); }
+    //    and not a store the moment you look down at it. ⚠ Long and shallow (`fd`); it was a 1.56 fh
+    //    square slab running out past the tile.
+    { const [bx, by] = F(0, fh * 1.00); draw3DBoxAt(ctx, cam, bx, by, fh * 0.78, 0, h * 0.12, 'ty_trm_dorm_roof', seed + 14, night, alpha, true, yaw, fh * 0.06); }
     // 4) A single stove flue at the middle of the ridge. One fire for the whole hall.
     { const [px, py] = F(0, -fh * 0.30);
       draw3DBoxAt(ctx, cam, px, py, fh * 0.08, eave, eave + h * 0.24, 'ty_trm_frame', seed + 18, night, alpha, true);
@@ -569,11 +610,13 @@ export const OUTPOST_ARMS = {
       draw3DBoxAt(ctx, cam, vx, vy, fh * 0.16, roof, roof + h * 0.10, 'ty_trm_frame', seed + 8 + i, night, alpha, true);
       drawSmoke(ctx, cam, vx, vy, roof + h * 0.10, '218,224,222', alpha * 0.5, now, seed + 8 + i); }
     // 3) THE DRYING LINES — four poles and the washing between them, taking up the whole apron.
+    //    ⚠ The line itself is drawn, and each run of washing is a sheet rather than a cube (`fd`).
+    emitWire(ctx, cam, W3(-fh * 0.825, fh * 1.14, h * 0.63), W3(fh * 0.845, fh * 1.14, h * 0.63), 1.2, 'rgba(76,78,74,0.9)', alpha, { pull: 0.02 });
     for (const [i, lx] of [[0, -0.86], [1, -0.28], [2, 0.30], [3, 0.88]]) {
       const [px, py] = F(lx * fh, fh * 1.14);
       draw3DBoxAt(ctx, cam, px, py, fh * 0.03, 0, h * 0.66, 'ty_trm_frame', seed + 20 + i, night, alpha, false);
       if (i < 3) { const g = frac(seed * 8 + i), [cx, cy] = F((lx + 0.29) * fh, fh * 1.14);
-        draw3DBoxAt(ctx, cam, cx, cy, fh * 0.22, h * (0.34 - g * 0.10), h * 0.62, 'ty_sw_cloth', seed + 30 + i, night, alpha, false); }
+        draw3DBoxAt(ctx, cam, cx, cy, fh * 0.22, h * (0.34 - g * 0.10), h * 0.62, 'ty_sw_cloth', seed + 30 + i, night, alpha, false, faceYaw(E), fh * 0.008); }
     }
   },
   trm_depot(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // LAST REQUISITION (Terminus) — the haulage shed, and the name is the joke:
@@ -636,15 +679,19 @@ export const OUTPOST_ARMS = {
     // courtyard is the largest single feature and the building is the frame round it.
     const wallTop = h * 0.62, eave = h * 0.74;
     // 1) Three wings round an open square — the fourth side is the way in.
-    for (const [lx, ly, w, d] of [[0, -0.86, 1.06, 0.30], [-0.86, 0.06, 0.30, 1.06], [0.86, 0.06, 0.30, 1.06]]) {
+    //    ⚠ EACH WING IS ITS OWN WIDTH AND DEPTH (half-extents below, with `fd`). Every wing used to be
+    //    the same 0.69 fh square, which closed the courtyard to a slot and put the plan 1.55 fh out,
+    //    past the tile on three sides.
+    const yaw = faceYaw(E);
+    for (const [lx, ly, hw, hd] of [[0, -0.85, 1.00, 0.15], [-0.85, 0.15, 0.15, 0.85], [0.85, 0.15, 0.15, 0.85]]) {
       const [wx, wy] = F(lx * fh, ly * fh);
-      draw3DBoxAt(ctx, cam, wx, wy, fh * Math.max(w, d) * 0.5 + fh * 0.16, 0, wallTop, pal, seed + lx + ly, night, alpha, false);
-      draw3DBoxAt(ctx, cam, wx, wy, fh * Math.max(w, d) * 0.5 + fh * 0.24, wallTop, eave, 'ty_sw_hide', seed + 4 + lx, night, alpha, true);
+      draw3DBoxAt(ctx, cam, wx, wy, fh * hw, 0, wallTop, pal, seed + lx + ly, night, alpha, false, yaw, fh * hd);
+      draw3DBoxAt(ctx, cam, wx, wy, fh * (hw + 0.04), wallTop, eave, 'ty_sw_hide', seed + 4 + lx, night, alpha, true, yaw, fh * (hd + 0.04));
     }
     // 2) THE COURTYARD SHADE — cloth on four poles over the open middle. The point of the building.
     for (const tx of [-1, 1]) for (const ty of [-1, 1]) { const [sx, sy] = F(tx * fh * 0.40, ty * fh * 0.34);
       draw3DBoxAt(ctx, cam, sx, sy, fh * 0.03, 0, h * 0.72, 'ty_sw_gate_dk', seed + 20 + tx + ty, night, alpha, false); }
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.92, h * 0.72, h * 0.76, 'ty_sw_cloth', seed + 26, night, alpha, true);
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.46, h * 0.72, h * 0.76, 'ty_sw_cloth', seed + 26, night, alpha, true, yaw, fh * 0.40);
     // 3) A water trough under the shade, and the low warm light of a place nobody leaves at night.
     { const [tx, ty] = F(0, fh * 0.10);
       draw3DBoxAt(ctx, cam, tx, ty, fh * 0.24, h * 0.06, h * 0.14, 'ty_sw_water', seed + 30, night, alpha, true); }
@@ -684,23 +731,30 @@ export const OUTPOST_ARMS = {
     draw3DBoxAt(ctx, cam, dx, dy, fh * 1.06, wallTop, eave, 'ty_sw_hide', seed + 2, night, alpha, true);
     // 1) THE CHURN STAND — a stone shelf outside the door with five churns on it, evenly spaced.
     //    Evenly, and upright, and the same height: this is a working dairy, not a prop.
+    // ⚠ EVERY FLAT THING HERE TAKES A DEPTH. With no `fd` the churn shelf was a 1.7 fh square slab
+    //    reaching past the tile, and the vents and the door were cubes standing out of the wall.
+    const yaw = faceYaw(E);
     { const [tx, ty] = F(0, fh * 1.14);
-      draw3DBoxAt(ctx, cam, tx, ty, fh * 0.86, 0, h * 0.20, 'ty_sw_milk_dk', seed + 4, night, alpha, true); }
+      draw3DBoxAt(ctx, cam, tx, ty, fh * 0.86, 0, h * 0.20, 'ty_sw_milk_dk', seed + 4, night, alpha, true, yaw, fh * 0.12); }
     for (let i = 0; i < 5; i++) { const [cx, cy] = F((-0.66 + i * 0.33) * fh, fh * 1.14);
       drawFacetDrum(ctx, cam, cx, cy, h * 0.20, h * 0.44, fh * 0.09, fh * 0.06, 8, alpha,
         (f) => 'rgb(' + (150 + f.nl * 60 | 0) + ',' + (146 + f.nl * 58 | 0) + ',' + (132 + f.nl * 50 | 0) + ')', 'rgb(100,96,86)'); }
     // 2) VENT SLOTS high on the wall — a cold store breathes at the top or it sweats.
     for (const [i, lx] of [[0, -0.42], [1, 0.42]]) { const [vx, vy] = F(lx * fh, fh * 0.94);
-      draw3DBoxAt(ctx, cam, vx, vy, fh * 0.16, wallTop * 0.76, wallTop * 0.88, 'ty_sw_milk_dk', seed + 20 + i, night, alpha, false); }
-    { const [gx, gy] = F(0, fh * 0.96); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.20, h * 0.10, wallTop * 0.62, 'ty_door', seed + 24, night, alpha, false); }
+      draw3DBoxAt(ctx, cam, vx, vy, fh * 0.16, wallTop * 0.76, wallTop * 0.88, 'ty_sw_milk_dk', seed + 20 + i, night, alpha, false, yaw, fh * 0.03); }
+    { const [gx, gy] = F(0, fh * 0.95); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.20, h * 0.10, wallTop * 0.62, 'ty_door', seed + 24, night, alpha, false, yaw, fh * 0.03); }
   },
   sw_fire(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE LONG FIRE (the Thornwarren) — the town eats around an OPEN FIRE TRENCH,
     // so unlike Terminus' Long Table there is no roof over the middle at all: a long stone-lined
     // trench with the fire in it, a bread oven at one end, and a ring of low seating round the lot.
     const oven = h * 0.72;
     // 1) THE TRENCH — a long low stone surround with the fire down the length of it.
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.42, 0, h * 0.14, 'ty_sw_kept', seed, night, alpha, true);
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.30, h * 0.02, h * 0.10, 'ty_sw_ember', seed + 1, night, alpha, true);
+    // ⚠ THE TRENCH RUNS FRONT TO BACK, from the open end to the oven, with the benches on its other
+    //    three sides. With no `fd` it was a square hearth, and the ember bed sat inside its kerb under
+    //    the kerb's own lid, so the fire the building is named for was never drawn.
+    const yaw = faceYaw(E);
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.16, 0, h * 0.10, 'ty_sw_kept', seed, night, alpha, true, yaw, fh * 0.62);
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.11, h * 0.10, h * 0.125, 'ty_sw_ember', seed + 1, night, alpha, true, yaw, fh * 0.56);
     glowPool(ctx, cam, dx, dy, h * 0.14, '255,146,58', 16, alpha * (night ? 0.72 : 0.24));
     drawSmoke(ctx, cam, dx, dy, h * 0.16, '208,198,182', alpha * 0.55, now, seed + 2);
     // 2) THE BREAD OVEN at one end — a fired-earth dome, the one built thing on the tile.
@@ -712,8 +766,8 @@ export const OUTPOST_ARMS = {
     // 3) THE SEATING — low benches ringing the trench on both sides and the open end. Everyone
     //    faces in, which is what makes the shape read as a meal rather than a forge.
     for (const t of [-1, 1]) { const [bx, by] = F(t * fh * 0.72, fh * 0.10);
-      draw3DBoxAt(ctx, cam, bx, by, fh * 0.16, h * 0.06, h * 0.14, 'ty_sw_gate_dk', seed + 10 + t, night, alpha, true); }
-    { const [bx, by] = F(0, fh * 1.04); draw3DBoxAt(ctx, cam, bx, by, fh * 0.60, h * 0.06, h * 0.14, 'ty_sw_gate_dk', seed + 14, night, alpha, true); }
+      draw3DBoxAt(ctx, cam, bx, by, fh * 0.10, h * 0.06, h * 0.14, 'ty_sw_gate_dk', seed + 10 + t, night, alpha, true, yaw, fh * 0.40); }
+    { const [bx, by] = F(0, fh * 1.04); draw3DBoxAt(ctx, cam, bx, by, fh * 0.60, h * 0.06, h * 0.14, 'ty_sw_gate_dk', seed + 14, night, alpha, true, yaw, fh * 0.08); }
     // 4) A rack of split wood at the back, stacked. Somebody stacked it.
     { const [wx, wy] = F(fh * 0.86, -fh * 0.60);
       draw3DBoxAt(ctx, cam, wx, wy, fh * 0.24, 0, h * 0.34, 'ty_sw_gate_dk', seed + 18, night, alpha, true); }
@@ -1015,14 +1069,19 @@ export const OUTPOST_ARMS = {
     if (frontVis) for (let i = 0; i < 6; i++) { const [wx, wy] = F((-0.62 + i * 0.25) * fh, fh * 0.86);
       if (frac(seed * 6 + i) > 0.5) glowPool(ctx, cam, wx, wy, wallTop * 0.66, '255,198,132', 4, alpha * (night ? 0.36 : 0.10)); }
     // 3) THE BOOT RACK under the eave, and a wash line on two poles behind. Boots OFF at the door.
-    { const [bx, by] = F(0, fh * 1.02); draw3DBoxAt(ctx, cam, bx, by, fh * 0.70, 0, h * 0.12, 'ty_dw_timber', seed + 12, night, alpha, true); }
+    // ⚠ EVERY BOX HERE TAKES A DEPTH. `draw3DBoxAt` with no `fd` is as deep as it is wide, so the
+    //    rack was a 1.4 fh slab, each sheet a cube of canvas and each door a block standing out of
+    //    the wall. And the line is drawn now: the sheets used to hang between the poles from nothing.
+    const yaw = faceYaw(E);
+    { const [bx, by] = F(0, fh * 1.02); draw3DBoxAt(ctx, cam, bx, by, fh * 0.70, 0, h * 0.12, 'ty_dw_timber', seed + 12, night, alpha, true, yaw, fh * 0.06); }
     for (const t of [-1, 1]) { const [px, py] = F(t * fh * 0.86, -fh * 0.92);
       draw3DBoxAt(ctx, cam, px, py, fh * 0.025, 0, h * 0.56, 'ty_dw_timber', seed + 16 + t, night, alpha, false); }
+    emitWire(ctx, cam, W3(-fh * 0.86, -fh * 0.92, h * 0.53), W3(fh * 0.86, -fh * 0.92, h * 0.53), 1.2, 'rgba(70,62,52,0.9)', alpha, { pull: 0.02 });
     for (const [i, lx] of [[0, -0.48], [1, -0.06], [2, 0.36]]) { const g = frac(seed * 4 + i);
       const [cx, cy] = F(lx * fh, -fh * 0.92);
-      draw3DBoxAt(ctx, cam, cx, cy, fh * 0.16, h * (0.28 - g * 0.06), h * 0.52, 'ty_dw_canvas', seed + 20 + i, night, alpha, false); }
+      draw3DBoxAt(ctx, cam, cx, cy, fh * 0.16, h * (0.28 - g * 0.06), h * 0.52, 'ty_dw_canvas', seed + 20 + i, night, alpha, false, yaw, fh * 0.008); }
     for (const t of [-1, 1]) { const [gx, gy] = F(t * fh * 0.56, fh * 0.86);
-      draw3DBoxAt(ctx, cam, gx, gy, fh * 0.14, 0, wallTop * 0.58, 'ty_door', seed + 26 + t, night, alpha, false); }
+      draw3DBoxAt(ctx, cam, gx, gy, fh * 0.14, 0, wallTop * 0.58, 'ty_door', seed + 26 + t, night, alpha, false, yaw, fh * 0.02); }
   },
   dw_reckoning(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE RECKONING — one table, four chairs, and every wall covered in the
     // working for a march across the whole width of the world. It is the most important room in
@@ -1115,15 +1174,19 @@ export const OUTPOST_ARMS = {
     //    face and a boarded pediment — the most-read object in the region.
     for (const t of [-1, 1]) { const [px, py] = F(t * fh * 0.54, -fh * 0.86);
       draw3DBoxAt(ctx, cam, px, py, fh * 0.06, 0, roof, 'ty_dw_timber', seed + 2 + t, night, alpha, false); }
+    // ⚠ THE BOARD IS A BOARD: thin (`fd`), facing the yard, under a hood that oversails it, and the
+    //    benches run down the sides. With no depth the board and its roof were 1.1 fh square blocks.
+    const yaw = faceYaw(E);
     { const [bx, by] = F(0, -fh * 0.86);
-      draw3DBoxAt(ctx, cam, bx, by, fh * 0.56, boardZ0, boardZ1, pal, seed + 6, night, alpha, false);
-      draw3DBoxAt(ctx, cam, bx, by, fh * 0.66, boardZ1, roof, 'ty_dw_timber', seed + 7, night, alpha, true);
+      draw3DBoxAt(ctx, cam, bx, by, fh * 0.56, boardZ0, boardZ1, pal, seed + 6, night, alpha, false, yaw, fh * 0.03);
+      { const [hx, hy] = F(0, -fh * 0.80); draw3DBoxAt(ctx, cam, hx, hy, fh * 0.66, boardZ1, roof, 'ty_dw_timber', seed + 7, night, alpha, true, yaw, fh * 0.12); }
       // A hooded oil lamp on the board's own roof, aimed down at it. The one thing lit after dark.
-      glowPool(ctx, cam, bx, by, boardZ1, '255,196,120', 7, alpha * (night ? 0.52 : 0.14)); }
+      const [gx, gy] = F(0, -fh * 0.78);
+      glowPool(ctx, cam, gx, gy, boardZ1, '255,196,120', 7, alpha * (night ? 0.52 : 0.14)); }
     // 3) BENCHES DOWN BOTH SIDES — people wait here, and the benches are what make it a yard
     //    rather than a gap between sheds.
     for (const t of [-1, 1]) { const [nx, ny] = F(t * fh * 0.86, fh * 0.16);
-      draw3DBoxAt(ctx, cam, nx, ny, fh * 0.14, h * 0.08, h * 0.16, 'ty_dw_timber', seed + 12 + t, night, alpha, true); }
+      draw3DBoxAt(ctx, cam, nx, ny, fh * 0.08, h * 0.08, h * 0.16, 'ty_dw_timber', seed + 12 + t, night, alpha, true, yaw, fh * 0.40); }
   },
   dw_standpipe(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE STANDPIPE — the works' water: a CAST COLUMN with four taps round
     // it and a stone trough beneath, fed off the tailrace through a sand bed you can see the top
@@ -1270,8 +1333,7 @@ export const OUTPOST_ARMS = {
     const P3 = (lx, ly, z) => { const [wx, wy] = F(lx, ly); return cam.proj(wx, wy, z); };
     draw3DBoxAt(ctx, cam, dx, dy, fh * 0.92, 0, wallTop, pal, seed, night, alpha, false);
     draw3DBoxAt(ctx, cam, dx, dy, fh * 1.00, wallTop, fascia, pal, seed + 1, night, alpha, true);
-    // 1) THE RANK — seven, counted, because the wall of them is the joke and the number is how
-    //    the joke is told. Each cabinet is a shallow box (`fd`), so a rank wide enough to fill
+    // 1) THE RANK — six, three either side of the door, because the wall of them is the joke. Each cabinet is a shallow box (`fd`), so a rank wide enough to fill
     //    the frontage does not also reach a third of a tile into the road.
     //
     // ⚠ THERE IS NO GLASS IN FRONT OF IT AND THERE MUST NOT BE. This carried a black slab at
@@ -1290,15 +1352,27 @@ export const OUTPOST_ARMS = {
       { const [kx, ky] = F(0, fh * 1.00);
         draw3DBoxAt(ctx, cam, kx, ky, fh * 0.70, 0, deck, 'ty_helpings_trim', seed + 3, night, alpha, true, yaw, fh * 0.13); }
       const FC = fh * 1.09 + FACE_EPS;   // the cabinets' own front plane (cy + fd), a hair proud
-      for (let i = 0; i < 7; i++) {
-        const cu = (-0.54 + i * 0.18) * fh, [mx, my] = F(cu, fh * 1.00);
-        draw3DBoxAt(ctx, cam, mx, my, fh * 0.082, deck, head, 'ty_helpings_mach', seed + 10 + i, night, alpha, true, yaw, fh * 0.09);
+      // THE DOOR, centred under the name with three dispensers either side of it. ⚠ It stands out
+      // on the cabinets' own depth, so its paint lands on the same plane as theirs and never on
+      // the wall face, where it would fight the wall for the depth test.
+      { const [ox, oy] = F(0, fh * 1.00), dh = fh * 0.085, dz1 = head - h * 0.01;
+        draw3DBoxAt(ctx, cam, ox, oy, dh, deck, dz1, 'ty_helpings_trim', seed + 9, night, alpha, true, yaw, fh * 0.09);
+        const DQ = (uh, z0, z1, y) => [W3(-uh, y, z1), W3(uh, y, z1), W3(uh, y, z0), W3(-uh, y, z0)];   // TL, TR, BR, BL: see the ⚠ on winding below
+        emitFlat(ctx, cam, DQ(dh * 0.86, deck + h * 0.005, dz1 - h * 0.012, FC), '#3a4448', alpha, { cullN: E, lift: DETAIL_LIFT });
+        const dusk = 1 - 0.55 * (night ? clamp(night, 0, 1) : 0), alb = [200 * dusk, 208 * dusk, 208 * dusk];
+        emitFlat(ctx, cam, DQ(dh * 0.76, deck + h * 0.008, dz1 - h * 0.02, FC + 0.002), `rgb(${alb.map((v) => v | 0).join(',')})`, alpha, { cullN: E, lift: DETAIL_LIFT, lit: 'plain', albedo: alb });
+        const pz = (deck + dz1) / 2;
+        tubeRun(ctx, cam, W3, [dh * 0.55, FC + 0.006, pz - h * 0.025], [dh * 0.55, FC + 0.006, pz + h * 0.025], 0.003, 6, [90, 100, 106], 'chrome', alpha, dusk); }
+      for (const cuF of [-0.51, -0.36, -0.21, 0.21, 0.36, 0.51]) {
+        const i = Math.round((cuF + 0.51) / 0.15);
+        const cu = cuF * fh, [mx, my] = F(cu, fh * 1.00);
+        draw3DBoxAt(ctx, cam, mx, my, fh * 0.068, deck, head, 'ty_helpings_mach', seed + 10 + i, night, alpha, true, yaw, fh * 0.09);
         // ⚠ WOUND TL, TR, BR, BL IN (u, w), which is clockwise in the face's own plane and
         // therefore the winding Newell needs for a normal pointing at the street — there is no
         // `faceforward` in the GL shader and a reversed quad is lit from inside. See emblemSlab.
         const Q = (uh, z0, z1) => [W3(cu - uh, FC, z1), W3(cu + uh, FC, z1), W3(cu + uh, FC, z0), W3(cu - uh, FC, z0)];
-        emitFlat(ctx, cam, Q(fh * 0.056, deck + h * 0.03, h * 0.17), '#15191c', alpha, { cullN: E, lift: DETAIL_LIFT });
-        emitFlat(ctx, cam, Q(fh * 0.062, h * 0.205, h * 0.245), '#a4ecc0', alpha, { cullN: E, lift: DETAIL_LIFT });
+        emitFlat(ctx, cam, Q(fh * 0.046, deck + h * 0.03, h * 0.17), '#15191c', alpha, { cullN: E, lift: DETAIL_LIFT });
+        emitFlat(ctx, cam, Q(fh * 0.051,h * 0.205, h * 0.245), '#a4ecc0', alpha, { cullN: E, lift: DETAIL_LIFT });
         glowPool(ctx, cam, mx, my, h * 0.225, '198,255,208', 4, alpha * (night ? 0.42 : 0.16));
       }
       // 2) THE CANOPY over them — thin, white, and narrower than the frontage, so the header's
@@ -1313,9 +1387,70 @@ export const OUTPOST_ARMS = {
     //    ends. ⚠ ITS PLAN IS IN TILES (`GUT.wall`), NOT fh: the main is drawn by the clone's arm
     //    from the clone's own footprint, and the only way two rolls of fh agree about where a wall
     //    is is for neither of them to decide it. See GUT in downtown.js.
+    //    ⚠ PLAIN PANEL, NOT THE FACILITY'S TILE. In `ty_clone_tile` the blade carried a tile grid
+    //    big enough to read as windows, and from the street it was a narrow office tower between
+    //    two low buildings. It's clad like a plant room now: flush white panels, a steel kick plate
+    //    and coping, a hatch, the med-gas alarm panel and a placard. The penetration plates are
+    //    where the main goes through, one per side, each drawn by the arm that knows its height.
     const Wl = GUT.wall, dusk = 1 - 0.55 * (night ? clamp(night, 0, 1) : 0);
-    { const [px, py] = F(Wl.lx, (Wl.front + Wl.back) / 2);
-      draw3DBoxAt(ctx, cam, px, py, Wl.half, 0, fascia + h * 0.08, 'ty_clone_tile', seed + 20, night, alpha, true, yaw, (Wl.front - Wl.back) / 2); }
+    const wTop = fascia + h * 0.08, wMid = (Wl.front + Wl.back) / 2, wDeep = (Wl.front - Wl.back) / 2;
+    const wS = Wl.lx - Wl.half, wN = Wl.lx + Wl.half, STEEL = [184, 196, 200];
+    { const [px, py] = F(Wl.lx, wMid);
+      draw3DBoxAt(ctx, cam, px, py, Wl.half, 0, wTop, 'ty_clone_wall', seed + 20, night, alpha, true, yaw, wDeep);
+      draw3DBoxAt(ctx, cam, px, py, Wl.half + FACE_EPS, 0, h * 0.07, 'ty_hf_mirror', seed + 21, night, alpha, true, yaw, wDeep + FACE_EPS);
+      draw3DBoxAt(ctx, cam, px, py, Wl.half + FACE_EPS, wTop, wTop + h * 0.02, 'ty_hf_mirror', seed + 22, night, alpha, true, yaw, wDeep + FACE_EPS); }
+    // The panel joints, on the front and on the clone's side. ⚠ PAINT, NOT STROKES: `emitWire`
+    // pulls a stroke toward the eye, so a joint drawn that way ran in front of the placard and,
+    // from off-square, across the end of the fascia name (`signfit`). A strip on the face sits
+    // where the joint is.
+    { const seam = night ? 'rgb(70,84,88)' : 'rgb(118,134,138)', sw = 0.002, yF = Wl.front + FACE_EPS, xS = wS - FACE_EPS;
+      const y0 = Wl.back + 0.004, y1 = Wl.front - 0.004;
+      for (let z = h * 0.07 + h * 0.13; z < wTop - h * 0.04; z += h * 0.13) {
+        flatOut(ctx, cam, W3, [[wS + 0.004, yF, z + sw], [wN - 0.004, yF, z + sw], [wN - 0.004, yF, z - sw], [wS + 0.004, yF, z - sw]], [0, 1, 0], seam, alpha);
+        flatOut(ctx, cam, W3, [[xS, y0, z + sw], [xS, y1, z + sw], [xS, y1, z - sw], [xS, y0, z - sw]], [-1, 0, 0], seam, alpha);
+      }
+      for (let y = Wl.front - 0.18; y > Wl.back + 0.04; y -= 0.18) {
+        flatOut(ctx, cam, W3, [[xS, y - sw, wTop - 0.004], [xS, y + sw, wTop - 0.004], [xS, y + sw, h * 0.07 + 0.004], [xS, y - sw, h * 0.07 + 0.004]], [-1, 0, 0], seam, alpha);
+      } }
+    // The north penetration plate, where the shop's half of the main leaves the wall: a bolted
+    // steel square round the pipe. Its centre is held back from the wall's front edge so the plate
+    // never hangs off the end of it.
+    { const pr = 0.034, pcy = Math.min(fh * 1.02, Wl.front - pr - 0.002), zS0 = h * 0.52;
+      const [qx, qy] = F(wN + 0.004, pcy);
+      draw3DBoxAt(ctx, cam, qx, qy, 0.004, zS0 - pr, zS0 + pr, 'ty_hf_mirror', seed + 23, night, alpha, true, yaw, pr);
+      for (const [by, bz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+        tubeRun(ctx, cam, W3, [wN + 0.008, pcy + by * pr * 0.72, zS0 + bz * pr * 0.72], [wN + 0.013, pcy + by * pr * 0.72, zS0 + bz * pr * 0.72], 0.004, 6, [120, 132, 138], 'chrome', alpha, dusk);
+      } }
+    if (frontVis) {
+      const yF = Wl.front + FACE_EPS;
+      const Q = (x0, x1, z0, z1, y = yF) => [W3(x0, y, z1), W3(x1, y, z1), W3(x1, y, z0), W3(x0, y, z0)];   // TL, TR, BR, BL: see the rank's ⚠ on winding
+      // The door that was here is the shop's, centred in the rank under the name.
+      // The medical gas alarm panel: white, three lamps, and the green one is always on. The amber
+      // comes up while product is moving in the main.
+      // ⚠ ABOVE THE MAIN, NOT BESIDE IT. The clone's half comes in at the clone's own h * 0.50, just
+      // round the corner from this face, and a panel at that height looks like the pipe's socket.
+      const az0 = h * 0.60, az1 = h * 0.68, ax0 = wS + 0.012, ax1 = wN - 0.012;
+      { const alb = [223 * dusk, 230 * dusk, 228 * dusk];   // paint, so it goes dark with the wall; only the lamp stays lit
+        emitFlat(ctx, cam, Q(ax0, ax1, az0, az1), `rgb(${alb.map((v) => v | 0).join(',')})`, alpha, { cullN: E, lift: DETAIL_LIFT, lit: 'plain', albedo: alb }); }
+      const lampW = (ax1 - ax0) / 7, lz0 = az0 + (az1 - az0) * 0.35, lz1 = az0 + (az1 - az0) * 0.65;
+      ['#46e88a', '#5c4a1c', '#561e1a'].forEach((css, k) => {
+        const x0 = ax0 + lampW * (1 + k * 2);
+        emitFlat(ctx, cam, Q(x0, x0 + lampW, lz0, lz1, yF + 0.002), css, alpha, { cullN: E, lift: DETAIL_LIFT });
+      });
+      const lampAt = (k) => F(ax0 + lampW * (1.5 + k * 2), yF + 0.006);
+      { const [gx, gy] = lampAt(0); glowPool(ctx, cam, gx, gy, (lz0 + lz1) / 2, '90,255,150', 2.5, alpha * (night ? 0.7 : 0.3), { air: true }); }
+      { const gu = gutPhase(now);
+        if (gu >= 0.50 && gu < 0.70) { const [gx, gy] = lampAt(1); glowPool(ctx, cam, gx, gy, (lz0 + lz1) / 2, '255,184,70', 3, alpha * (night ? 0.85 : 0.5), { air: true }); } }
+      // A conduit from the panel up to the coping.
+      tubeRun(ctx, cam, W3, [Wl.lx, Wl.front + 0.008, az1], [Wl.lx, Wl.front + 0.008, wTop], 0.005, 6, STEEL, 'chrome', alpha, dusk);
+      // The placard, on the main's way into a food shop.
+      const tex = placardTex();
+      if (tex) {
+        const pz0 = h * 0.33, pz1 = h * 0.42;
+        const q = [[wS + 0.008, pz1], [wN - 0.008, pz1], [wN - 0.008, pz0], [wS + 0.008, pz0]].map(([u, z]) => P3(u, yF + 0.002, z));
+        if (q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
+      }
+    }
     // The main's second half: out of the wall's north face at this building's own height, and up
     // the corner to the masher, in the same glass the clone's run is made of. The riser and the
     // downcomer beside it are in tiles for the wall's reason: at fh in it the riser stood inside

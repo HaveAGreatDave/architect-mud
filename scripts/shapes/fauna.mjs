@@ -1368,8 +1368,41 @@ if (grounded(highGround).length) problems.push('walking geese still drew from ab
 T = T_AIR ?? 1e6;
 const highAir = paint(viewAt(CENTRE, 0.3, 12));
 if (!airborne(highAir).length) problems.push('airborne geese vanished at a height a cockpit actually flies at');
-const tooHigh = paint(viewAt(CENTRE, 0.9, 12));
-if (tooHigh.quads.length) problems.push('geese still drew above GOOSE_AIR_MAX_H, where a bird is sub-pixel');
+
+// ── 5b. NO ALTITUDE CUT, AND THE REACH COUNTS THE HEIGHT ─────────────────────
+// There used to be a cut at height 0.5 above which only starlings drew. It hid the vulture and the
+// peregrine while they were still above the eye, so it is gone, and a bird's distance now counts how
+// far it is below the eye. ⚠ ONE FLOCK IN THE WINDOW, for the reason the gear check gives: a second
+// flock nearer the camera would pass the short-range test below on its own anchor.
+{
+  const sole = (wx, wy) => (wx === ANCHOR.ax && wy === ANCHOR.ay
+    ? { kind: 'land', biome: 'parkland', flr: 0 }
+    : { kind: 'land', biome: EMPTY_GROUND, flr: 0 });
+  // A moment well up the climb, so the flock's height is plainly above zero.
+  let tUp = null;
+  for (let i = 0; i < 4000 && tUp == null; i++) {
+    const t = 1e6 + i * (GOOSE_PERIOD / 400), st = flockState(ANCHOR, t);
+    if (st.airborne && st.z > 1) tUp = t;
+  }
+  if (tUp == null) problems.push('the sole goose flock never climbs above one tile — the height checks below are vacuous');
+  else {
+    T = tUp;
+    const top = paint(viewAt(CENTRE, 1, 12, undefined, 0, sole));
+    if (!airborne(top).length) problems.push('airborne geese vanished from the top of the height scale, a few tiles below the eye — the altitude cut is back');
+    // Shorten the goose's reach to 7 tiles. The camera is about 6 tiles off the anchor, so from the
+    // ground the flock is in range; from the top (eye 7.1, flock at most 2.2) it is at least 7.4
+    // tiles away in 3-D and must not draw. A flat distance would draw it at both.
+    const rangeWas = SPECIES.goose.drawRange;
+    let low, high;
+    try {
+      SPECIES.goose.drawRange = 7;
+      low = paint(viewAt(CENTRE, 0, 12, undefined, 0, sole));
+      high = paint(viewAt(CENTRE, 1, 12, undefined, 0, sole));
+    } finally { SPECIES.goose.drawRange = rangeWas; }
+    if (!airborne(low).length) problems.push('with a 7-tile reach the goose did not draw from the ground 6 tiles off — the reach check is vacuous');
+    else if (airborne(high).length) problems.push('a goose 6 tiles off but past its 7-tile reach in 3-D still drew from the top of the height scale — the range ignores the height');
+  }
+}
 
 // ── 6. GROUND THAT IS NOT THEIRS ──────────────────────────────────────────────
 // ⚠ A TEST MAP MADE ENTIRELY OF HABITAT CANNOT SEE THE HABITAT CHECK. Every assertion above runs

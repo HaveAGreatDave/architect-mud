@@ -26,6 +26,7 @@ import { viewProjMatrix, mat4f, zRow, NEAR, eyePos } from './camera.js';
 import { makeVertexStream } from './stream.js';
 import { createArena } from './retain.js';
 import { declareProgram, takeWarm } from './programs.js';
+import { linearOut, applyLinOut } from './colour.js';
 
 // NDC depth is A + B/f, from the ONE place NEAR and FAR are named. See sprites.js for the twin.
 // ⚠ PER FRAME, BECAUSE THE PLANE IS. These two were module constants off NEAR/FAR, which
@@ -109,7 +110,7 @@ void main() {
   }
 }`;
 
-const FRAG = `#version 300 es
+const FRAG = linearOut(`#version 300 es
 precision highp float;
 in float vSide;
 in float vFeather;
@@ -134,7 +135,7 @@ void main() {
   }
   if (a < 0.004) discard;
   outColor = vec4(col * a, a);
-}`;
+}`, 'outColor');
 
 function compile(gl, type, src, label) {
   const sh = gl.createShader(type);
@@ -272,7 +273,7 @@ export function createStrokeLayer(gl) {
     const rL = arenaLit.runs, rC = arenaCore.runs, rH = arenaHalo.runs;
     if (!count && !rL.length && !rC.length && !rH.length) return 0;
     const runs = (arena, rs) => { if (!rs.length) return; gl.bindVertexArray(arena.vao); for (const [a, n] of rs) gl.drawArrays(gl.TRIANGLES, a, n); gl.bindVertexArray(vao); };
-    gl.useProgram(prog);
+    gl.useProgram(prog); applyLinOut(gl, prog);
     gl.uniformMatrix4fv(loc.viewProj, false, mat4f(viewProjMatrix(cam, cssH || H)));
     gl.uniform2f(loc.viewport, W, H);
     const zr = zRow((cam && cam.near) || NEAR);

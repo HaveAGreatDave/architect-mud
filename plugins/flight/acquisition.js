@@ -6,7 +6,7 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { adjustCredits } from '../../server/engine/economy.js';
-import { getZone, liveAircraft, persist, pushHud, sendToPlayer, REFUEL_PRICE_PER_UNIT, effStats, partDefs, partEnvelope, fieldFor as fieldOf, inHangarInterior, rentalOpFee, vtolOnlyField, acquirableTypes, airfieldOf, fieldName } from './state.js';
+import { getZone, liveAircraft, persist, pushHud, sendToPlayer, REFUEL_PRICE_PER_UNIT, effStats, partDefs, partEnvelope, fieldFor as fieldOf, rentalOpFee, vtolOnlyField, acquirableTypes, airfieldOf, fieldName } from './state.js';
 import { refillChampagne, pushChampagne } from './champagne.js';
 import { allExits } from '../../server/engine/exits.js';
 import { getMinimapData, addPlayerToZone, removePlayerFromZone } from '../../server/engine/world.js';
@@ -95,12 +95,14 @@ async function acquire(args, raw, player, kind) {
   const desk = kind === 'buy' ? 'dealer' : 'rental';
   if (!airfieldOf(field)?.[desk])
     return { type: 'emote', message: `There's no ${kind === 'buy' ? 'aircraft dealer' : 'rental desk'} here.` };
-  // The desk is INSIDE the hangar. Rather than refuse someone standing out on the
-  // ramp (which is exactly where you are after a landing rollout, and where the
-  // hangar-bay panel's own Buy/Rent buttons fire from), walk them in and serve
-  // them. Refusing here was a dead end you could only escape by guessing a
-  // compass step; the counter is a few paces away either way.
-  if (field.flags.hangar_interior_zone && !inHangarInterior(player)) {
+  // The desk is INDOORS: the hangar, or any room that names this ramp (every building at
+  // Coldwater Regional). Rather than refuse someone standing out on the ramp (which is
+  // exactly where you are after a landing rollout, and where the hangar-bay panel's own
+  // Buy/Rent buttons fire from), walk them in and serve them. Refusing here was a dead end
+  // you could only escape by guessing a compass step; the counter is a few paces away
+  // either way. ⚠ Asking `inHangarInterior` here walked a buyer in the check-in hall
+  // across the apron to the hangar, with "you step in out of the wind" prose, from indoors.
+  if (field.flags.hangar_interior_zone && !getZone(player.current_zone)?.flags?.hangar_ramp) {
     // Strapped into a cockpit is the one case we can't walk them out of.
     if (player.aircraftId) {
       const dir = hangarEntryDir(field);

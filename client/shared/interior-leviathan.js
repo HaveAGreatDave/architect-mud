@@ -884,7 +884,7 @@ function liveFit(P, live, push) {
   for (let i = 0; i < 6; i++) G.lamp(-0.42 + i * 0.07 + (i > 2 ? 0.63 : 0), 0, 0.014, 0.010, lit && i % 2 === 0, C.green, AP_MODE[i]);
   // ── THE OVERHEAD: toggles that follow the aircraft's electrics, the landing and dome switches. ──
   {
-    const O = K.panel([cx, -0.575, 0.199], [1, 0, 0], [0, 1, 0], 'hdr', -0.1);
+    const O = overheadPanel(K, cx, 'hdr', -0.1);
     for (let r = 0; r < 7; r++) for (let c = 0; c < 9; c++) {
       const a = -0.31 + c * 0.075, b = -0.40 + r * 0.12;
       if (r === 6 && c >= 6) continue;                              // where the landing and dome switches sit
@@ -967,6 +967,11 @@ function liveFit(P, live, push) {
   hotspotHalo(K, levHotspots(P, live), live);
 }
 
+// The overhead panel, one frame for the drawing and the hotspots. It is behind your head, so you read
+// it turned round: across is −x and up is forward (docs/reference/cockpit-lettering.md rule 7). With
+// across +x every label on it read mirrored.
+const overheadPanel = (K, cx, tone, k) => K.panel([cx, -0.575, 0.199], [-1, 0, 0], [0, 1, 0], tone, k);
+
 // ── THE CONTROLS YOU CAN TOUCH ────────────────────────────────────────────────
 // The same `ck:*` ids cockpit.js already acts on, at the places the drawing puts them.
 export function levHotspots(P, live) {
@@ -977,7 +982,7 @@ export function levHotspots(P, live) {
     { id: 'ck:flaps', p: FLAPL(P, R).tip, r: 0.03, kind: 'click' },
     { id: 'ck:gear', p: GEARL(P, R), r: 0.03, kind: 'click' },
   ];
-  const O = makeKit(() => {}).panel([cx, -0.575, 0.199], [1, 0, 0], [0, 1, 0]);
+  const O = overheadPanel(makeKit(() => {}), cx);
   out.push({ id: 'ck:land', p: O.pt(0.19, 0.44, 0.01), r: 0.016, kind: 'click' });
   out.push({ id: 'ck:dome', p: O.pt(0.26, 0.44, 0.01), r: 0.016, kind: 'click' });
   return out;

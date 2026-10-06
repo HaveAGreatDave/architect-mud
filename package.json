@@ -108,6 +108,7 @@
     "gl:bevel": "node scripts/shapes/glbevel.mjs",
     "gl:ssao": "node scripts/shapes/glssao.mjs",
     "gl:hdr": "node scripts/shapes/glhdr.mjs",
+    "gl:colour": "node scripts/shapes/glcolour.mjs",
     "gl:power": "node scripts/shapes/power.mjs --report",
     "gl:self": "node scripts/shapes/glself.mjs --report",
     "gl:neighbour": "node scripts/shapes/glneighbour.mjs --report",

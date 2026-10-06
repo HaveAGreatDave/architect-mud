@@ -442,6 +442,32 @@ ws.RENDER_TUNE.actorFarPx = 0.5;   // everybody in view is a record, so everybod
     const who = wcast.find((a) => a.y === Math.round(tr[0].y + C.y)), reach = who && who.x === 100 ? pw + G.WALK_HW : 0.5;
     checkTrack(tr, 'street life, wide road', (r) => Math.abs(Math.abs(r.x) - pw) <= G.WALK_HW + 1e-6 && !!who && Math.abs(r.x + C.x - who.x) <= reach + 1e-6);
   }
+
+  // A camp on the Curtain. The wall runs n–s down the middle of column 100 and the city is west of
+  // it (`ci`), with open ground east, so the old land test can't tell the sides apart. Old Coldwater's
+  // east wall is this: three people live on it, and a spot drawn from a square round the tile centre
+  // stood about half of them in the wastes. Everybody stays west of the field, standing, strolling,
+  // in a ring, and walking along the wall to the next tile.
+  const cmap = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => (x === R
+    ? { kind: 'land', biome: 'city', flr: 0, cur: 'ns', ci: [[-1, 0]] }
+    : { kind: 'land', biome: 'city', flr: 0 })));
+  const ccast = [9800, 9810, 9820, 9830, 9840].map((i, n) => ({ t: pick(() => true, i), x: 100, y: n < 3 ? 97 : 95 }));
+  const CV = { ...VIEW, map: cmap, roadside: null, actors: ccast };
+  const inside = (r) => r.x <= -G.CURTAIN_HALF_W + 1e-6;
+  clear(CV);
+  frame(CV);
+  const ctracks = run(CV, 60);
+  report(`street life, on the Curtain: ${ctracks.length} tracks`);
+  if (ctracks.filter((tr) => tr.length > 200).length !== ccast.length) problems.push(`street life, on the Curtain: followed ${ctracks.length} figures, not ${ccast.length}`);
+  for (const tr of ctracks) checkTrack(tr, 'street life, on the Curtain', (r) => inside(r) && r.x > -0.5);
+  const along = run({ ...CV, actors: ccast.map((a, n) => (n ? a : { ...a, y: 96 })) }, 20);
+  for (const tr of along) checkTrack(tr, 'street life, walking along the Curtain', inside);
+  // And as shipped, with street life off: the kerb spot alone.
+  ws.RENDER_TUNE.actorLife = 0;
+  const still = settle(CV).recs;
+  ws.RENDER_TUNE.actorLife = 1;
+  if (still.length !== ccast.length) problems.push(`on the Curtain with street life off: ${still.length} records, not ${ccast.length}`);
+  for (const r of still) if (!inside(r)) problems.push(`on the Curtain with street life off: a figure stood past the wall, at x ${(r.x + C.x).toFixed(3)}`);
   clear(VIEW); settle(VIEW);
   ws.RENDER_TUNE.actorFarPx = farWas;
 }

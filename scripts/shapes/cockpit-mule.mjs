@@ -1,15 +1,19 @@
 // THE GATE FOR THE MULE'S FLIGHT DECK (client/shared/interior-mule.js).
 //
-// Three questions, each silent when wrong:
+// Four questions, each silent when wrong:
 //   a) is it a room you can sit in and see out of — shell.mjs's own ray checks, at rest and with
 //      every control at both stops;
 //   b) is the INSIDE the inside of the OUTSIDE — the glass is read off the real exterior mesh
 //      (aircraftFaces('prop')), converted with a scale this file derives itself from that mesh, and
 //      every pane must be a clear hole in the room with its rim on the pane's own corners;
-//   c) does every control move — a lever that draws the same at both stops is a picture of a lever.
+//   c) does every control move — a lever that draws the same at both stops is a picture of a lever;
+//   d) can you start her from the seat: the ignition is in the forward view with nothing in front
+//      of it, and every click control is one cockpit.js acts on. The Mule shipped with neither: no
+//      start in front of the pilot, and a BAT switch whose id no handler knew.
 // Run: node scripts/shapes/cockpit-mule.mjs   (exit 1 on any failure)
 import { shellFaces, shellBounds } from '../../client/shared/interior-shell.js';
 import { muleProfile } from '../../client/shared/interior-mule.js';
+import { readDkTables } from './dk-tables.mjs';
 
 let fails = 0, checks = 0;
 const ok = (cond, msg) => { checks++; if (!cond) { fails++; console.log('  FAIL  ' + msg); } };
@@ -51,10 +55,11 @@ const B = shellBounds(P);
 ok(!!P && P.room, 'muleProfile() built no profile with a room');
 
 // ── a) THE ROOM, AT REST AND AT EVERY STOP ───────────────────────────────────
-const REST = { powered: true, throttle: 0.5, rpm: 0.8, ias: 110, alt: 4500, hdg: 90, fuel: 0.6, hull: 1, hour: 12 };
+const REST = { powered: true, engineOn: true, throttle: 0.5, rpm: 0.8, ias: 110, alt: 4500, hdg: 90, fuel: 0.6, hull: 1, hour: 12 };
 const STOPS = {
   stickX: [-1, 1], stickY: [-1, 1], rudder: [-1, 1], throttle: [0, 1], flapNotch: [0, 3], trim: [-1, 1],
   powered: [false, true], dome: [false, true], landingLight: [false, true], hour: [12, 23],
+  engineOn: [false, true], starting: [false, true], panelLight: [false, true],
   ias: [0, 170], alt: [0, 9500], vsi: [-2000, 2000], hdg: [0, 200], pitch: [-20, 20], bank: [-45, 45],
   rpm: [0, 1], fuel: [0, 1], hull: [0.1, 1], oilTemp: [20, 115],
 };
@@ -192,6 +197,33 @@ for (const [k, id, a, b] of [['throttle', 'throttle', 0, 1], ['throttle', 'throt
   const hb = P.hotspots({ ...REST, [k]: b }).find((h) => h.id === id).p;
   const nb = near(shellFaces(P, { ...REST, [k]: b }), hb, 0.03), na = near(shellFaces(P, { ...REST, [k]: a }), hb, 0.03);
   ok(nb > 0 && nb > na, k + ' ' + a + '→' + b + ': nothing arrives at the ' + id + ' grab point (' + na + ' → ' + nb + ' vertices)');
+}
+
+// ── d) YOU CAN START HER FROM THE SEAT ───────────────────────────────────────
+// The ignition is the engine master, 'ck:master'. It must be in the forward view (within 30° of
+// straight ahead, either way) and nothing may stand between the eye and it, nor between the eye and
+// the switches beside it, with the wheel at rest or at either end of its travel.
+const hs = P.hotspots(REST);
+const key = hs.find((h) => h.id === 'ck:master');
+ok(!!key, 'no ck:master hotspot: nothing in the cockpit starts the engine');
+if (key) {
+  const [x, y, z] = key.p, down = Math.atan2(-z, y) * 180 / Math.PI, side = Math.atan2(Math.abs(x), y) * 180 / Math.PI;
+  ok(y > 0 && down < 30 && side < 30, 'the ignition is out of the forward view: ' + down.toFixed(0) + '° down, ' + side.toFixed(0) + '° aside');
+}
+for (const sy of [-1, 0, 1]) {
+  const live = { ...REST, stickY: sy };
+  const fs = shellFaces(P, live);
+  for (const h of P.hotspots(live).filter((h) => h.kind === 'click' && h.p[1] > 0.5)) {
+    ok(!castFrom(fs, [0, 0, 0], h.p, 0.95), h.id + ' is hidden from the seat (stickY ' + sy + ')');
+  }
+}
+// Every click control names an action cockpit.js has, and a tooltip. Read off the source by
+// dk-tables.mjs, which cockpit-controls.mjs asks of every other seat.
+const { ACT, TIP } = readDkTables();
+ok(!!ACT && !!TIP, 'could not read DK_ACT / DK_TIP out of cockpit.js; this check would be vacuous');
+for (const h of hs.filter((h) => h.kind === 'click')) {
+  ok(!!ACT?.has(h.id), h.id + ': cockpit.js DK_ACT has no action for it, so the click does nothing');
+  ok(!!TIP?.has(h.id), h.id + ': cockpit.js DK_TIP has no tooltip for it');
 }
 
 console.log('    ' + rest.length + ' faces · ' + down.toFixed(2) + 'm to the seat · ' + (B[4] - B[1]).toFixed(2) + 'm long, '

@@ -429,7 +429,9 @@ const PANEL = { o: [0, 0.64, -0.50], u: norm([0, 0.26, 0.97]) };
 const LCON = { x0: -0.93, x1: -0.60, y0: -0.36, y1: 0.46, top: -0.54 };
 const RCON = { x0: 0.60, x1: 0.93, y0: -0.36, y1: 0.46, top: -0.54 };
 const LSW = { o: [-0.765, -0.14, LCON.top + 0.001] };      // the lights/start panel on the left console
-const LSW_IDS = [['ck:master', -0.06], ['ck:land', -0.02], ['ck:dome', 0.02], ['nav', 0.06]];
+// ⚠ EVERY ONE IS CLICKABLE. The fourth was NAV, drawn and never wired, and the sim has no nav circuit;
+// it is the panel lights now, which it has.
+const LSW_IDS = [['ck:master', -0.06], ['ck:land', -0.02], ['ck:dome', 0.02], ['ck:panel', 0.06]];
 const QUAD = { x: -0.74, y: 0.26, z: LCON.top };             // the power lever quadrant, ahead of the collective
 const COLL = { pivot: [-0.36, -0.34, -0.86], len: 0.60 };
 const CYC = { base: [0, 0.30, -1.05] };
@@ -449,8 +451,8 @@ function viperHotspots(P, live) {
   const K = makeKit(() => {});
   const Sp = K.panel(LSW.o, [1, 0, 0], [0, 1, 0]);
   const Pn = panelKit(K);
-  const out = LSW_IDS.filter(([id]) => id.startsWith('ck:')).map(([id, b]) => ({ id, p: Sp.pt(0, b, 0.01), r: 0.014, kind: 'click' }));
-  out.push({ id: 'guns', p: Pn.pt(ARM.a, ARM.b, 0.01), r: 0.016, kind: 'click' });
+  const out = LSW_IDS.map(([id, b]) => ({ id, p: Sp.pt(0, b, 0.01), r: 0.014, kind: 'click' }));
+  out.push({ id: 'ck:arm', p: Pn.pt(ARM.a, ARM.b, 0.01), r: 0.016, kind: 'click' });
   const tip = cyclicTip(clamp(num(L.stickX), -1, 1), clamp(num(L.stickY), -1, 1));
   out.push({ id: 'yoke', p: add(tip, [0, 0.01, 0.07]), r: 0.07, kind: 'yoke' });
   out.push({ id: 'throttle', p: collectiveGrip(num(L.throttle)), r: 0.04, kind: 'throttle' });
@@ -638,8 +640,11 @@ export function viperFit(P, live, push) {
   const missiles = clamp(Math.round(num(L.missiles, 16)), 0, 16);
   const hour = num(L.hour, 12);
   const night = hour < 6.5 || hour > 19.5 ? 1 : (hour < 7.5 ? 7.5 - hour : hour > 18.5 ? hour - 18.5 : 0);
-  const lit = powered ? 0.25 + night * 0.7 : 0;              // the edge-lit lettering
-  const ink = night > 0.3 && powered ? V.nvis : V.ink;
+  // The edge-lit lettering is the PANEL switch (cockpit.js 'ck:panel'); a view that sends no switch
+  // state, a seat shot, lights it after dark.
+  const panelOn = powered && (L.panelLight != null ? !!L.panelLight : night > 0.5);
+  const lit = powered ? 0.25 + (panelOn ? Math.max(night, 0.4) * 0.7 : 0) : 0;
+  const ink = panelOn && night > 0.3 ? V.nvis : V.ink;
 
   // ── THE FRONT PANEL ──
   const Pn = panelKit(K);
@@ -754,8 +759,8 @@ export function viperFit(P, live, push) {
   // ── THE LEFT CONSOLE: lights and start panel, the power levers, the collective ──
   {
     const Sp = K.panel(LSW.o, [1, 0, 0], [0, 1, 0], 'dash', 0.2);
-    const st = { 'ck:master': powered, 'ck:land': !!L.landingLight, 'ck:dome': !!L.dome, nav: powered };
-    const LSW_NAME = { 'ck:master': 'MASTER', 'ck:land': 'LAND', 'ck:dome': 'DOME', nav: 'NAV' };
+    const st = { 'ck:master': powered, 'ck:land': !!L.landingLight, 'ck:dome': !!L.dome, 'ck:panel': panelOn };
+    const LSW_NAME = { 'ck:master': 'MASTER', 'ck:land': 'LAND', 'ck:dome': 'DOME', 'ck:panel': 'PANEL' };
     for (const [id, b] of LSW_IDS) {
       const on = !!st[id];
       const f = eased('viper:' + id, on ? 1 : 0, 18) - pressPulse('viper:' + id, on) * 0.3;

@@ -272,7 +272,9 @@ an Ascendant learns what to harden.
 **The manual override.** `player_augments.custom_data.radio_off` makes an augment
 unreachable through the `network` layer entirely — the physical surfaces remain,
 but the radio is gone. This is what stops Nullcraft invalidating expensive gear,
-and it costs no column. Two regress cases pin both halves.
+and it costs no column. Two regress cases pin both halves. No verb sets it yet,
+so a player can't use it; [payloads-and-firmware.md](proposals/payloads-and-firmware.md)
+plans `augment radio`, along with multi-step payloads and Ascendant firmware.
 
 **Veiling is capped below total invisibility** (`VEIL_CAP = 0.85`). Ghosting
 makes you hard to *witness*; it must never make you unarrestable. The jail

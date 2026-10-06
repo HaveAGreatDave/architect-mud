@@ -38,29 +38,29 @@
   "detail": [
     {
       "bars": 4,
-      "cx": -0.06,
+      "cx": -0.08,
       "cy": 0.4,
       "depth": 0.019,
       "glass": "#20141a",
       "glow": "#ffc46a",
-      "half": 0.255,
-      "hh": 0.072,
+      "half": 0.235,
+      "hh": 0.118,
       "kind": "windowBay",
       "pal": "ty_marble_col",
       "transom": 0.74,
-      "z": 0.175
+      "z": 0.232
     },
     {
-      "cx": -0.06,
+      "cx": -0.02,
       "cy": 0.4,
-      "half": 0.29,
+      "half": 0.33,
       "hh": 0.012,
       "kind": "canopy",
       "out": 0.1,
       "pal": "ty_marble_col",
       "soffit": "#123a22",
       "strip": "#7dffb0",
-      "z": 0.258
+      "z": 0.393
     },
     {
       "count": 4,
@@ -211,6 +211,18 @@
       "s": 10,
       "z0": 0,
       "z1": 0.085
+    },
+    {
+      "cx": 0.25,
+      "cy": 0.4,
+      "depth": 0.016,
+      "door": 1,
+      "half": 0.055,
+      "hh": 0.155,
+      "kind": "windowBay",
+      "pal": "ty_marble_col",
+      "transom": 0.8,
+      "z": 0.216
     }
   ],
   "id": "thedeadline",

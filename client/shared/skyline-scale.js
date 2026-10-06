@@ -28,7 +28,7 @@
 // too big.
 export const TYPE_FLOORS = {
   corporate_office: 22, hotel: 6, apartment: 8, residential: 4, shop: 3, diner: 2,
-  bar: 2, club: 3, studio: 4, police: 4, clinic: 4, power: 5, hangar: 1, control_tower: 10, arrivals: 2, departures: 2,
+  bar: 2, club: 3, studio: 4, police: 4, clinic: 4, power: 5, hangar: 1, control_tower: 10, arrivals: 4, departures: 4,
   // ⚠ CIVIC WAS 6, AND THE ⚠ ABOVE IS EXACTLY WHY THAT MATTERED. Seven of the eight buildings that
   // carry building_type 'civic' are in Terminus and the Thornwarren — a nursery, an assembly hall,
   // two checkpoints, a song house, a lookout and a birthing room — and every fraction inside their

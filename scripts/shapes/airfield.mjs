@@ -191,6 +191,59 @@ say(greenLamps(three) > greenLamps(two),
 say(three.sinks.decals.some((d) => String(d.key).startsWith('helideck|')),
   'a pad tile pushed no deck markings — the H and the aiming circles are missing');
 
+// ── 4. a paved runway is a runway, and its taxiways are taxiways ────────────
+// ⚠ COLDWATER REGIONAL'S RUNWAY WAS PAINTED AS A STREET. Its centreline tiles carry a `runway_ns` icon,
+// which made them road cells, and the road branch gave them a double yellow line and kerbs; every
+// taxiway and apron tile was bare floor. The cell now says which it is (`rwy`, `twy`; see
+// paintAirfieldTile), and this is a slice of the real field: a strip, a parallel taxiway with an exit
+// onto it, a stand off its far side, and open ground past the north end for the approach lights.
+function paved() {
+  return Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => {
+    // `road: 1` is what the runway_ns icon made them, and what the street paint came from.
+    if (x === R && y >= R - 11 && y <= R - 6) return y === R - 6 ? { kind: 'field', rwy: 'ns', road: 1, flr: 0 } : { kind: 'land', rwy: 'ns', road: 1, flr: 0 };
+    if (x === R + 1 && y >= R - 10 && y <= R - 6) return { kind: 'land', rwy: 'pad', twy: y === R - 10 ? 'sw' : y === R - 8 ? 'nsw' : 'ns', flr: 0 };
+    if (x === R - 1 && y === R - 9) return { kind: 'land', rwy: 'pad', twy: 'e', flr: 0 };
+    return { kind: 'land', biome: 'city', flr: 0 };
+  }));
+}
+let groundRecs = null;
+const four = (() => {
+  const c = globalThis.document.createElement('canvas'); c.width = W; c.height = H;
+  glCanvas = c;
+  ws.RENDER_TUNE.gl = 1; ws.RENDER_TUNE.glFloor = 1;
+  ws.installGLWorld((cells, cam, o) => {
+    lastCam = cam;
+    sinks = { strokes: (o.strokes || []).slice(), sprites: (o.sprites || []).slice(), decals: (o.decals || []).slice() };
+    groundRecs = (o.ground || []).slice();
+    return { faces: 1, canvas: c };
+  });
+  const V = view(paved());
+  ws.paintWindshield('__af', V);
+  log.length = 0;
+  ws.paintWindshield('__af', V);
+  const blit = log.findIndex((e) => e.op === 'BLIT');
+  const early = log.filter((e, i) => e.op !== 'BLIT' && (blit < 0 || i < blit) && /70,130,255|80,255,140|255,190,60/.test(e.s)).length;
+  return { blit, early, sinks };
+})();
+const isRgb = (a, r, g, b) => !!a && Math.abs(a[0] - r) < 3 && Math.abs(a[1] - g) < 3 && Math.abs(a[2] - b) < 3;
+const lampsOf = (r, g, b) => four.sinks.sprites.filter((s) => isRgb(s.rgb, r, g, b)).length;
+// The runway column is x = 0 in the map window's frame, the frame the ground records are in.
+const yellowOnRunway = (groundRecs || []).filter((q) => {
+  // ANY yellow: the street's centre line is (230,200,74), not the taxiway's (232,192,60).
+  if (!q.p || !q.rgb || !(q.rgb[0] > 190 && q.rgb[1] > 150 && q.rgb[2] < 120)) return false;
+  const cx = q.p.reduce((s, p) => s + p[0], 0) / q.p.length, cy = q.p.reduce((s, p) => s + p[1], 0) / q.p.length;
+  return Math.abs(cx) < 0.4 && cy >= -11.5 && cy <= -5.5;
+}).length;
+const yellowOnTaxiway = (groundRecs || []).filter((q) => q.p && isRgb(q.rgb, 232, 192, 60)).length;
+say(yellowOnRunway === 0, `${yellowOnRunway} yellow marking quad(s) on the runway: it is being painted as a street again`);
+say(yellowOnTaxiway > 0, 'the taxiways pushed no yellow paint: no centreline, no edge, no hold-short');
+say(lampsOf(70, 130, 255) > 0, 'no blue taxiway edge light reached the sprite sink');
+say(lampsOf(80, 255, 140) > 0, 'no green taxiway centreline light reached the sprite sink');
+say(lampsOf(255, 190, 60) > 0, 'no amber runway guard light at the hold-short reached the sprite sink');
+say(lampsOf(255, 244, 220) > 0, 'no approach light past the open north end reached the sprite sink');
+say(four.sinks.decals.some((d) => String(d.key).startsWith('afhold|')), 'the hold-short pushed no runway sign');
+say(four.early === 0, `${four.early} taxiway light op(s) painted before the GL composite`);
+
 ws.installGLWorld(null);
 ws.RENDER_TUNE.gl = glWas; ws.RENDER_TUNE.glFloor = floorWas;
 globalThis.performance = clock;
@@ -200,7 +253,8 @@ if (REPORT) {
   console.log('  GLASS 2 — on the canvas: ' + Object.keys(IS).map((k) => `${k} ${two.canvasOps[k]}`).join(', '));
   console.log(`  GLASS 2 — in the sinks : ${two.sinks.strokes.length} strokes, ${two.sinks.sprites.length} sprites, ${two.sinks.decals.length} decals (${socks.length} of them windsock fabric)`);
   console.log(`  windsock facets        : ${socks.length} pushed, ${away} facing away, ${edgeOn} edge-on`);
-  console.log(`  with a pad tile        : ${three.sinks.strokes.length} strokes, ${three.sinks.sprites.length} sprites, ${three.sinks.decals.length} decals, ${greenLamps(three)} green lamps against ${greenLamps(two)} without\n`);
+  console.log(`  with a pad tile        : ${three.sinks.strokes.length} strokes, ${three.sinks.sprites.length} sprites, ${three.sinks.decals.length} decals, ${greenLamps(three)} green lamps against ${greenLamps(two)} without`);
+  console.log(`  paved field           : ${yellowOnTaxiway} yellow quads (${yellowOnRunway} on the runway), lamps blue ${lampsOf(70, 130, 255)} green ${lampsOf(80, 255, 140)} amber ${lampsOf(255, 190, 60)} approach ${lampsOf(255, 244, 220)}\n`);
 }
 
 if (problems.length) {
@@ -208,4 +262,4 @@ if (problems.length) {
   for (const p of problems) console.error('  · ' + p);
   process.exit(1);
 }
-console.log(`✓ airfield: the runway's lights, its PAPI and its windsocks all reach the depth buffer (${two.sinks.sprites.length} lamps, ${socks.length} fabric quads, ${two.sinks.strokes.length} masts) and leave nothing on the canvas; the sock is a cone with a far side; a pad draws a pad.`);
+console.log(`✓ airfield: the runway's lights, its PAPI and its windsocks all reach the depth buffer (${two.sinks.sprites.length} lamps, ${socks.length} fabric quads, ${two.sinks.strokes.length} masts) and leave nothing on the canvas; the sock is a cone with a far side; a pad draws a pad; a paved runway carries no street paint and its taxiways light blue and green.`);

@@ -106,6 +106,19 @@ function recordingGL() {
   ok(g.wrote.get('uSnow') === 0.41, 'ground.js did not write the snow depth it was handed (got ' + g.wrote.get('uSnow') + ').');
   ground.draw(cam, H, {});
   ok(g.wrote.get('uSnow') === 0, 'ground.js skipped uSnow on a frame with no snow — same trap as the floor.');
+  // ⚠ AND THE COLOUR, WHICH CARRIES THE NIGHT. Road snow used to be a constant white mixed in after
+  // the night dim, so a snowy night turned every street in view into a lit white sheet.
+  ok(g.asked().includes('uSnowCol'), 'ground.js never asks for a uSnowCol location, so road snow keeps one white at every hour.');
+  ground.draw(cam, H, { snow: 0.5, snowCol: [0.2, 0.21, 0.25] });
+  const sc = g.wrote.get('uSnowCol');
+  ok(Array.isArray(sc) && sc[0] === 0.2 && sc[2] === 0.25, 'ground.js did not write the snow colour it was handed (got ' + JSON.stringify(sc) + '), so road snow glows at midnight.');
+  ground.draw(cam, H, { snow: 0.5 });
+  const sd = g.wrote.get('uSnowCol');
+  ok(Array.isArray(sd) && sd[0] > 0.8, 'ground.js left the last frame\'s snow colour on a frame that handed none (got ' + JSON.stringify(sd) + ').');
+  const gsrc = await (await import('node:fs')).promises.readFile('client/game/js/panels/gl/ground.js', 'utf8');
+  ok(/mix\(uSnowCol,\s*uFog,\s*gfog\)/.test(gsrc), 'ground.js no longer lays road snow as uSnowCol hazed by gfog, so it either skips the night or stays crisp in the fog.');
+  const msrc = await (await import('node:fs')).promises.readFile('client/game/js/panels/gl/context.js', 'utf8');
+  ok(/litK \*= 1\.0 - snowW;/.test(msrc), 'context.js lets snow count as a lit window again: a 0.9 albedo is over the night dim\'s 0.55 guess, so every snowy roof keeps its daylight white at midnight.');
 }
 
 
@@ -234,6 +247,7 @@ function trackProbe(layer, drawIt) {
   const bbCall = callAround('drawBillboards');
   ok(bbCall && /\bsnowBB\b/.test(bbCall), 'world.js never hands the snow depth to the BILLBOARD layer — the ground goes white and every tree, boulder and cactus standing on it stays green.');
   ok(bbCall && /\bsnowCol\b/.test(bbCall), 'world.js never hands the snow COLOUR to the BILLBOARD layer — the layer falls back to its own daylight white, so a capped bush glows against a dusk field.');
+  ok(groundBag && /\bsnowCol\s*:/.test(groundBag), 'world.js never hands the snow COLOUR to the GROUND pass, so road snow falls back to daylight white and every street glows at midnight.');
   ok(src.includes('fl.tracks'), 'world.js never hands the wheel path to the FLOOR state — tracks stop at the kerb, because the floor is the only pass that draws open ground.');
   ok(groundBag && /\btracks\s*:/.test(groundBag), 'world.js never hands the wheel path to the GROUND pass — tracks appear on the verge and vanish on the road.');
   // ⚠ AND THE MASS MUST NOT GET ONE. Nothing drives on a roof, and a track array walked per

@@ -43,12 +43,15 @@ converted through it. What's written in tiles is a fact about the map: how big a
 building may be, circuit ceilings against the skyline. Every drawn wingspan is the real bird's:
 `FAUNA_TILE` puts the goose row at `GOOSE_SPAN` (1.65 m), and each other row's `scale` shrinks its whole
 mesh uniformly, so proportions come from the row and size from `scale`. Each draw range is where the
-bird is about 1.5 px across on the 640-wide reference frame.
+bird is about 1.5 px across on the 640-wide reference frame, measured to the bird and counting how far
+it is below the eye. ⚠ There is no altitude cut. Until 2026-10-04 only starlings drew above 750 ft, which
+hid every raptor: the canopy's eye was then at 3.74 tiles, under the vulture's and peregrine's 4.4-tile
+circuits, and the strike test could hit a bird the pilot was never shown.
 
 | | goose | gull | pigeon | songbird | hawk | vulture |
 |---|---|---|---|---|---|---|
 | drawn wingspan | 1.65 m | 1.4 m | 0.67 m | 0.4 m | 1.2 m | 1.7 m |
-| birds in a flock | 3–6 | 4–12 | 4–10 | 450–1,700 (a grand roost 4,000–300,000) | 1 | 3–7 |
+| birds in a flock | 3–6 | 4–12 | 4–10 | 450–1,700 (a grand roost 4,000–60,000) | 1 | 3–7 |
 | cycle | 100 s | 55 s | 27 s | 300 s | 150 s | 210 s |
 | share of it on the ground | 40% | 25% | 78% | 70% | 18% | 42% |
 | ceiling (tiles) / circuit radius | 2.2 / 99 m | 1.6 / 105 m | 0.9 / 18 m | 2.2 / sweeps a roost of 27.5 m, slowly | 3.6 / 21 m | 4.4 / 35 m |
@@ -426,11 +429,14 @@ steps. `withBench` in glbench.js takes a fresh canvas id per call.
 
 ### Grand roosts: a few flocks are enormous
 
-The starling's `maxFlock` is 300,000, and flockSize rolls two bands rather than one wide one: one
-anchor in `grand.share` (4%) draws from 4,000 to 300,000, skewed low (u squared), and the rest keep
-450 to 1,700. A single band across 450-300,000 would have made the ordinary flock ten thousand strong
-and the great roost ordinary. Over a synthetic all-habitat city at 8% that gave a median grand roost of
-7,800 birds and 27 over 15,000 among 2,177 anchors; it ships at half that share. The room text words a
+The starling's `maxFlock` is 60,000 for now, and flockSize rolls two bands rather than one wide one:
+one anchor in `grand.share` (4%) draws from 4,000 to 60,000, skewed low (u squared), and the rest keep
+450 to 1,700. The ceiling was 300,000, then 150,000; both read as overwhelming rather than as a
+spectacle, and the GPU could afford either, so the cap is taste rather than cost. A single band
+across 450-60,000 would have made the ordinary flock ten thousand strong and the great roost
+ordinary. The u squared skew puts the median grand roost a quarter of the way up the band, about
+18,000 birds at this ceiling. The share was tuned over a synthetic all-habitat city at 8%, with an
+older, lower ceiling; it ships at half that share. The room text words a
 crowd rather than printing it: "Thousands of them are up over the trees", because nobody under a
 murmuration could say it holds 18,431 birds. A starling party under 200 keeps its number.
 
@@ -708,14 +714,14 @@ banks, and a bird crossing your view darkens as it rolls.
 
 ## How many
 
-A starling flock is **450-1,700**, and one roost in twenty-five is a **grand roost of 4,000-300,000**
+A starling flock is **450-1,700**, and one roost in twenty-five is a **grand roost of 4,000-60,000**
 (see "Grand roosts" above). On the ground or on a ledge a flock is drawn per bird and thinned to fit
 the face budget, never below 15; in the air it is the GPU flock, which builds no faces and has its own
 budget in birds. Three numbers have to agree or the biggest one does nothing:
 
 | | |
 |---|---|
-| `maxFlock` 300,000 | what the row asks for (`client/shared/birds.js`) |
+| `maxFlock` 60,000 | what the row asks for (`client/shared/birds.js`) |
 | GPU bird budget 300,000 | `RENDER_TUNE.murmurBirds`, over every cloud in a frame; `murmurFloor` 40,000 is how far a grand roost thins under frame pressure |
 | simulation ceiling 300,000 | what one GPU flock step was measured to afford (`MURMUR_BIRDS_MAX` in fauna.mjs) |
 

@@ -20,7 +20,8 @@
 // Nobody leaves the pavement. Where it is comes from the numbers it's painted from (VERGE, WALK_HW
 // and blockSpan in windshield.js), handed in as `geo`, so the paint and the people can't drift apart. On
 // a road several tiles wide the pavement is only at the outer edges, so somebody on a middle tile
-// stands on the nearer one rather than in a traffic lane.
+// stands on the nearer one rather than in a traffic lane. Nobody on a Curtain tile stands past the
+// wall either (curtainSide, below).
 //
 // Nothing here is drawn or sent anywhere: it hands windshield.js an offset from the figure's tile, a
 // clip and a heading, and the actor record carries no more than it did. This file imports nothing.
@@ -37,6 +38,7 @@ export const LIFE = {
   along: 0.44,        // how far from the tile's centre along the street somebody may stand
   kerbGap: 0.02,      // how far a body's centre keeps from the kerb edge of the band (WALK_HW in geo)
   wallGap: 0.017,     // and from the building edge of it
+  curtainGap: 0.04,   // and from the Curtain's field, past its own half-width (CURTAIN_HALF_W in geo)
   pairR: 0.032,       // two people stand a little over a metre apart
   ringR: 0.045,       // three or four in a ring 1.6 m across, so a speaker's hand stays out of the next person
   ringMax: 4,         // more than this on one stretch splits into rings
@@ -126,8 +128,29 @@ function lifeOf(h, geo, t) {
   });
 }
 function frameFor(geo, win, h, t, L, cell, rx, ry) {
-  if (L.cell !== cell) { L.k = kerbOf(geo, win, cell, rx, ry, h.side, t); L.cell = cell; }
+  if (L.cell !== cell) {
+    const k = kerbOf(geo, win, cell, rx, ry, h.side, t);
+    k.inn = geo.inward(win, cell, rx, ry);
+    if (k.inn) k.base = curtainSide(geo, k.inn, k.base[0], k.base[1]);
+    L.k = k; L.cell = cell;
+  }
   return L.k;
+}
+
+// A spot on a Curtain tile, moved to the city side of the wall. The wall stands down the tile's middle
+// (curtainSegs in windshield.js), and every spot in here is drawn from a square round the centre, so
+// without this about half the people on a camp on the wall stood out in the wastes. `inn` is the
+// inward unit vector for each axis the wall crosses (the server's `ci`). A spot on the far side is
+// mirrored back rather than pushed to the wall, so people keep the spread they had, all of it inside.
+// `pad` is extra clearance, for a ring's radius. Exported for windshield.js's no-street-life path.
+export function curtainSide(geo, inn, x, y, pad = 0) {
+  if (!inn) return [x, y];
+  const m = geo.CURTAIN_HALF_W + LIFE.curtainGap + pad;
+  for (const [ix, iy] of inn) {
+    const s = x * ix + y * iy;
+    if (s < m) { const d = Math.max(-s, m) - s; x += ix * d; y += iy * d; }
+  }
+  return [x, y];
 }
 const settleMs = (L) => 1000 * (LIFE.settle[0] + (LIFE.settle[1] - LIFE.settle[0]) * mixN(L.seed, 7));
 
@@ -187,6 +210,8 @@ function ringSpot(geo, L, k, t, now) {
   } else {
     mx = (mixN(g.key, 1) - 0.5) * 0.3 + off * 0.16; my = (mixN(g.key, 2) - 0.5) * 0.3;
   }
+  // The whole ring goes inside, so nobody in it stands in the wall.
+  if (k.inn) [mx, my] = curtainSide(geo, k.inn, mx, my, r);
   const th0 = mixN(g.key, 3 + g.c) * TAU;
   const spot = (j) => [mx + r * Math.cos(th0 + j * TAU / g.m), my + r * Math.sin(th0 + j * TAU / g.m)];
   const [sx, sy] = spot(g.j);
@@ -248,6 +273,9 @@ function nextPlan(geo, L, k, t, now) {
     plan.speed = LIFE.stroll;
     plan.until = now + 1000 * Math.hypot(plan.tx - L.sx, plan.ty - L.sy) / LIFE.stroll + dur(4, 10);
   }
+  // A stroll on a camp on the wall ends on the camp's side of it. The walk there is a straight line
+  // between two spots inside, so it never crosses.
+  if (k.inn) [plan.tx, plan.ty] = curtainSide(geo, k.inn, plan.tx, plan.ty);
   if (kind === 'phone') { plan.clip = 'phone'; plan.until = now + dur(8, 20); }
   else if (kind === 'wait') { plan.clip = 'wait'; plan.until = now + dur(10, 20); }
   else if (kind === 'smoke') { plan.clip = 'smoke'; plan.until = now + dur(12, 24); }

@@ -8,6 +8,7 @@
   },
   "flags": {
     "floor": "metal",
+    "hangar_ramp": "zone_district_893_909",
     "is_interior": true
   },
   "grid_x": 0,

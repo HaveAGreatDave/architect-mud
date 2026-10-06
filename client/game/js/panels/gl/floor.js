@@ -45,6 +45,7 @@ import { HEIGHT_FOG_GLSL } from './fog.js';
 import { seaSlopeVariance } from '../../../../shared/sea-swell.js';
 import { declareProgram, takeWarm } from './programs.js';
 import { SEA_GLSL } from './sea-glsl.js';   // the ONE GLSL copy of the swell — water.js includes the same string, and client/shared/sea-swell.js is the JS original
+import { linearOut, applyLinOut } from './colour.js';
 
 // A screen-filling triangle rather than a quad: no diagonal seam, one fewer vertex, and the
 // interpolators do not care. The vertex shader synthesises it from gl_VertexID, so there is no
@@ -55,7 +56,7 @@ void main() {
   gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
 }`;
 
-const FRAG = `#version 300 es
+const FRAG = linearOut(`#version 300 es
 precision highp float;
 precision highp int;
 
@@ -1388,7 +1389,7 @@ void main() {
     outColor = vec4(clamp(mark, 0.0, 1.0), 1.0); return;
   }
   outColor = vec4(clamp(col, 0.0, 1.0), 1.0);
-}`;
+}`, 'outColor');
 
 function compile(gl, type, src, label) {
   const sh = gl.createShader(type);
@@ -1499,7 +1500,7 @@ export function createFloorLayer(gl) {
 
   function draw(s, near = NEAR) {
     if (!s || !s.lut0 || !s.n) return 0;
-    gl.useProgram(prog);
+    gl.useProgram(prog); applyLinOut(gl, prog);
     setLut(s.n, s.lut0, s.lut1, s.tag, s.lut2, s.lut3);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, t3); gl.uniform1i(loc.lut3, 2);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, t0); gl.uniform1i(loc.lut0, 0);

@@ -109,7 +109,9 @@ edge = our fuel/RPM/temp gauges.
 ## Controls surround
 
 Frame the glass with the hardware, styled as machined switches:
-- A **top switch row** (lights: landing/taxi/strobe — flavour, but sells it).
+- A **top switch row** for the circuits the sim has: landing/taxi lights, panel lights, dome. A
+  switch with nothing behind it (beacon, nav, strobe) is left off, not drawn for flavour; see
+  [cockpit-lettering.md](cockpit-lettering.md#every-switch-works).
 - The **engine master** as a real switch/start (we already made the ENGINE switch — keep
   evolving it toward a round start button + guarded master).
 - The **FLAPS lever** with detents (UP · T-O · LDG) instead of plain buttons.

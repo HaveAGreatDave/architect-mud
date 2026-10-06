@@ -62,6 +62,11 @@ setKeyedColourTest((a) => SHINY.has(a) || PANE.has(a) || TEXTURE.has(a));
 export const TONE_TEX = { floor: 'carpet', hdr: 'fabric', seat: 'fabric', dash: 'plastic', pil: 'plastic', post: 'plastic' };
 export const texIndex = (name) => { const i = TEX_KINDS.indexOf(name); return i < 0 ? 0 : i; };
 export const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+// A gate's ear on the lettering (scripts/shapes/cockpit-controls.mjs). `mirrored(str, o, r, u)` hears
+// of every word drawn on a panel whose normal `panel` had to turn round to face the eye: that panel
+// keeps `r` and `u`, so the word reads backwards from the seat (docs/reference/cockpit-lettering.md
+// rule 7). Null everywhere but the gate. It hears a word when it is built, not when a memo replays it.
+export const KIT_TRACE = { mirrored: null };
 const TAU = Math.PI * 2;
 
 // ── COLOURS ──────────────────────────────────────────────────────────────────
@@ -188,7 +193,8 @@ export function makeKit(push, fwd = true) {
   function panel(o, r0, u0, tone = 'dash', k = 0.3) {
     const r = norm(r0), u = norm(u0);
     let n = norm(cross(r, u));
-    if (dot(n, o) > 0) n = neg(n);
+    const turned = dot(n, o) > 0;
+    if (turned) n = neg(n);
     const pt = (a, b, l = 0) => add(add(add(o, mul(r, a)), mul(u, b)), mul(n, l));
     const plate = (pts, rgb, emis, l = 0, tn = tone, kk = k) => face(pts.map(([a, b]) => pt(a, b, l)), n, tn, kk, rgb, emis);
     const rect = (a0, b0, a1, b1, rgb, emis, l = 0, tn, kk) => plate([[a0, b0], [a1, b0], [a1, b1], [a0, b1]], rgb, emis, l, tn, kk);
@@ -314,6 +320,7 @@ export function makeKit(push, fwd = true) {
     // A seven-segment readout of a string. ⚠ UNLIT SEGMENTS ARE DRAWN, or a 1 is a stray mark.
     function digits(a, b, h, str, rgb = C.green, back = true) {
       const s = String(str), w = h * 0.52, gap = h * 0.18;
+      if (turned && KIT_TRACE.mirrored && s.trim()) KIT_TRACE.mirrored(s, o, r, u);
       if (back) rect(a - h * 0.16, b - h * 0.16, a + s.length * (w + gap) - gap + h * 0.16, b + h * 1.16, C.screen, 0, 0.003);
       [...s].forEach((ch, i) => {
         const on = SEG7[ch] || SEG7[' '];
@@ -327,6 +334,7 @@ export function makeKit(push, fwd = true) {
     // Drake's small engraved, plated and HUD text reaches the same face. See
     // docs/reference/cockpit-lettering.md.
     function text(str, ca, cb, h, rgb = C.tick, emis = 0.35, l = 0.0045, shadow = null) {
+      if (turned && KIT_TRACE.mirrored) KIT_TRACE.mirrored(str, o, r, u);
       return legend({ plate }, str, ca, cb, h, rgb, emis, l, shadow);
     }
     // The same, shrunk only as far as it must be to fit `maxW` across.

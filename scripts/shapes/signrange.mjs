@@ -41,11 +41,20 @@ const cam = ws.makeCam(640, 160, 360, { heading: 0, height: 0, eyeH: 0.24, map: 
 const NEAR = { dy: -2.0, tier: ws.ADORN_NEAR };
 const FAR = { dy: -6.0, tier: ws.ADORN_RICH };
 
+// And the same building from a detached free camera. A building's position is measured from the
+// VEHICLE, and a free camera's eye is wherever it was flown (`fy` here), so this building stands 18
+// tiles from the truck and 6 from the eye. It projects exactly as FAR does from the cab, so it has
+// to letter exactly as FAR does. The sign range used to be measured from the truck, and a free
+// camera parked in front of a building more than 12 tiles from it saw the boards with no names.
+const FREE = { dy: -18.0, tier: ws.ADORN_RICH };
+const freeCam = ws.makeCam(640, 160, 360, { heading: 0, height: 0, eyeH: 0.24, map: null },
+  { back: 0, up: 0, fx: 0, fy: FREE.dy - FAR.dy, ez: 0.24 });
+
 // `canvasResidue` sets up a GLASS 2 frame — `FLAT_OFF` on, a live decal sink, no mesh sink — which
 // is the only frame this bug exists in: with no decal sink the pass declines on purpose, because
 // on the 2-D painter a sign is eight affine strips and shedding it is the renderer working.
-function lettering(m, at) {
-  const r = ws.canvasResidue(m, { cam, night: 1, bn: 'THE EXAMPLE', dy: at.dy, tier: at.tier, collect: true, who: false });
+function lettering(m, at, c = cam) {
+  const r = ws.canvasResidue(m, { cam: c, night: 1, bn: 'THE EXAMPLE', dy: at.dy, tier: at.tier, collect: true, who: false });
   if (r.threw) return null;
   // `st:` is `signTexKey`'s prefix — one id per baked lettering canvas, so this counts SIGNS and
   // not the boards, frames, soffits and legs that share the layer.
@@ -54,16 +63,21 @@ function lettering(m, at) {
 
 function sweep() {
   const rows = [];
-  let models = 0, threw = 0, withSigns = 0;
+  let models = 0, threw = 0, withSigns = 0, truckShed = 0;
   for (const { key, m } of ws.shapeModelRegistry()) {
     models++;
     const near = lettering(m, NEAR), far = lettering(m, FAR);
-    if (near == null || far == null) { threw++; continue; }   // a throwing arm is `shapes:smoke`'s question
+    const free = lettering(m, FREE, freeCam), cabFree = lettering(m, FREE);
+    if (near == null || far == null || free == null || cabFree == null) { threw++; continue; }   // a throwing arm is `shapes:smoke`'s question
     if (near) withSigns++;
-    if (REPORT ? near : far < near) rows.push({ key, near, far, lost: near - far });
+    // The control for the free camera: from the cab, 18 tiles is past `signFar`, so some model has
+    // to shed lettering there. If none does, the range isn't gating at 18 and `free` proves nothing.
+    if (cabFree < far) truckShed++;
+    const lost = Math.max(near - far, far - free);
+    if (REPORT ? near : lost > 0) rows.push({ key, near, far, free, lost });
   }
   rows.sort((a, b) => b.lost - a.lost || b.near - a.near);
-  return { rows, models, threw, withSigns, lost: rows.filter((r) => r.lost > 0) };
+  return { rows, models, threw, withSigns, truckShed, lost: rows.filter((r) => r.lost > 0) };
 }
 
 const live = sweep();
@@ -72,15 +86,17 @@ if (REPORT) {
   console.log(`── sign lettering at ${-NEAR.dy} vs ${-FAR.dy} tiles, ${live.models} models, signFar ${ws.RENDER_TUNE.signFar} ──`);
   for (const r of live.rows) {
     console.log('  ' + r.key.padEnd(34) + String(r.near).padStart(3) + ' → ' + String(r.far).padStart(3)
-      + (r.lost > 0 ? '   LOST ' + r.lost : ''));
+      + ' → ' + String(r.free).padStart(3) + ' free' + (r.lost > 0 ? '   LOST ' + r.lost : ''));
   }
-  console.log(`  ${live.lost.length} of ${live.models} lose lettering past the near ring` + (live.threw ? `  (${live.threw} arm(s) threw)` : ''));
+  console.log(`  ${live.lost.length} of ${live.models} lose lettering past the near ring or in front of a free camera`
+    + (live.threw ? `  (${live.threw} arm(s) threw)` : ''));
 } else {
   if (live.lost.length) {
-    console.error(`signrange: ${live.lost.length} of ${live.models} models stop saying their own name between ${-NEAR.dy} and ${-FAR.dy} tiles.`);
+    console.error(`signrange: ${live.lost.length} of ${live.models} models stop saying their own name between ${-NEAR.dy} and ${-FAR.dy} tiles,`);
+    console.error(`  or ${-FAR.dy} tiles in front of a free camera ${-FREE.dy} tiles from the truck.`);
     console.error('  In GLASS 2 the board is drawn from the mesh at every distance, so what this leaves on the');
-    console.error('  screen is a blank sign. See RENDER_TUNE.signFar and the signs-only run in detailLayer.');
-    for (const r of live.lost.slice(0, 12)) console.error('   ✗ ' + r.key.padEnd(34) + r.near + ' → ' + r.far);
+    console.error('  screen is a blank sign. See RENDER_TUNE.signFar, eyeRange and the signs-only run in detailLayer.');
+    for (const r of live.lost.slice(0, 12)) console.error('   ✗ ' + r.key.padEnd(34) + r.near + ' → ' + r.far + ' → ' + r.free + ' free');
     if (live.lost.length > 12) console.error(`   … and ${live.lost.length - 12} more`);
     process.exit(1);
   }
@@ -88,6 +104,11 @@ if (REPORT) {
   // all — a stub camera, a broken bake, a renamed key — and that run looks exactly like a pass.
   if (!live.withSigns) {
     console.error('signrange: not one model in the registry emitted any lettering, so this proves nothing.');
+    process.exit(1);
+  }
+  if (!live.truckShed) {
+    console.error(`signrange: from the cab, not one model shed lettering at ${-FREE.dy} tiles, so the free-camera`);
+    console.error('  case proves nothing: the range is not gating where that case stands.');
     process.exit(1);
   }
   // ⚠ AND THE MUTATION, WHICH IS THE OTHER HALF OF THE SAME WORRY. The control says signs exist; it
@@ -103,5 +124,6 @@ if (REPORT) {
     process.exit(1);
   }
   console.log(`signrange: ${live.withSigns} of ${live.models} models sign themselves, and none loses its lettering`
-    + ` between ${-NEAR.dy} and ${-FAR.dy} tiles (signFar ${save}; ${mutated.lost.length} would without it).`);
+    + ` between ${-NEAR.dy} and ${-FAR.dy} tiles (signFar ${save}; ${mutated.lost.length} would without it),`
+    + ` nor in front of a free camera ${-FREE.dy} tiles from the truck (${live.truckShed} shed there from the cab).`);
 }

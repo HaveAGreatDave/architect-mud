@@ -22,6 +22,7 @@
 import { viewProjMatrix, mat4f } from './camera.js';
 import { makeVertexStream } from './stream.js';
 import { declareProgram, takeWarm } from './programs.js';
+import { linearOut, applyLinOut } from './colour.js';
 
 // pos3, uv2, alpha1, red1
 const STRIDE = 7;
@@ -45,7 +46,7 @@ void main() {
 // ⚠ THE LINE WIDTHS ARE IN PIXELS AND THE SHADER WORKS IN UV, so every one of them is derived
 // through fwidth() rather than as a constant in v. A scan band is one pixel tall on a wall a
 // thousand pixels high and on one thirty pixels high, exactly as `ctx.lineWidth = 1` was.
-const FRAG = `#version 300 es
+const FRAG = linearOut(`#version 300 es
 precision highp float;
 in vec2 vUV;
 in float vAlpha;
@@ -113,7 +114,7 @@ void main() {
   // against open sky has to carry its own alpha or it would composite onto nothing and vanish.
   // Same compromise the additive lights already make, and for the same reason.
   outColor = vec4(add * vAlpha, clamp(outA, 0.0, 1.0));
-}`;
+}`, 'outColor');
 
 function compile(gl, type, src, label) {
   const sh = gl.createShader(type);
@@ -181,7 +182,7 @@ export function createCurtainLayer(gl) {
 
   function draw(cam, H, now) {
     if (!count) return 0;
-    gl.useProgram(prog);
+    gl.useProgram(prog); applyLinOut(gl, prog);
     gl.uniformMatrix4fv(loc.viewProj, false, mat4f(viewProjMatrix(cam, H)));
     gl.uniform1f(loc.time, now || 0);
     gl.enable(gl.DEPTH_TEST);

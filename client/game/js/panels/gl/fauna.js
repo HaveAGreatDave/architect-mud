@@ -28,6 +28,7 @@ import { zRow, NEAR } from './camera.js';
 import { LIGHT_PULL } from './sprites.js';
 import { PULSE_MAX } from '../murmur.js';
 import { declareProgram, takeWarm } from './programs.js';
+import { linearOut, applyLinOut } from './colour.js';
 
 // Per instance: x, y, z, scale | heading, pitch, roll, row | alpha
 const STRIDE = 9;
@@ -71,7 +72,7 @@ void main() {
   vFog = ff * ff * uFogAmt;
 }`;
 
-const FRAG = `#version 300 es
+const FRAG = linearOut(`#version 300 es
 precision highp float;
 in vec3 vColor;
 in float vFog;
@@ -82,7 +83,7 @@ void main() {
   if (vAlpha <= 0.002) discard;
   vec3 c = mix(vColor, uFog, vFog);
   outColor = vec4(c * vAlpha, vAlpha);
-}`;
+}`, 'outColor');
 
 // ── A MURMURATION, DRAWN STRAIGHT OUT OF THE GPU FLOCK'S TEXTURES ─────────────
 //
@@ -422,7 +423,7 @@ void main() {
   gl_Position = clip;
 }`;
 
-const FRAG_DOT = `#version 300 es
+const FRAG_DOT = linearOut(`#version 300 es
 precision highp float;
 in vec2 vCorner; in float vAlpha; in vec3 vSil; in float vDepthA;
 uniform vec3 uColor;
@@ -436,7 +437,7 @@ void main() {
   // or a bird that is a third there takes all of the cloud behind it and leaves a hole in the deck.
   if (uDepthOnly == 1 && vDepthA * pow(max(0.0, 1.0 - d), 1.8) < 0.2) discard;
   outColor = vec4(uColor * vSil * a, a);
-}`;
+}`, 'outColor');
 
 // The shader's tierOf, in JavaScript, for tierSpan below. Keep the two in step.
 function tierOfJS(px, T) {
@@ -603,7 +604,7 @@ export function createFaunaLayer(gl) {
 
   function draw(cam, cssH, opts = {}) {
     if (!instances) return 0;
-    gl.useProgram(prog);
+    gl.useProgram(prog); applyLinOut(gl, prog);
     gl.uniformMatrix4fv(loc.viewProj, false, viewProjMatrix(cam, cssH, opts.near, opts.far));
     const f = opts.fog;
     gl.uniform3f(loc.fog, f ? f.col[0] : 0, f ? f.col[1] : 0, f ? f.col[2] : 0);
@@ -652,7 +653,7 @@ export function createFaunaLayer(gl) {
     // ⚠ EACH SAMPLER'S UNIT IS SET ONCE, HERE. Sending it with every bind was four uniform calls per
     // cloud per program per frame, for a number that never changes.
     for (const P of [cp.mesh, cp.dot]) {
-      gl.useProgram(P.pr);
+      gl.useProgram(P.pr); applyLinOut(gl, P.pr);
       const set = (n, k) => { if (P.u[n] != null) gl.uniform1i(P.u[n], k); };
       set('uPosT', CLOUD_UNIT); set('uVelT', CLOUD_UNIT + 1); set('uStat0', CLOUD_UNIT + 2); set('uStat2', CLOUD_UNIT + 3); set('uPosP', CLOUD_UNIT + 4); set('uVelP', CLOUD_UNIT + 5); set('uPose', UNIT);
       set('uStat4', CLOUD_UNIT + 6); set('uStat5', CLOUD_UNIT + 7);
@@ -730,7 +731,7 @@ export function createFaunaLayer(gl) {
     // which levels each cloud can reach, worked out once for both programs
     const spans = list.map(({ rec, st }) => tierSpan(rec, st.bound));
     // meshes
-    gl.useProgram(P.mesh.pr);
+    gl.useProgram(P.mesh.pr); applyLinOut(gl, P.mesh.pr);
     gl.depthMask(true);
     const um = P.mesh.u;
     u3f(um.uFog, f ? f.col[0] : 0, f ? f.col[1] : 0, f ? f.col[2] : 0);
@@ -783,7 +784,7 @@ export function createFaunaLayer(gl) {
     // get a depth-only prepass (the same fix billboards.js got for the geese, under the same flag),
     // and the colour pass is the one that always shipped. LEQUAL, or the colour pass fails its own
     // prepass and the dot is not drawn at all.
-    gl.useProgram(P.dot.pr);
+    gl.useProgram(P.dot.pr); applyLinOut(gl, P.dot.pr);
     gl.depthFunc(gl.LEQUAL);
     const ud = P.dot.u;
     const zr = zRow((cam && cam.near) || NEAR);

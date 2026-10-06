@@ -596,6 +596,37 @@ A flat wall wearing forty greebles is a flat wall. The parts that change what a 
 four structural kinds — `windowBay`, `canopy`, `signGantry` / `bladePanel`, `pilaster` — plus the mass
 itself. Reach for those before you reach for another vent.
 
+### 4.5 The clone facility is the bar for a small building
+
+Since 2026-10-04 the Coldwater Clone Facility (the `clone` arm in
+[downtown.js](../../client/game/js/panels/glass/models/downtown.js), registered as
+`coldwaterclonefacility`) is the standard a small building is held to. The Drake holds the same
+place for vehicle interiors ([cockpit-lettering.md](cockpit-lettering.md)). Before calling a small
+building done, check it against what that arm does:
+
+- **The frontage tells its story in order.** The door you came out of, the vats you came out of, and
+  the main that takes what's left of the batch next door to Second Helpings. The layout follows the
+  story: the vats sit beside the shop, so the main never crosses the door.
+- **Movement is the exception, not part of the bar.** The clone moves because it's the first building
+  every player sees: one clock (`gutPhase`) drives a vat printing, the doors sliding open, a body in
+  the doorway and a slug of product running down the main into the neighbour, which reads the same
+  clock. Most small buildings shouldn't move at all, and the rest of this list is what they're held
+  to. When one does move, what moves is a decal and what stays still is mesh.
+- **Its parts are built.** Faceted drums for the vats and dome; lit tubes for pipe, with flanges, a
+  wall collar, a bolted plate, a handwheel, brackets back to the wall and a post under the crossing.
+  Nothing hangs in the air.
+- **It has a real door**: pylons, a canopy, sliding leaves, a lobby behind the glass, a transom and a
+  mat. The kit's wall section is declined because it glazed the doorway.
+- **Night is drawn on purpose.** Frost by day and green after dark; the clerestory, the flank slits
+  and the name plate's underlight all come on. The vat palette is picked so the GPU's night dimming
+  can't flatten the glow.
+- **The name appears once**, in raised letters with shaded returns. The door's lightbox says ARRIVALS.
+- **Its materials come from content.** Halcyon owns the building (the augments plugin prints you
+  here), so the stone, steel and glass are Halcyon Fields' `ty_hf_*`. Only the tile is new.
+- **It has four sides**: slit windows down both flanks, a mast and a beacon.
+- **Each ⚠ comment records a defect and the gate that caught it** (`signfit`, `glself`), so the next
+  pass doesn't bring it back.
+
 ---
 
 ## 5. How to check yourself

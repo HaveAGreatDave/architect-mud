@@ -30,17 +30,17 @@
   "detail": [
     {
       "bars": 5,
-      "cx": 0.09,
+      "cx": 0.11,
       "cy": 0.33,
       "depth": 0.018,
       "glass": "#101a20",
       "glow": "#bfe6f5",
-      "half": 0.26,
-      "hh": 0.072,
+      "half": 0.24,
+      "hh": 0.121,
       "kind": "windowBay",
       "pal": "ty_cold",
       "transom": 0.7,
-      "z": 0.155
+      "z": 0.229
     },
     {
       "bars": 5,
@@ -56,7 +56,7 @@
       "z": 0.47
     },
     {
-      "cx": 0.09,
+      "cx": -0.02,
       "cy": 0.33,
       "half": 0.3,
       "hh": 0.013,
@@ -65,7 +65,7 @@
       "pal": "ty_cold",
       "soffit": "#16323c",
       "strip": "#7fdcf5",
-      "z": 0.245
+      "z": 0.389
     },
     {
       "color": "#101418",
@@ -172,6 +172,18 @@
       "kind": "bollard",
       "pal": "ty_cold",
       "z": 0.004
+    },
+    {
+      "cx": -0.24,
+      "cy": 0.33,
+      "depth": 0.016,
+      "door": 1,
+      "half": 0.06,
+      "hh": 0.157,
+      "kind": "windowBay",
+      "pal": "ty_cold",
+      "transom": 0.8,
+      "z": 0.207
     }
   ],
   "id": "ksabwriterswing",

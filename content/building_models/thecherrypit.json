@@ -43,20 +43,7 @@
       "hh": 0.015,
       "kind": "parapet",
       "pal": "ty_club",
-      "z": 0.12
-    },
-    {
-      "bars": 5,
-      "cx": 0,
-      "cy": 0.44,
-      "depth": 0.023,
-      "glass": "#1a0f18",
-      "glow": "#ffd0ea",
-      "half": 0.36,
-      "hh": 0.036,
-      "kind": "windowBay",
-      "pal": "ty_club",
-      "z": 0.05039999999999999
+      "z": 0.343
     },
     {
       "cx": 0,
@@ -68,7 +55,7 @@
       "pal": "ty_club",
       "soffit": "#a01a5e",
       "strip": "#ff9ad8",
-      "z": 0.096
+      "z": 0.257
     },
     {
       "cx": -0.34,
@@ -87,15 +74,55 @@
     {
       "color": "#140a12",
       "cx": -0.24,
-      "cy": 0.41,
+      "cy": 0.44,
       "font": "script",
       "half": 0.11,
-      "hh": 0.035,
+      "hh": 0.028,
       "ink": "#ff9ad8",
       "kind": "signBoard",
       "label": "PIT",
       "picto": "martini",
-      "z": 0.18
+      "z": 0.298
+    },
+    {
+      "bars": 2,
+      "cx": -0.23,
+      "cy": 0.44,
+      "depth": 0.023,
+      "glass": "#1a0f18",
+      "glow": "#ffd0ea",
+      "half": 0.13,
+      "hh": 0.09,
+      "kind": "windowBay",
+      "pal": "ty_club",
+      "z": 0.138
+    },
+    {
+      "bars": 2,
+      "cx": 0.23,
+      "cy": 0.44,
+      "depth": 0.023,
+      "glass": "#1a0f18",
+      "glow": "#ffd0ea",
+      "half": 0.13,
+      "hh": 0.09,
+      "kind": "windowBay",
+      "pal": "ty_club",
+      "z": 0.138
+    },
+    {
+      "cx": 0,
+      "cy": 0.44,
+      "depth": 0.023,
+      "door": 2,
+      "glass": "#1a0f18",
+      "glow": "#ffd0ea",
+      "half": 0.055,
+      "hh": 0.11,
+      "kind": "windowBay",
+      "pal": "ty_club",
+      "transom": 0.8,
+      "z": 0.11
     }
   ],
   "id": "thecherrypit",
@@ -111,7 +138,7 @@
       "kind": "box",
       "roof": true,
       "z0": 0,
-      "z1": 0.12
+      "z1": 0.343
     },
     {
       "cx": 0,

@@ -448,7 +448,8 @@ if (rasterSrc) {
     const vert = (w.match(/const VERT = `[\s\S]*?`;/) || [''])[0];
     if (!/seaWake\(/.test(vert)) fail.push('gl/water.js: the wake is not applied in the VERTEX shader — it has gone back to being paint');
     else ok.push('gl/water.js: the wake displaces real geometry');
-    const frag = (w.match(/const FRAG = `[\s\S]*?`;/) || [''])[0];
+    // The template may be wrapped in linearOut(…) (gl/colour.js, RENDER_TUNE.glLinear).
+    const frag = (w.match(/const FRAG = (?:linearOut\()?`[\s\S]*?`/) || [''])[0];
     if (!/vWake/.test(frag)) fail.push('gl/water.js: the wake foam is not read from the displaced height — it would sit beside its own trough');
     else ok.push('gl/water.js: the wake foam reads the same height the vertex shader displaced by');
     // And somebody has to feed it.

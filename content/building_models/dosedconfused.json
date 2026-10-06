@@ -39,18 +39,18 @@
   ],
   "detail": [
     {
-      "cx": -0.05,
-      "cy": 0.38,
       "bars": 6,
+      "cx": -0.125,
+      "cy": 0.38,
       "depth": 0.03,
       "glass": "#101b17",
       "glow": "#bff0da",
-      "half": 0.26,
-      "hh": 0.052,
+      "half": 0.185,
+      "hh": 0.081,
       "kind": "windowBay",
       "pal": "ty_chem",
       "transom": 1,
-      "z": 0.075
+      "z": 0.152
     },
     {
       "cx": 0.27,
@@ -69,7 +69,7 @@
       "half": 0.285,
       "kind": "neonRun",
       "pal": "ty_stitch",
-      "z": 0.162
+      "z": 0.248
     },
     {
       "cx": -0.05,
@@ -81,7 +81,7 @@
       "pal": "ty_stitch",
       "soffit": "#123026",
       "strip": "#8fe8c4",
-      "z": 0.172
+      "z": 0.253
     },
     {
       "color": "#0b2019",
@@ -89,12 +89,12 @@
       "cy": 0.38,
       "font": "condensed",
       "half": 0.31,
-      "hh": 0.038,
+      "hh": 0.028,
       "ink": "#9ff5cc",
       "kind": "signBoard",
       "label": "DOSED & CONFUSED",
       "picto": "pill",
-      "z": 0.24
+      "z": 0.3
     },
     {
       "cx": 0,
@@ -103,7 +103,7 @@
       "hh": 0.014,
       "kind": "parapet",
       "pal": "ty_stitch",
-      "z": 0.288
+      "z": 0.348
     },
     {
       "cap": true,
@@ -236,6 +236,18 @@
       "kind": "bollard",
       "pal": "ty_stitch",
       "z": 0.004
+    },
+    {
+      "cx": 0.14,
+      "cy": 0.38,
+      "depth": 0.016,
+      "door": 1,
+      "half": 0.05,
+      "hh": 0.096,
+      "kind": "windowBay",
+      "pal": "ty_chem",
+      "transom": 0.8,
+      "z": 0.147
     }
   ],
   "id": "dosedconfused",
@@ -261,7 +273,7 @@
       "pal": "ty_chem",
       "roof": true,
       "z0": 0.05,
-      "z1": 0.3
+      "z1": 0.36
     },
     {
       "cx": 0,
@@ -270,7 +282,7 @@
       "kind": "box",
       "pal": "ty_shop_d",
       "roof": true,
-      "z0": 0.3,
+      "z0": 0.36,
       "z1": 0.86
     },
     {

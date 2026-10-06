@@ -212,7 +212,7 @@ export const HALCYON_ARMS = {
       const z0 = canopy + h * 0.008, z1 = canopy + h * 0.045, bhw = fh * 0.62, by = fh * 0.47;
       const TL = P(-bhw, by, z1), TR = P(bhw, by, z1), BR = P(bhw, by, z0), BL = P(-bhw, by, z0);
       if ([TL, TR, BR, BL].every((q) => q.f > 0.12)) {
-        const tex = bakeSignText(sign || 'HALCYON FIELDS', '#bfe8ff', 0, false, true, true, { sub: 'SERVICE COMMENCING' });
+        const tex = bakeSignText(sign || 'HALCYON FIELDS', '#bfe8ff', night ? 1 : 0, false, true, true, { sub: 'SERVICE COMMENCING' });   // powered: it lights after dark
         if (tex) emitSurfaceText(ctx, cam, [TL, TR, BR, BL], tex, false, alpha);
       }
     }

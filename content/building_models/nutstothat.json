@@ -220,6 +220,18 @@
       "r": 0.011,
       "z0": 0.05,
       "z1": 0.83
+    },
+    {
+      "cx": 0.048,
+      "cy": 0.415,
+      "depth": 0.016,
+      "door": 1,
+      "half": 0.05,
+      "hh": 0.079,
+      "kind": "windowBay",
+      "pal": "ty_kerb",
+      "transom": 0.8,
+      "z": 0.129
     }
   ],
   "id": "nutstothat",

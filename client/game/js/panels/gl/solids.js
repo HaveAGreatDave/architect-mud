@@ -56,6 +56,7 @@ import { viewProjMatrix, eyePos } from './camera.js';
 const IDENT = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
 import { makeVertexStream } from './stream.js';
 import { declareProgram, takeWarm } from './programs.js';
+import { linearOut, applyLinOut } from './colour.js';
 
 const STRIDE = 15;   // pos3, colour3, alpha1, normal3, metal1, local3, tex1
 // ── THE CABIN VARIANT ────────────────────────────────────────────────────────
@@ -167,7 +168,7 @@ void main() {
 // The fog is the only thing done here, and it is done because the rest of the frame does it: a rig
 // seen from a long way off in a chase camera has to recede into the same haze wall the city does.
 // At the distance an own ship is actually drawn from it is worth nothing, and it costs nothing.
-const FRAG = `#version 300 es
+const FRAG = linearOut(`#version 300 es
 precision highp float;
 centroid in vec3 vColor;
 in float vFog;
@@ -625,13 +626,23 @@ void main() {
   }
   // ── THE CITY'S LIGHTS ON A SOLID ───────────────────────────────────────────
   // A face with a normal is a surface; one without is a light line or a lamp and keeps its colour.
-  // Dimmed first so the lamps stand out of a darker plate, then each light added as the mass adds
+  // Dimmed first so the lamps stand out of a darker plate, then each light weighed as the mass weighs
   // it: wrapped lambert, the reach from world.js, the same falloff. Without this the lock, the depot
   // and the bastions stood beside their own lamps as if the lamps were painted on.
+  // ⚠ THE LAMPS GIVE BACK WHAT THE NIGHT TOOK, AND NO MORE: the wall lift's rule (context.js). This
+  // added each lamp's colour straight onto the plate, with no albedo and no ceiling. A lamp reaches
+  // about three tiles and an aircraft is a tenth of one, so every lamp in range lights the whole
+  // hull at once, and on an airfield half a dozen runway and taxiway lights sit within a tile and a
+  // half. They summed past 1, the bloom took the rest, and a parked helicopter at Coldwater Regional
+  // was a white blob after dark. Now the lamps decide how far the dimmed colour climbs back toward
+  // the undimmed one, tinted by their colour and capped at 1, so a hull under lamps is never
+  // brighter than it is without the night.
   if (dot(vN, vN) > 0.01 && vTex != 10) {
+    vec3 undimmed = c;
     c *= uWLDim;
     vec3 n = normalize(vN);
     if (dot(n, uEye - vPos) < 0.0) n = -n;
+    vec3 lamp = vec3(0.0);
     for (int i = 0; i < 12; i++) {
       if (i >= uWLN) break;
       vec3 d = uWLP[i] - vPos;
@@ -639,8 +650,9 @@ void main() {
       float att = clamp(1.0 - dist / max(0.001, uWLR[i]), 0.0, 1.0);
       if (att <= 0.0) continue;
       float diff = max(0.0, (dot(n, d / max(0.001, dist)) + uWLWrap) / (1.0 + uWLWrap));
-      c += uWLC[i] * (pow(att, uWLFocus) * diff);
+      lamp += uWLC[i] * (pow(att, uWLFocus) * diff);
     }
+    c += max(vec3(0.0), undimmed - c) * min(vec3(1.0), lamp);
   }
   if (uUnder > 0.001 && vTex != 10) {
     vec3 nn = dot(vN, vN) > 0.01 ? normalize(vN) : vec3(0.0, 0.0, 1.0);
@@ -674,7 +686,7 @@ void main() {
   }
   c = mix(c, uFog, vFog);
   outColor = vec4(c * alpha, alpha);   // premultiplied, like every other layer on this canvas
-}`;
+}`, 'outColor');
 
 const withCabin = (src) => src.replace('#version 300 es\n', '#version 300 es\n#define CABIN\n');
 const VERT_C = withCabin(VERT), FRAG_C = withCabin(FRAG);
@@ -1126,7 +1138,7 @@ export function createSolidsLayer(gl, opt = {}) {
       const keep = light; light = { lightMat: new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]) };
       try { shadowPass(); } finally { light = keep; }
     }
-    gl.useProgram(prog);
+    gl.useProgram(prog); applyLinOut(gl, prog);
     if (cabin) cabinUniforms(opts.worldSun);
     // ⚠ THE CLIP RANGE IS THE CALLER'S WHEN IT STATES ONE. Every world client leaves it out and
     // gets exactly the matrix it always got — `viewProjMatrix` defaults to NEAR/FAR — which is what

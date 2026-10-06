@@ -94,6 +94,15 @@
       "port": 5205
     },
     {
+      "name": "modelshop-5206",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/modelshop/serve.mjs",
+        "5206"
+      ],
+      "port": 5206
+    },
+    {
       "name": "client-root",
       "runtimeExecutable": "npx",
       "runtimeArgs": [

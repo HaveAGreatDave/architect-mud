@@ -101,7 +101,7 @@ const BOWL = [180, 200, 210];
 PANE.set(BOWL, 0.25);
 const LOW_RPM = [255, 60, 44];
 const LENS_INK = [30, 12, 10];   // letters painted on a lamp's lens
-const SW_NAME = { master: 'BAT', clutch: 'CLUTCH', land: 'LAND', nav: 'NAV', strobe: 'STROBE', dome: 'DOME' };
+const SW_NAME = { master: 'BAT', clutch: 'CLUTCH', land: 'LAND', panel: 'PANEL', dome: 'DOME' };
 
 // ── THE EXTERIOR, READ ───────────────────────────────────────────────────────
 const findPart = (parts, name) => {
@@ -587,11 +587,17 @@ function podPanel(K, P) {
   const o = [P.xCentre * 0.45, P.dashY, P.dashZ];
   return K.panel(o, [1, 0, 0], [0, Math.sin(POD.rake), Math.cos(POD.rake)]);
 }
-const SW = { v: -0.118, u0: 0.02, pitch: 0.036, ids: ['master', 'clutch', 'land', 'nav', 'strobe', 'dome'] };
+// ⚠ EVERY SWITCH BUT THE CLUTCH IS A CIRCUIT THE SIM HAS. NAV and STROBE were here too, and the sim has
+// neither: two switches that took the hand cursor and did nothing. NAV is the panel lights now.
+const SW = { v: -0.118, u0: 0.02, pitch: 0.036, ids: ['master', 'clutch', 'land', 'panel', 'dome'] };
+// The panel lights are the PANEL switch (cockpit.js 'ck:panel'); a view that sends no switch state,
+// a seat shot, lights them after dark.
+const panelOn = (R) => R.powered && (R.L.panelLight != null ? !!R.L.panelLight : R.hour < 6.5 || R.hour > 19.5);
 function switchOn(id, R) {
   if (id === 'master') return R.powered;
   if (id === 'clutch') return R.powered && R.rpm > 0.2;
   if (id === 'land') return R.land;
+  if (id === 'panel') return panelOn(R);
   if (id === 'dome') return R.dome && R.powered;
   return R.powered;
 }
@@ -644,11 +650,10 @@ export function dragonflyFit(P, live, push) {
   const K = makeKit(push);
   const R = readings(live);
   const zF = P.dragonfly.zF, xC = P.xCentre;
-  const night = R.hour < 6.5 || R.hour > 19.5;
-  const lit = R.powered;
-  // Instrument lighting: the dials' own emission is the kit's; at night with the master on, the
+  const lit = R.powered, panel = panelOn(R);
+  // Instrument lighting: the dials' own emission is the kit's; with the panel lights on, the
   // lettering glows a little more.
-  const glow = lit && night ? 1 : 0.35;
+  const glow = panel ? 1 : 0.35;
 
   // ── THE POD: the vacu-formed panel on a post off the front of the tunnel ──
   const Pn = podPanel(K, P);
@@ -700,11 +705,11 @@ export function dragonflyFit(P, live, push) {
   // Night: the lettering glows. A thin band of emissive white under each top-row dial.
   if (glow > 0.5) for (const u of [-0.21, -0.10, 0.03, 0.16]) Pn.rect(u - 0.02, r1 - 0.07, u + 0.02, r1 - 0.066, [255, 240, 210], 0.8, 0.004);
   // The switch row along the bottom: master, clutch (the electric clutch the rotor is engaged
-  // with), landing light, nav, strobe, dome. Each placard white, each bat up when on.
+  // with), landing light, panel lights, dome. Each placard white, each bat up when on.
   SW.ids.forEach((id, i) => {
     const u = SW.u0 + i * SW.pitch, on = switchOn(id, R);
     // The name goes where the placard was: under the switch is the pod's bottom edge.
-    Pn.fitText(SW_NAME[id], u, SW.v + 0.0205, 0.034, 0.007, [214, 212, 204], lit && night ? 0.5 : 0.1, 0.002);
+    Pn.fitText(SW_NAME[id], u, SW.v + 0.0205, 0.034, 0.007, [214, 212, 204], panel ? 0.5 : 0.1, 0.002);
     Pn.toggle(u, SW.v, on);
     if (id === 'clutch') Pn.rect(u - 0.013, SW.v - 0.016, u + 0.013, SW.v + 0.016, [200, 40, 30], 0, 0.001);
   });

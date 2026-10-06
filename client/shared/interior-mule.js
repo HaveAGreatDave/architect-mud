@@ -452,7 +452,12 @@ function layout(P) {
     six: { z: [top - 0.075, top - 0.175], dx: 0.098, R: 0.037 },
     eng: { x: [xC - 0.040, xC + 0.040], z: [top - 0.055, top - 0.117, top - 0.179, top - 0.241, top - 0.303], R: 0.026 },
     fuelG: { x: [xC - 0.21, xC - 0.14], z: top - 0.075, R: 0.027 },
-    sw: { z: top - 0.36, x: [-0.29, -0.25, -0.21, -0.17, -0.13, -0.09, -0.05] },   // bat, gen L, gen R, beacon, land, taxi, nav
+    // The start panel, left of the clock: the ignition key, its two lamps under it, and the two
+    // light switches under those. Above the wheel's left horn from the seat; the gate casts to it.
+    start: { x0: -0.425, x1: -0.245, z0: top - 0.250, z1: top - 0.035,
+      key: [-0.335, top - 0.108], keyR: 0.021,
+      lamp: { z: top - 0.168, x: [-0.375, -0.295] },
+      sw: { z: top - 0.218, x: [-0.375, -0.295] } },
     radio: { x: xC, w: 0.15, z0: top - 0.50, z1: top - 0.36 },
     col: (x) => ({ pivot: [x, 0.62, P.mule.zF + 0.05] }),
     con: { x0: xC - 0.13, x1: xC + 0.13, y0: -0.36, y1: 0.55, zb: roofIn - 0.12, zt: roofIn - 0.012 },
@@ -463,13 +468,20 @@ function layout(P) {
     dome: [xC, -0.46, roofIn - 0.01],
   };
 }
-const SW_IDS = ['battery', 'genL', 'genR', 'beacon', 'land', 'taxi', 'nav'];
+// The two light circuits the sim has, as cockpit.js names them. ⚠ ONLY THESE: the row this replaced
+// was BAT, GEN L, GEN R, BCN, LAND, TAXI and NAV, and five of the seven did nothing when clicked.
+const SW = [['panel', 'PANEL'], ['land', 'LAND']];
+// The key's three detents, as angles on the panel (0 is to the right, anticlockwise is up).
+const KEY_AT = { off: Math.PI * 5 / 6, on: Math.PI / 2, start: Math.PI / 6 };
 
 export function muleHotspots(P, live) {
   const Y = layout(P), L = live || {}, Kd = makeKit(() => {});
   const Pn = Kd.panel([0, Y.y, 0], [1, 0, 0], [0, 0, 1]);
   const at = (x, z) => Pn.pt(x, z, 0.01);
-  const out = SW_IDS.map((id, i) => ({ id: 'ck:' + id, p: at(Y.sw.x[i], Y.sw.z), r: 0.016, kind: 'click' }));
+  const S = Y.start;
+  // The ignition is 'ck:master', the id every kit cockpit's engine master uses (cockpit.js DK_ACT).
+  const out = [{ id: 'ck:master', p: at(...S.key), r: 0.026, kind: 'click' }];
+  SW.forEach(([id], i) => out.push({ id: 'ck:' + id, p: at(S.sw.x[i], S.sw.z), r: 0.018, kind: 'click' }));
   const thr = clamp(num(L.throttle), 0, 1);
   out.push({ id: 'throttle', p: leverKnob(Y, Y.quad.xs[0] + 0.013, thr), r: 0.05, kind: 'throttle' });
   out.push({ id: 'ck:flaps', p: [Y.flap.x, lerp(Y.flap.y0, Y.flap.y1, clamp(num(L.flapNotch), 0, 3) / 3), Y.con.zb - 0.06], r: 0.025, kind: 'click' });
@@ -548,8 +560,15 @@ function muleStatic(P, push) {
     Pn.disc(1.12 + i * 0.022, Y.top - 0.08 - row * 0.05, 0.006, [24, 24, 26], 0, 0.003, 6);
     Pn.disc(1.12 + i * 0.022, Y.top - 0.08 - row * 0.05, 0.0035, i % 5 === 3 ? T.amber : C.white, 0.05, 0.006, 6);
   }
+  // The placards say something. They were blank cream strips, which from the seat read as labels
+  // that had worn off. The limit is the flight model's own (flight-model.js mule.vne).
+  const ink = [24, 24, 26];
   Pn.rect(1.10, Y.top - 0.24, 1.38, Y.top - 0.215, T.placard, 0.1, 0.002);
-  for (const cx of [0, 2 * xC]) Pn.rect(cx - 0.05, Y.six.z[1] - 0.070, cx + 0.05, Y.six.z[1] - 0.055, T.placard, 0.1, 0.002);
+  Pn.fitText('CIRCUIT BREAKERS', 1.24, Y.top - 0.2275, 0.26, 0.012, ink, 0, 0.003);
+  for (const cx of [0, 2 * xC]) {
+    Pn.rect(cx - 0.05, Y.six.z[1] - 0.070, cx + 0.05, Y.six.z[1] - 0.055, T.placard, 0.1, 0.002);
+    Pn.fitText('VNE 185 KT', cx, Y.six.z[1] - 0.0625, 0.09, 0.0095, ink, 0, 0.003);
+  }
   // A whiskey compass on the centre post, where the Otter's is.
   const wc = [xC, P.dashY + 0.28, P.headerZ - 0.02];
   K.box(wc[0] - 0.035, wc[1] - 0.03, wc[2] - 0.035, wc[0] + 0.035, wc[1] + 0.03, wc[2] + 0.02, 'dash', 0.1, [30, 30, 34]);
@@ -562,12 +581,19 @@ function muleStatic(P, push) {
   const Qp = K.panel([xC, Y.quad.y, c.zb - 0.002], [1, 0, 0], [0, 1, 0], 'hdr', -0.1);
   Qp.rect(-0.115, -0.17, 0.115, 0.17, T.quadDk, 0, 0.001);
   for (const x of Y.quad.xs) Qp.rect(x + 0.013 - 0.004, -0.14, x + 0.013 + 0.004, 0.14, [8, 8, 9], 0, 0.002);
-  // POWER · PROP · FUEL legends, one plate over each pair.
-  for (const [x, rgb] of [[-0.077, T.placard], [-0.011, T.knobProp], [0.055, T.knobFuel]]) Qp.rect(x - 0.02, 0.145, x + 0.02 + 0.026, 0.16, rgb, 0.12, 0.002);
-  // The flap slot and its detents, aft right.
-  const Fp = K.panel([Y.flap.x, (Y.flap.y0 + Y.flap.y1) / 2, c.zb - 0.002], [1, 0, 0], [0, 1, 0], 'hdr', -0.1);
+  // POWER · PROP · FUEL legends, one plate over each pair, lettered. ⚠ On their own panel with
+  // letter-up AFT: see the breaker panel in muleFit for why a ceiling is lettered that way round.
+  const Ql = K.panel([xC, Y.quad.y, c.zb - 0.002], [1, 0, 0], [0, -1, 0], 'hdr', -0.1);
+  for (const [x, rgb, nm, fg] of [[-0.077, T.placard, 'POWER', ink], [-0.011, T.knobProp, 'PROP', C.white], [0.055, T.knobFuel, 'FUEL', C.white]]) {
+    Ql.rect(x - 0.02, -0.16, x + 0.02 + 0.026, -0.145, rgb, 0.12, 0.002);
+    Ql.fitText(nm, x + 0.013, -0.1525, 0.058, 0.0105, fg, 0.1, 0.003);
+  }
+  // The flap slot and its detents, aft right, UP aft and FULL forward.
+  const Fp = K.panel([Y.flap.x, (Y.flap.y0 + Y.flap.y1) / 2, c.zb - 0.002], [1, 0, 0], [0, -1, 0], 'hdr', -0.1);
   Fp.rect(-0.006, -0.10, 0.006, 0.10, [8, 8, 9], 0, 0.002);
-  for (let i = 0; i <= 3; i++) Fp.rect(0.009, -0.09 + i * 0.06 - 0.003, 0.02, -0.09 + i * 0.06 + 0.003, T.placard, 0.15, 0.002);
+  for (let i = 0; i <= 3; i++) Fp.rect(0.009, 0.09 - i * 0.06 - 0.003, 0.02, 0.09 - i * 0.06 + 0.003, T.placard, 0.15, 0.002);
+  Fp.fitText('UP', 0.034, 0.09, 0.02, 0.0075, C.tick, 0.3, 0.003);
+  Fp.fitText('FULL', 0.038, -0.09, 0.028, 0.0075, C.tick, 0.3, 0.003);
   // The elevator trim wheel's housing, on the console's left flank.
   const tc = Y.trim.c;
   K.box(tc[0] - 0.012, tc[1] - Y.trim.r - 0.02, c.zb - 0.01, tc[0] + 0.012, tc[1] + Y.trim.r + 0.02, c.zb + 0.02, 'hdr', 0, T.quadDk);
@@ -674,7 +700,17 @@ function muleFit(P, live, push) {
   const trim = clamp(num(L.trim), -1, 1), rud = clamp(num(L.rudder), -1, 1), flap = clamp(num(L.flapNotch), 0, 3);
   const hour = num(L.hour, 12), night = powered && (hour < 6.5 || hour > 19.5);
   const oilT = L.oilTemp != null ? clamp(num(L.oilTemp) / 120, 0, 1) : (powered ? 0.35 + rpm * 0.3 : 0);
-  const glow = night ? 0.55 : 0;        // the panel's post lights, up at night
+  // The panel's post lights are the PANEL switch. A view that does not send the switch (the
+  // Modelshop) gets them at night, which is how the panel looked before it had one.
+  const panelOn = powered && (L.panelLight != null ? !!L.panelLight : night);
+  const glow = panelOn ? (night ? 0.55 : 0.3) : 0;
+  // The ignition is the engine master, which is not the same as power: a dry tank or an EMP kills
+  // the busbars with the key still on. Older payloads send only `powered`.
+  const eng = L.engineOn != null ? !!L.engineOn : powered;
+  // ⚠ NOT OFF THE RPM: `rpm` is the spooled throttle and reads 0 at idle, so "rpm low" would hold
+  // the key at START for as long as you sat on the ramp. `starting` is the seconds after the key
+  // was turned (cockpit.js), the time the start-up spool takes.
+  const cranking = eng && !!L.starting;
   const dialO = (o) => ({ face: [20, 22, 26], bezel: T.bezel, tick: [232, 232, 226], ...o });
   const Pn = K.panel([0, P.dashY - 0.004, 0], [1, 0, 0], [0, 0, 1], 'dash', 0.2);
   const glint = (x, z, R) => Pn.annulus(x, z, R * 0.82, R * 0.95, DIAL_GLINT, 1, 0.012, 6, 0.35 * Math.PI, 0.75 * Math.PI);
@@ -755,25 +791,46 @@ function muleFit(P, live, push) {
   });
   if (powered) Pn.digits(r.x + 0.00, unitZ[2] - 0.008, 0.016, String(Math.round(alt / 100) % 1000).padStart(3, '0'), T.amber, false);
 
-  // ── THE SWITCHES, left of the pilot's six ────────────────────────────────
-  const state = { battery: powered, genL: powered && rpm > 0.2, genR: powered && rpm > 0.2, beacon: powered, land: !!L.landingLight, taxi: !!L.landingLight, nav: powered && (night || !!L.landingLight) };
-  Pn.rect(Y.sw.x[0] - 0.025, Y.sw.z - 0.03, Y.sw.x[6] + 0.025, Y.sw.z + 0.03, T.panelDk, 0, 0.0015);
-  const SW_NAMES = ['BAT', 'GEN L', 'GEN R', 'BCN', 'LAND', 'TAXI', 'NAV'];
-  Y.sw.x.forEach((x, i) => {
-    const on = state[SW_IDS[i]];
-    Pn.rect(x - 0.012, Y.sw.z + 0.019, x + 0.012, Y.sw.z + 0.025, T.placard, 0.1, 0.002);
-    Pn.fitText(SW_NAMES[i], x, Y.sw.z + 0.022, 0.022, 0.0045, [24, 24, 26], 0, 0.003);
-    Pn.toggle(x, Y.sw.z, on);
-  });
+  // ── ENGINE START, left of the clock ──────────────────────────────────────
+  // ⚠ THE IGNITION IS ON THE PANEL IN FRONT OF YOU. The seat opens with the 2-D rows folded away,
+  // so the ⏻ button is hidden and this room is the only control there is; it had no start in the
+  // forward view at all (the Otter's start switches are overhead, behind your head) and its BAT
+  // switch was wired to nothing, so the Mule could not be started from the seat.
+  const S = Y.start, ink = [24, 24, 26];
+  Pn.rect(S.x0, S.z0, S.x1, S.z1, T.panelDk, 0, 0.0015);
+  Pn.rect(S.x0 + 0.008, S.z1 - 0.026, S.x1 - 0.008, S.z1 - 0.008, T.placard, 0.1 + glow * 0.5, 0.002);
+  Pn.fitText('ENGINE START', (S.x0 + S.x1) / 2, S.z1 - 0.017, S.x1 - S.x0 - 0.03, 0.0095, ink, 0, 0.003);
+  // The key: a chrome bezel, a black face, three detents lettered round it, and a grey bar knob with
+  // a black index. It sits at OFF cold, is held at START while the engine spools, and drops back to ON.
+  const [kx, kz] = S.key, kr = S.keyR;
+  const keyA = !eng ? KEY_AT.off : (cranking ? KEY_AT.start : KEY_AT.on);
+  Pn.torus(kx, kz, kr * 0.90, kr * 1.14, C.chrome, 0.1, 0.002, 24);
+  Pn.disc(kx, kz, kr * 0.92, [16, 16, 18], 0, 0.003, 20);
+  for (const [nm, a] of [['OFF', KEY_AT.off], ['ON', KEY_AT.on], ['START', KEY_AT.start]]) {
+    Pn.spoke(kx, kz, a, kr * 1.16, kr * 1.40, 0.0011, C.white, 0.3 + glow, 0.003);
+    Pn.text(nm, kx + Math.cos(a) * kr * 1.95, kz + Math.sin(a) * kr * 1.80, 0.0075, nm === 'START' ? T.amber : C.white, 0.35 + glow, 0.003);
+  }
+  const ka = Math.cos(keyA), kb = Math.sin(keyA);
+  K.obox(Pn.pt(kx, kz, 0.011), add(mul(Pn.r, ka), mul(Pn.u, kb)), add(mul(Pn.r, -kb), mul(Pn.u, ka)), Pn.n,
+    kr * 0.80, kr * 0.26, 0.008, 'dash', 0.2, [118, 120, 126], 0);
+  Pn.spoke(kx, kz, keyA, kr * 0.30, kr * 0.78, 0.0016, [16, 16, 18], 0, 0.0195);
+  // START (amber) while the starter turns the engine over; RUN (green) once it has caught.
+  Pn.lamp(S.lamp.x[0], S.lamp.z, 0.013, 0.007, cranking, T.amber, 'START');
+  Pn.lamp(S.lamp.x[1], S.lamp.z, 0.013, 0.007, eng && !cranking && powered, C.green, 'RUN');
+  // The two light circuits: the post lights and the landing lamps. Both draw off the engine.
+  const swOn = { panel: panelOn, land: powered && !!L.landingLight };
+  SW.forEach(([id, nm], i) => Pn.toggle(S.sw.x[i], S.sw.z, swOn[id], nm));
 
   // ── THE CONTROL WHEELS: columns out of the floor ─────────────────────────
-  const wheel = (x, left) => {
+  const wheel = (x) => {
     const f = yokeFrame(Y, x, elev), a = f.axis;
     K.rod(f.piv, f.hub, 0.022, 'dash', 0.2, T.column, 0.02, 8);
     K.obox(f.piv, [1, 0, 0], a, norm(cross([1, 0, 0], a)), 0.05, 0.05, 0.04, 'dash', 0, [24, 24, 26]);   // the boot
-    // The wheel's plane: square to the column, turned by the ailerons.
-    const ang = ail * 1.1, R0 = [1, 0, 0], U0 = norm(cross(a, R0)).map((v) => -v);
-    const U1 = norm(sub(U0, mul(a, dot(U0, a))));
+    // ⚠ THE WHEEL STANDS UP IN FRONT OF YOU; IT IS NOT SQUARE TO THE COLUMN. The column leans back
+    // only 17° off vertical, so a wheel square to it lay nearly flat, the horns pointing at the
+    // pilot's chest like a bicycle's bars. The Otter's ram's horn stands on top of the column facing
+    // you, leaning back a touch, and the ailerons turn it about the axis toward you.
+    const ang = ail * 1.1, R0 = [1, 0, 0], U1 = norm([0, -0.15, 1]), Nw = cross(R0, U1);
     const Rr = add(mul(R0, Math.cos(ang)), mul(U1, Math.sin(ang))), Ur = add(mul(R0, -Math.sin(ang)), mul(U1, Math.cos(ang)));
     const W = (dx, dz) => add(add(f.hub, mul(Rr, dx)), mul(Ur, dz));
     // The Otter's wheel is a ram's horn: a bar across, two horns up, grips on the horns.
@@ -781,13 +838,19 @@ function muleFit(P, live, push) {
     for (let i = 0; i < pts.length - 1; i++) K.rod(W(...pts[i]), W(...pts[i + 1]), 0.012, 'dash', 0.2, T.yoke, 0, 8);
     for (const sd of [-1, 1]) {
       K.rod(W(sd * 0.145, 0.04), W(sd * 0.14, 0.11), 0.017, 'dash', 0.1, C.grip, 0, 8);
-      K.obox(W(sd * 0.14, 0.115), Rr, Ur, a, 0.006, 0.006, 0.006, 'dash', 0.3, sd < 0 ? T.red : C.black, 0.1);   // PTT, trim
+      K.obox(W(sd * 0.14, 0.115), Rr, Ur, Nw, 0.006, 0.006, 0.006, 'dash', 0.3, sd < 0 ? T.red : C.black, 0.1);   // PTT, trim
     }
-    K.obox(W(0, -0.01), Rr, Ur, a, 0.045, 0.03, 0.02, 'dash', 0.2, [150, 140, 108], 0.02);   // the hub plate
-    if (left) K.obox(add(W(0, -0.01), mul(a, 0.021)), Rr, Ur, a, 0.03, 0.014, 0.002, 'dash', 0.1, T.placard, 0.05);
+    // The hub: a dark boss where the column meets the bar, with the type's name on a plate. It was a
+    // 9 cm tan block with a blank plate on it, which from the seat covered the switch row behind it.
+    // ⚠ ITS FACE STANDS PROUD OF THE COLUMN: the column's 22 mm radius ends at the hub point, and a
+    // plate any nearer than that had the column's top drawn across its middle letters.
+    K.obox(add(W(0, -0.012), mul(Nw, 0.006)), Rr, Ur, Nw, 0.032, 0.020, 0.020, 'dash', 0.2, [44, 44, 48], 0.02);
+    const Hp = K.panel(add(W(0, -0.012), mul(Nw, 0.0265)), Rr, Ur, 'dash', 0.1);
+    Hp.rect(-0.024, -0.0095, 0.024, 0.0095, T.placard, 0.05 + glow * 0.3, 0.001);
+    Hp.fitText('MULE', 0, 0, 0.040, 0.011, ink, 0, 0.002);
   };
-  wheel(0, true);
-  wheel(2 * xC, false);
+  wheel(0);
+  wheel(2 * xC);
 
   // ── THE PEDALS: hung from the floor ahead, with toe brakes ───────────────
   for (const [cx] of [[0], [2 * xC]]) for (const s of [-1, 1]) {
@@ -821,6 +884,9 @@ function muleFit(P, live, push) {
   Fi.rect(-0.018, -0.045, 0.018, 0.045, T.placard, 0.1, 0.001);
   Fi.rect(-0.004, -0.04, 0.004, 0.04, [20, 20, 22], 0, 0.002);
   Fi.rect(-0.012, 0.035 - flap / 3 * 0.07 - 0.003, 0.012, 0.035 - flap / 3 * 0.07 + 0.003, T.red, 0.3 + glow * 0.5, 0.004);
+  // Its name off its aft end, lettered for a pilot turned to the right to read it (see the breakers).
+  const Fl = K.panel([Y.flap.x + 0.004, -0.14, c.zb - 0.003], [0, -1, 0], [-1, 0, 0], 'hdr', -0.1);
+  Fl.fitText('FLAP', 0.064, 0, 0.03, 0.0085, C.tick, 0.3 + glow, 0.003);
 
   // ── THE ELEVATOR TRIM WHEEL and its indicator, on the console's flank ────
   const tw = Y.trim, trA = trim * 3.2;
@@ -841,15 +907,30 @@ function muleFit(P, live, push) {
   K.rod(Y.rtrim, add(Y.rtrim, [0, 0, -0.02]), 0.02, 'hdr', 0.2, [26, 26, 28], 0, 8);
   K.rod(add(Y.rtrim, [0, 0, -0.02]), add(Y.rtrim, [Math.cos(rtA) * 0.03, Math.sin(rtA) * 0.03, -0.025]), 0.004, 'hdr', 0.2, C.chrome, 0.05, 4);
 
-  // ── THE OVERHEAD SWITCH PANEL aft: starters, ignition, lights ────────────
-  const Ov = K.panel([xC, -0.18, c.zb - 0.002], [1, 0, 0], [0, 1, 0], 'hdr', -0.1);
-  Ov.rect(-0.12, -0.16, 0.12, 0.10, T.quadDk, 0, 0.001);
-  const ovN = [['STRT1', 'STRT2', 'IGN 1', 'IGN 2', 'BST 1', 'BST 2'],
+  // ── THE OVERHEAD BREAKER PANEL aft ───────────────────────────────────────
+  // ⚠ BREAKERS, NOT SWITCHES. This was eighteen toggles thrown in a fixed pattern, none of them
+  // clickable and three of them labelled as starters: a second start panel that did nothing. Nobody
+  // works a breaker in flight, so a bank of them asks for no click. The two lamps tell the truth.
+  // ⚠ A CEILING IS LETTERED FOR THE WAY YOU FACE TO READ IT. Text reads true only when the panel's
+  // across × up points at the eye, which for anything overhead means DOWN; across +x with up +y points
+  // up, and every label under the roof read mirrored. This panel is behind your head, so you read it
+  // turned round: across is -x and up is forward. The quadrant ahead is the other pair (muleStatic).
+  // ⚠ AND IT STOPS SHORT OF THE FLAP INDICATOR, which hangs from the same console on the right
+  // (across −0.128 to −0.092 here). The toggles this replaced ran under it.
+  const Ov = K.panel([xC, -0.18, c.zb - 0.002], [-1, 0, 0], [0, 1, 0], 'hdr', -0.1);
+  Ov.rect(-0.084, -0.16, 0.126, 0.105, T.quadDk, 0, 0.001);
+  Ov.fitText('CIRCUIT BREAKERS', 0.021, 0.09, 0.19, 0.009, C.tick, 0.3 + glow, 0.003);
+  const ovN = [['STRT 1', 'STRT 2', 'IGN 1', 'IGN 2', 'BOOST 1', 'BOOST 2'],
                ['PITOT', 'DEICE', 'WSHLD', 'PROP', 'INST', 'FAN'],
-               ['PANEL', 'FLOOD', 'CABIN', 'LOGO', 'WING', 'STROB']];
-  for (let row = 0; row < 3; row++) for (let i = 0; i < 6; i++) Ov.toggle(-0.10 + i * 0.04, 0.06 - row * 0.07, powered && (row + i) % 3 !== 1, ovN[row][i]);
-  Ov.lamp(-0.09, -0.14, 0.008, 0.005, powered && rpm < 0.1, T.amber, 'START 1');
-  Ov.lamp(0.09, -0.14, 0.008, 0.005, powered && rpm < 0.1, T.amber, 'START 2');
+               ['PANEL', 'FLOOD', 'CABIN', 'LOGO', 'WING', 'STROBE']];
+  for (let row = 0; row < 3; row++) for (let i = 0; i < 6; i++) {
+    const u = -0.064 + i * 0.034, v = 0.05 - row * 0.062;
+    Ov.disc(u, v, 0.0068, [12, 12, 14], 0, 0.002, 10);
+    Ov.knob(u, v, 0.0046, 0.007, [34, 34, 37], 0);
+    Ov.fitText(ovN[row][i], u, v - 0.0145, 0.031, 0.0068, C.tick, 0.3 + glow, 0.003);
+  }
+  Ov.lamp(-0.025, -0.13, 0.012, 0.006, cranking, T.amber, 'START 1');
+  Ov.lamp(0.07, -0.13, 0.012, 0.006, cranking, T.amber, 'START 2');
   // The dome lamp's lens.
   const dome = !!(L.dome && powered);
   K.box(Y.dome[0] - 0.045, Y.dome[1] - 0.045, Y.dome[2] - 0.026, Y.dome[0] + 0.045, Y.dome[1] + 0.045, Y.dome[2] - 0.02, 'hdr', 0.3, dome ? [255, 238, 200] : [110, 108, 100], dome ? 1 : 0);

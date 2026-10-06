@@ -102,7 +102,7 @@ import { renderMarkup } from './markup.js';
 import { onPanelData, onPanelFeed, onPanelCatalog, syncPanels, refreshCustomPanels } from './panels/custom/manager.js';
 import { loadSettings, sfxDetail } from '/shared/settings.js';
 import { noteBirdStrikes } from './panels/bird-strikes.js';
-import { onFeedbackOk, onFeedbackErr } from './feedback-telemetry.js';
+import { onFeedbackOk, onFeedbackErr, rememberClientError } from './feedback-telemetry.js';
 
 
 const DEV_ROLES = ['admin', 'dev', 'builder', 'designer'];
@@ -377,7 +377,16 @@ function autoResolved(msg, onResult) {
 let claimRetry = null;
 
 const handlers = {
-  connected: () => {},
+  // The build this page was loaded against is the first one a socket reports. A later
+  // `connected` from a different build means a deploy landed while the tab stayed open:
+  // the page's eager modules are old, and the next lazily loaded view would be new.
+  connected: (msg) => {
+    if (!msg.build) return;
+    if (!state.build) { state.build = msg.build; return; }
+    if (msg.build === state.build || state.buildNotified) return;
+    state.buildNotified = true;
+    appendMsg('The game was updated while this page was open. Reload the page to get the new version.', 'system');
+  },
   pong: () => {},
 
   auth_success: (msg) => {
@@ -2074,6 +2083,7 @@ export function handleServerMsg(msg) {
     handler(msg);
   } catch (err) {
     console.error(`[dispatch] handler error for '${msg.type}':`, err);
+    rememberClientError('handler', err, msg.type);
   }
 }
 

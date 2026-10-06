@@ -31,12 +31,11 @@ function fakeView() {
 }
 const tris = (draws) => {
   const out = [];
-  // A GPU-sized light's CPU radius (float 5) is unused when its size spec (floats 11-14, k over 1) is
-  // there, and a kept light keeps the recording's: blanked for those. No other 15-float layer has a
-  // number over 1 in float 11 (a wire's red, a solid's local x).
+  // A GPU-sized light's CPU radius (float 5) is unused when its size spec (floats 11-14) is there, and
+  // a kept light keeps the recording's: blanked for those. Sprites are the only 18-float layer.
   for (const { st, f } of draws) for (let i = 0; i + 3 * st <= f.length; i += 3 * st) {
     const v = Array.from(f.slice(i, i + 3 * st));
-    if (st === 15) for (let k = 0; k < 3; k++) if (v[k * 15 + 11] > 1) v[k * 15 + 5] = 0;
+    if (st === 18) for (let k = 0; k < 3; k++) if (v[k * 18 + 11] > 0) v[k * 18 + 5] = 0;
     out.push(st + ':' + v.map((x) => Math.round(x * 1e5)).join(','));
   }
   return out.sort();

@@ -614,7 +614,7 @@ row here in the same commit**, and read the arm's fractions as storeys afterward
 
 | # | Renderer | File | When it draws | Is it the airport tower? |
 |---|----------|------|---------------|--------------------------|
-| 1 | `drawTypeModel` → `case 'hangar'`, **section 3** | windshield.js | The real 3D world building at an airfield | **YES** — this is the one players fly around |
+| 1 | the `atc` arm (`building_type: control_tower`) | [glass/models/downtown.js](../../client/game/js/panels/glass/models/downtown.js) | The real 3D world building at an airfield | **YES**: this is the one players fly around |
 | 2 | `drawAirportFeature` (`drawAirportScenery`) | windshield.js | Flat backdrop flanking the runway, on-deck only, fades out on climb-out | No — deck dressing |
 | 3 | `drawATCTower` | [`aircraft3d.js`](../../client/game/js/panels/aircraft3d.js) | Through the open bay door in the **hangar-inspect diorama** | No — a separate scene |
 
@@ -627,6 +627,11 @@ windshield.js and both using the same projection maths so they read as one world
 |---|---|---|
 | `drawGroundRunway` | default | Long tapering strip, dashed centreline scrolling toward you, TDZ paint, edge lights. `dust=true` (wastes/slag theme) swaps tarmac + paint for a beaten-dirt strip with wheel ruts. |
 | `drawGroundHelipad` | `v.helipad` | Square apron, perspective touchdown circle, a flat **H**, green perimeter lights. No centreline — a helipad is a spot, not a strip, so `roll` only nudges it rather than scrolling past. |
+
+Both are screen-space deck strips, drawn only while `worldBlend < 1`, which today means the
+legacy modal takeoff and landing decks: the cockpit pins `worldBlend` to 1. The runway a pilot
+sees in flight is painted tile by tile in the ground pass (`paintAirfieldTile`); see
+[systems-flight.md](../systems-flight.md#the-paved-field-as-built-2026-10-04).
 
 The switch is **data-driven, not per-field art**: `state.vtolOnlyField(zone)` (i.e.
 `flags.airfield_vtol_only`, or the legacy `charter_vtol_only`) → `ground.helipad` in
@@ -652,9 +657,41 @@ Note the H is drawn as three foreshortened bars lying ON the pad, not as canvas
 text — same rule as the surface-text renderer: painted markings are never
 billboarded.
 
-The airport ATC tower is **built into the hangar model** (`case 'hangar'`, alongside the terminal
-concourse + hangar shed), not a standalone model. Edit it there; do **not** add a separate tower
-model or you'll get two.
+### Coldwater Regional's terminal
+
+Coldwater Regional is five building tiles beside its runway. The tower (924,901, `control_tower`)
+is the `atc` arm and the terminal's two halves (`arrivals` 924,902 and `departures` 924,903) are
+arms of their own, all in [glass/models/downtown.js](../../client/game/js/panels/glass/models/downtown.js);
+the two hangars are `bay` marks drawn by `drawVehicleBay`. The older `hangar` arm, an all-in-one
+terminal, shed and tower, now only draws a `hangar` tile that isn't an `aircraft_hangar`.
+
+The terminal *(rebuilt 2026-10-04)* is modelled on LAX, at four storeys:
+
+- **`terminalHalf`** draws what both halves share: the hall, a wave roof of three shallow vaults to
+  the half (six along the terminal, the Tom Bradley profile, with arched eaves past the glass), glass
+  on both faces, the livery fascia, half of the glazed link between them, and on the landside a
+  two-level kerb (a departures deck on columns, the arrivals kerb in its shade, a canopy and a board
+  lettered ARRIVALS or DEPARTURES) with a row of glass pylons.
+- **The pylons** are frosted drums half a tile apart. After dark each takes a colour from
+  `PYLON_HUES` and the colour rolls slowly down the row (`pylonRgb`, held still when motion is off).
+  ⚠ The colour isn't mass: mass is captured once at a frozen clock, so a colour that moves lives in
+  the layers collected every frame, as neon up the drum's sides and halos round it. No pylon stands
+  at x = 0, where the kerb board hangs.
+- ⚠ **The glass is an unlit face, not a palette slab**, so after dark it's a lit hall seen from
+  outside and holds a warm fill rather than taking the dark. It's one face whatever the hour, because
+  the night capture is paired to the day one face for face.
+- **`arrivals`** adds an observation deck over its north end on two crossed parabolic arches
+  (`observationCrown`, the Theme Building in Coldwater's accent), one jet bridge, the doors in off
+  the runway and the building's name on the fascia. **`departures`** adds two jet bridges
+  (`jetBridge`, stowed along the airside glass), a fuel bowser, a ground-power cart and the
+  DEPARTURES board.
+- ⚠ **The link, the kerb deck and its canopy are in constants (`TERM`)**, everything else in `fh`
+  and `h`. Both are rolled per tile, so two halves of one deck written in either would meet the
+  boundary at two different heights.
+- The airside is +y and trimmed at 0.5 by `tileFitBox`, and the runway's edge line is 0.08 into the
+  next tile, which is why the jet bridges run along the glass rather than out from it.
+- `signfit` skips a culled sign seen from behind (negative screen area): without that it read the
+  airside mullions as wires across the landside kerb board, a whole hall behind them.
 
 ## Recipe: add or edit a named building model
 
@@ -671,9 +708,8 @@ model or you'll get two.
 3. **Place it** (content): the tile must carry the flag the model keys off — `building_name`
    (→ `bn`) for a named model, or `building_type` (→ `bt`) for a type model — on a `map_world`
    zone. That's a content edit (one zone JSON + local DB; prod via the CODEX deploy). Airfield
-   *surface* tiles (`airfield_id`, `kind:'field'`) are runway, not buildings — a tower/terminal is
-   a separate building tile or, as with the airport, folded into the `hangar` model that already
-   sits on the field.
+   *surface* tiles (`airfield_id`, `kind:'field'`) are runway, not buildings; a tower or terminal is
+   a separate building tile, as Coldwater Regional's are.
 
 ## Street actors — the people on the pavement (as built)
 
@@ -817,6 +853,12 @@ person or a wrong tile.
   from a wide road's middle tile, whose pavement is the block's edge. Junctions and bends keep
   people at their corner; worn, dirt and curved roads and dead ends have no pavement, so people
   there stay at the verge and only change pose.
+- **Nobody stands past the Curtain.** The wall runs down the middle of its tile, and the spots above
+  come from a square round the tile centre, so before this about half the people on the east-wall
+  camp (927,917 and 927,918) stood out in the wastes. The server sends `ci`, the inward side, on
+  every Curtain tile (`curtainInward` in `plugins/flight/state.js`), and `curtainSide` mirrors any
+  spot, ring or stroll target on the far side back inside, clear of the field. The gate tile has no
+  `ci`: it's the gap, and people stand on both sides of it.
 - **Setting off.** A new leg starts from wherever they were standing, and the offset from the kerb
   spot is let go over the leg, so the walk is a straight line to the next tile's kerb spot with no
   jump. Heading follows the actual direction of travel.
@@ -833,8 +875,9 @@ id, a walker faces its heading and its gait matches the distance moved, the hitc
 camera, and nothing changes with the switch off. Street life gets a minute of simulated street:
 everybody stays on the band and in their tile, nobody jumps, a pair faces each other and both talk,
 everybody alone does more than one thing and somebody strolls with feet that keep pace, the one who
-leaves the pair sets off from their spot in the ring, and on a road three tiles wide everybody
-stands on its outer pavement. The pixels are checked in the Modelshop with `__glActors()`, which
+leaves the pair sets off from their spot in the ring, on a road three tiles wide everybody
+stands on its outer pavement, and on a Curtain tile nobody stands, strolls or walks past the wall,
+with street life on or off. The pixels are checked in the Modelshop with `__glActors()`, which
 renders the street with the mesh on and off, from the cab or the standing camera; the Actor Lab
 plays each clip.
 

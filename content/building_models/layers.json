@@ -210,6 +210,18 @@
       "s": 10,
       "z0": 0,
       "z1": 0.085
+    },
+    {
+      "cx": 0.23,
+      "cy": 0.395,
+      "depth": 0.016,
+      "door": 1,
+      "half": 0.06,
+      "hh": 0.08,
+      "kind": "windowBay",
+      "pal": "ty_marble_col",
+      "transom": 0.8,
+      "z": 0.135
     }
   ],
   "id": "layers",

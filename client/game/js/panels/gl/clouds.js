@@ -34,6 +34,7 @@
 import { viewProjMatrix, mat4f } from './camera.js';
 import { makeVertexStream } from './stream.js';
 import { declareProgram, takeWarm } from './programs.js';
+import { linearOut, applyLinOut } from './colour.js';
 
 // pos3, corner2, half-extent px 2, alpha1, lit1, kind1
 const STRIDE = 10;
@@ -84,7 +85,7 @@ void main() {
   vFocus = uLightStr > 0.05 ? vec2(d.x / L * 0.44, d.y / L * 0.44 - 0.05) : vec2(0.0, -0.12);
 }`;
 
-const FRAG = `#version 300 es
+const FRAG = linearOut(`#version 300 es
 precision highp float;
 in vec2 vCorner;
 in vec2 vFocus;
@@ -180,7 +181,7 @@ void main() {
   }
   float a = vAlpha * am;
   outColor = vec4(rgbv * a, a);   // premultiplied, because the canvas this lands on is
-}`;
+}`, 'outColor');
 
 function compile(gl, type, src, label) {
   const sh = gl.createShader(type);
@@ -276,7 +277,7 @@ export function createCloudLayer(gl) {
 
   function draw(cam, W, H, cssH, opts = {}) {
     if (!count) return 0;
-    gl.useProgram(prog);
+    gl.useProgram(prog); applyLinOut(gl, prog);
     gl.uniformMatrix4fv(loc.viewProj, false, mat4f(viewProjMatrix(cam, cssH || H)));
     gl.uniform2f(loc.viewport, W, H);
     const L = opts.light || [W * 0.5, -H];

@@ -443,6 +443,9 @@ message pointing nowhere near overclocking.
   `card-render.js` was deleted on 2026-09-02 with the card portrait face.
   Extracting one shared doll is its own task; the `augment` verbs carry the
   system without it.
+- **Firmware and `augment radio`.** Server-run combat routines for your own
+  chrome, which the Null can crash or spoof. Planned in
+  [payloads-and-firmware.md](proposals/payloads-and-firmware.md).
 
 ## 11. Verification
 

@@ -43,6 +43,7 @@ nothing, silently; wire a reader first.
 | `heavy_hangar` | flight (`state.js`) + GLASS (`windshield.js`) | with `aircraft_hangar`: the field's heavy bay, `bk: 'heavy'` and `HEAVY_BAY`, the one shed the Leviathan fits. `hangarTileFor(field, true)` picks it for a heavy-class aircraft. On Coldwater Regional Heavy Hangar (929,904) |
 | `hangar_field` | flight (`state.js`) | the ramp tile (field) an `aircraft_hangar` belongs to when its door opens onto a different tile. Without it the field is the facade's `world_exit_zone`. The flight `land` event reads it too, so a shutdown on the hangar floor parks at the field. On both Coldwater Regional hangars, whose doors open onto the east taxiway |
 | `runway` | flight | runway tile: `ns`/`ew` is the centreline orientation the flight sim aligns its drawn runway to; `pad` is the surrounding asphalt |
+| `taxiway` | flight | on a `runway: "pad"` tile, the sides its yellow centreline leaves by (letters of `nesw`); one letter is a parking stand. Shipped as the cell's `twy`; a pad without it is apron |
 | `aircraft_cabin` | flight | interior cabin room of a **walkable** aircraft; value = the craft-type id (e.g. `leviathan`). Binds these coordinate-free rooms to the live aircraft; the move gate seals world exits while airborne |
 | `cabin_window` | flight | cabin room with windows — `window` opens the through-hull moving-world view from here |
 | `flightdeck` | flight | cockpit room of a walkable aircraft: home of TAKE CONTROLS / HAND OFF and the NAV console |

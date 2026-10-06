@@ -238,6 +238,19 @@
       "s": 10,
       "z0": 0,
       "z1": 0.088
+    },
+    {
+      "cx": 0.27,
+      "cy": 0.43,
+      "depth": 0.016,
+      "door": 1,
+      "glow": "#ffe2a8",
+      "half": 0.08,
+      "hh": 0.084,
+      "kind": "windowBay",
+      "pal": "ty_unit_board",
+      "transom": 0.8,
+      "z": 0.135
     }
   ],
   "id": "bodegavu",

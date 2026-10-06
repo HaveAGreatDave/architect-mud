@@ -191,7 +191,14 @@ rechecks with none dropped. Kept, headless: Halcyon cockpit at night 100 of 185 
 beacons keep the rest live), residential by day 63 of 63. Headless Halcyon cockpit: arms 11.9 to
 8.7 ms, frame 20.8 to 17.2 ms. Not yet measured in the browser on a quiet machine.
 
-Next for phase 5: a building with one blinking part goes wholly live. Splitting an arm's live part
+(2026-10-04) Blinks moved to the sprite shader (`glBlinkGPU`): `blinkLight`'s record carries its
+base alpha and `bl` = [0.4, 0.5, phase], the shader applies `0.4 + 0.5 |sin(t + phase)|` with `t`
+the frame clock reduced mod pi on the CPU. Pixel-identical to the CPU blink in the browser with
+frozen clocks. Halcyon cockpit at night: kept 100 to 165, live 85 to 19. What's left live is mostly
+real motion: the Ascendant buildings' rotating rings and moving lines (tag `moving`), the
+nightclub's moving lights and the lighthouse beam, which want a rotation in the vertex shader.
+
+Next for phase 5: a building with one moving part goes wholly live. Splitting an arm's live part
 from its kept part (the plan's "a building with any of these keeps a live part beside its retained
 part") would keep most of the 85 at Halcyon by night.
 

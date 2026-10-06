@@ -34,6 +34,7 @@ import { viewProjMatrix, mat4f } from './camera.js';
 import { makeVertexStream } from './stream.js';
 import { HEIGHT_FOG_GLSL, LIGHT_SHAFT_GLSL } from './fog.js';
 import { declareProgram, takeWarm } from './programs.js';
+import { linearOut, applyLinOut } from './colour.js';
 
 // pos3, colour3
 const STRIDE = 10;  // pos3, colour3, alpha1, road1, lat1, kerb1
@@ -68,6 +69,8 @@ const WET_P = new Float32Array(MAX_WET * 3);
 const WET_C = new Float32Array(MAX_WET * 3);
 const WET_R = new Float32Array(MAX_WET);
 const EMPTY_WET = [];
+// Snow at noon under a clear sky, for a caller that hands no `snowCol`.
+const SNOW_DAY = [0.90, 0.93, 0.98];
 
 const VERT = `#version 300 es
 in vec3 aPos;
@@ -127,7 +130,7 @@ void main() {
   vAlpha = aAlpha * (uHazeFar > uHazeNear ? 1.0 - smoothstep(uHazeNear, uHazeFar, clip.w) : 1.0);
 }`;
 
-const FRAG = `#version 300 es
+const FRAG = linearOut(`#version 300 es
 precision highp float;
 in vec3 vColor;
 in float vFog;
@@ -227,6 +230,14 @@ uniform float uNight;
 // every road and pavement tile as an opaque quad ON TOP of the floor, so a city's snow painted into
 // the floor is covered by exactly the surface it belongs on.
 uniform float uSnow;
+// What colour that snow comes out, 0-1: 'SNOW_COL' in windshield.js, the floor's own expression
+// (near-white tinted toward the horizon, then dimmed by the hour and the moon). The verge and the
+// scatter already read it, so road snow matches the snow on the grass beside the kerb.
+// ⚠ IT CARRIES THE NIGHT, WHICH THE ROAD'S OWN COLOUR DOESN'T. The tarmac is a fixed #2b2f36 that
+// only uNightDim darkens, and snow mixed in after that dim is the one surface on the street that
+// skips it. It was a constant 0.9 white: at midnight that's about nine times the tarmac and three
+// times the snow on the verge, so a snowy night turned every road in view into a lit white sheet.
+uniform vec3 uSnowCol;
 
 // ── WHEEL TRACKS CUT INTO IT ───────────────────────────────────────────────────────────────────
 //
@@ -1260,18 +1271,16 @@ void main() {
   // Last, because it is the surface the light is landing on rather than something happening to the
   // road: everything above describes tarmac, and where this is 1 there is no tarmac to describe.
   //
-  // ⚠ IT TAKES THE SKY, NOT A WHITE. Snow is very nearly a perfect diffuse reflector of the whole
-  // hemisphere, so what it hands back is what is above it — which this shader already has in
-  // 'uSkyTop', the zenith colour the standing water was given for exactly the same reason. A
-  // constant white would read as paint at every hour of the day and would be wrong twice over at
-  // dusk, when both the sky and the snow under it go pink.
+  // ⚠ IT TAKES THE SKY AND THE HOUR, NOT A WHITE. Snow hands back what is above it, so it is tinted
+  // toward the horizon and dimmed by the night exactly as the floor's is: see 'uSnowCol'. It used to
+  // take only the tint, so at night it was the brightest surface in the city with no light on it.
+  // The lamps still light it: the pool below adds into whatever headroom the dimmed snow leaves.
   //
-  // ⚠ AND THE FOG IS ALREADY IN 'c' — it is applied on the first line of main — so mixing toward a
-  // raw snow colour here would put a crisp white street at the end of a hazed one. The tint is
-  // hazed by the same weight before it lands.
+  // ⚠ AND THE FOG IS ALREADY IN 'c' (it is applied on the first line of main), so the snow is hazed
+  // by the same weight before it lands, height fog included, or a snowy street stays crisp at the
+  // end of a road that has already dissolved.
   if (snowW > 0.001) {
-    vec3 snowCol = mix(mix(vec3(0.90, 0.93, 0.98), uSkyTop, 0.20), uFog, vFog);
-    c = mix(c, snowCol, snowW);
+    c = mix(c, mix(uSnowCol, uFog, gfog), snowW);
   }
   // ── AND THE POOL A LAMP THROWS ON IT ───────────────────────────────────────
   //
@@ -1314,7 +1323,9 @@ void main() {
       vec2 rel = vWorld.xy - uPoolP[i].xy;
       float h = max(0.14, uPoolP[i].z);
       float r2 = dot(rel, rel) + h * h;
-      pool += uPoolC[i] * ((h * h * h) / (r2 * sqrt(r2)));
+      // Inverse square above a lamp head (0.33): a tower beacon whitened the whole road.
+      float hs = min(1.0, (0.33 * 0.33) / (h * h));
+      pool += uPoolC[i] * (hs * ((h * h * h) / (r2 * sqrt(r2))));
     }
     // ⚠ IT ADDS INTO THE HEADROOM RATHER THAN ONTO THE ROAD. 'c + k' saturates a pale kerb to
     // white long before it saturates the tarmac beside it, so a pool crossing a painted line
@@ -1353,7 +1364,7 @@ void main() {
     c += scat;
   }
   outColor = vec4(c * vAlpha, vAlpha);   // premultiplied, like every other layer on this canvas
-}`;
+}`, 'outColor');
 
 function compile(gl, type, src, label) {
   const sh = gl.createShader(type);
@@ -1409,6 +1420,7 @@ export function createGroundLayer(gl) {
     pudScale: gl.getUniformLocation(prog, 'uPudScale'),
     pond: gl.getUniformLocation(prog, 'uPond'),
     snow: gl.getUniformLocation(prog, 'uSnow'),
+    snowCol: gl.getUniformLocation(prog, 'uSnowCol'),
     nTrack: gl.getUniformLocation(prog, 'uNTrack'),
     track: gl.getUniformLocation(prog, 'uTrack'),
     trackHalf: gl.getUniformLocation(prog, 'uTrackHalf'),
@@ -1526,7 +1538,7 @@ export function createGroundLayer(gl) {
 
   function draw(cam, H, opts = {}) {
     if (!count) return 0;
-    gl.useProgram(prog);
+    gl.useProgram(prog); applyLinOut(gl, prog);
     gl.uniformMatrix4fv(loc.viewProj, false, mat4f(viewProjMatrix(cam, H)));
     const f = opts.fog || {};
     const c = f.col || [0.5, 0.5, 0.55];
@@ -1627,6 +1639,10 @@ export function createGroundLayer(gl) {
     // for all three is BARE GROUND — so this defaults to 0 and every existing harness is unchanged
     // by construction rather than by anybody remembering to switch it off.
     gl.uniform1f(loc.snow, opts.snow || 0);
+    // The frame's snow colour, night included (see 'uSnowCol'). A caller without one gets the daylight
+    // white the shader used to hard-code, which is what a bench at noon expects.
+    const sc = opts.snowCol || SNOW_DAY;
+    gl.uniform3f(loc.snowCol, sc[0], sc[1], sc[2]);
     // ⚠ WRITTEN EVERY FRAME, INCLUDING THE FRAMES WITH NO TRACKS. A uniform holds its last value,
     // so a pass that set these only when it had a path would leave the last one carved into the
     // snow for the rest of the session — the rule the road segments and the wet lights carry.

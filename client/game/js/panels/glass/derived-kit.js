@@ -142,7 +142,10 @@ export function derivedTrim(m, fh, h, seed, forceRich) {
   // which is what every kind did before the table existed.
   if (base) {
     const tally = new Map();
-    for (const d of base) if (SECTION_OF[d.kind]) tally.set(d.kind, (tally.get(d.kind) || 0) + 1);
+    for (const d of base) {
+      const k = d.kind === 'windowBay' && d.door ? 'door' : d.kind;   // see SECTION_OF.door
+      if (SECTION_OF[k]) tally.set(k, (tally.get(k) || 0) + 1);
+    }
     for (const [kind, n] of tally) if (n >= (SECTION_MIN[kind] || 1)) have.add(SECTION_OF[kind]);
   }
   // ⚠ THE `sign` SECTION IS THE ONE THAT CANNOT BE READ OFF A LIST. 66 of the 173 arms already sign
@@ -576,6 +579,27 @@ const KIT_DECLINE = { meridian: ['signRoof', 'wall', 'pier'],   // 'wall' and 'p
   flophouse: SLUM_DECLINE, soup_kitchen: SLUM_DECLINE, bonesetter: SLUM_DECLINE, shebeen: SLUM_DECLINE,
   ruin: SLUM_DECLINE,
   helpings: ['signRoof', 'wall', 'stair'], clone: ['stair', 'wall', 'riser'], kitchenware: ['ground', 'wall'],
+  // Stuff It's canted window and painted sign ground ARE its shopfront, so the kit's glazed band
+  // and awning would stand in front of the one thing the building is about.
+  taxidermist: ['ground'],
+  // No Regerts is one lit strip up a dark wall and Fine Print one high band of glass: each draws its
+  // own windows, once, and the kit's grid round them is what made both read as an ordinary block.
+  tattooist: ['wall'], lending_library: ['wall'],
+  // Spirit Level is a steel shutter over the whole front with one hatch cut in it. A glazed
+  // shopfront or a window grid on that wall is the one thing the building says it hasn't got.
+  off_licence: ['ground', 'wall'],
+  // ⚠ THE INSTITUTE AND THE LAND OFFICE ARE DRUMS WITH ONE BOX EACH, and the kit's ground floor and
+  // window grid were landing on that box: a shopfront and a door hanging off the institute's frieze
+  // plate 0.78 h up, and glazing drawn across the land office's hoarding, over its lettering. The
+  // Codfather says it outright: "no glazing on this building anywhere".
+  institute: ['ground', 'wall'], land_office: ['ground', 'wall'], fishmonger: ['ground', 'wall'],
+  // ⚠ ASH MANAGEMENT AND TWO-CELL SUPPLY DRAW THEIR OWN OPENINGS, ROOFS AND LIGHT. The destructor's
+  // windows, doors, ramp and roof plant are all its arm's, and the kit's office glazing on the hall
+  // is what made it read as an office block. Two-Cell is a corrugated lean-to: no glazing grid, no
+  // fire escape, no coping, no tube, no duct up the front, and its roof already carries the panels
+  // and the wind wheel. Both keep `paint`, and the destructor keeps `riser`.
+  incinerator: ['signRoof', 'wall', 'ground', 'neon', 'roof', 'stair', 'cope'],
+  twocell: ['signRoof', 'wall', 'ground', 'neon', 'roof', 'stair', 'cope', 'riser'],
   // ⚠ THE SOLENNE DECLINES THE SHOP AND THE ROOF, AND ONE OF THE TWO IS A REAL BUG RATHER THAN A
   // MATTER OF TASTE. `ground` and `stair` are taste: the arm draws its own reveal, canopy, columns
   // and nameplate (§1a–1c), and a zigzag of balconies bolted across the front of a tower whose
@@ -656,9 +680,9 @@ const quietSign = (pal) => typeof pal === 'string' && pal.startsWith('ty_hf');
 const UNSIGNED_TRADE = new Set([
   // Power and utility.
   'power', 'dynamo', 'dw_turbine', 'trm_charge', 'signalbox', 'damwall', 'interstack', 'trm_cistern',
-  // Heavy industry and processing.
+  // Heavy industry and processing. The incinerator letters its own gate plate in its arm.
   'foundry', 'fabrication', 'ff_kiln', 'dw_forge', 'sw_foundry', 'sw_kiln', 'hulls', 'asc_vats',
-  'clone', 'asc_weave', 'refinery',
+  'clone', 'asc_weave', 'refinery', 'incinerator',
   // Freight, storage and yards — a shed with a number on the door.
   'warehouse', 'container_yard', 'cold_storage', 'junkyard', 'truck_depot', 'dw_depot', 'sw_depot',
   'trm_depot', 'wharf', 'hangar', 'reefer', 'fuel_yard',

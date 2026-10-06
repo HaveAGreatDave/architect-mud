@@ -629,17 +629,21 @@ const STICK_BASE = [0, 0.30, FLOOR_Z];
 function stickTip(R) { return [R.ail * 0.07, 0.34 + R.elev * 0.08, -0.52]; }
 const FLAP_PIVOT = [-0.49, 0.05, CONS_Z - 0.06];
 function flapTip(R) { const a = lerp(-0.55, 0.55, R.flap); return [FLAP_PIVOT[0], FLAP_PIVOT[1] + Math.sin(a) * 0.11, FLAP_PIVOT[2] + Math.cos(a) * 0.11]; }
-// The lighting panel's switch row on the right console, in that console's panel coords.
-const SW_ROW = { o: [0.40, -0.18, CONS_Z + 0.0015], ids: ['master', 'beacon', 'nav', 'strobe', 'dome'], pitch: 0.028 };
-const swPos = (i) => [SW_ROW.o[0] - 0.056 + i * SW_ROW.pitch, SW_ROW.o[1], SW_ROW.o[2]];
+// The lighting panel's switch row on the right console, centred on `o`.
+// ⚠ EVERY SWITCH HERE IS A CIRCUIT THE SIM HAS. It was BAT, BCN, NAV, STRB, DOME, and the sim has no
+// beacon, nav or strobe: three switches that took the hand cursor and the halo and did nothing.
+const SW_ROW = { o: [0.40, -0.18, CONS_Z + 0.0015], ids: ['master', 'panel', 'dome'], pitch: 0.028 };
+const swPos = (i) => [SW_ROW.o[0] + (i - (SW_ROW.ids.length - 1) / 2) * SW_ROW.pitch, SW_ROW.o[1], SW_ROW.o[2]];
 const GEAR = { u: -0.33, v: -0.07 };
 
 export function reaperHotspots(P, live) {
   const R = readReaper(live), out = [];
   SW_ROW.ids.forEach((id, i) => out.push({ id: 'ck:' + id, p: add(swPos(i), [0, 0, 0.012]), r: 0.013, kind: 'click' }));
   out.push({ id: 'ck:land', p: [-0.27, PANEL_Y - 0.012, PZ - 0.175], r: 0.014, kind: 'click' });
-  out.push({ id: 'gear', p: [GEAR.u, PANEL_Y - 0.07, PZ + (R.gear ? -0.13 : -0.02)], r: 0.022, kind: 'click' });
-  out.push({ id: 'guns', p: [-0.33, PANEL_Y - 0.012, PZ + 0.10], r: 0.016, kind: 'click' });
+  // 'ck:gear' and 'ck:arm', not the Drake's 'gear' and 'guns': the same actions, and tooltips that
+  // don't promise feet and miniguns.
+  out.push({ id: 'ck:gear', p: [GEAR.u, PANEL_Y - 0.07, PZ + (R.gear ? -0.13 : -0.02)], r: 0.022, kind: 'click' });
+  out.push({ id: 'ck:arm', p: [-0.33, PANEL_Y - 0.012, PZ + 0.10], r: 0.016, kind: 'click' });
   out.push({ id: 'ck:flaps', p: flapTip(R), r: 0.02, kind: 'click' });
   out.push({ id: 'yoke', p: add(stickTip(R), [0, 0.01, 0.07]), r: 0.07, kind: 'yoke' });
   out.push({ id: 'throttle', p: throttleTip(0, R.thr), r: 0.04, kind: 'throttle' });
@@ -649,10 +653,12 @@ export function reaperHotspots(P, live) {
 export function reaperFit(P, live, push) {
   const K = makeKit(push);
   const R = readReaper(live), on = R.powered;
-  const night = on && (R.hour < 6.5 || R.hour > 19.5);
+  // The panel lights are the PANEL switch (cockpit.js 'ck:panel'). A view that sends no switch state,
+  // a seat shot, lights them after dark.
+  const panelOn = on && (R.L.panelLight != null ? !!R.L.panelLight : R.hour < 6.5 || R.hour > 19.5);
   const Pn = K.panel([0, PANEL_Y, PZ], [1, 0, 0], [0, 0, 1]);
   // A placard is its lettering now: the old stripe's box is the room the words get, shrunk to fit.
-  const placard = (pn, a0, b0, a1, b1, str) => pn.fitText(str, (a0 + a1) / 2, (b0 + b1) / 2, a1 - a0 + 0.006, 0.007, night ? T.night : T.letter, night ? 0.9 : 0.35, 0.003);
+  const placard = (pn, a0, b0, a1, b1, str) => pn.fitText(str, (a0 + a1) / 2, (b0 + b1) / 2, a1 - a0 + 0.006, 0.007, panelOn ? T.night : T.letter, panelOn ? 0.9 : 0.35, 0.003);
 
   // ── ARMAMENT CONTROL PANEL (upper left) ──
   // Eleven station-select buttons with their READY lamps, master arm, gun arm, the delivery-mode
@@ -766,8 +772,8 @@ export function reaperFit(P, live, push) {
 
   // ── THE RIGHT CONSOLE: the lighting and electrical panel, UHF, IFF ──
   const Rc = K.panel([0.40, 0.00, CONS_Z + 0.0015], [1, 0, 0], [0, 1, 0]);
-  const SW_NAME = { master: 'BAT', beacon: 'BCN', nav: 'NAV', strobe: 'STRB', dome: 'DOME' };
-  const swState = { master: on, beacon: on, nav: on, strobe: on, dome: !!(R.L.dome && on) };
+  const SW_NAME = { master: 'BAT', panel: 'PANEL', dome: 'DOME' };
+  const swState = { master: on, panel: panelOn, dome: !!(R.L.dome && on) };
   SW_ROW.ids.forEach((id, i) => {
     const p = swPos(i), a = p[0] - 0.40, b = p[1] - 0.0;
     const sw = !!swState[id];
@@ -804,8 +810,8 @@ export function reaperFit(P, live, push) {
   // ── THE PEDALS ──
   for (const s of [-1, 1]) pedal(K, [s * 0.13, 0.78 + (s * R.rud) * -0.0, -0.84], 0.045, 0.22, Math.max(0, s * R.rud), T.metal);
 
-  // ── NIGHT: the console edge-lighting and the flood wash on the panel's lettering ──
-  if (night) {
+  // ── PANEL LIGHTS: the console edge-lighting and the flood wash on the panel's lettering ──
+  if (panelOn) {
     for (const s of [-1, 1]) {
       const x = s < 0 ? -CONS_IN - 0.004 : CONS_IN + 0.004;
       K.box(x - 0.002, -0.44, CONS_Z - 0.004, x + 0.002, 0.60, CONS_Z, 'dash', 0, T.night, 0.5);

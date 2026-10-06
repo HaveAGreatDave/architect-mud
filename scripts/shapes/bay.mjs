@@ -143,6 +143,22 @@ if (!on || !on.bay.length) {
   // A shed is a shed: eaves at 0.30 and a ridge at 0.43, so the set has to stand up.
   const tall = span(on.bay);
   if (!(tall > 0.2)) problems.push(`the shed is ${tall.toFixed(3)} tiles tall — it is flat, so the local-to-world transform is not being applied`);
+  // ── ⚠ THE OUTSIDE IS LIT BY THE WORLD, AND THE INSIDE BY ITSELF ──────────────────────────
+  // gl/solids.js reads a record with no normal as a light: no night dim, no lamps. The outside of
+  // the shell carries one (`amb`) so the night reaches it, and the fittings don't, because a lit
+  // workplace keeps its own light. With none, the airport's hangars stood pale and flat after dark
+  // beside a city that had dimmed; with all, the shed you are parked in would go dark round you.
+  // A normal that points down would take the ground's tint on a roof, so up is checked too.
+  let lit = 0, badN = 0;
+  for (const q of on.bay) {
+    if (!q.amb) continue;
+    lit++;
+    const n = q.n;
+    if (!n || n.length !== 3 || !n.every(Number.isFinite) || Math.abs(Math.hypot(n[0], n[1], n[2]) - 1) > 1e-6 || n[2] < -1e-9) badN++;
+  }
+  if (!lit) problems.push(`none of the shed's ${on.bay.length} faces carries a normal, so the GPU reads every one as a light and the night never dims its outside`);
+  else if (lit === on.bay.length) problems.push(`all ${lit} of the shed's faces carry a normal, but the inside is meant to keep its own light`);
+  if (badN) problems.push(`${badN} of the shed's ${lit} lit faces carry a normal that is not unit length or points down`);
 }
 
 // ── ⚠ DRIVING PAST IT MUST NOT MOVE IT, WHICH IS HOW cam.ox/oy IS CHECKED ────────────────────

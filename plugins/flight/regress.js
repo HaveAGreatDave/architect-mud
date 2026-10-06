@@ -2012,6 +2012,89 @@ async function regressBody({ run, check, getPlayer }) {
     const paved = [898, 899, 900, 901, 902, 903].map(y => der(925, y));
     check('a paved runway carries the flag but is never drum-marked',
       paved.every(d => d && d.mark !== 'strip'), paved.map(d => d?.mark).join(','));
+
+    // ── …AND A PAVED RUNWAY IS A RUNWAY, NOT A STREET ──────────────────────
+    // Its centreline tiles carry a `runway_ns` icon, which made them road cells, and the canopy
+    // painted Coldwater Regional's runway with a double yellow line and kerbs while its taxiways
+    // were bare floor. The cell now says which it is (`rwy`), and a taxiway says where its line goes.
+    check('every paved runway tile says it is runway, and is not a road',
+      paved.every(d => d?.rwy === 'ns' && d.road === 0), paved.map(d => `${d?.rwy}/${d?.road}`).join(','));
+    const twy = der(927, 903);
+    check('a taxiway tile is a pad carrying its centreline', twy?.rwy === 'pad' && /n/.test(twy.twy || '') && /w/.test(twy.twy || ''),
+      JSON.stringify({ rwy: twy?.rwy, twy: twy?.twy }));
+    check('a dust strip carries no paved-runway field', strip.every(d => d && d.rwy === undefined));
+  }
+
+  // ── EVERY AIRPORT BUILDING PICKS YOUR AIRCRAFT ──────────────────────────────
+  // The card floor opened in the hangar, on the ramp and in three of the terminal's rooms; the tower,
+  // the arrivals hall, reclaim and security answered `hangar` with "Hangars are at the airfields."
+  // The rule is one flag: a room inside an airport building names its ramp (`hangar_ramp`), and then
+  // fieldFor resolves there, the room offers the floor, and Launch boards from it. Held over every
+  // room whose building is an airfield's (its facade is a hangar, tower or terminal), so the next
+  // room anybody adds to one is held too.
+  {
+    const { getAllZones, getMap } = await import('../../server/engine/world.js');
+    const { fieldFor } = await import('./state.js');
+    const AIRPORT = new Set(['hangar', 'control_tower', 'arrivals', 'departures']);
+    // An interior's building is its MAP's parent tile (`maps.parent_zone_id`); the zone row's own
+    // `parent_zone` column is not carried on the live zone.
+    const facadeOf = (z) => getZone(getMap(z.map_id)?.parent_zone_id);
+    const rooms = getAllZones().filter(z => z.flags?.is_interior && AIRPORT.has(facadeOf(z)?.flags?.building_type));
+    check('the airport buildings have rooms to test', rooms.length >= 10, `${rooms.length}`);
+    const bare = rooms.filter(z => !getZone(z.flags.hangar_ramp)?.flags?.airfield_id);
+    check('every room in an airport building names its field\'s ramp', bare.length === 0, bare.map(z => z.id).join(', '));
+    const savedZoneR = p.current_zone, savedRoleR = p.role;
+    try {
+      p.role = 'player';
+      const shut = rooms.filter(z => { p.current_zone = z.id; return !fieldFor(p); });
+      check('fieldFor resolves the field in every one of them', shut.length === 0, shut.map(z => z.id).join(', '));
+      const tower = rooms.find(z => facadeOf(z)?.flags?.building_type === 'control_tower');
+      if (tower) {
+        p.current_zone = tower.id;
+        const shown = await _test.describeAirfield(tower, p);
+        check('the tower offers the aircraft floor', /data-cmd="hangar"/.test(shown || ''), String(shown).slice(0, 120));
+      }
+    } finally { p.current_zone = savedZoneR; p.role = savedRoleR; }
+  }
+
+  // ── A CAMP ON THE CURTAIN KNOWS WHICH SIDE IS IN ───────────────────────────
+  // `ci` is what keeps the tents off the wall (`drawTentCamp` folds onto it). 927,917 shipped
+  // without one: its west neighbour is a building that opens north, so "the side with no exit is
+  // out" read both sides as out, and the client's land test read both as in. Every camp on a
+  // Curtain tile has to carry an inland side, and it must point away from the blocked wall.
+  {
+    const { surfaceAt, deriveSurfaceCell } = await import('./state.js');
+    const { world } = await import('../../server/engine/world.js');
+    const camps = [...world.zones.values()].filter(z => z.map_id === 'map_world' && z.flags?.camp && z.flags?.curtain && z.grid_x != null);
+    check('the Curtain still has camps on it to check', camps.length > 0, String(camps.length));
+    const bad = [];
+    for (const z of camps) {
+      const c = surfaceAt(z.grid_x, z.grid_y), d = c ? deriveSurfaceCell(c, z.grid_x, z.grid_y, surfaceAt) : null;
+      if (!d?.ci?.length) { bad.push(`${z.id}: no inland side`); continue; }
+      for (const [vx, vy] of d.ci) {
+        const out = vx > 0 ? 'west' : vx < 0 ? 'east' : vy > 0 ? 'north' : 'south';
+        const open = (z.exits || {})[out];
+        if (open) bad.push(`${z.id}: points in from ${out}, which is an open exit`);
+      }
+    }
+    check('every camp on a Curtain tile has an inland side that faces away from the wall', !bad.length, bad.join('; '));
+
+    // The people on the wall read the same `ci` (curtainSide in glass/street-life.js), so every
+    // Curtain tile carries one, not only the camps, and a straight run never changes sides from one
+    // tile to the next. Without it the client spread anybody on the tile across the wall.
+    const wall = [...world.zones.values()].filter(z => z.map_id === 'map_world' && (z.grid_z ?? 0) === 0 && z.flags?.curtain && z.grid_x != null);
+    const der = (x, y) => { const c = surfaceAt(x, y); return c ? deriveSurfaceCell(c, x, y, surfaceAt) : null; };
+    const blank = [], flips = [];
+    for (const z of wall) {
+      const d = der(z.grid_x, z.grid_y);
+      if (!d?.ci?.length) { blank.push(z.id); continue; }
+      if (d.cur !== 'ns' && d.cur !== 'ew') continue;
+      const [sx, sy] = d.cur === 'ns' ? [0, 1] : [1, 0];
+      const n = der(z.grid_x + sx, z.grid_y + sy);
+      if (n?.cur === d.cur && n.ci?.length && JSON.stringify(n.ci) !== JSON.stringify(d.ci)) flips.push(`${z.id} ${JSON.stringify(d.ci)} vs ${JSON.stringify(n.ci)}`);
+    }
+    check('every Curtain tile knows which side is in', !blank.length, `${blank.length} of ${wall.length}: ${blank.slice(0, 6).join(', ')}`);
+    check('the Curtain never changes sides between two tiles of a straight run', !flips.length, flips.slice(0, 4).join('; '));
   }
 
   // ── AN EMP PULSE TAKES THE PANELS, NEVER THE ENGINE, AND NEVER THE SLOT ─────

@@ -35,20 +35,7 @@
       "hh": 0.015,
       "kind": "parapet",
       "pal": "ty_showroom",
-      "z": 0.14
-    },
-    {
-      "bars": 6,
-      "cx": 0,
-      "cy": 0.44,
-      "depth": 0.023,
-      "glass": "#0d1c1a",
-      "glow": "#bfffe8",
-      "half": 0.36,
-      "hh": 0.042,
-      "kind": "windowBay",
-      "pal": "ty_showroom",
-      "z": 0.058800000000000005
+      "z": 0.343
     },
     {
       "cx": 0,
@@ -60,7 +47,7 @@
       "pal": "ty_showroom",
       "soffit": "#1d8f78",
       "strip": "#8fffdc",
-      "z": 0.11200000000000002
+      "z": 0.257
     },
     {
       "cx": -0.34,
@@ -79,14 +66,54 @@
     {
       "color": "#0c1614",
       "cx": 0.2,
-      "cy": 0.39,
+      "cy": 0.44,
       "font": "condensed",
       "half": 0.15,
-      "hh": 0.03,
+      "hh": 0.028,
       "ink": "#8fffdc",
       "kind": "signBoard",
       "label": "DEAD SPACE",
-      "z": 0.195
+      "z": 0.298
+    },
+    {
+      "bars": 2,
+      "cx": -0.23,
+      "cy": 0.44,
+      "depth": 0.023,
+      "glass": "#0d1c1a",
+      "glow": "#bfffe8",
+      "half": 0.13,
+      "hh": 0.09,
+      "kind": "windowBay",
+      "pal": "ty_showroom",
+      "z": 0.138
+    },
+    {
+      "bars": 2,
+      "cx": 0.23,
+      "cy": 0.44,
+      "depth": 0.023,
+      "glass": "#0d1c1a",
+      "glow": "#bfffe8",
+      "half": 0.13,
+      "hh": 0.09,
+      "kind": "windowBay",
+      "pal": "ty_showroom",
+      "z": 0.138
+    },
+    {
+      "cx": 0,
+      "cy": 0.44,
+      "depth": 0.023,
+      "door": 2,
+      "glass": "#0d1c1a",
+      "glow": "#bfffe8",
+      "half": 0.055,
+      "hh": 0.11,
+      "kind": "windowBay",
+      "pal": "ty_showroom",
+      "transom": 0.8,
+      "z": 0.11
     }
   ],
   "id": "deadspaceinteriors",
@@ -102,7 +129,7 @@
       "kind": "box",
       "roof": true,
       "z0": 0,
-      "z1": 0.14
+      "z1": 0.343
     },
     {
       "cx": 0,

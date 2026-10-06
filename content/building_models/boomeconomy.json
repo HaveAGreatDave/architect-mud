@@ -56,14 +56,14 @@
     {
       "color": "#241c18",
       "cx": 0,
-      "cy": 0.23,
+      "cy": 0.22,
       "font": "stencil",
       "half": 0.2,
       "hh": 0.028,
       "ink": "#e8c34a",
       "kind": "signBoard",
       "label": "$name",
-      "z": 0.852
+      "z": 0.38
     },
     {
       "cx": 0.1,
@@ -79,7 +79,7 @@
       "count": 3,
       "kind": "repeat",
       "of": {
-        "cx": -0.18,
+        "cx": -0.275,
         "cy": 0.23,
         "kind": "pipe",
         "pal": "ty_stack_dk",
@@ -88,7 +88,7 @@
         "z1": 0.8
       },
       "step": {
-        "cx": 0.03
+        "cx": 0.025
       }
     },
     {
@@ -106,6 +106,7 @@
   ],
   "id": "boomeconomy",
   "neon": "#ffb43a",
+  "note": "⚠ THE NAME IS ON THE WATERSIDE PORTAL BEAM, NOT ON THE DECK. The board used to sit on the deck's front face, and the boom runs straight out of the middle of that face at the same height, so the board lost its middle letters from every angle: THE ... ONOMY, 53% hidden on `signhide`. Anything level with or above the boom is behind it from somewhere. The beam at z 0.34 to 0.42 is the one full-width face on the waterside that nothing crosses.\n\n⚠ THE THREE CABLE RUNS GO DOWN THE LEFT LEG FOR THE SAME REASON. They used to hang at x -0.18 to -0.12, across the beam, which would have put three bars through the name.",
   "pal": "ty_wharf_steel",
   "segs": [
     {
