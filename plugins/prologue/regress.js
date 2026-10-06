@@ -1,7 +1,7 @@
 // Prologue plugin regression suite — run by tests/regress.js (never in production).
 import { query } from '../../server/models/db.js';
 import { getRegisteredMoveGates } from '../../server/engine/movement-gates.js';
-import { clearFlag } from '../../server/engine/flags.js';
+import { clearFlag, setFlag } from '../../server/engine/flags.js';
 import { getNetXp } from '../../server/engine/ip.js';
 import { availableActions } from '../../server/engine/specializedActions.js';
 import { dispatchAction } from '../../server/engine/actions.js';
@@ -172,6 +172,10 @@ export default async function regress({ check }) {
   // Authored flat on the nodes, so this is really a check that the content and
   // the action agree — the failure mode is a silent no-op in front of a new
   // player, which nothing else would catch.
+  // ⚠ AS A PLAYER WHO HAS NOT USED THE TERMINAL YET. `p` was aligned above ("opening the terminal
+  // aligns you"), and the handler never re-lights the terminal for somebody already past it, so
+  // asked as `p` the describe line correctly lit nothing and this read as the content being broken.
+  await clearFlag('player', F_ALIGNED, p);
   const fakeActor = { id: p.id, _prologueBeacons: [] };
   const seenSet = () => (fakeActor._prologueBeacons || []).map(b => b.join(' '));
   const talkNode = await dispatchAction({ type: 'PROLOGUE_BEACON', actor: fakeActor, params: { at: 'none' } });
@@ -180,6 +184,11 @@ export default async function regress({ check }) {
   const descNode = await dispatchAction({ type: 'PROLOGUE_BEACON', actor: fakeActor, params: { at: 'terminal' } });
   check('PROLOGUE_BEACON terminal is accepted', descNode?.type !== 'error', descNode?.message);
   check('the describe line lights the terminal, alone', seenSet().length === 1 && seenSet()[0].includes('MORPHEX'), seenSet().join('|'));
+  // …and not for somebody who has already used it: a replayed dialogue leaves it dark.
+  await setFlag('player', F_ALIGNED, 'true', p);
+  fakeActor._prologueBeacons = [];
+  await dispatchAction({ type: 'PROLOGUE_BEACON', actor: fakeActor, params: { at: 'terminal' } });
+  check('the describe line does not re-light the terminal once you have used it', seenSet().length === 0, seenSet().join('|'));
   const bogus = await dispatchAction({ type: 'PROLOGUE_BEACON', actor: fakeActor, params: { at: 'nowhere' } });
   check('PROLOGUE_BEACON rejects an unknown target', bogus?.type === 'error');
 

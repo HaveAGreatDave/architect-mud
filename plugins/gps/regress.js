@@ -399,6 +399,14 @@ export default async function regress({ run, check, getPlayer }) {
     check('a zone is flagged guest_home', !!hostel);
     if (hostel) {
       p.role = 'guest';
+      // ⚠ FROM THE HOSTEL'S OWN STREET, NOT FROM WHEREVER THE SUITE ANCHORED. The anchor depends on
+      // DB row order, and it has landed on The Bench out at the terminus, which has no walking route
+      // to Coldwater at any distance, so this read as the fallback being broken. Out of the dorm by
+      // its `world_exit_zone`s to the street, which is what this check is about: the guest is sent
+      // to the hostel, from somewhere a route to it exists.
+      let street = hostel;
+      for (let i = 0; i < 4 && street?.flags?.world_exit_zone; i++) street = getZone(street.flags.world_exit_zone);
+      if (street && street.id !== hostel.id) p.current_zone = street.id;
       r = await run('gohome');
       check('a homeless guest goes home to the guest_home hostel',
         r?.type === 'gps_route' ? r.path[r.path.length - 1] === resolveLanding(hostel.id) : /already at/i.test(r?.message || ''),

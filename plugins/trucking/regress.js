@@ -1973,8 +1973,14 @@ async function regressBody({ run, check, getPlayer }) {
         && !hallB.exits?.west && !hallB.exits?.east, JSON.stringify([hallA.exits, hallB.exits]));
       check('the gate is a way through and not a junction', Object.keys(gate.exits || {}).sort().join(',') === 'north,south',
         JSON.stringify(gate.exits));
-      check('Fire Station 4\'s doors are on Kerbstone Row now', Z(910, 917)?.flags?.entrance === 'north'
-        && Z(910, 917).exits?.north === 'zone_district_910_916' && Z(910, 916)?.exits?.south === 'zone_district_910_917');
+      // Fire Station 4 stood at 910,917 and opened into the lock, and its model clipped the plate. It
+      // moved to the empty lot at 906,913 on 2026-10-02, doors east onto Meltwater Row, and 910,917 is
+      // grass with no way into the lock (docs/systems-trucking.md).
+      check('Fire Station 4\'s doors are on Meltwater Row now', Z(906, 913)?.flags?.entrance === 'east'
+        && Z(906, 913).exits?.east === 'zone_district_907_913' && Z(907, 913)?.exits?.west === 'zone_district_906_913',
+        JSON.stringify([Z(906, 913)?.flags?.entrance, Z(906, 913)?.exits]));
+      check('…and the tile it left is grass with no door into the lock', !Z(910, 917)?.flags?.building_name
+        && !Z(910, 917)?.exits?.east, JSON.stringify(Z(910, 917)?.exits));
 
       // THE LOCKDOWN. The ESP announces it on `esp.changed`; the derive drops the outer door and the
       // lock's move gate holds the mouth. Driven through the event, so both listeners are on it.

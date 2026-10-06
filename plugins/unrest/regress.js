@@ -196,8 +196,12 @@ export default async function regress({ check, getPlayer }) {
     // the last pair below runs the clock.
     const { IGNITE_HI, IGNITE_LO, DRIFT_AT, RATE, HALF_LIFE_MIN, BASELINE: BASE } = ledger._test;
     const decayPerTick = (k) => 1 - Math.pow(0.5, 30 / HALF_LIFE_MIN[k]);
+    // "Unchanged" to a hundredth, never `===`: every read decays against the wall clock, so two reads a
+    // millisecond apart differ in the fifth decimal (20 -> 19.99999). Anything an order or an ignition
+    // would add is whole units. The same reason as the ⚠ on `heat === 50` below.
+    const same = (a, b) => Math.abs(a - b) < 0.01;
 
-    check("a cell below the trigger doesn't ignite", after.heat === before.heat,
+    check("a cell below the trigger doesn't ignite", same(after.heat, before.heat),
       `heat ${before.heat} -> ${after.heat} at pressure ${after.pressure.toFixed(1)}`);
 
     ledger.force(key, { grip: 40, heat: BASE.heat, pressure: IGNITE_HI + 1 });
@@ -282,7 +286,7 @@ export default async function regress({ check, getPlayer }) {
     ledger.step([{ id: 'x_withdrawn', writes: 'none', drift: null }]);
     const stillQuiet = ledger.read(key);
     check("a withdrawn order moves no scalar it doesn't own",
-      stillQuiet.grip === quiet.grip && stillQuiet.heat === quiet.heat,
+      same(stillQuiet.grip, quiet.grip) && same(stillQuiet.heat, quiet.heat),
       `${JSON.stringify(quiet)} -> ${JSON.stringify(stillQuiet)}`);
 
     // ⚠ The Wildblood shape: writes heat, reads a clock. It must move NOTHING
@@ -294,7 +298,7 @@ export default async function regress({ check, getPlayer }) {
     ledger.step(driverOnly);
     const postDriver = ledger.read(key);
     check('a clock-driven order adds no heat to the cycle',
-      postDriver.heat === preDriver.heat,
+      same(postDriver.heat, preDriver.heat),
       `${preDriver.heat} -> ${postDriver.heat}`);
 
     ledger._reset();
