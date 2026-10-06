@@ -32555,6 +32555,10 @@ const PERCH_MIN_PTS = 6;
 // longer one is likelier — which is the same sentence a real parapet would make.
 const PERCH_ROOM = 0.33 / BIRD_M_PER_TILE;   // 0.33 m of ledge one bird needs
 const PERCH_COVER_EPS = 0.015;     // a segment must be meaningfully taller to bury a ledge
+// How tall a standing bird is, for a perch with mass ABOVE it: a segment whose underside is higher
+// than this is an overhang the bird stands under, not a wall it stands in. A perched peregrine is
+// about 0.02 tiles as drawn.
+const PERCH_HEADROOM = 0.02;
 const PERCH_DRUM_MIN_R = 0.05;     // a cone apex is not somewhere to stand
 const _perchCache = new Map();
 const PERCH_CACHE_MAX = 192;
@@ -32807,6 +32811,16 @@ export function kitLedges(cell, wx, wy) {
   // hall windows came out on the front and back walls at y ±0.394 while the glass was on the sides.
   const flankOf = (d) => d.face === 'x';
   const toModel = (flank, a, b) => (flank ? [b, -a] : [a, b]);
+  // ⚠ AND NOTHING TALLER STANDS WHERE THE BIRD DOES, which is `buildLedges`' `buried` test and was
+  // never asked here. The kit lays a part wherever the model says, and the mass can have moved over
+  // it: a coping ringing a podium runs straight through the tower rising off it, and a sill can sit
+  // inside the skin of the segment over it. 5,991 of the city's 43,907 kit standing points were in a
+  // wall, and the follow camera framed a peregrine inside Subject to Contract's roof slab.
+  // ⚠ ONLY MASS THAT SPANS THE BIRD. A sill under a cantilevered storey is still out in the open,
+  // so a segment starting above the bird's head does not bury it, which `modelTopAt` would say it did.
+  const segs = shapeForModel(m, seed) || [];
+  const inMass = (lx, ly, z) => segs.some((t) => V(t.z1) > z + PERCH_COVER_EPS
+    && V(t.z0) < z + PERCH_HEADROOM && segContains(t, lx, ly, V));
   // The heights the MASS still offers on this tile once the copings have taken their decks back
   // (see `underCoping`), so a ring does not duplicate one.
   let near = null;
@@ -32847,6 +32861,7 @@ export function kitLedges(cell, wx, wy) {
           const held = modelTopAt(wx, wy, cell,
             wx + ix * ct - iy * stn, wy + ix * stn + iy * ct, false);
           if (!(held >= z - hh - PERCH_SAME_Z)) continue;
+          if (inMass(px, py, z)) continue;
           pts.push({ x: wx + px * ct - py * stn, y: wy + px * stn + py * ct, out: nrm + th });
         }
       }
@@ -32901,8 +32916,10 @@ export function kitLedges(cell, wx, wy) {
     const pts = [];
     for (let i = 0; i < n; i++) {
       const [px, qy] = toModel(flank, lx + (((i + 0.5) / n) * 2 - 1) * half, py);
+      if (inMass(px, qy, z)) continue;
       pts.push({ x: wx + px * ct - qy * stn, y: wy + px * stn + qy * ct, out: o });
     }
+    if (pts.length < 3) continue;
     // The point on the WALL this part is bolted to. A canopy and a balcony are cantilevers, so
     // the bird stands out past the footprint and the mass behind it is a projection away — the
     // perch is only honest if something is holding it up, and only this function knows where that
@@ -32913,7 +32930,7 @@ export function kitLedges(cell, wx, wy) {
     // the mount cannot see the bird at all: slide every perch a third of a tile into the street
     // and the mount is still on its wall, so "every one has a wall behind it" stays true while the
     // whole flock hangs in mid-air. `deep` is how far the surface actually reaches out.
-    out.push({ z, pts, len: n * PERCH_STEP, kind: d.kind, deep, mid: V(d.z),
+    out.push({ z, pts, len: pts.length * PERCH_STEP, kind: d.kind, deep, mid: V(d.z),
       mount: { x: mx, y: my, out: o } });
   }
   if (!out.length) return null;
@@ -33355,6 +33372,43 @@ function kitFor(cell, wx, wy) {
   return out;
 }
 
+// ⚠ A TILE'S LEDGES WITH ITS NEIGHBOURS' MASS TAKEN OFF THEM. `buildLedges` and `kitLedges` each
+// see one model, and a model reaches past its own tile (MODEL_MAX_EXTENT is a whole tile): Dual
+// Aspect stands a tile over Fire Station 4's roof edge, and a quay crane over the pier. A point
+// inside a neighbour's mass, spanning the bird the way `kitLedges`' own test asks, is dropped, and a
+// ledge left with fewer than three is dropped whole.
+// ⚠ CACHED ONLY WHEN ALL EIGHT NEIGHBOURS ARE IN THE WINDOW. On the window's edge a neighbour is
+// missing and the answer is partial, so it is worked out again rather than kept.
+const _clearCache = new Map();
+function clearedFor(map, R, wcx, wcy, cell, wx, wy) {
+  const key = wx + ',' + wy;
+  if (_clearCache.has(key)) return _clearCache.get(key);
+  const own = [...(ledgesFor(cell, wx, wy) || []), ...(kitFor(cell, wx, wy) || [])];
+  const nbrs = [];
+  let whole = true;
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    if (!dx && !dy) continue;
+    const n = map[wy + dy - wcy + R]?.[wx + dx - wcx + R];
+    if (!n) whole = false;
+    else if (n.bt) nbrs.push([n, wx + dx, wy + dy]);
+  }
+  let out = own;
+  if (nbrs.length) {
+    out = [];
+    for (const l of own) {
+      const pts = l.pts.filter((p) => !nbrs.some(([n, nx, ny]) =>
+        groundObstructionAt(nx, ny, n, p.x, p.y, l.z + PERCH_HEADROOM) > l.z + PERCH_COVER_EPS));
+      if (pts.length === l.pts.length) out.push(l);
+      else if (pts.length >= 3) out.push({ ...l, pts, len: l.len * pts.length / l.pts.length });
+    }
+  }
+  if (whole) {
+    if (_clearCache.size >= PERCH_CACHE_MAX) _clearCache.clear();
+    _clearCache.set(key, out);
+  }
+  return out;
+}
+
 function ledgesFor(cell, wx, wy) {
   const key = wx + ',' + wy;
   if (_perchCache.has(key)) return _perchCache.get(key);
@@ -33543,13 +33597,9 @@ function perchPlan(map, R, wcx, wcy, fl, wantHigh, n) {
         if (wildOK) { const g = wildFor(c, wx, wy); if (g) for (const l of g) pool.push(l); }
         continue;
       }
-      const ls = ledgesFor(c, wx, wy);
-      if (ls) for (const l of ls) pool.push(l);
-      // ⚠ THE FACADE COUNTS TOO. The mass gives the roof and the setbacks; the sills,
-      // balconies and awnings are where a bird on a building actually is, and they are at every
-      // floor rather than only at the top.
-      const ks = kitFor(c, wx, wy);
-      if (ks) for (const l of ks) pool.push(l);
+      // The roof and setbacks, and ⚠ THE FACADE TOO: the sills, balconies and awnings are where a
+      // bird on a building actually is, and they are at every floor rather than only at the top.
+      for (const l of clearedFor(map, R, wcx, wcy, c, wx, wy)) pool.push(l);
     }
   }
   // ⚠ A CABLE IS A SMALL BIRD'S PERCH AND A HUNTER WANTS SOMETHING SOLID. A pole carries its

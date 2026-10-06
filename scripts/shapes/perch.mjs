@@ -50,6 +50,9 @@ const problems = [];
 // A point on a ledge may sit under something up to PERCH_COVER_EPS taller — that is the lip the
 // cover test deliberately tolerates — so the agreement is two-sided at that width.
 const TOL = 0.016;
+// windshield.js's PERCH_COVER_EPS and PERCH_HEADROOM: mass this much taller than the feet buries a
+// bird, unless it starts above a perched bird's head.
+const COVER_EPS = 0.015, BIRD_HEADROOM = 0.02;
 
 // ── 1. EVERY LEDGE IS MASS THAT IS REALLY THERE ──────────────────────────────
 let tiles = 0, withLedge = 0, ledgeCount = 0, ptCount = 0, worst = 0, worstAt = '';
@@ -95,6 +98,7 @@ if (!withLedge) problems.push('not one building in the city offers a ledge');
 // facade, or on a tile whose model does not reach that height, does not.
 let kitPts = 0, kitBad = 0, kitWorst = 0, kitWorstAt = "", kitLedgeCount = 0, kitTiles = 0;
 let kitOff = 0, kitOffWorst = 0, kitOffAt = "", kitSillLow = 0, kitFlatRing = 0, kitRings = 0;
+let kitIn = 0, kitInWorst = 0, kitInAt = "";
 for (const [k, c] of Object.entries(cells)) {
   if (!c.bt) continue;
   const [wx, wy] = k.split(",").map(Number);
@@ -146,6 +150,16 @@ for (const [k, c] of Object.entries(cells)) {
       // inward crosses onto a lower tier on a stacked building. What is being asked is whether
       // there is a wall behind this part that comes up to it, so probe through the thickness of
       // one and take the best answer.
+      // ⚠ AND NOT INSIDE ITS OWN BUILDING. The two checks around this one ask whether something
+      // holds the part up; neither asks whether something taller stands where the bird does. A
+      // coping ringing a podium runs through the tower on it, and 5,991 points were in a wall: H
+      // followed a peregrine into Subject to Contract's roof. Mass spanning the bird, so a sill
+      // under an overhanging storey, which is out in the open, passes.
+      const inside = ws.groundObstructionAt(wx, wy, c, q.x, q.y, l.z + BIRD_HEADROOM) - l.z;
+      if (inside > COVER_EPS) {
+        kitIn++;
+        if (inside > kitInWorst) { kitInWorst = inside; kitInAt = `${c.bn || c.bt} @ ${k}, ${l.kind}${l.ring ? ' ring' : ''} at z ${l.z.toFixed(3)}`; }
+      }
       const mo = l.mount || q;
       const on = mo.out != null ? mo.out : q.out;
       let top = 0;
@@ -176,6 +190,7 @@ if (kitOff) problems.push(`${kitOff} of ${kitPts} kit perch points stand off the
 if (kitFlatRing) problems.push(kitFlatRing + " coping rings are collinear — they are being laid across the roof instead of round it");
 if (kitSillLow) problems.push(`${kitSillLow} window perches are not on the sill — they sit at or above the bay centre`);
 
+if (kitIn) problems.push(`${kitIn} of ${kitPts} kit perch points are inside their own building — worst ${kitInWorst.toFixed(3)} tiles under the mass at ${kitInAt}`);
 if (kitBad) problems.push(`${kitBad} of ${kitPts} kit perch points have no wall behind them — worst ${kitWorst.toFixed(3)} tiles at ${kitWorstAt}`);
 // ⚠ COUNTED SEPARATELY FROM THE REST OF THE KIT. Face parts and rings are two different code
 // paths, and the face ones far outnumber them — so "the kit offers something" stays true with
@@ -981,6 +996,56 @@ let spotNote = '', diveNote = '';
   }
 }
 
+// ── 8. AND NO PERCHED BIRD IS INSIDE A BUILDING ──────────────────────────────
+//
+// A ledge is built from one tile's model, and a model reaches past its own tile: The Meridian's
+// lobby stood over the setback its falcon took, and Dual Aspect over Fire Station 4's roof edge. So
+// every perching flock in the city is sat on its ledges, landing after landing, and its first bird is
+// asked against the mass of every tile round it. Delete the own-model test in `kitLedges` and the
+// Meridian's peregrine is back inside the lobby; delete the neighbour pass in `clearedFor` and a
+// vulture stands in the next tile of The Wall.
+let huntSat = 0, huntIn = 0, huntInAt = '';
+{
+  const R8 = 18, T0 = 1.7e12;
+  const bare8 = { kind: 'land' };
+  const win8 = (cx, cy) => Array.from({ length: R8 * 2 + 1 }, (_, j) =>
+    Array.from({ length: R8 * 2 + 1 }, (_, i) => cells[(cx + i - R8) + ',' + (cy + j - R8)] || bare8));
+  const placeAt8 = (wx, wy) => {
+    let bld = 0, shore = false;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const nn = (dx || dy) && cells[(wx + dx) + ',' + (wy + dy)];
+      if (!nn) continue;
+      if (nn.bt) bld++;
+      if (nn.kind === 'water') shore = true;
+    }
+    return placeOf(cells[wx + ',' + wy].biome, bld, shore);
+  };
+  for (const [k, c] of Object.entries(cells)) {
+    if (c.bt || !c.biome) continue;
+    const [wx, wy] = k.split(',').map(Number);
+    const sid = speciesAt(placeAt8(wx, wy), wx, wy, { road: !!c.road, airfield: c.kind === 'field' });
+    if (!sid || !SPECIES[sid].perch) continue;
+    const fl = flockAt(wx, wy, 1, sid);
+    if (!fl) continue;
+    const map = win8(wx, wy), per = SPECIES[sid].period;
+    for (let i = 0; i < 40; i++) {
+      const t = T0 + i * per * 0.37;
+      if (flockState(fl, t).airborne || !perchedNow(fl, t)) continue;
+      const p = ws.hunterSpot(map, R8, wx, wy, fl, t, null);
+      if (!p || !(p[2] > 0)) continue;
+      huntSat++;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const tx = Math.round(p[0]) + dx, ty = Math.round(p[1]) + dy, n = cells[tx + ',' + ty];
+        if (!n || !n.bt) continue;
+        const over = ws.groundObstructionAt(tx, ty, n, p[0], p[1], p[2] + BIRD_HEADROOM) - p[2];
+        if (over > COVER_EPS) { huntIn++; if (!huntInAt) huntInAt = `the ${sid} anchored at ${k} sits ${over.toFixed(3)} tiles down inside ${n.bn || n.bt} @ ${tx},${ty}`; }
+      }
+    }
+  }
+  if (!huntSat) problems.push('no flock in the city was ever sat on a ledge, so nothing checks that one is not inside a building');
+  if (huntIn) problems.push(`${huntIn} of ${huntSat} perched birds are inside a building: ${huntInAt}`);
+}
+
 if (problems.length) {
   console.error(`✗ perch: ${problems.length} problem${problems.length === 1 ? '' : 's'}`);
   for (const p of problems.slice(0, 24)) console.error(`  ✗ ${p}`);
@@ -995,6 +1060,7 @@ console.log(`  · ${perchers.join(', ')} perch and a goose never does; a hunter 
 console.log(`  · the badlands offer ${wildCount} hoodoo tops on ${wildTiles} tiles — caprocks, shears and stumps, never a spire tip.`);
 if (spotNote) console.log('  · ' + spotNote);
 if (diveNote) console.log('  · ' + diveNote);
+console.log(`  · ${huntSat} perched flocks sat on their ledges round the city, and not one bird is inside a building, its own or the next tile's.`);
 if (poleNote) console.log('  · ' + poleNote);
 for (const n of notesPole) console.log('  · ' + n);
 console.log(`  · rendered: ${e2eUp} birds standing on a building and ${e2eDown} on the deck (${e2eSite}), and the flag puts every one of them back down.`);

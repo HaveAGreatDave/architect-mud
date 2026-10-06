@@ -146,6 +146,15 @@ points a coping covers (`underCoping`) and `kitLedges` offers the coping in thei
 stands on top of it. The overhead wire still reads the uncovered ledges (`roofLedgesFor`), because it
 is asking how tall the building is, not where a bird stands.
 
+**Nothing taller stands where the bird does.** A mass ledge has always dropped the points a taller
+segment covers (`buried` in `buildLedges`), and the detail kit never asked. A coping ringing a podium ran
+straight through the tower on it, and 5,991 of the city's 43,907 kit standing points were inside a wall;
+H followed a peregrine into Subject to Contract's roof slab and showed nothing. `kitLedges` now drops a
+point inside its own model's mass, and `clearedFor` drops one inside a neighbouring tile's, because a
+model reaches past its own tile (Dual Aspect over Fire Station 4's roof edge, a quay crane over the pier).
+Only mass that spans the bird counts: a sill under an overhanging storey is out in the open and stays.
+`perch.mjs` section 8 sits every perching flock on its ledges and asks the tiles round it.
+
 **A flank part perches on its flank.** A detail part with `face: 'x'` is on a side wall: the renderer
 turns its frame so `cy` is the model's X (its sign picks the flank) and `cx` runs along negative Y.
 `kitLedges` used to read every part as front-or-back, so a flank window's birds stood on a sill on the
