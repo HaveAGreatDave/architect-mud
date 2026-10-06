@@ -734,7 +734,7 @@ export const OLD_COLDWATER_ARMS = {
     //    frontage and the kit's generic glazing was what showed. The kit's ground floor is declined
     //    for this trade now (KIT_DECLINE).
     { const [lx, ly] = F(0, fh * 0.90); draw3DBoxAt(ctx, cam, lx, ly, fh * 0.80, cill, h * 0.30, 'ty_stuff_glass', seed + 2, night, alpha, false, faceYaw(E), fh * 0.04); }
-    { const [ux, uy] = F(0, fh * 0.94); draw3DBoxAt(ctx, cam, ux, uy, fh * 0.84, h * 0.30, headHi, 'ty_stuff_glass', seed + 3, night, alpha, false, faceYaw(E), fh * 0.06); }
+    { const [ux, uy] = F(0, fh * 0.94); draw3DBoxAt(ctx, cam, ux, uy, fh * 0.84, h * 0.30, headHi, 'ty_stuff_glass', seed + 3, night, alpha, true, faceYaw(E), fh * 0.06); }   // lidded: it stands out past the sign ground above it, so its top shows
     // 3) THE SIGN GROUND — black painted render above the head of the window, which is what the
     //    lettering is on. Painted, not lit: this shop shuts at six and does not care who knows.
     { const [sx, sy] = F(0, fh * 0.91); draw3DBoxAt(ctx, cam, sx, sy, fh * 0.90, headHi, h * 0.58, 'ty_stuff_dk', seed + 4, night, alpha, false, faceYaw(E), fh * 0.05); }

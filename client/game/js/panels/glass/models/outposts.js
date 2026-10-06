@@ -209,12 +209,12 @@ export const OUTPOST_ARMS = {
     const pylon = h * 1.10, cabin0 = h * 0.86, cabin1 = h * 1.24;
     // 1) THE PYLONS — the road runs between them, so they sit at ±x on the entrance axis.
     for (const t of [-1, 1]) { const [px, py] = F(t * fh * 0.74, 0);
-      draw3DBoxAt(ctx, cam, px, py, fh * 0.30, 0, h * 0.20, 'ty_trm_gate_dk', seed + 1 + t, night, alpha, false);
+      draw3DBoxAt(ctx, cam, px, py, fh * 0.30, 0, h * 0.20, 'ty_trm_gate_dk', seed + 1 + t, night, alpha, true);   // lidded: it stands proud of the beam and you see its top
       draw3DBoxAt(ctx, cam, px, py, fh * 0.24, h * 0.20, pylon, pal, seed + 3 + t, night, alpha, true); }
     // 2) THE BEAM — one slab dropped across the gap. The whole point of the building.
     //    ⚠ ACROSS THE ROAD AND THIN (`fd`). With no depth it was a 1.24 fh square slab, a deck
     //    between the pylons rather than a barrier across them.
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.62, h * 0.44, h * 0.54, 'ty_trm_gate_dk', seed + 6, night, alpha, false, faceYaw(E), fh * 0.06);
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.62, h * 0.44, h * 0.54, 'ty_trm_gate_dk', seed + 6, night, alpha, true, faceYaw(E), fh * 0.06);
     // 3) THE CABIN, lifted on four legs so the watch can see over the beam and over the parapet.
     for (const tx of [-1, 1]) for (const ty of [-1, 1]) { const [lx, ly] = F(tx * fh * 0.26, ty * fh * 0.26 - fh * 0.60);
       draw3DBoxAt(ctx, cam, lx, ly, fh * 0.05, 0, cabin0, 'ty_trm_gate_dk', seed + 8 + tx + ty, night, alpha, false); }
