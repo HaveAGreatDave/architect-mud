@@ -1036,6 +1036,7 @@ export const RENDER_TUNE = {
   glBay: 1,
   armKeep: 1,    // a building's adornments recorded once per key and replayed as retained groups (drawTypeModelKept); 0 runs every arm every frame
   bayCache: 1,   // a shed's GL shell is built once per key and its records replayed (BAY_SHELL); 0 builds it every frame
+  lockCache: 1,  // the South Lock's GL faces and lights reuse last frame's record per slot when unchanged (LCK_MEMO); 0 builds every one
   glSizeGPU: 1,  // a light pushed through pushLightSized carries its size spec and the sprite shader sizes it from depth; 0 sends the CPU radius only
   glRetain: 1,   // record arrays that come back unchanged (a shed's shell, a hoodoo tile) stay on the GPU (bayGroup); 0 sends them every frame
   hoodooStable: 1,   // hoodoo solids carry no CPU fog (the shader fogs them once) and send every facet, so their records never change; 0 is the old double fog
@@ -57542,6 +57543,29 @@ function drawPlazaPart(ctx, cam, dx, dy, plz, foot, night, alpha, now, seed) {
 const LCK_ROOF_Z = 1.02;
 const LCK_SIG = { green: '96,236,140', amber: '255,170,52', red: '255,52,40' };
 const LCK_WORK = '255,214,150';
+const LCK_MAST_RGB = [255, 226, 180];
+// drawGateLockGL's per-lock record slots (see the ⚠ there), and the scratch buffer its corners go
+// through. Keyed on the tile's `lk`, so a lock leaving the map window takes its slots with it.
+const LCK_MEMO = new WeakMap();
+const lockMemoFor = (lk) => { let m = LCK_MEMO.get(lk); if (!m) LCK_MEMO.set(lk, m = { recs: [], env: null }); return m; };
+let LCK_X = new Float64Array(64), LCK_Y = new Float64Array(64), LCK_Z = new Float64Array(64);
+const lckScratch = (n) => {
+  if (n <= LCK_X.length) return;
+  const k = 2 ** Math.ceil(Math.log2(n));
+  LCK_X = new Float64Array(k); LCK_Y = new Float64Array(k); LCK_Z = new Float64Array(k);
+};
+// Equal as values: the same reference, or two arrays with the same entries.
+const sameLckV = (a, b) => {
+  if (a === b) return true;
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+};
+// Does a record's `p` hold the scratch corners shifted by the window origin?
+const lckPtsEq = (p, n, ox, oy) => {
+  for (let i = 0; i < n; i++) { const v = p[i]; if (v[0] !== LCK_X[i] + ox || v[1] !== LCK_Y[i] + oy || v[2] !== LCK_Z[i]) return false; }
+  return true;
+};
 
 // ── THE SOUTH LOCK'S WALLS, TO A TRUCK ───────────────────────────────────────
 //
@@ -57625,7 +57649,7 @@ function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun) {
     toSun = [sun.dir[0] * hz / m, sun.dir[1] * hz / m, e / m];
     sunK = clamp(e * 1.4, 0, 1) * (1 - (sun.night || 0));
   }
-  const env = { hor: AIRCRAFT_SKY?.hor, top: AIRCRAFT_SKY?.top, night: AIRCRAFT_SKY?.night ?? (night || 0), sun: toSun, sunK };
+  let env = { hor: AIRCRAFT_SKY?.hor, top: AIRCRAFT_SKY?.top, night: AIRCRAFT_SKY?.night ?? (night || 0), sun: toSun, sunK };
 
   const wl = lk.wl || '', gx = lk.gx || '', mo = lk.mo || '', he = lk.he || '', dn = lk.dn || '';
   const inner = lk.k === 'hall';
@@ -57650,45 +57674,139 @@ function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun) {
   const CHROME = tint([178, 186, 198], 0.45), CHROME_DK = tint([118, 126, 138], 0.3), GRAPHITE = [46, 50, 58];
   const DOOR = tint([88, 96, 110], 0.2), LINE = [200, 230, 255], CYAN = [120, 236, 255];
   const MK = 1 - 0.55 * nf;
+  // ── ⚠ ON GL EVERY FACE AND LIGHT IS A SLOT, AND A SLOT THAT DRAWS WHAT IT DREW LAST FRAME PUSHES
+  // THE SAME RECORD ──────────────────────────────────────────────────────────────────────────────
+  //
+  // The lock was 3 MB of garbage a frame, a sixth of a cockpit frame's, because every one of its
+  // few thousand quads was rebuilt every frame through three layers of `map`. Most of it never
+  // changes: the plate, the frames and the doors stand still, and only the lamps swell and the eye
+  // follows you. It can't be replayed whole the way a depot shell is (`BAY_SHELL`), because the lamps
+  // are interleaved with the plate and a face's normal turns toward the eye. So each call takes the
+  // next slot, and if what it would build equals the slot's last record (points, colour, alpha,
+  // normal, sky), that record is pushed again and nothing is allocated. A lamp mid-swell misses and
+  // rebuilds its own slot; a branch that shifts the sequence costs one frame of rebuilding. The
+  // points go through a scratch buffer rather than arrays, so a hit allocates nothing at all.
+  // `RENDER_TUNE.lockCache` 0 builds every record fresh; `perf/exact.mjs lockCache` holds the two equal.
+  const memo = TUNE.lockCache !== 0 ? lockMemoFor(lk) : null;
+  let slot = 0;
+  if (memo) {
+    const e = memo.env;
+    if (e && sameLckV(e.hor, env.hor) && sameLckV(e.top, env.top) && e.night === env.night && e.sunK === env.sunK
+      && sameLckV(e.sun, env.sun)) env = e;
+    else memo.env = env;
+  }
   // `bend(z)` tilts a vertical face's normal up by that many radians at height z, sent as its own
   // vertex normals (`bent`, see smooth in gl/solids.js): a flat wall that reflects like a bowed one.
-  const face = (pts, rgb, mk, bend) => {
+  // Reads its `n` corners from the scratch buffer (LCK_X/Y/Z), in the dx/dy frame.
+  const faceS = (n, rgb, mk, bend) => {
+    const X = LCK_X, Y = LCK_Y, Zs = LCK_Z;
     let nx = 0, ny = 0, nz = 0, cx = 0, cy = 0, cz = 0;
-    for (let i = 0; i < pts.length; i++) {
-      const p = pts[i], q = pts[(i + 1) % pts.length];
-      nx += (p[1] - q[1]) * (p[2] + q[2]); ny += (p[2] - q[2]) * (p[0] + q[0]); nz += (p[0] - q[0]) * (p[1] + q[1]);
-      cx += p[0]; cy += p[1]; cz += p[2];
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      nx += (Y[i] - Y[j]) * (Zs[i] + Zs[j]); ny += (Zs[i] - Zs[j]) * (X[i] + X[j]); nz += (X[i] - X[j]) * (Y[i] + Y[j]);
+      cx += X[i]; cy += Y[i]; cz += Zs[i];
     }
     const l = Math.hypot(nx, ny, nz); if (!(l > 1e-9)) return;
-    nx /= l; ny /= l; nz /= l; cx /= pts.length; cy /= pts.length; cz /= pts.length;
+    nx /= l; ny /= l; nz /= l; cx /= n; cy /= n; cz /= n;
     // Turned toward the eye, as the statue's are: a wall is seen from both sides.
     if (nx * (EX - cx) + ny * (EY - cy) + nz * (EZ - cz) < 0) { nx = -nx; ny = -ny; nz = -nz; }
-    const q = { p: pts.map((v) => [v[0] + ox, v[1] + oy, v[2]]), rgb, a: alpha, n: [nx, ny, nz], env };
-    if (mk && metalOn) {
-      q.m = mk * MK;
+    const metal = !!(mk && metalOn), m = metal ? mk * MK : 0, h = Math.hypot(nx, ny) || 1;
+    const s = slot++;
+    if (memo) {
+      const r = memo.recs[s];
+      if (r && r.n && r.p.length === n && r.a === alpha && r.env === env && r.n[0] === nx && r.n[1] === ny && r.n[2] === nz
+        && sameLckV(r.rgb, rgb) && (metal ? r.m === m && r.amb === undefined : r.amb === true && r.m === undefined)
+        && lckPtsEq(r.p, n, ox, oy)) {
+        let ok = true;
+        if (metal && bend) {
+          if (!r.bent) ok = false;
+          else for (let i = 0; i < n && ok; i++) {
+            const t = bend(Zs[i]), c = Math.cos(t), v = r.bent[i];
+            ok = v[0] === nx / h * c && v[1] === ny / h * c && v[2] === Math.sin(t);
+          }
+        } else if (r.bent !== undefined) ok = false;
+        if (ok) { BAY_SINK.push(r); return; }
+      }
+    }
+    const p = new Array(n);
+    for (let i = 0; i < n; i++) p[i] = [X[i] + ox, Y[i] + oy, Zs[i]];
+    const q = { p, rgb, a: alpha, n: [nx, ny, nz], env };
+    if (metal) {
+      q.m = m;
       if (bend) {
-        const h = Math.hypot(nx, ny) || 1;
-        q.bent = pts.map((v) => { const t = bend(v[2]), c = Math.cos(t); return [nx / h * c, ny / h * c, Math.sin(t)]; });
+        q.bent = new Array(n);
+        for (let i = 0; i < n; i++) { const t = bend(Zs[i]), c = Math.cos(t); q.bent[i] = [nx / h * c, ny / h * c, Math.sin(t)]; }
       }
     } else q.amb = true;
     BAY_SINK.push(q);
+    if (memo) memo.recs[s] = q;
   };
-  const glow = (pts, rgb, k) => BAY_SINK.push({ p: pts.map((v) => [v[0] + ox, v[1] + oy, v[2]]),
-    rgb: rgb.map((c) => clamp(c * k, 0, 255) | 0), a: alpha });
-  // The same two, taking local [a, b, z] corners.
-  const F = (pts, rgb, mk, bend) => face(pts.map((p) => W(p[0], p[1], p[2])), rgb, mk, bend);
-  const G = (pts, rgb, k) => glow(pts.map((p) => W(p[0], p[1], p[2])), rgb, k);
-  const quadAB = (a0, b0, z0, a1, b1, z1, rgb, mk) => face([W(a0, b0, z0), W(a0, b1, z0), W(a1, b1, z1), W(a1, b0, z1)], rgb, mk);
+  const glowS = (n, rgb, k) => {
+    const s = slot++;
+    if (memo) {
+      const r = memo.recs[s];
+      if (r && !r.n && r.p.length === n && r.a === alpha && r.rgb.length === rgb.length && lckPtsEq(r.p, n, ox, oy)) {
+        let ok = true;
+        for (let i = 0; i < rgb.length && ok; i++) ok = r.rgb[i] === (clamp(rgb[i] * k, 0, 255) | 0);
+        if (ok) { BAY_SINK.push(r); return; }
+      }
+    }
+    const p = new Array(n);
+    for (let i = 0; i < n; i++) p[i] = [LCK_X[i] + ox, LCK_Y[i] + oy, LCK_Z[i]];
+    const q = { p, rgb: rgb.map((c) => clamp(c * k, 0, 255) | 0), a: alpha };
+    BAY_SINK.push(q);
+    if (memo) memo.recs[s] = q;
+  };
+  // Local [a, b, z] corners into the scratch buffer, through `W`.
+  const toScratch = (pts) => {
+    const n = pts.length;
+    lckScratch(n);
+    for (let i = 0; i < n; i++) { const p = pts[i]; LCK_X[i] = dx + p[0]; LCK_Y[i] = dy - p[1]; LCK_Z[i] = p[2]; }
+    return n;
+  };
+  const F = (pts, rgb, mk, bend) => faceS(toScratch(pts), rgb, mk, bend);
+  const G = (pts, rgb, k) => glowS(toScratch(pts), rgb, k);
+  // F and G for a quad given as twelve numbers, for the call sites that run hundreds of times a
+  // frame: the corners go straight into the scratch buffer with no array to build first.
+  const put4 = (a0, b0, z0, a1, b1, z1, a2, b2, z2, a3, b3, z3) => {
+    lckScratch(4);
+    LCK_X[0] = dx + a0; LCK_Y[0] = dy - b0; LCK_Z[0] = z0;
+    LCK_X[1] = dx + a1; LCK_Y[1] = dy - b1; LCK_Z[1] = z1;
+    LCK_X[2] = dx + a2; LCK_Y[2] = dy - b2; LCK_Z[2] = z2;
+    LCK_X[3] = dx + a3; LCK_Y[3] = dy - b3; LCK_Z[3] = z3;
+    return 4;
+  };
+  const F4 = (a0, b0, z0, a1, b1, z1, a2, b2, z2, a3, b3, z3, rgb, mk) => faceS(put4(a0, b0, z0, a1, b1, z1, a2, b2, z2, a3, b3, z3), rgb, mk);
+  const G4 = (a0, b0, z0, a1, b1, z1, a2, b2, z2, a3, b3, z3, rgb, k) => glowS(put4(a0, b0, z0, a1, b1, z1, a2, b2, z2, a3, b3, z3), rgb, k);
+  const quadAB = (a0, b0, z0, a1, b1, z1, rgb, mk) => {
+    lckScratch(4);
+    LCK_X[0] = dx + a0; LCK_Y[0] = dy - b0; LCK_Z[0] = z0;
+    LCK_X[1] = dx + a0; LCK_Y[1] = dy - b1; LCK_Z[1] = z0;
+    LCK_X[2] = dx + a1; LCK_Y[2] = dy - b1; LCK_Z[2] = z1;
+    LCK_X[3] = dx + a1; LCK_Y[3] = dy - b0; LCK_Z[3] = z1;
+    faceS(4, rgb, mk);
+  };
+  const RED = LCK_SIG.red.split(',').map(Number);
 
   const ZW = Z * 0.74, CH = 0.16, IN = 0.006, RD = 0.035, RT = 0.03;
   // THE NARROW VAULT: wall, chamfer, crown, chamfer, wall. The inner lock, the tube to the gate,
   // and the shape of every doorway in a wide hall's end wall. Every profile here runs west foot,
   // up and over, east foot; `zDoor` is the top of a doorway at `a`.
-  const NARROW = (lo, hi, wLo = true, wHi = true) => [...(wLo ? [[lo, 0]] : []), [lo, ZW], [lo + CH, Z], [hi - CH, Z], [hi, ZW], ...(wHi ? [[hi, 0]] : [])];
+  // ⚠ KEPT PER LOCK WHEN `memo` IS ON: the same numbers every frame, and `inset` below keys on the
+  // array, so a profile built fresh each frame would also rebuild every inset of it. Nothing writes
+  // into a profile.
+  const NARROW = (lo, hi, wLo = true, wHi = true) => {
+    const key = memo ? lo + ',' + hi + ',' + (wLo ? 1 : 0) + (wHi ? 1 : 0) : null;
+    const had = key && (memo.narrow || (memo.narrow = new Map())).get(key);
+    if (had) return had;
+    const P = [...(wLo ? [[lo, 0]] : []), [lo, ZW], [lo + CH, Z], [hi - CH, Z], [hi, ZW], ...(wHi ? [[hi, 0]] : [])];
+    if (key) memo.narrow.set(key, P);
+    return P;
+  };
   const zDoor = (a) => a <= -H + CH ? ZW + (Z - ZW) * (a + H) / CH : a >= H - CH ? ZW + (Z - ZW) * (H - a) / CH : Z;
   // `P` moved `d` toward the inside of the vault, each vertex along the mean of its two segments'
   // inward normals.
-  const inset = (P, d) => P.map((p, i) => {
+  const insetOf = (P, d) => P.map((p, i) => {
     let na = 0, nz = 0;
     for (let s = Math.max(0, i - 1); s < Math.min(P.length - 1, i + 1); s++) {
       const da = P[s + 1][0] - P[s][0], dz = P[s + 1][1] - P[s][1], l = Math.hypot(da, dz) || 1;
@@ -57697,6 +57815,15 @@ function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun) {
     const l = Math.hypot(na, nz) || 1;
     return [p[0] + na / l * d, p[1] + nz / l * d];
   });
+  const inset = (P, d) => {
+    if (!memo) return insetOf(P, d);
+    const by = memo.inset || (memo.inset = new WeakMap());
+    let m = by.get(P);
+    if (!m) by.set(P, m = new Map());
+    let Q = m.get(d);
+    if (!Q) m.set(d, Q = insetOf(P, d));
+    return Q;
+  };
   // A frame along `P` at `b`: a graphite box section standing `d` in from the plate and `w` either
   // side of `b`, its two cheeks, and a light line down its face.
   const rib = (P, b, d, w, glowK) => {
@@ -57704,8 +57831,9 @@ function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun) {
     for (let k = 0; k < P.length - 1; k++) {
       const p0 = P[k], p1 = P[k + 1], q0 = Q[k], q1 = Q[k + 1];
       quadAB(q0[0], b - w, q0[1], q1[0], b + w, q1[1], GRAPHITE, 0.55);
-      for (const s of [-w, w]) F([[p0[0], b + s, p0[1]], [p1[0], b + s, p1[1]], [q1[0], b + s, q1[1]], [q0[0], b + s, q0[1]]], CHROME_DK, 0.85);
-      if (glowK > 0) G([[L[k][0], b - 0.006, L[k][1]], [L[k + 1][0], b - 0.006, L[k + 1][1]], [L[k + 1][0], b + 0.006, L[k + 1][1]], [L[k][0], b + 0.006, L[k][1]]], LINE, glowK);
+      F4(p0[0], b - w, p0[1], p1[0], b - w, p1[1], q1[0], b - w, q1[1], q0[0], b - w, q0[1], CHROME_DK, 0.85);
+      F4(p0[0], b + w, p0[1], p1[0], b + w, p1[1], q1[0], b + w, q1[1], q0[0], b + w, q0[1], CHROME_DK, 0.85);
+      if (glowK > 0) G4(L[k][0], b - 0.006, L[k][1], L[k + 1][0], b - 0.006, L[k + 1][1], L[k + 1][0], b + 0.006, L[k + 1][1], L[k][0], b + 0.006, L[k][1], LINE, glowK);
     }
   };
   // A seam between plates: a graphite strip just proud of them.
@@ -57716,14 +57844,14 @@ function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun) {
   // The plate, `P` swept from `b0` to `b1`: walls and shoulders bright, the flatter roof darker.
   const sweep = (P, b0, b1) => {
     for (let k = 0; k < P.length - 1; k++) {
-      const [a0, z0] = P[k], [a1, z1] = P[k + 1];
+      const a0 = P[k][0], z0 = P[k][1], a1 = P[k + 1][0], z1 = P[k + 1][1];
       const steep = Math.abs(z1 - z0) > Math.abs(a1 - a0) * 0.45;
       quadAB(a0, b0, z0, a1, b1, z1, steep ? CHROME : CHROME_DK, steep ? 0.92 : 0.72);
     }
   };
   // A light line on a wall at `a` (inset toward `dir`), and one along the vault at (a, z).
-  const band = (a, dir, b0, b1, z0, z1, rgb, k) => { const i = a + dir * IN * 2; G([[i, b0, z0], [i, b1, z0], [i, b1, z1], [i, b0, z1]], rgb, k); };
-  const strip = (a, z, b0, b1, hw, rgb, k) => G([[a - hw, b0, z], [a - hw, b1, z], [a + hw, b1, z - 0.01], [a + hw, b0, z - 0.01]], rgb, k);
+  const band = (a, dir, b0, b1, z0, z1, rgb, k) => { const i = a + dir * IN * 2; G4(i, b0, z0, i, b1, z0, i, b1, z1, i, b0, z1, rgb, k); };
+  const strip = (a, z, b0, b1, hw, rgb, k) => G4(a - hw, b0, z, a - hw, b1, z, a + hw, b1, z - 0.01, a + hw, b0, z - 0.01, rgb, k);
   const walls = (aW, aE, b0, b1, onW, onE, k) => {
     if (onW) { band(aW, 1, b0, b1, 0.44, 0.48, sig, 1.2 * k); band(aW, 1, b0, b1, 0.015, 0.03, sig, 0.9 * lit); }
     if (onE) { band(aE, -1, b0, b1, 0.44, 0.48, sig, 1.2 * k); band(aE, -1, b0, b1, 0.015, 0.03, sig, 0.9 * lit); }
@@ -57777,9 +57905,9 @@ function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun) {
       span(-j, H - 0.01, zA, zB, LEAF[1]);
       // the tooth's cheek, so the joint has depth, and a red line down it while the door is down
       F([[-j, bd, zA], [-j, bf, zA], [-j, bf, zB], [-j, bd, zB]], GRAPHITE, 0);
-      G([[-j - 0.004, bs, zA], [-j + 0.004, bs, zA], [-j + 0.004, bs, zB], [-j - 0.004, bs, zB]], LCK_SIG.red.split(',').map(Number), 1.1 * flash * lit);
+      G([[-j - 0.004, bs, zA], [-j + 0.004, bs, zA], [-j + 0.004, bs, zB], [-j - 0.004, bs, zB]], RED, 1.1 * flash * lit);
       // the step between courses, and the bolt that seats the tooth
-      if (k) G([[-T, bs, zA + 0.003], [T, bs, zA + 0.003], [T, bs, zA - 0.003], [-T, bs, zA - 0.003]], LCK_SIG.red.split(',').map(Number), 0.8 * flash * lit);
+      if (k) G([[-T, bs, zA + 0.003], [T, bs, zA + 0.003], [T, bs, zA - 0.003], [-T, bs, zA - 0.003]], RED, 0.8 * flash * lit);
       const zm = (zA + zB) / 2, ab = -j - s * 0.03;
       G([[ab - 0.012, bs, zm + 0.012], [ab + 0.012, bs, zm + 0.012], [ab + 0.012, bs, zm - 0.012], [ab - 0.012, bs, zm - 0.012]], [255, 70, 56], 1.3 * flash * lit);
     }
@@ -57787,7 +57915,7 @@ function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun) {
     const bh = bs + out * 0.002;
     F([[-H + 0.01, bs, 0.095], [H - 0.01, bs, 0.095], [H - 0.01, bs, 0.03], [-H + 0.01, bs, 0.03]], [214, 170, 48], 0);
     for (let a = -H + 0.03; a < H - 0.08; a += 0.12) F([[a, bh, 0.095], [a + 0.05, bh, 0.095], [a + 0.08, bh, 0.03], [a + 0.03, bh, 0.03]], [20, 22, 26], 0);
-    G([[-0.03, bs, Z - 0.09], [0.03, bs, Z - 0.09], [0.03, bs, Z - 0.13], [-0.03, bs, Z - 0.13]], LCK_SIG.red.split(',').map(Number), 1.1 * flash * lit);
+    G([[-0.03, bs, Z - 0.09], [0.03, bs, Z - 0.09], [0.03, bs, Z - 0.13], [-0.03, bs, Z - 0.13]], RED, 1.1 * flash * lit);
     const c = W(0, bs + out * 0.06, Z - 0.11);
     glowPool(null, cam, c[0], c[1], c[2], LCK_SIG.red, 18, lit * 0.6 * flash, { add: true, max: 40 });
   };
@@ -57838,10 +57966,16 @@ function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun) {
   const sLo = -H - (lk.cw || 0), sHi = H + (lk.ce || 0);
   const j0 = Math.round((sLo - A0) * 4), j1 = Math.round((sHi - A0) * 4);
   const wW = wl.includes('w'), wE = wl.includes('e');
-  const P = [];
-  if (wW) P.push([sLo, 0]);
-  for (let j = j0; j <= j1; j++) P.push([ja(j), jz(j)]);
-  if (wE) P.push([sHi, 0]);
+  // Kept per lock like NARROW's profiles, so its insets are too. Everything it is built from is in the key.
+  const pKey = A0 + ',' + A1 + ',' + sLo + ',' + sHi + ',' + (wW ? 1 : 0) + (wE ? 1 : 0);
+  let P = memo && memo.wideKey === pKey ? memo.wideP : null;
+  if (!P) {
+    P = [];
+    if (wW) P.push([sLo, 0]);
+    for (let j = j0; j <= j1; j++) P.push([ja(j), jz(j)]);
+    if (wE) P.push([sHi, 0]);
+    if (memo) { memo.wideKey = pKey; memo.wideP = P; }
+  }
   sweep(P, -H, H);
   // Seams at the quarters and on the north edge (the row north of this one draws none on its
   // south), and a frame across the middle of the tile.
@@ -58094,20 +58228,20 @@ function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun) {
     const kN = (0.75 + 0.55 * nf) * alpha, zS = 0.004, KERB = 0.4, LO = 2.6, LI = 1.4;
     // The path's centre at distance `s` from the far end of the approach: straight in along the
     // lane to the mouth, then an S-bend across to the weigh lane and one row on, onto the deck.
-    const at = (s) => {
-      if (s <= LO) return [0, bF + out * (LO - s)];
-      const v = Math.min(1, (s - LO) / LI);
-      return [sc * v * v * (3 - 2 * v), bF - out * LI * v];
-    };
+    // As two functions rather than a pair, because the stud loop asks it twice per stud.
+    const atA = (s) => { if (s <= LO) return 0; const v = Math.min(1, (s - LO) / LI); return sc * v * v * (3 - 2 * v); };
+    const atB = (s) => { if (s <= LO) return bF + out * (LO - s); const v = Math.min(1, (s - LO) / LI); return bF - out * LI * v; };
+    const at = (s) => [atA(s), atB(s)];
     // A wave running toward the plates: `u` is the share of the path behind a stud.
     const wave = (u, n) => { const ph = (((u * n - t) % 1) + 1) % 1; return 1 / 3 + (2 / 3) * Math.max(0, 1 - ph * 3.2); };
-    const stud = (a, b, h, rgb, k) => G([[a - h, b - h, zS], [a + h, b - h, zS], [a + h, b + h, zS], [a - h, b + h, zS]], rgb, k);
+    const stud = (a, b, h, rgb, k) => G4(a - h, b - h, zS, a + h, b - h, zS, a + h, b + h, zS, a - h, b + h, zS, rgb, k);
     const L = LO + LI, STEP = 0.085;
     for (let s = 0.02; s <= L; s += STEP) {
-      const [a, b] = at(s), [a2, b2] = at(Math.min(L, s + 0.01));
+      const a = atA(s), b = atB(s), s2 = Math.min(L, s + 0.01), a2 = atA(s2), b2 = atB(s2);
       let ta = a2 - a, tb = b2 - b; const tl = Math.hypot(ta, tb) || 1; ta /= tl; tb /= tl;
       const k = wave(s / L, 3) * 1.25 * kN;
-      for (const side of [-1, 1]) stud(a - tb * KERB * side, b + ta * KERB * side, 0.016, AMB, k);
+      stud(a - tb * KERB * -1, b + ta * KERB * -1, 0.016, AMB, k);
+      stud(a - tb * KERB * 1, b + ta * KERB * 1, 0.016, AMB, k);
     }
     // Pools on the road under the bend and at the mouth, so the studs light the tarmac they sit in.
     for (const s of [LO - 1.2, LO, LO + LI * 0.55]) {
@@ -58119,7 +58253,7 @@ function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun) {
     const CY = [120, 236, 255], bIn = bF - out * (2 * H + 2);
     for (let i = 0, n = Math.round((LO + 2 * H + 1.5) / 0.16); i <= n; i++) {
       const b = bIn + out * i * 0.16, u = i / n;
-      G([[-0.008, b - 0.035, zS], [0.008, b - 0.035, zS], [0.008, b + 0.035, zS], [-0.008, b + 0.035, zS]], CY, wave(u, 4) * 1.1 * kN);
+      G4(-0.008, b - 0.035, zS, 0.008, b - 0.035, zS, 0.008, b + 0.035, zS, -0.008, b + 0.035, zS, CY, wave(u, 4) * 1.1 * kN);
     }
     // LAMP MASTS outside, in pairs either side of the approach: a chrome pole, an arm over the kerb
     // and a lamp head under it. Amber nearest the mouth, so the last pair before the door is the
@@ -58128,11 +58262,14 @@ function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun) {
       const b = bF + out * (0.35 + i * 0.62), zT = 0.5 - i * 0.03;
       for (const side of [-1, 1]) {
         const a = side * 0.62, w = 0.014, aH = side * 0.44;
-        for (const [p, q] of [[[-w, -w], [w, -w]], [[w, -w], [w, w]], [[w, w], [-w, w]], [[-w, w], [-w, -w]]])
-          F([[a + p[0], b + p[1], 0], [a + q[0], b + q[1], 0], [a + q[0], b + q[1], zT], [a + p[0], b + p[1], zT]], CHROME, 0.9);
-        F([[a, b - w, zT], [aH, b - w, zT], [aH, b + w, zT], [a, b + w, zT]], CHROME_DK, 0.7);
-        F([[a, b - w, zT + 0.018], [aH, b - w, zT + 0.018], [aH, b - w, zT], [a, b - w, zT]], CHROME_DK, 0.7);
-        G([[aH - 0.03, b - 0.02, zT - 0.006], [aH + 0.03, b - 0.02, zT - 0.006], [aH + 0.03, b + 0.02, zT - 0.006], [aH - 0.03, b + 0.02, zT - 0.006]], i === 0 ? AMB : [255, 226, 180], 1.4 * kN);
+        // The pole's four faces, corner to corner round the square: (-w,-w) (w,-w) (w,w) (-w,w).
+        F4(a - w, b - w, 0, a + w, b - w, 0, a + w, b - w, zT, a - w, b - w, zT, CHROME, 0.9);
+        F4(a + w, b - w, 0, a + w, b + w, 0, a + w, b + w, zT, a + w, b - w, zT, CHROME, 0.9);
+        F4(a + w, b + w, 0, a - w, b + w, 0, a - w, b + w, zT, a + w, b + w, zT, CHROME, 0.9);
+        F4(a - w, b + w, 0, a - w, b - w, 0, a - w, b - w, zT, a - w, b + w, zT, CHROME, 0.9);
+        F4(a, b - w, zT, aH, b - w, zT, aH, b + w, zT, a, b + w, zT, CHROME_DK, 0.7);
+        F4(a, b - w, zT + 0.018, aH, b - w, zT + 0.018, aH, b - w, zT, a, b - w, zT, CHROME_DK, 0.7);
+        G4(aH - 0.03, b - 0.02, zT - 0.006, aH + 0.03, b - 0.02, zT - 0.006, aH + 0.03, b + 0.02, zT - 0.006, aH - 0.03, b + 0.02, zT - 0.006, i === 0 ? AMB : LCK_MAST_RGB, 1.4 * kN);
         const c = W(aH, b, zT - 0.02);
         glowPool(null, cam, c[0], c[1], c[2], i === 0 ? LCK_SIG.amber : '255,226,180', 16, (0.25 + 0.35 * nf) * alpha, { add: true, max: 34 });
       }
