@@ -147,8 +147,10 @@ is asking how tall the building is, not where a bird stands.
 turns its frame so `cy` is the model's X (its sign picks the flank) and `cx` runs along negative Y.
 `kitLedges` used to read every part as front-or-back, so a flank window's birds stood on a sill on the
 front or back wall where no window was. It now turns the part the same way, mount and normal included.
-`perch.mjs` finds every baked tile whose model has a flank window, balcony or canopy (Jolene's at
-917,916 today) and fails if none of its perches faces a flank, or if one isn't on the flank wall.
+`perch.mjs` finds every baked tile whose model has a flank window, balcony or canopy and fails if
+no perch on any of them faces a flank, or if one that does isn't on the flank wall. It counts over
+the city rather than per tile, because authored heights scale with the storey height and on a low
+building (Camp Giardia, Salvage Rites) a flank sill is under `PERCH_MIN_Z` and correctly refused.
 
 **A ledge has to hold the flock.** The Meridian alone offers 21 perches and seven of them are
 gargoyles, so an unweighted pick sends most flocks onto a finial. A ledge is a candidate only if it is

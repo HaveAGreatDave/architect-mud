@@ -193,9 +193,9 @@ if (!kitLedgeCount) problems.push("the detail kit offers no perches at all — s
 //
 // So this finds the tiles whose model carries a flank window, balcony or canopy, from the content
 // files rather than from anything `kitLedges` reports, and asks two things in the model's own frame:
-// at least one of the tile's kit perches faces along X, and each one that does is mounted on the
-// flank plane (mass just inside the mount, none at the perch height just outside it). Put
-// `face` back out of `kitLedges` and the first fails on every such tile.
+// some kit perch on those tiles faces along X, and each one that does is mounted on the flank plane
+// (mass just inside the mount, none at the perch height just outside it). Put `face` back out of
+// `kitLedges` and the first fails.
 const FLANK_KINDS = new Set(['windowBay', 'balcony', 'canopy']);
 const flankNames = new Set();
 for (const f of readdirSync('content/building_models')) {
@@ -206,7 +206,7 @@ for (const f of readdirSync('content/building_models')) {
   for (const b of (m.bind || [])) if (b.by === 'name' && b.key) flankNames.add(b.key);
 }
 const ENT_VEC = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
-let flankTiles = 0;
+let flankTiles = 0, flankPerches = 0;
 for (const [k, c] of Object.entries(cells)) {
   if (!c.bt || !flankNames.has(c.bn)) continue;
   flankTiles++;
@@ -235,9 +235,14 @@ for (const [k, c] of Object.entries(cells)) {
     if (!solidAt(l.mount.x - ox * 0.01, l.mount.y - oy * 0.01)) problems.push(`a flank perch has no wall behind it at its own height: ${at}`);
     if (solidAt(l.mount.x + ox * 0.01, l.mount.y + oy * 0.01)) problems.push(`a flank perch is mounted inside the mass, not on the flank plane: ${at}`);
   }
-  if (!here) problems.push(`${c.bn} @ ${k} has a flank window, balcony or canopy and no kit perch faces a flank: kitLedges is not reading \`face\``);
+  flankPerches += here;
 }
+// ⚠ COUNTED OVER THE CITY, NOT PER TILE. An authored height is a multiple of the tile's storey
+// height, so on a low building a flank sill can land under PERCH_MIN_Z and be refused for the right
+// reason: Camp Giardia (one floor) and Salvage Rites (two) offer no flank perch at all. What `face`
+// being ignored looks like is no flank perch anywhere, since every part then reads as front or back.
 if (!flankTiles) problems.push('no tile in the baked city uses a model with a flank perch part, so nothing checks that kitLedges reads `face`');
+else if (!flankPerches) problems.push(`${flankTiles} tiles have a flank window, balcony or canopy and not one kit perch faces a flank: kitLedges is not reading \`face\``);
 
 // ── 1c. AND THE BADLANDS HAS SOMETHING TO STAND ON ──────────────────────────
 //
