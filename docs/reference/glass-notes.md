@@ -1130,6 +1130,7 @@ Backs aren't only seen from the air. Of the 203 Coldwater building elevations fa
 - Never lit: a light up a fin is advertising, and a building's back doesn't advertise.
 - The pitch comes off the wall. 1b ties its fins to the glazing columns; here there's no glazing, so the wall's length is divided at the front grid's bay. Fins stand at interior bay boundaries, so a rank spans one bay less than its wall and can't overhang a corner.
 - Result: back 0.5% → 25.9%, bare backs 174 → 30, +5,062 mesh faces (+9.4%), about 35 faces per building.
+- The pier ranks were removed on 2026-10-02 (see [Pilaster ranks (removed)](#pilaster-ranks-removed)), which put the back median at 1.1% and the right flank's at 5.1%. The gate's back and right floors came down to 0.5% and 2.5% with them, so it still catches a wall the kit stops reaching without asking for the piers back.
 
 It exposed a latent normal bug in `emitFlat`: it takes the mesh normal from the polygon's winding (Newell) and never flips it, so a quad wound for a +y wall points into the building on a back wall, and GLASS 2 shades it as facing away from the light. Unreachable while 1b (front ranks at `fy`, positive on a centred mass) was the only caller. Two of the four quads already disagreed with their `cullN`: the +x return has claimed a −x normal on every building since the part was written. Each quad is now given the direction it should face and one function fixes the winding.
 

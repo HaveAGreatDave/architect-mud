@@ -137,7 +137,13 @@ function roadFacing() {
 const problems = [];
 // ⚠ FAR BELOW WHERE THEY SIT (61 / 26 / 29 / 39 when this was written), so a retune is free and only
 // a change that takes an elevation back to bare trips it.
-const FLOOR = { front: 0.25, back: 0.10, left: 0.10, right: 0.10 };
+// ⚠ THE BACK AND RIGHT FLOORS CAME DOWN WITH THE PIERS. Most of the back's 26% and much of the
+// right flank's was the rear and service-flank pier ranks (section 1e), and those were removed on
+// 2026-10-02 because they read as columns bolted to every wall (glass-notes, "Pilaster ranks
+// (removed)"). That left the back at a median of 1.1% and the right at 5.1%, so a floor of 10% was
+// asking for the piers back. These sit at about half of what is left: grime, the service riser,
+// the gable ads. They still fail if the kit stops reaching those walls at all.
+const FLOOR = { front: 0.25, back: 0.005, left: 0.10, right: 0.025 };
 for (const k of K) {
   const v = med(k);
   if (v < FLOOR[k]) {
