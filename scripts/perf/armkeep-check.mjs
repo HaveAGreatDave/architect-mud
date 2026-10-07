@@ -41,18 +41,34 @@ const tris = (draws) => {
   return out.sort();
 };
 
-const scene = await openScene({ record: false });
-let hook = null;
-scene.ws.installGLWorld((cells, cam, o) => { hook = { cam, o }; return { canvas: { width: 640, height: 360 }, faces: 0 }; });
-const fly = (place, seat, hour, keep) => {
-  scene.ws.RENDER_TUNE.armKeep = keep;
-  const G = fakeView(), frames = [];
-  // Painted once first: the occlusion pass reads the last frame, and a first frame after another
-  // place draws more than one after the same place (see the warm paint in retain-check).
+
+// ⚠ EACH FLIGHT IN A PROCESS OF ITS OWN. The clock runs (below), and with it every stateful system in
+// the frame (the fauna sims, the smoothed frame timings) carries state from one flight into the next,
+// so two flights in one process differ before kept arms come into it: live against live failed 197
+// of 180 frames. A fresh process per flight starts both from the same state.
+const tri32 = (s) => { let h = 2166136261 >>> 0; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h; };
+const flyArg = process.argv.indexOf('--fly');
+if (flyArg >= 0) {
+  const [place, seat, hourS, keepS] = process.argv.slice(flyArg + 1);
+  const scene = await openScene({ record: false });
+  let hook = null;
+  scene.ws.installGLWorld((cells, cam, o) => { hook = { cam, o }; return { canvas: { width: 640, height: 360 }, faces: 0 }; });
+  // The light census (RAIN_LIGHTS, read by the rain and the cab's lighting), as a sorted list.
+  const census = () => (scene.ws.lastLightCensus() || []).map((e) => [e.x, e.y, e.r, e.a].map((x) => Math.round(x * 1e4)).join(',') + '|' + e.rgb).sort();
+  scene.ws.RENDER_TUNE.armKeep = Number(keepS);
+  if (process.env.ARMLIVE != null) scene.ws.RENDER_TUNE.armLive = Number(process.env.ARMLIVE);
+  const hour = Number(hourS), G = fakeView(), frames = [];
+  // ⚠ AND THE CLOCK RUNS, 16 ms a frame, or a live part (armLiveCall) replayed with a stale clock
+  // would draw the same frozen pose as the live arm and pass. Not 33: at an apparent 30 fps the scene
+  // governor steps the tune down every 400 ms, which re-keys every kept building.
+  const clock = globalThis.performance, t0 = clock.now();
+  globalThis.performance = { ...clock, now: () => t0 };
+  // Painted once first: the occlusion pass reads the last frame (see the warm paint in retain-check).
   scene.ws.paintWindshield('__perf', scene.view(place, seat, { hour, heading: 20 }));
   for (let i = 0; i < 60; i++) {
+    globalThis.performance.now = () => t0 + (i + 1) * 16;
     scene.ws.paintWindshield('__perf', scene.view(place, seat, { hour, heading: 20 + i * 1.5 }));
-    const { cam, o } = hook, ship = o.ship || [];
+    const { cam, o } = hook;
     G.draws.length = 0;
     // The bay sink only: the own ship is not a building, and its first frame after a tune change
     // splits its faces differently (shipLocal), which says nothing about kept arms.
@@ -61,33 +77,46 @@ const fly = (place, seat, hour, keep) => {
     G.view.drawSprites(cam, o.sprites, 360, 1);
     G.view.drawStrokes(cam, o.strokes, 360);
     G.view.drawDecals(cam, o.decals, 360, 0, null, null);
-    frames.push(tris(G.draws));
+    // DUMPF=<frame> DUMPTO=<file>: that frame's triangles, readable, for chasing a difference by hand.
+    if (process.env.DUMPF == i) {
+      const fs = await import('node:fs');
+      fs.writeFileSync(process.env.DUMPTO, tris(G.draws).join('\n'));
+      fs.writeFileSync(process.env.DUMPTO + '.decals', o.decals.map((d) => (d.key || '') + (d.img ? ' [' + Object.keys(d.img).filter((k) => k.startsWith('_')).map((k) => k + '=' + String(d.img[k]).slice(0, 60)).join(';') + ' ' + d.img.width + 'x' + d.img.height + ']' : '') + ' @ ' + (d.p || []).map((p) => p.map((x) => x.toFixed(3)).join(',')).join(' ')).sort().join('\n'));
+    }
+    frames.push({ t: tris(G.draws).map(tri32), c: census() });
   }
-  return frames;
-};
+  globalThis.performance = clock;
+  const st = scene.ws.armKeepStats;
+  scene.close();
+  process.stdout.write(JSON.stringify({ frames, st }));
+  process.exit(0);
+}
+
+const { execFileSync } = await import('node:child_process');
+const self = new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+const fly = (place, seat, hour, keep) => JSON.parse(execFileSync(process.execPath, [self, '--fly', place, seat, String(hour), String(keep)],
+  { maxBuffer: 1 << 30, encoding: 'utf8', env: process.env }));
 let bad = 0, n = 0, extras = 0;
 const shown = [];
-try {
-  for (const [place, seat, hour] of [['halcyon', 'cockpit', 22], ['nightlife', 'cab', 22], ['residential', 'cockpit', 13]]) {
-    const a = fly(place, seat, hour, 0);
-    const s0 = { ...scene.ws.armKeepStats };
-    const b = fly(place, seat, hour, 1);
-    const st = scene.ws.armKeepStats;
-    for (let i = 0; i < a.length; i++) {
-      n++;
-      // Missing from the kept draw is an error. Extra in it is what the live arm skipped for being
-      // behind the eye or behind a nearer building, which the GPU clips or depth-hides: counted.
-      const cnt = new Map();
-      for (const x of b[i]) cnt.set(x, (cnt.get(x) || 0) + 1);
-      let miss = 0;
-      for (const x of a[i]) { const k = cnt.get(x) || 0; if (k) cnt.set(x, k - 1); else miss++; }
-      let extra = 0; for (const k of cnt.values()) extra += k;
-      extras += extra;
-      if (miss) { bad++; if (shown.length < 4) shown.push(`${place} ${seat} frame ${i}: ${miss} live triangles missing from the kept draw`); }
-    }
-    console.log(`  ${place} ${seat} ${hour}h: kept ${st.kept - s0.kept}, live ${st.live - s0.live}, replays ${st.replayed - s0.replayed}, rechecks ${st.rechecked - s0.rechecked}, dropped ${st.dropped - s0.dropped}`);
+for (const [place, seat, hour] of [['halcyon', 'cockpit', 22], ['nightlife', 'cab', 22], ['residential', 'cockpit', 13]]) {
+  const { frames: a } = fly(place, seat, hour, 0);
+  const { frames: b, st } = fly(place, seat, hour, Number(process.env.KEEPB ?? 1));
+  for (let i = 0; i < a.length; i++) {
+    n++;
+    // Missing from the kept draw is an error. Extra in it is what the live arm skipped for being
+    // behind the eye or behind a nearer building, which the GPU clips or depth-hides: counted.
+    const cnt = new Map();
+    for (const x of b[i].t) cnt.set(x, (cnt.get(x) || 0) + 1);
+    let miss = 0;
+    for (const x of a[i].t) { const k = cnt.get(x) || 0; if (k) cnt.set(x, k - 1); else miss++; }
+    let extra = 0; for (const k of cnt.values()) extra += k;
+    extras += extra;
+    if (miss) { bad++; if (shown.length < 4) shown.push(`${place} ${seat} frame ${i}: ${miss} live triangles missing from the kept draw`); }
+    const ca = a[i].c.join(';'), cb = b[i].c.join(';');
+    if (ca !== cb) { bad++; if (shown.length < 4) shown.push(`${place} ${seat} frame ${i}: light census differs (${a[i].c.length} live, ${b[i].c.length} kept)`); }
   }
-} finally { scene.ws.RENDER_TUNE.armKeep = 1; scene.close(); }
+  console.log(`  ${place} ${seat} ${hour}h: kept ${st.kept}, live ${st.live}, replays ${st.replayed}, rechecks ${st.rechecked}, dropped ${st.dropped}`);
+}
 for (const l of shown) console.error('  ✗ ' + l);
 if (bad) { console.error(`armkeep-check: ${bad} of ${n} frames differ`); process.exit(1); }
 console.log(`✓ armkeep-check: ${n} frames, no live triangle missing from the kept draw (${(extras / n).toFixed(1)} extra a frame, skipped live for being out of view).`);

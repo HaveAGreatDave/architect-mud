@@ -1038,6 +1038,8 @@ export const RENDER_TUNE = {
   armKeep: 1,    // a building's adornments recorded once per key and replayed as retained groups (drawTypeModelKept); 0 runs every arm every frame
   bayCache: 1,   // a shed's GL shell is built once per key and its records replayed (BAY_SHELL); 0 builds it every frame
   lockCache: 1,  // the South Lock's GL faces and lights reuse last frame's record per slot when unchanged (LCK_MEMO); 0 builds every one
+  armLive: 1,    // a kept building's animated helpers (smoke, rings, beams, wind wheels, flags) are left out of its kept set and called again each replay (armLiveCall); 0 makes any such building live
+  armRain: 1,    // a kept building records its glows' place in the rain-light census and replays that too; 0 marks any building with a glow live, as before
   occCache: 1,   // a building's occluder geometry (hull, roof, solid boxes) kept per cell in its own frame and only moved and projected each frame (OCC_GEOM); 0 rebuilds it every frame
   glSizeGPU: 1,  // a light pushed through pushLightSized carries its size spec and the sprite shader sizes it from depth; 0 sends the CPU radius only
   glRetain: 1,   // record arrays that come back unchanged (a shed's shell, a hoodoo tile) stay on the GPU (bayGroup); 0 sends them every frame
@@ -25784,6 +25786,8 @@ let RAIN_LIGHTS = null;
 // as the near curtain is drawn, and the interior paints later still; holding the reference is what
 // lets the list outlive the arming without the world pass going on filling it.
 let CAB_LIGHTS = null;
+// Test seam: last frame's light census, for perf/armkeep-check (a kept building must census the same).
+export const lastLightCensus = () => CAB_LIGHTS;
 const RAIN_LIGHT_MAX = 24;
 // The wires, collected for the GL pass instead of stroked. Same reason as the lights: a mast, a
 // rail, a lattice brace and a light-runner are all one shape — two world points and a width in
@@ -41781,6 +41785,7 @@ function drawCityBuilding(ctx, cam, dx, dy, fh, h, biome, seed, night, alpha, no
 
 // ── Per-biome adornments ──────────────────────────────────────────────────────
 function drawSmoke(ctx, cam, dx, dy, wz, col, alpha, now, seed) {
+  if (ARM_LIVE) return armLiveCall(drawSmoke, LIVE_AT_7, arguments);
   if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return;   // adornment
   const p = cam.proj(dx, dy, wz); if (p.f <= 0.12) return;
   const s = propS(20, p.f, 2, 40);
@@ -45020,6 +45025,7 @@ function wallRose(ctx, cam, dx, dy, E, z, r, stone, night, alpha, N = 8, glass =
 // camera at world (dx,dy,z); worldR sets screen size off depth. Rotates on `now`. Wrapped as a
 // rooftop deco so it sits over its own mast without punching through nearer geometry.
 function windWheel(ctx, cam, dx, dy, z, worldR, now, alpha, seed = 0) {
+  if (ARM_LIVE) return armLiveCall(windWheel, LIVE_AT_6, arguments);
   if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return;   // adornment (and animated — never geometry)
   const c = cam.proj(dx, dy, z); if (c.f <= 0.12) return;
   // ⚠ A WINDMILL THAT TURNS AT THE SAME SPEED IN EVERY WEATHER IS THE PART THAT READS AS FAKE, and
@@ -46224,7 +46230,10 @@ function deadNeon(label) {
   const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
   let t0 = _deadSeen.get(t);
   if (t0 === undefined) { t0 = now; _deadSeen.set(t, t0); }
-  const age = now - t0;
+  // ⚠ PLUS ARM_SHIFT: this reads the wall clock rather than the arm's `now`, so the kept-arm clock
+  // test (drawTypeModelKept) moves it by hand. Without that a building with a blinking tube was kept
+  // with the letter frozen in whichever state it was recorded in. `t0` stays on the real clock.
+  const age = now - t0 + ARM_SHIFT;
   if (age >= DEAD_BLINK_MS) return k;
   // Irregular slow cadence: two sines far apart, each state lasting most of a second or more.
   const ph = age / 1000 + labelRoll(t, 0xf1c) * 97;
@@ -46902,11 +46911,15 @@ export function signStandCensus(v) { if (v !== undefined) SIGN_STAND = v; return
 
 // A stable id per baked canvas, so the decal layer can batch by texture. WeakMap because the
 // canvases are owned by bakeSignText’s own cache and must not be kept alive by this one.
+// ⚠ A KEPT ARM'S CLOCK TEST HANDS ITS IDS BACK (`SIGN_ID_SCRATCH`, armRecord). It bakes states the
+// frame hasn't reached yet (a tube that will blink, a logo's next bar), and ids handed out there
+// pushed every later sign's id along, so the same sign had one id in a run with kept arms and
+// another without. Rolled back, a canvas baked there gets its id at first real use.
 const _signTexIds = new WeakMap();
-let _signTexN = 0;
+let _signTexN = 0, SIGN_ID_SCRATCH = null;
 function signTexKey(tex) {
   let id = _signTexIds.get(tex);
-  if (id == null) { id = ++_signTexN; _signTexIds.set(tex, id); }
+  if (id == null) { id = ++_signTexN; _signTexIds.set(tex, id); if (SIGN_ID_SCRATCH) SIGN_ID_SCRATCH.push(tex); }
   // `gt:` is paint and `st:` is a sign — see the ⚠ on `__tagPaint` in bakeTagText. Both batch by
   // texture exactly as before; the prefix only says which question a gate is entitled to ask of it.
   return (tex && tex.__tagPaint ? "gt:" : "st:") + id;
@@ -49377,6 +49390,17 @@ function glowSprite(rgb) {
 // All named on the CALL rather than split into a second function, because the tier gate, the
 // projection, the sink switch and the canvas fallback below are the part that must not be written
 // twice — a push-only second copy draws nothing at all with GLASS 2 off.
+// Set while a kept building's live parts are run again on a frame whose live run already counted them.
+let RAIN_MUTE = false;
+function rainCensus(x, y, r, rgb, a) {
+  const ent = { x, y, r, rgb, a };
+  if (RAIN_LIGHTS.length < RAIN_LIGHT_MAX) RAIN_LIGHTS.push(ent);
+  else {
+    let worst = 0;
+    for (let k = 1; k < RAIN_LIGHTS.length; k++) if (RAIN_LIGHTS[k].r < RAIN_LIGHTS[worst].r) worst = k;
+    if (RAIN_LIGHTS[worst].r < ent.r) RAIN_LIGHTS[worst] = ent;
+  }
+}
 function glowPool(ctx, cam, dx, dy, wz, rgb, s0, alpha, opts) {   // soft ground/roof glow (generalised ruin glow)
   // ⚠ THE TIER IT ANSWERS TO DEPENDS ON WHAT IS GOING TO DRAW IT. `lodAdorn` sheds the lights past
   // `lodNear` because on canvas they are the expensive half — and a cab's lodNear is NINE TILES, so
@@ -49396,7 +49420,7 @@ function glowPool(ctx, cam, dx, dy, wz, rgb, s0, alpha, opts) {   // soft ground
   // ⚠ RECORDED HERE, ABOVE THE SPRITE BRANCH, so the rain is lit the same way whether the city is
   // being drawn by GLASS 2 or by the canvas. Below the branch it would only ever exist on the GPU
   // path, which is the class of bug this file keeps a numbered list of.
-  if (RAIN_LIGHTS && alpha > 0.05) {
+  if (RAIN_LIGHTS && !RAIN_MUTE && alpha > 0.05) {
     // ⚠ THE BIGGEST, NEVER THE FIRST TWO DOZEN. A dense night block pushes 426 of these and the
     // first cut simply took the first 24 it met — which is whichever tiles the sweep reached first,
     // mostly small distant lamps, and the tint reached 61 pixels of a rainy night frame. What a
@@ -49407,13 +49431,9 @@ function glowPool(ctx, cam, dx, dy, wz, rgb, s0, alpha, opts) {   // soft ground
     // a halo looks right — and the air a lamp lights up in rain reaches a good deal further than
     // its own bloom does. Same distinction, in the same words, as the one recorded on the wall wash
     // taking a screen radius for a reach.
-    const ent = { x: g.sx, y: g.sy, r: s * 5, rgb, a: alpha };
-    if (RAIN_LIGHTS.length < RAIN_LIGHT_MAX) RAIN_LIGHTS.push(ent);
-    else {
-      let worst = 0;
-      for (let k = 1; k < RAIN_LIGHTS.length; k++) if (RAIN_LIGHTS[k].r < RAIN_LIGHTS[worst].r) worst = k;
-      if (RAIN_LIGHTS[worst].r < ent.r) RAIN_LIGHTS[worst] = ent;
-    }
+    rainCensus(g.sx, g.sy, s * 5, rgb, alpha);
+    // A kept building replays this step on its own (armReplay), from the glow's world inputs.
+    if (ARM_RAIN) ARM_RAIN.push([dx, dy, wz, s0, (opts && opts.max) || 60, rgb, alpha]);
   }
   // On the GPU it is a depth-tested disc rather than a probed blit — the same point, the same
   // radius, and a wall in front of it settles the matter per pixel.
@@ -51606,6 +51626,7 @@ function clothTagCell(r) { return r < 0.25 ? 1 : 2 + Math.floor(((r - 0.25) / 0.
 // animation, so only the ripple stops when `RENDER_TUNE.motion` is 0. Freezing the direction as well
 // would park every flag in the city pointing at whatever bearing the capture happened to be run at.
 function windFlag(ctx, cam, x, y, z0, z1, w, pal, alpha, night, now, seed) {
+  if (ARM_LIVE) return armLiveCall(windFlag, LIVE_AT_10, arguments);
   draw3DBoxAt(ctx, cam, x, y, w * 0.045, z0, z1, pal, seed, night, alpha, false);        // the pole
   draw3DBoxAt(ctx, cam, x, y, w * 0.075, z1, z1 + w * 0.05, pal, seed + 1, night, alpha, true);   // the truck at the top of it
   if (SHAPE_SINK || MESH_SINK || ADORN_TIER < ADORN_RICH) return;   // the cloth is an adornment, and never a captured one
@@ -52964,6 +52985,7 @@ function helixRunner(ctx, cam, dx, dy, z0, z1, r0, r1, turns, at, n, rgb, night,
 // home bearing and therefore a beam standing still rather than a beam deleted.
 const BEAM_ROOT = 1.15;        // how far out of the lamp the cone starts, in its own root radii
 function skyBeam(ctx, cam, dx, dy, wz, o, night, alpha, now, seed, ct, st, V) {
+  if (ARM_LIVE) return armLiveCall(skyBeam, LIVE_AT_8, arguments);
   if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return;
   // A searchlight at noon is a lamp nobody can see. This is the whole of its day behaviour: the
   // housing is authored as ordinary roof plant and goes on being drawn, and the light does not.
@@ -53014,6 +53036,7 @@ function skyBeam(ctx, cam, dx, dy, wz, o, night, alpha, now, seed, ct, st, V) {
 // as broken. Same duty as `skyBeam`, and `RENDER_TUNE.motion` 0 still gives you the rank at its
 // home bearing rather than a pod with no frames on it.
 function revolveRing(ctx, cam, dx, dy, wz, o, night, alpha, now, seed, V) {
+  if (ARM_LIVE) return armLiveCall(revolveRing, LIVE_AT_8, arguments);
   if (SHAPE_SINK || MESH_SINK || ADORN_TIER < ADORN_CHEAP) return;
   const r = V(o.r), hz = V(o.hz);
   if (!(r > 0) || !(hz > 0)) return;
@@ -55462,12 +55485,85 @@ let ITEMS_BUSY = false;
 // only the GPU draws from them.
 const ARM_KEEP = new WeakMap();   // cell → entry
 const ARM_RECHECK = 120, ARM_GAP = 12, ARM_NEAR = 1.5;
-let ARM_FRAME = 0, ARM_CHECKS = 0, ARM_OPS = 0, ARM_TUNE = 0, ARM_REC = false;
-export const armKeepStats = { kept: 0, live: 0, probing: 0, replayed: 0, rechecked: 0, dropped: 0 };
+let ARM_FRAME = 0, ARM_CHECKS = 0, ARM_OPS = 0, ARM_TUNE = 0, ARM_REC = false, ARM_WHY_SIDE = 'side';
+// The glows a recording put through the rain-light census, as [dx, dy, wz, s0, max, rgb, alpha] (glowPool).
+let ARM_RAIN = null;
+// ── LIVE PARTS: WHAT MOVES IN A KEPT BUILDING ────────────────────────────────────────────────────
+//
+// A helper that animates from the clock it is handed (smoke, a revolving ring, a beam, a wind wheel,
+// a flag) opts in with one line at the top of its body. While a building is recorded, the call is
+// kept with its arguments and what it pushed is cut out of the kept set; each replay calls it again
+// with this frame's ctx, camera and clock and the position moved into this frame. So a building with
+// a chimney is kept, and only the chimney runs.
+//
+// ⚠ ONLY WHEN THE ARGUMENTS DON'T DEPEND ON THE CAMERA OR THE CLOCK. They go into the canon, so two
+// probes at different poses that passed different arguments come out different and the building goes
+// live, as it did before. And the clock argument has to be the arm's own `now`, untouched: an arm
+// that hands a helper `now * 2` can't be replayed with `now`, so that marks it live (`livepart`).
+// ctx is argument 0 and the camera argument 1 in every helper that opts in; `x`, `y` and `now` say where
+// the rest are.
+let ARM_LIVE = null, ARM_NOW = 0, ARM_LIVE_BAD = false;
+// How far a clock-test recording has moved the clock, for the one arm-reachable reader of the wall
+// clock (deadNeon). 0 outside those runs.
+let ARM_SHIFT = 0;
+// A live building is probed again after this many frames. Being live is often a phase: a tube
+// that blinks for its first 14 s and then stays dark, a recheck that caught one changing frame. A
+// building that really animates pays one probe (three arm runs) every ten seconds or so.
+const ARM_RETRY = 600;
+const LIVE_AT_6 = { x: 2, y: 3, now: 6 }, LIVE_AT_7 = { x: 2, y: 3, now: 7 }, LIVE_AT_8 = { x: 2, y: 3, now: 8 }, LIVE_AT_10 = { x: 2, y: 3, now: 10 };
+const armMarks = () => [SPRITE_SINK ? SPRITE_SINK.length : 0, STROKE_SINK ? STROKE_SINK.length : 0, DECAL_SINK ? DECAL_SINK.length : 0,
+  BAY_SINK ? BAY_SINK.length : 0, ARM_RAIN ? ARM_RAIN.length : 0];
+function armLiveCall(fn, at, args) {
+  const live = ARM_LIVE, a = Array.prototype.slice.call(args);
+  if (a[at.now] !== ARM_NOW) ARM_LIVE_BAD = true;
+  ARM_LIVE = null;   // a live part that calls another runs it as part of itself
+  const m0 = armMarks();
+  try { return fn.apply(null, a); } finally { live.push({ fn, at, a, m0, m1: armMarks() }); ARM_LIVE = live; }
+}
+// A sink's records from `from` on, without the ranges the live parts pushed (k is the sink's slot in armMarks).
+function armCut(sink, from, live, k) {
+  if (!sink) return [];
+  if (!live.length) return sink.slice(from);
+  const out = [];
+  let i = from;
+  for (const L of live) { for (; i < L.m0[k]; i++) out.push(sink[i]); i = Math.max(i, L.m1[k]); }
+  for (; i < sink.length; i++) out.push(sink[i]);
+  return out;
+}
+function armLiveCanon(L, ox, oy) {
+  const parts = [L.fn.name];
+  for (let i = 2; i < L.a.length; i++) {
+    const v = L.a[i];
+    if (i === L.at.now) continue;
+    if (i === L.at.x) parts.push(armR6(v + ox)); else if (i === L.at.y) parts.push(armR6(v + oy));
+    else if (typeof v === 'number') parts.push(armR6(v));
+    else if (typeof v === 'function') parts.push('f');
+    else { try { parts.push(JSON.stringify(v, (key, x) => (typeof x === 'number' ? armR6(x) : x))); } catch { parts.push('?'); } }
+  }
+  return 'C' + parts.join('|');
+}
+export const armKeepStats = { kept: 0, live: 0, probing: 0, replayed: 0, rechecked: 0, dropped: 0, fading: 0, near: 0, gap: 0, liveRun: 0 };
+// Why a building went live, by model type, for a harness that sets `armKeepWhy.on`. Off, it costs
+// nothing; on, a clock or pose mismatch also lists the records that differed (first few lines).
+export const armKeepWhy = { on: false, by: {} };
+function armWhy(c, why, a, b) {
+  if (!armKeepWhy.on) return;
+  const m = modelFor(c), k = (m && m.type) || c.bt || '?';
+  const row = armKeepWhy.by[k] || (armKeepWhy.by[k] = { n: 0, why: {}, diff: [] });
+  row.n++; row.why[why] = (row.why[why] || 0) + 1;
+  if (a != null && b != null && row.diff.length < 6) {
+    const A = new Set(a.split('\n')), B = new Set(b.split('\n'));
+    for (const l of A) if (!B.has(l) && row.diff.length < 6) row.diff.push(why + ' -' + l.slice(0, 160));
+    for (const l of B) if (!A.has(l) && row.diff.length < 6) row.diff.push(why + ' +' + l.slice(0, 160));
+  }
+}
 const armSide = () => (SCATTER_SINK ? SCATTER_SINK.length : 0) + (CURTAIN_SINK ? CURTAIN_SINK.length : 0)
   + (FACE_SINK ? FACE_SINK.length : 0) + (OWNSHIP_SINK ? OWNSHIP_SINK.length : 0) + (FAUNA_SINK ? FAUNA_SINK.length : 0)
   + (GROUND_MESH ? GROUND_MESH.length : 0) + (LATE_BILLBOARDS ? LATE_BILLBOARDS.length : 0)
-  + (RAIN_LIGHTS ? RAIN_LIGHTS.length : 0) + GROUND_LATE_N;
+  + (RAIN_LIGHTS && !(RENDER_TUNE.armRain !== 0) ? RAIN_LIGHTS.length : 0) + GROUND_LATE_N;
+// The same channels one by one, named, for armKeepWhy.
+const armSideParts = () => [['scatter', SCATTER_SINK], ['curtain', CURTAIN_SINK], ['face', FACE_SINK], ['ownship', OWNSHIP_SINK], ['fauna', FAUNA_SINK],
+  ['groundMesh', GROUND_MESH], ['lateBillboards', LATE_BILLBOARDS], ['rainLights', RAIN_LIGHTS]].map(([k, a]) => [k, a ? a.length : 0]).concat([['groundLate', GROUND_LATE_N]]);
 // Once a frame, from drawWorldObjects.
 function armKeepFrame() { ARM_FRAME++; ARM_CHECKS = 0; ARM_TUNE = tuneSig() * 7 + (TUNE !== RENDER_TUNE ? tuneSig(TUNE) : 0); }
 const armR6 = (x) => Math.round(x * 1e6);
@@ -55482,13 +55578,23 @@ function armCanon(rec, ox, oy) {
   for (const d of rec.de) out.push('D' + d.key + '|' + (d.pl > 0 && d.rp ? d.rp.map((p) => pt(p, ox, oy)).join(';') + '|' + d.rc.map((p) => pt(p, ox, oy)).join(';') + '|' + armR6(d.pl)
     : d.p.map((p) => pt(p, ox, oy)).join(';')) + '|' + armR6(d.alpha == null ? 1 : d.alpha) + '|' + !!d.solid + !!d.lit + !!d.cull + !!d.smooth + (d.emit || 0));
   for (const q of rec.ba) out.push('B' + q.p.map((p) => pt(p, 0, 0)).join(';') + '|' + q.rgb + '|' + armR6(q.a));
+  if (rec.live) for (const L of rec.live) out.push(armLiveCanon(L, ox, oy));
+  if (rec.rain) for (const r of rec.rain) out.push('R' + pt(r, ox, oy) + '|' + armR6(r[3]) + ',' + r[4] + '|' + r[5] + '|' + armR6(r[6]));
   return out.join('\n');
 }
 // Run the arm with every sink and side channel watched. Returns the records it pushed, or null if it
 // did anything a replay could not reproduce.
-function armRecord(ctx, run) {
+function armRecord(ctx, run, scratch = false, now = 0, shift = 0) {
   const s0 = SPRITE_SINK.length, t0 = STROKE_SINK ? STROKE_SINK.length : 0, d0 = DECAL_SINK ? DECAL_SINK.length : 0, b0 = BAY_SINK ? BAY_SINK.length : 0;
-  const side0 = armSide(), ops0 = ARM_OPS;
+  // ⚠ THE RAIN CENSUS CAN'T BE TRUNCATED LIKE A SINK (a full list evicts its smallest), so a scratch
+  // run copies it and puts it back. Only probes and rechecks get here, a few a frame.
+  const rainOn = RENDER_TUNE.armRain !== 0, rain = rainOn ? [] : null, rain0 = scratch && RAIN_LIGHTS ? RAIN_LIGHTS.slice() : null;
+  ARM_RAIN = rain;
+  const live = RENDER_TUNE.armLive !== 0 ? [] : null;
+  ARM_LIVE = live; ARM_NOW = now; ARM_LIVE_BAD = false; ARM_SHIFT = shift;
+  const signN0 = _signTexN;
+  if (scratch) SIGN_ID_SCRATCH = [];
+  const side0 = armSide(), ops0 = ARM_OPS, parts0 = armKeepWhy.on ? armSideParts() : null;
   const wrapped = [];
   for (const k of ['fill', 'stroke', 'drawImage', 'fillRect', 'strokeRect', 'fillText', 'strokeText', 'putImageData']) {
     const fn = ctx[k];
@@ -55498,16 +55604,32 @@ function armRecord(ctx, run) {
     wrapped.push([k, own, fn]);
   }
   ARM_REC = true;
-  try { run(); } finally { ARM_REC = false; for (const [k, own, fn] of wrapped) { if (own) ctx[k] = fn; else delete ctx[k]; } }
-  if (ARM_OPS !== ops0 || armSide() !== side0) return null;
-  return { sp: SPRITE_SINK.slice(s0), st: STROKE_SINK ? STROKE_SINK.slice(t0) : [], de: DECAL_SINK ? DECAL_SINK.slice(d0) : [], ba: BAY_SINK ? BAY_SINK.slice(b0) : [],
-    marks: [s0, t0, d0, b0] };
+  try { run(); } finally {
+    ARM_REC = false; for (const [k, own, fn] of wrapped) { if (own) ctx[k] = fn; else delete ctx[k]; }
+    ARM_RAIN = null; ARM_LIVE = null; ARM_SHIFT = 0;
+    if (SIGN_ID_SCRATCH) { for (const t of SIGN_ID_SCRATCH) _signTexIds.delete(t); _signTexN = signN0; SIGN_ID_SCRATCH = null; }
+    if (rain0) { RAIN_LIGHTS.length = 0; for (const r of rain0) RAIN_LIGHTS.push(r); }
+  }
+  const sideNow = armSide();
+  if (ARM_LIVE_BAD) { ARM_WHY_SIDE = 'livepart'; return null; }
+  if (ARM_OPS !== ops0 || sideNow !== side0) {
+    ARM_WHY_SIDE = ARM_OPS !== ops0 ? 'canvas' : 'side';
+    if (parts0 && ARM_OPS === ops0) ARM_WHY_SIDE = 'side:' + armSideParts().filter(([, n], i) => n !== parts0[i][1]).map(([k]) => k).join('+');
+    return null;
+  }
+  const L = live || [];
+  return { sp: armCut(SPRITE_SINK, s0, L, 0), st: armCut(STROKE_SINK, t0, L, 1), de: armCut(DECAL_SINK, d0, L, 2), ba: armCut(BAY_SINK, b0, L, 3),
+    rain: rain ? armCut(rain, 0, L, 4) : [], live: L, marks: [s0, t0, d0, b0] };
 }
 // Push a kept set into the sinks as retained groups, moved into this frame's camera frame first.
-function armReplay(e, ox, oy) {
+// `census` false when this frame already ran the arm live (a recheck, or the frame it was kept), whose
+// glows are in the rain census already.
+function armReplay(e, ox, oy, cam, census, ctx, now) {
   const dx = e.ox - ox, dy = e.oy - oy;
   if (dx || dy) {
     for (const s of e.rec.sp) { s.x += dx; s.y += dy; }
+    for (const r of e.rec.rain) { r[0] += dx; r[1] += dy; }
+    for (const L of e.rec.live) { L.a[L.at.x] += dx; L.a[L.at.y] += dy; }
     for (const p of e.pts) { p[0] += dx; p[1] += dy; }
     e.ox = ox; e.oy = oy;
   }
@@ -55519,6 +55641,19 @@ function armReplay(e, ox, oy) {
   };
   put(SPRITE_SINK, e.rec.sp); put(STROKE_SINK, e.rec.st); put(DECAL_SINK, e.rec.de);
   if (BAY_SINK && e.rec.ba.length) bayGroup(e.rec.ba);
+  // glowPool's census step, as it ran it: the same projection, the same near test and size.
+  if (census && RAIN_LIGHTS) for (const r of e.rec.rain) {
+    const g = cam.proj(r[0], r[1], r[2]); if (g.f <= 0.12) continue;
+    rainCensus(g.sx, g.sy, clamp(r[3] / g.f, 3, r[4]) * 5, r[5], r[6]);
+  }
+  // The live parts, with this frame's ctx, camera and clock. On a frame the arm already ran live their
+  // records were cut with the rest, so they run again, but their glows are already in the census.
+  if (e.rec.live.length) {
+    RAIN_MUTE = !census;
+    try {
+      for (const L of e.rec.live) { const a = L.a.slice(); a[0] = ctx; a[1] = cam; a[L.at.now] = now; L.fn.apply(null, a); }
+    } finally { RAIN_MUTE = false; }
+  }
   armKeepStats.replayed++;
 }
 // Every point array a kept set holds in the camera's frame, once each (a wire's raw end can be the
@@ -55535,50 +55670,70 @@ function drawTypeModelKept(ctx, cam, it, face, fh, night, now, run) {
   if (RENDER_TUNE.armKeep === 0 || !SPRITE_SINK || SHAPE_SINK || MESH_SINK) { run(); return; }
   const c = it.c;
   let e = ARM_KEEP.get(c);
-  if (e && e.live) { run(); return; }
+  if (e && e.live) {
+    if (ARM_FRAME - e.liveAt < ARM_RETRY) { armKeepStats.liveRun++; run(); return; }
+    e = null;   // probed afresh below
+  }
+  // ⚠ NOT WHILE IT FADES. A building in the haze band at the draw limit has an alpha that moves with
+  // every turn of the head, and alpha is in the key, so each frame was a new entry and a new probe:
+  // three arm runs where running it live is one. A cab measured 0.7-1.5 ms slower for it once the
+  // rain census stopped those buildings going live. It runs live until it is fully in.
+  if (it.alpha < 1) { armKeepStats.fading++; run(); return; }
   const ox = cam.ox || 0, oy = cam.oy || 0;
   // The front's facing, as drawTypeModelArm decides it: a sign on a turned-away front isn't drawn.
   const front = (face[0] * (it.dx + face[0] * fh) + face[1] * (it.dy + face[1] * fh) - (face[0] * (cam.ex || 0) + face[1] * (cam.ey || 0))) < 0;
   const key = armR6(it.dx + ox) + ',' + armR6(it.dy + oy) + '|' + ADORN_TIER + '|' + front + '|' + it.alpha + '|' + night + '|' + POWER_DUTY + '|' + _frameDpr + '|' + ARM_TUNE;
   const pose = { x: cam.ex || 0, y: cam.ey || 0, z: cam.EH || 0, h: Math.atan2(cam.sinh || 0, cam.cosh || 1) };
-  if (!e || e.key !== key) { e = { key, probe: null, kept: null }; ARM_KEEP.set(c, e); }
+  if (!e || e.key !== key) {
+    if (e && armKeepWhy.on) { const A = e.key.split('|'), B = key.split('|'); armWhy(c, 'rekey:' + ['pos', 'tier', 'front', 'alpha', 'night', 'power', 'dpr', 'tune'].filter((_, i) => A[i] !== B[i]).join('+'), e.key, key); }
+    // `tried` carries over: whatever changes the key, a building probes at most once every ARM_GAP frames.
+    e = { key, probe: null, kept: null, tried: e ? e.tried : -ARM_GAP }; ARM_KEEP.set(c, e);
+  }
   if (e.kept) {
-    if (ARM_FRAME - e.checked < ARM_RECHECK || ARM_CHECKS >= 2 || !(cam.rawF && cam.rawF(it.dx, it.dy, 0) > ARM_NEAR + 2 * fh)) { armReplay(e.kept, ox, oy); return; }
+    if (ARM_FRAME - e.checked < ARM_RECHECK || ARM_CHECKS >= 2 || !(cam.rawF && cam.rawF(it.dx, it.dy, 0) > ARM_NEAR + 2 * fh)) { armReplay(e.kept, ox, oy, cam, true, ctx, now); return; }
     // The recheck: record it live, compare, and put the kept set back in its place.
     ARM_CHECKS++; armKeepStats.rechecked++;
-    const rec = armRecord(ctx, run);
+    const rec = armRecord(ctx, run, false, now);
     const ok = rec && armCanon(rec, ox, oy) === e.kept.canon;
-    if (!ok) { e.live = true; e.kept = null; armKeepStats.dropped++; return; }   // what it just drew stands
+    if (!ok) { armWhy(c, rec ? 'recheck' : 'recheck:side', rec && armCanon(rec, ox, oy), e.kept.canon); e.live = true; e.liveAt = ARM_FRAME; e.kept = null; armKeepStats.dropped++; return; }   // what it just drew stands
     SPRITE_SINK.length = rec.marks[0]; if (STROKE_SINK) STROKE_SINK.length = rec.marks[1];
     if (DECAL_SINK) DECAL_SINK.length = rec.marks[2]; if (BAY_SINK) BAY_SINK.length = rec.marks[3];
     e.checked = ARM_FRAME;
-    armReplay(e.kept, ox, oy);
+    armReplay(e.kept, ox, oy, cam, false, ctx, now);
     return;
   }
   // Probing. Record at most once every ARM_GAP frames, only compare across a camera move, and only
   // record a building that stands well in front of the eye: every part an arm skips for being behind
   // the eye or at the near plane is a part a kept set would be missing when you turn round.
-  if (e.probe && (ARM_FRAME - e.probe.frame < ARM_GAP)) { run(); return; }
-  if (!(cam.rawF && cam.rawF(it.dx, it.dy, 0) > ARM_NEAR + 2 * fh)) { run(); return; }
-  const rec = armRecord(ctx, run);
-  if (!rec) { e.live = true; armKeepStats.live++; return; }
+  if (e.probe && (ARM_FRAME - e.probe.frame < ARM_GAP)) { armKeepStats.gap++; run(); return; }
+  if (ARM_FRAME - e.tried < ARM_GAP) { armKeepStats.gap++; run(); return; }
+  if (!(cam.rawF && cam.rawF(it.dx, it.dy, 0) > ARM_NEAR + 2 * fh)) { armKeepStats.near++; run(); return; }
+  e.tried = ARM_FRAME;
+  const rec = armRecord(ctx, run, false, now);
+  if (!rec) { armWhy(c, ARM_WHY_SIDE); e.live = true; e.liveAt = ARM_FRAME; armKeepStats.live++; return; }
   const canon = armCanon(rec, ox, oy);
   // ⚠ AND THE CLOCK, TESTED RATHER THAN HOPED FOR. Two probes a dozen frames apart can catch a slow
   // blink in the same state twice, so the arm is run once more with its `now` moved by a second and
   // a bit, into the sinks and straight back out. Any difference and it animates: live.
-  const shadow = armRecord(ctx, () => run(now + 1234.5));
-  if (shadow) { SPRITE_SINK.length = shadow.marks[0]; if (STROKE_SINK) STROKE_SINK.length = shadow.marks[1]; if (DECAL_SINK) DECAL_SINK.length = shadow.marks[2]; if (BAY_SINK) BAY_SINK.length = shadow.marks[3]; }
-  if (!shadow || armCanon(shadow, ox, oy) !== canon) { e.live = true; armKeepStats.live++; return; }
+  // ⚠ AND ONCE MORE, TEN SECONDS OUT. A slow cycle rounded to whole colour steps can come out the same
+  // a second later: the airport's kerb pylons roll through their hues every 16.7 s, and one shadow at
+  // +1.2 s kept the terminal with its pylons frozen until the next recheck (perf/armkeep-check, with
+  // the clock running, missed it from frame 38).
+  for (const dt of [1234.5, 9876.5]) {
+    const shadow = armRecord(ctx, () => run(now + dt), true, now + dt, dt);
+    if (shadow) { SPRITE_SINK.length = shadow.marks[0]; if (STROKE_SINK) STROKE_SINK.length = shadow.marks[1]; if (DECAL_SINK) DECAL_SINK.length = shadow.marks[2]; if (BAY_SINK) BAY_SINK.length = shadow.marks[3]; }
+    if (!shadow || armCanon(shadow, ox, oy) !== canon) { armWhy(c, shadow ? 'clock' : ARM_WHY_SIDE, canon, shadow && armCanon(shadow, ox, oy)); e.live = true; e.liveAt = ARM_FRAME; armKeepStats.live++; return; }
+  }
   if (e.probe) {
     const p = e.probe.pose, moved = Math.hypot(p.x - pose.x, p.y - pose.y, p.z - pose.z) > 0.02 || Math.abs(p.h - pose.h) > 0.02;
     if (moved) {
-      if (canon !== e.probe.canon) { e.live = true; armKeepStats.live++; return; }
+      if (canon !== e.probe.canon) { armWhy(c, 'pose', e.probe.canon, canon); e.live = true; e.liveAt = ARM_FRAME; armKeepStats.live++; return; }
       e.kept = { rec, canon, pts: armPoints(rec), ox, oy };
       e.checked = ARM_FRAME; e.probe = null; armKeepStats.kept++;
       // What it pushed this frame is the kept set itself; register those as groups for the GPU.
       SPRITE_SINK.length = rec.marks[0]; if (STROKE_SINK) STROKE_SINK.length = rec.marks[1];
       if (DECAL_SINK) DECAL_SINK.length = rec.marks[2]; if (BAY_SINK) BAY_SINK.length = rec.marks[3];
-      armReplay(e.kept, ox, oy);
+      armReplay(e.kept, ox, oy, cam, false, ctx, now);
       return;
     }
   }
