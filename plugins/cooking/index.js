@@ -16,6 +16,7 @@ import { getZoneFurniture, getZone, updateFurniture } from '../../server/engine/
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { registerAction, dispatchAction, getRegisteredActions } from '../../server/engine/actions.js';
 import { getZonePowerStatus } from '../../server/engine/environment.js';
+import { drawWater, isDrinkingSource } from '../../server/engine/water.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { containerCapacity, containerContentsWeight } from '../../server/engine/commands/inventory.js';
 import { tagValue, hasTag } from '../../server/engine/tags.js';
@@ -2442,12 +2443,12 @@ const WATER_ITEM = 'item_water';
 // rooms are synthetic and never persisted, so a hot spring or a camp's water barrel out in the waste
 // would be invisible to this query forever. The zone tag is the same NAME the furniture flag uses, so
 // there is nothing new to learn to author one, and it is checked first because it costs no round trip.
+//
+// The furniture half reads the in-memory room (world.furniture), like `drink` and `fill` do.
 async function waterSourceIn(zoneId) {
   const z = getZone(zoneId);
-  if (z?.flags?.water_source) return { id: `zonewater_${zoneId}`, name: z.name };
-  const { rows } = await query(
-    `SELECT id, name FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'water_source') LIMIT 1`, [zoneId]);
-  return rows[0] || null;
+  if (z?.flags?.water_source) return { id: `zonewater_${zoneId}`, name: z.name, zone: true };
+  return getZoneFurniture(zoneId).find(isDrinkingSource) || null;
 }
 
 // The cookware half of `fill`. Returns undefined — falls through — for anything
@@ -2467,6 +2468,10 @@ async function fillVessel(args, raw, player) {
 
   const src = await waterSourceIn(player.current_zone);
   if (!src) return { type: 'error', message: `There's no water here to fill the ${vessel.name} from.` };
+  // The mains can be off (server/engine/water.js). Boiling sees to cloudy water; foul water
+  // carries the same disease risk as water out of a fouled bowl.
+  const draw = drawWater(src.zone ? null : src, player.current_zone);
+  if (!draw.ok) return { type: 'error', message: draw.message };
 
   const contents = await vesselContents(vessel.inv_id);
   if (contents.some(isMedium)) return { type: 'error', message: `The ${vessel.name} already has water in it.` };
@@ -2484,7 +2489,7 @@ async function fillVessel(args, raw, player) {
   // plating — see hazards.js — so nothing downstream needs to know where this
   // particular liquid came from.
   const contam = await dispatchAction({ type: 'bodily.toiletContamination', params: { furnitureId: src.id } });
-  const foul = !!(contam?.fouled || contam?.peed);
+  const foul = !!(contam?.fouled || contam?.peed) || draw.quality === 'foul';
 
   await query(
     `INSERT INTO player_inventory (id, player_id, item_id, quantity, container_id, custom_data)

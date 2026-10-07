@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A glass box on a mezzanine over the pump hall, with a gauge board along one wall, a desk, a kettle and a logbook open to today. You can see all three pumps from here. The window is greasy where people lean on it.",
+  "exits": {
+    "down": "zone_waterworks_pumphall"
+  },
+  "flags": {
+    "building_name": "Coldwater Waterworks",
+    "building_type": "pumping_station",
+    "floor": "linoleum",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_919_901"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_waterworks_control",
+  "map_id": "map_int_waterworks",
+  "name": "Coldwater Waterworks — Control Room",
+  "parent_zone": "zone_district_919_901"
+}

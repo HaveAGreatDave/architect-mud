@@ -25,7 +25,7 @@ export default async function regress({ run, check, getPlayer }) {
   check('shower verb routed + no-shower gate', /no shower here/i.test(r?.message || ''), r?.message);
 
   // Shower recognised the same three ways as a toilet (type / flag / name).
-  const { isShower } = await import('./index.js');
+  const { isShower } = await import('../../server/engine/water.js');
   check('object_type shower recognised', isShower({ name: 'jet', object_type: 'shower', flags: {} }) === true);
   check('name-only shower recognised', isShower({ name: 'rain shower head', object_type: 'fixture', flags: {} }) === true);
   check('flag shower recognised', isShower({ name: 'stall', object_type: 'fixture', flags: { shower: true } }) === true);

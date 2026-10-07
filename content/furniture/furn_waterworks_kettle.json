@@ -1,0 +1,8 @@
+{
+  "description": "An electric kettle with a limescale ring halfway up, and three mugs. One says ENGINEER.",
+  "flags": {},
+  "id": "furn_waterworks_kettle",
+  "name": "kettle",
+  "object_type": "fixture",
+  "zone_id": "zone_waterworks_control"
+}

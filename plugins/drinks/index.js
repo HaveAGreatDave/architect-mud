@@ -22,6 +22,7 @@ import { adjustSanity } from '../../server/engine/condition.js';
 import { registerAction, dispatchAction, getRegisteredActions } from '../../server/engine/actions.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { getZoneFurniture, getZone } from '../../server/engine/world.js';
+import { drawWater, isDrinkingSource } from '../../server/engine/water.js';
 import { getItem } from '../../server/engine/items-cache.js';
 import { sendToZone } from '../../server/engine/messaging.js';
 import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
@@ -601,10 +602,12 @@ async function cmdRinse(args, raw, player) {
   // A zone can be its own water source — see cooking's `waterSourceIn` for why a transient room out
   // in the waste has no other way to say so, and note that the tag name is the furniture flag's.
   const selfSource = !!getZone(player.current_zone)?.flags?.water_source;
-  const { rows: src } = selfSource ? { rows: [{ name: 'the water' }] } : await query(
-    `SELECT name FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'water_source') LIMIT 1`,
-    [player.current_zone]);
+  const tap = selfSource ? null : getZoneFurniture(player.current_zone).find(isDrinkingSource);
+  const src = selfSource ? [{ name: 'the water' }] : tap ? [tap] : [];
   if (!src.length) return { type: 'error', message: `There's no water here to rinse it in.` };
+  // The mains can be off or foul (server/engine/water.js).
+  const draw = drawWater(tap, player.current_zone, { use: 'wash' });
+  if (!draw.ok) return { type: 'error', message: draw.message };
 
   // Soap is rewarded, not required — the same trade the cleaning plugin makes
   // for a mop. A bare rinse gets the drink out; soap gets the smell out too.

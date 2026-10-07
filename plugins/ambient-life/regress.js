@@ -7,7 +7,8 @@ import { _eviction } from './eviction.js';
 import { _blackout, zoneIsDark } from './blackout.js';
 import { isDwellingZone } from '../../server/engine/zone-tags.js';
 import { world, getZone, getZoneFurniture } from '../../server/engine/world.js';
-import { isToilet, isShower } from '../bodily/index.js';
+import { isToilet } from '../bodily/index.js';
+import { isShower } from '../../server/engine/water.js';
 
 export default async function regress({ run, check }) {
   // ── Verb routing ──

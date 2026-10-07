@@ -37,7 +37,8 @@ import { npcWashAtHome } from '../../server/engine/hygiene.js';
 import { query } from '../../server/models/db.js';
 import { DISHES } from '../cooking/dishes.js';
 import { DRINKS } from '../drinks/recipes.js';
-import { isToilet, isShower } from '../bodily/index.js';
+import { isToilet } from '../bodily/index.js';
+import { isShower } from '../../server/engine/water.js';
 import { zoneIsDark } from './blackout.js';
 
 const START_CHANCE = 0.35;                 // per eligible zone, per tick

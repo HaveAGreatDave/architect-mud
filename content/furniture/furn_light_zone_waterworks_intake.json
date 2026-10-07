@@ -1,0 +1,11 @@
+{
+  "description": "A floodlight on the gantry, pointed at the screens so the rake man can see what he is lifting.",
+  "flags": {},
+  "id": "furn_light_zone_waterworks_intake",
+  "light_type": "overhead",
+  "lumen_output": 1400,
+  "name": "floodlight",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_waterworks_intake"
+}

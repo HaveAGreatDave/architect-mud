@@ -1,0 +1,10 @@
+{
+  "description": "A brass tap on the outlet main, for drawing samples. The tin cup is chained to it. The water is cold and tastes of nothing, which is the point.",
+  "flags": {
+    "water_source": true
+  },
+  "id": "furn_waterworks_tap",
+  "name": "sampling tap",
+  "object_type": "fixture",
+  "zone_id": "zone_waterworks_filters"
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_waterworks_filters",
+  "b": "zone_waterworks_intake",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_waterworks_filters_north",
+  "lockable": false,
+  "one_way": false
+}

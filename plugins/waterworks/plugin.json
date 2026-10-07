@@ -1,0 +1,23 @@
+{
+  "name": "waterworks",
+  "version": "1.0.0",
+  "description": "The plant that decides whether a region's taps run. A state machine per plant (running, fault, unpowered, turbid, foul) turned into the region's water supply through the engine's one writer, setWaterSupply. Faults, power from the grid, silt after heavy rain, and the water tower's half hour of buffer. `gauges` reads the plant; `waterworks` is the staff verb.",
+  "commands": [
+    "gauges",
+    "waterworks"
+  ],
+  "events": {
+    "consumes": [
+      "water.supply.changed"
+    ],
+    "emits": []
+  },
+  "ticks": [
+    "1m"
+  ],
+  "extensionPoints": [
+    "furniture.flags.waterworks",
+    "furniture.flags.water_intake",
+    "furniture.flags.water_gauges"
+  ]
+}

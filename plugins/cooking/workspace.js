@@ -17,6 +17,7 @@
 // for appliances, power and temperature — those are in-memory world state.
 import { query } from '../../server/models/db.js';
 import { getZoneFurniture } from '../../server/engine/world.js';
+import { isDrinkingSource } from '../../server/engine/water.js';
 import { getZonePowerStatus, getZoneTemperature } from '../../server/engine/environment.js';
 import { hasTag, tagValue } from '../../server/engine/tags.js';
 import { checkCooking, cooksOnAppliances, sessionProfile } from './cook.js';
@@ -69,7 +70,7 @@ function kitchenFurniture(zoneId) {
     boxes: furn.filter(f => f.object_type === 'container'),
     // A tap. Not a gate on the HUD existing — a kitchen without one is a real
     // kitchen — but `fill` needs one, so the HUD must know before it offers it.
-    taps: furn.filter(f => f.flags?.water_source),
+    taps: furn.filter(isDrinkingSource),
   };
 }
 

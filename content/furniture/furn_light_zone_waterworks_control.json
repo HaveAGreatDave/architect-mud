@@ -1,0 +1,11 @@
+{
+  "description": "One strip light over the desk. The gauge board has its own small lamps.",
+  "flags": {},
+  "id": "furn_light_zone_waterworks_control",
+  "light_type": "overhead",
+  "lumen_output": 1100,
+  "name": "strip light",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_waterworks_control"
+}

@@ -1,0 +1,523 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0.44,
+      "kind": "glowPool",
+      "rgb": "255,220,170",
+      "s": 10,
+      "z": 0.2
+    },
+    {
+      "cx": -0.27,
+      "cy": 0.42,
+      "kind": "glowPool",
+      "rgb": "210,236,240",
+      "s": 12,
+      "z": 0.3
+    },
+    {
+      "cx": 0.27,
+      "cy": 0.42,
+      "kind": "glowPool",
+      "rgb": "210,236,240",
+      "s": 12,
+      "z": 0.3
+    },
+    {
+      "cx": 0.32,
+      "cy": -0.26,
+      "kind": "blinkLight",
+      "r": 1.2,
+      "rgb": "255,70,60",
+      "z": 1.48
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Coldwater Waterworks"
+    }
+  ],
+  "detail": [
+    {
+      "bars": 2,
+      "cx": -0.33,
+      "cy": 0.36,
+      "depth": 0.018,
+      "glass": "#1e2a2e",
+      "glow": "#d8ecf0",
+      "half": 0.05,
+      "hh": 0.2,
+      "kind": "windowBay",
+      "pal": "ty_fprint_stone",
+      "transom": 0.82,
+      "z": 0.3
+    },
+    {
+      "cx": -0.33,
+      "cy": 0.36,
+      "half": 0.064,
+      "hh": 0.014,
+      "kind": "canopy",
+      "out": 0.016,
+      "pal": "ty_fprint_stone",
+      "z": 0.515
+    },
+    {
+      "bars": 2,
+      "cx": -0.2,
+      "cy": 0.36,
+      "depth": 0.018,
+      "glass": "#1e2a2e",
+      "glow": "#d8ecf0",
+      "half": 0.05,
+      "hh": 0.2,
+      "kind": "windowBay",
+      "pal": "ty_fprint_stone",
+      "transom": 0.82,
+      "z": 0.3
+    },
+    {
+      "cx": -0.2,
+      "cy": 0.36,
+      "half": 0.064,
+      "hh": 0.014,
+      "kind": "canopy",
+      "out": 0.016,
+      "pal": "ty_fprint_stone",
+      "z": 0.515
+    },
+    {
+      "bars": 2,
+      "cx": 0.2,
+      "cy": 0.36,
+      "depth": 0.018,
+      "glass": "#1e2a2e",
+      "glow": "#d8ecf0",
+      "half": 0.05,
+      "hh": 0.2,
+      "kind": "windowBay",
+      "pal": "ty_fprint_stone",
+      "transom": 0.82,
+      "z": 0.3
+    },
+    {
+      "cx": 0.2,
+      "cy": 0.36,
+      "half": 0.064,
+      "hh": 0.014,
+      "kind": "canopy",
+      "out": 0.016,
+      "pal": "ty_fprint_stone",
+      "z": 0.515
+    },
+    {
+      "bars": 2,
+      "cx": 0.33,
+      "cy": 0.36,
+      "depth": 0.018,
+      "glass": "#1e2a2e",
+      "glow": "#d8ecf0",
+      "half": 0.05,
+      "hh": 0.2,
+      "kind": "windowBay",
+      "pal": "ty_fprint_stone",
+      "transom": 0.82,
+      "z": 0.3
+    },
+    {
+      "cx": 0.33,
+      "cy": 0.36,
+      "half": 0.064,
+      "hh": 0.014,
+      "kind": "canopy",
+      "out": 0.016,
+      "pal": "ty_fprint_stone",
+      "z": 0.515
+    },
+    {
+      "bars": 1,
+      "cx": 0,
+      "cy": 0.376,
+      "depth": 0.02,
+      "glass": "#22282a",
+      "glow": "#ffe0b0",
+      "half": 0.055,
+      "hh": 0.11,
+      "kind": "windowBay",
+      "pal": "ty_pump_dk",
+      "transom": 0.8,
+      "z": 0.16
+    },
+    {
+      "bare": true,
+      "color": "#00000000",
+      "cx": 0,
+      "cy": 0.378,
+      "font": "block",
+      "half": 0.095,
+      "hh": 0.05,
+      "ink": "#3a2a24",
+      "kind": "signBoard",
+      "label": "$name",
+      "z": 0.38
+    },
+    {
+      "bars": 1,
+      "cx": 0,
+      "cy": 0.376,
+      "depth": 0.012,
+      "glass": "#1e2a2e",
+      "glow": "#d8ecf0",
+      "half": 0.04,
+      "hh": 0.035,
+      "kind": "windowBay",
+      "pal": "ty_fprint_stone",
+      "z": 0.48
+    },
+    {
+      "cx": 0,
+      "cy": 0.36,
+      "kind": "pilaster",
+      "n": 4,
+      "out": 0.012,
+      "pal": "ty_ff_brick",
+      "step": 0.27,
+      "w": 0.02,
+      "z0": 0.05,
+      "z1": 0.6
+    },
+    {
+      "cx": -0.26,
+      "cy": 0.36,
+      "drip": 0.5,
+      "kind": "grime",
+      "w": 0.14,
+      "z": 0.6
+    },
+    {
+      "cx": 0.27,
+      "cy": 0.36,
+      "drip": 0.4,
+      "kind": "grime",
+      "w": 0.1,
+      "z": 0.6
+    },
+    {
+      "count": 2,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": -0.15,
+        "cy": 0.42,
+        "depth": 0.018,
+        "face": "x",
+        "glass": "#1e2a2e",
+        "glow": "#d8ecf0",
+        "half": 0.05,
+        "hh": 0.2,
+        "kind": "windowBay",
+        "pal": "ty_fprint_stone",
+        "transom": 0.82,
+        "z": 0.3
+      },
+      "step": {
+        "cx": 0.3
+      }
+    },
+    {
+      "count": 2,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": -0.15,
+        "cy": -0.42,
+        "depth": 0.018,
+        "face": "x",
+        "glass": "#1e2a2e",
+        "glow": "#d8ecf0",
+        "half": 0.05,
+        "hh": 0.2,
+        "kind": "windowBay",
+        "pal": "ty_fprint_stone",
+        "transom": 0.82,
+        "z": 0.3
+      },
+      "step": {
+        "cx": 0.3
+      }
+    },
+    {
+      "cx": 0.2,
+      "cy": 0.42,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_mains_engine",
+      "r": 0.03,
+      "z0": 0,
+      "z1": 0.14
+    },
+    {
+      "cx": 0.42,
+      "cy": 0.2,
+      "kind": "ductRun",
+      "pal": "ty_mains_engine",
+      "r": 0.028,
+      "run": 0.06,
+      "z0": 0.14,
+      "z1": 0.14
+    },
+    {
+      "bay": true,
+      "cx": -0.18,
+      "cy": -0.36,
+      "half": 0.12,
+      "hh": 0.15,
+      "kind": "shutter",
+      "pal": "ty_pump_dk",
+      "z": 0.2
+    },
+    {
+      "bars": 2,
+      "cx": 0.08,
+      "cy": -0.36,
+      "depth": 0.018,
+      "glass": "#1e2a2e",
+      "glow": "#d8ecf0",
+      "half": 0.05,
+      "hh": 0.2,
+      "kind": "windowBay",
+      "pal": "ty_fprint_stone",
+      "transom": 0.82,
+      "z": 0.3
+    },
+    {
+      "cx": 0.08,
+      "cy": -0.36,
+      "half": 0.064,
+      "hh": 0.014,
+      "kind": "canopy",
+      "out": 0.016,
+      "pal": "ty_fprint_stone",
+      "z": 0.515
+    },
+    {
+      "bars": 2,
+      "cx": 0.2,
+      "cy": -0.36,
+      "depth": 0.018,
+      "glass": "#1e2a2e",
+      "glow": "#d8ecf0",
+      "half": 0.05,
+      "hh": 0.2,
+      "kind": "windowBay",
+      "pal": "ty_fprint_stone",
+      "transom": 0.82,
+      "z": 0.3
+    },
+    {
+      "cx": 0.2,
+      "cy": -0.36,
+      "half": 0.064,
+      "hh": 0.014,
+      "kind": "canopy",
+      "out": 0.016,
+      "pal": "ty_fprint_stone",
+      "z": 0.515
+    },
+    {
+      "cx": -0.38,
+      "cy": -0.36,
+      "kind": "pipe",
+      "pal": "ty_pump_dk",
+      "r": 0.01,
+      "z0": 0.05,
+      "z1": 0.6
+    },
+    {
+      "cx": 0,
+      "cy": 0.05,
+      "drip": 0.2,
+      "half": 0.22,
+      "hh": 0.03,
+      "kind": "louvreBank",
+      "n": 12,
+      "pal": "ty_dw_slate",
+      "z": 0.785
+    },
+    {
+      "cx": 0,
+      "cy": -0.05,
+      "drip": 0.2,
+      "half": 0.22,
+      "hh": 0.03,
+      "kind": "louvreBank",
+      "n": 12,
+      "pal": "ty_dw_slate",
+      "z": 0.785
+    },
+    {
+      "cx": 0.32,
+      "cy": -0.26,
+      "hh": 0.03,
+      "kind": "collar",
+      "pal": "ty_fprint_stone",
+      "r": 0.045,
+      "z": 1.38
+    },
+    {
+      "band": "#d8c890",
+      "count": 2,
+      "cx": -0.12,
+      "cy": 0.46,
+      "kind": "bollard",
+      "pal": "ty_pump_dk",
+      "step": 0.24,
+      "z": 0.004
+    },
+    {
+      "cx": 0.42,
+      "cy": 0.48,
+      "kind": "streetLamp",
+      "out": 0.12,
+      "pal": "ty_pump_dk",
+      "r": 0.026,
+      "rgb": "255,214,160",
+      "s": 9,
+      "z0": 0,
+      "z1": 0.1
+    }
+  ],
+  "id": "coldwaterwaterworks",
+  "note": "COLDWATER WATERWORKS: the plant at the head of Ironside Street that every tap in Coldwater\nruns from (docs/systems-water-supply.md).\n\nThe tile's prose: a long brick engine house with tall arched windows and a slate roof, two open\nbeds behind it along the shore. The beds are their own tiles (Waterworks Settling Beds).\n\nSo it is a red-brick hall a little under two storeys, on a stone plinth, with five tall arched\nwindows along the front under stone hoods and the door in the middle, under a stone pediment that\ncarries the name, once, painted (`bare`). The roof is slate, stepped to a ridge, with a louvred\nlantern along it for the pump heat. The old boiler chimney still stands at the back corner, from\nbefore the pumps went electric. A blue main comes out of the east flank and dives into the ground.\nThe flanks carry two more arched windows each; the back has a roller door for plant.\n\nThe palettes are brick (`ty_ff_brick`), stone trim and slate. The blue is `ty_mains_engine`,\nthe Halcyon Fields Pumping Station's pump blue, because it is the same pipe.",
+  "pal": "ty_ff_brick",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.43,
+      "kind": "box",
+      "pal": "ty_fprint_stone",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.05
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.35,
+      "hw": 0.41,
+      "kind": "box",
+      "pal": "ty_ff_brick",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.6
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.36,
+      "hw": 0.42,
+      "kind": "box",
+      "pal": "ty_fprint_stone",
+      "roof": true,
+      "z0": 0.6,
+      "z1": 0.63
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.28,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_dw_slate",
+      "roof": true,
+      "z0": 0.63,
+      "z1": 0.68
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.19,
+      "hw": 0.39,
+      "kind": "box",
+      "pal": "ty_dw_slate",
+      "roof": true,
+      "z0": 0.68,
+      "z1": 0.72
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.1,
+      "hw": 0.38,
+      "kind": "box",
+      "pal": "ty_dw_slate",
+      "roof": true,
+      "z0": 0.72,
+      "z1": 0.75
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.05,
+      "hw": 0.24,
+      "kind": "box",
+      "pal": "ty_ff_brick",
+      "roof": true,
+      "z0": 0.75,
+      "z1": 0.82
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.065,
+      "hw": 0.25,
+      "kind": "box",
+      "pal": "ty_dw_slate",
+      "roof": true,
+      "z0": 0.82,
+      "z1": 0.84
+    },
+    {
+      "cx": 0,
+      "cy": 0.36,
+      "fd": 0.016,
+      "hw": 0.11,
+      "kind": "box",
+      "pal": "ty_fprint_stone",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.56
+    },
+    {
+      "cx": 0.32,
+      "cy": -0.26,
+      "fd": 0.06,
+      "hw": 0.06,
+      "kind": "box",
+      "pal": "ty_fprint_stone",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.2
+    },
+    {
+      "cap": true,
+      "cx": 0.32,
+      "cy": -0.26,
+      "kind": "drum",
+      "n": 10,
+      "pal": "ty_ff_brick",
+      "rb": 0.05,
+      "rt": 0.036,
+      "z0": 0.2,
+      "z1": 1.45
+    }
+  ],
+  "trade": "pumping_station"
+}

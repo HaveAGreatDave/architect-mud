@@ -1,0 +1,23 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A long gallery over six sand filters, each a concrete tank with a walkway down one side. The water comes in grey at one end and goes out clear at the other. A brass sampling tap stands at the outlet with a tin cup on a chain.",
+  "exits": {
+    "north": "zone_waterworks_intake",
+    "south": "zone_waterworks_pumphall"
+  },
+  "flags": {
+    "building_name": "Coldwater Waterworks",
+    "building_type": "pumping_station",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_919_901"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_waterworks_filters",
+  "map_id": "map_int_waterworks",
+  "name": "Coldwater Waterworks — Filter Gallery",
+  "parent_zone": "zone_district_919_901"
+}

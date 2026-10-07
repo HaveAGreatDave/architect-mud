@@ -24,6 +24,7 @@ import {
   NPC_AROUSAL_MSGS, NPC_CLIMAX_MSGS, THREESOME_JOIN_MSGS, THREESOME_CLIMAX_MSGS,
 } from './mis-system.js';
 import { world, getZone, getZonePlayers, getZoneNpcs, getLivePlayer, getAllLivePlayers, getZoneFurniture } from '../../server/engine/world.js';
+import { drawWater, isWaterSource } from '../../server/engine/water.js';
 import { stainZone, stainClothing } from '../../server/engine/bodily.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { isNpcMisWilling, getNpcMisLine, npcMisAttacks } from '../../server/engine/npc-personality.js';
@@ -1884,15 +1885,18 @@ async function useSoap(player) {
   return true;
 }
 
-// Anything you can wash at: a sink, or authored `water_source` furniture (a
-// shower, a fountain, a standpipe). The same predicate the SQL used to spell out.
-const isWaterSourceFurn = (f) => f.object_type === 'sink' || !!f.flags?.water_source;
+// Anything you can wash at is the engine's `isWaterSource` (server/engine/water.js): a shower, a
+// sink, or authored `water_source` furniture. Whether it is running is the engine's law, drawWater.
+function tapHere(player) {
+  return getZoneFurniture(player.current_zone).find(isWaterSource) || null;
+}
 
 async function cmdWashHands(player) {
   // In-memory room furniture — this was a round trip per `wash`.
-  if (!getZoneFurniture(player.current_zone).some(isWaterSourceFurn)) {
-    return { type:'error', message:`There's no water source here.` };
-  }
+  const tap = tapHere(player);
+  if (!tap) return { type:'error', message:`There's no water source here.` };
+  const draw = drawWater(tap, player.current_zone, { use: 'wash' });
+  if (!draw.ok) return { type:'error', message: draw.message };
 
   let msg = `You wash your hands at the sink.`;
   // Shit on your hands is the one thing WASH HANDS obviously ought to fix, and
@@ -1912,7 +1916,10 @@ async function cmdWashHands(player) {
 async function cmdWash(args, raw, player) {
   if (args[0] === 'hands') return cmdWashHands(player);
 
-  const hasSink = getZoneFurniture(player.current_zone).some(isWaterSourceFurn);
+  // A dry or foul tap is no tap: rain or a bottle can still do the job.
+  const tap = tapHere(player);
+  const draw = tap ? drawWater(tap, player.current_zone, { use: 'wash' }) : null;
+  const hasSink = !!draw?.ok;
 
   // Falling rain is a free open-air water source. Acid rain is caustic — it
   // won't clean you (and would only make things worse), so reject it.
@@ -1933,7 +1940,7 @@ async function cmdWash(args, raw, player) {
        WHERE pi.player_id=$1 AND (i.tags->>'restore_thirst' IS NOT NULL OR i.name ILIKE '%water%') LIMIT 1`,
       [player.id]
     );
-    if (!rows.length) return { type:'error', message:`You need a sink, rain, or water to wash yourself.` };
+    if (!rows.length) return { type:'error', message: draw ? draw.message : `You need a sink, rain, or water to wash yourself.` };
     waterRow = rows[0];
   }
 

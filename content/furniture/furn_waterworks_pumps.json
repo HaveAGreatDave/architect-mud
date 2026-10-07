@@ -1,0 +1,10 @@
+{
+  "description": "Three electric pumps painted blue, each the size of a car, on concrete plinths. Brass plates say MAIN, STANDBY and STANDBY. The one marked MAIN has a pencil tally on its casing of every time it has been stripped down.",
+  "flags": {
+    "waterworks": "region_coldwater"
+  },
+  "id": "furn_waterworks_pumps",
+  "name": "pump set",
+  "object_type": "fixture",
+  "zone_id": "zone_waterworks_pumphall"
+}

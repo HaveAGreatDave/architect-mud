@@ -1,0 +1,10 @@
+{
+  "description": "A steel board with a dial for each pump, a tall tower gauge and a turbidity needle, each with a little lamp over it. Notes in grease pencil run down the margin. Type gauges to read it.",
+  "flags": {
+    "water_gauges": "region_coldwater"
+  },
+  "id": "furn_waterworks_board",
+  "name": "gauge board",
+  "object_type": "fixture",
+  "zone_id": "zone_waterworks_control"
+}

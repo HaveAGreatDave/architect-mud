@@ -20,6 +20,7 @@ import { resolve as siftResolve, createSelectionState, formatSelectionPage } fro
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { registerAction } from '../../server/engine/actions.js';
 import { registerStatusEffect, applyEffect } from '../../server/engine/effects.js';
+import { drawWater, isShower, isWaterSource } from '../../server/engine/water.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { setPosture } from '../../server/engine/posture.js';
 import { emit, on } from '../../server/engine/events.js';
@@ -45,15 +46,8 @@ import { adjustRelation } from '../../server/engine/relations.js';
 export const isToilet = (f) =>
   f?.object_type === 'toilet' || !!f?.flags?.toilet || /\btoilet\b/i.test(f?.name || '');
 
-// What counts as a shower — the same three-way match as a toilet (object_type,
-// a flags.shower key, or the word in the name), so a fixture named "…shower…"
-// just works whether or not the dev remembered to type it.
-export const isShower = (f) =>
-  f?.object_type === 'shower' || !!f?.flags?.shower || /\bshower\b/i.test(f?.name || '');
-
-// Anything you can get clean under: a shower, a sink, or an authored water source.
-const isWaterSource = (f) =>
-  isShower(f) || f?.object_type === 'sink' || !!f?.flags?.water_source;
+// What counts as a shower, and anything you can get clean under, are the engine's
+// (server/engine/water.js), because the water supply law reads them too.
 
 // Runtime-only state. A toilet stays fouled (poop) / full of piss until flushed;
 // toiletSessions guards against starting a toilet routine twice at once.
@@ -1109,8 +1103,11 @@ function showerStage(player, session, fn) {
 }
 
 async function cmdShower(player) {
-  if (!getZoneFurniture(player.current_zone).some(isShower)) return { type:'error', message:`There's no shower here.` };
+  const head = getZoneFurniture(player.current_zone).find(isShower);
+  if (!head) return { type:'error', message:`There's no shower here.` };
   if (showerSessions.has(player.id)) return { type:'error', message:`You're already under the water.` };
+  const draw = drawWater(head, player.current_zone, { use: 'wash' });
+  if (!draw.ok) return { type:'error', message: draw.message };
 
   const session = { zoneId: player.current_zone, timers: [] };
   showerSessions.set(player.id, session);
@@ -1275,6 +1272,8 @@ registerAction({
   handler: ({ actor, params }) => {
     applyEffect(actor, 'sick', 40);
     const worse = params.fouled;
+    // Foul water off the mains (server/engine/water.js) is the river, not a toilet.
+    if (params.mains) return { type: 'data', message: `<span style="color:var(--red)">It tastes of rust and the river. Your stomach turns over.</span>` };
     return {
       type: 'data',
       message: worse
@@ -1325,7 +1324,7 @@ async function cmdUseToilet(player) {
 
 async function cmdUseSink(player) {
   const s = getZoneFurniture(player.current_zone)
-    .find(f => f.object_type === 'sink' || !!f.flags?.water_source);
+    .find(f => isWaterSource(f) && !isShower(f));
   if (!s) return undefined;
 
   const washHandsLink = `<span class="action-link" data-action="wash" data-target="hands">wash hands</span>`;
@@ -1626,9 +1625,10 @@ async function cmdSoap(args, raw, player, broadcast) {
   const nameStr = args.filter(a => !['up', 'down', 'off'].includes(a)).join(' ')
     .replace(/^(the|my)\s+/i, '').trim();
 
-  if (!getZoneFurniture(player.current_zone).some(isWaterSource)) {
-    return { type: 'error', message: `You need running water for that.` };
-  }
+  const tap = getZoneFurniture(player.current_zone).find(isWaterSource);
+  if (!tap) return { type: 'error', message: `You need running water for that.` };
+  const draw = drawWater(tap, player.current_zone, { use: 'wash' });
+  if (!draw.ok) return { type: 'error', message: draw.message };
 
   // No target (or yourself) → wash yourself, which is what SOAP plainly means.
   // (It used to fall through here on the assumption mis owned a bare `soap`; mis

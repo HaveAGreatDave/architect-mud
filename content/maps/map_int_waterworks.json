@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_waterworks_pumphall",
+  "id": "map_int_waterworks",
+  "name": "Coldwater Waterworks",
+  "parent_zone_id": "zone_district_919_901"
+}

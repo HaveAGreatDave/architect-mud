@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_waterworks_pumphall",
+  "id": "zone_waterworks_control",
+  "name": "Coldwater Waterworks — Control Room",
+  "source_type": "junction_box"
+}

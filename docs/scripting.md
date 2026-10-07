@@ -230,6 +230,7 @@ are not uniform. Verified examples:
 |---|---|---|
 | `credits.changed` | `${event.delta}`, `${event.reason}`, `${event.after}` | **no actor** — carries `playerId`, so `once`/`say`/player-scope flags don't work here |
 | `zone.power.changed` | `${event.zoneId}`, `${event.prevStatus}`, `${event.status}` | **no actor** either — a zone’s supply changed (`powered`/`overloaded`/`offline`), fired on the transition only. `silent` means something else is already narrating the blackout |
+| `water.supply.changed` | `${event.network}`, `${event.from.state}`, `${event.to.state}`, `${event.to.quality}` | **no actor** — a region's mains changed (`flowing`/`low`/`dry`, `clean`/`cloudy`/`foul`); `network` is the region id. Emitted by `setWaterSupply` on a change only. See [systems-water-supply.md](systems-water-supply.md) |
 | `vendor.purchase` | `${event.itemId}`, `${event.price}`, `${event.quantity}`, `${event.player.handle}` | `player`, not `actor` — the dispatcher normalizes both |
 | `item.taken` / `item.dropped` | `${event.item.name}`, `${event.item.id}` | full item row |
 | `item.equipped` | `${event.item.name}`, `${event.slot}` | |

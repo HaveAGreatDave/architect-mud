@@ -1,23 +1,21 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_theme": "outdoors",
   "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
-  "exits": {
-    "east": "zone_district_922_901",
-    "north": "zone_district_921_900",
-    "west": "zone_district_920_901"
-  },
+  "description": "A long open concrete bed full of still brown water, with a walkway along the wall and a sluice at each end. Silt settles here before the water goes on to the filters. Gulls stand on the walkway and watch it.",
+  "exits": {},
   "flags": {
+    "building_name": "Waterworks Settling Beds",
+    "building_type": "pumping_station",
     "district": "docks",
-    "region_id": "region_coldwater",
-    "terrain": "grass"
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 921,
   "grid_y": 901,
   "grid_z": 0,
   "id": "zone_district_921_901",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Waterworks Settling Beds",
   "parent_zone": null
 }

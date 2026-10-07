@@ -1,0 +1,11 @@
+{
+  "description": "Caged lamps along the walkway, one over each filter, each with a moth or two.",
+  "flags": {},
+  "id": "furn_light_zone_waterworks_filters",
+  "light_type": "overhead",
+  "lumen_output": 900,
+  "name": "cage lamps",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_waterworks_filters"
+}

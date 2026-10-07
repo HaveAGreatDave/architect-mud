@@ -1,0 +1,23 @@
+{
+  "ambient_theme": "outdoors",
+  "description": "An open concrete channel where the Basin comes in under a row of steel screens. A rake on a gantry drags the screens clean, and whatever it lifts goes in a skip: weed, plastic, a shoe, the occasional fish. There is no roof. When it rains hard the channel runs brown.",
+  "exits": {
+    "south": "zone_waterworks_filters"
+  },
+  "flags": {
+    "building_name": "Coldwater Waterworks",
+    "building_type": "pumping_station",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "open_sky": true,
+    "world_exit_zone": "zone_district_919_901"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_waterworks_intake",
+  "map_id": "map_int_waterworks",
+  "name": "Coldwater Waterworks — Intake Screens",
+  "parent_zone": "zone_district_919_901"
+}

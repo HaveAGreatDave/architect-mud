@@ -1,0 +1,243 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Holm taps the tower gauge with a fingernail and writes a number in the log.",
+    "She looks down through the glass at the pumps, listening rather than looking.",
+    "She puts the kettle on and forgets it, and it clicks off by itself.",
+    "\"Two pumps running, one resting. That is the whole secret,\" she says, to nobody."
+  ],
+  "description": "A broad woman in her forties in blue overalls, with ear defenders round her neck and a torch in the bib pocket. She reads the gauge board the way other people read a clock, without seeming to look at it.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "She is already writing in the log."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What have you got?",
+          "next": "__shop__"
+        },
+        {
+          "label": "What happens here?",
+          "next": "works"
+        },
+        {
+          "label": "What if it stops?",
+          "next": "stops"
+        },
+        {
+          "label": "I'll leave you to it.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Shut the door, it keeps the noise down.\" She doesn't look away from the board. \"If you want water, there is a tap in the gallery. If you want a can of it, I sell those.\""
+    },
+    "stops": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Then the tower holds the city for about four hours, and the taps run thin while it does.\" She shrugs. \"Most faults I have fixed by then. If the power goes, or a motor burns out, the city goes dry and Quell gets rich.\"\n\n\"Type <b>gauges</b> at the board if you want to know where we are. I do not mind people reading it. I mind people touching it.\""
+    },
+    "works": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The Basin comes in through the screens, settles in the beds out back, goes through the sand and comes out clean.\" She points at each wall in turn. \"Then the pumps put it in the mains, the station up at Halcyon lifts it, and Orla Kemp's tower sends it down to everybody. Every tap in Coldwater. One pipe.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "blue overalls, oil on the knees, with a torch in the bib pocket",
+      "ear defenders hung round her neck",
+      "steel-capped boots, the laces doubled",
+      "a grey work shirt and plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_waterworks_control",
+  "hp": 38,
+  "hp_max": 38,
+  "id": "npc_waterworks_holm",
+  "name": "Dagny Holm",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_jerry_can_water",
+      "price": 60
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Coldwater Waterworks",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_waterworks_control"
+}

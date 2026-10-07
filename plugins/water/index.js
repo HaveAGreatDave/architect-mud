@@ -17,6 +17,8 @@ import { applyThirst } from '../../server/engine/bodily.js';
 import { slakeLine, portionLine } from '../../server/engine/appetite.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { getZoneFurniture } from '../../server/engine/world.js';
+import { applyEffect } from '../../server/engine/effects.js';
+import { drawWater, isDrinkingSource } from '../../server/engine/water.js';
 
 const DEFAULT_RESTORE = 50;
 
@@ -29,8 +31,14 @@ async function drinkFrom(args, raw, player) {
   const needle = target.toLowerCase();
   const furniture = target
     ? here.find(f => (f.name || '').toLowerCase().includes(needle))
-    : here.find(f => f.flags && 'water_source' in f.flags);
+    : here.find(isDrinkingSource);
   if (!furniture || !hasTag(furniture, 'water_source')) return undefined; // fall through
+
+  // The mains can be off or running dirty (server/engine/water.js). A dry tap refuses and costs
+  // nothing; a foul one still slakes, and makes you ill the way a fouled bowl does.
+  const draw = drawWater(furniture, player.current_zone);
+  if (!draw.ok) return { type: 'error', message: draw.message };
+  const note = draw.note ? ` <span class="text-dim">${draw.note}</span>` : '';
 
   const amount = tagValue(furniture, 'restore_thirst', DEFAULT_RESTORE);
   const before = player.thirst || 0;
@@ -46,6 +54,14 @@ async function drinkFrom(args, raw, player) {
   // drink (thirst restored above) and catch something. bodily owns the filth
   // state + the sickness — we just ask it over the action registry.
   const contam = await dispatchAction({ type: 'bodily.toiletContamination', params: { furnitureId: furniture.id } });
+  if (!(contam?.fouled || contam?.peed) && draw.quality === 'foul') {
+    applyEffect(player, 'sick', 25);
+    return {
+      type: 'use',
+      message: `You drink from the ${furniture.name}.${note} ${slake} <span style="color:var(--red)">It tastes of rust and the river. Your stomach turns over.</span>`,
+      player_update: { thirst: player.thirst },
+    };
+  }
   if (contam?.fouled || contam?.peed) {
     const foul = await dispatchAction({ type: 'bodily.drinkContaminated', actor: player, params: { fouled: contam.fouled } });
     return {
@@ -57,7 +73,7 @@ async function drinkFrom(args, raw, player) {
 
   return {
     type: 'use',
-    message: `You drink from the ${furniture.name}. ${slake}`,
+    message: `You drink from the ${furniture.name}.${note} ${slake}`,
     player_update: { thirst: player.thirst },
   };
 }

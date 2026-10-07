@@ -1,0 +1,118 @@
+{
+  "adorn": [
+    {
+      "cx": 0.4,
+      "cy": -0.3,
+      "kind": "glowPool",
+      "rgb": "255,214,160",
+      "s": 6,
+      "z": 0.17
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Waterworks Settling Beds"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": -0.4,
+      "half": 0.34,
+      "kind": "balcony",
+      "out": 0.05,
+      "pal": "ty_gate",
+      "rail": 0.035,
+      "z": 0.1
+    },
+    {
+      "cx": -0.4,
+      "cy": -0.36,
+      "hh": 0.012,
+      "kind": "roofTank",
+      "pal": "ty_pump_dk",
+      "r": 0.025,
+      "z": 0.17
+    },
+    {
+      "cx": 0.4,
+      "cy": -0.36,
+      "hh": 0.012,
+      "kind": "roofTank",
+      "pal": "ty_pump_dk",
+      "r": 0.025,
+      "z": 0.17
+    },
+    {
+      "cx": -0.47,
+      "cy": 0.1,
+      "kind": "pipe",
+      "pal": "ty_mains_engine",
+      "r": 0.018,
+      "z0": 0,
+      "z1": 0.07
+    },
+    {
+      "cx": 0,
+      "cy": 0.47,
+      "drip": 0.3,
+      "kind": "grime",
+      "w": 0.4,
+      "z": 0.07
+    }
+  ],
+  "id": "waterworkssettlingbeds",
+  "note": "WATERWORKS SETTLING BEDS: the two open beds behind the Coldwater Waterworks (920,901 and\n921,901), where the Basin's silt settles out before the filters.\n\nThe tiles' prose: a long open concrete bed full of still brown water, with a walkway along the wall\nand a sluice at each end. Gulls on the walkway.\n\nSo it is a low concrete tank filling the tile, its walls a little above the ground, with the water\na hand below the coping: a flat brown sheet. A steel walkway on posts runs along the north wall and\na sluice housing stands at each end, a small concrete hut with a wheel on top. No sign: nothing\nhere is a building with a door, and the plant next door carries the name. Both tiles bind this one\nmodel, so the pair reads as one installation.",
+  "pal": "ty_dam",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.47,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.07
+    },
+    {
+      "cx": 0,
+      "cy": 0.02,
+      "fd": 0.36,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_dam_stain",
+      "roof": true,
+      "z0": 0.07,
+      "z1": 0.075
+    },
+    {
+      "cx": -0.4,
+      "cy": -0.36,
+      "fd": 0.06,
+      "hw": 0.05,
+      "kind": "box",
+      "pal": "ty_dam_dk",
+      "roof": true,
+      "z0": 0.07,
+      "z1": 0.17
+    },
+    {
+      "cx": 0.4,
+      "cy": -0.36,
+      "fd": 0.06,
+      "hw": 0.05,
+      "kind": "box",
+      "pal": "ty_dam_dk",
+      "roof": true,
+      "z0": 0.07,
+      "z1": 0.17
+    }
+  ],
+  "trade": "pumping_station"
+}

@@ -1,0 +1,8 @@
+{
+  "description": "A ledger with a pencil on a string. Every hour has a line: pump hours, tower level, a word for the water. Most of the words are \"clear\".",
+  "flags": {},
+  "id": "furn_waterworks_logbook",
+  "name": "logbook",
+  "object_type": "fixture",
+  "zone_id": "zone_waterworks_control"
+}

@@ -1,0 +1,10 @@
+{
+  "description": "Steel bar screens across the channel, a hand apart, with a toothed rake that rides down them on a chain. The bars are polished bright where the rake runs.",
+  "flags": {
+    "water_intake": "region_coldwater"
+  },
+  "id": "furn_waterworks_screens",
+  "name": "intake screens",
+  "object_type": "fixture",
+  "zone_id": "zone_waterworks_intake"
+}

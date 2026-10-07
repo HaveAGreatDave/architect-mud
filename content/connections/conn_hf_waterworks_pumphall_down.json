@@ -1,0 +1,9 @@
+{
+  "a": "zone_waterworks_pumphall",
+  "b": "zone_util_zone_waterworks_pumphall",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_waterworks_pumphall_down",
+  "lockable": false,
+  "one_way": false
+}

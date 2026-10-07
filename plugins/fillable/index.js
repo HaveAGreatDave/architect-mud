@@ -23,6 +23,7 @@ import { applyThirst } from '../../server/engine/bodily.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { registerFluidResolver } from '../../server/engine/topical.js';
 import { getZoneFurniture } from '../../server/engine/world.js';
+import { drawWater, isDrinkingSource } from '../../server/engine/water.js';
 import { useDrug, getDrugCache, drugForItem } from '../../server/engine/drugs.js';
 
 // Thirst restored per fluid unit, keyed by fluid type. Only water exists today.
@@ -139,7 +140,7 @@ async function fill(args, raw, player) {
   // on every `fill`, to ask what is standing in a room the process already knows.
   const here = getZoneFurniture(player.current_zone);
   const fuelSrc = here.filter(f => f.flags && 'fuel_source' in f.flags).slice(0, 1);
-  const waterSrc = here.filter(f => f.flags && 'water_source' in f.flags).slice(0, 1);
+  const waterSrc = here.filter(isDrinkingSource).slice(0, 1);
 
   // A THIRD TAP. `drug_source` holds the drug id it dispenses rather than a bare
   // flag, because unlike fuel and water there is no single substance a drug tap
@@ -200,10 +201,14 @@ async function fill(args, raw, player) {
 
   // Water drawn from a fouled/peed toilet is foul — tag it so drinking it later
   // sickens, instead of the fouling silently vanishing into a clean canteen.
-  let contaminated = false;
+  // The mains can be dry or foul too (server/engine/water.js). Foul mains water is
+  // tagged 'mains' rather than true, so the sickness later names the right cause.
+  let contaminated = false, draw = null;
   if (fluidType === 'water' && waterSrc.length) {
+    draw = drawWater(waterSrc[0], player.current_zone);
+    if (!draw.ok) return { type: 'error', message: draw.message };
     const contam = await dispatchAction({ type: 'bodily.toiletContamination', params: { furnitureId: waterSrc[0].id } });
-    contaminated = !!(contam?.fouled || contam?.peed);
+    contaminated = (contam?.fouled || contam?.peed) ? true : draw.quality === 'foul' ? 'mains' : false;
   }
 
   // Filling makes the unit non-empty (unique). If it's part of a stack of
@@ -229,6 +234,7 @@ async function fill(args, raw, player) {
     ? `Fuel sloshes to the brim, reeking of hydrocarbons.${charged > 0 ? ` <span class="text-dim">(${charged}₵)</span>` : ''}`
     : contaminated
     ? `<span style="color:var(--red)">It fills with cloudy, foul-smelling water. You shouldn't drink this.</span>`
+    : draw?.note ? `It's full of water. <span class="text-dim">${draw.note}</span>`
     : `It's full of water.`;
   return {
     type: 'use',
@@ -285,7 +291,7 @@ async function drink(args, raw, player, context) {
   // Foul water (filled from a fouled toilet) still slakes thirst, but makes you
   // sick — bodily owns the sickness effect + flavour.
   if (c.custom_data?.contaminated) {
-    const foul = await dispatchAction({ type: 'bodily.drinkContaminated', actor: player, params: { fouled: true } });
+    const foul = await dispatchAction({ type: 'bodily.drinkContaminated', actor: player, params: { fouled: true, mains: c.custom_data.contaminated === 'mains' } });
     return {
       type:'use',
       message:`You drink from the ${c.name}. (+${thirstGain} Thirst) ${foul.message}`,
@@ -399,7 +405,7 @@ async function pour(args, raw, player) {
   const carried = {
     fluid_amount: dstAmount + moved,
     fluid_type: srcType,
-    contaminated: !!(from.custom_data?.contaminated || to.custom_data?.contaminated),
+    contaminated: from.custom_data?.contaminated || to.custom_data?.contaminated || false,   // keeps 'mains'
     ...(srcDrug ? { drug_id: srcDrug } : {}),
     ...(from.custom_data?.potency ? { potency: from.custom_data.potency } : {}),
   };

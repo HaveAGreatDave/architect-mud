@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_919_901",
+  "b": "zone_waterworks_pumphall",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_district_919_901_north",
+  "lockable": true,
+  "one_way": false
+}

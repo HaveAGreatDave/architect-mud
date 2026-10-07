@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "urban",
+  "bg_color": "#1a2226",
+  "color": "#bcd8e0",
+  "description": "A long brick engine house at the end of Ironside Street, with tall arched windows and a slate roof. Two open concrete beds lie behind it along the shore, full of still brown water. Every tap in Coldwater starts here.",
   "exits": {
-    "east": "zone_district_920_901",
-    "north": "zone_district_919_900",
-    "south": "zone_district_919_902",
-    "west": "zone_district_918_901"
+    "north": "zone_waterworks_pumphall",
+    "south": "zone_district_919_902"
   },
   "flags": {
+    "building_name": "Coldwater Waterworks",
+    "building_type": "pumping_station",
     "district": "docks",
+    "entrance": "south",
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_919_902"
   },
   "grid_x": 919,
   "grid_y": 901,
   "grid_z": 0,
   "id": "zone_district_919_901",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "WW",
+  "name": "Coldwater Waterworks",
   "parent_zone": null
 }

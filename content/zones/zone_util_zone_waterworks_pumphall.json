@@ -1,0 +1,18 @@
+{
+  "description": "A low pit under the pump hall where the motor cables come up through the floor. The junction box is on the wall, and the floor is wet.",
+  "exits": {
+    "up": "zone_waterworks_pumphall"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_919_901"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_waterworks_pumphall",
+  "map_id": "map_int_waterworks",
+  "name": "Coldwater Waterworks — Cable Pit",
+  "parent_zone": "zone_district_919_901"
+}

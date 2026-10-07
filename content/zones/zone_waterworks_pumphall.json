@@ -1,0 +1,25 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A tall hall in white tile, with three blue pumps bolted to the floor in a row and a fat main leaving through the end wall. Two of them are running. The noise is steady and so loud that people in here talk with their hands.",
+  "exits": {
+    "down": "zone_util_zone_waterworks_pumphall",
+    "north": "zone_waterworks_filters",
+    "south": "zone_district_919_901",
+    "up": "zone_waterworks_control"
+  },
+  "flags": {
+    "building_name": "Coldwater Waterworks",
+    "building_type": "pumping_station",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_919_901"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_waterworks_pumphall",
+  "map_id": "map_int_waterworks",
+  "name": "Coldwater Waterworks — Pump Hall",
+  "parent_zone": "zone_district_919_901"
+}

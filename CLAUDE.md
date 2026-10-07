@@ -126,6 +126,7 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 - [docs/systems-relationships.md](docs/systems-relationships.md): what NPCs remember about you (as built). `getRelation` is sync
 - [docs/systems-hygiene.md](docs/systems-hygiene.md): filth on a body (as built). `hygieneOf` is sync and query-free
 - [docs/systems-mis.md](docs/systems-mis.md): the opt-in mature layer and its two-switch consent gate (as built)
+- [docs/systems-water-supply.md](docs/systems-water-supply.md): the mains (as built). The engine owns what a water source is and the law `drawWater`; the `waterworks` plugin is the one writer of supply. A new verb that takes water calls `drawWater`
 - [docs/systems-cleaning.md](docs/systems-cleaning.md): zone stains on two clocks; owned rooms keep mess a rent cycle (as built)
 - [docs/systems-library.md](docs/systems-library.md): public-domain books in the tablet reader (as built). Titles must be US public domain
 - [docs/systems-drinks.md](docs/systems-drinks.md): mixology and drinkware; a drink lives on the vessel's `custom_data` (as built)
