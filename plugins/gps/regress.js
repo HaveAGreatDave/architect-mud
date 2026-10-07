@@ -383,7 +383,9 @@ export default async function regress({ run, check, getPlayer }) {
   {
     const savedHome = p.home_zone, savedRole = p.role;
     const here = getZone(p.current_zone);
-    const near = getAllZones().find(z => z.id !== here?.id && z.map_id === here?.map_id &&
+    // Routable, as plotRoute demands: the first zone in DB row order with a path can be open water,
+    // and a freshly imported DB lists the rows in a different order from the dev one.
+    const near = getAllZones().find(z => z.id !== here?.id && z.map_id === here?.map_id && propsOf(z.id).routable &&
       (findPath(p.current_zone, resolveLanding(z.id), { roads: false, maxDistance: 60 }) || []).length >= 2);
     if (near) {
       p.home_zone = near.id;

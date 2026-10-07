@@ -26,7 +26,12 @@ export function buildFlightSnapshot() {
   const cells = {};
   const cellRank = {};   // per-grid surfaceRank of the tile currently in `cells`, for collision precedence
   const fields = [];
-  for (const z of getAllZones()) {
+  // In grid order, then by id, so the file is the same whichever order the DB hands the rows over. A
+  // freshly imported DB lists them differently from prod, and gates that take the first match in
+  // `Object.entries(cells)` (perch.mjs's render site) then tested a different street on every bake.
+  const zones = [...getAllZones()].sort((a, b) => (a.grid_y ?? 0) - (b.grid_y ?? 0)
+    || (a.grid_x ?? 0) - (b.grid_x ?? 0) || String(a.id).localeCompare(String(b.id)));
+  for (const z of zones) {
     if (z.map_id !== 'map_world' || z.grid_x == null || z.grid_y == null) continue;
     if (z.grid_z != null && z.grid_z !== 0) continue;   // surface only — the Under shares the grid (see buildCoordIndex)
     const key = `${z.grid_x},${z.grid_y}`, rank = surfaceRank(z.flags || {});

@@ -1309,7 +1309,11 @@ would mean shipping the shape capture to the server.
   there, then renders a real street and checks birds are actually up on a building. Mutation-tested
   against eight separate breakages. ⚠ It sweeps the REAL city rather than the model registry, because
   a ledge is a function of the model AND the tile — the entrance facing rotates it, the floor count
-  scales it, and the per-tile seed picks the variant.
+  scales it, and the per-tile seed picks the variant. ⚠ The render site is chosen through `landSite`,
+  the call the renderer makes, not `perchFor`: a songbird on a perched cycle takes a wire, then grass,
+  then a ledge, so a site with a ledge next door and a park in reach draws its birds on the grass. The
+  snapshot is baked in grid order (`buildFlightSnapshot`), so which site the gate finds first doesn't
+  change with the DB's row order.
 
 ## Not built
 

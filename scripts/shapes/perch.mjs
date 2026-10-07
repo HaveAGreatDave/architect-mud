@@ -699,11 +699,17 @@ try {
       // hold this many birds and weights the pick by length — so a site chosen on the weaker test
       // can land on a building whose only ledges are too small, and the render check then reports
       // the feature broken when it is the site that is wrong.
-      const probe = perchFor(win2(wx, wy), R2, wx, wy, fl, perchesHigh(fl));
-      if (!probe) continue;
+      // ⚠ ASKED THROUGH `landSite`, THE CALL THE RENDERER MAKES, NEVER `perchFor` ON ITS OWN. A species
+      // with a `land` row (the songbird) takes a wire, then a lawn, then a ledge on a perched cycle, so a
+      // starling party with a ledge next door and grass in reach comes down on the grass. Asked of
+      // `perchFor` alone, the songbird at 908,920 had The Glacis Weigh's west face at z 0.80 and the gate
+      // pointed the camera at it, while the renderer correctly put all 13 birds on the park at 906,919.
+      // Every other species has no `land` row and `landSite` hands it straight to `perchFor`.
+      const probe = ws.landSite(win2(wx, wy), R2, wx, wy, fl, t);
+      if (!probe || probe.kind !== 'perch' || !(probe.z > 0.10)) continue;
       const place = placeOf(c.biome, bld, shore);
       const strict = !!habitatState(sid, place) && !habitatState(sid, c.biome);
-      const found = { wx, wy, sid, t, strict, place, paint: c.biome, fl };
+      const found = { wx, wy, sid, t, strict, place, paint: c.biome, fl, spot: [probe.x, probe.y] };
       if (strict) { site = found; } else if (!fallback) { fallback = found; }
       break;
     }
@@ -733,7 +739,9 @@ try {
     // ⚠ A HUNTER IS FRAMED ON ITS LEDGE, NOT ITS ANCHOR. The renderer draws a peregrine or hawk where
     // `hunterSpot` puts it, which can be six tiles off the anchor, and culls it by that distance. A
     // camera three tiles off the anchor looked away from a peregrine sitting behind it at 918,908.
-    const aim = perchesHigh(site.fl) ? ws.hunterSpot(win(site.wx, site.wy), RV, site.wx, site.wy, site.fl, site.t, null) : null;
+    // ⚠ AND ANY OTHER FLOCK ON THE SPOT `landSite` GAVE IT, not its anchor: a wire it takes can be three
+    // tiles off, which is past the 2.5-tile radius the "this flock" check below counts birds in.
+    const aim = perchesHigh(site.fl) ? ws.hunterSpot(win(site.wx, site.wy), RV, site.wx, site.wy, site.fl, site.t, null) : site.spot;
     const AX = aim ? aim[0] : site.wx, AY = aim ? aim[1] : site.wy;
     const CAM = { x: Math.round(AX), y: Math.round(AY) + 3 };
     const view = { cls: 'truck', phase: 'cruise', worldBlend: 1, height: 0, eyeH: 0.3, speed: 0,
