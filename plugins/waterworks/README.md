@@ -54,4 +54,4 @@ find that out at the tap.
 
 ## Ticks
 
-`1m`, idle-gated by the scheduler. No queries: power, weather and furniture all come from memory.
+`1m`, skipped by the scheduler when nobody is online. No queries: power, weather and furniture all come from memory.

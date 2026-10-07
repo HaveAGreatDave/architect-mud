@@ -98,7 +98,7 @@ id: `waterworks` on the pump set (its room is the plant's power), `water_intake`
 (where rain and frost are read, so it stands in an `open_sky` room), and `water_gauges` on the
 board `gauges` reads. `scripts/content/waterworks/plant.mjs` authors Coldwater's.
 
-**The plant state**, on a `1m` tick idle-gated through the scheduler, with no queries:
+**The plant state**, on a `1m` tick which the scheduler skips when nobody is online, with no queries:
 
 | State | At the tap | How it ends |
 |---|---|---|

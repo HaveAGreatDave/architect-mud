@@ -126,7 +126,7 @@
       "aphoristic-closer": 4,
       "fiction-cliche": 34,
       "caps-run": 126,
-      "em-dash": 319,
+      "em-dash": 323,
       "over-length": 717
     },
     "docs/adr/0001-action-canonical-mutation-path.md": {
