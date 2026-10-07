@@ -114,30 +114,44 @@ export function setBroadcast(fn) { broadcastFn = fn; }
 let storeGhostTokenFn = null;
 export function setGhostTokenStore(fn) { storeGhostTokenFn = fn; }
 
-let lastCountPurge = 0;
+// Active player count for the dashboard graph, sampled every minute in RAM and
+// written in batches. It used to be two round trips a minute (a SELECT to dedupe
+// by email, then the INSERT), and a query a minute is enough on its own to stop
+// Neon suspending: with one player stuck live for 93 hours in October 2026, it
+// kept the compute awake the whole time. Now the dedupe reads `countKey` off the
+// live player (a hash of the email, set at login) and the samples go out in one
+// statement when the batch fills, when the world empties, when the dashboard
+// reads the log and on shutdown. A crash loses at most one batch of samples.
+const COUNT_BATCH = 60;
+const COUNT_BUFFER_MAX = 24 * 60;
+let countBuffer = []; // { at: Date, count }
 
-// Record active player count every minute for the dashboard graph.
-// Deduplicate by email so multi-account users only count once.
-schedule('1m', async () => {
-  const liveIds = getAllLivePlayers().map(p => p.id);
-  let count = 0;
-  if (liveIds.length > 0) {
-    const { rows } = await query(
-      `SELECT COUNT(DISTINCT COALESCE(email, id::text)) AS n FROM players WHERE id = ANY($1)`,
-      [liveIds]
-    );
-    count = parseInt(rows[0].n, 10);
-  }
-  await query(`INSERT INTO player_count_log (count) VALUES ($1)`, [count]);
-  // Retain ~1 year so the dashboard's 30-day / All-Time ranges have data to show.
-  // The purge used to run on every sample, doubling this tick's round trips to
-  // delete nothing 99.9% of the time — a row only becomes eligible once a year.
-  // Once an hour is far more often than the retention window can be crossed.
-  if (Date.now() - lastCountPurge > 60 * 60_000) {
-    lastCountPurge = Date.now();
-    await query(`DELETE FROM player_count_log WHERE recorded_at < NOW() - INTERVAL '1 year'`);
-  }
+schedule('1m', () => {
+  const count = new Set(getAllLivePlayers().map(p => p.countKey ?? p.id)).size;
+  countBuffer.push({ at: new Date(), count });
+  if (countBuffer.length >= COUNT_BATCH) return flushPlayerCountLog();
 });
+
+// One statement: insert the batch, and drop rows past the one-year retention.
+export async function flushPlayerCountLog() {
+  if (!countBuffer.length) return;
+  const batch = countBuffer;
+  countBuffer = [];
+  try {
+    await query(
+      `WITH ins AS (
+         INSERT INTO player_count_log (recorded_at, count)
+         SELECT * FROM unnest($1::timestamptz[], $2::int[])
+       )
+       DELETE FROM player_count_log WHERE recorded_at < NOW() - INTERVAL '1 year'`,
+      [batch.map(s => s.at), batch.map(s => s.count)]
+    );
+  } catch (err) {
+    // Keep the samples for the next flush, but never let a dead database grow this without bound.
+    countBuffer = batch.concat(countBuffer).slice(-COUNT_BUFFER_MAX);
+    throw err;
+  }
+}
 
 // Per-route caps for the unauthenticated /auth surface. Sized for a human who
 // mistypes a password, not for a script: the login window is short so a locked-
@@ -2652,6 +2666,8 @@ async function apiGetPlayerCountLog(fullUrl) {
   // a complete series of buckets and left-join the samples onto it: gaps come
   // back as real zeroes rather than being silently closed up.
   // MAX per bucket, not AVG — a peak-concurrent chart must keep its peaks.
+  // Samples still in RAM go out first, or the last hour charts as empty.
+  await flushPlayerCountLog().catch((err) => console.error(`[player_count_log] flush failed: ${err?.message || err}`));
   const {rows} = await query(
     `WITH bounds AS (
        SELECT date_bin($1, GREATEST(MIN(recorded_at), $2::timestamptz), TIMESTAMPTZ 'epoch') AS lo,

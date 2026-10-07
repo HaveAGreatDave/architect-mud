@@ -29,7 +29,8 @@ export const hooks = {
       if (player._lastInputAt == null) { player._lastInputAt = now; continue; }
       const idle = now - player._lastInputAt;
       if (idle >= IDLE_KICK_MS) {
-        // Re-broadcasts each minute if a client ignores 'kicked' — harmless.
+        // Re-sent each minute while the player is live. The engine closes the
+        // socket 10 s after the first one (closeAfterKick), so a repeat is rare.
         broadcast(null, {
           type: 'kicked',
           message: 'Idle for 20 minutes. The Architect reclaims your bandwidth. Link severed.',

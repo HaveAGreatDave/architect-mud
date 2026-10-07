@@ -108,6 +108,8 @@ Any engine file that needs world state imports directly from `world.js`. There i
 
 Only `tick()` is a raw `setInterval`, and it carries its own `hasActivePlayers` guard because it does not inherit the scheduler's. Everything else registers through `scheduler.js` and is idle-gated automatically (`gameLoop.js:46-70`).
 
+**The idle gate is only as good as `world.players`.** One live player with no socket keeps every gated tick running and Neon awake; one did for 93 hours in October 2026. Two things in `server/index.js` keep it honest. The 30-second WebSocket heartbeat also runs `sweepOrphanedPlayers`, which logs out a live player whose socket has been missing or not open on two sweeps 25 s apart, through the same `logoutLiveSession` the close handler uses. And a `kicked` frame is followed 10 s later by the server closing the socket with code 4001 (`closeAfterKick`), so a client that ignores the kick can't stay live; `client/shared/ws.js` doesn't reconnect after a 4001.
+
 **Same-cadence stagger.** `scheduler.js` spreads subscribers sharing a cadence so a convoy of ticks can't check out every pool connection in the same instant. The gap is `min(200 ms, period / (subscribers + 1))` — **the cap matters**: a flat 200 ms was fine at `'1m'`, but `'1s'` grew to ten subscribers, and 10 × 200 ms is a 2-second spread on a 1-second period. The tail of that list was being scheduled to fire *after* the next tick had already started, so it silently ran at half rate against its own reentrancy guard. Dividing by `(n + 1)` keeps the last subscriber strictly inside the period however many subscribe.
 
 ### Posture-driven activities (`activity-tick.js`)

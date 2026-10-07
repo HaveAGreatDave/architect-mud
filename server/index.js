@@ -4,7 +4,7 @@ import { brotliCompressSync, gzipSync, constants } from "zlib";
 import { join, extname, dirname, relative, isAbsolute } from "path";
 import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
-import { randomUUID } from "crypto";
+import { randomUUID, createHash } from "crypto";
 import { verifyAndUpgrade } from "./engine/passwords.js";
 import { loadAuthSecret, onRevoke, signToken, signRememberToken, consumeRememberToken, revokeRememberTokens, signReconnectToken, consumeReconnectToken } from "./engine/auth-tokens.js";
 
@@ -15,6 +15,7 @@ import {
 	setLivePlayer,
 	getLivePlayer,
 	removeLivePlayer,
+	getAllLivePlayers,
 	getZone,
 	getMinimapData,
 	persistableZone,
@@ -90,6 +91,7 @@ import {
 	consumeSwitchToken,
 	setGhostTokenStore,
 	claimGuestAccount,
+	flushPlayerCountLog,
 } from "./api/routes.js";
 import { cmdGhostLook, cmdGhostMove, cmdGhostHaunt, cmdGhostPowerDrain, makeGhostBroadcast } from "./engine/commands/ghost.js";
 import { activateForcefield, deactivateForcefield, reconcileApartmentDoorLocks, reconcileNpcHomesVsOwnership } from "./engine/apartments.js";
@@ -185,7 +187,10 @@ function broadcast(
 		if (message.flavour && loggedPanelsSync(getLivePlayer(targetPlayerId))) return;
 		if (message?.type === "dialogue") noteDialogueFrame(targetPlayerId, message, getLivePlayer(targetPlayerId)?.current_zone);   // what handleDialogue may accept next
 		const ws = playerSockets.get(targetPlayerId);
-		if (ws?.readyState === 1) ws.send(payload);
+		if (ws?.readyState === 1) {
+			ws.send(payload);
+			if (message.type === "kicked") closeAfterKick(ws);
+		}
 		return;
 	}
 
@@ -987,83 +992,11 @@ wss.on("connection", (ws, req) => {
 			return;
 		}
 		try {
-			if (session?.playerId) {
-				// Only clean up if this socket is still the active one for this player.
-				// If a reconnect already ran finishAuth, playerSockets has been updated
-				// to the new socket — don't undo that by removing the live player here.
-				const isActiveSocket = playerSockets.get(session.playerId) === ws;
-				const player = getLivePlayer(session.playerId);
-				if (isActiveSocket) {
-					// ⚠ ANY STEP IN THE try CAN THROW (a pool timeout, a Neon blip), AND THE BOOKKEEPING
-					// IN THE finally MUST RUN ANYWAY. It used to sit after an unguarded await, so a
-					// rejected activateForcefield skipped it: the player stayed in world.players,
-					// hasActivePlayers() stayed true, and the scheduler, the combat tick and the
-					// keepalive ran for nobody until the next restart.
-					try {
-						if (player) {
-							// Disconnecting is a wake path, and it was the one nobody counted.
-							// Without this the dreamscape is never dissolved (leaking its rooms
-							// for the life of the process) and current_zone stays a dream id —
-							// so a reconnect BEFORE a restart put the player back inside the
-							// dream, awake, with the sleeping state gone. Idempotent, and a
-							// no-op for anyone who wasn't dreaming.
-							wakeFromDream(player);
-							removePlayerFromZone(session.playerId, player.current_zone);
-							broadcast(
-								player.current_zone,
-								{
-									type: "zone_event",
-									message: `${session.handle} has fallen asleep.`,
-								},
-								session.playerId,
-							);
-							for (const [zoneId, dist] of getSoundReach(player.current_zone, 2.0)) {
-								if (dist > 0) broadcast(zoneId, { type: 'ambient', message: `<span class="msg-ambient msg-ambient-distant">Nearby, someone goes quiet.</span>` });
-							}
-							// Its own catch, so a failed forcefield still lets the checkpoint below land.
-							await activateForcefield(player, broadcast)
-								.catch((err) => console.error(`[logout] forcefield failed for ${session.handle}: ${err?.message || err}`));
-							// Reverse drug/withdrawal ledger buffs BEFORE the checkpoint write below.
-							// activeDrugs live only in memory, so a buff still applied here would be
-							// saved as if it were a base stat — and reversing a raised cap clamps the
-							// current value under it, which the row must capture.
-							clearActiveDrugBuffs(player);
-							await query(
-								"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), current_zone=$1, hp=$2, stamina=$3, offline_sleeping=TRUE WHERE id=$4",
-								// persistableZone, not current_zone — dropping mid-dream or
-								// mid-void-crossing would otherwise checkpoint a RAM-only zone id
-								// into the row and strand the player somewhere that stops existing.
-								[persistableZone(player), player.hp, player.stamina, session.playerId],
-							).catch(() => {});
-							player._posDirty = false; // authoritative clean-exit checkpoint for position (see cmdMove)
-							player._resDirty = false; // ...and for hp/stamina (see flushDirtyResources) — closes the combat-log window on a graceful logout
-						} else {
-							await query(
-								"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), offline_sleeping=TRUE WHERE id=$1",
-								[session.playerId],
-							).catch(() => {});
-						}
-						// Last chance to persist whatever the session changed about who
-						// knows this player — the live object (and its Map) is discarded
-						// by removeLivePlayer a few lines down. Wear too: it only flushed on
-						// the minute batch, so a logout within a minute of a fight dropped it.
-						if (player) await flushRelations(player).catch(() => {});
-						if (player) await flushMutations(player).catch(() => {});
-						if (player) await flushWear(player).catch(() => {});
-					} catch (err) {
-						console.error(`[logout] teardown step failed for ${session.handle}: ${err?.stack || err}`);
-					} finally {
-						try { closeShopSession(session.playerId); } catch (err) { console.error(`[logout] shop session: ${err?.message || err}`); }
-						// Flags are write-through (no dirty set to flush) — just drop the
-						// cache so the module registry stops pinning a dead player object.
-						evictPlayerFlags(session.playerId);
-						emit('player.logout', { id: session.playerId, handle: session.handle });
-						logActivity('disconnect', session.handle);
-						broadcast(null, { type: 'online_change' });
-						playerSockets.delete(session.playerId);
-						removeLivePlayer(session.playerId);
-					}
-				}
+			// Only clean up if this socket is still the active one for this player.
+			// If a reconnect already ran finishAuth, playerSockets has been updated
+			// to the new socket — don't undo that by removing the live player here.
+			if (session?.playerId && playerSockets.get(session.playerId) === ws) {
+				await logoutLiveSession(session.playerId, session.handle);
 			}
 		} catch (err) {
 			console.error(`[ws close] ${err?.stack || err}`);
@@ -1114,6 +1047,128 @@ function warmDbCompute(ws) {
 		});
 }
 
+// Logs a live player out: checkpoint, flush, then drop them from world.players.
+// The socket close handler calls it, and so does the orphan sweep below for a
+// live player whose socket is gone.
+const loggingOut = new Set();
+async function logoutLiveSession(playerId, handle) {
+	if (loggingOut.has(playerId)) return;
+	loggingOut.add(playerId);
+	const player = getLivePlayer(playerId);
+	// ⚠ ANY STEP IN THE try CAN THROW (a pool timeout, a Neon blip), AND THE BOOKKEEPING
+	// IN THE finally MUST RUN ANYWAY. It used to sit after an unguarded await, so a
+	// rejected activateForcefield skipped it: the player stayed in world.players,
+	// hasActivePlayers() stayed true, and the scheduler, the combat tick and the
+	// keepalive ran for nobody until the next restart.
+	try {
+		if (player) {
+			// Disconnecting is a wake path, and it was the one nobody counted.
+			// Without this the dreamscape is never dissolved (leaking its rooms
+			// for the life of the process) and current_zone stays a dream id —
+			// so a reconnect BEFORE a restart put the player back inside the
+			// dream, awake, with the sleeping state gone. Idempotent, and a
+			// no-op for anyone who wasn't dreaming.
+			wakeFromDream(player);
+			removePlayerFromZone(playerId, player.current_zone);
+			broadcast(
+				player.current_zone,
+				{
+					type: "zone_event",
+					message: `${handle} has fallen asleep.`,
+				},
+				playerId,
+			);
+			for (const [zoneId, dist] of getSoundReach(player.current_zone, 2.0)) {
+				if (dist > 0) broadcast(zoneId, { type: 'ambient', message: `<span class="msg-ambient msg-ambient-distant">Nearby, someone goes quiet.</span>` });
+			}
+			// Its own catch, so a failed forcefield still lets the checkpoint below land.
+			await activateForcefield(player, broadcast)
+				.catch((err) => console.error(`[logout] forcefield failed for ${handle}: ${err?.message || err}`));
+			// Reverse drug/withdrawal ledger buffs BEFORE the checkpoint write below.
+			// activeDrugs live only in memory, so a buff still applied here would be
+			// saved as if it were a base stat — and reversing a raised cap clamps the
+			// current value under it, which the row must capture.
+			clearActiveDrugBuffs(player);
+			await query(
+				"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), current_zone=$1, hp=$2, stamina=$3, offline_sleeping=TRUE WHERE id=$4",
+				// persistableZone, not current_zone — dropping mid-dream or
+				// mid-void-crossing would otherwise checkpoint a RAM-only zone id
+				// into the row and strand the player somewhere that stops existing.
+				[persistableZone(player), player.hp, player.stamina, playerId],
+			).catch(() => {});
+			player._posDirty = false; // authoritative clean-exit checkpoint for position (see cmdMove)
+			player._resDirty = false; // ...and for hp/stamina (see flushDirtyResources) — closes the combat-log window on a graceful logout
+		} else {
+			await query(
+				"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), offline_sleeping=TRUE WHERE id=$1",
+				[playerId],
+			).catch(() => {});
+		}
+		// Last chance to persist whatever the session changed about who
+		// knows this player — the live object (and its Map) is discarded
+		// by removeLivePlayer a few lines down. Wear too: it only flushed on
+		// the minute batch, so a logout within a minute of a fight dropped it.
+		if (player) await flushRelations(player).catch(() => {});
+		if (player) await flushMutations(player).catch(() => {});
+		if (player) await flushWear(player).catch(() => {});
+	} catch (err) {
+		console.error(`[logout] teardown step failed for ${handle}: ${err?.stack || err}`);
+	} finally {
+		try { closeShopSession(playerId); } catch (err) { console.error(`[logout] shop session: ${err?.message || err}`); }
+		// Flags are write-through (no dirty set to flush) — just drop the
+		// cache so the module registry stops pinning a dead player object.
+		evictPlayerFlags(playerId);
+		emit('player.logout', { id: playerId, handle });
+		logActivity('disconnect', handle);
+		broadcast(null, { type: 'online_change' });
+		playerSockets.delete(playerId);
+		removeLivePlayer(playerId);
+		loggingOut.delete(playerId);
+		// The count sampler is idle-gated, so nothing else would write its last
+		// samples before the next session. The logout just used the database, so
+		// this wakes nothing.
+		if (world.players.size === 0) {
+			flushPlayerCountLog().catch((err) => console.error(`[player_count_log] flush failed: ${err?.message || err}`));
+		}
+	}
+}
+
+// A `kicked` frame asks the client to close its socket. A client that never acts
+// on it (a page whose handlers didn't load, a stale build) kept its socket, and
+// its pong answers kept the heartbeat happy, so the player stayed live forever and
+// idle-logoff re-sent the kick to them once a minute. Close it from this side too.
+// KICK_CLOSE_CODE tells client/shared/ws.js not to reconnect.
+const KICK_CLOSE_MS = 10_000;
+const KICK_CLOSE_CODE = 4001;
+function closeAfterKick(ws) {
+	if (ws._kickClose) return; // idle-logoff repeats the kick every minute
+	ws._kickClose = setTimeout(() => {
+		if (ws.readyState === ws.OPEN) ws.close(KICK_CLOSE_CODE, "kicked");
+	}, KICK_CLOSE_MS);
+	ws._kickClose.unref?.();
+}
+
+// A live player whose socket is gone keeps hasActivePlayers() true, so every
+// idle-gated tick runs for nobody and Neon never suspends. One did for 93 hours
+// in October 2026: about 23 CU-hours. Nothing else removes them, so the heartbeat
+// does. finishAuth sets playerSockets before setLivePlayer, so a login in flight
+// isn't an orphan; the second sighting is there for any path that isn't.
+const ORPHAN_GRACE_MS = 25_000;
+const orphanSince = new Map(); // playerId -> when the sweep first saw no open socket
+function sweepOrphanedPlayers() {
+	const now = Date.now();
+	for (const id of orphanSince.keys()) if (!getLivePlayer(id)) orphanSince.delete(id);
+	for (const player of getAllLivePlayers()) {
+		if (playerSockets.get(player.id)?.readyState === 1) { orphanSince.delete(player.id); continue; }
+		const since = orphanSince.get(player.id);
+		if (since == null) { orphanSince.set(player.id, now); continue; }
+		if (now - since < ORPHAN_GRACE_MS) continue;
+		orphanSince.delete(player.id);
+		console.warn(`[orphan] logging out ${player.handle}: live with no open socket for ${Math.round((now - since) / 1000)}s`);
+		logoutLiveSession(player.id, player.handle).catch((err) => console.error(`[orphan] ${err?.stack || err}`));
+	}
+}
+
 // WebSocket heartbeat — kills stale connections
 const heartbeat = setInterval(() => {
 	for (const [ws] of clients) {
@@ -1124,6 +1179,7 @@ const heartbeat = setInterval(() => {
 		ws.isAlive = false;
 		ws.ping();
 	}
+	if (!_shuttingDown) sweepOrphanedPlayers();
 }, 30000);
 
 wss.on("close", () => clearInterval(heartbeat));
@@ -1507,6 +1563,11 @@ async function finishAuth(ws, session, player, seedDisplayRung, explicitDisplayR
 		id: player.id,
 		handle: player.handle,
 		role: player.role,
+		// One person on two accounts counts once in player_count_log. A hash, so the
+		// live object never carries the address itself.
+		countKey: player.email
+			? createHash("sha256").update(String(player.email).trim().toLowerCase()).digest("hex").slice(0, 16)
+			: player.id,
 		origin_fragment: player.origin_fragment || '',
 		archetype: player.archetype || null,
 		visibly_mutated: player.visibly_mutated || 0,
@@ -2450,6 +2511,7 @@ async function drainForRestart() {
 		flushAllWear(),
 		flushAllRelations(),
 		flushAllMutations(),
+		flushPlayerCountLog(),
 		...players.map((p) => activateForcefield(p, broadcast)),
 	]);
 	const failed = results.filter((r) => r.status === "rejected").length;

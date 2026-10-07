@@ -12,7 +12,10 @@ link. Applies to **everyone** — no role or combat exemptions, by design.
   (15 min) sends a one-per-idle-stretch `system` warning; at `IDLE_KICK_MS`
   (20 min) sends `kicked` — the same message type the admin kick uses, so the
   client shows the reason, closes the socket, and the server's normal ws-close
-  logout cleanup runs. If a client ignores `kicked` it is re-sent each minute.
+  logout cleanup runs. If a client ignores `kicked`, the server closes the
+  socket itself 10 seconds later with code 4001, which the client won't
+  reconnect from (`closeAfterKick` in `server/index.js`). A player with no
+  open socket at all is logged out by the engine's orphan sweep, not here.
 
 ## The activity contract (split-system)
 

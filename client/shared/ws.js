@@ -40,10 +40,13 @@ export function connectWS(url, { onOpen, onClose, onRetry, onColdStart, onMessag
       onOpen?.();
     };
 
-    sock.onclose = () => {
+    sock.onclose = (ev) => {
       if (permanent) return;
       if (sock !== ws) return;   // a stale socket's death says nothing about the live one
       if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
+      // 4001 is the server closing a kicked session itself (closeAfterKick in
+      // server/index.js). Redialling would log the kicked session straight back in.
+      if (ev?.code === 4001) { permanent = true; onClose?.(); return; }
       coldStartTimer = setTimeout(() => {
         coldStartTimer = null;
         // Last check before crying wolf: the socket may have come up during the
