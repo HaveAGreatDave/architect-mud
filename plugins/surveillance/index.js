@@ -14,7 +14,7 @@ import { loggedPanelsSync } from '../../server/engine/presentation.js';
 import { textRender } from '../../server/engine/minigame.js';
 import { query } from '../../server/models/db.js';
 import { adjustCredits } from '../../server/engine/economy.js';
-import { getZone, getZonePlayers, getZoneNpcs, getZoneEnemies, getLivePlayer, getAllLivePlayers, spawnEnemySync, removeEnemyInstance, hasActivePlayers, world, insertFurniture, updateFurniture, deleteFurniture } from '../../server/engine/world.js';
+import { getZone, getZonePlayers, getZoneNpcs, getZoneEnemies, getLivePlayer, getAllLivePlayers, spawnEnemySync, removeEnemyInstance, hasActivePlayers, world, insertFurniture, updateFurniture, deleteFurniture, getFurnitureById } from '../../server/engine/world.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 // Pathing, stepping and neighbour lookups all left with `huntStep` — the search is
 // the engine's CHASE node now, so this plugin no longer moves anything itself.
@@ -293,46 +293,69 @@ let _fxCache = { ts: 0, jammed: new Set(), spoofed: new Set() };
 // watching here?" — measured at ~97 round trips per 75 s on an idle server with
 // a single player standing still, 45% of all its database traffic.
 //
-// So read the whole table once and answer all four questions from that. The 4 s
-// freshness window is the one getInterferenceZones already ran on, so this adds
-// no staleness class the file didn't already accept — it just stops paying for
-// the same rows six times a tick.
+// So read the whole table once and answer all four questions from that.
 //
-// Deliberately a short TTL rather than a write-through cache: every runtime
-// writer lives in this file, but regress and the offline scripts write the table
-// directly, and a TTL self-heals where a write-through cache would silently
-// serve stale rows forever.
+// The snapshot is re-read only when something says the table changed. It used
+// to be a 12 s TTL, which meant one SELECT every 12 s for as long as anyone was
+// online, and that alone kept Neon awake for the whole session even when no
+// device had changed in hours.
 //
-// ⚠ The TTL must never equal (or undercut) the period of the tick that reads it.
-// It was 4000 ms while wantedTick runs on the '4s' cadence, so by the time that
-// tick called, `now - ts < 4000` was ALWAYS false — the snapshot was re-read on
-// every single pass and this cache never once hit on its hottest path. It
-// measured 369 of 1478 round trips (25% of ALL database traffic) on a session
-// with one player. 12 s clears the three cadences that read it (4s wanted, 5s
-// hub, 6s heat) with room on either side; the staleness class is unchanged
-// because every in-file writer still calls invalidateDeviceCache() and the TTL
-// only ever bounded out-of-band writers.
-const DEV_SNAPSHOT_TTL_MS = 12_000;
+// Who calls invalidateDeviceCache():
+//   - every writer in this file (plant, retrieve, record, smash, hijack, pilot,
+//     destroyDevice, batteryTick);
+//   - the two Nullcraft writers in nulltarget.js (hijack and sabotage), through
+//     the wrapper on the 'tech.targets' hook at the bottom of this file;
+//   - the 'zone.delete' hook, because deleting a zone sets zone_id to NULL here
+//     through the foreign key.
+// Nothing else in the running server writes security_devices.
+//
+// The backstop is for writers outside the process: the CODEX content deploy
+// upserts the police devices into prod while the server is up,
+// scripts/seed-wanted-police.js inserts them, and regress.js writes rows
+// directly. Half an hour is one SELECT per 30 min while someone is online.
+//
+// A write that lands while a read is in flight bumps _devGen, so that read's
+// result isn't stamped fresh and the next call reads again. Without that, a
+// read that started just before a plant could hide the new camera for the
+// whole backstop window.
+const DEV_SNAPSHOT_BACKSTOP_MS = 30 * 60 * 1000;
 let _devCache = { ts: 0, rows: [] };
+let _devGen = 0;        // bumped by every invalidation
+let _devRead = null;    // { gen, promise } for the read in flight, if any
 async function allDevices(force = false) {
-  const now = Date.now();
-  if (!force && now - _devCache.ts < DEV_SNAPSHOT_TTL_MS) return _devCache.rows;
-  const { rows } = await query('SELECT * FROM security_devices').catch(() => ({ rows: null }));
-  // A failed read must not be cached as "no devices" — that would silently
-  // switch surveillance off for a whole window. Keep the last good snapshot.
-  if (rows) _devCache = { ts: now, rows };
-  return _devCache.rows;
+  if (force) invalidateDeviceCache();
+  if (_devCache.ts && Date.now() - _devCache.ts < DEV_SNAPSHOT_BACKSTOP_MS) return _devCache.rows;
+  // Share a read already in flight, but only one that started after the last
+  // invalidation. An older one may have read the table before the write.
+  if (_devRead && _devRead.gen === _devGen) return _devRead.promise;
+  const gen = _devGen;
+  const promise = query('SELECT * FROM security_devices')
+    .catch(() => ({ rows: null }))
+    .then(({ rows }) => {
+      // A failed read must not be cached as "no devices": that would silently
+      // switch surveillance off. Keep the last good snapshot, still marked
+      // stale, so the next call tries again.
+      if (!rows) return _devCache.rows;
+      // Raced by a write: hand these rows to the callers who asked before it,
+      // but leave the cache alone so the next call reads again.
+      if (gen !== _devGen) return rows;
+      _devCache = { ts: Date.now(), rows };
+      return rows;
+    })
+    .finally(() => { if (_devRead?.promise === promise) _devRead = null; });
+  _devRead = { gen, promise };
+  return promise;
 }
-// Called by anything in this file that changes the table and needs its own next
-// read to see the change (placing a camera, then immediately looking at it).
-function invalidateDeviceCache() { _devCache = { ts: 0, rows: _devCache.rows }; }
+// Called after every write to security_devices, so the next allDevices() reads
+// the table again (placing a camera, then immediately looking at it).
+function invalidateDeviceCache() { _devGen++; _devCache = { ts: 0, rows: _devCache.rows }; }
 
 // Zones a player-planted camera is watching, off the snapshot above.
 //
 // This exists for ONE outside caller: the broadcast plugin's talkshow guest must
 // never materialise on camera, so it kept its own 15s
 // `SELECT DISTINCT zone_id FROM security_devices …` — the same table this file
-// re-reads every 4 s, measured as the two largest items in the idle round-trip
+// was then re-reading every 4 s, measured as the two largest items in the idle round-trip
 // floor. Exporting the answer instead of the table keeps the ownership right:
 // broadcast learns nothing about device kinds, damage or powering, and if the
 // predicate for "watched" ever changes it changes here, once.
@@ -459,18 +482,21 @@ function deviceFrame(d, status) {
   }
 }
 
+// Runs every 5 s per open hub and per pinned panel, so it reads no database:
+// the devices come off the snapshot, the name off the furniture cache and the
+// zone name off the zone map. It was a JOIN over security_devices, furniture
+// and zones on every pass, which kept Neon awake for as long as a hub was open.
 async function buildTiles(ownerId) {
   const fx = await getInterferenceZones();
-  const { rows } = await query(
-    `SELECT d.id, d.device_kind, d.zone_id, d.tier, d.battery, d.battery_max, d.wired,
-            d.is_damaged, d.is_recording, d.status_flags, d.placed_at, f.name, z.name AS zone_name
-       FROM security_devices d
-       JOIN furniture f ON f.id = d.id
-       LEFT JOIN zones z ON z.id = d.zone_id
-      WHERE d.owner_id = $1
-      ORDER BY f.name`,
-    [ownerId]
-  );
+  const rows = [];
+  for (const d of await allDevices()) {
+    if (d.owner_id !== ownerId) continue;
+    // The JOIN this replaced dropped a device with no furniture twin; so does this.
+    const f = getFurnitureById(d.id);
+    if (!f) continue;
+    rows.push({ ...d, name: f.name, zone_name: getZone(d.zone_id)?.name ?? null });
+  }
+  rows.sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? '')));
   return rows.map(d => {
     const status = deviceStatus(d, fx);
     const buf = cameraBuffers.get(d.id);
@@ -1777,6 +1803,10 @@ registerAction({
   type: 'WANTED_CLEAR',
   handler: async ({ actor }) => {
     if (actor?.id) {
+      // Booking confiscates their kit with raw SQL and no inventory.changed, and
+      // no command of theirs started it. Without this the carried cache would
+      // still have them holding raw drugs in the cell.
+      distrustCarried(actor.id);
       await setStars(actor, 0);
       if (heatRuntime.has(actor.id)) {
         heatRuntime.delete(actor.id);
@@ -2387,15 +2417,53 @@ on('atm.drained', ({ player }) => { if (player?.id) endActiveCrime(player.id, 'h
 // Per-player, because the answer only changes when that player's inventory does
 // — and a player standing under a camera doing nothing was being re-scanned
 // every 5 s forever. `inventory.changed` drops their entry so a real change is
-// picked up on the very next sweep; the TTL is the backstop, because only some
-// of the many player_inventory writers emit that event and a purely
-// event-driven cache would go stale silently and permanently.
+// picked up on the very next sweep.
+//
+// Most player_inventory writers don't emit that event, and some of them flip
+// the answer: `put` into a bag hides raw drugs and can strip a worn garment,
+// selling or synthesising can use the raw material up, and a jail booking
+// confiscates everything. A stale `raw` there charges a crime the player is no
+// longer committing. Nearly all of those writes start with a typed command, so
+// a command marks the player's entry untrusted (distrustCarried) and the next
+// sweep reads them again. Movement and talk can't touch the kit and are skipped,
+// so a player walking under cameras doesn't re-query every sweep.
+//
+// The settle window covers the race: 'player.command' fires BEFORE the command
+// runs, so a sweep landing mid-command could read the old rows. Any read made
+// within CARRIED_SETTLE_MS after the last command isn't trusted either, and the
+// sweep after it reads again.
+//
+// What's left (a write with no command behind it, like a timed process
+// finishing) is bounded by the 30 minute TTL. It was 60 s, which cost one query
+// a minute per player standing under a camera, and kept Neon awake for it.
 const carriedCache = new Map();   // playerId -> { covered, raw, ts }
-const CARRIED_TTL_MS = 60_000;
+const carriedDirtyAt = new Map(); // playerId -> when their kit last may have changed
+const CARRIED_TTL_MS = 30 * 60 * 1000;
+const CARRIED_SETTLE_MS = 3000;
+function distrustCarried(playerId) { if (playerId) carriedDirtyAt.set(playerId, Date.now()); }
+// Verbs that can't change what a player carries or wears. Anything not listed
+// costs at most a re-read for a player under a witness, so the list only needs
+// the common ones.
+const KIT_SAFE_VERBS = new Set([
+  'n', 's', 'e', 'w', 'u', 'd', 'ne', 'nw', 'se', 'sw',
+  'north', 'south', 'east', 'west', 'up', 'down',
+  'northeast', 'northwest', 'southeast', 'southwest', 'go',
+  'look', 'l', 'examine', 'x', 'glance', 'score', 'who', 'help', 'time', 'weather',
+  'say', 'emote', 'me', 'tell', 'whisper', 'shout', 'yell', 'ooc', 'chat',
+  'wanted', 'hub', 'hubclose', 'feed', 'sweep', 'devices',
+  'inventory', 'inv', 'i', 'equipment', 'eq',
+]);
+on('player.command', ({ player, cmd }) => {
+  if (player?.id && !KIT_SAFE_VERBS.has(cmd)) distrustCarried(player.id);
+});
 on('inventory.changed', ({ actor }) => { if (actor?.id) carriedCache.delete(actor.id); });
+// A death empties the pack into a corpse, or into the evidence locker when the
+// jail takes custody, and neither emits inventory.changed. 'player.respawn'
+// fires after both are done.
+on('player.respawn', ({ player }) => { if (player?.id) carriedCache.delete(player.id); });
 // Bounded like the plugin's other per-player maps — a logout drops the entry so
 // this can't grow for the lifetime of the process.
-on('player.logout', ({ id }) => carriedCache.delete(id));
+on('player.logout', ({ id }) => { carriedCache.delete(id); carriedDirtyAt.delete(id); });
 
 async function scanCarried(playerIds) {
   const empty = { naked: new Set(), raw: new Set() };
@@ -2404,7 +2472,7 @@ async function scanCarried(playerIds) {
   const now = Date.now();
   const stale = playerIds.filter(id => {
     const e = carriedCache.get(id);
-    return !e || now - e.ts > CARRIED_TTL_MS;
+    return !e || now - e.ts > CARRIED_TTL_MS || e.ts < (carriedDirtyAt.get(id) || 0) + CARRIED_SETTLE_MS;
   });
 
   if (stale.length) {
@@ -2798,9 +2866,10 @@ async function cmdSubmit(args, raw, player) {
 
 // ── Battery / power tick ─────────────────────────────────────────────────────
 async function batteryTick() {
-  const { rows } = await query(
-    'SELECT id, device_kind, wired, battery, is_powered, is_damaged, zone_id FROM security_devices'
-  );
+  // Off the snapshot, not a SELECT of its own: every writer invalidates it, so
+  // it holds what the table holds. A world with no draining battery and no
+  // wired device changing state now costs this tick nothing.
+  const rows = await allDevices();
   // The diff-gates below decide WHETHER a device is written exactly as before;
   // the writes are collected and flushed as at most two statements instead of one
   // awaited round trip per device. A draining battery trips its gate every tick by
@@ -2863,21 +2932,31 @@ async function destroyDevice(id) {
 
 // Sticky cams burn out 24 GAME hours after they were planted. Runs on the same idle-tolerant
 // cadence as the clip purge; the owner gets a ping so a dead tile isn't a mystery.
-export async function __expireStickyCams() { return expireStickyCams(); }
-async function expireStickyCams() {
+// The regress seam forces a fresh read: regress inserts its fixture cams with
+// raw SQL, which the snapshot never hears about.
+export async function __expireStickyCams() { return expireStickyCams(true); }
+// Filters the device snapshot in RAM; the database is only touched to destroy a
+// cam that has actually expired. It was a JOIN every 10 minutes whether or not
+// anything had burnt out.
+async function expireStickyCams(force = false) {
   const cutoff = Math.floor((Date.now() - stickyCamTtlRealMs()) / 1000);   // placed_at is epoch seconds
-  const { rows } = await query(
-    `SELECT d.id, d.owner_id, f.name, z.name AS zone_name, d.zone_id
-       FROM security_devices d
-       JOIN furniture f ON f.id = d.id
-       LEFT JOIN zones z ON z.id = d.zone_id
-      WHERE d.device_kind='sticky_cam' AND d.wired=0 AND d.placed_at < $1`, [cutoff]);
-  for (const d of rows) {
+  // Same predicate as the SQL it replaced: a NULL wired or placed_at never
+  // matched there, and BIGINT placed_at arrives from pg as a string.
+  const due = (await allDevices(force)).filter(d =>
+    d.device_kind === 'sticky_cam' && d.wired != null && Number(d.wired) === 0 &&
+    d.placed_at != null && Number(d.placed_at) < cutoff);
+  let expired = 0;
+  for (const d of due) {
+    // The old JOIN skipped a device with no furniture twin; so does this.
+    const f = getFurnitureById(d.id);
+    if (!f) continue;
     await destroyDevice(d.id);
+    expired++;
+    const zoneName = getZone(d.zone_id)?.name;
     if (d.owner_id) sendToPlayer(d.owner_id, { type: 'system', message:
-      `<span class="text-dim">⏻ BURNOUT: ${d.name} at ${d.zone_name || d.zone_id || 'unknown'} hit its 24-hour limit and cooked itself off the wall.</span>` });
+      `<span class="text-dim">⏻ BURNOUT: ${f.name} at ${zoneName || d.zone_id || 'unknown'} hit its 24-hour limit and cooked itself off the wall.</span>` });
   }
-  if (rows.length) console.log(`[surveillance] expired ${rows.length} sticky cam(s).`);
+  if (expired) console.log(`[surveillance] expired ${expired} sticky cam(s).`);
 }
 schedule('10m', () => expireStickyCams().catch(e => console.error('[surveillance] cam expiry error:', e.message)));
 
@@ -3108,7 +3187,7 @@ export async function wipeCameraBuffer(player, deviceId) {
 // ── Patching a feed into a domestic screen ───────────────────────────────────
 // A consumer tape deck can take a SPECTER camera as its input instead of a
 // cassette (see docs/systems-broadcast.md). Both helpers below serve that path,
-// which means they run off the 4s device cache and the interference cache and
+// which means they run off the device snapshot and the interference cache and
 // add NO query of their own — the deck's frame builder is on the 5s channel tick
 // and cannot afford one. They are the only sanctioned way for another plugin to
 // turn a device id into a frame: jam/spoof/battery/damage all stay decided here.
@@ -3180,13 +3259,29 @@ export const hooks = {
   // Nullcraft's target seam. Planted hardware is a thing the Null can attack;
   // this plugin owns those rows, so this plugin describes them. The nullcraft
   // engine imports nothing from here.
-  'tech.targets': cameraTargets,
+  //
+  // Wrapped because two of those ops (hijack, sabotage) write security_devices
+  // from nulltarget.js, and the device snapshot only re-reads when told to.
+  // Every op invalidates rather than just those two: a Null op is a rare typed
+  // action, and the list of ops that write lives in nulltarget.js, not here.
+  'tech.targets': async (...args) => {
+    const targets = await cameraTargets(...args);
+    return (targets || []).map(t => ({
+      ...t,
+      async apply(...a) {
+        try { return await t.apply(...a); } finally { invalidateDeviceCache(); }
+      },
+    }));
+  },
   // "Is anything looking at this room?" — the same cameras-and-cops sweep the
   // wanted system runs, offered as a hook so a caller can ask without importing
   // this plugin. The dead-drop courier uses it to decide whether the coast is
   // clear before it stashes; anything else that wants to be unobserved can too.
   'zone.witnessed': ({ zoneId }) => isWitnessed(zoneId),
   'zone.delete': async (id, allDeletedIds) => {
+    // The zone's foreign key sets security_devices.zone_id to NULL, a write
+    // this plugin never sees, so drop the device snapshot.
+    invalidateDeviceCache();
     const zoneIds = Array.isArray(allDeletedIds) && allDeletedIds.length ? allDeletedIds : [id];
     const { rows: gone } = await query(
       `DELETE FROM security_clips c

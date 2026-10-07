@@ -27,7 +27,6 @@
  */
 import { randomUUID } from 'crypto';
 import { query } from '../models/db.js';
-import { createWorkGate } from './worklist.js';
 import { registerAction, dispatchAction } from './actions.js';
 import { emit } from './events.js';
 import { evalConditions, getFlag } from './flags.js';
@@ -299,23 +298,33 @@ async function resolveDropContainer(ref, zoneId) {
 // living in a setTimeout, so a deploy or crash doesn't drop it.
 const DURABLE_WAIT_S = 120;
 
-// Parked waits are almost always absent, and resumeDueWaits polls for them on a
-// schedule — so the gate lets that tick skip the round trip entirely while the
-// table is empty. See engine/worklist.js for why the counter is only ever an
-// optimisation and the periodic re-probe is what keeps it correct.
-const waitsGate = createWorkGate({
-  name: 'script_waits',
-  probe: async () => (await query('SELECT COUNT(*)::int AS n FROM script_waits')).rows[0].n,
-});
+// What's parked, without the graph bodies: id -> { playerId, dueAt }. Read once,
+// on the first tick after boot, and kept by parkWait and resumeDueWaits, which are
+// the only writers. The minute tick decides from this whether anything is due for
+// someone online, so a quiet table, or one holding only waits owed to offline
+// players, costs no round trip. A count probe used to stand in for this, and a row
+// owed to an offline player kept that probe true, so the full SELECT ran every
+// minute indefinitely.
+let waitIndex = null;
+
+async function loadWaitIndex() {
+  const { rows } = await query('SELECT id, player_id, due_at FROM script_waits');
+  waitIndex = new Map(rows.map(r => [r.id, { playerId: r.player_id, dueAt: Number(r.due_at) }]));
+}
+
+// For a writer outside this file (the regress harness): the next tick re-reads.
+export function reloadWaitIndex() { waitIndex = null; }
 
 async function parkWait(ctx, nextNodeId, secs) {
+  const id = randomUUID();
+  const dueAt = Date.now() + secs * 1000;
   await query(
     `INSERT INTO script_waits (id, script_id, graph, node_id, player_id, params, due_at)
      VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-    [randomUUID(), ctx.scriptId || null, JSON.stringify(ctx.graph || {}), nextNodeId,
-     ctx.actor?.id || null, JSON.stringify(ctx.params || {}), Date.now() + secs * 1000]
+    [id, ctx.scriptId || null, JSON.stringify(ctx.graph || {}), nextNodeId,
+     ctx.actor?.id || null, JSON.stringify(ctx.params || {}), dueAt]
   );
-  waitsGate.noteWork();
+  waitIndex?.set(id, { playerId: ctx.actor?.id || null, dueAt });
 }
 
 /**
@@ -327,15 +336,27 @@ async function parkWait(ctx, nextNodeId, secs) {
  * makes the table a queue of owed outcomes, not a stopwatch.
  */
 export async function resumeDueWaits(broadcast) {
-  if (!await waitsGate.shouldRun()) return 0;
+  if (!waitIndex) await loadWaitIndex();
+  const now = Date.now();
+  const due = [];
+  for (const [id, w] of waitIndex) {
+    // A row owed to an offline player stays owed: it lands the next time they're on.
+    if (w.dueAt <= now && (!w.playerId || getLivePlayer(w.playerId))) due.push([id, w.dueAt]);
+  }
+  if (!due.length) return 0;
+  // Fifty a tick, earliest first; the rest stay in the index for the next one.
+  const dueIds = due.sort((a, b) => a[1] - b[1]).slice(0, 50).map(([id]) => id);
   const { rows } = await query(
-    'SELECT * FROM script_waits WHERE due_at <= $1 ORDER BY due_at LIMIT 50', [Date.now()]);
-  if (!rows.length) return 0;
+    'SELECT * FROM script_waits WHERE id = ANY($1) ORDER BY due_at', [dueIds]);
+  // A row the index held but the table doesn't was removed out of band.
+  const found = new Set(rows.map(r => r.id));
+  for (const id of dueIds) if (!found.has(id)) waitIndex.delete(id);
   let ran = 0;
   for (const row of rows) {
     const actor = row.player_id ? getLivePlayer(row.player_id) : null;
-    if (row.player_id && !actor) continue; // still owed — wait for them to log in
+    if (row.player_id && !actor) continue; // logged off since the index was read
     await query('DELETE FROM script_waits WHERE id=$1', [row.id]);
+    waitIndex.delete(row.id);
     ran++;
     try {
       await runNodeChain(row.graph, row.node_id, {

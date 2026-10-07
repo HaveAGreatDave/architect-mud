@@ -70,15 +70,16 @@ async function placeOrder(player, itemId, qty, vendorId) {
   // migrated yet) the credit charge rolls back too — no eating the player's money
   // for an order that never lands.
   const before = player.credits;
+  const deliverAt = Date.now() + DELIVERY_MS;
   try {
     await withTransaction(async (q) => {
       if (!await adjustCredits(player, -cost, q, 'smuggle:order')) throw new Error('broke');
       await q(
         `INSERT INTO smuggle_orders (id, player_id, item_id, item_name, qty, drop_zone, deliver_at, status, vendor_id)
          VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8)`,
-        [randomUUID(), player.id, item.id, item.name, qty, DROP_ZONE, Date.now() + DELIVERY_MS, vendorId || null]);
+        [randomUUID(), player.id, item.id, item.name, qty, DROP_ZONE, deliverAt, vendorId || null]);
     });
-    ordersGate.noteWork();   // a shipment is in flight — wake the delivery tick
+    ordersGate.noteWork(deliverAt);   // a shipment is in flight; the delivery tick wakes when it lands
   } catch (e) {
     player.credits = before; // tx rolled back — undo the in-memory debit adjustCredits applied
     if (e.message === 'broke') return { ok: false, reason: 'broke', cost };
@@ -106,11 +107,14 @@ registerPurchaseDelivery('mule_counter', async (player, npc, item, quantity, exe
   // Not contraband raw — he still sells beer over the counter. Hand it across.
   if (!item.tags?.raw_drug || item.tags?.mule_crate) return null;
   const qty = Math.max(1, Math.min(MAX_QTY, Number(quantity) || 1));
+  const deliverAt = Date.now() + DELIVERY_MS;
   await exec(
     `INSERT INTO smuggle_orders (id, player_id, item_id, item_name, qty, drop_zone, deliver_at, status, vendor_id)
      VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8)`,
-    [randomUUID(), player.id, item.id, item.name, qty, DROP_ZONE, Date.now() + DELIVERY_MS, npc?.id || null]);
-  ordersGate.noteWork();   // a shipment is in flight — wake the delivery tick
+    [randomUUID(), player.id, item.id, item.name, qty, DROP_ZONE, deliverAt, npc?.id || null]);
+  // This runs inside the vendor's transaction, before it commits. Passing the due
+  // time records the order in the gate directly, so no probe has to see the row.
+  ordersGate.noteWork(deliverAt);
   const mins = Math.round(DELIVERY_MS / 60000);
   return `A MULE drops <b>${qty}× ${item.name}</b> at ${DROP_NAME} in about ${mins} minute${mins === 1 ? '' : 's'}. `
     + `Getting it home past the checkpoint is your lookout: <b>unpack</b> it out there first.`;
@@ -138,12 +142,15 @@ registerAction({
 // Land any due MULE drops: spawn a cipher-locked crate on the ground at the drop
 // zone and ping the buyer if online. Restart-safe — the order row carries deliver_at.
 // Pending MULE orders are rare and the delivery tick fires every minute forever.
-// The gate keeps that tick off the wire while nothing is in flight; the periodic
+// The gate keeps that tick off the wire while nothing is in flight, and while an
+// order is in flight but not yet due (the probe reports the earliest deliver_at);
+// the periodic
 // re-probe in worklist.js is what makes a missed noteWork() a delay, not a
 // permanently undelivered shipment.
 const ordersGate = createWorkGate({
   name: 'smuggle_orders',
-  probe: async () => (await query(`SELECT COUNT(*)::int AS n FROM smuggle_orders WHERE status='pending'`)).rows[0].n,
+  probe: async () => (await query(
+    `SELECT COUNT(*)::int AS n, MIN(deliver_at) AS "nextDue" FROM smuggle_orders WHERE status='pending'`)).rows[0],
 });
 
 schedule('1m', async () => {
@@ -165,6 +172,7 @@ schedule('1m', async () => {
       message: `<span class="ambient">Far out at ${DROP_NAME}, a MULE drone flares, thumps a crate onto the pad, and is gone into the haze. Your shipment (<b>${o.qty}× ${o.item_name}</b>) is out there: go and get it.</span>`,
     });
   }
+  ordersGate.noteWork();   // re-probe what's left (and when it's due) on the next call
 });
 
 // ── unpack (tag-gated on `mule_crate`) ────────────────────────────────────────

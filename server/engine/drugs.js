@@ -738,6 +738,8 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
     [player.id, stateKey, now + durationSeconds, dosesInSystem, timesUsed, isAddicted ? 1 : 0, now, tolerance, addiction,
      opts.inlineEffects ? JSON.stringify(eff) : null, toleranceLethal]
   );
+  // The minute tick reads this player's drug rows again (see drugWatched).
+  player._drugWatch = true;
 
   // You have taken it and you are still here: you know what it feels like.
   // Everything past this has to be earned the hard way.
@@ -1281,6 +1283,21 @@ function applyWithdrawal(player, states, now, writes, allRows = states) {
   return messages;
 }
 
+// Which live players the minute tick has to read drug rows for. A player who has
+// nothing in their system and no habit has nothing to decay or withdraw from, and
+// reading their rows every minute was a round trip a minute for everyone online.
+// `_drugWatch` is unknown (undefined) at login, so the first tick reads once and
+// settles it; useDrug sets it; tickWithdrawalAll clears it when the rows show
+// nothing left to tick. Death zeroes the rows, and the next tick clears it.
+export function drugWatched(players) {
+  return players.filter(p => p._drugWatch !== false);
+}
+
+// A row still needs the minute tick while doses are clearing or a habit is held.
+function rowNeedsTick(r) {
+  return (r.doses_in_system || 0) > 0 || (r.addiction || 0) >= ADDICT_LATCH || !!r.is_addicted;
+}
+
 // Run withdrawal for every live player on ONE read and ONE write, instead of a
 // query per player per minute. This rides the shared minute tick and Postgres is
 // remote in prod, so the cost is round-trip COUNT, not query weight — a loop of
@@ -1297,13 +1314,18 @@ export async function tickWithdrawalAll(players) {
     'SELECT * FROM player_drug_state WHERE player_id = ANY($1)',
     [players.map(p => p.id)]
   );
-  if (!rows.length) return out;
 
   const byPlayer = new Map();
   for (const r of rows) {
     if (!byPlayer.has(r.player_id)) byPlayer.set(r.player_id, []);
     byPlayer.get(r.player_id).push(r);
   }
+  // Settle the watch flag from what was just read. Decay ran before this read, so
+  // a dose that has fully cleared reads as zero here.
+  for (const player of players) {
+    player._drugWatch = (byPlayer.get(player.id) || []).some(rowNeedsTick);
+  }
+  if (!rows.length) return out;
 
   const writes = { playerIds: [], drugIds: [], addiction: [], addicted: [] };
   for (const player of players) {

@@ -563,14 +563,18 @@ nothing, six times a tick.
 
 **`allDevices()`** now reads the whole `security_devices` table **once per tick** and every one of
 those questions is answered from that snapshot — `refreshRecordingCams`, `pollSensors`,
-`getInterferenceZones` and `cameraLiveInZone` are all filters over it. The TTL is 4s, which is the
-window `getInterferenceZones` already ran on, so this introduced **no new staleness class**.
+`getInterferenceZones` and `cameraLiveInZone` are all filters over it, and so are `buildTiles` (the
+hub), `batteryTick` and `expireStickyCams`.
 
-It is deliberately a **short TTL, not a write-through cache**. Every runtime writer lives in
-`plugins/surveillance/index.js` and calls `invalidateDeviceCache()`, so a camera you plant is
-visible immediately — but regress and the offline scripts write the table directly, and a TTL
-self-heals where a write-through cache would serve stale rows forever. A failed read keeps the last
-good snapshot rather than caching "no devices", which would silently switch surveillance off.
+**The snapshot is re-read only after `invalidateDeviceCache()`** (October 2026). It used to be a
+short TTL (4 s, then 12 s), which meant a SELECT every few seconds for as long as anyone was online
+and kept Neon from ever suspending. Every runtime writer invalidates: the writers in
+`plugins/surveillance/index.js`, the two Nullcraft ops in `nulltarget.js` (through a wrapper on the
+`tech.targets` hook) and the `zone.delete` hook. A 30 minute backstop covers the writers outside
+the process: the content deploy, regress and the offline scripts. A write that lands while a read
+is in flight bumps a generation counter, so that read is never stamped fresh. A failed read keeps
+the last good snapshot rather than caching "no devices", which would silently switch surveillance
+off.
 
 Two related changes in the same pass:
 
@@ -578,9 +582,12 @@ Two related changes in the same pass:
   questions about the same inventory rows of the same players in the same tick; it is now one
   `GROUP BY` with two `BOOL_OR` aggregates. It also **caches per player** — the answer only changes
   when that player's inventory does — dropped on `inventory.changed` (so a real change lands on the
-  next sweep) with a 60s TTL backstop, because only some of the many `player_inventory` writers emit
-  that event. Pruned on `player.logout`, like the plugin's other per-player maps. Measured 15 → 2
-  round trips per 75s.
+  next sweep). Most `player_inventory` writers don't emit that event (`put`, vendor trades,
+  crafting, jail confiscation), so any typed command outside a short list of movement, look and
+  talk verbs marks the player's entry untrusted, and a read taken within 3 s of a command isn't
+  trusted either. A respawn and a jail booking clear it too. What's left is bounded by a 30 minute
+  TTL (it was 60 s, a query a minute per player under a camera). Pruned on `player.logout`, like
+  the plugin's other per-player maps.
 - **The PD network id** is fixed content read once and latched, instead of re-read per evidence
   clip. It only latches a *real* answer, so a fresh DB mid-seed doesn't cache "no PD" permanently.
 

@@ -38,11 +38,12 @@
 import { query } from '../../server/models/db.js';
 import { hasTag, tagValue } from '../../server/engine/tags.js';
 import { getZoneTemperature, getZonePrecip, getZoneWindKph, getHumidityPct } from '../../server/engine/environment.js';
-import { getAllLivePlayers, getZone, bodyZoneOf } from '../../server/engine/world.js';
+import { getAllLivePlayers, getLivePlayer, getZone, bodyZoneOf } from '../../server/engine/world.js';
 import { resolveInventoryForPlayers, patchInventoryCustomData } from '../../server/engine/inventory.js';
 import { wear, announceWear } from '../../server/engine/durability.js';
 import { registerTopicalWetting } from '../../server/engine/topical.js';
 import { coolSweat } from '../../server/engine/hygiene.js';
+import { on } from '../../server/engine/events.js';
 
 // Wear points per minute at full-rate acid, before the precipRate scale. Sits
 // between `hard_use` (2) and `mishap` (8): a hero event should visibly cost you
@@ -260,6 +261,8 @@ async function douseWithFluid(player, { potency = 1, broadcast, source, info = {
     }
   }
   if (patches.length) await patchInventoryCustomData(patches);
+  // Something is wet now, so the minute tick has drying to do (see needsPass).
+  clothesChanged(player, true);
 
   // The one number, computed exactly as the tick computes it: the water against
   // skin and in the layer touching it, area-weighted. A soaked shell over a dry
@@ -324,6 +327,41 @@ const WETNESS_THRESHOLDS = [
 ];
 const DRY_MSG = "You're completely dry.";
 
+// ── Who the minute tick has to read ─────────────────────────────────────────
+// A player in no weather, with dry clothes and dry skin, has nothing that can
+// change this minute, so the tick leaves them out of its read; when nobody is
+// left, it makes no query at all. A clear day used to cost one read of everyone's
+// worn items every minute, which kept the database awake all session.
+//
+// `player._clothesDamp` is RAM only, set at the end of each pass: true when any
+// worn wettable garment still holds water. It starts undefined (a fresh login,
+// or a reconnect, which builds a new player object), and undefined means "read
+// and find out": a coat put away soaked is still soaked next session. Anything
+// that changes what's worn resets it to undefined (`inventory.changed`), so a wet
+// garment put on mid-session gets read and dried too.
+function needsPass(player) {
+  if (player._submerged || player._clothesDamp !== false) return true;
+  if ((player.wetness ?? 0) > 0) return true;
+  const skin = player._skinWetness;
+  if (skin && BODY_SLOTS.some(s => (skin[s] ?? 0) > 0)) return true;
+  // Acid needs precipitation too, so this covers the corrosion branch as well.
+  const zoneId = bodyZoneOf(player);
+  if (getZone(zoneId)?.flags?.is_interior) return false;
+  return getZonePrecip(zoneId).precipRate > 0;
+}
+// The count lets a pass whose read began before the change know its rows are
+// out of date, so it leaves the flag undefined rather than calling a wet coat dry.
+function clothesChanged(player, damp) {
+  player._clothesDamp = damp;
+  player._clothesSeq = (player._clothesSeq || 0) + 1;
+}
+on('inventory.changed', ({ actor }) => {
+  if (!actor) return;
+  clothesChanged(actor, undefined);
+  const live = getLivePlayer(actor.id);
+  if (live && live !== actor) clothesChanged(live, undefined);
+});
+
 export const hooks = {
   'tick.minute': async ({ broadcast }) => {
     // ONE read and ONE write for the whole world, not one of each per player.
@@ -337,8 +375,10 @@ export const hooks = {
     // sleepers dry would have quietly re-created the immunity that change removed — sleeping
     // rough in a downpour would cost you the ambient cold but never the 2× wet multiplier.
     // They get no wetness MESSAGES, though: they're asleep. Cold is what wakes them.
-    const people = getAllLivePlayers();
+    // Only the players something can happen to this minute (see needsPass).
+    const people = getAllLivePlayers().filter(needsPass);
     if (!people.length) return;
+    const seqAtRead = new Map(people.map(p => [p.id, p._clothesSeq || 0]));
     const equippedByPlayer = await resolveInventoryForPlayers(
       people.map(p => p.id), { equipped: true, topLevel: false });
     // [invId, {wetness}] pairs, flushed together after the loop.
@@ -367,6 +407,11 @@ export const hooks = {
 
       const rows = equippedByPlayer.get(playerId) || [];
       const wettable = rows.filter(r => hasTag(r, 'gets_wet'));
+      // Record whether anything worn is still wet, for needsPass next minute, unless
+      // what's worn changed while this read was in flight.
+      const settleDamp = (damp) => {
+        if ((player._clothesSeq || 0) === seqAtRead.get(playerId)) player._clothesDamp = damp;
+      };
 
       // ── Acid corrosion ────────────────────────────────────────────────────
       // Acid eats EVERYTHING you're wearing, not just the things that get wet,
@@ -396,6 +441,7 @@ export const hooks = {
         // Under water there is no outermost layer — every slot is against it.
         player._skinWetness = skinState(player);
         for (const s of BODY_SLOTS) player._skinWetness[s] = 100;
+        settleDamp(wettable.length > 0);
         const messages = [];
         for (const t of WETNESS_THRESHOLDS) {
           if (prevWetness < t.value && 100 >= t.value) messages.push(t.risingMsg);
@@ -456,6 +502,7 @@ export const hooks = {
         // the layer walk next tick reads the same number the DB holds.
         item.custom_data = { ...(item.custom_data || {}), wetness: Math.round(next) };
       }
+      settleDamp(wettable.some(item => wetnessOf(item) > 0));
 
       // ── Skin, per slot ────────────────────────────────────────────────────
       // This used to pin `wetness` to 0 whenever nothing wettable was equipped, which read as
@@ -522,5 +569,5 @@ export const _test = {
   rainWettingRate, snowWettingRate, dryMultiplier, windMultiplier, humidityMultiplier,
   skinWetnessStep, SKIN_DRY_FACTOR, COVERED_SKIN_DRY_FACTOR, WETNESS_THRESHOLDS,
   layerPassthrough, layerRank, slotsOf, stackFlux, drivenRainMultiplier,
-  absorbStep, dryStep, BODY_SLOTS, SLOT_AREA,
+  absorbStep, dryStep, BODY_SLOTS, SLOT_AREA, needsPass,
 };

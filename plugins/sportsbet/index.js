@@ -180,7 +180,7 @@ async function cmdTakeWager(args, raw, player, broadcast) {
     return { type: 'error', message: 'The wager desk glitched: your stakes are refunded, nothing locked.' };
   }
 
-  betsGate.noteWork();   // something is now locked and will need settling
+  betsGate.noteWork(g.endsAtMs);   // locked; the settle sweep wakes when the game ends
   const pot = offer.amount * 2;
   const line = `${labelOf(g).icon} Bet locked: ₵${offer.amount} each (₵${pot} pot). ${proposer.handle}: ${offer.team}${offer.score ? ` ${offer.score.away}-${offer.score.home}` : ''} · ${player.handle}: ${myTeam}${myScore ? ` ${myScore.away}-${myScore.home}` : ''}. Settles when the ${g.away}–${g.home} game ends.`;
   sendToPlayer(proposer.id, { type: 'output', message: `<span class="msg-system">${line}</span>` });
@@ -256,16 +256,20 @@ async function settleBet(row) {
 // Locked bets are the exception, not the rule, and this sweep runs every minute
 // forever. Two writers touch the locked set — the wager INSERT and the settle
 // UPDATE — so the gate's counter is easy to keep honest, and worklist.js's
-// re-probe covers it if it ever isn't.
+// re-probe covers it if it ever isn't. The probe also reports the earliest
+// resolve_at, so a bet on a game still in progress costs no query until it ends.
 const betsGate = createWorkGate({
   name: 'sports_bets',
-  probe: async () => (await query(`SELECT COUNT(*)::int AS n FROM sports_bets WHERE status='locked'`)).rows[0].n,
+  probe: async () => (await query(
+    `SELECT COUNT(*)::int AS n, (EXTRACT(EPOCH FROM MIN(resolve_at)) * 1000)::bigint AS "nextDue"
+       FROM sports_bets WHERE status='locked'`)).rows[0],
 });
 
 async function settleDue() {
   if (!await betsGate.shouldRun()) return;
   const { rows } = await query(`SELECT * FROM sports_bets WHERE status='locked' AND resolve_at <= NOW()`).catch(() => ({ rows: [] }));
   for (const row of rows) await settleBet(row).catch(e => console.error('[sportsbet] settle error:', e.message));
+  betsGate.noteWork();   // re-probe what's left (and when it's due) on the next call
 }
 schedule('1m', settleDue);
 // Catch up shortly after boot (settles anything overdue from downtime).

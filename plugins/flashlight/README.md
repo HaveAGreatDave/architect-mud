@@ -16,7 +16,8 @@ None.
 
 ## Events consumed
 
-None.
+- `player.login`: one read for the player logging in: do they still hold a lit flashlight from the last session?
+- `item.taken`, `item.given`: a lit flashlight picked up or handed over puts its new holder on the drain list. No read; the event's row carries `custom_data`.
 
 ## Hooks consumed
 
@@ -25,10 +26,11 @@ None.
 ## Tick usage
 
 - `1m` — drains charge from every lit flashlight held by an online player, at a per-item rate (`flashlightDrainRate`): the stock 1 unit/min, or slower for a frugal light (see Config). Fractional drain accumulates in `custom_data.drainacc` so `battery` stays an integer. At zero the beam dies (`lit` → false) and the holder is warned.
+  It reads only the players on an in-memory list of who might have a light on (`litHolders`), and does nothing when the list is empty, so a world with every light off costs no queries. A player joins the list when they switch a light on, log in holding a lit one, pick one up or are handed one, or when `visibility.perceive` finds one (the catch-all for moves that fire no event: a trade, a shop purchase, the Drake's stores). They leave it at `turn off` when nothing else they hold is lit, when the battery dies, once they log out, and when the tick finds nothing lit. A stale entry costs one read and then clears; a missing one would mean a light that never drains, which is why the adds are the generous side.
 
 ## Dependencies
 
-Engine: `environment.js` (`floorVisibility`, `LIGHT_LADDER`), `scheduler.js`, `messaging.js`, `world.js` (`getAllLivePlayers`).
+Engine: `environment.js` (`floorVisibility`, `LIGHT_LADDER`), `scheduler.js`, `events.js`, `messaging.js`, `world.js` (`world.players`).
 
 ## Config
 

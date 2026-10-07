@@ -35,7 +35,10 @@ import { getNpcsByFlag } from '../../server/engine/world.js';
 
 const FIRING_WINDOW_MS = 12000;   // the look reads ● FIRING for this long after the last shot
 const AA_BROADCAST_MS = 8000;     // cap the "guns erupt" room line to at most this often per site
-const CACHE_TTL_MS = 5000;        // aa_sites roster cache (sites are static content)
+// aa_sites roster cache. Sites are static content, and a content deploy restarts the server;
+// every runtime change (strafed off-line, repaired) is written into the roster as it happens,
+// so the TTL is only a backstop, not a poll.
+const CACHE_TTL_MS = 30 * 60 * 1000;
 const REPAIR_MS = 150000;         // engineer work to bring a strafed battery back online (2.5 min)
 
 const lastFired = new Map();      // siteId → ms of last engagement

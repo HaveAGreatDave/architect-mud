@@ -75,6 +75,8 @@ const leagueOf = (sport) => LEAGUES[sport] || LEAGUES.baseball;
 // Which sports actually have a broadcast to schedule. Asking rather than assuming keeps
 // this from opening a season for a league whose show doesn't exist — a CPhL table on a
 // server that never imported Cluster Puck would be an empty table with a proud heading.
+// broadcast answers from RAM (its channel runtime, else its cached sports library), so
+// the TTL only spares the dispatch; it doesn't stand between the tick and the database.
 let _sportsList = { ts: 0, ids: ['baseball'] };
 const SPORTS_LIST_TTL_MS = 120_000;
 async function activeSports() {
@@ -129,24 +131,38 @@ function daysElapsed(fromDate) {
 // The active season row for a sport (the one not yet complete), or null. Highest
 // season_no wins.
 //
-// Cached PER SPORT: this is read from seven places, several of them on scheduled ticks,
-// and a season row changes phase perhaps twice in its whole life (days apart). Every
-// writer of sports_season lives in this file and drops the cache, so the TTL is only a
-// backstop against a hand-edit through the dev panel.
-const _seasonCaches = new Map();   // sport -> { ts, row }
-const SEASON_TTL_MS = 30_000;
-function invalidateSeason(sport) { _seasonCaches.delete(sport); }
+// Cached PER SPORT, with no expiry: this is read from seven places, several of them on
+// scheduled ticks, and a season row changes phase perhaps twice in its whole life (days
+// apart). Every writer of sports_season lives in this file and drops the cache. Nothing
+// else writes the table (it's a runtime table, so the dev panel, the content import and
+// the backups never touch its rows). The old 30s TTL was shorter than the 1-minute
+// season tick, so it re-read the row on every tick. A hand edit in psql needs a restart.
+//
+// Invalidating marks the entry stale rather than deleting it, so a failed re-read can
+// still answer with the last good row. `gen` matters now there's no expiry: a read
+// that was in flight across a write must not store what it saw before the write, or
+// that answer would stand until the next write (and a stale null here would make
+// ensureSeason open a second season).
+const _seasonCaches = new Map();   // sport -> { row, fresh }
+let _seasonGen = 0;
+function invalidateSeason(sport) {
+  _seasonGen++;
+  const hit = _seasonCaches.get(sport);
+  if (hit) hit.fresh = false;
+}
 
 async function currentSeason(sport) {
   const hit = _seasonCaches.get(sport);
-  if (hit && Date.now() - hit.ts < SEASON_TTL_MS) return hit.row;
+  if (hit?.fresh) return hit.row;
+  const gen = _seasonGen;
   const { rows } = await query(
     `SELECT * FROM sports_season WHERE sport = $1 AND phase <> 'complete' ORDER BY season_no DESC LIMIT 1`,
     [sport],
   ).catch(() => ({ rows: null }));
   if (!rows) return hit ? hit.row : null;   // a failed read keeps the last good answer
-  _seasonCaches.set(sport, { ts: Date.now(), row: rows[0] || null });
-  return rows[0] || null;
+  const row = rows[0] || null;
+  _seasonCaches.set(sport, { row, fresh: gen === _seasonGen });
+  return row;
 }
 
 // Open a fresh regular-season row if none is active. The season's `start_slot` anchors

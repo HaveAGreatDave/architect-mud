@@ -1077,10 +1077,10 @@ const FLICKER_MSGS = [
 
 // Sends flicker broadcasts to overloaded zones — no DB writes.
 async function flickerOverloadedZones() {
-  const { broadcast, query } = deps;
-  if (!broadcast || !query) return;
+  const { broadcast } = deps;
+  if (!broadcast) return;
   // Only overloaded zones a player is actually standing in produce an observable
-  // flicker (Phase 8) — skip the furniture query for empty zones. Same source of
+  // flicker (Phase 8) — skip empty zones. Same source of
   // truth broadcastZoneWeather uses one function away; don't re-derive occupancy.
   const occupied = deps.getOccupiedZones ? new Set(deps.getOccupiedZones()) : null;
   const zoneIds = [];
@@ -1090,21 +1090,15 @@ async function flickerOverloadedZones() {
     zoneIds.push(zoneId);
   }
   if (!zoneIds.length) return;
-  // One round trip for every zone, not one per zone; three lights each.
-  const { rows } = await query(
-    `SELECT zone_id, name FROM (
-       SELECT zone_id, name, row_number() OVER (PARTITION BY zone_id) AS n
-       FROM furniture WHERE zone_id = ANY($1) AND object_type='light' AND light_on=1
-     ) t WHERE n <= 3`,
-    [zoneIds]
-  ).catch(() => ({ rows: [] }));
-  const namesByZone = new Map();
-  for (const r of rows) {
-    if (!namesByZone.has(r.zone_id)) namesByZone.set(r.zone_id, []);
-    namesByZone.get(r.zone_id).push(r.name);
-  }
+  // Three lit lights a zone, named from the furniture cache. This ran a furniture
+  // query up to three times a minute for as long as someone stood in a browned-out
+  // room, for rows the cache already holds.
   for (const zoneId of zoneIds) {
-    const { text: nameStr, isSingular } = _fmtLightNames(namesByZone.get(zoneId) || []);
+    const names = getZoneFurniture(zoneId)
+      .filter(f => f.object_type === 'light' && Number(f.light_on) === 1)
+      .slice(0, 3)
+      .map(f => f.name);
+    const { text: nameStr, isSingular } = _fmtLightNames(names);
     const pick = FLICKER_MSGS[Math.floor(Math.random() * FLICKER_MSGS.length)];
     broadcast(zoneId, { type: 'zone_event', message: `<br><span class="power-flicker">${pick(nameStr, isSingular)}</span><br>` });
   }

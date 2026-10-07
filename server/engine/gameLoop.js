@@ -33,7 +33,7 @@ import { addSweat } from './hygiene.js';
 import { warmthBonus, tickWarmth } from './warmth.js';
 import { appetiteMessages } from './appetite.js';
 import { getEnvironmentState, getZoneTemperature, feltAmbientC, isClimateExempt, waterTemperature, getZoneHumidity, getWindKph, recordLightningKill, getZoneStormIntensity, getWeatherFieldSnapshot, getZonePrecip, getZoneWeatherType, seasonForDate, activeWeatherEvent, strikeableBuildings, overloadJunctionBoxes, powerAnchorOf } from './environment.js';
-import { tickDrugDecayAll, tickDrugs, tickOnsets, tickWithdrawalAll, clearActiveDrugState } from './drugs.js';
+import { tickDrugDecayAll, tickDrugs, tickOnsets, tickWithdrawalAll, drugWatched, clearActiveDrugState } from './drugs.js';
 import { getTimeScale } from './gametime.js';
 import { escAttr } from './text.js';
 import { getItem } from './items-cache.js';
@@ -586,10 +586,13 @@ async function minuteTickFn() {
   // Drug decay: once a dose's active window has expired, doses_in_system sheds a
   // fraction of itself per minute (a half-life, not a flat step), so a heavy load
   // clears fast and overdose thresholds recover instead of accumulating forever.
-  await tickDrugDecayAll(roster.map(p => p.id));
+  // Only players with something in their system or a habit (drugWatched), so a
+  // sober server makes no drug round trips at all.
+  const drugRoster = drugWatched(roster);
+  await tickDrugDecayAll(drugRoster.map(p => p.id));
 
   // Withdrawal: apply/clear addiction debuffs; decay addiction toward sobriety.
-  const wdByPlayer = await tickWithdrawalAll(roster);
+  const wdByPlayer = await tickWithdrawalAll(drugRoster);
   for (const [playerId, messages] of wdByPlayer) {
     broadcastFn(null, { type: 'status_tick', messages }, null, playerId);
   }

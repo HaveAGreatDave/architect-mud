@@ -1530,7 +1530,7 @@ section('layer 1j: standing decay + relationship help');
 // not on "it didn't throw".
 section('layer 1g: broadcast / spawn / durable wait');
 {
-  const { runGraph, resumeDueWaits } = await import('../server/engine/graph.js');
+  const { runGraph, resumeDueWaits, reloadWaitIndex } = await import('../server/engine/graph.js');
   const { query } = await import('../server/models/db.js');
   // getAllZones() returns projections; spawn asserts on the LIVE zone object
   // (its `enemies` Set is what spawnEnemySync writes to).
@@ -1617,6 +1617,7 @@ section('layer 1g: broadcast / spawn / durable wait');
   check('the parked row is not yet due', await getFlag('world', 'regress_durable_ran') === undefined);
 
   await query(`UPDATE script_waits SET due_at=$1 WHERE node_id='regress_after'`, [Date.now() - 1000]);
+  reloadWaitIndex(); // the UPDATE above went around graph.js, so its RAM index is stale
   await resumeDueWaits(broadcast);
   check('resumeDueWaits runs a due parked continuation',
     await getFlag('world', 'regress_durable_ran') === 'yes');
@@ -1628,6 +1629,7 @@ section('layer 1g: broadcast / spawn / durable wait');
     `INSERT INTO script_waits (id, graph, node_id, player_id, params, due_at)
      VALUES ('regress_owed', $1, 'regress_owed_node', 'player_who_is_offline', '{}', $2)`,
     [JSON.stringify({ nodes: { regress_owed_node: { type: 'say', text: 'hi' } } }), Date.now() - 1000]);
+  reloadWaitIndex();
   await resumeDueWaits(broadcast);
   const { rows: owed } = await query(`SELECT id FROM script_waits WHERE id='regress_owed'`);
   check('a due wait for an offline player stays owed', owed.length === 1);
@@ -2558,6 +2560,24 @@ check('bare stop → nothing to stop', /aren't doing anything/.test(r?.message |
     probe: async () => { throw new Error('db down'); },
   });
   check('work gate: a failed probe fails OPEN (runs the tick)', (await failing.shouldRun()) === true);
+
+  // Due times: queued work that isn't due yet keeps the gate shut, so the tick
+  // doesn't run its query every minute while it waits.
+  let due = { n: 1, nextDue: Date.now() + 60_000 };
+  probes = 0;
+  const timed = createWorkGate({
+    name: '__regress_gate_due',
+    probe: async () => { probes += 1; return due; },
+  });
+  check('work gate: an item not yet due keeps the tick shut', (await timed.shouldRun()) === false);
+  check('work gate: and costs no second probe', (await timed.shouldRun()) === false && probes === 1, `probes=${probes}`);
+  timed.noteWork(Date.now() - 1);
+  check('work gate: noteWork(dueAt) in the past opens it without a probe', (await timed.shouldRun()) === true && probes === 1,
+    `probes=${probes}`);
+  due = { n: 0, nextDue: null };
+  timed.noteDrained(0);
+  timed.noteWork(Date.now() + 60_000);
+  check('work gate: noteWork(dueAt) in the future keeps it shut', (await timed.shouldRun()) === false && probes === 1);
 }
 
 // ── Activity-tick substrate ────────────────────────────────────────────────────

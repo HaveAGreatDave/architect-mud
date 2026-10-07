@@ -6,9 +6,14 @@
 None — entirely passive, driven off exposure.
 
 ## Hooks
-`tick.minute`: one batched read of every online player's worn items, the wetting and drying
-below, then one batched write of the garments whose rounded wetness changed. It reads every minute
-someone is online and writes only when a garment's number moves.
+`tick.minute`: one batched read of the worn items of every online player something can happen to,
+the wetting and drying below, then one batched write of the garments whose rounded wetness changed.
+A player is read only if it's raining or snowing on their tile outdoors (acid rain included),
+they're in the water, their skin or `player.wetness` is above zero, or their worn clothes were
+still damp on the last pass. That last one is `player._clothesDamp`, RAM only: it starts undefined
+at login (undefined means read), and `inventory.changed` resets it to undefined so a wet coat put
+on mid-session gets read. When nobody qualifies the tick makes no query at all, so a dry day costs
+nothing. It writes only when a garment's number moves.
 
 Until 2026-10-04 plugin.json declared no hooks, so the loader never called the tick: rain wet
 nobody and nothing dried. Regress now fails any plugin that exports a hook its manifest doesn't list.

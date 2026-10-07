@@ -6,6 +6,7 @@ import { _test } from './index.js';
 import { applyTopical } from '../../server/engine/topical.js';
 import { fireHook } from '../../server/engine/plugins.js';
 import { getZone } from '../../server/engine/world.js';
+import { emit } from '../../server/engine/events.js';
 
 export default async function regress({ check, getPlayer }) {
   const { rainWettingRate, snowWettingRate, dryMultiplier, windMultiplier, humidityMultiplier,
@@ -196,6 +197,39 @@ export default async function regress({ check, getPlayer }) {
       p._submerged = saved.submerged;
       p.wetness = saved.wetness;
       if (saved.skin) p._skinWetness = saved.skin; else delete p._skinWetness;
+    }
+  }
+
+  // ── Who the tick reads ─────────────────────────────────────────────────────
+  // A dry player under a roof with dry clothes is left out of the minute read, so a
+  // clear day costs no query. Anything that might be wet, or might change, is read.
+  {
+    const { needsPass } = _test;
+    const p = getPlayer();
+    const zone = getZone(p.current_zone);
+    const saved = { flags: zone.flags, submerged: p._submerged, wetness: p.wetness, skin: p._skinWetness, damp: p._clothesDamp };
+    try {
+      zone.flags = { ...(saved.flags || {}), is_interior: true };
+      p._submerged = false; p.wetness = 0; delete p._skinWetness; p._clothesDamp = false;
+      check('needsPass skips a dry player indoors with dry clothes', needsPass(p) === false, 'expected false');
+      p._clothesDamp = undefined;
+      check('…but reads one whose clothes are unknown (a fresh login)', needsPass(p) === true, 'expected true');
+      p._clothesDamp = true;
+      check('…or still damp', needsPass(p) === true, 'expected true');
+      p._clothesDamp = false; p._skinWetness = Object.fromEntries(BODY_SLOTS.map(s => [s, 0])); p._skinWetness.feet = 4;
+      check('…or has wet skin', needsPass(p) === true, 'expected true');
+      delete p._skinWetness; p._submerged = true;
+      check('…or is in the water', needsPass(p) === true, 'expected true');
+      p._submerged = false;
+      p._clothesDamp = false;
+      emit('inventory.changed', { actor: p });
+      check('…and a change to what is worn makes the next tick read again', p._clothesDamp === undefined, String(p._clothesDamp));
+    } finally {
+      zone.flags = saved.flags;
+      p._submerged = saved.submerged;
+      p.wetness = saved.wetness;
+      if (saved.skin) p._skinWetness = saved.skin; else delete p._skinWetness;
+      p._clothesDamp = saved.damp;
     }
   }
 }

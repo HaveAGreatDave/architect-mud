@@ -10,6 +10,9 @@
       { "verb": "reload", "requiredTag": "flashlight" }
     ]
   },
+  "events": {
+    "consumes": ["player.login", "item.taken", "item.given"]
+  },
   "ticks": ["1m"],
   "dataSchema": []
 }

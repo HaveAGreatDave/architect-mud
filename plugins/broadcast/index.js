@@ -916,7 +916,43 @@ function formatMessage(text, deviceType, zone, style) {
 
 // ── Channel runtime loader ───────────────────────────────────────────────────
 
+// The raw slot rows mediaDeckSyncTick aligns decks against, per channel id, in
+// start_time order. Kept apart from channelRuntime on purpose: the deck tick has
+// always read EVERY channel (disabled ones too) and a slot with no
+// duration_override as 300 game-seconds, where the runtime playlist keeps only
+// enabled channels and falls back to the broadcast's natural length. Rebuilt by
+// loadChannelRuntimes, which every media_channel_playlist writer calls, so the
+// tick reads RAM instead of selecting the playlist every 30s.
+let _deckSyncSlots = new Map();   // channelId -> [{ broadcast_id, start_time, duration }]
+
+// Every sports script in the broadcast library, parsed, for the readers that need
+// one when nothing is on the air (anySportsScript, getSports, getSportsTeams).
+// Loaded on first use and dropped by loadChannelRuntimes, which every dev-API
+// write to media_broadcasts already calls. `gen` stops a load that was in flight
+// across a drop from storing what it read before the write.
+let _sportsLibrary = null;        // [sports_pools objects] once loaded
+let _sportsLibraryGen = 0;
+async function sportsLibrary() {
+  if (_sportsLibrary) return _sportsLibrary;
+  const gen = _sportsLibraryGen;
+  const { rows } = await query(
+    `SELECT sports_pools FROM media_broadcasts WHERE playback_mode='sports' AND sports_pools IS NOT NULL`,
+  ).catch(() => ({ rows: null }));
+  if (!rows) return [];   // a failed read is not cached, so the next caller retries
+  const scripts = [];
+  for (const row of rows) {
+    let sp = row.sports_pools;
+    if (typeof sp === 'string') { try { sp = JSON.parse(sp || '{}'); } catch { sp = null; } }
+    if (sp && typeof sp === 'object') scripts.push(sp);
+  }
+  if (gen === _sportsLibraryGen) _sportsLibrary = scripts;
+  return scripts;
+}
+
 async function loadChannelRuntimes() {
+  // Drop the sports library first: the caller has just written media_broadcasts.
+  _sportsLibrary = null;
+  _sportsLibraryGen++;
   try {
     const { rows: channels } = await query(
       `SELECT c.*, b.messages AS idle_messages, b.message_interval AS idle_interval,
@@ -1023,7 +1059,15 @@ async function loadChannelRuntimes() {
     }
 
     const playlistByChannel = new Map();
+    const deckSyncSlots = new Map();
     for (const item of playlist) {
+      // Same as the query this replaced: COALESCE(duration_override, 300).
+      if (!deckSyncSlots.has(item.channel_id)) deckSyncSlots.set(item.channel_id, []);
+      deckSyncSlots.get(item.channel_id).push({
+        broadcast_id: item.broadcast_id,
+        start_time: item.start_time,
+        duration: item.duration_override ?? 300,
+      });
       if (!playlistByChannel.has(item.channel_id)) playlistByChannel.set(item.channel_id, []);
       const naturalDur = broadcastDuration(item);
       const dur = item.duration_override || naturalDur;
@@ -1098,6 +1142,7 @@ async function loadChannelRuntimes() {
       });
     }
 
+    _deckSyncSlots = deckSyncSlots;
     channelRuntime.clear();
     studioZoneIndex.clear();
     deckInputChannels.clear();
@@ -2714,7 +2759,11 @@ setTimeout(() => { sportsHeartbeat().catch(() => {}); }, 9000);
 // ── League standings feed (for the on-air standings bug + record mentions) ──────
 // The sportsleague plugin owns the standings; broadcast reads them through its
 // getStandings Action (no table coupling). Cached briefly so a 5s tick doesn't
-// hammer the DB, and the bug is pushed on a slow cadence per channel.
+// re-ask, and the bug is pushed on a slow cadence per channel. The ask itself costs
+// no round trip: the league caches its season row until a season write and its
+// table until the slot moves, and the fold reads the sports script from RAM.
+// STANDINGS_CACHE_MS also bounds how late refreshSeason sees a final seeded, so
+// leave it short.
 const STANDINGS_CACHE_MS = 30000;
 const STANDINGS_BUG_EVERY_MS = 45000;   // how often the standings graphic flashes up mid-game
 // Cached PER SPORT. A single shared cache meant `recordOf` answered every question out
@@ -4578,8 +4627,12 @@ async function _getPirateMessage(zoneId, nowMs, state, strict = false) {
     _pirateCache.delete(zoneId);
   }
 
+  // Held for as long as the same tape is up, as _getDeckMessage does. A new tape
+  // means a new id, and the cursor and queue commands drop the entry anyway, so a
+  // TTL here only re-read the same row every 10s and threw away the weather graph
+  // already built on the item.
   let entry = _pirateCache.get(zoneId);
-  if (!entry || entry.id !== activeId || nowMs - entry.fetchedAt > _DECK_CACHE_TTL) {
+  if (!entry || entry.id !== activeId) {
     const { rows: bcRows } = await query(
       `SELECT playback_mode, messages, message_interval, broadcast_graph, fallback_messages, weather_pools, sports_pools
          FROM media_broadcasts WHERE id=$1`, [activeId]
@@ -7661,12 +7714,8 @@ registerAction({
 registerAction({
   type: 'broadcast.getSportsTeams',
   handler: async () => {
-    const { rows } = await query(
-      `SELECT sports_pools FROM media_broadcasts WHERE playback_mode='sports' AND sports_pools IS NOT NULL`,
-    ).catch(() => ({ rows: [] }));
     const teams = new Set();
-    for (const r of rows) {
-      const sp = typeof r.sports_pools === 'string' ? (JSON.parse(r.sports_pools || '{}')) : (r.sports_pools || {});
+    for (const sp of await sportsLibrary()) {
       for (const t of (Array.isArray(sp.teams) ? sp.teams : [])) {
         const name = typeof t === 'string' ? t : t?.name;
         if (name) teams.add(name);
@@ -7677,7 +7726,8 @@ registerAction({
 });
 
 // The loaded sports script (teams + players + pools). Prefer a live channel runtime;
-// fall back to the DB so standings can be computed before any channel is tuned.
+// fall back to the library (sportsLibrary, cached) so standings can be computed
+// before any channel is tuned.
 // Resolve a script BY SPORT. Grabbing "the first sports script found" would hand
 // hockey the baseball roster the moment both are on the air — the standings would
 // be right for one league and nonsense for the other, with no error anywhere.
@@ -7686,13 +7736,9 @@ async function anySportsScript(sport) {
     if (!script?.teams) continue;
     if (!sport || (script.sport || 'baseball') === sport) return script;
   }
-  // Fall back to the DB, still filtered on the sport when one was asked for.
-  const { rows } = await query(
-    `SELECT sports_pools FROM media_broadcasts WHERE playback_mode='sports' AND sports_pools IS NOT NULL`,
-  ).catch(() => ({ rows: [] }));
-  for (const row of rows) {
-    const sp = typeof row.sports_pools === 'string' ? JSON.parse(row.sports_pools || '{}') : row.sports_pools;
-    if (!sp || !Array.isArray(sp.teams)) continue;
+  // Fall back to the library, still filtered on the sport when one was asked for.
+  for (const sp of await sportsLibrary()) {
+    if (!Array.isArray(sp.teams)) continue;
     if (!sport || (sp.sport || 'baseball') === sport) return sp;
   }
   return null;
@@ -7740,13 +7786,11 @@ registerAction({
     for (const { script } of sportsChannels()) if (script?.teams) ids.add(script.sport || 'baseball');
     if (ids.size) return { sports: [...ids] };
     // Nothing airing this minute — fall back to what exists in the library, so a league
-    // still ticks over on a schedule where its show only airs in the evening.
-    const { rows } = await query(
-      `SELECT sports_pools FROM media_broadcasts WHERE playback_mode='sports' AND sports_pools IS NOT NULL`,
-    ).catch(() => ({ rows: [] }));
-    for (const row of rows) {
-      const sp = typeof row.sports_pools === 'string' ? JSON.parse(row.sports_pools || '{}') : row.sports_pools;
-      if (sp && Array.isArray(sp.teams)) ids.add(sp.sport || 'baseball');
+    // still ticks over on a schedule where its show only airs in the evening. The
+    // library is held in RAM (sportsLibrary), so the league's minute tick costs no
+    // round trip outside airtime.
+    for (const sp of await sportsLibrary()) {
+      if (Array.isArray(sp.teams)) ids.add(sp.sport || 'baseball');
     }
     return { sports: [...ids] };
   },
@@ -9260,27 +9304,11 @@ async function mediaDeckSyncTick() {
   const { minutes } = getEnvironmentState();
   const gameSecondsSinceMidnight = minutes * 60;
 
-  // Every eligible deck's channel playlist in one query (this was a per-deck
-  // round trip), grouped by channel — decks often share a channel.
+  // Each deck's channel slots come from _deckSyncSlots, built by
+  // loadChannelRuntimes. This was a SELECT on media_channel_playlist every 30s,
+  // which kept the database awake for as long as anyone was online, though the
+  // playlist only changes when something writes it and every writer reloads.
   const deckStates = decks.map(deck => ({ deck, dflags: _deckFlags(deck) }));
-  // A deck on the VCR *input* (channel 0) has no timetable to align to — it plays
-  // the tape somebody put in it. Aligning it would sync every VCR in the world to
-  // one shared schedule. See isDeckInputChannel.
-  const channelIds = [...new Set(deckStates
-    .filter(({ dflags }) => dflags.channel_id && !isDeckInputChannel(dflags.channel_id)
-      && Array.isArray(dflags.deck_cassettes) && dflags.deck_cassettes.length && !dflags.pirate_owner)
-    .map(({ dflags }) => dflags.channel_id))];
-  if (!channelIds.length) return;
-  const { rows: allPlRows } = await query(
-    `SELECT channel_id, broadcast_id, start_time, COALESCE(duration_override, 300) AS duration
-       FROM media_channel_playlist WHERE channel_id = ANY($1) ORDER BY start_time`,
-    [channelIds]
-  );
-  const playlistByChannel = new Map();
-  for (const r of allPlRows) {
-    if (!playlistByChannel.has(r.channel_id)) playlistByChannel.set(r.channel_id, []);
-    playlistByChannel.get(r.channel_id).push(r);
-  }
 
   for (const { deck, dflags } of deckStates) {
     const channelId = dflags.channel_id;
@@ -9289,7 +9317,7 @@ async function mediaDeckSyncTick() {
     if (isDeckInputChannel(channelId)) continue; // a VCR plays its own tape, not a timetable
     if (dflags.pirate_owner) continue; // a pirated deck answers only to its captor — don't auto-align it to the schedule
 
-    const plRows = playlistByChannel.get(channelId) || [];
+    const plRows = _deckSyncSlots.get(channelId) || [];
     const slot = plRows.find(p => gameSecondsSinceMidnight >= p.start_time && gameSecondsSinceMidnight < p.start_time + p.duration);
     if (!slot?.broadcast_id) continue;
     if (!cassettes.includes(slot.broadcast_id)) continue;
