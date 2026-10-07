@@ -67,22 +67,42 @@ export async function buildingHasPower(query, anchorId) {
   return rows.length > 0;
 }
 
-// Nearest online city plant to (gx,gy) by grid distance, or the first one found
-// if the anchor has no grid coords. null when the world has no city plant yet.
-async function nearestCityPlant(query, gx, gy) {
-  const { rows: cps } = await query(
-    `SELECT g.id, z.grid_x, z.grid_y FROM generators g
-       LEFT JOIN zones z ON z.id = g.zone_id
-      WHERE g.generator_type = 'city_plant'`
-  );
-  let best = null, minD = Infinity;
-  for (const cp of cps) {
-    if (gx != null && cp.grid_x != null) {
-      const d = Math.hypot(cp.grid_x - gx, cp.grid_y - gy);
-      if (d < minD) { minD = d; best = cp; }
-    } else if (!best) best = cp;
+// The city plant a new junction box answers to: the one in the building's own region, nearest
+// among those, ties broken by id.
+//
+// ⚠ THE SAME RULE AS scripts/content/repoint-junction-boxes.mjs AND THE ENGINE'S installGenerator,
+// and it has to be. Every interior sits at 0,0 on its own map, and so do two of the city plants, so
+// measuring an interior's own grid_x/grid_y picks whichever plant is also at the origin. That put
+// 21 new buildings in Coldwater on Terminus's plant between 2026-09 and 2026-10. A zone is placed
+// only when it is on map_world; otherwise its `flags.world_exit_zone` (the facade) stands in.
+//
+// Two whole-table reads rather than a join, because the content store's file sink (the path
+// scripts/content/*/ authoring takes) understands that shape and not a join. It's an authoring tool.
+async function nearestCityPlant(query, anchorId) {
+  const [{ rows: gens }, { rows: zs }] = await Promise.all([
+    query('SELECT id, zone_id, generator_type FROM generators'),
+    query('SELECT id, map_id, grid_x, grid_y, flags FROM zones'),
+  ]);
+  const byId = new Map(zs.map((z) => [z.id, z]));
+  const placed = (z) => z && z.map_id === 'map_world' && z.grid_x != null && z.grid_y != null;
+  const anchorOf = (z) => {
+    const t = placed(z) ? z : byId.get(z?.flags?.world_exit_zone);
+    return placed(t) ? { x: t.grid_x, y: t.grid_y, region: t.flags?.region_id || null } : null;
+  };
+  const plants = gens.filter((g) => g.generator_type === 'city_plant')
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+    .map((g) => ({ id: g.id, anchor: anchorOf(byId.get(g.zone_id)) }))
+    .filter((p) => p.anchor);
+  const at = anchorOf(byId.get(anchorId));
+  if (!at || !plants.length) return plants[0]?.id || null;
+  const same = at.region ? plants.filter((p) => p.anchor.region === at.region) : [];
+  const pool = same.length ? same : plants;
+  let best = pool[0], minD = Infinity;
+  for (const p of pool) {
+    const d = Math.hypot(p.anchor.x - at.x, p.anchor.y - at.y);
+    if (d < minD) { minD = d; best = p; }
   }
-  return best?.id || null;
+  return best.id;
 }
 
 async function syncLighting(query, zoneId) {
@@ -169,7 +189,7 @@ export async function authorUtilityRoom(query, { anchorId, capacityKw = JB_CAPAC
 
   // 5. Junction-box generator (deterministic id — safe to re-run).
   const genId = `gen_${utilId}`;
-  const cityGenId = cityGeneratorId || await nearestCityPlant(query, gx, gy);
+  const cityGenId = cityGeneratorId || await nearestCityPlant(query, anchor.id);
   await query(
     `INSERT INTO generators (id, zone_id, name, generator_type, capacity_kw, fuel_type, fuel_remaining, fuel_burn_rate, connection_range, status, city_generator_id)
      VALUES ($1,$2,$3,'junction_box',$4,NULL,0,0,0,'online',$5)

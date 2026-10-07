@@ -11,7 +11,7 @@
 //  - `gauges` needs a board; `waterworks` is staff only
 import { world, getZone, getZoneFurniture } from '../../server/engine/world.js';
 import { on } from '../../server/engine/events.js';
-import { getZoneOnGrid } from '../../server/engine/environment.js';
+import { query } from '../../server/models/db.js';
 import {
   waterNetworkOf, getWaterSupply, setWaterSupply, drawWater, resetWaterSupply, isDrinkingSource, isShower, isWaterSource,
 } from '../../server/engine/water.js';
@@ -108,7 +108,13 @@ export default async function regress({ run, check, getPlayer }) {
       }
       check('the intake sees the sky', !!getZone(plant.intakeZoneId)?.flags?.open_sky, plant.intakeZoneId);
       check('the pumps are a real room', getZoneFurniture(plant.zoneId).some(f => f.flags?.waterworks === REGION));
-      check('the pump room is wired to the grid', getZoneOnGrid(plant.zoneId), plant.zoneId);
+      // The harness never starts the power sim, so this reads the rows: the pump room's junction box
+      // must answer to a city plant in the same region (tools/lib/utility-room.mjs once picked
+      // Terminus's for every new building, because interiors and two plants all sit at 0,0).
+      const { rows: [feed] } = await query(
+        `SELECT cg.zone_id FROM power_zones pz JOIN generators jb ON jb.id = pz.generator_id
+           JOIN generators cg ON cg.id = jb.city_generator_id WHERE pz.id = $1`, [plant.zoneId]);
+      check("the pump room is fed by its own region's plant", waterNetworkOf(feed?.zone_id) === REGION, JSON.stringify(feed));
     }
 
     p.role = 'player';
