@@ -11,7 +11,7 @@ let _pending = null;
 // after `loadWindshield()` has resolved sees the real value, because an import binds rather
 // than copies. Read one before that and it is undefined, which is why the loader is awaited
 // at the door rather than at the first use.
-export let ADORN_CHEAP, ADORN_NEAR, ADORN_RICH, AUTHORED_ADORN_KINDS, AUTHORED_DETAIL_KINDS, BERTH_LIFTS, BERTH_SETDOWN, BERTH_SLOTS, BUILDING_FOOT, CAB_TRIM, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, CLIMBOUT_MAX_F, CONTACT_NEAR_F, CURTAIN_H, CURTAIN_HALF_W, DETAIL_PX, DRUM_MAT_FAMILIES, FAUNA_INK_GAIN, FAUNA_INK_R, FLASH_AREA, FLASH_BANK, FLASH_FLOOR, FLAT_ONLY_KINDS, FT_PER_FLOOR, GL_TIER, HUNT_BAND, HUNT_MIN_LEDGE, HUNT_REACH, LEGACY_MODELS, MAT_ORDER, MODEL_MAX_EXTENT, NEON_ART, NO_TILE_FIT, PHONE_TIER, RENDER_TUNE, RIDE_ROLL_W, RIDE_ROLL_ZETA, RIDE_W, ROAD_RIG_MUL, ROOF_CATCH_CEIL_Z, ROOF_CATCH_R, SHELTER_MARCH, SIGN_FONT, SIGN_PICTO, SIGN_TRACK, TILE_REACH, TRUCK_STEP_Z, TRUCK_VARIANTS, VEHICLE_CLASSES, VEHICLE_PARAM_TABLE, VISIBLE_FAR_F, VISIBLE_NEAR_F, WIRE_RING_S, _bayCutaway, _lifeGeo, armKeepStats;
+export let ADORN_CHEAP, ADORN_NEAR, ADORN_RICH, AUTHORED_ADORN_KINDS, AUTHORED_DETAIL_KINDS, BERTH_LIFTS, BERTH_SETDOWN, BERTH_SLOTS, BUILDING_FOOT, CAB_TRIM, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, CLIMBOUT_MAX_F, CONTACT_NEAR_F, CURTAIN_H, CURTAIN_HALF_W, DETAIL_PX, DRUM_MAT_FAMILIES, FAUNA_INK_GAIN, FAUNA_INK_R, FLASH_AREA, FLASH_BANK, FLASH_FLOOR, FLAT_ONLY_KINDS, FT_PER_FLOOR, GL_TIER, HUNT_BAND, HUNT_MIN_LEDGE, HUNT_REACH, LEGACY_MODELS, MAT_ORDER, MODEL_MAX_EXTENT, NEON_ART, NO_TILE_FIT, PHONE_TIER, RENDER_TUNE, RIDE_ROLL_W, RIDE_ROLL_ZETA, RIDE_W, ROAD_RIG_MUL, ROOF_CATCH_CEIL_Z, ROOF_CATCH_R, SHELTER_MARCH, SIGN_FONT, SIGN_PICTO, SIGN_TRACK, TILE_REACH, TRUCK_STEP_Z, TRUCK_VARIANTS, VEHICLE_CLASSES, VEHICLE_PARAM_TABLE, VISIBLE_FAR_F, VISIBLE_NEAR_F, WIRE_RING_S, _bayCutaway, _lifeGeo, armKeepStats, armKeepWhy;
 
 export function isLoaded() { return !!_m; }
 
@@ -77,6 +77,7 @@ export function loadWindshield() {
     _bayCutaway = m._bayCutaway;
     _lifeGeo = m._lifeGeo;
     armKeepStats = m.armKeepStats;
+    armKeepWhy = m.armKeepWhy;
     _m = m;
   try { (await import('./gl/install.js')).installGL?.(); } catch (e) { console.error('[windshield-lazy] GL install failed, staying on the 2-D renderer:', e?.message); }
     return m;
@@ -190,6 +191,7 @@ export function kitLedges(...a) { return (_m || _cold('kitLedges')).kitLedges(..
 export function landSite(...a) { return (_m || _cold('landSite')).landSite(...a); }
 export function lastBow(...a) { return (_m || _cold('lastBow')).lastBow(...a); }
 export function lastFloorState(...a) { return (_m || _cold('lastFloorState')).lastFloorState(...a); }
+export function lastLightCensus(...a) { return (_m || _cold('lastLightCensus')).lastLightCensus(...a); }
 export function lastOwnShipMask(...a) { return (_m || _cold('lastOwnShipMask')).lastOwnShipMask(...a); }
 export function lastViewState(...a) { return (_m || _cold('lastViewState')).lastViewState(...a); }
 export function lightVisibilitySmoke(...a) { return (_m || _cold('lightVisibilitySmoke')).lightVisibilitySmoke(...a); }
