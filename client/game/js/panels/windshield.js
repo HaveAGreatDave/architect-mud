@@ -1038,6 +1038,7 @@ export const RENDER_TUNE = {
   armKeep: 1,    // a building's adornments recorded once per key and replayed as retained groups (drawTypeModelKept); 0 runs every arm every frame
   bayCache: 1,   // a shed's GL shell is built once per key and its records replayed (BAY_SHELL); 0 builds it every frame
   lockCache: 1,  // the South Lock's GL faces and lights reuse last frame's record per slot when unchanged (LCK_MEMO); 0 builds every one
+  campKeep: 1,   // a camp's replayed records kept on the GPU per facing group and only facing-tested each frame (campKept); 0 replays and projects every record every frame
   armLive: 1,    // a kept building's animated helpers (smoke, rings, beams, wind wheels, flags) are left out of its kept set and called again each replay (armLiveCall); 0 makes any such building live
   armRain: 1,    // a kept building records its glows' place in the rain-light census and replays that too; 0 marks any building with a glow live, as before
   occCache: 1,   // a building's occluder geometry (hull, roof, solid boxes) kept per cell in its own frame and only moved and projected each frame (OCC_GEOM); 0 rebuilds it every frame
@@ -26135,6 +26136,13 @@ function pushBillboard(sink, o) {
 // a pipe rather than as a structure — and at the range where that would happen the saving is a
 // single segment anyway. One bay is the floor.
 function webBays(cam, dx, dy, hWorld, full) {
+  const n = webBaysAt(cam, dx, dy, hWorld, full);
+  // ⚠ A CAMERA TERM INSIDE AN ARM, so a kept arm records the answer and a replay asks again
+  // (armReplay): a tower kept at three bays drew three bays from any distance until a recheck.
+  if (ARM_WEB && !ARM_IN_LIVE) ARM_WEB.push([dx, dy, hWorld, full, n]);
+  return n;
+}
+function webBaysAt(cam, dx, dy, hWorld, full) {
   if (!cam || !cam.proj || !RENDER_TUNE.webLod) return full;
   const p = cam.proj(dx, dy, 0);
   if (!p || p.f <= 0.08) return full;
@@ -42076,12 +42084,73 @@ function campFillFast(cam, r, dx, dy, alpha) {
   return true;
 }
 let CAMP_D = [];
-function campReplay(ctx, cam, list, dx, dy, alpha, now) {
+// ── A CAMP, KEPT ON THE GPU (RENDER_TUNE.campKeep) ──────────────────────────────────────────────────
+//
+// A camp's record list is already free of the camera and the clock (see the key in drawTentCamp), so
+// what campReplay redoes every frame is the facing test, the pull and the projection of a thousand
+// small records. Here the records are split by their facing condition (`r.c`, one per face of a
+// shelter) and each group is recorded once through the kept-arm machinery (armRecord), with no
+// facing test, while the camp stands well in front of the eye. Each frame then tests each group's
+// condition once, with campReplay's own arithmetic, and hands the passing groups to the GPU as
+// retained groups (armReplay). The fires and the cloth (`t` 4 and the closures) stay live and go
+// through campReplay as before. Anything a group did that a replay can't reproduce (a canvas call, a
+// push to another sink) puts the whole camp back on campReplay.
+const CAMP_KEEP = new Map(), CAMP_KEEP_MAX = 128;
+function campKept(ctx, cam, list, key, dx, dy, fh, alpha, now) {
+  if (RENDER_TUNE.campKeep === 0 || RENDER_TUNE.armKeep === 0 || RENDER_TUNE.glSizeGPU === 0 || !SPRITE_SINK || SHAPE_SINK || MESH_SINK || alpha < 1) {
+    campReplay(ctx, cam, list, dx, dy, alpha, now); return;
+  }
+  const ox = cam.ox || 0, oy = cam.oy || 0;
+  const k = key + '|' + armR6(dx + ox) + ',' + armR6(dy + oy) + '|' + POWER_DUTY + '|' + _frameDpr + '|' + ARM_TUNE;
+  // ⚠ ONLY WELL IN FRONT, RECORDED AND REPLAYED. campReplay clips a face at the near plane on the CPU
+  // (campClip); a kept face is whole and the GPU clips it at its own plane. Close to, a camp runs
+  // as it always did, which is one or two camps at a time.
+  if (!(cam.rawF && cam.rawF(dx, dy, 0) > ARM_NEAR + 2 * fh)) { campReplay(ctx, cam, list, dx, dy, alpha, now); return; }
+  let K = CAMP_KEEP.get(k);
+  if (K) { CAMP_KEEP.delete(k); CAMP_KEEP.set(k, K); }
+  else {
+    const by = new Map(), live = [];
+    for (const r of list) {
+      if (r.t !== 0 && r.t !== 1 && r.t !== 2 && r.t !== 3) { live.push(r); continue; }
+      const g = by.get(r.c || null);
+      if (g) g.push(r); else by.set(r.c || null, [r]);
+    }
+    const groups = [];
+    const m0 = [SPRITE_SINK.length, STROKE_SINK ? STROKE_SINK.length : 0, DECAL_SINK ? DECAL_SINK.length : 0, BAY_SINK ? BAY_SINK.length : 0];
+    let ok = true;
+    for (const [c, recs] of by) {
+      // A scratch recording: the census is put back, and the sinks are cut back below, so this
+      // frame draws from the kept groups like every later one.
+      const rec = armRecord(ctx, () => campReplay(ctx, cam, recs, dx, dy, alpha, now, true), true, now);
+      if (!rec || rec.live.length || rec.web.length) { ok = false; break; }
+      groups.push({ c, e: { rec, pts: armPoints(rec), ox, oy } });
+    }
+    SPRITE_SINK.length = m0[0]; if (STROKE_SINK) STROKE_SINK.length = m0[1]; if (DECAL_SINK) DECAL_SINK.length = m0[2]; if (BAY_SINK) BAY_SINK.length = m0[3];
+    K = ok ? { groups, live } : { off: true };
+    CAMP_KEEP.set(k, K);
+    if (CAMP_KEEP.size > CAMP_KEEP_MAX) CAMP_KEEP.delete(CAMP_KEEP.keys().next().value);
+  }
+  if (K.off) { campReplay(ctx, cam, list, dx, dy, alpha, now); return; }
+  const ex = (cam.ex || 0) - dx, ey = (cam.ey || 0) - dy, ez = cam.EH || 0;
+  for (const G of K.groups) {
+    const c = G.c;
+    if (c) {
+      let ok = true;
+      for (let j = 0; j < c.length; j += 6) {
+        if (!(c[j] * (ex - c[j + 3]) + c[j + 1] * (ey - c[j + 4]) + c[j + 2] * (ez - c[j + 5]) > 0)) { ok = false; break; }
+      }
+      if (!ok) continue;
+    }
+    armReplay(G.e, ox, oy, cam, true, ctx, now, false);
+  }
+  if (K.live.length) campReplay(ctx, cam, K.live, dx, dy, alpha, now);
+}
+function campReplay(ctx, cam, list, dx, dy, alpha, now, noCull = false) {
   const ex = (cam.ex || 0) - dx, ey = (cam.ey || 0) - dy, ez = cam.EH || 0;
   const T = (p) => [p[0] + dx, p[1] + dy, p[2]];
   for (let i = 0; i < list.length; i++) {
     const r = list[i], c = r.c;
-    if (c) {
+    if (c && !noCull) {
       let ok = true;
       for (let k = 0; k < c.length; k += 6) {
         if (!(c[k] * (ex - c[k + 3]) + c[k + 1] * (ey - c[k + 4]) + c[k + 2] * (ez - c[k + 5]) > 0)) { ok = false; break; }
@@ -42394,7 +42463,7 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha, inward = null, n
       CAMP_CACHE.set(key, list);
       if (CAMP_CACHE.size > CAMP_CACHE_MAX) CAMP_CACHE.delete(CAMP_CACHE.keys().next().value);
     }
-    campReplay(ctx, cam, list, dx, dy, alpha, now);
+    campKept(ctx, cam, list, key, dx, dy, fh, alpha, now);
     return;
   }
   const near = ADORN_TIER >= ADORN_NEAR;
@@ -50956,6 +51025,11 @@ function motionOn() { return !!TUNE.motion && !SHAPE_SINK && !MESH_SINK && ADORN
 //
 // Returns 0..1 through the working stroke, or −1 while it is parked.
 function dutyPhase(now, seed, period, work) {
+  // ⚠ A KEPT ARM CAN'T SEE THIS ONE BY TESTING THE CLOCK: the machine is parked most of the period,
+  // so both clock tests can land in the parked stretch and the crane is kept standing still. So
+  // asking is enough to make the building live (ARM_MOTION, armRecord), unless the asking is done
+  // inside a live part, whose output is replayed live anyway.
+  if (ARM_REC && !ARM_IN_LIVE) ARM_MOTION = true;
   const t = (((now || 0) / period) + frac(seed)) % 1;
   return t < work ? t / work : -1;
 }
@@ -55502,7 +55576,10 @@ let ARM_RAIN = null;
 // that hands a helper `now * 2` can't be replayed with `now`, so that marks it live (`livepart`).
 // ctx is argument 0 and the camera argument 1 in every helper that opts in; `x`, `y` and `now` say where
 // the rest are.
-let ARM_LIVE = null, ARM_NOW = 0, ARM_LIVE_BAD = false;
+let ARM_LIVE = null, ARM_NOW = 0, ARM_LIVE_BAD = false, ARM_MOTION = false, ARM_IN_LIVE = 0;
+// The truss detail a recording chose (webBays), as [dx, dy, h, full, bays]; a replay that would choose
+// differently drops the kept set.
+let ARM_WEB = null;
 // How far a clock-test recording has moved the clock, for the one arm-reachable reader of the wall
 // clock (deadNeon). 0 outside those runs.
 let ARM_SHIFT = 0;
@@ -55518,7 +55595,8 @@ function armLiveCall(fn, at, args) {
   if (a[at.now] !== ARM_NOW) ARM_LIVE_BAD = true;
   ARM_LIVE = null;   // a live part that calls another runs it as part of itself
   const m0 = armMarks();
-  try { return fn.apply(null, a); } finally { live.push({ fn, at, a, m0, m1: armMarks() }); ARM_LIVE = live; }
+  ARM_IN_LIVE++;
+  try { return fn.apply(null, a); } finally { ARM_IN_LIVE--; live.push({ fn, at, a, m0, m1: armMarks() }); ARM_LIVE = live; }
 }
 // A sink's records from `from` on, without the ranges the live parts pushed (k is the sink's slot in armMarks).
 function armCut(sink, from, live, k) {
@@ -55542,7 +55620,7 @@ function armLiveCanon(L, ox, oy) {
   }
   return 'C' + parts.join('|');
 }
-export const armKeepStats = { kept: 0, live: 0, probing: 0, replayed: 0, rechecked: 0, dropped: 0, fading: 0, near: 0, gap: 0, liveRun: 0 };
+export const armKeepStats = { kept: 0, live: 0, probing: 0, replayed: 0, rechecked: 0, dropped: 0, fading: 0, near: 0, gap: 0, liveRun: 0, webDrop: 0 };
 // Why a building went live, by model type, for a harness that sets `armKeepWhy.on`. Off, it costs
 // nothing; on, a clock or pose mismatch also lists the records that differed (first few lines).
 export const armKeepWhy = { on: false, by: {} };
@@ -55591,7 +55669,8 @@ function armRecord(ctx, run, scratch = false, now = 0, shift = 0) {
   const rainOn = RENDER_TUNE.armRain !== 0, rain = rainOn ? [] : null, rain0 = scratch && RAIN_LIGHTS ? RAIN_LIGHTS.slice() : null;
   ARM_RAIN = rain;
   const live = RENDER_TUNE.armLive !== 0 ? [] : null;
-  ARM_LIVE = live; ARM_NOW = now; ARM_LIVE_BAD = false; ARM_SHIFT = shift;
+  ARM_LIVE = live; ARM_NOW = now; ARM_LIVE_BAD = false; ARM_SHIFT = shift; ARM_MOTION = false;
+  const web = []; ARM_WEB = web;
   const signN0 = _signTexN;
   if (scratch) SIGN_ID_SCRATCH = [];
   const side0 = armSide(), ops0 = ARM_OPS, parts0 = armKeepWhy.on ? armSideParts() : null;
@@ -55606,12 +55685,13 @@ function armRecord(ctx, run, scratch = false, now = 0, shift = 0) {
   ARM_REC = true;
   try { run(); } finally {
     ARM_REC = false; for (const [k, own, fn] of wrapped) { if (own) ctx[k] = fn; else delete ctx[k]; }
-    ARM_RAIN = null; ARM_LIVE = null; ARM_SHIFT = 0;
+    ARM_RAIN = null; ARM_LIVE = null; ARM_SHIFT = 0; ARM_WEB = null;
     if (SIGN_ID_SCRATCH) { for (const t of SIGN_ID_SCRATCH) _signTexIds.delete(t); _signTexN = signN0; SIGN_ID_SCRATCH = null; }
     if (rain0) { RAIN_LIGHTS.length = 0; for (const r of rain0) RAIN_LIGHTS.push(r); }
   }
   const sideNow = armSide();
   if (ARM_LIVE_BAD) { ARM_WHY_SIDE = 'livepart'; return null; }
+  if (ARM_MOTION) { ARM_WHY_SIDE = 'motion'; return null; }
   if (ARM_OPS !== ops0 || sideNow !== side0) {
     ARM_WHY_SIDE = ARM_OPS !== ops0 ? 'canvas' : 'side';
     if (parts0 && ARM_OPS === ops0) ARM_WHY_SIDE = 'side:' + armSideParts().filter(([, n], i) => n !== parts0[i][1]).map(([k]) => k).join('+');
@@ -55619,28 +55699,32 @@ function armRecord(ctx, run, scratch = false, now = 0, shift = 0) {
   }
   const L = live || [];
   return { sp: armCut(SPRITE_SINK, s0, L, 0), st: armCut(STROKE_SINK, t0, L, 1), de: armCut(DECAL_SINK, d0, L, 2), ba: armCut(BAY_SINK, b0, L, 3),
-    rain: rain ? armCut(rain, 0, L, 4) : [], live: L, marks: [s0, t0, d0, b0] };
+    rain: rain ? armCut(rain, 0, L, 4) : [], live: L, web, marks: [s0, t0, d0, b0] };
 }
 // Push a kept set into the sinks as retained groups, moved into this frame's camera frame first.
 // `census` false when this frame already ran the arm live (a recheck, or the frame it was kept), whose
 // glows are in the rain census already.
-function armReplay(e, ox, oy, cam, census, ctx, now) {
+// `retain` false sends the records through the ordinary stream rather than as retained groups: a
+// retained group is a draw call per texture, and a camp is a hundred small groups (campKept).
+function armReplay(e, ox, oy, cam, census, ctx, now, retain = true) {
   const dx = e.ox - ox, dy = e.oy - oy;
+  for (const w of e.rec.web) if (webBaysAt(cam, w[0] + dx, w[1] + dy, w[2], w[3]) !== w[4]) return false;
   if (dx || dy) {
     for (const s of e.rec.sp) { s.x += dx; s.y += dy; }
     for (const r of e.rec.rain) { r[0] += dx; r[1] += dy; }
     for (const L of e.rec.live) { L.a[L.at.x] += dx; L.a[L.at.y] += dy; }
+    for (const w of e.rec.web) { w[0] += dx; w[1] += dy; }
     for (const p of e.pts) { p[0] += dx; p[1] += dy; }
     e.ox = ox; e.oy = oy;
   }
-  const retainOn = TUNE.glRetain !== 0;
+  const retainOn = TUNE.glRetain !== 0 && retain;
   const put = (sink, recs) => {
     if (!sink || !recs.length) return;
     if (retainOn) (sink.groups || (sink.groups = [])).push({ recs, at: sink.length, ox, oy });
     for (let i = 0; i < recs.length; i++) sink.push(recs[i]);
   };
   put(SPRITE_SINK, e.rec.sp); put(STROKE_SINK, e.rec.st); put(DECAL_SINK, e.rec.de);
-  if (BAY_SINK && e.rec.ba.length) bayGroup(e.rec.ba);
+  if (BAY_SINK && e.rec.ba.length) { if (retainOn) bayGroup(e.rec.ba); else for (const q of e.rec.ba) BAY_SINK.push(q); }
   // glowPool's census step, as it ran it: the same projection, the same near test and size.
   if (census && RAIN_LIGHTS) for (const r of e.rec.rain) {
     const g = cam.proj(r[0], r[1], r[2]); if (g.f <= 0.12) continue;
@@ -55655,6 +55739,7 @@ function armReplay(e, ox, oy, cam, census, ctx, now) {
     } finally { RAIN_MUTE = false; }
   }
   armKeepStats.replayed++;
+  return true;
 }
 // Every point array a kept set holds in the camera's frame, once each (a wire's raw end can be the
 // same array as its pulled one, and a decal's raw corners the same as its polygon).
@@ -55690,7 +55775,10 @@ function drawTypeModelKept(ctx, cam, it, face, fh, night, now, run) {
     e = { key, probe: null, kept: null, tried: e ? e.tried : -ARM_GAP }; ARM_KEEP.set(c, e);
   }
   if (e.kept) {
-    if (ARM_FRAME - e.checked < ARM_RECHECK || ARM_CHECKS >= 2 || !(cam.rawF && cam.rawF(it.dx, it.dy, 0) > ARM_NEAR + 2 * fh)) { armReplay(e.kept, ox, oy, cam, true, ctx, now); return; }
+    if (ARM_FRAME - e.checked < ARM_RECHECK || ARM_CHECKS >= 2 || !(cam.rawF && cam.rawF(it.dx, it.dy, 0) > ARM_NEAR + 2 * fh)) {
+      if (armReplay(e.kept, ox, oy, cam, true, ctx, now)) return;
+      e.kept = null; e.probe = null; armKeepStats.webDrop++; run(); return;   // the truss detail moved: probed again
+    }
     // The recheck: record it live, compare, and put the kept set back in its place.
     ARM_CHECKS++; armKeepStats.rechecked++;
     const rec = armRecord(ctx, run, false, now);

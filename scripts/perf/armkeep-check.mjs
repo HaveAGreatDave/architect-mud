@@ -57,6 +57,8 @@ if (flyArg >= 0) {
   const census = () => (scene.ws.lastLightCensus() || []).map((e) => [e.x, e.y, e.r, e.a].map((x) => Math.round(x * 1e4)).join(',') + '|' + e.rgb).sort();
   scene.ws.RENDER_TUNE.armKeep = Number(keepS);
   if (process.env.ARMLIVE != null) scene.ws.RENDER_TUNE.armLive = Number(process.env.ARMLIVE);
+  // TUNE=k=v,... on the kept flight only (keep 1), to pin which switch a difference comes from.
+  if (Number(keepS) && process.env.TUNE) for (const kv of process.env.TUNE.split(',')) { const [k, v] = kv.split('='); scene.ws.RENDER_TUNE[k] = Number(v); }
   const hour = Number(hourS), G = fakeView(), frames = [];
   // ⚠ AND THE CLOCK RUNS, 16 ms a frame, or a live part (armLiveCall) replayed with a stale clock
   // would draw the same frozen pose as the live arm and pass. Not 33: at an apparent 30 fps the scene
@@ -81,7 +83,10 @@ if (flyArg >= 0) {
     if (process.env.DUMPF == i) {
       const fs = await import('node:fs');
       fs.writeFileSync(process.env.DUMPTO, tris(G.draws).join('\n'));
-      fs.writeFileSync(process.env.DUMPTO + '.decals', o.decals.map((d) => (d.key || '') + (d.img ? ' [' + Object.keys(d.img).filter((k) => k.startsWith('_')).map((k) => k + '=' + String(d.img[k]).slice(0, 60)).join(';') + ' ' + d.img.width + 'x' + d.img.height + ']' : '') + ' @ ' + (d.p || []).map((p) => p.map((x) => x.toFixed(3)).join(',')).join(' ')).sort().join('\n'));
+      // …and the decal keys and the strokes, in the map window's frame (the records' own frame plus the camera offset).
+      const W = (p) => p ? [p[0] + cam.ox, p[1] + cam.oy, p[2]].map((x) => x.toFixed(3)).join(',') : '-';
+      fs.writeFileSync(process.env.DUMPTO + '.decals', o.decals.map((d) => (d.key || '') + ' @ ' + (d.rp || d.p || []).map(W).join(' ')).sort().join('\n'));
+      fs.writeFileSync(process.env.DUMPTO + '.strokes', o.strokes.map((s) => (s.tag || '') + ' ' + (s.rgb || '') + ' w' + s.w + ' @ ' + W(s.ra || s.a) + ' ' + W(s.rb || s.b)).sort().join('\n'));
     }
     frames.push({ t: tris(G.draws).map(tri32), c: census() });
   }
@@ -98,7 +103,7 @@ const fly = (place, seat, hour, keep) => JSON.parse(execFileSync(process.execPat
   { maxBuffer: 1 << 30, encoding: 'utf8', env: process.env }));
 let bad = 0, n = 0, extras = 0;
 const shown = [];
-for (const [place, seat, hour] of [['halcyon', 'cockpit', 22], ['nightlife', 'cab', 22], ['residential', 'cockpit', 13]]) {
+for (const [place, seat, hour] of [['halcyon', 'cockpit', 22], ['nightlife', 'cab', 22], ['residential', 'cockpit', 13], ['oldcoldwater', 'cab', 22]]) {
   const { frames: a } = fly(place, seat, hour, 0);
   const { frames: b, st } = fly(place, seat, hour, Number(process.env.KEEPB ?? 1));
   for (let i = 0; i < a.length; i++) {
