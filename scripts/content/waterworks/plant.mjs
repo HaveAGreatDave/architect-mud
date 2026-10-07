@@ -109,7 +109,10 @@ store.patch('zones', 'zone_waterworks_intake', { ambient_theme: 'outdoors', flag
 
 // ── the settling beds ─────────────────────────────────────────────────────────────────────────
 // Mass, like the Old Coldwater ruins. Nothing walks onto them, so every neighbour's link is cut.
+// Each bed gets its own map code: a tile with none has one derived for it, which the map check
+// reads as a change from what shipped.
 const BEDS = ['zone_district_920_901', 'zone_district_921_901'];
+const BED_MARKERS = { zone_district_920_901: 'B1', zone_district_921_901: 'B2' };
 for (const id of BEDS) {
   const prev = store.get('zones', id);
   const flags = { ...prev.flags };
@@ -119,7 +122,7 @@ for (const id of BEDS) {
   store.patch('zones', id, {
     name: 'Waterworks Settling Beds',
     description: 'A long open concrete bed full of still brown water, with a walkway along the wall and a sluice at each end. Silt settles here before the water goes on to the filters. Gulls stand on the walkway and watch it.',
-    ambient_theme: 'outdoors', marker: undefined, exits: {},
+    ambient_theme: 'outdoors', marker: BED_MARKERS[id], exits: {},
     flags: { ...flags, building_name: 'Waterworks Settling Beds', building_type: 'pumping_station', is_building: true, region_id: REGION },
   });
 }
