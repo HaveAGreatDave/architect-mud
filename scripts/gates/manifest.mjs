@@ -140,6 +140,7 @@ export const GROUPS = [
       'scripts/shapes/power.mjs',
       'scripts/shapes/worldresidue.mjs',
       'scripts/shapes/campwall.mjs',     // no part of a camp on a Curtain tile stands in the field
+      'scripts/shapes/campcache.mjs',    // a cached camp draws what a live one draws
       'scripts/shapes/fauna.mjs',
       'scripts/shapes/faunabudget.mjs',
       'scripts/shapes/faunabake.mjs',

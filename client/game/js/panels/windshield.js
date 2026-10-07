@@ -42178,7 +42178,12 @@ export function campCacheSmoke() {
     : typeof v === 'number' ? +v.toPrecision(6) : v);
   const ctx = { save() {}, restore() {}, beginPath() {}, moveTo() {}, lineTo() {}, closePath() {}, fill() {}, stroke() {} };
   try {
-    LIGHT_STATE = { sx: -0.6, sy: -0.8 };
+    // ⚠ THE SUN IS ONE THE RECORD CAN BE MADE AT. A record is made at the sun rounded to 2 degrees
+    // (`campSun`), so a live camp at a sun between two steps differs from it by design: at -0.6,-0.8
+    // the drum staves came out one RGB step apart, 37 times. The nights tried, 0 and 1, are on the
+    // 1/32 grid for the same reason.
+    LIGHT_STATE = campSun({ sx: -0.6, sy: -0.8 });
+    if (JSON.stringify(campSun(LIGHT_STATE)) !== JSON.stringify(LIGHT_STATE)) out.push(`the test sun ${LIGHT_STATE.sx},${LIGHT_STATE.sy} isn't on campSun's grid; pick another`);
     for (const gl of [false, true]) for (const tier of [ADORN_RICH, ADORN_NEAR]) for (const night of [0, 1])
       for (const seed of [80123, 80551, 81234, 90007]) for (const [ox, oy, hd] of [[0.4, -2.5, 0], [-1.7, 1.2, 135], [0.2, 0.3, 250]]) {
         const cam = makeCam(640, 250, 330, { heading: hd, height: 0, eyeH: 0.12 });
@@ -42435,6 +42440,13 @@ function drawOilDrum(ctx, cam, x, y, fh, nightF, alpha, now, seed, near) {
     glowPool(ctx, cam, X, Y, fh * 0.02, '255,140,58', 40, al * 0.42 * nightF);
   });
 }
+// The sun a camp record is made at: LIGHT_STATE turned to the nearest 2 degrees (see drawTentCamp).
+function campSun(LS) {
+  if (!LS) return LS;
+  const a = Math.round(Math.atan2(LS.sy, LS.sx) * 90 / Math.PI) * Math.PI / 90;
+  const m = Math.hypot(LS.sx, LS.sy);
+  return { ...LS, sx: +(Math.cos(a) * m).toFixed(4), sy: +(Math.sin(a) * m).toFixed(4) };
+}
 function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha, inward = null, now = 0) {
   if (ADORN_TIER < ADORN_CHEAP) return;
   // ⚠ THE KEY IS EVERYTHING THE RECORD READS THAT ISN'T THE CAMERA OR THE CLOCK (see `campReplay`):
@@ -42446,12 +42458,7 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha, inward = null, n
     // clock moves both a hair every frame, so an exact key missed every frame and the cache did
     // nothing in play. 2 degrees of sun and 1/32 of night are below what the canvas shading shows.
     const LS = LIGHT_STATE, nF = night ? Math.round(clamp(night, 0, 1) * 32) / 32 : 0;
-    let qLS = LS;
-    if (LS) {
-      const a = Math.round(Math.atan2(LS.sy, LS.sx) * 90 / Math.PI) * Math.PI / 90;
-      const m = Math.hypot(LS.sx, LS.sy);
-      qLS = { ...LS, sx: +(Math.cos(a) * m).toFixed(4), sy: +(Math.sin(a) * m).toFixed(4) };
-    }
+    const qLS = campSun(LS);
     const key = seed + '|' + ADORN_TIER + '|' + nF + '|' + fh + '|' + (qLS ? qLS.sx + ',' + qLS.sy : '-') + '|' + (clothOn() ? 1 : 0)
       + '|' + (inward ? inward.join(';') : '');
     let list = CAMP_CACHE.get(key);
