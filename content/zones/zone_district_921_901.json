@@ -16,6 +16,7 @@
   "grid_z": 0,
   "id": "zone_district_921_901",
   "map_id": "map_world",
+  "marker": "B2",
   "name": "Waterworks Settling Beds",
   "parent_zone": null
 }

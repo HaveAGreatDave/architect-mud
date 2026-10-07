@@ -11,6 +11,7 @@
 //  - `gauges` needs a board; `waterworks` is staff only
 import { world, getZone, getZoneFurniture } from '../../server/engine/world.js';
 import { on } from '../../server/engine/events.js';
+import { getZoneOnGrid } from '../../server/engine/environment.js';
 import {
   waterNetworkOf, getWaterSupply, setWaterSupply, drawWater, resetWaterSupply, isDrinkingSource, isShower, isWaterSource,
 } from '../../server/engine/water.js';
@@ -24,7 +25,9 @@ export default async function regress({ run, check, getPlayer }) {
   const saved = { zone: p.current_zone, role: p.role, thirst: p.thirst };
   const { step, supplyOf, enter, scan, plants, gaugeReport, pause } = _internals;
 
+  // The plant's own tick may already have run (the harness boots the scheduler), so start clean.
   pause(true);
+  resetWaterSupply();
   try {
     // ── the substrate ──────────────────────────────────────────────────────
     check('an unknown region is refused', (() => { try { setWaterSupply('region_nowhere', {}); return false; } catch { return true; } })());
@@ -105,6 +108,7 @@ export default async function regress({ run, check, getPlayer }) {
       }
       check('the intake sees the sky', !!getZone(plant.intakeZoneId)?.flags?.open_sky, plant.intakeZoneId);
       check('the pumps are a real room', getZoneFurniture(plant.zoneId).some(f => f.flags?.waterworks === REGION));
+      check('the pump room is wired to the grid', getZoneOnGrid(plant.zoneId), plant.zoneId);
     }
 
     p.role = 'player';
