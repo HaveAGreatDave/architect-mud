@@ -117,6 +117,15 @@ error between the two steps can't tear them:
     selling the same raws would otherwise collide, and they do: `raws_counter` runs a pallet out to a
     dead drop ([systems-flight.md](systems-flight.md#ordering--the-counter-is-a-vendor-shelf)) while
     `mule_counter` books a drone drop at the Scald ([smuggle](../plugins/smuggle/README.md)).
+- **One seam changes what a sale costs, or whether it happens.** `registerVendorPriceRule(fn, owner)`
+  in `vendor.js`: `fn({ npc, item, itemId })` returns `null` or `{ mult, soldOut, line }`. The shelf
+  (`getVendorStock`), the till (`buyFromVendor`) and commerce's checkout all ask `vendorPriceRule`,
+  so a player is charged what the shelf showed and can't buy what it shows as gone (stock 0).
+  Furniture sales (`furniture-shop.js`) don't ask it: they roll their own price variation.
+  Multipliers compound; any `soldOut` wins and its `line` is the refusal. **Sync by contract**: a rule
+  answers from RAM, and one that throws is skipped. The vendor's discount applies after the rule.
+  First user: **waterworks**, which prices `drinking_water` items by the city's supply
+  ([systems-water-supply.md](systems-water-supply.md#the-market)).
 
 **Shelves — one NPC, a front counter and a back room.** A `vendor_inventory` entry may carry a
 `shelf` label. Entries with **no** `shelf` are the front counter: what `shop` and the implicit

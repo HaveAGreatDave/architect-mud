@@ -131,8 +131,60 @@
       "options": [],
       "text": "She is already writing in the log."
     },
+    "dry": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I know. I knew before you did.\" She doesn't stop writing. \"The tower's empty. When the pumps come back the water will run grey for a few minutes while the pipes fill. Don't drink that bit.\"\n\n\"Quell's prices went up an hour ago. They always do.\""
+    },
+    "grey": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Silt. Heavy rain stirs the Basin up and the beds can't settle it fast enough.\" She looks at the turbidity needle. \"Boil it. Or don't drink it. Those are the two choices, and only one of them is good.\""
+    },
     "root": {
       "options": [
+        {
+          "conditions": [
+            {
+              "state": "low",
+              "water_supply": "region_coldwater"
+            }
+          ],
+          "label": "The taps are running thin.",
+          "next": "thin"
+        },
+        {
+          "conditions": [
+            {
+              "state": "dry",
+              "water_supply": "region_coldwater"
+            }
+          ],
+          "label": "The taps are dry.",
+          "next": "dry"
+        },
+        {
+          "conditions": [
+            {
+              "quality": [
+                "cloudy",
+                "foul"
+              ],
+              "state": "flowing",
+              "water_supply": "region_coldwater"
+            }
+          ],
+          "label": "The water's coming out grey.",
+          "next": "grey"
+        },
         {
           "label": "What have you got?",
           "next": "__shop__"
@@ -161,6 +213,15 @@
       ],
       "text": "\"Then the tower holds the city for about four hours, and the taps run thin while it does.\" She shrugs. \"Most faults I have fixed by then. If the power goes, or a motor burns out, the city goes dry and Quell gets rich.\"\n\n\"Type <b>gauges</b> at the board if you want to know where we are. I do not mind people reading it. I mind people touching it.\""
     },
+    "thin": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I know.\" She taps the tower gauge without looking at it. \"Something on the line has stopped. The tower is covering for it, and the tower has four hours in it when it's full. Read the gauges if you want the minutes.\""
+    },
     "works": {
       "options": [
         {
@@ -178,7 +239,8 @@
       "ear defenders hung round her neck",
       "steel-capped boots, the laces doubled",
       "a grey work shirt and plain underthings"
-    ]
+    ],
+    "holds_water_price": true
   },
   "home_activities": [],
   "home_zone": "zone_waterworks_control",

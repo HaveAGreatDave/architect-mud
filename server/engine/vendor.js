@@ -89,6 +89,36 @@ function deliveryFor(npc) {
   return null;
 }
 
+// ── Price rules ───────────────────────────────────────────────────────────────
+// A system that moves what a vendor charges, or whether it will sell at all, registers a rule here
+// instead of editing the two places a price is worked out. The shelf (getVendorStock) and the till
+// (buyFromVendor) both ask vendorPriceRule, so a player is charged what the shelf said and can't buy
+// what the shelf shows as gone. First user: waterworks (bottled water during an outage).
+//
+// SYNC BY CONTRACT: both paths run per request, so a rule answers from RAM. A rule that throws is
+// skipped and logged, never fatal.
+//   fn({ npc, item, itemId }) → null | { mult?, soldOut?, line? }
+// Multipliers compound. Any rule saying soldOut wins, and its `line` is the refusal.
+const priceRules = [];
+export function registerVendorPriceRule(fn, owner = 'unknown') {
+  if (typeof fn !== 'function') throw new Error('registerVendorPriceRule: fn required');
+  priceRules.push({ fn, owner });
+}
+export function vendorPriceRule(npc, item, itemId) {
+  let mult = 1, soldOut = false, line = null;
+  for (const { fn, owner } of priceRules) {
+    let r;
+    try { r = fn({ npc, item, itemId }); } catch (err) {
+      console.warn(`[vendor] price rule from ${owner} threw: ${err?.message || err}`);
+      continue;
+    }
+    if (!r) continue;
+    if (Number.isFinite(r.mult) && r.mult > 0) mult *= r.mult;
+    if (r.soldOut) { soldOut = true; line = r.line || line; }
+  }
+  return { mult, soldOut, line };
+}
+
 export function registerPurchaseStamp(itemId, fn) {
   if (typeof fn !== 'function') throw new Error('registerPurchaseStamp: fn required');
   purchaseStamps.set(itemId, fn);
@@ -221,10 +251,11 @@ export async function getVendorStock(npc, playerId, shelfKey = null) {
     // Vendors only sell furniture you can actually use (sit/lean/lie/watch);
     // non-consumer furniture (infrastructure) is ignored on the shelf.
     if (item.type === 'furniture' && !isConsumerFurniture(item)) continue;
-    const basePrice = priceMap[entry.item_id] ?? item.value;
+    const rule = vendorPriceRule(npc, item, entry.item_id);
+    const basePrice = Math.max(1, Math.round((priceMap[entry.item_id] ?? item.value) * rule.mult));
     const finalPrice = Math.max(1, Math.round(basePrice * (1 - discount)));
     const containerId = sourceMap.get(entry.item_id);
-    const realStock = containerId ? (counts.get(`${containerId}::${entry.item_id}`) || 0) : 99;
+    const realStock = rule.soldOut ? 0 : containerId ? (counts.get(`${containerId}::${entry.item_id}`) || 0) : 99;
     stock.push({
       item_id: entry.item_id,
       name: item.name,
@@ -374,6 +405,11 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1, shelfKey 
     }
   }
 
+  // A price rule can mark an item sold out (vendorPriceRule, above). Asked before the stock count,
+  // so a refusal costs nothing.
+  const rule = vendorPriceRule(npc, item, itemId);
+  if (rule.soldOut) return { success: false, message: rule.line || `${item.name} is sold out.` };
+
   const sourceContainer = catalogueEntry?.sourceContainer;
   if (sourceContainer) {
     const { rows: n } = await query('SELECT COUNT(*)::int AS n FROM player_inventory WHERE container_id=$1 AND item_id=$2', [sourceContainer, itemId]);
@@ -399,7 +435,7 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1, shelfKey 
   let deliveryRefusal = null; // its own refusal text, when it declined the sale
 
   const discount = await vendorDiscount(player.id, npc);
-  const basePrice = catalogueEntry?.price ?? item.value;
+  const basePrice = Math.max(1, Math.round((catalogueEntry?.price ?? item.value) * rule.mult));
   const price = Math.max(1, Math.round(basePrice * (1 - discount))) * quantity;
 
   // Debit, deliver the item, and pay the vendor safe as one atomic unit so a

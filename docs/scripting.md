@@ -147,6 +147,16 @@ Registered today:
 live player at login ([systems-relationships.md](systems-relationships.md)), which is why this shape
 is safe in places the `item`/`stat` shapes are not.
 
+```js
+{ water_supply: 'region_coldwater', state: ['low', 'dry'] }   // the mains
+{ water_supply: 'here', quality: 'foul' }                    // 'here' = the player's own region
+```
+
+`state` and `quality` each take one value or a list. Registered by `server/engine/water.js`, sync and
+query-free. It posts the water run on the Halcyon Logistics board (a quest's `available.when`) and
+opens the outage lines in Dagny Holm's and Orla Kemp's dialogue
+([systems-water-supply.md](systems-water-supply.md)).
+
 `flag` ops: `set` (flag exists, default), `unset`, `eq`, `neq`, `gt`, `lt`.
 `item` ops: `has` (default, counts equipped + containers), `lacks`.
 `stat` ops: `gte` (default), `gt`, `lt`, `lte`, `eq`, `neq`.

@@ -153,6 +153,26 @@
     "root": {
       "options": [
         {
+          "label": "Is the tower holding?",
+          "next": "holding",
+          "conditions": [
+            {
+              "water_supply": "region_coldwater",
+              "state": "low"
+            }
+          ]
+        },
+        {
+          "label": "Is it empty?",
+          "next": "empty",
+          "conditions": [
+            {
+              "water_supply": "region_coldwater",
+              "state": "dry"
+            }
+          ]
+        },
+        {
           "label": "What have you got?",
           "next": "__shop__"
         },
@@ -204,6 +224,24 @@
         }
       ],
       "text": "She stops chalking.\n\n\"You can see the whole of it. The basin and the piers, the Spire lit from the inside, the Marquee going on and off, that new road they have cut through the meadow, and the gasholder sitting at whatever it is sitting at so you know what kind of night the city is having.\"\n\n\"And the wall. All the way along the bottom, in a line, humming. From up there it does not look like it is keeping anything out. It looks like an edge somebody drew and everyone agreed to.\""
+    },
+    "holding": {
+      "text": "\"For now.\" She is watching the level, not you. \"Nothing is coming in at the bottom, so everything going out at the top is what I had. The Marquee loses pressure first. Then everybody else.\"",
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ]
+    },
+    "empty": {
+      "text": "\"Bedplate to the top.\" She knocks on the riser and it rings. \"I have nothing to sell you and nothing to give you. When the Waterworks comes back I fill first and the city fills after me, and that is a few hours either way.\"",
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ]
     }
   },
   "faction": null,

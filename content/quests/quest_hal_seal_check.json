@@ -1,0 +1,48 @@
+{
+  "category": "Halcyon",
+  "description": "Three Halcyon containers are sitting in the Yards with numbers on their seals that ought to match a list. Check them, and say nothing if they don't.",
+  "fail_on": [],
+  "id": "quest_hal_seal_check",
+  "meta": {},
+  "name": "Seal Check",
+  "objectives": [
+    {
+      "id": "o0",
+      "type": "visit",
+      "zone": "zone_yard_bonded",
+      "taskSeconds": 8,
+      "desc": "Check the seal numbers at Bonded Store 7.",
+      "emotes": [
+        "{who} reads seal numbers off a container door and ticks them against a Halcyon list."
+      ]
+    },
+    {
+      "id": "o1",
+      "type": "visit",
+      "zone": "zone_yard_container",
+      "taskSeconds": 8,
+      "desc": "Check the rest at the Kessler Container Yard.",
+      "emotes": [
+        "{who} finds a seal number that isn't on the list, looks at it for a while, and ticks it anyway."
+      ],
+      "requires": [
+        "o0"
+      ]
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 1,
+  "rewards": {
+    "credits": 30,
+    "xp": 6,
+    "flags": [
+      {
+        "flag": "hal_gig_done",
+        "scope": "player",
+        "value": "true"
+      }
+    ]
+  },
+  "updated_at": "1791400000"
+}

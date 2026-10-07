@@ -1,0 +1,15 @@
+{
+  "description": "Runs for Halcyon Logistics, posted by the hour and paid the same day. Drivers go to the depots; this board is for anybody with legs.",
+  "id": "board_halcyon_logistics",
+  "name": "Halcyon Logistics — Runs",
+  "quest_pool": [
+    "quest_hal_water_run",
+    "quest_hal_manifest",
+    "quest_hal_seal_check",
+    "quest_hal_berth_list"
+  ],
+  "rotation_period": "3600",
+  "rotation_size": 4,
+  "updated_at": "1791400000",
+  "zone_id": "zone_halcyon_logistics"
+}

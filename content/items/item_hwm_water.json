@@ -6,6 +6,7 @@
   "tags": {
     "consumable": true,
     "description": "Off the sample tap on the delivery main, which is the water half this city drinks about ten minutes before they drink it. She charges one because a thing that is free gets treated like a thing that is free.",
+    "drinking_water": "mains",
     "food_noun": "water",
     "food_profile": "liquid",
     "hydrating": true,

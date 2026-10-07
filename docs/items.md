@@ -118,6 +118,7 @@ tag model and the rationale behind it.
 | `use_message` | text | Flavour line shown in place of the default `You use X.` when a plain consumable is eaten/drunk. Also makes a non-consumable `use`-able. |
 | `well_fed` | flag | Grants the Well-Fed buff (faster HP regen), 10 min. |
 | `hydrating` | flag | Grants the Hydrated buff (faster radiation decay), 10 min. |
+| `drinking_water` | `stored` \| `mains` | Water a vendor sells, priced by the city's supply (waterworks). `stored` costs more while the taps fail and sells out in a dry spell; `mains` is never marked up but can't be bought while the main is dry. See [systems-water-supply.md](systems-water-supply.md#the-market). |
 | `laced_drug` | text (drug id) | Consumable applies this drug on use (systemic effects only — meter/phases/OD, not its instant restores). The "drugged drink/food" path; alcohol uses `"drug_alcohol"`. See [systems-survival.md](systems-survival.md). |
 | `laced_potency` | int | Strength multiplier for `laced_drug` (default 1). Alcohol: scales `intox_per_dose` per drink. |
 | `container` | int | Marks the item as a container; value is the max total weight it can hold. See **Containers** below. |

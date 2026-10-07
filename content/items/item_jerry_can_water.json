@@ -10,6 +10,7 @@
   "name": "jerry can of water",
   "tags": {
     "description": "A dented steel jerry can with a bayonet cap, brimful of water and heavy with it. Forty litres: a week of drinking, or one afternoon of washing. The cap is wired shut, so nobody has topped it up with anything else.",
+    "drinking_water": "stored",
     "fillable": 40,
     "unique": true
   },

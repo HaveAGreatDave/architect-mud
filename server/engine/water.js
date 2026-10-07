@@ -14,6 +14,7 @@
 
 import { getZone, getRegion } from './world.js';
 import { emit } from './events.js';
+import { registerConditionShape } from './flags.js';
 
 // A network is a region: every mains tap in a region draws from the one supply. The engine names
 // no region. A region nobody has registered a plant for is always flowing, which is every region
@@ -96,6 +97,20 @@ export function drawWater(f, zoneId, { use = 'drink' } = {}) {
   const note = s.quality === 'foul' ? FOUL_LINE : s.quality === 'cloudy' ? CLOUDY_LINE : s.state === 'low' ? LOW_LINE : null;
   return { ok: true, quality: s.quality, note };
 }
+
+// ── The condition ─────────────────────────────────────────────────────────────────────────────
+// So a quest's `available.when`, a dialogue option or a script branch can gate on the mains:
+//   { water_supply: 'region_coldwater', state: ['low', 'dry'] }
+//   { water_supply: 'here', quality: 'foul' }       ('here' is the player's own region)
+// `state` and `quality` each take one value or a list; both given means both must match. A region
+// with no plant is flowing and clean, like everywhere else in this file. Sync, no query.
+const oneOf = (want, have) => want == null || (Array.isArray(want) ? want.includes(have) : want === have);
+registerConditionShape('water_supply', (cond, player) => {
+  const region = cond.water_supply === 'here' || cond.water_supply === true
+    ? waterNetworkOf(player?.current_zone) : cond.water_supply;
+  const s = region ? getNetworkSupply(region) : FLOWING;
+  return oneOf(cond.state, s.state) && oneOf(cond.quality, s.quality);
+});
 
 // Test seam: drop all supply state back to flowing.
 export function resetWaterSupply() { supply.clear(); }

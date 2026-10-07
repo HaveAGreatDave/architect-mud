@@ -1,0 +1,48 @@
+{
+  "category": "Halcyon",
+  "description": "A manifest has to reach the Yards Freight Office with its seal unbroken. The Trade Office will hand it over and won't say what it lists.",
+  "fail_on": [],
+  "id": "quest_hal_manifest",
+  "meta": {},
+  "name": "Manifest",
+  "objectives": [
+    {
+      "id": "o0",
+      "type": "visit",
+      "zone": "zone_gh_trade_counter",
+      "taskSeconds": 6,
+      "desc": "Collect the sealed manifest at the Halcyon Trade Office counter.",
+      "emotes": [
+        "{who} is handed a manifest in a wax-sealed sleeve and asked to sign for the seal, not the contents."
+      ]
+    },
+    {
+      "id": "o1",
+      "type": "visit",
+      "zone": "zone_yard_freightoffice",
+      "taskSeconds": 6,
+      "desc": "Deliver it to the Yards Freight Office.",
+      "emotes": [
+        "{who} hands over a sealed manifest. The clerk checks the wax and not the paper."
+      ],
+      "requires": [
+        "o0"
+      ]
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 1,
+  "rewards": {
+    "credits": 30,
+    "xp": 6,
+    "flags": [
+      {
+        "flag": "hal_gig_done",
+        "scope": "player",
+        "value": "true"
+      }
+    ]
+  },
+  "updated_at": "1791400000"
+}

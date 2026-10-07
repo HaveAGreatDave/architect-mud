@@ -1,0 +1,57 @@
+{
+  "available": {
+    "when": {
+      "water_supply": "region_coldwater",
+      "state": [
+        "low",
+        "dry"
+      ]
+    }
+  },
+  "category": "Halcyon",
+  "description": "The city's taps are failing and the water kiosk in the Halcyon Arcade has nothing to sell. Sign for cans at the Coldwater Waterworks and get them up to the kiosk. Halcyon pays the plant's price and charges its own.",
+  "fail_on": [],
+  "id": "quest_hal_water_run",
+  "meta": {},
+  "name": "Water Run",
+  "objectives": [
+    {
+      "id": "o0",
+      "type": "visit",
+      "zone": "zone_waterworks_control",
+      "taskSeconds": 8,
+      "desc": "Sign for a dozen jerry cans in the Waterworks control room.",
+      "emotes": [
+        "{who} signs a Halcyon chit for twelve jerry cans. Dagny Holm counts them out twice and doesn't look at the chit."
+      ]
+    },
+    {
+      "id": "o1",
+      "type": "visit",
+      "zone": "zone_halcyon_concourse",
+      "taskSeconds": 10,
+      "desc": "Get them up to the water kiosk in the Halcyon Arcade.",
+      "emotes": [
+        "{who} stacks jerry cans behind the water kiosk. The price on the kiosk board goes up before the last one is down."
+      ],
+      "requires": [
+        "o0"
+      ]
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 1,
+  "rewards": {
+    "credits": 60,
+    "xp": 10,
+    "flags": [
+      {
+        "flag": "hal_gig_done",
+        "scope": "player",
+        "value": "true"
+      }
+    ]
+  },
+  "updated_at": "1791400000"
+}

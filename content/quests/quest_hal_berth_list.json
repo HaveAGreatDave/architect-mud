@@ -1,0 +1,48 @@
+{
+  "category": "Halcyon",
+  "description": "Dispatch needs tomorrow's berth list from the Harbour Office before the convoys are planned. The Harbour Office will not send it, on principle.",
+  "fail_on": [],
+  "id": "quest_hal_berth_list",
+  "meta": {},
+  "name": "Berth List",
+  "objectives": [
+    {
+      "id": "o0",
+      "type": "visit",
+      "zone": "zone_bld_908_907_lobby",
+      "taskSeconds": 6,
+      "desc": "Collect tomorrow's berth list at the Harbour Office.",
+      "emotes": [
+        "{who} waits while a harbour clerk copies out a berth list by hand, slowly, on principle."
+      ]
+    },
+    {
+      "id": "o1",
+      "type": "visit",
+      "zone": "zone_halcyon_logistics",
+      "taskSeconds": 6,
+      "desc": "Bring it back to Halcyon Logistics dispatch.",
+      "emotes": [
+        "{who} puts a hand-copied berth list on the dispatcher's desk. He reads it without putting the handset down."
+      ],
+      "requires": [
+        "o0"
+      ]
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 1,
+  "rewards": {
+    "credits": 25,
+    "xp": 5,
+    "flags": [
+      {
+        "flag": "hal_gig_done",
+        "scope": "player",
+        "value": "true"
+      }
+    ]
+  },
+  "updated_at": "1791400000"
+}

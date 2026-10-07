@@ -1,6 +1,6 @@
 # Water supply and the Coldwater Waterworks
 
-**Status:** Phase 1 built; phases 2–3 are design.
+**Status:** Phases 1–2 built; phase 3 is design.
 
 Coldwater's taps run off one plant. When the plant stops, the city's sinks, showers and kitchen
 taps run thin, then stop, and the people selling water by the cup have a good week. This doc covers
@@ -93,57 +93,90 @@ door), goes through sand filters and is pumped into the mains. The Halcyon Field
 lifts the mains into the Coldwater Water Tower (910,907), which feeds the city by gravity. Orla
 Kemp's and Roke's dialogue already said so.
 
-**Finding a plant.** Nothing in the plugin names a building. Three furniture flags carry a region
-id: `waterworks` on the pump set (its room is the plant's power), `water_intake` on the intake
-(where rain and frost are read, so it stands in an `open_sky` room), and `water_gauges` on the
-board `gauges` reads. `scripts/content/waterworks/plant.mjs` authors Coldwater's.
+**Stations.** Nothing in the plugin names a building. A station is furniture flagged `waterworks:
+<region>` (its pump set); its room's power is the station's power. Coldwater has two, in series: the
+Waterworks' pump set and the Halcyon Fields Pumping Station's beam engine, which lifts the mains into
+the tower. One stopped is the whole city on the tower. Two more flags carry a region id:
+`water_intake` (where rain and frost are read; heavy rain silts only the station in the same
+building, so it stands in an `open_sky` room) and `water_gauges` (the board `gauges` reads).
+`scripts/content/waterworks/plant.mjs` authors the Waterworks.
 
-**The plant state**, on a `1m` tick which the scheduler skips when nobody is online, with no queries:
+**Each station's state**, on a `1m` tick which the scheduler skips when nobody is online, with no
+queries:
 
 | State | At the tap | How it ends |
 |---|---|---|
-| `running` | `flowing`, `clean` | a fault, heavy rain at the intake, or a power cut |
+| `running` | `flowing`, `clean` | a fault, heavy rain at its intake, or a power cut |
 | `fault` | `low` while the tower drains (`TOWER_MINUTES`), then `dry` | repaired after 20–90 minutes, or 6 hours for one fault in ten |
-| `unpowered` | as `fault`, on the same tower clock | the pump room gets power back |
+| `unpowered` | as `fault`, on the same tower clock | its pump room gets power back |
 | `turbid` | `flowing`, `cloudy` | clears after `TURBID_MINUTES` |
-| `foul` | `flowing`, `foul` | staff only in phase 1; clears after `TURBID_MINUTES` |
+| `foul` | `flowing`, `foul` | staff only; clears after `TURBID_MINUTES` |
+
+A region's supply is its stations together: stopped if any is stopped, timed from the first one to
+stop, and as dirty as the worst station still pumping.
 
 - **The tower** holds the city for four hours (`TOWER_MINUTES`), Kemp's own figure. So an ordinary
   fault is thin taps and nothing worse; a burnt-out motor or a long blackout dries the city. The
-  clock starts when the pumps stop and carries across `fault` and `unpowered`.
-- **Faults** roll per minute at `FAULT_CHANCE` (about one a day and a half of play), four times
-  likelier in a storm or at or below −5 °C at the intake.
-- **Power** is read from the grid (`getZonePowerStatus` on the pump room). A blackout at the
+  clock starts when a station stops and carries across `fault` and `unpowered`.
+- **Faults** roll per station per minute at `FAULT_CHANCE` (about one a day and a half of play
+  each), four times likelier in a storm or at or below −5 °C at the intake.
+- **Power** is read from the grid (`getZonePowerStatus` on each pump room). A blackout at the
   turbine hall stops the water too, four hours later, which is the tower doing its job.
 - **Turbidity** follows heavy rain at the intake: the screens pull silt and the beds can't keep up.
-  A plant that comes back after the city ran dry also runs `turbid` for `FLUSH_MINUTES` while the
+  A station that comes back after the city ran dry also runs `turbid` for `FLUSH_MINUTES` while the
   mains refill.
 
-**Verbs.** `gauges` at the board reads the pumps, the tower and the water in plain language.
+**Verbs.** `gauges` at the board reads each station, the tower and the water in plain language.
 `waterworks` is the staff verb (`status`, `set running|fault|unpowered|turbid|foul [minutes]`,
-`repair`) for testing and for staff events. It acts on the plant for the region you stand in.
+`repair`) for testing and for staff events. It acts on the station in the building you stand in,
+or else the first in your region.
 
 **Announcements.** On a change of flow the plugin sends one line to every player standing at a mains
 tap in the region: the pipes shuddering, knocking and going quiet, the water coming back. Quality
 isn't announced: you find that out at the tap.
 
+## The market
+
+Water is priced by the supply through the engine's vendor price rule (`registerVendorPriceRule`,
+[systems-economy.md](systems-economy.md)), which the shelf, the till and commerce's checkout all
+ask. Items opt in with the `drinking_water` tag; the vendor's region is its work zone's.
+
+| Tag | While the taps fail | Dry spell |
+|---|---|---|
+| `stored` (filtered water, jerry cans) | ×1.5 when `low`, ×3 when `dry`; ×1.25 `cloudy`, ×2 `foul`; the higher wins | each vendor sells out at its own point 60–180 minutes in, and stays out until `RESTOCK_MINUTES` after the water's back |
+| `mains` (Kemp's cup, Roke's bottle) | never marked up | not for sale while the main is dry |
+
+So the city's shelves empty one after another rather than all at once, and Quell does well out of
+it. A vendor flagged `holds_water_price` charges list price whatever the supply (Dagny Holm at the
+plant, the Water Warden at Precinct 9) but still runs out.
+
+**The water run.** The Halcyon Logistics board on floor 54 of Halcyon Towers posts runs on foot.
+One of them, *Water Run* (`quest_hal_water_run`), is only on offer while the mains are `low` or
+`dry`: its `available.when` is the engine's `water_supply` condition. Sign for cans at the plant,
+carry them up to the Halcyon Arcade kiosk, 60₵. The board re-rolls hourly, so a run appears within
+the hour of an outage and can't be taken once the water's back.
+
 **The people.** Dagny Holm is the plant's engineer, in the control room. She sells jerry cans of
-water and explains the gauges and the city's one pipe.
+water, explains the gauges and the city's one pipe, and has a line for thin, dry and grey water.
+Orla Kemp at the tower has two: holding, and empty. Both are dialogue options gated on the same
+condition.
 
 ## Phases
 
 1. **Built.** The substrate and law, the readers converted, the plant building and its keeper,
    faults, power dependence, turbidity, the tower buffer, announcements, `gauges` and the staff verb.
-2. **Design.** The market: Quell's and Orla Kemp's prices follow supply, through a vendor price hook
-   rather than a special case. A water-run job off the Halcyon Logistics board. Bottled-water stock
-   runs down during an outage. The Halcyon Fields Pumping Station as a second point of failure
-   between the plant and the tower.
+2. **Built.** The vendor price rule and the market, sell-outs through a dry spell, the
+   `water_supply` condition, the Halcyon Logistics board and its water run, outage dialogue, and
+   the Halcyon Fields Pumping Station as a second station in series.
 3. **Design.** Sabotage and politics: the intake and the filter gallery as demolition and hacking
    targets, a faction arc over who controls the plant, unrest pressure in cells that have been dry
    for a day, and acid rain fouling the open beds.
 
 ## Traps
 
+- **The shelf and the till must agree.** A price change goes through `registerVendorPriceRule`,
+  never a `shop.stock` handler: that hook only changes what the shelf shows, and `buy` would charge
+  the old price.
 - **One writer.** Only `waterworks` calls `setWaterSupply`. A second writer is the posture-bug
   class: two systems disagreeing on whether the taps run.
 - **Read the law, not the plugin.** No reader imports `waterworks`; they call `drawWater`.

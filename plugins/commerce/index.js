@@ -10,7 +10,7 @@ import { adjustCredits } from '../../server/engine/economy.js';
 import { getIdeologyDiscount } from '../../server/engine/ideologies.js';
 import { getItem } from '../../server/engine/items-cache.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
-import { getVendorStock, getSellableInventory, buyFromVendor, sellToVendor, renderShopText, shopDialogPayload } from '../../server/engine/vendor.js';
+import { getVendorStock, getSellableInventory, buyFromVendor, sellToVendor, renderShopText, shopDialogPayload, vendorPriceRule } from '../../server/engine/vendor.js';
 import { prefersLoggedPanelsOrDefault } from '../../server/engine/presentation.js';
 import { buyFurniture } from '../../server/engine/furniture-shop.js';
 import { openShopSession, getNpcForShopper } from '../../server/engine/vendor-session.js';
@@ -359,11 +359,13 @@ function shopZoneOwner(zoneId) {
 }
 
 // Price the vendor would charge for one unit right now — the same catalogue
-// price + ideology discount buyFromVendor applies, so paying at the counter and
-// buying over it never disagree.
+// price, price rules and ideology discount buyFromVendor applies, so paying at
+// the counter and buying over it never disagree. A rule's sold-out doesn't apply:
+// the thing is already in your hand.
 function unpaidPrice(vendor, row, discount) {
   const entry = (vendor.vendor_inventory || []).find(e => e.item_id === row.item_id);
-  const base = entry?.price ?? row.value ?? 0;
+  const { mult } = vendorPriceRule(vendor, getItem(row.item_id), row.item_id);
+  const base = Math.max(1, Math.round((entry?.price ?? row.value ?? 0) * mult));
   return Math.max(1, Math.round(base * (1 - discount))) * (row.quantity || 1);
 }
 

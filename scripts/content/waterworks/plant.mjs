@@ -82,6 +82,10 @@ const plant = {
       root: {
         text: '"Shut the door, it keeps the noise down." She doesn\'t look away from the board. "If you want water, there is a tap in the gallery. If you want a can of it, I sell those."',
         options: [
+          // Only while the mains are failing (the engine's water_supply condition).
+          { label: 'The taps are running thin.', next: 'thin', conditions: [{ water_supply: REGION, state: 'low' }] },
+          { label: 'The taps are dry.', next: 'dry', conditions: [{ water_supply: REGION, state: 'dry' }] },
+          { label: "The water's coming out grey.", next: 'grey', conditions: [{ water_supply: REGION, state: 'flowing', quality: ['cloudy', 'foul'] }] },
           { label: 'What have you got?', next: '__shop__' },
           { label: 'What happens here?', next: 'works' },
           { label: 'What if it stops?', next: 'stops' },
@@ -96,12 +100,19 @@ const plant = {
         text: '"Then the tower holds the city for about four hours, and the taps run thin while it does." She shrugs. "Most faults I have fixed by then. If the power goes, or a motor burns out, the city goes dry and Quell gets rich."\n\n"Type <b>gauges</b> at the board if you want to know where we are. I do not mind people reading it. I mind people touching it."',
         options: [{ label: 'Back.', next: 'root' }],
       },
+      thin: { text: "\"I know.\" She taps the tower gauge without looking at it. \"Something on the line has stopped. The tower is covering for it, and the tower has four hours in it when it's full. Read the gauges if you want the minutes.\"", options: [{ label: 'Back.', next: 'root' }] },
+      dry: { text: "\"I know. I knew before you did.\" She doesn't stop writing. \"The tower's empty. When the pumps come back the water will run grey for a few minutes while the pipes fill. Don't drink that bit.\"\n\n\"Quell's prices went up an hour ago. They always do.\"", options: [{ label: 'Back.', next: 'root' }] },
+      grey: { text: "\"Silt. Heavy rain stirs the Basin up and the beds can't settle it fast enough.\" She looks at the turbidity needle. \"Boil it. Or don't drink it. Those are the two choices, and only one of them is good.\"", options: [{ label: 'Back.', next: 'root' }] },
       bye: { text: 'She is already writing in the log.', options: [] },
     },
   },
 };
 
 const built = await authorBuilding(store, plant);
+
+// The plant sells its cans at the plant's price, whatever the city is paying (plugins/waterworks).
+const holm = store.get('npcs', 'npc_waterworks_holm');
+store.patch('npcs', 'npc_waterworks_holm', { flags: { ...holm.flags, holds_water_price: true } });
 
 // The intake has no roof, so rain and frost reach it. The plugin reads the weather here.
 const intake = store.get('zones', 'zone_waterworks_intake');

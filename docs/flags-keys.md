@@ -24,6 +24,7 @@ nothing, silently; wire a reader first.
 | `residents_only` | residency | interior tile only enterable by a player holding a unit in the named building — walked in OR ridden to by lift (the lift runs the gate chain too) |
 | `residents_only_deny` | residency | optional refusal line for `residents_only`, in the building's voice |
 | `private_billet_owner` | consort | handle of the player who **holds** this zone as a private space. Makes a bespoke room (a yacht boudoir, a safehouse) a legal B.L.I.S.S. delivery address without the consort plugin having to know what a yacht is — apartments you control and premises you own already qualify without this |
+| `water_local` | engine (`water.js`) | every tap in this zone is off the mains, so none of them runs dry |
 | `yacht` / `echelon` | yacht | marks an Echelon zone (the yacht) |
 | `echelon_bridge` | yacht | the bridge — every `helm`/`sail`/`stop`/`dock` verb gates on this flag |
 | `echelon_suite` | yacht/consort | Cyd's private quarters — owner-gated behind the suite hatch; hosts the MIS-gated dancers |
@@ -143,6 +144,7 @@ nothing, silently; wire a reader first.
 | `bank_teller` | atm | a bank counter clerk — `deposit`/`withdraw <amount> from <them>` bypasses the terminal entirely (no cap, no fee, no power gate). Presence alone does NOT lift the cap; they must be addressed |
 | `audience_door` | broadcast | studio doorman — while alive, present on the tile outside a channel's `studio_zone_id`, and on shift (08:00–02:00), the way in needs a `custom_data.show_pass` stamped for the showing airing right now. Kill him, wait him out, or catch him off shift and the door is just a door (see [systems-broadcast.md](systems-broadcast.md#studio-audience-door)) |
 | `battle_cries` | combat | lines shouted in combat |
+| `holds_water_price` | waterworks | sells stored water (`drinking_water: stored`) at list price however the supply is doing. It still sells out in a long dry spell |
 | `mastery_instructor` | mastery | `{disciplines:[], rep_required, max_rank}` — this NPC teaches. ⚠ **The verb finds a teacher by standing in the room with them and nothing else**, so an unplaced flag means the discipline has no front door: it returned zero matches across all of `content/` for months while mastery shipped as built, and `train` could only ever answer "nobody here teaches that". `rep_required` is Long Watch standing and `max_rank` is that teacher's ceiling — together they are the order's reward ladder ([systems-ascension.md](systems-ascension.md#8a-mastery-had-no-front-door-at-all)) |
 | `repairman` | wear | bench repair — standing in this NPC's zone turns `repair <item>` from a capped field patch into full restoration, priced off item value and discounted by your standing with them ([systems-durability.md](systems-durability.md)) |
 | `surgeon` | augments | marks this NPC as someone who fits chrome. The ZONE opts in with `augment_clinic` (the theatre); this is the person, so a clinic with nobody in it refuses you ([systems-augments.md](systems-augments.md)) |
@@ -279,6 +281,10 @@ nothing, silently; wire a reader first.
 | `fuel_source` | fillable | a fuel point in this zone that `fill` draws from. The VALUE is ₵ per fluid unit (0 / bare flag = free, the pre-forecourt behaviour) |
 | `fuel_price_sign` | fuelstation | examining this renders a forecourt price board, printed from the `fuel.prices` gather hook — it stores no prices |
 | `click_cmd` | describe (engine) | the command this piece's CLICK sends, instead of `examine`. For a thing with a face — a card machine, a mint terminal — so clicking it opens that face rather than dumping cabinet art into the log. The verb runs through the ordinary dispatcher and re-checks everything it always did |
+| `water_gauges` | waterworks | a gauge board; value is the region id. `gauges` reads that region's stations and tower here |
+| `water_intake` | waterworks | a plant's intake; value is the region id. Rain and frost are read here, and heavy rain silts the station in the same building. Put it in an `open_sky` room |
+| `water_local` | engine (`water.js`) | this source isn't on the mains (a tank, a well, a rain butt), so it never runs dry |
+| `waterworks` | waterworks | a pumping station's pump set; value is the region id it feeds. Its room's power is the station's power, and a region's stations are in series |
 | `woven` | describe (engine) | fold this furniture into the room prose instead of listing it separately (the LIVE tier) |
 | `notable` | describe (engine) | force this piece to stay in the `Furniture:` list even when the classifier would demote it to the scenery clause. The override for a stub-described prop that actually matters |
 | `mundane` | describe (engine) | force this piece into the trailing scenery clause even when it affords verbs. The opposite override; wins over `notable` |
@@ -295,7 +301,7 @@ nothing, silently; wire a reader first.
 | `wardrobe` | wardrobe | this container opens the wardrobe/outfits panel (pair with `container`) |
 | `lending_terminal` | library | `scan` here unlocks the tablet's LIBRARY app (`library_unlocked` flag) and prints the one-time intro; examining it teaches the verb ([systems-library.md](systems-library.md)) |
 | `cleaning_tool` | cleaning | a fixed sink/basin — `clean`/`mop` in this room clears the whole floor rather than one patch. Also valid as an **item** tag ([systems-cleaning.md](systems-cleaning.md)) |
-| `water_source` | water plugin | drink/wash here |
+| `water_source` | engine (`water.js`) | a tap: drink, fill, cook and wash here. Mains-fed unless `water_local`; the law `drawWater` decides whether it runs ([systems-water-supply.md](systems-water-supply.md)) |
 | `washing_machine` | laundry | `launder` here — the only thing in the game that resets `hygiene_laundered_at`. **One player at a time**: a running machine is claimed for its whole cycle and reported to the room through `zone.furnitureOccupants`, so a bank of them must be one furniture row PER DRUM, never one row standing for several ([plugins/laundry/README.md](../plugins/laundry/README.md)) |
 | `wash_price` | laundry | credits a cycle costs (default `12`), charged at the END of it |
 | `wash_cycle_ms` | laundry | how long the drum runs (default `120000`, i.e. two minutes) |

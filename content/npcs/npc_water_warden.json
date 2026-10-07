@@ -158,6 +158,7 @@
       "a patched utility jumpsuit",
       "a sweat-grey undershirt"
     ],
+    "holds_water_price": true,
     "personality": "vendor"
   },
   "home_activities": [],
