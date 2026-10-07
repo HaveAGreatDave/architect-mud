@@ -14,7 +14,7 @@
 // wrong collection type, a weight that never reaches 1, a Map that grows without bound.
 //
 //   node scripts/shapes/glfade.mjs
-import { fadeLights, LIGHT_TUNE } from '../../client/game/js/panels/gl/world.js';
+import { fadeLights, pickLights, LIGHT_TUNE } from '../../client/game/js/panels/gl/world.js';
 import { MAX_LIGHTS } from '../../client/game/js/panels/gl/context.js';
 
 const problems = [];
@@ -95,10 +95,35 @@ check(rise > 0 && fall > 0, `the shipped fade times must be positive — rise ${
   [LIGHT_TUNE.rise, LIGHT_TUNE.fall] = saved;
 }
 
+// 6. Turning the camera alone barely changes which lights hold the slots. The ranking was on depth
+//    along the view axis, which changes under a turn, and a slow look round a lit street churned the
+//    set 35 times a second: every swap a road pool fading out and another fading in. Ranked on
+//    distance it's about 1, and those are lights coming into or leaving the frame.
+{
+  const SLOTS = 16, all = [];
+  for (let x = -14; x <= 14; x++) for (let y = -14; y <= 14; y++) {
+    if (Math.hypot(x, y) > 14) continue;
+    if (x % 3 === 0 || y % 3 === 0) all.push({ x: x + 0.3, y: y + 0.2, z: 0.33, rgb: [255, 206, 132], a: 0.8 });
+    if ((x * 7 + y * 13) % 11 === 0) all.push({ x, y, z: 0.8, rgb: [255, 60, 200], a: 0.9 });
+  }
+  let held = null, prev = null, swaps = 0, frames = 0;
+  for (let i = 0; i < 240; i++) {
+    const h = (10 + i * 0.25) * Math.PI / 180;   // 15°/s at 60 fps, eye still
+    const cam = { sinh: Math.sin(h), cosh: Math.cos(h), back: 0, EH: 0.12, FL: 400, W: 640 };
+    // What the painter emits: the half-space in front of the eye, as the lamp and glow passes cull.
+    const ranked = pickLights(cam, all.filter((s) => s.x * cam.sinh - s.y * cam.cosh > 0.12), 1, held, SLOTS);
+    held = new Set(ranked.slice(0, SLOTS).map((e) => e.key));
+    if (prev && i > 30) { for (const k of held) if (!prev.has(k)) swaps++; frames++; }
+    prev = held;
+  }
+  const perSec = swaps / frames * 60;
+  check(perSec < 5, `turning the camera on the spot must not reshuffle the lit set — ${perSec.toFixed(1)} slot swaps/s (was 35 when ranked on view depth)`);
+}
+
 if (problems.length) {
   console.error(`✗ glfade — ${problems.length} problem(s):`);
   for (const p of problems) console.error('    ' + p);
   console.error('\n  A throw here would otherwise show up as the whole city silently rendering on the 2-D fallback.');
   process.exit(1);
 }
-console.log(`✓ glfade: the light ramp rises to exactly full, fades out and forgets, never exceeds ${MAX_LIGHTS} slots, and restores the instant swap at rise 0.`);
+console.log(`✓ glfade: the light ramp rises to exactly full, fades out and forgets, never exceeds ${MAX_LIGHTS} slots, and restores the instant swap at rise 0, and holds its set while the camera turns.`);

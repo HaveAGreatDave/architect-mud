@@ -413,7 +413,7 @@ const fadeSlots = (slots) => Math.max(1, Math.round(slots * FADE_SHARE));
 // an EMPTY LIST, so the frame got no lights at all and fadeLights returned null. Nothing threw at
 // the call site; it threw a gate later, reading `.length` of the null. A caller that does not care
 // about capping must get every slot, never none.
-function pickLights(cam, sprites, night, held, slots = MAX_LIGHTS) {
+export function pickLights(cam, sprites, night, held, slots = MAX_LIGHTS) {
   if (!sprites || !sprites.length || !cam) return null;
   // ⚠ THE NIGHT SCALE BELONGS TO THE WALL WASH, NOT TO THE LIST. Returning null in daylight meant
   // the frame had NO LIGHTS AT ALL by day — right for a wall (a shopfront measured a pink cast over
@@ -433,6 +433,17 @@ function pickLights(cam, sprites, night, held, slots = MAX_LIGHTS) {
   const { sinh, cosh, back, fx = 0, fy = 0 } = cam;
   const tx = back * sinh - fx, ty = -back * cosh - fy;
   const ox = cam.ox || 0, oy = cam.oy || 0;
+  const eh = cam.EH || 0;
+  // ⚠ RANKED ON DISTANCE FROM THE EYE, NEVER ON DEPTH ALONG THE VIEW AXIS. The score was I·r/f, and
+  // `f` changes when the camera only turns: a lamp 30° off the axis has 0.87 of the depth of one
+  // dead ahead at the same range, so a slow look round reordered the whole list and the slots
+  // churned 35 times a second with nothing moving. Every swap is a lamp's road pool and wall lift
+  // fading out and another's fading in, which reads as the streetlights flickering as you look
+  // about. Distance doesn't change under a turn, so the set only changes when the eye moves or a
+  // light comes into or leaves the frame. `npm run gl:fade` holds it (yaw churn).
+  // The lateral cull keeps lights well out of the frame from taking slots off the ones in it; the
+  // margin is wide so a light near the edge, whose pool may still be in view, is kept.
+  const tanH = cam.FL > 0 && cam.W > 0 ? cam.W / 2 / cam.FL : 0;
   const out = [];
   for (const s of sprites) {
     if (!(s.a > 0.02)) continue;
@@ -448,6 +459,8 @@ function pickLights(cam, sprites, night, held, slots = MAX_LIGHTS) {
     // The light own colour, weighted the way an eye weights it. NO ALPHA — see the ⚠ above.
     const I = Math.min(1, (c[0] * 0.3 + c[1] * 0.6 + c[2] * 0.1) / 255);
     const r = LIGHT_TUNE.minR + LIGHT_TUNE.span * Math.sqrt(I);
+    if (tanH > 0 && Math.abs(bx * cosh + by * sinh) > (f + r) * tanH * 1.3 + r) continue;
+    const d = Math.max(0.2, Math.hypot(bx, by, s.z - eh));
     // ⚠ A POINT SOURCE BLOOMS, AN AREA SOURCE WASHES, AND BOTH COME OFF THE SAME `r` — see the ⚠ on
     // LIGHT_TUNE. The road is handed `r` untouched; only what the WALL gets is split, in reach and
     // in gain, so the wet street cannot move when the bloom is tuned.
@@ -485,7 +498,7 @@ function pickLights(cam, sprites, night, held, slots = MAX_LIGHTS) {
       lamp: [c[0] / 255 * s.a * nightK, c[1] / 255 * s.a * nightK, c[2] / 255 * s.a * nightK],
       key,
       wash: isWash,
-      score: I * r / f,
+      score: I * r / d,
     });
   }
   if (!out.length) return null;

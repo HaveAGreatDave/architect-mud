@@ -35533,8 +35533,13 @@ function drawSignalMast(ctx, cam, dx, dy, arm, lamp, alpha, night, lit) {
   if (Math.max(base.f, top.f, tip.f, mid.f) <= 0.1) return;   // wholly behind the eye
   // Sized off whichever end of the boom is still in front — a mast whose pole has passed you would
   // otherwise take its lens size from the 0.06 the projection floors at.
-  const s = clamp(18 / Math.max(top.f, tip.f), 1.2, 30);
-  if (s < 1.6) return;                        // too far to resolve three lamps: drawing one is a lie
+  const sr = 18 / Math.max(top.f, tip.f), s = clamp(sr, 1.2, 30);
+  // Too far to resolve three lamps: drawing one is a lie. ⚠ FADED, NOT CUT, for the reason in
+  // drawStreetLamp: the edge is in view depth, which a turn of the head moves, so a hard `s < 1.6`
+  // blinked a far mast on and off as you looked round. It dims over 11–13 tiles instead.
+  const farK = clamp((sr - 1.35) / 0.25, 0, 1);
+  if (farK <= 0) return;
+  alpha *= farK;
   // ── ON THE DEPTH BUFFER, BECAUSE A MAST IS STEEL, PLATES AND LAMPS ──────────
   //
   // Every part of this was painting on the 2-D canvas, which is composited AFTER the GL city: the
@@ -36107,8 +36112,13 @@ function drawStreetLamp(ctx, cam, dx, dy, inward, lit, alpha, night, seed, tone 
   // signal and about two-thirds of a tree. See drawSignalMast for why this is measured in `s`.
   // Off whichever end is still in front, or a column that has passed you sizes its fitting from the
   // 0.06 the projection floors at.
-  const s = clamp(24 / Math.max(top.f, armEnd.f), 1.2, 34);
-  if (s < 1.4) return;
+  const sr = 24 / Math.max(top.f, armEnd.f), s = clamp(sr, 1.2, 34);
+  // ⚠ FADED OUT, NOT CUT. This was `s < 1.4` → return, a hard edge at 17 tiles of VIEW DEPTH while
+  // the pass runs to FAR (up to 34). Depth changes when you only turn, so a lamp 18 tiles off
+  // swinging across the view popped in and out as you looked about. Now it dims over 17–21 tiles.
+  const farK = clamp((sr - 1.15) / 0.25, 0, 1);
+  if (farK <= 0) return;
+  alpha *= farK;
   // ── ON THE DEPTH BUFFER, BECAUSE A LAMP POST IS TWO WIRES AND A LIGHT ──────
   //
   // A street lamp is the commonest thing in the city that stands on the pavement, and every part
