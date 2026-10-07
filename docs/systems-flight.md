@@ -1254,10 +1254,12 @@ per aircraft at the field (`vehicle-card.js`, the marina's and depot's cards). U
   terminal (arrivals 924,902, departures 924,903) on the runway's west edge. It runs east off the
   parallel taxiway over 927–928 × 903–904. The Hangar is at 927,902 with its door south onto 927,903;
   the Heavy Hangar is at 929,904 at the end of the spur, door west onto 928,904, so the Leviathan
-  rolls out along the taxiway. Keep any taxiway tile within three tiles of the ramp (925,903):
-  that's the reach of `airfieldForRunway`, and a shutdown past it reads as off-strip. ⚠ The runway's
-  own north end (925,898–899) and the taxiway's north entry (926,899) are past that reach today, which
-  is why the apron stand is 924,900 and not 924,899.
+  rolls out along the taxiway. A shutdown on paving resolves through `airfieldForRunway`: a field owns
+  every `flags.runway` tile within three of its field tile, plus every `flags.runway` tile joined to
+  those edge to edge. So the north end of the strip (925,898), the apron at 924,899 and the lead-in to
+  Kessler Street (925,907) all belong to Coldwater Regional. A new taxiway tile needs `flags.runway`
+  (`pad`) and an edge shared with the paving; a tile without the flag, or one that touches only at a
+  corner, reads as off-strip.
 - **The taxiway network is painted** *(as built, 2026-10-04)*. Each paved tile's `flags.taxiway` is
   the sides its yellow centreline leaves by: a parallel taxiway down x=926 with exits onto the runway
   at 899, 901 and 903, the spur east to both hangar doors, a lead-in off the runway's south end

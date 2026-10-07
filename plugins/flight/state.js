@@ -609,21 +609,73 @@ export function runwayFor(fieldZone) {
 }
 
 // The airfield a runway tile serves: given a tile that carries flags.runway but not
-// flags.airfield_id, find the airfield zone whose ramp sits within reach of the strip
-// (mirrors runwayFor's ≤3-tile field↔runway contract, inverted). Lets a craft that
-// touches down anywhere along the strip resolve to its field even when the airfield_id
-// tile sits BESIDE the centreline (e.g. Buzzard Field's hangar is east of its runway)
-// rather than on it (as at Coldwater Regional, where the airfield_id tile is a runway
-// end) — otherwise an off-centreline touchdown reads as off-strip and tows home.
-export function airfieldForRunway(tile) {
-  if (!tile || tile.grid_x == null || !tile.flags?.runway) return null;
-  let best = null, nd = Infinity;
-  for (const z of getAllZones()) {
-    if (z.map_id !== tile.map_id || z.grid_x == null || !z.flags?.airfield_id) continue;
-    const d = Math.max(Math.abs(z.grid_x - tile.grid_x), Math.abs(z.grid_y - tile.grid_y));
-    if (d <= 3 && d < nd) { nd = d; best = z; }
+// flags.airfield_id, the field whose paving it's part of. A field claims every runway tile
+// within three of its own tile (runwayFor's field↔runway contract, inverted) and then every
+// `flags.runway` tile joined to those edge to edge, so a strip, its taxiways and its aprons
+// belong to the field as one piece. Coldwater Regional's field tile is on the strip at
+// 925,903 and it owns the north end at 925,898 and the east taxiway; Buzzard Field's is
+// beside its strip and it owns the strip. Where two fields claim one piece of paving, each
+// tile goes to the nearer field, which is the old three-tile answer wherever that had one.
+//
+// ⚠ IT TAKES A ZONE OR A SURFACE CELL. The `land` handler passes what `surfaceAt` returns,
+// which has no grid_x and no map_id, and the first version bailed on `grid_x == null`, so it
+// never resolved a landing. Coldwater was rescued by `rolloutField` when the roll crossed
+// 925,903. At Buzzard Field nothing rescued it: a STOL craft parked on the strip tile, off the
+// field, and a `strip` craft was towed and billed. The lookup is by tile id.
+//
+// Built from the coord index on first use and rebuilt with it after a zone reload. `land` is
+// the only caller, so the map_world surface is the only grid it covers.
+let _runwayFields = null, _runwayFieldsFor = null;
+function runwayFieldMap() {
+  if (!_coordIndex) buildCoordIndex();
+  if (_runwayFields && _runwayFieldsFor === _coordIndex) return _runwayFields;
+  const runways = new Map(), fields = [];
+  for (const [key, cell] of _coordIndex) {
+    const [x, y] = key.split(',').map(Number);
+    if (cell.flags.runway) runways.set(key, { id: cell.id, x, y, piece: -1 });
+    if (cell.flags.airfield_id) fields.push({ id: cell.id, x, y });
   }
-  return best;
+  // Number the pieces of paving: a flood fill over orthogonal neighbours.
+  let pieces = 0;
+  for (const start of runways.values()) {
+    if (start.piece >= 0) continue;
+    start.piece = pieces;
+    const stack = [start];
+    while (stack.length) {
+      const t = stack.pop();
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const n = runways.get(`${t.x + dx},${t.y + dy}`);
+        if (n && n.piece < 0) { n.piece = pieces; stack.push(n); }
+      }
+    }
+    pieces++;
+  }
+  // Which fields claim each piece: any runway tile within three of the field tile.
+  const claims = new Map();
+  for (const f of fields) {
+    for (let dx = -3; dx <= 3; dx++) for (let dy = -3; dy <= 3; dy++) {
+      const t = runways.get(`${f.x + dx},${f.y + dy}`);
+      if (!t) continue;
+      if (!claims.has(t.piece)) claims.set(t.piece, new Set());
+      claims.get(t.piece).add(f);
+    }
+  }
+  const out = new Map();
+  for (const t of runways.values()) {
+    let best = null, nd = Infinity;
+    for (const f of claims.get(t.piece) || []) {
+      const d = Math.max(Math.abs(f.x - t.x), Math.abs(f.y - t.y));
+      if (d < nd) { nd = d; best = f; }
+    }
+    if (best) out.set(t.id, best.id);
+  }
+  _runwayFields = out; _runwayFieldsFor = _coordIndex;
+  return out;
+}
+export function airfieldForRunway(tile) {
+  if (!tile?.flags?.runway) return null;
+  const id = runwayFieldMap().get(tile.id);
+  return id ? getZone(id) : null;
 }
 
 // The hangar a landing rolls up to. A field's walk-in hangar sits on ONE ramp tile, but a

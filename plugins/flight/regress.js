@@ -1512,6 +1512,47 @@ async function regressBody({ run, check, getPlayer }) {
     }
   }
 
+  // ── A runway tile belongs to the field its paving joins ──────────────────────────
+  // Coldwater Regional's field tile is 925,903 and its strip runs north to 925,898, five tiles
+  // away. The resolver gave a runway tile to a field only within three, and it was handed the
+  // surface cell `land` passes, which has no grid_x, so it never resolved anything: a Mule shut
+  // down at the north end parked on the runway tile, off the field, and a Leviathan was towed
+  // and billed. Buzzard Field's field tile is beside its strip, so every landing there did the same.
+  {
+    const { surfaceAt, airfieldForRunway } = await import('./state.js');
+    const north = surfaceAt(925, 898);
+    check('925,898 is a runway tile and not the field tile', !!north?.flags?.runway && !north.flags.airfield_id, JSON.stringify(north?.flags));
+    check('…and the surface cell resolves to Coldwater Regional', airfieldForRunway(north)?.flags?.airfield_id === 'af_regional', airfieldForRunway(north)?.id);
+    for (const [x, y] of [[925, 907], [926, 899], [924, 899], [928, 904]])
+      check(`Coldwater Regional paving at ${x},${y} resolves to the field`, airfieldForRunway(surfaceAt(x, y))?.flags?.airfield_id === 'af_regional', airfieldForRunway(surfaceAt(x, y))?.id);
+    check('Buzzard Field\'s strip (909,1040) resolves to Buzzard Field', airfieldForRunway(surfaceAt(909, 1040))?.flags?.airfield_id === 'buzzard_field', airfieldForRunway(surfaceAt(909, 1040))?.id);
+
+    const hid = 'aircraft_regress_northend';
+    const savedZone = p.current_zone, savedPosture = p.posture, savedCredits = p.credits || 0, savedBc = getBroadcast();
+    await query('DELETE FROM aircraft WHERE id=$1', [hid]);
+    await query(`INSERT INTO aircraft (id,type_id,name,owner_id,rental,is_wreck,airborne,parked_zone_id,grid_x,grid_y,fuel) VALUES ($1,'ac_mule','REGR-NE',$2,0,0,0,'zone_district_925_903',925,903,40)`, [hid, p.id]);
+    setBroadcast(() => {});
+    try {
+      await setBalance(p, 1000);
+      const live = await loadAircraft(hid);
+      live.occupants.add(p.id); live.pilotId = p.id; p.aircraftId = hid; p.seat = 'pilot';
+      live.row.airborne = 1; live.row.parked_zone_id = null; live.rolloutField = null;
+      await run('flightevent land B 100 925.00 898.00');
+      check('a shutdown at the north end of the strip (925,898) parks her at Coldwater Regional',
+        live.row.airborne === 0 && live.row.parked_zone_id === 'zone_district_925_903',
+        JSON.stringify({ air: live.row.airborne, parked: live.row.parked_zone_id }));
+      check('…without a recovery tow or its bill', p.credits === 1000, `credits=${p.credits}`);
+    } finally {
+      setBroadcast(savedBc);
+      liveAircraft.delete(hid);
+      await query('DELETE FROM aircraft WHERE id=$1', [hid]);
+      if (p.current_zone !== savedZone) getZone(p.current_zone)?.players?.delete(p.id);
+      p._lastStepAt = 0;
+      await setBalance(p, savedCredits);
+      p.current_zone = savedZone; p.posture = savedPosture; delete p.aircraftId; delete p.seat; delete p.textTravel;
+    }
+  }
+
   // ── A server restart mid-flight, and `flightresume` ─────────────────────────────
   // The seat is RAM. A restart forgot it while the cockpit flew on, so a Drake flown from Coldwater
   // Regional and set down on the Threshold Helipad climbed its pilot out into the Regional hangar,

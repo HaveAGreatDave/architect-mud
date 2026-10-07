@@ -1116,9 +1116,10 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
     // A long roll-out can drift the plane a tile off the runway before you shut down —
     // fall back to the airfield we actually touched down on (recorded while grounded over it).
     if (!field?.flags?.airfield_id && live.rolloutField) field = getZone(live.rolloutField);
-    // Touched down on a runway tile whose airfield_id lives on an adjacent ramp tile (the
-    // strip and the hangar aren't the same tile, as at Buzzard Field) — resolve to the field
-    // the runway serves so it parks here instead of towing home off-strip.
+    // Shut down on a runway, taxiway or apron tile that isn't the field tile: resolve to the
+    // field that paving belongs to (Buzzard Field's strip, Coldwater Regional's north end and
+    // east taxiway) so it parks here instead of towing home off-strip. `field` is a surface
+    // cell here, with no grid_x, which is why the resolver looks tiles up by id.
     if (!field?.flags?.airfield_id && field?.flags?.runway) field = airfieldForRunway(field) || field;
     // Taxied into a hangar and shut down on its floor. The shed is a building tile with no runway
     // flag, and a pilot who left the runway before the ramp never rolled over the field tile that
