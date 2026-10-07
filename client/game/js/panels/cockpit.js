@@ -3215,7 +3215,7 @@ export function openFlightSim(opts = {}) {
         <button class="dkx-btn" data-dk="nv" title="night vision (N)" tabindex="-1">NV</button>
         <button class="dkx-btn" data-dk="mode0" title="mode: heli" tabindex="-1">HELI</button>
         <button class="dkx-btn dkx-wings" data-dk="mode1" title="mode: plane (K)" tabindex="-1">PLANE</button>
-        <button class="dkx-btn" data-dk="mode2" title="mode: boat, on the water" tabindex="-1">BOAT</button>
+        <button class="dkx-btn" data-dk="mode2" title="mode: boat, on the water (L)" tabindex="-1">BOAT</button>
         <button class="dkx-btn" data-dk="mode3" title="mode: sub" tabindex="-1">SUB</button>
       </div>
       <div class="dkx-levers"><div class="dkx-thr" id="dkx-thr" title="throttle: drag up for more"><div class="dkx-thr-slot"></div><div class="dkx-thr-knob" id="dkx-thr-knob"></div><span class="dkx-thr-lbl">THR</span></div>
@@ -3807,7 +3807,7 @@ export function openFlightSim(opts = {}) {
     F.dk.subAskAt = performance.now();
     F.syncAcc = 99;
   };
-  const KEYS = new Set(['a', 'z', 'q', 'w', 'e', 's', 'y', 'h', 'f', 'g', 'j', 'v', 'x', 'c', '1', '2', ' ', '[', ']', '\\', ',', '.', 'k', 'r', 't', 'i', 'n']);
+  const KEYS = new Set(['a', 'z', 'q', 'w', 'e', 's', 'y', 'h', 'f', 'g', 'j', 'v', 'x', 'c', '1', '2', '3', ' ', '[', ']', '\\', ',', '.', 'k', 'l', 'r', 't', 'i', 'n', 'b']);
   const onKeyDown = (e) => {
     const tag = (e.target && e.target.tagName) || '';
     if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
@@ -3884,7 +3884,7 @@ export function openFlightSim(opts = {}) {
       case 'i': if (!e.repeat) F.ckMaster?.(); break;
       // The Drake's own: K converts rotor <-> wing, R the rear ramp, T the quack, N night vision; M toggles the nav marks.
       case 'k': if (!e.repeat && F.dk) drakeConvert(); break;
-      case 'l': if (!e.repeat && F.dk) drakeMode(2); break;
+      case 'l': if (!e.repeat && F.dk) drakeMode(2); break;   // BOAT, on the water (drakeModeBlock says why not)
       case 'r': if (!e.repeat && F.dk) drakeRamp(); break;
       case 't': if (!e.repeat && F.dk) drakeQuackDown(); break;
       case 'n': if (!e.repeat && F.dk) { F.dk.nv = !F.dk.nv; fsimToast(F.dk.nv ? '◉ NIGHT VISION: centre screen' : '◉ NIGHT VISION OFF'); } break;
@@ -3893,7 +3893,10 @@ export function openFlightSim(opts = {}) {
       case 'f': if (!e.repeat && F.reportedAirborne) sendCmdSilent('flares'); break;   // countermeasures (server confirms via air_threat)
       case '1': if (!e.repeat) setWeapon('guns'); break;   // weapon select
       case '2': if (!e.repeat) setWeapon('msl'); break;
-      case '3': if (!e.repeat) setWeapon('bomb'); break;   // a rack is a weapon like any other — 1/2/3 pick directly, the WPN button cycles
+      // A rack is a weapon like any other: 1/2/3 pick directly, the WPN button cycles. ⚠ Gated the
+      // way the WPN cycle and the hidden bomb button are: with 'bomb' selected the trigger skips the
+      // guns, so 3 on an airframe with no rack would leave the pilot unarmed.
+      case '3': if (!e.repeat) { if (F.bombCap > 0) setWeapon('bomb'); else fsimToast('◇ NO BOMB RACK ON THIS AIRFRAME'); } break;
       // On the water B is the Drake's buoyancy control (drake-water.js stabilise); in the air, the automatic dive.
       case 'b': if (!e.repeat) { if (F.dk && F.dk.onWater) { F.dk.stab = F.dk.stab === false; fsimToast(F.dk.stab ? '⚓ BUOYANCY CONTROL: trim tanks steadying her' : '⚓ BUOYANCY CONTROL OFF: riding the swell'); } else toggleDiveAuto(); } break;
       case '[': if (!e.repeat) cycleApTarget(-1); break;   // cycle target (fields / landmarks / regions)
