@@ -53715,7 +53715,8 @@ const SIGN_HANZI = {
   chrome: '義體', asc_vats: '義體', asc_weave: '義體',   // 義體 — a prosthetic body, which is what an Ascendant clinic sells
   church: '廟', undertaker: '殯儀',   // ⚠ NO police AND NO civic: a station and a city hall do not hang a lit trade blade on the corner
   studio: '電視', ksabstudio: '電視', greenhouse: '花圃', junkyard: '廢料',
-  kitchenware: '廚具', tine: '廚具',   // 廚具 — kitchen implements, which is the whole of what this shop is
+  kitchenware: '廚具',   // 廚具 — kitchen implements, which is the whole of what this shop is
+  gym: '健身',
 };
 // ── WHAT THE SHOP SELLS, IN ENGLISH ────────────────────────────────────────────────────────────
 //
@@ -53755,7 +53756,7 @@ const SIGN_WORD = {
   chrome: 'PROSTHETICS', asc_vats: 'PROSTHETICS', asc_weave: 'PROSTHETICS',
   undertaker: 'UNDERTAKER',
   studio: 'BROADCAST', greenhouse: 'NURSERY', junkyard: 'SALVAGE',
-  kitchenware: 'KITCHEN', tine: 'KITCHEN',
+  kitchenware: 'KITCHEN', gym: 'GYM',
   pool_hall: 'BILLIARDS', cinema: 'CINEMA', locksmith: 'LOCKSMITH', fence: 'PAWNBROKER',
 };
 // ── …AND THE FALLBACK, ON THE AXIS THE REST OF THE KIT ALREADY USES ────────────────────────────

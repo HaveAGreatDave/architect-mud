@@ -1,0 +1,19 @@
+{
+  "description": "A four-burner range pulled out of a gutted flat, running off a gas bottle by a length of hose somebody keeps an eye on. Two burners light first time. The other two take persuading.",
+  "flags": {
+    "interactions": [
+      "lean"
+    ],
+    "stove_tier": "mid"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_giardia_range",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "gas range",
+  "object_type": "fixture",
+  "power_draw_kw": 3,
+  "price": 0,
+  "zone_id": "zone_giardia_shop"
+}

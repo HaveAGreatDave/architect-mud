@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#3e3832",
+  "description": "The boiler cupboard, with towels drying stiff on every pipe that runs through it. The junction box is bolted beside the door, its breakers labelled in marker, and a small sealed hacking port sits below the latch.",
+  "exits": {
+    "south": "zone_ironside_gym"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_ironside_gym_util",
+  "map_id": "map_int_ironside_gym",
+  "name": "Ironside Gym — Back Room",
+  "parent_zone": "zone_district_918_907"
+}

@@ -1,0 +1,19 @@
+{
+  "description": "A flat bench with a cracked red pad and an upright rack welded on at the head end. The bar is knurled steel, worn smooth in the two places everyone holds it. Lie down and lift.",
+  "flags": {
+    "interactions": [
+      "lie",
+      "lift"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_ironside_gym_bench_a",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "flat bench",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_ironside_gym"
+}

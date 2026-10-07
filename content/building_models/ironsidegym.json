@@ -1,0 +1,449 @@
+{
+  "adorn": [
+    {
+      "cx": -0.21,
+      "cy": 0.44,
+      "kind": "glowPool",
+      "rgb": "255,214,160",
+      "s": 11,
+      "z": 0.25
+    },
+    {
+      "cx": 0.24,
+      "cy": 0.44,
+      "kind": "glowPool",
+      "rgb": "255,214,160",
+      "s": 11,
+      "z": 0.25
+    },
+    {
+      "cx": 0.02,
+      "cy": 0.48,
+      "kind": "glowPool",
+      "rgb": "255,210,150",
+      "s": 10,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Ironside Gym"
+    }
+  ],
+  "detail": [
+    {
+      "bars": 3,
+      "cx": -0.29,
+      "cy": 0.4,
+      "depth": 0.016,
+      "glass": "#2a2c2e",
+      "glow": "#ffd9a8",
+      "half": 0.065,
+      "hh": 0.11,
+      "kind": "windowBay",
+      "pal": "ty_gate_plate",
+      "transom": 0.72,
+      "z": 0.25
+    },
+    {
+      "bars": 3,
+      "cx": -0.13,
+      "cy": 0.4,
+      "depth": 0.016,
+      "glass": "#2a2c2e",
+      "glow": "#ffd9a8",
+      "half": 0.065,
+      "hh": 0.11,
+      "kind": "windowBay",
+      "pal": "ty_gate_plate",
+      "transom": 0.72,
+      "z": 0.25
+    },
+    {
+      "bars": 3,
+      "cx": 0.17,
+      "cy": 0.4,
+      "depth": 0.016,
+      "glass": "#2a2c2e",
+      "glow": "#ffd9a8",
+      "half": 0.065,
+      "hh": 0.11,
+      "kind": "windowBay",
+      "pal": "ty_gate_plate",
+      "transom": 0.72,
+      "z": 0.25
+    },
+    {
+      "bars": 3,
+      "cx": 0.31,
+      "cy": 0.4,
+      "depth": 0.016,
+      "glass": "#2a2c2e",
+      "glow": "#ffd9a8",
+      "half": 0.065,
+      "hh": 0.11,
+      "kind": "windowBay",
+      "pal": "ty_gate_plate",
+      "transom": 0.72,
+      "z": 0.25
+    },
+    {
+      "bars": 1,
+      "cx": 0.02,
+      "cy": 0.4,
+      "depth": 0.018,
+      "glass": "#2a2620",
+      "glow": "#ffd8a0",
+      "half": 0.05,
+      "hh": 0.14,
+      "kind": "windowBay",
+      "pal": "ty_gate_plate",
+      "transom": 0.75,
+      "z": 0.18
+    },
+    {
+      "cx": 0.02,
+      "cy": 0.4,
+      "half": 0.07,
+      "hh": 0.01,
+      "kind": "canopy",
+      "out": 0.05,
+      "pal": "ty_gate_plate",
+      "soffit": "#2a2c2e",
+      "z": 0.34
+    },
+    {
+      "bare": true,
+      "color": "#00000000",
+      "cx": -0.02,
+      "cy": 0.4,
+      "font": "block",
+      "half": 0.3,
+      "hh": 0.045,
+      "ink": "#ece2cc",
+      "kind": "signBoard",
+      "label": "$name",
+      "z": 0.46
+    },
+    {
+      "bars": 3,
+      "cx": -0.27,
+      "cy": 0.4,
+      "depth": 0.014,
+      "glass": "#202326",
+      "glow": "#e8d8bc",
+      "half": 0.07,
+      "hh": 0.08,
+      "kind": "windowBay",
+      "pal": "ty_gate_plate",
+      "transom": 0.6,
+      "z": 0.68
+    },
+    {
+      "bars": 3,
+      "cx": -0.09,
+      "cy": 0.4,
+      "depth": 0.014,
+      "glass": "#202326",
+      "glow": "#e8d8bc",
+      "half": 0.07,
+      "hh": 0.08,
+      "kind": "windowBay",
+      "pal": "ty_gate_plate",
+      "transom": 0.6,
+      "z": 0.68
+    },
+    {
+      "bars": 3,
+      "cx": 0.09,
+      "cy": 0.4,
+      "depth": 0.014,
+      "glass": "#202326",
+      "glow": "#e8d8bc",
+      "half": 0.07,
+      "hh": 0.08,
+      "kind": "windowBay",
+      "pal": "ty_gate_plate",
+      "transom": 0.6,
+      "z": 0.68
+    },
+    {
+      "bars": 3,
+      "cx": 0.27,
+      "cy": 0.4,
+      "depth": 0.014,
+      "glass": "#202326",
+      "glow": "#e8d8bc",
+      "half": 0.07,
+      "hh": 0.08,
+      "kind": "windowBay",
+      "pal": "ty_gate_plate",
+      "transom": 0.6,
+      "z": 0.68
+    },
+    {
+      "cx": 0,
+      "cy": 0.4,
+      "kind": "pilaster",
+      "n": 2,
+      "out": 0.014,
+      "pal": "ty_unit_brick",
+      "step": 0.8,
+      "w": 0.024,
+      "z0": 0.04,
+      "z1": 0.88
+    },
+    {
+      "color": "#1e1414",
+      "cx": 0.37,
+      "cy": 0.41,
+      "font": "hanzi",
+      "half": 0.03,
+      "ink": "#ff6a3a",
+      "kind": "bladePanel",
+      "label": "$trade",
+      "out": 0.07,
+      "pal": "ty_gate_plate",
+      "z0": 0.56,
+      "z1": 0.84
+    },
+    {
+      "cx": 0,
+      "cy": 0.4,
+      "half": 0.38,
+      "kind": "conduit",
+      "pal": "ty_stack_dk",
+      "r": 0.007,
+      "z": 0.55
+    },
+    {
+      "cx": -0.2,
+      "cy": 0.4,
+      "drip": 0.6,
+      "kind": "grime",
+      "w": 0.12,
+      "z": 0.88
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 3,
+        "cx": -0.24,
+        "cy": 0.4,
+        "depth": 0.014,
+        "face": "x",
+        "glass": "#202326",
+        "glow": "#e8d8bc",
+        "half": 0.065,
+        "hh": 0.08,
+        "kind": "windowBay",
+        "pal": "ty_gate_plate",
+        "z": 0.68
+      },
+      "step": {
+        "cx": 0.24
+      }
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 3,
+        "cx": -0.24,
+        "cy": 0.4,
+        "depth": 0.016,
+        "face": "x",
+        "glass": "#2a2c2e",
+        "glow": "#ffd9a8",
+        "half": 0.065,
+        "hh": 0.11,
+        "kind": "windowBay",
+        "pal": "ty_gate_plate",
+        "z": 0.25
+      },
+      "step": {
+        "cx": 0.24
+      }
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 3,
+        "cx": -0.24,
+        "cy": -0.4,
+        "depth": 0.014,
+        "face": "x",
+        "glass": "#202326",
+        "glow": "#e8d8bc",
+        "half": 0.065,
+        "hh": 0.08,
+        "kind": "windowBay",
+        "pal": "ty_gate_plate",
+        "z": 0.68
+      },
+      "step": {
+        "cx": 0.24
+      }
+    },
+    {
+      "cx": 0,
+      "cy": -0.4,
+      "face": "x",
+      "flights": 2,
+      "half": 0.12,
+      "kind": "fireEscape",
+      "out": 0.08,
+      "pal": "ty_stack_dk",
+      "z0": 0.3,
+      "z1": 0.84
+    },
+    {
+      "cx": 0.34,
+      "cy": 0.4,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.011,
+      "z0": 0.04,
+      "z1": 0.88
+    },
+    {
+      "bay": true,
+      "cx": 0.14,
+      "cy": -0.4,
+      "half": 0.13,
+      "hh": 0.16,
+      "kind": "shutter",
+      "pal": "ty_gate_plate",
+      "z": 0.2
+    },
+    {
+      "cx": -0.22,
+      "cy": -0.4,
+      "drip": 0.6,
+      "half": 0.12,
+      "hh": 0.06,
+      "kind": "louvreBank",
+      "n": 6,
+      "pal": "ty_stack_dk",
+      "z": 0.62
+    },
+    {
+      "bars": 2,
+      "cx": -0.22,
+      "cy": -0.4,
+      "depth": 0.012,
+      "glass": "#22262a",
+      "glow": "#c8b89a",
+      "half": 0.06,
+      "hh": 0.08,
+      "kind": "windowBay",
+      "pal": "ty_gate_plate",
+      "z": 0.22
+    },
+    {
+      "cx": -0.34,
+      "cy": -0.43,
+      "d": 0.035,
+      "hh": 0.035,
+      "kind": "binStack",
+      "lid": "#1e2a22",
+      "n": 2,
+      "pal": "ty_cont_g",
+      "w": 0.04,
+      "z": 0.004
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.41,
+      "hh": 0.012,
+      "kind": "parapet",
+      "pal": "ty_gate_dk",
+      "z": 0.93
+    },
+    {
+      "cx": -0.2,
+      "cy": -0.16,
+      "hh": 0.08,
+      "kind": "roofTank",
+      "pal": "ty_stack_dk",
+      "r": 0.08,
+      "z": 0.93
+    },
+    {
+      "cx": 0.22,
+      "cy": -0.2,
+      "hh": 0.1,
+      "kind": "stack",
+      "pal": "ty_stack_dk",
+      "r": 0.03,
+      "z": 0.93
+    },
+    {
+      "cx": 0.18,
+      "cy": 0.14,
+      "d": 0.05,
+      "hh": 0.03,
+      "kind": "acUnit",
+      "pal": "ty_stack_dk",
+      "w": 0.07,
+      "z": 0.93
+    },
+    {
+      "cx": -0.42,
+      "cy": 0.49,
+      "kind": "streetLamp",
+      "out": 0.12,
+      "pal": "ty_stack_dk",
+      "r": 0.026,
+      "rgb": "255,214,160",
+      "s": 9,
+      "z0": 0,
+      "z1": 0.09
+    }
+  ],
+  "id": "ironsidegym",
+  "note": "IRONSIDE GYM: a boxing and weights gym on the corner of Ironside Street and Lever Lane.\n\nThe tile's prose: a two-storey brick works with the ground floor knocked through into one long\nroom and every window along it propped open on a stick, because the room needs the air. Benches,\nracks of odd plates, and a ring with its ropes taped. IRONSIDE GYM painted across the brick over\nthe door in letters a yard high.\n\nSo it is a plain brick block with steel-framed windows: four tall ones along the ground floor, lit\nwarm, and the door between them under a small hood. The name is painted straight onto the brick\nabove the ground floor (`bare`), once. The corner blade says `$trade`, which resolves to GYM.\nThe upper floor is a row of smaller steel windows. One flank carries the fire escape, the back has\na roller door for deliveries, and the roof has a tank and a vent stack.\n\nIt replaced Tine & Temper, a kitchenware shop on this tile, in October 2026.",
+  "pal": "ty_unit_brick",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.42,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.04
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_unit_brick",
+      "roof": true,
+      "z0": 0.04,
+      "z1": 0.88
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.41,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0.88,
+      "z1": 0.93
+    }
+  ],
+  "trade": "gym"
+}

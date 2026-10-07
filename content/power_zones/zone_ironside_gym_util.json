@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 50,
+  "flags": {},
+  "generator_id": "gen_zone_ironside_gym_util",
+  "id": "zone_ironside_gym_util",
+  "max_capacity_kw": 50,
+  "name": "zone_ironside_gym_util",
+  "source_type": "junction_box"
+}

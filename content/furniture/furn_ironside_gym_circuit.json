@@ -1,0 +1,18 @@
+{
+  "description": "Lorry tyres to flip, a sled of breeze blocks on a towing strap, and a rope hung off the joist. Chalk lap marks run down the floor beside it and stop at fifty.",
+  "flags": {
+    "interactions": [
+      "drill"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_ironside_gym_circuit",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "conditioning circuit",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_ironside_gym"
+}

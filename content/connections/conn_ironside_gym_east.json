@@ -1,9 +1,9 @@
 {
-  "a": "zone_kitchenware",
+  "a": "zone_ironside_gym",
   "b": "zone_district_918_907",
   "blocked": false,
   "dir": "east",
-  "id": "conn_kitchenware_east_u5bt",
+  "id": "conn_ironside_gym_east",
   "lockable": false,
   "one_way": false
 }

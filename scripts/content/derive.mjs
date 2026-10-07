@@ -622,12 +622,13 @@ export const BUILDING_TYPE_ICON = Object.freeze({
   // Ten types whose artwork was already drawn and sitting in zone-icons/ unreferenced,
   // so eleven real buildings wore the generic office block: Citadel Financial, Grind
   // House, Bodega Vu, Adequate!, Nuts to That, Watts The Damage, Salvage Rites, Slag &
-  // Wares, Thumb On The Scale, The Houndyard, Tine & Temper, The Wash, Oyelaran's and
+  // Wares, Thumb On The Scale, The Houndyard, a kitchenware shop since replaced, The Wash, Oyelaran's and
   // Layers. Registering a name is the whole fix; every one of these already has its
   // TYPE_MODEL arm, so the map and the air agree.
   bank: 'bldg_bank', blade_shop: 'bldg_bladeshop', bodega: 'bldg_bodega',
   dept_store: 'bldg_deptstore', hardware: 'bldg_hardware', junkyard: 'bldg_junkyard',
   kitchenware: 'bldg_kitchenware', laundromat: 'bldg_laundromat',
+  gym: 'bldg_gym',
   noodle_bar: 'bldg_noodlebar', outfitter: 'bldg_outfitter',
   // Terminus (docs/proposals/terminus.md). The Exodus grow their own food behind the wall; the
   // glasshouses are the only thing tall enough to be seen from the apron. Registered NOW rather

@@ -139,10 +139,6 @@ export const NAMED_MODELS = {
   // neighbour, eight of those groups sharing a PALETTE too — literal clones from the air. The
   // promoted half of each group is below; the twin named in the comment keeps the type model.
   firedforgotten:                 { type: 'ff_kiln',     pal: 'ty_ff_brick', neon: '#ff8a4a' },
-  // ⚠ `trade` NAMED, because the signage tables key on `tradeOf` and an arm's case label IS its
-  // trade — so `tine` reached SIGN_TRADE, SIGN_HANZI and PICTO_HANZI as a miss, and the one
-  // kitchenware shop in Coldwater got the generic hand its brickwork implies and no mark at all.
-  tinetemper:                     { type: 'tine',        pal: 'ty_unit_brick', neon: '#ff9a3e', trade: 'kitchenware' },
   twocellsupply:                  { type: 'twocell',     pal: 'ty_2cell',    neon: '#9fe8ff' },
   fallowprovisions:               { type: 'fallow',      pal: 'ty_fallow' },
   // The four numbered Units are all EMPTY EX-TENANT SHELLS, and looking alike is correct for
@@ -378,6 +374,8 @@ export const TYPE_MODEL = {
   // Reuses the shop mesh with its own iron-toned palette + warm sign, the same
   // "nearest existing model, bespoke colour" call the Ascendant campus makes.
   kitchenware:      { type: 'shop',      pal: 'ty_kitchen', neon: '#ff9a3e' },
+  // Ironside Gym is authored and binds by name; this is the fallback for any other gym.
+  gym:              { type: 'shop',      pal: 'ty_unit_brick', neon: '#ff6a3a' },
   butcher:          { type: 'butcher',   pal: 'ty_butcher', neon: '#ff3e4a' },
   // St Garneau's. NO NEON, and that is the point: it is the one building on the
   // street with nothing lit on it except the thing that was bolted on afterwards — which is also

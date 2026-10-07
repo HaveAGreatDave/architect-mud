@@ -1,0 +1,18 @@
+{
+  "description": "A ring on a low timber stage, canvas patched grey on grey, ropes taped where they've split. It sees use on sparring nights, which are whenever enough people turn up. The rest of the time it's where people lean to get their breath back.",
+  "flags": {
+    "interactions": [
+      "lean"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_ironside_gym_ring",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "boxing ring",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_ironside_gym"
+}

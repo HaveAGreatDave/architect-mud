@@ -1,5 +1,5 @@
 {
-  "description": "A slotted steel grate over a bed of coals, standing waist-high on three legs. The bars are seasoned black and permanently warm. It does one thing, at one temperature, extremely well.",
+  "description": "A slotted steel grate over a bed of coals, on three legs made from scaffold pole. The bars are seasoned black and never quite go cold. It does one thing, at one temperature, extremely well.",
   "flags": {
     "interactions": [
       "lean"
@@ -15,5 +15,5 @@
   "object_type": "fixture",
   "power_draw_kw": null,
   "price": 0,
-  "zone_id": "zone_kitchenware"
+  "zone_id": "zone_giardia_shop"
 }

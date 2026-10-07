@@ -131,125 +131,85 @@
     }
   },
   "chitchat": [
-    "\"Thin pan, thin cook. Buy iron once and be done.\"",
-    "She rings a skillet with a knuckle and listens to it the way other people listen to a doctor.",
-    "\"Everything on that wall outlived the kitchen it came out of. Bear that in mind.\"",
-    "\"You can have cheap, or you can have a pan. Not both, not from me.\""
+    "\"Re-rack your weights. It's on the board. It's the first thing on the board.\"",
+    "He clicks the stopwatch, looks at it, and clicks it again without saying what he was timing.",
+    "\"Strong is easy. Strong for long is the work.\"",
+    "\"Don't lift angry. Lift tired. You'll find out the difference.\""
   ],
-  "description": "A short, thick-forearmed woman with grey cropped to the scalp and two fingertips gone to the first knuckle on her left hand. She handles every piece that comes over the counter twice, once to weigh it and once to ring it, and prices it on the sound.",
+  "description": "A wide, slow-moving man in his sixties with a nose that has been broken in at least two directions and a stopwatch on a bootlace round his neck. He watches everybody in the room at once and says very little to any of them.",
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "She goes back to the rail, straightening handles that were already straight."
+      "text": "He goes back to watching the room."
     },
-    "iron": {
+    "hands": {
       "options": [
         {
-          "label": "So what should I buy?",
-          "next": "shop"
+          "label": "Thanks.",
+          "next": "bye"
         }
       ],
-      "text": "\"Heat's the whole job. Thin steel takes the flame and hands it straight to your food in one spot, and that's how you get a black middle and a raw edge. Iron takes its time and gives it back even.\" She taps the skillet. \"Costs more. Weighs more. Outlives you.\""
+      "text": "\"Hands are the Pit, behind the Sump. Slagball lot. Wall and a ball and no manners.\" He shrugs. \"I don't teach that. They do.\""
+    },
+    "ring": {
+      "options": [
+        {
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Sparring nights. Whenever there's enough of you and somebody to stand in your corner.\" He nods at the ropes. \"Rest of the time it's for leaning on.\""
     },
     "root": {
       "options": [
         {
-          "label": "Show me what you've got.",
-          "next": "shop"
+          "label": "What can I do here?",
+          "next": "train"
         },
         {
-          "label": "Why's the iron cost four times the steel?",
-          "next": "iron"
-        }
-      ],
-      "text": "\"Look with your eyes first.\" She doesn't stop what she's doing. \"If you want it down off the rail, say so.\""
-    },
-    "shop": {
-      "actions": [
+          "label": "What's the ring for?",
+          "next": "ring"
+        },
         {
-          "action": "OPEN_SHOP",
-          "npcId": "npc_kitchenware_smith"
-        }
-      ],
-      "options": [
-        {
-          "label": "(look it over)",
+          "label": "Just looking.",
           "next": "bye"
         }
       ],
-      "text": "\"Rail's the pans, casing's the small stuff. Range is there if you want to hear a pan before you pay for it.\""
+      "text": "He looks you over the way a man checks a used car. \"You training, or you lost?\""
+    },
+    "train": {
+      "options": [
+        {
+          "label": "What about my reflexes?",
+          "next": "hands"
+        },
+        {
+          "label": "Fair enough.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Bench is for your arms. Lie on it and lift. Circuit down the end is for your wind: you drill it until the room goes round.\" He taps the stopwatch. \"Neither of them gives you anything for free. You earn it outside and you spend it in here.\""
     }
   },
   "faction": null,
   "flags": {
     "clothing_layers": [
-      "a scorched leather shop apron, stiff as board",
-      "a slate-grey work shirt with the sleeves cut off at the shoulder",
-      "a plain cotton bra and briefs"
+      "a grey hooded sweatshirt with the cuffs cut off",
+      "old tracksuit bottoms gone shiny at the knee",
+      "a vest and boxer shorts"
     ],
-    "personality": "vendor"
+    "personality": "quiet"
   },
   "home_activities": [],
   "home_zone": "zone_meridian_unit_201",
-  "hp": 55,
-  "hp_max": 55,
-  "id": "npc_kitchenware_smith",
-  "name": "Tove Adaska",
-  "npc_type": "vendor",
-  "sex": "female",
+  "hp": 70,
+  "hp_max": 70,
+  "id": "npc_ironside_gym_trainer",
+  "name": "Hob Garrity",
+  "npc_type": "npc",
+  "sex": "male",
   "studio_zone_id": null,
-  "vendor_inventory": [
-    {
-      "item_id": "item_frying_pan",
-      "price": 55,
-      "stock": 6
-    },
-    {
-      "item_id": "item_steel_saucepan",
-      "price": 46,
-      "stock": 6
-    },
-    {
-      "item_id": "item_stock_pot",
-      "price": 84,
-      "stock": 4
-    },
-    {
-      "item_id": "item_cast_iron_skillet",
-      "price": 165,
-      "stock": 2
-    },
-    {
-      "item_id": "item_spatula",
-      "price": 14,
-      "stock": 8
-    },
-    {
-      "item_id": "item_kitchen_tongs",
-      "price": 19,
-      "stock": 8
-    },
-    {
-      "item_id": "item_wooden_spoon",
-      "price": 9,
-      "stock": 8
-    },
-    {
-      "item_id": "item_ladle",
-      "price": 17,
-      "stock": 6
-    },
-    {
-      "item_id": "item_wire_whisk",
-      "price": 13,
-      "stock": 6
-    },
-    {
-      "item_id": "item_kitchen_knife",
-      "price": 48,
-      "stock": 4
-    }
-  ],
+  "vendor_inventory": [],
   "vendor_restock_rate": 1,
   "vendor_schedule": {
     "fri": [
@@ -294,5 +254,5 @@
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_kitchenware"
+  "work_zone_id": "zone_ironside_gym"
 }

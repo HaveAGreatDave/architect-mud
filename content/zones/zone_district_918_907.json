@@ -3,14 +3,14 @@
   "ambient_theme": "forest",
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
-  "description": "The face of Tine & Temper, a low brick smithy with a slate roof and a chimney that never quite goes cold. Racks of blackened pans and bright new tines hang either side of the door, and the whole frontage rings faintly when the wind gets into them. The road runs off to the east.",
+  "description": "A two-storey brick works with the ground floor knocked through into one long room and every window along it propped open on a stick, because the room needs the air. Through them: benches, racks of odd plates, and a ring with its ropes taped where they've split. IRONSIDE GYM is painted across the brick over the door in letters a yard high. The road runs off to the east.",
   "exits": {
     "east": "zone_district_919_907",
-    "west": "zone_kitchenware"
+    "west": "zone_ironside_gym"
   },
   "flags": {
-    "building_name": "Tine & Temper",
-    "building_type": "kitchenware",
+    "building_name": "Ironside Gym",
+    "building_type": "gym",
     "district": "industrial",
     "entrance": "east",
     "facade": true,
@@ -24,7 +24,7 @@
   "grid_z": 0,
   "id": "zone_district_918_907",
   "map_id": "map_world",
-  "marker": "TT",
-  "name": "Tine & Temper",
+  "marker": "IG",
+  "name": "Ironside Gym",
   "parent_zone": null
 }

@@ -1,0 +1,17 @@
+{
+  "description": "A blackened tin kettle that lives on the edge of the grill and is never quite off the boil.",
+  "flags": {
+    "aliases": "kettle,camp kettle",
+    "brew_tier": "kettle"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_giardia_kettle",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "camp kettle",
+  "object_type": "fixture",
+  "power_draw_kw": 2,
+  "price": 0,
+  "zone_id": "zone_giardia_shop"
+}

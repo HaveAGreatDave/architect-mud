@@ -7,8 +7,8 @@
   "fuel_remaining": 0,
   "fuel_type": null,
   "generator_type": "junction_box",
-  "id": "gen_zone_kitchenware_util",
-  "name": "Tine & Temper Junction Box",
+  "id": "gen_zone_ironside_gym_util",
+  "name": "Ironside Gym Junction Box",
   "owner_id": null,
-  "zone_id": "zone_kitchenware_util"
+  "zone_id": "zone_ironside_gym_util"
 }

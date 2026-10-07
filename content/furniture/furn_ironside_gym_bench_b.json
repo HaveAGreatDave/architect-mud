@@ -1,0 +1,19 @@
+{
+  "description": "An incline bench propped at its angle with a house brick, because the pin went years ago. It does the job. Lie down and lift.",
+  "flags": {
+    "interactions": [
+      "lie",
+      "lift"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_ironside_gym_bench_b",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "incline bench",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_ironside_gym"
+}

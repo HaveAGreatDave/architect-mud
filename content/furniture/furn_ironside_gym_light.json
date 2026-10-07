@@ -1,0 +1,18 @@
+{
+  "description": "A row of industrial lamps in wire cages hung off the joists. The cages are there because of the ring, and two of them are dented anyway.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_ironside_gym_light",
+  "light_type": "overhead",
+  "lumen_output": 1600,
+  "name": "cage lights",
+  "object_type": "light",
+  "power_draw_kw": 20,
+  "price": 40,
+  "zone_id": "zone_ironside_gym"
+}

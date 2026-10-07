@@ -1,0 +1,36 @@
+{
+  "ambient_events": [
+    "Somebody racks a bar too hard and the whole rack rings like a bell.",
+    "A skipping rope ticks against the concrete in a fast, even count, then stops.",
+    "The ring ropes creak as somebody leans on them to get their breath back.",
+    "A radio on the office sill loses the station, finds it, and loses it again."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#3e3832",
+  "description": "One long room, concrete floor, iron columns down the middle holding up the floor above. Two benches stand under the windows with a rack of plates between them, none of which match. Down the far end the conditioning circuit is laid out in chalk: tyres to flip, a sled to drag and a rope off the joist for anyone who wants it worse. The ring takes up the middle, canvas grey with age and patched. A board by the office door lists the house rules, the first of which is RE-RACK YOUR WEIGHTS.",
+  "exits": {
+    "east": "zone_district_918_907",
+    "north": "zone_ironside_gym_util"
+  },
+  "flags": {
+    "building_name": "Ironside Gym",
+    "building_type": "gym",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "A row of steel-framed windows propped open on sticks. The street comes in through them with the air, and so does the noise.",
+      "light": 0.85,
+      "name": "the propped windows",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_918_907"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_ironside_gym",
+  "map_id": "map_int_ironside_gym",
+  "name": "Ironside Gym",
+  "parent_zone": "zone_district_918_907"
+}

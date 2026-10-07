@@ -1,0 +1,14 @@
+{
+  "description": "A painted board by the office door. RE-RACK YOUR WEIGHTS. NO SPITTING IN THE RING. NO SPARRING WITHOUT A SECOND. PAY ON THE WAY OUT, NOT ON THE WAY IN. The last line has been painted over and repainted at least twice.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_ironside_gym_rules",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "house rules",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_ironside_gym"
+}
