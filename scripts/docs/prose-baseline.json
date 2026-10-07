@@ -68,7 +68,7 @@
       "constructed-irony": 7,
       "staged-reveal": 1,
       "aphoristic-closer": 2,
-      "caps-run": 124,
+      "caps-run": 123,
       "em-dash": 1,
       "over-length": 380
     },
@@ -125,8 +125,8 @@
       "constructed-irony": 54,
       "aphoristic-closer": 4,
       "fiction-cliche": 34,
-      "caps-run": 125,
-      "em-dash": 313,
+      "caps-run": 126,
+      "em-dash": 319,
       "over-length": 717
     },
     "docs/adr/0001-action-canonical-mutation-path.md": {

@@ -1,0 +1,305 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0.44,
+      "kind": "glowPool",
+      "rgb": "120,255,170",
+      "s": 9,
+      "z": 0.3
+    },
+    {
+      "cx": 0,
+      "cy": 0.46,
+      "kind": "glowPool",
+      "rgb": "170,220,255",
+      "s": 12,
+      "z": 0.02
+    },
+    {
+      "cx": 0.18,
+      "cy": -0.14,
+      "kind": "blinkLight",
+      "r": 1.3,
+      "rgb": "255,80,80",
+      "z": 1.12
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Halcyon Trade Office"
+    }
+  ],
+  "detail": [
+    {
+      "bars": 1,
+      "cx": 0,
+      "cy": 0.38,
+      "depth": 0.016,
+      "glass": "#1a2632",
+      "glow": "#d8f0ff",
+      "half": 0.06,
+      "hh": 0.11,
+      "kind": "windowBay",
+      "pal": "ty_volt_chrome",
+      "transom": 0.8,
+      "z": 0.15
+    },
+    {
+      "bars": 2,
+      "cx": -0.2,
+      "cy": 0.38,
+      "depth": 0.014,
+      "glass": "#16222e",
+      "glow": "#bfe6ff",
+      "half": 0.11,
+      "hh": 0.1,
+      "kind": "windowBay",
+      "pal": "ty_volt_chrome",
+      "z": 0.16
+    },
+    {
+      "bars": 2,
+      "cx": 0.2,
+      "cy": 0.38,
+      "depth": 0.014,
+      "glass": "#16222e",
+      "glow": "#bfe6ff",
+      "half": 0.11,
+      "hh": 0.1,
+      "kind": "windowBay",
+      "pal": "ty_volt_chrome",
+      "z": 0.16
+    },
+    {
+      "color": "#071410",
+      "cx": 0,
+      "cy": 0.397,
+      "font": "mono",
+      "half": 0.33,
+      "hh": 0.022,
+      "ink": "#5cff9a",
+      "kind": "signBoard",
+      "label": "BULK ▲2 · REEFER ▼1 · FUEL ▲4 · WATER ▲9",
+      "z": 0.33
+    },
+    {
+      "bars": 5,
+      "cx": 0,
+      "cy": 0.38,
+      "depth": 0.012,
+      "glass": "#16222e",
+      "glow": "#bfe6ff",
+      "half": 0.27,
+      "hh": 0.075,
+      "kind": "windowBay",
+      "pal": "ty_volt_chrome",
+      "z": 0.47
+    },
+    {
+      "bars": 5,
+      "cx": 0,
+      "cy": 0.38,
+      "depth": 0.012,
+      "glass": "#16222e",
+      "glow": "#bfe6ff",
+      "half": 0.27,
+      "hh": 0.075,
+      "kind": "windowBay",
+      "pal": "ty_volt_chrome",
+      "z": 0.67
+    },
+    {
+      "color": "#0e1622",
+      "cx": 0,
+      "cy": 0.395,
+      "font": "condensed",
+      "half": 0.3,
+      "hh": 0.022,
+      "ink": "#cfe6f4",
+      "kind": "signBoard",
+      "label": "$name",
+      "z": 0.85
+    },
+    {
+      "cx": 0,
+      "cy": 0.38,
+      "kind": "pilaster",
+      "n": 2,
+      "out": 0.014,
+      "pal": "ty_volt_chrome",
+      "step": 0.74,
+      "w": 0.02,
+      "z0": 0.04,
+      "z1": 0.82
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 0,
+        "cx": -0.22,
+        "cy": 0.38,
+        "depth": 0.01,
+        "face": "x",
+        "glass": "#3a2c4a",
+        "glow": "#c8b8ff",
+        "half": 0.025,
+        "hh": 0.2,
+        "kind": "windowBay",
+        "pal": "ty_volt_chrome",
+        "z": 0.56
+      },
+      "step": {
+        "cx": 0.22
+      }
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 0,
+        "cx": -0.22,
+        "cy": -0.38,
+        "depth": 0.01,
+        "face": "x",
+        "glass": "#3a2c4a",
+        "glow": "#c8b8ff",
+        "half": 0.025,
+        "hh": 0.2,
+        "kind": "windowBay",
+        "pal": "ty_volt_chrome",
+        "z": 0.56
+      },
+      "step": {
+        "cx": 0.22
+      }
+    },
+    {
+      "cx": -0.14,
+      "cy": -0.38,
+      "drip": 0.3,
+      "half": 0.14,
+      "hh": 0.06,
+      "kind": "louvreBank",
+      "n": 7,
+      "pal": "ty_volt_chrome_dk",
+      "z": 0.6
+    },
+    {
+      "bars": 1,
+      "cx": 0.2,
+      "cy": -0.38,
+      "depth": 0.012,
+      "glass": "#1a2632",
+      "glow": "#8aa0b4",
+      "half": 0.05,
+      "hh": 0.11,
+      "kind": "windowBay",
+      "pal": "ty_volt_chrome",
+      "z": 0.15
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.395,
+      "hh": 0.01,
+      "kind": "parapet",
+      "pal": "ty_volt_chrome",
+      "z": 0.88
+    },
+    {
+      "cx": 0.18,
+      "cy": -0.14,
+      "hh": 0.14,
+      "kind": "antennaCluster",
+      "n": 2,
+      "pal": "ty_volt_chrome_dk",
+      "r": 0.04,
+      "z": 0.98
+    },
+    {
+      "cx": -0.12,
+      "cy": -0.14,
+      "d": 0.05,
+      "hh": 0.025,
+      "kind": "acUnit",
+      "pal": "ty_volt_chrome_dk",
+      "w": 0.07,
+      "z": 0.98
+    },
+    {
+      "band": "#7fd8ff",
+      "count": 2,
+      "cx": -0.3,
+      "cy": 0.45,
+      "kind": "bollard",
+      "pal": "ty_volt_chrome_dk",
+      "step": 0.6,
+      "z": 0.004
+    }
+  ],
+  "id": "halcyontradeoffice",
+  "note": "HALCYON TRADE OFFICE: consignments and freight futures, on Halcyon Boulevard.\n\nThe tile's prose: a narrow glass front on the boulevard, three storeys of it, with the Halcyon eye\netched into the door and a strip of freight prices running green along the fascia.\n\nSo it is a narrow dark-clad block with a glazed front between two slim chrome piers. The ground\nfloor is the door and two lit panes either side, under a fascia that carries the prices as a green\nticker. Two bands of glass above are the upper floors, and the name is on the cornice, once. The\nflanks have narrow frosted slots, because the Trading Room has no windows.\n\nThe palettes are the Glasshouse's own (`ty_hf_chrome_dk` clad, `ty_volt_chrome` trim). None is in\nthe window-grid family.",
+  "pal": "ty_hf_chrome_dk",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.42,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.04
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.38,
+      "kind": "box",
+      "pal": "ty_hf_chrome_dk",
+      "roof": true,
+      "z0": 0.04,
+      "z1": 0.82
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.395,
+      "kind": "box",
+      "pal": "ty_volt_chrome",
+      "roof": true,
+      "z0": 0.82,
+      "z1": 0.88
+    },
+    {
+      "cx": 0,
+      "cy": 0.385,
+      "fd": 0.012,
+      "hw": 0.36,
+      "kind": "box",
+      "pal": "ty_volt_chrome_dk",
+      "roof": true,
+      "z0": 0.3,
+      "z1": 0.36
+    },
+    {
+      "cx": 0,
+      "cy": -0.08,
+      "fd": 0.24,
+      "hw": 0.26,
+      "kind": "box",
+      "pal": "ty_hf_chrome",
+      "roof": true,
+      "z0": 0.88,
+      "z1": 0.98
+    }
+  ],
+  "trade": "corporate_office"
+}

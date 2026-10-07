@@ -1,0 +1,11 @@
+{
+  "description": "No lamps at all: the six screens light the room, and the light changes when the prices do.",
+  "flags": {},
+  "id": "furn_light_zone_gh_trade_floor",
+  "light_type": "overhead",
+  "lumen_output": 900,
+  "name": "screen glow",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_gh_trade_floor"
+}

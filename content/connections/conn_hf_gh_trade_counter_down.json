@@ -1,0 +1,9 @@
+{
+  "a": "zone_gh_trade_counter",
+  "b": "zone_util_zone_gh_trade_counter",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_gh_trade_counter_down",
+  "lockable": false,
+  "one_way": false
+}

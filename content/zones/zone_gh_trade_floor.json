@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A low room with no windows and six screens on the far wall, each showing a ship with a price beside it that moves. Corbin Estes has a desk here and, on paper, owns most of what is on the screens. The coffee is excellent and nobody has ever seen it delivered.",
+  "exits": {
+    "east": "zone_gh_trade_counter"
+  },
+  "flags": {
+    "building_name": "Halcyon Trade Office",
+    "building_type": "corporate_office",
+    "floor": "carpet",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_893_904"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_gh_trade_floor",
+  "map_id": "map_int_gh_trade",
+  "name": "Halcyon Trade Office — Trading Room",
+  "parent_zone": "zone_district_893_904"
+}

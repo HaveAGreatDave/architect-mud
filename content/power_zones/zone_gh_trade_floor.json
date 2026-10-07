@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_gh_trade_counter",
+  "id": "zone_gh_trade_floor",
+  "name": "Halcyon Trade Office — Trading Room",
+  "source_type": "junction_box"
+}

@@ -15,7 +15,11 @@
       "zone_halcyon_underwriting",
       "zone_halcyon_claims",
       "zone_halcyon_residences",
-      "zone_halcyon_exec"
+      "zone_halcyon_exec",
+      "zone_halcyon_developments",
+      "zone_halcyon_logistics",
+      "zone_halcyon_personnel",
+      "zone_halcyon_security"
     ]
   },
   "flags": {
@@ -38,13 +42,33 @@
         "zone": "zone_halcyon_claims"
       },
       {
-        "label": "Sky Hall Residences",
+        "label": "Developments — Head Office",
         "n": 53,
+        "zone": "zone_halcyon_developments"
+      },
+      {
+        "label": "Logistics — Dispatch",
+        "n": 54,
+        "zone": "zone_halcyon_logistics"
+      },
+      {
+        "label": "Personnel — Recruitment",
+        "n": 55,
+        "zone": "zone_halcyon_personnel"
+      },
+      {
+        "label": "Security — Control",
+        "n": 56,
+        "zone": "zone_halcyon_security"
+      },
+      {
+        "label": "Sky Hall Residences",
+        "n": 57,
         "zone": "zone_halcyon_residences"
       },
       {
         "label": "Executive Suite",
-        "n": 54,
+        "n": 58,
         "zone": "zone_halcyon_exec"
       }
     ],

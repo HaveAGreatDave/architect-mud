@@ -1,0 +1,22 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#2c2340",
+  "color": "#eae6f0",
+  "description": "A waiting room with a ticket machine, forty chairs bolted in rows and a display over the counter showing the number being served, which has not changed since you came in. The posters show smiling staff under the Halcyon eye and the words A CAREER YOU CAN INSURE. One window is open, and the woman behind it is reading.",
+  "exits": {
+    "in": "zone_halcyon_elevator"
+  },
+  "flags": {
+    "building_name": "Halcyon Towers",
+    "floor": "carpet",
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 8,
+  "id": "zone_halcyon_personnel",
+  "map_id": "map_int_halcyon",
+  "name": "Halcyon Personnel — Recruitment",
+  "parent_zone": "zone_district_895_906"
+}

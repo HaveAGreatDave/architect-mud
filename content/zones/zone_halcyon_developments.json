@@ -1,0 +1,22 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#2c2340",
+  "color": "#eae6f0",
+  "description": "The whole of Halcyon Fields stands on a table down the middle of the room, in white card at one to five hundred. Every finished tower is a block. Every unfinished one has an amber pin in it, and there are eleven. People with rolled drawings talk quietly into headsets about completion dates, and nobody looks at the pins.",
+  "exits": {
+    "in": "zone_halcyon_elevator"
+  },
+  "flags": {
+    "building_name": "Halcyon Towers",
+    "floor": "carpet",
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 5,
+  "id": "zone_halcyon_developments",
+  "map_id": "map_int_halcyon",
+  "name": "Halcyon Developments — Head Office",
+  "parent_zone": "zone_district_895_906"
+}

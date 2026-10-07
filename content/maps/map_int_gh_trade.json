@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_gh_trade_counter",
+  "id": "map_int_gh_trade",
+  "name": "Halcyon Trade Office",
+  "parent_zone_id": "zone_district_893_904"
+}

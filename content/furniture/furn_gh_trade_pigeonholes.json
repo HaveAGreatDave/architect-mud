@@ -1,0 +1,8 @@
+{
+  "description": "Ninety-six pigeonholes in pale wood, every one with a manifest in it. The tags are green for cleared, amber for pending and red for a cargo that is about to have a different history.",
+  "flags": {},
+  "id": "furn_gh_trade_pigeonholes",
+  "name": "pigeonholes",
+  "object_type": "fixture",
+  "zone_id": "zone_gh_trade_counter"
+}

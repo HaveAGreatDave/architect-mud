@@ -1,0 +1,12 @@
+{
+  "description": "Two leather chairs a hand lower than the ones across the counter. Sitting in one puts your eyes level with the stamp.",
+  "flags": {
+    "interactions": [
+      "sit"
+    ]
+  },
+  "id": "furn_gh_trade_chairs",
+  "name": "low chairs",
+  "object_type": "furniture",
+  "zone_id": "zone_gh_trade_counter"
+}

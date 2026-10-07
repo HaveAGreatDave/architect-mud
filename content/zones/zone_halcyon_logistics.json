@@ -1,0 +1,22 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#2c2340",
+  "color": "#eae6f0",
+  "description": "Screens on three walls show the Basin as a dark field crossed by thin lines, each one a convoy with a Halcyon number. A dispatcher works a horseshoe desk with four handsets, one at a time. The board by the door lists the day's movements under ARRIVED and EXPECTED, and the second column is always longer.",
+  "exits": {
+    "in": "zone_halcyon_elevator"
+  },
+  "flags": {
+    "building_name": "Halcyon Towers",
+    "floor": "carpet",
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 7,
+  "id": "zone_halcyon_logistics",
+  "map_id": "map_int_halcyon",
+  "name": "Halcyon Logistics — Dispatch",
+  "parent_zone": "zone_district_895_906"
+}

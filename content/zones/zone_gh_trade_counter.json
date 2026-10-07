@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A long counter of pale stone, with two chairs on the customer side set lower than the two behind it. The wall at the back is pigeonholes, each with a manifest folded into it and a coloured tag clipped to the fold. Merrow works the counter, turning cargo with no history into cargo with a good one.",
+  "exits": {
+    "down": "zone_util_zone_gh_trade_counter",
+    "east": "zone_district_893_904",
+    "west": "zone_gh_trade_floor"
+  },
+  "flags": {
+    "building_name": "Halcyon Trade Office",
+    "building_type": "corporate_office",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Floor-to-ceiling glass onto Halcyon Boulevard, etched with the Halcyon eye at chest height.",
+      "light": 0.85,
+      "name": "the glass front",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_893_904"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_gh_trade_counter",
+  "map_id": "map_int_gh_trade",
+  "name": "Halcyon Trade Office — Front Counter",
+  "parent_zone": "zone_district_893_904"
+}

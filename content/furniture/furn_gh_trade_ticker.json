@@ -1,0 +1,8 @@
+{
+  "description": "Six screens, six ships, six prices. Two of the ships are in the Basin. One of them has been at sea for four years and its price has gone up every one of them.",
+  "flags": {},
+  "id": "furn_gh_trade_ticker",
+  "name": "freight screens",
+  "object_type": "fixture",
+  "zone_id": "zone_gh_trade_floor"
+}

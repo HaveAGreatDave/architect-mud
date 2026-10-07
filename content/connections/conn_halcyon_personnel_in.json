@@ -1,0 +1,9 @@
+{
+  "a": "zone_halcyon_personnel",
+  "b": "zone_halcyon_elevator",
+  "blocked": false,
+  "dir": "in",
+  "id": "conn_halcyon_personnel_in",
+  "lockable": false,
+  "one_way": true
+}

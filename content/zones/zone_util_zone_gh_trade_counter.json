@@ -1,0 +1,18 @@
+{
+  "description": "A cupboard of humming switchgear behind a door marked PRIVATE. The junction box is bolted beside the door, and a small sealed hacking port sits below the latch.",
+  "exits": {
+    "up": "zone_gh_trade_counter"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_893_904"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_gh_trade_counter",
+  "map_id": "map_int_gh_trade",
+  "name": "Halcyon Trade Office — Plant Room",
+  "parent_zone": "zone_district_893_904"
+}

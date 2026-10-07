@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_893_904",
+  "b": "zone_gh_trade_counter",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_hf_district_893_904_west",
+  "lockable": true,
+  "one_way": false
+}

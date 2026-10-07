@@ -3,7 +3,7 @@
   "ambient_theme": "forest",
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "description": "A slender shaft of glass over a shopfront, with AURELIA in thin gold capitals on the fascia and a single gown on a stand behind the glass. The cornice is deep, the attic set back, and one corner swells into a curved oriel. Ondine Sarraf dresses the people who go to parties on the fifty-eighth floor.",
   "exits": {
     "east": "zone_aurelia_floor",
     "west": "zone_district_894_907"

@@ -1,0 +1,22 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#2c2340",
+  "color": "#eae6f0",
+  "description": "Thirty screens in a curved bank, each a view of somewhere in the Glasshouse: the boulevard, the quay, the Grand Lobby, a corridor that could be anywhere. Two officers watch them in silence. A desk by the lift has a slot for passes and a reader that beeps at most of them. One of the screens shows this room.",
+  "exits": {
+    "in": "zone_halcyon_elevator"
+  },
+  "flags": {
+    "building_name": "Halcyon Towers",
+    "floor": "carpet",
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 9,
+  "id": "zone_halcyon_security",
+  "map_id": "map_int_halcyon",
+  "name": "Halcyon Security — Control",
+  "parent_zone": "zone_district_895_906"
+}

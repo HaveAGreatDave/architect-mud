@@ -48,7 +48,7 @@
       },
       "go_home_ps": {
         "action_type": "GO_HOME",
-        "next": "home_life_ps",
+        "next": "check_work",
         "type": "action"
       },
       "go_to_atm": {
@@ -58,7 +58,7 @@
       },
       "go_to_work": {
         "action_type": "GO_TO_WORK",
-        "next": "work_wait",
+        "next": "player_check",
         "type": "action"
       },
       "have_life": {
@@ -78,39 +78,27 @@
       },
       "off_home_check": {
         "condition_type": "AT_HOME",
-        "ifFalse": "off_random",
-        "ifTrue": "home_idle",
-        "type": "condition"
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
       },
       "off_random": {
-        "branch_0": "have_life",
-        "branch_1": "go_home_off",
-        "branches": [
-          {
-            "weight": 1
-          },
-          {
-            "weight": 5
-          }
+        "options": [
+          "go_home_off",
+          "have_life"
         ],
         "type": "random"
       },
       "player_check": {
-        "condition_type": "PLAYER_IN_ZONE",
-        "ifFalse": "check_work",
-        "ifTrue": "work_say",
-        "type": "condition"
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
       },
       "post_shift": {
-        "branch_0": "have_life",
-        "branch_1": "go_home_ps",
-        "branches": [
-          {
-            "weight": 1
-          },
-          {
-            "weight": 5
-          }
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
         ],
         "type": "random"
       },
@@ -120,104 +108,126 @@
       },
       "work_say": {
         "action_type": "VENDOR_CHITCHAT",
-        "next": "check_work",
+        "next": "work_wait",
         "type": "action"
       },
       "work_wait": {
-        "next": "player_check",
-        "seconds": 60,
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
         "type": "wait"
       }
     }
   },
   "chitchat": [
-    "sells a shipment short and toasts himself with someone else's drink.",
-    "\"It's not gambling if you insure both outcomes.\"",
-    "\"Everything on that yard is a number to me. Pleasant, isn't it?\""
+    "She turns a page below the counter.",
+    "The display over the counter clicks, considers it, and stays on 114.",
+    "\"Take a ticket. It helps.\""
   ],
-  "description": "A freight futures trader who owns a dozen ships he has never seen and cargoes that may not exist, and is, on paper, immensely wealthy. On paper. He introduces himself as Corbin Estes of Estes Maritime, a company consisting entirely of Corbin Estes.",
+  "description": "A neat woman behind the one open window, with reading glasses on a chain and a paperback held below the counter where she thinks nobody can see it.",
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "He has already looked away."
+      "text": "The paperback comes back up."
+    },
+    "job": {
+      "options": [
+        {
+          "label": "Thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Everyone does. A permanent post needs a referee, a fixed address and a surname, and you will forgive me if I guess.\" She slides a leaflet across. \"Casual contracts are on the board in the Grand Lobby, paid the same day at Underwriting. That is how most of them start.\""
     },
     "root": {
       "options": [
         {
-          "label": "...right.",
+          "label": "I want to work for Halcyon.",
+          "next": "job"
+        },
+        {
+          "label": "What's the ticket machine for?",
+          "next": "ticket"
+        },
+        {
+          "label": "Never mind.",
           "next": "bye"
         }
       ],
-      "text": "The financier glances at you, prices you instantly, and finds the figure disappointing. \"Unless you're carrying a bill of lading, we've nothing to discuss.\" A card materialises regardless. \"Estes. Estes Maritime. You'll have heard of us.\""
+      "text": "\"Number?\" She looks over her glasses."
+    },
+    "ticket": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Morale.\""
     }
   },
   "faction": null,
   "flags": {
     "clothing_layers": [
-      "a sharp, forgettable suit",
-      "a shirt the colour of a spreadsheet",
-      "socks that cost more than your boots"
+      "a navy cardigan over a white blouse, glasses on a chain",
+      "a grey pleated skirt",
+      "plain cotton underwear"
     ],
-    "personality": "corporate"
+    "personality": "official"
   },
   "home_activities": [],
-  "home_zone": "zone_yards_tenement_u3_4",
-  "hp": 14,
-  "hp_max": 14,
-  "id": "npc_financier",
-  "name": "Corbin Estes",
+  "home_zone": "zone_halcyon_apt_e",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_halcyon_ashdown",
+  "name": "Wren Ashdown",
   "npc_type": "npc",
-  "sex": "male",
+  "sex": "female",
   "studio_zone_id": null,
-  "vendor_inventory": null,
+  "vendor_inventory": [],
   "vendor_restock_rate": 1,
   "vendor_schedule": {
     "fri": [
       {
-        "from": 8,
+        "from": 9,
         "to": 18
       }
     ],
     "mon": [
       {
-        "from": 8,
+        "from": 9,
         "to": 18
       }
     ],
     "sat": [
       {
-        "from": 8,
-        "to": 18
+        "from": 10,
+        "to": 16
       }
     ],
-    "sun": [
-      {
-        "from": 8,
-        "to": 18
-      }
-    ],
+    "sun": [],
     "thu": [
       {
-        "from": 8,
+        "from": 9,
         "to": 18
       }
     ],
     "tue": [
       {
-        "from": 8,
+        "from": 9,
         "to": 18
       }
     ],
     "wed": [
       {
-        "from": 8,
+        "from": 9,
         "to": 18
       }
     ]
   },
   "vendor_shop_name": null,
-  "vendor_stock_size": null,
+  "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_gh_trade_floor"
+  "work_zone_id": "zone_halcyon_personnel"
 }

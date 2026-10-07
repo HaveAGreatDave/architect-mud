@@ -92,6 +92,33 @@
       "options": [],
       "text": "\"Fly carefully. Or don't. Either way, we'll be here.\""
     },
+    "claim": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Claims, floor fifty-two. Step <b>in</b>, press <b>52</b>, and step <b>out</b>.\"\n\n\"If the aircraft was insured, the claim opened itself when it came down. Say <b>claim</b> at the desk and Ms Roux will settle it.\""
+    },
+    "floors": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Fifty is the Halcyon Arcade, with a kiosk for water. Fifty-three is Developments, fifty-four Logistics, fifty-five Personnel, if you are looking for work, and fifty-six Security. Fifty-seven is the Sky Hall Residences: stand in an empty flat and <b>rent</b> to take it.\"\n\n\"Here in the lobby, Quill trades bonds and travel permits and Vane keeps the bar. Merrow has moved to the Trade Office, two doors north.\""
+    },
+    "insure": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Underwriting, floor fifty-one. Step <b>in</b>, press <b>51</b>, and step <b>out</b>.\"\n\n\"At the counter, <b>insure</b> brings up every aircraft in your name with its premium, and <b>insure</b> with the aircraft's name binds a week's cover. <b>policies</b> shows what you carry, from anywhere in the city.\"\n\n\"Members with a cortical backup buy their restores on the same floor: <b>assurance</b>.\""
+    },
     "root": {
       "options": [
         {
@@ -112,33 +139,6 @@
         }
       ],
       "text": "\"Welcome to Halcyon Assurance.\" She turns a hand toward the lifts. \"Everything above the lobby is by lift: step <b>in</b>, press the floor, step <b>out</b>. Are you insuring something today, or claiming on it?\""
-    },
-    "insure": {
-      "options": [
-        {
-          "label": "Back up.",
-          "next": "root"
-        }
-      ],
-      "text": "\"Underwriting, floor fifty-one. Step <b>in</b>, press <b>51</b>, and step <b>out</b>.\"\n\n\"At the counter, <b>insure</b> brings up every aircraft in your name with its premium, and <b>insure</b> with the aircraft's name binds a week's cover. <b>policies</b> shows what you carry, from anywhere in the city.\"\n\n\"Members with a cortical backup buy their restores on the same floor: <b>assurance</b>.\""
-    },
-    "claim": {
-      "options": [
-        {
-          "label": "Back up.",
-          "next": "root"
-        }
-      ],
-      "text": "\"Claims, floor fifty-two. Step <b>in</b>, press <b>52</b>, and step <b>out</b>.\"\n\n\"If the aircraft was insured, the claim opened itself when it came down. Say <b>claim</b> at the desk and Ms Roux will settle it.\""
-    },
-    "floors": {
-      "options": [
-        {
-          "label": "Back up.",
-          "next": "root"
-        }
-      ],
-      "text": "\"Fifty is the Halcyon Arcade, with a kiosk for water. Fifty-three is the Sky Hall Residences: stand in an empty flat and <b>rent</b> to take it.\"\n\n\"Here in the lobby, Quill trades bonds and travel permits, Merrow sells papers, and Vane keeps the bar.\""
     }
   },
   "faction": null,

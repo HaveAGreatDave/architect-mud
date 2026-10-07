@@ -1,22 +1,22 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "bg_color": "#2f3a26",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "urban",
+  "bg_color": "#141a24",
+  "color": "#cfe6f4",
+  "description": "A narrow glass front on the boulevard, three storeys of it, with the Halcyon eye etched into the door and a strip of freight prices running green along the fascia. Through the glass there is a counter, and two people behind it who look up together when the door opens.",
   "exits": {
     "east": "zone_district_894_904",
-    "west": "zone_bld_893_904_lobby"
+    "west": "zone_gh_trade_counter"
   },
   "flags": {
-    "building_name": "Fallow Provisions",
-    "building_type": "shop",
+    "building_name": "Halcyon Trade Office",
+    "building_type": "corporate_office",
     "district": "glasshouse",
     "entrance": "east",
     "facade": true,
+    "floors": 3,
     "is_building": true,
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
     "world_exit_zone": "zone_district_894_904"
   },
   "grid_x": 893,
@@ -24,7 +24,7 @@
   "grid_z": 0,
   "id": "zone_district_893_904",
   "map_id": "map_world",
-  "marker": "FP",
-  "name": "Fallow Provisions",
+  "marker": "HX",
+  "name": "Halcyon Trade Office",
   "parent_zone": null
 }
