@@ -18,7 +18,21 @@
 // Height comes from bldgStyle() (the value the CFIT sweep reads), so the mass you see
 // is the mass you can hit; the per-building distinctiveness lives in the footprint,
 // palette and rooftop adornments — exactly the parts the collision sweep ignores.
-export function bldgSlug(name) { return (name || '').toLowerCase().replace(/[^a-z0-9]+/g, ''); }
+// Memoised: the world pass asks for the same few hundred names several times per building per frame
+// (modelFor, from the sweep, the occluder pass and the arms), and the regex was most of namedModel's
+// cost. A pure function of the string, so the memo can't go stale; cleared if it ever grows past a
+// world's worth of names.
+const SLUGS = new Map();
+export function bldgSlug(name) {
+  const k = name || '';
+  let s = SLUGS.get(k);
+  if (s === undefined) {
+    if (SLUGS.size > 4096) SLUGS.clear();
+    s = k.toLowerCase().replace(/[^a-z0-9]+/g, '');
+    SLUGS.set(k, s);
+  }
+  return s;
+}
 export const NAMED_MODELS = {
   halcyontowers:                  { type: 'luxtower',  pal: 'ty_halcyon',  neon: '#39f0ff' },
   embassyhotelbar:                { type: 'embassy',   pal: 'ty_embassy',  neon: '#ff4a9a' },

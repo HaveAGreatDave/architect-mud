@@ -1,7 +1,64 @@
 # GLASS frame headroom
 
-**Status: Stage 1 started (the bench fixed, per-frame GL state queries removed); the 2026-10-01 record caches built (below); Stage 1b started; Stages 2-3 design.** The vertex-animated layers it follows from are built (actors,
+**Status: Stage 1 started (the bench fixed, per-frame GL state queries removed); the 2026-10-01 record caches built (below); Stage 1b built; Stage 3 phases 1-5 built, phase 6 started (2026-10-06, below); Stage 2 superseded by Stage 3.** The vertex-animated layers it follows from are built (actors,
 birds, cloth; see [glass-notes.md](../reference/glass-notes.md#vertex-animated-layers-actors-birds-cloth)).
+
+## Measured and built 2026-10-06
+
+**The last GPU syncs on the frame path.** A query probe in the Modelshop (wrap `getParameter` and
+`isEnabled`, paint, count by caller) found three left, each a round trip that drains the command
+queue:
+
+- The cabin's shadow pass (gl/solids.js `shadowPass`) read the framebuffer, viewport, scissor and
+  blend on every frame a cockpit or cab was in view. Its two callers in context.js now pass the
+  target they know (`frameTarget`).
+- The murmuration step (gl/murmur-gpu.js `withState`) saved and restored eleven pieces of state per
+  frame while a flock was in view. The world pass passes the canvas size and the step hands back the
+  state the probe found on entry over 80 frames. `step()` on its own still saves and restores.
+- The boat chase's split floor (gl/world.js) read the viewport that `draw()` had just set.
+
+A cab or cockpit frame now makes no state query. The murmuration cockpit shot, HEAD against the
+change in a detached worktree, differs on 2 of 518,400 pixels, the same as either build against
+itself.
+
+**Phase 6, the cheap half: occluder geometry kept per building** (`occCache`, `OCC_GEOM`). The
+hull, roof and solid boxes are built once per cell in the building's own frame and each frame only
+moved by the camera offset and projected. Each rotated term is stored as the old code computed it
+and the offset added in the old order, so `perf:exact occCache` is identical over 60 views (and
+fails 50 of 60 with the boxes deliberately made taller). Headless, `world:occlude` in the Halcyon
+cockpit went from about 2.6 to 2.0 ms; in a cab it's within noise. What's left is projection
+(`boxQuads`, about 0.6 ms) and the depth raster (about 0.5 ms). From the air the pass culls nothing
+at all, but its field still serves `decoHidden` and the own ship's mask.
+
+`bldgSlug` (glass/model-registry.js) is memoised: `modelFor` slugged the building's name with a
+regex several times per building per frame.
+
+### Where a steady cockpit frame goes now
+
+⚠ **`scene.mjs` builds a new map array on every `view()` call**, and `groundLUT`, `footfallFill`
+and the flock search cache on the map array's identity, so a headless loop that calls `view()` per
+frame measures them missing every frame (about 9 ms of a 45 ms frame that the game never pays).
+Build the view once and spread it per frame: `const v0 = view(place, seat); paint({ ...v0, heading })`.
+The same goes for spinning the heading 12° a frame: kept arms only record a building well in front
+of the eye, so a fast spin keeps them probing. Turn about a degree a frame.
+
+Headless, Halcyon cockpit at noon, persistent map, 1° a frame, about 22 ms (node runs about twice
+the browser). `drawWorldObjects` is 19.7 ms of it, and the tail is flat:
+
+| what | ms | note |
+|---|---|---|
+| live building arms | 2.7 | kept replays cost 0.09; the rest is buildings with moving parts: the clone facility (0.44), rings (`drawRing`, `revolveRing`), KSAB, the ATC tower, the lighthouse |
+| the cockpit interior | 2.6 | `muleFit` re-lays every dial each frame (0.8); `pushInteriorShell` and `cabFace` the rest |
+| tent camps | 1.7 | `campReplay` replays records but still pulls and back-face tests them per frame |
+| the South Lock | 1.0 | |
+| cliffs | 0.95 | |
+| cloth | 0.8 | |
+| occlusion | 2.0 | after `occCache` |
+| sweep, inline | 3.3 | the tile loop over 73×73 tiles and the arms dispatch |
+
+So the next steps, in order of what they buy: split a building's moving part from its kept part
+(phase 5's next step, below), draw instrument needles as transforms of cached parts, and put camps
+on the kept path the arms use.
 
 ## Measured 2026-10-01: garbage is the tail
 
@@ -307,9 +364,9 @@ fades moved off the CPU first), the cockpit interior (already incremental).
 
 ## Also measured, not yet staged
 
-- **The occlusion pre-pass** (`world:occlude`, about 3 ms in the cockpit) re-projects every
-  building's boxes every frame (`boxQuads`). Cache each building's occluder corners per map window
-  and only project them, or cull with last frame's GPU depth read back small.
+- **The occlusion pre-pass** (`world:occlude`): the geometry is kept per building since 2026-10-06
+  (above). What's left is projecting the boxes and rasterising them; culling against last frame's
+  GPU depth, read back small, would replace both.
 - **Cockpit instruments** rebuild their kit parts whenever a needle moves (`interior-kit.js`
   `plate`, about 0.4 MB a frame while turning). Draw needles as transforms of cached parts.
 - `scripts/shapes/glstream.mjs` scans for layers uploading the old way. A retained range must pass it

@@ -1038,6 +1038,7 @@ export const RENDER_TUNE = {
   armKeep: 1,    // a building's adornments recorded once per key and replayed as retained groups (drawTypeModelKept); 0 runs every arm every frame
   bayCache: 1,   // a shed's GL shell is built once per key and its records replayed (BAY_SHELL); 0 builds it every frame
   lockCache: 1,  // the South Lock's GL faces and lights reuse last frame's record per slot when unchanged (LCK_MEMO); 0 builds every one
+  occCache: 1,   // a building's occluder geometry (hull, roof, solid boxes) kept per cell in its own frame and only moved and projected each frame (OCC_GEOM); 0 rebuilds it every frame
   glSizeGPU: 1,  // a light pushed through pushLightSized carries its size spec and the sprite shader sizes it from depth; 0 sends the CPU radius only
   glRetain: 1,   // record arrays that come back unchanged (a shed's shell, a hoodoo tile) stay on the GPU (bayGroup); 0 sends them every frame
   hoodooStable: 1,   // hoodoo solids carry no CPU fog (the shader fogs them once) and send every facet, so their records never change; 0 is the old double fog
@@ -52189,6 +52190,46 @@ const OCC_OPAQUE = 0.98;     // below this alpha a building is still fading in a
 // balcony rail is not a thing you cannot see past, and every extra solid is fill.
 const OCC_SEG_DETAIL = 0.34;
 const OCC_SEG_MAX = 5;
+// ── A BUILDING'S OCCLUDER GEOMETRY, KEPT (RENDER_TUNE.occCache) ──────────────────────────────────
+//
+// Everything the pre-pass works out about a building before it projects anything is a property of
+// the building: its hull, its roof, which segments are solid and where their corners are. Only the
+// offset from the camera (`dx`, `dy`) moves. So that work is done once per cell and each frame adds
+// the offset. ⚠ EXACT, NOT CLOSE: each rotated term is stored as the old code computed it, and the
+// offset is added in the old order (`dx + a - b`), so every corner is the same double as before and
+// the projection, the field and the culls are unchanged. `perf:exact occCache` holds them equal.
+// Keyed on what the geometry is made from: the captured segments (one array per model and seed),
+// the footprint scale, the height and the facing. The depot shed is camera-dependent (its cutaway
+// and its door) and stays live.
+const OCC_GEOM = new WeakMap();   // cell → { segs, ofh, oh, ent, hull, roof, boxes }
+function occGeom(segs, ofh, oh, ent) {
+  const V = (p) => p[0] * ofh + p[1] * oh + p[2];
+  const E = faceVec(ent), th = Math.atan2(-E[0], E[1]), ct = Math.cos(th), st = Math.sin(th);
+  // [lx·ct, ly·st, lx·st, ly·ct] per point: x = dx + t0 - t1, y = dy + t2 + t3, as toWorld had it.
+  const rot = (lx, ly) => [lx * ct, ly * st, lx * st, ly * ct];
+  const hull = shapeFootprint(segs, ofh, oh).map(([lx, ly]) => rot(lx, ly));
+  const roof = shapeRoofZ(segs, ofh, oh);
+  const k = 1 - OCC_SHRINK;
+  const boxes = [];
+  for (const core of lodOrder(segs).byIndex.filter(r => r.at <= OCC_SEG_DETAIL).slice(0, OCC_SEG_MAX)) {
+    const s = core.s;
+    const z0 = s.z0 ? V(s.z0) : 0, z1 = s.z1 ? V(s.z1) : 1;
+    if (z0 > z1 * 0.12 || !(z1 > 0.01)) continue;
+    let hx, hy, yaw = th, fx = null;
+    if (s.kind === 'box') { fx = segFit(s, V); hx = fx.hw; hy = fx.fd; yaw = (s.yaw || 0) + th; }
+    else if (s.kind === 'drum') { hx = hy = Math.max(V(s.rb), V(s.rt)) * 0.72; }
+    else if (s.kind === 'barrel') { hx = V(s.hl); hy = V(s.hw) * 0.72; }
+    else { hx = V(s.hx); hy = V(s.hy); }
+    hx *= k; hy *= k;
+    if (!(hx > 0.004 && hy > 0.004)) continue;
+    const lx = fx ? fx.cx : V(s.cx), ly = fx ? fx.cy : V(s.cy);
+    const cy2 = Math.cos(yaw), sy2 = Math.sin(yaw);
+    // corner(qx, qy) was [wx + qx·hx·cy2 − qy·hy·sy2, wy + qx·hx·sy2 + qy·hy·cy2]
+    const cn = (qx, qy) => [qx * hx * cy2, qy * hy * sy2, qx * hx * sy2, qy * hy * cy2];
+    boxes.push({ c: rot(lx, ly), q: [cn(-1, -1), cn(1, -1), cn(1, 1), cn(-1, 1)], z1k: z1 * k });
+  }
+  return { segs, ofh, oh, ent, hull, roof, boxes };
+}
 
 // ── AND THE SAME BUFFER HIDES WHAT IS BEHIND A BUILDING ──────────────────────
 // Contacts (traffic, parked rigs, a truck standing in a depot) are painted AFTER the whole world
@@ -55973,6 +56014,28 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       const segs = shapeForModel(om, it.seed); if (!segs || !segs.length) continue;
       const oh = floorHeight(it.c, it.seed);
       const ofh = (BUILDING_FOOT + frac(it.seed + 2) * 0.06) * RENDER_TUNE.bldgFoot;
+      if (RENDER_TUNE.occCache !== 0) {
+        let G = OCC_GEOM.get(it.c);
+        if (!G || G.segs !== segs || G.ofh !== ofh || G.oh !== oh || G.ent !== it.c.ent) { G = occGeom(segs, ofh, oh, it.c.ent); OCC_GEOM.set(it.c, G); }
+        const dx = it.dx, dy = it.dy;
+        if (G.hull.length >= 3) {
+          const hull = G.hull.map((t) => [dx + t[0] - t[1], dy + t[2] + t[3]]);
+          const box = screenBox(cam, hull, 0, G.roof);
+          if (box) {
+            const bgw = (box.x1 - box.x0) * OCC_GROW, bgh = (box.y1 - box.y0) * OCC_GROW;
+            const hidden = box.x1 >= 0 && box.x0 <= W
+              && covers(box.x0 - bgw, box.y0 - bgh, box.x1 + bgw, box.y1 + bgh, it.f);
+            if (hidden) { occluded.add(it); if (PERF.on) PERF.n.culled++; continue; }
+          }
+        }
+        if (it.alpha < OCC_OPAQUE) continue;
+        for (const b of G.boxes) {
+          const wx = dx + b.c[0] - b.c[1], wy = dy + b.c[2] + b.c[3];
+          boxQuads(cam, b.q.map((t) => [wx + t[0] - t[1], wy + t[2] + t[3]]), 0, b.z1k, quads, it.f <= OCC_KEEP_TILES);
+        }
+        contribute(it);
+        continue;
+      }
       const E = faceVec(it.c.ent), th = Math.atan2(-E[0], E[1]), ct = Math.cos(th), st = Math.sin(th);
       const toWorld = ([lx, ly]) => [it.dx + lx * ct - ly * st, it.dy + lx * st + ly * ct];
       // Occludee: the whole building, grown.
