@@ -333,6 +333,7 @@ async function cmdDeposit(args, raw, player) {
     return true;
   });
   if (!moved) return { type: 'error', message: `You only have ${player.credits || 0}₵ on you.` };
+  noteUnit({ ...atm, cash_stock: newStock });   // the refill clock (see replenishTick)
   // Must carry the network key — an unlogged move is a move that never counted
   // against the allowance.
   await logBankTx(player.id, 'deposit', amount, player.bank_credits, networkKey(atm));
@@ -428,6 +429,7 @@ async function cmdWithdraw(args, raw, player) {
     return true;
   });
   if (!dispensed) return { type: 'error', message: `Need ${totalDebited}₵ but you only have ${player.bank_credits || 0}₵ banked.` };
+  noteUnit({ ...atm, cash_stock: newStock });   // the refill clock (see replenishTick)
   // Withdrawals were historically unlogged — the ledger was deposits-only. They
   // must be logged now or the withdrawal allowance can never be spent.
   await logBankTx(player.id, 'withdraw', rawAmount, player.bank_credits, networkKey(atm));
@@ -577,6 +579,7 @@ async function cmdDrain(args, raw, player) {
     player.credits = res.rows[0].credits;
     await q('UPDATE atm_units SET cash_stock=0, is_broken=1 WHERE id=$1', [atm.id]);
   });
+  forgetUnit(atm.id);   // broken: the tick never refills it until a repair
   revokeMaintenanceAccess(atm.id, player.id);
   emit('atm.drained', { player, zoneId: atm.zone_id });
 
@@ -604,26 +607,77 @@ function cmdHackPreview(args, raw, player) {
 
 // ── Cash replenishment tick ───────────────────────────────────────────────────
 
+// The tick used to read every drained unit every 5 minutes whether or not one
+// was due. RAM now holds each drained, unbroken unit's refill clock:
+// id -> { last, hours, seq }. The tick reads the table only when a clock here
+// says a unit is due, and that read re-seeds the map from the table.
+//
+// Every writer of atm_units cash or breakage is in this file and keeps the map
+// current: deposit and withdraw note the new stock, drain forgets the unit
+// (broken), and the dev routes note or forget what they change. The INSERTs in
+// server/api/routes.js and scripts/content/seed-runtime.mjs create full units
+// (cash_stock defaults to cash_max), which never need a refill.
+// Until the first read the map is not trusted, so the first tick after boot
+// reads the table as it always did.
+const refillClock = new Map();
+let refillReady = false;
+let refillSeq = 0;   // orders a note against a read that was already in flight
+
+function noteUnit(row) {
+  if (!row?.id) return;
+  if (row.is_broken || (row.cash_stock ?? 0) >= (row.cash_max ?? 5000)) { refillClock.delete(row.id); return; }
+  refillClock.set(row.id, {
+    last: Number(row.last_replenish) || 0,
+    hours: row.replenish_interval_hours,
+    seq: ++refillSeq,
+  });
+}
+function forgetUnit(id) { refillClock.delete(id); }
+
+// The interval is authored in GAME hours and converted through the game-speed
+// knob at check time, so a change to the knob applies to clocks already held.
+function refillDue(u, nowSec) {
+  const intervalSec = gameMsToReal((u.hours || 6) * 3600 * 1000) / 1000;
+  return nowSec - (u.last || 0) >= intervalSec;
+}
+
+function anyRefillDue(nowSec) {
+  for (const u of refillClock.values()) if (refillDue(u, nowSec)) return true;
+  return false;
+}
+
 async function replenishTick() {
   const nowSec = Math.floor(Date.now() / 1000);
+  if (refillReady && !anyRefillDue(nowSec)) return;
+  const seqAtRead = refillSeq;
   const { rows } = await query(
     `SELECT id, cash_max, replenish_interval_hours, last_replenish
      FROM atm_units WHERE cash_stock < cash_max AND is_broken = 0`
   );
-  // Which units are actually due. The interval is authored in GAME hours and
-  // converted through the game-speed knob, so the decision stays in JS — but the
-  // write does not have to. Every due unit gets the IDENTICAL update
-  // (`cash_stock=cash_max`, same timestamp), so this is one statement, not one
-  // round trip per drained cash machine every 5 minutes.
-  const due = rows.filter(atm => {
-    const intervalSec = gameMsToReal((atm.replenish_interval_hours || 6) * 3600 * 1000) / 1000;
-    return nowSec - (atm.last_replenish || 0) >= intervalSec;
-  });
+  // Re-seed from the table. A clock noted after the read began is newer than the
+  // row, so it stays; any other clock with no row is a unit that's full or broken.
+  const read = new Map(rows.map(r => [r.id, r]));
+  for (const [id, u] of refillClock) if (u.seq <= seqAtRead && !read.has(id)) refillClock.delete(id);
+  for (const r of rows) {
+    const held = refillClock.get(r.id);
+    if (held && held.seq > seqAtRead) continue;
+    refillClock.set(r.id, { last: Number(r.last_replenish) || 0, hours: r.replenish_interval_hours, seq: seqAtRead });
+  }
+  refillReady = true;
+  // Every due unit gets the IDENTICAL update (`cash_stock=cash_max`, same
+  // timestamp), so this is one statement, not one round trip per drained cash
+  // machine.
+  const due = rows.filter(r => refillDue({ last: Number(r.last_replenish) || 0, hours: r.replenish_interval_hours }, nowSec));
   if (!due.length) return;
+  const seqAtWrite = refillSeq;
   await query(
     'UPDATE atm_units SET cash_stock=cash_max, last_replenish=$1 WHERE id = ANY($2)',
     [nowSec, due.map(a => a.id)]
   );
+  for (const r of due) {
+    const held = refillClock.get(r.id);
+    if (held && held.seq <= seqAtWrite) refillClock.delete(r.id);
+  }
 }
 
 schedule('5m', () => replenishTick().catch(e => console.error('[atm] replenish error:', e.message)));
@@ -685,7 +739,10 @@ export const routeHandler = async (path, method, body, auth) => {
         if (!fields.length && name == null) return { status: 400, body: { error: 'Nothing to update' } };
         if (fields.length) {
           vals.push(id);
-          await query(`UPDATE atm_units SET ${fields.join(',')} WHERE id=$${idx}`, vals);
+          const { rows: put } = await query(
+            `UPDATE atm_units SET ${fields.join(',')} WHERE id=$${idx}
+             RETURNING id, cash_stock, cash_max, is_broken, last_replenish, replenish_interval_hours`, vals);
+          if (put[0]) noteUnit(put[0]); else forgetUnit(id);
         }
         if (name != null) {
           await updateFurniture(id, { name: name.trim() || 'ATM Terminal' });
@@ -695,12 +752,18 @@ export const routeHandler = async (path, method, body, auth) => {
 
       if (id && !sub && method === 'DELETE') {
         await query('DELETE FROM atm_units WHERE id=$1', [id]);
+        forgetUnit(id);
         await deleteFurniture(id);
         return { status: 200, body: { ok: true } };
       }
 
       if (id && sub === 'repair' && method === 'POST') {
-        await query('UPDATE atm_units SET is_broken=0 WHERE id=$1', [id]);
+        // A repaired unit is usually an empty one (drain zeroes it), so it goes
+        // back on the refill clock.
+        const { rows: fixed } = await query(
+          `UPDATE atm_units SET is_broken=0 WHERE id=$1
+           RETURNING id, cash_stock, cash_max, is_broken, last_replenish, replenish_interval_hours`, [id]);
+        noteUnit(fixed[0]);
         atmMaintenanceAccess.delete(id);
         return { status: 200, body: { ok: true } };
       }
@@ -708,6 +771,7 @@ export const routeHandler = async (path, method, body, auth) => {
       if (id && sub === 'replenish' && method === 'POST') {
         const nowSec = Math.floor(Date.now() / 1000);
         await query('UPDATE atm_units SET cash_stock=cash_max, last_replenish=$1 WHERE id=$2', [nowSec, id]);
+        forgetUnit(id);   // full
         return { status: 200, body: { ok: true } };
       }
     }
@@ -719,6 +783,7 @@ export const routeHandler = async (path, method, body, auth) => {
         'UPDATE atm_units SET cash_stock=cash_max, last_replenish=$1 WHERE is_broken=0',
         [nowSec]
       );
+      refillClock.clear();   // every unbroken unit is full; broken ones were never held
       return { status: 200, body: { ok: true, count: rowCount } };
     }
 
@@ -762,10 +827,11 @@ export const routeHandler = async (path, method, body, auth) => {
       // Inject funds: fill all ATMs on this network to their cash_max
       if (id && sub === 'inject' && method === 'POST') {
         const nowSec = Math.floor(Date.now() / 1000);
-        const { rowCount } = await query(
-          'UPDATE atm_units SET cash_stock=cash_max, last_replenish=$1 WHERE network_id=$2 AND is_broken=0',
+        const { rows: filled, rowCount } = await query(
+          'UPDATE atm_units SET cash_stock=cash_max, last_replenish=$1 WHERE network_id=$2 AND is_broken=0 RETURNING id',
           [nowSec, id]
         );
+        for (const r of filled) forgetUnit(r.id);   // full
         return { status: 200, body: { ok: true, count: rowCount } };
       }
     }
@@ -818,3 +884,6 @@ export const specializedActions = [
 ];
 
 console.log('[atm] Plugin loaded.');
+
+// Exposed for the regression harness.
+export const _test = { refillClock, noteUnit, forgetUnit, refillDue, anyRefillDue };

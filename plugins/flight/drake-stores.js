@@ -17,6 +17,7 @@
 import { query } from '../../server/models/db.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { fireHook } from '../../server/engine/plugins.js';
+import { emit } from '../../server/engine/events.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { liveAircraft } from './state.js';
 import { getLivePlayer } from '../../server/engine/world.js';
@@ -141,6 +142,7 @@ async function takeById(store, player, owner, id, qty) {
   const { rows } = await query(`SELECT * FROM player_inventory WHERE id = $1 AND player_id = $2`, [id, owner]);
   if (!rows[0]) return { type: 'container_error', message: 'Item not found.' };
   await moveRow(rows[0], player.id, qty, thaw(rows[0].custom_data || {}));
+  emit('item.received', { actor: player, item: rows[0], from: owner });
   return storeView(store, player, owner);
 }
 
@@ -191,6 +193,8 @@ async function takeOut(player, owner, name, { one = false } = {}) {
   } else {
     await query(`UPDATE player_inventory SET player_id = $2, custom_data = $3 WHERE id = $1`, [item.inv_id, player.id, cd]);
   }
+  // Out of the Drake's stores and into a pocket: a lit torch in the locker starts draining again.
+  emit('item.received', { actor: player, item, from: owner });
   return item;
 }
 
@@ -206,6 +210,7 @@ async function sendOne(player, live, owner, id, toPid) {
   const row = rows[0];
   if (!row || !to) return { type: 'error', message: "That isn't in the galley any more." };
   await moveRow(row, to.id, 1, thaw(row.custom_data || {}));
+  emit('item.received', { actor: to, item: row, from: owner });
   sendToPlayer(to.id, { type: 'info', message: `${player.handle} passes you ${row.name} from the galley.` });
   return `You pass ${to.handle} the ${row.name}.`;
 }

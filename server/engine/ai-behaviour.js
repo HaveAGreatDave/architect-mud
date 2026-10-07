@@ -1,4 +1,4 @@
-import { world, getLivePlayer, doorOnLink, setDoorCache, getZone, getZonePlayers, getPlayerMembership, isEnterableFacade, frontDoorOf, getMapByParentZone, resolveLanding, updateNpc } from './world.js';
+import { world, getLivePlayer, doorOnLink, setDoorCache, getZone, getZonePlayers, getPlayerMembership, isEnterableFacade, frontDoorOf, getMapByParentZone, resolveLanding, updateNpc, getZoneFurniture } from './world.js';
 import { isSanctuary, isDwellingZone } from './zone-tags.js';
 import { lockTypePassesWhileLocked } from './locks.js';
 import { zoneDanger, DANGER_RANK } from './danger.js';
@@ -27,6 +27,20 @@ const FLEE_DIFFICULTY = 6;
 // A cornered enemy gets one break-away attempt per attack cycle, not one per AI
 // tick — otherwise a failed roll spams "can't break away!" several times a second.
 const FLEE_RETRY_MS = 4000;
+
+// The vendor safe an NPC owns or draws wages from, off the furniture cache. Runs
+// once per vendor per shift end; a scan of the cache costs no round trip.
+function findVendorSafe(npcId) {
+  for (const f of world.furniture.values()) {
+    const fl = f.flags;
+    if (!fl || fl.vendor_safe !== true) continue;
+    const staff = fl.vendor_staff;
+    const isStaff = Array.isArray(staff) ? staff.includes(npcId)
+      : (staff && typeof staff === 'object' ? Object.hasOwn(staff, npcId) : staff === npcId);
+    if (fl.vendor_npc_id === npcId || isStaff) return { id: f.id, flags: fl, zone_id: f.zone_id };
+  }
+  return null;
+}
 const d8 = () => 1 + Math.floor(Math.random() * 8);
 
 // ── The leash ────────────────────────────────────────────────────────────────
@@ -2255,10 +2269,8 @@ async function execAction(node, entity, ctx) {
         let bedName = null;
         try {
           const BED_WORDS = /\b(bed|cot|couch|mattress|sofa|futon|bunk|hammock)\b/i;
-          const { rows: furnRows } = await query(
-            `SELECT name FROM furniture WHERE zone_id=$1 LIMIT 20`, [zoneId]
-          );
-          const bedFurn = furnRows.find(f => BED_WORDS.test(f.name));
+          // Off the furniture cache: this runs at bedtime for every NPC in the world.
+          const bedFurn = getZoneFurniture(zoneId).find(f => BED_WORDS.test(f.name || ''));
           if (bedFurn) bedName = bedFurn.name;
         } catch (_) {}
         const sleepOn = bedName ? `the ${bedName}` : 'the floor';
@@ -2303,13 +2315,10 @@ async function execAction(node, entity, ctx) {
         // who draw wages out of the same box. Without this a shop with staff
         // needed a safe each, and the two who never take money would stand at
         // empty boxes forever.
-        const { rows: safeRows } = await query(
-          `SELECT id, flags, zone_id FROM furniture
-           WHERE flags @> '{"vendor_safe":true}'
-             AND (flags->>'vendor_npc_id' = $1 OR jsonb_exists(flags->'vendor_staff', $1))
-           LIMIT 1`,
-          [entity.id]
-        );
+        // Off the furniture cache, matching the SQL this replaced: vendor_safe is
+        // JSON true, and vendor_staff holds the id as an array element (or a key).
+        const safe = findVendorSafe(entity.id);
+        const safeRows = safe ? [safe] : [];
         if (!safeRows.length) break;
         // You have to actually be standing at it. This is what turns "collect the
         // takings" into a thing the player can witness, intercept, or beat you to.

@@ -39,6 +39,8 @@ Decay is **lazy, with no tick of its own** (the `player_npc_relations` pattern):
 someone reads it. A wound that healed while you were offline is already healed when you look, and a
 restart cannot reset anyone's injuries. Sleeping heals faster by *backdating the stamp* rather than
 via a second decay path, so there stays exactly one place that turns elapsed time into healing.
+The backdate stays in RAM: the flag is written when it adds up to a severity step, or at logout,
+never on the backdate alone. A crash loses at most one step's worth of sleep credit.
 
 ## Exports (the Phase 3 seam)
 

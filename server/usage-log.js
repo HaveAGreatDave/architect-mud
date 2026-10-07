@@ -20,18 +20,23 @@ import { hasActivePlayers } from './engine/world.js';
 const SNAPSHOT_INTERVAL_H = 20; // ~daily, with slack so reboots don't double-log
 const KEEP_ROWS = 400;          // ~13 months of daily snapshots
 
+// When the last snapshot was taken, read once per process and then kept here.
+// Asking the table every 30 minutes was a round trip that almost always said
+// "not yet". undefined = not read yet; null = the table is empty.
+let lastCapturedAt;
+
 async function maybeSnapshot() {
   // Never wake a suspended compute just to log. If nobody's online the DB may be
   // scaled to zero; leave it alone.
   if (!hasActivePlayers()) return;
 
-  const { rows } = await query(
-    `SELECT captured_at FROM neon_usage_log ORDER BY captured_at DESC LIMIT 1`
-  );
-  if (rows.length) {
-    const ageH = (Date.now() - new Date(rows[0].captured_at).getTime()) / 3_600_000;
-    if (ageH < SNAPSHOT_INTERVAL_H) return;
+  if (lastCapturedAt === undefined) {
+    const { rows } = await query(
+      `SELECT captured_at FROM neon_usage_log ORDER BY captured_at DESC LIMIT 1`
+    );
+    lastCapturedAt = rows.length ? new Date(rows[0].captured_at).getTime() : null;
   }
+  if (lastCapturedAt != null && (Date.now() - lastCapturedAt) / 3_600_000 < SNAPSHOT_INTERVAL_H) return;
 
   const { rows: sizeRows } = await query(
     `SELECT pg_database_size(current_database()) AS db_bytes`
@@ -47,6 +52,7 @@ async function maybeSnapshot() {
     `INSERT INTO neon_usage_log (db_bytes, top_tables) VALUES ($1, $2)`,
     [sizeRows[0].db_bytes, JSON.stringify(tableRows)]
   );
+  lastCapturedAt = Date.now();
   // Self-prune so the table never grows unbounded.
   await query(
     `DELETE FROM neon_usage_log

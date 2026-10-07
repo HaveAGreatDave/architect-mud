@@ -87,6 +87,22 @@ export default async function regress(ctx) {
 async function regressBody({ run, check, getPlayer }) {
   const p = getPlayer();
 
+  // ── Wreck sweep: RAM clocks, no read until one is past its TTL ──────────────
+  // Saved and restored around the check so a real wreck on the dev DB is untouched.
+  {
+    const saved = [..._test.wreckClock];
+    _test.wreckClock.clear();
+    const now = Date.now();
+    check('no wrecks held: the sweep reads nothing', _test.wreckSweepDue(now) === false);
+    _test.wreckClock.set('aircraft_regress_wreck', now);
+    check('a fresh wreck is not due', _test.wreckSweepDue(now) === false);
+    check('…and is due once WRECK_TTL_MS has passed', _test.wreckSweepDue(now + _test.WRECK_TTL_MS) === true);
+    _test.wreckClock.set('aircraft_regress_wreck', 0);
+    check('an unstamped wreck is due at once (it needs its stamp)', _test.wreckSweepDue(now) === true);
+    _test.wreckClock.clear();
+    for (const [k, v] of saved) _test.wreckClock.set(k, v);
+  }
+
   // ── Flight model: the stall is an ANGLE OF ATTACK event ─────────────────────
   const may = FM_TYPES.mayfly;
   const br = fmStall1g(may);

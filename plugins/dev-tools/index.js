@@ -5,7 +5,7 @@ import { join, dirname } from 'path';
 import { query } from '../../server/models/db.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { adjustSanity } from '../../server/engine/condition.js';
-import { getLivePlayer, getAllLivePlayers, getZone, getMinimapData, insertFurniture, updateFurnitureWhere } from '../../server/engine/world.js';
+import { getLivePlayer, getAllLivePlayers, getZone, getMinimapData, insertFurniture, updateFurnitureWhere, getZoneFurniture } from '../../server/engine/world.js';
 import { autoResolvePower, recalcZoneLoad, syncZoneLighting, getZonePowerStatus, devTriggerWeatherEvent } from '../../server/engine/environment.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { cmdSoil } from './soil.js';
@@ -99,10 +99,9 @@ async function cmdLetThereBeLight(args, raw, player, broadcast) {
   if (!zone) return { type: 'error', message: "You're nowhere the grid can reach." };
 
   // 1. Ensure the room has a lit overhead fixture.
-  const { rows: existing } = await query(
-    `SELECT id, name, light_on FROM furniture WHERE zone_id=$1 AND object_type='light' ORDER BY id LIMIT 1`,
-    [zoneId]
-  );
+  // Lowest id first, as the old ORDER BY id did, so the same light answers every time.
+  const existing = getZoneFurniture(zoneId).filter(f => f.object_type === 'light')
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   let lightName;
   let created = false;
   if (existing.length) {

@@ -20,7 +20,7 @@ import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { tagValue } from '../../server/engine/tags.js';
 import { recomputePower, markPowerTopologyDirty } from '../../server/engine/environment.js';
-import { insertFurniture, deleteFurniture } from '../../server/engine/world.js';
+import { insertFurniture, deleteFurniture, getZoneFurniture } from '../../server/engine/world.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { togglePluggedByName } from '../appliances/index.js';
 
@@ -221,9 +221,7 @@ async function pack(args, raw, player, broadcast) {
     [randomUUID(), player.id, itemId, JSON.stringify({ fuel_remaining: g.fuel_remaining || 0 })]);
   // The removed unit won't be in the next sim's light pass, so kill its room's
   // work light now — unless another portable generator is still standing here.
-  const { rows: others } = await query(
-    `SELECT 1 FROM furniture WHERE zone_id=$1 AND object_type='generator_portable' LIMIT 1`, [player.current_zone]);
-  if (!others.length)
+  if (!getZoneFurniture(player.current_zone).some(f => f.object_type === 'generator_portable'))
     await query(`UPDATE lighting_states SET has_emergency_lighting=0 WHERE zone_id=$1`, [player.current_zone]);
   await recomputePower().catch(() => {});
 

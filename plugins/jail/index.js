@@ -91,21 +91,28 @@ const releasing = new Set();    // playerIds mid-release (suppress escape detect
 // time, to hear "no" for essentially everyone forever. That's a remote round
 // trip on the hottest path in the game (docs/architecture.md → Read Tiers).
 //
-// Deliberately a NEGATIVE cache, not a source of truth: absence from the Set is
-// trusted (skip the query), presence only means "maybe — go ask". That asymmetry
-// is what makes it safe despite jail_prisoners having a writer OUTSIDE this
-// plugin (reincarnatePlayer's REINCARNATE_WIPE_TABLES sweep). A missed DELETE
-// leaves a stale positive, which costs one query and then self-corrects; only a
-// missed INSERT could cause a wrong answer, and the sole INSERT is in booking
-// below. The 1-minute sweep re-seeds the whole Set anyway, bounding any drift.
-const imprisoned = new Set();
+// Absence from the roster is trusted (skip the query); presence only means
+// "maybe, go ask" for the escape check. That asymmetry is what makes it safe
+// even if a DELETE is missed: a stale positive costs one query and then
+// self-corrects. Only a missed INSERT could cause a wrong answer, and the sole
+// INSERT is in booking below.
+//
+// The roster is also what the minute tick counts the HUD down from, so it holds
+// playerId -> { releaseAt (epoch ms), stars } and is read once at boot, never
+// again. Every writer keeps it current: booking sets it, release / escape /
+// pardon clear it (all through release() or escape()), and the two writers
+// outside this plugin (reincarnatePlayer and purgePlayers, which DELETE the row
+// in their wipe lists) emit `player.wiped`, handled below.
+const imprisoned = new Map();
 let rosterReady = false;        // until boot seeds it, fall back to querying
 
-function markImprisoned(playerId) { imprisoned.add(playerId); }
+function markImprisoned(playerId, releaseAt, stars) {
+  imprisoned.set(playerId, { releaseAt: new Date(releaseAt).getTime(), stars: Number(stars) || 0 });
+}
 function markFreed(playerId) { imprisoned.delete(playerId); }
 function reseedRoster(rows) {
   imprisoned.clear();
-  for (const r of rows) imprisoned.add(r.player_id);
+  for (const r of rows) markImprisoned(r.player_id, r.release_at, r.stars);
   rosterReady = true;
 }
 
@@ -128,6 +135,7 @@ async function lockUp(items, handle) {
     );
   }
   if (items.length) {
+    noteEvidenceAdded();   // the purge's clock (see purgeEvidence)
     await query(
       `DELETE FROM police_evidence WHERE id IN (
          SELECT id FROM police_evidence ORDER BY created_at DESC OFFSET $1)`,
@@ -310,15 +318,18 @@ async function bookIntoCell(player, { teleport = false } = {}) {
   // world clock means a proportionally longer lockout (at 3× a 5★ stretch is 15
   // real minutes). release_at + the release timer both use this real duration.
   const ms = realMsToGame(stars * MINUTE * mult);
-  await query(
+  const booked = await query(
     `INSERT INTO jail_prisoners (player_id, cell_zone, release_zone, release_at, stars, held_items, held_credits, fine, charge)
      VALUES ($1,$2,$3, NOW() + ($4 || ' milliseconds')::interval, $5,$6,$7,$8,$9)
      ON CONFLICT (player_id) DO UPDATE SET
        cell_zone=$2, release_zone=$3, release_at=NOW() + ($4 || ' milliseconds')::interval,
-       stars=$5, held_items=$6, held_credits=$7, fine=$8, charge=$9, created_at=NOW()`,
+       stars=$5, held_items=$6, held_credits=$7, fine=$8, charge=$9, created_at=NOW()
+     RETURNING release_at`,
     [player.id, CELL_ZONE, RELEASE_ZONE, String(ms), stars, JSON.stringify(held), heldCredits, fine, charge]
   );
-  markImprisoned(player.id);   // the one INSERT — the roster's only hard requirement
+  // The one INSERT, and the roster's only hard requirement. The deadline is the
+  // database's own, so the HUD counts down to the same instant release_at holds.
+  markImprisoned(player.id, booked.rows[0]?.release_at ?? Date.now() + ms, stars);
   // Jail's half of the permanent record (surveillance keeps the priors tally).
   // `jail_prisoners` is the CURRENT stint only — the row is deleted on release —
   // so a lifetime count of collars has to be kept somewhere that outlives it.
@@ -564,7 +575,7 @@ async function release(playerId) {
   // the cash. A timer and an escape (or a pardon) racing each other get one winner.
   const { rows } = await query('DELETE FROM jail_prisoners WHERE player_id = $1 RETURNING *', [playerId]);
   const rec = rows[0];
-  if (!rec) return;
+  if (!rec) { markFreed(playerId); return; }   // the row went some other way: stop counting it down
   clearTimer(playerId);
   releasing.add(playerId);
   try {
@@ -685,7 +696,7 @@ async function escape(player) {
   // Claim the row first; if a release or pardon already took it, do nothing.
   const { rows } = await query('DELETE FROM jail_prisoners WHERE player_id = $1 RETURNING *', [player.id]);
   const rec = rows[0];
-  if (!rec) return;
+  if (!rec) { markFreed(player.id); return; }
   clearTimer(player.id);
   markFreed(player.id);
   // Skipped processing — the legal gear the desk was holding gets bagged into
@@ -791,50 +802,101 @@ on('zone.entered', async ({ actor, zone }) => {
 // still left to serve (ceil of the remaining time), so it visibly declines and
 // hits zero right as the officer walks you out. Purely a HUD countdown — your
 // actual street heat was cleared on arrest.
-// How long an empty jail may go without re-reading the table. The sweep exists
-// to push each prisoner's HUD countdown and to re-seed the roster from truth; an
-// empty roster has no countdown to push, so all that is left is the re-seed, and
-// that only needs to be often enough to notice a prisoner booked by the one
-// writer outside this plugin. Five minutes of a cosmetic HUD lag is a fair trade
-// for not asking an empty table the same question every minute forever.
-const EMPTY_ROSTER_RESEED_MS = 5 * 60_000;
-let lastRosterRead = 0;
+//
+// The countdown is worked out from the in-memory roster, so this tick costs no
+// round trip. The only read left is the fallback for a boot whose roster read
+// failed: it retries the seed each minute until one succeeds.
+const ROSTER_SQL = 'SELECT player_id, release_at, stars FROM jail_prisoners';
+
+// One HUD push per online prisoner, from the roster. Exported to the regress
+// suite through _test, which is why it returns what it sent.
+function pushCountdowns(now = Date.now()) {
+  const sent = [];
+  for (const [playerId, r] of imprisoned) {
+    if (!getLivePlayer(playerId)) continue;
+    // Each star == MINUTE of real time × the world-clock scale (matching the
+    // scaled-up sentence), so divide the remaining real time back down by scale.
+    const remaining = Math.max(0, Math.min(r.stars, Math.ceil(gameMsToReal(r.releaseAt - now) / MINUTE)));
+    sendToPlayer(playerId, { type: 'wanted_level', stars: remaining });
+    sent.push({ playerId, stars: remaining });
+  }
+  return sent;
+}
 
 schedule('1m', async () => {
   syncShift();
-  // Nobody is inside and the roster is trustworthy — skip the round trip, but
-  // never for longer than the re-seed window (an outside INSERT must surface).
-  if (rosterReady && imprisoned.size === 0 && Date.now() - lastRosterRead < EMPTY_ROSTER_RESEED_MS) return;
-  const { rows } = await query('SELECT player_id, release_at, stars FROM jail_prisoners').catch(() => ({ rows: null }));
-  if (!rows) return;   // a failed read must not be mistaken for an empty jail
-  lastRosterRead = Date.now();
-  // Free re-seed: this sweep already reads the whole table, so the roster is
-  // rebuilt from truth — every minute while anyone is inside, and every
-  // EMPTY_ROSTER_RESEED_MS while the jail is empty. That's what bounds drift
-  // from the one writer outside this plugin (reincarnatePlayer) — and a stale
-  // entry only ever costs a query, never a false escape.
-  reseedRoster(rows);
-  const now = Date.now();
-  for (const r of rows) {
-    if (!getLivePlayer(r.player_id)) continue;
-    // Each star == MINUTE of real time × the world-clock scale (matching the
-    // scaled-up sentence), so divide the remaining real time back down by scale.
-    const remaining = Math.max(0, Math.min(r.stars, Math.ceil(gameMsToReal(new Date(r.release_at).getTime() - now) / MINUTE)));
-    sendToPlayer(r.player_id, { type: 'wanted_level', stars: remaining });
+  if (!rosterReady) {
+    const { rows } = await query(ROSTER_SQL).catch(() => ({ rows: null }));
+    if (!rows) return;   // a failed read must not be mistaken for an empty jail
+    reseedRoster(rows);
   }
+  pushCountdowns();
+});
+
+// A wiped or purged character (reincarnatePlayer, purgePlayers) loses its
+// jail_prisoners row outside this plugin. Drop it from the roster and cancel its
+// release timer, or a reincarnated player would see the old sentence's stars on
+// the HUD until the timer fired.
+on('player.wiped', ({ playerIds } = {}) => {
+  for (const id of playerIds || []) { markFreed(id); clearTimer(id); }
 });
 
 // ── Evidence purge ───────────────────────────────────────────────────────────
+// The hourly purge used to send a DELETE whether or not anything was old enough.
+// The oldest created_at is kept in RAM instead: read once at boot, set by
+// lockUp (the only INSERT) when the locker was empty, and re-read by the purge
+// itself in the same statement as its DELETE. undefined means "not known yet",
+// which purges as before; null means the locker is empty.
+// Rows the 50-item cap evicts can leave this older than the truth, which only
+// means one early purge that deletes nothing and re-reads the real oldest.
+let oldestEvidenceAt;
+let lastEvidenceAddAt = 0;   // so a read racing an INSERT can't lose the new row
+function noteEvidenceAdded(at = Date.now()) {
+  lastEvidenceAddAt = at;
+  if (oldestEvidenceAt == null || at < oldestEvidenceAt) oldestEvidenceAt = at;
+}
+// Set the clock from a read of the table, keeping anything lockUp added since
+// the read began (the read may not have seen it).
+function settleEvidenceClock(oldest, readStartedAt) {
+  let next = oldest ? new Date(oldest).getTime() : null;
+  if (lastEvidenceAddAt >= readStartedAt && (next === null || lastEvidenceAddAt < next)) next = lastEvidenceAddAt;
+  oldestEvidenceAt = next;
+}
+
+function evidencePurgeDue(now = Date.now()) {
+  if (oldestEvidenceAt === undefined) return true;
+  if (oldestEvidenceAt === null) return false;
+  return now - oldestEvidenceAt >= gameMsToReal(PURGE_MS);
+}
+
 async function purgeEvidence() {
-  await query(`DELETE FROM police_evidence WHERE created_at < NOW() - $1::interval`, [`${gameMsToReal(PURGE_MS)} milliseconds`]).catch(() => {});
+  if (!evidencePurgeDue()) return;
+  const startedAt = Date.now();
+  const age = `${gameMsToReal(PURGE_MS)} milliseconds`;
+  // The SELECT sees the table as it was before the DELETE, so it filters to the
+  // rows the DELETE keeps rather than trusting MIN() over the whole table.
+  const r = await query(
+    `WITH gone AS (DELETE FROM police_evidence WHERE created_at < NOW() - $1::interval RETURNING 1)
+     SELECT MIN(created_at) AS oldest FROM police_evidence WHERE created_at >= NOW() - $1::interval`,
+    [age]
+  ).catch(() => null);
+  if (!r) return;   // failed: leave the clock alone so the next hour tries again
+  settleEvidenceClock(r.rows[0]?.oldest, startedAt);
 }
 schedule('1h', () => purgeEvidence());
 
+// Seed the evidence clock once. A failed read leaves it undefined, which purges.
+{
+  const startedAt = Date.now();
+  query('SELECT MIN(created_at) AS oldest FROM police_evidence')
+    .then(({ rows }) => settleEvidenceClock(rows[0]?.oldest, startedAt))
+    .catch(() => {});
+}
+
 // ── Boot: reschedule / catch up on any prisoners across a restart ────────────
 (async () => {
-  const { rows } = await query('SELECT player_id, release_at FROM jail_prisoners').catch(() => ({ rows: null }));
-  if (!rows) return;   // table not migrated yet — jailing will surface it (roster stays unready → we keep querying)
-  lastRosterRead = Date.now();   // the sweep's re-seed clock starts from this read
+  const { rows } = await query(ROSTER_SQL).catch(() => ({ rows: null }));
+  if (!rows) return;   // table not migrated yet: the minute tick retries the seed until it reads
   reseedRoster(rows);  // seed BEFORE the release loop below, which prunes as it goes
   for (const r of rows) {
     const ms = new Date(r.release_at).getTime() - Date.now();
@@ -922,6 +984,8 @@ export const specializedActions = [
 export const hooks = { 'player.respawnZone': onRespawnZone };
 
 // Exposed for the regression harness.
-export const _test = { confiscate, restoreHeld, release, escape, onRespawnZone, isContraband, onDutyOfficerId, inCellBlock, secureCellDoor, detentionAuth, CELL_DOOR, OFFICERS, CELL_ZONE, RELEASE_ZONE, BUNK_ZONE };
+export const _test = { confiscate, restoreHeld, release, escape, onRespawnZone, isContraband, onDutyOfficerId, inCellBlock, secureCellDoor, detentionAuth, CELL_DOOR, OFFICERS, CELL_ZONE, RELEASE_ZONE, BUNK_ZONE,
+  roster: imprisoned, markImprisoned, markFreed, pushCountdowns, evidencePurgeDue,
+  get oldestEvidenceAt() { return oldestEvidenceAt; }, set oldestEvidenceAt(v) { oldestEvidenceAt = v; } };
 
 console.log('[jail] Plugin loaded.');

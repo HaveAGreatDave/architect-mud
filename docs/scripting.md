@@ -90,11 +90,13 @@ Return values from subscribers are ignored. Async subscribers run but their reje
 | `item.taken` | `{ actor, item, zone }` |
 | `item.dropped` | `{ actor, item, zone }` |
 | `item.given` | `{ actor, recipient, item }` |
+| `item.received` | `{ actor, item, from }`: a row reached `actor`'s inventory some way other than a TAKE or a GIVE (a trade, a shop purchase, a pull out of a container, the Drake's stores). `item` is the row as it was read, `custom_data` included; `from` is the owner id it left. Deliberately not `item.taken`/`item.given`, whose subscribers complete quest objectives, charge dealing and play a pickup sound |
 | `item.equipped` / `item.unequipped` | `{ actor, item, slot }` (no `slot` on unequip) |
 | `inventory.changed` | `{ actor }` |
 | `zone.entered` | `{ actor, zone, from }` |
 | `flag.set` | `{ actor, scope, flag, value }` |
 | `flag.cleared` | `{ actor, scope, flag }` |
+| `player.wiped` | `{ playerIds }`: emitted by `reincarnatePlayer` and `purgePlayers` after their per-player DELETEs, so a plugin that mirrors one of those tables in RAM can drop the rows |
 
 **Events vs. hooks:** `emit` is fire-and-forget notification (past tense, no return value). `fireHook` (in `plugins.js`) is request/response middleware (present tense, can modify data). Use events for "this happened"; use hooks for "should I allow this" or "add data to this".
 

@@ -601,9 +601,8 @@ async function cmdRinse(args, raw, player) {
   // A zone can be its own water source — see cooking's `waterSourceIn` for why a transient room out
   // in the waste has no other way to say so, and note that the tag name is the furniture flag's.
   const selfSource = !!getZone(player.current_zone)?.flags?.water_source;
-  const { rows: src } = selfSource ? { rows: [{ name: 'the water' }] } : await query(
-    `SELECT name FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'water_source') LIMIT 1`,
-    [player.current_zone]);
+  const src = selfSource ? [{ name: 'the water' }]
+    : getZoneFurniture(player.current_zone).filter(f => Object.hasOwn(f.flags || {}, 'water_source')).slice(0, 1);
   if (!src.length) return { type: 'error', message: `There's no water here to rinse it in.` };
 
   // Soap is rewarded, not required — the same trade the cleaning plugin makes

@@ -1698,6 +1698,7 @@ async function resourceTick() {
   // batched write after the loop instead of a per-player round trip inside it. A
   // player who dies mid-loop is dropped (their respawn write already persisted them).
   const dirtyResources = new Set();
+  const sleptThisTick = new Set(); // sleepers, whose last_slept_at rides the batch
   // Weather is a GLOBAL state, identical for every player this tick — but it was
   // being re-derived inside the loop below, once per player, to read a single
   // string. getEnvironmentState() spreads getHUDPayload() + getForecast() +
@@ -1728,6 +1729,10 @@ async function resourceTick() {
       driftBodyTemperature(player, gm);
       const result = await tickSleep(player, broadcastFn);
       if (result) broadcastFn(null, result, null, playerId);
+      // Sleep moves hunger, thirst, healing and last_slept_at every minute; they go
+      // out in the batched write below rather than a round trip per sleeper.
+      dirtyResources.add(player);
+      sleptThisTick.add(player);
       continue;
     }
     player._tickCounter = (player._tickCounter || 0) + gm;
@@ -1967,9 +1972,13 @@ async function resourceTick() {
     const players = [...dirtyResources];
     const rows = [], params = [];
     players.forEach((p, i) => {
-      const b = i * 7;
-      rows.push(`($${b + 1}::text, $${b + 2}::int, $${b + 3}::int, $${b + 4}::int, $${b + 5}::int, $${b + 6}::real, $${b + 7}::int)`);
-      params.push(p.id, p.hunger, p.thirst, p.hp, p.stamina, p.body_temp_c, p.sanity);
+      const b = i * 8;
+      rows.push(`(${b + 1}::text, ${b + 2}::int, ${b + 3}::int, ${b + 4}::int, ${b + 5}::int, ${b + 6}::real, ${b + 7}::int, ${b + 8}::bigint)`);
+      // last_slept_at only for a sleeper. A stimulant also moves it on a waking player,
+      // but its fatigue debt lives in RAM only, and saving the relief without the debt
+      // would let a relog keep one and drop the other.
+      params.push(p.id, p.hunger, p.thirst, p.hp, p.stamina, p.body_temp_c, p.sanity,
+        sleptThisTick.has(p) && Number.isFinite(Number(p.last_slept_at)) ? Math.round(Number(p.last_slept_at)) : null);
     });
     try {
       await query(
@@ -1977,8 +1986,11 @@ async function resourceTick() {
         // bleed above is the first thing in resourceTick to move the meter, and a
         // per-minute round trip of its own for one integer would be the exact
         // mistake the batched write was built to stop.
-        `UPDATE players AS pl SET hunger=v.hunger, thirst=v.thirst, hp=v.hp, stamina=v.stamina, body_temp_c=v.btemp, sanity=v.sanity
-         FROM (VALUES ${rows.join(', ')}) AS v(id, hunger, thirst, hp, stamina, btemp, sanity)
+        // last_slept_at rides it for sleepers (tickSleep moves it); COALESCE keeps the
+        // stored value for everyone else.
+        `UPDATE players AS pl SET hunger=v.hunger, thirst=v.thirst, hp=v.hp, stamina=v.stamina, body_temp_c=v.btemp, sanity=v.sanity,
+                last_slept_at=COALESCE(v.slept, pl.last_slept_at)
+         FROM (VALUES ${rows.join(', ')}) AS v(id, hunger, thirst, hp, stamina, btemp, sanity, slept)
          WHERE pl.id = v.id`,
         params
       );

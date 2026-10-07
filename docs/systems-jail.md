@@ -211,24 +211,26 @@ releases immediately (deadline already passed while the server was down) or
 reschedules the remaining time. Offline players are relocated DB-only; the timer
 still returns their items.
 
-### The roster sweep, and why an empty jail is quiet (2026-07-27)
+### The roster lives in RAM (2026-10-07)
 
-The 1-minute sweep does two jobs: push each prisoner's HUD star countdown, and re-seed the
-in-memory `imprisoned` roster from truth. An **empty** jail has no countdown to push, so all that
-remains is the re-seed — and re-reading an empty table every minute forever is a round trip that
-keeps Neon's compute from suspending.
+The in-memory `imprisoned` roster maps each prisoner to `{ releaseAt, stars }`. It is read once
+at boot and kept current by every writer, so the 1-minute tick pushes each online prisoner's HUD
+star countdown without a round trip:
 
-So the sweep now **skips the query entirely** when `rosterReady && imprisoned.size === 0`, but
-never for longer than `EMPTY_ROSTER_RESEED_MS` (5 min). That window is the safety net: it bounds how
-long a prisoner booked by the one writer *outside* this plugin (`reincarnatePlayer`) can go
-unnoticed. The cost of being wrong is a HUD countdown that starts late — **never** a missed release,
-because releases are scheduled by `scheduleRelease` at booking and at boot, not by this sweep.
+- booking sets the entry from the INSERT's `RETURNING release_at`
+- `release()` (timer, boot catch-up, pardon) and `escape()` clear it, including when their
+  `DELETE ... RETURNING` finds the row already gone
+- `reincarnatePlayer` and `purgePlayers` delete the row outside the plugin and emit
+  `player.wiped`; jail drops the entry and cancels the release timer
 
-A failed read is treated as "unknown", not "empty" — mistaking a dropped connection for an empty
-jail would freeze every prisoner's HUD until the next successful read.
+If the boot read fails, the tick retries it each minute until one succeeds; a failed read is
+never taken for an empty jail. The escape check still treats a roster entry as "maybe" and asks
+the table before calling it a breakout, so a stale entry costs one query, never a false escape.
+Releases are scheduled by `scheduleRelease` at booking and at boot, not by the tick.
 
-This is the same shape as the generic work gate in [`server/engine/worklist.js`](server.md), just
-expressed with the roster the plugin already maintained.
+The hourly evidence purge keeps the oldest `created_at` in RAM: read once at boot, set by
+`lockUp` when the locker was empty, and re-read by the purge in the same statement as its DELETE.
+The hour passes with no query until that row is older than the 3-day window.
 
 ## Tables
 

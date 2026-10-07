@@ -2445,9 +2445,8 @@ const WATER_ITEM = 'item_water';
 async function waterSourceIn(zoneId) {
   const z = getZone(zoneId);
   if (z?.flags?.water_source) return { id: `zonewater_${zoneId}`, name: z.name };
-  const { rows } = await query(
-    `SELECT id, name FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'water_source') LIMIT 1`, [zoneId]);
-  return rows[0] || null;
+  const f = getZoneFurniture(zoneId).find(r => Object.hasOwn(r.flags || {}, 'water_source'));
+  return f ? { id: f.id, name: f.name } : null;
 }
 
 // The cookware half of `fill`. Returns undefined — falls through — for anything

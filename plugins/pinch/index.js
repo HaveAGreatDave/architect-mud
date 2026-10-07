@@ -1,4 +1,4 @@
-import { getAllLivePlayers, getLivePlayer, getZone, getApartment } from '../../server/engine/world.js';
+import { getAllLivePlayers, getLivePlayer, getZone, getApartment, getZoneFurniture } from '../../server/engine/world.js';
 import { on } from '../../server/engine/events.js';
 import { stepCadenceMs } from '../pacing/index.js';
 import { cmdSetHome, isApartmentZone } from '../../server/engine/apartments.js';
@@ -17,8 +17,7 @@ const offlineWalkers = new Map();
 const BED_NAMES = /\b(bed|cot|bunk|mattress|couch|sofa|futon|hammock|pallet|bedroll|sleeping bag|lounger)\b/i;
 
 async function findLieSpot(zoneId) {
-  const { rows } = await query(`SELECT name, flags FROM furniture WHERE zone_id=$1 LIMIT 20`, [zoneId]);
-  return rows.find(f => f.flags?.interactions?.includes?.('lie') || BED_NAMES.test(f.name)) || null;
+  return getZoneFurniture(zoneId).find(f => f.flags?.interactions?.includes?.('lie') || BED_NAMES.test(f.name)) || null;
 }
 
 async function arriveSleepOffline(playerId, handle, zoneId) {

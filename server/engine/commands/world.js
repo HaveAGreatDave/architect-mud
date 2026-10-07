@@ -30,6 +30,7 @@ import { statusLabels, applyEffect } from '../effects.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
 import { carryCapacity, formatWeight } from './inventory.js';
 import { fireHook, gatherHook } from '../plugins.js';
+import { emit } from '../events.js';
 import { zoneAir } from '../bodily.js';
 import { conditionReport } from '../condition.js';
 import { acuityFor, perceptionBand, perceive, acuityNote, wouldOverload, EXTREME, OVERLOAD_STATUS, overloadText, SENSES, DOMINANT_FLAG, SECOND_FLAG } from '../senses.js';
@@ -1211,6 +1212,8 @@ export async function reincarnatePlayer(target) {
   // Unconditional: a no-op for an offline target, and the online one is kicked
   // below and re-hydrates from the (now empty) table on reconnect.
   evictPlayerFlags(target.id);
+  // Plugins that mirror a wiped table in RAM (jail's roster) drop the player too.
+  emit('player.wiped', { playerIds: [target.id] });
   for (const t of REINCARNATE_WIPE_OWNER_TABLES) await query(`DELETE FROM ${t} WHERE owner_id=$1`, [target.id]).catch(() => {});
 
   // Reset the players row itself to exactly what a fresh registration produces

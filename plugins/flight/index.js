@@ -34,7 +34,7 @@ import { schedule } from '../../server/engine/scheduler.js';
 import { getEnvironmentState, getZoneSeverity } from '../../server/engine/environment.js';
 import {
   TICK_MS, FUEL_RESERVE_FRAC, BANDS, BAND_LABEL, BAND_BURN, DIRS, DIR_ALIASES,
-  liveAircraft, surfaceAt, bounds, loadAircraft, pilotOf, persist, reap, effStats,
+  liveAircraft, surfaceAt, bounds, loadAircraft, pilotOf, persist, persistIfChanged, reap, effStats,
   pushHud, out, toOccupants, detach, takeoffDifficulty, landDifficulty,
   parkAt, crash, setHeading, getZone, getLivePlayer, sendToZone, sendToZoneExcept, sendToPlayer, setPosture,
   initFloat, initEngines, enginesAllStable, engineCount, syncEngineTemp,
@@ -1618,7 +1618,8 @@ async function flightTick() {
           // Taxi/roll is client-side until wheels-up — no fuel burn or world consequences here.
           // But she IS moving (reconcile re-parks her onto the tile she rolls to), so persist
           // that on the same cadence as flight; otherwise a shutdown mid-taxi loses the move.
-          if (live.row.engine_on && ++live.persistCtr % 4 === 0) await persist(live);
+          // persistIfChanged: an idling craft that hasn't rolled anywhere skips the UPDATE.
+          if (live.row.engine_on && ++live.persistCtr % 4 === 0) await persistIfChanged(live);
           continue;
         }
         const a = live.row, eff = effStats(live);
@@ -1668,7 +1669,7 @@ async function flightTick() {
         // Passengers ride the cabin-window HUD (not the pilot's live sim) — refresh it each
         // tick so their out-the-window scenery keeps pace with the flight.
         for (const pid of live.occupants) { const p = getLivePlayer(pid); if (p && p.seat !== 'pilot') { pushHud(live); break; } }
-        if (++live.persistCtr % 4 === 0) await persist(live);
+        if (++live.persistCtr % 4 === 0) await persistIfChanged(live);
         continue;
       }
 
@@ -1703,6 +1704,8 @@ async function deleteAircraft(id) {
     liveAircraft.delete(id);
   }
   activeCharters.delete(id);   // in case a ghost charter row still pointed at it
+  wreckClock.delete(id);
+  loanerOwners.delete(id);
   const { rowCount } = await query('DELETE FROM aircraft WHERE id=$1', [id]);
   return rowCount;
 }
@@ -1714,26 +1717,63 @@ async function deleteAircraft(id) {
 // leaving players a window to salvage first. Legacy wrecks with no crash timestamp are
 // stamped on first pass (given the full window) rather than all vanishing at once.
 const WRECK_TTL_MS = 20 * 60 * 1000;    // untouched wreck lifespan before auto-clear
+
+// The sweep used to read every wreck and every loaner on each fire. RAM now
+// holds both, so a fire with nothing past its TTL and no loaner to reap costs no
+// query:
+//   wreckClock:   wreck id -> crashed_at (ms; 0 = never stamped). Set by the
+//                 flight.crashed event (crash() in state.js is the only place a
+//                 craft becomes a wreck). The table is read again only when a
+//                 clock here is past WRECK_TTL_MS, and that read re-seeds the map,
+//                 so a wreck rebuilt or salvaged elsewhere drops out then.
+//   loanerOwners: checkride loaner id -> owner id. Set where the loaner is
+//                 INSERTed (startCheckrideRide).
+// deleteAircraft clears both. The first fire after boot reads the table to seed them.
+const wreckClock = new Map();
+const loanerOwners = new Map();
+let wrecksSeeded = false, loanersSeeded = false;
+
+on('flight.crashed', ({ aircraftId } = {}) => { if (aircraftId) wreckClock.set(aircraftId, Date.now()); });
+
+function wreckSweepDue(now = Date.now()) {
+  for (const at of wreckClock.values()) if (!at || now - at >= WRECK_TTL_MS) return true;
+  return false;
+}
+
 async function wreckSweep() {
-  const { rows } = await query("SELECT id, custom_data FROM aircraft WHERE is_wreck=1");
-  const now = Date.now();
-  for (const r of rows) {
-    if (liveAircraft.has(r.id)) continue;   // mid-interaction in memory — leave it
-    const at = r.custom_data?.crashed_at;
-    if (!at) {
-      await query("UPDATE aircraft SET custom_data = jsonb_set(custom_data, '{crashed_at}', to_jsonb($1::bigint)) WHERE id=$2", [now, r.id]);
-      continue;
+  if (!wrecksSeeded || wreckSweepDue()) {
+    const readAt = Date.now();
+    const { rows } = await query("SELECT id, custom_data FROM aircraft WHERE is_wreck=1");
+    // Re-seed. A clock with no row is a wreck that's gone or was rebuilt, unless
+    // it crashed after the read began and the read couldn't see it.
+    const read = new Set(rows.map(r => r.id));
+    for (const [id, at] of wreckClock) if (!read.has(id) && at < readAt) wreckClock.delete(id);
+    wrecksSeeded = true;
+    const now = Date.now();
+    for (const r of rows) {
+      const at = Number(r.custom_data?.crashed_at) || 0;
+      wreckClock.set(r.id, at);
+      if (liveAircraft.has(r.id)) continue;   // mid-interaction in memory — leave it
+      if (!at) {
+        await query("UPDATE aircraft SET custom_data = jsonb_set(custom_data, '{crashed_at}', to_jsonb($1::bigint)) WHERE id=$2", [now, r.id]);
+        wreckClock.set(r.id, now);
+        continue;
+      }
+      if (now - at >= WRECK_TTL_MS) await deleteAircraft(r.id);
     }
-    if (now - at >= WRECK_TTL_MS) await deleteAircraft(r.id);
   }
   // Reap abandoned checkride loaners: a free trainer whose ride has ended (passed,
   // crashed, or the player walked off and the in-memory state is gone) and that no one
   // is currently sitting in. A ride still in progress keeps its Map entry, so its parked
   // loaner survives for a re-board.
-  const { rows: loaners } = await query("SELECT id, owner_id FROM aircraft WHERE id LIKE 'aircraft_checkride_%'");
-  for (const l of loaners) {
-    if (liveAircraft.has(l.id) || hasActiveCheckride(l.owner_id)) continue;
-    await deleteAircraft(l.id);
+  if (!loanersSeeded) {
+    const { rows: loaners } = await query("SELECT id, owner_id FROM aircraft WHERE id LIKE 'aircraft_checkride_%'");
+    for (const l of loaners) loanerOwners.set(l.id, l.owner_id);
+    loanersSeeded = true;
+  }
+  for (const [id, ownerId] of [...loanerOwners]) {
+    if (liveAircraft.has(id) || hasActiveCheckride(ownerId)) continue;
+    await deleteAircraft(id);
   }
 }
 schedule('5m', () => wreckSweep().catch(e => console.error('[flight] wreck sweep error:', e.message)));
@@ -2047,6 +2087,7 @@ async function startCheckrideRide(player) {
      VALUES ($1,'ac_mayfly',$2,$3,'map_world',$4,$5,'ground',$6,$7,20,1,$8)`,
     [id, 'TRAINER Mayfly', player.id, field.grid_x, field.grid_y, field.id, fuelCap, JSON.stringify({ checkride: player.id })]
   );
+  loanerOwners.set(id, player.id);   // the wreck sweep reaps it from here once the ride ends
   const live = await loadAircraft(id);
   live.occupants.add(player.id); player.aircraftId = id; player.seat = 'pilot'; live.pilotId = player.id;
   live.checkridePilotId = player.id;
@@ -2483,6 +2524,7 @@ export const routeHandler = async (path, method, body, auth) => {
   return null;
 };
 
-export const _test = { describeAirfield, surfaceAt, takeoffDifficulty, landDifficulty, DIRS, liveAircraft, noiseReach, isContinuous, bandFromAltitude, crewStep, crewLand, crewDivertFuel, groundStop, GROUND_STOP_SEVERITY };
+export const _test = { describeAirfield, surfaceAt, takeoffDifficulty, landDifficulty, DIRS, liveAircraft, noiseReach, isContinuous, bandFromAltitude, crewStep, crewLand, crewDivertFuel, groundStop, GROUND_STOP_SEVERITY,
+  wreckClock, loanerOwners, wreckSweepDue, WRECK_TTL_MS };
 
 console.log('[flight] Plugin loaded.');

@@ -198,6 +198,7 @@ async function cmdSafeCrackResolve(args, raw, player) {
   // Drain under a row lock and pay what the DB held, not the cached figure, so
   // two crackers (or a crack and the shift-end collection) can't both take it.
   const stolen = await withTransaction(async (q) => {
+    // query-lint-ok: row lock so two drains can't both pay out; the cached figure can't lock.
     const { rows: cur } = await q('SELECT vendor_credits FROM npcs WHERE id=$1 FOR UPDATE', [npcId]);
     const amount = Number(cur[0]?.vendor_credits) || 0;
     if (amount <= 0) return 0;

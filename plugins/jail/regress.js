@@ -2,6 +2,7 @@
 import { query } from '../../server/models/db.js';
 import { getDoorById } from '../../server/engine/world.js';
 import { getLockTagPublic } from '../../server/engine/commands/doors.js';
+import { emit } from '../../server/engine/events.js';
 import { _test } from './index.js';
 
 export default async function regress({ run, check, getPlayer }) {
@@ -134,6 +135,30 @@ export default async function regress({ run, check, getPlayer }) {
   await query('DELETE FROM jail_prisoners WHERE player_id=$1', [p.id]).catch(() => {});
   const st = await run('sentence');
   check('sentence outside jail answers cleanly', st?.type === 'output' && /not doing time/i.test(st.message || ''), st?.type);
+
+  // ── The roster is RAM, and the minute tick reads nothing else ─────────────
+  // The HUD countdown comes from the roster, and a wipe outside the plugin
+  // (reincarnate, purge) reaches it through player.wiped.
+  const rid = `jailroster_${p.id}`;
+  _test.markImprisoned(rid, Date.now() + 60 * 60_000, 2);
+  check('booking puts the prisoner on the roster', _test.roster.get(rid)?.stars === 2, JSON.stringify(_test.roster.get(rid)));
+  let pushed = null;
+  try { pushed = _test.pushCountdowns(); } catch (e) { pushed = e.message; }
+  check('the countdown runs off the roster without throwing', Array.isArray(pushed), pushed);
+  emit('player.wiped', { playerIds: [rid] });
+  check('player.wiped drops the prisoner from the roster', !_test.roster.has(rid));
+
+  // ── The evidence purge skips until something is old enough ────────────────
+  const savedClock = _test.oldestEvidenceAt;
+  _test.oldestEvidenceAt = null;
+  check('an empty locker skips the purge', _test.evidencePurgeDue() === false);
+  _test.oldestEvidenceAt = Date.now();
+  check('fresh evidence skips the purge', _test.evidencePurgeDue() === false);
+  _test.oldestEvidenceAt = 0;
+  check('old evidence runs the purge', _test.evidencePurgeDue() === true);
+  _test.oldestEvidenceAt = undefined;
+  check('an unknown clock runs the purge', _test.evidencePurgeDue() === true);
+  _test.oldestEvidenceAt = savedClock;
 
   // unseal with nothing sealed must fail cleanly.
   const us = await run('unseal');

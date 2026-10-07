@@ -17,7 +17,7 @@ import { adjustCredits } from '../../server/engine/economy.js';
 import { getZonePlayers, getLivePlayer } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { resolve as siftResolve } from '../../server/engine/sift.js';
-import { on } from '../../server/engine/events.js';
+import { on, emit } from '../../server/engine/events.js';
 import { prefersLoggedPanelsOrDefault } from '../../server/engine/presentation.js';
 
 const INVITE_TTL_MS = 60000;
@@ -325,6 +325,7 @@ async function moveItem(tx, invId, fromPlayerId, toPlayerId, qty) {
     await tx('INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, is_equipped, custom_data) VALUES ($1,$2,$3,$4,$5,0,$6)',
       [randomUUID(), toPlayerId, r.item_id, q, r.condition ?? 1.0, r.custom_data ? JSON.stringify(r.custom_data) : '{}']);
   }
+  return r;
 }
 
 async function resyncCredits(pid) {
@@ -339,10 +340,13 @@ async function executeTrade(session) {
   const aOff = session.offers[aId], bOff = session.offers[bId];
   const aP = getLivePlayer(aId), bP = getLivePlayer(bId);
 
+  // What changed hands, told to the rest of the server once the swap has committed.
+  let moved = [];
   try {
     await withTransaction(async (tx) => {
-      for (const it of aOff.items) await moveItem(tx, it.invId, aId, bId, it.qty);
-      for (const it of bOff.items) await moveItem(tx, it.invId, bId, aId, it.qty);
+      moved = [];
+      for (const it of aOff.items) moved.push([bId, aId, await moveItem(tx, it.invId, aId, bId, it.qty)]);
+      for (const it of bOff.items) moved.push([aId, bId, await moveItem(tx, it.invId, bId, aId, it.qty)]);
       if (aOff.credits > 0) {
         if (!(await adjustCredits(aP || { id: aId, credits: 0 }, -aOff.credits, tx, 'trade:credits'))) throw new Error('credits');
         await adjustCredits(bP || { id: bId, credits: 0 }, aOff.credits, tx, 'trade:credits');
@@ -361,6 +365,10 @@ async function executeTrade(session) {
   }
 
   await resyncCredits(aId); await resyncCredits(bId);
+  // `item.received`, not `item.given`: a trade isn't a hand-over for quests or the dealing charge.
+  for (const [toId, fromId, row] of moved) {
+    emit('item.received', { actor: getLivePlayer(toId) || { id: toId }, item: row, from: fromId });
+  }
   const gotLine = (off) => {
     const parts = off.items.map(i => `${i.name}${i.qty > 1 ? ` ×${i.qty}` : ''}`);
     if (off.credits > 0) parts.push(`₵${off.credits}`);

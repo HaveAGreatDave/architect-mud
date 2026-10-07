@@ -129,6 +129,17 @@ function dryStep(prev, dryRate) {
   return Math.max(0, prev - dryRate * (DRY_FLOOR + (1 - DRY_FLOOR) * (prev / 100)));
 }
 
+// Garment wetness is stored as a whole number. Plain rounding stalled a slow dry: in
+// cool, calm, humid air a step loses under half a point, rounds back to where it
+// started, and the garment sat damp forever (and kept the tick reading it every
+// minute). While drying, round up or down at random in proportion to the fraction,
+// so the average rate is exactly dryStep's and the tail still reaches zero.
+function storedWetness(next, drying, rand = Math.random) {
+  if (!drying) return Math.round(next);
+  const whole = Math.floor(next);
+  return whole + (rand() < next - whole ? 1 : 0);
+}
+
 // Bare skin sheds water far faster than cloth does — it absorbs none, so there is nothing
 // to evaporate but the film on the surface. Multiplies the garment dry rate for a player
 // wearing nothing wettable: soaked skin is dry in ~7 minutes at the outdoor base rate and
@@ -497,10 +508,11 @@ export const hooks = {
         const arriving = unslotted.includes(item) ? wettingRate
                        : acc && acc.area > 0 ? acc.flux / acc.area : 0;
         const next = isPrecipitating ? absorbStep(prev, arriving) : dryStep(prev, dryRate);
-        if (Math.round(next) !== Math.round(prev)) wetnessPatches.push([item.inv_id, { wetness: Math.round(next) }]);
-        // Keep the in-memory row in step with what we just queued, rounded the same way, so
-        // the layer walk next tick reads the same number the DB holds.
-        item.custom_data = { ...(item.custom_data || {}), wetness: Math.round(next) };
+        const stored = storedWetness(next, !isPrecipitating);
+        if (stored !== Math.round(prev)) wetnessPatches.push([item.inv_id, { wetness: stored }]);
+        // Keep the in-memory row in step with what we just queued, so the layer walk
+        // next tick reads the same number the DB holds.
+        item.custom_data = { ...(item.custom_data || {}), wetness: stored };
       }
       settleDamp(wettable.some(item => wetnessOf(item) > 0));
 
@@ -569,5 +581,5 @@ export const _test = {
   rainWettingRate, snowWettingRate, dryMultiplier, windMultiplier, humidityMultiplier,
   skinWetnessStep, SKIN_DRY_FACTOR, COVERED_SKIN_DRY_FACTOR, WETNESS_THRESHOLDS,
   layerPassthrough, layerRank, slotsOf, stackFlux, drivenRainMultiplier,
-  absorbStep, dryStep, BODY_SLOTS, SLOT_AREA, needsPass,
+  absorbStep, dryStep, storedWetness, BODY_SLOTS, SLOT_AREA, needsPass,
 };

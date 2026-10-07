@@ -995,16 +995,40 @@ export function perfAxes(type, tune = {}, cargo = 0, kits = [], parts = []) {
   };
 }
 
+// The values persist() writes, rounded the way the columns store them (REAL is float4, the
+// INTEGER columns round), as one string. Two equal keys mean the UPDATE would change nothing.
+function persistKey(a, cd) {
+  const f = (v) => (v == null ? null : Math.fround(Number(v)));
+  const i = (v) => (v == null ? null : Math.round(Number(v)));
+  return JSON.stringify([i(a.grid_x), i(a.grid_y), a.altitude_band, a.heading, a.parked_zone_id ?? null,
+    f(a.fuel), i(a.throttle), f(a.engine_temp), f(a.damage), i(a.airborne), i(a.engine_on), i(a.is_wreck),
+    i(a.weapons_hot || 0), cd, a.hangar_id || null]);
+}
+
+// Always writes. Every explicit save (landing, shutdown, parking, logout, a hazard) calls this,
+// so those never skip. It records what it wrote on `live.persistedKey` for persistIfChanged.
 export async function persist(live) {
   const a = live.row;
+  const cd = JSON.stringify(a.custom_data || {});
   await query(
     `UPDATE aircraft SET grid_x=$1, grid_y=$2, altitude_band=$3, heading=$4, parked_zone_id=$5,
        fuel=$6, throttle=$7, engine_temp=$8, damage=$9, airborne=$10, engine_on=$11, is_wreck=$12,
        weapons_hot=$13, custom_data=$14, hangar_id=$15 WHERE id=$16`,
     [a.grid_x, a.grid_y, a.altitude_band, a.heading, a.parked_zone_id, a.fuel, a.throttle,
      a.engine_temp, a.damage, a.airborne, a.engine_on, a.is_wreck, a.weapons_hot || 0,
-     JSON.stringify(a.custom_data || {}), a.hangar_id || null, a.id]
+     cd, a.hangar_id || null, a.id]
   );
+  live.persistedKey = persistKey(a, cd);
+}
+
+// The periodic save for the flight tick. It skips the UPDATE when nothing it writes has changed
+// since the last successful persist, so a craft idling on the apron with the engine running stops
+// writing every 12 s. The first call on a fresh live object always writes (no key yet).
+export async function persistIfChanged(live) {
+  const a = live.row;
+  if (live.persistedKey && live.persistedKey === persistKey(a, JSON.stringify(a.custom_data || {}))) return false;
+  await persist(live);
+  return true;
 }
 
 export function reap(live) {

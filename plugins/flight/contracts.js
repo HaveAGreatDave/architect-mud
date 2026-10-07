@@ -19,7 +19,7 @@ import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { getZone, liveAircraft, out, persist, fieldFor as fieldOf, isContinuous, pushContext, effLoadout, installedKits, BAND_BURN, REFUEL_PRICE_PER_UNIT, rentalOpFee, airfieldOf, fieldName } from './state.js';
 import { findPath } from '../../server/engine/pathfinding.js';
-import { getZoneNpcs } from '../../server/engine/world.js';
+import { getZoneNpcs, world } from '../../server/engine/world.js';
 import { teachVerb } from '../../server/engine/messaging.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
@@ -33,9 +33,16 @@ const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const BOARD_TTL_S = 6 * 3600;       // an untaken posting is culled after this long
 const STALE_DONE_S = 24 * 3600;     // a turned-in/abandoned instance is swept after this long
 
+// Every world tile tagged with an airfield_id, off world.zones. Transient zones
+// never carry map_world, so the map filter keeps them out as the SQL did.
 export async function airfields() {
-  const { rows } = await query("SELECT id, name, grid_x, grid_y, flags FROM zones WHERE map_id='map_world' AND flags ? 'airfield_id'");
-  return rows;
+  const out = [];
+  for (const z of world.zones.values()) {
+    if (z.map_id === 'map_world' && Object.hasOwn(z.flags || {}, 'airfield_id')) {
+      out.push({ id: z.id, name: z.name, grid_x: z.grid_x, grid_y: z.grid_y, flags: z.flags });
+    }
+  }
+  return out;
 }
 
 // Devpanel/VINE-authored archetypes — see scripts/migrate-flight-job-types.js for
@@ -260,8 +267,7 @@ export async function checkContractDelivery(player, live, fieldZoneId) {
 // straight-line distance can't reach them; hop-count via the same pathfinder
 // `pinch.js` uses to walk NPCs/players home does).
 async function airfieldZones() {
-  const { rows } = await query("SELECT id FROM zones WHERE map_id='map_world' AND flags ? 'airfield_id'");
-  return rows.map(r => r.id);
+  return (await airfields()).map(r => r.id);
 }
 async function nearestAirfieldToHome(homeZoneId) {
   const fields = await airfieldZones();

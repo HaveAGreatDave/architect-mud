@@ -23,6 +23,7 @@
  *   morphex breast <size>         — set breast size (MIS only, 5₵/tier delta)
  */
 import { query } from '../../server/models/db.js';
+import { getZoneFurniture } from '../../server/engine/world.js';
 import { randomAppearance } from '../../server/engine/appearance.js';
 import { isMisActive, SEXUALITIES } from '../../server/engine/mis.js';
 import { adjustCredits } from '../../server/engine/economy.js';
@@ -47,11 +48,9 @@ export const MAX_PENIS_CM = 38.1;
 const MACHINE_NAMES = ['morphex', 'biosculpt', 'makeover', 'morphex 9000'];
 
 async function getMachine(zoneId) {
-  const { rows } = await query(
-    `SELECT id, flags FROM furniture WHERE zone_id=$1 AND (object_type='cosmetic_machine' OR jsonb_exists(flags,'cosmetic_machine')) LIMIT 1`,
-    [zoneId]
-  );
-  return rows[0] || null;
+  const f = getZoneFurniture(zoneId).find(r =>
+    r.object_type === 'cosmetic_machine' || Object.hasOwn(r.flags || {}, 'cosmetic_machine'));
+  return f ? { id: f.id, flags: f.flags } : null;
 }
 
 // A chargen terminal (flags.chargen) opens the panel in a stripped-down mode:

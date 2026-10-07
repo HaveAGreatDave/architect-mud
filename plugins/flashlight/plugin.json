@@ -11,7 +11,7 @@
     ]
   },
   "events": {
-    "consumes": ["player.login", "item.taken", "item.given"]
+    "consumes": ["player.login", "item.taken", "item.given", "item.received"]
   },
   "ticks": ["1m"],
   "dataSchema": []

@@ -94,6 +94,12 @@ export default async function regress({ run, check, getPlayer }) {
      ON CONFLICT (id) DO UPDATE SET dialogue_tree=$2`,
     [TEST_NPC_ID, JSON.stringify(dialogueTree)]
   );
+  // findTurnInNpc reads world.npcs (the write funnel), so mirror the seed there.
+  world.npcs.set(TEST_NPC_ID, {
+    id: TEST_NPC_ID, name: 'Regress Turn-In NPC', description: '',
+    zone_id: 'zone_regress_turnin', home_zone: 'zone_regress_turnin', dialogue_tree: dialogueTree,
+    vendor_inventory: [], wander_zones: [], behaviour_graph: {}, flags: {}, banter: [], _ai: {},
+  });
 
   const found = await findTurnInNpc(TEST_QUEST_ID);
   check('findTurnInNpc locates the NPC whose dialogue turns the quest in', found?.npcId === TEST_NPC_ID, JSON.stringify(found));
@@ -120,6 +126,7 @@ export default async function regress({ run, check, getPlayer }) {
 
   // Cleanup.
   await query('DELETE FROM npcs WHERE id=$1', [TEST_NPC_ID]);
+  world.npcs.delete(TEST_NPC_ID);
   await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TEST_QUEST_ID]);
   await query('DELETE FROM quests WHERE id=$1', [TEST_QUEST_ID]);
 

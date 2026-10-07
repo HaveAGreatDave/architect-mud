@@ -5,7 +5,8 @@
 import { fireHook } from '../../server/engine/plugins.js';
 import { getRegisteredSpecializedActions } from '../../server/engine/specializedActions.js';
 import { floorVisibility } from '../../server/engine/environment.js';
-import { flashlightDrainRate } from './index.js';
+import { emit } from '../../server/engine/events.js';
+import { flashlightDrainRate, _test } from './index.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const p = getPlayer();
@@ -35,6 +36,15 @@ export default async function regress({ run, check, getPlayer }) {
   check('drain rate defaults to 1 with no flags', flashlightDrainRate(undefined) === 1 && flashlightDrainRate({}) === 1, 'default');
   check('drain rate reads flags.flashlight_drain', flashlightDrainRate({ flashlight_drain: 0.5 }) === 0.5, 'frugal light');
   check('drain rate rejects non-positive/garbage', flashlightDrainRate({ flashlight_drain: 0 }) === 1 && flashlightDrainRate({ flashlight_drain: 'x' }) === 1, 'guarded');
+
+  // A lit light that arrives by a trade, a purchase or a container fires
+  // `item.received`; the holder must join the drain set or the battery never runs down.
+  const rid = `regress_fl_${process.pid}`;
+  emit('item.received', { actor: { id: rid }, item: { custom_data: { lit: false } }, from: 'someone' });
+  check('item.received with an unlit light adds nobody', !_test.isLitHolder(rid));
+  emit('item.received', { actor: { id: rid }, item: { custom_data: { lit: true, battery: 5 } }, from: 'someone' });
+  check('item.received with a lit light adds the holder to the drain set', _test.isLitHolder(rid));
+  _test.forgetLitHolder(rid);
 
   // Typing `flashlight` with no flashlight to resolve falls through without crashing.
   const r = await run('flashlight');

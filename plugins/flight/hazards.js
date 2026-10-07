@@ -13,7 +13,7 @@ import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/s
 import { getZoneSeverity, getZonePrecip, getGameHour, getBirdClock, getEnvironmentState, getGameDate } from '../../server/engine/environment.js';
 import { fireSpecializedAction } from '../../server/engine/specializedActions.js';
 import { applyTopical } from '../../server/engine/topical.js';
-import { getZonePlayers, tileSurroundings } from '../../server/engine/world.js';
+import { getZonePlayers, tileSurroundings, world } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { carriedFluids } from './hangars.js';
 // ⚠ THE SAME MODULE THE WINDSHIELD DRAWS FROM. A bird strike has to come from a flock the pilot
@@ -562,9 +562,8 @@ async function cmdChart(args, raw, player) {
   if (avionicsDead(live)) return { type: 'emote', message: '<span class="text-amber">The nav head is dark. No fix, no fuel figure, no field: you have a compass, a watch and the ground.</span>' };
   const a = live.row, eff = effStats(live);
   // Nearest airfield (by chebyshev distance over coords).
-  const { rows: fields } = await query(
-    "SELECT id, name, grid_x, grid_y FROM zones WHERE map_id='map_world' AND flags ? 'airfield_id'"
-  );
+  const fields = [...world.zones.values()].filter(z =>
+    z.map_id === 'map_world' && Object.hasOwn(z.flags || {}, 'airfield_id'));
   let nearest = null, best = Infinity;
   for (const f of fields) {
     if (f.grid_x == null) continue;

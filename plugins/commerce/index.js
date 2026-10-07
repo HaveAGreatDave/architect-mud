@@ -5,7 +5,7 @@
 // as combat math. SIFT ambiguous picks replay through the commerce.shop_vendor /
 // commerce.buy_item Actions (builtin replay can't reach plugin verbs).
 import { query, withTransaction } from '../../server/models/db.js';
-import { getZoneNpcs, getZone, getAllLivePlayers, getMinimapData, world, syncNpc, streetExitFrom } from '../../server/engine/world.js';
+import { getZoneNpcs, getZone, getZoneFurniture, getAllLivePlayers, getMinimapData, world, syncNpc, streetExitFrom } from '../../server/engine/world.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { getIdeologyDiscount } from '../../server/engine/ideologies.js';
 import { getItem } from '../../server/engine/items-cache.js';
@@ -496,11 +496,10 @@ registerAction({
     // put-back the engine does for `put <thing> in <cooler>`. No cooler here
     // (you're at the door of a back room, or it was a barrow) and the goods
     // simply revert to the vendor's stock.
-    const { rows: shelves } = await query(
-      `SELECT id FROM furniture WHERE zone_id=$1 AND flags->>'vendor_stock' IS NOT NULL LIMIT 1`, [actor.current_zone]);
-    if (shelves.length) {
+    const shelf = getZoneFurniture(actor.current_zone).find(f => f.flags?.vendor_stock != null);
+    if (shelf) {
       await query(`UPDATE player_inventory SET container_id=$1, is_equipped=0, slot=NULL, custom_data = custom_data - 'unpaid'
-                    WHERE id = ANY($2::text[])`, [shelves[0].id, lifted.map(r => r.id)]);
+                    WHERE id = ANY($2::text[])`, [shelf.id, lifted.map(r => r.id)]);
     } else {
       await query(`DELETE FROM player_inventory WHERE id = ANY($1::text[])`, [lifted.map(r => r.id)]);
     }

@@ -177,15 +177,18 @@ const SIREN_GAIN_OUTDOOR = 1.0;
 const SIREN_GAIN_INDOOR  = 1 / 3; // 3× quieter through walls
 
 async function loadStreetlightZones() {
-  const { rows } = await query(
-    `SELECT DISTINCT zone_id FROM furniture WHERE light_type = 'streetlight'`
-  );
-  espZones = new Set(rows.map(r => r.zone_id));
+  espZones = new Set();
+  for (const f of world.furniture.values()) {
+    if (f.light_type === 'streetlight' && f.zone_id) espZones.add(f.zone_id);
+  }
 }
 
 async function loadIndoorZones() {
   if (espZones.size === 0) { espIndoor = new Set(); return; }
   const { rows } = await query(
+    // query-lint-ok: the join needs maps.parent_zone_id, and the broadcast studio
+    // builder INSERTs maps without reloadMaps, so world.maps can miss a new interior.
+    // One round trip per siren activation.
     `SELECT z.id FROM zones z
        JOIN maps m ON z.map_id = m.id
       WHERE m.parent_zone_id = ANY($1)`,
@@ -322,9 +325,11 @@ function removeTrackedArbiter(instanceId, docked) {
 async function activateArbiters() {
   if (arbitersActive) return { error: 'Arbiters already deployed' };
 
-  const { rows: arrayRows } = await query(
-    `SELECT DISTINCT zone_id FROM furniture WHERE name ILIKE '%arbiter%'`
-  );
+  const arrayZones = new Set();
+  for (const f of world.furniture.values()) {
+    if (f.zone_id && (f.name || '').toLowerCase().includes('arbiter')) arrayZones.add(f.zone_id);
+  }
+  const arrayRows = [...arrayZones].map(zone_id => ({ zone_id }));
   if (!arrayRows.length) return { error: 'No Arbiter Array furniture found in DB: create furniture named "Arbiter Array" and assign it to a zone' };
 
   const { rows: templates } = await query(

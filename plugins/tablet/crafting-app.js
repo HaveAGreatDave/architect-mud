@@ -20,7 +20,7 @@
 // Bench rule: a bench is shown ONLY when a recipe specifies a station (all cooks
 // need a chem lab). Rolling and stationless recipes read "No bench".
 import { query } from '../../server/models/db.js';
-import { getZone } from '../../server/engine/world.js';
+import { getZone, getZoneFurniture, world } from '../../server/engine/world.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { getRecipeCache } from '../../server/engine/crafting.js';
@@ -73,21 +73,22 @@ async function drugSets(playerId) {
   return { drugItems: new Set(all.map(r => r.item_id)), consumed: new Set(used.map(r => r.item_id)) };
 }
 
+// flags->>'crafting_station' = station, read off the cached row.
+const isStation = (f, station) =>
+  f.flags?.crafting_station != null && String(f.flags.crafting_station) === station;
+
 // Is there a bench of this station type in the given zone?
 async function zoneHasStation(zoneId, station) {
-  const { rows } = await query(
-    `SELECT 1 FROM furniture WHERE zone_id=$1 AND flags->>'crafting_station'=$2 LIMIT 1`,
-    [zoneId, station]
-  );
-  return rows.length > 0;
+  return getZoneFurniture(zoneId).some(f => isStation(f, station));
 }
 
 // Nearest reachable zone holding this station type → { zoneId, name, hops, path } | null.
 async function nearestBench(player, station) {
-  const { rows } = await query(
-    `SELECT DISTINCT zone_id FROM furniture WHERE flags->>'crafting_station'=$1`,
-    [station]
-  );
+  const zoneIds = new Set();
+  for (const f of world.furniture.values()) {
+    if (f.zone_id && isStation(f, station)) zoneIds.add(f.zone_id);
+  }
+  const rows = [...zoneIds].map(zone_id => ({ zone_id }));
   if (rows.some(r => r.zone_id === player.current_zone)) {
     const z = getZone(player.current_zone);
     return { zoneId: player.current_zone, name: z?.name || player.current_zone, hops: 0, path: [player.current_zone] };

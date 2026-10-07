@@ -13,7 +13,7 @@ import {
   getAllLivePlayers, getZone, getAllZones, getApartment, setApartmentCache,
   getZoneControl, setZoneControlCache, getOrgZones, getAllZoneControl,
   getZoneAssets, getOrgAssets, reloadZoneAssets,
-  insertFurniture, deleteFurnitureWhere,
+  insertFurniture, deleteFurnitureWhere, getZoneFurniture,
 } from '../../server/engine/world.js';
 import { PERM, PERM_ALL, hasPerm } from '../../server/engine/org-perms.js';
 import { zoneDanger } from '../../server/engine/danger.js';
@@ -1015,8 +1015,7 @@ async function cmdRaid(player, broadcast) {
 // Every claimed HQ gets a wall-mounted ops terminal (idempotent) — the diegetic
 // entry to the console; `use` it (doUseCorpTerminal) to open it.
 async function ensureCorpTerminal(zoneId) {
-  const { rows } = await query(`SELECT 1 FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'corp_terminal') LIMIT 1`, [zoneId]);
-  if (rows.length) return;
+  if (getZoneFurniture(zoneId).some(f => Object.hasOwn(f.flags || {}, 'corp_terminal'))) return;
   await insertFurniture({
     id: randomUUID(), zone_id: zoneId, name: 'corp ops terminal',
     description: 'A wall-mounted command terminal, its screen aglow with the corp sigil. USE it to open the ops console.',
@@ -1162,11 +1161,10 @@ async function cmdCorp(args, raw, player, broadcast) {
 // falls through when there's no terminal here. Bound to the HQ's owning corp.
 async function doUseCorpTerminal(args, raw, player) {
   const hint = (args.join(' ') || '').trim();
-  const { rows } = await query(
-    `SELECT id FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'corp_terminal')` +
-    (hint ? ' AND name ILIKE $2' : '') + ' LIMIT 1',
-    hint ? [player.current_zone, `%${hint}%`] : [player.current_zone]);
-  if (!rows.length) return undefined; // no corp terminal here — fall through
+  const want = hint.toLowerCase();
+  const terminal = getZoneFurniture(player.current_zone).find(f =>
+    Object.hasOwn(f.flags || {}, 'corp_terminal') && (!want || (f.name || '').toLowerCase().includes(want)));
+  if (!terminal) return undefined; // no corp terminal here — fall through
   const m = getPlayerMembership(player.id);
   if (!m) return err('The terminal blinks: CORP CREDENTIALS REQUIRED.');
   const apt = getApartment(player.current_zone);

@@ -14,7 +14,7 @@ import { loggedPanelsSync } from '../../server/engine/presentation.js';
 import { textRender } from '../../server/engine/minigame.js';
 import { query } from '../../server/models/db.js';
 import { adjustCredits } from '../../server/engine/economy.js';
-import { getZone, getZonePlayers, getZoneNpcs, getZoneEnemies, getLivePlayer, getAllLivePlayers, spawnEnemySync, removeEnemyInstance, hasActivePlayers, world, insertFurniture, updateFurniture, deleteFurniture, getFurnitureById } from '../../server/engine/world.js';
+import { getZone, getZonePlayers, getZoneNpcs, getZoneEnemies, getLivePlayer, getAllLivePlayers, spawnEnemySync, removeEnemyInstance, hasActivePlayers, world, insertFurniture, updateFurniture, deleteFurniture, getFurnitureById, getZoneFurniture } from '../../server/engine/world.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 // Pathing, stepping and neighbour lookups all left with `huntStep` — the search is
 // the engine's CHASE node now, so this plugin no longer moves anything itself.
@@ -171,12 +171,9 @@ async function cmdRetrieve(args, raw, player) {
   const nameHint = args.join(' ').trim();
   if (!nameHint) return { type: 'error', message: 'Retrieve what? Try "retrieve <device name>".' };
 
-  const { rows } = await query(
-    `SELECT id, name, flags FROM furniture
-     WHERE zone_id=$1 AND jsonb_exists(flags, 'security_device') AND name ILIKE $2 LIMIT 1`,
-    [player.current_zone, `%${nameHint}%`]
-  );
-  const furn = rows[0];
+  const want = nameHint.toLowerCase();
+  const furn = getZoneFurniture(player.current_zone).find(f =>
+    Object.hasOwn(f.flags || {}, 'security_device') && (f.name || '').toLowerCase().includes(want));
   if (!furn) return { type: 'error', message: `There's no "${nameHint}" here to retrieve. Try "sweep" first.` };
 
   const itemId = furn.flags?.security_item_id;
@@ -647,13 +644,10 @@ async function doUseSpyDeck(args, raw, player) {
 
 // use <security console> — fixed furniture path.
 async function doUseConsole(args, raw, player) {
-  const nameHint = args.join(' ').trim();
-  const params = [player.current_zone];
-  let sql = `SELECT id FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'security_console')`;
-  if (nameHint) { sql += ` AND name ILIKE $2`; params.push(`%${nameHint}%`); }
-  sql += ' LIMIT 1';
-  const { rows } = await query(sql, params);
-  if (!rows.length) return undefined;
+  const want = args.join(' ').trim().toLowerCase();
+  const station = getZoneFurniture(player.current_zone).find(f =>
+    Object.hasOwn(f.flags || {}, 'security_console') && (!want || (f.name || '').toLowerCase().includes(want)));
+  if (!station) return undefined;
   return openHubFor(player);
 }
 
@@ -2811,11 +2805,9 @@ async function cmdBribe(args, raw, player) {
 
 // scrub — hack a PD terminal to wipe a star off your record.
 async function cmdScrub(args, raw, player) {
-  const { rows } = await query(
-    `SELECT id FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'police_terminal') LIMIT 1`,
-    [player.current_zone]
-  );
-  if (!rows.length) return { type: 'error', message: "There's no police terminal here to scrub." };
+  if (!getZoneFurniture(player.current_zone).some(f => Object.hasOwn(f.flags || {}, 'police_terminal'))) {
+    return { type: 'error', message: "There's no police terminal here to scrub." };
+  }
   const s = wantedState(player.id);
   if (s.stars <= 0) return { type: 'error', message: "Your record's already clean." };
   const chk = await skillCheck(player, 'hacking', 4 + s.stars);

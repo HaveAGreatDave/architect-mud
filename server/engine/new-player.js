@@ -7,6 +7,7 @@ import { randomUUID, randomBytes } from 'crypto';
 import { query } from '../models/db.js';
 import { world } from './world.js';
 import { evictPlayerFlags, setFlagById } from './flags.js';
+import { emit } from './events.js';
 import { randomAppearance } from './appearance.js';
 import { maxHpForEndurance } from './ip.js';
 import { ensureTunables } from './tunables.js';
@@ -116,6 +117,8 @@ export async function purgePlayers(ids) {
     ...PURGE_OWNER_TABLES.map(t => query(`DELETE FROM ${t} WHERE owner_id = ANY($1)`, [offline]).catch(() => {})),
   ]);
   for (const id of offline) evictPlayerFlags(id);
+  // Plugins that mirror a wiped table in RAM (jail's roster) drop these players too.
+  emit('player.wiped', { playerIds: offline });
   const { rowCount } = await query('DELETE FROM players WHERE id = ANY($1)', [offline]);
   return rowCount;
 }

@@ -265,6 +265,7 @@ export async function runVentureTick() {
     // Pay upkeep from the treasury or go dormant — one guarded transaction per
     // venture (N is tiny). A dormant business revives the moment upkeep is affordable.
     const active = await withTransaction(async (q) => {
+      // query-lint-ok: row lock on the treasury inside the transaction that pays upkeep.
       const org = await q('SELECT treasury FROM orgs WHERE id=$1 FOR UPDATE', [v.org_id]);
       if (!org.rows.length) return false;
       if (org.rows[0].treasury < upkeep) {

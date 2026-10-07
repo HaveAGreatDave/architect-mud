@@ -210,14 +210,14 @@ Returns `true` if the player's rep ≥ `min_faction_rep`. Gates `deposit`, `with
 
 ## Replenish tick
 
-`replenishTick()` runs every 5 minutes via `setInterval`:
+`replenishTick()` runs every 5 minutes through `schedule('5m')`, so only while someone is online. It keeps each drained, unbroken unit's refill clock in RAM (`refillClock`: id → `last_replenish`, interval) and skips the tick, with no query, until a clock is due. Deposit, withdraw, drain and the dev routes update the clock where they write `atm_units`; the `INSERT`s elsewhere create full units, which need no clock. The first tick after boot, and any tick with a unit due, reads:
 
 ```
 SELECT id, cash_max, replenish_interval_hours, last_replenish
 FROM atm_units WHERE cash_stock < cash_max AND is_broken = 0
 ```
 
-For each row, if the interval has elapsed, sets `cash_stock = cash_max` and updates `last_replenish`. The interval is **game-time scaled** (`gameMsToReal(replenish_interval_hours × 3600 × 1000)`) — it tracks the sped-up game day, not raw real hours. Broken ATMs are excluded. There is also an admin-only `.hackpreview` command that previews the Circuit Breach overlay at arbitrary difficulty/skill.
+That read re-seeds the clocks from the table. For each row, if the interval has elapsed, sets `cash_stock = cash_max` and updates `last_replenish`, all due units in one `UPDATE`. The interval is **game-time scaled** (`gameMsToReal(replenish_interval_hours × 3600 × 1000)`) — it tracks the sped-up game day, not raw real hours. Broken ATMs are excluded. There is also an admin-only `.hackpreview` command that previews the Circuit Breach overlay at arbitrary difficulty/skill.
 
 ---
 

@@ -152,6 +152,9 @@ export default async function regress({ run, check }) {
     check('the takings land in the till, not the owner\'s pocket',
       getDeed(ZONE).till_credits === 250 && owner.credits === 4800, `till=${getDeed(ZONE).till_credits} credits=${owner.credits}`);
     check('the display is empty again', (await _test.listingsFor(ZONE)).length === 0);
+    // The shelf is held in RAM: a sale drops the copy, the next read caches the
+    // empty shelf, and a stock drops it again so the new line shows.
+    check('an empty shelf is cached as empty', _test.listingCache.get(ZONE)?.length === 0);
 
     r = await _test.cmdBuyWare(['trinket'], owner);
     check("the owner can't buy from their own bare display", /display is bare/i.test(r.message), r.message);
@@ -176,6 +179,7 @@ export default async function regress({ run, check }) {
     await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,is_equipped) VALUES ($1,$2,$3,1,0)
                  ON CONFLICT (id) DO UPDATE SET player_id=$2, custom_data=NULL`, [invId, OWNER, ITEM]);
     await _test.cmdStock(['regress trinket for 250'], owner);
+    check('stocking drops the cached shelf', !_test.listingCache.has(ZONE));
 
     r = await _test.cmdPocket(['trinket'], buyer);
     check('pocket lifts the item off the display', /isn't yours yet/.test(r.message), r.message);
@@ -236,10 +240,12 @@ export default async function regress({ run, check }) {
     // absurd price must be ignored and a fair one must sell.
     const shelf = (await _test.listingsFor(ZONE))[0];
     await query(`UPDATE player_inventory SET custom_data = jsonb_build_object('list_price', 9999) WHERE id=$1`, [shelf.id]);
+    _test.dropListings(ZONE);   // a raw write to the shelf: the cached copy has to go
     await _test.footfallTick(true);
     check("passers-by won't pay an absurd markup", (await _test.listingsFor(ZONE)).length === 1);
 
     await query(`UPDATE player_inventory SET custom_data = jsonb_build_object('list_price', 12) WHERE id=$1`, [shelf.id]);
+    _test.dropListings(ZONE);
     const tillPreFootfall = getDeed(ZONE).till_credits;
     await _test.footfallTick(true);
     check('a fairly-priced shelf sells to passing trade', (await _test.listingsFor(ZONE)).length === 0);
@@ -249,6 +255,7 @@ export default async function regress({ run, check }) {
     // A shut shop takes no passing trade — that's the cost of closing.
     await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,custom_data) VALUES ($1,$2,$3,1,$4)`,
       [`${invId}_d`, _test.stockOwner(ZONE), ITEM, JSON.stringify({ list_price: 12 })]);
+    _test.dropListings(ZONE);
     await query('UPDATE storefronts SET shutters_closed=1 WHERE zone_id=$1', [ZONE]);
     setDeedShutters(ZONE, 1);
     await _test.footfallTick(true);
@@ -256,6 +263,7 @@ export default async function regress({ run, check }) {
     await query('UPDATE storefronts SET shutters_closed=0 WHERE zone_id=$1', [ZONE]);
     setDeedShutters(ZONE, 0);
     await query('DELETE FROM player_inventory WHERE player_id=$1', [_test.stockOwner(ZONE)]);
+    _test.dropListings(ZONE);
 
     // Payroll rides the billing cycle, so reset the till to a known figure and
     // clear the guard before the mortgage assertions below (which assume no wages).

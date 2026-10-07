@@ -768,4 +768,21 @@ export default async function regress({ run, check, getPlayer }) {
   check('the same blow that ruins a rat barely troubles a boss',
     enemySeverity(boss, 'left_leg') < enemySeverity(runner, 'left_leg'),
     `boss=${enemySeverity(boss, 'left_leg')} rat=${enemySeverity(runner, 'left_leg')}`);
+
+  // ── Sleep credit is not a write ──────────────────────────────────────────
+  // The minute tick backdates a sleeper's wounds. That alone used to mark the
+  // map dirty, so a sleeping, injured player wrote the flag every minute. Now
+  // the backdate waits in RAM for a severity step or logout.
+  {
+    const p = getPlayer();
+    const saved = { injuries: p._injuries, sleeping: p.sleeping, dirty: p._injuriesDirty, back: p._injuriesBackdated };
+    p._injuries = new Map([['torso', { sev: HURT, type: 'kinetic', at: Date.now() }]]);
+    p.sleeping = true; p._injuriesDirty = false; p._injuriesBackdated = false;
+    await hooks['tick.minute']();
+    check('a sleeper\'s backdate is held in RAM', p._injuriesBackdated === true);
+    check('…and does not mark the map dirty (no flag write)', p._injuriesDirty === false);
+    check('…while the stamp still moved back', p._injuries.get('torso').at < Date.now() - 60_000);
+    p._injuries = saved.injuries; p.sleeping = saved.sleeping;
+    p._injuriesDirty = saved.dirty; p._injuriesBackdated = saved.back;
+  }
 }

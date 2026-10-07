@@ -3,7 +3,7 @@
 // cannot tell a working gate from a broken verb (see powerboat's regress on the same point).
 import { newSub, stepSub, HULL_TIERS, tierOf, crushRate, bearing, MIN_WATER, regenAir, REGEN_S, MIN_AIR_FRAC, FLOOD_S, DESCEND_MS, PLANE_MS, SUB_CEIL } from './sub.js';
 import { subs, subTick, regenTick, isLandTile, floorUnder, airMaxOf } from './index.js';
-import { liveAircraft, bounds, surfaceAt } from '../flight/state.js';
+import { liveAircraft, bounds, surfaceAt, persistIfChanged } from '../flight/state.js';
 import { getAllZones, zoneTerrain } from '../../server/engine/world.js';
 import { wildlandsAt } from '../../client/shared/wildlands.js';
 
@@ -166,5 +166,21 @@ export default async function regress({ run, check, getPlayer }) {
   } finally {
     subs.delete(id); liveAircraft.delete(id);
     p.aircraftId = saved.aircraftId; p.seat = saved.seat;
+  }
+
+  // ── The periodic save skips a row that hasn't changed ─────────────────────
+  // flight's tick and the dive both save through persistIfChanged. The id matches
+  // no aircraft, so each write that does go out updates nothing.
+  {
+    const live = { row: { id: `regress_persist_${process.pid}`, grid_x: 1, grid_y: 2, altitude_band: 'ground', heading: 'n',
+      parked_zone_id: null, fuel: 10.5, throttle: 0, engine_temp: 20, damage: 0, airborne: 0, engine_on: 1, is_wreck: 0, custom_data: {} } };
+    check('persistIfChanged writes the first time', (await persistIfChanged(live)) === true);
+    check('persistIfChanged skips an unchanged row', (await persistIfChanged(live)) === false);
+    live.row.engine_temp = 20.0000001;   // below what a REAL column keeps
+    check('persistIfChanged ignores a change the column cannot store', (await persistIfChanged(live)) === false);
+    live.row.grid_x = 3;
+    check('persistIfChanged writes a moved row', (await persistIfChanged(live)) === true);
+    live.row.custom_data = { sub_air: 40 };
+    check('persistIfChanged sees a custom_data change', (await persistIfChanged(live)) === true);
   }
 }

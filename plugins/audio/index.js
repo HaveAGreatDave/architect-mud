@@ -3,7 +3,7 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { query } from '../../server/models/db.js';
-import { getZone, getZonePlayers, getLivePlayer, getZoneFurniture, regionForZone, renderOf, specOf, zoneTerrain } from '../../server/engine/world.js';
+import { getZone, getZonePlayers, getLivePlayer, getZoneFurniture, getFurnitureById, regionForZone, renderOf, specOf, zoneTerrain } from '../../server/engine/world.js';
 import { resolveDefault } from '../../scripts/content/derive.mjs';
 import { neighborZoneIds } from '../../server/engine/exits.js';
 import { sendToZone, sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
@@ -1531,8 +1531,7 @@ on('door.toggled', ({ zoneId, targetZoneId }) => {
 // entirely client-side in client/game/js/panels/tv.js instead.
 on('device.tuned', async ({ furnitureId }) => {
   if (!furnitureId) return;
-  const { rows } = await query('SELECT zone_id FROM furniture WHERE id=$1', [furnitureId]);
-  const targetZone = rows[0]?.zone_id;
+  const targetZone = getFurnitureById(furnitureId)?.zone_id;
   if (!targetZone) return;
   const def = sfxByName('tv_relay_click');
   if (def) sendToZone(targetZone, { type: 'audio_sfx', def });

@@ -38,6 +38,7 @@ import { effectiveSkill, SKILLS } from '../../server/engine/skills.js';
 import { setFlag } from '../../server/engine/flags.js';
 import { sendToPlayer, teachVerb } from '../../server/engine/messaging.js';
 import { world } from '../../server/engine/world.js';
+import { on } from '../../server/engine/events.js';
 import { buildImpairment } from './penalties.js';
 // Side-effect import: registers the enemy-side damage observer (§8b). Kept as a
 // separate module because the two halves share only `severityFor` — the enemy
@@ -335,6 +336,7 @@ export function clearInjuries(player, { parts = null, minSeverity = 1 } = {}) {
 export async function flushInjuries(player) {
   if (!player?._injuriesDirty) return;
   player._injuriesDirty = false;
+  player._injuriesBackdated = false;   // the write carries every stamp, backdates included
   const map = injuriesOf(player);
   try {
     await setFlag('player', FLAG_KEY, serialize(map), player);
@@ -343,6 +345,16 @@ export async function flushInjuries(player) {
     console.error(`[injury] flush failed for ${player.id}: ${e.message}`);
   }
 }
+
+// Logout is the last chance to save what the minute tick hasn't: a dirty map,
+// or sleep credit that hasn't reached a severity step yet. The player is still
+// live when this event fires; the object is held for the async write.
+on('player.logout', ({ id } = {}) => {
+  const player = world.players.get(id);
+  if (!player || !(player._injuriesDirty || player._injuriesBackdated)) return;
+  player._injuriesDirty = true;
+  return flushInjuries(player);
+});
 
 // ── Hooks ────────────────────────────────────────────────────────────────────
 
@@ -371,10 +383,14 @@ export const hooks = {
       const map = injuriesOf(player);
       if (!map.size) { if (player._injuriesDirty) dirty.push(player); continue; }
 
+      // The backdate alone isn't worth a write: it lives in RAM until decay()
+      // turns it into a severity step (which marks dirty and saves the stamps
+      // with it) or until logout flushes it. A crash loses at most one step's
+      // worth of sleep credit.
       if (player.sleeping) {
         const bonus = (SLEEP_HEAL_MULTIPLIER - 1) * 60_000;
         for (const rec of map.values()) rec.at -= bonus;
-        player._injuriesDirty = true;
+        player._injuriesBackdated = true;
       }
       if (decay(player)) player._injuriesDirty = true;
       if (player._injuriesDirty) dirty.push(player);

@@ -2,7 +2,7 @@
 // production). Zone-independent paths only: the fake player's room contains no
 // ATM furniture and no teller, so these cover verb routing plus the pure
 // cap-arithmetic helpers rather than a real cash movement.
-import { txnCap, overCapMessage, DEFAULT_TXN_CAP, networkKey, allowanceFor, fmtWindowWait, ALLOWANCE_WINDOW_SEC } from './index.js';
+import { txnCap, overCapMessage, DEFAULT_TXN_CAP, networkKey, allowanceFor, fmtWindowWait, ALLOWANCE_WINDOW_SEC, _test } from './index.js';
 
 export default async function regress({ run, check, getPlayer }) {
   let r = await run('atm');
@@ -90,4 +90,21 @@ export default async function regress({ run, check, getPlayer }) {
   const withTeller = overCapMessage('withdraw', 9000, untouched, machine, teller);
   check('the refusal quotes the working syntax when a teller is present',
     /withdraw 9000 from robo/.test(withTeller), withTeller);
+
+  // ── The refill clock lives in RAM ──────────────────────────────────────────
+  // The 5-minute tick reads atm_units only when a held clock says a unit is due.
+  // A drained unit goes on the clock, a full or broken one comes off it.
+  const tid = 'atm_regress_unit';
+  const nowSec = Math.floor(Date.now() / 1000);
+  _test.noteUnit({ id: tid, cash_stock: 10, cash_max: 5000, is_broken: 0, last_replenish: nowSec, replenish_interval_hours: 6 });
+  check('a drained unit goes on the refill clock', _test.refillClock.has(tid));
+  check('a unit refilled just now is not due', _test.refillDue(_test.refillClock.get(tid), nowSec) === false);
+  check('…but is due once its interval has passed', _test.refillDue({ last: 0, hours: 6 }, nowSec) === true);
+  _test.noteUnit({ id: tid, cash_stock: 5000, cash_max: 5000, is_broken: 0 });
+  check('a full unit comes off the clock', !_test.refillClock.has(tid));
+  _test.noteUnit({ id: tid, cash_stock: 0, cash_max: 5000, is_broken: 1 });
+  check('a broken unit is never on the clock', !_test.refillClock.has(tid));
+  _test.noteUnit({ id: tid, cash_stock: 0, cash_max: 5000, is_broken: 0, last_replenish: nowSec });
+  _test.forgetUnit(tid);
+  check('forgetUnit takes a unit off the clock', !_test.refillClock.has(tid));
 }

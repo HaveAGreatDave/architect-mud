@@ -1726,6 +1726,13 @@ async function cmdStowById(argStr, player, broadcast) {
   return containerReply(view2, player, `You stow ${item.name} in ${container.name}.`);
 }
 
+// A row pulled out of a container into the puller's hands. `from` is the owner it
+// left: the puller's own bag, the ground, or somebody's shelf, so a plugin that
+// caches a shelf can drop its copy. See `item.received` in docs/scripting.md.
+function emitPulled(player, item) {
+  emit('item.received', { actor: player, item, from: item.player_id ?? null });
+}
+
 async function cmdPullById(idStr, qtyStr, player, broadcast) {
   const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1 AND pi.container_id IS NOT NULL`, [idStr]);
   if (!rows.length) return { type:'container_error', message:'Item not found.' };
@@ -1752,6 +1759,7 @@ async function cmdPullById(idStr, qtyStr, player, broadcast) {
         [randomUUID(), player.id, item.item_id, takeQty, JSON.stringify(vendorId ? { unpaid: vendorId } : {})]);
     }
     await query('UPDATE player_inventory SET quantity=quantity-$1 WHERE id=$2', [takeQty, item.id]);
+    emitPulled(player, item);
     const pePart = throttledContainerBroadcast(player, broadcast, container.name);
     const pvPart = await buildContainerView(containerId, player);
     if (pePart) pvPart.mainMsg = `You rummage through ${withArticle(container.name)}.`;
@@ -1764,6 +1772,7 @@ async function cmdPullById(idStr, qtyStr, player, broadcast) {
     if (existing.length) {
       await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [item.quantity, existing[0].id]);
       await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);
+      emitPulled(player, item);
       const pe1 = throttledContainerBroadcast(player, broadcast, container.name);
       const pv1 = await buildContainerView(containerId, player);
       if (pe1) pv1.mainMsg = `You rummage through ${withArticle(container.name)}.`;
@@ -1772,6 +1781,7 @@ async function cmdPullById(idStr, qtyStr, player, broadcast) {
   }
   await query(`UPDATE player_inventory SET container_id=NULL, player_id=$1${vendorId ? UNPAID_SET_SQL : ''} WHERE id=$2`,
     vendorId ? [player.id, item.id, vendorId] : [player.id, item.id]);
+  emitPulled(player, item);
   const pe2 = throttledContainerBroadcast(player, broadcast, container.name);
   const pv2 = await buildContainerView(containerId, player);
   if (pe2) pv2.mainMsg = `You rummage through ${withArticle(container.name)}.`;
@@ -2115,10 +2125,12 @@ async function pullOne(item, container, player) {
     if (existing.length) {
       await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [item.quantity, existing[0].id]);
       await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);
+      emitPulled(player, item);
       return { type:'pull', message:`You pull ${item.name} from ${container.name}.` };
     }
   }
   await query(`UPDATE player_inventory SET container_id=NULL, player_id=$1${vendorId ? UNPAID_SET_SQL : ''} WHERE id=$2`, vendorId ? [player.id, item.id, vendorId] : [player.id, item.id]);
+  emitPulled(player, item);
   if (vendorId) return { type:'pull', message:`You take ${item.name} from ${container.name}. ${unpaidNote(item.name)}` };
   return { type:'pull', message:`You pull ${item.name} from ${container.name}.` };
 }

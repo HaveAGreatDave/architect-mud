@@ -49,9 +49,10 @@ export function flashlightDrainRate(flags) {
 // The rule is that a lit light must never be missing from the set; a player in
 // it with nothing lit only costs one read, after which the tick drops them. So
 // every way a lit light can reach a player adds them: `light`, login (a lit
-// light kept from the last session), picking one up or being handed one, and the
-// perceive hook finding one (the catch-all for a move that fires no event, such
-// as a trade or a shop purchase). Entries leave at `turn off`, when the battery
+// light kept from the last session), picking one up or being handed one, getting
+// one any other way (`item.received`: a trade, a shop purchase, a container, the
+// Drake's locker), and the perceive hook finding one (the catch-all for a move
+// that still fires no event). Entries leave at `turn off`, when the battery
 // dies, and when the tick finds nothing lit.
 //
 // The value is a sequence number, so a tick whose read started before a player
@@ -185,8 +186,8 @@ export const hooks = {
         LIMIT 1`,
       [player.id]);
     if (!rows.length) return undefined;
-    // A lit light that reached this player by a move with no event (a trade, a
-    // shop purchase) is found here the first time it matters, and from then on
+    // A lit light that reached this player by a move with no event (a corp store
+    // withdrawal, a wardrobe) is found here the first time it matters, and from then on
     // the drain tick counts it down.
     if (!litHolders.has(player.id)) markLit(player.id);
     const boosted = floorVisibility(vis, LIT_FLOOR);
@@ -213,6 +214,12 @@ on('player.login', ({ id }) => {
 // no read is needed to tell.
 on('item.taken', ({ actor, item }) => { if (isLitRow(item)) markLit(actor?.id); });
 on('item.given', ({ recipient, item }) => { if (isLitRow(item)) markLit(recipient?.id); });
+// The moves that aren't a take or a give: a trade, a shop purchase, a pull out of
+// a container, the Drake's locker. Same row, same test.
+on('item.received', ({ actor, item }) => { if (isLitRow(item)) markLit(actor?.id); });
+
+// For the regress suite: is this player in the drain set?
+export const _test = { isLitHolder: (id) => litHolders.has(id), forgetLitHolder: (id) => litHolders.delete(id) };
 
 // Drain lit flashlights a unit per minute for online players; kill the beam and
 // warn the holder when the cell runs out.

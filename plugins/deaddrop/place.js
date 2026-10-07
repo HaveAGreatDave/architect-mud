@@ -28,7 +28,7 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { insertFurniture, deleteFurniture, getZoneFurniture, getFurnitureById } from '../../server/engine/world.js';
+import { insertFurniture, deleteFurniture, getZoneFurniture, getFurnitureById, world } from '../../server/engine/world.js';
 import { tagValue } from '../../server/engine/tags.js';
 
 const DEFAULT_CAPACITY = 4000;          // grams, if the item authors none
@@ -149,10 +149,9 @@ export function currentDay() {
 
 export async function sweepStaleCaches({ getZonesWithCaches } = {}) {
   const today = currentDay();
-  const { rows } = await query(
-    `SELECT id, name, zone_id, flags FROM furniture
-      WHERE object_type='container' AND origin='player' AND flags->>'dead_drop_placed'='true'`
-  ).catch(() => ({ rows: [] }));
+  // A snapshot, because deleteFurniture below edits the Map we'd be walking.
+  const rows = [...world.furniture.values()].filter(f =>
+    f.object_type === 'container' && f.origin === 'player' && String(f.flags?.dead_drop_placed) === 'true');
   let cleared = 0;
   for (const f of rows) {
     const placed = Number(f.flags?.placed_day);

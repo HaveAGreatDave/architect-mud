@@ -68,7 +68,23 @@ function endHigh(player) {
 }
 
 on('player.death',  ({ player }) => endHigh(player));
-on('player.logout', ({ id })     => endHigh(getAllLivePlayers().find(x => x.id === id)));
+on('player.logout', ({ id }) => {
+  const player = getAllLivePlayers().find(x => x.id === id);
+  flushMunchies(player);
+  endHigh(player);
+});
+
+// The munchies change hunger in RAM only; the engine's minute resourceTick sees
+// the change against its last-saved stamp and writes it in its one batched
+// UPDATE. The logout checkpoint doesn't carry hunger, so a player who logs off
+// inside that minute gets this one write, and only when the drain is unsaved.
+function flushMunchies(player) {
+  if (!player?._munchiesUnsaved) return;
+  player._munchiesUnsaved = false;
+  if (player._lastSavedResources?.hunger === player.hunger) return;
+  query('UPDATE players SET hunger=$1 WHERE id=$2', [player.hunger, player.id])
+    .catch(e => console.error('[cannabis] munchies logout write failed for', player.id, e.message));
+}
 
 // --- red eyes on examine -----------------------------------------------------
 
@@ -97,8 +113,9 @@ function highTick() {
       // The munchies: slowly drain hunger, occasionally narrate the craving.
       const newHunger = Math.max(0, (player.hunger ?? 100) - MUNCH_DRAIN);
       if (newHunger !== player.hunger) {
+        // RAM only: resourceTick's batched write persists it (see flushMunchies).
         player.hunger = newHunger;
-        query('UPDATE players SET hunger=$1 WHERE id=$2', [newHunger, player.id]).catch(e => console.error('[cannabis] munchies write failed for', player.id, e.message));
+        player._munchiesUnsaved = true;
         sendToPlayer(player.id, { type: 'player_update', hunger: newHunger });
       }
       if (Math.random() < CRAVE_CHANCE) {
@@ -119,4 +136,4 @@ function highTick() {
 schedule('15s', () => { try { highTick(); } catch (e) { console.error('[cannabis] tick error:', e.message); } });
 
 // Exposed for the regression suite.
-export const _test = { DEFAULT_HIGH_SECONDS, MUNCH_DRAIN, redEyes: (target, isSelf) => hooks['player.appearanceNotes']({ target, isSelf }) };
+export const _test = { DEFAULT_HIGH_SECONDS, MUNCH_DRAIN, highTick, redEyes: (target, isSelf) => hooks['player.appearanceNotes']({ target, isSelf }) };

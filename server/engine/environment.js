@@ -30,7 +30,7 @@ import { moonPhaseOf } from '../../client/shared/moon.js';
 import { setTimeScale, getTimeScale } from './gametime.js';
 import { logActivity } from '../models/db.js';
 import { emit } from './events.js';
-import { world, addExitOverride, removeExitOverride, insertFurniture, updateFurniture, updateFurnitureWhere, getZoneFurniture, propsOf, reloadZone } from './world.js';
+import { world, addExitOverride, removeExitOverride, insertFurniture, updateFurnitureWhere, getZoneFurniture, getFurnitureById, propsOf, reloadZone } from './world.js';
 import { neighborZoneIds, allExits, addExit } from './exits.js';
 // `deps.emitHook` is fireHook, handed in at init; this is the gather half, and it
 // is imported directly because plugins.js pulls in nothing but specializedActions
@@ -1136,13 +1136,16 @@ async function tick1m() {
     // catch-up math reconstructs exact time from any anchor, so a finer
     // anchor buys nothing and costs a write every minute forever.
     if (crossed30 || dayCrosses > 0) {
+      // last_tick_30m rides the same write when a 30-minute boundary is crossed,
+      // rather than tick30m sending a second UPDATE to the same row.
       await query(
-        `UPDATE world_clock SET game_time_minutes = $1, last_tick_1m = to_timestamp($2) WHERE id = 1`,
-        [state.minutes, state.lastTick1m / 1000]
+        `UPDATE world_clock SET game_time_minutes = $1, last_tick_1m = to_timestamp($2),
+                last_tick_30m = CASE WHEN $3 THEN now() ELSE last_tick_30m END WHERE id = 1`,
+        [state.minutes, state.lastTick1m / 1000, crossed30]
       );
     }
     for (let i = 0; i < dayCrosses; i++) await tick24h().catch(logError);
-    if (crossed30) await tick30m().catch(logError);
+    if (crossed30) await tick30m({ clockWritten: true }).catch(logError);
   }
   stepIndoorTemps();
   stepCabinTemps();
@@ -1256,7 +1259,7 @@ async function syncStreetlights(zoneFilter = null) {
 // Time is already up-to-date from the 1-minute tick — do NOT add 30 here.
 // ---------------------------------------------------------------------------
 
-async function tick30m() {
+async function tick30m({ clockWritten = false } = {}) {
   const { query, emitHook, broadcast } = deps;
 
   state.lastTick30m = Date.now();
@@ -1264,7 +1267,8 @@ async function tick30m() {
   const prevPhase = state.phase;
   recalcAmbientAndVisibility();
 
-  await query(`UPDATE world_clock SET last_tick_30m = now() WHERE id = 1`);
+  // tick1m already wrote last_tick_30m with the clock; the dev paths haven't.
+  if (!clockWritten) await query(`UPDATE world_clock SET last_tick_30m = now() WHERE id = 1`);
 
   // Reconcile streetlights against each zone's LOCAL ambient visibility, so a
   // block under a passing storm cell lights up while clear blocks stay dark —
@@ -1461,9 +1465,14 @@ async function applyPowerLightEffects(zoneId, prevStatus, newStatus, available, 
     const turnOff = forcedOff.filter(l => l.light_on !== 0).map(l => l.id);
     if (turnOn.length)  await updateFurnitureWhere(`UPDATE furniture SET light_on=1 WHERE id=ANY($1::text[])`, [turnOn]);
     if (turnOff.length) await updateFurnitureWhere(`UPDATE furniture SET light_on=0 WHERE id=ANY($1::text[])`, [turnOff]);
-    // Flickering devices randomly toggle each tick.
+    // Flickering devices randomly toggle each tick, in the cache only. The toggle
+    // is cosmetic and re-rolled every pass, so it isn't worth a write: this was one
+    // UPDATE per browned-out zone every five minutes, which is Neon's whole suspend
+    // window. The stored light_on keeps the last real state, and the next pass that
+    // turns the light fully on or off writes that state through the helpers above.
     for (const id of flickering) {
-      await updateFurniture(id, { light_on: Math.random() > 0.5 ? 1 : 0 });
+      const f = getFurnitureById(id);
+      if (f) f.light_on = Math.random() > 0.5 ? 1 : 0;
     }
 
     recalcZoneLoad(zoneId);

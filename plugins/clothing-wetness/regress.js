@@ -12,7 +12,7 @@ export default async function regress({ check, getPlayer }) {
   const { rainWettingRate, snowWettingRate, dryMultiplier, windMultiplier, humidityMultiplier,
           skinWetnessStep, SKIN_DRY_FACTOR, COVERED_SKIN_DRY_FACTOR,
           layerPassthrough, layerRank, slotsOf, stackFlux, drivenRainMultiplier,
-          absorbStep, dryStep, BODY_SLOTS, SLOT_AREA } = _test;
+          absorbStep, dryStep, storedWetness, BODY_SLOTS, SLOT_AREA } = _test;
 
   // Minutes for one exposed garment to go from bone-dry to soaked at a given precip rate.
   const minsToSoaked = (precip) => {
@@ -54,6 +54,16 @@ export default async function regress({ check, getPlayer }) {
     (100 - dryStep(100, 2)) > (10 - dryStep(10, 2)), `${100 - dryStep(100, 2)} vs ${10 - dryStep(10, 2)}`);
   check('drying still terminates rather than crawling at zero forever', dryStep(0.1, 2) === 0, String(dryStep(0.1, 2)));
   check('drying never goes negative', dryStep(0, 99) === 0, String(dryStep(0, 99)));
+  // A slow dry (under half a point a minute) used to round back to where it started
+  // and stall damp forever. Seeded so the check is deterministic.
+  {
+    let seed = 7;
+    const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    let w = 28, minutes = 0;
+    while (w > 0 && minutes < 2000) { w = storedWetness(dryStep(w, 1), true, rand); minutes++; }
+    check('a slow dry reaches zero instead of stalling damp', w === 0, `w=${w} after ${minutes} min`);
+    check('wetting still rounds to the nearest point', storedWetness(27.6, false) === 28 && storedWetness(27.4, false) === 27);
+  }
 
   // Absorption tapers toward saturation but still gets there.
   check('absorption slows as a garment fills', absorbStep(90, 10) - 90 < absorbStep(0, 10), 'tapered');

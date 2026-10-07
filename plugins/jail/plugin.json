@@ -7,7 +7,7 @@
   "specializedActions": [{ "verb": "read", "requiredTag": "charge_sheet" }],
   "hooks": ["player.respawnZone"],
   "actions": { "consumes": ["WANTED_RAISE", "WANTED_PEAK", "WANTED_CHARGES", "WANTED_CLEAR", "TELEPORT", "CHARGE_CRIME"], "provides": ["ARREST"] },
-  "events": { "consumes": ["zone.entered", "player.logout"], "emits": [] },
+  "events": { "consumes": ["zone.entered", "player.logout", "player.wiped"], "emits": [] },
   "ticks": ["evidence purge (hourly)", "shift rotation + wanted-decay HUD (1m)"],
   "routePrefix": "/jail"
 }

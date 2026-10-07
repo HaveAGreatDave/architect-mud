@@ -12,6 +12,7 @@
 import { getPlayerIdeologyRep, classifyLean, PATHS, REP_TIERS } from '../../../server/engine/ideologies.js';
 import { getFlag } from '../../../server/engine/flags.js';
 import { query } from '../../../server/models/db.js';
+import { getOrg, world } from '../../../server/engine/world.js';
 import { registerCodexSection } from './sections.js';
 
 const STANCE_FLAG = 'stance_axis';               // -100 renounce .. +100 redeem
@@ -50,18 +51,18 @@ export async function buildOrders(player) {
   for (const p of PATHS) paths[p] = Number(await getFlag('player', pathFlag(p), player)) || 0;
   const lean = classifyLean(stance, paths, reps);
 
-  // Reader copy (motto/pull/tenets/path_text/relnote) + relations + the agents
-  // you meet in the world — all in set-based queries (no per-row loop), fetched
-  // together since they're independent.
-  const [flagRows, relRows, npcRows] = await Promise.all([
-    query('SELECT id, flags FROM orgs WHERE id = ANY($1)', [ids]),
-    query(`SELECT rel.org_id, o.name AS other_name, rel.stance
+  // Reader copy (motto/pull/tenets/path_text/relnote) comes off world.orgs: orgs.flags
+  // is authored and nothing at runtime writes it. The agents you meet in the world
+  // come off world.npcs. Only the relations still need the DB.
+  const relRows = await query(`SELECT rel.org_id, o.name AS other_name, rel.stance
              FROM org_relations rel JOIN orgs o ON o.id = rel.other_org_id
-            WHERE rel.org_id = ANY($1)`, [ids]),
-    query('SELECT name, faction FROM npcs WHERE faction = ANY($1) ORDER BY name', [ids]),
-  ]);
+            WHERE rel.org_id = ANY($1)`, [ids]);
 
-  const readerById = new Map(flagRows.rows.map(r => [r.id, r.flags?.reader || {}]));
+  const readerById = new Map(ids.map(id => [id, getOrg(id)?.flags?.reader || {}]));
+  const idSet = new Set(ids);
+  const npcRows = { rows: [...world.npcs.values()]
+    .filter(n => idSet.has(n.faction))
+    .sort((a, b) => (a.name || '').localeCompare(b.name || '')) };
 
   // opposed = hostile relations; "no quarrel" = the other orders neither self
   // nor opposed (relations are directional; we read this order's own row).

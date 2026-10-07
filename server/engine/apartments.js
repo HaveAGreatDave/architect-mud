@@ -1121,10 +1121,8 @@ export async function tickSleep(player, broadcastFn) {
 	player.last_slept_at = Math.min(Date.now(), (Number(player.last_slept_at) || Date.now()) + recovered);
 	player._fatigueDebtMs = 0;
 
-	await query(
-		"UPDATE players SET hp=$1, sanity=$2, stamina=$3, hunger=$4, thirst=$5, last_slept_at=$6 WHERE id=$7",
-		[player.hp, player.sanity, player.stamina, player.hunger, player.thirst, player.last_slept_at, player.id],
-	);
+	// No write here: resourceTick puts the sleeper in its one batched UPDATE at the end
+	// of the same tick. This was a round trip per sleeper per minute of its own.
 
 	if (Math.random() < 0.25) {
 		const noise = SLEEP_NOISES[Math.floor(Math.random() * SLEEP_NOISES.length)];

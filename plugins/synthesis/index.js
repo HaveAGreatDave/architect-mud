@@ -23,6 +23,7 @@ import { textRender } from '../../server/engine/minigame.js';
 import { getRecipeCache, findRecipeByName } from '../../server/engine/crafting.js';
 import { skillCheck, awardSkillUse, skillStatBonus, effectiveSkill } from '../../server/engine/skills.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
+import { getZoneFurniture } from '../../server/engine/world.js';
 import { getDrugCache } from '../../server/engine/drugs.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { getTunable } from '../../server/engine/tunables.js';
@@ -83,16 +84,12 @@ export function resolveIngredients(recipe, inventory) {
 // drugs without one).
 async function findWorkspace(recipe, player) {
   const wantStation = recipe.requires_station || 'chem_lab';
-  const { rows } = await query(
-    // A lab behind a concealment cabinet (plugins/concealment) is not a lab you can
-    // work at — `flags.concealed` is what keeps it out of the room, and cooking at
-    // furniture nobody can see would be the one hole that made the disguise pointless.
-    `SELECT id, flags FROM furniture
-      WHERE zone_id = $1 AND flags->>'crafting_station' = $2
-        AND COALESCE((flags->>'concealed')::boolean, false) = false
-      LIMIT 1`,
-    [player.current_zone, wantStation]
-  );
+  // A lab behind a concealment cabinet (plugins/concealment) is not a lab you can
+  // work at — `flags.concealed` is what keeps it out of the room, and cooking at
+  // furniture nobody can see would be the one hole that made the disguise pointless.
+  // The concealment plugin writes it as true or deletes it, and reads it by truth.
+  const rows = getZoneFurniture(player.current_zone).filter(f =>
+    f.flags?.crafting_station != null && String(f.flags.crafting_station) === wantStation && !f.flags.concealed).slice(0, 1);
   if (rows.length) {
     const q = rows[0].flags?.station_quality;
     const bonus = q === 'pristine' ? 4 : q === 'refined' ? 2 : 0;

@@ -16,7 +16,7 @@ import { schedule } from '../../server/engine/scheduler.js';
 import { getZone } from '../../server/engine/world.js';
 import { biomeOf } from '../flight/biomes.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
-import { liveAircraft, surfaceAt, bounds, persist, pushHud, crash, toOccupants } from '../flight/state.js';
+import { liveAircraft, surfaceAt, bounds, persist, persistIfChanged, pushHud, crash, toOccupants } from '../flight/state.js';
 import { seabedDepth, seabedMaterial, wrecksNear } from '../../client/shared/seabed.js';
 import { wildlandsAt } from '../../client/shared/wildlands.js';
 import { newSub, stepSub, tierOf, bearing, regenAir, MIN_WATER, MIN_AIR_FRAC, HULL_TIERS, FLOOD_S, BLOW_S } from './sub.js';
@@ -244,7 +244,14 @@ export async function subTick() {
       continue;
     }
     tell(live, sub);
-    if (sub._dirty && (sub._n = (sub._n || 0) + 1) % 5 === 0) { banked(live); persist(live).catch(() => {}); }
+    // Hull damage is written once, within 5 s of the hit, and the flag clears; it is set again
+    // only by the next hit. It used to stay set, so one scrape wrote the row every 5 s until
+    // she surfaced. persistIfChanged also skips the write when nothing moved since the last one.
+    if (sub._dirty && (sub._n = (sub._n || 0) + 1) % 5 === 0) {
+      sub._dirty = false;
+      banked(live);
+      persistIfChanged(live).catch(() => {});
+    }
   }
 }
 

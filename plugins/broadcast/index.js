@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import { textRender } from '../../server/engine/minigame.js';
 import { query } from '../../server/models/db.js';
 import { schedule } from '../../server/engine/scheduler.js';
-import { world, getZonePlayers, getZone, getZoneNpcs, getZoneEnemies, reloadZone, hasActivePlayers, insertFurniture, updateFurniture, deleteFurnitureWhere, getZoneFurniture, resolveLanding, getNpcsByFlag, moveNpcToZone } from '../../server/engine/world.js';
+import { world, getZonePlayers, getZone, getZoneNpcs, getZoneEnemies, reloadZone, hasActivePlayers, insertFurniture, updateFurniture, deleteFurnitureWhere, getZoneFurniture, getFurnitureById, resolveLanding, getNpcsByFlag, moveNpcToZone } from '../../server/engine/world.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messaging.js';
 import { escAttr } from '../../server/engine/text.js';
@@ -57,11 +57,24 @@ function _hslToHex(h, s, l) {
   return '#'+[r+m,g+m,b+m].map(v=>Math.round(v*255).toString(16).padStart(2,'0')).join('');
 }
 async function _studioTileColor() {
-  const { rows } = await query(`SELECT color FROM zones WHERE id='zone_start' LIMIT 1`);
-  const ref = rows[0]?.color;
+  const ref = getZone('zone_start')?.color;
   const [,s,l] = ref && /^#[0-9a-f]{6}$/i.test(ref) ? _hexToHsl(ref) : [0, 0.55, 0.45];
   const hue = Math.random() * 360;
   return _hslToHex(hue, s, l);
+}
+
+// The map_world zone on grid x,y, read off world.zones. `groundOnly` keeps the
+// old COALESCE(grid_z,0)=0 filter; without it any layer matches, as the
+// create-studio lookup always did. Dev-panel studio routes only, so a scan is fine.
+// Transient zones never carry map_world, so they can't answer.
+function _worldTileAt(x, y, groundOnly) {
+  const gx = Number(x), gy = Number(y);
+  for (const z of world.zones.values()) {
+    if (z.map_id !== 'map_world' || z.grid_x !== gx || z.grid_y !== gy) continue;
+    if (groundOnly && (z.grid_z ?? 0) !== 0) continue;
+    return z;
+  }
+  return null;
 }
 
 // ── In-memory state ──────────────────────────────────────────────────────────
@@ -228,8 +241,8 @@ async function powerOffWatchedTv(playerId, channelId) {
   if (!deviceIds.length) return; // nothing to power off (e.g. player already left the room)
 
   for (const fid of deviceIds) {
-    const { rows } = await query('SELECT * FROM furniture WHERE id=$1', [fid]).catch(() => ({ rows: [] }));
-    if (rows.length) await _applyTuning(rows[0], TV_OFF, zoneId); // power button (hold) — drops the zone from ambient ticks
+    const device = getFurnitureById(fid);
+    if (device) await _applyTuning(device, TV_OFF, zoneId); // power button (hold) — drops the zone from ambient ticks
   }
 
   // The physical set is now off — close any co-watcher's panel too.
@@ -700,12 +713,10 @@ async function scanChannelDay(channelId) {
   const add = (severity, code, msg, extra = {}) => issues.push({ severity, code, msg, ...extra });
 
   // Channel-level: the transmitter (media deck). Without a powered one, dark.
-  const { rows: deckRows } = await query(
-    `SELECT id, zone_id FROM furniture WHERE flags->>'media_deck'='true' AND flags->>'channel_id'=$1 LIMIT 1`, [channelId]
-  );
-  if (!deckRows.length) add('error', 'no_transmitter', "No media deck (transmitter) linked — this channel can't broadcast; it stays dark.");
-  else if (deckRows[0].zone_id) {
-    const z = getZone(deckRows[0].zone_id);
+  const chDeck = _channelDeck(channelId);
+  if (!chDeck) add('error', 'no_transmitter', "No media deck (transmitter) linked — this channel can't broadcast; it stays dark.");
+  else if (chDeck.zone_id) {
+    const z = getZone(chDeck.zone_id);
     if (z && z.powerStatus === 'offline') add('warn', 'transmitter_unpowered', 'The media deck sits in a blacked-out zone — off air until power returns.');
   }
   if (!ch.offline_graphic_id) add('info', 'no_offline_graphic', 'No offline graphic set — off-air / technical difficulties will show plain stand-by text, not a graphic.');
@@ -4549,6 +4560,25 @@ async function _pirateItemDur(id) {
   return dur;
 }
 
+// A JSONB flag the old SQL tested with `flags->>'x'='true'`: that matched a
+// boolean true and the string "true", so this does too.
+function _jsonTrue(v) { return v === true || v === 'true'; }
+
+// The media deck linked to `channelId`, wherever it stands, from the furniture
+// cache. Mirrors the old `flags->>'channel_id'=$1 AND flags->>'media_deck'='true'
+// LIMIT 1` scan, so the channel id compares as text. That query had no ORDER BY;
+// the first match in the Map is as good an answer as Postgres's first row was.
+// Returns the cached row: clone its flags (_deckFlags) before changing them.
+function _channelDeck(channelId) {
+  if (channelId == null) return null;
+  const want = String(channelId);
+  for (const f of world.furniture.values()) {
+    const fl = f.flags;
+    if (fl && _jsonTrue(fl.media_deck) && fl.channel_id != null && String(fl.channel_id) === want) return f;
+  }
+  return null;
+}
+
 // Zone's media deck, served from the write-funneled furniture cache in world.js —
 // the broadcast tick asks once a second per watched channel, so this must never
 // hit the DB. Key-presence match, exactly what the old
@@ -6585,11 +6615,11 @@ async function recalculateNpcSchedules() {
   // staffed (e.g. a scripted show's attributed speaker that a prior buggy pass
   // commuted on-stage) is reset to a plain wander graph so it stops appearing.
   const { rows: szRows } = await query(`SELECT studio_zone_id FROM media_channels WHERE studio_zone_id IS NOT NULL`);
-  const studioZoneIds = szRows.map(r => r.studio_zone_id);
-  if (studioZoneIds.length) {
-    const { rows: strays } = await query(
-      `SELECT id FROM npcs WHERE work_zone_id = ANY($1)`, [studioZoneIds]
-    ).catch(() => ({ rows: [] }));
+  const studioZoneIds = new Set(szRows.map(r => r.studio_zone_id));
+  if (studioZoneIds.size) {
+    // world.npcs carries work_zone_id: every writer of it (this pass, the dev
+    // panel's NPC save) patches the live NPC alongside the row.
+    const strays = [...world.npcs.values()].filter(n => n.work_zone_id && studioZoneIds.has(n.work_zone_id));
     const neutral = JSON.stringify(makeWanderGraph());
     for (const npc of strays) {
       if (liveStaff.has(npc.id)) continue; // legitimately staffed — leave alone
@@ -7654,9 +7684,8 @@ registerAction({
     if (!furniture_id || channel_number == null) {
       return { type: 'error', message: 'TUNE_DEVICE requires furniture_id and channel_number.' };
     }
-    const { rows: fRows } = await query('SELECT * FROM furniture WHERE id=$1', [furniture_id]);
-    if (!fRows.length) return { type: 'error', message: 'Device not found.' };
-    const furniture = fRows[0];
+    const furniture = getFurnitureById(furniture_id);
+    if (!furniture) return { type: 'error', message: 'Device not found.' };
 
     const result = await _applyTuning(furniture, channel_number, furniture.zone_id);
     if (result.status === 'off') {
@@ -8029,6 +8058,14 @@ function _deckFlags(deck) {
   return typeof deck.flags === 'string' ? JSON.parse(deck.flags || '{}') : {};
 }
 
+// The shape the pirate paths used to SELECT (furniture LEFT JOIN zones for the
+// room name), built from the cached row. A new object, so a caller that sets
+// deck.flags on it leaves the cache alone.
+function _deckView(f) {
+  if (!f) return null;
+  return { id: f.id, name: f.name, flags: f.flags, zone_id: f.zone_id, zone_name: (f.zone_id && getZone(f.zone_id)?.name) ?? null };
+}
+
 // ── Broadcast Piracy (SPECTER) ────────────────────────────────────────────────
 // A media deck is a station's transmitter. With the pirate firmware flashed onto
 // their tablet, a player can hijack the deck (the Signal Hijack minigame) and
@@ -8152,11 +8189,7 @@ async function cmdPirateResolve(args, raw, player) {
   pendingPirate.delete(player.id);
   if (!pending || pending.deckId !== deckId || Date.now() - pending.ts > 180000) return { type: 'noop' };
 
-  const { rows } = await query(
-    `SELECT f.id, f.name, f.flags, f.zone_id, z.name AS zone_name FROM furniture f
-       LEFT JOIN zones z ON z.id = f.zone_id WHERE f.id=$1`, [deckId]
-  );
-  const deck = rows[0];
+  const deck = _deckView(getFurnitureById(deckId));
   if (!deck) return { type: 'error', message: 'The deck is gone.' };
   const dflags = _deckFlags(deck);
   const stationName = channelRuntime.get(dflags.channel_id)?.stationName || deck.name;
@@ -8333,11 +8366,12 @@ on('player.death', ({ player }) => {
 // on-site captor edits the deck in front of them), else the single one they hold
 // (remote control), else null with an ambiguity flag.
 async function _findPiratedDeck(player) {
-  const { rows } = await query(
-    `SELECT f.id, f.name, f.flags, f.zone_id, z.name AS zone_name FROM furniture f
-       LEFT JOIN zones z ON z.id = f.zone_id
-      WHERE jsonb_exists(f.flags,'media_deck') AND f.flags->>'pirate_owner'=$1`, [player.id]
-  ).catch(() => ({ rows: [] }));
+  // Key presence on media_deck (the old jsonb_exists), text match on pirate_owner.
+  const rows = [];
+  for (const f of world.furniture.values()) {
+    const fl = f.flags;
+    if (fl && 'media_deck' in fl && fl.pirate_owner != null && String(fl.pirate_owner) === String(player.id)) rows.push(_deckView(f));
+  }
   if (!rows.length) return { deck: null };
   const here = rows.find(r => r.zone_id === player.current_zone);
   if (here) return { deck: here };
@@ -9008,9 +9042,8 @@ export async function patchCamToDeck(player, deviceId) {
   if (!here) return "There's no deck here to take the feed.";
   const mod = await _specter();
   if (!mod || !(await mod.isSpecterInstalled(player))) return "SPECTER isn't installed.";
-  const { rows } = await query('SELECT * FROM furniture WHERE id=$1', [here.deckId]);
-  if (!rows.length) return "There's no deck here to take the feed.";
-  const deck = rows[0];
+  const deck = getFurnitureById(here.deckId);
+  if (!deck) return "There's no deck here to take the feed.";
   const dflags = _deckFlags(deck);
 
   if (here.camDeviceId === deviceId) {
@@ -9059,9 +9092,8 @@ function _miniDeckPlayback(deck, dflags, deckNumber) {
 }
 
 async function buildMediaDeckPanel(deckId, player) {
-  const { rows } = await query('SELECT * FROM furniture WHERE id=$1', [deckId]);
-  if (!rows.length) return { type: 'error', message: 'Deck not found.' };
-  const deck = rows[0];
+  const deck = getFurnitureById(deckId);
+  if (!deck) return { type: 'error', message: 'Deck not found.' };
   const dflags = _deckFlags(deck);
   const channelId = dflags.channel_id || null;
   const state = channelId ? channelRuntime.get(channelId) : null;
@@ -10236,9 +10268,9 @@ export const routeHandler = async (path, method, body, auth) => {
         const deckId = body?.deck_id;
         const broadcastId = body?.broadcast_id;
         if (!deckId || !broadcastId) return { status: 400, body: { error: 'deck_id and broadcast_id required' } };
-        const { rows } = await query('SELECT flags FROM furniture WHERE id=$1', [deckId]);
-        if (!rows.length) return { status: 404, body: { error: 'Deck not found' } };
-        const df = typeof rows[0].flags === 'object' ? rows[0].flags : JSON.parse(rows[0].flags || '{}');
+        const deckRow = getFurnitureById(deckId);
+        if (!deckRow) return { status: 404, body: { error: 'Deck not found' } };
+        const df = _deckFlags(deckRow); // a clone: the delete below must not touch the cache
         const ejected = typeof df.deck_ejected_slots === 'object' && !Array.isArray(df.deck_ejected_slots)
           ? df.deck_ejected_slots : {};
         if (!(broadcastId in ejected)) return { status: 200, body: { message: 'Nothing to remove' } };
@@ -10684,12 +10716,9 @@ export const routeHandler = async (path, method, body, auth) => {
       // Otherwise resolve/create the exterior world tile from grid coords
       // (empty-cell "place new" path), wiring it to orthogonal neighbours.
       if (!exteriorZoneId && !studioZoneId && grid_x != null && grid_y != null) {
-        const { rows: existing } = await query(
-          `SELECT id FROM zones WHERE map_id='map_world' AND grid_x=$1 AND grid_y=$2 AND COALESCE(grid_z,0)=0 LIMIT 1`,
-          [grid_x, grid_y]
-        );
-        if (existing.length) {
-          exteriorZoneId = existing[0].id;
+        const existing = _worldTileAt(grid_x, grid_y, true);
+        if (existing) {
+          exteriorZoneId = existing.id;
         } else {
           exteriorZoneId = `zone_ext_${ts}`;
           const tileColor = await _studioTileColor();
@@ -10845,10 +10874,10 @@ export const routeHandler = async (path, method, body, auth) => {
 
       // Ensure exterior zone has a street light (idempotent — skip if one already exists)
       if (exteriorZoneId) {
-        const { rows: extLights } = await query(
-          `SELECT id FROM furniture WHERE zone_id=$1 AND light_type='streetlight' LIMIT 1`, [exteriorZoneId]
-        );
-        if (!extLights.length) {
+        // Every furniture write in this route goes through insertFurniture, so the
+        // cache already holds anything created above.
+        const hasStreetLight = getZoneFurniture(exteriorZoneId).some(f => f.light_type === 'streetlight');
+        if (!hasStreetLight) {
           await insertFurniture({
             id: `furn_light_ext_${ts}`, zone_id: exteriorZoneId,
             name: 'Street Light', description: 'A tall metal post topped with a flickering sodium lamp.',
@@ -10901,12 +10930,9 @@ export const routeHandler = async (path, method, body, auth) => {
       try {
         // If grid coords given, create or reuse the exterior world-map zone
         if (!exteriorZoneId && grid_x != null && grid_y != null) {
-          const { rows: existing } = await query(
-            `SELECT id FROM zones WHERE map_id='map_world' AND grid_x=$1 AND grid_y=$2 LIMIT 1`,
-            [grid_x, grid_y]
-          );
-          if (existing.length) {
-            exteriorZoneId = existing[0].id;
+          const existing = _worldTileAt(grid_x, grid_y, false);
+          if (existing) {
+            exteriorZoneId = existing.id;
           } else {
             exteriorZoneId = `zone_ext_${ts}`;
             const tileColor = await _studioTileColor();
@@ -11119,18 +11145,10 @@ export const routeHandler = async (path, method, body, auth) => {
     if (resource === 'deck') {
       // GET /broadcast/deck/:channel_id — get the deck for a channel
       if (id && method === 'GET') {
-        const { rows } = await query(
-          `SELECT * FROM furniture WHERE flags->>'channel_id'=$1 AND flags->>'media_deck'='true' LIMIT 1`,
-          [id]
-        );
-        const deck = rows[0] || null;
+        const deck = _channelDeck(id);
         let cameras = [];
         if (deck?.zone_id) {
-          const { rows: cams } = await query(
-            `SELECT * FROM furniture WHERE zone_id=$1 AND flags->>'broadcast_transmitter'='true'`,
-            [deck.zone_id]
-          );
-          cameras = cams;
+          cameras = getZoneFurniture(deck.zone_id).filter(f => _jsonTrue(f.flags?.broadcast_transmitter));
         }
         const { rows: mediaCameras } = await query(
           `SELECT mc.*, z.name AS zone_name FROM media_cameras mc
@@ -11167,15 +11185,12 @@ export const routeHandler = async (path, method, body, auth) => {
 
         // Reuse the channel's existing deck if it already has one — move/rename
         // it in place rather than orphaning it and spawning a duplicate.
-        const { rows: existingDeckRows } = await query(
-          `SELECT id, flags FROM furniture WHERE flags->>'channel_id'=$1 AND flags->>'media_deck'='true' LIMIT 1`,
-          [channel_id]
-        );
+        const existingDeck = _channelDeck(channel_id);
         let deckId;
         const ts = Date.now();
-        if (existingDeckRows.length) {
-          deckId = existingDeckRows[0].id;
-          const dflags = _deckFlags(existingDeckRows[0]);
+        if (existingDeck) {
+          deckId = existingDeck.id;
+          const dflags = _deckFlags(existingDeck);
           await updateFurniture(deckId, { zone_id: targetZoneId, name: name || 'Media Deck' });
           // Ensure flags carry channel_id/media_deck even if an older row lost them
           dflags.media_deck = true;
@@ -11241,13 +11256,10 @@ export const routeHandler = async (path, method, body, auth) => {
         if (channel_id) {
           // Place the cassette directly into the linked deck's container and register it
           // in deck_cassettes so playback/scheduling can use it immediately.
-          const { rows: deckRows } = await query(
-            `SELECT id, flags FROM furniture WHERE flags->>'channel_id'=$1 AND flags->>'media_deck'='true' LIMIT 1`,
-            [channel_id]
-          );
-          if (deckRows.length) {
-            const deckId = deckRows[0].id;
-            const dflags = _deckFlags(deckRows[0]);
+          const chDeck = _channelDeck(channel_id);
+          if (chDeck) {
+            const deckId = chDeck.id;
+            const dflags = _deckFlags(chDeck);
             const cassettes = Array.isArray(dflags.deck_cassettes) ? [...dflags.deck_cassettes] : [];
             if (!cassettes.includes(broadcast_id)) {
               cassettes.push(broadcast_id);

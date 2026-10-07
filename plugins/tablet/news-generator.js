@@ -16,11 +16,11 @@
 // Deliberately decoupled from the Tablet (no registry import): the broadcast
 // plugin's TV news channel could consume getStories()/recordEvent() too, so this
 // wants to graduate to a shared module rather than live behind one app.
-import { query } from '../../server/models/db.js';
 import { on } from '../../server/engine/events.js';
 import { registerAction } from '../../server/engine/actions.js';
 import { getGameDateTime } from '../../server/engine/environment.js';
-import { getZone } from '../../server/engine/world.js';
+import { getZone, isTransientZone, world } from '../../server/engine/world.js';
+import { getDrugCache } from '../../server/engine/drugs.js';
 
 // ── Seeded RNG (date-stable "edition") ───────────────────────────────────────
 // A tiny xmur3+mulberry32 pair so today's tabloid page is deterministic: same
@@ -49,7 +49,7 @@ function mulberry32(a) {
 }
 function seededRng(seedStr) { return mulberry32(xmur3(seedStr)()); }
 
-// ── World noun banks (cached, DB-sourced with on-theme fallbacks) ────────────
+// ── World noun banks (cached, read from memory, with on-theme fallbacks) ─────
 let _banks = null;
 let _banksAt = 0;
 const BANK_TTL_MS = 10 * 60 * 1000; // refresh every 10 min — content rarely changes
@@ -61,33 +61,42 @@ const FALLBACK = {
   drug:   ['Chrome', 'Slag', 'Bliss', 'Static', 'Ratshine'],
 };
 
-async function names(sql, fallback) {
-  try {
-    const { rows } = await query(sql);
-    const list = rows.map(r => r.name).filter(Boolean);
-    return list.length ? list : fallback;
-  } catch { return fallback; }
+// Every bank comes out of memory: world.zones, world.npcs and world.orgs, and the
+// drug cache, which the dev panel's drug routes reload on every write.
+function names(rows, fallback, limit) {
+  const list = rows.map(r => r?.name).filter(Boolean).slice(0, limit);
+  return list.length ? list : fallback;
 }
+
+// flags->>'key' as SQL reads it: a JSON true and the string "true" both say 'true'.
+const flagText = (flags, key) => String(flags?.[key] ?? '');
+const UNIT_NAME = /^unit\s/i;
+const SUBZONE_NAME = /(roof|lobby|mezzanine|stairwell|basement|interior|ground floor| floor$)/i;
 
 async function loadBanks() {
   if (_banks && Date.now() - _banksAt < BANK_TTL_MS) return _banks;
-  const [zone, person, org, drug] = await Promise.all([
-    // District/street tiles only — outdoor zones + named streets (flags.artery),
-    // never interiors (flags.is_interior) NOR building tiles themselves
-    // (flags.is_building — a storefront tile named for its shop, e.g. "Ampersand
-    // Electronics", reads as a business, not a place). Name-guards mop up the
-    // residual "Unit 101"s and any sub-zone named for a floor/roof/lobby, so
-    // headlines name a place ("the Slagworks") not a stairwell or a shop.
-    names(`SELECT name FROM zones
-             WHERE COALESCE(flags->>'is_building','') <> 'true'
-               AND (COALESCE(flags->>'is_interior','') <> 'true' OR COALESCE(flags->>'artery','') = 'true')
-               AND name !~* '^unit\\s'
-               AND name !~* '(roof|lobby|mezzanine|stairwell|basement|interior|ground floor| floor$)'
-             ORDER BY name LIMIT 300`, FALLBACK.zone),
-    names(`SELECT name FROM npcs WHERE name IS NOT NULL LIMIT 200`, FALLBACK.person),
-    names(`SELECT name FROM orgs WHERE name IS NOT NULL LIMIT 100`, FALLBACK.org),
-    names(`SELECT name FROM drugs WHERE name IS NOT NULL LIMIT 100`, FALLBACK.drug),
-  ]);
+  // District/street tiles only — outdoor zones + named streets (flags.artery),
+  // never interiors (flags.is_interior) NOR building tiles themselves
+  // (flags.is_building — a storefront tile named for its shop, e.g. "Ampersand
+  // Electronics", reads as a business, not a place). Name-guards mop up the
+  // residual "Unit 101"s and any sub-zone named for a floor/roof/lobby, so
+  // headlines name a place ("the Slagworks") not a stairwell or a shop.
+  // Reads only name and flags: description is lazy off the checkout and a bulk
+  // scan must never touch it (see loadZones in world.js).
+  const zoneRows = [];
+  for (const z of world.zones.values()) {
+    if (isTransientZone(z.id) || !z.name) continue;
+    if (flagText(z.flags, 'is_building') === 'true') continue;
+    if (flagText(z.flags, 'is_interior') === 'true' && flagText(z.flags, 'artery') !== 'true') continue;
+    if (UNIT_NAME.test(z.name) || SUBZONE_NAME.test(z.name)) continue;
+    zoneRows.push({ name: z.name });
+  }
+  // The first 300 by name, as the old ORDER BY name LIMIT 300 took them.
+  zoneRows.sort((a, b) => a.name.localeCompare(b.name));
+  const zone = names(zoneRows, FALLBACK.zone, 300);
+  const person = names([...world.npcs.values()], FALLBACK.person, 200);
+  const org = names([...world.orgs.values()], FALLBACK.org, 100);
+  const drug = names(Object.values(getDrugCache() || {}), FALLBACK.drug, 100);
   // Static flavour banks — no DB, pure tone.
   const object = ['toaster', 'municipal drone', 'severed antenna', 'vending machine', 'prosthetic leg', 'shopping cart',
     'coolant barrel', 'ration brick', 'traffic bollard', 'defunct ATM', 'mannequin', 'space heater',

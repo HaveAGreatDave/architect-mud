@@ -29,7 +29,7 @@ export async function takeSnapshot(gameDate = null) {
     SELECT
       (SELECT COALESCE(SUM(credits), 0) FROM players)::bigint AS player_credits,
       (SELECT COALESCE(SUM(bank_credits), 0) FROM players)::bigint AS player_bank,
-      (SELECT COALESCE(SUM(treasury), 0) FROM orgs)::bigint AS org_treasury,
+      (SELECT COALESCE(SUM(treasury), 0) FROM orgs)::bigint AS org_treasury, -- query-lint-ok: daily aggregate, rides the same round trip as the player sums
       (SELECT COALESCE(SUM(COALESCE(vendor_credits, 0) + COALESCE(vendor_bank_credits, 0)), 0) FROM npcs)::bigint AS vendor_credits,
       (SELECT COALESCE(SUM(cash_stock), 0) FROM atm_units)::bigint AS atm_cash
   `)).rows[0];

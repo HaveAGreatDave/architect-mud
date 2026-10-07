@@ -163,17 +163,39 @@ export function shopDisplayName(zone, deed) {
 // Real inventory rows parked under the shop's synthetic owner. `list_price` on
 // custom_data is the asking price; it also makes the row instanced, which keeps
 // it from ever stack-merging into a buyer's identical item on the way out.
+//
+// Held in RAM per shop. The footfall tick and every LOOK in a shop read the
+// shelf, and an empty or unchanged shelf has no reason to wake the database.
+// Every writer of a shop's rows calls dropListings: stock, unstock, a sale, a
+// pocket, a put-back, footfall, a filled order, sellshop and repossession, plus
+// `item.received` for a row pulled out of a shop's cooler by the engine. A
+// guarded write that finds its row gone drops the copy too, so an outside write
+// (a dev tool) heals on the next touch. The generation stops a read that began
+// before a write from caching what it saw.
+const listingCache = new Map();   // zoneId -> rows
+const listingGen = new Map();     // zoneId -> bumped on every drop
+function dropListings(zoneId) {
+  listingCache.delete(zoneId);
+  listingGen.set(zoneId, (listingGen.get(zoneId) || 0) + 1);
+}
 async function listingsFor(zoneId) {
+  const hit = listingCache.get(zoneId);
+  if (hit) return hit;
+  const gen = listingGen.get(zoneId) || 0;
   const { rows } = await query(
-    `SELECT pi.id, pi.item_id, pi.quantity, pi.condition, pi.custom_data,
+    `SELECT pi.id, pi.player_id, pi.item_id, pi.quantity, pi.condition, pi.custom_data,
             (pi.custom_data->>'list_price')::int AS price, i.name, i.description, i.tags
        FROM player_inventory pi JOIN items i ON i.id = pi.item_id
       WHERE pi.player_id = $1
       ORDER BY i.name`,
     [stockOwner(zoneId)],
   );
+  if ((listingGen.get(zoneId) || 0) === gen) listingCache.set(zoneId, rows);
   return rows;
 }
+on('item.received', ({ from }) => {
+  if (typeof from === 'string' && from.startsWith('_shopstock_')) dropListings(from.slice('_shopstock_'.length));
+});
 
 // ── DEED — read the board ────────────────────────────────────────────────────
 async function cmdDeed(player) {
@@ -338,6 +360,7 @@ async function cmdStock(args, player) {
       WHERE id=$3`,
     [stockOwner(h.zone.id), price, row.inv_id, cooler?.id || null],
   );
+  dropListings(h.zone.id);
 
   const chilled = cooler ? ` in the ${cooler.name}` : '';
   const warning = !cooler && row.tags?.perishable
@@ -366,12 +389,16 @@ async function cmdUnstock(args, player) {
 }
 
 async function takeBackListing(listing, player) {
-  await query(
+  // Guarded on the shelf it was listed from: the listing may be a cached copy.
+  const { rowCount } = await query(
     `UPDATE player_inventory
         SET player_id=$1, custom_data = custom_data - 'list_price'
-      WHERE id=$2`,
-    [player.id, listing.id],
+      WHERE id=$2 AND player_id=$3`,
+    [player.id, listing.id, listing.player_id],
   );
+  dropListings(String(listing.player_id || '').slice('_shopstock_'.length));
+  if (!rowCount) return { type: 'error', message: `The ${listing.name} isn't on the display any more.` };
+  emit('item.received', { actor: player, item: listing, from: listing.player_id });
   return { type: 'output', message: `You take <b>${listing.name}</b> back off the display.` };
 }
 
@@ -411,7 +438,11 @@ function waresBoard(zone, deed, listings) {
 async function withFreshness(listings, player) {
   return Promise.all(listings.map(async l => {
     if (!l.tags?.perishable) return l;
-    const fresh = await fireHook('item.checkFreshness', { ...l, id: l.id }, player);
+    const copy = { ...l, id: l.id };
+    const fresh = await fireHook('item.checkFreshness', copy, player);
+    // The hook puts a new checkpoint on the copy when it writes one to the row;
+    // keep the cached row in step so the next look doesn't start from the old one.
+    if (copy.custom_data !== l.custom_data) l.custom_data = copy.custom_data;
     return fresh?.state ? { ...l, freshness: fresh.state } : l;
   }));
 }
@@ -499,9 +530,11 @@ async function purchaseListing(listing, player) {
     return t[0]?.till_credits ?? 0;
   });
 
-  if (outcome === 'gone') return { type: 'error', message: 'Someone got there first: it\'s already gone.' };
+  if (outcome === 'gone') { dropListings(zone.id); return { type: 'error', message: 'Someone got there first: it\'s already gone.' }; }
   if (outcome === 'broke') return { type: 'error', message: `That's ${price}₵ and you have ${player.credits || 0}₵.` };
   setDeed(zone.id, { ...deed, till_credits: outcome });
+  dropListings(zone.id);
+  emit('item.received', { actor: player, item: listing, from: stockOwner(zone.id) });
 
   // The bought row is already the buyer's; giveToPlayer would only be needed for
   // a merge, and a listed row is instanced by design, so it stays its own line.
@@ -550,18 +583,23 @@ async function cmdSellShop(player) {
   // you're giving up the deed, not being robbed. Repossession is the punitive path.
   // Claim the deed first and pay the till the DB actually held, so a vault crack
   // or a second sellshop racing this one can't pay out the same credits twice.
+  let recovered = [];
   const takings = await withTransaction(async (q) => {
     const { rows } = await q('DELETE FROM storefronts WHERE zone_id=$1 AND owner_id=$2 RETURNING till_credits',
       [h.zone.id, player.id]);
     if (!rows.length) return null;
-    await q(`UPDATE player_inventory SET player_id=$1, custom_data = custom_data - 'list_price' WHERE player_id=$2`,
+    const { rows: back } = await q(`UPDATE player_inventory SET player_id=$1, custom_data = custom_data - 'list_price' WHERE player_id=$2
+      RETURNING id, item_id, quantity, custom_data`,
       [player.id, stockOwner(h.zone.id)]);
+    recovered = back;
     const till = Number(rows[0].till_credits) || 0;
     if (till > 0) await adjustCredits(player, till, q, 'storefront:surrender');
     return till;
   });
   if (takings === null) return { type: 'error', message: `The deed isn't yours to hand back any more.` };
   setDeed(h.zone.id, null);
+  dropListings(h.zone.id);
+  for (const row of recovered) emit('item.received', { actor: player, item: row, from: stockOwner(h.zone.id) });
 
   return { type: 'output', player_update: { credits: player.credits }, message:
     `<span style="color:var(--accent)">You hand the keys back.</span> ${h.zone.name} goes back on the board.\n\n` +
@@ -575,6 +613,7 @@ async function cmdSellShop(player) {
 export async function releaseShop(zoneId) {
   await query(`DELETE FROM storefronts WHERE zone_id=$1`, [zoneId]);
   setDeed(zoneId, null);
+  dropListings(zoneId);
 }
 
 // ── The room ─────────────────────────────────────────────────────────────────
@@ -870,6 +909,7 @@ export async function mortgageTick(todayOverride = null) {
 // come out of something. This is the difference between defaulting and SELLSHOP.
 async function repossess(deed, zoneName, why) {
   await query('DELETE FROM player_inventory WHERE player_id=$1', [stockOwner(deed.zone_id)]);
+  dropListings(deed.zone_id);
   await releaseShop(deed.zone_id);
   emit('storefront.repossessed', { ownerId: deed.owner_id, zoneId: deed.zone_id });
   sendToPlayer(deed.owner_id, { type: 'output', message:
@@ -1117,7 +1157,9 @@ async function pocketListing(listing, player) {
               WHERE id=$3`, [player.id, zone.id, listing.id]);
     return true;
   });
+  dropListings(zone.id);
   if (!taken) return { type: 'error', message: "It's gone: somebody beat you to it." };
+  emit('item.received', { actor: player, item: listing, from: stockOwner(zone.id) });
 
   const staff = await staffFor(zone.id);
   const watcher = staff.find(m => m.role === 'guard') || staff.find(m => m.role === 'clerk');
@@ -1161,6 +1203,7 @@ registerAction({
     for (const row of putBack) {
       await query(`UPDATE player_inventory SET player_id=$1, custom_data = custom_data - '${SHOP_UNPAID}' WHERE id=$2`,
         [stockOwner(row.shop_zone), row.id]);
+      dropListings(row.shop_zone);
     }
     if (putBack.length) {
       lines.push(`<span class="text-dim">You can't cover ${putBack.map(r => r.name).join(', ')}. Back on the display ${putBack.length > 1 ? 'they go' : 'it goes'}, and you walk out with empty hands.</span>`);
@@ -1245,6 +1288,8 @@ export async function footfallTick(force = false) {
   for (const [zoneId, deed] of deeds) {
     if (!deed.owner_id) continue;
     if (deed.shutters_closed) continue;          // shut is shut
+    // A shelf known to be empty costs nothing: no roll, no read.
+    if (listingCache.get(zoneId)?.length === 0) continue;
     if (!force && Math.random() > FOOTFALL_CHANCE) continue;
 
     const listings = await listingsFor(zoneId);
@@ -1269,6 +1314,7 @@ export async function footfallTick(force = false) {
         [price, zoneId]);
       return t[0]?.till_credits ?? 0;
     });
+    dropListings(zoneId);
     if (sold === null) continue;
     setDeed(zoneId, { ...deed, till_credits: sold });
 
@@ -1404,6 +1450,7 @@ async function fillOrder(order, player) {
     }
     return true;
   });
+  if (paid === true) dropListings(zone.id);
   if (paid === 'gone') return { type: 'error', message: `You aren't carrying a ${order.name} any more.` };
   if (!paid) return { type: 'error', message: `The till can't cover ${order.price}₵. The offer's still up, but the money isn't there.` };
 
@@ -1466,7 +1513,7 @@ export const specializedActions = [
 // exercise a sale, which `run()` (one fake player, no DB row) can't give it.
 export const _test = {
   cmdDeed, cmdBuyShop, cmdRenameShop, cmdSellShop, cmdStock, cmdUnstock,
-  cmdWares, cmdBuyWare, cmdTill, listingsFor, stockOwner, describeRoom,
+  cmdWares, cmdBuyWare, cmdTill, listingsFor, dropListings, listingCache, stockOwner, describeRoom,
   cmdShutters, cmdHire, cmdSack, cmdStaff, cmdPocket, carriedUnpaid,
   cmdBuyOrder, cmdBuyOrders, cmdSupply, ordersFor, staffFor, footfallTick,
   shutterDoorsFor, FOOTFALL_MAX_MARKUP, ROLES,
