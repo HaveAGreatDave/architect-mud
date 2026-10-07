@@ -4503,6 +4503,7 @@ function paintWindshieldFrame(id, view) {
   // Set before anything reads TUNE, and deliberately never restored (see VIEW_TUNABLE: no key in it
   // is read outside a frame, so a stale one cannot reach collision or capture).
   TUNE = resolveTune(v.tune);
+  TUNE_BASE = TUNE;
   GOV_Q = governScene(st, raw, now);
   // ⚠ ON THE GL PATH THE GOVERNOR KEEPS THE WINDOW (RENDER_TUNE.govWindowGL, 1 shrinks it as shipped).
   // Shrinking the map is the right lever for the 2-D painter, whose cost scales with every tile it
@@ -26910,6 +26911,8 @@ const VIEW_TUNABLE = new Set(['lodNear', 'lodFar', 'lodAdorn', 'lodRadial', 'wal
 // override this is the same object it always was, and the sliders keep working because the merge is
 // rebuilt from RENDER_TUNE every frame rather than snapshotted once.
 let TUNE = RENDER_TUNE;
+// The frame's tune BEFORE the scene governor scaled it (governedTune), for the kept-arm key. See armKeepFrame.
+let TUNE_BASE = RENDER_TUNE;
 // ── THE SCENE GOVERNOR (RENDER_TUNE.govern, 0 is the renderer as it shipped) ─────────────────
 //
 // The resolution dial sheds PIXELS. This sheds SCENE: the building draw distance and the LOD,
@@ -55675,7 +55678,14 @@ const armSide = () => (SCATTER_SINK ? SCATTER_SINK.length : 0) + (CURTAIN_SINK ?
 const armSideParts = () => [['scatter', SCATTER_SINK], ['curtain', CURTAIN_SINK], ['face', FACE_SINK], ['ownship', OWNSHIP_SINK], ['fauna', FAUNA_SINK],
   ['groundMesh', GROUND_MESH], ['lateBillboards', LATE_BILLBOARDS], ['rainLights', RAIN_LIGHTS]].map(([k, a]) => [k, a ? a.length : 0]).concat([['groundLate', GROUND_LATE_N]]);
 // Once a frame, from drawWorldObjects.
-function armKeepFrame() { ARM_FRAME++; ARM_CHECKS = 0; ARM_TUNE = tuneSig() * 7 + (TUNE !== RENDER_TUNE ? tuneSig(TUNE) : 0); }
+// ⚠ THE TUNE BEFORE THE GOVERNOR, NOT AFTER IT. The governor scales lodNear, lodFar, decoFar, glowFar and
+// shadowFar a step at a time under load, and with the governed tune in the key every step re-keyed every
+// kept building and camp, so a machine near 30 fps lost kept arms exactly when it needed them. None of
+// those five is read inside an arm on the GL path: the LOD rings choose the detail tier, which is in the
+// key on its own; decoFar gates the holo-ad and window bloom, which run outside the kept call; glowFar
+// is the 2-D halo (GL reads glGlowFar); shadowFar is the shadow pass. A caller's own tune (a ground
+// camera's) still counts, which is what TUNE_BASE keeps.
+function armKeepFrame() { ARM_FRAME++; ARM_CHECKS = 0; ARM_TUNE = tuneSig() * 7 + (TUNE_BASE !== RENDER_TUNE ? tuneSig(TUNE_BASE) : 0); }
 const armR6 = (x) => Math.round(x * 1e6);
 const pt = (p, ox, oy) => armR6(p[0] + ox) + ',' + armR6(p[1] + oy) + ',' + armR6(p[2]);
 // A record set in the map window's frame, as a string two recordings can be compared by.

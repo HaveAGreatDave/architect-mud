@@ -59,16 +59,17 @@ if (flyArg >= 0) {
   if (process.env.ARMLIVE != null) scene.ws.RENDER_TUNE.armLive = Number(process.env.ARMLIVE);
   // TUNE=k=v,... on the kept flight only (keep 1), to pin which switch a difference comes from.
   if (Number(keepS) && process.env.TUNE) for (const kv of process.env.TUNE.split(',')) { const [k, v] = kv.split('='); scene.ws.RENDER_TUNE[k] = Number(v); }
-  const hour = Number(hourS), G = fakeView(), frames = [];
+  // STEP=33 flies at an apparent 30 fps, where the scene governor steps the tune down.
+  const hour = Number(hourS), G = fakeView(), frames = [], STEP = Number(process.env.STEP || 16);
   // ⚠ AND THE CLOCK RUNS, 16 ms a frame, or a live part (armLiveCall) replayed with a stale clock
-  // would draw the same frozen pose as the live arm and pass. Not 33: at an apparent 30 fps the scene
-  // governor steps the tune down every 400 ms, which re-keys every kept building.
+  // would draw the same frozen pose as the live arm and pass. STEP=33 is worth a run too: at an apparent
+  // 30 fps the scene governor steps the tune down, and the kept draw must still match.
   const clock = globalThis.performance, t0 = clock.now();
   globalThis.performance = { ...clock, now: () => t0 };
   // Painted once first: the occlusion pass reads the last frame (see the warm paint in retain-check).
   scene.ws.paintWindshield('__perf', scene.view(place, seat, { hour, heading: 20 }));
   for (let i = 0; i < 60; i++) {
-    globalThis.performance.now = () => t0 + (i + 1) * 16;
+    globalThis.performance.now = () => t0 + (i + 1) * STEP;
     scene.ws.paintWindshield('__perf', scene.view(place, seat, { hour, heading: 20 + i * 1.5 }));
     const { cam, o } = hook;
     G.draws.length = 0;

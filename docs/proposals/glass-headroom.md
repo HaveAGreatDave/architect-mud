@@ -25,9 +25,12 @@ than ARM_GAP), and a live building is probed again after `ARM_RETRY` frames. The
 clock at 16 ms a frame (at 33 ms the scene governor steps the tune every 400 ms and re-keys
 everything), flies each pass in its own process, adds Old Coldwater, and compares the light census.
 
-⚠ **Under sustained load the governor re-keys every kept building each time it steps** (`ARM_TUNE`
-includes the governed tune). It steps at most every 400 ms and settles, so kept arms recover, but a
-machine on the edge of 30 fps loses them at the moment it needs them. Not addressed.
+**The governor no longer re-keys kept arms** (fixed the same day). `ARM_TUNE` hashed the governed
+tune, so each step of the scene governor (at most every 400 ms under load) re-keyed every kept
+building and camp, and a machine near 30 fps lost kept arms when it needed them. It now hashes the
+tune before the governor (`TUNE_BASE`): none of the five values the governor scales is read inside an
+arm on the GL path. `STEP=33 npm run perf:armkeep` flies at an apparent 30 fps and matches the live
+draw over 240 frames; residential cockpit went from 417 kept and 417 replays to 176 kept and 48,318.
 
 **Camps** (`campKeep`, `campKept`). A camp's record list was already camera-free; its records are now
 grouped by facing condition, each group recorded once while the camp stands well in front, and each
