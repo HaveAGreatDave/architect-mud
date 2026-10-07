@@ -1273,6 +1273,8 @@ GLASS 2 comes first here, and GLASS 1 may be the plainer picture. The 3-D cabin 
 - A hull takes up a fraction of the geometric wave slope (the effective wave slope coefficient). At 1.0 she rolled 29.9°, a knockdown. At 0.55 with caps, `sea.mjs` measures 11.1° roll and 11.0° pitch at worst in a gale on every push.
 - Wake foam follows the surface. A flat `z = 0.003` left foam hanging over troughs and buried under crests.
 - Trap: the physics must not depend on the floor having drawn. The first cut read amplitude and clock from state `drawMode7Floor` publishes, which never runs under the DOM stub, so the hull measured dead flat. Amplitude comes from the tune, the clock from `now`.
+- Trap: the sea is drawn in the map window's frame. `gl/water.js` samples it at `uA + aOff`, the camera's ground point with no window centre added, so a hull samples at its tile less `mapCenter` (the cockpit's `mapOffset`). The Drake sampled at her world tile and rode a stretch of sea nobody draws. `drake-water.js` now uses `seaFramePos`, and `drakeSeaAmps` (cockpit.js) scales her swell by `hullSeaGains`, the mesh's own gate (shelter, waterness, surf).
+- A recentre moves the drawn sea under a hull, and so does a clock hitch past the capped frame `dt`. The Drake's `rise` is the sea's rate at one instant, so neither reads as a wave strike; her stabiliser moves by its share of the jump instead of easing toward the new sea. `sea.mjs` section 32 gates the frame, both jumps, an ordinary frame and the cockpit wiring.
 
 ## The sea clock
 

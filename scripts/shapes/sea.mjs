@@ -1924,6 +1924,65 @@ if (rasterSrc) {
     }
   }
 }
+// ── 32. THE DRAKE RIDES THE SEA THAT IS DRAWN ──────────────────────────────────────────────────
+//
+// drake-water.js pitches and rolls her off the water under her. Four things are silent when wrong:
+// she samples in the map window's frame, as the mesh does, and not at her world tile; a recentre or
+// a hitch moves the stabilised ride by its share of the jump instead of easing it over seconds; an
+// ordinary frame isn't taken for a jump; and the cockpit hands her the mesh's gain, not the open sea.
+{
+  const DW = await import('../../client/game/js/panels/drake-water.js');
+  const { seaClock } = await import('../../client/shared/sea-swell.js');
+  const amps = { ...seaAmpsFor(30), chop: SEA_AMP * 3 };
+  const on = { onGround: true, altitude: 0, groundFt: 0, airspeed: 0, heading: 35 };
+  const afloat = (stab) => ({ pos: { x: 903.3, y: 897.6 }, mapCenter: { x: 900, y: 900 }, biomeBelow: 'water',
+    gearRetract: true, gearUp: true, dk: stab ? {} : { stab: false } });
+  const T0 = 1750000000000, dt = 1 / 60, t = seaClock(T0);
+  const drawn = seaHeight(3.3, -2.4, t, amps.roll, amps.chop, amps.wind);
+  const world = seaHeight(903.3, 897.6, t, amps.roll, amps.chop, amps.wind);
+  const r0 = DW.drakeWaterFrame(afloat(false), on, dt, T0, amps, 0).ride;
+  if (!r0) fail.push('drake-water.js: a Drake afloat has no ride');
+  else if (!(Math.abs(world - drawn) > 1e-3)) fail.push('the frame case cannot tell the window from the world: pick another tile');
+  else if (!(Math.abs(r0.heave - drawn) < 1e-12)) fail.push('drake-water.js: the Drake samples the sea at ' + (Math.abs(r0.heave - world) < 1e-12 ? 'her WORLD tile' : 'neither frame') + ', not in the map window the mesh draws in');
+  else ok.push('the Drake rides the sea in the map window\'s frame, where the mesh draws it');
+
+  // A stabilised Drake and a raw twin in lockstep. The ride's offset from its share of the raw pose
+  // is what a jump must keep (then one frame of the filter decays it) and an ordinary frame must not.
+  const S = afloat(true), R = afloat(false), share = DW.STAB_TILT;
+  let now = T0;
+  const step = (d, ms) => {
+    now += ms;
+    const s = DW.drakeWaterFrame(S, on, d, now, amps, 0).ride, r = DW.drakeWaterFrame(R, on, d, now, amps, 0).ride;
+    return { p: s.pitch - share * r.pitch, q: s.roll - share * r.roll, rp: r.pitch, rq: r.roll };
+  };
+  for (let i = 0; i < 90; i++) step(dt, dt * 1000);
+  const keep = (d) => Math.exp(-d / DW.STAB_TAU_S);
+  const jumpCase = (label, move, d, ms) => {
+    const b = step(dt, dt * 1000);
+    move();
+    const a = step(d, ms), dj = share * Math.max(Math.abs(a.rp - b.rp), Math.abs(a.rq - b.rq));
+    if (!(dj > 0.05)) return fail.push('the ' + label + ' case moves the sea under her by only ' + dj.toFixed(4) + ' deg: too little to test');
+    const ep = Math.abs(a.p - keep(d) * b.p), eq = Math.abs(a.q - keep(d) * b.q);
+    if (ep > 1e-9 || eq > 1e-9) fail.push('drake-water.js: a ' + label + ' eases the stabilised ride toward the new sea (off by ' + Math.max(ep, eq).toFixed(3) + ' deg) while the picture has already jumped');
+    else ok.push('a ' + label + ' moves the stabilised Drake by her share of the jump (' + dj.toFixed(2) + ' deg)');
+  };
+  jumpCase('recentre', () => { S.mapCenter = R.mapCenter = { x: 906, y: 894 }; }, dt, dt * 1000);
+  jumpCase('hitch', () => {}, 0.05, 5000);
+  {
+    const b = step(dt, dt * 1000), a = step(dt, dt * 1000);
+    const want = keep(dt) * (b.p - share * (a.rp - b.rp)), moved = share * Math.abs(a.rp - b.rp);
+    if (!(moved > 1e-7)) fail.push('the ordinary-frame case moves the sea too little to tell a jump from a frame');
+    else if (Math.abs(a.p - want) > 1e-9) fail.push('drake-water.js: an ordinary frame is taken for a jump, so the stabiliser no longer lags the swell');
+    else ok.push('an ordinary frame is not a jump: the stabiliser still lags the swell');
+  }
+
+  const CK = read('client/game/js/panels/cockpit.js') || '';
+  if (!/drakeWaterFrame\(F, s, dt, Date\.now\(\), drakeSeaAmps\(F\)/.test(CK) || !/rough: seaRough\(drakeSeaAmps\(F\)\)/.test(CK))
+    fail.push('cockpit.js: the Drake is handed the open sea, not drakeSeaAmps: she rides the swell inside every harbour');
+  else if (!/function drakeSeaAmps[\s\S]*?hullSeaGains\(F\.pos\.x - c\.x, F\.pos\.y - c\.y, c\.x, c\.y, a\.roll, a\.wind\)[\s\S]*?\n}/.test(CK))
+    fail.push('cockpit.js: drakeSeaAmps no longer reads the mesh gain (hullSeaGains) at her window position');
+  else ok.push('the cockpit hands the Drake the mesh\'s gain at her window position, for her ride and her touchdowns');
+}
 for (const s of ok) console.log('  ✓ ' + s);
 if (fail.length) {
   console.error('\n  — FAILURES (' + fail.length + ') —');

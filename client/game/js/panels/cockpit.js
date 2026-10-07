@@ -23,7 +23,7 @@ import { depthMAt } from './seabed-scene.js';
 // Metres of water the Drake needs under her to dive. The server's own figure is plugins/submersible/sub.js
 // MIN_WATER (3 m); the client only uses this to light the SUB gate green or red.
 const SUB_MIN_WATER_M = 3;
-import { subCrossing, interiorHotspots, glWorldInstalled, glDecision, glLastError, lastViewState, lastFloorState, lastOwnShipMask, yachtPadZ, ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, panelControlRects, RENDER_TUNE, navMarks, buildingRoofFtAt, curtainRoofFtAt, modelTopZAt, altForRoofZ, altRestingOnZ, seaAmpsNow, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, MODEL_MAX_EXTENT, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
+import { subCrossing, interiorHotspots, glWorldInstalled, glDecision, glLastError, lastViewState, lastFloorState, lastOwnShipMask, yachtPadZ, ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, panelControlRects, RENDER_TUNE, navMarks, buildingRoofFtAt, curtainRoofFtAt, modelTopZAt, altForRoofZ, altRestingOnZ, seaAmpsNow, hullSeaGains, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, MODEL_MAX_EXTENT, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
 import { padCatchStep } from './pad-catch.js';
 // ── GLASS 2 ────────────────────────────────────────────────────────────────
 // Installs the WebGL2 world pass and does nothing else: until RENDER_TUNE.gl is turned on, the
@@ -3053,6 +3053,14 @@ function drakeSnapFeet(F) {
   F.shake = Math.max(F.shake || 0, 14); F.hitFlashT = performance.now();
   if (F.toast) F.toast('⚠ THE FEET TORE OFF: she is on her hull');
 }
+// The sea the Drake floats on: the renderer's amplitudes scaled by the gate the water mesh puts on
+// them where she is (shelter, waterness, the surf), so a harbour is as calm under her as it's drawn.
+// At her `mapOffset`, the window-frame position drake-water.js samples the swell at (seaFramePos).
+function drakeSeaAmps(F) {
+  const a = seaAmpsNow(), c = F.mapCenter || { x: 0, y: 0 };
+  const g = hullSeaGains(F.pos.x - c.x, F.pos.y - c.y, c.x, c.y, a.roll, a.wind);
+  return { roll: a.roll * g.swell, wind: a.wind * g.swell, chop: a.chop * g.chop };
+}
 function drakeSyncTail(F) {
   if (!F.dk) return '';
   const a = drakeAnim(F.dk), p = (x) => Math.round(clampNum(x, 0, 1) * 100);
@@ -5608,7 +5616,7 @@ function fsimFrameBody(now) {
     // she was never on the water — BOAT refused and a plane landing never became one.
     { const dm = depthMAt(F.pos.x + 0.5, F.pos.y + 0.5); F.waterBelow = F.biomeBelow === 'water' || (dm != null && dm > 0.3); }
     const pace = RENDER_TUNE.worldPace * (P.worldPaceMult || 1) * RENDER_TUNE.groundBoost;
-    const wr = drakeWaterFrame(F, s, dt, Date.now(), seaAmpsNow(), pace);
+    const wr = drakeWaterFrame(F, s, dt, Date.now(), drakeSeaAmps(F), pace);
     F.dk.ride = wr.ride;
     F.dk.flarePitch = wr.flare;
     // ── THE CROSSING (plugins/submersible) ───────────────────────────────────
@@ -5752,7 +5760,7 @@ function fsimFrameBody(now) {
     // ⚠ EXCEPT THE DRAKE, WHICH FLOATS: a boat hull and paddle feet, judged by drake-water.js —
     // feet out skid in like a duck, gear up is a belly landing, and only a real smash is a ditching.
     const dkWater = !!(F.dk && (F.waterBelow ?? F.biomeBelow === 'water') && !F.onYacht);
-    const dkV = dkWater ? judgeWaterTouchdown({ sinkFpm, kt: s.airspeed, gearDown: !F.gearRetract || !F.gearUp, feetGone: !!F.dk.feetGone, rough: seaRough(seaAmpsNow()) }) : null;
+    const dkV = dkWater ? judgeWaterTouchdown({ sinkFpm, kt: s.airspeed, gearDown: !F.gearRetract || !F.gearUp, feetGone: !!F.dk.feetGone, rough: seaRough(drakeSeaAmps(F)) }) : null;
     const overWater = F.biomeBelow === 'water' && !F.onYacht && !(dkV && !dkV.ditch);
     if (dkV && !dkV.ditch && establishedClimb) {
       try { gearFx('splash'); } catch {}

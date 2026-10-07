@@ -16,7 +16,8 @@
 // The server owns the hull (flightevent wave / footsnap); this file only decides what happened.
 //
 // ⚠ THE SEA IS THE ONE THE RENDERER DRAWS. Heights and slopes come from client/shared/sea-swell.js
-// with the renderer's own amplitudes (seaAmpsNow) and the shared clock (seaClock), in world tiles.
+// with the renderer's own amplitudes (seaAmpsNow, scaled by the mesh's gain where she floats) and
+// the shared clock (seaClock), sampled in the MAP WINDOW'S frame, not the world's (seaFramePos).
 import { seaHeight, seaSlope, seaClock } from '../../../shared/sea-swell.js';
 
 // Below this she has stopped and floats.
@@ -35,8 +36,19 @@ export const BOAT_MAX_KT = 48, SUB_MAX_KT = 14;
 // Tiles per second of vertical closing speed between hull and water that a strike starts to hurt.
 // At 0.10 an ordinary swell hurt her every second she was moving; only a real sea should.
 const WAVE_FREE = 0.30;
+// How far the wall clock may run past the frame's dt, in seconds, before the water under her is a
+// jump rather than a frame: the bar stepBoat (flight-model.js) uses for the hydro.
+const SEA_JUMP_S = 0.1;
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+
+// Where she is in the frame the sea is drawn in. gl/water.js and gl/floor.js sample the swell at
+// window-relative positions (`uA + aOff`, no window centre added), which is the cockpit's
+// `mapOffset`: her world tile less the map window's centre.
+export function seaFramePos(F) {
+  const c = F.mapCenter;
+  return { x: F.pos.x - (c?.x || 0), y: F.pos.y - (c?.y || 0) };
+}
 
 // The sea state as one number 0..1 off the amplitudes (the swell dominates what a hull feels).
 export function seaRough(amps) {
@@ -116,7 +128,12 @@ export function drakeWaterFrame(F, s, dt, nowMs, amps, tilesPerKt) {
   if (W.phase === 'submerged') { out.drag = D.boat ? 0 : 6 + kt * 0.6; return out; }
   out.drag = D.boat && W.phase === 'float' ? 0 : W.phase === 'dig' ? 10 + kt * 0.3 : 6 + kt * 0.12;
 
-  const sea = seaUnder(F.pos.x, F.pos.y, s.heading || 0, amps, nowMs);
+  // ⚠ IN THE MAP WINDOW'S FRAME, NOT THE WORLD'S. Sampled at `F.pos`, her world tile, she rode a
+  // stretch of sea nobody draws, in phase with the picture only by luck (boat-view.js had the same).
+  const at = seaFramePos(F);
+  const sea = seaUnder(at.x, at.y, s.heading || 0, amps, nowMs);
+  // `rise` is the sea's own rate at one instant, never a difference across frames, so neither a
+  // recentre nor a hitch can read as a steep rise here: the strike needs no guard.
   const closing = sea.rise + kt * (tilesPerKt || 0) * sea.along;
   const rel = Math.abs(closing);
   if (rel > WAVE_FREE && W.hitCd <= 0 && kt >= SLOW_SAFE_KT) {
@@ -124,6 +141,18 @@ export function drakeWaterFrame(F, s, dt, nowMs, amps, tilesPerKt) {
     out.hullPct = clamp(Math.round((rel - WAVE_FREE) * 60), 1, 15);
   }
   const raw = { heave: sea.h, pitch: Math.atan(sea.along) * 180 / Math.PI * 0.8, roll: Math.atan(sea.across) * 180 / Math.PI * 0.8 };
+  // ⚠ A RECENTRE OR A HITCH IS A NEW SEA UNDER HER. The drawn sea jumps when the map window
+  // recentres (it's in the window's frame) and when the wall clock runs past a capped dt. The
+  // stabiliser is the one thing here that remembers the water, and it eased her toward the new sea
+  // over STAB_TAU_S while the picture had already jumped. So it moves by its share of the jump and
+  // she keeps her attitude to the water, as shiftBoatOrigin (flight-model.js) keeps the hydro's height.
+  const cx = F.mapCenter?.x || 0, cy = F.mapCenter?.y || 0;
+  if (W.stab && W.raw && (cx !== W.cx || cy !== W.cy || Math.abs((nowMs - W.nowMs) / 1000 - dt) > SEA_JUMP_S)) {
+    W.stab.heave += (raw.heave - W.raw.heave) * STAB_HEAVE;
+    W.stab.pitch += (raw.pitch - W.raw.pitch) * STAB_TILT;
+    W.stab.roll += (raw.roll - W.raw.roll) * STAB_TILT;
+  }
+  W.raw = raw; W.cx = cx; W.cy = cy; W.nowMs = nowMs;
   out.ride = D.stab === false ? raw : stabilise(W, raw, dt);
   return out;
 }
