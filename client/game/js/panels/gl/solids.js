@@ -888,8 +888,11 @@ export function createSolidsLayer(gl, opt = {}) {
   // cabFace in windshield.js), and in this mode a record's floats are all local or per-face, so they
   // are the floats already in `data`. That holds only while the caller never edits a record it
   // re-sends: one that does must send a new object. The offset check catches a quad ahead of it
-  // changing its vertex count, which moves everything after it.
-  const slotQ = [], slotO = [];
+  // changing its vertex count, which moves everything after it. (A posed cockpit part is the one that
+  // edits in place, and says so with `mv`: see slotV.)
+  // `slotV`: a record's `mv`, for a posed cockpit part (interior-memo.js memoPosed) whose points moved
+  // in place. The same record at the same slot with the same `mv` is skipped.
+  const slotQ = [], slotO = [], slotV = [];
   function ensurePrev() {
     if (!prev || prev.length !== data.length) { prev = new Float32Array(data.length); prevBits = new Int32Array(prev.buffer); }
     if (!dataBits || dataBits.buffer !== data.buffer) dataBits = new Int32Array(data.buffer);
@@ -1021,16 +1024,16 @@ export function createSolidsLayer(gl, opt = {}) {
     const put1 = (q) => {
       const slot = qi++, a0 = o;
       const P = incr ? q.mp : q.p, len = (q.mp || q.p).length;
-      if (incr && !full && slotQ[slot] === q && slotO[slot] === a0) { o += Math.max(0, len - 2) * 3 * ST; return; }
+      if (incr && !full && slotQ[slot] === q && slotO[slot] === a0 && slotV[slot] === q.mv) { o += Math.max(0, len - 2) * 3 * ST; return; }
       o = writeQuad(data, o, q, P, len);
-      if (incr) { slotQ[slot] = q; slotO[slot] = a0; if (!full) markDirty(a0, o); }
+      if (incr) { slotQ[slot] = q; slotO[slot] = a0; slotV[slot] = q.mv; if (!full) markDirty(a0, o); }
     };
     let film = 0;
     for (const q of quads) { if (q.film) film++; else put1(q); }
     filmAt = o / ST;
     if (film) for (const q of quads) if (q.film) put1(q);
-    if (incr) { slotQ.length = qi; slotO.length = qi; if (full) prev.set(data.subarray(0, count * ST)); }
-    else { slotQ.length = 0; slotO.length = 0; }
+    if (incr) { slotQ.length = qi; slotO.length = qi; slotV.length = qi; if (full) prev.set(data.subarray(0, count * ST)); }
+    else { slotQ.length = 0; slotO.length = 0; slotV.length = 0; }
     // A handful of scattered spans is cheaper as spans; past that the driver is better off with one.
     if (full || dirty.length > 48) stream.write(data, count * ST);
     else for (const [a, b] of dirty) stream.writeRange(data, a, b - a);

@@ -31,7 +31,11 @@
 // needle's angle IS where its tip is), so the gate can drive a control to both stops headlessly.
 
 // ── VECTORS ──────────────────────────────────────────────────────────────────
-import { kitMemo, memoCall, setKeyedColourTest } from './interior-memo.js';
+import { kitMemo, memoCall, memoPosed, setKeyedColourTest } from './interior-memo.js';
+
+// Posed parts on (see `posed` below). Off, every moving part is rebuilt where it stands, as before.
+let POSE = true;
+export function setInteriorPose(on) { POSE = !!on; }
 import { legend, legendWidth } from './legend-font.js';
 
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -107,6 +111,19 @@ function seg7(x, z, w, h) {
   ];
 }
 
+// A point and a direction through a 3x4 transform (row-major), for a posed part built the old way.
+const xfPoint = (X, p) => [X[0] * p[0] + X[1] * p[1] + X[2] * p[2] + X[3], X[4] * p[0] + X[5] * p[1] + X[6] * p[2] + X[7], X[8] * p[0] + X[9] * p[1] + X[10] * p[2] + X[11]];
+const xfDir = (X, v) => [X[0] * v[0] + X[1] * v[1] + X[2] * v[2], X[4] * v[0] + X[5] * v[1] + X[6] * v[2], X[8] * v[0] + X[9] * v[1] + X[10] * v[2]];
+// The transform that turns a part by `ang` about the unit axis `a` through `c0`, then carries it so
+// `c0` lands on `c1` (Rodrigues). For a part built at rest about `c0`.
+export function xfTurn(c0, a, ang, c1 = c0) {
+  const c = Math.cos(ang), s = Math.sin(ang), t = 1 - c, [x, y, z] = a;
+  const M = [t * x * x + c, t * x * y - s * z, t * x * z + s * y, t * x * y + s * z, t * y * y + c, t * y * z - s * x, t * x * z - s * y, t * y * z + s * x, t * z * z + c];
+  const X = [M[0], M[1], M[2], 0, M[3], M[4], M[5], 0, M[6], M[7], M[8], 0];
+  for (let i = 0; i < 3; i++) X[i * 4 + 3] = c1[i] - (M[i * 3] * c0[0] + M[i * 3 + 1] * c0[1] + M[i * 3 + 2] * c0[2]);
+  return X;
+}
+
 // ── THE KIT ──────────────────────────────────────────────────────────────────
 //
 // `push(faces, tone, k, fwd, rgb, emis)` is interior-shell's own collector. `fwd` marks every
@@ -134,6 +151,27 @@ export function makeKit(push, fwd = true) {
       const was = cur; cur = rec; mk.depth = (mk.depth || 0) + 1;
       try { fn(self, ...args); } finally { cur = was; mk.depth--; }
     });
+  };
+
+  // ── A RIGID PART, MOVED (interior-memo.js memoPosed) ───────────────────────
+  // `build(...args)` lays the part AT REST and must be pure in its arguments and `frame`; `X` (3x4,
+  // row-major) moves it there. Inside a memoised part, inside a group, with no memo, or with the switch
+  // off, the part is built at rest and its points moved on the way through instead: the same faces,
+  // new objects, which is what every moving part did before.
+  // ⚠ The build runs one level down (mk.depth), like a group: a nested cached call that took an
+  // ordinal only when the rest pose is rebuilt would shift every ordinal after it.
+  const posedIn = (frame) => (name, X, build, ...args) => {
+    if (mk && !mk.depth && POSE && !(push.memo && push.memo.inPart)) {
+      memoPosed(mk, name, frame, args, X, (rec) => {
+        const was = cur; cur = rec; mk.depth = (mk.depth || 0) + 1;
+        try { build(...args); } finally { cur = was; mk.depth--; }
+      });
+      return;
+    }
+    const was = cur;
+    cur = (fs, tone, k, fw, rgb, emis, mat) => was(fs.map((q) => ({ p: q.p.map((p) => xfPoint(X, p)), n: q.n && xfDir(X, q.n) })), tone, k, fw, rgb, emis, mat);
+    if (mk) mk.depth = (mk.depth || 0) + 1;
+    try { build(...args); } finally { cur = was; if (mk) mk.depth--; }
   };
 
   // An oriented box: centre, three orthonormal axes, three half-extents.
@@ -207,6 +245,19 @@ export function makeKit(push, fwd = true) {
           [ca + Math.cos(a1) * r1a, cb + Math.sin(a1) * r1a], [ca + Math.cos(a0) * r1a, cb + Math.sin(a0) * r1a]], rgb, emis, l);
       }
     };
+    // A part turned by `th` about the panel normal through (ca, cb): a needle, a compass card. Built at
+    // rest (`th` 0) and turned as a whole; see `posed` above.
+    const posedRot = (name, ca, cb, th, build, ...args) => {
+      const C0 = pt(ca, cb, 0), c = Math.cos(th), sn = Math.sin(th);
+      // r r^T c - r u^T s + u r^T s + u u^T c + n n^T, about C0.
+      const M = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+      for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
+        M[i * 3 + j] = r[i] * r[j] * c - r[i] * u[j] * sn + u[i] * r[j] * sn + u[i] * u[j] * c + n[i] * n[j];
+      }
+      const X = [M[0], M[1], M[2], 0, M[3], M[4], M[5], 0, M[6], M[7], M[8], 0];
+      for (let i = 0; i < 3; i++) X[i * 4 + 3] = C0[i] - (M[i * 3] * C0[0] + M[i * 3 + 1] * C0[1] + M[i * 3 + 2] * C0[2]);
+      posedP(name, X, build, ...args);
+    };
     // A radial bar from r0 to r1 at angle t, `w` wide.
     const spoke = (ca, cb, t, r0a, r1a, w, rgb, emis, l = 0, w1 = w) => {
       const c = Math.cos(t), s = Math.sin(t), px = -s, pz = c;
@@ -230,14 +281,16 @@ export function makeKit(push, fwd = true) {
       // The face does not move with the needle, so it is its own (cached) call; the needles and the
       // boss drawn over them follow, in the order they always were.
       dialFaceC(ca, cb, R, o2.a0, o2.sweep, o2.ticks, o2.major, o2.bezel, o2.face, o2.arcs, o2.red, o2.tick, o2.label, o2.name);
+      // The needle at rest points along the panel's `r`, and is turned to its reading.
       const needle = (fr, len, rgb, w) => {
         const t = a0 - clamp(fr, 0, 1) * sweep;
-        spoke(ca, cb, t, -R * 0.18, R * len, R * w, rgb, 0.9, 0.007, R * w * 0.3);
+        posedRot('needle', ca, cb, t, needleAt, ca, cb, R, len, rgb, w);
       };
       if (frac2Of(o2) != null) needle(o2.frac2, 0.62, o2.needle2 || C.amber, 0.07);
       needle(frac, 0.88, o2.needle || (o2.red != null && frac >= o2.red ? C.red : C.lampOn), 0.06);
-      disc(ca, cb, R * 0.10, C.steel, 0.1, 0.009, 8);
+      discC(ca, cb, R * 0.10, C.steel, 0.1, 0.009, 8);
     }
+    const needleAt = (ca, cb, R, len, rgb, w) => spoke(ca, cb, 0, -R * 0.18, R * len, R * w, rgb, 0.9, 0.007, R * w * 0.3);
     function dialFace(ca, cb, R, a0_, sweep_, ticks_, major_, bezel, faceRgb, arcs, redF, tick, label, name) {
       const o2 = { bezel, face: faceRgb, arcs, red: redF, tick, label };
       const a0 = a0_ ?? Math.PI * 1.25, sweep = sweep_ ?? Math.PI * 1.5;
@@ -268,7 +321,25 @@ export function makeKit(push, fwd = true) {
     // CHORDS OF ONE CIRCLE, built by projecting the points on the wrong side of the horizon onto
     // it, so each half is one convex polygon and fans cleanly.
     function attitude(ca, cb, R, pitchDeg, bankDeg) {
-      annulus(ca, cb, R, R * 1.16, C.bezel, 0.04, 0.004, 22);
+      // The bezel and the fixed aeroplane don't move, the bank scale turns as one piece, and only the
+      // horizon (sky, ground, the bar and its rungs) is rebuilt as the attitude changes.
+      annulusC(ca, cb, R, R * 1.16, C.bezel, 0.04, 0.004, 22);
+      attitudeCardC(ca, cb, R, pitchDeg, bankDeg);
+      posedRot('bankScale', ca, cb, (bankDeg || 0) * Math.PI / 180, bankScaleAt, ca, cb, R);
+      attitudePlaneC(ca, cb, R);
+    }
+    const bankScaleAt = (ca, cb, R) => {
+      for (const d of [-60, -30, -20, -10, 0, 10, 20, 30, 60]) {
+        const t = Math.PI / 2 + d * Math.PI / 180;
+        spoke(ca, cb, t, R * (d % 30 === 0 ? 0.80 : 0.87), R * 0.97, R * 0.03, d === 0 ? C.amber : C.white, 0.6, 0.004);
+      }
+    };
+    const attitudePlane = (ca, cb, R) => {
+      rect(ca - R * 0.55, cb - R * 0.035, ca - R * 0.18, cb + R * 0.035, C.amber, 0.9, 0.008);
+      rect(ca + R * 0.18, cb - R * 0.035, ca + R * 0.55, cb + R * 0.035, C.amber, 0.9, 0.008);
+      disc(ca, cb, R * 0.06, C.amber, 0.9, 0.008, 8);
+    };
+    function attitudeCard(ca, cb, R, pitchDeg, bankDeg) {
       const b = (bankDeg || 0) * Math.PI / 180;
       const off = clamp((pitchDeg || 0) / 30, -0.85, 0.85) * R;       // 30° of pitch reaches the rim
       const nx = -Math.sin(b), nz = Math.cos(b);                        // the horizon's "up"
@@ -289,33 +360,35 @@ export function makeKit(push, fwd = true) {
         plate([[cx - hx - nx * 0.0012, cz - hz - nz * 0.0012], [cx + hx - nx * 0.0012, cz + hz - nz * 0.0012],
           [cx + hx + nx * 0.0012, cz + hz + nz * 0.0012], [cx - hx + nx * 0.0012, cz - hz + nz * 0.0012]], C.white, 0.6, 0.004);
       }
-      // The bank scale: ticks round the top that turn with the card.
-      for (const d of [-60, -30, -20, -10, 0, 10, 20, 30, 60]) {
-        const t = Math.PI / 2 + b + d * Math.PI / 180;
-        spoke(ca, cb, t, R * (d % 30 === 0 ? 0.80 : 0.87), R * 0.97, R * 0.03, d === 0 ? C.amber : C.white, 0.6, 0.004);
-      }
-      // The fixed aeroplane: two wings and a dot, in amber, standing proud of the moving card.
-      rect(ca - R * 0.55, cb - R * 0.035, ca - R * 0.18, cb + R * 0.035, C.amber, 0.9, 0.008);
-      rect(ca + R * 0.18, cb - R * 0.035, ca + R * 0.55, cb + R * 0.035, C.amber, 0.9, 0.008);
-      disc(ca, cb, R * 0.06, C.amber, 0.9, 0.008, 8);
+      // The bank scale (bankScaleAt, turned with the card) and the fixed aeroplane (attitudePlane)
+      // are drawn by `attitude` above.
     }
 
     // ── THE COMPASS CARD ─────────────────────────────────────────────────────
     // A rose that turns under a fixed lubber line, north in red. Heading-up, like the real one.
+    // The bezel, the face, the lubber line and the little aeroplane stand still; the card is turned.
     function compass(ca, cb, R, hdgDeg) {
+      compassBodyC(ca, cb, R);
+      posedRot('card', ca, cb, (hdgDeg || 0) * Math.PI / 180, compassCardAt, ca, cb, R);
+      compassLubberC(ca, cb, R);
+    }
+    const compassBody = (ca, cb, R) => {
       annulus(ca, cb, R, R * 1.16, C.bezel, 0.04, 0.004, 22);
       disc(ca, cb, R, C.face, 0, 0.0025, 22);   // 2.5 mm: at 1 mm it z-fought the Drake pod plate under it
-      const h = (hdgDeg || 0) * Math.PI / 180;
+    };
+    const compassCardAt = (ca, cb, R) => {
       for (let i = 0; i < 36; i++) {
-        const t = Math.PI / 2 + h - (i / 36) * TAU, big = i % 9 === 0;
+        const t = Math.PI / 2 - (i / 36) * TAU, big = i % 9 === 0;
         spoke(ca, cb, t, R * (big ? 0.58 : (i % 3 === 0 ? 0.72 : 0.80)), R * 0.94, R * (big ? 0.05 : 0.022),
           i === 0 ? C.red : C.tick, i === 0 ? 0.8 : 0.35, 0.004);
       }
-      // The lubber line and a small aeroplane in the middle.
+    };
+    // The lubber line and a small aeroplane in the middle.
+    const compassLubber = (ca, cb, R) => {
       spoke(ca, cb, Math.PI / 2, R * 0.95, R * 1.14, R * 0.05, C.amber, 0.9, 0.007);
       rect(ca - R * 0.30, cb - R * 0.03, ca + R * 0.30, cb + R * 0.03, C.amber, 0.8, 0.007);
       rect(ca - R * 0.03, cb - R * 0.30, ca + R * 0.03, cb + R * 0.25, C.amber, 0.8, 0.007);
-    }
+    };
 
     // A seven-segment readout of a string. ⚠ UNLIT SEGMENTS ARE DRAWN, or a 1 is a stray mark.
     function digits(a, b, h, str, rgb = C.green, back = true) {
@@ -402,10 +475,14 @@ export function makeKit(push, fwd = true) {
     // no-op outside a memoised part). Internal calls between them use the raw closures.
     const PF = [o, r0, u0, tone, k, fwd];
     const dialFaceC = cached('dialFace', dialFace, PF);
+    const posedP = posedIn(PF);
+    const discC = cached('disc', disc, PF), annulusC = cached('annulus', annulus, PF);
+    const attitudeCardC = cached('attitudeCard', attitudeCard, PF), attitudePlaneC = cached('attitudePlane', attitudePlane, PF);
+    const compassBodyC = cached('compassBody', compassBody, PF), compassLubberC = cached('compassLubber', compassLubber, PF);
     const W = (name, fn) => cached(name, fn, PF);
     const Pobj = { pt, n, r, u, plate: W('plate', plate), rect: W('rect', rect), disc: W('disc', disc), annulus: W('annulus', annulus),
       torus: W('ptorus', torus), spoke: W('spoke', spoke), stud: W('stud', stud), knob: W('knob', knob), dial,
-      attitude: W('attitude', attitude), compass: W('compass', compass), digits: W('digits', digits), lamp: W('lamp', lamp),
+      attitude, compass, digits: W('digits', digits), lamp: W('lamp', lamp),
       rocker: W('rocker', rocker), toggle: W('toggle', toggle), bar: W('bar', bar), grille: W('grille', grille),
       text: W('text', text), fitText: W('fitText', fitText) };
     Pobj.group = group(Pobj, PF);
@@ -413,7 +490,8 @@ export function makeKit(push, fwd = true) {
   }
 
   const KF = [fwd];
-  const Kobj = { face, obox: cached('obox', obox, KF), box: cached('box', box, KF), rod: cached('rod', rod, KF), torus: cached('torus', torus, KF), panel };
+  const Kobj = { face, obox: cached('obox', obox, KF), box: cached('box', box, KF), rod: cached('rod', rod, KF), torus: cached('torus', torus, KF), panel,
+    posed: posedIn(KF) };
   Kobj.group = group(Kobj, KF);
   return Kobj;
 }

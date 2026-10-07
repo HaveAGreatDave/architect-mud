@@ -24429,6 +24429,19 @@ function pushInteriorShell(cam, v) {
   const trimKey = gpu ? v.tier + '|' + v.trim + '|' + (cabinMap ? cabin : '') : '';
   let bx0 = Infinity, by0 = Infinity, bz0 = Infinity, bx1 = -Infinity, by1 = -Infinity, bz1 = -Infinity;
   CAB_XF = { S, ch, sh, ox, oy, ez, att, id: ++CAB_XF_ID };
+  // A posed face (interior-memo.js memoPosed) is the same object with its points moved and `mv` bumped:
+  // the record stays, and its bounds and normal follow the move.
+  const cabMoved = (rec, f) => {
+    let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
+    for (const p0 of f.p) {
+      if (p0[0] < x0) x0 = p0[0]; if (p0[0] > x1) x1 = p0[0];
+      if (p0[1] < y0) y0 = p0[1]; if (p0[1] > y1) y1 = p0[1];
+      if (p0[2] < z0) z0 = p0[2]; if (p0[2] > z1) z1 = p0[2];
+    }
+    rec._bb = [x0, y0, z0, x1, y1, z1];
+    if (f.n && rec.cab && rec.cab[7] !== -1) { rec.cab[0] = f.n[0]; rec.cab[1] = f.n[1]; rec.cab[2] = f.n[2]; }
+    rec._pf = -1; rec.mv = f.mv;
+  };
   const cabFace = (f) => {
     let e = CAB_GPU.get(f);
     if (!e || e.key !== trimKey || e.P !== P) {
@@ -24483,8 +24496,9 @@ function pushInteriorShell(cam, v) {
         if (p0[2] < z0) z0 = p0[2]; if (p0[2] > z1) z1 = p0[2];
       }
       rec._bb = [x0, y0, z0, x1, y1, z1];
+      rec.mv = f.mv;
       e.rec = rec;
-    }
+    } else if (rec.mv !== f.mv) cabMoved(rec, f);
     const bb = rec._bb;
     if (bb[0] < bx0) bx0 = bb[0]; if (bb[3] > bx1) bx1 = bb[3];
     if (bb[1] < by0) by0 = bb[1]; if (bb[4] > by1) by1 = bb[4];
@@ -24503,6 +24517,7 @@ function pushInteriorShell(cam, v) {
     if (slotOn && sf[fi] === f) {
       const rec = sr[fi];
       if (rec) {
+        if (rec.mv !== f.mv) cabMoved(rec, f);
         const bb = rec._bb;
         if (bb[0] < bx0) bx0 = bb[0]; if (bb[3] > bx1) bx1 = bb[3];
         if (bb[1] < by0) by0 = bb[1]; if (bb[4] > by1) by1 = bb[4];
@@ -24523,7 +24538,7 @@ function pushInteriorShell(cam, v) {
     // The SAME face object as last frame (interior-memo.js hands back an unchanged part's faces
     // as-is) under the same light: nothing it reads can have moved, so skip even the centre.
     let cx0 = 0, cy0 = 0, cz0 = 0, rg, nn0, mt, shv;
-    if (ce && ce.f === f && ce.fk === frameKey) lit = ce.lit;
+    if (ce && ce.f === f && ce.mv === f.mv && ce.fk === frameKey) lit = ce.lit;
     else {
     for (const q of f.p) { cx0 += q[0]; cy0 += q[1]; cz0 += q[2]; }
     rg = f.rgb; nn0 = f.n; mt = f.mat; shv = rg ? SHINY.get(rg) : undefined;
@@ -24532,7 +24547,7 @@ function pushInteriorShell(cam, v) {
         && (rg ? ce.r0 === rg[0] && ce.r1 === rg[1] && ce.r2 === rg[2] : ce.r0 === undefined)
         && (nn0 ? ce.n0 === nn0[0] && ce.n1 === nn0[1] && ce.n2 === nn0[2] : ce.n0 === undefined)
         && (mt ? ce.mt === true && ce.lv === mt.lv && ce.sp === mt.spec && ce.pw === mt.pow && ce.gr === mt.grain : ce.mt === false)) {
-      lit = ce.lit; ce.f = f;
+      lit = ce.lit; ce.f = f; ce.mv = f.mv;
     } else {
     if (PERF.on) PERF.n.intMiss = (PERF.n.intMiss || 0) + 1;
     const c = baseOf(f.tone);
@@ -24714,7 +24729,7 @@ function pushInteriorShell(cam, v) {
       const sp = shine.spec * Math.pow(nd, shine.pow) * outK;
       if (sp > 0.004) lit = mix(lit, [255, 248, 226], clamp(sp, 0, 1));
     }
-    INT_LIT[fi] = { fk: frameKey, tone: f.tone, k: f.k, emis: f.emis, len: f.p.length, cx: cx0, cy: cy0, cz: cz0, shv,
+    INT_LIT[fi] = { mv: f.mv, fk: frameKey, tone: f.tone, k: f.k, emis: f.emis, len: f.p.length, cx: cx0, cy: cy0, cz: cz0, shv,
       r0: rg ? rg[0] : undefined, r1: rg ? rg[1] : undefined, r2: rg ? rg[2] : undefined,
       n0: nn0 ? nn0[0] : undefined, n1: nn0 ? nn0[1] : undefined, n2: nn0 ? nn0[2] : undefined,
       mt: !!mt, lv: mt ? mt.lv : undefined, sp: mt ? mt.spec : undefined, pw: mt ? mt.pow : undefined, gr: mt ? mt.grain : undefined, lit, f, bs: base };

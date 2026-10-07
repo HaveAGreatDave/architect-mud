@@ -516,6 +516,11 @@ function wallWithHole(k, nx, y0, y1, z0, z1, hy0, hy1, hz0, hz1) {
 // A symbol on the point array, not a WeakMap: most faces are built fresh every frame, and thousands
 // of WeakMap entries a frame cost more than the wrappers they save.
 const WRAP_K = Symbol('shellWrap');
+// ⚠ A RESULT IS GOOD UNTIL THE NEXT CALL. A posed part (a needle, a compass card, a control wheel; see
+// interior-memo.js memoPosed) comes back as the same face objects with their points moved in place,
+// so a list held across a second call shows the second call's pose. The renderer uses each list within
+// its frame. Anything that keeps one to compare against a later build copies it first: `freezeFaces`.
+export const freezeFaces = (faces) => faces.map((f) => ({ ...f, p: f.p.map((q) => q.slice()), n: f.n ? f.n.slice() : f.n }));
 export function shellFaces(profile, live = null, opts = {}) {
   const rich = opts.rich !== false;
   const P = profile;

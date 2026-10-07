@@ -9,7 +9,7 @@
 //       leave the bare room while a ray to every painted facet must be stopped by it;
 //   (c) does every control move — geometry differs between the two stops of each live input.
 // Exit 1 on any failure.
-import { shellFaces, shellBounds } from '../../client/shared/interior-shell.js';
+import { shellFaces, shellBounds, freezeFaces } from '../../client/shared/interior-shell.js';
 import { leviathanProfile, levRing } from '../../client/shared/interior-leviathan.js';
 import { FW_ROWS } from '../../client/shared/vehicle-models.js';
 
@@ -51,7 +51,7 @@ const REST = { powered: true, hour: 12, throttle: 0.5, stickX: 0, stickY: 0, rud
 
 // ── (a) A ROOM YOU CAN SIT IN ────────────────────────────────────────────────
 function roomChecks(label, live) {
-  const faces = shellFaces(P, live);
+  const faces = freezeFaces(shellFaces(P, live));
   ok(faces.length > 0, label + ': no geometry');
   ok(B[0] < -0.05 && B[1] < -0.05 && B[2] < -0.05 && B[3] > 0.05 && B[4] > 0.05 && B[5] > 0.05, label + ': eye not strictly inside');
   ok(!cast(faces, [0, 1, 0]), label + ': something across the windscreen');

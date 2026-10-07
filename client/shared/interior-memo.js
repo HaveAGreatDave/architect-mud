@@ -23,10 +23,10 @@ let ENABLED = true;
 export function setInteriorMemo(on) { ENABLED = !!on; }
 export function interiorMemoOn() { return ENABLED; }
 
-const STATS = { hit: 0, miss: 0, khit: 0, kmiss: 0 };
+const STATS = { hit: 0, miss: 0, khit: 0, kmiss: 0, phit: 0, pmiss: 0, pmove: 0 };
 export function interiorMemoStats(reset = false) {
   const s = { ...STATS };
-  if (reset) { STATS.hit = 0; STATS.miss = 0; STATS.khit = 0; STATS.kmiss = 0; }
+  if (reset) for (const k of Object.keys(STATS)) STATS[k] = 0;
   return s;
 }
 
@@ -170,7 +170,8 @@ export function memoPart(push, id, root, run, wire) {
   const faces = [];
   const rec = M.collect(faces);
   // The recorder carries a memo of its own, so the kit primitives the part calls are cached too.
-  rec.memo = { store: M.store, out: faces, collect: M.collect, tag: key + '#' };
+  // `inPart`: a posed call (memoPosed) builds fresh in here; see the ⚠ there.
+  rec.memo = { store: M.store, out: faces, collect: M.collect, tag: key + '#', inPart: true };
   const deps = new Map();
   const over = wire ? wire(rec) : null;
   const skip = over ? new Map(Object.entries(over)) : null;
@@ -204,20 +205,15 @@ function frameOk(ctx, fsn, frame) {
   if (ok) ctx.fok.set(fsn, frame);
   return ok;
 }
-export function memoCall(ctx, name, frame, args, run) {
-  const M = ctx.M, n = ctx.n++;
-  const e = ctx.slots[n];
-  if (e && e.name === name && e.a.length === args.length && frameOk(ctx, e.fs, frame)) {
-    let ok = true;
-    for (let i = 0; i < args.length; i++) {
-      const sv = e.s[i];
-      if (sv === null ? !Object.is(e.a[i], args[i]) : !eqSnap(sv, args[i])) { ok = false; break; }
-    }
-    if (ok) { const out = M.out, f = e.faces; for (let j = 0; j < f.length; j++) out.push(f[j]); STATS.khit++; return; }
+function sameCall(ctx, e, name, frame, args) {
+  if (e.name !== name || e.a.length !== args.length || !frameOk(ctx, e.fs, frame)) return false;
+  for (let i = 0; i < args.length; i++) {
+    const sv = e.s[i];
+    if (sv === null ? !Object.is(e.a[i], args[i]) : !eqSnap(sv, args[i])) return false;
   }
-  STATS.kmiss++;
-  const faces = [];
-  run(M.collect(faces));
+  return true;
+}
+function callEntry(ctx, name, frame, args, faces) {
   let fs = ctx.fsnap.get(frame);
   if (!fs) { fs = snap(frame); ctx.fsnap.set(frame, fs); ctx.fok.set(fs, frame); }
   const a = new Array(args.length), sv = new Array(args.length);
@@ -226,7 +222,62 @@ export function memoCall(ctx, name, frame, args, run) {
     a[i] = v;
     sv[i] = v !== null && typeof v === 'object' ? snap(v) : null;
   }
-  ctx.slots[n] = { name, fs, a, s: sv, faces };
+  return { name, fs, a, s: sv, faces };
+}
+export function memoCall(ctx, name, frame, args, run) {
+  const M = ctx.M, n = ctx.n++;
+  const e = ctx.slots[n];
+  if (e && !e.posed && sameCall(ctx, e, name, frame, args)) { const out = M.out, f = e.faces; for (let j = 0; j < f.length; j++) out.push(f[j]); STATS.khit++; return; }
+  STATS.kmiss++;
+  const faces = [];
+  run(M.collect(faces));
+  ctx.slots[n] = callEntry(ctx, name, frame, args, faces);
   const out = M.out;
   for (let j = 0; j < faces.length; j++) out.push(faces[j]);
+}
+
+// ── POSED CALLS: A RIGID PART, MOVED RATHER THAN REBUILT ─────────────────────────
+//
+// A needle, a compass card, a control wheel: geometry that keeps its shape and only moves. It is
+// built once AT REST, cached on its arguments like any kit call, and each frame the same face objects
+// come back with their points rewritten through `X` (a 3x4 transform, row-major: rotation then
+// translation). `mv` on a face goes up when its points do, so the renderer keeps its per-face record
+// (windshield.js cabFace) and the GPU re-sends only the moved slots (gl/solids.js). A rebuilt needle
+// was new face objects every frame: a new record and a re-upload each, about 2 ms of a cockpit frame
+// with the instruments moving.
+// ⚠ NEVER INSIDE A MEMOISED PART (`inPart`). A part keeps up to KEEP entries, each holding its
+// faces, and posed faces shared between entries would show the newest pose in an older one. The kit
+// builds those fresh (see `posed` in interior-kit.js).
+const clonePosed = (f) => ({ ...f, p: f.p.map((q) => q.slice()), n: f.n ? f.n.slice() : f.n, mv: 0 });
+function sameX(a, b) { if (!a) return false; for (let i = 0; i < 12; i++) if (a[i] !== b[i]) return false; return true; }
+export function memoPosed(ctx, name, frame, args, X, run) {
+  const M = ctx.M, n = ctx.n++;
+  let e = ctx.slots[n];
+  if (e && e.posed && sameCall(ctx, e, name, frame, args)) STATS.phit++;
+  else {
+    STATS.pmiss++;
+    const faces = [];
+    run(M.collect(faces));
+    e = callEntry(ctx, name, frame, args, faces);
+    e.posed = faces.map(clonePosed); e.x = null;
+    ctx.slots[n] = e;
+  }
+  if (!sameX(e.x, X)) {
+    STATS.pmove++;
+    const F = e.faces, Q = e.posed;
+    for (let i = 0; i < F.length; i++) {
+      const src = F[i], dst = Q[i], sp = src.p, dp = dst.p;
+      for (let j = 0; j < sp.length; j++) {
+        const p = sp[j], d = dp[j], x = p[0], y = p[1], z = p[2];
+        d[0] = X[0] * x + X[1] * y + X[2] * z + X[3];
+        d[1] = X[4] * x + X[5] * y + X[6] * z + X[7];
+        d[2] = X[8] * x + X[9] * y + X[10] * z + X[11];
+      }
+      if (src.n) { const v = src.n, x = v[0], y = v[1], z = v[2]; dst.n[0] = X[0] * x + X[1] * y + X[2] * z; dst.n[1] = X[4] * x + X[5] * y + X[6] * z; dst.n[2] = X[8] * x + X[9] * y + X[10] * z; }
+      dst.mv++;
+    }
+    e.x = X.slice();
+  }
+  const out = M.out, Q = e.posed;
+  for (let j = 0; j < Q.length; j++) out.push(Q[j]);
 }

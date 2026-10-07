@@ -7,7 +7,7 @@
 //       mesh_heli.json), not against anything the profile says about itself;
 //   (c) does every control move — the geometry differs between the stops.
 // `node scripts/shapes/cockpit-dragonfly.mjs`, exit 1 on failure.
-import { shellFaces, shellBounds } from '../../client/shared/interior-shell.js';
+import { shellFaces, shellBounds, freezeFaces } from '../../client/shared/interior-shell.js';
 import { dragonflyProfile } from '../../client/shared/interior-dragonfly.js';
 import { MESH_ROWS } from '../../client/shared/vehicle-meshes.js';
 import { compileMesh } from '../../client/shared/vehicle-mesh.js';
@@ -50,7 +50,7 @@ const B = shellBounds(P);
 
 // ── (a) A ROOM, AT REST AND AT EVERY STOP ────────────────────────────────────
 function roomChecks(tag, live) {
-  const faces = shellFaces(P, live);
+  const faces = freezeFaces(shellFaces(P, live));
   ok(faces.length > 0, tag + ': no geometry');
   ok(B[0] < -0.05 && B[1] < -0.05 && B[2] < -0.05 && B[3] > 0.05 && B[4] > 0.05 && B[5] > 0.05, tag + ': the eye is not strictly inside the bounds');
   ok(!cast(faces, [0, 1, 0]), tag + ': something is across the forward view');

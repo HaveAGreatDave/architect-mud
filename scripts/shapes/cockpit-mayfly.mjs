@@ -9,7 +9,7 @@
 //       profile agreeing with itself;
 //   (c) does every control move — the geometry must differ between a control's two stops.
 // Run: node scripts/shapes/cockpit-mayfly.mjs   (exit 1 on any failure)
-import { shellFaces, shellBounds } from '../../client/shared/interior-shell.js';
+import { shellFaces, shellBounds, freezeFaces } from '../../client/shared/interior-shell.js';
 import { mayflyProfile, M_PER_UNIT, MAYFLY_EYE } from '../../client/shared/interior-mayfly.js';
 import { compileMesh, meshSource } from '../../client/shared/vehicle-mesh.js';
 import { MESH_ROWS } from '../../client/shared/vehicle-meshes.js';
@@ -66,7 +66,7 @@ const STOPS = {
   landingLight: [false, true], hour: [12, 23], courseErr: [-10, 10], bingo: [false, true],
 };
 function roomChecks(tag, live) {
-  const faces = shellFaces(P, live);
+  const faces = freezeFaces(shellFaces(P, live));
   const inside = B[0] < -0.05 && B[1] < -0.05 && B[2] < -0.05 && B[3] > 0.05 && B[4] > 0.05 && B[5] > 0.05;
   ok(inside, tag + ': the eye is not strictly inside the shell');
   ok(!cast(faces, [0, 1, 0]), tag + ': something is across the windscreen straight ahead');

@@ -1,7 +1,54 @@
 # GLASS frame headroom
 
-**Status: Stage 1 started (the bench fixed, per-frame GL state queries removed); the 2026-10-01 record caches built (below); Stage 1b built; Stage 3 phases 1-5 built, phase 6 started (2026-10-06, below); Stage 2 superseded by Stage 3.** The vertex-animated layers it follows from are built (actors,
+**Status: Stage 1 started (the bench fixed, per-frame GL state queries removed); the 2026-10-01 record caches built (below); Stage 1b built; Stage 3 phases 1-5 built, phase 6 started, kept-arm follow-ups built (2026-10-06 and 07, below); Stage 2 superseded by Stage 3.** The vertex-animated layers it follows from are built (actors,
 birds, cloth; see [glass-notes.md](../reference/glass-notes.md#vertex-animated-layers-actors-birds-cloth)).
+
+## Built 2026-10-07: what kept arms still missed, camps, posed instruments
+
+**Why buildings went live.** `armKeepWhy` (off by default; a harness sets `.on`) records the reason
+per model type. Over twenty views most live buildings were not animated at all: a glowPool also
+enters the frame's light census (`RAIN_LIGHTS`), a side channel, so 70 of 72 live authored buildings
+went live for a glow. `armRain` records the glow's world inputs and a replay re-runs only the census
+step. Of what was left, most animated through helpers handed the clock (smoke, revolving rings, beams,
+wind wheels, flags): `armLive` keeps the call and its arguments, cuts its records out of the kept set
+and calls it again each replay. Halcyon cockpit, full arm runs a frame (headless): 82 to 28.
+
+**What a running clock exposed.** `perf:armkeep` ran with the clock frozen, which hid four holes, all
+fixed: `deadNeon` reads the wall clock rather than the arm's `now` (the clock test moves it too,
+`ARM_SHIFT`, and a second test runs at +9.9 s for slow cycles); a crane's duty cycle can be parked at
+both clock tests (`dutyPhase` asked during a recording makes the building live); `webBays` is a camera
+term inside arms (each answer is recorded and a replay that would answer differently drops the kept
+set); and a clock test's sign bakes shifted every later sign's id (`SIGN_ID_SCRATCH` hands them back).
+Two more: a building fading in the haze band re-keyed every frame and probed every frame (three arm
+runs where live is one; it now runs live until fully in, and a re-keyed entry can't probe more often
+than ARM_GAP), and a live building is probed again after `ARM_RETRY` frames. The check now runs the
+clock at 16 ms a frame (at 33 ms the scene governor steps the tune every 400 ms and re-keys
+everything), flies each pass in its own process, adds Old Coldwater, and compares the light census.
+
+⚠ **Under sustained load the governor re-keys every kept building each time it steps** (`ARM_TUNE`
+includes the governed tune). It steps at most every 400 ms and settles, so kept arms recover, but a
+machine on the edge of 30 fps loses them at the moment it needs them. Not addressed.
+
+**Camps** (`campKeep`, `campKept`). A camp's record list was already camera-free; its records are now
+grouped by facing condition, each group recorded once while the camp stands well in front, and each
+frame only the condition is tested. Close to, a camp runs as before (campReplay clips at the near
+plane on the CPU). Kept camp records go through the ordinary stream, not as retained groups: a
+retained group is a draw call per texture, and a camp is a hundred small groups. Halcyon cockpit:
+drawTentCamp 1.67 to 0.65 ms headless.
+
+⚠ **Kept buildings are retained groups, one draw call per building per texture** (gl/decals.js
+`spans`). Nobody has counted those draw calls in a browser. If the cockpit shows a driver cost, sort
+the arena by texture so neighbouring spans merge.
+
+**Posed instruments** (interior-memo.js `memoPosed`, interior-kit.js `posed`/`posedRot`,
+`setInteriorPose`). A needle, a compass card, the attitude's bank scale and the Mule's control
+wheels are built once at rest; each frame the same face objects come back with their points moved
+through a rigid transform and `mv` bumped, so `cabFace` keeps its record and gl/solids.js re-sends only
+the moved slots (`slotV`). In a memoised part the kit builds fresh, as before. Mule cockpit in flight,
+interior headless: 3.9-5.2 to 1.6-2.4 ms. Against the previous code, every interior record matches
+over 40 moving frames except the wheel's rods, whose facets now turn with the wheel instead of
+being re-chosen from world axes each frame. ⚠ A `shellFaces` result is good until the next call;
+a gate that keeps one copies it (`freezeFaces`).
 
 ## Measured and built 2026-10-06
 

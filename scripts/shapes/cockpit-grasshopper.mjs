@@ -12,7 +12,7 @@
 //   (c) every control moves: the geometry at one stop differs from the other.
 // ⚠ (b) NEVER READS THE PROFILE'S SCALE, EYE-TO-SKIN MAPPING OR HOLES: it recomputes them off the
 // JSON, or it would be the answer checking itself.
-import { shellFaces, shellBounds } from '../../client/shared/interior-shell.js';
+import { shellFaces, shellBounds, freezeFaces } from '../../client/shared/interior-shell.js';
 import { grasshopperProfile, CUB_TRIM } from '../../client/shared/interior-grasshopper.js';
 import { MESH_ROWS } from '../../client/shared/vehicle-meshes.js';
 import { compileMesh } from '../../client/shared/vehicle-mesh.js';
@@ -60,7 +60,7 @@ const STOPS = {
   powered: [false, true], dome: [false, true], landingLight: [false, true], hour: [12, 0],
 };
 function roomChecks(tag, live) {
-  const faces = shellFaces(P, live);
+  const faces = freezeFaces(shellFaces(P, live));
   const inside = B[0] < -0.05 && B[1] < -0.05 && B[2] < -0.05 && B[3] > 0.05 && B[4] > 0.05 && B[5] > 0.05;
   ok(inside, tag + ': eye not strictly inside ' + B.map((n) => n.toFixed(2)).join(' '));
   ok(!cast(faces, [0, 1, 0]), tag + ': something is across the windscreen');
@@ -189,7 +189,7 @@ ok(rest.length >= 4000 && rest.length <= 12000, 'face count ' + rest.length + ' 
   // The eased parts (the mag key, the map lamp) step by wall time: build twice after a pause.
   // ⚠ eased() advances at most 0.1 s a CALL, not per wall-clock second, so settling is ten builds a
   // tenth of a second apart; fewer and the LAST stop's easing is still running and a frozen control reads as moving.
-  const settle = (live) => { for (let n = 0; n < 10; n++) { shellFaces(P, live); const t0 = Date.now(); while (Date.now() - t0 < 105); } return shellFaces(P, live); };
+  const settle = (live) => { for (let n = 0; n < 10; n++) { shellFaces(P, live); const t0 = Date.now(); while (Date.now() - t0 < 105); } return freezeFaces(shellFaces(P, live)); };
   const rgbSig = (faces) => faces.map((f) => (f.rgb ? f.rgb.join(',') + '/' + (f.emis || 0).toFixed(2) : '')).join('|');
   for (const [k, [lo, hi]] of Object.entries(STOPS)) {
     const a = settle({ ...REST, [k]: lo }), b = settle({ ...REST, [k]: hi });

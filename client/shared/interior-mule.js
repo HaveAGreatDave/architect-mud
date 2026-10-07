@@ -45,7 +45,7 @@
 //
 // Frame: metres, the eye at the origin, +x right, +y forward, +z up. The centreline is `xCentre`
 // to the right of the eye; the co-pilot sits at 2·xCentre.
-import { makeKit, C, clamp, pedal, SHINY, PANE, TEXTURE } from './interior-kit.js';
+import { makeKit, C, clamp, pedal, SHINY, PANE, TEXTURE, xfTurn } from './interior-kit.js';
 import { contactShadow, facingPanel, hotspotHalo } from './interior-cockpit-kit.js';
 import { FW_ROWS } from './vehicle-models.js';
 
@@ -822,16 +822,31 @@ function muleFit(P, live, push) {
   SW.forEach(([id, nm], i) => Pn.toggle(S.sw.x[i], S.sw.z, swOn[id], nm));
 
   // ── THE CONTROL WHEELS: columns out of the floor ─────────────────────────
+  // Two rigid parts, built at rest and moved (`K.posed`, interior-memo.js memoPosed): the column swings
+  // about the x axis through its pivot with the elevator, and the wheel turns about `Nw` with the
+  // ailerons and rides on the column's top. Rebuilt where they stood, they were new faces every frame
+  // the stick moved.
   const wheel = (x) => {
-    const f = yokeFrame(Y, x, elev), a = f.axis;
+    const f0 = yokeFrame(Y, x, 0), f = yokeFrame(Y, x, elev);
+    K.posed('muleColumn', xfTurn(f0.piv, [1, 0, 0], clamp(elev, -1, 1) * 0.16), wheelColumn, x);
+    const R0 = [1, 0, 0], U1 = norm([0, -0.15, 1]), Nw = cross(R0, U1);
+    K.posed('muleWheel', xfTurn(f0.hub, Nw, ail * 1.1, f.hub), wheelBody, x, glow);
+  };
+  // The column and its boot at rest (elevator 0).
+  const wheelColumn = (x) => {
+    const f = yokeFrame(Y, x, 0), a = f.axis;
     K.rod(f.piv, f.hub, 0.022, 'dash', 0.2, T.column, 0.02, 8);
     K.obox(f.piv, [1, 0, 0], a, norm(cross([1, 0, 0], a)), 0.05, 0.05, 0.04, 'dash', 0, [24, 24, 26]);   // the boot
+  };
+  // The wheel at rest (elevator 0, ailerons 0).
+  const wheelBody = (x, glow) => {
+    const f = yokeFrame(Y, x, 0);
     // ⚠ THE WHEEL STANDS UP IN FRONT OF YOU; IT IS NOT SQUARE TO THE COLUMN. The column leans back
     // only 17° off vertical, so a wheel square to it lay nearly flat, the horns pointing at the
     // pilot's chest like a bicycle's bars. The Otter's ram's horn stands on top of the column facing
     // you, leaning back a touch, and the ailerons turn it about the axis toward you.
-    const ang = ail * 1.1, R0 = [1, 0, 0], U1 = norm([0, -0.15, 1]), Nw = cross(R0, U1);
-    const Rr = add(mul(R0, Math.cos(ang)), mul(U1, Math.sin(ang))), Ur = add(mul(R0, -Math.sin(ang)), mul(U1, Math.cos(ang)));
+    const R0 = [1, 0, 0], U1 = norm([0, -0.15, 1]), Nw = cross(R0, U1);
+    const Rr = R0, Ur = U1;
     const W = (dx, dz) => add(add(f.hub, mul(Rr, dx)), mul(Ur, dz));
     // The Otter's wheel is a ram's horn: a bar across, two horns up, grips on the horns.
     const pts = [[-0.14, 0.07], [-0.15, 0.01], [-0.11, -0.03], [0, -0.035], [0.11, -0.03], [0.15, 0.01], [0.14, 0.07]];

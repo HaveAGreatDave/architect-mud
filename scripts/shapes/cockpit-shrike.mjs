@@ -8,7 +8,7 @@
 //   (c) does every control actually move — geometry at one stop must differ from the other.
 // Run: node scripts/shapes/cockpit-shrike.mjs   (exit 1 on any failure)
 import { shrikeProfile } from '../../client/shared/interior-shrike.js';
-import { shellFaces, shellBounds } from '../../client/shared/interior-shell.js';
+import { shellFaces, shellBounds, freezeFaces } from '../../client/shared/interior-shell.js';
 import { FW_ROWS } from '../../client/shared/vehicle-models.js';
 
 let fails = 0, checks = 0;
@@ -52,7 +52,7 @@ const B = shellBounds(P);
 
 // ── (a) A ROOM, AT REST AND AT EVERY STOP ────────────────────────────────────
 function roomChecks(tag, live) {
-  const faces = shellFaces(P, live);
+  const faces = freezeFaces(shellFaces(P, live));
   ok(faces.length > 0, tag + ': no geometry');
   const inside = B[0] < -0.05 && B[1] < -0.05 && B[2] < -0.05 && B[3] > 0.05 && B[4] > 0.05 && B[5] > 0.05;
   ok(inside, tag + ': eye not strictly inside ' + B.map((n) => n.toFixed(2)).join(' '));
