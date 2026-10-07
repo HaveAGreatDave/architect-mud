@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The dead end. Sound Investment's back wall closes it off: forty feet of blank chrome with a stage door in it, a bell, and a grille over the bell. Delivery vans reverse the whole length of the mews rather than try to turn here.",
+  "description": "The dead end. Halcyon Concert Hall's back wall closes it off: forty feet of blank chrome with a stage door in it, a bell, and a grille over the bell. Delivery vans reverse the whole length of the mews rather than try to turn here.",
   "exits": {
     "east": "zone_district_894_912",
     "south": "zone_district_893_913"

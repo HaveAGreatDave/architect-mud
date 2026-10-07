@@ -187,7 +187,7 @@
           "next": "root"
         }
       ],
-      "text": "She listens to the whole question before she answers it. \"For a cut or a bleed, a bandage. The gauze works every time. The rag works more often than not, and it is cheaper for that reason.\"\n\n\"Pain pills heal you slowly, over about three minutes. Anti-rad tablets bring your radiation down; take one when you are back in from it. Tonic is for thirst, and it settles the nerves a little.\"\n\n\"Anything worse goes on Sister Adler's table at Co-Pay & Pray, a short walk west.\" She marks the way on your map."
+      "text": "She listens to the whole question before she answers it. \"For a cut or a bleed, a bandage. The gauze works every time. The rag works more often than not, and it is cheaper for that reason.\"\n\n\"Pain pills heal you slowly, over about three minutes. Anti-rad tablets bring your radiation down; take one when you are back in from it. Tonic is for thirst, and it settles the nerves a little.\"\n\n\"Anything worse goes on Sister Adler's table at Marrow Street Clinic, a short walk west.\" She marks the way on your map."
     },
     "root": {
       "options": [
@@ -312,7 +312,7 @@
       }
     ]
   },
-  "vendor_shop_name": "Dosed & Confused",
+  "vendor_shop_name": "Tallow Row Chemist",
   "vendor_stock_size": 15,
   "wander_zones": [],
   "wanders": 0,

@@ -154,7 +154,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Not in this building. The show flat is for looking at.\" She finishes the line in the book first. \"Chain Free, on the corner of Kettle Lane and Sorrel Way, has three empty on the third floor at two hundred a week. Mr Lindqvist is at the desk inside the door.\"\n\nShe marks the way on your map."
+      "text": "\"Not in this building. The show flat is for looking at.\" She finishes the line in the book first. \"Bluebell House, on the corner of Kettle Lane and Sorrel Way, has three empty on the third floor at two hundred a week. Mr Lindqvist is at the desk inside the door.\"\n\nShe marks the way on your map."
     },
     "let": {
       "options": [
@@ -185,7 +185,7 @@
           "next": "root"
         }
       ],
-      "text": "She lets that one sit for a second.\n\n\"It is called Quiet Enjoyment because that is a thing written into the lease. It means nobody may interfere with your use of the flat.\" A very small movement of the mouth. \"It does not mean quiet.\"\n\n\"The crane behind starts at six. Not six-thirty. Six. I have the notice about it in a drawer and I am not putting it up, because the ones who are here already know and the ones who are not here are not here.\""
+      "text": "She lets that one sit for a second.\n\n\"The lease promises quiet enjoyment. That is a phrase lawyers use. It means nobody may interfere with your use of the flat.\" A very small movement of the mouth. \"It does not mean quiet.\"\n\n\"The crane behind starts at six. Not six-thirty. Six. I have the notice about it in a drawer and I am not putting it up, because the ones who are here already know and the ones who are not here are not here.\""
     },
     "root": {
       "options": [
@@ -217,7 +217,7 @@
       "text": "\"Afternoon.\" She does not get up. \"If you are viewing, the show flat is two up and the stair is quicker than the lift. If you are delivering, leave it on the end of the desk.\"",
       "text_by_relation": {
         "familiar": "She has the stair door on the latch before you are across the lobby.\n\n\"Lift is still the lift,\" she says. \"Tea is in the pot and the pot is mine, but there is a cup.\"",
-        "first": "The woman behind the desk finishes writing a time in a book before she looks up, which somehow does not read as rude.\n\n\"Quiet Enjoyment. Fourteen floors, eleven let.\" A short pause. \"That is the whole of the sales talk and I am not paid for the sales talk, so.\"\n\nShe nods at the stair.\n\n\"Show flat is two up. Take the stair. I will explain the lift if you want the lift explained.\"",
+        "first": "The woman behind the desk finishes writing a time in a book before she looks up, which somehow does not read as rude.\n\n\"Harebell House. Fourteen floors, eleven let.\" A short pause. \"That is the whole of the sales talk and I am not paid for the sales talk, so.\"\n\nShe nods at the stair.\n\n\"Show flat is two up. Take the stair. I will explain the lift if you want the lift explained.\"",
         "known": "\"Back again.\" She pushes the visitors' book an inch toward you, which is as close as she comes to a greeting."
       }
     }
@@ -291,7 +291,7 @@
       }
     ]
   },
-  "vendor_shop_name": "Quiet Enjoyment",
+  "vendor_shop_name": "Harebell House",
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,

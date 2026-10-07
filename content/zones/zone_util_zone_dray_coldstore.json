@@ -15,6 +15,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_dray_coldstore",
   "map_id": "map_interior_zone_dray_coldstore",
-  "name": "Absolute Zero Holdings — Utility Room",
+  "name": "Basin Cold Store — Utility Room",
   "parent_zone": "zone_district_922_905"
 }

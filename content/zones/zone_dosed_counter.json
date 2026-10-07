@@ -9,7 +9,7 @@
     "south": "zone_district_917_911"
   },
   "flags": {
-    "building_name": "Dosed & Confused",
+    "building_name": "Tallow Row Chemist",
     "building_type": "chem_supply",
     "floor": "tile",
     "is_building": true,
@@ -27,6 +27,6 @@
   "grid_z": 0,
   "id": "zone_dosed_counter",
   "map_id": "map_int_dosed",
-  "name": "Dosed & Confused — Counter",
+  "name": "Tallow Row Chemist — Counter",
   "parent_zone": "zone_district_917_911"
 }

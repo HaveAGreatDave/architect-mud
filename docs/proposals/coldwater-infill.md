@@ -46,7 +46,7 @@ None of them needs a line of new engine code to be worth entering.
 | 1 | **Reel Estate** | `cinema` | 912,914 Meltwater Row | west | `RE` | Gower Nissen | betatapes, [instruments](../systems-instruments.md) |
 | 2 | **Photo Finish** | `bookmaker` | 914,914 Kiln Lane | east | `PF` | Ada Glennie | [broadcast](../systems-broadcast.md) sports leagues |
 | 3 | **Stuff It** | `taxidermist` | 917,914 The Gate Road | east | `TX` | Marnie Vandersloot | fauna, hunting, the Wildlands road |
-| 4 | **Fine Print** | `lending_library` | 903,908 Greenside Yard | north | `LI` | Lowell Ashgrove | [library](../systems-library.md) |
+| 4 | **Greenside Row Library** | `lending_library` | 903,908 Greenside Yard | north | `LI` | Lowell Ashgrove | [library](../systems-library.md) |
 
 Each is a facade tile plus two or three interior rooms and a utility room, its own interior map, a
 generator and a `power_zones` row and a lit fixture per room, a junction box, a vendor with a full
@@ -137,7 +137,7 @@ also puts a buyer for what you shot within one tile of the road you shot it besi
 **The rule it obeys.** Nothing in this building is funny about the animals. It is funny about the
 customers. See the tone note at the end.
 
-### 4. Fine Print — a lending library still levying fines
+### 4. Greenside Row Library — a lending library still levying fines
 
 [systems-library.md](../systems-library.md) ships nine public-domain books, a tablet reader, RP
 narration and a tap-to-gloss vocabulary layer. Nothing in the world is a library. The Hall of
@@ -207,9 +207,9 @@ walk within four seconds of seeing your boots.
 | 9 | **Negative Equity** | `photographer` | 895,904 Halcyon Boulevard | west | `NE` | Benedetta Salis |
 | 10 | **Skeleton Crew** | `locksmith` | 898,905 Filament Street | south | `SK` | Rufus Bandy |
 | 11 | **No Regerts** | `tattooist` | 901,905 Filament Street | south | `IK` | Nell Prudhoe |
-| 12 | **Paws for Thought** | `vet` | 926,912 Kessler (residential) | south | `VT` | Constance Tiplady |
+| 12 | **Kessler Veterinary** | `vet` | 926,912 Kessler (residential) | south | `VT` | Constance Tiplady |
 | 13 | **Spirit Level** | `off_licence` | 919,914 The Gate Road | west | `SP` | Dermot Cassavetes |
-| 14 | **Past Perfect** | `museum` | 916,914 Kiln Lane | west | `MU` | Horace Mullan |
+| 14 | **Coldwater Museum** | `museum` | 916,914 Kiln Lane | west | `MU` | Horace Mullan |
 
 **Negative Equity** is a photographer four doors from the Ascendant chrome clinic, and the site is
 the building. Its roof is a whole glazed slope facing NORTH, away from the sun, which is what every
@@ -229,7 +229,7 @@ window runs the full height of the flight with the flash pinned across it, lit a
 at the top is clinical and startles everybody. The sign has been misspelled for twenty-two years
 on purpose, and the reason is the best line in the building.
 
-**Paws for Thought** is the only domestic building in Coldwater doing business — brick, a pitched
+**Kessler Veterinary** is the only domestic building in Coldwater doing business — brick, a pitched
 roof, a chimney, and a square bay window with a waiting room behind it. She talks to the animal
 first and the owner second, every time. ⚠ She will not fit chrome to an animal, and her reason is a
 one-paragraph statement of the game's own ethics that never once raises its voice. She has also seen
@@ -241,7 +241,7 @@ that nothing passes hand to hand. ⚠ Its night pool is deliberately tight and a
 up the road it is a bright hole rather than a lit shop. The door has not opened in eleven years and
 the story of why is not the story you expect.
 
-**Past Perfect** is four columns and a pediment on a building one room deep: a joke somebody BUILT
+**Coldwater Museum** is four columns and a pediment on a building one room deep: a joke somebody BUILT
 rather than told, and the only classical order in Coldwater outside the bank and the Hall of Records,
 both of which are the real thing at three times the size. It is free and always has been. The
 catalogue is scrupulous — provenance, finder, date, cross-referenced three ways, and never once
@@ -283,7 +283,7 @@ and leaving it in reports a permanent false positive that trains you to ignore t
   `content:lint` compares it against the interior map's `parent_zone_id`. It flagged all 13.
 - **Every exit needs a `content/connections/` row**, one per undirected pair, or the `zone_edges`
   projection silently drops it and the door does not open. 17 were needed here.
-- **`marker` collides silently.** Fine Print wanted `FP`; Fallow Provisions has had it for months.
+- **`marker` collides silently.** Greenside Row Library wanted `FP`; Fallow Provisions has had it for months.
   `content:lint`'s MARK-4 check catches it, and the code is now `LI`.
 
 And one the gates caught before it could be wrong: **`shapes:smoke` refused the taxidermist's tile**

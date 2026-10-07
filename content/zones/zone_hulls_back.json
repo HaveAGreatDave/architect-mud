@@ -7,7 +7,7 @@
     "east": "zone_hulls_shop"
   },
   "flags": {
-    "building_name": "Hulls Angels",
+    "building_name": "Lever Lane Boatyard",
     "building_type": "wharf",
     "floor": "boards",
     "is_building": true,
@@ -19,6 +19,6 @@
   "grid_z": 0,
   "id": "zone_hulls_back",
   "map_id": "map_int_hulls",
-  "name": "Hulls Angels — Loft & Steam Box",
+  "name": "Lever Lane Boatyard — Loft & Steam Box",
   "parent_zone": "zone_district_916_905"
 }

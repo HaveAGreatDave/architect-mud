@@ -48,7 +48,7 @@
   "bind": [
     {
       "by": "name",
-      "key": "Chill Out Logistics"
+      "key": "Coldline Reefer Depot"
     }
   ],
   "detail": [
@@ -224,10 +224,10 @@
       "z": 0.9
     }
   ],
-  "id": "chilloutlogistics",
-  "note": "CHILL OUT LOGISTICS: the Coldline Reefer Depot, in the Yards.\n\nThe tile's prose: a windowless insulated block breathing frost from its door seals, condensers\nroaring on the roof. COLDLINE REEFER DEPOT. Inside, a meat-locker cathedral where the docks' catch\nkeeps. Your breath fogs just standing near the loading dock.\n\nSo it is a tall dark plate block set back on its plot, and the front of the plot is the loading\ndock. Three white reefer boxes stand backed onto it, nose out to the road, each with its blue\ncompressor light. Between and above them are the dock doors, and over those the stencil COLDLINE\nREEFER DEPOT, which is the depot's own lettering and not the trading name. A tall ammonia stack\nstands at the back corner. The roof carries four condensers.\n\nAbsolute Zero Holdings is its twin: a pale frosted box with one door and no lettering at all.\n\nIt stands in for the `chilloutlogistics` arm (`replaces`), which stays in LEGACY_MODELS.",
+  "id": "coldlinereeferdepot",
+  "note": "COLDLINE REEFER DEPOT: the Coldline Reefer Depot, in the Yards.\n\nThe tile's prose: a windowless insulated block breathing frost from its door seals, condensers\nroaring on the roof. COLDLINE REEFER DEPOT. Inside, a meat-locker cathedral where the docks' catch\nkeeps. Your breath fogs just standing near the loading dock.\n\nSo it is a tall dark plate block set back on its plot, and the front of the plot is the loading\ndock. Three white reefer boxes stand backed onto it, nose out to the road, each with its blue\ncompressor light. Between and above them are the dock doors, and over those the stencil COLDLINE\nREEFER DEPOT, the depot's own lettering. A tall ammonia stack\nstands at the back corner. The roof carries four condensers.\n\nDray Lane Cold Store is its twin: a pale frosted box with one door and no lettering at all.\n\nIt stands in for the `reefer` arm (`replaces`), which stays in LEGACY_MODELS.",
   "pal": "ty_reefer_blk",
-  "replaces": "chilloutlogistics",
+  "replaces": "reefer",
   "segs": [
     {
       "cx": 0,

@@ -7,7 +7,7 @@
     "west": "zone_district_900_913"
   },
   "flags": {
-    "building_name": "Mains Attraction",
+    "building_name": "Halcyon Fields Pumping Station",
     "building_type": "pumping_station",
     "floor": "tile",
     "is_building": true,
@@ -25,6 +25,6 @@
   "grid_z": 0,
   "id": "zone_mains_engine",
   "map_id": "map_int_mains",
-  "name": "Mains Attraction — The Engine Hall",
+  "name": "Halcyon Fields Pumping Station — The Engine Hall",
   "parent_zone": "zone_district_900_913"
 }

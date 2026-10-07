@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The queue for No Such Thing starts about here and doubles back on itself most days. There is no shouting in it. People have stood in this exact line long enough to have worked out the etiquette, and newcomers get told.",
+  "description": "The queue for Ropewalk Soup Kitchen starts about here and doubles back on itself most days. There is no shouting in it. People have stood in this exact line long enough to have worked out the etiquette, and newcomers get told.",
   "exits": {
     "east": "zone_district_924_916",
     "north": "zone_district_923_915",

@@ -139,7 +139,7 @@
           "next": "root"
         }
       ],
-      "text": "\"The lift at Quiet Enjoyment. The lift at Quiet Enjoyment. And then, for a change, the lift at Quiet Enjoyment.\" She wipes the counter. \"After that: the service charge, whose tacks are amber, and whether the pool up at the club is actually heated, which it is, because I have been in it.\"\n\n\"And the crane. Everyone has an opinion about what time the crane starts and they are all wrong, because it is six.\""
+      "text": "\"The lift at Harebell House. The lift at Harebell House. And then, for a change, the lift at Harebell House.\" She wipes the counter. \"After that: the service charge, whose tacks are amber, and whether the pool up at the club is actually heated, which it is, because I have been in it.\"\n\n\"And the crane. Everyone has an opinion about what time the crane starts and they are all wrong, because it is six.\""
     },
     "root": {
       "options": [
@@ -263,7 +263,7 @@
       }
     ]
   },
-  "vendor_shop_name": "Grounds for Concern",
+  "vendor_shop_name": "Sorrel Way Café",
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,

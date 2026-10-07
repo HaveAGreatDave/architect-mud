@@ -1,23 +1,23 @@
 {
   "adorn": [
     {
-      "cx": 0.4,
+      "cx": -0.06,
       "cy": 0.38,
       "kind": "mast",
       "z0": 0.02,
-      "z1": 0.66
+      "z1": 0.62
     },
     {
-      "cx": 0.4,
+      "cx": -0.06,
       "cy": 0.38,
       "kind": "glowPool",
       "rgb": "255,176,88",
       "s": 6,
-      "z": 0.66
+      "z": 0.62
     },
     {
-      "cx": 0,
-      "cy": 0.2,
+      "cx": -0.08,
+      "cy": 0.3,
       "kind": "glowPool",
       "rgb": "255,170,80",
       "s": 18,
@@ -31,14 +31,67 @@
   "bind": [
     {
       "by": "name",
-      "key": "Stack Overflow"
+      "key": "Coldwater Container Yard"
     }
   ],
-  "detail": [],
-  "id": "stackoverflow",
-  "note": "STACK OVERFLOW — a container yard off Kessler Street.\n\nThe tile's prose: intermodal boxes stacked four high in sun-bleached reds and blues, aisles between\nthem like canyons, a reach-stacker sitting idle with its keys long gone; half the containers empty\nand the other half nobody will open on record.\n\nSo the tile is rows of containers at four high, with two aisles running back from the street, and\nthe reach-stacker parked in the front aisle with its boom lowered: a yellow body, a cab and a\nspreader beam. No fence and no sign. A floodlight mast stands at the corner.\n\nIt stands in for the `interstack` arm (`replaces`), which stays in LEGACY_MODELS.",
+  "detail": [
+    {
+      "color": "#e8e4d8",
+      "cx": -0.29,
+      "cy": 0.44,
+      "font": "marker",
+      "half": 0.09,
+      "hh": 0.05,
+      "ink": "#2a2a2a",
+      "kind": "signBoard",
+      "label": "4471 · 4472 · 4475 · 4480 · 4481 ·",
+      "z": 0.16
+    },
+    {
+      "bars": 1,
+      "cx": 0.32,
+      "cy": 0.415,
+      "depth": 0.01,
+      "glass": "#22282e",
+      "glow": "#e0e8f0",
+      "half": 0.05,
+      "hh": 0.04,
+      "kind": "windowBay",
+      "pal": "ty_fab_steel",
+      "z": 0.15
+    },
+    {
+      "color": "#1a1e22",
+      "cx": 0.32,
+      "cy": 0.415,
+      "font": "stencil",
+      "half": 0.06,
+      "hh": 0.013,
+      "ink": "#d8dcd0",
+      "kind": "signBoard",
+      "label": "COLDWATER CONTAINER YARD",
+      "z": 0.223
+    },
+    {
+      "count": 4,
+      "kind": "repeat",
+      "of": {
+        "cx": -0.43,
+        "cy": 0.44,
+        "kind": "pipe",
+        "pal": "ty_stack_dk",
+        "r": 0.005,
+        "z0": 0.02,
+        "z1": 0.3
+      },
+      "step": {
+        "cx": 0.1
+      }
+    }
+  ],
+  "id": "coldwatercontaineryard",
+  "note": "COLDWATER CONTAINER YARD — the gate of the Coldwater Container Yard on Dray Lane.\n\nThe tile's prose: a chain-link gate on a rolling track, and behind it corroded shipping cans\nstacked four high in canyons that groan when the wind comes off the Basin; a tally board by the\ngate with box numbers nobody has reconciled in years.\n\nSo the front is a palisade with the gate rolled back, the tally board on it and a gatehouse hut,\nand behind it three rows of containers stacked to different heights with aisles between them. A\nworks doesn't sign itself (UNSIGNED_TRADE), so the name is a plate on the hut. Each container is\nan explicit long box: `box` defaults `fd` to `hw`, and a square container is a warehouse.",
   "pal": "ty_yard_tarmac",
-  "replaces": "interstack",
   "segs": [
     {
       "cx": 0,
@@ -51,51 +104,7 @@
       "z1": 0.02
     },
     {
-      "cx": -0.27,
-      "cy": 0.26,
-      "fd": 0.055,
-      "hw": 0.14,
-      "kind": "box",
-      "pal": "ty_cont_b",
-      "roof": true,
-      "z0": 0.02,
-      "z1": 0.12
-    },
-    {
-      "cx": -0.27,
-      "cy": 0.26,
-      "fd": 0.055,
-      "hw": 0.14,
-      "kind": "box",
-      "pal": "ty_cont_r",
-      "roof": true,
-      "z0": 0.12,
-      "z1": 0.22
-    },
-    {
-      "cx": -0.27,
-      "cy": 0.26,
-      "fd": 0.055,
-      "hw": 0.14,
-      "kind": "box",
-      "pal": "ty_cont_y",
-      "roof": true,
-      "z0": 0.22,
-      "z1": 0.32
-    },
-    {
-      "cx": -0.27,
-      "cy": 0.26,
-      "fd": 0.055,
-      "hw": 0.14,
-      "kind": "box",
-      "pal": "ty_cont_g",
-      "roof": true,
-      "z0": 0.32,
-      "z1": 0.42
-    },
-    {
-      "cx": -0.27,
+      "cx": -0.26,
       "cy": 0.12,
       "fd": 0.055,
       "hw": 0.14,
@@ -106,7 +115,7 @@
       "z1": 0.12
     },
     {
-      "cx": -0.27,
+      "cx": -0.26,
       "cy": 0.12,
       "fd": 0.055,
       "hw": 0.14,
@@ -117,7 +126,7 @@
       "z1": 0.22
     },
     {
-      "cx": -0.27,
+      "cx": -0.26,
       "cy": 0.12,
       "fd": 0.055,
       "hw": 0.14,
@@ -128,7 +137,7 @@
       "z1": 0.32
     },
     {
-      "cx": -0.27,
+      "cx": -0.26,
       "cy": 0.12,
       "fd": 0.055,
       "hw": 0.14,
@@ -139,161 +148,7 @@
       "z1": 0.42
     },
     {
-      "cx": -0.27,
-      "cy": -0.02,
-      "fd": 0.055,
-      "hw": 0.14,
-      "kind": "box",
-      "pal": "ty_cont_g",
-      "roof": true,
-      "z0": 0.02,
-      "z1": 0.12
-    },
-    {
-      "cx": -0.27,
-      "cy": -0.02,
-      "fd": 0.055,
-      "hw": 0.14,
-      "kind": "box",
-      "pal": "ty_cont_b",
-      "roof": true,
-      "z0": 0.12,
-      "z1": 0.22
-    },
-    {
-      "cx": -0.27,
-      "cy": -0.02,
-      "fd": 0.055,
-      "hw": 0.14,
-      "kind": "box",
-      "pal": "ty_cont_r",
-      "roof": true,
-      "z0": 0.22,
-      "z1": 0.32
-    },
-    {
-      "cx": -0.27,
-      "cy": -0.16,
-      "fd": 0.055,
-      "hw": 0.14,
-      "kind": "box",
-      "pal": "ty_cont_y",
-      "roof": true,
-      "z0": 0.02,
-      "z1": 0.12
-    },
-    {
-      "cx": -0.27,
-      "cy": -0.16,
-      "fd": 0.055,
-      "hw": 0.14,
-      "kind": "box",
-      "pal": "ty_cont_g",
-      "roof": true,
-      "z0": 0.12,
-      "z1": 0.22
-    },
-    {
-      "cx": -0.27,
-      "cy": -0.16,
-      "fd": 0.055,
-      "hw": 0.14,
-      "kind": "box",
-      "pal": "ty_cont_b",
-      "roof": true,
-      "z0": 0.22,
-      "z1": 0.32
-    },
-    {
-      "cx": -0.27,
-      "cy": -0.16,
-      "fd": 0.055,
-      "hw": 0.14,
-      "kind": "box",
-      "pal": "ty_cont_r",
-      "roof": true,
-      "z0": 0.32,
-      "z1": 0.42
-    },
-    {
-      "cx": -0.27,
-      "cy": -0.3,
-      "fd": 0.055,
-      "hw": 0.14,
-      "kind": "box",
-      "pal": "ty_cont_b",
-      "roof": true,
-      "z0": 0.02,
-      "z1": 0.12
-    },
-    {
-      "cx": -0.27,
-      "cy": -0.3,
-      "fd": 0.055,
-      "hw": 0.14,
-      "kind": "box",
-      "pal": "ty_cont_r",
-      "roof": true,
-      "z0": 0.12,
-      "z1": 0.22
-    },
-    {
-      "cx": -0.27,
-      "cy": -0.3,
-      "fd": 0.055,
-      "hw": 0.14,
-      "kind": "box",
-      "pal": "ty_cont_y",
-      "roof": true,
-      "z0": 0.22,
-      "z1": 0.32
-    },
-    {
-      "cx": -0.27,
-      "cy": -0.3,
-      "fd": 0.055,
-      "hw": 0.14,
-      "kind": "box",
-      "pal": "ty_cont_g",
-      "roof": true,
-      "z0": 0.32,
-      "z1": 0.42
-    },
-    {
-      "cx": 0.27,
-      "cy": 0.26,
-      "fd": 0.055,
-      "hw": 0.14,
-      "kind": "box",
-      "pal": "ty_cont_r",
-      "roof": true,
-      "z0": 0.02,
-      "z1": 0.12
-    },
-    {
-      "cx": 0.27,
-      "cy": 0.26,
-      "fd": 0.055,
-      "hw": 0.14,
-      "kind": "box",
-      "pal": "ty_cont_y",
-      "roof": true,
-      "z0": 0.12,
-      "z1": 0.22
-    },
-    {
-      "cx": 0.27,
-      "cy": 0.26,
-      "fd": 0.055,
-      "hw": 0.14,
-      "kind": "box",
-      "pal": "ty_cont_g",
-      "roof": true,
-      "z0": 0.22,
-      "z1": 0.32
-    },
-    {
-      "cx": 0.27,
+      "cx": 0.02,
       "cy": 0.12,
       "fd": 0.055,
       "hw": 0.14,
@@ -304,7 +159,7 @@
       "z1": 0.12
     },
     {
-      "cx": 0.27,
+      "cx": 0.02,
       "cy": 0.12,
       "fd": 0.055,
       "hw": 0.14,
@@ -315,7 +170,7 @@
       "z1": 0.22
     },
     {
-      "cx": 0.27,
+      "cx": 0.02,
       "cy": 0.12,
       "fd": 0.055,
       "hw": 0.14,
@@ -326,19 +181,52 @@
       "z1": 0.32
     },
     {
-      "cx": 0.27,
+      "cx": 0.28,
       "cy": 0.12,
       "fd": 0.055,
       "hw": 0.14,
       "kind": "box",
       "pal": "ty_cont_g",
       "roof": true,
+      "z0": 0.02,
+      "z1": 0.12
+    },
+    {
+      "cx": 0.28,
+      "cy": 0.12,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_b",
+      "roof": true,
+      "z0": 0.12,
+      "z1": 0.22
+    },
+    {
+      "cx": 0.28,
+      "cy": 0.12,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_r",
+      "roof": true,
+      "z0": 0.22,
+      "z1": 0.32
+    },
+    {
+      "cx": 0.28,
+      "cy": 0.12,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_y",
+      "roof": true,
       "z0": 0.32,
       "z1": 0.42
     },
     {
-      "cx": 0.27,
-      "cy": -0.02,
+      "cx": -0.26,
+      "cy": -0.14,
       "fd": 0.055,
       "hw": 0.14,
       "kind": "box",
@@ -348,8 +236,8 @@
       "z1": 0.12
     },
     {
-      "cx": 0.27,
-      "cy": -0.02,
+      "cx": -0.26,
+      "cy": -0.14,
       "fd": 0.055,
       "hw": 0.14,
       "kind": "box",
@@ -359,8 +247,8 @@
       "z1": 0.22
     },
     {
-      "cx": 0.27,
-      "cy": -0.02,
+      "cx": -0.26,
+      "cy": -0.14,
       "fd": 0.055,
       "hw": 0.14,
       "kind": "box",
@@ -370,125 +258,181 @@
       "z1": 0.32
     },
     {
-      "cx": 0.27,
-      "cy": -0.02,
-      "fd": 0.055,
-      "hw": 0.14,
-      "kind": "box",
-      "pal": "ty_cont_r",
-      "roof": true,
-      "z0": 0.32,
-      "z1": 0.42
-    },
-    {
-      "cx": 0.27,
-      "cy": -0.16,
-      "fd": 0.055,
-      "hw": 0.14,
-      "kind": "box",
-      "pal": "ty_cont_g",
-      "roof": true,
-      "z0": 0.02,
-      "z1": 0.12
-    },
-    {
-      "cx": 0.27,
-      "cy": -0.16,
+      "cx": 0.02,
+      "cy": -0.14,
       "fd": 0.055,
       "hw": 0.14,
       "kind": "box",
       "pal": "ty_cont_b",
       "roof": true,
-      "z0": 0.12,
-      "z1": 0.22
+      "z0": 0.02,
+      "z1": 0.12
     },
     {
-      "cx": 0.27,
-      "cy": -0.3,
+      "cx": 0.02,
+      "cy": -0.14,
       "fd": 0.055,
       "hw": 0.14,
       "kind": "box",
       "pal": "ty_cont_r",
       "roof": true,
-      "z0": 0.02,
-      "z1": 0.12
-    },
-    {
-      "cx": 0.27,
-      "cy": -0.3,
-      "fd": 0.055,
-      "hw": 0.14,
-      "kind": "box",
-      "pal": "ty_cont_y",
-      "roof": true,
       "z0": 0.12,
       "z1": 0.22
     },
     {
-      "cx": 0.27,
-      "cy": -0.3,
+      "cx": 0.02,
+      "cy": -0.14,
       "fd": 0.055,
       "hw": 0.14,
       "kind": "box",
-      "pal": "ty_cont_g",
+      "pal": "ty_cont_y",
       "roof": true,
       "z0": 0.22,
       "z1": 0.32
     },
     {
-      "cx": 0.27,
-      "cy": -0.3,
+      "cx": 0.02,
+      "cy": -0.14,
       "fd": 0.055,
       "hw": 0.14,
       "kind": "box",
-      "pal": "ty_cont_b",
+      "pal": "ty_cont_g",
       "roof": true,
       "z0": 0.32,
       "z1": 0.42
     },
     {
-      "cx": 0,
-      "cy": 0.18,
-      "fd": 0.09,
-      "hw": 0.05,
+      "cx": 0.28,
+      "cy": -0.14,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_r",
+      "roof": true,
+      "z0": 0.02,
+      "z1": 0.12
+    },
+    {
+      "cx": 0.28,
+      "cy": -0.14,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_y",
+      "roof": true,
+      "z0": 0.12,
+      "z1": 0.22
+    },
+    {
+      "cx": -0.12,
+      "cy": -0.36,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_g",
+      "roof": true,
+      "z0": 0.02,
+      "z1": 0.12
+    },
+    {
+      "cx": -0.12,
+      "cy": -0.36,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_b",
+      "roof": true,
+      "z0": 0.12,
+      "z1": 0.22
+    },
+    {
+      "cx": -0.12,
+      "cy": -0.36,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_r",
+      "roof": true,
+      "z0": 0.22,
+      "z1": 0.32
+    },
+    {
+      "cx": -0.12,
+      "cy": -0.36,
+      "fd": 0.055,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cont_y",
+      "roof": true,
+      "z0": 0.32,
+      "z1": 0.42
+    },
+    {
+      "cx": 0.2,
+      "cy": -0.36,
+      "fd": 0.055,
+      "hw": 0.14,
       "kind": "box",
       "pal": "ty_cont_y",
       "roof": true,
       "z0": 0.02,
-      "z1": 0.1
+      "z1": 0.12
     },
     {
-      "cx": 0.03,
-      "cy": 0.1,
-      "fd": 0.025,
-      "hw": 0.025,
+      "cx": 0.2,
+      "cy": -0.36,
+      "fd": 0.055,
+      "hw": 0.14,
       "kind": "box",
-      "pal": "ty_crane_cab",
+      "pal": "ty_cont_g",
       "roof": true,
-      "z0": 0.1,
-      "z1": 0.17
+      "z0": 0.12,
+      "z1": 0.22
     },
     {
-      "cx": 0,
-      "cy": 0.3,
-      "fd": 0.06,
-      "hw": 0.012,
+      "cx": 0.2,
+      "cy": -0.36,
+      "fd": 0.055,
+      "hw": 0.14,
       "kind": "box",
-      "pal": "ty_cont_y",
+      "pal": "ty_cont_b",
       "roof": true,
-      "z0": 0.1,
-      "z1": 0.13
+      "z0": 0.22,
+      "z1": 0.32
     },
     {
-      "cx": 0,
-      "cy": 0.37,
-      "fd": 0.012,
-      "hw": 0.11,
+      "cx": -0.29,
+      "cy": 0.432,
+      "fd": 0.006,
+      "hw": 0.15,
       "kind": "box",
-      "pal": "ty_stack_dk",
+      "pal": "ty_bond_fence",
+      "roof": false,
+      "z0": 0.02,
+      "z1": 0.3
+    },
+    {
+      "cx": -0.27,
+      "cy": 0.412,
+      "fd": 0.006,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_bond_fence",
+      "roof": false,
+      "z0": 0.03,
+      "z1": 0.29
+    },
+    {
+      "cx": 0.32,
+      "cy": 0.33,
+      "fd": 0.08,
+      "hw": 0.08,
+      "kind": "box",
+      "pal": "ty_yard_hut",
       "roof": true,
-      "z0": 0.08,
-      "z1": 0.11
+      "z0": 0.02,
+      "z1": 0.24
     }
-  ]
+  ],
+  "trade": "container_yard"
 }

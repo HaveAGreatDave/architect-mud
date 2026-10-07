@@ -7,7 +7,7 @@
     "west": "zone_district_900_911"
   },
   "flags": {
-    "building_name": "Above Board",
+    "building_name": "Celandine Tower",
     "building_type": "torque_tower",
     "floor": "stone",
     "is_building": true,
@@ -25,6 +25,6 @@
   "grid_z": 0,
   "id": "zone_hf_aboveboard_lobby",
   "map_id": "map_int_hf_aboveboard",
-  "name": "Above Board — The Lobby",
+  "name": "Celandine Tower — The Lobby",
   "parent_zone": "zone_district_900_911"
 }

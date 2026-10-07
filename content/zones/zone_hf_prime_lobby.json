@@ -7,7 +7,7 @@
     "west": "zone_district_903_912"
   },
   "flags": {
-    "building_name": "Prime Location",
+    "building_name": "Rowan Tower",
     "building_type": "torque_tower",
     "floor": "stone",
     "is_building": true,
@@ -25,6 +25,6 @@
   "grid_z": 0,
   "id": "zone_hf_prime_lobby",
   "map_id": "map_int_hf_prime",
-  "name": "Prime Location — The Podium Lobby",
+  "name": "Rowan Tower — The Podium Lobby",
   "parent_zone": "zone_district_903_912"
 }

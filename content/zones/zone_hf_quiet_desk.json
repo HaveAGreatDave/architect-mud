@@ -7,7 +7,7 @@
     "up": "zone_hf_quiet_show"
   },
   "flags": {
-    "building_name": "Quiet Enjoyment",
+    "building_name": "Harebell House",
     "building_type": "bead_tower",
     "floor": "stone",
     "is_building": true,
@@ -25,6 +25,6 @@
   "grid_z": 0,
   "id": "zone_hf_quiet_desk",
   "map_id": "map_int_hf_quiet",
-  "name": "Quiet Enjoyment — The Concierge Desk",
+  "name": "Harebell House — The Concierge Desk",
   "parent_zone": "zone_district_892_913"
 }

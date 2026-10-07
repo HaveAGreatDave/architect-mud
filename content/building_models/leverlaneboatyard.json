@@ -24,7 +24,7 @@
   "bind": [
     {
       "by": "name",
-      "key": "Hulls Angels"
+      "key": "Lever Lane Boatyard"
     }
   ],
   "detail": [
@@ -76,7 +76,7 @@
       "hh": 0.03,
       "ink": "#2a1a0a",
       "kind": "signBoard",
-      "label": "HULLS ANGELS",
+      "label": "LEVER LANE BOATYARD",
       "z": 0.73
     },
     {
@@ -143,8 +143,8 @@
       "z": 0.36
     }
   ],
-  "id": "hullsangels",
-  "note": "HULLS ANGELS — a boat shed on Lever Lane, a quarter of a mile from any water.\n\nThe tile's prose: doors tall enough to walk a mast through, not fully opened in living memory;\nHULLS ANGELS cut into a plank above them in letters that took someone a whole winter; through the\ngap, the ribs of something big and unfinished.\n\nSo it is a tall timber shed under a shallow barrel roof, the street face almost all door: two\nleaves the full height, standing a hand's width apart, with the gap lit from inside, and the plank\nwith the name over them. High clerestory windows run down both flanks to light the hull, and a\nlean-to workshop sits against the back.\n\nIt stands in for the `hulls` arm (`replaces`), which stays in LEGACY_MODELS.",
+  "id": "leverlaneboatyard",
+  "note": "LEVER LANE BOATYARD — a boat shed on Lever Lane, a quarter of a mile from any water.\n\nThe tile's prose: doors tall enough to walk a mast through, not fully opened in living memory;\nLEVER LANE BOATYARD cut into a plank above them in letters that took someone a whole winter; through the\ngap, the ribs of something big and unfinished.\n\nSo it is a tall timber shed under a shallow barrel roof, the street face almost all door: two\nleaves the full height, standing a hand's width apart, with the gap lit from inside, and the plank\nwith the name over them. High clerestory windows run down both flanks to light the hull, and a\nlean-to workshop sits against the back.\n\nIt stands in for the `hulls` arm (`replaces`), which stays in LEGACY_MODELS.",
   "pal": "ty_oc_board",
   "replaces": "hulls",
   "segs": [

@@ -24,7 +24,7 @@
   "bind": [
     {
       "by": "name",
-      "key": "The Wet Handoff"
+      "key": "Kessler Street Wharf"
     }
   ],
   "detail": [
@@ -37,7 +37,7 @@
       "hh": 0.016,
       "ink": "#d8dcd0",
       "kind": "signBoard",
-      "label": "THE WET HANDOFF",
+      "label": "KESSLER STREET WHARF",
       "z": 0.36
     },
     {
@@ -50,8 +50,8 @@
       "z": 0.004
     }
   ],
-  "id": "thewethandoff",
-  "note": "THE WET HANDOFF — the barge wharf where the Yards meet the Basin.\n\nThe tile's prose: a long open-sided shed with a loading crane cantilevered out over the water.\nBarge cargo comes ashore here (nets, drums, the day's catch bound inland), gulls argue over the\nspillage, and the planking is slick and black underfoot.\n\nSo it is a deck, a roof on posts with nothing between them, and drums and net bales standing under\nit, with a stiff-leg crane at the water end and its jib out over the Basin. The roof is the only\nwall-like thing on the tile, so the name is on its fascia. The water side is the back of the tile,\nbecause the door faces Kessler Street.",
+  "id": "kesslerstreetwharf",
+  "note": "KESSLER STREET WHARF — the barge wharf where the Yards meet the Basin.\n\nThe tile's prose: a long open-sided shed with a loading crane cantilevered out over the water.\nBarge cargo comes ashore here (nets, drums, the day's catch bound inland), gulls argue over the\nspillage, and the planking is slick and black underfoot.\n\nSo it is a deck, a roof on posts with nothing between them, and drums and net bales standing under\nit, with a stiff-leg crane at the water end and its jib out over the Basin. The roof is the only\nwall-like thing on the tile, so the name is on its fascia. The water side is the back of the tile,\nbecause the door faces Kessler Street.",
   "pal": "ty_pier_deck",
   "segs": [
     {

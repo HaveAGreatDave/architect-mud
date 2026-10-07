@@ -15,6 +15,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_paws_wait",
   "map_id": "map_int_paws",
-  "name": "Paws for Thought — The Waiting Room — Utility Room",
+  "name": "Kessler Veterinary — The Waiting Room — Utility Room",
   "parent_zone": "zone_district_926_912"
 }

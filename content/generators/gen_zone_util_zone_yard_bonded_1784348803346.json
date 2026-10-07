@@ -8,7 +8,7 @@
   "fuel_type": null,
   "generator_type": "junction_box",
   "id": "gen_zone_util_zone_yard_bonded_1784348803346",
-  "name": "Customs Bonded Store 7 — Utility Room Junction Box",
+  "name": "Bonded Store 7 — Utility Room Junction Box",
   "owner_id": null,
   "zone_id": "zone_util_zone_yard_bonded"
 }

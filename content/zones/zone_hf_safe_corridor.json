@@ -6,7 +6,7 @@
     "up": "zone_hf_safe_hall"
   },
   "flags": {
-    "building_name": "Safe as Houses",
+    "building_name": "Meadowsweet Tower",
     "building_type": "torque_tower",
     "floor": "metal",
     "is_building": true,
@@ -18,6 +18,6 @@
   "grid_z": 0,
   "id": "zone_hf_safe_corridor",
   "map_id": "map_int_hf_safe",
-  "name": "Safe as Houses — The Box Corridor",
+  "name": "Meadowsweet Tower — The Box Corridor",
   "parent_zone": "zone_district_901_911"
 }

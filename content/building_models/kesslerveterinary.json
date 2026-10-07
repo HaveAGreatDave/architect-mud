@@ -32,7 +32,7 @@
   "bind": [
     {
       "by": "name",
-      "key": "Paws for Thought"
+      "key": "Kessler Veterinary"
     }
   ],
   "detail": [
@@ -166,8 +166,8 @@
       "z": 0.15
     }
   ],
-  "id": "pawsforthought",
-  "note": "PAWS FOR THOUGHT — the vet on Kessler Street, in a house that is still obviously a house.\n\nThe tile's prose: brick, a pitched roof with a chimney lit most evenings, a square bay window left\nof the door with the curtains open and a waiting room behind it. What says it isn't a front room is\nthe canopy over the door, the bench under it, and a small polished brass plate by the bell with a\nname and three letters. A water bowl on the step is filled twice a day.\n\nSo: a brick house with a roof over it and a chimney stack at one end, the square bay standing out\non the left, the door under a canopy on the right with the plate beside it, and a lit first-floor\nwindow. The roof is the renderer's barrel rather than a gable, because no gable primitive exists;\nat street level it reads as a roof, which is what matters.",
+  "id": "kesslerveterinary",
+  "note": "KESSLER VETERINARY — the vet on Kessler Street, in a house that is still obviously a house.\n\nThe tile's prose: brick, a pitched roof with a chimney lit most evenings, a square bay window left\nof the door with the curtains open and a waiting room behind it. What says it isn't a front room is\nthe canopy over the door, the bench under it, and a small polished brass plate by the bell with a\nname and three letters. A water bowl on the step is filled twice a day.\n\nSo: a brick house with a roof over it and a chimney stack at one end, the square bay standing out\non the left, the door under a canopy on the right with the plate beside it, and a lit first-floor\nwindow. The roof is the renderer's barrel rather than a gable, because no gable primitive exists;\nat street level it reads as a roof, which is what matters.",
   "pal": "ty_paws",
   "segs": [
     {

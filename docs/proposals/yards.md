@@ -56,7 +56,7 @@ runs E–W through y908.
 | Tile | Building | Fiction | `building_type` (→ 3D model) | Corp flags |
 |---|---|---|---|---|
 | 921,907 | Air Freight Forwarder | — | `freight_forwarder` | — |
-| 922,907 | Bonded Warehouse | Customs Bonded Store 7 | `warehouse` | `claimable_asset:warehouse` + `claimable` |
+| 922,907 | Bonded Warehouse | Bonded Store 7 | `warehouse` | `claimable_asset:warehouse` + `claimable` |
 | 923,907 | Pallet & Fuel Yard | — | `fuel_yard` | — |
 | 924,907 | Container Yard | Interchange Stack | `container_yard` | `claimable_asset:warehouse` + `claimable` |
 | 926,908 | Wharf Transfer Shed | — | `wharf` | — |

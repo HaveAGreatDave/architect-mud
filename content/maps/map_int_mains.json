@@ -1,6 +1,6 @@
 {
   "entry_zone_id": "zone_mains_engine",
   "id": "map_int_mains",
-  "name": "Mains Attraction",
+  "name": "Halcyon Fields Pumping Station",
   "parent_zone_id": "zone_district_900_913"
 }

@@ -5,7 +5,7 @@
     "south": "zone_hf_assets_hang"
   },
   "flags": {
-    "building_name": "Fixed Assets",
+    "building_name": "The West Lens",
     "building_type": "lens_hall",
     "floor": "metal",
     "is_building": true,
@@ -17,6 +17,6 @@
   "grid_z": 0,
   "id": "zone_hf_assets_strong",
   "map_id": "map_int_hf_assets",
-  "name": "Fixed Assets — The Strongroom",
+  "name": "The West Lens — The Strongroom",
   "parent_zone": "zone_district_895_913"
 }

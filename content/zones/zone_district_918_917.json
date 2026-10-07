@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The Gate Road, patched and repatched, with Mains Squeeze on the east side. A row of bolt holes across the tarmac is where the lock's shutter stood, before the South Gate moved west to Meltwater Row.",
+  "description": "The Gate Road, patched and repatched, with Quell's Water on the east side. A row of bolt holes across the tarmac is where the lock's shutter stood, before the South Gate moved west to Meltwater Row.",
   "exits": {
     "east": "zone_district_919_917",
     "north": "zone_district_918_916",

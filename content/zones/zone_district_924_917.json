@@ -1,13 +1,13 @@
 {
   "ambient_events": [],
   "ambient_theme": "residential",
-  "description": "A residential stack optimised for maximum tenants per cubic metre and the bare legal minimum of reasons to keep living. Corridors of identical doors, behind each a life the city quietly stopped counting. A cat holds the stairwell; nobody contests the claim.",
+  "description": "A shack whose door has been taken off and replaced with a curtain, so the light can get in. Inside there is a table with a sheet over it and splints hung on nails along the wall like tools in a shed. Merrit Lachance sets bones for whatever you can pay, and for nothing if you can't.",
   "exits": {
     "north": "zone_district_924_916",
     "south": "zone_bld_924_917_lobby"
   },
   "flags": {
-    "building_name": "A Stitch In Time",
+    "building_name": "Ropewalk Bonesetter",
     "building_type": "bonesetter",
     "district": "residential",
     "entrance": "north",
@@ -24,6 +24,6 @@
   "id": "zone_district_924_917",
   "map_id": "map_world",
   "marker": "IN",
-  "name": "A Stitch In Time",
+  "name": "Ropewalk Bonesetter",
   "parent_zone": null
 }

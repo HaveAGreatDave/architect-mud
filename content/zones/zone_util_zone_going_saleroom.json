@@ -13,6 +13,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_going_saleroom",
   "map_id": "map_int_going",
-  "name": "Going Concern — The Loading Bay",
+  "name": "Halcyon Salerooms — The Loading Bay",
   "parent_zone": "zone_district_895_911"
 }

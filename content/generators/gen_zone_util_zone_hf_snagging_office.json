@@ -7,6 +7,6 @@
   "fuel_type": null,
   "generator_type": "junction_box",
   "id": "gen_zone_util_zone_hf_snagging_office",
-  "name": "Snagging List — The Site Office Junction Box",
+  "name": "Halcyon Fields Site Office — The Site Office Junction Box",
   "zone_id": "zone_util_zone_hf_snagging_office"
 }

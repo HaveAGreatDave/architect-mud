@@ -24,7 +24,7 @@
   "bind": [
     {
       "by": "name",
-      "key": "Loafing Around"
+      "key": "Meltwater Row Bakery"
     }
   ],
   "detail": [
@@ -65,7 +65,7 @@
       "horiz": true,
       "ink": "#2a1a0a",
       "kind": "bladePanel",
-      "label": "LOAFING AROUND",
+      "label": "MELTWATER ROW BAKERY",
       "out": 0.03,
       "pal": "ty_oc_board_dk",
       "z0": 0.29,
@@ -154,9 +154,9 @@
       "z": 0.9
     }
   ],
-  "id": "loafingaround",
+  "id": "meltwaterrowbakery",
   "neon": "#ffb34d",
-  "note": "LOAFING AROUND — the bakery at the bottom of a terrace on Meltwater Row.\n\nThe tile's prose: the only window on the row that steams up from the inside; trays in the display\nat four in the morning and the good ones gone by seven; a sign shaped like a loaf with a slice cut\nout of it and the words running through the gap; the door paint worn to bare wood at hand height.\n\nSo the ground floor is a wide steamed window, lit warm, and the door beside it. The sign is a\ncrust-brown panel hung proud of the fascia with the name across it. Above it the terrace carries on\nfor two more floors of plain sash windows under a cornice, with a chimney stack for the oven.",
+  "note": "MELTWATER ROW BAKERY — the bakery at the bottom of a terrace on Meltwater Row.\n\nThe tile's prose: the only window on the row that steams up from the inside; trays in the display\nat four in the morning and the good ones gone by seven; a sign shaped like a loaf with a slice cut\nout of it and the words running through the gap; the door paint worn to bare wood at hand height.\n\nSo the ground floor is a wide steamed window, lit warm, and the door beside it. The sign is a\ncrust-brown panel hung proud of the fascia with the name across it. Above it the terrace carries on\nfor two more floors of plain sash windows under a cornice, with a chimney stack for the oven.",
   "pal": "ty_oc_brick",
   "segs": [
     {

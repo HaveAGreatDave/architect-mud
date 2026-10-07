@@ -7,7 +7,7 @@
     "west": "zone_pastperf_hall"
   },
   "flags": {
-    "building_name": "Past Perfect",
+    "building_name": "Coldwater Museum",
     "building_type": "museum",
     "floor": "boards",
     "is_building": true,
@@ -19,6 +19,6 @@
   "grid_z": 0,
   "id": "zone_pastperf_office",
   "map_id": "map_int_pastperf",
-  "name": "Past Perfect — The Workroom",
+  "name": "Coldwater Museum — The Workroom",
   "parent_zone": "zone_district_916_914"
 }

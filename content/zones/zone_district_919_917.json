@@ -2,13 +2,13 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "description": "A rain tank on a timber stand over a lean-to, with a tap at counter height and a padlocked chain on the tap. Bartram Quell sells water by the litre through a hatch and measures it into whatever you brought. The ground round the stand is the only wet ground on the street.",
   "exits": {
     "east": "zone_bld_919_917_lobby",
     "west": "zone_district_918_917"
   },
   "flags": {
-    "building_name": "Mains Squeeze",
+    "building_name": "Quell's Water",
     "building_type": "water_seller",
     "district": "residential",
     "entrance": "west",
@@ -23,6 +23,6 @@
   "id": "zone_district_919_917",
   "map_id": "map_world",
   "marker": "MA",
-  "name": "Mains Squeeze",
+  "name": "Quell's Water",
   "parent_zone": null
 }

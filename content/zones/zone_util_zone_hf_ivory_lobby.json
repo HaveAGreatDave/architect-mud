@@ -13,6 +13,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_hf_ivory_lobby",
   "map_id": "map_int_hf_ivory",
-  "name": "Ivory Tower — The Core Base",
+  "name": "Institute Residences — The Core Base",
   "parent_zone": "zone_district_897_915"
 }

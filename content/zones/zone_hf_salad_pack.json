@@ -7,7 +7,7 @@
     "up": "zone_hf_salad_tray"
   },
   "flags": {
-    "building_name": "Salad Days",
+    "building_name": "Kettle Lane Farm",
     "building_type": "vertical_farm",
     "floor": "concrete",
     "is_building": true,
@@ -19,6 +19,6 @@
   "grid_z": 0,
   "id": "zone_hf_salad_pack",
   "map_id": "map_int_hf_salad",
-  "name": "Salad Days — The Packing Floor",
+  "name": "Kettle Lane Farm — The Packing Floor",
   "parent_zone": "zone_district_898_911"
 }

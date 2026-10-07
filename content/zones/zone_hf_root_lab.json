@@ -7,7 +7,7 @@
     "up": "zone_hf_root_trial"
   },
   "flags": {
-    "building_name": "Root Cause",
+    "building_name": "Cinder Lane Farm",
     "building_type": "vertical_farm",
     "floor": "tile",
     "is_building": true,
@@ -19,6 +19,6 @@
   "grid_z": 0,
   "id": "zone_hf_root_lab",
   "map_id": "map_int_hf_root",
-  "name": "Root Cause — The Analysis Floor",
+  "name": "Cinder Lane Farm — The Analysis Floor",
   "parent_zone": "zone_district_901_914"
 }

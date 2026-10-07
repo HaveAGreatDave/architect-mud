@@ -10,7 +10,7 @@
     "south": "zone_district_923_908"
   },
   "flags": {
-    "building_name": "Flash Point Fuel",
+    "building_name": "Kessler Fuel Depot",
     "building_type": "fuel_yard",
     "district": "yards",
     "entrance": "south",
@@ -25,6 +25,6 @@
   "id": "zone_district_923_907",
   "map_id": "map_world",
   "marker": "FY",
-  "name": "Flash Point Fuel",
+  "name": "Kessler Fuel Depot",
   "parent_zone": null
 }

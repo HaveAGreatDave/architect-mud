@@ -13,6 +13,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_current_switch",
   "map_id": "map_int_current",
-  "name": "Current Affairs — The Cable Basement",
+  "name": "Halcyon Fields Substation — The Cable Basement",
   "parent_zone": "zone_district_907_917"
 }

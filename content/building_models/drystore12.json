@@ -16,7 +16,7 @@
   "bind": [
     {
       "by": "name",
-      "key": "Shelf Life"
+      "key": "Dry Store 12"
     }
   ],
   "detail": [
@@ -164,8 +164,8 @@
       "z1": 0.085
     }
   ],
-  "id": "shelflife",
-  "note": "SHELF LIFE — a plain dry-goods warehouse on Kessler Street.\n\nThe tile's prose: concrete-floored, echoing, racking bolted to the ceiling, DRY STORE 12 painted\non the roller door in fading yellow. Cheap to hold, steady to run.\n\nSo it is a portal-framed shed in corrugated sheet under a barrel roof, with the frame showing as\nsteel piers, one big roller door with a loading canopy over it, a personnel door beside it, and the\nstore number painted above the door rather than on it. High strip windows light the racking. A\nworks doesn't sign itself (UNSIGNED_TRADE), so the number is the only lettering.",
+  "id": "drystore12",
+  "note": "DRY STORE 12 — a plain dry-goods warehouse on Kessler Street.\n\nThe tile's prose: concrete-floored, echoing, racking bolted to the ceiling, DRY STORE 12 painted\non the roller door in fading yellow. Cheap to hold, steady to run.\n\nSo it is a portal-framed shed in corrugated sheet under a barrel roof, with the frame showing as\nsteel piers, one big roller door with a loading canopy over it, a personnel door beside it, and the\nstore number painted above the door rather than on it. High strip windows light the racking. A\nworks doesn't sign itself (UNSIGNED_TRADE), so the number is the only lettering.",
   "pal": "ty_wh_metal",
   "segs": [
     {

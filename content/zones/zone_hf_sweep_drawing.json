@@ -5,7 +5,7 @@
     "down": "zone_hf_sweep_model"
   },
   "flags": {
-    "building_name": "Sweeping Statement",
+    "building_name": "Halcyon Developments",
     "building_type": "chrome_slab",
     "floor": "carpet",
     "is_building": true,
@@ -17,6 +17,6 @@
   "grid_z": 0,
   "id": "zone_hf_sweep_drawing",
   "map_id": "map_int_hf_sweep",
-  "name": "Sweeping Statement — The Drawing Office",
+  "name": "Halcyon Developments — The Drawing Office",
   "parent_zone": "zone_district_904_915"
 }

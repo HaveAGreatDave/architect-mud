@@ -2,6 +2,6 @@
   "capacity_kw": 5000,
   "generator_id": "gen_zone_util_zone_wind_day",
   "id": "zone_wind_balcony",
-  "name": "Second Wind — The Balcony",
+  "name": "The Halcyon Hydro — The Balcony",
   "source_type": "junction_box"
 }

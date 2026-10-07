@@ -21,26 +21,26 @@
   // reason. The variety is in the SILHOUETTES, which is where variety survives fog.
   ty_hf_chrome: [186, 198, 208], ty_hf_chrome_dk: [108, 122, 136],
   ty_hf_ice: [218, 230, 238], ty_hf_deck: [64, 78, 92], ty_hf_glass: [40, 62, 84],
-  // Sound Investment — a glass drum on a chrome plinth. The auditorium is the glass, because a
+  // Halcyon Concert Hall — a glass drum on a chrome plinth. The auditorium is the glass, because a
   // hall that cannot be overheard does not have to be blind any more: it is a vacuum-jacketed
   // shell and the glass is the jacket.
   ty_sound: [186, 198, 208], ty_sound_hall: [44, 66, 90], ty_sound_fly: [150, 164, 178],
-  // Vested Interest — the darkest chrome in the quarter, and a door that is not black but
+  // 4 Halcyon Boulevard — the darkest chrome in the quarter, and a door that is not black but
   // smoked glass with nothing behind it lit. The club's whole argument is still absence.
   ty_vested: [112, 126, 142], ty_vested_dk: [20, 28, 40],
-  // Going Concern — pearl chrome over a deep-tinted clerestory. Top-lit still decides the shape;
+  // Halcyon Salerooms — pearl chrome over a deep-tinted clerestory. Top-lit still decides the shape;
   // what changed is that the top light is now the entire upper third of the building.
   ty_going: [172, 186, 196], ty_going_glass: [50, 76, 100],
-  // Course Correction — the palest thing in Coldwater. A giant order rendered as chrome fins
+  // The Halcyon Institute — the palest thing in Coldwater. A giant order rendered as chrome fins
   // rather than stone pilasters, which is the same rhythm in a material that admits it is new.
   ty_course: [210, 222, 230], ty_course_dk: [132, 150, 164],
-  // Plot Twist — a glazed cabin and a hoarding lit from behind rather than printed on. The board
+  // Halcyon Fields Sales Office — a glazed cabin and a hoarding lit from behind rather than printed on. The board
   // is the brightest surface in the quarter after dark and it always was; now it emits.
   ty_plot: [92, 130, 152], ty_plot_board: [216, 230, 238],
-  // Second Wind — the terraces, and a rail that is a lit edge rather than painted steel. A
+  // The Halcyon Hydro — the terraces, and a rail that is a lit edge rather than painted steel. A
   // convalescent home for people recovering from chrome, faced in chrome, and nobody remarks.
   ty_wind: [202, 216, 224], ty_wind_rail: [238, 246, 250],
-  // Glass Half Full — the vault's plinth. Chrome, low, and the only dark band on the building.
+  // The Winter Garden — the vault's plinth. Chrome, low, and the only dark band on the building.
   ty_glass_plinth: [78, 94, 110],
   // ── HALCYON FIELDS, THE PLANT ──────────────────────────────────────────────
   // ⚠ THE PLANT IS BUILT TO THE SAME STANDARD AS THE MONEY, WHICH IS THE QUARTER'S ONE JOKE.

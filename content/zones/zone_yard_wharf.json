@@ -8,7 +8,7 @@
     "west": "zone_district_926_908"
   },
   "flags": {
-    "building_name": "The Wet Handoff",
+    "building_name": "Kessler Street Wharf",
     "building_type": "wharf",
     "floor": "boards",
     "is_building": true,
@@ -26,6 +26,6 @@
   "grid_z": 0,
   "id": "zone_yard_wharf",
   "map_id": "map_int_yard_wharf",
-  "name": "The Wet Handoff",
+  "name": "Kessler Street Wharf",
   "parent_zone": "zone_district_926_908"
 }

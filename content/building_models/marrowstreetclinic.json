@@ -34,7 +34,7 @@
   "bind": [
     {
       "by": "name",
-      "key": "Co-Pay & Pray"
+      "key": "Marrow Street Clinic"
     }
   ],
   "detail": [
@@ -72,7 +72,7 @@
       "hh": 0.024,
       "ink": "#8ff0dc",
       "kind": "signBoard",
-      "label": "CO-PAY & PRAY",
+      "label": "MARROW STREET CLINIC",
       "picto": "pill",
       "z": 0.14
     },
@@ -168,9 +168,9 @@
       "z1": 0.085
     }
   ],
-  "id": "copaypray",
+  "id": "marrowstreetclinic",
   "neon": "#78e8d0",
-  "note": "CO-PAY & PRAY — the walk-in clinic, rebuilt as the curved half of Marrow Street. Its whole\nstreet elevation is a sixteen-sided drum four storeys tall, banded twice in white porcelain, on a\nporcelain plinth, with the back-of-house behind it as a shallow centred box and the plant room set\nback on the roof.\n\n⚠ A DRUM IS THE ONLY WAY TO SAY CURVED HERE, and it is cheap rather than expensive: sixteen facets\nis sixteen quads, it is radially symmetric so it reaches the same radius at every entrance facing,\nand it carries no yaw — which is the pair of properties that make an offset curve safe where an\noffset chamfered box is not.\n\n⚠ THE DETAIL SITS ON THE PLINTH, NOT ON THE BOW. A detail part mounts on a PLANE (`cy` is the wall\nit is bolted to), so anything hung on a drum is a flat panel tangent to a curve. The entrance, the\nname board and the canopy are therefore all on the plinth face, where there is a real flat wall to\nbolt them to, and the bow above is left as glass — which is also what the building would actually\nbe.\n\n⚠ THE RED CROSS STAYS. `roofCross` is this building's sign and `KIT_DECLINE` already keeps the\nderived roof hoarding off a clinic for exactly that reason; a second board up there would be an\nadvertisement standing through the hospital sign.",
+  "note": "MARROW STREET CLINIC — the walk-in clinic, rebuilt as the curved half of Marrow Street. Its whole\nstreet elevation is a sixteen-sided drum four storeys tall, banded twice in white porcelain, on a\nporcelain plinth, with the back-of-house behind it as a shallow centred box and the plant room set\nback on the roof.\n\n⚠ A DRUM IS THE ONLY WAY TO SAY CURVED HERE, and it is cheap rather than expensive: sixteen facets\nis sixteen quads, it is radially symmetric so it reaches the same radius at every entrance facing,\nand it carries no yaw — which is the pair of properties that make an offset curve safe where an\noffset chamfered box is not.\n\n⚠ THE DETAIL SITS ON THE PLINTH, NOT ON THE BOW. A detail part mounts on a PLANE (`cy` is the wall\nit is bolted to), so anything hung on a drum is a flat panel tangent to a curve. The entrance, the\nname board and the canopy are therefore all on the plinth face, where there is a real flat wall to\nbolt them to, and the bow above is left as glass — which is also what the building would actually\nbe.\n\n⚠ THE RED CROSS STAYS. `roofCross` is this building's sign and `KIT_DECLINE` already keeps the\nderived roof hoarding off a clinic for exactly that reason; a second board up there would be an\nadvertisement standing through the hospital sign.",
   "pal": "ty_clinic",
   "replaces": "clinic",
   "segs": [

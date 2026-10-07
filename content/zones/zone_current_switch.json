@@ -6,7 +6,7 @@
     "north": "zone_district_907_917"
   },
   "flags": {
-    "building_name": "Current Affairs",
+    "building_name": "Halcyon Fields Substation",
     "building_type": "substation",
     "floor": "concrete",
     "is_building": true,
@@ -24,6 +24,6 @@
   "grid_z": 0,
   "id": "zone_current_switch",
   "map_id": "map_int_current",
-  "name": "Current Affairs — The Switch Room",
+  "name": "Halcyon Fields Substation — The Switch Room",
   "parent_zone": "zone_district_907_917"
 }

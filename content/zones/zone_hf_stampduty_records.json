@@ -5,7 +5,7 @@
     "down": "zone_hf_stampduty_undercroft"
   },
   "flags": {
-    "building_name": "Stamp Duty",
+    "building_name": "The East Lens",
     "building_type": "lens_hall",
     "floor": "boards",
     "is_building": true,
@@ -23,6 +23,6 @@
   "grid_z": 0,
   "id": "zone_hf_stampduty_records",
   "map_id": "map_int_hf_stampduty",
-  "name": "Stamp Duty — The Records Office",
+  "name": "The East Lens — The Records Office",
   "parent_zone": "zone_district_902_917"
 }

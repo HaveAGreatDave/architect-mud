@@ -9,7 +9,7 @@
     "south": "zone_district_916_911"
   },
   "flags": {
-    "building_name": "Prime Suspect",
+    "building_name": "Tallow Row Butcher",
     "building_type": "butcher",
     "floor": "tile",
     "is_building": true,
@@ -27,6 +27,6 @@
   "grid_z": 0,
   "id": "zone_primesuspect_shop",
   "map_id": "map_int_primesuspect",
-  "name": "Prime Suspect — Shop",
+  "name": "Tallow Row Butcher — Shop",
   "parent_zone": "zone_district_916_911"
 }

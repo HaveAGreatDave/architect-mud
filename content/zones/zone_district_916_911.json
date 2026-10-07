@@ -3,13 +3,13 @@
   "ambient_theme": "urban",
   "bg_color": "#231718",
   "color": "#a8423f",
-  "description": "White tile to shoulder height, scrubbed every night, and above it a fascia in dried-blood red with PRIME SUSPECT in cream capitals. The window is a chilled case on a slant with sawdust under it, and there is a hook rail across the top of the opening that is usually empty by four. The pavement outside this one door is the cleanest thirty square feet on Foundry Way and it is not an accident.",
+  "description": "White tile to shoulder height, scrubbed every night, and above it a fascia in dried-blood red with TALLOW ROW BUTCHER in cream capitals. The window is a chilled case on a slant with sawdust under it, and there is a hook rail across the top of the opening that is usually empty by four. The pavement outside this one door is the cleanest thirty square feet on Foundry Way and it is not an accident.",
   "exits": {
     "north": "zone_primesuspect_shop",
     "south": "zone_district_916_912"
   },
   "flags": {
-    "building_name": "Prime Suspect",
+    "building_name": "Tallow Row Butcher",
     "building_type": "butcher",
     "district": "marrow",
     "entrance": "south",
@@ -25,6 +25,6 @@
   "id": "zone_district_916_911",
   "map_id": "map_world",
   "marker": "BU",
-  "name": "Prime Suspect",
+  "name": "Tallow Row Butcher",
   "parent_zone": null
 }

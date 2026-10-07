@@ -211,7 +211,7 @@
       "text": "\"Good afternoon.\" Her hands stay flat on the slab. \"Are you viewing, or are you here for somebody?\"",
       "text_by_relation": {
         "familiar": "She is already turning the fob on the slab when you come in.\n\n\"Nobody up there today,\" she says. \"Go on. I'll watch the desk, which is what I do anyway.\"",
-        "first": "The woman at the slab watches you cross the forecourt through the glass and is already speaking by the time the door has finished opening.\n\n\"Welcome to Common Ground. Velia Tarn.\" She says it the way you say a thing you have said a great many times and still mean. \"Sixty-two apartments, two towers, and the link is open to residents and their guests from six until eleven.\"\n\nShe turns a fob over on the slab with one finger.\n\n\"You are very welcome to go up and stand on the bridge. Most people want to. There is no charge for it, and I would honestly rather somebody was up there.\"",
+        "first": "The woman at the slab watches you cross the forecourt through the glass and is already speaking by the time the door has finished opening.\n\n\"Welcome to Bridge House. Velia Tarn.\" She says it the way you say a thing you have said a great many times and still mean. \"Sixty-two apartments, two towers, and the link is open to residents and their guests from six until eleven.\"\n\nShe turns a fob over on the slab with one finger.\n\n\"You are very welcome to go up and stand on the bridge. Most people want to. There is no charge for it, and I would honestly rather somebody was up there.\"",
         "known": "\"Back again.\" She has the fob out before you ask. \"Bridge is open. Mind the panel, or don't, everybody minds the panel.\""
       }
     }
@@ -284,7 +284,7 @@
       }
     ]
   },
-  "vendor_shop_name": "Common Ground",
+  "vendor_shop_name": "Bridge House",
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,

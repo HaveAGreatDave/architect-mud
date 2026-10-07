@@ -159,7 +159,7 @@ export function derivedTrim(m, fh, h, seed, forceRich) {
   // authored model's `type` is the literal string `authored`, so `KIT_DECLINE[m.type]` matched
   // NOTHING for any of them — the exact miss `validateModel`'s own ⚠ records for the signage
   // tables, one function later and not fixed with them. Measured over 40 seeds: the `clinic` arm
-  // declines the rooftop hoarding 0/40 as intended, while `copaypray` and `chromeclinic` — both
+  // declines the rooftop hoarding 0/40 as intended, while `marrowstreetclinic` and `chromeclinic` — both
   // authored models that REPLACE a clinic arm — were handed one 25/40 and 17/40. That is the
   // advertisement standing through the hospital sign that this table exists to prevent, on the two
   // buildings it was written for.
@@ -266,7 +266,7 @@ export function derivedTrim(m, fh, h, seed, forceRich) {
     // ── ⚠ AND A SQUAT DRUM GETS ITS CORNICE (RENDER_TUNE.drumTier) ─────────────────────────────
     //
     // The shaft rule above wants height over three radii, which is right for the fins and the
-    // collars up a tower and leaves every ROTUNDA with nothing: the Exchange's drum, Rising Sums'
+    // collars up a tower and leaves every ROTUNDA with nothing: the Exchange's drum, Betony House'
     // stepped tiers and the glass prism's core all came out with no trim at all. A classical round
     // building has one thing a box has too, a cornice where the wall stops, so a drum that is a real
     // storey (not a disc, not a bead, not a cone) takes that one collar and nothing more.
@@ -541,7 +541,7 @@ const KIT_DECLINE = { meridian: ['signRoof', 'wall', 'pier'],   // 'wall' and 'p
   // and this is what makes that true rather than merely stated. The rest of their kit stays.
   gasholder: ['signRoof'], cooling_plant: ['signRoof'], substation: ['signRoof'],
   // ⚠ THE WATER SELLER DECLINES THE ROOF SIGN, AND IT IS THE KIT BEING WRONG RATHER THAN A MATTER
-  // OF TASTE. Old Coldwater's Mains Squeeze is a riveted header tank standing on a timber trestle
+  // OF TASTE. Old Coldwater's Quell's Water is a riveted header tank standing on a timber trestle
   // over a one-room hut, and the candidate loop finds the top of that TANK as the highest deck and
   // stands a backlit hoarding on legs on it. Nobody bolts an advertising board to the crown of a
   // two-tonne water vessel on stilts, so the part would be wrong on this building whoever built
@@ -582,7 +582,7 @@ const KIT_DECLINE = { meridian: ['signRoof', 'wall', 'pier'],   // 'wall' and 'p
   // Stuff It's canted window and painted sign ground ARE its shopfront, so the kit's glazed band
   // and awning would stand in front of the one thing the building is about.
   taxidermist: ['ground'],
-  // No Regerts is one lit strip up a dark wall and Fine Print one high band of glass: each draws its
+  // No Regerts is one lit strip up a dark wall and Greenside Row Library one high band of glass: each draws its
   // own windows, once, and the kit's grid round them is what made both read as an ordinary block.
   tattooist: ['wall'], lending_library: ['wall'],
   // Spirit Level is a steel shutter over the whole front with one hatch cut in it. A glazed
@@ -650,7 +650,7 @@ const KIT_DECLINE = { meridian: ['signRoof', 'wall', 'pier'],   // 'wall' and 'p
   sump: ['sign', 'signRoof', 'neon', 'wall', 'paint'],
   // The Halcyon building sites. A site's name is printed on its hoarding, which the arm draws, and
   // the kit was standing a lit board on legs on the podium deck, where it ran through the
-  // scaffold standards on Completion Date. Nobody puts neon on a building that isn't finished.
+  // scaffold standards on Plot 11, Cowslip Rise. Nobody puts neon on a building that isn't finished.
   ...Object.fromEntries(['shell_tower', 'hf_frame', 'hf_jumpform', 'hf_wrap', 'hf_scaffold', 'hf_stalled',
     'hf_hoist', 'hf_halfbuilt', 'hf_climber', 'hf_flood', 'hf_topout'].map((t) => [t, ['signRoof', 'neon']])) };
 // Halcyon Fields signs in brushed metal and white light, never a neon tube. Every palette in the
@@ -715,7 +715,7 @@ const UNSIGNED_TRADE = new Set([
   'ruin',
   // ⚠ AND THE REST OF THE SHINGLES, which is the district rule above applied to the kit rather than
   // only to the arms. The derived board over the door, the blade and the roundel were all reaching
-  // these five, and "A STITCH IN TIME" stood on a lit hoarding over a one-room clinic the arm's own
+  // these five, and "ROPEWALK BONESETTER" stood on a lit hoarding over a one-room clinic the arm's own
   // note says has no name on it anywhere. Everyone who uses these places already knows where they
   // are. `KIT_DECLINE` shuts the `sign` section as well; this is what keeps the roundel out, which
   // does not ask that section.

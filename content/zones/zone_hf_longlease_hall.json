@@ -7,7 +7,7 @@
     "north": "zone_hf_longlease_post"
   },
   "flags": {
-    "building_name": "Long Lease",
+    "building_name": "Primrose House",
     "building_type": "bead_tower",
     "floor": "stone",
     "is_building": true,
@@ -25,6 +25,6 @@
   "grid_z": 0,
   "id": "zone_hf_longlease_hall",
   "map_id": "map_int_hf_longlease",
-  "name": "Long Lease — The Entrance Hall",
+  "name": "Primrose House — The Entrance Hall",
   "parent_zone": "zone_district_892_914"
 }

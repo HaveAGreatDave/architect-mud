@@ -19,9 +19,9 @@ const DRY = process.argv.includes('--dry-run');
 const store = loadContentStore();
 const SPECS = [];
 
-// ── Salad Days ───────────────────────────────────────────────────────────────
+// ── Kettle Lane Farm ───────────────────────────────────────────────────────────────
 SPECS.push({
-  slug: 'hf_salad', name: 'Salad Days', type: 'vertical_farm',
+  slug: 'hf_salad', name: 'Kettle Lane Farm', type: 'vertical_farm',
   x: 898, y: 911, entrance: 'east', floors: 10, marker: 'SY', district: 'halcyon_fields',
   facade: {
     bgColor: '#1a1424', color: '#e07ad8',
@@ -42,7 +42,7 @@ SPECS.push({
       flags: { aliases: ['run', 'bench', 'packing'], vendor_safe: true, vendor_npc_id: 'npc_hf_salad_okonjo', hack_difficulty: 4 } },
     { key: 'crates', room: 'pack', name: 'the crate stack', objectType: 'decoration',
       description: 'Shallow chrome-framed crates, washed, stacked eleven high against the wall, every one stencilled with a delivery address.',
-      flags: { aliases: ['crates', 'stack'], interactions: { examine: 'Almost every crate is stencilled for the Spire, or for a floor of it. Two at the bottom of the stack say Light Relief, fifth floor, and those two are the ones that are scuffed.' } } },
+      flags: { aliases: ['crates', 'stack'], interactions: { examine: 'Almost every crate is stencilled for the Spire, or for a floor of it. Two at the bottom of the stack say Fescue House, fifth floor, and those two are the ones that are scuffed.' } } },
     { key: 'racks', room: 'tray', name: 'the growing racks', objectType: 'furniture',
       description: 'Channels of running water in tiers, with leaves out of both sides of every channel and a magenta array a hand\'s breadth above each one.',
       flags: { aliases: ['racks', 'channels', 'rack'], interactions: { examine: 'The water in the channels is moving faster than you would expect, and it is completely clear. There is no soil anywhere in this building.' } } },
@@ -55,7 +55,7 @@ SPECS.push({
   ],
   npc: {
     id: 'npc_hf_salad_okonjo', name: 'Adaeze Okonjo', sex: 'female', hp: 36,
-    homeRoom: 'tray', workRoom: 'pack', shopName: 'Salad Days',
+    homeRoom: 'tray', workRoom: 'pack', shopName: 'Kettle Lane Farm',
     description: 'A wiry woman in her thirties in a waterproof apron, hands red from the cold run, working fast and talking at the same speed. She grew up on a farm outside the Basin that no longer exists and she is entirely unsentimental about soil, which surprises people who expect the opposite.',
     clothing: ['a heavy waterproof apron over everything', 'a long-sleeved thermal top pushed to the elbow', 'work trousers tucked into short rubber boots', 'plain underthings'],
     inventory: [
@@ -91,7 +91,7 @@ SPECS.push({
         options: [{ label: 'Back.', next: 'root' }],
       },
       eats: {
-        text: '"Look at the crates." She nods at the stack without turning. "Read the stencils."\n\n"The Spire, the Spire, a floor of the Spire, the Spire. Ninety per cent of what leaves this building goes three streets that way and up." She shrugs. "It was built to feed a tower. That is not a secret, it is in the name of the contract."\n\n"The bit I like is the two at the bottom that say Light Relief. Fifth floor. Thirty people at six in the morning. That crate goes out every day and it is the one I load myself."',
+        text: '"Look at the crates." She nods at the stack without turning. "Read the stencils."\n\n"The Spire, the Spire, a floor of the Spire, the Spire. Ninety per cent of what leaves this building goes three streets that way and up." She shrugs. "It was built to feed a tower. That is not a secret, it is in the name of the contract."\n\n"The bit I like is the two at the bottom that say Fescue House. Fifth floor. Thirty people at six in the morning. That crate goes out every day and it is the one I load myself."',
         options: [{ label: 'Back.', next: 'root' }],
       },
       pink: {
@@ -107,9 +107,9 @@ SPECS.push({
   },
 });
 
-// ── Root Cause ───────────────────────────────────────────────────────────────
+// ── Cinder Lane Farm ───────────────────────────────────────────────────────────────
 SPECS.push({
-  slug: 'hf_root', name: 'Root Cause', type: 'vertical_farm',
+  slug: 'hf_root', name: 'Cinder Lane Farm', type: 'vertical_farm',
   x: 901, y: 914, entrance: 'east', floors: 10, marker: 'RT', district: 'halcyon_fields',
   facade: {
     bgColor: '#1a1424', color: '#e07ad8',
@@ -143,7 +143,7 @@ SPECS.push({
   ],
   npc: {
     id: 'npc_hf_root_venn', name: 'Corliss Venn', sex: 'male', hp: 30,
-    homeRoom: 'trial', workRoom: 'lab', shopName: 'Root Cause',
+    homeRoom: 'trial', workRoom: 'lab', shopName: 'Cinder Lane Farm',
     description: 'A thin, grey, unhurried man of about sixty in a lab coat over ordinary clothes, standing at the bench with a jar in his hand and the patience of somebody who has been waiting a year for a number to mean something. He answers questions completely and volunteers nothing, and it takes a while to notice that those are two different habits.',
     clothing: ['a lab coat, clean, with the top button missing', 'a cardigan under it in a colour nobody chose recently', 'grey trousers', 'plain underthings'],
     inventory: [
@@ -195,9 +195,9 @@ SPECS.push({
   },
 });
 
-// ── Sweeping Statement ───────────────────────────────────────────────────────
+// ── Halcyon Developments ───────────────────────────────────────────────────────
 SPECS.push({
-  slug: 'hf_sweep', name: 'Sweeping Statement', type: 'chrome_slab',
+  slug: 'hf_sweep', name: 'Halcyon Developments', type: 'chrome_slab',
   x: 904, y: 915, entrance: 'south', floors: 7, marker: 'SB', district: 'halcyon_fields',
   facade: {
     bgColor: '#16232f', color: '#9fe0ff',
@@ -231,7 +231,7 @@ SPECS.push({
   ],
   npc: {
     id: 'npc_hf_sweep_delacroix', name: 'Sylvie Delacroix', sex: 'female', hp: 28,
-    homeRoom: 'drawing', workRoom: 'model', shopName: 'Sweeping Statement',
+    homeRoom: 'drawing', workRoom: 'model', shopName: 'Halcyon Developments',
     description: 'A precise woman in her fifties in a soft grey suit, standing at the end of the model table with her hands behind her back like somebody presenting. She has drawn some of what is on that table and she is genuinely proud of it, and she answers questions about the parts she drew at length and questions about the rest in one sentence.',
     clothing: ['a soft grey suit, well made, worn every day', 'a cream blouse', 'low practical shoes', 'plain underthings'],
     inventory: [
@@ -287,9 +287,9 @@ SPECS.push({
   },
 });
 
-// ── Frond Memories ───────────────────────────────────────────────────────────
+// ── The Fern House ───────────────────────────────────────────────────────────
 SPECS.push({
-  slug: 'hf_frond', name: 'Frond Memories', type: 'pavilion',
+  slug: 'hf_frond', name: 'The Fern House', type: 'pavilion',
   x: 906, y: 917, entrance: 'north', floors: 2, marker: 'FD', district: 'halcyon_fields',
   facade: {
     bgColor: '#122018', color: '#9fe6c0',
@@ -364,9 +364,9 @@ SPECS.push({
   },
 });
 
-// ── Standing Room Only ───────────────────────────────────────────────────────
+// ── Kerbstone Row Halt ───────────────────────────────────────────────────────
 SPECS.push({
-  slug: 'hf_standing', name: 'Standing Room Only', type: 'transit_halt',
+  slug: 'hf_standing', name: 'Kerbstone Row Halt', type: 'transit_halt',
   x: 893, y: 917, entrance: 'north', floors: 2, marker: 'SM', district: 'halcyon_fields',
   facade: {
     bgColor: '#141f2a', color: '#bfe8ff',
@@ -401,7 +401,7 @@ SPECS.push({
   ],
   npc: {
     id: 'npc_hf_standing_pell', name: 'Ozias Pell', sex: 'male', hp: 30,
-    homeRoom: 'waiting', workRoom: 'waiting', shopName: 'Standing Room Only',
+    homeRoom: 'waiting', workRoom: 'waiting', shopName: 'Kerbstone Row Halt',
     description: 'A neat, elderly man in a coat and a hat, on the warm side of the bench with two flasks beside him and a folded paper he has already read. He was a railwayman somewhere else for a very long time. He comes here every day, he sits in the waiting room, and he is entirely clear-eyed about what he is doing and does it anyway.',
     clothing: ['a good dark overcoat, brushed', 'a soft hat set square', 'a jacket and a knitted tie under it', 'trousers with a crease, and polished shoes'],
     inventory: [
@@ -453,9 +453,9 @@ SPECS.push({
   },
 });
 
-// ── Line of Enquiry ──────────────────────────────────────────────────────────
+// ── Buried Road Halt ──────────────────────────────────────────────────────────
 SPECS.push({
-  slug: 'hf_line', name: 'Line of Enquiry', type: 'transit_halt',
+  slug: 'hf_line', name: 'Buried Road Halt', type: 'transit_halt',
   x: 908, y: 917, entrance: 'north', floors: 2, marker: 'LQ', district: 'halcyon_fields',
   facade: {
     bgColor: '#141f2a', color: '#bfe8ff',
@@ -490,7 +490,7 @@ SPECS.push({
   ],
   npc: {
     id: 'npc_hf_line_marchetti', name: 'Nella Marchetti', sex: 'female', hp: 38,
-    homeRoom: 'shell', workRoom: 'shell', shopName: 'Line of Enquiry',
+    homeRoom: 'shell', workRoom: 'shell', shopName: 'Buried Road Halt',
     description: 'A rangy woman in her fifties in a site coat, sitting on the bolted bench with a pad of dockets and a flask, watching the east end of the ballast bed. She was the foreman on this halt. The job was suspended, her gang was moved to the crescent, and she has come back here on her own time every week since to write a docket saying the glazing is still outstanding.',
     clothing: ['a heavy site coat with a foreman\'s tab on the shoulder', 'a fleece under it, older than the coat', 'work trousers with a rule pocket', 'steel-capped boots, resoled'],
     inventory: [
@@ -542,9 +542,9 @@ SPECS.push({
   },
 });
 
-// ── Ivory Tower ──────────────────────────────────────────────────────────────
+// ── Institute Residences ──────────────────────────────────────────────────────────────
 SPECS.push({
-  slug: 'hf_ivory', name: 'Ivory Tower', type: 'chrome_tower',
+  slug: 'hf_ivory', name: 'Institute Residences', type: 'chrome_tower',
   x: 897, y: 915, entrance: 'south', floors: 14, marker: 'IV', district: 'halcyon_fields',
   facade: {
     bgColor: '#18232e', color: '#dff0ff',
@@ -578,7 +578,7 @@ SPECS.push({
   ],
   npc: {
     id: 'npc_hf_ivory_bellweather', name: 'Ottoline Bellweather', sex: 'female', hp: 26,
-    homeRoom: 'library', workRoom: 'library', shopName: 'Ivory Tower',
+    homeRoom: 'library', workRoom: 'library', shopName: 'Institute Residences',
     description: 'A small, dry, extremely quick woman of about seventy at the issue desk, who has been a librarian for fifty years in four institutions and regards this one as by some distance the silliest. She is enormously fond of the fellows and would not admit it under any pressure whatsoever.',
     clothing: ['a cardigan with the buttons done up wrong on purpose, she says', 'a blouse with a small brooch', 'a long skirt and flat shoes', 'plain underthings'],
     inventory: [

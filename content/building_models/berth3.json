@@ -40,7 +40,7 @@
   "bind": [
     {
       "by": "name",
-      "key": "The Boom Economy"
+      "key": "Berth 3"
     }
   ],
   "detail": [
@@ -104,7 +104,7 @@
       "z": 0
     }
   ],
-  "id": "boomeconomy",
+  "id": "berth3",
   "neon": "#ffb43a",
   "note": "⚠ THE NAME IS ON THE WATERSIDE PORTAL BEAM, NOT ON THE DECK. The board used to sit on the deck's front face, and the boom runs straight out of the middle of that face at the same height, so the board lost its middle letters from every angle: THE ... ONOMY, 53% hidden on `signhide`. Anything level with or above the boom is behind it from somewhere. The beam at z 0.34 to 0.42 is the one full-width face on the waterside that nothing crosses.\n\n⚠ THE THREE CABLE RUNS GO DOWN THE LEFT LEG FOR THE SAME REASON. They used to hang at x -0.18 to -0.12, across the beam, which would have put three bars through the name.",
   "pal": "ty_wharf_steel",

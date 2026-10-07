@@ -183,7 +183,7 @@ for (const [zoneId, sentence] of Object.entries(APPEND)) {
 const ECONOMY = {
   zone_district_921_918: 'Half the people sat out here have been up at the Gate Road since first light with a cup, and the other half went out through it after something with a bounty on its parts. Which half anybody is in changes week to week.',
   zone_district_927_917: 'The men who work the wastes come back along the wall rather than up the lane, because what they are carrying is either meat or it is worth money, and either way it is nobody\'s business until it is weighed.',
-  zone_district_922_916: 'A woman works the lane most mornings with a cup and a folded coat, and gets more out of the queue at No Such Thing than she does out of anybody on Kessler Street.',
+  zone_district_922_916: 'A woman works the lane most mornings with a cup and a folded coat, and gets more out of the queue at Ropewalk Soup Kitchen than she does out of anybody on Kessler Street.',
 };
 for (const [zoneId, sentence] of Object.entries(ECONOMY)) {
   const z = store.get('zones', zoneId);

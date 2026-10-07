@@ -77,7 +77,7 @@ const SIGNS = new Set(['signBoard', 'signPanel']);
 // Four shops were pinned here from 2026-09-19. Three (the Cherry Pit, Second Skin, Dead Space
 // Interiors) had a one-storey podium that was all glazing, canopy and parapet, with no band left for
 // a name. Their names now sit on the clear wall of the storey above, just over the podium parapet,
-// which is where a shop with a full-height front puts its fascia. Loafing Around's name overlapped
+// which is where a shop with a full-height front puts its fascia. Meltwater Row Bakery's name overlapped
 // its door canopy and was lifted clear of it.
 const PINNED = new Map([
 ]);

@@ -621,7 +621,7 @@ export const BUILDING_TYPE_ICON = Object.freeze({
   bathhouse: 'bldg_bathhouse',
   // Ten types whose artwork was already drawn and sitting in zone-icons/ unreferenced,
   // so eleven real buildings wore the generic office block: Citadel Financial, Grind
-  // House, Bodega Vu, Adequate!, Nuts to That, Watts The Damage, Salvage Rites, Slag &
+  // House, Bodega Vu, Adequate!, Marrow Street Hardware, Watts The Damage, Salvage Rites, Slag &
   // Wares, Thumb On The Scale, The Houndyard, a kitchenware shop since replaced, The Wash, Oyelaran's and
   // Layers. Registering a name is the whole fix; every one of these already has its
   // TYPE_MODEL arm, so the map and the air agree.

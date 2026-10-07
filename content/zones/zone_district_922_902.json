@@ -8,7 +8,7 @@
     "north": "zone_district_922_901"
   },
   "flags": {
-    "building_name": "Load of Old Rope",
+    "building_name": "Berth 1",
     "building_type": "wharf",
     "district": "docks",
     "entrance": "east",
@@ -23,6 +23,6 @@
   "grid_z": 0,
   "id": "zone_district_922_902",
   "map_id": "map_world",
-  "name": "Load of Old Rope",
+  "name": "Berth 1",
   "parent_zone": null
 }

@@ -8,7 +8,7 @@
     "south": "zone_district_924_907"
   },
   "flags": {
-    "building_name": "Stack Overflow",
+    "building_name": "Kessler Container Yard",
     "building_type": "container_yard",
     "claimable_asset": "warehouse",
     "floor": "concrete",
@@ -27,6 +27,6 @@
   "grid_z": 0,
   "id": "zone_yard_container",
   "map_id": "map_int_yard_container",
-  "name": "Stack Overflow",
+  "name": "Kessler Container Yard",
   "parent_zone": "zone_district_924_907"
 }

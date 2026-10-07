@@ -42,7 +42,7 @@ const W = 640, H = 360;
 // the hands the marks declare, so a leak cannot hide behind a coincidence in the other three.
 const NEIGHBOURS = ['none', 'bar', 'assay', 'diner', 'hotel', 'shop'];
 
-const DEPOT = 'BONDED & BOTHERED';
+const DEPOT = 'BONDED STORE 7';
 const ROAD_ROWS = [{ n: 'COLDWATER', m: 240, a: 0 }, { n: 'THE REACH', m: 98, a: 1 }];
 // A label a mark owns outright, so the census can be filtered without knowing which painter queued
 // what. Nothing else in the scene is called any of these.

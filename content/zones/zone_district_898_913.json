@@ -3,13 +3,13 @@
   "ambient_theme": "urban",
   "bg_color": "#1a1d1f",
   "color": "#cddbd8",
-  "description": "A pale rendered block stepped back at every floor, so that each storey gives the one below it a balcony running the full width, and every balcony faces south across the meadow. The rails are painted white and repainted often. There are more chairs on them than there are people in them. At street level a modest door under a glass canopy, and a plate beside it reading SECOND WIND · CONVALESCENT ROOMS · NO APPOINTMENT NEEDED.",
+  "description": "A pale rendered block stepped back at every floor, so that each storey gives the one below it a balcony running the full width, and every balcony faces south across the meadow. The rails are painted white and repainted often. There are more chairs on them than there are people in them. At street level a modest door under a glass canopy, and a plate beside it reading THE HALCYON HYDRO · CONVALESCENT ROOMS · NO APPOINTMENT NEEDED.",
   "exits": {
     "east": "zone_district_899_913",
     "west": "zone_wind_day"
   },
   "flags": {
-    "building_name": "Second Wind",
+    "building_name": "The Halcyon Hydro",
     "building_type": "hydro",
     "district": "halcyon_fields",
     "entrance": "east",
@@ -25,6 +25,6 @@
   "id": "zone_district_898_913",
   "map_id": "map_world",
   "marker": "WN",
-  "name": "Second Wind",
+  "name": "The Halcyon Hydro",
   "parent_zone": null
 }

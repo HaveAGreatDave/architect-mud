@@ -9,7 +9,7 @@
     "south": "zone_district_923_906"
   },
   "flags": {
-    "building_name": "Crane Damage",
+    "building_name": "Berth 2",
     "building_type": "wharf",
     "district": "docks",
     "entrance": "east",
@@ -24,6 +24,6 @@
   "grid_z": 0,
   "id": "zone_district_923_905",
   "map_id": "map_world",
-  "name": "Crane Damage",
+  "name": "Berth 2",
   "parent_zone": null
 }

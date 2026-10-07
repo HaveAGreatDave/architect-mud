@@ -5,7 +5,7 @@
     "down": "zone_hf_dualaspect_hall"
   },
   "flags": {
-    "building_name": "Dual Aspect",
+    "building_name": "Cowslip Terrace",
     "building_type": "cascade_block",
     "floor": "stone",
     "is_building": true,
@@ -23,6 +23,6 @@
   "grid_z": 0,
   "id": "zone_hf_dualaspect_terrace",
   "map_id": "map_int_hf_dualaspect",
-  "name": "Dual Aspect — The Gravel Terrace",
+  "name": "Cowslip Terrace — The Gravel Terrace",
   "parent_zone": "zone_district_906_914"
 }

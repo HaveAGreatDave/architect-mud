@@ -7,7 +7,7 @@
     "up": "zone_hf_changeofuse_studio"
   },
   "flags": {
-    "building_name": "Change of Use",
+    "building_name": "Kerbstone House",
     "building_type": "chrome_slab",
     "floor": "stone",
     "is_building": true,
@@ -25,6 +25,6 @@
   "grid_z": 0,
   "id": "zone_hf_changeofuse_lobby",
   "map_id": "map_int_hf_changeofuse",
-  "name": "Change of Use — The Shared Lobby",
+  "name": "Kerbstone House — The Shared Lobby",
   "parent_zone": "zone_district_897_917"
 }

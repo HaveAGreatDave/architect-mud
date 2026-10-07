@@ -8,7 +8,7 @@ const BUILDINGS = [
   { name: 'Reel Estate',  facade: 'zone_district_912_914', street: 'zone_district_911_914', entry: 'zone_reel_foyer',      npc: 'npc_reel_nissen',           rooms: ['zone_reel_foyer', 'zone_reel_house', 'zone_reel_box', 'zone_util_zone_reel_foyer'] },
   { name: 'Photo Finish', facade: 'zone_district_914_914', street: 'zone_district_915_914', entry: 'zone_pfin_shop',       npc: 'npc_pfin_glennie',          rooms: ['zone_pfin_shop', 'zone_pfin_settle', 'zone_util_zone_pfin_shop'] },
   { name: 'Stuff It',     facade: 'zone_district_917_914', street: 'zone_district_918_914', entry: 'zone_stuffit_shop',    npc: 'npc_stuffit_vandersloot',   rooms: ['zone_stuffit_shop', 'zone_stuffit_work', 'zone_util_zone_stuffit_shop'] },
-  { name: 'Fine Print',   facade: 'zone_district_903_908', street: 'zone_district_903_907', entry: 'zone_fineprint_room',  npc: 'npc_fprint_ashgrove',       rooms: ['zone_fineprint_room', 'zone_fineprint_stack', 'zone_util_zone_fineprint_room'] },
+  { name: 'Greenside Row Library',   facade: 'zone_district_903_908', street: 'zone_district_903_907', entry: 'zone_fineprint_room',  npc: 'npc_fprint_ashgrove',       rooms: ['zone_fineprint_room', 'zone_fineprint_stack', 'zone_util_zone_fineprint_room'] },
   { name: 'Pocket Money',   facade: 'zone_district_912_915', street: 'zone_district_911_915', entry: 'zone_pocket_hall',     npc: 'npc_pocket_moye',      rooms: ['zone_pocket_hall', 'zone_pocket_back', 'zone_util_zone_pocket_hall'] },
   { name: 'The Penny Drops', facade: 'zone_district_910_915', street: 'zone_district_911_915', entry: 'zone_penny_floor',    npc: 'npc_penny_alabaster',  rooms: ['zone_penny_floor', 'zone_penny_donors', 'zone_util_zone_penny_floor'] },
   { name: 'The Codfather',  facade: 'zone_district_903_905', street: 'zone_district_903_906', entry: 'zone_codfather_slab',  npc: 'npc_cod_fawle',        rooms: ['zone_codfather_slab', 'zone_codfather_ice', 'zone_util_zone_codfather_slab'] },
@@ -16,9 +16,9 @@ const BUILDINGS = [
   { name: 'Negative Equity', facade: 'zone_district_895_904', street: 'zone_district_894_904', entry: 'zone_negeq_shop',     npc: 'npc_negeq_salis',        rooms: ['zone_negeq_shop', 'zone_negeq_studio', 'zone_util_zone_negeq_shop'] },
   { name: 'Skeleton Crew',   facade: 'zone_district_898_905', street: 'zone_district_898_906', entry: 'zone_skelcrew_shop',  npc: 'npc_skel_bandy',         rooms: ['zone_skelcrew_shop', 'zone_skelcrew_back', 'zone_util_zone_skelcrew_shop'] },
   { name: 'No Regerts',      facade: 'zone_district_901_905', street: 'zone_district_901_906', entry: 'zone_regerts_stair',  npc: 'npc_regerts_prudhoe',    rooms: ['zone_regerts_stair', 'zone_regerts_room', 'zone_util_zone_regerts_stair'] },
-  { name: 'Paws for Thought', facade: 'zone_district_926_912', street: 'zone_district_926_913', entry: 'zone_paws_wait',     npc: 'npc_paws_tiplady',       rooms: ['zone_paws_wait', 'zone_paws_surgery', 'zone_util_zone_paws_wait'] },
+  { name: 'Kessler Veterinary', facade: 'zone_district_926_912', street: 'zone_district_926_913', entry: 'zone_paws_wait',     npc: 'npc_paws_tiplady',       rooms: ['zone_paws_wait', 'zone_paws_surgery', 'zone_util_zone_paws_wait'] },
   { name: 'Spirit Level',    facade: 'zone_district_919_914', street: 'zone_district_918_914', entry: 'zone_spirit_shop',    npc: 'npc_spirit_cassavetes',  rooms: ['zone_spirit_shop', 'zone_spirit_store', 'zone_util_zone_spirit_shop'] },
-  { name: 'Past Perfect',    facade: 'zone_district_916_914', street: 'zone_district_915_914', entry: 'zone_pastperf_hall',  npc: 'npc_past_mullan',        rooms: ['zone_pastperf_hall', 'zone_pastperf_office', 'zone_util_zone_pastperf_hall'] },
+  { name: 'Coldwater Museum',    facade: 'zone_district_916_914', street: 'zone_district_915_914', entry: 'zone_pastperf_hall',  npc: 'npc_past_mullan',        rooms: ['zone_pastperf_hall', 'zone_pastperf_office', 'zone_util_zone_pastperf_hall'] },
 ];
 
 let pass = 0, fail = 0;

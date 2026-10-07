@@ -9,7 +9,7 @@
     "south": "zone_district_913_911"
   },
   "flags": {
-    "building_name": "Just My Type",
+    "building_name": "Foundry Way Printers",
     "building_type": "store",
     "floor": "concrete",
     "is_building": true,
@@ -27,6 +27,6 @@
   "grid_z": 0,
   "id": "zone_justmytype_floor",
   "map_id": "map_int_justmytype",
-  "name": "Just My Type — Print Floor",
+  "name": "Foundry Way Printers — Print Floor",
   "parent_zone": "zone_district_913_911"
 }

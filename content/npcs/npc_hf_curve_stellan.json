@@ -186,10 +186,10 @@
           "next": "bye"
         }
       ],
-      "text": "\"Welcome to Curve Appeal.\" He is out from behind the island before you have stopped walking. \"Are you viewing? You can view. There is no appointment needed, there is barely an appointment system.\"",
+      "text": "\"Welcome to Boulevard Crescent East.\" He is out from behind the island before you have stopped walking. \"Are you viewing? You can view. There is no appointment needed, there is barely an appointment system.\"",
       "text_by_relation": {
         "familiar": "He does not do the pitch. He slides the pass across the island and leans on it.\n\n\"Go up,\" he says. \"It is a good floor. I would be pleased if one person who was not me thought so.\"",
-        "first": "A young man in a very good suit comes round the island at a speed that suggests he has been waiting for somebody since the morning and has decided not to hide it.\n\n\"Welcome to Curve Appeal. Rowe Stellan, letting.\" He puts out a hand and then withdraws it at exactly the right moment. \"Nine floors, six let, and the fourth is open if you want to walk it.\"\n\nHe does not wait for you to ask the obvious thing.\n\n\"Yes, it bends. Every floor plate is an arc. It is genuinely a nicer room to work in than a rectangle and I have four minutes of reasons why, and I will spare you three of them.\"",
+        "first": "A young man in a very good suit comes round the island at a speed that suggests he has been waiting for somebody since the morning and has decided not to hide it.\n\n\"Welcome to Boulevard Crescent East. Rowe Stellan, letting.\" He puts out a hand and then withdraws it at exactly the right moment. \"Nine floors, six let, and the fourth is open if you want to walk it.\"\n\nHe does not wait for you to ask the obvious thing.\n\n\"Yes, it bends. Every floor plate is an arc. It is genuinely a nicer room to work in than a rectangle and I have four minutes of reasons why, and I will spare you three of them.\"",
         "known": "\"Back for the fourth?\" He already has the pass out. \"Thirty, and take as long as you want. Nobody is going to hurry you.\""
       }
     },
@@ -271,7 +271,7 @@
       }
     ]
   },
-  "vendor_shop_name": "Curve Appeal",
+  "vendor_shop_name": "Boulevard Crescent East",
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,

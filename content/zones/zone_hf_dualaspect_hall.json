@@ -7,7 +7,7 @@
     "west": "zone_district_906_914"
   },
   "flags": {
-    "building_name": "Dual Aspect",
+    "building_name": "Cowslip Terrace",
     "building_type": "cascade_block",
     "floor": "stone",
     "is_building": true,
@@ -25,6 +25,6 @@
   "grid_z": 0,
   "id": "zone_hf_dualaspect_hall",
   "map_id": "map_int_hf_dualaspect",
-  "name": "Dual Aspect — The Entrance Hall",
+  "name": "Cowslip Terrace — The Entrance Hall",
   "parent_zone": "zone_district_906_914"
 }

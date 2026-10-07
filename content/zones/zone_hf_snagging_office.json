@@ -7,7 +7,7 @@
     "north": "zone_district_904_917"
   },
   "flags": {
-    "building_name": "Snagging List",
+    "building_name": "Halcyon Fields Site Office",
     "building_type": "cascade_block",
     "floor": "linoleum",
     "is_building": true,
@@ -25,6 +25,6 @@
   "grid_z": 0,
   "id": "zone_hf_snagging_office",
   "map_id": "map_int_hf_snagging",
-  "name": "Snagging List — The Site Office",
+  "name": "Halcyon Fields Site Office — The Site Office",
   "parent_zone": "zone_district_904_917"
 }

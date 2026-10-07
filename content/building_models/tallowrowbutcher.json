@@ -35,7 +35,7 @@
   "bind": [
     {
       "by": "name",
-      "key": "Prime Suspect"
+      "key": "Tallow Row Butcher"
     }
   ],
   "detail": [
@@ -84,7 +84,7 @@
       "hh": 0.042,
       "ink": "#f8efe4",
       "kind": "signBoard",
-      "label": "PRIME SUSPECT",
+      "label": "TALLOW ROW BUTCHER",
       "z": 0.352
     },
     {
@@ -218,7 +218,7 @@
       "z1": 0.088
     }
   ],
-  "id": "primesuspect",
+  "id": "tallowrowbutcher",
   "neon": "#ff6b6b",
   "note": "White tile to shoulder height, scrubbed every night, and above it a fascia in dried-blood red. The window is a chilled case on a SLANT with sawdust under it. The thirty square feet of pavement outside this one door is the cleanest on the street and it is not an accident.\n\nThe red fascia is a real STEP in the mass rather than paint on a flat wall - a band standing proud of both the tiled podium under it and the brick over it, which is what a shopfront of this age does and what gives the frontage a shadow line at eye level. Two white tile piers flank the case; the awning over it is canvas, because a butcher's case is kept out of the sun.\n\nThe refrigeration is the character. A butcher this clean has plant, and it is on the roof: two condensers, a tank and a run of lagged pipe down the flank with its own blue light on the compressor. Nothing about it is decorative and that is the point.\n\nThe blade says the trade and the fascia says the name, so neither repeats the other.",
   "pal": "ty_ff_white",

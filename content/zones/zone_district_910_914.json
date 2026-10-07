@@ -3,13 +3,13 @@
   "ambient_theme": "urban",
   "bg_color": "#22241d",
   "color": "#8a8f7a",
-  "description": "Five floors of flats on the end of the terrace, and the only block on this side of the park with a park view, which the letting board mentions in larger letters than anything else. Someone painted STATUE QUO over the door in a serif they did not have the wrist for. The ground-floor windows are barred, the second-floor ones are not, and the top two floors have window boxes that are doing better than they have any right to.",
+  "description": "Five floors of flats on the end of the terrace, and the only block on this side of the park with a park view, which the letting board mentions in larger letters than anything else. Someone painted PARK VIEW FLATS over the door in a serif they did not have the wrist for. The ground-floor windows are barred, the second-floor ones are not, and the top two floors have window boxes that are doing better than they have any right to.",
   "exits": {
     "north": "zone_district_910_913",
     "south": "zone_statuequo_hall"
   },
   "flags": {
-    "building_name": "Statue Quo",
+    "building_name": "Park View Flats",
     "building_type": "apartment",
     "district": "commercial",
     "entrance": "north",
@@ -25,6 +25,6 @@
   "id": "zone_district_910_914",
   "map_id": "map_world",
   "marker": "SQ",
-  "name": "Statue Quo",
+  "name": "Park View Flats",
   "parent_zone": null
 }

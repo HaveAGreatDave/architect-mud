@@ -28,12 +28,12 @@ const store = loadContentStore();
 const HF = 'halcyon_fields';
 const SPECS = [];
 
-// ── 1. Artist's Impression ───────────────────────────────────────────────────
+// ── 1. Teasel Court ───────────────────────────────────────────────────
 // The marketing suite, and the one building in the quarter that is entirely about the quarter.
 // Everything in it is a picture of somewhere that does not exist yet, including the model, which
 // is scrupulously accurate about the buildings that are up and completely made up about the rest.
 SPECS.push({
-  slug: 'hf_impression', name: "Artist's Impression", type: 'atrium_court',
+  slug: 'hf_impression', name: "Teasel Court", type: 'atrium_court',
   x: 894, y: 913, entrance: 'west', floors: 3, marker: 'AI', district: HF,
 
   facade: {
@@ -74,7 +74,7 @@ SPECS.push({
 
   npc: {
     id: 'npc_hf_marchetti', name: 'Odile Marchetti', sex: 'female', hp: 32,
-    homeRoom: 'booth', workRoom: 'suite', shopName: "Artist's Impression",
+    homeRoom: 'booth', workRoom: 'suite', shopName: "Teasel Court",
     description: 'A composed woman in her forties in a charcoal suit cut better than anything else in the quarter, standing at the model rather than at a desk. She holds a folder she does not open. When she talks about the estate she talks about it in the present tense, and it takes a while to notice that half of what she is describing is not there.',
     clothing: [
       'a charcoal suit, single-breasted, cut close and pressed that morning',
@@ -141,11 +141,11 @@ SPECS.push({
   ],
 });
 
-// ── 2. Fixed Assets ──────────────────────────────────────────────────────────
+// ── 2. The West Lens ──────────────────────────────────────────────────────────
 // A gallery in the sense that a bonded warehouse is a wine cellar. The art is owned by people who
 // have never seen it and is hung because hanging it is cheaper than insuring it in a crate.
 SPECS.push({
-  slug: 'hf_assets', name: 'Fixed Assets', type: 'lens_hall',
+  slug: 'hf_assets', name: 'The West Lens', type: 'lens_hall',
   x: 895, y: 913, entrance: 'south', floors: 4, marker: 'FA', district: HF,
 
   facade: {
@@ -181,11 +181,11 @@ SPECS.push({
   ],
 });
 
-// ── 3. Quiet Enjoyment ───────────────────────────────────────────────────────
+// ── 3. Harebell House ───────────────────────────────────────────────────────
 // Serviced apartments — the covenant term is the joke, and it is also a promise the building
 // cannot keep, because the crane on the plot behind it starts at six.
 SPECS.push({
-  slug: 'hf_quiet', name: 'Quiet Enjoyment', type: 'bead_tower',
+  slug: 'hf_quiet', name: 'Harebell House', type: 'bead_tower',
   x: 892, y: 913, entrance: 'east', floors: 14, marker: 'QE', district: HF,
 
   facade: {
@@ -228,7 +228,7 @@ SPECS.push({
 
   npc: {
     id: 'npc_hf_ostrow', name: 'Berenike Ostrow', sex: 'female', hp: 30,
-    homeRoom: 'desk', workRoom: 'desk', shopName: 'Quiet Enjoyment',
+    homeRoom: 'desk', workRoom: 'desk', shopName: 'Harebell House',
     description: 'A short, unhurried woman of about sixty behind the desk, in a grey uniform jacket with the building crest on the pocket and her own cardigan over the back of the chair. She has the manner of somebody who was hired to be decorative and has quietly become the only person in the building who knows how anything works.',
     clothing: [
       'a grey concierge jacket with the building crest embroidered at the pocket',
@@ -253,7 +253,7 @@ SPECS.push({
       root: {
         text: '"Afternoon." She does not get up. "If you are viewing, the show flat is two up and the stair is quicker than the lift. If you are delivering, leave it on the end of the desk."',
         text_by_relation: {
-          first: 'The woman behind the desk finishes writing a time in a book before she looks up, which somehow does not read as rude.\n\n"Quiet Enjoyment. Fourteen floors, eleven let, concierge till eight." A short pause. "That is the whole of the sales talk and I am not paid for the sales talk, so."\n\nShe nods at the stair.\n\n"Show flat is two up. Take the stair. I will explain the lift if you want the lift explained."',
+          first: 'The woman behind the desk finishes writing a time in a book before she looks up, which somehow does not read as rude.\n\n"Harebell House. Fourteen floors, eleven let, concierge till eight." A short pause. "That is the whole of the sales talk and I am not paid for the sales talk, so."\n\nShe nods at the stair.\n\n"Show flat is two up. Take the stair. I will explain the lift if you want the lift explained."',
           known: '"Back again." She pushes the visitors\' book an inch toward you, which is as close as she comes to a greeting.',
           familiar: 'She has the stair door on the latch before you are across the lobby.\n\n"Lift is still the lift," she says. "Tea is in the pot and the pot is mine, but there is a cup."',
         },
@@ -281,7 +281,7 @@ SPECS.push({
         options: [{ label: 'Back.', next: 'let' }],
       },
       quiet: {
-        text: 'She lets that one sit for a second.\n\n"It is called Quiet Enjoyment because that is a thing written into the lease. It means nobody may interfere with your use of the flat." A very small movement of the mouth. "It does not mean quiet."\n\n"The crane behind starts at six. Not six-thirty. Six. I have the notice about it in a drawer and I am not putting it up, because the ones who are here already know and the ones who are not here are not here."',
+        text: 'She lets that one sit for a second.\n\n"It is called Harebell House because that is a thing written into the lease. It means nobody may interfere with your use of the flat." A very small movement of the mouth. "It does not mean quiet."\n\n"The crane behind starts at six. Not six-thirty. Six. I have the notice about it in a drawer and I am not putting it up, because the ones who are here already know and the ones who are not here are not here."',
         options: [{ label: 'Back.', next: 'root' }],
       },
       bye: { text: '"Mind the chip by the lift. Everybody finds it with their foot." She goes back to the book.', options: [] },
@@ -296,11 +296,11 @@ SPECS.push({
   ],
 });
 
-// ── 4. Air Rights ────────────────────────────────────────────────────────────
+// ── 4. The Arch ────────────────────────────────────────────────────────────
 // The landmark: two legs, a span, and a room in the top of it. It is the only building in
 // Coldwater with a hole through it at ground level that is not a gate.
 SPECS.push({
-  slug: 'hf_airrights', name: 'Air Rights', type: 'chrome_arch',
+  slug: 'hf_airrights', name: 'The Arch', type: 'chrome_arch',
   x: 906, y: 915, entrance: 'south', floors: 9, marker: 'AH', district: HF,
 
   facade: {
@@ -340,11 +340,11 @@ SPECS.push({
   ],
 });
 
-// ── 5. Safe as Houses ────────────────────────────────────────────────────────
+// ── 5. Meadowsweet Tower ────────────────────────────────────────────────────────
 // A deposit house rather than a bank: nothing here lends, nothing here pays interest, and
 // nothing here is insured. You rent a box and you are the only one with a key.
 SPECS.push({
-  slug: 'hf_safe', name: 'Safe as Houses', type: 'torque_tower',
+  slug: 'hf_safe', name: 'Meadowsweet Tower', type: 'torque_tower',
   x: 901, y: 911, entrance: 'east', floors: 16, marker: 'HB', district: HF,
   // ⚠ The sub-basement goes under the BOX CORRIDOR, not under the hall, because the corridor is
   // already `down` from the hall and a zone has one exit per direction. `authorUtilityRoom` writes
@@ -386,11 +386,11 @@ SPECS.push({
   ],
 });
 
-// ── 6. Fit for Purpose ───────────────────────────────────────────────────────
+// ── 6. Sorrel Terrace ───────────────────────────────────────────────────────
 // The health club, on the terraces. The pool is on the top one and is the only outdoor water in
 // Coldwater anybody swims in on purpose.
 SPECS.push({
-  slug: 'hf_fit', name: 'Fit for Purpose', type: 'cascade_block',
+  slug: 'hf_fit', name: 'Sorrel Terrace', type: 'cascade_block',
   x: 897, y: 913, entrance: 'south', floors: 7, marker: 'FC', district: HF,
 
   facade: {
@@ -431,11 +431,11 @@ SPECS.push({
   ],
 });
 
-// ── 7. Overlooked ────────────────────────────────────────────────────────────
+// ── 7. Meadow Point ────────────────────────────────────────────────────────────
 // A viewing spire, built as an amenity and named by whoever names things in this quarter, who has
 // either a very dry sense of humour or none at all.
 SPECS.push({
-  slug: 'hf_overlooked', name: 'Overlooked', type: 'glass_prism',
+  slug: 'hf_overlooked', name: 'Meadow Point', type: 'glass_prism',
   x: 903, y: 911, entrance: 'west', floors: 18, marker: 'OV', district: HF,
 
   facade: {
@@ -485,11 +485,11 @@ SPECS.push({
   ],
 });
 
-// ── 8. Ground Rent ───────────────────────────────────────────────────────────
+// ── 8. Halcyon Fields Estate Management ───────────────────────────────────────────────────────────
 // The estate office. Where you pay the service charge, and where you go to be told that the thing
 // you are complaining about is not covered by the service charge.
 SPECS.push({
-  slug: 'hf_groundrent', name: 'Ground Rent', type: 'atrium_court',
+  slug: 'hf_groundrent', name: 'Halcyon Fields Estate Management', type: 'atrium_court',
   x: 901, y: 915, entrance: 'east', floors: 3, marker: 'GR', district: HF,
 
   facade: {
@@ -526,7 +526,7 @@ SPECS.push({
 
   npc: {
     id: 'npc_hf_pardoe', name: 'Ellery Pardoe', sex: 'male', hp: 34,
-    homeRoom: 'back', workRoom: 'counter', shopName: 'Ground Rent',
+    homeRoom: 'back', workRoom: 'counter', shopName: 'Halcyon Fields Estate Management',
     description: 'A heavyset man in his fifties at the counter in a shirt and tie with the tie loosened exactly one inch, no more. He has the specific patience of somebody who has explained the same distinction four thousand times and has never once let it show. When he says he is sorry he means it, and when he says there is nothing he can do he means that too.',
     clothing: [
       'a white shirt, ironed, with the cuffs turned back one fold each',
@@ -593,11 +593,11 @@ SPECS.push({
   ],
 });
 
-// ── 9. Sitting Tenant ────────────────────────────────────────────────────────
+// ── 9. Kettle Lane Crescent ────────────────────────────────────────────────────────
 // The bar. There is exactly one in the quarter, it is in a unit that was marketed as offices, and
 // the licence it trades on is somebody's residential lease read very carefully.
 SPECS.push({
-  slug: 'hf_sitting', name: 'Sitting Tenant', type: 'chrome_slab',
+  slug: 'hf_sitting', name: 'Kettle Lane Crescent', type: 'chrome_slab',
   x: 900, y: 915, entrance: 'west', floors: 5, marker: 'IA', district: HF,
 
   facade: {
@@ -633,11 +633,11 @@ SPECS.push({
   ],
 });
 
-// ── 10. Grounds for Concern ──────────────────────────────────────────────────
+// ── 10. Sorrel Way Café ──────────────────────────────────────────────────
 // The café on the green. Two floors, both of them glass, and the only place in the quarter you can
 // sit down without buying a flat.
 SPECS.push({
-  slug: 'hf_grounds', name: 'Grounds for Concern', type: 'atrium_court',
+  slug: 'hf_grounds', name: 'Sorrel Way Café', type: 'atrium_court',
   x: 896, y: 913, entrance: 'south', floors: 2, marker: 'GB', district: HF,
 
   facade: {
@@ -657,7 +657,7 @@ SPECS.push({
       description: 'A half-floor round the inside of the drum, reached by a chrome stair, with a rail and six small tables against it. You sit looking down into the room and out over the top of the wings at the same time. This is where people come to work, and the unwritten rule that nobody takes a call up here has held for eight months without ever having been stated.',
       window: {
         name: 'the upper curve',
-        description: 'Glass from the rail up, all the way round. Over the wings you get the green, the mews and a slice of the Curtain, and from the far side, the top half of Ivory Tower.',
+        description: 'Glass from the rail up, all the way round. Over the wings you get the green, the mews and a slice of the Curtain, and from the far side, the top half of Institute Residences.',
         light: 0.9, visibility: 0.9,
       } },
   ],
@@ -669,7 +669,7 @@ SPECS.push({
 
   props: [
     { key: 'board', room: 'room', name: 'a chalkboard', objectType: 'decoration',
-      description: 'Propped against the glass by the door and rewritten every morning. Today it says GROUNDS FOR CONCERN — ALSO FOR CELEBRATION, WHICH IS CHEAPER. It has been better and it has been much worse, and there are people on this estate who walk past specifically to read it.' },
+      description: 'Propped against the glass by the door and rewritten every morning. Today it says TODAY'S SOUP IS YESTERDAY'S SOUP, AND YESTERDAY WAS A GOOD DAY. It has been better and it has been much worse, and there are people on this estate who walk past specifically to read it.' },
     { key: 'counter', room: 'room', name: 'the counter', objectType: 'furniture',
       description: 'Chrome and pale stone across the back of the drum, with the machine at one end and a glass case at the other, and between them a jar for the tips that is never emptied in front of anybody. On the underside of the overhang, where only the staff see it, is a tally of days open.' },
     { key: 'rail', room: 'gallery', name: 'the gallery rail', objectType: 'fixture',
@@ -678,7 +678,7 @@ SPECS.push({
 
   npc: {
     id: 'npc_hf_ferreira', name: 'Nadia Ferreira', sex: 'female', hp: 30,
-    homeRoom: 'gallery', workRoom: 'room', shopName: 'Grounds for Concern',
+    homeRoom: 'gallery', workRoom: 'room', shopName: 'Sorrel Way Café',
     description: 'A wiry woman in her thirties working the machine with her sleeves pushed up past the elbow and a cloth over one shoulder that she uses about every ninety seconds. She talks to everybody, remembers what they had, and has a running commentary on the estate that is funnier and more accurate than anything in the sales suite.',
     clothing: [
       'a chambray shirt with the sleeves shoved up past the elbow',
@@ -720,7 +720,7 @@ SPECS.push({
         options: [{ label: 'Back.', next: 'root' }],
       },
       gossip: {
-        text: '"The lift at Quiet Enjoyment. The lift at Quiet Enjoyment. And then, for a change, the lift at Quiet Enjoyment." She wipes the counter. "After that: the service charge, whose tacks are amber, and whether the pool up at the club is actually heated, which it is, because I have been in it."\n\n"And the crane. Everyone has an opinion about what time the crane starts and they are all wrong, because it is six."',
+        text: '"The lift at Harebell House. The lift at Harebell House. And then, for a change, the lift at Harebell House." She wipes the counter. "After that: the service charge, whose tacks are amber, and whether the pool up at the club is actually heated, which it is, because I have been in it."\n\n"And the crane. Everyone has an opinion about what time the crane starts and they are all wrong, because it is six."',
         options: [{ label: 'Back.', next: 'root' }],
       },
       why: {
@@ -741,11 +741,11 @@ SPECS.push({
   ],
 });
 
-// ── 11. Snagging List ────────────────────────────────────────────────────────
+// ── 11. Halcyon Fields Site Office ────────────────────────────────────────────────────────
 // The site office, which is also, informally and profitably, the only builders' merchant this side
 // of the Yards.
 SPECS.push({
-  slug: 'hf_snagging', name: 'Snagging List', type: 'cascade_block',
+  slug: 'hf_snagging', name: 'Halcyon Fields Site Office', type: 'cascade_block',
   x: 904, y: 917, entrance: 'north', floors: 3, marker: 'NG', district: HF,
 
   facade: {
@@ -781,11 +781,11 @@ SPECS.push({
   ],
 });
 
-// ── 12. Top of the Market ────────────────────────────────────────────────────
+// ── 12. Tansy Tower ────────────────────────────────────────────────────
 // The restaurant at the top of the twisted tower. The fifteen floors underneath it are flats, and
 // the restaurant is the only part of the building the public has ever been inside.
 SPECS.push({
-  slug: 'hf_topmarket', name: 'Top of the Market', type: 'torque_tower',
+  slug: 'hf_topmarket', name: 'Tansy Tower', type: 'torque_tower',
   x: 898, y: 915, entrance: 'south', floors: 15, marker: 'TE', district: HF,
 
   facade: {
@@ -818,7 +818,7 @@ SPECS.push({
 
   props: [
     { key: 'card', room: 'lift', name: 'a framed card', objectType: 'decoration',
-      description: 'Cream, engraved, in a chrome frame at eye height. It says TOP OF THE MARKET and nothing else — no menu, no prices, no hours, no telephone number. Everyone who has ever stood in this lobby has read it twice looking for the rest of it.' },
+      description: 'Cream, engraved, in a chrome frame at eye height. It says TANSY TOWER and nothing else — no menu, no prices, no hours, no telephone number. Everyone who has ever stood in this lobby has read it twice looking for the rest of it.' },
     { key: 'tables', room: 'crown', name: 'fourteen tables', objectType: 'furniture',
       description: 'Set for fourteen and never for more, because the kitchen is behind the lift and is smaller than a flat. Every table is at the glass; there is not one in the middle of the room. The spacing between them is the most expensive thing about the place.' },
     { key: 'bar', room: 'crown', name: 'the core bar', objectType: 'furniture',

@@ -5,7 +5,7 @@
     "north": "zone_wind_day"
   },
   "flags": {
-    "building_name": "Second Wind",
+    "building_name": "The Halcyon Hydro",
     "building_type": "hydro",
     "floor": "tile",
     "is_building": true,
@@ -17,6 +17,6 @@
   "grid_z": 0,
   "id": "zone_wind_balcony",
   "map_id": "map_int_wind",
-  "name": "Second Wind — The Balcony",
+  "name": "The Halcyon Hydro — The Balcony",
   "parent_zone": "zone_district_898_913"
 }

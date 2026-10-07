@@ -31,8 +31,8 @@
       "price": 40
     },
     {
-      "item_id": "item_jerry_can_full",
-      "price": 120
+      "item_id": "item_jerry_can_water",
+      "price": 70
     }
   ],
   "vendor_schedule": {

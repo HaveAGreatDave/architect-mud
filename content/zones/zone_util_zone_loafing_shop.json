@@ -15,6 +15,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_loafing_shop",
   "map_id": "map_int_loafing",
-  "name": "Loafing Around — Utility Room",
+  "name": "Meltwater Row Bakery — Utility Room",
   "parent_zone": "zone_district_907_914"
 }

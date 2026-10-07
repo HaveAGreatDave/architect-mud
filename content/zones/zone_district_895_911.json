@@ -3,13 +3,13 @@
   "ambient_theme": "urban",
   "bg_color": "#201c1a",
   "color": "#cfc2a4",
-  "description": "A wide brick front with a run of clerestory glazing high up under the eaves, because a saleroom is lit from above or it is not lit at all. At street level there is one ordinary door for people and, beside it, a goods door wide enough and high enough to take a piano upright, with a rail let into the stone at ankle height where trolleys have been running into it for years. GOING CONCERN is painted straight onto the brick in a serif two feet tall, and under it, in half the size: VALUATIONS · CLEARANCES · WEDNESDAYS.",
+  "description": "A wide brick front with a run of clerestory glazing high up under the eaves, because a saleroom is lit from above or it is not lit at all. At street level there is one ordinary door for people and, beside it, a goods door wide enough and high enough to take a piano upright, with a rail let into the stone at ankle height where trolleys have been running into it for years. HALCYON SALEROOMS is painted straight onto the brick in a serif two feet tall, and under it, in half the size: VALUATIONS · CLEARANCES · WEDNESDAYS.",
   "exits": {
     "north": "zone_district_895_910",
     "south": "zone_going_saleroom"
   },
   "flags": {
-    "building_name": "Going Concern",
+    "building_name": "Halcyon Salerooms",
     "building_type": "auction_house",
     "district": "halcyon_fields",
     "entrance": "north",
@@ -25,6 +25,6 @@
   "id": "zone_district_895_911",
   "map_id": "map_world",
   "marker": "GG",
-  "name": "Going Concern",
+  "name": "Halcyon Salerooms",
   "parent_zone": null
 }

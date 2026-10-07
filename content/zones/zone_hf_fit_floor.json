@@ -7,7 +7,7 @@
     "up": "zone_hf_fit_pool"
   },
   "flags": {
-    "building_name": "Fit for Purpose",
+    "building_name": "Sorrel Terrace",
     "building_type": "cascade_block",
     "floor": "linoleum",
     "is_building": true,
@@ -25,6 +25,6 @@
   "grid_z": 0,
   "id": "zone_hf_fit_floor",
   "map_id": "map_int_hf_fit",
-  "name": "Fit for Purpose — The Floor",
+  "name": "Sorrel Terrace — The Floor",
   "parent_zone": "zone_district_897_913"
 }

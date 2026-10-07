@@ -143,7 +143,7 @@
   "hp_max": 30,
   "home_zone": "zone_pastperf_office",
   "work_zone_id": "zone_pastperf_hall",
-  "vendor_shop_name": "Past Perfect",
+  "vendor_shop_name": "Coldwater Museum",
   "vendor_restock_rate": 2,
   "vendor_stock_size": 8,
   "vendor_schedule": {

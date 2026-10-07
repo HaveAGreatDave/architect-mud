@@ -7,7 +7,7 @@
     "north": "zone_hf_peppercorn_wall"
   },
   "flags": {
-    "building_name": "Peppercorn",
+    "building_name": "Burnet Court",
     "building_type": "atrium_court",
     "floor": "tile",
     "is_building": true,
@@ -25,6 +25,6 @@
   "grid_z": 0,
   "id": "zone_hf_peppercorn_desk",
   "map_id": "map_int_hf_peppercorn",
-  "name": "Peppercorn — The Front Desk",
+  "name": "Burnet Court — The Front Desk",
   "parent_zone": "zone_district_904_913"
 }

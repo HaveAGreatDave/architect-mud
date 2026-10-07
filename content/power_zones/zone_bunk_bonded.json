@@ -4,6 +4,6 @@
   "generator_id": "gen_zone_util_zone_yard_bonded",
   "id": "zone_bunk_bonded",
   "max_capacity_kw": 1000,
-  "name": "Bonded & Bothered — the bunkroom",
+  "name": "Bonded Store 7 — the bunkroom",
   "source_type": "junction_box"
 }

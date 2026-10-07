@@ -5,7 +5,7 @@
     "north": "zone_going_saleroom"
   },
   "flags": {
-    "building_name": "Going Concern",
+    "building_name": "Halcyon Salerooms",
     "building_type": "auction_house",
     "floor": "concrete",
     "is_building": true,
@@ -17,6 +17,6 @@
   "grid_z": 0,
   "id": "zone_going_strong",
   "map_id": "map_int_going",
-  "name": "Going Concern — The Strongroom",
+  "name": "Halcyon Salerooms — The Strongroom",
   "parent_zone": "zone_district_895_911"
 }

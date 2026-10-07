@@ -9,7 +9,7 @@
     "south": "zone_district_895_910"
   },
   "flags": {
-    "building_name": "Rising Sums",
+    "building_name": "Betony House",
     "building_type": "chrome_tower",
     "district": "halcyon_fields",
     "entrance": "south",
@@ -25,6 +25,6 @@
   "id": "zone_district_895_909",
   "map_id": "map_world",
   "marker": "RG",
-  "name": "Rising Sums",
+  "name": "Betony House",
   "parent_zone": null
 }

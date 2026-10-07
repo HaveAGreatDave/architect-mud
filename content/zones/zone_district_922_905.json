@@ -9,7 +9,7 @@
     "west": "zone_district_921_905"
   },
   "flags": {
-    "building_name": "Absolute Zero Holdings",
+    "building_name": "Basin Cold Store",
     "building_type": "cold_storage",
     "district": "yards",
     "entrance": "west",
@@ -24,6 +24,6 @@
   "id": "zone_district_922_905",
   "map_id": "map_world",
   "marker": "AZ",
-  "name": "Absolute Zero Holdings",
+  "name": "Basin Cold Store",
   "parent_zone": null
 }

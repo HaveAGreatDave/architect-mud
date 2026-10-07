@@ -5,7 +5,7 @@
     "east": "zone_hf_chainfree_landing"
   },
   "flags": {
-    "building_name": "Chain Free",
+    "building_name": "Bluebell House",
     "building_type": "bead_tower",
     "floor": "boards",
     "is_apartment": true,
@@ -25,6 +25,6 @@
   "grid_z": 0,
   "id": "zone_hf_chainfree_u4",
   "map_id": "map_int_hf_chainfree",
-  "name": "Chain Free — Flat 3D",
+  "name": "Bluebell House — Flat 3D",
   "parent_zone": "zone_district_900_914"
 }

@@ -6,7 +6,7 @@
     "north": "zone_district_901_917"
   },
   "flags": {
-    "building_name": "Blue Chip",
+    "building_name": "Clover House",
     "building_type": "chrome_tower",
     "floor": "stone",
     "is_building": true,
@@ -24,6 +24,6 @@
   "grid_z": 0,
   "id": "zone_hf_bluechip_lobby",
   "map_id": "map_int_hf_bluechip",
-  "name": "Blue Chip — The Lobby",
+  "name": "Clover House — The Lobby",
   "parent_zone": "zone_district_901_917"
 }

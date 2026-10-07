@@ -249,7 +249,7 @@ registerAction({
 
     // ── ⚠ YOU HAVE TO BE WHERE SHE IS, AND THAT GATE COMES FIRST ────────────
     //
-    // Without it this is a remote fill: a driver standing at Flash Point Fuel on the other side of
+    // Without it this is a remote fill: a driver standing at Kessler Fuel Depot on the other side of
     // the city, who happens to own a boat tied up at the float, types `fuel` meaning the truck
     // under their hand and tops up a hull four hundred tiles away instead — because the only thing
     // the old test asked was whether there was a pump where the BOAT was. Being near her is also

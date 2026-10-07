@@ -14,6 +14,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_clinic_interior",
   "map_id": "map_interior_zone_clinic_interior",
-  "name": "Stitch 'n' Bitch — Utility Room",
+  "name": "Ironside Walk-In Clinic — Utility Room",
   "parent_zone": "zone_district_920_906"
 }

@@ -7,7 +7,7 @@
     "south": "zone_district_896_909"
   },
   "flags": {
-    "building_name": "Bent Double",
+    "building_name": "Boulevard Crescent West",
     "building_type": "chrome_slab",
     "floor": "linoleum",
     "is_building": true,
@@ -19,6 +19,6 @@
   "grid_z": 0,
   "id": "zone_hf_bent_front",
   "map_id": "map_int_hf_bent",
-  "name": "Bent Double — The Waiting Arc",
+  "name": "Boulevard Crescent West — The Waiting Arc",
   "parent_zone": "zone_district_896_909"
 }

@@ -2,6 +2,6 @@
   "capacity_kw": 5000,
   "generator_id": "gen_zone_util_zone_current_switch",
   "id": "zone_util_zone_current_switch",
-  "name": "Current Affairs — The Switch Room — Utility Room",
+  "name": "Halcyon Fields Substation — The Switch Room — Utility Room",
   "source_type": "junction_box"
 }

@@ -9,7 +9,7 @@
     "north": "zone_district_903_908"
   },
   "flags": {
-    "building_name": "Fine Print",
+    "building_name": "Greenside Row Library",
     "building_type": "lending_library",
     "floor": "boards",
     "is_building": true,
@@ -27,6 +27,6 @@
   "grid_z": 0,
   "id": "zone_fineprint_room",
   "map_id": "map_int_fineprint",
-  "name": "Fine Print — The Reading Room",
+  "name": "Greenside Row Library — The Reading Room",
   "parent_zone": "zone_district_903_908"
 }

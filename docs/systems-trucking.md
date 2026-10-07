@@ -1266,7 +1266,7 @@ The apron carries `flags.truck_yard` (the yard's spoken name) purely so the stre
 a depot through that door. The **truth** about which tile a depot uses lives in the depot's own
 `yard` key, never there — so a mismatch between the two is a missing sentence, never a broken door.
 
-Live depots: **Kessler Street Yard** (Coldwater, inside Bonded & Bothered, apron on Kessler Street),
+Live depots: **Kessler Street Yard** (Coldwater, inside Bonded Store 7, apron on Kessler Street),
 **The Roadhead Depot** (Terminus, inside Last Requisition — a shed that had been standing there with
 a painted-on door and no way in, promoted rather than replaced), and **The Last Load** (The Reach,
 a new shed on the hardpan east of the freight yard; `lawless: true`, and that gradient is what the
@@ -1358,7 +1358,7 @@ Storage is `trucks.custom_data.trim` — `{ mat, col, cust }`, all nullable, no 
 rides the cab payload beside `paint`, and a truck that has never been to the bench sends `null` and
 renders byte-for-byte what it always did.
 
-#### Bonded & Bothered was a warehouse with a truck door in it *(2026-08-18)*
+#### Bonded Store 7 was a warehouse with a truck door in it *(2026-08-18)*
 
 The corner came apart from the driver's seat: flat grey slabs, the signwriting lying on the tarmac,
 and sky where the roof is. Nothing was broken in the model — the building was simply **the wrong
@@ -2707,7 +2707,7 @@ place just inside the South Gate. It's now **outside the Curtain**, under the ro
 
 |       | 909 | 910 | 911 | 912 |
 |---|---|---|---|---|
-| **917** | Best Offer | grass | **the South Lock** | grass |
+| **917** | Plot 6, Kerbstone Row | grass | **the South Lock** | grass |
 | **918** | Windrow Lane | Windrow Lane | **the South Lock** | grass |
 | **919** | Curtain | Curtain | **SOUTH GATE** | Curtain |
 | **920** | waste | the weigh lane | **the Outer Lock** | waste |

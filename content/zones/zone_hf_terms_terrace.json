@@ -5,7 +5,7 @@
     "down": "zone_hf_terms_hall"
   },
   "flags": {
-    "building_name": "Terms Agreed",
+    "building_name": "Mews Terrace",
     "building_type": "cascade_block",
     "floor": "stone",
     "is_building": true,
@@ -23,6 +23,6 @@
   "grid_z": 0,
   "id": "zone_hf_terms_terrace",
   "map_id": "map_int_hf_terms",
-  "name": "Terms Agreed — The Second Terrace",
+  "name": "Mews Terrace — The Second Terrace",
   "parent_zone": "zone_district_894_912"
 }

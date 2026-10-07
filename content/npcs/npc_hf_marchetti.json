@@ -176,7 +176,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Not from this room.\" She finds it on the model with the corner of the folder. \"Chain Free, on the corner of Kettle Lane and Sorrel Way, lets three flats on the third floor at two hundred a week. Marius Lindqvist has the desk inside the door. Stand in the flat you want and <b>rent</b>.\"\n\nThe way lights up on your map."
+      "text": "\"Not from this room.\" She finds it on the model with the corner of the folder. \"Bluebell House, on the corner of Kettle Lane and Sorrel Way, lets three flats on the third floor at two hundred a week. Marius Lindqvist has the desk inside the door. Stand in the flat you want and <b>rent</b>.\"\n\nThe way lights up on your map."
     },
     "phase3": {
       "options": [
@@ -291,7 +291,7 @@
       }
     ]
   },
-  "vendor_shop_name": "Artist's Impression",
+  "vendor_shop_name": "Teasel Court",
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,

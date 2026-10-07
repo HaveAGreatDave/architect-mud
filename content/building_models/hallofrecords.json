@@ -16,7 +16,7 @@
   "bind": [
     {
       "by": "name",
-      "key": "The Paper Tomb"
+      "key": "Hall of Records"
     }
   ],
   "detail": [
@@ -233,10 +233,10 @@
       "z": 1.02
     }
   ],
-  "id": "thepapertomb",
-  "note": "THE PAPER TOMB: the Hall of Records, on Kessler Street one door north of Precinct 9.\n\nThe tile's prose: a squat civic building of poured concrete and tall dark windows. Chiselled above\nthe lintel, half-legible under decades of grime: HALL OF RECORDS · COLDWATER MUNICIPAL. A brass slot\nbeside the door reads DEPOSIT DEEDS HERE. The door stands open, as it usually does.\n\nSo it is a concrete block on a deep plinth under a heavy cornice. The front has a portico of two\nsquare piers carrying a lintel with HALL OF RECORDS cut into it in dark letters, the door open under\nit with a little light from inside, and the brass slot on the pier. Four tall narrow windows flank\nthe portico, dark, because nobody works late in a records hall. The flanks carry the same windows.\nGrime runs down from the cornice.\n\nPrecinct 9 is its opposite: lit, flagged and busy. Nothing on this building is on but the door.\n\nIt stands in for the `thepapertomb` arm (`replaces`), which stays in LEGACY_MODELS.",
+  "id": "hallofrecords",
+  "note": "HALL OF RECORDS: the Hall of Records, on Kessler Street one door north of Precinct 9.\n\nThe tile's prose: a squat civic building of poured concrete and tall dark windows. Chiselled above\nthe lintel, half-legible under decades of grime: HALL OF RECORDS · COLDWATER MUNICIPAL. A brass slot\nbeside the door reads DEPOSIT DEEDS HERE. The door stands open, as it usually does.\n\nSo it is a concrete block on a deep plinth under a heavy cornice. The front has a portico of two\nsquare piers carrying a lintel with HALL OF RECORDS cut into it in dark letters, the door open under\nit with a little light from inside, and the brass slot on the pier. Four tall narrow windows flank\nthe portico, dark, because nobody works late in a records hall. The flanks carry the same windows.\nGrime runs down from the cornice.\n\nPrecinct 9 is its opposite: lit, flagged and busy. Nothing on this building is on but the door.\n\nIt stands in for the `papertomb` arm (`replaces`), which stays in LEGACY_MODELS.",
   "pal": "ty_dam",
-  "replaces": "thepapertomb",
+  "replaces": "papertomb",
   "segs": [
     {
       "cx": 0,

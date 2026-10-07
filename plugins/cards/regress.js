@@ -149,12 +149,12 @@ export default async function regress({ run, check, getPlayer }) {
       mixed.stage.includes('thumbs the radio.') && mixed.speech.some(s => /Weather/.test(s)),
       JSON.stringify(mixed));
     const doer = buildNpcCard({ id: 'npc_d', name: 'Vesper Kade', description: 'A person.', flags: {}, sex: 'female',
-      chitchat: ['counts the till twice and writes nothing down'], vendor_shop_name: 'Nuts to That' });
+      chitchat: ['counts the till twice and writes nothing down'], vendor_shop_name: 'Marrow Street Hardware' });
     check('a stage direction becomes DESCRIPTION, not a quote',
       /counts the till/.test(doer.text_blocks.origin) && doer.text_blocks.quote === '',
       JSON.stringify(doer.text_blocks));
     check('…and a shop-runner\u2019s card says where they stood',
-      /Nuts to That/.test(doer.text_blocks.origin), doer.text_blocks.origin);
+      /Marrow Street Hardware/.test(doer.text_blocks.origin), doer.text_blocks.origin);
     // ⚠ THE REGION IS SET AT RENDER, NOT AT STRIKE, so every card ever minted gets
     // the rule — including the ones in binders. narration() is that one place.
     check("⚠ narration never returns a quoted string, whatever it's handed",

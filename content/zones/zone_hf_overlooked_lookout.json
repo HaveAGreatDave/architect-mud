@@ -6,7 +6,7 @@
     "up": "zone_hf_overlooked_ring"
   },
   "flags": {
-    "building_name": "Overlooked",
+    "building_name": "Meadow Point",
     "building_type": "glass_prism",
     "floor": "metal",
     "is_building": true,
@@ -24,6 +24,6 @@
   "grid_z": 0,
   "id": "zone_hf_overlooked_lookout",
   "map_id": "map_int_hf_overlooked",
-  "name": "Overlooked — The Lookout",
+  "name": "Meadow Point — The Lookout",
   "parent_zone": "zone_district_903_911"
 }

@@ -7,7 +7,7 @@
     "west": "zone_fineprint_room"
   },
   "flags": {
-    "building_name": "Fine Print",
+    "building_name": "Greenside Row Library",
     "building_type": "lending_library",
     "floor": "boards",
     "is_building": true,
@@ -19,6 +19,6 @@
   "grid_z": 0,
   "id": "zone_fineprint_stack",
   "map_id": "map_int_fineprint",
-  "name": "Fine Print — The Closed Stack",
+  "name": "Greenside Row Library — The Closed Stack",
   "parent_zone": "zone_district_903_908"
 }

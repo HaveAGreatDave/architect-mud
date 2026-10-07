@@ -24,7 +24,7 @@
   "bind": [
     {
       "by": "name",
-      "key": "Statue Quo"
+      "key": "Park View Flats"
     }
   ],
   "detail": [
@@ -63,7 +63,7 @@
       "hh": 0.022,
       "ink": "#e8dcc0",
       "kind": "signBoard",
-      "label": "STATUE QUO",
+      "label": "PARK VIEW FLATS",
       "z": 0.3
     },
     {
@@ -648,8 +648,8 @@
       "z1": 0.09
     }
   ],
-  "id": "statuequo",
-  "note": "STATUE QUO — five floors of flats on the end of the terrace, by the park.\n\nThe tile's prose: the only block on this side of the park with a park view, which the letting\nboard mentions in larger letters than anything else. STATUE QUO painted over the door in a serif\nthe painter did not have the wrist for. Barred windows on the ground floor, unbarred on the second,\nand window boxes on the top two floors doing better than they have any right to.\n\nSo it is a plain brick block, five floors and a pale cornice. The front has four windows a floor\nand a sill band under each row. The ground floor has the door in the middle under a small hood,\nand a barred window either side. The name is painted straight onto the brick over the door\n(`bare`), because it is paint and not a board. The top two floors carry window boxes.\n\nThe letting board is on the open flank, where the park is, and says PARK VIEW bigger than it says\nanything else. That flank has windows and the fire escape. The other flank is a party wall to the\nterrace, blind but for a soil pipe. The back windows are smaller, because they look at a wall.\n\nThe brick is `ty_unit_brick`. The old model used `ty_apt_a`, which is in the window-grid family\nand painted its own lit windows over the authored ones.",
+  "id": "parkviewflats",
+  "note": "PARK VIEW FLATS — five floors of flats on the end of the terrace, by the park.\n\nThe tile's prose: the only block on this side of the park with a park view, which the letting\nboard mentions in larger letters than anything else. PARK VIEW FLATS painted over the door in a serif\nthe painter did not have the wrist for. Barred windows on the ground floor, unbarred on the second,\nand window boxes on the top two floors doing better than they have any right to.\n\nSo it is a plain brick block, five floors and a pale cornice. The front has four windows a floor\nand a sill band under each row. The ground floor has the door in the middle under a small hood,\nand a barred window either side. The name is painted straight onto the brick over the door\n(`bare`), because it is paint and not a board. The top two floors carry window boxes.\n\nThe letting board is on the open flank, where the park is, and says PARK VIEW bigger than it says\nanything else. That flank has windows and the fire escape. The other flank is a party wall to the\nterrace, blind but for a soil pipe. The back windows are smaller, because they look at a wall.\n\nThe brick is `ty_unit_brick`. The old model used `ty_apt_a`, which is in the window-grid family\nand painted its own lit windows over the authored ones.",
   "pal": "ty_unit_brick",
   "segs": [
     {

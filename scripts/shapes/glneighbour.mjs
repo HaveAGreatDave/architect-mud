@@ -4,7 +4,7 @@
 // for months; the paragraphs below are the history of why. What closed it: `mast()` and four
 // direct `emitWire` calls (interstack, saloon, fabrication ×2) take a `DECO_PULL` tie-breaker
 // instead of the 0.6-tile default, the Dead Pigeon's pole moved out of its own upper storey onto
-// the setback, and Treble Maker's blade moved out of its facade and away from the tile edge. What
+// the setback, and Tallow Row Music's blade moved out of its facade and away from the tile edge. What
 // is left crosses by its own tie-breaker and is counted under TIE_MAX rather than reported.
 //
 // `glself` asks whether a part is dragged out of its OWN mass. That question is answered and its
@@ -73,7 +73,7 @@
 // buried is not drawn at all without the pull — The Dynamo's external fire stair is the recorded
 // case. So the work is to move those parts OUT in the model, and it is these five:
 //
-//   named:stackoverflow · named:thecoyotesrest · type:fabrication      (drawTypeModelArm)
+//   named:kesslercontaineryard5823 · named:thecoyotesrest · type:fabrication      (drawTypeModelArm)
 //   named:coldwaterclonefacility · named:thedeadpigeon                 (mast)
 //
 // Five models is a sitting worth of Modelshop, not a rewrite of the city. What it needs is

@@ -24,7 +24,7 @@
   "bind": [
     {
       "by": "name",
-      "key": "Past Perfect"
+      "key": "Coldwater Museum"
     }
   ],
   "detail": [
@@ -116,8 +116,8 @@
       "z": 0.42
     }
   ],
-  "id": "pastperfect",
-  "note": "PAST PERFECT — the museum on Kiln Lane, four columns and a pediment on a building one room deep.\n\nThe tile's prose: the portico is stone, correct, and about two and a half times the architectural\nseriousness the shed behind it can support. Cut into the pediment, spaced by somebody who ran out\nof room by the fourth word: THE COLDWATER MVSEVM OF THE WORLD BEFORE. The doors are open in the day,\nthere is no charge, and a slotted box on a post beside them says DONATIONS and is almost empty.\n\nSo the portico is the building: three stone steps, four columns with capitals, an entablature with\nthe inscription on the frieze, and a pediment stepped up in three courses. The shed behind it is\nplainly lower, narrower and brick, and the difference is the joke. The doors are lit when it is\nopen.",
+  "id": "coldwatermuseum",
+  "note": "COLDWATER MUSEUM — the museum on Kiln Lane, four columns and a pediment on a building one room deep.\n\nThe tile's prose: the portico is stone, correct, and about two and a half times the architectural\nseriousness the shed behind it can support. Cut into the pediment, spaced by somebody who ran out\nof room by the fourth word: THE COLDWATER MVSEVM OF THE WORLD BEFORE. The doors are open in the day,\nthere is no charge, and a slotted box on a post beside them says DONATIONS and is almost empty.\n\nSo the portico is the building: three stone steps, four columns with capitals, an entablature with\nthe inscription on the frieze, and a pediment stepped up in three courses. The shed behind it is\nplainly lower, narrower and brick, and the difference is the joke. The doors are lit when it is\nopen.",
   "pal": "ty_past",
   "segs": [
     {

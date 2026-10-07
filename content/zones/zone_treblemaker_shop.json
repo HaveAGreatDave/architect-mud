@@ -9,7 +9,7 @@
     "south": "zone_district_915_911"
   },
   "flags": {
-    "building_name": "Treble Maker",
+    "building_name": "Tallow Row Music",
     "building_type": "shop",
     "floor": "boards",
     "is_building": true,
@@ -27,6 +27,6 @@
   "grid_z": 0,
   "id": "zone_treblemaker_shop",
   "map_id": "map_int_treblemaker",
-  "name": "Treble Maker — Shop",
+  "name": "Tallow Row Music — Shop",
   "parent_zone": "zone_district_915_911"
 }

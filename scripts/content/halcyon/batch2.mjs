@@ -12,11 +12,11 @@ const DRY = process.argv.includes('--dry-run');
 const store = loadContentStore();
 const SPECS = [];
 
-// ── Mains Attraction ─────────────────────────────────────────────────────────
+// ── Halcyon Fields Pumping Station ─────────────────────────────────────────────────────────
 // A pumping station built as a temple to water, because that is what people did, and it
 // still pumps. The one building in the quarter whose ornament is older than its owners.
 SPECS.push({
-  slug: 'mains', name: 'Mains Attraction', type: 'pumping_station',
+  slug: 'mains', name: 'Halcyon Fields Pumping Station', type: 'pumping_station',
   x: 900, y: 913, entrance: 'west', floors: 4, marker: 'MN', district: 'halcyon_fields',
   facade: {
     bgColor: '#1e1a18', color: '#c4a98c',
@@ -54,7 +54,7 @@ SPECS.push({
   ],
   npc: {
     id: 'npc_mains_roke', name: 'Absalom Roke', sex: 'male', hp: 42,
-    homeRoom: 'gallery', workRoom: 'engine', shopName: 'Mains Attraction',
+    homeRoom: 'gallery', workRoom: 'engine', shopName: 'Halcyon Fields Pumping Station',
     description: 'A big, deliberate man in overalls with a rag permanently in one hand, walking the engine the way a farrier walks a horse. He is not quite deaf and talks over the beam out of habit even when it would not be necessary. His hands are black to the wrist and the backs of them are scrubbed pink.',
     clothing: ['navy overalls with the sleeves cut off at the shoulder, oiled through', 'a collarless shirt gone grey, rolled past the elbow', 'heavy boots with steel in them and no laces left in the top two holes', 'a vest and plain underthings'],
     inventory: [
@@ -109,11 +109,11 @@ SPECS.push({
   },
 });
 
-// ── Cold Comfort ─────────────────────────────────────────────────────────────
+// ── Halcyon Fields Cooling Plant ─────────────────────────────────────────────────────────────
 // The Vats print people; printing people makes heat; the heat has to go somewhere. It goes
 // up out of this building in a plume, and sideways down a pipe into a glass house.
 SPECS.push({
-  slug: 'cold', name: 'Cold Comfort', type: 'cooling_plant',
+  slug: 'cold', name: 'Halcyon Fields Cooling Plant', type: 'cooling_plant',
   x: 903, y: 917, entrance: 'north', floors: 3, marker: 'CF', district: 'halcyon_fields',
   facade: {
     bgColor: '#171a1c', color: '#9fb0b6',
@@ -149,7 +149,7 @@ SPECS.push({
   ],
   npc: {
     id: 'npc_cold_stallard', name: 'Verity Stallard', sex: 'female', hp: 38,
-    homeRoom: 'deck', workRoom: 'floor', shopName: 'Cold Comfort',
+    homeRoom: 'deck', workRoom: 'floor', shopName: 'Halcyon Fields Cooling Plant',
     description: 'A wiry woman in a boiler suit with ear defenders pushed up on her head like a hairband, carrying a clipboard she does not look at. She has the habit, from years on this floor, of standing closer to people than they expect and speaking at a level that is exactly right in here and slightly too loud everywhere else.',
     clothing: ['a grey boiler suit, damp at the shoulders because everything in here is damp', 'ear defenders pushed up on her head, on and off twenty times an hour', 'steel-toed boots with the tread gone smooth from wet plate', 'a vest and plain underthings'],
     inventory: [
@@ -204,11 +204,11 @@ SPECS.push({
   },
 });
 
-// ── Holding Pattern ──────────────────────────────────────────────────────────
+// ── Halcyon Fields Gasholder ──────────────────────────────────────────────────────────
 // A gasholder: a telescoping drum in a lattice guide frame, which rises and falls with the
 // city's demand and is the one piece of machinery in Coldwater you can read from a mile off.
 SPECS.push({
-  slug: 'holder', name: 'Holding Pattern', type: 'gasholder',
+  slug: 'holder', name: 'Halcyon Fields Gasholder', type: 'gasholder',
   x: 905, y: 917, entrance: 'north', floors: 6, marker: 'HP', district: 'halcyon_fields',
   facade: {
     bgColor: '#141719', color: '#8e9aa0',
@@ -243,7 +243,7 @@ SPECS.push({
   ],
   npc: {
     id: 'npc_holder_creel', name: 'Barnaby Creel', sex: 'male', hp: 35,
-    homeRoom: 'gauge', workRoom: 'gauge', shopName: 'Holding Pattern',
+    homeRoom: 'gauge', workRoom: 'gauge', shopName: 'Halcyon Fields Gasholder',
     description: 'An old man in a works-green jacket sitting sideways to the bench so he can see both the needle and the window at once. He has a pipe he does not light and has not lit in a very long time, for reasons anybody standing under a gasholder can work out. He looks up when the needle moves and not when the door does.',
     clothing: ['a works-green serge jacket with the company badge unpicked off the breast', 'a flannel shirt buttoned to the collar, no tie', 'heavy trousers and boots polished on the toe only', 'a vest and long underthings, because the gauge house is cold'],
     inventory: [
@@ -298,11 +298,11 @@ SPECS.push({
   },
 });
 
-// ── Current Affairs ──────────────────────────────────────────────────────────
+// ── Halcyon Fields Substation ──────────────────────────────────────────────────────────
 // The grid tap that feeds the campus. A fenced yard of transformer tanks and lattice gantry
 // under warning signs nobody reads, and one small control room with one frightened man in it.
 SPECS.push({
-  slug: 'current', name: 'Current Affairs', type: 'substation',
+  slug: 'current', name: 'Halcyon Fields Substation', type: 'substation',
   x: 907, y: 917, entrance: 'north', floors: 2, marker: 'CA', district: 'halcyon_fields',
   facade: {
     bgColor: '#191b17', color: '#a6ae96',
@@ -337,7 +337,7 @@ SPECS.push({
   ],
   npc: {
     id: 'npc_current_tench', name: 'Oriel Tench', sex: 'male', hp: 29,
-    homeRoom: 'switch', workRoom: 'switch', shopName: 'Current Affairs',
+    homeRoom: 'switch', workRoom: 'switch', shopName: 'Halcyon Fields Substation',
     description: 'A thin, careful man in his thirties standing on the mat in front of the panel with his hands behind his back, which is a habit rather than a pose. He checks things twice while you are talking to him and apologises for it each time. He is not nervous about you. He is nervous about the yard, permanently, and he is right to be.',
     clothing: ['a navy works coat with the arc-rated label still legible on the inside', 'a buttoned shirt and a tie he does not loosen even in here', 'heavy trousers with the cuffs inside his boots, deliberately', 'a vest and plain underthings'],
     inventory: [
@@ -392,12 +392,12 @@ SPECS.push({
   },
 });
 
-// ── Crossed Wires ────────────────────────────────────────────────────────────
+// ── Halcyon Fields Telephone Exchange ────────────────────────────────────────────────────────────
 // A telephone exchange. Windowless, louvred, humming, and still switching calls for a
 // network whose subscribers are mostly gone. story.md: "The Architect's running something
 // in there. Something heavy." This is a building that answers that line and never confirms it.
 SPECS.push({
-  slug: 'wires', name: 'Crossed Wires', type: 'exchange',
+  slug: 'wires', name: 'Halcyon Fields Telephone Exchange', type: 'exchange',
   x: 909, y: 915, entrance: 'south', floors: 5, marker: 'CW', district: 'halcyon_fields',
   facade: {
     bgColor: '#16171a', color: '#9a9c9e',
@@ -436,7 +436,7 @@ SPECS.push({
   ],
   npc: {
     id: 'npc_wires_bewick', name: 'Silas Bewick', sex: 'male', hp: 33,
-    homeRoom: 'frame', workRoom: 'apparatus', shopName: 'Crossed Wires',
+    homeRoom: 'frame', workRoom: 'apparatus', shopName: 'Halcyon Fields Telephone Exchange',
     description: 'A quiet, tidy man of indeterminate middle age in a grey coat, sitting at a wooden table just inside the door with a kettle and a logbook. He is the caretaker and he is, as far as he knows, the only person with a key. He talks in a low voice out of habit, because the room is listening in the only way a room like this can.',
     clothing: ['a grey cotton work coat buttoned to the throat, pockets weighed down with keys', 'a soft shirt and no tie, because there is no one to wear one for', 'plain trousers and soft shoes that make no noise on linoleum', 'a vest and plain underthings'],
     inventory: [

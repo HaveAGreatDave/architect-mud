@@ -4,7 +4,7 @@
   "description": "Clad on the north and west faces and bare on the other two. Eleven levels of exposed floor plate, services run, capped and labelled. At night the east face is a dark hole in the skyline.",
   "exits": {},
   "flags": {
-    "building_name": "Vacant Possession",
+    "building_name": "Plot 9, Cinder Lane",
     "building_type": "shell_tower",
     "district": "halcyon_fields",
     "entrance": "west",
@@ -18,6 +18,6 @@
   "id": "zone_district_903_913",
   "map_id": "map_world",
   "marker": "VA",
-  "name": "Vacant Possession",
+  "name": "Plot 9, Cinder Lane",
   "parent_zone": null
 }

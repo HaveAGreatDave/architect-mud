@@ -3,13 +3,13 @@
   "ambient_theme": "urban",
   "bg_color": "#0f1923",
   "color": "#c0e0fa",
-  "description": "Twelve floors in five bulges, and sold entirely on which way its windows face: every flat is a corner in the sense that a cylinder is all corners, and the brochure made a great deal of that. The pinches between the bulges are where the lift lobbies are, so every landing in the building is the narrowest part of it. The entrance is at the widest part of the lowest bulge, which is the one place on the building where a door can be full height, and the glass either side of it curves away from you as you approach. The entrance is at the widest part of the lowest bulge, which is the one place on the building where a door can be full height, and the glass either side of it curves away from you as you approach. The entrance is at the widest part of the lowest bulge, which is the one place on the building where a door can be full height, and the glass either side of it curves away from you as you approach. The entrance is at the widest part of the lowest bulge, which is the one place on the building where a door can be full height, and the glass either side of it curves away from you as you approach. The entrance is at the widest part of the lowest bulge, which is the one place on the building where a door can be full height, and the glass either side of it curves away from you as you approach. The entrance is at the widest part of the lowest bulge, which is the one place on the building where a door can be full height, and the glass either side of it curves away from you as you approach.",
+  "description": "Twelve floors in five bulges, and sold entirely on which way its windows face: every flat is a corner in the sense that a cylinder is all corners, and the brochure made a great deal of that. The pinches between the bulges are where the lift lobbies are, so every landing in the building is the narrowest part of it. The entrance is at the widest part of the lowest bulge, which is the one place on the building where a door can be full height, and the glass either side of it curves away from you as you approach.",
   "exits": {
     "east": "zone_hf_aspect_lobby",
     "west": "zone_district_902_915"
   },
   "flags": {
-    "building_name": "Aspect Ratio",
+    "building_name": "Heather House",
     "building_type": "bead_tower",
     "district": "halcyon_fields",
     "entrance": "west",
@@ -25,6 +25,6 @@
   "id": "zone_district_903_915",
   "map_id": "map_world",
   "marker": "AA",
-  "name": "Aspect Ratio",
+  "name": "Heather House",
   "parent_zone": null
 }

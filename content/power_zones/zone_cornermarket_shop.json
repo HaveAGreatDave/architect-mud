@@ -4,6 +4,6 @@
   "generator_id": "gen_zone_util_zone_cornermarket_shop",
   "id": "zone_cornermarket_shop",
   "max_capacity_kw": 1200,
-  "name": "Corner the Market",
+  "name": "Filament Street Corner Shop",
   "source_type": "junction_box"
 }

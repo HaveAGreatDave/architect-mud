@@ -25,7 +25,7 @@
   "bind": [
     {
       "by": "name",
-      "key": "Just My Type"
+      "key": "Foundry Way Printers"
     }
   ],
   "detail": [
@@ -193,7 +193,7 @@
       "hh": 0.028,
       "ink": "#e4e9ef",
       "kind": "signBoard",
-      "label": "JUST MY TYPE",
+      "label": "FOUNDRY WAY PRINTERS",
       "z": 0.48
     },
     {
@@ -261,9 +261,9 @@
       "z": 0.004
     }
   ],
-  "id": "justmytype",
+  "id": "foundrywayprinters",
   "neon": "#c9d2dd",
-  "note": "JUST MY TYPE — a jobbing printer at the back of the studio block, on Foundry Way.\n\nThe tile's prose: a roller door instead of a window, up more often than not, with handbills drying\non a line strung across the opening, and a board outside listing what they do in order of how much\nof it they do: HANDBILLS, RUNNING ORDERS, SETLISTS, MENUS, WREATH CARDS, WRITS.\n\nThe frontage is on the entrance side, Foundry Way. It used to be authored on the back wall, which\nfaces the studio block, so the street saw a blank precast box. The front is now the open door: a lit\nopening with the roller drum over it, the line of handbills across it, precast piers either side,\nthe name on a fascia above and the price board beside it. The back keeps the louvres and conduit.\n\nThe walls are board-formed concrete (`ty_quay_deck`, `ty_trm_blast`). They were `ty_precast`,\nwhich is in the window-grid family and painted windows over a building that has a roller door\ninstead of one.",
+  "note": "FOUNDRY WAY PRINTERS — a jobbing printer at the back of the studio block, on Foundry Way.\n\nThe tile's prose: a roller door instead of a window, up more often than not, with handbills drying\non a line strung across the opening, and a board outside listing what they do in order of how much\nof it they do: HANDBILLS, RUNNING ORDERS, SETLISTS, MENUS, WREATH CARDS, WRITS.\n\nThe frontage is on the entrance side, Foundry Way. It used to be authored on the back wall, which\nfaces the studio block, so the street saw a blank precast box. The front is now the open door: a lit\nopening with the roller drum over it, the line of handbills across it, precast piers either side,\nthe name on a fascia above and the price board beside it. The back keeps the louvres and conduit.\n\nThe walls are board-formed concrete (`ty_quay_deck`, `ty_trm_blast`). They were `ty_precast`,\nwhich is in the window-grid family and painted windows over a building that has a roller door\ninstead of one.",
   "pal": "ty_quay_deck",
   "segs": [
     {

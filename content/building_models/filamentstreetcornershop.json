@@ -16,7 +16,7 @@
   "bind": [
     {
       "by": "name",
-      "key": "Corner the Market"
+      "key": "Filament Street Corner Shop"
     }
   ],
   "detail": [
@@ -163,7 +163,7 @@
       "hh": 0.028,
       "ink": "#ffe08a",
       "kind": "signBoard",
-      "label": "CORNER THE MARKET",
+      "label": "FILAMENT STREET CORNER SHOP",
       "z": 0.4
     },
     {
@@ -255,9 +255,9 @@
       "z": 0.7
     }
   ],
-  "id": "cornerthemarket",
+  "id": "filamentstreetcornershop",
   "neon": "#ffe08a",
-  "note": "CORNER THE MARKET — the corner shop on Filament Street.\n\nThe tile's prose: a shopfront of adverts layered so deep that the actual window is down to a\nletterbox of clear glass at head height; crates of whatever is going out on the pavement under an\nawning that winds down with a handle; open at six and not clearly ever closed.\n\nSo the ground floor is a wall of advert boards in two rows, with the letterbox window above them\nand the door at the end, under a wind-down awning with crates in front. The name is on the fascia.\nIt used to draw on the `bodega` type arm, which lettered every bodega BODEGA VU.",
+  "note": "FILAMENT STREET CORNER SHOP — the corner shop on Filament Street.\n\nThe tile's prose: a shopfront of adverts layered so deep that the actual window is down to a\nletterbox of clear glass at head height; crates of whatever is going out on the pavement under an\nawning that winds down with a handle; open at six and not clearly ever closed.\n\nSo the ground floor is a wall of advert boards in two rows, with the letterbox window above them\nand the door at the end, under a wind-down awning with crates in front. The name is on the fascia.\nIt used to draw on the `bodega` type arm, which lettered every bodega BODEGA VU.",
   "pal": "ty_pocket",
   "segs": [
     {

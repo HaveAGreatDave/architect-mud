@@ -5,7 +5,7 @@
     "west": "zone_wires_apparatus"
   },
   "flags": {
-    "building_name": "Crossed Wires",
+    "building_name": "Halcyon Fields Telephone Exchange",
     "building_type": "exchange",
     "floor": "linoleum",
     "is_building": true,
@@ -17,6 +17,6 @@
   "grid_z": 0,
   "id": "zone_wires_frame",
   "map_id": "map_int_wires",
-  "name": "Crossed Wires — The Main Frame",
+  "name": "Halcyon Fields Telephone Exchange — The Main Frame",
   "parent_zone": "zone_district_909_915"
 }

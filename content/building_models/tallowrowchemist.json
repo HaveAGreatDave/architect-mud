@@ -34,7 +34,7 @@
   "bind": [
     {
       "by": "name",
-      "key": "Dosed & Confused"
+      "key": "Tallow Row Chemist"
     }
   ],
   "detail": [
@@ -92,7 +92,7 @@
       "hh": 0.028,
       "ink": "#9ff5cc",
       "kind": "signBoard",
-      "label": "DOSED & CONFUSED",
+      "label": "TALLOW ROW CHEMIST",
       "picto": "pill",
       "z": 0.3
     },
@@ -250,7 +250,7 @@
       "z": 0.147
     }
   ],
-  "id": "dosedconfused",
+  "id": "tallowrowchemist",
   "neon": "#4fd39a",
   "note": "A chemist on the corner where Foundry Way meets the Gate Road. A green cross over the door that flickers on the downstroke, a night hatch beside it with a bell, and a window full of boxes that have faded down one side from standing in the light. Three floors, and the dispensing counter is up a step.\n\nIt was a flat box with a small dark sign on it. A chemist is a SHOPFRONT with rooms over it, so it has the stack the rest of the street has: a stone plinth, a glazed podium under a canopy that reaches the kerb, a cornice, then a set-back shaft in the shop's own green-grey. Three palettes, because the setbacks were there and a single tone made four storeys read as one lump - the same thing adequate.json records.\n\nThe oriel on the left is the dispensary, which is the room that wants the light and is the one part of the frontage a chemist would pay to project.\n\nThe roof sign is the HATCH and not the name. The fascia already says the name; a roof board repeating it tells a player nothing, and the hatch is the thing worth knowing about at three in the morning.",
   "pal": "ty_shop_d",

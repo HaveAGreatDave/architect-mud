@@ -5,7 +5,7 @@
     "down": "zone_hf_topbrass_lobby"
   },
   "flags": {
-    "building_name": "Top Brass",
+    "building_name": "Speedwell Tower",
     "building_type": "chrome_tower",
     "floor": "carpet",
     "is_building": true,
@@ -17,6 +17,6 @@
   "grid_z": 0,
   "id": "zone_hf_topbrass_sky",
   "map_id": "map_int_hf_topbrass",
-  "name": "Top Brass — The Fifteenth Collar",
+  "name": "Speedwell Tower — The Fifteenth Collar",
   "parent_zone": "zone_district_892_909"
 }

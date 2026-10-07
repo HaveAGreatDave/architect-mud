@@ -9,7 +9,7 @@
     "down": "zone_util_zone_paws_wait"
   },
   "flags": {
-    "building_name": "Paws for Thought",
+    "building_name": "Kessler Veterinary",
     "building_type": "vet",
     "floor": "linoleum",
     "is_building": true,
@@ -27,6 +27,6 @@
   "grid_z": 0,
   "id": "zone_paws_wait",
   "map_id": "map_int_paws",
-  "name": "Paws for Thought — The Waiting Room",
+  "name": "Kessler Veterinary — The Waiting Room",
   "parent_zone": "zone_district_926_912"
 }

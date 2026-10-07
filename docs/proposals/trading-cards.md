@@ -355,7 +355,7 @@ the one disreputable mint). Optionally `zone_citadel_vault` as an ultra-rare fif
 
 **Pack machines** — `zone_kessel_shop` (Bodega Vu), `zone_mq_grocery` (Ration Nine), `zone_mq_amp_shop`
 (Ohm Sweet Ohm), `zone_halcyon_concourse` (Halcyon Arcade), `zone_casino_interior`,
-`zone_clinic_interior` (Mercy Row) and `zone_meltwater_clinic` (Co-Pay & Pray) for the waiting rooms,
+`zone_clinic_interior` (Mercy Row) and `zone_meltwater_clinic` (Marrow Street Clinic) for the waiting rooms,
 `zone_mq_pigeon_bar` (The Dead Pigeon), `zone_bld_899_1171_lobby` (the Saloon Floor, by the job
 board), `zone_meridian_lobby` and `zone_yards_tenement_lobby` (apartment lobbies), `zone_hangar_outskirts`
 (Coldwater Regional), `zone_mq_precinct_lobby` (the precinct, which is very funny), and

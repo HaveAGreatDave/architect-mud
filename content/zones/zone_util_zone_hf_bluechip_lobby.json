@@ -13,6 +13,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_hf_bluechip_lobby",
   "map_id": "map_int_hf_bluechip",
-  "name": "Blue Chip — The Core Base",
+  "name": "Clover House — The Core Base",
   "parent_zone": "zone_district_901_917"
 }

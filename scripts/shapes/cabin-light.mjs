@@ -52,16 +52,16 @@ for (const [k, x] of [['shed', shed], ['lock road', lock], ['covered seat', said
 }
 if (!(gate < open * 0.97 && gate > shed)) problems.push(`the gate yoke is not a partial shade (open ${open.toFixed(1)}, gate ${gate.toFixed(1)}, shed ${shed.toFixed(1)})`);
 
-// Under a bridge: parked beneath the Air Rights arch (a named model whose mass starts above a
+// Under a bridge: parked beneath the The Arch arch (a named model whose mass starts above a
 // truck's eye), against the same spot with no building. overheadAt answers from the captured
 // segments, so this is the real model, not a stand-in.
 {
-  const arch = { kind: 'land', biome: 'downtown', bt: 'chrome_arch', bn: 'Air Rights', flr: 3, ent: 'south' };
+  const arch = { kind: 'land', biome: 'downtown', bt: 'chrome_arch', bn: 'The Arch', flr: 3, ent: 'south' };
   const m = mkMap(null); m[20][20] = arch;
-  if (!ws.overheadAt(100, 100, arch, 99.8, 100, 0.12)) problems.push('overheadAt no longer finds the Air Rights arch over a truck');
+  if (!ws.overheadAt(100, 100, arch, 99.8, 100, 0.12)) problems.push('overheadAt no longer finds the The Arch arch over a truck');
   const under = lum(faces({ ...TRUCK, map: m, mapOffset: { x: -0.2, y: 0 } }));
   const clear = lum(faces({ ...TRUCK, mapOffset: { x: -0.2, y: 0 } }));
-  if (!(under < clear * 0.9)) problems.push(`driving under the Air Rights arch did not darken the cab (clear ${clear.toFixed(1)}, under ${under.toFixed(1)})`);
+  if (!(under < clear * 0.9)) problems.push(`driving under the The Arch arch did not darken the cab (clear ${clear.toFixed(1)}, under ${under.toFixed(1)})`);
   // A stacked building is mass above every point of it, and being in it is not being under it.
   const wh = { kind: 'land', biome: 'freight', bt: 'warehouse', flr: 2, ent: 'south' };
   if (ws.overheadAt(100, 100, wh, 100, 100, 0.12)) problems.push('overheadAt called the inside of a warehouse wall a bridge');

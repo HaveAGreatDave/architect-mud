@@ -279,7 +279,7 @@ export const OLD_COLDWATER_ARMS = {
       }
     }
   },
-  water_seller(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // MAINS SQUEEZE — A TANK ON LEGS, a silhouette Coldwater has nowhere
+  water_seller(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // QUELL'S WATER — A TANK ON LEGS, a silhouette Coldwater has nowhere
     // else. The Curtain cut the mains when it came down and the standpipe has been dry since, so
     // somebody put a header tank up on a trestle and sells what is in it by the measure.
     const hutTop = h * 0.30, deck = h * 0.52, tankTop = h * 0.88;
@@ -399,7 +399,7 @@ export const OLD_COLDWATER_ARMS = {
     { const [fx, fy] = F(fh * 0.40, -fh * 0.45);
       draw3DBoxAt(ctx, cam, fx, fy, fh * 0.03, R * 0.78, R * 0.88, 'ty_hf_mirror', seed + 9, night, alpha, true, yaw, fh * 0.34); }
   },
-  gate_post(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE GATE POST: THE POLICE WATCH POD.
+  gate_post(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // SOUTH GATE POLICE POST: THE POLICE WATCH POD.
     lockPod(ctx, cam, dx, dy, fh, seed, night, alpha, E, F, '90,150,255');
     // A glass watch cupola on the hood, set back from the pad so it sees over the whole hall: a
     // glass drum under a chrome lid, and the blue lamp on the lid.
@@ -550,7 +550,7 @@ export const OLD_COLDWATER_ARMS = {
       }
     }
   },
-  soup_kitchen(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // NO SUCH THING — A LONG LOW HALL WITH A CANOPY OVER THE QUEUE, which
+  soup_kitchen(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // ROPEWALK SOUP KITCHEN — A LONG LOW HALL WITH A CANOPY OVER THE QUEUE, which
     // is the shape of every mission, drill hall and works canteen ever built: one span, no upper
     // floor, and all of the money in the roof. The canopy is the part that matters. It exists
     // because the queue is outside and the queue is always there, and it is the only cantilever
@@ -611,7 +611,7 @@ export const OLD_COLDWATER_ARMS = {
     }
     if (night) { const [gx, gy] = F(0, fh * 1.00); glowPool(ctx, cam, gx, gy, h * 0.20, '255,198,126', 9, alpha * 0.26); }   // the hall's face is 0.96
   },
-  bonesetter(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // A STITCH IN TIME — ONE ROOM AND ONE WINDOW, and the window is the
+  bonesetter(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // ROPEWALK BONESETTER — ONE ROOM AND ONE WINDOW, and the window is the
     // model. It is the brightest thing on Ropewalk after dark and it is not advertising: the
     // work needs the light, and the light being on is how the street knows she is in. There is
     // no name on this building anywhere, which is the other half of the same fact.
@@ -769,7 +769,7 @@ export const OLD_COLDWATER_ARMS = {
       const [gx, gy] = F(0, fh * 1.02); glowPool(ctx, cam, gx, gy, h * 0.26, '255,206,140', 8, alpha * 0.22);
     }
   },
-  lending_library(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // FINE PRINT — the only building in Coldwater that is lit from ABOVE.
+  lending_library(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // GREENSIDE ROW LIBRARY — the only building in Coldwater that is lit from ABOVE.
     // Every other lit thing in this city throws its light sideways at the street: a fascia, a
     // blade, a shopfront, a marquee. A top-lit reading room does the opposite, and the roof is
     // therefore the whole model — at night this tile is a bar of pale light lying along its own
@@ -961,7 +961,7 @@ export const OLD_COLDWATER_ARMS = {
   photographer(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // NEGATIVE EQUITY — A ROOF THAT IS NOT A ROOF. The whole north slope is
     // glass, tilted AWAY from the sun rather than toward it, which is the one thing every purpose
     // built studio in history has in common and which reads from the air as a building with a
-    // mistake in it. Fine Print has the only other glazed roof in Coldwater and it is a narrow
+    // mistake in it. Greenside Row Library has the only other glazed roof in Coldwater and it is a narrow
     // ridge monitor; this is a whole pitch, and the two are not the same silhouette at all.
     const shopTop = h * 0.50, ridge = h * 0.94;
     draw3DBoxAt(ctx, cam, dx, dy, fh * 0.92, 0, shopTop, pal, seed, night, alpha, false);
@@ -1026,7 +1026,7 @@ export const OLD_COLDWATER_ARMS = {
       const [dx2, dy2] = F(-fh * 0.30, fh * 0.94); glowPool(ctx, cam, dx2, dy2, h * 0.14, '255,150,210', 4, alpha * 0.18);
     }
   },
-  vet(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // PAWS FOR THOUGHT — THE ONLY DOMESTIC BUILDING IN COLDWATER DOING BUSINESS. It is
+  vet(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // KESSLER VETERINARY — THE ONLY DOMESTIC BUILDING IN COLDWATER DOING BUSINESS. It is
     // a house: brick, a pitched roof, a chimney that is lit most evenings, and a square BAY WINDOW
     // standing out from the front wall with a waiting room behind it. Everything else in this
     // switch is a shop or a works or an institution; this is somebody's front room with eight
@@ -1075,7 +1075,7 @@ export const OLD_COLDWATER_ARMS = {
       const [gx, gy] = F(fh * 0.14, fh * 1.00); glowPool(ctx, cam, gx, gy, h * 0.29, '255,226,158', 4, alpha * 0.38);
     }
   },
-  museum(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // PAST PERFECT — FOUR COLUMNS AND A PEDIMENT ON A BUILDING ONE ROOM DEEP. The
+  museum(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // COLDWATER MUSEUM — FOUR COLUMNS AND A PEDIMENT ON A BUILDING ONE ROOM DEEP. The
     // portico is about two and a half times the architectural seriousness the shed behind it can
     // support, which is a joke somebody BUILT rather than told, and it is the only classical order
     // in Coldwater outside the bank and the Hall of Records — both of which are the real thing and
@@ -1107,7 +1107,7 @@ export const OLD_COLDWATER_ARMS = {
       const [gx, gy] = F(0, fh * 0.46); glowPool(ctx, cam, gx, gy, h * 0.40, '244,226,170', 7, alpha * 0.20);
     }
   },
-  concert_hall(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // SOUND INVESTMENT — THE ONLY FLY TOWER IN COLDWATER, and that is the
+  concert_hall(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // HALCYON CONCERT HALL — THE ONLY FLY TOWER IN COLDWATER, and that is the
     // whole silhouette. Every performance building in this city so far is a box with a sign on it;
     // this one has a blind windowless slab standing two storeys clear of its own roof, set back off
     // the street, because scenery has to go somewhere and the somewhere is up. From the road you
@@ -1154,7 +1154,7 @@ export const OLD_COLDWATER_ARMS = {
       const bz0 = frontTop + h * 0.012, bz1 = lintel - h * 0.012, bhw = fh * 0.84, by = fh * 0.94;
       const TL = P(-bhw, by, bz1), TR = P(bhw, by, bz1), BR = P(bhw, by, bz0), BL = P(-bhw, by, bz0);
       if ([TL, TR, BR, BL].every((q) => q.f > 0.12)) {
-        const tex = bakeSignText(sign || 'SOUND INVESTMENT', '#dfe8ee', 0, false, true, true);
+        const tex = bakeSignText(sign || 'HALCYON CONCERT HALL', '#dfe8ee', 0, false, true, true);
         if (tex) emitSurfaceText(ctx, cam, [TL, TR, BR, BL], tex, false, alpha);
       }
     }
@@ -1171,7 +1171,7 @@ export const OLD_COLDWATER_ARMS = {
       glowPool(ctx, cam, dx, dy, hallTop - h * 0.08, '186,220,240', 10, alpha * 0.16);
     }
   },
-  members_club(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // VESTED INTEREST — THE ONLY BUILDING IN COLDWATER THAT LETTERS NOTHING.
+  members_club(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // 4 HALCYON BOULEVARD — THE ONLY BUILDING IN COLDWATER THAT LETTERS NOTHING.
     // Every other arm in this switch ends in a marquee, a blade or a name cut somewhere; this one
     // is a townhouse front with a portico, one lamp, and no sign of any kind, and the whole read is
     // that absence. It works because the street it stands on is full of buildings that shout.
@@ -1205,7 +1205,7 @@ export const OLD_COLDWATER_ARMS = {
     //    `bakeSignText` anywhere in this arm — deliberately, and it is the point of the building.
     if (night) { const [gx, gy] = F(0, fh * 0.92); glowPool(ctx, cam, gx, gy, h * 0.42, '255,202,122', 7, alpha * 0.34); }
   },
-  auction_house(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // GOING CONCERN — LIT FROM ABOVE, WHICH DECIDES THE WHOLE SHAPE. A
+  auction_house(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // HALCYON SALEROOMS — LIT FROM ABOVE, WHICH DECIDES THE WHOLE SHAPE. A
     // saleroom needs even light on the lots and no light in the bidders' eyes, so the long walls
     // carry nothing at all and the glazing is a band under the eaves. That is why this reads as a
     // shed with a good front rather than as a shop: the only opening at street level is a door big
@@ -1236,7 +1236,7 @@ export const OLD_COLDWATER_ARMS = {
       const z0 = h * 0.48, z1 = h * 0.64, bhw = fh * 0.78, by = fh * 0.96;
       const TL = P(-bhw, by, z1), TR = P(bhw, by, z1), BR = P(bhw, by, z0), BL = P(-bhw, by, z0);
       if ([TL, TR, BR, BL].every((q) => q.f > 0.12)) {
-        const tex = bakeSignText(sign || 'GOING CONCERN', '#dce6ee', 0, false, true, true);
+        const tex = bakeSignText(sign || 'HALCYON SALEROOMS', '#dce6ee', 0, false, true, true);
         if (tex) emitSurfaceText(ctx, cam, [TL, TR, BR, BL], tex, false, alpha);
       }
     }
@@ -1248,8 +1248,8 @@ export const OLD_COLDWATER_ARMS = {
       const [lx7, ly7] = F(0, fh * 0.90); glowPool(ctx, cam, lx7, ly7, (wallTop + clerTop) * 0.5, '226,232,228', 8, alpha * 0.22);
     }
   },
-  institute(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // COURSE CORRECTION — A GIANT ORDER ON A BUILDING ONE LECTURE ROOM DEEP.
-    // Past Perfect already puts four columns on a shed and that is the joke there; this is the
+  institute(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE HALCYON INSTITUTE — A GIANT ORDER ON A BUILDING ONE LECTURE ROOM DEEP.
+    // Coldwater Museum already puts four columns on a shed and that is the joke there; this is the
     // other version of it, which is a serious classical front on a serious little building that is
     // genuinely doing the thing it is dressed for. The pilasters are ENGAGED — flat against the
     // wall rather than standing free — which is what separates an institute from a portico.
@@ -1295,7 +1295,7 @@ export const OLD_COLDWATER_ARMS = {
       const [gx11, gy11] = F(0, fh * 0.30); glowPool(ctx, cam, gx11, gy11, h * 0.44, '198,224,186', 6, alpha * 0.16);
     }
   },
-  land_office(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // PLOT TWIST — THE HOARDING IS THE BUILDING. The office is a glazed shed
+  land_office(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // HALCYON FIELDS SALES OFFICE — THE HOARDING IS THE BUILDING. The office is a glazed shed
     // about a storey high; the board bolted to the front of it on a scaffold frame is twice that
     // and three times as wide, and from anywhere on the boulevard the board is the only thing you
     // read. That inversion is the entire silhouette and it is why this passed the "new shape, not
@@ -1334,7 +1334,7 @@ export const OLD_COLDWATER_ARMS = {
       const [gx15, gy15] = F(0, fh * 0.66); glowPool(ctx, cam, gx15, gy15, h * 0.22, '255,238,196', 10, alpha * 0.30);   // on the glass (0.60); 0.56 was inside the drum
     }
   },
-  hydro(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // SECOND WIND — A STEPPED SECTION, WHICH IS A SHAPE COLDWATER HAS NOWHERE ELSE.
+  hydro(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE HALCYON HYDRO — A STEPPED SECTION, WHICH IS A SHAPE COLDWATER HAS NOWHERE ELSE.
     // Every floor is set back from the one below it so that every floor gets a balcony and every
     // balcony faces south. From the front that reads as a stack of decreasing slabs; from the side
     // it reads as a staircase, and the side is what a driver on Kettle Lane actually sees.
@@ -1386,7 +1386,7 @@ export const OLD_COLDWATER_ARMS = {
       }
     }
   },
-  winter_garden(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // GLASS HALF FULL — A BARREL OF GLASS ON A BRICK KNEE-WALL, which is the
+  winter_garden(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE WINTER GARDEN — A BARREL OF GLASS ON A BRICK KNEE-WALL, which is the
     // Terminus glasshouse shape used inside a city for the first time. The difference is the HEAT
     // MAIN: a lagged pipe as thick as a thigh coming up out of the ground on brick piers and going
     // in through the north wall, which is the whole reason this building can exist here and is the
@@ -1424,7 +1424,7 @@ export const OLD_COLDWATER_ARMS = {
       const [gx20, gy20] = F(-fh * 0.30, -fh * 0.40); glowPool(ctx, cam, gx20, gy20, knee + archH * 0.30, '160,220,176', 9, alpha * 0.18);
     }
   },
-  pumping_station(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // MAINS ATTRACTION — A CAMPANILE ON A WATERWORKS. Everything else in
+  pumping_station(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // HALCYON FIELDS PUMPING STATION — A CAMPANILE ON A WATERWORKS. Everything else in
     // the plant half is a shed with machinery in it; this is the one building down here that was
     // built by people who were proud of what it did, so it has two orders of arched openings, a
     // terracotta course under the eaves and a chimney standing off the end like a bell tower.
@@ -1457,7 +1457,7 @@ export const OLD_COLDWATER_ARMS = {
       const [gx, gy] = F(0, fh * 0.82); glowPool(ctx, cam, gx, gy, h * 0.46, '255,206,138', 9, alpha * 0.24);
     }
   },
-  cooling_plant(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // COLD COMFORT — EIGHT FANS ON A LATTICE DECK, and the deck is the whole
+  cooling_plant(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // HALCYON FIELDS COOLING PLANT — EIGHT FANS ON A LATTICE DECK, and the deck is the whole
     // building. The slab underneath is deliberately featureless because a cooling plant is a box
     // you are not meant to look at with the interesting part bolted to the roof.
     const slabTop = h * 0.62, deckTop = h * 0.74;
@@ -1480,7 +1480,7 @@ export const OLD_COLDWATER_ARMS = {
       drawFacetDrum(ctx, cam, fx, fy, deckTop, deckTop + h * 0.12, fh * 0.17, fh * 0.20, 14, alpha, hfChrome([122, 138, 152], [238, 246, 250], 1.8), hfChrome([130, 146, 160], [204, 218, 228], 1.3), 'ty_cold_cowl');
     }
     // 4) THE HEAT MAIN leaving the north-west corner at head height on brick piers, which is the
-    //    other half of the arrangement Glass Half Full is warm because of. Same palette both ends.
+    //    other half of the arrangement The Winter Garden is warm because of. Same palette both ends.
     { const [mx, my] = F(-fh * 0.72, -fh * 0.40); draw3DBoxAt(ctx, cam, mx, my, fh * 0.09, h * 0.16, h * 0.24, 'ty_wind_rail', seed + 8, night, alpha, true, faceYaw(E), fh * 0.60); }
     if (night) {
       // Two floods on the deck handrail, pointed DOWN at the catwalk rather than out, because a
@@ -1488,7 +1488,7 @@ export const OLD_COLDWATER_ARMS = {
       const [gx, gy] = F(0, 0); glowPool(ctx, cam, gx, gy, deckTop + h * 0.06, '206,226,230', 7, alpha * 0.20);
     }
   },
-  gasholder(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // HOLDING PATTERN — THE ONLY BUILDING IN COLDWATER THAT CHANGES HEIGHT, and
+  gasholder(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // HALCYON FIELDS GASHOLDER — THE ONLY BUILDING IN COLDWATER THAT CHANGES HEIGHT, and
     // the drum is drawn two thirds up because that is where the city usually holds it. A lattice
     // guide frame, a steel drum inside it, and a gauge house at the foot that the frame dwarfs.
     const frameTop = h * 1.18, drumTop = h * 0.78, gaugeTop = h * 0.16;
@@ -1513,7 +1513,7 @@ export const OLD_COLDWATER_ARMS = {
       const [lx, ly] = F(0, fh * 0.92); glowPool(ctx, cam, lx, ly, gaugeTop * 0.7, '255,214,150', 4, alpha * 0.14);
     }
   },
-  substation(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // CURRENT AFFAIRS — A YARD, NOT A BUILDING. The only enclosed thing on the
+  substation(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // HALCYON FIELDS SUBSTATION — A YARD, NOT A BUILDING. The only enclosed thing on the
     // plot is a single-storey switch room in one corner; everything else is tanks standing in the
     // open behind a palisade under a lattice gantry, which is a silhouette nothing else here has.
     const tankTop = h * 0.46, gantry = h * 0.92, roomTop = h * 0.34;
@@ -1544,7 +1544,7 @@ export const OLD_COLDWATER_ARMS = {
       const [gx3, gy3] = F(-fh * 0.74, -fh * 0.20); glowPool(ctx, cam, gx3, gy3, gantry * 0.8, '255,210,74', 8, alpha * 0.26);
     }
   },
-  exchange(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // CROSSED WIRES — A BLANK SLAB WITH A LOUVRE BAND AT THE TOP, and the absence
+  exchange(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // HALCYON FIELDS TELEPHONE EXCHANGE — A BLANK SLAB WITH A LOUVRE BAND AT THE TOP, and the absence
     // of any opening at all in the first four storeys is the entire building. Every other tall
     // thing in Coldwater carries a window grid; this one carries brick, and it hums.
     const blank = h * 0.84, louvre = h * 0.98, parapet = h * 1.04;
@@ -1805,7 +1805,7 @@ export const OLD_COLDWATER_ARMS = {
       draw3DBoxAt(ctx, cam, cx, cy, (x1 - x0) / 2, z0, z1, 'ty_gate_plate', seed + 9, night, alpha, true, yaw, fh * 0.07);
       draw3DBoxAt(ctx, cam, cx, cy, fh * 0.025, 0, z0, 'ty_gate_plate', seed + 10, night, alpha, false, yaw, fh * 0.05); }
   },
-  water_tower(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // HIGH WATER MARK — FOUR LEGS AND A TANK, and almost all of the silhouette
+  water_tower(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // COLDWATER WATER TOWER — FOUR LEGS AND A TANK, and almost all of the silhouette
     // is the air between them. Nothing else in Coldwater is mostly gap: every other tall thing here
     // is a solid, and this one you can see the sky through up to the skirt.
     const legTop = h * 0.92, tankTop = h * 1.26, dome = h * 1.36, houseTop = h * 0.22;

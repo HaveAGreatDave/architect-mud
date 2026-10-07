@@ -7,7 +7,7 @@
     "up": "zone_hf_topbrass_sky"
   },
   "flags": {
-    "building_name": "Top Brass",
+    "building_name": "Speedwell Tower",
     "building_type": "chrome_tower",
     "floor": "tile",
     "is_building": true,
@@ -19,6 +19,6 @@
   "grid_z": 0,
   "id": "zone_hf_topbrass_lobby",
   "map_id": "map_int_hf_topbrass",
-  "name": "Top Brass — The Saucer",
+  "name": "Speedwell Tower — The Saucer",
   "parent_zone": "zone_district_892_909"
 }

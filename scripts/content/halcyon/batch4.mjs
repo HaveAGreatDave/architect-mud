@@ -19,11 +19,11 @@ const DRY = process.argv.includes('--dry-run');
 const store = loadContentStore();
 const SPECS = [];
 
-// ── Common Ground ────────────────────────────────────────────────────────────
+// ── Bridge House ────────────────────────────────────────────────────────────
 // The landmark: two towers with a glazed bridge slung between them, and you walk in under
 // the gap. The only building in Coldwater with a hole through it above street level.
 SPECS.push({
-  slug: 'hf_common', name: 'Common Ground', type: 'sky_court',
+  slug: 'hf_common', name: 'Bridge House', type: 'sky_court',
   x: 892, y: 911, entrance: 'north', floors: 16, marker: 'CN', district: 'halcyon_fields',
   facade: {
     bgColor: '#101c26', color: '#bfe8ff',
@@ -50,14 +50,14 @@ SPECS.push({
       flags: { aliases: ['panel', 'floor', 'glass'], interactions: { examine: 'The scuffs make a neat oval. In two seasons of people walking this bridge, the oval has not been stepped inside once.' } } },
   ],
   items: [
-    { id: 'item_hf_common_brochure', name: 'a Common Ground brochure', type: 'misc', value: 12, weight: 14, description: null, flags: {},
+    { id: 'item_hf_common_brochure', name: 'a Bridge House brochure', type: 'misc', value: 12, weight: 14, description: null, flags: {},
       tags: { stackable: true, description: 'Heavy paper, four folds, and a rendering on the front of the bridge at dusk with eleven people on it. Nobody has ever counted eleven people in this building at once.' } },
     { id: 'item_hf_common_fob', name: 'a visitor fob', type: 'misc', value: 55, weight: 4, description: null, flags: {},
       tags: { stackable: true, description: 'A chrome disc the size of a coin, warm from the drawer. It opens the unkeyed lift and the link, and it stops working at midnight whatever time you were given it.' } },
   ],
   npc: {
     id: 'npc_hf_common_tarn', name: 'Velia Tarn', sex: 'female', hp: 30,
-    homeRoom: 'bridge', workRoom: 'lobby', shopName: 'Common Ground',
+    homeRoom: 'bridge', workRoom: 'lobby', shopName: 'Bridge House',
     description: 'A small, extremely tidy woman in the estate\'s own grey, standing at the slab with her hands flat on it. She is somewhere in her forties and has the particular brightness of somebody who has been told to be welcoming and has decided to be good at it rather than resent it. She knows every one of the fifty-one empty numbers by heart.',
     clothing: ['a grey estate tunic with a chrome collar pin', 'a pale undershirt, pressed', 'grey trousers with a hard crease', 'plain underthings'],
     inventory: [
@@ -75,7 +75,7 @@ SPECS.push({
       root: {
         text: '"Good afternoon." Her hands stay flat on the slab. "Are you viewing, or are you here for somebody?"',
         text_by_relation: {
-          first: 'The woman at the slab watches you cross the forecourt through the glass and is already speaking by the time the door has finished opening.\n\n"Welcome to Common Ground. Velia Tarn." She says it the way you say a thing you have said a great many times and still mean. "Sixty-two apartments, two towers, and the link is open to residents and their guests from six until eleven."\n\nShe turns a fob over on the slab with one finger.\n\n"You are very welcome to go up and stand on the bridge. Most people want to. There is no charge for it, and I would honestly rather somebody was up there."',
+          first: 'The woman at the slab watches you cross the forecourt through the glass and is already speaking by the time the door has finished opening.\n\n"Welcome to Bridge House. Velia Tarn." She says it the way you say a thing you have said a great many times and still mean. "Sixty-two apartments, two towers, and the link is open to residents and their guests from six until eleven."\n\nShe turns a fob over on the slab with one finger.\n\n"You are very welcome to go up and stand on the bridge. Most people want to. There is no charge for it, and I would honestly rather somebody was up there."',
           known: '"Back again." She has the fob out before you ask. "Bridge is open. Mind the panel, or don\'t, everybody minds the panel."',
           familiar: 'She is already turning the fob on the slab when you come in.\n\n"Nobody up there today," she says. "Go on. I\'ll watch the desk, which is what I do anyway."',
         },
@@ -113,9 +113,9 @@ SPECS.push({
   },
 });
 
-// ── Top Brass ────────────────────────────────────────────────────────────────
+// ── Speedwell Tower ────────────────────────────────────────────────────────────────
 SPECS.push({
-  slug: 'hf_topbrass', name: 'Top Brass', type: 'chrome_tower',
+  slug: 'hf_topbrass', name: 'Speedwell Tower', type: 'chrome_tower',
   x: 892, y: 909, entrance: 'south', floors: 18, marker: 'TP', district: 'halcyon_fields',
   facade: {
     bgColor: '#12202c', color: '#9fd8ff',
@@ -149,7 +149,7 @@ SPECS.push({
   ],
   npc: {
     id: 'npc_hf_topbrass_okoye', name: 'Dapo Okoye', sex: 'male', hp: 34,
-    homeRoom: 'sky', workRoom: 'sky', shopName: 'Top Brass',
+    homeRoom: 'sky', workRoom: 'sky', shopName: 'Speedwell Tower',
     description: 'A tall man in his fifties with a careful stoop from a lifetime of doorways built for other people, leaning on the residents\' counter with a cloth over one shoulder. He is not employed by the estate. He lives on eleven, he comes up here every day, and at some point in the last year he started making coffee for whoever else turned up, which was nobody and then occasionally somebody.',
     clothing: ['a soft grey cardigan with the elbows gone shiny', 'a collarless shirt, clean', 'dark trousers, comfortable rather than smart', 'slippers he keeps up here'],
     inventory: [
@@ -201,9 +201,9 @@ SPECS.push({
   },
 });
 
-// ── Rising Sums ──────────────────────────────────────────────────────────────
+// ── Betony House ──────────────────────────────────────────────────────────────
 SPECS.push({
-  slug: 'hf_rising', name: 'Rising Sums', type: 'chrome_tower',
+  slug: 'hf_rising', name: 'Betony House', type: 'chrome_tower',
   x: 895, y: 909, entrance: 'south', floors: 15, marker: 'RG', district: 'halcyon_fields',
   facade: {
     bgColor: '#13212e', color: '#9fd8ff',
@@ -237,7 +237,7 @@ SPECS.push({
   ],
   npc: {
     id: 'npc_hf_rising_calloway', name: 'Ines Calloway', sex: 'female', hp: 32,
-    homeRoom: 'back', workRoom: 'floor', shopName: 'Rising Sums',
+    homeRoom: 'back', workRoom: 'floor', shopName: 'Betony House',
     description: 'A sharp, unhurried woman of about thirty-five in a good coat she does not take off indoors, standing at the counter with her back to the figures because she can hear them. She sells information about land at a price that is always slightly less than you braced for, which is how she gets you back.',
     clothing: ['a long charcoal coat, well cut, worn indoors on purpose', 'a plain high-necked top', 'narrow dark trousers', 'plain underthings'],
     inventory: [
@@ -255,7 +255,7 @@ SPECS.push({
       root: {
         text: '"Afternoon." She does not move from the counter. "Buying, selling, or finding out?"',
         text_by_relation: {
-          first: 'The woman at the counter has watched you since the forecourt and lets you get all the way to her before she says anything.\n\n"Rising Sums. Calloway." She turns the pad round so you can see it is blank. "We do not sell land. Nobody sells land in Halcyon Fields, because the estate has not released any."\n\n"What we sell is what the last one went for. Ninety for a named plot, and I will tell you to your face if the answer is going to disappoint you before you pay."',
+          first: 'The woman at the counter has watched you since the forecourt and lets you get all the way to her before she says anything.\n\n"Betony House. Calloway." She turns the pad round so you can see it is blank. "We do not sell land. Nobody sells land in Halcyon Fields, because the estate has not released any."\n\n"What we sell is what the last one went for. Ninety for a named plot, and I will tell you to your face if the answer is going to disappoint you before you pay."',
           known: '"Back." The pad is already turned round. "Which plot?"',
           familiar: 'She has the note half written before you are through the door.\n\n"I know which one," she says. "And the answer moved this week, which I thought you would want to hear from me rather than off the board."',
         },
@@ -289,9 +289,9 @@ SPECS.push({
   },
 });
 
-// ── Light Relief ─────────────────────────────────────────────────────────────
+// ── Fescue House ─────────────────────────────────────────────────────────────
 SPECS.push({
-  slug: 'hf_relief', name: 'Light Relief', type: 'chrome_tower',
+  slug: 'hf_relief', name: 'Fescue House', type: 'chrome_tower',
   x: 892, y: 915, entrance: 'south', floors: 13, marker: 'LG', district: 'halcyon_fields',
   facade: {
     bgColor: '#141f2a', color: '#a8dcff',
@@ -325,7 +325,7 @@ SPECS.push({
   ],
   npc: {
     id: 'npc_hf_relief_madigan', name: 'Bryher Madigan', sex: 'female', hp: 40,
-    homeRoom: 'canteen', workRoom: 'canteen', shopName: 'Light Relief',
+    homeRoom: 'canteen', workRoom: 'canteen', shopName: 'Fescue House',
     description: 'A broad, weathered woman in her sixties working the urn with her sleeves rolled, forearms like a dockhand and reading glasses pushed up into grey hair. She laid pipe in this quarter for two years and her knee stopped her, so she took the counter, and the counter is now the reason thirty people eat before a shift.',
     clothing: ['a faded work shirt with the sleeves rolled above the elbow', 'a long canvas apron, stained and washed', 'heavy trousers with a knee support under them', 'thick socks and no boots indoors'],
     inventory: [
@@ -381,9 +381,9 @@ SPECS.push({
   },
 });
 
-// ── Curve Appeal ─────────────────────────────────────────────────────────────
+// ── Boulevard Crescent East ─────────────────────────────────────────────────────────────
 SPECS.push({
-  slug: 'hf_curve', name: 'Curve Appeal', type: 'chrome_slab',
+  slug: 'hf_curve', name: 'Boulevard Crescent East', type: 'chrome_slab',
   x: 897, y: 909, entrance: 'south', floors: 9, marker: 'CU', district: 'halcyon_fields',
   facade: {
     bgColor: '#16232f', color: '#9fe0ff',
@@ -417,7 +417,7 @@ SPECS.push({
   ],
   npc: {
     id: 'npc_hf_curve_stellan', name: 'Rowe Stellan', sex: 'male', hp: 28,
-    homeRoom: 'suite', workRoom: 'atrium', shopName: 'Curve Appeal',
+    homeRoom: 'suite', workRoom: 'atrium', shopName: 'Boulevard Crescent East',
     description: 'A neat, quick young man in a very good suit at the reception island, who has clearly been told that enthusiasm sells and has arrived at a version of it he can sustain for ten hours. He is better at this than the building deserves and he knows that too.',
     clothing: ['a slim charcoal suit, pressed, slightly too good for the salary', 'a pale shirt with a soft collar', 'dark shoes kept very clean', 'plain underthings'],
     inventory: [
@@ -433,9 +433,9 @@ SPECS.push({
     ],
     dialogue: {
       root: {
-        text: '"Welcome to Curve Appeal." He is out from behind the island before you have stopped walking. "Are you viewing? You can view. There is no appointment needed, there is barely an appointment system."',
+        text: '"Welcome to Boulevard Crescent East." He is out from behind the island before you have stopped walking. "Are you viewing? You can view. There is no appointment needed, there is barely an appointment system."',
         text_by_relation: {
-          first: 'A young man in a very good suit comes round the island at a speed that suggests he has been waiting for somebody since the morning and has decided not to hide it.\n\n"Welcome to Curve Appeal. Rowe Stellan, letting." He puts out a hand and then withdraws it at exactly the right moment. "Nine floors, six let, and the fourth is open if you want to walk it."\n\nHe does not wait for you to ask the obvious thing.\n\n"Yes, it bends. Every floor plate is an arc. It is genuinely a nicer room to work in than a rectangle and I have four minutes of reasons why, and I will spare you three of them."',
+          first: 'A young man in a very good suit comes round the island at a speed that suggests he has been waiting for somebody since the morning and has decided not to hide it.\n\n"Welcome to Boulevard Crescent East. Rowe Stellan, letting." He puts out a hand and then withdraws it at exactly the right moment. "Nine floors, six let, and the fourth is open if you want to walk it."\n\nHe does not wait for you to ask the obvious thing.\n\n"Yes, it bends. Every floor plate is an arc. It is genuinely a nicer room to work in than a rectangle and I have four minutes of reasons why, and I will spare you three of them."',
           known: '"Back for the fourth?" He already has the pass out. "Thirty, and take as long as you want. Nobody is going to hurry you."',
           familiar: 'He does not do the pitch. He slides the pass across the island and leans on it.\n\n"Go up," he says. "It is a good floor. I would be pleased if one person who was not me thought so."',
         },
@@ -469,22 +469,22 @@ SPECS.push({
   },
 });
 
-// ── Bent Double ──────────────────────────────────────────────────────────────
+// ── Boulevard Crescent West ──────────────────────────────────────────────────────────────
 // ⚠ IT IS AT 896,909 AND NOT AT 893,909, WHICH WAS THE FIRST SITING AND WAS WRONG. 893,909 is
 // Threshold Helipad — an airfield, carrying `airfield_id`, `hangar_interior_zone` and an `icon`,
 // standing on concrete rather than grass. A candidate sweep that tests only `is_building`,
 // `curtain` and `terrain === 'road'` passes it, because not one of those is what makes a helipad
 // a helipad, and `authorBuilding` then keeps every flag it does not recognise: the facade came
 // out carrying `airfield_id: 'af_helipad'`, and the flight-world snapshot dutifully reported
-// "Bent Double (af_helipad) @ 893,909 (no runway)" as an airfield.
+// "Boulevard Crescent West (af_helipad) @ 893,909 (no runway)" as an airfield.
 //
 // The rule that catches it: A TILE IS SPOKEN FOR IF IT CARRIES ANY FLAG BEYOND THE ORDINARY
 // GROUND SET — terrain, district, region, ambience, street life, a scavenging table. Anything
 // else on a tile is somebody else's system holding it, and `sitecheck.mjs` does not test for
-// that either. The move also keeps the fiction: this crescent and Curve Appeal are meant to
+// that either. The move also keeps the fiction: this crescent and Boulevard Crescent East are meant to
 // meet, and 896 is next door to 897 where 893 was three plots away with a helipad in between.
 SPECS.push({
-  slug: 'hf_bent', name: 'Bent Double', type: 'chrome_slab',
+  slug: 'hf_bent', name: 'Boulevard Crescent West', type: 'chrome_slab',
   x: 896, y: 909, entrance: 'south', floors: 8, marker: 'BN', district: 'halcyon_fields',
   facade: {
     bgColor: '#15222d', color: '#9fe0ff',
@@ -519,7 +519,7 @@ SPECS.push({
   ],
   npc: {
     id: 'npc_hf_bent_ferreira', name: 'Xan Ferreira', sex: 'male', hp: 42,
-    homeRoom: 'gym', workRoom: 'front', shopName: 'Bent Double',
+    homeRoom: 'gym', workRoom: 'front', shopName: 'Boulevard Crescent West',
     description: 'A compact, very strong man of about forty with cropped hair and a physiotherapist\'s particular way of looking at how you came through the door. He worked on chrome rejection cases at the Ascendant clinic for nine years and left, and he will tell you that he left but not why, and the not-why is polite rather than evasive.',
     clothing: ['a plain grey short-sleeved tunic', 'loose dark trousers made to move in', 'flat shoes with no laces', 'plain underthings'],
     inventory: [
@@ -571,9 +571,9 @@ SPECS.push({
   },
 });
 
-// ── Leaf It Out ──────────────────────────────────────────────────────────────
+// ── The Palm House ──────────────────────────────────────────────────────────────
 SPECS.push({
-  slug: 'hf_leaf', name: 'Leaf It Out', type: 'pavilion',
+  slug: 'hf_leaf', name: 'The Palm House', type: 'pavilion',
   x: 894, y: 915, entrance: 'south', floors: 2, marker: 'LV', district: 'halcyon_fields',
   facade: {
     bgColor: '#122018', color: '#9fe6c0',

@@ -1,6 +1,6 @@
 {
   "entry_zone_id": "zone_hf_deposit_counter",
   "id": "map_int_hf_deposit",
-  "name": "Deposit Taken",
+  "name": "Yarrow Works",
   "parent_zone_id": "zone_district_895_915"
 }

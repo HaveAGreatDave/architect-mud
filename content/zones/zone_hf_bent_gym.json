@@ -5,7 +5,7 @@
     "south": "zone_hf_bent_front"
   },
   "flags": {
-    "building_name": "Bent Double",
+    "building_name": "Boulevard Crescent West",
     "building_type": "chrome_slab",
     "floor": "boards",
     "is_building": true,
@@ -17,6 +17,6 @@
   "grid_z": 0,
   "id": "zone_hf_bent_gym",
   "map_id": "map_int_hf_bent",
-  "name": "Bent Double — The Rehabilitation Room",
+  "name": "Boulevard Crescent West — The Rehabilitation Room",
   "parent_zone": "zone_district_896_909"
 }

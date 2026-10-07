@@ -9,7 +9,7 @@
     "south": "zone_district_910_908"
   },
   "flags": {
-    "building_name": "High Water Mark",
+    "building_name": "Coldwater Water Tower",
     "building_type": "water_tower",
     "district": "ashway",
     "entrance": "south",
@@ -25,6 +25,6 @@
   "id": "zone_district_910_907",
   "map_id": "map_world",
   "marker": "HW",
-  "name": "High Water Mark",
+  "name": "Coldwater Water Tower",
   "parent_zone": null
 }

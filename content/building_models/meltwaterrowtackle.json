@@ -24,7 +24,7 @@
   "bind": [
     {
       "by": "name",
-      "key": "Rod Almighty"
+      "key": "Meltwater Row Tackle"
     }
   ],
   "detail": [
@@ -87,7 +87,7 @@
       "hh": 0.02,
       "ink": "#5cc7e8",
       "kind": "signBoard",
-      "label": "ROD ALMIGHTY",
+      "label": "MELTWATER ROW TACKLE",
       "z": 0.455
     },
     {
@@ -164,9 +164,9 @@
       "z": 0.72
     }
   ],
-  "id": "rodalmighty",
+  "id": "meltwaterrowtackle",
   "neon": "#5cc7e8",
-  "note": "ROD ALMIGHTY — the tackle shop on Meltwater Row, across the road from the bronze fisherman.\n\nThe tile's prose: rods standing in the window in a rank, tips up; a whiteboard by the door with the\nweek's water in a cramped hand (what's running, where, what they're taking); the sign ROD ALMIGHTY\nand under it, smaller, IF HE COULD DO IT SO CAN YOU.\n\nSo the shop window is a tall bay with close vertical glazing bars that read as the rods, the door\nbeside it under a short hood, the whiteboard on the pier between them, and the two-line sign on a fascia. The\nbuilding is painted timber boarding over a brick plinth, with a lit flat upstairs.",
+  "note": "MELTWATER ROW TACKLE — the tackle shop on Meltwater Row, across the road from the bronze fisherman.\n\nThe tile's prose: rods standing in the window in a rank, tips up; a whiteboard by the door with the\nweek's water in a cramped hand (what's running, where, what they're taking); the sign MELTWATER ROW TACKLE\nand under it, smaller, IF HE COULD DO IT SO CAN YOU.\n\nSo the shop window is a tall bay with close vertical glazing bars that read as the rods, the door\nbeside it under a short hood, the whiteboard on the pier between them, and the two-line sign on a fascia. The\nbuilding is painted timber boarding over a brick plinth, with a lit flat upstairs.",
   "pal": "ty_reach_board",
   "segs": [
     {

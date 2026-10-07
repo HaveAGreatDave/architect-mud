@@ -189,7 +189,7 @@
       "text": "\"Afternoon.\" She does not move from the counter. \"Buying, selling, or finding out?\"",
       "text_by_relation": {
         "familiar": "She has the note half written before you are through the door.\n\n\"I know which one,\" she says. \"And the answer moved this week, which I thought you would want to hear from me rather than off the board.\"",
-        "first": "The woman at the counter has watched you since the forecourt and lets you get all the way to her before she says anything.\n\n\"Rising Sums. Calloway.\" She turns the pad round so you can see it is blank. \"We do not sell land. Nobody sells land in Halcyon Fields, because the estate has not released any.\"\n\n\"What we sell is what the last one went for. Ninety for a named plot, and I will tell you to your face if the answer is going to disappoint you before you pay.\"",
+        "first": "The woman at the counter has watched you since the forecourt and lets you get all the way to her before she says anything.\n\n\"Betony House. Calloway.\" She turns the pad round so you can see it is blank. \"We do not sell land. Nobody sells land in Halcyon Fields, because the estate has not released any.\"\n\n\"What we sell is what the last one went for. Ninety for a named plot, and I will tell you to your face if the answer is going to disappoint you before you pay.\"",
         "known": "\"Back.\" The pad is already turned round. \"Which plot?\""
       }
     },
@@ -271,7 +271,7 @@
       }
     ]
   },
-  "vendor_shop_name": "Rising Sums",
+  "vendor_shop_name": "Betony House",
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,

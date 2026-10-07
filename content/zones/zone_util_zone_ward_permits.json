@@ -15,6 +15,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_ward_permits",
   "map_id": "map_int_ward",
-  "name": "Office of Permitted Suffering — Utility Room",
+  "name": "Ward Nine Permits Office — Utility Room",
   "parent_zone": "zone_district_906_911"
 }

@@ -33,7 +33,7 @@
   "bind": [
     {
       "by": "name",
-      "key": "Load of Old Rope"
+      "key": "Berth 1"
     }
   ],
   "detail": [
@@ -94,7 +94,7 @@
       "z": 0
     }
   ],
-  "id": "loadofoldrope",
+  "id": "berth1",
   "neon": "#ffb43a",
   "pal": "ty_junk_crane",
   "segs": [

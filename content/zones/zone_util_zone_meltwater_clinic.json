@@ -15,6 +15,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_meltwater_clinic",
   "map_id": "map_int_clinic",
-  "name": "Co-Pay & Pray — Utility Room",
+  "name": "Marrow Street Clinic — Utility Room",
   "parent_zone": "zone_district_915_910"
 }

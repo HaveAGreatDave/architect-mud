@@ -7,6 +7,6 @@
   "fuel_type": null,
   "generator_type": "junction_box",
   "id": "gen_zone_util_zone_hf_grounds_room",
-  "name": "Grounds for Concern — The Room Junction Box",
+  "name": "Sorrel Way Café — The Room Junction Box",
   "zone_id": "zone_util_zone_hf_grounds_room"
 }

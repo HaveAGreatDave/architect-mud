@@ -8,7 +8,7 @@
     "north": "zone_district_923_905"
   },
   "flags": {
-    "building_name": "The Boom Economy",
+    "building_name": "Berth 3",
     "building_type": "wharf",
     "district": "docks",
     "entrance": "east",
@@ -23,6 +23,6 @@
   "grid_z": 0,
   "id": "zone_district_923_906",
   "map_id": "map_world",
-  "name": "The Boom Economy",
+  "name": "Berth 3",
   "parent_zone": null
 }

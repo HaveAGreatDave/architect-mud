@@ -7,6 +7,6 @@
   "fuel_type": null,
   "generator_type": "junction_box",
   "id": "gen_zone_util_zone_hf_relief_lobby",
-  "name": "Light Relief — The Boot Room Junction Box",
+  "name": "Fescue House — The Boot Room Junction Box",
   "zone_id": "zone_util_zone_hf_relief_lobby"
 }

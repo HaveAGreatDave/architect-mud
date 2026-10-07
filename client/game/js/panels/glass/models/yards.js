@@ -717,8 +717,8 @@ export const YARDS_ARMS = {
     draw3DBoxAt(ctx, cam, dx, dy, fh * 1.08, h * 0.4, h * 0.46, pal, seed + 6, night, alpha, true);   // eaves course
     // ── THE CRANE, WHICH WORKS ───────────────────────────────────────────────────────────────
     //
-    // Four buildings in the Yards are named after this thing doing something — Crane Damage, The
-    // Boom Economy, Load of Old Rope, The Wet Handoff — and what they shared was a pole with one
+    // Four buildings in the Yards are named after this thing doing something — Berth 2, The
+    // Boom Economy, Berth 1, Kessler Street Wharf — and what they shared was a pole with one
     // straight line leaning off it, at the same bearing for ever.
     //
     // ⚠ THE SPLIT IS THE PEDESTAL AGAINST EVERYTHING ABOVE THE SLEW RING, and it is forced rather
@@ -733,7 +733,7 @@ export const YARDS_ARMS = {
     draw3DBoxAt(ctx, cam, mx, my, fh * 0.08, 0, towerTop, 'ty_wharf_lattice', seed + 2, night, alpha, false);   // the tower — a lattice, not a plated shaft; see the key
     // ⚠ EVERYTHING BOLTED TO THE TOWER IS SIZED OFF `fh`, AND ONLY THE TOWER ITSELF OFF `h`. This
     // arm was tuned against `TYPE_FLOORS.default` — four storeys — and the map then authored Crane
-    // Damage at SIXTEEN storeys, The Boom Economy at fourteen and Load of Old Rope at ten. `h`
+    // Damage at SIXTEEN storeys, Berth 3 at fourteen and Berth 1 at ten. `h`
     // quadrupled and `fh` did not, so the tower went to 3.8 tiles while the jib stayed at fh·1.42,
     // half a tile: a flagpole with a lattice stub on it that never left its own plot, let alone
     // reached the water it stands beside. Every fitting stretched the same way — a machinery house
@@ -776,8 +776,8 @@ export const YARDS_ARMS = {
     // ⚠ AIMED SQUARE OUT OVER THE BERTH RATHER THAN DIAGONALLY ACROSS THE PLOT. The old bearing sat
     // 51° off the quay's own normal, which at half a tile of reach kept the tip inside the tile and
     // at two tiles would swing it along the quay instead of out over the water. Local +y is the
-    // ENTRANCE, which on all three of the Yards' waterside wharves is the dock side — Crane Damage,
-    // The Boom Economy and Load of Old Rope all face east onto the channel. The Wet Handoff faces
+    // ENTRANCE, which on all three of the Yards' waterside wharves is the dock side — Berth 2,
+    // Berth 3 and Berth 1 all face east onto the channel. Kessler Street Wharf faces
     // its street instead and points its jib inland; an arm is handed its tile and nothing about its
     // neighbours, so finding the water would take a frame state the way `LIGHT_STATE` is one.
     const th = Math.PI / 2 + slew, ct = Math.cos(th), st = Math.sin(th);

@@ -5,7 +5,7 @@
     "east": "zone_hf_partywall_hall"
   },
   "flags": {
-    "building_name": "Party Wall",
+    "building_name": "Row End Terrace",
     "building_type": "cascade_block",
     "floor": "stone",
     "is_building": true,
@@ -17,6 +17,6 @@
   "grid_z": 0,
   "id": "zone_hf_partywall_flank",
   "map_id": "map_int_hf_partywall",
-  "name": "Party Wall — The Flank Corridor",
+  "name": "Row End Terrace — The Flank Corridor",
   "parent_zone": "zone_district_892_917"
 }

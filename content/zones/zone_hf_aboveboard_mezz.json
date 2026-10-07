@@ -5,7 +5,7 @@
     "down": "zone_hf_aboveboard_lobby"
   },
   "flags": {
-    "building_name": "Above Board",
+    "building_name": "Celandine Tower",
     "building_type": "torque_tower",
     "floor": "carpet",
     "is_building": true,
@@ -23,6 +23,6 @@
   "grid_z": 0,
   "id": "zone_hf_aboveboard_mezz",
   "map_id": "map_int_hf_aboveboard",
-  "name": "Above Board — The Mezzanine",
+  "name": "Celandine Tower — The Mezzanine",
   "parent_zone": "zone_district_900_911"
 }

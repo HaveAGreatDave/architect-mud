@@ -13,6 +13,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_wind_day",
   "map_id": "map_int_wind",
-  "name": "Second Wind — The Pump Room",
+  "name": "The Halcyon Hydro — The Pump Room",
   "parent_zone": "zone_district_898_913"
 }

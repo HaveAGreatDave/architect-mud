@@ -7,6 +7,6 @@
   "fuel_type": null,
   "generator_type": "junction_box",
   "id": "gen_zone_util_zone_hf_fixedrate_lobby",
-  "name": "Fixed Rate — The Six-Sided Lobby Junction Box",
+  "name": "Cinder Point — The Six-Sided Lobby Junction Box",
   "zone_id": "zone_util_zone_hf_fixedrate_lobby"
 }

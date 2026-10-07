@@ -15,16 +15,16 @@ const store = loadContentStore();
 
 const SPECS = [];
 
-// ── Sound Investment ─────────────────────────────────────────────────────────
+// ── Halcyon Concert Hall ─────────────────────────────────────────────────────────
 // A recital hall endowed by Halcyon Assurance. The endowment requires a season of
 // forty concerts a year. It does not require an audience. Forty concerts happen.
 SPECS.push({
-  slug: 'sound', name: 'Sound Investment', type: 'concert_hall',
+  slug: 'sound', name: 'Halcyon Concert Hall', type: 'concert_hall',
   x: 893, y: 911, entrance: 'north', floors: 5, marker: 'SD', district: 'halcyon_fields',
 
   facade: {
     bgColor: '#1d1c24', color: '#d8d2bc',
-    description: 'A stone front of five tall bays with no shopfront in it at all, set back behind a strip of gravel that was drawn on a plan as a forecourt. Cut into the lintel in letters a foot high: SOUND INVESTMENT. Underneath, smaller and in a different hand, ENDOWED IN PERPETUITY. The fly tower behind it goes up another two storeys, blank and windowless, and the whole building turns its shoulder to the Spire rather than facing it. A glass case by the doors holds the season: forty dates, typed, four of them crossed out and typed again.',
+    description: 'A stone front of five tall bays with no shopfront in it at all, set back behind a strip of gravel that was drawn on a plan as a forecourt. Cut into the lintel in letters a foot high: HALCYON CONCERT HALL. Underneath, smaller and in a different hand, ENDOWED IN PERPETUITY. The fly tower behind it goes up another two storeys, blank and windowless, and the whole building turns its shoulder to the Spire rather than facing it. A glass case by the doors holds the season: forty dates, typed, four of them crossed out and typed again.',
   },
 
   rooms: [
@@ -86,7 +86,7 @@ SPECS.push({
 
   npc: {
     id: 'npc_sound_sedge', name: 'Perpetua Sedge', sex: 'female', hp: 34,
-    homeRoom: 'platform', workRoom: 'foyer', shopName: 'Sound Investment',
+    homeRoom: 'platform', workRoom: 'foyer', shopName: 'Halcyon Concert Hall',
     description: 'A tall, upright woman past fifty in a black dress with a house badge pinned at the shoulder, standing at the box-office window rather than sitting behind it. She has the bearing of somebody managing a full house and there are eleven people in the building. Her reading glasses hang on a cord and she does not use them for faces.',
     clothing: [
       'a plain black house dress, pressed, with a brass house badge at the shoulder',

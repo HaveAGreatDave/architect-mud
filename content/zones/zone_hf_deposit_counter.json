@@ -6,7 +6,7 @@
     "north": "zone_district_895_915"
   },
   "flags": {
-    "building_name": "Deposit Taken",
+    "building_name": "Yarrow Works",
     "building_type": "atrium_court",
     "floor": "concrete",
     "is_building": true,
@@ -24,6 +24,6 @@
   "grid_z": 0,
   "id": "zone_hf_deposit_counter",
   "map_id": "map_int_hf_deposit",
-  "name": "Deposit Taken — The Counter",
+  "name": "Yarrow Works — The Counter",
   "parent_zone": "zone_district_895_915"
 }

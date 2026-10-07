@@ -13,6 +13,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_cold_floor",
   "map_id": "map_int_cold",
-  "name": "Cold Comfort — The Pump Room",
+  "name": "Halcyon Fields Cooling Plant — The Pump Room",
   "parent_zone": "zone_district_903_917"
 }

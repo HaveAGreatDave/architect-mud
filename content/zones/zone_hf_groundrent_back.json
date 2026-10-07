@@ -5,7 +5,7 @@
     "south": "zone_hf_groundrent_counter"
   },
   "flags": {
-    "building_name": "Ground Rent",
+    "building_name": "Halcyon Fields Estate Management",
     "building_type": "atrium_court",
     "floor": "carpet",
     "is_building": true,
@@ -17,6 +17,6 @@
   "grid_z": 0,
   "id": "zone_hf_groundrent_back",
   "map_id": "map_int_hf_groundrent",
-  "name": "Ground Rent — The Back Office",
+  "name": "Halcyon Fields Estate Management — The Back Office",
   "parent_zone": "zone_district_901_915"
 }

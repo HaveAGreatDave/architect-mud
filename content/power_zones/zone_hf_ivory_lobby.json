@@ -2,6 +2,6 @@
   "capacity_kw": 5000,
   "generator_id": "gen_zone_util_zone_hf_ivory_lobby",
   "id": "zone_hf_ivory_lobby",
-  "name": "Ivory Tower — The Fellows' Lobby",
+  "name": "Institute Residences — The Fellows' Lobby",
   "source_type": "junction_box"
 }

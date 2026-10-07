@@ -9,7 +9,7 @@
     "south": "zone_district_898_916"
   },
   "flags": {
-    "building_name": "Top of the Market",
+    "building_name": "Tansy Tower",
     "building_type": "torque_tower",
     "district": "halcyon_fields",
     "entrance": "south",
@@ -25,6 +25,6 @@
   "id": "zone_district_898_915",
   "map_id": "map_world",
   "marker": "TE",
-  "name": "Top of the Market",
+  "name": "Tansy Tower",
   "parent_zone": null
 }

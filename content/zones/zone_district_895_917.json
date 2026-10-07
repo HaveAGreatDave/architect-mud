@@ -4,7 +4,7 @@
   "description": "Twelve floors, clad to the ninth, crane down, and from Kerbstone Row it is three storeys off being a building. It is also the only shell in the quarter where the hoarding is blank: plain chrome board, no printing, no crest and no date. That was a decision made after the third completion date slipped, and it has done more for the estate's reputation than any of the printed ones ever did.",
   "exits": {},
   "flags": {
-    "building_name": "Scope for Improvement",
+    "building_name": "Plot 2, Kerbstone Row",
     "building_type": "shell_tower",
     "district": "halcyon_fields",
     "entrance": "north",
@@ -18,6 +18,6 @@
   "id": "zone_district_895_917",
   "map_id": "map_world",
   "marker": "SX",
-  "name": "Scope for Improvement",
+  "name": "Plot 2, Kerbstone Row",
   "parent_zone": null
 }

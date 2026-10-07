@@ -24,7 +24,7 @@
   "bind": [
     {
       "by": "name",
-      "key": "Absolute Zero Holdings"
+      "key": "Basin Cold Store"
     }
   ],
   "detail": [
@@ -222,8 +222,8 @@
       "z": 0.76
     }
   ],
-  "id": "absolutezeroholdings",
-  "note": "ABSOLUTE ZERO HOLDINGS: the Basin Cold Store, on Dray Lane.\n\nThe tile's prose: a fat insulated box sheathed in frosted panelling, its roller door skinned with\nrime even in summer. Condensers the size of engines hammer away on the roof, dripping a permanent\nblack puddle across the threshold.\n\nSo it is a pale panelled block on a loading dock, with one wide roller door in the middle of the\nfront, white with rime, and steel ribs at the corners and either side of the door. Three big\ncondensers stand on the roof with their pipes coming down the flank. The puddle is a dark plate on\nthe dock under the door, with a drip stain down the wall above it.\n\nIndustry doesn't sign itself (`UNSIGNED_TRADE` has `cold_storage`), and the prose gives it no\nlettering, so it carries none. Chill Out Logistics is its twin across the Yards: dark plate, reefers\nbacked onto a dock, and an ammonia stack.",
+  "id": "basincoldstore",
+  "note": "BASIN COLD STORE: the Basin Cold Store, on Dray Lane.\n\nThe tile's prose: a fat insulated box sheathed in frosted panelling, its roller door skinned with\nrime even in summer. Condensers the size of engines hammer away on the roof, dripping a permanent\nblack puddle across the threshold.\n\nSo it is a pale panelled block on a loading dock, with one wide roller door in the middle of the\nfront, white with rime, and steel ribs at the corners and either side of the door. Three big\ncondensers stand on the roof with their pipes coming down the flank. The puddle is a dark plate on\nthe dock under the door, with a drip stain down the wall above it.\n\nIndustry doesn't sign itself (`UNSIGNED_TRADE` has `cold_storage`), and the prose gives it no\nlettering, so it carries none. Coldline Reefer Depot is its twin across the Yards: dark plate, reefers\nbacked onto a dock, and an ammonia stack.",
   "pal": "ty_cold",
   "segs": [
     {

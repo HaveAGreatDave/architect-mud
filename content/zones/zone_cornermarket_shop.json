@@ -7,7 +7,7 @@
     "north": "zone_district_897_907"
   },
   "flags": {
-    "building_name": "Corner the Market",
+    "building_name": "Filament Street Corner Shop",
     "building_type": "bodega",
     "floor": "tile",
     "is_building": true,
@@ -19,6 +19,6 @@
   "grid_z": 0,
   "id": "zone_cornermarket_shop",
   "map_id": "map_int_cornermarket",
-  "name": "Corner the Market",
+  "name": "Filament Street Corner Shop",
   "parent_zone": "zone_district_897_907"
 }

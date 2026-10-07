@@ -13,6 +13,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_hwm_pump",
   "map_id": "map_int_hwm",
-  "name": "High Water Mark — The Valve Chamber",
+  "name": "Coldwater Water Tower — The Valve Chamber",
   "parent_zone": "zone_district_910_907"
 }

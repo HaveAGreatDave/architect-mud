@@ -5,7 +5,7 @@
     "north": "zone_sound_house"
   },
   "flags": {
-    "building_name": "Sound Investment",
+    "building_name": "Halcyon Concert Hall",
     "building_type": "concert_hall",
     "floor": "boards",
     "is_building": true,
@@ -17,6 +17,6 @@
   "grid_z": 0,
   "id": "zone_sound_platform",
   "map_id": "map_int_sound",
-  "name": "Sound Investment — The Platform",
+  "name": "Halcyon Concert Hall — The Platform",
   "parent_zone": "zone_district_893_911"
 }

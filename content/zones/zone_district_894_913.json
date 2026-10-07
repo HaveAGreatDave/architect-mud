@@ -9,7 +9,7 @@
     "west": "zone_district_893_913"
   },
   "flags": {
-    "building_name": "Artist's Impression",
+    "building_name": "Teasel Court",
     "building_type": "atrium_court",
     "district": "halcyon_fields",
     "entrance": "west",
@@ -25,6 +25,6 @@
   "id": "zone_district_894_913",
   "map_id": "map_world",
   "marker": "AI",
-  "name": "Artist's Impression",
+  "name": "Teasel Court",
   "parent_zone": null
 }

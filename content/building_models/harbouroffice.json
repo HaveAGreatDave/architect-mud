@@ -23,7 +23,7 @@
   "bind": [
     {
       "by": "name",
-      "key": "Any Port"
+      "key": "Harbour Office"
     }
   ],
   "detail": [
@@ -104,7 +104,7 @@
       "hh": 0.024,
       "ink": "#e8c67a",
       "kind": "signBoard",
-      "label": "ANY PORT",
+      "label": "HARBOUR OFFICE",
       "z": 0.09
     },
     {
@@ -122,7 +122,7 @@
       "z": 0.004
     }
   ],
-  "id": "anyport",
+  "id": "harbouroffice",
   "neon": "#e8c67a",
   "note": "The harbour office, and the only lantern in Coldwater that is not on a lighthouse: a square coursed-stone block with an eight-sided glazed lantern set back on the roof and a mast standing out of it. The ball on the mast drops at one o'clock. Nothing on the water is watching for it, and it goes on being wound.",
   "pal": "ty_dw_stone",

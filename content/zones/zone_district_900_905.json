@@ -6,13 +6,13 @@
   ],
   "ambient_theme": "urban",
   "bg_color": "#2d2822",
-  "description": "A rooming house in a converted terrace, three doorways knocked into one and a hand-painted board over the middle of them reading REST ASSURED: NIGHTLY, WEEKLY, MONTHLY, with the monthly rate painted out and redone twice. A card in the glass says NO SMOKING IN BEDS above a second card, older, saying NO SMOKING IN BEDS PLEASE.",
+  "description": "A rooming house in a converted terrace, three doorways knocked into one and a hand-painted board over the middle of them reading FILAMENT STREET ROOMING HOUSE: NIGHTLY, WEEKLY, MONTHLY, with the monthly rate painted out and redone twice. A card in the glass says NO SMOKING IN BEDS above a second card, older, saying NO SMOKING IN BEDS PLEASE.",
   "exits": {
     "north": "zone_restassured_hall",
     "south": "zone_district_900_906"
   },
   "flags": {
-    "building_name": "Rest Assured",
+    "building_name": "Filament Street Rooming House",
     "building_type": "residential",
     "district": "filaments",
     "entrance": "south",
@@ -27,6 +27,6 @@
   "id": "zone_district_900_905",
   "map_id": "map_world",
   "marker": "RA",
-  "name": "Rest Assured",
+  "name": "Filament Street Rooming House",
   "parent_zone": null
 }

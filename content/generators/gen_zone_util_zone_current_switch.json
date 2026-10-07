@@ -7,6 +7,6 @@
   "fuel_type": null,
   "generator_type": "junction_box",
   "id": "gen_zone_util_zone_current_switch",
-  "name": "Current Affairs — The Switch Room Junction Box",
+  "name": "Halcyon Fields Substation — The Switch Room Junction Box",
   "zone_id": "zone_util_zone_current_switch"
 }

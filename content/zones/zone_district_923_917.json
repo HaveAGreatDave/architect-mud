@@ -1,13 +1,13 @@
 {
   "ambient_events": [],
   "ambient_theme": "residential",
-  "description": "Stacked living units marketed as \"affordable modular habitation\": landlord for a concrete drawer you rent by the month, utilities extra, dignity not included. Someone's AC unit drips onto someone else's only window. The whole block breathes through one wheezing vent.",
+  "description": "A long low shed of boards and tin with a queue down its front wall that starts before the doors open. Steam comes out of a hatch at the far end, and so does the smell of whatever was cheapest this week. Nobody pays, and nobody is asked what they are doing here.",
   "exits": {
     "north": "zone_district_923_916",
     "south": "zone_bld_923_917_lobby"
   },
   "flags": {
-    "building_name": "No Such Thing",
+    "building_name": "Ropewalk Soup Kitchen",
     "building_type": "soup_kitchen",
     "district": "residential",
     "entrance": "north",
@@ -24,6 +24,6 @@
   "id": "zone_district_923_917",
   "map_id": "map_world",
   "marker": "NS",
-  "name": "No Such Thing",
+  "name": "Ropewalk Soup Kitchen",
   "parent_zone": null
 }

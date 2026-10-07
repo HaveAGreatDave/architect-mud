@@ -13,6 +13,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_hf_glassceiling_lobby",
   "map_id": "map_int_hf_glassceiling",
-  "name": "Glass Ceiling — The Tank Room",
+  "name": "Halcyon Point — The Tank Room",
   "parent_zone": "zone_district_904_911"
 }

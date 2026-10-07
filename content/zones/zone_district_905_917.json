@@ -9,7 +9,7 @@
     "south": "zone_holder_gauge"
   },
   "flags": {
-    "building_name": "Holding Pattern",
+    "building_name": "Halcyon Fields Gasholder",
     "building_type": "gasholder",
     "district": "halcyon_fields",
     "entrance": "north",
@@ -25,6 +25,6 @@
   "id": "zone_district_905_917",
   "map_id": "map_world",
   "marker": "HP",
-  "name": "Holding Pattern",
+  "name": "Halcyon Fields Gasholder",
   "parent_zone": null
 }

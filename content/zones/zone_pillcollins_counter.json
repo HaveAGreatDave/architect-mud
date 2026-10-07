@@ -7,7 +7,7 @@
     "north": "zone_district_904_908"
   },
   "flags": {
-    "building_name": "Pill Collins",
+    "building_name": "Greenside Row Chemist",
     "building_type": "clinic",
     "floor": "boards",
     "is_building": true,
@@ -19,6 +19,6 @@
   "grid_z": 0,
   "id": "zone_pillcollins_counter",
   "map_id": "map_int_pillcollins",
-  "name": "Pill Collins",
+  "name": "Greenside Row Chemist",
   "parent_zone": "zone_district_904_908"
 }

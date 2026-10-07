@@ -3154,7 +3154,7 @@ export const DOWNTOWN_ARMS = {
     if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh, h * 0.34, m.neon || '#ffb43a', night, alpha);          // sign band low on the frontage, not up top
     if (night) glowPool(ctx, cam, dx, dy, h * 0.3, '255,190,120', 9, alpha * 0.2);
   },
-  bonded(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // Customs Bonded Store 7 — twin of Dry Store 12 (the same barrel-roof shed). "Bonded"
+  bonded(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // Bonded Store 7 — twin of Dry Store 12 (the same barrel-roof shed). "Bonded"
     //                   means sealed and watched, so this one sits inside a LIT COMPOUND: perimeter fence,
     //                   four corner floodlight masts, a guard box at the gate, and a green customs seal.
     const hw = fh * 1.0, wallTop = h * 0.46, archH = hw * 0.40;
@@ -3225,7 +3225,7 @@ export const DOWNTOWN_ARMS = {
     { const [bx, by] = F(fh * 0.90, -fh * 0.60); blinkLight(ctx, cam, bx, by, body + h * 0.03, '255,150,90', now, seed + 9, alpha, 1.8); }   // one roof bulb nobody ever fixed
     if (night) { const [wx, wy] = F(0, fh * 1.06); glowPool(ctx, cam, wx, wy, h * 0.16, '255,190,120', 16, alpha * 0.30); }   // the mannequin windows
   },
-  hardware(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // Nuts to That — a low shop under a deep awning with its stock stacked out on the pavement
+  hardware(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // Marrow Street Hardware — a low shop under a deep awning with its stock stacked out on the pavement
     const wallTop = h * 0.86;
     draw3DBoxAt(ctx, cam, dx, dy, fh * 1.08, 0, wallTop, pal, seed, night, alpha, true);
     // ⚠ THE WORST AWNING-OVER-SIGN OVERLAP OF THE SIX, and the awning cannot give any of it back:
@@ -3311,7 +3311,7 @@ export const DOWNTOWN_ARMS = {
     }
     // The tile's own name (`undefined` takes marqueeBand's default, the building's display name), as
     // the three arms above do. This said 'BODEGA VU' for every bodega, so once Bodega Vu got an authored
-    // model the only tile left on this arm, Corner the Market, was wearing its neighbour's name.
+    // model the only tile left on this arm, Filament Street Corner Shop, was wearing its neighbour's name.
     if (frontVis) marqueeBand(ctx, cam, dx, dy, E, bdSgnW, bdSgnZ, m.neon || '#ffe08a', night, alpha, undefined, bdRoom);
     if (night) { const [wx, wy] = F(0, fh * 0.94); glowPool(ctx, cam, wx, wy, h * 0.20, '255,215,150', 10, alpha * 0.30); }
   },

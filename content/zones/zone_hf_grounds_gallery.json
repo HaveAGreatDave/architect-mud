@@ -5,13 +5,13 @@
     "down": "zone_hf_grounds_room"
   },
   "flags": {
-    "building_name": "Grounds for Concern",
+    "building_name": "Sorrel Way Café",
     "building_type": "atrium_court",
     "floor": "boards",
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "Glass from the rail up, all the way round. Over the wings you get the green, the mews and a slice of the Curtain, and from the far side, the top half of Ivory Tower.",
+      "description": "Glass from the rail up, all the way round. Over the wings you get the green, the mews and a slice of the Curtain, and from the far side, the top half of Institute Residences.",
       "light": 0.9,
       "name": "the upper curve",
       "visibility": 0.9
@@ -23,6 +23,6 @@
   "grid_z": 0,
   "id": "zone_hf_grounds_gallery",
   "map_id": "map_int_hf_grounds",
-  "name": "Grounds for Concern — The Gallery",
+  "name": "Sorrel Way Café — The Gallery",
   "parent_zone": "zone_district_896_913"
 }

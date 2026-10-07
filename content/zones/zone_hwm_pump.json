@@ -7,7 +7,7 @@
     "up": "zone_hwm_gallery"
   },
   "flags": {
-    "building_name": "High Water Mark",
+    "building_name": "Coldwater Water Tower",
     "building_type": "water_tower",
     "floor": "stone",
     "is_building": true,
@@ -25,6 +25,6 @@
   "grid_z": 0,
   "id": "zone_hwm_pump",
   "map_id": "map_int_hwm",
-  "name": "High Water Mark — The Pump House",
+  "name": "Coldwater Water Tower — The Pump House",
   "parent_zone": "zone_district_910_907"
 }

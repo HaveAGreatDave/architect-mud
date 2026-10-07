@@ -484,7 +484,7 @@ Spire); 4 keep the article (`TC` The Cherry Pit); and 25 encode something the na
 almost always the trade or the signage the room description already writes. `GN` on *Second
 Amendment Superstore* says what it sells, `AE` on *Ohm Sweet Ohm* is the Ampersand Electronics on
 its own fascia, `JT` on *Battery Acid Coffee Co.* is the JITTER stencilled on its glass, `W9` on
-*Office of Permitted Suffering* is the WARD NINE on its shingle, and `V7`/`M4`/`K3` name the
+*Ward Nine Permits Office* is the WARD NINE on its shingle, and `V7`/`M4`/`K3` name the
 street a unit is on where the derivation would give four buildings `U3`..`U9` and say nothing.
 
 **Author a marker only when the code is meant to be a choice rather than an acronym**, and expect the

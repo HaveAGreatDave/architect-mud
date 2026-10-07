@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "description": "A cramped below-grade utility room under Pill Collins: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.",
+  "description": "A cramped below-grade utility room under Greenside Row Chemist: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.",
   "exits": {
     "up": "zone_pillcollins_counter"
   },
@@ -15,6 +15,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_pillcollins_counter",
   "map_id": "map_int_pillcollins",
-  "name": "Pill Collins — Utility Room",
+  "name": "Greenside Row Chemist — Utility Room",
   "parent_zone": "zone_district_904_908"
 }

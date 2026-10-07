@@ -18967,7 +18967,7 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   // No Regerts — a dark wall with one lit strip up it. The strip is the flash sheets seen from
   // behind, which is a warm pink rather than a neon one.
   ty_regerts: [52, 46, 58], ty_regerts_glass: [214, 150, 186],
-  // Paws for Thought — domestic brick and a slate roof, which is the only slate in the district,
+  // Kessler Veterinary — domestic brick and a slate roof, which is the only slate in the district,
   // plus the warm lit square of a front room with the curtains open.
   ty_paws: [104, 74, 62], ty_paws_roof: [74, 76, 82], ty_paws_glass: [198, 168, 118],
   // Spirit Level — a building painted the colour of a shutter, the near-black of the shutter
@@ -18975,7 +18975,7 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   // is made of: it passes light and no picture at all.
   ty_spirit: [64, 60, 54], ty_spirit_dk: [30, 28, 26], ty_spirit_hatch: [232, 204, 142],
   ty_spirit_block: [150, 158, 150],
-  // Past Perfect — a cheap shed behind a stone portico, and the stone is deliberately the same
+  // Coldwater Museum — a cheap shed behind a stone portico, and the stone is deliberately the same
   // family the bank and the Hall of Records are faced in, because that is the claim it is making.
   ty_past: [88, 84, 74], ty_past_stone: [168, 160, 142],
   // ── HALCYON FIELDS (docs/proposals/coldwater-infill.md's sibling quarter) ──────
@@ -19007,26 +19007,26 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   // somebody chose. It is duller and greyer than ty_hf_chrome_dk, which is a dark FINISH.
   ty_hf_slab: [122, 132, 142],
   ty_hf_ice: [218, 230, 238], ty_hf_deck: [64, 78, 92], ty_hf_glass: [40, 62, 84],
-  // Sound Investment — a glass drum on a chrome plinth. The auditorium is the glass, because a
+  // Halcyon Concert Hall — a glass drum on a chrome plinth. The auditorium is the glass, because a
   // hall that cannot be overheard does not have to be blind any more: it is a vacuum-jacketed
   // shell and the glass is the jacket.
   ty_sound: [186, 198, 208], ty_sound_hall: [44, 66, 90], ty_sound_fly: [150, 164, 178],
-  // Vested Interest — the darkest chrome in the quarter, and a door that is not black but
+  // 4 Halcyon Boulevard — the darkest chrome in the quarter, and a door that is not black but
   // smoked glass with nothing behind it lit. The club's whole argument is still absence.
   ty_vested: [112, 126, 142], ty_vested_dk: [20, 28, 40],
-  // Going Concern — pearl chrome over a deep-tinted clerestory. Top-lit still decides the shape;
+  // Halcyon Salerooms — pearl chrome over a deep-tinted clerestory. Top-lit still decides the shape;
   // what changed is that the top light is now the entire upper third of the building.
   ty_going: [172, 186, 196], ty_going_glass: [50, 76, 100],
-  // Course Correction — the palest thing in Coldwater. A giant order rendered as chrome fins
+  // The Halcyon Institute — the palest thing in Coldwater. A giant order rendered as chrome fins
   // rather than stone pilasters, which is the same rhythm in a material that admits it is new.
   ty_course: [210, 222, 230], ty_course_dk: [132, 150, 164],
-  // Plot Twist — a glazed cabin and a hoarding lit from behind rather than printed on. The board
+  // Halcyon Fields Sales Office — a glazed cabin and a hoarding lit from behind rather than printed on. The board
   // is the brightest surface in the quarter after dark and it always was; now it emits.
   ty_plot: [92, 130, 152], ty_plot_board: [216, 230, 238],
-  // Second Wind — the terraces, and a rail that is a lit edge rather than painted steel. A
+  // The Halcyon Hydro — the terraces, and a rail that is a lit edge rather than painted steel. A
   // convalescent home for people recovering from chrome, faced in chrome, and nobody remarks.
   ty_wind: [202, 216, 224], ty_wind_rail: [238, 246, 250],
-  // Glass Half Full — the vault's plinth. Chrome, low, and the only dark band on the building.
+  // The Winter Garden — the vault's plinth. Chrome, low, and the only dark band on the building.
   ty_glass_plinth: [78, 94, 110],
   // ── THE GLASSHOUSE'S OTHER THREE MATERIALS ───────────────────────────────────────────────────
   // Chrome, glass, marble and gold, and blue where the quarter wants it. ⚠ THESE ARE NEW KEYS AND
@@ -19071,7 +19071,7 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   // shop window with a room behind it. The cream is the only pale wall on The Gate Road, which is
   // deliberate: coming up from the South Gate it is the first thing that is not the colour of dust.
   ty_stuff: [188, 172, 140], ty_stuff_dk: [30, 28, 26], ty_stuff_glass: [64, 74, 70],
-  // Fine Print — grey ashlar, a paler stone for the plinth and the cornice, and the pale warm
+  // Greenside Row Library — grey ashlar, a paler stone for the plinth and the cornice, and the pale warm
   // glass of a lantern lit from inside. The stone is a whole century older than anything either
   // side of it, which is the point: the street reads as three buildings and one institution.
   ty_fprint: [118, 116, 108], ty_fprint_stone: [156, 150, 134], ty_fprint_glass: [222, 212, 176],
@@ -19312,7 +19312,7 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   // Track Marks Freight — a dead railway signal box: rust, sooted brick, yard-marking yellow.
   ty_signalbox: [104, 72, 52], ty_signal_brick: [86, 66, 56], ty_signal_yellow: [196, 168, 48],
   // Second Helpings — white panel, pale trim, and the rank of dispensers standing on the frontage.
-  // ⚠ `ty_helpings` IS THE MUNICIPAL GREEN AND IT STAYS, because the authored `nutstothat` model is
+  // ⚠ `ty_helpings` IS THE MUNICIPAL GREEN AND IT STAYS, because the authored `marrowstreethardware` model is
   // now its only reader — five references in one content file, plus a bake. Repointing them to buy a
   // tidier name here would be churn against a building nobody asked to change.
   ty_helpings: [64, 92, 68], ty_helpings_mach: [172, 178, 178],
@@ -19388,7 +19388,7 @@ const BLDG_TYPE_3D = {
   // Marrow Street — the workaday downtown strip. Low-rise throughout except the
   // department store, which is the only thing on the street with four floors.
   dept_store:       { a: 'citycore',    h: 0.30 }, // Adequate! — the strip's anchor
-  hardware:         { a: 'citycore',    h: 0.13 }, // Nuts to That, stock under the awning
+  hardware:         { a: 'citycore',    h: 0.13 }, // Marrow Street Hardware, stock under the awning
   bathhouse:        { a: 'citycore',    h: 0.14 }, // Lather & Lye, venting steam
   noodle_bar:       { a: 'oldcoldwater', h: 0.09 }, // Oyelaran's — one storey, open front
   outfitter:        { a: 'citycore',    h: 0.13 }, // Layers
@@ -20150,18 +20150,18 @@ const STONE_WALL = new Set(['__statue_stone', 'ty_marble', 'ty_marble_col', 'ty_
   'ty_archive_dome', 'ty_asc_shrine', 'ty_church', 'ty_church_trim',
   'ty_dw_stone', 'ty_dw_slate',
   'ty_adequate_stone',
-  // Fine Print's shell and its plinth/cornice. Ashlar is expensive and slow, which is exactly the
+  // Greenside Row Library's shell and its plinth/cornice. Ashlar is expensive and slow, which is exactly the
   // argument a lending library is making by still being here and still charging you fourpence.
   'ty_fprint', 'ty_fprint_stone',
   // The Codfather's slab and the ice on it. Marble worn into a dish at the selling end.
   'ty_cod_marble', 'ty_cod_ice',
-  // Sound Investment's five-bay front and the blind flank of its auditorium. The flank is in
+  // Halcyon Concert Hall's five-bay front and the blind flank of its auditorium. The flank is in
   // here rather than in FACADE_MAT for the reason Reel Estate's is in BRICK_WALL: a concert
   // hall with lit windows down the side of it is a room you could hear the concert from.
-  // Vested Interest's ashlar and Course Correction's portico. Both are STONE_WALL rather than
+  // 4 Halcyon Boulevard's ashlar and The Halcyon Institute's portico. Both are STONE_WALL rather than
   // FACADE_MAT on purpose: the club's first floor is bricked flush behind its facing, and an
   // institute's order has pilasters where a window grid would put glass.
-  // Past Perfect's portico. The same family the bank and the Hall of Records are faced in, which
+  // Coldwater Museum's portico. The same family the bank and the Hall of Records are faced in, which
   // is the claim the building is making and the reason the joke lands.
   'ty_past_stone',
   // Terminus, the Quiet Ground (2026-09-27).
@@ -20172,7 +20172,7 @@ const STONE_WALL = new Set(['__statue_stone', 'ty_marble', 'ty_marble_col', 'ty_
 // something has been burning against it for fifty years, and the pale bloom of salts coming back
 // out of the mortar underneath it.
 const BRICK_WALL = new Set([
-  // Going Concern's saleroom shell and Glass Half Full's knee-wall. A saleroom is lit from a
+  // Halcyon Salerooms's saleroom shell and The Winter Garden's knee-wall. A saleroom is lit from a
   // clerestory, so its long walls carry no openings at all and must never draw a window grid.
   // The plant. A pumping station is a brick hall with arched openings rather than a grid, an
   // exchange has no opening at all in four of its five storeys, and a fire station is brick
@@ -20268,7 +20268,7 @@ const LATTICE_CUT = new Set(['ty_junk_crane', 'ty_wharf_lattice', 'ty_bond_fence
 // lines, the grid of tie-holes left by the formwork bolts, the dark bloom of water coming down from
 // every horizontal, and the paler patch where somebody made a repair and did not match the mix.
 const CONCRETE_WALL = new Set([
-  // Cold Comfort's slab and the substation's transformer tanks. Both are things nobody was
+  // Halcyon Fields Cooling Plant's slab and the substation's transformer tanks. Both are things nobody was
   // ever meant to look at, and both are the colour of what they were cast or pressed from.
   // The stack and the tower pads. Both are cast rather than built and neither is looked at.
   'ty_garage_bay', 'ty_guard', '__nofly',
@@ -20312,7 +20312,7 @@ const BRASS_WALL = new Set(['ty_hf_gold', 'ty_meridian_bronze', 'ty_marble_bronz
 // bathhouse, a butcher's slab wall, a vat room. The only material here whose main event is a
 // HIGHLIGHT rather than a shadow, which is what keeps it from reading as very small brick.
 const TILE_WALL = new Set([
-  // Mains Attraction's terracotta dressings. Moulded, glazed and proud of itself, which is
+  // Halcyon Fields Pumping Station's terracotta dressings. Moulded, glazed and proud of itself, which is
   // exactly what this family draws.
   'ty_sw_bath', 'ty_sw_milk', 'ty_sw_milk_dk', 'ty_trm_ward', 'ty_trm_ward_dk', 'ty_embassy_faience',
   // Reel Estate's frontage. A picture house was faced in the same glazed tile a butcher was, and
@@ -20336,9 +20336,9 @@ const STUCCO_WALL = new Set(['ty_trm_creche', 'ty_trm_hall', 'ty_trm_hall_dk', '
   'ty_pfin',
   // Stuff It's render. Painted, patched, and the irregular family is right for both of those.
   'ty_stuff',
-  // Sound Investment's fly tower. Rendered, like Reel Estate's loft and for the same reason: the
+  // Halcyon Concert Hall's fly tower. Rendered, like Reel Estate's loft and for the same reason: the
   // only people who have ever looked at it are pilots.
-  // Second Wind's render. Stepped back at every floor, so most of what you see of it is the
+  // The Halcyon Hydro's render. Stepped back at every floor, so most of what you see of it is the
   // soffit of the balcony above rather than the wall itself.,
   // Thornwarren mud render and Terminus lime-wash (2026-09-27), per building-styles.md §3.3-3.4.
   'ty_sw_kept', 'ty_sw_physic', 'ty_sw_flesh', 'ty_sw_whelp', 'ty_sw_fire', 'ty_trm_dorm', 'ty_trm_inn', 'ty_trm_wash', 'ty_trm_yard', 'ty_trm_still',
@@ -20349,14 +20349,14 @@ const STUCCO_WALL = new Set(['ty_trm_creche', 'ty_trm_hall', 'ty_trm_hall_dk', '
 // a lit interior you can see the shelves in. Same argument as STRUCT_WALL — the default branch's
 // job is a grid of apartment windows and this is one big window.
 const SHOP_GLASS = new Set([
-  // Plot Twist. One glazed room with a lit interior and a single sill, which is the case this
+  // Halcyon Fields Sales Office. One glazed room with a lit interior and a single sill, which is the case this
   // family exists for and not the curtain wall GLASS_WALL draws.
   'ty_plot',
   'ty_fuel_glass',
   // Stuff It's canted window, which is the whole building. One sill, one head, and a room behind
   // it with things standing in it that are lit from in front.
   'ty_stuff_glass',
-  // Fine Print's high window band and its roof lantern. Both are one opening with a room behind
+  // Greenside Row Library's high window band and its roof lantern. Both are one opening with a room behind
   // it rather than a grid of floors, which is the distinction this family exists to draw.
   'ty_fprint_glass',
   // Pocket Money's clerestory band and Sole Survivor's bench window. One opening each, with a room
@@ -32541,7 +32541,7 @@ const PERCH_MIN_Z = 0.10;          // tiles — under this it is a doorstep, not
 // ⚠ HOW FAR IN FROM THE DROP A BIRD STANDS, AND IT IS A BIRD'S FEET, NOT A MARGIN. It was 0.035,
 // which is about one and a half hawk body lengths (a hawk is ~0.023 tiles long as drawn) — so every
 // bird stood back on the roof, looking over a strip of parapet, rather than on the lip facing out.
-// ⚠ NOT UNDER 0.015, WHICH IS PERCH_COVER_EPS: at 0.01 a ring point on The Boom Economy lands on
+// ⚠ NOT UNDER 0.015, WHICH IS PERCH_COVER_EPS: at 0.01 a ring point on Berth 3 lands on
 // a taller segment the cover test tolerates, and `perch.mjs` catches a bird standing in a wall.
 const PERCH_INSET = 0.015;
 const PERCH_SAMPLES = 44;          // the most points one ring ever gets, however long it is
@@ -32816,7 +32816,7 @@ export function kitLedges(cell, wx, wy) {
   // never asked here. The kit lays a part wherever the model says, and the mass can have moved over
   // it: a coping ringing a podium runs straight through the tower rising off it, and a sill can sit
   // inside the skin of the segment over it. 5,991 of the city's 43,907 kit standing points were in a
-  // wall, and the follow camera framed a peregrine inside Subject to Contract's roof slab.
+  // wall, and the follow camera framed a peregrine inside Plot 10, Cowslip Rise's roof slab.
   // ⚠ ONLY MASS THAT SPANS THE BIRD. A sill under a cantilevered storey is still out in the open,
   // so a segment starting above the bird's head does not bury it, which `modelTopAt` would say it did.
   const segs = shapeForModel(m, seed) || [];
@@ -32843,7 +32843,7 @@ export function kitLedges(cell, wx, wy) {
       const r = half - hh * 0.5;
       if (!(r > 0)) continue;
       // ⚠ AND IT HAS TO BE WIDER THAN A BIRD, OR IT IS A POST RATHER THAN A RING. The kit lays a coping on
-      // any mass segment wider than one bird, and on the unfinished core of Priced to Sell (908,915) that
+      // any mass segment wider than one bird, and on the unfinished core of Plot 5, Kerbstone Row (908,915) that
       // is a column about 1.2 m across: the cap's middle line sat 0.019 tiles from its centre, so its
       // "four sides" were four birds on a 40 cm square, two facing east and two facing west 4 cm apart.
       // perch.mjs caught it as a collinear ring. Opposite sides must be at least two birds apart.
@@ -32879,7 +32879,7 @@ export function kitLedges(cell, wx, wy) {
       // has points at this height the coping is dropped as before, and no bird stands under either.
       if (near && near.some((mz) => Math.abs(mz - z) < PERCH_SAME_Z)) continue;
       // ⚠ AND SOMETHING HAS TO BE HOLDING IT UP. A coping is a band laid round a building and
-      // the kit will lay one whether or not there is a building there: `Crane Damage` and `The
+      // the kit will lay one whether or not there is a building there: `Berth 2` and `The
       // Boom Economy` carry a ring 2.4 and 3.0 tiles up with NO mass under it at any point, which
       // is a row of pigeons standing in the sky. Everything else clears by its own thickness —
       // a coping stands on the deck, so the mass below it is `hh` down, which is why the test is
@@ -44268,7 +44268,7 @@ export function bayOccluderSmoke(ID) {
     //
     // So the case that used to demand zero coverage now demands some. With the old gate the rig was
     // painted over a roof that is drawn opaque in the same frame, which is what "truck always shows
-    // thru" was at Bonded & Bothered. The exemption for the eye is asserted immediately below and is
+    // thru" was at Bonded Store 7. The exemption for the eye is asserted immediately below and is
     // the one that survived.
     const own = plain(); own[R][R] = bay('OWN DEPOT');
     if (covered(own) === 0) out.push('the shed the rig is parked in masks nothing from outside — the truck paints over a roof drawn solid in the same frame');
@@ -48449,7 +48449,7 @@ function massExtent(m, seed, fh, zLo, zHi, ent, dir) {
 const WALL_PLANE_TOL = 0.06;      // the same tolerance `anchored` calls R_PLANE, and for the same reason
 const TAG_WALL_MARGIN = 0.008;    // bare wall left at the end of a piece, so it stops AT brick rather than ON the corner
 // ⚠ ONE CONTINUOUS RUN, NEVER THE BOUNDING BOX OF EVERY WALL ON THE PLANE, and the first cut was
-// the bounding box. `Load of Old Rope` is a gantry: two legs a third of a tile apart, both on the
+// the bounding box. `Berth 1` is a gantry: two legs a third of a tile apart, both on the
 // same plane at the same height, with nothing whatever between them. Taking the union's ends says
 // the wall runs from the outside of one leg to the outside of the other, so a tag placed in the GAP
 // passes a clamp written to catch exactly that tag. Two boxes that touch are one wall and two that
@@ -49599,7 +49599,7 @@ function fasciaKind(m, seed) {
 //
 // Every shopfront in Coldwater that has both an awning and a marquee put the awning THROUGH the
 // bottom of its own sign. Measured over the six arms that draw both, at 2, 3 and 4 floors: fifteen
-// of the eighteen combinations overlap, by 0.003 to 0.066 world units — Nuts to That worst, which
+// of the eighteen combinations overlap, by 0.003 to 0.066 world units — Marrow Street Hardware worst, which
 // is the building it was reported on, and worst at TWO floors, because `hh` is capped at 0.12 while
 // the wall goes on growing. It is a defect of low wide shops, which is most of the street.
 //
@@ -49611,7 +49611,7 @@ function fasciaKind(m, seed) {
 // geometry answers to nobody and can be fitted with any expression at all.
 //
 // ⚠ AND IT MAY CROWN THE PARAPET, WHICH IS WHY `wallTop` IS A SOFT CEILING. Fitting the band
-// strictly between the awning and the roofline costs Nuts to That 40% of its sign, and a shopfront
+// strictly between the awning and the roofline costs Marrow Street Hardware 40% of its sign, and a shopfront
 // fascia standing a little proud of the parapet is what a shopfront fascia does — this one already
 // did, by 0.033. A third of the band above the roofline keeps three quarters of the height.
 // ⚠ AND WITH NO `room` IT IS BIT-FOR-BIT WHAT IT WAS. Twenty of the twenty-six callers pass none.
@@ -49653,7 +49653,7 @@ function marqueeSpan(half, wz, room) {
 // ── AND NOTHING MAY BE HUNG ACROSS IT ───────────────────────────────────────────────────────────
 //
 // The derived kit strings a `cableRun` — posts and a slack overhead wire — along the entrance face
-// at a height it picks without reference to what the arm has already put there, and on Nuts to That
+// at a height it picks without reference to what the arm has already put there, and on Marrow Street Hardware
 // it lands squarely across the name. It is drawn as real depth-tested geometry a few centimetres in
 // front of the sign, so there is nothing a z-order or a probe can do about it: the wire is simply
 // between you and the words.
@@ -50069,7 +50069,7 @@ function marqueeBand(ctx, cam, dx, dy, E, half, wz, color, night, alpha, label =
     // `drawSurfaceText` over the whole face, which is the same defect `fitSignPts` was written for
     // one layer along — a name's texture is as wide as the NAME and the board is as wide as the
     // BUILDING, so every marquee in the city squeezed its lettering to whatever aspect its own
-    // frontage happened to have. "NUTS TO THAT" came out at well under half its own width.
+    // frontage happened to have. "MARROW STREET HARDWARE" came out at well under half its own width.
     //
     // ⚠ AND THE FIT IS DONE IN THE FACE'S OWN (u, v) WITH THE BOARD'S WORLD ASPECT, which is the
     // rule this whole function already runs on — see the ⚠ above `art`. `fitSignPts` cannot be
@@ -50109,7 +50109,7 @@ function marqueeBand(ctx, cam, dx, dy, E, half, wz, color, night, alpha, label =
     // into its own canvas, that canvas is drawn down into this board, and the board is then
     // magnified onto a quad a parked truck covers with several hundred screen pixels. The middle
     // step is the lossy one and 256 was where it lost — measured on the hardware shop, a 256×67
-    // board gave "NUTS TO THAT" about fifteen texels a character to be a letterform in.
+    // board gave "MARROW STREET HARDWARE" about fifteen texels a character to be a letterform in.
     //
     // ⚠ THE RATIO STRUCTURE IS UNCHANGED ON PURPOSE. Both the width and the two clamp bounds are
     // doubled together, so the texture's aspect against the board's is EXACTLY what it was at every
@@ -50135,7 +50135,7 @@ function marqueeBand(ctx, cam, dx, dy, E, half, wz, color, night, alpha, label =
     // ⚠ AND `half * 1.02` IS THE SIGN'S OWN WIDTH, WHICH IS NOT WHERE THE WALL IS. That is the
     // second half of "I cannot see the signs" and it is subtler than the awning: a marquee is
     // usually a little NARROWER than the frontage it is bolted to, and `draw3DBoxAt` CLAMPS every
-    // wall's half-width to 0.44 however wide the arm asked for. Nuts to That asks for `fh * 1.08`
+    // wall's half-width to 0.44 however wide the arm asked for. Marrow Street Hardware asks for `fh * 1.08`
     // = 0.447, gets 0.44, and mounts a sign whose own plane lands at 0.430 — a hundredth of a tile
     // INSIDE its own facade. The wall wins those pixels, and what shows through the name is the
     // top storey's window mullions, which stand proud of the wall as mesh trim: a row of evenly
@@ -50894,8 +50894,8 @@ function westClutter(ctx, cam, dx, dy, E, seed, night, alpha, o) {
 }
 // ══ MOVING PARTS ═══════════════════════════════════════════════════════════════════════════════
 //
-// Four of the Yards' buildings are named after a crane doing something — Crane Damage, The Boom
-// Economy, Load of Old Rope, The Wet Handoff — and the crane they share was a mast with one
+// Four of the Yards' buildings are named after a crane doing something — Berth 2, The Boom
+// Economy, Berth 1, Kessler Street Wharf — and the crane they share was a mast with one
 // straight line leaning off it, in the same place for ever. This is the layer that lets one work.
 //
 // ⚠ A MOVING PART MAY NEVER BE MASS, AND THE TRAP IS SILENT IN EVERY DIRECTION. `draw3DBoxAt` and
@@ -52334,7 +52334,7 @@ const OCC_BIAS = 0.35;
 // roof you are parked under can never clear it. The rig then had its BODY cut by the per-pixel mask
 // (OCC_PIXEL_BIAS, 0.02, which is the same question asked of one pixel) while its contact shadow
 // and its lamp pools carried on painting over the roof — a truck-shaped smudge on a depot from
-// above, and the tail of the Bonded & Bothered report. So the own ship passes the pixel margin and
+// above, and the tail of the Bonded Store 7 report. So the own ship passes the pixel margin and
 // the two masks over one object agree about what is covered; the dilation above is what keeps this
 // one a superset of the fine one, which is the part that must not change.
 //
@@ -52348,7 +52348,7 @@ const OCC_BIAS = 0.35;
 // ⚠ THE BAND ROUNDS THE THRESHOLD DOWN, so a cached mask hides at most what the exact one would:
 // it can only ever let a mark show a little more, never cut a piece of it that was in front.
 // ⚠ THE OWN SHIP DOESN'T USE IT. It passes OCC_PIXEL_BIAS, a per-pixel margin that a quarter-tile
-// band would undo (the Bonded & Bothered roof), and it asks once a frame anyway.
+// band would undo (the Bonded Store 7 roof), and it asks once a frame anyway.
 const OCC_CLIP_BAND = 0.25;
 // A stand-in canvas (a headless gate's stub) may have no Path2D, or one without `rect`.
 const OCC_CLIP_PATH = typeof Path2D === 'function' && !!Path2D.prototype && typeof Path2D.prototype.rect === 'function';
@@ -54071,7 +54071,7 @@ const _derived = new WeakMap();
 // section on the strength of ONE part, which is the right rule for a canopy (a building has one
 // shopfront) and the wrong one for a window: a single `windowBay` is a shopfront window, not a
 // drawn facade. Measured over the registry, 21 models carry exactly one — Halcyon Towers, The
-// Spire, Citadel Financial, Aurelia, The Weave, Statue Quo — and every one of them was handing
+// Spire, Citadel Financial, Aurelia, The Weave, Park View Flats — and every one of them was handing
 // the kit's whole glazing section to the wall TEXTURE, whose grid is 3 columns by 6 rows stretched
 // over the elevation whatever its height. That is the building-sized blob a facade reads as.
 // ⚠ THIS IS THE SAME MISTAKE THE TABLE'S OWN ⚠ ALREADY RECORDS TWICE, in the same direction: a
@@ -54523,7 +54523,7 @@ function detailLayer(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E) {
     // made as small as it will go. A hoist rope authored at r 0.006 measured 0.012, floored to 0.02,
     // and came out at 3.7px against a floor of 6: culled, at every distance, however long it was.
     // That is the same shape of mistake as the sign floor twenty lines down — the gate reading the
-    // dimension an author minimises on purpose — and it is why the container on Crane Damage hung
+    // dimension an author minimises on purpose — and it is why the container on Berth 2 hung
     // off nothing on the 2-D renderer while GLASS 2 drew its ropes from the mesh.
     const span = d.z0 && d.z1 ? Math.abs(V(d.z1) - V(d.z0)) : 0;
     const dz = Math.max(0.02, span, Math.abs(V(d.hh || d.rail || d.r || d.half || [0, 0, 0.05])) * 2);
@@ -55969,7 +55969,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
         // the room you are in, and the roof and near wall were being faded for you anyway. The
         // second stopped being true the day BAY_CUTAWAY_ON went to 0. The shed is painted fully
         // solid at every angle now, so a rig parked in one was masked against nothing and painted
-        // on top of a roof you can plainly see — reported at Bonded & Bothered as "truck always
+        // on top of a roof you can plainly see — reported at Bonded Store 7 as "truck always
         // shows thru", and reproducible from any chase pitch that clears the eaves.
         //
         // It is the trade the cutaway switch was thrown to take. The ⚠ over BAY_CUTAWAY_ON already

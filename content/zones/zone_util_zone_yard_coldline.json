@@ -15,6 +15,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_yard_coldline",
   "map_id": "map_int_yard_coldline",
-  "name": "Chill Out Logistics — Utility Room",
+  "name": "Coldline Reefer Depot — Utility Room",
   "parent_zone": "zone_district_926_909"
 }

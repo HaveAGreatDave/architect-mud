@@ -5,7 +5,7 @@
     "down": "zone_hf_newmarket_lobby"
   },
   "flags": {
-    "building_name": "New to Market",
+    "building_name": "Mallow House",
     "building_type": "chrome_tower",
     "floor": "boards",
     "is_building": true,
@@ -23,6 +23,6 @@
   "grid_z": 0,
   "id": "zone_hf_newmarket_show",
   "map_id": "map_int_hf_newmarket",
-  "name": "New to Market — The Show Home",
+  "name": "Mallow House — The Show Home",
   "parent_zone": "zone_district_907_915"
 }

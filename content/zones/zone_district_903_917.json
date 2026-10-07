@@ -9,7 +9,7 @@
     "south": "zone_cold_floor"
   },
   "flags": {
-    "building_name": "Cold Comfort",
+    "building_name": "Halcyon Fields Cooling Plant",
     "building_type": "cooling_plant",
     "district": "halcyon_fields",
     "entrance": "north",
@@ -25,6 +25,6 @@
   "id": "zone_district_903_917",
   "map_id": "map_world",
   "marker": "CF",
-  "name": "Cold Comfort",
+  "name": "Halcyon Fields Cooling Plant",
   "parent_zone": null
 }

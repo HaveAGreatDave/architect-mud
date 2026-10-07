@@ -143,7 +143,7 @@
   "hp_max": 34,
   "home_zone": "zone_paws_surgery",
   "work_zone_id": "zone_paws_wait",
-  "vendor_shop_name": "Paws for Thought",
+  "vendor_shop_name": "Kessler Veterinary",
   "vendor_restock_rate": 3,
   "vendor_stock_size": 12,
   "vendor_schedule": {

@@ -24,7 +24,7 @@
   "bind": [
     {
       "by": "name",
-      "key": "Load Bearing"
+      "key": "Filament Street Launderette"
     }
   ],
   "detail": [
@@ -257,9 +257,9 @@
       "z": 0.66
     }
   ],
-  "id": "loadbearing",
+  "id": "filamentstreetlaunderette",
   "neon": "#9fffd0",
-  "note": "LOAD BEARING — the launderette on Filament Street.\n\nThe tile's prose: a shopfront lit like an operating theatre and steamed up from the inside, so the\nlight comes out soft and green; the name spelled out across the fascia in individual letters, one\nof which has been replaced with a slightly different font and is now what everyone looks at; warm\nair pushing out under the door.\n\nSo the front is a wide steamed shop window over a tiled stall riser, the door at one end, white\nglazed tile everywhere, and the name as eleven separate letters on the fascia, each its own board.\nThe R is in a different hand. Dryer vents line the flank and stain the tile under them.",
+  "note": "FILAMENT STREET LAUNDERETTE — the launderette on Filament Street.\n\nThe tile's prose: a shopfront lit like an operating theatre and steamed up from the inside, so the\nlight comes out soft and green; the name spelled out across the fascia in individual letters, one\nof which has been replaced with a slightly different font and is now what everyone looks at; warm\nair pushing out under the door.\n\nSo the front is a wide steamed shop window over a tiled stall riser, the door at one end, white\nglazed tile everywhere, and the name as eleven separate letters on the fascia, each its own board.\nThe R is in a different hand. Dryer vents line the flank and stain the tile under them.",
   "pal": "ty_cod",
   "segs": [
     {

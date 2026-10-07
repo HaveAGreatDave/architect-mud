@@ -7,7 +7,7 @@
     "south": "zone_district_895_909"
   },
   "flags": {
-    "building_name": "Rising Sums",
+    "building_name": "Betony House",
     "building_type": "chrome_tower",
     "floor": "tile",
     "is_building": true,
@@ -19,6 +19,6 @@
   "grid_z": 0,
   "id": "zone_hf_rising_floor",
   "map_id": "map_int_hf_rising",
-  "name": "Rising Sums — The Trading Saucer",
+  "name": "Betony House — The Trading Saucer",
   "parent_zone": "zone_district_895_909"
 }

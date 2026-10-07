@@ -7,7 +7,7 @@
     "up": "zone_hf_sweep_drawing"
   },
   "flags": {
-    "building_name": "Sweeping Statement",
+    "building_name": "Halcyon Developments",
     "building_type": "chrome_slab",
     "floor": "carpet",
     "is_building": true,
@@ -19,6 +19,6 @@
   "grid_z": 0,
   "id": "zone_hf_sweep_model",
   "map_id": "map_int_hf_sweep",
-  "name": "Sweeping Statement — The Model Room",
+  "name": "Halcyon Developments — The Model Room",
   "parent_zone": "zone_district_904_915"
 }

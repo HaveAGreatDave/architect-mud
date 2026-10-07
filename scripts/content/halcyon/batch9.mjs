@@ -11,7 +11,7 @@
  *
  * ⚠ THE ELEVEN `shell_tower` PLOTS ARE DELIBERATELY NOT IN THIS FILE. A building with the crane
  * still tied in at three levels is a building site, and a site office you can walk into already
- * exists (Snagging List, batch7). They are also the eleven amber tacks on Pardoe's plan in Ground
+ * exists (Halcyon Fields Site Office, batch7). They are also the eleven amber tacks on Pardoe's plan in Ground
  * Rent, which batch8 asserts the count of — converting one would make his line wrong. The gate at
  * the bottom of this file refuses a `shell_tower` for both reasons.
  *
@@ -27,7 +27,7 @@
  * nineteen paragraphs were written to be read from the street and they still are; what was missing
  * from them was never the building, it was the door.
  *
- * ⚠ ONE OF THEM IS AN APARTMENT BUILDING — Chain Free, whose launch terms batch8 already put on a
+ * ⚠ ONE OF THEM IS AN APARTMENT BUILDING — Bluebell House, whose launch terms batch8 already put on a
  * board by its own door ("no chain, no onward purchase, completion in twenty-eight days") and which
  * is "a third occupied anyway". Three of its four authored units are vacant and carry
  * `is_apartment` + `rent_cost`, so RENT works in them with nothing else built; the fourth is
@@ -59,15 +59,18 @@ const outside = (x, y, door) => {
   const z = store.get('zones', `zone_district_${x}_${y}`);
   if (!z) throw new Error(`no tile ${x},${y}`);
   if (z.flags?.building_type === 'shell_tower') throw new Error(`${z.name} is a shell — see the header`);
-  return `${z.description} ${door}`;
+  // Strip any copies a previous run appended, so running this again doesn't stack the door line.
+  let d = z.description;
+  while (d.endsWith(` ${door}`)) d = d.slice(0, -(door.length + 1));
+  return `${d} ${door}`;
 };
 
-// ── 1. Long Lease ────────────────────────────────────────────────────────────
+// ── 1. Primrose House ────────────────────────────────────────────────────────────
 // Sold entire, before the steel was up, to one purchaser. What that buys the ground floor is a
 // porter's desk in a hall nobody crosses, and a man whose whole job is the difference between an
 // empty building and an unattended one.
 SPECS.push({
-  slug: 'hf_longlease', name: 'Long Lease', type: 'bead_tower',
+  slug: 'hf_longlease', name: 'Primrose House', type: 'bead_tower',
   x: 892, y: 914, entrance: 'east', floors: 15, marker: 'LC', district: HF,
 
   facade: {
@@ -164,11 +167,11 @@ SPECS.push({
   },
 });
 
-// ── 2. Terms Agreed ──────────────────────────────────────────────────────────
+// ── 2. Mews Terrace ──────────────────────────────────────────────────────────
 // Four planted terraces with the protective film still on the glass. What you can walk into is the
 // hall and the second terrace, and the second terrace is the whole point of the building.
 SPECS.push({
-  slug: 'hf_terms', name: 'Terms Agreed', type: 'cascade_block',
+  slug: 'hf_terms', name: 'Mews Terrace', type: 'cascade_block',
   x: 894, y: 912, entrance: 'west', floors: 8, marker: 'TA', district: HF,
 
   facade: {
@@ -206,11 +209,11 @@ SPECS.push({
   ],
 });
 
-// ── 3. Deposit Taken ─────────────────────────────────────────────────────────
+// ── 3. Yarrow Works ─────────────────────────────────────────────────────────
 // Marketed as workspace, sold as workspace, used as storage. The counter is the only part of it
 // anybody is running, and the person running it is running it well.
 SPECS.push({
-  slug: 'hf_deposit', name: 'Deposit Taken', type: 'atrium_court',
+  slug: 'hf_deposit', name: 'Yarrow Works', type: 'atrium_court',
   x: 895, y: 915, entrance: 'north', floors: 4, marker: 'DT', district: HF,
 
   facade: {
@@ -254,7 +257,7 @@ SPECS.push({
 
   npc: {
     id: 'npc_hf_fenwick', name: 'Ottilia Fenwick', sex: 'female', hp: 36,
-    homeRoom: 'racking', workRoom: 'counter', shopName: 'Deposit Taken Storage',
+    homeRoom: 'racking', workRoom: 'counter', shopName: 'Yarrow Works Storage',
     description: 'A wiry woman in a padded gilet over a boiler suit, with a pencil behind one ear and a pair of gloves tucked into the waistband at the small of her back. She came with the racking, which she bought, and she has the look of somebody who took on a unit as a sideline and found herself running the building.',
     clothing: [
       'a navy padded gilet with the estate crest picked off the breast',
@@ -301,7 +304,7 @@ SPECS.push({
         options: [{ label: 'Back.', next: 'root' }],
       },
       offices: {
-        text: '"It was. Two floors of it above us still are, on paper, and there is nobody in them." She shrugs, and the gilet does most of it. "The drum is the nicest room in this quarter that anybody can afford, which is why it has racking in it. If it had desks in it the rent would be four times what I pay and I would be somewhere with no windows."\n\n"Change of Use, on the row, is going through all this with the land office. Eleven months so far. I am watching how they get on."',
+        text: '"It was. Two floors of it above us still are, on paper, and there is nobody in them." She shrugs, and the gilet does most of it. "The drum is the nicest room in this quarter that anybody can afford, which is why it has racking in it. If it had desks in it the rent would be four times what I pay and I would be somewhere with no windows."\n\n"Kerbstone House, on the row, is going through all this with the land office. Eleven months so far. I am watching how they get on."',
         options: [{ label: 'Back.', next: 'root' }],
       },
       bye: { text: '"Mind the extinguisher on the way out. It is holding the door." She has the pencil back out already.', options: [] },
@@ -309,11 +312,11 @@ SPECS.push({
   },
 });
 
-// ── 4. Above Board ───────────────────────────────────────────────────────────
+// ── 4. Celandine Tower ───────────────────────────────────────────────────────────
 // Seventeen storeys of offices that shear as they rise. The lobby and the mezzanine are public
 // because the planning consent said they would be, and the consent is the only reason.
 SPECS.push({
-  slug: 'hf_aboveboard', name: 'Above Board', type: 'torque_tower',
+  slug: 'hf_aboveboard', name: 'Celandine Tower', type: 'torque_tower',
   x: 900, y: 911, entrance: 'west', floors: 17, marker: 'AB', district: HF,
 
   facade: {
@@ -351,13 +354,13 @@ SPECS.push({
   ],
 });
 
-// ── 5. Chain Free ────────────────────────────────────────────────────────────
+// ── 5. Bluebell House ────────────────────────────────────────────────────────────
 // ⚠ THE APARTMENT BUILDING. batch8 already put the launch terms on a board by this door and
 // already said it was a third occupied, which is exactly a building with flats going. Three of the
 // four authored units are vacant and rentable; the fourth is Lindqvist's, because a letting agent
 // who does not live in his own building is a letting agent nobody believes.
 SPECS.push({
-  slug: 'hf_chainfree', name: 'Chain Free', type: 'bead_tower',
+  slug: 'hf_chainfree', name: 'Bluebell House', type: 'bead_tower',
   x: 900, y: 914, entrance: 'west', floors: 13, marker: 'CE', district: HF,
 
   facade: {
@@ -435,7 +438,7 @@ SPECS.push({
 
   npc: {
     id: 'npc_hf_lindqvist', name: 'Marius Lindqvist', sex: 'male', hp: 34,
-    homeRoom: 'u4', workRoom: 'lobby', shopName: 'Chain Free Lettings',
+    homeRoom: 'u4', workRoom: 'lobby', shopName: 'Bluebell House Lettings',
     description: 'A tall, slightly stooped man in his fifties in a good suit worn without much conviction, sitting at a desk set at an angle so that he can see the door without facing it. He is the only person selling anything in Halcyon Fields who lives in the thing he is selling, and he mentions it early, because it is the strongest argument he has.',
     clothing: [
       'a navy suit, good cloth, the jacket usually over the back of the chair',
@@ -502,12 +505,12 @@ SPECS.push({
   },
 });
 
-// ── 6. Fixed Rate ────────────────────────────────────────────────────────────
+// ── 6. Cinder Point ────────────────────────────────────────────────────────────
 // Six sides drawn to a point, and a lobby with three corners that are not ninety degrees. One
 // room, deliberately: there is nothing else on the ground floor and pretending otherwise would be
 // the invention batch8 was right about.
 SPECS.push({
-  slug: 'hf_fixedrate', name: 'Fixed Rate', type: 'glass_prism',
+  slug: 'hf_fixedrate', name: 'Cinder Point', type: 'glass_prism',
   x: 901, y: 912, entrance: 'east', floors: 16, marker: 'FR', district: HF,
 
   facade: {
@@ -535,12 +538,12 @@ SPECS.push({
   ],
 });
 
-// ── 7. Prime Location ────────────────────────────────────────────────────────
+// ── 7. Rowan Tower ────────────────────────────────────────────────────────
 // Nineteen floors of shearing glass, named before the streets round it were laid. The sky lobby is
 // public because it was in the brochure, and the brochure is a document the estate cannot get out
 // of as easily as it can get out of a completion date.
 SPECS.push({
-  slug: 'hf_prime', name: 'Prime Location', type: 'torque_tower',
+  slug: 'hf_prime', name: 'Rowan Tower', type: 'torque_tower',
   x: 903, y: 912, entrance: 'west', floors: 19, marker: 'PL', district: HF,
 
   facade: {
@@ -557,7 +560,7 @@ SPECS.push({
         light: 0.8, visibility: 0.9,
       } },
     { key: 'sky', name: 'The Sky Lobby', floor: 'stone', from: 'lobby', dir: 'up',
-      description: 'The tenth floor, where the lifts change over, and the one room in Halcyon Fields that does what the brochure said it would: a full floor plate given to nothing, glazed on all four shearing sides, with benches down the middle and a view that includes the Spire, the Curtain, the basin and — on the north side, uncomfortably close — the top eight floors of Glass Ceiling. There is nobody up here. There is a rule that there is always somebody up here and there is nobody.',
+      description: 'The tenth floor, where the lifts change over, and the one room in Halcyon Fields that does what the brochure said it would: a full floor plate given to nothing, glazed on all four shearing sides, with benches down the middle and a view that includes the Spire, the Curtain, the basin and — on the north side, uncomfortably close — the top eight floors of Halcyon Point. There is nobody up here. There is a rule that there is always somebody up here and there is nobody.',
       window: {
         name: 'the sheared glazing',
         description: 'Halfway up the twist, so no two walls of this room are parallel with the streets below them, and you have to hunt for Cinder Lane even though you came up from it. On a clear day you can see the Reach.',
@@ -578,11 +581,11 @@ SPECS.push({
   ],
 });
 
-// ── 8. Mod Cons ──────────────────────────────────────────────────────────────
+// ── 8. Cinder Terrace ──────────────────────────────────────────────────────────────
 // The specification plate with eleven lines on it, and the eleventh line — CONNECTED TO THE ESTATE
 // NETWORK — is a whole trade. The woman who runs it has opinions about what that line means.
 SPECS.push({
-  slug: 'hf_modcons', name: 'Mod Cons', type: 'cascade_block',
+  slug: 'hf_modcons', name: 'Cinder Terrace', type: 'cascade_block',
   x: 903, y: 914, entrance: 'west', floors: 7, marker: 'MB', district: HF,
 
   facade: {
@@ -628,7 +631,7 @@ SPECS.push({
 
   npc: {
     id: 'npc_hf_toussaint', name: 'Ghalia Toussaint', sex: 'female', hp: 35,
-    homeRoom: 'comms', workRoom: 'comms', shopName: 'Mod Cons Connections',
+    homeRoom: 'comms', workRoom: 'comms', shopName: 'Cinder Terrace Connections',
     description: 'A compact woman on a stool at a bench, with a headtorch pushed up onto her forehead and a crimp tool in her hand more often than not. She is the only person in Halcyon Fields who was hired by the estate and is no longer paid by it, and she is still here, and the racks are still immaculate.',
     clothing: [
       'a charcoal work shirt with the sleeves rolled to the elbow',
@@ -683,11 +686,11 @@ SPECS.push({
   },
 });
 
-// ── 9. Aspect Ratio ──────────────────────────────────────────────────────────
+// ── 9. Heather House ──────────────────────────────────────────────────────────
 // Sold on which way its windows face, with the lift lobbies at the pinches, so every landing in it
 // is the narrowest part of the building. That is the joke and the lobby is where it lands.
 SPECS.push({
-  slug: 'hf_aspect', name: 'Aspect Ratio', type: 'bead_tower',
+  slug: 'hf_aspect', name: 'Heather House', type: 'bead_tower',
   x: 903, y: 915, entrance: 'west', floors: 12, marker: 'AA', district: HF,
 
   facade: {
@@ -721,11 +724,11 @@ SPECS.push({
   ],
 });
 
-// ── 10. Glass Ceiling ────────────────────────────────────────────────────────
+// ── 10. Halcyon Point ────────────────────────────────────────────────────────
 // Twenty storeys to an actual point. The top four floors are one unit with no internal walls that
 // has never been let, and the lift goes there because there is nothing else to stop at.
 SPECS.push({
-  slug: 'hf_glassceiling', name: 'Glass Ceiling', type: 'glass_prism',
+  slug: 'hf_glassceiling', name: 'Halcyon Point', type: 'glass_prism',
   x: 904, y: 911, entrance: 'east', floors: 20, marker: 'GX', district: HF,
 
   facade: {
@@ -763,11 +766,11 @@ SPECS.push({
   ],
 });
 
-// ── 11. Peppercorn ───────────────────────────────────────────────────────────
+// ── 11. Burnet Court ───────────────────────────────────────────────────────────
 // One credit a year for a hundred and fifty years, let to the estate's own security contractor.
 // It is the only building in the quarter that is watching the rest of them.
 SPECS.push({
-  slug: 'hf_peppercorn', name: 'Peppercorn', type: 'atrium_court',
+  slug: 'hf_peppercorn', name: 'Burnet Court', type: 'atrium_court',
   x: 904, y: 913, entrance: 'east', floors: 3, marker: 'PA', district: HF,
 
   facade: {
@@ -811,7 +814,7 @@ SPECS.push({
 
   npc: {
     id: 'npc_hf_vallance', name: 'Hektor Vallance', sex: 'male', hp: 44,
-    homeRoom: 'wall', workRoom: 'desk', shopName: 'Peppercorn Front Desk',
+    homeRoom: 'wall', workRoom: 'desk', shopName: 'Burnet Court Front Desk',
     description: 'A broad, still man behind a high counter in a dark contractor\'s jacket with no company name on it, who watches you come up Cowslip Rise on a screen before you reach the door and is standing at the counter by the time you do. He is polite in the specific way of somebody who has decided in advance that he is going to be.',
     clothing: [
       'a dark contractor\'s softshell with the company patch unpicked from the sleeve',
@@ -866,11 +869,11 @@ SPECS.push({
   },
 });
 
-// ── 12. Dual Aspect ──────────────────────────────────────────────────────────
+// ── 12. Cowslip Terrace ──────────────────────────────────────────────────────────
 // The same terraces front and back, which is what the name means and is not a boast. The one you
 // can walk onto is the back one, facing the backs of Meltwater Row.
 SPECS.push({
-  slug: 'hf_dualaspect', name: 'Dual Aspect', type: 'cascade_block',
+  slug: 'hf_dualaspect', name: 'Cowslip Terrace', type: 'cascade_block',
   x: 906, y: 914, entrance: 'west', floors: 9, marker: 'DA', district: HF,
 
   facade: {
@@ -908,11 +911,11 @@ SPECS.push({
   ],
 });
 
-// ── 13. New to Market ────────────────────────────────────────────────────────
+// ── 13. Mallow House ────────────────────────────────────────────────────────
 // The estate's standard tower, the fourth one, new to market for two years. It has a show flat,
 // which is the whole reason it is open.
 SPECS.push({
-  slug: 'hf_newmarket', name: 'New to Market', type: 'chrome_tower',
+  slug: 'hf_newmarket', name: 'Mallow House', type: 'chrome_tower',
   x: 907, y: 915, entrance: 'south', floors: 14, marker: 'NM', district: HF,
 
   facade: {
@@ -925,7 +928,7 @@ SPECS.push({
       description: 'A round room at the bottom of a round building, which sounds obvious and is rarer than it should be — the lift core is a drum inside a drum and the floor is laid in concentric bands out from it. There is a desk, unattended, and beside the lift a chrome sign with an arrow and the words SHOW HOME — FOURTH FLOOR, and the arrow is pointing at the lift rather than upward, which somebody clearly argued about.',
       window: {
         name: 'the podium glazing',
-        description: 'The whole circumference bar the service side, giving a continuous view that turns through most of a full circle as you walk round the core: the row, the Curtain, the back of Priced to Sell, the row again.',
+        description: 'The whole circumference bar the service side, giving a continuous view that turns through most of a full circle as you walk round the core: the row, the Curtain, the back of Plot 5, Kerbstone Row, the row again.',
         light: 0.8, visibility: 0.9,
       } },
     { key: 'show', name: 'The Show Home', floor: 'boards', from: 'lobby', dir: 'up',
@@ -952,12 +955,12 @@ SPECS.push({
   ],
 });
 
-// ── 14. Party Wall ───────────────────────────────────────────────────────────
+// ── 14. Row End Terrace ───────────────────────────────────────────────────────────
 // Six floors against the Curtain with a blank west flank, and a party wall award for a boundary
 // with nothing on the other side of it. The framed copy is in the estate office; what is in here
 // is the wall.
 SPECS.push({
-  slug: 'hf_partywall', name: 'Party Wall', type: 'cascade_block',
+  slug: 'hf_partywall', name: 'Row End Terrace', type: 'cascade_block',
   x: 892, y: 917, entrance: 'north', floors: 6, marker: 'PW', district: HF,
 
   facade: {
@@ -991,11 +994,11 @@ SPECS.push({
   ],
 });
 
-// ── 15. Right of Way ─────────────────────────────────────────────────────────
+// ── 15. Campion Court ─────────────────────────────────────────────────────────
 // The footpath the estate could not extinguish, and a building designed round it after a year of
 // trying not to. The passage is public, so the passage is where the only kiosk in the quarter is.
 SPECS.push({
-  slug: 'hf_rightofway', name: 'Right of Way', type: 'atrium_court',
+  slug: 'hf_rightofway', name: 'Campion Court', type: 'atrium_court',
   x: 894, y: 917, entrance: 'north', floors: 4, marker: 'RW', district: HF,
 
   facade: {
@@ -1088,7 +1091,7 @@ SPECS.push({
         options: [{ label: 'Back.', next: 'root' }],
       },
       sees: {
-        text: '"I see everybody." No boast in it at all. "Not because I am watching. Because this is the only way from the row to the lane without going round, and going round is four hundred metres, and nobody goes round."\n\nShe looks up the passage.\n\n"The man from the security desk comes through at seven. The lettings man from Chain Free comes through at eight, and he walks up the lane and back down it before he opens, every day, which I have never mentioned to him. And there is a van on the last Thursday of the month that comes in from the lane end and does not come out of the row end."',
+        text: '"I see everybody." No boast in it at all. "Not because I am watching. Because this is the only way from the row to the lane without going round, and going round is four hundred metres, and nobody goes round."\n\nShe looks up the passage.\n\n"The man from the security desk comes through at seven. The lettings man from Bluebell House comes through at eight, and he walks up the lane and back down it before he opens, every day, which I have never mentioned to him. And there is a van on the last Thursday of the month that comes in from the lane end and does not come out of the row end."',
         options: [
           { label: 'Where does the van go?', next: 'van' },
           { label: 'Back.', next: 'root' },
@@ -1103,11 +1106,11 @@ SPECS.push({
   },
 });
 
-// ── 16. Well Appointed ───────────────────────────────────────────────────────
+// ── 16. Foxglove House ───────────────────────────────────────────────────────
 // The one building in the quarter where somebody was allowed to spend money on how it looks. The
 // collars are a brighter chrome and the lobby knows it.
 SPECS.push({
-  slug: 'hf_wellappointed', name: 'Well Appointed', type: 'bead_tower',
+  slug: 'hf_wellappointed', name: 'Foxglove House', type: 'bead_tower',
   x: 896, y: 917, entrance: 'north', floors: 11, marker: 'WB', district: HF,
 
   facade: {
@@ -1141,12 +1144,12 @@ SPECS.push({
   ],
 });
 
-// ── 17. Change of Use ────────────────────────────────────────────────────────
+// ── 17. Kerbstone House ────────────────────────────────────────────────────────
 // Consented as offices, built as offices, let floor by floor to a dance studio, a paper store, a
 // clinic and two floors of nothing. The application to regularise it has been at the land office
 // for eleven months.
 SPECS.push({
-  slug: 'hf_changeofuse', name: 'Change of Use', type: 'chrome_slab',
+  slug: 'hf_changeofuse', name: 'Kerbstone House', type: 'chrome_slab',
   x: 897, y: 917, entrance: 'north', floors: 6, marker: 'CK', district: HF,
 
   facade: {
@@ -1249,12 +1252,12 @@ SPECS.push({
   },
 });
 
-// ── 18. Blue Chip ────────────────────────────────────────────────────────────
+// ── 18. Clover House ────────────────────────────────────────────────────────────
 // Twelve floors owned by one institution and empty by design. There is a lobby and there is
 // nobody in it, and that is the building — a room authored to be exactly as empty as the fiction
 // says, which is a different thing from a building with no door in it.
 SPECS.push({
-  slug: 'hf_bluechip', name: 'Blue Chip', type: 'chrome_tower',
+  slug: 'hf_bluechip', name: 'Clover House', type: 'chrome_tower',
   x: 901, y: 917, entrance: 'north', floors: 12, marker: 'BB', district: HF,
 
   facade: {
@@ -1282,11 +1285,11 @@ SPECS.push({
   ],
 });
 
-// ── 19. Stamp Duty ───────────────────────────────────────────────────────────
+// ── 19. The East Lens ───────────────────────────────────────────────────────────
 // A glazed disc on six legs, and the whole ground floor is the space under it, which everybody on
 // the row uses to get out of the rain. The floor above is a records office and somebody is in it.
 SPECS.push({
-  slug: 'hf_stampduty', name: 'Stamp Duty', type: 'lens_hall',
+  slug: 'hf_stampduty', name: 'The East Lens', type: 'lens_hall',
   x: 902, y: 917, entrance: 'north', floors: 4, marker: 'DU', district: HF,
 
   facade: {
@@ -1374,7 +1377,7 @@ SPECS.push({
         ],
       },
       date: {
-        text: '"By date." She says it without complaint, which takes effort. "The estate\'s system, from when the estate was one field and four drawings and everything that happened to it happened in order. It worked perfectly for about three years."\n\nShe puts a hand flat on the desk.\n\n"It stopped working when the same plot started having things happen to it four times. Vacant Possession has a file in nine different years. If you do not know which of the nine you want, you are going to be here a while, and I will help, and we will both be here a while."',
+        text: '"By date." She says it without complaint, which takes effort. "The estate\'s system, from when the estate was one field and four drawings and everything that happened to it happened in order. It worked perfectly for about three years."\n\nShe puts a hand flat on the desk.\n\n"It stopped working when the same plot started having things happen to it four times. Plot 9, Cinder Lane has a file in nine different years. If you do not know which of the nine you want, you are going to be here a while, and I will help, and we will both be here a while."',
         options: [
           { label: 'Can it not be re-filed?', next: 'refile' },
           { label: 'Back.', next: 'root' },
@@ -1395,7 +1398,7 @@ SPECS.push({
 
 // ── run ──────────────────────────────────────────────────────────────────────
 // ⚠ THE GATE IS A SHELL CHECK, NOT A COUNT. batch8 asserts there are exactly eleven `shell_tower`
-// plots, because Pardoe says the number out loud in Ground Rent. This file must therefore leave
+// plots, because Pardoe says the number out loud in Halcyon Fields Estate Management. This file must therefore leave
 // all eleven alone, and the cheapest way to be sure of that is to refuse a shell here — which
 // `outside()` already does at read time, and which this re-checks against the FINISHED spec list
 // in case somebody adds one without going through it.

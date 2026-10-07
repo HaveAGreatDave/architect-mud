@@ -7,7 +7,7 @@
     "west": "zone_district_922_906"
   },
   "flags": {
-    "building_name": "Weld Enough Alone",
+    "building_name": "Ferro Fabrication Works",
     "building_type": "fabrication",
     "floor": "boards",
     "is_building": true,
@@ -25,6 +25,6 @@
   "grid_z": 0,
   "id": "zone_dray_fab",
   "map_id": "map_interior_zone_dray_fab",
-  "name": "Weld Enough Alone",
+  "name": "Ferro Fabrication Works",
   "parent_zone": "zone_district_922_906"
 }

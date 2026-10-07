@@ -4,7 +4,7 @@
   "description": "Nine floors, clad to the sixth, and the nearest thing in Halcyon Fields to a finished shell: the glass is on, the plant is in, the crane comes down next month and the hoarding already has a strip pasted across it reading LET. Whether it is let is a question the estate office answers by looking at the plan and not at you.",
   "exits": {},
   "flags": {
-    "building_name": "Best Offer",
+    "building_name": "Plot 6, Kerbstone Row",
     "building_type": "shell_tower",
     "district": "halcyon_fields",
     "entrance": "north",
@@ -18,6 +18,6 @@
   "id": "zone_district_909_917",
   "map_id": "map_world",
   "marker": "BG",
-  "name": "Best Offer",
+  "name": "Plot 6, Kerbstone Row",
   "parent_zone": null
 }

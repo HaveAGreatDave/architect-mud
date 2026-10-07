@@ -3,13 +3,13 @@
   "ambient_theme": "urban",
   "bg_color": "#2a2721",
   "color": "#8ba36a",
-  "description": "A hardware shop with its stock spilling out under the awning: coils of rope, a barrel of rebar offcuts, a pallet of grey buckets. The sign reads NUTS TO THAT: WE HAVE IT, PROBABLY, and someone has amended PROBABLY in a different paint. The doorway smells of cut metal and machine oil from ten feet away.",
+  "description": "A hardware shop with its stock spilling out under the awning: coils of rope, a barrel of rebar offcuts, a pallet of grey buckets. The sign reads MARROW STREET HARDWARE: WE HAVE IT, PROBABLY, and someone has amended PROBABLY in a different paint. The doorway smells of cut metal and machine oil from ten feet away.",
   "exits": {
     "north": "zone_bolt_shop",
     "south": "zone_district_915_909"
   },
   "flags": {
-    "building_name": "Nuts to That",
+    "building_name": "Marrow Street Hardware",
     "building_type": "hardware",
     "district": "marrow",
     "entrance": "south",
@@ -24,6 +24,6 @@
   "id": "zone_district_915_908",
   "map_id": "map_world",
   "marker": "NT",
-  "name": "Nuts to That",
+  "name": "Marrow Street Hardware",
   "parent_zone": null
 }

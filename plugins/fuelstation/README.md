@@ -4,7 +4,7 @@ The forecourt. Two pieces of furniture and no verbs at all.
 
 ## What it is
 
-Flash Point Fuel (923,907, the Yards) is an open forecourt: no walls, a steel canopy on four
+Kessler Fuel Depot (923,907, the Yards) is an open forecourt: no walls, a steel canopy on four
 columns over two pump islands, and a price pylon out by the kerb. You park a rig under the canopy,
 you fill a jerry can at a pump, and you read the board from the road.
 

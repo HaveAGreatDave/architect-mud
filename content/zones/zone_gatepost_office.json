@@ -7,7 +7,7 @@
     "west": "zone_district_913_921"
   },
   "flags": {
-    "building_name": "The Gate Post",
+    "building_name": "South Gate Police Post",
     "building_type": "police",
     "district": "wilds",
     "floor": "concrete",
@@ -26,6 +26,6 @@
   "grid_z": 0,
   "id": "zone_gatepost_office",
   "map_id": "map_int_gatepost",
-  "name": "The Gate Post",
+  "name": "South Gate Police Post",
   "parent_zone": "zone_district_913_921"
 }

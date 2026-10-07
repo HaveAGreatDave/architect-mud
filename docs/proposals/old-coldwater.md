@@ -5,7 +5,7 @@ GLASS arms, the tent mark and the five map icons all ship. What is deliberately 
 under *What this deliberately does not do*.
 
 Coldwater has 119 enterable facades and not one of them is poor. The cheapest bed in the city is
-a room at Board Stiff, the cheapest meal is a plate at Loafing Around, and both of them take
+a room at Board Stiff, the cheapest meal is a plate at Meltwater Row Bakery, and both of them take
 credits at a counter from a person standing upright. The city has a casino, a bathhouse, two
 banks and a vet. It has nowhere for somebody with nothing.
 
@@ -81,7 +81,7 @@ ruins can only account for eight. It is **The Sink** now, a dead-end yard with a
 and the second ruin moved to 925,914 in Rag Row. It has no south exit, so Peg Lane is still the
 only way into the Pitch.
 
-⚠ **Mains Squeeze faces WEST, not north.** `place-building.mjs` prefers a neighbour whose terrain
+⚠ **Quell's Water faces WEST, not north.** `place-building.mjs` prefers a neighbour whose terrain
 is literally `road`, and 918,917 is The Gate Road while Ropewalk is `dirt_road`. That is the
 better frontage anyway and it was left alone: the water seller now faces the traffic walking up
 from the South Gate, which is who buys water.
@@ -90,15 +90,15 @@ from the South Gate, which is who buys water.
 
 | Tile | Name | `building_type` | Door | Keeper |
 |---|---|---|---|---|
-| 919,917 | **Mains Squeeze** | `water_seller` | **west** | Bartram Quell |
+| 919,917 | **Quell's Water** | `water_seller` | **west** | Bartram Quell |
 | 920,917 | *A Collapsed Terrace* | `ruin` | — | — |
 | 922,917 | **Bed Rock** | `flophouse` | north | Wilmot Scarrow |
-| 923,917 | **No Such Thing** | `soup_kitchen` | north | Hestia Dunmore |
-| 924,917 | **A Stitch In Time** | `bonesetter` | north | Merrit Lachance |
+| 923,917 | **Ropewalk Soup Kitchen** | `soup_kitchen` | north | Hestia Dunmore |
+| 924,917 | **Ropewalk Bonesetter** | `bonesetter` | north | Merrit Lachance |
 | 925,917 | **The Sink** — *not a building* | — | — | — |
 | 926,917 | **Still Standing** | `shebeen` | north | Thomasina Tillery |
 
-**Mains Squeeze** sells water, because the Curtain cut the mains along with everything else and
+**Quell's Water** sells water, because the Curtain cut the mains along with everything else and
 the standpipe has been dry since. A riveted tank on a timber trestle over a one-room hut, with a
 queue rail bolted to the front and a chained tin cup nobody has stolen. The silhouette is a tank
 on legs, which the city has nowhere else. He is scrupulously fair about the price and will tell
@@ -109,13 +109,13 @@ with an external stair bolted on and a ridge that has visibly given. Beds by the
 name is what the beds feel like and what the building is standing on, and he did not intend
 either.
 
-**No Such Thing** feeds people for nothing. A long low hall with a chimney at one end and a
+**Ropewalk Soup Kitchen** feeds people for nothing. A long low hall with a chimney at one end and a
 canopy over the queue, and no name anywhere on it, because everybody already knows where it is.
 (It had a painted board until the shanty pass; see below.) She has run it for nineteen years and
 gets extremely short with anyone who calls it charity.
 
-**A Stitch In Time** sets bones and closes wounds and does not ask where you got them. One room,
-a lit window, a bench under a lean-to for the queue. The distinction from Co-Pay & Pray is not
+**Ropewalk Bonesetter** sets bones and closes wounds and does not ask where you got them. One room,
+a lit window, a bench under a lean-to for the queue. The distinction from Marrow Street Clinic is not
 skill, it is paperwork.
 
 **Still Standing** is the shebeen: a plank counter open to the lane under a tarpaulin, with the
@@ -383,10 +383,10 @@ shop sign.
 | Building | What came off | What covers it |
 |---|---|---|
 | A Collapsed Terrace, The Burnt House | already half down | a tarp off the party wall over the open half, falling down the outer wall; a stovepipe through it; a sheet of tin leaned on the front; the back dressed too |
-| Mains Squeeze | the hut's roof rotted under the sweating tank; a flank kicked in | a tarp on the roof tied to the legs; two tin sheets on the flank; a tarp over the queue on two sticks; rust weeping down the tank |
+| Quell's Water | the hut's roof rotted under the sweating tank; a flank kicked in | a tarp on the roof tied to the legs; two tin sheets on the flank; a tarp over the queue on two sticks; rust weeping down the tank |
 | Bed Rock | the top storey's corner, with its share of the roof; the third stair landing | a tarp from the standing wall to the teeth; the chimney breast stands alone in the gap; boarded, dead and lit windows; a tarp for a door |
-| No Such Thing | the back third of the tin roof round the stack; half the queue canopy | a tarp over the kitchen with a hole left round the flue; a tarp on the canopy's east half; a boarded window, a breach and a tarp over a hole in one flank |
-| A Stitch In Time | the roof's back corner | a tarp over the gap, the lean-to re-covered in a tarp, a taped pane |
+| Ropewalk Soup Kitchen | the back third of the tin roof round the stack; half the queue canopy | a tarp over the kitchen with a hole left round the flue; a tarp on the canopy's east half; a boarded window, a breach and a tarp over a hole in one flank |
+| Ropewalk Bonesetter | the roof's back corner | a tarp over the gap, the lean-to re-covered in a tarp, a taped pane |
 | Still Standing | the back room's corner round the still | a tarp over the corner, the front canvas redone as a draped sheet with a torn hem, one side screened with a second sheet |
 
 ⚠ **Mass never depends on the camera or the tier.** The mesh is captured once and shared by every

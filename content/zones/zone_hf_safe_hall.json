@@ -6,7 +6,7 @@
     "east": "zone_district_901_911"
   },
   "flags": {
-    "building_name": "Safe as Houses",
+    "building_name": "Meadowsweet Tower",
     "building_type": "torque_tower",
     "floor": "stone",
     "is_building": true,
@@ -24,6 +24,6 @@
   "grid_z": 0,
   "id": "zone_hf_safe_hall",
   "map_id": "map_int_hf_safe",
-  "name": "Safe as Houses — The Hall",
+  "name": "Meadowsweet Tower — The Hall",
   "parent_zone": "zone_district_901_911"
 }

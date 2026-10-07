@@ -1421,11 +1421,11 @@ Eleven groups covering thirty Coldwater buildings were sharing an arm, eight of 
 sharing a palette too — literal clones. Promoted: **Fired & Forgotten** (`ff_kiln`), **Tine &
 Temper** (`tine`), **Two-Cell Supply** (`twocell`), **Fallow Provisions** (`fallow`), **The Paper
 Tomb** (`papertomb`), **Stitch ’n’ Bitch** (`stitch`), **Camp Giardia** (`campgiardia`), **Watts
-The Damage** (`watts`), **Hulls Angels** (`hulls`), **Slag & Wares** (`slagwares`), **Thumb On The
+The Damage** (`watts`), **Lever Lane Boatyard** (`hulls`), **Slag & Wares** (`slagwares`), **Thumb On The
 Scale** (`thumbscale`), **The Slip** (`slipback`), **Sentimental Value Pawn** (`sentimental`) and
-**Grind House** (`grindhouse`). Their twins — Precinct 9, Grease Expectations, Nuts to That, The
+**Grind House** (`grindhouse`). Their twins — Precinct 9, Grease Expectations, Marrow Street Hardware, The
 Wet Handoff and the Second Amendment Superstore — each keep the generic type model on purpose.
-Three have since left that list: Co-Pay & Pray, the Marrow Street fence (renamed **Cash &
+Three have since left that list: Marrow Street Clinic, the Marrow Street fence (renamed **Cash &
 Carrion**) and **Salvage Rites** are hand-authored models under `content/building_models/`, so the
 twin each was sharing a mesh with no longer has one. Salvage Rites is the one worth reading as a
 worked example of the rule this section states: `type:junkyard` draws four yards across three

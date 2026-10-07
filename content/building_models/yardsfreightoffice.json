@@ -287,9 +287,9 @@
     }
   ],
   "id": "yardsfreightoffice",
-  "note": "YARDS FREIGHT OFFICE: where everything that moves through the Yards checks in.\n\nThe tile's prose: a cramped freight office with a service window, a wall of pigeonholes stuffed with\nmanifests, and a hand-lettered sign: ALL DELIVERIES CHECK IN. The Yardmaster holds court over every\ncrate that moves.\n\nSo it is small: a two-storey brick office on a yard of its own, much less than the plot, with a\ncorrugated lean-to store down one side. The ground floor is the service window with a counter\nunder it and a hood over, the hand-lettered sign above that, and the door. The name is on a plate\nacross the upper floor, once. The Yardmaster's radio mast is on the roof. Pallets wait in the yard\nbehind a row of amber-banded bollards.\n\nThe old model drew a tall brick block with an oversized board, which is the Meltwater Freight\nOffice's arm. That one is the bigger, older office, and this one is cramped.\n\nIt stands in for the `yardsfreightoffice` arm (`replaces`), which stays in LEGACY_MODELS.",
+  "note": "YARDS FREIGHT OFFICE: where everything that moves through the Yards checks in.\n\nThe tile's prose: a cramped freight office with a service window, a wall of pigeonholes stuffed with\nmanifests, and a hand-lettered sign: ALL DELIVERIES CHECK IN. The Yardmaster holds court over every\ncrate that moves.\n\nSo it is small: a two-storey brick office on a yard of its own, much less than the plot, with a\ncorrugated lean-to store down one side. The ground floor is the service window with a counter\nunder it and a hood over, the hand-lettered sign above that, and the door. The name is on a plate\nacross the upper floor, once. The Yardmaster's radio mast is on the roof. Pallets wait in the yard\nbehind a row of amber-banded bollards.\n\nThe old model drew a tall brick block with an oversized board, which is the Meltwater Freight\nOffice's arm. That one is the bigger, older office, and this one is cramped.\n\nIt stands in for the `oldoffice` arm (`replaces`), which stays in LEGACY_MODELS.",
   "pal": "ty_kitchen",
-  "replaces": "yardsfreightoffice",
+  "replaces": "oldoffice",
   "segs": [
     {
       "cx": 0,

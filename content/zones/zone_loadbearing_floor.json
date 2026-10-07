@@ -7,7 +7,7 @@
     "north": "zone_district_896_907"
   },
   "flags": {
-    "building_name": "Load Bearing",
+    "building_name": "Filament Street Launderette",
     "building_type": "laundromat",
     "floor": "tile",
     "is_building": true,
@@ -19,6 +19,6 @@
   "grid_z": 0,
   "id": "zone_loadbearing_floor",
   "map_id": "map_int_loadbearing",
-  "name": "Load Bearing",
+  "name": "Filament Street Launderette",
   "parent_zone": "zone_district_896_907"
 }

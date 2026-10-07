@@ -9,7 +9,7 @@
     "north": "zone_district_910_914"
   },
   "flags": {
-    "building_name": "Statue Quo",
+    "building_name": "Park View Flats",
     "building_type": "apartment",
     "floor": "stone",
     "is_building": true,
@@ -27,6 +27,6 @@
   "grid_z": 0,
   "id": "zone_statuequo_hall",
   "map_id": "map_int_statuequo",
-  "name": "Statue Quo — Entrance Hall",
+  "name": "Park View Flats — Entrance Hall",
   "parent_zone": "zone_district_910_914"
 }

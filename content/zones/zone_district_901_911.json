@@ -9,7 +9,7 @@
     "west": "zone_hf_safe_hall"
   },
   "flags": {
-    "building_name": "Safe as Houses",
+    "building_name": "Meadowsweet Tower",
     "building_type": "torque_tower",
     "district": "halcyon_fields",
     "entrance": "east",
@@ -25,6 +25,6 @@
   "id": "zone_district_901_911",
   "map_id": "map_world",
   "marker": "HB",
-  "name": "Safe as Houses",
+  "name": "Meadowsweet Tower",
   "parent_zone": null
 }

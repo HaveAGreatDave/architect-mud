@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "description": "The shoreline drops off fast. A step out and the water is cold around your legs, and the channel ahead is deep and dark.",
+  "description": "A flophouse in two storeys of boards, beds by the night in rooms partitioned with sheets. A man at a table inside the door takes the money and hands back a numbered tag. The stairs are worn to a dip in the middle.",
   "exits": {
     "north": "zone_district_922_916",
     "south": "zone_bld_922_917_lobby"

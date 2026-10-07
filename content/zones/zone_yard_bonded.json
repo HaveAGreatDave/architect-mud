@@ -9,7 +9,7 @@
     "south": "zone_district_922_907"
   },
   "flags": {
-    "building_name": "Bonded & Bothered",
+    "building_name": "Bonded Store 7",
     "building_type": "truck_depot",
     "claimable_asset": "warehouse",
     "floor": "concrete",
@@ -32,6 +32,6 @@
   "grid_z": 0,
   "id": "zone_yard_bonded",
   "map_id": "map_int_yard_bonded",
-  "name": "Bonded & Bothered",
+  "name": "Bonded Store 7",
   "parent_zone": "zone_district_922_907"
 }

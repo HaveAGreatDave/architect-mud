@@ -12,11 +12,11 @@ const DRY = process.argv.includes('--dry-run');
 const store = loadContentStore();
 const SPECS = [];
 
-// ── Vested Interest ──────────────────────────────────────────────────────────
+// ── 4 Halcyon Boulevard ──────────────────────────────────────────────────────────
 // A members' club whose membership closed at some point nobody can name, so the porter
 // is the last person alive who knows who is entitled to walk in.
 SPECS.push({
-  slug: 'vested', name: 'Vested Interest', type: 'members_club',
+  slug: 'vested', name: '4 Halcyon Boulevard', type: 'members_club',
   x: 894, y: 911, entrance: 'north', floors: 4, marker: 'VI', district: 'halcyon_fields',
   facade: {
     bgColor: '#1b1a1e', color: '#c8c0ae',
@@ -58,7 +58,7 @@ SPECS.push({
   ],
   npc: {
     id: 'npc_vested_fewtrell', name: 'Ambrose Fewtrell', sex: 'male', hp: 36,
-    homeRoom: 'smoking', workRoom: 'hall', shopName: 'Vested Interest',
+    homeRoom: 'smoking', workRoom: 'hall', shopName: '4 Halcyon Boulevard',
     description: 'A heavy, slow-moving man in a black coat with a velvet collar, standing behind the desk rather than sitting at it. He is perhaps sixty-five and has the stillness of somebody who has spent forty years not being surprised by anybody coming through a door. He knows your name or he does not, and either way his face says nothing about which.',
     clothing: ['a black porter\'s coat with a velvet collar, brushed daily', 'a stiff collar and a plain dark tie', 'black trousers with a crease kept by a press he owns', 'vest and plain underthings'],
     inventory: [
@@ -125,15 +125,15 @@ SPECS.push({
   },
 });
 
-// ── Going Concern ────────────────────────────────────────────────────────────
+// ── Halcyon Salerooms ────────────────────────────────────────────────────────────
 // An auction house whose lots are mostly the effects of people who Ascended and had no
 // further use for a dinner service. The catalogue is beautifully written. Nobody bids.
 SPECS.push({
-  slug: 'going', name: 'Going Concern', type: 'auction_house',
+  slug: 'going', name: 'Halcyon Salerooms', type: 'auction_house',
   x: 895, y: 911, entrance: 'north', floors: 4, marker: 'GG', district: 'halcyon_fields',
   facade: {
     bgColor: '#201c1a', color: '#cfc2a4',
-    description: 'A wide brick front with a run of clerestory glazing high up under the eaves, because a saleroom is lit from above or it is not lit at all. At street level there is one ordinary door for people and, beside it, a goods door wide enough and high enough to take a piano upright, with a rail let into the stone at ankle height where trolleys have been running into it for years. GOING CONCERN is painted straight onto the brick in a serif two feet tall, and under it, in half the size: VALUATIONS · CLEARANCES · WEDNESDAYS.',
+    description: 'A wide brick front with a run of clerestory glazing high up under the eaves, because a saleroom is lit from above or it is not lit at all. At street level there is one ordinary door for people and, beside it, a goods door wide enough and high enough to take a piano upright, with a rail let into the stone at ankle height where trolleys have been running into it for years. HALCYON SALEROOMS is painted straight onto the brick in a serif two feet tall, and under it, in half the size: VALUATIONS · CLEARANCES · WEDNESDAYS.',
   },
   rooms: [
     { key: 'saleroom', name: 'The Saleroom', floor: 'boards',
@@ -169,7 +169,7 @@ SPECS.push({
   ],
   npc: {
     id: 'npc_going_crake', name: 'Dorothea Crake', sex: 'female', hp: 33,
-    homeRoom: 'strong', workRoom: 'saleroom', shopName: 'Going Concern',
+    homeRoom: 'strong', workRoom: 'saleroom', shopName: 'Halcyon Salerooms',
     description: 'A small, quick woman in a working apron over good clothes, moving down the trestles with a pencil behind her ear and a catalogue folded back on itself in one hand. She handles everything she passes, briefly, the way somebody does when touching a thing is how they think about it.',
     clothing: ['a canvas work apron with a pencil pocket, worn over everything else', 'a good tweed skirt and jacket that have been very good indeed', 'flat shoes she can stand in for six hours', 'a slip and plain underthings'],
     inventory: [
@@ -229,11 +229,11 @@ SPECS.push({
   },
 });
 
-// ── Course Correction ────────────────────────────────────────────────────────
+// ── The Halcyon Institute ────────────────────────────────────────────────────────
 // A Halcyon-endowed institute lecturing on continuity of self, to twelve people, run by
 // a registrar who has attended every lecture for nineteen years and believes none of it.
 SPECS.push({
-  slug: 'course', name: 'Course Correction', type: 'institute',
+  slug: 'course', name: 'The Halcyon Institute', type: 'institute',
   x: 896, y: 911, entrance: 'north', floors: 4, marker: 'CX', district: 'halcyon_fields',
   facade: {
     bgColor: '#1c1d21', color: '#d2cdb8',
@@ -339,11 +339,11 @@ SPECS.push({
   },
 });
 
-// ── Plot Twist ───────────────────────────────────────────────────────────────
+// ── Halcyon Fields Sales Office ───────────────────────────────────────────────────────────────
 // A land office selling plots in a quarter that is mostly still grass, from behind a
 // hoarding showing a finished one. One room, because that is the whole enterprise.
 SPECS.push({
-  slug: 'plot', name: 'Plot Twist', type: 'land_office',
+  slug: 'plot', name: 'Halcyon Fields Sales Office', type: 'land_office',
   x: 897, y: 911, entrance: 'north', floors: 2, marker: 'PT', district: 'halcyon_fields',
   facade: {
     bgColor: '#1a1e1c', color: '#cfd6c4',
@@ -378,7 +378,7 @@ SPECS.push({
   ],
   npc: {
     id: 'npc_plot_follet', name: 'Merrick Follet', sex: 'male', hp: 30,
-    homeRoom: 'office', workRoom: 'office', shopName: 'Plot Twist',
+    homeRoom: 'office', workRoom: 'office', shopName: 'Halcyon Fields Sales Office',
     description: 'A neat, hopeful man in his forties in a suit that is pressed every single day, standing up the moment the door moves. He has the plan, the model, the prospectus and the pens, and he believes in all of it without any visible effort, which is either the most impressive or the most alarming thing about him.',
     clothing: ['a pressed grey suit, the jacket kept on indoors whatever the weather', 'a clean white shirt and a development-coloured tie', 'good shoes he polishes at the desk when it is quiet', 'vest and plain underthings'],
     inventory: [
@@ -445,15 +445,15 @@ SPECS.push({
   },
 });
 
-// ── Second Wind ──────────────────────────────────────────────────────────────
+// ── The Halcyon Hydro ──────────────────────────────────────────────────────────────
 // A convalescent hydro for people recovering from chrome. Rest, light and a glass of
 // mineral water, which works about as well as anything else and costs a great deal less.
 SPECS.push({
-  slug: 'wind', name: 'Second Wind', type: 'hydro',
+  slug: 'wind', name: 'The Halcyon Hydro', type: 'hydro',
   x: 898, y: 913, entrance: 'east', floors: 4, marker: 'WN', district: 'halcyon_fields',
   facade: {
     bgColor: '#1a1d1f', color: '#cddbd8',
-    description: 'A pale rendered block stepped back at every floor, so that each storey gives the one below it a balcony running the full width, and every balcony faces south across the meadow. The rails are painted white and repainted often. There are more chairs on them than there are people in them. At street level a modest door under a glass canopy, and a plate beside it reading SECOND WIND · CONVALESCENT ROOMS · NO APPOINTMENT NEEDED.',
+    description: 'A pale rendered block stepped back at every floor, so that each storey gives the one below it a balcony running the full width, and every balcony faces south across the meadow. The rails are painted white and repainted often. There are more chairs on them than there are people in them. At street level a modest door under a glass canopy, and a plate beside it reading THE HALCYON HYDRO · CONVALESCENT ROOMS · NO APPOINTMENT NEEDED.',
   },
   rooms: [
     { key: 'day', name: 'The Day Room', floor: 'linoleum',
@@ -485,13 +485,13 @@ SPECS.push({
     { id: 'item_wind_water', name: 'a glass of the water', type: 'drink', value: 4, weight: 220, description: null, flags: {},
       tags: { stackable: false, description: 'Drawn from the tank downstairs, cold, faintly mineral, faintly metallic. The analysis card says what is in it to three decimal places. What it does for a healing body is probably nothing, and drinking it is a reason to sit still for five minutes, which is not nothing.' } },
     { id: 'item_wind_blanket', name: 'a convalescent blanket', type: 'misc', value: 55, weight: 900, description: null, flags: {},
-      tags: { stackable: false, description: 'Grey wool, heavier than it looks, with SECOND WIND stitched into one corner in white. People take them and people bring them back, and the count has stayed about right for years.' } },
+      tags: { stackable: false, description: 'Grey wool, heavier than it looks, with THE HALCYON HYDRO stitched into one corner in white. People take them and people bring them back, and the count has stayed about right for years.' } },
     { id: 'item_wind_week', name: 'a week of rooms', type: 'misc', value: 180, weight: 2, description: null, flags: {},
       tags: { stackable: true, description: 'A card entitling the bearer to a bed, the day room, the balcony and the water for seven days. It is cheap because the treatment is cheap: the building faces south and somebody keeps an eye on you.' } },
   ],
   npc: {
     id: 'npc_wind_marchbank', name: 'Ottilie Marchbank', sex: 'female', hp: 37,
-    homeRoom: 'balcony', workRoom: 'day', shopName: 'Second Wind',
+    homeRoom: 'balcony', workRoom: 'day', shopName: 'The Halcyon Hydro',
     description: 'A broad, unhurried woman in a starched apron over a grey dress, moving between the chairs with a jug in one hand. She looks at everybody who comes in the way a person looks at a thing they are about to be responsible for, and having looked, she stops looking, which is a kindness most people here have not had recently.',
     clothing: ['a starched white apron over everything, changed twice a day', 'a plain grey nursing dress with the sleeves rolled to the elbow', 'soft-soled shoes for a floor she crosses four hundred times a day', 'a slip and plain underthings'],
     inventory: [
@@ -551,11 +551,11 @@ SPECS.push({
   },
 });
 
-// ── Glass Half Full ──────────────────────────────────────────────────────────
+// ── The Winter Garden ──────────────────────────────────────────────────────────
 // A winter garden under a glazed barrel vault, heated by waste heat piped from the works
 // across the road. The gardener thinks that is the best arrangement anybody here has made.
 SPECS.push({
-  slug: 'glass', name: 'Glass Half Full', type: 'winter_garden',
+  slug: 'glass', name: 'The Winter Garden', type: 'winter_garden',
   x: 896, y: 915, entrance: 'south', floors: 2, marker: 'GF', district: 'halcyon_fields',
   facade: {
     bgColor: '#141d18', color: '#b8d9c0',
@@ -593,7 +593,7 @@ SPECS.push({
   ],
   npc: {
     id: 'npc_glass_lound', name: 'Cressida Lound', sex: 'female', hp: 34,
-    homeRoom: 'house', workRoom: 'house', shopName: 'Glass Half Full',
+    homeRoom: 'house', workRoom: 'house', shopName: 'The Winter Garden',
     description: 'A weathered woman in her fifties in shirtsleeves whatever the season, because the season stops at the door. Her forearms are scratched, her hands are ingrained past washing, and she is usually holding something she has just decided about. She talks to you over her shoulder while she finishes what she is doing, and then gives you her whole attention at once.',
     clothing: ['a man\'s shirt with the sleeves rolled past the elbow, wet at the cuffs', 'a canvas apron with a pocket of stick labels and a pencil', 'heavy trousers and boots that have never once been clean', 'a vest and plain underthings'],
     inventory: [

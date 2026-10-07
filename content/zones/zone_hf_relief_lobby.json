@@ -7,7 +7,7 @@
     "up": "zone_hf_relief_canteen"
   },
   "flags": {
-    "building_name": "Light Relief",
+    "building_name": "Fescue House",
     "building_type": "chrome_tower",
     "floor": "concrete",
     "is_building": true,
@@ -19,6 +19,6 @@
   "grid_z": 0,
   "id": "zone_hf_relief_lobby",
   "map_id": "map_int_hf_relief",
-  "name": "Light Relief — The Boot Room",
+  "name": "Fescue House — The Boot Room",
   "parent_zone": "zone_district_892_915"
 }

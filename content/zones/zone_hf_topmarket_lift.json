@@ -7,7 +7,7 @@
     "up": "zone_hf_topmarket_crown"
   },
   "flags": {
-    "building_name": "Top of the Market",
+    "building_name": "Tansy Tower",
     "building_type": "torque_tower",
     "floor": "stone",
     "is_building": true,
@@ -25,6 +25,6 @@
   "grid_z": 0,
   "id": "zone_hf_topmarket_lift",
   "map_id": "map_int_hf_topmarket",
-  "name": "Top of the Market — The Restaurant Lobby",
+  "name": "Tansy Tower — The Restaurant Lobby",
   "parent_zone": "zone_district_898_915"
 }

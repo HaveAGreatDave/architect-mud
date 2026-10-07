@@ -7,6 +7,6 @@
   "fuel_type": null,
   "generator_type": "junction_box",
   "id": "gen_zone_util_zone_course_theatre",
-  "name": "Course Correction — The Lecture Theatre Junction Box",
+  "name": "The Halcyon Institute — The Lecture Theatre Junction Box",
   "zone_id": "zone_util_zone_course_theatre"
 }

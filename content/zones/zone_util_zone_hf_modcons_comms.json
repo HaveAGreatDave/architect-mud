@@ -13,6 +13,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_hf_modcons_comms",
   "map_id": "map_int_hf_modcons",
-  "name": "Mod Cons — The Intake",
+  "name": "Cinder Terrace — The Intake",
   "parent_zone": "zone_district_903_914"
 }

@@ -6,7 +6,7 @@
     "north": "zone_district_905_917"
   },
   "flags": {
-    "building_name": "Holding Pattern",
+    "building_name": "Halcyon Fields Gasholder",
     "building_type": "gasholder",
     "floor": "stone",
     "is_building": true,
@@ -24,6 +24,6 @@
   "grid_z": 0,
   "id": "zone_holder_gauge",
   "map_id": "map_int_holder",
-  "name": "Holding Pattern — The Gauge House",
+  "name": "Halcyon Fields Gasholder — The Gauge House",
   "parent_zone": "zone_district_905_917"
 }

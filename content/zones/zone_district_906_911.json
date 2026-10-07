@@ -9,7 +9,7 @@
     "west": "zone_ward_permits"
   },
   "flags": {
-    "building_name": "Office of Permitted Suffering",
+    "building_name": "Ward Nine Permits Office",
     "building_type": "office",
     "district": "commercial",
     "entrance": "east",
@@ -24,6 +24,6 @@
   "id": "zone_district_906_911",
   "map_id": "map_world",
   "marker": "W9",
-  "name": "Office of Permitted Suffering",
+  "name": "Ward Nine Permits Office",
   "parent_zone": null
 }

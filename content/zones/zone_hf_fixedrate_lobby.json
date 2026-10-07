@@ -6,7 +6,7 @@
     "east": "zone_district_901_912"
   },
   "flags": {
-    "building_name": "Fixed Rate",
+    "building_name": "Cinder Point",
     "building_type": "glass_prism",
     "floor": "stone",
     "is_building": true,
@@ -24,6 +24,6 @@
   "grid_z": 0,
   "id": "zone_hf_fixedrate_lobby",
   "map_id": "map_int_hf_fixedrate",
-  "name": "Fixed Rate — The Six-Sided Lobby",
+  "name": "Cinder Point — The Six-Sided Lobby",
   "parent_zone": "zone_district_901_912"
 }

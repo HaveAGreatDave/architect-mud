@@ -139,7 +139,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Look at the crates.\" She nods at the stack without turning. \"Read the stencils.\"\n\n\"The Spire, the Spire, a floor of the Spire, the Spire. Ninety per cent of what leaves this building goes three streets that way and up.\" She shrugs. \"It was built to feed a tower. That is not a secret, it is in the name of the contract.\"\n\n\"The bit I like is the two at the bottom that say Light Relief. Fifth floor. Thirty people at six in the morning. That crate goes out every day and it is the one I load myself.\""
+      "text": "\"Look at the crates.\" She nods at the stack without turning. \"Read the stencils.\"\n\n\"The Spire, the Spire, a floor of the Spire, the Spire. Ninety per cent of what leaves this building goes three streets that way and up.\" She shrugs. \"It was built to feed a tower. That is not a secret, it is in the name of the contract.\"\n\n\"The bit I like is the two at the bottom that say Fescue House. Fifth floor. Thirty people at six in the morning. That crate goes out every day and it is the one I load myself.\""
     },
     "gossip": {
       "options": [
@@ -271,7 +271,7 @@
       }
     ]
   },
-  "vendor_shop_name": "Salad Days",
+  "vendor_shop_name": "Kettle Lane Farm",
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,

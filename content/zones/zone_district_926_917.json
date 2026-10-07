@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "residential",
-  "description": "Stacked living units marketed as \"affordable modular habitation\": landlord for a concrete drawer you rent by the month, utilities extra, dignity not included. Someone's AC unit drips onto someone else's only window. The whole block breathes through one wheezing vent.",
+  "description": "A shebeen in a shack that has outlived everything built beside it: a plank bar, three stools, and a jar of something clear that Thomasina Tillery won't name. The walls lean one way and the roof leans the other.",
   "exits": {
     "north": "zone_district_926_916",
     "south": "zone_bld_926_917_lobby"

@@ -15,6 +15,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_yard_container",
   "map_id": "map_int_yard_container",
-  "name": "Stack Overflow — Utility Room",
+  "name": "Kessler Container Yard — Utility Room",
   "parent_zone": "zone_district_924_907"
 }

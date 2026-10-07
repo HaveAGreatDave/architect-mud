@@ -2,6 +2,6 @@
   "capacity_kw": 5000,
   "generator_id": "gen_zone_util_zone_sound_foyer",
   "id": "zone_sound_platform",
-  "name": "Sound Investment — The Platform",
+  "name": "Halcyon Concert Hall — The Platform",
   "source_type": "junction_box"
 }

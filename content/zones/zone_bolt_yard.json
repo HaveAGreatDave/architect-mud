@@ -7,7 +7,7 @@
     "west": "zone_bolt_shop"
   },
   "flags": {
-    "building_name": "Nuts to That",
+    "building_name": "Marrow Street Hardware",
     "building_type": "hardware",
     "floor": "concrete",
     "is_building": true,
@@ -19,6 +19,6 @@
   "grid_z": 0,
   "id": "zone_bolt_yard",
   "map_id": "map_int_bolt",
-  "name": "Nuts to That — Back Yard",
+  "name": "Marrow Street Hardware — Back Yard",
   "parent_zone": "zone_district_915_908"
 }

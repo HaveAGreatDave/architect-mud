@@ -5,7 +5,7 @@
     "down": "zone_hf_root_lab"
   },
   "flags": {
-    "building_name": "Root Cause",
+    "building_name": "Cinder Lane Farm",
     "building_type": "vertical_farm",
     "floor": "metal",
     "is_building": true,
@@ -17,6 +17,6 @@
   "grid_z": 0,
   "id": "zone_hf_root_trial",
   "map_id": "map_int_hf_root",
-  "name": "Root Cause — The Trial Tray",
+  "name": "Cinder Lane Farm — The Trial Tray",
   "parent_zone": "zone_district_901_914"
 }

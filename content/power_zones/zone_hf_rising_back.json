@@ -2,6 +2,6 @@
   "capacity_kw": 5000,
   "generator_id": "gen_zone_util_zone_hf_rising_floor",
   "id": "zone_hf_rising_back",
-  "name": "Rising Sums — The Settlement Room",
+  "name": "Betony House — The Settlement Room",
   "source_type": "junction_box"
 }

@@ -6,7 +6,7 @@
     "north": "zone_district_894_917"
   },
   "flags": {
-    "building_name": "Right of Way",
+    "building_name": "Campion Court",
     "building_type": "atrium_court",
     "floor": "stone",
     "is_building": true,
@@ -24,6 +24,6 @@
   "grid_z": 0,
   "id": "zone_hf_rightofway_passage",
   "map_id": "map_int_hf_rightofway",
-  "name": "Right of Way — The Passage",
+  "name": "Campion Court — The Passage",
   "parent_zone": "zone_district_894_917"
 }

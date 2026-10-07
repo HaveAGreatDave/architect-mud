@@ -7,6 +7,6 @@
   "fuel_type": null,
   "generator_type": "junction_box",
   "id": "gen_zone_util_zone_hf_prime_lobby",
-  "name": "Prime Location — The Podium Lobby Junction Box",
+  "name": "Rowan Tower — The Podium Lobby Junction Box",
   "zone_id": "zone_util_zone_hf_prime_lobby"
 }

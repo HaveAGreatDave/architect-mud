@@ -459,7 +459,7 @@ export const TWIN_PASS_ARMS = {
       const [nx, ny] = F(fh * (0.34 - g * 0.10), fh * 0.95);
       draw3DBoxAt(ctx, cam, nx, ny, fh * 0.12, panelTop * 0.34, panelTop * 0.70, 'ty_ff_white', seed + 20, night, alpha, false, (g - 0.5) * 0.14, fh * 0.008); }
   },
-  papertomb(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE PAPER TOMB (Hall of Records, Coldwater Municipal) — the twin of
+  papertomb(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // HALL OF RECORDS (Hall of Records, Coldwater Municipal) — the twin of
     // Precinct 9 on the `police` mesh, one door up the same street, and it is the opposite building:
     // poured concrete with TALL DARK WINDOWS and no beacon, no antenna, no blue light. Nothing about
     // it is on. What it has instead is a chiselled lintel and a brass slot nobody has emptied.
@@ -484,7 +484,7 @@ export const TWIN_PASS_ARMS = {
       draw3DBoxAt(ctx, cam, sx, sy, fh * 0.09, h * 0.30, h * 0.40, 'ty_tomb_brass', seed + 30, night, alpha, false);
       glowPool(ctx, cam, sx, sy, h * 0.36, '212,176,96', 4, alpha * (night ? 0.20 : 0.10)); }
   },
-  stitch(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // STITCH 'N' BITCH — the twin of Co-Pay & Pray on the `clinic` mesh, and the
+  stitch(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // IRONSIDE WALK-IN CLINIC — the twin of Marrow Street Clinic on the `clinic` mesh, and the
     // difference between them is THE QUEUE: this one has a rail outside and ground worn bare along
     // it, because the line starts before dawn. The building is smaller and the demand is larger.
     const wallTop = h * 0.72, parapet = h * 0.82;
@@ -545,9 +545,9 @@ export const TWIN_PASS_ARMS = {
       draw3DBoxAt(ctx, cam, bx, by, fh * 0.03, 0, h * 0.34, 'ty_giardia', seed + 40, night, alpha, false);
       draw3DBoxAt(ctx, cam, bx, by, fh * 0.30, h * 0.34, h * 0.50, 'ty_giardia_tarp', seed + 41, night, alpha, true, 0.12, fh * 0.03); }
   },
-  watts(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // WATTS THE DAMAGE — the twin of Nuts to That on the `hardware` mesh. The
+  watts(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // WATTS THE DAMAGE — the twin of Marrow Street Hardware on the `hardware` mesh. The
     // difference is that Watts works IN THE STREET: the roller door is UP, the bench is pulled half
-    // out of the shop, and the whole frontage is open. Nuts to That is a closed room full of drawers.
+    // out of the shop, and the whole frontage is open. Marrow Street Hardware is a closed room full of drawers.
     const wallTop = h * 0.80, parapet = h * 0.90;
     draw3DBoxAt(ctx, cam, dx, dy, fh * 0.88, 0, wallTop, pal, seed, night, alpha, false);
     draw3DBoxAt(ctx, cam, dx, dy, fh * 0.96, wallTop, parapet, 'ty_watts_roller', seed + 1, night, alpha, true);
@@ -568,7 +568,7 @@ export const TWIN_PASS_ARMS = {
       glowPool(ctx, cam, lx, ly, h * 0.72, '255,232,180', 9, alpha * (night ? 0.62 : 0.20)); }
     if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.74, parapet * 0.96, m.neon || '#ffcf3e', night, alpha, 'WATTS THE DAMAGE');
   },
-  hulls(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // HULLS ANGELS — the twin of The Wet Handoff on the `wharf` mesh, and the joke
+  hulls(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // LEVER LANE BOATYARD — the twin of Kessler Street Wharf on the `wharf` mesh, and the joke
     // is that it is a BOAT SHED A QUARTER-MILE FROM ANY WATER. So it gets the one thing the working
     // wharf hasn't: mast-height doors, shut, on dry ground, with no crane and no water anywhere.
     const doorTop = h * 1.36, ridge = h * 1.52;

@@ -3,13 +3,13 @@
   "ambient_theme": "forest",
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
-  "description": "The face of Stitch 'n' Bitch: a walk-in clinic behind reinforced glass, a green cross guttering above the door. The queue started before dawn. Ironside Street runs off to the west.",
+  "description": "A walk-in clinic behind reinforced glass, a green cross guttering above the door. The queue started before dawn. Ironside Street runs off to the west.",
   "exits": {
     "east": "zone_clinic_interior",
     "west": "zone_district_919_906"
   },
   "flags": {
-    "building_name": "Stitch 'n' Bitch",
+    "building_name": "Ironside Walk-In Clinic",
     "building_type": "clinic",
     "district": "industrial",
     "entrance": "west",
@@ -25,6 +25,6 @@
   "id": "zone_district_920_906",
   "map_id": "map_world",
   "marker": "SN",
-  "name": "Stitch 'n' Bitch",
+  "name": "Ironside Walk-In Clinic",
   "parent_zone": null
 }

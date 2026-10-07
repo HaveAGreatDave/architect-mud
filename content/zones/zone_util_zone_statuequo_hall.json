@@ -15,6 +15,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_statuequo_hall",
   "map_id": "map_int_statuequo",
-  "name": "Statue Quo — Utility Room",
+  "name": "Park View Flats — Utility Room",
   "parent_zone": "zone_district_910_914"
 }

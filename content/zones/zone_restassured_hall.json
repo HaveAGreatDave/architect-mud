@@ -9,7 +9,7 @@
     "west": "zone_restassured_room_b"
   },
   "flags": {
-    "building_name": "Rest Assured",
+    "building_name": "Filament Street Rooming House",
     "building_type": "residential",
     "floor": "tile",
     "is_building": true,
@@ -21,6 +21,6 @@
   "grid_z": 0,
   "id": "zone_restassured_hall",
   "map_id": "map_int_restassured",
-  "name": "Rest Assured — Front Hall",
+  "name": "Filament Street Rooming House — Front Hall",
   "parent_zone": "zone_district_900_905"
 }

@@ -3,13 +3,13 @@
   "ambient_theme": "urban",
   "bg_color": "#101a20",
   "color": "#c2e2d8",
-  "description": "Nine floors stepping down to Cowslip Rise in four terraces, with the planting on the top two established well enough to hang over the edge and the bottom two still gravel. The rear elevation, which faces the backs of Meltwater Row, has exactly the same terraces and exactly the same glass, and that is where the name comes from and it is not a boast. The entrance is in the bottom step facing Cowslip Rise, glazed, with the terrace levels listed beside it on a chrome plate and a second plate under that reading LOWER TERRACE: OPEN. The entrance is in the bottom step facing Cowslip Rise, glazed, with the terrace levels listed beside it on a chrome plate and a second plate under that reading LOWER TERRACE: OPEN. The entrance is in the bottom step facing Cowslip Rise, glazed, with the terrace levels listed beside it on a chrome plate and a second plate under that reading LOWER TERRACE: OPEN. The entrance is in the bottom step facing Cowslip Rise, glazed, with the terrace levels listed beside it on a chrome plate and a second plate under that reading LOWER TERRACE: OPEN. The entrance is in the bottom step facing Cowslip Rise, glazed, with the terrace levels listed beside it on a chrome plate and a second plate under that reading LOWER TERRACE: OPEN. The entrance is in the bottom step facing Cowslip Rise, glazed, with the terrace levels listed beside it on a chrome plate and a second plate under that reading LOWER TERRACE: OPEN.",
+  "description": "Nine floors stepping down to Cowslip Rise in four terraces, with the planting on the top two established well enough to hang over the edge and the bottom two still gravel. The rear elevation, which faces the backs of Meltwater Row, has exactly the same terraces and exactly the same glass, which the brochure calls dual aspect and which is not a boast. The entrance is in the bottom step facing Cowslip Rise, glazed, with the terrace levels listed beside it on a chrome plate and a second plate under that reading LOWER TERRACE: OPEN.",
   "exits": {
     "east": "zone_hf_dualaspect_hall",
     "west": "zone_district_905_914"
   },
   "flags": {
-    "building_name": "Dual Aspect",
+    "building_name": "Cowslip Terrace",
     "building_type": "cascade_block",
     "district": "halcyon_fields",
     "entrance": "west",
@@ -25,6 +25,6 @@
   "id": "zone_district_906_914",
   "map_id": "map_world",
   "marker": "DA",
-  "name": "Dual Aspect",
+  "name": "Cowslip Terrace",
   "parent_zone": null
 }

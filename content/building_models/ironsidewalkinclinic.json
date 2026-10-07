@@ -47,7 +47,7 @@
   "bind": [
     {
       "by": "name",
-      "key": "Stitch 'n' Bitch"
+      "key": "Ironside Walk-In Clinic"
     }
   ],
   "detail": [
@@ -126,7 +126,7 @@
       "hh": 0.032,
       "ink": "#bfffd8",
       "kind": "signBoard",
-      "label": "STITCH 'N' BITCH",
+      "label": "IRONSIDE WALK-IN CLINIC",
       "z": 0.77
     },
     {
@@ -310,9 +310,9 @@
       "z1": 0.086
     }
   ],
-  "id": "stitchnbitch",
+  "id": "ironsidewalkinclinic",
   "neon": "#6affa8",
-  "note": "STITCH 'N' BITCH — the walk-in clinic on Ironside Street, the twin of Co-Pay & Pray.\n\nThe tile's prose: a walk-in clinic behind reinforced glass, a green cross guttering above the\ndoor, and a queue that started before dawn. Co-Pay & Pray keeps the `clinic` arm; this one is\nsmaller and busier, and the difference is the queue. A rail of bollards runs along the kerb.\n\nThe front is three bays: a pale entrance porch in the middle with a hood over the door, and a\nwindow of wired glass either side of it, lit dull green from inside. Pale piers frame the bays\nunder a parapet band that carries the name. The cross stands on the parapet over the door at a\nthird of its brightness, because it is guttering. The trade word goes on a hanzi blade at the\ncorner, a second sign that says `$trade` rather than repeating the name.\n\nThe pale trim is `ty_ff_white` render. `ty_clinic` is in the window-grid family and would paint\na second set of windows on the porch and the parapet band.\n\nIt stands in for the `stitch` arm (`replaces`), which stays in LEGACY_MODELS and comes back\nwith RENDER_TUNE.legacyArms.",
+  "note": "IRONSIDE WALK-IN CLINIC — the walk-in clinic on Ironside Street, the twin of Marrow Street Clinic.\n\nThe tile's prose: a walk-in clinic behind reinforced glass, a green cross guttering above the\ndoor, and a queue that started before dawn. Marrow Street Clinic keeps the `clinic` arm; this one is\nsmaller and busier, and the difference is the queue. A rail of bollards runs along the kerb.\n\nThe front is three bays: a pale entrance porch in the middle with a hood over the door, and a\nwindow of wired glass either side of it, lit dull green from inside. Pale piers frame the bays\nunder a parapet band that carries the name. The cross stands on the parapet over the door at a\nthird of its brightness, because it is guttering. The trade word goes on a hanzi blade at the\ncorner, a second sign that says `$trade` rather than repeating the name.\n\nThe pale trim is `ty_ff_white` render. `ty_clinic` is in the window-grid family and would paint\na second set of windows on the porch and the parapet band.\n\nIt stands in for the `stitch` arm (`replaces`), which stays in LEGACY_MODELS and comes back\nwith RENDER_TUNE.legacyArms.",
   "pal": "ty_stitch",
   "replaces": "stitch",
   "segs": [

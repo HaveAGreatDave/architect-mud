@@ -132,7 +132,7 @@ for (const { key, m } of ws.shapeModelRegistry()) {
 // THAN A WORSE ONE. On the commit before it this gate read 444 stroke and 39 blade over 182 models;
 // the infill and the authored-model batch take the registry to 227, and the same per-model rate
 // over 45 more buildings is what the new numbers are. Four of them carry most of it —
-// theboomeconomy 41, loadofoldrope 36, cranedamage 25, dosedconfused 24 — and all four are the
+// berth3 41, berth1 36, berth2 25, tallowrowchemist 24 — and all four are the
 // category the reason below already covers: a crane jib, a rope hoist and a gantry are authored
 // inside the mass they hang off, because that is where they are bolted.
 //

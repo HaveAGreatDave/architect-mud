@@ -9,7 +9,7 @@
     "north": "zone_district_908_914"
   },
   "flags": {
-    "building_name": "Rod Almighty",
+    "building_name": "Meltwater Row Tackle",
     "building_type": "mercantile",
     "floor": "boards",
     "is_building": true,
@@ -27,6 +27,6 @@
   "grid_z": 0,
   "id": "zone_rodalmighty_shop",
   "map_id": "map_int_rodalmighty",
-  "name": "Rod Almighty — Shop",
+  "name": "Meltwater Row Tackle — Shop",
   "parent_zone": "zone_district_908_914"
 }

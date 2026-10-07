@@ -1,6 +1,6 @@
 {
   "entry_zone_id": "zone_hwm_pump",
   "id": "map_int_hwm",
-  "name": "High Water Mark",
+  "name": "Coldwater Water Tower",
   "parent_zone_id": "zone_district_910_907"
 }

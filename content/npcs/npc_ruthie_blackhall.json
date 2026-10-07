@@ -37,7 +37,7 @@
     "crosses something out, thinks, and writes the same thing back in different words",
     "\"I do not charge. If you insist on paying me, pay me in something I can eat.\""
   ],
-  "description": "A young woman with ink on three fingers who does other people's letters at the kitchen table for whatever they can pay, which is usually nothing and occasionally a chicken. She is better at it than the Office of Permitted Suffering would prefer and knows exactly which form is which.",
+  "description": "A young woman with ink on three fingers who does other people's letters at the kitchen table for whatever they can pay, which is usually nothing and occasionally a chicken. She is better at it than the Ward Nine Permits Office would prefer and knows exactly which form is which.",
   "dialogue_tree": {
     "bye": {
       "options": [],

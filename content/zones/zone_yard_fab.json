@@ -8,7 +8,7 @@
     "north": "zone_district_925_909"
   },
   "flags": {
-    "building_name": "Some Assembly Required",
+    "building_name": "Kessler Fabrication",
     "building_type": "fabrication",
     "floor": "boards",
     "is_building": true,
@@ -26,6 +26,6 @@
   "grid_z": 0,
   "id": "zone_yard_fab",
   "map_id": "map_int_yard_fab",
-  "name": "Some Assembly Required",
+  "name": "Kessler Fabrication",
   "parent_zone": "zone_district_925_909"
 }

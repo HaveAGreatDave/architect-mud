@@ -7,7 +7,7 @@
     "up": "zone_hf_wellappointed_collar"
   },
   "flags": {
-    "building_name": "Well Appointed",
+    "building_name": "Foxglove House",
     "building_type": "bead_tower",
     "floor": "stone",
     "is_building": true,
@@ -25,6 +25,6 @@
   "grid_z": 0,
   "id": "zone_hf_wellappointed_lobby",
   "map_id": "map_int_hf_wellappointed",
-  "name": "Well Appointed — The Lobby",
+  "name": "Foxglove House — The Lobby",
   "parent_zone": "zone_district_896_917"
 }

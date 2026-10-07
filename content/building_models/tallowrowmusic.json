@@ -33,7 +33,7 @@
   "bind": [
     {
       "by": "name",
-      "key": "Treble Maker"
+      "key": "Tallow Row Music"
     }
   ],
   "detail": [
@@ -72,7 +72,7 @@
       "hh": 0.028,
       "ink": "#d6bcff",
       "kind": "signBoard",
-      "label": "TREBLE MAKER",
+      "label": "TALLOW ROW MUSIC",
       "z": 0.305
     },
     {
@@ -248,7 +248,7 @@
       "z": 0.151
     }
   ],
-  "id": "treblemaker",
+  "id": "tallowrowmusic",
   "neon": "#a678ff",
   "note": "Instruments hung on wires against the glass rather than stood in it, so the window reads as a curtain of necks and bells. Three floors: shop, then the two rooms you can hire by the hour, which is why the upper windows are lit at odd times and the card in the window apologises for the noise without offering to stop.\n\nThe rehearsal room is a CANTILEVER, and it is the whole silhouette. A room that has to be quiet is a box built inside a box, so the one on the first floor is hung out over the pavement on the right - which is also what a landlord does when the shop below has already used the ground.\n\nThe SHAFT beside it takes the opposite treatment: three stone piers with slit windows between them, because a rehearsal room does not want glass. The two halves of the frontage disagree with each other on purpose and that is the building.\n\nThe plant on the roof is the tell that anybody with ears would read - two big units and a duct, for rooms with no openable window in them. The roof board sells the rooms; the fascia says the name.",
   "pal": "ty_shop_a",

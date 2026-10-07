@@ -5,7 +5,7 @@
     "down": "zone_hf_topmarket_lift"
   },
   "flags": {
-    "building_name": "Top of the Market",
+    "building_name": "Tansy Tower",
     "building_type": "torque_tower",
     "floor": "boards",
     "is_building": true,
@@ -23,6 +23,6 @@
   "grid_z": 0,
   "id": "zone_hf_topmarket_crown",
   "map_id": "map_int_hf_topmarket",
-  "name": "Top of the Market — The Crown Floor",
+  "name": "Tansy Tower — The Crown Floor",
   "parent_zone": "zone_district_898_915"
 }

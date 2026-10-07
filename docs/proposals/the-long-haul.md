@@ -90,7 +90,7 @@ on an open apron is `WANTED_RAISE 3` grand theft, same as an aircraft on an open
 
 Coldwater's yard sits on a southern rim tile of the district grid (the `dir: 'south'` fork in `VOIDS`).
 There is already a bonded-warehouse zone in the tree with exactly the right prose —
-`content/zones/zone_yard_bonded.json`, "Bonded & Bothered", customs seals and a caged clerk's office —
+`content/zones/zone_yard_bonded.json`, "Bonded Store 7", customs seals and a caged clerk's office —
 which is either the yard office or its neighbour. The Reach end lands beside
 `zone_the_reach_870_1958`, which is Buzzard Field, which is **`lawless: true`** — and that asymmetry
 is the whole customs design (below).

@@ -5,7 +5,7 @@
     "north": "zone_vested_hall"
   },
   "flags": {
-    "building_name": "Vested Interest",
+    "building_name": "4 Halcyon Boulevard",
     "building_type": "members_club",
     "floor": "carpet",
     "is_building": true,
@@ -17,6 +17,6 @@
   "grid_z": 0,
   "id": "zone_vested_smoking",
   "map_id": "map_int_vested",
-  "name": "Vested Interest — The Smoking Room",
+  "name": "4 Halcyon Boulevard — The Smoking Room",
   "parent_zone": "zone_district_894_911"
 }

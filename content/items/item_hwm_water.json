@@ -4,10 +4,15 @@
   "id": "item_hwm_water",
   "name": "a cup from the tap",
   "tags": {
+    "consumable": true,
     "description": "Off the sample tap on the delivery main, which is the water half this city drinks about ten minutes before they drink it. She charges one because a thing that is free gets treated like a thing that is free.",
+    "food_noun": "water",
+    "food_profile": "liquid",
+    "hydrating": true,
+    "restore_thirst": 15,
     "stackable": false
   },
-  "type": "drink",
+  "type": "consumable",
   "value": 1,
   "weight": 280
 }

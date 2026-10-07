@@ -7,7 +7,7 @@
     "up": "zone_hf_ivory_library"
   },
   "flags": {
-    "building_name": "Ivory Tower",
+    "building_name": "Institute Residences",
     "building_type": "chrome_tower",
     "floor": "tile",
     "is_building": true,
@@ -19,6 +19,6 @@
   "grid_z": 0,
   "id": "zone_hf_ivory_lobby",
   "map_id": "map_int_hf_ivory",
-  "name": "Ivory Tower — The Fellows' Lobby",
+  "name": "Institute Residences — The Fellows' Lobby",
   "parent_zone": "zone_district_897_915"
 }

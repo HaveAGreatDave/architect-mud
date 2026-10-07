@@ -60,7 +60,7 @@ export default async ({ check }) => {
   // The forecourt's NAME comes off the tile, not out of this file. A plugin is THOMAS and
   // "Flash Point" is Architect, so a second forecourt has to get its own header for free.
   check('the board header is the building name off the zone, not a constant',
-    typeof board === 'string' && /FLASH POINT FUEL/.test(board));
+    typeof board === 'string' && /KESSLER FUEL DEPOT/.test(board));
 
   // ── ⚠ `fuel.prices` IS A SYNC HOOK, AND THE PYLON YOU SEE FROM THE ROAD DEPENDS ON IT ────────
   // The 3-D price board (drawPriceBoard in the windshield) is fed by `brd` on the map cell, which

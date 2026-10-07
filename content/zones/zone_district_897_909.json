@@ -9,7 +9,7 @@
     "south": "zone_district_897_910"
   },
   "flags": {
-    "building_name": "Curve Appeal",
+    "building_name": "Boulevard Crescent East",
     "building_type": "chrome_slab",
     "district": "halcyon_fields",
     "entrance": "south",
@@ -25,6 +25,6 @@
   "id": "zone_district_897_909",
   "map_id": "map_world",
   "marker": "CU",
-  "name": "Curve Appeal",
+  "name": "Boulevard Crescent East",
   "parent_zone": null
 }

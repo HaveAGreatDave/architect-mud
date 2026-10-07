@@ -6,7 +6,7 @@
     "west": "zone_district_903_914"
   },
   "flags": {
-    "building_name": "Mod Cons",
+    "building_name": "Cinder Terrace",
     "building_type": "cascade_block",
     "floor": "stone",
     "is_building": true,
@@ -24,6 +24,6 @@
   "grid_z": 0,
   "id": "zone_hf_modcons_hall",
   "map_id": "map_int_hf_modcons",
-  "name": "Mod Cons — The Specification Hall",
+  "name": "Cinder Terrace — The Specification Hall",
   "parent_zone": "zone_district_903_914"
 }

@@ -1,0 +1,19 @@
+{
+  "description": null,
+  "flags": {
+    "prefill": {
+      "fluid_amount": 40,
+      "fluid_type": "water"
+    }
+  },
+  "id": "item_jerry_can_water",
+  "name": "jerry can of water",
+  "tags": {
+    "description": "A dented steel jerry can with a bayonet cap, brimful of water and heavy with it. Forty litres: a week of drinking, or one afternoon of washing. The cap is wired shut, so nobody has topped it up with anything else.",
+    "fillable": 40,
+    "unique": true
+  },
+  "type": "misc",
+  "value": 60,
+  "weight": 18000
+}

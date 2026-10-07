@@ -13,6 +13,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_holder_gauge",
   "map_id": "map_int_holder",
-  "name": "Holding Pattern — The Valve Pit",
+  "name": "Halcyon Fields Gasholder — The Valve Pit",
   "parent_zone": "zone_district_905_917"
 }

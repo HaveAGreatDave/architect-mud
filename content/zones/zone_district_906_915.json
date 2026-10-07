@@ -9,7 +9,7 @@
     "south": "zone_district_906_916"
   },
   "flags": {
-    "building_name": "Air Rights",
+    "building_name": "The Arch",
     "building_type": "chrome_arch",
     "district": "halcyon_fields",
     "entrance": "south",
@@ -25,6 +25,6 @@
   "id": "zone_district_906_915",
   "map_id": "map_world",
   "marker": "AH",
-  "name": "Air Rights",
+  "name": "The Arch",
   "parent_zone": null
 }

@@ -121,12 +121,12 @@ SPECS.push({
   },
 });
 
-// ── High Water Mark ──────────────────────────────────────────────────────────
+// ── Coldwater Water Tower ──────────────────────────────────────────────────────────
 // A legged tank at the geometric centre of the built city, holding about a day for half of
 // it, with a pump house at its foot and the best view in Coldwater up a ladder nobody else
 // is allowed to climb.
 SPECS.push({
-  slug: 'hwm', name: 'High Water Mark', type: 'water_tower',
+  slug: 'hwm', name: 'Coldwater Water Tower', type: 'water_tower',
   x: 910, y: 907, entrance: 'south', floors: 6, marker: 'HW', district: 'ashway',
   facade: {
     bgColor: '#161b1d', color: '#9fb4bc',
@@ -163,7 +163,7 @@ SPECS.push({
   ],
   npc: {
     id: 'npc_hwm_kemp', name: 'Orla Kemp', sex: 'female', hp: 39,
-    homeRoom: 'gallery', workRoom: 'pump', shopName: 'High Water Mark',
+    homeRoom: 'gallery', workRoom: 'pump', shopName: 'Coldwater Water Tower',
     description: 'A lean, windburnt woman in a waterproof coat she wears indoors because she is about to go out in it, with a slate under one arm and a tape in her pocket. She climbs the tower every morning before it is properly light and she has done for eleven years, and she talks about the view the way somebody talks about a person they live with.',
     clothing: ['a stiff waterproof coat worn indoors, because she is always about to be up a ladder', 'a wool jersey under it with the cuffs pulled over her hands', 'work trousers and boots with good tread, replaced on a schedule', 'a vest and plain underthings'],
     inventory: [

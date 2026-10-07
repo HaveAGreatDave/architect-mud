@@ -420,7 +420,7 @@ export function lintContentTree(baseDir, { tree: preRead = null } = {}) {
     // every face pointing away from you — the backface cull removes the entire building and the
     // driver is sitting on a bare grey slab with the sky where the roof should be.
     //
-    // Bonded & Bothered shipped as `warehouse` while carrying a depot's flags, a depot's vehicle
+    // Bonded Store 7 shipped as `warehouse` while carrying a depot's flags, a depot's vehicle
     // bay and a depot's three floors — identical to the other four in every respect except the one
     // that decides which model is drawn. It looked like a corner of the world that had come apart,
     // and nothing could see it: the flags were all valid, the building rendered, and the fault only
@@ -668,7 +668,7 @@ export function lintContentTree(baseDir, { tree: preRead = null } = {}) {
   // because 8 collisions existed in shipped content and erroring would have blockaded
   // every push until eight buildings were renamed — a flag day the migration shape
   // (redesign §14) exists to avoid. The backlog is clear: `SH` (Second Helpings /
-  // Shipping & Handling) and `LL` (Lather & Lye / The Last Load) were the last two,
+  // Meltwater Freight Office) and `LL` (Lather & Lye / The Last Load) were the last two,
   // and the freight office took `MF` for the Meltwater Freight Office its own
   // description names while the depot took `TL` under the article-kept convention.
   //

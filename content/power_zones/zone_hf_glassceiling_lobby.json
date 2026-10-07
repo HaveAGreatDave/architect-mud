@@ -2,6 +2,6 @@
   "capacity_kw": 5000,
   "generator_id": "gen_zone_util_zone_hf_glassceiling_lobby",
   "id": "zone_hf_glassceiling_lobby",
-  "name": "Glass Ceiling — The Lobby",
+  "name": "Halcyon Point — The Lobby",
   "source_type": "junction_box"
 }

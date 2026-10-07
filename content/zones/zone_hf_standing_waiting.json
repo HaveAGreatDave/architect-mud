@@ -5,7 +5,7 @@
     "west": "zone_hf_standing_platform"
   },
   "flags": {
-    "building_name": "Standing Room Only",
+    "building_name": "Kerbstone Row Halt",
     "building_type": "transit_halt",
     "floor": "tile",
     "is_building": true,
@@ -17,6 +17,6 @@
   "grid_z": 0,
   "id": "zone_hf_standing_waiting",
   "map_id": "map_int_hf_standing",
-  "name": "Standing Room Only — The Waiting Room",
+  "name": "Kerbstone Row Halt — The Waiting Room",
   "parent_zone": "zone_district_893_917"
 }

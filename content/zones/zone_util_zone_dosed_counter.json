@@ -15,6 +15,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_dosed_counter",
   "map_id": "map_int_dosed",
-  "name": "Dosed & Confused — Utility Room",
+  "name": "Tallow Row Chemist — Utility Room",
   "parent_zone": "zone_district_917_911"
 }

@@ -13,6 +13,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_sound_foyer",
   "map_id": "map_int_sound",
-  "name": "Sound Investment — The Plant Room",
+  "name": "Halcyon Concert Hall — The Plant Room",
   "parent_zone": "zone_district_893_911"
 }

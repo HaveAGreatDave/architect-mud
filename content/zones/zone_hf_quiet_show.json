@@ -5,7 +5,7 @@
     "down": "zone_hf_quiet_desk"
   },
   "flags": {
-    "building_name": "Quiet Enjoyment",
+    "building_name": "Harebell House",
     "building_type": "bead_tower",
     "floor": "boards",
     "is_building": true,
@@ -23,6 +23,6 @@
   "grid_z": 0,
   "id": "zone_hf_quiet_show",
   "map_id": "map_int_hf_quiet",
-  "name": "Quiet Enjoyment — The Show Apartment",
+  "name": "Harebell House — The Show Apartment",
   "parent_zone": "zone_district_892_913"
 }

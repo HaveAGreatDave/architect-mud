@@ -15,6 +15,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_yard_fab",
   "map_id": "map_int_yard_fab",
-  "name": "Some Assembly Required — Utility Room",
+  "name": "Kessler Fabrication — Utility Room",
   "parent_zone": "zone_district_925_909"
 }

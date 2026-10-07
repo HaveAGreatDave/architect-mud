@@ -152,7 +152,7 @@ const V = (p) => (Array.isArray(p) ? p[0] * FH + p[1] * H + p[2] : (p ?? 0));
 const STANDS = new Set(['roofTank', 'tankFrame', 'stack', 'antennaCluster', 'acUnit', 'signGantry']);
 // ⚠ `tag` IS IN HERE AND WAS NOT, WHICH IS HOW A PIECE CAME TO BE HANGING OFF A CRANE. Paint is as
 // bolted to a wall as a vent is, and leaving it out of this set meant the twelve authored ones were
-// checked by nothing at all: `Load of Old Rope` carries a tag spanning the gap BETWEEN two legs of
+// checked by nothing at all: `Berth 1` carries a tag spanning the gap BETWEEN two legs of
 // a gantry, with 97% of it over open air, and `Velk's Pre-Owned` had one 0.0075 of a tile past the
 // corner at the authoring basis (and a fifth of a tile past it at the top of the footprint roll —
 // see wallSpanAt, which is the renderer's own half of that fix).

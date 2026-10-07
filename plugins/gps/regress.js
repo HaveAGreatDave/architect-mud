@@ -383,7 +383,9 @@ export default async function regress({ run, check, getPlayer }) {
   {
     const savedHome = p.home_zone, savedRole = p.role;
     const here = getZone(p.current_zone);
-    const near = getAllZones().find(z => z.id !== here?.id && z.map_id === here?.map_id &&
+    // A home has to be somewhere you can stand. Without `routable` the pick depends on zone load
+    // order, and a re-import once made it a tile of open Basin water, which gps refuses by design.
+    const near = getAllZones().find(z => z.id !== here?.id && z.map_id === here?.map_id && propsOf(z.id).routable &&
       (findPath(p.current_zone, resolveLanding(z.id), { roads: false, maxDistance: 60 }) || []).length >= 2);
     if (near) {
       p.home_zone = near.id;

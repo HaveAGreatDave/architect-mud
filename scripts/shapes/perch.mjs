@@ -143,7 +143,7 @@ for (const [k, c] of Object.entries(cells)) {
       // that matters is whether the part is bolted to anything, so it is asked where it is bolted.
       // ⚠ AT THE MOUNT, NOT A STEP INSIDE IT. Stepping inward looks safer and is not: a stacked
       // building has tiers, and 6 cm through the wall of the tall one lands on the roof of the
-      // short one behind it — Dual Aspect reports mass 1.662 at the mount and 1.264 a hair inside,
+      // short one behind it — Cowslip Terrace reports mass 1.662 at the mount and 1.264 a hair inside,
       // so a sill at 1.510 reads as floating while being bolted to a tower that clears it.
       // ⚠ SEVERAL DEPTHS, AND THE TALLEST WINS. Neither end works alone: exactly AT the mount is
       // a point-in-solid query on the boundary and 1880 points read as outside, while a fixed step
@@ -153,7 +153,7 @@ for (const [k, c] of Object.entries(cells)) {
       // ⚠ AND NOT INSIDE ITS OWN BUILDING. The two checks around this one ask whether something
       // holds the part up; neither asks whether something taller stands where the bird does. A
       // coping ringing a podium runs through the tower on it, and 5,991 points were in a wall: H
-      // followed a peregrine into Subject to Contract's roof. Mass spanning the bird, so a sill
+      // followed a peregrine into Plot 10, Cowslip Rise's roof. Mass spanning the bird, so a sill
       // under an overhanging storey, which is out in the open, passes.
       const inside = ws.groundObstructionAt(wx, wy, c, q.x, q.y, l.z + BIRD_HEADROOM) - l.z;
       if (inside > COVER_EPS) {
@@ -999,7 +999,7 @@ let spotNote = '', diveNote = '';
 // ── 8. AND NO PERCHED BIRD IS INSIDE A BUILDING ──────────────────────────────
 //
 // A ledge is built from one tile's model, and a model reaches past its own tile: The Meridian's
-// lobby stood over the setback its falcon took, and Dual Aspect over Fire Station 4's roof edge. So
+// lobby stood over the setback its falcon took, and Cowslip Terrace over Fire Station 4's roof edge. So
 // every perching flock in the city is sat on its ledges, landing after landing, and its first bird is
 // asked against the mass of every tile round it. Delete the own-model test in `kitLedges` and the
 // Meridian's peregrine is back inside the lobby; delete the neighbour pass in `clearedFor` and a

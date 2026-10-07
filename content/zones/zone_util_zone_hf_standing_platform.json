@@ -13,6 +13,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_hf_standing_platform",
   "map_id": "map_int_hf_standing",
-  "name": "Standing Room Only — The Undercroft Kiosk",
+  "name": "Kerbstone Row Halt — The Undercroft Kiosk",
   "parent_zone": "zone_district_893_917"
 }

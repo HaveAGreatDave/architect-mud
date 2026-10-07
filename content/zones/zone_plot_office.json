@@ -6,7 +6,7 @@
     "north": "zone_district_897_911"
   },
   "flags": {
-    "building_name": "Plot Twist",
+    "building_name": "Halcyon Fields Sales Office",
     "building_type": "land_office",
     "floor": "linoleum",
     "is_building": true,
@@ -24,6 +24,6 @@
   "grid_z": 0,
   "id": "zone_plot_office",
   "map_id": "map_int_plot",
-  "name": "Plot Twist — The Office",
+  "name": "Halcyon Fields Sales Office — The Office",
   "parent_zone": "zone_district_897_911"
 }

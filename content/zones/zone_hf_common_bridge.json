@@ -5,7 +5,7 @@
     "down": "zone_hf_common_lobby"
   },
   "flags": {
-    "building_name": "Common Ground",
+    "building_name": "Bridge House",
     "building_type": "sky_court",
     "floor": "tile",
     "is_building": true,
@@ -17,6 +17,6 @@
   "grid_z": 0,
   "id": "zone_hf_common_bridge",
   "map_id": "map_int_hf_common",
-  "name": "Common Ground — The Link",
+  "name": "Bridge House — The Link",
   "parent_zone": "zone_district_892_911"
 }

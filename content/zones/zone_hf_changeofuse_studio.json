@@ -5,7 +5,7 @@
     "down": "zone_hf_changeofuse_lobby"
   },
   "flags": {
-    "building_name": "Change of Use",
+    "building_name": "Kerbstone House",
     "building_type": "chrome_slab",
     "floor": "boards",
     "is_building": true,
@@ -23,6 +23,6 @@
   "grid_z": 0,
   "id": "zone_hf_changeofuse_studio",
   "map_id": "map_int_hf_changeofuse",
-  "name": "Change of Use — The Dance Studio",
+  "name": "Kerbstone House — The Dance Studio",
   "parent_zone": "zone_district_897_917"
 }

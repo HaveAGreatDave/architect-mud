@@ -13,6 +13,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_hf_partywall_hall",
   "map_id": "map_int_hf_partywall",
-  "name": "Party Wall — The Cupboard Under",
+  "name": "Row End Terrace — The Cupboard Under",
   "parent_zone": "zone_district_892_917"
 }

@@ -4,7 +4,7 @@
   "description": "Fifteen floors, clad to the eleventh, and the crane came down in the spring, which normally means a building is nearly finished and here means the hire ran out. A large chrome board on the hoarding still gives the completion date. It is designed to take a slot-in numeral for the year and the numeral has been changed twice, which you can tell because the board behind the current one is a slightly different shade of chrome in two rectangles.",
   "exits": {},
   "flags": {
-    "building_name": "Completion Date",
+    "building_name": "Plot 11, Cowslip Rise",
     "building_type": "shell_tower",
     "district": "halcyon_fields",
     "entrance": "east",
@@ -18,6 +18,6 @@
   "id": "zone_district_904_914",
   "map_id": "map_world",
   "marker": "CJ",
-  "name": "Completion Date",
+  "name": "Plot 11, Cowslip Rise",
   "parent_zone": null
 }

@@ -7,7 +7,7 @@
     "west": "zone_district_900_915"
   },
   "flags": {
-    "building_name": "Sitting Tenant",
+    "building_name": "Kettle Lane Crescent",
     "building_type": "chrome_slab",
     "floor": "boards",
     "is_building": true,
@@ -25,6 +25,6 @@
   "grid_z": 0,
   "id": "zone_hf_sitting_bar",
   "map_id": "map_int_hf_sitting",
-  "name": "Sitting Tenant — The Bar",
+  "name": "Kettle Lane Crescent — The Bar",
   "parent_zone": "zone_district_900_915"
 }

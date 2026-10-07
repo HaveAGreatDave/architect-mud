@@ -306,7 +306,7 @@ export const LIGHT_TUNE = {
   // does. Measured at the shopfront it was reported from, with the clock settled and then frozen so
   // the two sides differ by nothing else (noise floor 0, bit-identical on a repeat): the wash moves
   // 37.8% of the building half of the frame, mean 34/255, worst 101. That is a facade lit past its
-  // own signage — the lettering on Nuts to That is unreadable with it on and readable with it off.
+  // own signage — the lettering on Marrow Street Hardware is unreadable with it on and readable with it off.
   //
   // ⚠ 0 HERE AND NOT `RENDER_TUNE.glLights` 0, WHICH IS A DIFFERENT AND BIGGER SWITCH. That flag
   // skips `pickLights` altogether, and the list it builds is also what the wet road and the mirror

@@ -13,6 +13,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_mains_engine",
   "map_id": "map_int_mains",
-  "name": "Mains Attraction — The Culvert",
+  "name": "Halcyon Fields Pumping Station — The Culvert",
   "parent_zone": "zone_district_900_913"
 }

@@ -36,7 +36,7 @@ courtyard, a lens, an arch and a building that is visibly unfinished.
 
 | Street | Tiles | What it does |
 |---|---|---|
-| **Vetch Mews** | x893, y912–915 | North off Kerbstone Row into the big block, dead-ending at the back of Sound Investment. |
+| **Vetch Mews** | x893, y912–915 | North off Kerbstone Row into the big block, dead-ending at the back of Halcyon Concert Hall. |
 | **Sorrel Way** | y914, x894–898 | The through street: mews to Kettle Lane. The first road in the quarter with buildings on both sides. |
 | **Cowslip Rise** | x905, y911–915 | North off Kerbstone Row into the east block, dead-ending at the back of The Dead Pigeon. |
 | **Windrow Lane** | y918, x892–910 | The perimeter service road inside the Curtain, behind the Kerbstone Row frontage. |
@@ -45,7 +45,7 @@ courtyard, a lens, an arch and a building that is visibly unfinished.
 ⚠ **ONLY TWO TILES ON KERBSTONE ROW CAN CARRY A ROAD NORTH INTO THE BIG BLOCK**, and that decided
 the whole plan. The block's north edge (y911) is a solid frontage onto the boulevard, its west edge
 is the Curtain, and five of the seven Kerbstone Row tiles facing it are already built on — Light
-Relief, Leaf It Out, Glass Half Full, Ivory Tower, and Second Wind one row in. x893 and x898 are
+Relief, The Palm House, The Winter Garden, Institute Residences, and The Halcyon Hydro one row in. x893 and x898 are
 what is left. The mews goes up x893 and x898 stays a plot, because a second parallel mews four
 tiles away serves nothing a through street does not.
 
@@ -84,18 +84,18 @@ itself, and that is the thing worth building while it is still true.
 
 | Tile | Name | Type | Programme |
 |---|---|---|---|
-| 894,913 | **Artist's Impression** | `atrium_court` | The marketing suite, and the model of the quarter under a dust case |
-| 895,913 | **Fixed Assets** | `lens_hall` | Art held on deposit, hung because hanging is cheaper than crating |
-| 892,913 | **Quiet Enjoyment** | `bead_tower` | Serviced apartments; eleven let, four lived in |
-| 906,915 | **Air Rights** | `chrome_arch` | The landmark, and a free public room in the top of it |
-| 901,911 | **Safe as Houses** | `torque_tower` | A deposit house: no lending, no interest, no insurance |
-| 897,913 | **Fit for Purpose** | `cascade_block` | The health club, with the pool on the top terrace |
-| 903,911 | **Overlooked** | `glass_prism` | A viewing spire with a turnstile nobody has ever collected from |
-| 901,915 | **Ground Rent** | `atrium_court` | The estate office, and the amber tacks on its plan |
-| 900,915 | **Sitting Tenant** | `chrome_slab` | The bar, trading on one highlighted clause of somebody's lease |
-| 896,913 | **Grounds for Concern** | `atrium_court` | The café on the green |
-| 904,917 | **Snagging List** | `cascade_block` | The site office, and the quarter's builders' merchant |
-| 898,915 | **Top of the Market** | `torque_tower` | Fourteen tables at the top of a tower that has turned a quarter round |
+| 894,913 | **Teasel Court** | `atrium_court` | The marketing suite, and the model of the quarter under a dust case |
+| 895,913 | **The West Lens** | `lens_hall` | Art held on deposit, hung because hanging is cheaper than crating |
+| 892,913 | **Harebell House** | `bead_tower` | Serviced apartments; eleven let, four lived in |
+| 906,915 | **The Arch** | `chrome_arch` | The landmark, and a free public room in the top of it |
+| 901,911 | **Meadowsweet Tower** | `torque_tower` | A deposit house: no lending, no interest, no insurance |
+| 897,913 | **Sorrel Terrace** | `cascade_block` | The health club, with the pool on the top terrace |
+| 903,911 | **Meadow Point** | `glass_prism` | A viewing spire with a turnstile nobody has ever collected from |
+| 901,915 | **Halcyon Fields Estate Management** | `atrium_court` | The estate office, and the amber tacks on its plan |
+| 900,915 | **Kettle Lane Crescent** | `chrome_slab` | The bar, trading on one highlighted clause of somebody's lease |
+| 896,913 | **Sorrel Way Café** | `atrium_court` | The café on the green |
+| 904,917 | **Halcyon Fields Site Office** | `cascade_block` | The site office, and the quarter's builders' merchant |
+| 898,915 | **Tansy Tower** | `torque_tower` | Fourteen tables at the top of a tower that has turned a quarter round |
 
 Four carry a keeper: Odile Marchetti (the sales suite), Berenike Ostrow (the concierge), Ellery
 Pardoe (the estate office) and Nadia Ferreira (the café).
@@ -104,7 +104,7 @@ Pardoe (the estate office) and Nadia Ferreira (the café).
 
 ⚠ **WHY ELEVEN BUILDINGS WITH NO WAY IN, IN A CITY WHERE 196 OF 196 FACADES ARE ENTERABLE.**
 Because they are building sites. Every one of them is a `shell_tower` with the crane still up, and
-a site office you can walk into already exists a street away (Snagging List). The district blurb
+a site office you can walk into already exists a street away (Halcyon Fields Site Office). The district blurb
 has said what they are since batch0 — *"half-built frontage"*, *"behind the hoardings a generator
 runs, and nothing it powers is finished"*.
 
@@ -125,7 +125,7 @@ overwrites the tile, adds the `facade` tag and the interior map, and re-strips t
 otherwise strip the tag straight back off and re-seal every neighbour, orphaning an interior map
 and the NPC standing in it — silently, since a building with no door is a legal world.
 
-⚠ **THE ELEVEN SHELLS ARE THE ELEVEN AMBER TACKS** on Pardoe's plan in Ground Rent. He says the
+⚠ **THE ELEVEN SHELLS ARE THE ELEVEN AMBER TACKS** on Pardoe's plan in Halcyon Fields Estate Management. He says the
 number out loud, so a twelfth `shell_tower` makes his line wrong; `batch8.mjs` asserts the count.
 It is also why batch9 refuses a shell outright rather than counting: the cheapest way to leave all
 eleven alone is to make converting one an error.
@@ -139,25 +139,25 @@ Eight carry a keeper.
 
 | Tile | Name | What is inside | Keeper |
 |---|---|---|---|
-| 892,914 | **Long Lease** | Entrance hall and a post room with 120 boxes, four of them in use | Corvin Brask, porter |
-| 894,912 | **Terms Agreed** | Hall, and the terrace whose balustrade film never came off | — |
-| 895,915 | **Deposit Taken** | A storage counter and four racked bays in a drum sold as offices | Ottilia Fenwick |
-| 900,911 | **Above Board** | Lobby and the mezzanine the planning consent requires to be public | — |
-| 900,914 | **Chain Free** | ⚠ **The apartment building** — letting office, landing, four flats | Marius Lindqvist |
-| 901,912 | **Fixed Rate** | One hexagonal lobby in which no corner is a right angle | — |
-| 903,912 | **Prime Location** | Podium lobby and the tenth-floor sky lobby from the brochure | — |
-| 903,914 | **Mod Cons** | The specification hall, and the comms room line eleven means | Ghalia Toussaint |
-| 903,915 | **Aspect Ratio** | The widest floor in the tower and the narrowest landing | — |
-| 904,911 | **Glass Ceiling** | Lobby, and the forty-foot apex volume that has never been let | — |
-| 904,913 | **Peppercorn** | Front desk and a wall of 41 camera feeds, 11 of them dark | Hektor Vallance |
-| 906,914 | **Dual Aspect** | A through-hall with a street at each end, and the gravel terrace | — |
-| 907,915 | **New to Market** | Podium lobby and a show home dressed rather than furnished | — |
-| 892,917 | **Party Wall** | Entrance hall and the corridor along the blind flank | — |
-| 894,917 | **Right of Way** | The public passage, a kiosk in it, and the room behind | Imelda Culhane |
-| 896,917 | **Well Appointed** | Lobby, and the landing where the bright collar is exposed | — |
-| 897,917 | **Change of Use** | Shared lobby with four name plates, and the dance studio | Roshan Adeyemi |
-| 901,917 | **Blue Chip** | A lit, heated, immaculate lobby with nothing in it at all | — |
-| 902,917 | **Stamp Duty** | The undercroft everybody shelters in, and the records office | Elspeth Quillon |
+| 892,914 | **Primrose House** | Entrance hall and a post room with 120 boxes, four of them in use | Corvin Brask, porter |
+| 894,912 | **Mews Terrace** | Hall, and the terrace whose balustrade film never came off | — |
+| 895,915 | **Yarrow Works** | A storage counter and four racked bays in a drum sold as offices | Ottilia Fenwick |
+| 900,911 | **Celandine Tower** | Lobby and the mezzanine the planning consent requires to be public | — |
+| 900,914 | **Bluebell House** | ⚠ **The apartment building** — letting office, landing, four flats | Marius Lindqvist |
+| 901,912 | **Cinder Point** | One hexagonal lobby in which no corner is a right angle | — |
+| 903,912 | **Rowan Tower** | Podium lobby and the tenth-floor sky lobby from the brochure | — |
+| 903,914 | **Cinder Terrace** | The specification hall, and the comms room line eleven means | Ghalia Toussaint |
+| 903,915 | **Heather House** | The widest floor in the tower and the narrowest landing | — |
+| 904,911 | **Halcyon Point** | Lobby, and the forty-foot apex volume that has never been let | — |
+| 904,913 | **Burnet Court** | Front desk and a wall of 41 camera feeds, 11 of them dark | Hektor Vallance |
+| 906,914 | **Cowslip Terrace** | A through-hall with a street at each end, and the gravel terrace | — |
+| 907,915 | **Mallow House** | Podium lobby and a show home dressed rather than furnished | — |
+| 892,917 | **Row End Terrace** | Entrance hall and the corridor along the blind flank | — |
+| 894,917 | **Campion Court** | The public passage, a kiosk in it, and the room behind | Imelda Culhane |
+| 896,917 | **Foxglove House** | Lobby, and the landing where the bright collar is exposed | — |
+| 897,917 | **Kerbstone House** | Shared lobby with four name plates, and the dance studio | Roshan Adeyemi |
+| 901,917 | **Clover House** | A lit, heated, immaculate lobby with nothing in it at all | — |
+| 902,917 | **The East Lens** | The undercroft everybody shelters in, and the records office | Elspeth Quillon |
 
 ⚠ **THE ENTRANCE DIRECTION WAS NOT A FREE CHOICE.** `flags.entrance` has been reaching
 `deriveSurfaceCell` since batch8 ran, so it is the side the model has been drawing its hood,
@@ -169,7 +169,7 @@ road, and `authorBuilding` refuses a spec whose entrance neighbour is not `terra
 description off the tile that is already there and appends one sentence about the way in. What was
 missing from those nineteen paragraphs was never the building, it was the door.
 
-⚠ **CHAIN FREE IS THE APARTMENT BUILDING, AND batch8 HAD ALREADY MADE THE CASE FOR IT.** Its launch
+⚠ **BLUEBELL HOUSE IS THE APARTMENT BUILDING, AND batch8 HAD ALREADY MADE THE CASE FOR IT.** Its launch
 terms were on a board by its own door and it was described as "a third occupied anyway", which is
 exactly a building with flats going. Three of the four authored units are vacant and carry
 `is_apartment` + `rent_cost: 200`, so RENT works standing in them with nothing else built; the
@@ -189,7 +189,7 @@ collision, since `npc_residences` tracks occupancy off `home_zone`.
 - **`utilityAnchor` in an upstairs room eats the stair home.** A room reached by `up` holds its way
   back on `down`, which is the slot `authorUtilityRoom` takes, and the utility room is written
   last. The existing guard looks for a room hung *below* the anchor and cannot see this, because
-  the offending room is the anchor's own parent. Stamp Duty is why there is now a second guard.
+  the offending room is the anchor's own parent. The East Lens is why there is now a second guard.
 - **Only the anchor gets a free light.** `anchorKey` falls back to the entry room, so for most
   buildings a `lights` map covering every other room is complete — set `utilityAnchor` and the free
   light moves with it, leaving the first room any player stands in with no fixture. Three of the
@@ -199,7 +199,7 @@ collision, since `npc_residences` tracks occupancy off `home_zone`.
 ### The heights are a profile, not a roll
 
 The estate was built north to south and the money ran with it, so the tall end is the boulevard end
-(Glass Ceiling at 20, Prime Location at 19) and the last phase along the Curtain is six to twelve.
+(Halcyon Point at 20, Rowan Tower at 19) and the last phase along the Curtain is six to twelve.
 A skyline that steps says which way a quarter grew. A skyline of random heights says nothing at
 all, and from a cockpit that is the only thing about it you can read.
 
@@ -266,8 +266,8 @@ Three of them are corrections rather than restyles:
 - ⚠ **Four `blinkLight` calls had their arguments in the wrong order** — `(rgb, alpha, now, r)`
   against a signature of `(rgb, now, seed, alpha, r)`. A blink phase driven by the frame's alpha is
   a light that does not blink, and an aviation light that ignores `alpha` is one that stays at full
-  brightness into the haze. Two are in this restyle (Holding Pattern, Fire Station 4); the other
-  two are the same typo in the same file (Ash Management, High Water Mark) and are fixed with them
+  brightness into the haze. Two are in this restyle (Halcyon Fields Gasholder, Fire Station 4); the other
+  two are the same typo in the same file (Ash Management, Coldwater Water Tower) and are fixed with them
   rather than left as two of four.
 
 ⚠ **THE FIRE STATION KEEPS ITS RED, AND THAT IS NOT THE RESTYLE BEING SELECTIVE.** "Glass and
@@ -276,7 +276,7 @@ three doors, and the palette block's own note says why it may never go: in a qua
 pearl the one red thing on the skyline is the thing you look for when something is burning. A
 modern fire station is chrome with red doors. That is what this now is.
 
-⚠ **TWO BUILDINGS KEEP WARM LIGHT** — Sound Investment and Mains Attraction. Both were commissioned
+⚠ **TWO BUILDINGS KEEP WARM LIGHT** — Halcyon Concert Hall and Halcyon Fields Pumping Station. Both were commissioned
 by people who were proud of them, decades before the estate, and both light themselves the way they
 were left. It is most of what still tells you they were here first.
 
@@ -367,14 +367,14 @@ times is not one.
 
 | Type | Plots | Kept the type arm | New arms |
 |---|---|---|---|
-| `shell_tower` | 11 | Rising Damp | 10 |
-| `atrium_court` | 6 | Artist's Impression | 5 |
-| `chrome_tower` | 6 | Top Brass | 5 |
-| `cascade_block` | 6 | Terms Agreed | 5 |
-| `bead_tower` | 5 | Quiet Enjoyment | 4 |
-| `chrome_slab` | 5 | Bent Double | 4 |
-| `torque_tower` | 4 | Above Board | 3 |
-| `glass_prism` | 3 | Overlooked | 2 |
+| `shell_tower` | 11 | Plot 1, Vetch Mews | 10 |
+| `atrium_court` | 6 | Teasel Court | 5 |
+| `chrome_tower` | 6 | Speedwell Tower | 5 |
+| `cascade_block` | 6 | Mews Terrace | 5 |
+| `bead_tower` | 5 | Harebell House | 4 |
+| `chrome_slab` | 5 | Boulevard Crescent West | 4 |
+| `torque_tower` | 4 | Celandine Tower | 3 |
+| `glass_prism` | 3 | Meadow Point | 2 |
 | `lens_hall`, `pavilion`, `vertical_farm`, `transit_halt` | 2 each | the first of each | 1 each |
 | the other fifteen types | 1 each | all of them | — |
 
@@ -419,7 +419,7 @@ Ten more lit towers would have deleted that, so every one of these is work lamps
 except `hf_topout`, which gets two lit floors low down where the fit-out has started, and is
 deliberately last in the run.
 
-### The hero — ★ Glass Ceiling (904,911)
+### The hero — ★ Halcyon Point (904,911)
 
 Twenty floors, the tallest plot in Halcyon Fields, at the east end of the boulevard frontage.
 **Two shafts of unequal height carrying one enormous glazed plate across the top of both**,

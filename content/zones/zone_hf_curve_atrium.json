@@ -7,7 +7,7 @@
     "up": "zone_hf_curve_suite"
   },
   "flags": {
-    "building_name": "Curve Appeal",
+    "building_name": "Boulevard Crescent East",
     "building_type": "chrome_slab",
     "floor": "tile",
     "is_building": true,
@@ -19,6 +19,6 @@
   "grid_z": 0,
   "id": "zone_hf_curve_atrium",
   "map_id": "map_int_hf_curve",
-  "name": "Curve Appeal — The Inner Curve",
+  "name": "Boulevard Crescent East — The Inner Curve",
   "parent_zone": "zone_district_897_909"
 }

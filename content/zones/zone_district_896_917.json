@@ -3,13 +3,13 @@
   "ambient_theme": "urban",
   "bg_color": "#0f1a24",
   "color": "#cce8ff",
-  "description": "Eleven floors in four bulges with the collars picked out in a brighter chrome than the estate standard, which is the one place in Halcyon Fields where somebody was allowed to spend money on something that is purely how it looks. From Kerbstone Row at dusk it is the building people point at without knowing why. The entrance is under the lowest collar on the Kerbstone Row side, and the collar is carried down round the door as a chrome hood in the same bright finish, which cost about four times what a plain one would have. The entrance is under the lowest collar on the Kerbstone Row side, and the collar is carried down round the door as a chrome hood in the same bright finish, which cost about four times what a plain one would have. The entrance is under the lowest collar on the Kerbstone Row side, and the collar is carried down round the door as a chrome hood in the same bright finish, which cost about four times what a plain one would have. The entrance is under the lowest collar on the Kerbstone Row side, and the collar is carried down round the door as a chrome hood in the same bright finish, which cost about four times what a plain one would have. The entrance is under the lowest collar on the Kerbstone Row side, and the collar is carried down round the door as a chrome hood in the same bright finish, which cost about four times what a plain one would have. The entrance is under the lowest collar on the Kerbstone Row side, and the collar is carried down round the door as a chrome hood in the same bright finish, which cost about four times what a plain one would have.",
+  "description": "Eleven floors in four bulges with the collars picked out in a brighter chrome than the estate standard, which is the one place in Halcyon Fields where somebody was allowed to spend money on something that is purely how it looks. From Kerbstone Row at dusk it is the building people point at without knowing why. The entrance is under the lowest collar on the Kerbstone Row side, and the collar is carried down round the door as a chrome hood in the same bright finish, which cost about four times what a plain one would have.",
   "exits": {
     "north": "zone_district_896_916",
     "south": "zone_hf_wellappointed_lobby"
   },
   "flags": {
-    "building_name": "Well Appointed",
+    "building_name": "Foxglove House",
     "building_type": "bead_tower",
     "district": "halcyon_fields",
     "entrance": "north",
@@ -25,6 +25,6 @@
   "id": "zone_district_896_917",
   "map_id": "map_world",
   "marker": "WB",
-  "name": "Well Appointed",
+  "name": "Foxglove House",
   "parent_zone": null
 }

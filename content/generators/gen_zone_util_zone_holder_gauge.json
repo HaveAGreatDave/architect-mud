@@ -7,6 +7,6 @@
   "fuel_type": null,
   "generator_type": "junction_box",
   "id": "gen_zone_util_zone_holder_gauge",
-  "name": "Holding Pattern — The Gauge House Junction Box",
+  "name": "Halcyon Fields Gasholder — The Gauge House Junction Box",
   "zone_id": "zone_util_zone_holder_gauge"
 }

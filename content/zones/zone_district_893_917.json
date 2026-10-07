@@ -9,7 +9,7 @@
     "south": "zone_hf_standing_platform"
   },
   "flags": {
-    "building_name": "Standing Room Only",
+    "building_name": "Kerbstone Row Halt",
     "building_type": "transit_halt",
     "district": "halcyon_fields",
     "entrance": "north",
@@ -25,6 +25,6 @@
   "id": "zone_district_893_917",
   "map_id": "map_world",
   "marker": "SM",
-  "name": "Standing Room Only",
+  "name": "Kerbstone Row Halt",
   "parent_zone": null
 }

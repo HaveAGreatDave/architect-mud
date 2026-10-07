@@ -24,7 +24,7 @@
   "bind": [
     {
       "by": "name",
-      "key": "Nuts to That"
+      "key": "Marrow Street Hardware"
     }
   ],
   "detail": [
@@ -76,7 +76,7 @@
       "hh": 0.03,
       "ink": "#ffd23c",
       "kind": "signBoard",
-      "label": "NUTS TO THAT",
+      "label": "MARROW STREET HARDWARE",
       "z": 0.276
     },
     {
@@ -234,9 +234,9 @@
       "z": 0.129
     }
   ],
-  "id": "nutstothat",
+  "id": "marrowstreethardware",
   "neon": "#ffd23c",
-  "note": "NUTS TO THAT — the ironmonger, which had no model of its own at all. It resolved to\n`type:hardware`, the arm every hardware shop in the world shares, so its whole identity was its\nname substituted into a sign on a generic box.\n\nWhat it is now is the thing an ironmonger has been for two hundred years: dark green paint, yellow\ntrim, an awning the full width of the pavement with the stock stacked out under it, and a LOADING\nDOOR at the top of the building under a hoist beam, because in a narrow shop the stock goes up the\noutside.\n\n⚠ THE HOIST DOOR IS THE READ, AND IT IS ALSO WHY THE TOP FLOOR HAS NO WINDOW. A pair of dark\ndoors where a window should be, with a beam over them, is the one detail that says STOREROOM rather\nthan flat — and a building that is a shop at the bottom and storage all the way up is what a trade\ncounter actually is. Putting a lit window there instead would make it a shop with people living\nover it, which is the building next door.\n\n⚠ GREEN AND YELLOW RATHER THAN AMBER. Amber is the industrial east's colour in this city and this\nis mid-basin, so the yellow here is PAINT on a shopfront rather than a sodium light on a yard.",
+  "note": "MARROW STREET HARDWARE — the ironmonger, which had no model of its own at all. It resolved to\n`type:hardware`, the arm every hardware shop in the world shares, so its whole identity was its\nname substituted into a sign on a generic box.\n\nWhat it is now is the thing an ironmonger has been for two hundred years: dark green paint, yellow\ntrim, an awning the full width of the pavement with the stock stacked out under it, and a LOADING\nDOOR at the top of the building under a hoist beam, because in a narrow shop the stock goes up the\noutside.\n\n⚠ THE HOIST DOOR IS THE READ, AND IT IS ALSO WHY THE TOP FLOOR HAS NO WINDOW. A pair of dark\ndoors where a window should be, with a beam over them, is the one detail that says STOREROOM rather\nthan flat — and a building that is a shop at the bottom and storage all the way up is what a trade\ncounter actually is. Putting a lit window there instead would make it a shop with people living\nover it, which is the building next door.\n\n⚠ GREEN AND YELLOW RATHER THAN AMBER. Amber is the industrial east's colour in this city and this\nis mid-basin, so the yellow here is PAINT on a shopfront rather than a sodium light on a yard.",
   "pal": "ty_helpings",
   "segs": [
     {

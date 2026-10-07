@@ -7,7 +7,7 @@
     "west": "zone_district_922_903"
   },
   "flags": {
-    "building_name": "Box Office",
+    "building_name": "Coldwater Container Yard",
     "building_type": "container_yard",
     "floor": "concrete",
     "is_building": true,
@@ -25,6 +25,6 @@
   "grid_z": 0,
   "id": "zone_dray_container",
   "map_id": "map_interior_zone_dray_container",
-  "name": "Box Office",
+  "name": "Coldwater Container Yard",
   "parent_zone": "zone_district_922_903"
 }

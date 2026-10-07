@@ -1277,7 +1277,7 @@ export const WATERFRONT_ARMS = {
     if (frontVis) marqueeBand(ctx, cam, dx, dy, E, scSgnW, scSgnZ, m.neon || '#5fd0ff', night, alpha, 'BATTERY ACID', scRoom);
     if (night) { const [wx, wy] = F(0, fh * 0.94); glowPool(ctx, cam, wx, wy, h * 0.22, '255,205,150', 12, alpha * 0.30); }
   },
-  permits(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // OFFICE OF PERMITTED SUFFERING — Ward Nine's counter, and the tile the
+  permits(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // WARD NINE PERMITS OFFICE — Ward Nine's counter, and the tile the
     // "blank signage, and the columns are over the name" report was filed against. Both halves of
     // that were one mistake: the name band sat at 62% of the elevation — the fourth floor of the
     // building, where no fascia has ever been — and the derived kit's pier rank starts above the

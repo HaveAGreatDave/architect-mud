@@ -1,13 +1,13 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "A square block of grey brick with a lantern on top of it: eight sides, glazed the whole way round, and a mast standing out of the roof with a black ball on it two thirds of the way up. At one o'clock the ball drops to the foot of the mast. ANY PORT is on the door in gold leaf, which is the only gold leaf on this stretch of water.",
+  "description": "A square block of grey brick with a lantern on top of it: eight sides, glazed the whole way round, and a mast standing out of the roof with a black ball on it two thirds of the way up. At one o'clock the ball drops to the foot of the mast. HARBOUR OFFICE is on the door in gold leaf, which is the only gold leaf on this stretch of water.",
   "exits": {
     "north": "zone_bld_908_907_lobby",
     "south": "zone_district_908_908"
   },
   "flags": {
-    "building_name": "Any Port",
+    "building_name": "Harbour Office",
     "building_type": "harbour_office",
     "district": "filaments",
     "entrance": "south",
@@ -23,6 +23,6 @@
   "id": "zone_district_908_907",
   "map_id": "map_world",
   "marker": "AP",
-  "name": "Any Port",
+  "name": "Harbour Office",
   "parent_zone": null
 }

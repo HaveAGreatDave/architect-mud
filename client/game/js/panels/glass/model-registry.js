@@ -55,8 +55,8 @@ export const NAMED_MODELS = {
   // ('meltwaterdiner' and 'thecage' were dead the same way, but match NO building in
   // content or the DB, so they were removed rather than re-pointed.)
   batteryacidcoffeeco:            { type: 'stimcafe',  pal: 'ty_jitter',    neon: '#5fd0ff' },   // was `jitter`
-  officeofpermittedsuffering:     { type: 'permits',   pal: 'ty_ward',      neon: '#9ab08a' },   // was `wardninepermits`
-  copaypray:          { type: 'clinic',    pal: 'ty_clinic' },
+  wardninepermitsoffice:     { type: 'permits',   pal: 'ty_ward',      neon: '#9ab08a' },   // was `wardninepermits`
+  marrowstreetclinic:          { type: 'clinic',    pal: 'ty_clinic' },
   // ⚠ `inhockwetrust` WAS HERE AND IS GONE WITH THE BUILDING'S NAME. The Marrow Street fence is
   // `Cash & Carrion` now and carries an authored model of its own, so this key matched nothing —
   // the exact silent drop the comment four lines up already describes, which is why it is deleted
@@ -151,11 +151,11 @@ export const NAMED_MODELS = {
   unit4marrowstreet:              { type: 'vacantunit',  pal: 'ty_unit', unit: 'whitewash' },  // "its window whitewashed from the inside"
   unit7vossavenue:                { type: 'vacantunit',  pal: 'ty_unit', unit: 'grille' },     // "the security grille is intact and the glass behind it is not"
   unit9marrowstreet:              { type: 'vacantunit',  pal: 'ty_unit', unit: 'shutter' },    // "its roller door tagged twice over"
-  thepapertomb:                   { type: 'papertomb',   pal: 'ty_tomb' },          // twin: Precinct 9 keeps `police`
-  stitchnbitch:                   { type: 'stitch',      pal: 'ty_stitch', neon: '#6affa8' },   // twin: Co-Pay & Pray keeps `clinic`
+  hallofrecords:                   { type: 'papertomb',   pal: 'ty_tomb' },          // twin: Precinct 9 keeps `police`
+  ironsidewalkinclinic:                   { type: 'stitch',      pal: 'ty_stitch', neon: '#6affa8' },   // twin: Marrow Street Clinic keeps `clinic`
   campgiardia:                    { type: 'campgiardia', pal: 'ty_giardia' },        // twin: Grease Expectations keeps `diner`
-  wattsthedamage:                 { type: 'watts',       pal: 'ty_watts', neon: '#ffcf3e' },    // twin: Nuts to That keeps `hardware`
-  hullsangels:                    { type: 'hulls',       pal: 'ty_hulls' },          // twin: The Wet Handoff keeps `wharf`
+  wattsthedamage:                 { type: 'watts',       pal: 'ty_watts', neon: '#ffcf3e' },    // twin: Marrow Street Hardware keeps `hardware`
+  leverlaneboatyard:                    { type: 'hulls',       pal: 'ty_hulls' },          // twin: Kessler Street Wharf keeps `wharf`
   slagwares:                      { type: 'slagwares',   pal: 'ty_slagw' },          // twins: Salvage Rites keeps `junkyard`
   thumbonthescale:                { type: 'thumbscale',  pal: 'ty_thumb' },
   theslip:                        { type: 'slipback',    pal: 'ty_slip' },           // twin: the Marrow Street fence (Cash & Carrion) is authored
@@ -237,11 +237,11 @@ export const NAMED_MODELS = {
   // Each of these shared a TYPE_MODEL with a neighbour of the same building_type and
   // was indistinguishable from it in the air. The twin keeps the generic type model;
   // this one gets a silhouette you can name from a mile out.
-  chilloutlogistics:            { type: 'reefer',     pal: 'ty_reefer_blk' },
-  stackoverflow:               { type: 'interstack', pal: 'ty_stack_dk' },
-  weldenoughalone:          { type: 'foundry',    pal: 'ty_foundry' },
+  coldlinereeferdepot:            { type: 'reefer',     pal: 'ty_reefer_blk' },
+  kesslercontaineryard:               { type: 'interstack', pal: 'ty_stack_dk' },
+  ferrofabricationworks:          { type: 'foundry',    pal: 'ty_foundry' },
   yardsfreightoffice:         { type: 'oldoffice',  pal: 'ty_meltoffice', neon: '#ffb43a' },
-  bondedbothered:            { type: 'bonded',     pal: 'ty_wh_metal',   neon: '#6affa8' },
+  bondedstore7:            { type: 'bonded',     pal: 'ty_wh_metal',   neon: '#6affa8' },
   // Promoted off the generic `casino` type model so a future casino still has one.
   theluckybastard:                { type: 'neonvig',    pal: 'ty_vig',        neon: '#ff3e8a' },
   buzzardfield:                   { type: 'buzzard',   pal: 'ty_reach_hangar', neon: '#ffb14a' },
@@ -262,63 +262,64 @@ export const NAMED_MODELS = {
   // prefers a named model, so the type arm is untouched and still draws its own exemplar. Nothing
   // in `content/` moved, no `building_type` changed and no map glyph is new — a map icon says what
   // a building is FOR, and all forty-two are still the programme their tile says they are.
-  // The eleven-plot construction site. The type arm keeps Rising Damp; these are ten other places
+  // The eleven-plot construction site. The type arm keeps Plot 1, Vetch Mews; these are ten other places
   // for the work to have stopped.
-  underoffer:                     { type: 'hf_frame',     pal: 'ty_hft_glass' },
-  subjecttocontract:              { type: 'hf_jumpform',  pal: 'ty_hft_glass' },
-  vacantpossession:               { type: 'hf_wrap',      pal: 'ty_hft_glass' },
-  completiondate:                 { type: 'hf_scaffold',  pal: 'ty_hft_glass' },
-  breakclause:                    { type: 'hf_stalled',   pal: 'ty_hft_glass' },
-  pricedtosell:                   { type: 'hf_hoist',     pal: 'ty_hft_glass' },
-  scopeforimprovement:            { type: 'hf_halfbuilt', pal: 'ty_hft_glass' },
-  rentreview:                     { type: 'hf_climber',   pal: 'ty_hft_glass' },
-  sunkcosts:                      { type: 'hf_flood',     pal: 'ty_hft_glass' },
-  bestoffer:                      { type: 'hf_topout',    pal: 'ty_hft_glass' },
+  plot7kettlelane:                     { type: 'hf_frame',     pal: 'ty_hft_glass' },
+  plot10cowsliprise:              { type: 'hf_jumpform',  pal: 'ty_hft_glass' },
+  plot9cinderlane:               { type: 'hf_wrap',      pal: 'ty_hft_glass' },
+  plot11cowsliprise:                 { type: 'hf_scaffold',  pal: 'ty_hft_glass' },
+  plot8cinderlane:                    { type: 'hf_stalled',   pal: 'ty_hft_glass' },
+  plot5kerbstonerow:                   { type: 'hf_hoist',     pal: 'ty_hft_glass' },
+  plot2kerbstonerow:            { type: 'hf_halfbuilt', pal: 'ty_hft_glass' },
+  plot3kerbstonerow:                     { type: 'hf_climber',   pal: 'ty_hft_glass' },
+  plot4kerbstonerow:                      { type: 'hf_flood',     pal: 'ty_hft_glass' },
+  plot6kerbstonerow:                      { type: 'hf_topout',    pal: 'ty_hft_glass' },
   // The low ones. Five more ways to put a hole in a building that is wider than it is tall.
-  groundsforconcern:              { type: 'hf_cloister',    pal: 'ty_hft_glass', neon: '#a8e2ff' },
-  peppercorn:                     { type: 'hf_ring',        pal: 'ty_hft_glass', neon: '#a8e2ff' },
-  deposittaken:                   { type: 'hf_scissor',     pal: 'ty_hft_glass', neon: '#bfe8ff' },
-  groundrent:                     { type: 'hf_forecourt',   pal: 'ty_hft_glass', neon: '#a8e2ff' },
-  rightofway:                     { type: 'hf_bridgecourt', pal: 'ty_hft_glass', neon: '#bfe8ff' },
+  // The slug drops the é, so Sorrel Way Café keys as `sorrelwaycaf`.
+  sorrelwaycaf:                   { type: 'hf_cloister',    pal: 'ty_hft_glass', neon: '#a8e2ff' },
+  burnetcourt:                     { type: 'hf_ring',        pal: 'ty_hft_glass', neon: '#a8e2ff' },
+  yarrowworks:                   { type: 'hf_scissor',     pal: 'ty_hft_glass', neon: '#bfe8ff' },
+  halcyonfieldsestatemanagement:                     { type: 'hf_forecourt',   pal: 'ty_hft_glass', neon: '#a8e2ff' },
+  campioncourt:                     { type: 'hf_bridgecourt', pal: 'ty_hft_glass', neon: '#bfe8ff' },
   // The estate's tower, with one decision changed each time.
-  risingsums:                     { type: 'hf_stepdrum',  pal: 'ty_hft_glass', neon: '#7fd8ff' },
-  lightrelief:                    { type: 'hf_fluted',    pal: 'ty_hft_glass', neon: '#9fe0ff' },
-  ivorytower:                     { type: 'hf_pale',      pal: 'ty_hf_marble', neon: '#c8efff' },
-  bluechip:                       { type: 'hf_chamfer',   pal: 'ty_hft_glass', neon: '#7fd8ff' },
-  newtomarket:                    { type: 'hf_scarf',     pal: 'ty_hft_glass', neon: '#9fe0ff' },
+  betonyhouse:                     { type: 'hf_stepdrum',  pal: 'ty_hft_glass', neon: '#7fd8ff' },
+  fescuehouse:                    { type: 'hf_fluted',    pal: 'ty_hft_glass', neon: '#9fe0ff' },
+  instituteresidences:                     { type: 'hf_pale',      pal: 'ty_hf_marble', neon: '#c8efff' },
+  cloverhouse:                       { type: 'hf_chamfer',   pal: 'ty_hft_glass', neon: '#7fd8ff' },
+  mallowhouse:                    { type: 'hf_scarf',     pal: 'ty_hft_glass', neon: '#9fe0ff' },
   // The stepped ones: daylight, an offset, a splay, a seam, a balcony.
-  fitforpurpose:                  { type: 'hf_sawtooth',   pal: 'ty_hft_glass', neon: '#8ce4c0' },
-  modcons:                        { type: 'hf_pixel',      pal: 'ty_hft_glass', neon: '#8ce4c0' },
-  dualaspect:                     { type: 'hf_splay',      pal: 'ty_hft_glass', neon: '#8ce4c0' },
-  partywall:                      { type: 'hf_partywall',  pal: 'ty_hft_glass', neon: '#a8e2ff' },
-  snagginglist:                   { type: 'hf_lowterrace', pal: 'ty_hft_glass', neon: '#8ce4c0' },
+  sorrelterrace:                  { type: 'hf_sawtooth',   pal: 'ty_hft_glass', neon: '#8ce4c0' },
+  cinderterrace:                        { type: 'hf_pixel',      pal: 'ty_hft_glass', neon: '#8ce4c0' },
+  cowslipterrace:                     { type: 'hf_splay',      pal: 'ty_hft_glass', neon: '#8ce4c0' },
+  rowendterrace:                      { type: 'hf_partywall',  pal: 'ty_hft_glass', neon: '#a8e2ff' },
+  halcyonfieldssiteoffice:                   { type: 'hf_lowterrace', pal: 'ty_hft_glass', neon: '#8ce4c0' },
   // The threaded ones — the spine with something else on it.
-  longlease:                      { type: 'hf_spindle',   pal: 'ty_hft_glass', neon: '#9fe0ff' },
-  chainfree:                      { type: 'hf_links',     pal: 'ty_hft_glass', neon: '#9fe0ff' },
-  wellappointed:                  { type: 'hf_voidstack', pal: 'ty_hft_glass', neon: '#9fe0ff' },
-  aspectratio:                    { type: 'hf_lozenge',   pal: 'ty_hft_glass', neon: '#9fe0ff' },
+  primrosehouse:                      { type: 'hf_spindle',   pal: 'ty_hft_glass', neon: '#9fe0ff' },
+  bluebellhouse:                      { type: 'hf_links',     pal: 'ty_hft_glass', neon: '#9fe0ff' },
+  foxglovehouse:                  { type: 'hf_voidstack', pal: 'ty_hft_glass', neon: '#9fe0ff' },
+  heatherhouse:                    { type: 'hf_lozenge',   pal: 'ty_hft_glass', neon: '#9fe0ff' },
   // The bent ones — the crescent's construction spent on four other plans.
-  curveappeal:                    { type: 'hf_scurve',    pal: 'ty_hft_glass', neon: '#9fe0ff' },
-  sittingtenant:                  { type: 'hf_notch',     pal: 'ty_hft_glass', neon: '#9fe0ff' },
-  sweepingstatement:              { type: 'hf_fan',       pal: 'ty_hft_glass', neon: '#9fe0ff' },
-  changeofuse:                    { type: 'hf_converted', pal: 'ty_hft_glass', neon: '#9fe0ff' },
+  boulevardcrescenteast:                    { type: 'hf_scurve',    pal: 'ty_hft_glass', neon: '#9fe0ff' },
+  kettlelanecrescent:                  { type: 'hf_notch',     pal: 'ty_hft_glass', neon: '#9fe0ff' },
+  halcyondevelopments:              { type: 'hf_fan',       pal: 'ty_hft_glass', neon: '#9fe0ff' },
+  kerbstonehouse:                    { type: 'hf_converted', pal: 'ty_hft_glass', neon: '#9fe0ff' },
   // The sheared ones — what else a tower can do to its own plan as it rises.
-  safeashouses:                   { type: 'hf_vault',      pal: 'ty_hft_glass', neon: '#7fd8ff' },
-  primelocation:                  { type: 'hf_prow',       pal: 'ty_hft_glass', neon: '#7fd8ff' },
-  topofthemarket:                 { type: 'hf_hammerhead', pal: 'ty_hft_glass', neon: '#7fd8ff' },
-  // The cut ones. ★ `glassceiling` is the quarter's hero — the tallest plot in Halcyon Fields and
+  meadowsweettower:                   { type: 'hf_vault',      pal: 'ty_hft_glass', neon: '#7fd8ff' },
+  rowantower:                  { type: 'hf_prow',       pal: 'ty_hft_glass', neon: '#7fd8ff' },
+  tansytower:                 { type: 'hf_hammerhead', pal: 'ty_hft_glass', neon: '#7fd8ff' },
+  // The cut ones. ★ `halcyonpoint` is the quarter's hero — the tallest plot in Halcyon Fields and
   // the only one of the forty-two that letters its own name.
-  fixedrate:                      { type: 'hf_shard',   pal: 'ty_hft_glass', neon: '#bfe8ff' },
-  glassceiling:                   { type: 'hf_ceiling', pal: 'ty_hft_glass', neon: '#bfe8ff' },
+  cinderpoint:                      { type: 'hf_shard',   pal: 'ty_hft_glass', neon: '#bfe8ff' },
+  halcyonpoint:                   { type: 'hf_ceiling', pal: 'ty_hft_glass', neon: '#bfe8ff' },
   // …and one each for the five remaining types with two plots on them.
-  stampduty:                      { type: 'hf_sunkdrum',  pal: 'ty_hft_glass', neon: '#c8efff' },
-  frondmemories:                  { type: 'hf_palmhouse', pal: 'ty_hfp_glass', neon: '#7fe6b4' },
-  rootcause:                      { type: 'hf_rootfarm',  pal: 'ty_hfv_glass', neon: '#e07ad8' },
-  lineofenquiry:                  { type: 'hf_stophalt',  pal: 'ty_hf_chrome', neon: '#5ac8ff' },
+  theeastlens:                      { type: 'hf_sunkdrum',  pal: 'ty_hft_glass', neon: '#c8efff' },
+  thefernhouse:                  { type: 'hf_palmhouse', pal: 'ty_hfp_glass', neon: '#7fe6b4' },
+  cinderlanefarm:                      { type: 'hf_rootfarm',  pal: 'ty_hfv_glass', neon: '#e07ad8' },
+  buriedroadhalt:                  { type: 'hf_stophalt',  pal: 'ty_hf_chrome', neon: '#5ac8ff' },
   // The two rooms the Outer Lock's hall swallows (old-coldwater.js). Named, so the `weigh_station`
   // and `police` arms stay as they are for the plazas on the void highway and Precinct 9.
   theglacisweigh:                 { type: 'glacis_booth', pal: 'ty_hf_mirror' },
-  thegatepost:                    { type: 'gate_post',    pal: 'ty_hf_mirror' },
+  southgatepolicepost:                    { type: 'gate_post',    pal: 'ty_hf_mirror' },
 };
 export function namedModel(name) { return NAMED_MODELS[bldgSlug(name)] || null; }
 

@@ -5,7 +5,7 @@
     "down": "zone_cold_floor"
   },
   "flags": {
-    "building_name": "Cold Comfort",
+    "building_name": "Halcyon Fields Cooling Plant",
     "building_type": "cooling_plant",
     "floor": "metal",
     "is_building": true,
@@ -17,6 +17,6 @@
   "grid_z": 0,
   "id": "zone_cold_deck",
   "map_id": "map_int_cold",
-  "name": "Cold Comfort — The Fan Deck",
+  "name": "Halcyon Fields Cooling Plant — The Fan Deck",
   "parent_zone": "zone_district_903_917"
 }

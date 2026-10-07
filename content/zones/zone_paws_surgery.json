@@ -7,7 +7,7 @@
     "south": "zone_paws_wait"
   },
   "flags": {
-    "building_name": "Paws for Thought",
+    "building_name": "Kessler Veterinary",
     "building_type": "vet",
     "floor": "tile",
     "is_building": true,
@@ -19,6 +19,6 @@
   "grid_z": 0,
   "id": "zone_paws_surgery",
   "map_id": "map_int_paws",
-  "name": "Paws for Thought — The Surgery",
+  "name": "Kessler Veterinary — The Surgery",
   "parent_zone": "zone_district_926_912"
 }

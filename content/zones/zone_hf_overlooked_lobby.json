@@ -7,7 +7,7 @@
     "west": "zone_district_903_911"
   },
   "flags": {
-    "building_name": "Overlooked",
+    "building_name": "Meadow Point",
     "building_type": "glass_prism",
     "floor": "stone",
     "is_building": true,
@@ -25,6 +25,6 @@
   "grid_z": 0,
   "id": "zone_hf_overlooked_lobby",
   "map_id": "map_int_hf_overlooked",
-  "name": "Overlooked — The Lobby",
+  "name": "Meadow Point — The Lobby",
   "parent_zone": "zone_district_903_911"
 }

@@ -6,7 +6,7 @@
     "north": "zone_district_906_917"
   },
   "flags": {
-    "building_name": "Frond Memories",
+    "building_name": "The Fern House",
     "building_type": "pavilion",
     "floor": "dirt",
     "is_building": true,
@@ -18,6 +18,6 @@
   "grid_z": 0,
   "id": "zone_hf_frond_under",
   "map_id": "map_int_hf_frond",
-  "name": "Frond Memories — Under the Second Dome",
+  "name": "The Fern House — Under the Second Dome",
   "parent_zone": "zone_district_906_917"
 }

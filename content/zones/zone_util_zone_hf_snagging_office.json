@@ -13,6 +13,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_hf_snagging_office",
   "map_id": "map_int_hf_snagging",
-  "name": "Snagging List — The Compressor Room",
+  "name": "Halcyon Fields Site Office — The Compressor Room",
   "parent_zone": "zone_district_904_917"
 }

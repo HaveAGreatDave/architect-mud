@@ -5,7 +5,7 @@
     "south": "zone_hf_sitting_bar"
   },
   "flags": {
-    "building_name": "Sitting Tenant",
+    "building_name": "Kettle Lane Crescent",
     "building_type": "chrome_slab",
     "floor": "concrete",
     "is_building": true,
@@ -17,6 +17,6 @@
   "grid_z": 0,
   "id": "zone_hf_sitting_back",
   "map_id": "map_int_hf_sitting",
-  "name": "Sitting Tenant — The Back Room",
+  "name": "Kettle Lane Crescent — The Back Room",
   "parent_zone": "zone_district_900_915"
 }

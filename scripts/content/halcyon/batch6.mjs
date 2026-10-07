@@ -11,13 +11,13 @@
  * ⚠ ONLY TWO TILES ON KERBSTONE ROW CAN CARRY A ROAD NORTH INTO THE BIG BLOCK. The block's
  * north edge (y911) is a solid frontage onto the boulevard and its west edge is the Curtain, so
  * every way in comes off Kerbstone Row or Kettle Lane — and of the seven tiles on Kerbstone Row
- * that face the block, five are already built on (Light Relief, Leaf It Out, Glass Half Full,
- * Ivory Tower and, one row in, Second Wind). x893 and x898 are the only two left. The mews goes
+ * that face the block, five are already built on (Fescue House, The Palm House, The Winter Garden,
+ * Institute Residences and, one row in, The Halcyon Hydro). x893 and x898 are the only two left. The mews goes
  * up x893, and x898 is kept as a plot, because a second parallel mews four tiles away would
  * serve nothing a through street does not.
  *
  * ⚠ AND SORREL WAY RUNS ALONG y914 RATHER THAN y913 SO THAT IT IS A STREET AND NOT A SPUR.
- * Second Wind stands at 898,913, so a road on that row dead-ends against its flank; one row
+ * The Halcyon Hydro stands at 898,913, so a road on that row dead-ends against its flank; one row
  * south the same road reaches Kettle Lane at 899,914 and the block gets a route through it.
  *
  * ⚠ VETCH GREEN IS THREE TILES THAT NO STREET CAN REACH, AND THAT IS WHY IT IS A GREEN.
@@ -93,7 +93,7 @@ const VETCH = {
   915: 'A lane turns off the row here between two towers and goes north into the block, narrow enough that two vehicles meeting would have to talk about it. The sign at the mouth has the estate crest on it and a name in a script nobody would choose for a service road.',
   914: 'Bin stores on both sides, chrome-fronted and numbered, each with a keypad and a smell that no amount of brushed steel does anything about. A cat that belongs to nobody has an arrangement with the one at the north end.',
   913: 'The mews crosses Sorrel Way at a junction with no markings on it, the two roads simply meeting and carrying on. Somebody has spray-painted a give-way triangle onto the stone, freehand, roughly where one ought to go.',
-  912: "The dead end. Sound Investment's back wall closes it off: forty feet of blank chrome with a stage door in it, a bell, and a grille over the bell. Delivery vans reverse the whole length of the mews rather than try to turn here.",
+  912: "The dead end. Halcyon Concert Hall's back wall closes it off: forty feet of blank chrome with a stage door in it, a bell, and a grille over the bell. Delivery vans reverse the whole length of the mews rather than try to turn here.",
 };
 for (const [y, d] of Object.entries(VETCH)) road(893, Number(y), 'Vetch Mews', d);
 

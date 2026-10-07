@@ -3,13 +3,13 @@
   "ambient_theme": "urban",
   "bg_color": "#2e2318",
   "color": "#d9a35c",
-  "description": "A bakery in the bottom of a flat-fronted terrace, and the only window on the row that steams up from the inside. Trays go in the display at four in the morning and the good ones are gone by seven. The sign is a loaf with a slice cut out of it and the words LOAFING AROUND running through the gap, and the paint on the door has been worn back to bare wood at hand height.",
+  "description": "A bakery in the bottom of a flat-fronted terrace, and the only window on the row that steams up from the inside. Trays go in the display at four in the morning and the good ones are gone by seven. The sign is a loaf with a slice cut out of it and the words MELTWATER ROW BAKERY running through the gap, and the paint on the door has been worn back to bare wood at hand height.",
   "exits": {
     "north": "zone_district_907_913",
     "south": "zone_loafing_shop"
   },
   "flags": {
-    "building_name": "Loafing Around",
+    "building_name": "Meltwater Row Bakery",
     "building_type": "diner",
     "district": "commercial",
     "entrance": "north",
@@ -25,6 +25,6 @@
   "id": "zone_district_907_914",
   "map_id": "map_world",
   "marker": "BK",
-  "name": "Loafing Around",
+  "name": "Meltwater Row Bakery",
   "parent_zone": null
 }

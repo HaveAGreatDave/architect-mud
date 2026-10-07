@@ -1036,7 +1036,7 @@ export const HALCYON_ARMS = {
       glowPool(ctx, cam, dx, dy, h * 0.02, '140,232,182', 10, alpha * 0.20);
     }
   },
-  hf_bridgecourt(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE RIGHT OF WAY — two parallel bars with a public passage
+  hf_bridgecourt(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE CAMPION COURT — two parallel bars with a public passage
     // between them at ground and a glazed bridge over it at the top, so the building is a thing
     // you walk THROUGH on your way somewhere else. `sky_court`'s hole is three hundred feet up
     // and `chrome_arch`'s is structural; this one is a route, and it is at the scale of a person
@@ -1699,7 +1699,7 @@ export const HALCYON_ARMS = {
       drawFacetDrum(ctx, cam, cx1, cy1, h * 0.052, h * 0.070, fh * 0.30, fh * 0.30, 12, alpha, hfChrome([122, 138, 152], [242, 248, 252], 1.7), hfChrome([132, 148, 162], [214, 228, 236], 1.3), 'ty_hf_ice'); }
     if (night) { const [gx, gy] = F(0, fh * 0.78); glowPool(ctx, cam, gx, gy, h * 0.04, '206,238,255', 11, alpha * 0.28); }
   },
-  hf_ceiling(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // ★ GLASS CEILING — THE QUARTER'S HERO. Two shafts of unequal height
+  hf_ceiling(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // ★ HALCYON POINT — THE QUARTER'S HERO. Two shafts of unequal height
     // carrying one enormous glazed plate across the top of both, oversailing them on every
     // side. It stands on the tallest plot in Halcyon Fields, at the east end of the boulevard
     // frontage, and it is the thing the estate is sold on: the brochure's photograph is taken
@@ -1758,7 +1758,7 @@ export const HALCYON_ARMS = {
       const z0 = plateZ1 + h * 0.008, z1 = cope - h * 0.008, bhw = fh * 0.72, by = fh * 0.88;
       const TL = P(-bhw, by, z1), TR = P(bhw, by, z1), BR = P(bhw, by, z0), BL = P(-bhw, by, z0);
       if ([TL, TR, BR, BL].every((q) => q.f > 0.12)) {
-        const tex = bakeSignText(sign || 'GLASS CEILING', '#bfe8ff', night ? 1 : 0, false, true, true);
+        const tex = bakeSignText(sign || 'HALCYON POINT', '#bfe8ff', night ? 1 : 0, false, true, true);
         if (tex) emitSurfaceText(ctx, cam, [TL, TR, BR, BL], tex, false, alpha);
       }
     }

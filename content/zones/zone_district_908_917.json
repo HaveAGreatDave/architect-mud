@@ -9,7 +9,7 @@
     "south": "zone_hf_line_platform"
   },
   "flags": {
-    "building_name": "Line of Enquiry",
+    "building_name": "Buried Road Halt",
     "building_type": "transit_halt",
     "district": "halcyon_fields",
     "entrance": "north",
@@ -25,6 +25,6 @@
   "id": "zone_district_908_917",
   "map_id": "map_world",
   "marker": "LQ",
-  "name": "Line of Enquiry",
+  "name": "Buried Road Halt",
   "parent_zone": null
 }

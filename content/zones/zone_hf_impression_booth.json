@@ -5,7 +5,7 @@
     "west": "zone_hf_impression_suite"
   },
   "flags": {
-    "building_name": "Artist's Impression",
+    "building_name": "Teasel Court",
     "building_type": "atrium_court",
     "floor": "carpet",
     "is_building": true,
@@ -23,6 +23,6 @@
   "grid_z": 0,
   "id": "zone_hf_impression_booth",
   "map_id": "map_int_hf_impression",
-  "name": "Artist's Impression — The Negotiator's Booth",
+  "name": "Teasel Court — The Negotiator's Booth",
   "parent_zone": "zone_district_894_913"
 }

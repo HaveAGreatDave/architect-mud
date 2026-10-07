@@ -7,6 +7,6 @@
   "fuel_type": null,
   "generator_type": "junction_box",
   "id": "gen_zone_util_zone_mains_engine",
-  "name": "Mains Attraction — The Engine Hall Junction Box",
+  "name": "Halcyon Fields Pumping Station — The Engine Hall Junction Box",
   "zone_id": "zone_util_zone_mains_engine"
 }

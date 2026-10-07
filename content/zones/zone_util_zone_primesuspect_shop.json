@@ -15,6 +15,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_primesuspect_shop",
   "map_id": "map_int_primesuspect",
-  "name": "Prime Suspect — Utility Room",
+  "name": "Tallow Row Butcher — Utility Room",
   "parent_zone": "zone_district_916_911"
 }

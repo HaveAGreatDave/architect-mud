@@ -24,7 +24,7 @@
   "bind": [
     {
       "by": "name",
-      "key": "Some Assembly Required"
+      "key": "Kessler Fabrication"
     }
   ],
   "detail": [
@@ -60,7 +60,7 @@
       "hh": 0.026,
       "ink": "#ffb060",
       "kind": "signBoard",
-      "label": "SOME ASSEMBLY REQUIRED",
+      "label": "KESSLER FABRICATION",
       "z": 0.44
     },
     {
@@ -139,9 +139,9 @@
       "z": 0.004
     }
   ],
-  "id": "someassemblyrequired",
+  "id": "kesslerfabrication",
   "neon": "#ffa04a",
-  "note": "SOME ASSEMBLY REQUIRED — a working fabrication shed on Kessler Street.\n\nThe tile's prose: a gantry crane crawling on overhead rails, sparks fountaining from a cutting\nbench, air that tastes of ozone and hot steel; somebody in here can weld, bend or fake almost\nanything.\n\nSo the shed is a sawtooth-roofed hall with its big door open on a lit, orange interior, and the\ncrane runway carries on out of the building as an external gantry over the yard on the open side,\ntwo steel legs and a beam, which is what a fab shop that lifts things heavier than its door does.\nThe name is on the fascia over the door. A works doesn't sign itself (UNSIGNED_TRADE), and this one\nsells to the public over a counter, which is the stated exception.",
+  "note": "KESSLER FABRICATION — a working fabrication shed on Kessler Street.\n\nThe tile's prose: a gantry crane crawling on overhead rails, sparks fountaining from a cutting\nbench, air that tastes of ozone and hot steel; somebody in here can weld, bend or fake almost\nanything.\n\nSo the shed is a sawtooth-roofed hall with its big door open on a lit, orange interior, and the\ncrane runway carries on out of the building as an external gantry over the yard on the open side,\ntwo steel legs and a beam, which is what a fab shop that lifts things heavier than its door does.\nThe name is on the fascia over the door. A works doesn't sign itself (UNSIGNED_TRADE), and this one\nsells to the public over a counter, which is the stated exception.",
   "pal": "ty_fab_metal",
   "segs": [
     {

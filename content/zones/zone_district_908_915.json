@@ -4,7 +4,7 @@
   "description": "Thirteen floors, clad to the fifth, and visibly slower than the others: the crane works three days in seven and the site below it is tidy in the way a site is tidy when nothing is happening on it. The hoarding has been re-printed once, at a lower price, in the same layout, which is a thing you can only see if you photographed the first one.",
   "exits": {},
   "flags": {
-    "building_name": "Priced to Sell",
+    "building_name": "Plot 5, Kerbstone Row",
     "building_type": "shell_tower",
     "district": "halcyon_fields",
     "entrance": "south",
@@ -18,6 +18,6 @@
   "id": "zone_district_908_915",
   "map_id": "map_world",
   "marker": "PS",
-  "name": "Priced to Sell",
+  "name": "Plot 5, Kerbstone Row",
   "parent_zone": null
 }

@@ -6,7 +6,7 @@
     "south": "zone_hf_modcons_hall"
   },
   "flags": {
-    "building_name": "Mod Cons",
+    "building_name": "Cinder Terrace",
     "building_type": "cascade_block",
     "floor": "tile",
     "is_building": true,
@@ -18,6 +18,6 @@
   "grid_z": 0,
   "id": "zone_hf_modcons_comms",
   "map_id": "map_int_hf_modcons",
-  "name": "Mod Cons — The Comms Room",
+  "name": "Cinder Terrace — The Comms Room",
   "parent_zone": "zone_district_903_914"
 }
