@@ -1043,12 +1043,17 @@ export function createSolidsLayer(gl, opt = {}) {
   // frame before the room's first draw. Faces are drawn by their LOCAL points (aLocal), so the same
   // map serves the level and the banked cockpit alike: the sun is turned into the cab frame instead.
   let sh = null;
-  function shadowPass() {
+  // `T` ({ fb, w, h }) is the caller saying what is bound, so nothing is asked of GL: each getParameter
+  // or isEnabled is a round trip that drains the command queue, and this ran four of them every frame
+  // a cabin was in view. Both callers in context.js pass it, with scissor off (drawInteriorAlone
+  // disables it, world.js turns its split off before the interior) and blend turned back on by draw()
+  // straight after. Without it (a bench calling the layer directly) the state is read back as before.
+  function shadowPass(T) {
     // ⚠ CAPTURED BEFORE THE MAP IS BUILT, NOT AFTER. Building it binds its own framebuffer, and with
     // these two lines below that, the first call saved THAT as "the caller's" and put it back: the
     // room's first draw then went into its own shadow map while sampling it on unit 7, a feedback
     // loop the driver rejects, so the cabin was missing on the frame each scene built its map.
-    const prevFb = gl.getParameter(gl.FRAMEBUFFER_BINDING), vp = gl.getParameter(gl.VIEWPORT);
+    const prevFb = T ? T.fb : gl.getParameter(gl.FRAMEBUFFER_BINDING), vp = T ? [0, 0, T.w, T.h] : gl.getParameter(gl.VIEWPORT);
     if (!sh) {
       // And the active unit's texture goes back after the build binds the new one on it.
       const prevTex = gl.getParameter(gl.TEXTURE_BINDING_2D);
@@ -1082,7 +1087,7 @@ export function createSolidsLayer(gl, opt = {}) {
       sh = { p, tex, fbo, svao, ok, mat: gl.getUniformLocation(p, 'uLightMat') };
     }
     if (!sh.ok) { gl.bindFramebuffer(gl.FRAMEBUFFER, prevFb); return false; }
-    const scis = gl.isEnabled(gl.SCISSOR_TEST), blend = gl.isEnabled(gl.BLEND);
+    const scis = T ? false : gl.isEnabled(gl.SCISSOR_TEST), blend = T ? true : gl.isEnabled(gl.BLEND);
     gl.bindFramebuffer(gl.FRAMEBUFFER, sh.fbo);
     gl.viewport(0, 0, SHADOW_SIZE, SHADOW_SIZE);
     gl.disable(gl.SCISSOR_TEST); gl.disable(gl.BLEND);
@@ -1132,11 +1137,11 @@ export function createSolidsLayer(gl, opt = {}) {
     const first = opts.film ? filmAt : 0, n = opts.film ? count - filmAt : filmAt;
     const runs = !opts.film && ret && ret.n ? ret.runs : null;
     if (!n && !runs) return 0;
-    if (cabin && !opts.film && shadowDirty && light && filmAt > 0) { shadowPass(); shadowDirty = false; }
+    if (cabin && !opts.film && shadowDirty && light && filmAt > 0) { shadowPass(opts.target); shadowDirty = false; }
     if (cabin && !sh) {
       // Build the map once even on a frame with no sun, so the sampler always has its texture.
       const keep = light; light = { lightMat: new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]) };
-      try { shadowPass(); } finally { light = keep; }
+      try { shadowPass(opts.target); } finally { light = keep; }
     }
     gl.useProgram(prog); applyLinOut(gl, prog);
     if (cabin) cabinUniforms(opts.worldSun);

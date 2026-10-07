@@ -914,7 +914,30 @@ export function createMurmurGPU(gl) {
   // pass hands stepAll every cloud of the frame at once. Texture bindings are not put back: nothing
   // outside this file samples units 8-16, and the one texture that is also a render target elsewhere
   // (the grid array) is unbound after use.
-  function withState(fn) {
+  //
+  // ⚠ AND THE WORLD PASS DOESN'T ASK AT ALL. Each query is a synchronous round trip to the GPU process
+  // that waits for every command queued before it (the sky pass lost 56-87% of a SwiftShader frame to
+  // the same thing). `known` is the caller saying what the state is: the world pass steps the flock
+  // between the sky, which hands the context back at WebGL's defaults, and the mirror and main passes,
+  // which set everything they use. Probed over 80 world-pass frames with a roost in view: the canvas
+  // framebuffer, the full viewport, all four caps off, both masks on, clear 0,0,0,0 and 1, and LEQUAL
+  // (the main pass's, left from last frame; LESS only on the very first). That is what is handed back.
+  function withState(fn, known) {
+    if (known) {
+      try {
+        for (const k of [gl.BLEND, gl.DEPTH_TEST, gl.SCISSOR_TEST, gl.CULL_FACE]) gl.disable(k);
+        gl.colorMask(true, true, true, true);
+        return fn();
+      } finally {
+        gl.bindVertexArray(null);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, known.w, known.h);
+        gl.depthFunc(gl.LEQUAL); gl.depthMask(true);
+        gl.colorMask(true, true, true, true);
+        gl.clearColor(0, 0, 0, 0); gl.clearDepth(1);
+      }
+    }
     const S = {
       fb: gl.getParameter(gl.FRAMEBUFFER_BINDING), vp: gl.getParameter(gl.VIEWPORT),
       en: [gl.BLEND, gl.DEPTH_TEST, gl.SCISSOR_TEST, gl.CULL_FACE].map((k) => [k, gl.isEnabled(k)]),
@@ -946,9 +969,10 @@ export function createMurmurGPU(gl) {
     if (!ok) return null;
     return withState(() => stepInner(rec));
   }
-  function stepAll(recs) {
+  // `known` ({ w, h }, the canvas size) skips the state queries; see withState.
+  function stepAll(recs, known) {
     if (!ok || !recs.length) return [];
-    return withState(() => recs.map(stepInner));
+    return withState(() => recs.map(stepInner), known);
   }
   // ⚠ WHERE THE FLOCK REALLY IS, measured rather than assumed. Under the free rules the birds are not held
   // to the shared centre, so the step samples 1,024 of them into a small target and reads it back through a

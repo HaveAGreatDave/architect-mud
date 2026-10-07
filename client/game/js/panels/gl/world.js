@@ -1805,12 +1805,13 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // ── THE WATERLINE SPLIT (windshield.js drawWaterSplit) ──────────────────
   // A chase camera low beside a hull afloat: the sea surface is drawn only ABOVE her waterline, so
   // what is under it shows, and the 2-D pass lays the water over that. A scissor, so nothing else in
-  // either pass has to know; the viewport is read back rather than assumed, because the frame may be
-  // going into the HDR target at another size.
+  // either pass has to know. The viewport is the canvas size: the HDR target is bound at that size
+  // too (beginTarget in context.js), and draw() set it so. Reading it back was a getParameter, a round
+  // trip that drains the GPU command queue every frame of a boat chase.
   const splitF = !SUB && opts.floor && opts.floor.split > 0 && opts.floor.split < 1 ? opts.floor.split : 0;
   const sgl = splitF ? g.view.gl : null;
   if (sgl) {
-    const vp = sgl.getParameter(sgl.VIEWPORT);
+    const vp = [0, 0, g.canvas.width, g.canvas.height];
     sgl.enable(sgl.SCISSOR_TEST);
     sgl.scissor(vp[0], vp[1] + Math.round(vp[3] * (1 - splitF)), vp[2], Math.round(vp[3] * splitF));
   }

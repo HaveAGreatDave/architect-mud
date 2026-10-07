@@ -2244,7 +2244,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     }
     // every cloud of the frame stepped under one save of the GL state, not one each
     if (clouds.length) {
-      const done = murmurGPU().stepAll(clouds);
+      const done = murmurGPU().stepAll(clouds, { w: canvas.width, h: canvas.height });
       for (let i = 0; i < clouds.length; i++) {
         const st = done[i] && mg.state(clouds[i].key);
         if (st) cloudList.push({ rec: clouds[i], st });
@@ -2325,10 +2325,14 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     intQuads = list && list.length ? interiorLayer().upload(list, model && list.every((q) => q.mp) ? model : null, light, att) : 0;
     return intQuads;
   }
+  // What the main pass is drawing into: the float target when it is live, else the canvas, at the
+  // canvas size either way (beginTarget binds it so, and draw() sets that viewport). Handed to a pass
+  // that binds a framebuffer of its own, so it can put this one back without a getParameter.
+  const frameTarget = () => ({ fb: targetLive && hdr ? hdr.drawFbo : null, w: canvas.width, h: canvas.height });
   function drawInterior(cam, cssH, opts) {
     if (!intQuads) return 0;
     gl.clear(gl.DEPTH_BUFFER_BIT);
-    const n = interiorLayer().draw(cam, cssH || canvas.height, { ...(opts || {}), near: INTERIOR_NEAR, far: INTERIOR_FAR, worldSun });
+    const n = interiorLayer().draw(cam, cssH || canvas.height, { ...(opts || {}), near: INTERIOR_NEAR, far: INTERIOR_FAR, worldSun, target: frameTarget() });
     // THE GLASS, after the room: see-through, tested against the room and writing no depth (film).
     interiorLayer().draw(cam, cssH || canvas.height, { ...(opts || {}), near: INTERIOR_NEAR, far: INTERIOR_FAR, film: true });
     return n;
@@ -2353,7 +2357,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     gl.depthMask(true);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    const n = interiorLayer().draw(cam, cssH || canvas.height, { near: INTERIOR_NEAR, far: INTERIOR_FAR, under: aloneUnder, underD: aloneUnderD, worldSun });
+    const n = interiorLayer().draw(cam, cssH || canvas.height, { near: INTERIOR_NEAR, far: INTERIOR_FAR, under: aloneUnder, underD: aloneUnderD, worldSun, target: { fb: null, w: canvas.width, h: canvas.height } });
     interiorLayer().draw(cam, cssH || canvas.height, { near: INTERIOR_NEAR, far: INTERIOR_FAR, film: true, under: aloneUnder, underD: aloneUnderD });
     return n;
   }
