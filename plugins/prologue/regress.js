@@ -5,6 +5,9 @@ import { clearFlag, setFlag } from '../../server/engine/flags.js';
 import { getNetXp } from '../../server/engine/ip.js';
 import { availableActions } from '../../server/engine/specializedActions.js';
 import { dispatchAction } from '../../server/engine/actions.js';
+import { getAllZones, registerTransientZone, removeTransientZone } from '../../server/engine/world.js';
+import { isClimateExempt, getZoneApparentTemperature } from '../../server/engine/environment.js';
+import { driftBodyTemperature } from '../../server/engine/gameLoop.js';
 import { _test } from './index.js';
 
 export default async function regress({ check }) {
@@ -54,6 +57,49 @@ export default async function regress({ check }) {
   check('shore runs are [x,y,dir,len]', shore.every(r =>
     r.length === 4 && r.every(Number.isFinite) && (r[2] === 0 || r[2] === 1) && r[3] > 0));
   check('shore is cached (same array identity)', coldwaterShore() === shore);
+
+  // ── No climate in the corridor ─────────────────────────────────────────────
+  // A new player is naked until the vat dresses them, and the Inbetween is an
+  // is_interior power zone, so the drift read a bare body in a 20C room and said
+  // "You start to shiver." before the first step. The corridor has no weather on
+  // the HUD; it must not have it on the body either.
+  {
+    const corridor = getAllZones().filter(z => z.flags?.prologue).map(z => z.id);
+    check('the corridor has rooms flagged prologue', corridor.length >= 4, corridor.join(','));
+    check('every prologue room is climate-exempt', corridor.every(isClimateExempt),
+      corridor.filter(id => !isClimateExempt(id)).join(','));
+    check('real weather begins at the vat', !isClimateExempt(Z_CLONEVAT));
+
+    // Aim bare skin at a 50-degree deficit in whatever room it is: deep enough
+    // that any body with a climate shivers, so the corridor passing means something.
+    const control = `zone_regress_prologue_climate_${process.pid}`;
+    registerTransientZone({ id: control, name: 'Regress Climate Room', description: 'A room.', exits: {}, flags: { is_interior: true } });
+    const bare = (zoneId, over = {}) => ({
+      current_zone: zoneId, body_temp_c: 37.0, insulation: 0, wetness: 0, stamina: 100, thirst: 100,
+      _lastMoveAt: 0, exposurePenalty: getZoneApparentTemperature(zoneId, 0) + 40, ...over,
+    });
+    try {
+      const outside = bare(control);
+      driftBodyTemperature(outside, 5);
+      check('the same bare body shivers in a room with a climate', outside._shivering === true, String(outside._shivering));
+
+      const inside = bare(Z_INBETWEEN);
+      driftBodyTemperature(inside, 5);
+      check('a bare body in the Inbetween does not shiver', inside._shivering === false, String(inside._shivering));
+      check('its core holds at 37', inside.body_temp_c === 37.0, String(inside.body_temp_c));
+      check('and it pays no stamina for a shiver it is not having', inside.stamina === 100, String(inside.stamina));
+
+      const hot = bare(Z_INBETWEEN, { exposurePenalty: 0, insulation: 60 });
+      driftBodyTemperature(hot, 5);
+      check('nor does it sweat however much it wears', hot._sweating === false && hot.thirst === 100, `${hot._sweating} ${hot.thirst}`);
+
+      const chilled = bare(Z_INBETWEEN, { body_temp_c: 34.0 });
+      driftBodyTemperature(chilled, 5);
+      check('a core that arrives cold settles back toward 37', chilled.body_temp_c > 34.0 && chilled.body_temp_c <= 37.0, String(chilled.body_temp_c));
+    } finally {
+      removeTransientZone(control);
+    }
+  }
 
 
   // The stat gift + holocaster grant write player-scoped rows (FKs to players),

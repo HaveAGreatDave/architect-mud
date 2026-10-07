@@ -32,7 +32,7 @@ import { query, logActivity } from '../models/db.js';
 import { addSweat } from './hygiene.js';
 import { warmthBonus, tickWarmth } from './warmth.js';
 import { appetiteMessages } from './appetite.js';
-import { getEnvironmentState, getZoneTemperature, feltAmbientC, waterTemperature, getZoneHumidity, getWindKph, recordLightningKill, getZoneStormIntensity, getWeatherFieldSnapshot, getZonePrecip, getZoneWeatherType, seasonForDate, activeWeatherEvent, strikeableBuildings, overloadJunctionBoxes, powerAnchorOf } from './environment.js';
+import { getEnvironmentState, getZoneTemperature, feltAmbientC, isClimateExempt, waterTemperature, getZoneHumidity, getWindKph, recordLightningKill, getZoneStormIntensity, getWeatherFieldSnapshot, getZonePrecip, getZoneWeatherType, seasonForDate, activeWeatherEvent, strikeableBuildings, overloadJunctionBoxes, powerAnchorOf } from './environment.js';
 import { tickDrugDecayAll, tickDrugs, tickOnsets, tickWithdrawalAll, clearActiveDrugState } from './drugs.js';
 import { getTimeScale } from './gametime.js';
 import { escAttr } from './text.js';
@@ -1562,8 +1562,30 @@ function metabolicWarmth(player, cooling) {
   return warmth;
 }
 
+// The comfort band's pull back to 37°C, by exponential relaxation compounded over gm so it
+// tracks the game-speed knob. `over` is how far the body's warmth sits above COLD_THRESHOLD;
+// 0 gives the base rate. Returns the new core, unrounded.
+function relaxToSetpoint(player, over, gm) {
+  const cur = player.body_temp_c ?? 37.0;
+  const diff = 37.0 - cur;
+  const mult = 1 + Math.min(REWARM_MAX_MULT - 1, over / REWARM_KNEE_C);
+  const rate = 1 - Math.pow(1 - REWARM_BASE * mult, gm);
+  return Math.abs(diff) < 0.1 ? 37.0 : cur + diff * rate;
+}
+
 export function driftBodyTemperature(player, gm) {
   const bodyZone = bodyZoneOf(player);
+  // A zone with no climate (the prologue corridor; see isClimateExempt) has nothing to trade
+  // heat with. The body neither shivers nor sweats, pays no stamina or water for either, and a
+  // core that arrived off 37°C settles back at the base rate. Before this a new player, naked
+  // until the vat dresses them, was told "You start to shiver." in a room with no floor.
+  if (isClimateExempt(bodyZone)) {
+    player._shivering = false;
+    player._sweating = false;
+    tickWarmth(player, gm);
+    player.body_temp_c = Math.round(relaxToSetpoint(player, 0, gm) * 10) / 10;
+    return player.body_temp_c;
+  }
   const tempOffset = world.zones.get(bodyZone)?.flags?.temp_offset || 0;
   // Apparent ("feels like") temperature — folds the day's wind chill and
   // humidity into the ambient the body actually has to cope with (outdoors).
@@ -1646,12 +1668,7 @@ export function driftBodyTemperature(player, gm) {
     // that huddling somewhere hot is a strong advantage rather than an instant reset. The
     // floor is the old constant, so being barely-in-the-band is exactly as slow as it ever
     // was; everything above it is new headroom that clothing, shelter and heat sources buy.
-    const cur = player.body_temp_c ?? 37.0;
-    const diff = 37.0 - cur;
-    const over = Math.max(0, warmthTemp - COLD_THRESHOLD);
-    const mult = 1 + Math.min(REWARM_MAX_MULT - 1, over / REWARM_KNEE_C);
-    const rate = 1 - Math.pow(1 - REWARM_BASE * mult, gm);
-    player.body_temp_c = Math.abs(diff) < 0.1 ? 37.0 : cur + diff * rate;
+    player.body_temp_c = relaxToSetpoint(player, Math.max(0, warmthTemp - COLD_THRESHOLD), gm);
   }
 
   // Clamp to survivable range; prevents runaway values on extreme ticks.

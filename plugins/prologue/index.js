@@ -20,8 +20,9 @@
  *
  * No engine files are imported in reverse; the only engine touch-points are the
  * generic seams (move gates, events, flags, specialized `use`, the no_attack NPC
- * flag on the attendant, and cosmetic-machine's cosmetic.opened/closed and
- * appearance.changed events).
+ * flag on the attendant, cosmetic-machine's cosmetic.opened/closed and
+ * appearance.changed events, and the climate exemption that keeps a body in the
+ * corridor from shivering).
  */
 import { randomUUID } from 'crypto';
 import { loggedPanelsSync } from '../../server/engine/presentation.js';
@@ -36,6 +37,7 @@ import { getZone, getMinimapData, getLivePlayer, getAllZones, buildingEntranceDi
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { cmdExamine } from '../../server/engine/commands/world.js';
 import { escAttr } from '../../server/engine/text.js';
+import { registerClimateExemption } from '../../server/engine/environment.js';
 
 const Z_INBETWEEN = 'zone_the_inbetween';
 const Z_LATTICE   = 'zone_the_lattice';
@@ -1052,6 +1054,13 @@ function tabletAccess(player, has) {
 function envUnreal(player, unreal) {
   if (player) sendToPlayer(player.id, { type: 'env_unreal', unreal: !!unreal });
 }
+
+// The same rule for the body. A room with no weather can't be cold either: without this a
+// new player, naked until the vat dresses them, read as standing bare in a 20°C room and
+// was told "You start to shiver." before taking a step. Keyed off the zone flag, like the
+// HUD, so a new corridor room needs no code. The engine's drift and frostbite both ask.
+const isCorridorZone = (zoneId) => !!getZone(zoneId)?.flags?.prologue;
+registerClimateExemption(isCorridorZone);
 
 // The tablet controls are hidden for anyone standing in the corridor, and shown
 // again the moment they aren't — on every login, not just the first, so a player who

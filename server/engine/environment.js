@@ -2995,6 +2995,21 @@ export function windChillDelta(zoneId, extraOffsetC = 0) {
        - apparentTemperature(ambient, 0, hum);
 }
 
+// ── Places with no climate ───────────────────────────────────────────────────
+// Some zones are not places: the prologue corridor has no floor, no sky and no weather on the
+// HUD. A body standing there has nothing to trade heat with, so the body-temperature drift and
+// frostbite skip it. A seam rather than a flag read here, because the engine does not know what
+// a prologue is; the plugin that owns the zone says so. In-memory and sync by contract: it is
+// read once per player per minute by the drift and again by frostbite.
+const climateExemptions = [];
+export function registerClimateExemption(fn) { if (typeof fn === 'function') climateExemptions.push(fn); }
+export function isClimateExempt(zoneId) {
+  for (const fn of climateExemptions) {
+    try { if (fn(zoneId)) return true; } catch { /* a broken exemption exempts nothing */ }
+  }
+  return false;
+}
+
 // THE ONE ANSWER TO "how cold is it where this body is". Everything that asks about a player
 // rather than about a room goes through here: the body-temperature drift and frostbite's
 // peripheral skin temperature both used to spell the same three-term expression out

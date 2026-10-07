@@ -16,7 +16,7 @@
  */
 import { registerStatusEffect, applyEffect, clearEffect } from '../../server/engine/effects.js';
 import { getAllLivePlayers, bodyZoneOf, getZone } from '../../server/engine/world.js';
-import { feltAmbientC } from '../../server/engine/environment.js';
+import { feltAmbientC, isClimateExempt } from '../../server/engine/environment.js';
 import { getFlag, setFlags } from '../../server/engine/flags.js';
 
 const FLAG = 'frostbite';
@@ -143,11 +143,12 @@ export async function clearFrostbite(player) {
 // point of this system — only what actually covers them (via `extremityExposure`) does.
 // A heated vehicle cabin, however, DOES: that is air, not clothing, and `feltAmbientC` hands
 // back its temperature for a player sealed in a running one. Same function the body-temp drift
-// calls, so a cab can never warm the core and freeze the hands.
+// calls, so a cab can never warm the core and freeze the hands. A zone with no climate (the
+// prologue corridor) answers null, like no zone at all: nothing freezes there, and it thaws.
 function peripheralTempC(player) {
   const zoneId = bodyZoneOf(player);
   const zone = getZone(zoneId);
-  if (!zone) return null;
+  if (!zone || isClimateExempt(zoneId)) return null;
   return feltAmbientC(player, zoneId, zone.flags?.temp_offset || 0);
 }
 
