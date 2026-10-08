@@ -1,0 +1,21 @@
+{
+  "description": "Three leather heavy bags on chains along a rail, split and taped so often the tape holds the shape. A slip rope runs between two posts beside them at head height.",
+  "flags": {
+    "aliases": [
+      "bag",
+      "bags",
+      "heavy bag",
+      "heavy bags",
+      "slip rope",
+      "rope"
+    ],
+    "interactions": [
+      "spar"
+    ],
+    "station_style": "bag"
+  },
+  "id": "furn_ringf_bags",
+  "name": "the heavy bags",
+  "object_type": "furniture",
+  "zone_id": "zone_ringf_floor"
+}

@@ -16,7 +16,7 @@ import { liveAircraft, persist, out, effStats, fieldFor as fieldOf,
 import { normalizeLivery, sanitizeLivery, parsePartsArg, signatureScore, describeExterior,
   paintCost, isPaintable, readSchemes, schemeOf, liveryFromSet, classDefault,
   PATTERNS, FINISHES, UPHOLSTERY, DECALS, TRIMS, CABIN_TRIMS, PLATE_DEFAULT, PLATE_CHARS, PLATE_MAX } from './livery.js';
-import { unlockedLiveries, unlockKeysFor, liveriesFor } from '../../client/shared/livery-sets.js';
+import { unlockedLiveries, unlockKeysFor, liveriesFor, aircraftLiveryModel } from '../../client/shared/livery-sets.js';
 import { getFlagsIn } from '../../server/engine/flags.js';
 import { fieldStocks } from './acquisition.js';
 import { pilotStatusForField, charterParkedAt } from './charter.js';
@@ -141,17 +141,18 @@ async function buildCards(player, field) {
      ORDER BY a.is_wreck, a.rental, t.price_buy`,
     [field.id, player.id]);
   // Range widens with the pilot's own Fabrication (same for every card) + per-craft kits.
-  const [fab, unlocks] = await Promise.all([effectiveSkill(player, 'fabrication'), liveryUnlocks(player, rows.map(r => r.class))]);
+  const [fab, unlocks] = await Promise.all([effectiveSkill(player, 'fabrication'), liveryUnlocks(player, rows.map(r => aircraftLiveryModel(r.class, r.hardpoints)))]);
   return rows.map(r => {
-    const lv = normalizeLivery(r.custom_data, r.class), cap = r.fuel_capacity || 1;
+    const model = aircraftLiveryModel(r.class, r.hardpoints);
+    const lv = normalizeLivery(r.custom_data, model), cap = r.fuel_capacity || 1;
     // Saved sets carry the whole look. One saved before sets did (base..uphol only) fills the rest
     // from the class default, the same as a set applied fresh. The flat fields are what the
     // scheme cards draw; `look` is the whole thing to try on.
     const schemes = Object.entries(readSchemes(r.custom_data)).map(([name, s]) => {
-      const look = sanitizeLivery(s, classDefault(r.class));
+      const look = sanitizeLivery(s, classDefault(model));
       return { name, base: look.base, trim: look.trim, accent: look.accent, variant: look.variant, parts: look.parts, look };
     });
-    const sets = setsFor(r.class, unlocks);
+    const sets = setsFor(model, unlocks);
     const cd = r.custom_data || {};
     // Full template numbers the performance model reads (state.computeStats/perfAxes).
     const type = { class: r.class, seats: r.seats, cargo_capacity: r.cargo_capacity,
@@ -166,7 +167,7 @@ async function buildCards(player, field) {
     // the fuel gauge included: a ferry tank means 100% is a bigger 100%.
     const parts = partDefs(cd), partCap = cap * partEnvelope(parts).fuelCapMult;
     return {
-      id: r.id, tail: r.name || r.tname, typeName: r.tname, typeId: r.type_id, class: r.class, seats: r.seats,
+      id: r.id, tail: r.name || r.tname, typeName: r.tname, typeId: r.type_id, class: r.class, liveryModel: model, seats: r.seats,
       hardpoints: Math.max(r.hardpoints || 0, partEnvelope(parts).hardpoints),   // >0 on a heli ⇒ the client draws the Viper attack mesh, not the Dragonfly
 
       damage: r.damage, hullPct: Math.max(0, Math.round((1 - r.damage) * 100)),
@@ -441,9 +442,10 @@ export async function pushHangarBay(player, selectId, opts = {}) {
 // { ac } (the joined row) or { err } for the panel to surface.
 async function paintTarget(player, id) {
   if (!id) return { err: { type: 'noop' } };
-  const { rows } = await query('SELECT a.*, t.class, t.name tname FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.id=$1', [id]);
+  const { rows } = await query('SELECT a.*, t.class, t.name tname, t.hardpoints thardpoints FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.id=$1', [id]);
   const ac = rows[0];
   if (!ac) return { err: { type: 'emote', message: 'No such aircraft.' } };
+  ac.model = aircraftLiveryModel(ac.class, ac.thardpoints);
   if (ac.owner_id !== player.id || !isPaintable(ac)) return { err: { type: 'emote', message: 'You can only repaint an aircraft you own.' } };
   const field = fieldOf(player);
   if (!field || ac.parked_zone_id !== field.id) return { err: { type: 'emote', message: 'Bring her to a hangar to repaint.' } };
@@ -472,7 +474,7 @@ async function cmdPaintset(args, raw, player) {
   const plate = plateArg === undefined ? undefined : plateArg === '-' ? '' : plateArg.replace(/_/g, ' ');
   const { ac, err } = await paintTarget(player, id); if (err) return err;
 
-  const prev = normalizeLivery(ac.custom_data, ac.class);
+  const prev = normalizeLivery(ac.custom_data, ac.model);
   const next = { ...sanitizeLivery({ base, trim, accent, ground, pattern, finish, cabin, uphol, decal, variant, itrim, plate, parts }, prev), text: prev.text };
   if (JSON.stringify(next) !== JSON.stringify(prev)) {
     const fee = paintCost({ class: ac.class });
@@ -499,19 +501,20 @@ async function cmdScheme(args, raw, player) {
   if (!owned) return { type: 'emote', message: 'No aircraft of your own here.' };
   if (owned.live?.row.airborne) return { type: 'emote', message: 'Land first.' };
   if (!fieldOf(player)) return { type: 'emote', message: 'Do it at a field.' };
-  const { rows } = await query('SELECT a.id, a.custom_data, t.class, t.name tname FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.id=$1', [owned.id]);
+  const { rows } = await query('SELECT a.id, a.custom_data, t.class, t.name tname, t.hardpoints thardpoints FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.id=$1', [owned.id]);
   const ac = rows[0]; if (!ac) return { type: 'emote', message: 'No aircraft of your own here.' };
+  ac.model = aircraftLiveryModel(ac.class, ac.thardpoints);
   const cd = ac.custom_data || {};
   const schemes = { ...readSchemes(cd) };
   const keepSchemes = async () => {
-    const next = { ...cd, livery: { ...normalizeLivery(cd, ac.class), schemes } };
+    const next = { ...cd, livery: { ...normalizeLivery(cd, ac.model), schemes } };
     await query('UPDATE aircraft SET custom_data=$1 WHERE id=$2', [JSON.stringify(next), owned.id]);
     if (owned.live) owned.live.row.custom_data = next;
   };
 
   if (sub === 'save') {
     if (!name) return { type: 'emote', message: 'Name the set: <b>scheme save &lt;name&gt;</b>.' };
-    schemes[name] = schemeOf(cd.livery, ac.class);
+    schemes[name] = schemeOf(cd.livery, ac.model);
     await keepSchemes();
     out(player.id, `<span class="item-grant">Saved this look as "${name}".</span>`);
     return pushHangarBay(player);
@@ -519,10 +522,10 @@ async function cmdScheme(args, raw, player) {
   if (sub === 'load' || sub === 'wear') {
     if (!name) return { type: 'emote', message: 'Name the set: <b>scheme load &lt;name&gt;</b>.' };
     let look = null, label = name;
-    if (schemes[name]) look = sanitizeLivery(schemes[name], classDefault(ac.class));
+    if (schemes[name]) look = sanitizeLivery(schemes[name], classDefault(ac.model));
     else {
-      const unlocks = await liveryUnlocks(player, [ac.class]);
-      const set = liveriesFor('aircraft', ac.class).find(l => l.id === name || l.name.toLowerCase() === name);
+      const unlocks = await liveryUnlocks(player, [ac.model]);
+      const set = liveriesFor('aircraft', ac.model).find(l => l.id === name || l.name.toLowerCase() === name);
       if (set && set.unlock && !unlocks.has(set.unlock)) return { type: 'emote', message: `The shop won't spray ${set.name} for you. Not yet.` };
       if (set) { look = liveryFromSet(set); label = set.name; }
     }
@@ -546,8 +549,9 @@ export const _liveryTest = { applyLook: (...a) => applyLook(...a), setsFor, live
 // Put a whole look on a craft for the class-scaled respray fee. The markings line survives; a look
 // identical to what she wears is free because no work was done. Returns an emote on refusal.
 async function applyLook(player, ac, look, label) {
-  const prev = normalizeLivery(ac.custom_data, ac.class);
-  const next = { ...sanitizeLivery(look, classDefault(ac.class)), text: prev.text };
+  const model = ac.model || ac.class;
+  const prev = normalizeLivery(ac.custom_data, model);
+  const next = { ...sanitizeLivery(look, classDefault(model)), text: prev.text };
   if (JSON.stringify(next) === JSON.stringify(prev)) { out(player.id, `She's already wearing ${label}.`); return null; }
   const fee = paintCost({ class: ac.class });
   if ((player.credits || 0) < fee) return { type: 'emote', message: `A respray on the ${ac.tname} runs ${fee}₵. You're short.` };

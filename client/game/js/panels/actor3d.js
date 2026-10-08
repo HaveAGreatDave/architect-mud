@@ -132,17 +132,21 @@ function ellipsoid(M, c, r, nu, nv, wf, mat, shape) {
   for (let k = 0; k < nu; k++) M.i.push(L[k], L[(k + 1) % nu], bot);
 }
 // A vertical loft through stations [y, rx, rz, cx, cz], top to bottom, with `sub` rings between each.
-function loft(M, st, nu, sub, wf, mat) {
+// `shape` moves each point before it's weighted; `cap` is a point that closes the top ring.
+function loft(M, st, nu, sub, wf, mat, shape, cap) {
   const S = [];
   for (let i = 0; i < st.length - 1; i++) {
     for (let s = 0; s <= sub; s++) { const t = s / (sub + 1); S.push(st[i].map((v, j) => v + (st[i + 1][j] - v) * t)); }
   }
   S.push(st[st.length - 1]);
-  stitch(M, S.map(([y, rx, rz, cx, cz]) => {
+  const V = (x, y, z) => { if (shape) [x, y, z] = shape(x, y, z); return M.vert(x, y, z, wf, mat); };
+  const rings = S.map(([y, rx, rz, cx, cz]) => {
     const ring = [];
-    for (let k = 0; k < nu; k++) { const ph = k * TAU / nu; ring.push(M.vert(cx + rx * Math.cos(ph), y, cz + rz * Math.sin(ph), wf, mat)); }
+    for (let k = 0; k < nu; k++) { const ph = k * TAU / nu; ring.push(V(cx + rx * Math.cos(ph), y, cz + rz * Math.sin(ph))); }
     return ring;
-  }));
+  });
+  if (cap) { const c = V(...cap), f = rings[0]; for (let k = 0; k < nu; k++) M.i.push(c, f[(k + 1) % nu], f[k]); }
+  stitch(M, rings);
 }
 const flatSole = (x, y, z) => [x, Math.max(y, 0.004), z];
 
@@ -167,11 +171,16 @@ function buildBody(lod = 0) {
     const k = smooth(0.93, 0.62, y) * 0.92 * Math.min(1, Math.abs(x) / 0.03);
     return [B.pelvis, x >= 0 ? B.thighL : B.thighR, 1 - k];
   };
+  // The shoulders slope down from the neck, as the trapezius does, instead of running out flat like
+  // pads: the top of the coat is lifted most beside the neck, more at the back than over the
+  // collarbones, and not at all at the point of the shoulder. Front to back the top is a ridge, not
+  // a dome.
+  const yoke = (x, y, z) => [x, y + 0.018 * smooth(1.37, 1.445, y) * (1 - smooth(0.06, 0.19, Math.abs(x))) * (1 - 0.5 * smooth(0, 0.07, z)), z];
   loft(M, thin([
-    [1.475, 0.070, 0.070, 0, -0.005],
-    [1.445, 0.125, 0.095, 0, -0.01],
-    [1.43, 0.170, 0.108, 0, -0.01],
-    [1.40, 0.200, 0.116, 0, -0.01],
+    [1.475, 0.068, 0.064, 0, -0.008],
+    [1.445, 0.125, 0.086, 0, -0.01],
+    [1.43, 0.172, 0.100, 0, -0.01],
+    [1.40, 0.200, 0.114, 0, -0.01],
     [1.33, 0.195, 0.125, 0, 0.0],
     [1.24, 0.180, 0.128, 0, 0.005],
     [1.13, 0.165, 0.118, 0, 0.0],
@@ -181,7 +190,7 @@ function buildBody(lod = 0) {
     [0.92, 0.190, 0.130, 0, -0.005],
     [0.78, 0.200, 0.142, 0, 0.0],
     [0.62, 0.205, 0.150, 0, 0.005],
-  ]), N, SUB, coatW, COAT);
+  ]), N, SUB, coatW, COAT, yoke);
   loft(M, [[1.57, 0.047, 0.05, 0, 0.0], [1.46, 0.052, 0.056, 0, -0.005]], N, SUB,
     chainW([{ y: 1.53, a: B.head, b: B.neck, h: 0.025 }]), SKIN);
   const head = rigid(B.head);
@@ -202,14 +211,21 @@ function buildBody(lod = 0) {
       ellipsoid(M, [0.029 * s, 1.66, 0.095], [0.012, 0.0075, 0.006], 8, 5, head, EYE);
       ellipsoid(M, [0.03 * s, 1.684, 0.093], [0.02, 0.005, 0.008], 8, 4, head, HAIR);
     }
+    // The sleeve's top is a closed cap, the round of the shoulder: its inner half goes in under the
+    // coat's yoke and its outer half falls away to the arm, so there's no open ring standing on
+    // the shoulder like an epaulette. Only the cap leans, on rings that ride the chest alone: below
+    // them the sleeve twists with the upper arm (folded arms turn it about 80°), and a lean there
+    // would swing round to the front as a peak.
+    const deltoid = (px, py, pz) => [px, py - 0.6 * smooth(1.405, 1.432, py) * Math.max(0, (px - x) * s), pz];
     loft(M, thin([
-      [1.43, 0.058, 0.062, x, -0.01], [1.36, 0.058, 0.06, x, -0.01], [1.26, 0.054, 0.056, x, -0.01],
+      [1.436, 0.034, 0.04, x - 0.006 * s, -0.01], [1.426, 0.052, 0.057, x - 0.002 * s, -0.01],
+      [1.41, 0.058, 0.062, x, -0.01], [1.36, 0.058, 0.06, x, -0.01], [1.26, 0.054, 0.056, x, -0.01],
       [1.16, 0.048, 0.05, x, -0.01], [1.10, 0.046, 0.048, x, -0.01], [1.02, 0.045, 0.046, x, -0.01],
       [0.93, 0.043, 0.044, x, -0.01], [0.875, 0.046, 0.046, x, -0.01],
     ]), N, SUB, chainW([
       { y: 1.39, a: B.chest, b: B['uarm' + L], h: 0.03 },
       { y: 1.10, a: B['uarm' + L], b: B['farm' + L], h: 0.045 },
-    ]), COAT);
+    ]), COAT, deltoid, [x - 0.01 * s, 1.441, -0.01]);
     ell([x, 0.795, 0.005], [0.026, 0.068, 0.043], 10, 8, rigid(B['hand' + L]), SKIN);
     if (!far) ellipsoid(M, [x, 0.83, 0.038], [0.016, 0.03, 0.016], 8, 6, rigid(B['hand' + L]), SKIN);
     loft(M, thin([
@@ -498,11 +514,21 @@ function toHalf(v) {
 // Positions and normals are separate RGBA16F textures of the same shape. Built once and kept:
 //
 //   { nv, nt, W, rows, H, frames, pos, nrm, mat, idx, top, clips: { walk|idle|wave: { row0, len, dur } },
-//     preview, far }  where `preview` is the unhalved positions, frame-major, for the gate and the
-//     Modelshop, and `far` is the same shape again for the lod-1 body (see buildBody) at half the frames.
+//     preview, bones, far }  where `preview` is the unhalved positions, frame-major, for the gate and
+//     the Modelshop, `bones` is the head and neck matrices (see ACTOR_HEAD_BONES), and `far` is the
+//     same shape again for the lod-1 body (see buildBody) at half the frames, without `bones`.
 //
 // The whole bake is about 2 ms a frame, 112 frames, so the game takes it in slices (actorBakeStep)
 // and draws the billboard until it is done, rather than stalling one frame for a quarter of a second.
+//
+// The head (actor-head.js) isn't baked: it's rigid on the head bone, and its neck blends the head
+// bone into the neck bone, so a frame of it is two matrices rather than a column per vertex. The
+// near bake writes them into `bones`, a frame a row of ACTOR_HEAD_BONES.texels RGBA32F texels: the
+// head's matrix then the neck's, each as its three rows [m00 m01 m02 tx], [m10 …], [m20 …]. Each
+// takes a bind-space point to where the bake puts it, root surge and drop to the ground included,
+// so a head drawn with them sits on the body exactly. Rows line up with the pose texture's frames
+// (a clip's row0 is its first row here too).
+export const ACTOR_HEAD_BONES = { texels: 6, head: 0, neck: 3 };
 let _bake = null, _job = null, _near = null;
 // The far body's clips have half the frames: at a few pixels nobody can count them.
 const clipFrames = (clip, lod) => (lod ? clip.frames >> 1 : clip.frames);
@@ -514,6 +540,7 @@ function bakeBegin(lod = 0) {
   return {
     lod, nv, nt: M.i.length / 3, W, rows, H, frames, top: 0, ci: 0, f: 0, F: 0, clips: {},
     pos: new Uint16Array(W * H * 4), nrm: new Uint16Array(W * H * 4), preview: new Float32Array(nv * frames * 3),
+    bones: lod ? null : new Float32Array(frames * ACTOR_HEAD_BONES.texels * 4),
     P: new Float32Array(nv * 3), Nn: new Float32Array(nv * 3), mat: new Float32Array(M.m),
     rp: new Float64Array(M.p), rw: new Float64Array(M.w), b0: new Uint8Array(M.b0), b1: new Uint8Array(M.b1), ix: new Uint16Array(M.i),
   };
@@ -556,6 +583,15 @@ function bakeFrame(J) {
     nrm[o] = toHalf(nx / l); nrm[o + 1] = toHalf(ny / l); nrm[o + 2] = toHalf(nz / l); nrm[o + 3] = 0;
   }
   J.preview.set(P, F * nv * 3);
+  if (J.bones) {
+    for (const [bone, at] of [[B.head, ACTOR_HEAD_BONES.head], [B.neck, ACTOR_HEAD_BONES.neck]]) {
+      const m = S[bone], o = (F * ACTOR_HEAD_BONES.texels + at) * 4;
+      for (let r = 0; r < 3; r++) {
+        J.bones[o + r * 4] = m[r]; J.bones[o + r * 4 + 1] = m[4 + r]; J.bones[o + r * 4 + 2] = m[8 + r];
+        J.bones[o + r * 4 + 3] = m[12 + r] - (r === 1 ? minY : 0);
+      }
+    }
+  }
   J.F++;
   if (++J.f >= len) { J.f = 0; J.ci++; }
   return J.ci >= CLIPS.length;
@@ -571,7 +607,7 @@ export function actorBakeStep(budgetMs = 2) {
       const J = _job;
       _job = null;
       const out = { nv: J.nv, nt: J.nt, W: J.W, rows: J.rows, H: J.H, frames: J.frames, pos: J.pos, nrm: J.nrm,
-        mat: J.mat, idx: J.ix, top: J.top, clips: J.clips, preview: J.preview };
+        mat: J.mat, idx: J.ix, top: J.top, clips: J.clips, preview: J.preview, bones: J.bones };
       if (!_near) { _near = out; _job = bakeBegin(1); } else { _bake = { ..._near, far: out }; return _bake; }
     }
     if (performance.now() - t0 >= budgetMs) return null;
@@ -581,6 +617,12 @@ export function actorBakeStep(budgetMs = 2) {
 export const actorBakeReady = () => _bake;
 // The whole bake at once, for the gate and the Modelshop.
 export function actorBake() { return actorBakeStep(Infinity); }
+// The body unposed, in bind space, with each vertex's two bones and the first one's weight: for the
+// gate, which measures the head's matrices against it. Built fresh; the game never calls it.
+export function actorBind(lod = 0) {
+  const M = buildBody(lod);
+  return { p: new Float32Array(M.p), b0: new Uint8Array(M.b0), b1: new Uint8Array(M.b1), w: new Float32Array(M.w), mat: new Uint8Array(M.m), idx: new Uint16Array(M.i) };
+}
 
 // ── Outfits ────────────────────────────────────────────────────────────────────────────────────────
 // Colours as 0..255 sRGB, the unit every palette in windshield.js uses. Each entry is [rgb, weight];

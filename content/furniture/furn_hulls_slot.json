@@ -1,0 +1,15 @@
+{
+  "description": "A channel of open water running in under the shed from the Basin, wide enough for two hulls side by side. Tyres hang along both edges for fenders.",
+  "flags": {
+    "aliases": [
+      "slot",
+      "water",
+      "channel",
+      "tyres"
+    ]
+  },
+  "id": "furn_hulls_slot",
+  "name": "the wet slot",
+  "object_type": "fixture",
+  "zone_id": "zone_hulls_shop"
+}

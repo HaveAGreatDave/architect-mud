@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#221d15",
-  "description": "One room, one window, one counter, and the scale chain coming in through a slot in the wall so Osric can weigh from where he sits. A jeweller's loupe hangs on a string. The strongbox chained to his ankle is under the counter and you aren't going to see inside it. Every surface is covered in small sorted heaps of other people's finds.",
+  "description": "One room with a counter across it and plank shelves to the ceiling behind. Tins, bread, rice, soap, batteries and water, priced in chalk on the shelf edges. Osric works the till from a stool, with the strongbox chained to his ankle under the counter.",
   "exits": {
     "down": "zone_util_zone_thumb_shop",
     "east": "zone_thumb_back",
@@ -27,6 +27,6 @@
   "grid_z": 0,
   "id": "zone_thumb_shop",
   "map_id": "map_int_thumb",
-  "name": "Thumb On The Scale — Shop",
+  "name": "Bare Necessities — Shop",
   "parent_zone": "zone_district_924_914"
 }

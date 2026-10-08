@@ -1,0 +1,11 @@
+{
+  "description": "An angled lamp clamped to the edge of the desk, aimed at the ledger.",
+  "flags": {},
+  "id": "furn_light_zone_ringf_office",
+  "light_type": "lamp",
+  "lumen_output": 800,
+  "name": "the desk lamp",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_ringf_office"
+}

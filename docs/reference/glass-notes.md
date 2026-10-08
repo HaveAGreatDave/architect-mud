@@ -274,7 +274,7 @@ GL takes a tile on `massTile(c) && modelFor(c)`. The 2-D pass suppressed its wal
 Everything used to fade out at `VISIBLE_FAR_F` (34 tiles), a corner shop and the Spire alike, because the map window the server sends ends at 36 and nothing past it was known. Now a tower whose drawn height is 14 storeys or more is skyline, and it stays drawn out to its own reach: 34 tiles plus 2.5 per storey, up to 110. The rule is [client/shared/skyline-tall.js](../../client/shared/skyline-tall.js), and both the server and the client import it.
 
 - Height comes from the baked shapes (`BUILDING_SHAPES`), not the floor count. The Solenne is an 8-storey `apartment` whose model rises to about 27 storeys.
-- The flight and freelook payloads carry `skyline`: the tall towers outside the window and inside their reach, as `[x, y, bt, bn, flr, ent]` (`skylineNear` in plugins/flight/state.js). The windshield keeps every tower it has been sent, by world tile, so a cab or helm view draws the towers a flight or vantage received.
+- Every seat's payload carries `skyline` (the flight, freelook, cab, boat and helm contexts): the tall towers outside the window and inside their reach, as `[x, y, bt, bn, flr, ent]` (`skylineNear` in plugins/flight/state.js). The cab gets it every eighth tile rather than every push. The windshield keeps every tower it has been sent, by world tile.
 - Past the window the tower is the same model: on GLASS 2 a GL cell, on the 2-D path an ordinary item. Its fade is pushed out by giving it a negative haze jitter (`SKYLINE_BASE_FAR - reach`), since the shader dissolves over `FAR - jit`. Inside the window a skyline tower gets the same jitter, so handing over at the window edge swaps one copy for an identical one.
 - The governor's shortened `FAR` doesn't apply to a skyline tower on the 2-D path.
 - `GL_TAKEN` marks a cell by identity, so each skyline record keeps one cell object for good.
@@ -728,6 +728,16 @@ Off by default. A third atlas page (unit 6): r height, g a roughness scale, b = 
 - Trap: a drum in a frost (or any `DRUM_MAT`) palette can't glow after dark. It takes the family's texture on the GPU, and a textured face ignores the night capture's colour, so it keeps its day look at midnight. The clone facility's vats (2026-10) use a plain key, `ty_clone_wall`, with a `litStyle(..., 'frost')` style: lit as frost by day, and a bright night albedo above the night-dim cutoff, so they glow.
 - `FROST_WALL` had held one key, making it a coolant tank rather than a material; etched glass is what a nightclub's dance hall and a couture vitrine are lit through.
 
+### Vehicle exteriors (`metalKOf`)
+
+A vehicle's exterior has one material number per face: positive is a metal (a mirror tinted by its colour), negative a clear coat (untinted, strongest at grazing), 0 flat. `metalKOf` in [client/shared/vehicle-materials.js](../../client/shared/vehicle-materials.js) decides it; `gl/solids.js` draws it per pixel and `reflectEnv` per face on the 2-D path. The Drake is the standard, and `npm run shapes:smoke` runs [vehicle-materials.mjs](../../scripts/shapes/vehicle-materials.mjs), which fails if her materials change.
+
+- **The mesh file says what each part is made of.** A paint slot takes `mat` (a word from `VEHICLE_MATS`: chrome, polished, blued, bare, steel, exhaust, the coats, matte, rubber, glass; or a number). A mesh takes `finish`, the factory paintwork for every face with no `mat`. The Drake's slots carry her numbers and she has no `finish`, which keeps her exactly as she shipped.
+- **The owner's paint decides its own finish.** A fixed slot keeps the mesh's material under any livery. A slot the owner can paint keeps the factory finish only while the factory paint is on it; repainted, it takes the booth's finish. A metal slot that's also paint (the Drake's candy shell) stays metal.
+- Trap: the engine used to match the Drake's slot names on every mesh. `belly` and `seam` are slots on the Mule, the Leviathan, the Reaper and the Shrike, so their bellies were 0.4 mirrors and the Reaper's guns took her chrome. A name means nothing now; say it in the file.
+- Trap: a role is what a face does, not what it's made of. Tyres are role `gear`, a 0.45 metal, so `pushWheel` stamps them `mk: rubber` and the caps `polished`. A gelcoat `mk` on a boat is paint and a livery coat replaces it; a fixed fitting or a tyre keeps its own.
+- A port held against its old builder (`portedFrom`) is compared without its `finish` (`compileMesh(..., { finish: false })`): the builder drew geometry and never declared one.
+
 ## Sky beam
 
 `skyBeam` is the twelfth authored adornment: a sweeping shaft leaving a building, which a destination club has instead of a bigger sign, visible from across the basin.
@@ -877,6 +887,7 @@ Benches pin `performance.now` so a drifting sky isn't read as a finding, but the
 - **stencil:** flat opaque fill, soft overspray, speckle, and bridges punched with `destination-out` so they take the overspray too (a bake doesn't know the wall colour, so a painted bridge would be a coloured bar).
 - **roller:** two flat offset tones, no outline or drips, nap streaks, one dry end.
 - **buff:** the city painting over, a ragged patch of municipal colour at alpha 0.87 so the ghost of the piece shows (at 1 it was invisible).
+- **gothic:** a placa in blackletter (UnifrakturMaguntia, self-hosted): a drop shadow, then every keyline, then every fill. Title-cased, because all-caps blackletter can't be read. It's the one hand that is a typeface, and the only place that face may appear: signs gave it up, so `SIGN_FONT` has no `gothic`. `loadNeonFaces` clears the tag cache as well as the sign cache when the faces land.
 
 Rules:
 

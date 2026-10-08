@@ -122,7 +122,8 @@
           230,
           214
         ],
-        "livery": "base"
+        "livery": "base",
+        "mat": 0.4
       },
       "bill": {
         "rgb": [
@@ -146,7 +147,8 @@
           40,
           118
         ],
-        "livery": "base"
+        "livery": "base",
+        "mat": 0.4
       },
       "carpet": {
         "rgb": [
@@ -162,7 +164,8 @@
           210,
           216
         ],
-        "livery": "fixed"
+        "livery": "fixed",
+        "mat": 0.95
       },
       "crest": {
         "rgb": [
@@ -235,7 +238,8 @@
           74,
           52
         ],
-        "livery": "trim"
+        "livery": "trim",
+        "mat": 0.3
       },
       "eye": {
         "rgb": [
@@ -251,7 +255,8 @@
           150,
           82
         ],
-        "livery": "base"
+        "livery": "base",
+        "mat": 0.4
       },
       "feet": {
         "rgb": [
@@ -267,7 +272,8 @@
           146,
           82
         ],
-        "livery": "base"
+        "livery": "base",
+        "mat": 0.4
       },
       "grille": {
         "rgb": [
@@ -275,7 +281,8 @@
           34,
           38
         ],
-        "livery": "fixed"
+        "livery": "fixed",
+        "mat": 0.4
       },
       "gun": {
         "rgb": [
@@ -283,7 +290,8 @@
           68,
           74
         ],
-        "livery": "fixed"
+        "livery": "fixed",
+        "mat": 0.9
       },
       "gunDk": {
         "rgb": [
@@ -291,7 +299,8 @@
           40,
           44
         ],
-        "livery": "fixed"
+        "livery": "fixed",
+        "mat": 0.7
       },
       "hub": {
         "rgb": [
@@ -299,7 +308,8 @@
           142,
           84
         ],
-        "livery": "fixed"
+        "livery": "fixed",
+        "mat": 0.75
       },
       "lamp": {
         "rgb": [
@@ -320,7 +330,8 @@
           46,
           142
         ],
-        "livery": "trim"
+        "livery": "trim",
+        "mat": 0.32
       },
       "lowB": {
         "rgb": [
@@ -333,7 +344,8 @@
           52,
           158
         ],
-        "livery": "trim"
+        "livery": "trim",
+        "mat": 0.32
       },
       "lowC": {
         "rgb": [
@@ -346,7 +358,8 @@
           62,
           168
         ],
-        "livery": "trim"
+        "livery": "trim",
+        "mat": 0.32
       },
       "primary": {
         "rgb": [
@@ -407,7 +420,8 @@
           98,
           62
         ],
-        "livery": "trim"
+        "livery": "trim",
+        "mat": 0.4
       },
       "seat": {
         "rgb": [
@@ -444,7 +458,8 @@
           200,
           150
         ],
-        "livery": "base"
+        "livery": "base",
+        "mat": 0.4
       },
       "walnut": {
         "rgb": [

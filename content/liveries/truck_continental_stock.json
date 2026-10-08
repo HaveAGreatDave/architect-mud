@@ -1,0 +1,22 @@
+{
+  "blurb": "Oxblood metallic with a gold twin pinstripe. The Orlov is priced like a house and painted like one.",
+  "default": true,
+  "exterior": {
+    "art": "none",
+    "base": "#5a1420",
+    "bright": "#e2e8f0",
+    "chrome": 1,
+    "deck": "#b9bec6",
+    "finish": "metallic",
+    "flash": "pinstripe",
+    "glass": "#324a5c",
+    "glow": "#ffb45c",
+    "hw": "#23262b",
+    "trim": "#d4b25a"
+  },
+  "id": "stock",
+  "kind": "truck",
+  "model": "continental",
+  "name": "Orlov Oxblood",
+  "unlock": null
+}

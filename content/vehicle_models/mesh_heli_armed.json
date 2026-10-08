@@ -12,6 +12,14 @@
       { "at": [0.1, 0, 0.34], "plane": "h", "r": 1.02, "blades": 2, "lead": 0.85 },
       { "at": [-1.04, 0.07, 0.12], "plane": "side", "r": 0.19, "blades": 2, "lead": 0.7, "spinMul": 4.7, "phase": 1.1 }
     ],
+    "finish": "matte",
+    "paints": {
+      "belly": { "rgb": [204, 186, 146], "livery": "base" },
+      "camo": { "rgb": [98, 80, 46], "livery": "trim" },
+      "glare": { "rgb": [38, 36, 32], "livery": "fixed", "mat": "matte" },
+      "hull": { "rgb": [190, 162, 108], "livery": "base" },
+      "metal": { "rgb": [128, 124, 112], "livery": "fixed", "mat": "bare" }
+    },
     "parts": [
       {
         "kind": "loft",
@@ -37,9 +45,19 @@
         ],
         "regions": [
           { "at": [0.6, 0.52, 0.29], "k": [0, 1, 2, 3, 4], "role": "glass", "tint": [46, 68, 92], "art": "viper", "uvDiv": 5 },
-          { "at": [0.36, 0.14], "k": [1, 2, 3], "role": "glass", "tint": [46, 68, 92], "art": "viper", "uvDiv": 5 }
+          { "at": [0.36, 0.14], "k": [1, 2, 3], "role": "glass", "tint": [46, 68, 92], "art": "viper", "uvDiv": 5 },
+          { "at": [0.7], "k": [1, 2, 3], "paint": "glare" },
+          { "at": [0.7, 0.6], "k": [4, 5, 6], "paint": "camo" },
+          { "at": [0.52], "k": [9, 0], "paint": "camo" },
+          { "at": [0.36], "k": [9, 0, 4], "paint": "camo" },
+          { "at": [0.14], "k": [4, 5, 0], "paint": "camo" },
+          { "at": [0.04], "k": [1, 2, 3, 9], "paint": "camo" },
+          { "at": [-0.14], "k": [9, 0, 1, 4, 5], "paint": "camo" },
+          { "at": [-0.26], "k": [2, 3, 4], "paint": "camo" },
+          { "at": [0.7, 0.6, 0.52, 0.36, 0.29, 0.14, 0.04, -0.14, -0.26], "k": [6, 7, 8], "paint": "belly" }
         ],
-        "capFore": { "kind": "apex", "at": [0.8, 0, 0.052] }
+        "capFore": { "kind": "apex", "at": [0.8, 0, 0.052] },
+        "paint": "hull"
       },
       {
         "kind": "group",
@@ -51,7 +69,16 @@
           { "kind": "tube", "name": "muzzle (right)", "pts": [[0.5, 0.028, -0.006], [0.71, 0.028, -0.02]], "r": 0.007, "sides": 5, "role": "gun", "sh": 0.6 }
         ]
       },
-      { "kind": "tube", "name": "sensor turret", "pts": [[0.74, 0, 0.055], [0.83, 0, 0.055]], "r": 0.038, "sides": 8, "role": "nacelle", "sh": 0.7 },
+      {
+        "kind": "tube",
+        "name": "sensor turret",
+        "pts": [[0.74, 0, 0.055], [0.83, 0, 0.055]],
+        "r": 0.038,
+        "sides": 8,
+        "role": "nacelle",
+        "sh": 0.7,
+        "paint": "glare"
+      },
       {
         "kind": "poly",
         "name": "sensor face",
@@ -117,7 +144,8 @@
                   [0.09000000000000001, 0.6, -0.024]
                 ]
               }
-            ]
+            ],
+            "paint": "camo"
           },
           {
             "kind": "tube",
@@ -126,7 +154,8 @@
             "r": 0.05,
             "sides": 8,
             "role": "nacelle",
-            "sh": 0.66
+            "sh": 0.66,
+            "paint": "hull"
           },
           {
             "kind": "group",
@@ -214,7 +243,13 @@
           { "f": -0.58, "rg": 0.038, "rv": 0.038, "cz": 0.104 },
           { "f": -0.82, "rg": 0.03, "rv": 0.03, "cz": 0.112 },
           { "f": -1.02, "rg": 0.024, "rv": 0.024, "cz": 0.12 }
-        ]
+        ],
+        "regions": [
+          { "at": [-0.34], "k": [0, 1, 2], "paint": "camo" },
+          { "at": [-0.58], "k": [3, 4, 5, 6], "paint": "camo" },
+          { "at": [-0.82], "k": [7, 0, 1], "paint": "camo" }
+        ],
+        "paint": "hull"
       },
       {
         "kind": "blade",
@@ -223,7 +258,8 @@
         "t": 0.013,
         "role": "fin",
         "sh": [0.92, 0.7],
-        "edges": [{ "a": 1, "b": 2, "sh": 0.82 }]
+        "edges": [{ "a": 1, "b": 2, "sh": 0.82 }],
+        "paint": "camo"
       },
       {
         "kind": "mirror",
@@ -236,7 +272,8 @@
             ],
             "left": { "sh": 0.66 }
           }
-        ]
+        ],
+        "paint": "hull"
       },
       {
         "kind": "tube",
@@ -245,7 +282,8 @@
         "r": 0.026,
         "sides": 7,
         "role": "nacelle",
-        "sh": 0.72
+        "sh": 0.72,
+        "paint": "metal"
       },
       {
         "kind": "poly",
@@ -259,7 +297,16 @@
         "kind": "mirror",
         "name": "engine nacelles",
         "parts": [
-          { "kind": "tube", "name": "nacelle", "pts": [[0.16, 0.135, 0.135], [-0.14, 0.135, 0.135]], "r": 0.062, "sides": 8, "role": "nacelle", "sh": 0.72 },
+          {
+            "kind": "tube",
+            "name": "nacelle",
+            "pts": [[0.16, 0.135, 0.135], [-0.14, 0.135, 0.135]],
+            "r": 0.062,
+            "sides": 8,
+            "role": "nacelle",
+            "sh": 0.72,
+            "paint": "camo"
+          },
           {
             "kind": "tube",
             "name": "exhaust",
@@ -271,7 +318,16 @@
           }
         ]
       },
-      { "kind": "tube", "name": "mast", "pts": [[0.1, 0, 0.16], [0.1, 0, 0.29500000000000004]], "r": 0.02, "sides": 8, "role": "nacelle", "sh": 0.82 },
+      {
+        "kind": "tube",
+        "name": "mast",
+        "pts": [[0.1, 0, 0.16], [0.1, 0, 0.29500000000000004]],
+        "r": 0.02,
+        "sides": 8,
+        "role": "nacelle",
+        "sh": 0.82,
+        "paint": "metal"
+      },
       {
         "kind": "drum",
         "name": "swashplate",
@@ -281,7 +337,8 @@
         "n": 8,
         "role": "nacelle",
         "sh": { "base": 0.55, "alt": 0.12 },
-        "top": { "sh": 0.7 }
+        "top": { "sh": 0.7 },
+        "paint": "metal"
       },
       {
         "kind": "drum",
@@ -292,7 +349,8 @@
         "n": 8,
         "role": "nacelle",
         "sh": { "base": 0.7, "alt": 0.2, "phase": 1 },
-        "top": { "sh": 0.95 }
+        "top": { "sh": 0.95 },
+        "paint": "metal"
       },
       {
         "kind": "poly",
@@ -318,7 +376,8 @@
               [0.04800000000000001, -0.014, 0.339]
             ]
           }
-        ]
+        ],
+        "paint": "metal"
       },
       { "kind": "ngon", "name": "main rotor disc", "note": "Schematic only.", "f": 0.1, "h": 0.34, "r": 1.02, "n": 8, "role": "rotor", "sh": 0.65 },
       {

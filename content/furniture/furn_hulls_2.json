@@ -1,12 +1,19 @@
 {
-  "description": "Every tool outlined in paint, every outline filled. A workshop this tidy isn't a busy one.",
-  "flags": {},
+  "description": "Boards on every wall with each tool outlined in white paint. Three outlines are empty. Those three tools are on the bench.",
+  "flags": {
+    "aliases": [
+      "shadow-board",
+      "shadow-boards",
+      "boards",
+      "tools"
+    ]
+  },
   "hp": null,
   "hp_max": null,
   "id": "furn_hulls_2",
   "light_type": null,
   "lumen_output": null,
-  "name": "shadow-board wall",
+  "name": "the shadow-boards",
   "object_type": "fixture",
   "power_draw_kw": null,
   "price": 0,

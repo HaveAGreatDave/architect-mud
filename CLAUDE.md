@@ -78,6 +78,7 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 - [docs/proposals/coldwater-infill.md](docs/proposals/coldwater-infill.md): fourteen infill buildings (as built). Run `node scripts/content/sitecheck.mjs` before siting; an open mid-block tile is usually somebody's street access
 - [docs/proposals/old-coldwater.md](docs/proposals/old-coldwater.md): the south-east slums (as built). Tents are a `mark`, never a `building_type`; 925,917 is a storm drain into the Under. Nothing there carries words, painted or lit (`SLUM_DECLINE`)
 - [docs/proposals/halcyon-fields-infill.md](docs/proposals/halcyon-fields-infill.md): Halcyon Fields streets and 42 buildings (as built). A door's direction is fixed by `flags.entrance`
+- [docs/proposals/moor-or-less.md](docs/proposals/moor-or-less.md): the cheap boatyard at the head of Ironside Street and Ring Fenced, the gym that replaced Hulls Angels (as built). The east shore past column 927 is outside the Curtain; a flat is never behind a camera test
 - [docs/zone-redesign-2026-07.md](docs/zone-redesign-2026-07.md): why zone fields have the shape they do
 - [docs/lore-wildblood.md](docs/lore-wildblood.md): Wildblood canon, read before writing mutants or the Under. The Under was theirs first
 - [docs/systems-wildlands.md](docs/systems-wildlands.md): the Curtain and the Wildlands. Map and wall built; systems are design; its camp section is superseded by the Scarletwastes

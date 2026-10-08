@@ -25,9 +25,10 @@
 // downloads and parses the whole 3-D stack before they can type `look`. The facade has the same
 // export names, so nothing below this line changed; what changed is that the bytes arrive when the
 // seat is opened. See scripts/client/bake-lazy-view.mjs.
-import { loadWindshield, isLoaded as windshieldLoaded, paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, normalizeWx, navMarks, raptorsNow, yachtScopeMount, yachtDeckEye, modelTopZAt, curtainTopZAt } from './windshield-lazy.js';
+import { loadWindshield, isLoaded as windshieldLoaded, paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, normalizeWx, navMarks, raptorsNow, yachtScopeMount, yachtDeckEye, modelTopZAt, curtainTopZAt, ROAD_RIG_MUL } from './windshield-lazy.js';
 export { loadWindshield };
 import { createFreeCam, FREECAM_HINT, FREECAM_STAND_HINT, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
+import { makeContactTrack } from './world-feed.js';
 import { bindBigScreenButton, exitBigScreen, setSidebarHidden, bindSidebarButton, BIGSCREEN_GLYPH, BIGSCREEN_TITLE, SIDEBAR_GLYPH, SIDEBAR_TITLE } from './bigscreen.js';
 import { claimSeatKeyboard, endSeatKeyboard } from './seat-keys.js';
 import { floorZAt } from './seabed-scene.js';
@@ -163,6 +164,12 @@ export function freelookSetActors(actors) {
   if (st && actors !== undefined) st.actors = actors || [];
 }
 
+// Everything moving in the window (aircraft, boats, trucks), absolute tiles, once a second from
+// plugins/freelook. Dead-reckoned between pushes by the track (world-feed.js). An empty list clears.
+export function freelookSetContacts(list) {
+  if (st && list !== undefined) st.contacts.update(list || []);
+}
+
 export function freelookSetSky(sky) {
   if (!st || !sky) return;
   st.field = sky.field || st.field;
@@ -203,6 +210,9 @@ export function openFreelook(ctx = {}) {
     st.want = null;
     freelookSetSky(ctx.sky);
     freelookSetActors(ctx.actors);
+    if (ctx.roads !== undefined) st.roads = ctx.roads || null;
+    if (ctx.regions) st.regions = ctx.regions;
+    freelookSetContacts(ctx.contacts);
     return st.api;
   }
   closeFreelook();
@@ -265,6 +275,9 @@ export function openFreelook(ctx = {}) {
     map: ctx.map || null,
     skyline: ctx.skyline || null,     // the tall towers outside the window (windshield.js noteSkyline)
     actors: ctx.actors || [],
+    // What a cockpit is sent and this camera now is too: the highway past the window, the region's
+    // colour grade, and everything moving.
+    roads: ctx.roads || null, regions: ctx.regions || null, contacts: makeContactTrack(),
     want: null,                       // the re-centre this view has asked for and not yet been given
     onRecenter: ctx.onRecenter || null,
     stand,
@@ -274,6 +287,7 @@ export function openFreelook(ctx = {}) {
     api: null,
   };
   freelookSetSky(ctx.sky);
+  freelookSetContacts(ctx.contacts);
 
   // ⚠ OPEN ALREADY DETACHED. There is no mount to be on, so the "stowed" state of the camera is not
   // a state this view has — a stowed camera here would be a frozen frame with no controls at all.
@@ -367,6 +381,10 @@ export function openFreelook(ctx = {}) {
         tune: (st.stand || freeCam.standing) ? STAND_TUNE : undefined,   // see STAND_TUNE — a seat that cannot move can afford to draw more
         freeCam: freeCam.view(),
         actors: st.actors,   // pavement people; meshes up close (gl/actors.js)
+        // ⚠ THE OWN SHIP IS THE WINDOW CENTRE, hidden, so a contact's offset is from there; the camera
+        // flying away from it is the renderer's business (freeCam), exactly as for the helm.
+        contacts: st.contacts.size ? st.contacts.frame(st.gx, st.gy, { roadRig: ROAD_RIG_MUL }) : null,
+        roads: st.roads, regions: st.regions,
       });
 
       // ⚠ WHERE THE CAMERA IS, NOT WHERE THE WINDOW IS CENTRED. This read `st.gx,st.gy`, which is

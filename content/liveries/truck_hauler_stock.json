@@ -1,0 +1,22 @@
+{
+  "blurb": "Rust red with a cream flash. The Courier has looked like this for forty years and nobody has asked why.",
+  "default": true,
+  "exterior": {
+    "art": "none",
+    "base": "#7d3f2a",
+    "bright": "#e2e8f0",
+    "chrome": 1,
+    "deck": "#b9bec6",
+    "finish": "gloss",
+    "flash": "stripe",
+    "glass": "#324a5c",
+    "glow": "#60c4d6",
+    "hw": "#23262b",
+    "trim": "#d8cfc0"
+  },
+  "id": "stock",
+  "kind": "truck",
+  "model": "hauler",
+  "name": "Workhorse",
+  "unlock": null
+}

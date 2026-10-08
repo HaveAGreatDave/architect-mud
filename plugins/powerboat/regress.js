@@ -324,6 +324,46 @@ export default async function regress({ run, check, getPlayer }) {
       wright ? 'works in ' + wright.work_zone_id + ' (' + (wz ? Y.berthKind(wz) : 'no zone') + ')' : 'no npc');
   }
 
+  // ── MOOR OR LESS, the cheap yard at the head of Ironside Street ──────────────
+  //
+  // A second yard is the first test of the claim the boatyard was built on: that a marina is flags
+  // on tiles and nothing in yard.js knows a coordinate. So this asserts the yard works as a yard —
+  // one walk, a desk with its clerk, a covered slot on real water, a shipwright in it — and that it
+  // is cheaper, which is the whole of why it exists.
+  {
+    const YM = await import('./yard.js');
+    const { deskIn } = await import('./desk.js');
+    const { getNpc } = await import('../../server/engine/world.js');
+    const shed = getZone('zone_hulls_shop');
+    check('moor or less: the shed is a covered berth', !!shed && YM.berthKind(shed) === 'covered', shed ? JSON.stringify(shed.flags) : 'no zone');
+    const reach = shed ? YM.berthsNear(shed.id).map((z) => z.id) : [];
+    for (const id of ['zone_district_920_901', 'zone_district_919_900', 'zone_district_919_899']) {
+      check('moor or less: ' + id + ' is one walk from the shed', reach.includes(id), reach.join(','));
+    }
+    // ⚠ AND NOT FAIRWEATHER'S. A walk long enough to reach the other shore would make `berth` a
+    // free crossing of the Basin, the teleport the reach rule exists to refuse.
+    check('moor or less and Fairweather are two yards', !reach.includes('zone_consv_hall') && !YM.berthsNear('zone_consv_hall').some((z) => z.id === 'zone_hulls_shop'));
+    const slot = shed && YM.coveredSlot(shed);
+    check('the shed\'s wet slot is the open water to the north', !!slot && slot.zone.id === 'zone_district_921_900' && slot.heading === 0,
+      slot ? slot.zone.id + ' @ ' + slot.heading : 'no slot');
+    check('the desk is in the shed', !!deskIn('zone_hulls_shop'));
+    const keel = getNpc && getNpc('npc_shipwright');
+    check('Keel clerks the desk and is the shipwright', !!keel && keel.work_zone_id === 'zone_hulls_shop' && keel.flags?.repairman === true,
+      keel ? keel.work_zone_id + ' ' + JSON.stringify(keel.flags || {}) : 'no npc_shipwright');
+    check('the outer stage sells fuel', !!getZone('zone_district_919_899')?.flags?.boat_fuel);
+
+    // The rate: the list where nothing says otherwise, and less at every place this yard lets.
+    check('yardRate: unset is the list', YM.yardRate(hall) === 1 && YM.yardRate({ flags: {} }) === 1 && YM.yardRate(null) === 1);
+    check('yardRate: nonsense is the list', YM.yardRate({ flags: { yard_rate: -2 } }) === 1 && YM.yardRate({ flags: { yard_rate: 'cheap' } }) === 1);
+    check('rateAt: the first zone that sets one decides', YM.rateAt(null, { flags: {} }, { flags: { yard_rate: 0.5 } }) === 0.5 && YM.rateAt() === 1);
+    for (const id of ['zone_hulls_shop', 'zone_district_920_901', 'zone_district_919_900', 'zone_district_919_899']) {
+      const z = getZone(id), kind = YM.berthKind(z);
+      check('moor or less: ' + id + ' lets below the list', YM.yardRate(z) < 1 && YM.moveInFee(z) < YM.MOVE_IN[kind],
+        z ? `${YM.moveInFee(z)} vs ${YM.MOVE_IN[kind]}` : 'no zone');
+    }
+    check('Fairweather still charges the list', !!hall && YM.moveInFee(hall) === YM.MOVE_IN.covered, hall ? String(YM.moveInFee(hall)) : 'no hall');
+  }
+
   // ── 13. THE MOTOR, AS SOMETHING YOU CAN SEE ───────────────────────────────
   //
   // `rich` and `bang` are the two halves of the gap between the lever and the blower, and they

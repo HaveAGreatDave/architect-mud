@@ -8,12 +8,13 @@
 // An arm that ends early uses `return` where the case used `break`. How a tile becomes a building
 // is in docs/reference/world-rendering.md.
 import {
-  DECO_LIFT, DECO_PULL, SHAPE_SINK, arcStrike, blinkLight, clamp, draw3DBoxAt, drawBarrelRoof,
+  DECO_LIFT, DECO_PULL, DETAIL_LIFT, FACE_EPS, SHAPE_SINK, arcStrike, bakeSignText, emitSurfaceText, rgb, blinkLight, clamp, draw3DBoxAt, drawBarrelRoof,
   drawBrandBand, drawFacetDrum, drawPriceBoard, drawRing, drawSmoke, emitDecoFill, emitFlat,
   emitWire, faceY, faceYaw, frac, glowPool, groundPaint, hoistLine, latticeBoom, marqueeBand,
   motionOn, motionPhase, moveSeg, movingBox, nearOrMesh, roofHatch,
 } from '../../windshield.js';
 import { FLOOR_Z } from '../../../../../shared/skyline-scale.js';
+import { flatOut } from './downtown.js';
 
 export const YARDS_ARMS = {
   // ── The Yards — semi-industrial freight district (docs/proposals/yards.md) ──
@@ -812,6 +813,233 @@ export const YARDS_ARMS = {
     if (night) {
       glowPool(ctx, cam, car[0], car[1], carZ - fh * 0.14, '255,214,150', 8, alpha * 0.34);                // the trolley's work lamp
       glowPool(ctx, cam, car[0], car[1], hookZ, '255,206,140', 10, alpha * 0.26);                         // and what it is lighting
+    }
+  },
+  gym(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // RING FENCED: a boxing gym in an old boat shed on Lever Lane
+    // A red-brick works shed under a red-oxide barrel roof. It was Hulls Angels, a boat shed a
+    // quarter of a mile from the water, and the front still says so: the opening of the mast doors
+    // runs from the pavement to the eaves, bricked up to head height in newer buff brick and glazed
+    // above, with an ordinary steel door cut into the bottom. The frontage reads in that order from
+    // the pavement up: the tyres of the circuit by the step, the door, the painted name over it, the
+    // glass the old doors left, and the roof the mast used to go up into.
+    //
+    // ⚠ THE PROSE IS THE SPEC. zone_district_916_905 and Tamsin's dialogue both describe this front,
+    // and scripts/content/ring-fenced.mjs authors them. Change one and change the other.
+    // ⚠ NO KIT (derived-kit.js NO_KIT). Every part of this front is placed against the story above,
+    // and the kit's works ground floor puts a roller shutter and a personnel door exactly where the
+    // infill and the new door are.
+    const YAW = faceYaw(E), NEAR = nearOrMesh(), dn = night ? clamp(night, 0, 1) : 0, dusk = 1 - 0.55 * dn;
+    const HX = fh * 0.84, HY = fh * 0.86;          // the brick walls: across the frontage, front to back
+    const EAVE = fh * 0.92;                          // the barrel overhangs the walls on all four sides
+    const PLINTH = h * 0.05, TOP = h * 0.74, archH = fh * 0.26;
+    const WF = HY;                                   // the front wall's plane
+    const OX = fh * 0.40, LINTEL = h * 0.66;         // the old opening: its half-width and its head
+    const HEAD = h * 0.46;                           // the infill stops at head height
+    const IF = WF + fh * 0.024;                      // the infill's face, proud of the old brick
+    const DW = fh * 0.085, DTOP = h * 0.31;          // the new door
+    const NEW = 'ty_junk_shack', DARK = 'ty_oc_brick_dk', STEEL = 'ty_fab_steel';
+    const ROOF = [124, 70, 54];                      // red-oxide corrugated sheet
+    const lerp = (a, b) => [0, 1, 2].map((i) => a[i] + (b[i] - a[i]) * dn);
+    const TUBE_DAY = [72, 86, 96], TUBE_NIGHT = [206, 232, 220];   // wired glass, by day and lit by the tubes
+    const paneRgb = rgb(lerp(TUBE_DAY, TUBE_NIGHT));
+    const bar = 'rgba(30,34,38,0.92)';
+    // Does the wall with local outward normal (nx, ny) through local point (px, py) face the eye?
+    // ⚠ EVERY STROKE ON A SIDE OR THE BACK ASKS THIS. A stroke has no face to cull, so on the 2-D
+    // painter the flank's glazing bars and sills drew straight through the front wall as a ghost grid.
+    const faces = (nx, ny, px, py) => { const [ax, ay] = F(px, py), [bx, by] = F(px + nx, py + ny);
+      return (bx - ax) * ((cam.ex || 0) - ax) + (by - ay) * ((cam.ey || 0) - ay) > 0; };
+
+    // 1) THE SHED. A plinth of dark engineering brick, red brick walls to the eaves, and the barrel
+    //    over them, wider than the walls on every side so the eaves read as eaves (the warehouse
+    //    arm's ⚠ on why a wall standing proud of its own roof reads as a mistake).
+    draw3DBoxAt(ctx, cam, dx, dy, HX * 1.03, 0, PLINTH, DARK, seed + 1, night, alpha, false, YAW, HY * 1.03);
+    draw3DBoxAt(ctx, cam, dx, dy, HX, PLINTH, TOP, pal, seed, night, alpha, false, YAW, HY);
+    drawBarrelRoof(ctx, cam, F, 0, EAVE, HY + fh * 0.012, TOP, archH, 12, alpha, ROOF);
+
+    // 2) THE OLD OPENING, the biggest thing on the front because the mast doors were what the
+    //    building was for. A steel lintel at its head, steel jambs, the new brick to head height,
+    //    and the glass above. The infill stands a hair proud of the old brick, which is how a filled
+    //    opening reads from across a street.
+    { const [ix, iy] = F(0, WF + fh * 0.008);
+      draw3DBoxAt(ctx, cam, ix, iy, OX, PLINTH, HEAD, NEW, seed + 2, night, alpha, true, YAW, fh * 0.016); }
+    { const [lx, ly] = F(0, WF + fh * 0.018);
+      draw3DBoxAt(ctx, cam, lx, ly, OX + fh * 0.05, LINTEL, LINTEL + h * 0.04, STEEL, seed + 3, night, alpha, true, YAW, fh * 0.02); }
+    for (const s of [-1, 1]) {
+      const [jx, jy] = F(s * (OX + fh * 0.022), WF + fh * 0.016);
+      draw3DBoxAt(ctx, cam, jx, jy, fh * 0.022, PLINTH, LINTEL, STEEL, seed + 4 + s, night, alpha, false, YAW, fh * 0.022);
+    }
+    // The glass. One flat for the whole grid and the bars as strokes on it, so the 2-D painter pays
+    // for one face out of range. Lit by the gym's tubes after dark, which is the colour the side
+    // windows and the rooflight share: cool, because a gym is fluorescent and amber belongs to the
+    // works (building-styles.md §2.5).
+    const G0 = HEAD + h * 0.012, G1 = LINTEL - h * 0.006, GY = WF + fh * 0.012;
+    flatOut(ctx, cam, W3, [[-OX, GY, G1], [OX, GY, G1], [OX, GY, G0], [-OX, GY, G0]], [0, 1, 0], paneRgb, alpha);
+    // What the glass shows after dark: the top rope of the ring along the bottom of it and a heavy
+    // bag hanging in one bay, black against the tubes. It is what tells somebody on the lane that the
+    // lit window is a gym and not an office. ⚠ NIGHT ONLY: by day the glass is darker than anything
+    // behind it and a silhouette on it would read as a sticker.
+    if (night && frontVis && NEAR) {
+      const sil = `rgba(18,22,22,${(0.82 * dn).toFixed(2)})`, sy = GY + 0.003;
+      for (const z of [G0 + (G1 - G0) * 0.10, G0 + (G1 - G0) * 0.22]) emitWire(ctx, cam, W3(-OX * 0.96, sy, z), W3(OX * 0.30, sy, z), 2.2, sil, alpha, { pull: FACE_EPS });
+      emitWire(ctx, cam, W3(-OX * 0.62, sy, G0), W3(-OX * 0.62, sy, G0 + (G1 - G0) * 0.30), 4, sil, alpha, { pull: FACE_EPS });   // the corner post
+      const bx = OX * 0.58, bw = OX * 0.09, b0 = G0 + (G1 - G0) * 0.18, b1 = G0 + (G1 - G0) * 0.66;
+      emitWire(ctx, cam, W3(bx, sy, b1), W3(bx, sy, G1), 1.4, sil, alpha, { pull: FACE_EPS });                                      // its chain
+      flatOut(ctx, cam, W3, [[bx - bw, sy, b1], [bx + bw, sy, b1], [bx + bw * 0.92, sy, b0], [bx - bw * 0.92, sy, b0]], [0, 1, 0], sil, alpha, { paint: true });   // the bag: a decal, because no mesh is captured at night
+    }
+    if (NEAR && frontVis) {
+      for (let k = 1; k < 6; k++) { const x = -OX + (2 * OX) * k / 6;
+        emitWire(ctx, cam, W3(x, GY + 0.002, G0), W3(x, GY + 0.002, G1), 1.3, bar, alpha, { pull: FACE_EPS }); }
+      for (let k = 1; k < 4; k++) { const z = G0 + (G1 - G0) * k / 4;
+        emitWire(ctx, cam, W3(-OX, GY + 0.002, z), W3(OX, GY + 0.002, z), 1.3, bar, alpha, { pull: FACE_EPS }); }
+      // The top of the infill is a sill, and it carries a drip line of its own.
+      emitWire(ctx, cam, W3(-OX, IF + 0.002, HEAD + h * 0.002), W3(OX, IF + 0.002, HEAD + h * 0.002), 1.8, 'rgba(150,132,104,0.9)', alpha, { pull: FACE_EPS });
+    }
+
+    // The hoist beam the masts went in by, still sticking out of the gable over the old doors, with
+    // its pulley block and the stub of a rope. Nobody took it down because nobody needed the room.
+    { const bz0 = TOP + archH * 0.50, bz1 = bz0 + h * 0.035, by0 = HY + fh * 0.012, by1 = HY + fh * 0.20;
+      const [bx, byy] = F(0, (by0 + by1) / 2);
+      draw3DBoxAt(ctx, cam, bx, byy, fh * 0.026, bz0, bz1, 'ty_oc_board_dk', seed + 12, night, alpha, true, YAW, (by1 - by0) / 2);
+      const py = by1 - fh * 0.03, pz = bz0 - h * 0.012;
+      flatOut(ctx, cam, W3, [[-fh * 0.016, py, pz], [fh * 0.016, py, pz], [fh * 0.016, py, pz - h * 0.03], [-fh * 0.016, py, pz - h * 0.03]], [0, 1, 0], 'rgb(52,50,46)', alpha);   // the block
+      if (NEAR && frontVis) {
+        emitWire(ctx, cam, W3(0, py, bz0), W3(0, py, pz), 1.4, 'rgba(28,28,28,0.95)', alpha, { pull: DECO_PULL });
+        emitWire(ctx, cam, W3(0, py, pz - h * 0.03), W3(0, py + fh * 0.004, pz - h * 0.09), 1.6, 'rgba(150,132,96,0.9)', alpha, { pull: DECO_PULL });   // the rope stub
+      } }
+
+    // 3) THE DOOR, cut into the bottom of the infill: a plain steel leaf in a steel frame, a push
+    //    plate, a concrete step and a mat. Nothing about it is a shopfront, because it isn't one.
+    { const yD = IF + 0.002, dz0 = PLINTH;
+      const leaf = lerp([58, 70, 64], [46, 54, 50]);
+      flatOut(ctx, cam, W3, [[-DW, yD, DTOP], [DW, yD, DTOP], [DW, yD, dz0], [-DW, yD, dz0]], [0, 1, 0], rgb(leaf.map((v) => v * dusk)), alpha,
+        { lit: 'plain', albedo: leaf });
+      if (NEAR && frontVis) {
+        for (const s of [-1, 1]) emitWire(ctx, cam, W3(s * DW, yD + 0.002, dz0), W3(s * DW, yD + 0.002, DTOP), 2.2, bar, alpha, { pull: FACE_EPS });
+        emitWire(ctx, cam, W3(-DW, yD + 0.002, DTOP), W3(DW, yD + 0.002, DTOP), 2.2, bar, alpha, { pull: FACE_EPS });
+        emitWire(ctx, cam, W3(DW * 0.55, yD + 0.003, DTOP * 0.48), W3(DW * 0.55, yD + 0.003, DTOP * 0.62), 2.6, 'rgba(176,182,184,0.95)', alpha, { pull: FACE_EPS });   // push plate
+        flatOut(ctx, cam, W3, [[-DW, IF + fh * 0.10, 0.004], [DW, IF + fh * 0.10, 0.004], [DW, IF + fh * 0.06, 0.004], [-DW, IF + fh * 0.06, 0.004]], [0, 0, 1], 'rgb(34,32,30)', alpha);   // the mat
+      }
+      const [sx, sy] = F(0, IF + fh * 0.03);
+      draw3DBoxAt(ctx, cam, sx, sy, DW * 1.6, 0, PLINTH * 0.6, 'ty_pier_pile', seed + 6, night, alpha, true, YAW, fh * 0.03); }
+
+    // 4) THE NAME, painted red on a cream board across the infill between the door head and the
+    //    sill, and lit from above by two swan-neck lamps. Painted, so it never glows itself: the
+    //    lamps are what make it read after dark.
+    const BZ0 = DTOP + h * 0.022, BZ1 = HEAD - h * 0.018, BX = OX * 0.94, BY = IF + fh * 0.022;
+    { const [bx, by] = F(0, IF + fh * 0.011);
+      draw3DBoxAt(ctx, cam, bx, by, BX, BZ0, BZ1, 'ty_unit_wash', seed + 8, night, alpha, true, YAW, fh * 0.011); }
+    if (frontVis) {
+      const tex = bakeSignText((name || 'RING FENCED').toUpperCase(), '#b5302a', 0, false, true, true, { font: 'showcard' });
+      const q = [[-BX * 0.94, BZ1 - h * 0.006], [BX * 0.94, BZ1 - h * 0.006], [BX * 0.94, BZ0 + h * 0.006], [-BX * 0.94, BZ0 + h * 0.006]]
+        .map(([u, z]) => { const [wx, wy] = F(u, BY + FACE_EPS); return cam.proj(wx, wy, z); });
+      if (tex && q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
+    }
+    for (const s of [-1, 1]) {
+      const lx = s * BX * 0.62, root = HEAD + h * 0.05, tipY = IF + fh * 0.075, tipZ = HEAD + h * 0.02;
+      if (NEAR && frontVis) {
+        emitWire(ctx, cam, W3(lx, IF, root), W3(lx, tipY * 0.5 + IF * 0.5, root + h * 0.012), 1.8, bar, alpha, { pull: DECO_PULL });
+        emitWire(ctx, cam, W3(lx, tipY * 0.5 + IF * 0.5, root + h * 0.012), W3(lx, tipY, tipZ), 1.8, bar, alpha, { pull: DECO_PULL });
+      }
+      {
+        flatOut(ctx, cam, W3, [[lx - fh * 0.03, tipY, tipZ], [lx + fh * 0.03, tipY, tipZ], [lx + fh * 0.02, tipY - fh * 0.02, tipZ - h * 0.012], [lx - fh * 0.02, tipY - fh * 0.02, tipZ - h * 0.012]],
+          [0, 0.4, 1], 'rgb(40,46,44)', alpha);
+      }
+      if (night) { const [gx, gy] = F(lx, BY + fh * 0.01); glowPool(ctx, cam, gx, gy, (BZ0 + BZ1) / 2, '255,232,184', 7, alpha * 0.5); }
+    }
+
+    // 5) THE CIRCUIT, SPILLED ONTO THE PAVEMENT. A stack of car tyres right of the door and a tractor
+    //    tyre lying flat on the left: Tamsin's members flip it down the lane and back when the room
+    //    is full. The drums are real mass and the holes are a darker drum set into each top.
+    const rubber = (f) => { const s = (0.5 + f.nl * 0.5) * dusk; return `rgb(${(46 * s) | 0},${(44 * s) | 0},${(44 * s) | 0})`; };
+    const hole = (f) => 'rgb(14,14,15)';
+    { const [tx, ty] = F(OX + fh * 0.24, IF + fh * 0.11), r = fh * 0.075, t = h * 0.045;
+      for (let k = 0; k < 3; k++) drawFacetDrum(ctx, cam, tx, ty, PLINTH * 0.2 + k * t, PLINTH * 0.2 + (k + 1) * t - h * 0.003, r, r, 10, alpha, rubber, 'rgb(40,40,40)', 'ty_door');
+      drawFacetDrum(ctx, cam, tx, ty, PLINTH * 0.2 + 3 * t - h * 0.003, PLINTH * 0.2 + 3 * t, r * 0.5, r * 0.5, 10, alpha, hole, 'rgb(12,12,13)', 'ty_door'); }
+    { const [tx, ty] = F(-OX - fh * 0.20, IF + fh * 0.13), r = fh * 0.13;
+      drawFacetDrum(ctx, cam, tx, ty, 0, h * 0.07, r, r * 0.96, 12, alpha, rubber, 'rgb(42,42,42)', 'ty_door');
+      drawFacetDrum(ctx, cam, tx, ty, h * 0.07, h * 0.075, r * 0.52, r * 0.52, 12, alpha, hole, 'rgb(12,12,13)', 'ty_door'); }
+
+    // 6) THE FIGHT CARD, pasted on the old brick right of the opening: the only paper on the front,
+    //    and the one thing on it that changes week to week in the prose. Not the name: FRIDAY.
+    { const px0 = OX + fh * 0.09, px1 = HX - fh * 0.06, pz0 = h * 0.20, pz1 = h * 0.46, py = WF + fh * 0.003;
+      flatOut(ctx, cam, W3, [[px0, py, pz1], [px1, py, pz1], [px1, py, pz0], [px0, py, pz0]], [0, 1, 0], rgb([212 * dusk, 202 * dusk, 176 * dusk]), alpha,
+        { lit: 'plain', albedo: [212, 202, 176] });
+      // ⚠ NOT NEAR-ONLY: lettering stays at every range (signrange), or GLASS 2 shows a blank poster.
+      if (frontVis) {
+      const tex = bakeSignText('FIGHT NIGHT', '#1c1a1a', 0, false, true, true, { font: 'block', sub: 'FRIDAY' });
+      const q = [[px0 + fh * 0.02, pz1 - h * 0.03], [px1 - fh * 0.02, pz1 - h * 0.03], [px1 - fh * 0.02, pz0 + h * 0.03], [px0 + fh * 0.02, pz0 + h * 0.03]]
+        .map(([u, z]) => { const [wx, wy] = F(u, py + FACE_EPS * 2); return cam.proj(wx, wy, z); });
+      if (tex && q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
+    } }
+
+    // 7) THE FLANKS: four tall steel-framed windows a side, the lower third painted white from the
+    //    inside so nobody on the lane watches anybody train. Lit by the tubes after dark, the painted
+    //    part dimmer than the clear. A drip line of concrete sill under each.
+    const W0 = h * 0.24, WP = h * 0.38, W1 = h * 0.64, WH = fh * 0.11;
+    const paint = rgb(lerp([186, 188, 178], [128, 148, 140]));
+    for (const s of [-1, 1]) {
+      const px = s * (HX + fh * 0.004);
+      for (const v of [-0.60, -0.20, 0.20, 0.60]) {
+        const y0 = v * fh - WH, y1 = v * fh + WH;
+        flatOut(ctx, cam, W3, [[px, y0, W1], [px, y1, W1], [px, y1, WP], [px, y0, WP]], [s, 0, 0], paneRgb, alpha);
+        flatOut(ctx, cam, W3, [[px, y0, WP], [px, y1, WP], [px, y1, W0], [px, y0, W0]], [s, 0, 0], paint, alpha);
+        if (NEAR && faces(s, 0, px, 0)) {
+          const bx = px + s * 0.002;
+          for (const y of [y0, v * fh, y1]) emitWire(ctx, cam, W3(bx, y, W0), W3(bx, y, W1), 1.3, bar, alpha, { pull: FACE_EPS });
+          for (const z of [W0, WP, (WP + W1) / 2, W1]) emitWire(ctx, cam, W3(bx, y0, z), W3(bx, y1, z), 1.3, bar, alpha, { pull: FACE_EPS });
+          emitWire(ctx, cam, W3(bx + s * 0.003, y0 - fh * 0.01, W0 - h * 0.006), W3(bx + s * 0.003, y1 + fh * 0.01, W0 - h * 0.006), 2.4, 'rgba(150,146,136,0.95)', alpha, { pull: FACE_EPS });
+        }
+      }
+      if (night) { const [gx, gy] = F(s * (HX + fh * 0.04), 0); glowPool(ctx, cam, gx, gy, (WP + W1) / 2, '206,236,222', 13, alpha * 0.26); }
+    }
+
+    // 8) THE BACK: the boiler flue for the showers, standing off the wall on brackets and up past the
+    //    ridge, a fire door, and an extract grille. The back faces the Strand and is seen from the
+    //    air and the water, which is most of the people who will ever see it.
+    { const fx = -HX * 0.55, fy = -(HY + fh * 0.06), fz = TOP + archH + h * 0.10;
+      const [cx, cy] = F(fx, fy);
+      const steel = (f) => { const s = (0.52 + f.nl * 0.44) * dusk; return `rgb(${(108 * s) | 0},${(110 * s) | 0},${(112 * s) | 0})`; };
+      drawFacetDrum(ctx, cam, cx, cy, PLINTH, fz, fh * 0.034, fh * 0.03, 8, alpha, steel, 'rgb(40,40,42)', STEEL);
+      drawFacetDrum(ctx, cam, cx, cy, fz, fz + h * 0.02, fh * 0.05, fh * 0.05, 8, alpha, steel, 'rgb(36,36,38)', STEEL);   // the rain cap
+      if (NEAR && faces(0, -1, fx, -HY)) for (const z of [TOP * 0.4, TOP * 0.85]) emitWire(ctx, cam, W3(fx, -HY, z), W3(fx, fy, z), 2, bar, alpha, { pull: FACE_EPS });
+      drawSmoke(ctx, cam, cx, cy, fz + h * 0.03, '214,214,210', alpha * 0.45, now, seed + 9); }
+    // ⚠ FLATS ARE NEVER BEHIND A CAMERA TEST, ONLY STROKES. The mesh is captured once from a stub
+    // camera and shared by every tile, so a flat skipped because the capture camera could not see
+    // that wall is missing from the GPU picture for good (GL showed this back wall bare). A flat
+    // culls itself per frame (flatOut's cullN); a stroke has nothing to cull with, so it asks.
+    { const by = -(HY + fh * 0.004), d0 = PLINTH, d1 = h * 0.30, dx0 = HX * 0.10, dx1 = HX * 0.34;
+      const gx0 = HX * 0.44, gx1 = HX * 0.70, g0 = h * 0.40, g1 = h * 0.54;
+      flatOut(ctx, cam, W3, [[dx0, by, d1], [dx1, by, d1], [dx1, by, d0], [dx0, by, d0]], [0, -1, 0], rgb(lerp([60, 84, 64], [40, 52, 44])), alpha);   // the fire door
+      flatOut(ctx, cam, W3, [[gx0, by, g1], [gx1, by, g1], [gx1, by, g0], [gx0, by, g0]], [0, -1, 0], 'rgb(30,32,34)', alpha);   // the extract grille
+      if (NEAR && faces(0, -1, 0, -HY)) {
+        emitWire(ctx, cam, W3(dx0, by - 0.002, (d0 + d1) / 2), W3(dx1, by - 0.002, (d0 + d1) / 2), 2.2, 'rgba(176,182,184,0.9)', alpha, { pull: FACE_EPS });   // its bar
+        for (let k = 1; k < 5; k++) { const z = g0 + (g1 - g0) * k / 5;
+          emitWire(ctx, cam, W3(gx0, by - 0.002, z), W3(gx1, by - 0.002, z), 1.2, 'rgba(118,122,126,0.85)', alpha, { pull: FACE_EPS }); }
+      } }
+
+    // 9) THE RIDGE LIGHT: a strip of glazing along the crown of the barrel, which from the air is what
+    //    says somebody lights this shed from the top, and after dark is the gym seen from above.
+    { const ry = HY * 0.74, rl = (t) => [EAVE * Math.cos(t), TOP + archH * Math.sin(t) + h * 0.004];
+      const ts = [0.40, 0.50, 0.60].map((u) => u * Math.PI);
+      for (let k = 0; k < 2; k++) {
+        const [x0, z0] = rl(ts[k]), [x1, z1] = rl(ts[k + 1]), mid = (ts[k] + ts[k + 1]) / 2;
+        flatOut(ctx, cam, W3, [[x0, -ry, z0], [x1, -ry, z1], [x1, ry, z1], [x0, ry, z0]], [Math.cos(mid), 0, Math.sin(mid)],
+          rgb(lerp([140, 158, 166], TUBE_NIGHT)), alpha);
+      }
+      if (night) glowPool(ctx, cam, dx, dy, TOP + archH + h * 0.02, '206,236,222', 15, alpha * 0.30); }
+
+    // 10) GUTTERS AND DOWNPIPES at the four corners, which is what gives a brick flank its scale.
+    if (NEAR) {
+      for (const s of [-1, 1]) if (faces(s, 0, HX, 0)) emitWire(ctx, cam, W3(s * EAVE, -HY, TOP - h * 0.006), W3(s * EAVE, HY, TOP - h * 0.006), 2, 'rgba(40,36,34,0.9)', alpha, { pull: DECO_PULL });
+      for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+        const x = sx * (HX + fh * 0.02), y = sy * (HY - fh * 0.06);
+        if (!faces(sx, 0, sx * HX, y) && !faces(0, sy, x, sy * HY)) continue;
+        emitWire(ctx, cam, W3(x, y, PLINTH), W3(x, y, TOP - h * 0.006), 2.2, 'rgba(44,40,38,0.95)', alpha, { pull: DECO_PULL });
+      }
+    }
+    if (night) {
+      { const [gx, gy] = F(0, WF + fh * 0.05); glowPool(ctx, cam, gx, gy, (G0 + G1) / 2, '206,236,222', 16, alpha * 0.42); }   // the old door glass
+      { const [gx, gy] = F(0, IF + fh * 0.06); glowPool(ctx, cam, gx, gy, DTOP * 0.6, '255,226,176', 6, alpha * 0.30); }       // the door, under the lamps
     }
   },
 };

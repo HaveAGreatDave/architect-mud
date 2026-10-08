@@ -105,7 +105,7 @@
       "ink": "#e8c67a",
       "kind": "signBoard",
       "label": "ANY PORT",
-      "z": 0.09
+      "z": 0.35
     },
     {
       "cx": -0.26,
@@ -120,6 +120,20 @@
       "kind": "bollard",
       "pal": "ty_dw_slate",
       "z": 0.004
+    },
+    {
+      "cx": 0,
+      "cy": 0.34,
+      "depth": 0.012,
+      "door": 1,
+      "glass": "#26282a",
+      "glow": "#ffd8a0",
+      "half": 0.05,
+      "hh": 0.125,
+      "kind": "windowBay",
+      "pal": "ty_dw_stone",
+      "transom": 0.82,
+      "z": 0.175
     }
   ],
   "id": "anyport",

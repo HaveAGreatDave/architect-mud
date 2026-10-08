@@ -23,8 +23,10 @@
 <body>
 <header>
   <b>ACTOR LAB</b>
-  <label>shot <select id="shot"><option>street</option><option>portraits</option><option>faces</option><option>gala</option><option>gait</option></select></label>
+  <label>shot <select id="shot"><option>street</option><option>portraits</option><option>faces</option><option>head</option><option>gala</option><option>gait</option></select></label>
   <label><input type="checkbox" id="built"> as built</label>
+  <label>faces <select id="facesrc"><option value="atlas">atlas</option><option value="painted">painted</option></select></label>
+  <label>head <select id="lod"><option value="0">L0</option><option value="1">L1</option><option value="2">L2</option></select></label>
   <label><input type="checkbox" id="mats" checked> materials</label>
   <label>weather <select id="weather"><option>clear</option><option selected>rain</option><option>cold</option></select></label>
   <label><input type="checkbox" id="night" checked> night</label>
@@ -42,7 +44,8 @@
 // A look at the street figures (client/game/js/panels/actor3d.js), dressed by district. The west
 // street is mostly Ascendants with a few Null, the east mostly Long Watch with some Wildblood. Both
 // read the real bake, so they draw the mesh the game does. "as built" draws the look that ships;
-// "portraits" and "faces" line people up at head height so the faces can be judged. "materials"
+// "portraits" and "faces" line people up at head height so the faces can be judged, and "head" is
+// one person close, with "head" choosing the level (L0, L1, L2) to judge. "materials"
 // lights each garment as what it's made of (the game's version is envAt in gl/actors.js), and
 // "gala" is its A/B: four people in evening dress, lit as metal, satin and leather on the left and
 // as cloth on the right.
@@ -51,17 +54,21 @@
 // because of where it walks, which says nothing about who it is (see ACTOR_OUTFITS in actor3d.js).
 //
 // What this page fakes that the real thing would bake:
-//   the face       the bake's eyes and brows are lumps; here they are pushed inside the head and the
-//                  face is painted on the skin, with its relief as a bump. The real thing is the same
-//                  paint in gl/actors.js and smaller features in buildBody.
+//   the head       the bake's head is hidden and the new one (client/game/js/panels/actor-head.js)
+//                  drawn in its place, riding the bake's own head and neck matrices (bk.bones),
+//                  with a face painted per person on a canvas. The real thing draws the same mesh
+//                  from gl/actors.js with faces from a baked atlas (docs/proposals/
+//                  street-figure-heads.md).
 //   reshaping      nose, lips, hands, ears, hair, hoods and collars are moved in the vertex shader
 //                  from the rest shape, rotated with the bone they ride. The real thing is buildBody.
 //   the held arm   re-posed in the vertex shader. The real thing is a hold clip, baked.
 //   props          caps, horns, headphones, rifles, packs, radios, tablets and umbrellas are small
 //                  meshes placed each frame on the frame of the part they ride, where a rigid part
 //                  on that bone would sit.
-import { actorBake, actorOutfit, actorFK, actorClipPose, actorStrideM, ACTOR_BONE, ACTOR_BONES } from '/client/game/js/panels/actor3d.js';
-import { headMesh, hairMesh, HAIR_STYLES, HEAD_VERT, HEAD_FRAG, paintFace } from '/actor-head.js';
+import { actorBake, actorOutfit, actorStrideM, ACTOR_HEAD_BONES } from '/client/game/js/panels/actor3d.js';
+import { headMesh, hairMesh, HAIR_STYLES, HEAD_LEVELS } from '/client/game/js/panels/actor-head.js';
+import { HEAD_VERT, HEAD_FRAG, paintFace } from '/actor-head.js';
+import { actorFace, faceCell, faceHair, faceLip, FACE_LAYOUTS, FACE_ATLAS } from '/client/game/js/panels/actor-faces.js';
 
 const bk = actorBake();
 const TOP = bk.top;
@@ -160,26 +167,16 @@ const FR = {
   torso: [nearestIn(torso, MID, 1.2, -0.4), nearestIn(torso, MID + 0.15, 1.36, -0.4), nearestIn(torso, MID - 0.15, 1.36, -0.4)],
 };
 const SHOULDER_V = nearestIn(sleeveR, sleeveR.c[0], sleeveR.mx[1], sleeveR.c[2]);
-// The neck bone's frame, off the bottom ring of the bake's neck, which rides that bone alone. The
-// new head's neck rides it at the collar and the head under the skull.
-const neckFoot = neck.vs.reduce((m, v) => Math.min(m, rest[v * 3 + 1]), Infinity);
-const neckLow = { vs: neck.vs.filter((v) => rest[v * 3 + 1] < neckFoot + 0.004) };
-FR.neck = [extremeIn(neckLow, 2, 1), extremeIn(neckLow, 0, 1), extremeIn(neckLow, 0, -1)];
-// The new head is authored in bind space, buildBody's own coordinates; the rest shape here is the
-// idle clip's first frame, posed and stood on the ground. These carry bind space to rest space for
-// the two bones it rides: each bone's skinning matrix for that frame, then the same drop to the
-// ground the bake made, found from the hair's crown, which is a vertex in both.
-const BIND = actorFK({ r: new Float64Array(ACTOR_BONES * 3), root: [0, 0, 0] });
-const IDLE = actorFK(actorClipPose('idle', 0));
-const skinOf = (bone) => {
-  const W = Array.from(IDLE[bone]), b = BIND[bone];
-  for (let i = 0; i < 3; i++) W[12 + i] -= W[i] * b[12] + W[4 + i] * b[13] + W[8 + i] * b[14];
-  return W;
-};
-const ap4 = (m, v) => [0, 1, 2].map((i) => m[i] * v[0] + m[4 + i] * v[1] + m[8 + i] * v[2] + m[12 + i]);
-const BIND_HEAD = skinOf(ACTOR_BONE.head), BIND_NECK = skinOf(ACTOR_BONE.neck);
-const CROWN_MISS = sub(R3(hair.vs[0]), ap4(BIND_HEAD, [0, 1.762, 0]));
-BIND_HEAD[13] += CROWN_MISS[1]; BIND_NECK[13] += CROWN_MISS[1];
+// The new head is authored in bind space, buildBody's own coordinates, and rides two bones: the
+// head, and the neck at the collar. The bake writes both matrices for every frame (bk.bones, laid
+// out as ACTOR_HEAD_BONES says), each taking a bind-space point to where the bake puts it, so the
+// lab places the head the way the game will. A column-major 4x4, blended between frames.
+function boneAt(c, ph, at) {
+  const fr = (((ph % 1) + 1) % 1) * c.len, f0 = Math.floor(fr), f1 = (f0 + 1) % c.len, t = fr - f0;
+  const a = ((c.row0 + f0) * ACTOR_HEAD_BONES.texels + at) * 4, b = ((c.row0 + f1) * ACTOR_HEAD_BONES.texels + at) * 4;
+  const r = (i) => bk.bones[a + i] + (bk.bones[b + i] - bk.bones[a + i]) * t;
+  return [r(0), r(4), r(8), 0, r(1), r(5), r(9), 0, r(2), r(6), r(10), 0, r(3), r(7), r(11), 1];
+}
 
 function posAt(c, ph, v) {
   const fr = (((ph % 1) + 1) % 1) * c.len, f0 = Math.floor(fr), f1 = (f0 + 1) % c.len, t = fr - f0;
@@ -242,6 +239,14 @@ function attachRest(fig, fr) {
   const A = m3(rotY3(fig.hd), m3(rotX3(s), fr.R)), o = fr.o0;
   const Ao = [0, 3, 6].map((i) => A[i] * o[0] + A[i + 1] * o[1] + A[i + 2] * o[2]);
   return mat4(A, sub(place(fr.o, fig, fr.o0[1], false), mulS(Ao, fig.ht)), fig.ht);
+}
+// A baked bone's matrix with the figure's hunch, height and heading on top, as place() does them.
+// `restY` is the height the hunch is read at.
+function rideBone(fig, at, restY) {
+  const s = fig.hunch * sstep(0.95, TOP * 0.85, restY), Rx = rotX3(s), Ry = rotY3(fig.hd);
+  const ap = (R, v) => [0, 3, 6].map((i) => R[i] * v[0] + R[i + 1] * v[1] + R[i + 2] * v[2]);
+  const c = [0, 0.95, 0], t = add(mulS(ap(Ry, sub(c, ap(Rx, c))), fig.ht), [fig.x, 0, fig.z]);
+  return mul(mat4(m3(Ry, Rx), t, fig.ht), boneAt(fig.c, fig.ph, at));
 }
 
 const VERT = `#version 300 es
@@ -399,12 +404,9 @@ vec3 reshape(vec3 r, int f) {
   }
   if (f == 10) return uHandL + (r - uHandL) * HAND_S;
   if (f == 11) return uHandR + (r - uHandR) * HAND_S;
-  // The coat's collar: the top rings raised, and flared for a trench.
+  // The coat's collar: the top rings raised, and flared for a trench. The shoulders' slope from
+  // the neck is the bake's own now (actor3d.js buildBody, the yoke).
   if (aPart > 0.5) {
-    // The shoulders slope down from the neck instead of running out flat like pads: the top of the
-    // coat is lifted most beside the neck and not at all at the shoulder's point.
-    float ax = abs(r.x - uMid);
-    r.y += 0.016 * smoothstep(uTorsoTop - 0.09, uTorsoTop - 0.035, r.y) * (1.0 - smoothstep(0.07, 0.2, ax));
     float w = smoothstep(uTorsoTop - 0.032, uTorsoTop, r.y);
     float k = 1.0 + (uCollar.y - 1.0) * w;
     return vec3(uCollarC.x + (r.x - uCollarC.x) * k, r.y + uCollar.x * w, uCollarC.z + (r.z - uCollarC.z) * k);
@@ -422,7 +424,7 @@ void main() {
   vec3 n = mix(texelFetch(uNrmT, texel(b + f0), 0).xyz, texelFetch(uNrmT, texel(b + f1), 0).xyz, t);
   vec3 rn0 = texelFetch(uNrmT, texel(uIdle0), 0).xyz;
   int f = int(aFeat + 0.5);
-  // The sculpted head (actor-head.js) is drawn in place of the bake's: its face, ears, hair and
+  // The new head (actor-head.js) is drawn in place of the bake's: its face, ears, hair and
   // neck go. The hair stays when it's a hood, which is made from it.
   if (uNewHead > 0.5 && ((f >= 1 && f <= 8) || f == 12 || (f == 9 && uHood < 0.5))) {
     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
@@ -1301,7 +1303,8 @@ function gl2(canvas) {
   gl.bindBuffer(gl.ARRAY_BUFFER, streaks);
   const la = gl.getAttribLocation(plain.p, 'aP'); gl.enableVertexAttribArray(la); gl.vertexAttribPointer(la, 3, gl.FLOAT, false, 0, 0);
   gl.bindVertexArray(null);
-  // The sculpted head: skull, ears and neck as one mesh, and a shell per hair style.
+  // The new head at each level (client/game/js/panels/actor-head.js): skull, ears and neck as one
+  // mesh, and a shell per hair style.
   const head = program(HEAD_VERT, HEAD_FRAG);
   const imesh = (m) => { const v = gl.createVertexArray(); gl.bindVertexArray(v);
     attr(head.p, 'aP', m.P, 3); attr(head.p, 'aN', m.N, 3); attr(head.p, 'aUV', m.UV, 2); attr(head.p, 'aF', m.F, 1);
@@ -1311,7 +1314,8 @@ function gl2(canvas) {
   const black = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, black);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
   return { gl, body, plain, vao, posT, nrmT, streaks, streakVao, head, black, faces: new Map(),
-    skull: imesh(headMesh()), hair: Array.from({ length: HAIR_STYLES }, (_, i) => imesh(hairMesh(i))),
+    skull: HEAD_LEVELS.map((_, lv) => imesh(headMesh(lv))),
+    hair: HEAD_LEVELS.map((_, lv) => Array.from({ length: HAIR_STYLES }, (_, i) => imesh(hairMesh(i, lv)))),
     ground: mesh(quadMesh(9)), disc: mesh(quadMesh(1)), umb: mesh(umbrellaMesh()), cap: mesh(capMesh()), horns: mesh(hornMesh()),
     phones: mesh(phonesMesh()), bun: mesh(bunMesh()), rifle: mesh(rifleMesh()), pack: mesh(packMesh()), radio: mesh(radioMesh()),
     tablet: mesh(tabletMesh()) };
@@ -1409,6 +1413,8 @@ const SHOTS = {
   street: { eye: [2.2, 1.5, 5.4], at: [0, 0.95, -0.6] },
   portraits: { eye: [0.35, 1.5, 2.4], at: [0, 1.3, 0], n: 4, gap: 0.5 },
   faces: { eye: [0.08, 1.64, 0.95], at: [0, 1.615, 0], n: 2, gap: 0.36 },
+  // One head close up, for judging a level; the turntable gives the profile.
+  head: { eye: [0, 1.6, 0.8], at: [0, 1.59, 0], n: 1, gap: 0 },
   gala: { eye: [0.45, 1.3, 3.9], at: [0, 0.98, 0], n: 4, gap: 0.55 },
   gait: { eye: [4.4, 0.95, 0], at: [0, 0.82, 0] },
 };
@@ -1445,6 +1451,28 @@ function gala(seed) {
 const $ = (id) => document.getElementById(id);
 const views = [{ ...gl2($('a')), district: 'W' }, { ...gl2($('b')), district: 'E' }];
 let crowds = {};
+// The game's faces: the baked atlas (client/game/js/panels/actor-faces.js), uploaded to each view's
+// context the way the game will (flipped, unpremultiplied, mips to FACE_ATLAS.maxLevel), and a face
+// picked for each person off a stand-in token the way the game picks one off the real token.
+const ATLAS = new Image();
+ATLAS.onload = () => {
+  for (const V of views) {
+    V.atlas = uploadCanvas(V.gl, ATLAS);
+    V.gl.texParameteri(V.gl.TEXTURE_2D, V.gl.TEXTURE_MAX_LEVEL, FACE_ATLAS.maxLevel);
+  }
+};
+ATLAS.src = '/client/game/' + FACE_ATLAS.src;
+const GAME_FACES = new WeakMap();
+function gameFace(p) {
+  let g = GAME_FACES.get(p);
+  if (!g) {
+    const R = mulberry(Math.floor(p.seed * 1e4) + 4241), vals = Array.from({ length: 20 }, R);
+    const f = actorFace((k) => vals[k]);
+    g = { ...f, cell: faceCell(f.layout), makeup: FACE_LAYOUTS[f.layout].makeup, hair: faceHair(p.o.hair, f.layout), lip: faceLip(p.o.skin) };
+    GAME_FACES.set(p, g);
+  }
+  return g;
+}
 // Each person's face is painted once (actor-head.js paintFace) and uploaded to each view's context.
 const FACES = new WeakMap();
 function uploadCanvas(gl, cv) {
@@ -1481,7 +1509,7 @@ const recrowd = () => {
     V.faces.clear();
   }
   crowds = {};
-  for (const d of ['W', 'E']) crowds[d] = { street: crowd(s, d), portraits: lineup(s, d, 4, SHOTS.portraits.gap), faces: lineup(s, d, 2, SHOTS.faces.gap), gala: gala(s), gait: gaitline(s, d) };
+  for (const d of ['W', 'E']) crowds[d] = { street: crowd(s, d), portraits: lineup(s, d, 4, SHOTS.portraits.gap), faces: lineup(s, d, 2, SHOTS.faces.gap), head: lineup(s, d, 1, 0), gala: gala(s), gait: gaitline(s, d) };
 };
 recrowd();
 $('seed').oninput = recrowd;
@@ -1639,7 +1667,7 @@ function frame(now) {
       gl.drawElements(gl.TRIANGLES, bk.idx.length, gl.UNSIGNED_SHORT, 0);
       if (built) continue;
       const grey = sstep(0.6, 1.0, p.age) * 0.7, hairC = p.o.hair.map((c) => c + (153 - c) * grey);
-      heads.push({ f, p, hood, hairC, Mh: mul(attachRest(f, fh), BIND_HEAD), Mn: mul(attachRest(f, frameOf(f.c, f.ph, FR.neck)), BIND_NECK),
+      heads.push({ f, p, hood, hairC, Mh: rideBone(f, ACTOR_HEAD_BONES.head, 1.65), Mn: rideBone(f, ACTOR_HEAD_BONES.neck, 1.47),
         scarf: p.scarf && (p.order === 2 || cold) });
       if (p.cap) extras.push({ mesh: V.cap, M: attach(f, fh), col: p.capC });
       if (p.order === 4) extras.push({ mesh: V.horns, M: attach(f, fh), col: [255, 255, 255] });
@@ -1661,13 +1689,24 @@ function frame(now) {
       gl.uniform3fv(HU.uSky, L.sky); gl.uniform3fv(HU.uGnd, L.gnd);
       gl.uniform3fv(HU.uRimC, L.rim.map((c) => c * (night ? 0.8 : 0.5)));
       gl.uniform1i(HU.uFace, 2); gl.uniform1i(HU.uGlowT, 3);
+      const atlasOn = $('facesrc').value === 'atlas' && V.atlas;
+      gl.uniform1i(HU.uAtlasOn, atlasOn ? 1 : 0);
       for (const h of heads) {
-        const { p, f } = h, T = faceOf(V, p, h.hairC), style = p.hairStyle ?? ORDERS[p.order].hairStyle;
-        gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, T.face);
-        gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, T.glow);
+        const { p, f } = h, G = atlasOn ? gameFace(p) : null;
+        const style = G ? G.hairStyle : p.hairStyle ?? ORDERS[p.order].hairStyle, hairC = G ? G.hair : h.hairC;
+        if (G) {
+          gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, V.atlas);
+          gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, V.black);
+          gl.uniform4fv(HU.uCell, G.cell); c3(HU.uLip, G.lip); c3(HU.uLipstick, G.lipstick); c3(HU.uIris, G.iris);
+          gl.uniform1f(HU.uMakeup, G.makeup);
+        } else {
+          const T = faceOf(V, p, h.hairC);
+          gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, T.face);
+          gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, T.glow);
+        }
         gl.uniformMatrix4fv(HU.uMH, false, h.Mh); gl.uniformMatrix4fv(HU.uMN, false, h.Mn);
-        gl.uniform1f(HU.uGlowK, p.implant ? (night ? 1 : 0.6) : p.order === 4 ? (night ? 0.35 : 0) : 0);
-        c3(HU.uSkin, p.o.skin); c3(HU.uHair, h.hairC);
+        gl.uniform1f(HU.uGlowK, G ? 0 : p.implant ? (night ? 1 : 0.6) : p.order === 4 ? (night ? 0.35 : 0) : 0);
+        c3(HU.uSkin, p.o.skin); c3(HU.uHair, hairC);
         c3(HU.uScarfC, p.order === 2 ? [31, 28, 26] : p.acc);
         gl.uniform1f(HU.uScarf, h.scarf ? 1 : 0);
         gl.uniform1f(HU.uWet, rain ? (f.holds ? 0.3 : 1) : 0);
@@ -1676,8 +1715,9 @@ function frame(now) {
         gl.uniform1f(HU.uMarks, p.order === 4 ? 1 : 0);
         gl.uniform1f(HU.uEarPoint, p.earPoint ? 1 : 0);
         gl.uniform1f(HU.uHideEars, h.hood ? 1 : 0);
-        gl.bindVertexArray(V.skull.vao); gl.drawElements(gl.TRIANGLES, V.skull.count, gl.UNSIGNED_INT, 0);
-        if (!h.hood) { const hm = V.hair[style]; gl.bindVertexArray(hm.vao); gl.drawElements(gl.TRIANGLES, hm.count, gl.UNSIGNED_INT, 0); }
+        const lv = +$('lod').value, sk = V.skull[lv];
+        gl.bindVertexArray(sk.vao); gl.drawElements(gl.TRIANGLES, sk.count, gl.UNSIGNED_SHORT, 0);
+        if (!h.hood) { const hm = V.hair[lv][style]; gl.bindVertexArray(hm.vao); gl.drawElements(gl.TRIANGLES, hm.count, gl.UNSIGNED_SHORT, 0); }
       }
       gl.activeTexture(gl.TEXTURE0);
     }
@@ -1713,7 +1753,7 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 // For the console: the crowds, the frames and the matrices the heads ride.
-window.__actorLab = { crowds: () => crowds, views, FR, frameOf, attach, attachRest, bk, ANCHOR, HEAD0, CROWN_MISS };
+window.__actorLab = { crowds: () => crowds, views, FR, frameOf, attach, attachRest, boneAt, rideBone, bk, ANCHOR, HEAD0 };
 </script>
 </body>
 </html>

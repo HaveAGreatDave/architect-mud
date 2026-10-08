@@ -1,0 +1,20 @@
+{
+  "description": "A flat bench with a cracked vinyl pad and a squat rack welded over it, bolted to the floor through the rubber. The bar is knurled smooth in the middle.",
+  "flags": {
+    "aliases": [
+      "bench",
+      "weight bench",
+      "bar",
+      "rack",
+      "plates"
+    ],
+    "interactions": [
+      "lie",
+      "lift"
+    ]
+  },
+  "id": "furn_ringf_bench",
+  "name": "the weight bench",
+  "object_type": "furniture",
+  "zone_id": "zone_ringf_iron"
+}

@@ -1,12 +1,21 @@
 {
-  "description": "Forty feet of her on the stocks, ribbed and planked to the waist. The planking stops in a clean line, as if the man doing it put the tool down mid-stroke and found something else to do for fifteen years.",
-  "flags": {},
+  "description": "Forty feet of carvel planking on oak frames, planked to the waist with bare ribs above. The newest planks are pale. The oldest went grey in the shed on Lever Lane.",
+  "flags": {
+    "aliases": [
+      "hull",
+      "boat",
+      "stocks",
+      "her",
+      "unfinished hull"
+    ],
+    "examine_detail": "Every frame has a date pencilled on it. The first is twelve years old. The last is from last week."
+  },
   "hp": null,
   "hp_max": null,
   "id": "furn_hulls_1",
   "light_type": null,
   "lumen_output": null,
-  "name": "unfinished hull",
+  "name": "the hull on the stocks",
   "object_type": "fixture",
   "power_draw_kw": null,
   "price": 0,

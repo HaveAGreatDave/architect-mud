@@ -62,6 +62,10 @@ export const TYPE_FLOORS = {
   // note at the top) — the Conservatory declares its own, so this row only decides the height of
   // the next one somebody drops without thinking about it.
   pontoon: 1, boathouse: 2, fuel_dock: 1,
+  // Ring Fenced and Moor or Less. Each is one floor two storeys tall: a shed built round a mast or
+  // a hull, and the barrel, the old door glass and the eaves are all measured against that. A
+  // landing stage is the pontoon's one storey of nothing.
+  gym: 2, boatshed: 2, landing_stage: 1,
 };
 
 // World-z height of one storey, in tile units. Vertically stretched (taller

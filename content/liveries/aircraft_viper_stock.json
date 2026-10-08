@@ -1,0 +1,19 @@
+{
+  "blurb": "Sand and khaki, blotched by hand, so she can sit in a dry wash and pass for part of it.",
+  "default": true,
+  "exterior": {
+    "base": "#bea26c",
+    "finish": "matte",
+    "pattern": "factory",
+    "trim": "#62502e"
+  },
+  "id": "stock",
+  "interior": {
+    "cabin": "#3a3324",
+    "uphol": "mesh"
+  },
+  "kind": "aircraft",
+  "model": "viper",
+  "name": "Dry Wash",
+  "unlock": null
+}

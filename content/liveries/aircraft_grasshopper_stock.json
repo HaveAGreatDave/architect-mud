@@ -1,10 +1,10 @@
 {
-  "blurb": "Grass green with a straw-yellow flank. It hops. It is green. Nobody argued.",
+  "blurb": "Grass green with a straw-yellow cowl and tail. It hops. It is green. Nobody argued.",
   "default": true,
   "exterior": {
     "base": "#5f8f3a",
     "finish": "gloss",
-    "pattern": "twotone",
+    "pattern": "factory",
     "trim": "#d8c24a"
   },
   "id": "stock",

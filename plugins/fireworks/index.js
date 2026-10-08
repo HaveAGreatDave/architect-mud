@@ -5,7 +5,8 @@
 //                rooms, dropping words / gaining a "In the distance," prefix with distance
 //   • sound    — a boom SFX propagated the same way (gain falls off per room)
 //   • on-foot  — a coloured full-screen sky-flash for players standing in reach
-//   • airborne — a real 3D burst in the flight-sim windshield, anchored to the world tile
+//   • 3D view: a real burst in every GLASS view (cockpit, cab, boat, helm, free camera),
+//                anchored to the world tile
 //   • sky glow — a soft weather-FX colour wash over the pane for the show's duration
 //
 // Everything rides existing seams: sounds.js propagation (distance attenuation for free),
@@ -112,17 +113,35 @@ function detonate(shell, silent) {
     sendToZone(zoneId, { type: 'fireworks_flash', rgb: shell.rgb, intensity, dist });
   }
 
-  // Airborne pilots + passengers: a real 3D burst at the launch tile. The flight client
-  // anchors it to the world and culls by distance, so a pilot across the basin sees
-  // (and hears) only a faint far-off pop.
-  const z = world.zones.get(launchZone);
+  // The real 3D burst at the launch tile, for EVERY view that draws the world: a cockpit, a truck
+  // cab, a boat, the Echelon's helm, the free camera. It used to go to airborne aircraft only, so
+  // somebody standing under the show in a 3D view saw the sky flash and no shell. Every online
+  // client gets it (a few bytes a shell); the windshield anchors it to the world tile and culls by
+  // distance, and a client with no 3D view open lets it expire. ⚠ THE BOOM ONLY RIDES TO AN
+  // AIRCRAFT: everybody on the ground already hears it through propagateAudio above, and twice is
+  // an echo.
+  const z = placedTileOf(world.zones.get(launchZone));
+  if (!z) return;
   const bx = z.grid_x, by = z.grid_y;
-  for (const live of liveAircraft.values()) {
-    if (!live.row.airborne) continue;
-    for (const pid of live.occupants) {
-      sendToPlayer(pid, { type: 'fireworks_sim', x: bx, y: by, rgb: shell.rgb, sfx: SFX_BOOM });
-    }
+  const flying = new Set();
+  for (const live of liveAircraft.values()) if (live.row.airborne) for (const pid of live.occupants) flying.add(pid);
+  for (const pid of world.players.keys()) {
+    sendToPlayer(pid, flying.has(pid)
+      ? { type: 'fireworks_sim', x: bx, y: by, rgb: shell.rgb, sfx: SFX_BOOM }
+      : { type: 'fireworks_sim', x: bx, y: by, rgb: shell.rgb });
   }
+}
+
+// The map tile a launch zone stands on. A show called from indoors goes up over the building, which
+// is the tile its exit leads to (the hop freelook's tileUnder makes). ⚠ 0,0 IS NOT A TILE: an
+// interior carries it to mean unset, and taking it put every indoor show in the map's corner.
+function placedTileOf(z) {
+  for (let hop = 0; hop < 3 && z; hop++) {
+    if (z.map_id === 'map_world' && z.grid_x != null && !(z.grid_x === 0 && z.grid_y === 0)) return z;
+    const next = z.flags?.world_exit_zone || z.parent_zone;
+    z = next ? world.zones.get(next) : null;
+  }
+  return null;
 }
 
 // ── Show lifecycle ────────────────────────────────────────────────────────────

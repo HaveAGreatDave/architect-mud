@@ -15,6 +15,7 @@
     "south": "zone_district_891_904"
   },
   "flags": {
+    "aa_kind": "sam",
     "aa_site": true,
     "curtain": true,
     "district": "wasteland",

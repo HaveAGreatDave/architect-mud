@@ -102,13 +102,12 @@ export const drakeSubmerged = ifLoaded(cockpit, 'drakeSubmerged');
 export const drakeChampagne = ifLoaded(cockpit, 'drakeChampagne');
 export const flightBurst = ifLoaded(cockpit, 'flightBurst');
 export const flightSimContacts = ifLoaded(cockpit, 'flightSimContacts');
-export const flightSimAASites = ifLoaded(cockpit, 'flightSimAASites');
 export const flightSimHopper = ifLoaded(cockpit, 'flightSimHopper');
 export const flightSimAirHit = ifLoaded(cockpit, 'flightSimAirHit');
 export const flightSimKill = ifLoaded(cockpit, 'flightSimKill');
 export const flightSimAaTracer = ifLoaded(cockpit, 'flightSimAaTracer');
 export const flightSimAirThreat = ifLoaded(cockpit, 'flightSimAirThreat');
-export const flightSimFireworks = ifLoaded(cockpit, 'flightSimFireworks');   // sent to every airborne occupant
+export const flightSimFireworks = ifLoaded(cockpit, 'flightSimFireworks');   // the boom, for an airborne occupant; the burst itself is world-feed.js
 export const flightSimLightning = ifLoaded(cockpit, 'flightSimLightning');   // sent to every airborne occupant, passengers included
 
 // cab-view.js
@@ -149,6 +148,7 @@ export const closeHelm = ifLoaded(helm, 'closeHelm');
 export const helmSetSky = ifLoaded(helm, 'helmSetSky');
 export const helmSetWorld = ifLoaded(helm, 'helmSetWorld');
 export const helmSetContacts = ifLoaded(helm, 'helmSetContacts');
+export const helmSetFar = ifLoaded(helm, 'helmSetFar');
 export const helmEndTransit = ifLoaded(helm, 'helmEndTransit');
 export const helmBeginTransit = ifLoaded(helm, 'helmBeginTransit');
 export const openHelm = call(helm, 'openHelm');
@@ -188,6 +188,7 @@ export const isFreelookActive = ifLoaded(freelook, 'isFreelookActive', false);
 export const closeFreelook = ifLoaded(freelook, 'closeFreelook');
 export const freelookSetSky = ifLoaded(freelook, 'freelookSetSky');
 export const freelookSetActors = ifLoaded(freelook, 'freelookSetActors');
+export const freelookSetContacts = ifLoaded(freelook, 'freelookSetContacts');
 export const openFreelook = call(freelook, 'openFreelook');
 
 const chess3d = lazy('chess3d', () => import('./chess3d.js'), { glass: false });

@@ -16,6 +16,7 @@ import { setAreaPane } from '../render.js';
 import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
 import { updateBoatContacts, stopBoatContacts, KT_TO_MPH } from './boat-audio.js';
+import { tweenOrbit } from './camera-tween.js';
 import { playCabinAudio, updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, varioTick, gearFx, quackStart, QUACK_SQUEEZE_MS, visorFx, detentFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, missileRippleFx, flareFx, spraySfx, diveSiren } from './engine-audio.js';
 import { navHomeHTML, drawNavHome } from './nav-home.js';   // the HOME arrow on the water, boat or sub
 import { drakeWaterFrame, judgeWaterTouchdown, seaRough, drakeFeetAnim, BOAT_MAX_KT, SUB_MAX_KT } from './drake-water.js';   // the Drake on the water: hull landings, boat and sub modes
@@ -2706,7 +2707,12 @@ function ensureFlightSimStyles() {
        camera and for the same reason. */
     /* The 2-D instrument rows under the view (PFD, gauges, MFD, throttle, radio). Folded by
        default: the 3-D cockpit carries its own gauges, and every key still works. The button brings them back. */
-    body.fsim-noglass .fsim > *:not(.fsim-view){ display:none !important; }
+    /* ⚠ NOT IN THE EXTERNAL VIEW. Out there the rows are the stick and throttle overlay (the
+       dashboard parts are already dropped above), and with no cockpit in front of you they're the
+       only controls drawn, so folding them left every craft but the Drake flying the chase view
+       without a yoke. The Drake keeps them folded: its own overlay (.dkx) takes that spot. */
+    body.fsim-noglass:not(.fsim-external) .fsim > *:not(.fsim-view),
+    body.fsim-noglass .fsim.fsim-dkx > *:not(.fsim-view){ display:none !important; }
     body.fsim-noglass .fsim-view{ flex:1 1 auto; height:auto; min-height:0; }
     body.fsim-noglass .fsim{ flex:1 1 auto; min-height:0; }
     .fsim-glassbtn{ position:absolute; top:6px; right:120px; z-index:4; background:rgba(6,12,18,.82); border:1px solid #35586e; color:#eef6ff; font:inherit; font-size:11px; padding:1px 6px; border-radius:3px; cursor:pointer; }
@@ -3165,8 +3171,6 @@ export function openFlightSim(opts = {}) {
 
     disp: { ias: 0, alt: 0, vs: 0, hdg: s.heading, rpm: 0, pitch: 0, bank: 0 },
     contacts: [],   // air-to-air traffic, refreshed by flight_contacts
-    aaSites: [],    // active ground AA emplacements (world tiles), refreshed by flight_aasites
-    fireworks: [],  // active admin fireworks bursts (world tiles + spawn time), fed by fireworks_sim
     gunSolution: null, firing: false, fireHeld: false, hull: 100, hitFlashT: 0,   // Phase B: guns + battle damage
     // Phase C: weapon select (guns ↔ missiles), the seeker lock cycle, rail count, RWR state.
     weapon: 'guns', msl: opts.hardpoints || 0, seekId: null, lockProg: 0, lockId: null, mslWarnT: 0,
@@ -3229,7 +3233,7 @@ export function openFlightSim(opts = {}) {
       <div class="dkx-levers"><div class="dkx-thr" id="dkx-thr" title="throttle: drag up for more"><div class="dkx-thr-slot"></div><div class="dkx-thr-knob" id="dkx-thr-knob"></div><span class="dkx-thr-lbl">THR</span></div>
       <div class="dkx-trim" id="dkx-trim" title="trim: drag up for nose down, down for nose up"><span class="dkx-trim-val" id="dkx-trim-val">0</span><div class="dkx-trim-drum" id="dkx-trim-drum"><div class="dkx-trim-ridges" id="dkx-trim-ridges"></div></div><div class="dkx-trim-mark" id="dkx-trim-mark"></div><span class="dkx-thr-lbl">TRIM</span></div></div>
     </div>`;
-  const html = `<div id="fsim-root" class="fsim${skin ? ' fsim-theme-' + skin.id : ''}">
+  const html = `<div id="fsim-root" class="fsim${skin ? ' fsim-theme-' + skin.id : ''}${TYPES[opts.craftType]?.convert ? ' fsim-dkx' : ''}">
     <div class="fsim-view">${adminBtn}${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-dive" id="fsim-dive" style="opacity:0"></div><div class="fsim-killfeed" id="fsim-killfeed"></div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-ckride" id="fsim-ckride"></div><div class="fsim-tour" id="fsim-tour"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-fuel" id="fsim-fuel"><span class="fsim-fuel-ic">⛽</span><span class="fsim-fuel-pct" id="fsim-fuel-pct">--%</span><button class="fsim-refuel" id="fsim-refuel" title="refuel at this field" tabindex="-1">REFUEL</button></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-arm" id="fsim-wpn" tabindex="-1" title="weapon select, 1 guns / 2 missiles">GUN</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span><button class="fsim-weap-arm" id="fsim-flarebtn" tabindex="-1" title="countermeasures (X)">FLARE</button><button class="fsim-weap-arm" id="fsim-bombbtn" tabindex="-1" title="select the bomb rack (3), opens the dive sight" style="display:none">◎ BOMBS</button><button class="fsim-weap-arm" id="fsim-divebtn" tabindex="-1" title="dive computer (B), pushes over to the attack angle, then flies the pull-out at the release" style="display:none">⤵ DIVE</button></div><div class="fsim-spray-mist" id="fsim-spray"></div><div class="fsim-sprayrig" id="fsim-sprayrig" aria-hidden="true"><svg viewBox="0 0 200 96" preserveAspectRatio="xMidYMid meet"><line class="sr-boom" x1="14" y1="42" x2="186" y2="42"/><g class="sr-noz"><line x1="30" y1="42" x2="30" y2="47"/><line x1="54" y1="42" x2="54" y2="47"/><line x1="78" y1="42" x2="78" y2="47"/><line x1="122" y1="42" x2="122" y2="47"/><line x1="146" y1="42" x2="146" y2="47"/><line x1="170" y1="42" x2="170" y2="47"/></g><rect class="sr-hopper" x="80" y="16" width="40" height="26" rx="3"/><line class="sr-hatch" x1="86" y1="24" x2="114" y2="24"/><rect class="sr-door sr-door-l" x="80" y="42" width="20" height="6" rx="1.5"/><rect class="sr-door sr-door-r" x="100" y="42" width="20" height="6" rx="1.5"/><g class="sr-spray"><line class="sr-drop" x1="30" y1="48" x2="30" y2="58" style="animation-delay:.30s"/><line class="sr-drop" x1="54" y1="48" x2="54" y2="58" style="animation-delay:.42s"/><line class="sr-drop" x1="90" y1="50" x2="90" y2="60" style="animation-delay:.26s"/><line class="sr-drop" x1="100" y1="50" x2="100" y2="60" style="animation-delay:.36s"/><line class="sr-drop" x1="110" y1="50" x2="110" y2="60" style="animation-delay:.30s"/><line class="sr-drop" x1="122" y1="48" x2="122" y2="58" style="animation-delay:.46s"/><line class="sr-drop" x1="146" y1="48" x2="146" y2="58" style="animation-delay:.34s"/><line class="sr-drop" x1="170" y1="48" x2="170" y2="58" style="animation-delay:.40s"/></g></svg><span class="sr-tag">◊ BOOMS OPEN</span></div><button class="fsim-spraybtn" id="fsim-spraybtn" tabindex="-1" title="crop-duster, open the spray booms on a LOW pass" style="display:none">◊ SPRAY</button><button class="fsim-hopbtn" id="fsim-hopbtn" tabindex="-1" title="load the chemical hopper, pour a container in on the ground" style="display:none">⬗ HOPPER</button><div class="fsim-hop" id="fsim-hop"></div><button class="fsim-abortbtn" id="fsim-abortbtn" title="abort the flight, a recovery crew tows the aircraft back to a field and bills you">⤫ ABORT</button><button class="fsim-disembarkbtn" id="fsim-disembarkbtn" title="climb out of the aircraft (on the ground only)">⏏ DISEMBARK</button><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-bigbtn" id="fsim-bigbtn" title="${esc(BIGSCREEN_TITLE)}">${BIGSCREEN_GLYPH}</button><button class="fsim-viewbtn" id="fsim-viewbtn" title="external / cockpit view (V)">◎ EXT</button><button class="fsim-orbitreset" id="fsim-orbitreset" title="reset orbit camera to behind the craft">⟲</button><button class="fsim-glassbtn on" id="fsim-glassbtn" title="show / hide the 2-D instrument panel">▤</button><button class="fsim-hidebtn" id="fsim-hidebtn" title="hide the text panel, more outside view">⊟</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div><div class="fsim-extg" id="fsim-extg"><div class="fsim-extg-row"><span class="fsim-extg-lbl">IAS</span><b id="fsim-extg-ias">0</b><span class="fsim-extg-u">kt</span></div><div class="fsim-extg-row"><span class="fsim-extg-lbl">ALT</span><b id="fsim-extg-alt">0</b><span class="fsim-extg-u">ft</span></div></div><div class="fsim-sub" id="fsim-sub" style="display:none"><div class="fsim-subgauge" aria-hidden="true"><div class="fsim-subscale" id="fsim-subscale"><div class="fsim-subrating" id="fsim-subrating"></div><div class="fsim-subfloor" id="fsim-subfloor"></div><div class="fsim-subnow" id="fsim-subnow"><span id="fsim-subnowtxt"></span></div></div><div class="fsim-subtanks" title="ballast"><div class="fsim-subtank"><div class="fsim-subfill" id="fsim-subfill-l"></div></div><div class="fsim-subtank"><div class="fsim-subfill" id="fsim-subfill-r"></div></div></div></div><div class="fsim-subcol"><button class="fsim-subbtn" id="fsim-subdive" tabindex="-1" title="flood the ballast and dive, or blow it and surface. Under water the stick flies the depth (PgDn / PgUp step it)">⬇ DIVE</button><span class="fsim-subbal" id="fsim-subbal"></span><span class="fsim-subread" id="fsim-subread"></span></div></div>${PEDALS_HTML}${TYPES[opts.craftType]?.convert ? DKX_HTML : ''}</div>
     <div class="fsim-glass">
       <div class="fsim-pfd"><canvas id="fsim-pfd"></canvas></div>
@@ -6378,17 +6382,9 @@ function fsimFrameBody(now) {
           dy: F.aaTracerY != null ? F.aaTracerY - F.pos.y : null,
           hit: !!F.aaTracerHit,   // hit → rounds walk onto the cockpit; miss → streak wide
           seed: F.aaTracerSeed || 1 } : null,
-    // Active ground AA emplacements as 3D world models. Server sends absolute site
-    // tiles; we resolve them to a live offset from our own smooth position each frame
-    // (same anchoring trick as the AA tracer) so the turrets sit still on the ground.
-    aaSites: (F.aaSites && F.aaSites.length && F.pos)
-      ? F.aaSites.map(s => ({ dx: s.x - F.pos.x, dy: s.y - F.pos.y, name: s.name })) : null,
-    // Admin fireworks bursts: absolute launch tiles resolved to a live offset each frame
-    // (same anchoring trick as aaSites), carrying a 0..1 life fraction so the windshield can
-    // animate each burst's expand-and-fade. Expired bursts drop out here.
-    fireworks: (F.fireworks && F.fireworks.length && F.pos)
-      ? F.fireworks.filter(b => now - b.t0 < FIREWORK_MS)
-          .map(b => ({ dx: b.x - F.pos.x, dy: b.y - F.pos.y, t: (now - b.t0) / FIREWORK_MS, rgb: b.rgb, seed: b.seed })) : null,
+    // The AA batteries and the fireworks are not on this object any more: the batteries are map
+    // marks every view draws (`aa`), and a burst is kept by world tile in world-feed.js, which the
+    // windshield reads for whichever seat is open.
     // External chase view (V): draw the ship from behind with its gear, animating up/down.
     // Prop/rotor spin is driven by engine RPM (spooled fraction of throttle → reacts to the
     // engine being on and to throttle, with spool lag), NOT airspeed — so she turns at idle on
@@ -7206,16 +7202,12 @@ export function flightSimAaTracer(msg) {
   try { tracerFx(near); } catch {}  // …and the round whipping past you
 }
 
-// Admin fireworks burst. The server pushes the launch tile (x,y) + colour; we stamp it with
-// receipt time and let the windshield animate the expand-and-fade over FIREWORK_MS, anchored
-// to the world tile like an AA site. The boom rides along in the payload — played here scaled
-// by our distance from the launch, so a far-off pilot hears only a faint pop.
-const FIREWORK_MS = 1700;
+// Admin fireworks burst: the boom, for an airborne occupant. The burst itself is kept by world tile
+// in world-feed.js (dispatch notes it for every view) and the windshield draws it from there. The
+// boom rides along in the payload only to an aircraft, played here scaled by our distance from the
+// launch, so a far-off pilot hears only a faint pop.
 export function flightSimFireworks(msg) {
   const F = _fsim; if (!F || !msg) return;
-  if (!F.fireworks) F.fireworks = [];
-  F.fireworks.push({ x: msg.x, y: msg.y, t0: performance.now(), rgb: Array.isArray(msg.rgb) ? msg.rgb : [255, 220, 120], seed: Math.random() * 100 });
-  if (F.fireworks.length > 24) F.fireworks.splice(0, F.fireworks.length - 24);   // cap the live list
   if (msg.sfx && F.pos) {
     const d = Math.max(Math.abs(msg.x - F.pos.x), Math.abs(msg.y - F.pos.y));   // chebyshev tiles
     const gain = Math.max(0, 1 - d / 40);
@@ -7280,11 +7272,6 @@ export function flightSimContacts(msg) {
 // Active ground AA emplacements (world tiles) for the 3D windshield. Refreshed ~1Hz —
 // the ground doesn't move, so no dead-reckon; the frame loop just re-offsets them from
 // our own smooth position each render.
-export function flightSimAASites(msg) {
-  const F = _fsim; if (!F || !msg) return;
-  F.aaSites = Array.isArray(msg.sites) ? msg.sites : [];
-}
-
 // True while the continuous cockpit owns the area pane — dispatch uses this to stop
 // room `look`/`move` renders from clobbering the cockpit out from under the pilot.
 export function isFlightSimActive() { return !!_fsim; }
@@ -7325,6 +7312,25 @@ export function cockpitView(mode, { quarter = false } = {}) {
     F.extPitch = 0.32; F.extZoom = 0.01;
   }
   return F.external ? 'ext' : 'cab';
+}
+/**
+ * Whether she has left the spot she was serviced on: in the air, rolling out, or taxiing at more
+ * than a walk. An engine run-up on the hangar floor is not leaving, so the engine alone is not.
+ */
+export function cockpitRolling() {
+  const F = _fsim; if (!F?.s) return false;
+  return !!(F.reportedAirborne || F.rolling || (F.s.onGround && F.engineOn && Math.abs(F.s.airspeed || 0) > 4));
+}
+/**
+ * Swing the chase camera onto a shot (camera-tween.js SHOTS). See cab-view cabFrame. Inside a GLASS
+ * hangar the bench passes a zoom under the standoff, which windshield.js clamps to it.
+ */
+export function cockpitFrame(shot, ms = 700) {
+  const F = _fsim; if (!F || !shot) return;
+  if (!F.external) F.setExternalView?.(true);
+  F.orbitResetting = false;
+  tweenOrbit(F, { yaw: 'extOrbit', pitch: 'extPitch', zoom: 'extZoom' },
+    { yaw: shot.yaw - (RENDER_TUNE.chaseYaw || 0), pitch: shot.pitch, zoom: shot.zoom }, ms);
 }
 
 // True while the discrete cockpit HUD (charter passengers, and any non-continuous

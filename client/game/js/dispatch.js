@@ -64,13 +64,14 @@ import { pullConfig, receiveConfig } from './configsync.js';
 import { setTabletAccess, showTabletOffer } from './panels/smartbar.js';
 import { offerInterfaceTour, startInterfaceTour, startTabletTour, consumeTourHandoff } from './panels/tour.js';
 import { playIntroCinematic } from './panels/lazy-views.js';
-import { updateCockpit, closeCockpit, cabinAudio, openTargeting, openFlightSim, flightSimContext, drakeSubmerged, drakeChampagne, flightBurst, flightSimContacts, flightSimAASites, flightSimHopper, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive, resumeFlightAfterLogin } from './panels/lazy-views.js';
+import { updateCockpit, closeCockpit, cabinAudio, openTargeting, openFlightSim, flightSimContext, drakeSubmerged, drakeChampagne, flightBurst, flightSimContacts, flightSimHopper, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive, resumeFlightAfterLogin } from './panels/lazy-views.js';
 import { openTextCockpit, updateTextCockpit, closeTextCockpit, isTextCockpitActive } from './panels/textcockpit.js';
-import { openHelm, closeHelm, isHelmActive, helmSetSky, helmSetWorld, helmSetContacts, helmEndTransit, helmBeginTransit } from './panels/lazy-views.js';
+import { openHelm, closeHelm, isHelmActive, helmSetSky, helmSetWorld, helmSetContacts, helmSetFar, helmEndTransit, helmBeginTransit } from './panels/lazy-views.js';
 import { openCab, closeCab, cabContext, cabGalley, isCabActive } from './panels/lazy-views.js';
 import { openBoat, closeBoat, boatSetWorld, isBoatActive } from './panels/lazy-views.js';
 import { openMarina, closeMarina, marinaSetData, isMarinaActive, openMarinaService, closeMarinaService } from './panels/lazy-views.js';
-import { openFreelook, closeFreelook, isFreelookActive, freelookSetSky, freelookSetActors } from './panels/lazy-views.js';
+import { openFreelook, closeFreelook, isFreelookActive, freelookSetSky, freelookSetActors, freelookSetContacts } from './panels/lazy-views.js';
+import { noteFirework, noteAAState, noteAAFire } from './panels/world-feed.js';
 import { receiveCbMsg, applyCbContext, clearCbContext } from './panels/cb-radio.js';
 import { airHorn } from './panels/lazy-views.js';
 import { openTruckDepot, closeTruckDepot, closeBayService, isTruckDepotActive } from './panels/lazy-views.js';
@@ -375,6 +376,10 @@ function autoResolved(msg, onResult) {
 }
 // Reopens the claim form with the server's refusal (see claim_form).
 let claimRetry = null;
+
+// Whether a seat that draws the world in 3D owns the pane: the cockpit, the cab, a boat, the helm or
+// the free camera. Each draws a fireworks shell as a real burst, so the flat on-foot flash is not for them.
+const inGlassView = () => isFlightSimActive() || isCabActive() || isBoatActive() || isHelmActive() || isFreelookActive();
 
 const handlers = {
   // The build this page was loaded against is the first one a socket reports. A later
@@ -1519,7 +1524,7 @@ const handlers = {
   // `sky` seeds the real sim weather field; `transitMs` restores the lock if opened mid-passage.
   // ✕/Esc exit → `helm` toggles the server-side console closed (drops us from the viewer set), so a
   // later `helm` re-opens cleanly; the server's helm_close hands the pane back with a `look`.
-  helm_open: (msg) => { openHelm({ gx: msg.gx, gy: msg.gy, heading: msg.heading, sky: msg.sky, map: msg.map, transitMs: msg.transitMs, transitTotal: msg.transitTotal, transitTiles: msg.transitTiles, cruise: msg.cruise, onSail: (dir, bell) => sendCmdSilent('sail ' + dir + (bell != null ? ' ' + bell : '')), onSailTo: (gx, gy, bell) => sendCmdSilent('sailto ' + gx + ' ' + gy + (bell != null ? ' ' + bell : '')), onStop: () => sendCmdSilent('stop'), onExit: () => sendCmdSilent('helm close') }); },
+  helm_open: (msg) => { openHelm({ gx: msg.gx, gy: msg.gy, heading: msg.heading, sky: msg.sky, map: msg.map, skyline: msg.skyline, roads: msg.roads, regions: msg.regions, actors: msg.actors, transitMs: msg.transitMs, transitTotal: msg.transitTotal, transitTiles: msg.transitTiles, cruise: msg.cruise, onSail: (dir, bell) => sendCmdSilent('sail ' + dir + (bell != null ? ' ' + bell : '')), onSailTo: (gx, gy, bell) => sendCmdSilent('sailto ' + gx + ' ' + gy + (bell != null ? ' ' + bell : '')), onStop: () => sendCmdSilent('stop'), onExit: () => sendCmdSilent('helm close') }); },
   helm_close: () => { closeHelm(); sendCmdSilent('look'); },
 
   // The staff camera with no vehicle under it (plugins/freelook). Same three-message shape the helm
@@ -1566,17 +1571,19 @@ const handlers = {
     // stop being in the payload — see RECENTER_R in freelook-view.js. It fires the same verb a
     // person types, which is what keeps the re-centre one path on both sides of the wire.
     openFreelook({ gx: msg.gx, gy: msg.gy, map: msg.map, skyline: msg.skyline, sky: msg.sky, actors: msg.actors, stand: msg.stand || null,
+      roads: msg.roads, regions: msg.regions, contacts: msg.contacts,
       onRecenter: (x, y) => sendCmdSilent('freelook ' + x + ' ' + y + ' follow'),
       onExit: () => sendCmdSilent('freelook close') });
   },
   freelook_close: () => { closeFreelook(); sendCmdSilent('look'); },
   freelook_sky: (msg) => { if (isFreelookActive()) { freelookSetSky(msg.sky); if (msg.actors !== undefined) freelookSetActors(msg.actors); } },
-  helm_sky: (msg) => { if (isHelmActive()) helmSetSky(msg.sky); },   // live sim weather field, streamed like the flight sim's
+  freelook_contacts: (msg) => { if (isFreelookActive()) freelookSetContacts(msg.contacts); },   // what is moving in front of the camera
+  helm_sky: (msg) => { if (!isHelmActive()) return; helmSetSky(msg.sky); if (msg.actors !== undefined) helmSetFar({ actors: msg.actors }); },   // live sim weather field, streamed like the flight sim's
   helm_contacts: (msg) => { if (isHelmActive()) helmSetContacts(msg.contacts); },   // planes over the Basin, drawn in the chase view
   // Passage complete → re-centre the chase view on the new tile's real world window, then unlock.
   helm_underway: (msg) => { if (isHelmActive()) helmBeginTransit(msg.dir, msg.tiles, msg.ms, msg.cruise, msg.path); },   // authoritative passage vector (+ bell + charted path) → chase view glides the full distance at the right speed
   helm_hold: (msg) => { if (isHelmActive()) helmEndTransit(msg.gx, msg.gy); },   // order refused (land ahead) → cancel the optimistic local glide, she stays put
-  helm_arrived: (msg) => { if (!isHelmActive()) return; if (msg.map) helmSetWorld(msg.map, msg.gx, msg.gy); helmEndTransit(msg.gx, msg.gy); },
+  helm_arrived: (msg) => { if (!isHelmActive()) return; if (msg.map) helmSetWorld(msg.map, msg.gx, msg.gy); helmSetFar(msg); helmEndTransit(msg.gx, msg.gy); },
   yacht_underway: (msg) => { yachtUnderway(msg.level, msg.durationMs); },   // roar to life for the passage, at this zone's loudness
   yacht_settled: () => { yachtSettled(); },   // she's arrived — let the engine roar fall away
   // THE LONG HAUL. `truck_sim` opens the cab over the area pane (the same slot the cockpit and the
@@ -1658,25 +1665,29 @@ const handlers = {
   drake_sub: (msg) => { drakeSubmerged(msg); },   // plugins/submersible: the Drake's depth, air and hull rating
   flight_burst: (msg) => { flightBurst(msg); },        // a bomb going off — world-anchored fireball in the windshield
   flight_contacts: (msg) => { flightSimContacts(msg); },   // air-to-air traffic (Phase A: see other craft)
-  flight_aasites: (msg) => { flightSimAASites(msg); },     // active ground AA emplacements → 3D turret models
   flight_hopper: (msg) => { flightSimHopper(msg); },       // ag-plane hopper: the pour dialog behind the cockpit's HOPPER button
   air_hit: (msg) => { flightSimAirHit(msg); },             // air-to-air gun hit feedback (Phase B)
   flight_kill: (msg) => { flightSimKill(msg); },           // confirmed kill → big top-of-glass banner
   air_threat: (msg) => { flightSimAirThreat(msg); },       // RWR: missile lock/launch warnings + flare confirm (Phase C)
   aa_tracer: (msg) => { flightSimAaTracer(msg); },         // incoming ground-AA tracer streak
-  // Admin fireworks show. Airborne viewers get the real 3D burst in the windshield;
-  // on-foot players get a coloured sky-flash (skipped while the cockpit owns the pane —
-  // they get the 3D burst instead) plus the weather-FX sky glow for the show's duration.
-  fireworks_sim:   (msg) => { flightSimFireworks(msg); },
+  // Admin fireworks show. Every 3D view gets the real burst (world-feed.js keeps it by tile and the
+  // windshield draws it from whatever seat is open); the cockpit plays the boom for an airborne
+  // occupant. On-foot players get a coloured sky-flash (skipped while a 3D view owns the pane: it
+  // gets the burst instead) plus the weather-FX sky glow for the show's duration.
+  fireworks_sim:   (msg) => { noteFirework(msg); flightSimFireworks(msg); },
+  // An AA battery changed state, or opened up: every view draws the battery (the `aa` mark), so
+  // every view is told. Kept by tile in world-feed.js.
+  aa_state: (msg) => { noteAAState(msg); },
+  aa_fire: (msg) => { noteAAFire(msg); },
   // A shell climbing before it bursts: one tile away (or on the launch tile) on-foot players see
   // a streaking trail rise and detonate at its apex — the whistle is tuned to peak there. Farther
   // out there's no trail, just the sky-flash at detonation (fireworks_flash below).
   fireworks_launch: (msg) => {
-    if (isFlightSimActive() || isFxIndoors()) return;   // airborne → 3D burst; indoors → heard only
+    if (inGlassView() || isFxIndoors()) return;   // a 3D view → the real burst; indoors → heard only
     if ((msg.dist ?? 99) <= 1) launchFirework(msg.rgb, msg.lead);
   },
   fireworks_flash: (msg) => {
-    if (isFlightSimActive()) return;   // airborne viewers get the real 3D windshield burst instead
+    if (inGlassView()) return;         // a 3D view gets the real burst instead
     if (isFxIndoors()) return;         // indoors you only hear it — no sky-flash or bloom through the walls
     flashFirework(msg.rgb, msg.intensity);   // the concussion bloom at detonation (the particle burst rides the climbing shell)
   },

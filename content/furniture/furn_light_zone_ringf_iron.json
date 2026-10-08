@@ -1,0 +1,11 @@
+{
+  "description": "Four fluorescent tubes on chains, one of them flickering at a rate you stop noticing after a set or two.",
+  "flags": {},
+  "id": "furn_light_zone_ringf_iron",
+  "light_type": "overhead",
+  "lumen_output": 2600,
+  "name": "the tube lights",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_ringf_iron"
+}

@@ -11,7 +11,7 @@
   ],
   "detail": [
     { "cx": 0.02, "cy": 0.24, "half": 0.11, "hh": 0.012, "kind": "canopy", "out": 0.06, "pal": "ty_oc_board_dk", "soffit": "#2a2118", "strip": "#ffcf8a", "z": 0.135 },
-    { "bars": 0, "cx": 0.02, "cy": 0.24, "depth": 0.01, "glass": "#3a2a18", "glow": "#ffd59a", "half": 0.055, "hh": 0.06, "kind": "windowBay", "pal": "ty_oc_board_dk", "z": 0.07 },
+    { "bars": 0, "cx": 0.02, "cy": 0.24, "depth": 0.01, "door": 1, "glass": "#3a2a18", "glow": "#ffd59a", "half": 0.055, "hh": 0.055, "kind": "windowBay", "pal": "ty_oc_board_dk", "z": 0.075 },
     { "bars": 2, "cx": -0.16, "cy": 0.24, "depth": 0.01, "glass": "#1c1712", "glow": "#ffcf8a", "half": 0.055, "hh": 0.035, "kind": "windowBay", "pal": "ty_oc_board_dk", "z": 0.085 },
     { "color": "#1a120c", "cx": 0.17, "cy": 0.24, "font": "hanzi", "half": 0.03, "ink": "#ff7a5a", "kind": "bladePanel", "label": "$trade", "out": 0.04, "pal": "ty_fab_metal", "picto": "bed", "z0": 0.04, "z1": 0.15 },
     { "bars": 6, "cx": 0, "cy": 0.27, "depth": 0.012, "glass": "#1c1712", "glow": "#ffc880", "half": 0.25, "hh": 0.045, "kind": "windowBay", "pal": "ty_oc_board_dk", "z": 0.26 },

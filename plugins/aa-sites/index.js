@@ -28,10 +28,10 @@
  * from the strafe (interior zone), and is the gate on the repair loop.
  */
 import { query } from '../../server/models/db.js';
-import { sendToZone } from '../../server/engine/messaging.js';
+import { sendToZone, sendToPlayer } from '../../server/engine/messaging.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { on, emit } from '../../server/engine/events.js';
-import { getNpcsByFlag } from '../../server/engine/world.js';
+import { getNpcsByFlag, getZone, world } from '../../server/engine/world.js';
 
 const FIRING_WINDOW_MS = 12000;   // the look reads ● FIRING for this long after the last shot
 const AA_BROADCAST_MS = 8000;     // cap the "guns erupt" room line to at most this often per site
@@ -40,9 +40,11 @@ const AA_BROADCAST_MS = 8000;     // cap the "guns erupt" room line to at most t
 // so the TTL is only a backstop, not a poll.
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const REPAIR_MS = 150000;         // engineer work to bring a strafed battery back online (2.5 min)
+const FIRE_PUSH_MS = 1500;        // cap the `aa_fire` picture push to at most this often per site
 
 const lastFired = new Map();      // siteId → ms of last engagement
 const lastBroadcast = new Map();  // siteId → ms of last room "erupts" line
+const lastFirePush = new Map();   // siteId → ms of last `aa_fire` push
 const damaged = new Map();        // siteId → { at, zoneId, name } for batteries under repair
 let cache = { at: 0, byZone: new Map() };
 
@@ -62,6 +64,34 @@ async function siteByZone() {
 // dead instances too (they linger in world.npcs after a kill), so filter `_dead`.
 function livingEngineer(siteId) {
   return getNpcsByFlag('aa_engineer').find(n => n.flags.aa_engineer === siteId && !n._dead) || null;
+}
+
+// ── WHAT THE BATTERY LOOKS LIKE FROM OUTSIDE ─────────────────────────────────
+// Every GLASS view draws the emplacement on its deck tile (the `aa` mark, see deriveSurfaceCell in
+// plugins/flight/state.js), and the model has three states: 1 manned, 2 strafed and under repair,
+// 0 a cold ruin. ⚠ SYNC, BECAUSE THE MAP WINDOW IS: `aa.state` is gathered with `gatherHookSync`
+// for every AA tile in a window, so it answers from the roster this plugin already holds and never
+// queries. Before the roster's first load it answers nothing and the cell reads as manned.
+function stateOf(site) {
+  if (!site) return undefined;
+  if (site.active) return 1;
+  return livingEngineer(site.id) ? 2 : 0;
+}
+function aaState(zoneId) {
+  const s = stateOf(cache.byZone.get(zoneId));
+  return s === undefined ? undefined : { s };
+}
+
+// A picture that changes after the window was sent has to be told, or a battery strafed while
+// you watch stays manned until your window next moves. Every online client gets it: the views
+// that draw the world are four different panels, and the message is a few bytes a few times a show.
+// The client keeps it by world tile (client/game/js/panels/world-feed.js).
+const lastState = new Map();   // siteId → the state last pushed
+function pushState(site) {
+  const z = getZone(site.zone_id), s = stateOf(site);
+  if (!z || z.grid_x == null || s === undefined) return;
+  lastState.set(site.id, s);
+  for (const id of world.players.keys()) sendToPlayer(id, { type: 'aa_state', x: z.grid_x, y: z.grid_y, s });
 }
 
 // Pure: the on-foot emplacement panel for a site row. `firing` = shot in the last window;
@@ -96,10 +126,19 @@ async function describeRoom(zone) {
 // The flight tick fires this the moment a battery engages an overflight. Stamp the
 // firing state (drives the ● FIRING look) and — throttled — let the people on the
 // deck hear the guns cut loose.
-on('flight.aaFired', ({ zoneId, siteId }) => {
+on('flight.aaFired', ({ zoneId, siteId, target }) => {
   if (!siteId) return;
   const now = Date.now();
   lastFired.set(siteId, now);
+  // The picture: every view draws the battery, so every view should see it fire, and at what.
+  // `target` is the aircraft row id, which is the id that aircraft has as a contact.
+  if (now - (lastFirePush.get(siteId) || 0) >= FIRE_PUSH_MS) {
+    lastFirePush.set(siteId, now);
+    const z = zoneId ? getZone(zoneId) : null;
+    if (z && z.grid_x != null) {
+      for (const id of world.players.keys()) sendToPlayer(id, { type: 'aa_fire', x: z.grid_x, y: z.grid_y, t: target ?? null });
+    }
+  }
   if (!zoneId || now - (lastBroadcast.get(siteId) || 0) < AA_BROADCAST_MS) return;
   lastBroadcast.set(siteId, now);
   sendToZone(zoneId, { type: 'zone_event',
@@ -113,6 +152,9 @@ on('flight.aaSilenced', ({ siteId, zoneId }) => {
   if (!siteId) return;
   cache.at = 0; lastFired.delete(siteId); lastBroadcast.delete(siteId);
   damaged.set(siteId, { at: Date.now(), zoneId, name: null });
+  // The roster is refreshed on its next read; the picture is told now, from what this event says.
+  const known = cache.byZone.get(zoneId);
+  if (known) { known.active = 0; pushState(known); }
   const eng = livingEngineer(siteId);
   if (eng?.zone_id) sendToZone(eng.zone_id, { type: 'zone_event',
     message: '<span class="text-amber">The deck above takes hits: the mount screams and goes dead. The engineer swears, grabs the toolkit, and scrambles for the ladder to bring the gun back up.</span>' });
@@ -126,12 +168,16 @@ async function repairTick() {
   const now = Date.now();
   for (const [siteId, d] of damaged) {
     const eng = livingEngineer(siteId);
+    // An engineer killed or come back is a ruin or a repair in the picture, so say so on a change.
+    const site = d.zoneId ? cache.byZone.get(d.zoneId) : null;
+    if (site && !site.active && lastState.get(siteId) !== stateOf(site)) pushState(site);
     if (!eng) { d.at = now; continue; }          // no one to fix it → restart the clock
     if (now - d.at < REPAIR_MS) continue;
     try { await query('UPDATE aa_sites SET active=1 WHERE id=$1', [siteId]); }
     catch { continue; }                          // DB hiccup → try again next tick
     damaged.delete(siteId);
     cache.at = 0;                                 // deck look flips back to MANNED
+    if (site) { site.active = 1; pushState(site); }
     if (eng.zone_id) sendToZone(eng.zone_id, { type: 'zone_event',
       message: '<span class="text-green">The engineer slams the access panel shut, wipes their hands, and thumps the housing twice. Overhead the mount whirs back to life: the battery is online.</span>' });
     if (d.zoneId) sendToZone(d.zoneId, { type: 'zone_event', refresh: true,
@@ -142,20 +188,26 @@ async function repairTick() {
 
 // Seed the damaged set from any batteries already down in the DB (server restart mid-repair)
 // so the loop picks them back up. Table may be absent in a bare test DB — that's fine.
+// The same read loads the roster `aa.state` answers from.
 (async () => {
   try {
-    const { rows } = await query('SELECT id, zone_id FROM aa_sites WHERE active=0');
+    const byZone = await siteByZone();
     const now = Date.now();
-    for (const r of rows) damaged.set(r.id, { at: now, zoneId: r.zone_id, name: null });
+    for (const r of byZone.values()) if (!r.active) damaged.set(r.id, { at: now, zoneId: r.zone_id, name: null });
   } catch { /* no aa_sites table → nothing to seed */ }
 })();
 
 schedule('15s', () => { repairTick().catch(() => {}); });
+// The roster keeps itself fresh on its own slow clock, so a battery edited in content reaches the
+// map window without anybody having to look at its deck first. Silencing and repair already write
+// the roster in RAM as they happen; this only catches a content deploy.
+schedule('1m', () => { siteByZone().catch(() => {}); });
 
 export const hooks = {
   'zone.describeRoom': describeRoom,
+  'aa.state': aaState,
 };
 
-export const _test = { panelFor, livingEngineer, damaged };
+export const _test = { panelFor, livingEngineer, damaged, aaState, stateOf, cache: () => cache };
 
 console.log('[aa-sites] Plugin loaded.');

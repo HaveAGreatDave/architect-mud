@@ -453,6 +453,22 @@ two blocks to get round that, and the engine can wrap now
 ([docs/ai-behaviour.md](../../docs/ai-behaviour.md#a-schedule-block-and-the-night-shift)), so it is
 one block that says six until six.
 
+## Moor or Less, the second yard
+
+The cheap yard at the head of Ironside Street ([moor-or-less.md](../../docs/proposals/moor-or-less.md)):
+a landing stage of two sections, a hard with cradles, and Keel's shed, which is the covered slot, the
+desk and the bench in one room. It was built from flags alone, and nothing in this plugin names it.
+
+**`flags.yard_rate` is what makes it cheaper.** A multiple of the list on every zone the yard lets
+(0.6 here, unset at Fairweather). `yardRate`, `rateAt` and `moveInFee` in [yard.js](yard.js) apply
+it to the move-in fee, the crane (helm.js), `refit` and the shed's service, paint and decal work, and
+the yard screen quotes the same numbers. Hulls, hires and fuel stay at the list.
+
+**One clerk, so the desk shuts.** Keel is the clerk (`work_zone_id` is the shed) and the shipwright
+(`repairman`), so when he goes home there is nobody to sell a hull or finish a refit. ⚠ He carries a
+sell and a hire node for every hull on the line, like the two Fairweather clerks: a new type needs
+adding to his tree too.
+
 ## What is not here
 
 - **The refit bench needed the shipwright to be in the right room.** `refit` asks
@@ -489,7 +505,11 @@ the hull, servicing, paint, a decal and her name (`refit service|paint|decal|nam
 which is `disembark` and so `intoTheShed`. Stopped in the fuel box it is the pump, and `BOAT_FUEL`
 checks the live position against the box rather than the berth she came out of. `svcTick` opens and
 closes the overlay on transitions only. `applyLive` pushes every change into `rigs` and the seat,
-because the telemetry's one-way clamp would otherwise undo a repair.
+because the telemetry's one-way clamp would otherwise undo a repair. The counter and the overlay are
+the depot shell's ([depot-shell.md](../../docs/reference/depot-shell.md)): the same head, job tiles,
+holds and purchase moment as the truck depot and the hangar. Each tab swings the chase camera to a
+shot (`boatFrame`: the bow quarter for service, the flank for paint, the transom for her name), and
+the dealer's bars are the hull's own numbers from `TYPES` in flight-model.js.
 
 **The boxes on the water.** The helm's payload and every fresh window carry `marks`
 (helm.js `berthMarksNear`): the box beside each fuel float's pumps and the box in each covered slot,

@@ -773,7 +773,7 @@ throttle, yoke, pedals, flap detent lever, trim):
   rotate, abort, warble, approach, flare, touchdown, crash) — dev-panel editable.
 
 Routed in `dispatch.js`: `flight_sim` (open) · `flight_ctx` (per-tick world context) ·
-`flight_contacts` · `flight_aasites` · `flight_kill` · `flight_target` ·
+`flight_contacts` · `flight_kill` · `flight_target` ·
 `cockpit_update`/`cockpit_close` (passenger/cabin HUD). UTF-8 box glyphs preserved.
 
 ## Cockpit controls & damage cinematics
@@ -1017,6 +1017,20 @@ cut the hit chance); a hit walks the hull-damage ladder → breakup → `crash`.
 `arm`/`safe` toggle weapons (hardpoints only); `strafe`/`fire` arms the **targeting-
 reticle deck** (`flight_target` → `strafresolve`) to silence a site.
 
+**What an AA battery looks like** (as built). The deck tile is a map mark (`mark: 'aa'`, from
+`flags.aa_site`), and the cell carries `aa: { k, s, o }`: the build (`flags.aa_kind`: `guardian`,
+`sam`, `flak` or `truck`, each modelled on its room description), the state (1 manned, 2 under
+repair, 0 a ruin, answered from RAM by plugins/aa-sites through the sync `aa.state` hook) and the
+side the pit opens to. Every GLASS view draws it, cockpit, cab, boat, helm and free camera, as
+geometry on the depth buffer ([glass/aa-emplacement.js](../client/game/js/panels/glass/aa-emplacement.js),
+wrapped by `drawAAMark` in windshield.js). It is a mark and not a `building_type` because the deck is
+walkable. A change after the window was sent arrives as `aa_state` (silenced, repaired, an engineer
+killed) and `aa_fire` (it opened up, and at which aircraft id), both kept by tile in
+[world-feed.js](../client/game/js/panels/world-feed.js). The guns lay on the aircraft being fired at
+when the view can see it, otherwise on the nearest aircraft within 10 tiles, otherwise they sweep.
+It replaced a turret painted for the pilot seat only, from a site list (`flight_aasites`) nobody else
+was sent, on the canvas after the GL composite, so it also showed through buildings.
+
 **The Shrike, and the dive** (`combat.js` → `cmdBomb`). The fleet's fourth armed airframe
 (₵21,000, class `divebomber`) and the only weapon in the game with a *posture* gate rather
 than a range gate. `bomb` is refused unless **every** rung holds, and the ladder is a
@@ -1238,9 +1252,11 @@ name**, the **livery**, and **saveable tune profiles** (`modify save/load <name>
 quick curve shortcut, now equally owner-gated (`ownedCraft`); rentals and
 other people's aircraft can't be modified.
 
-**The GLASS hangar and the card floor** (as built). The hangar panel opens on a hand of cards, one
-per aircraft at the field (`vehicle-card.js`, the marina's and depot's cards). Under each card are
-**Maintain** and **Launch**; clicking the card selects her for refuel, inspect, store and sell.
+**The GLASS hangar and the card floor** (as built). The hangar panel is the depot shell's counter
+([depot-shell.md](reference/depot-shell.md)): a hand of cards, one per aircraft at the field
+(`vehicle-card.js`, the marina's and depot's cards). **The card seats you**: it sends
+`hangaract service <id>`, which boards her with the bench docked on the cockpit. The strip under it
+has **Fly** (`hangaract launch <id>`), Refuel, Store or Roll out, and Sell or Return, which are holds.
 - **A field with a hangar building** (`flags.aircraft_hangar` on a facade that names the field in
   `hangar_field`, or whose `world_exit_zone` is the ramp; `hangarTileFor` in `state.js`) is drawn by
   GLASS as a taxi-in shed at aircraft scale (see [glass-notes.md](reference/glass-notes.md)).
@@ -1269,28 +1285,46 @@ per aircraft at the field (`vehicle-card.js`, the marina's and depot's cards). U
   while one that came in through it is inside, goes up when an aircraft on the floor starts her engine,
   and comes down behind one rolling away down the taxiway. One put on the floor by Launch or Maintain
   stands in a shut shed until she starts up. It takes about two seconds to travel.
-- **Maintain** pushes the bay with `service: true`: `hangar-bay.js` docks the bench on the cockpit
-  (`cockpitServiceHost`), the camera goes outside her at 3/4 (`cockpitView('ext', { quarter })`), and
-  the working paint rides to the model as a preview (`cockpitPreview`). Nothing is charged until Apply.
-  **Launch ▸** folds the bench away and switches to the seat. The hangar door rolls up when you start
-  her, and you taxi out.
-- **Launch** from the card boards you straight into the seat on the hangar floor, door down.
+- **The bench on the cockpit.** With you aboard on the hangar floor, `pushHangarBay` sends
+  `service: true` (`servicedCraft`) and `hangar-bay.js` docks the bench on the cockpit's glass as the
+  shell's bay (`cockpitServiceHost`, element `#hb-svc`). The jobs are the shell's tiles (Repair,
+  Livery, Hopper, Tuning, Kits, Load), each saying what is waiting. The cockpit's chase camera is the
+  stage: each job swings it to a shot (`cockpitFrame`), the Livery's Cabin page sits you in the seat,
+  and the working paint rides on her as a preview (`cockpitPreview`). Nothing is charged until Apply.
+  **Taxi out ▸** folds the bench and hands the camera back. The bench goes when the cockpit closes
+  (`fsim:closed`) or when she moves under power (`cockpitRolling`), since nothing on the server
+  re-checks the hangar floor while you sit in her. The cockpit is loaded with `import()`, never a
+  static import, so opening the hangar menu doesn't download GLASS.
+- **A respray reaches the cockpit as the preview.** `flight_ctx` carries no own-ship livery, so when
+  the bench closes it leaves the server's latest paint on as the preview instead of clearing it;
+  `closeFlightSim` clears it when the flight ends.
+- **Fly** from the card boards you straight into the seat on the hangar floor, door down.
 - **A field without one** does the same where she is parked, so its pad is the 3D area: the helipads,
   the Echelon's deck and the Solenne's roof (which has a stair head in its rear corner, outside the
   touchdown circle). Only Coldwater Regional has a hangar building so far. A pilot without a licence
-  can't take the seat, so their Maintain opens the bench in the pane.
-- **The bench's Fuel tab** fills her at the pump price; the **Stores** tab (armed airframes only)
-  shows guns, rails and rack. Stores reload free whenever she parks (`parkAt`), so there is nothing to buy.
+  can't take the seat, so for them the card opens the bench in the pane, with its own 3D stage.
+- Refuelling is on the card's strip. Stores reload free whenever she parks (`parkAt`), so there is
+  nothing to buy.
 
 **Liveries** (as built). A livery set is a whole look for one class: exterior paint, cabin
 trim and nameplate together. Devs author them as `content/liveries/aircraft_<class>_<id>.json`
 (schema in `client/shared/livery-schema.js`), and `npm run liveries:bake` bakes them into
 `client/shared/liveries.js`; `node scripts/shapes/liveries.mjs` fails on a stale bake, a value the
 paint shop doesn't know, or a class with no default. Read them through `client/shared/livery-sets.js`.
-- **Every class has a `default` set**, and an unpainted aircraft wears it (`normalizeLivery(cd, cls)`).
-  Meshes with authored paint wear it through the `factory` pattern; the Dragonfly, Mayfly and
-  Grasshopper have none, so theirs is a real paint job. A stored livery in the old stock grey reads
-  as unpainted, matching `liveryPalette`'s rule.
+- **Every class has a `default` set**, and an unpainted aircraft wears it (`normalizeLivery(cd, model)`).
+  A stored livery in the old stock grey reads as unpainted, matching `liveryPalette`'s rule.
+- **The Viper keys on `viper`, not `heli`.** It shares the Dragonfly's class but not its paint, so
+  sets key on `aircraftLiveryModel(class, hardpoints)` in `livery-sets.js`. It reads the TYPE's
+  hardpoints, so a Dragonfly with a pylon kit keeps Dragonfly paint. Pass that model, not the class,
+  to `normalizeLivery`, `classDefault` and `liveriesFor`.
+- **Every aircraft mesh is painted** (2026-10-08). Each `mesh_*.json` but the wreck has at least four
+  paint slots placed on chosen parts (belly, cheat line, tail, glare panel), and each default set is
+  the `factory` pattern that shows them. `scripts/shapes/liveries.mjs` fails a mesh with fewer
+  slots or a default that isn't `factory`. A slot marked base or trim takes a player's colours, so
+  a respray keeps the layout: the Viper's hand-placed khaki blotches stay blotches in Racing Red.
+- **Nothing chosen renders as the default, not grey.** `liveryPalette(lv, cls, armed)` fills an
+  empty livery from the model's default set, so a shop lot or a card with no livery still shows the
+  factory paint.
 - **`model: "any"`** sets (the old one-click presets) are offered on every class. A set with an
   `unlock` flag is offered only to a player who has that `player_flags` key set.
 - **Players save their own** with `scheme <tail> save <name>`, into `custom_data.livery.schemes`,

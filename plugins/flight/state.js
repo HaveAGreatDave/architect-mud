@@ -15,6 +15,7 @@ import { biomeOf, districtBiome } from './biomes.js';
 import { thermalLiftMax, heatOfCell } from '../../client/shared/thermals.js';
 import { skylineFar } from '../../client/shared/skyline-tall.js';
 import { normalizeLivery } from './livery.js';
+import { aircraftLiveryModel } from '../../client/shared/livery-sets.js';
 import { sendToPlayer, sendToZone, sendToZoneExcept } from '../../server/engine/messaging.js';
 import { setPosture, forceStand } from '../../server/engine/posture.js';
 import { handlePlayerDeath } from '../../server/engine/gameLoop.js';
@@ -1441,7 +1442,30 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
     // a permanent hole in the basin you can fly into and cannot swim through, whether or not
     // there is a ship in it. The tile stays ordinary water; the ship is drawn on top of it.
     : cell.flags?.berth ? 'berth'
+    // AN AA BATTERY'S GUN DECK (plugins/aa-sites). ⚠ A MARK FOR THE CAMP'S REASON: the deck is a
+    // tile people stand on and the bunker hatch is in its floor, so as a building it would leave
+    // the walk graph. Every view draws the emplacement; `aa` below says which kind and what state.
+    : cell.flags?.aa_site ? 'aa'
     : (/^statue/.test(cell.flags?.icon || '') ? 'statue' : undefined);
+  // `aa`: the battery's KIND (`flags.aa_kind`, the four emplacements are four different builds)
+  // and its STATE, 1 manned, 2 strafed and under repair, 0 a cold ruin. The state is the battery's
+  // own (plugins/aa-sites answers `aa.state` from RAM); a view that is open when it changes is told
+  // by an `aa_state` push. ⚠ SYNC, and gated on the mark, so it is asked of four tiles in the world.
+  // `o` is the side the pit opens to, its way in: the exit onto the best ground (a road, then open
+  // land, never water). A Curtain battery opens to the city, which the renderer reads off `ci`.
+  let aa;
+  if (mark === 'aa') {
+    const st = gatherHookSync('aa.state', cell.id).find((r) => r && Number.isFinite(r.s));
+    const ex = cell.exits || (cell.id && getZone(cell.id)?.exits) || {};
+    let o, best = -1;
+    for (const [d, ox, oy, k] of [['south', 0, 1, 's'], ['east', 1, 0, 'e'], ['west', -1, 0, 'w'], ['north', 0, -1, 'n']]) {
+      if (!ex[d]) continue;
+      const nb = at(x + ox, y + oy);
+      const score = !nb || nb.flags?.terrain === 'water' ? 0 : isRoadCell(nb) ? 3 : nb.flags?.building_type ? 1 : 2;
+      if (score > best) { best = score; o = k; }
+    }
+    aa = { k: cell.flags.aa_kind || 'guardian', s: st ? st.s : 1, o };
+  }
   // A yacht that's recently sailed streams a decaying wake to every pilot in view.
   let wake, sub, heading;
   if (mark === 'yacht') {
@@ -1678,7 +1702,7 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
     && [[-1, 0], [1, 0]].some(([ox, oy]) => { const c = at(x + ox, y + oy); return !!(c?.flags?.gate_lock && typeof c.flags.gate_lock === 'object'); });
   const bk = cell.flags?.aircraft_hangar && cell.flags?.heavy_hangar ? 'heavy' : cell.flags?.aircraft_hangar ? 'air' : besideLock ? 'lock' : undefined;
   // A runway is not a street (see `rwy` above): no kerbs, no steam vents, no pedestrians on it.
-  return { prp, kind, biome, road: rwy ? 0 : road, danger: cell.danger, pad, bt, bn, ent, flr, mark, bk, strip, rwy, twy, rd, rdeg, rt, rw, rl, wr, rc, wake, sub, heading, cur, cld, ci, ft, hi, cf, pf: cell.flags?.park_feature, pw, em, og, sl, sgn, plz, lk, bf, bq, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
+  return { prp, kind, biome, road: rwy ? 0 : road, danger: cell.danger, pad, bt, bn, ent, flr, mark, bk, strip, rwy, twy, rd, rdeg, rt, rw, rl, wr, rc, wake, sub, heading, cur, cld, ci, ft, hi, cf, pf: cell.flags?.park_feature, pw, em, og, sl, sgn, plz, lk, bf, bq, aa, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
 }
 
 // The flight window's half-width, named so the things that have to AGREE with it can say so
@@ -1832,7 +1856,7 @@ function nearbyLandmarks(x, y) {
 //
 // ⚠ The memo is shared — never sort or mutate the array `listRegions()` hands back.
 const REGION_MAX = 6;
-function nearbyRegions(x, y) {
+export function nearbyRegions(x, y) {
   const all = listRegions().map(r => {
     const gx = Math.round(r.cx), gy = Math.round(r.cy);
     const dist = Math.hypot(gx - x, gy - y);
@@ -1880,7 +1904,7 @@ export function gaugePayload(live) {
 
   return {
     craft: t.name, tail: a.name || t.name, class: t.class,
-    livery: normalizeLivery(a.custom_data, t.class),   // interior (cabin/upholstery) shows in the cockpit chrome
+    livery: normalizeLivery(a.custom_data, aircraftLiveryModel(t.class, t.hardpoints)),   // interior (cabin/upholstery) shows in the cockpit chrome
     band: a.altitude_band, bandLabel: BAND_LABEL[a.altitude_band] || a.altitude_band,
     bandIndex: BANDS.indexOf(a.altitude_band), ceiling: eff.ceiling,
     heading: degToCardinal(deg), headingDeg: deg,
@@ -2288,7 +2312,7 @@ export function pushContext(live) {
 // dead-reckoning between relays, hull, and a short tail readout. Built fresh each relay.
 export function airContact(live) {
   const a = live.row;
-  const lv = normalizeLivery(a.custom_data, live.type?.class);   // paint the viewer renders the bogey in
+  const lv = normalizeLivery(a.custom_data, aircraftLiveryModel(live.type?.class, live.type?.hardpoints));   // paint the viewer renders the bogey in
   return {
     id: a.id,
     livery: { base: lv.base, trim: lv.trim, pattern: lv.pattern, finish: lv.finish, variant: lv.variant },
@@ -2341,6 +2365,21 @@ export function aircraftNearCoord(x, y, range = 26) {
     out.push(airContact(other));
   }
   return out;
+}
+
+// ── EVERYTHING MOVING NEAR A TILE, FOR ANY VIEW ──────────────────────────────
+// The aircraft above, plus whatever else answers `vehicle.contacts` (boats, trucks), in the one
+// contact shape every GLASS view draws. The cockpit asked the hook and nobody else did, so a truck
+// driver saw aircraft and nothing on the road, a boat saw nothing on the water, and somebody on
+// foot saw nothing moving at all. `selfId` is the asker's own contact id (`truck_<pid>`,
+// `boat_<pid>`, an aircraft id), dropped so a vehicle is not drawn on top of itself.
+// ⚠ SYNC: every contributor answers out of its own RAM map (see the hook's row in docs/server.md),
+// so the cab and the boat can ask on their own push paths, which have no await.
+export function worldContactsNear(x, y, range = 26, selfId = null) {
+  const out = aircraftNearCoord(x, y, range);
+  // `gatherHookSync` has already flattened each contributor's list into one list of contacts.
+  for (const c of gatherHookSync('vehicle.contacts', x, y, range)) if (c && c.id != null) out.push(c);
+  return selfId == null ? out : out.filter((c) => c && c.id !== selfId);
 }
 
 export function closeHud(pid) { sendToPlayer(pid, { type: 'cockpit_close' }); }

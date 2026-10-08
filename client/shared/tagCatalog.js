@@ -591,6 +591,9 @@
       help: 'Corps territory override: force this zone claimable. Absent = derived (claimable when inferred danger isn\'t safe, never apartments).' },
     claimable_asset: { label: 'Claimable Business', shape: 'text', scope: 'zone', group: 'Zone: Law & Hazard',
       help: 'Corporate Assets: a corp can take this storefront over with "corp asset claim". Value is the asset type key (restaurant, casino, fence, gun_shop, clinic, chem_supply). Needs a vendor NPC in the zone for the sales cut.' },
+    aa_kind: { label: 'AA Build', shape: 'enum', scope: 'zone', group: 'Zone: Law & Hazard',
+      options: ['guardian', 'sam', 'flak', 'truck'],
+      help: 'Which emplacement the 3D views draw on an aa_site deck: guardian (concrete ring, twin autocannon, radar), sam (bag berm, missile rail), flak (sunk pit, long gun on a cruciform cradle) or truck (an autocannon on a dead truck). Match it to the room description.' },
     aa_site: { label: 'AA Emplacement', shape: 'flag', scope: 'zone', group: 'Zone: Law & Hazard',
       help: 'Exposed anti-aircraft emplacement (aa-sites plugin): the standable tile that fires on overflying aircraft and can be assaulted on foot. Pairs with an aa_sites row.' },
 
@@ -812,6 +815,8 @@
       help: 'How many hulls this open apron keeps on cradles, outdoors. The cheap tier: she is out of the water and out of the weather\'s way, and a refit here is capped between a field patch and a proper shed. Same authoring rule as `boat_covered` — the number is what can be let. Owner: powerboat (yard.js).' },
     boat_fuel: { label: 'Marine Fuel', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
       help: 'A pump a boat can `fuel` at. Deliberately NOT `truck_fuel` and deliberately not the furniture `fuel_source` a jerry can draws on: a diesel forecourt and a fuel float are the same trade in two places nothing can travel between, and there is no route by which a hull reaches a forecourt — sharing the flag would only make every fuel yard in the basin claim to sell something no boat can get to it to buy. Belongs on the DECK the pump stands on, which will normally also carry `marina_berths`, because you fuel a hull where the hull is lying. The price is not authored here: powerboat charges per UNIT against the type\'s own `tank`, so a bigger hull costs more to fill with nothing written down twice, and the forecourt price board reads it off the `fuel.prices` hook. Owner: powerboat (fuel.js).' },
+    yard_rate: { label: 'Boatyard Rate', shape: 'number', scope: 'zone', group: 'Zone: Structure',
+      help: 'What this boatyard charges against the list, as a multiple: 0.6 is forty per cent off. The list is the Ascendant price (Fairweather Marina carries no rate). Read by the move-in fee, the crane, `refit` and the shed\'s service, paint and name work, and by the yard screen\'s quotes. Put it on every berth and covered room the yard lets, so whichever one the player stands in quotes the same rate. It does not touch the price of a hull, a hire or fuel. Unset, or not a positive number, is the list. Owner: powerboat (yard.js `yardRate`).' },
     boat_dealer: { label: 'Sells Hulls', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
       help: 'The `boat` verb lists a stock list here and will sell one. Deliberately INDEPENDENT of the three berth flags, because selling a hull and keeping one are different trades — a broker in an office has this and no berth, and a pontoon has berths and does not sell anything. It still refuses the sale when there is nowhere within walking distance to put her. Owner: powerboat (yard.js).' },
 

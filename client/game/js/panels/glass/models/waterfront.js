@@ -8,13 +8,15 @@
 // An arm that ends early uses `return` where the case used `break`. How a tile becomes a building
 // is in docs/reference/world-rendering.md.
 import {
-  BAY, BERTH_LATCH, BERTH_SETDOWN, DECO_LIFT, DECO_PULL, FACE_EPS, TR, WALL_COL, awning,
+  BAY, BERTH_LATCH, BERTH_SETDOWN, DECO_LIFT, DECO_PULL, DETAIL_LIFT, FACE_EPS, nearOrMesh, rgb, TR, WALL_COL, awning,
   bakeSignText, berthBoxColour, berthBoxZ, berthOwnLift, berthPhase, berthPre, berthRow,
   berthRowOut, berthSlot, blinkLight, clamp, cssRgb, draw3DBoxAt, drawBarrelRoof, drawFacetDrum,
   drawRing, drawSmoke, emitDecoFill, emitLightRunner, emitSurfaceText, emitWire, facePals, faceYaw,
   glowPool, hfChrome, lightBeam, marqueeBand, mast, moveSeg, movingBox, reserveSignBand, roofCross,
   windFlag,
 } from '../../windshield.js';
+import { flatOut } from './downtown.js';
+import { drawEntrance } from '../entrance.js';
 
 export const WATERFRONT_ARMS = {
   // ══ THE BASIN JETTY ══════════════════════════════════════════════════════════════════════
@@ -1324,9 +1326,17 @@ export const WATERFRONT_ARMS = {
     }
     // 2) THE QUEUE CANOPY — a long low shelter running out from the door, because the waiting is
     //    the building's real function. It is longer than the entrance is wide.
-    { const [cx, cy] = F(0, fh * 1.55); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.34, canZ0, canZ1, 'ty_door', seed + 3, night, alpha, false);
-      for (let i = 0; i < 4; i++) { const [px, py] = F(fh * 0.26 * (i % 2 ? 1 : -1), fh * (0.95 + i * 0.30));
+    // ⚠ IT STARTS AT THE GLASS NOW. It was centred at 1.55 fh, so it began a tenth of a footprint
+    //    short of the wall and the first post stood at 0.95 fh, inside the building; a queue
+    //    shelter that does not reach the door shelters nobody (the small-building grade, 2026-10-04).
+    { const [cx, cy] = F(0, fh * 1.45); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.34, canZ0, canZ1, 'ty_door', seed + 3, night, alpha, true);   // lidded: it stands proud of the wall now (lidless)
+      for (let i = 0; i < 4; i++) { const [px, py] = F(fh * 0.26 * (i % 2 ? 1 : -1), fh * (1.18 + i * 0.19));
         draw3DBoxAt(ctx, cam, px, py, fh * 0.04, 0, canZ0, 'ty_door', seed + 20 + i, night, alpha, false); } }   // canopy posts
+    // 2b) THE DOORS the queue is for: a pair cut into the counter hall's glass between the middle
+    //    mullions, under the canopy's root. ⚠ The glass ran the whole frontage with no way in.
+    drawEntrance(ctx, cam, F, W3, E, seed, night, alpha, {
+      y: fh * 1.115, w: fh * 0.13, z0: kerb, top: head - body * 0.012, leaves: 2,
+      frame: [128, 136, 126], lobby: { day: [70, 80, 70], night: [210, 225, 180] }, spill: '210,225,180', frontVis });
     // 3) THE HOLO-SHINGLE. `SIGN_FASCIA` forces the lit treatment for this trade — the prose says
     //    it flickers, and a flicker is a thing only a lit sign can do.
     // ⚠ THE FLICKER IS THE WASH, NEVER THE BOARD. `marqueeBand`'s own ⚠ is explicit that nothing
@@ -1368,5 +1378,216 @@ export const WATERFRONT_ARMS = {
       marqueeBand(ctx, cam, dx, dy, E, fh * 0.96, wallTop * 0.74, m.neon || '#ffb43a', night, alpha, 'RATION NINE');
     }
     if (night) { const [wx, wy] = F(0, fh * 1.02); glowPool(ctx, cam, wx, wy, h * 0.18, '255,200,140', 10, alpha * 0.22); }
+  },
+  // ══ MOOR OR LESS, at the head of Ironside Street ═════════════════════════════════════════
+  // The cheap boatyard at the east end of the waterfront, and the opposite answer to Fairweather
+  // on every point: tarred timber and galvanised tin rather than chrome and glass, a lamp on a pole
+  // rather than light from inside, and a man in the shed rather than nobody. Keel built a hull for
+  // twelve years in a shed on Lever Lane a quarter of a mile from any water; this is the shed he
+  // built himself when he finally moved her down to it.
+  boatshed(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {
+    // ⚠ THE WATER IS ON THE SHED'S LEFT, SEEN FROM THE STREET (local -x), AND THAT IS THIS TILE'S
+    // FACT RATHER THAN THE TYPE'S. Moor or Less faces west onto Ironside Hard and its wet slot is
+    // the water tile to the north (zone_hulls_shop's `north` exit, which `coveredSlot` in
+    // plugins/powerboat/yard.js reads). An arm is handed E and nothing else about its tile, so a
+    // second boat shed must be sited with its water on the same hand or it needs an arm of its own.
+    //
+    // ⚠ THE CANOPY REACHES OUT OVER THE SLOT TO THE NORTH, ON PURPOSE. tilefit trims mass that
+    // crosses the ENTRANCE side only; this crosses the left flank, over open water, which is what a
+    // wet boathouse is. Boats do not collide with building mass (they test the tile's surface), so
+    // the piles are picture only and stand clear of the slot's middle where a hull lies.
+    const YAW = faceYaw(E), NEAR = nearOrMesh(), dn = night ? clamp(night, 0, 1) : 0, dusk = 1 - 0.55 * dn;
+    const HX = fh * 0.80, HY = fh * 0.84;           // the shed: along the hull (x) and across it (y)
+    const PLINTH = h * 0.05, TOP = h * 0.72, archH = fh * 0.22;
+    const ROOF = [112, 116, 112];                    // galvanised sheet, gone dull
+    const TAR = pal, BOARD = 'ty_oc_board', TIMBER = 'ty_dw_timber';
+    const lerp = (a, b) => [0, 1, 2].map((i) => a[i] + (b[i] - a[i]) * dn);
+    const faces = (nx, ny, px, py) => { const [ax, ay] = F(px, py), [bx, by] = F(px + nx, py + ny);
+      return (bx - ax) * ((cam.ex || 0) - ax) + (by - ay) * ((cam.ey || 0) - ay) > 0; };
+    const ink = 'rgba(22,20,18,0.92)';
+
+    // 1) THE SHED. A concrete footing, tarred weatherboard to the eaves, and a shallow tin barrel
+    //    overhanging the long walls. Black because tar is black, and because the yard next door is
+    //    the Glasshouse's opposite in every other way too.
+    draw3DBoxAt(ctx, cam, dx, dy, HX * 1.03, 0, PLINTH, 'ty_pier_pile', seed + 1, night, alpha, false, YAW, HY * 1.03);
+    draw3DBoxAt(ctx, cam, dx, dy, HX, PLINTH, TOP, TAR, seed, night, alpha, false, YAW, HY);
+    drawBarrelRoof(ctx, cam, F, 0, HX + fh * 0.07, HY + fh * 0.01, TOP, archH, 10, alpha, ROOF);
+
+    // 2) THE STREET GABLE (local +y, Ironside Hard): the name in white house paint across the boards,
+    //    an ordinary door on the right, and a bulkhead lamp over it. The bench Keel sells across is
+    //    just inside this door, so this is the shop front, and it looks like a shed.
+    const GY = HY + fh * 0.004;
+    if (frontVis) {
+      const tex = bakeSignText((name || 'MOOR OR LESS').toUpperCase(), '#e9e5d8', 0, false, true, true, { font: 'block' });
+      const z0 = TOP - h * 0.24, z1 = TOP - h * 0.06, x0 = -HX * 0.86, x1 = HX * 0.86;
+      const q = [[x0, z1], [x1, z1], [x1, z0], [x0, z0]].map(([u, z]) => { const [wx, wy] = F(u, GY + FACE_EPS); return cam.proj(wx, wy, z); });
+      if (tex && q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha * 0.92, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
+    }
+    { const dx0 = HX * 0.30, dx1 = HX * 0.62, dz1 = h * 0.40;
+      const leaf = lerp([64, 88, 74], [44, 56, 50]);
+      flatOut(ctx, cam, W3, [[dx0, GY, dz1], [dx1, GY, dz1], [dx1, GY, PLINTH], [dx0, GY, PLINTH]], [0, 1, 0], rgb(leaf.map((v) => v * dusk)), alpha, { lit: 'plain', albedo: leaf });
+      // The sales window beside it: one pane on to the bench, a warm square after dark when he's in.
+      const wx0 = -HX * 0.62, wx1 = -HX * 0.10, wz0 = h * 0.18, wz1 = h * 0.38;
+      flatOut(ctx, cam, W3, [[wx0, GY, wz1], [wx1, GY, wz1], [wx1, GY, wz0], [wx0, GY, wz0]], [0, 1, 0], rgb(lerp([40, 44, 46], [226, 176, 108])), alpha);
+      if (NEAR && frontVis) {
+        for (const x of [dx0, dx1]) emitWire(ctx, cam, W3(x, GY + 0.002, PLINTH), W3(x, GY + 0.002, dz1), 2, ink, alpha, { pull: FACE_EPS });
+        emitWire(ctx, cam, W3(dx0, GY + 0.002, dz1), W3(dx1, GY + 0.002, dz1), 2, ink, alpha, { pull: FACE_EPS });
+        emitWire(ctx, cam, W3(dx0 + (dx1 - dx0) * 0.18, GY + 0.003, dz1 * 0.52), W3(dx0 + (dx1 - dx0) * 0.18, GY + 0.003, dz1 * 0.58), 3, 'rgba(160,150,120,0.95)', alpha, { pull: FACE_EPS });   // the latch
+        for (const x of [wx0, (wx0 + wx1) / 2, wx1]) emitWire(ctx, cam, W3(x, GY + 0.002, wz0), W3(x, GY + 0.002, wz1), 1.6, ink, alpha, { pull: FACE_EPS });
+        for (const z of [wz0, wz1]) emitWire(ctx, cam, W3(wx0, GY + 0.002, z), W3(wx1, GY + 0.002, z), 1.6, ink, alpha, { pull: FACE_EPS });
+      }
+      const [lx, ly] = F((dx0 + dx1) / 2, GY + fh * 0.02);
+      draw3DBoxAt(ctx, cam, lx, ly, fh * 0.03, dz1 + h * 0.03, dz1 + h * 0.07, 'ty_fab_steel', seed + 3, night, alpha, true, YAW, fh * 0.02);   // the bulkhead lamp
+      glowPool(ctx, cam, lx, ly, dz1 + h * 0.02, '255,214,150', 7, alpha * (night ? 0.55 : 0.08)); }
+
+    // 3) THE WATER DOORS (local -x), the reason for the building: the full height of the wall, both
+    //    leaves swung back flat against it, and the hull on the stocks seen end-on inside. Her frames
+    //    are what you see from the water, three of them receding, planked to the waist.
+    const WX = -(HX + fh * 0.004), OY = HY * 0.62, OZ1 = TOP - h * 0.05;
+    flatOut(ctx, cam, W3, [[WX, -OY, OZ1], [WX, OY, OZ1], [WX, OY, PLINTH], [WX, -OY, PLINTH]], [-1, 0, 0], rgb(lerp([34, 30, 26], [118, 86, 54])), alpha);
+    for (const s of [-1, 1]) {
+      const [lx, ly] = F(-(HX + fh * 0.014), s * (OY + fh * 0.15));
+      draw3DBoxAt(ctx, cam, lx, ly, fh * 0.012, PLINTH, OZ1, BOARD, seed + 5 + s, night, alpha, true, YAW, fh * 0.15);
+    }
+    if (NEAR && faces(-1, 0, -HX, 0)) {
+      // The hull, end-on: a U of frames, each a little smaller and higher as they recede, and the
+      // planking across the lower half of the nearest one. Strokes on the dark of the doorway.
+      const hx = WX - 0.002, keel = PLINTH + h * 0.06;
+      for (let k = 0; k < 3; k++) {
+        const w = OY * (0.78 - k * 0.12), top = OZ1 - h * (0.08 + k * 0.03), bot = keel + h * k * 0.02;
+        const col = `rgba(${150 - k * 30},${118 - k * 24},${82 - k * 18},0.95)`;
+        const pts = [];
+        for (let i = 0; i <= 8; i++) { const t = i / 8, a = Math.PI * (1 - t); pts.push([Math.cos(a) * w, top - (top - bot) * Math.pow(Math.sin(a), 1.6)]); }
+        for (let i = 1; i < pts.length; i++) emitWire(ctx, cam, W3(hx, pts[i - 1][0], pts[i - 1][1]), W3(hx, pts[i][0], pts[i][1]), 2.4 - k * 0.5, col, alpha, { pull: FACE_EPS });
+      }
+      const plankTop = keel + (OZ1 - keel) * 0.45;
+      for (let k = 0; k < 4; k++) { const z = keel + (plankTop - keel) * (k + 1) / 4, w = OY * 0.78 * Math.pow((z - keel) / (OZ1 - keel), 0.4);
+        emitWire(ctx, cam, W3(hx, -w, z), W3(hx, w, z), 1.6, 'rgba(170,138,96,0.9)', alpha, { pull: FACE_EPS }); }
+      emitWire(ctx, cam, W3(hx, 0, keel), W3(hx, 0, PLINTH), 3, 'rgba(60,46,34,0.95)', alpha, { pull: FACE_EPS });   // the stocks
+    }
+
+    // 4) THE WET SLOT ROOF: a lean-to of rusted tin out over the near half of the slot, on four
+    //    timber piles, with a hoist beam down its middle. ⚠ NARROWER THAN THE SHED AND OVER HALF THE
+    //    TILE: the first cut ran it the shed's full width a whole tile out, and from a boat it was a
+    //    pale slab bigger than the building it hung off. Two boxes because draw3DBoxAt clamps a half
+    //    -length to 0.44 of a tile. Its soffit is lit warm at night, which is how you find the slot.
+    const CX0 = -HX, CX1 = -1.10, CZ0 = TOP - h * 0.015, CZ1 = CZ0 + h * 0.03, CY = 0.24;   // at the eaves, over the top of the doors
+    const CMID = (CX0 + CX1) / 2;
+    for (const [a, b, sd] of [[CX0, CMID, 10], [CMID, CX1, 11]]) {
+      const [cx, cy] = F((a + b) / 2, 0);
+      draw3DBoxAt(ctx, cam, cx, cy, Math.abs(b - a) / 2, CZ0, CZ1, 'ty_reach_rust', seed + sd, night, alpha, true, YAW, CY);
+    }
+    const timber = (f) => { const s = (0.5 + f.nl * 0.45) * dusk; return `rgb(${(104 * s) | 0},${(84 * s) | 0},${(60 * s) | 0})`; };
+    for (const px of [CX0 - 0.10, CX1 + 0.06]) for (const py of [-CY + 0.03, CY - 0.03]) {
+      const [x, y] = F(px, py);
+      drawFacetDrum(ctx, cam, x, y, -h * 0.40, CZ0, fh * 0.032, fh * 0.028, 8, alpha, timber, 'rgb(72,58,42)', TIMBER);
+    }
+    { const [bx, by] = F(CMID, 0);
+      draw3DBoxAt(ctx, cam, bx, by, Math.abs(CX1 - CX0) / 2 - 0.04, CZ0 - h * 0.03, CZ0, 'ty_fab_steel', seed + 12, night, alpha, false, YAW, fh * 0.018); }
+    if (NEAR) {
+      // The chain falls and the two slings, hooked up out of the way, and tyres on the piles.
+      for (const px of [CMID - 0.18, CMID + 0.18]) {
+        emitWire(ctx, cam, W3(px, 0, CZ0 - h * 0.03), W3(px, 0, CZ0 - h * 0.12), 1.4, 'rgba(50,48,44,0.95)', alpha, { pull: DECO_PULL });
+        emitWire(ctx, cam, W3(px - 0.06, 0, CZ0 - h * 0.12), W3(px + 0.06, 0, CZ0 - h * 0.12), 3, 'rgba(176,150,96,0.95)', alpha, { pull: DECO_PULL });
+      }
+      for (const px of [CX0 - 0.10, CX1 + 0.06]) for (const py of [-CY + 0.03, CY - 0.03]) {
+        emitWire(ctx, cam, W3(px, py, h * 0.10), W3(px, py, -h * 0.02), 5, 'rgba(24,24,24,0.95)', alpha, { pull: DECO_PULL });   // a tyre fender
+      }
+    }
+
+    // 5) THE STEAM BOX, in a lean-to of lighter boards on the back, its stovepipe up past the eaves
+    //    and smoking: the box is lit for the first time in years, now that the hull can go in.
+    const BY0 = -HY, BD = fh * 0.15, BX = HX * 0.62, BZ = h * 0.46;
+    { const [bx, by] = F(HX * 0.18, BY0 - BD);
+      draw3DBoxAt(ctx, cam, bx, by, BX, PLINTH, BZ, BOARD, seed + 14, night, alpha, true, YAW, BD); }
+    { const px = HX * 0.50, py = BY0 - BD * 1.2, top = TOP + archH + h * 0.10;
+      const [sx, sy] = F(px, py);
+      const steel = (f) => { const s = (0.5 + f.nl * 0.44) * dusk; return `rgb(${(70 * s) | 0},${(70 * s) | 0},${(72 * s) | 0})`; };
+      drawFacetDrum(ctx, cam, sx, sy, BZ, top, fh * 0.026, fh * 0.024, 8, alpha, steel, 'rgb(30,30,30)', 'ty_fab_steel');
+      drawSmoke(ctx, cam, sx, sy, top + h * 0.02, '200,200,196', alpha * 0.55, now, seed + 15); }
+    { const by = BY0 - BD * 2 - fh * 0.004, z0 = h * 0.20, z1 = h * 0.34, x0 = -HX * 0.30, x1 = HX * 0.10;
+      flatOut(ctx, cam, W3, [[x0, by, z1], [x1, by, z1], [x1, by, z0], [x0, by, z0]], [0, -1, 0], rgb(lerp([42, 40, 38], [232, 170, 96])), alpha); }   // the steam-box window
+
+    // 6) THE SOUTH SIDE, against the Tenement: two grimy windows, a downpipe and a rain barrel.
+    { const sx = HX + fh * 0.004;
+      for (const v of [-0.45, 0.25]) { const y0 = (v - 0.12) * fh, y1 = (v + 0.12) * fh, z0 = h * 0.30, z1 = h * 0.50;
+        flatOut(ctx, cam, W3, [[sx, y0, z1], [sx, y1, z1], [sx, y1, z0], [sx, y0, z0]], [1, 0, 0], rgb(lerp([52, 56, 54], [210, 160, 96])), alpha); }
+      const [rx, ry] = F(HX + fh * 0.07, HY * 0.70);
+      drawFacetDrum(ctx, cam, rx, ry, 0, h * 0.14, fh * 0.06, fh * 0.06, 10, alpha, (f) => { const s = (0.5 + f.nl * 0.45) * dusk; return `rgb(${(58 * s) | 0},${(76 * s) | 0},${(96 * s) | 0})`; }, 'rgb(22,26,30)', 'ty_door');
+      if (NEAR && faces(1, 0, HX, 0)) emitWire(ctx, cam, W3(sx + 0.002, HY * 0.70, h * 0.14), W3(sx + 0.002, HY * 0.70, TOP - h * 0.01), 2.2, ink, alpha, { pull: FACE_EPS }); }
+
+    // 7) THE BOARDS. Weatherboard reads at a distance as texture; up close the laps are what make it
+    //    timber, so the near tier draws a lap line every so often down the two walls you can see.
+    if (NEAR) {
+      for (let k = 1; k < 7; k++) { const z = PLINTH + (TOP - PLINTH) * k / 7;
+        if (faces(1, 0, HX, 0)) emitWire(ctx, cam, W3(HX + 0.002, -HY, z), W3(HX + 0.002, HY, z), 1, 'rgba(10,10,10,0.6)', alpha, { pull: FACE_EPS });
+        if (frontVis && z > TOP - h * 0.25) continue;   // not under the painted name
+        if (frontVis) emitWire(ctx, cam, W3(-HX, GY + 0.001, z), W3(HX, GY + 0.001, z), 1, 'rgba(10,10,10,0.6)', alpha, { pull: FACE_EPS });
+      }
+    }
+
+    // 8) THE LIGHT. Warm work lamps through the open water doors, spilling onto the slot, a lamp
+    //    under the canopy, and the bulkhead over the street door. Amber, because the docks are works.
+    if (night) {
+      { const [gx, gy] = F(WX - fh * 0.05, 0); glowPool(ctx, cam, gx, gy, (PLINTH + OZ1) / 2, '255,190,120', 18, alpha * 0.50); }
+      { const [gx, gy] = F(CMID, 0); glowPool(ctx, cam, gx, gy, CZ0 - h * 0.02, '255,200,130', 10, alpha * 0.55);
+        glowPool(ctx, cam, gx, gy, 0.01, '255,170,90', 22, alpha * 0.26); }
+      { const [gx, gy] = F(HX * 0.18, BY0 - BD * 2 - fh * 0.04); glowPool(ctx, cam, gx, gy, h * 0.27, '255,170,90', 8, alpha * 0.40); }
+    }
+  },
+  // A LANDING STAGE: the pontoon's cheap cousin. Planks on lashed oil drums, tyres for fenders, a
+  // bulb on a scaffold pole. The same freeboard and the same finger berths as the pontoon arm,
+  // because a hull needs the same things whoever paid for the deck.
+  landing_stage(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {
+    // ⚠ A SECTION IS SYMMETRIC, for the pontoon's reason: one tile twice in a row, each with an
+    // entrance derived from a door that is not there. Centred mass and ± pairs only; what varies is
+    // the seeded colour of the drums, never the section.
+    // ⚠ THE RUN IS IN TILE UNITS (±0.5), ACROSS IT IS IN fh — the pontoon arm's split, so two
+    // sections meet exactly whatever fh each one rolled.
+    const YAW = faceYaw(E), NEAR = nearOrMesh(), dn = night ? clamp(night, 0, 1) : 0, dusk = 1 - 0.55 * dn;
+    const FLOAT = h * 0.50, DECK = h * 0.72, DW = fh * 0.66;
+    // 1) THE FLOATS: oil drums stood in two rows down each edge, every one a different hand-me-down
+    //    colour, and a timber bearer along each row that the deck sits on.
+    const DRUMS = [[150, 62, 44], [52, 84, 128], [168, 132, 52], [92, 96, 92], [130, 70, 52]];
+    for (const sx of [-1, 1]) for (let k = 0; k < 4; k++) {
+      const ly = -0.375 + k * 0.25, c = DRUMS[(k * 2 + (sx > 0 ? 1 : 0) + (seed | 0)) % DRUMS.length];
+      const [x, y] = F(sx * DW * 0.78, ly);
+      drawFacetDrum(ctx, cam, x, y, -h * 0.26, FLOAT, fh * 0.11, fh * 0.11, 10, alpha,
+        (f) => { const s = (0.5 + f.nl * 0.45) * dusk; return `rgb(${(c[0] * s) | 0},${(c[1] * s) | 0},${(c[2] * s) | 0})`; }, `rgb(${c[0] * 0.6 | 0},${c[1] * 0.6 | 0},${c[2] * 0.6 | 0})`, 'ty_door');
+    }
+    for (const sx of [-1, 1]) { const [bx, by] = F(sx * DW * 0.78, 0);
+      draw3DBoxAt(ctx, cam, bx, by, fh * 0.05, FLOAT, FLOAT + h * 0.05, 'ty_dw_timber', seed + 2 + sx, night, alpha, false, YAW, 0.5); }
+    // 2) THE DECK: planks across the bearers, the full run of the section.
+    draw3DBoxAt(ctx, cam, dx, dy, DW, FLOAT + h * 0.05, DECK, pal, seed + 1, night, alpha, true, YAW, 0.5);
+    // 3) THE FINGERS, one each side, plank walkways to tie a hull against, on drums of their own.
+    for (const sx of [-1, 1]) for (const ly of [-0.24, 0.24]) {
+      const [gx, gy] = F(sx * fh * 0.98, ly);
+      draw3DBoxAt(ctx, cam, gx, gy, fh * 0.30, FLOAT + h * 0.05, DECK, pal, seed + 5 + sx + ly * 9, night, alpha, true, YAW, 0.06);
+      const [hx, hy] = F(sx * fh * 1.16, ly);
+      drawFacetDrum(ctx, cam, hx, hy, -h * 0.2, FLOAT + h * 0.05, fh * 0.07, fh * 0.07, 8, alpha, (f) => { const s = (0.5 + f.nl * 0.45) * dusk; return `rgb(${(96 * s) | 0},${(98 * s) | 0},${(94 * s) | 0})`; }, 'rgb(56,58,56)', 'ty_door');
+    }
+    // 4) THE POSTS: a timber mooring post at each finger root, and a scaffold pole in the middle of
+    //    each edge with a bare bulb, the only light out here and the thing Fairweather would not do.
+    const post = (f) => { const s = (0.5 + f.nl * 0.45) * dusk; return `rgb(${(108 * s) | 0},${(88 * s) | 0},${(62 * s) | 0})`; };
+    for (const sx of [-1, 1]) for (const ly of [-0.40, 0.40]) {
+      const [px, py] = F(sx * DW * 0.86, ly);
+      drawFacetDrum(ctx, cam, px, py, DECK, DECK + h * 0.14, fh * 0.032, fh * 0.03, 8, alpha, post, 'rgb(70,58,42)', 'ty_dw_timber');
+    }
+    for (const sx of [-1, 1]) {
+      const [px, py] = F(sx * DW * 0.90, 0), top = DECK + h * 0.95;
+      drawFacetDrum(ctx, cam, px, py, DECK, top, fh * 0.014, fh * 0.014, 6, alpha, (f) => { const s = (0.5 + f.nl * 0.45) * dusk; return `rgb(${(126 * s) | 0},${(128 * s) | 0},${(126 * s) | 0})`; }, 'rgb(80,80,80)', 'ty_fab_steel');
+      if (NEAR) emitWire(ctx, cam, W3(sx * DW * 0.90, 0, top), W3(sx * DW * 0.78, 0, top - h * 0.04), 1.3, 'rgba(40,40,40,0.9)', alpha, { pull: DECO_PULL });   // the flex to the bulb
+      { const [bx, by] = F(sx * DW * 0.78, 0); glowPool(ctx, cam, bx, by, top - h * 0.06, '255,206,140', 6, alpha * (night ? 0.85 : 0.10));
+        if (night) glowPool(ctx, cam, bx, by, DECK + 0.004, '255,190,120', 12, alpha * 0.22); }
+    }
+    // 5) THE PLANKS AND THE FENDERS, near only: plank joints across the deck, and a tyre hung on the
+    //    edge at every drum, which is what a stage has where a pontoon has a rubbing strip.
+    if (NEAR) {
+      for (let k = -4; k <= 4; k++) { const ly = k * 0.11;
+        emitWire(ctx, cam, W3(-DW, ly, DECK + 0.002), W3(DW, ly, DECK + 0.002), 1, 'rgba(40,32,24,0.55)', alpha, { pull: FACE_EPS }); }
+      for (const sx of [-1, 1]) for (const ly of [-0.36, -0.12, 0.12, 0.36]) {
+        emitWire(ctx, cam, W3(sx * (DW + 0.004), ly, DECK - h * 0.02), W3(sx * (DW + 0.004), ly, FLOAT - h * 0.06), 5, 'rgba(22,22,22,0.95)', alpha, { pull: DECO_PULL });
+      }
+    }
   },
 };

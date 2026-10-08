@@ -89,8 +89,11 @@ export const GROUPS = [
       'scripts/shapes/smoke.mjs',
       'scripts/shapes/wildlands.mjs',
       'scripts/shapes/meshes.mjs',
+      'scripts/shapes/vehicle-materials.mjs',
       'scripts/shapes/liveries.mjs',
       'scripts/shapes/actors.mjs',
+      'scripts/shapes/actor-head.mjs',
+      'scripts/shapes/actor-faces.mjs',   // without --write it only reads files
       'scripts/shapes/cloth.mjs',
       'scripts/shapes/slumpaint.mjs',
       'scripts/shapes/tagspace.mjs',

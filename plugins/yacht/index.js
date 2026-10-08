@@ -27,6 +27,7 @@ import { query } from '../../server/models/db.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { getZone, getLivePlayer, world, addExitOverride, removeExitOverride, registerMinimapNodeFilter, getMinimapData, zoneTerrain, getZoneFurniture } from '../../server/engine/world.js';
 import { sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
+import { streetActors } from '../../server/engine/street-actors.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { on } from '../../server/engine/events.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
@@ -470,7 +471,8 @@ async function arriveEchelon() {
   // Re-centre every open helm's chase view on the new tile: the real world window (the city/
   // shoreline she's now amongst), plus the authoritative position that releases the console.
   const map = flightStateMod?.yachtHelmWindow?.(toX, toY) || null;
-  for (const pid of helmViewers) sendToPlayer(pid, { type: 'helm_arrived', gx: toX, gy: toY, map });
+  const far = helmFar(toX, toY);
+  for (const pid of helmViewers) sendToPlayer(pid, { type: 'helm_arrived', gx: toX, gy: toY, map, ...far });
 }
 
 // Cut the throttle mid-passage: halt her at the charted tile she's coasted nearest to (position only
@@ -511,7 +513,9 @@ function pushHelmLive() {
   for (const pid of [...helmViewers]) {
     const p = getLivePlayer(pid);
     if (!p || !getZone(p.current_zone)?.flags?.echelon_bridge) { helmViewers.delete(pid); continue; }
-    if (sky) sendToPlayer(pid, { type: 'helm_sky', sky });
+    // The people on the quay ride the sky's clock, as the free camera's do: an NPC steps a tile every
+    // 15 s and the client walks them between.
+    if (sky) sendToPlayer(pid, { type: 'helm_sky', sky, actors: helmActors() });
   }
 }
 schedule('15s', pushHelmLive);
@@ -532,10 +536,21 @@ function pushHelmContacts() {
 // The plot itself, so the rule about a cooked radar has exactly one statement of
 // it and the regress suite reads that one rather than a copy that could agree
 // with it today and not next month.
+// What a helm is sent beside the window, so the basin from her bridge is the city everybody else
+// sees: the towers past the window, the highway past it, the region's grade and the quay's people.
+function helmFar(x, y) {
+  const m = flightStateMod; if (!m) return {};
+  return { skyline: m.skylineNear(x, y), regions: m.nearbyRegions(x, y), roads: m.farRoadsNear(x, y, m.FAR_ROAD_R), actors: helmActors() };
+}
+function helmActors() {
+  const ext = getZone(EXTERIOR);
+  return ext && ext.grid_x != null ? streetActors(ext.grid_x, ext.grid_y, 36) : [];
+}
 function helmContacts() {
   const ext = getZone(EXTERIOR);
   if (!ext) return [];
-  return bridgeElecDead() ? [] : (flightStateMod?.aircraftNearCoord?.(ext.grid_x, ext.grid_y) || []);
+  // Everything moving near her, not only what flies: the boats she passes and the rigs on the quay.
+  return bridgeElecDead() ? [] : (flightStateMod?.worldContactsNear?.(ext.grid_x, ext.grid_y, 26) || []);
 }
 schedule('2s', pushHelmContacts);
 
@@ -861,7 +876,7 @@ async function cmdHelmConsole(args, raw, player) {
   const transitTiles = transit ? Math.max(Math.abs(transit.toX - transit.fromX), Math.abs(transit.toY - transit.fromY)) : 0;
   const sky = flightStateMod?.skyState?.() || null;
   const map = flightStateMod?.yachtHelmWindow?.(ext.grid_x, ext.grid_y) || null;   // the real basin around her
-  sendToPlayer(player.id, { type: 'helm_open', gx: ext.grid_x, gy: ext.grid_y, heading, transitMs: transitLeft(), transitTotal: transit ? transit.totalMs : 0, transitTiles, cruise: transit ? transit.cruise : 0, sky, map });
+  sendToPlayer(player.id, { type: 'helm_open', gx: ext.grid_x, gy: ext.grid_y, heading, transitMs: transitLeft(), transitTotal: transit ? transit.totalMs : 0, transitTiles, cruise: transit ? transit.cruise : 0, sky, map, ...helmFar(ext.grid_x, ext.grid_y) });
   helmViewers.add(player.id);
   return { type: 'system', message: 'You take the helm. The console wakes under your hands.' };
 }

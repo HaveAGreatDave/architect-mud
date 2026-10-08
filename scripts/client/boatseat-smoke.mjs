@@ -262,7 +262,8 @@ for (const [tab, proof] of Object.entries(TAB_PROOF)) {
 
 // ── ⚠ THE CARD IS THE WAY IN, AND IT IS GATED ON THE SERVER'S FACTS ───────────────────────────
 // Picking a hull seats you in her (`boat take`), so the card must only offer that for one the
-// server says is in this yard; a cradle is a crane job and asks first; elsewhere is faded.
+// server says is in this yard; a cradle is a crane job, held to confirm (the bill can't be undone);
+// elsewhere is faded.
 {
   const html = () => String(yardMount.innerHTML || '');
   mp.marinaSetData(yardData('lot'));
@@ -270,7 +271,8 @@ for (const [tab, proof] of Object.entries(TAB_PROOF)) {
   ck('…and the hand ends with Buy and Hire', /data-tab="dealer"/.test(html()) && /data-tab="rent"/.test(html()));
   ck('…and says whether she is owned or hired', /OWNED/.test(html()));
   mp.marinaSetData(yardData('lot', { fleet: [{ ...yardData('lot').fleet[0], kind: 'hard' }] }));
-  ck('on a cradle: the card asks, and says what the crane costs', /data-confirm="boat take boat_1"/.test(html()) && /1,600/.test(html()));
+  ck('on a cradle: the crane is a hold, and says what it costs',
+    /data-hold="boat take boat_1"/.test(html()) && !/data-cmd="boat take boat_1"/.test(html()) && /1,600/.test(html()));
   mp.marinaSetData(yardData('lot', { fleet: [{ ...yardData('lot').fleet[0], inYard: false, where: 'adrift off Halcyon Quay' }] }));
   ck('elsewhere: the card is not a way in, and says where she is',
     !/data-cmd="boat take/.test(html()) && /Halcyon Quay/.test(html()));

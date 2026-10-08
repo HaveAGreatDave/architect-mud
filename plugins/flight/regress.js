@@ -10,7 +10,7 @@ import { signatureMult, signatureScore, colorName, describeExterior,
   readSchemes, schemeOf, classDefault, liveryFromSet, LIVERY_DEFAULT } from './livery.js';
 import { LIVERIES } from '../../client/shared/liveries.js';
 import { LIVERY_MODELS } from '../../client/shared/livery-schema.js';
-import { liveriesFor, liveryById, unlockedLiveries } from '../../client/shared/livery-sets.js';
+import { liveriesFor, liveryById, unlockedLiveries, aircraftLiveryModel } from '../../client/shared/livery-sets.js';
 import { crashSeverity, collateralBill, isSeverelyImpaired } from './collateral.js';
 import { boundUnpoweredClimb, hangarTileFor, toDeg } from './state.js';
 import { thermalLift } from '../../client/shared/thermals.js';
@@ -580,6 +580,12 @@ async function regressBody({ run, check, getPlayer }) {
   check('a set replaces the whole look (no decal carried over from before)', liveryFromSet({ exterior: { base: '#101010' }, interior: {} }).decal === 'none');
   check('a generic (any) set is offered on every class', LIVERY_MODELS.aircraft.every(cls => liveriesFor('aircraft', cls).some(l => l.model === 'any')));
   check("a Drake's own editions are not offered on a Mule", !liveriesFor('aircraft', 'prop').some(l => l.id === 'quackhawk'));
+  // The Viper shares the Dragonfly's class and not its paint. It keys on the TYPE's hardpoints, so a
+  // Dragonfly with a pylon kit (hardpoints on the airframe, none on the type) stays a Dragonfly.
+  check('an armed heli type is painted as a Viper, an unarmed one as a Dragonfly',
+    aircraftLiveryModel('heli', 8) === 'viper' && aircraftLiveryModel('heli', 0) === 'heli' && aircraftLiveryModel('gunship', 4) === 'gunship');
+  check('an unpainted Viper wears its own set, not the Dragonfly teal',
+    normalizeLivery({}, 'viper').base !== normalizeLivery({}, 'heli').base && liveryById('aircraft', 'viper', 'stock')?.default === true);
   check('schemeOf saves the whole look (factory scheme, cockpit trim, plate)', (() => { const s = schemeOf(qhLook, 'drake'); return s.variant === 'quackhawk' && s.itrim === 'quackhawk' && s.plate === 'QUACKHAWK DOWN'; })());
   {
     // A locked set stays hidden until its flag is set. Pushed onto the baked table for the check

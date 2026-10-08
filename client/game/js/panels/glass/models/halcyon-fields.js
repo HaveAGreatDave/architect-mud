@@ -12,6 +12,7 @@ import {
   emitSurfaceText, emitWire, faceYaw, frac, glowPool, helixRunner, hfChrome, hfGlass, hoistLine,
   latticeBoom, mast, motionPhase, moveSeg, movingBox, neonBlade, roofClutter,
 } from '../../windshield.js';
+import { drawEntrance } from '../entrance.js';
 
 export const HALCYON_ARMS = {
   // ══ HALCYON FIELDS, THE SECOND CAMPAIGN ════════════════════════════════════════════════
@@ -414,6 +415,17 @@ export const HALCYON_ARMS = {
     drawFacetDrum(ctx, cam, dx, dy, 0, h * 0.04, fh * 1.04, fh * 1.00, 20, alpha, hfChrome([112, 128, 144], [226, 238, 246], 1.8), hfChrome([122, 138, 152], [200, 214, 224], 1.4), 'ty_hf_deck');
     { const [cx5, cy5] = F(0, fh * 0.84);
       drawFacetDrum(ctx, cam, cx5, cy5, h * 0.046, h * 0.064, fh * 0.42, fh * 0.42, 14, alpha, hfChrome([122, 138, 152], [242, 248, 252], 1.7), hfChrome([132, 148, 162], [214, 228, 236], 1.3), 'ty_hf_ice'); }
+    // 4) THE WAY IN: a chrome porch out of the drum between the wings, on the forecourt disc, with
+    //    the automatic doors the prose has opening "at eight feet", so taller than a shop's. The
+    //    lobby is the atrium's own light, the same at noon as at midnight.
+    // ⚠ IT WAS NOT THERE. Both wings are yawed and the rest is drums, so the kit found no wall to
+    //    hang a door on and the building had no way in (the small-building grade, 2026-10-04).
+    drawEntrance(ctx, cam, F, W3, E, seed, night, alpha, {
+      y: fh * 0.40, w: fh * 0.13, z0: h * 0.064, top: h * 0.064 + 0.13, leaves: 2,
+      frame: [186, 200, 210], lobby: { day: [150, 186, 202], night: [190, 230, 246] },
+      porch: { depth: fh * 0.24, half: fh * 0.20, top: h * 0.37, pal: 'ty_hf_chrome' },
+      transom: { hh: 0.008, day: [130, 168, 184], night: [196, 236, 250] },
+      lamp: '206,238,255', lampDay: 0.12, spill: '206,238,255', frontVis });
     if (night) {
       // ⚠ THE ATRIUM IS LIT FROM INSIDE AND THE WINGS ARE NOT. That asymmetry is the whole
       //   night read: a lantern standing over two dark arms says "one big room and offices
@@ -453,6 +465,16 @@ export const HALCYON_ARMS = {
     //    no ground floor to have a door in.
     { const [sx1, sy1] = F(0, fh * 0.42);
       drawFacetDrum(ctx, cam, sx1, sy1, 0, legTop + h * 0.04, fh * 0.22, fh * 0.20, 14, alpha, hfChrome([116, 132, 148], [230, 240, 248], 1.8), hfChrome([126, 142, 156], [204, 218, 228], 1.4), 'ty_hf_chrome'); }
+    // 6) THE DOOR in the core, and the engraved plate beside it at chest height: the only lettering
+    //    on the building, so no name goes up anywhere else.
+    // ⚠ THE CORE WAS A CLOSED DRUM. A drum has no flat face, so the door stands in a shallow chrome
+    //    frame out of its street side; set straight on the curve, the leaves cut into it.
+    drawEntrance(ctx, cam, F, W3, E, seed, night, alpha, {
+      y: fh * 0.58, w: fh * 0.085, top: 0.11, leaves: 2,
+      frame: [196, 208, 218], lobby: { day: [96, 120, 134], night: [200, 236, 250] },
+      porch: { depth: fh * 0.08, half: fh * 0.15, top: h * 0.18, pal: 'ty_hf_chrome' },
+      plate: { side: 1, w: 0.010, hh: 0.007, z: 0.07, fill: [168, 176, 182], night: [120, 128, 134] },
+      lamp: '200,236,255', lampDay: 0.1, spill: '196,238,255', frontVis });
     if (night) {
       // ⚠ LIT FROM UNDERNEATH. Every other building in the quarter throws its light out of a
       //   window or down onto its own forecourt; this one is a disc on legs with nothing under
@@ -978,6 +1000,16 @@ export const HALCYON_ARMS = {
     drawFacetDrum(ctx, cam, dx, dy, top, cope, fh * 0.42, fh * 0.42, 24, alpha, hfChrome([100, 116, 132], [240, 248, 252], 1.9), null, 'ty_hf_chrome');
     { const [cx1, cy1] = F(0, fh * 0.84);
       drawFacetDrum(ctx, cam, cx1, cy1, h * 0.05, h * 0.07, fh * 0.30, fh * 0.30, 12, alpha, hfChrome([122, 138, 152], [242, 248, 252], 1.7), hfChrome([132, 148, 162], [214, 228, 236], 1.3), 'ty_hf_ice'); }
+    // The door, in the front segment of the ring and on the disc: one glass leaf in a chrome frame,
+    // and the keypad beside it that is not switched on, so it stays dark after dark. The lobby is
+    // lit at every hour, which is the one thing the prose says the building always does.
+    // ⚠ THE FRONT SEGMENT IS TURNED A QUARTER, SO ITS `hw` IS THE DEPTH: its face is at 0.82 fh,
+    //    not at the 0.84 the radius plus `fd` suggests, and a door set at 0.84 floats off it.
+    drawEntrance(ctx, cam, F, W3, E, seed, night, alpha, {
+      y: R * fh + fh * 0.20, w: fh * 0.07, z0: h * 0.07, top: h * 0.07 + 0.105, leaves: 1,
+      frame: [190, 204, 214], lobby: { day: [176, 200, 210], night: [206, 236, 248] },
+      plate: { side: 1, w: 0.008, hh: 0.011, fill: [52, 58, 62] },
+      lamp: '206,238,255', lampDay: 0.12, spill: '206,238,255', frontVis });
     if (night) {
       helixRunner(ctx, cam, dx, dy, cope, cope + h * 0.012, fh * 0.86, fh * 0.86, 1, 0, 30, '150,226,255', night, alpha);
       glowPool(ctx, cam, dx, dy, h * 0.02, '176,232,255', 13, alpha * 0.22);
@@ -1003,6 +1035,17 @@ export const HALCYON_ARMS = {
     // can see from outside the block.
     drawFacetDrum(ctx, cam, dx, dy, cope, lantern * 0.90, fh * 0.34, fh * 0.30, 16, alpha, hfGlass(night, [70, 102, 128]), null, pal);
     drawFacetDrum(ctx, cam, dx, dy, lantern * 0.90, lantern, fh * 0.30, fh * 0.16, 16, alpha, hfChrome([104, 120, 136], [242, 248, 252], 1.8), hfChrome([112, 128, 144], [206, 220, 230], 1.3), 'ty_hf_ice');
+    // The doors, in a glazed porch filling the street-side notch where the two bars cross. By day
+    // they are propped with a fire extinguisher, and it lives on the step beside the left leaf the
+    // rest of the time; the counter three paces inside is the lobby's dim light.
+    // ⚠ BOTH BARS ARE YAWED, so the kit found no wall and the building had no door. The notch's
+    //    apex is at 0.30 fh; the porch starts inside it so it meets both faces.
+    drawEntrance(ctx, cam, F, W3, E, seed, night, alpha, {
+      y: fh * 0.22, w: fh * 0.09, top: 0.105, leaves: 2,
+      frame: [180, 194, 206], lobby: { day: [84, 100, 110], night: [214, 226, 228] },
+      porch: { depth: fh * 0.30, half: fh * 0.16, top: h * 0.18, pal: 'ty_hf_chrome' },
+      plate: { side: -1, w: 0.006, hh: 0.011, z: 0.011, fill: [196, 40, 34], night: [120, 30, 28] },
+      lamp: '206,238,255', lampDay: 0.1, spill: '214,226,228', frontVis });
     if (night) {
       glowPool(ctx, cam, dx, dy, cope + h * 0.04, '186,236,255', 12, alpha * 0.28);
       const [gx, gy] = F(0, fh * 0.70); glowPool(ctx, cam, gx, gy, h * 0.04, '206,238,255', 11, alpha * 0.26);

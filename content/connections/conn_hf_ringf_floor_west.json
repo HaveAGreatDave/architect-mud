@@ -1,0 +1,9 @@
+{
+  "a": "zone_ringf_floor",
+  "b": "zone_ringf_iron",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_hf_ringf_floor_west",
+  "lockable": false,
+  "one_way": false
+}

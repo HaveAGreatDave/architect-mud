@@ -1,8 +1,13 @@
 {
-  "ambient_events": [],
+  "ambient_events": [
+    "The drums under the deck boom as a swell runs through them.",
+    "A tyre fender squeaks against the planks and goes quiet.",
+    "Somebody has written BERTH 2 FOR SALE on the plank in chalk. It has been scuffed out.",
+    "The Yards Tenement's windows light the water behind you one at a time."
+  ],
   "ambient_theme": "coast",
-  "color": "#7fd3ff",
-  "description": "The water at the shoreline is cold and the bottom drops away fast into dark. Beyond this the channel is too deep to wade without a boat.",
+  "color": "#7a6e5c",
+  "description": "A landing stage of timber decking on lashed oil drums, going out from the top of the slip. It moves when you step on it. Three berths along it, marked in house paint on the planks, with old tyres hung over the side for fenders and a cleat bolted down beside each number.",
   "exits": {
     "east": "zone_district_920_900",
     "north": "zone_district_919_899",
@@ -10,15 +15,26 @@
     "west": "zone_district_918_900"
   },
   "flags": {
-    "district": "water",
+    "building_type": "landing_stage",
+    "district": "docks",
+    "entrance": "south",
+    "fishing_table_id": "fish_coldwater_bay",
+    "floors": 1,
+    "liquid": false,
+    "marina_berths": 3,
+    "pier": true,
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "routable": true,
+    "street_life": true,
+    "swimmable": false,
+    "terrain": "water",
+    "yard_rate": 0.6
   },
   "grid_x": 919,
   "grid_y": 900,
   "grid_z": 0,
   "id": "zone_district_919_900",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "name": "Moor or Less: The Inner Stage",
   "parent_zone": null
 }

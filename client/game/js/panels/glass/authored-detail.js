@@ -965,7 +965,11 @@ export const AUTHORED_DETAIL = {
     const fr = Math.min(half, hh) * 0.26;           // frame width in the plane of the wall
     const ho = half + fr, vo = hh + fr;
     // 1) The surround, flat on the wall: one plate, so the frame is a shape and not four strips.
-    Q([[c.lx - ho, y, z + vo], [c.lx + ho, y, z + vo], [c.lx + ho, y, z - vo], [c.lx - ho, y, z - vo]], rim, c.alpha, { lift: DETAIL_LIFT });
+    // ⚠ A DOOR'S SURROUND STOPS AT THE THRESHOLD. A window's frame runs `fr` past the opening on
+    // all four sides, and on a door `z - hh` is the pavement, so the plate's foot was drawn below
+    // the ground: a grey lip under every kit doorway once the kit's doors took the flag.
+    const vb = d.door ? hh : vo;
+    Q([[c.lx - ho, y, z + vo], [c.lx + ho, y, z + vo], [c.lx + ho, y, z - vb], [c.lx - ho, y, z - vb]], rim, c.alpha, { lift: DETAIL_LIFT });
     // 2) The frame's returns — the surfaces that read as the reveal. Their SHADING ORDER is what
     //    sells it: the head faces down and sees no sky, the sill faces up and is the brightest
     //    thing on the facade, the jambs sit between. The depth itself is a few centimetres and

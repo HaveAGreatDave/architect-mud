@@ -47,9 +47,14 @@ import { paintVehicleCard, paintSlotCard, cardStyleFor, cardSeed, ensureCardStyl
 import { airHorn } from './engine-audio.js';
 // The cab this overlay sits on. ⚠ ONLY EVER ASKED, NEVER DRIVEN: the overlay reads which view is up
 // and can hand the chase camera a paint job to preview, and that is the whole of the coupling.
-import { cabServiceHost, cabPreview, cabView } from './cab-view.js';
+import { cabServiceHost, cabPreview, cabView, cabFrame, cabRev } from './cab-view.js';
+// The chrome every depot shares: the head, the job tiles, the bay, holds and the purchase moment.
+import { ensureDepotStyles, headHtml, jobsHtml, mountBay, setBayOpen, bayHtml, leaveHtml, bayChipHtml, toastHtml,
+  statsHtml, serviceListHtml, armHolds, shellClick, clearViewModes, noteAct, notePush, money } from './depot-shell.js';
+import { SHOTS } from './camera-tween.js';
+import { garageBed } from './garage-ambience.js';
 
-let B = null;             // { mode: 'yard'|'service', data, screen, selId, bench, toast, open }
+let B = null;            // { mode: 'yard'|'service', data, screen, selId, bench, toast, open }
 let raf = null;
 let yaw = 0;
 let toastT = null;
@@ -61,7 +66,6 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 // otherwise "Sell" is announced as "credit Sell".
 const tbtn = (icon, label, attrs = '', cls = '') =>
   `<button class="td-act${cls ? ' ' + cls : ''}" ${attrs}><span class="td-ico" aria-hidden="true">${icon}</span>${label}</button>`;
-const money = (n) => `${Number(n || 0).toLocaleString()}₵`;
 const pct = (n) => `${Math.round((n || 0) * 100)}%`;
 
 // Which screen a server-sent tab lands on in the YARD. The server thinks in tabs because the log
@@ -77,6 +81,13 @@ const SVC_TABS = [
   ['freight', 'Freight', '▤'], ['market', 'Exchange', '₵'],
 ];
 const HIRE_OK = new Set(['service', 'freight', 'market']);
+// THE CAMERA FOLLOWS THE TAB, the way a garage menu swings round to the part you are buying: the
+// flank for fittings and graphics, the tail for the plate and the deck, low at the nose for what
+// is under the hood. The cab tab (and the booth's interior) sit you in the seat instead.
+const SHOT_FOR = { service: 'quarter', tune: 'low', kits: 'front', paint: 'quarter', fits: 'side', badge: 'rear',
+  freight: 'rear', market: 'quarter' };
+// The bars every truck screen draws, in this order.
+const STAT_ROWS = [['pull', 'Pull'], ['speed', 'Speed'], ['stop', 'Stopping'], ['turn', 'Turn-in'], ['range', 'Range']];
 
 export function isTruckDepotActive() { return !!B && B.mode === 'yard'; }
 
@@ -87,14 +98,16 @@ export function openTruckDepot(msg) {
   // pushBayService); where it goes is the only thing that differs.
   if (msg?.service) return openBayService(msg);
   ensureStyles();
+  ensureDepotStyles();
   const first = !B || B.mode !== 'yard';
+  const spentFrom = first ? null : B.data?.credits;
   if (B && B.mode !== 'yard') closeTruckDepot();
   // THE OVERLAY IS AN OUTDOOR EFFECT AND THIS IS A COUNTER. The weather FX layer is pinned over
   // #area-pane, not over the room — so with the depot mounted it rained on the paperwork. Same hard
   // override the cockpit takes when it owns the pane, released in closeTruckDepot.
   suppressWeatherFx(true, 'depot');
   if (first) document.getElementById('area-pane')?.dispatchEvent(new CustomEvent('lookpaneauto'));
-  if (first) compactHidePanel('td-hidepanel');
+  if (first) compactHidePanel('ds-hidepanel');
   window.dispatchEvent(new Event('pane:claimed'));   // a phone keeps #area-pane collapsed until told; an app that mounts there has to say so
   const keep = first ? null : B;
   B = {
@@ -109,12 +122,14 @@ export function openTruckDepot(msg) {
   };
   document.addEventListener('keydown', onKey);
   render();
+  if (spentFrom != null) notePush(document.getElementById('td-root'), spentFrom, msg.credits);
 }
 
 // THE BAY. Mounted into the cab's own wrapper rather than the pane, which the cab owns while you
 // are in it — so this never calls `setAreaPane` and never claims the pane.
 export function openBayService(msg) {
   ensureStyles();
+  ensureDepotStyles();
   const host = cabServiceHost();
   if (!host) return;              // no cab under it (a text driver, or the cab already shut) — nothing to sit on
   const was = B && B.mode === 'service' ? B : null;
@@ -132,13 +147,20 @@ export function openBayService(msg) {
     // had just folded away would make "drive out" a button that does not stay pressed.
     open: was ? was.open : true,
     view: was?.view ?? null,
+    shot: was?.shot,
   };
   B.bench.tune = null; B.bench.trim = null;
   if (!was) B.bench.paint = null;
   // A hire truck has only the tabs that do something to it.
   if (hired() && !HIRE_OK.has(B.bench.tab)) B.bench.tab = 'service';
   if (was) noteDeckChange(wasCargo, msg.cargo || null);
+  if (!was) garageBed('shed');
   renderService();
+  if (was && notePush(document.getElementById('td-svc'), was.data?.credits, msg.credits)) {
+    // A kit or a tune going on is a thing a driver hears: blip it.
+    const t = selected(), w = (was.data?.fleet || []).find((r) => r.id === t?.id);
+    if (t && w && (JSON.stringify(t.kits) !== JSON.stringify(w.kits) || JSON.stringify(t.tune) !== JSON.stringify(w.tune))) cabRev(0.7);
+  }
 }
 
 /** The truck has left the shed (or the cab has shut): take the overlay down and hand the camera back. */
@@ -147,6 +169,7 @@ export function closeBayService() {
   restoreView();
   try { cabPreview({ paint: null, trim: null }); } catch { /* the cab can already be gone */ }
   document.getElementById('td-svc')?.remove();
+  garageBed(null);
   if (toastT) clearTimeout(toastT);
   toastT = null;
   B = null;
@@ -192,7 +215,7 @@ export function closeTruckDepot() {
   document.removeEventListener('keydown', onKey);
   // Drop the immersive layout, or the room look that follows is left with no log and no command
   // box — the hangar learned this one the hard way and clears both classes on the way out too.
-  document.body.classList.remove('td-fullscreen', 'td-hidepanel');
+  clearViewModes();
   document.getElementById('td-root')?.remove();
   B = null;
 }
@@ -208,27 +231,15 @@ const redraw = () => (B?.mode === 'service' ? renderService() : render());
 function render() {
   if (!B || B.mode !== 'yard') return;
   const d = B.data;
-  const nav = [['lot', 'Your trucks', '⌂'], ['buy', 'For sale', '⊕'], ['rent', 'Hire', '⟲']]
-    .map(([k, label, ico]) => `<button class="td-tab${B.screen === k ? ' on' : ''}" data-screen="${k}"><span class="td-tab-ico" aria-hidden="true">${ico}</span>${label}</button>`).join('');
-  const fs = document.body.classList.contains('td-fullscreen');
-  const hp = document.body.classList.contains('td-hidepanel');
-
-  setAreaPane(`<div id="td-root" role="region" aria-label="${esc(d.depot)}">
-    <header class="td-head">
-      <div class="td-title"><b>${esc(d.depot)}</b><span class="td-dim"> · ${esc(d.regionName || '')}</span></div>
-      <nav class="td-nav td-seg">${nav}</nav>
-      <div class="td-bal">${money(d.credits)}</div>
-      <span class="td-viewbtns">
-        <button class="td-x${hp ? ' on' : ''}" data-act="hidepanel" title="hide the text panel, more yard">⊟</button>
-        <button class="td-x${fs ? ' on' : ''}" data-act="fullscreen" title="fullscreen">⛶</button>
-        <button class="td-x" data-close title="close" aria-label="Close the depot">⏻</button>
-      </span>
-    </header>
+  const screens = [['lot', 'Your trucks', '⌂'], ['buy', 'For sale', '⊕'], ['rent', 'Hire', '⟲']];
+  setAreaPane(`<div id="td-root" class="ds-root ds-counter" role="region" aria-label="${esc(d.depot)}">
+    ${headHtml({ ico: '⛟', title: d.depot, sub: d.regionName || '', credits: d.credits, screens, screen: B.screen })}
     <div class="td-body">${B.screen === 'buy' ? buyScreen() : B.screen === 'rent' ? rentScreen() : lotScreen()}</div>
-    ${B.toast ? `<div class="td-toast${B.toast.kind ? ' ' + B.toast.kind : ''}" aria-hidden="true">${esc(B.toast.text)}</div>` : ''}
-    <footer class="td-foot">${footChips()}</footer>
+    ${toastHtml(B.toast)}
+    <footer class="ds-foot">${footChips()}</footer>
   </div>`);
   wire();
+  armHolds(document.getElementById('td-root'), sendCmdSilent);
   startSpin();
   // The cards are painted once the pane has laid them out — a canvas with no box has nothing to
   // be sized to — and again whenever the pane changes size.
@@ -290,9 +301,9 @@ function lotScreen() {
     const sub = t.impound ? '<span class="td-warn">IMPOUNDED</span>'
       : here ? `${esc(t.type)} · fuel ${pct(t.fuel)}` : `at ${esc(t.whereName || 'another yard')}`;
     const acts = [
-      !t.hereNow ? `<button class="vc-mini" data-confirm="yard recall ${esc(t.id)}" title="Bring it here on a low-loader">Tow home · ${money(t.recall)}</button>` : '',
-      t.hereNow && !t.rental ? `<button class="vc-mini" data-confirm="yard sell ${esc(t.id)}" title="Sell ${esc(t.name)}">Sell · ${money(t.resale)}</button>` : '',
-      t.hereNow && t.rental ? `<button class="vc-mini" data-confirm="yard return ${esc(t.id)}" title="Hand it back early, no refund">Hand it back</button>` : '',
+      !t.hereNow ? `<button class="vc-mini" data-hold="yard recall ${esc(t.id)}" title="Bring it here on a low-loader">Tow home · ${money(t.recall)}</button>` : '',
+      t.hereNow && !t.rental ? `<button class="vc-mini" data-hold="yard sell ${esc(t.id)}" title="Sell ${esc(t.name)}">Sell · ${money(t.resale)}</button>` : '',
+      t.hereNow && t.rental ? `<button class="vc-mini" data-hold="yard return ${esc(t.id)}" title="Hand it back early, no refund">Hand it back</button>` : '',
     ].filter(Boolean).join('');
     return `<div class="vc-wrap${here ? '' : ' away'}">
       <button class="vc-card ${style}" data-cmd="${here ? `drive ${esc(t.id)}` : ''}" ${here ? '' : 'disabled'}
@@ -329,7 +340,7 @@ function boxList() {
     ${mine.map(t => `<div class="td-box-row${t.id === B.boxSel ? ' on' : ''}" data-box="${esc(t.id)}">
       <span class="td-box-what"><b>${esc(t.name)}</b> <span class="td-dim">· ${t.ratedKg} kg
         · ${t.towedBy ? 'on the pin' : t.hereNow ? 'standing here' : `at ${esc(t.where)}`}${t.cargo ? ` · loaded: ${esc(t.cargo.name)}` : ''}</span></span>
-      ${t.canSell ? tbtn('₵', `Sell · ${money(t.resale)}`, `data-confirm="yard sell ${esc(t.id)}" title="Sell ${esc(t.name)}"`) : ''}
+      ${t.canSell ? `<button class="td-act" data-hold="yard sell ${esc(t.id)}" title="Sell ${esc(t.name)}">Sell · ${money(t.resale)}</button>` : ''}
       ${!t.canSell && (t.hereNow || t.towedBy) && t.loaded ? '<span class="td-dim td-box-why">empty it to sell it</span>' : ''}
     </div>`).join('')}
     ${boxDetail(mine)}
@@ -387,41 +398,71 @@ function renderService() {
   if (!B || B.mode !== 'service') return;
   const host = cabServiceHost();
   if (!host) return;
-  let el = document.getElementById('td-svc');
-  if (!el || el.parentElement !== host) {
-    el?.remove();
-    el = document.createElement('div');
-    el.id = 'td-svc';
-    el.addEventListener('click', onClick);
-    el.addEventListener('input', onInput);
-    host.appendChild(el);
-  }
+  const el = mountBay(host, 'td-svc', { click: onClick, input: onInput, mouseover: onPeek, focusin: onPeek });
   const d = B.data, t = selected();
-  el.className = 'td-svc' + (B.open ? ' open' : ' folded');
+  setBayOpen(el, B.open);
   if (!B.open) {
-    el.innerHTML = `<button class="td-svc-chip" data-act="svc-open" title="Open the service bay">⚙ ${esc(d.depot)} · service bay</button>`;
+    el.innerHTML = bayChipHtml(`⚙ ${d.depot} · service bay`);
     syncView();
     return;
   }
-  const tabs = SVC_TABS.filter(([k]) => !t?.rental || HIRE_OK.has(k))
-    .map(([k, l, ico]) => `<button class="td-tab sm${B.bench.tab === k ? ' on' : ''}" data-bench="${k}"><span class="td-tab-ico" aria-hidden="true">${ico}</span>${l}</button>`).join('');
+  const jobs = SVC_TABS.filter(([k]) => !t?.rental || HIRE_OK.has(k))
+    .map(([id, label, ico]) => ({ id, label, ico, ...(t ? jobState(id, t) : {}) }));
   const body = !t ? '<div class="td-none">The truck is not on the books here.</div>'
     : B.bench.tab === 'tune' ? tuneTab(t) : B.bench.tab === 'kits' ? kitsTab(t) : B.bench.tab === 'paint' ? paintTab(t)
     : B.bench.tab === 'fits' ? fitsTab(t) : B.bench.tab === 'cab' ? cabTab(t) : B.bench.tab === 'badge' ? badgeTab(t)
     : B.bench.tab === 'freight' ? freightScreen() : B.bench.tab === 'market' ? marketScreen() : serviceTab(t);
-  el.innerHTML = `
-    <header class="td-svc-head">
-      <div class="td-title"><b>⚙ ${esc(d.depot)}</b><span class="td-dim"> · ${t ? esc(t.name) : 'service bay'}</span></div>
-      <div class="td-bal">${money(d.credits)}</div>
-      <button class="td-x" data-act="svc-fold" title="Fold the bay away and drive">Drive out ▸</button>
-    </header>
-    ${t?.rental ? `<div class="td-svc-hire">Hire truck · ${esc(t.rental.leftText)} · back at any yard: <b>park</b> in a shed and <b>yard return</b></div>` : ''}
-    ${d.hitchState ? `<div class="td-svc-pin">${hitchAct(d.hitchState)}</div>` : ''}
-    <nav class="td-seg td-svc-tabs">${tabs}</nav>
-    <div class="td-side td-svc-body">${body}</div>
-    ${B.toast ? `<div class="td-toast${B.toast.kind ? ' ' + B.toast.kind : ''}" aria-hidden="true">${esc(B.toast.text)}</div>` : ''}
-    <div class="td-svc-foot td-dim">Roll at the door and it lifts. The bay goes when you leave the shed.</div>`;
+  el.innerHTML = bayHtml({
+    ico: '⚙', title: d.depot, sub: t ? t.name : 'service bay', credits: d.credits,
+    actions: leaveHtml('Drive out'),
+    notes: (t?.rental ? `<div class="ds-note hire">Hire truck · ${esc(t.rental.leftText)} · back at any yard: <b>park</b> in a shed and <b>yard return</b></div>` : '')
+      + (d.hitchState ? `<div class="ds-note">${hitchAct(d.hitchState)}</div>` : ''),
+    jobs: jobsHtml(jobs, B.bench.tab, 'data-bench'),
+    body: `<div class="td-side td-svc-body">${body}</div>`,
+    toast: B.toast,
+    foot: 'Roll at the door and it lifts. The bay goes when you leave the shed.',
+  });
+  armHolds(el, sendCmdSilent);
   syncView();
+}
+
+// WHAT IS WAITING BEHIND EACH TILE, in a word or two, off the same facts the tab itself draws.
+// tone: ok (nothing to do), warn (worth a look), bad (costing you), hot (unsaved on the bench).
+function jobState(id, t) {
+  const d = B.data;
+  if (id === 'service') {
+    const items = t.svc?.items || [];
+    const over = items.filter((i) => i.band === 'over').length, due = items.filter((i) => i.band === 'due').length;
+    if (over) return { sub: `${over} overdue`, tone: 'bad' };
+    if (due) return { sub: `${due} due`, tone: 'warn' };
+    if ((t.condition ?? 1) < 0.85) return { sub: `body ${pct(t.condition)}`, tone: 'warn' };
+    return { sub: 'all good', tone: 'ok' };
+  }
+  if (id === 'tune') {
+    if (B.bench.tune && JSON.stringify(B.bench.tune) !== JSON.stringify(t.tune)) return { sub: 'unsaved', tone: 'hot' };
+    return { sub: Object.values(t.tune || {}).some((v) => Math.abs(v) > 0.001) ? 'tuned' : 'stock' };
+  }
+  if (id === 'kits') return { sub: `${(t.kits || []).length} of ${(d.kitCatalog || []).length}` };
+  if (id === 'paint') return B.bench.paint || B.bench.trim ? { sub: 'unsaved', tone: 'hot' } : { sub: t.paint?.finish || '' };
+  if (id === 'fits') return { sub: `${(t.fits || []).length} of ${d.fitCat?.slots?.length ?? 0}` };
+  if (id === 'cab') return { sub: `${(t.cab || []).length} of ${d.cabCat?.slots?.length ?? 0}` };
+  if (id === 'badge') return { sub: (d.hornCat || []).find((h) => h.id === (t.horn || 'stock'))?.name || '' };
+  if (id === 'freight') return d.cargo ? { sub: d.cargo.name, tone: 'ok' } : { sub: 'deck empty' };
+  return {};
+}
+
+// THE BARS PREVIEW WHAT YOU POINT AT. Hovering or focusing a kit's row redraws the kits tab's bars
+// with that kit on, from the `kitStats` the server sent; leaving the list puts them back.
+function onPeek(e) {
+  if (!B || B.mode !== 'service' || B.bench.tab !== 'kits') return;
+  const box = document.querySelector('#td-svc [data-kit-stats]');
+  if (!box) return;
+  const row = e.target.closest?.('[data-kit-peek]');
+  const t = selected(); if (!t) return;
+  const id = row && t.kitStats?.[row.dataset.kitPeek] ? row.dataset.kitPeek : '';
+  if (box.dataset.peek === id) return;
+  box.dataset.peek = id;
+  box.innerHTML = statsHtml(STAT_ROWS, id ? t.kitStats[id] : t.stats, id ? t.stats : null);
 }
 
 // ── THE CAMERA FOLLOWS THE SHELF ─────────────────────────────────────────────
@@ -441,6 +482,15 @@ function syncView() {
     if (first) B.view = cabView();                              // remember what they had, once
     if (want) cabView(want, { quarter: first });
     else restoreView();
+    // …and outside, the camera swings to the part the tab sells. Only on a change of tab, so a
+    // re-push after a purchase does not yank the camera back off wherever the player dragged it.
+    const shot = want === 'ext' ? (B.bench.tab === 'paint' && B.bench.psec === 'graphic' ? 'side' : SHOT_FOR[B.bench.tab] || 'quarter') : null;
+    if (shot !== B.shot) {
+      if (shot) cabFrame(SHOTS[shot], first ? 900 : 700);
+      // Opening the tuning tab gives the engine a blip, the way a garage does when it pulls in.
+      if (B.bench.tab === 'tune' && B.shot !== undefined) cabRev(0.4);
+      B.shot = shot;
+    }
     cabPreview({ paint: B.open && B.bench.tab === 'paint' && B.bench.paint ? paintNow() : null,
       trim: inside && B.bench.trim ? trimNow() : null });
   } catch { /* a cab without the hooks is a cab without the preview */ }
@@ -456,13 +506,10 @@ function restoreView() {
 // in front of the three that wear from being hit. Every price is the server's (service.js).
 function serviceTab(t) {
   const d = B.data, svc = t.svc || { items: [] };
-  const rows = svc.items.map((i) => `
-    <div class="td-svc-row ${i.band}">
-      <div class="td-main"><b>${esc(i.label)}</b><span class="td-dim"> · ${esc(i.bandLabel)}</span>
-        <div class="td-bar" title="${pct(i.life)} left"><i class="s${i.band}" style="width:${Math.round(i.life * 100)}%"></i></div>
-        <div class="td-dim td-note">${i.band === 'fresh' ? `About ${i.left.toLocaleString()} tiles before it costs you.` : esc(i.desc)}</div></div>
-      <button class="td-act" data-cmd="rig service ${esc(t.id)} ${esc(i.id)}" ${i.life >= 0.995 ? 'disabled title="Just done"' : ''}>${money(i.price)}</button>
-    </div>`).join('');
+  // The docket is the shell's, the marina's too; only the fresh line's wording is the road's.
+  const rows = serviceListHtml(svc.items.map((i) => (i.band === 'fresh'
+    ? { ...i, desc: `About ${i.left.toLocaleString()} tiles before it costs you.` } : i)),
+  (i) => `rig service ${t.id} ${i.id}`);
   return `
     <div class="td-pane">
       <div class="td-lab">Servicing</div>
@@ -567,16 +614,28 @@ function truckPane(t) {
 
 const kitName = (id) => (B.data.kitCatalog || []).find(k => k.id === id)?.name || id;
 
-// FIVE BARS, and they are the server's numbers. The dial panel redraws these from a PREVIEW the
-// server also sent, so what a bar promises and what the wheel delivers are the same derivation.
-function statBars(s, prev = null) {
-  const ROWS = [['pull', 'Pull'], ['speed', 'Speed'], ['stop', 'Stopping'], ['turn', 'Turn-in'], ['range', 'Range']];
-  if (!s) return '';
-  return `<div class="td-axes">${ROWS.map(([k, label]) => {
-    const v = Math.round((s[k] || 0) * 100), p = prev ? Math.round((prev[k] || 0) * 100) : null;
-    const delta = p == null ? '' : v > p ? ' up' : v < p ? ' down' : '';
-    return `<div class="td-axis"><span>${label}</span><span class="td-axis-bar"><i class="${delta}" style="width:${v}%"></i></span></div>`;
-  }).join('')}</div>`;
+// FIVE BARS, and they are the server's numbers (axesFor in plugins/trucking/index.js). With `prev`
+// they show a change: what it adds in green, what it costs as a red ghost.
+function statBars(s, prev = null) { return statsHtml(STAT_ROWS, s, prev); }
+
+// THE DIALS' PREVIEW. The server sent the bars at each end of every dial with the others where they
+// are (`tuneEnds`); between the committed setting and an end the bars move in a straight line, and
+// the dials' moves add. That is close, not exact (the physics multiplies), and the push after the
+// commit puts the real numbers back, so a bar can be off by a hair for as long as a slider is held.
+function tunePreview(t, cur) {
+  const ends = t.tuneEnds, R = B.data.tuneRange || 1;
+  if (!ends || !t.stats) return null;
+  const out = { ...t.stats };
+  for (const [k, e] of Object.entries(ends)) {
+    const c = t.tune?.[k] ?? 0, x = cur[k] ?? c;
+    if (x === c) continue;
+    const to = x > c ? e.hi : e.lo, span = x > c ? R - c : c + R;
+    if (!(span > 0)) continue;
+    const f = Math.abs(x - c) / span;
+    for (const [a] of STAT_ROWS) out[a] += ((to[a] ?? t.stats[a]) - t.stats[a]) * f;
+  }
+  for (const [a] of STAT_ROWS) out[a] = Math.max(0, Math.min(1, out[a]));
+  return out;
 }
 
 
@@ -651,7 +710,7 @@ function tuneTab(t) {
   const cmd = `rig tune ${t.id} ${(B.data.tuneParams || []).map(p => (cur[p.id] ?? 0)).join(' ')}`;
   return `
     <div class="td-pane">
-      ${statBars(t.stats)}
+      <div data-tune-stats>${dirty ? statBars(tunePreview(t, cur) || t.stats, t.stats) : statBars(t.stats)}</div>
       <div class="td-dim td-note">Dials reach ±${range} with your hands and what's fitted.</div>
       ${knobs}
       <div class="td-acts">
@@ -663,9 +722,12 @@ function tuneTab(t) {
 
 function kitsTab(t) {
   const fitted = t.kits || [];
-  return `<div class="td-pane">${(B.data.kitCatalog || []).map(k => {
+  return `<div class="td-pane">
+    <div data-kit-stats data-peek="">${statBars(t.stats)}</div>
+    <div class="td-dim td-note">Point at a kit to see what it does to the truck.</div>
+    ${(B.data.kitCatalog || []).map(k => {
     const on = fitted.includes(k.id);
-    return `<div class="td-kit-row${on ? ' on' : ''}">
+    return `<div class="td-kit-row${on ? ' on' : ''}" ${on ? '' : `data-kit-peek="${esc(k.id)}"`}>
       <div class="td-main"><b>${esc(k.name)}</b><div class="td-dim">${esc(k.desc)}</div></div>
       ${on ? '<span class="td-fitted">FITTED</span>'
         : `<button class="td-act" data-cmd="rig kit ${esc(t.id)} ${esc(k.id)}" ${k.afford ? '' : 'disabled title="You can\'t afford it"'}>${money(k.price)}</button>`}
@@ -1205,17 +1267,18 @@ function marketScreen() {
 // every control in either is one of the same dozen shapes.
 function onClick(e) {
   if (!B) return;
-  const t = e.target.closest('[data-cmd],[data-screen],[data-bench],[data-lot],[data-box],[data-paintpick],[data-trimpick],[data-psec],[data-fslot],[data-cslot],[data-preset],[data-close],[data-act],[data-confirm],[data-tune-reset],[data-paint-reset],[data-trim-reset],[data-hear],[data-plate]');
+  if (shellClick(e, {
+    screen: (s) => { B.screen = s; render(); },
+    // Closing the counter leaves you standing in the yard, so it has to put the room back — the
+    // pane is the room's pane, and a panel that simply removed itself would leave it blank.
+    close: () => { closeTruckDepot(); sendCmdSilent('look'); },
+    // ⚠ FOLDING THE BAY IS NOT LEAVING IT. The shed is still round you and the fitters are still
+    // there; the chip in the corner brings it back until the truck rolls out through the door.
+    fold: () => { B.open = false; renderService(); },
+    open: () => { B.open = true; renderService(); },
+  })) return;
+  const t = e.target.closest('[data-cmd],[data-screen],[data-bench],[data-lot],[data-box],[data-paintpick],[data-trimpick],[data-psec],[data-fslot],[data-cslot],[data-preset],[data-tune-reset],[data-paint-reset],[data-trim-reset],[data-hear],[data-plate]');
   if (!t || t.disabled) return;
-  // Closing the counter leaves you standing in the yard, so it has to put the room back — the pane
-  // is the room's pane, and a panel that simply removed itself would leave it blank.
-  if (t.dataset.close != null) { closeTruckDepot(); return void sendCmdSilent('look'); }
-  if (t.dataset.act === 'fullscreen') { document.body.classList.toggle('td-fullscreen'); return void render(); }
-  if (t.dataset.act === 'hidepanel') { document.body.classList.toggle('td-hidepanel'); return void render(); }
-  // ⚠ FOLDING THE BAY IS NOT LEAVING IT. The shed is still round you and the fitters are still
-  // there; the chip in the corner brings it back until the truck rolls out through the door.
-  if (t.dataset.act === 'svc-fold') { B.open = false; return void renderService(); }
-  if (t.dataset.act === 'svc-open') { B.open = true; return void renderService(); }
   if (t.dataset.screen) { B.screen = t.dataset.screen; return void render(); }
   if (t.dataset.bench) { B.bench.tab = t.dataset.bench; return void redraw(); }
   if (t.dataset.lot) { B.lotSel = t.dataset.lot; return void render(); }
@@ -1253,14 +1316,10 @@ function onClick(e) {
   if (t.dataset.tuneReset != null) { B.bench.tune = null; return void redraw(); }
   if (t.dataset.paintReset != null) { B.bench.paint = null; return void redraw(); }
   if (t.dataset.trimReset != null) { B.bench.trim = null; return void redraw(); }
-  // ANYTHING IRREVERSIBLE ASKS — selling, handing a hire back, a tow bill.
-  if (t.dataset.confirm) {
-    if (t.dataset.armed) { sendCmdSilent(t.dataset.confirm); return; }
-    t.dataset.armed = '1'; t.textContent = 'Sure? Click again';
-    setTimeout(() => { if (t.isConnected) { delete t.dataset.armed; redraw(); } }, 4000);
-    return;
-  }
-  if (t.dataset.cmd) sendCmdSilent(t.dataset.cmd);
+  // Anything irreversible (selling, handing a hire back, a tow bill) is a `data-hold` and never
+  // reaches here: armHolds made it a hold-to-confirm. Everything else is a verb, sent as typed, and
+  // remembered so the purchase moment can say what was bought.
+  if (t.dataset.cmd) { noteAct(t); sendCmdSilent(t.dataset.cmd); }
 }
 
 
@@ -1279,6 +1338,10 @@ function onInput(e) {
       commit.disabled = false;
       commit.dataset.cmd = `rig tune ${t.id} ${(B.data.tuneParams || []).map(p => (B.bench.tune[p.id] ?? 0)).join(' ')}`;
     }
+    // The bars follow the dial: what this tune would do, against what is on the truck now.
+    const bars = document.querySelector('[data-tune-stats]');
+    const prev = tunePreview(t, B.bench.tune);
+    if (bars && prev) bars.innerHTML = statBars(prev, t.stats);
     return;
   }
   // A mix well. Same no-re-render rule as the paint wells below and for the same reason — the DOM
@@ -1404,7 +1467,7 @@ function paintCards() {
   for (const cv of root.querySelectorAll('canvas[data-rent]')) {
     const id = cv.dataset.rent;
     paintVehicleCard(cv, { style: cardStyleFor('hire:' + id), seed: cardSeed('hire:' + id),
-      v: { cls: 'truck', variant: `${cv.dataset.variant || id}~p`, livery: truckLivery(B.data.paintDefault || {}, 0), yaw: 0.62, fit: 1.45 } });
+      v: { cls: 'truck', variant: `${cv.dataset.variant || id}~p`, livery: truckLivery(B.data.paintFactory?.[cv.dataset.variant || id] || B.data.paintDefault || {}, 0), yaw: 0.62, fit: 1.45 } });
   }
   for (const cv of root.querySelectorAll('canvas[data-slot]')) {
     const buy = cv.dataset.slot === 'buy';
@@ -1501,86 +1564,20 @@ function ensureStyles() {
   // THE SCREENS STAY DARK GLASS ON ANY THEME, because a real screen doesn't relight for your
   // wallpaper — the same exception the hangar carves out for its 3D scene and its schematics.
   s.textContent = `
-  /* The depot fills its pane exactly (flex column), so the pane itself never scrolls the whole
-     interface — only .td-body does, between the pinned head and foot. Same contract #hb-root has. */
-  #area-pane:has(#td-root){overflow:hidden}
-  #area-content:has(#td-root){height:100%;min-height:0;display:flex;flex-direction:column}
-  /* The shell: a moulded chassis, not a flat panel — top sheen, deep outer shadow, edge highlight. */
-  #td-root{--td-accent:var(--accent,#d8892e);
+  /* The chassis, the head and the foot are the depot shell's (depot-shell.js .ds-counter). What is
+     left here is the tokens this file's own tabs read, which are the shell's under this file's names. */
+  #td-root,#td-svc{--td-accent:var(--ds-accent,var(--accent,#d8892e));
     --td-surf:color-mix(in srgb, var(--td-accent) 18%, var(--bg2));
     --td-surf-lo:color-mix(in srgb, var(--td-accent) 6%, var(--bg2));
     --td-surf-mid:color-mix(in srgb, var(--td-accent) 12%, var(--bg2));
     --td-bevel-hi:rgba(255,255,255,.5); --td-bevel-lo:rgba(0,0,0,.45);
     --td-fg:var(--text-bright,var(--text,#eafffb));
     --td-fg-dim:var(--text-dim,#9db5c6);
-    --td-fg-dim2:color-mix(in srgb, var(--text-dim,#9db5c6) 60%, transparent);
-    position:relative;display:flex;flex-direction:column;flex:1 1 auto;min-height:0;
-    /* ⚠ AND THE 'white-space' HERE IS WORTH MORE THAN EVERY OTHER SIZE IN THIS FILE PUT
-       TOGETHER. The client sets 'pre-wrap' globally because the LOG is prose the server formatted
-       with newlines in it — and this panel is markup built out of indented template literals, so
-       every line break between two tags was being rendered as a real one. A four-child block cost
-       four extra 19px line boxes it drew nothing in: the box detail measured 246px for 76px of
-       content, and the same tax was on the read-out, the deck, the boxes and every row. It is not a
-       tightening, it is whitespace that was never meant to be there. Anything here that genuinely
-       wants the log's behaviour asks for it by name. */
-    white-space:normal;
-    color:var(--td-fg);font-family:'Courier New',monospace;font-size:14.5px;line-height:1.5;
-    background:linear-gradient(175deg,color-mix(in srgb, var(--border) 55%, var(--bg3)) 0%,var(--bg3) 8%,var(--bg2) 50%),
-      radial-gradient(140% 100% at 50% 0%,color-mix(in srgb, var(--border) 40%, var(--bg3)),var(--bg) 75%);
-    border:1px solid color-mix(in srgb, var(--td-accent) 22%, var(--border));border-radius:10px;overflow:hidden;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.08),inset 0 0 0 1px rgba(0,0,0,.3),0 14px 34px rgba(0,0,0,.5)}
-  /* Brushed-plastic grain over the shell — decorative only, under every real surface. */
-  #td-root::before{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;
-    background-image:repeating-linear-gradient(35deg,rgba(255,255,255,.025) 0 1px,transparent 1px 3px),
-      repeating-linear-gradient(-55deg,rgba(0,0,0,.03) 0 1px,transparent 1px 4px)}
-  #td-root > *{position:relative;z-index:1}
-  /* Head + foot are frosted tablet chrome: a slim accent-tinted glass slab over whatever's behind. */
-  .td-head,.td-foot{-webkit-backdrop-filter:blur(11px) saturate(1.15);backdrop-filter:blur(11px) saturate(1.15)}
-  /* ⚠ ONE ROW, AND IT HAS TO STAY ONE ROW. At the pane's ordinary width the title wrapped onto two
-     lines, the balance broke between the thousands and the units ("24,85 / 0₵") and the fifth tab
-     dropped under the other four — a 52px bar drawing 78px of content, so the head ate the top of
-     the yard on every screen. Nothing here may wrap: the title takes the slack and ellipsises, the
-     balance and the tabs are rigid. The 720px query below is where it is ALLOWED to break, and it
-     says so explicitly. */
-  .td-head{display:flex;align-items:center;gap:10px;padding:0 12px;height:44px;flex:0 0 auto;
-    background:color-mix(in srgb, var(--td-surf) 82%, transparent);
-    border-bottom:1px solid color-mix(in srgb, var(--td-accent) 26%, transparent);
-    box-shadow:inset 0 1px 0 var(--td-bevel-hi),0 2px 8px rgba(0,0,0,.14)}
-  .td-title{flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .td-title b{color:var(--td-fg);letter-spacing:1.2px;text-shadow:0 0 6px color-mix(in srgb, var(--td-accent) 30%, transparent)}
-  .td-nav{margin-left:2px;flex:0 0 auto}
-  .td-bal{margin-left:auto;flex:0 0 auto;white-space:nowrap;color:var(--td-fg);letter-spacing:1px;font-variant-numeric:tabular-nums;
-    text-shadow:0 0 5px color-mix(in srgb, var(--td-accent) 30%, transparent)}
-  .td-viewbtns{display:flex;gap:5px;margin-left:6px;flex:0 0 auto}
-  .td-x{font-family:inherit;font-size:14px;line-height:1;cursor:pointer;padding:6px 9px;color:var(--td-fg-dim);
-    background:linear-gradient(165deg,var(--td-surf),var(--td-surf-lo));
-    border:1px solid color-mix(in srgb, var(--td-accent) 28%, transparent);border-radius:6px;
-    box-shadow:inset 0 1px 0 var(--td-bevel-hi);transition:filter .12s,box-shadow .12s,color .12s,border-color .12s}
-  .td-x:hover{filter:brightness(1.1);color:var(--td-fg);border-color:var(--td-accent);
-    box-shadow:inset 0 1px 0 var(--td-bevel-hi),0 0 10px color-mix(in srgb, var(--td-accent) 28%, transparent)}
-  .td-x.on{color:var(--td-fg);border-color:var(--td-accent);
-    background:linear-gradient(165deg,color-mix(in srgb, var(--td-accent) 26%, var(--bg2)),var(--td-surf-lo));
-    box-shadow:0 0 10px color-mix(in srgb, var(--td-accent) 32%, transparent),inset 0 1px 0 var(--td-bevel-hi)}
-  /* Segmented pill nav — the active tab lifts out of a recessed track and lights a hairline bar
-     along its bottom edge. Replaces the underlined-text tabs, which were the single loudest tell
-     that this was a web page and the hangar was a device. */
+    --td-fg-dim2:color-mix(in srgb, var(--text-dim,#9db5c6) 60%, transparent)}
+  #td-root{font-size:14.5px;line-height:1.5}
+  #td-svc{font-size:13.5px}
   .td-seg{display:flex;gap:3px;flex-wrap:nowrap;padding:3px;border-radius:8px;
     background:var(--td-surf-lo);border:1px solid var(--border);box-shadow:inset 0 1px 3px var(--td-bevel-lo)}
-  .td-tab{position:relative;display:flex;align-items:center;justify-content:center;gap:5px;overflow:hidden;
-    font-family:inherit;font:700 11.5px/1 'Courier New',monospace;letter-spacing:.8px;cursor:pointer;white-space:nowrap;
-    color:var(--td-fg-dim);background:transparent;border:1px solid transparent;border-radius:6px;padding:6px 10px;
-    transition:filter .12s,box-shadow .12s,color .12s,background .12s}
-  .td-tab.sm{padding:5px 8px;letter-spacing:.4px}
-  .td-tab-ico{font-size:12.5px;line-height:1;opacity:.7;transition:opacity .12s,filter .12s}
-  .td-tab:hover{color:var(--td-fg);background:color-mix(in srgb, var(--td-accent) 10%, transparent)}
-  .td-tab:hover .td-tab-ico{opacity:1}
-  .td-tab.on{color:var(--td-fg);background:linear-gradient(165deg,var(--td-surf),var(--td-surf-lo));
-    border-color:color-mix(in srgb, var(--td-accent) 40%, transparent);
-    box-shadow:inset 0 1px 0 var(--td-bevel-hi),inset 0 -2px 3px var(--td-bevel-lo),0 1px 3px rgba(0,0,0,.2)}
-  .td-tab.on .td-tab-ico{opacity:1;filter:drop-shadow(0 0 5px color-mix(in srgb, var(--td-accent) 70%, transparent))}
-  .td-tab.on::after{content:'';position:absolute;left:14%;right:14%;bottom:0;height:2px;border-radius:2px;
-    background:var(--td-accent);box-shadow:0 0 8px var(--td-accent);animation:tdTabSlide .22s ease-out}
-  @keyframes tdTabSlide{from{left:48%;right:48%;opacity:0}to{left:14%;right:14%;opacity:1}}
   .td-body{flex:1;min-height:0;display:flex;gap:9px;padding:9px 10px;overflow:hidden}
   .td-floor{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;position:relative}
   /* The 3D floor is a recessed viewport — a screen sunk into the chassis, and one of the two things
@@ -1647,14 +1644,8 @@ function ensureStyles() {
   .td-spec dt{font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--td-fg-dim2)}
   .td-spec dd{margin:0;font-size:13px;font-weight:bold;color:var(--td-fg);font-variant-numeric:tabular-nums;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .td-axes{display:flex;flex-direction:column;gap:2px;margin:2px 0}
-  .td-axis{display:grid;grid-template-columns:54px 1fr;align-items:center;gap:7px;
-    font-size:9.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--td-fg-dim)}
-  .td-axis-bar,.td-bar,.td-gauge{background:var(--td-surf-lo);border-radius:4px;overflow:hidden;
+  .td-bar,.td-gauge{background:var(--td-surf-lo);border-radius:4px;overflow:hidden;
     box-shadow:inset 0 1px 2px var(--td-bevel-lo),inset 0 0 0 1px var(--border)}
-  .td-axis-bar{height:6px}
-  .td-axis-bar i{display:block;height:100%;background:var(--td-accent);box-shadow:0 0 7px currentColor}
-  .td-axis-bar i.up{background:#6fcf83}.td-axis-bar i.down{background:#d2685c}
   .td-bar{display:block;height:5px}
   .td-bar i{display:block;height:100%;background:#5c8f6a}
   .td-bar i.ctired{background:#e8c07a}.td-bar i.cailing{background:#d8934e}.td-bar i.cderelict{background:#d2685c}
@@ -1906,23 +1897,6 @@ function ensureStyles() {
   /* THE NOTICE. Pinned over the body rather than pushed into it, because a strip that reflows the
      board would move the button under the cursor at the exact moment the player is looking at it.
      One 5.2s animation, matching the timer in showToast — there's no second clock. */
-  #td-root .td-toast{position:absolute;left:50%;bottom:64px;z-index:6;max-width:min(78%,64ch);
-    transform:translateX(-50%);pointer-events:none;text-align:center;
-    font:700 12.5px/1.4 'Courier New',monospace;letter-spacing:1px;color:var(--td-fg);
-    padding:9px 16px;border-radius:8px;
-    background:color-mix(in srgb, var(--td-accent) 26%, rgba(6,12,18,.86));
-    border:1px solid var(--td-accent);
-    box-shadow:0 0 18px color-mix(in srgb, var(--td-accent) 40%, transparent),inset 0 1px 0 var(--td-bevel-hi);
-    animation:tdToast 5.2s ease-out forwards}
-  #td-root .td-toast.good{border-color:#6fcf83;color:#d9f5df;
-    background:color-mix(in srgb, #6fcf83 22%, rgba(6,12,18,.86));
-    box-shadow:0 0 18px rgba(111,207,131,.35),inset 0 1px 0 var(--td-bevel-hi)}
-  @keyframes tdToast{0%{opacity:0;transform:translate(-50%,10px)}
-    7%{opacity:1;transform:translate(-50%,0)}
-    86%{opacity:1;transform:translate(-50%,0)}
-    100%{opacity:0;transform:translate(-50%,-4px)}}
-  @media (prefers-reduced-motion:reduce){#td-root .td-toast{animation:tdToastFade 5.2s linear forwards}
-    @keyframes tdToastFade{0%,90%{opacity:1}100%{opacity:0}}}
   /* The boxes you own, under the deck read-out — a list, because a trailer is a capacity and a
      place rather than something you look at from three angles. */
   .td-boxes{margin-top:6px}
@@ -1952,14 +1926,9 @@ function ensureStyles() {
   .td-note{font-size:12.5px}
   .td-good{color:#6fcf83}
   .td-warn{color:#ffb26b}
-    .td-foot{flex:0 0 auto;padding:7px 10px;font-size:11.5px;color:var(--td-fg-dim);
-    background:color-mix(in srgb, var(--td-surf-lo) 84%, transparent);
-    border-top:1px solid color-mix(in srgb, var(--td-accent) 25%, transparent);
-    box-shadow:inset 0 1px 0 var(--td-bevel-hi)}
   /* The footer verbs. They're buttons, so they look pressable: a raised chip that lifts under the
      cursor and sits down when armed — never the flat dim <code> they used to be, which read as
      documentation and was ignored accordingly. */
-  .td-foot{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
   .td-verb{font:inherit;font-size:11.5px;color:var(--td-fg);cursor:pointer;
     background:linear-gradient(180deg,color-mix(in srgb, var(--td-surf) 92%, transparent),var(--td-surf-lo));
     padding:4px 9px;border-radius:6px;
@@ -2023,21 +1992,14 @@ function ensureStyles() {
      is where the title, five tabs, the balance and three buttons stop fitting on a line —
      and it's the breakpoint the rest of the client already turns at. */
   @media (max-width:720px){
-    .td-head{height:auto;min-height:44px;flex-wrap:wrap;padding:7px 10px;gap:6px 10px;row-gap:6px}
     /* ⚠ A BASIS, NOT auto. flex-wrap breaks the line before it shrinks anything, so a title at its
        natural 171px pushed the three window buttons onto a row of their own and the head cost 110px
        for two rows of content. Given a basis the three fit on one line and the title takes the slack. */
-    .td-title{flex:1 1 110px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     /* The region is on the sign outside and on every other screen in the app; the depot's
        own name is the thing this line has to get across. */
-    .td-title .td-dim{display:none}
-    .td-bal{white-space:nowrap;font-size:13px}
     /* The depot name is 16 characters of 14.5px mono at 2px tracking — 171px of a 148px slot, so
        it arrived on a phone already ellipsised. It fits at the chrome size around it. */
-    .td-title b{font-size:13px;letter-spacing:1px}
-    .td-viewbtns{margin-left:0}
     /* A row of its own, full width, swipeable. */
-    .td-nav{order:3;flex:1 0 100%;margin-left:0}
     .td-seg{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding:3px;gap:2px}
     .td-seg::-webkit-scrollbar{display:none}
     /* ⚠ THEY SHRINK RATHER THAN SCROLL. Five tabs want 336px of a 334px strip — two pixels over,
@@ -2045,65 +2007,27 @@ function ensureStyles() {
        fits them at any width and only spends an ellipsis on a phone narrower than this one; the
        overflow above is the last resort it now almost never reaches. display:block because the
        icon is gone, and text-overflow has nothing to trim inside a flex container. */
-    .td-tab{display:block;flex:0 1 auto;min-width:0;padding:6px 5px;font-size:11px;letter-spacing:.2px;
-      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
     /* The glyph is decoration (it's aria-hidden), and decoration is what a 328px strip
        gives up first. */
-    .td-tab .td-tab-ico{display:none}
     /* ⚠ ONE ROW, NOT FOUR. The footer wrapped to 157px — a fifth of the screen, spent on
        chips that mostly repeat the toolbar four inches above them. Same chips, same order,
        one swipeable line. */
-    .td-foot{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding:8px 10px;gap:6px}
-    .td-foot::-webkit-scrollbar{display:none}
     .td-verb{flex:0 0 auto;white-space:nowrap}
     /* The two-column bar argued for here is the desktop bar's now as well, for the same reason in
        a bigger box — see the rule above. What is left for a phone is the type. */
     .td-side > .td-acts .td-act{padding:9px 8px;letter-spacing:.3px}
   }
-  @media (prefers-reduced-motion:reduce){.td-board.near,.td-run{animation:none}.td-tab.on::after{animation:none}}
+  @media (prefers-reduced-motion:reduce){.td-board.near,.td-run{animation:none}}
   /* The hint above the hand is in the flow; the old floor screen floated it over a 3-D scene. */
   .td-lot-col{overflow:auto;padding-right:2px}
   .td-lot-col .td-hint{position:static;transform:none;margin:0 0 4px;max-width:none}
-  /* ── THE BAY ─────────────────────────────────────────────────────────────
-     A panel docked on the right of the glass, inside the cab's own wrapper. It never covers the
-     road ahead and it never covers the dash: the top is below the glass chrome, the bottom stops
-     above the shelf, and folded it is one chip. */
-  #td-svc{--td-accent:var(--accent,#d8892e);
-    --td-surf:color-mix(in srgb, var(--td-accent) 18%, var(--bg2));
-    --td-surf-lo:color-mix(in srgb, var(--td-accent) 6%, var(--bg2));
-    --td-surf-mid:color-mix(in srgb, var(--td-accent) 12%, var(--bg2));
-    --td-bevel-hi:rgba(255,255,255,.5); --td-bevel-lo:rgba(0,0,0,.45);
-    --td-fg:var(--text-bright,var(--text,#eafffb));
-    --td-fg-dim:var(--text-dim,#9db5c6);
-    --td-fg-dim2:color-mix(in srgb, var(--text-dim,#9db5c6) 60%, transparent);
-    position:absolute;z-index:40;right:10px;top:46px;white-space:normal;
-    color:var(--td-fg);font-family:'Courier New',monospace;font-size:13.5px;line-height:1.45}
-  #td-svc.open{bottom:12%;width:min(620px,58%);display:flex;flex-direction:column;gap:6px;padding:8px;
-    background:color-mix(in srgb, var(--bg2) 86%, transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
-    border:1px solid color-mix(in srgb, var(--td-accent) 36%, var(--border));border-radius:10px;
-    box-shadow:0 12px 30px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.08)}
-  #td-svc.folded{right:auto;left:10px;top:46px}
-  .td-svc-chip{font-family:inherit;font-size:12px;letter-spacing:.8px;cursor:pointer;padding:6px 11px;border-radius:7px;color:var(--td-fg);
-    background:color-mix(in srgb, var(--bg2) 80%, transparent);border:1px solid var(--td-accent);
-    box-shadow:0 0 10px color-mix(in srgb, var(--td-accent) 30%, transparent)}
-  .td-svc-head{display:flex;align-items:center;gap:8px;flex:0 0 auto}
-  .td-svc-head .td-title{flex:1 1 auto}
-  .td-svc-hire,.td-svc-pin{flex:0 0 auto;font-size:11.5px;padding:4px 8px;border-radius:6px;background:var(--td-surf-lo);
-    border:1px solid color-mix(in srgb, #5aa58c 60%, transparent)}
-  .td-svc-pin{border-color:color-mix(in srgb, var(--td-accent) 40%, transparent)}
-  .td-svc-tabs{flex:0 0 auto;flex-wrap:wrap;gap:2px}
+  /* ── THE BAY ── docked on the glass by the shell (.ds-bay). The tab body scrolls itself, so the
+     shell's body only lays it out. */
+  #td-svc .ds-bay-body{display:flex;flex-direction:column;overflow:hidden}
   #td-svc .td-side.td-svc-body{width:auto;flex:1 1 auto;min-height:0}
-  #td-svc .td-toast{position:absolute;left:50%;bottom:36px;transform:translateX(-50%);z-index:6;max-width:90%}
-  .td-svc-foot{flex:0 0 auto;font-size:11px;text-align:center}
-  .td-svc-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid color-mix(in srgb, var(--border) 60%, transparent)}
-  .td-svc-row:last-of-type{border-bottom:0}
-  .td-svc-row .td-bar{margin:3px 0 1px}
-  .td-bar i.sfresh{background:#5c8f6a}.td-bar i.sdue{background:#e8c07a}.td-bar i.sover{background:#d2685c}
-  .td-svc-row.over b{color:#f0a097}
   .td-plateform{display:flex;gap:6px}
   .td-plate-in{flex:1 1 auto;min-width:0;font-family:inherit;font-size:13px;padding:5px 7px;border-radius:6px;color:var(--td-fg);
     background:var(--td-surf-lo);border:1px solid color-mix(in srgb, var(--td-accent) 30%, transparent);text-transform:uppercase}
-  @media (max-width:720px){ #td-svc.open{left:8px;right:8px;width:auto;bottom:38%} }
   `;
   document.head.appendChild(s);
 }

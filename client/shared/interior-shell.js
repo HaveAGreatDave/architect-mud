@@ -153,7 +153,7 @@ import { dragonflyProfile, DRAGONFLY_TRIM } from './interior-dragonfly.js';
 import { viperProfile, VIPER_TRIM } from './interior-viper.js';
 import { carcassProfile } from './interior-carcass.js';
 import { grasshopperProfile, CUB_TRIM } from './interior-grasshopper.js';
-import { defaultLivery } from './livery-sets.js';
+import { defaultLivery, aircraftLiveryModel } from './livery-sets.js';
 const CRAFT_PROFILE = {};
 const craftProfile = (id, build) => (CRAFT_PROFILE[id] ||= build());
 
@@ -453,7 +453,7 @@ export function cabinRetint(cls, armed, hex) {
   if (CABIN_LAST.key === key) return CABIN_LAST.map;
   let map = null;
   const walls = CABIN_WALLS[cls === 'heli' && armed ? 'heliArmed' : cls];
-  const rgb = hexRgb(hex), def = cls && defaultLivery('aircraft', cls);
+  const rgb = hexRgb(hex), def = cls && defaultLivery('aircraft', aircraftLiveryModel(cls, armed ? 1 : 0));
   if (walls && rgb && String(hex).toLowerCase() !== String(def?.interior?.cabin || '').toLowerCase()) {
     const tones = walls(), ref = Math.max(1, lum(tones[0]));
     map = new Map(tones.map(t => { const k = lum(t) / ref; return [t, rgb.map(v => Math.max(0, Math.min(255, Math.round(v * k))))]; }));

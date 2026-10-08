@@ -1,12 +1,20 @@
 {
-  "description": "A long timber box for softening planks, cold and warped open. A fire under it would still work. Nobody has lit one.",
-  "flags": {},
+  "description": "A long timber box over a firebox, for softening planks so they take a bend. It is lit, and steam leaks from the joints along the lid.",
+  "flags": {
+    "aliases": [
+      "steam box",
+      "box",
+      "firebox",
+      "planks",
+      "rack"
+    ]
+  },
   "hp": null,
   "hp_max": null,
   "id": "furn_hulls_3",
   "light_type": null,
   "lumen_output": null,
-  "name": "steam box",
+  "name": "the steam box",
   "object_type": "fixture",
   "power_draw_kw": null,
   "price": 0,

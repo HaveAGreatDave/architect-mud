@@ -1,0 +1,20 @@
+{
+  "description": "A long workbench by the street door with a sales book on a string, a cash tin, and a Vaskin catalogue with the corners worn round. Hulls are sold and hired across it.",
+  "flags": {
+    "aliases": [
+      "bench",
+      "desk",
+      "book",
+      "catalogue",
+      "tin"
+    ],
+    "interactions": [
+      "use"
+    ],
+    "marina_desk": true
+  },
+  "id": "furn_hulls_desk",
+  "name": "the bench",
+  "object_type": "furniture",
+  "zone_id": "zone_hulls_shop"
+}

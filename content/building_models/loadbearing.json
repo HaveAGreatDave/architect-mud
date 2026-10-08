@@ -47,14 +47,15 @@
       "cx": 0.3,
       "cy": 0.405,
       "depth": 0.014,
+      "door": 1,
       "glass": "#34503f",
       "glow": "#c8f0d8",
       "half": 0.055,
-      "hh": 0.14,
+      "hh": 0.145,
       "kind": "windowBay",
       "pal": "ty_dw_slate",
       "transom": 0.8,
-      "z": 0.2
+      "z": 0.195
     },
     {
       "bare": true,

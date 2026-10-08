@@ -34,7 +34,7 @@ import { getPosture, setPosture, forceStand } from '../../server/engine/posture.
 import { ensureTunables } from '../../server/engine/tunables.js';
 import { statCost, getNetXp, RAISABLE_STATS } from '../../server/engine/ip.js';
 import { registerStatusEffect, applyEffect } from '../../server/engine/effects.js';
-import { STATIONS, STATION_VERBS, repsFor, setFlavor } from './stations.js';
+import { STATIONS, STATION_VERBS, repsFor, setFlavor, stationFor } from './stations.js';
 
 const EXHAUSTED_TICKS = 45;   // ~45s locked out of the gym after you gas out completely
 
@@ -69,7 +69,7 @@ function stopWorkout(pid, handle, zoneId, playerLine, station) {
   if (!cur || getPosture(cur) !== 'working_out') return;
   // The station is normally read off the live workout; callers that already have it
   // (the stop event) pass it in, since we delete the state on the way out.
-  const st = station || STATIONS[cur.workoutState?.station] || STATIONS.lift;
+  const st = station || stationFor(cur.workoutState?.station, cur.workoutState?.style);
   forceStand(cur, 'weightbench.stop');
   delete cur.workoutState;
   if (playerLine) out(pid, playerLine);
@@ -79,7 +79,7 @@ function stopWorkout(pid, handle, zoneId, playerLine, station) {
 // ── One completed set ──────────────────────────────────────────────────────────
 
 async function runSet(player, st, nowMs) {
-  const station = STATIONS[st.station] || STATIONS.lift;
+  const station = stationFor(st.station, st.style);
   st.lastSet = nowMs;
   st.reps += 1;
 
@@ -143,7 +143,7 @@ registerActivity({
 // The unified STOP command halts the workout like any other repeating action.
 on('player.stop', ({ player, stopped }) => {
   if (getPosture(player) !== 'working_out') return;
-  const station = STATIONS[player.workoutState?.station] || STATIONS.lift;
+  const station = stationFor(player.workoutState?.station, player.workoutState?.style);
   stopWorkout(player.id, player.handle, player.current_zone, station.stopLine, station);
   stopped.push('workout');
 });
@@ -151,7 +151,8 @@ on('player.stop', ({ player, stopped }) => {
 // ── Command ─────────────────────────────────────────────────────────────────────
 
 // One command body for every station — the differences are all in the table.
-async function startWorkout(station, player, broadcast) {
+async function startWorkout(base, player, broadcast) {
+  let station = base;
   if (getPosture(player) === 'working_out')
     return { type: 'emote', message: station.busyLine };
   if (player.combatTargetId || player.pvpTargetId || player.npcCombatTargetId)
@@ -164,11 +165,15 @@ async function startWorkout(station, player, broadcast) {
   // Need a matching station in the room. The furniture `interactions` key is what
   // makes a piece of furniture a station — see stations.js.
   const { rows } = await query(
-    `SELECT name FROM furniture WHERE zone_id=$1 AND flags @> $2::jsonb LIMIT 1`,
+    `SELECT name, flags->>'station_style' AS style FROM furniture WHERE zone_id=$1 AND flags @> $2::jsonb LIMIT 1`,
     [player.current_zone, JSON.stringify({ interactions: [station.interaction] })]
   );
   if (!rows.length) return { type: 'emote', message: station.missingLine };
   const gear = rows[0].name;
+  // The piece of kit decides how the session reads (a heavy bag is not a rebound wall), and the
+  // style rides on the workout so every later set and the stop say the same thing.
+  const style = rows[0].style || null;
+  station = stationFor(base.verb, style);
 
   // Get into position first (lie back on a bench; stay on your feet for the rest).
   if (station.posture && getPosture(player) !== station.posture)
@@ -187,7 +192,7 @@ async function startWorkout(station, player, broadcast) {
   // lastSet is back-dated so the first set fires on the next tick — quick feedback.
   setPosture(player, 'working_out', { sittingOn: gear });
   player.workoutState = {
-    station: station.verb, benchName: gear, reps: 0,
+    station: station.verb, style, benchName: gear, reps: 0,
     needed: repsFor(station, level), lastSet: Date.now() - station.setMs,
   };
   broadcast(player.current_zone, { type: 'zone_event', message: station.startZoneLine(player.handle) }, player.id);

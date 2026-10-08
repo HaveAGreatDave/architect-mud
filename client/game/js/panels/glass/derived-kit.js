@@ -420,7 +420,13 @@ const COL_PITCH_RICH = 0.085;
 // pier section gets window bays, a coping band and a roller shutter. The beacon is here on a
 // stronger version of the same argument: the whole of it is that nobody here built it, and the
 // kit's entire job is to make a building look like the street it stands on.
-const NO_KIT = new Set(['trm_wall', 'thornwall', 'damwall', 'pier', 'harbour_yard', 'lighthouse', 'quay_crane', 'pontoon', 'fuel_dock']);
+const NO_KIT = new Set(['trm_wall', 'thornwall', 'damwall', 'pier', 'harbour_yard', 'lighthouse', 'quay_crane', 'pontoon', 'fuel_dock',
+  // ⚠ AND THREE BUILDINGS WHOSE WHOLE FRONT IS A STORY THE KIT WOULD WRITE OVER. The gym's front is a
+  // bricked-up mast doorway with a door cut into it, which is exactly where the works ground floor
+  // hangs its shutter; the boat shed's street side is a door and a hatch and its water side is the
+  // doors; a landing stage is a deck, and the kit reads its drums as walls. Each arm draws all four of
+  // its own sides (building-styles.md §4.3).
+  'gym', 'boatshed', 'landing_stage']);
 // What somebody had in the can. Saturated and light, because a tag is read against a wall that is
 // almost always the dark half of the frame — a dark tag on dark concrete is the `shadeOf(pal, 0.34)`
 // mistake the bracket colour already records, in a different costume.
@@ -539,7 +545,7 @@ const KIT_DECLINE = { meridian: ['signRoof', 'wall', 'pier'],   // 'wall' and 'p
   // as a taste one: `glself` counted the hoarding's back board INSIDE the gasholder's own drum.
   // The three arms already say in their own comments that the plant half does not letter itself,
   // and this is what makes that true rather than merely stated. The rest of their kit stays.
-  gasholder: ['signRoof'], cooling_plant: ['signRoof'], substation: ['signRoof'],
+  gasholder: ['signRoof'], cooling_plant: ['signRoof'], substation: ['signRoof', 'ground'],
   // ⚠ THE WATER SELLER DECLINES THE ROOF SIGN, AND IT IS THE KIT BEING WRONG RATHER THAN A MATTER
   // OF TASTE. Old Coldwater's Mains Squeeze is a riveted header tank standing on a timber trestle
   // over a one-room hut, and the candidate loop finds the top of that TANK as the highest deck and
@@ -577,6 +583,7 @@ const KIT_DECLINE = { meridian: ['signRoof', 'wall', 'pier'],   // 'wall' and 'p
   // fire escape somebody inspected and `cope` is a neat band along a wall top the arms break on
   // purpose. `riser` stays: a downpipe hanging off a bracket is exactly what these walls have.
   flophouse: SLUM_DECLINE, soup_kitchen: SLUM_DECLINE, bonesetter: SLUM_DECLINE, shebeen: SLUM_DECLINE,
+  cornershop: SLUM_DECLINE,   // Bare Necessities, the Rag Row lock-up: an authored model, so it names its trade
   ruin: SLUM_DECLINE,
   helpings: ['signRoof', 'wall', 'stair'], clone: ['stair', 'wall', 'riser'], kitchenware: ['ground', 'wall'],
   // Stuff It's canted window and painted sign ground ARE its shopfront, so the kit's glazed band
@@ -584,7 +591,13 @@ const KIT_DECLINE = { meridian: ['signRoof', 'wall', 'pier'],   // 'wall' and 'p
   taxidermist: ['ground'],
   // No Regerts is one lit strip up a dark wall and Fine Print one high band of glass: each draws its
   // own windows, once, and the kit's grid round them is what made both read as an ordinary block.
-  tattooist: ['wall'], lending_library: ['wall'],
+  tattooist: ['wall'], lending_library: ['wall', 'ground'],
+  // ⚠ AND FOUR ARMS THAT DRAW THEIR OWN DOOR (glass/entrance.js), whose lowest box is not a shop.
+  // The kit hung its shopfront and a second doorway inside the forge's hearth, across the
+  // substation's palisade, under the library's lintel and on the glasshouse's plinth. Each now has
+  // one door, its arm's, where its prose puts it. (`substation` and `lending_library` decline it
+  // in their own rows.)
+  grindhouse: ['ground'], winter_garden: ['ground'],
   // Spirit Level is a steel shutter over the whole front with one hatch cut in it. A glazed
   // shopfront or a window grid on that wall is the one thing the building says it hasn't got.
   off_licence: ['ground', 'wall'],
@@ -645,6 +658,10 @@ const KIT_DECLINE = { meridian: ['signRoof', 'wall', 'pier'],   // 'wall' and 'p
   // GIARDIA hand-lettered on a plank, so this is not `UNSIGNED_TRADE` — that set is for a shed
   // with a number on it, and both of these are named by hand on purpose.
   slagwares: ['signRoof', 'roof'], campgiardia: ['signRoof', 'roof'],
+  // The Codfather, the third business on the yard, for `helpings`' reason: its name is painted on
+  // the fascia, and the kit stood a backlit hoarding on legs over a one-storey shop that was
+  // bigger than the shop.
+  fishmonger: ['signRoof'],
   // Sump has no sign, no window and no name over the door, and the prose says so. Without this the
   // kit read a low brick box as a bar and put SUMP on a lit hoarding on its roof.
   sump: ['sign', 'signRoof', 'neon', 'wall', 'paint'],
@@ -681,7 +698,7 @@ const UNSIGNED_TRADE = new Set([
   // Power and utility.
   'power', 'dynamo', 'dw_turbine', 'trm_charge', 'signalbox', 'damwall', 'interstack', 'trm_cistern',
   // Heavy industry and processing. The incinerator letters its own gate plate in its arm.
-  'foundry', 'fabrication', 'ff_kiln', 'dw_forge', 'sw_foundry', 'sw_kiln', 'hulls', 'asc_vats',
+  'foundry', 'fabrication', 'ff_kiln', 'dw_forge', 'sw_foundry', 'sw_kiln', 'asc_vats',
   'clone', 'asc_weave', 'refinery', 'incinerator',
   // Freight, storage and yards — a shed with a number on the door.
   'warehouse', 'container_yard', 'cold_storage', 'junkyard', 'truck_depot', 'dw_depot', 'sw_depot',
@@ -719,7 +736,7 @@ const UNSIGNED_TRADE = new Set([
   // note says has no name on it anywhere. Everyone who uses these places already knows where they
   // are. `KIT_DECLINE` shuts the `sign` section as well; this is what keeps the roundel out, which
   // does not ask that section.
-  'flophouse', 'soup_kitchen', 'bonesetter', 'shebeen', 'water_seller',
+  'flophouse', 'soup_kitchen', 'bonesetter', 'shebeen', 'water_seller', 'cornershop',
 ]);
 // Does this building letter its own frontage? The two answers the kit needs, in one place, so the
 // name board, the corner blade and the roof hoarding cannot disagree about it.
@@ -747,8 +764,8 @@ const BAY_TRADE = new Set([
   'warehouse', 'container_yard', 'cold_storage', 'junkyard', 'truck_depot', 'dw_depot', 'sw_depot',
   'trm_depot', 'wharf', 'hangar', 'reefer', 'fuel_yard', 'freight_forwarder', 'forwarder', 'bonded',
   // Heavy industry and anything with a shop floor.
-  'foundry', 'fabrication', 'ff_kiln', 'dw_forge', 'sw_foundry', 'sw_kiln', 'hulls', 'refinery',
-  'dw_winding', 'dw_stores', 'slagwares', 'thumbscale',
+  'foundry', 'fabrication', 'ff_kiln', 'dw_forge', 'sw_foundry', 'sw_kiln', 'refinery',
+  'dw_winding', 'dw_stores', 'slagwares',
   // A sound stage is a shed with a truck door, whatever it makes.
   'studio', 'ksabstudio',
   // ⚠ `vacantunit` WAS HERE AND THE PREMISE WAS WRONG. This entry read "the four numbered units are
@@ -774,7 +791,7 @@ const NO_AD_TRADE = new Set(['power', 'dynamo', 'dw_turbine', 'trm_charge', 'sig
   'interstack', 'foundry', 'fabrication', 'ff_kiln', 'dw_forge', 'sw_foundry', 'sw_kiln', 'asc_vats',
   'clone', 'refinery', 'fuel_yard', 'ruin',
   // …and the rest of the Shingles, for the ruin's reason: nobody rents a wall in Old Coldwater.
-  'flophouse', 'soup_kitchen', 'bonesetter', 'shebeen', 'water_seller',
+  'flophouse', 'soup_kitchen', 'bonesetter', 'shebeen', 'water_seller', 'cornershop',
   // …and the airfield, which carries its own terminal boards and nobody else's.
   'atc', 'arrivals', 'departures']);
 // ⚠ `RENDER_TUNE` AND NOT THE PER-VIEW `TUNE`, BECAUSE THE LIST IS CACHED PER MODEL. A view can
@@ -1752,7 +1769,10 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
       const bay = BAY_TRADE.has(tradeOf(m));
       push({ kind: 'shutter', bay, cx: A(base.cx - base.hw * 0.18), cy: A(by), z: A(dz),
         half: A(base.hw * (bay ? 0.4 : 0.34)), hh: A(GF * 0.46), pal });
-      push({ kind: 'windowBay', cx: A(base.cx + base.hw * 0.52), cy: A(by), z: A(dz),
+      // ⚠ THE PERSONNEL DOOR STANDS ON THE PAVEMENT. It was centred on the band at `dz`, so its
+      // foot was a sixth of a storey up the wall: a dark slot nobody could walk into. As a `door`
+      // its `z - hh` is the threshold, so it is centred one half-height above the base.
+      push({ kind: 'windowBay', door: 1, cx: A(base.cx + base.hw * 0.52), cy: A(by), z: A(base.z0 + GF * 0.4),
         half: A(Math.min(base.hw * 0.11, 0.035)), hh: A(GF * 0.4), depth: A(0.01), pal: wpal,
         glow: '#d8c88a', glass: '#1c2026' });
       push({ kind: 'louvreBank', drip: 1, cx: A(base.cx + base.hw * 0.8), cy: A(by), z: A(dz + GF * 0.1),
@@ -1790,9 +1810,15 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
             glow, bars: 1 });
         }
       }
-      push({ kind: 'windowBay', cx: A(base.cx), cy: A(band ? by + out : by), z: A(base.z0 + GF * 0.42),
+      // The doorway, with a leaf in it, a step and the shop lit behind the glass after dark.
+      // ⚠ IT WAS A DARK BAY WITH NOTHING IN IT, glazed in the wall's own shade "so it read as a
+      // recess, not a light". From the street that is a window reaching the pavement, and the
+      // small-building grade (docs/audits/findings-2026-10-small-buildings.md) scored every
+      // kit-fronted shop down for having no door. `door` draws the leaf, kick plate, push bar and
+      // step; the lobby takes the band's own glow, because it is the same shop behind both.
+      push({ kind: 'windowBay', door: 1, cx: A(base.cx), cy: A(band ? by + out : by), z: A(base.z0 + GF * 0.42),
         half: A(Math.min(base.hw * 0.13, 0.045)), hh: A(GF * 0.42), depth: A(0.016), pal: wpal,
-        glow: shadeOf(pal, 0.5), glass: shadeOf(pal, 0.42) });   // the doorway: a recess, not a light
+        glow, ...(band ? { transom: 0.78 } : {}) });
     }
     // ── 3b. THE NAME ────────────────────────────────────────────────────────
     // A board over the door, carrying the building's own name. 107 of the 173 arms sign themselves

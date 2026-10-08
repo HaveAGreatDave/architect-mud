@@ -7,6 +7,13 @@
     "groundPitch": 0,
     "navLamps": { "wing": "wing" },
     "hull": "fuselage",
+    "finish": "satin",
+    "paints": {
+      "belly": { "rgb": [36, 86, 170], "livery": "trim" },
+      "hull": { "rgb": [236, 238, 240], "livery": "base" },
+      "stripe": { "rgb": [20, 38, 84], "livery": "fixed", "mat": "matte" },
+      "tail": { "rgb": [36, 86, 170], "livery": "trim" }
+    },
     "parts": [
       {
         "kind": "loft",
@@ -36,10 +43,18 @@
         ],
         "regions": [
           { "at": [0.46, 0.43, 0.4], "k": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "role": "glass", "tint": [92, 128, 156], "art": "mayfly", "uvDiv": 12 },
-          { "at": [0.35, 0.24, 0], "k": [1, 2, 3, 8, 9, 10], "role": "glass", "tint": [92, 128, 156], "art": "mayfly", "uvDiv": 12 }
+          { "at": [0.35, 0.24, 0], "k": [1, 2, 3, 8, 9, 10], "role": "glass", "tint": [92, 128, 156], "art": "mayfly", "uvDiv": 12 },
+          { "at": [0.72], "k": "all", "paint": "belly" },
+          { "at": [0.72, 0.65, 0.55, 0.46, 0.43, 0.4, 0.35, 0.24, 0.06, 0, -0.12, -0.28, -0.46, -0.66, -0.86], "k": [12, 23], "paint": "stripe" },
+          {
+            "at": [0.72, 0.65, 0.55, 0.46, 0.43, 0.4, 0.35, 0.24, 0.06, 0, -0.12, -0.28, -0.46, -0.66, -0.86],
+            "k": [13, 14, 15, 16, 17, 18, 19, 20, 21, 22],
+            "paint": "belly"
+          }
         ],
         "capFore": { "kind": "flat", "sh": 0.92 },
-        "capAft": { "kind": "flat", "sh": 0.5, "reverse": true }
+        "capAft": { "kind": "flat", "sh": 0.5, "reverse": true },
+        "paint": "hull"
       },
       {
         "kind": "cone",
@@ -50,7 +65,8 @@
         "n": 10,
         "apex": [0.795, 0, 0.028],
         "role": "nacelle",
-        "shade": { "base": 0.72, "amp": 0.26 }
+        "shade": { "base": 0.72, "amp": 0.26 },
+        "paint": "tail"
       },
       {
         "kind": "mirror",
@@ -89,6 +105,7 @@
         "tipSh": 0.66,
         "tipFairing": { "drop": -0.03, "minDetail": 1, "out": 0.012, "role": "nacelle", "sh": 0.7, "x0": 0.06, "x1": 0.9 },
         "lens": { "hh": 0.012, "hw": 0.02, "minDetail": 1, "out": 0.014, "tints": [[46, 190, 78], [200, 52, 48]], "x": 0.1 },
+        "paint": "hull",
         "lod0": { "nx": 4, "ribs": [-1.12, 0, 1.12] }
       },
       {
@@ -120,6 +137,7 @@
             "half": 0.01
           }
         ],
+        "paint": "hull",
         "minDetail": 1
       },
       {
@@ -142,6 +160,7 @@
             ]
           }
         ],
+        "paint": "hull",
         "minDetail": 1
       },
       {
@@ -174,7 +193,8 @@
             ],
             "minDetail": 1
           }
-        ]
+        ],
+        "paint": "hull"
       },
       {
         "kind": "blade",
@@ -189,12 +209,14 @@
           { "a": 1, "b": 2, "sh": 0.74 },
           { "a": 2, "b": 3, "sh": 0.74 },
           { "a": 3, "b": 4, "sh": 0.74 }
-        ]
+        ],
+        "paint": "tail"
       },
       {
         "kind": "poly",
         "name": "dorsal fillet",
         "faces": [{ "role": "fin", "sh": 0.84, "p": [[-0.24, 0, 0.138], [-0.7, 0, 0.205], [-0.56, 0, 0.118]] }],
+        "paint": "tail",
         "minDetail": 1
       },
       {
@@ -220,7 +242,8 @@
             ],
             "left": { "faces": [{ "sh": 0.66, "winding": "reverse" }] }
           }
-        ]
+        ],
+        "paint": "tail"
       },
       {
         "kind": "mirror",
@@ -246,7 +269,8 @@
             "half": 0.009,
             "minDetail": 1
           }
-        ]
+        ],
+        "paint": "hull"
       },
       {
         "kind": "poly",
@@ -271,12 +295,12 @@
             "sh": 0.62
           },
           { "kind": "wheel", "name": "main wheel", "at": [0.1, 0.3, -0.2], "r": 0.055, "hw": 0.018, "n": 12, "lod0": { "n": 8 } },
-          { "kind": "spat", "name": "wheel spat", "at": [0.1, 0.3, -0.2], "s": 1.05, "minDetail": 1 }
+          { "kind": "spat", "name": "wheel spat", "at": [0.1, 0.3, -0.2], "s": 1.05, "paint": "tail", "minDetail": 1 }
         ]
       },
       { "kind": "strut", "name": "nose oleo", "at": [0.52, 0], "top": -0.01, "bot": -0.17900000000000002, "r": 0.016, "sides": 6 },
       { "kind": "wheel", "name": "nose wheel", "at": [0.52, 0, -0.20900000000000002], "r": 0.046, "hw": 0.016, "n": 10, "lod0": { "n": 8 } },
-      { "kind": "spat", "name": "nose spat", "at": [0.52, 0, -0.20900000000000002], "s": 0.85, "minDetail": 1 },
+      { "kind": "spat", "name": "nose spat", "at": [0.52, 0, -0.20900000000000002], "s": 0.85, "paint": "tail", "minDetail": 1 },
       {
         "kind": "poly",
         "name": "scissor link",

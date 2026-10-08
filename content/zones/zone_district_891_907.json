@@ -14,6 +14,7 @@
     "south": "zone_district_891_908"
   },
   "flags": {
+    "aa_kind": "truck",
     "aa_site": true,
     "curtain": true,
     "district": "wasteland",

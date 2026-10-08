@@ -30,9 +30,48 @@ The table below is the grade as it stood on 2026-10-04 and hasn't been re-scored
 - **An engine fix found on the way.** A `dripStain` stops at the ground; a low louvre's stain used
   to run on below the pavement and show as a dark wedge in front of the building.
 
-Still open: doors (the largest pattern), the line shafts at The Forge and The Turbine Hall, The
-Standing Charge's flywheel and cable poles, the hangar's lounge and tower, and the four Old
-Coldwater end drums that reach past the tile (the tile-fit trim already clips them at render).
+Still open after that pass: doors (the largest pattern), the line shafts at The Forge and The
+Turbine Hall, The Standing Charge's flywheel and cable poles, the hangar's lounge and tower, and the
+four Old Coldwater end drums that reach past the tile (the tile-fit trim already clips them at
+render).
+
+## Status (2026-10-08): doors pass, Coldwater
+
+Doors only, and Coldwater only. The scores below still haven't been re-run.
+
+- **The kit's doors are doors.** The derived kit's shop doorway and its works personnel door were a
+  dark bay with nothing in it, and 46 Coldwater models get one of the two. Both are a `windowBay`
+  with `door` set now: a leaf, a kick plate, a push bar, a step, and the shop's own light behind the
+  glass after dark. The personnel door used to stand a sixth of a storey up the wall; it's on the
+  pavement. A door's surround also stops at the threshold now, where it used to run under the ground.
+- **20 arms with no door have one**, through one helper, `drawEntrance` in
+  [glass/entrance.js](../../client/game/js/panels/glass/entrance.js): a portal, the leaves (glazed,
+  or `solid` for planks and steel), the lobby, a transom, a step, a mat and a lamp, with an optional
+  porch for a building whose wall is a drum, a ring or a yawed wing. Each door follows its tile's
+  prose:
+  - Halcyon Fields: Artist's Impression, Fixed Assets, Peppercorn and Deposit Taken.
+  - Old Coldwater: A Stitch In Time, Negative Equity, Skeleton Crew, Course Correction, Plot Twist,
+    Glass Half Full, Cold Comfort, Current Affairs, Fine Print, The Gate Post and The Glacis Weigh.
+  - Twin pass: Tine & Temper (the middle pan and mullion came out so the door sits between the
+    racks), Fired & Forgotten and Grind House (one blade rack came out).
+  - Waterfront: the Office of Permitted Suffering, whose queue canopy now reaches the glass and
+    whose first post is out of the wall.
+
+  The kit's ground section is declined for the forge, the substation, the library and the
+  glasshouse, where it was hanging a second doorway on the wrong box.
+- **31 authored models drew their door as a dark bay** and now set `door` on it. Thresholds that
+  floated above the plinth or sank into it were moved to the plinth top: Wrap Party, The Acid Test,
+  Compound Interest, The Wash, Board Stiff, Load Bearing, the Embassy, Hostel Takeover, Corner the
+  Market, The Slip, Meat Your Maker and Mint Condition. Any Port had no door and has one.
+- **Thumb On The Scale is gone.** It was the salvage scales from before the airlock; the tile is
+  **Bare Necessities**, the Shingles' corner shop, with its own authored model and Osric Iyaka
+  re-trading as its keeper. The `thumbscale` arm went with it.
+
+Left alone, on purpose: The Paper Tomb (its prose has the door standing open), Voltage (its canopy is
+too low for a door without redesigning the frontage), the three yards (Stack Overflow, Chill Out
+Logistics, The Wet Handoff meet the street with a gate, a dock and an open shed), the airport halves
+(another session has `downtown.js` open on them), the piers, pontoon and fuel dock, and Fallow
+Provisions, which is a stall.
 
 ## How it was graded
 

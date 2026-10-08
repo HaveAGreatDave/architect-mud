@@ -1,7 +1,7 @@
 {
-  "connection_id": "conn_district_916_905_west_c47f",
+  "connection_id": "conn_hf_district_921_901_east",
   "door_type": "basic",
-  "exit_dir": "west",
+  "exit_dir": "east",
   "flags": {},
   "hololock_difficulty": 5,
   "hp": 1000,
@@ -18,10 +18,10 @@
       "messages": {
         "denied": "The shop lock reads your hand and declines to recognise it.",
         "lock": "The bolt drops and the shopfront goes quiet.",
-        "unlock": "The bolt lifts. The shop door swings in."
+        "unlock": "The bolt lifts. The shed door swings in."
       }
     }
   },
   "target_zone": "zone_hulls_shop",
-  "zone_id": "zone_district_916_905"
+  "zone_id": "zone_district_921_901"
 }

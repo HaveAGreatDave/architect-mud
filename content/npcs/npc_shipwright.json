@@ -48,7 +48,7 @@
       },
       "go_home_ps": {
         "action_type": "GO_HOME",
-        "next": "home_life_ps",
+        "next": "check_work",
         "type": "action"
       },
       "go_to_atm": {
@@ -58,7 +58,7 @@
       },
       "go_to_work": {
         "action_type": "GO_TO_WORK",
-        "next": "work_wait",
+        "next": "player_check",
         "type": "action"
       },
       "have_life": {
@@ -78,39 +78,27 @@
       },
       "off_home_check": {
         "condition_type": "AT_HOME",
-        "ifFalse": "off_random",
-        "ifTrue": "home_idle",
-        "type": "condition"
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
       },
       "off_random": {
-        "branch_0": "have_life",
-        "branch_1": "go_home_off",
-        "branches": [
-          {
-            "weight": 1
-          },
-          {
-            "weight": 5
-          }
+        "options": [
+          "go_home_off",
+          "have_life"
         ],
         "type": "random"
       },
       "player_check": {
-        "condition_type": "PLAYER_IN_ZONE",
-        "ifFalse": "check_work",
-        "ifTrue": "work_say",
-        "type": "condition"
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
       },
       "post_shift": {
-        "branch_0": "have_life",
-        "branch_1": "go_home_ps",
-        "branches": [
-          {
-            "weight": 1
-          },
-          {
-            "weight": 5
-          }
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
         ],
         "type": "random"
       },
@@ -120,64 +108,325 @@
       },
       "work_say": {
         "action_type": "VENDOR_CHITCHAT",
-        "next": "check_work",
+        "next": "work_wait",
         "type": "action"
       },
       "work_wait": {
-        "next": "player_check",
-        "seconds": 60,
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
         "type": "wait"
       }
     }
   },
-  "chitchat": [],
-  "description": "A grizzled shipwright welded into a leather apron, forever half-finished with a hull he'll never launch. Sells the tools and scrap he isn't using, which is most of it.",
+  "chitchat": [
+    "Keel planes a curl off the edge of a plank, sights along it, and planes another.",
+    "He drives a fastening home in three blows, never four.",
+    "Water slops up the slot and knocks a fender against the stocks.",
+    "He stops, listens to an outboard going past outside, and shakes his head.",
+    "He writes a figure on the slate by the bench, rubs it out with his thumb and writes a smaller one."
+  ],
+  "description": "A big man in his sixties in a scorched leather apron, with sawdust in the hair on his forearms. There is a carpenter's pencil behind one ear and another behind the other that he has forgotten about. He talks to the hull on the stocks more than he talks to customers.",
   "dialogue_tree": {
-    "boats": {
+    "buy": {
       "actions": [
         {
-          "action": "GPS_TO",
-          "zone": "zone_marina_lobby"
+          "action": "BOAT_QUOTE",
+          "what": "sale"
         }
       ],
       "options": [
         {
-          "label": "Back.",
+          "label": "I'll take the Rooster.",
+          "next": "sell_hydro"
+        },
+        {
+          "label": "I'll take the Spur.",
+          "next": "sell_spur"
+        },
+        {
+          "label": "I'll take the Gamecock.",
+          "next": "sell_gamecock"
+        },
+        {
+          "label": "Back up.",
           "next": "root"
         }
       ],
-      "text": "\"Not this one.\" He nods at the half-built hull. \"Fairweather Marina sells boats that float, over to the west. The clerk on the desk in the lobby sells and hires them, and Marit Colvane in the dock hall there does the repairs.\" He traces the route for you."
+      "text": "\"Vaskin hulls, off the same list the glass place sells from.\" He drops a catalogue on the bench, open. \"Same price, too. I don't build them, I just sell them. She comes with a full tank and the first free berth in this yard.\""
     },
     "bye": {
       "options": [],
-      "text": "\"Mind the stands on your way out.\""
+      "text": "\"Mind the stage on your way out. It moves.\""
+    },
+    "drive": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Go where she's lying and <b>board</b>. That puts you aboard. <b>helm</b> puts you at the wheel, and the controls card comes up the first time.\"\n\n\"K is the key, and she won't start with the lever open. From the log, <b>conn start</b>, then <b>conn</b> with a bearing or a bell.\"\n\n\"Coming home, stop alongside a berth and <b>disembark</b>. That ties her up. Do it on open water and you're swimming. If she dies out there, <b>tow</b> brings her home, and you settle the bill before she goes out again.\""
+    },
+    "fuel": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"End of the outer stage. Hand pump on a drum.\" He mimes cranking it. \"Come alongside, stop, and <b>fuel</b>. You pay by the unit, so a bigger tank costs more to fill.\""
+    },
+    "hire": {
+      "actions": [
+        {
+          "action": "BOAT_QUOTE",
+          "what": "hire"
+        }
+      ],
+      "options": [
+        {
+          "label": "Hire the Rooster.",
+          "next": "hire_hydro"
+        },
+        {
+          "label": "Hire the Spur.",
+          "next": "hire_spur"
+        },
+        {
+          "label": "Hire the Gamecock.",
+          "next": "hire_gamecock"
+        },
+        {
+          "label": "I'm bringing a hire back.",
+          "next": "return"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Two hours, a full tank, one at a time.\" He nods at the keys on nails behind the bench. \"Tie her up anywhere in this yard when you're done and she's back, or bring me the key sooner. No paint and no names on a hire.\""
+    },
+    "hire_gamecock": {
+      "actions": [
+        {
+          "action": "BOAT_HIRE",
+          "hull": "gamecock"
+        }
+      ],
+      "options": [
+        {
+          "label": "How do I take her out?",
+          "next": "drive"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He takes a key off the last nail, the one on its own."
+    },
+    "hire_hydro": {
+      "actions": [
+        {
+          "action": "BOAT_HIRE",
+          "hull": "hydro"
+        }
+      ],
+      "options": [
+        {
+          "label": "How do I take her out?",
+          "next": "drive"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He takes a key off a nail."
+    },
+    "hire_spur": {
+      "actions": [
+        {
+          "action": "BOAT_HIRE",
+          "hull": "spur"
+        }
+      ],
+      "options": [
+        {
+          "label": "How do I take her out?",
+          "next": "drive"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He takes a key off a nail."
+    },
+    "hull": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Forty feet. Larch on oak.\" He runs a hand along the planking where it stops. \"I started her in the shed on Lever Lane. It took four of us and a flatbed to get her down here.\"\n\nHe looks out through the open doors at the water.\n\n\"She goes in when she's done. She's nearer it now than she's ever been.\""
+    },
+    "keep": {
+      "options": [
+        {
+          "cmd": "boats",
+          "label": "Where is mine now?"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Three ways, and the roof's the dear one.\" He points with the mallet.\n\n\"In here, in the slot under the roof, room for two: that's where I can work on her properly. Outside on the hard, on a cradle: cheapest. Or afloat on the stages, alongside, five berths.\"\n\n\"Stand at a berth and <b>berth</b> reads you the board. <b>berth</b> and her name moves her in. <b>boats</b> tells you where she is now. Whatever the glass place charges, I charge six-tenths.\""
+    },
+    "return": {
+      "actions": [
+        {
+          "action": "BOAT_RETURN"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He holds out a hand for the key."
     },
     "root": {
       "options": [
         {
-          "label": "What have you got?",
+          "label": "I want to buy a boat.",
+          "next": "buy"
+        },
+        {
+          "label": "Can I hire one?",
+          "next": "hire"
+        },
+        {
+          "label": "Where do I keep her?",
+          "next": "keep"
+        },
+        {
+          "label": "How do I take her out?",
+          "next": "drive"
+        },
+        {
+          "label": "Where do I get fuel?",
+          "next": "fuel"
+        },
+        {
+          "label": "She needs work.",
+          "next": "work"
+        },
+        {
+          "label": "What else have you got?",
           "next": "__shop__"
         },
         {
-          "label": "Do you sell boats?",
-          "next": "boats"
+          "label": "What's the boat on the stocks?",
+          "next": "hull"
         },
         {
-          "label": "Just looking.",
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing, thanks.",
           "next": "bye"
         }
       ],
-      "text": "Keel lowers his heat-gun and squints. \"Boat parts, tools, scrap. Take your pick. She's not going anywhere.\" (he nods at the half-built hull)"
+      "text": "\"Buying, hiring, berthing or broke?\" Keel doesn't put the mallet down.",
+      "text_by_relation": {
+        "familiar": "\"Kettle's on the stove in the back.\" He doesn't look up from the plank. \"What's she done?\"",
+        "first": "A big man in a leather apron is fitting a plank to the hull on the stocks. He finishes the stroke before he looks round.\n\n\"Keel.\" He points the mallet at things as he names them. \"Boats for sale and boats for hire, across that bench. Berths on the stages and the hard outside. Anything wrong with a hull, I fix it in here.\"\n\n\"Same boats as the glass place on the west shore, and the same work. Six-tenths of the price, and the roof leaks.\"",
+        "known": "\"You.\" He sets the mallet down on the plank. \"What is it this time?\""
+      }
+    },
+    "sell_gamecock": {
+      "actions": [
+        {
+          "action": "BOAT_SELL",
+          "hull": "gamecock"
+        }
+      ],
+      "options": [
+        {
+          "label": "How do I take her out?",
+          "next": "drive"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He looks at you for a moment longer than he did for the other two, then writes her into the book."
+    },
+    "sell_hydro": {
+      "actions": [
+        {
+          "action": "BOAT_SELL",
+          "hull": "hydro"
+        }
+      ],
+      "options": [
+        {
+          "label": "How do I take her out?",
+          "next": "drive"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He licks a pencil and writes her into the book."
+    },
+    "sell_spur": {
+      "actions": [
+        {
+          "action": "BOAT_SELL",
+          "hull": "spur"
+        }
+      ],
+      "options": [
+        {
+          "label": "How do I take her out?",
+          "next": "drive"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He licks a pencil and writes her into the book."
+    },
+    "work": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I'm in here from six in the morning to midnight.\" He taps the bench. \"Stand in here with me and <b>refit</b>, and I'll put the hull back to sound wherever she's lying in this yard. Servicing, paint and a name, she has to be under this roof: <b>berth</b> her in the slot, or bring her in and stop. Then <b>refit service</b>, <b>refit paint</b> or <b>refit name</b>.\"\n\n\"Away from here you patch her yourself. I sell the patches.\""
     }
   },
   "faction": null,
   "flags": {
     "clothing_layers": [
       "a scorched leather apron",
-      "a sweat-soaked workshirt",
-      "heavy canvas trousers"
+      "a sweat-soaked workshirt with the sleeves rolled",
+      "heavy canvas trousers gone stiff with tar",
+      "rubber boots cut down to the ankle"
     ],
-    "personality": "vendor"
+    "personality": "vendor",
+    "repairman": true
   },
   "home_activities": [],
   "home_zone": "zone_yards_tenement_u5_3",
@@ -190,40 +439,24 @@
   "studio_zone_id": null,
   "vendor_inventory": [
     {
-      "item_id": "item_scrap_metal",
-      "price": 4
+      "item_id": "item_hull_patch",
+      "price": 180
     },
     {
-      "item_id": "item_battery",
-      "price": 7
+      "item_id": "item_mooring_line",
+      "price": 70
     },
     {
-      "item_id": "item_hydraulic_hose",
-      "price": 7
+      "item_id": "item_boat_cover",
+      "price": 240
     },
     {
-      "item_id": "item_steel_plate",
-      "price": 7
-    },
-    {
-      "item_id": "item_salvaged_wiring",
-      "price": 8
-    },
-    {
-      "item_id": "item_towel_rough",
-      "price": 10
+      "item_id": "item_dinghy",
+      "price": 150
     },
     {
       "item_id": "item_duct_tape",
       "price": 11
-    },
-    {
-      "item_id": "item_work_gloves",
-      "price": 13
-    },
-    {
-      "item_id": "canteen",
-      "price": 15
     },
     {
       "item_id": "item_industrial_tape",
@@ -234,12 +467,12 @@
       "price": 18
     },
     {
-      "item_id": "item_valve_assembly",
-      "price": 18
+      "item_id": "item_work_gloves",
+      "price": 13
     },
     {
-      "item_id": "item_flashlight",
-      "price": 32
+      "item_id": "item_pipe_wrench",
+      "price": 125
     },
     {
       "item_id": "item_field_welder",
@@ -250,12 +483,24 @@
       "price": 55
     },
     {
-      "item_id": "item_rusty_knife",
-      "price": 65
+      "item_id": "item_flashlight",
+      "price": 32
     },
     {
-      "item_id": "item_pipe_wrench",
-      "price": 125
+      "item_id": "canteen",
+      "price": 15
+    },
+    {
+      "item_id": "item_towel_rough",
+      "price": 10
+    },
+    {
+      "item_id": "item_scrap_metal",
+      "price": 4
+    },
+    {
+      "item_id": "item_steel_plate",
+      "price": 7
     },
     {
       "item_id": "item_spray_paint",
@@ -307,8 +552,8 @@
       }
     ]
   },
-  "vendor_shop_name": "Hulls Angels",
-  "vendor_stock_size": 24,
+  "vendor_shop_name": "Moor or Less",
+  "vendor_stock_size": 18,
   "wander_zones": [],
   "wanders": 0,
   "work_zone_id": "zone_hulls_shop"

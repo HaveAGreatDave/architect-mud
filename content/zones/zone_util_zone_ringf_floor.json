@@ -1,0 +1,18 @@
+{
+  "description": "Under the floor: the boiler for the showers, the building's junction box and a floor drain that takes everything the showers send it.",
+  "exits": {
+    "up": "zone_ringf_floor"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_916_905"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_ringf_floor",
+  "map_id": "map_int_ringf",
+  "name": "Ring Fenced — The Boiler Room",
+  "parent_zone": "zone_district_916_905"
+}

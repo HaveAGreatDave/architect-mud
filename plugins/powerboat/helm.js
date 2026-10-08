@@ -19,9 +19,9 @@
 import { query } from '../../server/models/db.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { getZone, getAllZones } from '../../server/engine/world.js';
-import { mapWindow, skyState, aircraftNearCoord } from '../flight/state.js';
+import { mapWindow, skyState, worldContactsNear, skylineNear, nearbyRegions, farRoadsNear, FAR_ROAD_R } from '../flight/state.js';
 import { streetActors } from '../../server/engine/street-actors.js';
-import { aboard, berthKind, berthsNear, berthCapacity, myBoats, pickBoat, coveredSlot, coveredRoomAtTile, isOpenWater, MOVE_IN, recoverAboard } from './yard.js';
+import { aboard, berthKind, berthsNear, berthCapacity, myBoats, pickBoat, coveredSlot, coveredRoomAtTile, isOpenWater, MOVE_IN, rateAt, recoverAboard } from './yard.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { fuelAlongside, fuelBox } from './fuel.js';
 import { effBoatParams, boatLiveryOf, stampBoatIfMissing, wetChange, boatRentalExpired, boatRental, PROP_KNOCK } from './service.js';
@@ -159,9 +159,13 @@ export function helmContext(boat, at, playerId = null) {
     // `drawVolumetricClouds` returns on its first line and the sky is empty with nothing to say so.
     hour: sky.hour, weather: sky.weather, moon: sky.moon, wind: sky.wind,
     wxField: sky.field || null, wxGround: sky.ground || null, wxEvent: sky.event || null,
-    // Anything overhead, so a boat under a helicopter can see it. The same list the cockpit reads,
-    // asked at the hull rather than at the player.
-    contacts: aircraftNearCoord ? (aircraftNearCoord(at.x, at.y) || []) : [],
+    // Everything moving near her: aircraft overhead, the other boats on the water, the rigs on the
+    // waterfront road. Kept current by the sync's own clock (CONTACT_PUSH_MS); her own hull is
+    // dropped by its contact id.
+    contacts: worldContactsNear(at.x, at.y, 26, playerId != null ? 'boat_' + playerId : null),
+    // The towers past the window, the highway past it, and the region's colour grade: what the
+    // cockpit and the free camera are sent, so the basin from a boat is the same city.
+    ...farOf(at.x, at.y),
     // The people on the quay, so a boat coming alongside sees them as the cab and the cockpit do.
     actors: streetActors(at.x, at.y, RADIUS, playerId),
     // The fuel berths and covered slots in this window, which the seat marks on the water.
@@ -170,6 +174,8 @@ export function helmContext(boat, at, playerId = null) {
 }
 
 const clamp01 = (v) => Math.max(0, Math.min(1, Number(v ?? 1)));
+// The far view, sent with the window: it only changes as the window does.
+const farOf = (x, y) => ({ skyline: skylineNear(x, y, RADIUS), regions: nearbyRegions(x, y), roads: farRoadsNear(x, y, FAR_ROAD_R) });
 
 // ── `helm` ───────────────────────────────────────────────────────────────────
 //
@@ -313,7 +319,7 @@ export async function boatTake(player, arg) {
     if (!shed) return { type: 'error', message: `${boat.name || 'She'} is on a cradle and there is no covered dock here to crane her into.` };
     const r = await query('SELECT count(*)::int AS n FROM boats WHERE berth_zone = $1', [shed.id]);
     if ((r.rows[0]?.n ?? 0) >= berthCapacity(shed)) return { type: 'error', message: 'The covered dock is full. Nothing can be craned in until a slot frees up.' };
-    const fee = MOVE_IN.covered;
+    const fee = Math.round(MOVE_IN.covered * rateAt(shed));
     if ((player.credits ?? 0) < fee) return { type: 'error', message: `The crane is ₵${fee.toLocaleString()} and you have ₵${(player.credits ?? 0).toLocaleString()}.` };
     await adjustCredits(player, -fee, query, 'berth fee');
     await query(`UPDATE boats SET berth_zone = $1, custom_data = jsonb_set(COALESCE(custom_data, '{}'::jsonb), '{home_berth}', to_jsonb($1::text), true) WHERE id = $2`, [shed.id, boat.id]);
@@ -365,6 +371,8 @@ export async function applyLive(player, boatId, { hull = null, cd = null, name =
 // and it is one comparison rather than a second model of the boat.
 // How often the seat is sent who is standing on the quay: between the cab's 1 s and the flight's 3 s.
 const ACTOR_PUSH_MS = 2000;
+// And who is moving near her, at the cab's cadence.
+const CONTACT_PUSH_MS = 1000;
 export async function cmdBoatSync(args = [], raw, player) {
   const id = aboard.get(player.id) || await recoverAboard(player);
   if (!id) return null;                                    // silent: the pane can outlive the seat
@@ -407,13 +415,20 @@ export async function cmdBoatSync(args = [], raw, player) {
     const sky = skyState(cx, cy) || {};
     sendToPlayer(player.id, { type: 'boat_ctx', gx: cx, gy: cy, map: mapWindow({ grid_x: cx, grid_y: cy }, RADIUS),
       hour: sky.hour, weather: sky.weather, wxField: sky.field || null, wxGround: sky.ground || null,
-      contacts: aircraftNearCoord ? (aircraftNearCoord(cx, cy) || []) : [],
+      contacts: worldContactsNear(cx, cy, 26, 'boat_' + player.id), ...farOf(cx, cy),
       actors: streetActors(cx, cy, RADIUS, player.id), marks: berthMarksNear(cx, cy) });
-    was.actAt = Date.now();
+    was.actAt = Date.now(); was.conAt = Date.now();
   } else if (Date.now() - (was.actAt || 0) > ACTOR_PUSH_MS) {
     // The street population on its own clock: people walk while the window stays put. RAM only.
     was.actAt = Date.now();
     sendToPlayer(player.id, { type: 'boat_ctx', actors: streetActors(was.mapX, was.mapY, RADIUS, player.id) });
+  }
+  // ⚠ WHAT IS MOVING, ON ITS OWN FASTER CLOCK. Contacts used to ride only the recentre, every eight
+  // tiles, so an aircraft seen from a boat stood still where it had been when the window last moved.
+  // RAM only; the client dead-reckons between pushes.
+  if (Date.now() - (was.conAt || 0) > CONTACT_PUSH_MS) {
+    was.conAt = Date.now();
+    sendToPlayer(player.id, { type: 'boat_ctx', contacts: worldContactsNear(was.x, was.y, 26, 'boat_' + player.id) });
   }
   svcTick(player, was);
 

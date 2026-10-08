@@ -29,7 +29,7 @@ import { sendToPlayer } from '../../server/engine/messaging.js';
 import { query } from '../../server/models/db.js';
 import { prefersLoggedPanelsOrDefault } from '../../server/engine/presentation.js';
 import { BOAT_TYPES, TYPES } from '../../client/game/js/panels/flight-model.js';
-import { berthKind, berthCapacity, berthsNear, zonesNear, hullBand, REFIT_CAP, aboard, sweepBoatRentals, isOpenWater, MOVE_IN } from './yard.js';
+import { berthKind, berthCapacity, berthsNear, zonesNear, hullBand, REFIT_CAP, aboard, sweepBoatRentals, isOpenWater, MOVE_IN, rateAt } from './yard.js';
 import { boatRental, boatRentalLeft, fmtLeft, boatRentFee, BOAT_RENT_TERM_MS, boatServiceSheet, boatLiveryOf, schemeOf,
   BOAT_SCHEMES, BOAT_DECALS, BOAT_PAINT_PRICE, BOAT_DECAL_PRICE } from './service.js';
 import { tankPrice } from './fuel.js';
@@ -121,6 +121,10 @@ export async function marinaPanel(player, zoneId, tab = 'fleet') {
   // is correct and reads as a dead button. Whether you can get in her is `berth_zone === here`,
   // whether you can drive her is `aboard`, and both of those are answers this file already has.
   const seated = aboard.get(player.id) || null;
+  // This yard's rate against the list (yard.js `yardRate`), so the screen quotes what the work
+  // will actually cost here.
+  const rate = rateAt(...yard.zones);
+  const rated = (n) => Math.round(n * rate);
   // A HIRE THAT HAS RUN OUT IS GONE BEFORE THE HAND IS DEALT — service.js's lazy clock.
   const wentBack = await sweepBoatRentals(player.id);
   if (wentBack.length) sendToPlayer(player.id, { type: 'emote', message: `<span class="text-dim">The hire desk has taken back ${wentBack.join(' and ')}: the time ran out.</span>` });
@@ -149,7 +153,7 @@ export async function marinaPanel(player, zoneId, tab = 'fleet') {
       inYard: !!b.berth_zone && yard.zones.some((y) => y.id === b.berth_zone),
       rental: boatRental(b) ? { left: boatRentalLeft(b), leftText: fmtLeft(boatRentalLeft(b)) } : null,
       // ── the bench half ── her wear, her paint, and the live fuel when she is the one under you.
-      svc: boatServiceSheet(b.type_id, b.custom_data || {}),
+      svc: ratedSheet(boatServiceSheet(b.type_id, b.custom_data || {}), rated),
       scheme: schemeOf(b.custom_data), decal: b.custom_data?.livery?.decal || 'none',
       liveFuel: seated === b.id ? pct(rigs.get(player.id)?.fuel ?? b.fuel) : null,
       fillPrice: Math.round(tankPrice(b.type_id) * (1 - pct(seated === b.id ? (rigs.get(player.id)?.fuel ?? b.fuel) : b.fuel))),
@@ -198,10 +202,10 @@ export async function marinaPanel(player, zoneId, tab = 'fleet') {
       afford: Number(player.credits || 0) >= boatRentFee(t) })) : [],
     hasRental: mine.rows.some((b) => boatRental(b)),
     // What `boat take` charges to crane a hull off a cradle into the covered dock (yard.js MOVE_IN).
-    craneFee: MOVE_IN.covered,
+    craneFee: rated(MOVE_IN.covered),
     // The shipwright's shelf: schemes, decals and what each costs, as facts.
     schemes: BOAT_SCHEMES.map((s) => ({ id: s.id, label: s.label, livery: s.livery })),
-    decals: BOAT_DECALS, paintPrice: BOAT_PAINT_PRICE, decalPrice: BOAT_DECAL_PRICE,
+    decals: BOAT_DECALS, paintPrice: rated(BOAT_PAINT_PRICE), decalPrice: rated(BOAT_DECAL_PRICE),
     // What a refit can reach HERE, which is the entire economic argument for paying for a roof.
     refitCap: capHere(yard.zones),
   };
@@ -213,6 +217,11 @@ function skyOver(here) {
   if (!here) return null;
   const g = (here.grid_x || here.grid_y) ? here : getZone(here.parent_zone) || here;
   try { return skyState(g.grid_x || 0, g.grid_y || 0) || null; } catch { return null; }
+}
+
+// A service sheet with this yard's prices on it. The sheet is built at list price in service.js.
+function ratedSheet(sheet, rated) {
+  return { ...sheet, full: rated(sheet.full), items: sheet.items.map((i) => ({ ...i, price: rated(i.price) })) };
 }
 
 function capHere(zones) {

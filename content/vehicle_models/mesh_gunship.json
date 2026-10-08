@@ -7,17 +7,18 @@
     "groundPitch": 0,
     "navLamps": [-0.04, 0.86, -0.0055],
     "hull": "fuselage",
+    "finish": "matte",
     "paints": {
-      "belly": { "rgb": [132, 138, 144], "livery": "base" },
-      "exhaust": { "rgb": [70, 64, 60], "livery": "fixed" },
-      "fan": { "rgb": [40, 42, 46], "livery": "fixed" },
-      "frame": { "rgb": [70, 74, 78], "livery": "trim" },
-      "glare": { "rgb": [36, 38, 40], "livery": "fixed" },
-      "gun": { "rgb": [44, 44, 46], "livery": "fixed" },
-      "hull": { "rgb": [118, 124, 130], "livery": "base" },
-      "metal": { "rgb": [150, 154, 160], "livery": "fixed" },
+      "belly": { "rgb": [138, 146, 150], "livery": "base" },
+      "exhaust": { "rgb": [70, 64, 60], "livery": "fixed", "mat": "exhaust" },
+      "fan": { "rgb": [40, 42, 46], "livery": "fixed", "mat": "steel" },
+      "frame": { "rgb": [58, 62, 64], "livery": "trim" },
+      "glare": { "rgb": [36, 38, 40], "livery": "fixed", "mat": "matte" },
+      "gun": { "rgb": [44, 44, 46], "livery": "fixed", "mat": "blued" },
+      "hull": { "rgb": [70, 82, 60], "livery": "base" },
+      "metal": { "rgb": [150, 154, 160], "livery": "fixed", "mat": "bare" },
       "store": { "rgb": [74, 84, 64], "livery": "fixed" },
-      "trim": { "rgb": [88, 94, 100], "livery": "trim" }
+      "trim": { "rgb": [92, 102, 80], "livery": "trim" }
     },
     "parts": [
       {

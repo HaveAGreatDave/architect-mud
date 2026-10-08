@@ -18,12 +18,15 @@ import { paintVehicleCard, paintSlotCard, cardStyleFor, cardSeed, ensureCardStyl
 import { updateHangarAmbience, stopHangarAmbience } from './hangar-ambience.js';
 import { suppressWeatherFx } from './weather-fx.js';
 import { drawWireframe3D, drawKnob, drawPerfRadar, themeColor, rgbTriplet } from './wireframe-plane.js';
-import { showConfirmDialog } from './confirm.js';
 import { openColorPicker, closeColorPicker } from './color-picker.js';
 import { compactHidePanel } from '../../../shared/compact-view.js';
 import { liveriesFor } from '../../../shared/livery-sets.js';
 import { shellProfileFor } from '../../../shared/interior-shell.js';
 import { loadWindshield, isLoaded as windshieldLoaded, paintWindshield, disposeWindshield, glWorldInstalled, RENDER_TUNE } from './windshield-lazy.js';
+import { ensureDepotStyles, headHtml, jobsHtml, mountBay, setBayOpen, bayHtml, leaveHtml, bayChipHtml,
+  armHolds, shellClick, clearViewModes, noteAct, notePush } from './depot-shell.js';
+import { SHOTS } from './camera-tween.js';
+import { garageBed } from './garage-ambience.js';
 
 let B = null;       // { data, screen, selId, work (paint edit copy) }
 let raf = null;      // shared spin/scene-draw loop
@@ -37,8 +40,15 @@ export function isHangarBayActive() { return !!document.getElementById('hb-root'
 // flight sim — it must own W/A/S/D: the MUD's wasd-move (main.js) and the type-anywhere
 // auto-focus (input.js) both check this and stand down while it's up.
 export function isHangarBayWalkActive() {
-  return !!(B && B.screen === 'inspect' && (B.inspect?.mode || 'walk') === 'walk');
+  return !!(B && !B.service && B.screen === 'inspect' && (B.inspect?.mode || 'walk') === 'walk');
 }
+
+// ⚠ THE COCKPIT IS ASKED FOR, NEVER IMPORTED. A static import would pull cockpit.js and GLASS
+// with it (about 3 MB) to show a menu, which is why lazy-views.js loads this file without wiring
+// the renderer. The bench only docks on a cockpit that is already open, so by then the module is
+// loaded and this resolves from the cache.
+let CK = null;
+const cockpit = () => (CK ? Promise.resolve(CK) : import('./cockpit.js').then((m) => (CK = m)));
 
 // ── Entry points (dispatch.js wires these to the server pushes) ───────────────
 export function openHangarBay(data) {
@@ -46,7 +56,13 @@ export function openHangarBay(data) {
   // already-open bay — if the panel is closed, ignore it rather than popping the
   // 3D hangar open over whatever the player is actually looking at (the tablet).
   if (data?.refreshOnly && !B) return;
+  // Sitting in her on the hangar floor: the bench docks on the cockpit (see THE SERVICE BAY).
+  if (data?.service) return void openService(data);
+  // A pane push while the bench is docked (a 'hangar' typed from the seat) leaves the bench where
+  // it is: the pane is the cockpit's while you are sitting in her.
+  if (B?.service) return;
   const freshOpen = !B;
+  const spentFrom = freshOpen ? null : B.data?.credits;
   // Snap the top pane back to its default auto size so the whole hangar UI fits the
   // interface, regardless of any manual drag height left on the previous room look.
   if (freshOpen) document.getElementById('area-pane')?.dispatchEvent(new CustomEvent('lookpaneauto'));
@@ -54,7 +70,7 @@ export function openHangarBay(data) {
   // a phone screen, and the scrollback takes the rest. Only on a FRESH open, which is what stops a
   // background refresh (a remote tablet sale) re-asserting it over a player who reopened the log.
   // The buttons light themselves off the body class at render, so there is nothing to pass here.
-  if (freshOpen) compactHidePanel('hb-hidepanel');
+  if (freshOpen) compactHidePanel('ds-hidepanel');
   // The bay draws its own weather (the ambience bed, lightning through the doors). The outdoor
   // rain overlay on top is wrong, and a second full-pane canvas redrawn every frame.
   suppressWeatherFx(true, 'hangar');
@@ -70,11 +86,14 @@ export function openHangarBay(data) {
     B.selId = null; if (B.screen === 'bench') B.screen = 'floor';
   }
   ensureStyles();
+  ensureDepotStyles();
   ensureCardStyles();
   render();
+  if (spentFrom != null) notePush(document.getElementById('hb-root'), spentFrom, B.data.credits);
 }
 
 export function openCharterScreen(data) {
+  if (B?.service) return;
   if (!B) openHangarBay({});
   charterData = data;
   charterAny = !!data?.vtolOnly;   // a VTOL-only pad (the Echelon) is Dragonfly-from-the-start
@@ -82,25 +101,94 @@ export function openCharterScreen(data) {
   render();
 }
 
-export function closeHangarBay() {
+// ── THE SERVICE BAY ──────────────────────────────────────────────────────────
+// Sitting in her on the hangar floor (`hangaract service`), the bench is an overlay on the cockpit
+// rather than a pane app, the way the depot's is on the cab (truck-depot.js) and the shipwright's on
+// the helm (marina-panel.js): the shell's bay (depot-shell.js) on the cockpit's glass. The camera is
+// outside her and IS the preview: the working paint rides to it through cockpitPreview, nothing is
+// charged until Apply, and each job swings the camera to the part it works on. "Taxi out" folds the
+// bench and puts you in the seat. On a field with no GLASS hangar she is out on her pad, and the
+// bench works on her there.
+//
+// ⚠ THE SERVER DECIDES WHEN THIS IS UP. pushHangarBay sends `service` while she is on the hangar
+// floor with you aboard (hangars.js servicedCraft); every bench verb re-pushes, or is re-fetched,
+// and lands back here. The bench goes when the cockpit does (`fsim:closed`) or when she rolls.
+function openService(data) {
+  cockpit().then((ck) => {
+    const host = ck.cockpitServiceHost();
+    // No cockpit under it (a text pilot, or the seat already shut): the pane bench is the fallback.
+    if (!host) { openHangarBay({ ...data, service: false, select: data.serviceId }); return; }
+    const was = B?.service ? B : null;
+    // Coming from the counter: it held the pane, and the cockpit has it now.
+    if (B && !B.service) dropPane();
+    const c = (data.craft || []).find((x) => x.id === data.serviceId);
+    B = { screen: 'bench', service: true, selId: data.serviceId, data,
+      benchTab: was?.benchTab, paintTab: was?.paintTab, kitSel: was?.kitSel, open: was ? was.open : true,
+      shot: was?.shot, view: was?.view ?? null,
+      // The working copy survives a re-push (every Apply sends one) unless the bench is new.
+      work: was && was.selId === data.serviceId && was.work ? was.work : (c ? { ...c.livery } : null),
+      tune: was?.tune || null, tuneFor: was?.tuneFor || null };
+    ensureStyles();
+    ensureDepotStyles();
+    if (!was) garageBed(data.hangar ? 'hangar' : null);
+    render();
+    if (was) notePush(document.getElementById('hb-svc'), was.data?.credits, data.credits);
+    watchRoll(ck);
+  }).catch(() => { /* no cockpit module, no bench to dock */ });
+}
+// The seat's own close takes the bench with it.
+window.addEventListener('fsim:closed', () => { if (B?.service) closeHangarBay(); });
+
+// ⚠ AND SO DOES ROLLING. Nothing on the server re-checks "on the hangar floor" while you sit in her
+// (there is no flight sync with the engine off), so the bench watches the cockpit: once she is moving
+// under her own power she has left the bay, and the bench goes for good.
+let rollT = 0;
+function watchRoll(ck) {
+  clearInterval(rollT);
+  rollT = setInterval(() => {
+    if (!B?.service) { clearInterval(rollT); rollT = 0; return; }
+    if (ck.cockpitRolling?.()) closeHangarBay();
+  }, 500);
+}
+
+function dropPane() {
   closeColorPicker({ silent: true });
   suppressWeatherFx(false, 'hangar');
   stopHangarAmbience();   // the render loop drove the weather bed; it stops now, so silence it
-  document.body.classList.remove('hb-fullscreen', 'hb-hidepanel');   // drop the immersive layout so the room look isn't left with the log/command box hidden
+  clearViewModes();       // drop the immersive layout so the room look isn't left with the log/command box hidden
   window.dispatchEvent(new Event('pane:released'));  // hand the collapsed pane back to the phone layout
   if (raf) { cancelAnimationFrame(raf); raf = null; }
   dropSeat();
-  B = null; charterData = null;
   // Tear the panel out of the pane immediately rather than leaving it (with its
   // now-dead click handlers) on screen until whatever look/move follows renders.
-  const root = document.getElementById('hb-root');
-  if (root) root.remove();
+  document.getElementById('hb-root')?.remove();
+}
+
+export function closeHangarBay() {
+  if (B?.service) {
+    closeColorPicker({ silent: true });
+    clearInterval(rollT); rollT = 0;
+    garageBed(null);
+    // Hand the camera back, and swap the working copy for her paint as the server last sent it: a
+    // colour only looked at is never the one she flies in. ⚠ NOT NULL: the cockpit was opened with
+    // the livery she had when you climbed in, and nothing pushes a respray to an open cockpit
+    // (flight_ctx carries no own-ship livery), so null would put the OLD paint back on her for the
+    // rest of the flight. closeFlightSim clears the preview when the flight ends.
+    const view = B.view, c = (B.data?.craft || []).find((x) => x.id === B.selId);
+    if (CK) { try { CK.cockpitPreview({ livery: c?.livery || null }); if (view) CK.cockpitView(view); } catch { /* the seat can already be gone */ } }
+    document.getElementById('hb-svc')?.remove();
+    B = null; charterData = null;
+    return;
+  }
+  dropPane();
+  B = null; charterData = null;
 }
 
 // Escape backs out one screen at a time (matches the header/toolbar back button);
 // bound once at module load, not per-render, so it never stacks up duplicate handlers.
+// The docked bench leaves Escape to the cockpit, which uses it to release the stick.
 window.addEventListener('keydown', (e) => {
-  if (!B || e.key !== 'Escape') return;
+  if (!B || B.service || e.key !== 'Escape') return;
   if (B.screen !== 'floor') { go('floor'); } else if (B.data?.inHangar) { sendCmdSilent(B.data.exitDir || 'out'); } else { closeHangarBay(); sendCmdSilent('look'); }
 });
 
@@ -121,27 +209,33 @@ function tbtn(icon, label, attrs = '', cls = '') {
 
 // ── Floor ───────────────────────────────────────────────────────────────────
 // THE FLOOR IS A HAND OF CARDS, the depot's and the marina's (vehicle-card.js). One card per
-// craft here — tap it and you're at her side in the maintenance bay — then the charter, then a
-// slot to buy or rent. What else you can do to a craft from the floor is the strip under her card.
-// The 3-D room is where the work happens (the bench), so the floor doesn't draw a second one.
+// craft here, then the charter, then a slot to buy or rent. THE CARD SEATS YOU, as theirs do: she
+// is boarded on the hangar floor (her pad, where the field has no hangar) with the bench on the
+// cockpit and the camera outside her. A pilot without a licence can't take the seat, so for them
+// the card opens the bench here in the pane, with its own 3-D stage. What else you can do to a
+// craft from the floor is the strip under her card; what can't be undone there is held.
 function floorScreen() {
   const d = B.data, craft = (d.craft || []).filter(c => !c.wreck);
   const pilot = d.pilot || { present: false };
   const pumps = d.fuelStocks || [];
+  const seated = d.cockpitBench && (d.licensed || d.isAdmin);
   const cards = craft.map(c => {
     const style = cardStyleFor(c.id);
     const badge = c.rental ? '<span class="vc-badge hired">RENTAL</span>'
       : `<span class="vc-badge owned">${c.location === 'hangar' ? 'IN BAY' : 'ON RAMP'}</span>`;
     const hull = Math.max(0, Math.min(100, c.hullPct));
     const acts = [
-      tbtnMini('Fly', `data-act="embark" data-tail="${esc(c.tail)}"`, 'vc-go'),
+      tbtnMini('Fly', `data-act="embark" data-id="${esc(c.id)}" data-tail="${esc(c.tail)}"`, 'vc-go'),
       pumps.includes(c.fuelType) && c.fuelPct < 100 ? tbtnMini(`Refuel · ${c.fuelPct}%`, `data-act="refuel" data-id="${esc(c.id)}"`) : '',
       d.hasBay && c.location === 'ramp' ? tbtnMini('Store', `data-act="store" data-id="${esc(c.id)}"`) : '',
       d.hasBay && c.location === 'hangar' ? tbtnMini('Roll out', `data-act="pull" data-id="${esc(c.id)}"`) : '',
-      c.rental ? tbtnMini('Return', `data-act="cancel_rental" data-id="${esc(c.id)}"`) : tbtnMini('Sell', `data-act="sell" data-id="${esc(c.id)}"`),
+      c.rental ? tbtnMini('Return', `data-hold="cancelrental ${esc(c.id)}" title="Hand her back: the rental ends here"`)
+        : tbtnMini('Sell', `data-hold="sell ${esc(c.id)}" title="Sell her outright: this can't be undone"`),
     ].filter(Boolean).join('');
     return `<div class="vc-wrap">
-      <button class="vc-card ${style}" data-act="bench" data-id="${esc(c.id)}" aria-label="${esc(`${c.tail}, ${c.typeName}: open maintenance`)}" title="Maintenance, paint and tuning">
+      <button class="vc-card ${style}" data-act="${seated ? 'service' : 'bench'}" data-id="${esc(c.id)}"
+          aria-label="${esc(`${c.tail}, ${c.typeName}: ${seated ? 'climb in and work on her' : 'open maintenance'}`)}"
+          title="${seated ? (d.hangar ? 'Climb in on the hangar floor: the bench comes with you' : 'Climb in where she stands: the bench comes with you') : 'Maintenance, paint and tuning'}">
         <canvas class="vc-cv" data-card="${esc(c.id)}" aria-hidden="true"></canvas>
         ${badge}
         <span class="vc-plate"><b>${esc(c.tail)}</b><span class="vc-sub">${esc(c.typeName)} · fuel ${c.fuelPct}%</span>
@@ -172,7 +266,7 @@ function floorScreen() {
   ].join('');
   const hint = craft.length ? '' : `<div class="hb-hint">No aircraft of yours are here yet.${d.canBuy || d.canRent ? '' : ' There\'s no dealer or rental desk at this field either.'}</div>`;
   return `<div class="hb-hand-col hb-thin">${hint}<div class="vc-hand">${cards}${charter}${slots}</div></div>
-    <div class="hb-toolbar"><div class="hb-tb-group hb-tb-right">${tbtn('⏻', d.inHangar ? 'Exit Hangar' : 'Close', 'data-act="close"', 'hb-close')}</div></div>`;
+    `;
 }
 // A mesh craft's factory scheme rides on livery.variant; 'stock' means the file's own paint.
 const liveVariant = (lv) => (lv?.variant && lv.variant !== 'stock' ? lv.variant : '');
@@ -239,7 +333,7 @@ function inspectScreen() {
         <button class="hb-walk-btn" data-walk="dn" tabindex="-1">▼</button>
       </div>` : '';
   // Walk right up to the cockpit and this lights → tap/Enter to climb in (first-person embark).
-  const boardPrompt = (walk && !c.wreck) ? `<div class="hb-board" id="hb-board" data-act="embark" data-tail="${esc(c.tail)}">✈ BOARD</div>` : '';
+  const boardPrompt = (walk && !c.wreck) ? `<div class="hb-board" id="hb-board" data-act="embark" data-id="${esc(c.id)}" data-tail="${esc(c.tail)}">✈ BOARD</div>` : '';
   return `
     <div class="hb-floor">
       <canvas id="hb-inspect" class="hb-scene hb-inspect" tabindex="0"></canvas>
@@ -250,7 +344,7 @@ function inspectScreen() {
     </div>
     <div class="hb-toolbar">
       <div class="hb-tb-group">
-        ${!c.wreck ? tbtn('✈', 'Board', `data-act="embark" data-tail="${esc(c.tail)}"`, 'hb-accent hb-go') : ''}
+        ${!c.wreck ? tbtn('✈', 'Board', `data-act="embark" data-id="${esc(c.id)}" data-tail="${esc(c.tail)}"`, 'hb-accent hb-go') : ''}
         ${tbtn('⇄', walk ? 'Walk' : 'Orbit', 'data-act="inspect-mode"')}
         ${tbtn('↺', 'Reset View', 'data-act="inspect-reset"')}
       </div>
@@ -470,7 +564,7 @@ function paintTabHtml(c, cat, dirty) {
     // A factory edition that a livery set wears gets that set's card and no card of its own, or the
     // booth shows it twice. Every authored set counts, locked ones too, so a locked set's edition
     // doesn't come back free as a bare edition card.
-    const setVariants = new Set(liveriesFor('aircraft', c.class).map(s => s.exterior?.variant).filter(Boolean));
+    const setVariants = new Set(liveriesFor('aircraft', c.liveryModel || c.class).map(s => s.exterior?.variant).filter(Boolean));
     if (mesh && specials.length) for (const t of specials) {
       if (setVariants.has(t.id)) continue;
       const [name, sub] = t.label.split(' · ');
@@ -737,7 +831,7 @@ function hiDpiCtx(cv, cssW, cssH) {
 // knob faces, the numeric read-outs, and the delta bars. Called after each render
 // and on every knob drag (cheap; only redraws canvases + a few text/width writes).
 function paintTuning() {
-  const root = document.getElementById('hb-root'); if (!root) return;
+  const root = benchRoot(); if (!root) return;
   const c = curCraft(); if (!c || !B.tune) return;
   // Resolve the live theme so the canvas instruments follow it: accent for the lit
   // arcs/traces, `face` (the dial's surface) for the machined metal, `ink` (the text
@@ -842,39 +936,7 @@ const STAGE_CAP = { hangar: 'IN THE HANGAR', ramp: 'ON THE RAMP', helipad: 'ON T
 function benchScreen() {
   const c = (B.data.craft || []).find(x => x.id === B.selId);
   if (!c) return '<div class="hb-empty">Pick an aircraft first.</div><div class="hb-toolbar"><button class="hb-btn" data-act="back">Back</button></div>';
-  if (!B.work) B.work = { ...c.livery };
-  const cat = B.data.catalog || { patterns: [], finishes: [], uphol: [] };
-  const dirty = JSON.stringify(B.work) !== JSON.stringify(c.livery);
-  const canTune = !c.wreck && !c.rental;
-  const hull = Math.max(0, Math.min(100, c.hullPct));
-  const lookName = (() => {
-    const lv = c.livery || {};
-    const st = (c.sets || []).find(x => LOOK_KEYS.every(k => x.look[k] == null || lv[k] === x.look[k]) && (lv.variant || 'stock') === (x.look.variant || 'stock'));
-    if (st) return st.name;
-    const sp = ((cat.trims || {})[c.class] || []).find(t => t.id === lv.variant && t.id !== 'stock');
-    return sp ? sp.label.split(' · ')[0] : 'custom';
-  })();
-  const tuned = TUNE_KEYS.some(k => Math.abs((c.tune || {})[k] || 0) > 0.001);
-  const fitted = (c.kitCatalog || []).filter(k => k.owned).length;
-  const cards = [
-    { id: 'hull', ico: '🔧', label: 'Repair', sub: `hull ${hull}%`, tone: barTone(hull / 100) },
-    { id: 'paint', ico: '🎨', label: 'Livery', sub: dirty ? 'unsaved changes' : lookName },
-    ...(c.hopperCap > 0 && !c.wreck ? [{ id: 'hopper', ico: '💧', label: 'Hopper', sub: `${Math.round((c.hopperAmount || 0) / c.hopperCap * 100)}%` }] : []),
-    ...(canTune ? [{ id: 'tuning', ico: '🎛', label: 'Tuning', sub: tuned ? 'tuned' : 'stock' },
-                   { id: 'kits', ico: '⚙', label: 'Kits', sub: `${fitted} fitted` }] : []),
-    ...(c.configurable ? [{ id: 'weight', ico: '⚖', label: 'Load', sub: `${c.seatsNow} seat${c.seatsNow === 1 ? '' : 's'}` }] : []),
-  ];
-  if (!cards.some(t => t.id === B.benchTab)) B.benchTab = cards[0].id;
-  const row = `<div class="hb-jobs">${cards.map(t => `<button class="hb-job${t.id === B.benchTab ? ' on' : ''}" data-bench-tab="${t.id}">
-      <span class="hb-job-ico" aria-hidden="true">${t.ico}</span><b>${esc(t.label)}</b><span class="hb-job-sub${t.tone ? ' ' + t.tone : ''}">${esc(t.sub)}</span></button>`).join('')}</div>`;
-
-  const body = B.benchTab === 'hull' ? hullTabHtml(c)
-    : B.benchTab === 'hopper' ? hopperTabHtml(c)
-    : B.benchTab === 'tuning' ? tuningTabHtml(c)
-    : B.benchTab === 'kits' ? kitsTabHtml(c)
-    : B.benchTab === 'weight' ? weightTabHtml(c)
-    : paintTabHtml(c, cat, dirty);
-
+  const { jobs, body } = benchParts(c);
   const venue = stageVenue(c);
   const booth = boothOn(), seat = seatOn();
   if (!seat) dropSeat();
@@ -895,56 +957,172 @@ function benchScreen() {
         ${radar}
       </div>
       <div class="hb-bay2-side">
-        ${row}
+        ${jobs}
         <div class="hb-bench-tabbody hb-thin" data-tabkey="${B.benchTab}">${body}</div>
       </div>
     </div>
     <div class="hb-toolbar">
       <div class="hb-tb-group">
-        ${!c.wreck ? tbtn('✈', 'Fly', `data-act="embark" data-tail="${esc(c.tail)}"`, 'hb-accent hb-go') : ''}
+        ${!c.wreck ? tbtn('✈', 'Fly', `data-act="embark" data-id="${esc(c.id)}" data-tail="${esc(c.tail)}"`, 'hb-accent hb-go') : ''}
         ${tbtn('◉', 'Walk round', 'data-act="inspect"')}
       </div>
       <div class="hb-tb-group hb-tb-right">${tbtn('‹', 'Back', 'data-act="back"')}</div>
     </div>`;
 }
 
+// THE BENCH'S JOBS AND THE PAGE UNDER THEM, for either home: the pane's bench (beside the 3-D
+// stage) and the bench docked on the cockpit (where the cockpit's own camera is the stage). Each
+// job's tile says what is waiting behind it, in the shell's tile (depot-shell.js jobsHtml).
+function benchParts(c) {
+  if (!B.work) B.work = { ...c.livery };
+  const cat = B.data.catalog || { patterns: [], finishes: [], uphol: [] };
+  const dirty = JSON.stringify(B.work) !== JSON.stringify(c.livery);
+  const canTune = !c.wreck && !c.rental;
+  const hull = Math.max(0, Math.min(100, c.hullPct));
+  const lookName = (() => {
+    const lv = c.livery || {};
+    const st = (c.sets || []).find(x => LOOK_KEYS.every(k => x.look[k] == null || lv[k] === x.look[k]) && (lv.variant || 'stock') === (x.look.variant || 'stock'));
+    if (st) return st.name;
+    const sp = ((cat.trims || {})[c.class] || []).find(t => t.id === lv.variant && t.id !== 'stock');
+    return sp ? sp.label.split(' · ')[0] : 'custom';
+  })();
+  const tuned = TUNE_KEYS.some(k => Math.abs((c.tune || {})[k] || 0) > 0.001);
+  const tuneDirty = B.tune && B.tuneFor === c.id && TUNE_KEYS.some(k => Math.abs((B.tune[k] || 0) - ((c.tune || {})[k] || 0)) > 0.001);
+  const fitted = (c.kitCatalog || []).filter(k => k.owned).length;
+  const cards = [
+    { id: 'hull', ico: '🔧', label: 'Repair', sub: `hull ${hull}%`, tone: hull >= 98 ? 'ok' : barTone(hull / 100) },
+    { id: 'paint', ico: '🎨', label: 'Livery', sub: dirty ? 'unsaved' : lookName, tone: dirty ? 'hot' : '' },
+    ...(c.hopperCap > 0 && !c.wreck ? [{ id: 'hopper', ico: '💧', label: 'Hopper', sub: `${Math.round((c.hopperAmount || 0) / c.hopperCap * 100)}%` }] : []),
+    ...(canTune ? [{ id: 'tuning', ico: '🎛', label: 'Tuning', sub: tuneDirty ? 'unsaved' : tuned ? 'tuned' : 'stock', tone: tuneDirty ? 'hot' : '' },
+                   { id: 'kits', ico: '⚙', label: 'Kits', sub: `${fitted} of ${(c.kitCatalog || []).length}` }] : []),
+    ...(c.configurable ? [{ id: 'weight', ico: '⚖', label: 'Load', sub: `${c.seatsNow} seat${c.seatsNow === 1 ? '' : 's'}` }] : []),
+  ];
+  if (!cards.some(t => t.id === B.benchTab)) B.benchTab = cards[0].id;
+  const body = B.benchTab === 'hull' ? hullTabHtml(c)
+    : B.benchTab === 'hopper' ? hopperTabHtml(c)
+    : B.benchTab === 'tuning' ? tuningTabHtml(c)
+    : B.benchTab === 'kits' ? kitsTabHtml(c)
+    : B.benchTab === 'weight' ? weightTabHtml(c)
+    : paintTabHtml(c, cat, dirty);
+  return { jobs: jobsHtml(cards, B.benchTab, 'data-bench-tab'), body, dirty };
+}
+
 // ── Render dispatch ─────────────────────────────────────────────────────────
+// The counter's screens and their head: the two you choose between are in the head's segment; the
+// rest (the bench, the walk-round, the charter map) are reached from a card and go back to it.
+const COUNTER_TITLE = { floor: 'Your aircraft', buyrent: 'Buy or rent', bench: 'Maintenance', inspect: 'Walk round', charter: 'Charter' };
 function render() {
   if (!B) return;
   // setAreaPane rebuilds #hb-root, so drop any live colour popover first — otherwise
   // cpState would point at a detached node (it no longer self-closes on outside click).
   closeColorPicker({ silent: true });
+  if (B.service) { renderService(); return; }
   const d = B.data || {};
-  const title = B.screen === 'charter' ? 'CHARTER' : B.screen === 'buyrent' ? 'BUY / RENT' : B.screen === 'bench' ? 'MAINTENANCE' : B.screen === 'inspect' ? 'INSPECT' : 'HANGAR BAY';
   const body = B.screen === 'charter' ? charterScreen() : B.screen === 'buyrent' ? buyRentScreen() : B.screen === 'bench' ? benchScreen() : B.screen === 'inspect' ? inspectScreen() : floorScreen();
-  // A persistent back button lives in the header itself (not just the bottom
-  // toolbar) on every non-floor screen — always visible, never scrolled out of view.
-  const backBtn = B.screen !== 'floor' ? `<button class="hb-back" data-act="back" title="Back to the hangar floor">‹ Hangar</button>` : '';
-  // Immersive view toggles — the same pair the flight sim carries: ⊟ folds away the
-  // scrollback log (command box stays), ⛶ fills the whole column. Their lit state is
-  // read off the body class so it survives every re-render.
-  const fs = document.body.classList.contains('hb-fullscreen'), hp = document.body.classList.contains('hb-hidepanel');
-  const viewBtns = `<span class="hb-viewbtns">
-      <button class="hb-viewbtn${hp ? ' on' : ''}" data-act="hidepanel" title="hide the text panel, more hangar view">⊟</button>
-      <button class="hb-viewbtn${fs ? ' on' : ''}" data-act="fullscreen" title="fullscreen">⛶</button>
-    </span>`;
-  setAreaPane(`<div id="hb-root">
-    <div class="hb-head">${backBtn}<span class="hb-title">✈ ${title}: ${esc(d.field || '')}</span>
-      <span class="hb-credits">₵ ${d.credits ?? 0}</span>${viewBtns}</div>
+  const screens = [['floor', 'Your aircraft', '✈'], ...(d.canBuy || d.canRent ? [['buyrent', d.canBuy && d.canRent ? 'Buy or rent' : d.canBuy ? 'Buy' : 'Rent', '⊕']] : [])];
+  const top = B.screen === 'floor' || B.screen === 'buyrent';
+  setAreaPane(`<div id="hb-root" class="ds-root ds-counter hb-scope" role="region" aria-label="${esc(d.field || 'Hangar')}">
+    ${headHtml({ ico: '✈', title: d.field || 'Hangar', sub: top ? '' : COUNTER_TITLE[B.screen], credits: d.credits,
+      screens: top ? screens : null, screen: B.screen, back: top ? '' : 'Hangar' })}
     <div class="hb-body">${body}</div>
   </div>`);
+  const root = document.getElementById('hb-root');
+  root.addEventListener('click', onShellClick);
   wire();
+  armHolds(root, sendCmdSilent);
   startSpin();
   if (B.screen === 'floor') { requestAnimationFrame(paintFloorCards); watchSize(); }
   // The tuning radar/knobs/bars aren't part of startSpin's canvas set — draw them
   // once here after the DOM is built; knob drags repaint them on the fly.
-  // The bench no longer scrolls as a page (the tab body is the only scroll region, and
-  // only as a last resort), so the stage needs no sticky offset measuring any more.
   if (B.screen === 'bench' && B.benchTab === 'tuning') paintTuning();
 }
 
+// The shell's keys: the head's screens, back, close, the two view toggles, and the docked bench's
+// fold and unfold. Closing from inside the walk-in hangar walks you out of it (the move closes the
+// panel from the server side); from the open ramp it just puts the panel away.
+function onShellClick(e) {
+  if (!B) return;
+  // Every key here sends its verb from its own handler; this remembers which one it was, so the
+  // purchase moment can name what the money went on when the push comes back (depot-shell notePush).
+  const key = e.target.closest?.('button');
+  if (key && !key.closest('[data-ds]')) noteAct(key);
+  shellClick(e, {
+    screen: (s) => go(s),
+    back: () => go('floor'),
+    close: () => { if (B.data.inHangar) sendCmdSilent(B.data.exitDir || 'out'); else { closeHangarBay(); sendCmdSilent('look'); } },
+    fold: () => { B.open = false; render(); },
+    open: () => { B.open = true; render(); },
+  });
+}
+
+// ── The bench on the cockpit ─────────────────────────────────────────────────
+// The bench's jobs and pages in the shell's bay, on the cockpit's glass. The cockpit's chase camera
+// is the stage: each job swings it to the part it works on, the livery's Cabin page sits you in the
+// seat to see a retrim where it is worn, and the working paint rides on her until it is applied.
+const SHOT_FOR = { hull: 'quarter', paint: 'quarter', hopper: 'side', tuning: 'low', kits: 'front', weight: 'high' };
+function renderService() {
+  const ck = CK;
+  const host = ck?.cockpitServiceHost();
+  if (!host) { closeHangarBay(); return; }
+  const el = mountBay(host, 'hb-svc', { click: onShellClick });
+  setBayOpen(el, B.open, 'hb-scope');
+  const d = B.data || {}, c = (d.craft || []).find(x => x.id === B.selId);
+  if (!B.open || !c) {
+    el.innerHTML = bayChipHtml(`⚙ ${d.field || 'Hangar'} · the bench`);
+    syncCockpitView(ck, null, c);
+    return;
+  }
+  const { jobs, body } = benchParts(c);
+  const radar = B.benchTab === 'tuning' ? '<canvas id="hb-perf-radar" class="hb-svc-radar" width="220" height="200"></canvas>' : '';
+  el.innerHTML = bayHtml({
+    ico: '⚙', title: d.field || 'Hangar', sub: `${c.tail} · ${c.typeName}`, credits: d.credits,
+    actions: leaveHtml('Taxi out'),
+    notes: c.rental ? '<div class="ds-note hire">Rental · maintenance is bundled in; she flies stock</div>' : '',
+    jobs,
+    body: `<div class="hb-bench-tabbody" data-tabkey="${B.benchTab}">${radar}${body}</div>`,
+    foot: d.hangar ? 'Start up and roll at the door and it lifts. The bench goes when she moves.' : 'The bench goes when she moves.',
+  });
+  wire();
+  armHolds(el, sendCmdSilent);
+  if (B.benchTab === 'tuning') paintTuning();
+  syncCockpitView(ck, B.open ? B.benchTab : null, c);
+}
+
+// Which camera, and what is on her. Outside on every job but the livery's Cabin page; the shot only
+// moves on a change of job, so a re-push after a purchase leaves the camera where the pilot put it.
+function syncCockpitView(ck, tab, c) {
+  if (!ck) return;
+  try {
+    if (!tab) {
+      if (B.view) { ck.cockpitView(B.view); B.view = null; }
+      B.shot = null;
+      // Folded, she wears what she has been painted (see closeHangarBay for why not null).
+      ck.cockpitPreview({ livery: c?.livery || null });
+      return;
+    }
+    const inside = tab === 'paint' && B.paintTab === 'cabin';
+    if (B.view == null) B.view = ck.cockpitView();
+    const shot = inside ? 'cab' : (tab === 'paint' && B.paintTab === 'paint' ? 'side' : SHOT_FOR[tab] || 'quarter');
+    if (shot !== B.shot) {
+      if (inside) ck.cockpitView('cab');
+      else {
+        // In a GLASS hangar the eye stays at the standoff (the renderer clamps a smaller zoom to it).
+        const s = SHOTS[shot];
+        ck.cockpitFrame(B.data.hangar ? { ...s, zoom: 0.01 } : s, B.shot == null ? 900 : 700);
+      }
+      B.shot = shot;
+    }
+    // The work copy itself, not a snapshot: the colour wheel writes into it as it drags, and the
+    // renderer reads the preview every frame, so she changes colour under the cursor.
+    ck.cockpitPreview({ livery: c ? B.work : null });
+  } catch { /* a cockpit without the hooks is a cockpit without the preview */ }
+}
+
+// The live bench: docked on the cockpit, or the counter in the pane.
+const benchRoot = () => document.getElementById(B?.service ? 'hb-svc' : 'hb-root');
+
 function wire() {
-  const root = document.getElementById('hb-root'); if (!root) return;
+  const root = benchRoot(); if (!root) return;
   const on = (sel, ev, fn) => root.querySelectorAll(sel).forEach(el => el.addEventListener(ev, fn));
 
   on('[data-bench-tab]', 'click', (e) => { B.benchTab = e.currentTarget.getAttribute('data-bench-tab'); B.boothPick = null; render(); });
@@ -1062,23 +1240,7 @@ function wire() {
 
   on('[data-act]', 'click', (e) => {
     const act = e.currentTarget.getAttribute('data-act');
-    // Standing inside the walk-in hangar: "Exit" actually walks you back out to the
-    // ramp — the move fires zone.entered on the far side, which pushes `hangar_close`
-    // to dismiss the panel. The way out is whatever door the interior actually has
-    // (server-supplied exitDir; `out` on old hangars, a compass dir on rebuilt ones).
-    // Opened from the open ramp itself, there's no interior to leave, so just dismiss.
-    // Immersive view toggles (mirror the flight sim's ⛶/⊟): flip the body class the
-    // CSS reads, keep the two mutually exclusive, and re-light both buttons in place —
-    // no full render(), so the live 3D scene never blinks.
-    if (act === 'fullscreen' || act === 'hidepanel') {
-      const cls = act === 'fullscreen' ? 'hb-fullscreen' : 'hb-hidepanel';
-      const other = act === 'fullscreen' ? 'hb-hidepanel' : 'hb-fullscreen';
-      if (document.body.classList.toggle(cls)) document.body.classList.remove(other);
-      root.querySelector('[data-act="fullscreen"]')?.classList.toggle('on', document.body.classList.contains('hb-fullscreen'));
-      root.querySelector('[data-act="hidepanel"]')?.classList.toggle('on', document.body.classList.contains('hb-hidepanel'));
-      return;
-    }
-    if (act === 'close') { if (B.data.inHangar) sendCmdSilent(B.data.exitDir || 'out'); else { closeHangarBay(); sendCmdSilent('look'); } return; }
+    // (Close, back in the head and the two view toggles are the shell's: onShellClick.)
     if (act === 'back') { go('floor'); return; }
     if (act === 'buyrent') { go('buyrent'); return; }
     const idOf = () => e.currentTarget.getAttribute('data-id') || B.selId;
@@ -1100,7 +1262,18 @@ function wire() {
     if (act === 'inspect-mode') { if (B.inspect) B.inspect.mode = B.inspect.mode === 'walk' ? 'orbit' : 'walk'; inspectKeys.clear(); render(); return; }
     if (act === 'checkride') { sendCmdSilent('checkride'); closeHangarBay(); return; }
     if (act === 'charter-any') { charterAny = !charterAny; render(); return; }
-    if (act === 'embark') { sendCmdSilent(`embark ${e.currentTarget.getAttribute('data-tail')}`); closeHangarBay(); return; }
+    // THE CARD SEATS YOU, the way the depot's and the marina's do: `hangaract service` boards her on
+    // the hangar floor (on her pad where the field has no hangar) with the bench on the cockpit. The
+    // counter stays up until the server's push for the docked bench takes it down (openService), so
+    // a refusal (not yours, not parked here) re-pushes the counter instead of leaving a blank pane.
+    if (act === 'service') { noteAct(e.currentTarget); sendCmdSilent(`hangaract service ${idOf()}`); return; }
+    // Fly: into the seat, nose to the door, no bench. `hangaract launch` where the server boards for
+    // the bench (cockpitBench), the plain verb otherwise.
+    if (act === 'embark') {
+      const id = e.currentTarget.getAttribute('data-id');
+      sendCmdSilent(B.data.cockpitBench && id ? `hangaract launch ${id}` : `embark ${e.currentTarget.getAttribute('data-tail')}`);
+      closeHangarBay(); return;
+    }
     if (act === 'store') { sendCmdSilent(`hangaract store ${idOf()}`); return; }
     if (act === 'pull') { sendCmdSilent(`hangaract pull ${idOf()}`); return; }
     if (act === 'refuel') { sendCmdSilent(`refuel ${idOf()}`); refetch(); return; }
@@ -1117,16 +1290,6 @@ function wire() {
       return;
     }
     if (act === 'tune-reset') { B.tune = { mixture: 0, pitch: 0, boost: 0, cg: 0 }; paintTuning(); return; }
-    if (act === 'sell') {
-      const c = (B.data.craft || []).find(x => x.id === idOf());
-      if (c) showConfirmDialog({ title: 'Sell Aircraft', hold: true, prompt: `Sell the ${c.tail} outright? This deletes her, can't be undone.`, command: `sell ${c.id}`, confirmLabel: 'Sell' });
-      return;
-    }
-    if (act === 'cancel_rental') {
-      const c = (B.data.craft || []).find(x => x.id === idOf());
-      if (c) showConfirmDialog({ title: 'Cancel Rental', hold: true, prompt: `Hand back the ${c.tail}? This deletes the rental, can't be undone.`, command: `cancelrental ${c.id}`, confirmLabel: 'Return' });
-      return;
-    }
     if (act === 'paint-apply') { const c = (B.data.craft || []).find(x => x.id === B.selId); if (c) sendCmdSilent(`paintset ${c.id} ${B.work.base} ${B.work.trim} ${B.work.pattern} ${B.work.finish} ${B.work.cabin} ${B.work.uphol} ${B.work.decal || 'none'} ${B.work.accent || '#c22b8c'} ${B.work.ground || '#eee7d6'} ${B.work.variant || 'stock'} ${B.work.itrim || 'stock'} ${(B.work.plate || '').trim().replace(/ +/g, '_') || '-'} ${Object.entries(B.work.parts || {}).map(([k, v]) => k + ':' + v).join(',') || '-'}`); return; }
     if (act === 'stage-mode') { B.boothPick = !boothOn(); render(); return; }
     if (act === 'parts-clear') { B.work.parts = {}; render(); return; }
@@ -1324,39 +1487,16 @@ function ensureStyles() {
   if (document.getElementById('hb-styles')) return;
   const st = document.createElement('style'); st.id = 'hb-styles';
   st.textContent = `
-  /* The hangar fills its pane exactly (flex column), so the pane itself never
-     scrolls the whole tablet — only .hb-body (the middle) does, between the two
-     pinned bars. Without the pane's overflow:hidden a tall body would spill past
-     the 65% cap and #area-pane's own scrollbar would drag the bars out of view. */
-  #area-pane:has(#hb-root) { overflow:hidden; }
-  #area-content:has(#hb-root) { height:100%; min-height:0; display:flex; flex-direction:column; }
-  /* The shell — a moulded chassis (not a flat panel): a top sheen, a deep outer
-     shadow, and a subtle edge highlight, the same "real object" cues the ATM's
-     own #atm-box uses. Tinted off the theme's own bg/border palette (not a fixed
-     blue-grey) so the casing itself follows whatever theme is active — only the
-     CRT tubes' phosphor glow (green/cyan/yellow above) stays dark glass regardless
-     of theme, the same way a real screen doesn't relight for your desktop wallpaper. */
-  #hb-root { position:relative; display:flex; flex-direction:column; flex:1 1 auto; min-height:0; color:var(--text-bright, #dcecf8);
-    font-family:'Courier New',monospace;
-    background:linear-gradient(175deg,color-mix(in srgb, var(--border) 55%, var(--bg3)) 0%,var(--bg3) 8%,var(--bg2) 50%),
-      radial-gradient(140% 100% at 50% 0%,color-mix(in srgb, var(--border) 40%, var(--bg3)),var(--bg) 75%);
-    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 22%, var(--border)); border-radius:10px; overflow:hidden;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,0.08), inset 0 0 0 1px rgba(0,0,0,0.3), 0 14px 34px rgba(0,0,0,0.5); }
-  /* A faint brushed-plastic grain over the shell — two crossed diagonal hairline
-     sets at very low opacity, purely decorative (z-index:0, sits under every
-     real screen/panel which are all z-index:1+). */
-  #hb-root::before { content:''; position:absolute; inset:0; z-index:0; pointer-events:none; border-radius:inherit;
-    background-image:
-      repeating-linear-gradient(35deg, rgba(255,255,255,0.025) 0 1px, transparent 1px 3px),
-      repeating-linear-gradient(-55deg, rgba(0,0,0,0.03) 0 1px, transparent 1px 4px); }
-  #hb-root > * { position:relative; z-index:1; }
+  /* The chassis, the head and the two view toggles are the depot shell's (depot-shell.js .ds-counter
+     and .ds-bay). Everything below is scoped to .hb-scope, which the counter (#hb-root) and the bench
+     docked on the cockpit (#hb-svc) both carry, so a tab looks the same in either. */
   /* Every surface is the SAME hue (the theme's accent) at a different intensity over
      the theme's own bg tiers — so the whole hangar app follows the active theme (a
      light theme reads light) and reads as "this machine's colour" rather than a fixed
      dark chassis with an accent painted on top. Only the 3D scene and the recessed
      schematic/map viewports stay dark glass regardless of theme (a real screen doesn't
      relight for your wallpaper). */
-  #hb-root { --hb-atm-accent:var(--accent);
+  .hb-scope { --hb-atm-accent:var(--accent);
     /* Theme-following bench surfaces, sharing the Architect OS tablet's exact recipe
        (tablet-os.js --tos-surface-hi/lo): an accent tint over the theme's own bg tiers
        plus translucent bevels that read on a light or a dark theme alike, so the bench
@@ -1375,66 +1515,47 @@ function ensureStyles() {
      the theme (a light theme reads light): a slim accent-tinted glass slab with a
      hairline edge; backdrop-filter blurs whatever scrolls behind it, the "glass over
      content" cue a tablet's bars give. Backgrounds are semi-transparent so the blur reads. */
-  #hb-root .hb-head, #hb-root .hb-toolbar { position:relative;
+  .hb-scope .hb-toolbar { position:relative;
     -webkit-backdrop-filter:blur(11px) saturate(1.15); backdrop-filter:blur(11px) saturate(1.15); }
-  #hb-root .hb-head { display:flex; align-items:center; gap:12px; padding:0 16px; height:48px; flex:0 0 auto;
-    background:color-mix(in srgb, var(--hb-surf) 82%, transparent);
-    border-bottom:1px solid color-mix(in srgb, var(--hb-atm-accent) 26%, transparent);
-    box-shadow:inset 0 1px 0 var(--hb-bevel-hi), 0 2px 8px rgba(0,0,0,0.14); }
-  #hb-root .hb-title { color:var(--tos-fg); font-weight:bold; letter-spacing:2px; text-shadow:0 0 6px color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); }
   /* Credits/price numbers read as the theme's brightest ink so they stay legible on
      a light or dark bar alike, with a faint accent glow for emphasis. */
-  #hb-root .hb-credits { margin-left:auto; color:var(--tos-fg); letter-spacing:1px; text-shadow:0 0 5px color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); }
-  #hb-root .hb-back { font-family:inherit; font-size:11px; letter-spacing:1px; cursor:pointer; padding:6px 12px; color:var(--tos-fg);
-    background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo)); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 35%, transparent); border-radius:6px;
-    box-shadow:inset 0 1px 0 var(--hb-bevel-hi); transition:filter .12s, box-shadow .12s, border-color .12s; }
-  #hb-root .hb-back:hover { filter:brightness(1.12); border-color:var(--hb-atm-accent); box-shadow:inset 0 1px 0 var(--hb-bevel-hi), 0 0 10px color-mix(in srgb, var(--hb-atm-accent) 28%, transparent); }
   /* Fullscreen / hide-panel toggles — a small glyph pair pinned to the right of the head,
      matching the sim's ⛶/⊟. The lit ('on') state carries the accent glow so an active
      toggle reads as "engaged". */
-  #hb-root .hb-viewbtns { display:flex; gap:6px; margin-left:10px; }
-  #hb-root .hb-viewbtn { font-family:inherit; font-size:14px; line-height:1; cursor:pointer; padding:5px 8px; color:var(--tos-fg-dim);
-    background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
-    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 28%, transparent); border-radius:6px;
-    box-shadow:inset 0 1px 0 var(--hb-bevel-hi); transition:filter .12s, box-shadow .12s, color .12s, border-color .12s; }
-  #hb-root .hb-viewbtn:hover { filter:brightness(1.1); color:var(--tos-fg); border-color:var(--hb-atm-accent); box-shadow:inset 0 1px 0 var(--hb-bevel-hi), 0 0 10px color-mix(in srgb, var(--hb-atm-accent) 28%, transparent); }
-  #hb-root .hb-viewbtn.on { color:var(--tos-fg); border-color:var(--hb-atm-accent);
-    background:linear-gradient(165deg, color-mix(in srgb, var(--hb-atm-accent) 26%, var(--bg2)), var(--hb-surf-lo));
-    box-shadow:0 0 10px color-mix(in srgb, var(--hb-atm-accent) 32%, transparent), inset 0 1px 0 var(--hb-bevel-hi); }
-  #hb-root .hb-body { flex:1 1 auto; overflow:hidden; padding:10px 14px; min-height:0; display:flex; flex-direction:column; }
-  #hb-root .hb-dim { color:var(--tos-fg-dim); }
-  #hb-root .hb-empty { color:var(--tos-fg); font-size:13px; text-align:center; padding:24px 10px; }
-  #hb-root .hb-note { color:var(--tos-fg-dim); font-size:12px; padding:8px 0; }
-  #hb-root .hb-hint { color:var(--tos-fg-dim); font-size:11px; text-align:center; padding:8px 0; }
+  .hb-scope .hb-body { flex:1 1 auto; overflow:hidden; padding:10px 14px; min-height:0; display:flex; flex-direction:column; }
+  .hb-scope .hb-dim { color:var(--tos-fg-dim); }
+  .hb-scope .hb-empty { color:var(--tos-fg); font-size:13px; text-align:center; padding:24px 10px; }
+  .hb-scope .hb-note { color:var(--tos-fg-dim); font-size:12px; padding:8px 0; }
+  .hb-scope .hb-hint { color:var(--tos-fg-dim); font-size:11px; text-align:center; padding:8px 0; }
 
   /* Floor — one 3D scene canvas, not a row of cards */
-  #hb-root .hb-floor { position:relative; flex:1 1 auto; display:flex; min-height:280px; }
-  #hb-root .hb-scene { width:100%; height:100%; min-height:280px; display:block; border-radius:8px; cursor:pointer; }
-  #hb-root .hb-inspect { cursor:grab; touch-action:none; outline:none; }
-  #hb-root .hb-inspect:active { cursor:grabbing; }
-  #hb-root .hb-inspect-name { position:absolute; left:12px; top:10px; z-index:2; font-size:13px; font-weight:bold; letter-spacing:1px; color:var(--text-bright,#eafffb); text-shadow:0 1px 3px rgba(0,0,0,0.8); pointer-events:none; }
-  #hb-root .hb-inspect-name span { font-size:10px; font-weight:normal; color:var(--hb-atm-accent); margin-left:6px; letter-spacing:0.5px; }
-  #hb-root .hb-inspect-hint { position:absolute; right:12px; bottom:10px; z-index:2; font-size:9px; letter-spacing:1px; color:#9db5c6; background:rgba(6,12,18,0.6); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 22%, transparent); border-radius:4px; padding:3px 7px; pointer-events:none; }
+  .hb-scope .hb-floor { position:relative; flex:1 1 auto; display:flex; min-height:280px; }
+  .hb-scope .hb-scene { width:100%; height:100%; min-height:280px; display:block; border-radius:8px; cursor:pointer; }
+  .hb-scope .hb-inspect { cursor:grab; touch-action:none; outline:none; }
+  .hb-scope .hb-inspect:active { cursor:grabbing; }
+  .hb-scope .hb-inspect-name { position:absolute; left:12px; top:10px; z-index:2; font-size:13px; font-weight:bold; letter-spacing:1px; color:var(--text-bright,#eafffb); text-shadow:0 1px 3px rgba(0,0,0,0.8); pointer-events:none; }
+  .hb-scope .hb-inspect-name span { font-size:10px; font-weight:normal; color:var(--hb-atm-accent); margin-left:6px; letter-spacing:0.5px; }
+  .hb-scope .hb-inspect-hint { position:absolute; right:12px; bottom:10px; z-index:2; font-size:9px; letter-spacing:1px; color:#9db5c6; background:rgba(6,12,18,0.6); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 22%, transparent); border-radius:4px; padding:3px 7px; pointer-events:none; }
   /* Touch controls — hidden on a mouse (fine pointer), shown on phones/tablets (coarse). */
-  #hb-root .hb-walk-pad, #hb-root .hb-walk-vert { display:none; }
-  @media (pointer: coarse) { #hb-root .hb-walk-pad, #hb-root .hb-walk-vert { display:flex; } }
-  #hb-root .hb-walk-pad { position:absolute; left:16px; bottom:16px; z-index:4; }
-  #hb-root .hb-walk-stick { position:relative; width:104px; height:104px; border-radius:50%; touch-action:none;
+  .hb-scope .hb-walk-pad, .hb-scope .hb-walk-vert { display:none; }
+  @media (pointer: coarse) { .hb-scope .hb-walk-pad, .hb-scope .hb-walk-vert { display:flex; } }
+  .hb-scope .hb-walk-pad { position:absolute; left:16px; bottom:16px; z-index:4; }
+  .hb-scope .hb-walk-stick { position:relative; width:104px; height:104px; border-radius:50%; touch-action:none;
     background:radial-gradient(circle at 50% 40%, rgba(30,44,56,0.5), rgba(6,12,18,0.5)); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); box-shadow:inset 0 0 14px rgba(0,0,0,0.5); }
-  #hb-root .hb-walk-knob { position:absolute; left:50%; top:50%; width:46px; height:46px; margin:0; transform:translate(-50%,-50%); border-radius:50%;
+  .hb-scope .hb-walk-knob { position:absolute; left:50%; top:50%; width:46px; height:46px; margin:0; transform:translate(-50%,-50%); border-radius:50%;
     background:linear-gradient(180deg, color-mix(in srgb, var(--hb-atm-accent) 40%, #0e1620), color-mix(in srgb, var(--hb-atm-accent) 12%, #060c12)); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 55%, transparent); box-shadow:0 2px 6px rgba(0,0,0,0.5); }
-  #hb-root .hb-walk-vert { position:absolute; right:16px; bottom:16px; z-index:4; flex-direction:column; gap:10px; }
-  #hb-root .hb-walk-btn { width:48px; height:48px; font-size:16px; color:var(--hb-atm-accent); cursor:pointer; touch-action:none;
+  .hb-scope .hb-walk-vert { position:absolute; right:16px; bottom:16px; z-index:4; flex-direction:column; gap:10px; }
+  .hb-scope .hb-walk-btn { width:48px; height:48px; font-size:16px; color:var(--hb-atm-accent); cursor:pointer; touch-action:none;
     background:rgba(6,12,18,0.5); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 35%, transparent); border-radius:10px; }
-  #hb-root .hb-walk-btn:active { background:color-mix(in srgb, var(--hb-atm-accent) 22%, rgba(6,12,18,0.5)); }
+  .hb-scope .hb-walk-btn:active { background:color-mix(in srgb, var(--hb-atm-accent) 22%, rgba(6,12,18,0.5)); }
   /* First-person BOARD prompt — hidden until you're up close (.near), then it pulses. */
-  #hb-root .hb-board { position:absolute; left:50%; top:44%; transform:translate(-50%,-50%) scale(0.9); z-index:5;
+  .hb-scope .hb-board { position:absolute; left:50%; top:44%; transform:translate(-50%,-50%) scale(0.9); z-index:5;
     font:bold 13px/1 monospace; letter-spacing:2px; color:#eafffb; cursor:pointer; padding:9px 16px; border-radius:8px; opacity:0; pointer-events:none;
     background:color-mix(in srgb, var(--hb-atm-accent) 30%, rgba(6,12,18,0.7)); border:1px solid var(--hb-atm-accent);
     box-shadow:0 0 16px color-mix(in srgb, var(--hb-atm-accent) 45%, transparent); transition:opacity .18s, transform .18s; text-shadow:0 0 6px color-mix(in srgb, var(--hb-atm-accent) 55%, transparent); }
-  #hb-root .hb-board.near { opacity:1; pointer-events:auto; transform:translate(-50%,-50%) scale(1); animation:hbBoardPulse 1.4s ease-in-out infinite; }
+  .hb-scope .hb-board.near { opacity:1; pointer-events:auto; transform:translate(-50%,-50%) scale(1); animation:hbBoardPulse 1.4s ease-in-out infinite; }
   @keyframes hbBoardPulse { 0%,100% { box-shadow:0 0 14px color-mix(in srgb, var(--hb-atm-accent) 40%, transparent); } 50% { box-shadow:0 0 22px color-mix(in srgb, var(--hb-atm-accent) 70%, transparent); } }
-  #hb-root .hb-bay { display:block; border-radius:6px; }
+  .hb-scope .hb-bay { display:block; border-radius:6px; }
 
   /* The selected-craft readout is a "panel on the floor scene" (not the 3D scene
      itself, which stays untouched) — the tablet summary-strip surface, matching the
@@ -1442,17 +1563,17 @@ function ensureStyles() {
      flex-shrink:0 matters: .hb-floor is flex:1 1 auto and will happily eat all the
      room in a short area-pane; never shrinking below this box's natural height means
      the BODY scrolls instead of its content getting squeezed away. */
-  #hb-root .hb-info { flex-shrink:0; margin-top:10px; padding:10px 12px; border-radius:8px;
+  .hb-scope .hb-info { flex-shrink:0; margin-top:10px; padding:10px 12px; border-radius:8px;
     background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
     border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent);
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 3px var(--hb-bevel-lo), 0 2px 5px rgba(0,0,0,0.2); }
-  #hb-root .hb-info-name { color:var(--tos-fg); font-weight:bold; font-size:14px; }
-  #hb-root .hb-info-type { color:var(--tos-fg-dim); font-weight:normal; font-size:11px; margin-left:6px; }
-  #hb-root .hb-bars { display:inline-grid; grid-template-columns:auto 140px; gap:5px 8px; align-items:center; font-size:9px; letter-spacing:1px; color:var(--tos-fg-dim); margin-top:8px; }
-  #hb-root .hb-bar { height:7px; background:var(--hb-surf-lo); border-radius:4px; overflow:hidden; box-shadow:inset 0 1px 2px var(--hb-bevel-lo), inset 0 0 0 1px var(--border); } #hb-root .hb-bar i { display:block; height:100%; }
-  #hb-root .hb-badge { font-size:8px; letter-spacing:1px; padding:1px 5px; border-radius:3px; margin-left:6px; vertical-align:middle; }
-  #hb-root .hb-b-ramp { background:#2a5f8a; color:#bfe4ff; } #hb-root .hb-b-bay { background:#2a7a52; color:#b8f2cf; }
-  #hb-root .hb-b-rent { background:#7a6a1e; color:#f2e0a0; } #hb-root .hb-b-wreck { background:#7a3a2a; color:#f2b8a0; }
+  .hb-scope .hb-info-name { color:var(--tos-fg); font-weight:bold; font-size:14px; }
+  .hb-scope .hb-info-type { color:var(--tos-fg-dim); font-weight:normal; font-size:11px; margin-left:6px; }
+  .hb-scope .hb-bars { display:inline-grid; grid-template-columns:auto 140px; gap:5px 8px; align-items:center; font-size:9px; letter-spacing:1px; color:var(--tos-fg-dim); margin-top:8px; }
+  .hb-scope .hb-bar { height:7px; background:var(--hb-surf-lo); border-radius:4px; overflow:hidden; box-shadow:inset 0 1px 2px var(--hb-bevel-lo), inset 0 0 0 1px var(--border); } .hb-scope .hb-bar i { display:block; height:100%; }
+  .hb-scope .hb-badge { font-size:8px; letter-spacing:1px; padding:1px 5px; border-radius:3px; margin-left:6px; vertical-align:middle; }
+  .hb-scope .hb-b-ramp { background:#2a5f8a; color:#bfe4ff; } .hb-scope .hb-b-bay { background:#2a7a52; color:#b8f2cf; }
+  .hb-scope .hb-b-rent { background:#7a6a1e; color:#f2e0a0; } .hb-scope .hb-b-wreck { background:#7a3a2a; color:#f2b8a0; }
 
   /* Tactile 3D chip — borrows the Architect OS tablet's bevel language
      (client/game/js/panels/tablet-os.js .tos-btn): a raised accent-tinted cap
@@ -1460,116 +1581,116 @@ function ensureStyles() {
      inset recess on :active, so every press feels like a physical key. Icon +
      label sit side by side. Used everywhere in the hangar (toolbar, bench,
      charter) so the whole console reads as one device. */
-  #hb-root .hb-btn { display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  .hb-scope .hb-btn { display:inline-flex; align-items:center; justify-content:center; gap:8px;
     font-family:inherit; font-size:11px; font-weight:bold; letter-spacing:1px; text-transform:uppercase; cursor:pointer; padding:9px 15px; border-radius:9px;
     color:var(--tos-fg); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 38%, transparent);
     background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 4px var(--hb-bevel-lo), 0 2px 4px rgba(0,0,0,0.25);
     transition:filter .12s, box-shadow .12s, transform .05s, border-color .12s; }
-  #hb-root .hb-btn:hover:not(:disabled) { filter:brightness(1.1); border-color:var(--hb-atm-accent);
+  .hb-scope .hb-btn:hover:not(:disabled) { filter:brightness(1.1); border-color:var(--hb-atm-accent);
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 4px var(--hb-bevel-lo), 0 3px 9px rgba(0,0,0,0.28), 0 0 14px color-mix(in srgb, var(--hb-atm-accent) 32%, transparent); }
-  #hb-root .hb-btn:active:not(:disabled) { transform:translateY(1px); box-shadow:inset 0 2px 6px var(--hb-bevel-lo); }
-  #hb-root .hb-btn:disabled { opacity:0.4; cursor:default; }
-  #hb-root .hb-ico { font-size:14px; line-height:1; opacity:0.95; }
+  .hb-scope .hb-btn:active:not(:disabled) { transform:translateY(1px); box-shadow:inset 0 2px 6px var(--hb-bevel-lo); }
+  .hb-scope .hb-btn:disabled { opacity:0.4; cursor:default; }
+  .hb-scope .hb-ico { font-size:14px; line-height:1; opacity:0.95; }
   /* Accent (Fly / Buy-Rent / Apply) — same chip on a stronger accent tint of the
      theme bg (not a solid accent fill) so it reads as the primary key while the
      high-contrast --tos-fg label stays legible on a light or dark theme alike. */
-  #hb-root .hb-accent { border-color:var(--hb-atm-accent);
+  .hb-scope .hb-accent { border-color:var(--hb-atm-accent);
     background:linear-gradient(165deg, color-mix(in srgb, var(--hb-atm-accent) 32%, var(--bg2)), color-mix(in srgb, var(--hb-atm-accent) 15%, var(--bg2)));
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 4px var(--hb-bevel-lo), 0 2px 5px rgba(0,0,0,0.28), 0 0 14px color-mix(in srgb, var(--hb-atm-accent) 35%, transparent); }
-  #hb-root .hb-accent:active:not(:disabled) { transform:translateY(1px); box-shadow:inset 0 2px 6px var(--hb-bevel-lo); }
+  .hb-scope .hb-accent:active:not(:disabled) { transform:translateY(1px); box-shadow:inset 0 2px 6px var(--hb-bevel-lo); }
 
   /* Bottom action tray — the buttons' own separate area: a recessed well (deep
      inset shadow) sunk into the chassis, with the 3D chips sitting proud of it.
      Left group = context actions, right group (.hb-tb-right) is pushed to the
      far edge. position:sticky pins the whole tray to the bottom of the scrolling
      body so the controls never scroll out of reach. */
-  #hb-root .hb-toolbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; flex:0 0 auto; padding:12px 14px; margin-top:auto;
+  .hb-scope .hb-toolbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; flex:0 0 auto; padding:12px 14px; margin-top:auto;
     position:sticky; bottom:0; z-index:5;
     background:color-mix(in srgb, var(--hb-surf-lo) 84%, transparent);
     border-top:1px solid color-mix(in srgb, var(--hb-atm-accent) 25%, transparent);
     box-shadow:inset 0 2px 8px var(--hb-bevel-lo), inset 0 1px 0 var(--hb-bevel-hi), 0 -2px 10px rgba(0,0,0,0.14); }
-  #hb-root .hb-tb-group { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
-  #hb-root .hb-tb-right { margin-left:auto; }
+  .hb-scope .hb-tb-group { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+  .hb-scope .hb-tb-right { margin-left:auto; }
 
   /* Charter — a tablet-surface card (shared with the rest of the hangar app); the
      destination map sits in a recessed dark viewport so the tinted tiles read on any
      theme, the way the dealer's schematic viewport does. */
-  #hb-root .hb-charter-crt { position:relative; padding:12px; border-radius:12px;
+  .hb-scope .hb-charter-crt { position:relative; padding:12px; border-radius:12px;
     background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
     border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent);
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 3px var(--hb-bevel-lo), 0 3px 12px rgba(0,0,0,0.22); }
-  #hb-root .hb-charter-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+  .hb-scope .hb-charter-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
   /* Credits readout is fixed near-white for the dark head bar; on the light-following
      charter card use the theme foreground instead. */
-  #hb-root .hb-charter-head .hb-credits { color:var(--tos-fg); text-shadow:none; }
-  #hb-root .hb-charter-pilot { font-weight:bold; letter-spacing:1px; }
-  #hb-root .hb-charter-map { display:grid; gap:2px; margin:6px auto; overflow:auto; max-height:340px; padding:8px; border-radius:9px;
+  .hb-scope .hb-charter-head .hb-credits { color:var(--tos-fg); text-shadow:none; }
+  .hb-scope .hb-charter-pilot { font-weight:bold; letter-spacing:1px; }
+  .hb-scope .hb-charter-map { display:grid; gap:2px; margin:6px auto; overflow:auto; max-height:340px; padding:8px; border-radius:9px;
     background:radial-gradient(120% 120% at 50% 30%, color-mix(in srgb, var(--hb-atm-accent) 13%, var(--bg)), color-mix(in srgb, var(--hb-atm-accent) 7%, var(--bg)));
     border:1px solid color-mix(in srgb, var(--hb-atm-accent) 20%, transparent);
     box-shadow:inset 0 2px 10px rgba(0,0,0,0.4);
     scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
-  #hb-root .hb-charter-map::-webkit-scrollbar { width:6px; height:6px; }
-  #hb-root .hb-charter-map::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
-  #hb-root .hb-tile { width:20px; height:20px; display:flex; align-items:center; justify-content:center; position:relative; font-size:11px; border-radius:3px; }
-  #hb-root .hb-tile-dim { background:color-mix(in srgb, var(--hb-atm-accent) 9%, var(--bg2)); color:var(--tos-fg-dim); }
-  #hb-root .hb-tile-here { background:color-mix(in srgb, #8f6fe0 55%, #1a1030); color:#e6d6ff; box-shadow:inset 0 0 0 1px #b79dff; }
-  #hb-root .hb-tile-dest { background:color-mix(in srgb, var(--hb-atm-accent) 55%, var(--bg2)); color:var(--text-bright, #eafffb); cursor:pointer; }
-  #hb-root .hb-tile-dest:hover { background:color-mix(in srgb, var(--hb-atm-accent) 72%, var(--bg2)); box-shadow:0 0 0 1px var(--hb-atm-accent); }
-  #hb-root .hb-tile-airfield { background:color-mix(in srgb, #d9b53a 42%, #1a1408); color:#f5e6a8; }
-  #hb-root .hb-tile-airfield:hover { box-shadow:0 0 0 1px #f0d060; }
-  #hb-root .hb-tile-fare { position:absolute; bottom:-11px; left:50%; transform:translateX(-50%); font-size:7px; color:var(--yellow); white-space:nowrap; }
-  #hb-root .hb-charter-legend { display:flex; gap:16px; font-size:10px; color:var(--tos-fg-dim); margin:14px 0 4px; flex-wrap:wrap; }
-  #hb-root .hb-swatch { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:4px; vertical-align:middle; }
-  #hb-root .hb-sw-air { background:color-mix(in srgb, #d9b53a 55%, #1a1408); } #hb-root .hb-sw-any { background:color-mix(in srgb, var(--hb-atm-accent) 55%, #0c1a14); }
+  .hb-scope .hb-charter-map::-webkit-scrollbar { width:6px; height:6px; }
+  .hb-scope .hb-charter-map::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+  .hb-scope .hb-tile { width:20px; height:20px; display:flex; align-items:center; justify-content:center; position:relative; font-size:11px; border-radius:3px; }
+  .hb-scope .hb-tile-dim { background:color-mix(in srgb, var(--hb-atm-accent) 9%, var(--bg2)); color:var(--tos-fg-dim); }
+  .hb-scope .hb-tile-here { background:color-mix(in srgb, #8f6fe0 55%, #1a1030); color:#e6d6ff; box-shadow:inset 0 0 0 1px #b79dff; }
+  .hb-scope .hb-tile-dest { background:color-mix(in srgb, var(--hb-atm-accent) 55%, var(--bg2)); color:var(--text-bright, #eafffb); cursor:pointer; }
+  .hb-scope .hb-tile-dest:hover { background:color-mix(in srgb, var(--hb-atm-accent) 72%, var(--bg2)); box-shadow:0 0 0 1px var(--hb-atm-accent); }
+  .hb-scope .hb-tile-airfield { background:color-mix(in srgb, #d9b53a 42%, #1a1408); color:#f5e6a8; }
+  .hb-scope .hb-tile-airfield:hover { box-shadow:0 0 0 1px #f0d060; }
+  .hb-scope .hb-tile-fare { position:absolute; bottom:-11px; left:50%; transform:translateX(-50%); font-size:7px; color:var(--yellow); white-space:nowrap; }
+  .hb-scope .hb-charter-legend { display:flex; gap:16px; font-size:10px; color:var(--tos-fg-dim); margin:14px 0 4px; flex-wrap:wrap; }
+  .hb-scope .hb-swatch { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:4px; vertical-align:middle; }
+  .hb-scope .hb-sw-air { background:color-mix(in srgb, #d9b53a 55%, #1a1408); } .hb-scope .hb-sw-any { background:color-mix(in srgb, var(--hb-atm-accent) 55%, #0c1a14); }
 
   /* Buy/Rent — a dealer showroom in the tablet surface language (no CRT tube): a
      plain scroll region of product cards, each an accent-tinted raised surface with
      the wireframe schematic seated in a recessed dark viewport so it reads on any
      theme. */
-  #hb-root .hb-dealer { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; padding:2px;
+  .hb-scope .hb-dealer { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; padding:2px;
     scrollbar-width:thin; scrollbar-color:var(--border) var(--bg2); }
-  #hb-root .hb-scroll { overflow-y:auto; flex:1 1 auto; min-height:0; }
-  #hb-root .hb-scroll::-webkit-scrollbar { width:6px; }
-  #hb-root .hb-scroll::-webkit-scrollbar-track { background:var(--bg2); }
-  #hb-root .hb-scroll::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
-  #hb-root .hb-section { font-size:9px; letter-spacing:3px; color:var(--tos-fg-dim); margin:12px 0 6px; border-bottom:1px solid color-mix(in srgb, var(--hb-atm-accent) 25%, transparent); padding-bottom:3px; }
-  #hb-root .hb-lotgrid { display:flex; flex-wrap:wrap; gap:14px; justify-content:center; }
-  #hb-root .hb-lot { width:236px; padding:11px; border-radius:12px; font-family:inherit; color:var(--tos-fg);
+  .hb-scope .hb-scroll { overflow-y:auto; flex:1 1 auto; min-height:0; }
+  .hb-scope .hb-scroll::-webkit-scrollbar { width:6px; }
+  .hb-scope .hb-scroll::-webkit-scrollbar-track { background:var(--bg2); }
+  .hb-scope .hb-scroll::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+  .hb-scope .hb-section { font-size:9px; letter-spacing:3px; color:var(--tos-fg-dim); margin:12px 0 6px; border-bottom:1px solid color-mix(in srgb, var(--hb-atm-accent) 25%, transparent); padding-bottom:3px; }
+  .hb-scope .hb-lotgrid { display:flex; flex-wrap:wrap; gap:14px; justify-content:center; }
+  .hb-scope .hb-lot { width:236px; padding:11px; border-radius:12px; font-family:inherit; color:var(--tos-fg);
     background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
     border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent);
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 3px var(--hb-bevel-lo), 0 3px 10px rgba(0,0,0,0.22);
     transition:filter .12s, box-shadow .12s, border-color .12s, transform .05s; }
-  #hb-root .hb-lot:hover { filter:brightness(1.05); border-color:var(--hb-atm-accent);
+  .hb-scope .hb-lot:hover { filter:brightness(1.05); border-color:var(--hb-atm-accent);
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 3px var(--hb-bevel-lo), 0 5px 16px rgba(0,0,0,0.28), 0 0 14px color-mix(in srgb, var(--hb-atm-accent) 22%, transparent); }
   /* Recessed schematic viewport — a "screen" inset into the card for the accent-drawn
      wireframe. Theme-following: an accent tint over the deepest bg tier, so it reads as
      a dark screen on a dark theme and a tinted-light screen on a light one (never a
      hardcoded black slab), with the inset shadow carrying the recessed cue. */
-  #hb-root .hb-lot-view { display:flex; justify-content:center; padding:6px; margin-bottom:6px; border-radius:9px;
+  .hb-scope .hb-lot-view { display:flex; justify-content:center; padding:6px; margin-bottom:6px; border-radius:9px;
     background:radial-gradient(120% 120% at 50% 40%, color-mix(in srgb, var(--hb-atm-accent) 15%, var(--bg)), color-mix(in srgb, var(--hb-atm-accent) 8%, var(--bg)));
     border:1px solid color-mix(in srgb, var(--hb-atm-accent) 22%, transparent);
     box-shadow:inset 0 2px 9px rgba(0,0,0,0.4); }
-  #hb-root .hb-lot-art { display:flex; justify-content:center; }
-  #hb-root .hb-lot-name { color:var(--tos-fg); font-weight:bold; letter-spacing:1px; text-align:center; margin-top:4px; font-size:13px; }
-  #hb-root .hb-lot-meta { color:var(--tos-fg-dim); font-size:10px; text-align:center; margin:2px 0 8px; }
-  #hb-root .hb-lot-price { text-align:center; letter-spacing:1px; color:var(--yellow); }
-  #hb-root .hb-lot-acts { display:flex; gap:8px; }
-  #hb-root .hb-lot-acq { flex:1; padding:8px 4px; border-radius:7px; font-family:inherit; font-size:11px; font-weight:bold; letter-spacing:0.5px; cursor:pointer;
+  .hb-scope .hb-lot-art { display:flex; justify-content:center; }
+  .hb-scope .hb-lot-name { color:var(--tos-fg); font-weight:bold; letter-spacing:1px; text-align:center; margin-top:4px; font-size:13px; }
+  .hb-scope .hb-lot-meta { color:var(--tos-fg-dim); font-size:10px; text-align:center; margin:2px 0 8px; }
+  .hb-scope .hb-lot-price { text-align:center; letter-spacing:1px; color:var(--yellow); }
+  .hb-scope .hb-lot-acts { display:flex; gap:8px; }
+  .hb-scope .hb-lot-acq { flex:1; padding:8px 4px; border-radius:7px; font-family:inherit; font-size:11px; font-weight:bold; letter-spacing:0.5px; cursor:pointer;
     color:var(--tos-fg); background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
     border:1px solid color-mix(in srgb, var(--hb-atm-accent) 35%, transparent);
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 3px var(--hb-bevel-lo), 0 2px 4px rgba(0,0,0,0.25);
     transition:filter .12s, box-shadow .12s, transform .05s; }
-  #hb-root .hb-lot-acq:hover:not(:disabled) { filter:brightness(1.12); border-color:var(--hb-atm-accent);
+  .hb-scope .hb-lot-acq:hover:not(:disabled) { filter:brightness(1.12); border-color:var(--hb-atm-accent);
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi), 0 3px 8px rgba(0,0,0,0.3), 0 0 12px color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); }
-  #hb-root .hb-lot-acq:active:not(:disabled) { transform:translateY(1px); box-shadow:inset 0 2px 6px rgba(0,0,0,0.6); }
+  .hb-scope .hb-lot-acq:active:not(:disabled) { transform:translateY(1px); box-shadow:inset 0 2px 6px rgba(0,0,0,0.6); }
   /* BUY is the primary key — the brighter accent-lit chip. */
-  #hb-root .hb-lot-buy { border-color:var(--hb-atm-accent);
+  .hb-scope .hb-lot-buy { border-color:var(--hb-atm-accent);
     background:linear-gradient(165deg, color-mix(in srgb, var(--hb-atm-accent) 32%, var(--bg2)), color-mix(in srgb, var(--hb-atm-accent) 15%, var(--bg2)));
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 4px var(--hb-bevel-lo), 0 2px 5px rgba(0,0,0,0.28), 0 0 12px color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); }
-  #hb-root .hb-lot-acq:disabled { opacity:0.4; cursor:not-allowed; filter:grayscale(0.6); }
-  #hb-root .hb-lot-lockmsg { color:#ffcf6b; font-size:11px; letter-spacing:0.5px; text-align:center; margin:4px 0 12px; text-shadow:0 0 6px rgba(255,180,60,0.3); }
-  #hb-root .hb-wf-lot { display:block; margin:0 auto; max-width:100%; }
+  .hb-scope .hb-lot-acq:disabled { opacity:0.4; cursor:not-allowed; filter:grayscale(0.6); }
+  .hb-scope .hb-lot-lockmsg { color:#ffcf6b; font-size:11px; letter-spacing:0.5px; text-align:center; margin:4px 0 12px; text-shadow:0 0 6px rgba(255,180,60,0.3); }
+  .hb-scope .hb-wf-lot { display:block; margin:0 auto; max-width:100%; }
 
   /* Bench — reworked as a tablet-style app (see benchScreen). It obeys the player's
      background (a light theme reads light) and shares the tablet's --tos-* surface
@@ -1580,350 +1701,344 @@ function ensureStyles() {
      flex column that fills the pane. Sections are tabs (and paint has sub-tabs), so a
      tab's controls are meant to fit outright. Only .hb-bench-tabbody can scroll, and it
      wears the in-theme .hb-thin bar when it has to. */
-  #hb-root .hb-bench { display:flex; flex-direction:column; gap:10px; flex:1 1 auto; min-height:0; overflow:hidden; }
+  .hb-scope .hb-bench { display:flex; flex-direction:column; gap:10px; flex:1 1 auto; min-height:0; overflow:hidden; }
   /* The one in-theme scrollbar recipe, used anywhere a last-resort scroll survives:
      an accent-lit thumb in a recessed track, never the OS default slab. */
-  #hb-root .hb-thin { scrollbar-width:thin; scrollbar-color:color-mix(in srgb, var(--hb-atm-accent) 55%, var(--border)) transparent; }
-  #hb-root .hb-thin::-webkit-scrollbar { width:7px; height:7px; }
-  #hb-root .hb-thin::-webkit-scrollbar-track { background:var(--hb-surf-lo); border-radius:4px; box-shadow:inset 0 0 3px var(--hb-bevel-lo); }
-  #hb-root .hb-thin::-webkit-scrollbar-thumb { border-radius:4px;
+  .hb-scope .hb-thin { scrollbar-width:thin; scrollbar-color:color-mix(in srgb, var(--hb-atm-accent) 55%, var(--border)) transparent; }
+  .hb-scope .hb-thin::-webkit-scrollbar { width:7px; height:7px; }
+  .hb-scope .hb-thin::-webkit-scrollbar-track { background:var(--hb-surf-lo); border-radius:4px; box-shadow:inset 0 0 3px var(--hb-bevel-lo); }
+  .hb-scope .hb-thin::-webkit-scrollbar-thumb { border-radius:4px;
     background:linear-gradient(180deg, color-mix(in srgb, var(--hb-atm-accent) 70%, var(--bg2)), color-mix(in srgb, var(--hb-atm-accent) 35%, var(--bg2)));
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi); }
-  #hb-root .hb-thin::-webkit-scrollbar-thumb:hover { background:var(--hb-atm-accent); }
+  .hb-scope .hb-thin::-webkit-scrollbar-thumb:hover { background:var(--hb-atm-accent); }
   /* Top bar — summary + nav together as one frosted chrome slab. */
-  #hb-root .hb-bench-top { flex:0 0 auto; z-index:6; display:flex; flex-direction:column; gap:8px;
+  .hb-scope .hb-bench-top { flex:0 0 auto; z-index:6; display:flex; flex-direction:column; gap:8px;
     padding-bottom:9px;
     border-bottom:1px solid color-mix(in srgb, var(--hb-atm-accent) 18%, transparent); }
   /* Persistent craft-identity strip (tablet .tos-summary recipe). */
-  #hb-root .hb-bench-summary { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;
+  .hb-scope .hb-bench-summary { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;
     padding:9px 12px; border-radius:8px;
     background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
     border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent);
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 3px var(--hb-bevel-lo), 0 2px 5px rgba(0,0,0,0.2); }
-  #hb-root .hb-bench-id { display:flex; align-items:center; gap:9px; flex-wrap:wrap; min-width:0; }
-  #hb-root .hb-bench-id b { font-size:14px; letter-spacing:0.5px; color:var(--tos-fg); }
-  #hb-root .hb-bench-id span { font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim); }
-  #hb-root .hb-bench-pill { font-size:9px; font-weight:bold; letter-spacing:1px; text-transform:uppercase; padding:2px 8px; border-radius:11px; }
-  #hb-root .hb-bench-pill-wreck { color:#f2b8a0; background:color-mix(in srgb, #e0552f 22%, transparent); border:1px solid color-mix(in srgb, #e0552f 45%, transparent); }
-  #hb-root .hb-bench-pill-rent { color:#f2e0a0; background:color-mix(in srgb, #d9b53a 20%, transparent); border:1px solid color-mix(in srgb, #d9b53a 45%, transparent); }
-  #hb-root .hb-bench-vitals { display:flex; gap:8px; flex-wrap:wrap; }
-  #hb-root .hb-bench-vital { display:flex; flex-direction:column; align-items:flex-end; line-height:1.2; padding:3px 11px; border-radius:6px;
+  .hb-scope .hb-bench-id { display:flex; align-items:center; gap:9px; flex-wrap:wrap; min-width:0; }
+  .hb-scope .hb-bench-id b { font-size:14px; letter-spacing:0.5px; color:var(--tos-fg); }
+  .hb-scope .hb-bench-id span { font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim); }
+  .hb-scope .hb-bench-pill { font-size:9px; font-weight:bold; letter-spacing:1px; text-transform:uppercase; padding:2px 8px; border-radius:11px; }
+  .hb-scope .hb-bench-pill-wreck { color:#f2b8a0; background:color-mix(in srgb, #e0552f 22%, transparent); border:1px solid color-mix(in srgb, #e0552f 45%, transparent); }
+  .hb-scope .hb-bench-pill-rent { color:#f2e0a0; background:color-mix(in srgb, #d9b53a 20%, transparent); border:1px solid color-mix(in srgb, #d9b53a 45%, transparent); }
+  .hb-scope .hb-bench-vitals { display:flex; gap:8px; flex-wrap:wrap; }
+  .hb-scope .hb-bench-vital { display:flex; flex-direction:column; align-items:flex-end; line-height:1.2; padding:3px 11px; border-radius:6px;
     background:var(--hb-surf-lo); border:1px solid var(--border); box-shadow:inset 0 1px 2px var(--hb-bevel-lo); }
-  #hb-root .hb-bench-vital i { font-size:8px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); font-style:normal; }
-  #hb-root .hb-bench-vital b { font-size:13px; font-weight:bold; color:var(--tos-fg); }
-  #hb-root .hb-bench-warn { color:#ffb26b !important; }
+  .hb-scope .hb-bench-vital i { font-size:8px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); font-style:normal; }
+  .hb-scope .hb-bench-vital b { font-size:13px; font-weight:bold; color:var(--tos-fg); }
+  .hb-scope .hb-bench-warn { color:#ffb26b !important; }
   /* Hull condition as a lit meter under its number — the colour is set inline so it
      bleeds accent → amber → red with the airframe. */
-  #hb-root .hb-bench-vital-hull { align-items:stretch; min-width:96px; }
-  #hb-root .hb-bench-vital-hull i, #hb-root .hb-bench-vital-hull b { text-align:right; }
-  #hb-root .hb-hullbar { display:block; height:4px; margin-top:3px; border-radius:3px; background:var(--hb-surf);
+  .hb-scope .hb-bench-vital-hull { align-items:stretch; min-width:96px; }
+  .hb-scope .hb-bench-vital-hull i, .hb-scope .hb-bench-vital-hull b { text-align:right; }
+  .hb-scope .hb-hullbar { display:block; height:4px; margin-top:3px; border-radius:3px; background:var(--hb-surf);
     box-shadow:inset 0 1px 2px var(--hb-bevel-lo), inset 0 0 0 1px var(--border); overflow:hidden; }
-  #hb-root .hb-hullbar em { display:block; height:100%; border-radius:3px; box-shadow:0 0 7px currentColor; transition:width .25s ease-out; }
+  .hb-scope .hb-hullbar em { display:block; height:100%; border-radius:3px; box-shadow:0 0 7px currentColor; transition:width .25s ease-out; }
   /* Segmented nav — a joined pill bar; the active tab lifts out of the recessed track
      and lights a hairline bar along its bottom edge (the "you're here" cue). */
-  #hb-root .hb-bench-tabs { display:flex; gap:4px; flex-wrap:wrap; padding:4px; border-radius:9px;
+  .hb-scope .hb-bench-tabs { display:flex; gap:4px; flex-wrap:wrap; padding:4px; border-radius:9px;
     background:var(--hb-surf-lo); border:1px solid var(--border); box-shadow:inset 0 1px 3px var(--hb-bevel-lo); }
-  #hb-root .hb-tab { position:relative; flex:1 1 auto; display:flex; align-items:center; justify-content:center; gap:6px;
+  .hb-scope .hb-tab { position:relative; flex:1 1 auto; display:flex; align-items:center; justify-content:center; gap:6px;
     font-family:inherit; font-size:11px; font-weight:bold; letter-spacing:1px; cursor:pointer;
     color:var(--tos-fg-dim); background:transparent; border:1px solid transparent; border-radius:6px; padding:7px 12px; overflow:hidden;
     transition:filter .12s, box-shadow .12s, color .12s, background .12s; }
-  #hb-root .hb-tab-ico { font-size:12px; line-height:1; opacity:0.7; transition:opacity .12s, filter .12s; }
-  #hb-root .hb-tab:hover { color:var(--tos-fg); background:color-mix(in srgb, var(--hb-atm-accent) 10%, transparent); }
-  #hb-root .hb-tab:hover .hb-tab-ico { opacity:1; }
-  #hb-root .hb-tab-active { color:var(--tos-fg); background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
+  .hb-scope .hb-tab-ico { font-size:12px; line-height:1; opacity:0.7; transition:opacity .12s, filter .12s; }
+  .hb-scope .hb-tab:hover { color:var(--tos-fg); background:color-mix(in srgb, var(--hb-atm-accent) 10%, transparent); }
+  .hb-scope .hb-tab:hover .hb-tab-ico { opacity:1; }
+  .hb-scope .hb-tab-active { color:var(--tos-fg); background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
     border-color:color-mix(in srgb, var(--hb-atm-accent) 40%, transparent);
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 3px var(--hb-bevel-lo), 0 1px 3px rgba(0,0,0,0.2); }
-  #hb-root .hb-tab-active .hb-tab-ico { opacity:1; filter:drop-shadow(0 0 5px color-mix(in srgb, var(--hb-atm-accent) 70%, transparent)); }
-  #hb-root .hb-tab-active::after { content:''; position:absolute; left:14%; right:14%; bottom:0; height:2px; border-radius:2px;
+  .hb-scope .hb-tab-active .hb-tab-ico { opacity:1; filter:drop-shadow(0 0 5px color-mix(in srgb, var(--hb-atm-accent) 70%, transparent)); }
+  .hb-scope .hb-tab-active::after { content:''; position:absolute; left:14%; right:14%; bottom:0; height:2px; border-radius:2px;
     background:var(--hb-atm-accent); box-shadow:0 0 8px var(--hb-atm-accent); animation:hbTabSlide .22s ease-out; }
   @keyframes hbTabSlide { from { left:48%; right:48%; opacity:0; } to { left:14%; right:14%; opacity:1; } }
   /* Two-column body — the stage beside the controls card, both filling the pane height
      so nothing has to scroll to be reached. */
-  #hb-root .hb-bench-main { display:flex; gap:12px; align-items:stretch; flex:1 1 auto; min-height:0; }
-  #hb-root .hb-bench-stage { flex:0 0 auto; display:flex; flex-direction:column; gap:6px; min-height:0; }
+  .hb-scope .hb-bench-main { display:flex; gap:12px; align-items:stretch; flex:1 1 auto; min-height:0; }
+  .hb-scope .hb-bench-stage { flex:0 0 auto; display:flex; flex-direction:column; gap:6px; min-height:0; }
   /* The plane sits in a real bay: a recessed viewport with corner brackets, a faint
      deck grid behind it and a pool of accent light under the gear. */
-  #hb-root .hb-stage-frame { position:relative; display:flex; align-items:center; justify-content:center; padding:6px; border-radius:12px; overflow:hidden;
+  .hb-scope .hb-stage-frame { position:relative; display:flex; align-items:center; justify-content:center; padding:6px; border-radius:12px; overflow:hidden;
     background:radial-gradient(120% 110% at 50% 35%, color-mix(in srgb, var(--hb-atm-accent) 14%, var(--bg)), color-mix(in srgb, var(--hb-atm-accent) 5%, var(--bg)));
     border:1px solid color-mix(in srgb, var(--hb-atm-accent) 26%, transparent);
     box-shadow:inset 0 2px 12px rgba(0,0,0,0.4), inset 0 1px 0 var(--hb-bevel-hi); }
-  #hb-root .hb-stage-grid { position:absolute; inset:0; pointer-events:none; opacity:0.5;
+  .hb-scope .hb-stage-grid { position:absolute; inset:0; pointer-events:none; opacity:0.5;
     background-image:linear-gradient(color-mix(in srgb, var(--hb-atm-accent) 13%, transparent) 1px, transparent 1px),
       linear-gradient(90deg, color-mix(in srgb, var(--hb-atm-accent) 13%, transparent) 1px, transparent 1px);
     background-size:22px 22px; -webkit-mask-image:radial-gradient(70% 70% at 50% 55%, #000, transparent); mask-image:radial-gradient(70% 70% at 50% 55%, #000, transparent); }
-  #hb-root .hb-stage-glow { position:absolute; left:50%; bottom:8%; width:62%; height:16px; transform:translateX(-50%); pointer-events:none;
+  .hb-scope .hb-stage-glow { position:absolute; left:50%; bottom:8%; width:62%; height:16px; transform:translateX(-50%); pointer-events:none;
     border-radius:50%; background:radial-gradient(50% 50% at 50% 50%, color-mix(in srgb, var(--hb-atm-accent) 45%, transparent), transparent 72%);
     filter:blur(3px); animation:hbBayPulse 4.5s ease-in-out infinite; }
   @keyframes hbBayPulse { 0%,100% { opacity:0.55; } 50% { opacity:0.95; } }
   /* Corner brackets — machined bay markings on the viewport. */
-  #hb-root .hb-stage-frame::before, #hb-root .hb-stage-frame::after { content:''; position:absolute; width:16px; height:16px; pointer-events:none;
+  .hb-scope .hb-stage-frame::before, .hb-scope .hb-stage-frame::after { content:''; position:absolute; width:16px; height:16px; pointer-events:none;
     border-color:color-mix(in srgb, var(--hb-atm-accent) 60%, transparent); }
-  #hb-root .hb-stage-frame::before { top:5px; left:5px; border-top:2px solid; border-left:2px solid; border-top-left-radius:5px; }
-  #hb-root .hb-stage-frame::after { bottom:5px; right:5px; border-bottom:2px solid; border-right:2px solid; border-bottom-right-radius:5px; }
-  #hb-root .hb-stage-cap { text-align:center; font-size:8px; letter-spacing:2.5px; text-transform:uppercase; color:var(--tos-fg-dim2); }
-  #hb-root .hb-bench-stage canvas { display:block; margin:0 auto; position:relative; z-index:1; }
-  #hb-root .hb-bench-panels { flex:1 1 260px; min-width:230px; min-height:0; display:flex; position:relative; z-index:4; }
-  #hb-root #hb-perf-radar { display:block; margin:0 auto; }
+  .hb-scope .hb-stage-frame::before { top:5px; left:5px; border-top:2px solid; border-left:2px solid; border-top-left-radius:5px; }
+  .hb-scope .hb-stage-frame::after { bottom:5px; right:5px; border-bottom:2px solid; border-right:2px solid; border-bottom-right-radius:5px; }
+  .hb-scope .hb-stage-cap { text-align:center; font-size:8px; letter-spacing:2.5px; text-transform:uppercase; color:var(--tos-fg-dim2); }
+  .hb-scope .hb-bench-stage canvas { display:block; margin:0 auto; position:relative; z-index:1; }
+  .hb-scope .hb-bench-panels { flex:1 1 260px; min-width:230px; min-height:0; display:flex; position:relative; z-index:4; }
+  .hb-scope #hb-perf-radar { display:block; margin:0 auto; }
   /* Controls card (tablet .tos-card recipe) — one raised surface per section, filling
      the column so the tab body has a real box to live in rather than growing the page. */
-  #hb-root .hb-bench-card { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; padding:10px 12px 12px; border-radius:10px;
+  .hb-scope .hb-bench-card { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; padding:10px 12px 12px; border-radius:10px;
     border:1px solid color-mix(in srgb, var(--hb-atm-accent) 22%, transparent); background:var(--hb-surf-lo);
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi), 0 2px 8px rgba(0,0,0,0.18); }
   /* Section header inside the card — a lit pip + the tab's name over a hairline. */
-  #hb-root .hb-card-head { display:flex; align-items:center; gap:7px; flex:0 0 auto; margin-bottom:9px; padding-bottom:6px;
+  .hb-scope .hb-card-head { display:flex; align-items:center; gap:7px; flex:0 0 auto; margin-bottom:9px; padding-bottom:6px;
     font-size:9px; font-weight:bold; letter-spacing:3px; color:var(--tos-fg-dim);
     border-bottom:1px solid color-mix(in srgb, var(--hb-atm-accent) 22%, transparent); }
-  #hb-root .hb-card-dot { width:6px; height:6px; border-radius:50%; background:var(--hb-atm-accent);
+  .hb-scope .hb-card-dot { width:6px; height:6px; border-radius:50%; background:var(--hb-atm-accent);
     box-shadow:0 0 8px var(--hb-atm-accent); animation:hbBayPulse 3s ease-in-out infinite; }
   /* The single last-resort scroll region — and it fades in on every tab change. */
-  #hb-root .hb-bench-tabbody { flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden; padding-right:3px;
+  .hb-scope .hb-bench-tabbody { flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden; padding-right:3px;
     animation:hbTabFade .18s ease-out; }
   @keyframes hbTabFade { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
-  #hb-root .hb-bench-card .hb-note, #hb-root .hb-bench-card .hb-dim { color:var(--text-dim); }
-  #hb-root .hb-bench-tabbody { color:var(--text); }
-  #hb-root .hb-bench-tabbody .hb-ctl, #hb-root .hb-bench-tabbody .hb-tune-row { color:var(--text); }
+  .hb-scope .hb-bench-card .hb-note, .hb-scope .hb-bench-card .hb-dim { color:var(--text-dim); }
+  .hb-scope .hb-bench-tabbody { color:var(--text); }
+  .hb-scope .hb-bench-tabbody .hb-ctl, .hb-scope .hb-bench-tabbody .hb-tune-row { color:var(--text); }
   /* Paint's exterior/interior/schemes sub-nav — the same segmented control, mini. */
-  #hb-root .hb-subtabs { display:flex; gap:3px; margin-bottom:9px; padding:3px; border-radius:7px;
+  .hb-scope .hb-subtabs { display:flex; gap:3px; margin-bottom:9px; padding:3px; border-radius:7px;
     background:var(--hb-surf-lo); border:1px solid var(--border); box-shadow:inset 0 1px 2px var(--hb-bevel-lo); }
-  #hb-root .hb-subtab { flex:1 1 auto; text-align:center; font-family:inherit; font-size:9px; letter-spacing:1px; text-transform:uppercase; cursor:pointer;
+  .hb-scope .hb-subtab { flex:1 1 auto; text-align:center; font-family:inherit; font-size:9px; letter-spacing:1px; text-transform:uppercase; cursor:pointer;
     color:var(--tos-fg-dim); background:transparent; border:1px solid transparent; border-radius:5px; padding:5px 9px;
     transition:filter .12s, color .12s, background .12s; }
-  #hb-root .hb-subtab:hover { color:var(--tos-fg); background:color-mix(in srgb, var(--hb-atm-accent) 10%, transparent); }
-  #hb-root .hb-subtab-active { color:var(--tos-fg); background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
+  .hb-scope .hb-subtab:hover { color:var(--tos-fg); background:color-mix(in srgb, var(--hb-atm-accent) 10%, transparent); }
+  .hb-scope .hb-subtab-active { color:var(--tos-fg); background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
     border-color:color-mix(in srgb, var(--hb-atm-accent) 35%, transparent); box-shadow:inset 0 1px 0 var(--hb-bevel-hi), 0 1px 2px rgba(0,0,0,0.18); }
   /* If a tab body ever does have to scroll, its two anchors don't go with it: the paint
      sub-nav stays pinned to the top and the Apply/Revert row to the bottom, so the
      controls you need are always on screen without hunting for them. */
-  #hb-root .hb-bench-tabbody .hb-subtabs { position:sticky; top:0; z-index:3; }
-  #hb-root .hb-bench-tabbody .hb-apply-row { position:sticky; bottom:0; z-index:3; margin-top:10px; padding-top:9px;
+  .hb-scope .hb-bench-tabbody .hb-subtabs { position:sticky; top:0; z-index:3; }
+  .hb-scope .hb-bench-tabbody .hb-apply-row { position:sticky; bottom:0; z-index:3; margin-top:10px; padding-top:9px;
     background:linear-gradient(to top, var(--hb-surf-lo) 72%, transparent);
     border-top:1px solid color-mix(in srgb, var(--hb-atm-accent) 18%, transparent); }
   /* Hull docket — a big lit condition gauge over the mechanic's verdict. The ticks on
      the track mark the thresholds where the verdict (and the colour) changes. */
-  #hb-root .hb-hull-gauge { padding:12px 14px 13px; border-radius:11px; margin-bottom:11px; text-align:center;
+  .hb-scope .hb-hull-gauge { padding:12px 14px 13px; border-radius:11px; margin-bottom:11px; text-align:center;
     background:var(--hb-surf-lo); border:1px solid var(--border);
     box-shadow:inset 0 2px 9px var(--hb-bevel-lo), inset 0 1px 0 rgba(255,255,255,0.06); }
-  #hb-root .hb-hull-num { font-size:34px; font-weight:bold; letter-spacing:1px; line-height:1;
+  .hb-scope .hb-hull-num { font-size:34px; font-weight:bold; letter-spacing:1px; line-height:1;
     text-shadow:0 0 16px currentColor; }
-  #hb-root .hb-hull-num small { font-size:14px; opacity:0.6; margin-left:2px; }
-  #hb-root .hb-hull-track { position:relative; height:10px; margin:11px 0 9px; border-radius:6px; background:var(--hb-surf);
+  .hb-scope .hb-hull-num small { font-size:14px; opacity:0.6; margin-left:2px; }
+  .hb-scope .hb-hull-track { position:relative; height:10px; margin:11px 0 9px; border-radius:6px; background:var(--hb-surf);
     box-shadow:inset 0 1px 3px var(--hb-bevel-lo), inset 0 0 0 1px var(--border); overflow:hidden; }
-  #hb-root .hb-hull-track i { position:absolute; left:0; top:0; bottom:0; border-radius:6px; box-shadow:0 0 10px currentColor; transition:width .3s ease-out; }
-  #hb-root .hb-hull-track u { position:absolute; top:0; bottom:0; width:1px; background:color-mix(in srgb, var(--text) 40%, transparent); z-index:2; }
-  #hb-root .hb-hull-verdict { font-size:10.5px; line-height:1.45; color:var(--text-dim); font-style:italic; }
-  #hb-root .hb-repair-row { display:flex; gap:8px; flex-wrap:wrap; }
+  .hb-scope .hb-hull-track i { position:absolute; left:0; top:0; bottom:0; border-radius:6px; box-shadow:0 0 10px currentColor; transition:width .3s ease-out; }
+  .hb-scope .hb-hull-track u { position:absolute; top:0; bottom:0; width:1px; background:color-mix(in srgb, var(--text) 40%, transparent); z-index:2; }
+  .hb-scope .hb-hull-verdict { font-size:10.5px; line-height:1.45; color:var(--text-dim); font-style:italic; }
+  .hb-scope .hb-repair-row { display:flex; gap:8px; flex-wrap:wrap; }
   /* Hopper — the pour list. Each can is a wide two-line button (name + what's in it), so a
      row reads as a container on the shelf rather than a menu entry. */
-  #hb-root .hb-hop-cans { display:flex; flex-direction:column; gap:6px; margin-top:8px; }
+  .hb-scope .hb-hop-cans { display:flex; flex-direction:column; gap:6px; margin-top:8px; }
   /* The same list, folded into the Hull tab under a rule — it is a second job on the
      same visit, not a second panel, so it sits below the repair row rather than
      competing with it for the top of the card. */
-  #hb-root .hb-hop-strip { margin-top:14px; padding-top:10px; border-top:1px solid var(--hb-line, rgba(255,255,255,.12)); }
-  #hb-root .hb-hop-strip .hb-card-head { margin-bottom:6px; }
-  #hb-root .hb-hop-can { display:flex; align-items:baseline; gap:6px; flex-wrap:wrap; width:100%; text-align:left; justify-content:flex-start; }
-  #hb-root .hb-hop-can em { font-style:normal; opacity:.6; }
-  #hb-root .hb-hop-can span { margin-left:auto; font-size:11px; opacity:.66; }
-  #hb-root .hb-hop-clash { opacity:.45; cursor:not-allowed; }
+  .hb-scope .hb-hop-strip { margin-top:14px; padding-top:10px; border-top:1px solid var(--hb-line, rgba(255,255,255,.12)); }
+  .hb-scope .hb-hop-strip .hb-card-head { margin-bottom:6px; }
+  .hb-scope .hb-hop-can { display:flex; align-items:baseline; gap:6px; flex-wrap:wrap; width:100%; text-align:left; justify-content:flex-start; }
+  .hb-scope .hb-hop-can em { font-style:normal; opacity:.6; }
+  .hb-scope .hb-hop-can span { margin-left:auto; font-size:11px; opacity:.66; }
+  .hb-scope .hb-hop-clash { opacity:.45; cursor:not-allowed; }
   /* Tuning — rotary dials + a delta-bar readout, side by side (not stacked) so the
      whole tab fits one screen with no scrolling. The two clusters read as paired
      instrument bays: each a shallow well sunk into the bench face, its dials/bars in
      their own bezels — the same tactile, theme-following depth the tablet gives its
      tiles (light on a light theme, dark on a dark one). */
-  #hb-root .hb-tune-grid { display:grid; grid-template-columns:minmax(150px,auto) 1fr; gap:8px 10px; align-items:stretch; margin-bottom:8px; }
+  .hb-scope .hb-tune-grid { display:grid; grid-template-columns:minmax(150px,auto) 1fr; gap:8px 10px; align-items:stretch; margin-bottom:8px; }
   /* Dial cluster — a sunken instrument bay. */
-  #hb-root .hb-knobs { display:grid; grid-template-columns:repeat(2,1fr); gap:6px; padding:9px; border-radius:12px;
+  .hb-scope .hb-knobs { display:grid; grid-template-columns:repeat(2,1fr); gap:6px; padding:9px; border-radius:12px;
     background:var(--hb-surf-lo); border:1px solid var(--border);
     box-shadow:inset 0 2px 8px var(--hb-bevel-lo), inset 0 1px 0 rgba(255,255,255,0.06); }
   /* Each dial panel-mounted in its own raised bezel — bright top lip, soft drop. */
-  #hb-root .hb-knob-cell { display:flex; flex-direction:column; align-items:center; gap:1px; padding:5px 4px 4px; border-radius:10px; cursor:help;
+  .hb-scope .hb-knob-cell { display:flex; flex-direction:column; align-items:center; gap:1px; padding:5px 4px 4px; border-radius:10px; cursor:help;
     background:linear-gradient(180deg, var(--hb-surf), var(--hb-surf-lo)); border:1px solid var(--border);
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 3px var(--hb-bevel-lo), 0 2px 4px rgba(0,0,0,0.16);
     transition:filter .12s, box-shadow .12s, border-color .12s; }
-  #hb-root .hb-knob-cell:hover { filter:brightness(1.07); border-color:color-mix(in srgb, var(--hb-atm-accent) 45%, var(--border));
+  .hb-scope .hb-knob-cell:hover { filter:brightness(1.07); border-color:color-mix(in srgb, var(--hb-atm-accent) 45%, var(--border));
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 3px var(--hb-bevel-lo), 0 2px 7px rgba(0,0,0,0.2), 0 0 12px color-mix(in srgb, var(--hb-atm-accent) 20%, transparent); }
-  #hb-root .hb-knob { display:block; cursor:ns-resize; touch-action:none; }
-  #hb-root .hb-knob-label { font-size:8px; letter-spacing:1px; color:var(--text-dim); margin-top:2px; text-align:center; }
+  .hb-scope .hb-knob { display:block; cursor:ns-resize; touch-action:none; }
+  .hb-scope .hb-knob-label { font-size:8px; letter-spacing:1px; color:var(--text-dim); margin-top:2px; text-align:center; }
   /* Readout reads like a lit segment display. */
-  #hb-root .hb-knob-val { font-size:11px; font-weight:bold; color:var(--text-bright); letter-spacing:0.5px; text-shadow:0 0 6px color-mix(in srgb, var(--hb-atm-accent) 45%, transparent); }
-  #hb-root .hb-knob-poles { display:flex; justify-content:space-between; width:100%; font-size:6.5px; letter-spacing:0.5px; color:var(--text-dim); margin-top:1px; padding:0 2px; }
+  .hb-scope .hb-knob-val { font-size:11px; font-weight:bold; color:var(--text-bright); letter-spacing:0.5px; text-shadow:0 0 6px color-mix(in srgb, var(--hb-atm-accent) 45%, transparent); }
+  .hb-scope .hb-knob-poles { display:flex; justify-content:space-between; width:100%; font-size:6.5px; letter-spacing:0.5px; color:var(--text-dim); margin-top:1px; padding:0 2px; }
   /* Delta readout — a matching sunken bay of lit meters. */
-  #hb-root .hb-perf-bars { display:grid; grid-template-columns:42px 1fr 32px; gap:6px 8px; align-items:center; padding:9px 11px; border-radius:12px;
+  .hb-scope .hb-perf-bars { display:grid; grid-template-columns:42px 1fr 32px; gap:6px 8px; align-items:center; padding:9px 11px; border-radius:12px;
     background:var(--hb-surf-lo); border:1px solid var(--border);
     box-shadow:inset 0 2px 8px var(--hb-bevel-lo), inset 0 1px 0 rgba(255,255,255,0.06); }
-  #hb-root .hb-pbar-row { display:contents; }
-  #hb-root .hb-pbar-l { font-size:8px; letter-spacing:0.5px; color:var(--text-dim); text-align:right; cursor:help; }
-  #hb-root .hb-pbar { position:relative; height:9px; background:var(--hb-surf); border-radius:5px;
+  .hb-scope .hb-pbar-row { display:contents; }
+  .hb-scope .hb-pbar-l { font-size:8px; letter-spacing:0.5px; color:var(--text-dim); text-align:right; cursor:help; }
+  .hb-scope .hb-pbar { position:relative; height:9px; background:var(--hb-surf); border-radius:5px;
     box-shadow:inset 0 1px 3px var(--hb-bevel-lo), inset 0 0 0 1px var(--border); cursor:help; }
   /* The 50% mark = stock; bars grow from there both ways so a swing reads as +/-. */
-  #hb-root .hb-pbar::before { content:''; position:absolute; left:50%; top:-1px; bottom:-1px; width:1px; background:color-mix(in srgb, var(--text) 35%, transparent); z-index:2; }
-  #hb-root .hb-pbar i { position:absolute; top:0; bottom:0; left:50%; width:0; border-radius:5px; box-shadow:0 0 7px currentColor; z-index:1;
+  .hb-scope .hb-pbar::before { content:''; position:absolute; left:50%; top:-1px; bottom:-1px; width:1px; background:color-mix(in srgb, var(--text) 35%, transparent); z-index:2; }
+  .hb-scope .hb-pbar i { position:absolute; top:0; bottom:0; left:50%; width:0; border-radius:5px; box-shadow:0 0 7px currentColor; z-index:1;
     transition:left .08s ease-out, width .08s ease-out, background .08s, box-shadow .08s; }
-  #hb-root .hb-pbar-d { font-size:9px; font-weight:bold; letter-spacing:0.5px; text-align:left; min-width:28px; }
-  #hb-root .hb-apply-row .hb-tune-note { flex-basis:100%; font-size:9px; color:var(--text-dim); margin-top:2px; }
+  .hb-scope .hb-pbar-d { font-size:9px; font-weight:bold; letter-spacing:0.5px; text-align:left; min-width:28px; }
+  .hb-scope .hb-apply-row .hb-tune-note { flex-basis:100%; font-size:9px; color:var(--text-dim); margin-top:2px; }
   /* Upgrade kits — their own tab: a selectable list beside the picked kit's detail. */
-  #hb-root .hb-kits-head { font-size:9px; letter-spacing:3px; color:var(--text-dim); margin-bottom:6px; }
-  #hb-root .hb-kits2 { display:grid; grid-template-columns:minmax(118px,44%) 1fr; gap:10px; align-items:start; }
-  #hb-root .hb-kit-list { display:flex; flex-direction:column; gap:6px; }
-  #hb-root .hb-kit-item { display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; text-align:left; cursor:pointer;
+  .hb-scope .hb-kits-head { font-size:9px; letter-spacing:3px; color:var(--text-dim); margin-bottom:6px; }
+  .hb-scope .hb-kits2 { display:grid; grid-template-columns:minmax(118px,44%) 1fr; gap:10px; align-items:start; }
+  .hb-scope .hb-kit-list { display:flex; flex-direction:column; gap:6px; }
+  .hb-scope .hb-kit-item { display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; text-align:left; cursor:pointer;
     font-family:inherit; font-size:11px; letter-spacing:0.5px; color:var(--text); padding:8px 10px; border-radius:9px;
     background:linear-gradient(180deg, var(--hb-surf), var(--hb-surf-lo)); border:1px solid var(--border);
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 3px var(--hb-bevel-lo); transition:filter .12s, border-color .12s, box-shadow .12s; }
-  #hb-root .hb-kit-item:hover { filter:brightness(1.07); border-color:color-mix(in srgb, var(--hb-atm-accent) 45%, var(--border)); }
-  #hb-root .hb-kit-item-sel { border-color:var(--hb-atm-accent);
+  .hb-scope .hb-kit-item:hover { filter:brightness(1.07); border-color:color-mix(in srgb, var(--hb-atm-accent) 45%, var(--border)); }
+  .hb-scope .hb-kit-item-sel { border-color:var(--hb-atm-accent);
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi), 0 0 10px color-mix(in srgb, var(--hb-atm-accent) 25%, transparent); }
-  #hb-root .hb-kit-item-name { flex:1; }
-  #hb-root .hb-kit-item-tag { font-size:9px; letter-spacing:0.5px; color:var(--text-bright); white-space:nowrap; }
-  #hb-root .hb-kit-item-fitted { color:var(--green); }
-  #hb-root .hb-kit-detail { padding:10px 12px; border-radius:12px; border:1px solid var(--border); background:var(--hb-surf-lo);
+  .hb-scope .hb-kit-item-name { flex:1; }
+  .hb-scope .hb-kit-item-tag { font-size:9px; letter-spacing:0.5px; color:var(--text-bright); white-space:nowrap; }
+  .hb-scope .hb-kit-item-fitted { color:var(--green); }
+  .hb-scope .hb-kit-detail { padding:10px 12px; border-radius:12px; border:1px solid var(--border); background:var(--hb-surf-lo);
     box-shadow:inset 0 2px 8px var(--hb-bevel-lo); }
-  #hb-root .hb-kit-detail-name { font-size:12px; font-weight:bold; letter-spacing:1px; color:var(--text-bright); margin-bottom:4px; }
-  #hb-root .hb-kit-detail-act { margin-top:10px; padding-top:9px; border-top:1px solid var(--border); }
-  #hb-root .hb-kit-tag { font-size:8px; letter-spacing:1px; color:var(--green); border:1px solid color-mix(in srgb, var(--green) 45%, transparent); border-radius:3px; padding:2px 6px; }
-  #hb-root .hb-kit-blurb { font-size:10.5px; color:var(--text-dim); margin-top:4px; line-height:1.4; }
+  .hb-scope .hb-kit-detail-name { font-size:12px; font-weight:bold; letter-spacing:1px; color:var(--text-bright); margin-bottom:4px; }
+  .hb-scope .hb-kit-detail-act { margin-top:10px; padding-top:9px; border-top:1px solid var(--border); }
+  .hb-scope .hb-kit-tag { font-size:8px; letter-spacing:1px; color:var(--green); border:1px solid color-mix(in srgb, var(--green) 45%, transparent); border-radius:3px; padding:2px 6px; }
+  .hb-scope .hb-kit-blurb { font-size:10.5px; color:var(--text-dim); margin-top:4px; line-height:1.4; }
   /* W&B loading sheet — three read-out tiles over the cabin-fit keys. */
-  #hb-root .hb-wb-tiles { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
-  #hb-root .hb-wb-tile { padding:8px 10px 9px; border-radius:10px; background:var(--hb-surf-lo); border:1px solid var(--border);
+  .hb-scope .hb-wb-tiles { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .hb-scope .hb-wb-tile { padding:8px 10px 9px; border-radius:10px; background:var(--hb-surf-lo); border:1px solid var(--border);
     box-shadow:inset 0 2px 7px var(--hb-bevel-lo), inset 0 1px 0 rgba(255,255,255,0.06); }
-  #hb-root .hb-wb-tile i { display:block; font-style:normal; font-size:8px; letter-spacing:1.5px; text-transform:uppercase; color:var(--tos-fg-dim2); }
-  #hb-root .hb-wb-tile b { display:block; font-size:18px; font-weight:bold; color:var(--text-bright); line-height:1.2;
+  .hb-scope .hb-wb-tile i { display:block; font-style:normal; font-size:8px; letter-spacing:1.5px; text-transform:uppercase; color:var(--tos-fg-dim2); }
+  .hb-scope .hb-wb-tile b { display:block; font-size:18px; font-weight:bold; color:var(--text-bright); line-height:1.2;
     text-shadow:0 0 9px color-mix(in srgb, var(--hb-atm-accent) 40%, transparent); }
-  #hb-root .hb-wb-tile b small { font-size:10px; opacity:0.6; margin-left:1px; }
-  #hb-root .hb-wb-tile u { display:block; text-decoration:none; font-size:8.5px; color:var(--text-dim); margin-top:3px; }
-  #hb-root .hb-loadout-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
-  #hb-root .hb-chip { width:14px; height:14px; border-radius:3px; display:inline-block; }
-  #hb-root .hb-ctls { display:grid; grid-template-columns:1fr 1fr; gap:8px 12px; }
-  #hb-root .hb-ctl { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:11px; color:var(--tos-fg-dim); letter-spacing:1px; }
-  #hb-root .hb-ctl input[type=color] { width:44px; height:26px; padding:0; border:1px solid color-mix(in srgb, var(--hb-atm-accent) 40%, transparent); border-radius:5px; background:none; cursor:pointer; }
+  .hb-scope .hb-wb-tile b small { font-size:10px; opacity:0.6; margin-left:1px; }
+  .hb-scope .hb-wb-tile u { display:block; text-decoration:none; font-size:8.5px; color:var(--text-dim); margin-top:3px; }
+  .hb-scope .hb-loadout-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
+  .hb-scope .hb-chip { width:14px; height:14px; border-radius:3px; display:inline-block; }
+  .hb-scope .hb-ctls { display:grid; grid-template-columns:1fr 1fr; gap:8px 12px; }
+  .hb-scope .hb-ctl { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:11px; color:var(--tos-fg-dim); letter-spacing:1px; }
+  .hb-scope .hb-ctl input[type=color] { width:44px; height:26px; padding:0; border:1px solid color-mix(in srgb, var(--hb-atm-accent) 40%, transparent); border-radius:5px; background:none; cursor:pointer; }
   /* The swatch chip: a lacquered paint sample beside its hex code. */
-  #hb-root .hb-cp-swatch { display:inline-flex; align-items:center; gap:7px; padding:3px 8px 3px 4px; cursor:pointer; font-family:inherit;
+  .hb-scope .hb-cp-swatch { display:inline-flex; align-items:center; gap:7px; padding:3px 8px 3px 4px; cursor:pointer; font-family:inherit;
     border:1px solid color-mix(in srgb, var(--hb-atm-accent) 40%, transparent); border-radius:7px;
     background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi), 0 1px 3px rgba(0,0,0,0.25); transition:filter .12s, border-color .12s, box-shadow .12s; }
-  #hb-root .hb-cp-swatch i { width:26px; height:20px; border-radius:4px; box-shadow:inset 0 1px 0 rgba(255,255,255,0.35), inset 0 0 0 1px rgba(0,0,0,0.35); }
-  #hb-root .hb-cp-swatch em { font-style:normal; font-size:9px; letter-spacing:0.8px; color:var(--tos-fg-dim); }
-  #hb-root .hb-cp-swatch:hover { filter:brightness(1.08); border-color:var(--hb-atm-accent);
+  .hb-scope .hb-cp-swatch i { width:26px; height:20px; border-radius:4px; box-shadow:inset 0 1px 0 rgba(255,255,255,0.35), inset 0 0 0 1px rgba(0,0,0,0.35); }
+  .hb-scope .hb-cp-swatch em { font-style:normal; font-size:9px; letter-spacing:0.8px; color:var(--tos-fg-dim); }
+  .hb-scope .hb-cp-swatch:hover { filter:brightness(1.08); border-color:var(--hb-atm-accent);
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi), 0 0 11px color-mix(in srgb, var(--hb-atm-accent) 35%, transparent); }
-  #hb-root .hb-cp-swatch:hover em { color:var(--tos-fg); }
+  .hb-scope .hb-cp-swatch:hover em { color:var(--tos-fg); }
   /* The colour-picker popover's own rules live with it in ./color-picker.js — it
-     mounts on <body>, so they were never scoped under #hb-root anyway, and the
+     mounts on <body>, so they were never scoped under .hb-scope anyway, and the
      spray can needs the same ones. The theme tokens above are what it copies. */
-  #hb-root .hb-ctl select { flex:1; max-width:130px; padding:5px 6px; font-family:inherit; cursor:pointer;
+  .hb-scope .hb-ctl select { flex:1; max-width:130px; padding:5px 6px; font-family:inherit; cursor:pointer;
     color:var(--tos-fg); background:color-mix(in srgb, var(--hb-atm-accent) 8%, var(--bg2));
     border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); border-radius:6px; }
   /* The dash nameplate: typed in, so a field, but in the selects' finish rather than a white form box. */
-  #hb-root .hb-ctl input[data-plate-field] { flex:1; min-width:0; max-width:130px; padding:5px 7px; font-family:inherit; letter-spacing:2px; text-transform:uppercase;
+  .hb-scope .hb-ctl input[data-plate-field] { flex:1; min-width:0; max-width:130px; padding:5px 7px; font-family:inherit; letter-spacing:2px; text-transform:uppercase;
     color:var(--tos-fg); background:color-mix(in srgb, var(--hb-atm-accent) 8%, var(--bg2));
     border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); border-radius:6px; }
-  #hb-root .hb-ctl input[data-plate-field]::placeholder { color:var(--tos-fg-dim); }
-  #hb-root .hb-apply-row { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
-  #hb-root .hb-schemes { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
-  #hb-root .hb-scheme { display:inline-flex; align-items:center; background:var(--hb-surf-lo); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 28%, transparent); border-radius:6px; overflow:hidden;
+  .hb-scope .hb-ctl input[data-plate-field]::placeholder { color:var(--tos-fg-dim); }
+  .hb-scope .hb-apply-row { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
+  .hb-scope .hb-schemes { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+  .hb-scope .hb-scheme { display:inline-flex; align-items:center; background:var(--hb-surf-lo); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 28%, transparent); border-radius:6px; overflow:hidden;
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi); }
-  #hb-root .hb-scheme-load { display:flex; align-items:center; gap:6px; font-size:10px; letter-spacing:1px; color:var(--tos-fg); cursor:pointer; background:none; border:none; padding:5px 6px 5px 8px; font-family:inherit; }
-  #hb-root .hb-scheme-del { background:none; border:none; border-left:1px solid color-mix(in srgb, var(--hb-atm-accent) 22%, transparent); color:var(--tos-fg-dim); cursor:pointer; padding:5px 7px; font-family:inherit; }
-  #hb-root .hb-scheme-del:hover { color:#ff8a8a; }
-  #hb-root .hb-scheme-save { display:flex; gap:8px; }
-  #hb-root .hb-scheme-save input { flex:0 0 120px; color:var(--tos-fg); background:color-mix(in srgb, var(--hb-atm-accent) 8%, var(--bg2)); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); border-radius:6px; padding:6px 8px; font-family:inherit; outline:none; }
-  #hb-root .hb-scheme-save input:focus { border-color:var(--hb-atm-accent); box-shadow:0 0 0 2px color-mix(in srgb, var(--hb-atm-accent) 22%, transparent); }
+  .hb-scope .hb-scheme-load { display:flex; align-items:center; gap:6px; font-size:10px; letter-spacing:1px; color:var(--tos-fg); cursor:pointer; background:none; border:none; padding:5px 6px 5px 8px; font-family:inherit; }
+  .hb-scope .hb-scheme-del { background:none; border:none; border-left:1px solid color-mix(in srgb, var(--hb-atm-accent) 22%, transparent); color:var(--tos-fg-dim); cursor:pointer; padding:5px 7px; font-family:inherit; }
+  .hb-scope .hb-scheme-del:hover { color:#ff8a8a; }
+  .hb-scope .hb-scheme-save { display:flex; gap:8px; }
+  .hb-scope .hb-scheme-save input { flex:0 0 120px; color:var(--tos-fg); background:color-mix(in srgb, var(--hb-atm-accent) 8%, var(--bg2)); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); border-radius:6px; padding:6px 8px; font-family:inherit; outline:none; }
+  .hb-scope .hb-scheme-save input:focus { border-color:var(--hb-atm-accent); box-shadow:0 0 0 2px color-mix(in srgb, var(--hb-atm-accent) 22%, transparent); }
   /* Narrow pane: the two bench columns stack. The stage shrinks to a strip and the
      bench itself becomes the (in-theme) scroll region, since a phone-width column
      genuinely can't hold both — scrolling stays the last resort, not the default. */
   @media (max-width:620px) {
-    #hb-root .hb-ctls { grid-template-columns:1fr; }
-    #hb-root .hb-bench { overflow-y:auto; scrollbar-width:thin; scrollbar-color:color-mix(in srgb, var(--hb-atm-accent) 55%, var(--border)) transparent; }
-    #hb-root .hb-bench::-webkit-scrollbar { width:7px; }
-    #hb-root .hb-bench::-webkit-scrollbar-track { background:var(--hb-surf-lo); border-radius:4px; }
-    #hb-root .hb-bench::-webkit-scrollbar-thumb { background:linear-gradient(180deg, color-mix(in srgb, var(--hb-atm-accent) 70%, var(--bg2)), color-mix(in srgb, var(--hb-atm-accent) 35%, var(--bg2))); border-radius:4px; }
-    #hb-root .hb-bench-main { flex-direction:column; align-items:stretch; min-height:auto; }
-    #hb-root .hb-bench-stage { flex:0 0 auto; }
-    #hb-root .hb-bench-tabbody { overflow:visible; }
-    #hb-root .hb-tune-grid { grid-template-columns:1fr; }
+    .hb-scope .hb-ctls { grid-template-columns:1fr; }
+    .hb-scope .hb-bench { overflow-y:auto; scrollbar-width:thin; scrollbar-color:color-mix(in srgb, var(--hb-atm-accent) 55%, var(--border)) transparent; }
+    .hb-scope .hb-bench::-webkit-scrollbar { width:7px; }
+    .hb-scope .hb-bench::-webkit-scrollbar-track { background:var(--hb-surf-lo); border-radius:4px; }
+    .hb-scope .hb-bench::-webkit-scrollbar-thumb { background:linear-gradient(180deg, color-mix(in srgb, var(--hb-atm-accent) 70%, var(--bg2)), color-mix(in srgb, var(--hb-atm-accent) 35%, var(--bg2))); border-radius:4px; }
+    .hb-scope .hb-bench-main { flex-direction:column; align-items:stretch; min-height:auto; }
+    .hb-scope .hb-bench-stage { flex:0 0 auto; }
+    .hb-scope .hb-bench-tabbody { overflow:visible; }
+    .hb-scope .hb-tune-grid { grid-template-columns:1fr; }
   }
   /* ── The floor's hand of cards (vehicle-card.js draws the cards) ── */
-  #hb-root .hb-hand-col { white-space:normal; flex:1 1 auto; min-height:0; overflow-y:auto; padding:2px 2px 8px; }
-  #hb-root .hb-hand-col .vc-hand { grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); }
-  #hb-root .hb-hand-col .hb-hint { position:static; margin-bottom:10px; }
-  #hb-root .vc-mini.vc-go { border-color:var(--hb-atm-accent); color:var(--hb-atm-accent); font-weight:bold; }
+  .hb-scope .hb-hand-col { white-space:normal; flex:1 1 auto; min-height:0; overflow-y:auto; padding:2px 2px 8px; }
+  .hb-scope .hb-hand-col .vc-hand { grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); }
+  .hb-scope .hb-hand-col .hb-hint { position:static; margin-bottom:10px; }
+  .hb-scope .vc-mini.vc-go { border-color:var(--hb-atm-accent); color:var(--hb-atm-accent); font-weight:bold; }
   /* ── The maintenance bay: the 3-D stage beside a row of job cards ── */
-  #hb-root .hb-bay2 { flex:1 1 auto; min-height:0; display:flex; gap:12px; white-space:normal; }
-  #hb-root .hb-bay2-stage { position:relative; flex:1.25 1 0; min-width:0; min-height:260px; display:flex; border-radius:8px; overflow:hidden;
+  .hb-scope .hb-bay2 { flex:1 1 auto; min-height:0; display:flex; gap:12px; white-space:normal; }
+  .hb-scope .hb-bay2-stage { position:relative; flex:1.25 1 0; min-width:0; min-height:260px; display:flex; border-radius:8px; overflow:hidden;
     border:1px solid color-mix(in srgb, var(--hb-atm-accent) 25%, var(--border)); }
-  #hb-root .hb-bay2-stage .hb-scene { cursor:grab; border-radius:0; }
-  #hb-root .hb-stage-mode { position:absolute; right:10px; top:10px; z-index:3; padding:5px 11px; border-radius:16px; cursor:pointer;
+  .hb-scope .hb-bay2-stage .hb-scene { cursor:grab; border-radius:0; }
+  .hb-scope .hb-stage-mode { position:absolute; right:10px; top:10px; z-index:3; padding:5px 11px; border-radius:16px; cursor:pointer;
     font:600 11px/1 inherit; letter-spacing:.5px; color:#fff; background:linear-gradient(135deg, color-mix(in srgb, var(--hb-atm-accent) 70%, #000), rgba(10,14,20,.8));
     border:1px solid var(--hb-atm-accent); box-shadow:0 0 12px color-mix(in srgb, var(--hb-atm-accent) 45%, transparent); }
-  #hb-root .hb-stage-mode:hover { filter:brightness(1.2); }
-  #hb-root .hb-stage-radar { position:absolute; left:8px; bottom:8px; transform:scale(.72); transform-origin:left bottom; z-index:2; background:rgba(6,12,18,0.72); border-radius:8px; pointer-events:none; }
+  .hb-scope .hb-stage-mode:hover { filter:brightness(1.2); }
+  .hb-scope .hb-stage-radar { position:absolute; left:8px; bottom:8px; transform:scale(.72); transform-origin:left bottom; z-index:2; background:rgba(6,12,18,0.72); border-radius:8px; pointer-events:none; }
   /* The paint booth is an NFS Underground garage: neon on black, italic caps, a hard glow. */
-  #hb-root .hb-bay2-stage.hb-booth { background:#05060c; box-shadow:inset 0 0 0 1px rgba(196,72,255,0.55), 0 0 18px rgba(196,72,255,0.25); }
-  #hb-root .hb-booth .hb-inspect-name { font-style:italic; text-transform:uppercase; font-size:16px; letter-spacing:2px; color:#fff;
+  .hb-scope .hb-bay2-stage.hb-booth { background:#05060c; box-shadow:inset 0 0 0 1px rgba(196,72,255,0.55), 0 0 18px rgba(196,72,255,0.25); }
+  .hb-scope .hb-booth .hb-inspect-name { font-style:italic; text-transform:uppercase; font-size:16px; letter-spacing:2px; color:#fff;
     text-shadow:0 0 6px rgba(64,220,255,0.9), 0 0 16px rgba(64,220,255,0.5); }
-  #hb-root .hb-booth .hb-inspect-name span { color:#ff5cc0; text-shadow:0 0 6px rgba(255,60,170,0.8); }
-  #hb-root .hb-booth .hb-inspect-hint { font-style:italic; color:#bfefff; background:rgba(5,6,12,0.75); border-color:rgba(64,220,255,0.6);
+  .hb-scope .hb-booth .hb-inspect-name span { color:#ff5cc0; text-shadow:0 0 6px rgba(255,60,170,0.8); }
+  .hb-scope .hb-booth .hb-inspect-hint { font-style:italic; color:#bfefff; background:rgba(5,6,12,0.75); border-color:rgba(64,220,255,0.6);
     box-shadow:0 0 8px rgba(64,220,255,0.35); }
-  #hb-root .hb-booth .hb-stage-mode { font-style:italic; text-transform:uppercase; letter-spacing:1px; color:#fff; background:rgba(40,8,48,0.8);
+  .hb-scope .hb-booth .hb-stage-mode { font-style:italic; text-transform:uppercase; letter-spacing:1px; color:#fff; background:rgba(40,8,48,0.8);
     border:1px solid #c448ff; box-shadow:0 0 10px rgba(196,72,255,0.6), inset 0 0 6px rgba(196,72,255,0.4); }
   /* The booth's Exterior | Interior switch, top left, in the booth's neon. */
-  #hb-root .hb-view-seg { position:absolute; left:10px; top:40px; z-index:3; display:flex; border:1px solid #c448ff; border-radius:16px; overflow:hidden;
+  .hb-scope .hb-view-seg { position:absolute; left:10px; top:40px; z-index:3; display:flex; border:1px solid #c448ff; border-radius:16px; overflow:hidden;
     background:rgba(40,8,48,0.8); box-shadow:0 0 10px rgba(196,72,255,0.5); }
-  #hb-root .hb-view-seg button { font:inherit; font-size:10px; font-style:italic; text-transform:uppercase; letter-spacing:1px; padding:5px 11px;
+  .hb-scope .hb-view-seg button { font:inherit; font-size:10px; font-style:italic; text-transform:uppercase; letter-spacing:1px; padding:5px 11px;
     color:#d9b8ff; background:none; border:0; cursor:pointer; }
-  #hb-root .hb-view-seg button.on { color:#fff; background:rgba(196,72,255,0.45); text-shadow:0 0 6px rgba(255,120,255,0.9); }
-  #hb-root .hb-view-seg button:focus-visible { outline:2px solid #40dcff; outline-offset:-2px; }
-  #hb-root .hb-seat { background:#05060c; }
-  #hb-root .hb-seat-note { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-style:italic; letter-spacing:1px;
+  .hb-scope .hb-view-seg button.on { color:#fff; background:rgba(196,72,255,0.45); text-shadow:0 0 6px rgba(255,120,255,0.9); }
+  .hb-scope .hb-view-seg button:focus-visible { outline:2px solid #40dcff; outline-offset:-2px; }
+  .hb-scope .hb-seat { background:#05060c; }
+  .hb-scope .hb-seat-note { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-style:italic; letter-spacing:1px;
     color:#bfefff; text-shadow:0 0 6px rgba(64,220,255,0.8); pointer-events:none; }
-  #hb-root .hb-bay2-side { flex:1 1 0; min-width:0; display:flex; flex-direction:column; gap:10px; min-height:0; }
-  #hb-root .hb-jobs { flex:0 0 auto; display:grid; grid-template-columns:repeat(auto-fill,minmax(88px,1fr)); gap:6px; }
-  #hb-root .hb-job { display:flex; flex-direction:column; align-items:flex-start; gap:1px; padding:7px 9px; border-radius:8px; cursor:pointer;
-    font-family:inherit; text-align:left; color:var(--text); background:var(--hb-surf-lo, rgba(127,127,127,.08));
-    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 20%, var(--border)); transition:transform .1s, border-color .1s; }
-  #hb-root .hb-job:hover { transform:translateY(-2px); border-color:var(--hb-atm-accent); }
-  #hb-root .hb-job.on { border-color:var(--hb-atm-accent); box-shadow:inset 0 0 0 1px var(--hb-atm-accent), 0 0 10px color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); }
-  #hb-root .hb-job-ico { font-size:16px; line-height:1.2; }
-  #hb-root .hb-job b { font-size:12px; letter-spacing:.5px; }
-  #hb-root .hb-job-sub { font-size:10px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
-  #hb-root .hb-job-sub.warn { color:#e8c07a; } #hb-root .hb-job-sub.bad { color:#ff6b6b; }
+  .hb-scope .hb-bay2-side { flex:1 1 0; min-width:0; display:flex; flex-direction:column; gap:10px; min-height:0; }
+  /* The bench docked on the cockpit (#hb-svc, the shell's bay): no stage beside it, so the tuning
+     radar heads its page, and the page is a column. */
+  #hb-svc .hb-bench-tabbody { display:flex; flex-direction:column; gap:8px; }
+  #hb-svc .hb-svc-radar { align-self:center; flex:0 0 auto; }
   /* Livery scheme cards: a band of the look's colours under a moving sheen, the name, the tag. */
-  #hb-root .hb-looks { display:grid; grid-template-columns:repeat(auto-fill,minmax(128px,1fr)); gap:8px; margin-bottom:8px; }
-  #hb-root .hb-look { position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:3px; width:100%; padding:7px; border-radius:10px;
+  .hb-scope .hb-looks { display:grid; grid-template-columns:repeat(auto-fill,minmax(128px,1fr)); gap:8px; margin-bottom:8px; }
+  .hb-scope .hb-look { position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:3px; width:100%; padding:7px; border-radius:10px;
     cursor:pointer; overflow:hidden; font-family:inherit; text-align:left; color:var(--text);
     background:linear-gradient(160deg, color-mix(in srgb, var(--hb-atm-accent) 10%, rgba(20,24,32,.9)), rgba(8,10,14,.92));
     border:1px solid color-mix(in srgb, var(--hb-atm-accent) 22%, var(--border));
     box-shadow:0 4px 10px rgba(0,0,0,.35); transition:transform .14s, box-shadow .14s, border-color .14s; }
-  #hb-root .hb-look:hover { transform:translateY(-3px) scale(1.02); border-color:var(--hb-atm-accent);
+  .hb-scope .hb-look:hover { transform:translateY(-3px) scale(1.02); border-color:var(--hb-atm-accent);
     box-shadow:0 10px 20px rgba(0,0,0,.45), 0 0 16px color-mix(in srgb, var(--hb-atm-accent) 35%, transparent); }
-  #hb-root .hb-look.on { border-color:var(--hb-atm-accent);
+  .hb-scope .hb-look.on { border-color:var(--hb-atm-accent);
     box-shadow:inset 0 0 0 1px var(--hb-atm-accent), 0 0 22px color-mix(in srgb, var(--hb-atm-accent) 45%, transparent); }
-  #hb-root .hb-look.on::after { content:'✓'; position:absolute; top:10px; left:12px; z-index:3; font:700 13px/1 system-ui; color:#fff;
+  .hb-scope .hb-look.on::after { content:'✓'; position:absolute; top:10px; left:12px; z-index:3; font:700 13px/1 system-ui; color:#fff;
     text-shadow:0 1px 3px #000; }
-  #hb-root .hb-look-band { position:relative; display:flex; width:100%; height:44px; border-radius:6px; overflow:hidden;
+  .hb-scope .hb-look-band { position:relative; display:flex; width:100%; height:44px; border-radius:6px; overflow:hidden;
     box-shadow:inset 0 0 0 1px rgba(255,255,255,.18), inset 0 -8px 14px rgba(0,0,0,.35); transform:skewX(-8deg); }
-  #hb-root .hb-look-band i { flex:1 1 0; display:block; }
-  #hb-root .hb-look-band em { position:absolute; inset:0; background:linear-gradient(105deg, transparent 30%, rgba(255,255,255,.55) 45%, transparent 60%);
+  .hb-scope .hb-look-band i { flex:1 1 0; display:block; }
+  .hb-scope .hb-look-band em { position:absolute; inset:0; background:linear-gradient(105deg, transparent 30%, rgba(255,255,255,.55) 45%, transparent 60%);
     transform:translateX(-120%); }
-  #hb-root .hb-look:hover .hb-look-band em, #hb-root .hb-look.on .hb-look-band em { animation:hbSheen 1.4s ease-in-out infinite; }
+  .hb-scope .hb-look:hover .hb-look-band em, .hb-scope .hb-look.on .hb-look-band em { animation:hbSheen 1.4s ease-in-out infinite; }
   @keyframes hbSheen { from { transform:translateX(-120%); } to { transform:translateX(120%); } }
-  #hb-root .hb-look b { font-size:12px; letter-spacing:.6px; text-transform:uppercase; }
-  #hb-root .hb-look-tag { font-size:9.5px; letter-spacing:1px; text-transform:uppercase; color:var(--text-dim); }
-  #hb-root .hb-look-star { position:absolute; top:4px; right:6px; z-index:3; font-size:15px; color:#ffd24a;
+  .hb-scope .hb-look b { font-size:12px; letter-spacing:.6px; text-transform:uppercase; }
+  .hb-scope .hb-look-tag { font-size:9.5px; letter-spacing:1px; text-transform:uppercase; color:var(--text-dim); }
+  .hb-scope .hb-look-star { position:absolute; top:4px; right:6px; z-index:3; font-size:15px; color:#ffd24a;
     text-shadow:0 0 8px rgba(255,210,74,.9), 0 1px 2px #000; animation:hbTwinkle 2.2s ease-in-out infinite; }
   @keyframes hbTwinkle { 50% { opacity:.55; transform:scale(.85) rotate(20deg); } }
-  #hb-root .hb-look-wrap { position:relative; display:block; }
-  #hb-root .hb-look-del { position:absolute; top:4px; right:4px; z-index:4; width:20px; height:20px; padding:0; border-radius:50%; cursor:pointer; font-size:10px;
+  .hb-scope .hb-look-wrap { position:relative; display:block; }
+  .hb-scope .hb-look-del { position:absolute; top:4px; right:4px; z-index:4; width:20px; height:20px; padding:0; border-radius:50%; cursor:pointer; font-size:10px;
     color:#fff; background:rgba(0,0,0,.6); border:1px solid rgba(255,255,255,.3); }
   /* Every part, as a swatch */
-  #hb-root .hb-parts { display:grid; grid-template-columns:repeat(auto-fill,minmax(118px,1fr)); gap:5px; margin-bottom:8px; }
-  #hb-root .hb-part { position:relative; display:block; }
-  #hb-root .hb-part .hb-cp-swatch { width:100%; justify-content:flex-start; }
-  #hb-root .hb-part.own .hb-cp-swatch { border-color:var(--hb-atm-accent); }
-  #hb-root .hb-part-x { position:absolute; right:3px; top:50%; transform:translateY(-50%); width:20px; height:20px; padding:0; border-radius:50%;
+  .hb-scope .hb-parts { display:grid; grid-template-columns:repeat(auto-fill,minmax(118px,1fr)); gap:5px; margin-bottom:8px; }
+  .hb-scope .hb-part { position:relative; display:block; }
+  .hb-scope .hb-part .hb-cp-swatch { width:100%; justify-content:flex-start; }
+  .hb-scope .hb-part.own .hb-cp-swatch { border-color:var(--hb-atm-accent); }
+  .hb-scope .hb-part-x { position:absolute; right:3px; top:50%; transform:translateY(-50%); width:20px; height:20px; padding:0; border-radius:50%;
     cursor:pointer; color:#fff; background:rgba(0,0,0,.55); border:1px solid rgba(255,255,255,.25); font-size:11px; }
-  @media (prefers-reduced-motion:reduce) { #hb-root .hb-look, #hb-root .hb-look-band em, #hb-root .hb-look-star { animation:none !important; transition:none; } }
+  @media (prefers-reduced-motion:reduce) { .hb-scope .hb-look, .hb-scope .hb-look-band em, .hb-scope .hb-look-star { animation:none !important; transition:none; } }
   @media (max-width:720px) {
-    #hb-root .hb-bay2 { flex-direction:column; overflow-y:auto; }
-    #hb-root .hb-bay2-stage { flex:0 0 240px; }
-    #hb-root .hb-bay2-side .hb-bench-tabbody { overflow:visible; }
+    .hb-scope .hb-bay2 { flex-direction:column; overflow-y:auto; }
+    .hb-scope .hb-bay2-stage { flex:0 0 240px; }
+    .hb-scope .hb-bay2-side .hb-bench-tabbody { overflow:visible; }
   }
   `;
   document.head.appendChild(st);

@@ -1,18 +1,20 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#5e8a8f",
-  "description": "A boat shed a quarter-mile from any water, and nobody on this street laughs about it any more. The doors are tall enough to walk a mast through and haven't been fully opened in living memory. HULLS ANGELS is cut into a plank above them in letters that took someone a whole winter. Through the gap you can see the ribs of something big and unfinished.",
+  "ambient_theme": "urban",
+  "bg_color": "#1e1a18",
+  "color": "#c8b49a",
+  "description": "A brick works shed under a curved tin roof, painted red. The front was a pair of doors tall enough for a mast. The opening has been bricked up to head height in newer brick and glazed above, with an ordinary steel door cut into the bottom. RING FENCED is painted over the door, red on cream. Tyres are stacked by the step.",
   "exits": {
     "east": "zone_district_917_905",
-    "west": "zone_hulls_shop"
+    "west": "zone_ringf_floor"
   },
   "flags": {
-    "building_name": "Hulls Angels",
-    "building_type": "wharf",
+    "building_name": "Ring Fenced",
+    "building_type": "gym",
     "district": "yards",
     "entrance": "east",
     "facade": true,
+    "floors": 2,
     "is_building": true,
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_917_905"
@@ -22,7 +24,7 @@
   "grid_z": 0,
   "id": "zone_district_916_905",
   "map_id": "map_world",
-  "marker": "HA",
-  "name": "Hulls Angels",
+  "marker": "RF",
+  "name": "Ring Fenced",
   "parent_zone": null
 }

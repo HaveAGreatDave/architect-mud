@@ -1251,8 +1251,13 @@ function drakeThrottleKnob(thr) {
   const a = (-40 + clamp(thr, 0, 1) * 80) * Math.PI / 180, [x, y, z] = DRAKE_THROTTLE.pivot, L = DRAKE_THROTTLE.len;
   return [x, y + Math.sin(a) * L, z + Math.cos(a) * L];
 }
-// The trim wheel: a drum on its side in the console right of the throttle, turned by the trim.
-const DRAKE_TRIM_WHEEL = { c: [0.49, 0.36, -0.32], r: 0.044, w: 0.018 };
+// The trim unit: a walnut cheek off the right of the pilot's panel, square to the eye, with the
+// wheel standing rim-on out of it. `o` is the cheek's centre; the wheel's (u, v) are on the cheek,
+// and `sink` is how far its axle sits behind the face.
+// ⚠ IN THE FORWARD VIEW ON PURPOSE. It sat right of the throttle at x 0.49, which put it on the edge
+// of the frame, half out of it, and a trim you have to turn your head to find is one nobody uses.
+// Its bottom stays above the right switch strip, which stands in front of it lower down.
+const DRAKE_TRIM_UNIT = { o: [0.405, 0.49, -0.165], hw: 0.052, hh: 0.088, wheel: { u: -0.018, v: -0.003, r: 0.042, w: 0.016, sink: 0.018 } };
 // The gun convergence knob (CONV), just right of the trim wheel: where the two toed-in guns meet.
 const DRAKE_CONV_KNOB = { c: [0.58, 0.36, -0.32], r: 0.016, min: 0.5, max: 2.2 };
 // The yoke stands off the dash on its column, nearer the pilot and lower than the pod, so the pod
@@ -1586,7 +1591,10 @@ export function drakeHotspots(live) {
   out.push({ id: 'throttle', p: add(drakeThrottleKnob(clamp(num(L.throttle), 0, 1)), [0, 0, 0.015]), r: 0.035, kind: 'throttle' });
   DRAKE_LEVER_AT.modes.forEach((p, k) => { if (p) out.push({ id: 'mode' + k, p, r: 0.022, kind: 'click' }); });
   if (DRAKE_LEVER_AT.conv) out.push({ id: 'modelever', p: DRAKE_LEVER_AT.conv, r: 0.03, kind: 'click' });
-  out.push({ id: 'trim', p: add(DRAKE_TRIM_WHEEL.c, [0, 0, DRAKE_TRIM_WHEEL.r]), r: 0.045, kind: 'trim' });
+  { // The whole cheek is the handle: the wheel, the scale beside it and both lamps.
+    const { o, wheel: Wh } = DRAKE_TRIM_UNIT;
+    out.push({ id: 'trim', p: facingPanel(makeKit(() => {}), o).pt(0, 0, Wh.r - Wh.sink), r: 0.07, kind: 'trim' });
+  }
   // A click steps the convergence; the mouse wheel over it fine-tunes it (cockpit.js).
   out.push({ id: 'conv', p: add(DRAKE_CONV_KNOB.c, [0, 0, 0.02]), r: 0.02, kind: 'click' });
   // The two compartments under the dash, at their handles (drakeFascia records where those are).
@@ -2148,49 +2156,78 @@ export function drakeFit(P, live, push) {
     engraved(convFace, 'CONV', 0, 0.0, 0.0105, T.gold, 0.0025);
   }
 
-  // ── THE TRIM WHEEL: a ridged walnut drum standing up through a gold-lipped slot ──
-  // Nose-up rolls it toward you. Its ridges and the gold index turn with the trim, so a glance says
-  // where it is set; the centre notch on the slot is neutral.
+  // ── THE TRIM: a walnut cheek off the right of the pilot's panel ──────────
+  // The wheel stands rim-on out of it, so turning it is a drag straight up or down the thing you are
+  // looking at: down is nose up, the 2-D panel's own direction. Its gold index ridge rides the visible
+  // face with the trim, centre at neutral, so the wheel is its own pointer.
+  // AT A GLANCE, without reading anything: the NOSE DN lamp over the wheel lights red when she is
+  // trimmed nose down, the NOSE UP lamp under it green when nose up, and the scale beside the wheel
+  // fills from its centre bar toward the end she is trimmed to, in the same colour. Both dark is neutral.
   {
-    const { c, r, w } = DRAKE_TRIM_WHEEL, tr = clamp(num(L.trim), -0.6, 0.6);
-    K.box(c[0] - w - 0.016, c[1] - r - 0.012, c[2] - 0.09, c[0] + w + 0.016, c[1] + r + 0.012, c[2] + 0.004, 'dash', 0.2, T.walnutDk);
-    const trimFace = veneer(K, [c[0] + w + 0.016, c[1], c[2] - 0.02], [0, 1, 0], [0, 0, 1], r, 0.012, { dark: 0.8 });
-    for (const sx of [-1, 1]) K.box(c[0] + sx * (w + 0.006) - 0.003, c[1] - r - 0.008, c[2] + 0.004, c[0] + sx * (w + 0.006) + 0.003, c[1] + r + 0.008, c[2] + 0.009, 'dash', 0.35, T.gold, 0.05);
-    const turn = tr * 5, N = 16;
-    K.rod([c[0] - w, c[1], c[2]], [c[0] + w, c[1], c[2]], r, 'dash', 0.15, T.walnut, 0, N);
-    for (const sx of [-1, 1]) K.rod([c[0] + sx * w, c[1], c[2]], [c[0] + sx * (w + 0.003), c[1], c[2]], r * 0.92, 'dash', 0.3, T.gold, 0.1, N);
-    for (let i = 0; i < N; i++) {
-      const a = turn + (i / N) * TAU, y = c[1] + Math.cos(a) * r * 1.02, z = c[2] + Math.sin(a) * r * 1.02;
-      if (z < c[2] - 0.005) continue;
-      K.rod([c[0] - w, y, z], [c[0] + w, y, z], 0.0028, 'dash', 0.1, i === 0 ? T.gold : T.walnutDk, i === 0 ? 0.1 : 0, 4);
+    const { o, hw, hh, wheel: Wh } = DRAKE_TRIM_UNIT, tr = clamp(num(L.trim), -0.6, 0.6), f = tr / 0.6;
+    const up = tr > 0.02, dn = tr < -0.02;
+    const UPC = [90, 255, 120], DNC = [255, 80, 70];
+    // The housing, built like the pod's: walnut sides back from the face.
+    const back = panelCorners(o, hw + 0.008, hh + 0.008, 0.05), front = panelCorners(o, hw + 0.008, hh + 0.008, -0.004);
+    for (let i = 0; i < 4; i++) {
+      const j = (i + 1) % 4, n = norm(cross(sub(front[j], front[i]), sub(back[i], front[i])));
+      K.face([front[i], front[j], back[j], back[i]], dot(n, front[i]) > 0 ? mul(n, -1) : n, 'dash', 0.1, T.walnutDk, 0);
     }
-    K.box(c[0] - w - 0.01, c[1] - 0.0015, c[2] + 0.009, c[0] + w + 0.01, c[1] + 0.0015, c[2] + 0.011, 'dash', 0.3, T.ivory);
-    engraved(trimFace, 'TRIM', 0, 0, 0.011, T.gold, 0.003);
-    // THE TRIM SCALE, ON THE WHEEL ITSELF: an enamel scale across the front of the wheel's housing,
-    // under the drum, turned square to the pilot, with a pointer riding it. Top is nose down (a dive,
-    // under the water), bottom nose up (a rise), the ivory bar is neutral. No second stand: the setting
-    // is read on the thing you turn.
+    // A post down to the dash top, so the cheek stands on something.
+    const bc = mul(o, 1 + 0.025 / Math.hypot(o[0], o[1], o[2]));
+    K.box(bc[0] - 0.022, bc[1] - 0.018, dTop, bc[0] + 0.022, bc[1] + 0.018, bc[2] - hh + 0.01, 'dash', 0.2, T.walnutDk);
+    const Tp = facingPanel(K, o, 'dash', 0.3);
+    Tp.plate(roundRect(-hw - 0.008, -hh - 0.008, hw + 0.008, hh + 0.008, 0.016), T.gold, 0.05, 0);
+    if (T.quackhawk) Tp.plate(roundRect(-hw, -hh, hw, hh, 0.012), T.podBlue, 0, 0.001);
+    else { Tp.plate(roundRect(-hw, -hh, hw, hh, 0.012), T.burl, 0, 0.001); woodGrain(Tp, -hw + 0.008, -hh + 0.008, hw - 0.008, hh - 0.008, 0.0014); }
+    engraved(Tp, 'TRIM', 0, hh - 0.013, 0.012, T.gold, 0.0025);
+
+    // The two lamps: a lens the width of the cheek, lettered dark on the lit glass.
+    const lampRow = (v, str, on, rgb) => {
+      Tp.plate(roundRect(-hw + 0.007, v - 0.0095, hw - 0.007, v + 0.0095, 0.004), T.gold, 0.05, 0.0012);
+      Tp.plate(roundRect(-hw + 0.0095, v - 0.007, hw - 0.0095, v + 0.007, 0.003), on ? rgb : rgb.map((c) => c * 0.16), on ? 1 : 0, 0.0018);
+      hudText(Tp, str, 0, v, 0.0095, on ? [26, 12, 8] : rgb.map((c) => c * 0.45), 0.0026);
+    };
+    lampRow(hh - 0.034, 'NOSE DN', dn, DNC);
+    lampRow(-hh + 0.022, 'NOSE UP', up, UPC);
+
+    // The wheel. Its axle runs across the cheek `sink` behind the face, so the front of the drum
+    // stands out of a dark slot between two gold lips, with an ivory notch on each lip at neutral.
+    const { u: wu, v: wv, r: wr, w: ww, sink } = Wh, chord = Math.sqrt(wr * wr - sink * sink);
+    const at = (s, a = 0, rr = 0) => Tp.pt(wu + s, wv + Math.sin(a) * rr, -sink + Math.cos(a) * rr);
+    Tp.rect(wu - ww - 0.003, wv - chord - 0.003, wu + ww + 0.003, wv + chord + 0.003, [16, 9, 5], 0, 0.0012);
+    for (const sx of [-1, 1]) {
+      const x0 = wu + sx * (ww + 0.003), x1 = wu + sx * (ww + 0.008);
+      Tp.rect(Math.min(x0, x1), wv - chord - 0.004, Math.max(x0, x1), wv + chord + 0.004, T.gold, 0.08, 0.003);
+      Tp.rect(Math.min(x0, x1), wv - 0.0016, Math.max(x0, x1), wv + 0.0016, T.ivory, 0.4, 0.0042);
+    }
+    const NS = 20;
+    K.rod(at(-ww), at(ww), wr, 'dash', 0.15, T.walnut, 0, NS);
+    for (const sx of [-1, 1]) K.rod(at(sx * ww), at(sx * (ww + 0.002)), wr * 0.94, 'dash', 0.3, T.gold, 0.1, NS);
+    // The ridges, and the gold index among them: nose up rolls the face down toward you, and full
+    // trim either way carries the index to the edge of the slot.
+    const turn = f * 1.05, NR = 18;
+    for (let i = 0; i < NR; i++) {
+      const a = (i / NR) * TAU - turn;
+      if (Math.cos(a) * wr < sink + 0.002) continue;
+      const idx = i === 0;
+      K.rod(at(-ww + 0.001, a, wr * 1.02), at(ww - 0.001, a, wr * 1.02), idx ? 0.0036 : 0.0026, 'dash', 0.15,
+        idx ? T.gold : T.walnutDk, idx ? 0.35 : 0, 4);
+    }
+
+    // The scale beside it, square to the eye: enamel, a tick every eighth of the travel, the ivory
+    // bar at neutral, a fill from the bar to the setting in the lamp colour, and a pointer on it.
     {
-      const GW = w + 0.012, GH = 0.026;
-      const G = facingPanel(K, [c[0], c[1] - r - 0.016, c[2] - 0.036], 'dash', 0.3);
-      G.plate(roundRect(-GW - 0.003, -GH - 0.003, GW + 0.003, GH + 0.003, 0.004), T.gold, 0.05, 0);
-      G.plate(roundRect(-GW, -GH, GW, GH, 0.003), T.enamel, 0, 0.001);
-      for (let i = -4; i <= 4; i++) { const y = i / 4 * GH * 0.8, ww = i === 0 ? GW * 0.8 : i % 2 ? GW * 0.25 : GW * 0.45; G.rect(-ww, y - 0.0008, ww * 0.1, y + 0.0008, i === 0 ? T.ivory : T.gold, 1, 0.0015); }
-      engraved(G, 'DN', GW * 0.55, GH * 0.75, 0.007, T.gold, 0.0015);
-      engraved(G, 'UP', GW * 0.55, -GH * 0.75, 0.007, T.gold, 0.0015);
-      const py = -(tr / 0.6) * GH * 0.8;
-      G.rect(-GW * 0.9, py - 0.003, GW * 0.15, py + 0.003, T.ivory, 1, 0.0025);
-      G.rect(GW * 0.15, py - 0.0018, GW * 0.32, py + 0.0018, T.gold, 1, 0.0025);
-      // AT A GLANCE: a lit + in green trimmed nose-up (rising), a lit − in red nose-down (diving), a dim
-      // dot at neutral, beside the scale where the pointer rides. Readable without reading the scale.
-      {
-        const lx = GW * 0.62, a2 = 0.0065, b2 = 0.0016, up = tr > 0.02, dn = tr < -0.02;
-        const col = up ? [90, 255, 120] : dn ? [255, 80, 70] : [70, 66, 58];
-        G.rect(lx - a2 - 0.002, -a2 - 0.002, lx + a2 + 0.002, a2 + 0.002, [20, 18, 16], 1, 0.002);
-        if (up || dn) G.rect(lx - a2, -b2, lx + a2, b2, col, 1, 0.003);
-        if (up) G.rect(lx - b2, -a2, lx + b2, a2, col, 1, 0.003);
-        if (!up && !dn) G.rect(lx - b2, -b2, lx + b2, b2, col, 1, 0.003);
+      const s0 = 0.008, s1 = hw - 0.009, sv = chord - 0.002, py = -f * sv * 0.88;
+      Tp.plate(roundRect(s0 - 0.002, -sv - 0.004 + wv, s1 + 0.002, sv + 0.004 + wv, 0.003), T.gold, 0.05, 0.0012);
+      Tp.plate(roundRect(s0, -sv - 0.002 + wv, s1, sv + 0.002 + wv, 0.0025), T.enamel, 0, 0.0018);
+      for (let i = -4; i <= 4; i++) {
+        const y = wv + i / 4 * sv * 0.88, len = i === 0 ? s1 - s0 - 0.004 : i % 2 ? 0.006 : 0.010;
+        Tp.rect(s0 + 0.002, y - 0.0007, s0 + 0.002 + len, y + 0.0007, i === 0 ? T.ivory : T.gold, i === 0 ? 0.6 : 0.3, 0.0024);
       }
+      if (up || dn) Tp.rect(s0 + 0.012, wv + Math.min(0, py), s1 - 0.003, wv + Math.max(0, py), up ? UPC : DNC, 0.9, 0.0028);
+      const pc = up ? UPC : dn ? DNC : T.ivory;
+      Tp.plate([[s0 + 0.001, wv + py], [s0 + 0.008, wv + py + 0.0035], [s1 - 0.001, wv + py + 0.0035], [s1 - 0.001, wv + py - 0.0035], [s0 + 0.008, wv + py - 0.0035]], pc, 1, 0.0034);
     }
   }
 

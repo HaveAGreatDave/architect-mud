@@ -45,7 +45,9 @@ unless noted.
    - `bn` — `building_name` flag (drives the **named** model).
    - `ent` — entrance door face (so the model can orient its frontage).
    - `mark` — bespoke standalone landmark channel: `'yacht'`, `'statue'`, or `'gate'` (the perimeter
-     gate / South Gate) — drawn by their own renderers, independent of `bt`/`bn`.
+     gate / South Gate) — drawn by their own renderers, independent of `bt`/`bn`. An AA battery's
+     deck is `'aa'`, with `aa: { k, s, o }` beside it (build, state, opening; see `drawAAMark` and
+     [systems-flight.md](../systems-flight.md)).
    - `road`, `sub`, `wake`, `heading`, `rd`, `cur`, `pf`, `ft`, `flr`, `danger` — extras:
      road/water/movement, plus `rd` (the road-piece connector `ns`/`ne`/`nesw`…, parsed off the
      tile's `flags.icon` suffix or auto-tiled from neighbours), `cur` (the Curtain wall run axis,
@@ -70,8 +72,9 @@ unless noted.
    - A park tile's furniture (trees, hedges, benches, lamps, bins, bollards, the pond and bed
      kerbs) is solid: `parkGeom` builds it once per tile in the tile's frame with baked shading,
      `parkSolidsGL` pushes it to `BAY_SINK` during the sweep as one retained group, and with GLASS 2
-     off `parkSolids2D` paints the same facets far to near. Water, gravel, mulch and paving stay
-     ground paint; reeds and glows stay strokes. `scripts/shapes/park.mjs` gates it.
+     off `parkSolids2D` paints the same facets far to near. The pond's layout (willow corner, pads,
+     koi, apron) is worked out once per seed by `pondLayout`, which both halves read. Water, gravel,
+     mulch, paving, lily pads and koi stay ground paint; jets and glows stay strokes. `scripts/shapes/park.mjs` gates it.
 
    ⚠ **The Curtain's arms are DATA, and the collision reads the same list.** `curtainSegs(cur)`
    returns the wall's segments as offsets from the tile centre; `drawCurtainWall` walks it to paint
@@ -240,6 +243,17 @@ Two rules came out of doing it, and both are easy to get wrong:
   `SIGN_FASCIA` pins a trade to one. `sign:size` forces each and fails if two paint the same.
 - **Dead tubes.** `deadNeon` blanks one middle letter of about one lit name in seven, keyed on the
   label. `RENDER_TUNE.neonDead` is the share; 0 turns it off. Paint and daylight keep every letter.
+- **Script is mixed case.** A label set in `script` or `neonscript` goes through `scriptCase`
+  ("NIGHTCLUB" → "Nightclub"), because a word of script capitals is a row of flourishes. Only an
+  all-caps label changes, a word with no vowel (DJ, BBQ) keeps its capitals, and the hand is rolled
+  off the label as authored, so no sign changes face.
+- **Lit tube.** The bake shades a lit tube saturated at the walls and near-white on the axis, with
+  no dark edge, and lays a faint wide wash of its colour under it (`RENDER_TUNE.neonWash`, 0 off).
+  The decal shader matches: no rim darkening, no stand-off shadow under a lit section (only a
+  failing one casts it), full emission on the axis and a third at the walls, and the wash faded out
+  before the quad's edge. In the HDR composite, `keepHue` replaces the per-channel clamp: anything
+  past 1.0 keeps its hue instead of clipping to white. Nothing at or under 1.0 changes, which
+  `glhdr` proves.
 
 **The one carve-out — HUD / instrument text STAYS billboarded.** Airfield ID + distance tags
 (drawn inline off `v.airports` on the heading tape, windshield.js:1642), bogey reg/range labels,
@@ -665,29 +679,38 @@ arms of their own, all in [glass/models/downtown.js](../../client/game/js/panels
 the two hangars are `bay` marks drawn by `drawVehicleBay`. The older `hangar` arm, an all-in-one
 terminal, shed and tower, now only draws a `hangar` tile that isn't an `aircraft_hangar`.
 
-The terminal *(rebuilt 2026-10-04)* is modelled on LAX, at four storeys:
+The terminal *(rebuilt 2026-10-04, quality pass 2026-10-07)* is modelled on LAX, at four storeys:
 
 - **`terminalHalf`** draws what both halves share: the hall, a wave roof of three shallow vaults to
-  the half (six along the terminal, the Tom Bradley profile, with arched eaves past the glass), glass
-  on both faces, the livery fascia, half of the glazed link between them, and on the landside a
-  two-level kerb (a departures deck on columns, the arrivals kerb in its shade, a canopy and a board
-  lettered ARRIVALS or DEPARTURES) with a row of glass pylons.
-- **The pylons** are frosted drums half a tile apart. After dark each takes a colour from
-  `PYLON_HUES` and the colour rolls slowly down the row (`pylonRgb`, held still when motion is off).
-  ⚠ The colour isn't mass: mass is captured once at a frozen clock, so a colour that moves lives in
-  the layers collected every frame, as neon up the drum's sides and halos round it. No pylon stands
-  at x = 0, where the kerb board hangs.
+  the half (the Tom Bradley profile, with arched eaves past the glass), glass on both faces, the
+  livery fascia, a glazed joint to the tile edge set back under the fascia, the cyan neon line under
+  the airside fascia, and on the landside a two-level kerb (a departures deck, the arrivals kerb in
+  its shade, a canopy and a board lettered ARRIVALS or DEPARTURES) carried on glass columns.
+- ⚠ **The whole terminal is in constants (`TERM`), not `fh` and `h`.** Both are rolled per tile, and
+  a hall sized off them came out a different length, depth and height on each half: two buildings
+  with a dark slot between, not one. The halves meet edge to edge, glass to glass and fascia to fascia.
+- **The columns** are frosted drums a quarter tile apart along the whole terminal (`TERM_COLS`), each
+  in two lengths that stop at the deck and the canopy. After dark each takes a colour from
+  `PYLON_HUES` and the colour rolls slowly down the row and on into the crown's arches (`pylonRgb`,
+  held still when motion is off). ⚠ The colour isn't mass: mass is captured once at a frozen clock,
+  so a colour that moves lives in the layers collected every frame. No column stands at x = 0, where
+  the kerb board hangs. They were freestanding pylons taller than the hall, and from the runway they
+  showed over the vaults as white chimneys.
 - ⚠ **The glass is an unlit face, not a palette slab**, so after dark it's a lit hall seen from
   outside and holds a warm fill rather than taking the dark. It's one face whatever the hour, because
   the night capture is paired to the day one face for face.
-- **`arrivals`** adds an observation deck over its north end on two crossed parabolic arches
-  (`observationCrown`, the Theme Building in Coldwater's accent), one jet bridge, the doors in off
-  the runway and the building's name on the fascia. **`departures`** adds two jet bridges
-  (`jetBridge`, stowed along the airside glass), a fuel bowser, a ground-power cart and the
-  DEPARTURES board.
-- ⚠ **The link, the kerb deck and its canopy are in constants (`TERM`)**, everything else in `fh`
-  and `h`. Both are rolled per tile, so two halves of one deck written in either would meet the
-  boundary at two different heights.
+- **The fascia is the sign** (`fasciaLettering`): raised capitals on the livery band, the name on
+  arrivals and DEPARTURES on departures. `ty_airport_band` is in `METAL_WALL`, so the band draws no
+  window grid round the lettering.
+- **`arrivals`** gives its north vault up to a roof terrace, and the crown stands on it: an
+  observation deck on two crossed parabolic arches springing from the terrace's corners
+  (`observationCrown`, the Theme Building in Coldwater's accent). ⚠ The saucer is sized to the
+  arches (`CROWN`): a parabola closes in as it climbs, so change one and check the clearance at the
+  rim. The arches used to land on the apron and the kerb, across the glass, the fascia sign and the
+  canopy. Below the crown are the doors (a revolving glass drum under a round canopy), and it adds
+  one jet bridge and a baggage train. **`departures`** adds two jet bridges (`jetBridge`, white with
+  a cyan stripe, stowed along the airside glass away from the joint), a fuel bowser and a
+  ground-power cart.
 - The airside is +y and trimmed at 0.5 by `tileFitBox`, and the runway's edge line is 0.08 into the
   next tile, which is why the jet bridges run along the glass rather than out from it.
 - `signfit` skips a culled sign seen from behind (negative screen area): without that it read the
@@ -783,9 +806,13 @@ and they let go once the other heel is down, because flat toes behind can't stay
 heel in front and scrub. The legs turn out 6° and land 2° inside the hip, so the feet fall about
 12 cm apart; the arms lag the legs, the forearms lag the arms. The standing clips' arm angles were
 solved numerically for a hand position (the smoker's fingertips at the mouth, folded forearms one
-over the other) with the forearms kept clear of the coat. The bake skins every vertex for every
-frame and writes two RGBA16F textures, positions and normals, with a column per vertex and three
-rows per frame: 794×720 texels, about 9 MB for the pair. [gl/actors.js](../../client/game/js/panels/gl/actors.js) draws everybody in one
+over the other) with the forearms kept clear of the coat. The coat's top slopes down from the neck
+the way the trapezius does (the `yoke` shape), and each sleeve starts in a closed cap that rounds
+over the shoulder, so there's no flat shelf and no open ring standing on it. The bake skins every
+vertex for every frame and writes two RGBA16F textures, positions and normals, with a column per
+vertex and three rows per frame: 832×720 texels, about 10 MB for the pair. It also writes the head
+and neck bones' matrices for every frame (`bones`), which the new head will ride
+([street-figure-heads.md](../proposals/street-figure-heads.md)). [gl/actors.js](../../client/game/js/panels/gl/actors.js) draws everybody in one
 instanced call, picking and blending texture rows by `gl_VertexID` the way `gl/fauna.js` does for
 the birds.
 
@@ -1421,16 +1448,28 @@ Eleven groups covering thirty Coldwater buildings were sharing an arm, eight of 
 sharing a palette too — literal clones. Promoted: **Fired & Forgotten** (`ff_kiln`), **Tine &
 Temper** (`tine`), **Two-Cell Supply** (`twocell`), **Fallow Provisions** (`fallow`), **The Paper
 Tomb** (`papertomb`), **Stitch ’n’ Bitch** (`stitch`), **Camp Giardia** (`campgiardia`), **Watts
-The Damage** (`watts`), **Hulls Angels** (`hulls`), **Slag & Wares** (`slagwares`), **Thumb On The
-Scale** (`thumbscale`), **The Slip** (`slipback`), **Sentimental Value Pawn** (`sentimental`) and
+The Damage** (`watts`), **Slag & Wares** (`slagwares`), **The Slip** (`slipback`), **Sentimental Value Pawn** (`sentimental`) and
 **Grind House** (`grindhouse`). Their twins — Precinct 9, Grease Expectations, Nuts to That, The
 Wet Handoff and the Second Amendment Superstore — each keep the generic type model on purpose.
 Three have since left that list: Co-Pay & Pray, the Marrow Street fence (renamed **Cash &
 Carrion**) and **Salvage Rites** are hand-authored models under `content/building_models/`, so the
 twin each was sharing a mesh with no longer has one. Salvage Rites is the one worth reading as a
 worked example of the rule this section states: `type:junkyard` draws four yards across three
-districts, so redesigning the ARM would have redesigned Slag & Wares, Thumb On The Scale and The
-Houndyard as well. A name bind takes the one tile and leaves the type alone.
+districts, so redesigning the ARM would have redesigned Slag & Wares and The Houndyard as well. A
+name bind takes the one tile and leaves the type alone.
+
+**Thumb On The Scale** (`thumbscale`) was on the promoted list too. It was the salvage scales at the
+top of Rag Row, from before the airlock, and on 2026-10-08 the tile became **Bare Necessities**, a
+corner shop with its own authored model (`content/building_models/barenecessities.json`). The arm
+went with the building.
+
+**Hulls Angels** (`hulls`) was on the promoted list and is gone with its building. It was a boat shed
+with no water, and in October 2026 it became **Ring Fenced**, a boxing gym (`gym` in
+[yards.js](../../client/game/js/panels/glass/models/yards.js)), while Keel moved to **Moor or Less**
+on the water (`boatshed` and `landing_stage` in
+[waterfront.js](../../client/game/js/panels/glass/models/waterfront.js)). The `hulls` arm and its
+authored model were deleted rather than left for a building that no longer exists. See
+[moor-or-less.md](../proposals/moor-or-less.md).
 
 The worst single mismatch was **Camp Giardia**, a tarpaulin over a bus shell with a cook fire in a
 cut-down drum, rendering as the streamline `diner`: a chrome dining car with a barrel roof and

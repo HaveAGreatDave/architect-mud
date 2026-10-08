@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_ringf_floor",
+  "id": "map_int_ringf",
+  "name": "Ring Fenced",
+  "parent_zone_id": "zone_district_916_905"
+}

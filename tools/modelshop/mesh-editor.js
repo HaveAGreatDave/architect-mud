@@ -480,6 +480,11 @@ function modelForm(host, id, params) {
   for (const k of ['scale', 'groundPitch']) fieldRow(host, k, numInput(params[k], (v) => set(k, v)));
   const hull = el('input'); hull.value = params.hull || ''; hull.placeholder = 'the loft the nose art wraps'; hull.onchange = () => set('hull', hull.value || undefined);
   fieldRow(host, 'hull', hull);
+  // What the paintwork is while nobody has repainted it (client/shared/vehicle-materials.js). A
+  // paint slot says what it's made of with its own `mat`, in the paints box below.
+  const fin = el('input'); fin.value = params.finish ?? ''; fin.placeholder = 'gloss, satin, matte…';
+  fin.onchange = () => { const t = fin.value.trim(), n = Number(t); set('finish', t === '' ? undefined : t !== '' && Number.isFinite(n) ? n : t); };
+  fieldRow(host, 'finish', fin);
   for (const k of ['rotors', 'paints', 'classFacts', 'navLamps']) fieldRow(host, k, jsonBox(params[k], (v) => set(k, v), k === 'rotors' || k === 'paints' ? 4 : 2));
 }
 

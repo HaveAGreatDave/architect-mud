@@ -9,6 +9,17 @@
 import { LIVERIES } from './liveries.js';
 import { ANY_MODEL } from './livery-schema.js';
 
+/**
+ * The livery model an aircraft wears, from its class and its TYPE's hardpoints.
+ *
+ * The Viper shares the Dragonfly's class (`heli`, the flight model) but not its paint: an armed
+ * heli type draws the attack mesh, so it keys on `viper`. It reads the type's hardpoints, not a
+ * pylon kit, so a Dragonfly with rails bolted on is still painted as a Dragonfly.
+ */
+export function aircraftLiveryModel(cls, hardpoints = 0) {
+  return cls === 'heli' && hardpoints > 0 ? 'viper' : cls;
+}
+
 /** Every set offered on this model: its own (default first), then the generic ones. */
 export function liveriesFor(kind, model) {
   const own = LIVERIES.filter((l) => l.kind === kind && l.model === model);

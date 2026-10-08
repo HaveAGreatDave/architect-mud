@@ -1,0 +1,331 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Brannock clicks the stopwatch and calls \"Time.\" Nobody on the bags stops.",
+    "She tapes a split in the top rope without looking at it.",
+    "She watches somebody on the bag for a full minute, then walks over and moves their back foot two inches.",
+    "The kettle clicks off up in the office. She does not go up for it.",
+    "She writes a name on the fight card, looks at it, and crosses it out again."
+  ],
+  "description": "A woman in her fifties, short and wide through the shoulders, with a nose that was broken and set by somebody in a hurry. Grey hair cut close to the skull. She has a stopwatch on a bootlace round her neck and knuckles gone flat from use.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Wraps,\" she says, without turning round."
+    },
+    "cost": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The door's free.\" She shrugs. \"Wraps aren't, and you're not going on my bags without them. I make my money on wraps, sachets and fight nights. Mostly fight nights.\""
+    },
+    "keel": {
+      "actions": [
+        {
+          "action": "GPS_TO",
+          "zone": "zone_district_921_901"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"North end of Ironside Street, on the water past the gun battery.\" She points, roughly. \"Moor or Less. He'll sell you a boat, rent you one, or fix the one you've got. Cheaper than the glass place on the west shore. Not as clean.\""
+    },
+    "past": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Somebody who got hit for money.\" She touches her nose. \"Light-welterweight, on the undercard at the Sump before they turned it over to Slagball. Twenty-two fights. I won enough of them.\"\n\n\"Then I started telling the others what they were doing wrong, and they started paying me to. This is cheaper on the face.\""
+    },
+    "ring": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Fridays.\" She nods at the card on the board. \"Three or four bouts, people from the Yards and whoever comes up from the docks. Gate money goes to the winner and the house. The house is me.\"\n\n\"I bought the ring off a promotion that went under. Their name's still on the canvas under the patches. Nobody's come for it.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What do you sell?",
+          "next": "__shop__"
+        },
+        {
+          "label": "How does it work here?",
+          "next": "train"
+        },
+        {
+          "label": "What is the ring for?",
+          "next": "ring"
+        },
+        {
+          "label": "Wasn't this a boat shed?",
+          "next": "shed"
+        },
+        {
+          "label": "Who were you before this?",
+          "next": "past"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing, thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Wraps on before you touch a bag.\" She glances at your hands. \"What do you want?\"",
+      "text_by_relation": {
+        "familiar": "\"There you are.\" She points at the bags with the stopwatch. \"Three rounds. Then we'll talk.\"",
+        "first": "The woman by the ring clicks a stopwatch, says \"Time,\" and only then looks round.\n\n\"Tamsin Brannock. This is my gym.\" She looks you over, hands first. \"Bench and the circuit are through the back. The bags are here. The ring is for people I've watched on the bags, and I haven't watched you yet.\"",
+        "known": "\"Back again.\" She is already looking at your hands. \"Wrapped?\""
+      }
+    },
+    "shed": {
+      "options": [
+        {
+          "label": "Where is his yard?",
+          "next": "keel"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It was.\" She looks up at the front wall. \"The doors went right up into the roof, tall enough for a mast. Keel, the boatbuilder, was in here years building a hull that never left the building.\"\n\n\"He took her down to the water in the end. Took four of us and a flatbed, and she still isn't finished. He's got a yard at the bottom of Ironside Street now. I had the hole bricked up to head height, glass put in the top, and a normal door in the bottom.\""
+    },
+    "train": {
+      "options": [
+        {
+          "label": "What does it cost?",
+          "next": "cost"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Three stations.\" She points them out with the stopwatch. \"The bags, here. That's hands and eyes. <b>spar</b>. The bench through the back: lie on it and <b>lift</b>. That's strength. The circuit next to it, <b>drill</b>, is your lungs.\"\n\n\"None of it makes you anything you didn't bring in with you. What you did out there, you turn into something you keep, in here. You run out of what you did out there, you go and do some more. <b>stop</b> when you're done.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a tracksuit top zipped to the chin",
+      "grey sweatpants with chalk handprints on the thighs",
+      "flat-soled boxing boots laced high",
+      "a stopwatch on a bootlace round her neck"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_ringf_office",
+  "hp": 52,
+  "hp_max": 52,
+  "id": "npc_ringf_tamsin",
+  "name": "Tamsin Brannock",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_hand_wraps",
+      "price": 24
+    },
+    {
+      "item_id": "item_skipping_rope",
+      "price": 16
+    },
+    {
+      "item_id": "item_electrolyte_sachet",
+      "price": 7
+    },
+    {
+      "item_id": "item_pain_pills",
+      "price": 20
+    },
+    {
+      "item_id": "item_towel_rough",
+      "price": 12
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 6,
+        "to": 22
+      }
+    ],
+    "mon": [
+      {
+        "from": 6,
+        "to": 22
+      }
+    ],
+    "sat": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "sun": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "thu": [
+      {
+        "from": 6,
+        "to": 22
+      }
+    ],
+    "tue": [
+      {
+        "from": 6,
+        "to": 22
+      }
+    ],
+    "wed": [
+      {
+        "from": 6,
+        "to": 22
+      }
+    ]
+  },
+  "vendor_shop_name": "Ring Fenced",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_ringf_floor"
+}

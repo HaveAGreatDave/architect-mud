@@ -131,14 +131,14 @@
     }
   },
   "chitchat": [
-    "\"Weigh in or move on.\"",
-    "\"Everything's got a price by the gram.\"",
-    "\"The works'll kill you slow. I pay fast.\"",
-    "\"Don't bring me anything that ticks.\"",
-    "\"Scrap's scrap. Bring me more of it.\"",
+    "\"Bread's yesterday's. The price is today's.\"",
+    "\"Water's boiled. I watched it.\"",
+    "\"Batteries are tested. Most of them.\"",
+    "\"You pay, then I reach for it.\"",
+    "\"Tins don't go off. People say they do. They don't.\"",
     "\"Mind the wire on your way in.\""
   ],
-  "description": "A wiry old clone with a jeweller's loupe screwed into one eye and a brass hanging-scale bolted to the gatehouse beside him. A strongbox sits chained to his ankle. He weighs everything you carry before he weighs you.",
+  "description": "A wiry old clone in a grease-stained apron, a pencil behind one ear and a jeweller's loupe pushed up on his forehead. A strongbox under the counter is chained to his ankle. He's counting change into a tin, and he counts it twice.",
   "dialogue_tree": {
     "buys": {
       "options": [
@@ -151,11 +151,11 @@
           "next": "root"
         }
       ],
-      "text": "\"Metal, wire, components, bone, anything the works spat out that'll fetch a price back in the city. I weigh it, I pay it, and you don't have to haul it through the wastes. I also sell what'll keep you breathing out here, if you're buying.\""
+      "text": "\"Food that keeps, water that's been boiled, soap, and batteries for whatever you've got that still lights up. I'll buy stock off you too, if it's something I can sell on.\""
     },
     "bye": {
       "options": [],
-      "text": "\"Wastes'll still be here when you change your mind.\""
+      "text": "\"I don't shut. Mind the step.\""
     },
     "courier_hot": {
       "actions": [
@@ -169,7 +169,7 @@
           "next": "root"
         }
       ],
-      "text": "Osric finally looks up from the scale, the loupe magnifying one cold eye. \"Delicate. Sure. I've got a thing needs moving quiet, and the usual mules are all in a cell or a ditch.\""
+      "text": "Osric pushes the loupe down over one eye and looks at you through it. \"Delicate. Sure. I've got a box needs moving quiet, and the usual mules are all in a cell or a ditch.\""
     },
     "gossip": {
       "actions": [
@@ -183,16 +183,16 @@
           "next": "root"
         }
       ],
-      "text": "Osric taps the scale and leans in."
+      "text": "Osric taps the counter and leans in."
     },
     "root": {
       "options": [
         {
-          "label": "I've got salvage to sell.",
+          "label": "Show me what you have.",
           "next": "__shop__"
         },
         {
-          "label": "What do you buy?",
+          "label": "What do you stock?",
           "next": "buys"
         },
         {
@@ -215,7 +215,7 @@
           "next": "bye"
         }
       ],
-      "text": "Osric doesn't look up from the scale. \"You came all this way, so you've either got salvage or you've got a death wish. Which is it?\""
+      "text": "Osric looks up from the till. \"Tins, bread, water, soap. If a tent needs it, it's on a shelf in here somewhere.\""
     }
   },
   "faction": null,
@@ -243,16 +243,48 @@
       "price": 15
     },
     {
-      "item_id": "item_rusty_knife",
-      "price": 65
+      "item_id": "item_tinned_meat",
+      "price": 14
     },
     {
-      "item_id": "item_pipe_wrench",
-      "price": 125
+      "item_id": "item_tinned_tomatoes",
+      "price": 12
     },
     {
-      "item_id": "item_taser",
-      "price": 275
+      "item_id": "item_flat_bread",
+      "price": 7
+    },
+    {
+      "item_id": "item_grey_rice",
+      "price": 5
+    },
+    {
+      "item_id": "item_water_bottle",
+      "price": 9
+    },
+    {
+      "item_id": "item_mains_water",
+      "price": 4
+    },
+    {
+      "item_id": "item_soap_block",
+      "price": 6
+    },
+    {
+      "item_id": "item_battery",
+      "price": 18
+    },
+    {
+      "item_id": "item_flashlight",
+      "price": 70
+    },
+    {
+      "item_id": "item_bandage",
+      "price": 18
+    },
+    {
+      "item_id": "item_cigarettes",
+      "price": 25
     }
   ],
   "vendor_restock_rate": 1,
@@ -300,7 +332,7 @@
       }
     ]
   },
-  "vendor_shop_name": "Thumb On The Scale",
+  "vendor_shop_name": "Bare Necessities",
   "vendor_stock_size": 8,
   "wander_zones": [],
   "wanders": 0,

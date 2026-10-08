@@ -1,8 +1,13 @@
 {
-  "ambient_events": [],
+  "ambient_events": [
+    "The whole stage lifts on a swell and drops a beat behind it.",
+    "The hose swings on its nail and taps the drum.",
+    "Out on the Basin a tug sounds once, a long way off.",
+    "The life ring turns on its post in the wind."
+  ],
   "ambient_theme": "coast",
-  "color": "#7fd3ff",
-  "description": "Dark, cold water at the shore, shelving away steeply. This is as far as walking goes: the channel needs a boat.",
+  "color": "#6f6554",
+  "description": "The outer end of the landing stage, out past the shelter of the hard, where the deck works under you properly. Two berths, and at the very end a hand pump on a fuel drum with a hose coiled on a nail. A life ring hangs on a post, faded to pink.",
   "exits": {
     "east": "zone_district_920_899",
     "north": "zone_district_919_898",
@@ -10,15 +15,27 @@
     "west": "zone_district_918_899"
   },
   "flags": {
-    "district": "water",
+    "boat_fuel": true,
+    "building_type": "landing_stage",
+    "district": "docks",
+    "entrance": "south",
+    "fishing_table_id": "fish_coldwater_bay",
+    "floors": 1,
+    "liquid": false,
+    "marina_berths": 2,
+    "pier": true,
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "routable": true,
+    "street_life": true,
+    "swimmable": false,
+    "terrain": "water",
+    "yard_rate": 0.6
   },
   "grid_x": 919,
   "grid_y": 899,
   "grid_z": 0,
   "id": "zone_district_919_899",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "name": "Moor or Less: The Outer Stage",
   "parent_zone": null
 }

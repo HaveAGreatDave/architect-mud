@@ -1,23 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "urban",
+  "bg_color": "#1a1a18",
+  "color": "#9a8a70",
+  "description": "A tall timber boat shed on the hard, tarred black, with a corrugated roof that carries on out over the water on piles. MOOR OR LESS is painted on the gable in white house paint. The street door is ordinary. Round the water side, the doors are tall enough for a mast and stand open.",
   "exits": {
-    "east": "zone_district_922_901",
-    "north": "zone_district_921_900",
+    "east": "zone_hulls_shop",
     "west": "zone_district_920_901"
   },
   "flags": {
+    "building_name": "Moor or Less",
+    "building_type": "boatshed",
     "district": "docks",
+    "entrance": "west",
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_920_901"
   },
   "grid_x": 921,
   "grid_y": 901,
   "grid_z": 0,
   "id": "zone_district_921_901",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "ML",
+  "name": "Moor or Less",
   "parent_zone": null
 }

@@ -36,7 +36,8 @@ and a city that resolves out of the haze at the end of it.
 | Breakdowns, the roadside `fix`, the fork (`route`), the CB | [rig.js](../plugins/trucking/rig.js) · `announceBreak`/`cbLine`/`switchLimb` in [state.js](../plugins/trucking/state.js) |
 | Ownership + the dealer | [plugins/trucking/fleet.js](../plugins/trucking/fleet.js) · `trucks` table in SCHEMA_SQL |
 | The bench — condition, tuning, kits, paint, and the ONE place a tune becomes physics | [plugins/trucking/rig.js](../plugins/trucking/rig.js) |
-| The depot app — garage floor, walkaround, dealer's line, bench | [client/game/js/panels/truck-depot.js](../client/game/js/panels/truck-depot.js) |
+| The depot app: the counter of cards in the pane, and the bay over the cab in the shed, on the depot shell ([depot-shell.md](reference/depot-shell.md)) | [client/game/js/panels/truck-depot.js](../client/game/js/panels/truck-depot.js) |
+| The bench's preview bars: `kitStats` (each unfitted kit on) and `tuneEnds` (each dial at either end) per fleet row | `axesFor` / `tuneEnds` in [plugins/trucking/index.js](../plugins/trucking/index.js) |
 | The truck meshes (four shapes, bobtail + hitched) | `buildTruck` / `TRUCK_SHAPES` in [aircraft3d.js](../client/game/js/panels/aircraft3d.js) |
 | The dispatcher | [content/npcs/npc_kessler_dispatcher.json](../content/npcs/npc_kessler_dispatcher.json) |
 | Commodities + prices | [plugins/trucking/market.js](../plugins/trucking/market.js) |
@@ -1783,6 +1784,18 @@ face that no field in the booth could reach. It is `ACCENT` now, which is the ru
 stated: the emitter bands are **propulsion showing** and keep `GLOW` because the road wash under
 them is painted from the same fact; anything that is merely a running light takes the paint job's own
 `glow` colour.
+
+### Every truck leaves the shed painted *(2026-10-08)*
+
+A truck nobody had painted stored no `paint`, and three of its four readers passed that null on: the
+cab and every other driver drew it in bare grey, while the depot panel filled in `PAINT_DEFAULT`.
+Now each type has a factory set, `content/liveries/truck_<type>_stock.json` (the Barrow in faded
+green, the Courier in rust and cream, the Drayman in Vachon blue, the Continental in oxblood), and
+every reader goes through `paintOf(cd, typeId)` in [rig.js](../plugins/trucking/rig.js): the
+truck's own paint if it has one, else `factoryPaint(typeId)`. A painted truck still fills missing
+fields from `PAINT_DEFAULT`, so an old respray looks as it did. The hire line draws each truck in
+its own factory paint (`paintFactory` in the depot payload). The liveries gate fails a truck type
+with no default set.
 
 ### The booth — four colours, and a finish you can see *(2026-08-17)*
 

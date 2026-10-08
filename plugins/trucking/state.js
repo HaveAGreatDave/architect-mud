@@ -20,7 +20,7 @@ import { streetActors } from '../../server/engine/street-actors.js';
 import { emit } from '../../server/engine/events.js';
 import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messaging.js';
 import { query } from '../../server/models/db.js';
-import { mapWindow, surfaceAt, isRoadCell, aircraftNearCoord, skyState, farRoadsNear, FAR_ROAD_R } from '../flight/state.js';
+import { mapWindow, surfaceAt, isRoadCell, skyState, farRoadsNear, FAR_ROAD_R, worldContactsNear, skylineNear, nearbyRegions } from '../flight/state.js';
 import { getWeatherTypeAtGrid } from '../../server/engine/environment.js';
 // The weather words filth.js keys on, from the full WEATHER_TYPES vocabulary.
 const GRIME_WX = { thunderstorm: 'storm', blizzard: 'snow', sleet: 'rain' };
@@ -31,7 +31,7 @@ import { attachPlazas, passPlaza } from './plaza.js';
 import { routeNumber, routeType } from '../../client/shared/wildlands.js';
 import { segmentAt, typeAt } from '../../client/shared/highways.js';
 import { hitcherAt, hitcherAhead, hitcherSOf } from './hitchers.js';
-import { wearFor, breakdownRoll, BREAKDOWNS } from './rig.js';
+import { wearFor, breakdownRoll, BREAKDOWNS, paintOf } from './rig.js';
 import { applyDamage, wearSplit, damageOf, PARTS, partBand } from './damage.js';
 import { accrueGrime, grimeBand } from './filth.js';
 import { fitSuffix } from './fittings.js';
@@ -1737,7 +1737,7 @@ export function truckContactsNear(x, y, range = 26) {
       // …AND THE DIRT ON IT IS PART OF THE LIVERY, for the same reason the paint is: the truck
       // that just came off the shoulder in front of you should LOOK like it did, from your cab as
       // much as from its own. One extra argument to the one conversion.
-      livery: { ...truckLivery(rig.cd?.paint, rig.grime ?? 0), ...(rig.trailer ? { deck: boxColour(rig.trailer) } : {}) },
+      livery: { ...truckLivery(paintOf(rig.cd, rig.typeId), rig.grime ?? 0), ...(rig.trailer ? { deck: boxColour(rig.trailer) } : {}) },
     });
   }
   return out;
@@ -1779,6 +1779,19 @@ function paintLock(rig, rows) {
   if (s.until && Date.now() > s.until) { rig._lockSig = null; return rows; }
   for (const row of rows) for (const c of row) if (c.lk?.s) c.lk = { ...c.lk, st: s.st };
   return rows;
+}
+
+// The skyline and the region list, when the cab has moved far enough from where it was last sent
+// them for either to be different. `rig.farAt` is that place; nothing else reads it.
+const FAR_VIEW_STEP = 8;
+// A mount always gets them, since the cab it opens has nothing yet. ⚠ WORLD FRAME ONLY: a rig in the
+// legacy local frame has coordinates that name no tile, and towers looked up there are somebody else's.
+function farView(rig, cx, cy, force) {
+  if (!inWorldFrame(rig)) return {};
+  const was = rig.farAt;
+  if (!force && was && Math.abs(was.x - cx) < FAR_VIEW_STEP && Math.abs(was.y - cy) < FAR_VIEW_STEP) return {};
+  rig.farAt = { x: cx, y: cy };
+  return { skyline: skylineNear(cx, cy, CAB_RADIUS), regions: nearbyRegions(cx, cy) };
 }
 
 export function cabContext(rig, extra = {}) {
@@ -1885,7 +1898,7 @@ export function cabContext(rig, extra = {}) {
     // of it: every path that changes the radio (the verb, the knob, mounting a different truck)
     // ends up here, and the panel paints whatever arrives.
     cb: { on: !rig.cbOff, chan: rig.cbChan ?? 19, spk: !!rig.cbSpeaker },
-    paint: rig.cd?.paint || null,
+    paint: paintOf(rig.cd, rig.typeId),
     // The INSIDE of the paint job — `{ mat, col }` or null for however it left the factory. The
     // renderer merges it over the tier row and can reach nothing else (see cabTrim), so a truck
     // that has never been to the bench renders exactly as it always did.
@@ -1939,7 +1952,13 @@ export function cabContext(rig, extra = {}) {
     // picture now use the same test (`inWorldFrame`), so a driver and a pilot appear to each other
     // or not for one reason rather than two: on the highway they see each other, in the legacy
     // local frame neither does.
-    contacts: inWorldFrame(rig) ? aircraftNearCoord(cx, cy, 22) : [],
+    // ⚠ AND EVERYTHING ELSE MOVING, not only what flies: boats on the basin beside a waterfront run
+    // and the other rigs on the road. The driver's own truck is dropped by its contact id.
+    contacts: inWorldFrame(rig) ? worldContactsNear(cx, cy, 22, 'truck_' + rig.playerId) : [],
+    // The towers past the window and the region's colour grade, which the cockpit and the free
+    // camera were always sent and the cab never was. Both only change as the cab moves a long way,
+    // so they ride every eighth tile rather than every push; the client keeps the last it was given.
+    ...farView(rig, cx, cy, !!extra.mounted),
     // THE BOXES STANDING IN THIS YARD, as world objects rather than as a list in a menu. Same
     // contact shape as the aircraft above, so the cab draws a dropped trailer with the renderer it
     // already has; served from the per-zone RAM cache (trailers.js) because this runs on the drive

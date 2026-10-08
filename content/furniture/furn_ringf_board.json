@@ -1,0 +1,16 @@
+{
+  "description": "A cork board by the door with a fight card pinned to it for Friday. Three of the names have been crossed out and written back in.",
+  "flags": {
+    "aliases": [
+      "board",
+      "notice board",
+      "card",
+      "fight card"
+    ],
+    "examine_detail": "Under the fight card, in marker on a piece of shirt cardboard: NO WRAPS, NO BAGS. NO GLOVES, NO RING. PAY TAMSIN."
+  },
+  "id": "furn_ringf_board",
+  "name": "the notice board",
+  "object_type": "decoration",
+  "zone_id": "zone_ringf_floor"
+}

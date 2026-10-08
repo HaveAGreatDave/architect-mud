@@ -1,0 +1,16 @@
+{
+  "description": "A sixteen-foot ring on a timber stage, three ropes a side, the canvas patched in two places with sailcloth. The corner pads are older than the canvas.",
+  "flags": {
+    "aliases": [
+      "ring",
+      "ropes",
+      "canvas",
+      "stage"
+    ],
+    "examine_detail": "A stencil on the canvas under the patches: a promotion's name, mostly scrubbed out. The ring came cheap when they went under."
+  },
+  "id": "furn_ringf_ring",
+  "name": "the ring",
+  "object_type": "furniture",
+  "zone_id": "zone_ringf_floor"
+}

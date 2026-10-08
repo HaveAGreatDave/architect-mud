@@ -133,4 +133,13 @@ export default async function regress({ run, check, getPlayer }) {
     Number.isFinite(junk.leash) && Number.isFinite(junk.yaw), JSON.stringify(junk));
   check('telescope: …and an unreasonable one is bounded',
     _test.standBlock({ name: 'x', flags: { telescope: { leash: 900 } } }).leash <= 4);
+
+  // ── What the camera is sent beside the window ──
+  // The free camera was the one GLASS view with nothing moving in it: no aircraft, no boats, no
+  // trucks. It now gets the cockpit's far view and the world's contacts; an absent key is what would
+  // say so, and nothing on the screen would.
+  const pay = _test.viewPayload(918, 903);
+  check('freelook: the open carries a contact list', Array.isArray(pay.contacts), JSON.stringify(Object.keys(pay)));
+  check('freelook: …and the region list the colour grade reads', Array.isArray(pay.regions) && pay.regions.length > 0);
+  check('freelook: …and the highway past the window, null or not, but present', 'roads' in pay);
 }

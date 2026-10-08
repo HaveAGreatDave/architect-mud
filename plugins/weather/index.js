@@ -1113,6 +1113,26 @@ async function reseedFromForecast0(forecast0) {
   seedField(forecast0.date, forecast0, bounds);
 }
 
+// Move the nearest wet cell so it sits over (gx, gy), for staff who force rain and want to see it.
+// The seeded layout is a function of the date, so pressing "rain" again lands the cells in the same
+// places, often a hundred tiles from the person pressing it. A storm day moves a storm cell, so the
+// lightning comes too. Returns false when the day has no wet cell to move.
+export function bringWetCellOver(gx, gy) {
+  if (gx == null || gy == null) return false;
+  const wet = field.systems.filter(s => s.type === 'precip' || s.type === 'storm');
+  const storms = wet.filter(s => s.type === 'storm');
+  const pool = storms.length ? storms : wet;
+  if (!pool.length) return false;
+  let best = pool[0], bestD = Infinity;
+  for (const s of pool) {
+    const d = Math.hypot(gx - s.x, gy - s.y);
+    if (d < bestD) { best = s; bestD = d; }
+  }
+  best.x = gx;
+  best.y = gy;
+  return true;
+}
+
 // ── EMP consequences ────────────────────────────────────────────────────────
 //
 // The blackout itself is the engine's (forceGridBlackout). What a pulse does to

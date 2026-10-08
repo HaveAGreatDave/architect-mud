@@ -50,7 +50,7 @@ const TICK_30M_MS = 30 * 60 * 1000;
 const MAX_CATCHUP_DAYS = 30;
 
 export const WEATHER_TYPES = ['clear','cloudy','overcast','rain','sleet','thunderstorm','storm','snow','blizzard','fog','haze','ash'];
-const PRECIP_FORECAST_TYPES = new Set(['rain','thunderstorm','storm','sleet','snow','blizzard']);
+export const PRECIP_FORECAST_TYPES = new Set(['rain','thunderstorm','storm','sleet','snow','blizzard']);
 
 // Intensity tables — mirrors plugins/clothing-wetness/index.js.
 // Used both for label lookup (rate→label) and random picking during precip rolls.
@@ -2816,7 +2816,7 @@ function broadcastZoneWeather(occupied) {
 //
 // Deliberately NOT gated on 'frozen'. A frozen clock means time is not passing; it does not
 // mean a dev action is not happening. In-memory only, and it scales with occupied zones.
-function pushZoneWeatherNow() {
+export function pushZoneWeatherNow() {
   const occupied = deps.getOccupiedZones ? [...deps.getOccupiedZones()] : [];
   if (occupied.length) broadcastZoneWeather(occupied);
 }

@@ -126,6 +126,51 @@ export const STATIONS = {
       "Your eyes and your hands stop arguing about who saw it first.",
       'The wall throws its best and you are, briefly, faster than a wall.',
     ],
+    // A boxing gym trains the same stat on a heavy bag and a slip rope. Same verb, same numbers,
+    // its own prose: see `stationFor`.
+    styles: {
+      bag: {
+        noun: 'a heavy bag',
+        busyLine: "You're already on the bag. Keep your hands up.",
+        postureLine: s => `Get on your feet before you square up to the ${s}.`,
+        startLine: s => `You wrap your hands, square up to the ${s}, and put a jab into it to say hello. (Type STOP to step off.)`,
+        startZoneLine: h => `${h} squares up to the heavy bag and starts working it.`,
+        stopLine: 'You put a glove on the bag to stop it swinging and step back, blowing hard.',
+        stopZoneLine: h => `${h} steadies the bag and steps off it, breathing hard.`,
+        gassedLine: "You throw one more, the bag swings back, and you're too slow to get out of its way. It shoves you down onto the mat. <b>You're exhausted.</b>",
+        strong: [
+          'Jab, jab, cross. The bag jumps on its chain and comes back to you.',
+          'You slip the swing, step in, and dig a hook into the tape.',
+          'Double jab, roll under, come up with the right. The chain rattles.',
+          'You keep it on the end of your jab, circling, never where it swings.',
+          'Three to the body, one upstairs. The bag grunts where the tape is.',
+          'You let it come, slip left, and punish it for coming.',
+          'The slip rope is at head height. You duck it on every pass and come up throwing.',
+          'Feet under you, hands back to your face. That is the whole job.',
+        ],
+        labored: [
+          'Your hands are dropping between combinations. The bag notices before you do.',
+          'You catch the swing on your shoulder instead of slipping it. It counts. It hurts.',
+          'The combinations are getting shorter. Two punches where there were four.',
+          'Sweat in your eyes. You throw at where the bag was a second ago.',
+          'You lean on the bag to buy a breath, which is cheating, and everybody does it.',
+        ],
+        gassed: [
+          'Your arms are rope. You push punches out because stopping is worse.',
+          'The bag swings back and you just let it hit you.',
+          'You duck the rope late and it takes your ear on the way past.',
+          'Everything is slow. The bag is not.',
+          "You're punching from the shoulders now. Your legs left a while ago.",
+        ],
+        gain: [
+          'You slip the swing before you decide to. Your body got there first.',
+          'Your jab lands, comes back, and lands again before the bag has moved.',
+          'The rope comes round and you are already under it.',
+          'Somewhere in that round your hands got faster than your thinking.',
+          'You see the swing start and you are gone from it. That is new.',
+        ],
+      },
+    },
   },
 
   // ── The circuit: hauling dead weight until the room stops spinning ────────
@@ -179,6 +224,22 @@ export const STATIONS = {
 
 // Verb → station, for the command table.
 export const STATION_VERBS = Object.keys(STATIONS);
+
+// A station as one piece of furniture presents it. Furniture may carry `flags.station_style`,
+// naming an entry in its station's `styles`: the style swaps the PROSE and nothing else, so a
+// heavy bag and the Sump's rebound wall are both `spar`, both train Reflexes, and both cost the
+// same. Anything a style might try to say about the stat, the verb or the numbers is ignored. An
+// unknown or missing style is the base station.
+const STYLE_KEYS = ['noun', 'busyLine', 'postureLine', 'startLine', 'startZoneLine', 'stopLine',
+  'stopZoneLine', 'gassedLine', 'strong', 'labored', 'gassed', 'gain'];
+export function stationFor(verb, style) {
+  const base = STATIONS[verb] || STATIONS.lift;
+  const over = style && base.styles ? base.styles[style] : null;
+  if (!over) return base;
+  const out = { ...base };
+  for (const k of STYLE_KEYS) if (over[k] !== undefined) out[k] = over[k];
+  return out;
+}
 
 // Sets required for the next point at this station, at your current level.
 export function repsFor(station, level) {

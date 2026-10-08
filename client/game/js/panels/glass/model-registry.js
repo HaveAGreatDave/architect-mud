@@ -159,9 +159,7 @@ export const NAMED_MODELS = {
   stitchnbitch:                   { type: 'stitch',      pal: 'ty_stitch', neon: '#6affa8' },   // twin: Co-Pay & Pray keeps `clinic`
   campgiardia:                    { type: 'campgiardia', pal: 'ty_giardia' },        // twin: Grease Expectations keeps `diner`
   wattsthedamage:                 { type: 'watts',       pal: 'ty_watts', neon: '#ffcf3e' },    // twin: Nuts to That keeps `hardware`
-  hullsangels:                    { type: 'hulls',       pal: 'ty_hulls' },          // twin: The Wet Handoff keeps `wharf`
   slagwares:                      { type: 'slagwares',   pal: 'ty_slagw' },          // twins: Salvage Rites keeps `junkyard`
-  thumbonthescale:                { type: 'thumbscale',  pal: 'ty_thumb' },
   theslip:                        { type: 'slipback',    pal: 'ty_slip' },           // twin: the Marrow Street fence (Cash & Carrion) is authored
   sentimentalvaluepawn:           { type: 'sentimental', pal: 'ty_sentimental', neon: '#ffcf3e' },
   grindhouse:                     { type: 'grindhouse',  pal: 'ty_grind', neon: '#ff8a2a' },    // twin: Second Amendment keeps `armory`
@@ -399,6 +397,10 @@ export const TYPE_MODEL = {
   cold_storage:      { type: 'cold_storage',      pal: 'ty_cold' },
   fabrication:       { type: 'fabrication',       pal: 'ty_fab_metal' },
   wharf:             { type: 'wharf',             pal: 'ty_wharf' },
+  // Ring Fenced, the boxing gym in the old boat shed on Lever Lane: red running-bond brick under a
+  // red-oxide barrel roof. Registered by type, so a second gym gets the works shed rather than the
+  // shopfront default; the name on its board comes from the tile.
+  gym:               { type: 'gym',               pal: 'ty_unit_brick' },
   // ── THE BASIN JETTY ────────────────────────────────────────────────────
   // Four types for one place, because a run of deck, the yard you leave the truck in, the quay
   // beside it and the thing on the head are four different buildings that happen to be in a line.
@@ -419,6 +421,12 @@ export const TYPE_MODEL = {
   // a building lit at every hour read as intentional instead of as a missing night palette.
   pontoon:           { type: 'pontoon',           pal: 'ty_hf_ice',   neon: '#7fe4ff' },
   boathouse:         { type: 'boathouse',         pal: 'ty_asc_chrome', neon: '#a8e6f2' },
+  // ── MOOR OR LESS, at the head of Ironside Street ───────────────────────────────────────────────
+  // The cheap yard at the other end of the waterfront: Keel's tarred timber shed with its water doors
+  // open on a wet slot under a tin lean-to, and landing stages of planks on oil drums. Registered by
+  // type, like the pontoon and the boathouse, so the yard's look is the type's and not the name's.
+  boatshed:          { type: 'boatshed',          pal: 'ty_oc_board_dk' },
+  landing_stage:     { type: 'landing_stage',     pal: 'ty_pier_deck' },
   // The fuel berth moored to its north face: the pontoon's float in the slab's own materials.
   fuel_dock:         { type: 'fuel_dock',         pal: 'ty_hf_ice',   neon: '#7fe4ff' },
   // ⚠ PEARL RATHER THAN `ty_aur_frost`, WHICH WAS THE FIRST CHOICE AND MEASURED WRONG. Both are

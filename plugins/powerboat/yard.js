@@ -59,6 +59,24 @@ export const REFIT_CAP = { patch: 0.55, hard: 0.80, covered: 1.00 };
 export const PATCH_GAIN = 0.18;          // what one hull patch puts back, before the cap bites
 export const REFIT_RATE = 26;            // credits per point of hull, at a proper shed
 
+// ⚠ THE PRICES ABOVE ARE THE ASCENDANT LIST, AND A YARD MAY CHARGE LESS. `flags.yard_rate` on a
+// berth or a covered room is a multiple of the list (0.6 is forty per cent off), read by the
+// move-in, the crane, the refit and the shed's other work. Content sets it, so a cheap yard is a
+// flag and not a second table. Unset, or anything that isn't a positive number, is the list.
+export function yardRate(zone) {
+  const r = Number(zone?.flags?.yard_rate);
+  return r > 0 ? r : 1;
+}
+/** The first zone in the list that sets a rate decides it: the room you are in, then where she lies. */
+export function rateAt(...zones) {
+  for (const z of zones) if (z?.flags?.yard_rate) return yardRate(z);
+  return 1;
+}
+/** What moving a hull into this berth costs here. */
+export function moveInFee(zone) {
+  return Math.round((MOVE_IN[berthKind(zone)] ?? 0) * yardRate(zone));
+}
+
 // ── WHAT A PLACE IS ──────────────────────────────────────────────────────────
 
 /** The kind of berth this zone is, or null. Content decides; this only reads. */
@@ -471,7 +489,7 @@ export async function cmdBerth(args, raw, player) {
   const r = await query('SELECT count(*)::int AS n FROM boats WHERE berth_zone = $1', [here.id]);
   if ((r.rows[0]?.n ?? 0) >= cap) return say('<span class="text-dim">Full. Nothing free here.</span>');
 
-  const fee = MOVE_IN[kind] ?? 0;
+  const fee = moveInFee(here);
   if ((player.credits ?? 0) < fee) {
     return say(`<span class="text-red">₵${fee.toLocaleString()} to move her in.</span> <span class="text-dim">You have ₵${(player.credits ?? 0).toLocaleString()}.</span>`);
   }
@@ -500,7 +518,7 @@ async function berthStatusLine(zone, player) {
   const cap = berthCapacity(zone);
   const r = await query('SELECT count(*)::int AS n FROM boats WHERE berth_zone = $1', [zone.id]);
   const used = r.rows[0]?.n ?? 0;
-  const fee = MOVE_IN[kind] ?? 0;
+  const fee = moveInFee(zone);
   return `  <span class="text-cyan">${zone.name}</span> <span class="text-dim">· ${KIND_WORD[kind]}</span>`
     + `\n    ${used} of ${cap} taken · <span class="text-green">₵${fee.toLocaleString()}</span> to move in`;
 }
@@ -540,7 +558,8 @@ export async function cmdRefit(args, raw, player) {
   if ((atBoat && kind === 'covered' && wright) || seated?.ok) {
     const cap = REFIT_CAP.covered;
     const gain = cap - (boat.condition ?? 1);
-    const cost = Math.max(1, Math.round(gain * 100 * REFIT_RATE));
+    const rate = rateAt(here, coveredRoomAtTile(player.current_zone), boat.berth_zone && getZone(boat.berth_zone));
+    const cost = Math.max(1, Math.round(gain * 100 * REFIT_RATE * rate));
     if ((player.credits ?? 0) < cost) {
       return say(`<span class="text-dim">${wrightName} looks the hull over and writes a figure on a docket.</span>`
         + `\n<span class="text-red">₵${cost.toLocaleString()}.</span> <span class="text-dim">You have ₵${(player.credits ?? 0).toLocaleString()}.</span>`);
@@ -601,6 +620,8 @@ async function refitJob(player, job, rest) {
   if (!bench.ok) return say(`<span class="text-dim">${bench.why}</span>`);
   const cd = boat.custom_data || {};
   const type = TYPES[boat.type_id] || TYPES.hydro;
+  // The shed's own rate, wherever the bench turned out to be. See `yardRate`.
+  const rate = rateAt(getZone(player.current_zone), coveredRoomAtTile(player.current_zone), boat.berth_zone && getZone(boat.berth_zone));
   const charge = async (cost, what) => {
     if ((player.credits ?? 0) < cost) return false;
     if (cost) await adjustCredits(player, -cost, query, what);
@@ -611,7 +632,7 @@ async function refitJob(player, job, rest) {
   if (job === 'service') {
     const which = String(args[0] || 'all').toLowerCase();
     if (which !== 'all' && !BOAT_SERVICE[which]) return say(`<span class="text-dim">refit service ${boat.id} oil|prop|scrub|all</span>`);
-    const cost = boatServicePrice(type, which);
+    const cost = Math.round(boatServicePrice(type, which) * rate);
     if (!await charge(cost, 'boat service')) return say(`<span class="text-red">₵${cost.toLocaleString()}.</span> <span class="text-dim">You have ₵${(player.credits ?? 0).toLocaleString()}.</span>`);
     const next = stampBoatService(cd, which, { afloat: bench.live });
     await save(next);
@@ -632,7 +653,7 @@ async function refitJob(player, job, rest) {
     else if (decal) next.livery = { decal };
     else delete next.livery;
     if (JSON.stringify(next.livery || null) === JSON.stringify(cd.livery || null)) return say('<span class="text-dim">She is already in those colours.</span>');
-    const cost = scheme.livery ? BOAT_PAINT_PRICE : Math.round(BOAT_PAINT_PRICE / 2);
+    const cost = Math.round((scheme.livery ? BOAT_PAINT_PRICE : BOAT_PAINT_PRICE / 2) * rate);
     if (!await charge(cost, 'boat paint')) return say(`<span class="text-red">₵${cost.toLocaleString()}.</span> <span class="text-dim">You have ₵${(player.credits ?? 0).toLocaleString()}.</span>`);
     await save(next);
     await applyLive(player, boat.id, { cd: next });
@@ -645,7 +666,7 @@ async function refitJob(player, job, rest) {
     if ((cd.livery?.decal || 'none') === id) return say('<span class="text-dim">That is what is on her now.</span>');
     const next = { ...cd, livery: { ...(cd.livery || {}), decal: id } };
     if (id === 'none') { delete next.livery.decal; if (!Object.keys(next.livery).length) delete next.livery; }
-    const cost = id === 'none' ? 0 : BOAT_DECAL_PRICE;
+    const cost = id === 'none' ? 0 : Math.round(BOAT_DECAL_PRICE * rate);
     if (!await charge(cost, 'boat decal')) return say(`<span class="text-red">₵${cost.toLocaleString()}.</span> <span class="text-dim">You have ₵${(player.credits ?? 0).toLocaleString()}.</span>`);
     await save(next);
     await applyLive(player, boat.id, { cd: next });

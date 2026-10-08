@@ -959,6 +959,7 @@
       "half": 0.05,
       "hh": 0.095,
       "depth": 0.014,
+      "door": 1,
       "pal": "ty_hf_slab",
       "glow": "#3a3f46",
       "glass": "#707880",

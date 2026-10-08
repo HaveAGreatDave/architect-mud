@@ -40,7 +40,8 @@ for (const { file, doc } of docs) {
     if (doc.params.portedFrom) {
       const legacy = m.legacyMeshFaces(doc.id, detail);
       if (!legacy) { problems.push(file + ': portedFrom ' + doc.params.portedFrom + ' but there is no builder to hold it against'); continue; }
-      const d = meshDiff(faces, legacy);
+      // The builder drew geometry and never declared a finish, so the file is held against it without one.
+      const d = meshDiff(doc.params.finish == null ? faces : compileMesh(doc.params, { detail, finish: false }).faces, legacy);
       if (d) problems.push(file + ' detail ' + detail + ': differs from ' + doc.params.portedFrom + ' at face ' + d.index + ' (' + d.field + '). Run: npm run mesh -- diff ' + doc.id);
     }
   }

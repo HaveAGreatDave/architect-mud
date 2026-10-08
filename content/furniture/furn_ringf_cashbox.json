@@ -1,0 +1,18 @@
+{
+  "description": "A green steel cash box in the bottom drawer of the filing cabinet, with a combination lock and a dent in the lid.",
+  "flags": {
+    "aliases": [
+      "cash box",
+      "box",
+      "drawer",
+      "filing cabinet"
+    ],
+    "hack_difficulty": 3,
+    "vendor_npc_id": "npc_ringf_tamsin",
+    "vendor_safe": true
+  },
+  "id": "furn_ringf_cashbox",
+  "name": "the cash box",
+  "object_type": "fixture",
+  "zone_id": "zone_ringf_office"
+}

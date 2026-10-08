@@ -1,11 +1,12 @@
 {
-  "blurb": "Navy grey. On a gunship, grey is the point.",
+  "blurb": "Dark green over a pale grey belly, and a shark's mouth on the nose, because somebody always paints one.",
   "default": true,
   "exterior": {
-    "base": "#767c82",
-    "finish": "satin",
+    "base": "#46523c",
+    "decal": "sharkmouth",
+    "finish": "matte",
     "pattern": "factory",
-    "trim": "#585e64"
+    "trim": "#5c6650"
   },
   "id": "stock",
   "interior": {
@@ -14,6 +15,6 @@
   },
   "kind": "aircraft",
   "model": "gunship",
-  "name": "Battleship Grey",
+  "name": "Swamp Green",
   "unlock": null
 }

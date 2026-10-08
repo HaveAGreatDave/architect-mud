@@ -43,7 +43,7 @@ import { adjustCredits } from '../../server/engine/economy.js';
 import { randomUUID } from 'crypto';
 import { HITCH_MPH } from '../../client/game/js/panels/flight-model.js';
 import { trucksAt, getTruck, setCondition, saveTruckData, setFuel } from './fleet.js';
-import { TUNE_PARAMS, KITS, bandOf, tuneRange, clampTune, installedKits, effTruckParams, repairCost, FIELD_CAP, sanitizePaint, paintCost, FLASHES, FINISHES, ARTS, PAINT_PRESETS, presetPaint, SPARES_ITEM, DASH_MATERIALS, DASH_COLOURWAYS, sanitizeTrim, isDashMaterial, isDashColourway, trimCost, sanitizeCustomTrim, isTrimHex, CUSTOM_COL } from './rig.js';
+import { TUNE_PARAMS, KITS, bandOf, tuneRange, clampTune, installedKits, effTruckParams, repairCost, FIELD_CAP, sanitizePaint, paintOf, paintCost, FLASHES, FINISHES, ARTS, PAINT_PRESETS, presetPaint, SPARES_ITEM, DASH_MATERIALS, DASH_COLOURWAYS, sanitizeTrim, isDashMaterial, isDashColourway, trimCost, sanitizeCustomTrim, isTrimHex, CUSTOM_COL } from './rig.js';
 import { stockTrim } from '../../client/shared/cab-trim.js';
 import { TRINKETS, TRINKET_IDS, CAB_SLOTS, installedTrinkets, trinketIn, trinketsIn, trinketPrice } from '../../client/shared/cab-trinkets.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
@@ -703,7 +703,7 @@ async function rigKit(player, truck, cd, kitId) {
 // positional form is still accepted exactly as it was, because it is what every macro and every
 // line of anyone's notes already says.
 async function rigPaint(player, truck, cd, args) {
-  const prev = cd.paint || {};
+  const prev = paintOf(cd, truck.type_id);
   const patch = {};
   const loose = [];
   for (const raw of args) {

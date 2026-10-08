@@ -21,6 +21,7 @@ import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshi
   perfBegin, perfEnd, perfTick, lastViewState } from './windshield.js';
 import { TYPES, IDLE, createTruckState, truckReadout, step, truckShift, truckSplit, truckSelectGear, bestGear } from './flight-model.js';
 import { createFreeCam, FREECAM_HINT, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
+import { tweenOrbit } from './camera-tween.js';
 import { bindBigScreenButton, exitBigScreen, BIGSCREEN_GLYPH, BIGSCREEN_TITLE } from './bigscreen.js';
 import { claimSeatKeyboard, endSeatKeyboard, grabSeatKeys } from './seat-keys.js';
 import { updateBoatContacts, stopBoatContacts } from './boat-audio.js';
@@ -42,6 +43,7 @@ import { makeDraggable } from './confirm.js';
 // query. The only thing the cab has to ask the server for is what is in the bunk to eat.
 import { state as gameState } from '../state.js';
 import { seatHidePanel, TOUCH_MQ, isTouchView } from '../../../shared/compact-view.js';
+import { makeContactTrack } from './world-feed.js';
 
 // ── THE TOUCH SHELF ───────────────────────────────────────────────────────────
 //
@@ -525,6 +527,35 @@ export function cabView(mode, { quarter = false } = {}) {
   // and adds 'chaseYaw' on top, so a camera ahead and to the right looking back at her is 225 net.
   if (quarter && mode === 'ext') st.extYaw = ((225 - (RENDER_TUNE.chaseYaw || 0)) % 360 + 360) % 360;
   return st.external ? 'ext' : 'cab';
+}
+/**
+ * Swing the chase camera onto a shot (camera-tween.js SHOTS) over a moment. The bay asks for one
+ * per tab so the part being bought is the part in frame. Outside view only; the player's own drag
+ * or wheel takes the camera back mid-move.
+ */
+export function cabFrame(shot, ms = 700) {
+  if (!st || !shot) return;
+  if (!st.external) st.setExternal?.(true);
+  tweenOrbit(st, { yaw: 'extYaw', pitch: 'extPitch', zoom: 'extZoom' },
+    { yaw: shot.yaw - (RENDER_TUNE.chaseYaw || 0), pitch: shot.pitch, zoom: shot.zoom }, ms);
+}
+/**
+ * A blip of throttle for the ear only: the bay revs the engine when a tune or a kit goes on, the way
+ * a garage does. The sim's rpm is untouched; the voice is handed rpm + kick for half a second and
+ * the throttle drop at the end gives the backfire for free. Nothing happens with the engine off.
+ * Returns whether it revved.
+ */
+export function cabRev(amount = 0.55) {
+  if (!st || st.sim.stalled || st.dry || st.broken) return false;
+  st.revAt = performance.now(); st.revAmt = amount;
+  return true;
+}
+// The rev's shape: up in a tenth of a second, then down over the next half.
+function revKick(now) {
+  if (!st.revAt) return 0;
+  const t = (now - st.revAt) / 1000;
+  if (t > 0.9) { st.revAt = 0; return 0; }
+  return (st.revAmt || 0) * (t < 0.1 ? t / 0.1 : Math.exp(-(t - 0.1) / 0.22));
 }
 
 // ── THE SHELF IS THE BOTTOM OF THE SAME BOARD ────────────────────────────────
@@ -3469,6 +3500,10 @@ export function cabContext(ctx) {
   // 30 tiles and the ground runs to the horizon. Same 'undefined vs null' rule as the two lines
   // below: null is the server saying there is no road in range, and it has to CLEAR.
   if (ctx.roads !== undefined) st.roads = ctx.roads;
+  // The towers past the window and the region's colour grade. They ride every eighth tile, not every
+  // push (trucking/state.js farView), so an absent key keeps what the cab already has.
+  if (ctx.skyline) st.skyline = ctx.skyline;
+  if (ctx.regions) st.regions = ctx.regions;
   // The street population, paired with the map. An empty list is a real answer, not an absent one —
   // see the same note in cockpit.js flightSimContext.
   if (ctx.actors !== undefined) st.actors = ctx.actors;
@@ -3494,7 +3529,10 @@ export function cabContext(ctx) {
   if (ctx.grime != null) st.grime = ctx.grime;
   if (ctx.fits !== undefined) FITS = ctx.fits || '';
   // …stamped on arrival, which is what gives contactsFor an age to reckon from.
-  if (ctx.contacts) st.contacts = ctx.contacts.map(c => ({ ...c, t: performance.now() }));
+  if (ctx.contacts) {
+    st.contacts = ctx.contacts.map(c => ({ ...c, t: performance.now() }));
+    (st.contactTrack || (st.contactTrack = makeContactTrack())).update(ctx.contacts);
+  }
   // THE BOXES STANDING IN THE YARD. They arrive in the same contact shape the aircraft do (see
   // trailers.js trailersNear), so they need no renderer of their own — they are concatenated into
   // the contact list below and drawn by the same code that draws another player's rig.
@@ -4491,7 +4529,10 @@ function frame(now) {
     // THROTTLE IS BOOST, not the pedal: `r.pedal` is the spooled number the engine is actually
     // making, so the note comes up with the pull instead of snapping the instant a key goes down —
     // which is most of what makes a big diesel sound heavy.
-    if (now - st.lastAudio >= 220) {
+    // A bay's rev (cabRev) needs the voice updated faster than the 220 ms cadence, or half a second
+    // of blip is two samples of it.
+    const kick = revKick(now);
+    if (now - st.lastAudio >= (kick > 0 ? 40 : 220)) {
       st.lastAudio = now;
       // What continuing to drive on it sounds like. Scaled off the worst component and driven from
       // the same payload the gauges read, so the sound IS the gauge rather than a second opinion
@@ -4517,7 +4558,7 @@ function frame(now) {
         continuous: true, class: 'truck',
         engineOn: !st.dry && (!dead || performance.now() - st.deadAt < SETTLE_MS),
         airborne: false, onGround: true,
-        rpm: Math.max(0, st.sim.rpm - (st.rpmDip || 0)), throttle: r.pedal * 100, spd: r.speed,
+        rpm: Math.min(1, Math.max(0, st.sim.rpm - (st.rpmDip || 0) + kick)), throttle: Math.min(100, (r.pedal + kick * 1.6) * 100), spd: r.speed,
         groundSpeed: r.speed, surface: st.input.surface || 'road',
         cabin: !st.external, weather: st.weather,
       });
@@ -4593,7 +4634,7 @@ function frame(now) {
               mapOffset: { x: st.sim.x - st.mapX, y: st.sim.y - st.mapY },
               hour: st.hour, weather: st.weather, event: st.wxEvent,
               wxField: st.wxField, wxGround: st.wxGround, acX: st.sim.x, acY: st.sim.y,
-              roads: st.roads, contacts: contactsFor(st), actors: st.actors,
+              roads: st.roads, contacts: contactsFor(st), actors: st.actors, skyline: st.skyline, regions: st.regions,
               landingLight: st.heads, wipers: 0,
             });
             st.rearImg = rc;
@@ -4976,40 +5017,29 @@ function frame(now) {
 }
 
 // Styles live with the panel (the one-file-per-panel convention), injected once.
-// The two server lists — aircraft overhead and boxes standing in the yard — in the frame the
-// renderer actually reads. World tiles in, offsets from the truck out.
+// The two server lists, everything moving near the truck and boxes standing in the yard, in the
+// frame the renderer actually reads. World tiles in, offsets from the truck out.
 //
-// A box is STATIC and an aeroplane is not, so airborne contacts are dead-reckoned over the age of
-// the payload exactly as the cockpit does it: the relay is every second or two and a Mule crossing
-// the yard would otherwise arrive in visible steps. `ias` is 0 on a parked box, which makes the
-// same line a no-op for the thing it must not move.
-const CAB_DR_MAX = 2.5;   // seconds of dead reckoning before a stale contact is left where it was
+// A box is STATIC and the rest are not, so the moving list is dead-reckoned between pushes by the
+// shared track (world-feed.js), on a velocity differenced from the pushes. It used to read `ias` off
+// the wire at 0.02 tiles a knot, which was right for nothing: the list now carries boats (knots
+// from mph), rigs (mph) and aircraft (whose ground rate is a tune), and each walked a different
+// wrong distance and snapped back at the next push.
+//
+// ⚠ AND A RIG IS DRAWN AT THE ROAD'S OWN SCALE, not at the one an aeroplane sees it at.
+// CONTACT_SIZE.truck is honest (from the air a rig SHOULD be a detail on the tarmac), and the
+// hero model multiplies it by seven to frame against lane markings that are metres across. That
+// argument is about the road, so it applies to everything on the road: without it, a box parked
+// beside your own cab draws at a seventh of its size. `sizeMul` rather than a size override,
+// because it is the one field that reaches the draw, the ground anchor and the occlusion size together.
 function contactsFor(st) {
-  const src = (st.contacts || []).concat(st.trailers || []);
-  if (!src.length) return [];
-  const now = performance.now();
   const ax = st.sim.x, ay = st.sim.y;
-  const out = [];
-  for (const c of src) {
-    const age = Math.min(CAB_DR_MAX, Math.max(0, (now - (c.t || now)) / 1000));
-    const spd = (c.ias || 0) * 0.02, hr = (c.hdg || 0) * Math.PI / 180;
-    const cx = c.x + Math.sin(hr) * spd * age, cy = c.y - Math.cos(hr) * spd * age;
-    const dx = cx - ax, dy = cy - ay;
-    // A ground contact pins itself to the world ground plane rather than to the driver's eye —
-    // `groundZ: 0` is the tarmac the cab is already sitting on, so a dropped box rests on it
-    // instead of floating at windscreen height. A truck's own altitude is zero, so an aircraft's
-    // altDiff is simply its altitude.
-    const ground = c.onGround || c.band === 'ground';
-    // ⚠ AND A RIG IS DRAWN AT THE ROAD'S OWN SCALE, not at the one an aeroplane sees it at.
-    // CONTACT_SIZE.truck is honest — from the air a rig SHOULD be a detail on the tarmac — and the
-    // hero model multiplies it by seven to frame against lane markings that are metres across.
-    // That argument is about the road, so it applies to everything on the road: without this, a
-    // box parked beside your own cab draws at a seventh of its size, which is exactly what it
-    // looked like. `sizeMul` rather than a size override, because it is the one field that reaches
-    // the draw, the ground anchor and the occlusion size together.
-    const rig = c.cls === 'truck' ? ROAD_RIG_MUL : 1;
-    out.push({ ...c, dx, dy, rng: Math.hypot(dx, dy), sizeMul: (c.sizeMul || 1) * rig,
-      ...(ground ? { groundZ: 0, altDiff: 0 } : { altDiff: c.alt || 0 }) });
+  const out = st.contactTrack ? st.contactTrack.frame(ax, ay, { roadRig: ROAD_RIG_MUL }) : [];
+  for (const c of st.trailers || []) {
+    const dx = c.x - ax, dy = c.y - ay;
+    // A box rests on the tarmac the cab is already sitting on, never at windscreen height.
+    out.push({ ...c, dx, dy, rng: Math.hypot(dx, dy), sizeMul: (c.sizeMul || 1) * (c.cls === 'truck' ? ROAD_RIG_MUL : 1),
+      groundZ: 0, altDiff: 0 });
   }
   return out;
 }

@@ -65,7 +65,10 @@ async function pushContacts(live) {
   // same contact shape, which is already viewer-agnostic (the yacht helm consumes it too). The
   // ADR-0002 seam, same as `aircraft.companions`.
   const extra = await gatherHook('vehicle.contacts', live.row.grid_x, live.row.grid_y, CONTACT_RANGE);
-  for (const list of extra || []) if (Array.isArray(list)) contacts.push(...list);
+  // ⚠ ALREADY FLAT. `gatherHook` spreads each contributor's list into one list of contacts, so the
+  // `Array.isArray(list)` test this used to make was false for every contact and no truck or boat
+  // ever reached a cockpit.
+  for (const c of extra || []) if (c && c.id != null) contacts.push(c);
   for (const pid of live.occupants) {
     const p = getLivePlayer(pid);
     if (p && p.seat === 'pilot' && !p.textPilot) sendToPlayer(pid, { type: 'flight_contacts', contacts });
@@ -82,43 +85,6 @@ export function relayContacts(live) {
   // real catch — a plugin that throws while answering must not take the whole relay down with it.
   pushContacts(live).catch(e => console.error('[flight] contact push:', e.message));
   for (const n of near) pushContacts(n.live).catch(() => {});
-  pushAASites(live).catch(() => {});   // refresh this pilot's ground-emplacement picture
-}
-
-// ── Ground AA emplacements → cockpit 3D models ────────────────────────────────
-// The pilot's windshield draws a persistent radar-dish SAM turret at each active AA
-// site so the thing shooting at you is a place you can SEE and line a gun pass up on,
-// not just a bearing on the glass. Sites barely change, so the list is cached briefly
-// (a ~5Hz sync must not hit the DB each time) and the push itself throttled to ~1Hz.
-// Absolute world tiles go over the wire; the client anchors them to its own smooth
-// position each frame, exactly like the AA tracers.
-let aaSiteCache = { at: 0, rows: [] };
-export function invalidateAASiteCache() { aaSiteCache.at = 0; }
-async function activeAASites() {
-  const now = Date.now();
-  if (now - aaSiteCache.at < 4000) return aaSiteCache.rows;
-  const { rows } = await query(
-    `SELECT s.name, z.grid_x, z.grid_y FROM aa_sites s JOIN zones z ON z.id=s.zone_id
-     WHERE s.active=1 AND z.grid_x IS NOT NULL`
-  );
-  aaSiteCache = { at: now, rows };
-  return rows;
-}
-
-const AA_RENDER_RANGE = 16;   // tiles: push emplacements within this of the craft
-async function pushAASites(live) {
-  if (!isContinuous(live) || !live.row.airborne) return;
-  const now = Date.now();
-  if (live.lastAAPush && now - live.lastAAPush < 900) return;   // ~1Hz — the ground doesn't move
-  live.lastAAPush = now;
-  const a = live.row;
-  const sites = (await activeAASites())
-    .filter(s => cheb(a.grid_x, a.grid_y, s.grid_x, s.grid_y) <= AA_RENDER_RANGE)
-    .map(s => ({ x: s.grid_x, y: s.grid_y, name: s.name }));
-  for (const pid of live.occupants) {
-    const p = getLivePlayer(pid);
-    if (p && p.seat === 'pilot' && !p.textPilot) sendToPlayer(pid, { type: 'flight_aasites', sites });
-  }
 }
 
 // ── Air-to-air guns (Phase B) ─────────────────────────────────────────────────
@@ -343,7 +309,6 @@ async function fireSwarmGround(live, player) {
     const { rows: still } = await query('SELECT active FROM aa_sites WHERE id=$1', [best.site.id]);
     if (still.length && still[0].active) {
       await query('UPDATE aa_sites SET active=0 WHERE id=$1', [best.site.id]);
-      invalidateAASiteCache();   // drop the dead turret from pilots' 3D pictures next push
       emit('flight.aaSilenced', { siteId: best.site.id, siteName: best.site.name, zoneId: best.site.zone_id });
       await awardSkillUse(player.id, 'piloting', PILOT_IP.AA_SILENCED);
       if (zone) sendToZone(zone.id, { type: 'zone_event', message: `${best.site.name} disappears inside a rolling fireball.`, refresh: true });
@@ -473,7 +438,6 @@ async function bombKillAA(ax, ay, zone, player) {
   const site = rows[0];
   const upd = await query('UPDATE aa_sites SET active=0 WHERE id=$1 AND active=1', [site.id]);
   if (!upd.rowCount) return;
-  invalidateAASiteCache();
   emit('flight.aaSilenced', { siteId: site.id, siteName: site.name, zoneId: site.zone_id });
   await awardSkillUse(player.id, 'piloting', PILOT_IP.BOMB_KILL);
   if (zone) sendToZone(zone.id, { type: 'zone_event', message: `${site.name} ceases to exist.`, refresh: true });
@@ -750,11 +714,11 @@ export async function tickCombat(live) {
       // of just a text log line.
       const killed = await applyAirDamage(live, dmg, null, 'shotdown',
         `<span class="text-red">💥 ${s.name} opens up: rounds walk across the airframe. Hull ${Math.round((1 - Math.min(1, a.damage + bite)) * 100)}%.</span>`);
-      emit('flight.aaFired', { zoneId: s.zone_id, siteId: s.id, siteName: s.name, hit: true });
+      emit('flight.aaFired', { zoneId: s.zone_id, siteId: s.id, siteName: s.name, hit: true, target: a.id });
       if (killed) return;
     } else {
       toOccupants(live, `<span class="text-amber">Tracer arcs past from ${s.name} below: a near miss.</span>`);
-      emit('flight.aaFired', { zoneId: s.zone_id, siteId: s.id, siteName: s.name, hit: false });
+      emit('flight.aaFired', { zoneId: s.zone_id, siteId: s.id, siteName: s.name, hit: false, target: a.id });
     }
     break;   // one emplacement engages per tick — don't stack a firing squad
   }
@@ -955,7 +919,6 @@ async function applyStrafeResult(live, player, targetId, targetName, won) {
   if (!rows.length || !rows[0].active) return;   // already dead / gone
   if (won) {
     await query('UPDATE aa_sites SET active=0 WHERE id=$1', [targetId]);
-    invalidateAASiteCache();   // drop the silenced turret from pilots' 3D pictures next push
     emit('flight.aaSilenced', { siteId: targetId, siteName: targetName, zoneId: rows[0].zone_id });
     await awardSkillUse(player.id, 'piloting', PILOT_IP.AA_SILENCED);
     if (below) sendToZone(below.id, { type: 'zone_event', message: `${targetName} vanishes in a string of impacts and a secondary blast.`, refresh: true });

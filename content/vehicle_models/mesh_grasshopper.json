@@ -8,6 +8,15 @@
     "groundPitch": 11,
     "navLamps": { "wing": "wing" },
     "hull": "fuselage",
+    "finish": "gloss",
+    "paints": {
+      "belly": { "rgb": [178, 192, 108], "livery": "base" },
+      "cowl": { "rgb": [216, 194, 74], "livery": "trim" },
+      "glare": { "rgb": [40, 46, 34], "livery": "fixed", "mat": "matte" },
+      "hull": { "rgb": [95, 143, 58], "livery": "base" },
+      "stripe": { "rgb": [216, 194, 74], "livery": "trim" },
+      "tail": { "rgb": [216, 194, 74], "livery": "trim" }
+    },
     "parts": [
       {
         "kind": "loft",
@@ -34,10 +43,15 @@
         "regions": [
           { "at": [0.52], "k": [0, 1, 2, 3, 4, 5], "role": "glass", "tint": [96, 132, 158], "art": "xcub", "uvDiv": 6 },
           { "at": [0.44, 0.22], "k": [0, 2, 3, 5], "role": "glass", "tint": [96, 132, 158], "art": "xcub", "uvDiv": 6 },
-          { "at": [0], "k": [0, 5], "role": "glass", "tint": [96, 132, 158], "art": "xcub", "uvDiv": 6 }
+          { "at": [0], "k": [0, 5], "role": "glass", "tint": [96, 132, 158], "art": "xcub", "uvDiv": 6 },
+          { "at": [0.8], "k": "all", "paint": "cowl" },
+          { "at": [0.72, 0.6], "k": [2, 3], "paint": "glare" },
+          { "at": [0.72, 0.6, 0.52, 0.44, 0.22, 0, -0.2, -0.42, -0.64, -0.86], "k": [6, 11], "paint": "stripe" },
+          { "at": [0.72, 0.6, 0.52, 0.44, 0.22, 0, -0.2, -0.42, -0.64, -0.86], "k": [7, 8, 9, 10], "paint": "belly" }
         ],
         "capFore": { "kind": "flat", "sh": 0.92 },
-        "capAft": { "kind": "flat", "sh": 0.5, "reverse": true }
+        "capAft": { "kind": "flat", "sh": 0.5, "reverse": true },
+        "paint": "hull"
       },
       {
         "kind": "cone",
@@ -48,7 +62,8 @@
         "n": 10,
         "apex": [0.865, 0, 0.03],
         "role": "nacelle",
-        "shade": { "base": 0.72, "amp": 0.26 }
+        "shade": { "base": 0.72, "amp": 0.26 },
+        "paint": "cowl"
       },
       {
         "kind": "mirror",
@@ -87,6 +102,7 @@
         "lower": 0.44,
         "tipSh": 0.66,
         "lens": { "hh": 0.01, "hw": 0.02, "minDetail": 1, "out": 0.012, "tints": [[46, 190, 78], [200, 52, 48]], "x": 0.1 },
+        "paint": "hull",
         "lod0": { "nx": 4, "ribs": [-1.16, 0, 1.16] }
       },
       {
@@ -105,6 +121,7 @@
             "half": 0.01
           }
         ],
+        "paint": "hull",
         "minDetail": 1
       },
       {
@@ -157,7 +174,8 @@
         "t": 0.01,
         "role": "fin",
         "sh": [0.92, 0.68],
-        "edges": [{ "a": 0, "b": 1, "sh": 0.88 }, { "a": 1, "b": 2, "sh": 0.74 }, { "a": 2, "b": 3, "sh": 0.74 }]
+        "edges": [{ "a": 0, "b": 1, "sh": 0.88 }, { "a": 1, "b": 2, "sh": 0.74 }, { "a": 2, "b": 3, "sh": 0.74 }],
+        "paint": "tail"
       },
       {
         "kind": "mirror",
@@ -186,7 +204,8 @@
             ],
             "left": { "faces": [{ "sh": 0.66, "winding": "reverse" }, { "sh": 0.63, "winding": "reverse" }] }
           }
-        ]
+        ],
+        "paint": "tail"
       },
       {
         "kind": "mirror",
@@ -202,7 +221,8 @@
             ],
             "th": 0.014,
             "role": "stab",
-            "sh": 0.74
+            "sh": 0.74,
+            "paint": "hull"
           },
           {
             "kind": "ctrl",
@@ -215,6 +235,7 @@
             "cf": 0.38,
             "axis": "z",
             "half": 0.008,
+            "paint": "hull",
             "minDetail": 1
           },
           {

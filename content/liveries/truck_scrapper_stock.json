@@ -1,0 +1,22 @@
+{
+  "blurb": "Sage green going to rust at every seam. Krell paint the first coat and let the road do the rest.",
+  "default": true,
+  "exterior": {
+    "art": "none",
+    "base": "#56804a",
+    "bright": "#9aa0a6",
+    "chrome": 0,
+    "deck": "#b9bec6",
+    "finish": "weathered",
+    "flash": "rust",
+    "glass": "#324a5c",
+    "glow": "#60c4d6",
+    "hw": "#23262b",
+    "trim": "#d6cba6"
+  },
+  "id": "stock",
+  "kind": "truck",
+  "model": "scrapper",
+  "name": "Barrow Sage",
+  "unlock": null
+}

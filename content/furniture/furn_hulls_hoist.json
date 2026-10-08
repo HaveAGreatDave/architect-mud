@@ -1,0 +1,15 @@
+{
+  "description": "A chain hoist on a beam over the wet slot, two canvas slings hanging off it. Hand-cranked, and the crank handle is wrapped in tape.",
+  "flags": {
+    "aliases": [
+      "hoist",
+      "chain",
+      "slings",
+      "beam"
+    ]
+  },
+  "id": "furn_hulls_hoist",
+  "name": "the chain hoist",
+  "object_type": "fixture",
+  "zone_id": "zone_hulls_shop"
+}

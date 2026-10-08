@@ -25,7 +25,7 @@ import { plazasFor, attachPlazas, plazaOn, plazaCell, plazaRoadFlags, plazaVerdi
 import { getCrimeStars, CRIME_DEFAULTS } from '../../server/engine/crimes.js';
 import { DASH_MATERIALS, DASH_COLOURWAYS, sanitizeTrim, isDashMaterial, isDashColourway, stockTrim,
   customColourway, sanitizeCustomTrim, isTrimHex, CUSTOM_COL } from '../../client/shared/cab-trim.js';
-import { trimCost, sanitizePaint, paintCost, presetPaint, PAINT_DEFAULT, PAINT_PRESETS, FLASHES, FINISHES } from './rig.js';
+import { trimCost, sanitizePaint, paintCost, presetPaint, PAINT_DEFAULT, PAINT_PRESETS, FLASHES, FINISHES, paintOf, factoryPaint } from './rig.js';
 import { restoreDrivingState } from './resume.js';
 import { routeOptions } from './routes.js';
 import { damageOf, overall, wearSplit, impactSplit, grindSplit, IMPACT_AREAS, partEffects, applyDamage, PARTS } from './damage.js';
@@ -2930,10 +2930,14 @@ async function regressBody({ run, check, getPlayer }) {
         seen[0]?.livery?.base === '#112233' && seen[0]?.livery?.pattern === 'truck:scallop'
         && seen[0]?.livery?.finish === 'matte',
         JSON.stringify(seen[0]?.livery || null).slice(0, 80));
-      const bare = { ...fake, playerId: 'p_traffic2', cd: {} };
+      // A rig nobody has painted is drawn in its type's factory paint, not an empty livery: an empty
+      // one is what other drivers used to see as a bare grey truck.
+      const bare = { ...fake, playerId: 'p_traffic2', typeId: 'drayman', cd: {} };
       rigs.set('p_traffic2', bare);
-      check('…and a rig nobody has painted carries no livery to argue with the mesh defaults',
-        JSON.stringify(truckContactsNear(900, 900, 26).find(c => c.id === 'truck_p_traffic2')?.livery) === '{}');
+      const bareLv = truckContactsNear(900, 900, 26).find(c => c.id === 'truck_p_traffic2')?.livery;
+      check('…and a rig nobody has painted wears its type\'s factory paint',
+        bareLv?.base === factoryPaint('drayman').base && bareLv?.pattern === 'truck:' + factoryPaint('drayman').flash,
+        JSON.stringify(bareLv || null).slice(0, 80));
       rigs.delete('p_traffic2');
       fake.speed = 0;
       check('a PARKED rig is scenery, not a permanent blip on every pilot\'s glass',
@@ -5195,6 +5199,13 @@ async function regressBody({ run, check, getPlayer }) {
     // …and reading it TWICE is the same answer, which is what makes the panel's "nothing changed"
     // test honest: it compares the edited paint against this exact normalisation.
     check('normalising a paint is idempotent', JSON.stringify(sanitizePaint({}, read)) === JSON.stringify(read));
+    // ⚠ AN UNPAINTED TRUCK WEARS ITS TYPE'S FACTORY PAINT, on every reader. A truck that stores no
+    // paint went out as null to the cab and to other drivers, and both drew it bare grey.
+    const ids = TRUCK_TYPES.map(t => t.id);
+    check('every truck type has its own factory paint', new Set(ids.map(id => factoryPaint(id).base)).size === ids.length, ids.map(id => id + '=' + factoryPaint(id).base).join(' '));
+    check('an unpainted truck reads its factory paint, a painted one its own',
+      paintOf({}, 'drayman').base === factoryPaint('drayman').base && paintOf(null, 'scrapper').flash === factoryPaint('scrapper').flash
+      && paintOf({ paint: legacy }, 'drayman').base === legacy.base);
   }
   {
     // A typo must not silently respray a truck the driver was happy with — the same rule the cab

@@ -27,6 +27,7 @@
 // ⚠ A ZERO STAYS WHERE IT IS UNDER A MIRROR. A builder writing `V(0.30, 0, 0.230)` inside a
 // two-sided loop drew +0 on both sides; negating it would give −0 on the left. `ng` below leaves
 // both zeros alone, so a point on the centreline stays exactly on it.
+import { matK, VEHICLE_MATS } from './vehicle-materials.js';
 
 export const V = (f, g, h) => [f, g, h];
 export const cross3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
@@ -60,18 +61,21 @@ export function addStrut(faces, f, g, zTop, zBot, r, sides = 6) {
 
 // A detailed tyre rolling fore-aft, centred at (wf,g,wz): blocky tread band, two sidewalls,
 // bright metal hubcaps. Radius wr, half-width hw, N tread segments.
+// The tyre is rubber and the caps polished (`mk`, read by metalKOf in vehicle-materials.js). As role `gear` alone
+// every tyre was a 0.45 metal mirror.
 export function pushWheel(faces, wf, g, wz, wr, hw, N = 12) {
   const hr = wr * 0.4, g0 = g - hw, g1 = g + hw;
   const ring = (gg, rad) => { const r = []; for (let i = 0; i < N; i++) { const a = i / N * Math.PI * 2; r.push(V(wf + Math.cos(a) * rad, gg, wz + Math.sin(a) * rad)); } return r; };
   const outO = ring(g1, wr), outI = ring(g0, wr), hubO = ring(g1, hr), hubI = ring(g0, hr);
+  const RUB = VEHICLE_MATS.rubber, CAP = VEHICLE_MATS.polished;
   for (let i = 0; i < N; i++) {
     const j = (i + 1) % N;
-    faces.push({ role: 'gear', sh: 0.34 + 0.06 * (i % 2), p: [outI[i], outI[j], outO[j], outO[i]] });   // tread
-    faces.push({ role: 'gear', sh: 0.5, p: [outO[i], outO[j], hubO[j], hubO[i]] });                     // outboard sidewall
-    faces.push({ role: 'gear', sh: 0.4, p: [hubI[i], hubI[j], outI[j], outI[i]] });                     // inboard sidewall
+    faces.push({ role: 'gear', sh: 0.34 + 0.06 * (i % 2), p: [outI[i], outI[j], outO[j], outO[i]], mk: RUB });   // tread
+    faces.push({ role: 'gear', sh: 0.5, p: [outO[i], outO[j], hubO[j], hubO[i]], mk: RUB });                     // outboard sidewall
+    faces.push({ role: 'gear', sh: 0.4, p: [hubI[i], hubI[j], outI[j], outI[i]], mk: RUB });                     // inboard sidewall
   }
-  faces.push({ role: 'gear', sh: 0.92, p: hubO });
-  faces.push({ role: 'gear', sh: 0.55, p: hubI.slice().reverse() });
+  faces.push({ role: 'gear', sh: 0.92, p: hubO, mk: CAP });
+  faces.push({ role: 'gear', sh: 0.55, p: hubI.slice().reverse(), mk: CAP });
 }
 
 // A streamlined teardrop wheel fairing (Cessna 'spat'), body-coloured, open underneath so the
@@ -644,7 +648,9 @@ function emitPart(p, faces, cx, path, srcs) {
 // needs no mesh lookup to colour it.
 // `scheme` picks a paint job from `params.schemes`: a map of slot -> { rgb, alt } that overrides
 // those slots' colours and leaves the rest alone. Unknown or absent: the paints as authored.
-export function compileMesh(params, { detail = 1, scheme = null } = {}) {
+// `finish: false` leaves the mesh's factory finish off the faces: a port is held against the builder
+// it replaced, which drew geometry and never declared a finish.
+export function compileMesh(params, { detail = 1, scheme = null, finish = true } = {}) {
   const faces = [], srcs = [], warnings = [];
   const cx = { detail, paints: params.paints || null };
   (params.parts || []).forEach((p, i) => emitPart(p, faces, cx, 'parts[' + i + ']', srcs));
@@ -655,7 +661,9 @@ export function compileMesh(params, { detail = 1, scheme = null } = {}) {
       // A scheme's colour REPLACES the slot's sheen too: keeping the stock `alt` under a new `rgb`
       // let the mandarin's orange shimmer through Quackhawk Down's white neck.
       const s = sch[k] ? { ...s0, alt: undefined, ...sch[k] } : s0;
-      slots[k] = { name: k, rgb: s.rgb, livery: s.livery || 'base', ...(s.alt ? { alt: s.alt } : {}) };
+      // `mat` is what the slot is made of, resolved to its number here (vehicle-materials.js).
+      const mk = matK(s.mat);
+      slots[k] = { name: k, rgb: s.rgb, livery: s.livery || 'base', ...(s.alt ? { alt: s.alt } : {}), ...(mk !== undefined ? { mat: mk } : {}) };
     }
     for (const f of faces) if (typeof f.paint === 'string') {
       const slot = slots[f.paint];
@@ -667,6 +675,10 @@ export function compileMesh(params, { detail = 1, scheme = null } = {}) {
       f.paint = slot.alt ? { ...slot, rgb: mixRgb(slot.rgb, slot.alt, sheenT(f.p)) } : slot;
     }
   }
+  // The mesh's factory finish, on every face: what its paintwork is while nobody has repainted it.
+  // A slot's own `mat` and a face's `mk` beat it (metalKOf).
+  const coat = finish ? matK(params.finish) : undefined;
+  if (coat !== undefined) for (const f of faces) f.coat = coat;
   if (params.scale != null && params.scale !== 1) {
     const S = params.scale, X = (v) => [v[0] * S, v[1] * S, v[2] * S];
     const scaledAnim = new Map();
@@ -784,7 +796,8 @@ export function resolveRotors(params) {
 const isPlain = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
 const isVec = (v, n) => Array.isArray(v) && v.length === n && v.every(isNum);
-const PARAM_KEYS = new Set(['name', 'note', 'portedFrom', 'armedMesh', 'scale', 'classFacts', 'groundPitch', 'navLamps', 'lamps', 'hull', 'cabin', 'rotors', 'paints', 'schemes', 'parts']);
+const PARAM_KEYS = new Set(['name', 'note', 'portedFrom', 'armedMesh', 'scale', 'classFacts', 'groundPitch', 'navLamps', 'lamps', 'hull', 'cabin', 'rotors', 'finish', 'paints', 'schemes', 'parts']);
+const MAT_HINT = 'a number from -1 to 1 or one of ' + Object.keys(VEHICLE_MATS).join(', ');
 
 function checkPart(p, path, errors, warnings, inMirror) {
   if (!isPlain(p)) { errors.push(path + ' is not an object'); return; }
@@ -877,8 +890,10 @@ export function validateMesh(params, file = '<mesh>') {
     else for (const [k, s] of Object.entries(params.paints)) {
       if (!isPlain(s) || !isVec(s.rgb, 3)) errors.push(at('paints.' + k + ' needs rgb [r, g, b]'));
       if (s && s.livery != null && !['base', 'trim', 'fixed'].includes(s.livery)) errors.push(at('paints.' + k + '.livery must be base, trim or fixed'));
+      if (s && s.mat != null && matK(s.mat) === undefined) errors.push(at('paints.' + k + '.mat must be ' + MAT_HINT));
     }
   }
+  if (params.finish != null && matK(params.finish) === undefined) errors.push(at('finish must be ' + MAT_HINT));
   if (errors.length) return { errors, warnings };
   for (const detail of [0, 1]) {
     let faces;
@@ -927,7 +942,7 @@ export function meshStats(faces) {
 // `canonicalJson` would put `kind` after `faces`, which is the first thing you look for.
 const KEY_ORDER = {
   doc: ['id', 'kind', 'params'],
-  params: ['name', 'note', 'portedFrom', 'armedMesh', 'scale', 'classFacts', 'groundPitch', 'navLamps', 'lamps', 'hull', 'cabin', 'rotors', 'paints', 'schemes', 'parts'],
+  params: ['name', 'note', 'portedFrom', 'armedMesh', 'scale', 'classFacts', 'groundPitch', 'navLamps', 'lamps', 'hull', 'cabin', 'rotors', 'finish', 'paints', 'schemes', 'parts'],
   cabin: ['note', 'mPerUnit', 'head', 'eye', 'pilotEye', 'floor', 'back', 'wall'],
   station: ['f', 'rg', 'rv', 'rvT', 'rvB', 'cz', 'keel', 'boxy', 'upper', 'u', 'minDetail', 'note'],
   face: ['role', 'sh', 'p'],
@@ -935,7 +950,7 @@ const KEY_ORDER = {
   region: ['at', 'k', 'omit', 'role', 'tint', 'art', 'uvDiv', 'paint'],
   cap: ['kind', 'at', 'sh', 'role', 'tint', 'reverse', 'paint'],
   shade: ['base', 'amp', 'mul', 'alt', 'phase'],
-  paint: ['rgb', 'alt', 'livery', 'note'],
+  paint: ['rgb', 'alt', 'livery', 'mat', 'note'],
 };
 const ARRAY_OF = { parts: 'part', stations: 'station', faces: 'face', rotors: 'rotor', regions: 'region' };
 const OBJ_CTX = { params: 'params', cabin: 'cabin', capFore: 'cap', capAft: 'cap', shade: 'shade', sh: 'shade' };

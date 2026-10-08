@@ -1,0 +1,9 @@
+{
+  "a": "zone_ringf_floor",
+  "b": "zone_ringf_office",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_hf_ringf_floor_up",
+  "lockable": false,
+  "one_way": false
+}

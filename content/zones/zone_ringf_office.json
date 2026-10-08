@@ -1,0 +1,28 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A mezzanine office with a window looking down on the ring. A desk, a filing cabinet and a camp bed made up tight. Fight posters cover the walls, some of them from before. A wet towel is draped over the kettle to keep the chalk off it.",
+  "exits": {
+    "down": "zone_ringf_floor"
+  },
+  "flags": {
+    "building_name": "Ring Fenced",
+    "building_type": "gym",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "A pane in a steel frame looking down on the ring. You can see every corner of it from here.",
+      "light": 0.5,
+      "name": "the office window",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_916_905"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_ringf_office",
+  "map_id": "map_int_ringf",
+  "name": "Ring Fenced — The Office",
+  "parent_zone": "zone_district_916_905"
+}

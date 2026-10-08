@@ -10,8 +10,9 @@
 import {
   DETAIL_LIFT, FACE_EPS, MESH_SINK, SHAPE_SINK, awning, bakeSignText, clamp, draw3DBoxAt, drawFacetDrum, drawRing,
   drawSmoke, emitFlat, emitSurfaceText, emitWire, faceYaw, frac, glowPool, marqueeBand, motionOn,
-  nearOrMesh, reserveSignBand, rgb, roofCross, windWheel,
+  TILE_REACH, nearOrMesh, reserveSignBand, rgb, roofCross, windWheel,
 } from '../../windshield.js';
+import { drawEntrance } from '../entrance.js';
 
 // ── Two-Cell Supply's faces and its mark ──────────────────────────────────────────────────────
 // Newell's normal, turned to point along `out` — the sum `emitFlat` shades a lit face off.
@@ -107,6 +108,14 @@ export const TWIN_PASS_ARMS = {
     { const [sx, sy] = F(0, fh * 0.86);
       draw3DBoxAt(ctx, cam, sx, sy, fh * 0.40, 0, h * 0.44, 'ty_ff_patch', seed + 6, night, alpha, true);
       glowPool(ctx, cam, sx, sy, h * 0.28, '255,186,120', 8, alpha * (night ? 0.5 : 0.18)); }
+    // …and its door, left of centre so the whitewashed post stands clear of it: a glazed leaf in a
+    // steel frame onto the lit shop. ⚠ The shop had no door (the small-building grade, 2026-10-04).
+    // ⚠ ITS FACE IS AT THE TILE'S REACH, NOT AT 1.26 fh: the box is trimmed there by `segFit`, so a
+    //    door set where the arm asks for the box would stand off the front of it at wide footprints.
+    //    The min is safe here because a door is adornment and never reaches the shape capture.
+    drawEntrance(ctx, cam, F, W3, E, seed, night, alpha, {
+      x: -fh * 0.14, y: Math.min(fh * 1.26, TILE_REACH), w: fh * 0.08, top: h * 0.30, leaves: 1,
+      frame: [92, 96, 100], lobby: { day: [70, 52, 40], night: [255, 186, 120] }, frontVis });
     // 4) The whitewashed name round the curve, and the stoke-hole glow at the base. It reads from
     //    a long way east, which is the point of putting it on a kiln rather than over a door.
     if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.72, waist * 0.86, m.neon || '#ff8a4a', night, alpha, 'FIRED & FORGOTTEN');
@@ -169,7 +178,8 @@ export const TWIN_PASS_ARMS = {
       glowPool(ctx, cam, gx, gy, (sill + glassTop) * 0.5, '255,198,132', 9, alpha * (night ? 0.5 : 0.20)); }
     { const [bx, by] = F(0, WALL + fh * 0.03);    // the stallriser, which a shopfront stands on
       draw3DBoxAt(ctx, cam, bx, by, fh * 0.48, plinth, sill, IRON, seed + 9, night, alpha, false, YAW, fh * 0.06); }
-    for (const mx of [-0.235, 0, 0.235]) {   // iron mullions, which make it a shopfront and not a panel
+    // ⚠ NO MULLION ON THE CENTRE LINE: the door is there (below), and these two frame it.
+    for (const mx of [-0.235, -0.09, 0.09, 0.235]) {   // iron mullions, which make it a shopfront and not a panel
       const [px, py] = F(mx * fh, WALL + fh * 0.06);
       draw3DBoxAt(ctx, cam, px, py, fh * 0.018, sill, glassTop + h * 0.012, IRON, seed + 12, night, alpha, false, YAW, fh * 0.035);
     }
@@ -197,7 +207,10 @@ export const TWIN_PASS_ARMS = {
     //    and eight overlapping near-black drums are not a rail of pans — they are one black slab
     //    a metre and a half wide, which reads as a hole in the building. Five at 0.31 with a
     //    0.115 top radius leaves daylight between every one of them.
+    //    ⚠ FOUR NOW, TWO EACH SIDE OF THE DOOR. The middle pan hung in front of the doorway, which
+    //    is where a smith does not hang his stock; the prose has the racks either side of it.
     for (let i = 0; i < 5; i++) {
+      if (i === 2) continue;
       const g = 0.115 - i * 0.012, [px, py] = F((-0.62 + i * 0.31) * fh, WALL * 1.13);
       //    ⚠ AND THE TRAILING `pal` IS NOT OPTIONAL HERE. A drum paints through the style closure
       //    above and RECORDS itself with the ambient `SHAPE_PAL` — the building's own — so without
@@ -224,6 +237,13 @@ export const TWIN_PASS_ARMS = {
           STEEL, seed + 30 + i + side * 7, night, alpha, false);
       }
     }
+    // 6b) THE DOOR, in the middle of the shopfront between the two inner mullions: an iron-framed
+    //    glazed leaf onto the lit shop, standing on the plinth, with the tines racked either side.
+    // ⚠ THE LIT WINDOW RAN THE WHOLE WAY ACROSS AND THERE WAS NO WAY IN (the small-building grade,
+    //    2026-10-04). It stands proud of the mullions' faces (0.955 fh) so the glass cannot win.
+    drawEntrance(ctx, cam, F, W3, E, seed, night, alpha, {
+      y: fh * 0.96, w: fh * 0.07, z0: plinth, top: glassTop - h * 0.012, leaves: 1, frameW: fh * 0.012, depth: 0.006,
+      frame: [52, 48, 44], lobby: { day: [150, 112, 70], night: [255, 198, 132] }, mat: false, frontVis });
     // 7) THE NAME, across the brick above the canopy.
     //    ⚠ `marqueeBand`'s `half` IS BOTH THE WIDTH AND THE STAND-OFF (`ox = E[0] * half * 0.94`),
     //    so a band sized to the wall sits INSIDE it — the trap ff_kiln's own note records. At the
@@ -697,31 +717,6 @@ export const TWIN_PASS_ARMS = {
       glowPool(ctx, cam, lx, ly, h * 0.72, '255,232,180', 9, alpha * (night ? 0.62 : 0.20)); }
     if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.74, parapet * 0.96, m.neon || '#ffcf3e', night, alpha, 'WATTS THE DAMAGE');
   },
-  hulls(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // HULLS ANGELS — the twin of The Wet Handoff on the `wharf` mesh, and the joke
-    // is that it is a BOAT SHED A QUARTER-MILE FROM ANY WATER. So it gets the one thing the working
-    // wharf hasn't: mast-height doors, shut, on dry ground, with no crane and no water anywhere.
-    const doorTop = h * 1.36, ridge = h * 1.52;
-    // 1) THE SHED — tall and narrow, which is a proportion driven entirely by a mast.
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.74, 0, doorTop, pal, seed, night, alpha, false);
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.82, doorTop, ridge, 'ty_hulls_door', seed + 1, night, alpha, true);
-    // 2) THE DOORS — two leaves the full height of the wall, shut but for a gap. The gap is the
-    //    detail: they have not been fully opened in living memory, and one is always ajar.
-    if (frontVis) for (const [i, t] of [[0, -1], [1, 1]]) {
-      const [dx2, dy2] = F(t * fh * (0.34 + i * 0.04), fh * 0.78);
-      draw3DBoxAt(ctx, cam, dx2, dy2, fh * 0.30, 0, doorTop * 0.94, 'ty_hulls_door', seed + 4 + i, night, alpha, true, 0, fh * 0.07);
-    }
-    if (frontVis) { const [gx, gy] = F(0, fh * 0.80);
-      glowPool(ctx, cam, gx, gy, doorTop * 0.34, '255,196,132', 5, alpha * (night ? 0.34 : 0.12)); }   // the gap, lit from inside
-    // 3) THE PLANK — the name cut into a board above the doors. It took someone a whole winter,
-    //    so it is a carved plank and not a lit sign.
-    { const [px, py] = F(0, fh * 0.80);
-      draw3DBoxAt(ctx, cam, px, py, fh * 0.62, doorTop * 0.96, doorTop * 1.06, 'ty_slagw_corr', seed + 10, night, alpha, true, 0, fh * 0.10); }
-    // 4) A hull on a cradle outside, going nowhere, and the ground round it dry and cracked.
-    { const [hx, hy] = F(-fh * 0.92, fh * 0.30);
-      draw3DBoxAt(ctx, cam, hx, hy, fh * 0.18, h * 0.16, h * 0.44, 'ty_hulls_door', seed + 14, night, alpha, true, 0.22);
-      for (const t of [-1, 1]) { const [cx, cy] = F(-fh * 0.92, t * fh * 0.24 + fh * 0.30);
-        draw3DBoxAt(ctx, cam, cx, cy, fh * 0.05, 0, h * 0.18, 'ty_slagw_corr', seed + 16 + t, night, alpha, false); } }
-  },
   slagwares(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // SLAG & WARES — one of two junkyard twins promoted off the scrapyard mesh
     // (bales, grabber crane, site shack), which is a plant this is not. It is a PITCH: a hand-cart
     // the size of a room, roofed in corrugate and dug into the hardpan so the wind goes over it,
@@ -745,31 +740,6 @@ export const TWIN_PASS_ARMS = {
       draw3DBoxAt(ctx, cam, bx, by, fh * 0.22, h * 0.10, h * 0.16, 'ty_slagw_corr', seed + 20 + i, night, alpha, true);
       draw3DBoxAt(ctx, cam, bx, by, fh * 0.16, h * 0.16, h * (0.22 + frac(seed + i) * 0.06), 'ty_slagw', seed + 24 + i, night, alpha, true); }
     if (night) glowPool(ctx, cam, dx, dy, roof, '255,190,130', 8, alpha * 0.22);
-  },
-  thumbscale(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THUMB ON THE SCALE — the other junkyard twin. A GATEHOUSE HUT beside the
-    // Gate Road, one tile short of the South Gate, sited so everything walking out and everything
-    // dragging itself back goes past the window. The building is tiny; the SCALE outside it is the
-    // landmark, and it is big enough to weigh a person.
-    const hutTop = h * 0.66, roof = h * 0.76;
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.54, 0, hutTop, pal, seed, night, alpha, false);
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.64, hutTop, roof, 'ty_slagw_corr', seed + 1, night, alpha, true);
-    // 1) THE WINDOW, facing the road, lit. The whole siting argument of the building in one box.
-    if (frontVis) { const [wx, wy] = F(0, fh * 0.58);
-      draw3DBoxAt(ctx, cam, wx, wy, fh * 0.34, hutTop * 0.42, hutTop * 0.80, 'ty_tomb_glass', seed + 2, night, alpha, true, 0, fh * 0.05);
-      glowPool(ctx, cam, wx, wy, hutTop * 0.60, '255,206,146', 7, alpha * (night ? 0.52 : 0.18)); }
-    // 2) THE SCALE — a gallows frame outside the hut with the beam, the hook and the pan hanging
-    //    off it. Person-sized, which is the joke and also not a joke.
-    { const [px, py] = F(fh * 0.86, fh * 0.30);
-      draw3DBoxAt(ctx, cam, px, py, fh * 0.06, 0, h * 1.18, 'ty_slagw_corr', seed + 8, night, alpha, false);
-      const [ax, ay] = F(fh * 0.52, fh * 0.30);
-      draw3DBoxAt(ctx, cam, ax, ay, fh * 0.38, h * 1.10, h * 1.18, 'ty_slagw_corr', seed + 9, night, alpha, false);
-      // The brass head, the rod, and the pan. The pan swings whether or not there is any wind.
-      const [hx, hy] = F(fh * 0.20, fh * 0.30);
-      draw3DBoxAt(ctx, cam, hx, hy, fh * 0.11, h * 0.94, h * 1.10, 'ty_thumb_brass', seed + 10, night, alpha, false);
-      draw3DBoxAt(ctx, cam, hx, hy, fh * 0.02, h * 0.52, h * 0.94, 'ty_thumb_brass', seed + 11, night, alpha, false);
-      drawFacetDrum(ctx, cam, hx, hy, h * 0.46, h * 0.54, fh * 0.26, fh * 0.24, 10, alpha,
-        (f) => 'rgb(' + (128 + f.nl * 52 | 0) + ',' + (100 + f.nl * 42 | 0) + ',' + (46 + f.nl * 24 | 0) + ')', 'rgb(88,68,32)');
-      glowPool(ctx, cam, hx, hy, h * 1.02, '224,182,86', 5, alpha * (night ? 0.24 : 0.12)); }
   },
   slipback(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE SLIP — one of two fences promoted off the `pawn` mesh. It is THE BACK
     // ROOM, and the reason the front is so bare: shelving to the ceiling, nothing labelled, nothing
@@ -835,10 +805,17 @@ export const TWIN_PASS_ARMS = {
         draw3DBoxAt(ctx, cam, px, py, fh * 0.05, 0, wallTop, 'ty_grind', seed + 10 + ty, night, alpha, false); }
       draw3DBoxAt(ctx, cam, ox, oy, fh * 0.44, wallTop, ridge, 'ty_grind', seed + 12, night, alpha, true); }
     // 3) THE BLADE RACKS on the front wall — house work outside, the good marques behind glass.
-    if (frontVis) { for (let i = 0; i < 7; i++) { const [bx, by] = F((-0.64 + i * 0.21) * fh, fh * 0.96);
+    //    ⚠ SIX, NOT SEVEN: the second rack stood where the door is (below).
+    if (frontVis) { for (let i = 0; i < 7; i++) { if (i === 1) continue; const [bx, by] = F((-0.64 + i * 0.21) * fh, fh * 0.96);
         draw3DBoxAt(ctx, cam, bx, by, fh * 0.022, wallTop * 0.34, wallTop * 0.72, 'ty_sentimental_bar', seed + 20 + i, night, alpha, false); }
       const [cx, cy] = F(fh * 0.30, fh * 0.94);
       draw3DBoxAt(ctx, cam, cx, cy, fh * 0.26, wallTop * 0.30, wallTop * 0.74, 'ty_tomb_glass', seed + 30, night, alpha, true, 0, fh * 0.05); }
     if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.70, ridge * 0.98, m.neon || '#ff8a2a', night, alpha, 'GRIND HOUSE');
+    // 4) THE DOOR, at the forge end of the front, a glazed leaf with the hearth's light behind it.
+    // ⚠ The shed had no door (the small-building grade, 2026-10-04); the kit's doorway landed inside
+    //    the hearth's box and is declined for this trade.
+    drawEntrance(ctx, cam, F, W3, E, seed, night, alpha, {
+      x: -fh * 0.43, y: fh * 0.94, w: fh * 0.09, top: h * 0.30, leaves: 1,
+      frame: [70, 62, 56], lobby: { day: [84, 54, 36], night: [255, 140, 60] }, spill: '255,150,80', frontVis });
   },
 };

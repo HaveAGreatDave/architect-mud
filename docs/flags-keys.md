@@ -48,7 +48,8 @@ nothing, silently; wire a reader first.
 | `cabin_window` | flight | cabin room with windows — `window` opens the through-hull moving-world view from here |
 | `flightdeck` | flight | cockpit room of a walkable aircraft: home of TAKE CONTROLS / HAND OFF and the NAV console |
 | `home_slots` | — (not yet) | authored decor anchors a walkable-base room offers, each `{ id, kind, label }`. **No reader yet** — the anchors are authored AHEAD of the decor feature ([proposals/leviathan-flying-base.md](proposals/leviathan-flying-base.md)). Deliberate, not residue: don't strip it |
-| `aa_site` | aa-sites | this surface tile is an AA emplacement's exposed gun deck — drives the map AA POI (`⌖` / "AA battery") |
+| `aa_kind` | aa-sites | which build the battery on this deck is drawn as: `guardian`, `sam`, `flak` or `truck` (client/game/js/panels/glass/aa-emplacement.js), carried on the map cell as `aa.k`. Every `aa_site` tile needs one; the aa-sites regress fails a deck without it |
+| `aa_site` | aa-sites | this surface tile is an AA emplacement's exposed gun deck — drives the map AA POI (`⌖` / "AA battery") and the `aa` map mark every GLASS view draws |
 | `airspace_restricted` | flight | AA-gated airspace over this zone |
 | `always_lit` | environment | never dark regardless of power/time |
 | `light_beacon` | environment | floods this tile + its 8 grid-neighbours to full brightness, overriding night/power/weather |
@@ -77,6 +78,7 @@ nothing, silently; wire a reader first.
 | `elevator_floors` | movement | floor list for the elevator (Floor 1 / lobby is implicit — synthesized from the car's `out` exit) |
 | `hide_exits` | describe (engine) | suppress the player-facing exit/room/building list in the room description; graph (movement, NPC pathfinding, minimap) is untouched. Used by elevator cars so the floor panel is the sole exit UI |
 | `fishing_table_id` | fishing | scavenging-table id used for fishing here |
+| `yard_rate` | powerboat (yard.js) | multiple of the list price a boatyard charges for move-in, crane, refit and shed work (0.6 at Moor or Less). Unset is the list |
 | `gov_enclave` | checkpoint | inside the government enclave — consumed only as a `checkpoint_cfg.insideFlag` value (the gate is generic, not special-cased) |
 | `citadel_public` | checkpoint | the public floor of Compound Interest (the Marble Hall); the security vestibule's `checkpoint_cfg.fromFlag`, so the scan runs on the way in and not on the way back out |
 | `greeter` | jobboard | greeter NPC gate zone |
@@ -251,6 +253,7 @@ nothing, silently; wire a reader first.
 | `hack_difficulty` | hacking | difficulty to hack this object. The deck's own `tags.hack_penalty` is added on top at arm time (`server/engine/hack-gear.js`) — a junk deck reads every target harder |
 | `hack_rig` | hackrig | practice lock rig: a legal, low-difficulty `hack` target with nothing behind it. No credits, no crime, no shock, and a failure still burns deck condition. Scores on the shared skill-vs-difficulty margin like every other hack target, so it teaches a beginner brilliantly and a professional nothing — the rig retires itself around Hacking 3–4. Defaults to `hack_difficulty` 2 |
 | `interactions` | engine (tags.js) | verb list surfaced as tags (`['switch','sit']`). ⚠ An ARRAY, always — an object of verb → prose threw inside describeZone and blanked the room; content:lint refuses it |
+| `station_style` | weightbench | picks a prose style from the station's `styles` (`'bag'` on Ring Fenced's heavy bags). Prose only: same verb, stat and price |
 | `examine_detail` | engine (commands/world.js) | a line printed under the description on `examine` only, never in the room list |
 | `interaction_lines` | — | verb → prose authored beside `interactions`; nothing reads it yet |
 | `is_light` / `light_type` | environment | legacy light markers (see furniture columns) |

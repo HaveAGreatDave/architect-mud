@@ -659,6 +659,12 @@ export const BUILDING_TYPE_ICON = Object.freeze({
   // BOAT. (`pontoon` gets no row and needs none: the lookup is facade-gated and a pontoon is a
   // standable deck carrying a `building_type`, never a door.)
   boathouse: 'bldg_boathouse',
+  // Moor or Less, at the head of Ironside Street: a shed with a hull end-on in its door and water
+  // under it. Not `bldg_boathouse`, whose vault and sling are the Ascendant yard's; this one is the
+  // cheap shed a man built round his own boat. (`landing_stage` needs no row, as `pontoon` doesn't.)
+  boatshed: 'bldg_boatshed',
+  // Ring Fenced, the gym on Lever Lane: a heavy bag on its chain, the one object every boxing gym has.
+  gym: 'bldg_gym',
   // The Basin quay (907,907 and 908,907), on what used to be the doubled stretch of Greenside
   // Row. Same rule as the infill above: the glyph ships with the tile and the model, never after.
   // Neither reuses `bldg_cold` or `bldg_wharf` — a snowflake in a box is a chiller unit and an

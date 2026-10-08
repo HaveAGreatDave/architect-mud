@@ -1,0 +1,31 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A works floor under curved roof trusses, a strip of rooflight running along the ridge. A boxing ring stands in the middle on a timber stage, its ropes taped where they have split. Three heavy bags hang off a rail on the east wall, with a slip rope strung at head height beside them. A ladder goes up to the office.",
+  "exits": {
+    "down": "zone_util_zone_ringf_floor",
+    "east": "zone_district_916_905",
+    "up": "zone_ringf_office",
+    "west": "zone_ringf_iron"
+  },
+  "flags": {
+    "building_name": "Ring Fenced",
+    "building_type": "gym",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Wired glass in a steel grid, filling the top of the opening where the mast doors were. Lever Lane is a grey blur through it. The lower panes on the side walls are painted white from the inside.",
+      "light": 0.6,
+      "name": "the old door glass",
+      "visibility": 0.2
+    },
+    "world_exit_zone": "zone_district_916_905"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_ringf_floor",
+  "map_id": "map_int_ringf",
+  "name": "Ring Fenced — The Floor",
+  "parent_zone": "zone_district_916_905"
+}

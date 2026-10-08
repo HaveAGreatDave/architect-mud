@@ -28,14 +28,16 @@
 // against its own water. That is the trucking rule quoted, and it holds harder here: there is no
 // corridor on the Basin, so a self-reported distance would be a number nobody could check at all.
 
-import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, lastViewState, seaAmpsNow, hullSeaGains, interiorHotspots, ownHullScale, RENDER_TUNE } from './windshield.js';
+import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, lastViewState, seaAmpsNow, hullSeaGains, interiorHotspots, ownHullScale, RENDER_TUNE, ROAD_RIG_MUL } from './windshield.js';
 import { airHornOn, airHornOff } from './engine-audio.js';
 import { seaClock, SEA_TILE_M } from '../../../shared/sea-swell.js';
 import { navHomeHTML, drawNavHome } from './nav-home.js';
 import { stepBoat, shiftBoatOrigin, stepBoatRide, TYPES, CRANK_S } from './flight-model.js';
 import { createHelmWheel } from './helm-wheel.js';
-import { startBoatEngine, updateBoatEngine, stopBoatEngine, updateBoatContacts, stopBoatContacts, updateBoatWater, stopBoatWater, boatLandThump } from './boat-audio.js';
+import { tweenOrbit } from './camera-tween.js';
+import { startBoatEngine, updateBoatEngine, stopBoatEngine, isBoatEngineRunning, updateBoatContacts, stopBoatContacts, updateBoatWater, stopBoatWater, boatLandThump } from './boat-audio.js';
 import { claimSeatKeyboard, endSeatKeyboard } from './seat-keys.js';
+import { makeContactTrack } from './world-feed.js';
 import { seatHidePanel } from '../../../shared/compact-view.js';
 import { bindBigScreenButton, exitBigScreen, BIGSCREEN_GLYPH, BIGSCREEN_TITLE } from './bigscreen.js';
 import { boatGeom } from '../../../shared/boat-house.js';
@@ -237,6 +239,26 @@ export function boatView(mode, { quarter = false } = {}) {
   if (quarter && mode === 'ext') { st.extYaw = ((225 - (RENDER_TUNE.chaseYaw || 0)) % 360 + 360) % 360; st.extPitch = 0.18; }
   return st.external ? 'ext' : 'cab';
 }
+/** Swing the chase camera onto a shot (camera-tween.js SHOTS). See cabFrame. */
+export function boatFrame(shot, ms = 700) {
+  if (!st || !shot) return;
+  if (!st.external) setExternal(true);
+  // A hull's pitch range is lower than a truck's (the drag clamps it to 0.85), so a shot is held to it.
+  tweenOrbit(st, { yaw: 'extYaw', pitch: 'extPitch', zoom: 'extZoom' },
+    { yaw: shot.yaw - (RENDER_TUNE.chaseYaw || 0), pitch: Math.min(0.85, shot.pitch), zoom: shot.zoom }, ms);
+}
+/** A blip of throttle for the ear only. See cabRev. Nothing happens with the engine off. */
+export function boatRev(amount = 0.5) {
+  if (!st || !isBoatEngineRunning()) return false;
+  st.revAt = performance.now(); st.revAmt = amount;
+  return true;
+}
+function revKick(now) {
+  if (!st?.revAt) return 0;
+  const t = (now - st.revAt) / 1000;
+  if (t > 0.9) { st.revAt = 0; return 0; }
+  return (st.revAmt || 0) * (t < 0.1 ? t / 0.1 : Math.exp(-(t - 0.1) / 0.22));
+}
 
 export function openBoat(ctx = {}) {
   closeBoat();
@@ -370,7 +392,11 @@ export function openBoat(ctx = {}) {
     first: !!ctx.first,
     hour: ctx.hour ?? 12, weather: (ctx.weather || 'clear').toLowerCase(),
     wxField: ctx.wxField || null, wxGround: ctx.wxGround || null,
-    contacts: [],
+    // Everything moving near her (aircraft, the other boats, rigs on the quay road), absolute tiles,
+    // pushed once a second and dead-reckoned between (world-feed.js).
+    contacts: makeContactTrack(),
+    // The far view: the towers and the highway past the window and the region's colour grade.
+    skyline: ctx.skyline || null, roads: ctx.roads || null, regions: ctx.regions || null,
     actors: ctx.actors || [],   // the people on the quay, in absolute tiles (street-actors.js)
     marks: ctx.marks || [],     // the fuel berths and covered slots in the window (helm.js berthMarksNear)
     berthNow: null, berthDraw: [], berthKey: '', actAt: 0,
@@ -378,6 +404,7 @@ export function openBoat(ctx = {}) {
     onSend: ctx.onSend || null,
     onExit: ctx.onExit || (() => send('disembark')),
   };
+  if (ctx.contacts) st.contacts.update(ctx.contacts);
 
   // ⚠ THE WHEEL IS IN `absolute` MODE AND THE BOAT IS NOT A YACHT, which sounds like a
   // contradiction and is not: `absolute` means the wheel's ANGLE is the input rather than its
@@ -425,7 +452,7 @@ export function openBoat(ctx = {}) {
   st.outEl = root.querySelector?.('.boat-out') || null;
   st.berthEl = root.querySelector?.('.boat-berth') || null;
   st.berthEl?.addEventListener?.('click', (e) => { if (e.target.closest?.('[data-berth-act]')) berthAct(); });
-  st.svcOpen = () => !!root.querySelector?.('.mar-svc.open');
+  st.svcOpen = () => !!root.querySelector?.('#mar-svc.open');
   bindBigScreenButton(root.querySelector?.('.boat-big'));
   // ⊟: the log folds away and the command bar stays. The seat opens that way, like every vehicle.
   const hideBtn = root.querySelector?.('.boat-hidebtn');
@@ -1065,10 +1092,11 @@ function frame(now) {
     // unset. The motor still made a noise, which is exactly why it would never have been reported:
     // it was the blower follower's noise rather than the engine's, with no throttle response on it
     // at all. `s.rpm` is the sim's own 0..1 crank figure and `s.pedal` the lever follower.
-    updateBoatEngine({ rpm: st.sim.rpm, pedal: st.sim.pedal });
+    const kick = revKick(performance.now());
+    updateBoatEngine({ rpm: Math.min(1, st.sim.rpm + kick), pedal: Math.min(1, st.sim.pedal + kick * 1.6) });
     // The hull on the water: follows way, not revs, and goes quiet in the air.
     updateBoatWater({ spd01, airborne: st.sim.airborne, aground: st.aground });
-    updateBoatContacts({ x: st.cx + st.sim.x, y: st.cy + st.sim.y, heading: st.sim.heading, speed: st.sim.speed }, st.contacts);
+    updateBoatContacts({ x: st.cx + st.sim.x, y: st.cy + st.sim.y, heading: st.sim.heading, speed: st.sim.speed }, st.contacts.raw);
     updateBerth();
     // How she sits on the water the picture draws, at the size this view draws her (see `drawnRide`).
     const ride = drawnRide(dt, spd01);
@@ -1130,7 +1158,10 @@ function frame(now) {
       // how wide and how tall the wake stands (collectWakes), and at the Echelon's 0.30 it stood
       // three hulls high.
       ownWake: { spd: (st.sim.airborne || st.aground) ? 0 : spd01, turn: st.steer, beam: 0.12 * ((BOAT_ROWS[st.typeId]?.beam ?? 0.25) / 0.25) },
-      contacts: st.contacts,
+      // ⚠ AS OFFSETS FROM HER. This handed the renderer the list in absolute tiles, which has no `dx`,
+      // so no other craft was ever drawn from a boat; the audio half (updateBoatContacts) worked.
+      contacts: st.contacts.size ? st.contacts.frame(st.cx + st.sim.x, st.cy + st.sim.y, { roadRig: ROAD_RIG_MUL }) : null,
+      skyline: st.skyline, roads: st.roads, regions: st.regions,
       // The live cluster. These are the shell's own keys — see `instrumentFaces` — and every one of
       // them is a number the sim already has, which is the point of the dials being geometry.
       instr: {
@@ -1271,7 +1302,10 @@ export function boatSetWorld(msg = {}) {
   if (msg.weather) st.weather = String(msg.weather).toLowerCase();
   if (msg.wxField !== undefined) st.wxField = msg.wxField || null;
   if (msg.wxGround) st.wxGround = msg.wxGround;
-  if (msg.contacts) st.contacts = msg.contacts;
+  if (msg.contacts) st.contacts.update(msg.contacts);
+  if (msg.skyline) st.skyline = msg.skyline;
+  if (msg.roads !== undefined) st.roads = msg.roads || null;
+  if (msg.regions) st.regions = msg.regions;
   // An empty list is a real answer (everybody went indoors), so only an absent key keeps the last one.
   if (msg.actors !== undefined) st.actors = msg.actors || [];
   if (msg.marks) st.marks = msg.marks;

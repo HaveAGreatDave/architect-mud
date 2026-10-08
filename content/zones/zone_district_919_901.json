@@ -1,8 +1,13 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_events": [
+    "The landing stage knocks against its piles and settles.",
+    "Somebody's bilge pump kicks in out on the stage, coughs water over the side and stops.",
+    "A gull walks down the slipway into the water and swims off without seeming to decide to.",
+    "Diesel on the water makes a rainbow round the foot of the slip."
+  ],
+  "ambient_theme": "coast",
+  "color": "#8a8478",
+  "description": "Ironside Street ends in a concrete slipway that runs straight down into the Basin, green with weed below the tide line. A landing stage on oil drums goes out north from the top of it. West, the Guardian Battery's gun sits behind its sandbags. East, a timber boat shed stands on the hard with its doors open to the water.",
   "exits": {
     "east": "zone_district_920_901",
     "north": "zone_district_919_900",
@@ -11,14 +16,16 @@
   },
   "flags": {
     "district": "docks",
+    "fishing_table_id": "fish_coldwater_bay",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 919,
   "grid_y": 901,
   "grid_z": 0,
   "id": "zone_district_919_901",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Ironside Hard",
   "parent_zone": null
 }

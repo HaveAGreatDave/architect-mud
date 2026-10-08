@@ -14,6 +14,7 @@
     "west": "zone_district_917_901"
   },
   "flags": {
+    "aa_kind": "guardian",
     "aa_site": true,
     "district": "docks",
     "icon": "aa",

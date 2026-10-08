@@ -53,7 +53,7 @@ import { TUNE_PARAMS, KITS, BANDS, bandOf, tuneRange, clampTune, installedKits, 
   repairCost, FIELD_CAP, sanitizePaint, paintCost, FLASHES, FINISHES, ARTS, PAINT_PRESETS, PAINT_DEFAULT, presetPaint, startTrouble, wearForImpact, burnMul,
   BREAKDOWNS, fixOdds, FIX_GRACE_TILES, isTerminal, FIX_MIN_FAB, SPARES_ITEM,
   DASH_MATERIALS, DASH_COLOURWAYS, sanitizeTrim, isDashMaterial, isDashColourway, trimCost,
-  sanitizeCustomTrim, isTrimHex, CUSTOM_COL } from './rig.js';
+  sanitizeCustomTrim, isTrimHex, CUSTOM_COL, paintOf, factoryPaint } from './rig.js';
 import { stockTrim } from '../../client/shared/cab-trim.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { crossingChain, crossingDest, crossingInfo, voidGateOf, launchCrossing, VOIDS,
@@ -1197,6 +1197,17 @@ function axesFor(typeId, cd, condition) {
     range: +n(p.tank, 800, 2700).toFixed(2),
   };
 }
+// WHAT THE BARS WOULD SAY, so the bench can show a change before it is bought. For each dial, the
+// bars with that dial at each end of the range and the others where they are; the panel draws the
+// line between them while the slider moves, and the push after a commit replaces it with the real
+// thing. Nine calls to a pure function, no queries.
+function tuneEnds(typeId, cd, condition, range) {
+  const tune = cd.tune || {};
+  return Object.fromEntries(Object.keys(TUNE_PARAMS).map((k) => [k, {
+    lo: axesFor(typeId, { ...cd, tune: { ...tune, [k]: -range } }, condition),
+    hi: axesFor(typeId, { ...cd, tune: { ...tune, [k]: range } }, condition),
+  }]));
+}
 
 // ── The depot panel ──────────────────────────────────────────────────────────
 // ONE screen for the whole yard: your fleet, the dealer's line, the freight board and the exchange.
@@ -1404,7 +1415,7 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
         // where a colour should be. Reading through sanitizePaint fills them from the defaults,
         // which by construction reproduce exactly what that truck has always been drawn as, so no
         // row has to be rewritten and nothing changes colour on the day this ships.
-        kits, paint: sanitizePaint({}, cd.paint || {}),
+        kits, paint: paintOf(cd, t.type_id),
         // THE INSIDE OF THE PAINT JOB, resolved rather than raw. A truck nobody has retrimmed
         // stores null and WEARS its tier's stock interior, so a panel handed the raw value would
         // draw an unpainted dash and tick no swatch — the trim tab would open on a truck that,
@@ -1437,12 +1448,17 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
         // moves the fee, so a bench that quoted the fitted job would show one number and charge
         // another the moment somebody chose flake — see paintCost. Base price too, because the
         // panel re-quotes locally while a dial is being turned and must not invent the scale.
-        paintPrice: paintCost(t.type, cd.paint || PAINT_DEFAULT),
+        paintPrice: paintCost(t.type, paintOf(cd, t.type_id)),
         paintBase: paintCost(t.type, { finish: 'gloss' }),
         refuel: Math.round((1 - (t.fuel ?? 1)) * FUEL_FULL),
         // The performance the panel graphs. Derived through the SAME function the drive uses, so a
         // bar that moves when you turn a dial is promising exactly what the wheel will deliver.
         stats: axesFor(t.type_id, cd, t.condition ?? 1),
+        // …and what they would be: with each kit not yet fitted, and with each dial at either end.
+        // A hire takes neither, so it carries neither.
+        kitStats: isRental(t) ? null : Object.fromEntries(Object.keys(KITS).filter((k) => !kits.includes(k))
+          .map((k) => [k, axesFor(t.type_id, { ...cd, kits: [...kits, k] }, t.condition ?? 1)])),
+        tuneEnds: isRental(t) ? null : tuneEnds(t.type_id, cd, t.condition ?? 1, tuneRange(fab, [])),
         // ── the card half ──
         // A HIRE, AND HOW LONG IT HAS LEFT, as facts: the card says RENTED and counts down off
         // `rentLeft`, and nothing on the client works out a term.
@@ -1519,6 +1535,9 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
     tuneRange: tuneRange(fab, []),
     kitCatalog: Object.entries(KITS).map(([id, k]) => ({ id, ...k, afford: (player.credits || 0) >= k.price })),
     flashes: FLASHES, finishes: FINISHES, arts: ARTS, paintPresets: PAINT_PRESETS, paintDefault: PAINT_DEFAULT,
+    // Each type's factory paint, for the hire line's cards: a truck on offer is drawn in the colours it
+    // would come out of the shed in, not in one stock scheme for the whole line.
+    paintFactory: Object.fromEntries(TRUCK_TYPES.map(t => [t.id, factoryPaint(t.id)])),
     // ── THE INTERIOR CATALOGUE, AND WHY IT CARRIES COLOURS ─────────────────────
     // Same rule as every other catalogue on this screen: the client renders what it is told and
     // invents nothing. What is new is that these rows carry the actual swatch colours, because the
@@ -1746,7 +1765,7 @@ async function yardBuyTrailer(player, here, depot, t) {
   // cab or hooked a different one to it, and the whole point of the colour is that it belongs to
   // the BOX. Repainting it afterwards is its own job: `yard paint`.
   const mine = await trucksAt(player.id, depotZonesOf(here, depot));
-  const stamp = sanitizePaint({}, (mine[0]?.custom_data || {}).paint || {}).base;
+  const stamp = paintOf(mine[0]?.custom_data, mine[0]?.type_id).base;
   if (!(await adjustCredits(player, -t.price, undefined, 'trucking:buy-trailer'))) return say(`That's ${t.price}₵ and you have ${player.credits || 0}₵.`);
   await buyTrailer(player.id, t.id, outside?.id || here.id, pose, stamp);
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });

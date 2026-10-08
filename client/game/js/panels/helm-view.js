@@ -13,6 +13,7 @@
 
 import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, surfaceBreakup, normalizeWx, navMarks, seaRideAt, setYachtWay } from './windshield.js';
 import { createFreeCam, FREECAM_HINT, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
+import { makeContactTrack } from './world-feed.js';
 
 // Live world clock/weather via the shared (non-flight) env system — loaded OPTIONALLY so a
 // standalone/embed context that can't provide it (or fails to load it) still runs on opts
@@ -212,7 +213,10 @@ export function openHelmChase(container, opts = {}) {
     mapOffset: { x: 0, y: 0 },   // sub-tile world pan across a passage (yacht held centred by center.sub)
     serverField: null,   // the REAL weather field from the sim (setSky) — preferred over the synth
     serverGround: null,  // how wet/snowed the ground already is, so the renderer starts where the world is
-    contacts: [],        // airborne craft near the Echelon (absolute x,y), streamed by the server
+    contacts: makeContactTrack(),   // everything moving near the Echelon (absolute x,y), streamed ~2 s, dead-reckoned between
+    // The far view and the quay (setFar): the towers and the highway past the window, the region's
+    // colour grade and the people standing on the quay, which the bridge used to be the one seat without.
+    skyline: null, roads: null, regions: null, actors: [],
     // Camera: extYaw/extPitch are the orbit (drag), extZoom the dolly (wheel). The windshield
     // clamps extPitch above the terrain, so the orbit can never dip the eye below the water.
     // Resting pose is a QUARTER-DOWN chase — offset off her stern quarter (extYaw) so she frames
@@ -353,8 +357,9 @@ export function openHelmChase(container, opts = {}) {
 
     // Planes over the Basin: convert each contact's absolute tile to an offset from the yacht (the
     // same dx/dy the flight sim hands the windshield) so drawContacts frames them around her.
-    const contacts = st.contacts.length
-      ? st.contacts.map(c => { const dx = (c.x ?? 0) - st.gx, dy = (c.y ?? 0) - st.gy; return { ...c, dx, dy, ...(c.onGround ? { groundZ: 0, altDiff: 0 } : { altDiff: c.alt || 0 }), rng: Math.hypot(dx, dy), breakup: surfaceBreakup(c.surfaces) }; })
+    // ⚠ FROM HER, NOT FROM THE WINDOW'S CENTRE: across a passage she is `mapOffset` off it.
+    const contacts = st.contacts.size
+      ? st.contacts.frame(st.gx + st.mapOffset.x, st.gy + st.mapOffset.y).map((c) => (c.surfaces ? { ...c, breakup: surfaceBreakup(c.surfaces) } : c))
       : null;
 
     // Tie the chase ANGLE to the dolly every frame: close to the water (small extZoom) flattens to a
@@ -403,6 +408,7 @@ export function openHelmChase(container, opts = {}) {
       speed: st.spd, hour, moon, weather, wxField: field, wxGround: st.serverGround, contacts,
       map: st.map, mapCenter: { x: st.gx, y: st.gy }, mapOffset: st.mapOffset,
       acX: st.gx, acY: st.gy, biomeBelow: 'water', airport: 'default',
+      skyline: st.skyline, roads: st.roads, regions: st.regions, actors: st.actors,
       freeCam: freeCam.view(),
     });
 
@@ -549,7 +555,15 @@ export function openHelmChase(container, opts = {}) {
       if (sky.weather) st.weather = String(sky.weather).toLowerCase();
     },
     // Airborne craft near the Echelon (absolute tiles), streamed ~2s; the frame reprojects them.
-    setContacts(list) { st.contacts = Array.isArray(list) ? list : []; },
+    setContacts(list) { st.contacts.update(Array.isArray(list) ? list : []); },
+    setFar(msg) {
+      if (!msg) return;
+      if (msg.skyline) st.skyline = msg.skyline;
+      if (msg.roads !== undefined) st.roads = msg.roads || null;
+      if (msg.regions) st.regions = msg.regions;
+      // An empty list is a real answer (everybody went indoors), so only an absent key keeps the last.
+      if (msg.actors !== undefined) st.actors = msg.actors || [];
+    },
     // Swap in the REAL world window (piers/city/shoreline) centred on her tile (cx,cy), streamed by
     // the server. The centre cell becomes the yacht we overlay wake/heading on; `self` cleared so
     // her 3D model draws. Marks us server-driven, so arrivals re-centre from the server, not locally.

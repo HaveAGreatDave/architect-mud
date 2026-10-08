@@ -1,0 +1,20 @@
+{
+  "description": "A canvas camp bed with an army blanket pulled tight enough to bounce a coin on.",
+  "flags": {
+    "aliases": [
+      "bed",
+      "camp bed",
+      "cot"
+    ],
+    "bed": true,
+    "interactions": [
+      "sit",
+      "lie",
+      "lean"
+    ]
+  },
+  "id": "furn_ringf_cot",
+  "name": "the camp bed",
+  "object_type": "furniture",
+  "zone_id": "zone_ringf_office"
+}

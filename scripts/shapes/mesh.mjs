@@ -72,7 +72,7 @@ export async function diffMesh(id, { quiet = false } = {}) {
   for (const detail of [0, 1]) {
     const legacy = m.legacyMeshFaces(id, detail);
     if (!legacy) { if (!quiet) console.log(id + ': no legacy builder to compare against'); return 0; }
-    const { faces } = compileMesh(doc.params, { detail });
+    const { faces } = compileMesh(doc.params, { detail, finish: false });   // the builder drew geometry, never a finish
     const d = meshDiff(faces, legacy);
     if (!d) { if (!quiet) console.log(id + ' detail ' + detail + ': identical (' + faces.length + ' faces)'); continue; }
     bad++;

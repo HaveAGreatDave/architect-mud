@@ -1,0 +1,247 @@
+{
+  "adorn": [
+    {
+      "cx": -0.2,
+      "cy": 0.445,
+      "day": 0.3,
+      "kind": "glowPool",
+      "rgb": "255,214,150",
+      "s": 6,
+      "z": 0.68
+    },
+    {
+      "cx": 0.14,
+      "cy": 0.47,
+      "day": 0,
+      "kind": "glowPool",
+      "rgb": "240,212,160",
+      "s": 8,
+      "z": 0.3
+    },
+    {
+      "cx": -0.1,
+      "cy": 0.52,
+      "day": 0,
+      "kind": "glowPool",
+      "rgb": "255,214,150",
+      "s": 9,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Bare Necessities"
+    }
+  ],
+  "detail": [
+    {
+      "cx": -0.2,
+      "cy": 0.4,
+      "depth": 0.012,
+      "door": 1,
+      "glass": "#262420",
+      "glow": "#e8c890",
+      "half": 0.035,
+      "hh": 0.28,
+      "kind": "windowBay",
+      "pal": "ty_oc_brick_dk",
+      "z": 0.34
+    },
+    {
+      "bars": 2,
+      "cx": 0.14,
+      "cy": 0.4,
+      "depth": 0.012,
+      "glass": "#3a3428",
+      "glow": "#f0d4a0",
+      "half": 0.15,
+      "hh": 0.19,
+      "kind": "windowBay",
+      "pal": "ty_oc_brick_dk",
+      "transom": 0.3,
+      "z": 0.39
+    },
+    {
+      "cx": -0.03,
+      "cy": 0.4,
+      "half": 0.31,
+      "hh": 0.02,
+      "kind": "shutter",
+      "pal": "ty_oc_tin",
+      "z": 0.62
+    },
+    {
+      "cx": -0.06,
+      "cy": 0.4,
+      "half": 0.32,
+      "kind": "conduit",
+      "pal": "ty_oc_tin",
+      "r": 0.006,
+      "z": 0.79
+    },
+    {
+      "cx": -0.07,
+      "cy": 0.45,
+      "d": 0.035,
+      "hh": 0.1,
+      "kind": "binStack",
+      "lid": "#c8a060",
+      "n": 1,
+      "pal": "ty_oc_board",
+      "w": 0.045,
+      "z": 0.004
+    },
+    {
+      "cx": 0.34,
+      "cy": 0.45,
+      "d": 0.032,
+      "hh": 0.14,
+      "kind": "binStack",
+      "lid": "#6a8ab0",
+      "n": 2,
+      "pal": "ty_oc_tank",
+      "w": 0.032,
+      "z": 0.004
+    },
+    {
+      "cx": 0,
+      "cy": 0.4,
+      "drip": 0.5,
+      "kind": "grime",
+      "w": 0.38,
+      "z": 0.88
+    },
+    {
+      "cx": -0.3,
+      "cy": 0.4,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_oc_tin",
+      "r": 0.01,
+      "z0": 0.06,
+      "z1": 0.88
+    },
+    {
+      "cx": 0,
+      "cy": 0.4,
+      "drip": 0.7,
+      "face": "x",
+      "kind": "grime",
+      "w": 0.38,
+      "z": 0.88
+    },
+    {
+      "cx": 0.1,
+      "cy": -0.4,
+      "drip": 0.5,
+      "face": "x",
+      "hh": 0.04,
+      "kind": "vent",
+      "pal": "ty_oc_tin",
+      "w": 0.05,
+      "z": 0.5
+    },
+    {
+      "cx": 0.15,
+      "cy": -0.4,
+      "drip": 0.6,
+      "hh": 0.035,
+      "kind": "vent",
+      "pal": "ty_oc_tin",
+      "w": 0.05,
+      "z": 0.55
+    },
+    {
+      "cx": -0.2,
+      "cy": -0.43,
+      "d": 0.035,
+      "hh": 0.05,
+      "kind": "binStack",
+      "lid": "#222020",
+      "n": 2,
+      "pal": "ty_oc_board_dk",
+      "w": 0.04,
+      "z": 0.004
+    },
+    {
+      "cx": 0,
+      "cy": -0.4,
+      "drip": 0.5,
+      "kind": "grime",
+      "w": 0.38,
+      "z": 0.88
+    },
+    {
+      "cx": 0.2,
+      "cy": -0.2,
+      "hh": 0.16,
+      "kind": "stack",
+      "pal": "ty_oc_tin",
+      "r": 0.02,
+      "z": 0.94
+    }
+  ],
+  "id": "barenecessities",
+  "note": "BARE NECESSITIES, the corner shop at the top of Rag Row, where Kessler Street gives out into the Shingles.\n\nThe tile's prose: a brick lock-up with its shutter wound up over a narrow door, tins, bread and water jugs\nstacked in the window to the lintel, and a crate of yesterday's loaves on the step under a caged bulb that\nburns all night. It replaced Thumb On The Scale (2026-10-08), the salvage scales from before the airlock.\n\nSo the front is the door on the left and the stock window on the right, both under the shutter's roller box,\nwith the bulb on a bracket over the door and a conduit to it. The bread and the water stand on the pavement.\nNo lettering anywhere: this is the Shingles, and SLUM_DECLINE keeps the kit's boards off it too (trade\n`cornershop`). The flanks carry a downpipe, a vent and the weather; the back has bins and an extract; a\nstovepipe comes up through the tin. One storey (`flags.floors` 1), so every z is a share of that storey.",
+  "pal": "ty_oc_brick",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.42,
+      "kind": "box",
+      "pal": "ty_oc_brick_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.06
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_oc_brick",
+      "roof": true,
+      "z0": 0.06,
+      "z1": 0.88
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.43,
+      "kind": "box",
+      "pal": "ty_oc_tin",
+      "roof": true,
+      "z0": 0.88,
+      "z1": 0.94
+    },
+    {
+      "cx": -0.03,
+      "cy": 0.42,
+      "fd": 0.025,
+      "hw": 0.33,
+      "kind": "box",
+      "pal": "ty_oc_tin",
+      "roof": true,
+      "z0": 0.64,
+      "z1": 0.74
+    },
+    {
+      "cx": -0.2,
+      "cy": 0.425,
+      "fd": 0.014,
+      "hw": 0.014,
+      "kind": "box",
+      "pal": "ty_oc_tin",
+      "roof": true,
+      "z0": 0.665,
+      "z1": 0.7
+    }
+  ],
+  "trade": "cornershop"
+}

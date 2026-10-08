@@ -6,11 +6,13 @@
 // Built: weather, time and the ESP. Players and the staff channel follow; see
 // docs/systems-admin.md.
 import {
-  WEATHER_TYPES, getHUDPayload, getForecast, getWeatherEvent,
+  WEATHER_TYPES, PRECIP_FORECAST_TYPES, getHUDPayload, getForecast, getWeatherEvent,
   devOverrideWeather, devClearWeatherOverride, devTriggerWeatherEvent,
+  powerAnchorOf, pushZoneWeatherNow,
 } from '../../server/engine/environment.js';
+import { getZone } from '../../server/engine/world.js';
 import { logActivity } from '../../server/models/db.js';
-import { heroEventTypes } from '../weather/index.js';
+import { heroEventTypes, bringWetCellOver } from '../weather/index.js';
 import { timeView, skipTime, setClock, setFrozen, setSpeed } from './time.js';
 import { espView, setEsp } from './esp.js';
 import './tablet-app.js';
@@ -48,13 +50,24 @@ export async function setWeather(player, { weatherType, tempC, precipPct, windKp
   if (!WEATHER_TYPES.includes(type)) return { ok: false, error: `Unknown weather "${weatherType}". Options: ${WEATHER_TYPES.join(', ')}.` };
   const t = tempC === undefined ? now.tempC : Number(tempC);
   if (!Number.isFinite(t) || t < -60 || t > 60) return { ok: false, error: 'Temperature must be between -60 and 60 °C.' };
-  const p = precipPct === undefined ? now.precipPct : Number(precipPct);
+  // Picking a condition without a chance means "make it do that": rain at 100%, clear at 0%.
+  // Keeping today's chance (often 5-30%) made "set rain" a coin flip that usually came up dry.
+  const wet = PRECIP_FORECAST_TYPES.has(type);
+  const p = precipPct !== undefined ? Number(precipPct) : weatherType ? (wet ? 100 : 0) : now.precipPct;
   if (!Number.isFinite(p) || p < 0 || p > 100) return { ok: false, error: 'Precipitation chance must be 0 to 100.' };
   const k = windKph === undefined ? now.windKph : Number(windKph);
   if (!Number.isFinite(k) || k < 0 || k > 200) return { ok: false, error: 'Wind must be 0 to 200 kph.' };
   await devOverrideWeather({ weatherType: type, tempC: t, precipChance: p / 100, windKph: k });
+  // Rain only falls under a cell, and the reseed scatters them across the whole map. Put one over
+  // whoever pressed the button, so they see the change they asked for.
+  let overhead = false;
+  if (weatherType && wet && p > 0) {
+    const at = powerAnchorOf(getZone(player.current_zone));
+    overhead = !!at && bringWetCellOver(at.x, at.y);
+    if (overhead) pushZoneWeatherNow();
+  }
   logActivity('admin_cmd', player.handle, null, `weather set ${type} ${t}C ${p}% ${k}kph`);
-  return { ok: true, message: `Weather forced: ${type}, ${t}°C, ${p}% precipitation, wind ${k} kph.` };
+  return { ok: true, message: `Weather forced: ${type}, ${t}°C, ${p}% precipitation, wind ${k} kph.${overhead ? ' Moved a rain cell over you.' : ''}` };
 }
 
 export async function resetWeather(player) {

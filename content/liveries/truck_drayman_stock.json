@@ -1,0 +1,22 @@
+{
+  "blurb": "Royal blue over a cream beltline, the way Vachon have always sent them out.",
+  "default": true,
+  "exterior": {
+    "art": "none",
+    "base": "#1f4c8f",
+    "bright": "#e2e8f0",
+    "chrome": 1,
+    "deck": "#e9e6dc",
+    "finish": "gloss",
+    "flash": "split",
+    "glass": "#324a5c",
+    "glow": "#60c4d6",
+    "hw": "#23262b",
+    "trim": "#e9e6dc"
+  },
+  "id": "stock",
+  "kind": "truck",
+  "model": "drayman",
+  "name": "Vachon Blue",
+  "unlock": null
+}

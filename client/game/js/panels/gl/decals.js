@@ -320,6 +320,12 @@ void main() {
       thin = max(thin, (1.0 - coreAt(vUV + d)) * (1.0 - coreAt(vUV - d)));
     }
     float body = smoothstep(0.05, 0.45, H) * smoothstep(0.25, 0.75, thin) * uTube * near;
+    // ⚠ HOW FAR PAST WHITE, ACROSS THE TUBE. The emission gain multiplies every channel and the
+    // composite clamps each one, so a pink pushed 1.9x comes out with its red and blue both at 1:
+    // pale, nearly white, and the whole tube went that way. The axis is where a camera blows out,
+    // so it takes the full gain (and still clears the bloom's threshold); the walls take a third
+    // and keep their colour.
+    float emW = mix(1.0, mix(0.35, 1.0, smoothstep(0.75, 1.0, H)), body);
     if (body > 0.0) {
       vec4 cs = textureLod(uTex, vUV, 0.0);
       vec3 hue = cs.a > 0.01 ? cs.rgb / cs.a : vec3(1.0);
@@ -335,15 +341,20 @@ void main() {
       float diff = clamp(dot(n, L), 0.0, 1.0);
       float spec = pow(clamp(reflect(-L, n).z, 0.0, 1.0), 28.0);
       float rim = 1.0 - n.z;
-      // Lit glass: the gas colour through a cylinder — darker at the walls where the light crosses
-      // more glass, a warm hot line on the axis, and a thin Fresnel glint at each edge.
-      vec3 litT = mix(hue * (0.55 + 0.45 * diff), hue * 0.5 + 0.5, smoothstep(0.90, 1.0, H) * 0.40);
-      litT = litT * (1.0 - 0.75 * rim) + vec3(0.9) * pow(rim, 3.0) * 0.25;
+      // ⚠ LIT GLASS IS THE LIGHT, SO ITS WALLS ARE NOT DARK. The gas fills the bore and glows
+      // through the whole section: full saturation at the walls, overexposed toward white along
+      // the axis. Darkening the rim (by three quarters, as this did) shaded the tube as a solid rod
+      // lit from outside, which read as chrome lettering with a pink outline. The light from above
+      // is a small modulation and the rim keeps only a trace of Fresnel.
+      vec3 litT = mix(hue, hue * 0.4 + 0.6, smoothstep(0.8, 1.0, H) * 0.8) * (0.88 + 0.12 * diff);
+      litT = litT * (1.0 - 0.15 * rim) + vec3(0.9) * pow(rim, 3.0) * 0.06;
       // ⚠ AN OUT SECTION IS STILL A TUBE. Going near-black left a hole the shape of a letter; real
       // dead neon is pale tinted glass with the street reflected in it, so it keeps its edges.
       vec3 deadT = hue * 0.10 + vec3(0.07) + vec3(0.45) * pow(rim, 2.0) * 0.5;
       vec3 tube = mix(deadT, litT, fl);
-      rgb = mix(rgb, tube * t.a, body) + vec3(spec * 0.6 * body) * t.a;
+      // The specular is the sky in the glass; against lit gas it's faint, against a dead tube it's
+      // most of what you see.
+      rgb = mix(rgb, tube * t.a, body) + vec3(spec * mix(0.6, 0.2, fl) * body) * t.a;
     } else {
       // The halo round a tube goes with it when it drops out.
       rgb *= fl * (1.0 - 0.3 * uTube * near);
@@ -355,10 +366,20 @@ void main() {
     // is no tube, and it DARKENS AND COVERS (alpha goes up), so it lands on the wall or board under
     // the halo rather than just dimming the halo. Past the fade the offset would be sub-pixel and
     // it goes with the tube shading.
+    // ⚠ ONLY A DARK TUBE CASTS ONE. A lit tube is the brightest thing on its board; the light from
+    // above that would throw this shadow is nothing beside it, and a dark offset under glowing
+    // letters read as a drop shadow under plastic ones. So the shadow comes in as a section fails.
     float sh = coreAt(vUV + vec2(-1.2, -3.2) * px * max(foot, 1.0) * 2.0);
-    float shA = sh * (1.0 - smoothstep(0.02, 0.2, H)) * (1.0 - Hc) * 0.6 * uTube * near;
+    float shA = sh * (1.0 - smoothstep(0.02, 0.2, H)) * (1.0 - Hc) * 0.6 * uTube * near * (1.0 - 0.9 * fl);
     vec3 lit = rgb * (1.0 - shA);
-    outColor = vec4(lit * (1.0 + vEmit * uEmitGain * fl), t.a + shA * (1.0 - t.a));
+    // ── THE WASH STOPS SHORT OF THE QUAD ──────────────────────────────────────────────────────
+    // The bake's broad wash (RENDER_TUNE.neonWash) runs into the canvas edge, a pad past the ink,
+    // and a glow cut off square there draws the quad's outline in light. So everything that isn't
+    // tube fades to nothing toward the edges. The tube itself never reaches them.
+    vec2 eu = min(vUV, 1.0 - vUV);
+    float win = smoothstep(0.0, 0.07, eu.x) * smoothstep(0.0, 0.16, eu.y);
+    float keep = mix(win, 1.0, smoothstep(0.3, 0.7, Hc));
+    outColor = vec4(lit * (1.0 + vEmit * uEmitGain * fl * emW), t.a + shA * (1.0 - t.a)) * keep;
     return;
   }
   outColor = vec4(rgb * (1.0 + vEmit * uEmitGain), t.a);

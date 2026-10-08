@@ -1,0 +1,19 @@
+{
+  "description": "A tractor tyre for flipping, a steel sled on twenty feet of rope, and six sandbags in a row. Chalk lines on the floor mark the turns.",
+  "flags": {
+    "aliases": [
+      "circuit",
+      "tyre",
+      "tire",
+      "sled",
+      "sandbags"
+    ],
+    "interactions": [
+      "drill"
+    ]
+  },
+  "id": "furn_ringf_circuit",
+  "name": "the circuit",
+  "object_type": "furniture",
+  "zone_id": "zone_ringf_iron"
+}

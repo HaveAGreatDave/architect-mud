@@ -36,141 +36,190 @@ function haloRim(ctx, cam, F, y, hw, z0, z1, t, fill, alpha) {
 //
 // On these east-facing tiles local +y is the AIRSIDE (the runway), −y the LANDSIDE over the basin,
 // and +x north. It is built the way LAX is: a tall glass hall under a WAVE ROOF (three shallow vaults
-// to the half, six along the terminal, the Tom Bradley profile), glass on both faces, jet bridges on
-// the airside, and on the landside a two-level kerb with a row of glass PYLONS washed in slowly
-// rolling colour after dark, which is the thing people picture when they say the airport's name.
+// to the half, the Tom Bradley profile), glass on both faces, jet bridges on the airside, and on the
+// landside a two-level kerb carried on frosted glass columns washed in slowly rolling colour after
+// dark. Arrivals gives its north vault up to a roof terrace, and the crown stands on that.
 //
-// ⚠ THE LINK, THE KERB DECK AND ITS CANOPY ARE IN CONSTANTS (`TERM`) AND EVERYTHING ELSE IS IN fh
-// AND h. Both are rolled per tile, so two halves of one deck written in either would meet the tile
-// boundary at two different heights. Each half runs to x = ±0.5 and they meet edge to edge.
+// ⚠ THE WHOLE TERMINAL IS IN CONSTANTS (`TERM`), NOT fh AND h. Both are rolled per tile, and a hall
+// sized off them came out 0.42 by 0.26 on one half and 0.385 by 0.22 on the other, its fascia at
+// two heights and its vaults at two widths, with a dark slot between: two buildings, not one. Each
+// half runs to x = ±0.5 and they meet edge to edge, glass to glass and fascia to fascia.
 // ⚠ EVERY RECTANGULAR BOX HERE TAKES `yawE` (or the yaw of its own run). The old arrivals hall passed
 // yaw 0 with a long side and a short one, so on its east-facing tile the hall ran east–west under a
 // roof, placed through F, that ran north–south. `gl:mesh` is the gate for this.
 // ⚠ AND THE VAULTS DARKEN WITH THE NIGHT. A barrel roof is a flat mesh face in its `base` colour,
 // lit by nothing, so a pale roof is as pale at midnight as at noon: the control tower's complaint.
 // Scaling `base` by `dusk` gives the night capture a darker roof to record.
-// ⚠ THE PYLONS' COLOUR IS NOT MASS. Mass is captured once at a frozen clock, so a colour that moves
+// ⚠ THE COLUMNS' COLOUR IS NOT MASS. Mass is captured once at a frozen clock, so a colour that moves
 // has to live in the layers collected every frame: the body is a pale frosted drum, lit from inside
-// after dark, and the colour is neon up its sides and a halo round it.
-const TERM = { deckY: -0.31, deckD: 0.11, deckZ0: 0.17, deckZ1: 0.19, canY: -0.33, canD: 0.1, canZ0: 0.33, canZ1: 0.342, linkTop: 0.3 };
-// LAX's wash, one hue to a pylon and the hue rolling down the row: magenta, violet, blue, teal,
+// after dark, and the colour is neon up its face and a halo round it.
+const TERM = {
+  HW: 0.42, D: 0.25, top: 0.46, vault: 0.12,            // the hall, the same on both halves
+  linkD: 0.23,                                         // the glazed joint to the tile edge, set back under the fascia
+  deckY: -0.31, deckD: 0.11, deckZ0: 0.17, deckZ1: 0.19,
+  canY: -0.32, canD: 0.1, canZ0: 0.33, canZ1: 0.342,
+  colY: -0.4, colR: 0.016,                             // the kerb's glass columns, inside both slabs' edges
+  board: 0.1,                                          // the kerb board's half-width, clear of the columns at ±0.125
+};
+// One column every quarter tile along the whole terminal, so the row runs on across the joint.
+// ⚠ NONE STANDS AT x = 0: that is where the kerb board hangs, and a pylon in front of it hid the
+// middle of ARRIVALS from the landside (signfit).
+const TERM_COLS = [-0.375, -0.125, 0.125, 0.375];
+// LAX's wash, one hue to a column and the hue rolling down the row: magenta, violet, blue, teal,
 // amber, and back. `t` is the clock, held still when motion is off so a capture is deterministic.
 const PYLON_HUES = [[255, 60, 190], [150, 80, 255], [60, 130, 255], [40, 220, 220], [255, 170, 60]];
 function pylonRgb(i, t) {
-  const u = ((t * 0.00006 + i * 0.17) % 1 + 1) % 1 * PYLON_HUES.length, k = Math.floor(u), f = u - k;
+  const u = ((t * 0.00006 + i * 0.12) % 1 + 1) % 1 * PYLON_HUES.length, k = Math.floor(u), f = u - k;
   const a = PYLON_HUES[k], b = PYLON_HUES[(k + 1) % PYLON_HUES.length];
   return `${a[0] + (b[0] - a[0]) * f | 0},${a[1] + (b[1] - a[1]) * f | 0},${a[2] + (b[2] - a[2]) * f | 0}`;
 }
+// `o.terrace` gives the half's +x vault up to a flat roof for the crown to stand on (arrivals).
 function terminalHalf(ctx, cam, dx, dy, fh, h, seed, night, alpha, now, E, F, o) {
   const yawE = faceYaw(E), dusk = 1 - 0.72 * (night ? clamp(night, 0, 1) : 0);
-  const { HW, D, top, vault, side } = o;
+  const { HW, D, top, vault } = TERM, { side } = o;
   const AIR = { air: true };
   const roofRgb = [204 * dusk, 210 * dusk, 216 * dusk];
   draw3DBoxAt(ctx, cam, dx, dy, HW, 0, top, 'ty_arrivals', seed, night, alpha, false, yawE, D);
   // 1. The wave roof: three vaults to the half, each running the full depth and out past the glass
-  //    as an arched eave on both faces.
-  for (const k of [-1, 0, 1]) drawBarrelRoof(ctx, cam, F, k * HW * 2 / 3, HW / 3, D * 1.14, top, vault, 8, alpha, roofRgb);
-  // 2. Glass on both faces, the livery fascia over it, a mullion every fifth of the half-length and a
+  //    as an arched eave on both faces. On arrivals the north one is the crown's terrace instead.
+  for (const k of [-1, 0, 1]) {
+    if (k === 1 && o.terrace) continue;
+    drawBarrelRoof(ctx, cam, F, k * HW * 2 / 3, HW / 3, D * 1.14, top, vault, 8, alpha, roofRgb);
+  }
+  if (o.terrace) { const [tx, ty] = F(HW * 2 / 3, 0);
+    draw3DBoxAt(ctx, cam, tx, ty, HW / 3, top, top + 0.012, 'ty_precast', seed + 61, night, alpha, true, yawE, D + 0.01); }
+  // 2. The joint to the tile edge: a glazed slot set back under the fascia, so the elevation runs on
+  //    into the other half and the only break in it is a shadow line. Its flat roof sits between the
+  //    two vault runs.
+  const jx = side * (HW + 0.5) / 2, jw = (0.5 - HW) / 2;
+  { const [kx, ky] = F(jx, 0);
+    draw3DBoxAt(ctx, cam, kx, ky, jw, 0, top, 'ty_tower_slot', seed + 30, night, alpha, false, yawE, TERM.linkD);
+    draw3DBoxAt(ctx, cam, kx, ky, jw, top, top + 0.012, 'ty_precast_dk', seed + 31, night, alpha, true, yawE, D + 0.01); }
+  // 3. Glass on both faces, the livery fascia over it, a mullion every fifth of the half-length and a
   //    transom at the mezzanine. ⚠ THE GLASS IS AN UNLIT FACE, NOT A PALETTE SLAB: after dark it is a
   //    lit hall seen from outside, so it holds a warm fill rather than taking the dark (the tower's cab
   //    is the same). One face whatever the hour, because the night capture is paired to the day one
-  //    face for face (gl/world.js); only its colour changes.
+  //    face for face (gl/world.js); only its colour changes. The joint's glass is the same glass a
+  //    little deeper in, and the fascia is one band over both.
   const glassFill = night ? 'rgb(236,198,138)' : 'rgb(78,112,128)';
+  const jointFill = night ? 'rgb(214,170,112)' : 'rgb(58,86,100)';
+  const gz0 = 0.014, gz1 = top * 0.84;
   for (const s of [1, -1]) {
-    const gy0 = s * (D + 0.003), G = (x, z) => { const [wx, wy] = F(x, gy0); return [wx, wy, z]; };
-    const [ox, oy] = F(0, 0), [sx, sy] = F(0, s);
-    emitFlat(ctx, cam, outFace([G(-HW * 0.94, h * 0.03), G(HW * 0.94, h * 0.03), G(HW * 0.94, top * 0.84), G(-HW * 0.94, top * 0.84)], [sx - ox, sy - oy, 0]), glassFill, alpha);
-    const [lx, ly] = F(0, s * (D + 0.006));
+    const [ox, oy] = F(0, 0), [sx, sy] = F(0, s), out = [sx - ox, sy - oy, 0];
+    const G = (x, y, z) => { const [wx, wy] = F(x, y); return [wx, wy, z]; };
+    const gy = s * (D + 0.003), jy = s * (TERM.linkD + 0.003);
+    emitFlat(ctx, cam, outFace([G(-HW * 0.94, gy, gz0), G(HW * 0.94, gy, gz0), G(HW * 0.94, gy, gz1), G(-HW * 0.94, gy, gz1)], out), glassFill, alpha);
+    emitFlat(ctx, cam, outFace([G(side * HW, jy, gz0), G(side * 0.5, jy, gz0), G(side * 0.5, jy, gz1), G(side * HW, jy, gz1)], out), jointFill, alpha);
+    const [lx, ly] = F(0, s * (D + 0.006)), [bx, by] = F(jx, s * (D + 0.006));
     draw3DBoxAt(ctx, cam, lx, ly, HW, top * 0.87, top, 'ty_airport_band', seed + (s > 0 ? 2 : 22), night, alpha, false, yawE, 0.005);
+    draw3DBoxAt(ctx, cam, bx, by, jw, top * 0.87, top, 'ty_airport_band', seed + (s > 0 ? 3 : 23), night, alpha, false, yawE, 0.005);
     for (let i = -4; i <= 4; i++) {
       const [mx, my] = F(i * HW * 0.2, s * (D + 0.008));
-      emitWire(ctx, cam, [mx, my, h * 0.03], [mx, my, top * 0.84], 1, 'rgba(30,36,44,0.85)', alpha, { pull: DECO_PULL });
+      emitWire(ctx, cam, [mx, my, gz0], [mx, my, gz1], 1, 'rgba(30,36,44,0.85)', alpha, { pull: DECO_PULL });
     }
     const [t0x, t0y] = F(-HW * 0.94, s * (D + 0.008)), [t1x, t1y] = F(HW * 0.94, s * (D + 0.008));
     emitWire(ctx, cam, [t0x, t0y, top * 0.45], [t1x, t1y, top * 0.45], 1.4, 'rgba(36,42,50,0.9)', alpha, { pull: DECO_PULL });
   }
   // The hall lit behind its glass after dark, on both faces.
   if (night) for (const s of [1, -1]) { const [gx, gy] = F(0, s * (D + 0.02)); glowPool(ctx, cam, gx, gy, top * 0.5, '255,222,166', 30, alpha * 0.3, AIR); }
-  // 3. Half of the glazed link, from inside this hall to the tile edge, with a dark roof slab on it.
-  const [kx, ky] = F(side * 0.42, 0);
-  draw3DBoxAt(ctx, cam, kx, ky, 0.08, 0, TERM.linkTop, 'ty_tower_slot', seed + 30, night, alpha, false, yawE, 0.18);
-  draw3DBoxAt(ctx, cam, kx, ky, 0.08, TERM.linkTop, TERM.linkTop + 0.015, 'ty_precast_dk', seed + 31, night, alpha, true, yawE, 0.195);
-  // 4. THE LANDSIDE KERB: an upper deck for departures on columns, the arrivals kerb in its shade,
-  //    and a canopy over the deck. Two boxes to each, because a box is never wider than 0.44.
-  for (const x of [-0.25, 0.25]) {
+  // 4. THE LANDSIDE KERB: an upper deck for departures, the arrivals kerb in its shade, and a canopy
+  //    over the deck. Two boxes to each, because a box is never wider than 0.44. Toward the partner
+  //    they run to the tile edge and meet its slabs; at the terminal's outer end they stop with the
+  //    hall, where they used to run on 0.08 past it as a slab with nothing over or beside it.
+  const kEnd = -side * HW;
+  for (const [x, hw] of [[side * 0.25, 0.25], [kEnd / 2, HW / 2]]) {
     const [cx, cy] = F(x, TERM.deckY);
-    draw3DBoxAt(ctx, cam, cx, cy, 0.25, TERM.deckZ0, TERM.deckZ1, 'ty_precast_dk', seed + 50, night, alpha, true, yawE, TERM.deckD);
+    draw3DBoxAt(ctx, cam, cx, cy, hw, TERM.deckZ0, TERM.deckZ1, 'ty_precast_dk', seed + 50, night, alpha, true, yawE, TERM.deckD);
     const [ux, uy] = F(x, TERM.canY);
-    draw3DBoxAt(ctx, cam, ux, uy, 0.25, TERM.canZ0, TERM.canZ1, 'ty_precast', seed + 51, night, alpha, true, yawE, TERM.canD);
+    draw3DBoxAt(ctx, cam, ux, uy, hw, TERM.canZ0, TERM.canZ1, 'ty_precast', seed + 51, night, alpha, true, yawE, TERM.canD);
   }
-  for (const x of [-0.38, -0.12, 0.12, 0.38]) {
-    const [cx, cy] = F(x, -0.4);
-    emitWire(ctx, cam, [cx, cy, 0], [cx, cy, TERM.deckZ0], 2.4, 'rgba(176,182,188,0.95)', alpha, { pull: DECO_PULL });
-    emitWire(ctx, cam, [cx, cy, TERM.deckZ1], [cx, cy, TERM.canZ0], 1.4, 'rgba(200,206,212,0.9)', alpha, { pull: DECO_PULL });
-  }
-  { const [a0x, a0y] = F(-0.5, -0.42), [a1x, a1y] = F(0.5, -0.42);
+  { const ey = TERM.deckY - TERM.deckD - 0.002, [a0x, a0y] = F(kEnd, ey), [a1x, a1y] = F(side * 0.5, ey);
     emitWire(ctx, cam, [a0x, a0y, TERM.deckZ1], [a1x, a1y, TERM.deckZ1], 2, 'rgba(80,236,255,0.95)', alpha, { pull: DECO_PULL });
     emitWire(ctx, cam, [a0x, a0y, TERM.canZ1 + 0.002], [a1x, a1y, TERM.canZ1 + 0.002], 1.6, 'rgba(255,236,200,0.9)', alpha, { pull: DECO_PULL });
     if (night) { const [mx, my] = F(0, -0.36);
       glowPool(ctx, cam, mx, my, TERM.deckZ0 * 0.5, '255,214,150', 22, alpha * 0.4);          // the arrivals kerb, under the deck
       glowPool(ctx, cam, mx, my, TERM.canZ0 - 0.02, '255,236,200', 20, alpha * 0.3, AIR); } }  // the canopy's soffit lights
-  // The kerb's board, hung under the canopy's outer edge between the two pylons and lettered for the
-  // level it serves. Seen from the landside, local +x is on the reader's left.
+  // The kerb's board, hung under the canopy's outer edge between the two middle columns and lettered
+  // for the level it serves. Seen from the landside, local +x is on the reader's left.
   if (o.kerb) {
-    const by = -0.425, bz0 = TERM.canZ0 - 0.046, bz1 = TERM.canZ0 - 0.006, bw = 0.2;
+    const by = -0.425, bz0 = TERM.canZ0 - 0.046, bz1 = TERM.canZ0 - 0.006, bw = TERM.board;
     const [bx, bby] = F(0, by);
     draw3DBoxAt(ctx, cam, bx, bby, bw, bz0, bz1, 'ty_airport_band', seed + 52, night, alpha, true, yawE, 0.004);
     const tex = bakeSignText(o.kerb, night ? '#ffe4a8' : '#f4f6f8', night ? 1 : 0, false);
     const P = (x, z) => { const [wx, wy] = F(x, by - 0.006); return cam.proj(wx, wy, z); };
-    const q = [P(bw * 0.86, bz1 - 0.006), P(-bw * 0.86, bz1 - 0.006), P(-bw * 0.86, bz0 + 0.006), P(bw * 0.86, bz0 + 0.006)];
+    const q = [P(bw * 0.9, bz1 - 0.006), P(-bw * 0.9, bz1 - 0.006), P(-bw * 0.9, bz0 + 0.006), P(bw * 0.9, bz0 + 0.006)];
     if (tex && q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha);
   }
-  // 5. THE PYLONS, along the kerb's outer edge: frosted glass columns half a tile apart, a little
-  //    taller toward the middle of the terminal, and after dark each one a colour, the colour rolling
-  //    slowly down the row. ⚠ NONE STANDS AT x = 0: that is where the kerb board hangs, and a pylon
-  //    in front of it hid the middle of ARRIVALS from the landside (signfit).
+  // 5. THE COLUMNS that carry the deck and the canopy: frosted glass, a quarter tile apart along the
+  //    whole terminal, each in two lengths that stop at the slabs rather than running through them.
+  //    After dark each is a colour, the colour rolling slowly down the row and on into the crown's
+  //    arches. ⚠ THEY WERE FREESTANDING PYLONS TALLER THAN THE HALL, and from the runway, the side
+  //    anyone sees, they stood up behind the vaults as four white chimneys.
   const t = motionOn() ? (now || 0) : 0;
-  const pylonBody = (f) => night ? 'rgb(206,200,222)' : `rgb(${200 + f.nl * 40 | 0},${206 + f.nl * 38 | 0},${214 + f.nl * 36 | 0})`;
-  const pylonCap = () => night ? 'rgb(240,236,250)' : 'rgb(236,240,244)';
-  [-0.25, 0.25].forEach((px, i) => {
-    const idx = (side < 0 ? 2 : 0) + i;              // departures' two, then arrivals' two, south to north
-    const [cx, cy] = F(px, -0.465), ph = h * (0.88 + 0.1 * (1 - Math.abs(px - side * 0.5)));   // the boundary between the halves is x = side * 0.5
-    drawFacetDrum(ctx, cam, cx, cy, 0, ph, fh * 0.085, fh * 0.075, 8, alpha, pylonBody, pylonCap, 'ty_atc_white');
+  const colBody = (f) => night ? 'rgb(206,200,222)' : `rgb(${200 + f.nl * 40 | 0},${206 + f.nl * 38 | 0},${214 + f.nl * 36 | 0})`;
+  const [o0x, o0y] = F(0, 0), [olx, oly] = F(0, -1), ol = Math.hypot(olx - o0x, oly - o0y) || 1;
+  const ux = (olx - o0x) / ol, uy = (oly - o0y) / ol;   // world direction out over the kerb
+  TERM_COLS.forEach((px, i) => {
+    const [cx, cy] = F(px, TERM.colY), r = TERM.colR;
+    drawFacetDrum(ctx, cam, cx, cy, 0, TERM.deckZ0, r, r, 8, alpha, colBody, null, 'ty_atc_white');
+    drawFacetDrum(ctx, cam, cx, cy, TERM.deckZ1, TERM.canZ0, r, r, 8, alpha, colBody, null, 'ty_atc_white');
     if (!night) return;
-    const rgbP = pylonRgb(idx, t), r = fh * 0.09;
-    for (let q = 0; q < 4; q++) {
-      const a = q * Math.PI / 2 + Math.PI / 4, ox = Math.cos(a) * r, oy = Math.sin(a) * r;
-      emitWire(ctx, cam, [cx + ox, cy + oy, 0.01], [cx + ox, cy + oy, ph * 0.98], 2, `rgba(${rgbP},0.8)`, alpha, { pull: DECO_PULL });
+    const rgbP = pylonRgb((side < 0 ? 4 : 0) + i, t);   // departures' four, then arrivals' four, south to north
+    for (const a of [-0.6, 0.6]) {   // two tubes up the kerb face of each length
+      const c = Math.cos(a), s = Math.sin(a), wx = cx + (ux * c - uy * s) * r * 1.05, wy = cy + (ux * s + uy * c) * r * 1.05;
+      emitWire(ctx, cam, [wx, wy, 0.008], [wx, wy, TERM.deckZ0 - 0.004], 2, `rgba(${rgbP},0.85)`, alpha, { pull: DECO_PULL });
+      emitWire(ctx, cam, [wx, wy, TERM.deckZ1 + 0.004], [wx, wy, TERM.canZ0 - 0.004], 2, `rgba(${rgbP},0.85)`, alpha, { pull: DECO_PULL });
     }
-    glowPool(ctx, cam, cx, cy, ph * 0.35, rgbP, 14, alpha * 0.45, AIR);
-    glowPool(ctx, cam, cx, cy, ph * 0.8, rgbP, 12, alpha * 0.4, AIR);
+    glowPool(ctx, cam, cx, cy, TERM.deckZ0 * 0.5, rgbP, 12, alpha * 0.45, AIR);
+    glowPool(ctx, cam, cx, cy, (TERM.deckZ1 + TERM.canZ0) / 2, rgbP, 12, alpha * 0.4, AIR);
     glowPool(ctx, cam, cx, cy, 0.01, rgbP, 14, alpha * 0.25);   // and it washes the kerb at its foot
   });
-  return { yawE, dusk };
+  // 6. The neon under the airside fascia: one cyan line the length of the terminal, the joint included.
+  if (o.frontVis) { const fz = top * 0.855, [b0x, b0y] = F(-0.5, D + 0.008), [b1x, b1y] = F(0.5, D + 0.008);
+    emitWire(ctx, cam, [b0x, b0y, fz], [b1x, b1y, fz], 2, 'rgba(80,236,255,0.95)', alpha, { pull: DECO_PULL });
+    if (night) glowPool(ctx, cam, (b0x + b1x) / 2, (b0y + b1y) / 2, fz, '80,236,255', 18, alpha * 0.3, AIR); }
+  return { yawE, dusk, t };
+}
+
+// The airside fascia lettered in raised capitals on the livery band itself, so the band IS the sign
+// and the two halves sign themselves in one hand. ⚠ IT REPLACES A `marqueeBand` ON EACH HALF, an
+// amber board on one and a teal one on the other, each taller than the fascia it stood in front of,
+// so the arrivals one ran up over the eaves of its own vaults.
+function fasciaLettering(ctx, cam, F, text, night, alpha) {
+  const { D, top } = TERM, y = D + 0.012, hw = TERM.HW * 0.9, zt = top - 0.008, zb = top * 0.87 + 0.008;
+  const quad = (ox, oz) => { const yy = y + (ox ? 0.001 : 0.002), sx = ox * 0.003, sz = oz * 0.002;
+    const [lx, ly] = F(-hw + sx, yy), [rx, ry] = F(hw + sx, yy);
+    return [cam.proj(lx, ly, zt + sz), cam.proj(rx, ry, zt + sz), cam.proj(rx, ry, zb + sz), cam.proj(lx, ly, zb + sz)]; };
+  embossText(ctx, cam, quad, text, night ? '#ffe9bc' : '#f2f7f8', '#0b1c22', night, alpha, { font: 'condensed' });
 }
 
 // A JET BRIDGE, stowed along the airside glass: a rotunda at the wall, a glazed tunnel on a drive
 // bogie angled off along the face, and the cab at its end with its door shut. `x0` is where it
 // leaves the hall, `s` which way along the face it runs. Everything stays inside the tile on the
-// airside, which `tileFitBox` trims at 0.5.
-function jetBridge(ctx, cam, F, x0, D, h, s, seed, night, alpha) {
+// airside, which `tileFitBox` trims at 0.5. White, with the fascia's cyan down each side, so it
+// reads as the terminal's own and not a dark beam laid across the glass.
+function jetBridge(ctx, cam, F, x0, s, seed, night, alpha) {
+  const { D } = TERM;
   const [rx, ry] = F(x0, D + 0.03);
-  drawFacetDrum(ctx, cam, rx, ry, 0, h * 0.22, 0.03, 0.03, 8, alpha,
+  drawFacetDrum(ctx, cam, rx, ry, 0, 0.17, 0.03, 0.03, 8, alpha,
     (f) => night ? 'rgb(150,150,146)' : `rgb(${170 + f.nl * 50 | 0},${172 + f.nl * 50 | 0},${170 + f.nl * 48 | 0})`, () => night ? 'rgb(120,122,124)' : 'rgb(196,198,198)', 'ty_atc_white');
   const th = 58 * Math.PI / 180, ux = s * Math.sin(th), uy = Math.cos(th), L = 0.2;
   const P = (a) => F(x0 + ux * a, D + 0.03 + uy * a);
   const [c0x, c0y] = P(0.03), [c1x, c1y] = P(0.03 + L);
   const yaw = faceYaw([c1x - c0x, c1y - c0y]);
   const [tx, ty] = P(0.03 + L / 2);
-  draw3DBoxAt(ctx, cam, tx, ty, 0.022, h * 0.15, h * 0.2, 'ty_tower_slot', seed, night, alpha, true, yaw, L / 2);
+  draw3DBoxAt(ctx, cam, tx, ty, 0.022, 0.115, 0.155, 'ty_atc_white', seed, night, alpha, true, yaw, L / 2);
+  // The livery stripe down both flanks, a hair proud of the tunnel's sides.
+  const cl = Math.hypot(c1x - c0x, c1y - c0y) || 1, nx = -(c1y - c0y) / cl * 0.0235, ny = (c1x - c0x) / cl * 0.0235;
+  for (const k of [1, -1]) emitWire(ctx, cam, [c0x + nx * k, c0y + ny * k, 0.133], [c1x + nx * k, c1y + ny * k, 0.133], 1.6, 'rgba(80,236,255,0.9)', alpha, { pull: DECO_PULL });
   const [kx, ky] = P(0.03 + L + 0.02);
-  draw3DBoxAt(ctx, cam, kx, ky, 0.03, h * 0.14, h * 0.21, 'ty_atc_steel', seed + 1, night, alpha, true, yaw, 0.022);
+  draw3DBoxAt(ctx, cam, kx, ky, 0.03, 0.105, 0.165, 'ty_atc_steel', seed + 1, night, alpha, true, yaw, 0.022);
   // The drive bogie three-quarters out: two legs and the wheel box on the apron.
   const [bx, by] = P(0.03 + L * 0.75);
   for (const o of [-0.016, 0.016]) { const lx = bx - uy * o * s, ly = by + ux * o * s;
-    emitWire(ctx, cam, [lx, ly, 0.008], [lx, ly, h * 0.15], 1.6, 'rgba(120,126,132,0.95)', alpha, { pull: DECO_PULL }); }
+    emitWire(ctx, cam, [lx, ly, 0.008], [lx, ly, 0.115], 1.6, 'rgba(120,126,132,0.95)', alpha, { pull: DECO_PULL }); }
   draw3DBoxAt(ctx, cam, bx, by, 0.02, 0, 0.012, 'ty_atc_steel', seed + 2, night, alpha, true, yaw, 0.012);
-  if (night) glowPool(ctx, cam, kx, ky, h * 0.12, '255,214,150', 10, alpha * 0.4);   // the cab's floodlight on the stand
+  if (night) glowPool(ctx, cam, kx, ky, 0.1, '255,214,150', 10, alpha * 0.4);   // the cab's floodlight on the stand
 }
 
 // A quad turned so its Newell normal agrees with `want`: emitFlat lights a face off its winding.
@@ -183,30 +232,47 @@ function outFace(q, want) {
   return nx * want[0] + ny * want[1] + nz * want[2] < 0 ? q.slice().reverse() : q;
 }
 
-// THE CROWN OF THE ARRIVALS HALF: an observation deck on two crossed parabolic arches over the north
-// end of the hall, LAX's Theme Building said in Coldwater's accent. A saucer on a lift core, the
-// arches landing on the kerb and the apron either side of the hall, and after dark the arches lit
-// from below in the pylons' colour. `x0` is its centre along the terminal.
-function observationCrown(ctx, cam, F, x0, fh, h, seed, night, alpha, t) {
+// THE CROWN OF THE ARRIVALS HALF: an observation deck on two crossed parabolic arches, LAX's Theme
+// Building said in Coldwater's accent, standing on the roof terrace over the north end of the hall.
+// A saucer on a lift core, the arches springing from the terrace's four corners and crossing at a
+// finial over the saucer, and after dark the arches lit in the colour rolling down the kerb's columns.
+// `x0` is its centre along the terminal.
+// ⚠ THE ARCHES USED TO LAND ON THE GROUND, either side of the hall: one pair on the apron, where they
+// came down across the airside glass and the name on the fascia, and the other through the kerb
+// canopy. On the terrace every foot is on the roof, and nothing below the fascia is crossed.
+// ⚠ AND THE SAUCER IS SIZED TO THE ARCHES. A parabola closes in on its axis as it climbs, so the
+// saucer's rim has to be inside where the ribs are at that height: 0.03 clear at the rim and the
+// glass band with these numbers. Move one and check the other.
+const CROWN = { a: 0.1, b: 0.205, rise: 0.6, rib: 0.013, core: 0.028, coreH: 0.27, R: 0.105 };
+function observationCrown(ctx, cam, F, x0, seed, night, alpha, t) {
   const dusk = 1 - 0.7 * (night ? clamp(night, 0, 1) : 0);
+  const zf = TERM.top + 0.012;   // the terrace's deck
   // The lift core and the saucer: an underside cone, the rim, a glass band and a low dome.
   const [cx, cy] = F(x0, 0);
   const plain = (r, g, b) => litStyle((f) => { const s = (0.62 + f.nl * 0.4) * dusk; return `rgb(${r * s | 0},${g * s | 0},${b * s | 0})`; }, [r * dusk, g * dusk, b * dusk], 'plain');
   const glass = (f) => night ? 'rgb(255,206,140)' : `rgb(${40 + f.nl * 50 | 0},${86 + f.nl * 60 | 0},${100 + f.nl * 54 | 0})`;
-  const zc = h * 0.98, zr = h * 1.06, zg = h * 1.13, zt = h * 1.17;
-  drawFacetDrum(ctx, cam, cx, cy, 0, zc, fh * 0.07, fh * 0.07, 10, alpha, plain(226, 228, 224), undefined, 'ty_atc_white');
-  drawFacetDrum(ctx, cam, cx, cy, zc, zr, fh * 0.12, fh * 0.32, 16, alpha, plain(226, 228, 224), undefined, 'ty_atc_white');
-  drawFacetDrum(ctx, cam, cx, cy, zr, zr + h * 0.015, fh * 0.34, fh * 0.34, 16, alpha, plain(236, 238, 234), undefined, 'ty_atc_white');
-  drawFacetDrum(ctx, cam, cx, cy, zr + h * 0.015, zg, fh * 0.3, fh * 0.27, 16, alpha, glass, undefined, 'ty_atc_glass');
-  drawFacetDrum(ctx, cam, cx, cy, zg, zt, fh * 0.27, fh * 0.12, 16, alpha, plain(226, 228, 224), plain(236, 238, 234), 'ty_atc_white');
-  // The two arches, each a box-section rib on a parabola from foot to foot, crossing over the saucer.
-  const peak = h * 1.42, N = 8, half = 0.016;
+  const { R } = CROWN, zc = zf + CROWN.coreH, zr = zc + 0.06, zg = zr + 0.012 + 0.04, zt = zg + 0.03;
+  drawFacetDrum(ctx, cam, cx, cy, zf, zc, CROWN.core, CROWN.core, 10, alpha, plain(226, 228, 224), undefined, 'ty_atc_white');
+  drawFacetDrum(ctx, cam, cx, cy, zc, zr, CROWN.core, R, 16, alpha, plain(226, 228, 224), undefined, 'ty_atc_white');
+  drawFacetDrum(ctx, cam, cx, cy, zr, zr + 0.012, R + 0.006, R + 0.006, 16, alpha, plain(236, 238, 234), undefined, 'ty_atc_white');
+  drawFacetDrum(ctx, cam, cx, cy, zr + 0.012, zg, R * 0.94, R * 0.86, 16, alpha, glass, undefined, 'ty_atc_glass');
+  drawFacetDrum(ctx, cam, cx, cy, zg, zt, R * 0.86, R * 0.36, 16, alpha, plain(226, 228, 224), plain(236, 238, 234), 'ty_atc_white');
+  // The terrace's balustrade: a glass rail round its three open sides, on posts.
+  { const W3 = (x, y, z) => { const [wx, wy] = F(x, y); return [wx, wy, z]; };
+    const x1 = x0 - TERM.HW / 3 + 0.012, x2 = x0 + TERM.HW / 3 - 0.006, yb = TERM.D - 0.008, zr2 = zf + 0.03;
+    const rail = [[x1, -yb], [x2, -yb], [x2, yb], [x1, yb]];
+    for (let i = 0; i < 3; i++) emitWire(ctx, cam, W3(...rail[i], zr2), W3(...rail[i + 1], zr2), 1.2, 'rgba(206,230,236,0.85)', alpha, { pull: DECO_PULL });
+    for (const [px, py] of rail) emitWire(ctx, cam, W3(px, py, zf), W3(px, py, zr2), 1, 'rgba(150,160,168,0.9)', alpha, { pull: DECO_PULL }); }
+  // The two arches, each a box-section rib on a parabola from foot to foot, crossing at the finial.
+  const peak = zf + 0.02 + CROWN.rise, N = 12, half = CROWN.rib;
   for (const sx of [-1, 1]) {
-    const A = [x0 - sx * 0.18, -0.42], B = [x0 + sx * 0.18, 0.4];
-    const at = (u) => { const lx = A[0] + (B[0] - A[0]) * u, ly = A[1] + (B[1] - A[1]) * u; const [wx, wy] = F(lx, ly); return [wx, wy, peak * (1 - (2 * u - 1) ** 2)]; };
+    const A = [x0 - sx * CROWN.a, -CROWN.b], B = [x0 + sx * CROWN.a, CROWN.b];
+    const at = (u) => { const lx = A[0] + (B[0] - A[0]) * u, ly = A[1] + (B[1] - A[1]) * u; const [wx, wy] = F(lx, ly); return [wx, wy, zf + 0.02 + CROWN.rise * (1 - (2 * u - 1) ** 2)]; };
     const [ax, ay] = F(A[0], A[1]), [bx2, by2] = F(B[0], B[1]);
     const run = Math.hypot(bx2 - ax, by2 - ay) || 1, nx = -(by2 - ay) / run * half, ny = (bx2 - ax) / run * half;
     const Hx = (bx2 - ax) / run, Hy = (by2 - ay) / run;
+    // A shoe at each foot, so a rib lands on something rather than on the deck's paint.
+    for (const [fx, fy] of [[ax, ay], [bx2, by2]]) drawFacetDrum(ctx, cam, fx, fy, zf, zf + 0.022, 0.02, 0.016, 8, alpha, plain(176, 182, 186), plain(196, 200, 204), 'ty_atc_steel');
     // ⚠ THE RIBS ARE UNLIT FACES, so after dark they hold a floodlit fill instead of taking the dark,
     // which is how the real arches read at night. Same face count by day and night; only the colour moves.
     const RIB = night ? [214, 206, 240] : [232, 234, 230];
@@ -222,12 +288,17 @@ function observationCrown(ctx, cam, F, x0, fh, h, seed, night, alpha, t) {
       emitFlat(ctx, cam, outFace([l(p, -1), l(q, -1), l(q, 1), l(p, 1)], [-Tz * Hx, -Tz * Hy, Th]), css(0.95), alpha);
     }
     if (night) {
-      const rgbA = pylonRgb(sx < 0 ? 6 : 7, t);
+      const rgbA = pylonRgb(sx < 0 ? 8 : 9, t);
       for (const u of [0.14, 0.86]) { const p = at(u); glowPool(ctx, cam, p[0], p[1], p[2], rgbA, 14, alpha * 0.4, { air: true }); }
       const pk = at(0.5); glowPool(ctx, cam, pk[0], pk[1], pk[2] - 0.04, rgbA, 12, alpha * 0.3, { air: true });
     }
   }
-  if (night) glowPool(ctx, cam, cx, cy, (zr + zg) / 2, '255,206,140', 18, alpha * 0.45, { air: true });   // the deck's windows, lit
+  // The finial where the ribs cross, and the obstruction light on it.
+  drawFacetDrum(ctx, cam, cx, cy, peak - 0.024, peak + 0.012, 0.018, 0.008, 8, alpha, plain(214, 218, 220), plain(236, 238, 234), 'ty_atc_steel');
+  if (night) {
+    glowPool(ctx, cam, cx, cy, (zr + zg) / 2, '255,206,140', 18, alpha * 0.45, { air: true });   // the deck's windows, lit
+    blinkLight(ctx, cam, cx, cy, peak + 0.018, '255,60,50', t, seed + 5, alpha, 1.6);
+  }
 }
 
 // Raised lettering: the name baked twice, a dark copy dropped down and right under the face, so
@@ -2811,54 +2882,56 @@ export const DOWNTOWN_ARMS = {
       blinkLight(ctx, cam, dx, dy, rz + h * 0.01, '235,245,255', now, seed + 7 + Math.PI, alpha, 1.9);
     }
   },
-  arrivals(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // ARRIVALS: the terminal's north half, where people come off planes. The tall glass
-    //                   hall under the wave roof (terminalHalf), the observation deck on its crossed
-    //                   arches over the north end, one jet bridge stowed toward the link, the doors
-    //                   in off the runway, and the building's name on the fascia. `departures` is the
-    //                   other half, on this one's left as you face the door; see terminalHalf.
-    const HW = fh * 1.0, D = fh * 0.62, hallTop = h * 0.6;
-    const { yawE } = terminalHalf(ctx, cam, dx, dy, fh, h, seed, night, alpha, now, E, F, { HW, D, top: hallTop, vault: h * 0.16, side: -1, kerb: 'ARRIVALS' });
-    const AIR = { air: true };
-    // 1. The crown over the north end of the hall.
-    observationCrown(ctx, cam, F, HW * 0.5, fh, h, seed + 60, night, alpha, motionOn() ? (now || 0) : 0);
-    // 2. One jet bridge from the south end of the airside glass, stowed along it toward the link.
-    jetBridge(ctx, cam, F, -HW * 0.62, D, h, -1, seed + 70, night, alpha);
-    // 3. The doors in off the runway, under a short canopy between the bridge and the crown.
-    { const [ddx, ddy] = F(-HW * 0.12, D + 0.01);
-      draw3DBoxAt(ctx, cam, ddx, ddy, fh * 0.14, 0, h * 0.16, 'ty_door', seed + 7, night, alpha, false, yawE, 0.006);
-      const cz = h * 0.17, [cx, cy] = F(-HW * 0.12, D + fh * 0.1);
-      draw3DBoxAt(ctx, cam, cx, cy, fh * 0.2, cz, cz + h * 0.012, 'ty_precast_dk', seed + 3, night, alpha, true, yawE, fh * 0.1);
-      if (night) glowPool(ctx, cam, cx, cy, cz * 0.6, '255,226,170', 14, alpha * 0.4); }
-    // 4. Magenta neon under the airside fascia, cyan along the door canopy, and the lit board on the
-    //    fascia carrying the building's name. DEPARTURES letters the other half.
-    if (frontVis) { const fz = hallTop * 0.855, [b0x, b0y] = F(-HW, D + 0.008), [b1x, b1y] = F(HW, D + 0.008);
-      emitWire(ctx, cam, [b0x, b0y, fz], [b1x, b1y, fz], 2, 'rgba(255,64,200,0.95)', alpha, { pull: DECO_PULL });
-      const cz = h * 0.182, [a0x, a0y] = F(-HW * 0.12 - fh * 0.2, D + fh * 0.2), [a1x, a1y] = F(-HW * 0.12 + fh * 0.2, D + fh * 0.2);
-      emitWire(ctx, cam, [a0x, a0y, cz], [a1x, a1y, cz], 2, 'rgba(80,236,255,0.95)', alpha, { pull: DECO_PULL });
-      if (night) glowPool(ctx, cam, (b0x + b1x) / 2, (b0y + b1y) / 2, fz, '255,64,200', 18, alpha * 0.3, AIR);
-      marqueeBand(ctx, cam, dx, dy, _bladeBasis.E, HW * 0.62, hallTop * 0.95, '#50ecff', night, alpha); }
+  arrivals(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // ARRIVALS: the terminal's north half, where people come off planes. The glass hall
+    //                   under two vaults of the wave roof (terminalHalf), the crown on the terrace
+    //                   where the third would be, one jet bridge, the doors in off the runway under
+    //                   the crown, a baggage train, and the building's name on the fascia.
+    //                   `departures` is the other half, on this one's left as you face the door.
+    const { D, HW } = TERM, x0 = HW * 2 / 3;
+    const { yawE, t } = terminalHalf(ctx, cam, dx, dy, fh, h, seed, night, alpha, now, E, F, { side: -1, kerb: 'ARRIVALS', terrace: true, frontVis });
+    // 1. The crown, on the terrace over the north end of the hall.
+    observationCrown(ctx, cam, F, x0, seed + 60, night, alpha, t);
+    // 2. One jet bridge from the middle of the airside glass, stowed south toward the joint.
+    jetBridge(ctx, cam, F, -0.06, -1, seed + 70, night, alpha);
+    // 3. The doors in off the runway, under the crown: a revolving drum of glass set against the hall's
+    //    glass, under a round canopy that is the saucer overhead at a fifth of the size.
+    { const [rx, ry] = F(x0, D + 0.036), [kx, ky] = F(x0, D + 0.072);
+      drawFacetDrum(ctx, cam, rx, ry, 0, 0.12, 0.034, 0.034, 12, alpha,
+        (f) => night ? 'rgb(240,206,150)' : `rgb(${52 + f.nl * 50 | 0},${88 + f.nl * 56 | 0},${102 + f.nl * 50 | 0})`, null, 'ty_atc_glass');
+      drawFacetDrum(ctx, cam, kx, ky, 0.124, 0.136, 0.07, 0.07, 16, alpha,
+        (f) => `rgb(${(196 + f.nl * 40) * (night ? 0.5 : 1) | 0},${(200 + f.nl * 40) * (night ? 0.5 : 1) | 0},${(204 + f.nl * 40) * (night ? 0.5 : 1) | 0})`,
+        () => night ? 'rgb(118,122,126)' : 'rgb(228,232,234)', 'ty_atc_white');
+      if (frontVis) frontRing(ctx, cam, kx, ky, 0.124, 0.071, 16, 'rgba(80,236,255,0.95)', 1.6, alpha);
+      if (night) glowPool(ctx, cam, rx, ry, 0.07, '255,226,170', 14, alpha * 0.45); }
+    // 4. A baggage train on the apron: the tug and two dollies, the loads under their tarps.
+    { const yb = 0.462;
+      const [gx, gy] = F(0.04, yb);
+      draw3DBoxAt(ctx, cam, gx, gy, 0.018, 0.004, 0.03, 'ty_fuel_white', seed + 71, night, alpha, true, yawE, 0.014);
+      for (const [x, k] of [[0.095, 0], [0.15, 1]]) {
+        const [cx, cy] = F(x, yb);
+        draw3DBoxAt(ctx, cam, cx, cy, 0.022, 0.004, 0.012, 'ty_atc_steel', seed + 72 + k, night, alpha, true, yawE, 0.014);
+        draw3DBoxAt(ctx, cam, cx, cy, 0.018, 0.012, 0.03, k ? 'ty_airport_band' : 'ty_precast', seed + 74 + k, night, alpha, true, yawE, 0.011);
+      } }
+    // 5. The building's name, lettered on the fascia. DEPARTURES letters the other half.
+    if (frontVis && sign) fasciaLettering(ctx, cam, F, sign, night, alpha);
   },
   departures(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // DEPARTURES: the terminal's south half, where people get on planes. The same hall
-    //                   and wave roof a little lower, two jet bridges stowed along the airside glass,
-    //                   a fuel bowser and a ground-power cart on the apron, and a board that says
-    //                   DEPARTURES: the building's name is on the arrivals fascia, and a building gets
-    //                   its name once. `arrivals` is the other half, on this one's right; see terminalHalf.
-    const HW = fh * 1.0, D = fh * 0.58, hallTop = h * 0.57;
-    const { yawE } = terminalHalf(ctx, cam, dx, dy, fh, h, seed, night, alpha, now, E, F, { HW, D, top: hallTop, vault: h * 0.15, side: 1, kerb: 'DEPARTURES' });
-    const AIR = { air: true };
-    // 1. Gates 1 and 2: two jet bridges, both stowed toward the south.
-    jetBridge(ctx, cam, F, HW * 0.62, D, h, -1, seed + 40, night, alpha);
-    jetBridge(ctx, cam, F, -HW * 0.42, D, h, -1, seed + 44, night, alpha);
-    // 2. The apron kit: a fuel bowser at the north end and a ground-power cart between the bridges.
-    { const [fx, fy] = F(HW * 0.95, 0.44);
-      draw3DBoxAt(ctx, cam, fx, fy, fh * 0.05, 0.004, h * 0.06, 'ty_fuel_white', seed + 41, night, alpha, true, yawE, fh * 0.1);
-      const [px, py] = F(HW * 0.12, 0.46);
-      draw3DBoxAt(ctx, cam, px, py, fh * 0.05, 0.004, h * 0.04, 'ty_airport_band', seed + 42, night, alpha, true, yawE, fh * 0.035); }
-    // 3. The neon under the fascia, and the board.
-    if (frontVis) { const fz = hallTop * 0.855, [b0x, b0y] = F(-HW, D + 0.008), [b1x, b1y] = F(HW, D + 0.008);
-      emitWire(ctx, cam, [b0x, b0y, fz], [b1x, b1y, fz], 2, 'rgba(80,236,255,0.95)', alpha, { pull: DECO_PULL });
-      if (night) glowPool(ctx, cam, (b0x + b1x) / 2, (b0y + b1y) / 2, fz, '80,236,255', 18, alpha * 0.3, AIR);
-      marqueeBand(ctx, cam, dx, dy, _bladeBasis.E, HW * 0.5, hallTop * 0.95, '#ffb347', night, alpha, 'DEPARTURES'); }
+    //                   under three vaults, two jet bridges stowed along the airside glass, a fuel
+    //                   bowser and a ground-power cart on the apron, and DEPARTURES on the fascia:
+    //                   the building's name is on the arrivals fascia, and a building gets its name
+    //                   once. `arrivals` is the other half, on this one's right; see terminalHalf.
+    const { yawE } = terminalHalf(ctx, cam, dx, dy, fh, h, seed, night, alpha, now, E, F, { side: 1, kerb: 'DEPARTURES', frontVis });
+    // 1. Gates 1 and 2: two jet bridges, both stowed toward the south, away from the joint.
+    jetBridge(ctx, cam, F, 0.3, -1, seed + 40, night, alpha);
+    jetBridge(ctx, cam, F, -0.14, -1, seed + 44, night, alpha);
+    // 2. The apron kit: a fuel bowser at the north end, clear of gate 1's rotunda, and a ground-power
+    //    cart between the gates.
+    { const [fx, fy] = F(0.4, 0.45);
+      draw3DBoxAt(ctx, cam, fx, fy, 0.019, 0.004, 0.048, 'ty_fuel_white', seed + 41, night, alpha, true, yawE, 0.038);
+      const [px, py] = F(0.17, 0.465);
+      draw3DBoxAt(ctx, cam, px, py, 0.019, 0.004, 0.032, 'ty_airport_band', seed + 42, night, alpha, true, yawE, 0.013); }
+    // 3. The fascia.
+    if (frontVis) fasciaLettering(ctx, cam, F, 'DEPARTURES', night, alpha);
   },
   power(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE POWER PLANT — 5 tiles. It had the mass (five segments) and still scored
     //                  3/4, because all five were the same palette and, worse, the two COOLING

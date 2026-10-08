@@ -25,6 +25,9 @@ export function isHelmActive() { return !!_helm; }
 export function helmSetSky(sky) { _helm?.ctrl?.setSky(sky); }
 export function helmSetWorld(rows, cx, cy) { _helm?.ctrl?.setWorld(rows, cx, cy); }
 export function helmSetContacts(list) { _helm?.ctrl?.setContacts(list); }
+// What a helm is sent beside the window: the towers and the highway past it, the region's grade and
+// the people on the quay. Any key absent keeps what it had.
+export function helmSetFar(msg) { _helm?.ctrl?.setFar(msg); }
 export function helmEndTransit(gx, gy) { _helm?.ctrl?.endTransit(gx, gy); }
 // The server confirms a passage's true vector (direction + tile count) so the chase view glides her
 // the whole distance — fired for the telegraph AND a typed `sail`, so either path animates the helm.
@@ -512,6 +515,7 @@ export function openHelm(opts = {}) {
   window.__helmCtrl = ctrl;
   if (opts.sky) ctrl.setSky(opts.sky);   // seed the real sim weather field immediately
   if (opts.map) ctrl.setWorld(opts.map, opts.gx, opts.gy);   // frame her against the REAL basin, not blank ocean
+  ctrl.setFar(opts);
 
   // The wheel is a DIRECTION control: its spin steers the demanded course by that much (clockwise =
   // right, counter-clockwise = left) and she swings slowly toward it; the hub needle reads her actual

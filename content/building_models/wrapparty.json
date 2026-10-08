@@ -67,14 +67,15 @@
       "cx": 0,
       "cy": 0.35,
       "depth": 0.014,
+      "door": 1,
       "glass": "#2a1212",
       "glow": "#ff7a5a",
       "half": 0.065,
-      "hh": 0.12,
+      "hh": 0.095,
       "kind": "windowBay",
       "pal": "ty_reel_flank",
       "transom": 0.82,
-      "z": 0.13
+      "z": 0.155
     },
     {
       "cx": 0,

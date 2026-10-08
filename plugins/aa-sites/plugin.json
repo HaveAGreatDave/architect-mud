@@ -1,8 +1,8 @@
 {
   "name": "aa-sites",
   "version": "1.1.0",
-  "description": "AA emplacements on foot as two-part installations (exposed deck + bunker): a zone.describeRoom panel on each aa_sites deck tile showing the battery's name, faction, and live status (MANNED / ● FIRING / OFF-LINE UNDER REPAIR / cold ruin), a throttled room broadcast when the guns open up (flight.aaFired), and the repair loop — a strafed battery (active=0) is brought back online by its sheltered bunker engineer after REPAIR_MS, unless the engineer is dead. Exposed gunners are stationed NPCs; the engineer is flagged aa_engineer. Emits flight.aaRepaired.",
-  "hooks": ["zone.describeRoom"],
+  "description": "AA emplacements on foot as two-part installations (exposed deck + bunker): a zone.describeRoom panel on each aa_sites deck tile showing the battery's name, faction, and live status (MANNED / ● FIRING / OFF-LINE UNDER REPAIR / cold ruin), a throttled room broadcast when the guns open up (flight.aaFired), and the repair loop — a strafed battery (active=0) is brought back online by its sheltered bunker engineer after REPAIR_MS, unless the engineer is dead. Exposed gunners are stationed NPCs; the engineer is flagged aa_engineer. Emits flight.aaRepaired. Answers the sync aa.state hook (1 manned, 2 under repair, 0 ruin) for the map cell every 3D view draws the battery from, and pushes aa_state / aa_fire to every client when the battery changes or opens up.",
+  "hooks": ["zone.describeRoom", "aa.state"],
   "events": {
     "consumes": ["flight.aaFired", "flight.aaSilenced"],
     "produces": ["flight.aaRepaired"]

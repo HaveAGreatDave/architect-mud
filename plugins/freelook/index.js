@@ -40,7 +40,7 @@ import { getZone, getLivePlayer, getZoneFurniture } from '../../server/engine/wo
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { on } from '../../server/engine/events.js';
-import { mapWindow, skyState, FLIGHT_RADIUS, skylineNear } from '../flight/state.js';
+import { mapWindow, skyState, FLIGHT_RADIUS, skylineNear, nearbyRegions, farRoadsNear, FAR_ROAD_R, worldContactsNear } from '../flight/state.js';
 import { streetActors } from '../../server/engine/street-actors.js';
 
 // The same roster the fireworks command takes, and deliberately not the narrower `role === 'admin'`
@@ -107,7 +107,10 @@ function viewPayload(gx, gy, stand) {
   const map = mapWindow({ grid_x: gx, grid_y: gy }, RADIUS);
   if (stand && map[RADIUS]?.[RADIUS]) map[RADIUS][RADIUS].self = undefined;
   // Everybody standing in that window, so the street under the camera is not empty.
-  return { type: 'freelook_open', gx, gy, map, skyline: skylineNear(gx, gy, RADIUS), sky: skyState(gx, gy), actors: streetActors(gx, gy, RADIUS), stand };
+  // ⚠ AND WHAT A COCKPIT IS SENT, SO THE CAMERA SEES WHAT A PILOT DOES: the highway past the window,
+  // the region's colour grade, and everything moving (kept current by pushContacts below).
+  return { type: 'freelook_open', gx, gy, map, skyline: skylineNear(gx, gy, RADIUS), sky: skyState(gx, gy), actors: streetActors(gx, gy, RADIUS), stand,
+    roads: farRoadsNear(gx, gy, FAR_ROAD_R), regions: nearbyRegions(gx, gy), contacts: worldContactsNear(gx, gy, RADIUS) };
 }
 
 // ── A VANTAGE: THE SAME CAMERA, BOLTED DOWN ──────────────────────────────────
@@ -229,6 +232,23 @@ function pushLive() {
 }
 schedule('15s', pushLive);
 
+// ── WHAT IS MOVING IN FRONT OF IT ────────────────────────────────────────────
+// Aircraft, boats and trucks in the window, once a second, which is the cadence the cab and the
+// boat get theirs at; the client dead-reckons between pushes. RAM only (worldContactsNear), and
+// idle-gated on the viewer set like the sky. ⚠ AN EMPTY LIST IS SENT, NOT SKIPPED: it is how the
+// client learns the sky has cleared, the helm's rule.
+function pushContacts() {
+  if (!viewers.size) return;
+  for (const [pid, at] of viewers) {
+    const contacts = worldContactsNear(at.gx, at.gy, RADIUS);
+    // One empty list clears the picture; a second one says nothing new, so an empty sky costs nothing.
+    if (!contacts.length && at.quiet) continue;
+    at.quiet = !contacts.length;
+    sendToPlayer(pid, { type: 'freelook_contacts', contacts });
+  }
+}
+schedule('1s', pushContacts);
+
 // A pane cannot survive its owner leaving. The client's own teardown covers a reload; a disconnect
 // that never reaches it would leave a row in here being pushed sky at nobody until the next prune.
 on('player.logout', ({ id }) => { if (id) viewers.delete(id); });
@@ -247,4 +267,4 @@ export const specializedActions = [
 
 // The viewer set is the only state this plugin owns — handed to the regress suite so it can assert
 // that opening registers and closing does not leave a row behind.
-export const _test = { viewers, RADIUS, ROLES, standBlock, vantageIn, VANTAGE_DEFAULTS };
+export const _test = { viewers, RADIUS, ROLES, standBlock, vantageIn, VANTAGE_DEFAULTS, viewPayload };

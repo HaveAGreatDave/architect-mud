@@ -34,6 +34,7 @@
 import { TYPES, SURFACES } from '../../client/game/js/panels/flight-model.js';
 import { partEffects } from './damage.js';
 import { serviceLife, serviceFx } from './service.js';
+import { defaultLivery } from '../../client/shared/livery-sets.js';
 
 // ── Tuning ───────────────────────────────────────────────────────────────────
 // Four knobs, each one a real trade. `lo`/`hi` name the two poles the way the dial shows them.
@@ -402,6 +403,20 @@ export function sanitizePaint(next = {}, prev = {}) {
 export function presetPaint(name, prev = {}) {
   const p = PAINT_PRESETS.find(r => r.id === String(name || '').toLowerCase());
   return p ? sanitizePaint(p, prev) : null;
+}
+// What a truck of this type wears off the line: its default set in content/liveries/ (truck_<type>_stock.json),
+// filled out to every field. A type with no set falls back to PAINT_DEFAULT, which the liveries gate
+// makes impossible for the four the dealer sells.
+export function factoryPaint(typeId) {
+  const d = typeId ? defaultLivery('truck', typeId) : null;
+  return sanitizePaint(d ? d.exterior : {}, {});
+}
+// ⚠ THE ONE READ OF A TRUCK'S PAINT. A truck nobody has painted stores no `paint`, and three of its
+// four readers handed that null on: the cab and every other driver drew it in bare grey while the
+// depot showed rust and cream. Unpainted means its type's factory paint, everywhere. A painted truck
+// still fills its missing fields from PAINT_DEFAULT (sanitizePaint), so an old respray looks as it did.
+export function paintOf(cd, typeId) {
+  return cd && cd.paint ? sanitizePaint({}, cd.paint) : factoryPaint(typeId);
 }
 // A respray is priced on the truck, not the colour — a big cab is a lot of surface. The FINISH is
 // the one thing that moves it, because it is the one thing that is genuinely more work: flake and

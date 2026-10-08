@@ -15,6 +15,7 @@ import {
   roofClutter, slumCurtain, slumDrape, slumFaceVis, slumHole, slumOpening, slumRope, slumScrawl,
   slumSheet,
 } from '../../windshield.js';
+import { drawEntrance } from '../entrance.js';
 
 // ── Lit flat faces for Ash Management ─────────────────────────────────────────────────────────
 // Newell's normal, turned to point along `out`, which is the same sum `emitFlat` uses: a lit mesh
@@ -211,22 +212,21 @@ export const OLD_COLDWATER_ARMS = {
     // 9) THE PAINT. A ruin is the wall every reference photograph of graffiti was ever taken
     //    against: no glazing, no sign, no camera, nobody to complain to, and eleven years of it.
     //    ⚠ IT IS PAINTED HERE RATHER THAN LEFT TO THE DERIVED KIT, which declines paint for the
-    //    whole slum (SLUM_DECLINE). ⚠ AND IT HAS NO WORDS IN IT. This drew five throw-ups off
-    //    `bakeTagText`, and a bubble-letter word on a black opening read from the lane as a shop
-    //    board, lit after dark. `slumScrawl` is the same five patches of paint with the letters
-    //    taken out of them.
+    //    whole slum (SLUM_DECLINE). ⚠ AND NO THROW-UPS. This drew five off `bakeTagText`, and a
+    //    bubble-letter word on a black opening read from the lane as a shop board, lit after dark.
+    //    `slumScrawl` paints the camp's slogans instead, darkened with the wall at night.
     const nightF = night ? clamp(night, 0, 1) : 0;
+    //    ⚠ TWO PIECES IN TWO PATCHES OF BARE BRICK, NOT FIVE ROLLED SPOTS. Five patches thrown
+    //    anywhere across each half landed on the boarding and on each other, and three slogans
+    //    sprayed over one another read as one smear. The patches are the gaps step 8 leaves: across
+    //    the standing half between its two rows of windows, and down the open half beside its one
+    //    opening. Below that the rubble wall (step 6) hides the brick.
     if (frontVis) {
       const fy = FD + FACE_EPS * 2;
       const P = (u, z, o) => [u, fy + o, z];
-      for (let i = 0; i < 5; i++) {
-        const hi = i < 2;
-        const bz = (hi ? gable : mid) * (0.22 + frac(seed * 31 + i * 17) * 0.30);
-        const bh = fh * (0.035 + frac(seed * 37 + i * 7) * 0.025);
-        const bw = fh * (0.10 + frac(seed * 41 + i * 5) * 0.07);
-        const bx = (hi ? hiX : loX) + (frac(seed * 43 + i * 19) - 0.5) * HW * 0.9;
-        slumScrawl(ctx, cam, W3, P, bx, bz, bw, bh, seed * 3 + i * 29, nightF, alpha);
-      }
+      const jit = (k) => frac(seed * 43 + k * 19) - 0.5;
+      slumScrawl(ctx, cam, W3, P, hiX + jit(0) * HW * 0.2, gable * 0.5, HW * 0.5, gable * 0.027, seed * 3, nightF, alpha);
+      slumScrawl(ctx, cam, W3, P, loX + HW * 0.43 + jit(1) * HW * 0.06, mid * (0.5 + jit(2) * 0.3), HW * 0.4, mid * 0.08, seed * 3 + 29, nightF, alpha);
     }
     // 9b) AND THE BACK GETS THE SAME, because on both ruins the back is what the lane sees. A
     //     ruin has no door, so its front is `faceVec`'s default (south, onto the Pitch), and
@@ -398,6 +398,13 @@ export const OLD_COLDWATER_ARMS = {
     // A fin on the hood, at the back, so the pod has a top from the gantry as well as a face.
     { const [fx, fy] = F(fh * 0.40, -fh * 0.45);
       draw3DBoxAt(ctx, cam, fx, fy, fh * 0.03, R * 0.78, R * 0.88, 'ty_hf_mirror', seed + 9, night, alpha, true, yaw, fh * 0.34); }
+    // The weighmaster's door, steel, off to the side of the glass so the window is left clear for
+    // the cabs. ⚠ The pod had no door at all (the small-building grade, 2026-10-04).
+    drawEntrance(ctx, cam, F, W3, E, seed, night, alpha, {
+      x: fh * 0.48, y: fh * 0.48, w: fh * 0.08, z0: R * 0.04, top: R * 0.15, leaves: 1,
+      frame: [150, 164, 176], porch: { depth: fh * 0.14, half: fh * 0.13, top: R * 0.19, pal: 'ty_hf_mirror' },
+      solid: { fill: [112, 124, 134], handle: [200, 206, 210] },
+      lamp: '120,244,255', lampDay: 0.2, lampS: 5, spill: '120,244,255', mat: false, frontVis });
   },
   gate_post(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE GATE POST: THE POLICE WATCH POD.
     lockPod(ctx, cam, dx, dy, fh, seed, night, alpha, E, F, '90,150,255');
@@ -412,6 +419,15 @@ export const OLD_COLDWATER_ARMS = {
     draw3DBoxAt(ctx, cam, ux, uy, fh * 0.06, zc + R * 0.04, zc + R * 0.07, 'ty_cont_b', seed + 12, night, alpha, true, faceYaw(E), fh * 0.06);
     glowPool(ctx, cam, ux, uy, zc + R * 0.06, '90,150,255', 8, alpha * (night ? 0.5 : 0.25));
     if (night) glowPool(ctx, cam, ux, uy, zt + R * 0.08, '200,220,255', 7, alpha * 0.3);
+    // THE DOOR between the cheeks, in a chrome frame out of the pod's glass, with the caged blue
+    // lamp over it at every hour and the rack of spike strips leaning by the step.
+    // ⚠ The pod had no door at all (the small-building grade, 2026-10-04).
+    drawEntrance(ctx, cam, F, W3, E, seed, night, alpha, {
+      y: fh * 0.64, w: fh * 0.10, z0: R * 0.04, top: R * 0.15, leaves: 1,
+      frame: [150, 164, 176], porch: { depth: fh * 0.18, half: fh * 0.16, top: R * 0.19, pal: 'ty_hf_mirror' },
+      lobby: { day: [56, 70, 86], night: [196, 214, 240] },
+      plate: { side: -1, w: 0.012, hh: 0.02, z: R * 0.04 + 0.021, fill: [84, 80, 52], night: [50, 48, 34] },
+      lamp: '90,150,255', lampDay: 0.3, lampS: 6, spill: '120,170,255', mat: false, frontVis });
   },
   vehicle_pound(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // LONG STAY — A COMPOUND, WHICH IS A SILHOUETTE WITH A HOLE IN IT.
     // Every other building in this city is mass you cannot see into. This one is a fence with
@@ -631,6 +647,13 @@ export const OLD_COLDWATER_ARMS = {
     { const [fx2, fy2] = F(-fh * 0.40, -fh * 0.42); draw3DBoxAt(ctx, cam, fx2, fy2, fh * 0.06, wallTop, ridge + h * 0.22, 'ty_oc_brick_dk', seed + 6, night, alpha, true); }
     // Tin over a kicked-in panel on the far flank, mass and a hair proud.
     { const [px, py] = F(fh * 0.692, -fh * 0.30); draw3DBoxAt(ctx, cam, px, py, fh * 0.012, h * 0.04, h * 0.24, 'ty_oc_tin', seed + 8, night, alpha, true, faceYaw(E), fh * 0.16); }
+    // THE DOOR, boards on a frame, in the strip of wall left of the window. Her light gets round
+    // its edge after dark, which is the other way the street knows she is in.
+    // ⚠ NOT UNDER THE LEAN-TO, where the grade suggested it: the queue's bench is there, and a door
+    //    behind a bench is a door nobody can open. There was no door at all before.
+    drawEntrance(ctx, cam, F, W3, E, seed, night, alpha, {
+      x: -fh * 0.54, y: fh * 0.68, w: fh * 0.10, top: h * 0.27, leaves: 1, frameW: fh * 0.012, depth: 0.006,
+      frame: [92, 82, 70], solid: { fill: [104, 84, 64], planks: 4, handle: [70, 62, 54], crack: '255,214,150' }, mat: false, frontVis });
     const nightF = night ? clamp(night, 0, 1) : 0;
     // The tarp over the missing corner of the roof, off the edge of the tin and down the flank.
     {
@@ -801,6 +824,15 @@ export const OLD_COLDWATER_ARMS = {
     // The name is CUT INTO THE LINTEL rather than hung on the front, so the band sits low, at the
     // head of the doors, and it is stone-coloured. There is no neon on this building at all.
     if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.76, h * 0.40, m.neon || '#d8d2bc', night, alpha);
+    // 7) THE DOORS, a timber pair on the plinth under the lintel band, with the top step out to the
+    //    plinth's edge. No lamp: the building has no light at street level, and a crack of the
+    //    reading room's warmth down the meeting stile is all the door says after dark.
+    // ⚠ THE LINTEL WAS OVER A BLANK WALL. The band was placed "at the head of the doors" and no
+    //    door was ever drawn under it (the small-building grade, 2026-10-04).
+    drawEntrance(ctx, cam, F, W3, E, seed, night, alpha, {
+      y: fh * 0.92, w: fh * 0.15, z0: plinth, top: h * 0.37, leaves: 2,
+      frame: [176, 168, 148], solid: { fill: [92, 64, 44], handle: [188, 160, 96], crack: '238,214,160' },
+      stepOut: fh * 0.07, mat: false, frontVis });
     if (night) {
       // ⚠ THE POOL SITS AT THE LANTERN, NOT AT THE PAVEMENT, and that is the entire model. Every
       // other glowPool in this switch is placed at the front face to wash the street; this one is
@@ -979,6 +1011,13 @@ export const OLD_COLDWATER_ARMS = {
     // The display case beside the door, lit, eleven portraits and a card.
     { const [cx2, cy2] = F(-fh * 0.50, fh * 0.94); draw3DBoxAt(ctx, cam, cx2, cy2, fh * 0.20, h * 0.16, h * 0.38, 'ty_negeq_case', seed + 6, night, alpha, true, faceYaw(E), fh * 0.06); }
     if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.80, h * 0.44, m.neon || '#cfe0ff', night, alpha);
+    // THE DOOR beside the case, half-glazed onto a dark hall, with the darkroom's red safelight over
+    // it after dark: the one lamp on the building that says somebody is printing.
+    // ⚠ THE CASE STOOD BESIDE A DOOR THAT WAS NOT THERE (the small-building grade, 2026-10-04).
+    drawEntrance(ctx, cam, F, W3, E, seed, night, alpha, {
+      x: fh * 0.02, y: fh * 0.92, w: fh * 0.10, top: h * 0.36, leaves: 1,
+      frame: [64, 60, 58], lobby: { day: [34, 36, 40], night: [118, 34, 28] },
+      lamp: '255,60,40', lampDay: 0, lampS: 6, spill: '255,90,70', frontVis });
     if (night) {
       // ⚠ THE GLOW IS ON THE ROOF. A studio works by daylight and she is printing after dark, so
       // what is lit at night is the slope, dimly, from the safelight and the enlarger bulb behind
@@ -1002,6 +1041,12 @@ export const OLD_COLDWATER_ARMS = {
     // THE KEY. Drawn as a blade, because a blade is what it is: a flat board standing off the
     // corner, taller than the shopfront, turning very slightly in a wind nobody has modelled.
     if (frontVis) { const [nx, ny] = F(fh * 0.40, fh * 0.42); neonBlade(ctx, cam, nx, ny, h * 0.30, h * 1.22, m.neon || '#d8c88a', night, alpha); }
+    // THE DOOR beside the four feet of window, which is the rest of the frontage: a glazed shop door
+    // with the lock it is selling on its own edge.
+    // ⚠ "A DOOR, AND BESIDE THE DOOR ABOUT FOUR FEET OF WINDOW" — and there was no door.
+    drawEntrance(ctx, cam, F, W3, E, seed, night, alpha, {
+      x: -fh * 0.20, y: fh * 0.32, w: fh * 0.085, top: h * 0.36, leaves: 1, frameW: fh * 0.014,
+      frame: [70, 66, 58], lobby: { day: [40, 38, 34], night: [236, 210, 150] }, frontVis });
     if (night) { const [gx, gy] = F(0, fh * 0.40); glowPool(ctx, cam, gx, gy, h * 0.30, '255,228,164', 5, alpha * 0.22); }
   },
   tattooist(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // NO REGERTS — A VERTICAL STRIP OF LIGHT UP A DARK BUILDING, and nothing else
@@ -1289,6 +1334,17 @@ export const OLD_COLDWATER_ARMS = {
         if (tex) emitSurfaceText(ctx, cam, [TL, TR, BR, BL], tex, false, alpha);
       }
     }
+    // 5) THE DOORS, up the step ring under the frieze, in a chrome porch out of the drum, with the
+    //    modest brass plate at eye height beside them. The reading room's green is the lobby.
+    // ⚠ THERE WAS NO ENTRANCE AT STREET LEVEL. The body is a drum, so the door stands in a porch
+    //    that meets the curve; on the drum itself the leaves would cut into the facets.
+    drawEntrance(ctx, cam, F, W3, E, seed, night, alpha, {
+      y: fh * 0.74, w: fh * 0.14, z0: h * 0.06, top: h * 0.06 + 0.12, leaves: 2,
+      frame: [150, 164, 176], lobby: { day: [52, 62, 58], night: [176, 206, 166] },
+      porch: { depth: fh * 0.18, half: fh * 0.24, top: h * 0.28, pal: 'ty_course_dk' },
+      transom: { hh: 0.007, day: [70, 82, 78], night: [190, 214, 176] },
+      plate: { side: 1, w: 0.012, hh: 0.008, z: h * 0.06 + 0.075, fill: [188, 158, 92], night: [120, 100, 60] },
+      stepOut: fh * 0.05, frontVis });
     if (night) {
       // Twelve green desk lamps in the reading room, switched on before opening whether or not
       // anybody is expected. It is the least light of any lit building on this row.
@@ -1328,6 +1384,15 @@ export const OLD_COLDWATER_ARMS = {
         if (tex) emitSurfaceText(ctx, cam, [TL, TR, BR, BL], tex, false, alpha);
       }
     }
+    // 5) THE DOOR the board says to enquire within, a glazed one in the office between the middle
+    //    scaffold legs. The board hangs low enough to hide its head from across the road, which is
+    //    the building's joke told one more time.
+    // ⚠ THE OFFICE IS A DRUM, so the door stands in a shallow chrome frame out of its face. There was
+    //    no door before (the small-building grade, 2026-10-04).
+    drawEntrance(ctx, cam, F, W3, E, seed, night, alpha, {
+      y: fh * 0.56, w: fh * 0.10, top: 0.105, leaves: 1,
+      frame: [186, 198, 208], lobby: { day: [84, 108, 124], night: [255, 238, 196] },
+      porch: { depth: fh * 0.08, half: fh * 0.17, top: h * 0.34, pal: 'ty_hf_chrome' }, frontVis });
     if (night) {
       // He leaves the office lit. There is a model in the window and he wants it seen, and the
       // board above it is not illuminated at all, which is the one thing he could not get funded.
@@ -1416,6 +1481,14 @@ export const OLD_COLDWATER_ARMS = {
     { const [m1x, m1y] = F(-fh * 0.30, -fh * 0.98);
       drawFacetDrum(ctx, cam, m1x, m1y, 0, knee * 1.4, fh * 0.09, fh * 0.09, 10, alpha, hfChrome([132, 148, 162], [246, 250, 252], 1.8), hfChrome([138, 154, 168], [216, 228, 236], 1.3), 'ty_wind_rail'); }
     { const [m2x, m2y] = F(-fh * 0.30, -fh * 0.60); draw3DBoxAt(ctx, cam, m2x, m2y, fh * 0.09, knee * 1.1, knee * 1.4, 'ty_wind_rail', seed + 13, night, alpha, true, faceYaw(E), fh * 0.40); }
+    // 5) THE DOORS, in the south gable at the head of the plinth, a glazed pair in an iron frame
+    //    with the green pressed against the glass behind them. Nothing lights them: after dark the
+    //    only light is the warmth, and it is a shade warmer here than the glass round it.
+    // ⚠ THE GABLE WAS GLASS ALL THE WAY ACROSS, so the vault had no way in (the small-building
+    //    grade, 2026-10-04). The plinth's end drum makes the step a terrace, which is what it is.
+    drawEntrance(ctx, cam, F, W3, E, seed, night, alpha, {
+      y: fh * 0.92, w: fh * 0.13, z0: knee, top: knee + 0.105, leaves: 2,
+      frame: [58, 66, 62], lobby: { day: [74, 112, 78], night: [96, 150, 108] }, mat: false, frontVis });
     if (night) {
       // ⚠ NOT grow-lamps. Terminus lights its glasshouses from inside and that is a creed; this one
       // has no lamps at all and what you see after dark is the heat: the vault holds a dull warmth
@@ -1482,6 +1555,13 @@ export const OLD_COLDWATER_ARMS = {
     // 4) THE HEAT MAIN leaving the north-west corner at head height on brick piers, which is the
     //    other half of the arrangement Glass Half Full is warm because of. Same palette both ends.
     { const [mx, my] = F(-fh * 0.72, -fh * 0.40); draw3DBoxAt(ctx, cam, mx, my, fh * 0.09, h * 0.16, h * 0.24, 'ty_wind_rail', seed + 8, night, alpha, true, faceYaw(E), fh * 0.60); }
+    // 5) THE PERSONNEL DOOR, one steel leaf off centre in the blank slab, with a caged bulb over it.
+    //    A plant has to be got into; it does not have to be welcoming about it.
+    // ⚠ THE BLOCK HAD NO OPENING ANYWHERE (the small-building grade, 2026-10-04).
+    drawEntrance(ctx, cam, F, W3, E, seed, night, alpha, {
+      x: fh * 0.30, y: fh * 0.78, w: fh * 0.08, top: 0.10, leaves: 1,
+      frame: [120, 132, 140], solid: { fill: [104, 116, 124], handle: [190, 196, 200] },
+      lamp: '206,226,230', lampDay: 0, lampS: 5, spill: '206,226,230', mat: false, frontVis });
     if (night) {
       // Two floods on the deck handrail, pointed DOWN at the catwalk rather than out, because a
       // light pointed north from up there would be seen from the Spire and she knows it.
@@ -1538,6 +1618,14 @@ export const OLD_COLDWATER_ARMS = {
     //    quarter's own joke about its plant and the reason this yard is not works green.
     { const [rx2, ry2] = F(fh * 0.56, fh * 0.70);
       drawFacetDrum(ctx, cam, rx2, ry2, 0, roomTop, fh * 0.30, fh * 0.28, 14, alpha, hfChrome([112, 128, 144], [226, 238, 246], 1.8), hfChrome([122, 138, 152], [198, 212, 222], 1.4), 'ty_engine_brick'); }
+    // …AND ITS DOOR, steel, in a frame out of the drum's street face, under one sodium lamp.
+    // ⚠ "THE ONLY DOOR" AND THERE WAS NONE (the small-building grade, 2026-10-04). The room is a
+    //    drum, so the door stands in a shallow frame that meets the curve.
+    drawEntrance(ctx, cam, F, W3, E, seed, night, alpha, {
+      x: fh * 0.56, y: fh * 0.94, w: fh * 0.075, top: 0.10, leaves: 1,
+      frame: [150, 160, 170], porch: { depth: fh * 0.05, half: fh * 0.13, top: h * 0.31, pal: 'ty_hf_chrome' },
+      solid: { fill: [118, 128, 136], handle: [196, 200, 204] },
+      lamp: '255,210,74', lampDay: 0, lampS: 5, spill: '255,210,74', mat: false, frontVis });
     if (night) {
       // A yard flood on the gantry leg and the switch room's own window. Nothing warm: this is the
       // one plot in the quarter lit entirely in sodium, because nobody is meant to linger on it.

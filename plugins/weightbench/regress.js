@@ -2,7 +2,7 @@
 // production). The fake player stands in a zone with no station, so we exercise
 // the gated no-mutation paths (no real stat is granted) plus the pure rep curve.
 import { _test } from './index.js';
-import { STATIONS, STATION_VERBS, repsFor, setFlavor } from './stations.js';
+import { STATIONS, STATION_VERBS, repsFor, setFlavor, stationFor } from './stations.js';
 import { RAISABLE_STATS } from '../../server/engine/ip.js';
 
 export default async function regress({ run, check, getPlayer }) {
@@ -45,6 +45,25 @@ export default async function regress({ run, check, getPlayer }) {
       check(`${v} flavour at ${frac} tank is a string`, typeof setFlavor(STATIONS[v], frac) === 'string');
     }
   }
+
+  // ── Furniture styles (a heavy bag is `spar` with its own prose) ────────────
+  // A style may only swap prose. If it could change the stat or the numbers, a piece of
+  // furniture could quietly make one gym cheaper than another.
+  for (const v of STATION_VERBS) {
+    for (const [name, over] of Object.entries(STATIONS[v].styles || {})) {
+      const s = stationFor(v, name);
+      check(`${v}/${name} keeps the station's stat and verb`, s.stat === STATIONS[v].stat && s.verb === v, `${s.stat} ${s.verb}`);
+      check(`${v}/${name} keeps the station's numbers`,
+        s.setMs === STATIONS[v].setMs && s.staPerSet === STATIONS[v].staPerSet && s.repsBase === STATIONS[v].repsBase);
+      check(`${v}/${name} has all three fatigue tiers`, s.strong?.length && s.labored?.length && s.gassed?.length && s.gain?.length);
+      check(`${v}/${name} swaps the prose`, s.strong !== STATIONS[v].strong && typeof s.startLine('x') === 'string');
+      for (const frac of [1, 0.5, 0]) check(`${v}/${name} flavour at ${frac} tank is a string`, typeof setFlavor(s, frac) === 'string');
+      check(`${v}/${name} declares nothing a style cannot carry`, !('stat' in over) && !('verb' in over) && !('setMs' in over));
+    }
+  }
+  check('an unknown style is the base station', stationFor('spar', 'no_such_style') === STATIONS.spar);
+  check('no style is the base station', stationFor('spar', null) === STATIONS.spar);
+  check('the boxing bag style exists', stationFor('spar', 'bag').noun === 'a heavy bag');
 
   // ── Command gating (no station in the fake player's zone) ──────────────────
   const saved = {

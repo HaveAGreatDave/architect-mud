@@ -157,7 +157,7 @@ async function main() {
   // them, and each is reached the same way a building model is: somebody happens to drive past it.
   const marks = ws.markRenderSmoke();
   for (const f of marks) problems.push(`mark   ${f.key} (night=${f.night}) → ${f.err}`);
-  const markLine = `Marks: ${marks.ran} statue/gate/bay/highway-sign passes clean (night+day).`;
+  const markLine = `Marks: ${marks.ran} statue/gate/bay/highway-sign/AA-battery passes clean (night+day).`;
 
   // ── ADORNMENT OCCLUSION ──
   // A light, a sign or a beacon is queued at its own depth lifted DECO_LIFT toward the camera, and

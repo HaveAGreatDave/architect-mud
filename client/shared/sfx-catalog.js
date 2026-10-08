@@ -429,6 +429,16 @@
       config: { duration: 0.15, layers: [
         { waveform: 'sine', freq: 860, pitchBend: { to: 380, time: 0.09 }, adsr: { a: 0.003, d: 0.08, s: 0, r: 0.05 }, gain: 0.06 },
         { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1600, q: 0.9 }, adsr: { a: 0.01, d: 0.05, s: 0, r: 0.04 }, gain: 0.03 } ] } },
+    // purchase — the till in a garage (panels/depot-shell.js): the drawer's thunk, then two bright
+    // bells up an octave and a fifth. Louder and longer than a confirm, because it is news.
+    { id: 'ui-purchase', name: 'Interface — purchase', group: 'interface', category: 'ui', priority: 5,
+      config: { duration: 0.6, layers: [
+        { waveform: 'sine', freq: 140, pitchBend: { to: 70, time: 0.08 }, adsr: { a: 0.002, d: 0.08, s: 0, r: 0.04 }, gain: 0.14 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 2400, q: 1.2 }, adsr: { a: 0.001, d: 0.03, s: 0, r: 0.02 }, gain: 0.07 },
+        { waveform: 'triangle', freq: 1568, delay: 0.06, adsr: { a: 0.001, d: 0.22, s: 0, r: 0.12 }, gain: 0.08 },
+        { waveform: 'sine', freq: 3136, delay: 0.06, adsr: { a: 0.001, d: 0.12, s: 0, r: 0.08 }, gain: 0.03 },
+        { waveform: 'triangle', freq: 2349, delay: 0.16, adsr: { a: 0.001, d: 0.32, s: 0, r: 0.18 }, gain: 0.09 },
+        { waveform: 'sine', freq: 4698, delay: 0.16, adsr: { a: 0.001, d: 0.16, s: 0, r: 0.1 }, gain: 0.03 } ] } },
 
     // ── Accolades ────────────────────────────────────────────────────────────
     // "Reach & relax": three glass bells, C5 → G5 → F5.

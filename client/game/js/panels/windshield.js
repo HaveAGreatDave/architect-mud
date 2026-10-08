@@ -42,6 +42,7 @@ import { TAG_GLYPHS } from '../../../shared/tag-glyphs.js';
 import { TAG_STROKES, TAG_FACES } from '../../../shared/tag-strokes.js';
 // A mesh file's moving parts — wings that swing out, anything on a hinge — posed per aircraft here.
 import { animFacePoints } from '../../../shared/vehicle-mesh.js';
+import { metalKOf } from '../../../shared/vehicle-materials.js';   // what a vehicle's exterior is made of, face by face
 import { hfCastFor, hfTint, hfSkinFor } from '../../../shared/hf-tint.js';
 import { TRUCK_LOCK_RAD } from './helm-wheel.js';
 import { veilHTML, VEIL_CSS, veilHold, veilPainted, veilReset } from './glass-veil.js';
@@ -49,6 +50,8 @@ import { setVehicleParams, clearVehicleParams, vehicleParamBase, vehicleParamIds
 import { rasterDepth, depthTarget, lightBasis, rasterShadow, shadeRaster, readPixels, depthWinAt } from './model-raster.js';
 import { playThunderSample } from './engine-audio.js';
 import { FLOOR_Z, BUILDING_FOOT, floorsFor } from '../../../shared/skyline-scale.js';
+import { fireworksAround, aaLive, AA_FIRE_MS } from './world-feed.js';   // world events kept by tile, whatever seat is open
+import { drawAAEmplacement } from './glass/aa-emplacement.js';   // the four AA batteries (drawAAMark)
 import { skylineFar, SKYLINE_BASE_FAR } from '../../../shared/skyline-tall.js';
 import { hnoise2, hn2h, fbm2 } from '../../../shared/landform.js';
 import { BIOME_GROUND } from '../../../shared/ground-palette.js';
@@ -2155,6 +2158,10 @@ export const RENDER_TUNE = {
   // on a 72-pixel letter cell and a halo wider than the tube under it, which is why a pale sign
   // came back white and its letterforms came back soft. 0 is a sign with no glow at all.
   signBloom: 0.55,
+  // ── …AND HOW FAR ITS LIGHT FALLS ON THE BOARD BEHIND IT ─────────────────────────────────────
+  // A lit neon tube throws a broad, faint pool of its own colour onto its backing, under the tight
+  // halo `signBloom` sizes. 1 is the wash at 40%; 0 is a sign whose light stops at the glass.
+  neonWash: 1,
   // ── …AND IT STANDS THERE WHEREVER YOU ARE STANDING ──────────────────────────────────────────
   // 0 puts the stand-off back in the camera's forward coordinate, which is where every sign in the
   // game carried it until now — and which puts a CAMERA TERM in the shape of a thing painted on a
@@ -6371,7 +6378,11 @@ function paintWindshieldFrame(id, view) {
       // Remembers whether it drew: a site behind the view (or an old payload without site
       // coords) falls through to the screen-space streak after the banked block instead.
       if (v.aaTracer && v.aaTracer.dx != null) v._aaDrew3D = drawAATracer3D(ctx, cam, v, now);
-      if (v.fireworks) drawFireworks(ctx, cam, v, now);   // admin fireworks bursting over a world tile
+      // Admin fireworks bursting over a world tile, for every seat: kept by tile in world-feed.js and
+      // resolved against where this view's own ship stands (the window centre plus its offset).
+      { const mc = v.mapCenter, mo = v.mapOffset || { x: 0, y: 0 };
+        const fw = v.fireworks || (mc ? fireworksAround(mc.x + (mo.x || 0), mc.y + (mo.y || 0)) : null);
+        if (fw) drawFireworks(ctx, cam, { fireworks: fw }, now); }
       // Not in big screen, which strips every readout off the glass and leaves the picture (bigScreenOn).
       if (marks && vw.apTarget && !bigScreenOn()) drawAirportTarget(ctx, cam, vw, W, H, now);   // target-field ring / Home waypoint
       if (vw.gates) drawGates(ctx, cam, vw, W, H, now);   // checkride pilot-wings rings
@@ -19992,6 +20003,9 @@ function palNeon(pal) {
 // default windowed curtain wall — for hangars/sheds, which shouldn't carry lit office windows.
 const METAL_WALL = new Set([
   'ty_arrivals',   // the airfield's panel cladding: arrivals is glazed on its airside face and clad everywhere else
+  // …and the terminal's livery fascia, which carries its lettering. As a windowed wall it drew rows
+  // of lit office windows either side of the name and all along the joint between the two halves.
+  'ty_airport_band',
   // The plant's sheet metal: eight fan cowls, a gasholder drum and a louvre band. All three
   // are pressed or rolled steel and none of them has a window in it anywhere.
   'ty_cold_cowl', 'ty_holder_drum', 'ty_wires_louvre',
@@ -24062,36 +24076,7 @@ let OWN_SHADOWS = null;
 // for free — the reflection pass draws the solids, and a cab that was missing from its own
 // reflection is the bug gl/solids.js was built to fix, one object further in.
 const norm3v = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
-// How much of the world a face of an aircraft mirrors (drawAircraftContact's reflection term).
-// Glass is a clear coat (negative): the GPU mirrors the sky across it per pixel, toward grazing, which
-// is what `glassSheen` used to fake as a flat 2-D gloss laid over the whole pane.
-const METAL_ROLE = { gear: 0.45, strut: 0.4, gun: 0.6, ramp: 0.28, glass: -0.55, window: -0.55 };
-// A mesh file's paint slots that are metal by name (the Drake's hub, chrome, guns and grilles).
-const METAL_PAINT = { chrome: 0.95, hub: 0.75, gun: 0.9, gunDk: 0.7, grille: 0.4, duct: 0.3,
-  breast: 0.4, lowA: 0.32, lowB: 0.32, lowC: 0.32,
-  belly: 0.4, throat: 0.4, flank: 0.4, face: 0.4, seam: 0.4 };   // the cream and tan shell share the breast's candy finish   // the Drake's miniguns are chromed; its violet breast is a candy-metallic shell
-const CLEARCOAT = { gloss: 0.22, metallic: 0.3, candy: 0.26, pearl: 0.2 };
-function metalKOf(face, pal) {
-  if (face.pk === 'bright' && pal.chrome !== 0) return 0.95;
-  // A mesh that says what a face is made of (buildBoat's `mk`) is taken at its word; a livery
-  // finish still wins over the default gelcoat.
-  if (face.mk !== undefined && !(face.mk < 0 && CLEARCOAT[pal.finish] && pal.finish !== 'satin')) return face.mk;
-  // ⚠ A COMPILED FACE'S `paint` IS THE SLOT OBJECT, not its name (vehicle-mesh.js compileMesh), so the
-  // table is read by `.name`. Read by the object it matched nothing, and no Drake metal ever reflected.
-  const slot = face.paint ? (typeof face.paint === 'string' ? face.paint : face.paint.name) : null;
-  if (slot && METAL_PAINT[slot]) return METAL_PAINT[slot];
-  // ⚠ A NAMED PAINT SLOT THAT IS NOT A METAL BEATS THE ROLE. `role` says what a face DOES (it
-  // retracts with the gear), the slot says what it is MADE of. The Drake's gear doors are role
-  // `gear` painted `belly` cream, so the role made each flat door a 0.45 mirror, and at the angles
-  // where it faced the sky it turned into a bright pale square beside the minigun. Its feet
-  // (`feet`, role `gear`) were chrome for the same reason. A slot-less gear leg keeps its metal.
-  const m = slot && face.role !== 'glass' && face.role !== 'window' ? 0 : METAL_ROLE[face.role];
-  if (m) return m;
-  if ((face.role === 'body' || face.role === 'accent' || face.role === 'trim' || face.paint) && CLEARCOAT[pal.finish]) return -CLEARCOAT[pal.finish];
-  // A factory paint slot is a luxury finish: a light clear coat, strongest at grazing angles.
-  if (face.paint && !pal.finish) return -0.16;
-  return 0;
-}
+// How much of the world a face of a vehicle mirrors: metalKOf, in client/shared/vehicle-materials.js.
 // Mirror a simple world into a face: `mk` > 0 is a metal (the reflection is tinted by the metal's
 // colour and replaces most of it), `mk` < 0 a clear coat (untinted, and only toward grazing).
 // The sky this frame, as drawSky paints it (SKY_BAND in the world pass): what a metal reflects above
@@ -30848,11 +30833,82 @@ function mownBlocks(ctx, cam, dx, dy, seed, alpha, night) {
 //
 // ⚠ AND THE CANVAS DRAWS THE SAME FACETS. With GLASS 2 off the tile's facets are projected, culled
 // by their baked normal and painted far to near inside the tile's own queued face, so both
-// renderers show one park. Water, gravel, mulch and paving stay ground paint, and reeds, jets and
-// glows stay strokes: none of those has a side to stand on.
+// renderers show one park. Water, gravel, mulch, paving, lily pads and fish stay ground paint, and
+// jets and glows stay strokes: none of those has a side to stand on.
 const PARK_LIGHT = (() => { const v = [-0.46, -0.54, 0.70], l = Math.hypot(v[0], v[1], v[2]); return [v[0] / l, v[1] / l, v[2] / l]; })();
 const PARK_GEOM = new Map();
 const PARK_RECS = new Map();
+// The pond's water line: up under the coping (see the ⚠ in drawParkTile's pond).
+const POND_WZ = 0.026;
+// ── ONE POND, ONE LAYOUT ─────────────────────────────────────────────────────
+// The solids and the paint both need to know where things are: a lily flower sits on its pad, the
+// reeds grow under the willow, the bench looks at the water from across it. So the layout is worked
+// out once per seed here and both read it. It also holds the paint's tile-local point lists, which
+// would otherwise be rebuilt with their trig every frame.
+//
+// `corner` is the willow's corner of the tile (a diagonal, where there is room for a crown beside
+// a round pond); the bench sits in the opposite one.
+const POND_LAYOUT = new Map();
+function pondLayout(seed) {
+  let L = POND_LAYOUT.get(seed);
+  if (L) return L;
+  const q = (k) => frac(seed * 3.17 + k * 7.31);
+  const C = Math.PI / 4 + Math.floor(q(100) * 4) * Math.PI / 2;
+  // Lilies spread from a root, so they come in rafts and not as a scatter: two rafts, either side
+  // of the line from the willow to the bench, which leaves that line open water.
+  const pads = [];
+  for (let c = 0; c < 2; c++) {
+    const ca = C + Math.PI * (c ? 1.45 : 0.55) + (q(101 + c) - 0.5) * 0.5, cr = 0.12 + q(103 + c) * 0.07;
+    const cx = Math.cos(ca) * cr, cy = Math.sin(ca) * cr, n = c ? 4 : 6;
+    for (let i = 0; i < n; i++) {
+      const k = 110 + c * 20 + i * 3, a = q(k) * Math.PI * 2, rr = i ? 0.03 + q(k + 1) * 0.04 : 0;
+      const x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr, r = 0.021 + q(k + 2) * 0.017;
+      if (Math.hypot(x, y) + r > 0.30) continue;
+      // The notch runs from the centre to the rim, so the pad is two sectors of under 180° each,
+      // which keeps both convex for groundPoly.
+      const notch = q(k + 40) * Math.PI * 2, half = 0.3, sector = (a0, a1) => {
+        const pts = [[x, y]];
+        for (let j = 0; j <= 5; j++) { const t = a0 + (a1 - a0) * j / 5; pts.push([x + Math.cos(t) * r, y + Math.sin(t) * r]); }
+        return pts;
+      };
+      pads.push({
+        x, y, r,
+        halves: [sector(notch + half, notch + Math.PI), sector(notch + Math.PI, notch + Math.PI * 2 - half)],
+        hi: discPts(r * 0.4, 7, x - Math.cos(notch) * r * 0.42, y - Math.sin(notch) * r * 0.42),
+        shade: discPts(r * 1.04, 9, x + 0.004, y + 0.0046),
+        tone: i === n - 1 && c ? 2 : (q(k + 41) < 0.5 ? 0 : 1),   // one going over, yellowing at the edge of a raft
+        flower: (c === 0 && i === 1) ? [240, 176, 206] : (c === 1 && i === 0) ? [242, 238, 230] : null,
+      });
+    }
+  }
+  // The apron: one ring of flags round the coping, a grass joint between each, alternate tones.
+  const apron = [];
+  for (let k = 0, N = 22; k < N; k++) {
+    const a0 = k / N * Math.PI * 2 + 0.012, a1 = (k + 1) / N * Math.PI * 2 - 0.012, r0 = 0.374, r1 = 0.448;
+    apron.push({ p: [[Math.cos(a0) * r0, Math.sin(a0) * r0], [Math.cos(a1) * r0, Math.sin(a1) * r0], [Math.cos(a1) * r1, Math.sin(a1) * r1], [Math.cos(a0) * r1, Math.sin(a0) * r1]], t: 0.92 + q(160 + k) * 0.14 });
+  }
+  // The coping's shadow on the water, on the side the light comes from. Annulus segments, each
+  // carrying how hard the light hits the wall behind it.
+  const la = Math.atan2(PARK_LIGHT[1], PARK_LIGHT[0]), shadow = [];
+  for (let k = 0, N = 20; k < N; k++) {
+    const a0 = k / N * Math.PI * 2, a1 = (k + 1) / N * Math.PI * 2, w = Math.cos((a0 + a1) / 2 - la);
+    if (w < 0.12) continue;
+    for (const [r0, r1, s] of [[0.296, 0.322, 1], [0.272, 0.296, 0.45]]) {
+      shadow.push({ p: [[Math.cos(a0) * r0, Math.sin(a0) * r0], [Math.cos(a1) * r0, Math.sin(a1) * r0], [Math.cos(a1) * r1, Math.sin(a1) * r1], [Math.cos(a0) * r1, Math.sin(a0) * r1]], w: w * s });
+    }
+  }
+  // Three koi on slow loops that stay in the water: a loop centre near the middle, a radius that
+  // keeps the fish inside the margin, a speed and a direction.
+  const KOI = [[226, 110, 44], [238, 232, 220], [232, 176, 64]];
+  const koi = KOI.map((rgb, i) => ({
+    rgb, cx: (q(170 + i) - 0.5) * 0.12, cy: (q(173 + i) - 0.5) * 0.12, r: 0.09 + q(176 + i) * 0.08,
+    w: (0.00022 + q(179 + i) * 0.00018) * (i % 2 ? -1 : 1), ph: q(182 + i) * Math.PI * 2, len: 0.026 + q(185 + i) * 0.008,
+  }));
+  L = { C, pads, apron, shadow, koi, bask: [Math.cos(C + Math.PI) * 0.205, Math.sin(C + Math.PI) * 0.205] };
+  if (POND_LAYOUT.size > 256) POND_LAYOUT.clear();
+  POND_LAYOUT.set(seed, L);
+  return L;
+}
 // Tile-local facets for one dressing: `[{ p, rgb, n }]`, z up, the tile spanning ±0.5. `lod` 1 is
 // the far version (fewer sides, no blossom), `nq` the night band 0..10.
 function parkGeom(seed, variant, lod, nq) {
@@ -30991,6 +31047,28 @@ function parkGeom(seed, variant, lod, nq) {
   const bin = (x, y) => lathe(x, y, [[0.017, 0], [0.019, 0.05], [0.019, 0.058]], lod ? 5 : 8, [70, 82, 70], { capRgb: [40, 46, 42] });
   // A bollard: a post with a domed head.
   const bollard = (x, y) => lathe(x, y, [[0.011, 0], [0.010, 0.05], [0.012, 0.054], [0.009, 0.064], [0, 0.068]], lod ? 5 : 8, [58, 62, 66]);
+  // A three-sided spike from a base round (x, y, z0) to a tip at (tx, ty, z1): a reed blade, or with
+  // the tip below the base, a frond hanging off a willow. Three sides so it stands from every side.
+  const spike = (x, y, r, z0, tx, ty, z1, rgb, o) => {
+    const B = [0, 1, 2].map((i) => { const a = i * 2.0944 + seed; return [x + Math.cos(a) * r, y + Math.sin(a) * r, z0]; });
+    const c = [(x * 3 + tx) / 4, (y * 3 + ty) / 4, (z0 * 3 + z1) / 4];
+    for (let i = 0; i < 3; i++) face([B[i], B[(i + 1) % 3], [tx, ty, z1]], rgb, c, o);
+  };
+  // A water lily in flower: an outer ring of eight petals lying open, an inner six standing up,
+  // half a step round, and the yellow heart. Each petal is a flat diamond, base to tip.
+  const lily = (x, y, rgb) => {
+    const z = POND_WZ + 0.001, c = [x, y, z - 0.012];
+    for (let ring = 0; ring < 2; ring++) {
+      const n = ring ? 6 : 8, r1 = ring ? 0.0095 : 0.0145, lift = ring ? 0.0085 : 0.0045, w = ring ? 0.0032 : 0.0046;
+      const col = ring ? [Math.min(255, rgb[0] * 1.04), Math.min(255, rgb[1] * 1.04), Math.min(255, rgb[2] * 1.04)] : rgb;
+      for (let i = 0; i < n; i++) {
+        const a = (i + ring * 0.5) / n * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a), rm = r1 * 0.55;
+        face([[x + ca * 0.002, y + sa * 0.002, z], [x + ca * rm - sa * w, y + sa * rm + ca * w, z + lift * 0.55],
+          [x + ca * r1, y + sa * r1, z + lift], [x + ca * rm + sa * w, y + sa * rm - ca * w, z + lift * 0.55]], col, c);
+      }
+    }
+    lathe(x, y, [[0.0042, z], [0.0036, z + 0.0045], [0, z + 0.0058]], 5, [236, 194, 66]);
+  };
   switch (variant) {
     case 0: {   // TREE GROVE: four trees on a mulch bed inside a timber edging, shrubs between
       ringWall(0, 0, 0.405, 0.392, 0, 0.012, lod ? 12 : 20, [104, 78, 52]);
@@ -31003,14 +31081,87 @@ function parkGeom(seed, variant, lod, nq) {
       }
       break;
     }
-    case 1: {   // ORNAMENTAL POND: a raised stone coping, boulders at the margin
-      ringWall(0, 0, 0.37, 0.32, 0, 0.032, lod ? 14 : 24, STONE, { inRgb: STONE_DK, zIn: 0.012 });
-      // Stones in the margin, wholly inside the water: the coping's inner face is at 0.32, and a
-      // stone straddling it reads as rubble left on the wall rather than as part of the pond.
-      for (let i = 0; i < (lod ? 2 : 4); i++) {
-        const a = q(70 + i) * Math.PI * 2, s = 0.013 + q(72 + i) * 0.010, r = 0.30 - s * 1.3 - q(71 + i) * 0.03;
-        lathe(Math.cos(a) * r, Math.sin(a) * r, [[s, 0.014], [s * 1.05, 0.014 + s * 0.45], [s * 0.6, 0.014 + s * 0.95], [0, 0.014 + s * 1.1]],
-          lod ? 4 : 6, i % 2 ? [120, 124, 104] : [138, 134, 126], { jit: 0.3, ph: q(73 + i) * 3, sq: 0.7 });
+    case 1: {   // ORNAMENTAL POND: dressed coping on a plinth, a willow over the water, reeds and rocks under it,
+                // lilies in flower, a turtle on a stone, and a bench across the water looking at all of it
+      const P = pondLayout(seed), C = P.C, WZ = POND_WZ;
+      // The plinth: a darker course a finger proud of the coping. It is what makes the rim read as
+      // built rather than as a grey washer laid on the lawn.
+      ringWall(0, 0, 0.378, 0.360, 0, 0.016, lod ? 14 : 24, STONE_DK);
+      // The coping, stone by stone: each block its own tone, so the joints read without being cut,
+      // and up close its top edges are chamfered, which catches the light as a line.
+      const CN = lod ? 14 : 24, bev = lod ? 0 : 0.005, rO = 0.368, rI = 0.318, z0 = 0.016, z1 = 0.034, zIn = 0.012;
+      for (let k = 0; k < CN; k++) {
+        const a0 = k / CN * Math.PI * 2, a1 = (k + 1) / CN * Math.PI * 2, am = (a0 + a1) / 2;
+        const at = (a, r, z) => [Math.cos(a) * r, Math.sin(a) * r, z];
+        const M = at(am, (rO + rI) / 2, (z0 + z1) / 2), t = 0.9 + q(200 + k) * 0.16;
+        const rgb = [STONE[0] * t, STONE[1] * t, STONE[2] * t], wet = [STONE_DK[0] * t * 0.9, STONE_DK[1] * t * 0.92, STONE_DK[2] * t * 0.9];
+        const band = (r0, za, r1, zb, col) => face([at(a0, r0, za), at(a1, r0, za), at(a1, r1, zb), at(a0, r1, zb)], col, M);
+        band(rO, z0, rO, z1 - bev, rgb);
+        if (bev) band(rO, z1 - bev, rO - bev, z1, rgb);
+        band(rO - bev, z1, rI + bev, z1, rgb);
+        if (bev) band(rI + bev, z1, rI, z1 - bev, rgb);
+        band(rI, z1 - bev, rI, zIn, wet);   // the inside face, dark with the water line
+      }
+      // Rocks at the willow's foot, wholly inside the water: the coping's inner face is at 0.318,
+      // and a stone straddling it reads as rubble left on the wall rather than as part of the pond.
+      const rock = (x, y, s, rgb, ph, z = 0.014) => lathe(x, y, [[s, z], [s * 1.05, z + s * 0.45], [s * 0.6, z + s * 0.95], [0, z + s * 1.1]],
+        lod ? 4 : 6, rgb, { jit: 0.3, ph, sq: 0.7 });
+      for (let i = 0; i < (lod ? 2 : 3); i++) {
+        const a = C + (q(70 + i) - 0.5) * 1.1, s = 0.012 + q(72 + i) * 0.011, r = 0.30 - s * 1.3 - q(71 + i) * 0.02;
+        rock(Math.cos(a) * r, Math.sin(a) * r, s, i % 2 ? [120, 124, 104] : [138, 134, 126], q(73 + i) * 3);
+      }
+      // A flat basking stone out in the open water, in the bench's view, and its turtle.
+      const [sx, sy] = P.bask, ss = 0.024;
+      lathe(sx, sy, [[ss, 0.016], [ss * 1.04, WZ + 0.004], [ss * 0.78, WZ + 0.010], [0, WZ + 0.012]], lod ? 5 : 7, [128, 126, 116], { jit: 0.25, ph: q(78), sq: 0.8 });
+      if (!lod) {
+        const ta = q(79) * Math.PI * 2, hx = Math.cos(ta), hy = Math.sin(ta), tz = WZ + 0.010;
+        lathe(sx, sy, [[0.0105, tz], [0.0098, tz + 0.004], [0.0062, tz + 0.0078], [0, tz + 0.0092]], 7, [64, 76, 46], { sq: 0.8, ph: ta });
+        box(sx + hx * 0.0125, sy + hy * 0.0125, 0.0034, 0.0024, tz + 0.001, tz + 0.0045, ta, [92, 104, 62]);
+      }
+      // The willow, in its corner, its crown reaching out over the water. ⚠ THE SKIRT STOPS SHORT
+      // OF THE GROUND: trunk showing under the fronds is what says tree and not hedge.
+      const wx = Math.cos(C) * 0.455, wy = Math.sin(C) * 0.455, ix = -Math.cos(C), iy = -Math.sin(C);
+      lathe(wx, wy, [[0.021, 0], [0.016, 0.07], [0.012, 0.15]], lod ? 4 : 6, BARK);
+      const WIL = night > 0.5 ? [98, 124, 70] : [124, 150, 82], cx = wx + ix * 0.03, cy = wy + iy * 0.03;
+      // A willow's crown is lumpy on top and hangs straight down at the sides: a skirt that is
+      // nearly a cylinder, and two smaller domes riding on it, the higher one off to the land side.
+      lathe(cx, cy, [[0.112, 0.074], [0.132, 0.12], [0.134, 0.168], [0.112, 0.204], [0.064, 0.226], [0, 0.232]], lod ? 7 : 12, WIL,
+        { jit: 0.26, under: 1, ph: q(161) });
+      if (!lod) {
+        const ux = cx - ix * 0.035, uy = cy - iy * 0.035, vx = cx + ix * 0.04 - iy * 0.03, vy = cy + iy * 0.04 + ix * 0.03;
+        lathe(ux, uy, [[0.07, 0.19], [0.082, 0.22], [0.066, 0.252], [0.03, 0.27], [0, 0.274]], 9, [WIL[0] * 1.08, WIL[1] * 1.08, WIL[2] * 1.04], { jit: 0.22, ph: q(163) });
+        lathe(vx, vy, [[0.056, 0.18], [0.066, 0.205], [0.05, 0.232], [0, 0.244]], 8, [WIL[0] * 1.04, WIL[1] * 1.05, WIL[2] * 1.02], { jit: 0.22, ph: q(164) });
+      }
+      // and the curtain: fronds hanging off the skirt, longest on the water side, which is the line
+      // that makes it a WILLOW. ⚠ THEY STOP SHORT OF THE GROUND: the trunk shows between them.
+      if (!lod) for (let i = 0; i < 26; i++) {
+        const a = (i + q(165 + i) * 0.7) / 26 * Math.PI * 2, r = 0.118 + q(195 + i) * 0.016;
+        const fx = cx + Math.cos(a) * r, fy = cy + Math.sin(a) * r, water = Math.max(0, Math.cos(a) * ix + Math.sin(a) * iy);
+        const tip = Math.max(POND_WZ + 0.003, 0.064 - (0.012 + q(225 + i) * 0.022) - water * 0.02);   // the longest trail on the water, never through it
+        spike(fx, fy, 0.0085, 0.094, fx + Math.cos(a) * 0.006, fy + Math.sin(a) * 0.006, tip, i % 3 ? [WIL[0] * 0.94, WIL[1] * 0.97, WIL[2] * 0.9] : [WIL[0] * 1.06, WIL[1] * 1.06, WIL[2]], { jit: 0.2 });
+      }
+      // Reeds and flag iris in the margin under the willow: a few carry a cattail, two a yellow flower.
+      const REED = [[78, 118, 52], [96, 128, 58], [70, 106, 50]];
+      for (let i = 0, RN = lod ? 6 : 16; i < RN; i++) {
+        const k = 230 + i * 5, a = C + (q(k) - 0.5) * 1.05, r = 0.262 + q(k + 1) * 0.044;
+        const x = Math.cos(a) * r, y = Math.sin(a) * r, h = 0.05 + q(k + 2) * 0.065;
+        const tx = x + (q(k + 3) - 0.5) * 0.032, ty = y + (q(k + 4) - 0.5) * 0.032;
+        spike(x, y, 0.0036, WZ - 0.004, tx, ty, WZ + h, REED[i % 3], { jit: 0.15 });
+        if (lod) continue;
+        const along = (t) => [x + (tx - x) * t, y + (ty - y) * t, WZ + h * t];
+        if (i % 4 === 0) { const [hx, hy, hz] = along(0.72); lathe(hx, hy, [[0.0052, hz], [0.0056, hz + h * 0.16], [0, hz + h * 0.16 + 0.004]], 5, [104, 68, 38]); }
+        else if (i === 5 || i === 11) { const [fx, fy, fz] = along(0.8); lathe(fx, fy, [[0.002, fz], [0.0075, fz + 0.005], [0, fz + 0.008]], 5, [238, 204, 58]); }
+      }
+      // The lilies in flower, on their pads.
+      if (!lod) for (const p of P.pads) if (p.flower) lily(p.x, p.y, p.flower);
+      // The bench, in the opposite corner on the flags, looking across the water at the willow, its bin beside it.
+      const bA = C + Math.PI, bx = Math.cos(bA) * 0.424, by = Math.sin(bA) * 0.424;
+      bench(bx, by, C);
+      bin(bx - Math.sin(C) * 0.135, by + Math.cos(C) * 0.135);
+      // Clipped box in the two side corners, so the willow is not the only thing at the rim.
+      for (const s of [-1, 1]) {
+        const a = C + s * Math.PI / 2, r = 0.455;
+        shrub(Math.cos(a) * r, Math.sin(a) * r, 0.034 + q(190 + s) * 0.01, [48 + q(192 + s) * 16, 94 + q(194 + s) * 18, 44]);
       }
       break;
     }
@@ -31132,7 +31283,6 @@ function drawParkTile(ctx, cam, dx, dy, night, seed, alpha, now, feature, solidO
   const p0 = cam.proj(dx, dy, 0);
   const live = p0 && p0.f > 0.06;
   if (!live && !GROUND_MESH) return;
-  const s = clamp(30 / (live ? p0.f : 0.06), 3, 58);
   const variant = parkVariant(seed, feature);
   const A = alpha;
   // A flat ground disc on the turf. Convex, so the ground mesh's own fan triangulation is exact.
@@ -31149,40 +31299,64 @@ function drawParkTile(ctx, cam, dx, dy, night, seed, alpha, now, feature, solidO
       }
       break;
     }
-    case 1: {   // ORNAMENTAL POND — water up at the coping, two travelling ripples, lily pads, reeds
+    case 1: {   // ORNAMENTAL POND — a flagged apron, water shaded by depth and by its coping, koi, rise rings, lily pads
       // ⚠ THE WATER SITS UP UNDER THE COPING, for the fountain basin's reason: the coping stands
       // proud of the lawn now, and water left on the ground plane is hidden by it from every eye
       // height a player has.
-      const WZ = 0.026, WATER = night ? [22, 46, 70] : [50, 108, 140];
-      disc(0.322, WATER, A, 0, 0, 24, WZ);
-      disc(0.29, night ? [18, 40, 62] : [44, 98, 130], A * 0.8, 0, 0, 24, WZ);
-      disc(0.17, night ? [26, 54, 80] : [64, 128, 160], A * 0.6, 0, 0, 18, WZ);
-      // ⚠ A RIPPLE IS AN ANNULUS AND groundPoly TAKES CONVEX POLYGONS, so it is drawn as the
-      // two discs that bound it: a pale one out to the travelling radius, then the water colour
-      // laid back over its middle. Paint composites in push order and writes no depth, so the
-      // pair reads as a ring without either needing to be a ring.
+      const L = pondLayout(seed), WZ = POND_WZ, near = !live || p0.f <= 7;
+      const FLAG = night ? [74, 74, 72] : [150, 146, 136];
+      for (const f of L.apron) groundPoly(ctx, cam, dx, dy, f.p, [FLAG[0] * f.t, FLAG[1] * f.t, FLAG[2] * f.t], A);
+      // ⚠ NO PALE CENTRE. It was a lighter disc in the middle, and a lighter disc in the middle of a
+      // round pond is a target. Water is lit by what is under it: the margin is shallow and shows its
+      // green bottom, the middle is deep and dark, and the deep part sits off-centre as a dug pond's does.
+      const SHALLOW = night ? [22, 48, 56] : [58, 110, 112], MID = night ? [18, 42, 62] : [44, 96, 124], DEEP = night ? [12, 30, 48] : [30, 72, 102];
+      disc(0.322, SHALLOW, A, 0, 0, 24, WZ);
+      disc(0.282, MID, A * 0.8, 0.006, -0.004, 22, WZ);
+      disc(0.236, MID, A * 0.6, 0.010, -0.008, 20, WZ);
+      disc(0.172, DEEP, A * 0.5, 0.016, -0.012, 18, WZ);
+      disc(0.104, DEEP, A * 0.45, 0.022, -0.016, 14, WZ);
+      // The coping's shadow, inside the wall on the side the light comes from.
+      if (!night) for (const s of L.shadow) groundPoly(ctx, cam, dx, dy, s.p, [18, 42, 54], A * 0.42 * s.w, WZ + 0.0001);
+      // Koi under the surface: a body and a tail that beats, muted by the water over them.
+      if (near) for (const k of L.koi) {
+        const th = k.ph + now * k.w, rr = k.r + Math.sin(now * 0.00017 + k.ph) * 0.025;
+        const x = k.cx + Math.cos(th) * rr, y = k.cy + Math.sin(th) * rr;
+        const hd = th + (k.w > 0 ? Math.PI / 2 : -Math.PI / 2) + Math.sin(now * 0.004 + k.ph) * 0.12;
+        const hx = Math.cos(hd), hy = Math.sin(hd), len = k.len, wid = len * 0.32;
+        const body = [];
+        for (let j = 0; j < 8; j++) { const t = j / 8 * Math.PI * 2, u = Math.cos(t) * len * 0.5, v = Math.sin(t) * wid * (u > 0 ? 1 : 0.8); body.push([x + hx * u - hy * v, y + hy * u + hx * v]); }
+        const sw = Math.sin(now * 0.009 + k.ph * 3) * 0.6, tb = [x - hx * len * 0.42, y - hy * len * 0.42];
+        const tc = Math.cos(hd + Math.PI + sw), ts = Math.sin(hd + Math.PI + sw), tl = len * 0.42;
+        const tail = [tb, [tb[0] + tc * tl - ts * wid * 0.9, tb[1] + ts * tl + tc * wid * 0.9], [tb[0] + tc * tl + ts * wid * 0.9, tb[1] + ts * tl - tc * wid * 0.9]];
+        const rgb = night ? [k.rgb[0] * 0.3 + 14, k.rgb[1] * 0.3 + 30, k.rgb[2] * 0.3 + 44] : [k.rgb[0] * 0.78 + MID[0] * 0.22, k.rgb[1] * 0.78 + MID[1] * 0.22, k.rgb[2] * 0.78 + MID[2] * 0.22];
+        groundPoly(ctx, cam, dx, dy, tail, rgb, A * 0.75, WZ + 0.0002);
+        groundPoly(ctx, cam, dx, dy, body, rgb, A * 0.85, WZ + 0.0002);
+      }
+      // ⚠ A RIPPLE IS AN ANNULUS AND groundPoly TAKES CONVEX POLYGONS, so it is drawn as a ring of
+      // short quads. Not two discs, the pale one with the water colour laid back over its middle,
+      // which was how it was first done: off the centre of a shaded pond that covering disc is a flat
+      // patch over the shading, the koi and the pads. Each ring is a fish rising, somewhere new each
+      // time, and spreads small, as a rise does.
       for (let k = 0; k < 2; k++) {
-        const t = ((now * 0.00042 + k * 0.5) % 1), rr = 0.30 * (0.22 + 0.72 * t), fade = A * (1 - t) * 0.45;
+        const T = now * 0.00034 + k * 0.5, cyc = Math.floor(T), t = T - cyc;
+        const ra = frac(seed * 1.3 + cyc * 5.1 + k * 2.7) * Math.PI * 2, rp = 0.04 + frac(seed * 0.7 + cyc * 3.3 + k) * 0.14;
+        const ox = Math.cos(ra) * rp, oy = Math.sin(ra) * rp, r1 = 0.012 + 0.08 * t, r0 = r1 - 0.0055, fade = A * (1 - t) * 0.5;
         if (fade < 0.01) continue;
-        disc(rr, [206, 232, 246], fade, 0, 0, 18, WZ);
-        disc(rr * 0.86, WATER, fade, 0, 0, 18, WZ);
+        const RIP = night ? [70, 100, 126] : [196, 224, 238];
+        for (let j = 0, n = near ? 16 : 10; j < n; j++) {
+          const a0 = j / n * Math.PI * 2, a1 = (j + 1) / n * Math.PI * 2;
+          groundPoly(ctx, cam, dx, dy, [[ox + Math.cos(a0) * r0, oy + Math.sin(a0) * r0], [ox + Math.cos(a1) * r0, oy + Math.sin(a1) * r0],
+            [ox + Math.cos(a1) * r1, oy + Math.sin(a1) * r1], [ox + Math.cos(a0) * r1, oy + Math.sin(a0) * r1]], RIP, fade, WZ + 0.0003);
+        }
       }
-      for (let i = 0; i < 6; i++) {   // lily pads, a notch of shadow under each, one in flower
-        const a = frac(seed + i * 11) * Math.PI * 2, r = 0.08 + frac(seed + i * 3) * 0.16;
-        const ox = Math.cos(a) * r, oy = Math.sin(a) * r, pr = 0.032 + frac(seed + i) * 0.02;
-        disc(pr, night ? [24, 54, 34] : [52, 104, 56], A * 0.95, ox, oy, 9, WZ + 0.0004);
-        disc(pr * 0.7, night ? [30, 62, 40] : [70, 128, 66], A * 0.8, ox - pr * 0.15, oy - pr * 0.15, 8, WZ + 0.0006);
-        if (i === 2) disc(pr * 0.32, night ? [150, 120, 140] : [244, 196, 220], A, ox, oy, 6, WZ + 0.0008);
-      }
-      // Reeds in one corner of the margin: green blades, a few with a brown head.
-      const ra = frac(seed + 5) * Math.PI * 2;
-      for (let i = 0; i < 9; i++) {
-        const a = ra + (frac(seed + i * 2.3) - 0.5) * 0.7, r = 0.27 + frac(seed + i * 4.1) * 0.03;
-        const x = dx + Math.cos(a) * r, y = dy + Math.sin(a) * r, h = 0.05 + frac(seed + i * 6.7) * 0.04;
-        const lean = (frac(seed + i * 8.9) - 0.5) * 0.02;
-        emitWire(ctx, cam, [x, y, WZ], [x + lean, y + lean * 0.5, WZ + h], Math.max(1, s * 0.02), night ? 'rgb(30,54,28)' : 'rgb(78,118,52)', A, { cap: 'round', pull: PARK_PULL });
-        if (i % 3 === 0) emitWire(ctx, cam, [x + lean * 0.8, y + lean * 0.4, WZ + h * 0.72], [x + lean * 0.95, y + lean * 0.48, WZ + h * 0.9],
-          Math.max(1.4, s * 0.04), night ? 'rgb(44,30,20)' : 'rgb(96,62,36)', A, { cap: 'round', pull: PARK_PULL });
+      // The lily pads: each throws a shadow on the water off the light, is cut by its notch, and
+      // has a lighter cup where it curls up at the middle. One at the edge of a raft is going over.
+      const PAD = night ? [[24, 54, 34], [30, 60, 32], [50, 52, 28]] : [[50, 104, 54], [64, 116, 50], [124, 122, 56]];
+      for (const p of L.pads) {
+        groundPoly(ctx, cam, dx, dy, p.shade, night ? [10, 24, 34] : [22, 56, 72], A * 0.45, WZ + 0.0004);
+        const col = PAD[p.tone];
+        for (const h of p.halves) groundPoly(ctx, cam, dx, dy, h, col, A * 0.97, WZ + 0.0005);
+        if (near) groundPoly(ctx, cam, dx, dy, p.hi, [Math.min(255, col[0] * 1.22), Math.min(255, col[1] * 1.2), Math.min(255, col[2] * 1.18)], A * 0.55, WZ + 0.0006);
       }
       break;
     }
@@ -38924,7 +39098,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // Livery palette (shared with the hangar): base + trim, a finish sheen multiplier,
   // and pattern-driven accents.
   const lv = c.livery || {};
-  const pal = liveryPalette(lv, c.cls);
+  const pal = liveryPalette(lv, c.cls, !!c.armed);
   // Jazz splatter: baked once per colour-set, affine-mapped across the hull facets in body space
   // (the same Memphis paint the hangar draws — without this the sim shows only the bone undercoat).
   const jazzImg = pal.pat === 'jazz' ? jazzTex(lv.base, lv.trim, lv.accent, lv.ground) : null;
@@ -39430,7 +39604,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     // ⚠ NOT OVER A BODY ON THE DEPTH BUFFER. The sheen is a flat 2-D polygon the size of the WHOLE pane,
     // painted after the GPU composite, and `seen` only says some of the pane survived — so a window
     // half behind the Drake's minigun sponson was painted as a bright square straight over the gun.
-    // On the GPU the glass carries its own per-pixel reflection (METAL_ROLE.glass) and is occluded properly.
+    // On the GPU the glass carries its own per-pixel reflection (METAL_ROLE.glass, client/shared/vehicle-materials.js) and is occluded properly.
     if ((fc.role === 'glass' || fc.role === 'window') && !c.bodyOnGL) glassSheen(ctx, fc.pts);   // glassy specular on canopy/windows, in flight too
     // ⚠ NO OUTLINE OVER A DEPTH-BUFFERED MODEL. The stroke follows a face's WHOLE outline, including
     // the part of it that lost the depth test, so it would draw the hidden half of every box as a
@@ -40162,134 +40336,87 @@ function muzzleFlash(ctx, cam, x, y, z, sz = 1) {
   ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.sx, p.sy, r, 0, 7); ctx.fill();
 }
 
-// Persistent ground AA emplacements — a radar-dish SAM turret drawn at each active site's
-// tile so the thing shooting at you is a PLACE you can spot from altitude and roll in on,
-// not just a bearing on the glass. Built from the same Mode-7 camera as the buildings, so it
-// banks and scrolls with the world. `v.aaSites` = [{dx, dy, name}] (live tile-offset from us).
-// The installation on the ground: a squat concrete BUNKER, a beefy futuristic TWIN-CANNON
-// turret — an armoured housing with two heavy muzzle-braked barrels on a cruciform mount,
-// TRAVERSED to track the viewing pilot (the barrels point straight at your aircraft — the
-// thing shooting at you is visibly aimed at you) — and a RADAR antenna sweeping a slow circle
-// beside it, topped with a pulsing red target-lock beacon that catches the eye at range.
-function drawAASites(ctx, cam, v, now) {
-  const sites = v.aaSites; if (!sites || !sites.length) return;
-  const night = v.sky?.night || 0;
-  const pulse = 0.45 + 0.55 * Math.abs(Math.sin(now / 300));   // target-lock throb (0.45..1)
-  const sweep = (now / 620) % (Math.PI * 2);                   // radar antenna azimuth (rad)
-  const BW = 0.2, H_BUNK = 0.09, H_RAD = 0.17;                 // bunker half-width + heights (tiles)
-  const P = (s, ox, oy, wz) => cam.proj(s.dx + ox, s.dy + oy, wz);
-  // Each installation is emitted as ONE atomic closure at its tile-centre depth into the shared
-  // world face queue (open during the building pass) — so a building nearer than the site correctly
-  // occludes the whole turret instead of it painting on top of everything (the "AA showing through a
-  // building" bug, from drawing it as a post-pass after flushFaces). emitFace sorts far→near for us.
-  const list = sites.map(s => ({ s, f: P(s, 0, 0, 0).f })).filter(o => o.f > 0.14 && o.f < 20);
-  const corners = [[-BW, -BW], [BW, -BW], [BW, BW], [-BW, BW]];
-  for (const { s, f } of list) emitFace(f, () => {
-    const g = P(s, 0, 0, 0);
-    ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-    // Contact shadow anchoring it to the ground.
-    ctx.fillStyle = 'rgba(0,0,0,0.38)';
-    ctx.beginPath(); ctx.ellipse(g.sx, g.sy, clamp(34 / f, 3, 74), clamp(12 / f, 1, 26), 0, 0, 7); ctx.fill();
-    // Bunker — a squat concrete box: dark side walls then the lit top slab.
-    const base = corners.map(([a, b]) => P(s, a, b, 0));
-    const top = corners.map(([a, b]) => P(s, a, b, H_BUNK));
-    ctx.fillStyle = '#2f2f2a';
-    for (let i = 0; i < 4; i++) {
-      const j = (i + 1) % 4;
-      ctx.beginPath(); ctx.moveTo(base[i].sx, base[i].sy); ctx.lineTo(base[j].sx, base[j].sy);
-      ctx.lineTo(top[j].sx, top[j].sy); ctx.lineTo(top[i].sx, top[i].sy); ctx.closePath(); ctx.fill();
+// ── AN AA BATTERY, FROM WHEREVER YOU ARE ─────────────────────────────────────
+//
+// The emplacement on a battery's deck tile (the `aa` mark; the model is glass/aa-emplacement.js).
+// It used to be a turret painted for the PILOT SEAT ONLY, from a site list nobody else was sent, on
+// the canvas after the GL composite: a passenger, a driver, a boat and somebody standing on the deck
+// saw bare concrete, and a pilot saw it through the buildings in front of it.
+//
+// Drawn during the sweep, for the statue's reason: on GL the faces go to BAY_SINK, and a closure
+// queued by `emitFace` runs after the composite has read every sink. On the 2-D path they are
+// collected, sorted far to near and painted as one queued closure at the tile's depth.
+//
+// What the guns lay on: the aircraft the server says the battery is firing at, when this view can
+// see it (a contact with that id, or the own ship in a cockpit, which is not in its own contacts);
+// otherwise, while manned, the nearest aircraft in range, because the radar hands it whatever is up
+// there. With nothing up there the crew sweep the haze.
+const AA_TRACK_R = 10;   // tiles: how far off a manned battery's guns follow an aircraft it is not firing at
+function drawAAMark(ctx, cam, it, v, night, alpha, now, sun, sky, od) {
+  const aa = it.c.aa || {};
+  const live = aaLive(it.wx, it.wy);
+  const s = live && Number.isFinite(live.s) ? live.s : Number.isFinite(aa.s) ? aa.s : 1;
+  const toGL = !!BAY_SINK && TUNE.glBay !== 0;
+  const EX = (cam.ex || 0) - cam.ox, EY = (cam.ey || 0) - cam.oy, EZ = cam.EH == null ? 0.2 : cam.EH;
+  // A Curtain battery has the wall through its tile: it opens to the city and stands clear of it.
+  const inw = it.c.cur ? (it.c.ci || null) : null;
+  let shift = null, open = AA_OPEN[aa.o] || null;
+  if (inw && inw.length) {
+    let ix = 0, iy = 0; for (const [ax, ay] of inw) { ix += ax; iy += ay; }
+    const l = Math.hypot(ix, iy) || 1; shift = [ix / l, iy / l]; open = shift;
+  }
+  // The mark.
+  const fireAge = live && live.fireAt ? now - live.fireAt : Infinity;
+  const firing = s === 1 && fireAge < AA_FIRE_MS ? 1 - fireAge / AA_FIRE_MS : 0;
+  const ownZ = cam.EHbase ?? cam.EH ?? 0.2;
+  const ownUp = v.acX != null && (v.height || 0) > 0.02 && !v.hideOwnShip;
+  let target = null;
+  if (s === 1) {
+    const cs = v.contacts || [];
+    if (firing > 0 && live.target != null) {
+      const c = cs.find((k) => k.id === live.target);
+      if (c) target = [c.dx, c.dy, contactBaseWz(cam, c)];
+      else if (ownUp) target = [0, 0, ownZ];
     }
-    ctx.fillStyle = '#45443d';
-    ctx.beginPath(); ctx.moveTo(top[0].sx, top[0].sy); for (let i = 1; i < 4; i++) ctx.lineTo(top[i].sx, top[i].sy); ctx.closePath(); ctx.fill();
-    // Bunker hatch — a dark square on the top slab (where the crew drop into the bunker).
-    const h = 0.06, hatch = [[-h, -h], [h, -h], [h, h], [-h, h]].map(([a, b]) => P(s, a, b, H_BUNK + 0.001));
-    ctx.fillStyle = '#1c1c18';
-    ctx.beginPath(); ctx.moveTo(hatch[0].sx, hatch[0].sy); for (let i = 1; i < 4; i++) ctx.lineTo(hatch[i].sx, hatch[i].sy); ctx.closePath(); ctx.fill();
-
-    // Radar mast + sweeping antenna, off one corner of the bunker.
-    const rx = BW * 0.78, ry = -BW * 0.55;
-    const rmBot = P(s, rx, ry, H_BUNK), rmTop = P(s, rx, ry, H_RAD);
-    ctx.strokeStyle = '#6b7060'; ctx.lineWidth = clamp(3 / f, 0.7, 5);
-    ctx.beginPath(); ctx.moveTo(rmBot.sx, rmBot.sy); ctx.lineTo(rmTop.sx, rmTop.sy); ctx.stroke();
-    const rb = 0.075, ca = Math.cos(sweep) * rb, sa = Math.sin(sweep) * rb;   // rotating bar in ground plane
-    const e0 = P(s, rx + ca, ry + sa, H_RAD), e1 = P(s, rx - ca, ry - sa, H_RAD);
-    ctx.strokeStyle = '#aeb69a'; ctx.lineWidth = clamp(2.4 / f, 0.6, 4);
-    ctx.beginPath(); ctx.moveTo(e0.sx, e0.sy); ctx.lineTo(e1.sx, e1.sy); ctx.stroke();
-    // Leading-edge sweep node — a faint blip riding the antenna tip.
-    ctx.fillStyle = 'rgba(150,220,140,0.7)';
-    ctx.beginPath(); ctx.arc(e0.sx, e0.sy, clamp(2.6 / f, 0.6, 4), 0, 7); ctx.fill();
-
-    // Exposed 8.8cm flak gun on a cruciform mount, TRAVERSED to point at the viewing pilot.
-    // The eye is at offset (0,0); the single long barrel lies along the ground vector from the
-    // gun toward it and tilts up — the thing shooting at you is visibly aimed at you.
-    const len = Math.hypot(s.dx, s.dy) || 1, ux = -s.dx / len, uy = -s.dy / len, px = -uy, py = ux;
-    const zB = H_BUNK;   // gun deck (top of the bunker pad)
-    // Cruciform base — four splayed outrigger legs pinning the mount to the pad, each ending
-    // in a small upright foot (the ground cross that anchors the mount).
-    ctx.strokeStyle = '#3a3f37'; ctx.lineWidth = clamp(5.5 / f, 1.2, 9);
-    for (const [lx, ly] of [[0.22, 0], [-0.22, 0], [0, 0.22], [0, -0.22]]) {
-      const c0 = P(s, 0, 0, zB), c1 = P(s, lx, ly, zB), ft = P(s, lx, ly, zB + 0.04);
-      ctx.beginPath(); ctx.moveTo(c0.sx, c0.sy); ctx.lineTo(c1.sx, c1.sy); ctx.lineTo(ft.sx, ft.sy); ctx.stroke();
+    if (!target) {
+      let best = AA_TRACK_R * AA_TRACK_R;
+      if (ownUp) { const d = it.dx * it.dx + it.dy * it.dy; if (d < best) { best = d; target = [0, 0, ownZ]; } }
+      for (const c of cs) {
+        if (c.onGround || c.band === 'ground' || c.groundZ != null) continue;
+        const ex = c.dx - it.dx, ey = c.dy - it.dy, d = ex * ex + ey * ey;
+        if (d < best) { best = d; target = [c.dx, c.dy, contactBaseWz(cam, c)]; }
+      }
     }
-    // Squat, fat traversing pedestal up to the turret deck.
-    const zP = zB + 0.07;
-    const ped0 = P(s, 0, 0, zB), ped1 = P(s, 0, 0, zP);
-    ctx.strokeStyle = '#3f463d'; ctx.lineWidth = clamp(16 / f, 4, 26);
-    ctx.beginPath(); ctx.moveTo(ped0.sx, ped0.sy); ctx.lineTo(ped1.sx, ped1.sy); ctx.stroke();
-
-    // Beefy futuristic twin-cannon turret. Everything is built in the gun's own frame:
-    // `ux,uy` runs along the ground toward the target (the viewing pilot), `px,py` is
-    // lateral. `boxAt(a, lat, z)` projects a point `a` tiles toward the target, `lat`
-    // tiles to the side, at height `z`. `drawBox` fills a rectangular prism (both lateral
-    // sides + top deck + target-facing front cap, painted in that order) so each part
-    // reads as solid armoured mass instead of a thin line — the girth the old 88 lacked.
-    const boxAt = (a, lat, z) => P(s, ux * a + px * lat, uy * a + py * lat, z);
-    const fillPoly = (pts, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(pts[0].sx, pts[0].sy); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].sx, pts[i].sy); ctx.closePath(); ctx.fill(); };
-    const drawBox = (a0, z0, a1, z1, lat, hw, vt, cols) => {
-      const c = (a, z, l) => boxAt(a, lat + l * hw, z);
-      const T0l = c(a0, z0 + vt, -1), T0r = c(a0, z0 + vt, 1), T1l = c(a1, z1 + vt, -1), T1r = c(a1, z1 + vt, 1);
-      const B1l = c(a1, z1 - vt, -1), B1r = c(a1, z1 - vt, 1);
-      fillPoly([c(a0, z0 - vt, 1), c(a1, z1 - vt, 1), T1r, T0r], cols.side);   // near lateral side
-      fillPoly([c(a0, z0 - vt, -1), c(a1, z1 - vt, -1), T1l, T0l], cols.side); // far lateral side
-      fillPoly([T0l, T0r, T1r, T1l], cols.top);                               // top deck
-      fillPoly([T1l, T1r, B1r, B1l], cols.cap);                               // front / muzzle face
-    };
-    // Turret body — a chunky armoured housing straddling the pedestal.
-    const zBody = zP;
-    drawBox(-0.14, zBody + 0.075, 0.16, zBody + 0.075, 0, 0.15, 0.075, { side: '#2b2f35', top: '#40464e', cap: '#363c44' });
-    // Sensor/optics blister on the crown, a cyan lens staring down the barrels.
-    drawBox(0.02, zBody + 0.17, 0.12, zBody + 0.17, 0, 0.06, 0.035, { side: '#23262b', top: '#333940', cap: '#1c1f24' });
-    const lens = boxAt(0.13, 0, zBody + 0.17);
-    if (night > 0.3) { ctx.shadowColor = 'rgba(60,230,230,0.9)'; ctx.shadowBlur = 6 + night * 8; }
-    ctx.fillStyle = `rgba(120,245,245,${0.55 + 0.35 * pulse})`;
-    ctx.beginPath(); ctx.arc(lens.sx, lens.sy, clamp(3.4 / f, 0.8, 6), 0, 7); ctx.fill();
-    ctx.shadowBlur = 0;
-    // Twin heavy barrels punching out the front, elevated toward the target, each capped by
-    // a fat muzzle brake with a dark bore, and a cyan charge line running along its crown.
-    const BARLEN = 0.52, ELEV = 0.26, zBar = zBody + 0.09;
-    const zAt = a => zBar + ELEV * clamp((a - 0.04) / (BARLEN - 0.04), 0, 1);
-    for (const lat of [-0.06, 0.06]) {
-      drawBox(0.04, zAt(0.04), BARLEN, zAt(BARLEN), lat, 0.032, 0.032, { side: '#3a414a', top: '#565f6b', cap: '#14171b' });
-      drawBox(BARLEN - 0.14, zAt(BARLEN - 0.14), BARLEN + 0.02, zAt(BARLEN) + 0.004, lat, 0.05, 0.05, { side: '#262a30', top: '#3a414a', cap: '#101215' });
-      const m = boxAt(BARLEN + 0.02, lat, zAt(BARLEN) + 0.004);   // muzzle bore
-      ctx.fillStyle = '#0a0c0e'; ctx.beginPath(); ctx.arc(m.sx, m.sy, clamp(3.4 / f, 0.9, 6), 0, 7); ctx.fill();
-      const g0 = boxAt(0.06, lat, zAt(0.06) + 0.033), g1 = boxAt(BARLEN - 0.16, lat, zAt(BARLEN - 0.16) + 0.033);
-      if (night > 0.3) { ctx.shadowColor = 'rgba(60,230,230,0.85)'; ctx.shadowBlur = 5 + night * 7; }
-      ctx.strokeStyle = `rgba(90,240,240,${0.45 + 0.4 * pulse})`; ctx.lineWidth = clamp(2 / f, 0.5, 3.4);
-      ctx.beginPath(); ctx.moveTo(g0.sx, g0.sy); ctx.lineTo(g1.sx, g1.sy); ctx.stroke();
-      ctx.shadowBlur = 0;
-    }
-
-    // Pulsing red target-lock beacon on the radar mast — the long-range eye-catcher.
-    const bcn = P(s, rx, ry, H_RAD + 0.03), bR = clamp(7 / f, 1.5, 14) * (0.7 + 0.6 * pulse);
-    if (night > 0.3) { ctx.shadowColor = 'rgba(255,40,30,0.95)'; ctx.shadowBlur = 8 + night * 12; }
-    const bg = ctx.createRadialGradient(bcn.sx, bcn.sy, 0, bcn.sx, bcn.sy, bR * 2);
-    bg.addColorStop(0, `rgba(255,90,70,${0.6 + 0.4 * pulse})`); bg.addColorStop(0.4, `rgba(255,40,30,${0.5 * pulse})`); bg.addColorStop(1, 'rgba(255,20,20,0)');
-    ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(bcn.sx, bcn.sy, bR * 2, 0, 7); ctx.fill();
-    ctx.fillStyle = `rgba(255,205,195,${0.8 + 0.2 * pulse})`; ctx.beginPath(); ctx.arc(bcn.sx, bcn.sy, clamp(bR * 0.5, 0.8, 5), 0, 7); ctx.fill();
-    ctx.restore();
+  }
+  const soft = [];
+  const face = (pts, rgb, a) => {
+    if (toGL) { BAY_SINK.push({ p: pts.map(([x, y, z]) => [x + cam.ox, y + cam.oy, z]), rgb, a }); return; }
+    if (soft.length >= AA_FACES) return;
+    const pr = [];
+    for (const [x, y, z] of pts) { const q = cam.proj(x, y, z); if (!q || q.f <= 0.10) return; pr.push(q); }
+    let f = 0; for (const q of pr) f += q.f; f /= pr.length;
+    soft.push({ f, pr, css: `rgba(${rgb[0] | 0},${rgb[1] | 0},${rgb[2] | 0},${a})` });
+  };
+  clearTilePower();   // a battery runs on its own generator, whatever the street's power is doing
+  drawAAEmplacement({
+    dx: it.dx, dy: it.dy, wx: it.wx, wy: it.wy, kind: aa.k, s, open, shift,
+    eye: [EX, EY, EZ], target, firing, near: eyeRange(cam, it.dx, it.dy) < 7,
+    seed: it.seed, now, night, alpha, wet: clamp(wetGround(), 0, 1), sun,
+    face, light: (x, y, z, rgb, s0, a) => glowPool(ctx, cam, x, y, z, rgb, s0, a * alpha),
   });
+  if (!toGL && soft.length) {
+    soft.sort((p, q) => q.f - p.f);
+    emitFace(od, () => {
+      for (const fc of soft) {
+        ctx.fillStyle = fc.css; ctx.beginPath(); ctx.moveTo(fc.pr[0].sx, fc.pr[0].sy);
+        for (let i = 1; i < fc.pr.length; i++) ctx.lineTo(fc.pr[i].sx, fc.pr[i].sy);
+        ctx.closePath(); ctx.fill();
+      }
+    });
+  }
 }
+const AA_OPEN = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
+const AA_FACES = 1400;   // the 2-D path's cap, as the statue has one: a sort that grows without bound is a frame that does
 
 // Incoming ground-AA volley as REAL 3D world tracers: rounds leave the emplacement's tile
 // on the ground (wz 0) and climb through world space toward — and deliberately just past —
@@ -43209,6 +43336,12 @@ function slumSlogan(ctx, cam, W3, P, u, z, w, hh, seed, nightF, alpha) {
   // As wide as the patch, and as tall as the page's aspect allows inside 2.2 of its half-height.
   let hw = w * 1.1, hz = hw * (SLOGAN_H / SLOGAN_W);
   if (hz > hh * 2.2) { hz = hh * 2.2; hw = hz * (SLOGAN_W / SLOGAN_H); }
+  // ⚠ READ FROM OUTSIDE. `P`'s u runs whichever way its arm laid the face out, and on a back wall or
+  // one flank that's right to left as you stand in front of it, which mirrored the paint. Reading
+  // direction is the outward normal turned −90° (`facePt`'s "right of the door"), asked in the
+  // model's frame where `P` answers; `W3` is a rotation, so it can't flip it back.
+  const pu = P(u + 1, z, 0), pn = P(u, z, 1);
+  if ((pu[0] - o[0]) * (pn[1] - o[1]) - (pu[1] - o[1]) * (pn[0] - o[0]) < 0) hw = -hw;
   const at = (x, zz) => { const p = P(x, zz, FACE_EPS * 1.5); return W3(p[0], p[1], p[2]); };
   const tilt = (frac(seed * 29) - 0.5) * hz * 0.3;   // sprayed by hand, never level
   emitDecoFill(ctx, cam, [at(u - hw, z + hz + tilt), at(u + hw, z + hz - tilt), at(u + hw, z - hz - tilt), at(u - hw, z - hz + tilt)],
@@ -43641,6 +43774,12 @@ export function markRenderSmoke() {
     // Several seeds, because the lean, the height and the broken cross-arm are all rolled per tile —
     // a stand of them is the case, and one of them is not.
     ...[0, 1, 2, 3].map((k) => [`pylons:${k}`, (night, alpha) => drawPylons(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, -8, night, alpha, k * 11 + 3)]),
+    // Every AA battery in every state, near and far, and one on a Curtain tile (which is moved off
+    // the wall and opens to the city): the ruin drops a barrel and the SAM's missiles, so a state is
+    // a different path through the build and not a recolour.
+    ...['guardian', 'sam', 'flak', 'truck'].flatMap((k) => [0, 1, 2].flatMap((s) => [-3, -8].map((dy) => [`aa:${k}:${s}:${-dy}`, (night, alpha) =>
+      drawAAMark(SHAPE_STUB_CTX, SHAPE_STUB_CAM, { dx: 0, dy, wx: 7, wy: 7 + s, seed: 3, c: { mark: 'aa', aa: { k, s, o: 'e' }, cur: dy === -3 && s === 1 ? 'ns' : undefined, ci: [[1, 0]] } },
+        { contacts: [] }, night, alpha, 1000, null, null, 1)]))),
   ];
   for (const [key, fn] of cases) {
     for (const night of [0, 0.9]) {
@@ -45838,8 +45977,9 @@ export const SIGN_FONT = {
   // `techno` is the squared-off grotesque of an instrument panel and a licensed clinic: the
   //   Ascendant hand, and the one face on this list that reads as machine-made rather than
   //   sign-written. It is what a chrome shop, a vat house and a data broker put over the door.
-  // `gothic` is blackletter — a chapel, an undertaker, an archive, a bank that wants to look older
-  //   than it is. One of the two genuinely period hands in the city.
+  // ⚠ NO BLACKLETTER. It used to be here as `gothic`, for a chapel, an undertaker, an archive and a
+  //   bank, and on a lit board it read as a cholo placa hung over a counter. It's a graffiti hand
+  //   now (`gothic` in TAG_HANDS) and nothing that puts up a sign may use it.
   // `western` is the fat slab-and-spur of a saloon board and a pawnbroker's shingle, which is the
   //   frontier's own hand and is what Terminus and the Reach have always been described in.
   //
@@ -45847,11 +45987,6 @@ export const SIGN_FONT = {
   // reason the ⚠ above gives: a missing font must fall back to a different HAND, never to body text.
   stencil: (C) => `${Math.round(C * 0.72)}px "Black Ops One",Stencil,"Allerta Stencil","Saira Stencil One","Bahnschrift Condensed","Arial Narrow","Arial Black",sans-serif`,
   techno: (C) => `${Math.round(C * 0.70)}px Audiowide,Bahnschrift,"DIN Alternate","DIN Condensed",Eurostile,"Segoe UI Semibold","Titillium Web","Segoe UI",sans-serif`,
-  // ⚠ GABRIOLA IS THE REAL FALLBACK HERE AND IT IS NOT A NEAR MISS FOR BLACKLETTER — it is a
-  // calligraphic display face rather than a gothic one. It earns the slot because what this hand has
-  // to do is read as OLDER AND HAND-CUT than everything around it, and on a machine with no
-  // blackletter the alternative was Cambria, which is a body serif and says nothing at all.
-  gothic: (C) => `${Math.round(C * 0.95)}px UnifrakturMaguntia,"Old English Text MT","Blackadder ITC",Gabriola,"Sitka Banner",Cambria,Garamond,serif`,
   // ⚠ THE WEIGHT AND THE TIGHT TRACKING ARE DOING THE WORK, not the family — there is no fat slab on
   // a stock Windows box, so on the machines that lack Playbill and Rockwell this is a display serif
   // set heavy and jammed together, which is what a saloon board and a pawnbroker's shingle actually
@@ -45943,7 +46078,6 @@ export const SIGN_TRACK = {
   techno: 0.07,     // an instrument panel is set open
   block: 0.02,
   condensed: 0.02,
-  gothic: -0.02,    // blackletter sets close by nature
   western: -0.05,   // a signwriter filling a plank
   script: 0,        // a brush joins its letters; tracking a script pulls them apart
   neonscript: 0,    // one bent run of tube; tracking it breaks the joins
@@ -46251,7 +46385,7 @@ if (typeof window !== 'undefined') window.__bakeSign = (...a) => bakeSignText(..
 //
 // The generic commercial hands (mono, block, slab, condensed) become `tube`, the stock neon
 // alphabet, so most of the city reads as bent glass rather than as type with a glow on it. The
-// characterful hands (deco, gothic, western, stencil, techno, estate, hanzi) keep their own.
+// characterful hands (deco, western, stencil, techno, estate, hanzi) keep their own.
 // Every VERTICAL sign is `tube` (a CJK name aside), whatever it asked for. A horizontal `script` sign
 // is bent in `neonscript` about half the time, and a horizontal `tube` one about one time in eight,
 // for variety.
@@ -46288,6 +46422,17 @@ function neonHand(face, label, vertical, solid) {
   if (NEON_GENERIC.has(face)) return r < 0.12 ? 'neonscript' : 'tube';
   return altHand(face, label);
 }
+// A script hand is set in upper and lower case. Every script capital is a flourish, so a word set
+// in nothing but capitals is a row of loops ("NIGHTCLUB" was reported unreadable), and no sign
+// bender letters a script word that way. Only an all-caps label is touched, so authored mixed case
+// stands, and a word with no vowel in it (DJ, BBQ, 24HR) is an abbreviation and keeps its capitals.
+const SCRIPT_HANDS = new Set(['script', 'neonscript']);
+function scriptCase(s) {
+  if (s !== s.toUpperCase()) return s;
+  const out = s.replace(/\p{L}[\p{L}']*/gu, (w) => (/[AEIOUY]/i.test(w) ? w[0] + w.slice(1).toLowerCase() : w));
+  // `deadNeon` returns an index into the label, so the length must not change.
+  return out.length === s.length ? out : s;
+}
 // The sign faces are fetched once (all self-hosted, OFL or Apache; the licences sit beside them).
 // A sign baked before they arrive is baked in the fallback, so the cache is emptied when they land and every board re-bakes in its real hand on the next frame.
 function loadNeonFaces() {
@@ -46303,7 +46448,8 @@ function loadNeonFaces() {
   // ⚠ allSettled, not all: one font failing to load must not keep the other fifteen off the cache.
   Promise.allSettled(faces.map(([fam, file, desc]) => new FontFace(fam, `url(${new URL('../../../shared/fonts/' + file, import.meta.url)})`, desc)
     .load().then((f) => { document.fonts.add(f); })))
-    .then(() => _signTexCache.clear(), () => {});
+    // …and the tag cache with it, since a placa (`gothic` in TAG_HANDS) is set in one of these.
+    .then(() => { _signTexCache.clear(); _tagTexCache.clear(); }, () => {});
 }
 loadNeonFaces();
 // ── ⚠ ONE TUBE GONE DARK: "HOT L" ────────────────────────────────────────────────────────────
@@ -46366,6 +46512,9 @@ function bakeSignText(label, color, dn, vertical, solid, tight, opts) {
   // label and colour — one chain's script wordmark appearing on another's block-lettered board.
   const asked = (opts && opts.font) || _signFace || 'mono';
   const face = neonHand(asked, String(label || ''), vertical, solid);
+  // After the hand is rolled, which is keyed on the label as authored. See `scriptCase`.
+  const scripted = SCRIPT_HANDS.has(face) && !vertical;
+  if (scripted) label = scriptCase(String(label || ''));
   const picto = (opts && opts.picto) || '';
   // ⚠ AND SO IS THE BADGE PLATE, for exactly the same reason: it is the biggest thing on the
   // canvas when it is on, so leaving it out of the key hands a plated badge's artwork to the next
@@ -46404,7 +46553,7 @@ function bakeSignText(label, color, dn, vertical, solid, tight, opts) {
   // ⚠ NOT AVAILABLE WITH A PICTOGRAM OR A BADGE. Those two lay out against the cell grid and a
   // roundel sizes its own plate; a third layout crossing either is a board with a mark, a word and
   // a word in it, which is not a thing any reference photograph has.
-  const sub = opts && opts.sub && !vertical && !picto && !badge ? String(opts.sub) : '';
+  const sub = opts && opts.sub && !vertical && !picto && !badge ? (scripted ? scriptCase(String(opts.sub)) : String(opts.sub)) : '';
   // ── ⚠ A MARK OVER A WORD, WHICH IS WHAT A NEON SIGN ACTUALLY IS ─────────────────────────────
   //
   // Every layout above this one sets a mark BESIDE a word, and the logo hoarding — the biggest
@@ -46422,7 +46571,7 @@ function bakeSignText(label, color, dn, vertical, solid, tight, opts) {
   // Whether this lit name is bent as neon tube (see TUBE below). In the key because it is the
   // whole picture, and a toggle that reached only new bakes would leave the city half converted.
   const tubeOn = dn > 0 && !solid && (RENDER_TUNE.neonBake ?? 1) > 0 ? ((RENDER_TUNE.neonGaps ?? 1) > 0 ? 2 : 1) : 0;
-  const key = `${label}|${color}|${dn}|${tubeOn}|${vertical ? 1 : 0}|${solid ? 1 : 0}|${tight ? 1 : 0}|${face}|${picto}|${badge}|${fitB}|${sub}|${stack ? 1 : 0}|${dead}`;
+  const key = `${label}|${color}|${dn}|${tubeOn}${tubeOn ? ':' + (RENDER_TUNE.neonWash ?? 1) : ''}|${vertical ? 1 : 0}|${solid ? 1 : 0}|${tight ? 1 : 0}|${face}|${picto}|${badge}|${fitB}|${sub}|${stack ? 1 : 0}|${dead}`;
   // ⚠ TALLIED BEFORE THE CACHE, NEVER AFTER IT. The question is which hand this CALL asked for, and
   // a cache hit is still a call — record only the misses and a sign that has already been baked once
   // disappears from the census, which is every sign after the first frame.
@@ -46619,16 +46768,15 @@ function bakeSignText(label, color, dn, vertical, solid, tight, opts) {
       // a fresh context does not reliably take `letterSpacing`, and the tube landed off its own glow.
       const L = g, tf0 = g.getTransform();
       L.lineJoin = 'round'; L.lineCap = 'round';
-      // ⚠ GLASS, NOT A WHITE WIRE. Five passes across the section of a lit cylinder: the walls are
-      // the gas colour seen through the most glass (darkest, at the edges), the bore is the colour,
-      // the core is where the discharge is hottest and goes toward white, a sharp specular sits
-      // above the axis where the tube's curve catches the light, and a faint second reflection sits
-      // below it off the far wall. The two reflections on opposite sides are what says CYLINDER.
-      L.strokeStyle = shade(0.5, 1);   L.lineWidth = T;        L.strokeText(ch, x, y);             // walls
-      L.strokeStyle = color;           L.lineWidth = T * 0.74; L.strokeText(ch, x, y);             // bore
-      L.strokeStyle = tint(0.45, 0.9); L.lineWidth = T * 0.34; L.strokeText(ch, x, y);             // hot core
-      L.strokeStyle = tint(0.85, 0.9); L.lineWidth = T * 0.13; L.strokeText(ch, x, y - T * 0.24);  // specular
-      L.strokeStyle = tint(0.6, 0.35); L.lineWidth = T * 0.09; L.strokeText(ch, x, y + T * 0.27);  // far-wall glint
+      // ⚠ LIT GLASS HAS NO DARK EDGE. The tube is the light source, so its section runs from the
+      // gas colour at full saturation at the walls to an overexposed near-white on the axis, which
+      // is what a camera makes of lit neon. Darker walls (half the colour, as this used to be) put a
+      // dark ring round every letter and read as a solid rod lit from outside. The specular is kept
+      // faint: at night the sky it reflects is far dimmer than the gas.
+      L.strokeStyle = color;           L.lineWidth = T;        L.strokeText(ch, x, y);             // walls
+      L.strokeStyle = tint(0.3, 1);    L.lineWidth = T * 0.7;  L.strokeText(ch, x, y);             // bore
+      L.strokeStyle = tint(0.75, 0.95); L.lineWidth = T * 0.34; L.strokeText(ch, x, y);            // hot core
+      L.strokeStyle = tint(0.95, 0.45); L.lineWidth = T * 0.1; L.strokeText(ch, x, y - T * 0.24);  // specular
       if (corners.length) {
         L.setTransform(1, 0, 0, 1, 0, 0);
         // ⚠ THE CUT IS A GAP ABOUT ONE TUBE ACROSS, as in a real bent-glass letter.
@@ -46649,6 +46797,22 @@ function bakeSignText(label, color, dn, vertical, solid, tight, opts) {
       g.globalCompositeOperation = 'destination-over';
       g.shadowColor = color; g.shadowBlur = glow * 0.9;
       g.strokeStyle = color; g.lineWidth = T * 1.5; g.strokeText(ch, x, y);    // halo, behind the glass
+      // ── AND THE WASH: THE GAS LIGHTING THE BOARD BEHIND IT ──────────────────────────────────
+      // The halo above is the glow off the glass. A lit sign also throws a broad, faint pool of
+      // its colour onto the board it's mounted on, and that pool is most of what says "light"
+      // rather than "coloured line". Only the shadow is wanted, so the stroke is drawn a long way
+      // off the canvas and its shadow offset back onto it (the offset is in device pixels, so it
+      // goes through the bake's scale). It's faint on purpose: the "too much bloom" report was
+      // glow between strokes eating the letterforms, and this sits under the tube at 40%.
+      // The canvas ends a pad past the ink, so the wash is clipped there; the decal shader fades
+      // it out toward the quad's edges.
+      if ((RENDER_TUNE.neonWash ?? 1) > 0) {
+        // The headless stub's getTransform returns nothing; the bake's own transform is a plain scale.
+        const OFF = 4096, m = tf0 || { a: 1, b: 0 };
+        g.globalAlpha = 0.4 * (RENDER_TUNE.neonWash ?? 1);
+        g.shadowBlur = CELL * 0.42 * SB; g.shadowOffsetX = OFF * m.a; g.shadowOffsetY = OFF * m.b;
+        g.lineWidth = T * 2.2; g.strokeText(ch, x - OFF, y);
+      }
       g.restore();
       return;
     }
@@ -47246,7 +47410,7 @@ const tagWordFor = (v) => TAG_WORDS[Math.abs(v | 0) % TAG_WORDS.length];
 // ⚠ AND THE JITTER IS DETERMINISTIC OFF THE WORDS, never off a clock or a draw counter. The canvas
 // is cached and a tag is baked once for the life of the page, so a wobble that moved could only
 // ever show up as two walls of the same words disagreeing with each other.
-// ── FIVE HANDS, AND NOT ONE OF THEM IS A TYPEFACE ───────────────────────────────────────────────
+// ── SIX HANDS, AND ONLY ONE OF THEM IS A TYPEFACE ───────────────────────────────────────────────
 //
 // `bakeTagText` draws a THROW-UP: bubble letters, a cloud, a block, drips. It is one thing a wall
 // gets, and for a while it was the only thing, so every piece of paint in Coldwater was the same
@@ -47258,8 +47422,12 @@ const tagWordFor = (v) => TAG_WORDS[Math.abs(v | 0) % TAG_WORDS.length];
 // round-joined outline stroked round it, not the face underneath — and it generalises: a handstyle
 // is a marker held at a slant, a stencil is a flat fill with BRIDGES in it, a roller is two tones
 // and no outline at all. Every one of those is a different set of PASSES over the same system
-// faces, and a downloaded typeface would not supply any of them. There are no font files in this
-// repo and no build step to ship one with.
+// faces, and a downloaded typeface would not supply any of them.
+//
+// The one exception is `gothic`, where the face IS the style: Old English lettering is what a
+// placa is written in, and no recipe over a sans gets there. It uses the self-hosted
+// UnifrakturMaguntia that `loadNeonFaces` fetches, and it's the only place that face is allowed;
+// signs gave it up (see the ⚠ in SIGN_FONT).
 //
 // So a hand is a recipe:
 //
@@ -47272,6 +47440,9 @@ const tagWordFor = (v) => TAG_WORDS[Math.abs(v | 0) % TAG_WORDS.length];
 //            nap streaks across the letters. Wide, and high enough that the pole is why it is there.
 //   buff     not graffiti: the city painting OVER graffiti. A rectangle of paint that does not
 //            match the wall, a ghost of what was under it, and often somebody back the same week.
+//   gothic   a placa. Blackletter in one enamel, a hard keyline and a drop shadow, set straight
+//            and title-cased, because all-caps blackletter can't be read. No cloud and no drips:
+//            it's done slowly and it's done clean.
 //
 // ⚠ THE ASPECT IS HALF THE PLACEMENT, AND IT COSTS NOTHING. `fitSignPts` seats a texture inside the
 // quad it is given and only ever takes LESS of it, so a roller baked three times as wide as it is
@@ -47279,12 +47450,13 @@ const tagWordFor = (v) => TAG_WORDS[Math.abs(v | 0) % TAG_WORDS.length];
 // code knowing either exists. What the placement DOES decide is where on the wall the patch is —
 // see `TAG_HAND_BAND`, which is the other half: a roller goes high because that is what the pole is
 // for, and a handstyle goes low because that is arm's length.
-const TAG_HANDS = ['throw', 'hand', 'stencil', 'roller', 'buff'];
+const TAG_HANDS = ['throw', 'hand', 'stencil', 'roller', 'buff', 'gothic'];
 // ⚠ WEIGHTED, BECAUSE A WALL IS NOT AN EVEN SPLIT OF FIVE THINGS. Reference photographs of any
 // street are mostly scrawled names with a few pieces among them; a blockbuster is a landmark and a
 // buff is whatever the council got round to. An even roll makes every street read as a gallery.
+// A placa is common on purpose: about one wall in five.
 const TAG_HAND_ROLL = ['hand', 'hand', 'hand', 'hand', 'hand', 'throw', 'throw', 'throw',
-  'stencil', 'stencil', 'roller', 'buff'];
+  'gothic', 'gothic', 'gothic', 'stencil', 'stencil', 'roller', 'buff'];
 const tagHandFor = (v) => TAG_HAND_ROLL[Math.abs(v | 0) % TAG_HAND_ROLL.length];
 // ⚠ A PLAYER'S WORDS ARE NEVER ROLLED ONTO THE LAST TWO. A roller is two flat tones with no outline
 // and a buff is paint over the top of somebody — both are deliberately hard to read, which is right
@@ -47304,6 +47476,7 @@ const TAG_HAND_BAND = {
   stencil: { lift: 0.25, w: 0.58, hh: 0.72 },
   roller: { lift: 2.6, w: 1.9, hh: 0.9 },
   buff: { lift: 0.1, w: 1.5, hh: 1.05 },
+  gothic: { lift: 0.1, w: 0.95, hh: 0.9 },
 };
 const tagBandFor = (hand) => TAG_HAND_BAND[hand] || TAG_HAND_BAND.throw;
 // A marker. NOT the piece's own face — a handstyle is written with the side of a nib, so it wants
@@ -47314,8 +47487,14 @@ const TAG_HAND_FONT = (C) => `italic 700 ${Math.round(C * 0.92)}px "Segoe Script
 const TAG_STENCIL_FONT = (C) => `900 ${Math.round(C * 0.80)}px "Arial Narrow",Haettenschweiler,Impact,"Arial Black",sans-serif`;
 // A roller does not draw letters, it fills them. The widest, heaviest face available.
 const TAG_ROLLER_FONT = (C) => `900 ${Math.round(C * 0.86)}px "Arial Black","Segoe UI Black",Impact,sans-serif`;
+// A placa. Gabriola is the Windows fallback: calligraphic rather than blackletter, but still a pen
+// hand, where the next thing down the stack is a body serif.
+const TAG_GOTHIC_FONT = (C) => `${Math.round(C * 0.98)}px UnifrakturMaguntia,"Old English Text MT","Blackadder ITC",Gabriola,serif`;
+// Blackletter capitals in a row are the least legible thing in the alphabet, so a placa is set the
+// way it's written: a capital to open each word and the rest lower case.
+const titleWords = (s) => String(s).toLowerCase().replace(/(^|\s)(\S)/g, (m, a, b) => a + b.toUpperCase());
 
-// The four hands that are not the throw-up. Dispatched from `bakeTagText` so the cache, the key,
+// The five hands that are not the throw-up. Dispatched from `bakeTagText` so the cache, the key,
 // the wrap and the palette are shared and there is one place a piece of paint is made.
 //
 // ⚠ AND EVERY ONE OF THEM STAMPS `__tagPaint`. Three gates read `signTexKey`'s prefix to mean "a
@@ -47346,13 +47525,15 @@ function bakeTagHand(hand, body, colour, dn, variant, marks) {
   // back as "NO", which is half a slogan painted three storeys up with no way to tell it was ever
   // longer. What a roller does is fit what it can across the wall and stop, so whole words are
   // taken until the line is full and the rest is simply not up there.
-  const lines = hand === 'roller' ? [rollerLine(body)] : tagLines(body);
+  const lines = hand === 'roller' ? [rollerLine(body)] : hand === 'gothic' ? tagLines(titleWords(body)) : tagLines(body);
   if (!lines.length || !lines[0]) return null;
 
-  const font = hand === 'hand' ? TAG_HAND_FONT : hand === 'stencil' ? TAG_STENCIL_FONT : TAG_ROLLER_FONT;
+  const font = hand === 'hand' ? TAG_HAND_FONT : hand === 'stencil' ? TAG_STENCIL_FONT
+    : hand === 'gothic' ? TAG_GOTHIC_FONT : TAG_ROLLER_FONT;
   // Tracking and stretch per hand. A marker runs its letters together, a stencil holds them apart
-  // because the card between them has to survive being cut, and a roller is nearly touching.
-  const TRACK = hand === 'hand' ? 0.88 : hand === 'stencil' ? 1.08 : 0.92;
+  // because the card between them has to survive being cut, a roller is nearly touching, and
+  // blackletter sets close by nature.
+  const TRACK = hand === 'hand' ? 0.88 : hand === 'stencil' ? 1.08 : hand === 'gothic' ? 0.97 : 0.92;
   // ⚠ A BLOCKBUSTER IS WIDE, AND 1.5 IS NOT WIDE. At that stretch it came back as clean flat
   // display type — correct letters, and nothing about them said a roller. The whole read is that
   // the letters are far wider than they are tall, because a nine-inch roller is what drew them.
@@ -47411,6 +47592,7 @@ function bakeTagHand(hand, body, colour, dn, variant, marks) {
 
   if (hand === 'hand') bakeHandstyle(g, glyphs, at, P, R, CELL);
   else if (hand === 'stencil') bakeStencil(g, glyphs, at, P, R, CELL);
+  else if (hand === 'gothic') bakePlaca(g, glyphs, at, P, CELL);
   else bakeRoller(g, glyphs, at, P, R, CELL, W, H);
 
   g.globalAlpha = 1;
@@ -47530,6 +47712,37 @@ function bakeStencil(g, glyphs, at, P, R, CELL) {
   }
   g.restore();
   g.globalCompositeOperation = 'source-over';
+}
+
+// A placa: blackletter in enamel, keylined, with a hard shadow down and to the right. Every keyline
+// goes down before any fill, as the throw-up does, so where two letters touch there's one line
+// between them rather than a keyline painted across a neighbour.
+function bakePlaca(g, glyphs, at, P, CELL) {
+  // 1. The shadow: the keylined letter, offset. Opaque, because it's a second colour somebody chose.
+  g.save();
+  g.translate(CELL * 0.07, CELL * 0.07);
+  g.fillStyle = g.strokeStyle = P.line;
+  g.lineWidth = CELL * 0.08;
+  for (const q of glyphs) at(q, (ox) => { g.strokeText(q.ch, ox, 0); g.fillText(q.ch, ox, 0); });
+  g.restore();
+  // 2. Every keyline.
+  g.save();
+  g.strokeStyle = P.line;
+  g.lineWidth = CELL * 0.08;
+  for (const q of glyphs) at(q, (ox) => g.strokeText(q.ch, ox, 0));
+  g.restore();
+  // 3. Every fill, light at the head of the letter and darker at the foot, which is the enamel
+  //    catching the street light rather than a gradient anybody painted.
+  g.save();
+  for (const q of glyphs) at(q, (ox) => {
+    const fade = g.createLinearGradient(0, -CELL * 0.42, 0, CELL * 0.34);
+    fade.addColorStop(0, P.top);
+    fade.addColorStop(0.5, P.mid);
+    fade.addColorStop(1, P.bot);
+    g.fillStyle = fade;
+    g.fillText(q.ch, ox, 0);
+  });
+  g.restore();
 }
 
 // A blockbuster. Emulsion, two flat tones, no outline, no drips — a roller does not drip, it
@@ -48481,7 +48694,7 @@ const TAG_MIN_PX = 14;
 export const tagArtwork = (text, colour, variant = 0, night = 0, marks = 3, hand = null, face = null) =>
   bakeTagText(text || tagWordFor(variant), null, colour, night ? 1 : 0, variant, marks,
     hand || tagHandFor(variant), face);
-// The five recipes by name, so `__tagSheet()` can lay one row out per hand rather than hoping the
+// The six recipes by name, so `__tagSheet()` can lay one row out per hand rather than hoping the
 // variant roll happens to visit all of them. The four throw-up letterforms likewise.
 export const tagHandList = () => TAG_HANDS.slice();
 export const tagFaceList = () => TAG_FACES.slice();
@@ -48971,7 +49184,7 @@ const BLADE_CROWNS = {
 // crown their signage in any reference of this city; giving them one would be the costume mistake
 // `SIGN_HANZI` is rationed to avoid.
 const CROWN_FACE = {
-  deco: 'step', gothic: 'step', western: 'step',     // a picture palace, a false front, a 1930s pylon
+  deco: 'step', western: 'step',                     // a picture palace, a false front, a 1930s pylon
   script: 'dome', slab: 'dome', hanzi: 'dome',       // an arch over a wordmark
   condensed: 'fin', techno: 'fin',                   // the tapered post-war pylon
 };
@@ -53730,7 +53943,7 @@ const SIGN_TRADE = {
   // ⚠ A COUNTER IS NOT A LOADING BAY. `permits` sat in the freight row, so the one municipal office
   // in Coldwater carried the delivery arrow on its roof board and, through `PICTO_HANZI`, a blade
   // reading 貨運 — FREIGHT — on a building that issues licences. See `stamp` in `SIGN_PICTO`.
-  permits: ['slab', 'stamp'], thumbscale: ['block', 'arrow'],
+  permits: ['slab', 'stamp'],
   // ── AND SIX THAT THE MATERIAL FALLBACK GETS WRONG ─────────────────────────
   // `signFontOf` reads the palette when the trade is not listed, which works because a facing
   // material dates a building. These six are faced in something that says nothing about how they
@@ -53749,11 +53962,13 @@ const SIGN_TRADE = {
   // other trades that letter themselves nothing like it.
   // ⚠ STILL NO PICTOGRAM WHERE ONE WOULD REPAINT THE BUILDING: `accentOf` reads the mark for a
   // colour, so a `bolt` added here to a chapel would make it burn electric blue.
-  church: ['gothic', ''], undertaker: ['gothic', ''], archive: ['gothic', ''],   // blackletter: the three that want to look older than the city
+  // ⚠ NOT BLACKLETTER. These three were, and it's a graffiti hand now; see the ⚠ in SIGN_FONT. Cut
+  // into stone over the door is what all three actually do.
+  church: ['deco', ''], undertaker: ['deco', ''], archive: ['deco', ''],
   // ⚠ `money` AND `balls` ARE NAMED HERE AND ARE STILL OUT OF `PICTO_ACCENT` — see the ⚠ above
   // `sentimental`. A bank letters itself like a deed AND hangs a dollar over the door; a
   // pawnbroker hangs the three balls, and has done since the Medici.
-  bank: ['gothic', 'money'],                                                          // a bank letters itself like a deed
+  bank: ['deco', 'money'],                                                            // an engraved plaque, set wide
   pawn: ['western', 'balls'], slagwares: ['western', ''], techstall: ['western', ''], // frontier slab-and-spur
   outfitter: ['western', ''], hardware: ['western', ''], assay: ['western', ''],
   chrome: ['techno', 'bolt'], asc_vats: ['techno', ''], asc_weave: ['techno', ''], // the Ascendant hand — machine-made, not sign-written
@@ -53805,7 +54020,7 @@ const SIGN_TRADE = {
   photographer: ['deco', ''],           // a portrait studio's own period, and the one trade that sells taste in lettering
   tattooist: ['script', ''],            // the whole trade is a brush, and the sign is the portfolio
   vet: ['slab', 'pill'],                // a surgery is a clinic, and the clinics already carry the pill
-  taxidermist: ['gothic', ''],          // older than the city and says so; its own arm paints its name rather than lighting it
+  taxidermist: ['western', ''],         // a Victorian showcard, older than the city; its own arm paints its name rather than lighting it
   lending_library: ['deco', ''],        // a civic reading room, chiselled over the door
   museum: ['deco', ''],                 // and the portico next to it, which is the same claim made louder
 };
@@ -56588,6 +56803,11 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // inherit whatever the last building's `finally` left in ADORN_TIER, which is always RICH, so
     // everything the camp keeps for arm's length (patches, guy lines, clutter, the weathered
     // canvas) had never drawn in the game at all.
+    // AN AA BATTERY'S DECK (drawAAMark). Like the camp, a Curtain battery falls through to the wall.
+    if (it.c.mark === 'aa') {
+      drawAAMark(ctx, cam, it, v, night, alpha, now, sun, sky, od);
+      if (!it.c.cur) continue;
+    }
     if (it.c.mark === 'camp') {
       ADORN_TIER = (TUNE.detailNear || 0) > 0 && eyeRange(cam, it.dx, it.dy) < TUNE.detailNear ? ADORN_NEAR : ADORN_RICH;
       try { drawTentCamp(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, it.c.cur ? (it.c.ci || campInward(map, it.rx, it.ry, it.c.cur)) : null, now); }
@@ -57016,9 +57236,6 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       if (padZ > 0) drawRoofPadCatch(ctx, cam, it.dx, it.dy, padZ, now, alpha, !!v.roofPad.armed);
     }
   }
-  // Ground AA emplacements ride the SHARED face queue too (each turret emitted at its tile-centre
-  // depth), so a building between you and the site occludes it instead of the turret painting on top
-  // — it used to draw as a post-pass after flushFaces (the "AA showing through a building" bug).
   // A net rather than a second owner: every item above clears its own, and this is here so an arm
   // that throws out of the loop cannot leave the rest of the frame drawn as a blackout.
   clearTilePower();
@@ -57026,7 +57243,6 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   if (_ic) _ic(null);
   pEnd();                      // ── end world:arms ──
   pBegin('world:street');
-  if (v.aaSites && (v.worldBlend ?? 1) > 0.02) drawAASites(ctx, cam, v, now);
   // THE PEOPLE. Queued into the same face sink for the same reason the AA sites are: a figure on
   // the far pavement must be hidden by the building between you and them, not painted over it.
   // Height-gated — a person is sub-pixel from anything but a low pass, and at cruise this is a few

@@ -4,7 +4,7 @@
   "exterior": {
     "base": "#1f7a6e",
     "finish": "gloss",
-    "pattern": "twotone",
+    "pattern": "factory",
     "trim": "#d9d4c4"
   },
   "id": "stock",

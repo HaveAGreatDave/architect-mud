@@ -131,6 +131,19 @@ ${LINEAR_GLSL}
 vec3 aces(vec3 x) {
   return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
 }
+// ⚠ THE CLAMP KEEPS THE HUE OF WHAT GOES PAST WHITE. Clamping each channel on its own turns any
+// colour pushed past 1.0 toward white: a pink tube at 1.9x has its red and blue both pinned at 1,
+// and every neon sign in the city came out pale pink-white with a coloured fringe. Past 1.0 the
+// colour is scaled down to its brightest channel instead, and white comes in only as the overshoot
+// grows, so a tube's walls stay saturated and its axis still blows out. At or under 1.0 this is
+// exactly the clamp, and only quads that declare themselves light ever reach past it.
+vec3 keepHue(vec3 c) {
+  c = max(c, 0.0);
+  float m = max(c.r, max(c.g, c.b));
+  if (m <= 1.0) return c;
+  float k = clamp((m - 1.0) / 1.5, 0.0, 1.0);
+  return mix(c / m, vec3(1.0), k * k * 0.7);
+}
 
 void main() {
   vec4 s = texture(uScene, vUV);
@@ -159,7 +172,7 @@ void main() {
   // touches every pixel in the city, including palettes and three occlusion terms tuned by eye
   // against a linear output; this is what lets the headroom and the bloom ship without also
   // shipping a re-grade nobody asked for.
-  vec3 graded = mix(clamp(c, 0.0, 1.0), aces(c), clamp(uTonemap, 0.0, 1.0));
+  vec3 graded = mix(keepHue(c), aces(c), clamp(uTonemap, 0.0, 1.0));
   outColor = vec4(graded * a, a);
 }`;
 

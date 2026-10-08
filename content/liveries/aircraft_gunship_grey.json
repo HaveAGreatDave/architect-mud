@@ -1,0 +1,19 @@
+{
+  "blurb": "Navy grey. On a gunship, grey is the point.",
+  "default": false,
+  "exterior": {
+    "base": "#767c82",
+    "finish": "satin",
+    "pattern": "solid",
+    "trim": "#585e64"
+  },
+  "id": "grey",
+  "interior": {
+    "cabin": "#1e2226",
+    "uphol": "mesh"
+  },
+  "kind": "aircraft",
+  "model": "gunship",
+  "name": "Battleship Grey",
+  "unlock": null
+}

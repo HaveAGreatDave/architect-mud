@@ -103,10 +103,11 @@ export function bakeLiveries(files = readLiveryFiles()) {
       exterior: ext, interior: int, plate: doc.plate || '',
     });
   }
-  // Every aircraft class has a default, because that is how an unpainted aeroplane stops being
-  // grey. Boats and trucks join as their depots move onto the shared livery.
-  for (const model of LIVERY_MODELS.aircraft) {
-    if (!defaults.has('aircraft/' + model)) errors.push('no default livery for aircraft/' + model + ' (add ' + liveryFileName('aircraft', model, 'stock') + ' with "default": true)');
+  // Every aircraft class and every truck has a default, because that is how an unpainted vehicle
+  // stops being grey. Boats join when their yard moves onto the shared livery; until then a hull's
+  // factory colours are its vehicle_models row (paintBase/paintTrim).
+  for (const kind of ['aircraft', 'truck']) for (const model of LIVERY_MODELS[kind]) {
+    if (!defaults.has(kind + '/' + model)) errors.push('no default livery for ' + kind + '/' + model + ' (add ' + liveryFileName(kind, model, 'stock') + ' with "default": true)');
   }
   // Defaults first, then by name, so a picker lists the factory look at the top.
   rows.sort((a, b) => a.kind.localeCompare(b.kind) || a.model.localeCompare(b.model)

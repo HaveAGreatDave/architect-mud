@@ -96,6 +96,7 @@
       "cx": 0,
       "cy": 0.445,
       "depth": 0.014,
+      "door": 1,
       "glass": "#2c443a",
       "glow": "#b4ffd4",
       "half": 0.06,

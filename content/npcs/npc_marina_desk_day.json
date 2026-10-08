@@ -372,7 +372,7 @@
       ]
     },
     "fuel": {
-      "text": "He nods north. \"The fuel berth, on the north face of the building, east along the gangway from the visitor pontoon. It is the only marine pump on the Basin.\"\n\n\"Bring her alongside the pylons, stop, and <b>fuel</b>. You pay by the unit, so a bigger tank costs more to fill.\"",
+      "text": "He nods north. \"The fuel berth, on the north face of the building, east along the gangway from the visitor pontoon. The only other pump on the Basin is a hand pump on a drum, at the yard on Ironside Street.\"\n\n\"Bring her alongside the pylons, stop, and <b>fuel</b>. You pay by the unit, so a bigger tank costs more to fill.\"",
       "options": [
         {
           "label": "Back up.",

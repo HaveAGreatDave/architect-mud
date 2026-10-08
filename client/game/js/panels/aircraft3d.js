@@ -37,6 +37,7 @@ import {
   compileMesh, resolveRotors, wingTipStation, animFacePoints,
 } from '../../../shared/vehicle-mesh.js';
 import { MESH_ROWS } from '../../../shared/vehicle-meshes.js';
+import { defaultLivery, aircraftLiveryModel } from '../../../shared/livery-sets.js';
 // How far down the doorway a strike falls before it is behind the apron — see drawInspectDoor's
 // bolt reader, which also takes every lateral offset in the tree against this same span.
 const DOOR_BOLT_DROP = 0.66;
@@ -46,9 +47,17 @@ const FINISH_MUL = { gloss: 1.06, satin: 1.0, matte: 0.88, weathered: 0.82 };
 // ── Livery → colour ────────────────────────────────────────────────────────────
 // Resolve a livery into a working palette (splinter camo drags the base toward drab),
 // then answer per-face whether it wears the trim colour and what raw rgb it takes.
-export function liveryPalette(lv, cls = null) {
+export function liveryPalette(lv, cls = null, armed = false) {
   const noLivery = !lv;
   lv = lv || {};
+  // ⚠ NOTHING CHOSEN IS THE MODEL'S OWN PAINT, NOT GREY. The server sends every aircraft's livery
+  // filled in from its default set (normalizeLivery), but a shop lot, a card or a contact that
+  // carries no livery reached here empty, and a mesh with no paint slots came out bare metal. The
+  // default set's exterior is what that aircraft wears off the line, so it is what an empty one shows.
+  if (cls && (noLivery || (!lv.base && !lv.trim && !lv.pattern))) {
+    const d = defaultLivery('aircraft', aircraftLiveryModel(cls, armed ? 1 : 0));
+    if (d) lv = { ...d.exterior, ...lv };
+  }
   // ⚠ A HULL'S FACTORY COLOURS ARE ITS OWN. Unpainted, every boat fell through to the airframe
   // grey below, so three different hulls on one pontoon were three grey boats. A boat row carries
   // `paintBase`/`paintTrim`/`paintGlow`/`paintFinish`, and an unpainted hull of that row wears them.
@@ -7765,7 +7774,7 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
     if (idleRoll) { const g1 = g * cIR - z * sIR; z = g * sIR + z * cIR; g = g1; }
     return [v[0] * mScale, g, z + mDrop];
   };
-  const pal = liveryPalette(livery || {}, cls);
+  const pal = liveryPalette(livery || {}, cls, armed);
   const jazzImg = (!wreck && pal.pat === 'jazz') ? jazzTex(livery?.base, livery?.trim, livery?.accent, livery?.ground) : null;
   const texStr = wreck ? 0.62 : (TEX_STRENGTH[livery?.finish] ?? 0.46);
   const roll = wreck ? -0.26 : 0, cro = Math.cos(roll), sro = Math.sin(roll);
@@ -8897,7 +8906,7 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
     const gpr = e.wreck ? 0 : groundPitchFor(e.cls, !!e.armed) * Math.PI / 180;
     const cgp = Math.cos(gpr), sgp = Math.sin(gpr);
     const tilt = gpr ? (v) => [v[0] * cgp - v[2] * sgp, v[1], v[0] * sgp + v[2] * cgp] : null;
-    const pal = liveryPalette(e.livery || {}, e.cls);
+    const pal = liveryPalette(e.livery || {}, e.cls, !!e.armed);
     const jazzImg = (!e.wreck && pal.pat === 'jazz') ? jazzTex(e.livery?.base, e.livery?.trim, e.livery?.accent, e.livery?.ground) : null;
     const roll = e.wreck ? -0.22 : 0, cro = Math.cos(roll), sro = Math.sin(roll);
     const selected = e.id === selId;

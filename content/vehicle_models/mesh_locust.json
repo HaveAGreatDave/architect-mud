@@ -8,12 +8,13 @@
     "navLamps": [0.0425, 1.14, -0.0349],
     "hull": "fuselage",
     "rotors": [{ "at": [1.035, 0, 0.02], "plane": "fore", "r": 0.26, "blades": 5, "lead": 0.85 }],
+    "finish": "gloss",
     "paints": {
-      "exhaust": { "rgb": [82, 68, 58], "livery": "fixed" },
+      "exhaust": { "rgb": [82, 68, 58], "livery": "fixed", "mat": "exhaust" },
       "frame": { "rgb": [40, 42, 40], "livery": "fixed" },
-      "glare": { "rgb": [30, 32, 30], "livery": "fixed" },
+      "glare": { "rgb": [30, 32, 30], "livery": "fixed", "mat": "matte" },
       "hull": { "rgb": [226, 186, 42], "livery": "base" },
-      "metal": { "rgb": [156, 160, 164], "livery": "fixed" },
+      "metal": { "rgb": [156, 160, 164], "livery": "fixed", "mat": "bare" },
       "spinner": { "rgb": [30, 30, 32], "livery": "fixed" },
       "stripe": { "rgb": [36, 92, 58], "livery": "trim" }
     },

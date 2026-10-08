@@ -1,20 +1,20 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "description": "A cramped utility space: bare board, sweating conduit, and the building junction box humming in its steel cabinet.",
+  "description": "Under the shed floor: the pump that keeps the slot from coming up into the shed at high water, the junction box on a post, and a lot of mud.",
   "exits": {
     "up": "zone_hulls_shop"
   },
   "flags": {
-    "floor": "concrete",
+    "floor": "dirt",
     "is_interior": true,
-    "world_exit_zone": "zone_district_916_905"
+    "world_exit_zone": "zone_district_921_901"
   },
   "grid_x": 0,
   "grid_y": 0,
   "grid_z": -1,
   "id": "zone_util_zone_hulls_shop",
   "map_id": "map_int_hulls",
-  "name": "Hulls Angels — Utility Room",
-  "parent_zone": "zone_district_916_905"
+  "name": "Moor or Less — The Pump Pit",
+  "parent_zone": "zone_district_921_901"
 }

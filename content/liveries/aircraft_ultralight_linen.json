@@ -1,0 +1,19 @@
+{
+  "blurb": "Pale doped fabric and brown trim. A kite with opinions.",
+  "default": false,
+  "exterior": {
+    "base": "#e8d9a0",
+    "finish": "satin",
+    "pattern": "twotone",
+    "trim": "#8a4b2a"
+  },
+  "id": "linen",
+  "interior": {
+    "cabin": "#3a3024",
+    "uphol": "standard"
+  },
+  "kind": "aircraft",
+  "model": "ultralight",
+  "name": "Doped Linen",
+  "unlock": null
+}

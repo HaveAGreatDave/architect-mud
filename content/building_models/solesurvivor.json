@@ -6,7 +6,7 @@
       "kind": "glowPool",
       "rgb": "255,208,144",
       "s": 7,
-      "z": 0.11
+      "z": 0.32
     },
     {
       "cx": 0,
@@ -36,10 +36,10 @@
       "glass": "#3a2a1a",
       "glow": "#ffd090",
       "half": 0.07,
-      "hh": 0.045,
+      "hh": 0.11,
       "kind": "windowBay",
       "pal": "ty_sole_dk",
-      "z": 0.11
+      "z": 0.32
     },
     {
       "bars": 1,
@@ -49,11 +49,11 @@
       "glass": "#2a2018",
       "glow": "#6a5040",
       "half": 0.04,
-      "hh": 0.11,
+      "hh": 0.28,
       "kind": "windowBay",
       "pal": "ty_sole_dk",
       "transom": 0.8,
-      "z": 0.15
+      "z": 0.29
     },
     {
       "color": "#1c1a18",
@@ -66,8 +66,8 @@
       "label": "BOOTS",
       "out": 0.07,
       "pal": "ty_sole_dk",
-      "z0": 0.27,
-      "z1": 0.33
+      "z0": 0.6,
+      "z1": 0.72
     },
     {
       "bare": true,
@@ -75,11 +75,11 @@
       "cy": 0.405,
       "font": "western",
       "half": 0.12,
-      "hh": 0.02,
+      "hh": 0.035,
       "ink": "#e8d8b0",
       "kind": "signBoard",
       "label": "SOLE SURVIVOR",
-      "z": 0.25
+      "z": 0.5
     },
     {
       "cx": 0.25,
@@ -89,7 +89,7 @@
       "pal": "ty_stack_dk",
       "r": 0.008,
       "z0": 0,
-      "z1": 0.36
+      "z1": 0.76
     }
   ],
   "id": "solesurvivor",
@@ -105,7 +105,7 @@
       "pal": "ty_sole",
       "roof": true,
       "z0": 0,
-      "z1": 0.36
+      "z1": 0.76
     },
     {
       "cx": 0,
@@ -115,8 +115,8 @@
       "kind": "box",
       "pal": "ty_sole_dk",
       "roof": true,
-      "z0": 0.36,
-      "z1": 0.42
+      "z0": 0.76,
+      "z1": 0.85
     },
     {
       "cx": 0,
@@ -126,8 +126,8 @@
       "kind": "box",
       "pal": "ty_sole_dk",
       "roof": true,
-      "z0": 0.42,
-      "z1": 0.47
+      "z0": 0.85,
+      "z1": 0.92
     }
   ],
   "trade": "cobbler"

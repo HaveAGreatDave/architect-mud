@@ -7,6 +7,9 @@ Staff controls in the game, in the Tablet Admin app and the `sysop` verb ([plugi
 ## Phase 1: Weather ✅
 *Built:* `sysop weather …` and the Weather tab. Force the condition, temperature or precipitation chance, start a named event, or return to the forecast. It uses the engine override, so the change survives a restart until it's cleared.
 
+- Setting a condition without a precipitation chance uses 100% for a wet one (rain, sleet, snow, blizzard, storm, thunderstorm) and 0% for the rest. Keeping today's chance made "set rain" a roll that usually came up dry.
+- Rain only falls under a moving cell ([systems-weather-extreme.md](systems-weather-extreme.md)), and the override reseeds the cells across the whole map. So a wet set also moves the nearest rain cell over the tile of the staff member who set it (`bringWetCellOver` in `plugins/weather`), or over the building's facade when they're indoors. The rest of the map keeps local weather.
+
 ## Phase 2: Time ✅
 *Built:* `sysop time …` and the Time tab. Skip +4h, +8h, +12h or +24h, set an exact time, freeze, and set the speed (1x, 2x, 3x, 6x).
 

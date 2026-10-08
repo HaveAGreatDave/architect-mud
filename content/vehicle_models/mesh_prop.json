@@ -11,15 +11,16 @@
       { "at": [0.568, 0.42, 0.108], "plane": "fore", "r": 0.21, "blades": 3, "lead": 0.85 },
       { "at": [0.568, -0.42, 0.108], "plane": "fore", "r": 0.21, "blades": 3, "lead": 0.85, "dir": -1 }
     ],
+    "finish": "gloss",
     "paints": {
       "belly": { "rgb": [168, 172, 176], "livery": "fixed" },
-      "boot": { "rgb": [26, 26, 28], "livery": "fixed" },
-      "exhaust": { "rgb": [86, 72, 62], "livery": "fixed" },
-      "glare": { "rgb": [30, 32, 34], "livery": "fixed" },
+      "boot": { "rgb": [26, 26, 28], "livery": "fixed", "mat": "rubber" },
+      "exhaust": { "rgb": [86, 72, 62], "livery": "fixed", "mat": "exhaust" },
+      "glare": { "rgb": [30, 32, 34], "livery": "fixed", "mat": "matte" },
       "hull": { "rgb": [230, 228, 220], "livery": "base" },
-      "intake": { "rgb": [40, 40, 44], "livery": "fixed" },
-      "metal": { "rgb": [150, 154, 160], "livery": "fixed" },
-      "seam": { "rgb": [120, 122, 124], "livery": "fixed" },
+      "intake": { "rgb": [40, 40, 44], "livery": "fixed", "mat": "steel" },
+      "metal": { "rgb": [150, 154, 160], "livery": "fixed", "mat": "bare" },
+      "seam": { "rgb": [120, 122, 124], "livery": "fixed", "mat": "matte" },
       "spinner": { "rgb": [196, 58, 38], "livery": "trim" },
       "stripe": { "rgb": [196, 58, 38], "livery": "trim" }
     },

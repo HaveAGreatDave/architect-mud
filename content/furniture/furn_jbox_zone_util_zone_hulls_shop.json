@@ -5,7 +5,7 @@
     "generator_id": "gen_zone_util_zone_hulls_shop"
   },
   "hp": null,
-  "hp_max": null,
+  "hp_max": 1200,
   "id": "furn_jbox_zone_util_zone_hulls_shop",
   "light_type": "lamp",
   "lumen_output": null,

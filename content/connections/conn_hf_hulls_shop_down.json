@@ -1,0 +1,9 @@
+{
+  "a": "zone_hulls_shop",
+  "b": "zone_util_zone_hulls_shop",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_hulls_shop_down",
+  "lockable": false,
+  "one_way": false
+}

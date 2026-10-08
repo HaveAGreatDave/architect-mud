@@ -192,14 +192,15 @@
       "cx": 0,
       "cy": 0.37,
       "depth": 0.014,
+      "door": 1,
       "glass": "#1c1612",
       "glow": "#ffd8a0",
       "half": 0.06,
-      "hh": 0.075,
+      "hh": 0.0725,
       "kind": "windowBay",
       "pal": "ty_reach_grey_dk",
       "transom": 0.75,
-      "z": 0.15
+      "z": 0.1525
     },
     {
       "bars": 2,

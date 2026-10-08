@@ -28,6 +28,15 @@ const aces = (x) => {
 };
 const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
 const graded = (x, tonemap) => clamp01(x) + (aces(x) - clamp01(x)) * clamp01(tonemap);
+// `keepHue` exactly as the composite spells it: the clamp for a colour at or under 1.0; past it,
+// the colour scaled to its brightest channel with white mixed in as the overshoot grows.
+const keepHue = (c) => {
+  const v = c.map((x) => Math.max(x, 0));
+  const m = Math.max(...v);
+  if (m <= 1) return v;
+  const k = clamp01((m - 1) / 1.5), w = k * k * 0.7;
+  return v.map((x) => x / m + (1 - x / m) * w);
+};
 
 // ── 1. AT 0 IT IS THE CLAMP, EXACTLY ──────────────────────────────────────────
 {
@@ -40,6 +49,38 @@ const graded = (x, tonemap) => clamp01(x) + (aces(x) - clamp01(x)) * clamp01(ton
   // Not a tolerance: a lerp by exactly 0 must return exactly its first argument.
   if (worst !== 0) problems.push(`at tonemap 0 the composite differs from a clamp by ${worst} — the float path is re-grading the city`);
   console.log(`  · tonemap 0 against a plain clamp: worst difference ${worst}`);
+}
+
+// ── 1b. THE HUE-KEEPING CLAMP TOUCHES NOTHING AT OR UNDER WHITE ──────────────
+//
+// ⚠ THE SAME SAFETY ARGUMENT, ONE STEP ON. Only a quad that declares itself light goes past 1.0, so
+// `keepHue` may change those and nothing else: every colour the palettes and the occlusion terms
+// can produce has to come out of it bit-identical to the clamp. Past 1.0 it has to join the clamp
+// at 1.0 without a step, brighten every channel as the overshoot grows (or a sign dims as it
+// brightens), and keep a saturated colour saturated, which is what it's for.
+{
+  let changed = 0, step = 0, inv = 0;
+  for (let r = 0; r <= 20; r++) for (let g = 0; g <= 20; g++) for (let b = 0; b <= 20; b++) {
+    const c = [r / 20, g / 20, b / 20];
+    const o = keepHue(c);
+    if (o.some((x, i) => x !== clamp01(c[i]))) changed++;
+  }
+  for (const h of [[1, 0.36, 0.88], [0.36, 0.84, 1], [1, 0.5, 0.1], [1, 1, 1], [0.2, 1, 0.3]]) {
+    const a = keepHue(h.map((x) => x * (1 - 1e-7))), b = keepHue(h.map((x) => x * (1 + 1e-7)));
+    step = Math.max(step, ...a.map((x, i) => Math.abs(x - b[i])));
+    let prev = keepHue(h);
+    for (let s = 1.01; s <= 4; s += 0.01) {
+      const o = keepHue(h.map((x) => x * s));
+      if (o.some((x, i) => x < prev[i] - 1e-9)) inv++;
+      prev = o;
+    }
+  }
+  const pink = keepHue([1.9, 0.68, 1.67]);
+  if (changed) problems.push(`keepHue changes ${changed} colours at or under 1.0 — the float path is re-grading the city`);
+  if (step > 1e-5) problems.push(`keepHue steps by ${step} where it joins the clamp at 1.0`);
+  if (inv) problems.push(`keepHue darkens a channel as the overshoot grows (${inv} inversions)`);
+  if (pink[1] > 0.6) problems.push(`keepHue washes a 1.9x pink to ${pink.map((x) => x.toFixed(2))} — the hue is not kept`);
+  console.log(`  · keepHue: ${changed} colours under white changed, join step ${step.toExponential(1)}, ${inv} inversions, 1.9x pink → ${pink.map((x) => x.toFixed(2))}`);
 }
 
 // ── 2. MONOTONIC, AT EVERY STRENGTH ───────────────────────────────────────────
@@ -92,8 +133,11 @@ const graded = (x, tonemap) => clamp01(x) + (aces(x) - clamp01(x)) * clamp01(ton
   for (const c of ['2.51', '0.03', '2.43', '0.59', '0.14']) {
     if (!src.includes(c)) problems.push(`hdr.js no longer contains the ACES coefficient ${c} — the curve here and the curve that runs have drifted`);
   }
-  if (!/mix\(clamp\(c, 0\.0, 1\.0\), aces\(c\)/.test(src)) {
-    problems.push('hdr.js no longer lerps from a clamp toward the curve — the "0 is exactly the old renderer" claim is not what the shader does');
+  if (!/mix\(keepHue\(c\), aces\(c\)/.test(src)) {
+    problems.push('hdr.js no longer lerps from keepHue toward the curve — the "0 is exactly the old renderer" claim is not what the shader does');
+  }
+  if (!/float k = clamp\(\(m - 1\.0\) \/ 1\.5, 0\.0, 1\.0\);/.test(src) || !src.includes('k * k * 0.7')) {
+    problems.push('hdr.js keepHue no longer matches the copy tested here — edit the two together');
   }
   console.log('  · the shader still carries the same five coefficients and the same lerp');
 }

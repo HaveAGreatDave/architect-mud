@@ -8,7 +8,7 @@
 // the anti-air gun solution and the ground/police notice reach: dark + matte +
 // camo hides, bright + gloss + hazard shouts. Nothing here reads the DB or DOM.
 
-import { defaultLivery } from '../../client/shared/livery-sets.js';
+import { defaultLivery, aircraftLiveryModel } from '../../client/shared/livery-sets.js';
 
 // ── The model ─────────────────────────────────────────────────────────────────
 // LIVERY_DEFAULT is the floor every field falls back to, not what a new aircraft wears: that is its
@@ -179,7 +179,8 @@ export function parsePartsArg(s) {
 // ── Normalise ─────────────────────────────────────────────────────────────────
 // custom_data.livery may be absent, a legacy free-text STRING (the old
 // `modify livery <text>`), or the structured object. Always yield a full object.
-// Pass the class: an aircraft nobody has painted wears its class's default set, not grey.
+// Pass the livery model (aircraftLiveryModel: the class, or `viper` for an armed heli type): an
+// aircraft nobody has painted wears its model's default set, not grey.
 export function normalizeLivery(cd, cls = null) {
   const raw = cd && cd.livery;
   const d = classDefault(cls);
@@ -282,7 +283,7 @@ export function signatureScore(livery) {
 // off its row. This is what the noise reach and AA gun solution scale by (the
 // airframe's own loudness/size is the base it multiplies).
 export function conspicuousnessMult(live) {
-  return signatureMult(normalizeLivery(live?.row?.custom_data, live?.type?.class));
+  return signatureMult(normalizeLivery(live?.row?.custom_data, aircraftLiveryModel(live?.type?.class, live?.type?.hardpoints)));
 }
 
 // ── Prose (room examine) ──────────────────────────────────────────────────────

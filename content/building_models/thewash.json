@@ -67,13 +67,14 @@
       "cx": 0.32,
       "cy": 0.435,
       "depth": 0.016,
+      "door": 1,
       "glass": "#232e34",
       "glow": "#43555e",
       "half": 0.06,
-      "hh": 0.125,
+      "hh": 0.1575,
       "kind": "windowBay",
       "pal": "ty_ff_white",
-      "z": 0.24
+      "z": 0.2075
     },
     {
       "cx": 0,

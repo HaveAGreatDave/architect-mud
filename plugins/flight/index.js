@@ -47,6 +47,7 @@ import {
 import './hvac.js';   // registers a running cockpit as a climate-controlled cabin — see the file header
 import { boardCompanions } from './companions.js';
 import { describeExterior, rampColorWord, conspicuousnessMult, normalizeLivery } from './livery.js';
+import { aircraftLiveryModel } from '../../client/shared/livery-sets.js';
 import { districtBiome } from './biomes.js';
 import { rollHazards, commands as hazardCommands } from './hazards.js';
 import { commands as drakeStoreCommands } from './drake-stores.js';
@@ -960,7 +961,7 @@ function sendFlightSim(player, live) {
     aircraftId: live.row.id,   // the cockpit hands it back in `flightresume` if the server forgets the seat
     craftType: live.type.id.replace(/^ac_/, ''),
     craftClass: live.type.class,
-    livery: normalizeLivery(live.row.custom_data, live.type.class),   // paint-bay scheme the external chase model renders in
+    livery: normalizeLivery(live.row.custom_data, aircraftLiveryModel(live.type.class, live.type.hardpoints)),   // paint-bay scheme the external chase model renders in
     deviceName: live.type.name,
     airport: groundTheme(zone), helipad: vtolOnlyField(zone),
     gx: live.row.grid_x, gy: live.row.grid_y, heading: toDeg(live.row.heading),
@@ -1904,13 +1905,13 @@ async function describeAirfield(zone, player) {
   // No walk-in hangar here → board straight off the ramp. Name each craft by its
   // livery colour so the paint reads at a glance; `examine` gives the full look.
   const { rows } = await query(
-    "SELECT a.name, a.custom_data, t.name tname, t.class FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.parked_zone_id=$1 AND a.is_wreck=0 AND (a.custom_data->>'charter') IS DISTINCT FROM 'true' ORDER BY a.name LIMIT 4",
+    "SELECT a.name, a.custom_data, t.name tname, t.class, t.hardpoints FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.parked_zone_id=$1 AND a.is_wreck=0 AND (a.custom_data->>'charter') IS DISTINCT FROM 'true' ORDER BY a.name LIMIT 4",
     [zone.id]
   ).catch(() => ({ rows: [] }));
   if (rows.length) {
     // Each craft name is a click → `examine <name>`, which opens its action menu
     // (embark / refuel / maintenance + cargo) rather than just a static description.
-    const names = rows.map(r => { const c = rampColorWord(r.custom_data?.livery, r.class); return `<span class="action-link" data-action="cmd" data-cmd="examine ${r.name}" title="look it over: embark / refuel / maintenance">a ${c ? c + ' ' : ''}${r.tname}</span>`; });
+    const names = rows.map(r => { const c = rampColorWord(r.custom_data?.livery, aircraftLiveryModel(r.class, r.hardpoints)); return `<span class="action-link" data-action="cmd" data-cmd="examine ${r.name}" title="look it over: embark / refuel / maintenance">a ${c ? c + ' ' : ''}${r.tname}</span>`; });
     const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
     line += `\n<span class="furniture-label">On the ramp:</span> ${svcLink('embark', 'embark')} <span class="text-dim">${list} parked here: click one for its actions</span>`;
   }
@@ -2223,7 +2224,7 @@ async function matchCraftHere(args, player) {
   if (!field) return null;
   const { rows } = await query(
     `SELECT a.id, a.name, a.owner_id, a.rental, a.custom_data, a.fuel,
-            t.name tname, t.class, t.fuel_capacity, t.fuel_type, t.cargo_capacity, t.seats
+            t.name tname, t.class, t.hardpoints, t.fuel_capacity, t.fuel_type, t.cargo_capacity, t.seats
        FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id
       WHERE a.parked_zone_id=$1 AND a.is_wreck=0 AND (a.custom_data->>'charter') IS DISTINCT FROM 'true'`,
     [field.id]);
@@ -2260,12 +2261,12 @@ function craftActionMenu(m, player) {
 }
 async function cmdExamineCraft(args, raw, player, broadcast) {
   const m = await matchCraftHere(args, player);
-  if (m) return { type: 'examine', message: describeExterior(m.custom_data?.livery, m.tname, m.name, m.class) + craftActionMenu(m, player) };
+  if (m) return { type: 'examine', message: describeExterior(m.custom_data?.livery, m.tname, m.name, aircraftLiveryModel(m.class, m.hardpoints)) + craftActionMenu(m, player) };
   return interactionsCommands.examine(args, raw, player, broadcast);   // prior owner → engine
 }
 async function cmdLookCraft(args, raw, player, broadcast) {
   const m = await matchCraftHere(args, player);
-  if (m) return { type: 'examine', message: describeExterior(m.custom_data?.livery, m.tname, m.name, m.class) + craftActionMenu(m, player) };
+  if (m) return { type: 'examine', message: describeExterior(m.custom_data?.livery, m.tname, m.name, aircraftLiveryModel(m.class, m.hardpoints)) + craftActionMenu(m, player) };
   return gametableCommands.look(args, raw, player, broadcast);         // prior owner → engine
 }
 

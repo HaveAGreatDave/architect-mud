@@ -1,23 +1,30 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_events": [
+    "A tarpaulin cracks in the wind and settles back over its hull.",
+    "Water drips off a keel onto the concrete, one drop at a time.",
+    "From inside the shed: a mallet, three blows, a pause, three more."
+  ],
+  "ambient_theme": "coast",
+  "color": "#857f72",
+  "description": "The concrete hard in front of Keel's shed, cracked and patched with tar. Five cradles welded from scaffold pole stand along it. Two hold hulls under tarpaulins weighted with tyres; the other three are empty and chocked. Oil drums, coils of rope and a pallet of breeze blocks fill the gaps.",
   "exits": {
     "east": "zone_district_921_901",
     "north": "zone_district_920_900",
     "west": "zone_district_919_901"
   },
   "flags": {
+    "boat_hardstanding": 3,
     "district": "docks",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "street_life": true,
+    "terrain": "road",
+    "yard_rate": 0.6
   },
   "grid_x": 920,
   "grid_y": 901,
   "grid_z": 0,
   "id": "zone_district_920_901",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Ironside Hard",
   "parent_zone": null
 }

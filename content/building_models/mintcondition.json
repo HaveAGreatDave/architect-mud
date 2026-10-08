@@ -62,13 +62,14 @@
       "cx": 0.24,
       "cy": 0.435,
       "depth": 0.017,
+      "door": 1,
       "glass": "#16241c",
       "glow": "#3a4a40",
       "half": 0.075,
-      "hh": 0.115,
+      "hh": 0.1575,
       "kind": "windowBay",
       "pal": "ty_marble_col",
-      "z": 0.25
+      "z": 0.2075
     },
     {
       "cx": 0,

@@ -6,6 +6,8 @@ import { findTabletApp } from '../tablet/registry.js';
 import { weatherView, weatherEventOptions, setWeather } from './index.js';
 import { spokenTime, parseClock, skipTime, setClock, setSpeed } from './time.js';
 import { espView, setEsp } from './esp.js';
+import { bringWetCellOver } from '../weather/index.js';
+import { getWeatherFieldSnapshot } from '../../server/engine/environment.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const p = getPlayer();
@@ -36,6 +38,13 @@ export default async function regress({ run, check, getPlayer }) {
     const w = weatherView();
     check('weatherView reads a type and a temperature', typeof w.weatherType === 'string' && Number.isFinite(w.tempC), JSON.stringify(w));
     check('weather event options include ion_storm', weatherEventOptions().some(e => e.type === 'ion_storm'));
+    // Moving a cell is in-memory only (the field is reseeded from the date), so it is safe to drive.
+    check('bringWetCellOver refuses a missing tile', bringWetCellOver(null, null) === false);
+    const wetBefore = (getWeatherFieldSnapshot()?.systems || []).some(s => s.type === 'precip' || s.type === 'storm');
+    const moved = bringWetCellOver(900, 900);
+    check('bringWetCellOver puts a wet cell on the tile when the day has one',
+      moved === wetBefore && (!moved || getWeatherFieldSnapshot().systems.some(s => (s.type === 'precip' || s.type === 'storm') && s.x === 900 && s.y === 900)),
+      JSON.stringify({ moved, wetBefore }));
 
     r = await run('sysop weather set monsoon');
     check('an unknown weather type is refused', /Unknown weather/i.test(r?.message || ''), r?.message);

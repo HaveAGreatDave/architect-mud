@@ -1,0 +1,12 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_skipping_rope",
+  "name": "skipping rope",
+  "tags": {
+    "description": "A leather rope on two turned wooden handles, the leather worn pale where it hits the floor."
+  },
+  "type": "misc",
+  "value": 12,
+  "weight": 300
+}

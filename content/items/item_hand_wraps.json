@@ -1,0 +1,17 @@
+{
+  "description": null,
+  "flags": {
+    "slot": "hands"
+  },
+  "id": "item_hand_wraps",
+  "name": "hand wraps",
+  "tags": {
+    "bulkiness": 0,
+    "description": "Two rolls of grey cotton wrap, four metres each, with a thumb loop at one end and hook-and-loop at the other. Washed until they have gone soft.",
+    "layer": "underwear",
+    "slot": "hands"
+  },
+  "type": "armor",
+  "value": 18,
+  "weight": 80
+}
