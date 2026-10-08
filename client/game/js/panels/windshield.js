@@ -21634,6 +21634,11 @@ const feltPond = (S, [bx, by, bw, bh]) => ({
   rim: [(bx - 0.04) * S | 0, (by - 0.03) * S | 0, Math.max(2, (bw + 0.08) * S | 0), Math.max(2, (bh + 0.06) * S | 0)],
 });
 const feltPatch = (S) => ({ pw: Math.max(3, Math.round(S * 0.28)), ph: Math.max(2, Math.round(S * 0.19)), x: Math.round(S * 0.62), y: Math.round(S * 0.12) });
+// The `tr` a palette's wall bakes at: the dial's, or `paneFloor` for a default facade if that is
+// higher. ⚠ EVERY PAGE OF A FACADE READS IT FROM HERE — the albedo, the material page, the height
+// page and both blend caches — because the pane grid is sized in `tr` and a page one `tr` off the
+// albedo shades a stripe of wall as glass.
+const wallTr = (biome) => (RENDER_TUNE.paneFloor > 0 && isDefaultFacade(biome) ? Math.max(TR(), RENDER_TUNE.paneFloor) : TR());
 function wallTex(biome, night, win = WIN_ON) {
   const tr = wallTr(biome), nite = night > 0.4;
   // ⚠ ONLY THE NIGHT BAKE VARIES, AND THE KEY ONLY GROWS WHEN IT DOES. A building with its feed
@@ -21644,11 +21649,6 @@ function wallTex(biome, night, win = WIN_ON) {
   // their power and both have to be drawn in the same frame.
   // ⚠ NOT `w`. The bake closure below binds `w` to this palette's RGB triple, three hundred lines
   // in and a long way from here, and a mode read through that name compares an ARRAY to a small
-// The `tr` a palette's wall bakes at: the dial's, or `paneFloor` for a default facade if that is
-// higher. ⚠ EVERY PAGE OF A FACADE READS IT FROM HERE — the albedo, the material page, the height
-// page and both blend caches — because the pane grid is sized in `tr` and a page one `tr` off the
-// albedo shades a stripe of wall as glass.
-const wallTr = (biome) => (RENDER_TUNE.paneFloor > 0 && isDefaultFacade(biome) ? Math.max(TR(), RENDER_TUNE.paneFloor) : TR());
   // integer: always false, every branch takes the ordinary arm, and a blackout bakes a fully lit
   // facade while every counter reports the feature working.
   const winMode = nite ? win : WIN_ON;
