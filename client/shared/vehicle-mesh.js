@@ -993,12 +993,15 @@ export function canon(v) {
   if (v && typeof v === 'object') return '{' + Object.keys(v).sort().map((k) => JSON.stringify(k) + ':' + canon(v[k])).join(',') + '}';
   return v === undefined ? 'u' : JSON.stringify(v);
 }
-// The first place two face lists differ, or null if they are the same mesh.
-export function meshDiff(a, b) {
+// The first place two face lists differ, or null if they are the same mesh. `ignore` names face
+// keys left out of the comparison: a port that has since been given paint slots is held against its
+// builder for geometry, and the builder never painted it.
+export function meshDiff(a, b, { ignore = [] } = {}) {
   const n = Math.min(a.length, b.length);
   for (let i = 0; i < n; i++) {
     const A = a[i], B = b[i];
     const keys = new Set([...Object.keys(A), ...Object.keys(B)]);
+    for (const k of ignore) keys.delete(k);
     for (const k of [...keys].sort()) {
       const ca = canon(A[k]), cb = canon(B[k]);
       if (ca !== cb) return { index: i, field: k, a: A[k], b: B[k] };

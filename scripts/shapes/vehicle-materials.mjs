@@ -19,7 +19,7 @@ const { metalKOf, VEHICLE_MATS } = await import('../../client/shared/vehicle-mat
 const { compileMesh, pushWheel } = await import('../../client/shared/vehicle-mesh.js');
 const { MESH_ROWS } = await import('../../client/shared/vehicle-meshes.js');
 
-const DRAKE_PRINT = 1348574013;   // recorded against the table this replaced, which gave the same print
+const DRAKE_PRINT = 2173586657;   // re-recorded when her paint slots each gained their own `mat`
 const NO_FINISH = {
   drake: 'her slots carry their own materials and the livery coat covers the rest, as she shipped',
   wreck: 'a wreck is drawn without materials (drawAircraftModel skips metalKOf for c.wreck)',
