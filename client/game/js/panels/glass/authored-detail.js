@@ -1016,14 +1016,22 @@ export const AUTHORED_DETAIL = {
       c.night ? (d.glow || (d.door ? '#efd9ae' : '#cfe6ff')) : (d.glass || (d.door ? '#1e262e' : '#243040')), c.alpha * (c.night ? 0.96 : 0.9), { lift: DETAIL_LIFT * 1.3 });
     // 4) Mullions and a transom, on the glazing. A shopfront is one sheet and a tenement window is
     //    four panes, and these two fields are the whole difference between them.
-    const bars = MESH_SINK ? clamp(Math.round(d.bars || 0), 0, 6) : 0;   // mesh-only, see above
+    // ⚠ A BAY WITH NO `bars` GETS JOLENE'S WINDOW, NOT A FLAT SHEET. A pane with no frame in it is
+    // a painted rectangle again, so leaving `bars` out asks for the panes the shape implies: about
+    // one pane per 0.9 of the bay's height across, and a transom high on a tall window and low on a
+    // wide one. `bars: 0` is how to ask for one sheet (a vitrine, a shopfront), and a door keeps its
+    // leaves. ⚠ The derived pair is mesh-only like the mullions, so the painter's frame is untouched;
+    // an AUTHORED transom still draws in both, as it always has.
+    const auto = MESH_SINK && d.bars == null && !d.door;
+    const bars = MESH_SINK ? clamp(Math.round(auto ? Math.ceil((2 * half) / (hh * 0.9)) - 1 : (d.bars || 0)), 0, 6) : 0;   // mesh-only, see above
+    const transom = d.transom || (auto ? (half > hh ? 0.72 : 0.3) : 0);
     const yb2 = yg + sgn * FACE_EPS;
     for (let i = 1; i <= bars; i++) {
       const bx = c.lx - half + (2 * half) * (i / (bars + 1)), t = Math.max(half * 0.02, 0.004);
       Q([[bx - t, yb2, z + hh], [bx + t, yb2, z + hh], [bx + t, yb2, z - hh], [bx - t, yb2, z - hh]], jamb, c.alpha, { lift: DETAIL_LIFT * 1.45 });
     }
-    if (d.transom) {
-      const tz = z + hh - 2 * hh * clamp(d.transom, 0.05, 0.95), t = Math.max(hh * 0.035, 0.004);
+    if (transom) {
+      const tz = z + hh - 2 * hh * clamp(transom, 0.05, 0.95), t = Math.max(hh * 0.035, 0.004);
       Q([[c.lx - half, yb2, tz + t], [c.lx + half, yb2, tz + t], [c.lx + half, yb2, tz - t], [c.lx - half, yb2, tz - t]], jamb, c.alpha, { lift: DETAIL_LIFT * 1.45 });
     }
     // The leaves. Drawn in both renderers, unlike the mullions: one door a building is nothing to

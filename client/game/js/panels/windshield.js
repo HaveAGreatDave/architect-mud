@@ -2129,6 +2129,15 @@ export const RENDER_TUNE = {
   // what a building is MADE of almost never changes as you drive. Put the storey count in
   // `texKey` and it changes at every building on the street.
   texWin: 1,
+  // ── A PAINTED WINDOW HAS A FRAME IN IT, WHATEVER THE DIAL SAYS ──────────────────────────────
+  // The least `tr` a default facade paints its window grid at. At texRes 1 a pane is two texels by
+  // three, which is one flat colour with no room for anything in it, and every pane in the city
+  // was a blank rectangle. At 2 the texel tier runs: a mullion, a transom, the sill line, a blind
+  // and somebody standing in a lit room — the windows the cab has always had. 0 is the old floor.
+  // ⚠ A FLOOR, NOT A MULTIPLE, for brick's reason (see `wallTex`): texRes 2 and 3 are already
+  // there and bake exactly what they did, so `atlasfit`'s ceiling at texRes 3 doesn't move. What
+  // grows is the texRes 1 page, by the ~86 default-facade palettes at 32×64 instead of 16×32.
+  paneFloor: 2,
   // ── A SIGN STANDS ON THE WALL, NOT IN IT ────────────────────────────────────────────────────
   // 0 puts every marquee back on its own half-width. `marqueeBand` pushed itself out along the
   // entrance normal by `half * 0.94`, which makes the sign's WIDTH decide its STAND-OFF — so a band
@@ -21626,7 +21635,7 @@ const feltPond = (S, [bx, by, bw, bh]) => ({
 });
 const feltPatch = (S) => ({ pw: Math.max(3, Math.round(S * 0.28)), ph: Math.max(2, Math.round(S * 0.19)), x: Math.round(S * 0.62), y: Math.round(S * 0.12) });
 function wallTex(biome, night, win = WIN_ON) {
-  const tr = TR(), nite = night > 0.4;
+  const tr = wallTr(biome), nite = night > 0.4;
   // ⚠ ONLY THE NIGHT BAKE VARIES, AND THE KEY ONLY GROWS WHEN IT DOES. A building with its feed
   // down looks exactly like its neighbours in daylight — its windows are not lit then either — so
   // the day texture is shared whatever the grid is doing, which keeps the day atlas at one entry
@@ -21635,6 +21644,11 @@ function wallTex(biome, night, win = WIN_ON) {
   // their power and both have to be drawn in the same frame.
   // ⚠ NOT `w`. The bake closure below binds `w` to this palette's RGB triple, three hundred lines
   // in and a long way from here, and a mode read through that name compares an ARRAY to a small
+// The `tr` a palette's wall bakes at: the dial's, or `paneFloor` for a default facade if that is
+// higher. ⚠ EVERY PAGE OF A FACADE READS IT FROM HERE — the albedo, the material page, the height
+// page and both blend caches — because the pane grid is sized in `tr` and a page one `tr` off the
+// albedo shades a stripe of wall as glass.
+const wallTr = (biome) => (RENDER_TUNE.paneFloor > 0 && isDefaultFacade(biome) ? Math.max(TR(), RENDER_TUNE.paneFloor) : TR());
   // integer: always false, every branch takes the ordinary arm, and a blackout bakes a fully lit
   // facade while every counter reports the feature working.
   const winMode = nite ? win : WIN_ON;
@@ -22397,7 +22411,7 @@ export function wallTexMixed(biome, NB, win = WIN_ON) {
   // per palette and REDRAWS it in place as the blend crosses a step, so a key that cannot tell a
   // blacked-out building from a lit one gives both the same canvas — and whichever of them is
   // drawn second in the frame decides what the first one looked like.
-  const mk = biome + ':' + TR() + ':' + NQ() + (RENDER_TUNE.texWin === 0 ? ':nw' : '')
+  const mk = biome + ':' + wallTr(biome) + ':' + NQ() + (RENDER_TUNE.texWin === 0 ? ':nw' : '')
     + (win === WIN_ON ? '' : ':p' + win);
   let e = _wallMix.get(mk);
   if (!e) { e = { c: texCanvas(day.width, day.height), q: -1 }; _wallMix.set(mk, e); }
@@ -22426,7 +22440,7 @@ export function wallTexMixed(biome, NB, win = WIN_ON) {
 // baked variant underneath it. Both are invisible to anything that copied those pixels somewhere
 // else, which is exactly what a GL atlas does. So this is the epoch that copy is keyed on, built
 // from the same two things the redraw is: a stale atlas is a city stuck at yesterday's dusk.
-export function texEpoch(NB) { return Math.round(clamp(NB, 0, 1) * WALL_MIX_STEPS) + ':' + TR() + ':' + NQ(); }
+export function texEpoch(NB) { return Math.round(clamp(NB, 0, 1) * WALL_MIX_STEPS) + ':' + TR() + ':' + NQ() + ':' + (RENDER_TUNE.paneFloor || 0); }
 
 // Every baked surface the GL atlas takes for one palette key, at a pinned texture resolution: the
 // day wall, the roof, and the night wall per grid state. For the Modelshop's atlas hash
@@ -22488,7 +22502,7 @@ export function wallMatMixed(biome, NB, win = WIN_ON) {
   const q = Math.round(clamp(NB, 0, 1) * WALL_MIX_STEPS);
   // Sized FROM the albedo, so the two can't disagree about a tile's size whatever wallTex decides.
   const alb = wallTexMixed(biome, NB, win);
-  const mk = biome + ':' + TR() + ':' + NQ() + (RENDER_TUNE.texWin === 0 ? ':nw' : '') + (win === WIN_ON ? '' : ':p' + win);
+  const mk = biome + ':' + wallTr(biome) + ':' + NQ() + (RENDER_TUNE.texWin === 0 ? ':nw' : '') + (win === WIN_ON ? '' : ':p' + win);
   let e = _wallMat.get(mk);
   if (!e) { e = { c: texCanvas(alb.width, alb.height), q: -1 }; _wallMat.set(mk, e); }
   if (e.c.width !== alb.width || e.c.height !== alb.height) { e.c.width = alb.width; e.c.height = alb.height; e.q = -1; }
@@ -22500,7 +22514,7 @@ export function wallMatMixed(biome, NB, win = WIN_ON) {
 // that way rather than blended, because a canvas blend could round b, and b is an index.
 const MAT_PAGE_FAMILY = { shop: 'metal', curtain: 'metal', spire: 'chrome', deco: 'deco', pump: 'pump' };
 function paintWallMat(c, kind, biome, q, win) {
-  const tr = TR(), W = c.width, H = c.height, g = c.getContext('2d');
+  const tr = wallTr(biome), W = c.width, H = c.height, g = c.getContext('2d');
   const nite = q > 0, winMode = nite ? win : WIN_ON;
   // What the texels that aren't glass are made of: the facade's painter, or the skin's frame.
   const fam = 1 + materialIdOf(kind === 'facade' ? facadeFamily(biome) : MAT_PAGE_FAMILY[kind]);
@@ -22911,9 +22925,9 @@ export function wallSurf(biome) {
   // Sized from the day albedo, which is the size every variant of this palette's wall takes.
   const alb = wallTex(biome, 0);
   // ⚠ A CUT LATTICE IS ITS OWN KEY: the cut changes the member sizes and the tile's size with them.
-  return getTex('wallsurf:' + biome + ':' + TR() + (RENDER_TUNE.texWin === 0 ? ':nw' : '') + (S.cut ? ':cut' : ''), () => {
+  return getTex('wallsurf:' + biome + ':' + wallTr(biome) + (RENDER_TUNE.texWin === 0 ? ':nw' : '') + (S.cut ? ':cut' : ''), () => {
     const c = texCanvas(alb.width, alb.height), g = c.getContext('2d');
-    const tr = TR(), W = c.width, H = c.height;
+    const tr = wallTr(biome), W = c.width, H = c.height;
     S.twin(g, W, H, WALL_COL[biome] || [52, 56, 66], tr, S.amp, S.cut);
     // The panes are glass, and the relief stops at glass anyway (the material page); flat here so a
     // pane's edge doesn't read as a cliff from the wall beside it.

@@ -314,6 +314,7 @@ export const DETAIL_SCHEMA = {
   windowBay: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', hh: 'h', depth: 'fh' }, required: ['z', 'half', 'hh'],
     // `door` (1 or 2 leaves) draws the bay as a doorway and claims the kit's ground floor; see the
     // windowBay drawer. `z - hh` is then the threshold, so it sits on the pavement or the plinth.
+    // Leave `bars` out and the drawer divides the glass by the bay's shape; `bars: 0` is one sheet.
     plain: { pal: 'string', glow: 'string', glass: 'string', bars: 'number', transom: 'number', face: 'string', door: 'number' }, px: 9 },
   // A slab cantilevered over the storey below, with an authored soffit. Not `balcony`: that is a
   // tray with a rail whose underside comes off the wall palette.
