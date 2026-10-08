@@ -1733,6 +1733,16 @@ function emitPulled(player, item) {
   emit('item.received', { actor: player, item, from: item.player_id ?? null });
 }
 
+// A plugin that parks its own rows in a shared box can take a pull over. A player
+// shop's cooler holds rows owned by `_shopstock_<zone>`, and the cooler isn't
+// `vendor_stock` (there's no vendor to settle with), so without this a pull hands
+// the stock over clean. A handler returns a reply to claim the row, or undefined
+// to let the pull go ahead. `pass` is set for passid, which hands the row to
+// somebody else rather than to the puller.
+function claimPull(item, container, player, pass = false) {
+  return fireHook('container.pull', { item, container, player, pass });
+}
+
 async function cmdPullById(idStr, qtyStr, player, broadcast) {
   const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1 AND pi.container_id IS NOT NULL`, [idStr]);
   if (!rows.length) return { type:'container_error', message:'Item not found.' };
@@ -1741,6 +1751,13 @@ async function cmdPullById(idStr, qtyStr, player, broadcast) {
 
   const container = await loadContainerById(containerId, player);
   if (!container) return { type:'container_error', message:'Not your container.' };
+  const claimed = await claimPull(item, container, player);
+  if (claimed) {
+    if (claimed.type === 'error') return { type:'container_error', message: claimed.message };
+    const pvc = await buildContainerView(containerId, player);
+    pvc.mainMsg = claimed.message;
+    return containerReply(pvc, player, claimed.message);
+  }
   if (item.tags?.perishable) await fireHook('item.checkFreshness', item, player);
 
   // Partial pull: only move the requested qty when less than the full stack
@@ -1805,6 +1822,8 @@ async function cmdPassById(rowId, toPid, player, broadcast) {
   const container = await loadContainerById(item.container_id, player);
   if (!container) return { type:'container_error', message:'Not your container.' };
   if (vendorStockOwner(container)) return { type:'container_error', message:`The ${item.name} isn't yours to hand round. Pay for it first.` };
+  const claimed = await claimPull(item, container, player, true);
+  if (claimed) return { type:'container_error', message: claimed.message };
   if (!stampConsume(item).consume || hasTag(item, 'quest_item')) return { type:'container_error', message:`You can pass food and drink. The ${item.name} is neither.` };
   const toPlayer = toPid && toPid !== player.id ? getZonePlayers(player.current_zone).find(p => p.id === toPid) : null;
   if (!toPlayer) return { type:'container_error', message:"They aren't here any more." };
@@ -2115,6 +2134,8 @@ async function cmdPull(argStr, player) {
 // the bulk form can report per item rather than throwing the whole sweep away
 // on the first row that misbehaves — the same shape `stowOne` has.
 async function pullOne(item, container, player) {
+  const claimed = await claimPull(item, container, player);
+  if (claimed) return claimed;
   if (item.tags?.perishable) await fireHook('item.checkFreshness', item, player);
 
   const vendorId = vendorStockOwner(container);

@@ -86,6 +86,11 @@ charge. Whether that sticks is the ordinary witness law (a camera or a cop has t
 it). One difference from an NPC shop, because this is a *player's* property: **the proprietor
 is always told**, witness or not — on the lift and again on the way out the door.
 
+Stock kept in a cooler is a row in a furniture container, so the engine's container verbs
+reach it too (`pull`, `take … from`, the panel). The plugin claims those through the
+`container.pull` hook: anyone but the owner pulling a shop row is a `pocket`, the owner's pull
+is an `unstock`, and nobody can `passid` it to someone else.
+
 **The till.** The vault, below.
 
 ## Staff

@@ -7,7 +7,8 @@
 // are created here against a scratch storefront zone and torn down in `finally`,
 // the same pattern the vendor-stock suite in tests/regress.js uses.
 import { query } from '../../server/models/db.js';
-import { world, getZone } from '../../server/engine/world.js';
+import { world, getZone, insertFurniture, deleteFurniture } from '../../server/engine/world.js';
+import { handlers as invCommands } from '../../server/engine/commands/inventory.js';
 import { getRegisteredActions } from '../../server/engine/actions.js';
 import { getRegisteredMoveGates } from '../../server/engine/movement-gates.js';
 import { getAllLockTypes } from '../../server/engine/locks.js';
@@ -83,6 +84,7 @@ export default async function regress({ run, check }) {
   const OWNER = `sf_owner_${process.pid}`;
   const BUYER = `sf_buyer_${process.pid}`;
   const ITEM = 'item_sf_regress';
+  const COOLER = 'furn_sf_regress_cooler';
   let created = false;
   try {
     await query(
@@ -196,6 +198,49 @@ export default async function regress({ run, check }) {
       `${r.type} credits=${buyer.credits}`);
     check('settling clears the unpaid mark', (await _test.carriedUnpaid(BUYER, ZONE)).length === 0);
     check('settling pays the till', getDeed(ZONE).till_credits === 500, `till=${getDeed(ZONE).till_credits}`);
+
+    // ── The cooler ───────────────────────────────────────────────────────────
+    // Stock kept cold sits in a furniture container, where the ENGINE's container
+    // verbs can reach it. The cooler isn't vendor_stock, so before container.pull
+    // a plain `pull` handed the stock over unmarked and unpaid.
+    await insertFurniture({ id: COOLER, zone_id: ZONE, name: 'regress cooler', description: 'A scratch cooler.',
+      flags: JSON.stringify({ preserves: 'refrigerated', container: 60000 }), object_type: 'container' },
+      'ON CONFLICT (id) DO UPDATE SET zone_id=EXCLUDED.zone_id, flags=EXCLUDED.flags');
+    const rowOf = async () => (await query('SELECT player_id, container_id, custom_data FROM player_inventory WHERE id=$1', [invId])).rows[0];
+    const restockCold = async () => {
+      await query(`UPDATE player_inventory SET player_id=$2, container_id=NULL, custom_data=NULL WHERE id=$1`, [invId, OWNER]);
+      return _test.cmdStock(['regress trinket for 250 in regress cooler'], owner);
+    };
+
+    r = await restockCold();
+    check('stock can go in the cooler', /in the regress cooler/.test(r.message) && (await rowOf())?.container_id === COOLER,
+      `${r.message} ${JSON.stringify(await rowOf())}`);
+
+    r = await invCommands.pull(['trinket', 'from', 'regress', 'cooler'], 'pull trinket from regress cooler', buyer);
+    let row = await rowOf();
+    check("a non-owner can't pull shop stock out of the cooler clean",
+      row?.player_id === BUYER && row.custom_data?.[_test.SHOP_UNPAID] === ZONE, `${r?.message} ${JSON.stringify(row)}`);
+    check('a pull from the cooler is a pocket: marked, out of the box, off the display',
+      /isn't yours yet/.test(r?.message || '') && row?.container_id === null && (await _test.listingsFor(ZONE)).length === 0,
+      `${r?.message} ${JSON.stringify(row)}`);
+
+    await restockCold();
+    await invCommands.pullid([invId], `pullid ${invId}`, buyer, null);
+    row = await rowOf();
+    check('the panel pull (pullid) is a pocket too', row?.player_id === BUYER && row.custom_data?.[_test.SHOP_UNPAID] === ZONE,
+      JSON.stringify(row));
+
+    await restockCold();
+    r = await invCommands.passid([invId, OWNER], `passid ${invId} ${OWNER}`, buyer, null);
+    check("shop stock can't be passed out of the cooler", r?.type === 'container_error' && (await rowOf())?.player_id === _test.stockOwner(ZONE),
+      `${r?.type} ${r?.message} ${JSON.stringify(await rowOf())}`);
+
+    r = await invCommands.pull(['trinket', 'from', 'regress', 'cooler'], 'pull trinket from regress cooler', owner);
+    row = await rowOf();
+    check("the owner's pull from the cooler is an unstock",
+      row?.player_id === OWNER && row.container_id === null && !row.custom_data?.list_price && !row.custom_data?.[_test.SHOP_UNPAID],
+      `${r?.message} ${JSON.stringify(row)}`);
+    check('nothing is left on the display', (await _test.listingsFor(ZONE)).length === 0);
 
     // ── Shutters ─────────────────────────────────────────────────────────────
     // No shutter door exists on the scratch zone, so this is the refusal branch —
@@ -333,6 +378,7 @@ export default async function regress({ run, check }) {
     check('surrendering pays out the till', owner.credits >= 5000 - 200 + 120, `credits=${owner.credits}`);
   } finally {
     await releaseShop(ZONE).catch(() => {});
+    await deleteFurniture(COOLER).catch(() => {});
     await query('DELETE FROM player_inventory WHERE player_id = ANY($1) OR player_id=$2',
       [[OWNER, BUYER], `_shopstock_${ZONE}`]).catch(() => {});
     await query('DELETE FROM players WHERE id = ANY($1)', [[OWNER, BUYER]]).catch(() => {});

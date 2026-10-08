@@ -390,9 +390,11 @@ async function cmdUnstock(args, player) {
 
 async function takeBackListing(listing, player) {
   // Guarded on the shelf it was listed from: the listing may be a cached copy.
+  // Out of the cooler too, if it was in one: into your hands, not left on the
+  // shelf under your name.
   const { rowCount } = await query(
     `UPDATE player_inventory
-        SET player_id=$1, custom_data = custom_data - 'list_price'
+        SET player_id=$1, container_id=NULL, custom_data = custom_data - 'list_price'
       WHERE id=$2 AND player_id=$3`,
     [player.id, listing.id, listing.player_id],
   );
@@ -523,7 +525,7 @@ async function purchaseListing(listing, player) {
     );
     if (!still.length) return 'gone';
     if (!(await adjustCredits(player, -price, q, 'storefront:buy'))) return 'broke';
-    await q(`UPDATE player_inventory SET player_id=$1, custom_data = custom_data - 'list_price' WHERE id=$2`,
+    await q(`UPDATE player_inventory SET player_id=$1, container_id=NULL, custom_data = custom_data - 'list_price' WHERE id=$2`,
       [player.id, listing.id]);
     const { rows: t } = await q('UPDATE storefronts SET till_credits = till_credits + $1 WHERE zone_id=$2 RETURNING till_credits',
       [price, zone.id]);
@@ -1153,7 +1155,7 @@ async function pocketListing(listing, player) {
       [listing.id, stockOwner(zone.id)]);
     if (!rows.length) return false;
     await q(`UPDATE player_inventory
-                SET player_id=$1, custom_data = COALESCE(custom_data,'{}'::jsonb) || jsonb_build_object('${SHOP_UNPAID}', $2::text)
+                SET player_id=$1, container_id=NULL, custom_data = COALESCE(custom_data,'{}'::jsonb) || jsonb_build_object('${SHOP_UNPAID}', $2::text)
               WHERE id=$3`, [player.id, zone.id, listing.id]);
     return true;
   });
@@ -1180,6 +1182,39 @@ async function pocketListing(listing, player) {
     `You lift <b>${listing.name}</b> off the display.\n` +
     `<span class="text-dim">It isn't yours yet: <b>buyware ${listing.name}</b> settles up at ${listing.price}₵. ` +
     `Walking out with it is another matter.</span>` };
+}
+
+// Stock kept in a cooler is a row in a furniture container, so the engine's own
+// container verbs reach it: `pull X from cooler`, `take X from cooler`, the panel's
+// pullid and passid. The cooler isn't `vendor_stock` (there's no vendor behind it),
+// so the engine would hand the row over clean. `container.pull` lets us claim our
+// rows first: the owner's pull is an UNSTOCK, anyone else's is a POCKET, marked and
+// reported like one, and nobody passes the stock round. A throw here would let the
+// engine's pull through unmarked, so it refuses instead.
+async function claimCoolerPull({ item, player, pass }) {
+  const owner = String(item?.player_id || '');
+  if (!owner.startsWith('_shopstock_')) return undefined;
+  try {
+    const zoneId = owner.slice('_shopstock_'.length);
+    await loadDeeds();
+    const deed = getDeed(zoneId);
+    const name = item.name || 'that';
+    if (pass) {
+      return { type: 'error', message: ownsShop(player, deed)
+        ? `The ${name} is on the display. UNSTOCK it first.`
+        : `The ${name} isn't yours to hand round. Pay for it first.` };
+    }
+    if (zoneId !== player.current_zone) return { type: 'error', message: `The ${name} isn't yours.` };
+    const listing = (await listingsFor(zoneId)).find(l => l.id === item.id);
+    if (!listing) {
+      dropListings(zoneId);
+      return { type: 'error', message: `The ${name} isn't on the display any more.` };
+    }
+    return ownsShop(player, deed) ? takeBackListing(listing, player) : pocketListing(listing, player);
+  } catch (e) {
+    console.error('[storefront] cooler pull failed:', e.message);
+    return { type: 'error', message: "It won't come out. Try again." };
+  }
 }
 
 // The door asks first, exactly as a vendor's does — one prompt, one pair of
@@ -1500,6 +1535,7 @@ export const commands = {
 
 export const hooks = {
   'zone.describeRoom': describeRoom,
+  'container.pull': claimCoolerPull,
 };
 
 // `hack` is tag-gated on the vault furniture so examining it advertises the verb.
