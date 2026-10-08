@@ -1,0 +1,14 @@
+{
+  "description": "A bare bulb in a cage, cable-tied to a scaffold pole at the head of the stage. The flex runs back along the planks to the shed. It comes on by itself when it gets dark, and it sways when the stage does.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_district_919_900",
+  "light_type": "streetlight",
+  "lumen_output": 1500,
+  "name": "the stage light",
+  "object_type": "light",
+  "power_draw_kw": 0.1,
+  "price": 0,
+  "zone_id": "zone_district_919_900"
+}
