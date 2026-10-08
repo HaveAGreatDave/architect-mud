@@ -788,8 +788,11 @@ export default async function regress({ run, check, getPlayer }) {
     const path = await import('node:path');
     const panel = fsm.readFileSync('client/game/js/panels/marina-panel.js', 'utf8');
 
-    const cmds = [...panel.matchAll(/data-cmd="([^"$]+)/g)].map((m) => m[1].trim().split(/\s+/)[0])
-      .concat([...panel.matchAll(/data-cmd="([a-z]+)\s/g)].map((m) => m[1]));
+    // A button carries its verb in a literal `data-cmd`/`data-hold`, or hands it to the depot shell's
+    // btnHtml as `{ cmd }` or `{ hold }`, which writes the same attribute.
+    const cmds = [...panel.matchAll(/data-(?:cmd|hold)="([^"$]+)/g)].map((m) => m[1].trim().split(/\s+/)[0])
+      .concat([...panel.matchAll(/data-(?:cmd|hold)="([a-z]+)\s/g)].map((m) => m[1]))
+      .concat([...panel.matchAll(/\b(?:cmd|hold):\s*[`'"]([a-z]+)/g)].map((m) => m[1]));
     const verbs = [...new Set(cmds.filter(Boolean))];
     check('the panel offers at least one verb', verbs.length > 0);
 
@@ -813,7 +816,8 @@ export default async function regress({ run, check, getPlayer }) {
 
     // ⚠ AND NOTHING ON IT IS AN OPAQUE ID. A panel that sent `{action:'buy', id:7}` would pass the
     // check above by having no verbs at all, so the shape is asserted too.
-    check('the panel sends verb strings rather than ids', !/data-cmd="\d/.test(panel));
+    check('the panel sends verb strings rather than ids',
+      !/data-(?:cmd|hold)="\d/.test(panel) && !/\b(?:cmd|hold):\s*[`'"]?\d/.test(panel));
   }
 
   // ── THE DESK IS NEVER EMPTY, AND THAT IS A MEASUREMENT ─────────────────────────────────────────
