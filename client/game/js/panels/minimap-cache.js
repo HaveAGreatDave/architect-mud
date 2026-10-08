@@ -26,6 +26,30 @@ let activeMap = null;
 const keyOf = (mapId, x, y, z) => `${mapId}:${x}:${y}:${z || 0}`;
 
 /**
+ * Whether a payload's grid coords can place its rooms, or it needs the exit-graph BFS.
+ *
+ * An interior's grid_x/grid_y default to 0, so a building whose rooms nobody laid out
+ * has every room on one cell. Placed by that grid, the whole building is one tile and
+ * walking room to room never moves you on the map (Moor or Less had the shed and the
+ * steam box both at 0,0; 66 other interiors did too). So off the world map a grid only
+ * counts when no two rooms on the floor share a cell. The world map is always gridded:
+ * two zones there can share a cell on purpose (the Echelon moors over water), and the
+ * server already resolves that.
+ */
+export function gridOk(nodes, current) {
+	if (!current?.map_id || current.grid_x == null || current.grid_y == null) return false;
+	if (current.map_id === 'map_world') return true;
+	const cells = new Set();
+	for (const n of nodes) {
+		if (n.map_id !== current.map_id || n.grid_z !== current.grid_z || n.grid_x == null || n.grid_y == null) continue;
+		const k = `${n.grid_x}:${n.grid_y}`;
+		if (cells.has(k)) return false;
+		cells.add(k);
+	}
+	return true;
+}
+
+/**
  * Record everything in a payload that has a place on a map.
  *
  * Nodes with no grid coords (interior rooms laid out by the exit-graph BFS) are
@@ -35,7 +59,7 @@ const keyOf = (mapId, x, y, z) => `${mapId}:${x}:${y}:${z || 0}`;
  * is always fully inside the window anyway.
  */
 export function ingest(nodes, current) {
-	if (!current?.map_id || current.grid_x == null) return;
+	if (!gridOk(nodes, current)) return;
 	activeMap = current.map_id;
 	const stamp = ++clock;
 	for (const n of nodes) {

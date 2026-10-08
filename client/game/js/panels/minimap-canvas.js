@@ -18,7 +18,7 @@
 // nothing here reads a minimap.js binding at module-evaluation time — only inside
 // functions, long after both modules have finished evaluating. Keep it that way.
 
-import { lookup as cacheLookup, ingest as cacheIngest } from './minimap-cache.js';
+import { lookup as cacheLookup, ingest as cacheIngest, gridOk } from './minimap-cache.js';
 import { iconFor, preloadIcons, monoFamily, themeColor, onAssetReady } from './minimap-assets.js';
 import {
 	zoomRadius, glyphPlan, titleFor, hexToRgb, poiInk,
@@ -643,7 +643,7 @@ export function renderMinimapCanvas(nodes, current, direction) {
 	// on); otherwise a BFS walk that is re-derived from where you stand, and so
 	// cannot be cached or glided across — see minimap-cache.js.
 	const byId = new Map(nodes.map(n => [n.id, n]));
-	const gridded = !!(current.map_id && current.grid_x != null && current.grid_y != null);
+	const gridded = gridOk(nodes, current);
 	const coordOf = new Map();
 	if (gridded) {
 		for (const n of nodes) {

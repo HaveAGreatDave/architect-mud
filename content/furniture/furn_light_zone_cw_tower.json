@@ -1,0 +1,17 @@
+{
+  "description": "A ring of downlights in the ceiling, set back from the glass so they don't throw the room onto it at night.",
+  "flags": {
+    "is_light": true,
+    "light_type": "overhead"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_cw_tower",
+  "light_type": "overhead",
+  "lumen_output": 2500,
+  "name": "the downlights",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": null,
+  "zone_id": "zone_cw_tower"
+}

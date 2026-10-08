@@ -7,6 +7,7 @@ import { loadSettings } from '/shared/settings.js';
 // helpers. Safe because neither module reads the other's bindings during
 // evaluation — see the note at the top of minimap-canvas.js.
 import { renderMinimapCanvas, hideCanvas } from './minimap-canvas.js';
+import { gridOk } from './minimap-cache.js';
 
 // Shared map state that outlives the retired full-screen popup: the overlay label
 // mode (read by the sidebar minimap), the door render style, and the active GPS
@@ -728,7 +729,7 @@ const DIR_OFFSET = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] 
 // standing, so it SHIFTS every step — `virtual` flags that for callers who care.
 function layoutCoords(nodes, current, byId) {
   const coords = new Map();
-  if (current.map_id && current.grid_x != null && current.grid_y != null) {
+  if (gridOk(nodes, current)) {
     for (const n of nodes) {
       if (n.map_id === current.map_id && n.grid_z === current.grid_z && n.grid_x != null && n.grid_y != null) {
         coords.set(n.id, [n.grid_x - current.grid_x, n.grid_y - current.grid_y]);
