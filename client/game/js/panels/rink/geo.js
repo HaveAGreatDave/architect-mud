@@ -1,3 +1,5 @@
+import { clamp } from './util.js';
+
 // Rinkside · the sheet, in feet. x runs the length (0..200), y runs across (0 is the camera
 // side, 85 the far boards), z is up. The sim speaks in fractions of the sheet ("model"
 // units, x and y both 0..1); `ft()` is the one conversion, and GEO/DOTS are exported in
@@ -37,7 +39,6 @@ export const GEO = {
 };
 export const DOTS = Object.fromEntries(Object.entries(DOT_FT).map(([k, [x, y]]) => [k, [x / RL, y / RW]]));
 
-const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 // Null when (x, y) is at least `m` feet inside the boards; otherwise the nearest point
 // that is, and the inward normal there. Straight walls and corners in one expression.
 export function insideRink(x, y, m) {

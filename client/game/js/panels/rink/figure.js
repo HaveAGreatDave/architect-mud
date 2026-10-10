@@ -30,8 +30,29 @@ const NUM_FONT = '800 100px "Saira Condensed", "Arial Narrow", "Roboto Condensed
 const NAME_FONT = '700 100px "Saira Condensed", "Arial Narrow", "Roboto Condensed", sans-serif';
 
 // Torso cross-sections: [fraction pelvis→neck, half-width, half-depth, forward offset].
-const SK_RINGS = [[-0.1, 0.72, 0.5, 0], [0.3, 0.66, 0.47, 0.02], [0.64, 0.86, 0.56, 0.05], [0.88, 1.2, 0.56, 0], [1.03, 0.62, 0.4, -0.02]];
-const GK_RINGS = [[-0.1, 0.8, 0.58, 0.04], [0.3, 0.8, 0.62, 0.08], [0.64, 0.98, 0.7, 0.1], [0.88, 1.32, 0.64, 0.04], [1.04, 0.64, 0.46, 0]];
+// Real proportions, not a mascot's: shoulder pads make a man about two feet across the
+// top, and the jersey hangs past his waist and over the top of his pants.
+const SK_RINGS = [[-0.14, 0.66, 0.46, 0.01], [0.3, 0.6, 0.43, 0.02], [0.64, 0.78, 0.52, 0.05], [0.88, 1.06, 0.52, 0], [1.03, 0.55, 0.38, -0.02]];
+const GK_RINGS = [[-0.14, 0.78, 0.56, 0.04], [0.3, 0.78, 0.6, 0.08], [0.64, 0.94, 0.68, 0.1], [0.88, 1.24, 0.62, 0.04], [1.04, 0.62, 0.44, 0]];
+
+// A tile of fine noise laid over cloth up close, so a sweater reads as woven mesh rather
+// than a flat fill. Built once, lazily, from whatever document the canvas belongs to.
+let _weave = null;
+function weave(ctx) {
+  if (_weave !== null) return _weave;
+  try {
+    const doc = ctx.canvas && ctx.canvas.ownerDocument;
+    const c = doc.createElement('canvas'); c.width = c.height = 48;
+    const g = c.getContext('2d');
+    for (let y = 0; y < 48; y += 2) for (let x = 0; x < 48; x += 2) {
+      const v = ((x * 7 + y * 13 + (x * y) % 11) % 9) / 9;
+      g.fillStyle = v > 0.5 ? `rgba(255,255,255,${(v - 0.5) * 0.5})` : `rgba(0,0,0,${(0.5 - v) * 0.5})`;
+      g.fillRect(x + (y % 4 ? 1 : 0), y, 1, 1);
+    }
+    _weave = ctx.createPattern(c, 'repeat') || false;
+  } catch { _weave = false; }
+  return _weave;
+}
 
 function taper(ctx, a, b, ra, rb) {
   const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy);
@@ -48,13 +69,18 @@ function limbGrad(ctx, a, b, ra, rb, col) {
   if (nx * SL[0] + ny * SL[1] < 0) { nx = -nx; ny = -ny; }
   const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, r = Math.max(1, (ra + rb) / 2);
   const g = ctx.createLinearGradient(mx + nx * r, my + ny * r, mx - nx * r, my - ny * r);
-  g.addColorStop(0, shade(col, 0.3)); g.addColorStop(0.28, shade(col, 0.1)); g.addColorStop(0.6, col);
-  g.addColorStop(0.88, shade(col, -0.42)); g.addColorStop(1, shade(col, -0.22));
+  g.addColorStop(0, shade(col, 0.2)); g.addColorStop(0.07, shade(col, 0.07)); g.addColorStop(0.42, col);
+  g.addColorStop(0.86, shade(col, -0.4)); g.addColorStop(1, shade(col, -0.3));
   return g;
 }
 function ballGrad(ctx, c, r, col) {
-  const g = ctx.createRadialGradient(c.x + SL[0] * r * 0.45, c.y + SL[1] * r * 0.45, r * 0.08, c.x, c.y, r * 1.05);
-  g.addColorStop(0, shade(col, 0.42)); g.addColorStop(0.5, col); g.addColorStop(0.9, shade(col, -0.42)); g.addColorStop(1, shade(col, -0.25));
+  const g = ctx.createRadialGradient(c.x + SL[0] * r * 0.4, c.y + SL[1] * r * 0.4, r * 0.05, c.x, c.y, r * 1.05);
+  g.addColorStop(0, shade(col, 0.22)); g.addColorStop(0.45, col); g.addColorStop(0.92, shade(col, -0.4)); g.addColorStop(1, shade(col, -0.3));
+  return g;
+}
+function shellGrad(ctx, c, r, col) {
+  const g = ctx.createRadialGradient(c.x + SL[0] * r * 0.42, c.y + SL[1] * r * 0.5, 0, c.x, c.y, r * 1.02);
+  g.addColorStop(0, shade(col, 0.55)); g.addColorStop(0.1, shade(col, 0.18)); g.addColorStop(0.5, col); g.addColorStop(0.92, shade(col, -0.45)); g.addColorStop(1, shade(col, -0.3));
   return g;
 }
 function poly(ctx, pts) { ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.closePath(); }
@@ -78,7 +104,7 @@ export function drawBody(ctx, P, J, o) {
   const cam = o.camPos;
   const toCam = (p) => V.norm(V.sub(cam, p));
   const W = (p) => (p ? P(p[0], p[1], p[2]) : null);
-  const lw = refl ? 0 : Math.max(1.1, s0 * 0.045);
+  const lw = refl ? 0 : lod === 2 ? 0 : Math.max(0.8, s0 * 0.032);
   const parts = [];
   const add = (d, path, paint) => parts.push({ d, path, paint });
 
@@ -96,7 +122,7 @@ export function drawBody(ctx, P, J, o) {
     add((a.d + b.d) / 2 + dBias, () => taper(ctx, a, b, pa, pb), () => {
       taper(ctx, a, b, pa, pb);
       ctx.fillStyle = lod ? limbGrad(ctx, a, b, pa, pb, col) : col; ctx.fill();
-      if (lod === 2) { ctx.strokeStyle = shade(col, -0.55); ctx.lineWidth = Math.max(0.5, lw * 0.45); ctx.stroke(); }
+      if (lod === 2) { ctx.strokeStyle = shade(col, -0.62); ctx.lineWidth = Math.max(0.6, s0 * 0.018); ctx.stroke(); }
       if (extra && !refl) extra(a, b);
     });
   };
@@ -106,7 +132,15 @@ export function drawBody(ctx, P, J, o) {
     add(c.d + dBias, () => { ctx.beginPath(); ctx.arc(c.x, c.y, pr2, 0, TAU); }, () => {
       ctx.beginPath(); ctx.arc(c.x, c.y, pr2, 0, TAU);
       ctx.fillStyle = lod ? ballGrad(ctx, c, pr2, col) : col; ctx.fill();
+      if (lod === 2) { ctx.strokeStyle = shade(col, -0.62); ctx.lineWidth = Math.max(0.6, s0 * 0.018); ctx.stroke(); }
     });
+  };
+  // A limb in three stations, A → M → B, so it can swell over a pad and taper past it
+  // instead of being a tube of one width.
+  const limb3 = (A, B, ra, rm, rb, col, extra, dBias = 0, tm = 0.45) => {
+    const M = V.lerp(A, B, tm);
+    limb(A, M, ra, rm, col, null, dBias);
+    limb(M, B, rm, rb, col, extra, dBias - 0.001);
   };
   // A band around a limb at fraction t from A to B, drawn on the half that faces the camera.
   const ring = (A, B, t, r, col, w) => {
@@ -124,6 +158,29 @@ export function drawBody(ctx, P, J, o) {
     ctx.stroke(); ctx.lineCap = 'round';
   };
   const ringAt = (A, B, ra, rb, t, col, w) => ring(A, B, t, lerp(ra, rb, t) * 1.03, col, w);
+  // A padded block from A to B (a glove's hand, a bare fist): the hull of its eight corners,
+  // with rolls across the back when `rolls` is set.
+  const box = (A, B, hw, hh, col, side, rolls, dBias = 0) => {
+    const u = V.norm(V.sub(B, A)), [p1, p2] = perp(u);
+    const cs = [];
+    for (const e of [A, B]) for (const a of [-1, 1]) for (const b of [-1, 1]) { const q = W(V.add(e, V.add(V.mul(p1, a * hw), V.mul(p2, b * hh)))); if (q) cs.push(q); }
+    const hb = hull(cs); const c = W(V.lerp(A, B, 0.5));
+    if (hb.length < 3 || !c) return;
+    add(c.d + dBias, () => poly(ctx, hb), () => {
+      poly(ctx, hb);
+      const pa = W(A), pb = W(B);
+      ctx.fillStyle = lod && pa && pb ? limbGrad(ctx, pa, pb, hw * pa.s, hw * pb.s, col) : col; ctx.fill();
+      if (lod === 2) { ctx.strokeStyle = shade(col, -0.6); ctx.lineWidth = Math.max(0.6, s0 * 0.018); ctx.stroke(); }
+      if (!rolls || lod === 0 || refl) return;
+      ctx.strokeStyle = shade(col, -0.45); ctx.lineWidth = Math.max(0.5, 0.025 * c.s);
+      ctx.beginPath();
+      for (const t of [0.35, 0.6, 0.82]) {
+        const m = V.lerp(A, B, t), q0 = W(V.add(m, V.add(V.mul(p1, -hw), V.mul(p2, hh * 0.9)))), q1 = W(V.add(m, V.add(V.mul(p1, hw), V.mul(p2, hh * 0.9))));
+        if (q0 && q1) { ctx.moveTo(q0.x, q0.y); ctx.lineTo(q1.x, q1.y); }
+      }
+      ctx.stroke();
+    });
+  };
 
   // ── legs: skates, socks over shin pads, breezers ─────────────────────────
   const missing = o.missing || {};
@@ -137,9 +194,9 @@ export function drawBody(ctx, P, J, o) {
   for (const [hip, kn, an, toe, side] of [[10, 11, 12, 16, 1], [13, 14, 15, 17, -1]]) {
     const A = J[an], T = J[toe];
     if (missing[side > 0 ? 'legL' : 'legR'] && !gk) {
-      const thighEnd = V.lerp(J[hip], J[kn], 0.86);
-      limb(J[hip], thighEnd, 0.6, 0.52, K.pants);
-      limb(thighEnd, J[kn], 0.4, 0.34, K.sock);
+      const thighEnd = V.lerp(J[hip], J[kn], 0.84);
+      limb(J[hip], thighEnd, 0.54, 0.5, K.pants);
+      limb(thighEnd, J[kn], 0.36, 0.32, K.sock);
       stump(J[kn], 0.24);
       continue;
     }
@@ -172,24 +229,24 @@ export function drawBody(ctx, P, J, o) {
       }, -0.03);
       limb(J[hip], J[kn], 0.48, 0.44, '#e3e6e9', (a, b) => ringAt(J[hip], J[kn], 0.48, 0.44, 0.7, K.jersey, 0.12));
     } else {
-      limb(J[kn], A, 0.4, 0.27, K.sock, () => {
-        ringAt(J[kn], A, 0.4, 0.27, 0.3, K.trim, 0.13); ringAt(J[kn], A, 0.4, 0.27, 0.47, K.trim, 0.13);
-      });
-      ball(V.add(J[kn], V.mul(F, 0.1)), 0.39, K.sock, -0.02);
+      limb3(J[kn], A, 0.36, 0.31, 0.24, K.sock, () => {
+        ringAt(J[kn], A, 0.36, 0.24, 0.3, K.trim, 0.12); ringAt(J[kn], A, 0.36, 0.24, 0.46, K.trim, 0.12);
+      }, 0, 0.4);
       // breezers: big through the hip and flared at the hem, the hockey silhouette
-      const thighEnd = V.lerp(J[hip], J[kn], 0.86);
-      limb(J[hip], thighEnd, 0.6, 0.52, K.pants, () => {
-        ringAt(J[hip], thighEnd, 0.6, 0.52, 0.94, shade(K.pants, -0.4), 0.1);
+      const thighEnd = V.lerp(J[hip], J[kn], 0.84);
+      limb(J[hip], thighEnd, 0.54, 0.5, K.pants, () => {
+        ringAt(J[hip], thighEnd, 0.54, 0.5, 0.42, shade(K.pants, -0.3), 0.04);
+        ringAt(J[hip], thighEnd, 0.54, 0.5, 0.95, shade(K.pants, -0.45), 0.09);
         // the stripe down the outside of the breezers
         if (lod) {
           const out = V.mul(Sh, side);
-          const a = V.add(J[hip], V.mul(out, 0.6)), b = V.add(thighEnd, V.mul(out, 0.52));
+          const a = V.add(J[hip], V.mul(out, 0.54)), b = V.add(thighEnd, V.mul(out, 0.5));
           if (V.dot(out, toCam(a)) > 0) { const pa = W(a), pb = W(b); if (pa && pb) { ctx.strokeStyle = K.trim; ctx.lineWidth = Math.max(1, 0.1 * pa.s); ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke(); } }
         }
       });
     }
   }
-  limb(J[10], J[13], gk ? 0.66 : 0.64, gk ? 0.66 : 0.64, K.pants, null, -0.01);
+  limb(J[10], J[13], gk ? 0.62 : 0.58, gk ? 0.62 : 0.58, K.pants, null, -0.01);
 
   // ── torso ────────────────────────────────────────────────────────────────
   const ju = o.jerseyUp || 0;
@@ -224,7 +281,24 @@ export function drawBody(ctx, P, J, o) {
         // top light falling off down the body, and the shoulder pads catching it
         const top = W(rings[3].c), bot = W(rings[0].c);
         if (top && bot) { const g = ctx.createLinearGradient(top.x, top.y, bot.x, bot.y); g.addColorStop(0, 'rgba(255,255,255,0.12)'); g.addColorStop(0.55, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(0,0,0,0.22)'); poly(ctx, th); ctx.fillStyle = g; ctx.fill(); }
-        if (lod === 2) { poly(ctx, th); ctx.strokeStyle = shade(K.jersey, -0.55); ctx.lineWidth = Math.max(0.5, lw * 0.45); ctx.stroke(); }
+        // cloth: folds from the armpits down to the waist that move with his twist
+        ctx.save(); poly(ctx, th); ctx.clip();
+        const r3 = rings[3], r1 = rings[1];
+        for (const sd of [1, -1]) for (const k of [0, 1, 2]) {
+          const a0 = Math.PI / 2 * sd + (k - 1) * 0.35 * sd, a1 = a0 - sd * 0.5;
+          for (const face of [1, -1]) {
+            const p0 = W(V.frame(r3.c, r3.S, Math.cos(a0) * r3.rs * 0.8 * sd, r3.F, face * r3.rf * 1.01, U, -0.25));
+            const p1 = W(V.frame(r1.c, r1.S, Math.cos(a1) * r1.rs * 0.55 * sd, r1.F, face * r1.rf * 1.01, U, 0.1));
+            if (!p0 || !p1) continue;
+            ctx.strokeStyle = 'rgba(0,0,0,0.16)'; ctx.lineWidth = Math.max(0.7, 0.07 * s0);
+            ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.quadraticCurveTo((p0.x + p1.x) / 2 + sd * 0.15 * s0, (p0.y + p1.y) / 2, p1.x, p1.y); ctx.stroke();
+            ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = Math.max(0.5, 0.04 * s0);
+            ctx.beginPath(); ctx.moveTo(p0.x - 0.06 * s0, p0.y); ctx.quadraticCurveTo((p0.x + p1.x) / 2 + sd * 0.15 * s0 - 0.06 * s0, (p0.y + p1.y) / 2, p1.x - 0.06 * s0, p1.y); ctx.stroke();
+          }
+        }
+        if (lod === 2) { const pat = weave(ctx); if (pat) { ctx.globalAlpha = 0.5; ctx.fillStyle = pat; ctx.fillRect(Math.min(...th.map((p) => p.x)), Math.min(...th.map((p) => p.y)), 4000, 4000); ctx.globalAlpha = 1; } }
+        ctx.restore();
+        if (lod === 2) { poly(ctx, th); ctx.strokeStyle = shade(K.jersey, -0.62); ctx.lineWidth = Math.max(0.6, s0 * 0.018); ctx.stroke(); }
       }
       torsoDetail();
     });
@@ -331,11 +405,9 @@ export function drawBody(ctx, P, J, o) {
       const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L, off = 0.12 * a.s;
       ctx.beginPath(); for (const k of [-1, 1]) { ctx.moveTo(a.x + nx * off * k, a.y + ny * off * k); ctx.lineTo(b.x + nx * off * k, b.y + ny * off * k); } ctx.stroke();
     } : null;
-    ball(V.add(S, V.mul(U, 0.08)), 0.47 * ar, K.jersey, -0.01);
-    limb(S, E, 0.41 * ar, 0.35 * ar, K.jersey, sleeveLines);
-    ball(E, 0.34 * ar, K.jersey, -0.01);
+    limb(V.add(S, V.mul(U, 0.05)), E, 0.4 * ar, 0.32 * ar, K.jersey, sleeveLines);
     if (missing[side > 0 ? 'armL' : 'armR'] && !gk) { stump(V.add(E, V.mul(V.norm(V.sub(H, E)), 0.15)), 0.2); continue; }
-    limb(E, wrist, 0.34 * ar, 0.36 * ar, K.jersey, K.stripes ? sleeveLines : () => { ringAt(E, wrist, 0.34 * ar, 0.36 * ar, 0.42, K.trim, 0.13); ringAt(E, wrist, 0.34 * ar, 0.36 * ar, 0.6, K.trim, 0.08); });
+    limb3(E, wrist, 0.33 * ar, 0.29 * ar, 0.34 * ar, K.jersey, K.stripes ? sleeveLines : () => { ringAt(E, wrist, 0.33 * ar, 0.34 * ar, 0.42, K.trim, 0.12); ringAt(E, wrist, 0.33 * ar, 0.34 * ar, 0.6, K.trim, 0.07); }, 0, 0.3);
     if (gk && side > 0) {
       // the trapper: a disc in the plane facing the shooter, with a laced pocket
       const nrm = F, [a1, a2] = perp(nrm), c = V.add(H, V.mul(dir, 0.15));
@@ -366,14 +438,12 @@ export function drawBody(ctx, P, J, o) {
     } else if (o.gloves !== false) {
       // a gauntlet: cuff, then the hand block, then the thumb
       const cuff0 = V.sub(wrist, V.mul(dir, 0.22)), palm = V.add(H, V.mul(dir, 0.16));
-      limb(cuff0, wrist, 0.34, 0.38, K.glove, () => ringAt(cuff0, wrist, 0.34, 0.38, 0.55, K.trim, 0.12), -0.02);
-      limb(wrist, palm, 0.34, 0.28, shade(K.glove, 0.08), null, -0.03);
-      const [p1] = perp(dir);
-      limb(V.add(V.lerp(wrist, palm, 0.4), V.mul(p1, 0.22 * side)), V.add(palm, V.mul(p1, 0.25 * side)), 0.12, 0.1, shade(K.glove, -0.1), null, -0.035);
+      limb(cuff0, wrist, 0.3, 0.34, K.glove, () => ringAt(cuff0, wrist, 0.3, 0.34, 0.6, K.trim, 0.11), -0.02);
+      box(wrist, palm, 0.27, 0.22, shade(K.glove, 0.05), side, true, -0.03);
     } else {
       // gloves off: a taped wrist and a bare fist
-      limb(wrist, H, 0.19, 0.18, o.skin, null, -0.02);
-      ball(V.add(H, V.mul(dir, 0.08)), 0.23, o.skin, -0.03);
+      limb(wrist, H, 0.15, 0.14, o.skin, null, -0.02);
+      box(V.sub(H, V.mul(dir, 0.05)), V.add(H, V.mul(dir, 0.22)), 0.15, 0.13, o.skin, side, false, -0.03);
       if (lod === 2 && !refl) {
         const k = W(V.add(H, V.mul(dir, 0.2)));
         if (k && (o.react > 0.2 || (o.blood || 0) > 0.3)) add(k.d - 0.04, () => { ctx.beginPath(); ctx.arc(k.x, k.y, 0.07 * k.s, 0, TAU); }, () => { ctx.fillStyle = 'rgba(140,10,16,0.8)'; ctx.beginPath(); ctx.arc(k.x, k.y, 0.07 * k.s, 0, TAU); ctx.fill(); });
@@ -398,7 +468,8 @@ export function drawBody(ctx, P, J, o) {
     const helmetCol = gk ? '#eef0f2' : K.helmet;
     const shell = () => {
       ctx.beginPath(); ctx.arc(hp.x, hp.y, r, 0, TAU);
-      ctx.fillStyle = lod ? ballGrad(ctx, hp, r, helmetCol) : helmetCol; ctx.fill();
+      ctx.fillStyle = lod ? shellGrad(ctx, hp, r, helmetCol) : helmetCol; ctx.fill();
+      if (lod === 2) { ctx.strokeStyle = shade(helmetCol, -0.6); ctx.lineWidth = Math.max(0.6, s0 * 0.018); ctx.stroke(); }
       if (refl || lod === 0) return;
       // a ridge down the crown and the vents either side of it
       ctx.strokeStyle = shade(helmetCol, 0.35); ctx.lineWidth = Math.max(0.7, 0.05 * hp.s); ctx.beginPath();
@@ -543,8 +614,10 @@ export function drawBody(ctx, P, J, o) {
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   if (!refl) {
     // one outline under the whole man, so the kit reads as one body and never as stickers
-    ctx.strokeStyle = INK; ctx.lineWidth = lw * 2;
-    for (const p of parts) { p.path(); ctx.stroke(); }
+    if (lw > 0) {
+      ctx.strokeStyle = 'rgba(8,10,14,0.55)'; ctx.lineWidth = lw * 2;
+      for (const p of parts) { p.path(); ctx.stroke(); }
+    }
   }
   for (const p of parts) p.paint();
 }

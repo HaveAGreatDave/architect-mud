@@ -112,14 +112,14 @@ function standRig(s, T) {
   const chest = V.add(pelvis, V.mul(sd, 1.1)), neck = V.add(pelvis, V.mul(sd, 2.0));
   const hl = lean * 0.45 - (act === 'slumped' ? 0.6 : 0);
   const head = V.add(neck, [Math.sin(hl) * 0.55 - s.react * 0.32, 0, Math.cos(hl) * 0.55 + s.react * 0.05]);
-  const shL = V.add(neck, rotZ([-0.05, 1.1, -0.26], twist)), shR = V.add(neck, rotZ([-0.05, -1.1, -0.26], twist));
-  const hipL = V.add(pelvis, rotZ([0, 0.55, -0.05], -twist * 0.4)), hipR = V.add(pelvis, rotZ([0, -0.55, -0.05], -twist * 0.4));
+  const shL = V.add(neck, rotZ([-0.05, 1.0, -0.25], twist)), shR = V.add(neck, rotZ([-0.05, -1.0, -0.25], twist));
+  const hipL = V.add(pelvis, rotZ([0, 0.5, -0.05], -twist * 0.4)), hipR = V.add(pelvis, rotZ([0, -0.5, -0.05], -twist * 0.4));
   const legs = [];
   const stopping = act === 'stop';
   for (const sg of [1, -1]) {
     const p = P + (sg > 0 ? 0 : Math.PI);
     let fu = 0.15 + 0.78 * a * Math.cos(p);
-    let fv = sg * (0.68 + 0.3 * stance + 0.55 * a * (1 - Math.cos(p)) / 2);
+    let fv = sg * (0.62 + 0.3 * stance + 0.55 * a * (1 - Math.cos(p)) / 2);
     let fz = 0.55 + 0.38 * a * Math.max(0, -Math.sin(p));
     if (stance) fu += sg * 0.38 * stance;
     if (stopping) { fu = sg * 0.5 + 0.6; fv = sg * 0.8; fz = 0.55; }
@@ -183,6 +183,9 @@ function standRig(s, T) {
     if (act === 'point') R = [0.6, -0.5, zp + 2.9];
   }
   if (act === 'shove' && s.target && s.stick) { const t = s.target; L = toLocal(t.x, t.y, 4.4); L[1] += 0.4; R = toLocal(t.x, t.y, 4.3); R[1] -= 0.4; blade = null; }
+  const bend = (sh, h, frac) => { const d = V.sub(h, sh), l = V.len(d), max = 2.25 * frac; return l > max ? V.add(sh, V.mul(d, max / l)) : h; };
+  if (s.grab || act === 'pull' || act === 'hug' || act === 'shove' || act === 'break') { L = bend(shL, L, 0.86); R = bend(shR, R, act === 'pull' || act === 'hug' ? 0.86 : 0.95); }
+  else if (s.guard) { L = bend(shL, L, 0.8); R = bend(shR, R, pk > 0.6 ? 0.98 : 0.8); }
   const [elL, hL] = ik(shL, L, 1.15, 1.1, [-0.3, 1, -0.8]);
   const [elR, hR] = ik(shR, R, 1.15, 1.1, [-0.3, -1, -0.8]);
   let butt = null, heel = null, toe = null;
