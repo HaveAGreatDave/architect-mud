@@ -58,7 +58,7 @@ export function createRenderer(canvas, W, ice) {
 
   function fit() {
     const r = canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : { width: canvas.width, height: canvas.height };
-    const dpr = Math.min(1.5, (doc.defaultView && doc.defaultView.devicePixelRatio) || 1);
+    const dpr = Math.min(api.quality.dpr, (doc.defaultView && doc.defaultView.devicePixelRatio) || 1);
     const w = Math.max(2, Math.round((r.width || canvas.width || 640) * dpr)), h = Math.max(2, Math.round((r.height || canvas.height || 360) * dpr));
     if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
     return { w, h, u: w / 900 };
@@ -83,7 +83,9 @@ export function createRenderer(canvas, W, ice) {
     // in the dark, rather than a void
     if (!pat) try { pat = ctx.createPattern(tex.crowdSit, 'repeat'); } catch { pat = null; }
     if (pat) { ctx.globalAlpha = 0.4; ctx.fillStyle = pat; ctx.fillRect(0, 0, w, h); ctx.globalAlpha = 1; ctx.fillStyle = 'rgba(5,7,10,0.55)'; ctx.fillRect(0, 0, w, h); }
-    const sh = W.shake * 7 * u, sx = (W.rand() - 0.5) * sh, sy = (W.rand() - 0.5) * sh;
+    // shake is a smooth wobble, not a fresh random offset every frame: random jitter at the
+    // display rate reads as the frame rate dropping
+    const sh = W.shake * 5 * u, sx = sh * (Math.sin(W.t * 47) + 0.5 * Math.sin(W.t * 83 + 1)) / 1.5, sy = sh * (Math.sin(W.t * 59 + 2) + 0.5 * Math.sin(W.t * 97)) / 1.5;
     ctx.setTransform(1, 0, 0, 1, sx, sy);
 
     stands(P);
@@ -109,11 +111,11 @@ export function createRenderer(canvas, W, ice) {
     if (!W.puck.hidden) push(W.puck.x, W.puck.y, 0, () => puck(P), -0.3);
     for (const d of W.debris) push(d.x, d.y, 0, () => debris(P, d));
     for (const l of W.limbs) push(l.pts[0].x, l.pts[0].y, 0, () => drawSevered(ctx, P, l, opts(l.owner || { side: l.side }, camPos, 'full')));
-    for (const p of W.parts) push(p.x, p.y, p.z, () => particle(P, p), -0.2);
     if (W.stretcher) push(W.stretcher.x, W.stretcher.y, 1, () => stretcher(P, W.stretcher), 0.1);
     if (W.zamboni) push(W.zamboni.x, W.zamboni.y, 3, () => zamboni(P, W.zamboni, camPos));
     items.sort((a, b) => b.d - a.d);
     for (const it of items) it.f();
+    particles(P);
     boards(P, inner, 'front');
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -282,7 +284,8 @@ export function createRenderer(canvas, W, ice) {
   function drawIce(C, w, h, P) {
     const top = P(RL / 2, RW, 0), bot = P(RL / 2, 0, 0);
     const y0 = Math.max(0, Math.floor(top ? top.y : 0)), y1 = Math.min(h, bot ? Math.ceil(bot.y) : h);
-    const cp = Math.cos(C.pitch), sp = Math.sin(C.pitch), step = 2;
+    const cp = Math.cos(C.pitch), sp = Math.sin(C.pitch), step = api.quality.iceStep;
+    ice.flush?.();
     const img = ice.canvas;
     for (let sy = y0; sy < y1; sy += step) {
       const v = (C.cy - (sy + step / 2)) / C.f;
@@ -390,16 +393,37 @@ export function createRenderer(canvas, W, ice) {
       ctx.strokeStyle = 'rgba(210,214,220,0.9)'; ctx.lineWidth = Math.max(0.7, r * 0.1); ctx.beginPath(); ctx.arc(c.x + r * 0.3, c.y, r * 0.55, -1.2, 1.2); ctx.stroke();
     }
   }
-  function particle(P, p) {
-    const c = P(p.x, p.y, p.z); if (!c) return;
-    if (p.type === 'blood') {
-      const b = P(p.x - p.vx * 0.025, p.y - p.vy * 0.025, p.z - p.vz * 0.025);
-      if (b) { ctx.lineCap = 'round'; line(ctx, b, c, Math.max(0.8, p.size * 0.7 * c.s), p.col); }
-      return;
+  // Particles in one pass after the bodies, a path per kind and colour, so a burst of a few
+  // hundred is a handful of draw calls. They are small and quick; one drawn over a body it is
+  // behind for a frame or two is not something anyone sees.
+  function particles(P) {
+    if (!W.parts.length) return;
+    const streak = new Map(), dots = new Map();
+    const add = (m, k) => { let a = m.get(k); if (!a) { a = []; m.set(k, a); } return a; };
+    for (const p of W.parts) {
+      const c = P(p.x, p.y, p.z); if (!c) continue;
+      if (p.type === 'blood') {
+        const b = P(p.x - p.vx * 0.025, p.y - p.vy * 0.025, p.z - p.vz * 0.025);
+        if (b) add(streak, p.col).push(b.x, b.y, c.x, c.y, Math.max(0.8, p.size * 0.7 * c.s));
+        continue;
+      }
+      const col = p.type === 'spray' ? 'rgba(245,250,255,0.7)' : p.type === 'tooth' ? '#f4f1e6' : p.type === 'sweat' ? 'rgba(220,235,255,0.7)' : 'rgba(200,232,250,0.85)';
+      add(dots, col).push(c.x, c.y, Math.max(0.8, p.size * c.s));
     }
-    const r = Math.max(0.8, p.size * c.s);
-    ctx.fillStyle = p.type === 'spray' ? `rgba(245,250,255,${0.85 * (1 - p.life / p.max)})` : p.type === 'tooth' ? '#f4f1e6' : p.type === 'sweat' ? 'rgba(220,235,255,0.7)' : 'rgba(200,232,250,0.85)';
-    ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, TAU); ctx.fill();
+    ctx.lineCap = 'round';
+    for (const [col, v] of streak) {
+      // two widths are enough: thin drops and fat ones
+      for (const fat of [false, true]) {
+        ctx.beginPath(); let any = false, w = 0;
+        for (let i = 0; i < v.length; i += 5) if ((v[i + 4] > 2) === fat) { ctx.moveTo(v[i], v[i + 1]); ctx.lineTo(v[i + 2] + 0.01, v[i + 3]); any = true; w = Math.max(w, v[i + 4]); }
+        if (any) { ctx.strokeStyle = col; ctx.lineWidth = fat ? Math.min(w, 6) : 1.4; ctx.stroke(); }
+      }
+    }
+    for (const [col, v] of dots) {
+      ctx.fillStyle = col; ctx.beginPath();
+      for (let i = 0; i < v.length; i += 3) { ctx.moveTo(v[i] + v[i + 2], v[i + 1]); ctx.arc(v[i], v[i + 1], v[i + 2], 0, TAU); }
+      ctx.fill();
+    }
   }
   function stretcher(P, s) {
     const ch = Math.cos(s.h), sn = Math.sin(s.h);
@@ -529,6 +553,6 @@ export function createRenderer(canvas, W, ice) {
     }
   }
 
-  const api = { render, stats: st, cam, view: 'broadcast', quality: { reflBodies: true } };
+  const api = { render, stats: st, cam, view: 'broadcast', quality: { reflBodies: true, dpr: 1.5, iceStep: 2 } };
   return api;
 }

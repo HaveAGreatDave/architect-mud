@@ -699,7 +699,7 @@ export function createDirector(W, opts = {}) {
       if (fatal === 'post') { impU = [vdir * 18, -6, 4]; impL = [vdir * 6, -2, 1]; }
       W.knock(victim, impU, impL);
       hitter.vx *= 0.3; hitter.vy *= 0.15;
-      W.shake = Math.max(W.shake, style === 'glass' ? 1.2 : 0.9); W.crowd = 1; W.hitstop = style === 'glass' ? 0.14 : 0.09;
+      W.shake = Math.max(W.shake, style === 'glass' ? 1.2 : 0.9); W.crowd = 1; W.hitstop = style === 'glass' ? 0.1 : 0.07;
       W.sfx('check', { style });
       W.burst('spray', victim.x, victim.y, 0.3, 14, 7, [0, 4, 3]);
       const hurt = p.injured || fatal;
@@ -963,7 +963,7 @@ export function createDirector(W, opts = {}) {
         W.fight.pip[vi.seed] = Math.max(vi === win ? 0.6 : 0, W.fight.pip[vi.seed] - dmg);
         const big = last || kindAct === 'uppercut';
         W.burst('blood', vi.x + dir * 0.2, vi.y - 0.3, 5.3, big ? 26 : 9, big ? 8 : 5, [dir * 6, -1, 4]);
-        W.shake = Math.max(W.shake, big ? 1.1 : 0.45); W.hitstop = big ? 0.13 : 0.05; W.crowd = 1;
+        W.shake = Math.max(W.shake, big ? 1.1 : 0.45); W.hitstop = big ? 0.1 : 0.04; W.crowd = 1;
         W.sfx('punch', { big });
         if (last && vi === lose) {
           W.fight.pip[vi.seed] = 0;

@@ -272,6 +272,9 @@ export function createWorld(ice, seedKey) {
     if (W.parts.length > 800) W.parts.splice(0, W.parts.length - 800);
   };
   function stepParts(dt) {
+    // removal swaps the last particle into the hole: order doesn't matter, and a splice
+    // per landed drop was quadratic in a burst
+    const kill = (i) => { const last = W.parts.pop(); if (i < W.parts.length) W.parts[i] = last; };
     for (let i = W.parts.length - 1; i >= 0; i--) {
       const p = W.parts[i]; p.life += dt;
       const g = p.type === 'spray' ? 10 : G;
@@ -280,11 +283,11 @@ export function createWorld(ice, seedKey) {
       const c = insideRink(p.x, p.y, 0.05);
       if (c && p.z < GLASS_H) { p.x = c.x; p.y = c.y; p.vx *= -0.2; p.vy *= -0.2; }
       if (p.z <= 0) {
-        if (p.type === 'blood') { W.ice.blood(p.x, p.y, p.size * (2.4 + rand() * 1.5), 0.8, (p.x * 1e3 + p.y * 7) | 0); W.parts.splice(i, 1); continue; }
-        if (p.type === 'spray' || p.type === 'sweat') { W.parts.splice(i, 1); continue; }
+        if (p.type === 'blood') { W.ice.blood(p.x, p.y, p.size * (2.4 + rand() * 1.5), 0.8, (p.x * 1e3 + p.y * 7) | 0); kill(i); continue; }
+        if (p.type === 'spray' || p.type === 'sweat') { kill(i); continue; }
         p.z = 0; p.vz = -p.vz * 0.3; p.vx *= 0.6; p.vy *= 0.6;
       }
-      if (p.life > p.max) W.parts.splice(i, 1);
+      if (p.life > p.max) kill(i);
     }
   }
   W.addDebris = (kind, pos, vel, rot, spin, side, extra) => {

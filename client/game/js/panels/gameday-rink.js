@@ -145,18 +145,28 @@ export function createRinkView(host, opts = {}) {
     const real = lastFrame ? Math.min(0.1, (now - lastFrame) / 1000) : 1 / 60;
     lastFrame = now;
     let dt = real * speed;
-    if (W.hitstop > 0) { W.hitstop -= real; dt *= 0.15; }
+    if (W.hitstop > 0) { W.hitstop -= real; dt *= 0.3; }
     acc += dt;
     let n = 0;
     while (acc >= DT && n < 24) { W.step(DT); acc -= DT; n++; }
     if (n === 24) acc = 0;
-    const t0 = win.performance ? win.performance.now() : 0;
     R.render(now);
-    if (win.performance) {
-      // a slow device drops the reflected bodies first; the boards still shine in the ice
-      costAvg = costAvg * 0.95 + (win.performance.now() - t0) * 0.05;
-      R.quality.reflBodies = costAvg < 16;
-    }
+    govern(real);
+  }
+  // QUALITY FOLLOWS THE REAL FRAME TIME, not the time spent in our own code: most of a
+  // canvas frame is the browser rasterising it, which no timer in here sees. Sustained slow
+  // frames step the picture down a rung (reflected bodies, then resolution, then coarser
+  // ice); a long run of quick ones steps it back up.
+  const RUNGS = [
+    { reflBodies: true, dpr: 1.5, iceStep: 2 }, { reflBodies: false, dpr: 1.5, iceStep: 2 },
+    { reflBodies: false, dpr: 1, iceStep: 2 }, { reflBodies: false, dpr: 1, iceStep: 3 },
+  ];
+  let rung = 0, slow = 0, quick = 0;
+  function govern(real) {
+    costAvg = costAvg ? costAvg * 0.9 + real * 1000 * 0.1 : real * 1000;
+    if (costAvg > 24) { slow += real; quick = 0; } else if (costAvg < 15) { quick += real; slow = 0; } else { slow = quick = 0; }
+    if (slow > 1.2 && rung < RUNGS.length - 1) { rung++; slow = 0; Object.assign(R.quality, RUNGS[rung]); }
+    if (quick > 8 && rung > 0) { rung--; quick = 0; Object.assign(R.quality, RUNGS[rung]); }
   }
   function start() { if (!raf && win) { lastFrame = 0; raf = win.requestAnimationFrame(frame); } }
   function stop() { if (raf && win) win.cancelAnimationFrame(raf); raf = 0; }

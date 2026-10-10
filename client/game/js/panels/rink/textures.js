@@ -90,40 +90,65 @@ export function createIce(doc) {
       c.beginPath(); c.moveTo(IX(gx), IY(31.5)); c.lineTo(IX(gx - dir * 11), IY(28.5)); c.moveTo(IX(gx), IY(53.5)); c.lineTo(IX(gx - dir * 11), IY(56.5)); c.stroke();
     }
     c.restore();
+    q.blood.clear(); q.cut.clear(); q.n = 0;
     bc.clearRect(0, 0, base.width, base.height); bc.drawImage(canvas, 0, 0);
     wc.clearRect(0, 0, wetCv.width, wetCv.height);
     ice.wear = 0; ice.wetness = 0;
   }
+  // MARKS ARE QUEUED AND PAINTED IN ONE BATCH, the renderer calling `flush()` once a frame.
+  // A hit throws a few hundred drops and every man's skates cut the sheet forty times a
+  // second; painted one at a time, each was its own path and its own save/clip/restore on a
+  // canvas the size of the rink, and on a GPU canvas that state churn is what dropped frames
+  // on a big hit. Batched, a frame of marks is a handful of fills and strokes. There is no
+  // clip: everything that marks the ice is kept inside the boards by the sim already.
+  const BLOOD = ['rgba(118,8,14,', 'rgba(132,10,16,', 'rgba(104,4,12,'];
+  const q = { blood: new Map(), cut: new Map(), n: 0 };
+  const bucket = (m, k) => { let a = m.get(k); if (!a) { a = []; m.set(k, a); } return a; };
   function blood(x, y, rad, alpha, seed) {
     const r = rng(seed || ((x * 73 + y * 151) | 0));
-    c.save(); clip();
-    const col = () => `rgba(${105 + (r() * 40) | 0},${(r() * 14) | 0},${(10 + r() * 12) | 0},${alpha})`;
-    c.fillStyle = col();
-    c.beginPath(); c.ellipse(IX(x), IY(y), rad * TPX, rad * TPX * (0.6 + r() * 0.4), r() * 3, 0, TAU); c.fill();
+    const shade = () => (r() * 3) | 0;
+    bucket(q.blood, shade() + '|' + alpha).push(IX(x), IY(y), rad * TPX, rad * TPX * (0.6 + r() * 0.4), r() * 3);
     const n = 2 + (r() * 4) | 0;
     for (let i = 0; i < n; i++) {
-      const a = r() * TAU, d = rad * (0.9 + r() * 1.8), s = rad * (0.15 + r() * 0.35);
-      c.fillStyle = col(); c.beginPath(); c.arc(IX(x + Math.cos(a) * d), IY(y + Math.sin(a) * d), s * TPX, 0, TAU); c.fill();
+      const a = r() * TAU, d = rad * (0.9 + r() * 1.8), sz = rad * (0.15 + r() * 0.35) * TPX;
+      bucket(q.blood, shade() + '|' + alpha).push(IX(x + Math.cos(a) * d), IY(y + Math.sin(a) * d), sz, sz, 0);
     }
-    c.restore();
+    if (++q.n > 3000) flush();
   }
   // A blade cut: a pale groove with a darker edge, the two-tone line a skate leaves.
   // Thousands of them over a period grey the sheet out, which is the point.
   function cut(x0, y0, x1, y1, a) {
-    c.save(); clip(); c.lineCap = 'round';
-    c.strokeStyle = `rgba(118,140,160,${a * 1.1})`; c.lineWidth = 1.8;
-    c.beginPath(); c.moveTo(IX(x0), IY(y0) + 0.5); c.lineTo(IX(x1), IY(y1) + 0.5); c.stroke();
-    c.strokeStyle = `rgba(255,255,255,${a * 2.2})`; c.lineWidth = 1.2;
-    c.beginPath(); c.moveTo(IX(x0), IY(y0) - 0.4); c.lineTo(IX(x1), IY(y1) - 0.4); c.stroke();
-    c.restore();
+    bucket(q.cut, a).push(IX(x0), IY(y0), IX(x1), IY(y1));
     ice.wear = Math.min(1, ice.wear + a * 0.00045);
+    if (++q.n > 3000) flush();
+  }
+  function flush() {
+    if (!q.n) return;
+    q.n = 0;
+    for (const [k, v] of q.blood) {
+      const [sh, al] = k.split('|');
+      c.fillStyle = BLOOD[sh] + al + ')'; c.beginPath();
+      for (let i = 0; i < v.length; i += 5) { c.moveTo(v[i] + v[i + 2], v[i + 1]); c.ellipse(v[i], v[i + 1], v[i + 2], v[i + 3], v[i + 4], 0, TAU); }
+      c.fill();
+    }
+    q.blood.clear();
+    c.lineCap = 'round';
+    for (const [a, v] of q.cut) {
+      c.strokeStyle = `rgba(118,140,160,${a * 1.1})`; c.lineWidth = 1.8; c.beginPath();
+      for (let i = 0; i < v.length; i += 4) { c.moveTo(v[i], v[i + 1] + 0.5); c.lineTo(v[i + 2], v[i + 3] + 0.5); }
+      c.stroke();
+      c.strokeStyle = `rgba(255,255,255,${a * 2.2})`; c.lineWidth = 1.2; c.beginPath();
+      for (let i = 0; i < v.length; i += 4) { c.moveTo(v[i], v[i + 1] - 0.4); c.lineTo(v[i + 2], v[i + 3] - 0.4); }
+      c.stroke();
+    }
+    q.cut.clear();
   }
   // A hockey stop: the edge skids sideways and shaves a fan of snow off the sheet. Drawn as
   // a short curved swathe across his line of travel, heavy at the end where the snow piles.
   function scrape(x, y, dx, dy, len, seed) {
     const r = rng(seed || ((x * 31 + y * 17) | 0));
     const l = Math.hypot(dx, dy) || 1, ux = dx / l, uy = dy / l, nx = -uy, ny = ux;
-    c.save(); clip(); c.lineCap = 'round';
+    c.save(); c.lineCap = 'round';
     for (let k = 0; k < 7; k++) {
       const off = (k - 3) * 0.16, bend = (r() - 0.5) * 0.5, L = len * (0.65 + r() * 0.35);
       const ax = x + nx * off, ay = y + ny * off;
@@ -144,14 +169,14 @@ export function createIce(doc) {
   // A puck that hits the wall hard leaves rubber on the ice at its foot.
   function puckMark(x, y, dx, dy) {
     const l = Math.hypot(dx, dy) || 1;
-    c.save(); clip(); c.lineCap = 'round';
+    c.save(); c.lineCap = 'round';
     c.strokeStyle = 'rgba(30,34,40,0.32)'; c.lineWidth = 0.22 * TPX;
     c.beginPath(); c.moveTo(IX(x - dx / l * 0.9), IY(y - dy / l * 0.9)); c.lineTo(IX(x), IY(y)); c.stroke();
     c.restore();
   }
   // a smear: a body or a limb sliding through something wet
   function smear(x0, y0, x1, y1, w, alpha) {
-    c.save(); clip();
+    c.save();
     c.strokeStyle = `rgba(120,10,14,${alpha})`; c.lineWidth = w * TPX; c.lineCap = 'round';
     c.beginPath(); c.moveTo(IX(x0), IY(y0)); c.lineTo(IX(x1), IY(y1)); c.stroke();
     c.restore();
@@ -159,6 +184,7 @@ export function createIce(doc) {
   // The Zamboni's pass: the clean sheet painted back over a strip `w` feet either side of
   // the conditioner, at heading `h`, and the strip marked wet. Marks, blood and all go.
   function resurface(x, y, w, h = 0) {
+    flush();
     const ux = Math.cos(h), uy = Math.sin(h), nx = -uy * w, ny = ux * w;
     c.save(); clip();
     c.beginPath();
@@ -181,7 +207,7 @@ export function createIce(doc) {
     if (ice.wetness === 0) wc.clearRect(0, 0, wetCv.width, wetCv.height);
   }
   reset();
-  return Object.assign(ice, { reset, blood, cut, scrape, puckMark, smear, resurface, dry });
+  return Object.assign(ice, { reset, blood, cut, scrape, puckMark, smear, resurface, dry, flush });
 }
 
 let shared = null;
