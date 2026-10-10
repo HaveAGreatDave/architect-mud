@@ -1,9 +1,15 @@
 // Rinkside · the painted surfaces: the ice sheet, the dasherboard advertising and the crowd.
 //
 // The ice is ONE canvas per view, top row = the far boards, and everything that happens to
-// it is painted straight in: blade cuts as men skate, blood where it lands, a smear where a
-// body slid. That is why the marks stay for the period, and why they cost nothing to draw:
-// the renderer maps the whole sheet in one pass whatever is on it. A new period resurfaces it.
+// it is painted straight in: blade cuts as men skate, snow where they stop, black where the
+// puck hits the wall, blood where it lands, a smear where a body slid. That is why the marks
+// stay for the period, and why they cost nothing to draw: the renderer maps the whole sheet
+// in one pass whatever is on it.
+//
+// A clean copy of the sheet is kept beside it. The Zamboni paints that copy back over the
+// strip it covers, so fresh ice keeps its lines and logos, and it leaves a wet mask the
+// renderer turns into a shine that dries off. `wear` climbs as the sheet gets cut up and is
+// what dulls the reflections over a period; resurfacing takes it back down.
 //
 // Boards and crowd never change and are shared by every view on the page.
 
@@ -27,9 +33,14 @@ export const HOARDINGS = [
   ['SECOND SKIN', '#0f2a3a', '#9fe4ff'], ['LATHER & LYE', '#f2e9d8', '#5a3a1a'],
 ];
 
+export const WPX = 2;                        // wet-mask texels per foot
+
 export function createIce(doc) {
   const canvas = mk(doc, RL * TPX, RW * TPX);
   const c = canvas.getContext('2d');
+  const base = mk(doc, RL * TPX, RW * TPX), bc = base.getContext('2d');
+  const wetCv = mk(doc, RL * WPX, RW * WPX), wc = wetCv.getContext('2d');
+  const ice = { canvas, wet: wetCv, wear: 0, wetness: 0 };
   const IX = (x) => x * TPX, IY = (y) => (RW - y) * TPX;
   const clip = () => { rr(c, 0, 0, RL * TPX, RW * TPX, RC * TPX); c.clip(); };
   function reset(seed = 7) {
@@ -79,6 +90,9 @@ export function createIce(doc) {
       c.beginPath(); c.moveTo(IX(gx), IY(31.5)); c.lineTo(IX(gx - dir * 11), IY(28.5)); c.moveTo(IX(gx), IY(53.5)); c.lineTo(IX(gx - dir * 11), IY(56.5)); c.stroke();
     }
     c.restore();
+    bc.clearRect(0, 0, base.width, base.height); bc.drawImage(canvas, 0, 0);
+    wc.clearRect(0, 0, wetCv.width, wetCv.height);
+    ice.wear = 0; ice.wetness = 0;
   }
   function blood(x, y, rad, alpha, seed) {
     const r = rng(seed || ((x * 73 + y * 151) | 0));
@@ -93,10 +107,46 @@ export function createIce(doc) {
     }
     c.restore();
   }
+  // A blade cut: a pale groove with a darker edge, the two-tone line a skate leaves.
+  // Thousands of them over a period grey the sheet out, which is the point.
   function cut(x0, y0, x1, y1, a) {
-    c.save(); clip();
-    c.strokeStyle = `rgba(140,162,180,${a})`; c.lineWidth = 1.1;
-    c.beginPath(); c.moveTo(IX(x0), IY(y0)); c.lineTo(IX(x1), IY(y1)); c.stroke();
+    c.save(); clip(); c.lineCap = 'round';
+    c.strokeStyle = `rgba(118,140,160,${a * 1.1})`; c.lineWidth = 1.8;
+    c.beginPath(); c.moveTo(IX(x0), IY(y0) + 0.5); c.lineTo(IX(x1), IY(y1) + 0.5); c.stroke();
+    c.strokeStyle = `rgba(255,255,255,${a * 2.2})`; c.lineWidth = 1.2;
+    c.beginPath(); c.moveTo(IX(x0), IY(y0) - 0.4); c.lineTo(IX(x1), IY(y1) - 0.4); c.stroke();
+    c.restore();
+    ice.wear = Math.min(1, ice.wear + a * 0.00045);
+  }
+  // A hockey stop: the edge skids sideways and shaves a fan of snow off the sheet. Drawn as
+  // a short curved swathe across his line of travel, heavy at the end where the snow piles.
+  function scrape(x, y, dx, dy, len, seed) {
+    const r = rng(seed || ((x * 31 + y * 17) | 0));
+    const l = Math.hypot(dx, dy) || 1, ux = dx / l, uy = dy / l, nx = -uy, ny = ux;
+    c.save(); clip(); c.lineCap = 'round';
+    for (let k = 0; k < 7; k++) {
+      const off = (k - 3) * 0.16, bend = (r() - 0.5) * 0.5, L = len * (0.65 + r() * 0.35);
+      const ax = x + nx * off, ay = y + ny * off;
+      c.strokeStyle = `rgba(255,255,255,${0.16 + r() * 0.14})`; c.lineWidth = (0.25 + r() * 0.3) * TPX;
+      c.beginPath(); c.moveTo(IX(ax), IY(ay));
+      c.quadraticCurveTo(IX(ax + ux * L * 0.5 + nx * bend), IY(ay + uy * L * 0.5 + ny * bend), IX(ax + ux * L), IY(ay + uy * L));
+      c.stroke();
+    }
+    // the pile of shavings where the skid ended
+    const ex = x + ux * len, ey = y + uy * len;
+    for (let k = 0; k < 6; k++) {
+      c.fillStyle = `rgba(250,253,255,${0.2 + r() * 0.2})`;
+      c.beginPath(); c.ellipse(IX(ex + (r() - 0.5) * 1.2), IY(ey + (r() - 0.5) * 1.2), (0.2 + r() * 0.35) * TPX, (0.12 + r() * 0.2) * TPX, Math.atan2(-uy, ux), 0, TAU); c.fill();
+    }
+    c.restore();
+    ice.wear = Math.min(1, ice.wear + 0.004);
+  }
+  // A puck that hits the wall hard leaves rubber on the ice at its foot.
+  function puckMark(x, y, dx, dy) {
+    const l = Math.hypot(dx, dy) || 1;
+    c.save(); clip(); c.lineCap = 'round';
+    c.strokeStyle = 'rgba(30,34,40,0.32)'; c.lineWidth = 0.22 * TPX;
+    c.beginPath(); c.moveTo(IX(x - dx / l * 0.9), IY(y - dy / l * 0.9)); c.lineTo(IX(x), IY(y)); c.stroke();
     c.restore();
   }
   // a smear: a body or a limb sliding through something wet
@@ -106,15 +156,32 @@ export function createIce(doc) {
     c.beginPath(); c.moveTo(IX(x0), IY(y0)); c.lineTo(IX(x1), IY(y1)); c.stroke();
     c.restore();
   }
-  // the Zamboni's pass: fresh ice laid over a strip, marks and all
-  function resurface(x, y, w) {
+  // The Zamboni's pass: the clean sheet painted back over a strip `w` feet either side of
+  // the conditioner, at heading `h`, and the strip marked wet. Marks, blood and all go.
+  function resurface(x, y, w, h = 0) {
+    const ux = Math.cos(h), uy = Math.sin(h), nx = -uy * w, ny = ux * w;
     c.save(); clip();
-    c.fillStyle = 'rgba(236,243,247,0.5)';
-    c.beginPath(); c.arc(IX(x), IY(y), w * TPX, 0, TAU); c.fill();
+    c.beginPath();
+    c.moveTo(IX(x + nx - ux * 0.8), IY(y + ny - uy * 0.8)); c.lineTo(IX(x + nx + ux * 0.8), IY(y + ny + uy * 0.8));
+    c.lineTo(IX(x - nx + ux * 0.8), IY(y - ny + uy * 0.8)); c.lineTo(IX(x - nx - ux * 0.8), IY(y - ny - uy * 0.8));
+    c.closePath(); c.clip();
+    c.drawImage(base, 0, 0);
     c.restore();
+    wc.fillStyle = 'rgba(255,255,255,0.9)';
+    wc.beginPath(); wc.arc(x * WPX, (RW - y) * WPX, w * WPX, 0, TAU); wc.fill();
+    ice.wear = Math.max(0, ice.wear - 0.0016);
+    ice.wetness = 1;
+  }
+  // The water freezes off: the wet mask fades over about half a minute.
+  function dry(dt) {
+    if (ice.wetness <= 0) return;
+    ice.wetness = Math.max(0, ice.wetness - dt / 40);
+    wc.save(); wc.globalCompositeOperation = 'destination-out'; wc.fillStyle = `rgba(0,0,0,${Math.min(1, dt * 0.06)})`;
+    wc.fillRect(0, 0, wetCv.width, wetCv.height); wc.restore();
+    if (ice.wetness === 0) wc.clearRect(0, 0, wetCv.width, wetCv.height);
   }
   reset();
-  return { canvas, reset, blood, cut, smear, resurface };
+  return Object.assign(ice, { reset, blood, cut, scrape, puckMark, smear, resurface, dry });
 }
 
 let shared = null;

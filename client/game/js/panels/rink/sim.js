@@ -13,7 +13,7 @@
 
 import { TAU, V, clamp, lerp, angWrap, rng, hash } from './util.js';
 import {
-  RL, RW, MID_Y, BOARD_H, GLASS_H, GOAL_X, BLUE_X, NET_HALF, NET_DEPTH, NET_H,
+  RL, RW, RC, MID_Y, BOARD_H, GLASS_H, GOAL_X, BLUE_X, NET_HALF, NET_DEPTH, NET_H,
   insideRink, attackDir, panelAt, PANELS, PANEL_X0, PANEL_W,
 } from './geo.js';
 import { DT, G, skaterRig, goalieRig, bladeWorld, bladeLocal, keepOut, makeRag, stepRag, makeLimb, stepLimb, SEVER, SHOTS } from './rig.js';
@@ -207,7 +207,8 @@ export function createWorld(ice, seedKey) {
       if (pk.z > NET_H + 0.2) continue;
       const inside = pk.x > x0 - 0.2 && pk.x < x1 + 0.2 && pk.y > y0 - 0.2 && pk.y < y1 + 0.2;
       if (!inside) continue;
-      const fromMouth = (pk.x - n.gx) * n.dir < 0.6 && pk.vx * n.dir > 0;
+      // it came in through the mouth if, a step ago, it was still on the ice side of the line
+      const fromMouth = ((pk.lx ?? pk.x) - n.gx) * n.dir < 0.3 && pk.vx * n.dir > 0;
       if (fromMouth && W.allowGoal === n.side) { pk.inNet = n.side; W.netBulge[n.side] = 1; W.emit('goalIn', { side: n.side }); continue; }
       // the frame and the mesh push it back out the way it came
       if (fromMouth) { pk.vx = -pk.vx * 0.35; pk.x = n.gx - n.dir * 0.3; }
@@ -230,6 +231,7 @@ export function createWorld(ice, seedKey) {
     pk.vz -= G * dt; pk.z += pk.vz * dt;
     if (pk.z < 0) { pk.z = 0; pk.vz = pk.vz < -6 ? -pk.vz * 0.3 : 0; }
     if (pk.z === 0) { const f = Math.exp(-(pk.inNet ? 3 : 0.35) * dt); pk.vx *= f; pk.vy *= f; }
+    pk.lx = pk.x; pk.ly = pk.y;
     pk.x += pk.vx * dt; pk.y += pk.vy * dt;
     const c = insideRink(pk.x, pk.y, 0.3);
     if (c && pk.z < GLASS_H) {
@@ -238,6 +240,7 @@ export function createWorld(ice, seedKey) {
       if (vn < 0) {
         pk.vx -= 1.55 * vn * c.nx; pk.vy -= 1.55 * vn * c.ny;
         if (-vn > 18) { W.sfx(pk.z > BOARD_H ? 'glass' : 'boards'); W.boardShake = Math.max(W.boardShake, Math.min(0.5, -vn / 120)); }
+        if (-vn > 30 && pk.z < 0.5) W.ice.puckMark(pk.x, pk.y, -c.nx, -c.ny);
       }
     }
     puckNets(pk);
@@ -372,6 +375,8 @@ export function createWorld(ice, seedKey) {
   W.bleed = (b, sec) => { b.bleeding = Math.max(b.bleeding, sec); };
 
   function stepBody(b, dt) {
+    // something else owns him for now (a stretcher): no physics, no skating
+    if (b.hold) { b.hold(b, dt); return; }
     if (b.rag) {
       const hit = stepRag(b.rag, dt);
       const r = b.rag, p0 = r.pts[0];
@@ -409,18 +414,26 @@ export function createWorld(ice, seedKey) {
       b.turnRate = lerp(b.turnRate || 0, tr, 1 - Math.exp(-dt * 6)); b._va = va;
       const c = insideRink(b.x, b.y, 1.6);
       if (c) { b.x = c.x; b.y = c.y; const vn = b.vx * c.nx + b.vy * c.ny; if (vn < 0) { b.vx -= vn * c.nx; b.vy -= vn * c.ny; } }
-      // a hard stop throws snow
+      // a hard stop throws snow, and shaves a fan of it off the sheet
       if (dv / dt > 20 && sp > 7 && !pushing && W.t - b.sprayAt > 0.25 && b.kind !== 'medic') {
         b.sprayAt = W.t; W.burst('spray', b.x + b.vx * 0.05, b.y + b.vy * 0.05, 0.2, 7, 5, [b.vx * 0.4, b.vy * 0.4, 2.5]);
+        W.ice.scrape(b.x - Math.sin(b.h) * 0.4, b.y + Math.cos(b.h) * 0.4, b.vx, b.vy, clamp(sp * 0.22, 1.6, 4.5), (W.t * 977) | 0);
         if (sp > 14 && rand() < 0.4) W.sfx('stop', { x: b.x });
       }
-      // the blades score the ice
-      if (sp > 4 && W.t - b.cutAt > 0.09) {
+      // THE BLADES SCORE THE ICE, from where the blades actually are. Each skate's runner is
+      // traced while it is down, so the marks are the real push arcs and crossovers the
+      // stride makes, and a lifted skate leaves a gap. A man missing a leg drags the stump.
+      if (sp > 3 && W.t - b.cutAt > 0.05 && b.kind !== 'medic') {
         b.cutAt = W.t;
-        const side = Math.sin(b.phase * TAU) > 0 ? 1 : -1, n = [-Math.sin(b.h) * side * 0.6, Math.cos(b.h) * side * 0.6];
-        const f = [b.x + n[0], b.y + n[1]];
-        if (b.lastFoot && Math.hypot(f[0] - b.lastFoot[0], f[1] - b.lastFoot[1]) < 6) W.ice.cut(b.lastFoot[0], b.lastFoot[1], f[0], f[1], b.missing.legL || b.missing.legR ? 0.3 : 0.1);
-        b.lastFoot = f;
+        const J = W.rigOf(b), a = b.missing.legL || b.missing.legR ? 0.3 : 0.11;
+        b.feet = b.feet || [null, null];
+        for (const [k, an, to] of [[0, 12, 16], [1, 15, 17]]) {
+          const A = J[an], T = J[to];
+          if (!A || !T || T[2] > 0.27) { b.feet[k] = null; continue; }
+          const f = [(A[0] + T[0]) / 2, (A[1] + T[1]) / 2], prev = b.feet[k];
+          if (prev && Math.hypot(f[0] - prev[0], f[1] - prev[1]) < 4) W.ice.cut(prev[0], prev[1], f[0], f[1], a);
+          b.feet[k] = f;
+        }
       }
       if (b.bleeding > 0 && rand() < 0.15) W.burst('blood', b.x, b.y, 4.8, 1, 1, [b.vx * 0.5, b.vy * 0.5, 0]);
     }
@@ -676,20 +689,45 @@ export function createWorld(ice, seedKey) {
     });
   }
 
+  // THE ZAMBONI follows the boards round in laps, each one a strip further in, the way a
+  // driver does it, and finishes with passes down the middle. `z.speed` is feet a second;
+  // a broadcast runs it faster than life so a lap fits in the time the booth talks over it.
+  // The conditioner sits behind the machine and lays the clean sheet back as it goes.
+  const ZW = 7.4;                                        // strip width
+  function zamboniPath(d) {
+    // a rounded rectangle inset `d` from the boards, as a list of points every two feet
+    const r = Math.max(2.5, 28 - d), x0 = d, x1 = RL - d, y0 = d, y1 = RW - d, pts = [];
+    const seg = (ax, ay, bx, by) => { const n = Math.max(1, Math.round(Math.hypot(bx - ax, by - ay) / 2)); for (let i = 0; i < n; i++) pts.push([lerp(ax, bx, i / n), lerp(ay, by, i / n)]); };
+    const arc = (cx, cy, a0) => { const n = Math.max(2, Math.round(r * Math.PI / 4)); for (let i = 0; i < n; i++) { const a = a0 + (i / n) * Math.PI / 2; pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); } };
+    seg(x0 + r, y0, x1 - r, y0); arc(x1 - r, y0 + r, -Math.PI / 2);
+    seg(x1, y0 + r, x1, y1 - r); arc(x1 - r, y1 - r, 0);
+    seg(x1 - r, y1, x0 + r, y1); arc(x0 + r, y1 - r, Math.PI / 2);
+    seg(x0, y1 - r, x0, y0 + r); arc(x0 + r, y0 + r, Math.PI);
+    return pts;
+  }
+  W.startZamboni = (speed = 22) => {
+    const route = [];
+    for (let d = 4.8; d < MID_Y - ZW * 0.4; d += ZW) route.push(...zamboniPath(d));
+    route.push([RC + 6, MID_Y], [RL - RC - 6, MID_Y]);
+    W.zamboni = { t: 0, route, i: 0, x: route[0][0], y: route[0][1], h: 0, speed, done: false, wake: [] };
+  };
   function stepZamboni(dt) {
     const z = W.zamboni; if (!z) return;
     z.t += dt;
-    // laps round the sheet, tightening, laying fresh ice behind it
-    const lap = z.t * 0.05, k = lap % 1, ring = Math.floor(lap) % 4;
-    const ix = 34 + ring * 7, iy = 14 + ring * 5;
-    const per = 2 * (RL - 2 * ix) + 2 * (RW - 2 * iy), d = k * per;
-    let x, y, h;
-    if (d < RL - 2 * ix) { x = ix + d; y = iy; h = 0; }
-    else if (d < RL - 2 * ix + RW - 2 * iy) { x = RL - ix; y = iy + (d - (RL - 2 * ix)); h = Math.PI / 2; }
-    else if (d < 2 * (RL - 2 * ix) + RW - 2 * iy) { x = RL - ix - (d - (RL - 2 * ix + RW - 2 * iy)); y = RW - iy; h = Math.PI; }
-    else { x = ix; y = RW - iy - (d - (2 * (RL - 2 * ix) + RW - 2 * iy)); h = -Math.PI / 2; }
-    z.x = x; z.y = y; z.h = lerp(z.h, h, 0.08);
-    if (z.t - (z.paintAt || 0) > 0.05) { z.paintAt = z.t; W.ice.resurface(x - Math.cos(h) * 6, y - Math.sin(h) * 6, 4.5); }
+    if (z.done) return;
+    let move = z.speed * dt;
+    while (move > 0 && z.i < z.route.length - 1) {
+      const [tx, ty] = z.route[z.i + 1], d = Math.hypot(tx - z.x, ty - z.y);
+      if (d <= move) { z.x = tx; z.y = ty; z.i++; move -= d; } else { z.x += (tx - z.x) / d * move; z.y += (ty - z.y) / d * move; move = 0; }
+    }
+    if (z.i >= z.route.length - 1) { z.done = true; return; }
+    const [tx, ty] = z.route[Math.min(z.route.length - 1, z.i + 2)];
+    z.h += angWrap(Math.atan2(ty - z.y, tx - z.x) - z.h) * (1 - Math.exp(-dt * 5));
+    if (z.t - (z.paintAt || 0) > 0.04) {
+      z.paintAt = z.t;
+      W.ice.resurface(z.x - Math.cos(z.h) * 5.6, z.y - Math.sin(z.h) * 5.6, ZW / 2, z.h);
+      if (rand() < 0.4) W.burst('spray', z.x - Math.cos(z.h) * 5.8, z.y - Math.sin(z.h) * 5.8, 0.4, 1, 1.5, [0, 0, 0.6]);
+    }
   }
 
   W.step = (dt) => {
@@ -706,6 +744,7 @@ export function createWorld(ice, seedKey) {
     stepLimbs(dt);
     stepParts(dt);
     stepZamboni(dt);
+    W.ice.dry(dt);
     for (let i = 0; i < PANELS; i++) W.flex[i] *= Math.exp(-dt * 7);
     W.netBulge.a *= Math.exp(-dt * 4); W.netBulge.h *= Math.exp(-dt * 4);
     W.shake *= Math.exp(-dt * 6); W.boardShake *= Math.exp(-dt * 5);

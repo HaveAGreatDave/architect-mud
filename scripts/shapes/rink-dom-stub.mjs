@@ -1,10 +1,11 @@
 // A DOM small enough to run the rink view and nothing more.
 //
 // Sibling of scripts/shapes/dom-stub.mjs (the flight-sim canvas stub) and there for the
-// same reason: the client module under test is plain DOM code with no browser needed to
-// prove it RUNS. This one parses the exact markup the rink emits, answers the handful of
-// selectors it queries, and gives the harness a hand-cranked clock so a rAF loop can be
-// advanced deterministically instead of waited on.
+// same reason: the client module under test is plain DOM and canvas code with no browser
+// needed to prove it RUNS. This one parses the exact markup the rink shell emits, answers
+// the handful of selectors it queries, hands out a permissive 2D context that counts what
+// is drawn, and gives the harness a hand-cranked clock so the rAF loop can be advanced
+// deterministically instead of waited on.
 //
 // Deliberately NOT a general DOM. If a selector form the rink doesn't use turns up here,
 // the right fix is to add it — a stub that quietly answers everything hides the fact
@@ -12,6 +13,26 @@
 
 // ── parsing ─────────────────────────────────────────────────────────────────────
 const VOID_TAGS = new Set(['br', 'img', 'input', 'hr', 'meta', 'link', 'use', 'path', 'circle', 'rect', 'line', 'ellipse', 'polygon', 'polyline', 'stop']);
+
+// The 2D context: every call is accepted and counted, so the harness can tell a frame
+// that drew something from one that drew nothing. Gradients and patterns are objects,
+// because the renderer passes them back in as fill styles.
+export const drawn = { calls: 0, images: 0, text: 0 };
+const gradient = { addColorStop() {} };
+function makeCtx(canvas) {
+  return new Proxy({ canvas }, {
+    get(t, k) {
+      if (k in t) return t[k];
+      if (k === 'measureText') return (txt) => ({ width: String(txt == null ? '' : txt).length * 8 });
+      if (k === 'createLinearGradient' || k === 'createRadialGradient') return () => gradient;
+      if (k === 'createPattern') return () => ({ setTransform() {} });
+      if (k === 'drawImage') return () => { drawn.calls++; drawn.images++; };
+      if (k === 'fillText' || k === 'strokeText') return () => { drawn.calls++; drawn.text++; };
+      return () => { drawn.calls++; };
+    },
+    set(t, k, v) { t[k] = v; return true; },
+  });
+}
 
 class El {
   constructor(tag) {
@@ -30,12 +51,17 @@ class El {
     this.style = new Proxy(decl, { set: (t, k, v) => { t[k] = v; return true; }, get: (t, k) => (k in t ? t[k] : '') });
     // The rink reads these to size the camera. Fixed values: a tall sliding surface
     // inside a short window, which is the case the camera clamp actually has to handle.
-    this.offsetHeight = this.tagName === 'DIV' ? 1000 : 0;
+    this.offsetHeight = 400;
     this.clientHeight = 400;
-    this.offsetWidth = 520;
+    // a canvas has a backing store the renderer sizes from its box
+    this.width = 300; this.height = 150;
   }
-  // The gore tokens copy a man's `style` attribute wholesale to inherit his club's
-  // custom properties, which is a get/set of the attribute rather than of `.style`.
+  getContext() { return (this.__ctx ??= makeCtx(this)); }
+  get ownerDocument() { return globalThis.document; }
+  get hidden() { return this.attrs.has('hidden'); }
+  set hidden(v) { if (v) this.attrs.set('hidden', ''); else this.attrs.delete('hidden'); }
+  get offsetWidth() { return this.__w ?? 520; }
+  set offsetWidth(v) { this.__w = v; }
   setAttribute(k, v) { this.attrs.set(String(k), String(v)); }
   getAttribute(k) { const v = this.attrs.get(String(k)); return v == null ? null : v; }
   removeAttribute(k) { this.attrs.delete(String(k)); }
@@ -155,15 +181,25 @@ export function __install() {
     createElementNS: (_ns, tag) => new El(tag),
     body: new El('body'),
   };
+  const perf = { now: () => now };
+  const raf = (fn) => { const id = rafId++; rafs.set(id, fn); return id; };
+  const caf = (id) => { rafs.delete(id); };
   globalThis.document = doc;
-  globalThis.performance = { now: () => now };
-  globalThis.requestAnimationFrame = (fn) => { const id = rafId++; rafs.set(id, fn); return id; };
-  globalThis.cancelAnimationFrame = (id) => { rafs.delete(id); };
+  globalThis.performance = perf;
+  globalThis.requestAnimationFrame = raf;
+  globalThis.cancelAnimationFrame = caf;
   globalThis.setTimeout = (fn, ms) => { const id = toId++; tos.set(id, { fn, at: now + (ms || 0) }); return id; };
   globalThis.clearTimeout = (id) => { tos.delete(id); };
-  globalThis.window = { AudioEngine: null, HockeySfx: null, SFXCatalog: null };
+  // the view reaches the window through its host's document, and plays sound through it
+  const sounds = [];
+  globalThis.window = doc.defaultView = {
+    AudioEngine: { playSfx: (d) => sounds.push(d && d.id) }, HockeySfx: null,
+    SFXCatalog: { get: (id) => ({ id }) },
+    requestAnimationFrame: raf, cancelAnimationFrame: caf, performance: perf, devicePixelRatio: 1,
+  };
 
   return {
+    sounds, drawn,
     makeHost() { const h = new El('div'); h.__root = true; return h; },
     // Advance the animation clock by `n` frames at 60fps, firing rAF callbacks and any
     // timers that come due in between — the same interleaving a browser would give.

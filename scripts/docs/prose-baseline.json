@@ -125,9 +125,9 @@
       "constructed-irony": 54,
       "aphoristic-closer": 4,
       "fiction-cliche": 34,
-      "caps-run": 128,
-      "em-dash": 264,
-      "over-length": 720
+      "caps-run": 116,
+      "em-dash": 259,
+      "over-length": 715
     },
     "docs/adr/0001-action-canonical-mutation-path.md": {
       "em-dash": 4
@@ -152,7 +152,7 @@
     "docs/architecture.md": {
       "jargon-metaphor": 2,
       "negative-parallelism": 1,
-      "em-dash": 144
+      "em-dash": 142
     },
     "docs/audits/README.md": {
       "vocab": 3,
@@ -460,7 +460,7 @@
       "em-dash": 40
     },
     "docs/reference/Cockpit_Design_Reference.md": {
-      "em-dash": 32
+      "em-dash": 31
     },
     "docs/reference/Flight_Implementation.md": {
       "em-dash": 1
@@ -533,7 +533,7 @@
       "constructed-irony": 2,
       "aphoristic-closer": 2,
       "caps-run": 8,
-      "em-dash": 291
+      "em-dash": 289
     },
     "docs/roadmap-world-expansion.md": {
       "jargon-metaphor": 4,
@@ -546,7 +546,7 @@
     "docs/server.md": {
       "jargon-metaphor": 2,
       "caps-run": 7,
-      "em-dash": 126
+      "em-dash": 124
     },
     "docs/systems-accessibility.md": {
       "jargon-metaphor": 1,
@@ -577,11 +577,11 @@
     },
     "docs/systems-broadcast.md": {
       "vocab": 2,
-      "jargon-metaphor": 5,
+      "jargon-metaphor": 3,
       "constructed-irony": 1,
-      "aphoristic-closer": 3,
-      "caps-run": 6,
-      "em-dash": 325
+      "aphoristic-closer": 2,
+      "caps-run": 2,
+      "em-dash": 247
     },
     "docs/systems-casino.md": {
       "em-dash": 30
@@ -673,7 +673,7 @@
     },
     "docs/systems-jail.md": {
       "jargon-metaphor": 1,
-      "em-dash": 43
+      "em-dash": 40
     },
     "docs/systems-jobboard.md": {
       "em-dash": 21
@@ -764,7 +764,7 @@
     "docs/systems-surveillance.md": {
       "jargon-metaphor": 3,
       "constructed-irony": 1,
-      "em-dash": 125
+      "em-dash": 124
     },
     "docs/systems-survival.md": {
       "jargon-metaphor": 2,
@@ -784,7 +784,7 @@
       "constructed-irony": 5,
       "aphoristic-closer": 6,
       "caps-run": 70,
-      "em-dash": 902
+      "em-dash": 901
     },
     "docs/systems-unrest.md": {
       "jargon-metaphor": 4,
@@ -809,7 +809,7 @@
     "docs/systems-world.md": {
       "jargon-metaphor": 4,
       "constructed-irony": 1,
-      "em-dash": 171
+      "em-dash": 168
     },
     "docs/tags.md": {
       "em-dash": 44
@@ -1028,7 +1028,7 @@
       "em-dash": 26
     },
     "plugins/frostbite/README.md": {
-      "em-dash": 9
+      "em-dash": 8
     },
     "plugins/fuelstation/README.md": {
       "em-dash": 7
@@ -1047,7 +1047,7 @@
       "em-dash": 11
     },
     "plugins/gps/README.md": {
-      "em-dash": 6
+      "em-dash": 5
     },
     "plugins/graffiti/README.md": {
       "em-dash": 21
@@ -1273,7 +1273,7 @@
       "em-dash": 9
     },
     "plugins/warmth/README.md": {
-      "em-dash": 8
+      "em-dash": 6
     },
     "plugins/water/README.md": {
       "em-dash": 1
