@@ -1,0 +1,1586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- THROWAWAY PROTOTYPE. The CPhL rink drawn two ways (2D sprites vs 3D bodies) from one shared,
+     hand-scripted simulation, to pick a direction for the gameday-rink.js redesign. Nothing here
+     imports from the game and nothing here ships. -->
+</head>
+<body style="margin:0">
+<title>Rinkside Renderer Bake-off</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;800&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: one column. Toolbar, then the two broadcasts stacked so they can be compared
+   frame against frame, then the trade-off table and the call. Single dark look on purpose:
+   it is a picture of a television in an arena at night. */
+:root {
+  color-scheme: dark;
+  --bg: #0a0e12;
+  --panel: #111820;
+  --line: #22303c;
+  --fg: #dae3e9;
+  --dim: #8495a3;
+  --goal: #ff5143;
+  --gold: #f0bd4c;
+  --red: #d2453a;
+  --blue: #3f7fe0;
+  --display: 'Saira Condensed', 'Arial Narrow', 'Roboto Condensed', sans-serif;
+  --body: 'Barlow', 'Segoe UI', Helvetica, Arial, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 16px/1.55 var(--body); }
+.wrap { max-width: 1040px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 64px; display: grid; gap: 28px; }
+.eyebrow { font: 600 13px/1 var(--display); letter-spacing: 0.22em; text-transform: uppercase; color: var(--goal); margin: 0 0 10px; }
+h1 { font: 800 clamp(34px, 6vw, 56px)/0.95 var(--display); letter-spacing: 0.01em; margin: 0; text-transform: uppercase; text-wrap: balance; }
+.lede { max-width: 66ch; color: var(--dim); margin: 12px 0 0; }
+.lede b { color: var(--fg); font-weight: 600; }
+
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center;
+  background: color-mix(in srgb, var(--panel) 92%, transparent); backdrop-filter: blur(6px);
+  border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; }
+.bar button, .bar select { font: 600 14px/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg);
+  background: #182230; border: 1px solid #2c3d4e; border-radius: 4px; padding: 8px 12px; cursor: pointer; }
+.bar button:hover { background: #20304a; }
+.bar button[aria-pressed="true"] { background: var(--gold); color: #1a1204; border-color: var(--gold); }
+.bar button:focus-visible, .bar select:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.bar .sep { width: 1px; align-self: stretch; background: var(--line); }
+.bar label { font: 600 12px/1 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim); display: flex; gap: 8px; align-items: center; }
+.clock { font: 500 13px/1 var(--mono); color: var(--gold); margin-left: auto; font-variant-numeric: tabular-nums; }
+.call { flex-basis: 100%; font-size: 14px; color: var(--dim); min-height: 1.5em; }
+.call b { color: var(--fg); font-weight: 600; }
+
+.stage-block { display: grid; gap: 10px; }
+.stage-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+.stage-head .tag { font: 800 15px/1 var(--display); background: var(--fg); color: var(--bg); padding: 4px 7px 3px; border-radius: 3px; }
+.stage-head h2 { font: 800 26px/1 var(--display); text-transform: uppercase; margin: 0; letter-spacing: 0.02em; }
+.stage-head .lineage { font: 500 12px/1 var(--mono); color: var(--dim); }
+.stage-head .perf { font: 500 12px/1 var(--mono); color: var(--gold); margin-left: auto; font-variant-numeric: tabular-nums; }
+.stage { position: relative; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: #05080b; }
+.stage canvas { display: block; width: 100%; max-width: 100%; aspect-ratio: 2 / 1; }
+.watch { margin: 0; font-size: 14px; color: var(--dim); max-width: 78ch; }
+.watch b { color: var(--fg); font-weight: 600; }
+
+h3 { font: 800 30px/1 var(--display); text-transform: uppercase; margin: 0 0 12px; letter-spacing: 0.02em; }
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+thead th { font: 600 13px/1.2 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim); background: var(--panel); }
+tbody th { font: 600 15px/1.25 var(--display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg); width: 17%; }
+tbody tr:last-child > * { border-bottom: 0; }
+td.win { color: var(--fg); }
+td.win::before { content: '▲ '; color: var(--gold); font-size: 11px; }
+td { color: var(--dim); }
+.live { font-family: var(--mono); color: var(--gold); font-variant-numeric: tabular-nums; }
+
+.rec { border-left: 4px solid var(--goal); padding: 4px 0 4px 18px; max-width: 74ch; }
+.rec p { margin: 0 0 10px; }
+.rec p:last-child { margin: 0; color: var(--dim); }
+@media (prefers-reduced-motion: reduce) { .bar { backdrop-filter: none; } }
+</style>
+
+<main class="wrap">
+  <header>
+    <p class="eyebrow">Cluster Puck · CPhL Rinkside</p>
+    <h1>Same play, two renderers</h1>
+    <p class="lede">Both screens below are drawn from <b>one shared simulation</b>: the same ten skaters, two goalies, puck, check and fight, stepped together at 120&nbsp;Hz. Only the drawing differs. Use the slow-motion setting to compare how each one handles turning, the hit on the boards and the fight cut-in.</p>
+  </header>
+
+  <div class="bar" role="toolbar" aria-label="Playback">
+    <button id="play" type="button" aria-pressed="false">Pause</button>
+    <button id="restart" type="button">Restart</button>
+    <span class="sep" aria-hidden="true"></span>
+    <button id="sc0" type="button" data-scene="0">Rush</button>
+    <button id="sc1" type="button" data-scene="1">Board check</button>
+    <button id="sc2" type="button" data-scene="2">Fight</button>
+    <span class="sep" aria-hidden="true"></span>
+    <label for="speed">Speed
+      <select id="speed">
+        <option value="1">1×</option>
+        <option value="0.5">0.5×</option>
+        <option value="0.25">0.25×</option>
+      </select>
+    </label>
+    <span class="clock" id="clock">0:00.0</span>
+    <div class="call" id="call" aria-live="polite"></div>
+  </div>
+
+  <section class="stage-block" aria-labelledby="h2d">
+    <div class="stage-head"><span class="tag">A</span><h2 id="h2d">2D illustrated sprites</h2><span class="lineage">NHL '94–'96 lineage</span><span class="perf" id="perf2">–</span></div>
+    <div class="stage"><canvas id="c2" aria-label="2D sprite renderer"></canvas></div>
+    <p class="watch"><b>What to watch:</b> facing snaps between eight directions and the stride runs a fixed six-frame cycle, the way a sprite sheet does. The man hit into the boards plays a canned stagger and a canned lying frame, so where he hits can't change how he falls. The fight is a separate side-view screen with its own backdrop. Turning a crisp flat look into this is cheap; every new move is new frames times eight directions.</p>
+  </section>
+
+  <section class="stage-block" aria-labelledby="h3d">
+    <div class="stage-head"><span class="tag">B</span><h2 id="h3d">3D bodies, broadcast camera</h2><span class="lineage">NHL '97–'99 lineage</span><span class="perf" id="perf3">–</span></div>
+    <div class="stage"><canvas id="c3" aria-label="3D renderer"></canvas></div>
+    <p class="watch"><b>What to watch:</b> turning, stride, lean and arm swing are continuous. The check turns the victim into a ragdoll, so his speed and the point he meets the glass decide how he folds and where he lands, and the glass flexes and cracks at that spot. The camera pans and zooms with the play, and the fight close-up is the same scene with the camera moved down to the ice, so the blood, the dropped gloves and the crowd stay where they are. Players reflect in the ice.</p>
+  </section>
+
+  <section aria-labelledby="hcmp">
+    <h3 id="hcmp">Trade-offs</h3>
+    <div class="tbl">
+      <table>
+        <thead><tr><th scope="col"></th><th scope="col">A · 2D sprites</th><th scope="col">B · 3D bodies</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Look</th><td>Flat, outlined, illustrated. Reads like a 16-bit cartridge.</td><td class="win">Shaded and in perspective under a broadcast camera. Reads like NHL '98.</td></tr>
+          <tr><th scope="row">Turning</th><td>Eight baked directions, visible snapping. Sixteen helps and doubles the frames.</td><td class="win">Continuous heading from any camera angle, for free.</td></tr>
+          <tr><th scope="row">Animation</th><td>Fixed frame cycles. Each new move is a new frame set per direction.</td><td class="win">Poses blended live on one rig. A new move is a few new poses.</td></tr>
+          <tr><th scope="row">Board checks</th><td>Canned stagger, then a canned fall. Same every time.</td><td class="win">Ragdoll physics. Speed and impact point decide the fall; the glass reacts where he lands.</td></tr>
+          <tr><th scope="row">Fights</th><td>A separate side-view screen with its own art.</td><td class="win">Same scene, camera cuts low. Gloves, blood and onlookers carry over.</td></tr>
+          <tr><th scope="row">Gore</th><td>Blood decals and canned dismemberment frames.</td><td class="win">Limbs come off as physics bodies; blood stays on the ice all period.</td></tr>
+          <tr><th scope="row">Camera</th><td>Scroll at one zoom.</td><td class="win">Pan, zoom and angle changes. Goal replays from another angle become possible.</td></tr>
+          <tr><th scope="row">Tablet size</th><td class="win">Strong. Flat colours and thick outlines survive a small screen.</td><td>Good at TV size; small sizes need the outlines and contrast kept up.</td></tr>
+          <tr><th scope="row">Render cost</th><td>Measured live: <span class="live" id="cost2">–</span> per frame.</td><td>Measured live: <span class="live" id="cost3">–</span> per frame.</td></tr>
+          <tr><th scope="row">Code and risk</th><td class="win">Smaller renderer, simpler smoke test.</td><td>Bigger core (projection, rig, ragdoll), but one rig serves every move. The smoke gate needs a canvas stub.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="rec" aria-label="Recommendation">
+    <p><b>My call: B, the 3D renderer.</b> The things you asked for are the things it does and sprites don't: checks that land differently every time, a fight that cuts in without leaving the arena, injuries that stay on the ice, and a camera that can move. I'd borrow A's dark outlines so the men still read on the tablet.</p>
+    <p>Both are prototypes drawn in code with no art assets, running a hand-scripted sequence rather than the real sim. The production build would plug the chosen renderer into the existing broadcast payloads.</p>
+  </section>
+</main>
+
+<script>
+'use strict';
+// ═══════════════════════════════════════════════════════════════════════════
+// Shared helpers
+// ═══════════════════════════════════════════════════════════════════════════
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const lerp = (a, b, t) => a + (b - a) * t;
+const angWrap = (d) => { d = (d + Math.PI) % TAU; if (d < 0) d += TAU; return d - Math.PI; };
+const easeOut = (t) => 1 - (1 - t) * (1 - t);
+const easeIO = (t) => t * t * (3 - 2 * t);
+function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const V = {
+  add: (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]],
+  sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]],
+  mul: (a, k) => [a[0] * k, a[1] * k, a[2] * k],
+  dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
+  len: (a) => Math.hypot(a[0], a[1], a[2]),
+  norm: (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; },
+  lerp: (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t],
+  cross: (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]],
+};
+const rotZ = (p, a) => { const c = Math.cos(a), s = Math.sin(a); return [p[0] * c - p[1] * s, p[0] * s + p[1] * c, p[2]]; };
+function ik(A, T, l1, l2, pole) {
+  let d = V.sub(T, A), dist = V.len(d);
+  const dn = V.mul(d, 1 / (dist || 1));
+  const reach = l1 + l2 - 0.001;
+  if (dist > reach) { dist = reach; T = V.add(A, V.mul(dn, reach)); }
+  dist = Math.max(dist, Math.abs(l1 - l2) + 0.01);
+  const a = (l1 * l1 - l2 * l2 + dist * dist) / (2 * dist), h = Math.sqrt(Math.max(0, l1 * l1 - a * a));
+  const pp = V.norm(V.sub(pole, V.mul(dn, V.dot(pole, dn))));
+  return [V.add(A, V.add(V.mul(dn, a), V.mul(pp, h))), T];
+}
+const _cc = new Map();
+function shade(hex, f) {
+  const k = hex + f; let v = _cc.get(k); if (v) return v;
+  const n = parseInt(hex.slice(1), 16); let r = n >> 16 & 255, g = n >> 8 & 255, b = n & 255;
+  if (f >= 0) { r += (255 - r) * f; g += (255 - g) * f; b += (255 - b) * f; } else { r *= 1 + f; g *= 1 + f; b *= 1 + f; }
+  v = `rgb(${r | 0},${g | 0},${b | 0})`; _cc.set(k, v); return v;
+}
+function rr(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// The rink, in feet. x runs the length (0..200), y across (0 = camera side, 85 = far boards).
+// ═══════════════════════════════════════════════════════════════════════════
+const RL = 200, RW = 85, RC = 28, BOARD_H = 3.5, GLASS_H = 8.5;
+function insideRink(x, y, m) {
+  const cx = clamp(x, RC, RL - RC), cy = clamp(y, RC, RW - RC);
+  const dx = x - cx, dy = y - cy, d = Math.hypot(dx, dy), lim = RC - m;
+  if (d <= lim) return null;
+  const nx = d > 1e-6 ? dx / d : 0, ny = d > 1e-6 ? dy / d : 1;
+  return { x: cx + nx * lim, y: cy + ny * lim, nx: -nx, ny: -ny };
+}
+// Perimeter segments of the dasherboards, with the inward normal of each.
+const SEGS = (() => {
+  const out = [];
+  const seg = (x0, y0, x1, y1, kind) => {
+    const mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+    const c = insideRink(mx, my, -0.001) ? null : null; void c;
+    let nx = -(y1 - y0), ny = x1 - x0; const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
+    // point the normal at the middle of the ice
+    if (nx * (100 - mx) + ny * (42.5 - my) < 0) { nx = -nx; ny = -ny; }
+    out.push({ x0, y0, x1, y1, nx, ny, kind });
+  };
+  const arc = (cx, cy, a0, a1) => {
+    const N = 7;
+    for (let i = 0; i < N; i++) {
+      const t0 = a0 + (a1 - a0) * i / N, t1 = a0 + (a1 - a0) * (i + 1) / N;
+      seg(cx + Math.cos(t0) * RC, cy + Math.sin(t0) * RC, cx + Math.cos(t1) * RC, cy + Math.sin(t1) * RC, 'corner');
+    }
+  };
+  seg(RC, RW, RL - RC, RW, 'far');
+  arc(RL - RC, RW - RC, Math.PI / 2, 0);
+  seg(RL, RW - RC, RL, RC, 'end');
+  arc(RL - RC, RC, 0, -Math.PI / 2);
+  seg(RL - RC, 0, RC, 0, 'near');
+  arc(RC, RC, -Math.PI / 2, -Math.PI);
+  seg(0, RC, 0, RW - RC, 'end');
+  arc(RC, RW - RC, Math.PI, Math.PI / 2);
+  return out;
+})();
+
+// ── the ice texture: one canvas, row 0 = the far boards. Blood and blade cuts are painted
+//    straight into it, so they stay for the whole loop and both renderers show the same marks.
+const TPX = 10;
+const ice = document.createElement('canvas'); ice.width = RL * TPX; ice.height = RW * TPX;
+const ix = ice.getContext('2d');
+const IX = (x) => x * TPX, IY = (y) => (RW - y) * TPX;
+function paintIce() {
+  const c = ix, S = TPX;
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.clearRect(0, 0, ice.width, ice.height);
+  c.save(); rr(c, 0, 0, RL * S, RW * S, RC * S); c.clip();
+  const g = c.createLinearGradient(0, 0, 0, RW * S); g.addColorStop(0, '#dce6ed'); g.addColorStop(0.5, '#e9f0f4'); g.addColorStop(1, '#f1f6f8');
+  c.fillStyle = g; c.fillRect(0, 0, RL * S, RW * S);
+  const r = mulberry(7);
+  for (let i = 0; i < 1100; i++) {
+    c.fillStyle = r() < 0.55 ? `rgba(255,255,255,${0.05 + r() * 0.08})` : `rgba(160,182,200,${0.03 + r() * 0.05})`;
+    c.beginPath(); c.ellipse(r() * RL * S, r() * RW * S, 4 + r() * 34, 2 + r() * 9, r() * 3, 0, TAU); c.fill();
+  }
+  // Under-ice paint: league mark and two sponsors, faded by the ice above them.
+  c.save(); c.translate(IX(100), IY(42.5));
+  c.globalAlpha = 0.22; c.strokeStyle = '#1f4fbf'; c.lineWidth = 0.7 * S;
+  c.beginPath(); c.arc(0, 0, 9 * S, 0, TAU); c.stroke();
+  c.beginPath(); c.moveTo(-6.4 * S, 6.4 * S); c.lineTo(6.4 * S, -6.4 * S); c.stroke();
+  c.fillStyle = '#1f4fbf'; c.font = `800 ${3.6 * S}px "Saira Condensed", "Arial Narrow", sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText('CPhL', 0, 0.2 * S);
+  c.restore();
+  c.save(); c.globalAlpha = 0.13; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.font = `800 ${3 * S}px "Saira Condensed", "Arial Narrow", sans-serif`;
+  c.fillStyle = '#b8141c'; c.fillText('BATTERY ACID COFFEE', IX(100), IY(71), 44 * S);
+  c.fillStyle = '#1f4fbf'; c.fillText('GREASE EXPECTATIONS', IX(100), IY(14), 44 * S);
+  c.restore();
+  // Lines.
+  c.fillStyle = '#c4222b'; c.fillRect(IX(100) - 0.5 * S, 0, S, RW * S);
+  c.fillStyle = 'rgba(255,255,255,0.75)';
+  for (let y = 0; y < RW; y += 2.2) c.fillRect(IX(100) - 0.12 * S, IY(y) - 0.5 * S, 0.24 * S, 1.0 * S);
+  c.fillStyle = '#1e4fbd'; c.fillRect(IX(75) - 0.5 * S, 0, S, RW * S); c.fillRect(IX(125) - 0.5 * S, 0, S, RW * S);
+  c.fillStyle = '#c4222b'; c.fillRect(IX(11) - 0.1 * S, 0, 0.2 * S, RW * S); c.fillRect(IX(189) - 0.1 * S, 0, 0.2 * S, RW * S);
+  const circle = (x, y, rad, col) => { c.strokeStyle = col; c.lineWidth = 0.2 * S; c.beginPath(); c.arc(IX(x), IY(y), rad * S, 0, TAU); c.stroke(); };
+  for (const [x, y] of [[31, 20.5], [31, 64.5], [169, 20.5], [169, 64.5]]) {
+    circle(x, y, 15, '#c4222b');
+    c.fillStyle = '#c4222b'; c.beginPath(); c.arc(IX(x), IY(y), S, 0, TAU); c.fill();
+    c.fillRect(IX(x - 3) - 0.1 * S, IY(y + 17), 0.2 * S, 2 * S); c.fillRect(IX(x + 3) - 0.1 * S, IY(y + 17), 0.2 * S, 2 * S);
+    c.fillRect(IX(x - 3) - 0.1 * S, IY(y - 15), 0.2 * S, 2 * S); c.fillRect(IX(x + 3) - 0.1 * S, IY(y - 15), 0.2 * S, 2 * S);
+  }
+  for (const [x, y] of [[80, 20.5], [80, 64.5], [120, 20.5], [120, 64.5]]) { c.fillStyle = '#c4222b'; c.beginPath(); c.arc(IX(x), IY(y), S, 0, TAU); c.fill(); }
+  circle(100, 42.5, 15, '#1e4fbd');
+  c.fillStyle = '#1e4fbd'; c.beginPath(); c.arc(IX(100), IY(42.5), 0.5 * S, 0, TAU); c.fill();
+  for (const [gx, dir] of [[11, 1], [189, -1]]) {
+    c.beginPath(); c.moveTo(IX(gx), IY(48.5)); c.arc(IX(gx), IY(42.5), 6 * S, dir > 0 ? -Math.PI / 2 : -Math.PI / 2, dir > 0 ? Math.PI / 2 : Math.PI * 1.5, dir < 0);
+    c.closePath(); c.fillStyle = 'rgba(126,182,232,0.85)'; c.fill(); c.strokeStyle = '#c4222b'; c.lineWidth = 0.2 * S; c.stroke();
+    c.beginPath(); c.moveTo(IX(gx), IY(31.5)); c.lineTo(IX(gx - dir * 11), IY(28.5)); c.moveTo(IX(gx), IY(53.5)); c.lineTo(IX(gx - dir * 11), IY(56.5)); c.stroke();
+  }
+  c.restore();
+}
+function clipIce(c) { rr(c, 0, 0, RL * TPX, RW * TPX, RC * TPX); c.clip(); }
+function paintBlood(x, y, rad, alpha, seed) {
+  const r = mulberry(seed || ((x * 73 + y * 151) | 0));
+  ix.save(); clipIce(ix);
+  const col = () => `rgba(${105 + (r() * 40) | 0},${(r() * 14) | 0},${(10 + r() * 12) | 0},${alpha})`;
+  ix.fillStyle = col();
+  ix.beginPath(); ix.ellipse(IX(x), IY(y), rad * TPX, rad * TPX * (0.6 + r() * 0.4), r() * 3, 0, TAU); ix.fill();
+  const n = 2 + (r() * 4) | 0;
+  for (let i = 0; i < n; i++) {
+    const a = r() * TAU, d = rad * (0.9 + r() * 1.8), s = rad * (0.15 + r() * 0.35);
+    ix.fillStyle = col(); ix.beginPath(); ix.arc(IX(x + Math.cos(a) * d), IY(y + Math.sin(a) * d), s * TPX, 0, TAU); ix.fill();
+  }
+  ix.restore();
+}
+function paintCut(x0, y0, x1, y1, a) {
+  ix.save(); clipIce(ix);
+  ix.strokeStyle = `rgba(140,162,180,${a})`; ix.lineWidth = 1.1;
+  ix.beginPath(); ix.moveTo(IX(x0), IY(y0)); ix.lineTo(IX(x1), IY(y1)); ix.stroke();
+  ix.restore();
+}
+
+// ── dasherboard advertising, a long strip for the far straight (x 28..172) ───
+const BPX = 12;
+const boardTex = document.createElement('canvas'); boardTex.width = 144 * BPX; boardTex.height = BOARD_H * BPX;
+(function paintBoards() {
+  const c = boardTex.getContext('2d'), S = BPX, Hh = boardTex.height;
+  c.fillStyle = '#eef1f3'; c.fillRect(0, 0, boardTex.width, Hh);
+  const ads = [['BATTERY ACID COFFEE', '#2a1a12', '#f2c04a'], ['GREASE EXPECTATIONS', '#b8141c', '#ffffff'], ['CASH & CARRION', '#13261a', '#7fe08a'],
+    ['CO-PAY & PRAY', '#ffffff', '#1f4fbf'], ['PERCUSSIVE MAINTENANCE', '#1d2733', '#ff8a3d'], ['SHELF LIFE', '#3a0f3f', '#ff7ad9'],
+    ['SECOND SKIN', '#0f2a3a', '#9fe4ff'], ['LATHER & LYE', '#f2e9d8', '#5a3a1a']];
+  let x = 1.5, i = 0;
+  while (x < 142) {
+    const [txt, bg, fg] = ads[i++ % ads.length]; const w = Math.min(17, 142 - x);
+    c.fillStyle = bg; c.fillRect(x * S, 0.75 * S, w * S, 2.35 * S);
+    c.fillStyle = fg; c.font = `800 ${1.75 * S}px "Saira Condensed", "Arial Narrow", sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(txt, (x + w / 2) * S, 1.98 * S, (w - 1.2) * S);
+    x += w + 1.2;
+  }
+  c.fillStyle = '#d9b032'; c.fillRect(0, Hh - 0.55 * S, boardTex.width, 0.55 * S);
+  c.fillStyle = '#c9ced3'; c.fillRect(0, 0, boardTex.width, 0.28 * S);
+})();
+
+// ── the crowd: a strip of seated people per row, two frames (sitting, on their feet) ──
+const CPX = 6, CX0 = -30, CX1 = 230, CROWS = 18, ROWH = 20;
+function paintCrowd(cheer) {
+  const cv = document.createElement('canvas'); cv.width = (CX1 - CX0) * CPX; cv.height = CROWS * ROWH;
+  const c = cv.getContext('2d'); const r = mulberry(cheer ? 991 : 991);
+  const shirts = ['#c8382f', '#c8382f', '#a52c25', '#2f6fd0', '#2f6fd0', '#24508f', '#30343a', '#3b3f46', '#59606a', '#6d5a3f', '#2e4a3a', '#8a8f96', '#d9d2c4', '#1f2329'];
+  const skins = ['#e2b896', '#c99671', '#9a6a4a', '#6e4a33', '#f0cdb2'];
+  for (let row = 0; row < CROWS; row++) {
+    const y0 = row * ROWH;
+    c.fillStyle = row % 2 ? '#141a21' : '#11161c'; c.fillRect(0, y0, cv.width, ROWH);
+    c.fillStyle = '#0c1015'; c.fillRect(0, y0 + ROWH - 4, cv.width, 4);
+    for (let x = 2; x < cv.width - 8; x += 8) {
+      if ((x % 270) < 18) { c.fillStyle = '#1c232c'; c.fillRect(x, y0, 8, ROWH); continue; }
+      if (r() < 0.07) continue;   // empty seat
+      const up = cheer && r() < 0.5;
+      const sh = shirts[(r() * shirts.length) | 0], sk = skins[(r() * skins.length) | 0];
+      const lift = up ? 3 : 0;
+      c.fillStyle = sh; c.fillRect(x + 1, y0 + ROWH - 12 - lift, 6, 10 + lift);
+      if (up) { c.fillRect(x, y0 + ROWH - 19, 2, 8); c.fillRect(x + 6, y0 + ROWH - 19, 2, 8); }
+      c.fillStyle = sk; c.beginPath(); c.arc(x + 4, y0 + ROWH - 14 - lift, 2.7, 0, TAU); c.fill();
+      if (r() < 0.06) { c.fillStyle = 'rgba(190,230,255,0.9)'; c.fillRect(x + 3, y0 + ROWH - 9, 2, 2); }   // somebody filming it
+    }
+    c.fillStyle = `rgba(0,0,0,${0.08 + row / CROWS * 0.5})`; c.fillRect(0, y0, cv.width, ROWH);
+  }
+  return cv;
+}
+const crowdSit = paintCrowd(false), crowdUp = paintCrowd(true);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// The shared world
+// ═══════════════════════════════════════════════════════════════════════════
+const DT = 1 / 120;
+const KIT = {
+  a: { jersey: '#c8382f', trim: '#f2e4d0', pants: '#1c1e25', sock: '#c8382f', glove: '#6e1d18', helmet: '#c8382f', name: 'SLAGLANDS', abbr: 'SLS', crest: 'v' },
+  h: { jersey: '#2f6fd0', trim: '#e8f1fb', pants: '#131b2c', sock: '#2f6fd0', glove: '#173a6e', helmet: '#1c3d7e', name: 'DRIFTERS', abbr: 'WDR', crest: 'd' },
+};
+const SKINS = ['#e0b08c', '#c48d68', '#8f5e40', '#f0c9a8', '#a87454', '#6a4330'];
+const W = { t: 0, sk: [], gl: [], puck: null, parts: [], debris: [], ev: [], st: {}, glassFlex: new Float32Array(24), cracks: [], glassBlood: [],
+  crowd: 0, shake: 0, boardShake: 0, hitstop: 0, cam: 'broadcast', camCut: 0, focus: [100, 42.5], fight: null, banner: null, scene: -1, update: null, call: '' };
+const SCENES = [
+  { t0: 0, setup: sceneRush },
+  { t0: 8, setup: sceneCheck },
+  { t0: 14, setup: sceneFight },
+];
+const LOOP = 26;
+
+class Skater {
+  constructor(id, team, num, name, pos) {
+    Object.assign(this, { id, team, num, name, pos, x: 0, y: 0, vx: 0, vy: 0, h: 0, phase: (id * 0.37) % 1, amp: 0, effort: 0.3,
+      crouch: 0.15, tx: 0, ty: 0, maxV: 20, acc: 24, face: null, act: null, actT: 0, actDur: 1, stick: true, gloves: true, helmet: true,
+      jerseyUp: 0, react: 0, duck: 0, rag: null, stance: 0, guard: false, grab: null, foe: null, bleeding: 0, skin: SKINS[id % SKINS.length],
+      cutAt: 0, lastFoot: null, sprayAt: 0 });
+  }
+}
+class Goalie {
+  constructor(id, team, num, name, netX, dir) {
+    Object.assign(this, { id, team, num, name, netX, dir, x: netX + dir * 3, y: 42.5, h: dir > 0 ? 0 : Math.PI, bfly: 0, gloveW: 0, gloveTarget: null, holding: false, skin: SKINS[(id + 2) % SKINS.length] });
+  }
+}
+function place(s, x, y, h) { s.x = s.tx = x; s.y = s.ty = y; s.vx = s.vy = 0; s.h = h; }
+function schedule(dt, fn) { W.ev.push({ t: W.t + dt, fn }); W.ev.sort((a, b) => a.t - b.t); }
+function at(scene, rel, fn) { W.ev.push({ t: SCENES[scene].t0 + rel, fn }); }
+function act(s, name, dur) { s.act = name; s.actT = 0; s.actDur = dur; }
+const dist2 = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+
+function bladeLocal(s, T) {
+  return W.puck && W.puck.carrier === s
+    ? [2.45 + 0.25 * Math.cos(T * 5.1 + s.id * 1.7), 0.85 + 0.5 * Math.sin(T * 7.3 + s.id)]
+    : [2.3, 0.75 + 0.18 * Math.sin(s.phase * TAU)];
+}
+function bladeWorld(s) {
+  const [u, v] = bladeLocal(s, W.t), c = Math.cos(s.h), n = Math.sin(s.h);
+  return [s.x + u * c - v * n, s.y + u * n + v * c];
+}
+
+// ── the skater rig: 21 joints in body space (u forward, v left, z up), then into the world.
+//    `q` quantises heading, stride frame and action frame, which is what a sprite sheet does.
+function skaterRig(s, q, noRag) {
+  if (s.rag && !noRag) return s.rag.pts.map((p) => [p.x, p.y, p.z]);
+  let h = s.h, ph = s.phase, at = s.actT, T = W.t;
+  if (q) { const st = TAU / q.dirs; h = Math.round(h / st) * st; ph = Math.floor(ph * q.frames) / q.frames; at = Math.floor(at * q.act) / q.act; T = Math.floor(T * q.fps) / q.fps; }
+  const a = q ? Math.round(s.amp * 3) / 3 : s.amp, P = ph * TAU, act = s.act;
+  let crouch = s.crouch + 0.22 * a + s.duck * 0.5;
+  let lean = 0.2 + 0.38 * a + 0.18 * crouch;
+  let twist = -0.28 * a * Math.sin(P);
+  if (act === 'slap') {
+    if (at < 0.55) { const k = easeIO(at / 0.55); twist += 0.95 * k; crouch += 0.35 * k; }
+    else if (at < 0.7) { const m = (at - 0.55) / 0.15; twist += 0.95 * (1 - m) - 0.5 * m; crouch += 0.35; }
+    else { const m = (at - 0.7) / 0.3; twist -= 0.5 * (1 - m); crouch += 0.35 * (1 - m); }
+  }
+  if (act === 'check') {
+    if (at < 0.35) crouch += 0.45 * easeIO(at / 0.35);
+    else { const m = clamp((at - 0.35) / 0.2, 0, 1), f = 1 - clamp((at - 0.7) / 0.3, 0, 1); crouch += 0.45 * (1 - m); lean += 0.4 * m * f; twist -= 0.85 * m * f; }
+  }
+  let pk = 0;
+  if (s.guard) { crouch = Math.max(crouch, 0.18); lean = 0.12 + 0.2 * crouch; }
+  if (act === 'punchR' || act === 'uppercut') {
+    pk = act === 'punchR' ? (at < 0.36 ? easeOut(at / 0.36) : 1 - easeIO((at - 0.36) / 0.64)) : (at < 0.35 ? -easeIO(at / 0.35) : at < 0.6 ? -1 + 2 * easeOut((at - 0.35) / 0.25) : 1 - easeIO((at - 0.6) / 0.4));
+    twist += 0.55 * Math.max(0, pk) - 0.25 * Math.max(0, -pk);
+    if (act === 'uppercut') crouch += 0.3 * Math.max(0, -pk) - 0.1 * Math.max(0, pk);
+  }
+  if (act === 'pull') lean += 0.3 * Math.sin(Math.min(1, at * 1.5) * Math.PI / 2);
+  lean -= 0.65 * s.react;
+  const zp = 3.3 - 0.62 * crouch;
+  const pelvis = [0, 0, zp];
+  const sd = [Math.sin(lean), 0, Math.cos(lean)];
+  const chest = V.add(pelvis, V.mul(sd, 1.1)), neck = V.add(pelvis, V.mul(sd, 2.0));
+  const hl = lean * 0.45;
+  const head = V.add(neck, [Math.sin(hl) * 0.55 - s.react * 0.32, 0, Math.cos(hl) * 0.55 + s.react * 0.05]);
+  const shL = V.add(neck, rotZ([-0.05, 0.95, -0.24], twist)), shR = V.add(neck, rotZ([-0.05, -0.95, -0.24], twist));
+  const hipL = V.add(pelvis, rotZ([0, 0.45, -0.05], -twist * 0.4)), hipR = V.add(pelvis, rotZ([0, -0.45, -0.05], -twist * 0.4));
+  const legs = [];
+  for (const sg of [1, -1]) {
+    const p = P + (sg > 0 ? 0 : Math.PI);
+    let fu = 0.15 + 0.78 * a * Math.cos(p);
+    const fv = sg * (0.55 + 0.3 * s.stance + 0.55 * a * (1 - Math.cos(p)) / 2);
+    const fz = 0.55 + 0.38 * a * Math.max(0, -Math.sin(p));
+    if (s.stance) fu += sg * 0.38 * s.stance;
+    const [kn, an] = ik(sg > 0 ? hipL : hipR, [fu, fv, fz], 1.55, 1.5, [1, sg * 0.25, 0.1]);
+    const yaw = sg * (0.22 + 0.35 * a * Math.max(0, Math.sin(p)));
+    legs.push([kn, an, V.add(an, [0.95 * Math.cos(yaw), 0.95 * Math.sin(yaw), -0.32])]);
+  }
+  const ch = Math.cos(h), sn = Math.sin(h);
+  const toLocal = (X, Y, Z) => { const dx = X - s.x, dy = Y - s.y; return [dx * ch + dy * sn, -dx * sn + dy * ch, Z]; };
+  let L, R, blade = null;
+  if (s.stick) {
+    const [bu, bv] = bladeLocal(s, T);
+    blade = [bu, bv, 0.08];
+    R = [0.55 + 0.22 * a * Math.sin(P), -0.32, zp + 0.72];
+    if (act === 'slap') {
+      const back = [-1.7, 1.6, 3.9], hit = [1.45, 1.0, 0.08], fol = [3.0, 0.3, 3.5];
+      blade = at < 0.55 ? V.lerp(blade, back, easeIO(at / 0.55)) : at < 0.7 ? V.lerp(back, hit, (at - 0.55) / 0.15) : V.lerp(hit, fol, easeOut((at - 0.7) / 0.3));
+      R = [0.35, -0.25, zp + 0.95];
+    }
+    if (act === 'check' && at > 0.3 && at < 0.9) { const m = Math.sin(clamp((at - 0.3) / 0.6, 0, 1) * Math.PI); R = V.lerp(R, [0.95, -0.4, zp + 1.45], m); blade = V.lerp(blade, [1.15, 2.4, zp + 1.25], m); }
+    if (act === 'celebrate') { R = [0.45, -0.55, zp + 2.9]; blade = [0.9, 0.4, zp + 6.2]; }
+    L = V.add(R, V.mul(V.sub(blade, R), act === 'slap' ? 0.28 : 0.36));
+  } else if (s.guard || act) {
+    const bob = Math.sin(T * 6.5 + s.id) * 0.07;
+    L = [1.0, 0.36, zp + 1.78 + bob]; R = [0.78, -0.4, zp + 1.58 - bob];
+    if (s.grab) L = toLocal(s.grab.x, s.grab.y, 4.35);
+    if (pk && s.foe) {
+      const tgt = toLocal(s.foe.x, s.foe.y, act === 'uppercut' ? 5.0 : 5.35);
+      R = pk >= 0 ? V.lerp(R, tgt, pk) : V.lerp(R, [0.5, -0.4, zp + 0.55], -pk);
+    }
+    if (act === 'pull' && s.foe) {
+      const k = Math.min(1, at * 1.4);
+      L = toLocal(s.foe.x, s.foe.y, 5.0 - 2.2 * k); L[1] += 0.55; R = toLocal(s.foe.x, s.foe.y, 5.0 - 2.2 * k); R[1] -= 0.55;
+    }
+    if (act === 'celebrate') R = [0.4, -0.5, zp + 3.0];
+    if (s.jerseyUp > 0.5) { L = [0.55, 0.6, zp + 2.3 + bob * 3]; R = [0.6, -0.6, zp + 2.2 - bob * 3]; }
+  } else { L = [0.25, 0.85, zp - 0.1]; R = [0.25, -0.85, zp - 0.1]; }
+  const [elL, hL] = ik(shL, L, 1.15, 1.1, [-0.3, 1, -0.8]);
+  const [elR, hR] = ik(shR, R, 1.15, 1.1, [-0.3, -1, -0.8]);
+  let butt = null, heel = null, toe = null;
+  if (blade) {
+    const sh = V.sub(blade, hR);
+    butt = V.add(hR, V.mul(V.norm(sh), -0.4));
+    heel = blade;
+    const perp = V.norm([-sh[1] * 0.6 + 0.8, sh[0] * 0.6, 0]);
+    toe = act === 'celebrate' ? V.add(blade, [0.3, 0.2, 0.7]) : V.add(blade, V.mul(perp, 0.95));
+  }
+  const loc = [pelvis, chest, neck, head, shL, elL, hL, shR, elR, hR, hipL, legs[0][0], legs[0][1], hipR, legs[1][0], legs[1][1], legs[0][2], legs[1][2], butt, heel, toe];
+  return loc.map((p) => (p ? [s.x + p[0] * ch - p[1] * sn, s.y + p[0] * sn + p[1] * ch, p[2]] : null));
+}
+
+function goalieRig(g, q) {
+  let h = g.h; if (q) { const st = TAU / q.dirs; h = Math.round(h / st) * st; }
+  const bf = g.bfly, zp = lerp(2.35, 1.35, bf), lean = 0.4 + 0.1 * bf;
+  const pelvis = [0, 0, zp], sd = [Math.sin(lean), 0, Math.cos(lean)];
+  const chest = V.add(pelvis, V.mul(sd, 1.0)), neck = V.add(pelvis, V.mul(sd, 1.8));
+  const head = V.add(neck, [0.18, 0, 0.55]);
+  const shL = V.add(neck, [0, 1.08, -0.25]), shR = V.add(neck, [0, -1.08, -0.25]);
+  const hipL = [0, 0.55, zp - 0.05], hipR = [0, -0.55, zp - 0.05];
+  const legs = [];
+  for (const sg of [1, -1]) {
+    const [kn0, an0] = ik(sg > 0 ? hipL : hipR, [0.25, sg * 1.25, 0.5], 1.5, 1.45, [1, -sg * 0.7, 0]);
+    const kn = V.lerp(kn0, [0.85, sg * 0.6, 0.45], bf), an = V.lerp(an0, [-0.55, sg * 2.0, 0.35], bf);
+    legs.push([kn, an, V.add(an, [0.8, sg * 0.25, -0.3])]);
+  }
+  const ch = Math.cos(h), sn = Math.sin(h);
+  const toLocal = (P) => { const dx = P[0] - g.x, dy = P[1] - g.y; return [dx * ch + dy * sn, -dx * sn + dy * ch, P[2]]; };
+  let L = [1.0, 1.42, zp + 0.25];
+  if (g.gloveW > 0 && g.gloveTarget) L = V.lerp(L, toLocal(g.gloveTarget), g.gloveW);
+  const R = [1.05, -1.3, zp - 0.1];
+  const [elL, hL] = ik(shL, L, 1.1, 1.05, [-0.4, 1, -0.6]);
+  const [elR, hR] = ik(shR, R, 1.1, 1.05, [-0.4, -1, -0.6]);
+  const blade = [2.35, -0.35, 0.08];
+  const butt = V.add(hR, V.mul(V.norm(V.sub(blade, hR)), -0.3));
+  const toe = V.add(blade, [0.1, 1.35, 0]);
+  const loc = [pelvis, chest, neck, head, shL, elL, hL, shR, elR, hR, hipL, legs[0][0], legs[0][1], hipR, legs[1][0], legs[1][1], legs[0][2], legs[1][2], butt, blade, toe];
+  return loc.map((p) => [g.x + p[0] * ch - p[1] * sn, g.y + p[0] * sn + p[1] * ch, p[2]]);
+}
+
+// ── ragdoll: verlet particles on the first 18 joints, bones and braces as distance constraints ──
+const BONES = [[0, 1], [1, 2], [2, 3], [2, 4], [4, 5], [5, 6], [2, 7], [7, 8], [8, 9], [0, 10], [10, 11], [11, 12], [0, 13], [13, 14], [14, 15], [12, 16], [15, 17]];
+const BRACE = [[4, 7], [10, 13], [4, 10], [7, 13], [4, 13], [7, 10], [1, 4], [1, 7], [0, 4], [0, 7], [3, 4], [3, 7], [1, 3], [11, 16], [14, 17], [0, 2], [10, 12], [13, 15]];
+function ragdoll(s, impU, impL) {
+  const J = skaterRig(s, null, true);
+  if (s.stick) { addDebris('stick', J[9], [s.vx * 0.5 - 4 + impU[0] * 0.2, s.vy * 0.5 + impU[1] * 0.3, 9], s.h + 1.3, 11, s.team); s.stick = false; }
+  const pts = [];
+  for (let i = 0; i < 18; i++) {
+    const j = J[i], imp = i <= 9 ? impU : impL, k = i === 3 ? 1.15 : 1;
+    const vx = s.vx + imp[0] * k, vy = s.vy + imp[1] * k, vz = imp[2] * k;
+    pts.push({ x: j[0], y: j[1], z: j[2], px: j[0] - vx * DT, py: j[1] - vy * DT, pz: j[2] - vz * DT, r: i === 3 ? 0.45 : 0.24 });
+  }
+  const cons = [...BONES, ...BRACE].map(([a, b]) => [a, b, Math.hypot(pts[a].x - pts[b].x, pts[a].y - pts[b].y, pts[a].z - pts[b].z)]);
+  s.rag = { pts, cons, age: 0, lastHit: -1, dir: Math.atan2(impU[1] + s.vy, impU[0] + s.vx), poolAt: 0 };
+  s.act = null; s.guard = false; s.grab = null;
+}
+function stepRag(s, dt) {
+  const r = s.rag; r.age += dt;
+  for (const p of r.pts) {
+    const vx = (p.x - p.px) * 0.999, vy = (p.y - p.py) * 0.999, vz = (p.z - p.pz) * 0.999;
+    p.px = p.x; p.py = p.y; p.pz = p.z; p.x += vx; p.y += vy; p.z += vz - 32 * dt * dt;
+  }
+  let impact = 0, ix0 = 0, iz0 = 0, iy0 = 0;
+  for (let it = 0; it < 6; it++) {
+    for (const [a, b, l] of r.cons) {
+      const A = r.pts[a], B = r.pts[b];
+      let dx = B.x - A.x, dy = B.y - A.y, dz = B.z - A.z;
+      const d = Math.hypot(dx, dy, dz) || 1e-6, k = (d - l) / d * 0.5;
+      dx *= k; dy *= k; dz *= k; A.x += dx; A.y += dy; A.z += dz; B.x -= dx; B.y -= dy; B.z -= dz;
+    }
+    for (const p of r.pts) {
+      if (p.z < p.r) { p.z = p.r; if (p.pz < p.z) p.pz = p.z + (p.z - p.pz) * 0.0; }
+      if (p.z < GLASS_H + 0.2) {
+        const c = insideRink(p.x, p.y, p.r);
+        if (c) {
+          const vx = p.x - p.px, vy = p.y - p.py, vn = vx * c.nx + vy * c.ny;
+          p.x = c.x; p.y = c.y;
+          if (vn < 0) {
+            const sp = -vn / dt; if (sp > impact) { impact = sp; ix0 = p.x; iy0 = p.y; iz0 = p.z; }
+            const nvx = vx - 1.3 * vn * c.nx, nvy = vy - 1.3 * vn * c.ny;
+            p.px = p.x - nvx; p.py = p.y - nvy;
+          }
+        }
+      }
+    }
+  }
+  for (const p of r.pts) if (p.z <= p.r + 0.03) { p.px = lerp(p.px, p.x, 0.03); p.py = lerp(p.py, p.y, 0.03); }
+  if (impact > 7 && r.age - r.lastHit > 0.25) { r.lastHit = r.age; wallImpact(ix0, iy0, iz0, impact); }
+  s.x = r.pts[0].x; s.y = r.pts[0].y; s.vx = (r.pts[0].x - r.pts[0].px) / dt; s.vy = (r.pts[0].y - r.pts[0].py) / dt;
+  const hd = r.pts[3];
+  if (s.bleeding > 0 && Math.random() < 0.35) burst('blood', hd.x, hd.y, hd.z, 1, 1.2, [0, 0, 0.5]);
+  if (r.age > 1.0 && r.age < 5 && r.age - r.poolAt > 0.22 && hd.z < 0.9 && s.bleeding > -2) {
+    r.poolAt = r.age; paintBlood(hd.x, hd.y, 0.45 + (r.age - 1) * 0.28, 0.22, (r.age * 1000) | 0);
+  }
+}
+function wallImpact(x, y, z, sp) {
+  W.shake = Math.max(W.shake, Math.min(1.2, sp / 25));
+  W.boardShake = Math.max(W.boardShake, Math.min(1, sp / 25));
+  W.crowd = Math.max(W.crowd, 1);
+  if (y > 80 && x > 28 && x < 172 && z > BOARD_H - 0.8) {
+    const i = clamp(Math.floor((x - 28) / 6), 0, 23);
+    W.glassFlex[i] = Math.max(W.glassFlex[i], Math.min(1, sp / 22));
+    if (sp > 14 && W.cracks.length < 6) W.cracks.push({ x, z: clamp(z, BOARD_H + 0.8, GLASS_H - 0.8), seed: (x * 997) | 0 });
+    W.glassBlood.push({ x, z: clamp(z + 0.4, BOARD_H + 0.5, GLASS_H - 0.4), r: 0.5 + Math.random() * 0.5, seed: (x * 31 + z * 7) | 0 });
+    burst('shard', x, 84.6, z, 10, 5, [0, -3, 2]);
+  }
+  burst('spray', x, y, 0.3, 10, 6, [0, 0, 3]);
+}
+
+// ── particles and debris ─────────────────────────────────────────────────────
+function burst(type, x, y, z, n, spread, base) {
+  for (let i = 0; i < n; i++) {
+    const p = { type, x, y, z, vx: base[0] + (Math.random() - 0.5) * spread, vy: base[1] + (Math.random() - 0.5) * spread, vz: base[2] + Math.random() * spread * 0.6, life: 0, max: 1.2 };
+    if (type === 'blood') { p.size = 0.07 + Math.random() * 0.13; p.max = 3; p.col = Math.random() < 0.5 ? '#8c0f14' : '#b0151b'; }
+    else if (type === 'spray') { p.size = 0.12 + Math.random() * 0.2; p.max = 0.45 + Math.random() * 0.3; }
+    else if (type === 'tooth') { p.size = 0.09; p.max = 30; }
+    else if (type === 'shard') { p.size = 0.08 + Math.random() * 0.1; p.max = 3; }
+    W.parts.push(p);
+  }
+  if (W.parts.length > 700) W.parts.splice(0, W.parts.length - 700);
+}
+function stepParts(dt) {
+  for (let i = W.parts.length - 1; i >= 0; i--) {
+    const p = W.parts[i]; p.life += dt;
+    const g = p.type === 'spray' ? 10 : 32;
+    if (p.type === 'spray') { p.vx *= 0.94; p.vy *= 0.94; }
+    p.vz -= g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+    if (p.z <= 0) {
+      if (p.type === 'blood') { paintBlood(p.x, p.y, p.size * (1.4 + Math.random()), 0.8, (p.x * 1e3 + p.y * 7) | 0); W.parts.splice(i, 1); continue; }
+      if (p.type === 'spray') { W.parts.splice(i, 1); continue; }
+      p.z = 0; p.vz = -p.vz * 0.3; p.vx *= 0.6; p.vy *= 0.6;
+    }
+    if (p.life > p.max) W.parts.splice(i, 1);
+  }
+}
+function addDebris(kind, pos, vel, rot, spin, team) {
+  W.debris.push({ kind, x: pos[0], y: pos[1], z: Math.max(0.2, pos[2]), vx: vel[0], vy: vel[1], vz: vel[2], rot, spin, team });
+}
+function stepDebris(dt) {
+  for (const d of W.debris) {
+    d.vz -= 32 * dt; d.x += d.vx * dt; d.y += d.vy * dt; d.z += d.vz * dt; d.rot += d.spin * dt;
+    const floor = d.kind === 'stick' ? 0.06 : 0.25;
+    if (d.z < floor) { d.z = floor; if (d.vz < -4) d.vz = -d.vz * 0.35; else d.vz = 0; d.vx *= Math.exp(-2.2 * dt); d.vy *= Math.exp(-2.2 * dt); d.spin *= Math.exp(-3 * dt); }
+    const c = insideRink(d.x, d.y, 0.5);
+    if (c && d.z < GLASS_H) { const vn = d.vx * c.nx + d.vy * c.ny; d.x = c.x; d.y = c.y; if (vn < 0) { d.vx -= 1.5 * vn * c.nx; d.vy -= 1.5 * vn * c.ny; } }
+  }
+}
+
+// ── the puck ─────────────────────────────────────────────────────────────────
+function stepPuck(dt) {
+  const pk = W.puck;
+  if (pk.held) { const J = goalieRig(pk.held); const hnd = J[6]; pk.x = hnd[0]; pk.y = hnd[1]; pk.z = hnd[2]; return; }
+  if (pk.carrier) { const b = bladeWorld(pk.carrier); pk.x = b[0]; pk.y = b[1]; pk.z = 0; pk.vx = pk.carrier.vx; pk.vy = pk.carrier.vy; return; }
+  pk.vz -= 32 * dt; pk.z += pk.vz * dt;
+  if (pk.z < 0) { pk.z = 0; pk.vz = pk.vz < -6 ? -pk.vz * 0.3 : 0; }
+  if (pk.z === 0) { const f = Math.exp(-0.35 * dt); pk.vx *= f; pk.vy *= f; }
+  pk.x += pk.vx * dt; pk.y += pk.vy * dt;
+  const c = insideRink(pk.x, pk.y, 0.3);
+  if (c && pk.z < GLASS_H) { const vn = pk.vx * c.nx + pk.vy * c.ny; pk.x = c.x; pk.y = c.y; if (vn < 0) { pk.vx -= 1.55 * vn * c.nx; pk.vy -= 1.55 * vn * c.ny; } }
+  if (pk.target) {
+    const b = bladeWorld(pk.target);
+    if (Math.hypot(b[0] - pk.x, b[1] - pk.y) < 2.6 || W.t - pk.passT0 > 1.1) { pk.carrier = pk.target; pk.target = null; }
+  }
+}
+function pass(from, to, spd) {
+  const pk = W.puck; pk.carrier = null;
+  let tx = 0, ty = 0;
+  for (let i = 0; i < 3; i++) {
+    const b = bladeWorld(to), d = Math.hypot((tx || b[0]) - pk.x, (ty || b[1]) - pk.y), tt = d / spd;
+    tx = b[0] + to.vx * tt; ty = b[1] + to.vy * tt;
+  }
+  const d = Math.hypot(tx - pk.x, ty - pk.y) || 1;
+  pk.vx = (tx - pk.x) / d * spd; pk.vy = (ty - pk.y) / d * spd; pk.vz = 0; pk.target = to; pk.passT0 = W.t;
+}
+function shoot(tx, ty, tz, spd) {
+  const pk = W.puck; pk.carrier = null; pk.target = null;
+  const d = Math.hypot(tx - pk.x, ty - pk.y), tt = d / spd;
+  pk.vx = (tx - pk.x) / d * spd; pk.vy = (ty - pk.y) / d * spd; pk.vz = tz / tt + 16 * tt; pk.z = 0.05;
+  burst('spray', pk.x, pk.y, 0.2, 8, 5, [0, 0, 2]);
+  W.crowd = Math.max(W.crowd, 0.55);
+}
+
+// ── stepping ─────────────────────────────────────────────────────────────────
+function stepSkater(s, dt) {
+  if (s.rag) { stepRag(s, dt); return; }
+  const dx = s.tx - s.x, dy = s.ty - s.y, dist = Math.hypot(dx, dy);
+  const want = Math.min(s.maxV, dist * 1.8);
+  let dvx = (dist > 0.01 ? dx / dist * want : 0) - s.vx, dvy = (dist > 0.01 ? dy / dist * want : 0) - s.vy;
+  const dv = Math.hypot(dvx, dvy), maxdv = s.acc * dt;
+  if (dv > maxdv) { dvx *= maxdv / dv; dvy *= maxdv / dv; }
+  s.vx += dvx; s.vy += dvy; s.x += s.vx * dt; s.y += s.vy * dt;
+  const sp = Math.hypot(s.vx, s.vy);
+  const pushing = dv > maxdv * 0.6 && want > sp - 0.5;
+  s.effort = lerp(s.effort, pushing ? 1 : 0.3, 1 - Math.exp(-dt * 3));
+  s.amp = lerp(s.amp, clamp(sp / 22, 0, 1) * s.effort * (s.guard ? 0 : 1), 1 - Math.exp(-dt * 5));
+  s.phase += dt * (0.5 + sp * 0.032);
+  const wantH = s.face != null ? s.face : (sp > 1.5 ? Math.atan2(s.vy, s.vx) : s.h);
+  s.h += clamp(angWrap(wantH - s.h), -7 * dt, 7 * dt);
+  const c = insideRink(s.x, s.y, 1.6);
+  if (c) { s.x = c.x; s.y = c.y; const vn = s.vx * c.nx + s.vy * c.ny; if (vn < 0) { s.vx -= vn * c.nx; s.vy -= vn * c.ny; } }
+  // a hard stop throws snow
+  if (dv / dt > 20 && sp > 6 && !pushing && W.t - s.sprayAt > 0.15) { s.sprayAt = W.t; burst('spray', s.x + s.vx * 0.05, s.y + s.vy * 0.05, 0.2, 6, 5, [s.vx * 0.4, s.vy * 0.4, 2.5]); }
+  // the blades score the ice
+  if (sp > 4 && W.t - s.cutAt > 0.09) {
+    s.cutAt = W.t;
+    const side = Math.sin(s.phase * TAU) > 0 ? 1 : -1, n = [-Math.sin(s.h) * side * 0.6, Math.cos(s.h) * side * 0.6];
+    const f = [s.x + n[0], s.y + n[1]];
+    if (s.lastFoot) paintCut(s.lastFoot[0], s.lastFoot[1], f[0], f[1], 0.1);
+    s.lastFoot = f;
+  }
+  if (s.act) { s.actT += dt / s.actDur; if (s.actT >= 1) { s.act = null; s.actT = 0; } }
+  s.react = Math.max(0, s.react - dt * 2.6);
+  s.duck = Math.max(0, s.duck - dt * 2.2);
+  if (s.bleeding > 0) { s.bleeding -= dt; if (Math.random() < 0.18) burst('blood', s.x, s.y, 5.2, 1, 1, [s.vx * 0.5, s.vy * 0.5, 0]); }
+}
+function stepGoalie(g, dt) {
+  const pk = W.puck;
+  const ty = 42.5 + clamp((pk.y - 42.5) * 0.2, -2.8, 2.8), tx = g.netX + g.dir * 3.2;
+  g.y += (ty - g.y) * (1 - Math.exp(-dt * 8)); g.x += (tx - g.x) * (1 - Math.exp(-dt * 6));
+  const base = g.dir > 0 ? 0 : Math.PI;
+  const wantH = base + clamp(angWrap(Math.atan2(pk.y - g.y, pk.x - g.x) - base), -0.7, 0.7);
+  g.h += clamp(angWrap(wantH - g.h), -6 * dt, 6 * dt);
+  if (pk.held === g) { g.gloveW = 1; g.gloveTarget = [g.x + g.dir * 1.6, g.y + 0.6, 4.6]; return; }
+  const incoming = !pk.carrier && !pk.held && pk.vx * g.dir < -25 && Math.abs(pk.x - g.x) < 40;
+  if (incoming) {
+    g.gloveW = Math.min(1, g.gloveW + dt * 6);
+    const tt = Math.max(0, (g.x + g.dir * 1.2 - pk.x) / pk.vx);
+    g.gloveTarget = [g.x + g.dir * 1.3, pk.y + pk.vy * tt, Math.max(0.4, pk.z + pk.vz * tt - 16 * tt * tt)];
+    const hnd = goalieRig(g)[6];
+    if (Math.hypot(hnd[0] - pk.x, hnd[1] - pk.y, hnd[2] - pk.z) < 1.6) {
+      pk.held = g; pk.vx = pk.vy = pk.vz = 0;
+      W.crowd = Math.max(W.crowd, 0.8);
+      if (W.onCatch) W.onCatch(g);
+    }
+  } else g.gloveW = Math.max(0, g.gloveW - dt * 1.5);
+}
+function separate() {
+  const sk = W.sk;
+  for (let i = 0; i < sk.length; i++) for (let j = i + 1; j < sk.length; j++) {
+    const a = sk[i], b = sk[j]; if (a.rag || b.rag || (a.foe === b)) continue;
+    const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
+    if (d < 2.4 && d > 0.01) { const k = (2.4 - d) / d * 0.5; a.x -= dx * k; a.y -= dy * k; b.x += dx * k; b.y += dy * k; }
+  }
+}
+function step(dt) {
+  W.t += dt;
+  const next = SCENES[W.scene + 1];
+  if (W.t >= LOOP) { restart(0); return; }
+  if (next && W.t >= next.t0) enterScene(W.scene + 1);
+  while (W.ev.length && W.ev[0].t <= W.t) W.ev.shift().fn();
+  if (W.update) W.update(dt, W.t - SCENES[W.scene].t0);
+  for (const s of W.sk) stepSkater(s, dt);
+  separate();
+  for (const g of W.gl) stepGoalie(g, dt);
+  stepPuck(dt);
+  stepDebris(dt);
+  stepParts(dt);
+  for (let i = 0; i < 24; i++) W.glassFlex[i] *= Math.exp(-dt * 7);
+  W.shake *= Math.exp(-dt * 6); W.boardShake *= Math.exp(-dt * 5); W.crowd *= Math.exp(-dt * 0.45);
+  if (W.fight) for (const k of Object.keys(W.fight.pipShow)) W.fight.pipShow[k] = lerp(W.fight.pipShow[k], W.fight.pip[k], 1 - Math.exp(-dt * 10));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// The script: three passages of play
+// ═══════════════════════════════════════════════════════════════════════════
+const ROSTER = [
+  ['a', 17, 'VASKO'], ['a', 9, 'KOLAR'], ['a', 22, 'FERRO'], ['a', 4, 'HALSTROM'], ['a', 44, 'BROZ'],
+  ['h', 11, 'NYQUIST'], ['h', 19, 'PRIETO'], ['h', 27, 'OKAFOR'], ['h', 5, 'TREMBLAY'], ['h', 8, 'DESCHAMPS'],
+];
+function buildCast() {
+  W.sk = ROSTER.map(([t, n, nm], i) => new Skater(i, t, n, nm, i % 5));
+  W.gl = [new Goalie(20, 'a', 31, 'RASK', 11, 1), new Goalie(21, 'h', 1, 'VOSS', 189, -1)];
+}
+const S = (i) => W.sk[i];
+function resetCast() {
+  for (const s of W.sk) Object.assign(s, { rag: null, act: null, actT: 0, stick: true, gloves: true, helmet: true, jerseyUp: 0, react: 0, duck: 0, guard: false, grab: null, foe: null,
+    bleeding: 0, stance: 0, face: null, maxV: 20, acc: 24, crouch: 0.15, lastFoot: null, amp: 0.3, effort: 0.6 });
+  for (const g of W.gl) Object.assign(g, { x: g.netX + g.dir * 3, y: 42.5, h: g.dir > 0 ? 0 : Math.PI, gloveW: 0, gloveTarget: null });
+  W.puck = { x: 100, y: 42.5, z: 0, vx: 0, vy: 0, vz: 0, carrier: null, target: null, held: null, passT0: 0 };
+  W.debris = []; W.parts = []; W.st = {}; W.fight = null; W.banner = null; W.update = null; W.onCatch = null;
+}
+function enterScene(i) {
+  W.scene = i; resetCast(); W.ev = W.ev.filter((e) => e.t >= SCENES[i].t0);
+  W.camCut++;
+  SCENES[i].setup();
+  W.ev.sort((a, b) => a.t - b.t);
+}
+function restart(sceneIdx) {
+  paintIce(); W.cracks = []; W.glassBlood = []; W.glassFlex.fill(0);
+  W.ev = []; W.t = SCENES[sceneIdx].t0; W.scene = sceneIdx - 1;
+  enterScene(sceneIdx);
+}
+
+function sceneRush() {
+  const [A0, A1, A2, A3, A4, H0, H1, H2, H3, H4] = W.sk;
+  place(A0, 56, 13, 0); place(A1, 46, 44, 0.2); place(A2, 58, 72, 0); place(A3, 22, 30, -0.5); place(A4, 30, 62, 0);
+  place(H0, 62, 66, Math.PI); place(H1, 40, 34, Math.PI); place(H2, 76, 18, Math.PI); place(H3, 116, 32, Math.PI); place(H4, 119, 56, Math.PI);
+  for (const s of W.sk) { s.vx = s.team === 'a' ? 8 : -4; }
+  W.puck.carrier = A3; W.cam = 'broadcast';
+  W.call = '<b>Halstrom</b> breaks it out, <b>Vasko</b> takes the wall, <b>Kolar</b> through the middle, over to <b>Ferro</b> for the one-timer…';
+  A3.tx = 36; A3.ty = 21; A3.maxV = 19;
+  A0.tx = 72; A0.ty = 12; A0.maxV = 22; A1.tx = 72; A1.ty = 40; A2.tx = 78; A2.ty = 70; A4.tx = 46; A4.ty = 60;
+  at(0, 1.1, () => pass(A3, A0, 80));
+  at(0, 3.3, () => { pass(A0, A1, 82); });
+  at(0, 4.55, () => { pass(A1, A2, 85); });
+  W.onCatch = () => {
+    W.st.whistle = true;
+    W.call = '…and <b>Voss</b> snaps it out of the air. Whistle.';
+    for (const s of W.sk) { s.tx = s.x + s.vx * 0.9; s.ty = s.y + s.vy * 0.9; s.maxV = 10; s.face = null; }
+  };
+  W.update = (dt, rel) => {
+    const pk = W.puck, st = W.st;
+    W.focus = [pk.x, pk.y];
+    if (st.whistle) return;
+    if (pk.carrier === A0 || (pk.target === A0)) { A0.tx = 132; A0.ty = 15; A0.maxV = 29; A0.acc = 30; }
+    if (rel > 1.4) { A1.tx = 142; A1.ty = 43; A1.maxV = 27; A2.tx = 136; A2.ty = 66; A2.maxV = 26; A3.tx = 98; A3.ty = 30; A3.maxV = 22; A4.tx = 98; A4.ty = 58; A4.maxV = 22; }
+    if (pk.carrier === A1) { A1.tx = 162; A1.ty = 40; A1.maxV = 25; }
+    if (rel > 4.5) { A2.tx = 154; A2.ty = 61; A2.maxV = 20; }
+    if (pk.carrier === A2 && !st.shot) {
+      st.shot = true; act(A2, 'slap', 0.62); A2.tx = A2.x + A2.vx * 0.3; A2.ty = A2.y + A2.vy * 0.3; A2.maxV = 8;
+      schedule(0.62 * 0.6, () => shoot(189, 41.3, 3.7, 108));
+    }
+    // the defending side
+    H1.tx = rel < 1.3 ? A3.x + 5 : Math.min(150, A1.x - 6); H1.ty = rel < 1.3 ? A3.y - 1 : A1.y + 5; H1.maxV = 24;
+    H2.tx = A0.x - 4; H2.ty = A0.y + 3.5; H2.maxV = 28; H2.acc = 30;
+    H0.tx = Math.min(165, A2.x - 5); H0.ty = A2.y - 4; H0.maxV = 25;
+    H3.tx = clamp(A0.x + 24, 140, 168); H3.ty = clamp(A0.y + 14, 22, 40); H3.maxV = 26; H3.face = Math.PI;
+    H4.tx = clamp(A1.x + 20, 145, 170); H4.ty = 54; H4.maxV = 26; H4.face = Math.PI;
+    if (rel > 4.2) { H3.face = null; H4.face = null; H4.tx = 170; H4.ty = 58; }
+  };
+}
+
+function sceneCheck() {
+  const [A0, A1, A2, A3, A4, H0, H1, H2, H3, H4] = W.sk;
+  place(H3, 124, 80.3, Math.PI); H3.vx = -16; H3.tx = 50; H3.ty = 80.3; H3.maxV = 19;
+  place(A1, 66, 58, 0.5); A1.vx = 12; A1.vy = 6; A1.maxV = 32; A1.acc = 32;
+  place(A0, 116, 54, Math.PI); place(A2, 72, 26, 0.3); place(A3, 46, 40, 0); place(A4, 58, 64, 0);
+  place(H0, 94, 36, Math.PI); place(H1, 136, 62, Math.PI); place(H2, 84, 16, Math.PI); place(H4, 130, 40, Math.PI);
+  W.puck.carrier = H3; W.cam = 'broadcast';
+  W.call = '<b>Tremblay</b> brings it up the far wall with his head down. <b>Kolar</b> has seen him…';
+  at(1, 3.2, () => { if (!W.st.hit) { A1.x = H3.x + 2; A1.y = H3.y - 2.5; doHit(A1, H3); } });
+  W.update = (dt, rel) => {
+    const st = W.st, pk = W.puck;
+    if (!st.hit) {
+      const lead = Math.min(1.2, dist2(A1, H3) / 34);
+      A1.tx = H3.x + H3.vx * lead; A1.ty = 84;
+      A0.tx = H3.x + 9; A0.ty = H3.y - 7; A0.maxV = 18;
+      H0.tx = H3.x - 12; H0.ty = 52; H0.maxV = 16;
+      W.focus = [(A1.x + H3.x) / 2, (A1.y + H3.y) / 2];
+      if (dist2(A1, H3) < 3.4) doHit(A1, H3);
+    } else {
+      const v = H3.rag.pts[0];
+      W.focus = [lerp(v.x, pk.x, 0.25), lerp(v.y, pk.y, 0.25)];
+      if (!pk.carrier && Math.hypot(A0.x - pk.x, A0.y - pk.y) < 3) pk.carrier = A0;
+      if (pk.carrier === A0) { A0.tx = 150; A0.ty = 40; A0.maxV = 18; } else { A0.tx = pk.x; A0.ty = pk.y; A0.maxV = 22; }
+      H1.tx = v.x + 4; H1.ty = v.y - 5; H1.maxV = 22;
+      H4.tx = v.x - 4; H4.ty = v.y - 6; H4.maxV = 22;
+      H0.tx = A1.x + 3; H0.ty = A1.y - 3; H0.maxV = 20; H0.face = null;
+      if (rel - st.hitAt > 0.4) { A1.tx = A1.x - 1; A1.ty = 66; A1.maxV = 6; }
+    }
+  };
+}
+function doHit(hitter, victim) {
+  const st = W.st; if (st.hit) return;
+  st.hit = true; st.hitAt = W.t - SCENES[1].t0;
+  act(hitter, 'check', 0.55); hitter.actT = 0.45;
+  const hv = [hitter.vx, hitter.vy];
+  ragdoll(victim, [hv[0] * 0.6 - 2, 27 + Math.max(0, hv[1]) * 0.3, 8], [hv[0] * 0.3, 8, 1.5]);
+  hitter.vx *= 0.3; hitter.vy *= 0.15;
+  const pk = W.puck; pk.carrier = null; pk.vx = -24; pk.vy = -12;
+  victim.helmet = false;
+  addDebris('helmet', [victim.x, victim.y, 5.6], [hv[0] * 0.4, 12, 13], 0, 6, victim.team);
+  victim.bleeding = 4;
+  burst('blood', victim.x, victim.y + 0.5, 5.2, 22, 7, [hv[0] * 0.2, 7, 5]);
+  burst('tooth', victim.x, victim.y + 0.5, 5.0, 2, 5, [0, 4, 4]);
+  burst('spray', victim.x, victim.y, 0.3, 14, 7, [0, 4, 3]);
+  W.shake = 1; W.crowd = 1; W.hitstop = 0.09;
+  W.cam = 'zoom'; schedule(2.6, () => { W.cam = 'broadcast'; });
+  W.call = '<b>Kolar</b> finishes him into the glass. <b>Tremblay</b> is down and he is not moving.';
+}
+
+function sceneFight() {
+  const [A0, A1, A2, A3, A4, H0, H1, H2, H3, H4] = W.sk;
+  place(A4, 95.8, 42.5, 0); place(H2, 104.2, 42.5, Math.PI);
+  A4.foe = H2; H2.foe = A4; A4.face = 0; H2.face = Math.PI; A4.maxV = H2.maxV = 7;
+  const ring = [A0, A1, A2, A3, H0, H1, H3, H4];
+  ring.forEach((s, k) => {
+    const a = 0.2 * Math.PI + (k / (ring.length - 1)) * 0.6 * Math.PI, rad = 22 + (k % 3) * 3;
+    place(s, 100 + Math.cos(a) * rad, 42.5 + Math.sin(a) * rad, a + Math.PI); s.ring = { a, rad }; s.maxV = 6;
+  });
+  W.puck.x = 128; W.puck.y = 30;
+  W.fight = { l: A4, r: H2, pip: { [A4.id]: 5, [H2.id]: 5 }, pipShow: { [A4.id]: 5, [H2.id]: 5 }, hud: false };
+  W.cam = 'broadcast';
+  W.call = '<b>Broz</b> and <b>Okafor</b> have been at it all night…';
+  A4.crouch = H2.crouch = 0.12; A4.stance = H2.stance = 0.5;
+  at(2, 0.5, () => { dropGloves(A4); dropGloves(H2); W.call = 'The gloves are off. <b>Broz</b> and <b>Okafor</b>.'; });
+  at(2, 0.95, () => { A4.guard = H2.guard = true; A4.stance = H2.stance = 0.75; });
+  at(2, 1.0, () => { W.cam = 'zoom'; });
+  at(2, 1.6, () => { W.cam = 'fight'; W.camCut++; W.fight.hud = true; banner('FIGHT!'); });
+  at(2, 2.0, () => { A4.grab = H2; H2.grab = A4; W.st.grab = true; });
+  at(2, 2.5, () => punch(A4, H2, true, 'punchR'));
+  at(2, 3.0, () => punch(H2, A4, false, 'punchR'));
+  at(2, 3.4, () => punch(H2, A4, true, 'punchR'));
+  at(2, 3.9, () => punch(A4, H2, true, 'punchR'));
+  at(2, 4.3, () => punch(A4, H2, true, 'punchR'));
+  at(2, 4.8, () => { act(A4, 'pull', 0.8); H2.grab = null; W.st.pull = true; W.call = '<b>Broz</b> has the sweater over his head…'; });
+  at(2, 5.55, () => punch(A4, H2, true, 'uppercut'));
+  at(2, 6.7, () => { act(A4, 'celebrate', 1.4); A4.grab = null; });
+  at(2, 8.0, () => { W.cam = 'broadcast'; W.camCut++; W.fight.hud = false; });
+  at(2, 8.6, () => { A4.guard = false; A4.face = null; A4.tx = 86; A4.ty = 26; A4.maxV = 9; });
+  W.update = (dt, rel) => {
+    const st = W.st;
+    const cx = 100 + 0.9 * Math.sin(rel * 1.1), sep = st.grab ? 3.5 : 4.5;
+    if (!A4.rag && rel < 8.6) { A4.tx = cx - sep / 2; A4.ty = 42.5 + 0.3 * Math.sin(rel * 2.3); }
+    if (!H2.rag) { H2.tx = cx + sep / 2; H2.ty = 42.5 - 0.3 * Math.sin(rel * 2.3); }
+    if (st.pull && !H2.rag) H2.jerseyUp = Math.min(1, H2.jerseyUp + dt * 2.5);
+    const ko = H2.rag != null;
+    for (const s of ring) {
+      const a = s.ring.a + rel * 0.03 * (s.team === 'a' ? 1 : -1), rad = ko ? 9 + (s.id % 3) * 1.5 : s.ring.rad;
+      s.tx = 100 + Math.cos(a) * rad; s.ty = 42.5 + Math.sin(a) * rad; s.maxV = ko ? 9 : 4; s.face = Math.atan2(42.5 - s.y, 100 - s.x);
+    }
+    const ax = A4.rag ? A4.rag.pts[0].x : A4.x, hx = H2.rag ? H2.rag.pts[0].x : H2.x;
+    W.focus = [(ax + hx) / 2, 42.5];
+  };
+}
+function dropGloves(s) {
+  const J = skaterRig(s);
+  addDebris('stick', J[9], [Math.cos(s.h + 2) * 4, Math.sin(s.h + 2) * 4, 3], s.h + 1.2, 4, s.team);
+  addDebris('glove', J[6], [Math.cos(s.h + 1) * 3, Math.sin(s.h + 1) * 3, 2], s.h, 5, s.team);
+  addDebris('glove', J[9], [Math.cos(s.h - 1) * 3, Math.sin(s.h - 1) * 3, 2], s.h + 2, -5, s.team);
+  s.stick = false; s.gloves = false; W.crowd = Math.max(W.crowd, 0.9);
+}
+function punch(th, vi, landed, kind) {
+  const dur = kind === 'uppercut' ? 0.55 : 0.36;
+  act(th, kind, dur);
+  schedule(dur * (kind === 'uppercut' ? 0.6 : 0.36), () => {
+    if (vi.rag) return;
+    const dir = Math.sign(vi.x - th.x) || 1;
+    if (!landed) { vi.duck = 1; return; }
+    vi.react = 1;
+    W.fight.pip[vi.id] = Math.max(0, W.fight.pip[vi.id] - (kind === 'uppercut' ? 5 : 1));
+    burst('blood', vi.x + dir * 0.2, vi.y - 0.3, 5.3, kind === 'uppercut' ? 30 : 9, kind === 'uppercut' ? 8 : 5, [dir * 6, -1, 4]);
+    W.shake = Math.max(W.shake, kind === 'uppercut' ? 1.3 : 0.45); W.hitstop = kind === 'uppercut' ? 0.16 : 0.06; W.crowd = 1;
+    if (kind === 'uppercut') {
+      ragdoll(vi, [dir * 11, 1, 10], [dir * 1.5, 0, 0]);
+      vi.helmet = false; vi.bleeding = 3;
+      addDebris('helmet', [vi.x, vi.y, 5.8], [dir * 9, 1.5, 12], 0, 9, vi.team);
+      burst('tooth', vi.x, vi.y, 5.2, 3, 5, [dir * 6, 0, 6]);
+      banner('K.O.');
+      W.call = 'Uppercut. <b>Okafor</b> is out before he hits the ice.';
+    }
+  });
+}
+function banner(text) { W.banner = { text, t0: W.t }; }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Drawing shared by both renderers. `P(X,Y,Z)` returns {x, y, s (px per foot), d (depth)}.
+// ═══════════════════════════════════════════════════════════════════════════
+const NUM_FONT = '800 100px "Saira Condensed", "Arial Narrow", sans-serif';
+function capLine(ctx, a, b, w, col) {
+  ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x + 0.01, b.y); ctx.stroke();
+}
+// style: '3d' shaded with a single silhouette outline · '2d' flat with per-part outlines · 'refl' flat, no outline
+function drawFigure(ctx, P, J, o) {
+  const st = o.style, K = KIT[o.team], gk = o.goalie;
+  const pr = J.map((j) => (j ? P(j[0], j[1], j[2]) : null));
+  for (let i = 0; i < 18; i++) if (!pr[i]) return;
+  const parts = [];
+  const S = (a, b) => (a.s + b.s) / 2;
+  const cap = (i, j, w, col, band) => parts.push({ t: 'c', a: pr[i], b: pr[j], w, col, band, d: (pr[i].d + pr[j].d) / 2 });
+  // skates: boot plus a steel runner on the ice
+  for (const [an, to] of [[12, 16], [15, 17]]) {
+    const A = J[an], T = J[to];
+    const b0 = P(A[0] - (T[0] - A[0]) * 0.25, A[1] - (T[1] - A[1]) * 0.25, 0.03), b1 = P(T[0] + (T[0] - A[0]) * 0.1, T[1] + (T[1] - A[1]) * 0.1, 0.03);
+    parts.push({ t: 'skate', a: pr[an], b: pr[to], r0: b0, r1: b1, d: (pr[an].d + pr[to].d) / 2 + 0.02 });
+  }
+  if (gk) {
+    cap(11, 12, 1.05, '#eceef0', K.jersey); cap(14, 15, 1.05, '#eceef0', K.jersey);
+    cap(10, 11, 1.0, '#e4e6e9', null); cap(13, 14, 1.0, '#e4e6e9', null);
+    cap(10, 13, 1.1, K.pants, null);
+    cap(4, 5, 0.72, K.jersey, null); cap(7, 8, 0.72, K.jersey, null);
+    cap(5, 6, 0.62, K.jersey, K.trim); cap(8, 9, 0.62, K.jersey, K.trim);
+  } else {
+    cap(11, 12, 0.5, K.sock, K.trim); cap(14, 15, 0.5, K.sock, K.trim);
+    cap(10, 11, 0.74, K.pants, null); cap(13, 14, 0.74, K.pants, null);
+    cap(10, 13, 0.95, K.pants, null);
+    cap(4, 5, 0.58, K.jersey, null); cap(7, 8, 0.58, K.jersey, null);
+    cap(5, 6, 0.48, K.jersey, K.trim); cap(8, 9, 0.48, K.jersey, K.trim);
+  }
+  parts.push({ t: 'torso', d: pr[1].d });
+  parts.push({ t: 'hand', i: 6, d: pr[6].d - 0.05, big: gk ? 'glove' : null });
+  parts.push({ t: 'hand', i: 9, d: pr[9].d - 0.05, big: gk ? 'blocker' : null });
+  parts.push({ t: 'head', d: pr[3].d - 0.01 });
+  if (J[18] && pr[18] && pr[19] && pr[20]) parts.push({ t: 'stick', d: (pr[9].d + pr[19].d) / 2 });
+  parts.sort((a, b) => b.d - a.d);
+
+  // torso outline in world space: padded shoulders, chest, hem
+  const out = V.norm(V.sub(J[4], J[7]));
+  const pad = gk ? 0.34 : 0.2;
+  const sL = P(...V.add(V.add(J[4], V.mul(out, pad)), [0, 0, 0.12])), sR = P(...V.add(V.add(J[7], V.mul(out, -pad)), [0, 0, 0.12]));
+  const hL = P(...V.add(V.add(J[10], V.mul(out, 0.18)), [0, 0, 0.35])), hR = P(...V.add(V.add(J[13], V.mul(out, -0.18)), [0, 0, 0.35]));
+  const cL = P(...V.add(V.lerp(J[4], J[10], 0.45), V.mul(out, pad + 0.12))), cR = P(...V.add(V.lerp(J[7], J[13], 0.45), V.mul(out, -pad - 0.12)));
+  if (!sL || !sR || !hL || !hR || !cL || !cR) return;
+  const fwd = V.norm(V.cross(V.sub(J[4], J[7]), V.sub(J[2], J[0])));
+  const toCam = V.norm(o.camv(J[1]));
+  const facing = V.dot(fwd, toCam);
+  const lw = st === '2d' ? Math.max(1.5, 0.11 * pr[1].s) : Math.max(1, 0.07 * pr[1].s);
+  const ink = '#0c0f14';
+
+  const torsoPath = () => { ctx.beginPath(); ctx.moveTo(sL.x, sL.y); ctx.lineTo(sR.x, sR.y); ctx.lineTo(cR.x, cR.y); ctx.lineTo(hR.x, hR.y); ctx.lineTo(hL.x, hL.y); ctx.lineTo(cL.x, cL.y); ctx.closePath(); };
+  const headR = (gk ? 0.5 : 0.46) * pr[3].s;
+
+  // 3D: one silhouette outline under everything, so limbs read as one body
+  if (st === '3d') {
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (const p of parts) {
+      if (p.t === 'c') capLine(ctx, p.a, p.b, p.w * S(p.a, p.b) + lw * 2, ink);
+      else if (p.t === 'skate') capLine(ctx, p.a, p.b, 0.4 * S(p.a, p.b) + lw * 2, ink);
+    }
+    torsoPath(); ctx.strokeStyle = ink; ctx.lineWidth = 0.35 * pr[1].s + lw * 2; ctx.stroke();
+    ctx.fillStyle = ink; ctx.beginPath(); ctx.arc(pr[3].x, pr[3].y, headR + lw, 0, TAU); ctx.fill();
+  }
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  for (const p of parts) {
+    if (p.t === 'c') {
+      const w = p.w * S(p.a, p.b);
+      if (st === '2d') capLine(ctx, p.a, p.b, w + lw * 2, ink);
+      capLine(ctx, p.a, p.b, w, p.col);
+      if (st === '3d') {
+        const ox = -0.16 * w, oy = -0.2 * w;
+        ctx.strokeStyle = shade(p.col, -0.38); ctx.lineWidth = w * 0.4; ctx.beginPath(); ctx.moveTo(p.a.x - ox, p.a.y - oy); ctx.lineTo(p.b.x - ox + 0.01, p.b.y - oy); ctx.stroke();
+        ctx.strokeStyle = shade(p.col, 0.22); ctx.lineWidth = w * 0.38; ctx.beginPath(); ctx.moveTo(p.a.x + ox, p.a.y + oy); ctx.lineTo(p.b.x + ox + 0.01, p.b.y + oy); ctx.stroke();
+      } else if (st === '2d') {
+        ctx.strokeStyle = shade(p.col, 0.2); ctx.lineWidth = w * 0.3; ctx.beginPath(); ctx.moveTo(p.a.x - 0.18 * w, p.a.y - 0.18 * w); ctx.lineTo(p.b.x - 0.18 * w + 0.01, p.b.y - 0.18 * w); ctx.stroke();
+      }
+      if (p.band && st !== 'refl') {
+        const t0 = gk ? 0.3 : 0.08, t1 = gk ? 0.42 : 0.2;
+        const a = { x: lerp(p.a.x, p.b.x, t0), y: lerp(p.a.y, p.b.y, t0) }, b = { x: lerp(p.a.x, p.b.x, t1), y: lerp(p.a.y, p.b.y, t1) };
+        capLine(ctx, a, b, w * 0.92, p.band);
+        if (gk) { const a2 = { x: lerp(p.a.x, p.b.x, 0.62), y: lerp(p.a.y, p.b.y, 0.62) }, b2 = { x: lerp(p.a.x, p.b.x, 0.72), y: lerp(p.a.y, p.b.y, 0.72) }; capLine(ctx, a2, b2, w * 0.92, p.band); }
+      }
+    } else if (p.t === 'skate') {
+      const w = 0.4 * S(p.a, p.b);
+      if (st === '2d') capLine(ctx, p.a, p.b, w + lw * 2, ink);
+      capLine(ctx, p.a, p.b, w, st === 'refl' ? '#2a2d33' : '#1a1c21');
+      if (st !== 'refl') { capLine(ctx, p.r0, p.r1, Math.max(1, 0.1 * S(p.a, p.b)), '#c9d2da'); if (st === '3d') capLine(ctx, p.a, { x: lerp(p.a.x, p.b.x, 0.4), y: lerp(p.a.y, p.b.y, 0.4) }, w * 0.35, '#3a3e47'); }
+    } else if (p.t === 'torso') {
+      const xs = [sL.x, sR.x, cL.x, cR.x], minX = Math.min(...xs), maxX = Math.max(...xs);
+      let fill = K.jersey;
+      if (st === '3d' && maxX - minX > 1) {
+        const g = ctx.createLinearGradient(minX, 0, maxX, 0);
+        g.addColorStop(0, shade(K.jersey, 0.2)); g.addColorStop(0.45, K.jersey); g.addColorStop(1, shade(K.jersey, -0.42)); fill = g;
+      }
+      torsoPath();
+      if (st === '2d') { ctx.strokeStyle = ink; ctx.lineWidth = 0.35 * pr[1].s + lw * 2; ctx.stroke(); }
+      ctx.fillStyle = fill; ctx.fill(); ctx.strokeStyle = fill; ctx.lineWidth = 0.35 * pr[1].s; ctx.stroke();
+      if (st === 'refl') continue;
+      // hem stripes and shoulder yoke
+      const hs = (k, col, w) => capLine(ctx, { x: lerp(hL.x, cL.x, k), y: lerp(hL.y, cL.y, k) }, { x: lerp(hR.x, cR.x, k), y: lerp(hR.y, cR.y, k) }, w, col);
+      hs(0.18, K.trim, 0.2 * pr[1].s); hs(0.34, K.jersey, 0.1 * pr[1].s);
+      if (st === '2d') { ctx.fillStyle = shade(K.jersey, 0.22); ctx.beginPath(); ctx.moveTo(sL.x, sL.y); ctx.lineTo(lerp(sL.x, sR.x, 0.35), lerp(sL.y, sR.y, 0.35)); ctx.lineTo(lerp(cL.x, hL.x, 0.5), lerp(cL.y, hL.y, 0.5)); ctx.closePath(); ctx.fill(); }
+      // number on the back, crest on the chest, laid on the torso with an affine map
+      const mx = (sL.x + sR.x + hL.x + hR.x) / 4, my = (sL.y + sR.y + hL.y + hR.y) / 4 - 0.05 * pr[1].s;
+      const ax = (sR.x - sL.x) / 2, ay = (sR.y - sL.y) / 2, bx = ((hL.x + hR.x) - (sL.x + sR.x)) / 4, by = ((hL.y + hR.y) - (sL.y + sR.y)) / 4;
+      if (Math.abs(facing) > 0.22 && pr[1].s > 2.5 && o.jerseyUp < 0.5) {
+        ctx.save(); ctx.transform(ax, ay, bx, by, mx, my);
+        if (facing < 0) {
+          ctx.font = NUM_FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.save(); ctx.scale(0.0105, 0.0125);
+          ctx.lineWidth = 16; ctx.strokeStyle = shade(K.jersey, -0.5); ctx.strokeText(String(o.num), 0, 6);
+          ctx.fillStyle = K.trim; ctx.fillText(String(o.num), 0, 6);
+          ctx.restore();
+        } else {
+          ctx.fillStyle = K.trim; ctx.beginPath(); ctx.arc(0, -0.15, 0.48, 0, TAU); ctx.fill();
+          ctx.fillStyle = K.jersey; ctx.beginPath();
+          if (K.crest === 'v') { ctx.moveTo(-0.3, -0.45); ctx.lineTo(0, 0.18); ctx.lineTo(0.3, -0.45); ctx.lineTo(0.14, -0.45); ctx.lineTo(0, -0.12); ctx.lineTo(-0.14, -0.45); }
+          else { ctx.moveTo(0, -0.55); ctx.lineTo(0.3, -0.15); ctx.lineTo(0, 0.25); ctx.lineTo(-0.3, -0.15); }
+          ctx.closePath(); ctx.fill();
+        }
+        ctx.restore();
+      }
+    } else if (p.t === 'hand') {
+      const h = pr[p.i], s = h.s;
+      if (p.big === 'glove') {
+        const r = 0.62 * s;
+        ctx.fillStyle = ink; if (st !== 'refl') { ctx.beginPath(); ctx.arc(h.x, h.y, r + lw, 0, TAU); ctx.fill(); }
+        ctx.fillStyle = shade(K.trim, -0.1); ctx.beginPath(); ctx.arc(h.x, h.y, r, 0, TAU); ctx.fill();
+        if (st !== 'refl') { ctx.fillStyle = K.jersey; ctx.beginPath(); ctx.arc(h.x - r * 0.2, h.y - r * 0.2, r * 0.5, 0, TAU); ctx.fill(); }
+      } else if (p.big === 'blocker') {
+        const w = 0.85 * s, hh = 1.15 * s;
+        if (st !== 'refl') { ctx.fillStyle = ink; ctx.fillRect(h.x - w / 2 - lw, h.y - hh / 2 - lw, w + lw * 2, hh + lw * 2); }
+        ctx.fillStyle = '#eceef0'; ctx.fillRect(h.x - w / 2, h.y - hh / 2, w, hh);
+        if (st !== 'refl') { ctx.fillStyle = K.jersey; ctx.fillRect(h.x - w / 2, h.y - hh * 0.1, w, hh * 0.2); }
+      } else {
+        const r = (o.gloves ? 0.34 : 0.21) * s, col = o.gloves ? K.glove : o.skin;
+        if (st !== 'refl') { ctx.fillStyle = ink; ctx.beginPath(); ctx.arc(h.x, h.y, r + lw, 0, TAU); ctx.fill(); }
+        ctx.fillStyle = col; ctx.beginPath(); ctx.arc(h.x, h.y, r, 0, TAU); ctx.fill();
+        if (st === '3d' && o.gloves) { ctx.fillStyle = shade(col, 0.25); ctx.beginPath(); ctx.arc(h.x - r * 0.3, h.y - r * 0.3, r * 0.45, 0, TAU); ctx.fill(); }
+      }
+    } else if (p.t === 'head') {
+      const H = pr[3], r = headR;
+      if (o.jerseyUp > 0.3) {
+        // sweater pulled over his head: a jersey-coloured sack where his head was
+        const k = o.jerseyUp, cy = H.y - 0.25 * H.s * k;
+        if (st !== 'refl') { ctx.fillStyle = ink; ctx.beginPath(); ctx.ellipse(H.x, cy, r * 1.3 + lw, r * (1.15 + 0.5 * k) + lw, 0, 0, TAU); ctx.fill(); }
+        ctx.fillStyle = K.jersey; ctx.beginPath(); ctx.ellipse(H.x, cy, r * 1.3, r * (1.15 + 0.5 * k), 0, 0, TAU); ctx.fill();
+        if (st !== 'refl') capLine(ctx, { x: H.x - r * 1.1, y: cy + r * 0.6 }, { x: H.x + r * 1.1, y: cy + r * 0.6 }, r * 0.25, K.trim);
+        continue;
+      }
+      const hf = J[3], fp = P(hf[0] + fwd[0] * 0.42, hf[1] + fwd[1] * 0.42, hf[2] + 0.02);
+      const fx = fp ? fp.x - H.x : 0, fy = fp ? fp.y - H.y : 0;
+      const drawFace = o.helmet === false || facing > -0.25;
+      const face = () => {
+        const cx = H.x + fx * 0.62, cy = H.y + fy * 0.62 + r * 0.12;
+        ctx.fillStyle = o.skin; ctx.beginPath(); ctx.ellipse(cx, cy, r * (0.5 + 0.18 * Math.abs(facing)), r * 0.66, 0, 0, TAU); ctx.fill();
+        if (st === 'refl' || r < 3) return;
+        if (Math.abs(facing) < 0.6) { ctx.beginPath(); ctx.moveTo(cx + fx * 0.5, cy - r * 0.15); ctx.lineTo(cx + fx * 0.95, cy + r * 0.1); ctx.lineTo(cx + fx * 0.45, cy + r * 0.2); ctx.fill(); }
+        if (r > 6) {
+          ctx.fillStyle = '#1b1012'; const ex = cx + fx * 0.35, ey = cy - r * 0.12;
+          ctx.beginPath(); ctx.arc(ex - (facing > 0.4 ? r * 0.18 : 0), ey, r * 0.07, 0, TAU); ctx.fill();
+          if (facing > 0.4) { ctx.beginPath(); ctx.arc(ex + r * 0.18, ey, r * 0.07, 0, TAU); ctx.fill(); }
+          ctx.strokeStyle = shade(o.skin, -0.45); ctx.lineWidth = r * 0.06; ctx.beginPath(); ctx.moveTo(cx + fx * 0.2 - r * 0.15, cy + r * 0.32); ctx.lineTo(cx + fx * 0.2 + r * 0.15, cy + r * 0.32); ctx.stroke();
+          if (o.react > 0.2 || o.bloodied) { ctx.fillStyle = 'rgba(150,10,16,0.85)'; ctx.beginPath(); ctx.ellipse(cx + fx * 0.4, cy + r * 0.25, r * 0.12, r * 0.28, 0, 0, TAU); ctx.fill(); }
+        }
+      };
+      if (o.helmet === false) {
+        ctx.fillStyle = o.skin; ctx.beginPath(); ctx.arc(H.x, H.y, r * 0.86, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#2a1c14'; ctx.beginPath(); ctx.arc(H.x - fx * 0.25, H.y - r * 0.25, r * 0.7, Math.PI * 0.95, Math.PI * 2.05); ctx.fill();
+        face();
+        continue;
+      }
+      const hc = gk ? '#eceef0' : K.helmet;
+      if (st === '2d') { ctx.fillStyle = ink; ctx.beginPath(); ctx.arc(H.x, H.y, r + lw, 0, TAU); ctx.fill(); }
+      let hfill = hc;
+      if (st === '3d') { const g = ctx.createRadialGradient(H.x - r * 0.35, H.y - r * 0.45, r * 0.1, H.x, H.y, r * 1.05); g.addColorStop(0, shade(hc, 0.45)); g.addColorStop(0.55, hc); g.addColorStop(1, shade(hc, -0.4)); hfill = g; }
+      ctx.fillStyle = hfill; ctx.beginPath(); ctx.arc(H.x, H.y, r, 0, TAU); ctx.fill();
+      if (drawFace) {
+        face();
+        if (st !== 'refl' && r > 2.5) {
+          // the cage: a dark field with bars across it
+          const cx = H.x + fx * 0.7, cy = H.y + fy * 0.7 + r * 0.15, cw = r * (0.46 + 0.2 * Math.abs(facing)), chh = r * 0.62;
+          ctx.strokeStyle = gk ? '#22262c' : 'rgba(200,206,212,0.9)'; ctx.lineWidth = Math.max(0.6, r * 0.07);
+          ctx.beginPath();
+          for (let k = -2; k <= 2; k++) { ctx.moveTo(cx + k * cw * 0.4, cy - chh * 0.8); ctx.lineTo(cx + k * cw * 0.36, cy + chh * 0.85); }
+          ctx.moveTo(cx - cw, cy); ctx.lineTo(cx + cw, cy); ctx.moveTo(cx - cw * 0.9, cy + chh * 0.45); ctx.lineTo(cx + cw * 0.9, cy + chh * 0.45);
+          ctx.stroke();
+        }
+      } else if (st !== 'refl' && r > 2.5) {
+        capLine(ctx, { x: H.x - r * 0.75, y: H.y + r * 0.1 }, { x: H.x + r * 0.75, y: H.y + r * 0.1 }, r * 0.16, shade(hc, -0.35));
+      }
+    } else if (p.t === 'stick') {
+      const bt = pr[18], hl = pr[19], tp = pr[20], s = hl.s;
+      const sw = Math.max(1.1, (gk ? 0.16 : 0.12) * s);
+      if (st === '2d') { capLine(ctx, bt, hl, sw + lw * 2, ink); capLine(ctx, hl, tp, 0.26 * s + lw * 2, ink); }
+      capLine(ctx, bt, hl, sw, st === 'refl' ? '#3a3d44' : '#24262c');
+      if (gk) capLine(ctx, hl, { x: lerp(hl.x, bt.x, 0.28), y: lerp(hl.y, bt.y, 0.28) }, sw * 2.4, '#24262c');
+      capLine(ctx, hl, tp, Math.max(1.4, 0.26 * s), st === 'refl' ? '#3a3d44' : '#1c1d22');
+      if (st !== 'refl') capLine(ctx, { x: lerp(hl.x, tp.x, 0.15), y: lerp(hl.y, tp.y, 0.15) }, { x: lerp(hl.x, tp.x, 0.75), y: lerp(hl.y, tp.y, 0.75) }, Math.max(0.8, 0.14 * s), '#f2f2ee');
+    }
+  }
+}
+
+function drawPuck(ctx, P, pk, flat) {
+  const c = P(pk.x, pk.y, pk.z + 0.08); if (!c) return;
+  const e = P(pk.x + 0.42, pk.y, pk.z + 0.08), f = P(pk.x, pk.y + 0.42, pk.z + 0.08);
+  const rx = Math.max(1.6, Math.abs(e.x - c.x)), ry = Math.max(0.9, Math.abs(f.y - c.y));
+  const sp = Math.hypot(pk.vx, pk.vy);
+  if (sp > 30 && !pk.carrier && !pk.held) {
+    const b = P(pk.x - pk.vx * 0.05, pk.y - pk.vy * 0.05, pk.z + 0.08);
+    if (b) { const g = ctx.createLinearGradient(b.x, b.y, c.x, c.y); g.addColorStop(0, 'rgba(20,24,30,0)'); g.addColorStop(1, 'rgba(20,24,30,0.45)'); capLine(ctx, b, c, rx * 1.6, g); }
+  }
+  const th = Math.max(1, rx * 0.5);
+  ctx.fillStyle = '#0b0c0f'; ctx.beginPath(); ctx.ellipse(c.x, c.y + th * 0.5, rx, ry, 0, 0, TAU); ctx.fill();
+  ctx.fillRect(c.x - rx, c.y, rx * 2, th * 0.5);
+  ctx.fillStyle = flat ? '#26282e' : '#2c2f36'; ctx.beginPath(); ctx.ellipse(c.x, c.y, rx, ry, 0, 0, TAU); ctx.fill();
+}
+function drawDebris(ctx, P, d, st) {
+  const K = KIT[d.team], c = P(d.x, d.y, d.z); if (!c) return;
+  const ink = '#0c0f14';
+  if (d.kind === 'stick') {
+    const dx = Math.cos(d.rot) * 2.6, dy = Math.sin(d.rot) * 2.6;
+    const a = P(d.x - dx, d.y - dy, d.z), b = P(d.x + dx, d.y + dy, d.z), t = P(d.x + dx + Math.cos(d.rot + 1.5) * 0.9, d.y + dy + Math.sin(d.rot + 1.5) * 0.9, d.z);
+    if (!a || !b || !t) return;
+    if (st === '2d') capLine(ctx, a, b, 0.12 * c.s + 3, ink);
+    capLine(ctx, a, b, Math.max(1.2, 0.12 * c.s), '#24262c'); capLine(ctx, b, t, Math.max(1.4, 0.24 * c.s), '#1c1d22');
+  } else if (d.kind === 'glove') {
+    ctx.save(); ctx.translate(c.x, c.y); ctx.rotate(d.rot % TAU * 0.3);
+    const w = 0.85 * c.s, h = 0.6 * c.s;
+    ctx.fillStyle = ink; rr(ctx, -w / 2 - 1, -h / 2 - 1, w + 2, h + 2, h * 0.3); ctx.fill();
+    ctx.fillStyle = K.glove; rr(ctx, -w / 2, -h / 2, w, h, h * 0.3); ctx.fill();
+    ctx.fillStyle = K.trim; ctx.fillRect(-w / 2, h * 0.05, w * 0.35, h * 0.25);
+    ctx.restore();
+  } else if (d.kind === 'helmet') {
+    const r = 0.46 * c.s;
+    ctx.fillStyle = ink; ctx.beginPath(); ctx.ellipse(c.x, c.y, r + 1, r * 0.8 + 1, d.rot * 0.2, 0, TAU); ctx.fill();
+    ctx.fillStyle = K.helmet; ctx.beginPath(); ctx.ellipse(c.x, c.y, r, r * 0.8, d.rot * 0.2, 0, TAU); ctx.fill();
+    ctx.strokeStyle = 'rgba(210,214,220,0.9)'; ctx.lineWidth = Math.max(0.7, r * 0.1);
+    ctx.beginPath(); ctx.arc(c.x + r * 0.3, c.y, r * 0.55, -1.2, 1.2); ctx.stroke();
+  }
+}
+function drawParticle(ctx, P, p) {
+  const c = P(p.x, p.y, p.z); if (!c) return;
+  const r = Math.max(0.8, p.size * c.s);
+  if (p.type === 'blood') ctx.fillStyle = p.col;
+  else if (p.type === 'spray') ctx.fillStyle = `rgba(245,250,255,${0.85 * (1 - p.life / p.max)})`;
+  else if (p.type === 'tooth') ctx.fillStyle = '#f4f1e6';
+  else ctx.fillStyle = 'rgba(200,232,250,0.85)';
+  ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, TAU); ctx.fill();
+}
+function drawNet(ctx, P, gx, dir, st) {
+  const z = 4, back = 3.3;
+  const pts = (zz, k) => [[gx, 39.5], [gx + dir * 1.6 * k, 38.9], [gx + dir * back * k, 40.4], [gx + dir * back * k, 44.6], [gx + dir * 1.6 * k, 46.1], [gx, 45.5]].map(([x, y]) => P(x, y, zz));
+  const base = pts(0, 1), top = pts(z, 0.45);
+  if (base.some((p) => !p) || top.some((p) => !p)) return;
+  ctx.fillStyle = 'rgba(255,255,255,0.16)';
+  for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.moveTo(base[i].x, base[i].y); ctx.lineTo(base[i + 1].x, base[i + 1].y); ctx.lineTo(top[i + 1].x, top[i + 1].y); ctx.lineTo(top[i].x, top[i].y); ctx.closePath(); ctx.fill(); }
+  ctx.strokeStyle = 'rgba(240,244,248,0.55)'; ctx.lineWidth = 0.7;
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) { ctx.moveTo(base[i].x, base[i].y); ctx.lineTo(top[i].x, top[i].y); }
+  for (let k = 0.2; k < 1; k += 0.2) { for (let i = 0; i < 6; i++) { const x = lerp(base[i].x, top[i].x, k), y = lerp(base[i].y, top[i].y, k); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } }
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(250,250,250,0.9)'; ctx.lineWidth = 1.2; ctx.beginPath(); base.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.stroke();
+  const pl = [P(gx, 39.5, 0), P(gx, 39.5, z), P(gx, 45.5, z), P(gx, 45.5, 0)];
+  const w = Math.max(1.6, 0.2 * pl[1].s);
+  if (st === '2d') { ctx.strokeStyle = '#0c0f14'; ctx.lineWidth = w + 2; ctx.beginPath(); pl.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.stroke(); }
+  ctx.strokeStyle = '#d42e28'; ctx.lineWidth = w; ctx.beginPath(); pl.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.stroke();
+}
+function quad(ctx, a, b, c, d) { ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath(); }
+// the dasherboards and glass, split into what lies behind the ice and what lies in front of it
+function drawBoards(ctx, P, inner, layer, st) {
+  const list = [];
+  for (const sg of SEGS) {
+    const vis = inner(sg);
+    if ((layer === 'back') !== vis) continue;
+    const m = P((sg.x0 + sg.x1) / 2, (sg.y0 + sg.y1) / 2, 2);
+    if (!m) continue;
+    list.push([m.d, sg]);
+  }
+  list.sort((a, b) => b[0] - a[0]);
+  const by = W.boardShake * 0.25 * Math.sin(W.t * 60);
+  for (const [, sg] of list) {
+    if (sg.kind === 'far' && layer === 'back') {
+      const a = P(28, RW + by, BOARD_H), b = P(172, RW + by, 0);
+      if (a && b) ctx.drawImage(boardTex, a.x, a.y, b.x - a.x, b.y - a.y);
+      drawFarGlass(ctx, P, st);
+      continue;
+    }
+    const p00 = P(sg.x0, sg.y0, 0), p10 = P(sg.x1, sg.y1, 0), p11 = P(sg.x1, sg.y1, BOARD_H), p01 = P(sg.x0, sg.y0, BOARD_H);
+    const g01 = P(sg.x0, sg.y0, GLASS_H), g11 = P(sg.x1, sg.y1, GLASS_H);
+    if (!p00 || !p10 || !p11 || !p01 || !g01 || !g11) continue;
+    if (layer === 'back') {
+      const lit = 0.82 + 0.18 * Math.abs(sg.nx);
+      ctx.fillStyle = `rgb(${(232 * lit) | 0},${(236 * lit) | 0},${(240 * lit) | 0})`; quad(ctx, p00, p10, p11, p01); ctx.fill();
+      ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = 1; ctx.stroke();
+      const k0 = P(sg.x0, sg.y0, 0.55), k1 = P(sg.x1, sg.y1, 0.55);
+      ctx.fillStyle = '#d9b032'; quad(ctx, p00, p10, k1, k0); ctx.fill();
+      ctx.fillStyle = 'rgba(190,222,242,0.09)'; quad(ctx, p01, p11, g11, g01); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(p01.x, p01.y); ctx.lineTo(g01.x, g01.y); ctx.stroke();
+      capLine(ctx, p01, p11, Math.max(1, 0.3 * p01.s), '#c3c9cf');
+    } else {
+      ctx.fillStyle = 'rgba(190,222,242,0.07)'; quad(ctx, p01, p11, g11, g01); ctx.fill();
+      ctx.fillStyle = st === '2d' ? '#2a313b' : 'rgba(24,30,38,0.92)'; quad(ctx, p00, p10, p11, p01); ctx.fill();
+      capLine(ctx, p01, p11, Math.max(1.5, 0.35 * p01.s), '#9aa3ac');
+      capLine(ctx, g01, g11, Math.max(1, 0.15 * g01.s), 'rgba(220,235,245,0.4)');
+    }
+  }
+}
+function drawFarGlass(ctx, P, st) {
+  for (let i = 0; i < 24; i++) {
+    const x0 = 28 + i * 6, x1 = x0 + 6, f = W.glassFlex[i], y = RW + f * 0.9;
+    const a = P(x0, y, BOARD_H), b = P(x1, y, BOARD_H), c = P(x1, y, GLASS_H), d = P(x0, y, GLASS_H);
+    if (!a || !b || !c || !d) continue;
+    ctx.fillStyle = `rgba(190,222,242,${0.09 + f * 0.25})`; quad(ctx, a, b, c, d); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = Math.max(1, 0.25 * a.s);
+    ctx.beginPath(); ctx.moveTo(lerp(a.x, b.x, 0.2), a.y); ctx.lineTo(lerp(d.x, c.x, 0.45), d.y); ctx.stroke();
+    ctx.strokeStyle = 'rgba(20,26,32,0.6)'; ctx.lineWidth = Math.max(1, 0.12 * a.s); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(d.x, d.y); ctx.stroke();
+  }
+  const top0 = P(28, RW, GLASS_H), top1 = P(172, RW, GLASS_H);
+  if (top0 && top1) capLine(ctx, top0, top1, Math.max(1, 0.12 * top0.s), 'rgba(220,235,245,0.5)');
+  for (const b of W.glassBlood) {
+    const c = P(b.x, RW - 0.05, b.z); if (!c) continue;
+    const r = mulberry(b.seed); ctx.fillStyle = 'rgba(130,8,14,0.8)';
+    ctx.beginPath(); ctx.ellipse(c.x, c.y, b.r * c.s, b.r * c.s * 0.8, 0, 0, TAU); ctx.fill();
+    for (let k = 0; k < 3; k++) { const dx = (r() - 0.5) * b.r * 2, len = (0.6 + r() * 1.6); capLine(ctx, { x: c.x + dx * c.s, y: c.y }, { x: c.x + dx * c.s, y: c.y + len * c.s }, Math.max(0.8, 0.12 * c.s), 'rgba(130,8,14,0.75)'); }
+  }
+  for (const k of W.cracks) {
+    const c = P(k.x, RW + 0.02, k.z); if (!c) continue;
+    const r = mulberry(k.seed); ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = Math.max(0.6, 0.05 * c.s);
+    ctx.beginPath();
+    for (let i = 0; i < 9; i++) {
+      const a = r() * TAU, l = (0.8 + r() * 2.2) * c.s; let x = c.x, y = c.y;
+      ctx.moveTo(x, y);
+      for (let j = 0; j < 3; j++) { x += Math.cos(a + (r() - 0.5) * 0.6) * l / 3; y += Math.sin(a + (r() - 0.5) * 0.6) * l / 3; ctx.lineTo(x, y); }
+    }
+    ctx.stroke();
+    ctx.beginPath(); ctx.arc(c.x, c.y, 0.35 * c.s, 0, TAU); ctx.stroke();
+  }
+}
+function drawFightHUD(ctx, w, h, u) {
+  const F = W.fight;
+  if (F && F.hud) {
+    const pw = Math.min(w * 0.38, 320 * u), ph = 34 * u, pad = 12 * u;
+    for (const [s, left] of [[F.l, true], [F.r, false]]) {
+      const K = KIT[s.team], x = left ? pad : w - pad - pw;
+      ctx.fillStyle = 'rgba(6,9,12,0.78)'; ctx.fillRect(x, pad, pw, ph);
+      ctx.fillStyle = K.jersey; ctx.fillRect(left ? x : x + pw - 6 * u, pad, 6 * u, ph);
+      ctx.fillStyle = '#f4efe2'; ctx.font = `800 ${17 * u}px "Saira Condensed", "Arial Narrow", sans-serif`; ctx.textBaseline = 'middle';
+      ctx.textAlign = left ? 'left' : 'right';
+      ctx.fillText(`${s.name}  #${s.num}`, left ? x + 14 * u : x + pw - 14 * u, pad + ph * 0.5);
+      const shown = F.pipShow[s.id];
+      for (let i = 0; i < 5; i++) {
+        const cx = left ? x + pw - 16 * u - i * 15 * u : x + 16 * u + i * 15 * u, cy = pad + ph * 0.5;
+        const full = clamp(shown - (4 - i), 0, 1);
+        ctx.fillStyle = '#2a2f36'; ctx.beginPath(); ctx.arc(cx, cy, 5.5 * u, 0, TAU); ctx.fill();
+        if (full > 0) { ctx.fillStyle = full > 0.5 ? '#f0bd4c' : '#a8402e'; ctx.beginPath(); ctx.arc(cx, cy, 5.5 * u * Math.max(0.35, full), 0, TAU); ctx.fill(); }
+      }
+    }
+  }
+  const B = W.banner;
+  if (B) {
+    const age = W.t - B.t0;
+    if (age < 1.3) {
+      const k = age < 0.12 ? age / 0.12 : 1, a = age > 1.0 ? 1 - (age - 1.0) / 0.3 : 1;
+      ctx.save(); ctx.globalAlpha = a; ctx.translate(w / 2, h * 0.42); ctx.scale(0.6 + 0.4 * k, 0.6 + 0.4 * k); ctx.transform(1, 0, -0.18, 1, 0, 0);
+      ctx.font = `800 ${Math.min(96, w / 7)}px "Saira Condensed", "Arial Narrow", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.lineWidth = 9 * u; ctx.strokeStyle = '#120c04'; ctx.strokeText(B.text, 0, 0);
+      ctx.fillStyle = B.text === 'K.O.' ? '#ff5143' : '#f0bd4c'; ctx.fillText(B.text, 0, 0);
+      ctx.restore();
+    }
+  }
+}
+function fit(c) {
+  const r = c.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr));
+  if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+  return { w, h, u: w / 900 };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// A · the 2D renderer: oblique orthographic camera at one zoom, sprites quantised
+// ═══════════════════════════════════════════════════════════════════════════
+const Q2 = { dirs: 8, frames: 6, act: 5, fps: 12 };
+const TILT = 0.5;
+class Render2D {
+  constructor(c) { this.c = c; this.ctx = c.getContext('2d'); this.camX = 100; this.camY = 42; this.ms = 0; this.cut = -1; this.wipe = 0; this.lastT = 0; }
+  render() {
+    const t0 = performance.now(), { w, h, u } = fit(this.c), ctx = this.ctx;
+    if (this.cut !== W.camCut) { this.cut = W.camCut; this.wipe = 1; this.camX = clamp(W.focus[0], 48, 152); this.camY = clamp(W.focus[1], 30, 40); }
+    const dt = Math.min(0.05, Math.max(0, W.t - this.lastT)); this.lastT = W.t;
+    this.camX += (clamp(W.focus[0], 48, 152) - this.camX) * (1 - Math.exp(-dt * 3));
+    this.camY += (clamp(W.focus[1], 30, 40) - this.camY) * (1 - Math.exp(-dt * 2));
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#07090c'; ctx.fillRect(0, 0, w, h);
+    const sh = W.shake * 5 * u; ctx.setTransform(1, 0, 0, 1, Math.round((Math.random() - 0.5) * sh), Math.round((Math.random() - 0.5) * sh));
+    if (W.cam === 'fight') this.drawFight(ctx, w, h, u); else this.drawRink(ctx, w, h, u);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    drawFightHUD(ctx, w, h, u);
+    if (this.wipe > 0) { ctx.fillStyle = '#05070a'; ctx.fillRect(0, 0, w * this.wipe, h); this.wipe = Math.max(0, this.wipe - 0.09); }
+    this.ms = lerp(this.ms, performance.now() - t0, 0.05);
+  }
+  drawRink(ctx, w, h, u) {
+    const k = w / 92, cx = w / 2, cy = h * 0.63, camX = this.camX, camY = this.camY;
+    const P = (X, Y, Z) => ({ x: Math.round((cx + (X - camX) * k) * 2) / 2, y: Math.round((cy + (camY - Y) * k * TILT - Z * k * 0.9) * 2) / 2, s: k, d: Y * 0.9 - Z * 0.4 });
+    const camv = () => [0, -0.9, 0.45];
+    // crowd: a flat band above the glass
+    const crowd = W.crowd > 0.45 ? crowdUp : crowdSit;
+    const r0 = P(CX0, 89, 4.2), r1 = P(CX1, 89 + CROWS * 3, 4.2 + CROWS * 2.2);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(crowd, 0, 0, crowd.width, crowd.height, r0.x, r1.y, r1.x - r0.x, r0.y - r1.y);
+    // the stands drawn upside down would be wrong: row 0 (nearest) must be at the bottom
+    drawBoards(ctx, P, (sg) => sg.ny < 0.01 && !(sg.kind === 'near'), 'back', '2d');
+    const a = P(0, RW, 0); ctx.drawImage(ice, a.x, a.y, RL * k, RW * k * TILT);
+    ctx.imageSmoothingEnabled = true;
+    this.drawWorld(ctx, P, camv, k);
+    drawBoards(ctx, P, (sg) => sg.ny < 0.01 && !(sg.kind === 'near'), 'front', '2d');
+  }
+  drawWorld(ctx, P, camv, k, only) {
+    const items = [];
+    const sk = only || W.sk;
+    for (const s of sk) items.push({ d: P(s.x, s.y, 3).d, f: () => this.drawSkater(ctx, P, s, camv) });
+    if (!only) {
+      for (const g of W.gl) items.push({ d: P(g.x, g.y, 3).d, f: () => drawFigure(ctx, P, goalieRig(g, Q2), { team: g.team, style: '2d', goalie: true, num: g.num, skin: g.skin, camv, gloves: true, helmet: true, jerseyUp: 0 }) });
+      for (const [gx, dir] of [[11, 1], [189, -1]]) items.push({ d: P(gx + dir * 1.5, 42.5, 2).d, f: () => drawNet(ctx, P, gx, dir, '2d') });
+      items.push({ d: P(W.puck.x, W.puck.y, 0).d - 0.5, f: () => drawPuck(ctx, P, W.puck, true) });
+    }
+    for (const d of W.debris) items.push({ d: P(d.x, d.y, 0).d, f: () => drawDebris(ctx, P, d, '2d') });
+    for (const p of W.parts) items.push({ d: P(p.x, p.y, 0).d - 0.3, f: () => drawParticle(ctx, P, p) });
+    // flat shadows first, then everything back to front
+    ctx.fillStyle = 'rgba(16,26,40,0.28)';
+    for (const s of sk) { const c = P(s.x, s.y, 0); ctx.beginPath(); ctx.ellipse(c.x, c.y, 1.2 * k, 0.55 * k, 0, 0, TAU); ctx.fill(); }
+    items.sort((a, b) => b.d - a.d);
+    for (const it of items) it.f();
+  }
+  drawSkater(ctx, P, s, camv) {
+    let J;
+    if (s.rag) {
+      // No physics in a sprite game: a canned stagger frame, then a canned lying frame,
+      // placed where the body is and turned to the nearest of eight directions.
+      const r = s.rag, st = TAU / 8, dir = Math.round(r.dir / st) * st;
+      const tmp = Object.assign(Object.create(Object.getPrototypeOf(s)), s, { rag: null, act: null, amp: 0, h: dir + Math.PI, guard: false, stance: 0, react: 0, duck: 0 });
+      const base = skaterRig(tmp, Q2, true);
+      const ang = r.age < 0.3 ? 0.9 : Math.PI / 2 - 0.08;
+      const ax = [-Math.sin(dir), Math.cos(dir), 0];
+      const piv = r.age < 0.3 ? [tmp.x, tmp.y, 0] : [tmp.x, tmp.y, 0];
+      const rot = (p) => { if (!p) return null; const v = V.sub(p, piv); const c = Math.cos(ang), sn = Math.sin(ang); const kxv = V.cross(ax, v), kdv = V.dot(ax, v); const out = V.add(V.add(V.mul(v, c), V.mul(kxv, sn)), V.mul(ax, kdv * (1 - c))); return V.add(out, piv); };
+      J = base.map(rot);
+      const pel = r.pts[0]; const off = [pel.x - J[0][0], pel.y - J[0][1], r.age < 0.3 ? 0 : 0.35 - Math.min(...J.filter(Boolean).map((p) => p[2]))];
+      J = J.map((p) => (p ? [p[0] + off[0], p[1] + off[1], p[2] + off[2]] : null));
+      J[18] = J[19] = J[20] = null;
+    } else J = skaterRig(s, Q2);
+    drawFigure(ctx, P, J, { team: s.team, style: '2d', num: s.num, skin: s.skin, camv, gloves: s.gloves, helmet: s.helmet, jerseyUp: s.jerseyUp, react: s.react });
+  }
+  drawFight(ctx, w, h, u) {
+    // the side-view cut-in: its own backdrop, two big sprites
+    const F = W.fight, fx = W.focus[0], fy = 42.5, k = h / 10.5, gy = h * 0.86;
+    const crowd = W.crowd > 0.45 ? crowdUp : crowdSit;
+    ctx.imageSmoothingEnabled = false;
+    const sx = (fx - 18 - CX0) * CPX;
+    ctx.drawImage(crowd, sx, 0, 36 * CPX, crowd.height, 0, 0, w, h * 0.42);
+    ctx.drawImage(boardTex, (fx - 16 - 28) * BPX, 0, 32 * BPX, boardTex.height, 0, h * 0.5, w, h * 0.13);
+    ctx.fillStyle = 'rgba(190,222,242,0.12)'; ctx.fillRect(0, h * 0.3, w, h * 0.2);
+    ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 3 * u;
+    for (let i = 0; i < 6; i++) { const x = (i + 0.3) * w / 6; ctx.beginPath(); ctx.moveTo(x, h * 0.48); ctx.lineTo(x + w * 0.05, h * 0.31); ctx.stroke(); }
+    ctx.fillStyle = '#b9c0c6'; ctx.fillRect(0, h * 0.49, w, h * 0.012);
+    ctx.drawImage(ice, (fx - 14) * TPX, (RW - (fy + 8)) * TPX, 28 * TPX, 14 * TPX, 0, h * 0.63, w, h * 0.37);
+    ctx.imageSmoothingEnabled = true;
+    const P = (X, Y, Z) => ({ x: Math.round(w / 2 + (X - fx) * k), y: Math.round(gy - Z * k - (Y - fy) * k * 0.22), s: k, d: Y * 0.9 - Z * 0.1 });
+    const camv = () => [0, -1, 0.15];
+    ctx.fillStyle = 'rgba(16,26,40,0.3)';
+    for (const s of [F.l, F.r]) { const c = P(s.x, s.y, 0); ctx.beginPath(); ctx.ellipse(c.x, c.y, 1.6 * k, 0.3 * k, 0, 0, TAU); ctx.fill(); }
+    const items = [];
+    for (const s of [F.l, F.r]) items.push({ d: P(s.x, s.y, 3).d, f: () => this.drawSkater(ctx, P, s, camv) });
+    for (const d of W.debris) if (Math.abs(d.x - fx) < 9) items.push({ d: P(d.x, d.y, 0).d, f: () => drawDebris(ctx, P, d, '2d') });
+    for (const p of W.parts) if (Math.abs(p.x - fx) < 9) items.push({ d: P(p.x, p.y, 0).d - 0.3, f: () => drawParticle(ctx, P, p) });
+    items.sort((a, b) => b.d - a.d);
+    for (const it of items) it.f();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// B · the 3D renderer: perspective broadcast camera, live rig, ragdolls, Mode-7 ice
+// ═══════════════════════════════════════════════════════════════════════════
+class Render3D {
+  constructor(c) { this.c = c; this.ctx = c.getContext('2d'); this.ms = 0; this.cut = -1; this.flash = 0; this.lastT = 0;
+    this.cam = { lx: 100, ly: 42, lz: 0, dist: 96, pitch: 0.5, fm: 1 }; this.pat = null; }
+  target() {
+    const f = W.focus;
+    if (W.cam === 'fight') return { lx: f[0], ly: f[1], lz: 3.0, dist: 17.5, pitch: 0.1, fm: 0.95 };
+    if (W.cam === 'zoom') return { lx: f[0], ly: f[1] - 2, lz: 1.5, dist: 44, pitch: 0.36, fm: 1 };
+    return { lx: clamp(f[0], 52, 158), ly: clamp(f[1] * 0.45 + 22, 30, 48), lz: 0, dist: 80, pitch: 0.5, fm: 1 };
+  }
+  render() {
+    const t0 = performance.now(), { w, h, u } = fit(this.c), ctx = this.ctx;
+    const tg = this.target(), c = this.cam;
+    const dt = Math.min(0.05, Math.max(0, W.t - this.lastT)); this.lastT = W.t;
+    if (this.cut !== W.camCut) { this.cut = W.camCut; Object.assign(c, tg); this.flash = 1; }
+    else for (const k of Object.keys(tg)) c[k] += (tg[k] - c[k]) * (1 - Math.exp(-dt * (k === 'lx' ? 2.8 : 2.2)));
+    const cam = { x: c.lx, y: c.ly - c.dist * Math.cos(c.pitch), z: c.lz + c.dist * Math.sin(c.pitch), pitch: c.pitch, f: w * c.fm, cx: w / 2, cy: h * 0.56 };
+    const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+    const P = (X, Y, Z) => { const dx = X - cam.x, dy = Y - cam.y, dz = Z - cam.z, d = dy * cp - dz * sp; if (d < 0.6) return null; const up = dy * sp + dz * cp; return { x: cam.cx + cam.f * dx / d, y: cam.cy - cam.f * up / d, s: cam.f / d, d }; };
+    const camv = (p) => [cam.x - p[0], cam.y - p[1], cam.z - p[2]];
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    const bg = ctx.createLinearGradient(0, 0, 0, h); bg.addColorStop(0, '#05070a'); bg.addColorStop(1, '#0d1218');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+    const sh = W.shake * 7 * u; ctx.setTransform(1, 0, 0, 1, (Math.random() - 0.5) * sh, (Math.random() - 0.5) * sh);
+    this.drawStands(ctx, P, cam);
+    const inner = (sg) => sg.nx * (cam.x - (sg.x0 + sg.x1) / 2) + sg.ny * (cam.y - (sg.y0 + sg.y1) / 2) > 0;
+    drawBoards(ctx, P, inner, 'back', '3d');
+    this.drawIce(ctx, cam, w, h, P);
+    // the ice reflects: every body drawn again upside down under itself, faint, clipped to the sheet
+    ctx.save(); this.clipSheet(ctx, P);
+    ctx.globalAlpha = 0.12;
+    const PR = (X, Y, Z) => P(X, Y, -Z);
+    for (const s of W.sk) drawFigure(ctx, PR, skaterRig(s), { team: s.team, style: 'refl', num: s.num, skin: s.skin, camv, gloves: s.gloves, helmet: s.helmet, jerseyUp: s.jerseyUp });
+    for (const g of W.gl) drawFigure(ctx, PR, goalieRig(g), { team: g.team, style: 'refl', goalie: true, num: g.num, skin: g.skin, camv, gloves: true, helmet: true, jerseyUp: 0 });
+    ctx.globalAlpha = 1;
+    // overhead banks of lights each throw a soft shadow
+    for (const s of W.sk) this.shadow(ctx, P, s.rag ? s.rag.pts[0].x : s.x, s.rag ? s.rag.pts[0].y : s.y, s.rag ? 2.6 : 1.3);
+    for (const g of W.gl) this.shadow(ctx, P, g.x, g.y, 1.7);
+    this.shadow(ctx, P, W.puck.x, W.puck.y, 0.35);
+    ctx.restore();
+    const items = [];
+    for (const s of W.sk) { const pp = P(s.x, s.y, 3); if (pp) items.push({ d: pp.d, f: () => drawFigure(ctx, P, skaterRig(s), { team: s.team, style: '3d', num: s.num, skin: s.skin, camv, gloves: s.gloves, helmet: s.helmet, jerseyUp: s.jerseyUp, react: s.react, bloodied: s.bleeding > 0 }) }); }
+    for (const g of W.gl) { const pp = P(g.x, g.y, 3); if (pp) items.push({ d: pp.d, f: () => drawFigure(ctx, P, goalieRig(g), { team: g.team, style: '3d', goalie: true, num: g.num, skin: g.skin, camv, gloves: true, helmet: true, jerseyUp: 0 }) }); }
+    for (const [gx, dir] of [[11, 1], [189, -1]]) { const pp = P(gx + dir * 1.5, 42.5, 2); if (pp) items.push({ d: pp.d, f: () => drawNet(ctx, P, gx, dir, '3d') }); }
+    { const pp = P(W.puck.x, W.puck.y, 0); if (pp) items.push({ d: pp.d - 0.3, f: () => drawPuck(ctx, P, W.puck, false) }); }
+    for (const d of W.debris) { const pp = P(d.x, d.y, 0); if (pp) items.push({ d: pp.d, f: () => drawDebris(ctx, P, d, '3d') }); }
+    for (const p of W.parts) { const pp = P(p.x, p.y, p.z); if (pp) items.push({ d: pp.d - 0.2, f: () => drawParticle(ctx, P, p) }); }
+    items.sort((a, b) => b.d - a.d);
+    for (const it of items) it.f();
+    drawBoards(ctx, P, inner, 'front', '3d');
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    const vg = ctx.createRadialGradient(w / 2, h * 0.5, h * 0.35, w / 2, h * 0.5, w * 0.62);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.42)'); ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
+    drawFightHUD(ctx, w, h, u);
+    if (this.flash > 0) { ctx.fillStyle = `rgba(255,255,255,${this.flash * 0.55})`; ctx.fillRect(0, 0, w, h); this.flash = Math.max(0, this.flash - 0.12); }
+    this.ms = lerp(this.ms, performance.now() - t0, 0.05);
+  }
+  clipSheet(ctx, P) {
+    ctx.beginPath(); let first = true;
+    for (const sg of SEGS) { const p = P(sg.x0, sg.y0, 0); if (!p) continue; if (first) { ctx.moveTo(p.x, p.y); first = false; } else ctx.lineTo(p.x, p.y); }
+    ctx.closePath(); ctx.clip();
+  }
+  shadow(ctx, P, x, y, r) {
+    for (const [ox, oy, a] of [[0, 0, 0.22], [1.3, 0.9, 0.07], [-1.3, 0.9, 0.07]]) {
+      const c = P(x + ox, y + oy, 0), e = P(x + ox + r, y + oy, 0), f = P(x + ox, y + oy + r * 0.7, 0);
+      if (!c || !e || !f) continue;
+      ctx.fillStyle = `rgba(14,24,38,${a})`; ctx.beginPath(); ctx.ellipse(c.x, c.y, Math.abs(e.x - c.x), Math.max(0.5, Math.abs(f.y - c.y)), 0, 0, TAU); ctx.fill();
+    }
+  }
+  drawStands(ctx, P, cam) {
+    const crowd = W.crowd > 0.45 ? crowdUp : crowdSit;
+    for (let i = CROWS - 1; i >= 0; i--) {
+      const y = 89 + i * 3, z0 = 4.2 + i * 2.2;
+      const bob = W.crowd > 0.45 ? W.crowd * 0.35 * Math.max(0, Math.sin(W.t * 13 + i * 1.7)) : 0;
+      const a = P(CX0, y, z0 + bob), b = P(CX1, y, z0 + 2.2 + bob);
+      if (!a || !b) continue;
+      ctx.drawImage(crowd, 0, i * ROWH, crowd.width, ROWH, a.x, b.y, b.x - a.x, a.y - b.y + 1);
+    }
+    // camera flashes in the bowl when it gets loud
+    if (W.crowd > 0.5) {
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      for (let i = 0; i < 6; i++) { if (Math.random() > W.crowd * 0.5) continue; const p = P(CX0 + Math.random() * (CX1 - CX0), 89 + Math.random() * 40, 6 + Math.random() * 30); if (p) { ctx.beginPath(); ctx.arc(p.x, p.y, 1.5 + Math.random() * 2, 0, TAU); ctx.fill(); } }
+    }
+    // the ends: a dark wedge of seats behind each end wall
+    if (!this.pat) this.pat = ctx.createPattern(crowdSit, 'repeat');
+    for (const [x0, x1] of [[0, -45], [RL, RL + 45]]) {
+      const a = P(x0, -10, BOARD_H), b = P(x0, 95, BOARD_H), c = P(x1, 95, 40), d = P(x1, -10, 40);
+      if (!a || !b || !c || !d) continue;
+      ctx.save(); quad(ctx, a, b, c, d); ctx.clip();
+      ctx.fillStyle = this.pat; ctx.globalAlpha = 0.55; ctx.fillRect(Math.min(a.x, b.x, c.x, d.x), Math.min(a.y, b.y, c.y, d.y), 2000, 2000);
+      ctx.globalAlpha = 1; ctx.fillStyle = 'rgba(5,7,10,0.45)'; ctx.fillRect(Math.min(a.x, b.x, c.x, d.x), Math.min(a.y, b.y, c.y, d.y), 2000, 2000);
+      ctx.restore();
+    }
+  }
+  // Mode-7: the camera never yaws or rolls, so every screen row is one line of constant depth
+  // across the ice, and one drawImage per row maps the texture exactly.
+  drawIce(ctx, cam, w, h, P) {
+    const top = P(100, RW, 0), bot = P(100, 0, 0);
+    const y0 = Math.max(0, Math.floor(top ? top.y : 0)), y1 = Math.min(h, bot ? Math.ceil(bot.y) : h);
+    const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch), stepPx = 2;
+    for (let sy = y0; sy < y1; sy += stepPx) {
+      const v = (cam.cy - (sy + stepPx / 2)) / cam.f;
+      const dz = -sp + v * cp; if (dz >= -1e-4) continue;
+      const t = -cam.z / dz, Y = cam.y + t * (cp + v * sp);
+      if (Y < 0 || Y > RW) continue;
+      const sx0 = cam.cx + cam.f * (0 - cam.x) / t, sx1 = cam.cx + cam.f * (RL - cam.x) / t;
+      ctx.drawImage(ice, 0, Math.min(ice.height - 1, (RW - Y) * TPX), ice.width, 1, sx0, sy, sx1 - sx0, stepPx + 0.7);
+    }
+    // gloss from the light banks
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    for (const lx of [55, 100, 145]) {
+      const c = P(lx, 46, 0), e = P(lx + 22, 46, 0), f = P(lx, 58, 0); if (!c || !e || !f) continue;
+      const rx = Math.abs(e.x - c.x), ry = Math.max(4, Math.abs(f.y - c.y));
+      const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, rx);
+      g.addColorStop(0, 'rgba(255,255,255,0.10)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(c.x, c.y, rx, ry, 0, 0, TAU); ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Run it
+// ═══════════════════════════════════════════════════════════════════════════
+buildCast();
+restart(0);
+const R2 = new Render2D(document.getElementById('c2'));
+const R3 = new Render3D(document.getElementById('c3'));
+let playing = true, speed = 1, last = performance.now(), acc = 0, uiAt = 0;
+const $ = (id) => document.getElementById(id);
+const playBtn = $('play');
+playBtn.addEventListener('click', () => { playing = !playing; playBtn.textContent = playing ? 'Pause' : 'Play'; playBtn.setAttribute('aria-pressed', String(!playing)); });
+$('restart').addEventListener('click', () => restart(0));
+for (const b of document.querySelectorAll('[data-scene]')) b.addEventListener('click', () => restart(+b.dataset.scene));
+$('speed').addEventListener('change', (e) => { speed = +e.target.value; });
+let lastCall = '';
+function frame(now) {
+  const rdt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (playing) {
+    let dt = rdt * speed;
+    if (W.hitstop > 0) { W.hitstop -= rdt; dt *= 0.06; }
+    acc += dt;
+    let n = 0;
+    while (acc >= DT && n < 30) { step(DT); acc -= DT; n++; }
+  }
+  R2.render(); R3.render();
+  if (now - uiAt > 250) {
+    uiAt = now;
+    const m = Math.floor(W.t / 60), s = (W.t % 60).toFixed(1).padStart(4, '0');
+    $('clock').textContent = `${m}:${s} / 0:${LOOP}`;
+    $('perf2').textContent = `${R2.ms.toFixed(1)} ms/frame`; $('perf3').textContent = `${R3.ms.toFixed(1)} ms/frame`;
+    $('cost2').textContent = `${R2.ms.toFixed(1)} ms`; $('cost3').textContent = `${R3.ms.toFixed(1)} ms`;
+    for (let i = 0; i < 3; i++) $(`sc${i}`).setAttribute('aria-pressed', String(W.scene === i));
+  }
+  if (W.call !== lastCall) { lastCall = W.call; $('call').innerHTML = W.call; }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+// Headless hook so a screenshot script can park a moment.
+window.__bake = { W, restart, step: (secs) => { const n = Math.round(secs / DT); for (let i = 0; i < n; i++) step(DT); }, setPlaying: (v) => { playing = v; } };
+</script>
+
+</body>
+</html>
