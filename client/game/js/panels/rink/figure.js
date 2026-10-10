@@ -30,8 +30,8 @@ const NUM_FONT = '800 100px "Saira Condensed", "Arial Narrow", "Roboto Condensed
 const NAME_FONT = '700 100px "Saira Condensed", "Arial Narrow", "Roboto Condensed", sans-serif';
 
 // Torso cross-sections: [fraction pelvis→neck, half-width, half-depth, forward offset].
-const SK_RINGS = [[-0.08, 0.6, 0.43, 0], [0.3, 0.55, 0.39, 0.02], [0.66, 0.7, 0.48, 0.05], [0.9, 0.98, 0.47, 0], [1.03, 0.5, 0.34, -0.02]];
-const GK_RINGS = [[-0.08, 0.7, 0.52, 0.04], [0.3, 0.7, 0.55, 0.08], [0.66, 0.86, 0.62, 0.1], [0.9, 1.18, 0.56, 0.04], [1.04, 0.56, 0.4, 0]];
+const SK_RINGS = [[-0.1, 0.72, 0.5, 0], [0.3, 0.66, 0.47, 0.02], [0.64, 0.86, 0.56, 0.05], [0.88, 1.2, 0.56, 0], [1.03, 0.62, 0.4, -0.02]];
+const GK_RINGS = [[-0.1, 0.8, 0.58, 0.04], [0.3, 0.8, 0.62, 0.08], [0.64, 0.98, 0.7, 0.1], [0.88, 1.32, 0.64, 0.04], [1.04, 0.64, 0.46, 0]];
 
 function taper(ctx, a, b, ra, rb) {
   const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy);
@@ -78,7 +78,7 @@ export function drawBody(ctx, P, J, o) {
   const cam = o.camPos;
   const toCam = (p) => V.norm(V.sub(cam, p));
   const W = (p) => (p ? P(p[0], p[1], p[2]) : null);
-  const lw = refl ? 0 : Math.max(0.8, s0 * 0.04);
+  const lw = refl ? 0 : Math.max(1.1, s0 * 0.045);
   const parts = [];
   const add = (d, path, paint) => parts.push({ d, path, paint });
 
@@ -137,9 +137,9 @@ export function drawBody(ctx, P, J, o) {
   for (const [hip, kn, an, toe, side] of [[10, 11, 12, 16, 1], [13, 14, 15, 17, -1]]) {
     const A = J[an], T = J[toe];
     if (missing[side > 0 ? 'legL' : 'legR'] && !gk) {
-      const thighEnd = V.lerp(J[hip], J[kn], 0.9);
-      limb(J[hip], thighEnd, 0.45, 0.34, K.pants);
-      limb(thighEnd, J[kn], 0.32, 0.26, K.sock);
+      const thighEnd = V.lerp(J[hip], J[kn], 0.86);
+      limb(J[hip], thighEnd, 0.6, 0.52, K.pants);
+      limb(thighEnd, J[kn], 0.4, 0.34, K.sock);
       stump(J[kn], 0.24);
       continue;
     }
@@ -158,10 +158,10 @@ export function drawBody(ctx, P, J, o) {
         }
       });
     }
-    limb(heel, toeC, 0.21, 0.15, BOOT, (a, b) => {
+    limb(heel, toeC, 0.25, 0.18, BOOT, (a, b) => {
       if (lod === 2) { ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 0.05 * a.s; ctx.beginPath(); ctx.moveTo(lerp(a.x, b.x, 0.25), lerp(a.y, b.y, 0.25) - 0.1 * a.s); ctx.lineTo(lerp(a.x, b.x, 0.85), lerp(a.y, b.y, 0.85) - 0.07 * a.s); ctx.stroke(); }
     });
-    limb(V.add(A, [0, 0, 0.05]), [A[0] + fw[0] * 0.18, A[1] + fw[1] * 0.18, 0.38], 0.22, 0.2, BOOT);
+    limb(V.add(A, [0, 0, 0.05]), [A[0] + fw[0] * 0.18, A[1] + fw[1] * 0.18, 0.38], 0.27, 0.24, BOOT);
     limb([heel[0] - fw[0] * 0.02, heel[1] - fw[1] * 0.02, 0.45], [A[0] - fw[0] * 0.24, A[1] - fw[1] * 0.24, 0.8], 0.075, 0.06, '#26272c');
     if (gk) {
       // pads: a big tapered block from above the knee to the boot, with knee rolls
@@ -172,23 +172,24 @@ export function drawBody(ctx, P, J, o) {
       }, -0.03);
       limb(J[hip], J[kn], 0.48, 0.44, '#e3e6e9', (a, b) => ringAt(J[hip], J[kn], 0.48, 0.44, 0.7, K.jersey, 0.12));
     } else {
-      limb(J[kn], A, 0.3, 0.19, K.sock, () => {
-        ringAt(J[kn], A, 0.3, 0.19, 0.3, K.trim, 0.11); ringAt(J[kn], A, 0.3, 0.19, 0.46, K.trim, 0.11);
+      limb(J[kn], A, 0.4, 0.27, K.sock, () => {
+        ringAt(J[kn], A, 0.4, 0.27, 0.3, K.trim, 0.13); ringAt(J[kn], A, 0.4, 0.27, 0.47, K.trim, 0.13);
       });
-      ball(V.add(J[kn], V.mul(F, 0.1)), 0.29, K.sock, -0.02);
-      const thighEnd = V.lerp(J[hip], J[kn], 0.9);
-      limb(J[hip], thighEnd, 0.45, 0.34, K.pants, () => {
-        ringAt(J[hip], thighEnd, 0.45, 0.34, 0.94, shade(K.pants, -0.4), 0.08);
+      ball(V.add(J[kn], V.mul(F, 0.1)), 0.39, K.sock, -0.02);
+      // breezers: big through the hip and flared at the hem, the hockey silhouette
+      const thighEnd = V.lerp(J[hip], J[kn], 0.86);
+      limb(J[hip], thighEnd, 0.6, 0.52, K.pants, () => {
+        ringAt(J[hip], thighEnd, 0.6, 0.52, 0.94, shade(K.pants, -0.4), 0.1);
         // the stripe down the outside of the breezers
         if (lod) {
           const out = V.mul(Sh, side);
-          const a = V.add(J[hip], V.mul(out, 0.46)), b = V.add(thighEnd, V.mul(out, 0.35));
+          const a = V.add(J[hip], V.mul(out, 0.6)), b = V.add(thighEnd, V.mul(out, 0.52));
           if (V.dot(out, toCam(a)) > 0) { const pa = W(a), pb = W(b); if (pa && pb) { ctx.strokeStyle = K.trim; ctx.lineWidth = Math.max(1, 0.1 * pa.s); ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke(); } }
         }
       });
     }
   }
-  limb(J[10], J[13], gk ? 0.56 : 0.5, gk ? 0.56 : 0.5, K.pants, null, -0.01);
+  limb(J[10], J[13], gk ? 0.66 : 0.64, gk ? 0.66 : 0.64, K.pants, null, -0.01);
 
   // ── torso ────────────────────────────────────────────────────────────────
   const ju = o.jerseyUp || 0;
@@ -330,11 +331,11 @@ export function drawBody(ctx, P, J, o) {
       const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L, off = 0.12 * a.s;
       ctx.beginPath(); for (const k of [-1, 1]) { ctx.moveTo(a.x + nx * off * k, a.y + ny * off * k); ctx.lineTo(b.x + nx * off * k, b.y + ny * off * k); } ctx.stroke();
     } : null;
-    ball(V.add(S, V.mul(U, 0.06)), 0.37 * ar, K.jersey, -0.01);
-    limb(S, E, 0.33 * ar, 0.28 * ar, K.jersey, sleeveLines);
-    ball(E, 0.27 * ar, K.jersey, -0.01);
+    ball(V.add(S, V.mul(U, 0.08)), 0.47 * ar, K.jersey, -0.01);
+    limb(S, E, 0.41 * ar, 0.35 * ar, K.jersey, sleeveLines);
+    ball(E, 0.34 * ar, K.jersey, -0.01);
     if (missing[side > 0 ? 'armL' : 'armR'] && !gk) { stump(V.add(E, V.mul(V.norm(V.sub(H, E)), 0.15)), 0.2); continue; }
-    limb(E, wrist, 0.28 * ar, 0.3 * ar, K.jersey, K.stripes ? sleeveLines : () => { ringAt(E, wrist, 0.28 * ar, 0.3 * ar, 0.42, K.trim, 0.11); ringAt(E, wrist, 0.28 * ar, 0.3 * ar, 0.6, K.trim, 0.07); });
+    limb(E, wrist, 0.34 * ar, 0.36 * ar, K.jersey, K.stripes ? sleeveLines : () => { ringAt(E, wrist, 0.34 * ar, 0.36 * ar, 0.42, K.trim, 0.13); ringAt(E, wrist, 0.34 * ar, 0.36 * ar, 0.6, K.trim, 0.08); });
     if (gk && side > 0) {
       // the trapper: a disc in the plane facing the shooter, with a laced pocket
       const nrm = F, [a1, a2] = perp(nrm), c = V.add(H, V.mul(dir, 0.15));
@@ -365,14 +366,14 @@ export function drawBody(ctx, P, J, o) {
     } else if (o.gloves !== false) {
       // a gauntlet: cuff, then the hand block, then the thumb
       const cuff0 = V.sub(wrist, V.mul(dir, 0.22)), palm = V.add(H, V.mul(dir, 0.16));
-      limb(cuff0, wrist, 0.27, 0.3, K.glove, () => ringAt(cuff0, wrist, 0.27, 0.3, 0.55, K.trim, 0.1), -0.02);
-      limb(wrist, palm, 0.27, 0.22, shade(K.glove, 0.08), null, -0.03);
+      limb(cuff0, wrist, 0.34, 0.38, K.glove, () => ringAt(cuff0, wrist, 0.34, 0.38, 0.55, K.trim, 0.12), -0.02);
+      limb(wrist, palm, 0.34, 0.28, shade(K.glove, 0.08), null, -0.03);
       const [p1] = perp(dir);
-      limb(V.add(V.lerp(wrist, palm, 0.4), V.mul(p1, 0.18 * side)), V.add(palm, V.mul(p1, 0.2 * side)), 0.09, 0.08, shade(K.glove, -0.1), null, -0.035);
+      limb(V.add(V.lerp(wrist, palm, 0.4), V.mul(p1, 0.22 * side)), V.add(palm, V.mul(p1, 0.25 * side)), 0.12, 0.1, shade(K.glove, -0.1), null, -0.035);
     } else {
       // gloves off: a taped wrist and a bare fist
-      limb(wrist, H, 0.16, 0.15, o.skin, null, -0.02);
-      ball(V.add(H, V.mul(dir, 0.08)), 0.19, o.skin, -0.03);
+      limb(wrist, H, 0.19, 0.18, o.skin, null, -0.02);
+      ball(V.add(H, V.mul(dir, 0.08)), 0.23, o.skin, -0.03);
       if (lod === 2 && !refl) {
         const k = W(V.add(H, V.mul(dir, 0.2)));
         if (k && (o.react > 0.2 || (o.blood || 0) > 0.3)) add(k.d - 0.04, () => { ctx.beginPath(); ctx.arc(k.x, k.y, 0.07 * k.s, 0, TAU); }, () => { ctx.fillStyle = 'rgba(140,10,16,0.8)'; ctx.beginPath(); ctx.arc(k.x, k.y, 0.07 * k.s, 0, TAU); ctx.fill(); });
@@ -385,11 +386,11 @@ export function drawBody(ctx, P, J, o) {
   const hp = W(Hc);
   if (missing.head) stump(J[2], 0.24);
   else if (hp && ju <= 0.3) {
-    limb(J[2], V.add(Hc, V.mul(U, -0.3)), 0.21, 0.2, o.helmet === false ? o.skin : '#202228', null, 0.02);
-    add(hp.d - 0.01, () => { ctx.beginPath(); ctx.arc(hp.x, hp.y, (gk ? 0.53 : 0.47) * hp.s, 0, TAU); }, () => drawHead());
+    limb(J[2], V.add(Hc, V.mul(U, -0.3)), 0.26, 0.24, o.helmet === false ? o.skin : '#202228', null, 0.02);
+    add(hp.d - 0.01, () => { ctx.beginPath(); ctx.arc(hp.x, hp.y, (gk ? 0.58 : 0.53) * hp.s, 0, TAU); }, () => drawHead());
   }
   const drawHead = () => {
-    const R = gk ? 0.53 : 0.47, r = R * hp.s;
+    const R = gk ? 0.58 : 0.53, r = R * hp.s;
     // the head's own frame: forward is the chest's, levelled a little
     const Fh = V.norm([F[0], F[1], F[2] * 0.4 - 0.05]), Sd = V.norm(V.cross([0, 0, 1], Fh)), Uh = V.cross(Fh, Sd);
     const tc = toCam(Hc), facing = V.dot(Fh, tc);

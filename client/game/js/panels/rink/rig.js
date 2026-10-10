@@ -112,14 +112,14 @@ function standRig(s, T) {
   const chest = V.add(pelvis, V.mul(sd, 1.1)), neck = V.add(pelvis, V.mul(sd, 2.0));
   const hl = lean * 0.45 - (act === 'slumped' ? 0.6 : 0);
   const head = V.add(neck, [Math.sin(hl) * 0.55 - s.react * 0.32, 0, Math.cos(hl) * 0.55 + s.react * 0.05]);
-  const shL = V.add(neck, rotZ([-0.05, 0.95, -0.24], twist)), shR = V.add(neck, rotZ([-0.05, -0.95, -0.24], twist));
-  const hipL = V.add(pelvis, rotZ([0, 0.45, -0.05], -twist * 0.4)), hipR = V.add(pelvis, rotZ([0, -0.45, -0.05], -twist * 0.4));
+  const shL = V.add(neck, rotZ([-0.05, 1.1, -0.26], twist)), shR = V.add(neck, rotZ([-0.05, -1.1, -0.26], twist));
+  const hipL = V.add(pelvis, rotZ([0, 0.55, -0.05], -twist * 0.4)), hipR = V.add(pelvis, rotZ([0, -0.55, -0.05], -twist * 0.4));
   const legs = [];
   const stopping = act === 'stop';
   for (const sg of [1, -1]) {
     const p = P + (sg > 0 ? 0 : Math.PI);
     let fu = 0.15 + 0.78 * a * Math.cos(p);
-    let fv = sg * (0.55 + 0.3 * stance + 0.55 * a * (1 - Math.cos(p)) / 2);
+    let fv = sg * (0.68 + 0.3 * stance + 0.55 * a * (1 - Math.cos(p)) / 2);
     let fz = 0.55 + 0.38 * a * Math.max(0, -Math.sin(p));
     if (stance) fu += sg * 0.38 * stance;
     if (stopping) { fu = sg * 0.5 + 0.6; fv = sg * 0.8; fz = 0.55; }
