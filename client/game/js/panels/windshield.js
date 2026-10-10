@@ -4418,7 +4418,13 @@ function paintWindshieldFrame(id, view) {
   const st = sceneFor(id, cw, ch);
   // ⚠ THE ONE DOOR THE FREE CAMERA COMES THROUGH — see freeCam above. Every seat hands its view
   // to this function, so overriding it here reaches all six call sites and none of them know.
-  let v = FREE.on ? freeCamView(view || {}) : (view || {});   // reassigned once by the hourForce pin below
+  let v = FREE.on ? freeCamView(view || {}) : (view || {});
+  // ⚠ THE PIN IS APPLIED ONCE, ONTO THE VIEW, so every reader below and every layer that takes
+  // 'hour' off it agrees. Pinning at each use site instead is four copies of the same decision.
+  // ⚠ AND HERE, BEFORE `vw` IS COPIED OFF `v`. It used to sit thirty lines after that copy, so the
+  // sky took the pinned hour and drawWorldObjects, which gets `vw`, took the real one: `.murmur`
+  // pinned 17:30 and the starlings stayed their 1 pm size, about 30 birds instead of 1,000.
+  if (RENDER_TUNE.hourForce != null) v = { ...v, hour: RENDER_TUNE.hourForce };
   // ⚠ A LOOK OFF THE NOSE IS A HEAD TURN IN A 3-D SEAT, NEVER A PICTURE OF A WINDOW. `windowClass`
   // punches a painted porthole over the whole frame; with the room as geometry the real side window
   // is right there, so the painted one would be a second window drawn over the first.
@@ -4762,9 +4768,6 @@ function paintWindshieldFrame(id, view) {
   // ⚠ AND NOT IN THE CHASE VIEW. `roofed` is a fact about the TRUCK's tile; in the external orbit
   // the camera is out in the yard in the wet, looking at the shed.
   const roofed = !ext && v.map?.length ? v.map[(v.map.length - 1) / 2]?.[(v.map.length - 1) / 2]?.mark === 'bay' : false;
-  // ⚠ THE PIN IS APPLIED ONCE, ONTO THE VIEW, so every reader below and every layer that takes
-  // 'hour' off it agrees. Pinning at each use site instead is four copies of the same decision.
-  if (RENDER_TUNE.hourForce != null) v = { ...v, hour: RENDER_TUNE.hourForce };
   pMark('m:a_gov');
   const sky = skyAt(v.hour == null ? 12 : v.hour);
   // Chase distance is size-relative: the camera sits `chaseBack` tiles behind a reference
