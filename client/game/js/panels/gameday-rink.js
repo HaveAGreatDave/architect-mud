@@ -196,6 +196,7 @@ export function createRinkView(host, opts = {}) {
     if (pendingCard) { const c = pendingCard; pendingCard = null; renderCard(c); }
   }
 
+  const cued = (p) => !!(p && Array.isArray(p.cues) && p.cues.length);
   function apply(p) {
     if (!host || !p) return;
     last = p;
@@ -206,9 +207,11 @@ export function createRinkView(host, opts = {}) {
       head(p);
       board(p.type === 'intermission' ? p : null);
       D.stage(p);
-      // a play that never lands still lets its line go up
+      // A cued payload is the first line of a play the booth calls as it happens, so its
+      // line goes up now and the picture follows the lines. Otherwise the line waits for
+      // the play to land, and a play that never lands still lets it go up.
       if (holdTimer) clearTimeout(holdTimer);
-      holdTimer = setTimeout(reveal, 9000);
+      if (cued(p)) reveal(); else holdTimer = setTimeout(reveal, 9000);
     };
     if (mods) go(); else loadMods().then(go).catch((err) => console.error('[rink] failed to load:', err));
   }
@@ -220,7 +223,7 @@ export function createRinkView(host, opts = {}) {
   }
   function setCaption(text, o) {
     const speak = o && o.speak;
-    if (o && o.held) {
+    if (o && o.held && !(cued(last) && D && D.busy())) {
       if (pendingCaption) { showCaption(pendingCaption.text); pendingCaption.speak?.(); }
       pendingCaption = { text: String(text || ''), speak };
       // the payload may still be on its way; if no play turns up, the line goes up anyway

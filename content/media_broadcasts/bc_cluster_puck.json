@@ -391,6 +391,270 @@
         "For the CPhL, I'm Tug Brennan. There's another one tomorrow, because there's always another one.",
         "Tug Brennan, saying goodnight from Coldwater. Nobody won anything permanent."
       ],
+      "pbp.battle": [
+        "Loose puck.",
+        "It's free in the corner.",
+        "Two men after it.",
+        "Scramble along the wall.",
+        "Nobody has it.",
+        "Sticks and elbows in the corner."
+      ],
+      "pbp.breakout": [
+        "{player} has it behind his own net.",
+        "{player} picks it up deep.",
+        "{player} takes it out of his own end.",
+        "{player} with it, heading up.",
+        "{player} gathers it in the corner.",
+        "Puck to {player}, own end.",
+        "{player} wheels out from behind the net.",
+        "{player} starts it up the ice."
+      ],
+      "pbp.cycle": [
+        "{player} works it low.",
+        "{player} behind the net.",
+        "{player} along the wall.",
+        "{player} holds it in the corner.",
+        "{player} grinds it down the boards.",
+        "{player} buys time below the dots."
+      ],
+      "pbp.death.helmets": [
+        "Helmets come off.",
+        "The players gather round.",
+        "Heads down along both benches."
+      ],
+      "pbp.death.still": [
+        "Nobody is moving.",
+        "The building goes quiet.",
+        "He's not moving."
+      ],
+      "pbp.deke": [
+        "{player} dangles one.",
+        "{player} goes around a defender.",
+        "Toe drag, {player}. Gone.",
+        "{player} undresses a man.",
+        "{player} fakes left, goes right.",
+        "{player} leaves him on the ice."
+      ],
+      "pbp.dump": [
+        "{player} dumps it in.",
+        "{player} chips it deep.",
+        "{player} fires it around the boards.",
+        "In behind them, {player} chasing.",
+        "{player} gives up the puck to get the zone."
+      ],
+      "pbp.entry": [
+        "{player} over the blue line.",
+        "{player} gains the zone.",
+        "In the zone, {player}.",
+        "{player} carries it in.",
+        "{player} walks the line and comes in.",
+        "{player} beats the defence to the line."
+      ],
+      "pbp.faceoff.center": [
+        "Faceoff at centre.",
+        "Puck down at centre ice.",
+        "Centre-ice draw."
+      ],
+      "pbp.faceoff.neutral": [
+        "Draw outside the line.",
+        "Neutral-zone faceoff.",
+        "Faceoff, {zone}."
+      ],
+      "pbp.faceoff.win": [
+        "{winner} wins it back.",
+        "{winner} takes the draw.",
+        "Won by {winner}.",
+        "{winner} pulls it back.",
+        "Clean win, {winner}."
+      ],
+      "pbp.faceoff.zone": [
+        "Draw in the {zone}.",
+        "Faceoff, {zone}.",
+        "They line up in the {zone}."
+      ],
+      "pbp.fight.drop": [
+        "Gloves off. {winner} and {loser}.",
+        "{loser} and {winner} drop them.",
+        "Here we go. {winner}, {loser}.",
+        "The gloves are on the ice."
+      ],
+      "pbp.freeze": [
+        "{goalie} covers. Whistle.",
+        "{goalie} holds on. Whistle.",
+        "Frozen. Faceoff coming."
+      ],
+      "pbp.goal": [
+        "He scores!",
+        "It's in!",
+        "Scores!",
+        "Goal, {team}!",
+        "Top shelf. In.",
+        "Through the five-hole. Goal."
+      ],
+      "pbp.goal.celebrate": [
+        "{shooter} goes to the glass.",
+        "{shooter} with the celebration.",
+        "They mob {shooter}.",
+        "{goalie} stares at the ceiling."
+      ],
+      "pbp.hit.carry": [
+        "{victim} along the wall.",
+        "{victim} with it up the boards.",
+        "{victim} has his head down.",
+        "{victim} skates it up the wall."
+      ],
+      "pbp.hit.line": [
+        "{hitter} lines him up.",
+        "{hitter} coming hard.",
+        "{hitter} has him.",
+        "Look out. {hitter}."
+      ],
+      "pbp.hit.up": [
+        "{victim} gets up slowly.",
+        "{victim} is back on his skates.",
+        "{victim} picks up his stick."
+      ],
+      "pbp.injury.medics": [
+        "Trainers on the ice.",
+        "Here come the medics.",
+        "The stretcher is out."
+      ],
+      "pbp.injury.off": [
+        "They take {player} off.",
+        "{player} is off on the stretcher.",
+        "Off the ice, {player}."
+      ],
+      "pbp.out.blocked": [
+        "Blocked.",
+        "A defender eats it.",
+        "Blocked in front.",
+        "Off a shin pad. That'll bruise.",
+        "Somebody lay down in front of it."
+      ],
+      "pbp.out.breakaway": [
+        "In alone. {goalie} pokes it away.",
+        "{goalie} comes out and takes it off him.",
+        "Poke check, {goalie}.",
+        "Stopped on the breakaway."
+      ],
+      "pbp.out.glove": [
+        "Glove save, {goalie}.",
+        "{goalie} snags it.",
+        "{goalie} plucks it out of the air.",
+        "Into the glove."
+      ],
+      "pbp.out.pad": [
+        "Pad save, {goalie}.",
+        "{goalie} kicks it out.",
+        "Off the pad.",
+        "{goalie} drops and stops it.",
+        "Leg save, {goalie}."
+      ],
+      "pbp.out.post": [
+        "Off the post!",
+        "Post!",
+        "Iron!",
+        "Hits the post and stays out."
+      ],
+      "pbp.out.save": [
+        "{goalie} takes it in the chest.",
+        "Saved by {goalie}.",
+        "Chest save, {goalie}.",
+        "{goalie} absorbs it.",
+        "Right into {goalie}."
+      ],
+      "pbp.out.wide": [
+        "Wide.",
+        "Misses the net.",
+        "Off the end boards.",
+        "Wide by a foot.",
+        "Rings around the glass."
+      ],
+      "pbp.pass": [
+        "{player} to {to}.",
+        "Over to {to}.",
+        "{player} finds {to}.",
+        "Across to {to}.",
+        "{player} hits {to} in stride.",
+        "Up to {to}.",
+        "Back to {to}.",
+        "{player} slides it to {to}.",
+        "Tape to tape, {to}."
+      ],
+      "pbp.pull.extra": [
+        "Extra attacker on for {team}.",
+        "Empty net. Six skaters for {team}.",
+        "{team} goes six on five."
+      ],
+      "pbp.punch.big": [
+        "{thrower} with {punch}. Huge.",
+        "{thrower} lands {punch}. That's the one.",
+        "{punch} from {thrower}. He felt that."
+      ],
+      "pbp.punch.land": [
+        "{thrower} lands {punch}.",
+        "{thrower} connects with {punch}.",
+        "{thrower} catches him with {punch}.",
+        "{punch} from {thrower}. That landed."
+      ],
+      "pbp.punch.miss": [
+        "{thrower} swings. Misses.",
+        "{thrower} throws {punch}. Nothing.",
+        "Big miss from {thrower}.",
+        "{thrower} hits air."
+      ],
+      "pbp.rebound": [
+        "Rebound loose.",
+        "Rebound, and it's cleared.",
+        "Juicy rebound. Nobody home.",
+        "Rebound to the corner."
+      ],
+      "pbp.scrum.whistle": [
+        "Whistle.",
+        "The ref blows it dead.",
+        "Whistle. Pushing after it."
+      ],
+      "pbp.shot": [
+        "{shooter} shoots.",
+        "{shooter} lets it go.",
+        "{shooter}, the {shotLabel}.",
+        "{shooter} fires.",
+        "Shot, {shooter}."
+      ],
+      "pbp.shot.backhand": [
+        "{shooter} on the backhand.",
+        "Backhand from {shooter}.",
+        "{shooter} flips a backhand."
+      ],
+      "pbp.shot.slap": [
+        "{shooter} winds up.",
+        "{shooter} loads up the slapshot.",
+        "Big windup, {shooter}.",
+        "{shooter} leans into a slapper."
+      ],
+      "pbp.shot.snap": [
+        "{shooter}, a snap shot.",
+        "{shooter} snaps it.",
+        "Quick release, {shooter}."
+      ],
+      "pbp.shot.wrap": [
+        "{shooter} tries the wraparound.",
+        "{shooter} comes around the net.",
+        "Wraparound, {shooter}."
+      ],
+      "pbp.shot.wrist": [
+        "{shooter} snaps a wrister.",
+        "{shooter}, quick wrist shot.",
+        "Wrister from {shooter}.",
+        "{shooter} pulls it in and shoots."
+      ],
+      "pbp.won": [
+        "{player} comes out with it.",
+        "{player} wins the race.",
+        "{player} digs it free.",
+        "{player} out of the pile with it.",
+        "{player} wants it more."
+      ],
       "penalty": [
         "{player} goes for {infraction}. {penaltyMin} minutes, and the {team} are down a man.",
         "Arm's up. {infraction} on {player}. {penaltyMin} in the box.",

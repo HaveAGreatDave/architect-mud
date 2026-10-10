@@ -874,6 +874,25 @@ so a narrator cannot read the other league's records.
 - **Intermissions.** Between periods the broadcast reads the period back: scoring
   summary, shot clock, penalties, casualties. Every number is counted from beats already
   aired, so an intermission can't disagree with the game. **No intermission in overtime.**
+- **Every play is called, in short lines.** Every shot, draw, hit, fight and casualty
+  reaches the air, as lines that follow the play the way the rink shows it: the rush touch
+  by touch (`rushNames` on the beat says who each carrier index is), the release, the
+  save, the draw and who won it, each punch, the hit as it lands. The `pbp.*` pools hold
+  them, and 80% are eight words or fewer, so a screen reader finishes one before the next
+  arrives. The longer pools ride along as colour. A game runs to about 750 lines.
+- **A line holds as long as it takes to hear.** Other sports give every line the same
+  hold. Hockey sets `paceCalls` on its module, and the assembler hands it the game's lines
+  instead ([hockey-pacing.js](../plugins/broadcast/sports/hockey-pacing.js)): 95 ms a
+  character over a short floor, the read-aloud voice's own pace, then scaled to fill 85%
+  of the slot (an hour on the default clock fits with no cuts). A shorter slot cuts lines
+  the narrator marked optional (`opt`), longest first, and as a last resort compresses
+  the holds. The line carrying a payload is never cut.
+- **The picture moves when the words do.** The narrator tags a line with the moment of
+  play it describes (`cue`: a touch, the release, a won draw, the impact, a punch, the
+  medics). The pacer turns those into `cues` on the payload, in ms from the start of the
+  payload's line, and the director does each thing as its line airs. A rush plays only
+  the touches the booth calls, and one running behind its lines catches up rather than
+  letting the words get ahead.
 
 ### Leagues (`sportsleague`)
 
@@ -926,8 +945,8 @@ the puck it needs, walks them through the beat and hands them back to the ambien
 
 - *Chances and goals* play the possession keyframes: carries, passes to the man who carries
   the next touch, battles and dump-ins chased down, dekes past a man standing the carrier
-  up. A rush starts late when the whole chain would run past about five seconds, because
-  the build-up was already said in words. The shot is the sim's `shotType` with its own
+  up. With cues on the payload each called touch happens as its line airs; without them a
+  rush starts late when the whole chain would run past about five seconds. The shot is the sim's `shotType` with its own
   wind-up; a one-timer and a tip are fed by a teammate. Where the puck goes comes from the
   outcome: into the net for a goal, into the glove, the chest, the pad, off the post, wide,
   into a defender who drops to block it, or poked off the stick on a breakaway.
@@ -947,8 +966,9 @@ the puck it needs, walks them through the beat and hands them back to the ambien
 - *Scrums*, *the pulled goalie* (he skates to the bench and a sixth skater comes on) and
   *the intermission* (everyone off, the Zamboni on) each have their own.
 
-`onLand` fires the moment the play lands and is when the held caption and any held card
-go up. A walk to the box or a stretcher on its way off outlives the beat that started it;
+`onLand` fires the moment the play lands and is when a held caption and any held card go
+up. A payload with cues is the first line of a play called as it happens, so its line is
+never held. A walk to the box or a stretcher on its way off outlives the beat that started it;
 a camera cut finishes it on the spot, since nobody sees the jump. Names go on bodies the
 first time a payload mentions them, and the number comes from the name, so every viewer
 sees the same sweater. The home club wears its colour and the road club wears white with
@@ -987,12 +1007,10 @@ whatever the Zamboni got through.
   the view stays cheap.
 
 **The booth calls the rush.** `describeRush` in [hockey.js](../plugins/broadcast/sports/hockey.js)
-walks the same possession keyframes the rink plays and says what happened on the way up
-the ice, naming the men the carrier indices point at. It invents nothing, so the call and
-the picture can't disagree. The line rides the beat as `rush`, reaching the announcer as a
-`{rush}` token and the rink as a quiet strip under the score line. It is spoken before the
-outcome and without a gameday payload, so the outcome line still owns the cut. A goal or a
-near-miss always gets one; routine chances get one 45% of the time.
+reads the possession keyframes into one sentence, which rides the payload as `rush` and
+shows as a quiet strip under the score line. The spoken call is now the touch-by-touch
+lines above, read off the same keyframes and names, so neither can disagree with the
+picture.
 
 Branding lives in [cphl-brand.js](../client/game/js/panels/cphl-brand.js): one mark, drawn
 by the score bug, the full-screen graphics, the rink header, the idle screen and the

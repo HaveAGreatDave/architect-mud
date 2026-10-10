@@ -23,6 +23,7 @@ const { DT } = await import('../../client/game/js/panels/rink/rig.js');
 const { GOAL_X, DOT_FT } = await import('../../client/game/js/panels/rink/geo.js');
 const { sportsRng, sportsHash, sportsPick, sportsFill } = await import('../../plugins/broadcast/rng.js');
 const HOCKEY = (await import('../../plugins/broadcast/sports/hockey.js')).default;
+const { paceCalls } = await import('../../plugins/broadcast/sports/hockey-pacing.js');
 
 let failures = 0, passes = 0;
 const check = (label, ok, detail) => {
@@ -46,11 +47,13 @@ function gameLines(slot) {
   const lines = [];
   HOCKEY.narrate({
     script: {}, game, gs: { seed, game }, slot, ws: false, announcer: 'Tug Brennan', pools, nrng, sport: HOCKEY, add: () => {},
-    say: (line, tok, sb, fx, gd) => { if (line) lines.push({ text: sportsFill(line, tok).trim(), fx: fx || null, gd: gd || null }); },
+    say: (line, tok, sb, fx, gd, meta) => { if (line) lines.push({ text: sportsFill(line, tok).trim(), graphic: fx || null, gameday: gd || null, _cue: meta && meta.cue, _opt: !!(meta && meta.opt) }); },
     pick: (...keys) => sportsPick(pools, nrng, ...keys),
     abbr: (n) => String(n).slice(0, 3).toUpperCase(), recordOf: () => '8-4-1', lastId: () => null,
   });
-  return lines;
+  // paced as for the default hour-long slot, which writes the cues onto the payloads
+  const { holds, dropped } = paceCalls(lines, 3600 * 1000 * 0.85, 1000);
+  return lines.filter((l) => !dropped.has(l)).map((l) => ({ text: l.text, fx: l.graphic, gd: l.gameday, hold: holds.get(l) }));
 }
 
 // ── one game through the view ──────────────────────────────────────────────────
@@ -70,13 +73,14 @@ async function play(slot) {
   W.emit = (n, d) => { if (n === 'goalIn') goalsIn++; emit(n, d); };
   const resurfaced = { n: 0 };
   const rs = W.ice.resurface; W.ice.resurface = (...a) => { resurfaced.n++; return rs(...a); };
-  let lastFight = null;
+  let lastFight = null, tApply = 0, landedAt = null;
   const run = (secs, until) => {
     const t0 = W.t; let next = W.t;
     while (W.t - t0 < secs) {
       W.step(DT);
       if (W.fight) lastFight = W.fight;
-      if (W.t >= next) { next = W.t + 0.5; view.renderer.render(W.t * 1000); renders++; }
+      if (landedAt == null && D.state.beat && D.state.beat.landed) landedAt = W.t - tApply;
+      if (W.t >= next) { next = W.t + 2.5; view.renderer.render(W.t * 1000); renders++; }
       if (until && until()) break;
     }
     stub.runTimers(0);
@@ -91,9 +95,10 @@ async function play(slot) {
     seen.add(g.type);
     const label = `${slot}: ${g.type}${g.kind && g.kind !== g.type ? `/${g.kind}` : ''} at ${g.section} ${g.clock}`;
     let ok = true;
+    tApply = W.t; landedAt = null;
     try { view.apply(g); } catch (e) { check(`${label} stages`, false, e.stack.split('\n').slice(0, 2).join(' ')); ok = false; }
     if (!ok) continue;
-    const before = { inNet: W.puck.inNet, goals: goalsIn };
+    const before = { inNet: W.puck.inNet, goals: goalsIn, on: { a: W.mates('a').length, h: W.mates('h').length } };
     if (g.type === 'faceoff') {
       // the draw is taken on the named dot, by the two men the sim named
       const [dx, dy] = DOT_FT[g.dot];
@@ -104,15 +109,23 @@ async function play(slot) {
     }
     if (g.type === 'boards') {
       const victim = () => W.skaters().find((m) => m.name === String(g.victim).split(' ').pop()) || null;
-      run(4, () => victim() && victim().rag);
-      check(`${label}: the hit puts him down`, !!(victim() && victim().rag));
+      const imp = (g.cues || []).find((q) => q.ev === 'impact');
+      run((imp ? imp.ms / 1000 : 0) + 4, () => victim() && victim().rag);
+      check(`${label}: the hit puts him down`, !!(victim() && victim().rag), `victim ${victim() ? 'standing' : 'not found'}; names ${W.skaters().map((m) => m.side + ':' + m.name + (m.rag ? '*' : '')).join(',')}`);
       if (g.injured) {
         run(3);
         check(`${label}: an injured man stays down`, !!(victim() && victim().rag));
       }
     }
-    const limit = { injury: 22, death: 16, fight: 16, intermission: 3 }[g.type] || 14;
+    // the play is timed to its lines now, so it runs as long as its last cue plus the finish
+    const lastCue = Math.max(0, ...(g.cues || []).map((c) => c.ms / 1000));
+    const limit = Math.max({ injury: 22, death: 16, fight: 16, intermission: 3 }[g.type] || 14, lastCue + 10);
     run(limit, () => !D.busy());
+    // a draw and a hit land when their line airs
+    const cueT = (ev) => { const c = (g.cues || []).find((q) => q.ev === ev); return c ? c.ms / 1000 : null; };
+    if (g.type === 'faceoff' && cueT('won') != null) check(`${label}: the draw is won as it is called`, landedAt != null && Math.abs(landedAt - cueT('won')) < 0.8, `won at ${landedAt?.toFixed(2)}s, line at ${cueT('won')}s`);
+    if (g.type === 'boards' && cueT('impact') != null ) check(`${label}: the hit lands as it is called`, landedAt != null && Math.abs(landedAt - cueT('impact')) < 0.9, `hit at ${landedAt?.toFixed(2)}s, line at ${cueT('impact')}s`);
+    if ((g.type === 'chance' || g.type === 'goal') && cueT('out') != null && g.kind !== 'breakaway') check(`${label}: the puck arrives as the outcome is called`, landedAt != null && landedAt > cueT('shot') && Math.abs(landedAt - cueT('out')) < (g.type === 'goal' ? 2.4 : 1.2), `${g.shotType}: landed ${landedAt?.toFixed(2)}s, outcome line ${cueT('out')}s`);
     check(`${label} resolves`, !D.busy() || g.type === 'intermission', `still ${D.kind()} after ${limit}s`);
     if (g.type === 'goal') check(`${label}: it goes in`, goalsIn > before.goals && !!W.puck.inNet, `inNet=${W.puck.inNet}`);
     if (g.type === 'chance') check(`${label}: a ${g.kind} stays out`, goalsIn === before.goals);
@@ -131,7 +144,7 @@ async function play(slot) {
     if (g.type === 'pull') {
       const side = g.pulledSide === 'att' ? 'a' : 'h';
       check(`${label}: the net is empty`, W.pulled[side] && !W.goalie[side].active);
-      check(`${label}: an extra skater is on`, W.mates(side).length === 6, `${W.mates(side).length}`);
+      check(`${label}: an extra skater is on`, W.mates(side).length === before.on[side] + 1, `${before.on[side]} → ${W.mates(side).length}`);
     }
     if (g.type === 'intermission') {
       check(`${label}: the board goes up over the ice`, !!host.find('.gdri') && !!host.find('.gdr-canvas'));

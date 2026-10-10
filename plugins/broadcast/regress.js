@@ -2383,6 +2383,46 @@ export default async function regress({ check, run, getPlayer }) {
     check('hockey: no unfilled tokens reach the air', unfilled.length === 0, unfilled.slice(0, 3).join(' | '));
     check('hockey: scorers belong to a club that played', strayScorers.length === 0, strayScorers.slice(0, 3).join(','));
     check('hockey: the narrator produced play-by-play', lines > 100, `${lines} lines`);
+
+    // THE CALL. Every play is called in short lines, each held as long as it takes to read,
+    // and each tagged with the moment of play it describes so the rink can do it on the
+    // line. One real game, paced for an hour slot and for a half-hour one.
+    {
+      const { paceCalls } = await import('./sports/hockey-pacing.js');
+      const slot = 206, seed = sportsHash(slot, 0);
+      const matchup = { away: teams[slot % teams.length], home: teams[(slot * 7 + 5) % teams.length], teams };
+      const game = HOCKEY.simGame(matchup, players, sportsRng(seed));
+      const narrateLines = () => {
+        const out = [], nrng = sportsRng(seed ^ 0x9e3779b9);
+        HOCKEY.narrate({
+          script: {}, game, gs: { seed, game }, slot, ws: false, announcer: 'Tug Brennan', pools, nrng, sport: HOCKEY, add: () => {},
+          say: (l, t, sb, fx, gd, meta) => { if (l) out.push({ text: sportsFill(l, t).trim(), graphic: fx || null, gameday: gd || null, _cue: meta && meta.cue, _opt: !!(meta && meta.opt) }); },
+          pick: (...keys) => { for (const k of keys) if (pools[k]?.length) { usedPools.add(k); break; } return sportsPick(pools, nrng, ...keys); },
+          abbr: (n) => String(n).slice(0, 3).toUpperCase(), recordOf: () => '8-4-1', lastId: () => null,
+        });
+        return out;
+      };
+      const all = narrateLines();
+      const words = all.map((l) => l.text.split(/\s+/).length);
+      const shortShare = words.filter((w) => w <= 8).length / words.length;
+      check('hockey: most lines are short enough for a screen reader', shortShare >= 0.7, `${Math.round(shortShare * 100)}% at eight words or fewer`);
+      check('hockey: every shot is called', game.beats.filter((b) => b.type === 'chance' || b.type === 'goal').length === all.filter((l) => l.gameday && (l.gameday.type === 'chance' || l.gameday.type === 'goal')).length);
+      const { holds } = paceCalls(all, 3600 * 1000 * 0.85, 1000);
+      const bad = [];
+      for (const l of all) {
+        const g = l.gameday; if (!g) continue;
+        if ((g.type === 'chance' || g.type === 'goal') && !(g.cues || []).some((c) => c.ev === 'shot')) bad.push(`${g.type} ${g.clock} has no shot cue`);
+        const ms = (g.cues || []).map((c) => c.ms);
+        if (ms.some((m, i) => i && m < ms[i - 1])) bad.push(`${g.type} ${g.clock} cues out of order`);
+      }
+      check('hockey: shots carry their cues, in order', bad.length === 0, bad.slice(0, 3).join(' | '));
+      const air = [...holds.values()].reduce((a, b) => a + b, 0);
+      check('hockey: an hour slot holds the whole game', air <= 3600 * 1000 * 0.85 * 1.05, `${(air / 60000).toFixed(1)} min`);
+      const half = narrateLines();
+      const short = paceCalls(half, 1800 * 1000 * 0.85, 1000);
+      const kept = half.filter((l) => !short.dropped.has(l));
+      check('hockey: a short slot cuts only optional lines', short.dropped.size > 0 && [...short.dropped].every((l) => l._opt && !l.gameday) && kept.every((l) => short.holds.get(l) >= 1000), `${short.dropped.size} cut`);
+    }
     // Every violent beat reaches the rink with something to draw. Before this the ice
     // sat still through the half of the sport the league is actually known for.
     for (const t of ['boards', 'injury', 'death', 'scrum']) {

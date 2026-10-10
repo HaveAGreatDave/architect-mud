@@ -2377,7 +2377,9 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   // "graphic" FX (home-run trajectory, final-score card, extra-innings hype). The FX
   // rides the say node exactly like the score-bug and is pushed to TV watchers when
   // the line airs; the client animates it. See _applySportsFx in tv.js.
-  const say = (line, tok, sb, graphic, gd) => { if (!line) return; const text = sportsFill(line, tok).trim(); if (text) add({ type: 'say', text, style: 'raw', ...(sb ? { scorebug: sb } : {}), ...(graphic ? { graphic } : {}), ...(gd ? { gameday: gd } : {}) }); };
+  // `meta` is a sport's pacing hints: `cue` (the moment of play this line describes) and
+  // `opt` (a line the pacer may cut). Only a sport with `paceCalls` reads them.
+  const say = (line, tok, sb, graphic, gd, meta) => { if (!line) return; const text = sportsFill(line, tok).trim(); if (text) add({ type: 'say', text, style: 'raw', ...(sb ? { scorebug: sb } : {}), ...(graphic ? { graphic } : {}), ...(gd ? { gameday: gd } : {}), ...(meta && meta.cue ? { _cue: meta.cue } : {}), ...(meta && meta.opt ? { _opt: true } : {}) }); };
 
   // ── the sport seam ──────────────────────────────────────────────────────────
   // Everything above this line is sport-agnostic: the node chain, the say/pick
@@ -2674,9 +2676,28 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   const allSayIds = Object.keys(nodes).filter((id) => nodes[id].type === 'say');
   const gameSayIds = allSayIds.filter((id) => !nodes[id]._recap);
   const recapSayIds = allSayIds.filter((id) => nodes[id]._recap);
-  const perLine = Math.min(90000, Math.max(SPORTS_LINE_HOLD_MS, floorTick(slotMs * SPORTS_GAME_FILL / Math.max(1, gameSayIds.length))));
-  for (const id of gameSayIds) nodes[id].holdMs = perLine;
-  let lastFloor = perLine;
+  let lastFloor;
+  if (typeof sportMod.paceCalls === 'function') {
+    // A sport that calls the play in short lines paces each line by its length and cuts
+    // optional lines on a short slot (see sports/hockey-pacing.js).
+    const order = [];
+    for (let id = startId; id; id = nodes[id].next) order.push(id);
+    const lines = order.filter((id) => nodes[id].type === 'say' && !nodes[id]._recap).map((id) => nodes[id]);
+    const { holds, dropped } = sportMod.paceCalls(lines, slotMs * SPORTS_GAME_FILL, BROADCAST_TICK_MS);
+    let prev = null;
+    for (const id of order) {
+      const nd = nodes[id];
+      if (dropped.has(nd)) { if (prev) nodes[prev].next = nd.next; if (prevId === id) prevId = prev; delete nodes[id]; continue; }
+      if (holds.has(nd)) nd.holdMs = holds.get(nd);
+      delete nd._cue; delete nd._opt;
+      prev = id;
+    }
+    lastFloor = SPORTS_LINE_HOLD_MS;
+  } else {
+    const perLine = Math.min(90000, Math.max(SPORTS_LINE_HOLD_MS, floorTick(slotMs * SPORTS_GAME_FILL / Math.max(1, gameSayIds.length))));
+    for (const id of gameSayIds) nodes[id].holdMs = perLine;
+    lastFloor = perLine;
+  }
   if (recapSayIds.length) {
     const recapPerLine = Math.min(45000, Math.max(SPORTS_LINE_HOLD_MS, floorTick(slotMs * (1 - SPORTS_GAME_FILL) / recapSayIds.length)));
     for (const id of recapSayIds) nodes[id].holdMs = recapPerLine;

@@ -28,6 +28,7 @@
  */
 import { sportsShuffle, sportsRng, sportsHash } from '../rng.js';
 import { narrate } from './hockey-narrator.js';
+import { paceCalls } from './hockey-pacing.js';
 
 // ── chance outcomes ──────────────────────────────────────────────────────────
 // Tuned so a game lands around 5–6 goals on 55–65 shots: roughly a 10–11% shooting
@@ -743,11 +744,14 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
         const hat = shooter.goals === 3;
         const goalNodes = synthPossession(Math.floor(rand() * 1e9), 'goal', attackAway ? 0 : 1);
         const goalShot = rollShot(goalNodes);
+        // The names the carrier indices count through, kept on the beat so the booth can call
+        // the rush touch by touch and the rink can put the same names on the same sweaters.
+        const goalNames = live(att).map(s => s.name);
         push({ type: 'goal', shooter: shooter.name, assist: assist ? assist.name : '', goalie,
           teamName: att.name, oppName: def.name, strength, hattrick: hat,
           shooterGoals: shooter.goals, section: ordinal(period),
           // How it was built. Read off the same keyframes the rink is about to animate.
-          rush: describeRush(goalNodes, live(att).map(s => s.name), rand),
+          rush: describeRush(goalNodes, goalNames, rand), rushNames: goalNames,
           // WHAT HE HIT IT WITH, on the same beat as the outcome, so the call and the
           // animation are reading one fact rather than two that can disagree.
           shotType: goalShot.id, shotLabel: goalShot.label,
@@ -761,9 +765,10 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
         const frozen = (out.kind === 'save' || out.kind === 'glove') && rand() < FREEZE_ON_SAVE;
         const chanceNodes = synthPossession(Math.floor(rand() * 1e9), out.kind, attackAway ? 0 : 1);
         const chanceShot = rollShot(chanceNodes);
+        const chanceNames = live(att).map(s => s.name);
         push({ type: 'chance', kind: out.kind, shot: out.shot, shooter: shooter.name, goalie,
           teamName: att.name, oppName: def.name, strength, frozen, section: ordinal(period),
-          rush: describeRush(chanceNodes, live(att).map(s => s.name), rand),
+          rush: describeRush(chanceNodes, chanceNames, rand), rushNames: chanceNames,
           shotType: chanceShot.id, shotLabel: chanceShot.label,
           possession: chanceNodes });
         if (frozen) faceoff(endDot(def), 'freeze');
@@ -906,6 +911,8 @@ export const HOCKEY = {
   // the middle of the broadcast instead of running the baseball body. Baseball has
   // no `narrate` and takes the original path untouched.
   narrate,
+  // Holds by line length, and the cue times the rink syncs to.
+  paceCalls,
 };
 
 export default HOCKEY;
