@@ -462,7 +462,9 @@ export function drawBody(ctx, P, J, o) {
   const drawHead = () => {
     const R = gk ? 0.58 : 0.53, r = R * hp.s;
     // the head's own frame: forward is the chest's, levelled a little
-    const Fh = V.norm([F[0], F[1], F[2] * 0.4 - 0.05]), Sd = V.norm(V.cross([0, 0, 1], Fh)), Uh = V.cross(Fh, Sd);
+    // the head turns on its own: where he is looking, not where his chest points
+    const Fh = J.meta && J.meta.look ? V.norm(J.meta.look) : V.norm([F[0], F[1], F[2] * 0.4 - 0.05]);
+    const Sd = V.norm(V.cross([0, 0, 1], Fh)), Uh = V.cross(Fh, Sd);
     const tc = toCam(Hc), facing = V.dot(Fh, tc);
     const at = (f, sd, u) => W(V.frame(Hc, Fh, f, Sd, sd, Uh, u));
     const helmetCol = gk ? '#eef0f2' : K.helmet;
@@ -587,9 +589,13 @@ export function drawBody(ctx, P, J, o) {
     if (bt && hl && tp) {
       const bladeUp = V.mul([0, 0, 1], 0.26);
       const tl2 = W(V.add(J[20], bladeUp)), hu = W(V.add(J[19], V.add(bladeUp, [0, 0, -0.05])));
-      add((W(J[9])?.d ?? hl.d) * 0.5 + hl.d * 0.5, () => { taper(ctx, bt, hl, Math.max(0.8, 0.07 * bt.s), Math.max(0.8, 0.06 * hl.s)); }, () => {
+      // a hard shot bows the shaft: drawn as a curve through the bend point the rig gives
+      const bp = J.meta && J.meta.bend ? W(J.meta.bend) : null;
+      const shaft = (w) => { ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(bt.x, bt.y); ctx.quadraticCurveTo(bp.x, bp.y, hl.x, hl.y); };
+      add((W(J[9])?.d ?? hl.d) * 0.5 + hl.d * 0.5, () => { if (bp) { shaft(Math.max(1.6, 0.13 * bt.s)); } else taper(ctx, bt, hl, Math.max(0.8, 0.07 * bt.s), Math.max(0.8, 0.06 * hl.s)); }, () => {
         const sw0 = Math.max(0.8, 0.07 * bt.s), sw1 = Math.max(0.8, (gk ? 0.09 : 0.06) * hl.s);
-        taper(ctx, bt, hl, sw0, sw1); ctx.fillStyle = refl ? '#3a3d44' : '#24262d'; ctx.fill();
+        if (bp) { ctx.strokeStyle = refl ? '#3a3d44' : '#24262d'; shaft(sw0 + sw1); ctx.stroke(); }
+        else { taper(ctx, bt, hl, sw0, sw1); ctx.fillStyle = refl ? '#3a3d44' : '#24262d'; ctx.fill(); }
         if (!refl) {
           if (lod) { ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = Math.max(0.5, sw1 * 0.5); ctx.beginPath(); ctx.moveTo(lerp(bt.x, hl.x, 0.1), lerp(bt.y, hl.y, 0.1) - sw0 * 0.3); ctx.lineTo(lerp(bt.x, hl.x, 0.85), lerp(bt.y, hl.y, 0.85) - sw1 * 0.3); ctx.stroke(); }
           // knob tape
@@ -607,6 +613,15 @@ export function drawBody(ctx, P, J, o) {
         }
       });
     }
+  }
+
+  // the goalie's water bottle, lifted off the top of the net between whistles
+  if (J.meta && J.meta.bottle) {
+    const b0 = W(J.meta.bottle), b1 = W(V.add(J.meta.bottle, [0, 0, -0.75]));
+    if (b0 && b1) add(b0.d - 0.08, () => taper(ctx, b0, b1, 0.12 * b0.s, 0.13 * b1.s), () => {
+      taper(ctx, b0, b1, 0.12 * b0.s, 0.13 * b1.s); ctx.fillStyle = 'rgba(70,140,220,0.85)'; ctx.fill();
+      ctx.fillStyle = '#f0f0f0'; ctx.beginPath(); ctx.arc(b0.x, b0.y, 0.08 * b0.s, 0, TAU); ctx.fill();
+    });
   }
 
   // ── paint ────────────────────────────────────────────────────────────────

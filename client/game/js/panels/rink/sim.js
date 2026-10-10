@@ -329,6 +329,10 @@ export function createWorld(ice, seedKey) {
       b.phase += dt * (0.5 + sp * 0.032);
       const wantH = b.face != null ? b.face : (sp > 1.5 ? Math.atan2(b.vy, b.vx) : b.h);
       b.h += clamp(angWrap(wantH - b.h), -7 * dt, 7 * dt);
+      // how hard he is turning: drives the lean and the crossovers in the rig
+      const va = sp > 2 ? Math.atan2(b.vy, b.vx) : null;
+      const tr = va != null && b._va != null ? angWrap(va - b._va) / dt : 0;
+      b.turnRate = lerp(b.turnRate || 0, tr, 1 - Math.exp(-dt * 6)); b._va = va;
       const c = insideRink(b.x, b.y, 1.6);
       if (c) { b.x = c.x; b.y = c.y; const vn = b.vx * c.nx + b.vy * c.ny; if (vn < 0) { b.vx -= vn * c.nx; b.vy -= vn * c.ny; } }
       // a hard stop throws snow
@@ -360,6 +364,8 @@ export function createWorld(ice, seedKey) {
     if (!g.active) return;
     if (g.rag) { stepBody(g, dt); return; }
     const pk = W.puck, dir = attackDir(g.side), gx = g.side === 'a' ? GOAL_X[0] : GOAL_X[1];
+    const gx0 = g.x, gy0 = g.y;
+    g.track = [pk.x, pk.y, pk.z];
     if (!g.scripted) {
       // out to cut the angle when the play is far, back to the post when it's in tight
       const dist = Math.hypot(pk.x - gx, pk.y - MID_Y);
@@ -376,6 +382,9 @@ export function createWorld(ice, seedKey) {
       g.x += (g.tx - g.x) * (1 - Math.exp(-dt * 9)); g.y += (g.ty - g.y) * (1 - Math.exp(-dt * 9));
       if (g.face != null) g.h += clamp(angWrap(g.face - g.h), -7 * dt, 7 * dt);
     }
+    g.vx = lerp(g.vx || 0, (g.x - gx0) / dt, 1 - Math.exp(-dt * 10)); g.vy = lerp(g.vy || 0, (g.y - gy0) / dt, 1 - Math.exp(-dt * 10));
+    // with the play at the far end he keeps himself busy: taps a post, stretches
+    if (!g.scripted && !g.act && Math.abs(pk.x - gx) > 120 && rand() < dt * 0.08) W.act(g, rand() < 0.6 ? 'tapPosts' : 'stretch', rand() < 0.6 ? 1.4 : 2.4);
     if (pk.held !== g && g.gloveW > 0 && !g.gloveHold) g.gloveW = Math.max(0, g.gloveW - dt * 1.5);
     g.phase += dt * 0.3;
     if (g.act) { g.actT += dt / g.actDur; if (g.actT >= 1) { g.act = g.actHold ? g.act : null; if (!g.actHold) g.actT = 0; else g.actT = 1; } }
@@ -479,6 +488,19 @@ export function createWorld(ice, seedKey) {
         }
         const c = insideRink(tx, ty, 2.5); if (c) { tx = c.x; ty = c.y; }
         m.tx = tx; m.ty = ty; m.maxV = mv; m.acc = 26;
+        // what he does with his stick and his eyes
+        m.protect = 0; m.defend = null; m.look = null;
+        if (m === carrier) {
+          const th = nearestOf(opp, m.x, m.y);
+          if (th && Math.hypot(th.x - m.x, th.y - m.y) < 5.5) {
+            const lv = -(th.x - m.x) * Math.sin(m.h) + (th.y - m.y) * Math.cos(m.h);
+            m.protect = lv >= 0 ? 1 : -1;
+          }
+        } else if (carrier && carrier.side !== side && Math.hypot(m.x - pk.x, m.y - pk.y) < 13) {
+          m.defend = [pk.x, pk.y];
+        } else if (pk.target === m || (carrier && carrier.side === side && Math.hypot(m.x - pk.x, m.y - pk.y) < 40)) {
+          m.look = [pk.x, pk.y, 0.2];
+        }
       }
       if (!free) continue;
       // possession: pick up a loose puck
@@ -529,12 +551,33 @@ export function createWorld(ice, seedKey) {
         const sc = open * 1.2 + clamp(fwd, -20, 25) * 0.4 + rand() * 6;
         if (sc > bs) { bs = sc; best = m; }
       }
+      // a man standing him up in front: beat him with the hands instead of moving it
+      const front = opp.find((o) => !o.rag && Math.hypot(o.x - carrier.x, o.y - carrier.y) < 7 && ((o.x - carrier.x) * Math.cos(carrier.h) + (o.y - carrier.y) * Math.sin(carrier.h)) > 1.5);
+      if (front && rand() < 0.45) {
+        const mv = ['toedrag', 'deke', 'drag'][(rand() * 3) | 0];
+        W.act(carrier, mv, 0.7);
+        const sd2 = rand() < 0.5 ? 1 : -1;
+        carrier.tx = carrier.x + Math.cos(carrier.h) * 12 - Math.sin(carrier.h) * 7 * sd2; carrier.ty = carrier.y + Math.sin(carrier.h) * 12 + Math.cos(carrier.h) * 7 * sd2;
+        if (rand() < 0.35) W.schedule(0.35, () => { if (!front.scripted && !front.rag) { W.act(front, 'stagger', 0.6); front.react = 0.4; } });
+        return;
+      }
       if (best) {
-        W.act(carrier, 'pass', 0.3);
+        // the pass that fits: a saucer over a stick in the lane, a backhand to his off side,
+        // a drop pass to a man trailing him, otherwise the forehand along the ice
         const to = best;
+        const lu = (to.x - carrier.x) * Math.cos(carrier.h) + (to.y - carrier.y) * Math.sin(carrier.h);
+        const lv = -(to.x - carrier.x) * Math.sin(carrier.h) + (to.y - carrier.y) * Math.cos(carrier.h);
+        const lane = opp.some((o) => { const t = clamp(((o.x - carrier.x) * (to.x - carrier.x) + (o.y - carrier.y) * (to.y - carrier.y)) / ((to.x - carrier.x) ** 2 + (to.y - carrier.y) ** 2 || 1), 0, 1); return Math.hypot(carrier.x + (to.x - carrier.x) * t - o.x, carrier.y + (to.y - carrier.y) * t - o.y) < 3; });
+        const kind = lu < -3 ? 'drop' : lane ? 'saucer' : lv < -4 && lu < 8 ? 'backpass' : 'pass';
+        W.act(carrier, kind, kind === 'drop' ? 0.32 : 0.32);
+        carrier.look = [to.x, to.y, 1];
         W.schedule(0.11, () => {
           if (W.puck.carrier !== carrier) return;
-          W.pass(carrier, to, 62 + rand() * 18);
+          const spd = kind === 'drop' ? 18 : 62 + rand() * 18;
+          W.pass(carrier, to, spd);
+          if (kind === 'saucer') W.puck.vz = 7;
+          const tt = Math.hypot(to.x - carrier.x, to.y - carrier.y) / spd;
+          if (!to.scripted) W.act(to, 'receive', tt + 0.25, [carrier.x, carrier.y]);
           // a pass through traffic can be picked off
           const pk2 = W.puck;
           for (const o of opp) {

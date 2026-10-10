@@ -20,25 +20,56 @@ import { insideRink, GLASS_H } from './geo.js';
 export const DT = 1 / 120;
 export const G = 32;
 
-// Shots: blade wound back to `back`, through the puck at `hit`, out to `fol`. `wind` is the
-// fraction of the action spent loading; the puck leaves at `release`.
+// Shots and passes: blade wound back to `back`, through the puck at `hit`, out to `fol`.
+// `wind` is the fraction of the action spent loading; the puck leaves at `release`. `flex`
+// is how far the shaft bows at contact (feet), `bh` marks the backhand side, where the
+// weight shifts the other way.
 export const SHOTS = {
-  slap:     { wind: 0.55, back: [-1.7, 1.6, 3.9], hit: [1.45, 1.0, 0.08], fol: [3.0, 0.3, 3.5], dur: 0.7 },
-  onetimer: { wind: 0.32, back: [-1.1, 1.5, 3.0], hit: [1.5, 1.0, 0.08], fol: [3.0, 0.3, 3.2], dur: 0.45 },
-  wrist:    { wind: 0.45, back: [-0.6, 1.3, 0.25], hit: [1.6, 0.9, 0.1], fol: [2.8, 0.4, 2.2], dur: 0.5 },
-  snap:     { wind: 0.3, back: [0.2, 1.2, 1.0], hit: [1.5, 0.9, 0.08], fol: [2.6, 0.4, 1.6], dur: 0.4 },
-  backhand: { wind: 0.4, back: [-0.2, -1.3, 0.5], hit: [1.4, -0.7, 0.1], fol: [2.2, -0.4, 2.6], dur: 0.5 },
-  tip:      { wind: 0.2, back: [1.8, 0.8, 0.6], hit: [2.2, 0.6, 0.5], fol: [2.4, 0.5, 0.9], dur: 0.3 },
-  wrap:     { wind: 0.35, back: [-0.8, 1.4, 0.2], hit: [0.6, 1.6, 0.08], fol: [1.8, 1.0, 1.2], dur: 0.5 },
-  pass:     { wind: 0.35, back: [0.7, 1.45, 0.1], hit: [1.9, 0.7, 0.08], fol: [2.5, 0.4, 0.5], dur: 0.32 },
-  dump:     { wind: 0.4, back: [-0.2, 1.4, 0.6], hit: [1.5, 0.9, 0.08], fol: [2.8, 0.4, 2.0], dur: 0.45 },
+  slap:     { wind: 0.55, back: [-1.7, 1.6, 3.9], hit: [1.45, 1.0, 0.08], fol: [3.0, 0.3, 3.5], dur: 0.7, flex: 0.55 },
+  onetimer: { wind: 0.3, back: [-1.1, 1.5, 3.0], hit: [1.5, 1.0, 0.08], fol: [3.0, 0.3, 3.2], dur: 0.42, flex: 0.5 },
+  wrist:    { wind: 0.45, back: [-0.6, 1.3, 0.25], hit: [1.6, 0.9, 0.1], fol: [2.8, 0.4, 2.2], dur: 0.5, flex: 0.22 },
+  snap:     { wind: 0.3, back: [0.2, 1.2, 1.0], hit: [1.5, 0.9, 0.08], fol: [2.6, 0.4, 1.6], dur: 0.4, flex: 0.35 },
+  backhand: { wind: 0.4, back: [-0.2, -1.3, 0.5], hit: [1.4, -0.7, 0.1], fol: [2.2, -0.4, 2.6], dur: 0.5, flex: 0.15, bh: true },
+  tip:      { wind: 0.2, back: [1.8, 0.8, 0.6], hit: [2.2, 0.6, 0.5], fol: [2.4, 0.5, 0.9], dur: 0.3, flex: 0 },
+  wrap:     { wind: 0.35, back: [-0.8, 1.4, 0.2], hit: [0.6, 1.6, 0.08], fol: [1.8, 1.0, 1.2], dur: 0.5, flex: 0.1 },
+  pass:     { wind: 0.35, back: [0.7, 1.45, 0.1], hit: [1.9, 0.7, 0.08], fol: [2.5, 0.4, 0.5], dur: 0.32, flex: 0.05 },
+  saucer:   { wind: 0.3, back: [0.6, 1.4, 0.1], hit: [1.8, 0.8, 0.25], fol: [2.6, 0.3, 1.6], dur: 0.34, flex: 0.05 },
+  backpass: { wind: 0.35, back: [0.3, -1.4, 0.1], hit: [1.6, -0.7, 0.08], fol: [2.3, -0.3, 0.6], dur: 0.34, flex: 0.05, bh: true },
+  drop:     { wind: 0.35, back: [2.0, 0.7, 0.05], hit: [0.7, 0.6, 0.05], fol: [1.3, 0.6, 0.35], dur: 0.32, flex: 0 },
+  dump:     { wind: 0.4, back: [-0.2, 1.4, 0.6], hit: [1.5, 0.9, 0.08], fol: [2.8, 0.4, 2.0], dur: 0.45, flex: 0.2 },
 };
 export const releaseAt = (type) => { const s = SHOTS[type] || SHOTS.wrist; return s.dur * (s.wind + 0.08); };
 
+// Moves a puck carrier makes with the blade, as a path of [u, v, z] the blade follows
+// through the action. The puck rides the blade, so the sim reads the same function.
+const DEKES = {
+  // pull it back across the body with the toe turned over it, then push it out
+  toedrag: [[2.4, 1.3, 0.05], [1.5, -0.5, 0.05], [2.8, 0.1, 0.05]],
+  // forehand to backhand and back, wide, the move in front of a goalie
+  deke: [[2.3, 1.2, 0.05], [2.2, -0.9, 0.05], [2.7, 1.0, 0.05]],
+  // a shot that isn't: the blade loads, the goalie bites, the puck goes to the side
+  fake: [[2.2, 0.9, 0.05], [0.2, 1.4, 0.6], [2.0, -0.6, 0.05]],
+  // between the legs is beyond a CPhL roster; a quick lateral drag is not
+  drag: [[2.4, 0.4, 0.05], [2.0, 1.6, 0.05], [2.6, 0.9, 0.05]],
+};
+const path3 = (pts, t) => {
+  const n = pts.length - 1, f = clamp(t, 0, 1) * n, i = Math.min(n - 1, Math.floor(f)), k = easeIO(f - i);
+  return V.lerp(pts[i], pts[i + 1], k);
+};
+
+// Where the blade (and so the puck) is in body space. One function for the rig and the sim,
+// so a carried puck can never drift off the stick.
 export function bladeLocal(s, T, carrying) {
-  return carrying
-    ? [2.45 + 0.25 * Math.cos(T * 5.1 + s.seed * 1.7), 0.85 + 0.5 * Math.sin(T * 7.3 + s.seed)]
-    : [2.3, 0.75 + 0.18 * Math.sin(s.phase * TAU)];
+  if (carrying || s.carrying) {
+    if (DEKES[s.act]) { const p = path3(DEKES[s.act], s.actT); return [p[0], p[1]]; }
+    const sp = Math.hypot(s.vx || 0, s.vy || 0);
+    if (s.protect) return [1.5, -s.protect * 1.35];             // on the far side from the man
+    if (sp > 21) return [3.0, 0.45 + 0.15 * Math.sin(T * 4 + s.seed)];  // pushed ahead, one hand
+    // the dangle: forehand to backhand and back, a little ahead and behind, never the same twice
+    const f = 1.55 + (s.seed % 7) * 0.06;
+    return [2.35 + 0.22 * Math.cos(T * f * 2.1 + s.seed), 0.5 + 0.7 * Math.sin(T * f * TAU * 0.5 + s.seed)];
+  }
+  return [2.3, 0.75 + 0.18 * Math.sin(s.phase * TAU)];
 }
 export function bladeWorld(s, T, carrying) {
   const [u, v] = bladeLocal(s, T, carrying), c = Math.cos(s.h), n = Math.sin(s.h);
@@ -47,6 +78,14 @@ export function bladeWorld(s, T, carrying) {
 
 const toLocalFn = (s) => { const ch = Math.cos(s.h), sn = Math.sin(s.h); return (X, Y, Z) => { const dx = X - s.x, dy = Y - s.y; return [dx * ch + dy * sn, -dx * sn + dy * ch, Z]; }; };
 const toWorld = (s, loc) => { const ch = Math.cos(s.h), sn = Math.sin(s.h); return loc.map((p) => (p ? [s.x + p[0] * ch - p[1] * sn, s.y + p[0] * sn + p[1] * ch, p[2]] : null)); };
+const dirWorld = (s, d) => { const ch = Math.cos(s.h), sn = Math.sin(s.h); return [d[0] * ch - d[1] * sn, d[0] * sn + d[1] * ch, d[2]]; };
+// roll about the body's forward axis, pivoting at the ice: leaning into a turn
+const roll = (p, a) => { const c = Math.cos(a), s = Math.sin(a); return [p[0], p[1] * c - p[2] * s, p[1] * s + p[2] * c]; };
+const bump = (t) => Math.sin(clamp(t, 0, 1) * Math.PI);
+// keep a hand within a fraction of full arm reach, so elbows stay bent
+const reach = (sh, h, frac) => { const d = V.sub(h, sh), l = V.len(d), max = 2.25 * frac; return l > max ? V.add(sh, V.mul(d, max / l)) : h; };
+// head direction in body space: yaw left of forward, pitch up
+const lookDir = (yaw, pitch) => [Math.cos(yaw) * Math.cos(pitch), Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch)];
 
 // ── skaters, officials and medics ───────────────────────────────────────────
 export function skaterRig(s, T) {
@@ -64,35 +103,70 @@ export function skaterRig(s, T) {
 function standRig(s, T) {
   const at = s.actT, act = s.act;
   const official = s.kind === 'official' || s.kind === 'medic';
+  const toLocal = toLocalFn(s);
+  const carrying = !!s.carrying;
+  const shot = SHOTS[act], deke = DEKES[act];
+
+  // ── how he is moving: forward, backward, turning, starting, gliding ──────
+  const sp = Math.hypot(s.vx, s.vy);
+  const rel = sp > 1 ? angWrapL(Math.atan2(s.vy, s.vx) - s.h) : 0;
+  const back = !official && sp > 3 && Math.abs(rel) > 2.0;
+  const turn = clamp(s.turnRate || 0, -3, 3);                  // + is turning to his left
+  const crossing = !official && !back && !shot && sp > 9 && Math.abs(turn) > 0.6;
+  const starting = !official && !back && s.effort > 0.85 && sp > 1.5 && sp < 11;
+  const gliding = !official && !back && sp > 6 && s.amp < 0.18;
   const a = s.amp, P = s.phase * TAU;
+
   let crouch = s.crouch + 0.22 * a + s.duck * 0.5;
   let lean = (official ? 0.08 : 0.2) + 0.38 * a + 0.18 * crouch;
   let twist = -0.28 * a * Math.sin(P);
-  let stance = s.stance, tilt = 0;
-  const shot = SHOTS[act];
+  let stance = s.stance;
+  // lean into a turn: harder the faster and tighter he goes
+  let tilt = official ? 0 : clamp(turn * sp * 0.014, -0.42, 0.42);
+  let shiftV = 0;
+  let yaw = 0, pitch = -0.12;                                   // where his eyes go
+  if (back) { crouch += 0.35; lean = 0.15 + 0.15 * a; twist *= 0.3; }
+  if (starting) { lean += 0.35; crouch += 0.15; }
+  if (crossing) crouch += 0.2;
+
+  // ── actions that change the whole body ───────────────────────────────────
+  let weight = 0;                                               // −1 on the back leg … +1 on the front
   if (shot) {
-    const w = shot.wind;
-    if (at < w) { const k = easeIO(at / w); twist += (act === 'backhand' ? -0.8 : 0.95) * k; crouch += 0.35 * k; }
-    else if (at < w + 0.15) { const m = (at - w) / 0.15; twist += (act === 'backhand' ? -0.8 : 0.95) * (1 - m) - 0.4 * m; crouch += 0.35; }
-    else { const m = (at - w - 0.15) / (0.85 - w); twist -= 0.4 * (1 - m); crouch += 0.35 * (1 - m); }
-    if (act === 'pass' || act === 'tip') { twist *= 0.4; crouch -= 0.2; }
+    const w = shot.wind, sd = shot.bh ? -1 : 1;
+    if (at < w) { const k = easeIO(at / w); twist += 0.95 * sd * k; crouch += 0.35 * k; weight = -k; }
+    else if (at < w + 0.15) { const m = (at - w) / 0.15; twist += 0.95 * sd * (1 - m) - 0.4 * sd * m; crouch += 0.35; weight = -1 + 2 * m; }
+    else { const m = (at - w - 0.15) / (0.85 - w); twist -= 0.4 * sd * (1 - m); crouch += 0.35 * (1 - m); weight = 1 - m * 0.6; }
+    if (act === 'pass' || act === 'tip' || act === 'drop' || act === 'backpass' || act === 'saucer') { twist *= 0.45; crouch -= 0.2; weight *= 0.4; }
+    shiftV = -0.28 * weight * sd;
+    yaw = 0; pitch = -0.05;
   }
+  if (deke) { twist += 0.3 * Math.sin(at * TAU); crouch += 0.2; pitch = -0.35; }
   if (act === 'check' || act === 'checkElbow' || act === 'checkHip') {
     if (at < 0.35) crouch += 0.45 * easeIO(at / 0.35);
     else {
       const m = clamp((at - 0.35) / 0.2, 0, 1), f = 1 - clamp((at - 0.7) / 0.3, 0, 1);
       crouch += 0.45 * (1 - m);
-      if (act === 'checkHip') { crouch += 0.7 * m * f; twist += 1.3 * m * f; tilt = 0.35 * m * f; }
+      if (act === 'checkHip') { crouch += 0.7 * m * f; twist += 1.3 * m * f; tilt += 0.35 * m * f; }
       else { lean += 0.4 * m * f; twist -= 0.85 * m * f; }
     }
   }
-  if (act === 'block') { const k = Math.sin(clamp(at, 0, 1) * Math.PI); crouch += 1.2 * k; stance = Math.max(stance, k); lean += 0.2 * k; }
-  if (act === 'faceoff') { crouch += 0.75; lean += 0.35; stance = Math.max(stance, 0.9); }
-  if (act === 'stop') { const k = Math.sin(clamp(at, 0, 1) * Math.PI); crouch += 0.55 * k; lean -= 0.35 * k; stance = Math.max(stance, 0.7 * k); }
-  if (act === 'poke') { lean += 0.35 * Math.sin(clamp(at, 0, 1) * Math.PI); }
+  if (act === 'block') { const k = bump(at); crouch += 1.2 * k; stance = Math.max(stance, k); lean += 0.2 * k; }
+  if (act === 'sweep') { const k = bump(at); crouch += 1.0 * k; stance = Math.max(stance, k); lean += 0.45 * k; twist += 0.9 * Math.sin(at * Math.PI * 2) * k; }
+  if (act === 'lift') lean += 0.2 * bump(at);
+  if (act === 'faceoff') { crouch += 0.75; lean += 0.35; stance = Math.max(stance, 0.9); pitch = -0.6; }
+  if (act === 'stop') { const k = bump(at); crouch += 0.55 * k; lean -= 0.35 * k; stance = Math.max(stance, 0.7 * k); tilt += 0.25 * k * (s.actData || 1); }
+  if (act === 'poke') lean += 0.35 * bump(at);
+  if (act === 'receive') { crouch += 0.2; pitch = -0.3; }
+  if (act === 'brace') { crouch += 0.3; lean -= 0.1; }
   if (act === 'cover') { crouch += 1.1; lean += 0.8; }
-  if (act === 'slumped') { lean += 0.5; crouch += 0.3; }
-  if (s.guard) { crouch = Math.max(crouch, 0.18); lean = 0.12 + 0.2 * crouch; }
+  if (act === 'slumped') { lean += 0.5; crouch += 0.3; pitch = -0.7; }
+  if (carrying && !shot && !deke) {
+    // the carrier: eyes down at the puck, up every few seconds to read the ice
+    const up = Math.sin(T * 0.9 + s.seed) > 0.25;
+    pitch = up ? -0.1 : -0.55; yaw = up ? 0.35 * Math.sin(T * 0.7 + s.seed) : 0.2;
+    if (s.protect) { tilt += 0.18 * s.protect; lean += 0.15; crouch += 0.15; yaw = -0.5 * s.protect; }
+  }
+  if (s.guard) { crouch = Math.max(crouch, 0.18); lean = 0.12 + 0.2 * crouch; tilt = 0; pitch = 0; }
   let pk = 0;
   if (act === 'punchR' || act === 'punchL' || act === 'jab' || act === 'uppercut') {
     pk = act !== 'uppercut'
@@ -103,59 +177,80 @@ function standRig(s, T) {
     if (act === 'uppercut') crouch += 0.3 * Math.max(0, -pk) - 0.1 * Math.max(0, pk);
   }
   if (act === 'pull') lean += 0.3 * Math.sin(Math.min(1, at * 1.5) * Math.PI / 2);
-  if (act === 'shove' || act === 'break') { const k = Math.sin(clamp(at, 0, 1) * Math.PI); lean += 0.3 * k; }
-  if (act === 'stagger') { lean -= 0.4 * Math.sin(clamp(at, 0, 1) * Math.PI); }
+  if (act === 'shove' || act === 'break') lean += 0.3 * bump(at);
+  if (act === 'stagger') lean -= 0.4 * bump(at);
   lean -= 0.65 * s.react;
+  if (s.look) {
+    // a look at something on the ice: a shoulder check for a pass, a glance at the puck
+    const l = toLocal(s.look[0], s.look[1], s.look[2] ?? 1);
+    yaw = clamp(Math.atan2(l[1], l[0]) - twist, -1.4, 1.4);
+    pitch = clamp(Math.atan2(l[2] - 5.6, Math.hypot(l[0], l[1])), -0.8, 0.3);
+  }
+
+  // ── the upper body, built upright then rolled into the turn ──────────────
   const zp = 3.3 - 0.62 * crouch;
-  const pelvis = [0, 0, zp];
-  const sd = [Math.sin(lean), Math.sin(tilt), Math.cos(lean)];
+  const pelvis = [0, shiftV, zp];
+  const sd = [Math.sin(lean), 0, Math.cos(lean)];
   const chest = V.add(pelvis, V.mul(sd, 1.1)), neck = V.add(pelvis, V.mul(sd, 2.0));
-  const hl = lean * 0.45 - (act === 'slumped' ? 0.6 : 0);
-  const head = V.add(neck, [Math.sin(hl) * 0.55 - s.react * 0.32, 0, Math.cos(hl) * 0.55 + s.react * 0.05]);
+  const hl = lean * 0.45 - (act === 'slumped' ? 0.6 : 0) + Math.max(-0.3, pitch * 0.35);
+  const head = V.add(neck, [Math.sin(hl) * 0.55 - s.react * 0.32, Math.sin(yaw) * 0.06, Math.cos(hl) * 0.55 + s.react * 0.05]);
   const shL = V.add(neck, rotZ([-0.05, 1.0, -0.25], twist)), shR = V.add(neck, rotZ([-0.05, -1.0, -0.25], twist));
   const hipL = V.add(pelvis, rotZ([0, 0.5, -0.05], -twist * 0.4)), hipR = V.add(pelvis, rotZ([0, -0.5, -0.05], -twist * 0.4));
-  const legs = [];
-  const stopping = act === 'stop';
-  for (const sg of [1, -1]) {
-    const p = P + (sg > 0 ? 0 : Math.PI);
-    let fu = 0.15 + 0.78 * a * Math.cos(p);
-    let fv = sg * (0.62 + 0.3 * stance + 0.55 * a * (1 - Math.cos(p)) / 2);
-    let fz = 0.55 + 0.38 * a * Math.max(0, -Math.sin(p));
-    if (stance) fu += sg * 0.38 * stance;
-    if (stopping) { fu = sg * 0.5 + 0.6; fv = sg * 0.8; fz = 0.55; }
-    if (act === 'block' && sg < 0) { fu -= 1.0 * Math.sin(clamp(at, 0, 1) * Math.PI); fz = 0.6; }
-    const [kn, an] = ik(sg > 0 ? hipL : hipR, [fu, fv, fz], 1.55, 1.5, [1, sg * 0.25, 0.1]);
-    const yaw = stopping ? sg * 1.4 : sg * (0.22 + 0.35 * a * Math.max(0, Math.sin(p)));
-    legs.push([kn, an, V.add(an, [0.95 * Math.cos(yaw), 0.95 * Math.sin(yaw), -0.32])]);
-  }
-  const toLocal = toLocalFn(s);
-  let L, R, blade = null;
-  const carrying = !!s.carrying;
+
+  // hands and stick, in the upright frame
+  let L, R, blade = null, flex = 0;
   if (s.stick && !official) {
     const [bu, bv] = bladeLocal(s, T, carrying);
     blade = [bu, bv, 0.08];
     R = [0.55 + 0.22 * a * Math.sin(P), -0.32, zp + 0.72];
+    const fast = sp > 21 && !shot && !deke && !s.protect;
     if (shot) {
       const w = shot.wind;
       blade = at < w ? V.lerp(blade, shot.back, easeIO(at / w)) : at < w + 0.15 ? V.lerp(shot.back, shot.hit, (at - w) / 0.15) : V.lerp(shot.hit, shot.fol, easeOut((at - w - 0.15) / (0.85 - w)));
-      R = act === 'backhand' ? [0.5, 0.25, zp + 0.95] : [0.35, -0.25, zp + 0.95];
-    }
-    if (act === 'poke') { const k = Math.sin(clamp(at, 0, 1) * Math.PI); blade = V.lerp(blade, [3.7, 0.25, 0.05], k); R = V.lerp(R, [1.2, -0.1, zp + 0.5], k); }
-    if (act === 'faceoff') { blade = [1.9, 0.25, 0.05]; R = [0.75, -0.2, zp + 0.45]; }
-    if (act === 'block') { const k = Math.sin(clamp(at, 0, 1) * Math.PI); blade = V.lerp(blade, [1.4, 1.8, 0.06], k); R = V.lerp(R, [1.0, -1.0, zp + 0.2], k); }
-    if ((act === 'check' || act === 'checkElbow') && at > 0.3 && at < 0.9) {
+      R = shot.bh ? [0.5, 0.25, zp + 0.95] : [0.35, -0.25, zp + 0.95];
+      if (at > w && at < w + 0.18) flex = (shot.flex || 0) * bump((at - w) / 0.18);
+    } else if (deke) {
+      blade = path3(DEKES[act], at);
+      R = [0.6, -0.2 + blade[1] * 0.2, zp + 0.6];
+    } else if (act === 'receive') {
+      // blade down and square to the pass, giving with it as it arrives
+      const from = s.actData ? toLocal(s.actData[0], s.actData[1], 0) : [6, 2, 0];
+      const ang = clamp(Math.atan2(from[1], from[0]), -1.2, 1.4);
+      const give = at > 0.75 ? (at - 0.75) * 1.6 : 0;
+      blade = [Math.cos(ang) * (2.4 - give), Math.sin(ang) * 1.6 + 0.4, 0.06];
+      R = [0.6, -0.3, zp + 0.55];
+    } else if (act === 'onetimerReady') {
+      blade = [-0.9, 1.6, 2.6]; R = [0.3, -0.25, zp + 0.95]; twist += 0.6;
+    } else if (act === 'poke') { const k = bump(at); blade = V.lerp(blade, [3.7, 0.25, 0.05], k); R = V.lerp(R, [1.2, -0.1, zp + 0.5], k); }
+    else if (act === 'sweep') { const k = bump(at); blade = V.lerp(blade, [2.8 * Math.cos(1.2 - at * 2.4), 2.8 * Math.sin(1.2 - at * 2.4), 0.05], k); R = V.lerp(R, [1.0, -0.6, zp + 0.1], k); }
+    else if (act === 'lift') { const k = bump(at); blade = V.lerp([2.6, 0.3, 0.05], [2.2, 0.1, 1.4], k); R = [0.7, -0.3, zp + 0.9]; }
+    else if (act === 'faceoff') { blade = [1.9, 0.25, 0.05]; R = [0.75, -0.2, zp + 0.45]; }
+    else if (act === 'block') { const k = bump(at); blade = V.lerp(blade, [1.4, 1.8, 0.06], k); R = V.lerp(R, [1.0, -1.0, zp + 0.2], k); }
+    else if ((act === 'check' || act === 'checkElbow') && at > 0.3 && at < 0.9) {
       const m = Math.sin(clamp((at - 0.3) / 0.6, 0, 1) * Math.PI);
       R = V.lerp(R, [0.95, -0.4, zp + 1.45], m); blade = V.lerp(blade, [1.15, 2.4, zp + 1.25], m);
+    } else if (act === 'celebrate') { const k = easeOut(clamp(at * 3, 0, 1)); R = V.lerp(R, [0.45, -0.55, zp + 2.9], k); blade = V.lerp(blade, [0.9, 0.4, zp + 6.2], k); }
+    else if (act === 'slumped') { blade = [1.6, 0.4, 0.06]; R = [0.6, -0.4, zp + 0.3]; }
+    else if (s.defend && !carrying) {
+      // stick on the puck: one hand, blade laid on the ice in the lane he is defending
+      const d = toLocal(s.defend[0], s.defend[1], 0), ang = clamp(Math.atan2(d[1], d[0]), -1.0, 1.3);
+      blade = [Math.cos(ang) * 3.4, Math.sin(ang) * 3.4, 0.05]; R = [0.9, -0.15, zp + 0.55];
     }
-    if (act === 'celebrate') { const k = easeOut(clamp(at * 3, 0, 1)); R = V.lerp(R, [0.45, -0.55, zp + 2.9], k); blade = V.lerp(blade, [0.9, 0.4, zp + 6.2], k); }
-    if (act === 'slumped') { blade = [1.6, 0.4, 0.06]; R = [0.6, -0.4, zp + 0.3]; }
     L = V.add(R, V.mul(V.sub(blade, R), shot ? 0.28 : 0.36));
-    if (act === 'checkElbow' && at > 0.3 && at < 0.9) {
-      // the elbow comes up: right hand off the stick, elbow levelled at the victim's head
-      const m = Math.sin(clamp((at - 0.3) / 0.6, 0, 1) * Math.PI);
-      R = V.lerp(R, [0.2, -0.7, zp + 2.3], m);
+    if (fast || (s.defend && !carrying && !act)) {
+      // one hand on the stick, the other arm driving with the stride
+      R = fast ? [0.9, -0.25, zp + 0.55] : R;
+      L = [0.35 + 0.55 * Math.sin(P), 0.95, zp + 0.25 + 0.35 * Math.max(0, Math.cos(P))];
     }
+    if (carrying && s.protect && !shot && !deke) {
+      // the arm bar: bottom hand off the stick, forearm out at the man leaning on him
+      R = [0.7, -s.protect * 0.25, zp + 0.55];
+      L = [0.6, s.protect * 1.6, zp + 1.3];
+      blade = [1.5, -s.protect * 1.35, 0.06];
+    }
+    if (act === 'checkElbow' && at > 0.3 && at < 0.9) { const m = bump((at - 0.3) / 0.6); R = V.lerp(R, [0.2, -0.7, zp + 2.3], m); }
     if (act === 'hug' && s.target) { const t = s.target; L = toLocal(t.x, t.y, 4.6); L[1] += 0.9; R = toLocal(t.x, t.y, 4.4); R[1] -= 0.9; blade = null; }
+    if (act === 'brace') { L = [0.9, 0.7, zp + 1.6]; R = [0.9, -0.5, zp + 1.5]; blade = null; }
   } else if (s.guard || (act && !official) || s.jerseyUp > 0.5) {
     const bob = Math.sin(T * 6.5 + s.seed) * 0.07;
     L = [1.0, 0.36, zp + 1.78 + bob]; R = [0.78, -0.4, zp + 1.58 - bob];
@@ -172,81 +267,216 @@ function standRig(s, T) {
       L = toLocal(s.foe.x, s.foe.y, 5.0 - 2.2 * k); L[1] += 0.55; R = toLocal(s.foe.x, s.foe.y, 5.0 - 2.2 * k); R[1] -= 0.55;
     }
     if (act === 'celebrate') R = [0.4, -0.5, zp + 3.0 + Math.sin(T * 9) * 0.25];
-    if (act === 'stagger') { const k = Math.sin(clamp(at, 0, 1) * Math.PI); L = V.lerp(L, [0.2, 1.6, zp + 1.5], k); R = V.lerp(R, [0.2, -1.6, zp + 1.5], k); }
+    if (act === 'stagger') { const k = bump(at); L = V.lerp(L, [0.2, 1.6, zp + 1.5], k); R = V.lerp(R, [0.2, -1.6, zp + 1.5], k); }
     if (s.jerseyUp > 0.5) { L = [0.55, 0.6, zp + 2.3 + bob * 3]; R = [0.6, -0.6, zp + 2.2 - bob * 3]; }
-  } else if (official || !s.stick) {
+  } else {
     const sw = 0.3 * a * Math.sin(P);
     L = [0.25 - sw, 0.85, zp - 0.1]; R = [0.25 + sw, -0.85, zp - 0.1];
     if (act === 'drop') { const k = at < 0.6 ? easeIO(at / 0.6) : 1; R = V.lerp([0.9, -0.3, zp + 1.2], [1.1, -0.25, zp + 0.35], k); }
     if ((act === 'break' || act === 'shove') && s.target) { const t = s.target; L = toLocal(t.x, t.y, 4.4); L[1] += 0.4; R = toLocal(t.x, t.y, 4.3); R[1] -= 0.4; }
     if (act === 'carry') { L = [1.25, 0.65, zp - 0.5]; R = [1.25, -0.65, zp - 0.5]; }
     if (act === 'point') R = [0.6, -0.5, zp + 2.9];
+    if (act === 'washout') { const k = bump(Math.min(1, at * 1.3)); L = V.lerp(L, [0.6, 2.0, zp + 1.2], k); R = V.lerp(R, [0.6, -2.0, zp + 1.2], k); }
   }
   if (act === 'shove' && s.target && s.stick) { const t = s.target; L = toLocal(t.x, t.y, 4.4); L[1] += 0.4; R = toLocal(t.x, t.y, 4.3); R[1] -= 0.4; blade = null; }
-  const bend = (sh, h, frac) => { const d = V.sub(h, sh), l = V.len(d), max = 2.25 * frac; return l > max ? V.add(sh, V.mul(d, max / l)) : h; };
-  if (s.grab || act === 'pull' || act === 'hug' || act === 'shove' || act === 'break') { L = bend(shL, L, 0.86); R = bend(shR, R, act === 'pull' || act === 'hug' ? 0.86 : 0.95); }
-  else if (s.guard) { L = bend(shL, L, 0.8); R = bend(shR, R, pk > 0.6 ? 0.98 : 0.8); }
+  if (s.grab || act === 'pull' || act === 'hug' || act === 'shove' || act === 'break') { L = reach(shL, L, 0.86); R = reach(shR, R, act === 'pull' || act === 'hug' ? 0.86 : 0.95); }
+  else if (s.guard) { L = reach(shL, L, 0.8); R = reach(shR, R, pk > 0.6 ? 0.98 : 0.8); }
   const [elL, hL] = ik(shL, L, 1.15, 1.1, [-0.3, 1, -0.8]);
   const [elR, hR] = ik(shR, R, 1.15, 1.1, [-0.3, -1, -0.8]);
-  let butt = null, heel = null, toe = null;
+
+  // roll the upper body into the turn, pivoting at the ice under him
+  const upper = [pelvis, chest, neck, head, shL, elL, hL, shR, elR, hR, hipL, hipR].map((p) => roll(p, tilt));
+  const [rPel, rChest, rNeck, rHead, rShL, rElL, rHL, rShR, rElR, rHR, rHipL, rHipR] = upper;
+  if (blade && tilt) {
+    // the blade stays on the ice; only the hands roll with him
+    const bz = blade[2]; blade = roll(blade, tilt * 0.5); blade[2] = Math.max(bz, blade[2] < 0.05 ? 0.05 : blade[2]);
+  }
+
+  // ── legs: stride, crossover, C-cuts, the sprint start, the glide, the shot stance ──
+  const legs = [];
+  const stopping = act === 'stop';
+  const outside = turn > 0 ? -1 : 1;                            // the leg that crosses over
+  for (const sg of [1, -1]) {
+    const p = P + (sg > 0 ? 0 : Math.PI);
+    let fu = 0.15 + 0.78 * a * Math.cos(p);
+    let fv = sg * (0.62 + 0.3 * stance + 0.55 * a * (1 - Math.cos(p)) / 2);
+    let fz = 0.55 + 0.38 * a * Math.max(0, -Math.sin(p));
+    let yawF = sg * (0.22 + 0.35 * a * Math.max(0, Math.sin(p)));
+    if (stance) fu += sg * 0.38 * stance;
+    if (back) {
+      // C-cuts: each heel sweeps out and draws back in, toes turned in, nothing lifts much
+      const q = Math.sin(p);
+      fu = -0.05 + 0.3 * q; fv = sg * (0.68 + 0.5 * Math.max(0, q)); fz = 0.55 + 0.1 * Math.max(0, -q); yawF = -sg * 0.35 * Math.max(0, q);
+    } else if (crossing) {
+      const lift = Math.max(0, -Math.sin(p));
+      if (sg === outside) { fv = sg * (0.7 - 1.7 * lift); fu += 0.35 * lift; fz = 0.55 + 0.45 * lift; }  // over the top
+      else fv = sg * (0.55 + 0.75 * Math.max(0, Math.sin(p)));                                        // and the push under
+      yawF = -outside * 0.3;
+    } else if (starting) {
+      // the first strides: short, high, toes out like a V, all drive
+      fu = 0.25 + 0.4 * Math.cos(p); fz = 0.55 + 0.75 * Math.max(0, -Math.sin(p)); yawF = sg * 0.75;
+    } else if (gliding) {
+      fu = sg * 0.35; fv = sg * 0.58; fz = 0.55; yawF = sg * 0.1;
+    }
+    if (shot) {
+      // weight from the back skate to the front one, the back leg trailing on its toe at the finish
+      const front = (shot.bh ? 1 : -1) === sg;
+      if (front) { fu = 0.55; fv = sg * 0.75; fz = 0.55; }
+      else { fu = -0.45 - 0.4 * Math.max(0, weight); fv = sg * 0.85; fz = 0.55 + 0.25 * Math.max(0, weight); }
+      yawF = sg * 0.5;
+    }
+    if (stopping) { fu = sg * 0.5 + 0.6; fv = sg * 0.8; fz = 0.55; yawF = sg * 1.4; }
+    if (act === 'block' && sg < 0) { fu -= 1.0 * bump(at); fz = 0.6; }
+    if (act === 'sweep' && sg < 0) { fu -= 1.2 * bump(at); fz = 0.45; }
+    fv -= tilt * 1.3;                                           // the skates stay under a leaning man
+    const [kn, an] = ik(sg > 0 ? rHipL : rHipR, [fu, fv, fz], 1.55, 1.5, [1, sg * 0.25, 0.1]);
+    legs.push([kn, an, V.add(an, [0.95 * Math.cos(yawF), 0.95 * Math.sin(yawF), -0.32])]);
+  }
+
+  let butt = null, heel = null, toe = null, bend = null;
   if (blade) {
-    const sh = V.sub(blade, hR);
-    butt = V.add(hR, V.mul(V.norm(sh), -0.4));
+    const sh = V.sub(blade, rHR);
+    butt = V.add(rHR, V.mul(V.norm(sh), -0.4));
     heel = blade;
     const perp = V.norm([-sh[1] * 0.6 + 0.8, sh[0] * 0.6, 0]);
-    toe = act === 'celebrate' ? V.add(blade, [0.3, 0.2, 0.7]) : V.add(blade, V.mul(perp, 0.95));
+    toe = act === 'celebrate' ? V.add(blade, [0.3, 0.2, 0.7]) : act === 'toedrag' && at > 0.25 && at < 0.6 ? V.add(blade, [0.5, 0.75, 0]) : V.add(blade, V.mul(perp, 0.95));
+    if (flex > 0.01) { const mid = V.lerp(butt, heel, 0.55); bend = V.add(mid, [-flex, 0.1 * flex, flex * 0.3]); }
   }
-  return toWorld(s, [pelvis, chest, neck, head, shL, elL, hL, shR, elR, hR, hipL, legs[0][0], legs[0][1], hipR, legs[1][0], legs[1][1], legs[0][2], legs[1][2], butt, heel, toe]);
+  const out = toWorld(s, [rPel, rChest, rNeck, rHead, rShL, rElL, rHL, rShR, rElR, rHR, rHipL, legs[0][0], legs[0][1], rHipR, legs[1][0], legs[1][1], legs[0][2], legs[1][2], butt, heel, toe]);
+  out.meta = { look: dirWorld(s, roll(lookDir(yaw + twist * 0.8, pitch), tilt)), bend: bend ? toWorld(s, [bend])[0] : null };
+  return out;
 }
+const angWrapL = (d) => { d = (d + Math.PI) % TAU; if (d < 0) d += TAU; return d - Math.PI; };
 
 // ── goalies ─────────────────────────────────────────────────────────────────
-// Actions: 'glove' (reaching for gloveTarget), 'pad' (butterfly), 'chest', 'poke',
-// 'dive' (actData = side, ±1, across his body), 'cover', 'slump'.
+// The stance is the base: crouched, weight on the balls of the feet, glove open at the hip,
+// blocker at the side, paddle covering the five-hole, head on the puck. Lateral movement
+// reads off his own sideways speed (small shuffles, or a T-push when he has to get across),
+// and saves are actions on top:
+//
+//   butterfly · bslide (sliding butterfly) · rvh (post seal) · kick (stand-up kick save)
+//   stack (two-pad stack) · glove (gloveTarget) · blocker · chest · poke · dive · cover
+//   recover (up from the butterfly) · playPuck · pass · stretch · drink · tapPosts · slump
+//   celebrate · screen (leaning to see round a man)
+//
+// `actData` carries a side (±1, positive is his glove side) for the moves that have one.
 export function goalieRig(g, T) {
   if (g.rag) return g.rag.pts.map((p) => [p.x, p.y, p.z]);
-  const act = g.act, at = g.actT;
+  const act = g.act, at = g.actT, side = g.actData || 1;
+  const toLocal = toLocalFn(g);
+  // how fast he is moving across his own crease
+  const ch = Math.cos(g.h), sn = Math.sin(g.h);
+  const lat = -(g.vx || 0) * sn + (g.vy || 0) * ch;
+  const tpush = Math.abs(lat) > 7 && !act;
+  const shuffle = !tpush && Math.abs(lat) > 1.2 && !act;
   let bf = g.bfly;
-  if (act === 'pad' || act === 'cover') bf = Math.max(bf, Math.sin(clamp(at * 1.6, 0, 1) * Math.PI / 2));
-  if (act === 'dive') bf = Math.max(bf, 0.6);
-  const zp = lerp(2.35, 1.35, bf);
-  let lean = 0.4 + 0.1 * bf;
-  if (act === 'cover') lean += 0.7 * Math.min(1, at * 2);
-  if (act === 'slump') lean += 0.45;
-  if (act === 'chest') lean -= 0.25 * Math.sin(clamp(at, 0, 1) * Math.PI);
+  if (act === 'butterfly' || act === 'bslide' || act === 'pad' || act === 'cover') bf = Math.max(bf, easeOut(clamp(at * 3, 0, 1)));
+  if (act === 'recover') bf = 1 - easeIO(at);
+  if (act === 'dive' || act === 'rvh') bf = Math.max(bf, 0.6);
+  let zp = lerp(2.3, 1.3, bf);
+  let lean = 0.42 + 0.1 * bf, tilt = 0, twist = 0;
+  let yaw = 0, pitch = -0.2;
+  if (g.track) { const l = toLocal(g.track[0], g.track[1], g.track[2] ?? 0.2); yaw = clamp(Math.atan2(l[1], l[0]), -1.1, 1.1); pitch = clamp(Math.atan2(l[2] - 4.6, Math.hypot(l[0], l[1])), -0.9, 0.4); }
+  if (act === 'cover') { lean += 0.75 * Math.min(1, at * 2); pitch = -1.0; }
+  if (act === 'slump') { lean += 0.45 + 0.15 * Math.sin(at * 3); pitch = -0.8; }
+  if (act === 'chest') lean -= 0.25 * bump(at);
+  if (act === 'screen') { tilt = side * 0.35 * bump(Math.min(1, at * 1.5)); }
+  if (act === 'stretch') { tilt = 0.4 * Math.sin(at * TAU * 2); zp -= 0.6 * Math.max(0, Math.sin(at * TAU)); }
+  if (act === 'drink') { lean -= 0.15 * bump(at); pitch = 0.5 * bump(at); }
+  if (act === 'celebrate') { lean = 0.1; zp = 2.9; }
+  if (act === 'kick') { tilt = -side * 0.3 * bump(at); }
+  if (act === 'rvh') { tilt = side * 0.35; lean += 0.15; }
+  if (tpush) { twist = 0; zp += 0.15; }
   const pelvis = [0, 0, zp], sd = [Math.sin(lean), 0, Math.cos(lean)];
   const chest = V.add(pelvis, V.mul(sd, 1.0)), neck = V.add(pelvis, V.mul(sd, 1.8));
-  const head = V.add(neck, [0.18 - (act === 'slump' ? 0.25 : 0), 0, 0.55 - (act === 'slump' ? 0.12 : 0)]);
-  const shL = V.add(neck, [0, 1.08, -0.25]), shR = V.add(neck, [0, -1.08, -0.25]);
+  const head = V.add(neck, [0.18 - (act === 'slump' ? 0.25 : 0) + Math.min(0, pitch) * 0.12, Math.sin(yaw) * 0.08, 0.55 - (act === 'slump' ? 0.12 : 0)]);
+  const shL = V.add(neck, rotZ([0, 1.08, -0.25], twist)), shR = V.add(neck, rotZ([0, -1.08, -0.25], twist));
   const hipL = [0, 0.55, zp - 0.05], hipR = [0, -0.55, zp - 0.05];
-  const legs = [];
-  for (const sg of [1, -1]) {
-    const [kn0, an0] = ik(sg > 0 ? hipL : hipR, [0.25, sg * 1.25, 0.5], 1.5, 1.45, [1, -sg * 0.7, 0]);
-    const kn = V.lerp(kn0, [0.85, sg * 0.6, 0.45], bf), an = V.lerp(an0, [-0.55, sg * 2.0, 0.35], bf);
-    legs.push([kn, an, V.add(an, [0.8, sg * 0.25, -0.3])]);
-  }
-  const toLocal = toLocalFn(g);
+
+  // hands: glove left, blocker and stick right
   let L = [1.0, 1.42, zp + 0.25], R = [1.05, -1.3, zp - 0.1];
+  let blade = [2.35, -0.35, 0.08], toeOff = [0.1, 1.35, 0];
   if (g.gloveW > 0 && g.gloveTarget) L = V.lerp(L, toLocal(...g.gloveTarget), g.gloveW);
+  if (act === 'butterfly' || act === 'bslide') { L = [1.1, 1.65, 2.0]; R = [1.1, -1.55, 1.7]; blade = [1.9, 0.0, 0.06]; toeOff = [0.05, 1.3, 0]; }
   if (act === 'cover') { L = [1.3, 0.35, 0.5]; R = [1.3, -0.35, 0.6]; }
-  if (act === 'slump') { L = [0.4, 1.2, zp - 0.4]; R = [0.4, -1.2, zp - 0.5]; }
-  if (act === 'chest') { const k = Math.sin(clamp(at, 0, 1) * Math.PI); L = V.lerp(L, [0.9, 0.5, zp + 1.0], k); R = V.lerp(R, [0.9, -0.5, zp + 0.9], k); }
-  let blade = [2.35, -0.35, 0.08];
-  if (act === 'poke') { const k = Math.sin(clamp(at, 0, 1) * Math.PI); blade = V.lerp(blade, [4.6, -0.2, 0.05], k); R = V.lerp(R, [1.8, -0.6, zp - 0.5], k); }
+  if (act === 'slump') { L = [0.6, 0.9, zp - 0.5]; R = [0.6, -0.9, zp - 0.6]; }
+  if (act === 'chest') { const k = bump(at); L = V.lerp(L, [0.9, 0.5, zp + 1.0], k); R = V.lerp(R, [0.9, -0.5, zp + 0.9], k); }
+  if (act === 'blocker') { const k = bump(at); const hi = g.actData2 || 1.0; R = V.lerp(R, [1.0, -2.1, zp + hi], k); }
+  if (act === 'poke') { const k = bump(at); blade = V.lerp(blade, [4.6, -0.2, 0.05], k); R = V.lerp(R, [1.8, -0.6, zp - 0.5], k); }
+  if (act === 'rvh') { L = [0.8, 1.5 * side, 2.2]; R = [0.9, -0.9 * side, 1.9]; blade = [1.6, -0.2 * side, 0.06]; }
+  if (act === 'stack') { L = [0.3, 0.9, zp + 2.2]; R = [0.9, -0.5, zp - 1.1]; blade = [1.2, -0.4, 0.3]; toeOff = [0.4, -0.9, 0]; }
+  if (act === 'playPuck' || act === 'pass') {
+    const k = act === 'pass' ? bump(at) : 0;
+    const sw = act === 'playPuck' ? Math.sin(T * 4) * 0.6 : 0;
+    R = [0.9, -0.6, zp + 0.5]; blade = [2.4 - 0.8 * k, 0.2 + sw - 1.0 * k, 0.06]; zp += 0.2;
+  }
+  if (act === 'drink') { L = V.lerp(L, [0.75, 0.15, zp + 2.55], bump(at)); }
+  if (act === 'tapPosts') {
+    const ph = at < 0.5 ? 1 : -1, k = bump((at % 0.5) * 2);
+    blade = V.lerp(blade, [0.2, ph * 2.6, 1.0], k); R = V.lerp(R, [0.4, ph * 1.2, zp + 0.3], k);
+  }
+  if (act === 'celebrate') { L = [0.3, 1.0, zp + 3.0]; R = [0.3, -1.0, zp + 3.0]; blade = [0.6, -0.6, zp + 6]; }
+  if (act === 'dive') { L = [0.6, 2.4 * side, zp + 1.2]; R = [1.0, 2.0 * side, zp + 0.4]; blade = [1.0, 3.2 * side, 0.06]; toeOff = [0.6, 0.6 * side, 0]; }
+  if (act === 'stretch') { L = [0.5, 1.4, zp + 1.6]; R = [0.5, -1.4, zp + 1.6]; }
+
   const [elL, hL] = ik(shL, L, 1.1, 1.05, [-0.4, 1, -0.6]);
   const [elR, hR] = ik(shR, R, 1.1, 1.05, [-0.4, -1, -0.6]);
-  const butt = V.add(hR, V.mul(V.norm(V.sub(blade, hR)), -0.3));
-  const toe = V.add(blade, [0.1, 1.35, 0]);
-  let loc = [pelvis, chest, neck, head, shL, elL, hL, shR, elR, hR, hipL, legs[0][0], legs[0][1], hipR, legs[1][0], legs[1][1], legs[0][2], legs[1][2], butt, blade, toe];
-  if (act === 'dive') {
-    // laid out across the crease: the whole body rolled about his forward axis toward the
-    // side he is diving to, then dropped onto the ice
-    const side = g.actData || 1, k = easeOut(clamp(at * 2.2, 0, 1)), ang = side * 1.25 * k;
-    const c = Math.cos(ang), s = Math.sin(ang);
-    loc = loc.map((p) => [p[0], p[1] * c - (p[2] - 0.4) * s + side * 1.2 * k, p[1] * s + (p[2] - 0.4) * c + 0.4]);
-    const lo = Math.min(...loc.map((p) => p[2]));
-    if (lo < 0.25) loc = loc.map((p) => [p[0], p[1], p[2] + 0.25 - lo]);
+  let upper = [pelvis, chest, neck, head, shL, elL, hL, shR, elR, hR, hipL, hipR].map((p) => roll(p, tilt));
+  const [rPel, rChest, rNeck, rHead, rShL, rElL, rHL, rShR, rElR, rHR, rHipL, rHipR] = upper;
+
+  // legs
+  const legs = [];
+  for (const sg of [1, -1]) {
+    let kn, an;
+    const hip = sg > 0 ? rHipL : rHipR;
+    const standKnee = (ank) => ik(hip, ank, 1.5, 1.45, [1, -sg * 0.7, 0]);
+    if (act === 'rvh' && sg === side) { kn = [0.5, sg * 0.7, 0.4]; an = [-0.4, sg * 2.3, 0.3]; }        // pad flat along the ice to the post
+    else if (act === 'kick' && sg === side) { const k = bump(at); [kn, an] = standKnee(V.lerp([0.25, sg * 1.25, 0.5], [0.4, sg * 2.8, 0.55], k)); }
+    else if (act === 'bslide' && sg === side) { kn = [0.75, sg * 0.75, 0.42]; an = [-0.4, sg * 2.5, 0.32]; }
+    // the stack is built standing, legs straight and together, then the whole man is rolled
+    // onto his side below, which lays one pad on top of the other along the ice
+    else if (act === 'stack') { kn = [0.25, sg * 0.32, zp * 0.5]; an = [0.15, sg * 0.32, 0.45]; }
+    else if (act === 'recover' && sg === -side) { [kn, an] = standKnee([0.4, sg * 1.2, 0.5]); }
+    else {
+      let ank = [0.25, sg * 1.25, 0.5];
+      if (shuffle) { const q = Math.sin(T * 9 + (sg > 0 ? 0 : Math.PI)); ank = [0.25, sg * 1.25 + Math.sign(lat) * 0.25 * q, 0.5 + 0.12 * Math.max(0, q)]; }
+      if (tpush) {
+        // T-push: the lead skate turns to point where he's going, the back leg drives
+        const lead = Math.sign(lat) === sg;
+        ank = lead ? [0.3, sg * 1.0, 0.5] : [0.0, sg * 2.0, 0.5];
+      }
+      const [kn0, an0] = standKnee(ank);
+      kn = V.lerp(kn0, [0.85, sg * 0.6, 0.45], bf); an = V.lerp(an0, [-0.55, sg * 2.0, 0.35], bf);
+    }
+    const lead = tpush && Math.sign(lat) === sg;
+    const toeD = lead ? [0.05, sg * 0.8, -0.3] : [0.8, sg * 0.25, -0.3];
+    legs.push([kn, an, V.add(an, toeD)]);
   }
-  return toWorld(g, loc);
+  if (act === 'stack') {
+    // the whole man laid on his side, pads stacked toward the shooter's side
+    const k = easeOut(clamp(at * 2.5, 0, 1)), ang = side * 1.45 * k;
+    const all = [rPel, rChest, rNeck, rHead, rShL, rElL, rHL, rShR, rElR, rHR, rHipL, legs[0][0], legs[0][1], rHipR, legs[1][0], legs[1][1], legs[0][2], legs[1][2]];
+    const c = Math.cos(ang), s2 = Math.sin(ang);
+    for (const p of all) { const y = p[1], z = p[2]; p[1] = y * c - (z - 0.4) * s2; p[2] = y * s2 + (z - 0.4) * c + 0.4; }
+    for (const p of [blade]) { const y = p[1], z = p[2]; p[1] = y * c - (z - 0.4) * s2; p[2] = Math.max(0.06, y * s2 + (z - 0.4) * c + 0.4); }
+  }
+  const butt = V.add(rHR, V.mul(V.norm(V.sub(blade, rHR)), -0.3));
+  const toe = V.add(blade, toeOff);
+  let loc = [rPel, rChest, rNeck, rHead, rShL, rElL, rHL, rShR, rElR, rHR, rHipL, legs[0][0], legs[0][1], rHipR, legs[1][0], legs[1][1], legs[0][2], legs[1][2], butt, blade, toe];
+  if (act === 'dive') {
+    // laid out across the crease toward `side`, then dropped onto the ice
+    const k = easeOut(clamp(at * 2.2, 0, 1)), ang = side * 1.25 * k;
+    const c = Math.cos(ang), s2 = Math.sin(ang);
+    loc = loc.map((p) => [p[0], p[1] * c - (p[2] - 0.4) * s2 + side * 1.2 * k, p[1] * s2 + (p[2] - 0.4) * c + 0.4]);
+  }
+  const lo = Math.min(...loc.map((p) => p[2]));
+  if (lo < 0.22) loc = loc.map((p) => [p[0], p[1], p[2] + 0.22 - lo]);
+  const out = toWorld(g, loc);
+  out.meta = {
+    look: dirWorld(g, roll(lookDir(yaw, pitch), tilt)),
+    bottle: act === 'drink' && at > 0.15 && at < 0.85 ? toWorld(g, [V.add(L, [0.25, 0, 0.1])])[0] : null,
+  };
+  return out;
 }
 
 // ── ragdolls ─────────────────────────────────────────────────────────────────
