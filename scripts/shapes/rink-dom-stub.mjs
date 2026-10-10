@@ -56,7 +56,8 @@ class El {
     // a canvas has a backing store the renderer sizes from its box
     this.width = 300; this.height = 150;
   }
-  getContext() { return (this.__ctx ??= makeCtx(this)); }
+  // no WebGL here, so the view takes its 2-D fallback, which is the path this stub counts
+  getContext(type) { if (/webgl/.test(String(type || ''))) return null; return (this.__ctx ??= makeCtx(this)); }
   get ownerDocument() { return globalThis.document; }
   get hidden() { return this.attrs.has('hidden'); }
   set hidden(v) { if (v) this.attrs.set('hidden', ''); else this.attrs.delete('hidden'); }

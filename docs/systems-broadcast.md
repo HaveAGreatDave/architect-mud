@@ -924,10 +924,14 @@ board, the sound mapping and the frame loop. The work is in `client/game/js/pane
 | `geo.js` | The sheet in feet: 200 by 85, goal lines at 11 and 189, blue lines, dots, boards as segments, 24 far glass panels. `GEO` and `DOTS` in model units for the broadcast regress. |
 | `sim.js` | The world, stepped at 120 Hz: skaters, goalies, officials, medics, the puck, debris, severed limbs, particles, the glass, the Zamboni. Between beats it plays cosmetic hockey. |
 | `director.js` | One payload in, choreography out. `SAVE` and `kitFor` live here. |
-| `render.js` | The broadcast camera, the ice, the bowl, the boards, the reflections and the overlays. |
+| `camera.js` | The broadcast camera both renderers draw through: its modes, the easing, the projection `P`, and `matrices()`, the same camera as GL matrices. |
+| `render.js` | The 2-D renderer: Mode-7 ice, the bowl, the boards, the reflections, the overlays. The fallback when there's no WebGL2. |
+| `hud.js` | What both renderers share besides the camera: the officials' and medics' kits, `bodyOpts`, and the fight pips and banner. |
 | `rig.js` | The 21-joint skeleton: skating strides, shots, passes, dekes, checks, punches, goalie saves, ragdolls, the stick solver. |
 | `figure.js` | Bodies drawn as volumes: tapered limbs, a padded torso, kit, cage or visor, gloves, skates, blood. |
 | `textures.js` | The ice canvas and everything painted into it, the dasherboard ads and the crowd. |
+| `../gl/arena.js` | The GLASS 2 renderer (WebGL2), the one the view prefers. See *Two renderers* below. |
+| `../gl/arena-mesh.js` | Bodies, nets, the Zamboni, the puck, debris and limbs as triangles, built each frame from the joints. Pure, so the smoke gate runs it in node. |
 
 **Frames.** The sim's payloads speak fractions of the sheet (`x` along it, `y` across it);
 `geo.js` converts to feet once. `y = 0` is the camera side. The away club attacks `+x`
@@ -976,7 +980,8 @@ its colour as trim, which keeps two dark clubs apart.
 
 **The camera never yaws or rolls.** It pans, climbs, tilts and zooms, so every screen row
 is a line of constant depth across the sheet and the whole ice texture maps to the screen
-with one `drawImage` per row. Its modes are broadcast, zoom, push (a goal), fight, death,
+with one `drawImage` per row. It lives in `camera.js` so both renderers frame a shot the
+same way; `matrices()` writes it out by hand for GL, mirror included. Its modes are broadcast, zoom, push (a goal), fight, death,
 and a framing that follows the Zamboni. `renderer.view = 'low'` puts it on the rail just
 inside the near glass at head height, which is where the reflections show best.
 
@@ -987,6 +992,32 @@ hard stop, rubber where the puck hits the wall, blood, smears where a body or a 
 mirrored camera into a half-size canvas, which softens it, and fresh ice gives back much
 more of it than a worn sheet does, so the reflections dull over a period. The dasher ads
 hang upside down in the ice too.
+
+**Two renderers.** The view tries [gl/arena.js](../client/game/js/panels/gl/arena.js) first
+and falls back to `render.js` when there's no WebGL2, a shader won't build, the context is
+lost (the canvas is swapped for a fresh one and the 2-D renderer carries on), or the caller
+passes `renderer: '2d'`. The 2-D renderer paints each man as a few hundred gradient paths,
+twice with his reflection, and dropped frames on big hits. The arena draws the same world as
+lit triangles with a depth buffer:
+
+- Bodies are meshes from `arena-mesh.js`, rebuilt every frame from the 21 joints with
+  `figure.js`'s proportions: about 1,000 triangles for a man at broadcast distance and
+  2,000 close up, where the cage bars, eyes and blade tape come in. Each jersey is a slot
+  in one 1024² atlas (number and name on the back, crest, hem stripes, blood), painted once
+  per kit, number, name and blood level.
+- The ice is the same painted canvas, kept as a texture. `textures.js` lists the 125-texel
+  tiles each mark touches (`ice.dirty`), and the arena re-uploads only those.
+- The reflection is the boards, the props and the men drawn again through `matrices(C,
+  true)` into [gl/mirror.js](../client/game/js/panels/gl/mirror.js)'s half-size target. The
+  ice shader reads it back at its own screen position, stronger at grazing angles and on
+  wet ice, and works out the five light banks' highlights per pixel, so they streak towards
+  the camera the way they do on television.
+- The lamp, its red wash, the vignette, a death's darkening and the cut's flash are one
+  full-screen pass. Mourning desaturates in every shader. The HUD text is a 2-D canvas
+  (`.gdr-hud`) over the WebGL one, cleared and left alone while there's no HUD.
+
+The frame governor in `gameday-rink.js` steps through the renderer's own `rungs`: for the
+arena, resolution, then the mirror's size, then the men in the reflection.
 
 The Zamboni laps the sheet inside the boards, each lap a strip further in, then runs down
 the middle. Its conditioner paints a clean copy of the sheet back over its strip, so the
@@ -1003,8 +1034,20 @@ whatever the Zamboni got through.
   finishes every outstanding walk-off and stretcher.
 - Cosmetic randomness is seeded from the payload. A `rand()` call added to the sim to
   decorate a beat replays the whole season with different results.
-- The heavy modules (`textures.js`, `render.js`) load on first mount, so tv.js's import of
-  the view stays cheap.
+- The heavy modules (`textures.js`, `render.js`, `gl/arena.js`) load on first mount, so
+  tv.js's import of the view stays cheap.
+- A new kind of mark painted into the ice has to `touch` its tiles, or the GL sheet goes
+  stale while the 2-D one is right. `arena-smoke.mjs` checks each kind.
+- Don't upload a canvas sub-rectangle with `UNPACK_SKIP_PIXELS`/`ROWS`. It's in the WebGL2
+  spec, and headless Chromium on SwiftShader ignores the skips: every tile arrived as the
+  sheet's top-left corner. The arena copies a tile into a small canvas first.
+- Don't clip twice in `resurface`. The rink's rounded clip intersected with the strip's made
+  Chromium erase the whole sheet, on both renderers. The clean copy is transparent outside
+  the boards, so the strip's clip alone is enough.
+- The reflection leaves the crowd out, treads included: dim stands under a lit sheet read
+  as stripes, not as a reflection.
+- The arena draws with no face culling. The mesh builders don't keep one winding, and the
+  lit shader lights whichever side faces the eye.
 
 **The booth calls the rush.** `describeRush` in [hockey.js](../plugins/broadcast/sports/hockey.js)
 reads the possession keyframes into one sentence, which rides the payload as `rush` and
@@ -1025,7 +1068,16 @@ resolves, every goal goes in and no save does, the faceoff is taken on the named
 the named centres, a fight's loser ends with nothing left, a man carried off is gone, a
 death stops the building, the pulled goalie leaves an empty net and a sixth skater, the
 Zamboni lays wet ice and the next period starts on a fresh sheet. It proves the view runs
-and agrees with the sim, not that it looks right.
+and agrees with the sim, not that it looks right. The stub has no WebGL, so it drives the
+2-D renderer.
+
+[scripts/shapes/arena-smoke.mjs](../scripts/shapes/arena-smoke.mjs) covers what the arena
+stands on without a GPU. `matrices()` matches `P` to a hundredth of a pixel in every camera
+mode, both views and two screen shapes, and so does the mirror against `P(x, y, -z)`. Every
+body state (ragdoll, missing an arm, a leg or the head, gloves or helmet off, jersey over the
+head, visor) builds finite and inside its triangle budget, along with limbs, debris, nets,
+the Zamboni and the stretcher. Each kind of ice mark lists its tile. With no WebGL2,
+`createArenaRenderer` returns null rather than throwing.
 
 ### Sound banks
 

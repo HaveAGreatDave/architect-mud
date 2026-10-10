@@ -196,6 +196,7 @@ export const GROUPS = [
       'scripts/shapes/yacht.mjs',
       'scripts/shapes/chess3d-smoke.mjs',
       'scripts/shapes/rink-smoke.mjs',
+      'scripts/shapes/arena-smoke.mjs',      // GLASS 2 rink: matrices match the 2-D camera, meshes sound, ice tiles listed
       'scripts/shapes/bolt.mjs',
       'scripts/shapes/weatherfx-smoke.mjs',
       'scripts/shapes/drugfx-smoke.mjs',

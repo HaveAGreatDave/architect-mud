@@ -19,10 +19,10 @@ import { TAU, V, clamp, lerp, rng } from './util.js';
 import { RL, RW, RC, BOARD_H, GLASS_H, GOAL_X, MID_Y, NET_HALF, NET_DEPTH, NET_H, SEGS, PANELS, PANEL_X0, PANEL_W } from './geo.js';
 import { TPX, WPX, BPX, CPX, CX0, CX1, CROWS, ROWH, sharedTextures } from './textures.js';
 import { drawBody, drawSevered } from './figure.js';
+import { createRinkCamera } from './camera.js';
+import { bodyOpts, drawHud } from './hud.js';
 
 const FACE = '"Saira Condensed", "Arial Narrow", "Roboto Condensed", sans-serif';
-const OFFICIAL_KIT = { jersey: '#f1f1ee', trim: '#141414', pants: '#141414', sock: '#141414', glove: '#e2b896', helmet: '#141414', stripes: true };
-const MEDIC_KIT = { jersey: '#eeeeea', trim: '#b8141c', pants: '#2a2e36', sock: '#2a2e36', glove: '#d8d8d8', helmet: '#eeeeea' };
 
 function quad(ctx, a, b, c, d) { ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath(); }
 function line(ctx, a, b, w, col) { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x + 0.01, b.y); ctx.stroke(); }
@@ -33,28 +33,10 @@ export function createRenderer(canvas, W, ice) {
   const doc = canvas.ownerDocument;
   let rc = null, rctx = null;
   const tex = sharedTextures(doc);
-  const cam = { lx: 100, ly: 40, lz: 0, dist: 72, pitch: 0.48, fm: 1 };
-  let lastCut = -1, flash = 0, lastT = 0, pat = null;
+  const camera = createRinkCamera(W);
+  const cam = camera.cam;
+  let flash = 0, pat = null;
   const st = {};
-
-  // where each camera mode wants to be
-  function target() {
-    const c = W.cam, f = c.focus;
-    switch (c.mode) {
-      case 'fight': return { lx: f[0], ly: f[1], lz: 3.0, dist: 17.5, pitch: 0.1, fm: 0.95 };
-      case 'zoom': return { lx: f[0], ly: f[1] - 2, lz: 1.5, dist: 44, pitch: 0.36, fm: 1 };
-      case 'push': return { lx: f[0], ly: f[1], lz: 2.0, dist: 30, pitch: 0.3, fm: 1 };
-      case 'zam':
-        if (api.view === 'low') return { lx: clamp(f[0], 30, RL - 30), ly: 39, lz: 0.4, dist: 38, pitch: 0.105, fm: 1 };
-        return { lx: clamp(f[0], 50, RL - 50), ly: clamp(f[1] * 0.45 + 22, 28, 46), lz: 0, dist: 64, pitch: 0.46, fm: 1 };
-      case 'death': return { lx: clamp(f[0], 44, RL - 44), ly: clamp(f[1], 14, RW - 6), lz: 0.8, dist: 28 - Math.min(8, (W.t - (c.since || W.t)) * 0.6), pitch: 0.42, fm: 1 };
-      default:
-        // the low camera sits nearly on the ice, where the reflections are
-        // the rail camera sits just inside the near glass at head height, looking across
-        if (api.view === 'low') return { lx: clamp(f[0], 30, RL - 30), ly: 39, lz: 0.4, dist: 38, pitch: 0.105, fm: 1 };
-        return { lx: clamp(f[0], 52, RL - 52), ly: clamp(f[1] * 0.45 + 22, 28, 48), lz: 0, dist: 68, pitch: 0.48, fm: 1 };
-    }
-  }
 
   function fit() {
     const r = canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : { width: canvas.width, height: canvas.height };
@@ -66,14 +48,9 @@ export function createRenderer(canvas, W, ice) {
 
   function render(now) {
     const { w, h, u } = fit();
-    const tg = target();
-    const dt = Math.min(0.05, Math.max(0, W.t - lastT)); lastT = W.t;
-    if (lastCut !== W.cam.cut) { lastCut = W.cam.cut; Object.assign(cam, tg); flash = W.cam.flash === false ? 0 : 1; }
-    else for (const k of Object.keys(tg)) cam[k] += (tg[k] - cam[k]) * (1 - Math.exp(-dt * (k === 'lx' ? 2.8 : 2.2)));
-    const C = { x: cam.lx, y: cam.ly - cam.dist * Math.cos(cam.pitch), z: cam.lz + cam.dist * Math.sin(cam.pitch), pitch: cam.pitch, f: w * cam.fm, cx: w / 2, cy: h * 0.56 };
-    const cp = Math.cos(C.pitch), sp = Math.sin(C.pitch);
-    const P = (X, Y, Z) => { const dx = X - C.x, dy = Y - C.y, dz = Z - C.z, d = dy * cp - dz * sp; if (d < 0.6) return null; const up = dy * sp + dz * cp; return { x: C.cx + C.f * dx / d, y: C.cy - C.f * up / d, s: C.f / d, d }; };
-    const camPos = [C.x, C.y, C.z];
+    camera.view = api.view;
+    const { C, P, camPos } = camera.update(w, h);
+    if (camera.flash) { flash = camera.flash; camera.flash = 0; }
     P0 = P;
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -131,16 +108,11 @@ export function createRenderer(canvas, W, ice) {
       ctx.save(); ctx.globalCompositeOperation = 'saturation'; ctx.fillStyle = `rgba(128,128,128,${0.75 * W.mourning})`; ctx.fillRect(0, 0, w, h); ctx.restore();
       ctx.fillStyle = `rgba(0,0,0,${0.22 * W.mourning})`; ctx.fillRect(0, 0, w, h);
     }
-    hud(w, h, u);
+    drawHud(ctx, W, w, h, u);
     if (flash > 0) { ctx.fillStyle = `rgba(255,255,255,${flash * 0.5})`; ctx.fillRect(0, 0, w, h); flash = Math.max(0, flash - 0.12); }
   }
 
-  function opts(b, camPos, style) {
-    const kit = b.kind === 'official' ? OFFICIAL_KIT : b.kind === 'medic' ? MEDIC_KIT : (W.kits[b.side] || W.kits.a);
-    return { kit, goalie: b.kind === 'goalie', num: b.num, name: b.name, skin: b.skin, hair: b.hair, camPos, style,
-      gloves: b.gloves !== false, helmet: b.helmet !== false, jerseyUp: b.jerseyUp || 0, react: b.react || 0, blood: b.blood || 0,
-      face: b.faceGear, missing: b.missing || {} };
-  }
+  const opts = (b, camPos, style) => ({ ...bodyOpts(W, b), camPos, style });
 
   // How much of the scene the ice gives back right now.
   const reflStrength = () => clamp(0.3 - 0.2 * ice.wear + 0.14 * ice.wetness, 0.08, 0.42) * (1 - 0.35 * W.mourning);
@@ -516,41 +488,6 @@ export function createRenderer(canvas, W, ice) {
   function shadeHex(hex, k) {
     const n = parseInt(hex.slice(1), 16), r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
     return `rgb(${Math.min(255, r * k) | 0},${Math.min(255, g * k) | 0},${Math.min(255, b * k) | 0})`;
-  }
-
-  function hud(w, h, u) {
-    const F = W.fight;
-    if (F && F.hud) {
-      const pw = Math.min(w * 0.4, 330 * u), ph = 34 * u, pad = 12 * u;
-      for (const [b, left] of [[F.l, true], [F.r, false]]) {
-        if (!b) continue;
-        const K = W.kits[b.side] || W.kits.a, x = left ? pad : w - pad - pw;
-        ctx.fillStyle = 'rgba(6,9,12,0.78)'; ctx.fillRect(x, pad, pw, ph);
-        ctx.fillStyle = K.jersey; ctx.fillRect(left ? x : x + pw - 6 * u, pad, 6 * u, ph);
-        ctx.fillStyle = '#f4efe2'; ctx.font = `800 ${16 * u}px ${FACE}`; ctx.textBaseline = 'middle'; ctx.textAlign = left ? 'left' : 'right';
-        ctx.fillText(`${String(b.name || '').toUpperCase()}  #${b.num}`, left ? x + 14 * u : x + pw - 14 * u, pad + ph * 0.5, pw * 0.6);
-        const shown = F.pipShow[b.seed] ?? 5;
-        for (let i = 0; i < 5; i++) {
-          const cx = left ? x + pw - 16 * u - i * 15 * u : x + 16 * u + i * 15 * u, cy = pad + ph * 0.5;
-          const full = clamp(shown - (4 - i), 0, 1);
-          ctx.fillStyle = '#2a2f36'; ctx.beginPath(); ctx.arc(cx, cy, 5.5 * u, 0, TAU); ctx.fill();
-          if (full > 0) { ctx.fillStyle = full > 0.5 ? '#f0bd4c' : '#a8402e'; ctx.beginPath(); ctx.arc(cx, cy, 5.5 * u * Math.max(0.35, full), 0, TAU); ctx.fill(); }
-        }
-      }
-    }
-    const B = W.banner;
-    if (B) {
-      const age = W.t - B.t0;
-      if (age < (B.dur || 1.3)) {
-        const k = age < 0.12 ? age / 0.12 : 1, a = age > (B.dur || 1.3) - 0.3 ? ((B.dur || 1.3) - age) / 0.3 : 1;
-        ctx.save(); ctx.globalAlpha = a; ctx.translate(w / 2, h * 0.42); ctx.scale(0.6 + 0.4 * k, 0.6 + 0.4 * k); ctx.transform(1, 0, -0.18, 1, 0, 0);
-        ctx.font = `800 ${Math.min(96, w / 7)}px ${FACE}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.lineWidth = 9 * u; ctx.strokeStyle = '#120c04'; ctx.strokeText(B.text, 0, 0);
-        ctx.fillStyle = B.col || '#f0bd4c'; ctx.fillText(B.text, 0, 0);
-        if (B.sub) { ctx.font = `700 ${Math.min(30, w / 24)}px ${FACE}`; ctx.lineWidth = 5 * u; ctx.strokeText(B.sub, 0, Math.min(60, w / 11)); ctx.fillStyle = '#f4efe2'; ctx.fillText(B.sub, 0, Math.min(60, w / 11)); }
-        ctx.restore();
-      }
-    }
   }
 
   const api = { render, stats: st, cam, view: 'broadcast', quality: { reflBodies: true, dpr: 1.5, iceStep: 2 } };

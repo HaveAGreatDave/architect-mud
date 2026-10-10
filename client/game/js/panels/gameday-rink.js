@@ -12,8 +12,9 @@
 //   director.js  one payload in, choreography out. The sim already decided the outcome;
 //                the director stages it (the shot goes where the save needs it) and fires
 //                `onLand` when the play lands, which is when the held caption shows.
-//   render.js    a perspective broadcast camera over the world: Mode-7 ice, bodies built
-//                as volumes, reflections, the crowd, the fight cut-in.
+//   gl/arena.js  draws it on GLASS 2 (WebGL2): meshes, a depth buffer, a real reflection
+//                in the ice. Where there's no WebGL2, or the context is lost, render.js
+//                draws the same world through the same camera on a 2-D canvas.
 //
 // The sim on the server decides everything. Nothing here can change a score.
 
@@ -64,8 +65,8 @@ export function createRinkView(host, opts = {}) {
 
   // The ./rink modules load on first mount, so tv.js's import of this file stays cheap.
   function loadMods() {
-    return (modsP ??= Promise.all([import('./rink/textures.js'), import('./rink/sim.js'), import('./rink/render.js')])
-      .then(([t, s, r]) => (mods = { createIce: t.createIce, createWorld: s.createWorld, createRenderer: r.createRenderer })));
+    return (modsP ??= Promise.all([import('./rink/textures.js'), import('./rink/sim.js'), import('./rink/render.js'), import('./gl/arena.js')])
+      .then(([t, s, r, a]) => (mods = { createIce: t.createIce, createWorld: s.createWorld, createRenderer: r.createRenderer, createArenaRenderer: a.createArenaRenderer })));
   }
 
   function _sfx(key, o) {
@@ -87,7 +88,7 @@ export function createRinkView(host, opts = {}) {
   function shell() {
     return `<div class="gdr-wrap">` +
       `<div class="gdr-head"></div>` +
-      `<div class="gdr-rink"><canvas class="gdr-canvas" aria-label="Rinkside: the play on the ice"></canvas></div>` +
+      `<div class="gdr-rink"><canvas class="gdr-canvas" aria-label="Rinkside: the play on the ice"></canvas><canvas class="gdr-hud" aria-hidden="true"></canvas></div>` +
       `<div class="gdr-strip"></div>` +
       `<div class="gdr-rush" hidden></div>` +
       `<div class="gdr-cap"><span class="gdr-cap-text">${_esc(caption)}</span></div>` +
@@ -150,6 +151,7 @@ export function createRinkView(host, opts = {}) {
     let n = 0;
     while (acc >= DT && n < 24) { W.step(DT); acc -= DT; n++; }
     if (n === 24) acc = 0;
+    if (R.lost) fallback();
     R.render(now);
     govern(real);
   }
@@ -157,16 +159,36 @@ export function createRinkView(host, opts = {}) {
   // canvas frame is the browser rasterising it, which no timer in here sees. Sustained slow
   // frames step the picture down a rung (reflected bodies, then resolution, then coarser
   // ice); a long run of quick ones steps it back up.
-  const RUNGS = [
+  const RUNGS_2D = [
     { reflBodies: true, dpr: 1.5, iceStep: 2 }, { reflBodies: false, dpr: 1.5, iceStep: 2 },
     { reflBodies: false, dpr: 1, iceStep: 2 }, { reflBodies: false, dpr: 1, iceStep: 3 },
   ];
   let rung = 0, slow = 0, quick = 0;
   function govern(real) {
+    const RUNGS = R.rungs || RUNGS_2D;
     costAvg = costAvg ? costAvg * 0.9 + real * 1000 * 0.1 : real * 1000;
     if (costAvg > 24) { slow += real; quick = 0; } else if (costAvg < 15) { quick += real; slow = 0; } else { slow = quick = 0; }
     if (slow > 1.2 && rung < RUNGS.length - 1) { rung++; slow = 0; Object.assign(R.quality, RUNGS[rung]); }
     if (quick > 8 && rung > 0) { rung--; quick = 0; Object.assign(R.quality, RUNGS[rung]); }
+  }
+  // GLASS 2 first; the 2-D renderer when there's no WebGL2 or the caller asks for it.
+  function makeRenderer() {
+    const hud = host.querySelector('.gdr-hud');
+    const gl = opts.renderer !== '2d' && mods.createArenaRenderer ? mods.createArenaRenderer(canvas, hud, W, ice) : null;
+    R = gl || mods.createRenderer(canvas, W, ice);
+    rung = 0; slow = quick = 0;
+    if (opts.camera) R.view = opts.camera;
+  }
+  // A lost WebGL context doesn't come back as a 2-D one: the canvas is replaced, and the
+  // 2-D renderer carries on with the same world and camera framing.
+  function fallback() {
+    const view = R.view, fresh = doc.createElement('canvas');
+    fresh.className = canvas.className;
+    fresh.setAttribute('aria-label', canvas.getAttribute('aria-label') || '');
+    canvas.replaceWith(fresh); canvas = fresh;
+    R = mods.createRenderer(canvas, W, ice);
+    R.view = view; rung = 0;
+    ice.dirtyAll = true;
   }
   function start() { if (!raf && win) { lastFrame = 0; raf = win.requestAnimationFrame(frame); } }
   function stop() { if (raf && win) win.cancelAnimationFrame(raf); raf = 0; }
@@ -176,7 +198,7 @@ export function createRinkView(host, opts = {}) {
     mounted = true;
     host.innerHTML = shell();
     canvas = host.querySelector('.gdr-canvas');
-    const { createIce, createWorld, createRenderer } = mods;
+    const { createIce, createWorld } = mods;
     ice = createIce(doc);
     W = createWorld(ice, 'rinkside');
     D = createDirector(W, {
@@ -184,8 +206,7 @@ export function createRinkView(host, opts = {}) {
       emit: (name, data) => { if (name === 'sfx') _sfx(data.key, data); },
       zamboniSpeed: opts.zamboniSpeed,
     });
-    R = createRenderer(canvas, W, ice);
-    if (opts.camera) R.view = opts.camera;
+    makeRenderer();
     start();
   }
 

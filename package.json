@@ -41,6 +41,7 @@
     "perf:alloc": "node scripts/perf/alloc.mjs",
     "perf:exact": "node scripts/perf/exact.mjs",
     "rink:smoke": "node scripts/shapes/rink-smoke.mjs",
+    "arena:smoke": "node scripts/shapes/arena-smoke.mjs",
     "chess3d:smoke": "node scripts/shapes/chess3d-smoke.mjs",
     "ws:smoke": "node scripts/net/ws-smoke.mjs",
     "voice:smoke": "node scripts/gates/run.mjs voice",

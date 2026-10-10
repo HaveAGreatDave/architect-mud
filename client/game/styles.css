@@ -12336,6 +12336,7 @@ html[data-density="compact"][data-pane-claimed] #mobile-hud { display: none; }
 	box-shadow: inset 0 0 34px rgba(0, 10, 20, 0.75), 0 0 18px rgba(0, 0, 0, 0.5);
 }
 .gdr-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.gdr-hud { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
 .gdr-head:empty, .gdr-strip:empty { display: none; }
 /* over the rink the card sits high, clear of the play under it */
 .gdr-wrap .gdr-jumbo { top: 30%; }
