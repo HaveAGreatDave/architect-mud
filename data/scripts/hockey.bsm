@@ -566,6 +566,24 @@ And they go. {fighters}, right at centre ice, and nobody is in a hurry to stop i
 Here it is. {fighters}, sweaters up over the heads, and the building is on its feet.
 ::endlines
 
+::lines fight.knockdown
+{winner} lands the big one and {loser} goes down flat. The linesmen step in now that it's safe.
+A right hand, and {loser} is on the ice looking at the lights. {winner} stands over him for a while.
+{loser} goes down in stages. {winner} helps him the rest of the way.
+::endlines
+
+::lines fight.jersey
+{winner} has the sweater over {loser}'s head and is just teeing off now. {loser} can't see where they're coming from.
+Sweater over the head, and {loser} is fighting blind. {winner} empties the tank into the back of it.
+{winner} yanks the jersey up over {loser}'s helmet and keeps swinging. That's the oldest move there is.
+::endlines
+
+::lines fight.linesmen
+The linesmen finally get in between them, {winner} still swinging over the top.
+They're pulled apart. {winner} got the better of that one by a distance, and {loser} knows it.
+Linesmen step in and haul them off each other. {loser} is bleeding from somewhere, {winner} from nowhere.
+::endlines
+
 ::lines fight.result
 {winner} takes it. {loser} takes five, and the {winnerTeam} go on the power play for winning a fistfight, which is the CPhL rulebook in one sentence.
 It's {winner}. {loser} is helped up and sent away, and his team pays for it with a man.
@@ -579,16 +597,58 @@ RIDDEN INTO THE BOARDS. {hitter} on {victim}, and that whole pane is still movin
 Big hit, {hitter}. {victim} will get up from that one. Probably.
 ::endlines
 
+::lines boards.glass
+{hitter} puts {victim} into the glass at full speed, and the glass very nearly lets him through.
+THE GLASS. {hitter} on {victim}, and the people in the front row just got a good look at his face.
+{victim} goes into the pane head first courtesy of {hitter}. That's a crack they'll be looking at all period.
+::endlines
+
+::lines boards.behind
+From behind. {hitter} runs {victim} face first into the boards, and nobody in stripes saw a thing.
+{victim} never saw {hitter} coming, because {hitter} came from behind. Numbers to the boards and straight in.
+That's a hit from behind, {hitter} on {victim}, and the dasher has his face on it now.
+::endlines
+
+::lines boards.hip
+{hitter} drops the hip and {victim} goes right over the top of him, skates in the air.
+HIP CHECK. {victim} upended by {hitter}, cartwheels, lands on his neck. The building loves it.
+{victim} cuts to the middle and {hitter} hips him into next week. Feet over head.
+::endlines
+
+::lines boards.elbow
+Elbow up, and {hitter} leaves it in {victim}'s face on the way past.
+{hitter} leads with the elbow and {victim}'s head goes back into the boards. An assault anywhere else. Legal here.
+That's an elbow, high, {hitter} on {victim}, and the helmet's going one way and {victim} the other.
+::endlines
+
 ::lines scrum
 Bodies in front now, sticks up, everybody shoving and nobody swinging.
 It's a scrum in the corner. Four men, one puck, no dignity.
 They're all in there kicking at it. This is most of hockey, if we're honest.
 ::endlines
 
+::lines injury.wound
+That's {wound}, by the look of how he's holding himself.
+The trainer's calling it {wound} before he's even off the ice.
+Word from the bench is {wound}. He'll be on the shelf a while.
+::endlines
+
+::lines injury.sever
+And {wound} isn't attached to him any more. It's over by the boards.
+That's {wound}, lying a few feet from {player}. They're bringing out the stretcher and a bag.
+{player} has left {wound} on the ice. The trainer picks it up and follows the stretcher off.
+::endlines
+
 ::lines injury
 {player} is not getting up. He's helped off, and the {teamName} are down to {remaining} skaters, no replacement, that's the rule, and they wear it for the rest of the night.
 That's {player}'s evening finished. {teamName} play the rest of this short.
 {player} goes down the tunnel under his own power, barely. {remaining} left on the bench and nobody coming over the boards to help.
+::endlines
+
+::lines death.wound
+{wound}. Nobody needs the doctor to tell them.
+{wound}. They're putting a towel over him now.
+{wound}. The building has gone completely quiet.
 ::endlines
 
 ::lines death

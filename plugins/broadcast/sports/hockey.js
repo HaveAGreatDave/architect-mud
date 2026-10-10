@@ -418,20 +418,76 @@ export function describeRush(nodes, names, rand) {
   return s.charAt(0).toUpperCase() + s.slice(1) + '.';
 }
 
-// The fight exchange, same idea: a beat sequence the view can render richly or
-// ignore entirely and just read `winner` from.
+// The fight exchange: the punches, in order, for the rink to throw and the booth to count.
+// `a` is the WINNER and `b` the loser, which is the order fight() passes them. It used to
+// be a coin flip per punch, so the man the sim had already declared the winner could take
+// the beating on screen and walk away the victor. Now the winner throws more, lands more,
+// and always lands the last one.
 export function synthFightExchange(seed, a, b) {
   const rand = sportsRng(seed);
   const n = 6 + Math.floor(rand() * 7);
   const out = [];
   let stagA = 0, stagB = 0;
   for (let i = 0; i < n; i++) {
-    const byA = rand() < 0.5;
-    const landed = rand() < 0.62;
+    const last = i === n - 1;
+    const byA = last || rand() < 0.6;
+    const landed = last || rand() < (byA ? 0.68 : 0.4);
     if (landed) { if (byA) stagB += 1; else stagA += 1; }
-    out.push({ n: i + 1, thrower: byA ? a : b, type: rand() < 0.3 ? 'uppercut' : 'right', landed, stagger: byA ? stagB : stagA });
+    const r = rand();
+    const type = last ? (r < 0.55 ? 'uppercut' : 'right') : r < 0.22 ? 'jab' : r < 0.42 ? 'uppercut' : r < 0.55 ? 'left' : 'right';
+    out.push({ n: i + 1, thrower: byA ? a : b, type, landed, stagger: byA ? stagB : stagA });
   }
   return out;
+}
+
+// How a fight finishes, from the same seed as its punches and from nothing else: the
+// loser goes down, or has his sweater hauled over his head first, or the linesmen finally
+// pull them apart. `pullAt` is the punch the sweater comes up on (−1 when it doesn't).
+export function fightEnding(seed, n) {
+  const rand = sportsRng((seed ^ 0x5f3759df) >>> 0);
+  const r = rand();
+  const ending = r < 0.5 ? 'knockdown' : r < 0.78 ? 'jersey' : 'linesmen';
+  return { ending, pullAt: ending === 'jersey' ? Math.max(1, Math.floor(n * (0.45 + rand() * 0.25))) : -1 };
+}
+
+// ── colour derived from facts ───────────────────────────────────────────────
+// What a hit looked like and what an injury was. Both are seeded from the beat's own
+// facts (the names involved and where the beat sits in the game) and never from the
+// game's `rand`: a single extra rand() call here would shift every roll after it and
+// replay the whole season with different results.
+const strSeed = (...parts) => {
+  const s = parts.join('|');
+  let x = 0x811c9dc5 >>> 0;
+  for (let i = 0; i < s.length; i++) x = Math.imul(x ^ s.charCodeAt(i), 16777619) >>> 0;
+  return x;
+};
+// shoulder: finished into the dasher · glass: high into the panes · behind: from behind,
+// face first · hip: hip check, upended · elbow: an elbow up high
+export const HIT_STYLES = [['shoulder', 34], ['glass', 26], ['behind', 16], ['hip', 12], ['elbow', 12]];
+export function hitStyleFor(hitter, victim, n) {
+  const r = sportsRng(strSeed('hit', hitter, victim, n))() * 100;
+  let acc = 0;
+  for (const [id, w] of HIT_STYLES) { acc += w; if (r < acc) return id; }
+  return 'shoulder';
+}
+// A wound is a phrase for the booth plus what the picture should do about it. `part` is
+// the limb the rink takes off when `sever` is set; the head is only ever taken on a death.
+export const WOUNDS = {
+  minor: [{ label: 'a broken nose' }, { label: 'a separated shoulder' }, { label: 'a gashed forehead' }, { label: 'two cracked ribs' }, { label: 'a wrecked knee' }],
+  bad: [{ label: 'a broken jaw' }, { label: 'a broken collarbone' }, { label: 'a dislocated knee' }, { label: 'a shattered cheekbone' }, { label: 'a compound fracture of the forearm' }],
+  severed: [{ label: 'his left arm', part: 'armL', sever: true }, { label: 'his right arm', part: 'armR', sever: true }, { label: 'his left leg', part: 'legL', sever: true }, { label: 'his right leg', part: 'legR', sever: true }],
+  // a fatal wound is said as its own sentence
+  fatal: [{ label: 'The head came off', part: 'head', sever: true }, { label: 'A skate blade across the throat', part: '' }, { label: 'His neck went the wrong way', part: '' }, { label: 'Skull against the post, and the post won', part: '' }],
+};
+export function woundFor(name, slotsOut, dead, n) {
+  const rand = sportsRng(strSeed('wound', name, slotsOut, dead ? 1 : 0, n));
+  const from = (k) => WOUNDS[k][Math.floor(rand() * WOUNDS[k].length)];
+  let w;
+  if (dead) w = from('fatal');
+  else if (slotsOut <= 5) w = from(rand() < 0.6 ? 'minor' : 'bad');
+  else if (slotsOut <= 11) w = from(rand() < 0.4 ? 'severed' : 'bad');
+  else w = from('severed');
+  return { wound: w.label, woundPart: w.part || '', sever: !!w.sever };
 }
 
 // ── the sim ──────────────────────────────────────────────────────────────────
@@ -550,10 +606,12 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
     const aWins = rand() < 0.5;
     const winner = aWins ? a : b, loser = aWins ? b : a;
     const loserTeam = aWins ? def : att;
-    const exchange = synthFightExchange(Math.floor(rand() * 1e9), winner.name, loser.name);
+    const fseed = Math.floor(rand() * 1e9);
+    const exchange = synthFightExchange(fseed, winner.name, loser.name);
     loserTeam.box.push({ name: loser.name, until: at - 5 * 60 });
     push({ type: 'fight', fighters: [a.name, b.name], winner: winner.name, loser: loser.name,
       loserTeam: loserTeam.name, winnerTeam: (aWins ? att : def).name, exchange,
+      ...fightEnding(fseed, exchange.length),
       section: ordinal(period) });
   }
 
@@ -561,7 +619,8 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
     const hitter = anyone(att), victim = anyone(def);
     if (!hitter || !victim) return;
     push({ type: 'boards', hitter: hitter.name, victim: victim.name,
-      hitterTeam: att.name, victimTeam: def.name, section: ordinal(period) });
+      hitterTeam: att.name, victimTeam: def.name, section: ordinal(period),
+      hitStyle: hitStyleFor(hitter.name, victim.name, beats.length) });
     if (rand() < INJURY_ON_BOARDS) {
       victim.out = true;
       // How long he is gone for is decided HERE, by the game's own rand, so the
@@ -570,7 +629,8 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
       const slotsOut = INJURY_SLOTS_MIN + Math.floor(rand() * (INJURY_SLOTS_MAX - INJURY_SLOTS_MIN + 1));
       victim.slotsOut = slotsOut;
       push({ type: 'injury', player: victim.name, teamName: def.name, slotsOut,
-        remaining: live(def).length, section: ordinal(period) });
+        remaining: live(def).length, section: ordinal(period),
+        ...woundFor(victim.name, slotsOut, false, beats.length) });
       faceoff(endDot(def), 'injury');   // play stops while they get him off the ice
     }
   }
@@ -663,7 +723,8 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
           victim.out = true; victim.dead = true; deadPlayer = victim.name;
           att.score += 1;
           push({ type: 'death', player: victim.name, teamName: def.name,
-            winnerTeam: att.name, section: ordinal(period) });
+            winnerTeam: att.name, section: ordinal(period),
+            ...woundFor(victim.name, 0, true, beats.length) });
           gameOver = true;
           break;
         }

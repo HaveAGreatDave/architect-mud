@@ -152,6 +152,26 @@
         "{victim} gets caught with his head down and {hitter} puts him through the dasher.",
         "Big hit, {hitter}. {victim} will get up from that one. Probably."
       ],
+      "boards.behind": [
+        "From behind. {hitter} runs {victim} face first into the boards, and nobody in stripes saw a thing.",
+        "{victim} never saw {hitter} coming, because {hitter} came from behind. Numbers to the boards and straight in.",
+        "That's a hit from behind, {hitter} on {victim}, and the dasher has his face on it now."
+      ],
+      "boards.elbow": [
+        "Elbow up, and {hitter} leaves it in {victim}'s face on the way past.",
+        "{hitter} leads with the elbow and {victim}'s head goes back into the boards. An assault anywhere else. Legal here.",
+        "That's an elbow, high, {hitter} on {victim}, and the helmet's going one way and {victim} the other."
+      ],
+      "boards.glass": [
+        "{hitter} puts {victim} into the glass at full speed, and the glass very nearly lets him through.",
+        "THE GLASS. {hitter} on {victim}, and the people in the front row just got a good look at his face.",
+        "{victim} goes into the pane head first courtesy of {hitter}. That's a crack they'll be looking at all period."
+      ],
+      "boards.hip": [
+        "{hitter} drops the hip and {victim} goes right over the top of him, skates in the air.",
+        "HIP CHECK. {victim} upended by {hitter}, cartwheels, lands on his neck. The building loves it.",
+        "{victim} cuts to the middle and {hitter} hips him into next week. Feet over head."
+      ],
       "chatter": [
         "The ice in here hasn't been resurfaced since the ownership change, and you can tell; {team} are skating through what I'd generously call a puddle with ambition.",
         "Goal judge's been in that booth thirty years. Nobody's checked on him in twelve. Light still works.",
@@ -207,6 +227,11 @@
         "He's gone. {player}, on the ice, in overtime, and that's how this league ends a tie.",
         "{player} doesn't get up, and he isn't going to. {winnerTeam} take it. Somebody call his people."
       ],
+      "death.wound": [
+        "{wound}. Nobody needs the doctor to tell them.",
+        "{wound}. They're putting a towel over him now.",
+        "{wound}. The building has gone completely quiet."
+      ],
       "faceoff": [
         "Puck's down at the dot.",
         "Clean draw, and away we go.",
@@ -228,6 +253,21 @@
         "Down in the {zone}, and {winner} takes it off {loser}.",
         "They set up in the {zone}. {winner} gets a stick on it first and it's {winTeam} possession.",
         "{winner} wins the draw deep. That's {foAway}–{foHome} on the dot tonight, if anybody's counting. Nobody is."
+      ],
+      "fight.jersey": [
+        "{winner} has the sweater over {loser}'s head and is just teeing off now. {loser} can't see where they're coming from.",
+        "Sweater over the head, and {loser} is fighting blind. {winner} empties the tank into the back of it.",
+        "{winner} yanks the jersey up over {loser}'s helmet and keeps swinging. That's the oldest move there is."
+      ],
+      "fight.knockdown": [
+        "{winner} lands the big one and {loser} goes down flat. The linesmen step in now that it's safe.",
+        "A right hand, and {loser} is on the ice looking at the lights. {winner} stands over him for a while.",
+        "{loser} goes down in stages. {winner} helps him the rest of the way."
+      ],
+      "fight.linesmen": [
+        "The linesmen finally get in between them, {winner} still swinging over the top.",
+        "They're pulled apart. {winner} got the better of that one by a distance, and {loser} knows it.",
+        "Linesmen step in and haul them off each other. {loser} is bleeding from somewhere, {winner} from nowhere."
       ],
       "fight.result": [
         "{winner} takes it. {loser} takes five, and the {winnerTeam} go on the power play for winning a fistfight, which is the CPhL rulebook in one sentence.",
@@ -277,6 +317,16 @@
         "{missing} not in the building tonight, or not in a state to be. {callups} get the sweaters. Nobody has asked them if they want them.",
         "No {player} tonight, still out, and the club brings up {callup}. This league doesn't do get-well cards.",
         "{count} missing between these two. That's the CPhL in the back half of a season: eventually everybody is somebody's replacement."
+      ],
+      "injury.sever": [
+        "And {wound} isn't attached to him any more. It's over by the boards.",
+        "That's {wound}, lying a few feet from {player}. They're bringing out the stretcher and a bag.",
+        "{player} has left {wound} on the ice. The trainer picks it up and follows the stretcher off."
+      ],
+      "injury.wound": [
+        "That's {wound}, by the look of how he's holding himself.",
+        "The trainer's calling it {wound} before he's even off the ice.",
+        "Word from the bench is {wound}. He'll be on the shelf a while."
       ],
       "intermission.casualties": [
         "Off the ice this period and not coming back: {casualties}. Their side plays the rest of this short. That's the rule and nobody's ever changed it.",

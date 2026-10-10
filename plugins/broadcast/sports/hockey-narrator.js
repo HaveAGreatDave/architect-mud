@@ -132,6 +132,9 @@ export function narrate(ctx) {
     hitter: b.hitter || '', victim: b.victim || '',
     remaining: b.remaining ?? '', down: b.down ?? '',
     soAway: b.soAway ?? 0, soHome: b.soHome ?? 0,
+    // What the injury was. A noun phrase on an injury ("a broken jaw", "his left arm"),
+    // a whole sentence on a death.
+    wound: b.wound || '',
   });
 
   // ── the Gameday payload ───────────────────────────────────────────────────
@@ -140,6 +143,14 @@ export function narrate(ctx) {
   // rink view and the words can never disagree. Cosmetic — the outcome is already
   // fixed by the time this is built.
   const mod = ctx.sport;
+  // A hit that puts a man out of the game is followed by its injury beat. The picture of
+  // the hit has to know that, or he gets up off the boards and goes back down ten seconds
+  // later, so the boards payload carries the injury's facts forward. The sim decided both
+  // before the broadcast began; this only lets the rink show them in one piece.
+  const injuryAfter = (b, idx) => {
+    const n = beats[idx];
+    return b.type === 'boards' && n && n.type === 'injury' && n.player === b.victim ? n : null;
+  };
   const gameday = (b, idx) => ({
     sport: 'hockey',
     shooter: b.shooter || b.player || '', goalie: b.goalie || '',
@@ -201,7 +212,18 @@ export function narrate(ctx) {
     // In the view's own att/def frame, so the client never has to know club names.
     victimSide: (b.victimTeam || b.teamName) ? ((b.victimTeam || b.teamName) === away.name ? 'att' : 'def') : '',
     hitterSide: b.hitterTeam ? (b.hitterTeam === away.name ? 'att' : 'def') : '',
-    slotsOut: b.slotsOut || 0,
+    slotsOut: b.slotsOut || injuryAfter(b, idx)?.slotsOut || 0,
+    // How the hit landed, and on an injury or a death what it did. `injured` on a hit
+    // means he stays down; the wound fields then belong to the injury that follows.
+    hitStyle: b.hitStyle || '',
+    injured: b.type === 'injury' || b.type === 'death' || !!injuryAfter(b, idx),
+    wound: b.wound || injuryAfter(b, idx)?.wound || '',
+    woundPart: b.woundPart || injuryAfter(b, idx)?.woundPart || '',
+    sever: !!(b.sever || injuryAfter(b, idx)?.sever),
+    // How the fight finishes, so the rink can stage it: 'knockdown' | 'jersey' | 'linesmen'.
+    ending: b.ending || '', pullAt: b.pullAt ?? -1,
+    // The pulled goalie, so the rink can empty the right net.
+    pulledSide: b.type === 'pull' ? (b.teamName === away.name ? 'att' : 'def') : '',
     // A compact league snapshot, so the rink can carry a standings dock the way the
     // baseball Gameday does. Warmed before the graph assembles; empty before the
     // CPhL has played a game, which the dock renders as simply absent.
@@ -447,6 +469,8 @@ export function narrate(ctx) {
 
       case 'fight':
         say(pick('penalty.fight'), t, sb, null, gameday(b, idx)); said++;
+        // How it finished, before who it counts for. The rink is staging the same ending.
+        if (b.ending) { const l = pick(`fight.${b.ending}`); if (l) { say(l, t, sb); said++; } }
         say(pick('fight.result'), t, sb, fightFx(b)); said++;
         boxes.push({ against: b.loserTeam, until: b.clock - 5 * 60 });
         break;
@@ -456,15 +480,19 @@ export function narrate(ctx) {
       // league where men are carried off and occasionally killed cannot have those
       // be the only calls the ice sits still through.
       case 'boards':
-        say(pick('boards'), t, sb, null, gameday(b, idx)); said++;
+        say(pick(`boards.${b.hitStyle || 'shoulder'}`, 'boards'), t, sb, null, gameday(b, idx)); said++;
         break;
 
+      // Then the wound, by name, so a viewer reading text knows as much as one watching the
+      // arm come off.
       case 'injury':
         say(pick('injury'), t, sb, null, gameday(b, idx)); said++;
+        if (b.wound) { say(pick(b.sever ? 'injury.sever' : 'injury.wound'), t, sb); said++; }
         break;
 
       case 'death':
         say(pick('death'), t, sb, deathFx(b), gameday(b, idx)); said++;
+        if (b.wound) { say(pick('death.wound'), t, sb); said++; }
         break;
 
       case 'scrum':
@@ -472,7 +500,7 @@ export function narrate(ctx) {
         break;
 
       case 'pull':
-        say(pick('pull'), t, sb); said++;
+        say(pick('pull'), t, sb, null, gameday(b, idx)); said++;
         break;
 
       case 'shootout_start':
