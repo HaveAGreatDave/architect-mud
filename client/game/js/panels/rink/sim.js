@@ -326,7 +326,9 @@ export function createWorld(ice, seedKey) {
       b.effort = lerp(b.effort, pushing ? 1 : 0.3, 1 - Math.exp(-dt * 3));
       const ampWant = b.kind === 'official' || b.kind === 'medic' ? clamp(sp / 18, 0, 0.8) : clamp(sp / 22, 0, 1) * b.effort;
       b.amp = lerp(b.amp, b.guard ? 0 : ampWant, 1 - Math.exp(-dt * 5));
-      b.phase += dt * (0.5 + sp * 0.032);
+      // a skater's cadence is slow and long next to a runner's: about one stride a second
+      // cruising, quicker only on the first few pushes from a stop
+      b.phase += dt * (0.42 + sp * 0.03 + 0.7 * b.effort * clamp(1 - sp / 13, 0, 1) * (sp > 0.8 ? 1 : 0));
       const wantH = b.face != null ? b.face : (sp > 1.5 ? Math.atan2(b.vy, b.vx) : b.h);
       b.h += clamp(angWrap(wantH - b.h), -7 * dt, 7 * dt);
       // how hard he is turning: drives the lean and the crossovers in the rig
