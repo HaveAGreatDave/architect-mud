@@ -275,7 +275,8 @@ function standRig(s, T) {
   const chest = V.add(pelvis, V.mul(lsd, 1.1)), neck = V.add(pelvis, V.mul(lsd, 2.0));
   // the head rides level: it takes back most of the hip drop and the sideways rock
   const hl = lean * 0.45 - (act === 'slumped' ? 0.6 : 0) + Math.max(-0.3, pitch * 0.35);
-  const head = V.add(neck, [Math.sin(hl) * 0.55 - s.react * 0.32, Math.sin(yaw) * 0.06 - shiftV * 0.4, Math.cos(hl) * 0.55 + s.react * 0.05 + bob * 0.6]);
+  // neck craned, head up and ahead of the shoulders, which is how a skater looks up the ice
+  const head = V.add(neck, [Math.sin(hl) * 0.55 + 0.14 * Math.min(1, lean) - s.react * 0.32, Math.sin(yaw) * 0.06 - shiftV * 0.4, Math.cos(hl) * 0.55 + s.react * 0.05 + bob * 0.6]);
   const shL = V.add(neck, rotZ([-0.05, 0.84, -0.24], twist)), shR = V.add(neck, rotZ([-0.05, -0.84, -0.24], twist));
   const hipL = V.add(pelvis, rotZ([0, 0.44, -0.05], -twist * 0.5)), hipR = V.add(pelvis, rotZ([0, -0.44, -0.05], -twist * 0.5));
 
@@ -285,6 +286,14 @@ function standRig(s, T) {
     const [bu, bv] = bladeLocal(s, T, carrying);
     // base: blade on the ice ahead, top hand at the hip swinging a little across with the stride
     let bBlade = [bu, bv, 0.08];
+    if (carrying && s.puckAt) {
+      // the blade goes to the puck, cupping it from his side, wherever it has slid to
+      const pl = toLocal(s.puckAt[0], s.puckAt[1], 0), r = Math.hypot(pl[0], pl[1]);
+      if (r < 4.2) {
+        const k = 0.12 / (r || 1);
+        bBlade = [clamp(pl[0] - pl[0] * k, 0.7, 3.5), clamp(pl[1] - pl[1] * k, -2.2, 2.2), 0.06];
+      }
+    }
     let bR = [0.55 + 0.1 * stridePush, -0.32 + 0.12 * stridePush, zp + 0.72];
     let bL = null;
     const fast = sp > 21 && !carrying ? true : (carrying && sp > 21 && !s.protect);

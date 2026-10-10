@@ -32,8 +32,8 @@ const NAME_FONT = '700 100px "Saira Condensed", "Arial Narrow", "Roboto Condense
 // Torso cross-sections: [fraction pelvis→neck, half-width, half-depth, forward offset].
 // Real proportions, not a mascot's: shoulder pads make a man about two feet across the
 // top, and the jersey hangs past his waist and over the top of his pants.
-const SK_RINGS = [[-0.14, 0.6, 0.42, 0.01], [0.3, 0.53, 0.38, 0.02], [0.64, 0.66, 0.45, 0.04], [0.88, 0.86, 0.44, 0], [1.03, 0.44, 0.32, -0.02]];
-const GK_RINGS = [[-0.14, 0.72, 0.52, 0.04], [0.3, 0.72, 0.56, 0.08], [0.64, 0.86, 0.62, 0.1], [0.88, 1.08, 0.56, 0.04], [1.04, 0.52, 0.4, 0]];
+const SK_RINGS = [[-0.14, 0.6, 0.42, 0.03], [0.3, 0.53, 0.38, 0.04], [0.64, 0.66, 0.45, 0.04], [0.78, 0.78, 0.5, -0.06], [0.9, 0.86, 0.44, -0.03], [1.03, 0.44, 0.32, -0.02]];
+const GK_RINGS = [[-0.14, 0.72, 0.52, 0.04], [0.3, 0.72, 0.56, 0.08], [0.64, 0.86, 0.62, 0.1], [0.78, 0.98, 0.62, -0.02], [0.9, 1.08, 0.56, 0.02], [1.04, 0.52, 0.4, 0]];
 
 // A tile of fine noise laid over cloth up close, so a sweater reads as woven mesh rather
 // than a flat fill. Built once, lazily, from whatever document the canvas belongs to.
@@ -201,11 +201,11 @@ export function drawBody(ctx, P, J, o) {
       continue;
     }
     const fw = V.norm([T[0] - A[0], T[1] - A[1], 0]);
-    const heel = [A[0] - fw[0] * 0.3, A[1] - fw[1] * 0.3, 0.32];
-    const toeC = [T[0] + fw[0] * 0.02, T[1] + fw[1] * 0.02, 0.2];
+    const heel = [A[0] - fw[0] * 0.36, A[1] - fw[1] * 0.36, 0.34];
+    const toeC = [T[0] + fw[0] * 0.08, T[1] + fw[1] * 0.08, 0.21];
     // the holder and the steel come first, so the boot sits on them
-    const h0 = W([heel[0], heel[1], 0.2]), h1 = W([toeC[0], toeC[1], 0.17]);
-    const r0 = W([heel[0] - fw[0] * 0.08, heel[1] - fw[1] * 0.08, 0.03]), r1 = W([toeC[0] + fw[0] * 0.18, toeC[1] + fw[1] * 0.18, 0.03]);
+    const h0 = W([heel[0], heel[1], 0.22]), h1 = W([toeC[0], toeC[1], 0.18]);
+    const r0 = W([heel[0] - fw[0] * 0.12, heel[1] - fw[1] * 0.12, 0.03]), r1 = W([toeC[0] + fw[0] * 0.24, toeC[1] + fw[1] * 0.24, 0.03]);
     if (h0 && h1 && r0 && r1) {
       add((h0.d + h1.d) / 2 + 0.01, () => poly(ctx, [h0, h1, r1, r0]), () => {
         poly(ctx, [h0, h1, r1, r0]); ctx.fillStyle = refl ? '#9aa2aa' : HOLDER; ctx.fill();
@@ -232,6 +232,8 @@ export function drawBody(ctx, P, J, o) {
       limb3(J[kn], A, 0.3, 0.26, 0.2, K.sock, () => {
         ringAt(J[kn], A, 0.3, 0.2, 0.3, K.trim, 0.11); ringAt(J[kn], A, 0.3, 0.2, 0.45, K.trim, 0.11);
       }, 0, 0.4);
+      // the cap of the shin pad stands out at the front of the knee under the sock
+      limb(V.add(J[kn], V.add(V.mul(F, 0.17), [0, 0, 0.12])), V.add(J[kn], V.add(V.mul(F, 0.2), [0, 0, -0.22])), 0.17, 0.15, shade(K.sock, 0.06), null, -0.015);
       // breezers: big through the hip and flared at the hem, the hockey silhouette
       const thighEnd = V.lerp(J[hip], J[kn], 0.9);
       limb(J[hip], thighEnd, 0.46, 0.41, K.pants, () => {
@@ -247,6 +249,8 @@ export function drawBody(ctx, P, J, o) {
     }
   }
   limb(J[10], J[13], gk ? 0.6 : 0.5, gk ? 0.6 : 0.5, K.pants, null, -0.01);
+  // the seat: breezers fill out behind, which is most of a skater's profile below the belt
+  if (!gk) limb(V.add(V.lerp(J[10], J[13], 0.5), V.add(V.mul(F, -0.2), [0, 0, 0.02])), V.add(V.lerp(J[10], J[13], 0.5), V.add(V.mul(F, -0.17), [0, 0, -0.38])), 0.33, 0.3, K.pants, null, 0.01);
 
   // ── torso ────────────────────────────────────────────────────────────────
   const ju = o.jerseyUp || 0;
@@ -258,7 +262,7 @@ export function drawBody(ctx, P, J, o) {
   if (ju > 0.3) {
     // the sweater hauled up over his head: one more cross-section up where his head is
     const k = clamp((ju - 0.3) / 0.7, 0, 1);
-    rings[4] = { ...rings[4], rs: lerp(0.5, 0.62, k), rf: lerp(0.34, 0.5, k) };
+    rings[5] = { ...rings[5], rs: lerp(0.5, 0.62, k), rf: lerp(0.34, 0.5, k) };
     rings.push({ c: V.add(J[3], [0, 0, 0.25 * k]), S: Ss, F, rs: 0.55 * k + 0.1, rf: 0.5 * k + 0.1 });
   }
   const ringPt = (r, a, scale = 1) => V.frame(r.c, r.S, Math.cos(a) * r.rs * scale, r.F, Math.sin(a) * r.rf * scale);
@@ -279,11 +283,11 @@ export function drawBody(ctx, P, J, o) {
       if (refl) return;
       if (lod) {
         // top light falling off down the body, and the shoulder pads catching it
-        const top = W(rings[3].c), bot = W(rings[0].c);
+        const top = W(rings[4].c), bot = W(rings[0].c);
         if (top && bot) { const g = ctx.createLinearGradient(top.x, top.y, bot.x, bot.y); g.addColorStop(0, 'rgba(255,255,255,0.12)'); g.addColorStop(0.55, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(0,0,0,0.22)'); poly(ctx, th); ctx.fillStyle = g; ctx.fill(); }
         // cloth: folds from the armpits down to the waist that move with his twist
         ctx.save(); poly(ctx, th); ctx.clip();
-        const r3 = rings[3], r1 = rings[1];
+        const r3 = rings[4], r1 = rings[1];
         for (const sd of [1, -1]) for (const k of [0, 1, 2]) {
           const a0 = Math.PI / 2 * sd + (k - 1) * 0.35 * sd, a1 = a0 - sd * 0.5;
           for (const face of [1, -1]) {
@@ -358,7 +362,7 @@ export function drawBody(ctx, P, J, o) {
         ctx.fillStyle = K.trim; ctx.fillText(String(o.num ?? ''), 0, 8);
         ctx.restore();
       });
-      if (lod === 2 && o.name) decal(surf(3, -Math.PI / 2, -0.06), 0.8, 0.2, () => {
+      if (lod === 2 && o.name) decal(surf(4, -Math.PI / 2, -0.06), 0.8, 0.2, () => {
         ctx.font = NAME_FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.save(); ctx.scale(0.0022, 0.0024); ctx.fillStyle = K.trim; ctx.fillText(String(o.name).toUpperCase(), 0, 0, 380); ctx.restore();
       });
@@ -373,7 +377,7 @@ export function drawBody(ctx, P, J, o) {
         ctx.closePath(); ctx.fill();
       });
       // a laced V at the collar
-      decal(surf(4, Math.PI / 2, -0.02), 0.3, 0.3, () => {
+      decal(surf(5, Math.PI / 2, -0.02), 0.3, 0.3, () => {
         ctx.fillStyle = K.trim; ctx.beginPath(); ctx.moveTo(-0.17, -0.02); ctx.lineTo(0, 0.32); ctx.lineTo(0.17, -0.02); ctx.lineTo(0.09, -0.02); ctx.lineTo(0, 0.18); ctx.lineTo(-0.09, -0.02); ctx.closePath(); ctx.fill();
         if (lod === 2) { ctx.strokeStyle = shade(K.trim, -0.4); ctx.lineWidth = 0.02; ctx.beginPath(); for (let i = 0; i < 3; i++) { const y = 0.05 + i * 0.07; ctx.moveTo(-0.05, y); ctx.lineTo(0.05, y + 0.03); } ctx.stroke(); }
       });
@@ -499,9 +503,18 @@ export function drawBody(ctx, P, J, o) {
       ctx.stroke();
     };
     const face = () => {
-      const pts = [[0.36, 0.25, -0.02], [0.36, -0.25, -0.02], [0.33, 0.31, -0.25], [0.33, -0.31, -0.25], [0.2, 0.27, -0.46], [0.2, -0.27, -0.46], [0.3, 0, -0.6], [0.36, 0.14, -0.55], [0.36, -0.14, -0.55]]
-        .map(([f, sd, u]) => at(f, sd, u)).filter(Boolean);
-      const fh = hull(pts);
+      let fh;
+      if (Math.abs(facing) < 0.55 && lod > 0) {
+        // side-on: brow, the bridge and the tip of the nose, lips, chin, under the jaw, then
+        // back across the near cheek, in order, so the face has a real profile
+        const near = V.dot(Sd, tc) > 0 ? 1 : -1;
+        fh = [[0.38, 0, 0.0], [0.46, 0, -0.12], [0.44, 0, -0.17], [0.55, 0, -0.29], [0.45, 0, -0.33], [0.47, 0, -0.39], [0.44, 0, -0.43], [0.46, 0, -0.47], [0.45, 0, -0.57], [0.28, 0, -0.65], [0.04, near * 0.28, -0.52], [0.14, near * 0.33, -0.2], [0.2, near * 0.32, 0.0]]
+          .map(([f, sd, u]) => at(f, sd, u)).filter(Boolean);
+      } else {
+        const pts = [[0.36, 0.25, -0.02], [0.36, -0.25, -0.02], [0.33, 0.31, -0.25], [0.33, -0.31, -0.25], [0.2, 0.27, -0.46], [0.2, -0.27, -0.46], [0.3, 0, -0.6], [0.36, 0.14, -0.55], [0.36, -0.14, -0.55]]
+          .map(([f, sd, u]) => at(f, sd, u)).filter(Boolean);
+        fh = hull(pts);
+      }
       if (fh.length < 3) return;
       poly(ctx, fh);
       const fc = at(0.3, 0, -0.25);

@@ -16,7 +16,50 @@ import {
   RL, RW, MID_Y, BOARD_H, GLASS_H, GOAL_X, BLUE_X, NET_HALF, NET_DEPTH, NET_H,
   insideRink, attackDir, panelAt, PANELS, PANEL_X0, PANEL_W,
 } from './geo.js';
-import { DT, G, skaterRig, goalieRig, bladeWorld, makeRag, stepRag, makeLimb, stepLimb, SEVER } from './rig.js';
+import { DT, G, skaterRig, goalieRig, bladeWorld, bladeLocal, makeRag, stepRag, makeLimb, stepLimb, SEVER, SHOTS } from './rig.js';
+
+// ── stickhandling ─────────────────────────────────────────────────────────────
+// THE PUCK IS ITS OWN OBJECT. Welded to the blade it read as part of the man; a real
+// carrier never holds it, he keeps TOUCHING it. Every so often his blade taps it toward
+// where his hands want it next, and between touches it slides on its own with ice
+// friction, so it runs ahead, drifts, and gets gathered back. The rig aims the blade at
+// the puck (not the other way round), so the stick visibly chases and cups it.
+//
+// The touch rate is the style: quick little taps protecting it, rapid touches through a
+// deke, long pushes and a chase flat out. Through a shot's wind-up there are no touches:
+// the puck rides on at his speed and the blade comes through and strikes it.
+// Returns true on a touch, so the caller can make the tick of it.
+export function dribble(c, pk, T, dt, rand = Math.random) {
+  const sp = Math.hypot(c.vx || 0, c.vy || 0);
+  const shooting = !!SHOTS[c.act];
+  c.touchT = (c.touchT ?? 0) - dt;
+  const bw = bladeWorld(c, T, true);
+  const d = Math.hypot(pk.x - bw[0], pk.y - bw[1]);
+  if (shooting) {
+    // it goes on at his pace and sits where the blade will come through
+    pk.vx = lerp(pk.vx, c.vx || 0, 1 - Math.exp(-dt * 6)); pk.vy = lerp(pk.vy, c.vy || 0, 1 - Math.exp(-dt * 6));
+    return false;
+  }
+  const deke = c.act === 'toedrag' || c.act === 'deke' || c.act === 'drag' || c.act === 'fake';
+  const iv = deke ? 0.1 : c.protect ? 0.17 : sp > 21 ? 0.36 + rand() * 0.08 : 0.22 + rand() * 0.12;
+  const reach = sp > 18 ? 3.2 : 2.4;
+  if (c.touchT > 0 || d > reach) {
+    // out of reach between touches: a carrier who has lost touch reaches for it
+    if (d > reach && d < 6) { const k = 1 - Math.exp(-dt * 4); pk.vx += ((bw[0] - pk.x) * 2.5 + (c.vx || 0) - pk.vx) * k; pk.vy += ((bw[1] - pk.y) * 2.5 + (c.vy || 0) - pk.vy) * k; }
+    return false;
+  }
+  // a touch: send it where the blade will be one interval from now. Predicted along the arc
+  // he is skating, not a straight line, or a man carrying it round a curve at speed loses it.
+  const tr = c.turnRate || 0, hF = c.h + tr * iv, hM = c.h + tr * iv * 0.5;
+  const px = c.x + Math.cos(hM) * sp * iv, py = c.y + Math.sin(hM) * sp * iv;
+  const [bu, bv] = bladeLocal(c, T + iv, true);
+  const tx = px + bu * Math.cos(hF) - bv * Math.sin(hF), ty = py + bu * Math.sin(hF) + bv * Math.cos(hF);
+  pk.vx = (tx - pk.x) / iv; pk.vy = (ty - pk.y) / iv;
+  if (sp > 21 && rand() < 0.3) pk.vz = 1.2;                // a push at speed lifts it a little
+  pk.spin = (pk.spin || 0) + (rand() - 0.5) * 30;
+  c.touchT = iv;
+  return true;
+}
 
 const SKINS = ['#e0b08c', '#c48d68', '#8f5e40', '#f0c9a8', '#a87454', '#6a4330', '#d9a27e'];
 const HAIRS = ['#2a1c14', '#5a3a22', '#141210', '#8a6a3a', '#3b2a1e', '#c9b48a', '#6b2d16'];
@@ -83,11 +126,12 @@ export function createWorld(ice, seedKey) {
     const pk = W.puck;
     if (pk.carrier) pk.carrier.carrying = false;
     pk.carrier = b; pk.target = null; pk.held = null; pk.inNet = null;
+    if (b) { b.touchT = 0; b.puckAt = [pk.x, pk.y]; }
     if (b) { b.carrying = true; pk.owner = b.side; if (b.kind === 'skater') W.amb.poss = b.side; }
   };
   W.loose = (vx, vy, vz = 0) => {
     const pk = W.puck;
-    if (pk.carrier) pk.carrier.carrying = false;
+    if (pk.carrier) { pk.carrier.carrying = false; pk.carrier.puckAt = null; }
     pk.carrier = null; pk.target = null; pk.held = null; pk.vx = vx; pk.vy = vy; pk.vz = vz;
   };
   W.pass = (from, to, spd = 70) => {
@@ -154,8 +198,14 @@ export function createWorld(ice, seedKey) {
     if (pk.carrier) {
       const c = pk.carrier;
       if (!c.active || c.rag || !c.stick) { W.loose(c.vx * 0.6, c.vy * 0.6); }
-      else { const b = bladeWorld(c, W.t, true); pk.x = b[0]; pk.y = b[1]; pk.z = 0; pk.vx = c.vx; pk.vy = c.vy; return; }
+      else {
+        if (dribble(c, pk, W.t, dt, rand) && W.t - (W.tickAt || 0) > 0.12) { W.tickAt = W.t; W.sfx('tick', { quiet: true }); }
+        // a carrier who has truly lost it has lost it (only when nothing scripted owns the play)
+        const bw = bladeWorld(c, W.t, true);
+        if (!W.puckScripted && Math.hypot(pk.x - bw[0], pk.y - bw[1]) > 7) W.loose(pk.vx, pk.vy);
+      }
     }
+    pk.rot = (pk.rot || 0) + (pk.spin || 0) * dt; pk.spin = (pk.spin || 0) * Math.exp(-dt * 0.8);
     pk.vz -= G * dt; pk.z += pk.vz * dt;
     if (pk.z < 0) { pk.z = 0; pk.vz = pk.vz < -6 ? -pk.vz * 0.3 : 0; }
     if (pk.z === 0) { const f = Math.exp(-(pk.inNet ? 3 : 0.35) * dt); pk.vx *= f; pk.vy *= f; }
@@ -170,6 +220,7 @@ export function createWorld(ice, seedKey) {
       }
     }
     puckNets(pk);
+    if (pk.carrier) pk.carrier.puckAt = [pk.x, pk.y];
     for (const d of W.limbs) {
       // the puck can hit what's lying on the ice
       for (const p of d.pts) {
