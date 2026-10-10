@@ -16,7 +16,7 @@ import {
   RL, RW, MID_Y, BOARD_H, GLASS_H, GOAL_X, BLUE_X, NET_HALF, NET_DEPTH, NET_H,
   insideRink, attackDir, panelAt, PANELS, PANEL_X0, PANEL_W,
 } from './geo.js';
-import { DT, G, skaterRig, goalieRig, bladeWorld, bladeLocal, makeRag, stepRag, makeLimb, stepLimb, SEVER, SHOTS } from './rig.js';
+import { DT, G, skaterRig, goalieRig, bladeWorld, bladeLocal, keepOut, makeRag, stepRag, makeLimb, stepLimb, SEVER, SHOTS } from './rig.js';
 
 // ── stickhandling ─────────────────────────────────────────────────────────────
 // THE PUCK IS ITS OWN OBJECT. Welded to the blade it read as part of the man; a real
@@ -33,14 +33,37 @@ export function dribble(c, pk, T, dt, rand = Math.random) {
   const sp = Math.hypot(c.vx || 0, c.vy || 0);
   const shooting = !!SHOTS[c.act];
   c.touchT = (c.touchT ?? 0) - dt;
+  // never through his own skates: in his frame, push it back outside them
+  {
+    const ch = Math.cos(c.h), sn = Math.sin(c.h), dx = pk.x - c.x, dy = pk.y - c.y;
+    const lu = dx * ch + dy * sn, lv = -dx * sn + dy * ch, [ku, kv] = keepOut(lu, lv, 0.15);
+    if (ku !== lu || kv !== lv) { pk.x = c.x + ku * ch - kv * sn; pk.y = c.y + ku * sn + kv * ch; pk.vx = lerp(pk.vx, c.vx || 0, 0.5); pk.vy = lerp(pk.vy, c.vy || 0, 0.5); }
+  }
   const bw = bladeWorld(c, T, true);
   const d = Math.hypot(pk.x - bw[0], pk.y - bw[1]);
+  // THE LEASH. A carrier does not lose the puck on his own: it is only ever taken off him
+  // (a poke, a rub-out, a hit) or let go (a pass, a shot). So however a touch lands, the
+  // puck is drawn back softly if it strays past a short gap from where his blade is.
+  const gap = shooting ? 1.0 : sp > 18 ? 1.9 : 1.2;
+  if (d > gap) {
+    const k = (1 - Math.exp(-dt * 14)) * (d - gap) / d;
+    pk.x += (bw[0] - pk.x) * k; pk.y += (bw[1] - pk.y) * k;
+    pk.vx = lerp(pk.vx, c.vx || 0, k); pk.vy = lerp(pk.vy, c.vy || 0, k);
+  }
   if (shooting) {
     // it goes on at his pace and sits where the blade will come through
     pk.vx = lerp(pk.vx, c.vx || 0, 1 - Math.exp(-dt * 6)); pk.vy = lerp(pk.vy, c.vy || 0, 1 - Math.exp(-dt * 6));
     return false;
   }
   const deke = c.act === 'toedrag' || c.act === 'deke' || c.act === 'drag' || c.act === 'fake';
+  if (deke && d < 3) {
+    // through a deke it never leaves the blade: cradled in the pocket and dragged with it
+    const k = 1 - Math.exp(-dt * 40), nx = lerp(pk.x, bw[0], k), ny = lerp(pk.y, bw[1], k);
+    pk.vx = (nx - pk.x) / dt + (c.vx || 0) * (1 - k); pk.vy = (ny - pk.y) / dt + (c.vy || 0) * (1 - k);
+    pk.x = nx - pk.vx * dt; pk.y = ny - pk.vy * dt;          // the caller's integration step lands it on nx, ny
+    c.touchT = 0.08;
+    return false;
+  }
   const iv = deke ? 0.1 : c.protect ? 0.17 : sp > 21 ? 0.36 + rand() * 0.08 : 0.22 + rand() * 0.12;
   const reach = sp > 18 ? 3.2 : 2.4;
   if (c.touchT > 0 || d > reach) {
@@ -200,9 +223,7 @@ export function createWorld(ice, seedKey) {
       if (!c.active || c.rag || !c.stick) { W.loose(c.vx * 0.6, c.vy * 0.6); }
       else {
         if (dribble(c, pk, W.t, dt, rand) && W.t - (W.tickAt || 0) > 0.12) { W.tickAt = W.t; W.sfx('tick', { quiet: true }); }
-        // a carrier who has truly lost it has lost it (only when nothing scripted owns the play)
-        const bw = bladeWorld(c, W.t, true);
-        if (!W.puckScripted && Math.hypot(pk.x - bw[0], pk.y - bw[1]) > 7) W.loose(pk.vx, pk.vy);
+
       }
     }
     pk.rot = (pk.rot || 0) + (pk.spin || 0) * dt; pk.spin = (pk.spin || 0) * Math.exp(-dt * 0.8);

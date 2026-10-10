@@ -201,11 +201,12 @@ export function drawBody(ctx, P, J, o) {
       continue;
     }
     const fw = V.norm([T[0] - A[0], T[1] - A[1], 0]);
-    const heel = [A[0] - fw[0] * 0.36, A[1] - fw[1] * 0.36, 0.34];
-    const toeC = [T[0] + fw[0] * 0.08, T[1] + fw[1] * 0.08, 0.21];
+    // a real skate: about a foot from heel to toe, the boot a hand's width wide
+    const heel = [A[0] - fw[0] * 0.24, A[1] - fw[1] * 0.24, 0.3];
+    const toeC = [T[0] + fw[0] * 0.02, T[1] + fw[1] * 0.02, 0.19];
     // the holder and the steel come first, so the boot sits on them
-    const h0 = W([heel[0], heel[1], 0.22]), h1 = W([toeC[0], toeC[1], 0.18]);
-    const r0 = W([heel[0] - fw[0] * 0.12, heel[1] - fw[1] * 0.12, 0.03]), r1 = W([toeC[0] + fw[0] * 0.24, toeC[1] + fw[1] * 0.24, 0.03]);
+    const h0 = W([heel[0], heel[1], 0.18]), h1 = W([toeC[0], toeC[1], 0.15]);
+    const r0 = W([heel[0] - fw[0] * 0.08, heel[1] - fw[1] * 0.08, 0.03]), r1 = W([toeC[0] + fw[0] * 0.14, toeC[1] + fw[1] * 0.14, 0.03]);
     if (h0 && h1 && r0 && r1) {
       add((h0.d + h1.d) / 2 + 0.01, () => poly(ctx, [h0, h1, r1, r0]), () => {
         poly(ctx, [h0, h1, r1, r0]); ctx.fillStyle = refl ? '#9aa2aa' : HOLDER; ctx.fill();
@@ -215,11 +216,11 @@ export function drawBody(ctx, P, J, o) {
         }
       });
     }
-    limb(heel, toeC, 0.25, 0.18, BOOT, (a, b) => {
+    limb(heel, toeC, 0.16, 0.12, BOOT, (a, b) => {
       if (lod === 2) { ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 0.05 * a.s; ctx.beginPath(); ctx.moveTo(lerp(a.x, b.x, 0.25), lerp(a.y, b.y, 0.25) - 0.1 * a.s); ctx.lineTo(lerp(a.x, b.x, 0.85), lerp(a.y, b.y, 0.85) - 0.07 * a.s); ctx.stroke(); }
     });
-    limb(V.add(A, [0, 0, 0.05]), [A[0] + fw[0] * 0.18, A[1] + fw[1] * 0.18, 0.38], 0.27, 0.24, BOOT);
-    limb([heel[0] - fw[0] * 0.02, heel[1] - fw[1] * 0.02, 0.45], [A[0] - fw[0] * 0.24, A[1] - fw[1] * 0.24, 0.8], 0.075, 0.06, '#26272c');
+    limb(V.add(A, [0, 0, 0.05]), [A[0] + fw[0] * 0.12, A[1] + fw[1] * 0.12, 0.34], 0.19, 0.16, BOOT);
+    limb([heel[0] - fw[0] * 0.02, heel[1] - fw[1] * 0.02, 0.4], [A[0] - fw[0] * 0.18, A[1] - fw[1] * 0.18, 0.72], 0.06, 0.05, '#26272c');
     if (gk) {
       // pads: a big tapered block from above the knee to the boot, with knee rolls
       const top = V.add(J[kn], [0, 0, 0.35]), bot = V.add(A, [0, 0, -0.15]);
@@ -233,7 +234,7 @@ export function drawBody(ctx, P, J, o) {
         ringAt(J[kn], A, 0.3, 0.2, 0.3, K.trim, 0.11); ringAt(J[kn], A, 0.3, 0.2, 0.45, K.trim, 0.11);
       }, 0, 0.4);
       // the cap of the shin pad stands out at the front of the knee under the sock
-      limb(V.add(J[kn], V.add(V.mul(F, 0.17), [0, 0, 0.12])), V.add(J[kn], V.add(V.mul(F, 0.2), [0, 0, -0.22])), 0.17, 0.15, shade(K.sock, 0.06), null, -0.015);
+      limb(V.add(J[kn], V.add(V.mul(F, 0.17), [0, 0, 0.12])), V.add(J[kn], V.add(V.mul(F, 0.18), [0, 0, -0.2])), 0.14, 0.12, K.sock, null, -0.015);
       // breezers: big through the hip and flared at the hem, the hockey silhouette
       const thighEnd = V.lerp(J[hip], J[kn], 0.9);
       limb(J[hip], thighEnd, 0.46, 0.41, K.pants, () => {

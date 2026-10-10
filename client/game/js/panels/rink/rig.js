@@ -27,16 +27,16 @@ export const G = 32;
 export const SHOTS = {
   slap:     { wind: 0.55, back: [-1.7, 1.6, 3.9], hit: [1.45, 1.0, 0.08], fol: [3.0, 0.3, 3.5], dur: 0.7, flex: 0.55 },
   onetimer: { wind: 0.3, back: [-1.1, 1.5, 3.0], hit: [1.5, 1.0, 0.08], fol: [3.0, 0.3, 3.2], dur: 0.42, flex: 0.5 },
-  wrist:    { wind: 0.45, back: [-0.6, 1.3, 0.25], hit: [1.6, 0.9, 0.1], fol: [2.8, 0.4, 2.2], dur: 0.5, flex: 0.22 },
-  snap:     { wind: 0.3, back: [0.2, 1.2, 1.0], hit: [1.5, 0.9, 0.08], fol: [2.6, 0.4, 1.6], dur: 0.4, flex: 0.35 },
-  backhand: { wind: 0.4, back: [-0.2, -1.3, 0.5], hit: [1.4, -0.7, 0.1], fol: [2.2, -0.4, 2.6], dur: 0.5, flex: 0.15, bh: true },
+  wrist:    { wind: 0.45, back: [-0.35, 1.95, 0.2], hit: [1.6, 0.9, 0.1], fol: [2.8, 0.4, 2.2], dur: 0.5, flex: 0.22 },
+  snap:     { wind: 0.3, back: [0.3, 1.85, 0.9], hit: [1.5, 0.9, 0.08], fol: [2.6, 0.4, 1.6], dur: 0.4, flex: 0.35 },
+  backhand: { wind: 0.4, back: [-0.1, -1.95, 0.5], hit: [1.4, -0.7, 0.1], fol: [2.2, -0.4, 2.6], dur: 0.5, flex: 0.15, bh: true },
   tip:      { wind: 0.2, back: [1.8, 0.8, 0.6], hit: [2.2, 0.6, 0.5], fol: [2.4, 0.5, 0.9], dur: 0.3, flex: 0 },
-  wrap:     { wind: 0.35, back: [-0.8, 1.4, 0.2], hit: [0.6, 1.6, 0.08], fol: [1.8, 1.0, 1.2], dur: 0.5, flex: 0.1 },
-  pass:     { wind: 0.35, back: [0.7, 1.45, 0.1], hit: [1.9, 0.7, 0.08], fol: [2.5, 0.4, 0.5], dur: 0.32, flex: 0.05 },
-  saucer:   { wind: 0.3, back: [0.6, 1.4, 0.1], hit: [1.8, 0.8, 0.25], fol: [2.6, 0.3, 1.6], dur: 0.34, flex: 0.05 },
-  backpass: { wind: 0.35, back: [0.3, -1.4, 0.1], hit: [1.6, -0.7, 0.08], fol: [2.3, -0.3, 0.6], dur: 0.34, flex: 0.05, bh: true },
+  wrap:     { wind: 0.35, back: [-0.5, 1.95, 0.2], hit: [0.6, 1.6, 0.08], fol: [1.8, 1.0, 1.2], dur: 0.5, flex: 0.1 },
+  pass:     { wind: 0.35, back: [0.8, 1.85, 0.1], hit: [1.9, 0.7, 0.08], fol: [2.5, 0.4, 0.5], dur: 0.32, flex: 0.05 },
+  saucer:   { wind: 0.3, back: [0.7, 1.85, 0.1], hit: [1.8, 0.8, 0.25], fol: [2.6, 0.3, 1.6], dur: 0.34, flex: 0.05 },
+  backpass: { wind: 0.35, back: [0.5, -1.85, 0.1], hit: [1.6, -0.7, 0.08], fol: [2.3, -0.3, 0.6], dur: 0.34, flex: 0.05, bh: true },
   drop:     { wind: 0.35, back: [2.0, 0.7, 0.05], hit: [0.7, 0.6, 0.05], fol: [1.3, 0.6, 0.35], dur: 0.32, flex: 0 },
-  dump:     { wind: 0.4, back: [-0.2, 1.4, 0.6], hit: [1.5, 0.9, 0.08], fol: [2.8, 0.4, 2.0], dur: 0.45, flex: 0.2 },
+  dump:     { wind: 0.4, back: [0.0, 1.9, 0.6], hit: [1.5, 0.9, 0.08], fol: [2.8, 0.4, 2.0], dur: 0.45, flex: 0.2 },
 };
 export const releaseAt = (type) => { const s = SHOTS[type] || SHOTS.wrist; return s.dur * (s.wind + 0.08); };
 
@@ -48,7 +48,7 @@ const DEKES = {
   // forehand to backhand and back, wide, the move in front of a goalie
   deke: [[2.3, 1.2, 0.05], [2.2, -0.9, 0.05], [2.7, 1.0, 0.05]],
   // a shot that isn't: the blade loads, the goalie bites, the puck goes to the side
-  fake: [[2.2, 0.9, 0.05], [0.2, 1.4, 0.6], [2.0, -0.6, 0.05]],
+  fake: [[2.2, 0.9, 0.05], [0.7, 1.7, 0.5], [2.0, -0.6, 0.05]],
   // between the legs is beyond a CPhL roster; a quick lateral drag is not
   drag: [[2.4, 0.4, 0.05], [2.0, 1.6, 0.05], [2.6, 0.9, 0.05]],
 };
@@ -57,9 +57,20 @@ const path3 = (pts, t) => {
   return V.lerp(pts[i], pts[i + 1], k);
 };
 
+// THE SKATES ARE SOLID. A blade or a puck that passes through a man's own feet is the
+// clipping a viewer notices first, so both are kept outside an ellipse round them.
+export const FEET = { u: 0.25, ru: 1.35, rv: 1.0 };
+export function keepOut(u, v, pad = 0) {
+  const du = (u - FEET.u) / (FEET.ru + pad), dv = v / (FEET.rv + pad), r = Math.hypot(du, dv);
+  if (r >= 1) return [u, v];
+  if (r < 1e-3) return [FEET.u + FEET.ru + pad, v];
+  return [FEET.u + du / r * (FEET.ru + pad), dv / r * (FEET.rv + pad)];
+}
+
 // Where the blade (and so the puck) is in body space. One function for the rig and the sim,
 // so a carried puck can never drift off the stick.
-export function bladeLocal(s, T, carrying) {
+export function bladeLocal(s, T, carrying) { const [u, v] = bladeRaw(s, T, carrying); return keepOut(u, v, 0.1); }
+function bladeRaw(s, T, carrying) {
   if (carrying || s.carrying) {
     if (DEKES[s.act]) { const p = path3(DEKES[s.act], s.actT); return [p[0], p[1]]; }
     const sp = Math.hypot(s.vx || 0, s.vy || 0);
@@ -82,6 +93,56 @@ const dirWorld = (s, d) => { const ch = Math.cos(s.h), sn = Math.sin(s.h); retur
 // roll about the body's forward axis, pivoting at the ice: leaning into a turn
 const roll = (p, a) => { const c = Math.cos(a), s = Math.sin(a); return [p[0], p[1] * c - p[2] * s, p[1] * s + p[2] * c]; };
 const bump = (t) => Math.sin(clamp(t, 0, 1) * Math.PI);
+
+// ── the stick in his hands ───────────────────────────────────────────────────
+// A stick is a fixed length. The old rig put the top hand where the pose wanted it and
+// drew the shaft to wherever the blade was, so a stick grew and shrank through a dangle
+// and a glove could float a foot off the shaft. Now the BLADE goes where it must (on the
+// puck), the TOP HAND sits at the knob a stick's length from it, as close to where the
+// pose wants the hand as that allows and never beyond the arm's reach (if it can't reach,
+// the blade comes in instead), and the BOTTOM HAND slides along the shaft to wherever the
+// other arm reaches it comfortably, near the grip the action asks for.
+export const STICK = 4.5;            // top hand to the heel of the blade, feet
+const ARM = 2.12;                    // shoulder to glove at full stretch
+function fitStick(R0, blade0, shR, shL, wantT, oneHand) {
+  let d = V.sub(R0, blade0), len = V.len(d) || 1;
+  let hand = V.add(blade0, V.mul(d, STICK / len));
+  // look for a grip that keeps the blade where it is AND the hand within reach: alternate
+  // between the two constraints, which settles on a point both allow whenever one exists
+  for (let i = 0; i < 6; i++) {
+    const a = V.sub(hand, shR), al = V.len(a);
+    if (al <= ARM) break;
+    hand = V.add(shR, V.mul(a, ARM / al));
+    const b = V.sub(hand, blade0), bl = V.len(b) || 1;
+    hand = V.add(blade0, V.mul(b, STICK / bl));
+  }
+  let blade = blade0;
+  const a = V.sub(hand, shR), al = V.len(a);
+  if (al > ARM * 1.01) {
+    // no such grip: the hand stays within reach and the blade comes in to meet it
+    hand = V.add(shR, V.mul(a, ARM / al));
+    const bd = V.sub(blade0, hand), bl = V.len(bd) || 1;
+    blade = V.add(hand, V.mul(bd, STICK / bl));
+  }
+  if (blade0[2] < 0.3) {
+    // a blade that belongs on the ice stays on it: keep the shaft's heading, fix its length
+    const dz = 0.06 - hand[2], horiz = Math.sqrt(Math.max(0.04, STICK * STICK - dz * dz));
+    const hd = V.norm([blade[0] - hand[0], blade[1] - hand[1], 0]);
+    blade = [hand[0] + hd[0] * horiz, hand[1] + hd[1] * horiz, 0.06];
+  }
+  const dir = V.norm(V.sub(blade, hand));
+  let L = null;
+  if (!oneHand) {
+    let bs = 1e9;
+    for (let t = 0.9; t <= 2.8; t += 0.1) {
+      const p = V.add(hand, V.mul(dir, t)), r = V.len(V.sub(p, shL));
+      if (r > ARM * 0.98) continue;
+      const sc = Math.abs(t - wantT) + Math.max(0, 1.3 - r) * 2;
+      if (sc < bs) { bs = sc; L = p; }
+    }
+  }
+  return { R: hand, blade, L, dir };
+}
 // keep a hand within a fraction of full arm reach, so elbows stay bent
 const reach = (sh, h, frac) => { const d = V.sub(h, sh), l = V.len(d), max = 2.25 * frac; return l > max ? V.add(sh, V.mul(d, max / l)) : h; };
 // head direction in body space: yaw left of forward, pitch up
@@ -281,7 +342,7 @@ function standRig(s, T) {
   const hipL = V.add(pelvis, rotZ([0, 0.44, -0.05], -twist * 0.5)), hipR = V.add(pelvis, rotZ([0, -0.44, -0.05], -twist * 0.5));
 
   // ── hands and stick: a base from the stride, an action blended over it ───
-  let L, R, blade = null, flex = 0;
+  let L, R, blade = null, flex = 0, stickDir = null, stickFit = null, oneHanded = false;
   if (s.stick && !official) {
     const [bu, bv] = bladeLocal(s, T, carrying);
     // base: blade on the ice ahead, top hand at the hip swinging a little across with the stride
@@ -301,7 +362,7 @@ function standRig(s, T) {
       const d = toLocal(s.defend[0], s.defend[1], 0), ang = clamp(Math.atan2(d[1], d[0]), -1.0, 1.3);
       bBlade = [Math.cos(ang) * 3.4, Math.sin(ang) * 3.4, 0.05]; bR = [0.9, -0.15, zp + 0.55];
     }
-    if (carrying && s.protect) { bR = [0.7, -s.protect * 0.25, zp + 0.55]; bL = [0.6, s.protect * 1.6, zp + 1.3]; bBlade = [1.5, -s.protect * 1.35, 0.06]; }
+    if (carrying && s.protect) { bR = [0.7, -s.protect * 0.25, zp + 0.55]; bL = [0.6, s.protect * 1.6, zp + 1.3]; }
     if (fast || (s.defend && !carrying)) {
       // one hand on the stick, the other arm swinging across the body with the stride
       if (fast) bR = [0.95, -0.25, zp + 0.55];
@@ -339,6 +400,11 @@ function standRig(s, T) {
     // the bottom hand rides the shaft unless something has taken it off
     const onShaft = V.add(R, V.mul(V.sub(blade, R), shot ? lerp(0.36, 0.28, ka) : 0.36));
     L = aL ? V.lerp(bL || onShaft, aL, ka) : bL ? V.lerp(bL, onShaft, ka) : onShaft;
+    // the stick is fitted after the body leans into the turn (below), so the lean can't bend it
+    stickFit = {
+      oneHand: !!bL && !aL && ka < 0.5, aL: !!aL, ka,
+      wantT: shot ? (act === 'slap' || act === 'onetimer' ? 2.1 : act === 'pass' || act === 'saucer' || act === 'drop' ? 1.5 : 1.75) : act === 'faceoff' ? 2.0 : 1.55,
+    };
     if (act === 'checkElbow' && at > 0.3 && at < 0.9) { const m = bump((at - 0.3) / 0.6); R = V.lerp(R, [0.2, -0.7, zp + 2.3], m); }
     if (act === 'hug' && s.target) { const t = s.target; L = toLocal(t.x, t.y, 4.6); L[1] += 0.9; R = toLocal(t.x, t.y, 4.4); R[1] -= 0.9; blade = null; }
     if (act === 'brace' && ka > 0.5) blade = null;
@@ -369,12 +435,26 @@ function standRig(s, T) {
   if (act === 'shove' && s.target && s.stick) { const t = s.target; L = toLocal(t.x, t.y, 4.4); L[1] += 0.4; R = toLocal(t.x, t.y, 4.3); R[1] -= 0.4; blade = null; }
   if (s.grab || act === 'pull' || act === 'hug' || act === 'shove' || act === 'break') { L = reach(shL, L, 0.86); R = reach(shR, R, act === 'pull' || act === 'hug' ? 0.86 : 0.95); }
   else if (s.guard) { L = reach(shL, L, 0.8); R = reach(shR, R, pk > 0.6 ? 0.98 : 0.8); }
-  const [elL, hL] = ik(shL, L, 1.12, 1.05, [-0.3, 1, -0.8]);
-  const [elR, hR] = ik(shR, R, 1.12, 1.05, [-0.3, -1, -0.8]);
 
-  const upper = [pelvis, chest, neck, head, shL, elL, hL, shR, elR, hR, hipL, hipR].map((p) => roll(p, tilt));
-  const [rPel, rChest, rNeck, rHead, rShL, rElL, rHL, rShR, rElR, rHR, rHipL, rHipR] = upper;
-  if (blade && tilt) { const bz = blade[2]; blade = roll(blade, tilt * 0.5); blade[2] = Math.max(0.05, bz < 0.2 ? bz : blade[2]); }
+  // lean into the turn first: the body and the hands' targets roll together about the ice;
+  // a blade on the ice stays on it
+  const [rPel, rChest, rNeck, rHead, rShL, rShR, rHipL, rHipR] = [pelvis, chest, neck, head, shL, shR, hipL, hipR].map((p) => roll(p, tilt));
+  L = roll(L, tilt); R = roll(R, tilt);
+  if (blade) { const onIce = blade[2] < 0.3; blade = roll(blade, tilt); if (onIce) blade[2] = 0.06; }
+  if (blade && stickFit) {
+    // fit the stick: fixed length, top hand at the knob, bottom hand on the shaft
+    if (blade[2] < 1.4) { const ko = keepOut(blade[0], blade[1], 0.05); blade = [ko[0], ko[1], blade[2]]; }
+    const fit = fitStick(R, blade, rShR, rShL, stickFit.wantT, stickFit.oneHand);
+    R = fit.R; blade = fit.blade; stickDir = fit.dir;
+    if (!stickFit.oneHand && !stickFit.aL) {
+      // no comfortable grip for the bottom hand: it comes off the stick and swings free
+      // rather than hovering beside the shaft
+      if (fit.L) L = fit.L; else { L = roll([0.55 + 0.35 * stridePush, 0.95, zp + 0.35], tilt); oneHanded = true; }
+    } else if (stickFit.aL && stickFit.ka < 1) L = fit.L ? V.lerp(fit.L, L, stickFit.ka) : L;
+    if (stickFit.oneHand) oneHanded = true;
+  }
+  const [rElL, rHL] = ik(rShL, L, 1.12, 1.05, roll([-0.3, 1, -0.8], tilt));
+  const [rElR, rHR] = ik(rShR, R, 1.12, 1.05, roll([-0.3, -1, -0.8], tilt));
 
   // ── legs: the blended stride, then whatever the action wants of them ─────
   const legs = [];
@@ -396,20 +476,20 @@ function standRig(s, T) {
     }
     f.v -= tilt * 1.3;                                         // the skates stay under a leaning man
     const [kn, an] = ik(sg > 0 ? rHipL : rHipR, [f.u, f.v, f.z], 1.62, 1.55, [1, sg * 0.3, 0.1]);
-    legs.push([kn, an, V.add(an, [0.95 * Math.cos(f.yaw), 0.95 * Math.sin(f.yaw), -0.32])]);
+    legs.push([kn, an, V.add(an, [0.74 * Math.cos(f.yaw), 0.74 * Math.sin(f.yaw), -0.3])]);
   }
 
   let butt = null, heel = null, toe = null, bend = null;
   if (blade) {
     const shf = V.sub(blade, rHR);
-    butt = V.add(rHR, V.mul(V.norm(shf), -0.4));
+    butt = V.add(rHR, V.mul(V.norm(shf), -0.28));
     heel = blade;
     const perp = V.norm([-shf[1] * 0.6 + 0.8, shf[0] * 0.6, 0]);
     toe = act === 'celebrate' ? V.add(blade, [0.3, 0.2, 0.7]) : act === 'toedrag' && at > 0.25 && at < 0.6 ? V.add(blade, [0.5, 0.75, 0]) : V.add(blade, V.mul(perp, 0.95));
     if (flex > 0.01) { const mid = V.lerp(butt, heel, 0.55); bend = V.add(mid, [-flex, 0.1 * flex, flex * 0.3]); }
   }
   const out = toWorld(s, [rPel, rChest, rNeck, rHead, rShL, rElL, rHL, rShR, rElR, rHR, rHipL, legs[0][0], legs[0][1], rHipR, legs[1][0], legs[1][1], legs[0][2], legs[1][2], butt, heel, toe]);
-  out.meta = { look: dirWorld(s, roll(lookDir(yaw + twist * 0.8, pitch), tilt)), bend: bend ? toWorld(s, [bend])[0] : null };
+  out.meta = { look: dirWorld(s, roll(lookDir(yaw + twist * 0.8, pitch), tilt)), bend: bend ? toWorld(s, [bend])[0] : null, oneHanded };
   return out;
 }
 
