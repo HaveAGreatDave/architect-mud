@@ -269,15 +269,15 @@ function standRig(s, T) {
   }
 
   // ── upper body, upright ──────────────────────────────────────────────────
-  const zp = 3.3 - 0.62 * crouch - bob;
+  const zp = 3.45 - 0.64 * crouch - bob;
   const pelvis = [0, shiftV, zp];
   const lsd = [Math.sin(lean), 0, Math.cos(lean)];
   const chest = V.add(pelvis, V.mul(lsd, 1.1)), neck = V.add(pelvis, V.mul(lsd, 2.0));
   // the head rides level: it takes back most of the hip drop and the sideways rock
   const hl = lean * 0.45 - (act === 'slumped' ? 0.6 : 0) + Math.max(-0.3, pitch * 0.35);
   const head = V.add(neck, [Math.sin(hl) * 0.55 - s.react * 0.32, Math.sin(yaw) * 0.06 - shiftV * 0.4, Math.cos(hl) * 0.55 + s.react * 0.05 + bob * 0.6]);
-  const shL = V.add(neck, rotZ([-0.05, 1.0, -0.25], twist)), shR = V.add(neck, rotZ([-0.05, -1.0, -0.25], twist));
-  const hipL = V.add(pelvis, rotZ([0, 0.5, -0.05], -twist * 0.5)), hipR = V.add(pelvis, rotZ([0, -0.5, -0.05], -twist * 0.5));
+  const shL = V.add(neck, rotZ([-0.05, 0.84, -0.24], twist)), shR = V.add(neck, rotZ([-0.05, -0.84, -0.24], twist));
+  const hipL = V.add(pelvis, rotZ([0, 0.44, -0.05], -twist * 0.5)), hipR = V.add(pelvis, rotZ([0, -0.44, -0.05], -twist * 0.5));
 
   // ── hands and stick: a base from the stride, an action blended over it ───
   let L, R, blade = null, flex = 0;
@@ -317,7 +317,11 @@ function standRig(s, T) {
     else if (act === 'faceoff') { aBlade = [1.9, 0.25, 0.05]; aR = [0.75, -0.2, zp + 0.45]; }
     else if (act === 'block') { const k = bump(at); aBlade = V.lerp(bBlade, [1.4, 1.8, 0.06], k); aR = V.lerp(bR, [1.0, -1.0, zp + 0.2], k); }
     else if ((act === 'check' || act === 'checkElbow') && at > 0.3 && at < 0.9) { const m = bump((at - 0.3) / 0.6); aR = V.lerp(bR, [0.95, -0.4, zp + 1.45], m); aBlade = V.lerp(bBlade, [1.15, 2.4, zp + 1.25], m); }
-    else if (act === 'celebrate') { const k = easeOut(clamp(at * 3, 0, 1)); aR = V.lerp(bR, [0.45, -0.55, zp + 2.9], k); aBlade = V.lerp(bBlade, [0.9, 0.4, zp + 6.2], k); }
+    else if (act === 'celebrate') {
+      // both arms up and the stick held over his head, the way it has always looked
+      const k = easeOut(clamp(at * 3, 0, 1)), pump = Math.sin(T * 7) * 0.12 * k;
+      aR = V.lerp(bR, [0.3, -0.62, zp + 2.75 + pump], k); aL = V.lerp(bR, [0.3, 0.62, zp + 2.75 + pump], k); aBlade = V.lerp(bBlade, [0.35, -2.9, zp + 3.4 + pump], k);
+    }
     else if (act === 'slumped') { aBlade = [1.6, 0.4, 0.06]; aR = [0.6, -0.4, zp + 0.3]; }
     else if (act === 'brace') { aL = [0.9, 0.7, zp + 1.6]; aR = [0.9, -0.5, zp + 1.5]; }
     const ka = (aBlade || aR || aL) ? envU : 0;
@@ -356,8 +360,8 @@ function standRig(s, T) {
   if (act === 'shove' && s.target && s.stick) { const t = s.target; L = toLocal(t.x, t.y, 4.4); L[1] += 0.4; R = toLocal(t.x, t.y, 4.3); R[1] -= 0.4; blade = null; }
   if (s.grab || act === 'pull' || act === 'hug' || act === 'shove' || act === 'break') { L = reach(shL, L, 0.86); R = reach(shR, R, act === 'pull' || act === 'hug' ? 0.86 : 0.95); }
   else if (s.guard) { L = reach(shL, L, 0.8); R = reach(shR, R, pk > 0.6 ? 0.98 : 0.8); }
-  const [elL, hL] = ik(shL, L, 1.15, 1.1, [-0.3, 1, -0.8]);
-  const [elR, hR] = ik(shR, R, 1.15, 1.1, [-0.3, -1, -0.8]);
+  const [elL, hL] = ik(shL, L, 1.12, 1.05, [-0.3, 1, -0.8]);
+  const [elR, hR] = ik(shR, R, 1.12, 1.05, [-0.3, -1, -0.8]);
 
   const upper = [pelvis, chest, neck, head, shL, elL, hL, shR, elR, hR, hipL, hipR].map((p) => roll(p, tilt));
   const [rPel, rChest, rNeck, rHead, rShL, rElL, rHL, rShR, rElR, rHR, rHipL, rHipR] = upper;
@@ -382,7 +386,7 @@ function standRig(s, T) {
       if (g) f = { u: lerp(f.u, g.u, envL), v: lerp(f.v, g.v, envL), z: lerp(f.z, g.z, envL), yaw: lerp(f.yaw, g.yaw, envL) };
     }
     f.v -= tilt * 1.3;                                         // the skates stay under a leaning man
-    const [kn, an] = ik(sg > 0 ? rHipL : rHipR, [f.u, f.v, f.z], 1.55, 1.5, [1, sg * 0.3, 0.1]);
+    const [kn, an] = ik(sg > 0 ? rHipL : rHipR, [f.u, f.v, f.z], 1.62, 1.55, [1, sg * 0.3, 0.1]);
     legs.push([kn, an, V.add(an, [0.95 * Math.cos(f.yaw), 0.95 * Math.sin(f.yaw), -0.32])]);
   }
 
