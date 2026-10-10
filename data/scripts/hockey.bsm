@@ -965,10 +965,11 @@ Through the five-hole. Goal.
 ::endlines
 
 ::lines pbp.goal.celebrate
-{shooter} goes to the glass.
-{shooter} with the celebration.
-They mob {shooter}.
-{goalie} stares at the ceiling.
+{shooter} wheels away.
+{shooter} heads for the glass.
+{shooter} peels off to the boards.
+{shooter} goes down on one knee and fires the arrow.
+{shooter} skates off with his arms up.
 ::endlines
 
 ::lines pbp.faceoff.center
@@ -1078,6 +1079,192 @@ Whistle. Pushing after it.
 Extra attacker on for {team}.
 Empty net. Six skaters for {team}.
 {team} goes six on five.
+::endlines
+
+::lines pbp.goal.lamp
+Red light.
+There's the horn.
+The lamp's on.
+Horn. Lamp. Noise.
+::endlines
+
+::lines pbp.goal.mob
+They pile on.
+His line buries him.
+Everybody on top of {shooter}.
+Gloves on his helmet. Lots of them.
+::endlines
+
+::lines pbp.goal.slump
+{goalie} hangs his head.
+{goalie} slumps.
+{goalie} stares at the rafters.
+{goalie} fishes it out.
+::endlines
+
+::lines pbp.faceoff.drop
+Dropped.
+Puck's down.
+{winner} and {loser}. Dropped.
+{loser} and {winner}, and it's down.
+In it goes.
+::endlines
+
+::lines pbp.period.out
+Fresh sheet.
+Teams are out.
+Clean ice. Not for long.
+::endlines
+
+::lines pbp.after.glove
+He holds it. Whistle.
+Held. Whistle.
+He's not giving that back.
+::endlines
+
+::lines pbp.after.pad
+Kicked to the corner.
+Steered wide.
+Out to the side boards.
+Kicked clear.
+::endlines
+
+::lines pbp.after.blocked
+Loose in the slot.
+It squirts out to the point.
+Bounces away.
+He limps after it.
+::endlines
+
+::lines pbp.after.wide
+Rims around the back.
+Behind the net and gone.
+Round the boards.
+::endlines
+
+::lines pbp.after.post
+Rattles out.
+Away to the corner.
+Still out.
+Nobody can find it.
+::endlines
+
+::lines pbp.after.breakaway
+{shooter} stumbles.
+{shooter} loses his feet.
+{shooter} is left looking at it.
+::endlines
+
+::lines pbp.hit.glass
+The glass bends.
+Glass shakes.
+The glass holds. Just.
+::endlines
+
+::lines pbp.hit.shatter
+The glass explodes!
+Pane's gone!
+Glass everywhere!
+Straight through the glass!
+::endlines
+
+::lines pbp.hit.helmet
+Helmet's off.
+Lid's gone.
+Helmet bouncing away.
+::endlines
+
+::lines pbp.hit.stick
+Stick goes flying.
+His stick's loose.
+Stick skitters away.
+::endlines
+
+::lines pbp.hit.down
+He stays down.
+He's not getting up.
+Whistle. He's down.
+::endlines
+
+::lines pbp.fight.helmets
+Helmets too.
+Lids off.
+Helmets go as well.
+::endlines
+
+::lines pbp.fight.grab
+They grab on.
+Fistfuls of jersey.
+They tie up.
+Each has a handful.
+::endlines
+
+::lines pbp.fight.box
+Both to the box.
+Off to the box.
+They're led away.
+Linesmen walk them off.
+::endlines
+
+::lines pbp.injury.mates
+Teammates gather round.
+His line skates over.
+They wave for help.
+::endlines
+
+::lines pbp.injury.load
+They lift him on.
+On the stretcher.
+Strapped in.
+::endlines
+
+::lines pbp.death.officials
+The officials wave it off.
+The ref waves both arms.
+Nobody's playing on.
+::endlines
+
+::lines pbp.death.stretcher
+Here's the stretcher. Slowly.
+They bring the stretcher.
+No hurry now.
+::endlines
+
+::lines pbp.scrum.cover
+Goalie covers it.
+He's got it under him.
+Puck's under the goalie.
+::endlines
+
+::lines pbp.scrum.shove
+Shoving in the crease.
+Everybody's in.
+Facewash.
+Glove in a face.
+::endlines
+
+::lines pbp.scrum.apart
+Officials pull them apart.
+Linesmen wade in.
+Sorted. For now.
+::endlines
+
+::lines pbp.pull.bench
+{goalie} heads for the bench.
+{goalie} skates off.
+{goalie} is coming out.
+::endlines
+
+::lines pbp.zamboni.on
+Zamboni's out.
+Here's the Zamboni.
+The ice crew's on.
+::endlines
+
+::lines pbp.zamboni.lap
+Fresh ice going down.
+Another lap.
+The Zamboni goes round again.
 ::endlines
 
 END

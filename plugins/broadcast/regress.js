@@ -2396,7 +2396,7 @@ export default async function regress({ check, run, getPlayer }) {
         const out = [], nrng = sportsRng(seed ^ 0x9e3779b9);
         HOCKEY.narrate({
           script: {}, game, gs: { seed, game }, slot, ws: false, announcer: 'Tug Brennan', pools, nrng, sport: HOCKEY, add: () => {},
-          say: (l, t, sb, fx, gd, meta) => { if (l) out.push({ text: sportsFill(l, t).trim(), graphic: fx || null, gameday: gd || null, _cue: meta && meta.cue, _opt: !!(meta && meta.opt) }); },
+          say: (l, t, sb, fx, gd, meta) => { if (l) out.push({ text: sportsFill(l, t).trim(), graphic: fx || null, gameday: gd || null, _cue: meta && meta.cue, _opt: (meta && meta.opt) || false }); },
           pick: (...keys) => { for (const k of keys) if (pools[k]?.length) { usedPools.add(k); break; } return sportsPick(pools, nrng, ...keys); },
           abbr: (n) => String(n).slice(0, 3).toUpperCase(), recordOf: () => '8-4-1', lastId: () => null,
         });
@@ -2422,6 +2422,15 @@ export default async function regress({ check, run, getPlayer }) {
       const short = paceCalls(half, 1800 * 1000 * 0.85, 1000);
       const kept = half.filter((l) => !short.dropped.has(l));
       check('hockey: a short slot cuts only optional lines', short.dropped.size > 0 && [...short.dropped].every((l) => l._opt && !l.gameday) && kept.every((l) => short.holds.get(l) >= 1000), `${short.dropped.size} cut`);
+      // colour goes before any call of the play: no optional call is cut while a colour line airs
+      const colourKept = kept.some((l) => l._opt === 'colour'), callCut = [...short.dropped].some((l) => l._opt !== 'colour');
+      check('hockey: a short slot cuts colour before calls', !(colourKept && callCut), `colour kept ${colourKept}, a call cut ${callCut}`);
+      // the moments the rink plays out are called: the drop of every draw, where a saved
+      // puck went, the clinch and the box in a fight, what a hit did to the glass
+      const has = (re) => all.some((l) => re.test(l.text));
+      check('hockey: the booth calls what the rink shows after the play', all.filter((l) => (l._cue || {}).ev === 'drop').length >= 30 && all.some((l) => (l._cue || {}).ev === 'grab') && all.some((l) => (l._cue || {}).ev === 'box'), 'drop, grab and box calls');
+      const shatters = all.filter((l) => l.gameday && l.gameday.shatter).length;
+      check('hockey: a called shatter rides the hit it happens on', shatters === 0 || has(/glass|pane/i), `${shatters} shatters`);
     }
     // Every violent beat reaches the rink with something to draw. Before this the ice
     // sat still through the half of the sport the league is actually known for.

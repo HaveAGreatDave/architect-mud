@@ -7,11 +7,14 @@
 // about as long as it takes to hear: a short floor, then 95 ms a character, which is the
 // read-aloud voice's own pace (see `nodeHoldMs` in index.js), and long enough for any card
 // riding it. The whole game is then scaled to fill its share of the slot, within limits,
-// so the play-by-play neither crawls nor rushes.
+// so the play-by-play neither crawls nor rushes. At the tightest scale (0.8) a line still
+// holds about 76 ms a character, slower than a screen reader's default pace.
 //
-// A slot too short for the game at the tightest scale loses lines marked optional (colour,
-// misses in a long fight, the second touch of a routine rush), longest first. The line that
-// carries a gameday payload is never optional.
+// A slot too short for the game at the tightest scale loses lines marked optional, colour
+// first (`_opt: 'colour'`, the old sentence-length calls), then the optional calls of the
+// play (misses in a long fight, where a saved puck went, the second touch of a routine
+// rush), longest first within each. The line that carries a gameday payload is never
+// optional.
 //
 // THE CUES. The narrator tags a line with the moment of play it describes (`_cue`: a touch
 // of the rush, the release, a punch, the hit). Here those become times, in ms from the
@@ -30,14 +33,15 @@ export function holdFor(text, graphic) {
 
 // `lines` are the game's say nodes in air order. Returns { holds: Map(node → ms), dropped:
 // Set(node) } and writes `cues` onto every gameday payload among the kept lines.
-export function paceCalls(lines, fillMs, tickMs, { minScale = 0.9, maxScale = 1.5 } = {}) {
+export function paceCalls(lines, fillMs, tickMs, { minScale = 0.8, maxScale = 1.5 } = {}) {
   const nat = new Map(lines.map((n) => [n, holdFor(n.text, n.graphic)]));
   const sum = (list) => list.reduce((a, n) => a + nat.get(n), 0);
   const dropped = new Set();
   let live = lines;
   let over = sum(live) * minScale - fillMs;
   if (over > 0) {
-    const cut = lines.filter((n) => n._opt && !n.gameday).sort((a, b) => nat.get(b) - nat.get(a));
+    const rank = (n) => (n._opt === 'colour' ? 0 : 1);
+    const cut = lines.filter((n) => n._opt && !n.gameday).sort((a, b) => rank(a) - rank(b) || nat.get(b) - nat.get(a));
     for (const n of cut) { if (over <= 0) break; dropped.add(n); over -= nat.get(n) * minScale; }
     live = lines.filter((n) => !dropped.has(n));
   }

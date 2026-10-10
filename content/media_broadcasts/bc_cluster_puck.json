@@ -391,6 +391,39 @@
         "For the CPhL, I'm Tug Brennan. There's another one tomorrow, because there's always another one.",
         "Tug Brennan, saying goodnight from Coldwater. Nobody won anything permanent."
       ],
+      "pbp.after.blocked": [
+        "Loose in the slot.",
+        "It squirts out to the point.",
+        "Bounces away.",
+        "He limps after it."
+      ],
+      "pbp.after.breakaway": [
+        "{shooter} stumbles.",
+        "{shooter} loses his feet.",
+        "{shooter} is left looking at it."
+      ],
+      "pbp.after.glove": [
+        "He holds it. Whistle.",
+        "Held. Whistle.",
+        "He's not giving that back."
+      ],
+      "pbp.after.pad": [
+        "Kicked to the corner.",
+        "Steered wide.",
+        "Out to the side boards.",
+        "Kicked clear."
+      ],
+      "pbp.after.post": [
+        "Rattles out.",
+        "Away to the corner.",
+        "Still out.",
+        "Nobody can find it."
+      ],
+      "pbp.after.wide": [
+        "Rims around the back.",
+        "Behind the net and gone.",
+        "Round the boards."
+      ],
       "pbp.battle": [
         "Loose puck.",
         "It's free in the corner.",
@@ -422,10 +455,20 @@
         "The players gather round.",
         "Heads down along both benches."
       ],
+      "pbp.death.officials": [
+        "The officials wave it off.",
+        "The ref waves both arms.",
+        "Nobody's playing on."
+      ],
       "pbp.death.still": [
         "Nobody is moving.",
         "The building goes quiet.",
         "He's not moving."
+      ],
+      "pbp.death.stretcher": [
+        "Here's the stretcher. Slowly.",
+        "They bring the stretcher.",
+        "No hurry now."
       ],
       "pbp.deke": [
         "{player} dangles one.",
@@ -455,6 +498,13 @@
         "Puck down at centre ice.",
         "Centre-ice draw."
       ],
+      "pbp.faceoff.drop": [
+        "Dropped.",
+        "Puck's down.",
+        "{winner} and {loser}. Dropped.",
+        "{loser} and {winner}, and it's down.",
+        "In it goes."
+      ],
       "pbp.faceoff.neutral": [
         "Draw outside the line.",
         "Neutral-zone faceoff.",
@@ -472,11 +522,28 @@
         "Faceoff, {zone}.",
         "They line up in the {zone}."
       ],
+      "pbp.fight.box": [
+        "Both to the box.",
+        "Off to the box.",
+        "They're led away.",
+        "Linesmen walk them off."
+      ],
       "pbp.fight.drop": [
         "Gloves off. {winner} and {loser}.",
         "{loser} and {winner} drop them.",
         "Here we go. {winner}, {loser}.",
         "The gloves are on the ice."
+      ],
+      "pbp.fight.grab": [
+        "They grab on.",
+        "Fistfuls of jersey.",
+        "They tie up.",
+        "Each has a handful."
+      ],
+      "pbp.fight.helmets": [
+        "Helmets too.",
+        "Lids off.",
+        "Helmets go as well."
       ],
       "pbp.freeze": [
         "{goalie} covers. Whistle.",
@@ -492,10 +559,29 @@
         "Through the five-hole. Goal."
       ],
       "pbp.goal.celebrate": [
-        "{shooter} goes to the glass.",
-        "{shooter} with the celebration.",
-        "They mob {shooter}.",
-        "{goalie} stares at the ceiling."
+        "{shooter} wheels away.",
+        "{shooter} heads for the glass.",
+        "{shooter} peels off to the boards.",
+        "{shooter} goes down on one knee and fires the arrow.",
+        "{shooter} skates off with his arms up."
+      ],
+      "pbp.goal.lamp": [
+        "Red light.",
+        "There's the horn.",
+        "The lamp's on.",
+        "Horn. Lamp. Noise."
+      ],
+      "pbp.goal.mob": [
+        "They pile on.",
+        "His line buries him.",
+        "Everybody on top of {shooter}.",
+        "Gloves on his helmet. Lots of them."
+      ],
+      "pbp.goal.slump": [
+        "{goalie} hangs his head.",
+        "{goalie} slumps.",
+        "{goalie} stares at the rafters.",
+        "{goalie} fishes it out."
       ],
       "pbp.hit.carry": [
         "{victim} along the wall.",
@@ -503,16 +589,52 @@
         "{victim} has his head down.",
         "{victim} skates it up the wall."
       ],
+      "pbp.hit.down": [
+        "He stays down.",
+        "He's not getting up.",
+        "Whistle. He's down."
+      ],
+      "pbp.hit.glass": [
+        "The glass bends.",
+        "Glass shakes.",
+        "The glass holds. Just."
+      ],
+      "pbp.hit.helmet": [
+        "Helmet's off.",
+        "Lid's gone.",
+        "Helmet bouncing away."
+      ],
       "pbp.hit.line": [
         "{hitter} lines him up.",
         "{hitter} coming hard.",
         "{hitter} has him.",
         "Look out. {hitter}."
       ],
+      "pbp.hit.shatter": [
+        "The glass explodes!",
+        "Pane's gone!",
+        "Glass everywhere!",
+        "Straight through the glass!"
+      ],
+      "pbp.hit.stick": [
+        "Stick goes flying.",
+        "His stick's loose.",
+        "Stick skitters away."
+      ],
       "pbp.hit.up": [
         "{victim} gets up slowly.",
         "{victim} is back on his skates.",
         "{victim} picks up his stick."
+      ],
+      "pbp.injury.load": [
+        "They lift him on.",
+        "On the stretcher.",
+        "Strapped in."
+      ],
+      "pbp.injury.mates": [
+        "Teammates gather round.",
+        "His line skates over.",
+        "They wave for help."
       ],
       "pbp.injury.medics": [
         "Trainers on the ice.",
@@ -581,6 +703,16 @@
         "{player} slides it to {to}.",
         "Tape to tape, {to}."
       ],
+      "pbp.period.out": [
+        "Fresh sheet.",
+        "Teams are out.",
+        "Clean ice. Not for long."
+      ],
+      "pbp.pull.bench": [
+        "{goalie} heads for the bench.",
+        "{goalie} skates off.",
+        "{goalie} is coming out."
+      ],
       "pbp.pull.extra": [
         "Extra attacker on for {team}.",
         "Empty net. Six skaters for {team}.",
@@ -608,6 +740,22 @@
         "Rebound, and it's cleared.",
         "Juicy rebound. Nobody home.",
         "Rebound to the corner."
+      ],
+      "pbp.scrum.apart": [
+        "Officials pull them apart.",
+        "Linesmen wade in.",
+        "Sorted. For now."
+      ],
+      "pbp.scrum.cover": [
+        "Goalie covers it.",
+        "He's got it under him.",
+        "Puck's under the goalie."
+      ],
+      "pbp.scrum.shove": [
+        "Shoving in the crease.",
+        "Everybody's in.",
+        "Facewash.",
+        "Glove in a face."
       ],
       "pbp.scrum.whistle": [
         "Whistle.",
@@ -654,6 +802,16 @@
         "{player} digs it free.",
         "{player} out of the pile with it.",
         "{player} wants it more."
+      ],
+      "pbp.zamboni.lap": [
+        "Fresh ice going down.",
+        "Another lap.",
+        "The Zamboni goes round again."
+      ],
+      "pbp.zamboni.on": [
+        "Zamboni's out.",
+        "Here's the Zamboni.",
+        "The ice crew's on."
       ],
       "penalty": [
         "{player} goes for {infraction}. {penaltyMin} minutes, and the {team} are down a man.",

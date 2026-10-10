@@ -879,17 +879,28 @@ so a narrator cannot read the other league's records.
   by touch (`rushNames` on the beat says who each carrier index is), the release, the
   save, the draw and who won it, each punch, the hit as it lands. The `pbp.*` pools hold
   them, and 80% are eight words or fewer, so a screen reader finishes one before the next
-  arrives. The longer pools ride along as colour. A game runs to about 750 lines.
+  arrives. The longer pools ride along as colour. A game runs to about 900 lines.
+- **What the rink shows after the play is called too.** The drop of every draw, where a
+  saved puck went (held, kicked to the corner, loose in the slot, rattled off the post),
+  the lamp, the scorer wheeling away, the pile-on and the goalie's slump, the glass a hit
+  bends or breaks, a helmet off, a stick loose, a man who stays down, the fighters
+  tying up and going to the box, teammates round an injured man, the stretcher, the
+  goalie heading for the bench, the Zamboni coming on. Where the rink would otherwise
+  roll its own dice the narrator decides and the payload carries it (`shatter`,
+  `helmetOff` on a hit, `helmets` in a fight), so the line that says the glass went is the
+  hit the rink breaks it on.
 - **A line holds as long as it takes to hear.** Other sports give every line the same
   hold. Hockey sets `paceCalls` on its module, and the assembler hands it the game's lines
   instead ([hockey-pacing.js](../plugins/broadcast/sports/hockey-pacing.js)): 95 ms a
   character over a short floor, the read-aloud voice's own pace, then scaled to fill 85%
-  of the slot (an hour on the default clock fits with no cuts). A shorter slot cuts lines
-  the narrator marked optional (`opt`), longest first, and as a last resort compresses
-  the holds. The line carrying a payload is never cut.
+  of the slot, no tighter than 0.8 (about 76 ms a character). A slot that can't fit the
+  game cuts lines the narrator marked optional: colour first (`opt: 'colour'`), then
+  optional calls of the play (`opt: true`), longest first within each, and as a last
+  resort compresses the holds. The line carrying a payload is never cut. An hour on the
+  default clock cuts none in most games and a handful of colour lines in the busiest.
 - **The picture moves when the words do.** The narrator tags a line with the moment of
-  play it describes (`cue`: a touch, the release, a won draw, the impact, a punch, the
-  medics). The pacer turns those into `cues` on the payload, in ms from the start of the
+  play it describes (`cue`: a touch, the release, the drop and the won draw, the impact,
+  the clinch, a punch, the walk to the box, the medics). The pacer turns those into `cues` on the payload, in ms from the start of the
   payload's line, and the director does each thing as its line airs. A rush plays only
   the touches the booth calls, and one running behind its lines catches up rather than
   letting the words get ahead.

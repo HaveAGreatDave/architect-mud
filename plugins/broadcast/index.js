@@ -2379,7 +2379,7 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   // the line airs; the client animates it. See _applySportsFx in tv.js.
   // `meta` is a sport's pacing hints: `cue` (the moment of play this line describes) and
   // `opt` (a line the pacer may cut). Only a sport with `paceCalls` reads them.
-  const say = (line, tok, sb, graphic, gd, meta) => { if (!line) return; const text = sportsFill(line, tok).trim(); if (text) add({ type: 'say', text, style: 'raw', ...(sb ? { scorebug: sb } : {}), ...(graphic ? { graphic } : {}), ...(gd ? { gameday: gd } : {}), ...(meta && meta.cue ? { _cue: meta.cue } : {}), ...(meta && meta.opt ? { _opt: true } : {}) }); };
+  const say = (line, tok, sb, graphic, gd, meta) => { if (!line) return; const text = sportsFill(line, tok).trim(); if (text) add({ type: 'say', text, style: 'raw', ...(sb ? { scorebug: sb } : {}), ...(graphic ? { graphic } : {}), ...(gd ? { gameday: gd } : {}), ...(meta && meta.cue ? { _cue: meta.cue } : {}), ...(meta && meta.opt ? { _opt: meta.opt } : {}) }); };
 
   // ── the sport seam ──────────────────────────────────────────────────────────
   // Everything above this line is sport-agnostic: the node chain, the say/pick

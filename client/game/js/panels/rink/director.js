@@ -20,7 +20,7 @@
 // arrive together.
 
 import { clamp, lerp, angWrap, rng, hash } from './util.js';
-import { RL, RW, MID_Y, GOAL_X, NET_HALF, NET_H, DOT_FT, attackDir, insideRink } from './geo.js';
+import { RL, RW, MID_Y, GOAL_X, NET_HALF, NET_H, DOT_FT, BOARD_H, GLASS_H, attackDir, insideRink, panelAt } from './geo.js';
 import { SHOTS, releaseAt, bladeWorld, skaterRig } from './rig.js';
 import { makeBody } from './sim.js';
 
@@ -686,8 +686,12 @@ export function createDirector(W, opts = {}) {
     cut('broadcast', [dx, dy]);
     B.ownsCam = true;
     W.cam.focus = [dx, dy];
-    // the puck drops so the draw is won as its line airs
-    const won = cueOf(p, 'won'), dropAt = won != null ? Math.max(1.35, won - 0.7) : 1.35;
+    // The puck drops as the drop line airs and is won a moment later, so the win line
+    // confirms what was just seen. Without a drop line it drops so the draw is won as the
+    // win line airs.
+    const won = cueOf(p, 'won'), drop = cueOf(p, 'drop');
+    const dropAt = drop != null ? Math.max(1.35, won != null ? Math.max(drop + 0.4, won - 1.4) : drop + 0.4)
+      : won != null ? Math.max(1.35, won - 0.7) : 1.35;
     at(B, dropAt - 0.85, () => { if (winC) W.act(winC, 'faceoff', 1.6); if (loseC) W.act(loseC, 'faceoff', 1.6); });
     at(B, dropAt - 0.1, () => { if (lin) W.act(lin, 'point', 0.4); });
     at(B, dropAt, () => { pk.hidden = false; pk.x = dx; pk.y = dy; pk.z = 4.2; pk.vz = -2; W.sfx('drop'); B.dropped = true; });
@@ -773,7 +777,15 @@ export function createDirector(W, opts = {}) {
       W.act(hitter, act, 0.55); hitter.actT = 0.45;
       let impU, impL;
       switch (style) {
-        case 'glass': impU = [hv[0] * 0.5, 31, 13]; impL = [hv[0] * 0.3, 12, 3]; victim.shatterNext = r() < 0.5 || fatal === 'head'; break;
+        case 'glass': {
+          impU = [hv[0] * 0.5, 31, 13]; impL = [hv[0] * 0.3, 12, 3];
+          // the booth said whether the glass went; without a call it's a coin toss
+          const roll = r() < 0.5;
+          victim.shatterNext = (p.shatter != null ? !!p.shatter : roll) || fatal === 'head';
+          // a called shatter happens even if he hits the pane too softly to break it
+          if (p.shatter && !fatal) at(B, 0.5, () => { const i = panelAt(victim.x); if (!W.broken.has(i)) W.glassHit(victim.x, (BOARD_H + GLASS_H) / 2, 22, true); });
+          break;
+        }
         case 'behind': impU = [hv[0] * 0.3 + vdir * 2, 27, 2]; impL = [hv[0] * 0.2, 6, 0.5]; break;
         case 'hip': impU = [hv[0] * 0.4, 7, 3]; impL = [hv[0] * 0.4, 17, 11]; break;
         case 'elbow': impU = [hv[0] * 0.4, 18, 9]; impL = [hv[0] * 0.2, 6, 1]; break;
@@ -787,7 +799,8 @@ export function createDirector(W, opts = {}) {
       W.burst('spray', victim.x, victim.y, 0.3, 14, 7, [0, 4, 3]);
       const hurt = p.injured || fatal;
       if (style === 'elbow' || style === 'behind' || hurt) {
-        if (victim.helmet && r() < (hurt ? 0.8 : 0.5)) { victim.helmet = false; W.addDebris('helmet', [victim.x, victim.y, 5.6], [hv[0] * 0.4, 10, 12], 0, 6, victim.side); }
+        const off = r() < (hurt ? 0.8 : 0.5);
+        if (victim.helmet && (p.helmetOff != null ? !!p.helmetOff : off)) { victim.helmet = false; W.addDebris('helmet', [victim.x, victim.y, 5.6], [hv[0] * 0.4, 10, 12], 0, 6, victim.side); }
         victim.bleeding = hurt ? 6 : 2.5; victim.blood = Math.min(1, (victim.blood || 0) + 0.6);
         W.burst('blood', victim.x, victim.y + 0.5, 5.2, hurt ? 30 : 14, 7, [hv[0] * 0.2, 7, 5]);
         if (r() < 0.6) W.burst('tooth', victim.x, victim.y + 0.5, 5.0, 1 + ((r() * 2) | 0), 5, [0, 4, 4]);
@@ -1021,7 +1034,7 @@ export function createDirector(W, opts = {}) {
     const onLoser = ex.filter((e) => e.landed && e.thrower !== p.loser).length || 1;
     const onWinner = ex.filter((e) => e.landed && e.thrower === p.loser).length || 1;
     W.fight = { l: L, r: R, pip: { [L.seed]: 5, [R.seed]: 5 }, pipShow: { [L.seed]: 5, [R.seed]: 5 }, hud: false };
-    const helmets = r() < 0.4;
+    const roll = r() < 0.4, helmets = p.helmets != null ? !!p.helmets : roll;
     at(B, 0.5, () => { W.dropGloves(L, helmets); W.dropGloves(R, helmets); W.crowd = 0.95; });
     at(B, 0.95, () => { L.guard = R.guard = true; L.stance = R.stance = 0.75; W.cam.mode = 'zoom'; W.cam.focus = [cx, cy]; });
     at(B, 1.6, () => { cut('fight', [cx, cy], true); W.fight.hud = true; W.banner = { text: 'FIGHT!', t0: W.t, dur: 1.2 }; });
@@ -1039,7 +1052,8 @@ export function createDirector(W, opts = {}) {
         last = times[n];
       }
     }
-    at(B, Math.max(1.9, (times[0] ?? 2.45) - 0.45), () => { L.grab = R; R.grab = L; B.grab = true; });
+    const grabCue = cueOf(p, 'grab');
+    at(B, grabCue != null ? Math.min(Math.max(1.9, grabCue + 0.3), (times[0] ?? 2.45) - 0.2) : Math.max(1.9, (times[0] ?? 2.45) - 0.45), () => { L.grab = R; R.grab = L; B.grab = true; });
     let t = 2.45;
     ex.forEach((e, i) => {
       const last = i === ex.length - 1;
@@ -1094,10 +1108,11 @@ export function createDirector(W, opts = {}) {
       L.grab = R.grab = null; L.guard = R.guard = false; B.grab = false; B.apart = true;
       W.officials.forEach((o, i) => W.act(o, 'hug', 2.2));
     });
-    at(B, tEnd + 2.6, () => { cut('broadcast', [cx, cy]); W.fight.hud = false; });
-    // off to the box, both of them, the linesmen trailing them
-    at(B, tEnd + 3.6, () => { B.toBox = true; for (const [f, i] of [[L, 0], [R, 1]]) { if (f.rag) W.getUp(f, 0.8); leave(f, cx + (i ? 10 : -10)); } });
-    at(B, tEnd + 5.0, () => finish(B));
+    // off to the box, both of them, the linesmen trailing them, as the booth sends them
+    const boxCue = cueOf(p, 'box'), tBox = boxCue != null ? Math.max(tEnd + 2.6, boxCue + 0.3) : tEnd + 3.6;
+    at(B, tBox - 1.0, () => { cut('broadcast', [cx, cy]); W.fight.hud = false; });
+    at(B, tBox, () => { B.toBox = true; for (const [f, i] of [[L, 0], [R, 1]]) { if (f.rag) W.getUp(f, 0.8); leave(f, cx + (i ? 10 : -10)); } });
+    at(B, tBox + 1.4, () => finish(B));
     B.update = (dt, rel) => {
       const sep = B.grab ? 3.4 : 4.6, wob = 0.9 * Math.sin(rel * 1.1);
       if (!B.apart) {

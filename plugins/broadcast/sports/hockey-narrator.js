@@ -328,6 +328,8 @@ export function narrate(ctx) {
       penalties: per.pens, fights: per.fights, hits: per.hits,
       standings: ctx.standings || [],
     }); said++;
+    // The rink is showing the Zamboni come on while the booth reads the summary.
+    call('pbp.zamboni.on', t, null, sb, { opt: true });
     if (per.goals.length) {
       say(pick('intermission.summary'), stat, sb); said++;
       // One line per goal, in the order they went in — the scoring summary is a list,
@@ -340,6 +342,7 @@ export function narrate(ctx) {
       say(pick('intermission.scoreless'), stat, sb); said++;
     }
     say(pick('intermission.stats'), stat, sb); said++;
+    call('pbp.zamboni.lap', t, null, sb, { opt: true });
     if (per.casualties.length) {
       say(pick('intermission.casualties'), { ...stat, player: per.casualties[0], casualties: per.casualties.join(', '), count: per.casualties.length }, sb); said++;
     }
@@ -355,7 +358,8 @@ export function narrate(ctx) {
   // happens, mostly in under eight words, and each line is tagged with the moment of play it
   // describes (`cue`). The pacer turns those tags into times on the payload, so the rink
   // does each thing as its line airs. `opt` marks a line the pacer may cut when a short slot
-  // can't fit the whole game; the line carrying the payload is never optional.
+  // can't fit the whole game; the line carrying the payload is never optional. `opt:
+  // 'colour'` marks a line that only colours the play, which goes before any that call it.
   const cap = (x) => { const t = String(x || ''); return t.charAt(0).toUpperCase() + t.slice(1); };
   const call = (key, t, extra, sb, meta, gd, fx) => {
     const line = Array.isArray(key) ? pick(...key) : pick(key);
@@ -405,8 +409,11 @@ export function narrate(ctx) {
     call(generic ? 'pbp.shot' : [typeKey, 'pbp.shot'], t, { shooter: b.shooter, shotLabel: b.shotLabel || 'shot' }, sb, { cue: { ev: 'shot' } }, gd);
   }
 
+  // Who is in each net, from the shots against it, so the pulled goalie can be named.
+  const goalieOf = {};
   for (const b of beats) {
     idx++;
+    if (b.goalie && b.teamName) goalieOf[b.teamName === away.name ? home.name : away.name] = b.goalie;
     // Shots first, so the bug attached to THIS beat already counts this shot — a
     // goal that doesn't move the shot clock on the same line looks broken.
     if ((b.type === 'chance' && b.shot) || b.type === 'goal') {
@@ -463,7 +470,12 @@ export function narrate(ctx) {
         const rushed = callRush(b, t, sb, gd, true);
         callShot(b, t, sb, rushed ? null : gd);
         call('pbp.goal', t, { team: b.teamName }, sb, { cue: { ev: 'out' } }, null, goalFx(b));
-        if (nrng() < 0.5) call('pbp.goal.celebrate', t, { shooter: b.shooter, goalie: b.goalie }, sb, { opt: true });
+        // What the rink shows next: the lamp, the scorer peeling away, the pile-on, the
+        // goalie on his knees.
+        call('pbp.goal.lamp', t, null, sb, { opt: true });
+        call('pbp.goal.celebrate', t, { shooter: b.shooter }, sb, { opt: true });
+        call('pbp.goal.mob', t, { shooter: b.shooter }, sb, { opt: true });
+        if (b.goalie && nrng() < 0.6) call('pbp.goal.slump', t, { goalie: b.goalie }, sb, { opt: true });
         say(pick(key, 'goal'), t, sb); said++;
         say(pick('score.update'), t, sb); said++;
         break;
@@ -481,7 +493,11 @@ export function narrate(ctx) {
         // Every draw is called now, in two short lines: where, then who won it. The old
         // one-sentence pools still air on the draws that mean something.
         call(`pbp.faceoff.${sub}`, t, null, sb, null, gameday(b, idx));
-        if (nrng() < (loud ? 0.6 : 0.25)) { say(pick(`faceoff.${sub}`, 'faceoff'), t, sb, null, null, { cue: { ev: 'won' }, opt: !loud }); said++; }
+        // The first draw of a period is on a fresh sheet; then the drop itself, which the
+        // linesman makes as the line airs.
+        if (b.reason === 'period') call('pbp.period.out', t, null, sb, { opt: true });
+        call('pbp.faceoff.drop', t, null, sb, { cue: { ev: 'drop' }, opt: !loud });
+        if (nrng() < (loud ? 0.6 : 0.25)) { say(pick(`faceoff.${sub}`, 'faceoff'), t, sb, null, null, { cue: { ev: 'won' }, opt: !loud && 'colour' }); said++; }
         else call('pbp.faceoff.win', t, null, sb, { cue: { ev: 'won' }, opt: !loud });
         break;
       }
@@ -497,10 +513,13 @@ export function narrate(ctx) {
         const rushed = callRush(b, t, sb, gd, loud);
         callShot(b, t, sb, rushed ? null : gd);
         call(`pbp.out.${b.kind}`, t, null, sb, { cue: { ev: 'out' } });
+        // Then where the puck went, which the rink plays out: held, kicked to the corner,
+        // loose in the slot, rattled away off the iron.
         if (b.frozen) call('pbp.freeze', t, null, sb, { cue: { ev: 'whistle' }, opt: true });
-        else if (b.kind === 'pad' || b.kind === 'save') { if (nrng() < 0.35) call('pbp.rebound', t, null, sb, { opt: true }); }
+        else if (b.kind === 'save') { if (nrng() < 0.5) call('pbp.rebound', t, null, sb, { opt: true }); }
+        else if (pools[`pbp.after.${b.kind}`] && nrng() < (loud ? 0.9 : 0.6)) call(`pbp.after.${b.kind}`, t, null, sb, { opt: true });
         // The old sentence-length call, as colour: always on a near-miss, sometimes otherwise.
-        if (loud || nrng() < 0.25) { say(pick(`shot.${b.kind}`, 'shot.save'), t, sb, null, null, loud ? null : { opt: true }); said++; }
+        if (loud || nrng() < 0.25) { say(pick(`shot.${b.kind}`, 'shot.save'), t, sb, null, null, loud ? null : { opt: 'colour' }); said++; }
         if (!loud) routine++;
         // Booth colour rides on the quiet beats, never on top of a goal.
         if (!loud && nrng() < 0.08) { chatter(b); routine++; }
@@ -515,8 +534,12 @@ export function narrate(ctx) {
         break;
 
       case 'fight': {
-        call('pbp.fight.drop', t, null, sb, null, gameday(b, idx));
+        const gd = gameday(b, idx);
+        gd.helmets = nrng() < 0.4;
+        call('pbp.fight.drop', t, null, sb, null, gd);
+        if (gd.helmets) call('pbp.fight.helmets', t, null, sb, { opt: true });
         say(pick('penalty.fight'), t, sb); said++;
+        call('pbp.fight.grab', t, null, sb, { cue: { ev: 'grab' } });
         // Punch by punch, off the sim's own exchange. A long fight keeps every landed punch
         // and lets the pacer cut misses if it must.
         const ex = Array.isArray(b.exchange) ? b.exchange : [];
@@ -528,6 +551,7 @@ export function narrate(ctx) {
         // How it finished, before who it counts for. The rink is staging the same ending.
         if (b.ending) { const l = pick(`fight.${b.ending}`); if (l) { say(l, t, sb, null, null, { cue: { ev: 'end' } }); said++; } }
         say(pick('fight.result'), t, sb, fightFx(b)); said++;
+        call('pbp.fight.box', t, null, sb, { cue: { ev: 'box' } });
         boxes.push({ against: b.loserTeam, until: b.clock - 5 * 60 });
         break;
       }
@@ -538,11 +562,22 @@ export function narrate(ctx) {
       // be the only calls the ice sits still through.
       case 'boards': {
         // He carries it, the hitter sees him, then the hit itself as it lands.
-        call('pbp.hit.carry', t, null, sb, null, gameday(b, idx));
-        call('pbp.hit.line', t, null, sb, { cue: { ev: 'line' } });
-        say(pick(`boards.${b.hitStyle || 'shoulder'}`, 'boards'), t, sb, null, null, { cue: { ev: 'impact' } }); said++;
+        // What the hit does is decided here and rides the payload, so the line that says the
+        // glass went is the hit the rink breaks it on.
+        const gd = gameday(b, idx);
         const hurt = beats[idx] && beats[idx].type === 'injury' && beats[idx].player === b.victim;
-        if (!hurt && nrng() < 0.5) call('pbp.hit.up', t, null, sb, { cue: { ev: 'up' }, opt: true });
+        const style = b.hitStyle || 'shoulder';
+        gd.shatter = style === 'glass' && nrng() < 0.5;
+        gd.helmetOff = (style === 'elbow' || style === 'behind' || hurt) && nrng() < (hurt ? 0.8 : 0.5);
+        call('pbp.hit.carry', t, null, sb, null, gd);
+        call('pbp.hit.line', t, null, sb, { cue: { ev: 'line' } });
+        say(pick(`boards.${style}`, 'boards'), t, sb, null, null, { cue: { ev: 'impact' } }); said++;
+        if (gd.shatter) call('pbp.hit.shatter', t, null, sb);
+        else if (style === 'glass') call('pbp.hit.glass', t, null, sb, { opt: true });
+        if (gd.helmetOff) call('pbp.hit.helmet', t, null, sb, { opt: true });
+        else if (nrng() < 0.4) call('pbp.hit.stick', t, null, sb, { opt: true });
+        if (hurt) call('pbp.hit.down', t, null, sb);
+        else if (nrng() < 0.5) call('pbp.hit.up', t, null, sb, { cue: { ev: 'up' }, opt: true });
         break;
       }
 
@@ -550,8 +585,10 @@ export function narrate(ctx) {
       // arm come off.
       case 'injury':
         say(pick('injury'), t, sb, null, gameday(b, idx)); said++;
+        call('pbp.injury.mates', t, null, sb, { opt: true });
         call('pbp.injury.medics', t, null, sb, { cue: { ev: 'medics' } });
         if (b.wound) { say(pick(b.sever ? 'injury.sever' : 'injury.wound'), t, sb); said++; }
+        call('pbp.injury.load', t, null, sb, { opt: true });
         call('pbp.injury.off', t, null, sb, { cue: { ev: 'off' } });
         break;
 
@@ -560,15 +597,21 @@ export function narrate(ctx) {
         call('pbp.death.still', t, null, sb, { cue: { ev: 'still' } });
         if (b.wound) { say(pick('death.wound'), t, sb); said++; }
         call('pbp.death.helmets', t, null, sb, { cue: { ev: 'helmets' } });
+        call('pbp.death.officials', t, null, sb, { opt: true });
+        call('pbp.death.stretcher', t, null, sb, { opt: true });
         break;
 
       case 'scrum':
         say(pick('scrum'), t, sb, null, gameday(b, idx)); said++;
+        call('pbp.scrum.cover', t, null, sb, { opt: true });
         call('pbp.scrum.whistle', t, null, sb, { cue: { ev: 'whistle' } });
+        call('pbp.scrum.shove', t, null, sb, { opt: true });
+        call('pbp.scrum.apart', t, null, sb, { opt: true });
         break;
 
       case 'pull':
         say(pick('pull'), t, sb, null, gameday(b, idx)); said++;
+        call('pbp.pull.bench', t, { goalie: goalieOf[b.teamName] || 'the goalie' }, sb);
         call('pbp.pull.extra', t, null, sb, { cue: { ev: 'extra' } });
         break;
 

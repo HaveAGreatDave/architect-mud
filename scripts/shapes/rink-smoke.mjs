@@ -47,7 +47,7 @@ function gameLines(slot) {
   const lines = [];
   HOCKEY.narrate({
     script: {}, game, gs: { seed, game }, slot, ws: false, announcer: 'Tug Brennan', pools, nrng, sport: HOCKEY, add: () => {},
-    say: (line, tok, sb, fx, gd, meta) => { if (line) lines.push({ text: sportsFill(line, tok).trim(), graphic: fx || null, gameday: gd || null, _cue: meta && meta.cue, _opt: !!(meta && meta.opt) }); },
+    say: (line, tok, sb, fx, gd, meta) => { if (line) lines.push({ text: sportsFill(line, tok).trim(), graphic: fx || null, gameday: gd || null, _cue: meta && meta.cue, _opt: (meta && meta.opt) || false }); },
     pick: (...keys) => sportsPick(pools, nrng, ...keys),
     abbr: (n) => String(n).slice(0, 3).toUpperCase(), recordOf: () => '8-4-1', lastId: () => null,
   });
@@ -73,13 +73,15 @@ async function play(slot) {
   W.emit = (n, d) => { if (n === 'goalIn') goalsIn++; emit(n, d); };
   const resurfaced = { n: 0 };
   const rs = W.ice.resurface; W.ice.resurface = (...a) => { resurfaced.n++; return rs(...a); };
-  let lastFight = null, tApply = 0, landedAt = null;
+  let lastFight = null, tApply = 0, landedAt = null, grabAt = null, boxAt = null;
   const run = (secs, until) => {
     const t0 = W.t; let next = W.t;
     while (W.t - t0 < secs) {
       W.step(DT);
       if (W.fight) lastFight = W.fight;
       if (landedAt == null && D.state.beat && D.state.beat.landed) landedAt = W.t - tApply;
+      if (grabAt == null && D.state.beat && D.state.beat.grab) grabAt = W.t - tApply;
+      if (boxAt == null && D.state.beat && D.state.beat.toBox) boxAt = W.t - tApply;
       if (W.t >= next) { next = W.t + 2.5; view.renderer.render(W.t * 1000); renders++; }
       if (until && until()) break;
     }
@@ -95,10 +97,10 @@ async function play(slot) {
     seen.add(g.type);
     const label = `${slot}: ${g.type}${g.kind && g.kind !== g.type ? `/${g.kind}` : ''} at ${g.section} ${g.clock}`;
     let ok = true;
-    tApply = W.t; landedAt = null;
+    tApply = W.t; landedAt = null; grabAt = null; boxAt = null;
     try { view.apply(g); } catch (e) { check(`${label} stages`, false, e.stack.split('\n').slice(0, 2).join(' ')); ok = false; }
     if (!ok) continue;
-    const before = { inNet: W.puck.inNet, goals: goalsIn, on: { a: W.mates('a').length, h: W.mates('h').length } };
+    const before = { inNet: W.puck.inNet, goals: goalsIn, on: { a: W.mates('a').length, h: W.mates('h').length }, broken: W.broken.size };
     if (g.type === 'faceoff') {
       // the draw is taken on the named dot, by the two men the sim named
       const [dx, dy] = DOT_FT[g.dot];
@@ -112,10 +114,13 @@ async function play(slot) {
       const imp = (g.cues || []).find((q) => q.ev === 'impact');
       run((imp ? imp.ms / 1000 : 0) + 4, () => victim() && victim().rag);
       check(`${label}: the hit puts him down`, !!(victim() && victim().rag), `victim ${victim() ? 'standing' : 'not found'}; names ${W.skaters().map((m) => m.side + ':' + m.name + (m.rag ? '*' : '')).join(',')}`);
+      // what the booth said the hit did, it did
+      if (g.helmetOff) check(`${label}: the helmet the booth called comes off`, !!victim() && victim().helmet === false);
       if (g.injured) {
         run(3);
         check(`${label}: an injured man stays down`, !!(victim() && victim().rag));
       }
+      if (g.shatter) { run(1); check(`${label}: the glass the booth called goes`, W.broken.size > before.broken, `${before.broken} → ${W.broken.size} panes`); }
     }
     // the play is timed to its lines now, so it runs as long as its last cue plus the finish
     const lastCue = Math.max(0, ...(g.cues || []).map((c) => c.ms / 1000));
@@ -123,7 +128,15 @@ async function play(slot) {
     run(limit, () => !D.busy());
     // a draw and a hit land when their line airs
     const cueT = (ev) => { const c = (g.cues || []).find((q) => q.ev === ev); return c ? c.ms / 1000 : null; };
-    if (g.type === 'faceoff' && cueT('won') != null) check(`${label}: the draw is won as it is called`, landedAt != null && Math.abs(landedAt - cueT('won')) < 0.8, `won at ${landedAt?.toFixed(2)}s, line at ${cueT('won')}s`);
+    // with a drop line the puck goes down on it and the win line confirms it; without one
+    // the draw is won as the win line airs
+    if (g.type === 'faceoff' && cueT('drop') != null) check(`${label}: the puck drops as it is called`, landedAt != null && landedAt >= cueT('drop') && landedAt <= (cueT('won') ?? cueT('drop') + 2) + 0.3, `won at ${landedAt?.toFixed(2)}s, drop line ${cueT('drop')}s, win line ${cueT('won')}s`);
+    else if (g.type === 'faceoff' && cueT('won') != null) check(`${label}: the draw is won as it is called`, landedAt != null && Math.abs(landedAt - cueT('won')) < 0.8, `won at ${landedAt?.toFixed(2)}s, line at ${cueT('won')}s`);
+    if (g.type === 'fight' && cueT('grab') != null) {
+      const p0 = (g.cues || []).find((q) => q.ev === 'punch');
+      check(`${label}: they grab on before the first punch`, grabAt != null && (!p0 || grabAt <= p0.ms / 1000 + 0.2), `grab ${grabAt?.toFixed(2)}s, line ${cueT('grab')}s`);
+    }
+    if (g.type === 'fight' && cueT('box') != null) check(`${label}: they go to the box as they're sent`, boxAt != null && boxAt >= cueT('box') && boxAt <= cueT('box') + 1.2, `box ${boxAt?.toFixed(2)}s, line ${cueT('box')}s`);
     if (g.type === 'boards' && cueT('impact') != null ) check(`${label}: the hit lands as it is called`, landedAt != null && Math.abs(landedAt - cueT('impact')) < 0.9, `hit at ${landedAt?.toFixed(2)}s, line at ${cueT('impact')}s`);
     if ((g.type === 'chance' || g.type === 'goal') && cueT('out') != null && g.kind !== 'breakaway') check(`${label}: the puck arrives as the outcome is called`, landedAt != null && landedAt > cueT('shot') && Math.abs(landedAt - cueT('out')) < (g.type === 'goal' ? 2.4 : 1.2), `${g.shotType}: landed ${landedAt?.toFixed(2)}s, outcome line ${cueT('out')}s`);
     check(`${label} resolves`, !D.busy() || g.type === 'intermission', `still ${D.kind()} after ${limit}s`);
@@ -135,6 +148,7 @@ async function play(slot) {
       const winner = F && [F.l, F.r].find((b) => b.name === String(g.winner).split(' ').pop());
       check(`${label}: the loser has nothing left`, !!loser && F.pip[loser.seed] === 0);
       check(`${label}: the winner is still standing`, !!winner && F.pip[winner.seed] > 0);
+      if (g.helmets) check(`${label}: the helmets the booth called come off`, !!F && !F.l.helmet && !F.r.helmet);
     }
     if (g.type === 'injury') {
       check(`${label}: he is carried off`, !W.skaters().some((m) => m.name === String(g.victim || g.player).split(' ').pop() && m.down));
