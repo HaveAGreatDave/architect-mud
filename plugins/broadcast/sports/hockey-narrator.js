@@ -363,7 +363,10 @@ export function narrate(ctx) {
     say(pick('intermission.outro', 'chatter'), stat, sb); said++;
   };
   // The home barn's own colour first, the league-wide pool behind it.
-  const chatter = (b) => { const l = pick(barnKey(home.name), 'chatter'); if (l) { say(l, tok(b), beatBug(b)); said++; } };
+  // Half the colour is about the building they're in, half about the league. Every club
+  // has a barn pool now, so always reaching for it first would leave the general pool
+  // unheard.
+  const chatter = (b) => { const l = nrng() < 0.5 ? pick(barnKey(home.name), 'chatter') : pick('chatter'); if (l) { say(l, tok(b), beatBug(b)); said++; } };
 
   // ── the call ──────────────────────────────────────────────────────────────
   // SHORT LINES THAT FOLLOW THE PLAY. The booth used to say one or two long sentences a

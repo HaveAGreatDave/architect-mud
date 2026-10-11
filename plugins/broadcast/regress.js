@@ -2519,14 +2519,13 @@ export default async function regress({ check, run, getPlayer }) {
       if (g.overtime) sawOt = true;
       if (so) sawSo = true;
       if (dead) sawDeath = true;
-      if (g.rivalry) sawRivalry = true;
     }
     check('hockey: overtime happens and is narratable', sawOt, 'no OT game found in 4000 slots');
     check('hockey: the shootout happens and is narratable', sawSo, 'no shootout found in 4000 slots');
     check('hockey: a man can die on the ice', sawDeath, 'no fatality found in 4000 slots');
-    // Rivalry is asserted DIRECTLY rather than hunted: this suite's synthetic pairing
-    // (home = 7i+5) can never coincide with the league's rivalry pairing, so waiting for
-    // one to turn up would only ever test the arithmetic. Build the grudge match instead.
+    // Rivalry is asserted DIRECTLY rather than hunted: whether this suite's synthetic
+    // pairing (home = 7i+5) ever lands on the league's rivalry pairing depends on how many
+    // clubs there are, so waiting for one would only test the arithmetic. Build it instead.
     {
       const { rivalOf } = await import('./sports/hockey.js');
       const rival = rivalOf(teams[0], teams);

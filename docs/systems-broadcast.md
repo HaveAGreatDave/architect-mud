@@ -852,10 +852,10 @@ so a narrator cannot read the other league's records.
   red `hockeyrivalry` pre-game card, and a persistent chip on both the score bug and the
   rink header, so someone joining in the second period can see why the penalty count
   looks like that.
-- **Barn colour.** Booth chatter looks for `chatter.<first word of the home club>` and
-  falls back to the general `chatter` pool — authoring a building is optional, and a club
-  with nothing written behaves exactly as before. Every club has one; the District 9
-  Goons' is `chatter.district`.
+- **Barn colour.** Half the booth's chatter is about the building: it draws from
+  `chatter.<first word of the home club>` (falling back to the general pool when a club
+  has none), and the other half from the general `chatter` pool, so the league-wide lines
+  still get heard. Every club has a barn pool; the District 9 Goons' is `chatter.district`.
 - **Every barn's horn is its own.** The goal horn is seeded from a hash of the scoring
   club's name (`hornSeed` on the payload) through the soundset's existing `variant()`,
   so no per-club audio is authored and a barn sounds like itself forever.
