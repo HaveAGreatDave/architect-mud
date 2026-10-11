@@ -649,48 +649,53 @@ function docks() {
 }
 
 // ST GARNEAU GUILLOTINES. Father Jerome's club, out of St Garneau's in Nine Elms. A script
-// G written with a pointed pen, and standing on its crossbar, where a G keeps its serif,
-// a guillotine in silhouette.
+// G written with a pointed pen, whose spur and serif are a guillotine: where a G's bowl
+// turns up at the lower right into a short upright capped by a serif, the upright is the
+// guillotine's two posts, the serif its beam (running in across the counter as the G's
+// crossbar), and between the posts hang the raised blade and, low down, the lunette. One
+// ink, one silhouette.
 const SG = { red: '#af1e2d', blue: '#192168', white: '#ffffff' };
 function guillotines() {
-  // the G, as the pen goes: a ball terminal, up and over the top, down the left in one
-  // full stroke and round the bottom; then the crossbar, drawn in towards the bowl; then
-  // the right side, one downstroke from the crossbar that curves into the chin
+  // the bowl, as the pen goes: a ball terminal, up and over the top, down the left in one
+  // full stroke, round the bottom and into the foot of the guillotine
   const bowl = pen([
-    [[61, 26], [64, 18], [58.5, 12.5], [49.5, 12.5]],
-    [[49.5, 12.5], [35, 12.5], [21, 25], [18.5, 43]],
-    [[18.5, 43], [16, 63], [28.5, 83], [46.5, 83]],
-    [[46.5, 83], [53, 83], [59.4, 81.8], [64, 79]],
-  ], { thin: 1.6, thick: 10.5 });
-  const cross = pen([[[57.5, 60], [63, 57.4], [71, 56], [80.4, 55.9]]], { thin: 2.4, thick: 3, taperIn: 0.35, taperOut: 0.02 });
-  const stem = pen([
-    [[76.4, 55.6], [77.2, 63], [76.4, 72.6], [71.8, 78.2]],
-    [[71.8, 78.2], [68.6, 81.8], [63.4, 83.4], [55.4, 83.4]],
-  ], { thin: 1.6, thick: 8.6, taperIn: 0.02, taperOut: 0.12 });
-  const ball = circle(61.8, 27.6, 3.4);
-  const G = bowl + cross + stem + ball;
-  // the guillotine, one colour, standing on the crossbar over the stem: two posts, the
-  // beam with its capped ends, the blade raised between the posts, the lunette low down
-  const xl = 71, xr = 82, base = 55.2, top = 29;
-  const posts = poly([[xl - 0.4, base], [xl + 2.2, base], [xl + 2, top], [xl, top]]) + poly([[xr - 2.2, base], [xr + 0.4, base], [xr, top], [xr - 2, top]]);
-  const beam = poly([[xl - 2.4, top - 3.2], [xr + 2.4, top - 3.2], [xr + 2.4, top - 2.2], [xr + 1.4, top - 1.6], [xr + 1.4, top + 0.6], [xl - 1.4, top + 0.6], [xl - 1.4, top - 1.6], [xl - 2.4, top - 2.2]]);
-  const blade = poly([[xl + 2, top + 0.6], [xr - 2, top + 0.6], [xr - 2, top + 7.4], [xl + 2, top + 11.4]]);
-  // the polygons here wind clockwise, so the neck hole is the anticlockwise circle
-  const lunette = poly([[xl + 2, base - 9], [xr - 2, base - 9], [xr - 2, base - 5], [xl + 2, base - 5]]) + circle((xl + xr) / 2, base - 7, 1.6);
-  const frame = posts + beam + blade + lunette;
+    [[60, 26], [63, 18], [57.5, 12.5], [49, 12.5]],
+    [[49, 12.5], [34.5, 12.5], [20.5, 25], [18, 43]],
+    [[18, 43], [15.5, 63], [28, 83], [46, 83]],
+    [[46, 83], [51.5, 83], [55.5, 82.6], [59.4, 81.8]],
+  ], { thin: 2.1, thick: 11, taperOut: 0.02 });
+  const ball = circle(60.8, 27.6, 3.4);
+  // the guillotine: the right post is the G's heavy stroke, the left a lighter one; the
+  // beam is the serif, bracketed at both ends; the blade hangs a hair below it with its
+  // edge on the slant; the lunette sits low with the neck hole through it
+  const yb = 46.2, yf = 81.4;                       // beam top, foot
+  const L0 = 61.4, L1 = 64.4, R0 = 74, R1 = 79;     // left and right post edges
+  // the foot takes the bowl's stroke in: its upper edge runs inside the stroke's tail, so
+  // the two read as one line, and it thickens to the guillotine's platform
+  const foot = poly([[46, 83.1], [60, yf], [81.8, yf], [82.6, yf + 3.6], [56, yf + 3.6], [46, 84.1]]);
+  const posts = poly([[L0, yb + 4], [L1, yb + 4], [L1, yf], [L0, yf]]) + poly([[R0, yb + 4], [R1, yb + 4], [R1, yf], [R0, yf]]);
+  const beam = shape([['M', 52, yb + 4.4], ['Q', 52.6, yb + 1.4, 55.4, yb], ['L', 81, yb], ['Q', 84, yb + 1, 84.4, yb + 4.4], ['L', 79, yb + 4.4], ['L', 79, yb + 4],
+    ['L', 61.4, yb + 4], ['L', 61.4, yb + 4.4], ['Z']]);
+  const blade = poly([[L1, yb + 5.6], [R0, yb + 5.6], [R0, yb + 10.6], [L1, yb + 14.6]]);
+  const lunette = poly([[L1, yf - 10.6], [R0, yf - 10.6], [R0, yf - 5.2], [L1, yf - 5.2]]) + circle((L1 + R0) / 2, yf - 7.9, 2);
+  // set down a touch smaller in the roundel, so the guillotine's foot clears the ring. The
+  // pen's strokes and the guillotine's polygons wind opposite ways, so they're separate
+  // layers in the same ink: in one path their overlap would cancel to a hole.
+  const set = (d) => xfD(d, 0.9, 49, 50);
+  const G = set(bowl + ball), frame = set(foot + posts + beam + blade + lunette);
   const layers = [
     L(circle(50, 50, 49.5), SG.blue),
     L(circle(50, 50, 46), SG.white),
     L(ring(50, 50, 42.6, 43.8), SG.red),
     L(G, SG.red),
-    L(frame, SG.blue),
+    L(frame, SG.red),
   ];
-  // small: the same marks, the pen a touch heavier so the hairlines survive
+  // small: the same mark, the pen a touch heavier so the hairlines and posts survive
   const small = [
     L(circle(50, 50, 49.5), SG.blue),
     L(circle(50, 50, 45), SG.white),
-    L(G, SG.red, { stroke: SG.red, sw: 2.4 }),
-    L(posts + beam + blade, SG.blue, { stroke: SG.blue, sw: 1.6 }),
+    L(G, SG.red, { stroke: SG.red, sw: 2.2 }),
+    L(frame, SG.red, { stroke: SG.red, sw: 1.2 }),
   ];
   return { box: 100, layers, small };
 }
