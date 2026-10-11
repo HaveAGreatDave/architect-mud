@@ -20,6 +20,12 @@ export default async function regress({ run, check }) {
   check('table shows a positive run diff', table.includes('+27'), table); // 88-61
   check('table shows a negative run diff', table.includes('-47'), table); // 52-99
 
+  // Deadball's batting, home-run and RBI races come off the same fold as the table.
+  // The standings cache kept only hockey's extras, so they were folded and never shown.
+  const bx = await _test.queryExtras('baseball');
+  check("baseball's batting races reach the cache", Array.isArray(bx.batters) && Array.isArray(bx.homers) && Array.isArray(bx.rbis), Object.keys(bx).join(','));
+  check('…and the formatter prints them', /BATTING/.test(_test.formatExtras({ batters: [{ name: 'Okafor', avg: 0.342, ab: 38, hits: 13 }], homers: [], rbis: [], minAb: 15 }, 'baseball')), 'no BATTING race');
+
   // ── Seasons / World Series ──────────────────────────────────────────────────
   const wsView = await run('worldseries');
   check('worldseries routed', wsView?.type === 'output', wsView?.message);

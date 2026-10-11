@@ -267,10 +267,14 @@ async function queryStandings(sport) {
   const hit = _standCaches.get(sport);
   if (!hit || hit.key !== key) {
     const res = await dispatchAction({ type: 'broadcast.computeStandings', params: { startSlot, endSlot, sport } }).catch(() => null);
+    // Keep everything the sport's fold returned beside the table: hockey's scoring race
+    // and injury counts, Deadball's batting, home-run and RBI races and their qualifier.
+    // This kept only hockey's three, so Deadball's leaders were folded and thrown away.
+    const { rows, sport: _sport, ...extras } = res || {};
     _standCaches.set(sport, {
       key,
-      rows: Array.isArray(res?.rows) ? res.rows : [],
-      extras: { scorers: res?.scorers || [], injuries: res?.injuries || 0, deaths: res?.deaths || 0 },
+      rows: Array.isArray(rows) ? rows : [],
+      extras: { scorers: [], injuries: 0, deaths: 0, ...extras },
     });
   }
   return _standCaches.get(sport).rows;
@@ -505,6 +509,6 @@ export const commands = {
   champions: (args) => cmdChampions(args),
 };
 
-export const _test = { formatStandings, formatChampions, formatExtras, daysBetween, LEAGUES };
+export const _test = { formatStandings, formatChampions, formatExtras, daysBetween, LEAGUES, queryExtras };
 
 console.log('[sportsleague] Plugin loaded.');
