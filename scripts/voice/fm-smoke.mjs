@@ -729,9 +729,9 @@ function driveCurveOf(d) {
   // engine key -> the field id that carries it.
   //
   // ⚠ op2 is DELIBERATELY PARTIAL, and this list is why that needs saying out
-  // loud: `op2.rate`, `.depth`, `.depthTo`, `.rateTo`, `.ratioTo`, `.time` and
-  // `.wave` all work in the engine and are JSON-only. Three fields is the useful
-  // shape of a second operator and thirteen would swamp the form — but a guard
+  // loud: `op2.rate`, `.depth`, `.depthTo` and `.rateTo` work in the engine and
+  // are JSON-only. The form edits ratio, index, indexEnd, wave, ratioTo and time,
+  // and keeps the JSON-only keys as they were on save (_readOp2) — but a guard
   // that only checks the keys somebody chose to expose reads as complete when it
   // is not, so: if you expose more of op2, add it here; if you add a key to the
   // FIRST operator, this list is not optional.
@@ -741,6 +741,7 @@ function driveCurveOf(d) {
     ratioTo: 'fmratioto', rateTo: 'fmrateto',
     time: 'fmtime', wave: 'fmwave', bright: 'fmbright',
     'op2.ratio': 'op2ratio', 'op2.index': 'op2index', 'op2.indexEnd': 'op2indexend',
+    'op2.wave': 'op2wave', 'op2.ratioTo': 'op2ratioto', 'op2.time': 'op2time',
   };
   for (const [key, id] of Object.entries(WANT)) {
     check(`the dev panel has a field for fm.${key}`, fieldIds.has(id), `no #\${prefix}-${id} in audio.js`);
@@ -752,10 +753,14 @@ function driveCurveOf(d) {
   // the values back out of the HTML it produced, and read them with the real
   // reader. If anything is lost between the two, that is a save that silently
   // edits somebody's cue.
-  const bodies = ['function instrumentLikeConfigFields', 'function _readFmBlock']
+  // The field builder and the readers lean on a few helpers and constants, which come along
+  // with them. scripts/audio/tools-smoke.mjs runs the whole panel; this lifts only these.
+  const bodies = ['function instrumentLikeConfigFields', 'function _readFmBlock', 'function _readOp2', 'function _formantsText']
     .map(sig => src.slice(src.indexOf(sig)).match(/^[\s\S]*?\n}/)[0]);
+  const consts = ['const FILTER_TYPES', 'const NOISE_COLOURS', 'const _ilPrev']
+    .map(sig => src.slice(src.indexOf(sig)).match(/^[^\n]*\n/)[0]);
   let fakeDoc = null;
-  const fns = new Function('_help', 'document', `${bodies.join('\n')}
+  const fns = new Function('_help', 'document', `${consts.join('')}${bodies.join('\n')}
     return { render: instrumentLikeConfigFields, read: _readFmBlock };`)(
     () => '', { getElementById: (id) => fakeDoc?.[id] ?? null });
 
