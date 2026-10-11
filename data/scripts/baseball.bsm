@@ -261,6 +261,26 @@ Four wide ones, {batter} draws the walk. Free pass.
 {batter} spits on a full count and takes his base. {pitcher} not happy about it.
 ::endlines
 
+# --- Sim v2: hit batters and errors (plate appearances) ------------------------
+# {fielder} is the fielder charged, as "the shortstop". The throwing error is its own
+# pool because the batter takes second on it; the bare pool keeps him at first.
+::lines atbat.hitbypitch
+{pitcher} comes inside and plunks {batter}. He takes his base, slowly, and says something on the way.
+That one gets {batter} on the elbow. Hit by pitch. He shakes it off and jogs to first.
+{batter} wears one from {pitcher}. Free base, and a bruise to go with it.
+::endlines
+
+::lines atbat.error
+{batter} hits it right at {fielder}, and he boots it. Error, and {batter}'s aboard.
+Routine grounder, and {fielder} can't come up with it. {batter} reaches on the error.
+It goes right through {fielder}'s legs. {batter} is safe at first, and the crowd lets {fielder} hear about it.
+::endlines
+
+::lines atbat.error.throwing
+{fielder} fields it clean and throws it into the stands. {batter} is waved on to second.
+The throw from {fielder} sails past first and rolls to the wall. {batter} takes second on the error.
+::endlines
+
 # --- Situational outs: double plays, sac flies, productive groundouts -----------
 ::lines atbat.doubleplay
 Ground ball, and they turn TWO on {batter}! Around the horn, rally strangled in the crib. {outs} away.
@@ -287,6 +307,61 @@ Sac fly off the bat of {batter}. {team} do it the ugly way. Run's in, {outs} awa
 {batter} rolls out to the right side but pushes the runner up ninety feet. A productive out, if there's such a thing in this town. {outs} away.
 Groundout by {batter}, does his job, moves the runner over. {outs} down.
 {batter} grounds one that scoots the runner up. Nothing pretty, but it plays. {outs} in the frame.
+::endlines
+
+# --- Sim v2: the running game ---------------------------------------------------
+# {runner} is the man running. {base} is the bag in play: the one he's going for on a
+# steal, the one he's standing on for a pickoff or a throw over.
+::lines run.steal
+{runner} takes off, and he's in there! Stolen base. {runner} on {base}.
+Here goes {runner}. The throw's late. He swipes {base}.
+{pitcher} is slow to the plate and {runner} makes him pay. That's a steal of {base}.
+::endlines
+
+::lines run.caughtstealing
+{runner} is going, and the throw is there! Caught stealing. {outs} away.
+The catcher pops up and fires, tag applied. {runner} is out at {base}. {outs} down.
+{runner} tries for {base} and gets thrown out by a step. {outs} gone.
+::endlines
+
+::lines run.pickoff
+{pitcher} spins and throws to {base}, and {runner} is picked off! {outs} away.
+{runner} wanders too far off {base} and {pitcher} catches him leaning. Picked off. {outs} down.
+{runner} gets hung up off {base}, and they run him down. {outs} away.
+::endlines
+
+::lines run.throwover
+{pitcher} throws over to {base}. {runner} dives back in time.
+Throw over. {runner} gets back. The crowd lets {pitcher} know what it thinks of that.
+{pitcher} checks {runner}, steps off, throws over. Safe. We go again.
+::endlines
+
+::lines run.doublesteal
+Double steal! Both runners go, and nobody throws. The {team} have two in scoring position.
+They're both running, and they both make it. A double steal.
+::endlines
+
+::lines run.doublesteal.out
+Both runners go, and they nail {runner} at {base}. The trail man moves up on the throw. {outs} away.
+::endlines
+
+::lines run.wildpitch
+That one gets past the catcher! Wild pitch, and the runners move up.
+{pitcher} bounces one in the dirt and it skips to the backstop. Wild pitch. Runners advance.
+::endlines
+
+::lines run.wildpitch.score
+Wild pitch! It gets away, and {runner} comes in to score!
+{pitcher} buries one in the dirt, it rolls to the backstop, and {runner} trots home. A run on a wild pitch.
+::endlines
+
+::lines run.passedball
+The catcher can't hold on to it. Passed ball, and the runners move up.
+That one goes right through the catcher's mitt. Passed ball. Everybody moves up a base.
+::endlines
+
+::lines run.passedball.score
+Passed ball! It rolls to the screen and {runner} scores from third.
 ::endlines
 
 # --- Runs batted in (non-home-run scoring play) -------------------------------
@@ -323,6 +398,13 @@ That makes it {away} {awayScore}, {home} {homeScore}.
 Score check: {home} {homeScore}, {away} {awayScore}.
 On the board: {away} {awayScore}, {home} {homeScore}. {leader} out in front by {lead}.
 New numbers: {away} {awayScore}, {home} {homeScore}.
+::endlines
+
+# When the run ties it: score.update's leader line has nobody to name.
+::lines score.tied
+That ties it. {away} {awayScore}, {home} {homeScore}.
+All square: {away} {awayScore}, {home} {homeScore}.
+Dead level at {awayScore} apiece. We've got a ballgame.
 ::endlines
 
 # --- Occasional score checkpoint (end of every third inning) ------------------

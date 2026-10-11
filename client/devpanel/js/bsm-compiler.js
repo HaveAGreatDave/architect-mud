@@ -5,7 +5,7 @@ function compileBsm(text) {
   const lines = text.split('\n');
   let i = 0;
 
-  const meta = { name: '', channel: '', category: 'general', host: '', length: null, type: 'live', location: '', acted: false, sport: '', announcer: '', meteorologist: '', airSlots: null, anchors: [], reporters: [], sidekick: '', guestNpc: '', cohost: '', rounds: null, subject: '', presents: '', rating: '', director: '', airDays: [] };
+  const meta = { name: '', channel: '', category: 'general', host: '', length: null, type: 'live', location: '', acted: false, sport: '', announcer: '', meteorologist: '', airSlots: null, sim: null, anchors: [], reporters: [], sidekick: '', guestNpc: '', cohost: '', rounds: null, subject: '', presents: '', rating: '', director: '', airDays: [] };
   const _debug = { unknownDirectives: [], nodeTypes: {}, unresolvedSpeakers: [], unterminatedBlocks: [] };
 
   // Pre-scan ::actors block to build alias map and actor list.
@@ -231,6 +231,10 @@ function compileBsm(text) {
         // one full game, grid-snapped, at a fixed time of day. Omit ⇒ continuous (back-to-back
         // games all day). "@airtime 19" → the evening (18:00–21:00) game airs daily.
         else if (key === 'airtime') meta.airSlots = [...new Set(val.split(/[,\s]+/).map(Number).filter(n => Number.isFinite(n) && n >= 0 && n < 24).map(h => Math.floor(h / 3) % 8))];
+        // sports: which version of the sim to play ("@sim 2"). Omit ⇒ the first. The server
+        // records the slot a new version starts at and never moves it, so games that have
+        // aired replay as they aired (docs/bsm-format.md, sports).
+        else if (key === 'sim') { const v = parseInt(val, 10); if (Number.isFinite(v) && v >= 1) meta.sim = v; }
         else if (key === 'titlecard') meta.titlecard = val;   // weather/news: graphic id shown before the report
         else if (key === 'theme') meta.theme = unquote(val);  // news/talkshow: intro theme sting — an audio_songs.name OR an audio_samples.name (quote names with spaces)
         // talkshow: the REAL studio cast — npc_ ids, acted live on stage (unlike news/sports names).
@@ -723,7 +727,7 @@ function compileBsm(text) {
   // server assembles a fresh simulated game each airing. The announcer is a plain name
   // string spoken as narration — deliberately NOT added to npcIds, so importing a sports
   // broadcast never spawns a studio NPC. See docs/bsm-format.md#sports-broadcasts-type-sports.
-  const sportsScript = { sport: meta.sport || 'baseball', announcer: meta.announcer, teams, players, pools: weatherPools, title: meta.titlecard || '', airSlots: (meta.airSlots && meta.airSlots.length) ? meta.airSlots : null };
+  const sportsScript = { sport: meta.sport || 'baseball', announcer: meta.announcer, teams, players, pools: weatherPools, title: meta.titlecard || '', airSlots: (meta.airSlots && meta.airSlots.length) ? meta.airSlots : null, ...(meta.sim ? { sim: { version: meta.sim } } : {}) };
 
   // News broadcasts (@type news) are the weather/sports siblings: a line library (::lines
   // pools) whose facts come from the live news generator each airing. Anchors, reporters,

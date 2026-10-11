@@ -143,9 +143,16 @@ export default async function regress({ check, run, getPlayer }) {
       }
       return JSON.stringify([g.away.name, g.home.name, g.awayScore, g.homeScore, g.innings, ab]);
     };
+    // v1, whatever switch this database has recorded.
+    const recorded = _test.getSimSwitch('baseball');
+    _test.setSimSwitch('baseball', null);
     let all = '';
-    for (let k = 0; k < 100; k++) all += fpGame(40000 + k * 97);
-    for (let k = 0; k < 4; k++) all += fpGame(50000 + k * 13, { worldSeries: true, teams: ['Rats', 'Kings'] });
+    try {
+      for (let k = 0; k < 100; k++) all += fpGame(40000 + k * 97);
+      for (let k = 0; k < 4; k++) all += fpGame(50000 + k * 13, { worldSeries: true, teams: ['Rats', 'Kings'] });
+    } finally {
+      _test.setSimSwitch('baseball', recorded);
+    }
     check('deadball v1: a hundred seeded games play exactly as they aired', fnv(all) === '11e200d9', `fingerprint ${fnv(all)}`);
   }
 
@@ -2939,6 +2946,152 @@ export default async function regress({ check, run, getPlayer }) {
     // A news script assembles out of pools; an empty pool set is a silently dead show.
     for (const pool of ['open', 'story.lead', 'handoff.reporter', 'signoff']) {
       check(`bsm: news pool '${pool}' has lines`, (news.newsScript.pools[pool] || []).length > 0, pool);
+    }
+  }
+
+  // ── Deadball sim v2 ─────────────────────────────────────────────────────────
+  // Errors, hit batters and the running game, played from a slot the server records
+  // (simVersionFor). Every game before that slot must replay as it aired, so v1 is pinned
+  // by its hash above, and v2 with its new plays turned off has to be the v1 game play for
+  // play: that's what proves its base logic is v1's. (Only the home side's names differ:
+  // v2 stopped the home leadoff man sharing the away pitcher's name.)
+  {
+    const B = await import('./sports/baseball.js');
+    const { gamedayPayloads } = await import('./sports/baseball-gameday.js');
+    const { sportsRng: rngOf, sportsHash: hashOf } = await import('./rng.js');
+    const M = { away: 'Rats', home: 'Kings' };
+    const v1Play = (b) => (b.type === 'atbat'
+      ? [b.inning, b.half, b.half === 'top' ? b.batter : '', b.half === 'bottom' ? b.pitcher : '', b.kind, b.outs, b.runs ?? b.rbi, b.awayScore, b.homeScore, b.walkoff, b.bases.join()]
+      : [b.type, b.inning, b.half, b.awayScore, b.homeScore]);
+    let same = 0;
+    for (let s = 1; s <= 300; s++) {
+      const seed = hashOf(s, 0);
+      const a = B.simGame(M, null, rngOf(seed)), v = B.simGameV2(M, null, rngOf(seed), { seed, rates: B.SIM_V2_OFF });
+      if (a.innings === v.innings && JSON.stringify(a.beats.map(v1Play)) === JSON.stringify(v.beats.map(v1Play))) same++;
+    }
+    check('deadball v2: with its new plays off it is the v1 game, play for play', same === 300, `${same}/300`);
+
+    // Every play's moves turn the named runners before it into the ones after it, each man
+    // has one fate, the runs and outs add up, nobody passes anybody, and a half that ends
+    // on the bases has the man who was batting lead off the next one.
+    const wrong = [], tally = {};
+    let games = 0, runs1 = 0, runs2 = 0, selfFaced = 0;
+    for (let s = 1; s <= 400 && wrong.length < 3; s++) {
+      const seed = hashOf(s, 0);
+      const g = B.simGameV2(M, null, rngOf(seed), { seed });
+      const g1 = B.simGame(M, null, rngOf(seed));
+      games++; runs1 += g1.awayScore + g1.homeScore; runs2 += g.awayScore + g.homeScore;
+      let runners = [null, null, null], outs = 0, score = 0, first = true;
+      const leadoff = new Map();
+      for (const b of g.beats) {
+        if (b.type === 'half_start') { runners = [null, null, null]; outs = 0; score = b.half === 'top' ? b.awayScore : b.homeScore; first = true; continue; }
+        if (b.type === 'half_end') continue;
+        const why = [];
+        if (first && leadoff.has(b.battingName) && b.batter !== leadoff.get(b.battingName)) why.push('the wrong man led off');
+        if (first) leadoff.delete(b.battingName);
+        first = false;
+        if (b.type === 'atbat' && b.batter === b.pitcher) selfFaced++;
+        const m = b.moves || [];
+        for (let n = 1; n <= 3; n++) if (runners[n - 1] != null && m.filter((x) => x.from === n).length !== 1) why.push(`the runner on ${n}`);
+        if (m.some((x) => x.from > 0 && runners[x.from - 1] !== x.name)) why.push('a runner\'s name');
+        if ((b.type === 'atbat') !== m.some((x) => x.from === 0 && x.name === b.batter)) why.push('the batter');
+        const next = [null, null, null];
+        for (const x of m) if (x.to >= 1 && x.to <= 3) next[x.to - 1] = x.name;
+        if (JSON.stringify(next) !== JSON.stringify(b.runners)) why.push('the runners after');
+        const now = b.half === 'top' ? b.awayScore : b.homeScore;
+        if (now - score !== m.filter((x) => x.to === 4).length || b.runs !== now - score) why.push('the runs');
+        if (b.outs - outs !== m.filter((x) => x.out != null).length) why.push('the outs');
+        const dest = m.filter((x) => x.to != null).map((x) => x.to);
+        if (!dest.every((t, i) => i === 0 || t < dest[i - 1] || (t === 4 && dest[i - 1] === 4))) why.push('a pass');
+        if (why.length) wrong.push(`slot ${s} ${b.inning}${b.half[0]} ${b.type}:${b.kind}: ${why.join(', ')}`);
+        if (b.type === 'run' && b.outs >= 3 && !b.walkoff) leadoff.set(b.battingName, b.batter);
+        const k = b.type === 'run' ? b.kind : (b.kind === 'error' || b.kind === 'hitbypitch' ? b.kind : null);
+        if (k) tally[k] = (tally[k] || 0) + 1;
+        runners = b.runners; outs = b.outs; score = now;
+      }
+    }
+    check('deadball v2: every play\'s moves account for every man, the runs and the outs', !wrong.length, wrong.join(' | '));
+    check('deadball v2: no batter ever faces himself', selfFaced === 0, String(selfFaced));
+    const per = (k) => (tally[k] || 0) / games / 2;
+    const safe = per('steal') + per('doublesteal'), tries = safe + per('caughtstealing');
+    check('deadball v2: a 1990s running game (0.6 to 1.2 steal tries a team a game, 60-80% safe)',
+      tries > 0.6 && tries < 1.2 && safe / tries > 0.6 && safe / tries < 0.8, `${tries.toFixed(2)} tries, ${(safe / tries * 100).toFixed(0)}% safe`);
+    check('deadball v2: errors, hit batters, wild pitches and passed balls at a 1990s rate',
+      per('error') > 0.25 && per('error') < 0.55 && per('hitbypitch') > 0.25 && per('hitbypitch') < 0.5
+        && per('wildpitch') + per('passedball') > 0.15 && per('wildpitch') + per('passedball') < 0.4,
+      JSON.stringify(Object.fromEntries(Object.keys(tally).sort().map((k) => [k, +per(k).toFixed(2)]))));
+    check('deadball v2: scoring stays where v1 had it (within 6%)', Math.abs(runs2 / runs1 - 1) < 0.06,
+      `${(runs1 / games / 2).toFixed(2)} → ${(runs2 / games / 2).toFixed(2)} runs a team a game`);
+
+    // The hitting race under v2's scoring: a hit batter is no at-bat, an error is an at-bat
+    // with no hit and no RBI, and a play on the bases is nobody's plate appearance.
+    const acc = {};
+    B.SEASON.foldExtras(acc, { beats: [
+      { type: 'atbat', batter: 'Cole', battingName: 'Rats', kind: 'hitbypitch', rbi: 0, runs: 0 },
+      { type: 'atbat', batter: 'Cole', battingName: 'Rats', kind: 'error', rbi: 0, runs: 1 },
+      { type: 'run', batter: 'Cole', battingName: 'Rats', kind: 'steal', runner: 'Cole', rbi: 0, runs: 0 },
+    ] });
+    const cole = acc.bats.get('Cole');
+    check('deadball v2: a hit batter is a plate appearance but no at-bat', cole.pa === 2 && cole.ab === 1, JSON.stringify(cole));
+    check('deadball v2: an error is an at-bat with no hit and no RBI', cole.hits === 0 && cole.rbi === 0, JSON.stringify(cole));
+    const hbp = B.synthPitches(12345, 'hitbypitch');
+    const last = hbp[hbp.length - 1], prev = hbp[hbp.length - 2] || { balls: 0, strikes: 0 };
+    check('deadball v2: a hit batter\'s last pitch hits him and counts as neither', last.result === 'hbp' && last.balls === prev.balls && last.strikes === prev.strikes, JSON.stringify(last));
+
+    // The payloads: a play on the bases rides one of its own (phase run, with its moves and
+    // no pitches), an at-bat carries the sim's moves with the names, and the line counts
+    // errors in a v2 game only.
+    const fmt = { abbr: (n) => String(n).slice(0, 3), ordinal: (n) => `${n}th` };
+    let s2 = 1, g2;
+    do { const seed = hashOf(s2++, 0); g2 = { seed, game: B.simGameV2(M, null, rngOf(seed), { seed }) }; } while (!g2.game.beats.some((b) => b.type === 'run') && s2 < 50);
+    const ord2 = gamedayPayloads(g2.game, g2.seed, fmt).order;
+    const runPays = ord2.filter((p) => p.phase === 'run');
+    check('gameday v2: a play on the bases rides its own payload, with its moves and no pitches',
+      runPays.length > 0 && runPays.every((p) => p.kind && Array.isArray(p.moves) && !('pitches' in p) && !p.moves.some((m) => m.from === 0)), `${runPays.length} plays on the bases`);
+    check('gameday v2: an at-bat carries the sim\'s own moves, names and all',
+      ord2.filter((p) => !p.phase).every((p) => p.moves.length && p.moves.every((m) => typeof m.name === 'string')), 'a v2 move without a name');
+    const ord1 = gamedayPayloads(B.simGame(M, null, rngOf(g2.seed)), g2.seed, fmt).order;
+    check('gameday v2: the line counts errors in a v2 game and not in a v1 game',
+      ord2.every((p) => !p.line || Number.isFinite(p.line.eAway)) && ord1.every((p) => !p.line || !('eAway' in p.line)), 'E in the wrong line');
+
+    // The switch. Asked for, it's recorded at the first slot of the next in-game day; no
+    // longer asked for, an end slot the same way; sportsGameForSlot plays the slot's version.
+    const next = _test.nextSimSwitch;
+    check('sim switch: asked for and not recorded, it starts at the next in-game day', JSON.stringify(next(null, true, 8003)) === JSON.stringify({ from: 8008 }), JSON.stringify(next(null, true, 8003)));
+    check('sim switch: recorded and still asked for, nothing changes', next({ from: 8008 }, true, 8100) === null, JSON.stringify(next({ from: 8008 }, true, 8100)));
+    check('sim switch: no longer asked for, it ends at the next in-game day', JSON.stringify(next({ from: 8008 }, false, 8100)) === JSON.stringify({ from: 8008, until: 8104 }), JSON.stringify(next({ from: 8008 }, false, 8100)));
+    check('sim switch: once it has played and ended, it stays off', next({ from: 8008, until: 8104 }, true, 8200) === null, JSON.stringify(next({ from: 8008, until: 8104 }, true, 8200)));
+    check('sim switch: ended before its first slot, it can start again', JSON.stringify(next({ from: 8008, until: 8008 }, true, 8020)) === JSON.stringify({ from: 8024 }), JSON.stringify(next({ from: 8008, until: 8008 }, true, 8020)));
+    const bsm = new Function(`${readFileSync(new URL('../../client/devpanel/js/bsm-compiler.js', import.meta.url), 'utf8')}\n;return compileBsm;`)();
+    const deadball = bsm(readFileSync(new URL('../../data/scripts/baseball.bsm', import.meta.url), 'utf8')).sportsScript;
+    check('sim switch: @sim 2 in a .bsm compiles to sports_pools.sim', bsm('@type sports\n@sport baseball\n@sim 2\n').sportsScript?.sim?.version === 2, 'no sim');
+    const recorded = _test.getSimSwitch('baseball');   // whatever this database has recorded
+    try {
+      _test.setSimSwitch('baseball', { from: 50000, until: 50010 });
+      const ver = (slot) => _test.sportsGameForSlot(deadball, slot, null).game.version || 1;
+      check('sim switch: a slot before it plays v1 and the slot it starts at plays v2', ver(49999) === 1 && ver(50000) === 2, `${ver(49999)}, ${ver(50000)}`);
+      check('sim switch: a slot after it ends plays v1 again', ver(50010) === 1, String(ver(50010)));
+
+      // The booth: lines for every new play and for a tied score, and under v2 every play
+      // on the bases that airs is called with every token filled.
+      for (const pool of ['atbat.hitbypitch', 'atbat.error', 'atbat.error.throwing', 'run.steal', 'run.caughtstealing', 'run.pickoff', 'run.throwover',
+        'run.doublesteal', 'run.doublesteal.out', 'run.wildpitch', 'run.wildpitch.score', 'run.passedball', 'run.passedball.score', 'score.tied']) {
+        check(`deadball: the booth has lines for ${pool}`, (deadball.pools[pool] || []).length > 0, pool);
+      }
+      _test.setSimSwitch('baseball', { from: 0 });
+      let aired = 0;
+      const badLines = [];
+      for (let slot = 70000; slot < 70012; slot++) {
+        const g = _test.assembleSportsGraph(deadball, 'bc_regress_v2', slot, null);
+        for (const n of Object.values(g.nodes)) {
+          const d = n.data || {};
+          if (d.gameday?.phase === 'run') aired++;
+          if (/[{}]|\s[.,!?]|\s{2}|out in front by 0/.test(d.text || '')) badLines.push(`slot ${slot}: "${d.text}"`);
+        }
+      }
+      check('deadball v2: plays on the bases air with their calls, every token filled, no leader in a tie', aired > 0 && !badLines.length, `${aired} aired; ${badLines.slice(0, 3).join(' | ')}`);
+    } finally {
+      _test.setSimSwitch('baseball', recorded);
     }
   }
 

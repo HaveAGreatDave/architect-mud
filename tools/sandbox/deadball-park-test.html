@@ -19,8 +19,9 @@
   it in Phase 1.
 
   Serve the repo root over HTTP and open /sandbox/deadball-park-test.html (a file://
-  page can't fetch the .bsm or load the modules). ?slot=N picks the game, ?play= a
-  filter below (runs, hits, dp, walk, half) and ?i=N a payload within it.
+  page can't fetch the .bsm or load the modules). ?slot=N picks the game, ?sim=2 plays
+  it under sim v2 (errors, hit batters, steals, pickoffs, wild pitches), ?play= a filter
+  below (runs, hits, dp, walk, bases, errors, half) and ?i=N a payload within it.
 -->
 <style>
   html, body { margin: 0; background: radial-gradient(ellipse at 50% 20%, #202329, #0a0b0d 70%); }
@@ -58,6 +59,8 @@
         <option value="hits">hits</option>
         <option value="dp">double and triple plays</option>
         <option value="walk">walks</option>
+        <option value="bases">plays on the bases (v2)</option>
+        <option value="errors">errors and hit batters (v2)</option>
         <option value="half">half-inning breaks</option>
       </select>
       <button id="reroll">⟳ new game</button>
@@ -69,7 +72,7 @@
   <!-- Classic script: sets window.AudioEngine so the Gameday SFX and the voice play here. -->
   <script src="../client/shared/audio-engine.js"></script>
   <script type="module">
-    import { simGame } from '../plugins/broadcast/sports/baseball.js';
+    import { simGame, simGameV2, playTokens } from '../plugins/broadcast/sports/baseball.js';
     import { gamedayPayloads } from '../plugins/broadcast/sports/baseball-gameday.js';
     import { sportsRng, sportsHash, sportsPick, sportsFill } from '../plugins/broadcast/rng.js';
     import { createGamedayView } from '../client/game/js/panels/gameday.js';
@@ -110,11 +113,17 @@
     // (assembleSportsGraph in plugins/broadcast/index.js).
     function callFor(p, pick) {
       if (p.phase === 'half') return pick(`half.${p.half}`, 'half');
+      if (p.phase === 'run') {
+        if (p.kind === 'doublesteal' && p.out) return pick('run.doublesteal.out', 'run.caughtstealing');
+        return p.runs > 0 ? pick(`run.${p.kind}.score`, `run.${p.kind}`) : pick(`run.${p.kind}`);
+      }
       if (p.kind === 'homerun') return pick(p.rbi >= 4 ? 'hr.grand' : (p.rbi === 1 ? 'hr.solo' : 'hr'), 'hr');
       if (p.kind === 'sacfly') return pick('atbat.sacfly');
       if (p.kind === 'productout') return pick('atbat.productout', 'atbat.groundout');
       if (p.kind === 'tripleplay') return pick('atbat.tripleplay', 'atbat.doubleplay');
       if (p.kind === 'doubleplay') return pick('atbat.doubleplay');
+      if (p.kind === 'error') return pick(`atbat.error.${p.errorType}`, 'atbat.error');
+      if ((p.kind === 'hitbypitch' || p.kind === 'walk') && p.runs != null) return pick(`atbat.${p.kind}`, 'atbat.walk');
       if (p.rbi > 0) return pick('rbi');
       if (p.out) return pick(`atbat.${p.kind}`, 'atbat.out');
       return pick(`atbat.${p.kind}`, 'atbat.single');
@@ -123,7 +132,8 @@
     const tokOf = (p, away, home) => ({
       announcer: 'Chip Vega', away, home, team: p.battingTeam, batter: p.batter || '', pitcher: p.pitcher || '',
       inning: p.inning, inningOrd: p.inningOrd, half: p.half, section: 'inning', sectionOrd: p.inningOrd,
-      outs: p.outs ?? '', rbi: p.rbi ?? 0, runs: p.rbi ?? 0, awayScore: p.awayScore, homeScore: p.homeScore,
+      outs: p.outs ?? '', rbi: p.rbi ?? 0, runs: p.runs ?? p.rbi ?? 0, awayScore: p.awayScore, homeScore: p.homeScore,
+      ...playTokens(p),
       battingScore: p.half === 'top' ? p.awayScore : p.homeScore, fieldingScore: p.half === 'top' ? p.homeScore : p.awayScore,
     });
     // The cards the broadcast throws with a play.
@@ -147,7 +157,7 @@
       return [...rows.values()].sort((x, y) => (y.wins - y.losses) - (x.wins - x.losses) || y.rd - x.rd).slice(0, 8);
     }
 
-    let script = null, plays = [], idx = 0, autoTimer = null, slot = 1;
+    let script = null, plays = [], idx = 0, autoTimer = null, slot = 1, simV = 1;
 
     function buildGame() {
       const t = script.teams;
@@ -155,14 +165,14 @@
       let home = t[(slot * 7 + 5) % t.length];
       if (home === away) home = t[(t.indexOf(away) + 1) % t.length];
       const seed = sportsHash(slot >>> 0, 0x00);   // the broadcast's seed for a slot
-      const game = simGame({ away, home }, script.players, sportsRng(seed));
+      const game = simV === 2 ? simGameV2({ away, home }, script.players, sportsRng(seed), { seed }) : simGame({ away, home }, script.players, sportsRng(seed));
       const { order } = gamedayPayloads(game, seed, { abbr, ordinal });
       if (order[0]) order[0] = { ...order[0], standings: tableFor(t) };
       const nrng = sportsRng(seed ^ 0x9e3779b9);
       const pick = (...keys) => sportsPick(script.pools, nrng, ...keys);
       const out = order.map((p) => ({ p, text: sportsFill(callFor(p, pick) || p.desc || '', tokOf(p, away, home)).trim() || p.desc || '', card: cardFor(p) }));
       document.getElementById('head').textContent =
-        `slot ${slot} · ${away} ${game.awayScore}, ${home} ${game.homeScore}` +
+        `slot ${slot}${simV === 2 ? ' (sim v2)' : ''} · ${away} ${game.awayScore}, ${home} ${game.homeScore}` +
         `${game.innings > 9 ? ` (${game.innings})` : ''} · ${order.filter(p => !p.phase).length} at-bats`;
       return out;
     }
@@ -172,6 +182,8 @@
       hits: (p) => ['single', 'double', 'triple', 'homerun'].includes(p.kind),
       dp: (p) => p.kind === 'doubleplay' || p.kind === 'tripleplay',
       walk: (p) => p.kind === 'walk',
+      bases: (p) => p.phase === 'run',
+      errors: (p) => p.kind === 'error' || p.kind === 'hitbypitch',
       half: (p) => p.phase === 'half',
     };
     const filtered = () => { const f = FILTERS[document.getElementById('filter').value]; return f ? plays.filter(x => f(x.p)) : plays; };
@@ -187,7 +199,7 @@
       view.apply(p);
       if (card) view.showCard(card);
       document.getElementById('count').textContent =
-        `${idx + 1}/${list.length} · ${p.inningOrd} ${p.half} · ${p.phase ? 'break' : p.kind}`;
+        `${idx + 1}/${list.length} · ${p.inningOrd} ${p.half} · ${p.phase === 'half' ? 'break' : p.kind}`;
     }
 
     // Auto-play paces each play the way a line holds on air: long enough for the pitches
@@ -212,6 +224,7 @@
     script = await loadScript();
     const q = new URLSearchParams(location.search);
     if (q.get('slot')) slot = +q.get('slot');
+    if (q.get('sim') === '2') simV = 2;
     plays = buildGame();
     if (q.get('play') && FILTERS[q.get('play')]) document.getElementById('filter').value = q.get('play');
     show(+(q.get('i') || 0));

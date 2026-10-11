@@ -11974,7 +11974,7 @@ html[data-density="compact"][data-pane-claimed] #mobile-hud { display: none; }
 
 /* ── Field FX layer (trails, dust, celebration bursts) ───────────────────────── */
 .gd-fx { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
-.gd-trail, .gd-dust, .gd-burst { position: absolute; pointer-events: none; }
+.gd-trail, .gd-dust, .gd-burst, .gd-efx { position: absolute; pointer-events: none; }
 .gd-trail { width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: rgba(255,255,255,0.85); box-shadow: 0 0 5px rgba(255,255,255,0.7); animation: gd-trail-fade 0.52s ease-out forwards; }
 .gd-trail.hot { background: #ffd23e; box-shadow: 0 0 6px #ffd23e; }
 @keyframes gd-trail-fade { from { opacity: 0.9; transform: scale(1); } to { opacity: 0; transform: scale(0.3); } }
@@ -11983,6 +11983,9 @@ html[data-density="compact"][data-pane-claimed] #mobile-hud { display: none; }
 .gd-burst { width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; border: 2px solid var(--tv-header-color, #37d67a); animation: gd-burst-ring 0.9s ease-out forwards; }
 .gd-burst.hot { border-color: #ffd23e; }
 @keyframes gd-burst-ring { from { opacity: 0.9; transform: scale(0.2); } to { opacity: 0; transform: scale(3.4); } }
+/* Sim v2: the E over a fielder who boots one or throws it away. */
+.gd-efx::after { content: 'E'; position: absolute; left: -5px; top: -20px; font: 700 13px/1 monospace; color: #ff5a5a; text-shadow: 0 0 6px rgba(255,90,90,0.8); animation: gd-efx-pop 0.9s ease-out forwards; }
+@keyframes gd-efx-pop { 0% { opacity: 0; transform: scale(0.4); } 20% { opacity: 1; transform: scale(1.25); } 100% { opacity: 0; transform: translateY(-8px); } }
 .gd-runner.sliding { animation: gd-slide 0.42s ease-out; }
 .gd-batter.sliding { animation: gd-slide 0.42s ease-out; }
 @keyframes gd-slide { 0% { transform: scale(1.5, 0.7); } 60% { transform: scale(0.85, 1.15); } 100% { transform: scale(1); } }
@@ -12070,6 +12073,7 @@ html[data-density="compact"][data-pane-claimed] #mobile-hud { display: none; }
 .gd-pitch.swinging circle { fill: #ef4444; }
 .gd-pitch.foul circle { fill: #eab308; }
 .gd-pitch.inplay circle { fill: #22c55e; }
+.gd-pitch.hbp circle { fill: #a855f7; }
 
 .gd-matchcard { display: flex; flex-direction: column; gap: 4px; }
 .gd-mrow { display: flex; align-items: center; gap: 6px; font-size: 0.6875rem; }

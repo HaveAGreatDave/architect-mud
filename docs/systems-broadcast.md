@@ -832,6 +832,48 @@ have already aired. A viewer with the sub-screen open is sent about 91 payloads 
 85 KB with the weather (measured over eight graphs on 2026-10-11). It was 116 KB when the
 table rode every payload.
 
+### Sim v2
+
+`simGameV2` in [sports/baseball.js](../plugins/broadcast/sports/baseball.js) adds the plays v1
+never had: errors, hit batters, steals and caught stealing, pickoffs and the throw over a runner
+beats back, double steals, wild pitches and passed balls. Per team a game it comes to about 0.9
+steal tries (68% safe), 0.4 errors, 0.4 hit batters, 0.2 wild pitches and 0.05 passed balls,
+measured over 3,000 games, and scoring stays within 1% of v1, because an error comes out of the
+single's share of the at-bat table and a hit batter out of the walk's.
+
+- **It's v1's game with named runners.** Every draw v1 makes, v2 makes in the same order from
+  the same stream, and every new decision draws from a stream seeded from the game's seed, so
+  with its new plays off (`SIM_V2_OFF`) a v2 game is the v1 game play for play. Regress checks
+  that over 300 games. The one other change: the home nine start one name further into the
+  shuffled pool, because in v1 the home leadoff man shares the away pitcher's name.
+- **A runner's legs, a catcher's arm and a pitcher's quickness** come from their names, as
+  handedness does, and decide steals. The catcher is the seventh lineup slot
+  (`LINEUP_POSITIONS`).
+- **The beats.** An at-bat carries `runs` (scored on the play), `runners` (the names on the bags
+  after it) and `moves` with names, and `rbi` is the true RBI: none on an error or a double play.
+  Two kinds are new, `hitbypitch` and `error` (with `fielder` and `errorType`). A play on the
+  bases is a beat of type `run` with `runner` and `base`; one that makes the third out ends the
+  half with the batter still up, and he leads off the next inning.
+- **The payloads.** A play on the bases is a `phase: 'run'` payload with its moves and no
+  pitches, an at-bat passes the sim's moves through, and the line counts errors (`eAway`,
+  `eHome`) for the 2-D view's E column. A v1 game's payloads are byte for byte what they were.
+- **The booth.** The new plays have pools of their own (see
+  [bsm-format.md](bsm-format.md)), and the tokens `{runner}`, `{base}` and `{fielder}` come from
+  the sport's `playTokens`. A throw over is colour; everything else on the bases is called.
+- **The hitting race.** A hit batter is a plate appearance and no at-bat; an error is an at-bat
+  with no hit.
+
+**The switch.** A game that has aired must replay as it aired, so v2 plays from a slot the
+server records once, not from a slot written into content: the slot comes from the in-game clock,
+which lives in the database and staff can skip, so nothing outside the server could check one.
+`@sim 2` in `baseball.bsm` compiles to `sports_pools.sim.version`. The heartbeat
+(`recordSimSwitches`) sees it and writes `{ from }` to the world flag `sports_sim_v2:baseball`:
+the first slot of the next in-game day, which is in the future when it's written. A script that
+stops asking gets `until`, the same way. `sportsGameForSlot` reads the record (loaded at startup,
+before any game is simulated) through `simVersionFor` and plays the slot's version. A version
+that has played and ended can't be switched back on; one switched off before its first slot can.
+world_flags is runtime state, so a deploy never rewrites the record.
+
 ### The sport registry
 
 `SPORTS = { baseball, hockey }` in [plugins/broadcast/index.js](../plugins/broadcast/index.js),

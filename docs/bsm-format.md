@@ -543,6 +543,7 @@ All the standard headers (`@broadcast`, `@channel`, `@category`, `@length`) work
 | `@sport baseball` | Which simulation to run: `baseball` or `hockey`. This is the only sport discriminator in the pipeline. |
 | `@announcer "Chip Vega"` | The play-by-play voice — a display **name**, surrounding quotes stripped. Available in lines as `{announcer}`. Not an NPC. |
 | `@airtime 19` | Optional. Feature only the game(s) covering these **in-game hours** (0–23, comma/space-separated) each day — one full game, snapped to the grid, at a fixed time of day; the channel is dark otherwise. Omit for **continuous** back-to-back games all day. The league itself always plays a full slate on the in-game clock (one game every 3 in-game hours → 8/in-game-day, ~1/team/day) and the standings advance regardless of what's aired; `@airtime` only picks which of those games this channel *shows*. `19` → the 18:00–21:00 game. |
+| `@sim 2` | Optional, baseball only. Play sim v2 (errors, hit batters, steals, caught stealing, pickoffs, throws over, double steals, wild pitches, passed balls). Compiles to `sports_pools.sim.version`. Omit for v1. The server records the slot v2 starts at, the first slot of the next in-game day after it first sees this, and never moves it, so every game that has aired replays as it aired. Removing the line records an end slot the same way; a version that has played and ended can't be switched back on. See [systems-broadcast.md](systems-broadcast.md#sim-v2). |
 
 ## Team & player pools
 
@@ -575,8 +576,10 @@ Same `::lines <key>` … `::endlines` collector as weather. Each non-empty line 
 **Routine outs:** `atbat.strikeout` · `atbat.groundout` · `atbat.flyout` · `atbat.popout` — fallback `atbat.out`
 **Non-scoring baserunners:** `atbat.single` · `atbat.double` · `atbat.triple` · `atbat.walk`
 **Scoring plays:** `rbi` (non-homer runs batted in) · `hr.solo` · `hr.grand` (grand slam) · `hr` (fallback)
-**After any scoring play:** `score.update` (the running-score line)
+**After any scoring play:** `score.update` (the running-score line); `score.tied` instead when the run levels the score (falls back to `score.update`)
 **Situational:** `walkoff` (home wins with a late go-ahead run) · `recap.half` (a sparse score checkpoint at the end of every third inning)
+
+**Sim v2 (`@sim 2`):** `atbat.hitbypitch` (falls back to `atbat.walk`) · `atbat.error`, and `atbat.error.throwing` when the batter takes second on a throw away · on the bases, `run.steal` · `run.caughtstealing` · `run.pickoff` · `run.throwover` · `run.doublesteal`, and `run.doublesteal.out` when the lead runner is thrown out · `run.wildpitch` · `run.passedball`, each with a `.score` variant when a run comes in. A throw over is colour, called only when the half needs lines; the rest are always called.
 
 Only the keys the runner needs are voiced; a missing pool is skipped (framing) or falls back (`atbat.*` → `atbat.out`/`atbat.single`, `hr.*` → `hr`).
 
@@ -595,7 +598,10 @@ Filled per event from the live game state; unknown tokens strip to empty.
 | `{half}` | `top` or `bottom` |
 | `{section}` / `{sectionOrd}` | generic section term (`inning` / `3rd`) — for cross-sport lines |
 | `{outs}` | outs in the current half after this play |
-| `{rbi}` / `{runs}` | runs driven in on this play |
+| `{rbi}` / `{runs}` | runs driven in / runs scored on this play (the same in v1; v2 credits no RBI on an error or a double play) |
+| `{runner}` | sim v2: the man running on a play on the bases |
+| `{base}` | sim v2: the bag in play, as a word (`second`): the one he's going for on a steal, the one he's on for a pickoff or a throw over |
+| `{fielder}` | sim v2: the fielder charged with an error (`the shortstop`) |
 | `{awayScore}` / `{homeScore}` | current score |
 | `{battingScore}` / `{fieldingScore}` | score of the batting / fielding side |
 | `{leader}` | the team currently ahead (empty if tied) |

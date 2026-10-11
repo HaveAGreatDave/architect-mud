@@ -2306,6 +2306,72 @@ function ledgerAt(script, slot, windowStart) {
   return out;
 }
 
+// ── Sim versions by slot ─────────────────────────────────────────────────────
+// A sport's sim can be replaced, but a game that has aired must replay as it aired: the
+// standings, the recaps and the team cards all re-simulate past slots. So a new version
+// plays from a slot the server records once, in world_flags, the first time it sees the
+// script ask for it (`@sim 2` in the .bsm, sports_pools.sim.version): the first slot of
+// the next in-game day, which is in the future when it's recorded. A script that stops
+// asking records an end slot the same way, and the games that aired under the version
+// still replay under it. The slots come from the in-game clock, which lives in the
+// database and staff can skip, so nothing outside the server could check a slot written
+// into content; that's why the server records it. world_flags is runtime state, so a
+// deploy never rewrites the record. It's loaded at startup, before any game is
+// simulated, and read synchronously after.
+const SIM_SWITCH_KEY = (sport) => `sports_sim_v2:${sport}`;
+const _simSwitch = new Map();   // sport -> { from, until? }
+const _simSwitchWarned = new Set();
+function simVersionFor(sportId, slot) {
+  const s = _simSwitch.get(sportId);
+  if (!s || !Number.isFinite(s.from) || slot < s.from) return 1;
+  return Number.isFinite(s.until) && slot >= s.until ? 1 : 2;
+}
+// The record to write, given the one there is, whether the script asks for v2 and the
+// current slot; null when nothing changes. A version switched off after it played can't
+// be switched back on (that would need a third), but one switched off before its first
+// slot can.
+function nextSimSwitch(cur, want, slotNow) {
+  const nextDay = (Math.floor(slotNow / SPORTS_GAMES_PER_DAY) + 1) * SPORTS_GAMES_PER_DAY;
+  const neverPlayed = cur && Number.isFinite(cur.until) && cur.until <= cur.from;
+  if (want && (!cur || neverPlayed)) return { from: nextDay };
+  if (!want && cur && !Number.isFinite(cur.until)) return { from: cur.from, until: Math.max(cur.from, nextDay) };
+  return null;
+}
+async function loadSimSwitches() {
+  for (const sport of Object.keys(SPORTS)) {
+    const raw = await getFlag('world', SIM_SWITCH_KEY(sport)).catch(() => null);
+    if (!raw) continue;
+    try {
+      const v = JSON.parse(raw);
+      if (Number.isFinite(v?.from)) _simSwitch.set(sport, { from: v.from, ...(Number.isFinite(v.until) ? { until: v.until } : {}) });
+    } catch { /* a malformed record plays v1, as no record does */ }
+  }
+}
+// From the heartbeat, once a minute: record the switch for any sport whose script now
+// asks for a version it hasn't got, or stops asking for one it has.
+async function recordSimSwitches() {
+  const env = getEnvironmentState();
+  if (!env?.date || !Number.isFinite(env?.minutes)) return;   // the clock isn't loaded yet
+  for (const [sport, mod] of Object.entries(SPORTS)) {
+    if (!mod.simVersions?.includes(2)) continue;
+    const script = await anySportsScript(sport);
+    if (!script) continue;
+    const cur = _simSwitch.get(sport) || null;
+    const want = Number(script.sim?.version) >= 2;
+    const next = nextSimSwitch(cur, want, sportsSlotIndex());
+    if (!next) {
+      if (want && cur && Number.isFinite(cur.until) && !_simSwitchWarned.has(sport)) {
+        _simSwitchWarned.add(sport);
+        console.warn(`[broadcast] ${sport} sim v2 played slots ${cur.from}-${cur.until - 1} and was switched off; it can't be switched back on`);
+      }
+      continue;
+    }
+    await setFlag('world', SIM_SWITCH_KEY(sport), JSON.stringify(next));
+    _simSwitch.set(sport, next);
+    console.log(`[broadcast] ${sport} sim v2 ${Number.isFinite(next.until) ? `ends at slot ${next.until}` : `starts at slot ${next.from}`}`);
+  }
+}
+
 function sportsGameForSlot(script, slot, override, unavailable) {
   const seed = sportsHash(slot >>> 0, override?.worldSeries ? 0x77 : 0x00);
   const matchup = override?.teams
@@ -2321,7 +2387,10 @@ function sportsGameForSlot(script, slot, override, unavailable) {
   // `unavailable` is the injury chain's answer for this slot. Passing it in explicitly
   // (rather than looking it up here) is what stops the chain recursing into itself
   // while it is being built.
-  const game = sportsSimGame(script, matchup, script.players, sportsRng(seed), unavailable ? { unavailable } : undefined);
+  // The sim version is the slot's (simVersionFor); v2 also needs the seed, which its new
+  // plays draw from on a stream of their own.
+  const version = simVersionFor(sportOf(script).id, slot);
+  const game = sportsSimGame(script, matchup, script.players, sportsRng(seed), { ...(unavailable ? { unavailable } : {}), version, seed });
   return { game, seed, matchup, unavailable: unavailable || null };
 }
 
@@ -2384,7 +2453,10 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
     team: b.battingName, batter: b.batter || '', pitcher: b.pitcher || '',
     inning: b.inning, inningOrd: sportsOrdinal(b.inning), half: b.half || '',
     section: 'inning', sectionOrd: sportsOrdinal(b.inning),
-    outs: b.outs ?? '', rbi: b.rbi ?? 0, runs: b.rbi ?? 0,
+    outs: b.outs ?? '', rbi: b.rbi ?? 0, runs: b.runs ?? b.rbi ?? 0,
+    // The sport's own words for a play, where it has them: Deadball's sim v2 names the
+    // man running, the bag in play and the fielder charged with an error.
+    ...(sportOf(script).playTokens?.(b) || {}),
     awayScore: b.awayScore, homeScore: b.homeScore,
     battingScore: b.half === 'top' ? b.awayScore : b.homeScore,
     fieldingScore: b.half === 'top' ? b.homeScore : b.awayScore,
@@ -2435,6 +2507,9 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   const beatGameday = (b) => GD.atbat.get(b);
   // The half-inning break: `phase: 'half'`, so a client never animates it as a play.
   const halfGameday = (b) => GD.half.get(b);
+  // The score after a run. A level score has lines of its own: the leader line reads
+  // "out in front by 0" when nobody is. One draw either way, so no other line moves.
+  const scoreUpdate = (b) => pick(...(b.awayScore === b.homeScore ? ['score.tied', 'score.update'] : ['score.update']));
   const hrGraphic = (b) => ({ overlayType: 'sportsfx', kind: 'homerun', batter: b.batter || '', team: b.battingName || '', grand: b.rbi >= 4, duration: 3.8 });
   const walkoffGraphic = (b) => ({ overlayType: 'sportsfx', kind: 'walkoff', batter: b.batter || '', team: b.battingName || '', home: home.name, away: away.name, homeScore: b.homeScore, awayScore: b.awayScore, duration: 4.4 });
   const dpGraphic = (b) => ({ overlayType: 'sportsfx', kind: 'doubleplay', batter: b.batter || '', duration: 2.4 });
@@ -2477,18 +2552,31 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
     for (const b of h.atbats) {
       const tok = beatTok(b), sb = beatBug(b);
       const gd = beatGameday(b);
+      if (b.type === 'run') {
+        // A play on the bases while the batter is up (sim v2). A steal, an out on the
+        // bases and anything that scores is always called; a throw over the runner beats
+        // back is colour, called only when the half still needs lines.
+        if (b.kind === 'throwover' && spoken >= target) continue;
+        const scored = (b.runs || 0) > 0;
+        const keys = b.kind === 'doublesteal' && b.out ? ['run.doublesteal.out', 'run.caughtstealing']
+          : (scored ? [`run.${b.kind}.score`, `run.${b.kind}`] : [`run.${b.kind}`]);
+        say(pick(...keys), tok, sb, null, gd); spoken++;
+        if (scored) { say(scoreUpdate(b), tok, sb); spoken++; }
+        if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
+        continue;
+      }
       if (b.kind === 'homerun') {
         const key = b.rbi >= 4 ? 'hr.grand' : (b.rbi === 1 ? 'hr.solo' : 'hr');
         say(pick(key, 'hr'), tok, sb, hrGraphic(b), gd); spoken++;
-        say(pick('score.update'), tok, sb); spoken++;
+        say(scoreUpdate(b), tok, sb); spoken++;
         if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
       } else if (b.kind === 'sacfly') {
         say(pick('atbat.sacfly'), tok, sb, null, gd); spoken++;
-        say(pick('score.update'), tok, sb); spoken++;
+        say(scoreUpdate(b), tok, sb); spoken++;
         if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
       } else if (b.kind === 'productout') {
         say(pick('atbat.productout', 'atbat.groundout'), tok, sb, null, gd); spoken++;
-        if (b.rbi > 0) { say(pick('score.update'), tok, sb); spoken++; }
+        if ((b.runs ?? b.rbi) > 0) { say(scoreUpdate(b), tok, sb); spoken++; }
         if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
       } else if (b.kind === 'tripleplay') {
         // Never chattered over and never padded past — a triple play ends the half and
@@ -2497,11 +2585,25 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
       } else if (b.kind === 'doubleplay') {
         say(pick('atbat.doubleplay'), tok, sb, dpGraphic(b), gd); spoken++;
         // A double play can drive in a run (man on third, nobody out). The scoreboard
-        // has to say so — the DP line itself never mentions it.
-        if (b.rbi > 0) { say(pick('score.update'), tok, sb); spoken++; }
+        // has to say so — the DP line itself never mentions it. (Sim v2 credits no RBI for
+        // it, so it's the run that counts here.)
+        if ((b.runs ?? b.rbi) > 0) { say(scoreUpdate(b), tok, sb); spoken++; }
+      } else if (b.kind === 'error') {
+        // Sim v2: an error is always called; it goes up on the board as an E.
+        say(pick(`atbat.error.${b.errorType}`, 'atbat.error'), tok, sb, null, gd); spoken++;
+        if (b.runs > 0) { say(scoreUpdate(b), tok, sb); spoken++; }
+        if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
+      } else if ((b.kind === 'hitbypitch' || b.kind === 'walk') && b.runs != null) {
+        // Sim v2's free passes: a hit batter has lines of its own, and a run forced in by
+        // either is called with the score, not as a base hit.
+        if (b.runs > 0 || spoken < target) {
+          say(pick(`atbat.${b.kind}`, 'atbat.walk'), tok, sb, null, gd); spoken++;
+          if (b.runs > 0) { say(scoreUpdate(b), tok, sb); spoken++; }
+          if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
+        }
       } else if (b.rbi > 0) {
         say(pick('rbi'), tok, sb, null, gd); spoken++;
-        say(pick('score.update'), tok, sb); spoken++;
+        say(scoreUpdate(b), tok, sb); spoken++;
         if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
       } else if (b.out) {
         // Call every out. Thread a chatter line between outs (never after the 3rd).
@@ -2536,11 +2638,16 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
     const narrateScore = (b, h) => {
       const tok = beatTok(b), sb = beatBug(b);
       const gd = beatGameday(b);
-      if (b.kind === 'homerun') { const key = b.rbi >= 4 ? 'hr.grand' : (b.rbi === 1 ? 'hr.solo' : 'hr'); say(pick(key, 'hr'), tok, sb, hrGraphic(b), gd); }
+      // Sim v2's scoring plays that aren't hits: a play on the bases, an error, a run forced
+      // in, a double play that scores.
+      if (b.type === 'run') say(pick(`run.${b.kind}.score`, `run.${b.kind}`), tok, sb, null, gd);
+      else if (b.kind === 'error') say(pick(`atbat.error.${b.errorType}`, 'atbat.error'), tok, sb, null, gd);
+      else if ((b.kind === 'hitbypitch' || b.kind === 'walk' || b.kind === 'doubleplay') && b.runs != null) say(pick(`atbat.${b.kind}`, 'atbat.walk'), tok, sb, null, gd);
+      else if (b.kind === 'homerun') { const key = b.rbi >= 4 ? 'hr.grand' : (b.rbi === 1 ? 'hr.solo' : 'hr'); say(pick(key, 'hr'), tok, sb, hrGraphic(b), gd); }
       else if (b.kind === 'sacfly') say(pick('atbat.sacfly'), tok, sb, null, gd);
       else if (b.kind === 'productout') say(pick('atbat.productout', 'atbat.groundout'), tok, sb, null, gd);
       else say(pick('rbi'), tok, sb, null, gd);
-      say(pick('score.update'), tok, sb);
+      say(scoreUpdate(b), tok, sb);
       if (b.walkoff) say(pick('walkoff'), tok, sb, walkoffGraphic(b));
     };
     say(pick('extras.intro'), gameTok, beatBug(extraHalves[0].start),
@@ -2556,7 +2663,7 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
         ? pick('extras.bottom.trail', 'extras.bottom', 'extras.cut')
         : pick(`extras.${h.start.half}`, 'extras.cut'),
         beatTok(h.start), beatBug(h.start));
-      const scorers = h.atbats.filter(b => b.rbi > 0);
+      const scorers = h.atbats.filter(b => (b.runs ?? b.rbi) > 0);
       if (scorers.length) for (const b of scorers) narrateScore(b, h);
       else if (!trailingHome) say(pick('extras.hold'), beatTok(h.end), beatBug(h.end));
     }
@@ -2732,6 +2839,7 @@ function sportsChannels() {
 }
 async function sportsHeartbeat() {
   const nowMs = Date.now();
+  await recordSimSwitches();
   const chans = sportsChannels();
   if (!chans.length) return;
   // Background postseason detection, per sport, with no viewer needed. Deduped so two
@@ -10145,6 +10253,8 @@ export const _test = {
   staffCallSlot: _staffCallSlot, staffCallLeadGameSec: _staffCallLeadGameSec, STAFF_CALL_LEAD_REAL_MIN,
   morningPlug: _morningPlug, RUNTIME_TOKENS,
   channelRuntime, recordBeat: _recordBeat, sendCatchUp, gamedayOnAir,
+  // The sim switch: the pure decision, the slot's version, and a seam to set the record in memory.
+  simVersionFor, nextSimSwitch, getSimSwitch: (sport) => _simSwitch.get(sport) || null, setSimSwitch: (sport, v) => (v ? _simSwitch.set(sport, v) : _simSwitch.delete(sport)),
   filmDayMask,
   // The call-sheet graph an actor is actually given. Exposed because the only other
   // way to see an actor performing off-shift is to watch a channel at 08:00 and
@@ -11367,6 +11477,7 @@ export const routeHandler = async (path, method, body, auth) => {
 
 // ── Startup ──────────────────────────────────────────────────────────────────
 
+await loadSimSwitches();   // before anything simulates a game
 await loadChannelRuntimes();
 await loadZoneTunings();
 await loadGraphicsCache();

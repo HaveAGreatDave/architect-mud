@@ -81,6 +81,15 @@
         "Two for the price of one. {batter} bounces into a double play. The {team} dugout deflates. {outs} gone.",
         "{batter} chops it right at 'em and they flip it around for a double play. Cruel game. {outs} away."
       ],
+      "atbat.error": [
+        "{batter} hits it right at {fielder}, and he boots it. Error, and {batter}'s aboard.",
+        "Routine grounder, and {fielder} can't come up with it. {batter} reaches on the error.",
+        "It goes right through {fielder}'s legs. {batter} is safe at first, and the crowd lets {fielder} hear about it."
+      ],
+      "atbat.error.throwing": [
+        "{fielder} fields it clean and throws it into the stands. {batter} is waved on to second.",
+        "The throw from {fielder} sails past first and rolls to the wall. {batter} takes second on the error."
+      ],
       "atbat.flyout": [
         "{batter} lifts it to the outfield. Camped under it, squeezed. {outs} away.",
         "Fly ball, {batter}, nothing on it. Caught. {outs} down.",
@@ -90,6 +99,11 @@
         "{batter} chops it into the dirt. Routine, throw across, he's out. {outs} away.",
         "Ground ball off the bat of {batter}, easy play, one more gone. {outs} down.",
         "{batter} rolls over on it. Grounder, out at first. {outs} in the books."
+      ],
+      "atbat.hitbypitch": [
+        "{pitcher} comes inside and plunks {batter}. He takes his base, slowly, and says something on the way.",
+        "That one gets {batter} on the elbow. Hit by pitch. He shakes it off and jogs to first.",
+        "{batter} wears one from {pitcher}. Free base, and a bruise to go with it."
       ],
       "atbat.out": [
         "{batter} is retired. {outs} away.",
@@ -247,6 +261,53 @@
         "After {inningOrd}: {away} {awayScore}, {home} {homeScore}. Grab a beer, it won't help.",
         "Three in the books at the turn of the {inningOrd}: {away} {awayScore}, {home} {homeScore}.",
         "Where we stand through {inningOrd}: {home} {homeScore}, {away} {awayScore}."
+      ],
+      "run.caughtstealing": [
+        "{runner} is going, and the throw is there! Caught stealing. {outs} away.",
+        "The catcher pops up and fires, tag applied. {runner} is out at {base}. {outs} down.",
+        "{runner} tries for {base} and gets thrown out by a step. {outs} gone."
+      ],
+      "run.doublesteal": [
+        "Double steal! Both runners go, and nobody throws. The {team} have two in scoring position.",
+        "They're both running, and they both make it. A double steal."
+      ],
+      "run.doublesteal.out": [
+        "Both runners go, and they nail {runner} at {base}. The trail man moves up on the throw. {outs} away."
+      ],
+      "run.passedball": [
+        "The catcher can't hold on to it. Passed ball, and the runners move up.",
+        "That one goes right through the catcher's mitt. Passed ball. Everybody moves up a base."
+      ],
+      "run.passedball.score": [
+        "Passed ball! It rolls to the screen and {runner} scores from third."
+      ],
+      "run.pickoff": [
+        "{pitcher} spins and throws to {base}, and {runner} is picked off! {outs} away.",
+        "{runner} wanders too far off {base} and {pitcher} catches him leaning. Picked off. {outs} down.",
+        "{runner} gets hung up off {base}, and they run him down. {outs} away."
+      ],
+      "run.steal": [
+        "{runner} takes off, and he's in there! Stolen base. {runner} on {base}.",
+        "Here goes {runner}. The throw's late. He swipes {base}.",
+        "{pitcher} is slow to the plate and {runner} makes him pay. That's a steal of {base}."
+      ],
+      "run.throwover": [
+        "{pitcher} throws over to {base}. {runner} dives back in time.",
+        "Throw over. {runner} gets back. The crowd lets {pitcher} know what it thinks of that.",
+        "{pitcher} checks {runner}, steps off, throws over. Safe. We go again."
+      ],
+      "run.wildpitch": [
+        "That one gets past the catcher! Wild pitch, and the runners move up.",
+        "{pitcher} bounces one in the dirt and it skips to the backstop. Wild pitch. Runners advance."
+      ],
+      "run.wildpitch.score": [
+        "Wild pitch! It gets away, and {runner} comes in to score!",
+        "{pitcher} buries one in the dirt, it rolls to the backstop, and {runner} trots home. A run on a wild pitch."
+      ],
+      "score.tied": [
+        "That ties it. {away} {awayScore}, {home} {homeScore}.",
+        "All square: {away} {awayScore}, {home} {homeScore}.",
+        "Dead level at {awayScore} apiece. We've got a ballgame."
       ],
       "score.update": [
         "That makes it {away} {awayScore}, {home} {homeScore}.",

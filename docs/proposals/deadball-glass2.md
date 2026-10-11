@@ -655,13 +655,16 @@ rather than at a new season:
   instead of reading stored results: the standings fold (`broadcast.computeStandings`) walks every
   slot of the season, the recap reel replays the day's earlier games, and team cards replay recent
   form. Swapping the sim in place would rewrite games that have already aired.
-- **So the switch is a slot, not a date.** The broadcast's sports pools carry the first slot played
-  under v2 (`sim: { v2FromSlot }`), and `sportsGameForSlot`, the one function every caller goes
+- **So the switch is a slot, not a date.** `sportsGameForSlot`, the one function every caller goes
   through, picks the version by slot. Every game before the switch replays as it aired; every game
   from it on plays v2. A season that straddles the switch counts both, which is what happened.
-- **The switch is always in the future when it ships.** It's set to the first slot of the in-game day
-  after the deploy. A push guard like `guard-deletions.mjs` refuses a push that sets or moves the
-  switch to a slot that has already aired; once it has aired, it never moves.
+- **The server records the slot (as built).** This plan first put the slot in content, with a push
+  guard to refuse a slot that had already aired. That guard couldn't work: the slots come from the
+  in-game clock, which lives in the database and staff can skip, so nothing outside the server
+  knows which have aired. Instead `@sim 2` in the `.bsm` (`sports_pools.sim.version`) asks for v2,
+  and the server writes the first slot of the next in-game day to world_flags the first time it
+  sees it. That slot is in the future when it's written and never moves; turning v2 off writes an
+  end slot the same way. See [systems-broadcast.md](../systems-broadcast.md#sim-v2).
 - **Seeded as the pitches are**, each new draw from `sportsHash` with its own salt, so v1 never
   changes, and the recorded hash of a hundred seeded games still holds for every slot before the
   switch.
@@ -1151,7 +1154,7 @@ game built on THOMAS keep it byte-for-byte?
 | The package's theme: words, colours, faces, the final's gold | Architect (content) | With the venue and club data. |
 | The postseason format | broadcast plugin | The sport module and `plugins/sportsleague`. |
 | Sim v2: errors, steals, pickoffs, wild pitches, hit batters, named runners | broadcast plugin | `baseball.js`, chosen by slot in `sportsGameForSlot`. |
-| The slot sim v2 switches on at | Architect (content) | `sports_pools.sim.v2FromSlot` on the broadcast. |
+| Whether Deadball plays sim v2 | Architect (content) | `@sim 2` in `baseball.bsm`, compiled to `sports_pools.sim.version`; the server records the slot (world_flags). |
 | SIREN and ORACLE changes | THOMAS (engine) | Ducking, the announcer channel, better noise, pan and sends help every view. |
 | The bank, the call words, the announcer's voice | Architect (content) | `deadball-sfx.js`, the words, a Voice Lab preset. |
 | The park on the map and the seats | Architect (content) | Zones, connections, furniture and a model arm in the region's file. The game-night cell bit is engine. |
@@ -1342,8 +1345,7 @@ reference machine and on an integrated laptop GPU and writes the numbers into
 | `scripts/content/build-deadball-clubs.mjs --check` | content | The row matches the script, sizes inside budget, colours hex. |
 | `scripts/audio/deadball-bank-smoke.mjs` | audio | Every cue builds from known layer fields, its summed peak gain stays under its group's ceiling, and every call fits ORACLE's shout length. |
 | `plugins/broadcast/regress.js`, the postseason | regress | `season` with its phase and the seeds on payloads, the final scheduled on an air day, the #1 seed at home. |
-| `plugins/broadcast/regress.js`, sim v2 | regress | Every slot before the switch matches the recorded v1 hash; a slot after it gives the same game twice; the standings fold across the switch counts each side once; errors, steals and the rest add up in the box score. |
-| `scripts/content/guard-sim-switch.mjs` | pre-push | A push that sets or moves `sim.v2FromSlot` names a slot that hasn't aired yet. |
+| `plugins/broadcast/regress.js`, sim v2 | regress | Built: the v1 hash holds; v2 with its new plays off is the v1 game; every v2 play's moves account for every man, the runs and the outs; the rates; the switch by slot; the payloads; the hitting race; a line for every new play. |
 | `scripts/shapes/smoke.mjs` and `sitecheck.mjs`, the park | shapes, content | Phase 6: every slice of the park draws without throwing, and every gate has its street. |
 | `scripts/shapes/cityscape-smoke.mjs` | shapes | Pure: composes the set from the content tree's manifest. Every building within reach resolves to a shape at the windshield's size and gets a plot or its place on the water, none inside the park's outline; bearings move under 3° at the median and under 25° within 900 ft; the edges are straight and on tile lines; every road tile's arms draw; nothing tall stands within 48 ft of a street-level camera; the light bake is fresh. |
 | `plugins/broadcast/regress.js` | regress | `sport`, `bats`, `throws`, `hold` present; `play` consistent with the kind; standings once a game; bare pools direction-free; a recorded hash of a hundred seeded games unchanged. |
@@ -1364,8 +1366,10 @@ text and graphics, the box score's E, SB and CS, and the switch slot. Its 3-D cl
 Phase 3, or with sim v2 if that comes later.
 - Named runners; errors; steals, caught stealing, pickoffs, the double steal and rundowns; wild
   pitches and passed balls; hit batters.
-- Tested by: regress (every slot before the switch unchanged, the fold across the switch), the push
-  guard for the switch, `variety-smoke` once Phase 3 exists.
+- Tested by: regress (the v1 hash, v2 off equal to v1, the switch by slot), `gameday-smoke` on v2
+  games, `variety-smoke` once Phase 3 exists. Built, with the E in the line score, apart from
+  rundowns as plays of their own (a pickoff line can call one), the stolen-base card, and SB and
+  CS anywhere on screen. The switch is `@sim 2`.
 
 **Phase 0: groundwork.** No visible change.
 - Standings once a game; `sport`, `bats`, `throws`, `hold`, `season`, `moves` and the park's weather
@@ -1466,8 +1470,8 @@ power grid.
   doesn't have. The landmarks keep their bearings and the Curtain and the bay are where they should
   be, and the set is only ever seen on TV.
 - **Sim v2 changes results.** Errors and steals change scores, and the standings re-simulate every
-  past slot, so the switch is a slot that's always in the future when it ships, and the v1 hash in
-  regress proves no game before it moved.
+  past slot, so the server records the switch slot in the future and never moves it, and the v1
+  hash in regress proves no game before it moved.
 - **The Curtain's height.** GLASS draws it 0.9 tiles tall, about 53 ft, though its comment in
   `windshield.js` and the zones' prose call it taller than anything in the city. The broadcast draws
   what GLASS draws, so the two agree, until someone decides otherwise for both.

@@ -106,9 +106,16 @@ const PLAY_DESC = {
   strikeout: 'Strikeout', groundout: 'Groundout', flyout: 'Flyout', popout: 'Pop Out',
   single: 'Single', double: 'Double', triple: 'Triple', walk: 'Walk', homerun: 'Home Run',
   doubleplay: 'Double Play', tripleplay: 'Triple Play', sacfly: 'Sacrifice Fly', productout: 'Groundout',
+  // Sim v2.
+  hitbypitch: 'Hit by Pitch', steal: 'Stolen Base', caughtstealing: 'Caught Stealing', pickoff: 'Picked Off',
+  throwover: 'Throw Over', doublesteal: 'Double Steal', wildpitch: 'Wild Pitch', passedball: 'Passed Ball',
 };
+// Scorers' numbers, for an error's E6.
+const POSITION_NUMBER = { P: 1, C: 2, '1B': 3, '2B': 4, '3B': 5, SS: 6, LF: 7, CF: 8, RF: 9 };
 export function playDesc(b) {
   if (b.kind === 'homerun') return b.rbi >= 4 ? 'Grand Slam' : (b.rbi > 1 ? `Home Run, ${b.rbi} RBI` : 'Home Run');
+  if (b.kind === 'error') return `Reached on E${POSITION_NUMBER[b.fielder] || ''}${b.runs > 0 ? `, ${b.runs} ${b.runs > 1 ? 'runs score' : 'run scores'}` : ''}`;
+  if (b.type === 'run') return `${PLAY_DESC[b.kind] || 'Play'}${b.runs > 0 ? ', run scores' : ''}`;
   const base = PLAY_DESC[b.kind] || 'In Play';
   return (b.rbi > 0 && b.kind !== 'walk') ? `${base}, ${b.rbi} RBI` : base;
 }
@@ -116,11 +123,14 @@ export function playDesc(b) {
 // Build the pitch sequence for one at-bat. Returns pitches ending in the terminal
 // pitch that produces `kind`. Each pitch: {n, type, velo, x, y, result, balls, strikes}
 // where x,y ∈ [0,1] (the strike zone is the box ~0.25–0.75) and result is one of
-// ball | called | swinging | foul | inplay. balls/strikes are the count AFTER the pitch.
+// ball | called | swinging | foul | inplay, or hbp for the pitch that hits a batter (sim
+// v2). balls/strikes are the count AFTER the pitch.
 export function synthPitches(seed, kind) {
   const rand = sportsRng(seed);
   const pickType = () => { let r = rand() * PITCH_TOTAL; for (const p of PITCH_TYPES) { r -= p.w; if (r <= 0) return p; } return PITCH_TYPES[0]; };
   const zone = (result) => {
+    // A hit batter: well inside, at the hands or the hip.
+    if (result === 'hbp') return { x: rand() < 0.5 ? 0.02 + rand() * 0.04 : 0.94 + rand() * 0.04, y: 0.35 + rand() * 0.35 };
     if (result === 'ball') {
       // At least one axis off the plate.
       const out = () => (rand() < 0.5 ? 0.04 + rand() * 0.16 : 0.80 + rand() * 0.16);
@@ -130,7 +140,7 @@ export function synthPitches(seed, kind) {
     const edge = result === 'foul' ? 0.16 : 0.24;
     return { x: 0.5 + (rand() - 0.5) * (1 - edge), y: 0.5 + (rand() - 0.5) * (1 - edge) };
   };
-  const terminal = kind === 'strikeout' ? 'strike' : (kind === 'walk' ? 'ball' : 'inplay');
+  const terminal = kind === 'strikeout' ? 'strike' : (kind === 'walk' ? 'ball' : (kind === 'hitbypitch' ? 'hbp' : 'inplay'));
   let preBalls, preStrikes;
   if (terminal === 'strike') { preBalls = Math.floor(rand() * 4); preStrikes = 2; }      // K on strike three
   else if (terminal === 'ball') { preBalls = 3; preStrikes = Math.floor(rand() * 3); }    // BB on ball four
@@ -144,14 +154,14 @@ export function synthPitches(seed, kind) {
   if (preStrikes === 2) { let extra = 0; while (rand() < 0.30 && extra++ < 2) pre.push('foul'); }
 
   const terminalResult = terminal === 'strike' ? (rand() < 0.5 ? 'called' : 'swinging')
-    : (terminal === 'ball' ? 'ball' : 'inplay');
+    : (terminal === 'ball' ? 'ball' : (terminal === 'hbp' ? 'hbp' : 'inplay'));
   const results = [...pre, terminalResult];
 
   let balls = 0, strikes = 0;
   return results.map((result, i) => {
     if (result === 'ball') balls++;
     else if (result === 'foul') { if (strikes < 2) strikes++; }
-    else strikes++;
+    else if (result !== 'hbp') strikes++;   // the pitch that hits him counts as neither
     const p = pickType();
     const z = zone(result);
     return {
@@ -314,6 +324,308 @@ export function simGame(matchup, players, rand = Math.random) {
   return { away, home, awayScore: away.score, homeScore: home.score, beats, innings: inning };
 }
 
+// ── Sim v2 ───────────────────────────────────────────────────────────────────
+// The plays v1 never had: errors, hit batters, the running game (steals, caught
+// stealing, pickoffs and the throw over a runner beats back, the double steal), and
+// wild pitches and passed balls. A game plays v2 from the slot the league switched it
+// on at (sportsGameForSlot picks the version by slot); every game before that replays
+// as it aired, because the standings, the recaps and the team cards re-simulate them.
+//
+// It's v1's game with named runners. Every draw v1 makes, v2 makes in the same order
+// from the same stream, and every new decision draws from a stream of its own seeded
+// from the game's seed. So with the new plays turned off (SIM_V2_OFF) a v2 game is the
+// v1 game play for play, and regress checks that it is. (Only the home side's names
+// differ: see below.)
+//
+// What it adds to the beats:
+//   • Every at-bat carries `runs` (scored on the play), `runners` (the names on the
+//     bags after it) and `moves` (every man's fate, lead runner first and the batter
+//     last, in the shape runnerMoves in baseball-gameday.js describes, with his `name`).
+//     `rbi` is the batter's true RBI: none on an error or a double play, which v1
+//     credited.
+//   • Two at-bat kinds: `hitbypitch`, and `error` (he reached on one) with `fielder`,
+//     the position charged, and `errorType`, 'fielding' or 'throwing'.
+//   • A beat type, `run`, for a play while a batter is up: steal, caughtstealing,
+//     pickoff, throwover, doublesteal, wildpitch or passedball, with `runner` (the man
+//     running) and `base` (the bag in play). One that makes the third out ends the half
+//     with the batter still up, and he leads off the next inning.
+//   • The game carries `version: 2`.
+export const SIM_V2_RATES = Object.freeze({
+  error: 10 / 162,       // of singles: he reached on an error instead (v1's single weight carried them)
+  throwingError: 0.3,    // of errors: thrown away, so the batter takes second and every runner two bags
+  hitByPitch: 10 / 94,   // of walks: a hit batter instead (v1's walk weight carried them)
+  wildPitch: 0.012,      // per plate appearance with anybody on
+  passedBall: 0.003,
+  throwOver: 0.05,       // per plate appearance with a man on first and second open
+  pickoff: 0.14,         // of throws over: he's caught off the bag
+  steal: 0.11,           // per plate appearance with a man on first and second open, scaled by his legs
+  stealThird: 0.025,     // per plate appearance with a man on second and nobody else on
+  doubleSteal: 0.015,    // per plate appearance with first and second on and third open
+  doubleStealOut: 0.15,  // of double steals: the lead runner is thrown out at third
+});
+export const SIM_V2_OFF = Object.freeze(Object.fromEntries(Object.keys(SIM_V2_RATES).map((k) => [k, 0])));
+
+// A player's legs, his arm and how quick he is to the plate, from his name as his
+// handedness is, so he's the same in every game. Each is 0 to 1.
+const traitOf = (name, salt) => (nameHash(name, salt) & 0xffff) / 65536;
+export const speedOf = (name) => traitOf(name, 0x5350);
+export const armOf = (name) => traitOf(name, 0x4152);
+export const quicknessOf = (name) => traitOf(name, 0x5155);
+
+// Where each lineup slot plays (the pitcher doesn't bat; the ninth slot is the DH). In
+// v2 the catcher's arm decides steals and an error is charged to a position.
+export const LINEUP_POSITIONS = ['CF', 'SS', 'LF', '1B', 'RF', '3B', 'C', '2B', 'DH'];
+const CATCHER_SLOT = LINEUP_POSITIONS.indexOf('C');
+// Who boots it: infielders mostly, the shortstop most of all.
+const ERROR_FIELDERS = [['SS', 30], ['3B', 22], ['2B', 18], ['1B', 10], ['P', 5], ['LF', 5], ['CF', 5], ['RF', 5]];
+const ERROR_FIELDERS_TOTAL = ERROR_FIELDERS.reduce((s, [, w]) => s + w, 0);
+// A batter thrown out after running it out, rather than retired where he stood.
+const RAN_IT_OUT = new Set(['groundout', 'productout', 'doubleplay', 'tripleplay']);
+
+export function simGameV2(matchup, players, rand = Math.random, { seed = 0, rates = SIM_V2_RATES } = {}) {
+  const side = sportsRng(sportsHash(seed >>> 0, 0x5132));
+  const awayName = matchup?.away || 'Away', homeName = matchup?.home || 'Home';
+  const names = sportsShuffle((Array.isArray(players) && players.length) ? players : DEFAULT_NAMES, rand);
+  const mk = (name, off) => ({
+    name, score: 0, idx: 0,
+    lineup: Array.from({ length: 9 }, (_, k) => names[(off + k) % names.length]),
+    pitcher: names[(off + 9) % names.length],
+  });
+  const away = mk(awayName, 0);
+  // v1 starts the home nine at the tenth name, which is also the away pitcher, so the
+  // home leadoff man could bat against himself. v2 starts them one name on. Names take
+  // no draws, so this moves no play.
+  const home = mk(homeName, 10 % Math.max(names.length, 1));
+
+  const beats = [];
+  let gameOver = false, inning = 0;
+
+  const playHalf = (half, batting, fielding) => {
+    beats.push({ type: 'half_start', inning, half, battingName: batting.name, fieldingName: fielding.name, pitcher: fielding.pitcher, awayScore: away.score, homeScore: home.score });
+    let outs = 0, walkoff = false;
+    const occ = [null, null, null];          // who's on first, second and third
+    const on = (i) => occ[i] != null;
+    const pitcher = fielding.pitcher, catcher = fielding.lineup[CATCHER_SLOT];
+    const head = () => ({ inning, half, battingName: batting.name, fieldingName: fielding.name });
+    const tail = () => ({ awayScore: away.score, homeScore: home.score, walkoff, bases: occ.map((n) => n != null), runners: occ.slice() });
+    // A play's moves, every runner who didn't move added as holding, lead runner first.
+    const settle = (before, moves) => {
+      for (let n = 1; n <= 3; n++) if (before[n - 1] != null && !moves.some((m) => m.from === n)) moves.push({ from: n, to: n, name: before[n - 1] });
+      return moves.sort((a, b) => b.from - a.from);
+    };
+
+    // A play on the bases while `batter` is up, before his at-bat resolves. True when it
+    // ended the half or the game.
+    const runningGame = (batter) => {
+      if (!on(0) && !on(1) && !on(2)) return false;
+      const appetite = (name) => 0.3 + 1.4 * speedOf(name) ** 2;
+      const r = side();
+      let p = 0, kind = null;
+      if (r < (p += rates.wildPitch)) kind = 'wildpitch';
+      else if (r < (p += rates.passedBall)) kind = 'passedball';
+      else if (on(0) && !on(1) && r < (p += rates.throwOver)) kind = 'throwover';
+      else if (on(0) && !on(1) && r < (p += rates.steal * appetite(occ[0]))) kind = 'steal';
+      else if (on(0) && on(1) && !on(2) && r < (p += rates.doubleSteal)) kind = 'doublesteal';
+      else if (!on(0) && on(1) && !on(2) && r < (p += rates.stealThird * appetite(occ[1]))) kind = 'steal';
+      if (!kind) return false;
+      const before = occ.slice(), moves = [];
+      let runs = 0, out = false, runner, base;
+      if (kind === 'wildpitch' || kind === 'passedball') {
+        // Everybody moves up a bag, and a man on third scores.
+        for (let n = 3; n >= 1; n--) if (before[n - 1] != null) moves.push({ from: n, to: n + 1, name: before[n - 1] });
+        runs = before[2] != null ? 1 : 0;
+        occ[2] = before[1]; occ[1] = before[0]; occ[0] = null;
+        runner = moves[0].name; base = moves[0].to;
+      } else if (kind === 'throwover') {
+        runner = before[0]; base = 1;
+        if (side() < rates.pickoff) { kind = 'pickoff'; out = true; occ[0] = null; moves.push({ from: 1, out: 1, name: runner }); }
+      } else if (kind === 'steal') {
+        const from = before[0] != null ? 1 : 2;
+        runner = before[from - 1]; base = from + 1;
+        const odds = 0.62 + 0.35 * (speedOf(runner) - 0.5) - 0.2 * (armOf(catcher) - 0.5) - 0.15 * (quicknessOf(pitcher) - 0.5) - (from === 2 ? 0.06 : 0);
+        occ[from - 1] = null;
+        if (side() < Math.min(0.95, Math.max(0.3, odds))) { occ[from] = runner; moves.push({ from, to: from + 1, name: runner }); }
+        else { kind = 'caughtstealing'; out = true; moves.push({ from, out: from + 1, name: runner }); }
+      } else {
+        // The double steal: first and second go together, and the throw goes to third.
+        runner = before[1]; base = 3;
+        occ[0] = null; occ[1] = before[0];
+        moves.push({ from: 1, to: 2, name: before[0] });
+        if (side() < rates.doubleStealOut) { out = true; moves.push({ from: 2, out: 3, name: before[1] }); }
+        else { occ[2] = before[1]; moves.push({ from: 2, to: 3, name: before[1] }); }
+      }
+      if (out) outs += 1;
+      batting.score += runs;
+      walkoff = half === 'bottom' && inning >= 9 && runs > 0 && home.score > away.score;
+      beats.push({ type: 'run', ...head(), batter, pitcher, kind, runner, base, out, outs, rbi: 0, runs, ...tail(), moves: settle(before, moves) });
+      return outs >= 3 || walkoff;
+    };
+
+    while (outs < 3) {
+      const batter = batting.lineup[batting.idx % 9];
+      batting.idx++;
+      if (runningGame(batter)) {
+        if (!walkoff) batting.idx--;   // the third out came on the bases: he leads off the next inning
+        break;
+      }
+      const ab = rollAtBat(rand);
+      let kind = ab.kind, runs = 0;
+      const before = occ.slice(), moves = [];
+
+      if (ab.out) {
+        // v1's outs, draw for draw.
+        if (ab.kind === 'groundout' && on(0) && on(1) && outs === 0 && rand() < TP_CHANCE) {
+          kind = 'tripleplay';             // force at third, force at second, throw to first
+          if (on(2)) moves.push({ from: 3, off: true, name: before[2] });
+          moves.push({ from: 2, out: 3, name: before[1] }, { from: 1, out: 2, name: before[0] });
+          occ[0] = occ[1] = occ[2] = null;
+          outs = 3;
+        } else if (ab.kind === 'groundout' && on(0) && outs < 2 && rand() < DP_CHANCE) {
+          kind = 'doubleplay';             // the batter and the force at second
+          outs += 2;
+          // A man on third scores unless it was the third out; a man on second is forced up.
+          if (on(2)) {
+            if (outs < 3) { runs += 1; moves.push({ from: 3, to: 4, name: before[2] }); }
+            else moves.push({ from: 3, off: true, name: before[2] });
+          }
+          if (on(1)) moves.push({ from: 2, to: 3, name: before[1] });
+          moves.push({ from: 1, out: 2, name: before[0] });
+          occ[2] = before[1]; occ[1] = null; occ[0] = null;
+        } else if (ab.kind === 'flyout' && on(2) && outs < 2 && rand() < SACFLY_CHANCE) {
+          kind = 'sacfly';                  // the runner tags from third and scores
+          runs = 1; moves.push({ from: 3, to: 4, name: before[2] }); occ[2] = null;
+          outs += 1;
+        } else {
+          outs += 1;
+          if (ab.kind === 'groundout' && outs < 3 && on(0) && rand() < FORCE_ADVANCE_CHANCE) {
+            kind = 'productout';            // out at first, every runner forced up
+            if (on(2)) { runs += 1; moves.push({ from: 3, to: 4, name: before[2] }); }
+            if (on(1)) moves.push({ from: 2, to: 3, name: before[1] });
+            moves.push({ from: 1, to: 2, name: before[0] });
+            occ[2] = before[1]; occ[1] = before[0]; occ[0] = null;
+          } else if (ab.kind === 'groundout' && outs < 3 && !on(0) && (on(1) || on(2)) && rand() < PRODUCTIVE_OUT_CHANCE) {
+            kind = 'productout';            // a grounder to the right side moves them up
+            if (on(2)) { runs += 1; moves.push({ from: 3, to: 4, name: before[2] }); occ[2] = null; }
+            if (on(1)) { moves.push({ from: 2, to: 3, name: before[1] }); occ[2] = before[1]; occ[1] = null; }
+          }
+        }
+        batting.score += runs;
+        walkoff = half === 'bottom' && inning >= 9 && runs > 0 && home.score > away.score;
+        moves.push({ from: 0, out: RAN_IT_OUT.has(kind) ? 1 : 0, name: batter });
+        const rbi = kind === 'doubleplay' || kind === 'tripleplay' ? 0 : runs;
+        beats.push({ type: 'atbat', ...head(), batter, pitcher, kind, out: true, outs, rbi, runs, ...tail(), moves: settle(before, moves) });
+        if (walkoff) break;
+        continue;
+      }
+
+      // He reached. A hit batter comes out of the walk's share of the table and an error
+      // out of the single's, decided on the new stream.
+      if (kind === 'walk' && side() < rates.hitByPitch) kind = 'hitbypitch';
+      else if (kind === 'single' && side() < rates.error) kind = 'error';
+      let fielder = null, errorType = null;
+      if (kind === 'walk' || kind === 'hitbypitch') {
+        // Only forced runners move.
+        if (on(0)) {
+          if (on(1)) {
+            if (on(2)) { runs = 1; moves.push({ from: 3, to: 4, name: before[2] }); }
+            moves.push({ from: 2, to: 3, name: before[1] }); occ[2] = before[1];
+          }
+          moves.push({ from: 1, to: 2, name: before[0] }); occ[1] = before[0];
+        }
+        occ[0] = batter; moves.push({ from: 0, to: 1, name: batter });
+      } else if (kind === 'error') {
+        // Booted, everybody moves up a bag and the batter takes first; thrown away, two
+        // bags and second.
+        let w = side() * ERROR_FIELDERS_TOTAL;
+        fielder = (ERROR_FIELDERS.find(([, n]) => (w -= n) <= 0) || ERROR_FIELDERS[0])[0];
+        errorType = side() < rates.throwingError ? 'throwing' : 'fielding';
+        const step = errorType === 'throwing' ? 2 : 1;
+        occ[0] = occ[1] = occ[2] = null;
+        for (let n = 3; n >= 1; n--) {
+          const name = before[n - 1];
+          if (name == null) continue;
+          const to = Math.min(4, n + step);
+          moves.push({ from: n, to, name });
+          if (to === 4) runs += 1; else occ[to - 1] = name;
+        }
+        occ[step - 1] = batter; moves.push({ from: 0, to: step, name: batter });
+      } else {
+        // v1's hits, draw for draw.
+        const [n0, n1, n2] = before;
+        occ[0] = occ[1] = occ[2] = null;
+        if (kind === 'single') {
+          if (n2 != null) { runs++; moves.push({ from: 3, to: 4, name: n2 }); }
+          if (n1 != null) { if (rand() < 0.72) { runs++; moves.push({ from: 2, to: 4, name: n1 }); } else { occ[2] = n1; moves.push({ from: 2, to: 3, name: n1 }); } }
+          if (n0 != null) { if (rand() < 0.42 && occ[2] == null) { occ[2] = n0; moves.push({ from: 1, to: 3, name: n0 }); } else { occ[1] = n0; moves.push({ from: 1, to: 2, name: n0 }); } }
+          occ[0] = batter; moves.push({ from: 0, to: 1, name: batter });
+        } else if (kind === 'double') {
+          if (n2 != null) { runs++; moves.push({ from: 3, to: 4, name: n2 }); }
+          if (n1 != null) { runs++; moves.push({ from: 2, to: 4, name: n1 }); }
+          if (n0 != null) { if (rand() < 0.62) { runs++; moves.push({ from: 1, to: 4, name: n0 }); } else { occ[2] = n0; moves.push({ from: 1, to: 3, name: n0 }); } }
+          occ[1] = batter; moves.push({ from: 0, to: 2, name: batter });
+        } else {
+          for (const [n, name] of [[3, n2], [2, n1], [1, n0]]) if (name != null) { runs++; moves.push({ from: n, to: 4, name }); }
+          if (kind === 'triple') { occ[2] = batter; moves.push({ from: 0, to: 3, name: batter }); }
+          else { runs++; moves.push({ from: 0, to: 4, name: batter }); }
+        }
+      }
+      batting.score += runs;
+      walkoff = half === 'bottom' && inning >= 9 && runs > 0 && home.score > away.score;
+      const rbi = kind === 'error' ? 0 : runs;
+      beats.push({ type: 'atbat', ...head(), batter, pitcher, kind, out: false, outs, rbi, runs, ...(fielder ? { fielder, errorType } : {}), ...tail(), moves: settle(before, moves) });
+      if (walkoff) break;
+    }
+    beats.push({ type: 'half_end', inning, half, battingName: batting.name, fieldingName: fielding.name, awayScore: away.score, homeScore: home.score });
+    return walkoff;
+  };
+
+  // v1's decisive extra-inning frame, with the batter named as the man who scored.
+  const forceFinish = () => {
+    inning = Math.max(inning, 10);
+    const homeWins = rand() < 0.5;
+    const bat = homeWins ? home : away, fld = homeWins ? away : home;
+    const half = homeWins ? 'bottom' : 'top';
+    const r = rand();
+    const kind = r < 0.15 ? 'homerun' : (r < 0.5 ? 'double' : 'single');
+    bat.score += 1;
+    const batter = bat.lineup[bat.idx % 9];
+    beats.push({ type: 'half_start', inning, half, battingName: bat.name, fieldingName: fld.name, pitcher: fld.pitcher, awayScore: away.score - (homeWins ? 0 : 1), homeScore: home.score - (homeWins ? 1 : 0) });
+    beats.push({ type: 'atbat', inning, half, battingName: bat.name, fieldingName: fld.name, batter, pitcher: fld.pitcher, kind, out: false, outs: 0, rbi: 1, runs: 1, awayScore: away.score, homeScore: home.score, walkoff: homeWins, bases: [false, false, false], runners: [null, null, null], moves: [{ from: 0, to: 4, name: batter }] });
+    beats.push({ type: 'half_end', inning, half, battingName: bat.name, fieldingName: fld.name, awayScore: away.score, homeScore: home.score });
+  };
+
+  while (!gameOver && inning < MAX_INNINGS) {
+    inning++;
+    playHalf('top', away, home);
+    if (inning >= 9 && home.score > away.score) { gameOver = true; break; }
+    if (playHalf('bottom', home, away)) { gameOver = true; break; }
+    if (inning >= 9 && away.score !== home.score) { gameOver = true; break; }
+    if (inning >= 10) {
+      const decide = Math.min(1, (inning - 10) * EXTRAS_DECIDE_STEP);
+      if (decide > 0 && rand() < decide) { forceFinish(); gameOver = true; break; }
+    }
+  }
+  if (away.score === home.score) forceFinish();
+
+  return { away, home, awayScore: away.score, homeScore: home.score, beats, innings: inning, version: 2 };
+}
+
+// The booth's words for a sim v2 play: {runner}, {base} (the bag in play) and {fielder}
+// (charged with an error), as "second" and "the shortstop".
+const BASE_WORDS = { 1: 'first', 2: 'second', 3: 'third', 4: 'home' };
+const FIELDER_WORDS = {
+  P: 'the pitcher', C: 'the catcher', '1B': 'the first baseman', '2B': 'the second baseman', '3B': 'the third baseman',
+  SS: 'the shortstop', LF: 'the left fielder', CF: 'the centre fielder', RF: 'the right fielder',
+};
+export function playTokens(b) {
+  return { runner: b.runner || '', base: BASE_WORDS[b.base] || '', fielder: FIELDER_WORDS[b.fielder] || '' };
+}
+
+// The descriptor's sim: v2 when sportsGameForSlot says the slot plays it, else v1.
+function simGameFor(matchup, players, rand, opts) {
+  return opts?.version === 2 ? simGameV2(matchup, players, rand, opts) : simGame(matchup, players, rand);
+}
+
 // ── Sport descriptor ─────────────────────────────────────────────────────────
 // The shape a second sport plugs into. `section` is the {section}/{sectionOrd}
 // token vocabulary from docs/bsm-format.md — hockey sets this to 'period'.
@@ -371,6 +683,8 @@ export const SEASON = {
   // a way people notice:
   //   • A WALK is not an at-bat. It counts as a plate appearance and nothing else.
   //   • A SACRIFICE FLY is not an at-bat either — you gave yourself up for the run.
+  //   • Nor is being HIT BY A PITCH (sim v2). Reaching on an ERROR is an at-bat
+  //     without a hit.
   //   • Everything else (including a double play or a productive out, which are
   //     just outs the batter is charged with) is an at-bat.
   // Get those two exclusions wrong and every average in the league reads low.
@@ -384,7 +698,7 @@ export const SEASON = {
       // out for either side across a season and the recent one reads truer.
       r.team = b.battingName || r.team;
       r.pa += 1;
-      if (b.kind !== 'walk' && b.kind !== 'sacfly') r.ab += 1;
+      if (b.kind !== 'walk' && b.kind !== 'sacfly' && b.kind !== 'hitbypitch') r.ab += 1;
       if (HIT_KINDS.has(b.kind)) r.hits += 1;
       if (b.kind === 'homerun') r.hr += 1;
       r.rbi += b.rbi || 0;
@@ -421,9 +735,13 @@ export const BASEBALL = {
   season: SEASON,
   section: 'inning',
   sectionPlural: 'innings',
-  simGame,
+  simGame: simGameFor,
+  // The sim versions this sport has. sportsGameForSlot picks one by slot; see the switch
+  // in broadcast/index.js.
+  simVersions: [1, 2],
   synthDetail: synthPitches,
   playDesc,
+  playTokens,
   handOf,
   battingSide,
   defaultNames: DEFAULT_NAMES,
