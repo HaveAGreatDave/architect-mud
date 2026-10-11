@@ -413,123 +413,121 @@ const HL = { navy: '#16244f', green: '#0d5a32', black: '#141414', ginger: '#e262
   woad: '#2f63c4', woadDeep: '#1d3f8a', white: '#ffffff', mouth: '#5c1010', wood: '#d4a464', woodDeep: '#93683a', tape: '#1d1d1d', hose: '#efe7d6', red: '#c8102e', boot: '#1a1a1a', silver: '#c9cfd4', fur: '#f3efe6' };
 function highlanders() {
   const C = 50;
-  // the stick, raised overhead in both fists like a claymore about to come down: the
-  // butt behind his head, the shaft up to the right, the taped blade at the top
-  const butt = [41, 14], heel = [91, 0];
+  const ink = HL.black;
+  // ── the head, drawn through a transform so the small crest can blow it up ──
+  // hair blown back in flames, the face half woad, a forked beard, roaring
+  const head = (t) => {
+    const P0 = (x, y) => ap(t, x, y);
+    const k = t ? t.sx : 1;
+    const hair = [];
+    const spikes = 15;
+    for (let i = 0; i <= spikes * 2; i++) {
+      const a = Math.PI * 0.9 + (i / (spikes * 2)) * Math.PI * 1.2;
+      const r = i % 2 ? 9.4 : 13.4 + (i % 4 === 0 ? 1.2 : 0);
+      hair.push([50 + r * Math.cos(a), 25.6 + r * Math.sin(a) * 0.98]);
+    }
+    hair.push([57.4, 31], [42.6, 31]);
+    const face = ellipsePts(50, 25.4, 6.6, 7.8, 0, 48);
+    const woad = ellipseSide(50, 25.4, 6.6, 7.8, 50.4, 25, -0.99, 0.12);
+    const beard = [['M', 43.6, 25.6], ['C', 42.8, 31, 44, 36, 46.6, 39], ['L', 47.8, 37], ['L', 49, 40.4], ['L', 50.6, 37.4], ['L', 52, 40.2], ['L', 53.4, 37],
+      ['L', 54, 38.6], ['C', 56.4, 35.6, 57.6, 31, 56.4, 25.6], ['C', 54.6, 29, 52.6, 30.2, 50, 30.2], ['C', 47.4, 30.2, 45.4, 29, 43.6, 25.6], ['Z']];
+    const tache = [['M', 50, 28.2], ['C', 48, 27.2, 45.4, 27.6, 44.4, 30], ['C', 46.2, 29.2, 48.2, 29.2, 50, 29.6], ['C', 51.8, 29.2, 53.8, 29.2, 55.6, 30], ['C', 54.6, 27.6, 52, 27.2, 50, 28.2], ['Z']];
+    const mouth = [['M', 46.8, 30], ['C', 47.8, 29.2, 52.2, 29.2, 53.2, 30], ['C', 53.4, 33.2, 51.8, 35.4, 50, 35.4], ['C', 48.2, 35.4, 46.6, 33.2, 46.8, 30], ['Z']];
+    const teeth = [['M', 47.3, 30.2], ['L', 52.7, 30.2], ['L', 52.4, 31.3], ['L', 47.6, 31.3], ['Z']];
+    const nose = [[50, 24.6], [51.4, 27.6], [48.6, 27.6]];
+    const brows = poly([[44.4, 20.8], [49.4, 22.8], [49.2, 24.2], [44.2, 22.4]], t) + poly([[55.6, 20.8], [50.6, 22.8], [50.8, 24.2], [55.8, 22.4]], t);
+    const eyes = circle(...P0(47, 24.2), 1.6 * k) + circle(...P0(53, 24.2), 1.6 * k);
+    const pupils = circle(...P0(47.4, 24.5), 0.65 * k) + circle(...P0(52.6, 24.5), 0.65 * k);
+    return [
+      L(poly(hair, t), HL.ginger, { stroke: ink, sw: 1.2 * k }),
+      L(poly(face, t), HL.skin, { stroke: ink, sw: 1 * k }),
+      L(poly(woad, t), HL.woad),
+      L(shape(beard, t), HL.ginger, { stroke: ink, sw: 1 * k }),
+      L(shape(tache, t), HL.gingerDeep),
+      L(shape(mouth, t), HL.mouth, { stroke: ink, sw: 0.7 * k }),
+      L(shape(teeth, t), HL.white),
+      L(poly(ellipsePts(50, 34.1, 1.8, 0.9), t), '#b8343a'),
+      L(poly(nose, t), HL.skinShade),
+      L(eyes, HL.white, { stroke: ink, sw: 0.55 * k }),
+      L(pupils, ink),
+      L(brows, HL.gingerDeep, { stroke: ink, sw: 0.5 * k }),
+    ];
+  };
+  // ── the stick, raised overhead in both fists like a claymore about to come down ──
+  const butt = [40, 14.5], heel = [84.5, 2.2];
   const shaft = `M${P(...butt)}L${P(...heel)}`;
   const sa = Math.atan2(heel[1] - butt[1], heel[0] - butt[0]);
-  // the blade leaves the heel at a hockey lie, toe down and to the right
   const bt = T({ tx: heel[0], ty: heel[1], rot: sa + 2.1 });
   const blade = shape([['M', -1.6, -2.4], ['L', 14.4, -2.6], ['C', 16.6, -2.6, 17.4, 0.6, 15.6, 2.2], ['L', 0.4, 2.8], ['C', -1.8, 2.4, -2.6, -0.4, -1.6, -2.4], ['Z']], bt);
   const tapeD = shape([['M', 3.4, -2.5], ['L', 13.6, -2.6], ['C', 15.6, -2.4, 16, 0.8, 14.6, 2.3], ['L', 3.4, 2.7], ['Z']], bt);
-  const knob = `M${P(butt[0] - Math.cos(sa) * 1.5, butt[1] - Math.sin(sa) * 1.5)}L${P(butt[0] + Math.cos(sa) * 4.5, butt[1] + Math.sin(sa) * 4.5)}`;
-  const onShaft = (t) => [butt[0] + (heel[0] - butt[0]) * t, butt[1] + (heel[1] - butt[1]) * t];
-  const fistA = onShaft(0.16), fistB = onShaft(0.3);
-  // the body
-  const torso = [['M', 31, 49], ['C', 38, 46, 56, 46, 63, 49], ['L', 60, 64], ['L', 34, 64], ['Z']];
-  const pec = [['M', 39, 55], ['Q', 43, 58, 47, 55.5], ['M', 47, 55.5], ['Q', 51, 58, 55, 55], ['M', 47, 59], ['L', 47, 64]];
-  const sash = [['M', 31, 49.5], ['L', 37.5, 47.6], ['L', 60.8, 62.2], ['L', 59.4, 64.6], ['Z']];
-  const belt = [['M', 33.8, 62.4], ['L', 60.2, 62.4], ['L', 60.4, 66], ['L', 33.6, 66], ['Z']];
-  const buckle = rrect(44.6, 61.8, 5, 4.8, 0.8);
-  // the kilt is drawn knee-length and then taken up, so the legs below it get their length
-  const ky = (cmds) => cmds.map((c) => (c[0] === 'Z' ? c : [c[0], ...c.slice(1).map((v, i) => (i % 2 ? 65.8 + (v - 68.8) * 0.784 : v))]));
-  const kilt = ky([['M', 33.4, 68.8], ['L', 60.6, 68.8], ['L', 64.8, 85.6], ['L', 61.6, 84.6], ['L', 58.4, 86.2], ['L', 55.2, 84.8], ['L', 52, 86.4], ['L', 48.8, 84.9],
-    ['L', 45.6, 86.4], ['L', 42.4, 84.8], ['L', 39.2, 86.2], ['L', 36, 84.6], ['L', 32.4, 85.8], ['Z']]);
-  const pleats = ky([['M', 39.6, 70], ['L', 38.4, 84.4], ['M', 45.4, 70], ['L', 45, 85.2], ['M', 51.2, 70], ['L', 51.8, 85.2], ['M', 57, 70], ['L', 58.4, 84.6]]);
-  const sporran = ky([['M', 44, 70.5], ['L', 50.2, 70.5], ['C', 52, 74, 51.6, 78.4, 47.1, 80.2], ['C', 42.6, 78.4, 42.2, 74, 44, 70.5], ['Z']]);
-  const tassels = bar(45.4, 71.5, 45.2, 75.4, 1.2) + bar(48.8, 71.5, 49, 75.4, 1.2);
-  // legs, hose, flashes and boots
-  const legs = rrect(36.4, 78.6, 7.2, 8.6, 2.4) + rrect(51.4, 78.6, 7.2, 8.6, 2.4);
-  const hose = rrect(35.6, 85.4, 8.6, 9.8, 1.4) + rrect(51, 85.4, 8.6, 9.8, 1.4);
-  const flashes = poly([[35.6, 86.4], [32.6, 90.8], [35.6, 89.8]]) + poly([[59.6, 86.4], [62.6, 90.8], [59.6, 89.8]]);
-  const boots = shape([['M', 34.4, 94.6], ['L', 44.4, 94.6], ['L', 44.4, 98.8], ['L', 31, 98.8], ['C', 31, 96.6, 32.6, 95.4, 34.4, 94.6], ['Z'],
-    ['M', 50.8, 94.6], ['L', 60.8, 94.6], ['C', 62.6, 95.4, 64.2, 96.6, 64.2, 98.8], ['L', 50.8, 98.8], ['Z']]);
-  // arms: an A round the head, elbows out, both fists on the shaft above it
-  const armL = `M33 49.4L26.4 36L${P(fistA[0] - 1, fistA[1] + 2)}`;
-  const armR = `M61 49.4L68.4 35L${P(fistB[0] + 1, fistB[1] + 2.4)}`;
-  const fists = circle(...fistA, 4.2) + circle(...fistB, 4.2);
-  // the head: hair blown back in flames, a forked beard, the face half woad
-  const hc = [47, 28];
-  const hair = [];
-  const spikes = 15;
-  for (let i = 0; i <= spikes * 2; i++) {
-    const a = Math.PI * 0.92 + (i / (spikes * 2)) * Math.PI * 1.16;
-    const r = i % 2 ? 13.6 : 19 + (i % 4 === 0 ? 1.6 : 0);
-    hair.push([hc[0] + r * Math.cos(a), hc[1] + 1 + r * Math.sin(a) * 0.96]);
-  }
-  hair.push([hc[0] + 10, hc[1] + 10], [hc[0] - 10, hc[1] + 10]);
-  const beard = [['M', 36.4, 29], ['C', 35, 37, 36.6, 45, 40.4, 50.6], ['L', 42.6, 47.6], ['L', 44.4, 53.6], ['L', 47, 48.6], ['L', 49.6, 53.6], ['L', 51.4, 47.6], ['L', 53.6, 50.6],
-    ['C', 57.4, 45, 59, 37, 57.6, 29], ['C', 55, 34, 52, 36, 47, 36], ['C', 42, 36, 39, 34, 36.4, 29], ['Z']];
-  const face = ellipse(hc[0], hc[1] + 1.4, 9.6, 11.2, 0, 48);
-  const woad = poly(ellipseSide(hc[0], hc[1] + 1.4, 9.6, 11.2, hc[0] + 0.6, hc[1], -0.99, 0.12));
-  const brows = poly([[39.4, 24.4], [46, 27.2], [45.6, 28.8], [39, 26.4]]) + poly([[54.6, 24.4], [48, 27.2], [48.4, 28.8], [55, 26.4]]);
-  const eyes = circle(42.4, 29.4, 2.5) + circle(51.6, 29.4, 2.5);
-  const pupils = circle(42.9, 29.7, 0.95) + circle(51.1, 29.7, 0.95);
-  const mouth = shape([['M', 41.8, 36], ['C', 43.4, 34.6, 50.6, 34.6, 52.2, 36], ['C', 52.4, 41, 50, 44.6, 47, 44.6], ['C', 44, 44.6, 41.6, 41, 41.8, 36], ['Z']]);
-  const teeth = shape([['M', 42.6, 36.2], ['L', 51.4, 36.2], ['L', 51, 38], ['L', 43, 38], ['Z']]);
-  const tongue = ellipse(47, 42.6, 3, 1.6);
-  const tache = shape([['M', 47, 33.2], ['C', 44, 32, 40, 32.6, 38.6, 36.4], ['C', 41.4, 35, 44.4, 35, 47, 35.6], ['C', 49.6, 35, 52.6, 35, 55.4, 36.4], ['C', 54, 32.6, 50, 32, 47, 33.2], ['Z']]);
-  const nose = shape([['M', 47, 28.6], ['L', 49.2, 33.2], ['L', 44.8, 33.2], ['Z']]);
-  const roundel = [
-    L(circle(C, C, 48.6), HL.black),
-    L(circle(C, C, 47.4), 'sett'),
-    L(circle(C, C, 39.4), HL.black),
-    L(circle(C, C, 38.2), HL.navy),
-  ];
+  const knob = `M${P(butt[0] - Math.cos(sa) * 1.4, butt[1] - Math.sin(sa) * 1.4)}L${P(butt[0] + Math.cos(sa) * 3.6, butt[1] + Math.sin(sa) * 3.6)}`;
+  const onShaft = (f) => [butt[0] + (heel[0] - butt[0]) * f, butt[1] + (heel[1] - butt[1]) * f];
+  const fistA = onShaft(0.15), fistB = onShaft(0.29);
+  // ── the body, about four and a half heads tall, braced wide ──
+  const arms = `M39.4 38.6L33.4 27.4L${P(fistA[0] - 0.6, fistA[1] + 1.6)}` + `M60.6 38.6L66.4 27L${P(fistB[0] + 0.6, fistB[1] + 1.8)}`;
+  const fists = circle(...fistA, 2.9) + circle(...fistB, 2.9);
+  const torso = [['M', 38.5, 37.5], ['C', 42, 35.6, 58, 35.6, 61.5, 37.5], ['L', 59.6, 56.5], ['L', 40.4, 56.5], ['Z']];
+  const muscle = [['M', 42.6, 43], ['Q', 46, 45.6, 49.6, 43.4], ['M', 50.4, 43.4], ['Q', 54, 45.6, 57.4, 43], ['M', 50, 46.6], ['L', 50, 53.4]];
+  const sash = poly([[38.8, 38.4], [43.6, 36.6], [60.6, 54.2], [59.4, 57]]);
+  const belt = poly([[40.2, 55.8], [59.8, 55.8], [60.1, 58.8], [39.9, 58.8]]);
+  const buckle = rrect(48.2, 55.4, 3.6, 3.8, 0.6);
+  const kilt = [['M', 40, 58.6], ['L', 60, 58.6], ['L', 63.6, 71.4], ['L', 61, 70.6], ['L', 58.4, 72], ['L', 55.8, 70.8], ['L', 53.2, 72.2], ['L', 50.6, 70.9],
+    ['L', 48, 72.2], ['L', 45.4, 70.8], ['L', 42.8, 72], ['L', 40.2, 70.6], ['L', 36.6, 71.6], ['Z']];
+  const pleats = [['M', 44, 59.6], ['L', 43, 71], ['M', 48.6, 59.6], ['L', 48.3, 71.4], ['M', 53, 59.6], ['L', 53.4, 71.4], ['M', 57.4, 59.6], ['L', 58.4, 71]];
+  const sporran = [['M', 47.4, 59.8], ['L', 52.6, 59.8], ['C', 54, 62.6, 53.6, 65.6, 50, 67], ['C', 46.4, 65.6, 46, 62.6, 47.4, 59.8], ['Z']];
+  const tassels = bar(48.6, 63.4, 48.4, 67.6, 0.9) + bar(51.4, 63.4, 51.6, 67.6, 0.9);
+  // legs: thigh below the kilt, the knee, the calf in hose with a turned-down top and red
+  // garter flashes, and a ghillie brogue. The right leg is the left one mirrored.
+  const M = (cmds) => cmds.map((c) => (c[0] === 'Z' ? c : [c[0], ...c.slice(1).map((v, i) => (i % 2 === 0 ? 100 - v : v))]));
+  const thighL = [['M', 41.4, 70.4], ['L', 47.8, 70.4], ['C', 46.8, 74, 45.4, 77, 44.4, 79.6], ['L', 37.8, 79], ['C', 38.6, 76, 39.8, 73, 41.4, 70.4], ['Z']];
+  const kneeL = [['M', 39.6, 77.6], ['Q', 41.4, 76.6, 43.6, 77.8]];
+  const hoseL = [['M', 37.6, 80.4], ['L', 44.2, 81], ['C', 44.4, 84.6, 42.8, 87.6, 41.4, 90.8], ['L', 35.8, 90.4], ['C', 35.4, 86.8, 36.2, 83.6, 37.6, 80.4], ['Z']];
+  const cuffL = [['M', 37.4, 78.6], ['L', 44.6, 79.2], ['L', 44.4, 82], ['L', 37, 81.4], ['Z']];
+  const flashL = [['M', 37.2, 81.2], ['L', 34.6, 85.2], ['L', 37.4, 84.2], ['Z']];
+  const bootL = [['M', 35.6, 89.8], ['L', 41.6, 90.2], ['L', 42, 93.4], ['C', 41.4, 95.6, 38.6, 96.6, 33.4, 96.6], ['C', 30.4, 96.6, 29.4, 95.6, 30.2, 94.6], ['C', 31.6, 93.6, 33.6, 93, 35.6, 89.8], ['Z']];
+  const lacesL = [['M', 36.4, 91.2], ['L', 39.6, 92.6], ['M', 35.8, 92.6], ['L', 38.8, 94]];
+  const both = (cmds) => shape(cmds) + shape(M(cmds));
   const figure = [
-    L(shaft, 'none', { stroke: HL.black, sw: 5.6 }),
-    L(shaft, 'none', { stroke: HL.wood, sw: 3.4 }),
-    L(knob, 'none', { stroke: HL.tape, sw: 5 }),
-    L(blade, HL.wood, { stroke: HL.black, sw: 1.4 }),
+    L(shaft, 'none', { stroke: ink, sw: 4.6 }),
+    L(shaft, 'none', { stroke: HL.wood, sw: 2.8 }),
+    L(knob, 'none', { stroke: HL.tape, sw: 4 }),
+    L(blade, HL.wood, { stroke: ink, sw: 1.2 }),
     L(tapeD, HL.tape),
-    L(shape(boots), HL.boot, { stroke: HL.black, sw: 1.2 }),
-    L(hose, HL.hose, { stroke: HL.black, sw: 1.2 }),
-    L(flashes, HL.red, { stroke: HL.black, sw: 0.8 }),
-    L(legs, HL.skin, { stroke: HL.black, sw: 1.2 }),
-    L(shape(kilt), 'sett', { stroke: HL.black, sw: 1.4 }),
-    L(shape(pleats), 'none', { stroke: 'rgba(0,0,0,0.45)', sw: 0.8 }),
-    L(shape(torso), HL.skin, { stroke: HL.black, sw: 1.4 }),
-    L(shape(pec), 'none', { stroke: HL.skinShade, sw: 1.1 }),
-    L(shape(sash), 'sett', { stroke: HL.black, sw: 1.2 }),
-    L(shape(belt), HL.black),
-    L(buckle, HL.silver, { stroke: HL.black, sw: 0.7 }),
-    L(shape(sporran), HL.fur, { stroke: HL.black, sw: 1 }),
-    L(tassels, HL.black),
-    L(armL + armR, 'none', { stroke: HL.black, sw: 7 }),
-    L(armL + armR, 'none', { stroke: HL.skin, sw: 4.8 }),
-    L(poly(hair), HL.ginger, { stroke: HL.black, sw: 1.4 }),
-    L(face, HL.skin, { stroke: HL.black, sw: 1.2 }),
-    L(woad, HL.woad),
-    L(shape(beard), HL.ginger, { stroke: HL.black, sw: 1.2 }),
-    L(shape(tache), HL.gingerDeep),
-    L(mouth, HL.mouth, { stroke: HL.black, sw: 0.9 }),
-    L(teeth, HL.white),
-    L(tongue, '#b8343a'),
-    L(nose, HL.skinShade),
-    L(eyes, HL.white, { stroke: HL.black, sw: 0.7 }),
-    L(pupils, HL.black),
-    L(brows, HL.gingerDeep, { stroke: HL.black, sw: 0.6 }),
-    L(fists, HL.skin, { stroke: HL.black, sw: 1.3 }),
-    L(shape([['M', fistA[0] - 2.6, fistA[1] - 1], ['L', fistA[0] + 1.6, fistA[1] - 3], ['M', fistB[0] - 2.6, fistB[1] - 1], ['L', fistB[0] + 1.6, fistB[1] - 3]]), 'none', { stroke: HL.skinShade, sw: 0.9 }),
+    L(arms, 'none', { stroke: ink, sw: 6.4 }),
+    L(arms, 'none', { stroke: HL.skin, sw: 4.4 }),
+    L(both(bootL), HL.boot, { stroke: ink, sw: 1 }),
+    L(both(lacesL), 'none', { stroke: '#6b6b6b', sw: 0.5 }),
+    L(both(hoseL), HL.hose, { stroke: ink, sw: 1 }),
+    L(both(thighL), HL.skin, { stroke: ink, sw: 1 }),
+    L(both(kneeL), 'none', { stroke: HL.skinShade, sw: 0.8 }),
+    L(both(cuffL), 'sett', { stroke: ink, sw: 0.9 }),
+    L(both(flashL), HL.red, { stroke: ink, sw: 0.6 }),
+    L(shape(kilt), 'sett', { stroke: ink, sw: 1.1 }),
+    L(shape(pleats), 'none', { stroke: 'rgba(0,0,0,0.45)', sw: 0.7 }),
+    L(shape(torso), HL.skin, { stroke: ink, sw: 1.1 }),
+    L(shape(muscle), 'none', { stroke: HL.skinShade, sw: 0.9 }),
+    L(sash, 'sett', { stroke: ink, sw: 1 }),
+    L(belt, ink),
+    L(buckle, HL.silver, { stroke: ink, sw: 0.6 }),
+    L(shape(sporran), HL.fur, { stroke: ink, sw: 0.9 }),
+    L(tassels, ink),
+    ...head(null),
+    L(fists, HL.skin, { stroke: ink, sw: 1.1 }),
   ];
-  // the man is drawn full size and set down from his boots, so the fists clear the hair
-  const FK = 0.86;
-  const layers = [...roundel, ...figure.map((l) => ({ ...l, d: xfD(l.d, FK, 50, 99), ...(l.sw ? { sw: +(l.sw * FK).toFixed(2) } : {}) }))];
+  const layers = [
+    L(circle(C, C, 48.6), ink),
+    L(circle(C, C, 47.4), 'sett'),
+    L(circle(C, C, 39.4), ink),
+    L(circle(C, C, 38.2), HL.navy),
+    ...figure,
+  ];
   // small: the head alone, big, with the stick crossing behind it, on a plain disc
-  const s = T({ sx: 2.05, sy: 2.05, tx: 50 - 47 * 2.05, ty: 50 - 34 * 2.05 });
+  const k = 2.35, s = T({ sx: k, sy: k, tx: 50 - 50 * k, ty: 52 - 28 * k });
   const small = [
     L(circle(C, C, 49.5), HL.green),
     L(circle(C, C, 44), HL.navy),
-    L(bar(84, 86, 16, 14, 8), HL.wood, { stroke: HL.black, sw: 2 }),
-    L(poly(hair, s), HL.ginger, { stroke: HL.black, sw: 2.6 }),
-    L(ellipse(50, 50 - 5.6 * 2.05 + 1.4 * 2.05 + 0, 9.6 * 2.05, 11.2 * 2.05, 0, 48), HL.skin, { stroke: HL.black, sw: 2.4 }),
-    L(poly(ellipseSide(50, 50 - 6 * 2.05 + 1.4 * 2.05, 9.6 * 2.05, 11.2 * 2.05, 51.2, 0, -0.99, 0.12)), HL.woad),
-    L(shape(beard, s), HL.ginger, { stroke: HL.black, sw: 2.4 }),
-    L(shape([['M', 41.8, 36], ['C', 43.4, 34.6, 50.6, 34.6, 52.2, 36], ['C', 52.4, 41, 50, 44.6, 47, 44.6], ['C', 44, 44.6, 41.6, 41, 41.8, 36], ['Z']], s), HL.mouth, { stroke: HL.black, sw: 1.6 }),
-    L(shape([['M', 42.6, 36.2], ['L', 51.4, 36.2], ['L', 51, 38], ['L', 43, 38], ['Z']], s), HL.white),
-    L(circle(...ap(s, 42.4, 29.4), 2.6 * 2.05) + circle(...ap(s, 51.6, 29.4), 2.6 * 2.05), HL.white, { stroke: HL.black, sw: 1.4 }),
-    L(circle(...ap(s, 42.9, 29.7), 1.1 * 2.05) + circle(...ap(s, 51.1, 29.7), 1.1 * 2.05), HL.black),
-    L(poly([[39.4, 24.4], [46, 27.2], [45.6, 28.8], [39, 26.4]], s) + poly([[54.6, 24.4], [48, 27.2], [48.4, 28.8], [55, 26.4]], s), HL.black),
+    L(bar(84, 86, 16, 14, 8), HL.wood, { stroke: ink, sw: 2 }),
+    ...head(s),
   ];
   return { box: 100, layers, small, settUnit: 0.15 };
 }
