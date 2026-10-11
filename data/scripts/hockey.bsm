@@ -176,9 +176,9 @@ Boomtown Bulldogs
 Marquee Marauders
 Coldwater Highlanders
 District 9 Goons
-Docks Boarders
+Waterfront Wharf Rats
 St Garneau Guillotines
-Yards Icehaulers
+Yard Birds
 ::endteams
 
 # --- Surnames. Dealt into season rosters by rosterFor() (sports/hockey.js), so a
@@ -709,10 +709,12 @@ The CPhL does not have a commissioner. It has a scheduler, and the scheduler has
 # `chatter` pool, so authoring a barn is entirely optional — a club with nothing
 # written for it behaves exactly as it did before. Add more as clubs earn them.
 
-::lines chatter.docks
+::lines chatter.waterfront
 You can hear the cranes through the roof here. Third period, low tide, the whole building hums.
-The Docks barn floods twice a winter. They play through it. There is a line painted on the wall showing how high, and it is above my head.
-Half this crowd came straight off a shift and half of them are still wearing the hard hats. The hats are not for the hockey.
+The Waterfront barn floods twice a winter. They play through it. There's a line painted on the wall showing how high, and it's above my head.
+Half this crowd came straight off a shift, and half of them are still in their hard hats. The hats aren't for the hockey.
+The Wharf Rats count the rats under the stands as season ticket holders. On a quiet night they outnumber the crowd.
+Somebody throws a fish on the ice after every Rats goal. Nobody has ever seen who. The fish is always fresh.
 ::endlines
 
 ::lines chatter.district
@@ -746,7 +748,7 @@ The Highlanders' sweaters are woven on a loom above a chip shop on Marrow Street
 ::endlines
 
 # A barn's pool is keyed by the first word of the club's name, so the St Garneau
-# Guillotines' is chatter.st.
+# Guillotines' is chatter.st and the Yard Birds' is chatter.yard.
 ::lines chatter.st
 The Guillotines are Father Jerome's club. He blesses the ice before the drop, and the ice crew waits until he's done.
 The home bench at St Garneau's is two pews out of the nave, bolted to the boards.
@@ -754,9 +756,11 @@ Every Guillotines sweater goes through the Sisters of St Garneau's laundry on a 
 Father Jerome never misses a home game. He sits by the door, and he watches it more than the ice.
 ::endlines
 
-::lines chatter.yards
+::lines chatter.yard
 The Yards barn is a cold store with seats bolted in. The ice was here first.
 The tannoy here came out of a freight shed. In the second intermission it still reads out bay numbers.
+Birds fans crow when their side scores. All of them at once, and it goes on longer than you'd think.
+Somebody gets a live rooster into this barn every season. Security has stopped asking how, and nobody has caught the rooster.
 ::endlines
 
 ::lines final

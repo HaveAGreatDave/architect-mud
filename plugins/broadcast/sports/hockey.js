@@ -163,9 +163,9 @@ export function clubProfile(name, identity = null) {
   // spread into "every club called Goons is identical".
   const n = String(name).toLowerCase();
   const nudge = (words, key, by) => { if (words.some(w => n.includes(w))) p[key] = Math.max(0.5, Math.min(1.9, p[key] + by)); };
-  nudge(['goon', 'warlord', 'bulldog', 'highlander', 'boarder'], 'violence', 0.32);
+  nudge(['goon', 'warlord', 'bulldog', 'highlander', 'bird'], 'violence', 0.32);
   nudge(['goon', 'highlander'], 'discipline', -0.26);              // they get caught, too
-  nudge(['marauder', 'icehauler'], 'shooting', 0.09);
+  nudge(['marauder', 'wharf'], 'shooting', 0.09);
   nudge(['bulldog'], 'goaltending', 0.08);
   nudge(['guillotine'], 'discipline', 0.22);                       // a priest's club takes fewer penalties
   return p;

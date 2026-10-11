@@ -133,6 +133,33 @@ GLYPH['9'] = [['M', 6, 3.2], ['C', 6, 1.2, 4.7, 0, 3, 0], ['C', 1.3, 0, 0, 1.3, 
   ['C', 2.1, 4.5, 1.6, 3.8, 1.6, 3], ['C', 1.6, 2.2, 2.1, 1.5, 3, 1.5], ['Z']];
 const glyph = (ch, t) => shape(GLYPH[ch], t);
 
+// ── figures ───────────────────────────────────────────────────────────────────────
+// Characters (the Highlander, the Yard Birds' cock) are built from limbs and feathers and
+// inked as cut-outs.
+const add = (p, q) => [p[0] + q[0], p[1] + q[1]], sub = (p, q) => [p[0] - q[0], p[1] - q[1]], mul = (p, k) => [p[0] * k, p[1] * k];
+const nrm = (p) => { const l = Math.hypot(p[0], p[1]) || 1; return [p[0] / l, p[1] / l]; };
+// A limb from joint a to joint b, run a little past both so its neighbours bury its ends,
+// with a muscle bulge at `at`. Returns its outline and the band of shade on the side away
+// from the light.
+function limb(a, b, wa, wb, o = {}) {
+  const { bulge = 0.07, at = 0.4, ext = 1.4, shadeFrac = 0.4 } = o;
+  const u = nrm(sub(b, a)), A = sub(a, mul(u, ext)), B = add(b, mul(u, ext)), d = sub(B, A), len = Math.hypot(d[0], d[1]), n = [-u[1], u[0]];
+  const edge = (f) => {
+    const wm = (wa + (wb - wa) * at) / 2 + bulge * len;
+    return [add(A, mul(n, f * wa / 2)), add(add(A, mul(d, at * 0.7)), mul(n, f * wm)),
+      add(add(A, mul(d, Math.min(0.95, at * 0.7 + 0.45))), mul(n, f * (wm * 0.9 + wb * 0.05))), add(B, mul(n, f * wb / 2))];
+  };
+  const band = (e0, e1) => [['M', ...e0[0]], ['C', ...e0[1], ...e0[2], ...e0[3]], ['L', ...e1[3]], ['C', ...e1[2], ...e1[1], ...e1[0]], ['Z']];
+  const sd = (n[0] * 0.6 + n[1] * 0.8) > 0 ? 1 : -1;
+  return { outline: band(edge(1), edge(-1)), shade: band(edge(sd * 0.92), edge(sd * (0.92 - shadeFrac * 2))) };
+}
+// draw a group of shapes as one cut-out: a heavy outline pass under a fill pass, so the
+// seams between overlapping parts vanish and only the silhouette is inked
+const group = (cmdsList, fill, sw = 2.3, extra = '', ink = '#141414') => {
+  const d = cmdsList.map((c) => (typeof c === 'string' ? c : shape(c))).join('') + extra;
+  return [L(d, 'none', { stroke: ink, sw }), L(d, fill)];
+};
+
 // ── the crests ──────────────────────────────────────────────────────────────────
 
 // WESTSIDE WARLORDS. A gem-set bezel round a black dial, and on the dial a W laid out
@@ -411,49 +438,31 @@ function marauders() {
 // claymore, the loose end of his plaid flying behind him. Cel-shaded from the upper left.
 const HL = { navy: '#16244f', field: '#efe4c8', fieldRay: '#e2d3ae', green: '#0d5a32', black: '#141414', ginger: '#e2621b', gingerDeep: '#a33f0c', gingerLight: '#f6a24d',
   skin: '#f2c49d', skinShade: '#d9a074', skinDeep: '#b97a52', woad: '#2f63c4', woadDeep: '#1d3f8a', white: '#ffffff', mouth: '#4a0d0d', tongue: '#c0444a',
-  wood: '#d4a464', woodDeep: '#93683a', tape: '#1d1d1d', tapeWhite: '#eeeeee', hose: '#efe7d6', hoseShade: '#cbbfa6', red: '#c8102e', boot: '#1a1a1a',
+  wood: '#d4a464', woodDeep: '#93683a', tapeWhite: '#eeeeee', hose: '#efe7d6', hoseShade: '#cbbfa6', red: '#c8102e', boot: '#1a1a1a',
   silver: '#cfd5da', silverDeep: '#8a949c', fur: '#f3efe6', furShade: '#cfc8ba', leather: '#6b4226', leatherDeep: '#3e2414' };
 function highlanders() {
   const C = 50, ink = HL.black;
-  const add = (p, q) => [p[0] + q[0], p[1] + q[1]], sub = (p, q) => [p[0] - q[0], p[1] - q[1]], mul = (p, k) => [p[0] * k, p[1] * k];
-  const nrm = (p) => { const l = Math.hypot(p[0], p[1]) || 1; return [p[0] / l, p[1] / l]; };
-  const pt = (p) => [p[0], p[1]];
-  // A limb from joint a to joint b, run a little past both so its neighbours bury its ends,
-  // with a muscle bulge at `at`. Returns its outline and the band of shade on the side away
-  // from the light.
-  function limb(a, b, wa, wb, o = {}) {
-    const { bulge = 0.07, at = 0.4, ext = 1.4, shadeFrac = 0.4 } = o;
-    const u = nrm(sub(b, a)), A = sub(a, mul(u, ext)), B = add(b, mul(u, ext)), d = sub(B, A), len = Math.hypot(d[0], d[1]), n = [-u[1], u[0]];
-    const edge = (f) => {
-      const wm = (wa + (wb - wa) * at) / 2 + bulge * len;
-      return [add(A, mul(n, f * wa / 2)), add(add(A, mul(d, at * 0.7)), mul(n, f * wm)),
-        add(add(A, mul(d, Math.min(0.95, at * 0.7 + 0.45))), mul(n, f * (wm * 0.9 + wb * 0.05))), add(B, mul(n, f * wb / 2))];
-    };
-    const band = (e0, e1) => [['M', ...e0[0]], ['C', ...e0[1], ...e0[2], ...e0[3]], ['L', ...e1[3]], ['C', ...e1[2], ...e1[1], ...e1[0]], ['Z']];
-    const sd = (n[0] * 0.6 + n[1] * 0.8) > 0 ? 1 : -1;
-    return { outline: band(edge(1), edge(-1)), shade: band(edge(sd * 0.92), edge(sd * (0.92 - shadeFrac * 2))) };
-  }
-  // draw a group of shapes as one cut-out: a heavy outline pass under a fill pass, so the
-  // seams between overlapping parts vanish and only the silhouette is inked
-  const group = (cmdsList, fill, sw = 2.3, extra = '') => {
-    const d = cmdsList.map((c) => (typeof c === 'string' ? c : shape(c))).join('') + extra;
-    return [L(d, 'none', { stroke: ink, sw }), L(d, fill)];
-  };
   // ── the skeleton ──
-  const SL = [39.6, 38.6], EL = [30.6, 25.4], WL = [40.8, 13.4], FL = [43.4, 10.8];
-  const SR = [60.4, 38], ER = [68.8, 23.2], WR = [55.8, 11], FR = [52.6, 8.7];
+  const SL = [39.6, 38.6], EL = [30.2, 24.6], WL = [40.2, 10.4], FL = [42.6, 7.7];
+  const SR = [60.4, 38], ER = [69.2, 22.4], WR = [56.2, 8.4], FR = [53.4, 6.2];
   const HPL = [45.4, 62], KL = [38.6, 77], AL = [32.6, 90.6], TL = [25.4, 94.4];
   const HPR = [54.6, 62], KR = [62.8, 75.2], AR = [64, 90.2], TR = [71.6, 94.4];
   // ── the stick ──
-  const butt = [37.4, 12.4], heel = [85.2, 1.2];
+  // the grip sits clear above his head: hands in the hair read as hands in the hair. The
+  // shaft runs through both fists, and the blade turns up off the heel at a real stick's
+  // lie, about 135° to the shaft. Shaft and blade are inked as one piece, so the heel has
+  // no seam.
+  const butt = [36.6, 8.6], heel = [74.6, 3.3];
   const sa = Math.atan2(heel[1] - butt[1], heel[0] - butt[0]);
-  const shaft = `M${P(...butt)}L${P(...heel)}`;
+  const shaft = bar(...butt, ...heel, 2.8);
   const grain = `M${P(butt[0] + 12 * Math.cos(sa), butt[1] + 12 * Math.sin(sa) + 0.5)}L${P(butt[0] + 30 * Math.cos(sa), butt[1] + 30 * Math.sin(sa) + 0.5)}`;
   const grip = `M${P(butt[0] - Math.cos(sa) * 0.6, butt[1] - Math.sin(sa) * 0.6)}L${P(butt[0] + Math.cos(sa) * 4.4, butt[1] + Math.sin(sa) * 4.4)}`;
-  const bt = T({ tx: heel[0], ty: heel[1], rot: sa + 2.1 });
-  const blade = shape([['M', -1.6, -2.6], ['L', 14.6, -2.8], ['C', 16.8, -2.8, 17.6, 0.6, 15.8, 2.4], ['L', 0.4, 3], ['C', -1.8, 2.6, -2.6, -0.4, -1.6, -2.6], ['Z']], bt);
-  const bladeTape = shape([['M', 3.6, -2.7], ['L', 13.8, -2.8], ['C', 15.8, -2.6, 16.2, 0.8, 14.8, 2.5], ['L', 3.6, 2.9], ['Z']], bt);
-  const tapeLines = [5.6, 7.8, 10, 12.2].map((x) => shape([['M', x, -2.7], ['L', x - 0.8, 2.8]], bt)).join('');
+  // the blade's frame: x from the heel to the toe, +y the top edge, the side the shaft is on
+  const bt = T({ tx: heel[0], ty: heel[1], rot: sa - Math.PI / 4, sy: -1 }), BL = 14.6;
+  const blade = shape([['M', -0.64, 2.62], ['Q', 1, 1.5, 3.2, 1.5], ['L', BL - 1.6, 1.5], ['C', BL + 0.4, 1.5, BL + 1, -0.6, BL - 0.2, -2], ['L', 2.2, -2.4],
+    ['C', 0.2, -2.4, -1.6, -1.6, -1.9, -0.05], ['Z']], bt);
+  const bladeTape = shape([['M', 3.4, 1.5], ['L', BL - 1.6, 1.5], ['C', BL + 0.4, 1.5, BL + 1, -0.6, BL - 0.2, -2], ['L', 3.4, -2.38], ['Z']], bt);
+  const tapeLines = [5.2, 7.2, 9.2, 11.2, 13.2].map((x) => shape([['M', x, 1.5], ['L', x - 0.7, -2.38]], bt)).join('');
   // ── the roundel: a parchment field inside the tartan ring, so the dark sett on him
   // reads, with a burst behind him that stops at the field's edge ──
   const FIELD = 38.2, burstAt = [50, 40];
@@ -542,7 +551,8 @@ function highlanders() {
     };
     const backLocks = [], frontLocks = [], strands = [];
     for (let i = 0; i <= 12; i++) {
-      const ang = Math.PI * (0.95 + i * 0.095), len = 7.2 + (i % 3) * 2.1 + (i > 6 ? 1.6 : 0), curl = 0.5;
+      const ang = Math.PI * (0.95 + i * 0.095), crown = ang > Math.PI * 1.3 && ang < Math.PI * 1.72;
+      const len = (7.2 + (i % 3) * 2.1 + (i > 6 ? 1.6 : 0)) * (crown ? 0.45 : 1), curl = 0.5;
       backLocks.push(...lock(ang, len + 1.8, 5.8, curl));
       if (i % 2 === 0 && i > 1 && i < 12) frontLocks.push(...lock(ang + 0.05, len * 0.7, 4.4, curl));
       if (i % 3 === 1) { const b0 = [49.6 + 7.4 * Math.cos(ang), 22 + 8.8 * Math.sin(ang)]; strands.push(['M', ...b0], ['Q', ...add(b0, mul([Math.cos(ang + 0.5), Math.sin(ang + 0.5)], len * 0.4)), ...add(b0, mul([Math.cos(ang + 0.3), Math.sin(ang + 0.3)], len * 0.75))]); }
@@ -569,6 +579,7 @@ function highlanders() {
     const beardStrands = shape([['M', 44.4, 30], ['Q', 44.6, 34.6, 46.4, 38], ['M', 55, 30], ['Q', 54.8, 34.6, 53, 38], ['M', 47.6, 35.4], ['L', 48.2, 39.6], ['M', 51.8, 35.4], ['L', 51.2, 39.6]], t);
     const beardLight = shape([['M', 45.2, 27.6], ['Q', 44.8, 31.6, 46, 34.4], ['M', 54.4, 27.6], ['Q', 54.8, 31.6, 53.6, 34.4]], t);
     const cheekFreckles = [[53.6, 25.4], [54.4, 24.8], [55, 25.8], [52.8, 24.8]].map(([x, y]) => circle(...Q(x, y), 0.3 * k)).join('');
+    const scar = shape([['M', 52.6, 15.4], ['L', 55.2, 20.2], ['M', 52.8, 16.8], ['L', 54.2, 16], ['M', 53.6, 18.2], ['L', 55, 17.4], ['M', 54.4, 19.6], ['L', 55.8, 18.8]], t);
     return [
       ...group([backLocks.length ? shape(backLocks, t) : ''], HL.gingerDeep, 2.2 * k),
       L(shape(sideLocks, t), HL.gingerDeep, { stroke: ink, sw: 0.9 * k }),
@@ -578,6 +589,7 @@ function highlanders() {
       L(crows, 'none', { stroke: HL.skinDeep, sw: 0.45 * k }),
       L(furrow, 'none', { stroke: HL.skinDeep, sw: 0.5 * k }),
       L(cheekFreckles, HL.skinDeep),
+      L(scar, 'none', { stroke: '#b5484a', sw: 0.55 * k }),
       L(eyes, HL.white, { stroke: ink, sw: 0.5 * k }),
       L(pupils, ink),
       L(brows, HL.gingerDeep, { stroke: ink, sw: 0.5 * k }),
@@ -599,13 +611,11 @@ function highlanders() {
   const figure = [
     L(shape(plaid), 'sett', { stroke: ink, sw: 1.1 }),
     L(shape(plaidFolds), 'none', { stroke: 'rgba(0,0,0,0.4)', sw: 0.8 }),
-    L(shaft, 'none', { stroke: ink, sw: 4.6 }),
-    L(shaft, 'none', { stroke: HL.wood, sw: 2.8 }),
+    ...group([shaft, blade], HL.wood, 1.8),
     L(grain, 'none', { stroke: HL.woodDeep, sw: 0.5 }),
     L(grip, 'none', { stroke: HL.tapeWhite, sw: 3.4 }),
-    L(blade, HL.wood, { stroke: ink, sw: 1.1 }),
-    L(bladeTape, HL.tape),
-    L(tapeLines, 'none', { stroke: '#4a4a4a', sw: 0.35 }),
+    L(bladeTape, HL.tapeWhite),
+    L(tapeLines, 'none', { stroke: '#9a9a9a', sw: 0.35 }),
     // arms
     ...group([uaL.outline, faL.outline, uaR.outline, faR.outline, delts, elbows], HL.skin),
     L(shape(uaL.shade) + shape(faL.shade) + shape(uaR.shade) + shape(faR.shade), HL.skinShade),
@@ -655,6 +665,8 @@ function highlanders() {
     ...group([fist(FL), fist(FR)], HL.skin, 2),
     L(knuckles(FL) + knuckles(FR), 'none', { stroke: HL.skinDeep, sw: 0.5 }),
   ];
+  // the man set down a touch from his boots, for headroom over the raised stick
+  const FK = 0.9;
   const layers = [
     L(disc(48.6), ink),
     L(disc(47.4), 'sett'),
@@ -662,7 +674,7 @@ function highlanders() {
     L(disc(38.2), HL.field),
     L(rays, HL.fieldRay),
     L(ring(50, 50, 38.2, 39.4), ink),
-    ...figure,
+    ...figure.map((l) => ({ ...l, d: xfD(l.d, FK, 50, 97), ...(l.sw ? { sw: +(l.sw * FK).toFixed(2) } : {}) })),
   ];
   // small: the head alone, big, with the stick crossing behind it, on a plain disc
   const k = 2.2, s = T({ sx: k, sy: k, tx: 50 - 49.7 * k, ty: 52 - 27 * k });
@@ -720,45 +732,372 @@ function goons() {
   return { box: 100, layers, small };
 }
 
-// DOCKS BOARDERS. An anchor over two crossed sticks, inside a rope ring.
-const DK = { teal: '#00727a', tealDeep: '#004d55', navy: '#0b2341', rope: '#d8b67e', ropeDark: '#8c6a3a', white: '#ffffff', wood: '#cfa36a', ink: '#081a30' };
-function docks() {
-  const C = 50;
+// WATERFRONT WHARF RATS. A dock rat crouched on an anchor's stock, in silhouette against
+// the harbour fog: back up and bristling, head down, one eye lit red, incisors out, claws
+// hooked over the iron, and its tail wound round the shank. Pink is the rim light the
+// sodium lamps put on it, and the club's.
+const WRAT = { field: '#27313a', fog: '#34414c', fogLight: '#43535f', water: '#1d252c', wave: '#3a4955', rope: '#b39062', ropeDark: '#6e5532', pink: '#ef8fa3', pinkDeep: '#c4607a',
+  rat: '#0d0f11', steel: '#8b949b', steelLight: '#c3cbd0', claw: '#d9cfb6', tooth: '#e9b23f', eye: '#ff3a2e', eyeCore: '#ffd9c8', gums: '#3a0a10', ink: '#141414' };
+// a tapered tube along a chain of cubic segments, for tails and ropes
+function taper(segs, w0, w1, n = 18) {
+  const pts = [];
+  segs.forEach(([p0, c1, c2, p1], si) => {
+    for (let i = si ? 1 : 0; i <= n; i++) {
+      const t = i / n, u = 1 - t;
+      const bx = (k) => u * u * u * p0[k] + 3 * u * u * t * c1[k] + 3 * u * t * t * c2[k] + t * t * t * p1[k];
+      const dk = (k) => 3 * u * u * (c1[k] - p0[k]) + 6 * u * t * (c2[k] - c1[k]) + 3 * t * t * (p1[k] - c2[k]);
+      pts.push([bx(0), bx(1), dk(0), dk(1)]);
+    }
+  });
+  const N = pts.length, left = [], right = [], ticks = [];
+  pts.forEach(([x, y, dx, dy], i) => {
+    const l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l, w = (w0 + (w1 - w0) * (i / (N - 1))) / 2;
+    left.push([x + nx * w, y + ny * w]); right.push([x - nx * w, y - ny * w]);
+    if (i % 3 === 1 && i < N - 3) ticks.push(['M', x + nx * w * 0.85, y + ny * w * 0.85], ['L', x - nx * w * 0.85, y - ny * w * 0.85]);
+  });
+  return { d: poly([...left, ...right.reverse()]), ticks: shape(ticks) };
+}
+// points along a chain of cubics, with the unit normal on the left of travel
+function chainPts(segs, n = 16) {
+  const out = [];
+  segs.forEach(([p0, c1, c2, p1], si) => {
+    for (let i = si ? 1 : 0; i <= n; i++) {
+      const t = i / n, u = 1 - t;
+      const at = (k) => u * u * u * p0[k] + 3 * u * u * t * c1[k] + 3 * u * t * t * c2[k] + t * t * t * p1[k];
+      const dt = (k) => 3 * u * u * (c1[k] - p0[k]) + 6 * u * t * (c2[k] - c1[k]) + 3 * t * t * (p1[k] - c2[k]);
+      const d = nrm([dt(0), dt(1)]);
+      out.push({ p: [at(0), at(1)], d, n: [d[1], -d[0]] });
+    }
+  });
+  return out;
+}
+// a polygon pulled inside a disc: points outside it are moved onto its edge
+const inDisc = (pts, cx, cy, R) => poly(pts.map(([x, y]) => { const d = Math.hypot(x - cx, y - cy); return d > R ? [cx + ((x - cx) * R) / d, cy + ((y - cy) * R) / d] : [x, y]; }));
+function wharfRats() {
+  const C = 50, ink = WRAT.ink;
+  // ── the ring: a mooring line, pink piping inside it ──
   let twists = '';
-  for (let i = 0; i < 40; i++) {
-    const a = (i / 40) * TAU, a2 = a + 0.1;
-    twists += poly([[C + 40.6 * Math.cos(a), C + 40.6 * Math.sin(a)], [C + 47 * Math.cos(a2 + 0.06), C + 47 * Math.sin(a2 + 0.06)], [C + 47 * Math.cos(a2 + 0.12), C + 47 * Math.sin(a2 + 0.12)], [C + 40.6 * Math.cos(a + 0.06), C + 40.6 * Math.sin(a + 0.06)]]);
+  for (let i = 0; i < 72; i++) {
+    const a = (i / 72) * TAU;
+    twists += `M${P(C + 42.6 * Math.cos(a), C + 42.6 * Math.sin(a))}L${P(C + 47.6 * Math.cos(a + 0.07), C + 47.6 * Math.sin(a + 0.07))}`;
   }
-  const stick = (flip) => {
-    const t = flip ? T({ sx: -1, tx: 100 }) : null;
+  const waves = shape([['M', 18, 80], ['Q', 22, 78, 26, 80], ['Q', 30, 82, 34, 80], ['M', 64, 82], ['Q', 68, 80, 72, 82], ['Q', 76, 84, 80, 82], ['M', 30, 86], ['Q', 34, 84, 38, 86], ['M', 58, 87], ['Q', 62, 85, 66, 87]]);
+  // ── the anchor ──
+  const shank = poly([[47.6, 36.6], [52.4, 36.6], [52.9, 82], [47.1, 82]]);
+  const shankLight = poly([[48.2, 46], [49.2, 46], [49.2, 80], [48, 80]]);
+  const aring = ring(50, 34.4, 2.2, 4.2);
+  const stock = poly([[28.4, 41], [50, 40], [71.6, 41], [71.6, 44.6], [50, 45.6], [28.4, 44.6]]) + circle(27.2, 42.8, 2.8) + circle(72.8, 42.8, 2.8);
+  const arms = shape([['M', 23.8, 62.6], ['C', 25.4, 76, 37.6, 87.6, 50, 87.6], ['C', 62.4, 87.6, 74.6, 76, 76.2, 62.6], ['L', 71.4, 63.4], ['C', 70.2, 73.6, 60.6, 82.4, 50, 82.4],
+    ['C', 39.4, 82.4, 29.8, 73.6, 28.6, 63.4], ['Z']]);
+  const fluke = (m) => shape([['M', 19.4, 66.6], ['L', 21.2, 53], ['L', 26.4, 58.8], ['L', 32.2, 62.4], ['C', 28.4, 63, 24.6, 64.6, 19.4, 66.6], ['Z']], T({ fn: (x, y) => m([x, y]) }));
+  const flukes = fluke((p) => p) + fluke(([x, y]) => [100 - x, y]);
+  const crown = poly([[50, 84.4], [53, 87.4], [50, 90.4], [47, 87.4]]);
+  // ── the rat, crouched on the stock facing right: haunch high, back up and bristling,
+  // head down and forward ──
+  const back = [[[26.6, 36.4], [21, 28], [26, 15], [38, 11.6]], [[38, 11.6], [47, 9.4], [55, 12], [60.4, 16.8]]];
+  const bristle = chainPts(back, 16).map(({ p, d, n }, i, arr) => (i % 2 && i > 1 && i < arr.length - 2 ? add(add(p, mul(n, 3)), mul(d, -1.6)) : p));
+  const head = [[[60.4, 16.8], [64.6, 15.2], [69.4, 15.2], [73.4, 17]], [[73.4, 17], [78.6, 20], [85.4, 24.4], [90.4, 27.4]]];
+  const headPts = chainPts(head, 10).map(({ p }) => p);
+  const sil = poly([...bristle, ...headPts.slice(1),
+    [92.4, 28.8], [92, 30.6], [90, 31.4], [88, 32], [80.8, 33.2], [86.6, 35.6], [86.2, 37], [83, 38], [78, 37.6], [74.8, 36.2],
+    [73, 37.6], [72.6, 41.2], [66.2, 41.2], [67, 38.6], [65.2, 36.6], [60, 37.6], [52, 38.4], [45, 37.6], [41.6, 36.8], [42.6, 41.2], [31.4, 41.2], [30, 39.4]]);
+  // the ear, torn, behind the head; rim lit
+  const ear = poly(Array.from({ length: 40 }, (_, i) => {
+    const a = (i / 40) * TAU, notch = Math.abs(a - 4.1) < 0.2 ? 2.8 * (1 - Math.abs(a - 4.1) / 0.2) : 0;
+    return [62.8 + (5.8 - notch) * Math.cos(a - 0.3), 11.2 + (6.8 - notch) * Math.sin(a - 0.3)];
+  }));
+  const earIn = poly(ellipsePts(63.6, 12.2, 3.2, 4.4, -0.3, 20));
+  const earRim = shape([['M', 57.8, 8.4], ['C', 59, 4.6, 64.8, 3.4, 68, 7]]);
+  // the haunch and the foreleg, picked out by the same light
+  const limbRim = shape([['M', 31.2, 38.6], ['C', 30.6, 30.6, 35.6, 25.8, 41.6, 27.4], ['C', 45, 28.8, 45.8, 33, 43.6, 36.4], ['M', 73.4, 36.4], ['L', 72.8, 40.4]]);
+  // pink rim light down the back and the snout, just inside the edge
+  const rimPts = chainPts([...back, ...head], 12).filter((_, i, arr) => i > 3 && i < arr.length - 1).map(({ p, n }) => add(p, mul(n, -1.1)));
+  const rim = 'M' + rimPts.map((q) => P(...q)).join('L');
+  const gums = poly([[90.4, 31.2], [80, 33.4], [86.8, 36.4], [89.2, 34.4]]);
+  const teeth = shape([['M', 87, 31.8], ['L', 89.8, 31.4], ['C', 89.8, 34, 89.4, 36.4, 88.4, 38], ['C', 87.6, 36.6, 87.2, 34.4, 87, 31.8], ['Z']]) +
+    shape([['M', 84.4, 37.6], ['L', 86.6, 37], ['C', 86.4, 35.2, 86, 33.8, 85.2, 32.8], ['C', 84.6, 34.2, 84.4, 35.8, 84.4, 37.6], ['Z']]);
+  const whiskers = shape([['M', 87, 30], ['Q', 92, 26, 96.4, 24.6], ['M', 87.4, 31], ['Q', 92.4, 30, 97, 30.6], ['M', 86.6, 32], ['Q', 91, 34.4, 95.4, 37.4]]);
+  const nose = poly(ellipsePts(91.2, 30.4, 1.3, 1, 0.4, 12));
+  // the eye: lit red, slanted, a hard brow over it
+  const eyeGlow = circle(78.2, 22.6, 4.6), eye = poly(ellipsePts(78.2, 22.8, 2.6, 1.3, 0.38, 20)), eyeCore = poly(ellipsePts(78.8, 23, 0.9, 0.5, 0.38, 12));
+  const brow = poly([[73.6, 19.2], [82.6, 22.6], [82, 20.4], [74.4, 17.6]]);
+  const snarl = shape([['M', 82.6, 26.6], ['Q', 84, 25.6, 85.2, 27], ['M', 84.6, 28.2], ['Q', 86, 27.2, 87.2, 28.6]]);
+  // claws hooked over the stock, front and back
+  const claws = [63.4, 65.2, 67, 68.8, 31.6, 33.4, 35.2].map((x) => shape([['M', x - 0.5, 40.6], ['C', x + 0.6, 40.2, x + 1.4, 41.6, x + 0.9, 44], ['C', x + 0.6, 42.4, x, 41.6, x - 0.7, 41.4], ['Z']])).join('');
+  // the tail: down behind the stock, round the back of the shank and across the front of it
+  const tailBack = taper([[[27.6, 37], [18, 44], [19.6, 58.4], [34, 62]], [[34, 62], [42, 64.4], [48, 62.2], [54, 60.2]], [[54, 60.2], [59.4, 58.4], [59.4, 52.4], [54, 52]]], 4.4, 2, 10);
+  const tailFront = taper([[[54, 52], [48.6, 51.6], [43.6, 53.2], [41.8, 56.8]], [[41.8, 56.8], [40, 60.6], [41.2, 66.6], [45.6, 70]]], 2, 0.6, 10);
+  const layers = [
+    L(circle(C, C, 49.2), ink),
+    L(circle(C, C, 48), WRAT.field),
+    L(inDisc(ellipsePts(74, 26, 18, 18, 0, 48), C, C, 47.6), WRAT.fog),
+    L(inDisc(ellipsePts(76, 25, 11, 11, 0, 36), C, C, 47.6), WRAT.fogLight),
+    L(inDisc([...Array.from({ length: 25 }, (_, i) => [2 + i * 4, 78 + Math.sin(i * 0.9) * 1.2]), [98, 99], [2, 99]], C, C, 47.6), WRAT.water),
+    L(waves, 'none', { stroke: WRAT.wave, sw: 1 }),
+    L(ring(C, C, 42.2, 48), WRAT.rope),
+    L(twists, 'none', { stroke: WRAT.ropeDark, sw: 0.8 }),
+    L(ring(C, C, 47.6, 48.4) + ring(C, C, 42.2, 42.8), ink),
+    L(ring(C, C, 41, 42.2), WRAT.pink),
+    L(ring(C, C, 40.2, 41), ink),
+    // behind the anchor: the tail's far loop, the ear and the rat itself
+    L(tailBack.d, WRAT.rat, { stroke: ink, sw: 0.6 }),
+    L(tailBack.ticks, 'none', { stroke: WRAT.pinkDeep, sw: 0.4 }),
+    L(gums, WRAT.gums),
+    L(ear, WRAT.rat),
+    L(earIn, WRAT.pinkDeep, { op: 0.55 }),
+    L(earRim, 'none', { stroke: WRAT.pink, sw: 1 }),
+    L(sil, WRAT.rat),
+    L(rim, 'none', { stroke: WRAT.pink, sw: 1.1 }),
+    L(limbRim, 'none', { stroke: WRAT.pink, sw: 0.8, op: 0.85 }),
+    L(snarl, 'none', { stroke: WRAT.pinkDeep, sw: 0.6 }),
+    L(eyeGlow, WRAT.eye, { op: 0.28 }),
+    L(eye, WRAT.eye),
+    L(eyeCore, WRAT.eyeCore),
+    L(brow, WRAT.rat),
+    L(teeth, WRAT.tooth, { stroke: ink, sw: 0.4 }),
+    L(nose, WRAT.pinkDeep),
+    L(whiskers, 'none', { stroke: WRAT.pinkDeep, sw: 0.45 }),
+    // the anchor, then the claws over it and the tail across it
+    L(arms + flukes + crown, WRAT.steel, { stroke: ink, sw: 1.4 }),
+    L(shank, WRAT.steel, { stroke: ink, sw: 1.4 }),
+    L(shankLight, WRAT.steelLight),
+    L(aring, WRAT.steel, { stroke: ink, sw: 1 }),
+    L(stock, WRAT.steel, { stroke: ink, sw: 1.4 }),
+    L(poly([[30, 41.8], [70, 41.8], [70, 42.6], [30, 42.6]]), WRAT.steelLight),
+    L(claws, WRAT.claw, { stroke: ink, sw: 0.4 }),
+    L(tailFront.d, WRAT.rat, { stroke: ink, sw: 0.6 }),
+    L(tailFront.ticks, 'none', { stroke: WRAT.pinkDeep, sw: 0.4 }),
+  ];
+  // small: the head in silhouette, big, lit eye and teeth, in a pink ring
+  const sk = 2.1, fx = (50 - 77 * sk) / (1 - sk), fy = (50 - 25 * sk) / (1 - sk), z = (d) => xfD(d, sk, fx, fy);
+  const small = [
+    L(circle(C, C, 49.4), WRAT.pink),
+    L(circle(C, C, 43.4), WRAT.field),
+    L(circle(C, C, 30), WRAT.fogLight),
+    L(z(gums), WRAT.gums),
+    L(z(ear), WRAT.rat),
+    L(z(sil), WRAT.rat),
+    L(z(eye), WRAT.eye),
+    L(z(brow), WRAT.rat),
+    L(z(teeth), WRAT.tooth),
+  ];
+  return { box: 100, layers, small };
+}
+
+// YARD BIRDS. A red pyle fighting cock squared up and furious: white, with his hackle and
+// the bows of his wings red. Wings thrown wide, hackles up in a ruff round his head,
+// glaring down his beak with a scar through his brow, spurs out, and the chicken wire
+// behind him torn open where he came through it. His colours are the club's.
+const YB = { red: '#c8201c', redDeep: '#8a130f', hackle: '#dc4a1e', white: '#f6f4ef', shade: '#d6d1c7', shadeDeep: '#9f998d',
+  field: '#1f1f22', wire: '#3e3e45', wireLight: '#64646e', horn: '#ecd28a', hornDeep: '#a88f50', iris: '#f6d23a', scar: '#f4b6a6',
+  black: '#141414', ink: '#141414', mouth: '#4a0b0b', tongue: '#e0606a' };
+// a feather or a sickle: a vane along a cubic, pointed at both ends, fullest a little
+// before the middle
+function vane(p0, c1, c2, p1, W, n = 24) {
+  const left = [], right = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, u = 1 - t;
+    const at = (k) => u * u * u * p0[k] + 3 * u * u * t * c1[k] + 3 * u * t * t * c2[k] + t * t * t * p1[k];
+    const dt = (k) => 3 * u * u * (c1[k] - p0[k]) + 6 * u * t * (c2[k] - c1[k]) + 3 * t * t * (p1[k] - c2[k]);
+    const x = at(0), y = at(1), dx = dt(0), dy = dt(1), l = Math.hypot(dx, dy) || 1;
+    const w = (W / 2) * Math.pow(Math.sin(Math.PI * t), 0.6) * (1 - 0.3 * t);
+    left.push([x - (dy / l) * w, y + (dx / l) * w]); right.push([x + (dy / l) * w, y - (dx / l) * w]);
+  }
+  return poly([...left, ...right.reverse()]);
+}
+const quill = (p0, c1, c2, p1) => shape([['M', ...p0], ['C', ...c1, ...c2, ...p1]]);
+// a straight-ish feather from base to tip, bowed a little to one side
+const feather = (b, t, W, bow = 0.7) => {
+  const d = sub(t, b), n = mul(nrm([-d[1], d[0]]), bow);
+  return vane(b, add(add(b, mul(d, 0.33)), n), add(add(b, mul(d, 0.66)), n), t, W, 9);
+};
+function yardBirds() {
+  const C = 50, ink = YB.ink, FR = 39.8;
+  // ── chicken wire over the field, torn open where he came through it ──
+  const HC = [51, 50];
+  const holeR = (a) => 27.4 + 2.4 * Math.sin(7 * a) + 1.4 * Math.sin(11 * a + 0.7);
+  const inField = ([x, y]) => Math.hypot(x - C, y - C) < FR - 0.3;
+  const inHole = ([x, y]) => Math.hypot(x - HC[0], y - HC[1]) < holeR(Math.atan2(y - HC[1], x - HC[0]));
+  const hs = 4.6, hw = Math.sqrt(3) * hs, edges = new Map();
+  for (let row = 0; row * 1.5 * hs < 100 + hs; row++) {
+    for (let col = -1; col * hw < 100 + hw; col++) {
+      const cx = col * hw + (row % 2 ? hw / 2 : 0), cy = row * 1.5 * hs;
+      const v = Array.from({ length: 6 }, (_, k) => { const a = -Math.PI / 2 + (k * Math.PI) / 3; return [cx + hs * Math.cos(a), cy + hs * Math.sin(a)]; });
+      for (let k = 0; k < 6; k++) {
+        const e = [v[k], v[(k + 1) % 6]];
+        const key = e.map((p) => p.map((n) => Math.round(n * 10)).join(',')).sort().join('|');
+        if (!edges.has(key)) edges.set(key, e);
+      }
+    }
+  }
+  let wire = '', twists = '', curls = '', flip = 0;
+  for (const [a, b] of edges.values()) {
+    const N = 12, pts = Array.from({ length: N + 1 }, (_, i) => [a[0] + ((b[0] - a[0]) * i) / N, a[1] + ((b[1] - a[1]) * i) / N]);
+    const mid = (i) => [(pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2];
+    const keep = Array.from({ length: N }, (_, i) => inField(mid(i)) && !inHole(mid(i)));
+    const torn = Array.from({ length: N }, (_, i) => inField(mid(i)) && inHole(mid(i)));
+    let d = '';
+    for (let i = 0; i < N; i++) {
+      if (!keep[i]) continue;
+      let j = i;
+      while (j + 1 < N && keep[j + 1]) j++;
+      d += `M${P(...pts[i])}L${P(...pts[j + 1])}`;
+      // a cut end at the tear curls back on itself
+      for (const [pi, ni, dir] of [[i, i - 1, -1], [j + 1, j + 1, 1]]) {
+        if (ni < 0 || ni >= N || !torn[ni]) continue;
+        const p = pts[pi], u = nrm([(b[0] - a[0]) * dir, (b[1] - a[1]) * dir]), side = (flip++ % 2) ? 1 : -1, n = [-u[1] * side, u[0] * side];
+        curls += `M${P(...p)}Q${P(p[0] + u[0] * 2.2 + n[0] * 0.3, p[1] + u[1] * 2.2 + n[1] * 0.3)} ${P(p[0] + u[0] * 1.6 + n[0] * 1.8, p[1] + u[1] * 1.6 + n[1] * 1.8)}`;
+      }
+      i = j;
+    }
+    if (Math.abs(a[0] - b[0]) < 0.01) twists += d; else wire += d;
+  }
+  // ── the wings, thrown up and out. Drawn for his right wing (on our left); the other is
+  // its mirror. Primaries fan from the wrist, secondaries hang off the trailing edge, and
+  // the coverts lie over both in rows, gold along the shoulder. ──
+  const wing = (m) => {
+    const t = T({ fn: (x, y) => m([x, y]) });
+    const prim = [[[17.6, 22.4], [6.4, 24.6]], [[18, 25], [5.2, 32]], [[18.8, 27.6], [6, 39.6]], [[19.8, 30.2], [8.6, 46.6]], [[21, 32.8], [12.6, 52.6]], [[22.6, 35.2], [18, 56.8]]];
+    const sec = [[[24.6, 37.8], [22.4, 60.2]], [[27.6, 41.2], [26.8, 62.4]], [[30.8, 44.2], [31.2, 63.4]], [[34, 47], [35.6, 63]], [[37.4, 49.6], [39.6, 61.2]]];
+    const prims = prim.map(([b, tp]) => feather(m(b), m(tp), 5.2, 0.9)).join('');
+    const secs = sec.map(([b, tp]) => feather(m(b), m(tp), 5.4, 0.6)).join('');
+    const shafts = [...prim, ...sec].map(([b, tp]) => { const B = m(b), E = m(add(b, mul(sub(tp, b), 0.86))); return `M${P(...B)}L${P(...E)}`; }).join('');
+    const coverts = shape([['M', 41.4, 47.4], ['C', 38, 34, 28.6, 19.8, 17.2, 21], ['L', 18.6, 27.2], ['L', 22.6, 35.4], ['L', 26.2, 39.8], ['L', 30.2, 44], ['L', 34.2, 47.6],
+      ['L', 38.2, 50.6], ['L', 42, 51.6], ['Z']], t);
+    const shoulder = shape([['M', 41.4, 47.4], ['C', 38, 34, 28.6, 19.8, 17.2, 21], ['L', 18.8, 25.4], ['C', 27.6, 25.6, 33.6, 34.6, 36.4, 47.8], ['Z']], t);
+    // rows of covert scallops, following the leading edge
+    let rows = '';
+    for (const [inset, n0, n1] of [[7.4, 0.16, 0.82], [12.4, 0.1, 0.66]]) {
+      for (let i = 0; i <= 5; i++) {
+        const u = n0 + ((n1 - n0) * i) / 5, w = 1 - u;
+        const pt = (k) => w * w * w * [41.4, 47.4][k] + 3 * w * w * u * [38, 34][k] + 3 * w * u * u * [28.6, 19.8][k] + u * u * u * [17.2, 21][k];
+        const dk = (k) => 3 * w * w * ([38, 34][k] - [41.4, 47.4][k]) + 6 * w * u * ([28.6, 19.8][k] - [38, 34][k]) + 3 * u * u * ([17.2, 21][k] - [28.6, 19.8][k]);
+        const tg = nrm([dk(0), dk(1)]), inward = [tg[1], -tg[0]], c = add([pt(0), pt(1)], mul(inward, inset));
+        const a0 = add(c, mul(tg, -2)), a1 = add(c, mul(tg, 2)), cc = add(c, mul(inward, 2.2));
+        rows += shape([['M', ...a0], ['Q', ...cc, ...a1]], t);
+      }
+    }
+    return { prims, secs, shafts, coverts, shoulder, rows };
+  };
+  const WL = wing((p) => p), WR = wing(([x, y]) => [102.4 - x, y - 1.2]);
+  // ── the tail, sickles sweeping out low behind him ──
+  const sickles = [[[38.6, 67], [30, 60], [15.6, 58.4], [10.4, 68.4], 6.6, YB.white], [[39, 69.6], [30.6, 67], [18, 70.4], [14.6, 79.4], 5.8, YB.red], [[39.6, 72.4], [33, 74], [25, 79], [22.6, 86.4], 5, YB.white]];
+  // ── legs, wide, spurs out ──
+  const legL = limb([43.4, 76.4], [38.8, 85.2], 3, 2.5, { bulge: 0, ext: 0.6 }), legR = limb([58.4, 76.4], [63, 85.2], 3, 2.5, { bulge: 0, ext: 0.6 });
+  const toes = bar(38.8, 85.2, 32.8, 87.2, 1.5) + bar(38.8, 85.2, 37, 88.8, 1.5) + bar(38.8, 85.2, 42.6, 88.4, 1.5) +
+    bar(63, 85.2, 59.2, 88.4, 1.5) + bar(63, 85.2, 64.8, 88.8, 1.5) + bar(63, 85.2, 69, 87.2, 1.5);
+  const claws = [[32.8, 87.2, -1], [37, 88.8, -0.3], [42.6, 88.4, 0.4], [59.2, 88.4, -0.4], [64.8, 88.8, 0.3], [69, 87.2, 1]]
+    .map(([x, y, d]) => poly([[x - 0.6, y - 0.6], [x + 0.6, y + 0.4], [x + d * 1.4, y + 1.2]])).join('');
+  const spurs = poly([[40.8, 80.4], [47, 83.6], [41.2, 82.6]]) + poly([[61, 80.4], [54.8, 83.6], [60.6, 82.6]]);
+  const scales = shape([['M', 41, 79.2], ['L', 43.2, 79.8], ['M', 40.2, 81.8], ['L', 42.2, 82.4], ['M', 60.8, 79.2], ['L', 58.6, 79.8], ['M', 61.6, 81.8], ['L', 59.6, 82.4]]);
+  const thighs = poly(ellipsePts(44.4, 72.6, 6.2, 5.6, 0.25)) + poly(ellipsePts(57.4, 72.6, 6.2, 5.6, -0.25));
+  // ── the body: a black breast, puffed ──
+  const body = [['M', 35.2, 56], ['C', 34.8, 48.6, 42, 44.4, 51, 44.4], ['C', 60, 44.4, 67.2, 48.6, 66.8, 56], ['C', 66.4, 64.6, 60.8, 76.6, 51, 77.4], ['C', 41.2, 76.6, 35.6, 64.6, 35.2, 56], ['Z']];
+  const breastSheen = [['M', 62.8, 53.6], ['C', 64.6, 61.6, 63, 70, 56.6, 75.4], ['C', 60.6, 69.2, 61.4, 61.6, 60.2, 54.8], ['Z']];
+  const scallops = [[44.6, 56.6], [50.6, 57.4], [56.6, 56.6], [47.6, 63], [53.6, 63], [42.8, 62.6], [59, 62.4], [50.6, 69], [45.6, 68.8], [55.8, 68.6]]
+    .map(([x, y]) => `M${P(x - 2.2, y)}Q${P(x, y + 2.2)} ${P(x + 2.2, y)}`).join('');
+  // ── the hackle stood up in a ruff round his head: two layers of points ──
+  const ruff = (cx, cy, r0, r1, n, rot, jit) => poly(Array.from({ length: n * 2 }, (_, i) => {
+    const a = rot + (i / (n * 2)) * TAU, r = i % 2 ? r0 : r1 + Math.sin(i * 2.3) * jit;
+    return [cx + r * Math.cos(a), cy + r * 0.92 * Math.sin(a)];
+  }));
+  const ruffBack = ruff(55.6, 32, 13.4, 21.4, 17, 0.1, 1.4), ruffFront = ruff(55.6, 33, 11, 17, 15, 0.32, 0.9);
+  const ruffLines = Array.from({ length: 15 }, (_, i) => {
+    const a = 0.32 + ((i + 0.5) / 15) * TAU;
+    return `M${P(55.6 + 10.4 * Math.cos(a), 33 + 9.6 * Math.sin(a))}L${P(55.6 + 15.6 * Math.cos(a), 33 + 14.4 * Math.sin(a))}`;
+  }).join('');
+  // ── the head, three-quarters on, glaring down the beak ──
+  const headParts = (t) => {
+    const k = t ? t.sx : 1, sh = (cmds) => shape(cmds, t), el = (cx, cy, rx, ry, r = 0, n = 28) => poly(ellipsePts(cx, cy, rx, ry, r, n), t);
+    const ln = (sw) => +(sw * k).toFixed(2);
+    const head = [['M', 51, 34.6], ['C', 48.6, 33, 47.6, 31, 47.8, 29.2], ['L', 44.8, 27.8], ['L', 47.8, 26.2], ['L', 45.4, 23.2], ['L', 49, 23.4], ['L', 47.8, 20.2],
+      ['L', 51.6, 21.4], ['C', 55.4, 18.8, 60.6, 18.8, 63.2, 21.6], ['C', 64.8, 23.6, 65, 27, 64.2, 30], ['C', 63.2, 34, 60, 36.8, 56.4, 37], ['C', 54.2, 37.1, 52.4, 36.2, 51, 34.6], ['Z']];
+    const face = [['M', 51.2, 26.4], ['C', 53.6, 23.4, 60, 23, 63.4, 25.6], ['C', 64.6, 29, 63.6, 33.6, 60.2, 36], ['C', 56.8, 37.4, 53, 36, 51.6, 32.8], ['Z']];
+    // a single comb like a sawblade, swept back, one point broken off in a fight
+    const comb = [['M', 51.4, 22.4], ['L', 46.4, 17.6], ['L', 51.8, 18.4], ['L', 49.4, 12.2], ['L', 54.6, 16], ['L', 53.8, 12.6], ['L', 55.4, 13], ['L', 56.2, 11.8], ['L', 58.4, 14.4],
+      ['L', 59.6, 8.6], ['L', 61.6, 14.4], ['L', 64.6, 10.6], ['L', 64.4, 16.2], ['L', 67.6, 15.4], ['L', 64.8, 19.8], ['C', 64.4, 21.6, 63, 22.6, 61.4, 22.6], ['Z']];
+    const mouthIn = [['M', 58.8, 33.6], ['L', 69.4, 37], ['L', 67.6, 40.8], ['L', 58.8, 38.2], ['Z']];
+    const tongue = [['M', 60.2, 37], ['C', 62.8, 37, 65.2, 37.8, 66.6, 39.4], ['C', 63.8, 39.6, 61.6, 38.8, 60.2, 38.2], ['Z']];
+    const upper = [['M', 58.6, 28.8], ['C', 62.6, 28.6, 68.4, 30.6, 70.6, 35.4], ['C', 70.8, 36.8, 70.2, 37.8, 69.2, 38.2], ['C', 68.6, 36.4, 66.4, 34.8, 63.4, 34.4], ['L', 59.4, 34.2], ['Z']];
+    const lower = [['M', 59.2, 36], ['C', 62.2, 36.2, 65.6, 37.6, 67.4, 40.6], ['C', 64.2, 41, 61, 39.8, 58.8, 38.4], ['Z']];
+    const wattle = [['M', 58.6, 38.2], ['C', 61.8, 39.6, 62.6, 44.8, 60.2, 48], ['C', 58.4, 50, 55.4, 49, 55.4, 45.8], ['C', 55.2, 42.8, 56.4, 40, 58.6, 38.2], ['Z']];
+    const wattleFar = [['M', 61.6, 39.4], ['C', 63.8, 40.8, 64.2, 44, 62.6, 46], ['C', 61.8, 46.6, 61, 45.8, 61.2, 44.6], ['Z']];
+    // the eyes, set hard under brows that come down to the beak
+    const irisN = el(54.4, 29.2, 2.7, 2.6), irisF = el(60.8, 28.4, 2.1, 2.2), pupN = el(55.3, 29.7, 1.05, 1.05, 0, 14), pupF = el(61.1, 29, 0.85, 0.85, 0, 12);
+    const browN = [['M', 49.4, 23.4], ['L', 58.6, 27], ['L', 58, 29.4], ['L', 49.8, 26.2], ['Z']];
+    const browF = [['M', 65, 22.8], ['L', 59.2, 26.8], ['L', 59.8, 28.8], ['L', 65.2, 25.6], ['Z']];
+    const scar = sh([['M', 51.2, 21.4], ['L', 56, 34], ['M', 51.6, 24.4], ['L', 53.4, 23.6], ['M', 53, 28.4], ['L', 54.8, 27.6], ['M', 54.4, 32], ['L', 56.2, 31.2]]);
     return [
-      L(poly([[22, 22.4], [25.4, 19], [76.8, 70.4], [73.4, 73.8]], t), DK.wood, { stroke: DK.ink, sw: 1.4 }),
-      L(shape([['M', 73.4, 73.8], ['L', 76.8, 70.4], ['C', 80, 74, 84, 75.6, 88, 74.6], ['L', 87, 80], ['C', 82, 81, 76.4, 79, 73.4, 73.8], ['Z']], t), DK.wood, { stroke: DK.ink, sw: 1.4 }),
-      L(poly([[79.6, 74.6], [81.2, 73.1], [83.2, 78.6], [81.4, 79]], t), DK.navy),
+      ...group([head], YB.white, ln(2), '', ink),
+      L(sh(comb), YB.red, { stroke: ink, sw: ln(1.1) }),
+      L(sh(face), YB.red),
+      L(sh(mouthIn), YB.mouth, { stroke: ink, sw: ln(0.7) }),
+      L(sh(tongue), YB.tongue),
+      L(sh(lower), YB.horn, { stroke: ink, sw: ln(0.9) }),
+      L(sh(upper), YB.horn, { stroke: ink, sw: ln(0.9) }),
+      L(sh([['M', 59.4, 30.6], ['Q', 64.8, 31, 69.2, 34.8]]), 'none', { stroke: YB.hornDeep, sw: ln(0.5) }),
+      L(el(62.4, 31, 0.5, 0.34, 0.3, 10), ink),
+      L(sh(wattleFar), YB.redDeep, { stroke: ink, sw: ln(0.7) }),
+      L(sh(wattle), YB.red, { stroke: ink, sw: ln(1) }),
+      L(irisF, YB.iris, { stroke: ink, sw: ln(0.7) }),
+      L(irisN, YB.iris, { stroke: ink, sw: ln(0.8) }),
+      L(pupN + pupF, ink),
+      L(sh(browN) + sh(browF), YB.black, { stroke: ink, sw: ln(0.5) }),
+      L(scar, 'none', { stroke: YB.scar, sw: ln(0.55) }),
     ];
   };
-  const anchor = shape([
-    ['M', 47.2, 25.6], ['C', 43.6, 24.4, 42.2, 21, 43.4, 18], ['C', 44.6, 14.8, 48, 13.4, 50, 13.4], ['C', 52, 13.4, 55.4, 14.8, 56.6, 18], ['C', 57.8, 21, 56.4, 24.4, 52.8, 25.6],
-    ['L', 52.8, 28.4], ['L', 66, 28.4], ['C', 67.6, 28.4, 68.6, 29.4, 68.6, 30.9], ['C', 68.6, 32.4, 67.6, 33.4, 66, 33.4], ['L', 52.8, 33.4],
-    ['L', 52.8, 79.4], ['C', 61, 78.6, 67.6, 74.6, 71.4, 67], ['L', 66.2, 66.4], ['L', 75.6, 57.4], ['L', 78.4, 70.8], ['L', 74.6, 68.6],
-    ['C', 70.4, 79, 61.4, 85.4, 50, 86.4], ['C', 38.6, 85.4, 29.6, 79, 25.4, 68.6], ['L', 21.6, 70.8], ['L', 24.4, 57.4], ['L', 33.8, 66.4], ['L', 28.6, 67],
-    ['C', 32.4, 74.6, 39, 78.6, 47.2, 79.4], ['L', 47.2, 33.4], ['L', 34, 33.4], ['C', 32.4, 33.4, 31.4, 32.4, 31.4, 30.9], ['C', 31.4, 29.4, 32.4, 28.4, 34, 28.4], ['L', 47.2, 28.4], ['Z'],
-  ]);
-  const eye = hole(50, 19.6, 3.1);
+  // ── a few feathers knocked loose ──
+  const loose = [[77.6, 70.4, 7.4, 0.5, YB.white], [83.4, 58.6, 6.4, -0.8, YB.red], [29.4, 8.6, 6.4, 2.8, YB.white]];
+  const looseD = loose.map(([x, y, len, rot, col]) => {
+    const t = T({ tx: x, ty: y, rot }), [a, c1, c2, b] = [[0, 0], [len * 0.3, -0.9], [len * 0.7, -0.9], [len, 0.4]].map(([px, py]) => ap(t, px, py));
+    const split = shape([['M', len * 0.55, -1.2], ['L', len * 0.42, -0.3], ['M', len * 0.7, 0.6], ['L', len * 0.56, 0.1]], t);
+    return [L(vane(a, c1, c2, b, 2.8, 8), col, { stroke: ink, sw: 0.6 }), L(quill(a, c1, c2, b) + split, 'none', { stroke: col === YB.red ? YB.redDeep : YB.shadeDeep, sw: 0.4 })];
+  }).flat();
   const layers = [
-    L(circle(C, C, 49.4), DK.navy),
-    L(ring(C, C, 40.6, 47), DK.rope),
-    L(twists, DK.ropeDark),
-    L(ring(C, C, 40.2, 40.9), DK.ink),
-    L(circle(C, C, 40.2), DK.teal),
-    L(ring(C, C, 35.6, 36.6), DK.tealDeep),
-    ...stick(false), ...stick(true),
-    L(anchor + eye, DK.white, { stroke: DK.ink, sw: 2 }),
+    L(circle(C, C, 49.2), ink),
+    L(circle(C, C, 48), YB.red),
+    L(circle(C, C, 41.8), YB.white),
+    L(circle(C, C, 40.6), ink),
+    L(circle(C, C, FR), YB.field),
+    L(wire, 'none', { stroke: YB.wire, sw: 0.5 }),
+    L(twists, 'none', { stroke: YB.wire, sw: 1 }),
+    L(curls, 'none', { stroke: YB.wireLight, sw: 0.55 }),
+    // tail, then the wings behind the body
+    ...sickles.map(([p0, c1, c2, p1, W, col]) => L(vane(p0, c1, c2, p1, W, 14), col, { stroke: ink, sw: 1.1 })),
+    L(sickles.map(([p0, c1, c2, p1]) => quill(p0, c1, c2, p1)).join(''), 'none', { stroke: YB.shadeDeep, sw: 0.5 }),
+    ...[WL, WR].flatMap((w) => [
+      L(w.prims, YB.white, { stroke: ink, sw: 0.9 }),
+      L(w.secs, YB.shade, { stroke: ink, sw: 0.9 }),
+      L(w.shafts, 'none', { stroke: YB.shadeDeep, sw: 0.45 }),
+      L(w.coverts, YB.red, { stroke: ink, sw: 1.1 }),
+      L(w.rows, 'none', { stroke: YB.redDeep, sw: 0.6 }),
+      L(w.shoulder, YB.hackle, { stroke: ink, sw: 0.9 }),
+    ]),
+    // legs under the body
+    ...group([legL.outline, legR.outline, toes], YB.horn, 1.6),
+    L(claws + spurs, YB.hornDeep, { stroke: ink, sw: 0.5 }),
+    L(scales, 'none', { stroke: YB.hornDeep, sw: 0.45 }),
+    L(thighs, YB.white, { stroke: ink, sw: 1.2 }),
+    ...group([body], YB.white, 2.4),
+    L(shape(breastSheen), YB.shade),
+    L(scallops, 'none', { stroke: YB.shade, sw: 0.7 }),
+    // the ruff, then the head over it
+    L(ruffBack, YB.redDeep, { stroke: ink, sw: 1.2 }),
+    L(ruffFront, YB.hackle, { stroke: ink, sw: 0.9 }),
+    L(ruffLines, 'none', { stroke: YB.redDeep, sw: 0.6 }),
+    ...headParts(T({ sx: 1.14, sy: 1.14, tx: 56 * -0.14, ty: 30 * -0.14 })),
+    ...looseD,
   ];
+  // small: the ring and his head in its ruff, big
+  // st carries (57, 30.4) to the middle at scale sk; xfD only scales about a point, so the
+  // ruff is scaled about the one point that st leaves where it is
+  const sk = 1.9, st = T({ sx: sk, sy: sk, tx: 50 - 57 * sk, ty: 50 - 30.4 * sk }), fx = (50 - 57 * sk) / (1 - sk), fy = (50 - 30.4 * sk) / (1 - sk);
   const small = [
-    L(circle(C, C, 49.5), DK.rope),
-    L(circle(C, C, 42.5), DK.teal),
-    L(anchor + eye, DK.white, { stroke: DK.ink, sw: 3.2 }),
+    L(circle(C, C, 49.4), YB.red),
+    L(circle(C, C, 43), YB.field),
+    L(xfD(ruffBack, sk, fx, fy), YB.redDeep),
+    L(xfD(ruffFront, sk, fx, fy), YB.hackle),
+    ...headParts(st),
   ];
   return { box: 100, layers, small };
 }
@@ -816,55 +1155,6 @@ function guillotines() {
     L(circle(50, 50, 45), SG.white),
     L(G, SG.red, { stroke: SG.red, sw: 1 }),
     L(frame, SG.red, { stroke: SG.red, sw: 1.2 }),
-  ];
-  return { box: 100, layers, small };
-}
-
-// YARDS ICEHAULERS. Ice tongs biting a block, on a maroon plate.
-const IH = { maroon: '#7a1f2b', maroonDeep: '#4f111b', steel: '#b6bec4', steelDeep: '#6b747b', ice: '#d8eef8', iceMid: '#a9d4ea', iceDeep: '#78b3d3', white: '#ffffff', black: '#141414', wood: '#c99a5c' };
-function yards() {
-  const hex = (r) => ngon(50, 50, r, 6, 0);
-  // the block in three-quarter view: top, left face, right face
-  const top = poly([[50, 46], [72, 55.6], [50, 65.2], [28, 55.6]]);
-  const left = poly([[28, 55.6], [50, 65.2], [50, 91], [28, 81.4]]);
-  const right = poly([[50, 65.2], [72, 55.6], [72, 81.4], [50, 91]]);
-  const cracks = shape([['M', 34, 62], ['L', 38, 69], ['L', 36, 74], ['M', 60, 70], ['L', 64, 66], ['L', 67, 72], ['M', 44, 54], ['L', 52, 52]]);
-  const shine = poly([[30.6, 60.6], [33.4, 61.8], [33.4, 78.2], [30.6, 77]]) + poly([[53.6, 66.6], [60, 63.8], [60, 65.6], [53.6, 68.4]]);
-  // the tongs: two arms crossing at the pivot, points bitten into the block's sides,
-  // a bail handle over the top
-  const arm = (m) => {
-    const t = m ? T({ sx: -1, tx: 100 }) : null;
-    return shape([['M', 61, 18], ['C', 58, 22, 52, 26, 47.6, 31], ['C', 36, 43, 26, 52, 26.4, 66], ['C', 26.6, 70, 29, 72.6, 32.4, 72.4], ['L', 31.6, 68.4],
-      ['C', 30.4, 66.4, 30.4, 62, 31, 59], ['C', 33.4, 50, 42, 42, 52, 34], ['C', 56, 30.6, 61.4, 26, 64.6, 21.6], ['Z']], t);
-  };
-  const pivot = circle(50, 32.6, 3.4);
-  const bail = shape([['M', 59.4, 18.6], ['L', 54.6, 12], ['L', 45.4, 12], ['L', 40.6, 18.6], ['L', 43.4, 19.8], ['L', 47, 15], ['L', 53, 15], ['L', 56.6, 19.8], ['Z']]);
-  const grip = rrect(39, 7.6, 22, 5.4, 2.6);
-  const layers = [
-    L(hex(49.6), IH.black),
-    L(hex(47.4), IH.steel),
-    L(hex(43.6), IH.black),
-    L(hex(42.2), IH.maroon),
-    L(left, IH.iceMid, { stroke: IH.black, sw: 1.6 }),
-    L(right, IH.iceDeep, { stroke: IH.black, sw: 1.6 }),
-    L(top, IH.ice, { stroke: IH.black, sw: 1.6 }),
-    L(cracks, 'none', { stroke: IH.white, sw: 1.2 }),
-    L(shine, IH.white, { op: 0.85 }),
-    L(bail, IH.steelDeep, { stroke: IH.black, sw: 1.4 }),
-    L(grip, IH.wood, { stroke: IH.black, sw: 1.6 }),
-    L(arm(false), IH.steel, { stroke: IH.black, sw: 1.6 }),
-    L(arm(true), IH.steel, { stroke: IH.black, sw: 1.6 }),
-    L(pivot, IH.steelDeep, { stroke: IH.black, sw: 1.4 }),
-  ];
-  const small = [
-    L(hex(49.6), IH.steel),
-    L(hex(43.4), IH.maroon),
-    L(left, IH.iceMid, { stroke: IH.black, sw: 2.6 }),
-    L(right, IH.iceDeep, { stroke: IH.black, sw: 2.6 }),
-    L(top, IH.ice, { stroke: IH.black, sw: 2.6 }),
-    L(arm(false), IH.steel, { stroke: IH.black, sw: 2.6 }),
-    L(arm(true), IH.steel, { stroke: IH.black, sw: 2.6 }),
-    L(grip, IH.steel, { stroke: IH.black, sw: 2.6 }),
   ];
   return { box: 100, layers, small };
 }
@@ -950,15 +1240,15 @@ export const CLUBS = {
         yoke: '#4b2a72', hem: [band(0.0, 0.07, '#4b2a72'), band(0.075, 0.03, '#121014')], sleeve: [band(0.28, 0.1, '#4b2a72'), band(0.38, 0.05, '#121014')], socks: [band(0.26, 0.11, '#4b2a72'), band(0.37, 0.05, '#121014')] }),
     },
   },
-  'Docks Boarders': {
+  'Waterfront Wharf Rats': {
     district: 'docks', home: 'the Docks',
-    colours: ['#00727a', '#0b2341'],
-    crest: docks(),
+    colours: ['#2a2c30', '#ef8fa3'],
+    crest: wharfRats(),
     kit: {
-      home: kit({ jersey: '#00727a', trim: '#0b2341', number: '#ffffff', numberEdge: '#0b2341', pants: '#0b2341', sock: '#00727a', glove: '#0b2341', helmet: '#0b2341',
-        yoke: '#0b2341', hem: [band(0.0, 0.05, '#0b2341'), band(0.055, 0.025, '#d8b67e'), band(0.085, 0.05, '#0b2341')], sleeve: [band(0.28, 0.08, '#0b2341'), band(0.36, 0.04, '#d8b67e'), band(0.4, 0.08, '#0b2341')], socks: [band(0.26, 0.08, '#0b2341'), band(0.34, 0.04, '#d8b67e'), band(0.38, 0.08, '#0b2341')] }),
-      road: kit({ jersey: '#f4f6f6', trim: '#00727a', number: '#00727a', numberEdge: '#0b2341', pants: '#0b2341', sock: '#f4f6f6', glove: '#0b2341', helmet: '#0b2341',
-        yoke: '#00727a', hem: [band(0.0, 0.05, '#00727a'), band(0.055, 0.025, '#0b2341'), band(0.085, 0.05, '#00727a')], sleeve: [band(0.28, 0.08, '#00727a'), band(0.36, 0.04, '#0b2341'), band(0.4, 0.08, '#00727a')], socks: [band(0.26, 0.08, '#00727a'), band(0.34, 0.04, '#0b2341'), band(0.38, 0.08, '#00727a')] }),
+      home: kit({ jersey: '#2a2c30', trim: '#ef8fa3', number: '#ef8fa3', numberEdge: '#141414', pants: '#2a2c30', sock: '#2a2c30', glove: '#2a2c30', helmet: '#2a2c30',
+        yoke: '#8e8a84', hem: [band(0.0, 0.05, '#8e8a84'), band(0.055, 0.03, '#ef8fa3'), band(0.09, 0.05, '#8e8a84')], sleeve: [band(0.28, 0.07, '#8e8a84'), band(0.35, 0.04, '#ef8fa3'), band(0.39, 0.07, '#8e8a84')], socks: [band(0.26, 0.07, '#8e8a84'), band(0.33, 0.04, '#ef8fa3'), band(0.37, 0.07, '#8e8a84')] }),
+      road: kit({ jersey: '#e8e5e0', trim: '#2a2c30', number: '#2a2c30', numberEdge: '#ef8fa3', pants: '#2a2c30', sock: '#e8e5e0', glove: '#2a2c30', helmet: '#2a2c30',
+        yoke: '#2a2c30', hem: [band(0.0, 0.05, '#2a2c30'), band(0.055, 0.03, '#ef8fa3'), band(0.09, 0.05, '#2a2c30')], sleeve: [band(0.28, 0.07, '#2a2c30'), band(0.35, 0.04, '#ef8fa3'), band(0.39, 0.07, '#2a2c30')], socks: [band(0.26, 0.07, '#2a2c30'), band(0.33, 0.04, '#ef8fa3'), band(0.37, 0.07, '#2a2c30')] }),
     },
   },
   'St Garneau Guillotines': {
@@ -972,15 +1262,15 @@ export const CLUBS = {
         yoke: '#af1e2d', hem: [band(0.0, 0.02, '#af1e2d'), band(0.025, 0.07, '#192168'), band(0.1, 0.02, '#af1e2d')], sleeve: [band(0.28, 0.03, '#af1e2d'), band(0.31, 0.1, '#192168'), band(0.41, 0.03, '#af1e2d')], socks: [band(0.24, 0.04, '#af1e2d'), band(0.28, 0.12, '#192168'), band(0.4, 0.04, '#af1e2d')] }),
     },
   },
-  'Yards Icehaulers': {
+  'Yard Birds': {
     district: 'yards', home: 'the Yards',
-    colours: ['#7a1f2b', '#b6bec4'],
-    crest: yards(),
+    colours: ['#c8201c', '#f6f4ef'],
+    crest: yardBirds(),
     kit: {
-      home: kit({ jersey: '#7a1f2b', trim: '#b6bec4', number: '#ffffff', numberEdge: '#4f111b', pants: '#4f111b', sock: '#7a1f2b', glove: '#4f111b', helmet: '#7a1f2b',
-        yoke: '#b6bec4', hem: [band(0.0, 0.06, '#b6bec4'), band(0.075, 0.03, '#a9d4ea')], sleeve: [band(0.28, 0.09, '#b6bec4'), band(0.39, 0.04, '#a9d4ea')], socks: [band(0.26, 0.1, '#b6bec4'), band(0.38, 0.04, '#a9d4ea')] }),
-      road: kit({ jersey: '#f3f1ef', trim: '#7a1f2b', number: '#7a1f2b', numberEdge: '#b6bec4', pants: '#4f111b', sock: '#f3f1ef', glove: '#4f111b', helmet: '#7a1f2b',
-        yoke: '#7a1f2b', hem: [band(0.0, 0.06, '#7a1f2b'), band(0.075, 0.03, '#b6bec4')], sleeve: [band(0.28, 0.09, '#7a1f2b'), band(0.39, 0.04, '#b6bec4')], socks: [band(0.26, 0.1, '#7a1f2b'), band(0.38, 0.04, '#b6bec4')] }),
+      home: kit({ jersey: '#c8201c', trim: '#f6f4ef', number: '#f6f4ef', numberEdge: '#141414', pants: '#141414', sock: '#c8201c', glove: '#141414', helmet: '#141414',
+        yoke: '#f6f4ef', hem: [band(0.0, 0.05, '#f6f4ef'), band(0.055, 0.03, '#141414'), band(0.09, 0.05, '#f6f4ef')], sleeve: [band(0.28, 0.06, '#f6f4ef'), band(0.34, 0.03, '#141414'), band(0.37, 0.06, '#f6f4ef')], socks: [band(0.26, 0.06, '#f6f4ef'), band(0.32, 0.03, '#141414'), band(0.35, 0.06, '#f6f4ef')] }),
+      road: kit({ jersey: '#f6f4ef', trim: '#c8201c', number: '#c8201c', numberEdge: '#141414', pants: '#141414', sock: '#f6f4ef', glove: '#141414', helmet: '#141414',
+        yoke: '#c8201c', hem: [band(0.0, 0.05, '#c8201c'), band(0.055, 0.03, '#141414'), band(0.09, 0.05, '#c8201c')], sleeve: [band(0.28, 0.06, '#c8201c'), band(0.34, 0.03, '#141414'), band(0.37, 0.06, '#c8201c')], socks: [band(0.26, 0.06, '#c8201c'), band(0.32, 0.03, '#141414'), band(0.35, 0.06, '#c8201c')] }),
     },
   },
 };

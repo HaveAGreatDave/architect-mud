@@ -257,7 +257,7 @@ export function narrate(ctx) {
   // ── pre-game ──────────────────────────────────────────────────────────────
   const awayRecord = recordOf(away.name), homeRecord = recordOf(home.name);
   // A club that's in the table but hasn't played reads '0-0-0', which is not a record
-  // worth saying out loud — "the 0-0-0 Yards Icehaulers" on opening night is the
+  // worth saying out loud — "the 0-0-0 Yard Birds" on opening night is the
   // announcer sounding like a database. Any all-zero record counts as no record.
   const hasRecord = (r) => /[1-9]/.test(String(r || ''));
   const hasRecords = hasRecord(awayRecord) || hasRecord(homeRecord);

@@ -921,11 +921,11 @@ Civic Center Wardens went.
 | Westside Warlords | the Glasshouse | black and gold | a W of two bazookas and two rifles inside a gem-set bezel; the same stones run along the sweater stripe |
 | Boomtown Bulldogs | the Rust Quarter | orange and black | a scowling bulldog with heavy jowls and a bone in its jaws, bursting out of a rusted cog, chain collar, dog tags stamped RC |
 | Marquee Marauders | the Marquee | navy and white | a great helm with a plume on a heater shield |
-| Coldwater Highlanders | the Marrow | the Malcolm tartan | a roaring ginger highlander, full length and braced, woad on half his face, stick raised two-handed overhead like a claymore; Malcolm kilt and sash with a silver brooch, the plaid flying behind him, hose and brogues with a sgian-dubh; on a parchment field inside a tartan ring |
+| Coldwater Highlanders | the Marrow | the Malcolm tartan | a roaring ginger highlander, full length and braced, woad on half his face, stick raised two-handed overhead like a claymore with the blade turned up; Malcolm kilt and sash with a silver brooch, the plaid flying behind him, hose and brogues with a sgian-dubh; on a parchment field inside a tartan ring |
 | District 9 Goons | District 9 | bruise purple and bone | a taped, bloodied fist in an octagon, D9 in marker on the tape |
-| Docks Boarders | the Docks | teal and navy | an anchor over crossed sticks in a rope ring |
+| Waterfront Wharf Rats | the Docks | charcoal and pink | a rat in silhouette crouched on an anchor's stock in the harbour fog, back bristling, one eye lit red, incisors bared, claws over the iron and its tail wound round the shank; pink rim light, inside a mooring-line ring |
 | St Garneau Guillotines | Nine Elms | red, white and blue | a solid G whose spur and serif are a guillotine in silhouette: the bowl turns up into the posts, the beam is the serif and runs in as the crossbar, the blade hangs between |
-| Yards Icehaulers | the Yards | maroon and steel | ice tongs biting a block, on a hexagon |
+| Yard Birds | the Yards | red and white | a red pyle fighting cock squared up with his wings thrown wide and his hackles up, glaring down his beak through a scarred brow, sawblade comb with a point broken off, spurs out; on a field of chicken wire torn open behind him |
 
 The St Garneau Guillotines are Father Jerome's pet project, the parish club of St Garneau's
 on Kessler Street. Father Jerome is Long Watch in content (`npc_father_jerome`), but that's
@@ -953,7 +953,7 @@ because the full one turns to mush in a score bug. A layer's fill can be `'sett'
 **How it reaches a viewer.** Payloads never carry the set. Every hockey score bug and
 gameday payload carries `clubsRev`, a short stamp of it (`clubsRevOf`). A client without
 that revision sends `tv_clubs` once; the plugin answers with `{ type: 'tv_clubs', sport,
-rev, clubs }` (about 70 KB), and the client keeps it in memory and in `localStorage` for
+rev, clubs }` (about 100 KB), and the client keeps it in memory and in `localStorage` for
 the next visit.
 
 **Where the look shows.** Score bug and both standings tables (crest beside the name),
