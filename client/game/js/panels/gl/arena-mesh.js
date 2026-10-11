@@ -15,6 +15,8 @@
 
 import { V, clamp, lerp, rotZ, footFrame } from '../rink/util.js';
 import { rinkFace } from '../rink/faces.js';
+import { headMesh, hairMesh, HEAD_FEAT } from '../actor-head.js';
+import { maskColours } from '../rink/hud.js';
 
 export const STRIDE = 13;
 
@@ -34,17 +36,18 @@ export const HEAD_AT = [0.02, -0.03];
 // (the shell's quads facing further forward than HELM_OPEN and lower than the brow are left out)
 // and the brim's height, which the cage and the visor hang from. ⚠ The arena smoke measures every
 // haircut against this shell: move one number and run it.
-export const HELM_C = [-0.02, 0.08], HELM_OPEN = 0.45, HELM_BROW = 0.15, HELM_BROW_GK = 0.12, BRIM_U = 0.12;
+export const HELM_C = [-0.02, 0.08], HELM_OPEN = 0.45, HELM_BROW = 0.15, BRIM_U = 0.12;
 // How far in front of the head joint the cage and the visor stand at height `u`: off the face,
 // pulled in toward the chin, and in to the shell at the brim.
 export function faceRad(R, u) {
   return u > -0.05 ? R * (1.12 - 0.5 * (u + 0.05)) : R * 1.12 * (1 - Math.max(0, -u - 0.2) * 0.35);
 }
 // actor-head.js's hair styles are numbered: cropped, neat and parted, tousled, long, a quiff.
-const QUIFF = 4;
+const TOUSLED = 2, LONG = 3, QUIFF = 4;
 // The record: `M` takes a bind-space point (metres, Y up, facing +Z, left hand on +X) to the rink
 // (feet, Z up), column-major for GL; `lv` is the level, `face` the player's pick (rink/faces.js),
-// `hs` the hair mesh to draw. Under a helmet a quiff is cropped, since it stands out of the shell.
+// `hs` the hair mesh to draw. Under a helmet a quiff is cropped, since it stands out of the shell,
+// and under a keeper's mask long hair is tucked in, since the backplate sits close.
 // Fh, Sd and Uh are the head's forward, left and up, so the map has no mirror in it.
 export function headRecord(C, Fh, Sd, Uh, o, lv = 1, blood = 0, helmet = false) {
   const s = HEAD_S, X = V.mul(Sd, s), Y = V.mul(Uh, s), Z = V.mul(Fh, s);
@@ -52,7 +55,7 @@ export function headRecord(C, Fh, Sd, Uh, o, lv = 1, blood = 0, helmet = false) 
   const face = rinkFace(o);
   return {
     M: new Float32Array([X[0], X[1], X[2], 0, Y[0], Y[1], Y[2], 0, Z[0], Z[1], Z[2], 0, T[0], T[1], T[2], 1]),
-    lv, face, blood, hs: helmet && face.style === QUIFF ? 0 : face.style,
+    lv, face, blood, hs: helmet && face.style === QUIFF ? 0 : helmet && o.goalie && face.style === LONG ? TOUSLED : face.style,
   };
 }
 
@@ -233,6 +236,203 @@ export function helmetShell(b, C, ax, ay, az, r, c, seg = 14, rings = 9, open = 
     return z < -0.6 || (x > open && z < brow);
   });
 }
+// ── THE GOALIE'S MASK ─────────────────────────────────────────────────────────────────────────
+// A keeper wears a mask, not a helmet: a shell moulded round his face and skull, open in a
+// cat-eye over the eyes, nose and mouth with a cage across it, a cup under the chin and a
+// backplate behind, painted with his club's art (gl/arena.js paints it into a slot of the
+// jersey atlas). It's moulded to the generator's head itself: the head's reach in every
+// direction from MASK_O, out by the padding and smoothed, so it fits the way a moulded mask
+// does. Everything is worked out once a level in the head's frame (forward, left, up, in feet
+// from the head joint) and only placed each frame.
+//
+// ⚠ THE OPENING HAS CLEAN EDGES BECAUSE THE GRID IS BENT TO IT. Rows run from the crown down
+// and columns round from the back; the columns across the face are spaced along the opening's
+// top and bottom edges and the rows across it along its sides, so the opening is whole quads.
+// A grid cut across would leave a stepped edge.
+export const MASK_O = [0.03, 0, -0.04];
+export const MASK_EL_MIN = -1.25;
+const MP_AZ = 36, MP_EL = 19, TAU2 = Math.PI * 2, HALF_PI = Math.PI / 2;
+const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+// bind space to the head's frame, as headRecord places it
+const toHead = (P, i) => [HEAD_AT[0] + HEAD_S * (P[i * 3 + 2] - HEAD_A[2]), HEAD_S * (P[i * 3] - HEAD_A[0]), HEAD_AT[1] + HEAD_S * (P[i * 3 + 1] - HEAD_A[1])];
+// The padding: the shell stands further off the chin, which a cup sits well clear of.
+const maskPad = (az, el) => 0.055 + 0.05 * sstep(-0.6, -1.0, el) * (1 - sstep(0.5, 1.0, Math.abs(az)));
+let _mp = null;
+// The head's reach from MASK_O (skull, ears and the three haircuts that can be under a mask),
+// in bins of 10° each way, and the shell's radius over it.
+export function maskProfile() {
+  if (_mp) return _mp;
+  const reach = new Float32Array(MP_AZ * MP_EL).fill(-1);
+  const take = (src, keep) => {
+    for (let i = 0; i < src.P.length / 3; i++) {
+      if (!keep(src, i)) continue;
+      const p = toHead(src.P, i), f = p[0] - MASK_O[0], s = p[1] - MASK_O[1], u = p[2] - MASK_O[2];
+      const h = Math.hypot(f, s), az = Math.atan2(s, f), el = Math.atan2(u, h), d = Math.hypot(h, u);
+      const ia = ((Math.floor((az + Math.PI) / TAU2 * MP_AZ) % MP_AZ) + MP_AZ) % MP_AZ;
+      const k = clamp(Math.round((el + HALF_PI) / Math.PI * (MP_EL - 1)), 0, MP_EL - 1) * MP_AZ + ia;
+      if (d > reach[k]) reach[k] = d;
+    }
+  };
+  take(headMesh(0), (m, i) => m.F[i] !== HEAD_FEAT.neck);
+  // the cuts a mask goes over: a quiff is cropped and long hair tucked in (headRecord)
+  for (let st = 0; st < 3; st++) take(hairMesh(st, 0), () => true);
+  const at = (A, ia, ie) => A[clamp(ie, 0, MP_EL - 1) * MP_AZ + (((ia % MP_AZ) + MP_AZ) % MP_AZ)];
+  // a bin no vertex fell in takes its neighbours' reach
+  for (let pass = 0, empty = true; empty && pass < 40; pass++) {
+    empty = false;
+    const next = reach.slice();
+    for (let ie = 0; ie < MP_EL; ie++) for (let ia = 0; ia < MP_AZ; ia++) {
+      const k = ie * MP_AZ + ia;
+      if (reach[k] >= 0) continue;
+      let m = -1;
+      for (let de = -1; de <= 1; de++) for (let da = -1; da <= 1; da++) m = Math.max(m, at(reach, ia + da, ie + de));
+      next[k] = m; if (m < 0) empty = true;
+    }
+    reach.set(next);
+  }
+  const azOf = (ia) => -Math.PI + (ia + 0.5) * TAU2 / MP_AZ, elOf = (ie) => -HALF_PI + ie * Math.PI / (MP_EL - 1);
+  let shell = new Float32Array(reach.length);
+  for (let ie = 0; ie < MP_EL; ie++) for (let ia = 0; ia < MP_AZ; ia++) shell[ie * MP_AZ + ia] = reach[ie * MP_AZ + ia] + maskPad(azOf(ia), elOf(ie));
+  for (let pass = 0; pass < 2; pass++) {
+    const next = new Float32Array(shell.length);
+    for (let ie = 0; ie < MP_EL; ie++) for (let ia = 0; ia < MP_AZ; ia++) {
+      let s = 0;
+      for (let de = -1; de <= 1; de++) for (let da = -1; da <= 1; da++) s += at(shell, ia + da, ie + de);
+      next[ie * MP_AZ + ia] = s / 9;
+    }
+    shell = next;
+  }
+  // smoothing mustn't pull it into the head anywhere
+  for (let k = 0; k < shell.length; k++) shell[k] = Math.max(shell[k], reach[k] + 0.04);
+  _mp = { reach, shell };
+  return _mp;
+}
+// The shell's radius from MASK_O in a direction (azimuth from forward toward his left, elevation).
+export function maskRadius(az, el) {
+  const { shell } = maskProfile();
+  const fa = (az + Math.PI) / TAU2 * MP_AZ - 0.5, fe = clamp((el + HALF_PI) / Math.PI * (MP_EL - 1), 0, MP_EL - 1);
+  const a0 = Math.floor(fa), e0 = Math.min(MP_EL - 2, Math.floor(fe)), ta = fa - a0, te = fe - e0;
+  const g = (ia, ie) => shell[ie * MP_AZ + (((ia % MP_AZ) + MP_AZ) % MP_AZ)];
+  return lerp(lerp(g(a0, e0), g(a0 + 1, e0), ta), lerp(g(a0, e0 + 1), g(a0 + 1, e0 + 1), ta), te);
+}
+const maskPoint = (az, el) => {
+  const r = maskRadius(az, el), ce = Math.cos(el);
+  return [MASK_O[0] + r * ce * Math.cos(az), MASK_O[1] + r * ce * Math.sin(az), MASK_O[2] + r * Math.sin(el)];
+};
+// The opening, drawn on the face (side, up) and turned into directions from MASK_O: its top
+// edge rises over each eye and dips at the bridge of the nose (the cat-eye), its bottom edge
+// runs under the lower lip, and its sides follow the cheekbones down.
+const maskDepth = (side) => 0.42 - 1.2 * side * side;
+const maskTop = (sp) => [sp * 0.235, 0.06 + 0.04 * Math.sin(Math.PI * Math.abs(sp)) - 0.03 * Math.abs(sp) ** 3];
+const maskBot = (sp) => [sp * 0.12, -0.35];
+function faceDir(side, up) {
+  const f = maskDepth(side) - MASK_O[0], s = side - MASK_O[1], u = up - MASK_O[2];
+  return [Math.atan2(s, f), Math.atan2(u, Math.hypot(f, s))];
+}
+// how low the shell comes: under the chin at the front, the jaw at the sides, the nape behind
+const maskEdge = (az) => -1.2 + 0.7 * (Math.abs(az) / Math.PI) ** 1.3;
+// The texture's flattening: x once round from the back of his right side, through the face
+// (half way) and his left side, to the back again; y from the crown down to MASK_EL_MIN.
+export const maskUV = (az, el) => [(az + Math.PI) / TAU2, (HALF_PI - el) / (HALF_PI - MASK_EL_MIN)];
+// Two levels: columns round (NA), the opening's half-width in columns (io), and its top and
+// bottom rows (jT, jB) of NE rows from the crown to the edge.
+const MASK_LV = [{ NA: 20, io: 3, jT: 3, jB: 6, NE: 8 }, { NA: 40, io: 5, jT: 6, jB: 12, NE: 15 }];
+function maskDir(L, i, j) {
+  const c = i - L.NA / 2;
+  const col = (sp) => {
+    if (j <= L.jT) { const T = faceDir(...maskTop(sp)); return [T[0], lerp(HALF_PI, T[1], j / L.jT)]; }
+    if (j <= L.jB) { const t = (j - L.jT) / (L.jB - L.jT), p = maskTop(sp), q = maskBot(sp); return faceDir(lerp(p[0], q[0], t), lerp(p[1], q[1], t)); }
+    const B = faceDir(...maskBot(sp));
+    return [B[0], lerp(B[1], maskEdge(B[0]), (j - L.jB) / (L.NE - L.jB))];
+  };
+  if (Math.abs(c) <= L.io) return col(c / L.io);
+  // round the sides and the back: spread from the opening's edge column to the seam behind
+  const sg = Math.sign(c), w = (Math.abs(c) - L.io) / (L.NA / 2 - L.io), E = col(sg);
+  return [sg * (Math.abs(E[0]) + w * (Math.PI - Math.abs(E[0]))), lerp(E[1], lerp(HALF_PI, maskEdge(Math.PI), j / L.NE), w)];
+}
+const _mt = [];
+// The template for a level: the shell's grid (positions, normals and texture coordinates, a
+// column more than NA so the seam behind can take u = 0 and u = 1), which quads are the
+// opening, the rim round the opening, the cage's bars and the throat guard's top edge.
+export function maskTemplate(lv = 1) {
+  if (_mt[lv]) return _mt[lv];
+  const L = MASK_LV[lv], S = L.NA + 1, Rn = L.NE + 1, N = S * Rn;
+  const pos = new Float32Array(N * 3), nrm = new Float32Array(N * 3), uv = new Float32Array(N * 2);
+  const dirs = [];
+  for (let j = 0; j < Rn; j++) for (let i = 0; i < S; i++) {
+    const [az, el] = maskDir(L, i, j), k = j * S + i, p = maskPoint(az, el), t = maskUV(az, el);
+    pos.set(p, k * 3); uv.set(t, k * 2); dirs.push([az, el]);
+  }
+  const P = (i, j) => { const k = (clamp(j, 0, L.NE) * S + i) * 3; return [pos[k], pos[k + 1], pos[k + 2]]; };
+  for (let j = 0; j < Rn; j++) for (let i = 0; i < S; i++) {
+    const k = j * S + i;
+    if (j === 0) { nrm.set([0, 0, 1], k * 3); continue; }
+    const il = i === 0 ? L.NA - 1 : i - 1, ir = i === L.NA ? 1 : i + 1;
+    const di = V.sub(P(ir, j), P(il, j)), dj = V.sub(P(i, j + 1), P(i, j - 1));
+    let n = V.norm(V.cross(di, dj));
+    if (!Number.isFinite(n[0]) || V.len(n) < 0.5) n = V.norm(V.sub(P(i, j), MASK_O));
+    if (V.dot(n, V.sub(P(i, j), MASK_O)) < 0) n = V.mul(n, -1);
+    nrm.set(n, k * 3);
+  }
+  const c0 = L.NA / 2 - L.io, c1 = L.NA / 2 + L.io;
+  const open = (i, j) => i >= c0 && i < c1 && j >= L.jT && j < L.jB;
+  // the rim, once round the opening along the grid's own edge
+  const rim = [];
+  for (let i = c0; i <= c1; i++) rim.push(P(i, L.jT));
+  for (let j = L.jT + 1; j <= L.jB; j++) rim.push(P(c1, j));
+  for (let i = c1 - 1; i >= c0; i--) rim.push(P(i, L.jB));
+  for (let j = L.jB - 1; j > L.jT; j--) rim.push(P(c0, j));
+  // The cage spans the opening (a Coons patch on its four edges) and bulges forward over the
+  // nose. Bars: one up the middle between the eyes, and below the eyes a grid; the eyes have
+  // the cat-eye's open frames.
+  const edgeAt = (sp, t) => { const p = maskTop(sp), q = maskBot(sp); return maskPoint(...faceDir(lerp(p[0], q[0], t), lerp(p[1], q[1], t))); };
+  const T0 = edgeAt(-1, 0), T1 = edgeAt(1, 0), B0 = edgeAt(-1, 1), B1 = edgeAt(1, 1);
+  const cage = (sp, t) => {
+    const u = (sp + 1) / 2, top = edgeAt(sp, 0), bot = edgeAt(sp, 1), lft = edgeAt(-1, t), rgt = edgeAt(1, t);
+    const p = [0, 1, 2].map((k) => (1 - t) * top[k] + t * bot[k] + (1 - u) * lft[k] + u * rgt[k]
+      - ((1 - u) * (1 - t) * T0[k] + u * (1 - t) * T1[k] + (1 - u) * t * B0[k] + u * t * B1[k]));
+    p[0] += 0.11 * (1 - sp * sp) ** 0.6 * Math.sin(Math.PI * t) ** 0.7;
+    return p;
+  };
+  const line = (f, a, b, n) => Array.from({ length: n + 1 }, (_, k) => f(lerp(a, b, k / n)));
+  const EYE_T = 0.38, bars = [line((t) => cage(0, t), 0, 1, lv ? 8 : 4)];
+  for (const sp of lv ? [-0.7, -0.36, 0.36, 0.7] : [-0.5, 0.5]) bars.push(line((t) => cage(sp, t), EYE_T, 1, lv ? 5 : 2));
+  for (const t of lv ? [EYE_T, 0.62, 0.84] : [EYE_T, 0.7]) bars.push(line((sp) => cage(sp, t), -1, 1, lv ? 10 : 4));
+  // the throat guard hangs off the front of the chin cup
+  const dangler = [];
+  for (let i = c0 + 1; i <= c1 - 1; i++) dangler.push(P(i, L.NE));
+  _mt[lv] = { L, S, rows: L.NE, pos, nrm, uv, dirs, open, rim, bars, dangler };
+  return _mt[lv];
+}
+// The mask, placed on a keeper's head: the shell (into `bt` with the club's paint when the
+// renderer gave him a slot, else plain into `b`), the rim and the cage into `b`. The throat
+// guard is see-through, so it's left for buildVisor on `o._dangler`.
+export function buildMask(b, bt, Hc, Fh, Sd, Uh, o, det) {
+  const T = maskTemplate(det ? 1 : 0), slot = o.maskSlot, tb = slot ? bt : b;
+  const col = slot ? [1, 1, 1, 1] : rgb(maskColours(o.kit).base), tw = slot ? 1 : 0;
+  const [su0, sv0, su1, sv1] = slot || [0, 0, 0, 0];
+  const S = T.S, pos = T.pos, nrm = T.nrm, uv = T.uv;
+  const put = (k) => {
+    const f = pos[k * 3], s = pos[k * 3 + 1], u = pos[k * 3 + 2], nf = nrm[k * 3], ns = nrm[k * 3 + 1], nu = nrm[k * 3 + 2];
+    vs(tb, Hc[0] + Fh[0] * f + Sd[0] * s + Uh[0] * u, Hc[1] + Fh[1] * f + Sd[1] * s + Uh[1] * u, Hc[2] + Fh[2] * f + Sd[2] * s + Uh[2] * u,
+      Fh[0] * nf + Sd[0] * ns + Uh[0] * nu, Fh[1] * nf + Sd[1] * ns + Uh[1] * nu, Fh[2] * nf + Sd[2] * ns + Uh[2] * nu,
+      col, su0 + uv[k * 2] * (su1 - su0), sv0 + uv[k * 2 + 1] * (sv1 - sv0), tw);
+  };
+  grow(tb, (S - 1) * T.rows * 6);
+  for (let j = 0; j < T.rows; j++) for (let i = 0; i < S - 1; i++) {
+    if (T.open(i, j)) continue;
+    const k00 = j * S + i, k10 = k00 + 1, k01 = k00 + S, k11 = k01 + 1;
+    put(k00); put(k01); put(k11); put(k00); put(k11); put(k10);
+  }
+  const at = (p) => [Hc[0] + Fh[0] * p[0] + Sd[0] * p[1] + Uh[0] * p[2], Hc[1] + Fh[1] * p[0] + Sd[1] * p[1] + Uh[1] * p[2], Hc[2] + Fh[2] * p[0] + Sd[2] * p[1] + Uh[2] * p[2]];
+  // (each piece runs a radius past its ends, so the joints close)
+  const piece = (A, B, r, c, n) => { const d = V.sub(B, A), L = V.len(d) || 1, e = V.mul(d, r / L); tube(b, V.sub(A, e), V.add(B, e), r, r, c, n); };
+  const rim = T.rim.map(at);
+  for (let k = 0; k < rim.length; k++) piece(rim[k], rim[(k + 1) % rim.length], 0.024, MASK_RIM, det ? 5 : 3);
+  for (const bar of T.bars) { const pts = bar.map(at); for (let k = 0; k + 1 < pts.length; k++) piece(pts[k], pts[k + 1], 0.016, CAGE_GK, det ? 4 : 3); }
+  o._dangler = det ? { top: T.dangler.map(at), Fh, Uh } : null;
+}
+
 // An oriented box: centre, three unit axes, three half-sizes.
 export function boxAxes(b, C, ax, ay, az, hx, hy, hz, c) {
   const P = (x, y, z) => V.frame(C, ax, x * hx, ay, y * hy, az, z * hz);
@@ -272,7 +472,7 @@ export function disc(b, C, n, r, c, seg = 14, thick = 0.08) {
 const SK_RINGS = [[-0.14, 0.6, 0.42, 0.03], [0.3, 0.53, 0.38, 0.04], [0.64, 0.66, 0.45, 0.04], [0.78, 0.78, 0.5, -0.06], [0.9, 0.86, 0.44, -0.03], [1.03, 0.44, 0.32, -0.02]];
 const GK_RINGS = [[-0.14, 0.72, 0.52, 0.04], [0.3, 0.72, 0.56, 0.08], [0.64, 0.86, 0.62, 0.1], [0.78, 0.98, 0.62, -0.02], [0.9, 1.08, 0.56, 0.02], [1.04, 0.52, 0.4, 0]];
 const BOOT = rgb('#16171b'), HOLDER = rgb('#e7eaed'), STEEL = rgb('#cfd6dd'), STICK = rgb('#24262d'), TAPE = rgb('#f1f0ea'), RAW = rgb('#7a0a10'), BONE = rgb('#e9e1cf');
-const CAGE = rgb('#c6ccd2'), CAGE_GK = rgb('#1b1e23'), PAD = rgb('#eef0f2'), EYE = rgb('#1b1012'), LINER = rgb('#141518');
+const CAGE = rgb('#c6ccd2'), CAGE_GK = rgb('#1b1e23'), PAD = rgb('#eef0f2'), EYE = rgb('#1b1012'), LINER = rgb('#141518'), MASK_RIM = rgb('#202226');
 
 // The torso as a loft of elliptical rings, UV-mapped so the batch's texture (the jersey
 // atlas) puts the number on the back and the crest on the chest. `slot` is the atlas
@@ -315,7 +515,7 @@ export function buildBody(b, bt, J, o) {
   for (let i = 0; i < 18; i++) if (!J[i] || !Number.isFinite(J[i][0])) return;
   const K = o.kit, gk = !!o.goalie, missing = o.missing || {}, det = o.detail ?? 1;
   const seg = det ? 10 : 6;
-  const jersey = rgb(K.jersey), trim = rgb(K.trim), pants = rgb(K.pants), sock = rgb(K.sock), glove = rgb(K.glove), helmet = rgb(gk ? '#eef0f2' : K.helmet), skin = rgb(o.skin || '#e0b08c');
+  const jersey = rgb(K.jersey), trim = rgb(K.trim), pants = rgb(K.pants), sock = rgb(K.sock), glove = rgb(K.glove), helmet = rgb(gk ? maskColours(K).base : K.helmet), skin = rgb(o.skin || '#e0b08c');
   const U = V.norm(V.sub(J[2], J[0]));
   const ortho = (v) => V.norm(V.sub(v, V.mul(U, V.dot(v, U))));
   const Ss = ortho(V.sub(J[4], J[7])), Sh = ortho(V.sub(J[10], J[13]));
@@ -445,12 +645,13 @@ export function buildBody(b, bt, J, o) {
         sphere(b, Hc, R * 0.86, skin, det ? 10 : 7, det ? 7 : 5);
         ellipsoid(b, V.frame(Hc, Fh, -0.08, Uh, 0.1), Fh, Sd, Uh, [R * 0.88, R * 0.9, R * 0.74], rgb(o.hair || '#2a1c14'), det ? 10 : 7, 5);
       }
+    } else if (o.heads && gk) {
+      buildMask(b, bt, Hc, Fh, Sd, Uh, o, det);
     } else if (o.heads) {
       // open at the face, the generator's head inside it, the dark liner showing round the
-      // opening. A goalie wears the same, a little bigger, behind his heavier cage.
-      const brow = gk ? HELM_BROW_GK : HELM_BROW;
-      helmetShell(b, C0, Fh, Sd, Uh, [R, R, R * 0.92], helmet, det ? 16 : 10, det ? 10 : 6, HELM_OPEN, brow);
-      if (det) helmetShell(b, C0, Fh, Sd, Uh, [R * 0.95, R * 0.95, R * 0.87], LINER, 12, 8, HELM_OPEN, brow);
+      // opening
+      helmetShell(b, C0, Fh, Sd, Uh, [R, R, R * 0.92], helmet, det ? 16 : 10, det ? 10 : 6, HELM_OPEN, HELM_BROW);
+      if (det) helmetShell(b, C0, Fh, Sd, Uh, [R * 0.95, R * 0.95, R * 0.87], LINER, 12, 8, HELM_OPEN, HELM_BROW);
     } else {
       ellipsoid(b, C0, Fh, Sd, Uh, [R, R, R * 0.92], helmet, det ? 14 : 8, det ? 9 : 5);
     }
@@ -468,7 +669,7 @@ export function buildBody(b, bt, J, o) {
         sphere(b, V.frame(Hc, Fh, 0.47, Uh, -0.3), 0.07, mix(skin, -0.12), 6, 4);
         if (bloody) box(b, V.frame(Hc, Fh, 0.46, Uh, -0.34), V.frame(Hc, Fh, 0.42, Uh, -0.62), 0.03, 0.02, rgb('#96080e'));
       }
-      if (o.helmet !== false && o.face !== 'visor') {
+      if (o.helmet !== false && o.face !== 'visor' && !(gk && o.heads)) {
         // the cage: bars over the face, in the head's frame, clipped to the brim at the top
         const col = gk ? CAGE_GK : CAGE;
         const pt = (ang, u) => { const rad = faceRad(R, u); return V.frame(Hc, Fh, Math.cos(ang) * rad, Sd, Math.sin(ang) * rad, Uh, u); };
@@ -499,8 +700,18 @@ export function buildBody(b, bt, J, o) {
   if (J.meta && J.meta.bottle) tube(b, J.meta.bottle, V.add(J.meta.bottle, [0, 0, -0.75]), 0.12, 0.13, rgb('#468cdc'), 8);
 }
 
-// A visor is see-through, so it goes in the transparent batch after the body is built.
+// A visor is see-through, so it goes in the transparent batch after the body is built, and so
+// does a keeper's throat guard, hung off the front of his chin cup.
 export function buildVisor(b, o) {
+  const g = o._dangler;
+  if (g) {
+    const c = [0.8, 0.86, 0.92, 0.26], drop = (p, k) => V.frame(p, g.Fh, 0.06 * k, g.Uh, -0.24 * k);
+    for (let i = 0; i + 1 < g.top.length; i++) {
+      const a = g.top[i], d = g.top[i + 1];
+      quad(b, drop(a, 0.5), drop(d, 0.5), d, a, c, null, null);
+      quad(b, drop(a, 1), drop(d, 1), drop(d, 0.5), drop(a, 0.5), c, null, null);
+    }
+  }
   const v = o._visor; if (!v) return;
   const { Hc, Fh, Sd, Uh, R } = v, c = [0.75, 0.88, 0.98, 0.22];
   const pt = (a, u) => { const rad = faceRad(R, u); return V.frame(Hc, Fh, Math.cos(a) * rad, Sd, Math.sin(a) * rad, Uh, u); };
@@ -513,7 +724,7 @@ export function buildVisor(b, o) {
 }
 
 // A limb that came off: a chain of verlet points from sim.js.
-export function buildSevered(b, l, o) {
+export function buildSevered(b, l, o, bt = b) {
   const K = o.kit, skin = rgb(o.skin || '#e0b08c'), pts = l.pts.map((p) => [p.x, p.y, p.z]);
   if (pts.some((p) => !Number.isFinite(p[0]))) return;
   if (l.part === 'head') {
@@ -523,7 +734,8 @@ export function buildSevered(b, l, o) {
       // the generator's head, bloodied, in his helmet as it sat on him, so the face shows
       const helm = o.helmet !== false;
       o.heads.push(headRecord(V.frame(c, f, HEAD_AT[0], up, HEAD_AT[1]), f, sd, up, o, 1, 1, helm));
-      if (helm) helmetShell(b, V.frame(c, f, HELM_C[0], up, HELM_C[1]), f, sd, up, [0.46, 0.46, 0.42], rgb(K.helmet), 10, 6, HELM_OPEN, HELM_BROW);
+      if (helm && o.goalie) buildMask(b, bt, c, f, sd, up, o, 0);
+      else if (helm) helmetShell(b, V.frame(c, f, HELM_C[0], up, HELM_C[1]), f, sd, up, [0.46, 0.46, 0.42], rgb(K.helmet), 10, 6, HELM_OPEN, HELM_BROW);
     } else {
       sphere(b, c, 0.47, o.helmet === false ? skin : rgb(K.helmet), 10, 7);
       ellipsoid(b, V.add(c, V.mul(f, 0.2)), f, sd, up, [0.28, 0.3, 0.34], skin, 8, 6);

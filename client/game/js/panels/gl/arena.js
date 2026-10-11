@@ -28,7 +28,7 @@
 import { RL, RW, BOARD_H, GLASS_H, GOAL_X, MID_Y, NET_HALF, NET_DEPTH, NET_H, SEGS, PANELS, PANEL_X0, PANEL_W } from '../rink/geo.js';
 import { CX0, CX1, CROWS, ROWH, sharedTextures } from '../rink/textures.js';
 import { createRinkCamera, matrices } from '../rink/camera.js';
-import { bodyOpts, drawHud, hudActive } from '../rink/hud.js';
+import { bodyOpts, drawHud, hudActive, maskColours } from '../rink/hud.js';
 import { TAU, clamp, hash, rng } from '../rink/util.js';
 import * as M from './arena-mesh.js';
 import { paintCrest, settCanvas } from '../club-crest.js';
@@ -375,11 +375,9 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       for (const k of ['stat', 'ads', 'stands', 'glass']) put(L[k], B[k]);
     }
 
-    // ── the jerseys, a slot each in one atlas ─────────────────────────────────
+    // ── the jerseys, a slot each in one atlas, and the keepers' masks ─────────
     const slots = new Map();
-    function jerseySlot(o) {
-      const K = o.kit;
-      const key = [K.clubName || '', K.jersey, K.trim, K.stripes ? 1 : 0, K.crest || '', o.num ?? '', o.name || '', Math.round((o.blood || 0) * 4), o.goalie ? 1 : 0].join('|');
+    function atlasSlot(key, paint) {
       let s = slots.get(key);
       if (!s) {
         let i = slots.size;
@@ -390,7 +388,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
         }
         s = { i, used: frame };
         slots.set(key, s);
-        paintJersey(o);
+        paint();
         gl.bindTexture(T2, atlas);
         gl.texSubImage2D(T2, 0, (i % 8) * SLOT, Math.floor(i / 8) * SLOT, gl.RGBA, gl.UNSIGNED_BYTE, slotCv);
       }
@@ -398,6 +396,11 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       const e = 1.5 / ATLAS, u0 = (s.i % 8) / 8, v0 = Math.floor(s.i / 8) / 8;
       return [u0 + e, v0 + e, u0 + 1 / 8 - e, v0 + 1 / 8 - e];
     }
+    function jerseySlot(o) {
+      const K = o.kit;
+      return atlasSlot([K.clubName || '', K.jersey, K.trim, K.stripes ? 1 : 0, K.crest || '', o.num ?? '', o.name || '', Math.round((o.blood || 0) * 4), o.goalie ? 1 : 0].join('|'), () => paintJersey(o));
+    }
+    const maskSlot = (o) => atlasSlot(['mask', o.kit.clubName || `${o.kit.jersey}${o.kit.trim}`, o.num ?? ''].join('|'), () => paintMask(o));
     // The sweater flattened: u runs round the body (a quarter in is the chest, three
     // quarters the back), v from the collar at the top to the hem. Lettering is drawn
     // mirrored because u runs right to left as you look at him.
@@ -436,6 +439,50 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
           c.fillRect(x - rr * 0.2, y, rr * 0.4, rr * (2 + r() * 3));
         }
       }
+    }
+
+    // A keeper's mask, flattened the way M.maskUV flattens it: x once round his head from the
+    // back of his right side through the face (64) and his left side to the back again; y from
+    // the crown down to the chin cup's edge. The cut-out over the face is never seen, so the
+    // paint can run under it. The colours are the club's (hud.js's maskColours): the shell in
+    // the first, a stripe over the crown and blades swept back from the cage in the second,
+    // edged in the third; the backplate in the second with the strap across it and his number;
+    // the crest on each temple; the ear holes. A club in a sett wears it in the blades.
+    function paintMask(o) {
+      const K = o.kit, c = sctx, S = SLOT, club = K.club;
+      const at = (az, el) => { const [u, v] = M.maskUV(az, el); return [u * S, v * S]; };
+      const { base, trim, edge } = maskColours(K);
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      c.fillStyle = base; c.fillRect(0, 0, S, S);
+      const sett = club && club.sett ? settFill(club.sett) : null;
+      // the flashes: three blades a side, swept back from the cage and tapering to points
+      // (base top and bottom on the cage's side, the point, and how far each edge bows up)
+      const BLADES = [[0.56, 0.36, 0.12, 2.15, 0.62, 0.16], [0.6, 0.02, -0.22, 2.3, 0.08, 0.1], [0.5, -0.36, -0.62, 1.95, -0.5, 0.06]];
+      for (const sd of [1, -1]) for (const [az0, e0, e1, az1, et, bow] of BLADES) {
+        const [xa, ya] = at(sd * az0, e0), [xb, yb] = at(sd * az0, e1), [xt, yt] = at(sd * az1, et);
+        const [xm, ym] = at(sd * (az0 + az1) / 2, (e0 + et) / 2 + bow), [xn, yn] = at(sd * (az0 * 0.4 + az1 * 0.6), (e1 + et) / 2 + bow * 0.4);
+        c.beginPath(); c.moveTo(xa, ya); c.quadraticCurveTo(xm, ym, xt, yt); c.quadraticCurveTo(xn, yn, xb, yb); c.closePath();
+        c.fillStyle = sett || trim; c.fill();
+        c.lineWidth = 1.6; c.lineJoin = 'miter'; c.strokeStyle = edge; c.stroke();
+      }
+      // the stripe over the crown: from the top of the cage up, and down the back to the plate
+      const stripe = (x, y0, y1) => { c.fillStyle = edge; c.fillRect(x - 4.5, y0, 9, y1 - y0); c.fillStyle = trim; c.fillRect(x - 3, y0, 6, y1 - y0); };
+      stripe(S / 2, 0, at(0, 0.2)[1]); stripe(0, 0, at(Math.PI, 0.5)[1]); stripe(S, 0, at(Math.PI, 0.5)[1]);
+      // the backplate behind the seam, with the strap across it and his number
+      const xs = at(-2.15, 0)[0], xe = at(2.15, 0)[0], ys = at(Math.PI, 0.5)[1];
+      c.fillStyle = trim; c.fillRect(0, ys, xs, S - ys); c.fillRect(xe, ys, S - xe, S - ys);
+      c.fillStyle = '#141414'; c.fillRect(xs - 1, 0, 2, S); c.fillRect(xe - 1, 0, 2, S);
+      c.fillStyle = 'rgba(20,20,20,0.85)'; c.fillRect(0, at(0, -0.05)[1] - 2, xs, 4); c.fillRect(xe, at(0, -0.05)[1] - 2, S - xe, 4);
+      const num = String(o.num ?? '');
+      if (num) {
+        c.font = `800 15px ${FACE}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+        for (const x of [0, S]) { c.lineWidth = 3; c.strokeStyle = edge; c.strokeText(num, x, ys + 12); c.fillStyle = base; c.fillText(num, x, ys + 12); }
+      }
+      // the crest on each temple
+      if (K.badge) for (const sd of [1, -1]) { const [x, y] = at(sd * 1.3, 0.92); paintCrest(c, club, x, y, 17, { small: true }); }
+      // the ear holes
+      c.fillStyle = 'rgba(16,16,18,0.9)';
+      for (const sd of [1, -1]) { const [x, y] = at(sd * 1.72, -0.18); c.beginPath(); c.ellipse(x, y, 2.4, 3.6, 0, 0, TAU); c.fill(); }
     }
 
     // the number on the back, the name over it, mirrored (u runs right to left there)
@@ -591,6 +638,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
         // the head's level by its size on screen: a head is about 0.9 ft, so L0 from about 32 px
         o.heads = headsTo(); o.headLv = !hp ? 2 : hp.s > 36 ? 0 : hp.s > 9 ? 1 : 2;
         o.slot = jerseySlot(o);
+        if (o.goalie) o.maskSlot = maskSlot(o);
         M.buildBody(d, B.jers, J, o);
         M.buildVisor(B.tr, o);
         const p = b.rag ? b.rag.pts[0] : b;
@@ -598,7 +646,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       }
       if (!W.puck.hidden) { M.buildPuck(d, W.puck); shadow(W.puck.x, W.puck.y, 0.35); tail(eye); }
       for (const x of W.debris) M.buildDebris(d, x, W.kits[x.side] || W.kits.a);
-      for (const l of W.limbs) { const o = bodyOpts(W, l.owner || { side: l.side }); if (o.kit) { o.heads = headsTo(); M.buildSevered(d, l, o); } }
+      for (const l of W.limbs) { const o = bodyOpts(W, l.owner || { side: l.side }); if (o.kit) { o.heads = headsTo(); if (o.goalie) o.maskSlot = maskSlot(o); M.buildSevered(d, l, o, B.jers); } }
       if (W.stretcher) M.buildStretcher(d, W.stretcher);
       if (W.zamboni) shadow(W.zamboni.x, W.zamboni.y, 6.5);
       farGlass();

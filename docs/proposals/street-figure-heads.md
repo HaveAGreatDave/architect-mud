@@ -96,7 +96,7 @@ What it settled that phase 4 can use:
 - **The half-size atlas is enough.** The rink's closest framing, the fight, puts a head at about 135 px on a 1920-wide picture at its 1.5× resolution, and a half-size cell is 128 × 160.
 - **The level by the head's own size on screen**, L0 over about 32 px and L1 over about 8 px, matches the figure heights in section 2.
 - **A face comes off a stable name.** The rink keys it on the player's name, not his body, which changes from game to game ([rink/faces.js](../../client/game/js/panels/rink/faces.js)). The street keys it on the token, for the reason in *What doesn't change*.
-- **Headgear needs the haircuts measured against it.** Four of the five clear a helmet; the quiff is drawn cropped under one. `scripts/shapes/arena-smoke.mjs` measures every vertex against the shell.
+- **Headgear needs the haircuts measured against it.** Four of the five clear a helmet; the quiff is drawn cropped under one. A keeper's mask is moulded from the head's own reach in every direction, with long hair tucked in. `scripts/shapes/arena-smoke.mjs` measures every vertex against the shell.
 
 ## Phases
 

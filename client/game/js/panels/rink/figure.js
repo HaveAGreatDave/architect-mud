@@ -22,6 +22,7 @@
 
 import { TAU, V, clamp, lerp, shade, hull, hash, footFrame } from './util.js';
 import { paintCrest } from '../club-crest.js';
+import { maskColours } from './hud.js';
 
 const INK = '#0b0e13';
 const SL = [-0.52, -0.85];                     // screen-space direction toward the key light
@@ -477,7 +478,7 @@ export function drawBody(ctx, P, J, o) {
     const Sd = V.norm(V.cross([0, 0, 1], Fh)), Uh = V.cross(Fh, Sd);
     const tc = toCam(Hc), facing = V.dot(Fh, tc);
     const at = (f, sd, u) => W(V.frame(Hc, Fh, f, Sd, sd, Uh, u));
-    const helmetCol = gk ? '#eef0f2' : K.helmet;
+    const mask = gk ? maskColours(K) : null, helmetCol = gk ? mask.base : K.helmet;
     const shell = () => {
       ctx.beginPath(); ctx.arc(hp.x, hp.y, r, 0, TAU);
       ctx.fillStyle = lod ? shellGrad(ctx, hp, r, helmetCol) : helmetCol; ctx.fill();
@@ -594,10 +595,13 @@ export function drawBody(ctx, P, J, o) {
     if (facing > -0.2) { shell(); face(); cage(); }
     else { cage(); shell(); if (lod) { const t = W(V.frame(Hc, Fh, -R * 0.75, Uh, -R * 0.55)); if (t) { ctx.fillStyle = o.hair || '#2a1c14'; ctx.beginPath(); ctx.arc(t.x, t.y, 0.13 * t.s, 0, TAU); ctx.fill(); } } }
     if (!refl && lod && gk) {
-      // the keeper's mask carries his club's paint
+      // the keeper's mask carries his club's paint: the stripe over the crown, edged, stopping
+      // above the cage
       ctx.save(); ctx.beginPath(); ctx.arc(hp.x, hp.y, r, 0, TAU); ctx.clip();
-      const a = at(-0.1, 0, 0.42), b = at(0.45, 0, 0.0);
-      if (a && b) { ctx.strokeStyle = K.jersey; ctx.lineWidth = 0.16 * hp.s; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+      const a = at(-0.1, 0, 0.42), b = at(0.4, 0, 0.17);
+      if (a && b) {
+        for (const [w, col] of [[0.2, mask.edge], [0.13, mask.trim]]) { ctx.strokeStyle = col; ctx.lineWidth = w * hp.s; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+      }
       ctx.restore();
     }
   };

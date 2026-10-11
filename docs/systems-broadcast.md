@@ -1212,6 +1212,13 @@ lit triangles with a depth buffer:
   name (`faces.js`), so Lindqvist has the same one every night, in the replay too; nobody on
   the ice gets a makeup layout, and the layouts lean to stubble and beards. A severed head
   keeps its face, and the heads are in the reflection.
+- A keeper wears a mask, not a helmet: a shell moulded round the generator's head (its reach
+  in every direction from the middle of the skull, padded and smoothed), open in a cat-eye
+  with a black cage across it, a cup under the chin, a backplate and a clear throat guard.
+  It's painted into a slot of the jersey atlas in his club's colours, the same home and away
+  (`maskColours` in `hud.js`, which the 2-D renderer's keeper uses too): blades swept back
+  from the cage, a stripe over the crown, the crest on each temple, his number on the
+  backplate, and the Highlanders' tartan in the blades.
 - The ice is the same painted canvas, kept as a texture. `textures.js` lists the 125-texel
   tiles each mark touches (`ice.dirty`), and the arena re-uploads only those.
 - The reflection is the boards, the props and the men drawn again through `matrices(C,
@@ -1268,6 +1275,11 @@ whatever the Zamboni got through.
   them and run `arena-smoke.mjs`: it checks the skull and every haircut clear the shell and
   the face is behind the cage. A quiff stands out of any helmet, so under one it's drawn
   cropped.
+- The mask is moulded to the head itself (`maskProfile` in `arena-mesh.js`), so a change to
+  actor-head.js's skull or haircuts changes the mask; the smoke casts a ray from the mask's
+  middle through every vertex to check it still fits. Its opening has clean edges because
+  the shell's grid is bent to it (`maskDir`); a grid cut across leaves a stepped edge. A
+  keeper's long hair is tucked in, since the backplate sits close.
 - If the head program won't build, the arena keeps going with the old primitive heads
   (`o.heads` is null and `arena-mesh.js` makes its own); only a failure in the others sends
   the view to 2-D. The 2-D renderer never had the generator's heads.
@@ -1289,8 +1301,8 @@ by the score bug, the full-screen graphics, the rink header, the idle screen and
 Gameday toggle itself, which wears a puck on a hockey night and a baseball otherwise
 (`_brandGamedayBtn` in tv.js).
 
-[scripts/shapes/rink-smoke.mjs](../scripts/shapes/rink-smoke.mjs) runs in `pretest:regress`, as two gates, one game each (`rink-smoke.mjs 206` and `rink-smoke.mjs 25`), side by side; run bare, it plays both.
-It plays two real games (the sim and the narrator, slots 206 and 25, which between them
+[scripts/shapes/rink-smoke.mjs](../scripts/shapes/rink-smoke.mjs) runs in `pretest:regress`, as two gates, one game each (`rink-smoke.mjs 37` and `rink-smoke.mjs 914`), side by side; run bare, it plays both.
+It plays two real games (the sim and the narrator, slots 37 and 914, which between them
 emit every beat type) through the view over a hand-cranked DOM, clock and canvas
 ([rink-dom-stub.mjs](../scripts/shapes/rink-dom-stub.mjs)). It checks that every beat
 resolves, every goal goes in and no save does, the faceoff is taken on the named dot by
@@ -1308,7 +1320,7 @@ head, visor) builds finite and inside its triangle budget, along with limbs, deb
 the Zamboni and the stretcher. Each body leaves one head record (none with the jersey over
 it or the head gone), its matrix a rigid map, its face never a makeup layout and the same for
 the same name; the helmet's fit is measured against every haircut and the cage against the
-face. Each kind of ice mark lists its tile. With no WebGL2, `createArenaRenderer` returns
+face, and so is the keeper's mask, at both levels, with its paint kept inside its slot. Each kind of ice mark lists its tile. With no WebGL2, `createArenaRenderer` returns
 null rather than throwing.
 
 ### Sound banks
