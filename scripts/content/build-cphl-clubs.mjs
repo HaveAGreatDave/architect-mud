@@ -887,9 +887,9 @@ function wharfRats() {
 // YARD BIRDS. A red pyle fighting cock squared up and furious: white, with his hackle and
 // the bows of his wings red. Wings thrown wide, hackles up in a ruff round his head,
 // glaring down his beak with a scar through his brow, spurs out, and the chicken wire
-// behind him torn open where he came through it. His colours are the club's.
+// behind him torn open where he came through it. Red, white and black: the club's colours.
 const YB = { red: '#c8201c', redDeep: '#8a130f', hackle: '#dc4a1e', white: '#f6f4ef', shade: '#d6d1c7', shadeDeep: '#9f998d',
-  field: '#1f1f22', wire: '#3e3e45', wireLight: '#64646e', horn: '#ecd28a', hornDeep: '#a88f50', iris: '#f6d23a', scar: '#f4b6a6',
+  field: '#161616', wire: '#3e3e45', wireLight: '#64646e', horn: '#ecd28a', hornDeep: '#a88f50', iris: '#f6d23a', scar: '#f4b6a6',
   black: '#141414', ink: '#141414', mouth: '#4a0b0b', tongue: '#e0606a' };
 // a feather or a sickle: a vane along a cubic, pointed at both ends, fullest a little
 // before the middle
@@ -1264,13 +1264,13 @@ export const CLUBS = {
   },
   'Yard Birds': {
     district: 'yards', home: 'the Yards',
-    colours: ['#c8201c', '#f6f4ef'],
+    colours: ['#c8201c', '#f6f4ef', '#141414'],
     crest: yardBirds(),
     kit: {
-      home: kit({ jersey: '#c8201c', trim: '#f6f4ef', number: '#f6f4ef', numberEdge: '#141414', pants: '#141414', sock: '#c8201c', glove: '#141414', helmet: '#141414',
-        yoke: '#f6f4ef', hem: [band(0.0, 0.05, '#f6f4ef'), band(0.055, 0.03, '#141414'), band(0.09, 0.05, '#f6f4ef')], sleeve: [band(0.28, 0.06, '#f6f4ef'), band(0.34, 0.03, '#141414'), band(0.37, 0.06, '#f6f4ef')], socks: [band(0.26, 0.06, '#f6f4ef'), band(0.32, 0.03, '#141414'), band(0.35, 0.06, '#f6f4ef')] }),
+      home: kit({ jersey: '#c8201c', trim: '#141414', number: '#f6f4ef', numberEdge: '#141414', pants: '#141414', sock: '#c8201c', glove: '#141414', helmet: '#141414',
+        yoke: '#141414', hem: [band(0.0, 0.05, '#141414'), band(0.055, 0.03, '#f6f4ef'), band(0.09, 0.05, '#141414')], sleeve: [band(0.28, 0.06, '#141414'), band(0.34, 0.03, '#f6f4ef'), band(0.37, 0.06, '#141414')], socks: [band(0.26, 0.06, '#141414'), band(0.32, 0.03, '#f6f4ef'), band(0.35, 0.06, '#141414')] }),
       road: kit({ jersey: '#f6f4ef', trim: '#c8201c', number: '#c8201c', numberEdge: '#141414', pants: '#141414', sock: '#f6f4ef', glove: '#141414', helmet: '#141414',
-        yoke: '#c8201c', hem: [band(0.0, 0.05, '#c8201c'), band(0.055, 0.03, '#141414'), band(0.09, 0.05, '#c8201c')], sleeve: [band(0.28, 0.06, '#c8201c'), band(0.34, 0.03, '#141414'), band(0.37, 0.06, '#c8201c')], socks: [band(0.26, 0.06, '#c8201c'), band(0.32, 0.03, '#141414'), band(0.35, 0.06, '#c8201c')] }),
+        yoke: '#141414', hem: [band(0.0, 0.05, '#c8201c'), band(0.055, 0.03, '#141414'), band(0.09, 0.05, '#c8201c')], sleeve: [band(0.28, 0.06, '#c8201c'), band(0.34, 0.03, '#141414'), band(0.37, 0.06, '#c8201c')], socks: [band(0.26, 0.06, '#c8201c'), band(0.32, 0.03, '#141414'), band(0.35, 0.06, '#c8201c')] }),
     },
   },
 };

@@ -925,7 +925,7 @@ Civic Center Wardens went.
 | District 9 Goons | District 9 | bruise purple and bone | a taped, bloodied fist in an octagon, D9 in marker on the tape |
 | Waterfront Wharf Rats | the Docks | charcoal and pink | a rat in silhouette crouched on an anchor's stock in the harbour fog, back bristling, one eye lit red, incisors bared, claws over the iron and its tail wound round the shank; pink rim light, inside a mooring-line ring |
 | St Garneau Guillotines | Nine Elms | red, white and blue | a solid G whose spur and serif are a guillotine in silhouette: the bowl turns up into the posts, the beam is the serif and runs in as the crossbar, the blade hangs between |
-| Yard Birds | the Yards | red and white | a red pyle fighting cock squared up with his wings thrown wide and his hackles up, glaring down his beak through a scarred brow, sawblade comb with a point broken off, spurs out; on a field of chicken wire torn open behind him |
+| Yard Birds | the Yards | red, white and black | a red pyle fighting cock squared up with his wings thrown wide and his hackles up, glaring down his beak through a scarred brow, sawblade comb with a point broken off, spurs out; on a field of chicken wire torn open behind him |
 
 The St Garneau Guillotines are Father Jerome's pet project, the parish club of St Garneau's
 on Kessler Street. Father Jerome is Long Watch in content (`npc_father_jerome`), but that's
