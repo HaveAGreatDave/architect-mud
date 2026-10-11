@@ -1,12 +1,13 @@
 # Deadball in GLASS 2
 
 **Status: design, revised 2026-10-11.** A plan for giving Deadball a 3-D sub-screen the way Cluster
-Puck got Rinkside, at the highest fidelity the engine can reach, presented as a 1990s arcade
-cabinet. That means skinned, detailed players, authored animation, light from the park's own
-towers and a crowd that fills the stands. Around them go chunky chrome lettering, splash words,
-trails and fireworks, an announcer over a full synthesised sound bank, a playoff package, and a park
-with a place on the map. No code for it exists yet. The questions that need an answer before Phase 1
-are at the end.
+Puck got Rinkside, at the highest fidelity the engine can reach. Deadball is a live sport on KSAB,
+and the broadcast borrows the look of a 1990s arcade baseball game. That means skinned, detailed
+players, authored animation with a wide spread of plays, light from the park's own towers and a crowd
+that fills the stands. Around them go chunky chrome lettering, splash words, trails and fireworks, an
+announcer over a full synthesised sound bank, a playoff package, and a park inside the Curtain on
+Halcyon Fields. No code for it exists yet, apart from the audio engine work on its own branch. The
+questions that need an answer before Phase 1 are at the end.
 
 How it got here, all on 2026-10-11:
 
@@ -14,8 +15,13 @@ How it got here, all on 2026-10-11:
   and arcade cabinet.
 - The second went to high fidelity, with a 1990s broadcast around the game.
 - The third put the park outside Coldwater's South Gate, with the city beyond the outfield.
-- This one takes the arcade cabinet, at high definition, using everything THOMAS, GLASS, SIREN and
+- The fourth took the arcade look, at high definition, using everything THOMAS, GLASS, SIREN and
   ORACLE can do. The second draft's broadcast picture stays as a preset.
+- This one moves the park inside the Curtain, onto 41 of Halcyon Fields' plots, and draws the city
+  round it up close. It drops the in-world cabinet, because Deadball is a live sport on television
+  and "arcade" names only its look. It adds a high-score table of the league's leaders, a spread of
+  plays from the ball off the bat to errors and stolen bases, and a proper grip on the bat. The audio
+  engine work went to its own plan and branch.
 
 Read with [systems-broadcast.md](../systems-broadcast.md#sports--two-codes-one-pipeline) (the sports
 pipeline, Rinkside and the CPhL's clubs), [bsm-format.md](../bsm-format.md) (how the booth's lines
@@ -37,34 +43,42 @@ the older 2-D-only `gameday-rink.js`. That work has to reach `main` before Phase
   a game. Animation from an authored clip library with IK for every contact (glove to ball, hands to
   bat, feet to dirt), gated by tests that measure foot slide and contact error.
 - **Light:** four of the park's six light towers cast real shadows, so every player stands on a star
-  of soft shadows the way he does under stadium lights. HDR, ambient occlusion, bloom, haze with
+  of soft shadows, as players do under stadium lights. HDR, ambient occlusion, bloom, haze with
   light shafts, and a lens that throws the crowd out of focus behind a close-up.
-- **The arcade cabinet:** the graphics are chunky chrome-and-flame lettering in the client's own
-  display faces, count lamps, a strike-zone marker, matchup cards, and splash words on the big plays.
-  The camera is the batting view from behind the plate, and the spectacle is comet trails and
-  fireworks. The picture is full 24-bit colour with punchy contrast. An optional "cabinet glass" adds
-  scanlines and a curved tube.
+- **The arcade look, on live TV:** the graphics are chunky chrome-and-flame lettering in the
+  client's own display faces, count lamps, a strike-zone marker, matchup cards, splash words on the
+  big plays, and between innings a high-score table of the league's leaders. The camera is the
+  batting view from behind the plate, and the spectacle is comet trails and fireworks. The picture is
+  full 24-bit colour with punchy contrast. An optional "tube glass" adds a period television's
+  scanlines and curved tube.
+- **Variety:** every ball in play gets a direction, a speed off the bat and a fielding grade, so
+  grounders, liners, gappers and wall-scrapers spray the field by handedness and outs run from
+  routine to diving. A second version of the sim, switched on at a season boundary, adds errors,
+  stolen bases, pickoffs, wild pitches and hit batters, each with its own clips and graphics.
 - **The whole engine:** a table maps each capability to a use, from cloth bunting and a starling
   murmuration at dusk to lightning over the skyline in an ion storm.
 - **Playoffs:** the one-game final gets a gold package, a logo painted behind the plate, bunting,
   rally towels and searchlights. It ends with confetti and fireworks over the city.
 - **Sound:** a high-fidelity SIREN bank of about 50 cues sits 9 dB under the announcer and ducks
   6 dB further while the announcer speaks. ORACLE calls the big plays.
-- **A place in the world:** the park goes on the map outside the South Gate, lit on game nights and
-  seen from the city, the road and the air. A Deadball cabinet goes in the Penny Drops.
+- **A place in the world:** the park stands inside the Curtain in south-west Halcyon Fields, on 41 of
+  the estate's plots, with gates on Kerbstone Row, Cinder Lane, Windrow Lane and Halcyon Boulevard.
+  It's lit on game nights and seen from the streets, the towers and the air.
 - **The shape:** Rinkside's. A view shell with the same five methods, a world, a director that
   stages one payload, a camera, replays, a frame governor, and smoke gates that play real games.
 - **What GLASS 2 has and what it needs:** it already has an HDR chain, ambient occlusion, height fog
   with light shafts and instanced, vertex-animated crowds of procedural people. It has no GPU
   skinning, no normal maps, no sRGB textures and no spotlight shadows; this plan adds them as engine
   pieces any view can use.
-- **Coldwater beyond the outfield:** the park stands on the flats outside the South Gate, facing
-  north-north-west, so the walled city fills the outfield: the Spire and Halcyon Towers over
-  left-centre, the Curtain's band of light along the wall. The buildings are GLASS's own baked
-  shapes, and the sky follows Coldwater's clock and the weather at the park.
+- **Coldwater beyond the outfield:** the park faces west-north-west, so the estate's tower row
+  along the West Curtain stands behind the outfield, with the Curtain's glow between the towers and
+  the Spire and Halcyon Towers over right-centre. The buildings are GLASS's own baked shapes, drawn
+  for close range: facades with lit rooms, streets with lamps, cars and people walking to the game,
+  and the park's own brick exterior. The sky follows Coldwater's clock and the weather at the park.
 - **The fallback:** today's 2-D Gameday view.
-- **The server:** the sim stays as it is. The payload gains a small cosmetic play description chosen
-  on the server, so the booth's line and the picture can't disagree. Sending the standings once a
+- **The server:** the sim stays as it is within a season, and sim v2 starts only at a season
+  boundary. The payload gains a small cosmetic play description chosen on the server, so the booth's
+  line and the picture can't disagree. Sending the standings once a
   game instead of on every at-bat cuts about a third of the bytes the sub-screen costs.
 - **The clubs:** yes, through the club seam, with crests and wordmarks drawn at texture resolutions
   that hold up in a close-up.
@@ -184,7 +198,7 @@ The TV window is at most 760×520 CSS pixels, and a 4:3 picture beside the stats
 
 ## The look
 
-### High fidelity, 1990s arcade cabinet
+### High fidelity, presented like a 1990s arcade game
 
 Two layers, kept apart so each can be tuned on its own.
 
@@ -193,7 +207,8 @@ authored motion, physically based materials, the light towers as the only lights
 shadows and occlusion, a park full of people and the city beyond it. Nothing is made deliberately
 crude.
 
-**The presentation around it is a 1990s arcade cabinet.** Four parts:
+**The presentation around it borrows the look of a 1990s arcade baseball game.** It's still a
+live broadcast on KSAB: nobody plays it, and nothing in the world is a cabinet. Five parts:
 
 - *The graphics package*:
   - slanted panels with chrome rims;
@@ -203,7 +218,9 @@ crude.
     bases;
   - the pitch speed in big digits;
   - a matchup card with a VS badge on a starburst for each plate appearance;
-  - the strike zone drawn over the plate with the last pitch marked.
+  - the strike zone drawn over the plate with the last pitch marked;
+  - a stolen base's card with the runner's count of steals, the pitcher's time to the plate and the
+    catcher's pop time.
 
   All of it is original and drawn at the screen's own resolution, in faces the client already ships:
   Bungee and Bungee Inline for the big words, Big Shoulders Display for names and numbers, Audiowide
@@ -212,9 +229,14 @@ crude.
   Play, Walk-off, Safe, Out. They punch in, hold and clear, with the distance under a home run.
   `tv.js` already names these events in `_applySportsFx` (home run, grand slam, walk-off, extras,
   game win, double play, the final, champion), and the 3-D view draws its own version of each.
+- *The leaders table*: between innings and before the first pitch, a high-score table over the live
+  picture. Rank, player, club with its colour, home runs, RBI, average and steals, the sort column
+  lit, the leader's row in gold, and tonight's game across the foot. It cycles through home runs,
+  average, steals and the pitchers' strikeouts. The numbers are the season's own, from the box
+  scores the sim already keeps.
 - *The camera grammar*:
-  - every pitch from the batting view, behind and above the plate, as the cabinets did; the
-    long-lens centre-field camera stays for replays and as a setting;
+  - every pitch from the batting view, behind and above the plate, the way the period's arcade games
+    framed it; the long-lens centre-field camera stays for replays and as a setting;
   - balls in play cut to high home and follow the ball;
   - home runs get a side-on angle that shows the arc, then a slow replay.
 - *Spectacle*: a comet trail on fly balls, a flash at contact, fireworks over the outfield and the
@@ -223,9 +245,9 @@ crude.
 
 **The picture is the arcade board's, not broadcast video's.** It has full saturation, deep blacks, a
 contrast curve with warm highlights over cool shadows, light sharpening and a soft vignette. An
-optional "cabinet glass" setting adds scanlines, an aperture grille, a gently curved tube and rounded
-corners, and moves the graphics inside a title-safe area. The second draft's broadcast picture
-(lifted blacks, soft colour, the CCD smear) stays as a preset.
+optional "tube glass" setting adds a period television's scanlines, aperture grille, gently curved
+tube and rounded corners, and moves the graphics inside a title-safe area. The second draft's
+broadcast picture (lifted blacks, soft colour, the CCD smear) stays as a preset.
 
 ### Look-dev
 
@@ -255,13 +277,35 @@ them. What it showed:
   roughness and a low reflectance keep the mowing pattern and the colour.
 - **Coldwater works as a backdrop.** A second pass placed all 224 of the city's buildings from
   GLASS's baked shapes around the park's site at true scale. The Spire and Halcyon Towers read at a
-  glance, the Curtain's band separates the park from the city, and the blue hour at first pitch is
-  the strongest frame of the set.
+  glance, and the blue hour at first pitch is the strongest frame of the set.
+- **Inside the Curtain the city is close, so it has to hold up close.** With the park in Halcyon
+  Fields the nearest towers stand 190 ft behind the plate and 450 ft past the outfield wall. A
+  window pattern and dark ground didn't survive that, so the city gained:
+  - facades with mullions, lit rooms that are brighter at the ceiling, blinds half down, now and then
+    the blue of a set left on, and lobbies and shopfronts on the ground floor;
+  - the estate's chrome as dark brushed steel, which catches the floods without going white;
+  - streets from each road tile's arms: kerbs, pavement slabs, a double yellow line, broken lane
+    lines and crossings at the junctions;
+  - cobra-head sodium lamps with pools of light, parked cars at the kerbs and some moving with their
+    lights on;
+  - about 750 people walking to the gates, thick near the main gate and thinning out with distance;
+  - the park's own exterior: brick piers, an arcade lit from the concourse, the club level's arched
+    windows, an open steel tier under the upper deck, flags along the top and the name over the main
+    gate.
+- **The floods must not light the city like the field.** The towers' beams aimed at the field also
+  reach the towers past the outfield. The city takes a narrower beam and the inverse square, so the
+  faces toward the park catch some light and nothing more.
+- **GLASS's tablelands are low.** `CLIFF_H` is about half a tile, roughly 30 ft. Drawn any taller,
+  the red rock past the West Curtain stood over left field as brown walls.
+- **A stolen base reads from the first-base side of second.** A low camera with a 16° lens holds the
+  slide, the tag, the dust and the base umpire's call in one frame.
+- **The grip needs fists, not tubes.** Hands that wrap the handle with ridged fingers, a thumb, a heel
+  and a strap, stacked from the knob, with the hands at the back shoulder, read as holding a bat.
 - **Arcade at high definition works.** The chrome-and-flame lettering, lamps and splash words sit
   over a fully lit scene without fighting it, and the client's own faces carry the period.
 - **A home run reads side-on.** From behind home the trail foreshortens into a short streak. From
   the first-base side the whole arc shows, falling toward the Spire under the fireworks.
-- **Cabinet glass needs a title-safe area.** The curved tube crops the corners, so the graphics move
+- **Tube glass needs a title-safe area.** The curved tube crops the corners, so the graphics move
   in by a tenth when it's on.
 - **A sellout costs triangles.** With every seat filled the look-dev crowd reached about 6 million
   triangles. The real crowd needs its far level and cards for the distant rows (see Performance).
@@ -293,7 +337,7 @@ Every capability below already exists unless it's marked new, and each has a job
 | Camera flashes, goal-lamp wash, slow replays | Rinkside's `arena.js` and `replay.js` | Flashes in the crowd at night, a red wash on a walk-off, replays. |
 | Display faces | `client/shared/fonts` | Bungee, Bungee Inline, Big Shoulders Display, Audiowide, loaded with the view. |
 | Seven-segment digits | `SEG7` in `interior-kit.js` | The pitch speed and the scoreboard clock. |
-| CRT overlays and bezels | `minigame-common.js` | Cabinet glass. |
+| CRT overlays and bezels | `minigame-common.js` | Tube glass. |
 | SIREN | `audio-engine.js` | The bank, the organ through the tracker, a ballpark room. |
 | ORACLE | `audio-engine.js` | The announcer's calls, the umpire, the public address, a vendor. |
 | Clock, weather, power | `getEnvSnapshot()`, the power sim | The sky, the park's weather, the city's lit windows. |
@@ -345,7 +389,7 @@ ports what it uses to `gl/spectacle.js` rather than importing the windshield.
 | `gl/skin.js` | GLASS | GPU skinning: bone palettes in a float texture, four weights a vertex, dual-quaternion option. New to GLASS. |
 | `gl/spotshadow.js` | GLASS | Perspective shadow maps for several lights, PCF lookup as a GLSL chunk. New. |
 | `gl/crowd.js` | GLASS | The instanced crowd on `actors.js`'s vertex-animation approach. |
-| `gl/broadcast.js` | GLASS | Depth of field, the arcade grade and the cabinet glass, and the broadcast preset (chroma, fringing, smear). |
+| `gl/broadcast.js` | GLASS | Depth of field, the arcade grade and the tube glass, and the broadcast preset (chroma, fringing, smear). |
 | `gl/cityscape.js` | GLASS | A city drawn far: buildings from the baked shapes, facades, lights, the Curtain. Names no region. New. |
 | `client/shared/building-lights.js` | GLASS data | Generated by the shapes bake: each model's lights. New. |
 | `client/shared/sky-keys.js` | THOMAS | The clock's sky keyframes, moved out of `windshield.js` so other views can read them. |
@@ -387,7 +431,7 @@ play in progress restarts in 2-D. The 2-D view stays maintained, and Phase 0 giv
 Caps with a curved bill, a crown in panels, a button and an embroidered crest. Batting helmets in
 glossy shell with an ear flap on the pitcher's side and a decal. Fielders' gloves with laced webbing,
 a first baseman's mitt and the catcher's round mitt. The catcher's helmet, mask, chest protector and
-shin guards; the plate umpire's mask and protector under his shirt. Bats with grain, a darker handle
+shin guards; the plate umpire's mask and the protector under the shirt. Bats with grain, a darker handle
 and the knob. The ball with its red seams in a normal map, so spin reads in a slow-motion replay.
 
 ### The park
@@ -425,18 +469,23 @@ don't collapse when twisted.
 
 ### The clip library
 
-Authored clips, about 120 to start:
+Authored clips, about 120 to start and about 170 once sim v2 lands:
 
 - *Pitching*: windup and stretch per arm slot (over the top, three-quarter, sidearm), pickoff throws,
   the follow-through, fielding position after the pitch, warm-up tosses.
 - *Batting*: stances, the load, swing paths for each contact height and direction, takes, check
   swings, fouls off, the bunt, the follow-through and bat drop, stepping out.
 - *Catching and umpiring*: the catcher's setups, receiving and framing, the throw back, blocking; the
-  plate umpire's stance, his calls and the punch-out (a few styles, one per umpire).
-- *Fielding*: ready steps timed to the pitch, grounders forehand, backhand and charging, fly balls
-  drifting and camping, diving and leaping catches, the double-play pivot, throws by distance.
-- *Running*: leads, the first step, turning a base, slides feet-first and head-first, the trot after a
-  home run, the walk-off mob.
+  plate umpire's stance, the calls and the punch-out (a few styles, one per umpire); the base
+  umpires' safe and out.
+- *Fielding*: ready steps timed to the pitch, grounders forehand, backhand and charging, the
+  barehanded pickup, fly balls drifting and camping, diving, sliding and leaping catches, the catch
+  at the wall, the double-play pivot, throws by distance and from the knees, the sweep and straddle
+  tags. With sim v2: the bobble, the ball through the legs, the wild throw, the catcher's throw to
+  second from the crouch, the rundown.
+- *Running*: leads, the first step, turning a base, slides feet-first (bent-leg and pop-up),
+  head-first and hooked away from the tag, the dive back to first on a pickoff, the trot after a home
+  run, the walk-off mob. With sim v2: the jump on a steal, the hit batter's walk to first.
 - *Between beats*: stepping out, gloves, signs, the mound visit, jogging on and off.
 
 ### Layers over the clips
@@ -502,8 +551,8 @@ broadcast and about three times the lines in the log.
 Pitcher, catcher, batter and plate umpire are always in the main shot and get the close level of
 detail. The seven other fielders play straight-up positions shaded toward the batter's pull side,
 with numbers from team and position. Runners take leads, run on contact and slide; the sim's bases
-are three booleans, so runners carry no names. Base coaches, an on-deck hitter and base umpires dress
-the field.
+are three booleans, so in v1 runners carry no names (v2 names them; see below). Base coaches, an
+on-deck hitter and base umpires dress the field.
 
 ### Balls in play
 
@@ -522,14 +571,63 @@ the field.
 | Walk | The bat dropped, a jog to first; forced runners move up. |
 | Strikeout | The punch-out or the swing; with nobody on, the infield throws it around the horn. |
 
+### Variety in every play
+
+Thirty games a club means a regular viewer sees every kind of play many times, so no two should
+look the same. `synthPlay` decides more than a zone:
+
+- **Direction.** An angle across the field in degrees, not one of a few zones. Spray follows
+  handedness: a pull hitter's grounders go to the pull side about three times in five, and fly balls
+  spread more evenly. No two grounders to short go to the same spot.
+- **Power and trajectory.** An exit speed from about 50 to 115 mph and a launch angle together make
+  the kind of contact: a chopper, a grounder, a liner, a fly or a pop-up. Within a kind the speed
+  varies, so a single can be a seeing-eye roller, a line drive or a bloop, and a double can split the
+  gap or hook down the line into the corner.
+- **Fielding grade.** From where the fielder starts and where the ball goes: routine, ranging,
+  diving, sliding, leaping at the wall, or over the rail into the stands for a foul pop. Each grade
+  has its clips: the backhand, the dive and the throw from the knees, the barehanded pickup on a slow
+  roller, the jump at the wall with the glove over the pad. An out that needed a dive gets a replay.
+- **Throws.** On the bag, in the dirt and scooped, or wide and pulling the first baseman off the base
+  for a hit; the relay through the cutoff; the throw home.
+- **Double plays** vary: the turn at second, the shortstop stepping on the bag, 3-6-3 and 1-6-3.
+- **Home runs**: the wall-scraper, the no-doubter into the seats, the one off the foul pole, the one
+  a leaping outfielder nearly brings back.
+
+### Errors, steals and the rest: sim v2
+
+Today's sim has no errors, stolen bases, pickoffs, wild pitches, passed balls or hit batters. Each of
+them changes results, so they come as a second version of the sim:
+
+- **At a season boundary, never in a season.** The season row records the version it was played
+  under, so a replay or an audit of a game always runs the version that played it.
+- **Seeded as the pitches are**, each draw from `sportsHash` with its own salt. Every v1 season's
+  results stay exactly as they were, and the recorded hash of a hundred seeded games still holds
+  for v1.
+- **Runners get names.** A steal depends on who is running, so v2 tracks the player on each base
+  instead of three booleans, and a runner's speed comes from the same name hash that already picks
+  handedness.
+- **What it adds:**
+  - errors: a bobble, a ball through the legs, a throw into the stands or past first, and the runners
+    taking the extra base;
+  - the running game: steals decided by the runner's speed, the pitcher's time to the plate and the
+    catcher's arm; caught stealing; pickoffs, and the throw over that the runner beats back; the
+    double steal; rundowns;
+  - wild pitches and passed balls, the runners moving up;
+  - a hit batter and the walk to first.
+- **On screen:** each gets its kinds or pitch results in the payload, its pools for the booth, its
+  clips (the feet-first, head-first and hook slides; the sweep tag and the straddle tag; the dive
+  back to first; the catcher's throw from the crouch; the base umpire's safe and out) and its
+  graphics (the stolen-base card, an E in the line score).
+- **The box score** gains E, SB and CS.
+
 ### Running the bases and keeping in step with the sim
 
 Runners advance from `basesBefore` to `basesAfter`, and the number crossing home is the change in
 the batting side's score, not `rbi` (a run scores on a double play with no RBI). The booth doesn't
 call every at-bat, so the field the picture is showing and the next payload often disagree. When
 they do, the director cuts to a crowd shot or the wide camera, places everyone, and cuts back.
-Rinkside's rule applies: anything that moves a man farther than he could run happens on a cut. The
-half-inning payload changes sides: one team jogs off, the other takes the field, the new pitcher
+Rinkside's rule applies: anything that moves a player farther than they could run happens on a cut.
+The half-inning payload changes sides: one team jogs off, the other takes the field, the new pitcher
 throws warm-up pitches.
 
 ### Home runs and the fence
@@ -542,14 +640,16 @@ home plate.
 
 | Shot | When |
 |---|---|
-| Batting view | Every pitch, as the cabinets did: behind and above the plate, the pitcher and the city beyond. |
+| Batting view | Every pitch, as the period's arcade games framed it: behind and above the plate, the pitcher and the city beyond. |
 | Centre field, long lens | Replays and close plays, and every pitch when the batting view is off. About 445 ft out and 62 ft up, offset to left-centre. |
 | High home | Balls in play: follows the ball, then frames the fielder and the base. |
 | Fly-ball follow | Long flies, from behind the fielder as the ball comes down. |
 | First- and third-base cameras | Close-ups of the batter and the pitcher; plays at first and double plays. |
 | Low home | Walk-ups, plays at the plate, the walk-off mob. |
 | Cutaways | Crowd, dugout, scoreboard, the light towers, the haze. Dead time and reconciling cuts. |
-| Skyline | Back from a break and between innings: high behind home with the city beyond, or the long lens on the towers over left-centre. |
+| Skyline | Back from a break and between innings: high behind home with the city beyond, or the long lens on the Spire over right-centre. |
+| The bag | Steals, pickoffs and close plays at a base: low, on the side the runner comes from, with a 16° lens. |
+| Street | Before the first pitch: the main gate from Kerbstone Row, with the crowd going in. |
 | Replay | Reverse angles, slow motion with the ball's spin. |
 
 The camera never rolls; a big move is a cut; framing is solved from the points that must be seen.
@@ -580,7 +680,7 @@ The frame, in order:
 5. **Depth of field** from the depth and the shot's focus, before the tone curve.
 6. **Bloom** on the lamps, fireworks, trails and the bright uniforms.
 7. **Tone curve** (ACES, as `hdr.js` has) and the arcade grade: saturation, the contrast curve, light
-   sharpening, the vignette. Then the cabinet glass, if it's on. The broadcast preset swaps in the
+   sharpening, the vignette. Then the tube glass, if it's on. The broadcast preset swaps in the
    second draft's pass.
 8. **Graphics** on a 2-D canvas at the screen's resolution.
 
@@ -596,29 +696,54 @@ ballpark lights in real HDR values, so bloom and the tone curve have something t
 
 ### Where the park stands
 
-The park can't go inside the walls. A storey is 3.5 m, so a tile is about 17.9 m (58.6 ft, as
-[glass-notes.md](../reference/glass-notes.md) has it), and the walled city is about 37 by 22 tiles,
-660 by 390 m. A park with a 400 ft centre field and its stands needs about 11 by 12 tiles, a sixth
-of everything inside the walls.
+Inside the Curtain, in south-west Halcyon Fields. A storey is 3.5 m, so a tile is about 17.9 m
+(58.6 ft, as [glass-notes.md](../reference/glass-notes.md) has it), and a park with a 400 ft centre
+field and its stands needs about 10 tiles by 9. Halcyon Fields is the Glasshouse's own estate, built
+in one campaign in a deliberately narrow palette ([halcyon-fields-infill.md](halcyon-fields-infill.md)),
+and its south-west block is the one place inside the walls where a park fits without touching a
+landmark.
 
-So it stands on the flats outside the South Gate, east of the road south: home plate at tile
-(921, 936), centre field on a compass bearing of 335°. The park covers about x 914 to 927 and y 928
-to 940, all red rock with nothing built on it. It fits the booth's chatter: a park built on a
-landfill, wind off the flats, and haze rolling in over the left-field wall from the lake to the
-west.
+- **Home plate** at tile (900.25, 915.25), centre field on a compass bearing of 300°. The site is
+  content: `sports_pools.venue.site` is `{ x, y, bearing }`, and the renderer draws whatever city is
+  around whatever site it's given.
+- **The footprint** runs from about x 893 to 903 and y 909 to 919. The upper deck behind home stops
+  39 ft short of the South Curtain.
+- **It takes 41 of the estate's buildings.** None is in the Glasshouse district, none has a Modelshop
+  model, and six are the estate's unfinished shells. Between them they hold 69 rooms, 24 NPCs and
+  172 pieces of furniture, all self-contained: nothing else in the repo points at them except one
+  line of Quillon's dialogue that names Vacant Possession. By row:
+  - 909: Rising Sums, Bent Double, Curve Appeal;
+  - 911: Vested Interest, Going Concern, Course Correction, Plot Twist, Salad Days, Above Board, Safe
+    as Houses;
+  - 912: Terms Agreed, Under Offer, Fixed Rate;
+  - 913: Artist's Impression, Fixed Assets, Grounds for Concern, Fit for Purpose, Second Wind, Mains
+    Attraction, Break Clause, Vacant Possession;
+  - 914: Chain Free, Root Cause, Mod Cons;
+  - 915: Leaf It Out, Deposit Taken, Glass Half Full, Ivory Tower, Top of the Market, Sitting Tenant,
+    Ground Rent, Aspect Ratio;
+  - 917: Right of Way, Scope for Improvement, Well Appointed, Change of Use, Rent Review, Sunk Costs,
+    Blue Chip, Stamp Duty, Cold Comfort.
+- **And the streets between them:** Sorrel Way, Vetch Mews and Vetch Green, Kettle Lane south of the
+  boulevard, Kerbstone Row between Vetch Mews and Cinder Lane, two tiles of Cinder Lane and three of
+  Windrow Lane.
+- **It keeps** the Glasshouse (the Spire, Halcyon Towers, the Shrine, the Gate, the Vats, Voltage),
+  the tower row along the West Curtain (Top Brass, Common Ground, Rising Damp, Quiet Enjoyment, Long
+  Lease, Light Relief, Party Wall), the Marquee, the docks and the rest of the estate east of Cinder
+  Lane.
+- **A smaller park doesn't help much.** Shrinking the stands, or even a 310 ft and 390 ft bandbox with
+  no upper deck down the lines, spares two buildings, because the field itself covers the block.
 
-From home plate the whole walled city fills the outfield:
+From home plate:
 
-- **Past the centre-field bleachers**, about 1,000 ft out, the Curtain's south wall: a band of blue
-  light along the foot of the city.
-- **Over left-centre**, 1,600 to 2,400 ft away, the Glasshouse and Halcyon Fields, with the Spire
-  (about 1,180 ft tall as GLASS draws it) and Halcyon Towers (about 860 ft).
-- **Over centre**, KSAB's mast, Solenne Residences and the Beacon at the shoreline; **over
-  right-centre**, the Meridian's crown and the Yards' cooling towers. The bay is behind the city.
+- **Over the outfield**, 450 to 570 ft out, the estate's tower row: Top Brass in centre, Common Ground,
+  Rising Damp and Quiet Enjoyment over left-centre, Long Lease and Light Relief toward the line.
+- **Between and behind them**, the West Curtain's glow, and past it the red rock.
+- **Over right-centre and right**, 580 to 690 ft out, the Glasshouse: the Shrine, the Spire (about
+  1,180 ft tall as GLASS draws it), the Ascension Gate, Voltage's sky beam and Halcyon Towers.
+- **Behind the plate**, the South Curtain over Windrow Lane, and to the east the rest of the city.
 
-The scoreboard stands over the right-field bleachers so centre field stays open to the city. The
-site is content (`sports_pools.venue.site`: `{ x, y, bearing }`); the renderer draws whatever city
-is around whatever site it's given.
+The scoreboard stands on legs behind the right-centre bleachers, so centre field stays open to the
+towers.
 
 ### Drawing the city
 
@@ -632,21 +757,32 @@ importing `windshield.js` ([world-rendering.md](../reference/world-rendering.md)
   `shapeFor`, sized by [skyline-scale.js](../../client/shared/skyline-scale.js). The windshield's
   per-tile jitter (`buildingScaleFor`) moves into that module too, so a tower is the same height on
   the TV as from the cockpit.
+- It skips every building the park's outline takes, so the manifest can stay the whole city.
 - It builds one static vertex buffer when the venue loads. Each frame sets uniforms and nothing else.
-- In the look-dev all 224 buildings resolved: 1,705 segments, about 66,000 triangles including the
-  ground and the lights.
+- In the look-dev all 183 remaining buildings resolved, and with the streets, lamps and cars the city
+  came to about 130,000 triangles.
 
 **Facades are drawn by one shader** from bay and storey coordinates:
 
-- Each building has a style: glass, concrete, brick, works, grow light, Ascendant stone, or unlit for
-  Old Coldwater. West is glass and money and east is brick and work, as
-  [building-styles.md](../reference/building-styles.md) has it.
-- A share of windows is lit. Offices light a floor zone at a time; homes light window by window.
+- Each building has a style: glass, chrome, concrete, brick, works, grow light, Ascendant stone, or
+  unlit for Old Coldwater. West is glass and money and east is brick and work, as
+  [building-styles.md](../reference/building-styles.md) has it, and the estate's chrome is dark
+  brushed steel.
+- Windows have mullions, two or three panes to a bay.
+- A share of windows is lit. Offices light a floor zone at a time; homes light window by window. A lit
+  room is brighter near its ceiling, some have a blind half down, and now and then one shows the blue
+  of a set left on. The ground floor is lobbies and shopfronts, mostly lit.
 - Once a window is smaller than a pixel, the pattern is averaged to its mean colour, so far towers
   don't shimmer.
 
+**Streets.** Each road tile is drawn from its arms (`rd`): carriageway and pavement, a pale kerb,
+slabs about five feet square, a double yellow line and broken lane lines on straight tiles, and
+crossings on every arm of a junction. Plots and plazas are paved; parks are grass.
+
 **Lights.**
 
+- Cobra-head sodium lamps stand on the pavements, two a tile, staggered across the road, each with a
+  pool of light on the ground beneath it.
 - Aircraft beacons go on the tall roofs.
 - GLASS's models give the city a night signature: the Spire's blue corner runners, Halcyon Towers'
   cyan and magenta edges, KSAB's mast lights, the Beacon's beam, the sky beams over the Glasshouse,
@@ -655,12 +791,25 @@ importing `windshield.js` ([world-rendering.md](../reference/world-rendering.md)
   lights beside its geometry into a generated `client/shared/building-lights.js`: a position as
   affine triples, a colour, and a kind (steady, blinking, beam, neon). The cold open and any far
   view then get the same lights without the windshield.
+- The park's floods reach the city through a narrower beam and the inverse square, so the faces
+  toward the park catch some light and no more.
+
+**Life on the streets.** On a game night the streets near the park carry parked cars at the kerbs,
+some moving with their lights on, and people walking to the gates: thick by the main gate, thinning
+out with distance. They're the same instanced figures as the crowd, so they cost one draw.
+
+**The park's own exterior.** Its outline is a brick wall in the manner of the city ballparks of the
+early 1990s: piers, a ground arcade lit from the concourse, the club level's arched windows, an
+open steel tier under the upper deck with its ceiling lamps showing, cast-stone bands and a
+cornice, flags along the top, and the name over the main gate behind home plate. Round the outfield
+it drops to the bleachers' height. From inside the park its back is plain.
 
 **The Curtain** uses [gl/curtain.js](../../client/game/js/panels/gl/curtain.js)'s shader on the
-Curtain's tiles, at `CURTAIN_H`.
+Curtain's tiles, at `CURTAIN_H`: its four-stop body, scan bands, rain streaks and crown line.
 
-**Ground and sea.** The region's tiles are flat ground coloured by biome, with the mesas raised. The
-bay is dark water, and sodium lamps line the roads.
+**Ground and sea.** Outside the walls the tiles are flat ground coloured by biome, with the
+tablelands raised to GLASS's own height (`CLIFF_H`, about 30 ft, varied per tile). The bay is dark
+water.
 
 **Tuning.** The searchlights and the Curtain come well down from their windshield strengths, because
 the field has to stay the brightest thing in the picture.
@@ -687,14 +836,15 @@ the field has to stay the brightest thing in the picture.
 
 - **Data.** The manifest is what the cold open already sends (`coldwaterSkyline()` in
   [plugins/prologue/index.js](../../plugins/prologue/index.js)): 224 buildings, about 15 KB as JSON
-  and 4 KB gzipped. It goes with the venue once per client per content revision, inside the venue's
-  64 KB budget. The server helper that builds it takes a site and a radius and names no region; the
-  prologue's function becomes one of its callers.
+  and 4 KB gzipped, plus the road tiles and their arms, about 3 KB more. It goes with the venue once
+  per client per content revision, inside the venue's 64 KB budget. The server helper that builds it
+  takes a site and a radius and names no region; the prologue's function becomes one of its callers.
 - **Code.** `building-shapes.js` is 284 KB (31 KB gzipped). It loads with the ballpark's modules on
   first mount, and the browser caches it.
-- **GPU.** One static buffer of about 70,000 triangles in three draws: facades, lights, and the glow
-  of the Curtain and beams. The facade shader is the only real per-pixel cost, and the city covers a
-  third of the frame at most.
+- **GPU.** One static buffer of about 130,000 triangles in four draws: facades and streets, lights,
+  the lamps' pools, and the glow of the Curtain and beams. The people walking in share the crowd's
+  instancing. The facade shader is the only real per-pixel cost, and the city covers a third of the
+  frame at most.
 - **Server.** No query and no hot path. The manifest is built from the in-memory world when the
   venue loads, then cached. The payload's weather comes from the in-memory cells.
 
@@ -738,8 +888,8 @@ the field has to stay the brightest thing in the picture.
     card.
 
   `plugins/fireworks` can launch the server's show from the park, so the city sees it too.
-- **Around it:** no recap reel and no standings flash, as now. The Penny Drops cabinet's attract
-  loop shows the champion until the next season opens.
+- **Around it:** no recap reel and no standings flash, as now. Until the next season opens, the
+  leaders table closes on the champion's card and the final's line score.
 
 ### A longer postseason, optional
 
@@ -767,34 +917,38 @@ game number and the series score.
 
 Today the park exists only on television. Putting it on the map:
 
-- **The site.**
-  - Its 182 tiles are irradiated red rock, radiation 30 to 38, which makes them high danger.
-  - There are twelve spawn points for ferric striders and rust bulls, and glass ticks along y 924.
-  - Home plate's tile is already named the Ironpan, which would make a good name for the park.
-  - The footprint loses its spawns and most of its radiation (the landfill was capped). The forward
-    picket to the north stays as it is.
-- **Getting there.** A player can already walk out of the South Gate and across: through the lock
-  from 911,919 to 922, then down the road south. The park's gate faces that road from three tiles
-  east, with a short spur.
+- **The site** is the 41 plots above and the streets between them, inside the walls: no radiation,
+  no spawns and nothing that crosses the Curtain.
+- **What happens to the plots.** The park's tiles become the gates, the concourse and the stands.
+  The estate's buildings that suit a ballpark move into it as its rooms: Vested Interest's members'
+  club as the club level behind home, Plot Twist's land office as the ticket office, Top of the
+  Market's bar on the concourse. The rest are retired with their furniture, their NPCs move into the
+  estate's remaining towers or onto the park's staff, and Quillon's line about Vacant Possession is
+  rewritten.
+- **Getting there is a walk.** The main gate behind home plate opens onto Kerbstone Row where Cinder
+  Lane meets it. A first-base gate opens onto Cinder Lane, a third-base gate onto Windrow Lane, a
+  right-field gate onto Halcyon Boulevard, and a left-field gate onto the west end of Kerbstone Row
+  by the Curtain verge.
 - **The tiles.**
   - A new `ballpark` building type gets its `TYPE_FLOORS` row.
-  - The gate and turnstiles form the entrance tile, with its connections. The concourse, the seating
-    sections and the press box are interior zones.
-  - The tiles keep `district: 'wilds'`. A district of their own would need a connection file for
-    every boundary edge, because content lint treats each one as a Curtain crossing.
-  - `sitecheck.mjs` has to be given the coordinates, because its sweep stops at y 921.
+  - The gates and turnstiles are entrance tiles with their connections. The concourse, the seating
+    sections, the club level and the press box are interior zones.
+  - The tiles keep `district: 'halcyon_fields'`.
+  - `sitecheck.mjs` checks every gate's street access, as it does for any plot.
 - **The model.** No GLASS model draws across tiles; each arm gets only its own tile.
   - The closest precedent is the South Lock: the server flood-fills up to 64 `gate_lock` tiles into
     one hall and tells each tile which slice to draw.
-  - The park takes the same route with a `ballpark` fill, either with a higher cap or filled in
-    quadrants. Each tile draws its slice of the bowl, the field, the stands and the towers.
+  - The park takes the same route with a `ballpark` fill. At about 90 tiles it needs a higher cap or
+    a fill in quadrants. Each tile draws its slice of the bowl, the field, the stands, the exterior
+    and the towers.
   - The shapes bake records it, so the cold open, collision and the skyline see it too.
 - **Game nights.** A cell bit derived from `broadcast.getNextOnAir` switches the light towers on.
   - It follows the lockdown's red lamps and the anti-aircraft batteries' state, which both work this
     way.
   - Only lights can change per tile, not geometry, and open freelook views need the bit pushed to
     them.
-  - From the city, the park glows on the flats past the Curtain.
+  - From the streets the floods glow over the stands; from the air the park is a bright bowl in the
+    Curtain's south-west corner.
 
 ### Watching in person
 
@@ -807,18 +961,6 @@ Estate's cinema screen is.
 - Tickets are bought at the turnstile, and a foul ball into your section could become an item.
 
 This is the largest piece of the place-in-the-world work and comes last.
-
-### The cabinet at the Penny Drops
-
-The Penny Drops (910,915) is already an arcade, and its "four upright cabinets with violet-edged
-screens" only take `examine`. A fifth, a Deadball cabinet, is furniture that opens the 3-D view in
-cabinet mode.
-
-- **While Deadball airs:** the game, live.
-- **Otherwise:** the attract loop, with the league's leaders as a high-score table, the next game
-  and the last game's highlights.
-- **Later, perhaps:** a playable home-run derby on the same renderer. That's a separate design,
-  covering input, scoring and rewards.
 
 ## Server changes
 
@@ -896,9 +1038,10 @@ game built on THOMAS keep it byte-for-byte?
 | The arcade graphics package and the particles | THOMAS and GLASS (engine) | `diamond/hud.js` draws panels, lamps, cards and splash words from a theme, and `gl/spectacle.js` draws particles. Neither names Deadball. |
 | The package's theme: words, colours, faces, the final's gold | Architect (content) | With the venue and club data. |
 | The postseason format | broadcast plugin | The sport module and `plugins/sportsleague`. |
+| Sim v2: errors, steals, pickoffs, wild pitches, hit batters, named runners | broadcast plugin | `baseball.js`, versioned per season. |
 | SIREN and ORACLE changes | THOMAS (engine) | Ducking, the announcer channel, better noise, pan and sends help every view. |
 | The bank, the call words, the announcer's voice | Architect (content) | `deadball-sfx.js`, the words, a Voice Lab preset. |
-| The park on the map, the seats, the cabinet | Architect (content) | Zones, connections, furniture and a model arm in the region's file. The game-night cell bit is engine. |
+| The park on the map and the seats | Architect (content) | Zones, connections, furniture and a model arm in the region's file. The game-night cell bit is engine. |
 | `panels/diamond/`, `gameday-grandstand.js`, the clip library | THOMAS (engine) | Baseball, not Deadball: a second game with a baseball broadcast keeps them. |
 | `baseball.js` including `synthPlay` | broadcast plugin | The sport module, as now. |
 | The venue: fence, walls, signs, scoreboard, towers and their dead lamps, the haze, the crater | Architect (content) | `sports_pools.venue`, written by the build script and served with the club set. |
@@ -946,6 +1089,8 @@ trim, pants, cap, bill, helmet, undershirt, stirrups, number and edge, chest wor
 
 ### What the engine does today
 
+This is `main`. The `siren-fidelity` branch has since built the fixes (see below).
+
 - **Five buses** (music, sfx, ambient, tv and ui) feed a plain master gain with no limiter.
   - Players set a slider per bus.
   - The defaults are master 0.40, music 0.40, and sfx, ambient and tv 0.25.
@@ -969,21 +1114,33 @@ trim, pants, cap, bill, helmet, undershirt, stirrups, number and edge, chest wor
 |---|---|---|
 | The announcer (ORACLE) | 0 dB, the reference | |
 | The umpire's calls and the public address | -3 dB | |
-| Effects: bat, leather, ball, running, the cabinet's stings | -9 dB | ducked a further 6 dB |
+| Effects: bat, leather, ball, running, the graphics' stings | -9 dB | ducked a further 6 dB |
 | Music: the organ and the jingles | -12 dB | ducked a further 6 dB |
 | The crowd bed and the park's ambience | -14 dB | ducked a further 4 dB |
 
-The duck uses the start time and `{duration}` that `speak()` already knows: 60 ms down, held, then
-350 ms back up. The levels are defaults to set by ear in the sandbox. The player's TV slider still
-scales everything, and Sound Detail still decides what plays.
+The duck is the branch's `duck()`, driven by `speak({ duck })` for the line's length: 60 ms down,
+held, then 350 ms back up. A shout can also duck the crowd bed through a cue's `config.duck`. The
+levels are defaults to set by ear in the sandbox. The player's TV slider still scales everything,
+and Sound Detail still decides what plays.
 
 ### Engine work in SIREN and ORACLE
 
-Split off into its own plan, [siren-fidelity.md](siren-fidelity.md), so it can go ahead on its own
-and every view gains from it: a master limiter, ducking per bus, speech channels that typing doesn't
-cancel, a voice and effects pair under the tv bus, stereo noise in three colours with random
-offsets, working shelf and peaking filters, per-layer pan, per-cue reverb sends, an open-air
-ballpark room, and Voice Lab presets that save. The bank below assumes that work has landed.
+Split off into its own plan, [siren-fidelity.md](siren-fidelity.md), and built on the
+`siren-fidelity` branch in six commits, with its regress green. It isn't merged.
+
+- A brickwall limiter on the master, and `duck(buses, dB, { attack, hold, release })` per bus.
+- Two speech channels, `tv` and `ui`: typing cancels only Read Aloud, and Read Aloud ducks the TV
+  by 12 dB instead of cutting it off.
+- `setTvBalance({ voiceDb, fxDb })` for the announcer and the effects under one TV slider, with a
+  `tv_fx` category.
+- Eight-second stereo noise in white, pink and brown with seeded offsets; `filter.gain` read for
+  peaking and shelf filters; per-layer `pan` and per-cue `send`; `setRoom('ballpark')`, a short
+  open-air room with a slap-back at 120 ms.
+- Voice Lab voices saved as `audio_instruments` rows, and an Audio tab that edits every layer field.
+- Eight new gates in the `audio` group.
+
+Still open: nothing in the game reads saved voices yet, and the levels need setting by ear. The bank
+below is built on this.
 
 ### The bank
 
@@ -994,16 +1151,21 @@ layers and seeded per event, so no two cracks are the same:
 - **Contact:** the barrel's crack, the end of the bat, a jam off the handle, a foul tip, a bunt, a
   broken bat. The wood's body modes come from `formants`, the crack from shaped noise and the ring
   from FM.
-- **Leather:** the catcher's mitt pop, a fielder's glove, the first baseman's stretch, the tag.
+- **Leather:** the catcher's mitt pop, a fielder's glove, the first baseman's stretch, the tag, a
+  pickoff throw slapping into the glove.
 - **The ball:** a short hop on the dirt, a roll on the grass, the padded wall, the foul pole's ring,
   the backstop net, a clatter in the seats.
-- **Running:** cleats on dirt, a slide, a collision at the plate.
-- **The park:** the Curtain's hum past the outfield, the towers' buzz and a dead lamp's flicker, the
-  Beacon's foghorn across the flats, wind off the flats, acid drizzle on the roof.
+- **Running:** cleats on dirt, a slide, a dive back to the bag, a dive for a liner, a collision at the
+  plate.
+- **Sim v2's plays:** a ball in the dirt on a wild pitch, the backstop's rattle on a passed ball, a
+  hit batter's thud.
+- **The park:** the Curtain's hum past left field, the towers' buzz and a dead lamp's flicker, traffic
+  and a horn in the streets beyond the stands, the Beacon's foghorn from the harbour, wind over the
+  Curtain, acid drizzle on the roof.
 - **The crowd:** a stereo bed that follows the game, a swell on contact, a roar, a groan, boos, a
   gasp, the "ooh" of a near miss, rhythmic claps, the towel wave in the final.
-- **The cabinet:** splash stings in FM brass, the count lamps' click, the speed readout's beep, the
-  trail's whoosh, the replay's rewind, the inning sweep, the attract loop's coin drop.
+- **The graphics:** splash stings in FM brass, the count lamps' click, the speed readout's beep, the
+  trail's whoosh, the replay's rewind, the inning sweep, the leaders table rolling in.
 - **Fireworks:** the launch whistle, the burst, the crackle, the echo off the city.
 
 ### Voices
@@ -1062,12 +1224,14 @@ reference machine and on an integrated laptop GPU and writes the numbers into
 | `scripts/shapes/gameday-smoke.mjs` (Phase 0) | shapes | Real Deadball games through the 2-D view: every payload resolves, runners end on `basesAfter`, nothing throws. |
 | `scripts/shapes/ballpark-smoke.mjs` | shapes | Pure, no GPU: meshes finite and inside each level's budget, the park from venue data, GL matrices against the pure projection, skin weights summing to one, texture budgets. |
 | `scripts/shapes/anim-smoke.mjs` | shapes | Every clip: joint limits, no velocity spikes at blend points, planted feet sliding under 0.1 ft, hands on the bat within 0.05 ft, the glove at the ball within 0.1 ft on the catch frame, release at the release frame. |
-| `scripts/shapes/diamond-smoke.mjs <slot>` | shapes, one game per gate | Real games through the world and director over the DOM stub: pitch count, each pitch at its spot, the terminal pitch matches the kind, captions held until `onLand`, fielders as the play names them, outs at the right base, runners end on `basesAfter`, runs equal the score change, home runs land past the fence, no runner faster than he could run outside a cut, ball and fielder in frame, replays start and hand back, sounds played. |
+| `scripts/shapes/diamond-smoke.mjs <slot>` | shapes, one game per gate | Real games through the world and director over the DOM stub: pitch count, each pitch at its spot, the terminal pitch matches the kind, captions held until `onLand`, fielders as the play names them, outs at the right base, runners end on `basesAfter`, runs equal the score change, home runs land past the fence, no runner faster than a runner could go outside a cut, ball and fielder in frame, replays start and hand back, sounds played. |
+| `scripts/shapes/variety-smoke.mjs` | shapes | Over a season of seeded plays: directions spread by handedness, exit speeds cover their range, every fielding grade and, under v2, every new event appears, and every clip in the library is reached. |
 | `scripts/content/build-deadball-clubs.mjs --check` | content | The row matches the script, sizes inside budget, colours hex. |
 | `scripts/audio/deadball-bank-smoke.mjs` | audio | Every cue builds from known layer fields, its summed peak gain stays under its group's ceiling, and every call fits ORACLE's shout length. |
 | `plugins/broadcast/regress.js`, the postseason | regress | `phase` and the seeds on payloads, the final scheduled on an air day, the #1 seed at home. |
-| `scripts/shapes/smoke.mjs` and `sitecheck.mjs`, the park | shapes, content | Phase 6: every slice of the park draws without throwing, and its gate passes the site checks. |
-| `scripts/shapes/cityscape-smoke.mjs` | shapes | Pure: every building in the venue's manifest resolves to a shape, sizes match the windshield's, nothing built stands inside the park, the Curtain's segments are where its tiles are, the light bake is fresh. |
+| `plugins/broadcast/regress.js`, sim v2 | regress | A v1 season's recorded hash unchanged; a v2 season seeded the same way twice gives the same games; errors, steals and the rest add up in the box score. |
+| `scripts/shapes/smoke.mjs` and `sitecheck.mjs`, the park | shapes, content | Phase 6: every slice of the park draws without throwing, and every gate has its street. |
+| `scripts/shapes/cityscape-smoke.mjs` | shapes | Pure: every building in the venue's manifest resolves to a shape, sizes match the windshield's, nothing drawn stands inside the park's outline, the outline stays inside the Curtain, every road tile's arms draw, the light bake is fresh. |
 | `plugins/broadcast/regress.js` | regress | `sport`, `bats`, `throws`, `hold` present; `play` consistent with the kind; standings once a game; bare pools direction-free; a recorded hash of a hundred seeded games unchanged. |
 
 `client:smoke` and `imports:smoke` cover new files without being asked. Each gate stays inside the 60
@@ -1083,19 +1247,19 @@ Each phase ends with its gates green and the sandbox showing it.
 **Phase 0: groundwork.** No visible change.
 - Standings once a game; `sport`, `bats`, `throws`, `hold`, `phase`, the seeds and the park's weather
   on payloads.
-- The audio engine's duck nodes, limiter and announcer channel; the bank moved out of gameday.js;
-  `gameday-smoke.mjs`; the sandbox page.
+- The `siren-fidelity` branch merged (limiter, ducking, speech channels; built); the bank moved out of
+  gameday.js; `gameday-smoke.mjs`; the sandbox page.
 - Tested by: broadcast regress, the new gates, egress re-measured.
 
 **Phase 1: the park, the light and the look.** Behind a flag (a localStorage key).
 - `gl/ballpark.js` on `hdr.js`, `fog.js` and a matrix-based `ssao.js`; `gl/spotshadow.js`; sRGB,
   normal and roughness maps; the park from venue defaults; the dirt canvas; the arcade grade and the
-  cabinet glass; the cameras, starting with the batting view.
-- The arcade graphics package, still: panels, lamps, cards, the zone marker.
+  tube glass; the cameras, starting with the batting view.
+- The arcade graphics package, still: panels, lamps, cards, the zone marker, the leaders table.
 - Players as static, posed meshes at final quality, so lighting and materials are judged on the
   real models.
-- The park's site and the skyline manifest; `gl/cityscape.js` with the facades and the Curtain, at a
-  fixed hour.
+- The park's site and the skyline manifest; `gl/cityscape.js` with the facades, the streets, the
+  lamps and the Curtain, at a fixed hour; the park's exterior.
 - Tested by: `ballpark-smoke`, `cityscape-smoke`, sandbox screenshots, GPU timings on two machines.
 
 **Phase 2: skinned players and the pitch.** Behind the flag.
@@ -1105,39 +1269,43 @@ Each phase ends with its gates green and the sandbox showing it.
 - Tested by: `anim-smoke`, `diamond-smoke` (pitches, counts, captions).
 
 **Phase 3: balls in play.** Behind the flag.
-- `synthPlay` and the suffixed pools; fielding, throwing, running and sliding clips; ball flight with
-  spin; reconciling cuts; the half-inning changeover; the play cameras.
+- `synthPlay` with direction, exit speed and fielding grade, and the suffixed pools; fielding,
+  throwing, running and sliding clips for every grade; ball flight with spin; reconciling cuts; the
+  half-inning changeover; the play cameras.
 - `gl/spectacle.js`: trails, contact sparks and fireworks; the side-on home-run camera; splash words
   for every play that earns one.
-- Tested by: `diamond-smoke` in full, regress for the play and the season hash.
+- Tested by: `diamond-smoke` in full, `variety-smoke`, regress for the play and the season hash.
 
 **Phase 4: the broadcast.** On by default wherever WebGL2 and float targets work.
 - `gl/crowd.js` with seated and reaction clips; replays in slow motion; dead-time rituals; the grounds
   crew in the fifth; reduced motion; the tiers and the governor.
 - The full bank and the mix; the umpire, the public address and the vendor.
 - The sky on Coldwater's clock and the park's own weather; the light bake and the city's lights,
-  beams and steam; birds.
+  beams and steam; the cars and the people walking in; birds.
 - Tested by: `diamond-smoke` (replays, sounds, reduced motion), the bank's gate, measured frame times
   written into the docs.
 
-**Phase 5: the clubs and the playoffs.**
+**Phase 5: the clubs, the playoffs and sim v2.**
 - Sixteen identities through the seam; caps, uniforms, wordmarks and crests in the atlases; the 2-D
   view picks up the colours too.
 - The final's gold package, logo, bunting, towels and searchlights; the champions' finish with
   confetti, fireworks and the trophy.
 - The three postseason bugs fixed, and the final renamed in the script and the cards.
-- Tested by: `--check`, `ballpark-smoke`, regress (the final airs, the #1 seed hosts).
+- Sim v2 from the next season: named runners, errors, the running game, wild pitches, passed balls
+  and hit batters, with their pools, clips, the stolen-base card and E, SB and CS in the box score.
+- Tested by: `--check`, `ballpark-smoke`, regress (the final airs, the #1 seed hosts, v1 seasons
+  unchanged), `variety-smoke` under v2.
 
 **Phase 6: a place in the world.**
-- The park on the map: the type, the tiles, the fill, the model, the game-night lights, the site
-  cleaned up.
-- The Penny Drops cabinet with its attract loop.
+- The park on the map in Halcyon Fields: the 41 plots retired or moved into the park, the type, the
+  tiles, the fill, the model, the gates on their streets, the game-night lights.
 - Seats in person, last.
-- Tested by: `shapes:smoke`, `sitecheck.mjs`, `content:lint`, a walk out of the gate in regress.
+- Tested by: `shapes:smoke`, `sitecheck.mjs`, `content:lint`, a walk from Kerbstone Row through the
+  main gate in regress.
 
-**Phase 7: optional.** A longer postseason; a playable home-run derby on the cabinet; a pitch-by-pitch
-booth; a park per club; the batter's season line; the throwback presets; the same lighting for
-Rinkside; the skyline dimming with the power grid.
+**Phase 7: optional.** A longer postseason; a pitch-by-pitch booth; a park per club; the batter's
+season line; the throwback presets; the same lighting for Rinkside; the skyline dimming with the
+power grid.
 
 ## Risks
 
@@ -1157,29 +1325,32 @@ Rinkside; the skyline dimming with the power grid.
   hash in regress catches it.
 - **Trademarks.** Original clubs, marks and graphics only; the panels are generic. The final's
   current name in content is Major League Baseball's mark and should change.
-- **The announcer cut off.** Today every typed command cancels speech and each `speak()` cancels the
-  last. An announcer needs its own channel before Phase 2's calls.
-- **Loudness.** The master has no limiter. Fireworks, a roaring crowd and a shout together can clip
-  until Phase 0's limiter lands.
+- **The announcer cut off, and loudness.** On `main` every typed command cancels speech, each
+  `speak()` cancels the last, and the master has no limiter. The `siren-fidelity` branch fixes all
+  three; until it merges, Phase 2's calls can't ship.
 - **Spectacle and comfort.** Fireworks, flashes and splash words can get to be too much. Reduced
   motion turns them into stills, nothing flashes more than three times a second, and the crowd's
   camera flashes stay small.
-- **Scope.** Seats in person and a playable derby are each a feature of their own. Both come last or
-  as options.
-- **The park isn't on the map.** Until Phase 6 puts it there, a player who flies or drives south of
-  the gate finds red rock where the broadcast shows a ballpark. Putting it there means clearing the
-  site's radiation and spawns and raising the 64-tile fill cap.
+- **Scope.** Seats in person are a feature of their own and come last.
+- **The park isn't on the map.** Until Phase 6 puts it there, a player who walks or flies over
+  south-west Halcyon Fields finds the estate where the broadcast shows a ballpark. Putting it there
+  means retiring 41 buildings and raising the 64-tile fill cap.
+- **Content lost.** The park retires 41 buildings, 69 rooms and 24 NPCs from a campaign that shipped
+  recently. The ones that suit a ballpark move into it; the rest are a real loss, and a smaller park
+  saves only two.
+- **Sim v2 changes results.** Errors and steals change scores, so they wait for a season boundary,
+  each season records its version, and the v1 hash in regress proves no old season moved.
 - **The Curtain's height.** GLASS draws it 0.9 tiles tall, about 53 ft, though its comment in
   `windshield.js` and the zones' prose call it taller than anything in the city. The broadcast draws
   what GLASS draws, so the two agree, until someone decides otherwise for both.
 
 ## Questions for you
 
-1. **Cabinet glass by default?** Off, with a clean high-definition arcade picture (recommended), or
-   on, with scanlines and the curved tube?
+1. **Tube glass by default?** Off, with a clean high-definition picture (recommended), or on, with a
+   period television's scanlines and curved tube?
 2. **Animation authoring.** Keyed clips in a new Pose Lab (recommended), or procedural motion like the
    rink's, which is quicker to build and looks less natural?
-3. **Size.** Should the TV get a full-window cabinet mode? At 400×300 the arcade graphics and the
+3. **Size.** Should the TV get a full-window mode? At 400×300 the arcade graphics and the
    close-ups lose the most (recommended: yes).
 4. **Layout:** a 4:3 picture beside the stats rail (recommended), or full width with the stats inside
    the picture?
@@ -1199,10 +1370,14 @@ Rinkside; the skyline dimming with the power grid.
 11. **The postseason.** Keep the one-game final (recommended for now), or add a bracket with series?
 12. **The 2-D Gameday:** keep it as a "classic" option players can pick, or only as the fallback?
 13. **Name:** "Grandstand" is a working name for the view, as "Rinkside" is the rink's.
-14. **The site and its name.** The flats outside the South Gate (recommended), named for the tile
-    already there, the Ironpan?
-15. **A place in the world.** The park on the map in Phase 6 (recommended), the Penny Drops cabinet
-    (recommended), seats in person (later), a playable home-run derby (optional)?
-16. **The Curtain.** Draw it as GLASS does, about 53 ft (recommended, so the TV and the windshield
+14. **The site and its name.** South-west Halcyon Fields, taking the 41 buildings listed under
+    *Where the park stands* (recommended)? Is Halcyon Field the name?
+15. **The retired buildings.** Move the ones that suit a ballpark into it and retire the rest
+    (recommended), or rehouse every interior elsewhere in the estate?
+16. **A place in the world.** The park on the map in Phase 6 (recommended), and seats in person
+    later?
+17. **The Curtain.** Draw it as GLASS does, about 53 ft (recommended, so the TV and the windshield
     agree), or floor to sky as the prose describes it, which means changing `CURTAIN_H` for the
     windshield too?
+18. **Sim v2.** Add errors, steals, pickoffs, wild pitches and hit batters from the next season
+    (recommended), or keep the sim as it is and vary only how each play looks?

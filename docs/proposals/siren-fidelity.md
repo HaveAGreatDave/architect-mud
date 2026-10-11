@@ -1,8 +1,12 @@
 # SIREN and ORACLE fidelity
 
-**Status: design, 2026-10-11.** The audio engine's fidelity limits and the mixing it lacks, split off
-from [deadball-glass2.md](deadball-glass2.md) so the work can go ahead on its own. Every view gains
-from it: the city, the rink, the TV and the voice. Nothing here is built yet.
+**Status: built on the `siren-fidelity` branch, 2026-10-11; not merged.** The audio engine's
+fidelity limits and the mixing it lacks, split off from [deadball-glass2.md](deadball-glass2.md) so
+the work could go ahead on its own. Every view gains from it: the city, the rink, the TV and the
+voice. All nine steps below are built there in six commits, with eight new `audio` gates and a green
+regress. Still open: nothing in the game reads saved voices yet, the voice pool's stealing and the
+sampler's 16 kHz default are untouched, and the levels need setting by ear. What follows is the brief
+as it was written; the branch's own docs describe what shipped.
 
 Deadball's 3-D view needs about 50 layered, synthesised cues that always sit under an announcer.
 Today the engine can't hold that balance, and its noise, filters and space limit how real a cue can
