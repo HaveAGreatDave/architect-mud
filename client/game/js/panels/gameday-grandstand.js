@@ -11,10 +11,10 @@
 // 3-D one can't: no WebGL2, no float target, a shader that won't build, or a lost context. The
 // last payload and the booth's line go with it.
 //
-// What's built (Phase 1a of docs/proposals/deadball-glass2.md): the park from the venue's
-// defaults through the batting view, the scoreboard lit with the game, a score bug with the
-// count, the outs and the bases, the booth's line and the cards. The players, the pitch and
-// the ball in play are later phases. Until then the count ticks through each at-bat's pitches
+// What's built (Phases 1a to 1c of docs/proposals/deadball-glass2.md): the park from the venue's
+// defaults through the batting view, lit by its towers, the scoreboard lit with the game, the
+// players posed where each payload has them, a score bug with the count, the outs and the bases,
+// the booth's line and the cards. The pitch and the ball in play are later phases. Until then the count ticks through each at-bat's pitches
 // on the 2-D view's clock (GAMEDAY_CLOCK), so the held line lands when the 2-D view would
 // land it and the booth never calls a play the picture hasn't reached.
 //
@@ -90,7 +90,7 @@ export function createGrandstandView(host, opts = {}) {
     host.innerHTML = shell();
     canvas = host.querySelector('.gds-canvas');
     size();
-    R = mods.createBallparkRenderer(canvas, { ads: opts.ads || ADS, preserve: !!opts.preserve, crowd: opts.crowd, grade: opts.grade, tube: opts.tube });
+    R = mods.createBallparkRenderer(canvas, { ads: opts.ads || ADS, preserve: !!opts.preserve, crowd: opts.crowd, grade: opts.grade, tube: opts.tube, onAsset: () => draw() });
     if (!R) { fallback('no WebGL2 or float target'); return false; }
     mounted = true;
     const box = host.querySelector('.gds-park');
@@ -110,16 +110,23 @@ export function createGrandstandView(host, opts = {}) {
 
   // ── drawing ────────────────────────────────────────────────────────────────
   // The park only moves when the game does, so a frame is drawn when something changes and
-  // the GPU sits idle between pitches.
+  // the GPU sits idle between pitches. A new cast is built a few bodies a frame, and the picture
+  // waits for all of them: the last frame stays up meanwhile, so nobody pops in.
   function draw() {
     if (!R || raf || !win) return;
     raf = win.requestAnimationFrame(() => {
       raf = 0;
       if (!R || !canvas?.isConnected) return;
       if (R.lost) { fallback('the WebGL context was lost'); return; }
+      if (R.pending() && R.pump(14)) { draw(); return; }
       size();
       if (!R.render(shot) && R.lost) fallback('the WebGL context was lost');
     });
+  }
+  // Who's on the field for this payload, and the clubs whose kits they wear.
+  function castFor(p) {
+    const top = p.half === 'top';
+    R?.setCast(mods.castOf(p), { home: top ? p.fieldingTeam : p.battingTeam, away: top ? p.battingTeam : p.fieldingTeam });
   }
   function stopLoop() { if (raf && win) win.cancelAnimationFrame(raf); raf = 0; }
   function setShot(s) { shot = s; draw(); }
@@ -178,6 +185,7 @@ export function createGrandstandView(host, opts = {}) {
   function stage(p) {
     stopTimers();
     const pend = pendingCaption;
+    castFor(p);
     if (p.phase === 'half') {
       // a fresh half: nobody on, nobody out
       sides(p);

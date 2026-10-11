@@ -17,6 +17,7 @@
 //   CLOTH, SKIN, LEATHER, GLOSS, SATIN, METAL, CONCRETE, PAD, PLATE, MATTE  by roughness
 //   EMISSIVE  a lamp that works: its colour is its light
 //   BOARD     the scoreboard: lamps drawn from a small mask of the line score
+//   HEAD, EAR, HAIR, NECK  a player's head, shaded as the Actor Lab shades the street figure's
 //
 // Feet, home plate at the origin, +z out to centre field, +x toward third base, y up.
 //
@@ -28,6 +29,8 @@ export const STRIDE = 12;
 export const MAT = Object.freeze({
   GROUND: 0, CLOTH: 1, SKIN: 2, LEATHER: 3, GLOSS: 4, SATIN: 5, METAL: 6, EMISSIVE: 7,
   CONCRETE: 8, PAD: 9, BOARD: 10, PLATE: 11, MATTE: 13,
+  // a player's head (gl/ballplayer-mesh.js): the face, the ears, the hair and the neck
+  HEAD: 20, EAR: 21, HAIR: 22, NECK: 23,
 });
 
 // ── colour ──────────────────────────────────────────────────────────────────

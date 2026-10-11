@@ -1,0 +1,101 @@
+/**
+ * DEADBALL — who's on the field, and where, for a payload.
+ *
+ * The cast of a still picture of the game (Phase 1c of docs/proposals/deadball-glass2.md): the
+ * nine in the field at their positions, the batter in his box for his side of the plate, the men
+ * on base leading off, the on-deck hitter, the coaches in their boxes and four umpires. Each is a
+ * pose from gl/ballplayer-mesh.js, a place and a facing, and who he is.
+ *
+ * Who he is comes off a name where the payload has one (the batter, the pitcher, sim v2's runners)
+ * and off his club and position where it doesn't (the fielders), so the same man looks the same
+ * all game and on every TV. His number comes off the same id.
+ *
+ * Kit slots: the home side's people take 0 to 11, the away side's 12 to 23 and the umpires 24 to
+ * 27, which is also each one's place in the heads' uniform arrays. Within a side a slot belongs to
+ * a role, not to whoever's there (the fielding side's pitcher is 0, its shortstop 4; the batting
+ * side's batter is 0, the man on first 1), so a new batter rebuilds the batter and nobody else.
+ *
+ * Pure: the gate runs it.
+ */
+
+import { BAGS, DEG } from './geo.js';
+
+const RUBBER = [0, 0.833, 60.5];
+// The fielders' spots, the look-dev's: +x is the third-base side, so left field is +x.
+export const FIELD_SPOTS = Object.freeze({
+  '1B': [-66, 0, 61], '2B': [-36, 0, 136], SS: [33, 0, 140], '3B': [62, 0, 82],
+  LF: [135, 0, 262], CF: [-4, 0, 318], RF: [-128, 0, 255],
+});
+// Facing home from a spot, in degrees about the vertical (0 faces +z).
+export const faceHome = (p) => Math.atan2(-p[0], -p[2]) / DEG;
+const faceAt = (p, q) => Math.atan2(q[0] - p[0], q[2] - p[2]) / DEG;
+
+function hashStr(s) { let h = 2166136261; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+// A number for the back of his jersey, 1 to 99, off his id.
+export const numberOf = (id) => 1 + (hashStr('no:' + id) % 99);
+
+// Where a man on a bag stands while the pitcher is set: a few strides off it toward the next one,
+// and off third in foul ground.
+export function leadOff(bag) {
+  const b = BAGS[bag];
+  const next = bag === 3 ? [0, 0, 0] : BAGS[bag + 1];
+  const d = [next[0] - b[0], 0, next[2] - b[2]], l = Math.hypot(d[0], d[2]) || 1, k = bag === 1 ? 10 : bag === 2 ? 12 : 7;
+  const p = [b[0] + d[0] / l * k, 0, b[2] + d[2] / l * k];
+  if (bag === 3) { p[0] += 2.1; p[2] -= 2.1; }
+  return p;
+}
+
+// The cast for a payload. Returns [{ id, pose, at, yaw, mirror, look }], where `look` is what
+// buildPlayer needs besides the face: { id, side, role, slot, number, glove, helmet, flapSide, mask, battingGloves }.
+export function castOf(p) {
+  if (!p) return [];
+  const top = p.half === 'top';
+  const fieldSide = top ? 'home' : 'away', batSide = top ? 'away' : 'home';
+  const fieldTeam = p.fieldingTeam || (top ? 'Home' : 'Away'), batTeam = p.battingTeam || (top ? 'Away' : 'Home');
+  const BASE = { home: 0, away: 12, ump: 24 };
+  const out = [];
+  // `k` is his slot within his side; `look` is what he wears; `how` is { mirror, scale } for the pose
+  const person = (k, id, side, role, pose, at, yaw, look = {}, how = {}) => {
+    out.push({ id, pose, at, yaw, mirror: !!how.mirror, scale: how.scale || 1, look: { id, side, role, slot: BASE[side] + k, number: numberOf(id), ...look } });
+  };
+  // the battery
+  const lefty = p.throws === 'L';
+  person(0, p.pitcher || `${fieldTeam}:P`, fieldSide, 'pitcher', 'pSet', RUBBER, lefty ? -90 : 90, { glove: lefty ? 'R' : 'L' }, { mirror: lefty, scale: 1.03 });
+  person(1, `${fieldTeam}:C`, fieldSide, 'catcher', 'catcher', [0, 0, -2.75], 0, { glove: 'L' });
+  ['1B', '2B', 'SS', '3B', 'LF', 'CF', 'RF'].forEach((pos, i) => {
+    const at = FIELD_SPOTS[pos];
+    person(2 + i, `${fieldTeam}:${pos}`, fieldSide, 'fielder', pos.length === 2 && /F$/.test(pos) ? 'outfield' : 'infield', at, faceHome(at), { glove: 'L' });
+  });
+  // the batter, in the box for his side; a play on the bases has him standing in it too
+  const left = p.bats === 'L';
+  if (p.phase !== 'half' && p.batter) {
+    person(0, p.batter, batSide, 'batter', 'batStance', [left ? -3.25 : 3.25, 0, 0.75], left ? 90 : -90, { helmet: true, flapSide: left ? -1 : 1, battingGloves: '#c9c4b8' }, { mirror: left });
+  }
+  // the men on base, named where the play names them
+  const before = Array.isArray(p.basesBefore) ? p.basesBefore : [false, false, false];
+  const names = {};
+  for (const m of Array.isArray(p.moves) ? p.moves : []) if (m && m.from >= 1 && m.from <= 3 && m.name) names[m.from] = m.name;
+  for (const bag of [1, 2, 3]) {
+    if (!before[bag - 1]) continue;
+    const at = leadOff(bag);
+    person(bag, names[bag] || `${batTeam}:R${bag}`, batSide, 'runner', 'runner', at, faceAt(at, RUBBER) + 25, { helmet: true, flapSide: bag === 1 ? -1 : 1 });
+  }
+  if (p.phase !== 'half') {
+    // the on-deck hitter by his own side's dugout: the visitors' is on the third-base side
+    const deck = batSide === 'away' ? [31, 0, -9] : [-31, 0, -9];
+    person(4, `${batTeam}:deck`, batSide, 'ondeck', 'ondeck', deck, batSide === 'away' ? -60 : 60, { helmet: true, flapSide: 1 }, { mirror: batSide !== 'away' });
+  }
+  // the base coaches, in their boxes
+  person(5, `${batTeam}:coach1`, batSide, 'coach', 'coach', [-78, 0, 47], faceHome([-78, 0, 47]) - 10, {});
+  person(6, `${batTeam}:coach3`, batSide, 'coach', 'coach', [77, 0, 45], faceHome([77, 0, 45]) + 10, {});
+  // the umpires: behind the plate in his mask, and at the bases
+  person(0, 'ump:plate', 'ump', 'ump', 'umpire', [1.2, 0, -5.4], -6, { mask: true, girth: 0.06 });
+  person(1, 'ump:1B', 'ump', 'ump', 'outfield', [-74, 0, 76], faceHome([-74, 0, 76]), {});
+  person(2, 'ump:2B', 'ump', 'ump', 'outfield', [16, 0, 150], faceHome([16, 0, 150]), {});
+  person(3, 'ump:3B', 'ump', 'ump', 'outfield', [74, 0, 78], faceHome([74, 0, 78]), {});
+  return out;
+}
+
+// A key for one cast member's body: what he looks like, how he stands and where. Two payloads that
+// share a key share a body, so only who's changed gets rebuilt.
+export const castKey = (c) => JSON.stringify([c.id, c.pose, c.at, Math.round(c.yaw * 100), c.mirror, c.scale, c.look.side, c.look.slot, c.look.glove, c.look.helmet, c.look.flapSide, c.look.mask]);

@@ -843,7 +843,7 @@ methods as the other two views. When the 3-D view can't draw (no WebGL2, no floa
 shader that won't build, a lost context), it hands over to the 2-D view with the last payload and
 the booth's line.
 
-Built so far (Phases 1a and 1b of the plan):
+Built so far (Phases 1a to 1c of the plan):
 
 - the park from the venue's defaults, built by the pure
   [gl/ballpark-mesh.js](../client/game/js/panels/gl/ballpark-mesh.js) from
@@ -871,15 +871,27 @@ Built so far (Phases 1a and 1b of the plan):
   saturation, a contrast curve, warm highlights over cool shadows, sharpening, a vignette),
   `broadcast` (the period's video: lifted blacks, soft colour, aperture correction, the CCD's
   smear off the lamps) or `none`, and tube glass can go over either. The sandbox takes `?grade=`
-  and `?tube=1`.
+  and `?tube=1`;
+- the players (Phase 1c), still posed: [diamond/cast.js](../client/game/js/panels/diamond/cast.js)
+  puts each payload's people where they stand (the nine in the field, the batter in the box for his
+  side of the plate, the men on base leading off, on deck, the coaches and four umpires), and
+  [gl/ballplayer-mesh.js](../client/game/js/panels/gl/ballplayer-mesh.js) builds each one's body
+  from a pose by IK, with the street figure's head and its face from the atlas, and a cap, a
+  batting helmet or a mask fitted to the skull. A lefty is his pose in a mirror. What a player
+  looks like and his number come off his name, or off his club and position where the payload
+  doesn't name him, and [diamond/kits.js](../client/game/js/panels/diamond/kits.js) paints the
+  kits: the clubs' nicknames and the numbers on placeholder colours until the clubs bring their
+  own (Phase 5). A new cast is built a few bodies a frame, and only who's changed is rebuilt.
+  The players cast the towers' shadows.
 
-There are no players yet, and nothing moves: a frame is drawn when the game changes, so the GPU
-idles between pitches. The count ticks through each at-bat on the 2-D view's clock
+Nothing moves yet: a frame is drawn when the game changes, so the GPU idles between pitches. The count ticks through each at-bat on the 2-D view's clock
 (`GAMEDAY_CLOCK`), so the held line lands when the 2-D view would land it.
 `scripts/shapes/ballpark-smoke.mjs` builds the park from the defaults and from a venue of its
 own, holds every shot's matrices to its pinhole on three screen shapes, reads the board's lamps,
 checks the fallback, fits each tower's shadow map to the shot, reads depth back through the
-occlusion's constants, and holds the lens sharp at its focus. The sandbox page takes `?park=3d`
+occlusion's constants, holds the lens sharp at its focus, builds every pose for both hands,
+places a cast, and holds every face pick steady and every cap, helmet and mask clear of the brow,
+the ears and the eyes. The sandbox page takes `?park=3d`
 and `?shot=`. The renderer's traps are in [glass-notes.md](reference/glass-notes.md#the-ballpark-glballparkjs).
 
 ### Sim v2

@@ -12,7 +12,10 @@
 //     (diamond/dirt.js) laid over it;
 //   · the crowd is one figure per pose, instanced over every occupied seat;
 //   · the scoreboard is a face of lamps lit from a 240×84 mask of the line score
-//     (diamond/board.js), redrawn when the game changes.
+//     (diamond/board.js), redrawn when the game changes;
+//   · the players are posed bodies (gl/ballplayer-mesh.js) for the cast of each payload
+//     (diamond/cast.js), built a few a frame so a new cast never stalls the page, with the street
+//     figure's heads shaded with their faces from the atlas as the Actor Lab shades them.
 //
 // The frame, in order (docs/proposals/deadball-glass2.md, Lighting and the frame):
 //
@@ -41,6 +44,13 @@ import { createDepthSSAO, ssaoConstants } from './ssao.js';
 import { createBroadcastPass } from './broadcast.js';
 import { makeVertexStream } from './stream.js';
 import { declareProgram, prewarmPrograms, takeWarm } from './programs.js';
+import { createPlayerSet, buildPlayer, POSES, mirrorPose, lookOf, faceFor } from './ballplayer-mesh.js';
+import { castKey } from '../diamond/cast.js';
+// the view loads this module lazily and takes the cast from it, so the 2-D path never fetches it
+export { castOf } from '../diamond/cast.js';
+import { paintKitAtlas, paintLogos, paintLeather, paintWood, paintMask } from '../diamond/kits.js';
+import { FACE_GLSL, FACE_ATLAS } from '../actor-faces.js';
+import { HAIRLINE_GLSL } from '../actor-head.js';
 
 const FACE = '"Arial Narrow", "Roboto Condensed", Arial, sans-serif';
 
@@ -75,6 +85,71 @@ vec3 airOf(vec3 c, vec3 P) {
 }
 `;
 
+// A player's head, as the Actor Lab shades the street figure's (actor-head.js, actor-faces.js): in
+// sRGB like the lab, then into linear for the park's light. vUv is the face's front projection, so
+// it's the point's x and y on the head in metres; vCol is (its bind z, the rest normal's z or an
+// ear's hollow, the player's slot into uHead*). A slot's four vec4s are (skin, layout), (hair,
+// style), (iris, eye black) and (lip, seed).
+const HEAD_GLSL = `
+float h13(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
+float vn3(vec3 p) {
+  vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(h13(i), h13(i + vec3(1, 0, 0)), f.x), mix(h13(i + vec3(0, 1, 0)), h13(i + vec3(1, 1, 0)), f.x), f.y),
+             mix(mix(h13(i + vec3(0, 0, 1)), h13(i + vec3(1, 0, 1)), f.x), mix(h13(i + vec3(0, 1, 1)), h13(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+}
+${FACE_GLSL}
+${HAIRLINE_GLSL}
+vec3 hairAtP(vec3 r, float psi, vec3 hairC, int style, float seed) {
+  float strand = style == 4 ? vn3(vec3(r.x * 320.0, r.y * 60.0 - r.z * 20.0, seed))
+    : vn3(vec3(psi * 40.0, r.y * 14.0, seed)) * 0.6 + vn3(vec3(psi * 110.0, r.y * 30.0, seed + 7.0)) * 0.4;
+  if (style == 3 && r.y < 1.62) strand = vn3(vec3(atan(r.x, -r.z) * 60.0, r.y * 6.0, seed));
+  return hairC * (0.68 + 0.6 * strand);
+}
+void headShade(inout vec3 alb, inout float rough, inout float f0s, inout float wrap, inout float ao) {
+  int pi = clamp(int(vCol.b + 0.5), 0, 27);
+  vec4 A = uHeadA[pi], Bh = uHeadB[pi], C = uHeadC[pi], D = uHeadD[pi];
+  vec3 skin = A.rgb; int lay = int(A.a + 0.5); vec3 hairC = Bh.rgb; int style = int(Bh.a + 0.5);
+  vec3 iris = C.rgb; float eyeBlack = C.a; vec3 lip = D.rgb; float seed = D.a;
+  vec3 r = vec3(mix(-0.1, 0.1, vUv.x), mix(1.515, 1.765, vUv.y), vCol.r);
+  float psi = atan(abs(r.x), r.z + 0.006);
+  vec3 col = skin; float wet = 0.0;
+  rough = 0.5; f0s = 0.028; wrap = 0.45; ao = 1.0;
+  if (vMat == ${MAT.HAIR}) {
+    float hl = hairlineAt(r);
+    col = hairAtP(r, psi, hairC, style, seed);
+    if (style == 1) col *= 1.0 - 0.5 * (1.0 - smoothstep(0.0, 0.0012, abs(r.x - 0.024))) * smoothstep(1.7, 1.72, r.y) * smoothstep(-0.03, 0.02, r.z);
+    ao = mix(0.85, 1.0, smoothstep(hl + 0.004, hl + 0.016, r.y));
+    if (style == 4) { float cut = smoothstep(0.04, 0.05, abs(r.x)) * (1.0 - smoothstep(1.708, 1.722, r.y)); col = mix(col, mix(skin, hairC * 0.5, 0.5 + 0.3 * vn3(r * 900.0)), cut); }
+    rough = 0.42; f0s = 0.035; wrap = 0.2;
+  } else if (vMat == ${MAT.HEAD}) {
+    float wt = smoothstep(0.1, 0.4, vCol.g);
+    vec2 c0 = vec2(mod(float(lay), 8.0) / 8.0, (3.0 - floor(float(lay) / 8.0)) / 4.0);
+    vec4 m = texture(uFaceAtlas, c0 + clamp(vUv, 0.0, 1.0) * vec2(0.125, 0.25));
+    vec3 fc = faceColour(m, r, skin, hairC, lip, lip, 0.0, iris, wet);
+    col = mix(skin, fc, wt); wet *= wt;
+    // eye black: a greasy stripe under each eye, along the top of the cheekbone
+    float ax = abs(r.x);
+    float ey = (r.y - 1.6185) / 0.0062, ex = (ax - 0.0325) / 0.0165;
+    float eb = (1.0 - smoothstep(0.55, 1.0, ey * ey + ex * ex * ex * ex)) * (0.85 + 0.15 * vn3(r * 2400.0)) * eyeBlack * wt;
+    col = mix(col, vec3(0.045, 0.04, 0.038), eb);
+    // the scalp under the hair, with a soft broken edge for a hairline
+    float hl = hairlineAt(r);
+    float jit = 0.0026 * (vn3(vec3(psi * 70.0, r.y * 400.0, seed)) - 0.5);
+    float sc = smoothstep(hl - 0.0025, hl + 0.0025, r.y + jit);
+    col = mix(col, hairAtP(r, psi, hairC, style, seed) * 0.95, sc);
+    ao = mix(1.0, 0.88, sc);
+    col *= 1.0 - 0.18 * smoothstep(1.534, 1.522, r.y);
+    rough = mix(mix(0.52, 0.16, clamp(wet, 0.0, 1.0)), 0.3, eb); f0s = mix(0.028, 0.04, clamp(wet + eb, 0.0, 1.0));
+  } else if (vMat == ${MAT.EAR}) {
+    col = skin * vec3(1.03, 0.94, 0.92) * (1.0 - 0.3 * vCol.g); ao = 1.0 - 0.3 * vCol.g;
+  } else {
+    float under = smoothstep(1.49, 1.535, r.y) * smoothstep(-0.02, 0.025, r.z);
+    col = skin * (1.0 - 0.3 * under); ao = 1.0 - 0.25 * under;
+  }
+  alb = pow(max(col, vec3(0.0)), vec3(2.2));
+}
+`;
+
 const LIT_FS = `#version 300 es
 precision highp float;
 in vec3 vPos; in vec3 vNrm; in vec2 vUv; in vec3 vCol; flat in int vMat;
@@ -82,9 +157,15 @@ uniform sampler2D uTex; uniform sampler2D uDirt; uniform sampler2D uGrass; unifo
 uniform int uTextured; uniform float uAlphaTest; uniform float uAlpha; uniform float uEmis;
 uniform vec3 uFence; uniform vec2 uBoardRes; uniform vec3 uBoardOn;
 uniform int uLSh[6]; uniform int uSpotN;
+uniform sampler2D uFaceAtlas;
+uniform vec4 uHeadA[28];
+uniform vec4 uHeadB[28];
+uniform vec4 uHeadC[28];
+uniform vec4 uHeadD[28];
 out vec4 o;
 ${LIGHTS_GLSL}
 ${SPOT_SHADOW_GLSL}
+${HEAD_GLSL}
 float ggxD(float NoH, float a) { float a2 = a * a; float d = NoH * NoH * (a2 - 1.0) + 1.0; return a2 / (PI * d * d); }
 float visSG(float NoV, float NoL, float a) { float a2 = a * a; float gv = NoL * sqrt(NoV * NoV * (1.0 - a2) + a2); float gl = NoV * sqrt(NoL * NoL * (1.0 - a2) + a2); return 0.5 / max(gv + gl, 1e-4); }
 // the fence's distance at a bearing from straight-away centre: the venue's line, centre and curve
@@ -151,7 +232,9 @@ void main() {
     else if (vMat == ${MAT.PLATE}) { rough = 0.5; }
     else if (vMat == ${MAT.MATTE}) { rough = 0.92; }
     // what's near the ground sees less of the sky
-    ao = mix(0.62, 1.0, smoothstep(0.0, 1.6, vPos.y));
+    float aoH = mix(0.62, 1.0, smoothstep(0.0, 1.6, vPos.y));
+    if (vMat >= ${MAT.HEAD} && vMat <= ${MAT.NECK}) { headShade(alb, rough, f0s, wrap, ao); ao *= aoH; }
+    else ao = aoH;
   }
   vec3 f0 = mix(vec3(f0s), alb, metal);
   vec3 dif = alb * (1.0 - metal);
@@ -173,7 +256,8 @@ void main() {
     float sh = (uLSh[i] >= 0 && uLSh[i] < uSpotN) ? spotShadow(uLSh[i], vPos + N * 0.04) : 1.0;
     vec3 rad = uLCol[i] * spotOf(i, L, 0.05) * mix(sh, 1.0, 0.08) * exp(-max(d - 700.0, 0.0) / 240.0);
     col += (dif / PI * wd * (vMat == ${MAT.GROUND} ? 0.45 + 0.55 * ao : 1.0) + spec * nl) * rad;
-    if (vMat == ${MAT.SKIN}) col += alb * vec3(0.10, 0.025, 0.01) * max(wd - nl, 0.0) * rad;
+    // light through skin: a warm wrap past the terminator
+    if (vMat == ${MAT.SKIN} || vMat == ${MAT.HEAD} || vMat == ${MAT.EAR} || vMat == ${MAT.NECK}) col += alb * vec3(0.10, 0.025, 0.01) * max(wd - nl, 0.0) * rad;
   }
   // cloth has a sheen at grazing angles
   if (vMat == ${MAT.CLOTH}) col += dif * pow(1.0 - NoV, 4.0) * 0.05 * uSkyUp;
@@ -239,6 +323,9 @@ void main() {
 }`;
 
 for (const [vs, fs] of [[LIT_VS, LIT_FS], [CROWD_VS, CROWD_FS], [FULL_VS, SKY_FS], [FULL_VS, FINAL_FS]]) declareProgram(vs, fs);
+
+// The textures whose clear texels are holes: the wall's distances, the monograms, the masks' bars.
+const ALPHA_TEST = new Set(['nums', 'logo', 'mask']);
 
 // The night: the sky's colours, its ambient, how hard the towers burn, and the air: a haze that
 // thins over 160 ft of height, and how much of the towers' light it scatters.
@@ -406,7 +493,45 @@ export function createBallparkRenderer(canvas, opts = {}) {
       dirt: texture(shared.dirt, { repeat: false, premul: true, af: 16 }),
       pad: texture(shared.pad), concrete: texture(shared.concrete), seat: texture(shared.seat), net: texture(shared.net),
       ads: texture(adsCanvas(doc, opts.ads)), nums: texture(numsCanvas(doc, park.numbers), { repeat: false }),
+      leather: texture(paintLeather(doc)), wood: texture(paintWood(doc), { repeat: false }), mask: texture(paintMask(doc), { repeat: false }),
     };
+    // The kit atlas and the monograms are the cast's, painted when it changes. ⚠ The atlas stops
+    // its mips at 16 texels a slot, past which neighbouring jerseys would bleed into each other.
+    let kits = null;
+    TEX.kit = gl.createTexture();
+    gl.bindTexture(T2, TEX.kit);
+    gl.texStorage2D(T2, 6, gl.SRGB8_ALPHA8, 2048, 2048);
+    gl.texParameteri(T2, gl.TEXTURE_MAX_LEVEL, 5);
+    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(T2, k, v);
+    if (aniso) gl.texParameterf(T2, aniso.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(8, maxAniso));
+    let logoKey = '';
+    // The faces: the street figure's atlas of masks (actor-faces.js), loaded once. Until it's here a
+    // neutral texel stands in, plain skin with no features.
+    TEX.faces = gl.createTexture();
+    gl.bindTexture(T2, TEX.faces);
+    gl.texImage2D(T2, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([170, 0, 0, 255]));
+    gl.texParameteri(T2, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(T2, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    loadFaces();
+    function loadFaces() {
+      const Img = doc.defaultView && doc.defaultView.Image;
+      if (!Img) return;
+      const img = new Img();
+      img.onload = () => {
+        if (lost) return;
+        gl.bindTexture(T2, TEX.faces);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+        gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
+        gl.texImage2D(T2, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, img);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.BROWSER_DEFAULT_WEBGL);
+        gl.texParameteri(T2, gl.TEXTURE_MAX_LEVEL, FACE_ATLAS.maxLevel);
+        gl.generateMipmap(T2);
+        gl.texParameteri(T2, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+        gl.texParameteri(T2, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(T2, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        if (aniso) gl.texParameterf(T2, aniso.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(8, maxAniso));
+        opts.onAsset?.();
+      };
+      img.src = new URL('../../../assets/actor-faces.png', import.meta.url).href;
+    }
     // the scoreboard's lamps, one byte each
     const boardTex = gl.createTexture();
     gl.bindTexture(T2, boardTex);
@@ -450,6 +575,64 @@ export function createBallparkRenderer(canvas, opts = {}) {
       crowd.push({ vao, n: mesh.length / CROWD_VERTEX, count: inst.length / CROWD_STRIDE, buffers: [mb, ib] });
     }
     const emptyVao = gl.createVertexArray();
+
+    // ── the players ───────────────────────────────────────────────────────────
+    // A body per cast member, keyed by what it looks like and where it stands (castKey), so a
+    // new payload rebuilds only who's changed. Bodies are built a few a frame (pump), and the
+    // heads' faces go into four uniform arrays by kit slot.
+    const players = new Map();       // castKey → { batches: [{ key, vao, n, st }], slot }
+    let queue = [];
+    const HA = new Float32Array(28 * 4), HB = new Float32Array(28 * 4), HC = new Float32Array(28 * 4), HD = new Float32Array(28 * 4);
+    function setCast(cast, teams) {
+      // the kits for whoever's new, and each side's monogram
+      const res = paintKitAtlas(doc, cast, teams, kits);
+      kits = res.canvas;
+      gl.bindTexture(T2, TEX.kit);
+      if (res.dirty.length) {
+        for (const [x, y, w, h] of res.dirty) {
+          const sub = doc.createElement('canvas'); sub.width = w; sub.height = h;
+          sub.getContext('2d').drawImage(kits, x, y, w, h, 0, 0, w, h);
+          gl.texSubImage2D(T2, 0, x, y, gl.RGBA, gl.UNSIGNED_BYTE, sub);
+        }
+        gl.generateMipmap(T2);
+      }
+      const lk = `${teams?.home}|${teams?.away}`;
+      if (lk !== logoKey) {
+        logoKey = lk;
+        if (TEX.logo) gl.deleteTexture(TEX.logo);
+        TEX.logo = texture(paintLogos(doc, teams), { repeat: false });
+      }
+      // who stays, who goes, who's to be built
+      const want = new Map(cast.map((c) => [castKey(c), c]));
+      for (const [k, pl] of players) if (!want.has(k)) { for (const b of pl.batches) { gl.deleteVertexArray(b.vao); gl.deleteBuffer(b.st.buf); } players.delete(k); }
+      queue = [...want].filter(([k]) => !players.has(k));
+      HA.fill(0); HB.fill(0); HC.fill(0); HD.fill(0);
+      for (const c of cast) {
+        const look = lookOf({ ...c.look });
+        const f = faceFor(look), i = c.look.slot * 4;
+        HA.set([...f.skin, f.layout], i); HB.set([...f.hair, f.style], i); HC.set([...f.iris, f.eyeBlack], i); HD.set([...f.lip, f.seed], i);
+      }
+      refreshCasters();
+      return queue.length;
+    }
+    // Builds queued bodies for up to `budget` ms. Returns how many are still to build.
+    function pump(budget = 12) {
+      const t0 = performance.now();
+      while (queue.length && performance.now() - t0 < budget) {
+        const [key, c] = queue.shift();
+        const G = createPlayerSet();
+        const pose = Object.assign(c.mirror ? mirrorPose(POSES[c.pose]()) : POSES[c.pose](), { at: c.at, yaw: c.yaw, scale: c.scale });
+        buildPlayer(G, pose, lookOf({ ...c.look, headIndex: c.look.slot }));
+        const batches = [...G.batches].map(([k, b]) => ({ key: k, ...upload(b) }));
+        players.set(key, { batches, slot: c.look.slot });
+      }
+      refreshCasters();
+      return queue.length;
+    }
+    function refreshCasters() {
+      api.casters = [];
+      for (const pl of players.values()) for (const b of pl.batches) api.casters.push({ vao: b.vao, n: b.n });
+    }
 
     // ── the lights ────────────────────────────────────────────────────────────
     // Each tower burns in proportion to its working lamps; the two behind the plate are
@@ -549,7 +732,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
           const t = TEX[d.key];
           gl.activeTexture(gl.TEXTURE0); gl.bindTexture(T2, t || null);
           gl.uniform1i(LIT.u('uTextured'), t ? 1 : 0);
-          gl.uniform1f(LIT.u('uAlphaTest'), d.key === 'nums' ? 0.5 : -1);
+          gl.uniform1f(LIT.u('uAlphaTest'), ALPHA_TEST.has(d.key) ? 0.5 : -1);
           gl.uniform1f(LIT.u('uAlpha'), alpha);
           gl.uniform1f(LIT.u('uEmis'), 1);
           gl.bindVertexArray(d.vao); gl.drawArrays(gl.TRIANGLES, 0, d.n);
@@ -557,6 +740,10 @@ export function createBallparkRenderer(canvas, opts = {}) {
         }
       };
       drawSet(opaque, 1);
+      // the players, their faces from the atlas on unit 8
+      gl.activeTexture(gl.TEXTURE8); gl.bindTexture(T2, TEX.faces); gl.uniform1i(LIT.u('uFaceAtlas'), 8);
+      gl.uniform4fv(LIT.u('uHeadA'), HA); gl.uniform4fv(LIT.u('uHeadB'), HB); gl.uniform4fv(LIT.u('uHeadC'), HC); gl.uniform4fv(LIT.u('uHeadD'), HD);
+      for (const pl of players.values()) drawSet(pl.batches, 1);
 
       // the crowd
       if (crowd.length) {
@@ -626,6 +813,8 @@ export function createBallparkRenderer(canvas, opts = {}) {
         gl.deleteTexture(boardTex);
         for (const d of [...opaque, ...translucent]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
         for (const d of crowd) { gl.deleteVertexArray(d.vao); for (const b of d.buffers) gl.deleteBuffer(b); }
+        for (const pl of players.values()) for (const b of pl.batches) { gl.deleteVertexArray(b.vao); gl.deleteBuffer(b.st.buf); }
+        players.clear();
         hdr.dispose();
         gl.getExtension('WEBGL_lose_context')?.loseContext();
       } catch { /* a lost context has nothing left to free */ }
@@ -638,8 +827,10 @@ export function createBallparkRenderer(canvas, opts = {}) {
       quality: { dpr: 2, bloom: 0.18, exposure: 1.0, grade: opts.grade || 'arcade', tube: !!opts.tube, ao: true, dof: 28, shadows: true, fog: true },
       // what casts the towers' shadows: [{ vao, n }] with positions at location 0 (the players, Phase 1c)
       casters: [],
-      render, setBoard, dispose, stats,
+      render, setBoard, setCast, pump, dispose, stats,
+      pending: () => queue.length,
       get park() { return park; },
+      get players() { return players.size; },
     };
     return api;
   }

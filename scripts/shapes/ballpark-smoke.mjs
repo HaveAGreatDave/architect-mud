@@ -22,6 +22,10 @@
 //   5. THE LIGHT AND THE LENS. Each casting tower's shadow map holds the shot's shadow sphere;
 //      the occlusion reads depth back through the perspective's constants to where it was; the
 //      lens is sharp at its focus and softer away from it.
+//   6. THE PLAYERS. Every pose builds, both hands, finite and inside its budget; a mirrored pose
+//      is its original in a mirror; the cast puts everyone where the payload has them; every
+//      player's face pick is the same twice and never a makeup layout; every cap, helmet and
+//      mask clears the brow and the ears and leaves both eyes open.
 //
 // It proves the park builds and the cameras agree. It doesn't draw a frame: the sandbox page
 // (tools/sandbox/deadball-park-test.html?park=3d) is for looking.
@@ -42,6 +46,11 @@ const { createBallparkRenderer } = await import(P + 'gl/ballpark.js');
 const { spotMatrix, spotReach } = await import(P + 'gl/spotshadow.js');
 const { ssaoConstants, RECONSTRUCT } = await import(P + 'gl/ssao.js');
 const { cocOf, DOF_MAX } = await import(P + 'gl/broadcast.js');
+const PM = await import(P + 'gl/ballplayer-mesh.js');
+const { castOf, castKey, leadOff } = await import(P + 'diamond/cast.js');
+const { FACE } = await import(P + 'actor-head.js');
+const { FACE_LAYOUTS } = await import(P + 'actor-faces.js');
+const { MASK_BARS, nicknameOf } = await import(P + 'diamond/kits.js');
 const { createGrandstandView } = await import(P + 'gameday-grandstand.js');
 
 let failures = 0, passes = 0;
@@ -278,6 +287,106 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
   check('lens: sharp at the focus', cocOf(400, 400, 12000) === 0);
   check('lens: softer the further behind', cocOf(800, 400, 12000) > cocOf(500, 400, 12000) && cocOf(500, 400, 12000) > 0);
   check('lens: capped', cocOf(1e9, 1, 1e9) === DOF_MAX);
+}
+
+// ── 6. the players ───────────────────────────────────────────────────────────
+{
+  const KNOWNP = new Set(Object.values(M.MAT));
+  let worstTris = 0;
+  for (const name of Object.keys(PM.POSES)) for (const mirror of [false, true]) {
+    const G = PM.createPlayerSet();
+    const pose = Object.assign(mirror ? PM.mirrorPose(PM.POSES[name]()) : PM.POSES[name](), { at: [0, 0, 20], yaw: 0 });
+    const role = name === 'catcher' ? 'catcher' : name === 'umpire' ? 'ump' : 'fielder';
+    const look = PM.lookOf({ id: `gate:${name}:${mirror}`, side: mirror ? 'away' : 'home', role, slot: 3, headIndex: 3, glove: mirror ? 'R' : 'L', helmet: /^bat|ondeck|runner/.test(name), flapSide: mirror ? -1 : 1, mask: name === 'umpire' });
+    PM.buildPlayer(G, pose, look);
+    let tris = 0, bad = 0, badMat = 0, low = Infinity;
+    for (const [, b] of G.batches) {
+      tris += b.n / 3;
+      for (let v = 0; v < b.n; v++) {
+        const o = v * M.STRIDE;
+        for (let k = 0; k < M.STRIDE; k++) if (!Number.isFinite(b.data[o + k])) bad++;
+        if (!KNOWNP.has(b.data[o + 11])) badMat++;
+        low = Math.min(low, b.data[o + 1]);
+      }
+    }
+    worstTris = Math.max(worstTris, tris);
+    const tag = `player ${name}${mirror ? ' (mirrored)' : ''}`;
+    check(`${tag}: every float finite, every material known`, bad === 0 && badMat === 0, `${bad}/${badMat}`);
+    check(`${tag}: inside 17,000 triangles`, tris > 4000 && tris <= 17000, `${tris}`);
+    check(`${tag}: one head, in its slot`, G.heads.length === 1);
+    // standing on the ground: nothing far under it, and the soles not hovering
+    check(`${tag}: on the ground`, low > -0.12 && low < 0.45, low.toFixed(3));
+  }
+  // a mirrored pose is the original in a mirror: every joint's x negated, left for right
+  const JOINTS = ['pelvis', 'spine', 'chest', 'neck', 'head', 'shL', 'shR', 'hipL', 'hipR', 'knL', 'knR', 'anL', 'anR', 'toeL', 'toeR', 'elL', 'elR', 'wrL', 'wrR', 'handL', 'handR'];
+  for (const name of Object.keys(PM.POSES)) {
+    const a = PM.solvePose(Object.assign(PM.POSES[name](), { at: [0, 0, 20], yaw: 0 })).J;
+    const b = PM.solvePose(Object.assign(PM.mirrorPose(PM.POSES[name]()), { at: [0, 0, 20], yaw: 0 })).J;
+    let worst = 0;
+    for (const k of JOINTS) {
+      const k2 = k.endsWith('L') ? k.slice(0, -1) + 'R' : k.endsWith('R') ? k.slice(0, -1) + 'L' : k;
+      worst = Math.max(worst, Math.abs(a[k][0] + b[k2][0]), Math.abs(a[k][1] - b[k2][1]), Math.abs(a[k][2] - b[k2][2]));
+    }
+    check(`pose ${name}: its mirror is the same pose for the other hand`, worst < 1e-6, worst.toExponential(2));
+  }
+  // the cast: a lefty at the plate in the bottom half, men on first and third, a lefty pitching
+  const p = { half: 'bottom', battingTeam: 'Kings', fieldingTeam: 'Rats', pitcher: 'Quist', throws: 'L', batter: 'Voss', bats: 'L',
+    basesBefore: [true, false, true], moves: [{ from: 3, to: 4, name: 'Halvorsen' }, { from: 1, to: 2 }, { from: 0, to: 1 }] };
+  const cast = castOf(p);
+  const by = (id) => cast.find((c) => c.id === id);
+  check('cast: nine fielders, the batter, two runners, on deck, two coaches, four umpires', cast.length === 19, `${cast.length}`);
+  check('cast: every slot its own', new Set(cast.map((c) => c.look.slot)).size === cast.length);
+  check('cast: the batting side wears home, the fielding side away, in the bottom half', by('Voss').look.side === 'home' && by('Quist').look.side === 'away');
+  check('cast: a left-handed batter stands in the first-base box, mirrored', by('Voss').at[0] < 0 && by('Voss').mirror);
+  check('cast: a left-handed pitcher is mirrored with his glove on the right', by('Quist').mirror && by('Quist').look.glove === 'R');
+  check('cast: the man on third is named from the play', !!by('Halvorsen') && by('Halvorsen').at[0] > 50);
+  check('cast: the man on first leads off toward second', (() => { const r = cast.find((c) => c.look.role === 'runner' && c.at[0] < 0); return r && Math.hypot(r.at[0] - leadOff(1)[0], r.at[2] - leadOff(1)[2]) < 1e-9; })());
+  check('cast: the same payload, the same bodies', castOf(p).map(castKey).join() === cast.map(castKey).join());
+  const next = castOf({ ...p, batter: 'Okafor', bats: 'R' });
+  const changed = next.filter((c, i) => castKey(c) !== castKey(cast[i])).map((c) => c.look.role);
+  check('cast: a new batter rebuilds the batter and nobody else', changed.length === 1 && changed[0] === 'batter', changed.join());
+  check('cast: a half-inning break has no batter', !castOf({ ...p, phase: 'half' }).some((c) => c.look.role === 'batter'));
+  check('kits: a club wears its nickname', nicknameOf('Precinct 9 Enforcers') === 'Enforcers');
+  // faces: the same twice, never a makeup layout, and no ballplayer past forty
+  let unstable = 0, makeup = 0, old = 0;
+  for (let i = 0; i < 300; i++) {
+    const role = i % 7 === 0 ? 'ump' : 'fielder';
+    const look = PM.lookOf({ id: `face${i}`, role });
+    const f1 = PM.faceFor(look), f2 = PM.faceFor(PM.lookOf({ id: `face${i}`, role }));
+    if (JSON.stringify(f1) !== JSON.stringify(f2)) unstable++;
+    if (FACE_LAYOUTS[f1.layout].makeup) makeup++;
+    if (role !== 'ump' && FACE_LAYOUTS[f1.layout].age > 0.7) old++;
+  }
+  check('faces: the same pick twice', unstable === 0, `${unstable}`);
+  check('faces: never a makeup layout', makeup === 0, `${makeup}`);
+  check('faces: no ballplayer past forty', old === 0, `${old}`);
+  // headwear, in the head's bind space (metres): the bands stay above the brow over the eyes and
+  // above the ears, and the bills' tips stay above the eyes
+  // The ear (actor-head.js addEar) sits at 1.62 m, 3.2 cm tall above it, from about 1.44 to 1.92
+  // radians round the head; its top edge curves down toward its front and back.
+  const earTop = (a) => { const t = (Math.abs(a) - 1.68) / 0.24; return Math.abs(t) >= 1 ? 1.62 : 1.62 + 0.032 * Math.sqrt(1 - t * t); };
+  const eyeA = Math.atan2(FACE.eyeX, 0.09);
+  let capLow = Infinity, capEar = Infinity;
+  for (let a = -eyeA - 0.25; a <= eyeA + 0.25; a += 0.01) capLow = Math.min(capLow, PM.capBand(a));
+  for (let a = 1.44; a <= 1.92; a += 0.01) capEar = Math.min(capEar, PM.capBand(a) - earTop(a), PM.capBand(-a) - earTop(a));
+  check('cap: the band clears the brow', capLow >= FACE.browY + 0.015, capLow.toFixed(4));
+  check('cap: the band clears the ears', capEar >= 0, `${(capEar * 1000).toFixed(1)} mm`);
+  check('cap: the bill leaves the eyes open', PM.capBand(0) - PM.BILL_DROP.cap >= FACE.eyeY + 0.02);
+  for (const flap of [1, -1]) {
+    const band = PM.helmetBand(flap);
+    let low = Infinity, open = Infinity;
+    for (let a = -eyeA - 0.25; a <= eyeA + 0.25; a += 0.01) low = Math.min(low, band(a));
+    for (let a = 1.44; a <= 1.92; a += 0.01) open = Math.min(open, band(-flap * a) - earTop(a));
+    check(`helmet (flap ${flap > 0 ? 'left' : 'right'}): the band clears the brow`, low >= FACE.browY + 0.01, low.toFixed(4));
+    check(`helmet (flap ${flap > 0 ? 'left' : 'right'}): the open side clears the ear`, open >= 0, `${(open * 1000).toFixed(1)} mm`);
+    check(`helmet (flap ${flap > 0 ? 'left' : 'right'}): the bill leaves the eyes open`, band(0) - PM.BILL_DROP.helmet >= FACE.eyeY + 0.02);
+  }
+  // the mask's crossbars miss the eye line, a pupil's width either side
+  const v = (PM.MASK_SPAN[0] - FACE.eyeY) / (PM.MASK_SPAN[0] - PM.MASK_SPAN[1]) * MASK_BARS.size;
+  let near = Infinity;
+  for (let y = MASK_BARS.rows[0]; y < MASK_BARS.size; y += MASK_BARS.rows[1]) near = Math.min(near, Math.abs(y - v));
+  check('mask: the crossbars miss the eyes', near > MASK_BARS.width / 2 + 6, `${near.toFixed(1)} texels`);
+  console.log(`  · players: the heaviest pose ${worstTris} triangles`);
 }
 
 console.log(`ballpark-smoke: ${passes}/${passes + failures} passed · park ${Math.round(baseTris)} triangles, built in ${ms.toFixed(0)} ms`);

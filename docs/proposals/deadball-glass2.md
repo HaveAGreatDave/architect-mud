@@ -1,7 +1,7 @@
 # Deadball in GLASS 2
 
-**Status: Phase 0 and sim v2 built; Phase 1 under way behind a flag, with the park in 3-D and its
-light, air, lens and grade built (1a and 1b).** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
+**Status: Phase 0 and sim v2 built; Phase 1 under way behind a flag, with the park in 3-D, its
+light, air, lens and grade, and the players posed with their heads built (1a to 1c).** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
 highest fidelity the engine can reach. Deadball is a live sport on KSAB, and the broadcast borrows
 the look of a 1990s arcade baseball game. That means skinned, detailed players, authored animation
 with a wide spread of plays, light from the park's own towers and a crowd that fills the stands.
@@ -1411,6 +1411,15 @@ Phase 3, or with sim v2 if that comes later.
   taps, per shot), the arcade grade, sharpening and the vignette, the broadcast preset and the
   tube glass. The tower lamps take a gentler bloom than the look-dev's (0.18 over `hdr.js`'s two
   octaves), which keeps each bank's lamps apart.
+- **1c built:** `gl/ballplayer-mesh.js`, the look-dev's posed bodies ported as a pure builder
+  (about 14,500 triangles a player, every pose under 17,000), with `actor-head.js`'s level-0 head
+  and `actor-faces.js`'s atlas, and the cap, helmet and mask grown off the skull (`skullPoint` and
+  `ZC` are now exported for it); `diamond/cast.js`, who stands where for a payload, each role in a
+  fixed kit slot so a new batter rebuilds only the batter; `diamond/kits.js`, the kit atlas, the
+  monograms and the leather, wood and mask textures. A lefty batter or pitcher is his pose in a
+  mirror. Fewer players have long hair than the look-dev gave them, and no umpire does. The
+  players cast the towers' shadows, and the faces shade as the Actor Lab's do. Their colours stay
+  placeholders (cream and navy at home, grey and rust away) until Phase 5 brings the clubs'.
 
 **Phase 2: skinned players and the pitch.** Behind the flag.
 - `gl/skin.js`, the rig, `diamond/anim.js`, the Pose Lab, the pitching, batting, catching and

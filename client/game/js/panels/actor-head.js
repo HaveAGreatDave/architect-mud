@@ -63,7 +63,7 @@ export const FACE = {
   // The texture: a front projection of this box.
   x0: -0.1, x1: 0.1, y0: 1.515, y1: 1.765,
 };
-const ZC = -0.006; // the skull's centre line front to back
+export const ZC = -0.006; // the skull's centre line front to back
 
 // The skull, crown to chin. Above 1.655 it's an ellipsoid; below, these rows: half-width, front,
 // back, where it's widest front to back, and how square the front is (2 is an ellipse).
@@ -161,7 +161,9 @@ export const HEAD_LEVELS = [
 export const headLevelFor = (px) => HEAD_LEVELS.findIndex((L) => px >= L.px);
 
 const se = (v, n) => Math.sign(v) * Math.abs(v) ** (2 / n);
-function skullPoint(y, phi) {
+// A point on the skull at height `y` and angle `phi` round it (x = cos phi, z = sin phi), the
+// face's relief included. Headwear is fitted to this (gl/ballplayer-mesh.js).
+export function skullPoint(y, phi) {
   const S = station(y), c = Math.cos(phi), s = Math.sin(phi);
   const n = s > 0 ? S.nf : 2.1;
   const x = S.w * se(c, n);
