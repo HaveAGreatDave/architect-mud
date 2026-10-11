@@ -652,6 +652,31 @@ function driveCurveOf(d) {
     // which this probe cannot do — it reads scheduled points, not a curve.
   }
 
+  // ── delivery: how hard a line is sold ─────────────────────────────────────
+  // `excite` is the hockey booth's, from -1 (grave) through 0 (the narrator's own voice)
+  // to 1 (a goal call). Sold harder, the same line peaks higher and takes longer (the
+  // nucleus is held); sold grave it sits lower. At 0 nothing may move at all, because
+  // every other voice in the game speaks at 0, and the screen reader never gets any.
+  {
+    const run = (text, more) => {
+      nodes = [];
+      const r = A.speak(text, { seed: 'contour', ...more });
+      const g = nodes.filter(n => n.kind === 'osc').find(o => o.frequency.log.length > 3);
+      const v = (g?.frequency.log || []).map(e => e.value);
+      return { v, dur: r ? r.duration : 0, peak: v.length ? Math.max(...v) : 0 };
+    };
+    const line = 'He shoots. He SCORES!';
+    const plain = run(line, {}), zero = run(line, { excite: 0 }), goal = run(line, { excite: 1 }), grave = run(line, { excite: -0.7 });
+    check('excite 0 is the voice exactly as it was', JSON.stringify(zero.v) === JSON.stringify(plain.v) && zero.dur === plain.dur,
+      `${zero.v.length} vs ${plain.v.length} points, ${zero.dur} vs ${plain.dur}s`);
+    check('a goal call peaks well above the plain line', goal.peak > plain.peak * 1.6, `${goal.peak.toFixed(0)} vs ${plain.peak.toFixed(0)} Hz`);
+    check('a goal call holds its word, so it runs longer', goal.dur > plain.dur, `${goal.dur.toFixed(2)} vs ${plain.dur.toFixed(2)}s`);
+    check('a grave line sits lower than the plain one', grave.peak < plain.peak * 0.95, `${grave.peak.toFixed(0)} vs ${plain.peak.toFixed(0)} Hz`);
+    check('a grave line is slower', grave.dur > plain.dur, `${grave.dur.toFixed(2)} vs ${plain.dur.toFixed(2)}s`);
+    const uiGoal = run(line, { channel: 'ui', excite: 1 }), uiPlain = run(line, { channel: 'ui' });
+    check('the reading voice is never sold', JSON.stringify(uiGoal.v) === JSON.stringify(uiPlain.v) && uiGoal.dur === uiPlain.dur);
+  }
+
   // ── a burst has a SHAPE, not just a frequency ─────────────────────────────
   // Every stop used to be released through one fixed band (Q 2, 20ms, one level)
   // with only the centre frequency moving — and shape is most of what the

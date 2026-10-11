@@ -2383,13 +2383,46 @@ return out;
       finalTaper:  0.6,
       undershoot:  0.2,    // EXPLICIT coarticulation only — see the note in the loop
       lineGapMs:   180,    // breath between chained lines (tv.js reads this)
+      excitement:  1.0,    // scales every line's delivery (opt.excite, see deliveryFor); 0 reads it all flat
     };
+
+    // DELIVERY: how hard a line is being sold (`opt.excite`). -1 is grave (a death on the
+    // ice, the injury list), 0 is the narrator's own voice exactly as it always was, 1 is
+    // a goal call. Excited speech is higher, wider, harder, brighter and a little quicker,
+    // holds its height across the phrase instead of sagging, leans long on the one word
+    // that matters ("he SCOOORES") and has no fry at the end; grave speech is lower,
+    // narrower, softer, darker and slower, with longer pauses, and falls into fry. Those are
+    // the measured correlates of arousal in sports commentary: F0 level and range,
+    // intensity, spectral tilt, rate and pause length. Every factor is exactly 1 (or 0) at
+    // 0, so a line nobody is selling is untouched.
+    function deliveryFor(x) {
+      const e = Math.max(0, x), g = Math.max(0, -x);
+      return {
+        e, g,
+        pitch:  2 ** ((9 * e - 3 * g) / 12),   // register: up to 9 semitones up, 3 down
+        range:  1 + 1.0 * e - 0.4 * g,          // how far the accents move (scales lilt)
+        decl:   1 - 0.55 * e + 0.25 * g,        // excited speech holds its height
+        rate:   1 + 0.1 * e - 0.12 * g,
+        pause:  1 - 0.35 * e + 0.3 * g,         // phrase pauses, not word junctures
+        hold:   1 + 1.2 * e,                    // the nucleus vowel, stretched
+        bright: 1 + 0.45 * e - 0.15 * g,        // the tilt filter's cutoffs
+        loud:   1 + 0.25 * e - 0.12 * g,        // stressed vowels; unstressed get half of it
+        oq:     -0.16 * e + 0.06 * g,           // pressed folds when excited, breathy when grave
+        breath: 0.006 * e + 0.008 * g,
+        creak:  Math.max(0, 1 - 1.4 * e) * (1 + 0.6 * g),
+        f1:     1 + 0.06 * e,                   // a louder voice opens the jaw
+        jitter: 1 + 0.5 * e,                    // and strains it
+      };
+    }
 
     // Two stress markers sit in the phoneme run, both immediately before a vowel and
     // neither with a PH entry, so the synthesis loop and estimateDuration skip them
     // for free — only the LOOKAHEADS have to know. '*' is ordinary lexical stress;
-    // '!' is emphasis, a level above it.
-    const isMark = p => p === '*' || p === '!';
+    // '!' is emphasis, a level above it. A third, '^', marks the NUCLEUS of a phrase
+    // that's being sold (deliveryFor): the vowel a caller leans on and holds. It sits
+    // between the stress mark and its vowel, and only speak() puts it there, after
+    // every transform has run, so nothing upstream ever sees one.
+    const isMark = p => p === '*' || p === '!' || p === '^';
 
     // Monophthongs that centralise when they lose their stress. Diphthongs are
     // absent on purpose: the glide IS the vowel's identity and survives reduction.
@@ -2724,7 +2757,11 @@ return out;
         if (ctx.nxt && (ctx.nxt.t === 'F' || ctx.nxt.t === 'S' || ctx.nxt.t === 'H')) {
           dur *= ctx.nxt.vd ? 1.25 : 0.85;
         }
+        // The nucleus of a line being sold, held (see deliveryFor).
+        if (ctx.held && ctx.hold) dur *= ctx.hold;
       }
+      // A phrase pause shortens in a hurry and lengthens in grief; a word juncture doesn't.
+      if (p.t === 'P' && code !== '_' && ctx.pause) dur *= ctx.pause;
       return dur;
     }
 
@@ -2742,21 +2779,23 @@ return out;
 
     // Rough total duration (s) of a phoneme run at a given speed — used to shape
     // the phrase-length prosody below (declination over the line).
-    function estimateDuration(phon, speed, shout) {
+    function estimateDuration(phon, speed, shout, dl) {
       // Thin wrapper over segmentDuration/stopTiming — it walks the run and adds up
       // exactly what the scheduler will schedule. Do not reimplement a rule here.
-      let t = 0.08, stress = 0, prevCode = null;
+      // `dl` is the line's delivery (deliveryFor), for the held nucleus and the pauses.
+      let t = 0.08, stress = 0, prevCode = null, held = false;
       let wordScale = sylScale(sylFrom(phon, 0));
       for (let i = 0; i < phon.length; i++) {
         const code = phon[i];
+        if (code === '^') { held = true; continue; }
         if (isMark(code)) { stress = code === '!' ? 2 : 1; continue; }
         const p = PH[code]; if (!p) continue;
         let j = i + 1; while (isMark(phon[j])) j++;
         const nxtCode = phon[j], nxt = PH[nxtCode];
         if (p.t === 'P') wordScale = sylScale(sylFrom(phon, i + 1));
-        const ctx = { nxtCode, nxt, prevCode, stress, shout, wordScale, speed };
+        const ctx = { nxtCode, nxt, prevCode, stress, shout, wordScale, speed, held, hold: dl && dl.hold, pause: dl && dl.pause };
         const dur = segmentDuration(p, code, ctx);
-        if (p.t === 'V') stress = 0;
+        if (p.t === 'V') { stress = 0; held = false; }
         if (p.t === 'F' && p.stopFirst) t += 0.03;
         if (p.t === 'S') {
           const { unreleased, asp } = stopTiming(p, ctx);
@@ -2870,6 +2909,9 @@ return out;
     let live = [];
     function cancel(){ live.forEach(n => { try { n.stop(); } catch { /* already stopped */ } }); live = []; }
 
+    // speak(text, { seed, voice, lex, accent, pa, channel, excite, budget }). `excite` is how
+    // hard the line is being sold, -1 (grave) to 1 (a goal call); see deliveryFor. The
+    // hockey booth sends one with every line; nothing else does, and 0 changes nothing.
     function speak(text, opt = {}){
       // `channel: 'ui'` is the log reader (client/game/js/logreader.js) — the
       // voice as an ACCESSIBILITY surface rather than as a broadcast. It bypasses
@@ -2889,7 +2931,10 @@ return out;
       // happened to roll them, which is not tuning, it is fishing. The dev panel's
       // voice lab drives this; the values it prints go straight into NAMED_VOICES.
       const V = Object.assign(voiceFromName(opt.seed || text), opt.voice || null);
-      const F0 = V.f0, ringAmt = V.ring, fshift = V.fshift;
+      // How hard the line is sold (deliveryFor). Never on the accessibility channel: a
+      // screen reader that gets excited about a goal is harder to follow, not livelier.
+      const D = deliveryFor(ui ? 0 : Math.max(-1, Math.min(1, (+opt.excite || 0) * TUNING.excitement)));
+      const F0 = V.f0 * D.pitch, ringAmt = V.ring, fshift = V.fshift;
       // ⚠ NO CHARACTER ON THE ACCESSIBILITY CHANNEL. Drive and growl are texture:
       // clipping and period doubling both make a voice more interesting and less
       // intelligible, which is a fine trade for a narrator and the wrong one for
@@ -2912,6 +2957,26 @@ return out;
       }
       finally { _lex = null; }
       if (!phon.length) return;
+      // THE NUCLEUS. A phrase sold hard leans on one vowel and holds it: the last emphatic
+      // one (a word in caps) or, failing that, the last stressed one, which is where English
+      // puts the nuclear accent ("glove save, Oye-LAAA-ran"). One per phrase.
+      if (D.e >= 0.35) {
+        const res = []; let seg = [];
+        const flush = () => {
+          let best = -1, bestP = 0;
+          for (let k = 0; k + 1 < seg.length; k++) {
+            if ((seg[k] === '!' || seg[k] === '*') && VOWELS.has(seg[k + 1])) {
+              const pr = seg[k] === '!' ? 2 : 1;
+              if (pr >= bestP) { best = k + 1; bestP = pr; }
+            }
+          }
+          if (best >= 0) seg.splice(best, 0, '^');
+          res.push(...seg); seg = [];
+        };
+        for (const code of phon) { seg.push(code); if (isTerm(code)) flush(); }
+        flush();
+        phon = res;
+      }
       // Every line reads at the narrator's own pace, however long it is. There used
       // to be a fit-to-window compression here (speed up so a long line landed before
       // the next one), but a voice that gabbles the long lines and strolls the short
@@ -2929,7 +2994,7 @@ return out;
       // of ordinary human speech. LOWER IS SLOWER. Raise toward 0.9 if it still
       // drags. Broadcast's nodeHoldMs is fitted to this number — re-measure both
       // together if the phoneme durations are ever retuned.
-      const speed = V.speed * TUNING.rate;
+      const speed = V.speed * TUNING.rate * D.rate;
       // 'ui' is a DRY bus (see busFor). Read Aloud is the caller, and a screen
       // reader carrying the room's reverb is harder to understand, not richer.
       const out = busFor(ui ? 'ui' : 'tv');
@@ -2958,7 +3023,7 @@ return out;
       // bought consonant clarity and paid for it in hiss. A wide peak centred on the
       // intelligibility band does the same job and leaves the sibilants alone.
       presence.type = 'peaking'; presence.frequency.value = 3000;
-      presence.Q.value = 0.9; presence.gain.value = TUNING.presenceDb;
+      presence.Q.value = 0.9; presence.gain.value = TUNING.presenceDb + 2 * D.e;
       // Keeps a loud vowel from swamping the consonant that follows it — the voice
       // sits at one level instead of lunging, which reads as microphone technique.
       const comp = c.createDynamicsCompressor();
@@ -3015,7 +3080,7 @@ return out;
       }
 
       const glot = c.createOscillator(); glot.frequency.value = F0;
-      glot.setPeriodicWave(glottalWave(c, V.oq));
+      glot.setPeriodicWave(glottalWave(c, Math.max(0.4, Math.min(0.85, V.oq + D.oq))));
       // The tilt filter used to be the ONLY thing standing in for glottal roll-off,
       // so it had to sit low (3.4k) and dulled the consonants along with the buzz.
       // The source now rolls off on its own, correctly, so this backs off to a
@@ -3029,9 +3094,9 @@ return out;
       // half of the same roughness) rides the master gain, and matters more than its
       // size suggests: perfectly steady loudness is the other half of "machine".
       const jit = c.createOscillator(); jit.type = 'triangle'; jit.frequency.value = 9;
-      const jitG = c.createGain(); jitG.gain.value = F0 * V.jitter; jit.connect(jitG).connect(glot.frequency);
+      const jitG = c.createGain(); jitG.gain.value = F0 * V.jitter * D.jitter; jit.connect(jitG).connect(glot.frequency);
       const jit2 = c.createOscillator(); jit2.type = 'sine'; jit2.frequency.value = 6.3;
-      const jit2G = c.createGain(); jit2G.gain.value = F0 * V.jitter * 0.6; jit2.connect(jit2G).connect(glot.frequency);
+      const jit2G = c.createGain(); jit2G.gain.value = F0 * V.jitter * 0.6 * D.jitter; jit2.connect(jit2G).connect(glot.frequency);
       // GROWL. Audio-rate FM on the glottal source at HALF F0 — period doubling,
       // which is the actual mechanism behind creak and vocal fry: alternate cycles
       // come out at a different amplitude and the ear stops reading one clean
@@ -3202,6 +3267,13 @@ return out;
       nz.connect(nbp).connect(nbp2).connect(nlp).connect(noiseG).connect(master);
 
       const t0 = c.currentTime + 0.05; let t = t0;
+      // A breath in before a big call: you hear the caller fill his lungs, then it comes.
+      if (D.e >= 0.6) {
+        setNoiseBand(1100, 0.6, t0, 0);
+        noiseG.gain.setTargetAtTime(0.035 + 0.035 * D.e, t0, 0.05);
+        noiseG.gain.setTargetAtTime(0, t0 + 0.17, 0.03);
+        t += 0.22;
+      }
       // F4 is a fixed resonance of the vocal tract, not a vowel target — the phoneme
       // table only carries three. Set once; the others glide per phoneme.
       forms[3].frequency.setValueAtTime(3600 * fshift, t0);
@@ -3219,7 +3291,7 @@ return out;
       // `tc` supplies it; 22ms stays the default for vowels.
       const setF = (when, arr, wide, tc) => {
         const k0 = tc || 0.022;
-        const F = [arr[0]*fshift, arr[1]*fshift, arr[2]*fshift, 3600*fshift];
+        const F = [arr[0]*fshift*D.f1, arr[1]*fshift, arr[2]*fshift, 3600*fshift];
         const A = cascadeGains(F, wide);
         for (let k = 0; k < 4; k++) {
           // F4's FREQUENCY is fixed (it is a property of the tract, not of the vowel)
@@ -3263,15 +3335,19 @@ return out;
         if (isTerm(code)) phrases.push([]);
       }
       if (!phrases[phrases.length-1].length) phrases.pop();
-      const phraseDur = phrases.map(ph => estimateDuration(ph, speed) || 1);
+      const phraseDur = phrases.map(ph => estimateDuration(ph, speed, undefined, D) || 1);
       // Per-phrase declination, read off the mark that ENDS each phrase: a question
       // holds itself open, an ellipsis sags away harder than a full stop does.
       const phraseDecl = phrases.map(ph => {
         const end = ph[ph.length-1];
-        return end === '_Q' ? V.decl * 0.45 : end === '_E' ? V.decl * 1.25 : V.decl;
+        return (end === '_Q' ? V.decl * 0.45 : end === '_E' ? V.decl * 1.25 : V.decl) * D.decl;
       });
-      let phraseIx = 0, phraseT0 = t0;
-      const totalDur = estimateDuration(phon, speed) || 1;
+      // A line being sold peaks on its exclamation: "He shoots. He SCORES!" builds through
+      // the first phrase and goes all the way up on the second, two semitones higher.
+      const phraseK = phrases.map(ph => (D.e > 0 && ph[ph.length-1] !== '_X' ? 2 ** (-2 * D.e / 12) : 1));
+      const lilt = V.lilt * D.range;
+      let phraseIx = 0, phraseT0 = t;
+      const totalDur = estimateDuration(phon, speed, undefined, D) || 1;
       // INTRINSIC F0. High vowels sit a little higher in pitch than low ones — the
       // raised tongue body pulls on the larynx. It correlates inversely with F1, so
       // it comes straight off the formant target rather than needing a table: /iy/
@@ -3294,21 +3370,23 @@ return out;
         const fall = 1 - (phraseDecl[phraseIx] ?? V.decl) * frac;   // declination
         // Emphasis is a level ABOVE stress, not a louder version of it — it moves
         // pitch about twice as far, which is what makes "it is GONE" land.
-        const lift = stressed === 2 ? 1 + V.lilt * 3.4 * TUNING.emphasis
-                   : stressed       ? 1 + V.lilt
-                   :                  1 - V.lilt * 0.45;
+        const lift = stressed === 2 ? 1 + lilt * 3.4 * TUNING.emphasis
+                   : stressed       ? 1 + lilt
+                   :                  1 - lilt * 0.45;
         // CONTINUATION RISE. A comma is not a full stop: the clause is unfinished and
         // English says so by rising (or at least not falling) into the pause. Without
         // it a list reads as a series of separate little sentences, because every
         // clause got the same terminal fall.
         const hold = BOUNDARY[nextCode] || 1;
-        glot.frequency.setTargetAtTime(F0 * fall * lift * hold * intrinsicF0(f1) * micro, when, 0.05);
+        const f = F0 * (phraseK[phraseIx] ?? 1) * fall * lift * hold * intrinsicF0(f1) * micro;
+        glot.frequency.setTargetAtTime(f, when, 0.05);
         micro = 1;
         // SPECTRAL TILT tracks effort. A voice raised in emphasis doesn't just get
         // louder and higher, it gets BRIGHTER — the folds close harder and the
         // source spectrum tilts up. Moving the tilt filter with stress is what
         // makes an accent read as effort rather than as a volume knob.
-        tilt.frequency.setTargetAtTime(stressed === 2 ? TUNING.tiltEmph : stressed ? TUNING.tiltStress : TUNING.tiltPlain, when, 0.04);
+        tilt.frequency.setTargetAtTime((stressed === 2 ? TUNING.tiltEmph : stressed ? TUNING.tiltStress : TUNING.tiltPlain) * D.bright, when, 0.04);
+        return f;
       };
 
       // Vowel REDUCTION is no longer done here. It used to be a blend toward schwa
@@ -3323,21 +3401,24 @@ return out;
 
       // POLYSYLLABIC SHORTENING — see sylFrom/sylScale above. A syllable gets shorter
       let wordScale = sylScale(sylFrom(phon, 0));
-      let pendingStress = 0, prevNasal = false, prevP = null, prevCode = null;
+      let pendingStress = 0, pendingHeld = false, prevNasal = false, prevP = null, prevCode = null;
+      const holdK = shoutLine ? Math.min(D.hold, 1.4) : D.hold;   // a shout is already held
 
       for (let i = 0; i < phon.length; i++) {
         const code = phon[i];
+        if (code === '^') { pendingHeld = true; continue; }
         if (isMark(code)) { pendingStress = code === '!' ? 2 : 1; continue; }
         const p = PH[code]; if (!p) continue;
         const nxt = phAt(i+1);
         const nxtCode = (() => { let j = i+1; while (isMark(phon[j])) j++; return phon[j]; })();
-        const segCtx = { nxtCode, nxt, prevCode, stress: pendingStress, shout: shoutLine, wordScale, speed };
+        const segCtx = { nxtCode, nxt, prevCode, stress: pendingStress, shout: shoutLine, wordScale, speed, held: pendingHeld, hold: holdK, pause: D.pause };
         let dur = segmentDuration(p, code, segCtx);
         // (pre-boundary, polysyllabic, stress, schwa and pre-voiced rules all live in
         //  segmentDuration now — see the note there.)
 
         if (p.t==='V' || p.t==='N' || p.t==='L') {
           const stressed = pendingStress; pendingStress = 0;
+          const held = pendingHeld && p.t === 'V'; if (p.t === 'V') pendingHeld = false;
           let f = p.f;
           // Dark /l/ unless a vowel follows it.
           if (p.df && !(nxt && nxt.t === 'V')) f = p.df;
@@ -3396,6 +3477,7 @@ return out;
             nzero.gain.setTargetAtTime(nasalised ? -7 : 0, t, 0.020);
           }
           let vg = p.t==='V' ? (stressed === 2 ? (shoutLine ? 1.4 : 1.25) : stressed ? 0.95 : 0.72) : 0.6;
+          vg *= p.t === 'V' && stressed ? D.loud : 1 + (D.loud - 1) * 0.5;
           // DEVOICING. An unstressed vowel trapped between two voiceless obstruents
           // is partly or wholly whispered in ordinary speech — the folds simply never
           // get going between "p" and "t". It's the first vowel of "potato",
@@ -3412,7 +3494,8 @@ return out;
           // target for the whole vowel is a plateau, and a run of plateaus is the
           // organ-like quality that survives even when every formant is right. Decay
           // through the back half so each vowel has a shape instead of a level.
-          if (p.t === 'V') voiced.gain.setTargetAtTime(vg * 0.86, t + dur*0.55, 0.05);
+          // (a held nucleus doesn't sag: the caller is still selling it)
+          if (p.t === 'V') voiced.gain.setTargetAtTime(vg * (held ? 0.95 : 0.86), t + dur * (held ? 0.8 : 0.55), held ? 0.08 : 0.05);
           // Breath noise has to state its OWN band. It didn't, so it played through
           // whatever the last fricative left behind — after any /s/ that meant 6.5kHz
           // at Q6, a narrow high hiss sustained underneath every following vowel. That
@@ -3421,8 +3504,16 @@ return out;
           setNoiseBand(1400, 0.7, t, 0.012);
           // A devoiced vowel is breath where the voice should be — without this the
           // syllable would just get quieter, which is a dropout, not a whisper.
-          noiseG.gain.setTargetAtTime(devoiced ? 0.10 : V.breath * TUNING.breath, t, 0.01);
-          if (p.t === 'V') pitchAt(t, (t - phraseT0) / (phraseDur[phraseIx] || totalDur), stressed, f[0], nxtCode);
+          noiseG.gain.setTargetAtTime(devoiced ? 0.10 : V.breath * TUNING.breath + D.breath, t, 0.01);
+          if (p.t === 'V') {
+            const fv = pitchAt(t, (t - phraseT0) / (phraseDur[phraseIx] || totalDur), stressed, f[0], nxtCode);
+            // The held nucleus climbs through the vowel to its peak and only eases at the end:
+            // the shape of "SCOOORES", where a plain accent is a step.
+            if (held && D.e > 0.3) {
+              glot.frequency.setTargetAtTime(fv * (1 + 0.1 * D.e), t + dur * 0.3, 0.06);
+              glot.frequency.setTargetAtTime(fv * (1 + 0.03 * D.e), t + dur * 0.85, 0.08);
+            }
+          }
           if (p.to) setF(t+dur*0.62, p.to, false, 0.018);
           t += dur;
         } else if (p.t==='F' || p.t==='H') {
@@ -3577,8 +3668,9 @@ return out;
       // The terminal contour. Set as a target from wherever the lilt left the pitch —
       // the old code re-anchored F0 at t0 and ramped, which erased every contour
       // scheduled above it. A question turns the fall into a rise.
+      const lastK = phraseK[phraseK.length - 1] ?? 1;
       glot.frequency.setTargetAtTime(
-        rise ? F0 * (1 + V.lilt * 1.9) : F0 * (1 - V.decl) * (trail ? 0.88 : 0.94),
+        rise ? F0 * lastK * (1 + lilt * 1.9) : F0 * lastK * (1 - V.decl * D.decl) * (trail ? 0.88 : 0.94),
         Math.max(t0, end - 0.18), 0.06);
       // CREAK. English speakers routinely fall into vocal fry on the last syllable of
       // a statement — the folds run out of breath pressure, the pitch drops off a
@@ -3586,8 +3678,9 @@ return out;
       // a real voice does at a full stop, and a synth that ends every sentence on a
       // clean tone sounds like it is reading a list of them. Not on questions, which
       // end lifted, and not so deep it becomes a growl.
-      if (!rise && TUNING.creak > 0) {
-        const cf = Math.max(0.55, 1 - 0.30 * TUNING.creak);
+      const creak = TUNING.creak * D.creak;   // none at full cry; more in grief
+      if (!rise && creak > 0) {
+        const cf = Math.max(0.55, 1 - 0.30 * creak);
         // ⚠ CREAK USED TO ERASE THE TERMINAL CONTOUR. The line above sets a target
         // at end-0.18 that differs for a line trailing off (`...`) versus one
         // landing on a full stop — and this then overwrote glot.frequency 110ms
@@ -3601,13 +3694,13 @@ return out;
         // about F0*0.57, well past the floor that stops it becoming a growl, and
         // retuning that needs an ear. This leaves a full stop EXACTLY where it was
         // and only changes the case that was being erased.
-        glot.frequency.setTargetAtTime(F0 * cf * (trail ? 0.94 : 1), Math.max(t0, end - 0.07), 0.035);
+        glot.frequency.setTargetAtTime(F0 * lastK * cf * (trail ? 0.94 : 1), Math.max(t0, end - 0.07), 0.035);
         // Irregularity is the other half — a steady low tone is a hum, not creak.
         // BOTH LFOs. Raising only one leaves the other steady, which is a partial
         // return to periodic vibrato — the exact thing two beating LFOs exist to avoid.
         const cj = Math.max(t0, end - 0.07);
-        jitG.gain.setTargetAtTime(F0 * V.jitter * (1 + 4 * TUNING.creak), cj, 0.03);
-        jit2G.gain.setTargetAtTime(F0 * V.jitter * 0.6 * (1 + 4 * TUNING.creak), cj, 0.03);
+        jitG.gain.setTargetAtTime(F0 * V.jitter * D.jitter * (1 + 4 * creak), cj, 0.03);
+        jit2G.gain.setTargetAtTime(F0 * V.jitter * 0.6 * D.jitter * (1 + 4 * creak), cj, 0.03);
       }
       const src = [glot, nz, lfo, jit, jit2, shim];
       if (growlOsc) src.push(growlOsc);

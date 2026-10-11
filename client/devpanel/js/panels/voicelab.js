@@ -33,6 +33,7 @@ const VL_KNOBS = [
   ['creak',      'creak',       0,    2,    0.05],
   ['finalTaper', 'final taper', 0.1,  1,    0.05],
   ['lineGapMs',  'line gap ms', 0,    900,  10  ],
+  ['excitement', 'excitement',  0,    2,    0.05],
 ];
 
 // Per-voice character. Ranges are deliberately WIDER than the roll — the point of
@@ -57,6 +58,8 @@ const VL_VOICE = [
 ];
 const VL_WAVES = ['growlWave', 'growl2Wave'];
 
+// [label, text, excite]. The last three are the hockey booth: a line can be sold, from -1
+// (grave) to 1 (a goal call), and the slider beside Speak sets it for anything typed.
 const VL_PRESETS = [
   ['Newsreader', "Good evening, and welcome to the Coldwater evening report. Acid rain after midnight, so stay indoors."],
   ['A question', "Is the door closed? It is."],
@@ -64,6 +67,9 @@ const VL_PRESETS = [
   ['A shout', "GET DOWN!"],
   ['The hard words', "Tableland, rubbly, vestibule, Delacroix, architect."],
   ['Numbers', "That's 900 credits, level 7, at 12:30."],
+  ['A goal call', "He shoots. He SCORES!", 1],
+  ['A shot', "Polyester Grubb lets it go from the slot.", 0.6],
+  ['A death', "He's not moving. The building goes quiet.", -0.8],
 ];
 
 let _vlTuneDefaults = null;
@@ -96,6 +102,12 @@ function renderVoiceLabPanel(data) {
         <button class="action-btn" onclick="vlSpeak()">▶ Speak</button>
         <button class="action-btn" onclick="vlStop()">■ Stop</button>
       </div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11px;color:var(--text-dim)">excite
+        <input type="range" id="vl-excite" min="-1" max="1" step="0.05" value="0" style="flex:1;max-width:260px"
+          oninput="document.getElementById('vl-excite-v').textContent=(+this.value).toFixed(2)">
+        <span id="vl-excite-v" style="color:var(--text-bright);min-width:3em">0.00</span>
+        <span>-1 grave · 0 the voice as it is · 1 a goal call</span>
+      </label>
       <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:8px">
         ${VL_PRESETS.map(([label, t], i) => `<button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="vlPreset(${i})">${label}</button>`).join('')}
       </div>
@@ -199,12 +211,18 @@ function vlSpeak() {
   const res = engine.speak(_vlEl('vl-text').value, {
     seed: _vlEl('vl-seed').value || 'broadcast',
     voice: Object.keys(_vlOverride).length ? _vlOverride : null,
+    excite: +(_vlEl('vl-excite')?.value || 0),
   });
   _vlEl('vl-dur').textContent = res?.duration ? res.duration.toFixed(2) + ' s' : 'not spoken (audio blocked or muted)';
   vlRender();
 }
 function vlStop() { window.AudioEngine?.cancelSpeech?.(); }
-function vlPreset(i) { _vlEl('vl-text').value = VL_PRESETS[i][1]; vlSpeak(); }
+function vlPreset(i) {
+  _vlEl('vl-text').value = VL_PRESETS[i][1];
+  const x = _vlEl('vl-excite');
+  if (x) { x.value = String(VL_PRESETS[i][2] || 0); _vlEl('vl-excite-v').textContent = (+x.value).toFixed(2); }
+  vlSpeak();
+}
 
 function vlRender() {
   const f = window.AudioEngine?._phonemesFor;

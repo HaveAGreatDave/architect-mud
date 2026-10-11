@@ -646,8 +646,8 @@ const handlers = {
         // the screen isn't blank until the next one. Show it, don't narrate it —
         // its read-aloud is part-way through airing to everyone else. It's passed
         // through so the panel knows never to hold it back for the voice either.
-        v.appendMessage(msg.message, msg.style, msg.duration, msg.hasGameday, msg.catchUp);
-        if (!msg.catchUp) v.speak(msg.message, msg.style, msg.duration);
+        v.appendMessage(msg.message, msg.style, msg.duration, msg.hasGameday, msg.catchUp, msg.excite);
+        if (!msg.catchUp) v.speak(msg.message, msg.style, msg.duration, msg.excite);
       }
       if (msg.programName !== undefined) v.setProgramName(msg.programName);
     }

@@ -369,6 +369,44 @@ in scope but started with everything else, from the `src` array — that array i
 the voice on one clock and what `cancel()` stops. Starting it inline would leave a tone
 running past a cancelled line with no reference left to reach it.
 
+### Selling a line (`excite`)
+
+`speak(text, { excite })` says how hard a line is being sold, from -1 (grave: a death on the
+ice, the injury list) through 0 (the narrator's own voice) to 1 (a goal call). It's the
+hockey booth's: the narrator tags every line with a value off the pool it came from
+(`EXCITE` in [hockey-narrator.js](../plugins/broadcast/sports/hockey-narrator.js)), the line
+carries it as `excite` through the broadcast message, and tv.js hands it to `speak()`.
+Nothing else sends one, and at 0 every factor below is exactly 1, so every other voice in the
+game is untouched. The reading voice (`channel: 'ui'`) ignores it.
+
+`deliveryFor` turns the number into the measured correlates of arousal in sports commentary:
+
+| | excited (1) | grave (-1) |
+|---|---|---|
+| register | up 9 semitones | down 3 |
+| pitch range (lilt) | doubled | 0.6 |
+| declination | 0.45, so the voice holds its height | 1.25 |
+| rate | 1.1 | 0.88 |
+| phrase pauses | 0.65 | 1.3 |
+| effort | pressed source (OQ -0.16), tilt cutoffs 1.45, presence +2dB, F1 +6%, stressed vowels +25% | breathy (OQ +0.06), darker, softer |
+| creak at the end | none | 1.6 |
+
+Three things go beyond scaling. A line sold at 0.35 or more gets a **nucleus**: the last
+emphatic vowel of each phrase (a word in caps) or, failing that, the last stressed one, is
+marked with a third phoneme marker `^` and held up to 2.2 times as long, climbing through the
+vowel to its peak instead of stepping to it ("he SCOOORES"). The marker sits in the phoneme
+run, so `estimateDuration` and the scheduler count the same held vowel. At 0.6 or more there's
+a **breath in** before the first word. And a line peaks on its **exclamation**: "He shoots.
+He SCORES!" builds through the first phrase and goes two semitones higher on the second.
+
+Measured on the KSAB-TV voice (base 84Hz), "He shoots. He SCORES!" goes from about 95Hz
+with the caps word at 100 to about 140 on "shoots" and 233 at the held peak at 1, and sits
+around 79Hz at -0.7, 14% slower. `TUNING.excitement` scales every line's value, so the Voice
+Lab can turn the whole booth up or down by ear; its excite slider and the goal, shot and
+death presets audition one line. The FM smoke pins the shape: 0 is identical to no value, a
+goal call peaks over 1.6 times the plain line and runs longer, a grave one sits lower and
+slower, and the reading voice never moves.
+
 ## The voice pool
 
 ⚠ **The pool and the tracker's channel count were the same number, and that is a bug,
