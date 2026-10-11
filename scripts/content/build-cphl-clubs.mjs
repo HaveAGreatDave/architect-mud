@@ -687,11 +687,26 @@ function highlanders() {
   return { box: 100, layers, small, settUnit: 0.15 };
 }
 
-// DISTRICT 9 GOONS. A taped fist coming straight at you out of an octagon, knuckles
-// bloodied, D9 written on the tape in marker.
-const GN = { purple: '#4b2a72', purpleDeep: '#2c1846', purpleLight: '#8e68c0', bone: '#efe5d2', boneShade: '#cdbb9d', black: '#121014', tape: '#f7f4ee', tapeShade: '#c9c2b4', blood: '#a3141c' };
+// DISTRICT 9 GOONS. Precinct 9's club: cops, serving and retired. A dented shield badge
+// with two side-handle nightsticks crossed behind it, and on its enamel the taped fist
+// coming straight at you, knuckles bloodied, D9 in marker on the tape where the badge
+// number goes.
+const GN = { purple: '#4b2a72', purpleDeep: '#2c1846', purpleLight: '#8e68c0', bone: '#efe5d2', boneShade: '#cdbb9d', boneDeep: '#a8977a', black: '#121014', stick: '#2a2530',
+  tape: '#f7f4ee', tapeShade: '#c9c2b4', blood: '#a3141c' };
 function goons() {
-  const oct = (r) => ngon(50, 50, r, 8, -Math.PI / 2 + Math.PI / 8);
+  // the badge: a peaked top with two shoulders, flared sides, a point at the bottom
+  const badge = shape([['M', 50, 3.6], ['C', 54.4, 3.6, 57.6, 6.2, 59.2, 9.6], ['L', 66.6, 8.2], ['L', 76.4, 12.6], ['C', 77.6, 19, 80.6, 24.4, 86, 27.2],
+    ['C', 82.4, 40, 82.2, 53, 85, 64.8], ['C', 79, 79, 66, 88.6, 50, 96.4], ['C', 34, 88.6, 21, 79, 15, 64.8], ['C', 17.8, 53, 17.6, 40, 14, 27.2],
+    ['C', 19.4, 24.4, 22.4, 19, 23.6, 12.6], ['L', 33.4, 8.2], ['L', 40.8, 9.6], ['C', 42.4, 6.2, 45.6, 3.6, 50, 3.6], ['Z']]);
+  const inset = (k, oy = 52) => xfD(badge, k, 50, oy);
+  const star = (cx, cy, r1, r0) => poly(Array.from({ length: 10 }, (_, i) => { const a = -Math.PI / 2 + (i * Math.PI) / 5, r = i % 2 ? r0 : r1; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; }));
+  // two side-handle nightsticks crossed behind it
+  const stick = (x0, y0, x1, y1) => {
+    const u = nrm([x1 - x0, y1 - y0]), n = [-u[1], u[0]], h = add([x0, y0], mul(u, 9));
+    return { body: bar(x0, y0, x1, y1, 5) + circle(x0, y0, 2.5) + circle(x1, y1, 2.5), handle: bar(...h, ...add(h, mul(n, n[1] > 0 ? 7.4 : -7.4)), 3.4),
+      shine: `M${P(...add(add([x0, y0], mul(u, 3)), mul(n, -1.2)))}L${P(...add(add([x1, y1], mul(u, -3)), mul(n, -1.2)))}` };
+  };
+  const sticks = [stick(7, 91, 93, 11), stick(93, 91, 7, 11)];
   // the fist: four fingers rolled toward you, the thumb across them, the wrist taped
   const fingers = [];
   const fx = [26.5, 37.5, 48.5, 59.5];
@@ -706,28 +721,43 @@ function goons() {
   const back = shape([['M', 25, 57], ['L', 71.4, 52], ['L', 70.6, 66], ['C', 64, 71, 36, 71, 28, 66], ['Z']]);
   const wrist = shape([['M', 30, 64], ['C', 40, 68, 60, 68, 69.4, 63], ['L', 67.6, 88], ['C', 58, 91, 42, 91, 32.4, 88], ['Z']]);
   const wraps = shape([['M', 31, 70], ['C', 42, 74, 58, 74, 68.8, 69], ['M', 31.6, 76.6], ['C', 42, 80.6, 58, 80.6, 68.4, 75.6], ['M', 32, 83], ['C', 42, 86.6, 58, 86.6, 68, 82]]);
+  const d9 = glyph('D', T({ tx: 36.6, ty: 71.4, sx: 1.9, sy: 1.75, rot: -0.04 })) + glyph('9', T({ tx: 50.4, ty: 70.8, sx: 1.9, sy: 1.75, rot: -0.04 }));
+  // the fist set on the enamel at k, its middle (47, 62) carried to (50, 56)
+  const k = 0.7, ox = (50 - 47 * k) / (1 - k), oy = (56 - 62 * k) / (1 - k), f = (d) => xfD(d, k, ox, oy), w = (sw) => +(sw * k).toFixed(2);
+  // knocks and a splash it has taken
+  const dents = shape([['M', 20.4, 37.6], ['L', 23.2, 40.4], ['M', 21.2, 46], ['L', 22.6, 47.2], ['M', 79.4, 66.6], ['Q', 81, 68.6, 80, 71], ['M', 62.4, 88.2], ['L', 64.4, 86.4]]);
+  const dentRing = ring(73.6, 31.4, 1.2, 2);
+  const splash = ellipse(26.6, 25.4, 1.6, 1.1, 0.5) + ellipse(29.4, 22.6, 0.8, 0.6) + ellipse(24.2, 29.2, 0.6, 0.5) + ellipse(31.2, 26.8, 0.5, 0.4);
   const layers = [
-    L(oct(49.5), GN.black),
-    L(oct(47), GN.bone),
-    L(oct(43.4), GN.black),
-    L(oct(42), GN.purple),
-    L(wrist, GN.tape, { stroke: GN.black, sw: 2 }),
-    L(wraps, 'none', { stroke: GN.tapeShade, sw: 1.4 }),
-    L(glyph('D', T({ tx: 36.6, ty: 71.4, sx: 1.9, sy: 1.75, rot: -0.04 })) + glyph('9', T({ tx: 50.4, ty: 70.8, sx: 1.9, sy: 1.75, rot: -0.04 })), GN.purpleDeep, { rule: 'evenodd' }),
-    L(back, GN.bone, { stroke: GN.black, sw: 2 }),
-    L(fingers.join(''), GN.bone, { stroke: GN.black, sw: 2 }),
-    L(knuckleLines, 'none', { stroke: GN.boneShade, sw: 1.4 }),
-    L(blood, GN.blood),
-    L(thumb, GN.bone, { stroke: GN.black, sw: 2 }),
-    L(nail, GN.boneShade),
+    // the sticks behind the badge
+    ...sticks.flatMap((st) => [L(st.handle, GN.stick, { stroke: GN.black, sw: 1.6 }), L(st.body, GN.stick, { stroke: GN.black, sw: 1.6 })]),
+    L(sticks.map((st) => st.shine).join(''), 'none', { stroke: '#5a5262', sw: 0.9 }),
+    // the badge, bevelled: shade showing down the right and along the bottom
+    L(badge, GN.boneShade, { stroke: GN.black, sw: 2.6 }),
+    L(xfD(badge, 0.97, 47, 47), GN.bone),
+    L(inset(0.86), 'none', { stroke: GN.boneDeep, sw: 1 }),
+    L(inset(0.8), GN.black),
+    L(inset(0.775), GN.purple),
+    L(star(50, 9.6, 3.4, 1.4), GN.purple, { stroke: GN.black, sw: 0.7 }),
+    L(dents, 'none', { stroke: GN.boneDeep, sw: 0.7 }),
+    L(dentRing, GN.boneDeep),
+    L(splash, GN.blood),
+    // the fist on the enamel
+    L(f(wrist), GN.tape, { stroke: GN.black, sw: w(2) }),
+    L(f(wraps), 'none', { stroke: GN.tapeShade, sw: w(1.4) }),
+    L(f(d9), GN.purpleDeep, { rule: 'evenodd' }),
+    L(f(back), GN.bone, { stroke: GN.black, sw: w(2) }),
+    L(f(fingers.join('')), GN.bone, { stroke: GN.black, sw: w(2) }),
+    L(f(knuckleLines), 'none', { stroke: GN.boneShade, sw: w(1.4) }),
+    L(f(blood), GN.blood),
+    L(f(thumb), GN.bone, { stroke: GN.black, sw: w(2) }),
+    L(f(nail), GN.boneShade),
   ];
+  // small: the badge and its number
   const small = [
-    L(oct(49.5), GN.bone),
-    L(oct(43.5), GN.purple),
-    L(wrist, GN.tape, { stroke: GN.black, sw: 3.6 }),
-    L(back, GN.bone, { stroke: GN.black, sw: 3.6 }),
-    L(fingers.join(''), GN.bone, { stroke: GN.black, sw: 3.6 }),
-    L(thumb, GN.bone, { stroke: GN.black, sw: 3.6 }),
+    L(badge, GN.bone, { stroke: GN.black, sw: 3.4 }),
+    L(inset(0.78), GN.purple),
+    L(glyph('D', T({ tx: 27.6, ty: 34, sx: 3.6, sy: 4 })) + glyph('9', T({ tx: 51.4, ty: 33.2, sx: 3.6, sy: 4 })), GN.bone, { rule: 'evenodd' }),
   ];
   return { box: 100, layers, small };
 }
