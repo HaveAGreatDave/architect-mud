@@ -167,6 +167,11 @@ A one-shot sound effect. Self-contained — no instrument reference needed.
 what the sfx and ambient buses carry. Leave it out and the bus decides, as every existing cue
 does. It's a cue-level key, beside `duration`, and ambient beds take it too.
 
+`config.duck` ducks other buses while the cue plays: `{ "buses": ["ambient"], "dB": -8 }` pulls the
+ambient bus 8 dB down for the cue's `duration` and brings it back, so a shout sits on top of a crowd
+bed. `attack` and `release` (seconds) default to 0.03 and 0.5. A held cue keeps the duck until it's
+released.
+
 ---
 
 ## Ambient

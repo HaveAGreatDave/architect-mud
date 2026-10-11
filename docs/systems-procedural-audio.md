@@ -385,7 +385,7 @@ threshold nothing changes level. The mono downmix and the echo send both sit beh
 **Ducks** (`duck-smoke`). Each bus is a slider gain (the player's volume) then a duck gain, and
 `_applyGains` only ever writes the sliders. `duck(buses, dB, { attack, hold, release, at })`
 pulls buses down and brings them back; without `hold` it stays down until the handle's
-`release()`. Ducks overlap and a bus sits at the deepest one. The schedule is written as
+`release()`. A cue's `config.duck` and `speak({ duck })` use it for their own length. Ducks overlap and a bus sits at the deepest one. The schedule is written as
 AudioParam events from the list of holds, not run off timers. The reverb send taps the duck,
 not the slider, so a ducked bus ducks its reverb too. `duckLoop` still exists for the rain and
 wind beds under thunder; it rides one loop, not a bus.

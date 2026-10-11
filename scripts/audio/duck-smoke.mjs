@@ -11,6 +11,7 @@
 //   • duck() goes down on the attack, holds, and comes back on the release, on the named buses only
 //   • overlapping ducks sit at the deepest one and step back to the shallower one, not to unity
 //   • an open-ended duck stays down until release()
+//   • a cue's `duck` holds for the cue (a shout over the crowd bed), or until a held cue is released
 //   • speak() with `duck` ducks the named buses for exactly its own duration
 import { loadEngine, tally, downstream } from './stub-context.mjs';
 
@@ -77,6 +78,23 @@ h.release();
   check('released: back to unity from the release time', t.length >= 2 && near(t[t.length - 1].value, 1) && near(t[t.length - 1].time, 22), JSON.stringify(t));
   check('released: on the duck\'s own release', near(t[t.length - 1].tc, 0.3 / 3));
 }
+
+// A cue can duck: a shout over the crowd bed.
+ctx.currentTime = 25;
+A.playSfx({ id: 'shout', category: 'sfx', priority: 8, config: { duration: 0.7, duck: { buses: ['ambient'], dB: -8, attack: 0.02, release: 0.6 },
+  layers: [{ waveform: 'sawtooth', freq: 300 }] } });
+{
+  const t = targets('ambient').filter(e => e.time >= 25);
+  check('a cue with duck: the bed goes down when it fires', t[0] && near(t[0].value, db(-8)) && near(t[0].time, 25), JSON.stringify(t[0]));
+  check('and comes back after it', t[1] && near(t[1].value, 1) && near(t[1].time, 25 + 0.02 + 0.7) && near(t[1].tc, 0.6 / 3), JSON.stringify(t[1]));
+}
+ctx.currentTime = 27;
+const held = A.playSfx({ id: 'horn', category: 'sfx', priority: 8, config: { duration: 0.4, duck: { buses: ['music'], dB: -6 },
+  layers: [{ waveform: 'square', freq: 200 }] } }, 1, { sustain: true });
+check('a held cue with duck: down while held', targets('music').at(-1)?.time === 27 && targets('music').at(-1).value < 1);
+ctx.currentTime = 28.5;
+held.release();
+check('and back up when released', near(targets('music').at(-1)?.value, 1) && near(targets('music').at(-1)?.time, 28.5), JSON.stringify(targets('music').at(-1)));
 
 // speak() ducks for its own duration.
 ctx.currentTime = 30;

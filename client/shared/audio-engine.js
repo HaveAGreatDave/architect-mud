@@ -1403,12 +1403,20 @@
     const sustain = opts.sustain === true;
     const sound = buildSound(def.config, destination, time, sustain ? null : duration);
     const voiceToken = occupyVoice(idx, priority, () => sound.release(c.currentTime));
+    // `duck` on the cue ducks other buses while it plays: a shout over a crowd
+    // bed is { buses: ['ambient'], dB: -8 }. A one-shot holds it for its
+    // duration; a held cue holds it until it's released.
+    const dk = def.config.duck;
+    const cueDuck = dk ? duck(dk.buses || [], dk.dB ?? -9, {
+      attack: dk.attack ?? 0.03, release: dk.release ?? 0.5, hold: sustain ? null : duration,
+    }) : null;
     if (sustain) {
       let done = false;
       const end = () => {
         if (done) return;
         done = true;
         clearTimeout(capT);
+        cueDuck?.release();
         sound.release(c.currentTime);
         const tail = Math.max(...(def.config.layers || [def.config]).map(l => l.adsr?.r ?? 0.15), 0.15);
         setTimeout(() => freeVoice(idx, voiceToken), (tail + 0.1) * 1000);
