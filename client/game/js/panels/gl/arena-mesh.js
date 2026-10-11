@@ -239,8 +239,8 @@ export function helmetShell(b, C, ax, ay, az, r, c, seg = 14, rings = 9, open = 
 // ── THE GOALIE'S MASK ─────────────────────────────────────────────────────────────────────────
 // A keeper wears a mask, not a helmet: a shell moulded round his face and skull, open in a
 // cat-eye over the eyes, nose and mouth with a cage across it, a cup under the chin and a
-// backplate behind, painted with his club's art (gl/arena.js paints it into a slot of the
-// jersey atlas). It's moulded to the generator's head itself: the head's reach in every
+// backplate behind, painted with his club's art (gl/arena.js paints it into a cell of the
+// masks' texture). It's moulded to the generator's head itself: the head's reach in every
 // direction from MASK_O, out by the padding and smoothed, so it fits the way a moulded mask
 // does. Everything is worked out once a level in the head's frame (forward, left, up, in feet
 // from the head joint) and only placed each frame.
@@ -331,6 +331,22 @@ function faceDir(side, up) {
 }
 // how low the shell comes: under the chin at the front, the jaw at the sides, the nape behind
 const maskEdge = (az) => -1.2 + 0.7 * (Math.abs(az) / Math.PI) ** 1.3;
+// The mask's outline as directions [az, el], for whoever paints it (scripts/content/
+// build-cphl-clubs.mjs authors each club's art in maskUV's flattening): the opening once
+// round (its top edge from his right to his left, down his left side, back along the bottom,
+// up his right side) and the shell's bottom edge from behind his right ear round to behind
+// his left.
+export function maskOutline(n = 16) {
+  const at = (sp, t) => { const p = maskTop(sp), q = maskBot(sp); return faceDir(lerp(p[0], q[0], t), lerp(p[1], q[1], t)); };
+  const opening = [];
+  for (let i = 0; i <= n; i++) opening.push(at(-1 + (2 * i) / n, 0));
+  for (let i = 1; i <= n; i++) opening.push(at(1, i / n));
+  for (let i = n - 1; i >= 0; i--) opening.push(at(-1 + (2 * i) / n, 1));
+  for (let i = n - 1; i > 0; i--) opening.push(at(-1, i / n));
+  const edge = [];
+  for (let i = 0; i <= 4 * n; i++) { const az = -Math.PI + (TAU2 * i) / (4 * n); edge.push([az, maskEdge(az)]); }
+  return { opening, edge };
+}
 // The texture's flattening: x once round from the back of his right side, through the face
 // (half way) and his left side, to the back again; y from the crown down to MASK_EL_MIN.
 export const maskUV = (az, el) => [(az + Math.PI) / TAU2, (HALF_PI - el) / (HALF_PI - MASK_EL_MIN)];
@@ -404,11 +420,11 @@ export function maskTemplate(lv = 1) {
   _mt[lv] = { L, S, rows: L.NE, pos, nrm, uv, dirs, open, rim, bars, dangler };
   return _mt[lv];
 }
-// The mask, placed on a keeper's head: the shell (into `bt` with the club's paint when the
-// renderer gave him a slot, else plain into `b`), the rim and the cage into `b`. The throat
-// guard is see-through, so it's left for buildVisor on `o._dangler`.
+// The mask, placed on a keeper's head: the shell (painted, into `o.maskBatch` or `bt`, when the
+// renderer gave him a cell of its mask texture, else plain into `b`), the rim and the cage into
+// `b`. The throat guard is see-through, so it's left for buildVisor on `o._dangler`.
 export function buildMask(b, bt, Hc, Fh, Sd, Uh, o, det) {
-  const T = maskTemplate(det ? 1 : 0), slot = o.maskSlot, tb = slot ? bt : b;
+  const T = maskTemplate(det ? 1 : 0), slot = o.maskSlot, tb = slot ? o.maskBatch || bt : b;
   const col = slot ? [1, 1, 1, 1] : rgb(maskColours(o.kit).base), tw = slot ? 1 : 0;
   const [su0, sv0, su1, sv1] = slot || [0, 0, 0, 0];
   const S = T.S, pos = T.pos, nrm = T.nrm, uv = T.uv;

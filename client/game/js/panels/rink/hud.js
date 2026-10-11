@@ -11,15 +11,18 @@ export const OFFICIAL_KIT = { jersey: '#f1f1ee', trim: '#141414', pants: '#14141
 export const MEDIC_KIT = { jersey: '#eeeeea', trim: '#b8141c', pants: '#2a2e36', sock: '#2a2e36', glove: '#d8d8d8', helmet: '#eeeeea' };
 
 // A keeper's mask colours, for both renderers. ⚠ THE CLUB'S, NOT THE KIT'S: a mask is the same
-// home and away, and several kits wear the helmet and the trim in one colour. The shell in the
-// club's first colour, the art in its second (or black or white, if the two are too close to
-// tell apart), edged in its third (or whichever of black and white shows on the art). A kit
-// with no club uses its sweater and trim.
+// home and away, and several kits wear the helmet and the trim in one colour. A club whose mask
+// is authored (`club.mask`) says its own; otherwise the shell in the club's first colour, the
+// art in its second (or black or white, if the two are too close to tell apart), edged in its
+// third (or whichever of black and white shows on the art). A kit with no club uses its sweater
+// and trim.
 const rgbOf = (h) => { const n = parseInt(String(h || '#808080').slice(1, 7), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
 const lumOf = (h) => { const [r, g, b] = rgbOf(h); return (0.299 * r + 0.587 * g + 0.114 * b) / 255; };
 const apart = (a, b) => { const p = rgbOf(a), q = rgbOf(b); return Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]); };
 export function maskColours(K) {
-  const club = K && K.club, cols = club && Array.isArray(club.colours) && club.colours.length ? club.colours : [K.jersey, K.trim];
+  const club = K && K.club, m = club && club.mask;
+  if (m && m.base && m.trim && m.edge) return { base: m.base, trim: m.trim, edge: m.edge };
+  const cols = club && Array.isArray(club.colours) && club.colours.length ? club.colours : [K.jersey, K.trim];
   const base = cols[0] || '#eef0f2';
   let trim = cols[1] || K.trim || '#f1efe8';
   if (apart(base, trim) < 110) trim = lumOf(base) > 0.5 ? '#141414' : '#f1efe8';

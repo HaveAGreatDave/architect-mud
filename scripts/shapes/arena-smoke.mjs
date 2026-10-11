@@ -303,23 +303,23 @@ body(skaters[8], 'skater missing his head', null, BUD);
       return f > w[0] + 0.03;
     });
     check(`mask L${lv}: the nose is behind the cage`, ahead);
-    // painted from its own slot, and only from it
-    const b = M.createBatch(), bt = M.createBatch(), slot = [0.25, 0.5, 0.375, 0.625];
-    M.buildMask(b, bt, [100, 40, 5], [1, 0, 0], [0, 1, 0], [0, 0, 1], { kit: W.kits.a, maskSlot: slot }, lv);
-    let inSlot = bt.n > 0;
-    for (let i = 0; i < bt.n; i++) { const o = i * M.STRIDE, u = bt.data[o + 10], v = bt.data[o + 11]; if (u < slot[0] - 1e-6 || u > slot[2] + 1e-6 || v < slot[1] - 1e-6 || v > slot[3] + 1e-6 || bt.data[o + 12] !== 1) { inSlot = false; break; } }
-    check(`mask L${lv}: the shell's paint stays in its slot`, inSlot && finite(b) && finite(bt) && b.n > 0);
+    // painted from its own cell of the masks' texture, and only from it, into the masks' batch
+    const b = M.createBatch(), bt = M.createBatch(), bm = M.createBatch(), slot = [0.25, 0.5, 0.375, 0.625];
+    M.buildMask(b, bt, [100, 40, 5], [1, 0, 0], [0, 1, 0], [0, 0, 1], { kit: W.kits.a, maskSlot: slot, maskBatch: bm }, lv);
+    let inSlot = bm.n > 0;
+    for (let i = 0; i < bm.n; i++) { const o = i * M.STRIDE, u = bm.data[o + 10], v = bm.data[o + 11]; if (u < slot[0] - 1e-6 || u > slot[2] + 1e-6 || v < slot[1] - 1e-6 || v > slot[3] + 1e-6 || bm.data[o + 12] !== 1) { inSlot = false; break; } }
+    check(`mask L${lv}: the shell's paint stays in its cell`, inSlot && bt.n === 0 && finite(b) && finite(bm) && b.n > 0, `${bm.n} shell, ${bt.n} in the jerseys' batch`);
   }
   // a keeper wears it on the ice, and his head keeps it when it comes off
   {
-    const gk = W.goalie.a, d = M.createBatch(), t = M.createBatch(), hs = [];
-    M.buildBody(d, t, W.rigOf(gk), { ...bodyOpts(W, gk), detail: 1, slot: SLOT, maskSlot: [0.5, 0.5, 0.625, 0.625], heads: hs, headLv: 0 });
-    check('a keeper with a head record wears the mask', hs.length === 1 && t.n > 0 && (d.n + t.n) / 3 <= BUD_GK[1], `${((d.n + t.n) / 3) | 0} tris`);
+    const gk = W.goalie.a, d = M.createBatch(), t = M.createBatch(), m = M.createBatch(), hs = [];
+    M.buildBody(d, t, W.rigOf(gk), { ...bodyOpts(W, gk), detail: 1, slot: SLOT, maskSlot: [0.5, 0.5, 0.625, 0.625], maskBatch: m, heads: hs, headLv: 0 });
+    check('a keeper with a head record wears the mask', hs.length === 1 && m.n > 0 && finite(m) && (d.n + t.n + m.n) / 3 <= BUD_GK[1], `${((d.n + t.n + m.n) / 3) | 0} tris`);
     W.sever(gk, 'head', [3, 2, 6]);
     for (let i = 0; i < 30; i++) W.step(DT);
-    const lim = W.limbs.find((l) => l.owner === gk), b2 = M.createBatch(), t2 = M.createBatch(), out = [];
-    M.buildSevered(b2, lim, { ...bodyOpts(W, gk), heads: out, maskSlot: [0.5, 0.5, 0.625, 0.625] }, t2);
-    check("a keeper's severed head keeps his mask", out.length === 1 && t2.n > 0 && finite(b2) && finite(t2));
+    const lim = W.limbs.find((l) => l.owner === gk), b2 = M.createBatch(), t2 = M.createBatch(), m2 = M.createBatch(), out = [];
+    M.buildSevered(b2, lim, { ...bodyOpts(W, gk), heads: out, maskSlot: [0.5, 0.5, 0.625, 0.625], maskBatch: m2 }, t2);
+    check("a keeper's severed head keeps his mask", out.length === 1 && m2.n > 0 && finite(b2) && finite(m2));
   }
 }
 

@@ -31,7 +31,7 @@ import { createRinkCamera, matrices } from '../rink/camera.js';
 import { bodyOpts, drawHud, hudActive, maskColours } from '../rink/hud.js';
 import { TAU, clamp, hash, rng } from '../rink/util.js';
 import * as M from './arena-mesh.js';
-import { paintCrest, settCanvas } from '../club-crest.js';
+import { paintCrest, paintLayers, settCanvas } from '../club-crest.js';
 import { makeVertexStream } from './stream.js';
 import { declareProgram, prewarmPrograms, takeWarm } from './programs.js';
 import { createMirrorLayer, MIRROR_SCALE } from './mirror.js';
@@ -225,6 +225,9 @@ export const ARENA_RUNGS = [
 const LIT_ATTRS = [[0, 3, 0], [1, 3, 12], [2, 4, 24], [3, 2, 40], [4, 1, 48]];
 const PT_STRIDE = 8;
 const ATLAS = 1024, SLOT = 128, SLOTS = (ATLAS / SLOT) ** 2;
+// The keepers' masks: their own texture, four cells of 512 x 256 (M.maskUV's flattening, so a
+// texel is about the same size both ways at the eyes), mipmapped, since a mask is often small.
+const MASK_W = 512, MASK_H = 256, MASK_COLS = 2, MASK_ROWS = 2;
 const GPX = 16;                                   // glass decal texels per foot
 const LIGHTS = [40, 70, 100, 130, 160].map((x) => [x, MID_Y - 4, 46]);
 
@@ -302,6 +305,19 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     })(), { mip: true });
     const atlas = texture(null, { w: ATLAS, h: ATLAS });
     const slotCv = cv(SLOT, SLOT), sctx = slotCv.getContext('2d');
+    const maskCv = cv(MASK_W, MASK_H), mctx = maskCv.getContext('2d');
+    const maskTex = (() => {
+      const t = gl.createTexture();
+      gl.bindTexture(T2, t);
+      gl.texImage2D(T2, 0, gl.RGBA, MASK_W * MASK_COLS, MASK_H * MASK_ROWS, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(T2, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+      gl.texParameteri(T2, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(T2, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(T2, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      // (cells sit on 256-texel lines, so no mip this deep mixes two masks)
+      gl.texParameteri(T2, gl.TEXTURE_MAX_LEVEL, 7);
+      return t;
+    })();
     const glassCv = cv(PANELS * PANEL_W * GPX, (GLASS_H - BOARD_H) * GPX), gctx = glassCv.getContext('2d');
     const texGlass = texture(glassCv);
 
@@ -310,7 +326,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     const put = (L, b) => { L.st.write(b.data, b.n * M.STRIDE); L.n = b.n; };
     const L = {
       stat: layer(), ads: layer(), stands: layer(), glass: layer(),
-      rows: layer(), dyn: layer(), jers: layer(), label: layer(), tr: layer(), netm: layer(), gdec: layer(), shad: layer(),
+      rows: layer(), dyn: layer(), jers: layer(), masks: layer(), label: layer(), tr: layer(), netm: layer(), gdec: layer(), shad: layer(),
       ice: layer(2, [[0, 2, 0]]), pts: layer(PT_STRIDE, [[0, 3, 0], [2, 4, 12], [4, 1, 28]]),
     };
     const postVao = gl.createVertexArray();
@@ -318,7 +334,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       const q = new Float32Array([0, 0, RL, 0, RL, RW, 0, 0, RL, RW, 0, RW]);
       L.ice.st.write(q, q.length); L.ice.n = 6;
     }
-    const B = Object.fromEntries(['stat', 'ads', 'stands', 'glass', 'rows', 'dyn', 'jers', 'label', 'tr', 'netm', 'gdec', 'shad'].map((k) => [k, M.createBatch(k === 'dyn' ? 1 << 16 : 1 << 12)]));
+    const B = Object.fromEntries(['stat', 'ads', 'stands', 'glass', 'rows', 'dyn', 'jers', 'masks', 'label', 'tr', 'netm', 'gdec', 'shad'].map((k) => [k, M.createBatch(k === 'dyn' ? 1 << 16 : 1 << 12)]));
     let ptData = new Float32Array(PT_STRIDE * 1024);
     buildStatic();
     const mirror = createMirrorLayer(gl);
@@ -400,7 +416,30 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       const K = o.kit;
       return atlasSlot([K.clubName || '', K.jersey, K.trim, K.stripes ? 1 : 0, K.crest || '', o.num ?? '', o.name || '', Math.round((o.blood || 0) * 4), o.goalie ? 1 : 0].join('|'), () => paintJersey(o));
     }
-    const maskSlot = (o) => atlasSlot(['mask', o.kit.clubName || `${o.kit.jersey}${o.kit.trim}`, o.num ?? ''].join('|'), () => paintMask(o));
+    // a keeper's mask: a cell of the mask texture, the least recently used given up for a new one
+    const maskCells = new Map();
+    function maskSlot(o) {
+      const key = [o.kit.clubName || `${o.kit.jersey}${o.kit.trim}`, o.num ?? ''].join('|');
+      let s = maskCells.get(key);
+      if (!s) {
+        let i = maskCells.size;
+        if (i >= MASK_COLS * MASK_ROWS) {
+          let oldK = null, oldS = null;
+          for (const [k, v] of maskCells) if (!oldS || v.used < oldS.used) { oldK = k; oldS = v; }
+          maskCells.delete(oldK); i = oldS.i;
+        }
+        s = { i, used: frame };
+        maskCells.set(key, s);
+        paintMask(o);
+        gl.bindTexture(T2, maskTex);
+        gl.texSubImage2D(T2, 0, (i % MASK_COLS) * MASK_W, Math.floor(i / MASK_COLS) * MASK_H, gl.RGBA, gl.UNSIGNED_BYTE, maskCv);
+        gl.generateMipmap(T2);
+      }
+      s.used = frame;
+      const TW = MASK_W * MASK_COLS, TH = MASK_H * MASK_ROWS, ex = 1.5 / TW, ey = 1.5 / TH;
+      const u0 = ((s.i % MASK_COLS) * MASK_W) / TW, v0 = (Math.floor(s.i / MASK_COLS) * MASK_H) / TH;
+      return [u0 + ex, v0 + ey, u0 + MASK_W / TW - ex, v0 + MASK_H / TH - ey];
+    }
     // The sweater flattened: u runs round the body (a quarter in is the chest, three
     // quarters the back), v from the collar at the top to the hem. Lettering is drawn
     // mirrored because u runs right to left as you look at him.
@@ -441,20 +480,44 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       }
     }
 
-    // A keeper's mask, flattened the way M.maskUV flattens it: x once round his head from the
-    // back of his right side through the face (64) and his left side to the back again; y from
-    // the crown down to the chin cup's edge. The cut-out over the face is never seen, so the
-    // paint can run under it. The colours are the club's (hud.js's maskColours): the shell in
-    // the first, a stripe over the crown and blades swept back from the cage in the second,
-    // edged in the third; the backplate in the second with the strap across it and his number;
-    // the crest on each temple; the ear holes. A club in a sett wears it in the blades.
+    // A keeper's mask, flattened the way M.maskUV flattens it: x once round his head from behind
+    // his right ear through the face (half way) and his left side to behind his left ear; y from
+    // the crown down to the chin cup's edge. The cut-out over the face is never seen, so paint
+    // can run under it. A club's own art is content (`club.mask`, authored by
+    // scripts/content/build-cphl-clubs.mjs in that flattening): its base colour, its layers and
+    // where the number goes on the backplate. A club with no mask art gets plainMask.
     function paintMask(o) {
-      const K = o.kit, c = sctx, S = SLOT, club = K.club;
+      const K = o.kit, club = K.club, m = club && club.mask, c = mctx;
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      if (!m || !Array.isArray(m.layers)) { plainMask(o); return; }
+      c.fillStyle = m.base || maskColours(K).base; c.fillRect(0, 0, MASK_W, MASK_H);
+      const w = m.w || MASK_W, h = m.h || MASK_H;
+      c.setTransform(MASK_W / w, 0, 0, MASK_H / h, 0, 0);
+      paintLayers(c, m.layers, club, m.settUnit || 1);
+      // his number, on the backplate (and again across the seam behind, where x wraps)
+      const n = m.number, num = String(o.num ?? '');
+      if (n && num) {
+        const size = n.size || 26;
+        c.font = `800 ${size}px ${FACE}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
+        for (const dx of [0, -w, w]) {
+          const x = n.at[0] + dx;
+          if (x < -size * 2 || x > w + size * 2) continue;
+          c.lineWidth = Math.max(2, size * 0.18); c.strokeStyle = n.edge || '#141414'; c.strokeText(num, x, n.at[1]);
+          c.fillStyle = n.fill || '#ffffff'; c.fillText(num, x, n.at[1]);
+        }
+      }
+      c.setTransform(1, 0, 0, 1, 0, 0);
+    }
+    // The generic mask, for a club with no mask art: drawn in a 128 box stretched over the cell. The
+    // colours are hud.js's maskColours: the shell in the first, a stripe over the crown and
+    // blades swept back from the cage in the second, edged in the third; the backplate, his
+    // number, the crest on each temple, the ear holes.
+    function plainMask(o) {
+      const K = o.kit, c = mctx, S = 128, club = K.club;
+      c.setTransform(MASK_W / S, 0, 0, MASK_H / S, 0, 0);
       const at = (az, el) => { const [u, v] = M.maskUV(az, el); return [u * S, v * S]; };
       const { base, trim, edge } = maskColours(K);
-      c.setTransform(1, 0, 0, 1, 0, 0);
       c.fillStyle = base; c.fillRect(0, 0, S, S);
-      const sett = club && club.sett ? settFill(club.sett) : null;
       // the flashes: three blades a side, swept back from the cage and tapering to points
       // (base top and bottom on the cage's side, the point, and how far each edge bows up)
       const BLADES = [[0.56, 0.36, 0.12, 2.15, 0.62, 0.16], [0.6, 0.02, -0.22, 2.3, 0.08, 0.1], [0.5, -0.36, -0.62, 1.95, -0.5, 0.06]];
@@ -462,7 +525,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
         const [xa, ya] = at(sd * az0, e0), [xb, yb] = at(sd * az0, e1), [xt, yt] = at(sd * az1, et);
         const [xm, ym] = at(sd * (az0 + az1) / 2, (e0 + et) / 2 + bow), [xn, yn] = at(sd * (az0 * 0.4 + az1 * 0.6), (e1 + et) / 2 + bow * 0.4);
         c.beginPath(); c.moveTo(xa, ya); c.quadraticCurveTo(xm, ym, xt, yt); c.quadraticCurveTo(xn, yn, xb, yb); c.closePath();
-        c.fillStyle = sett || trim; c.fill();
+        c.fillStyle = trim; c.fill();
         c.lineWidth = 1.6; c.lineJoin = 'miter'; c.strokeStyle = edge; c.stroke();
       }
       // the stripe over the crown: from the top of the cage up, and down the back to the plate
@@ -483,6 +546,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       // the ear holes
       c.fillStyle = 'rgba(16,16,18,0.9)';
       for (const sd of [1, -1]) { const [x, y] = at(sd * 1.72, -0.18); c.beginPath(); c.ellipse(x, y, 2.4, 3.6, 0, 0, TAU); c.fill(); }
+      c.setTransform(1, 0, 0, 1, 0, 0);
     }
 
     // the number on the back, the name over it, mirrored (u runs right to left there)
@@ -615,7 +679,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     // ── this frame's geometry ─────────────────────────────────────────────────
     let propsN = 0;
     function buildFrame(P, eye) {
-      for (const k of ['rows', 'dyn', 'jers', 'label', 'tr', 'netm', 'gdec', 'shad']) M.reset(B[k]);
+      for (const k of ['rows', 'dyn', 'jers', 'masks', 'label', 'tr', 'netm', 'gdec', 'shad']) M.reset(B[k]);
       headList.length = 0;
       const d = B.dyn;
       // the crowd rows, standing when the building is up
@@ -638,7 +702,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
         // the head's level by its size on screen: a head is about 0.9 ft, so L0 from about 32 px
         o.heads = headsTo(); o.headLv = !hp ? 2 : hp.s > 36 ? 0 : hp.s > 9 ? 1 : 2;
         o.slot = jerseySlot(o);
-        if (o.goalie) o.maskSlot = maskSlot(o);
+        if (o.goalie) { o.maskSlot = maskSlot(o); o.maskBatch = B.masks; }
         M.buildBody(d, B.jers, J, o);
         M.buildVisor(B.tr, o);
         const p = b.rag ? b.rag.pts[0] : b;
@@ -646,7 +710,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       }
       if (!W.puck.hidden) { M.buildPuck(d, W.puck); shadow(W.puck.x, W.puck.y, 0.35); tail(eye); }
       for (const x of W.debris) M.buildDebris(d, x, W.kits[x.side] || W.kits.a);
-      for (const l of W.limbs) { const o = bodyOpts(W, l.owner || { side: l.side }); if (o.kit) { o.heads = headsTo(); if (o.goalie) o.maskSlot = maskSlot(o); M.buildSevered(d, l, o, B.jers); } }
+      for (const l of W.limbs) { const o = bodyOpts(W, l.owner || { side: l.side }); if (o.kit) { o.heads = headsTo(); if (o.goalie) { o.maskSlot = maskSlot(o); o.maskBatch = B.masks; } M.buildSevered(d, l, o, B.jers); } }
       if (W.stretcher) M.buildStretcher(d, W.stretcher);
       if (W.zamboni) shadow(W.zamboni.x, W.zamboni.y, 6.5);
       farGlass();
@@ -755,7 +819,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       st.draws = 0; st.tris = 0;
 
       const nPts = buildFrame(P, [C.x, C.y, C.z]);
-      for (const k of ['rows', 'dyn', 'jers', 'label', 'tr', 'netm', 'gdec', 'shad']) put(L[k], B[k]);
+      for (const k of ['rows', 'dyn', 'jers', 'masks', 'label', 'tr', 'netm', 'gdec', 'shad']) put(L[k], B[k]);
       L.pts.st.write(ptData, nPts * PT_STRIDE); L.pts.n = nPts;
       uploadIce();
 
@@ -769,7 +833,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
         gl.depthMask(true);
         // the boards and their ads; not the crowd, which is dim against a lit sheet
         draw(L.stat); draw(L.ads, texAds);
-        if (api.quality.reflBodies) { draw(L.dyn); draw(L.jers, atlas); } else draw(L.dyn, null, 0, propsN);
+        if (api.quality.reflBodies) { draw(L.dyn); draw(L.jers, atlas); draw(L.masks, maskTex); } else draw(L.dyn, null, 0, propsN);
         draw(L.label, texLabel);
         if (heads && api.quality.reflBodies) heads.draw(headList, vpR, eyeR, shake, -0.05, W.mourning, st);
         mirror.release();
@@ -785,7 +849,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       useLit(vp, eye, shake, -1e9);
       draw(L.stands, crowdTex); draw(L.rows, crowdTex); draw(L.stat); draw(L.ads, texAds);
-      draw(L.dyn); draw(L.jers, atlas); draw(L.label, texLabel);
+      draw(L.dyn); draw(L.jers, atlas); draw(L.masks, maskTex); draw(L.label, texLabel);
       if (heads) heads.draw(headList, vp, eye, shake, -1e9, W.mourning, st);
 
       gl.useProgram(ICE.p);

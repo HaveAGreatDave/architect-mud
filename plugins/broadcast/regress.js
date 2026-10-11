@@ -2316,6 +2316,22 @@ export default async function regress({ check, run, getPlayer }) {
       check('hockey: every kit is in hex (figure.js shades with parseInt)', badKit.length === 0, badKit.slice(0, 4).join(', '));
       const badCrest = teams.filter(t => !(idents[t]?.crest?.layers?.length && idents[t]?.crest?.small?.length));
       check('hockey: every club has a crest and a small crest', badCrest.length === 0, badCrest.join(','));
+      // A keeper's mask is art in the mask's own flattening (gl/arena.js paints it into a cell
+      // of its texture; the 2-D figure uses base/trim/edge). A path that doesn't parse paints
+      // nothing and throws nowhere, so the paths are checked for what Path2D reads.
+      const PATH = /^(?:[MLQCZa]|-?\d*\.?\d+(?:e-?\d+)?|[\s,])+$/;
+      const badMask = [];
+      for (const t of teams) {
+        const m = idents[t]?.mask;
+        if (!m) { badMask.push(`${t}: none`); continue; }
+        if (!(m.w > 0 && m.h > 0)) badMask.push(`${t}: box`);
+        for (const f of ['base', 'trim', 'edge']) if (!HEX.test(m[f] || '')) badMask.push(`${t}.${f}`);
+        const bad = (m.layers || []).filter(l => !(typeof l.d === 'string' && PATH.test(l.d) && (l.fill === 'none' || l.fill === 'sett' || HEX.test(l.fill || '')) && (!l.stroke || HEX.test(l.stroke))));
+        if (!m.layers?.length || bad.length) badMask.push(`${t}: ${bad.length} of ${m.layers?.length || 0} layers`);
+        const n = m.number;
+        if (n && !(Array.isArray(n.at) && n.at.length === 2 && n.at.every(Number.isFinite) && n.size > 0 && HEX.test(n.fill || '') && HEX.test(n.edge || ''))) badMask.push(`${t}: number`);
+      }
+      check("hockey: every keeper's mask is in hex, with paths that parse", badMask.length === 0, badMask.slice(0, 4).join(', '));
       // no faction teams: no club is named for one of the orders
       const orders = fs.readdirSync(url.fileURLToPath(new URL('../../content/orgs/', import.meta.url))).filter(f => f.startsWith('ideology_')).map(f => f.slice(9, -5).replace(/_/g, ''));
       const factional = teams.filter(t => orders.some(o => t.toLowerCase().replace(/[^a-z]/g, '').includes(o)));

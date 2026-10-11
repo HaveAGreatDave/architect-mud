@@ -929,6 +929,20 @@ Civic Center Wardens went.
 | St Garneau Guillotines | Nine Elms | red, white and blue | a solid G whose spur and serif are a guillotine in silhouette: the bowl turns up into the posts, the beam is the serif and runs in as the crossbar, the blade hangs between |
 | Yard Birds | the Yards | red, white and black | a red pyle fighting cock squared up with his wings thrown wide and his hackles up, glaring down his beak through a scarred brow, sawblade comb with a point broken off, spurs out; on a field of chicken wire torn open behind him |
 
+Each club's keeper wears its own painted mask, the same home and away, his number on the
+backplate:
+
+| Club | Mask |
+|---|---|
+| Westside Warlords | gold; a black faceplate round the cage and over the jaw edged with gold rivets, seven set stones across the brow, a black crown with a stone in every point, the W on the chin |
+| Boomtown Bulldogs | orange; black jowls round the cage with the underbite's fangs pointing up at the bars, a furrowed brow, rose ears, a spiked collar round the bottom edge, the crest on the forehead |
+| Marquee Marauders | navy; a silver marquee frame round the cage lit with bulbs, searchlights swept back over both sides, stars, the crest over the brow |
+| Coldwater Highlanders | green at the front and the Malcolm sett over the sides and back, woad over his left half, ginger brows in a scowl and a ginger beard round the chin, the crest on his right temple, a saltire on the plate |
+| District 9 Goons | purple; the police chequer round the head at the brow, a star badge with a 9 on the forehead, a black riot frame round the cage, D9 on the chin |
+| Waterfront Wharf Rats | charcoal; round ears (the left one torn), red slit eyes, a grey snout down to a pink nose over the cage, whiskers, yellow incisors under it, a stitched scar on his right temple, an anchor on the plate |
+| St Garneau Guillotines | red; the posts in navy up either side of the cage to the beam across the brow, the blade hanging from it slanted over his eyes with blood off its edge, the crest on the chin |
+| Yard Birds | black; the red comb over the crown, white hackles swept back over both cheeks, a horn beak driven down at the cage, yellow eyes under a red glare, red wattles off the chin |
+
 The league's own barn is The Slush Fund, on the old South Gate ground
 ([proposals/slush-fund.md](proposals/slush-fund.md)). The general `chatter` pool describes it,
 the final is played there, and its scoreboard is a television on channel 7.
@@ -945,13 +959,25 @@ The Highlanders' tartan is the Malcolm sett as W. & A. Smith recorded it in 1850
 the Tartan Dictionary and not yet checked against the Scottish Register of Tartans.
 
 **Where it lives.** The look of a club is content: `sports_pools.clubs` on the Cluster Puck
-broadcast row, keyed by club name, holding `district`, `home`, `colours`, `crest`,
+broadcast row, keyed by club name, holding `district`, `home`, `colours`, `crest`, `mask`,
 `kit.home`, `kit.road`, and `sett` or `gems` where a club has them. Its authoring source
 is [scripts/content/build-cphl-clubs.mjs](../scripts/content/build-cphl-clubs.mjs), which
 builds the crests from rules (the bezel's 24 stones, the chain's links, a weapon laid
 along a stroke) and writes `clubs` into the row and nothing else. Run it after editing a
 club; `--check` fails if the row is behind the script. `build-cluster-puck.mjs` carries
 `clubs` across when it rebuilds the row from the `.bsm`.
+
+A mask is `{ w, h, base, trim, edge, layers, number, settUnit }`: layers in a 512 x 256
+box that is the mask flattened (`maskUV` in `arena-mesh.js`). x runs once round his head
+from behind his right ear, through the face at 256 and his left side at 384, to behind his
+left ear at 512; y runs from the crown to under the chin. `base` fills the shell under the
+layers, `number` says where his number is lettered and in what colours, and `trim` and
+`edge` are the colours a renderer without the art uses (the 2-D keeper, through
+`maskColours` in `hud.js`). A shape drawn flat in that box is squeezed sideways toward the
+crown, so the script draws in `surf`, a frame on the mask's own surface measured in
+radians of arc. The opening over his face is cut out of the shell (`maskOutline`), so art
+can run under it. Repeated pieces (rivets, bulbs, stones) are joined into one layer per
+part, which keeps the eight masks to about 82 KB.
 
 The client side is engine: [club-crest.js](../client/game/js/panels/club-crest.js) knows
 no club. It keeps the set the server sent, draws a crest from layered paths as inline SVG
@@ -962,17 +988,17 @@ because the full one turns to mush in a score bug. A layer's fill can be `'sett'
 **How it reaches a viewer.** Payloads never carry the set. Every hockey score bug and
 gameday payload carries `clubsRev`, a short stamp of it (`clubsRevOf`). A client without
 that revision sends `tv_clubs` once; the plugin answers with `{ type: 'tv_clubs', sport,
-rev, clubs }` (about 100 KB), and the client keeps it in memory and in `localStorage` for
-the next visit.
+rev, clubs }` (about 190 KB, masks included), and the client keeps it in memory and in
+`localStorage` for the next visit.
 
 **Where the look shows.** Score bug and both standings tables (crest beside the name),
 the matchup, rivalry, Cup, goal and fight cards, Rinkside's header, jumbotron cards,
 intermission board and fight HUD. `kitFor` in `director.js` dresses a side in its club's
 authored kit (home at home, road away). GLASS 2's jersey atlas paints the kit's hem bands,
 yoke, crest (the small drawing), number colours, the Warlords' gem row and the
-Highlanders' tartan body; `arena-mesh.js` takes the kit's sleeve and sock bands; the 2-D
-`figure.js` takes the bands, number colours and crest decal. Centre ice still carries the
-CPhL mark.
+Highlanders' tartan body; `arena-mesh.js` takes the kit's sleeve and sock bands; GLASS 2
+paints each keeper's mask from the club's `mask`; the 2-D `figure.js` takes the bands,
+number colours, crest decal and the mask's colours. Centre ice still carries the CPhL mark.
 
 ### Leagues (`sportsleague`)
 
@@ -1215,10 +1241,12 @@ lit triangles with a depth buffer:
 - A keeper wears a mask, not a helmet: a shell moulded round the generator's head (its reach
   in every direction from the middle of the skull, padded and smoothed), open in a cat-eye
   with a black cage across it, a cup under the chin, a backplate and a clear throat guard.
-  It's painted into a slot of the jersey atlas in his club's colours, the same home and away
-  (`maskColours` in `hud.js`, which the 2-D renderer's keeper uses too): blades swept back
-  from the cage, a stripe over the crown, the crest on each temple, his number on the
-  backplate, and the Highlanders' tartan in the blades.
+  The shells have their own texture, four cells of 512 x 256, mipmapped because a mask is
+  often small on screen, and their own batch drawn with it. A cell holds one club's art
+  (`club.mask`, painted with `paintLayers` from `club-crest.js`) with his number on the
+  backplate; the least recently used cell is given up for a new keeper. A club with no
+  mask art gets a plain design in `maskColours`: blades swept back from the cage, a
+  stripe over the crown, the crest on each temple.
 - The ice is the same painted canvas, kept as a texture. `textures.js` lists the 125-texel
   tiles each mark touches (`ice.dirty`), and the arena re-uploads only those.
 - The reflection is the boards, the props and the men drawn again through `matrices(C,
@@ -1280,6 +1308,10 @@ whatever the Zamboni got through.
   middle through every vertex to check it still fits. Its opening has clean edges because
   the shell's grid is bent to it (`maskDir`); a grid cut across leaves a stepped edge. A
   keeper's long hair is tucked in, since the backplate sits close.
+- The clubs' mask art is drawn in the engine's flattening. Change `maskUV`, the opening or
+  `MASK_EL_MIN` and every club's mask moves on the shell: rerun
+  `build-cphl-clubs.mjs`, which imports them, and look at the masks again. Its `--check`
+  gate fails until the row is rebuilt.
 - If the head program won't build, the arena keeps going with the old primitive heads
   (`o.heads` is null and `arena-mesh.js` makes its own); only a failure in the others sends
   the view to 2-D. The 2-D renderer never had the generator's heads.
@@ -1320,8 +1352,10 @@ head, visor) builds finite and inside its triangle budget, along with limbs, deb
 the Zamboni and the stretcher. Each body leaves one head record (none with the jersey over
 it or the head gone), its matrix a rigid map, its face never a makeup layout and the same for
 the same name; the helmet's fit is measured against every haircut and the cage against the
-face, and so is the keeper's mask, at both levels, with its paint kept inside its slot. Each kind of ice mark lists its tile. With no WebGL2, `createArenaRenderer` returns
-null rather than throwing.
+face, and so is the keeper's mask, at both levels, with its paint kept inside its cell and
+its shell in the masks' own batch. Each kind of ice mark lists its tile. With no WebGL2,
+`createArenaRenderer` returns null rather than throwing. The broadcast regress checks every
+club's mask: its colours in hex and every layer's path in what Path2D reads.
 
 ### Sound banks
 

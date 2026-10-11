@@ -15,10 +15,12 @@
 //
 // A crest is layers in a 100-unit box (client/game/js/panels/club-crest.js draws it):
 // `layers` is the full drawing, `small` the one used under about 34px. Colours are the
-// club's own; 'sett' fills with the club's tartan.
+// club's own; 'sett' fills with the club's tartan. A keeper's mask is the same kind of
+// layers, drawn in the mask's own flattening (see "the keepers' masks").
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { maskUV, maskOutline, MASK_EL_MIN } from '../../client/game/js/panels/gl/arena-mesh.js';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const ROW = path.join(ROOT, 'content/media_broadcasts/bc_cluster_puck.json');
@@ -1213,12 +1215,329 @@ const band = (at, w, col, pattern, more) => (pattern ? { at, w, col, pattern, ..
 
 function kit(o) { return o; }
 
+// ── the keepers' masks ──────────────────────────────────────────────────────────
+// A keeper wears a goalie mask (gl/arena-mesh.js builds it), painted the way real ones are,
+// and each club's is its own. The art is layers in a 512 x 256 box that is the mask flattened
+// (maskUV): x once round his head from behind his right ear, through the face (256) and his
+// left side (384), to behind his left ear (512, the same place as 0); y from the crown (0) to
+// below the chin (256). A line of constant height runs straight across and a meridian
+// straight down, but a shape drawn there flat is squeezed sideways toward the crown, so
+// `surf` draws in a frame on the mask's own surface, in radians of arc. The opening over the
+// face is cut out of the shell (maskOutline), so art can run under it.
+// ⚠ THE ART IS IN THE ENGINE'S FLATTENING. Change maskUV or the opening and every club's
+// mask moves: run this script (its --check gate fails until you do).
+// A mask is { w, h, base, trim, edge, layers, number: { at, size, fill, edge }, settUnit }:
+// `base` fills the shell under the layers, `trim` and `edge` are what a renderer with no
+// art uses (the 2-D one), and `number` is where the keeper's own number is lettered.
+const MW = 512, MH = 256;
+const mxy = (az, el) => { const [u, v] = maskUV(az, el); return [u * MW, v * MH]; };
+const mpoly = (pts) => poly(pts.map(([a, e]) => mxy(a, e)));
+// A frame on the mask's surface at (az0, el0): x across toward his left and y down, in
+// radians of arc, turned by `rot` (positive turns +x downward). `sd` -1 mirrors it onto his
+// right side.
+const surf = (az0, el0, rot = 0, sd = 1) => T({ fn: (x, y) => {
+  const c = Math.cos(rot), s = Math.sin(rot), X = x * c - y * s, Y = x * s + y * c, el = el0 - Y;
+  return mxy(sd * (az0 + X / Math.max(0.2, Math.cos(el))), el);
+} });
+// an ellipse and a star as commands, for drawing in a frame. A radian is about 85px in the
+// box, so a glint under a pixel across gets 4 corners, a stud 6 and a big shape 24.
+const ellN = (r) => (r < 0.012 ? 4 : Math.max(6, Math.min(24, Math.round(r * 200))));
+const ell = (rx, ry, cx = 0, cy = 0, n = ellN(Math.max(rx, ry))) => [...Array.from({ length: n }, (_, i) => [i ? 'L' : 'M', cx + rx * Math.cos((i / n) * TAU), cy + ry * Math.sin((i / n) * TAU)]), ['Z']];
+const lstar = (r0, r1, n, cx = 0, cy = 0, rot = -Math.PI / 2) => [...Array.from({ length: n * 2 }, (_, i) => { const r = i % 2 ? r0 : r1, a = rot + (i / (n * 2)) * TAU; return [i ? 'L' : 'M', cx + r * Math.cos(a), cy + r * Math.sin(a)]; }), ['Z']];
+// a band of the mask between two heights (el0 above el1) and two azimuths: a rectangle in the box
+const mband = (el0, el1, az0 = -Math.PI, az1 = Math.PI) => { const [x0, y0] = mxy(az0, el0), [x1, y1] = mxy(az1, el1); return poly([[x0, y0], [x1, y0], [x1, y1], [x0, y1]]); };
+// the opening, and a ring round it pushed out by `d` radians of arc
+const OPEN = maskOutline(24).opening;
+const openRing = (d, centre = -0.22) => OPEN.map(([a, e]) => {
+  const da = a * Math.cos(e), de = e - centre, l = Math.hypot(da, de) || 1, e2 = e + (de / l) * d;
+  return [a + ((da / l) * d) / Math.max(0.2, Math.cos(e2)), e2];
+});
+// A crest's small drawing laid on the mask at (az, el), `size` radians across, round on the
+// surface (wider in the box away from the equator).
+function crestOn(crest, az, el, size) {
+  const ky = (size * MH) / (Math.PI / 2 - MASK_EL_MIN) / 100, kx = (size * MW) / TAU / Math.max(0.2, Math.cos(el)) / 100, [cx, cy] = mxy(az, el);
+  const map = (d) => {
+    const out = [];
+    for (const m of d.matchAll(/([MLQCZa])([^MLQCZa]*)/g)) {
+      const cmd = m[1], nums = (m[2].match(/-?\d*\.?\d+(?:e-?\d+)?/g) || []).map(Number);
+      if (cmd === 'Z') { out.push('Z'); continue; }
+      if (cmd === 'a') {
+        const r = [];
+        for (let i = 0; i < nums.length; i += 7) r.push([nums[i] * kx, nums[i + 1] * ky, nums[i + 2], nums[i + 3], nums[i + 4], nums[i + 5] * kx, nums[i + 6] * ky].map(n2).join(' '));
+        out.push('a' + r.join(' '));
+        continue;
+      }
+      const pts = [];
+      for (let i = 0; i < nums.length; i += 2) pts.push(P(cx + (nums[i] - 50) * kx, cy + (nums[i + 1] - 50) * ky));
+      out.push(cmd + pts.join(' '));
+    }
+    return out.join('');
+  };
+  return (crest.small || crest.layers).map((l) => ({ ...l, d: map(l.d) }));
+}
+// The backplate behind the seams (past 2.15 rad either side), the strap across it, the seams,
+// and the ear holes. The plate's top is rounded over the back of the crown.
+function backplate(fill, { seam = '#141414', strap = '#141414', more = [] } = {}) {
+  const top = (az) => 0.95 - 0.35 * ((Math.PI - Math.abs(az)) / (Math.PI - 2.15)) ** 2;
+  const side = (s) => { const pts = []; for (let i = 0; i <= 12; i++) { const az = s * (2.15 + ((Math.PI - 2.15) * i) / 12); pts.push([az, top(az)]); } return [...pts, [s * Math.PI, -1.3], [s * 2.15, -1.3]]; };
+  const seamLine = (s) => { const pts = []; for (let i = 0; i <= 12; i++) { const az = s * (2.15 + ((Math.PI - 2.15) * i) / 12); pts.push([az, top(az)]); } return pts; };
+  const ly = [L(mpoly(side(1)) + mpoly(side(-1)), fill)];
+  for (const s of [1, -1]) {
+    const edgePts = [[s * 2.15, -1.3], ...seamLine(s), [s * Math.PI, top(s * Math.PI)]].map(([a, e]) => mxy(a, e));
+    ly.push(L('M' + edgePts.map((p) => P(...p)).join('L'), 'none', { stroke: seam, sw: 2.6 }));
+    ly.push(L(mband(-0.02, -0.1, s > 0 ? 2.15 : -Math.PI, s > 0 ? Math.PI : -2.15), strap, { op: 0.9 }));
+  }
+  for (const s of [1, -1]) ly.push(L(shape(ell(0.05, 0.075), surf(1.72, -0.18, 0, s)), '#101012', { op: 0.92 }));
+  return [...ly, ...more];
+}
+const numberAt = (fill, edge, size = 30) => ({ at: [0, n2v(mxy(Math.PI, 0.22)[1])], size, fill, edge });
+const n2v = (v) => Math.round(v * 10) / 10;
+// Many copies of one small drawing (a stud, a bulb, a set stone) as one layer per part: the
+// k-th layer of every copy joined into one path. The copies mustn't overlap.
+const stack = (copies) => copies[0].map((l, k) => ({ ...l, d: copies.map((c) => c[k].d).join('') }));
+// a mask, its runs of layers painted alike joined into one path each
+const mask = (o) => ({ w: MW, h: MH, ...o, layers: o.layers.reduce((out, l) => {
+  const p = out[out.length - 1], paint = (x) => JSON.stringify({ ...x, d: 0 });
+  if (p && paint(p) === paint(l)) p.d += l.d; else out.push({ ...l });
+  return out;
+}, []) });
+
+// The Yard Birds: the fighting cock. A black mask, the comb red over the crown, white hackles
+// swept back over both cheeks, the horn beak driven down at the cage, yellow eyes under a
+// glare, red wattles off the chin.
+function yardBirdsMask() {
+  const ly = [];
+  const FEATHERS = [[0.6, 0.66, 1.15, 0.15], [0.66, 0.4, 1.45, 0.17], [0.68, 0.12, 1.55, 0.17], [0.62, -0.18, 1.45, 0.16], [0.52, -0.48, 1.2, 0.14]];
+  for (const sd of [1, -1]) for (const [az0, el0, len, w] of FEATHERS) {
+    const t = surf(az0, el0, -0.2, sd);
+    const f = [['M', 0, -w * 0.45], ['C', len * 0.35, -w * 1.15, len * 0.75, -w * 0.9, len, -w * 0.12], ['C', len * 0.7, w * 0.4, len * 0.3, w * 0.75, 0, w * 0.5], ['Z']];
+    ly.push(...group([shape(f, t)], YB.white, 2.6, '', YB.black));
+    ly.push(L(shape([['M', 0.05, 0.02], ['Q', len * 0.5, -w * 0.3, len * 0.93, -w * 0.16]], t), 'none', { stroke: YB.red, sw: 2.2 }));
+  }
+  // the comb, scalloped, a constant width on the mask, from the brow over the top to the plate
+  const comb = (azC, elLow) => {
+    const hw = (el) => (0.11 + 0.045 * Math.abs(Math.sin(el * 30))) / Math.max(0.18, Math.cos(el));
+    const up = [], down = [];
+    for (let el = elLow; el <= 1.45; el += 0.025) { up.push([azC - hw(el), el]); down.unshift([azC + hw(el), el]); }
+    return mpoly([...up, ...down]);
+  };
+  ly.push(...group([comb(0, 0.5), comb(Math.PI, 0.75), comb(-Math.PI, 0.75), mband(1.6, 1.42)], YB.red, 2.4, '', YB.black));
+  // the beak, horn, its point at the cage
+  const tb = surf(0, 0.52);
+  ly.push(...group([shape([['M', -0.15, 0], ['Q', -0.12, 0.13, 0, 0.265], ['Q', 0.12, 0.13, 0.15, 0], ['Q', 0, -0.06, -0.15, 0], ['Z']], tb)], YB.horn, 2.6, '', YB.black));
+  ly.push(L(shape([['M', -0.11, 0.06], ['Q', 0, 0.1, 0.11, 0.06]], tb), 'none', { stroke: YB.hornDeep, sw: 2 }));
+  // the eyes, set wide and slanted down at the beak, a red glare over each
+  for (const sd of [1, -1]) {
+    const t = surf(0.36, 0.53, 0.3, sd);
+    ly.push(...group([shape(ell(0.12, 0.055), t)], YB.iris, 2.2, '', YB.black));
+    ly.push(L(shape(ell(0.016, 0.05), t), YB.black));
+    ly.push(L(shape([['M', -0.17, -0.05], ['Q', 0, -0.16, 0.19, -0.1], ['L', 0.18, -0.05], ['Q', 0, -0.09, -0.16, -0.01], ['Z']], t), YB.red));
+  }
+  // the wattles
+  for (const sd of [1, -1]) ly.push(...group([shape([['M', -0.055, 0], ['C', -0.11, 0.13, -0.07, 0.32, 0, 0.34], ['C', 0.08, 0.32, 0.1, 0.13, 0.055, 0], ['Z']], surf(0.1, -0.72, -0.12, sd))], YB.red, 2.2, '', YB.black));
+  ly.push(...backplate(YB.red));
+  return mask({ base: YB.black, trim: YB.red, edge: YB.white, layers: ly, number: numberAt(YB.white, YB.black) });
+}
+
+// The Wharf Rats: the rat. Charcoal, a grey snout down the middle to a pink nose over the cage,
+// round ears (the left one torn), red slit eyes under a heavy brow, whiskers, and the yellow
+// incisors under the cage. An anchor on the plate.
+function wharfRatsMask() {
+  const ly = [], base = '#2a2c30', grey = '#8e8a84', greyDeep = '#55524d';
+  for (const sd of [1, -1]) {
+    const t = surf(1.1, 0.86, -0.3, sd);
+    ly.push(...group([shape(ell(0.31, 0.27), t)], grey, 2.6, '', WRAT.ink));
+    ly.push(L(shape(ell(0.21, 0.18, 0.02, 0.02), t), WRAT.pink));
+    ly.push(L(shape(ell(0.12, 0.1, 0.04, 0.05), t), WRAT.pinkDeep, { op: 0.65 }));
+  }
+  ly.push(L(shape([['M', 0.18, -0.22], ['L', 0.34, -0.12], ['L', 0.23, -0.04], ['L', 0.33, 0.05], ['L', 0.18, 0.0], ['Z']], surf(1.1, 0.86, -0.3, 1)), base));
+  // fur, swept back off the brow
+  for (const sd of [1, -1]) for (const [el, len] of [[0.7, 0.5], [0.55, 0.6], [0.4, 0.55]]) ly.push(L(shape([['M', 0, 0], ['Q', len * 0.5, -0.05, len, -0.02]], surf(0.62, el, -0.1, sd)), 'none', { stroke: greyDeep, sw: 2 }));
+  // the snout and the nose
+  const tsn = surf(0, 0.95);
+  ly.push(...group([shape([['M', -0.07, 0], ['L', 0.07, 0], ['Q', 0.21, 0.3, 0.17, 0.6], ['Q', 0, 0.68, -0.17, 0.6], ['Q', -0.21, 0.3, -0.07, 0], ['Z']], tsn)], grey, 2.4, '', WRAT.ink));
+  ly.push(L(shape([['M', -0.11, 0.2], ['Q', -0.16, 0.42, -0.13, 0.58], ['Q', -0.17, 0.42, -0.15, 0.2], ['Z'], ['M', 0.11, 0.2], ['Q', 0.16, 0.42, 0.13, 0.58], ['Q', 0.17, 0.42, 0.15, 0.2], ['Z']], tsn), greyDeep, { op: 0.8 }));
+  ly.push(L(shape([['M', -0.025, 0.06], ['L', 0.025, 0.06], ['Q', 0.06, 0.3, 0.045, 0.52], ['Q', 0, 0.56, -0.045, 0.52], ['Q', -0.06, 0.3, -0.025, 0.06], ['Z']], tsn), '#b3afa8', { op: 0.75 }));
+  const tn = surf(0, 0.33);
+  ly.push(...group([shape(ell(0.08, 0.048), tn)], WRAT.pink, 2.2, '', WRAT.ink));
+  ly.push(L(shape(ell(0.016, 0.011, -0.03, 0.012), tn) + shape(ell(0.016, 0.011, 0.03, 0.012), tn), WRAT.ink));
+  for (const sd of [1, -1]) {
+    const t = surf(0.37, 0.53, 0.3, sd);
+    ly.push(L(shape([['M', -0.17, -0.07], ['Q', 0, -0.15, 0.18, -0.1], ['L', 0.16, -0.04], ['Q', 0, -0.08, -0.15, -0.02], ['Z']], t), greyDeep));
+    ly.push(...group([shape(ell(0.13, 0.055), t)], WRAT.eye, 2, '', WRAT.ink));
+    ly.push(L(shape(ell(0.07, 0.028), t), WRAT.eyeCore, { op: 0.85 }));
+    ly.push(L(shape(ell(0.013, 0.048), t), WRAT.ink));
+  }
+  // whiskers, three a side, out from the sides of the cage
+  for (const sd of [1, -1]) for (const [e0, e1, bend] of [[0.1, 0.32, -0.08], [-0.02, 0.0, -0.03], [-0.14, -0.3, 0.05]]) {
+    ly.push(L(shape([['M', 0, 0], ['Q', 0.45, bend, 0.95, e0 - e1]], surf(0.62, e0, 0, sd)), 'none', { stroke: '#d9d4cc', sw: 1.6 }));
+  }
+  // the incisors
+  for (const sd of [1, -1]) ly.push(...group([shape([['M', 0.006, 0], ['L', 0.08, 0], ['L', 0.075, 0.25], ['Q', 0.043, 0.3, 0.01, 0.25], ['Z']], surf(0, -0.69, 0, sd))], WRAT.tooth, 2.2, '', WRAT.ink));
+  // a stitched scar over his right temple
+  const ts = surf(0.95, 0.35, 0.5, -1);
+  ly.push(L(shape([['M', -0.25, 0], ['Q', 0, -0.04, 0.25, 0.02]], ts), 'none', { stroke: WRAT.pinkDeep, sw: 2.4 }));
+  for (let i = -2; i <= 2; i++) ly.push(L(shape([['M', i * 0.1, -0.05], ['L', i * 0.1 + 0.01, 0.05]], ts), 'none', { stroke: WRAT.pink, sw: 1.4 }));
+  // the anchor on the plate, left of the number
+  const ta = surf(2.62, 0.18);
+  const anchor = [shape([['M', -0.012, -0.2], ['L', 0.012, -0.2], ['L', 0.012, 0.16], ['L', -0.012, 0.16], ['Z']], ta), shape([['M', -0.08, -0.13], ['L', 0.08, -0.13], ['L', 0.08, -0.105], ['L', -0.08, -0.105], ['Z']], ta),
+    shape([['M', -0.15, 0.05], ['Q', -0.12, 0.2, 0, 0.21], ['Q', 0.12, 0.2, 0.15, 0.05], ['L', 0.12, 0.07], ['Q', 0.09, 0.17, 0, 0.18], ['Q', -0.09, 0.17, -0.12, 0.07], ['Z']], ta), shape(ell(0.035, 0.035, 0, -0.235), ta)];
+  ly.push(...backplate(grey, { more: group(anchor, WRAT.pink, 2, '', WRAT.ink) }));
+  return mask({ base, trim: WRAT.pink, edge: grey, layers: ly, number: numberAt(WRAT.pink, WRAT.ink) });
+}
+
+// The Westside Warlords: the warlord's helm. Gold, a black faceplate round the cage and down
+// over the jaw, gold rivets round its edge, a row of set stones across the brow, a black crown
+// with a stone in every point, and the W on the chin.
+function warlordsMask() {
+  const ly = [], gem = (t, r) => [L(shape(ell(r * 1.35, r * 1.35), t), WL.goldDeep), L(shape(ell(r * 1.15, r * 1.15), t), WL.black), L(shape(ell(r, r), t), WL.gem), L(shape([['M', -r * 0.6, -r * 0.1], ['L', 0, -r * 0.75], ['L', r * 0.6, -r * 0.1], ['Z']], t), WL.facet), L(shape(ell(r * 0.28, r * 0.28, -r * 0.35, -r * 0.35), t), WL.glint)];
+  // the faceplate, round the cage and down over the jaw to the edge
+  const ring = openRing(0.2);
+  const jaw = mpoly([[-0.72, -0.25], [0.72, -0.25], [0.72, -1.3], [-0.72, -1.3]]);
+  ly.push(...group([mpoly(ring), jaw], WL.black, 2.4, '', WL.goldDark));
+  // rivets round the plate's edge
+  for (let i = 0; i < ring.length; i += 2) { const [a, e] = ring[i]; if (e < -0.3) continue; ly.push(L(shape(ell(0.018, 0.018), surf(a * 0.93, e - 0.025)), WL.gold)); }
+  for (const sd of [1, -1]) for (const el of [-0.45, -0.65, -0.85]) ly.push(L(shape(ell(0.018, 0.018), surf(sd * 0.66, el)), WL.gold));
+  // the stones across the brow
+  ly.push(...stack([-3, -2, -1, 0, 1, 2, 3].map((i) => gem(surf(i * 0.19, 0.44), 0.045))));
+  // the crown: a band with five points, a stone in each
+  const crown = [[-1.35, 0.6], [-1.35, 0.72]];
+  for (let i = -2; i <= 2; i++) { const a = i * 0.45; crown.push([a - 0.18, 0.72], [a, 1.02], [a + 0.18, 0.72]); }
+  crown.push([1.35, 0.72], [1.35, 0.6]);
+  ly.push(...group([mpoly(crown)], WL.black, 2.2, '', WL.goldDark));
+  ly.push(...stack([-2, -1, 0, 1, 2].map((i) => gem(surf(i * 0.45, 0.86), 0.035))));
+  ly.push(...crestOn(warlords(), 0, -0.98, 0.32));
+  ly.push(...backplate(WL.black, { seam: WL.goldDeep }));
+  return mask({ base: WL.gold, trim: WL.black, edge: WL.goldDeep, layers: ly, number: numberAt(WL.gold, WL.goldDark) });
+}
+
+// The Coldwater Highlanders: woad and tartan. Green at the front, the Malcolm sett over the
+// sides and the back, woad over the left half of his face, a ginger beard round the chin and
+// ginger brows in a scowl. A saltire on the plate.
+function highlandersMask() {
+  const ly = [];
+  for (const sd of [1, -1]) ly.push(L(sd > 0 ? mband(1.6, -1.3, 1.08, Math.PI) : mband(1.6, -1.3, -Math.PI, -1.08), 'sett'));
+  for (const sd of [1, -1]) ly.push(L(mband(1.6, -1.3, sd > 0 ? 1.06 : -1.1, sd > 0 ? 1.1 : -1.06), HL.white));
+  // the woad, from the crown down his left cheek, ragged where it was smeared on
+  const woad = [];
+  for (let el = 1.2; el >= -0.95; el -= 0.08) woad.push([0.02 + 0.06 * Math.sin(el * 23) + (el < -0.2 ? 0.04 : 0), el]);
+  for (let el = -0.95; el <= 1.2; el += 0.12) woad.push([1.0 + 0.05 * Math.cos(el * 17), el]);
+  ly.push(L(mpoly(woad), HL.woad));
+  for (const [a, e] of [[0.45, 0.85], [0.75, 0.55], [0.5, -0.1], [0.85, -0.45]]) ly.push(L(shape(ell(0.09, 0.03), surf(a, e, 0.3)), HL.woadDeep, { op: 0.7 }));
+  // the beard: round the jaw and over the chin, in strands
+  const beard = [[-0.62, -0.05], [-0.5, -0.35], [-0.38, -0.62], [-0.2, -0.7], [0.2, -0.7], [0.38, -0.62], [0.5, -0.35], [0.62, -0.05], [0.78, -0.4], [0.7, -0.8], [0.45, -1.1], [0.15, -1.32], [-0.15, -1.32], [-0.45, -1.1], [-0.7, -0.8], [-0.78, -0.4]];
+  ly.push(...group([mpoly(beard)], HL.ginger, 2.2, '', HL.gingerDeep));
+  for (let i = 0; i < 18; i++) {
+    const a = -0.66 + (i * 1.32) / 17, e0 = -0.62 - 0.25 * (1 - (a / 0.66) ** 2) * 0.2, e1 = e0 - 0.32 - 0.12 * Math.cos(i * 1.7);
+    ly.push(L(shape([['M', 0, 0], ['Q', 0.02, (e0 - e1) * 0.5, 0.01 * Math.sign(a), e0 - e1]], surf(a, e0)), 'none', { stroke: i % 2 ? HL.gingerDeep : HL.gingerLight, sw: 1.6 }));
+  }
+  for (const sd of [1, -1]) ly.push(...group([shape([['M', -0.17, 0.02], ['Q', 0, -0.12, 0.2, -0.08], ['L', 0.2, -0.02], ['Q', 0, -0.05, -0.16, 0.06], ['Z']], surf(0.35, 0.47, 0.32, sd))], HL.ginger, 2, '', HL.gingerDeep));
+  ly.push(...crestOn(highlanders(), -0.62, 0.62, 0.34));
+  const ts = surf(Math.PI, 0.18), saltire = [shape([['M', -0.3, -0.24], ['L', -0.22, -0.3], ['L', 0.3, 0.24], ['L', 0.22, 0.3], ['Z']], ts), shape([['M', 0.3, -0.24], ['L', 0.22, -0.3], ['L', -0.3, 0.24], ['L', -0.22, 0.3], ['Z']], ts)];
+  const ts2 = surf(-Math.PI, 0.18), saltire2 = [shape([['M', -0.3, -0.24], ['L', -0.22, -0.3], ['L', 0.3, 0.24], ['L', 0.22, 0.3], ['Z']], ts2), shape([['M', 0.3, -0.24], ['L', 0.22, -0.3], ['L', -0.3, 0.24], ['L', -0.22, 0.3], ['Z']], ts2)];
+  ly.push(...backplate(HL.navy, { more: [L(saltire.join('') + saltire2.join(''), HL.white)] }));
+  return mask({ base: HL.green, trim: HL.white, edge: HL.navy, layers: ly, number: { at: [0, n2v(mxy(Math.PI, -0.32)[1])], size: 24, fill: HL.white, edge: HL.navy }, settUnit: 0.17 });
+}
+
+// The St Garneau Guillotines: the drop. Red, the posts in navy up either side of the cage to
+// the beam across the brow, the blade hanging from it slanted over his eyes, blood off its
+// edge. The crest on the chin.
+function guillotinesMask() {
+  const ly = [], steel = '#c3cad2', steelHi = '#eef2f5', steelDark = '#6a737c', blood = '#5c0a12';
+  for (const sd of [1, -1]) ly.push(...group([mband(0.92, -1.0, sd > 0 ? 0.7 : -0.86, sd > 0 ? 0.86 : -0.7)], SG.blue, 2.2, '', SG.white));
+  ly.push(...group([mband(0.95, 0.8, -0.98, 0.98)], SG.blue, 2.2, '', SG.white));
+  ly.push(L(mband(1.3, 0.95, -0.03, 0.03), '#2a2116'));
+  // the blade: its top under the beam, its edge slanted
+  const blade = [[-0.62, 0.78], [0.62, 0.78], [0.62, 0.52], [-0.62, 0.36]];
+  ly.push(...group([mpoly(blade)], steel, 2.4, '', steelDark));
+  ly.push(L(mpoly([[-0.62, 0.4], [0.62, 0.56], [0.62, 0.52], [-0.62, 0.36]]), steelHi));
+  ly.push(L(mband(0.78, 0.7, -0.62, 0.62), steelDark));
+  for (let i = -2; i <= 2; i++) ly.push(L(shape(ell(0.02, 0.02), surf(i * 0.25, 0.74)), '#3a3f45'));
+  // blood off the edge
+  for (const [a, len] of [[-0.42, 0.14], [-0.15, 0.22], [0.12, 0.1], [0.38, 0.18]]) {
+    const e = 0.36 + ((a + 0.62) / 1.24) * 0.16;
+    ly.push(L(shape([['M', -0.025, 0], ['L', 0.025, 0], ['L', 0.018, len], ['Q', 0.03, len + 0.05, 0, len + 0.06], ['Q', -0.03, len + 0.05, -0.018, len], ['Z']], surf(a, e)), blood));
+  }
+  ly.push(...crestOn(guillotines(), 0, -0.98, 0.34));
+  ly.push(...backplate(SG.blue, { seam: SG.white }));
+  return mask({ base: SG.red, trim: SG.blue, edge: SG.white, layers: ly, number: numberAt(SG.white, SG.blue) });
+}
+
+// The District 9 Goons: the riot squad. Purple, the police chequer round the head at the brow,
+// the badge on the forehead with the precinct's number, a black riot frame round the cage,
+// D9 stencilled on the chin.
+function goonsMask() {
+  const ly = [];
+  // the chequer, three rows of it, all the way round
+  const rows = 3, cols = 64, e0 = 0.62, e1 = 0.4, rh = (e0 - e1) / rows;
+  let dark = '';
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if ((r + c) % 2 === 0) dark += mband(e0 - r * rh, e0 - (r + 1) * rh, -Math.PI + (c * TAU) / cols, -Math.PI + ((c + 1) * TAU) / cols);
+  ly.push(L(mband(e0, e1), GN.bone), L(dark, GN.black));
+  ly.push(L(mband(e0 + 0.025, e0), GN.black), L(mband(e1, e1 - 0.025), GN.black));
+  // the riot frame round the cage
+  ly.push(L(mpoly(openRing(0.09)), GN.black));
+  // the badge: a six-point star on a disc, the 9 in it
+  const tb = surf(0, 0.88);
+  ly.push(...group([shape(lstar(0.11, 0.2, 6), tb)], GN.bone, 2.4, '', GN.black));
+  ly.push(L(shape(ell(0.085, 0.085), tb), GN.purpleDeep));
+  ly.push(L(shape(GLYPH['9'], T({ fn: (x, y) => tb.fn((x - 3) * 0.018, (y - 4.3) * 0.018) })), GN.bone, { rule: 'evenodd' }));
+  // D9 on the chin
+  const tc = surf(0, -0.82);
+  ly.push(L(shape(GLYPH.D, T({ fn: (x, y) => tc.fn((x - 7.2) * 0.022, (y - 4) * 0.022) })) + shape(GLYPH['9'], T({ fn: (x, y) => tc.fn((x + 1.2) * 0.022, (y - 4.3) * 0.022) })), GN.bone, { rule: 'evenodd' }));
+  ly.push(...backplate(GN.black, { seam: GN.bone }));
+  return mask({ base: GN.purple, trim: GN.bone, edge: GN.black, layers: ly, number: numberAt(GN.bone, GN.purpleDeep) });
+}
+
+// The Boomtown Bulldogs: the bulldog. Orange, black jowls round the cage and over the chin with
+// the underbite's fangs pointing up at the bars, a furrowed brow, rose ears, and a spiked collar
+// all the way round the bottom edge.
+function bulldogsMask() {
+  const ly = [];
+  const jowl = [[-0.66, 0.05], [-0.74, -0.3], [-0.72, -0.7], [-0.55, -1.0], [-0.2, -1.3], [0.2, -1.3], [0.55, -1.0], [0.72, -0.7], [0.74, -0.3], [0.66, 0.05], [0.5, -0.1], [0.36, -0.5], [0.3, -0.62], [-0.3, -0.62], [-0.36, -0.5], [-0.5, -0.1]];
+  ly.push(L(mpoly(jowl), BD.black));
+  for (const [a, h, w] of [[-0.21, 0.2, 0.06], [-0.1, 0.1, 0.035], [0, 0.09, 0.03], [0.1, 0.1, 0.035], [0.21, 0.2, 0.06]]) {
+    ly.push(...group([shape([['M', -w, 0], ['L', w, 0], ['Q', w * 0.4, -h * 0.6, 0, -h], ['Q', -w * 0.4, -h * 0.6, -w, 0], ['Z']], surf(a, -0.86))], BD.bone, 1.8, '', BD.black));
+  }
+  for (const sd of [1, -1]) for (const [el, k] of [[0.42, 1], [0.52, 0.85], [0.62, 0.7]]) ly.push(L(shape([['M', -0.2 * k, 0.03], ['Q', 0, -0.06, 0.2 * k, 0.04]], surf(0.3, el, 0.25, sd)), 'none', { stroke: BD.black, sw: 2.8 }));
+  for (const sd of [1, -1]) ly.push(...group([shape([['M', -0.18, 0.12], ['Q', -0.2, -0.12, 0.02, -0.2], ['Q', 0.24, -0.16, 0.22, 0.06], ['Q', 0.05, -0.02, -0.18, 0.12], ['Z']], surf(1.2, 0.78, -0.2, sd))], BD.black, 2, '', BD.orangeDark));
+  // the collar
+  const collar = [], spikes = [];
+  for (let i = 0; i <= 96; i++) { const az = -Math.PI + (i * TAU) / 96; collar.push([az, edgeAt(az) + 0.16]); }
+  const band2 = [...collar, ...collar.slice().reverse().map(([a, e]) => [a, e - 0.3])];
+  ly.push(L(mpoly(band2), BD.black));
+  for (let i = 0; i < 24; i++) {
+    const az = -Math.PI + ((i + 0.5) * TAU) / 24, e = edgeAt(az) + 0.11;
+    spikes.push(shape([['M', -0.045, -0.04], ['L', 0.045, -0.04], ['L', 0, 0.06], ['Z']], surf(az, e)));
+  }
+  ly.push(...group(spikes, BD.steel, 1.4, '', BD.steelDark));
+  ly.push(...crestOn(bulldogs(), 0, 0.82, 0.3));
+  ly.push(...backplate(BD.black, { seam: BD.orangeDark }));
+  return mask({ base: BD.orange, trim: BD.black, edge: BD.bone, layers: ly, number: numberAt(BD.orange, BD.black) });
+}
+const edgeAt = (az) => maskOutline(24).edge.reduce((b, p) => (Math.abs(p[0] - az) < Math.abs(b[0] - az) ? p : b))[1];
+
+// The Marquee Marauders: the marquee. Navy, a silver frame round the cage studded with lit
+// bulbs, searchlights swept back over both sides, stars, and the crest over the brow.
+function maraudersMask() {
+  const ly = [], bulb = '#fff4cf', glow = '#ffe08a';
+  for (const sd of [1, -1]) ly.push(L(mpoly([[sd * 0.95, 0.2], [sd * 2.1, 0.85], [sd * 2.1, -0.35]]), MM.blue, { op: 0.55 }));
+  const outer = openRing(0.17), inner = openRing(0.05);
+  ly.push(...group([mpoly(outer) + mpoly(inner.slice().reverse())], MM.silver, 2, '', MM.ink));
+  const mid = openRing(0.11).filter((_, i) => i % 2 === 0);
+  ly.push(...stack(mid.map(([a, e]) => { const t = surf(a, e); return [L(shape(ell(0.042, 0.042), t), glow, { op: 0.45 }), L(shape(ell(0.024, 0.024), t), bulb), L(shape(ell(0.008, 0.008, -0.008, -0.008), t), '#ffffff')]; })));
+  for (const [a, e, r] of [[0.95, 0.95, 0.07], [-0.95, 0.95, 0.07], [1.55, 0.35, 0.06], [-1.55, 0.35, 0.06], [1.3, -0.45, 0.05], [-1.3, -0.45, 0.05], [0, 1.2, 0.06]]) ly.push(L(shape(lstar(r * 0.42, r, 5), surf(a, e)), MM.white));
+  ly.push(...crestOn(marauders(), 0, 0.78, 0.32));
+  ly.push(...backplate(MM.white, { seam: MM.silver }));
+  return mask({ base: MM.navy, trim: MM.white, edge: MM.silver, layers: ly, number: numberAt(MM.navy, MM.silver) });
+}
+
 // ── the league ──────────────────────────────────────────────────────────────────
 export const CLUBS = {
   'Westside Warlords': {
     district: 'glasshouse', home: 'the Glasshouse',
     colours: ['#f6b51e', '#0e0e0f'],
     crest: warlords(),
+    mask: warlordsMask(),
     gems: { band: WL.gold, gem: WL.gem, edge: WL.black },
     kit: {
       home: kit({ jersey: '#121212', trim: '#f6b51e', number: '#f6b51e', numberEdge: '#000000', pants: '#0b0b0b', sock: '#121212', glove: '#1a1a1a', helmet: '#121212',
@@ -1231,6 +1550,7 @@ export const CLUBS = {
     district: null, home: 'the Rust Quarter',
     colours: ['#f37021', '#111111'],
     crest: bulldogs(),
+    mask: bulldogsMask(),
     kit: {
       home: kit({ jersey: '#f37021', trim: '#111111', number: '#111111', numberEdge: '#ffffff', pants: '#111111', sock: '#f37021', glove: '#111111', helmet: '#111111',
         yoke: '#111111', hem: [band(0.0, 0.06, '#111111'), band(0.07, 0.02, '#ffffff'), band(0.1, 0.03, '#111111')], sleeve: [band(0.28, 0.11, '#111111'), band(0.41, 0.03, '#ffffff'), band(0.46, 0.05, '#111111')], socks: [band(0.26, 0.12, '#111111'), band(0.4, 0.04, '#ffffff'), band(0.46, 0.06, '#111111')] }),
@@ -1242,6 +1562,7 @@ export const CLUBS = {
     district: 'nightlife', home: 'the Marquee',
     colours: ['#00205b', '#ffffff'],
     crest: marauders(),
+    mask: maraudersMask(),
     kit: {
       home: kit({ jersey: '#00205b', trim: '#ffffff', number: '#ffffff', numberEdge: '#00163f', pants: '#00205b', sock: '#00205b', glove: '#00205b', helmet: '#00205b',
         yoke: '#ffffff', hem: [band(0.0, 0.05, '#ffffff'), band(0.08, 0.05, '#ffffff')], sleeve: [band(0.28, 0.08, '#ffffff'), band(0.42, 0.08, '#ffffff')], socks: [band(0.28, 0.08, '#ffffff'), band(0.42, 0.08, '#ffffff')] }),
@@ -1254,6 +1575,7 @@ export const CLUBS = {
     colours: ['#00602a', '#1c2c6a'],
     sett: MALCOLM,
     crest: highlanders(),
+    mask: highlandersMask(),
     kit: {
       home: kit({ jersey: '#123a2a', body: 'sett', trim: '#ffffff', number: '#ffffff', numberEdge: '#101010', pants: '#101010', sock: '#1c2c6a', glove: '#101010', helmet: '#1c2c6a',
         yoke: '#1c2c6a', hem: [band(0.0, 0.06, '#1c2c6a'), band(0.065, 0.015, '#c8102e')], sleeve: [band(0.28, 0.06, '#00602a'), band(0.34, 0.04, '#1c2c6a'), band(0.38, 0.02, '#c8102e'), band(0.40, 0.04, '#1c2c6a')], socks: [band(0.24, 0.07, '#00602a'), band(0.31, 0.06, '#101010'), band(0.37, 0.025, '#c8102e'), band(0.395, 0.06, '#1c2c6a'), band(0.455, 0.02, '#e8c000')] }),
@@ -1265,6 +1587,7 @@ export const CLUBS = {
     district: null, home: 'District 9',
     colours: ['#4b2a72', '#efe5d2'],
     crest: goons(),
+    mask: goonsMask(),
     // a police kit: dark shoulders, a chequered band at the hem like a cap's, and two
     // stripes on every cuff and sock
     kit: {
@@ -1282,6 +1605,7 @@ export const CLUBS = {
     district: 'docks', home: 'the Docks',
     colours: ['#2a2c30', '#ef8fa3'],
     crest: wharfRats(),
+    mask: wharfRatsMask(),
     kit: {
       home: kit({ jersey: '#2a2c30', trim: '#ef8fa3', number: '#ef8fa3', numberEdge: '#141414', pants: '#2a2c30', sock: '#2a2c30', glove: '#2a2c30', helmet: '#2a2c30',
         yoke: '#8e8a84', hem: [band(0.0, 0.05, '#8e8a84'), band(0.055, 0.03, '#ef8fa3'), band(0.09, 0.05, '#8e8a84')], sleeve: [band(0.28, 0.07, '#8e8a84'), band(0.35, 0.04, '#ef8fa3'), band(0.39, 0.07, '#8e8a84')], socks: [band(0.26, 0.07, '#8e8a84'), band(0.33, 0.04, '#ef8fa3'), band(0.37, 0.07, '#8e8a84')] }),
@@ -1293,6 +1617,7 @@ export const CLUBS = {
     district: 'residential', home: 'Nine Elms',
     colours: ['#af1e2d', '#192168'],
     crest: guillotines(),
+    mask: guillotinesMask(),
     kit: {
       home: kit({ jersey: '#af1e2d', trim: '#192168', number: '#ffffff', numberEdge: '#192168', pants: '#192168', sock: '#af1e2d', glove: '#192168', helmet: '#192168',
         yoke: '#192168', hem: [band(0.0, 0.02, '#ffffff'), band(0.025, 0.07, '#192168'), band(0.1, 0.02, '#ffffff')], sleeve: [band(0.28, 0.03, '#ffffff'), band(0.31, 0.1, '#192168'), band(0.41, 0.03, '#ffffff')], socks: [band(0.24, 0.04, '#ffffff'), band(0.28, 0.12, '#192168'), band(0.4, 0.04, '#ffffff')] }),
@@ -1304,6 +1629,7 @@ export const CLUBS = {
     district: 'yards', home: 'the Yards',
     colours: ['#c8201c', '#f6f4ef', '#141414'],
     crest: yardBirds(),
+    mask: yardBirdsMask(),
     kit: {
       home: kit({ jersey: '#c8201c', trim: '#141414', number: '#f6f4ef', numberEdge: '#141414', pants: '#141414', sock: '#c8201c', glove: '#141414', helmet: '#141414',
         yoke: '#141414', hem: [band(0.0, 0.05, '#141414'), band(0.055, 0.03, '#f6f4ef'), band(0.09, 0.05, '#141414')], sleeve: [band(0.28, 0.06, '#141414'), band(0.34, 0.03, '#f6f4ef'), band(0.37, 0.06, '#141414')], socks: [band(0.26, 0.06, '#141414'), band(0.32, 0.03, '#f6f4ef'), band(0.35, 0.06, '#141414')] }),
