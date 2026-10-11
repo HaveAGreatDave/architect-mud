@@ -58,7 +58,7 @@ export function createRinkView(host, opts = {}) {
   const doc = host ? host.ownerDocument : null;
   const win = doc ? doc.defaultView : null;
   let caption = '', pendingCaption = null, pendingCard = null, cardTimer = null, holdTimer = null;
-  let last = null, raf = 0, lastFrame = 0, acc = 0, mounted = false, speed = opts.speed || 1;
+  let last = null, raf = 0, lastFrame = 0, frameAvg = 0, acc = 0, mounted = false, speed = opts.speed || 1;
   let W = null, D = null, R = null, ice = null, canvas = null, modsP = null, mods = null;
   const sfxAt = {};
   let costAvg = 0;
@@ -143,8 +143,14 @@ export function createRinkView(host, opts = {}) {
   function frame(now) {
     raf = win.requestAnimationFrame(frame);
     if (!canvas || !canvas.isConnected) { stop(); return; }
-    const real = lastFrame ? Math.min(0.1, (now - lastFrame) / 1000) : 1 / 60;
+    const raw = lastFrame ? Math.min(0.1, (now - lastFrame) / 1000) : 1 / 60;
     lastFrame = now;
+    // VSYNC JITTER ISN'T TIME. Frames arrive a millisecond or two either side of the
+    // display's steady rate; stepped as they come, a 120 Hz world alternates one step and
+    // three a frame and the skating stutters. A frame within 4 ms of the running average is
+    // stepped as the average; a real hiccup is stepped as it was.
+    frameAvg = frameAvg ? frameAvg + (raw - frameAvg) * 0.1 : raw;
+    const real = Math.abs(raw - frameAvg) < 0.004 ? frameAvg : raw;
     let dt = real * speed;
     if (W.hitstop > 0) { W.hitstop -= real; dt *= 0.3; }
     acc += dt;
@@ -153,7 +159,7 @@ export function createRinkView(host, opts = {}) {
     if (n === 24) acc = 0;
     if (R.lost) fallback();
     R.render(now);
-    govern(real);
+    govern(raw);
   }
   // QUALITY FOLLOWS THE REAL FRAME TIME, not the time spent in our own code: most of a
   // canvas frame is the browser rasterising it, which no timer in here sees. Sustained slow

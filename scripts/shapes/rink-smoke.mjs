@@ -20,7 +20,8 @@ import { __install } from './rink-dom-stub.mjs';
 const stub = __install();
 const { createRinkView, __test } = await import('../../client/game/js/panels/gameday-rink.js');
 const { DT, bladeWorld } = await import('../../client/game/js/panels/rink/rig.js');
-const { GOAL_X, DOT_FT } = await import('../../client/game/js/panels/rink/geo.js');
+const { GOAL_X, DOT_FT, MID_Y } = await import('../../client/game/js/panels/rink/geo.js');
+const { createRinkCamera } = await import('../../client/game/js/panels/rink/camera.js');
 const { sportsRng, sportsHash, sportsPick, sportsFill } = await import('../../plugins/broadcast/rng.js');
 const HOCKEY = (await import('../../plugins/broadcast/sports/hockey.js')).default;
 const { paceCalls } = await import('../../plugins/broadcast/sports/hockey-pacing.js');
@@ -84,6 +85,29 @@ async function play(slot) {
     if (ok && b && d > 3.2 && !hidden) pendingGives.push(`${b.name || b.kind} from ${d.toFixed(1)} ft at ${(W.t - tApply).toFixed(2)}s`);
     return ok;
   };
+  // NO SHOT AT A NET THE VIEWER CAN'T SEE. The camera is run here at 60 Hz, in both views,
+  // and at every release and half a second after it, the puck and the net it's going at
+  // must both be in frame.
+  const cams = ['broadcast', 'low'].map((view) => { const c = createRinkCamera(W); c.view = view; return { view, c, P: null }; });
+  let camAt = -1;
+  const unseen = [], shotChecks = [];
+  const inFrame = (P, x, y, z) => { const q = P && P(x, y, z); return !!q && q.x > 900 * 0.02 && q.x < 900 * 0.98 && q.y > 506 * 0.04 && q.y < 506 * 0.96; };
+  const seeShot = (netX, when) => {
+    for (const k of cams) {
+      if (W.cam.mode !== 'broadcast') continue;
+      const pk = W.puck;
+      if (!inFrame(k.P, netX, MID_Y, 2)) unseen.push(`${k.view}: net at ${netX} out of frame ${when} (${(W.t - tApply).toFixed(2)}s)`);
+      else if (!inFrame(k.P, pk.x, pk.y, pk.z)) unseen.push(`${k.view}: puck out of frame ${when} (${(W.t - tApply).toFixed(2)}s)`);
+    }
+  };
+  const shoot0 = W.shoot;
+  W.shoot = (from, tgt, spd, type) => {
+    const tt = shoot0(from, tgt, spd, type);
+    const netX = Math.abs(tgt[0] - GOAL_X[0]) < Math.abs(tgt[0] - GOAL_X[1]) ? GOAL_X[0] : GOAL_X[1];
+    seeShot(netX, 'at the release');
+    shotChecks.push({ at: W.t + Math.min(0.5, tt), netX });
+    return tt;
+  };
   // a frame every four seconds of play, counted across calls: reset per call, it drew
   // once per caption line and was half the gate's CPU
   let next = W.t;
@@ -92,6 +116,8 @@ async function play(slot) {
     while (W.t - t0 < secs) {
       const pk = W.puck, cut0 = W.cam.cut, x0 = pk.x, y0 = pk.y, h0 = pk.hidden;
       W.step(DT);
+      if (W.t - camAt >= 1 / 60 - 1e-9) { camAt = W.t; for (const k of cams) k.P = k.c.update(900, 506, W.t * 1000).P; }
+      while (shotChecks.length && W.t >= shotChecks[0].at) seeShot(shotChecks.shift().netX, 'as it arrives');
       if (W.cam.cut === cut0) {
         if (!h0 && !pk.hidden && Math.hypot(pk.x - x0, pk.y - y0) > 1.6) jumps.push(`${Math.hypot(pk.x - x0, pk.y - y0).toFixed(1)} ft at ${(W.t - tApply).toFixed(2)}s (${D.kind() || 'between plays'}) from ${x0.toFixed(1)},${y0.toFixed(1)}`);
         snaps.push(...pendingGives);
@@ -192,6 +218,7 @@ async function play(slot) {
   }
   check(`${slot}: no position ever went non-finite`, nan === 0, `${nan}`);
   check(`${slot}: the puck never jumps outside a cut`, jumps.length === 0, `${jumps.length}: ${jumps.slice(0, 4).join(', ')}`);
+  check(`${slot}: every shot is taken with its net in frame`, unseen.length === 0, `${unseen.length}: ${unseen.slice(0, 4).join(', ')}`);
   check(`${slot}: nobody gains the puck from beyond his reach`, snaps.length === 0, `${snaps.length}: ${snaps.slice(0, 4).join(', ')}`);
   check(`${slot}: the renderer drew`, renders > 100 && stub.drawn.images > 1000, `${renders} frames, ${stub.drawn.images} images`);
   check(`${slot}: the held caption went up`, String(host.find('.gdr-cap-text')?.textContent || '').length > 0);

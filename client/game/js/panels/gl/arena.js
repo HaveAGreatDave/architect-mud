@@ -615,12 +615,12 @@ export function createArenaRenderer(canvas, overlay, W, ice) {
     }
     const reflStrength = () => clamp(0.3 - 0.2 * ice.wear + 0.14 * ice.wetness, 0.08, 0.42) * (1 - 0.35 * (W.mourning || 0));
 
-    function render() {
+    function render(now) {
       if (lost) return;
       frame++;
       const { w, h, u } = fit();
       camera.view = api.view;
-      const { C, P } = camera.update(w, h);
+      const { C, P } = camera.update(w, h, now);
       api.lastP = P;
       if (camera.flash) { flash = camera.flash; camera.flash = 0; }
       const crowdTex = W.crowd > 0.45 ? texUp : texSit;

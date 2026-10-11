@@ -49,7 +49,7 @@ export function createRenderer(canvas, W, ice) {
   function render(now) {
     const { w, h, u } = fit();
     camera.view = api.view;
-    const { C, P, camPos } = camera.update(w, h);
+    const { C, P, camPos } = camera.update(w, h, now);
     if (camera.flash) { flash = camera.flash; camera.flash = 0; }
     P0 = P;
 

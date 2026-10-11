@@ -1013,7 +1013,25 @@ snap shot (`TAIL` in sim.js: snap 1, slap 0.75, one-timer 0.7, wrist 0.5).
 **The camera never yaws or rolls.** It pans, climbs, tilts and zooms, so every screen row
 is a line of constant depth across the sheet and the whole ice texture maps to the screen
 with one `drawImage` per row. It lives in `camera.js` so both renderers frame a shot the
-same way; `matrices()` writes it out by hand for GL, mirror included. Its modes are broadcast, zoom, push (a goal), fight, death,
+same way; `matrices()` writes it out by hand for GL, mirror included.
+
+**The broadcast framing is NHL 99's.** High on the near side and close (54 ft back, so the
+players are big), panning with the puck and leading it a little the way it's going. When
+the play is within about 60 ft of a goal line, or the director says a shot is coming
+(`W.cam.net`, set when a rush reaches its shot leg and cleared when the beat ends), the
+camera widens and slides until that net is in frame with the puck. Every number follows
+its target on a critically damped spring, on real time (`camera.update(w, h, now)`), so it
+starts and stops without a jolt and keeps moving through a hit-stop. The rail view widens
+its lens for a net in its zone and rises to the broadcast framing whenever a shot is
+coming. The rink smoke runs its own camera at 60 Hz in both views and fails if any shot is
+released, or arrives, with its net or the puck out of frame; the old camera missed the net
+on about 300 shots a game.
+
+Player motion is eased too: a skater turns into a new heading rather than stopping dead
+on it, two men who bump are eased apart over a few steps with their closing speed taken
+off, and a man pushed out of a net slides out. Fighters skate in to square up unless
+there's a cut. The view steps frames that arrive within 4 ms of the running average as
+the average, so vsync jitter doesn't make the 120 Hz world alternate one step and three. Its modes are broadcast, zoom, push (a goal), fight, death,
 and a framing that follows the Zamboni. `renderer.view = 'low'` puts it on the rail just
 inside the near glass at head height, which is where the reflections show best.
 

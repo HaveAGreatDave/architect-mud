@@ -134,6 +134,7 @@ export function createDirector(W, opts = {}) {
     W.clearSchedule();
     const B = { kind, t0: W.t, update: null, cleanup: null, landed: false, locked: new Set(), ownsCam: false };
     D.beat = B;
+    W.cam.net = null;
     return B;
   }
   const at = (B, dt, fn) => W.schedule(dt, () => { if (D.beat === B) fn(); });
@@ -143,6 +144,7 @@ export function createDirector(W, opts = {}) {
     land(B);
     B.finishTo?.();
     D.beat = null;
+    W.cam.net = null;
     releaseAll();
     opts.onDone?.(B.kind);
   }
@@ -425,6 +427,8 @@ export function createDirector(W, opts = {}) {
 
     function shotLeg() {
       const sn = nodes[nodes.length - 2];
+      // a shot is coming: the camera brings the net into frame now, before the puck is away
+      W.cam.net = netX;
       let shooter = cur, setup = null;
       if ((type === 'onetimer' || type === 'tip') && W.mates(att).length > 1) {
         // a one-timer and a tip need somebody else to put it there
@@ -1077,8 +1081,9 @@ export function createDirector(W, opts = {}) {
     const far = D.needCut || Math.hypot(win.x - cx, win.y - cy) > 30;
     if (far) { setUp(ws, cx, cy); cut('broadcast', [cx, cy]); }
     D.needCut = false;
-    fresh(L); fresh(R);
-    place(L, cx - 2.6, cy, 0); place(R, cx + 2.6, cy, Math.PI);
+    // under a cut they're simply there; in the live picture they skate in to square up
+    if (far) { fresh(L); fresh(R); place(L, cx - 2.6, cy, 0); place(R, cx + 2.6, cy, Math.PI); }
+    else for (const f of [L, R]) { if (f.rag) W.getUp(f, 0.6); f.act = null; f.blend = null; }
     L.foe = R; R.foe = L; L.face = 0; R.face = Math.PI; L.maxV = R.maxV = 7; L.scripted = R.scripted = true;
     L.stance = R.stance = 0.5;
     // the puck is left to slide away from it; under a cut it's simply over there
@@ -1176,8 +1181,8 @@ export function createDirector(W, opts = {}) {
     B.update = (dt, rel) => {
       const sep = B.grab ? 3.4 : 4.6, wob = 0.9 * Math.sin(rel * 1.1);
       if (!B.apart) {
-        if (!L.rag) { L.tx = cx - sep / 2 + wob; L.ty = cy + 0.3 * Math.sin(rel * 2.3); }
-        if (!R.rag) { R.tx = cx + sep / 2 + wob; R.ty = cy - 0.3 * Math.sin(rel * 2.3); }
+        if (!L.rag) { L.tx = cx - sep / 2 + wob; L.ty = cy + 0.3 * Math.sin(rel * 2.3); L.maxV = Math.hypot(L.tx - L.x, L.ty - L.y) > 3 ? 18 : 7; }
+        if (!R.rag) { R.tx = cx + sep / 2 + wob; R.ty = cy - 0.3 * Math.sin(rel * 2.3); R.maxV = Math.hypot(R.tx - R.x, R.ty - R.y) > 3 ? 18 : 7; }
       } else if (!B.toBox) {
         if (!L.rag) { L.tx = cx - 6; L.face = 0; } if (!R.rag) { R.tx = cx + 6; R.face = Math.PI; }
       }

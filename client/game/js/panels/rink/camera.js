@@ -5,45 +5,114 @@
 // what makes the ice one drawImage per screen row; on GL it keeps the view matrix a pan and
 // a pitch, which `matrices()` writes out by hand so it can be read against `P` line for line.
 //
+// THE NHL 99 CAMERA. The default framing is the one the old EA games played on: high on the
+// near side, close enough that the players are big, panning with the puck and leading it a
+// little in the direction it's going. It isn't fixed: whenever the play is in a zone, or the
+// director says a shot is coming (`W.cam.net`, the x of the net it's going at), the camera
+// widens and slides until that net is in frame as well as the puck, so a shot is never taken
+// at a goal the viewer can't see.
+//
+// SPRINGS, NOT CHASING. Each of the camera's numbers follows its target on a critically
+// damped spring (`smooth`), which starts and stops without a jolt and never overshoots. The
+// old exponential chase lurched every time its target jumped. It runs on real time (the
+// renderer passes `now`), so a hit-stop freezes the play but not the camera. A cut
+// (`W.cam.cut` changing) snaps.
+//
 // Modes come from the director (`W.cam.mode`); `view = 'low'` puts the default and Zamboni
-// framings on the rail just inside the near glass, where the reflections show best. A cut
-// (`W.cam.cut` changing) snaps; otherwise the camera eases toward where its mode wants it.
+// framings on the rail just inside the near glass, where the reflections show best.
 
 import { clamp } from './util.js';
-import { RL, RW } from './geo.js';
+import { RL, RW, GOAL_X } from './geo.js';
 
 export const NEAR = 0.6, FAR = 600;
 
-export function createRinkCamera(W) {
-  const cam = { lx: 100, ly: 40, lz: 0, dist: 72, pitch: 0.48, fm: 1 };
-  const api = { view: 'broadcast', cam, flash: 0 };
-  let lastCut = -1, lastT = 0;
+// A critically damped spring: x toward `target` with velocity `st.v`, settling in about
+// `time` seconds, never faster than `maxV`. Smooth in, smooth out, no overshoot.
+function smooth(x, target, st, time, dt, maxV = Infinity) {
+  const w = 2 / Math.max(1e-3, time), e = w * dt, k = 1 / (1 + e + 0.48 * e * e + 0.235 * e * e * e);
+  let change = x - target;
+  const lim = maxV * time;
+  change = clamp(change, -lim, lim);
+  const t2 = x - change, tmp = (st.v + w * change) * dt;
+  st.v = (st.v - w * tmp) * k;
+  let out = t2 + (change + tmp) * k;
+  if ((target - x > 0) === (out > target)) { out = target; st.v = 0; }
+  return out;
+}
 
-  function target() {
+const KEYS = ['lx', 'ly', 'lz', 'dist', 'pitch', 'fm'];
+// how long each number takes to settle, seconds
+const TIME = { lx: 0.55, ly: 0.7, lz: 0.6, dist: 0.8, pitch: 0.8, fm: 0.7 };
+
+export function createRinkCamera(W) {
+  const cam = { lx: 100, ly: 40, lz: 0, dist: 56, pitch: 0.52, fm: 1 };
+  const vel = Object.fromEntries(KEYS.map((k) => [k, { v: 0 }]));
+  const api = { view: 'broadcast', cam, flash: 0 };
+  let lastCut = -1, lastNow = null;
+  // where the action is heading: the focus's velocity, low-passed, for the look-ahead
+  let pf = null, fv = [0, 0];
+
+  // The framing for this instant: the puck (or whatever the director is following), led a
+  // little in the direction it's going, and the net it's going at when that matters.
+  function target(dt) {
     const c = W.cam, f = c.focus;
+    if (pf && dt > 0) {
+      const k = 1 - Math.exp(-dt * 3);
+      fv[0] += (clamp((f[0] - pf[0]) / dt, -80, 80) - fv[0]) * k; fv[1] += (clamp((f[1] - pf[1]) / dt, -60, 60) - fv[1]) * k;
+    }
+    pf = [f[0], f[1]];
     switch (c.mode) {
       case 'fight': return { lx: f[0], ly: f[1], lz: 3.0, dist: 17.5, pitch: 0.1, fm: 0.95 };
-      case 'zoom': return { lx: f[0], ly: f[1] - 2, lz: 1.5, dist: 44, pitch: 0.36, fm: 1 };
-      case 'push': return { lx: f[0], ly: f[1], lz: 2.0, dist: 30, pitch: 0.3, fm: 1 };
+      case 'zoom': return { lx: f[0], ly: f[1] - 2, lz: 1.5, dist: 40, pitch: 0.4, fm: 1 };
+      case 'push': return { lx: f[0], ly: f[1], lz: 2.0, dist: 30, pitch: 0.32, fm: 1 };
       case 'zam':
         if (api.view === 'low') return { lx: clamp(f[0], 30, RL - 30), ly: 39, lz: 0.4, dist: 38, pitch: 0.105, fm: 1 };
-        return { lx: clamp(f[0], 50, RL - 50), ly: clamp(f[1] * 0.45 + 22, 28, 46), lz: 0, dist: 64, pitch: 0.46, fm: 1 };
+        return { lx: clamp(f[0], 44, RL - 44), ly: clamp(f[1] * 0.45 + 22, 28, 46), lz: 0, dist: 60, pitch: 0.5, fm: 1 };
       case 'death': return { lx: clamp(f[0], 44, RL - 44), ly: clamp(f[1], 14, RW - 6), lz: 0.8, dist: 28 - Math.min(8, (W.t - (c.since || W.t)) * 0.6), pitch: 0.42, fm: 1 };
-      default:
-        // the rail camera sits just inside the near glass at head height, looking across
-        if (api.view === 'low') return { lx: clamp(f[0], 30, RL - 30), ly: 39, lz: 0.4, dist: 38, pitch: 0.105, fm: 1 };
-        return { lx: clamp(f[0], 52, RL - 52), ly: clamp(f[1] * 0.45 + 22, 28, 48), lz: 0, dist: 68, pitch: 0.48, fm: 1 };
+      default: return broadcast(f, c);
     }
   }
+  function broadcast(f, c) {
+    const low = api.view === 'low';
+    // the action, led toward where it's going
+    const ax = f[0] + clamp(fv[0] * 0.4, -16, 16), ay = f[1] + clamp(fv[1] * 0.25, -6, 6);
+    let x0 = Math.min(f[0], ax) - 9, x1 = Math.max(f[0], ax) + 9;
+    // the net: the one a shot is going at, or the one whose zone the play is in
+    let net = c.net != null ? c.net : null;
+    if (net == null) for (const gx of GOAL_X) if (Math.abs(f[0] - gx) < 62) net = gx;
+    // (the net, the goalie in front of it and a little of the ice behind)
+    if (net != null) { x0 = Math.min(x0, net - 10); x1 = Math.max(x1, net + 10); }
+    const hw = (x1 - x0) / 2, lx = (x0 + x1) / 2;
+    // On the rail the camera sits at head height by the near glass, which can't see a puck
+    // close in on the near side; when a shot is coming it rises to the broadcast framing for
+    // it, and settles back to the rail afterwards.
+    if (low && c.net == null) {
+      // in a zone it widens its lens to take the net in rather than climbing
+      const fm = clamp(38 * 0.5 / Math.max(1, hw), 0.55, 1);
+      return { lx: clamp(lx, 24, RL - 24), ly: 39, lz: 0.4, dist: 38, pitch: 0.105, fm };
+    }
+    // close, the way the old games framed it, pulling back only as far as the net needs
+    const dist = clamp(2 * hw * 1.08, 54, 84);
+    const ly = clamp(ay * 0.5 + 21, 27, 48) + (dist - 54) * 0.08;
+    return { lx: clamp(lx, 22, RL - 22), ly, lz: 0, dist, pitch: 0.52 - (dist - 54) * 0.0015, fm: 1 };
+  }
 
-  // Ease toward the mode (or snap on a cut) and return this frame's camera for a w×h view:
+  // Ease toward the framing (or snap on a cut) and return this frame's camera for a w×h view:
   // C (eye, pitch, focal length in pixels, principal point) and P, the projection of a world
-  // point to { x, y, s: pixels per foot, d: depth }, or null behind the near plane.
-  api.update = (w, h) => {
-    const tg = target();
-    const dt = Math.min(0.05, Math.max(0, W.t - lastT)); lastT = W.t;
-    if (lastCut !== W.cam.cut) { lastCut = W.cam.cut; Object.assign(cam, tg); api.flash = W.cam.flash === false ? 0 : 1; }
-    else for (const k of Object.keys(tg)) cam[k] += (tg[k] - cam[k]) * (1 - Math.exp(-dt * (k === 'lx' ? 2.8 : 2.2)));
+  // point to { x, y, s: pixels per foot, d: depth }, or null behind the near plane. `now` is
+  // the real time in ms; without it the camera runs on the world's clock.
+  api.update = (w, h, now) => {
+    const clock = now != null ? now / 1000 : W.t;
+    const dt = lastNow == null ? 0 : Math.min(0.1, Math.max(0, clock - lastNow)); lastNow = clock;
+    const tg = target(dt);
+    if (lastCut !== W.cam.cut) {
+      lastCut = W.cam.cut; Object.assign(cam, tg); for (const k of KEYS) vel[k].v = 0; fv = [0, 0];
+      api.flash = W.cam.flash === false ? 0 : 1;
+    } else {
+      // a shot coming tightens the pan, so the net is in frame before the puck is away
+      const shot = W.cam.net != null;
+      for (const k of KEYS) cam[k] = smooth(cam[k], tg[k], vel[k], k === 'lx' && shot ? 0.38 : TIME[k], dt, k === 'lx' ? 140 : k === 'dist' ? 60 : Infinity);
+    }
     const C = { x: cam.lx, y: cam.ly - cam.dist * Math.cos(cam.pitch), z: cam.lz + cam.dist * Math.sin(cam.pitch), pitch: cam.pitch, f: w * cam.fm, cx: w / 2, cy: h * 0.56, w, h };
     const cp = Math.cos(C.pitch), sp = Math.sin(C.pitch);
     const P = (X, Y, Z) => { const dx = X - C.x, dy = Y - C.y, dz = Z - C.z, d = dy * cp - dz * sp; if (d < NEAR) return null; const up = dy * sp + dz * cp; return { x: C.cx + C.f * dx / d, y: C.cy - C.f * up / d, s: C.f / d, d }; };

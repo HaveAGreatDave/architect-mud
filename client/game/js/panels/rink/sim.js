@@ -120,7 +120,7 @@ export function createWorld(ice, seedKey) {
     flex: new Float32Array(PANELS), cracks: [], glassBlood: [], broken: new Set(),
     crowd: 0.15, shake: 0, boardShake: 0, hitstop: 0, lamp: 0, lampSide: null, mourning: 0, dim: 0,
     banner: null, fight: null,
-    cam: { mode: 'broadcast', focus: [100, MID_Y], cut: 0, zoom: 1 },
+    cam: { mode: 'broadcast', focus: [100, MID_Y], cut: 0, zoom: 1, net: null },
     ev: [], script: null, puckScripted: false, allowGoal: false, frozen: false,
     amb: { poss: 'a', nextPass: 1.5, lastTurn: 0, holdUntil: 0, fore: { a: null, h: null } },
     emit: () => {},
@@ -512,7 +512,8 @@ export function createWorld(ice, seedKey) {
       // cruising, quicker only on the first few pushes from a stop
       b.phase += dt * (0.42 + sp * 0.03 + 0.7 * b.effort * clamp(1 - sp / 13, 0, 1) * (sp > 0.8 ? 1 : 0));
       const wantH = b.face != null ? b.face : (sp > 1.5 ? Math.atan2(b.vy, b.vx) : b.h);
-      b.h += clamp(angWrap(wantH - b.h), -7 * dt, 7 * dt);
+      // turned toward where he's going, easing into the new heading rather than stopping dead on it
+      b.h += clamp(angWrap(wantH - b.h) * (1 - Math.exp(-dt * 10)), -7 * dt, 7 * dt);
       // how hard he is turning: drives the lean and the crossovers in the rig
       const va = sp > 2 ? Math.atan2(b.vy, b.vx) : null;
       const tr = va != null && b._va != null ? angWrap(va - b._va) / dt : 0;
@@ -587,7 +588,14 @@ export function createWorld(ice, seedKey) {
       const a = sk[i], b = sk[j];
       if (a.rag || b.rag || a.foe === b || a.target === b || b.target === a) continue;
       const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
-      if (d < 2.4 && d > 0.01) { const k = (2.4 - d) / d * 0.5; a.x -= dx * k; a.y -= dy * k; b.x += dx * k; b.y += dy * k; }
+      // eased apart over a few steps, and their closing speed taken off, rather than shoved
+      // clear in one: two men bumping shouldn't twitch
+      if (d < 2.4 && d > 0.01) {
+        const k = (2.4 - d) / d * 0.5 * Math.min(1, DT * 25), nx = dx / d, ny = dy / d;
+        a.x -= dx * k; a.y -= dy * k; b.x += dx * k; b.y += dy * k;
+        const vn = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+        if (vn < 0) { a.vx += vn * nx * 0.5; a.vy += vn * ny * 0.5; b.vx -= vn * nx * 0.5; b.vy -= vn * ny * 0.5; }
+      }
     }
     // nobody skates through a net or stands in it
     for (const b of sk) {
@@ -596,7 +604,8 @@ export function createWorld(ice, seedKey) {
         const cx = n.gx + n.dir * NET_DEPTH / 2, hx = NET_DEPTH / 2 + 1.2, hy = NET_HALF + 1.2;
         const dx = b.x - cx, dy = b.y - MID_Y;
         if (Math.abs(dx) < hx && Math.abs(dy) < hy) {
-          if (hx - Math.abs(dx) < hy - Math.abs(dy)) b.x = cx + Math.sign(dx || 1) * hx; else b.y = MID_Y + Math.sign(dy || 1) * hy;
+          const k = Math.min(1, DT * 20);
+          if (hx - Math.abs(dx) < hy - Math.abs(dy)) b.x += (cx + Math.sign(dx || 1) * hx - b.x) * k; else b.y += (MID_Y + Math.sign(dy || 1) * hy - b.y) * k;
         }
       }
     }
