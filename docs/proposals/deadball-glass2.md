@@ -979,21 +979,11 @@ scales everything, and Sound Detail still decides what plays.
 
 ### Engine work in SIREN and ORACLE
 
-- **A duck gain node per bus**, added in `ensureContext`, not on the bus gains, which `_applyGains`
-  keeps resetting. Natural Read Aloud speaks through the browser, outside Web Audio, so its utterance
-  events drive the duck.
-- **Two sub-gains under the tv bus**, voice and effects, so the balance above holds inside one
-  slider.
-- **A limiter** on the master.
-- **An announcer channel that typing doesn't cancel**, with a short queue so calls don't cut each
-  other off. Read Aloud keeps its own channel and still stops on a command.
-- **Better noise:** an 8-second stereo buffer per colour (white, pink, brown), started at a random
-  offset per layer.
-- **Space:** per-layer pan and width, a per-cue reverb send, and an open-air ballpark room with a
-  slap-back off the stands and a short tail.
-- **Working filters:** filter gain read, so shelf and peaking filters do something.
-- **Tools:** Voice Lab presets saved to content instead of copied to the clipboard, and the Audio
-  tab's layer editor keeping `op2`'s wave and sweeps.
+Split off into its own plan, [siren-fidelity.md](siren-fidelity.md), so it can go ahead on its own
+and every view gains from it: a master limiter, ducking per bus, speech channels that typing doesn't
+cancel, a voice and effects pair under the tv bus, stereo noise in three colours with random
+offsets, working shelf and peaking filters, per-layer pan, per-cue reverb sends, an open-air
+ballpark room, and Voice Lab presets that save. The bank below assumes that work has landed.
 
 ### The bank
 
