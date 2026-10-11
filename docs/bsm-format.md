@@ -658,6 +658,10 @@ Three rules a hockey library must respect:
 - **The three faceoff pools are not interchangeable.** `faceoff.center` means somebody just scored or a period just started; `faceoff.zone` means the puck died in that end; `faceoff.neutral` is everything else. The sim picks the dot by the RULE, so the pool is a fact about the game, not a flavour choice. (`faceoff` remains as a fallback and is expected never to fire.)
 - **`::players` needs `clubs x 6` names minimum.** Skaters are dealt into permanent club rosters, so a short pool starts sharing men between clubs.
 
+The touch-by-touch call (`pbp.*`) is written the way a booth calls a game: who, where, what. Two tokens exist only there. `{where}` is where the touch is ("at the left point", "in the slot", "on the right wall", "through centre", "in his own end"), and `{from}` is where a shot came from ("from the slot"). Both come from the possession keyframe the rink plays the touch at (`rinkSpot` in [hockey.js](../plugins/broadcast/sports/hockey.js)), with left and right as the carrier skates, so a line can't put a man somewhere the picture doesn't. `{where}` is filled for `pbp.breakout`, `pbp.retrieve`, `pbp.pass` (the receiver), `pbp.entry`, `pbp.cycle`, `pbp.deke`, `pbp.dump`, `pbp.battle` and `pbp.won`; `{from}` for `pbp.shot` and its `pbp.shot.*` kinds. A token a call doesn't supply is blanked, not left in braces, and the broadcast regress fails on what that leaves behind ("from , and").
+
+A goal nobody set up uses `goal.solo` and, at the intermission, `intermission.goal.solo`, because the plain `goal` and `intermission.goal` lines name the helper. A word in CAPS is the one the voice leans on, and every line also carries how hard it's sold (`excite`, from the pool it came from), which the voice reads; see [Selling a line](systems-procedural-audio.md#selling-a-line-excite).
+
 ---
 
 # News Broadcasts (`@type news`)

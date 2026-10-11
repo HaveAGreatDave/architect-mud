@@ -44,11 +44,72 @@ const LOUD_CHANCE = new Set(['post', 'breakaway']);
 // Chances that end with the puck loose on the ice rather than held or in the net.
 const LOOSE_AFTER = new Set(['save', 'pad', 'blocked', 'wide', 'post', 'breakaway']);
 
+// ── how hard a line is sold ───────────────────────────────────────────────────
+// Every line carries `excite`, from -1 (grave: a death, the injury list) through 0 (the
+// narrator's own voice) to 1 (a goal), and the voice (AudioEngine.speak) turns it into
+// register, range, effort and pace. It comes off the pool the line was picked from, which
+// says what kind of moment it is far better than the words do: most calls are deadpan in
+// print ("Red light."), and it's the delivery that sells them. A real call builds with
+// the play: calm through the neutral zone, quicker on the entry, up on the shot, all the
+// way up on the goal, and down, slow and low, for a man who doesn't get up. A key not
+// listed falls back to its parent ('pbp.shot.slap' → 'pbp.shot'); an unknown one is 0.
+const EXCITE = {
+  // the goal, and what it sets off
+  'pbp.goal': 1, 'goal': 0.85, 'hattrick': 0.9, 'pbp.goal.lamp': 0.75, 'pbp.goal.celebrate': 0.6, 'pbp.goal.mob': 0.6, 'pbp.goal.slump': 0.15,
+  'shootout.winner': 1, 'shootout.score': 0.95, 'shootout.miss': 0.5, 'shootout.intro': 0.45,
+  'pbp.breakaway': 0.8, 'pbp.out.breakaway': 0.65, 'pbp.after.breakaway': 0.45, 'shot.breakaway': 0.55,
+  // the build: a rush quickens as it gets to the net
+  'pbp.breakout': 0.3, 'pbp.retrieve': 0.25, 'pbp.pass': 0.35, 'pbp.won': 0.35, 'pbp.battle': 0.35, 'pbp.cycle': 0.3,
+  'pbp.dump': 0.3, 'pbp.chase': 0.3, 'pbp.entry': 0.4, 'pbp.deke': 0.55, 'pbp.shot': 0.6, 'pbp.rebound': 0.55,
+  'pbp.out': 0.5, 'pbp.out.post': 0.75, 'pbp.out.wide': 0.35, 'pbp.after': 0.35, 'pbp.after.post': 0.5, 'pbp.freeze': 0.2,
+  'shot': 0.25, 'shot.post': 0.4, 'pbp.replay': 0.35,
+  // the draw
+  'pbp.faceoff': 0.2, 'pbp.faceoff.drop': 0.25, 'faceoff': 0.15,
+  // contact
+  'pbp.hit': 0.55, 'pbp.hit.shatter': 0.85, 'pbp.hit.down': 0.3, 'pbp.hit.up': 0.1, 'boards': 0.5,
+  'pbp.fight': 0.6, 'pbp.fight.drop': 0.7, 'pbp.fight.box': 0.2, 'pbp.punch.land': 0.7, 'pbp.punch.big': 0.9, 'pbp.punch.miss': 0.45,
+  'fight.knockdown': 0.75, 'fight.jersey': 0.6, 'fight.linesmen': 0.4, 'fight.result': 0.3, 'penalty.fight': 0.35,
+  'pbp.scrum': 0.45, 'pbp.scrum.whistle': 0.2, 'scrum': 0.4, 'pbp.pull': 0.5, 'pull': 0.45,
+  'penalty': 0.2, 'powerplay': 0.3,
+  // the frame of the night
+  'intro': 0.25, 'rivalry.intro': 0.35, 'cup.intro': 0.4, 'matchup': 0.15, 'rivalry.matchup': 0.2, 'cup.matchup': 0.2,
+  'section.start': 0.3, 'ot.intro': 0.55, 'section.end': 0.1, 'pbp.period.out': 0.15, 'score.update': 0.1,
+  'final': 0.2, 'cup.final': 0.5, 'outro': 0.05, 'cup.outro': 0.15,
+  'chatter': 0, 'intermission': 0, 'pbp.zamboni': -0.1,
+  // the cost
+  'injury': -0.25, 'injury.report': -0.3, 'injury.wound': -0.3, 'injury.sever': -0.2, 'pbp.injury': -0.35, 'intermission.casualties': -0.3,
+  'death': -0.7, 'death.wound': -0.6, 'pbp.death': -0.8,
+};
+// `heat` is the night's: overtime and a Cup final lift the play, never the grief.
+export function exciteOf(key, heat = 0) {
+  let k = String(key || '');
+  while (k && !(k in EXCITE)) k = k.includes('.') ? k.slice(0, k.lastIndexOf('.')) : '';
+  const x = k ? EXCITE[k] : 0;
+  return Math.round(Math.max(-1, Math.min(1, x > 0 ? x + heat : x)) * 100) / 100;
+}
+
 export function narrate(ctx) {
   const {
     script, game, gs, ws, announcer,
-    say, pick, nrng, abbr, recordOf,
+    nrng, abbr, recordOf,
   } = ctx;
+  // Every pick names the pool it came from, and every line said after it is sold the way
+  // that pool's moment is (EXCITE above). A line is always said straight after its pick.
+  let lastKey = '', heat = 0;
+  // ...and never the same line from a pool twice running: a booth that says "saucers one
+  // over" on two passes in a row sounds like a tape. One re-pick, so it's rare, not banned.
+  const lastLine = new Map();
+  const pick = (...keys) => {
+    lastKey = String(keys[0] || '');
+    let line = ctx.pick(...keys);
+    if (line && lastLine.get(lastKey) === line) line = ctx.pick(...keys);
+    lastLine.set(lastKey, line);
+    return line;
+  };
+  const say = (line, tok, sb, fx, gd, meta) => {
+    const excite = exciteOf(lastKey, heat);
+    return ctx.say(line, tok, sb, fx, gd, excite ? { ...(meta || {}), excite } : meta);
+  };
   const pools = ctx.pools || {};
   const { away, home, awayScore, homeScore, beats } = game;
   const awayAbbr = abbr(away.name), homeAbbr = abbr(home.name);
@@ -350,7 +411,8 @@ export function narrate(ctx) {
       // and a pool line pretending to be a list would get the order wrong.
       for (const g of per.goals) {
         const gt = { ...t, ...g, shooter: g.shooter, assist: g.assist || 'unassisted', team: g.teamName, clock: g.clockStr };
-        say(pick('intermission.goal'), gt, sb); said++;
+        // a goal nobody set up has its own lines; the assist ones would read "set up by unassisted"
+        say(pick(...(g.assist ? ['intermission.goal'] : ['intermission.goal.solo', 'intermission.goal'])), gt, sb); said++;
       }
     } else {
       say(pick('intermission.scoreless'), stat, sb); said++;
@@ -409,26 +471,39 @@ export function narrate(ctx) {
     // optional, so a short slot trims the build-up before it trims the shot.
     const keep = new Set(loud ? mids.slice(-5) : mids.slice(-3));
     let holder = who(nodes[0].carrier), first = true, wonNext = false;
+    // Where each touch is, off the keyframe the rink plays it at: `{where}` in a line.
+    const plus = b.teamName === away.name;
+    const where = (n) => (mod && mod.rinkSpot ? mod.rinkSpot(n.p, plus).at : '') || 'up the ice';
     // Off a loose puck (a rebound, a kick-out, a block) he has to go and get it first, and
     // the rink shows him doing it, so the booth says so and the breakout follows when he has it.
     const prev = beats[idx - 2];
-    if (gd && prev && prev.type === 'chance' && !prev.frozen && LOOSE_AFTER.has(prev.kind) && call('pbp.retrieve', t, { player: holder }, sb, null, gd)) {
-      call('pbp.breakout', t, { player: holder }, sb, { cue: { ev: 'fetched' } });
-    } else call('pbp.breakout', t, { player: holder }, sb, null, gd);
+    const out0 = { player: holder, where: where(nodes[0]) };
+    if (gd && prev && prev.type === 'chance' && !prev.frozen && LOOSE_AFTER.has(prev.kind) && call('pbp.retrieve', t, out0, sb, null, gd)) {
+      call('pbp.breakout', t, out0, sb, { cue: { ev: 'fetched' } });
+    } else call('pbp.breakout', t, out0, sb, null, gd);
+    // Planned before it's said, so the last touch before the shot is known. A booth always
+    // calls the touch that puts the puck where it's shot from ("...over to Lindqvist,
+    // shot"), and the rink needs that cue to have it there in time. The pacer trims
+    // optional lines longest first, so if that one were optional it could go, and the
+    // picture would release the shot after the save had been called.
+    const plan = [];
     for (const i of mids) {
       const n = nodes[i], man = n.carrier >= 0 ? who(n.carrier) : null;
       let key = null, extra = null;
-      if (n.ev === 'battle') { key = 'pbp.battle'; wonNext = true; holder = null; }
-      else if (wonNext && man) { key = 'pbp.won'; extra = { player: man }; wonNext = false; holder = man; }
-      else if (man && holder && man !== holder) { key = 'pbp.pass'; extra = { player: holder, to: man }; holder = man; }
-      else if (man && n.ev !== 'pass') { key = `pbp.${n.ev}`; extra = { player: man }; holder = man; }
+      if (n.ev === 'battle') { key = 'pbp.battle'; extra = { where: where(n) }; wonNext = true; holder = null; }
+      else if (wonNext && man) { key = 'pbp.won'; extra = { player: man, where: where(n) }; wonNext = false; holder = man; }
+      else if (man && holder && man !== holder) { key = 'pbp.pass'; extra = { player: holder, to: man, where: where(n) }; holder = man; }
+      else if (man && n.ev !== 'pass') { key = `pbp.${n.ev}`; extra = { player: man, where: where(n) }; holder = man; }
       if (!key || !pools[key]) continue;
       if (!keep.has(i)) continue;
-      call(key, t, extra, sb, { cue: { ev: 'node', i }, opt: !loud && !first });
-      // a puck put in or knocked loose has to be run down, and the picture takes the time
-      if (n.ev === 'dump' || n.ev === 'battle') call('pbp.chase', t, null, sb, { opt: true });
-      first = false;
+      plan.push({ i, key, extra, ev: n.ev });
     }
+    plan.forEach((c, k) => {
+      call(c.key, t, c.extra, sb, { cue: { ev: 'node', i: c.i }, opt: !loud && !first && k < plan.length - 1 });
+      // a puck put in or knocked loose has to be run down, and the picture takes the time
+      if (c.ev === 'dump' || c.ev === 'battle') call('pbp.chase', t, null, sb, { opt: true });
+      first = false;
+    });
     return true;
   }
   // The shot, then what became of it. The shot line is when he releases it; the outcome
@@ -436,7 +511,10 @@ export function narrate(ctx) {
   function callShot(b, t, sb, gd) {
     const typeKey = `pbp.shot.${b.shotType || ''}`;
     const generic = nrng() < 0.3 || !pools[typeKey];
-    call(generic ? 'pbp.shot' : [typeKey, 'pbp.shot'], t, { shooter: b.shooter, shotLabel: b.shotLabel || 'shot' }, sb, { cue: { ev: 'shot' } }, gd);
+    // where he let it go from, off the shot's own keyframe
+    const shotNode = Array.isArray(b.possession) ? b.possession.find((n) => n.ev === 'shot') : null;
+    const from = (shotNode && mod && mod.rinkSpot ? mod.rinkSpot(shotNode.p, b.teamName === away.name).from : '') || 'from in close';
+    call(generic ? 'pbp.shot' : [typeKey, 'pbp.shot'], t, { shooter: b.shooter, shotLabel: b.shotLabel || 'shot', from }, sb, { cue: { ev: 'shot' } }, gd);
   }
 
   // Who is in each net, from the shots against it, so the pulled goalie can be named.
@@ -450,6 +528,7 @@ export function narrate(ctx) {
       if (b.teamName === away.name) sogAway++; else sogHome++;
     }
     const t = tok(b), sb = beatBug(b);
+    heat = (/OT$/.test(b.section || '') ? 0.12 : 0) + (ws ? 0.08 : 0);
 
     // Tally the period as it happens — every counter the intermission reads back.
     if (per) {
@@ -516,7 +595,8 @@ export function narrate(ctx) {
           call('pbp.replay.shot', t, null, sb, { opt: true });
           if (b.goalie) call('pbp.replay.goalie', t, null, sb, { opt: true });
         }
-        say(pick(key, 'goal'), t, sb); said++;
+        // the plain goal pool names the helper on some lines, so a solo goal takes its own
+        say(pick(...(b.assist || key !== 'goal' ? [key, 'goal'] : ['goal.solo', 'goal'])), t, sb); said++;
         say(pick('score.update'), t, sb); said++;
         break;
       }

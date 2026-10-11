@@ -365,6 +365,31 @@ export function synthPossession(seed, kind, side) {
   return nodes;
 }
 
+// ── where on the ice ─────────────────────────────────────────────────────────
+// A keyframe's position, said the way a booth says it: his own end, centre, the point,
+// the circles, the wall, the slot, behind the net, the corners. A real call is who, where,
+// what ("Cordero, left point, shot"), and the where is what a listener builds the picture
+// from. It's worked out in the attacking side's frame, with left and right as he skates:
+// the away club attacks +x, and facing +x his left is the far boards (y = 1). It reads the
+// same keyframes the rink plays, so the booth can't put a man somewhere the picture
+// doesn't. In feet: blue lines at 75 and 125 of 200, goal lines at 11 and 189.
+// `at` goes after a name ("Cordero at the left point"), `from` after a shot.
+export function rinkSpot(p, attacksPlus) {
+  const x = Array.isArray(p) ? +p[0] : NaN, y = Array.isArray(p) ? +p[1] : NaN;
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return { at: '', from: '' };
+  const u = attacksPlus ? x : 1 - x, v = attacksPlus ? y : 1 - y;
+  const side = v > 0.5 ? 'left' : 'right', mid = Math.abs(v - 0.5);
+  const spot = (at, from) => ({ at, from });
+  if (u < 0.055) return mid < 0.2 ? spot('behind his own net', 'from behind his own net') : spot('in his own corner', 'out of his own corner');
+  if (u < 0.375) return spot('in his own end', 'from his own end');
+  if (u < 0.625) return mid < 0.18 ? spot('through centre', 'from centre') : spot(`up the ${side} side`, `from the ${side} side`);
+  if (u >= 0.945) return mid < 0.18 ? spot('behind the net', 'from behind the net') : spot(`in the ${side} corner`, `from the ${side} corner`);
+  if (u < 0.705) return mid < 0.2 ? spot('at the top of the zone', 'from the top of the zone') : spot(`at the ${side} point`, `from the ${side} point`);
+  if (mid >= 0.33) return spot(`on the ${side} wall`, `off the ${side} wall`);
+  if (mid < 0.14) return u >= 0.83 ? spot('in the slot', 'from the slot') : spot('in the high slot', 'from the high slot');
+  return spot(`at the ${side} circle`, `from the ${side} circle`);
+}
+
 // ── the build-up ─────────────────────────────────────────────────────────────
 // THE WORDS AND THE PICTURE TELL THE SAME RUSH. The possession keyframes were animated
 // by the rink and thrown away by the booth, so the announcer's entire account of a
@@ -926,6 +951,8 @@ export const HOCKEY = {
   simGame,
   synthDetail: synthPossession,
   playDesc,
+  // Where a keyframe is, as the booth says it (the narrator's {where} and {from}).
+  rinkSpot,
   defaultNames: DEFAULT_NAMES,
   ordinal,
   // The presence of `narrate` is what tells assembleSportsGraph to hand this sport

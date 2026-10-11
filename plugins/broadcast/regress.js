@@ -2354,7 +2354,7 @@ export default async function regress({ check, run, getPlayer }) {
     const seenTypes = new Set(), usedPools = new Set();
     const unfilled = [], strayScorers = [], notCrossed = [];
     const gdViolent = new Set();
-    let goals = 0, faceoffs = 0, centreDrops = 0, periods = 0, lines = 0, gamesPlayed = 0;
+    let goals = 0, faceoffs = 0, centreDrops = 0, periods = 0, lines = 0, gamesPlayed = 0, sold = 0;
     // A WIDE SLATE, because one of the things asserted below is RARE. A death needs a
     // game tied after regulation AND an overtime fatal roll, which is a compound tail —
     // at 24 games it appeared or didn't depending on the seed, so any change that
@@ -2379,11 +2379,14 @@ export default async function regress({ check, run, getPlayer }) {
 
       const nrng = sportsRng(seed ^ 0x9e3779b9);
       const pick = (...keys) => { for (const k of keys) if (pools[k]?.length) { usedPools.add(k); break; } return sportsPick(pools, nrng, ...keys); };
-      const say = (line, tok, sb, graphic, gd) => {
+      const say = (line, tok, sb, graphic, gd, meta) => {
         if (!line) return;
         lines++;
+        if (meta && Number.isFinite(meta.excite)) sold++;
         const text = sportsFill(line, tok).trim();
-        if (/\{[a-zA-Z]/.test(text)) unfilled.push(text);
+        // A token the call didn't supply is blanked, not left in braces, so look for what
+        // it leaves behind too: "from , and" on a solo goal, "Cordero ." with no {where}.
+        if (/\{[a-zA-Z]/.test(text) || /\s[.,!?;:]|\s{2,}/.test(text)) unfilled.push(text);
         if (!gd) return;
         // THE INVARIANT. The rink draws a goal line; the sim decides where the puck
         // finishes. A goal whose last keyframe stops short of that line renders as a
@@ -2423,6 +2426,25 @@ export default async function regress({ check, run, getPlayer }) {
 
     check('hockey: goals cross the goal line', notCrossed.length === 0, `${notCrossed.length} short: ${notCrossed.slice(0, 3).join(',')}`);
     check('hockey: no unfilled tokens reach the air', unfilled.length === 0, unfilled.slice(0, 3).join(' | '));
+    // How hard each line is sold rides on it, off the pool it came from (exciteOf in
+    // hockey-narrator.js), and the voice reads it. A line with none is spoken flat.
+    {
+      const { exciteOf } = await import('./sports/hockey-narrator.js');
+      check('hockey: nearly every line carries a delivery', sold / Math.max(1, lines) > 0.9, `${sold} of ${lines}`);
+      check('hockey: a goal is sold hardest, a death low, chatter flat',
+        exciteOf('pbp.goal') === 1 && exciteOf('pbp.death.still') < 0 && exciteOf('chatter.yard') === 0 && exciteOf('pbp.shot.slap') === exciteOf('pbp.shot'),
+        `${exciteOf('pbp.goal')} ${exciteOf('pbp.death.still')} ${exciteOf('chatter.yard')} ${exciteOf('pbp.shot.slap')}`);
+      check('hockey: overtime lifts the play and never the grief', exciteOf('pbp.shot', 0.12) > exciteOf('pbp.shot') && exciteOf('death', 0.12) === exciteOf('death') && exciteOf('pbp.goal', 0.2) === 1);
+      // {where} is said from the carrier's side: left and right as he skates, so the same
+      // spot is his left going one way and his right coming back.
+      const at = (p, plus) => HOCKEY.rinkSpot(p, plus).at;
+      check('hockey: the booth places a man where the rink has him',
+        at([0.85, 0.5], true) === 'in the slot' && at([0.15, 0.5], false) === 'in the slot'
+        && at([0.5, 0.15], true) === 'up the right side' && at([0.5, 0.15], false) === 'up the left side'
+        && at([0.97, 0.9], true) === 'in the left corner' && at([0.03, 0.1], false) === 'in the left corner'
+        && at([0.66, 0.85], true) === 'at the left point' && at([0.22, 0.5], true) === 'in his own end',
+        [at([0.85, 0.5], true), at([0.5, 0.15], false), at([0.03, 0.1], false), at([0.66, 0.85], true)].join(' | '));
+    }
     check('hockey: scorers belong to a club that played', strayScorers.length === 0, strayScorers.slice(0, 3).join(','));
     check('hockey: the narrator produced play-by-play', lines > 100, `${lines} lines`);
 
@@ -2516,7 +2538,7 @@ export default async function regress({ check, run, getPlayer }) {
       const pick = (...keys) => { for (const k of keys) if (pools[k]?.length) { usedPools.add(k); break; } return sportsPick(pools, nrng, ...keys); };
       HOCKEY.narrate({
         script: {}, game, gs: { seed, game }, slot, ws: !!opts.ws, announcer: 'Tug Brennan',
-        pools, nrng, sport: HOCKEY, add: () => {}, say: (l, t) => { if (l) { const x = sportsFill(l, t); if (/\{[a-zA-Z]/.test(x)) unfilled.push(x); } }, pick,
+        pools, nrng, sport: HOCKEY, add: () => {}, say: (l, t) => { if (l) { const x = sportsFill(l, t).trim(); if (/\{[a-zA-Z]/.test(x) || /\s[.,!?;:]|\s{2,}/.test(x)) unfilled.push(x); } }, pick,
         abbr: (n) => String(n).slice(0, 3).toUpperCase(), recordOf: () => '8-4-1', lastId: () => null,
       });
       return game;

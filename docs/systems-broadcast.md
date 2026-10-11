@@ -1347,6 +1347,16 @@ LIVE until the director lands the play (`onLand`); then the header takes the goa
 strip names the result. Both smoke and regress check it. In a box too small for the strip,
 the header alone keeps the rule.
 
+**The booth sells the play.** The call is written the way real play-by-play is: who, where,
+what, with the puck carrier placed on the ice (`{where}`, off the keyframe the rink plays) and
+the verbs varied, building to the shot, and the goal one short burst (see the hockey section of
+[bsm-format.md](bsm-format.md#hockey-sport-hockey)). Every line also carries `excite`, from -1
+(grave) to 1 (a goal), off the pool it was picked from (`EXCITE` in `hockey-narrator.js`;
+overtime and a Cup final add a little to the play and nothing to the grief). It rides the
+`say` node and the `broadcast` message, and tv.js hands it to the voice, so Read Aloud and
+Rinkside speak a breakout calmly, a shot higher and quicker, a goal at full cry with the word
+held, and a death low and slow. See [Selling a line](systems-procedural-audio.md#selling-a-line-excite).
+
 Branding lives in [cphl-brand.js](../client/game/js/panels/cphl-brand.js): one mark, drawn
 by the score bug, the full-screen graphics, the rink header, the idle screen and the
 Gameday toggle itself, which wears a puck on a hockey night and a baseball otherwise

@@ -2396,7 +2396,7 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   // the line airs; the client animates it. See _applySportsFx in tv.js.
   // `meta` is a sport's pacing hints: `cue` (the moment of play this line describes) and
   // `opt` (a line the pacer may cut). Only a sport with `paceCalls` reads them.
-  const say = (line, tok, sb, graphic, gd, meta) => { if (!line) return; const text = sportsFill(line, tok).trim(); if (text) add({ type: 'say', text, style: 'raw', ...(sb ? { scorebug: sb } : {}), ...(graphic ? { graphic } : {}), ...(gd ? { gameday: gd } : {}), ...(meta && meta.cue ? { _cue: meta.cue } : {}), ...(meta && meta.opt ? { _opt: meta.opt } : {}) }); };
+  const say = (line, tok, sb, graphic, gd, meta) => { if (!line) return; const text = sportsFill(line, tok).trim(); if (text) add({ type: 'say', text, style: 'raw', ...(sb ? { scorebug: sb } : {}), ...(graphic ? { graphic } : {}), ...(gd ? { gameday: gd } : {}), ...(meta && meta.cue ? { _cue: meta.cue } : {}), ...(meta && meta.opt ? { _opt: meta.opt } : {}), ...(meta && meta.excite ? { excite: meta.excite } : {}) }); };
 
   // ── the sport seam ──────────────────────────────────────────────────────────
   // Everything above this line is sport-agnostic: the node chain, the say/pick
@@ -5328,7 +5328,7 @@ async function broadcastTick() {
           // SYNC BY CONTRACT — this is the broadcast tick. `loggedPanelsSync` reads
           // the latch hydrated at login and never awaits (see presentation.js).
           const toLog = loggedPanelsSync(player);
-          if (formatted) sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(toLog ? { toLog: true } : {}), ...(result.duration != null ? { duration: result.duration } : {}), ...(gamedayOverlay ? { hasGameday: true } : {}) });
+          if (formatted) sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(toLog ? { toLog: true } : {}), ...(result.duration != null ? { duration: result.duration } : {}), ...(result.excite ? { excite: result.excite } : {}), ...(gamedayOverlay ? { hasGameday: true } : {}) });
           if (isMusic) sendToPlayer(player.id, { type: 'audio_music', def: result.song, owner: 'tv' });
           if (isSample) sendToPlayer(player.id, { type: 'audio_sample', def: result.sample });
           // A log-rung viewer has no panel to take an overlay, so the score and the
@@ -5585,7 +5585,7 @@ async function _tabletBroadcastPass(tickResults, activeChannels, nowMs, servedTh
     _recordBeat(state, result, programName, scorebugOverlay, gamedayOverlay, nowMs);
 
     for (const pid of viewers) {
-      if (formatted) sendToPlayer(pid, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(result.duration != null ? { duration: result.duration } : {}), ...(gamedayOverlay ? { hasGameday: true } : {}) });
+      if (formatted) sendToPlayer(pid, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(result.duration != null ? { duration: result.duration } : {}), ...(result.excite ? { excite: result.excite } : {}), ...(gamedayOverlay ? { hasGameday: true } : {}) });
       if (isMusic) sendToPlayer(pid, { type: 'audio_music', def: result.song, owner: 'tv' });
       if (isSample) sendToPlayer(pid, { type: 'audio_sample', def: result.sample });
       if (scorebugOverlay) sendToPlayer(pid, { type: 'tv_overlay', channelId, overlay: scorebugOverlay });
@@ -7330,7 +7330,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
           : (!isVerbatim && !isNarration && !isAmbient && bb.npcAnchor ? `${bb.npcAnchor} says, "${raw}"` : raw);
         // Verbatim lines (microreel dialogue) leak as speech without needing an anchor.
         const isSpeech = (!isNarration && !isAmbient && style_say !== 'ticker' && !!bb.npcAnchor) || isVerbatim;
-        return { text: text_say, key: key_say, style: isAmbient ? 'ambient' : 'raw', duration: holdMs_say / 1000, ...(isSpeech ? { speech: true, speechText: text_say } : {}), ...(node.data?.scorebug ? { scorebug: node.data.scorebug } : {}), ...(node.data?.graphic ? { graphic: node.data.graphic } : {}), ...(node.data?.gameday ? { gameday: node.data.gameday } : {}) };
+        return { text: text_say, key: key_say, style: isAmbient ? 'ambient' : 'raw', duration: holdMs_say / 1000, ...(isSpeech ? { speech: true, speechText: text_say } : {}), ...(node.data?.scorebug ? { scorebug: node.data.scorebug } : {}), ...(node.data?.graphic ? { graphic: node.data.graphic } : {}), ...(node.data?.gameday ? { gameday: node.data.gameday } : {}), ...(node.data?.excite ? { excite: node.data.excite } : {}) };
       }
 
       case 'music': {

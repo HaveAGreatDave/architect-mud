@@ -410,29 +410,30 @@
         "Round the boards."
       ],
       "pbp.battle": [
-        "Loose puck.",
-        "It's free in the corner.",
-        "Two men after it.",
-        "Scramble along the wall.",
+        "Loose puck {where}.",
+        "It's free {where}.",
+        "Two men after it {where}.",
+        "Scramble {where}.",
         "Nobody has it.",
-        "Sticks and elbows in the corner."
+        "Sticks and elbows {where}."
       ],
       "pbp.breakaway": [
         "Breakaway!",
-        "He's in alone!",
+        "He's in ALONE!",
         "{shooter} is clear!",
         "Nobody near him. Breakaway!",
-        "{shooter} behind everybody!"
+        "{shooter} behind everybody!",
+        "{shooter} gets loose! Breakaway!"
       ],
       "pbp.breakout": [
-        "{player} has it behind his own net.",
-        "{player} picks it up deep.",
-        "{player} takes it out of his own end.",
+        "{player} gathers it in his own end.",
         "{player} with it, heading up.",
-        "{player} gathers it in the corner.",
+        "{player} turns it up ice.",
+        "{player} picks it up deep and goes.",
+        "{player} starts it out.",
         "Puck to {player}, own end.",
-        "{player} wheels out from behind the net.",
-        "{player} starts it up the ice."
+        "{player} carries it out.",
+        "{player} motors up the ice."
       ],
       "pbp.chase": [
         "Race for it.",
@@ -441,12 +442,12 @@
         "Footrace."
       ],
       "pbp.cycle": [
-        "{player} works it low.",
-        "{player} behind the net.",
-        "{player} along the wall.",
-        "{player} holds it in the corner.",
-        "{player} grinds it down the boards.",
-        "{player} buys time below the dots."
+        "{player} {where}.",
+        "{player} with it {where}.",
+        "{player} works it {where}.",
+        "{player} protects it {where}.",
+        "{player} holds it {where}.",
+        "{player} carries it {where}."
       ],
       "pbp.death.helmets": [
         "Helmets come off.",
@@ -469,27 +470,29 @@
         "No hurry now."
       ],
       "pbp.deke": [
-        "{player} dangles one.",
-        "{player} goes around a defender.",
+        "{player} dangles one {where}.",
+        "{player} goes around his man.",
         "Toe drag, {player}. Gone.",
-        "{player} undresses a man.",
-        "{player} fakes left, goes right.",
-        "{player} leaves him on the ice."
+        "{player} undresses a defender {where}.",
+        "{player} fakes the shot and walks him.",
+        "{player} spins off a check.",
+        "{player} leaves a man sitting on the ice."
       ],
       "pbp.dump": [
         "{player} dumps it in.",
         "{player} chips it deep.",
-        "{player} fires it around the boards.",
+        "{player} rims it around the boards.",
         "In behind them, {player} chasing.",
-        "{player} gives up the puck to get the zone."
+        "{player} flips it in and goes after it."
       ],
       "pbp.entry": [
-        "{player} over the blue line.",
-        "{player} gains the zone.",
-        "In the zone, {player}.",
-        "{player} carries it in.",
-        "{player} walks the line and comes in.",
-        "{player} beats the defence to the line."
+        "{player} gains the line.",
+        "{player} brings it in {where}.",
+        "{player} carries it over the blue.",
+        "{player} steps into the zone.",
+        "{player} walks it in {where}.",
+        "{player} beats his man to the line.",
+        "Over the line, {player}."
       ],
       "pbp.faceoff.center": [
         "Faceoff at centre.",
@@ -513,7 +516,8 @@
         "{winner} takes the draw.",
         "Won by {winner}.",
         "{winner} pulls it back.",
-        "Clean win, {winner}."
+        "Clean win, {winner}.",
+        "{winner} ties up his man and kicks it back."
       ],
       "pbp.faceoff.zone": [
         "Draw in the {zone}.",
@@ -546,15 +550,18 @@
       "pbp.freeze": [
         "{goalie} covers. Whistle.",
         "{goalie} holds on. Whistle.",
-        "Frozen. Faceoff coming."
+        "Frozen. Faceoff coming.",
+        "{goalie} smothers it."
       ],
       "pbp.goal": [
-        "He scores!",
-        "It's in!",
-        "Scores!",
-        "Goal, {team}!",
-        "Top shelf. In.",
-        "Through the five-hole. Goal."
+        "He SCORES!",
+        "It's IN!",
+        "SCORES!",
+        "GOAL! {team}!",
+        "Top shelf! He SCORES!",
+        "Five-hole! It's IN!",
+        "{shooter} SCORES!",
+        "He buries it!"
       ],
       "pbp.goal.celebrate": [
         "{shooter} wheels away.",
@@ -645,61 +652,76 @@
         "Off the ice, {player}."
       ],
       "pbp.out.blocked": [
-        "Blocked.",
+        "Blocked!",
         "A defender eats it.",
         "Blocked in front.",
         "Off a shin pad. That'll bruise.",
-        "Somebody lay down in front of it."
+        "Somebody lay down in front of it.",
+        "Gets in the lane. Blocked."
       ],
       "pbp.out.breakaway": [
-        "In alone. {goalie} pokes it away.",
-        "{goalie} comes out and takes it off him.",
-        "Poke check, {goalie}.",
-        "Stopped on the breakaway."
+        "In alone. {goalie} pokes it away!",
+        "{goalie} comes out and takes it off him!",
+        "Poke check, {goalie}!",
+        "Stopped on the breakaway!",
+        "{goalie} STOPS him!",
+        "{goalie} stands him up!"
       ],
       "pbp.out.glove": [
-        "Glove save, {goalie}.",
+        "Glove save, {goalie}!",
         "{goalie} snags it.",
-        "{goalie} plucks it out of the air.",
-        "Into the glove."
+        "{goalie} picks it out of the air.",
+        "Into the glove.",
+        "Flashes the leather, {goalie}.",
+        "{goalie} with the glove. Shows it to him."
       ],
       "pbp.out.pad": [
-        "Pad save, {goalie}.",
+        "Pad save, {goalie}!",
+        "Kick save, {goalie}!",
         "{goalie} kicks it out.",
         "Off the pad.",
         "{goalie} drops and stops it.",
-        "Leg save, {goalie}."
+        "{goalie} gets a toe on it."
       ],
       "pbp.out.post": [
-        "Off the post!",
-        "Post!",
+        "Off the POST!",
+        "POST!",
         "Iron!",
-        "Hits the post and stays out."
+        "Hits the post and stays out!",
+        "Rings off the iron!"
       ],
       "pbp.out.save": [
+        "SAVE, {goalie}!",
         "{goalie} takes it in the chest.",
         "Saved by {goalie}.",
-        "Chest save, {goalie}.",
         "{goalie} absorbs it.",
-        "Right into {goalie}."
+        "Right into the crest. {goalie}.",
+        "{goalie} swallows it up.",
+        "Turned aside by {goalie}."
       ],
       "pbp.out.wide": [
         "Wide.",
         "Misses the net.",
         "Off the end boards.",
         "Wide by a foot.",
-        "Rings around the glass."
+        "Rings around the glass.",
+        "Just wide of the post."
       ],
       "pbp.pass": [
         "{player} to {to}.",
-        "Over to {to}.",
-        "{player} finds {to}.",
-        "Across to {to}.",
+        "{player} feathers it to {to}.",
+        "{player} threads it to {to} {where}.",
+        "Across to {to} {where}.",
+        "{player} slides it over to {to}.",
+        "{player} finds {to} {where}.",
         "{player} hits {to} in stride.",
-        "Up to {to}.",
-        "Back to {to}.",
-        "{player} slides it to {to}.",
-        "Tape to tape, {to}."
+        "{player} ladles it to {to}.",
+        "{player} saucers one over to {to}.",
+        "{player} chips it ahead to {to}.",
+        "Back to {to} {where}.",
+        "Tape to tape, {to}.",
+        "{player} drops it for {to}.",
+        "{player} banks it off the wall to {to}."
       ],
       "pbp.period.out": [
         "Fresh sheet.",
@@ -734,10 +756,12 @@
         "{thrower} hits air."
       ],
       "pbp.rebound": [
-        "Rebound loose.",
+        "Rebound!",
+        "Rebound loose!",
         "Rebound, and it's cleared.",
         "Juicy rebound. Nobody home.",
-        "Rebound to the corner."
+        "Rebound to the corner.",
+        "Loose in front!"
       ],
       "pbp.replay.assist": [
         "Watch {assist} find him.",
@@ -798,45 +822,53 @@
         "Whistle. Pushing after it."
       ],
       "pbp.shot": [
-        "{shooter} shoots.",
-        "{shooter} lets it go.",
-        "{shooter}, the {shotLabel}.",
-        "{shooter} fires.",
-        "Shot, {shooter}."
+        "{shooter} shoots!",
+        "{shooter} lets it go {from}.",
+        "{shooter}, the {shotLabel}!",
+        "{shooter} fires {from}.",
+        "Shot, {shooter}!",
+        "{shooter} lets fly."
       ],
       "pbp.shot.backhand": [
         "{shooter} on the backhand.",
-        "Backhand from {shooter}.",
-        "{shooter} flips a backhand."
+        "Backhand, {shooter}!",
+        "{shooter} flips a backhand {from}.",
+        "{shooter} tries to roof a backhand."
       ],
       "pbp.shot.slap": [
         "{shooter} winds up.",
-        "{shooter} loads up the slapshot.",
-        "Big windup, {shooter}.",
-        "{shooter} leans into a slapper."
+        "{shooter} loads up {from}.",
+        "Big windup, {shooter}!",
+        "{shooter} leans into a slapper.",
+        "{shooter} hammers one {from}.",
+        "{shooter} with the cannon."
       ],
       "pbp.shot.snap": [
         "{shooter}, a snap shot.",
-        "{shooter} snaps it.",
-        "Quick release, {shooter}."
+        "{shooter} snaps it {from}.",
+        "Quick release, {shooter}!",
+        "{shooter} gets it away in a hurry."
       ],
       "pbp.shot.wrap": [
         "{shooter} tries the wraparound.",
         "{shooter} comes around the net.",
-        "Wraparound, {shooter}."
+        "Wraparound, {shooter}!",
+        "{shooter} stuffs at the far post."
       ],
       "pbp.shot.wrist": [
         "{shooter} snaps a wrister.",
-        "{shooter}, quick wrist shot.",
+        "{shooter}, quick wrist shot {from}.",
         "Wrister from {shooter}.",
-        "{shooter} pulls it in and shoots."
+        "{shooter} pulls it in and shoots.",
+        "{shooter} drags it and fires."
       ],
       "pbp.won": [
         "{player} comes out with it.",
         "{player} wins the race.",
-        "{player} digs it free.",
+        "{player} digs it free {where}.",
         "{player} out of the pile with it.",
-        "{player} wants it more."
+        "{player} wants it more.",
+        "{player} pitchforks it loose."
       ],
       "pbp.zamboni.lap": [
         "Fresh ice going down.",
@@ -1009,6 +1041,17 @@
         "The tannoy here came out of a freight shed. In the second intermission it still reads out bay numbers.",
         "Birds fans crow when their side scores. All of them at once, and it goes on longer than you'd think.",
         "Somebody gets a live rooster into this barn every season. Security has stopped asking how, and nobody has caught the rooster."
+      ],
+      "intermission.goal.solo": [
+        "{clock}: {shooter}, {team}. Unassisted.",
+        "{team}, {shooter} at {clock}, on his own.",
+        "{shooter} for the {team}, {clock} on the clock. Nobody else touched it."
+      ],
+      "goal.solo": [
+        "{shooter} SCORES. {team} lead the noise, {home} {homeScore}, {away} {awayScore}.",
+        "IN. {shooter} beats {goalie}, and the horn does what the horn does.",
+        "He shoots. HE SCORES. {shooter}, all by himself, and {goalie} never had it.",
+        "{shooter} does it alone. Buries it, and this building has come apart."
       ]
     },
     "sport": "hockey",
