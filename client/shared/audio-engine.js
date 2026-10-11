@@ -61,13 +61,74 @@
   let _monoNode = null, _mono = false;
   let echoNodes = null; // global master-bus echo send (weed) — { wet, delay, fb }
 
+  // ── The limiter ────────────────────────────────────────────────────────────
+  // A DynamicsCompressor set as a brickwall: nothing above about -1 dBFS gets
+  // through, so a roaring crowd, fireworks and a shout landing together are
+  // squeezed rather than clipped.
+  //
+  // The compressor adds its own makeup gain, which the spec fixes as
+  // (1 / fullRangeGain) ^ 0.6, where fullRangeGain is the curve's output for a
+  // full-scale input. Left alone that makes every cue in the game about 0.6 dB
+  // louder, so a trim after it takes the makeup back off. Below the threshold
+  // the chain is then unity and the mix is the one that shipped before.
+  const LIMIT = { threshold: -1, knee: 0, ratio: 20, attack: 0.001, release: 0.1 };
+  const LIMIT_FULL_RANGE_DB = LIMIT.threshold + (0 - LIMIT.threshold) / LIMIT.ratio;
+  const LIMIT_MAKEUP = Math.pow(1 / Math.pow(10, LIMIT_FULL_RANGE_DB / 20), 0.6);
+  let _limiter = null, _limitTrim = null;
+
+  // ── Buses ──────────────────────────────────────────────────────────────────
+  // Each bus is a slider gain (the player's volume, set by _applyGains) and a
+  // duck gain after it (set by duck(), never by _applyGains, so neither can
+  // overwrite the other). The reverb send taps the duck's output, so a ducked
+  // bus ducks its reverb too.
+  //
+  // A cue with its own reverb `send` can't use the bus's shared send, so it
+  // enters a second copy of the chain with no send on it (`dry`) and a third
+  // that feeds only the reverb (`wet`). The copies are made on first use and
+  // their slider and duck gains are written alongside the originals, so a
+  // volume change or a duck reaches all three.
+  const BUS_NAMES = ['music', 'sfx', 'ambient', 'tv', 'ui'];
+  // The reverb send each bus carries. Music and ui are dry: a song isn't in the
+  // room with you, and Read Aloud on ui has to be understood. See buildReverb.
+  const BUS_SEND = { sfx: 1, ambient: 1, tv: 0.45 };
+  const buses = {};   // name -> { slider: [GainNode], duck: [GainNode], paths: {} }
+
+  // The tv bus has two sub-gains, voice and effects, so a broadcast can sit its
+  // effects a fixed number of dB under its voice inside the one TV slider. Both
+  // default to unity; setTvBalance moves them. Category 'tv' still goes straight
+  // to the bus, as it always has.
+  let tvVoiceGain = null, tvFxGain = null;
+  const _tvBalance = { voice: 1, fx: 1 };
+  const _tvSubs = { voice: [], fx: [] };
+
+  function _busPath(name, kind) {
+    const b = buses[name];
+    if (b.paths[kind]) return b.paths[kind];
+    const slider = ctx.createGain();
+    const dk = ctx.createGain();
+    slider.gain.value = b.slider[0].gain.value;
+    dk.gain.value = b.duck[0].gain.value;
+    slider.connect(dk).connect(kind === 'wet' ? reverbSend : masterGain);
+    b.slider.push(slider);
+    b.duck.push(dk);
+    b.paths[kind] = slider;
+    _applyGains();
+    _duckSchedule(name);
+    return slider;
+  }
+
   function ensureContext() {
     if (ctx) return ctx;
     const AC = global.AudioContext || global.webkitAudioContext;
     if (!AC) return null;
     ctx = new AC();
     masterGain = ctx.createGain();
-    // Mono downmix sits between the master bus and the speakers, so it catches
+    _limiter = ctx.createDynamicsCompressor();
+    for (const k of ['threshold', 'knee', 'ratio', 'attack', 'release']) _limiter[k].value = LIMIT[k];
+    _limitTrim = ctx.createGain();
+    _limitTrim.gain.value = 1 / LIMIT_MAKEUP;
+    masterGain.connect(_limiter).connect(_limitTrim);
+    // Mono downmix sits between the limiter and the speakers, so it catches
     // every category (music, sfx, ambient, tv) and every panner upstream of it.
     // A GainNode with an explicit single channel IS the downmix — WebAudio sums
     // L+R on the way in, and the destination spreads the one channel back to
@@ -77,22 +138,110 @@
     _monoNode.channelCountMode = 'explicit';
     _monoNode.channelInterpretation = 'speakers';
     _monoNode.connect(ctx.destination);
-    masterGain.connect(_mono ? _monoNode : ctx.destination);
-    musicGain = ctx.createGain();
-    sfxGain = ctx.createGain();
-    ambientGain = ctx.createGain();
-    tvGain = ctx.createGain();
-    uiGain = ctx.createGain();
-    musicGain.connect(masterGain);
-    sfxGain.connect(masterGain);
-    ambientGain.connect(masterGain);
-    tvGain.connect(masterGain);
-    // Straight to master, and deliberately NOT into the reverb send below.
-    uiGain.connect(masterGain);
+    _limitTrim.connect(_mono ? _monoNode : ctx.destination);
+    for (const name of BUS_NAMES) {
+      const slider = ctx.createGain();
+      const dk = ctx.createGain();
+      slider.connect(dk).connect(masterGain);
+      buses[name] = { slider: [slider], duck: [dk], paths: {}, holds: [] };
+    }
+    musicGain = buses.music.slider[0];
+    sfxGain = buses.sfx.slider[0];
+    ambientGain = buses.ambient.slider[0];
+    tvGain = buses.tv.slider[0];
+    uiGain = buses.ui.slider[0];
+    tvVoiceGain = ctx.createGain();
+    tvFxGain = ctx.createGain();
+    tvVoiceGain.connect(tvGain);
+    tvFxGain.connect(tvGain);
+    _tvSubs.voice.push(tvVoiceGain);
+    _tvSubs.fx.push(tvFxGain);
     buildReverb();
     _applyGains();
     return ctx;
   }
+
+  // Keep a broadcast's effects `fxDb` under its voice (and the voice at
+  // `voiceDb`), inside the one TV slider. 0 and 0 is the mix as it shipped.
+  function setTvBalance({ voiceDb = 0, fxDb = 0 } = {}) {
+    _tvBalance.voice = dbToGain(voiceDb);
+    _tvBalance.fx = dbToGain(fxDb);
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    for (const k of ['voice', 'fx']) for (const g of _tvSubs[k]) g.gain.setTargetAtTime(_tvBalance[k], t, 0.02);
+  }
+
+  const dbToGain = (db) => Math.pow(10, (db || 0) / 20);
+
+  // ── Ducking ────────────────────────────────────────────────────────────────
+  //
+  //   const h = duck(['sfx', 'ambient'], -9, { attack: 0.05, hold: 2, release: 0.4 });
+  //
+  // Pulls the named buses down by `dB` and brings them back. With `hold` the
+  // duck ends by itself after attack + hold; without it the duck stays until
+  // h.release() (natural Read Aloud uses that, from its utterance's start and
+  // end events). `at` starts it later, in context time; speak() uses that for
+  // a queued line.
+  //
+  // Ducks overlap: each bus keeps a list of holds and always sits at the
+  // deepest one active. The whole schedule is written as AudioParam events
+  // from the holds, so nothing here waits on a timer, and a gate can read it.
+  function duck(names, dB = -9, { attack = 0.05, hold = null, release = 0.4, at = null } = {}) {
+    const c = ensureContext();
+    if (!c) return { release() {} };
+    const list = (names === 'all' ? BUS_NAMES : Array.isArray(names) ? names : [names]).filter(n => buses[n]);
+    const start = Math.max(c.currentTime, at ?? c.currentTime);
+    const h = {
+      gain: dbToGain(Math.min(0, dB)), start,
+      end: hold != null ? start + attack + Math.max(0, hold) : Infinity,
+      attack: Math.max(0.005, attack), release: Math.max(0.005, release),
+    };
+    for (const n of list) { buses[n].holds.push(h); _duckSchedule(n); }
+    return {
+      release(when) {
+        const t = Math.max(c.currentTime, when ?? c.currentTime);
+        if (h.end <= t) return;
+        h.end = Math.max(h.start, t);
+        for (const n of list) _duckSchedule(n);
+      },
+    };
+  }
+
+  function _duckSchedule(name) {
+    const b = buses[name];
+    if (!b) return;
+    const now = ctx.currentTime;
+    const levelAt = (holds, t) => {
+      let lvl = 1, win = null;
+      for (const h of holds) if (h.start <= t && t < h.end && h.gain < lvl) { lvl = h.gain; win = h; }
+      return { lvl, win };
+    };
+    // Where the duck sits just before now, worked out from the holds rather than
+    // read off the param: a hold released this instant still counts here, and
+    // its release time is the one the way back up uses.
+    const before = levelAt(b.holds, now - 1e-6);
+    b.holds = b.holds.filter(h => h.end > now);
+    const pts = [...new Set([now, ...b.holds.map(h => Math.max(now, h.start)), ...b.holds.map(h => h.end).filter(Number.isFinite)])]
+      .sort((a, z) => a - z);
+    for (const g of b.duck) {
+      const p = g.gain;
+      // No anchor value: a target already running keeps running from wherever
+      // it has got to, and the new targets below carry on from there.
+      p.cancelScheduledValues(now);
+      let prev = before.lvl, prevWin = before.win;
+      for (const t of pts) {
+        const { lvl, win } = levelAt(b.holds, t);
+        if (Math.abs(lvl - prev) > 1e-6) {
+          // Going down takes the new hold's attack; coming back up takes the
+          // release of the hold that just let go.
+          const tc = lvl < prev ? (win?.attack ?? 0.05) : (prevWin?.release ?? 0.4);
+          p.setTargetAtTime(lvl, t, tc / 3);
+        }
+        prev = lvl; prevWin = win || prevWin;
+      }
+    }
+  }
+
 
   // ── The room (reverb) ──────────────────────────────────────────────────────
   //
@@ -134,14 +283,20 @@
     tunnel:   { seconds: 2.10, damp: 0.88, pre: 11, wet: 0.34 },
     // Inside metal. Short, extremely bright, faintly horrible.
     metal:    { seconds: 0.70, damp: 0.10, pre: 4,  wet: 0.26 },
+    // An open-air ballpark. Little tail, because there's no roof, but a
+    // slap-back off the stands about 120 ms later, a little later in one ear
+    // than the other. `slap` is that one reflection: ms after the sound, its
+    // level against the tail's peak, and the extra ms the right ear waits.
+    ballpark: { seconds: 0.18, damp: 0.60, pre: 3,  wet: 0.16, slap: { ms: 120, level: 1.0, spread: 7 } },
   };
 
   function buildReverb() {
     reverbNode = ctx.createConvolver();
     reverbSend = ctx.createGain();
     reverbSend.gain.value = 0;
-    sfxGain.connect(reverbSend);
-    ambientGain.connect(reverbSend);
+    // From each bus's DUCK output, so a ducked bus ducks its reverb too.
+    buses.sfx.duck[0].connect(reverbSend);
+    buses.ambient.duck[0].connect(reverbSend);
     // A TELEVISION IS A SPEAKER STANDING IN YOUR ROOM. This was left dry on the
     // reasoning that a broadcast's own room reverb is already baked into what it
     // plays — which is half right and the wrong half to act on: the studio
@@ -153,10 +308,10 @@
     //
     // ⚠ `uiGain` is deliberately NOT here. See busFor.
     const tvSend = ctx.createGain();
-    tvSend.gain.value = 0.45;
-    tvGain.connect(tvSend).connect(reverbSend);
+    tvSend.gain.value = BUS_SEND.tv;
+    buses.tv.duck[0].connect(tvSend).connect(reverbSend);
     reverbSend.connect(reverbNode).connect(masterGain);
-    setSpace('outdoor', { instant: true });
+    _applySpace(_roomOverride || _zoneSpace || 'outdoor', { instant: true });
   }
 
   function impulseFor(name) {
@@ -166,10 +321,20 @@
     const sr = ctx.sampleRate;
     const len = Math.max(1, Math.floor(sr * s.seconds));
     const pre = Math.floor(sr * (s.pre / 1000));
-    const buf = ctx.createBuffer(2, len + pre, sr);
+    // A slap-back is a short burst, not a click: about 20 ms of damped noise,
+    // so it reads as a wall of seats rather than as a fault in the impulse.
+    const slapLen = Math.floor(sr * 0.02);
+    const slapAt = s.slap ? Math.floor(sr * ((s.slap.ms + (s.slap.spread || 0)) / 1000)) + slapLen : 0;
+    const buf = ctx.createBuffer(2, Math.max(len + pre, slapAt), sr);
     // Per channel, and with its own noise: two identical channels is a mono
     // reverb wearing a stereo buffer, and the whole point of a room is that the
     // two ears do not hear the same thing.
+    //
+    // Seeded from the room's name, so a room is the same room on every load and
+    // the space gate reads one fixed impulse rather than a fresh draw.
+    let seed = 0x9E37;
+    for (let i = 0; i < name.length; i++) seed = Math.imul(seed ^ name.charCodeAt(i), 16777619);
+    const rand = _rng(seed);
     for (let ch = 0; ch < 2; ch++) {
       const d = buf.getChannelData(ch);
       let lp = 0;
@@ -178,8 +343,24 @@
         const t = i / len;
         // Exponential, not linear. A linear fade reads as a gate closing.
         const env = Math.pow(1 - t, 2.2);
-        lp += damp * ((Math.random() * 2 - 1) - lp);
+        lp += damp * ((rand() * 2 - 1) - lp);
         d[pre + i] = lp * env;
+      }
+      if (s.slap) {
+        // Scaled against the tail's own peak, so `level` means the same thing
+        // whatever the damping did to the noise.
+        let peak = 0;
+        for (let i = 0; i < d.length; i++) peak = Math.max(peak, Math.abs(d[i]));
+        const at = Math.floor(sr * ((s.slap.ms + (ch ? s.slap.spread || 0 : 0)) / 1000));
+        const burst = new Float32Array(slapLen);
+        let sp = 0, top = 0;
+        for (let i = 0; i < slapLen; i++) {
+          sp += damp * ((rand() * 2 - 1) - sp);
+          burst[i] = sp * Math.pow(1 - i / slapLen, 2);
+          top = Math.max(top, Math.abs(burst[i]));
+        }
+        const k = (peak || 1) * s.slap.level / (top || 1);
+        for (let i = 0; i < slapLen; i++) d[at + i] += burst[i] * k;
       }
     }
     _irCache.set(name, buf);
@@ -188,7 +369,22 @@
 
   // Swap the room. `instant` is for boot; everything else crossfades, because a
   // reverb tail that changes character in one frame is a click.
-  function setSpace(name, { instant = false, wet = null } = {}) {
+  //
+  // Two callers can pick the room. The server picks one from the listener's
+  // zone (audio_space → setSpace). A view can pick one by name with setRoom —
+  // the 3-D ballpark says 'ballpark' while it's open — and that wins over the
+  // zone until setRoom(null) hands the room back to the zone.
+  let _zoneSpace = 'outdoor', _roomOverride = null;
+  function setSpace(name, opts = {}) {
+    _zoneSpace = name;
+    if (_roomOverride) return;
+    _applySpace(name, opts);
+  }
+  function setRoom(name, opts = {}) {
+    _roomOverride = name && SPACES[name] ? name : null;
+    _applySpace(_roomOverride || _zoneSpace, opts);
+  }
+  function _applySpace(name, { instant = false, wet = null } = {}) {
     const c = ensureContext();
     if (!c || !reverbNode) return;
     const key = SPACES[name] ? name : 'room';
@@ -227,6 +423,88 @@
     for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1;
     _noiseBuffer = buf;
     return buf;
+  }
+
+  // ── Noise for layers: three colours, stereo, eight seconds ────────────────
+  //
+  // The buffer above is two seconds of mono white, played from its first
+  // sample by every noise layer that used it. So two noise layers in one cue
+  // were the SAME noise, and summing them phased (a comb, not a thicker hiss),
+  // and a long bed repeated every two seconds. It stays for engineNodes(),
+  // whose custom synths were built against it.
+  //
+  // Layers now get eight seconds per channel, in white, pink (-3 dB/octave)
+  // or brown (-6 dB/octave above about 150 Hz), each made once on first use.
+  // Every colour is normalised to white's RMS, so picking a colour changes the
+  // tone and not the level. The last 50 ms are crossfaded into the first, so
+  // the loop has no seam, which brown noise would otherwise click on.
+  //
+  // Each noise layer starts at its own offset into the buffer, drawn from a
+  // seeded generator. That's what ends the phasing. `noiseSeed` pins a layer's
+  // offset when a cue has to sound the same every time.
+  const NOISE_SECONDS = 8;
+  const NOISE_COLOURS = ['white', 'pink', 'brown'];
+  const NOISE_RMS = 1 / Math.sqrt(3);   // uniform white on ±1
+  const _noiseColours = new Map();
+
+  function _rng(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  let _noiseOffsetRng = _rng(0x51BE);
+
+  function noiseBuffer(colour) {
+    const key = NOISE_COLOURS.includes(colour) ? colour : 'white';
+    if (_noiseColours.has(key)) return _noiseColours.get(key);
+    const c = ensureContext();
+    const sr = c.sampleRate;
+    const n = sr * NOISE_SECONDS;
+    const fade = Math.floor(sr * 0.05);
+    const buf = c.createBuffer(2, n, sr);
+    for (let ch = 0; ch < 2; ch++) {
+      const r = _rng(0xA11CE + NOISE_COLOURS.indexOf(key) * 101 + ch * 7);
+      const raw = new Float32Array(n + fade);
+      let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0, br = 0;
+      for (let i = 0; i < raw.length; i++) {
+        const w = r() * 2 - 1;
+        if (key === 'pink') {
+          // Paul Kellett's filter, as ORACLE's speechNoise uses.
+          b0 = 0.99886 * b0 + w * 0.0555179; b1 = 0.99332 * b1 + w * 0.0750759;
+          b2 = 0.96900 * b2 + w * 0.1538520; b3 = 0.86650 * b3 + w * 0.3104856;
+          b4 = 0.55000 * b4 + w * 0.5329522; b5 = -0.7616 * b5 - w * 0.0168980;
+          raw[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362;
+          b6 = w * 0.115926;
+        } else if (key === 'brown') {
+          // A leaky integrator, so it can't wander off into DC.
+          br = (br + 0.02 * w) / 1.02;
+          raw[i] = br;
+        } else raw[i] = w;
+      }
+      const d = buf.getChannelData(ch);
+      for (let i = 0; i < n; i++) d[i] = raw[i];
+      // Equal-power crossfade of the run past the end into the start, so
+      // sample n-1 flows into sample 0 exactly as it would have into sample n.
+      for (let i = 0; i < fade; i++) {
+        const th = (Math.PI / 2) * (i / fade);
+        d[i] = raw[i] * Math.sin(th) + raw[n + i] * Math.cos(th);
+      }
+      let sum = 0;
+      for (let i = 0; i < n; i++) sum += d[i] * d[i];
+      const g = NOISE_RMS / Math.sqrt(sum / n || 1);
+      for (let i = 0; i < n; i++) d[i] *= g;
+    }
+    _noiseColours.set(key, buf);
+    return buf;
+  }
+
+  function noiseOffset(layer) {
+    if (Number.isFinite(layer.noiseSeed)) return _rng(layer.noiseSeed)() * NOISE_SECONDS;
+    return _noiseOffsetRng() * NOISE_SECONDS;
   }
 
   // Browsers refuse to start an AudioContext until a user gesture. Anything the
@@ -288,12 +566,16 @@
     if (!ctx) return;
     const t = ctx.currentTime;
     masterGain.gain.setTargetAtTime(_masterTarget(), t, 0.02);
-    musicGain.gain.setTargetAtTime(_settings.music ? _settings.musicVolume : 0, t, 0.02);
-    sfxGain.gain.setTargetAtTime(_settings.sfx ? _settings.sfxVolume : 0, t, 0.02);
-    ambientGain.gain.setTargetAtTime(_settings.ambientVolume ?? 0.5, t, 0.02);
-    tvGain.gain.setTargetAtTime(_settings.tv ? _settings.tvVolume : 0, t, 0.02);
-    // Follows the sfx slider — it is a game sound — but never the sfx routing.
-    uiGain.gain.setTargetAtTime(_settings.sfx ? _settings.sfxVolume : 0, t, 0.02);
+    const level = {
+      music: _settings.music ? _settings.musicVolume : 0,
+      sfx: _settings.sfx ? _settings.sfxVolume : 0,
+      ambient: _settings.ambientVolume ?? 0.5,
+      tv: _settings.tv ? _settings.tvVolume : 0,
+      // Follows the sfx slider — it is a game sound — but never the sfx routing.
+      ui: _settings.sfx ? _settings.sfxVolume : 0,
+    };
+    // Only the slider gains. The duck gains after them belong to duck().
+    for (const name of BUS_NAMES) for (const g of buses[name].slider) g.gain.setTargetAtTime(level[name], t, 0.02);
   }
 
   function applyVolumeSettings(settings) {
@@ -308,12 +590,51 @@
     on = !!on;
     if (on === _mono) return;
     _mono = on;
-    if (!ctx || !masterGain || !_monoNode) return;
-    try { masterGain.disconnect(); } catch { /* nothing connected yet */ }
-    masterGain.connect(on ? _monoNode : ctx.destination);
+    if (!ctx || !_limitTrim || !_monoNode) return;
+    try { _limitTrim.disconnect(); } catch { /* nothing connected yet */ }
+    _limitTrim.connect(on ? _monoNode : ctx.destination);
+  }
+
+  // The bus a category plays on, by name: tv_voice and tv_fx are the tv bus.
+  function busName(category) {
+    if (category === 'tv' || category === 'tv_voice' || category === 'tv_fx') return 'tv';
+    if (category === 'ambient' || category === 'music' || category === 'ui') return category;
+    return 'sfx';
+  }
+
+  // Where a cue goes when it carries its own reverb `send`: into the bus's dry
+  // copy, and through a gain of `send` into its wet copy. Without one, it's the
+  // bus itself and the bus's own send, exactly as before.
+  function cueBus(category, send) {
+    const dest = busFor(category);
+    if (!(Number.isFinite(send) && send >= 0) || !ctx) return dest;
+    const name = busName(category);
+    const sub = category === 'tv_voice' ? 'voice' : category === 'tv_fx' ? 'fx' : null;
+    const entry = (kind) => {
+      if (!sub) return _busPath(name, kind);
+      const key = sub + '_' + kind;
+      const b = buses.tv;
+      if (b.paths[key]) return b.paths[key];
+      const g = ctx.createGain();
+      g.gain.value = _tvBalance[sub];
+      g.connect(_busPath('tv', kind));
+      _tvSubs[sub].push(g);
+      b.paths[key] = g;
+      return g;
+    };
+    const cue = ctx.createGain();
+    cue.connect(entry('dry'));
+    if (send > 0) {
+      const s = ctx.createGain();
+      s.gain.value = send;
+      cue.connect(s).connect(entry('wet'));
+    }
+    return cue;
   }
 
   function busFor(category) {
+    if (category === 'tv_voice') return tvVoiceGain;
+    if (category === 'tv_fx') return tvFxGain;
     if (category === 'tv') return tvGain;
     if (category === 'ambient') return ambientGain;
     if (category === 'music') return musicGain;
@@ -497,9 +818,22 @@
     return c;
   }
 
+  // Filter types whose `gain` (dB) means something. Web Audio ignores gain on
+  // the rest, and leaving it unset on them keeps their graphs as they were.
+  const GAIN_FILTERS = new Set(['peaking', 'lowshelf', 'highshelf']);
+
   function buildLayer(layer, destination, time, holdSeconds) {
     const nodes = [];
     if (layer.delay) time = time + layer.delay;
+    // PAN, per layer: -1 is hard left, 1 hard right. Last in the chain, after
+    // the echo, so a panned layer's echo comes from the same side. The cue-wide
+    // `pan` option in playSfx still sits after this, for where the listener is.
+    if (Number.isFinite(layer.pan) && layer.pan !== 0 && ctx.createStereoPanner) {
+      const p = ctx.createStereoPanner();
+      p.pan.value = Math.max(-1, Math.min(1, layer.pan));
+      p.connect(destination);
+      destination = p;
+    }
     const adsr = layer.adsr || { a: 0.01, d: 0.05, s: 0.7, r: 0.15 };
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0, time);
@@ -628,7 +962,7 @@
     let noiseSrc = null;
     if (noiseMix > 0) {
       noiseSrc = ctx.createBufferSource();
-      noiseSrc.buffer = getNoiseBuffer();
+      noiseSrc.buffer = noiseBuffer(layer.noise);
       noiseSrc.loop = true;
     }
 
@@ -671,6 +1005,11 @@
       filter.type = layer.filter.type || 'lowpass';
       filter.Q.value = layer.filter.q ?? 1;
       filter.frequency.setValueAtTime(layer.filter.freq || 4000, time);
+      // Boost or cut in dB, for the peaking and shelf types. This was never
+      // read, so a peaking filter was a flat line and a shelf did nothing.
+      if (GAIN_FILTERS.has(filter.type) && Number.isFinite(layer.filter.gain)) {
+        filter.gain.setValueAtTime(layer.filter.gain, time);
+      }
       // Filter sweep. Deliberately the SAME {to, time} contract and the same
       // exponential-approach math as pitchBend above, so there is one mental
       // model for "this parameter travels", not two. A cutoff that opens across
@@ -731,8 +1070,27 @@
     if (noiseSrc) {
       const noiseGain = ctx.createGain();
       noiseGain.gain.value = noiseMix;
-      noiseSrc.connect(noiseGain).connect(gain);
-      noiseSrc.start(time);
+      // The buffer is stereo. A layer takes its left channel alone, which is
+      // mono noise at the level it always had. `width` (0..1) blends the right
+      // ear over to the other, uncorrelated channel with an equal-power law, so
+      // width 1 is fully decorrelated stereo at the same loudness.
+      const split = ctx.createChannelSplitter(2);
+      noiseSrc.connect(split);
+      const width = Math.max(0, Math.min(1, layer.width || 0));
+      if (width > 0) {
+        const merge = ctx.createChannelMerger(2);
+        const same = ctx.createGain(), other = ctx.createGain();
+        same.gain.value = Math.cos(width * Math.PI / 2);
+        other.gain.value = Math.sin(width * Math.PI / 2);
+        split.connect(merge, 0, 0);
+        split.connect(same, 0).connect(merge, 0, 1);
+        split.connect(other, 1).connect(merge, 0, 1);
+        merge.connect(noiseGain);
+      } else {
+        split.connect(noiseGain, 0);
+      }
+      noiseGain.connect(gain);
+      noiseSrc.start(time, noiseOffset(layer));
       nodes.push(noiseSrc);
     }
 
@@ -1003,7 +1361,9 @@
     if (idx === -1) return null; // dropped — all higher/equal-priority voices busy
     const time = c.currentTime;
     const duration = def.config.duration ?? 0.4;
-    let destination = busFor(def.category);
+    // `send` on the cue overrides its bus's reverb send (0 is fully dry, 1 is
+    // what sfx and ambient carry). Absent, the bus decides, as it always has.
+    let destination = cueBus(def.category, def.config.send ?? opts.send);
     // ── Where it came from ───────────────────────────────────────────────────
     // A sound reaching you from the next room already travelled a known route:
     // propagateAudio walks the exits, so the server knows which doorway it came
@@ -1152,7 +1512,8 @@
     // overrides: 'tv' (CRT hum/static answer to the TV Audio toggle) and 'sfx' — a held control
     // that happens to be implemented as a loop is still an EFFECT, and a truck's air horn following
     // the ambience slider would be a horn that gets quieter when you turn the wind down.
-    const sound = buildSound(def.config || {}, busFor(def.category === 'tv' ? 'tv' : def.category === 'sfx' ? 'sfx' : 'ambient'), time, null);
+    const loopCat = def.category === 'tv' || def.category === 'tv_fx' ? def.category : def.category === 'sfx' ? 'sfx' : 'ambient';
+    const sound = buildSound(def.config || {}, cueBus(loopCat, def.config?.send), time, null);
     const baseGain = def.config?.gain ?? 1;
     // Optional randomized decoration (beeps/clunks/chirps) riding over the bed.
     const sparkleCancels = Array.isArray(def.config?.sparkle) && def.config.sparkle.length
@@ -1554,7 +1915,9 @@
         masterGain.connect(wet);
         wet.connect(delay);
         delay.connect(fb).connect(delay);
-        delay.connect(masterGain.context.destination);
+        // Into the limiter, not past it: the echo adds to the peak, so it has to
+        // be inside what the limiter holds down.
+        delay.connect(_limiter);
         echoNodes = { wet, delay, fb };
       } else {
         echoNodes.delay.delayTime.setTargetAtTime(opts.delay ?? 0.16, c.currentTime, 0.05);
@@ -2867,8 +3230,41 @@ return out;
       return buf;
     }
 
-    let live = [];
-    function cancel(){ live.forEach(n => { try { n.stop(); } catch { /* already stopped */ } }); live = []; }
+    // ── Speech channels ──────────────────────────────────────────────────────
+    // There used to be one voice for everything, so each speak() cut off the
+    // last: the PA, the welcome, the TV and Read Aloud all talked over each
+    // other by cancelling each other, and a typed command (which cancels Read
+    // Aloud) silenced the television too.
+    //
+    // Two channels now, each with its own lines:
+    //   tv  the TV, the announcer, the PA, the welcome. Rides the tv bus's
+    //       voice sub-gain.
+    //   ui  Read Aloud (`channel: 'ui'`). Rides the dry ui bus.
+    // A new line cancels only its own channel, or with `queue: true` waits
+    // behind it. cancel('ui') is what a typed command or Escape does;
+    // cancel() with no channel still stops everything, for the TV panel and
+    // the Voice Lab.
+    //
+    // The channels don't cancel each other. Instead a Read Aloud line ducks
+    // the tv bus by READER_DUCK_DB for as long as it speaks, so the reader is
+    // heard over the TV rather than instead of it.
+    const CHANNELS = { tv: { lines: [] }, ui: { lines: [] } };
+    const QUEUE_MAX = 3;          // lines that may wait behind the one speaking
+    const READER_DUCK_DB = -12;
+    const stopAll = (nodes) => nodes.forEach(n => { try { n.stop(); } catch { /* already stopped */ } });
+    function cancel(channel){
+      const names = channel ? [channel === 'reader' ? 'ui' : channel] : Object.keys(CHANNELS);
+      for (const name of names) {
+        const ch = CHANNELS[name];
+        if (!ch) continue;
+        for (const line of ch.lines) { stopAll(line.src); line.duck?.release(); }
+        ch.lines = [];
+      }
+    }
+    // The duck a Read Aloud line puts on the TV, for a reader that isn't this
+    // synth: logreader.js calls it from a natural utterance's start event and
+    // releases it from the end event.
+    const readerDuck = (opts) => duck(['tv'], READER_DUCK_DB, opts || {});
 
     function speak(text, opt = {}){
       // `channel: 'ui'` is the log reader (client/game/js/logreader.js) — the
@@ -2881,7 +3277,12 @@ return out;
       if (!_settings.enabled || (!ui && !_settings.tv)) return;
       const c = ensureContext(); if (!c) return;
       if (c.state === 'suspended') c.resume();
-      cancel();
+      const chName = ui ? 'ui' : 'tv';
+      const chan = CHANNELS[chName];
+      chan.lines = chan.lines.filter(l => l.end > c.currentTime);
+      const queued = !!opt.queue && chan.lines.length > 0;
+      if (queued && chan.lines.length > QUEUE_MAX) return null;
+      if (!queued) cancel(chName);
       // `opt.voice` overrides individual parameters on top of whatever the seed
       // rolled. Nothing in the game passes it — this exists so a voice can be
       // AUDITIONED. Character comes from hashing a name, so before this the only
@@ -2932,7 +3333,7 @@ return out;
       const speed = V.speed * TUNING.rate;
       // 'ui' is a DRY bus (see busFor). Read Aloud is the caller, and a screen
       // reader carrying the room's reverb is harder to understand, not richer.
-      const out = busFor(ui ? 'ui' : 'tv');
+      const out = busFor(ui ? 'ui' : 'tv_voice');
 
       const master = c.createGain(); master.gain.value = 0.9;
       const ringGain = c.createGain(); ringGain.gain.value = 1 - ringAmt;
@@ -3201,7 +3602,9 @@ return out;
       const noiseG = c.createGain(); noiseG.gain.value = 0;
       nz.connect(nbp).connect(nbp2).connect(nlp).connect(noiseG).connect(master);
 
-      const t0 = c.currentTime + 0.05; let t = t0;
+      // A queued line starts after the last one on its channel, one line gap on.
+      const after = queued ? chan.lines[chan.lines.length - 1].end + (TUNING.lineGapMs || 0) / 1000 : 0;
+      const t0 = Math.max(c.currentTime + 0.05, after); let t = t0;
       // F4 is a fixed resonance of the vocal tract, not a vowel target — the phoneme
       // table only carries three. Set once; the others glide per phoneme.
       forms[3].frequency.setValueAtTime(3600 * fshift, t0);
@@ -3614,11 +4017,22 @@ return out;
       if (growl2Osc) src.push(growl2Osc);
       src.forEach(n => n.start(t0));
       src.forEach(n => n.stop(end+0.1));
-      live = src;
+      // Ducks for this line's length: the TV under Read Aloud, and whatever
+      // buses the caller named in `duck` ({ buses, dB }, or a list of buses at
+      // -9 dB).
+      const hold = Math.max(0, end - t0);
+      const ducks = [];
+      if (ui) ducks.push(readerDuck({ at: t0, hold }));
+      if (opt.duck) {
+        const d = Array.isArray(opt.duck) || typeof opt.duck === 'string' ? { buses: opt.duck } : opt.duck;
+        ducks.push(duck(d.buses || [], d.dB ?? -9, { at: t0, hold, attack: d.attack ?? 0.05, release: d.release ?? 0.4 }));
+      }
+      chan.lines.push({ src, end: end + 0.1, duck: ducks.length ? { release: () => ducks.forEach(h => h.release()) } : null });
       // The REAL length of what was just scheduled. Callers used to guess from word
       // count and wait that long regardless, so a line that finished early left dead
       // air; handing back the truth lets them follow the voice instead of a timer.
-      return { duration: end - t0 };
+      // `delay` is how long a queued line waits before it starts.
+      return { duration: end - t0, delay: t0 - c.currentTime, channel: chName };
     }
 
     // Debug hook for the voice lab: the phoneme run a line will actually produce,
@@ -3631,7 +4045,7 @@ return out;
         return ph;
       } finally { _lex = null; }
     };
-    return { speak, cancel, tuning: TUNING, phonemesFor, estimate: estimateDuration, voiceFor: voiceFromName };
+    return { speak, cancel, readerDuck, tuning: TUNING, phonemesFor, estimate: estimateDuration, voiceFor: voiceFromName };
   })();
 
   global.AudioEngine = {
@@ -3645,7 +4059,13 @@ return out;
     // because the caller (plugins/audio) owns the world's vocabulary and this
     // file must never learn what a storm drain is.
     setSpace,
+    // A room by name, over whatever the zone picked, until setRoom(null).
+    setRoom,
     spaceNames: () => Object.keys(SPACES),
+    // Pull buses down under something that has to be heard; see duck() above.
+    duck,
+    // The broadcast's effects against its voice, in dB, inside the TV slider.
+    setTvBalance,
     // The bus Read Aloud speaks through. Exposed only so a test can prove it is
     // not wired into the reverb send — that is a routing property, and routing is
     // exactly the kind of thing a later change breaks without touching this file.
@@ -3655,7 +4075,11 @@ return out;
     // question anyone can answer from the outside.
     _voiceStats: () => ({ ...vstat, size: MAX_VOICES, live: voices.filter(Boolean).length }),
     speak: (text, opt) => Speech.speak(text, opt),
-    cancelSpeech: () => Speech.cancel(),
+    // No channel stops every channel. 'ui' stops only Read Aloud, which is what
+    // a typed command and Escape do; 'tv' stops only the TV and announcer.
+    cancelSpeech: (channel) => Speech.cancel(channel),
+    // The TV duck Read Aloud applies while it speaks, for the natural reader.
+    readerDuck: (opts) => Speech.readerDuck(opts),
     // Live tunables — see the TUNING block in Speech. Mutate and the next line
     // spoken picks it up. Used by the voice lab (the dev panel's Voice Lab tab)
     // and read by tv.js for the inter-line gap.
@@ -3672,6 +4096,18 @@ return out;
     // Hand a custom synth (e.g. the flight-engine) the context + ambient bus + shared noise
     // buffer so it can build its own live, parameter-driven node graph on the ambient chain.
     engineNodes: () => { const c = ensureContext(); if (!c) return null; return { ctx: c, bus: busFor('ambient'), noise: getNoiseBuffer() }; },
+    // For the audio gates: the graph and buffers a stub context can't show any
+    // other way. Read-only views; nothing here changes what plays.
+    _graph: () => {
+      ensureContext();
+      return {
+        master: masterGain, limiter: _limiter, limitTrim: _limitTrim, limit: { ...LIMIT, makeup: LIMIT_MAKEUP },
+        buses, tvVoice: tvVoiceGain, tvFx: tvFxGain, reverbSend, reverbNode,
+        space: _space, zoneSpace: _zoneSpace, roomOverride: _roomOverride,
+      };
+    },
+    _noiseBuffer: (colour) => { ensureContext(); return noiseBuffer(colour); },
+    _impulse: (name) => { ensureContext(); return impulseFor(name); },
   };
 
 })(typeof window !== 'undefined' ? window : globalThis);
