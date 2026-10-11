@@ -277,9 +277,11 @@ export function createRinkView(host, opts = {}) {
   function renderCard(fx) {
     if (!host || !fx || !CARD[fx.kind]) return;
     const m = CARD[fx.kind](fx);
-    const wrap = host.querySelector('.gdr-wrap') || host;
+    // On the picture, not the whole view: placed against the view it sat over the score
+    // line on a phone, where the text takes a bigger share of the box.
+    const pic = host.querySelector('.gdr-rink') || host.querySelector('.gdr-wrap') || host;
     let el = host.querySelector('.gdr-jumbo');
-    if (!el) { el = doc.createElement('div'); el.className = 'gdr-jumbo'; wrap.appendChild(el); }
+    if (!el) { el = doc.createElement('div'); el.className = 'gdr-jumbo'; pic.appendChild(el); }
     el.innerHTML = `<div class="gdr-jumbo-brand">${(m.club && _crest(m.club, 40)) || cphlMark('20px')}</div>` +
       `<div class="gdr-jumbo-title">${_esc(m.title)}</div>${m.sub ? `<div class="gdr-jumbo-sub">${_esc(m.sub)}</div>` : ''}`;
     el.className = `gdr-jumbo ${m.cls}`; void el.offsetWidth; el.classList.add('in');
@@ -303,7 +305,8 @@ export function createRinkView(host, opts = {}) {
       const veil = doc.createElement('div');
       veil.className = 'gdr-idle';
       veil.innerHTML = cphlLockup('Rinkside', '46px') + `<div class="gdr-idle-sub">Waiting for the drop…</div>`;
-      host.querySelector('.gdr-wrap')?.appendChild(veil);
+      // over the ice only, so the pre-game call under it stays readable
+      (host.querySelector('.gdr-rink') || host.querySelector('.gdr-wrap'))?.appendChild(veil);
     };
     if (mods) go(); else loadMods().then(go).catch((err) => console.error('[rink] failed to load:', err));
   }

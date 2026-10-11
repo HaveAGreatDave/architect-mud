@@ -1034,6 +1034,24 @@ CPhL sub-screen. It keeps the Deadball view's interface (`apply`, `clear`, `setC
 is the shell: the header, the strip, the caption, the jumbotron cards, the intermission
 board, the sound mapping and the frame loop. The work is in `client/game/js/panels/rink/`:
 
+**The picture comes first.** The view gets whatever box the set gives it: about 378×306 on
+a portrait phone, 536×251 on one turned sideways, 754×393 on a desktop. Its text is in rem,
+so the text grows with the Font Size setting while the box doesn't. So the text is bounded:
+one score line, and a caption of two lines with room kept for two, so the picture doesn't
+move as calls alternate. Container queries on `.gdr-wrap` (in rem, so they move with the
+text) do the rest:
+
+| The box | What changes |
+|---|---|
+| under 30rem tall | the strip and the rush go; the caption calls the same play |
+| under 32rem wide | a compact score line, a smaller goal card, a tighter intermission board |
+| wider than 2:1, or under 15rem tall | the score line and the caption go over the picture, as a broadcast's graphics do |
+
+The goal card and the pre-game veil go on the picture (`.gdr-rink`), not the whole view.
+The set sits the view between its header and footer as they really are: tv.js measures them
+into `--tv-head-h` and `--tv-foot-h` on the window, since both are in rem and a phone's footer
+is shorter.
+
 | File | What it holds |
 |---|---|
 | `geo.js` | The sheet in feet: 200 by 85, goal lines at 11 and 189, blue lines, dots, boards as segments, 24 far glass panels. `GEO` and `DOTS` in model units for the broadcast regress. |
@@ -1318,7 +1336,7 @@ whatever the Zamboni got through.
 
 **The booth calls the rush.** `describeRush` in [hockey.js](../plugins/broadcast/sports/hockey.js)
 reads the possession keyframes into one sentence, which rides the payload as `rush` and
-shows as a quiet strip under the score line. The spoken call is now the touch-by-touch
+shows as a quiet line under the caption when the box is tall enough. The spoken call is now the touch-by-touch
 lines above, read off the same keyframes and names, so neither can disagree with the
 picture.
 
@@ -1326,7 +1344,8 @@ picture.
 goal, so the narrator gives the rush and shot lines a bug with the score before it
 (`scoreBefore`, also on the payload). The rink header shows that score and the strip reads
 LIVE until the director lands the play (`onLand`); then the header takes the goal and the
-strip names the result. Both smoke and regress check it.
+strip names the result. Both smoke and regress check it. In a box too small for the strip,
+the header alone keeps the rule.
 
 Branding lives in [cphl-brand.js](../client/game/js/panels/cphl-brand.js): one mark, drawn
 by the score bug, the full-screen graphics, the rink header, the idle screen and the

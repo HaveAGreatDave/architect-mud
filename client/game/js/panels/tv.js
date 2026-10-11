@@ -1869,6 +1869,21 @@ export function createTvView(root, opts = {}) {
     if (_inited) return;
     _inited = true;
 
+    // The sub-screens (Gameday, Rinkside) sit between the header and the footer, and
+    // neither has a fixed height: both are in rem, and the phone layout shrinks the
+    // footer. A fixed 45px and 72px left a band of the message list showing under
+    // Rinkside on a phone and the header over its top at a large font, so the real
+    // heights go on the window as --tv-head-h and --tv-foot-h.
+    const winEl = el('window'), headEl = el('header'), footEl = el('footer');
+    if (isCrt && winEl && headEl && footEl && typeof ResizeObserver === 'function') {
+      const measure = () => {
+        winEl.style.setProperty('--tv-head-h', `${headEl.offsetTop + headEl.offsetHeight}px`);
+        winEl.style.setProperty('--tv-foot-h', `${Math.max(0, winEl.clientHeight - footEl.offsetTop)}px`);
+      };
+      const ro = new ResizeObserver(measure);
+      ro.observe(headEl); ro.observe(footEl); ro.observe(winEl);
+    }
+
     // Power button: a quick TAP just closes your view — the set keeps playing in the
     // room, so anyone else there still sees/hears it (ambient continues). Press and
     // HOLD to actually switch the set off: that stops the broadcast for the whole

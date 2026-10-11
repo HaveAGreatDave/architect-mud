@@ -57,6 +57,10 @@ A touch device whose visual viewport shrinks by more than a quarter has its keyb
 - The accessibility listing's options are links that work.
 - Free look has a movement pad on touch. The Calibration Rig has ▲, ▼ and a hold-to-sync button.
 
+## The TV set
+
+The set is a fixed overlay over all of the above; on a phone (720px and under) it is a square about 96% of the short side, with a shorter footer. Its sub-screens sit between the header and the footer as they really are, which tv.js measures into `--tv-head-h` and `--tv-foot-h` (both are in rem, so no constant fits every font size). The hockey view inside it, Rinkside, lays itself out by container queries on its own box rather than by media queries: see [The rink sub-screen](../systems-broadcast.md#the-rink-sub-screen-rinkside-as-built). A sideways phone gets the score line and the caption over the picture.
+
 ## 3-D on a phone
 
 See [Phones](glass-notes.md#phones-2026-09-28) in the GLASS notes: the reduced GL tier, the retry after a backgrounded tab, and the one-time offer of text views when a device can't keep up.
