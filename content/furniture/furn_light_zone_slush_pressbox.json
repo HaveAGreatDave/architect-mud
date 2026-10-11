@@ -1,0 +1,11 @@
+{
+  "description": "A clamp lamp on the gantry rail, angled at the desk.",
+  "flags": {},
+  "id": "furn_light_zone_slush_pressbox",
+  "light_type": "lamp",
+  "lumen_output": 700,
+  "name": "the gantry lamp",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_slush_pressbox"
+}

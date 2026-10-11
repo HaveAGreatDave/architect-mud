@@ -1,0 +1,17 @@
+{
+  "description": "A door in the far wall with Records stencilled on it. It opens on a broom cupboard: a mop, a bucket, and three shelves with nothing on them.",
+  "flags": {
+    "aliases": [
+      "door",
+      "records",
+      "records door",
+      "cupboard",
+      "shelves"
+    ],
+    "examine_detail": "The shelves are clean. Somebody dusts them."
+  },
+  "id": "furn_slush_records",
+  "name": "the records door",
+  "object_type": "decoration",
+  "zone_id": "zone_slush_concourse"
+}

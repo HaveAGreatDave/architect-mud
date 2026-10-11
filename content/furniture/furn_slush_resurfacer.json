@@ -1,0 +1,17 @@
+{
+  "description": "A squat ice resurfacer the colour of an old bruise, parked by the south gate. The tank behind the seat carries a hazard diamond and no other marking. A respirator hangs off the seat back.",
+  "flags": {
+    "aliases": [
+      "resurfacer",
+      "zamboni",
+      "machine",
+      "tank",
+      "respirator"
+    ],
+    "examine_detail": "The fuel cap is padlocked. The key is not on the ring hanging from the steering column."
+  },
+  "id": "furn_slush_resurfacer",
+  "name": "the resurfacer",
+  "object_type": "decoration",
+  "zone_id": "zone_slush_rinkside"
+}

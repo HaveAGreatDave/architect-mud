@@ -1,9 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "description": "Scrub and thin trees against the Slush Fund's west wall, where ICE is painted in letters a storey high. A path worn through the scrub leads round to the yard at the back.",
   "exits": {
-    "east": "zone_district_914_917",
     "north": "zone_district_913_916",
     "south": "zone_district_913_918",
     "west": "zone_district_912_917"

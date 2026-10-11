@@ -1,0 +1,18 @@
+{
+  "description": "A narrow pen between the benches with a bench of its own and a door that latches from the outside. Tally marks are cut into the wood in fives, all the way along.",
+  "flags": {
+    "aliases": [
+      "penalty box",
+      "box",
+      "sin bin",
+      "pen"
+    ],
+    "interactions": [
+      "sit"
+    ]
+  },
+  "id": "furn_slush_box",
+  "name": "the penalty box",
+  "object_type": "furniture",
+  "zone_id": "zone_slush_rinkside"
+}

@@ -13,3 +13,4 @@ export { YARDS_ARMS } from './yards.js';
 export { WATERFRONT_ARMS } from './waterfront.js';
 export { OLD_COLDWATER_ARMS } from './old-coldwater.js';
 export { HALCYON_ARMS } from './halcyon-fields.js';
+export { ASHWAY_ARMS } from './ashway.js';

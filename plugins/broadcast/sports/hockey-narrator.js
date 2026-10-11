@@ -366,7 +366,10 @@ export function narrate(ctx) {
   // Half the colour is about the building they're in, half about the league. Every club
   // has a barn pool now, so always reaching for it first would leave the general pool
   // unheard.
-  const chatter = (b) => { const l = nrng() < 0.5 ? pick(barnKey(home.name), 'chatter') : pick('chatter'); if (l) { say(l, tok(b), beatBug(b)); said++; } };
+  // The Cup final is played at the league's own barn, the Slush Fund, which is the building the
+  // general pool describes; no club's barn chatter airs on Cup night. (The roll is still taken, so
+  // the line stream is the same length either way.)
+  const chatter = (b) => { const l = nrng() < 0.5 && !ws ? pick(barnKey(home.name), 'chatter') : pick('chatter'); if (l) { say(l, tok(b), beatBug(b)); said++; } };
 
   // ── the call ──────────────────────────────────────────────────────────────
   // SHORT LINES THAT FOLLOW THE PLAY. The booth used to say one or two long sentences a

@@ -1,0 +1,11 @@
+{
+  "description": "Caged bulkhead lamps along the curve of the concourse, every third one out.",
+  "flags": {},
+  "id": "furn_light_zone_slush_concourse",
+  "light_type": "overhead",
+  "lumen_output": 1200,
+  "name": "the concourse lights",
+  "object_type": "light",
+  "power_draw_kw": 0.03,
+  "zone_id": "zone_slush_concourse"
+}

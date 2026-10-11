@@ -2,11 +2,10 @@
   "ambient_events": [],
   "ambient_theme": "city",
   "color": "#8d8f93",
-  "description": "A strip of hard grey pour off the side of the Gate Road that goes nowhere. The kerbstones are still shunted out of true, and a sign at the top says Rejoin: Give Way.",
+  "description": "A strip of hard grey pour off the side of the Gate Road, beside the Slush Fund's east stand. The kerbstones are still shunted out of true, and a sign at the top says Rejoin: Give Way. On game nights the coaches park on it.",
   "exits": {
     "east": "zone_district_918_917",
-    "south": "zone_district_917_918",
-    "west": "zone_district_916_917"
+    "south": "zone_district_917_918"
   },
   "flags": {
     "district": "ashway",

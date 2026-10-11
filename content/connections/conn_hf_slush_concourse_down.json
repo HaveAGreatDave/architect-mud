@@ -1,0 +1,9 @@
+{
+  "a": "zone_slush_concourse",
+  "b": "zone_util_zone_slush_concourse",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_slush_concourse_down",
+  "lockable": false,
+  "one_way": false
+}

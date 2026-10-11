@@ -1,0 +1,21 @@
+{
+  "description": "Wooden benches bolted to concrete steps and painted with section numbers. The front rows are chipped by skates. One seat in section nine has a flat cushion tied to it with string.",
+  "flags": {
+    "aliases": [
+      "bench",
+      "benches",
+      "seat",
+      "seats",
+      "section nine",
+      "cushion"
+    ],
+    "interactions": [
+      "sit",
+      "lie"
+    ]
+  },
+  "id": "furn_slush_benches",
+  "name": "the benches",
+  "object_type": "furniture",
+  "zone_id": "zone_slush_stands"
+}

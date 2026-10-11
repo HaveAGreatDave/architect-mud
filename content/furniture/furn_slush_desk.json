@@ -1,0 +1,21 @@
+{
+  "description": "A trestle desk at the gantry rail with two microphones on stands, a monitor and a spotting board of both line-ups. The left chair has a cushion on it and a name on the back: Brennan.",
+  "flags": {
+    "aliases": [
+      "desk",
+      "commentary desk",
+      "microphones",
+      "microphone",
+      "monitor",
+      "chair",
+      "spotting board"
+    ],
+    "interactions": [
+      "sit"
+    ]
+  },
+  "id": "furn_slush_desk",
+  "name": "the commentary desk",
+  "object_type": "furniture",
+  "zone_id": "zone_slush_pressbox"
+}

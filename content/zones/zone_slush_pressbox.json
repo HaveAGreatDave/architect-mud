@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A steel gantry slung under the roof arches above the west stands, reached by a ladder and a catwalk. KSAB's commentary desk is at the near end, two microphones on it and a cushion on one chair. A teleprinter in a steel case stands on its own table at the far end.",
+  "exits": {
+    "down": "zone_slush_stands"
+  },
+  "flags": {
+    "building_name": "The Slush Fund",
+    "building_type": "ice_rink",
+    "floor": "metal",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_915_916"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_slush_pressbox",
+  "map_id": "map_int_slush",
+  "name": "The Slush Fund — Press Box",
+  "parent_zone": "zone_district_915_916"
+}

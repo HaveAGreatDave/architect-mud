@@ -1,0 +1,9 @@
+{
+  "a": "zone_slush_stands",
+  "b": "zone_slush_pressbox",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_hf_slush_stands_up",
+  "lockable": false,
+  "one_way": false
+}

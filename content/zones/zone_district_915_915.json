@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "description": "Glacier Street, paved and gritted, running east to the Gate Road. The Slush Fund fills the south side: two brick wings, and the arched end of its hall set back between them behind a canopy. Steel crowd barriers lie stacked against the kerb.",
   "exits": {
     "east": "zone_district_916_915",
     "north": "zone_district_915_914",

@@ -856,7 +856,9 @@ so a narrator cannot read the other league's records.
   `chatter.<first word of the home club>` (falling back to the general pool when a club
   has none), and the other half from the general `chatter` pool, so the league-wide lines
   still get heard. Every club has a barn pool; the District 9 Goons' is `chatter.district` and
-  the St Garneau Guillotines' is `chatter.st`.
+  the St Garneau Guillotines' is `chatter.st`. The Cup final is played at the league's own
+  barn, the Slush Fund, which is what the general pool describes, so on Cup night only the
+  general pool airs.
 - **Every barn's horn is its own.** The goal horn is seeded from a hash of the scoring
   club's name (`hornSeed` on the payload) through the soundset's existing `variant()`,
   so no per-club audio is authored and a barn sounds like itself forever.
@@ -926,6 +928,10 @@ Civic Center Wardens went.
 | Waterfront Wharf Rats | the Docks | charcoal and pink | a rat in silhouette crouched on an anchor's stock in the harbour fog, back bristling, one eye lit red, incisors bared, claws over the iron and its tail wound round the shank; pink rim light, inside a mooring-line ring |
 | St Garneau Guillotines | Nine Elms | red, white and blue | a solid G whose spur and serif are a guillotine in silhouette: the bowl turns up into the posts, the beam is the serif and runs in as the crossbar, the blade hangs between |
 | Yard Birds | the Yards | red, white and black | a red pyle fighting cock squared up with his wings thrown wide and his hackles up, glaring down his beak through a scarred brow, sawblade comb with a point broken off, spurs out; on a field of chicken wire torn open behind him |
+
+The league's own barn is The Slush Fund, on the old South Gate ground
+([proposals/slush-fund.md](proposals/slush-fund.md)). The general `chatter` pool describes it,
+the final is played there, and its scoreboard is a television on channel 7.
 
 The District 9 Goons are cops, serving and retired, most of them out of Precinct 9.
 SPECTER-PD is the city's police, not an order or a corp, so the rule above holds.
