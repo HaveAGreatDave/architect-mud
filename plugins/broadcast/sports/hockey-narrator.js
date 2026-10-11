@@ -78,6 +78,13 @@ export function narrate(ctx) {
     `${b.section || ''}${b.clockStr ? ` ${b.clockStr}` : ''}`.trim() || 'LIVE',
     b.awayScore, b.homeScore, b.strength,
   );
+  // A goal's beat carries the score after the goal. Everything shown before the puck goes
+  // in (the rush, the shot, the rink's header) wears the score before it, or the bug calls
+  // the goal early.
+  const scoreBefore = (b) => ({
+    away: (b.awayScore ?? 0) - (b.type === 'goal' && b.teamName === away.name ? 1 : 0),
+    home: (b.homeScore ?? 0) - (b.type === 'goal' && b.teamName === home.name ? 1 : 0),
+  });
 
   // ── tokens ────────────────────────────────────────────────────────────────
   // One flat bag per beat. Everything any pool in hockey.bsm references is here
@@ -174,6 +181,7 @@ export function narrate(ctx) {
     section: b.section || '', clock: b.clockStr || '', clockSecs: b.clock ?? 0,
     kind: b.kind || b.type, type: b.type, strength: b.strength || 'even',
     awayScore: b.awayScore ?? 0, homeScore: b.homeScore ?? 0,
+    ...(b.type === 'goal' ? { scoreBefore: scoreBefore(b) } : {}),
     desc: mod.playDesc(b),
     // Only a shot has a rush behind it. A faceoff or a fight carrying fabricated
     // possession keyframes would have the rink view animate a zone entry that never
@@ -481,9 +489,10 @@ export function narrate(ctx) {
         const gd = gameday(b, idx);
         // some goals are a man in alone: the rink stages them that way and the booth says so
         gd.breakaway = !b.strength || b.strength === 'even' ? ['wrist', 'backhand', 'snap'].includes(b.shotType) && nrng() < 0.22 : false;
-        const rushed = callRush(b, t, sb, gd, true);
-        if (gd.breakaway) call('pbp.breakaway', t, null, sb, { cue: { ev: 'alone' } });
-        callShot(b, t, sb, rushed ? null : gd);
+        const before = scoreBefore(b), pre = beatBug({ ...b, awayScore: before.away, homeScore: before.home });
+        const rushed = callRush(b, t, pre, gd, true);
+        if (gd.breakaway) call('pbp.breakaway', t, null, pre, { cue: { ev: 'alone' } });
+        callShot(b, t, pre, rushed ? null : gd);
         call('pbp.goal', t, { team: b.teamName }, sb, { cue: { ev: 'out' } }, null, goalFx(b));
         // What the rink shows next: the lamp, the scorer peeling away, the pile-on, the
         // goalie on his knees.

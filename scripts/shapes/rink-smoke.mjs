@@ -150,6 +150,14 @@ async function play(slot) {
     try { view.apply(g); } catch (e) { check(`${label} stages`, false, e.stack.split('\n').slice(0, 2).join(' ')); ok = false; }
     if (!ok) continue;
     const before = { inNet: W.puck.inNet, goals: goalsIn, on: { a: W.mates('a').length, h: W.mates('h').length }, broken: W.broken.size };
+    // THE HEADER WAITS FOR THE GOAL. A goal's payload carries the score after it, so until
+    // the puck goes in the header shows the score before it and the strip names no result.
+    // (read from the markup: the stub's textContent puts a parent's text before its children's)
+    const headSays = () => { const m = /<b>(\d+)<\/b>: <b>(\d+)<\/b>/.exec(host.find('.gdr-head')?.innerHTML || ''); return { score: m ? `${m[1]}-${m[2]}` : '?', desc: host.find('.gdr-strip-desc')?.textContent || '' }; };
+    if (g.type === 'goal' && g.scoreBefore) {
+      const h0 = headSays();
+      check(`${label}: the header shows the score before the goal until it goes in`, h0.score === `${g.scoreBefore.away}-${g.scoreBefore.home}` && h0.desc === 'Live', `${h0.score} / ${h0.desc}`);
+    }
     if (g.type === 'faceoff') {
       // the draw is taken on the named dot, by the two men the sim named
       const [dx, dy] = DOT_FT[g.dot];
@@ -190,6 +198,10 @@ async function play(slot) {
     if ((g.type === 'chance' || g.type === 'goal') && cueT('out') != null && g.kind !== 'breakaway') check(`${label}: the puck arrives as the outcome is called`, landedAt != null && landedAt > cueT('shot') && Math.abs(landedAt - cueT('out')) < (g.type === 'goal' ? 2.4 : 1.2), `${g.shotType}: landed ${landedAt?.toFixed(2)}s, outcome line ${cueT('out')}s`);
     check(`${label} resolves`, !D.busy() || g.type === 'intermission', `still ${D.kind()} after ${limit}s`);
     if (g.type === 'goal') check(`${label}: it goes in`, goalsIn > before.goals && !!W.puck.inNet, `inNet=${W.puck.inNet}`);
+    if (g.type === 'goal') {
+      const h1 = headSays();
+      check(`${label}: the header takes the goal when it goes in`, h1.score === `${g.awayScore}-${g.homeScore}` && h1.desc === g.desc, `${h1.score} / ${h1.desc}`);
+    }
     if (g.kind === 'breakaway' || g.breakaway) check(`${label}: the breakaway gets its banner`, sawBreakaway);
     // THE REPLAY. A goal the booth calls a replay on is run back: it starts on its cue, the
     // picture comes from the recording (interpolated, every joint finite), the renderer

@@ -1149,6 +1149,12 @@ shows as a quiet strip under the score line. The spoken call is now the touch-by
 lines above, read off the same keyframes and names, so neither can disagree with the
 picture.
 
+**Nothing calls a goal before it goes in.** A goal's beat carries the score after the
+goal, so the narrator gives the rush and shot lines a bug with the score before it
+(`scoreBefore`, also on the payload). The rink header shows that score and the strip reads
+LIVE until the director lands the play (`onLand`); then the header takes the goal and the
+strip names the result. Both smoke and regress check it.
+
 Branding lives in [cphl-brand.js](../client/game/js/panels/cphl-brand.js): one mark, drawn
 by the score bug, the full-screen graphics, the rink header, the idle screen and the
 Gameday toggle itself, which wears a puck on a hockey night and a baseball otherwise

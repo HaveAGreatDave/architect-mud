@@ -58,7 +58,7 @@ export function createRinkView(host, opts = {}) {
   const doc = host ? host.ownerDocument : null;
   const win = doc ? doc.defaultView : null;
   let caption = '', pendingCaption = null, pendingCard = null, cardTimer = null, holdTimer = null;
-  let last = null, raf = 0, lastFrame = 0, frameAvg = 0, acc = 0, mounted = false, speed = opts.speed || 1;
+  let last = null, landed = true, raf = 0, lastFrame = 0, frameAvg = 0, acc = 0, mounted = false, speed = opts.speed || 1;
   let W = null, D = null, R = null, ice = null, canvas = null, modsP = null, mods = null;
   const sfxAt = {};
   let costAvg = 0;
@@ -94,18 +94,24 @@ export function createRinkView(host, opts = {}) {
       `<div class="gdr-cap"><span class="gdr-cap-text">${_esc(caption)}</span></div>` +
     `</div>`;
   }
+  // Until the play lands the header can't say how it ends: a goal's payload carries the
+  // score after the goal, and the strip names the result. Up there during the rush they
+  // would call the goal before it happens, so the strip reads LIVE until then.
   function head(p) {
     const el = host?.querySelector('.gdr-head'); if (!el) return;
+    const live = !landed && p.type !== 'intermission';
+    const sc = live && p.scoreBefore ? p.scoreBefore : { away: p.awayScore, home: p.homeScore };
     el.innerHTML =
       `<span class="gdr-head-badge">${cphlMark('17px')}<i>CPhL</i></span>` +
-      `<span class="gdr-head-score">${_esc(p.awayAbbr || p.awayTeam || 'AWY')} <b>${p.awayScore | 0}</b>: <b>${p.homeScore | 0}</b> ${_esc(p.homeAbbr || p.homeTeam || 'HOM')}</span>` +
+      `<span class="gdr-head-score">${_esc(p.awayAbbr || p.awayTeam || 'AWY')} <b>${sc.away | 0}</b>: <b>${sc.home | 0}</b> ${_esc(p.homeAbbr || p.homeTeam || 'HOM')}</span>` +
       `<span class="gdr-head-clock">${p.type === 'intermission' ? 'INTERMISSION' : `${_esc(p.section || '')} ${_esc(p.clock || '')}`}</span>` +
       (p.rivalry ? '<span class="gdr-head-rival">RIVALRY</span>' : '') +
       (p.strength && p.strength !== 'even' && p.type !== 'intermission' ? `<span class="gdr-head-str ${_esc(p.strength)}">${_esc(p.strength.toUpperCase())}</span>` : '');
     const st = host.querySelector('.gdr-strip');
-    if (st) st.innerHTML = p.type === 'intermission' ? '' :
-      `<span class="gdr-strip-desc">${_esc(p.desc || '')}</span>` +
-      `<span class="gdr-strip-names">${_esc(p.shooter || '')}${p.assist ? ` · assist ${_esc(p.assist)}` : ''}${p.goalie ? ` · vs ${_esc(p.goalie)}` : ''}</span>`;
+    if (st) st.innerHTML = p.type === 'intermission' ? '' : live
+      ? `<span class="gdr-strip-desc">Live</span><span class="gdr-strip-names">${_esc(p.possession ? p.attackingTeam || '' : '')}</span>`
+      : `<span class="gdr-strip-desc">${_esc(p.desc || '')}</span>` +
+        `<span class="gdr-strip-names">${_esc(p.shooter || '')}${p.assist ? ` · assist ${_esc(p.assist)}` : ''}${p.goalie ? ` · vs ${_esc(p.goalie)}` : ''}</span>`;
     const ru = host.querySelector('.gdr-rush');
     if (ru) { ru.hidden = !p.rush; ru.textContent = p.rush || ''; }
   }
@@ -208,7 +214,7 @@ export function createRinkView(host, opts = {}) {
     ice = createIce(doc);
     W = createWorld(ice, 'rinkside');
     D = createDirector(W, {
-      onLand: reveal,
+      onLand: () => { if (!landed) { landed = true; if (last) head(last); } reveal(); },
       emit: (name, data) => { if (name === 'sfx') _sfx(data.key, data); },
       zamboniSpeed: opts.zamboniSpeed,
     });
@@ -231,6 +237,7 @@ export function createRinkView(host, opts = {}) {
       if (last !== p) return;
       mount();
       host.querySelector('.gdr-idle')?.remove();
+      landed = false;
       head(p);
       board(p.type === 'intermission' ? p : null);
       D.stage(p);
