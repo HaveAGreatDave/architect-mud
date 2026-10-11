@@ -105,32 +105,6 @@ function bar(x0, y0, x1, y1, w) {
   const dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy) || 1, nx = (-dy / L) * w / 2, ny = (dx / L) * w / 2;
   return poly([[x0 + nx, y0 + ny], [x1 + nx, y1 + ny], [x1 - nx, y1 - ny], [x0 - nx, y0 - ny]]);
 }
-// A pointed-pen stroke: a centreline of cubic segments [p0, c1, c2, p1], inked the way a
-// pointed nib inks it, full on the way down the page and a hairline on the way up or
-// across, tapering in and out. Returns a closed outline, so script lettering is drawn
-// from where the pen went rather than outlined by hand.
-function pen(segs, { thin = 1.3, thick = 8, taperIn = 0.08, taperOut = 0.1, n = 28 } = {}) {
-  const pts = [];
-  segs.forEach(([p0, c1, c2, p1], si) => {
-    for (let i = si ? 1 : 0; i <= n; i++) {
-      const t = i / n, u = 1 - t;
-      const bx = (k) => u * u * u * p0[k] + 3 * u * u * t * c1[k] + 3 * u * t * t * c2[k] + t * t * t * p1[k];
-      const dk = (k) => 3 * u * u * (c1[k] - p0[k]) + 6 * u * t * (c2[k] - c1[k]) + 3 * t * t * (p1[k] - c2[k]);
-      pts.push([bx(0), bx(1), dk(0), dk(1)]);
-    }
-  });
-  const N = pts.length, left = [], right = [];
-  pts.forEach(([x, y, dx, dy], i) => {
-    const l = Math.hypot(dx, dy) || 1, tx = dx / l, ty = dy / l;
-    let w = thin + (thick - thin) * Math.pow(Math.max(0, ty), 1.6);
-    const f = i / (N - 1);
-    if (f < taperIn) w = thin + (w - thin) * (f / taperIn);
-    if (f > 1 - taperOut) w = thin * 0.6 + (w - thin * 0.6) * ((1 - f) / taperOut);
-    left.push([x - ty * w / 2, y + tx * w / 2]);
-    right.push([x + ty * w / 2, y - tx * w / 2]);
-  });
-  return poly([...left, ...right.reverse()]);
-}
 // a regular polygon / star
 const ngon = (cx, cy, r, n, rot = -Math.PI / 2) => poly(Array.from({ length: n }, (_, i) => [cx + r * Math.cos(rot + (i / n) * TAU), cy + r * Math.sin(rot + (i / n) * TAU)]));
 const star = (cx, cy, r0, r1, n, rot = -Math.PI / 2) => poly(Array.from({ length: n * 2 }, (_, i) => { const r = i % 2 ? r0 : r1, a = rot + (i / (n * 2)) * TAU; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; }));
@@ -648,31 +622,36 @@ function docks() {
   return { box: 100, layers, small };
 }
 
-// ST GARNEAU GUILLOTINES. Father Jerome's club, out of St Garneau's in Nine Elms. A script
-// G written with a pointed pen, whose spur and serif are a guillotine: where a G's bowl
-// turns up at the lower right into a short upright capped by a serif, the upright is the
-// guillotine's two posts, the serif its beam (running in across the counter as the G's
-// crossbar), and between the posts hang the raised blade and, low down, the lunette. One
-// ink, one silhouette.
+// ST GARNEAU GUILLOTINES. Father Jerome's club, out of St Garneau's in Nine Elms. A solid
+// G whose spur and serif are a guillotine: where a G's bowl turns up at the lower right
+// into a short upright capped by a serif, the upright is the guillotine's two posts, the
+// serif its beam (running in across the counter as the G's crossbar), and between the
+// posts hang the raised blade and, low down, the lunette. One ink, one silhouette.
 const SG = { red: '#af1e2d', blue: '#192168', white: '#ffffff' };
 function guillotines() {
-  // the bowl, as the pen goes: a ball terminal, up and over the top, down the left in one
-  // full stroke, round the bottom and into the foot of the guillotine
-  const bowl = pen([
-    [[60, 26], [63, 18], [57.5, 12.5], [49, 12.5]],
-    [[49, 12.5], [34.5, 12.5], [20.5, 25], [18, 43]],
-    [[18, 43], [15.5, 63], [28, 83], [46, 83]],
-    [[46, 83], [51.5, 83], [55.5, 82.6], [59.4, 81.8]],
-  ], { thin: 2.1, thick: 11, taperOut: 0.02 });
-  const ball = circle(60.8, 27.6, 3.4);
+  // the bowl: a heavy ring, open on the right, from its top terminal over the top, down the
+  // left and round the bottom, where it turns up into the guillotine's left post. Both ends
+  // are cut square, on verticals: the top one is the G's beak, the bottom one the post.
+  const EO = [47, 48.5, 31, 35.5], EI = [48.5, 48.5, 18.5, 23];          // outer, inner ellipses
+  const onX = ([cx, cy, a, b], x, sign) => { const c = (x - cx) / a; return (sign < 0 ? -1 : 1) * Math.acos(c) * 180 / Math.PI; };
+  const arc = ([cx, cy, a, b], from, to, n = 72) => Array.from({ length: n + 1 }, (_, k) => {
+    const t = (from + (to - from) * (k / n)) * Math.PI / 180;
+    return [cx + a * Math.cos(t), cy + b * Math.sin(t)];
+  });
+  const BEAK = 65, POST = 61.4;
+  // angles (screen y down): the foot end is below the centre, the beak end above it
+  // the bowl runs a little way into the post: two layers meeting edge to edge show a seam
+  const oFoot = onX(EO, POST + 1.6, 1), iFoot = onX(EI, POST + 1.6, 1);
+  const oTop = 360 + onX(EO, BEAK, -1), iTop = 360 + onX(EI, BEAK, -1);
+  const bowlD = poly([...arc(EO, oFoot, oTop), ...arc(EI, iFoot, iTop).reverse()]);
   // the guillotine: the right post is the G's heavy stroke, the left a lighter one; the
   // beam is the serif, bracketed at both ends; the blade hangs a hair below it with its
   // edge on the slant; the lunette sits low with the neck hole through it
   const yb = 46.2, yf = 81.4;                       // beam top, foot
   const L0 = 61.4, L1 = 64.4, R0 = 74, R1 = 79;     // left and right post edges
-  // the foot takes the bowl's stroke in: its upper edge runs inside the stroke's tail, so
-  // the two read as one line, and it thickens to the guillotine's platform
-  const foot = poly([[46, 83.1], [60, yf], [81.8, yf], [82.6, yf + 3.6], [56, yf + 3.6], [46, 84.1]]);
+  // the platform the posts stand on, level with the bottom of the bowl; its left end climbs
+  // inside the bowl's curve so the two meet without a gap
+  const foot = poly([[51, 83.4], [56, 82], [POST, 79.2], [POST + 1.5, yf], [81.8, yf], [82.6, yf + 2.6], [51, yf + 2.6]]);
   const posts = poly([[L0, yb + 4], [L1, yb + 4], [L1, yf], [L0, yf]]) + poly([[R0, yb + 4], [R1, yb + 4], [R1, yf], [R0, yf]]);
   const beam = shape([['M', 52, yb + 4.4], ['Q', 52.6, yb + 1.4, 55.4, yb], ['L', 81, yb], ['Q', 84, yb + 1, 84.4, yb + 4.4], ['L', 79, yb + 4.4], ['L', 79, yb + 4],
     ['L', 61.4, yb + 4], ['L', 61.4, yb + 4.4], ['Z']]);
@@ -682,7 +661,7 @@ function guillotines() {
   // pen's strokes and the guillotine's polygons wind opposite ways, so they're separate
   // layers in the same ink: in one path their overlap would cancel to a hole.
   const set = (d) => xfD(d, 0.9, 49, 50);
-  const G = set(bowl + ball), frame = set(foot + posts + beam + blade + lunette);
+  const G = set(bowlD), frame = set(foot + posts + beam + blade + lunette);
   const layers = [
     L(circle(50, 50, 49.5), SG.blue),
     L(circle(50, 50, 46), SG.white),
@@ -690,11 +669,11 @@ function guillotines() {
     L(G, SG.red),
     L(frame, SG.red),
   ];
-  // small: the same mark, the pen a touch heavier so the hairlines and posts survive
+  // small: the same mark, a touch heavier so the posts survive
   const small = [
     L(circle(50, 50, 49.5), SG.blue),
     L(circle(50, 50, 45), SG.white),
-    L(G, SG.red, { stroke: SG.red, sw: 2.2 }),
+    L(G, SG.red, { stroke: SG.red, sw: 1 }),
     L(frame, SG.red, { stroke: SG.red, sw: 1.2 }),
   ];
   return { box: 100, layers, small };
