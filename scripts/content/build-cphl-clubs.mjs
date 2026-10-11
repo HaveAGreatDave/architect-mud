@@ -222,10 +222,10 @@ function warlords() {
   return { box: 100, layers, small };
 }
 
-// BOOMTOWN BULLDOGS. A bulldog's head, square on: rose ears, a scowl, jowls and an
-// underbite with the fangs over the lip, bursting out of a rusted cog (the Rust Quarter),
+// BOOMTOWN BULLDOGS. A bulldog's head, square on: rose ears, a scowl, big hanging jowls,
+// a bone clamped in its underbite with the fangs up over it, bursting out of a rusted cog (the Rust Quarter),
 // on a chain collar with two tags hanging from it. The front tag reads RC.
-const BD = { orange: '#f37021', orangeDeep: '#b9480b', orangeDark: '#7c2d06', black: '#111111', bone: '#f6ead6', boneShade: '#d9c4a3', white: '#ffffff', mouth: '#5b0f12', steel: '#d3d8dc', steelDark: '#7b848b', nose: '#1b1b1b', rust: '#8a3a12', rustDeep: '#5c260b' };
+const BD = { orange: '#f37021', orangeDeep: '#b9480b', orangeDark: '#7c2d06', black: '#111111', bone: '#f6ead6', boneShade: '#d9c4a3', white: '#ffffff', mouth: '#5b0f12', steel: '#d3d8dc', steelDark: '#7b848b', nose: '#1b1b1b', boneWhite: '#fbf5e6', rust: '#8a3a12', rustDeep: '#5c260b' };
 function bulldogs() {
   // the cog: twelve teeth
   const cog = [];
@@ -237,8 +237,10 @@ function bulldogs() {
   const h = T({ sx: 0.9, sy: 0.9, tx: 5, ty: -2.4 });
   const S = (cmds) => shape(cmds, h);
   const mirror = (cmds) => cmds.map((c) => (c[0] === 'Z' ? c : [c[0], ...c.slice(1).map((v, i) => (i % 2 === 0 ? 100 - v : v))]));
-  const half = [['M', 50, 8], ['C', 62, 8, 72, 9, 79, 14], ['C', 85, 18, 88, 25, 89, 33], ['C', 90, 40, 92, 46, 94, 53], ['C', 96, 60, 95, 68, 89, 73],
-    ['C', 84, 77, 76, 77, 70, 76], ['C', 64, 79, 57, 81, 50, 81]];
+  // the half-head, right side: skull, temple, then the jowl swinging out wide and
+  // hanging in a heavy lobe below the jaw line before it comes back to the chin
+  const half = [['M', 50, 8], ['C', 62, 8, 72, 9, 79, 14], ['C', 85, 18, 88, 25, 89, 33], ['C', 91, 41, 97, 48, 98.5, 59], ['C', 100.5, 72, 97, 87, 87.5, 93],
+    ['C', 80, 97, 71, 94.5, 65.5, 87.5], ['C', 60, 89.5, 55, 90, 50, 90]];
   const head = [...half, ...mirror(half.slice(1).reverse().map((c, i, arr) => {
     // walk the right half backwards: each curve's end becomes the previous one's start
     const prevEnd = i + 1 < arr.length ? arr[i + 1].slice(-2) : [50, 8];
@@ -248,30 +250,37 @@ function bulldogs() {
   const earR = [['M', 77, 13.4], ['C', 85, 8.6, 93.6, 10.6, 98.4, 18.4], ['C', 96.6, 23.4, 92.6, 26.2, 88.6, 27.4], ['C', 88, 21.6, 84, 16.4, 77, 13.4], ['Z']];
   const ears = [...earR, ...mirror(earR)];
   const earFold = [['M', 84, 13.6], ['C', 89, 12.6, 93.4, 14.4, 96, 18.4], ['C', 93, 19, 90.6, 21, 89.4, 24], ['C', 88.4, 19.6, 86.6, 16, 84, 13.6], ['Z']];
-  const jowlR = [['M', 94, 55], ['C', 95.5, 64, 93, 70, 88.6, 73.2], ['C', 83, 77, 76, 76.8, 70, 76], ['C', 77, 72, 82, 65, 83, 56], ['Z']];
-  const muzzle = [['M', 50, 39], ['C', 62, 39, 72, 44, 77, 53], ['C', 82, 62, 77, 73, 67, 76.4], ['C', 61, 78.6, 56, 79.6, 50, 79.6], ['C', 44, 79.6, 39, 78.6, 33, 76.4],
-    ['C', 23, 73, 18, 62, 23, 53], ['C', 28, 44, 38, 39, 50, 39], ['Z']];
+  const jowlR = [['M', 97, 58], ['C', 99.5, 71, 96.6, 85.6, 87.5, 92], ['C', 80.4, 95.6, 72, 93.4, 66.4, 87.4], ['C', 78, 84, 84, 73, 85, 59], ['Z']];
+  const jowlFold = [['M', 75, 62], ['C', 82, 71, 82, 82, 74, 89], ['M', 25, 62], ['C', 18, 71, 18, 82, 26, 89]];
+  const muzzle = [['M', 50, 39], ['C', 62, 39, 72, 44, 77, 53], ['C', 82, 63, 78, 76, 68, 81.4], ['C', 62, 84.6, 56, 85.6, 50, 85.6], ['C', 44, 85.6, 38, 84.6, 32, 81.4],
+    ['C', 22, 76, 18, 63, 23, 53], ['C', 28, 44, 38, 39, 50, 39], ['Z']];
   const browR = [['M', 50, 37.5], ['L', 53, 34.6], ['Q', 62, 25.4, 77.4, 26.6], ['L', 76.4, 31.4], ['Q', 63, 31, 54.6, 40.2], ['Z']];
   const brow = [...browR, ...mirror(browR)];
   const eyeR = [['M', 57.4, 36.6], ['Q', 64, 31.4, 71, 33.2], ['Q', 66.4, 39.4, 57.4, 36.6], ['Z']];
   const eyes = [...eyeR, ...mirror(eyeR)];
-  const pupils = circle(64.2, 35.2, 1.9) + circle(35.8, 35.2, 1.9);
+  const pupils = circle(...ap(h, 63.6, 35.3), 1.75) + circle(...ap(h, 36.4, 35.3), 1.75);
   const wrinkles = [['M', 44, 21.6], ['Q', 50, 19.4, 56, 21.6], ['M', 46.6, 26.4], ['Q', 50, 25, 53.4, 26.4]];
   const roll = [['M', 36.6, 44.4], ['Q', 50, 37.4, 63.4, 44.4], ['Q', 50, 41.6, 36.6, 44.4], ['Z']];
   const nose = [['M', 50, 43.6], ['C', 58.6, 43.6, 62.6, 45.6, 62.6, 49.4], ['C', 62.6, 53.4, 57, 55, 50, 56.2], ['C', 43, 55, 37.4, 53.4, 37.4, 49.4], ['C', 37.4, 45.6, 41.4, 43.6, 50, 43.6], ['Z']];
-  const nostrils = ellipse(45, 51.2, 2.4, 1.3, 0.3) + ellipse(55, 51.2, 2.4, 1.3, -0.3);
-  const shine = ellipse(46.8, 46.4, 3.8, 1.2, -0.08);
-  const mouth = [['M', 33.4, 66.6], ['C', 39, 60.4, 45, 59.4, 50, 59.4], ['C', 55, 59.4, 61, 60.4, 66.6, 66.6], ['C', 61, 68.8, 56, 68.2, 50, 68.2],
-    ['C', 44, 68.2, 39, 68.8, 33.4, 66.6], ['Z']];
-  const jaw = [['M', 34.2, 67.2], ['C', 39, 69.6, 44, 69, 50, 69], ['C', 56, 69, 61, 69.6, 65.8, 67.2], ['C', 65.2, 74, 58.4, 78.2, 50, 78.2], ['C', 41.6, 78.2, 34.8, 74, 34.2, 67.2], ['Z']];
+  const nostrils = poly(ellipsePts(45, 51.2, 2.4, 1.3, 0.3), h) + poly(ellipsePts(55, 51.2, 2.4, 1.3, -0.3), h);
+  const shine = poly(ellipsePts(46.8, 46.4, 3.8, 1.2, -0.08), h);
+  // the bone, clamped crosswise: the shaft between the jaws, a knob each end out past
+  // the jowls. Underbite below it, fangs up over it, the flews draped on top.
+  const boneD = [['M', 13, 67.4], ['L', 87, 67.4], ['C', 88.6, 61.4, 97.4, 61.6, 96.4, 67.4], ['C', 99.4, 69.6, 97.8, 76.6, 92.6, 74.4], ['C', 91.2, 76.2, 88.4, 75.6, 87, 73.6],
+    ['L', 13, 73.6], ['C', 11.6, 75.6, 8.8, 76.2, 7.4, 74.4], ['C', 2.2, 76.6, 0.6, 69.6, 3.6, 67.4], ['C', 2.6, 61.6, 11.4, 61.4, 13, 67.4], ['Z']];
+  const boneShine = [['M', 16, 69], ['L', 84, 69]];
+  const mouth = [['M', 31.4, 66.6], ['C', 38, 62, 45, 61.4, 50, 61.4], ['C', 55, 61.4, 62, 62, 68.6, 66.6], ['L', 68.6, 75], ['L', 31.4, 75], ['Z']];
+  const jaw = [['M', 32.6, 73.4], ['L', 67.4, 73.4], ['C', 67, 79.4, 59.4, 83.4, 50, 83.4], ['C', 40.6, 83.4, 33, 79.4, 32.6, 73.4], ['Z']];
   const teeth = [];
-  for (let i = 0; i < 6; i++) { const x = 42.6 + i * 2.95; teeth.push(['M', x, 69.6], ['L', x + 1.45, 66.2], ['L', x + 2.9, 69.6], ['Z']); }
-  const fangR = [['M', 57.6, 69.8], ['C', 58, 65, 59, 61.4, 60.6, 57.6], ['C', 61.8, 61.6, 62.6, 65.6, 62.4, 69.4], ['Z']];
+  for (let i = 0; i < 6; i++) { const x = 41.2 + i * 2.95; teeth.push(['M', x, 74.6], ['L', x + 1.45, 71.2], ['L', x + 2.9, 74.6], ['Z']); }
+  const fangR = [['M', 57.8, 75], ['C', 58.2, 69.6, 59.4, 65.2, 61.2, 61.4], ['C', 62.6, 65.4, 63.4, 70, 63, 74.6], ['Z']];
   const fangs = [...fangR, ...mirror(fangR)];
-  const flewR = [['M', 50, 55.6], ['L', 50, 59.4], ['C', 55, 59.4, 61.6, 61, 66.4, 67.4]];
-  const folds = [['M', 70.6, 50], ['C', 75, 56, 75.6, 64, 72, 71], ['M', 29.4, 50], ['C', 25, 56, 24.4, 64, 28, 71]];
+  const flewR = [['M', 50, 59.4], ['C', 56, 59.4, 63, 61.4, 70.6, 67.6], ['C', 66, 71.4, 60, 71.2, 54, 68.4], ['C', 52.4, 67.6, 51.2, 66.6, 50, 66.6], ['Z']];
+  const flews = [...flewR, ...mirror(flewR)];
+  const philtrum = [['M', 50, 55.6], ['L', 50, 61]];
+  const folds = [['M', 70.6, 50], ['C', 75, 55, 76, 60, 75, 64], ['M', 29.4, 50], ['C', 25, 55, 24, 60, 25, 64]];
   // the chain: links along a curve under the chin, face-on and edge-on in turn
-  const a = [12, 70], c = [50, 108], b = [88, 70];
+  const a = [8, 76], c = [50, 112], b = [92, 76];
   let links = '', linkHoles = '', edges = '';
   const NL = 13;
   for (let i = 0; i < NL; i++) {
@@ -294,27 +303,32 @@ function bulldogs() {
     L(circle(50, 50, 36.5), BD.black),
     L(ring(50, 50, 32, 33.6), BD.rustDeep),
     L(S(neck), BD.orangeDeep, { stroke: BD.black, sw: 3.4 }),
+    // the chain goes round the neck behind the jowls, which hang over it
+    L(links + edges, BD.steel, { stroke: BD.black, sw: 1.3 }),
+    L(linkHoles, BD.black),
     L(S(ears), BD.orange, { stroke: BD.black, sw: 3 }),
     L(S([...earFold, ...mirror(earFold)]), BD.orangeDeep),
     L(S(head), BD.orange, { stroke: BD.black, sw: 3.6 }),
     L(S([...jowlR, ...mirror(jowlR)]), BD.orangeDeep),
+    L(S(jowlFold), 'none', { stroke: BD.black, sw: 1.6 }),
     L(S(muzzle), BD.bone),
     L(S(wrinkles), 'none', { stroke: BD.black, sw: 1.7 }),
     L(S(eyes), BD.white, { stroke: BD.black, sw: 1.1 }),
-    L(S(pupils), BD.black),
+    L(pupils, BD.black),
     L(S(brow), BD.black),
     L(S(folds), 'none', { stroke: BD.boneShade, sw: 1.6 }),
     L(S(mouth), BD.mouth),
     L(S(jaw), BD.boneShade, { stroke: BD.black, sw: 1.4 }),
-    L(S(teeth), BD.white),
-    L(S([...flewR, ...mirror(flewR)]), 'none', { stroke: BD.black, sw: 2.2 }),
+    L(S(boneD), BD.boneWhite, { stroke: BD.black, sw: 1.8 }),
+    L(S(boneShine), 'none', { stroke: BD.boneShade, sw: 1.2 }),
+    L(S(teeth), BD.white, { stroke: BD.black, sw: 0.5 }),
     L(S(fangs), BD.white, { stroke: BD.black, sw: 1 }),
+    L(S(flews), BD.bone, { stroke: BD.black, sw: 1.6 }),
+    L(S(philtrum), 'none', { stroke: BD.black, sw: 2 }),
     L(S(roll), BD.boneShade, { stroke: BD.black, sw: 1 }),
     L(S(nose), BD.nose),
-    L(S(nostrils), '#3c3c3c'),
-    L(S(shine), '#5d5d5d'),
-    L(links + edges, BD.steel, { stroke: BD.black, sw: 1.3 }),
-    L(linkHoles, BD.black),
+    L(nostrils, '#3c3c3c'),
+    L(shine, '#5d5d5d'),
     L(shape(tagCmds, back), BD.steelDark, { stroke: BD.black, sw: 1.2 }),
     L(shape(tagCmds, front), BD.steel, { stroke: BD.black, sw: 1.2 }),
     L(tagHole(back) + tagHole(front), BD.black),
@@ -331,8 +345,9 @@ function bulldogs() {
     L(S(muzzle), BD.bone),
     L(S(brow), BD.black),
     L(S(nose), BD.nose),
-    L(S(mouth), BD.black),
+    L(S(boneD), BD.boneWhite, { stroke: BD.black, sw: 3 }),
     L(S(fangs), BD.white),
+    L(S(flews), BD.bone),
     L(chain, 'none', { stroke: BD.black, sw: 8.5 }),
     L(chain, 'none', { stroke: BD.steel, sw: 4 }),
     L(shape(tagCmds, T({ tx: mid[0], ty: mid[1] + 1.4 })), BD.steel, { stroke: BD.black, sw: 2.6 }),
@@ -400,7 +415,7 @@ function highlanders() {
   const C = 50;
   // the stick, raised overhead in both fists like a claymore about to come down: the
   // butt behind his head, the shaft up to the right, the taped blade at the top
-  const butt = [42, 6], heel = [92, -6];
+  const butt = [41, 14], heel = [91, 0];
   const shaft = `M${P(...butt)}L${P(...heel)}`;
   const sa = Math.atan2(heel[1] - butt[1], heel[0] - butt[0]);
   // the blade leaves the heel at a hockey lie, toe down and to the right
@@ -411,25 +426,27 @@ function highlanders() {
   const onShaft = (t) => [butt[0] + (heel[0] - butt[0]) * t, butt[1] + (heel[1] - butt[1]) * t];
   const fistA = onShaft(0.16), fistB = onShaft(0.3);
   // the body
-  const torso = [['M', 31, 49], ['C', 38, 46, 56, 46, 63, 49], ['L', 60, 67], ['L', 34, 67], ['Z']];
+  const torso = [['M', 31, 49], ['C', 38, 46, 56, 46, 63, 49], ['L', 60, 64], ['L', 34, 64], ['Z']];
   const pec = [['M', 39, 55], ['Q', 43, 58, 47, 55.5], ['M', 47, 55.5], ['Q', 51, 58, 55, 55], ['M', 47, 59], ['L', 47, 64]];
-  const sash = [['M', 31, 49.5], ['L', 37.5, 47.6], ['L', 61.4, 64.4], ['L', 59.6, 67.2], ['Z']];
-  const belt = [['M', 33.6, 65.4], ['L', 60.4, 65.4], ['L', 60.6, 69], ['L', 33.4, 69], ['Z']];
-  const buckle = rrect(44.6, 64.8, 5, 4.8, 0.8);
-  const kilt = [['M', 33.4, 68.8], ['L', 60.6, 68.8], ['L', 64.8, 85.6], ['L', 61.6, 84.6], ['L', 58.4, 86.2], ['L', 55.2, 84.8], ['L', 52, 86.4], ['L', 48.8, 84.9],
-    ['L', 45.6, 86.4], ['L', 42.4, 84.8], ['L', 39.2, 86.2], ['L', 36, 84.6], ['L', 32.4, 85.8], ['Z']];
-  const pleats = [['M', 39.6, 70], ['L', 38.4, 84.4], ['M', 45.4, 70], ['L', 45, 85.2], ['M', 51.2, 70], ['L', 51.8, 85.2], ['M', 57, 70], ['L', 58.4, 84.6]];
-  const sporran = [['M', 44, 70.5], ['L', 50.2, 70.5], ['C', 52, 74, 51.6, 78.4, 47.1, 80.2], ['C', 42.6, 78.4, 42.2, 74, 44, 70.5], ['Z']];
-  const tassels = bar(45.4, 76, 45.2, 81, 1.2) + bar(48.8, 76, 49, 81, 1.2);
+  const sash = [['M', 31, 49.5], ['L', 37.5, 47.6], ['L', 60.8, 62.2], ['L', 59.4, 64.6], ['Z']];
+  const belt = [['M', 33.8, 62.4], ['L', 60.2, 62.4], ['L', 60.4, 66], ['L', 33.6, 66], ['Z']];
+  const buckle = rrect(44.6, 61.8, 5, 4.8, 0.8);
+  // the kilt is drawn knee-length and then taken up, so the legs below it get their length
+  const ky = (cmds) => cmds.map((c) => (c[0] === 'Z' ? c : [c[0], ...c.slice(1).map((v, i) => (i % 2 ? 65.8 + (v - 68.8) * 0.784 : v))]));
+  const kilt = ky([['M', 33.4, 68.8], ['L', 60.6, 68.8], ['L', 64.8, 85.6], ['L', 61.6, 84.6], ['L', 58.4, 86.2], ['L', 55.2, 84.8], ['L', 52, 86.4], ['L', 48.8, 84.9],
+    ['L', 45.6, 86.4], ['L', 42.4, 84.8], ['L', 39.2, 86.2], ['L', 36, 84.6], ['L', 32.4, 85.8], ['Z']]);
+  const pleats = ky([['M', 39.6, 70], ['L', 38.4, 84.4], ['M', 45.4, 70], ['L', 45, 85.2], ['M', 51.2, 70], ['L', 51.8, 85.2], ['M', 57, 70], ['L', 58.4, 84.6]]);
+  const sporran = ky([['M', 44, 70.5], ['L', 50.2, 70.5], ['C', 52, 74, 51.6, 78.4, 47.1, 80.2], ['C', 42.6, 78.4, 42.2, 74, 44, 70.5], ['Z']]);
+  const tassels = bar(45.4, 71.5, 45.2, 75.4, 1.2) + bar(48.8, 71.5, 49, 75.4, 1.2);
   // legs, hose, flashes and boots
-  const legs = rrect(36.2, 84.6, 7.4, 5, 2) + rrect(51.6, 84.6, 7.4, 5, 2);
-  const hose = rrect(35.6, 88.2, 8.6, 7.2, 1.4) + rrect(51, 88.2, 8.6, 7.2, 1.4);
-  const flashes = poly([[35.6, 89], [32.6, 93.4], [35.6, 92.4]]) + poly([[59.6, 89], [62.6, 93.4], [59.6, 92.4]]);
+  const legs = rrect(36.4, 78.6, 7.2, 8.6, 2.4) + rrect(51.4, 78.6, 7.2, 8.6, 2.4);
+  const hose = rrect(35.6, 85.4, 8.6, 9.8, 1.4) + rrect(51, 85.4, 8.6, 9.8, 1.4);
+  const flashes = poly([[35.6, 86.4], [32.6, 90.8], [35.6, 89.8]]) + poly([[59.6, 86.4], [62.6, 90.8], [59.6, 89.8]]);
   const boots = shape([['M', 34.4, 94.6], ['L', 44.4, 94.6], ['L', 44.4, 98.8], ['L', 31, 98.8], ['C', 31, 96.6, 32.6, 95.4, 34.4, 94.6], ['Z'],
     ['M', 50.8, 94.6], ['L', 60.8, 94.6], ['C', 62.6, 95.4, 64.2, 96.6, 64.2, 98.8], ['L', 50.8, 98.8], ['Z']]);
   // arms: an A round the head, elbows out, both fists on the shaft above it
-  const armL = `M32.6 50.6L25 32L${P(fistA[0] - 1, fistA[1] + 2)}`;
-  const armR = `M61.4 50.6L70 31L${P(fistB[0] + 1, fistB[1] + 2.4)}`;
+  const armL = `M33 49.4L26.4 36L${P(fistA[0] - 1, fistA[1] + 2)}`;
+  const armR = `M61 49.4L68.4 35L${P(fistB[0] + 1, fistB[1] + 2.4)}`;
   const fists = circle(...fistA, 4.2) + circle(...fistB, 4.2);
   // the head: hair blown back in flames, a forked beard, the face half woad
   const hc = [47, 28];
@@ -478,8 +495,8 @@ function highlanders() {
     L(buckle, HL.silver, { stroke: HL.black, sw: 0.7 }),
     L(shape(sporran), HL.fur, { stroke: HL.black, sw: 1 }),
     L(tassels, HL.black),
-    L(armL + armR, 'none', { stroke: HL.black, sw: 8.4 }),
-    L(armL + armR, 'none', { stroke: HL.skin, sw: 6 }),
+    L(armL + armR, 'none', { stroke: HL.black, sw: 7 }),
+    L(armL + armR, 'none', { stroke: HL.skin, sw: 4.8 }),
     L(poly(hair), HL.ginger, { stroke: HL.black, sw: 1.4 }),
     L(face, HL.skin, { stroke: HL.black, sw: 1.2 }),
     L(woad, HL.woad),
