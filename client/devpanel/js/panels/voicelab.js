@@ -18,6 +18,13 @@
 //   THIS VOICE per-narrator character. Hashed from the name, so before the
 //              `voice` override existed the only way to hear `drive` or `growl`
 //              was to type seeds until one rolled them.
+//
+// SAVED VOICES. A voice tuned here can be saved and loaded back. A saved voice is
+// an audio_instruments row with category 'voice', written through the audio
+// plugin's existing CRUD, so it exports to content/audio_instruments/ as a file
+// and ships through the content pipeline like any other content, with no table
+// of its own. The Audio tab keeps these rows out of its instrument list. The row
+// holds the seed and the overrides that differ from it: { seed, voice }.
 
 const VL_KNOBS = [
   ['rate',       'rate (lower = slower)', 0.6,  1.2,  0.01],
@@ -69,8 +76,39 @@ const VL_PRESETS = [
 let _vlTuneDefaults = null;
 const _vlOverride = {};
 let _vlBase = null;
+let _vlPresets = [];
+
+// ── Saved voices: the row shape, both ways ──────────────────────────────────
+// Pure, so scripts/audio/tools-smoke.mjs can prove a voice survives the trip.
+const VL_PRESET_PREFIX = 'voice_';
+function vlPresetsFrom(rows) {
+  return (Array.isArray(rows) ? rows : []).filter(r => r?.category === 'voice')
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+}
+function vlPresetId(name) {
+  const slug = String(name || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  return slug ? VL_PRESET_PREFIX + slug : null;
+}
+// Only what differs from the seed is stored, the same rule Copy voice follows:
+// a saved voice records decisions, not every rolled default.
+function vlPresetRow(name, seed, override, base) {
+  const id = vlPresetId(name);
+  if (!id) return null;
+  const voice = {};
+  for (const k of Object.keys(override || {})) {
+    if (base && override[k] === base[k]) continue;
+    voice[k] = override[k];
+  }
+  return { id, name: String(name).trim(), category: 'voice', waveform: 'voice', sample_id: null, enabled: 1,
+    config: { seed: String(seed || name).trim(), voice } };
+}
+function vlPresetFromRow(row) {
+  const cfg = row?.config || {};
+  return { seed: cfg.seed || row?.name || 'broadcast', voice: { ...(cfg.voice || {}) } };
+}
 
 function renderVoiceLabPanel(data) {
+  _vlPresets = Array.isArray(data?.voices) ? data.voices : [];
   const npcs = (Array.isArray(data?.npcs) ? data.npcs : [])
     .map(n => n?.name).filter(Boolean)
     .sort((a, b) => a.localeCompare(b));
@@ -115,6 +153,17 @@ function renderVoiceLabPanel(data) {
       <pre id="vl-voice-dump" style="font-size:10px;color:var(--text-dim);margin:8px 0 0;white-space:pre-wrap"></pre>`,
       `Overrides what the name rolled, for the next read. <b>Copy voice</b> prints only what you changed, in the shape a <code>NAMED_VOICES</code> entry takes.`)}
 
+    ${sect('Saved voices', `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <select id="vl-saved" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:5px;min-width:200px"></select>
+        <button class="action-btn" onclick="vlLoadPreset()">Load</button>
+        <button class="action-btn danger" onclick="vlDeletePreset()">Delete</button>
+        <span style="flex:0 0 12px"></span>
+        <input type="text" id="vl-save-name" placeholder="name to save as"
+          style="flex:1 1 160px;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:5px">
+        <button class="action-btn" onclick="vlSavePreset()">Save voice</button>
+      </div>`,
+      `Saves the seed and the knobs you changed under a name. It's stored as a content row (category <code>voice</code> in audio_instruments), so it ships as a file under content/audio_instruments/ once exported. Saving an existing name overwrites it.`)}
+
     ${sect('Tuning (global)', `<div id="vl-tune-knobs" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px"></div>
       <div style="display:flex;gap:6px;margin-top:8px">
         <button class="action-btn" onclick="vlTuneReset()">Reset all</button>
@@ -126,6 +175,7 @@ function renderVoiceLabPanel(data) {
 
   vlBuildTuning();
   vlBuildVoice();
+  vlRenderPresets();
   vlRender();
   document.getElementById('vl-text').addEventListener('input', vlRender);
   document.getElementById('vl-npc').addEventListener('change', (e) => {
@@ -241,4 +291,55 @@ function vlTuneCopy() {
   const s = Object.keys(out).length ? JSON.stringify(out, null, 2) : '(unchanged from defaults)';
   _vlEl('vl-tune-dump').textContent = s;
   navigator.clipboard?.writeText(s).catch(() => {});
+}
+
+// ── Saved voices ─────────────────────────────────────────────────────────────
+function vlRenderPresets(selectId) {
+  const sel = _vlEl('vl-saved');
+  if (!sel) return;
+  sel.innerHTML = _vlPresets.length
+    ? _vlPresets.map(r => `<option value="${String(r.id).replace(/"/g, '&quot;')}">${r.name} (${(r.config?.seed || r.name)})</option>`).join('')
+    : '<option value="">(no saved voices)</option>';
+  if (selectId) sel.value = selectId;
+}
+
+async function vlReloadPresets(selectId) {
+  const rows = await API('/audio/instruments');
+  if (Array.isArray(rows)) _vlPresets = vlPresetsFrom(rows);
+  vlRenderPresets(selectId);
+}
+
+async function vlSavePreset() {
+  const name = (_vlEl('vl-save-name')?.value || '').trim();
+  const row = vlPresetRow(name, _vlEl('vl-seed')?.value, _vlOverride, _vlBase);
+  if (!row) { toast('Give the voice a name', true); return; }
+  const exists = _vlPresets.some(r => r.id === row.id);
+  const r = exists ? await API(`/audio/instruments/${row.id}`, 'PUT', row) : await API('/audio/instruments', 'POST', row);
+  if (r?.error) { toast(r.error, true); return; }
+  toast(`${exists ? 'Updated' : 'Saved'} voice "${row.name}"`);
+  await vlReloadPresets(row.id);
+}
+
+function vlLoadPreset() {
+  const id = _vlEl('vl-saved')?.value;
+  const row = _vlPresets.find(r => r.id === id);
+  if (!row) return;
+  const { seed, voice } = vlPresetFromRow(row);
+  _vlEl('vl-seed').value = seed;
+  _vlEl('vl-save-name').value = row.name;
+  for (const k of Object.keys(_vlOverride)) delete _vlOverride[k];
+  Object.assign(_vlOverride, voice);
+  _vlEl('vl-voice-dump').textContent = '';
+  vlBuildVoice();
+  toast(`Loaded voice "${row.name}"`);
+}
+
+async function vlDeletePreset() {
+  const id = _vlEl('vl-saved')?.value;
+  const row = _vlPresets.find(r => r.id === id);
+  if (!row || !confirm(`Delete the saved voice "${row.name}"?`)) return;
+  const r = await API(`/audio/instruments/${row.id}`, 'DELETE');
+  if (r?.error) { toast(r.error, true); return; }
+  toast(`Deleted voice "${row.name}"`);
+  await vlReloadPresets();
 }

@@ -6,7 +6,9 @@
 // (that's a deferred phase-2 piece). Preview buttons call window.AudioEngine
 // directly against the browser's own AudioContext — no server round-trip.
 
-const AUDIO_CATEGORIES = ['ui', 'combat', 'cyberpunk', 'environment', 'tv', 'misc'];
+// tv_fx is a broadcast's effects: the tv bus, through the effects sub-gain that
+// AudioEngine.setTvBalance sets against the voice.
+const AUDIO_CATEGORIES = ['ui', 'combat', 'cyberpunk', 'environment', 'tv', 'tv_fx', 'misc'];
 const WAVEFORMS = ['square', 'sine', 'triangle', 'sawtooth', 'noise'];
 
 // Mirrors MAX_CHANNELS in client/shared/audio-engine.js — the song player only
@@ -42,9 +44,14 @@ let _playingSongId = null;
 // Which MOD-batch parent groups are expanded in the Instruments/Samples lists.
 let _audioGroupsOpen = new Set();
 
+// Voice Lab presets live in audio_instruments as category 'voice' rows (see
+// voicelab.js), so they ship as content files with no table of their own. They
+// aren't instruments: they're kept out of this tab, its song editor and Verify.
+const _isVoicePreset = (r) => r?.category === 'voice';
+
 function renderAudioPanel(data) {
   _audioData = {
-    instruments: Array.isArray(data?.instruments) ? data.instruments : [],
+    instruments: Array.isArray(data?.instruments) ? data.instruments.filter(r => !_isVoicePreset(r)) : [],
     songs: Array.isArray(data?.songs) ? data.songs : [],
     sfx: Array.isArray(data?.sfx) ? data.sfx : [],
     ambient: Array.isArray(data?.ambient) ? data.ambient : [],
@@ -234,7 +241,7 @@ function _sfxEntry(id) { return _sfxEntries.find(e => e.id === id); }
 // to unlock the AudioContext. Priority + config come from the entry (or a live
 // edit passed as configOverride from the modal preview).
 function _playSfxDef(entry, configOverride) {
-  const def = { id: entry.id, category: 'sfx', priority: entry.priority || 5, config: configOverride || entry.config };
+  const def = { id: entry.id, category: entry.category || 'sfx', priority: entry.priority || 5, config: configOverride || entry.config };
   try { window.AudioEngine && window.AudioEngine.init && window.AudioEngine.init(); window.AudioEngine.playSfx(def); }
   catch { toast('Audio engine not ready', true); }
 }
@@ -409,6 +416,15 @@ function _resolveInstrumentsById(instrumentIds) {
 }
 
 // ── Preview (local-only, no server round-trip) ──────────────────────────────
+//
+// A preview plays on the bus the cue plays on in the game, so a tv cue answers
+// the TV slider and picks up the TV's reverb send, and a ui cue stays dry. They
+// all used to preview on sfx. An instrument only ever plays inside a song, so it
+// previews on the music bus.
+function _previewCategory(tab, category) {
+  if (tab === 'instruments') return 'music';
+  return category || 'sfx';
+}
 
 function previewAudioAsset(tab, id) {
   window.AudioEngine?.init();
@@ -416,7 +432,7 @@ function previewAudioAsset(tab, id) {
   if (!row) return;
   if (tab === 'sfx') window.AudioEngine.playSfx(row);
   else if (tab === 'samples') window.AudioEngine.playSample(row);
-  else if (tab === 'instruments') window.AudioEngine.playSfx({ priority: 5, category: 'sfx', config: { ...(row.config || {}), waveform: row.waveform, freq: 440, duration: 0.6 } });
+  else if (tab === 'instruments') window.AudioEngine.playSfx({ priority: 5, category: _previewCategory('instruments'), config: { ...(row.config || {}), waveform: row.waveform, freq: 440, duration: 0.6 } });
   else if (tab === 'ambient') { window.AudioEngine.loopSound(row); setTimeout(() => window.AudioEngine.stopLoop(row.id), 4000); }
   else if (tab === 'songs') {
     if (_playingSongId === id) {
@@ -465,7 +481,7 @@ async function verifyAllAudio() {
   try {
     const [instruments, songs, sfx, ambient, events, samples] =
       await Promise.all(['instruments', 'songs', 'sfx', 'ambient', 'events', 'samples'].map(t => API(`/audio/${t}`)));
-    fresh = { instruments, songs, sfx, ambient, events, samples };
+    fresh = { instruments: Array.isArray(instruments) ? instruments.filter(r => !_isVoicePreset(r)) : instruments, songs, sfx, ambient, events, samples };
   } catch (e) { toast(`Verify failed to fetch: ${e.message}`, true); return; }
 
   const problems = [];
@@ -535,13 +551,15 @@ function _previewInstrumentForm() {
     const smp = _audioData.samples.find(s => s.id === sampleId);
     if (smp) { window.AudioEngine.playSample({ ...smp, config: { ...(smp.config || {}), ...cfg } }); return; }
   }
-  window.AudioEngine.playSfx({ priority: 9, category: 'sfx', config: { ...cfg, waveform, freq: 440, duration: 0.6 } });
+  window.AudioEngine.playSfx({ priority: 9, category: _previewCategory('instruments'), config: { ...cfg, waveform, freq: 440, duration: 0.6 } });
 }
 
 function _previewAmbientForm() {
   window.AudioEngine?.init();
   const extra = { waveform: document.getElementById('am-wave')?.value || 'square', freq: parseFloat(document.getElementById('am-freq')?.value) || 440 };
-  const row = { id: '_ambient_preview', category: 'misc', priority: 1, loop: 1, config: readInstrumentLikeConfig('am', extra) };
+  const send = _readSend();
+  const row = { id: '_ambient_preview', category: _previewCategory('ambient', document.getElementById('am-cat')?.value), priority: 1, loop: 1,
+    config: { ...readInstrumentLikeConfig('am', extra), ...(send != null ? { send } : {}) } };
   window.AudioEngine.loopSound(row);
   setTimeout(() => window.AudioEngine.stopLoop(row.id), 4000);
 }
@@ -550,8 +568,30 @@ function _previewSfxForm() {
   window.AudioEngine?.init();
   const layers = _sfxReadAllLayers();
   const duration = parseFloat(document.getElementById('am-sfx-duration')?.value) || 0.4;
-  const config = layers.length === 1 ? { ...layers[0], duration } : { layers, duration };
-  window.AudioEngine.playSfx({ priority: 9, category: 'sfx', config });
+  const config = _sfxConfig(layers, duration);
+  window.AudioEngine.playSfx({ priority: 9, category: _previewCategory('sfx', document.getElementById('am-cat')?.value), config });
+}
+
+// The cue-level reverb send from the SFX and ambient forms. Blank means the bus
+// decides, as every cue did before sends existed.
+function _readSend() {
+  const e = document.getElementById('am-send');
+  if (!e || e.value.trim() === '') return null;
+  const v = parseFloat(e.value);
+  return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : null;
+}
+
+// An SFX row's config from its layers. A cue-level key the form doesn't own (a
+// send, a sparkle list) is carried from the row the form was opened with.
+let _sfxCuePrev = {};
+function _sfxConfig(layers, duration) {
+  const cue = { ..._sfxCuePrev };
+  delete cue.layers; delete cue.duration; delete cue.send;
+  const send = _readSend();
+  // A one-layer cue IS its layer, so its cue keys already ride on layers[0].
+  const base = layers.length === 1 ? { ...layers[0] } : { ...cue, layers };
+  delete base.send; delete base.duration;
+  return { ...base, duration, ...(send != null ? { send } : {}) };
 }
 
 // ── Import / Export (JSON presets — never real audio files, see note above) ──
@@ -1197,8 +1237,33 @@ function _wireAudioViz(prefix) {
   _refreshAudioViz(prefix);
 }
 
+const FILTER_TYPES = ['lowpass', 'highpass', 'bandpass', 'notch', 'peaking', 'lowshelf', 'highshelf', 'allpass'];
+const NOISE_COLOURS = ['white', 'pink', 'brown'];
+
+// The config each form was opened with, by prefix. The readers start from it and
+// overwrite only what the form shows, so a key the form has no field for (an
+// ambient's sparkles, a layer's noiseSeed, a send) survives an edit instead of
+// being dropped on save.
+const _ilPrev = {};
+
+function _formantsText(f) {
+  if (!Array.isArray(f) || !f.length) return '';
+  if (f.every(b => typeof b === 'number')) return f.join(', ');
+  return JSON.stringify(f).replace(/"/g, '&quot;');
+}
+function _parseFormants(text) {
+  const t = (text || '').trim();
+  if (!t) return null;
+  if (t.startsWith('[')) {
+    try { const a = JSON.parse(t); return Array.isArray(a) && a.length ? a : null; } catch { return null; }
+  }
+  const nums = t.split(/[\s,]+/).map(Number).filter(n => n > 0);
+  return nums.length ? nums : null;
+}
+
 function instrumentLikeConfigFields(cfg, prefix) {
   cfg = cfg || {};
+  _ilPrev[prefix] = cfg;
   const adsr = cfg.adsr || {};
   const filter = cfg.filter || {};
   const vibrato = cfg.vibrato || {};
@@ -1214,13 +1279,14 @@ function instrumentLikeConfigFields(cfg, prefix) {
       <div class="field"><label>Release${_help('Seconds to fade to silence after the note ends.')}</label><input id="${prefix}-r" type="number" step="0.01" min="0" value="${adsr.r ?? 0.15}"></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px">
-      <div class="field"><label>Filter Type${_help('lowpass cuts highs, highpass cuts lows, bandpass keeps a band, notch removes a band.')}</label><select id="${prefix}-filtertype">
-        ${['lowpass', 'highpass', 'bandpass', 'notch'].map(t => `<option value="${t}" ${filter.type === t ? 'selected' : ''}>${t}</option>`).join('')}
+      <div class="field"><label>Filter Type${_help('lowpass cuts highs, highpass cuts lows, bandpass keeps a band, notch removes a band. peaking boosts or cuts a band by Filter Gain; lowshelf and highshelf boost or cut everything below or above the frequency.')}</label><select id="${prefix}-filtertype">
+        ${FILTER_TYPES.map(t => `<option value="${t}" ${(filter.type || 'lowpass') === t ? 'selected' : ''}>${t}</option>`).join('')}
       </select></div>
       <div class="field"><label>Filter Freq (Hz)${_help('Cutoff / center frequency the filter pivots around.')}</label><input id="${prefix}-filterfreq" type="number" min="20" value="${filter.freq ?? 4000}"></div>
       <div class="field"><label>Filter Q${_help('Resonance: higher Q makes a sharper, more peaked response at the cutoff.')}</label><input id="${prefix}-filterq" type="number" step="0.1" min="0" value="${filter.q ?? 1}"></div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px">
+      <div class="field"><label>Filter Gain (dB)${_help('Boost (positive) or cut (negative) for peaking, lowshelf and highshelf. The other types ignore it. Blank for none.')}</label><input id="${prefix}-filtergain" type="number" step="0.5" value="${filter.gain ?? ''}"></div>
       <div class="field"><label>Filter Sweep To (Hz)${_help('Cutoff travels here over Sweep Time — the same idea as Pitch Bend, but on the filter. Leave 0 for a static filter. Opening a lowpass across the note is what reads as a bloom or a charge-up.')}</label><input id="${prefix}-filterto" type="number" min="0" value="${filter.to ?? 0}"></div>
       <div class="field"><label>Filter Sweep Time (s)${_help('Seconds for the cutoff to reach (most of the way to) the sweep target.')}</label><input id="${prefix}-filtertime" type="number" step="0.05" min="0" value="${filter.time ?? 0}"></div>
     </div>
@@ -1254,6 +1320,26 @@ function instrumentLikeConfigFields(cfg, prefix) {
       <div class="field"><label>Op2 Index End${_help("Where the second operator's index travels to, over FM Sweep Time. Blank for static.")}</label><input id="${prefix}-op2indexend" type="number" step="0.05" min="0" value="${op2.indexEnd ?? ''}"></div>
       <div class="field"><label>Echo Mix${_help('Wet/dry blend of the echo (0 = dry, 1 = full echo).')}</label><input id="${prefix}-echomix" type="number" step="0.01" min="0" max="1" value="${echo.mix ?? 0}"></div>
     </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px">
+      <div class="field"><label>Op2 Wave${_help("The second operator's own waveform. Sine is the default.")}</label><select id="${prefix}-op2wave">
+        ${['sine', 'square', 'sawtooth', 'triangle'].map(t => `<option value="${t}" ${(op2.wave || 'sine') === t ? 'selected' : ''}>${t}</option>`).join('')}
+      </select></div>
+      <div class="field"><label>Op2 Ratio Sweep To (× note)${_help("Where the second operator's pitch travels, as a multiple of the note. 0 = static.")}</label><input id="${prefix}-op2ratioto" type="number" step="0.01" min="0" value="${op2.ratioTo ?? 0}"></div>
+      <div class="field"><label>Op2 Sweep Time (s)${_help("Seconds for the second operator's sweeps. Blank uses FM Sweep Time.")}</label><input id="${prefix}-op2time" type="number" step="0.01" min="0" value="${op2.time ?? ''}"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px">
+      <div class="field"><label>Pitch Bend To (Hz)${_help('The pitch travels here over Bend Time. 0 = no bend. A ratio FM modulator follows it.')}</label><input id="${prefix}-bendto" type="number" step="1" min="0" value="${cfg.pitchBend?.to ?? 0}"></div>
+      <div class="field"><label>Bend Time (s)${_help('Seconds for the pitch to get most of the way to Bend To.')}</label><input id="${prefix}-bendtime" type="number" step="0.01" min="0" value="${cfg.pitchBend?.time ?? 0.2}"></div>
+      <div class="field"><label>Detune (¢)${_help('A fixed pitch offset in cents (100 = one semitone).')}</label><input id="${prefix}-detune" type="number" step="1" value="${cfg.detune ?? 0}"></div>
+    </div>
+    <div class="field" style="margin-top:10px"><label>Formants${_help('A bank of parallel resonators in place of the filter, the way a throat shapes a vowel. Comma-separated Hz (700, 1220, 2600 is roughly ah), or a JSON list of {freq, q, gain}. Blank for none.')}</label><input id="${prefix}-formants" value="${_formantsText(cfg.formants)}" placeholder="e.g. 700, 1220, 2600"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px">
+      <div class="field"><label>Noise Colour${_help('The noise this layer mixes in. White is bright and even; pink is softer (rain, crowds, air); brown is darkest (rumble, surf, wind).')}</label><select id="${prefix}-noisecolour">
+        ${NOISE_COLOURS.map(t => `<option value="${t}" ${(cfg.noise || 'white') === t ? 'selected' : ''}>${t}</option>`).join('')}
+      </select></div>
+      <div class="field"><label>Stereo Width (0-1)${_help("Spreads the layer's noise across the two ears. 0 is mono, as before; 1 is fully wide.")}</label><input id="${prefix}-width" type="number" step="0.05" min="0" max="1" value="${cfg.width ?? 0}"></div>
+      <div class="field"><label>Pan (-1 to 1)${_help('Where this layer sits: -1 hard left, 1 hard right, 0 centre.')}</label><input id="${prefix}-pan" type="number" step="0.05" min="-1" max="1" value="${cfg.pan ?? 0}"></div>
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-top:10px">
       <div class="field"><label>Echo Delay (s)${_help('Time between echo repeats, in seconds.')}</label><input id="${prefix}-echodelay" type="number" step="0.01" min="0" value="${echo.delay ?? 0.18}"></div>
       <div class="field"><label>Echo Feedback${_help('How much of each echo feeds back into the next (higher = more repeats).')}</label><input id="${prefix}-echofb" type="number" step="0.05" min="0" max="0.95" value="${echo.feedback ?? 0.35}"></div>
@@ -1271,7 +1357,7 @@ function instrumentLikeConfigFields(cfg, prefix) {
 // Every key is omitted when it is off, exactly like the filter sweep above: a
 // cue authored before ratio/index existed round-trips through this editor byte
 // for byte, rather than picking up a drift of `ratio: 0, wave: 'sine'` noise.
-function _readFmBlock(prefix) {
+function _readFmBlock(prefix, prevFm) {
   const el = (k) => document.getElementById(`${prefix}-${k}`);
   const num = (k, fb = 0) => { const e = el(k); if (!e) return fb; const v = parseFloat(e.value); return isNaN(v) ? fb : v; };
   // Blank ≠ zero for the sweep targets: an index that collapses to 0 is a real
@@ -1281,7 +1367,7 @@ function _readFmBlock(prefix) {
   if (ratio <= 0 && rate <= 0) return null;
   const index = num('fmindex'), indexEnd = opt('fmindexend'), depthTo = opt('fmdepthto');
   const ratioTo = num('fmratioto'), rateTo = num('fmrateto'), time = num('fmtime'), wave = el('fmwave')?.value, bright = num('fmbright');
-  const o2ratio = num('op2ratio'), o2index = num('op2index'), o2indexEnd = opt('op2indexend');
+  const op2 = _readOp2(prefix, prevFm?.op2);
   return {
     ...(ratio > 0 ? { ratio } : { rate }),
     ...(index > 0 ? { index } : { depth: num('fmdepth', 100) }),
@@ -1296,20 +1382,86 @@ function _readFmBlock(prefix) {
     ...(time > 0 ? { time } : {}),
     ...(wave && wave !== 'sine' ? { wave } : {}),
     ...(bright > 0 ? { bright } : {}),
-    ...(o2ratio > 0 ? { op2: { ratio: o2ratio, index: o2index, ...(o2indexEnd != null ? { indexEnd: o2indexEnd } : {}) } } : {}),
+    ...(op2 ? { op2 } : {}),
+  };
+}
+
+// Operator 2, read over the op2 the layer had. It used to be rebuilt from three
+// fields, so saving dropped its wave, its sweeps and anything authored in the
+// rate/depth spelling. Fields the form shows are written (blank removes them);
+// keys it has no field for are kept as they were.
+function _readOp2(prefix, prev) {
+  const el = (k) => document.getElementById(`${prefix}-${k}`);
+  const num = (k) => { const e = el(k); if (!e) return 0; const v = parseFloat(e.value); return isNaN(v) ? 0 : v; };
+  const opt = (k) => { const e = el(k); if (!e || e.value.trim() === '') return null; const v = parseFloat(e.value); return isNaN(v) ? null : v; };
+  const ratio = num('op2ratio');
+  // An op2 authored in absolute Hz shows ratio 0 and is still an operator.
+  const byRate = !!(prev && !prev.ratio && prev.rate);
+  if (!(ratio > 0) && !byRate) return null;
+  const op2 = { ...(prev || {}) };
+  if (ratio > 0) { op2.ratio = ratio; delete op2.rate; }
+  const index = num('op2index');
+  if (ratio > 0 || index > 0) { op2.index = index; if (index > 0) delete op2.depth; }
+  const indexEnd = opt('op2indexend');
+  if (indexEnd != null) op2.indexEnd = indexEnd; else delete op2.indexEnd;
+  const wave = el('op2wave')?.value;
+  if (wave && wave !== 'sine') op2.wave = wave; else delete op2.wave;
+  const ratioTo = num('op2ratioto');
+  if (ratioTo > 0) op2.ratioTo = ratioTo; else delete op2.ratioTo;
+  const time = opt('op2time');
+  if (time != null) op2.time = time; else delete op2.time;
+  return op2;
+}
+
+// The layer fields below the FM block: pitch bend, detune, formants, the noise
+// colour, width and pan. Written onto `t` (blank or zero removes the key), so the
+// instrument, ambient and SFX-layer forms all read them the one way.
+function _applyLayerExtras(prefix, t) {
+  const el = (k) => document.getElementById(`${prefix}-${k}`);
+  if (!el('bendto')) return t;
+  const num = (k) => { const e = el(k); if (!e) return 0; const v = parseFloat(e.value); return isNaN(v) ? 0 : v; };
+  const opt = (k) => { const e = el(k); if (!e || e.value.trim() === '') return null; const v = parseFloat(e.value); return isNaN(v) ? null : v; };
+  const bendTo = num('bendto'), bendTime = opt('bendtime');
+  if (bendTo > 0) t.pitchBend = { to: bendTo, ...(bendTime != null ? { time: bendTime } : {}) }; else delete t.pitchBend;
+  const detune = num('detune');
+  if (detune) t.detune = detune; else delete t.detune;
+  const formants = _parseFormants(el('formants')?.value);
+  if (formants) t.formants = formants; else delete t.formants;
+  const colour = el('noisecolour')?.value;
+  if (colour && colour !== 'white') t.noise = colour; else delete t.noise;
+  const width = Math.min(1, num('width'));
+  if (width > 0) t.width = width; else delete t.width;
+  const pan = Math.max(-1, Math.min(1, num('pan')));
+  if (pan) t.pan = pan; else delete t.pan;
+  return t;
+}
+
+// The filter block, with its gain. Gain is kept only when set, so a filter
+// authored without one round-trips as it was.
+function _readFilter(prefix) {
+  const el = (k) => document.getElementById(`${prefix}-${k}`);
+  const num = (k, fb) => { const e = el(k); if (!e) return fb; const v = parseFloat(e.value); return isNaN(v) ? fb : v; };
+  const g = el('filtergain'), gain = g && g.value.trim() !== '' ? parseFloat(g.value) : NaN;
+  return {
+    type: el('filtertype')?.value || 'lowpass', freq: num('filterfreq', 4000), q: num('filterq', 1),
+    ...(num('filterto', 0) > 0 ? { to: num('filterto', 0), time: num('filtertime', 0.2) } : {}),
+    ...(Number.isFinite(gain) ? { gain } : {}),
   };
 }
 
 function readInstrumentLikeConfig(prefix, extra) {
   const num = (id, fallback) => { const v = parseFloat(document.getElementById(id).value); return isNaN(v) ? fallback : v; };
-  const fm = _readFmBlock(prefix);
+  const prev = _ilPrev[prefix] || {};
+  const fm = _readFmBlock(prefix, prev.fm);
   const echoMix = num(`${prefix}-echomix`, 0);
-  return {
+  // Start from what the row had, so keys this form has no field for survive.
+  const out = { ...prev };
+  delete out.fm; delete out.echo; delete out.drive;
+  Object.assign(out, {
     adsr: { a: num(`${prefix}-a`, 0.01), d: num(`${prefix}-d`, 0.05), s: num(`${prefix}-s`, 0.7), r: num(`${prefix}-r`, 0.15) },
     // Sweep keys are omitted entirely when To is 0, so a static filter keeps the
     // exact shape it had before sweeps existed rather than gaining `to:0` noise.
-    filter: { type: document.getElementById(`${prefix}-filtertype`).value, freq: num(`${prefix}-filterfreq`, 4000), q: num(`${prefix}-filterq`, 1),
-      ...(num(`${prefix}-filterto`, 0) > 0 ? { to: num(`${prefix}-filterto`, 0), time: num(`${prefix}-filtertime`, 0.2) } : {}) },
+    filter: _readFilter(prefix),
     vibrato: { rate: num(`${prefix}-vibrate`, 0), depth: num(`${prefix}-vibdepth`, 0) },
     tremolo: { rate: num(`${prefix}-tremrate`, 0), depth: num(`${prefix}-tremdepth`, 0) },
     ...(fm ? { fm } : {}),
@@ -1317,8 +1469,9 @@ function readInstrumentLikeConfig(prefix, extra) {
     ...(num(`${prefix}-drive`, 0) > 0 ? { drive: num(`${prefix}-drive`, 0) } : {}),
     noiseMix: num(`${prefix}-noisemix`, 0),
     gain: num(`${prefix}-gain`, 1),
-    ...extra,
-  };
+  });
+  _applyLayerExtras(prefix, out);
+  return Object.assign(out, extra || {});
 }
 
 // ── SFX multi-layer editor ────────────────────────────────────────────────────
@@ -1403,7 +1556,7 @@ window._sfxPreviewLayer = function(li) {
   if (!layer) return;
   window.AudioEngine?.init();
   const duration = parseFloat(document.getElementById('am-sfx-duration')?.value) || 0.4;
-  window.AudioEngine?.playSfx({ priority: 9, category: 'sfx', config: { duration, layers: [{ ...layer, delay: 0 }] } });
+  window.AudioEngine?.playSfx({ priority: 9, category: _previewCategory('sfx', document.getElementById('am-cat')?.value), config: { duration, layers: [{ ...layer, delay: 0 }] } });
 };
 
 // Flush any open layer form fields back into _sfxLayers before re-rendering.
@@ -1416,11 +1569,11 @@ function _sfxSaveOpenLayers() {
     layer.waveform = document.getElementById(`${p}-wave`)?.value || 'square';
     layer.freq = num(`${p}-freq`, 440);
     layer.delay = num(`${p}-delay`, 0);
-    const fm = _readFmBlock(p);
+    const fm = _readFmBlock(p, layer.fm);
     const echoMix = num(`${p}-echomix`, 0);
     layer.adsr = { a: num(`${p}-a`, 0.01), d: num(`${p}-d`, 0.05), s: num(`${p}-s`, 0.7), r: num(`${p}-r`, 0.15) };
-    layer.filter = { type: document.getElementById(`${p}-filtertype`)?.value || 'lowpass', freq: num(`${p}-filterfreq`, 4000), q: num(`${p}-filterq`, 1),
-      ...(num(`${p}-filterto`, 0) > 0 ? { to: num(`${p}-filterto`, 0), time: num(`${p}-filtertime`, 0.2) } : {}) };
+    layer.filter = _readFilter(p);
+    _applyLayerExtras(p, layer);
     layer.vibrato = { rate: num(`${p}-vibrate`, 0), depth: num(`${p}-vibdepth`, 0) };
     layer.tremolo = { rate: num(`${p}-tremrate`, 0), depth: num(`${p}-tremdepth`, 0) };
     const drv = num(`${p}-drive`, 0);
@@ -1570,12 +1723,16 @@ function openAudioModal(tab, row) {
     };
   } else if (tab === 'sfx') {
     _sfxInitLayers(row.config);
+    _sfxCuePrev = row.config || {};
     body.innerHTML = `
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:14px">
         <div class="field"><label>Name</label><input id="am-name" value="${row.name || ''}"></div>
         <div class="field"><label>Category</label><select id="am-cat">${categoryOptions(row.category || 'misc')}</select></div>
         <div class="field"><label>Priority (1-10)${_help('When too many sounds play at once, lower-priority SFX are dropped first (voice-stealing).')}</label><input id="am-priority" type="number" min="1" max="10" value="${row.priority ?? 5}"></div>
         <div class="field"><label>Duration (sec)${_help('Total length of the SFX; layers play within this window.')}</label><input id="am-sfx-duration" type="number" step="0.05" min="0.05" value="${row.config?.duration ?? 0.4}"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 3fr;gap:12px;margin-bottom:14px">
+        <div class="field"><label>Reverb Send (0-1)${_help("How much of this cue goes to the room's reverb. Blank uses its bus's send (1 for sfx and ambient, 0.45 for tv, none for ui). 0 is fully dry.")}</label><input id="am-send" type="number" step="0.05" min="0" max="1" value="${row.config?.send ?? ''}"></div>
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
         <span style="font-size:11px;font-weight:600;color:var(--accent);letter-spacing:1px;text-transform:uppercase">Layers</span>
@@ -1594,7 +1751,7 @@ function openAudioModal(tab, row) {
       if (!name) { toast('Name is required', true); return; }
       const layers = _sfxReadAllLayers();
       const duration = parseFloat(document.getElementById('am-sfx-duration').value) || 0.4;
-      const config = layers.length === 1 ? { ...layers[0], duration } : { layers, duration };
+      const config = _sfxConfig(layers, duration);
       const reqBody = {
         name, category: document.getElementById('am-cat').value,
         priority: parseInt(document.getElementById('am-priority').value) || 5,
@@ -1616,6 +1773,9 @@ function openAudioModal(tab, row) {
         <div class="field"><label>Waveform</label><select id="am-wave">${WAVEFORMS.map(w => `<option value="${w}" ${(row.config?.waveform || 'square') === w ? 'selected' : ''}>${w}</option>`).join('')}</select></div>
         <div class="field"><label>Base Frequency (Hz)</label><input id="am-freq" type="number" min="20" value="${row.config?.freq ?? 440}"></div>
       </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px">
+        <div class="field"><label>Reverb Send (0-1)${_help("How much of this bed goes to the room's reverb. Blank uses the ambient bus's send of 1. 0 is fully dry.")}</label><input id="am-send" type="number" step="0.05" min="0" max="1" value="${row.config?.send ?? ''}"></div>
+      </div>
       ${instrumentLikeConfigFields(row.config, 'am')}
       <div class="field" style="display:flex;align-items:center;gap:18px;margin-top:10px">
         <button type="button" class="action-btn" id="am-preview" style="padding:4px 14px" title="Loop this ambience for 4s with the current unsaved values">▶ Preview</button>
@@ -1628,9 +1788,12 @@ function openAudioModal(tab, row) {
       const name = document.getElementById('am-name').value.trim();
       if (!name) { toast('Name is required', true); return; }
       const extra = { waveform: document.getElementById('am-wave').value, freq: parseFloat(document.getElementById('am-freq').value) || 440 };
+      const config = readInstrumentLikeConfig('am', extra);
+      const send = _readSend();
+      if (send != null) config.send = send; else delete config.send;
       const reqBody = {
         name, category: document.getElementById('am-cat').value, priority: parseInt(document.getElementById('am-priority').value) || 5,
-        config: readInstrumentLikeConfig('am', extra), enabled: document.getElementById('am-enabled').checked ? 1 : 0,
+        config, enabled: document.getElementById('am-enabled').checked ? 1 : 0,
         loop: document.getElementById('am-loop').checked ? 1 : 0,
       };
       const r = isNew ? await API('/audio/ambient', 'POST', reqBody) : await API(`/audio/ambient/${row.id}`, 'PUT', reqBody);
