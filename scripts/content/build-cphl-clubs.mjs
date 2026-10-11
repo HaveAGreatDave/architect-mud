@@ -136,8 +136,8 @@ const glyph = (ch, t) => shape(GLYPH[ch], t);
 // ── the crests ──────────────────────────────────────────────────────────────────
 
 // WESTSIDE WARLORDS. A gem-set bezel round a black dial, and on the dial a W laid out
-// in weapons: the outer strokes are two rifles, muzzles up; the inner two are rocket
-// launchers whose warheads cross at the peak. The bezel's stones are the same stones
+// in weapons: the outer strokes are two bazookas, muzzles up as the W's top serifs; the
+// inner two are rifles crossing at the peak. The bezel's stones are the same stones
 // that run along the Warlords' sweater stripe.
 const WL = { black: '#0e0e0f', gold: '#f6b51e', goldDeep: '#b9820c', goldDark: '#6b4a06', gem: '#f4fbff', facet: '#a9d3ee', glint: '#ffffff' };
 // a rifle in profile, butt at x 0, muzzle at x 58; +y is the side the magazine hangs
@@ -154,17 +154,18 @@ const RIFLE_WOOD = [
   ['M', 1.2, -2.4], ['L', 12, -1.2], ['L', 12.6, 1.8], ['L', 1.2, 4.2], ['Z'],
   ['M', 35.2, -2.2], ['L', 44.4, -2.2], ['L', 44.4, 1.8], ['L', 35.2, 1.8], ['Z'],
 ];
-// a launcher, venturi at x 0, warhead tip at x 60.5; +y is the side the grips hang
+// a bazooka: a straight tube, rear at x 0, muzzle at x 60.5, squared off at both ends
+// with a flared lip at the muzzle; a box sight on top, two grips under (+y)
 const LAUNCHER = [
-  ['M', 0, -4.6], ['L', 5.5, -2.6], ['L', 17.5, -2.6], ['L', 17.5, -3.6], ['L', 31.5, -3.6], ['L', 31.5, -2.6],
-  ['L', 33, -2.6], ['L', 33, -5.6], ['L', 35.6, -5.6], ['L', 35.6, -2.6], ['L', 40.5, -2.6], ['L', 41.4, -1.9], ['L', 43, -1.9],
-  ['C', 43.6, -6.4, 47.6, -7, 50, -6.4], ['C', 54, -5.2, 58, -2.4, 60.5, 0], ['C', 58, 2.4, 54, 5.2, 50, 6.4], ['C', 47.6, 7, 43.6, 6.4, 43, 1.9],
-  ['L', 41.4, 1.9], ['L', 40.5, 2.6], ['L', 31.6, 2.6], ['L', 30.9, 6.4], ['L', 28.5, 6.4], ['L', 29.1, 2.6],
-  ['L', 24.2, 2.6], ['L', 23.2, 7], ['L', 20.6, 7], ['L', 21.4, 3.6], ['L', 17.5, 3.6], ['L', 17.5, 2.6], ['L', 5.5, 2.6], ['L', 0, 4.6], ['Z'],
+  ['M', 0, -3.8], ['L', 3.4, -3.8], ['L', 4.2, -2.9], ['L', 35.6, -2.9], ['L', 35.6, -6.6], ['L', 41.4, -6.6], ['L', 41.4, -2.9],
+  ['L', 55.4, -2.9], ['L', 56.4, -4.2], ['L', 60.5, -4.2], ['L', 60.5, 4.2], ['L', 56.4, 4.2], ['L', 55.4, 2.9],
+  ['L', 33.4, 2.9], ['L', 32.4, 7.8], ['L', 29.6, 7.8], ['L', 30.2, 2.9], ['L', 22.2, 2.9], ['L', 20.8, 8.6], ['L', 18, 8.6], ['L', 19.2, 2.9],
+  ['L', 4.2, 2.9], ['L', 3.4, 3.8], ['L', 0, 3.8], ['Z'],
 ];
 const LAUNCHER_DETAIL = [
-  ['M', 18.5, -2.5], ['L', 30.5, -2.5], ['L', 30.5, 2.5], ['L', 18.5, 2.5], ['Z'],               // the heat shield
-  ['M', 44.4, -3.6], ['L', 46.6, -4.6], ['L', 46.6, 4.6], ['L', 44.4, 3.6], ['Z'],               // the warhead's band
+  ['M', 7.5, -2.9], ['L', 15.5, -2.9], ['L', 15.5, 2.9], ['L', 7.5, 2.9], ['Z'],                 // the shoulder pad
+  ['M', 50.4, -2.9], ['L', 52.6, -2.9], ['L', 52.6, 2.9], ['L', 50.4, 2.9], ['Z'],               // a band near the muzzle
+  ['M', 37, -5.4], ['L', 40, -5.4], ['L', 40, -4.2], ['L', 37, -4.2], ['Z'],                     // the sight's window
 ];
 function warlords() {
   const C = 50;
@@ -180,11 +181,11 @@ function warlords() {
     tables += ngon(x, y, 1.4, 8, a + Math.PI / 8);
     glints += circle(x - 1, y - 1.1, 0.55);
   }
-  // the W: launchers on the outside strokes, warheads up as its two top serifs; rifles
-  // up the middle, crossing at the peak
+  // the W: bazookas on the outside strokes, muzzles up as its two top serifs; rifles up
+  // the middle, crossing at the peak
   const lb = [35.5, 79.5], rb = [64.5, 79.5];
   const fat = (t) => ({ ...t, sy: t.sy * 1.25 });
-  const launchL = fat(along(lb, [18.5, 30.5], 60.5, true)), launchR = fat(along(rb, [81.5, 30.5], 60.5, false));
+  const launchL = fat(along(lb, [21, 32.5], 60.5, true)), launchR = fat(along(rb, [79, 32.5], 60.5, false));
   const peak = [50, 44];
   const dir = [peak[0] - 37.5, peak[1] - 79.5], kd = Math.hypot(...dir), reach = kd + 12;
   const tip = [37.5 + dir[0] / kd * reach, 79.5 + dir[1] / kd * reach];
@@ -209,7 +210,7 @@ function warlords() {
     L(ring(C, C, 37.3, 37.9), WL.goldDark),
     ...R2(rifleL), ...R2(rifleR), ...W(launchL), ...W(launchR),
   ];
-  // small: the bezel with a dozen stones, and a bold W whose middle strokes carry warheads
+  // small: the bezel with a dozen stones and a bold W
   let sGems = '';
   for (let i = 0; i < 12; i++) { const a = -Math.PI / 2 + (i / 12) * TAU; sGems += circle(C + 43 * Math.cos(a), C + 43 * Math.sin(a), 3.6); }
   const small = [

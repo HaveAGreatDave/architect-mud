@@ -917,7 +917,7 @@ Civic Center Wardens went.
 
 | Club | Home | Colours | Crest |
 |---|---|---|---|
-| Westside Warlords | the Glasshouse | black and gold | a W of two rifles and two rocket launchers inside a gem-set bezel; the same stones run along the sweater stripe |
+| Westside Warlords | the Glasshouse | black and gold | a W of two bazookas and two rifles inside a gem-set bezel; the same stones run along the sweater stripe |
 | Boomtown Bulldogs | the Rust Quarter | orange and black | a scowling bulldog bursting out of a rusted cog, chain collar, dog tags stamped RC |
 | Marquee Marauders | the Marquee | navy and white | a great helm with a plume on a heater shield |
 | Coldwater Highlanders | the Marrow | the Malcolm tartan | a roaring ginger highlander in the Malcolm kilt and sash, woad on half his face, stick raised overhead like a claymore, on a tartan ring |
