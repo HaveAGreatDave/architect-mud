@@ -169,7 +169,7 @@ beside a 176 px rail (count, pitch plot, matchup, play card, standings). Per pay
 - plays nine inline SIREN layers (`mitt`, `crack`, `whiff`, `glove`, `base`, `run`, `homer`,
   `strikeout`, `out`) on the `tv` category.
 
-It has no gate. `client:smoke` parses it, and nothing runs it.
+It had no gate: `client:smoke` parsed it, and nothing ran it. Phase 0's `gameday-smoke` runs it now.
 
 The sim, [baseball.js](../../plugins/broadcast/sports/baseball.js), resolves plate appearances
 only: thirteen kinds (strikeout, groundout, flyout, popout, single, walk, double, triple, home
@@ -684,8 +684,9 @@ rather than at a new season:
 
 ### Running the bases and keeping in step with the sim
 
-Runners advance from `basesBefore` to `basesAfter`, and the number crossing home is the change in
-the batting side's score, not `rbi` (a run scores on a double play with no RBI). The booth doesn't
+Runners follow the payload's `moves`, each runner's and the batter's fate, which Phase 0 works out
+from `basesBefore`, `basesAfter`, the kind and the change in the batting side's score, not `rbi` (a
+run scores on a double play with no RBI). Sim v2 hands over its own. The booth doesn't
 call every at-bat, so the field the picture is showing and the next payload often disagree. When
 they do, the director cuts to a crowd shot or the wide camera, places everyone, and cuts back.
 Rinkside's rule applies: anything that moves a player farther than they could run happens on a cut.
@@ -1008,8 +1009,9 @@ Whether to build it is a question below.
 
 ### What the payload needs
 
-`phase` (regular or final), both seeds and the season number, once a game. A series would add the
-game number and the series score.
+`season`, once a game: its number, `phase` (regular or final) and both seeds. It's a key of its own
+because a payload's own `phase` already marks a half-inning break. A series would add the game
+number and the series score.
 
 ## A place in the world
 
@@ -1091,7 +1093,7 @@ This is the largest piece of the place-in-the-world work and comes last.
 | Standings | the same 8 rows on every payload | send once a game (first payload and catch-up) |
 | Where the park stands and the city around it | none | `venue.site` and the skyline manifest, with the venue |
 | Weather at the park | missing | add `wx`: the venue tile's weather word and precipitation |
-| Season phase and seeds | missing | add `phase`, both seeds and the season number, once a game |
+| Season phase and seeds | missing | add `season`: its number, `phase` and both seeds, once a game |
 
 ### The play, and lines that agree with it
 
@@ -1339,7 +1341,7 @@ reference machine and on an integrated laptop GPU and writes the numbers into
 | `scripts/shapes/variety-smoke.mjs` | shapes | Over a season of seeded plays: directions spread by handedness, exit speeds cover their range, every fielding grade and, under v2, every new event appears, and every clip in the library is reached. |
 | `scripts/content/build-deadball-clubs.mjs --check` | content | The row matches the script, sizes inside budget, colours hex. |
 | `scripts/audio/deadball-bank-smoke.mjs` | audio | Every cue builds from known layer fields, its summed peak gain stays under its group's ceiling, and every call fits ORACLE's shout length. |
-| `plugins/broadcast/regress.js`, the postseason | regress | `phase` and the seeds on payloads, the final scheduled on an air day, the #1 seed at home. |
+| `plugins/broadcast/regress.js`, the postseason | regress | `season` with its phase and the seeds on payloads, the final scheduled on an air day, the #1 seed at home. |
 | `plugins/broadcast/regress.js`, sim v2 | regress | Every slot before the switch matches the recorded v1 hash; a slot after it gives the same game twice; the standings fold across the switch counts each side once; errors, steals and the rest add up in the box score. |
 | `scripts/content/guard-sim-switch.mjs` | pre-push | A push that sets or moves `sim.v2FromSlot` names a slot that hasn't aired yet. |
 | `scripts/shapes/smoke.mjs` and `sitecheck.mjs`, the park | shapes, content | Phase 6: every slice of the park draws without throwing, and every gate has its street. |
@@ -1366,7 +1368,7 @@ Phase 3, or with sim v2 if that comes later.
   guard for the switch, `variety-smoke` once Phase 3 exists.
 
 **Phase 0: groundwork.** No visible change.
-- Standings once a game; `sport`, `bats`, `throws`, `hold`, `phase`, the seeds and the park's weather
+- Standings once a game; `sport`, `bats`, `throws`, `hold`, `season`, `moves` and the park's weather
   on payloads.
 - The `siren-fidelity` branch merged (limiter, ducking, speech channels; built); the bank moved out of
   gameday.js; `gameday-smoke.mjs`; the sandbox page.

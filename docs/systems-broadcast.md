@@ -813,7 +813,9 @@ the bags before and after, the kind and the change in the batting side's score (
 run can score without one). Runners can't pass each other, which makes the answer unique. The views only animate them, and `scripts/shapes/gameday-smoke.mjs` plays
 real games through the 2-D view and checks its runners end where the sim left them.
 `tools/sandbox/deadball-park-test.html` plays the same in a browser, with the script's lines,
-for screenshots and tuning by hand.
+for screenshots and tuning by hand. A viewer with the sub-screen open is sent about 91
+payloads a game, 80 KB in all (measured over eight graphs on 2026-10-11). It was 116 KB
+when the table rode every payload.
 A half-inning break carries `phase: 'half'` and nothing to animate. The broadcast adds `hold`
 (how long the line holds, in ms) to every payload, and the league table and `season` (its
 number, `regular` or `final`, and the seeds in a final) to the game's first payload only.
