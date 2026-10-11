@@ -120,8 +120,8 @@ export const INJURY_MAX_SLOTS = INJURY_SLOTS_MAX;
 // NAME, so it costs no authoring, needs no storage, is identical on every server
 // forever, and a club added to the .bsm arrives with a personality already formed. The
 // traits are deliberately narrow multipliers: wide enough that the District 9 Goons
-// visibly fight more and the Ashway Zambonis visibly can't finish, narrow enough that
-// no club is unwatchable.
+// visibly fight more and the St Garneau Guillotines visibly keep out of the box, narrow
+// enough that no club is unwatchable.
 //
 // Its LOOK is authored. The league's content row carries `clubs` (district, colours,
 // kits, crest; see scripts/content/build-cphl-clubs.mjs), and a club with an identity
@@ -167,7 +167,7 @@ export function clubProfile(name, identity = null) {
   nudge(['goon', 'highlander'], 'discipline', -0.26);              // they get caught, too
   nudge(['marauder', 'icehauler'], 'shooting', 0.09);
   nudge(['bulldog'], 'goaltending', 0.08);
-  nudge(['zamboni'], 'shooting', -0.07);                           // a club named for the ice, not the game
+  nudge(['guillotine'], 'discipline', 0.22);                       // a priest's club takes fewer penalties
   return p;
 }
 

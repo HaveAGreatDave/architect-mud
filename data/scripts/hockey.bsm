@@ -177,7 +177,7 @@ Marquee Marauders
 Coldwater Highlanders
 District 9 Goons
 Docks Boarders
-Ashway Zambonis
+St Garneau Guillotines
 Yards Icehaulers
 ::endteams
 
@@ -708,12 +708,6 @@ The CPhL does not have a commissioner. It has a scheduler, and the scheduler has
 # `chatter.<first word of the home club's name>` and falls back to the general
 # `chatter` pool, so authoring a barn is entirely optional — a club with nothing
 # written for it behaves exactly as it did before. Add more as clubs earn them.
-::lines chatter.ashway
-The Zamboni here is the only one in the league that has never broken down, and the driver will not let anyone else touch it or look directly at it.
-They resurface this ice four times a night at Ashway. Nobody has ever explained why four.
-This building smells of diesel and it is not a rink that has ever had a diesel engine in it.
-Ashway's clock has been eleven seconds fast since the ownership change. Both clubs know. Neither has complained, because both have won on it.
-::endlines
 
 ::lines chatter.docks
 You can hear the cranes through the roof here. Third period, low tide, the whole building hums.
@@ -749,6 +743,15 @@ The scoreboard here used to be a cinema sign. Two of its letters have been missi
 The Highlanders walk out to a piper. He isn't good. He's played every home game for fourteen years.
 Marrow Street pulls its shutters down an hour before puck drop. Everybody on it is in here.
 The Highlanders' sweaters are woven on a loom above a chip shop on Marrow Street. It's a real clan sett, the Malcolm.
+::endlines
+
+# A barn's pool is keyed by the first word of the club's name, so the St Garneau
+# Guillotines' is chatter.st.
+::lines chatter.st
+The Guillotines are Father Jerome's club. He blesses the ice before the drop, and the ice crew waits until he's done.
+The home bench at St Garneau's is two pews out of the nave, bolted to the boards.
+Every Guillotines sweater goes through the Sisters of St Garneau's laundry on a Monday. The stains mostly come out.
+Father Jerome never misses a home game. He sits by the door, and he watches it more than the ice.
 ::endlines
 
 ::lines chatter.yards

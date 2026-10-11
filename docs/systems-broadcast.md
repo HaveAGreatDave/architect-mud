@@ -855,7 +855,8 @@ so a narrator cannot read the other league's records.
 - **Barn colour.** Half the booth's chatter is about the building: it draws from
   `chatter.<first word of the home club>` (falling back to the general pool when a club
   has none), and the other half from the general `chatter` pool, so the league-wide lines
-  still get heard. Every club has a barn pool; the District 9 Goons' is `chatter.district`.
+  still get heard. Every club has a barn pool; the District 9 Goons' is `chatter.district` and
+  the St Garneau Guillotines' is `chatter.st`.
 - **Every barn's horn is its own.** The goal horn is seeded from a hash of the scoring
   club's name (`hornSeed` on the payload) through the soundset's existing `variant()`,
   so no per-club audio is authored and a barn sounds like itself forever.
@@ -923,8 +924,12 @@ Civic Center Wardens went.
 | Coldwater Highlanders | the Marrow | the Malcolm tartan | a roaring ginger highlander in the Malcolm kilt and sash, woad on half his face, stick raised overhead like a claymore, on a tartan ring |
 | District 9 Goons | District 9 | bruise purple and bone | a taped, bloodied fist in an octagon, D9 in marker on the tape |
 | Docks Boarders | the Docks | teal and navy | an anchor over crossed sticks in a rope ring |
-| Ashway Zambonis | the Ashway | ash grey and hi-vis lime | an ice resurfacer laying fresh ice, on a haul-road plate |
+| St Garneau Guillotines | Nine Elms | red, white and blue | a bold G whose crossbar carries a guillotine: its posts stand on the bar, its beam runs on from the G's top, its blade hangs raised |
 | Yards Icehaulers | the Yards | maroon and steel | ice tongs biting a block, on a hexagon |
+
+The St Garneau Guillotines are Father Jerome's pet project, the parish club of St Garneau's
+on Kessler Street. Father Jerome is Long Watch in content (`npc_father_jerome`), but that's
+his business: the club is the parish's, and nothing on air ties it to the order.
 
 The Highlanders' tartan is the Malcolm sett as W. & A. Smith recorded it in 1850
 (`K/4 Y4 K4 G24 K24 DB24 R4 DB4 R4 DB24 K24 G24 K4 LB/4`, 344 threads), transcribed from

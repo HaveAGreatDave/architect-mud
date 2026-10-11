@@ -190,12 +190,6 @@
         "It's fourteen below out there and colder in here, which is a choice somebody made deliberately.",
         "The CPhL doesn't have a commissioner. It has a scheduler, and the scheduler has never been late."
       ],
-      "chatter.ashway": [
-        "The Zamboni here is the only one in the league that has never broken down, and the driver will not let anyone else touch it or look directly at it.",
-        "They resurface this ice four times a night at Ashway. Nobody has ever explained why four.",
-        "This building smells of diesel and it is not a rink that has ever had a diesel engine in it.",
-        "Ashway's clock has been eleven seconds fast since the ownership change. Both clubs know. Neither has complained, because both have won on it."
-      ],
       "chatter.docks": [
         "You can hear the cranes through the roof here. Third period, low tide, the whole building hums.",
         "The Docks barn floods twice a winter. They play through it. There is a line painted on the wall showing how high, and it is above my head.",
@@ -1001,6 +995,12 @@
       "chatter.yards": [
         "The Yards barn is a cold store with seats bolted in. The ice was here first.",
         "The tannoy here came out of a freight shed. In the second intermission it still reads out bay numbers."
+      ],
+      "chatter.st": [
+        "The Guillotines are Father Jerome's club. He blesses the ice before the drop, and the ice crew waits until he's done.",
+        "The home bench at St Garneau's is two pews out of the nave, bolted to the boards.",
+        "Every Guillotines sweater goes through the Sisters of St Garneau's laundry on a Monday. The stains mostly come out.",
+        "Father Jerome never misses a home game. He sits by the door, and he watches it more than the ice."
       ]
     },
     "sport": "hockey",
@@ -1011,7 +1011,7 @@
       "Coldwater Highlanders",
       "District 9 Goons",
       "Docks Boarders",
-      "Ashway Zambonis",
+      "St Garneau Guillotines",
       "Yards Icehaulers"
     ],
     "title": "cphl_title",
@@ -2676,244 +2676,212 @@
           }
         }
       },
-      "Ashway Zambonis": {
-        "district": "ashway",
-        "home": "the Ashway",
+      "St Garneau Guillotines": {
+        "district": "residential",
+        "home": "Nine Elms",
         "colours": [
-          "#4c535a",
-          "#c8dc2e"
+          "#af1e2d",
+          "#192168"
         ],
         "crest": {
           "box": 100,
           "layers": [
             {
-              "d": "M19 2L81 2Q98 2 98 19L98 81Q98 98 81 98L19 98Q2 98 2 81L2 19Q2 2 19 2Z",
-              "fill": "#141618"
+              "d": "M0.5 50a49.5 49.5 0 1 0 99 0a49.5 49.5 0 1 0 -99 0Z",
+              "fill": "#192168"
             },
             {
-              "d": "M19 3.4L81 3.4Q96.6 3.4 96.6 19L96.6 81Q96.6 96.6 81 96.6L19 96.6Q3.4 96.6 3.4 81L3.4 19Q3.4 3.4 19 3.4Z",
-              "fill": "#c8dc2e"
-            },
-            {
-              "d": "M20.4 7.8L79.6 7.8Q92.2 7.8 92.2 20.4L92.2 79.6Q92.2 92.2 79.6 92.2L20.4 92.2Q7.8 92.2 7.8 79.6L7.8 20.4Q7.8 7.8 20.4 7.8Z",
-              "fill": "#141618"
-            },
-            {
-              "d": "M20.7 8.7L79.3 8.7Q91.3 8.7 91.3 20.7L91.3 79.3Q91.3 91.3 79.3 91.3L20.7 91.3Q8.7 91.3 8.7 79.3L8.7 20.7Q8.7 8.7 20.7 8.7Z",
-              "fill": "#4c535a"
-            },
-            {
-              "d": "M6 74L94 74L94 88C70 84 30 84 6 88Z",
-              "fill": "#e4f2f8",
-              "stroke": "#141618",
-              "sw": 1.2
-            },
-            {
-              "d": "M52 79L90 78L90 80L52 81.4ZM60 83L86 82.6L86 83.6L60 84.2Z",
+              "d": "M4.4 50a45.6 45.6 0 1 0 91.2 0a45.6 45.6 0 1 0 -91.2 0Z",
               "fill": "#ffffff"
             },
             {
-              "d": "M86 60L92 60L94 74L84 74Z",
-              "fill": "#2d3237",
-              "stroke": "#141618",
-              "sw": 1.6
+              "d": "M6.8 50a43.2 43.2 0 1 0 86.4 0a43.2 43.2 0 1 0 -86.4 0ZM8.6 50a41.4 41.4 0 1 1 82.8 0a41.4 41.4 0 1 1 -82.8 0Z",
+              "fill": "#af1e2d"
             },
             {
-              "d": "M13 70L13 61C13 57.4 15 55.4 18.6 55.4L37 55.4L37 36C37 32 40 29.4 44 29.4L79 29.4C83.4 29.4 86 32 86 36.4L86 70Z",
-              "fill": "#ffffff",
-              "stroke": "#141618",
-              "sw": 2
+              "d": "M83.5 53.5A33.5 33.5 0 1 1 56.5 20.6L56.5 36.2A18.5 18.5 0 1 0 68.5 53.5ZM52 50.5L83.5 50.5L83.5 64.5L52 64.5Z",
+              "fill": "#192168",
+              "stroke": "#192168",
+              "sw": 5
             },
             {
-              "d": "M42 34.4L81 34.4L81 38.4L42 38.4Z",
-              "fill": "#2d3237"
+              "d": "M83.5 53.5A33.5 33.5 0 1 1 56.5 20.6L56.5 36.2A18.5 18.5 0 1 0 68.5 53.5ZM52 50.5L83.5 50.5L83.5 64.5L52 64.5Z",
+              "fill": "#af1e2d"
             },
             {
-              "d": "M13 61.6L86 61.6L86 65.4L13 65.4ZM46 44L78 44L72 54L40 54Z",
-              "fill": "#c8dc2e"
+              "d": "M59.5 50.5L62.5 50.5L62.5 24.6L59.5 24.6ZM73.5 50.5L76.5 50.5L76.5 24.6L73.5 24.6ZM56.5 20.6L79 20.6L79 25.1L56.5 25.1Z",
+              "fill": "#192168",
+              "stroke": "#192168",
+              "sw": 1
             },
             {
-              "d": "M27 55.4L27 44C27 42.4 28.2 41.4 29.6 41.4L32 41.4L32 51.4L37 51.4L37 55.4Z",
-              "fill": "#2d3237"
+              "d": "M62.5 24.6L73.5 24.6L73.5 31L62.5 36Z",
+              "fill": "#d6dce3",
+              "stroke": "#0f1440",
+              "sw": 1.1
             },
             {
-              "d": "M20.2 34.6a4.2 4.2 0 1 0 8.4 0a4.2 4.2 0 1 0 -8.4 0ZM20 39.6C20 38.6 21 38 22 38L27.6 38C29.6 38 30.8 39.6 30.4 41.6L29.4 50L21.4 50Z",
-              "fill": "#141618"
+              "d": "M62.5 34.1L73.5 29.1L73.5 31L62.5 36Z",
+              "fill": "#8f9aa6"
             },
             {
-              "d": "M16 55.4L18.6 43M22.3 41L22.3 41.2L22.2 41.4L22 41.6L21.7 41.9L21.4 42.2L20.9 42.5L20.4 42.7L19.9 43L19.3 43.2L18.7 43.4L18.1 43.6L17.5 43.7L17 43.8L16.6 43.8L16.2 43.8L15.9 43.7L15.6 43.6L15.5 43.4L15.5 43.2L15.6 43L15.8 42.8L16.1 42.5L16.4 42.2L16.9 41.9L17.4 41.7L17.9 41.4L18.5 41.2L19.1 41L19.7 40.8L20.3 40.7L20.8 40.6L21.2 40.6L21.6 40.6L21.9 40.7L22.2 40.8Z",
-              "fill": "none",
-              "stroke": "#141618",
-              "sw": 1.8
+              "d": "M62.5 42.5L73.5 42.5L73.5 47.5L62.5 47.5Z",
+              "fill": "#192168"
             },
             {
-              "d": "M20.4 70a7.6 7.6 0 1 0 15.2 0a7.6 7.6 0 1 0 -15.2 0ZM61.4 70a7.6 7.6 0 1 0 15.2 0a7.6 7.6 0 1 0 -15.2 0Z",
-              "fill": "#1e2124",
-              "stroke": "#141618",
-              "sw": 1.4
-            },
-            {
-              "d": "M25 70a3 3 0 1 0 6 0a3 3 0 1 0 -6 0ZM66 70a3 3 0 1 0 6 0a3 3 0 1 0 -6 0Z",
-              "fill": "#c8dc2e"
-            },
-            {
-              "d": "M92 70C96 66 97 62 96 58C99 62 99 68 94 73Z",
-              "fill": "#a8cfe0"
+              "d": "M66.1 45a1.9 1.9 0 1 0 3.8 0a1.9 1.9 0 1 0 -3.8 0Z",
+              "fill": "#ffffff"
             }
           ],
           "small": [
             {
-              "d": "M19 2L81 2Q98 2 98 19L98 81Q98 98 81 98L19 98Q2 98 2 81L2 19Q2 2 19 2Z",
-              "fill": "#c8dc2e"
+              "d": "M0.5 50a49.5 49.5 0 1 0 99 0a49.5 49.5 0 1 0 -99 0Z",
+              "fill": "#192168"
             },
             {
-              "d": "M20.6 8.2L79.4 8.2Q91.8 8.2 91.8 20.6L91.8 79.4Q91.8 91.8 79.4 91.8L20.6 91.8Q8.2 91.8 8.2 79.4L8.2 20.6Q8.2 8.2 20.6 8.2Z",
-              "fill": "#4c535a"
+              "d": "M6 50a44 44 0 1 0 88 0a44 44 0 1 0 -88 0Z",
+              "fill": "#ffffff"
             },
             {
-              "d": "M6 76L94 76L94 90L6 90Z",
-              "fill": "#e4f2f8"
-            },
-            {
-              "d": "M13 70L13 61C13 57.4 15 55.4 18.6 55.4L37 55.4L37 36C37 32 40 29.4 44 29.4L79 29.4C83.4 29.4 86 32 86 36.4L86 70Z",
-              "fill": "#ffffff",
-              "stroke": "#141618",
-              "sw": 3
-            },
-            {
-              "d": "M13 61.6L86 61.6L86 65.4L13 65.4ZM46 44L78 44L72 54L40 54Z",
-              "fill": "#c8dc2e"
-            },
-            {
-              "d": "M20.4 70a7.6 7.6 0 1 0 15.2 0a7.6 7.6 0 1 0 -15.2 0ZM61.4 70a7.6 7.6 0 1 0 15.2 0a7.6 7.6 0 1 0 -15.2 0Z",
-              "fill": "#1e2124",
-              "stroke": "#141618",
+              "d": "M83.5 53.5A33.5 33.5 0 1 1 56.5 20.6L56.5 36.2A18.5 18.5 0 1 0 68.5 53.5ZM52 50.5L83.5 50.5L83.5 64.5L52 64.5Z",
+              "fill": "#af1e2d",
+              "stroke": "#af1e2d",
               "sw": 2
+            },
+            {
+              "d": "M59.5 50.5L62.5 50.5L62.5 24.6L59.5 24.6ZM73.5 50.5L76.5 50.5L76.5 24.6L73.5 24.6ZM56.5 20.6L79 20.6L79 25.1L56.5 25.1Z",
+              "fill": "#192168",
+              "stroke": "#192168",
+              "sw": 2.6
+            },
+            {
+              "d": "M62.5 24.6L73.5 24.6L73.5 31L62.5 36Z",
+              "fill": "#8f9aa6"
             }
           ]
         },
         "kit": {
           "home": {
-            "jersey": "#4c535a",
-            "trim": "#c8dc2e",
-            "number": "#c8dc2e",
-            "numberEdge": "#141618",
-            "pants": "#2d3237",
-            "sock": "#4c535a",
-            "glove": "#2d3237",
-            "helmet": "#2d3237",
-            "yoke": "#c8dc2e",
+            "jersey": "#af1e2d",
+            "trim": "#192168",
+            "number": "#ffffff",
+            "numberEdge": "#192168",
+            "pants": "#192168",
+            "sock": "#af1e2d",
+            "glove": "#192168",
+            "helmet": "#192168",
+            "yoke": "#192168",
             "hem": [
               {
                 "at": 0,
-                "w": 0.04,
-                "col": "#c8dc2e"
+                "w": 0.02,
+                "col": "#ffffff"
               },
               {
-                "at": 0.045,
-                "w": 0.03,
-                "col": "#e4f2f8"
+                "at": 0.025,
+                "w": 0.07,
+                "col": "#192168"
               },
               {
-                "at": 0.08,
-                "w": 0.04,
-                "col": "#c8dc2e"
+                "at": 0.1,
+                "w": 0.02,
+                "col": "#ffffff"
               }
             ],
             "sleeve": [
               {
-                "at": 0.3,
-                "w": 0.06,
-                "col": "#c8dc2e"
+                "at": 0.28,
+                "w": 0.03,
+                "col": "#ffffff"
               },
               {
-                "at": 0.36,
-                "w": 0.04,
-                "col": "#e4f2f8"
+                "at": 0.31,
+                "w": 0.1,
+                "col": "#192168"
               },
               {
-                "at": 0.4,
-                "w": 0.06,
-                "col": "#c8dc2e"
+                "at": 0.41,
+                "w": 0.03,
+                "col": "#ffffff"
               }
             ],
             "socks": [
               {
-                "at": 0.28,
-                "w": 0.06,
-                "col": "#c8dc2e"
-              },
-              {
-                "at": 0.34,
+                "at": 0.24,
                 "w": 0.04,
-                "col": "#e4f2f8"
+                "col": "#ffffff"
               },
               {
-                "at": 0.38,
-                "w": 0.06,
-                "col": "#c8dc2e"
+                "at": 0.28,
+                "w": 0.12,
+                "col": "#192168"
+              },
+              {
+                "at": 0.4,
+                "w": 0.04,
+                "col": "#ffffff"
               }
             ]
           },
           "road": {
-            "jersey": "#eef1f2",
-            "trim": "#4c535a",
-            "number": "#4c535a",
-            "numberEdge": "#c8dc2e",
-            "pants": "#2d3237",
-            "sock": "#eef1f2",
-            "glove": "#2d3237",
-            "helmet": "#4c535a",
-            "yoke": "#4c535a",
+            "jersey": "#f6f6f4",
+            "trim": "#af1e2d",
+            "number": "#af1e2d",
+            "numberEdge": "#192168",
+            "pants": "#192168",
+            "sock": "#f6f6f4",
+            "glove": "#192168",
+            "helmet": "#192168",
+            "yoke": "#af1e2d",
             "hem": [
               {
                 "at": 0,
-                "w": 0.04,
-                "col": "#4c535a"
+                "w": 0.02,
+                "col": "#af1e2d"
               },
               {
-                "at": 0.045,
-                "w": 0.03,
-                "col": "#c8dc2e"
+                "at": 0.025,
+                "w": 0.07,
+                "col": "#192168"
               },
               {
-                "at": 0.08,
-                "w": 0.04,
-                "col": "#4c535a"
+                "at": 0.1,
+                "w": 0.02,
+                "col": "#af1e2d"
               }
             ],
             "sleeve": [
               {
-                "at": 0.3,
-                "w": 0.06,
-                "col": "#4c535a"
+                "at": 0.28,
+                "w": 0.03,
+                "col": "#af1e2d"
               },
               {
-                "at": 0.36,
-                "w": 0.04,
-                "col": "#c8dc2e"
+                "at": 0.31,
+                "w": 0.1,
+                "col": "#192168"
               },
               {
-                "at": 0.4,
-                "w": 0.06,
-                "col": "#4c535a"
+                "at": 0.41,
+                "w": 0.03,
+                "col": "#af1e2d"
               }
             ],
             "socks": [
               {
-                "at": 0.28,
-                "w": 0.06,
-                "col": "#4c535a"
-              },
-              {
-                "at": 0.34,
+                "at": 0.24,
                 "w": 0.04,
-                "col": "#c8dc2e"
+                "col": "#af1e2d"
               },
               {
-                "at": 0.38,
-                "w": 0.06,
-                "col": "#4c535a"
+                "at": 0.28,
+                "w": 0.12,
+                "col": "#192168"
+              },
+              {
+                "at": 0.4,
+                "w": 0.04,
+                "col": "#af1e2d"
               }
             ]
           }

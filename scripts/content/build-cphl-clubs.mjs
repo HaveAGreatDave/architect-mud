@@ -622,52 +622,51 @@ function docks() {
   return { box: 100, layers, small };
 }
 
-// ASHWAY ZAMBONIS. The ice machine itself, side on, laying a fresh sheet, on a haul-road
-// plate in ash grey and hi-vis.
-const AZ = { ash: '#4c535a', ashDeep: '#2d3237', lime: '#c8dc2e', ice: '#e4f2f8', iceDeep: '#a8cfe0', black: '#141618', white: '#ffffff', glass: '#9fc7d8', tyre: '#1e2124' };
-function ashway() {
-  const plate = (k, r) => rrect(50 - 48 * k, 50 - 48 * k, 96 * k, 96 * k, r);
-  const sheet = shape([['M', 6, 74], ['L', 94, 74], ['L', 94, 88], ['C', 70, 84, 30, 84, 6, 88], ['Z']]);
-  const gloss = shape([['M', 52, 79], ['L', 90, 78], ['L', 90, 80], ['L', 52, 81.4], ['Z'], ['M', 60, 83], ['L', 86, 82.6], ['L', 86, 83.6], ['L', 60, 84.2], ['Z']]);
-  // the machine faces left: driver up front over the cab, the tank behind, the
-  // conditioner trailing on the ice
-  const body = shape([['M', 13, 70], ['L', 13, 61], ['C', 13, 57.4, 15, 55.4, 18.6, 55.4], ['L', 37, 55.4], ['L', 37, 36], ['C', 37, 32, 40, 29.4, 44, 29.4],
-    ['L', 79, 29.4], ['C', 83.4, 29.4, 86, 32, 86, 36.4], ['L', 86, 70], ['Z']]);
-  const tank = shape([['M', 42, 34.4], ['L', 81, 34.4], ['L', 81, 38.4], ['L', 42, 38.4], ['Z']]);
-  const stripe = shape([['M', 13, 61.6], ['L', 86, 61.6], ['L', 86, 65.4], ['L', 13, 65.4], ['Z'], ['M', 46, 44], ['L', 78, 44], ['L', 72, 54], ['L', 40, 54], ['Z']]);
-  const cond = shape([['M', 86, 60], ['L', 92, 60], ['L', 94, 74], ['L', 84, 74], ['Z']]);
-  const seat = shape([['M', 27, 55.4], ['L', 27, 44], ['C', 27, 42.4, 28.2, 41.4, 29.6, 41.4], ['L', 32, 41.4], ['L', 32, 51.4], ['L', 37, 51.4], ['L', 37, 55.4], ['Z']]);
-  const driver = circle(24.4, 34.6, 4.2) + shape([['M', 20, 39.6], ['C', 20, 38.6, 21, 38, 22, 38], ['L', 27.6, 38], ['C', 29.6, 38, 30.8, 39.6, 30.4, 41.6], ['L', 29.4, 50], ['L', 21.4, 50], ['Z']]);
-  const wheel = `M${P(16, 55.4)}L${P(18.6, 43)}` + ellipse(18.9, 42.2, 3.6, 1.1, -0.35);
-  const screen = '';
-  const wheels = circle(28, 70, 7.6) + circle(69, 70, 7.6);
-  const hubs = circle(28, 70, 3) + circle(69, 70, 3);
-  const spray = shape([['M', 92, 70], ['C', 96, 66, 97, 62, 96, 58], ['C', 99, 62, 99, 68, 94, 73], ['Z']]);
+// ST GARNEAU GUILLOTINES. Father Jerome's club, out of St Garneau's in Nine Elms. A bold
+// G whose crossbar carries a guillotine: the posts stand on the bar where a G keeps its
+// serif, the beam closes the G's open jaw, and the blade hangs raised between them.
+const SG = { red: '#af1e2d', redDeep: '#7d1520', blue: '#192168', blueDeep: '#0f1440', white: '#ffffff', steel: '#d6dce3', steelDeep: '#8f9aa6' };
+function guillotines() {
+  const C = 50, cy = 53.5, R = 33.5, r = 18.5;
+  const at = (a, rad) => [C + rad * Math.cos(a), cy + rad * Math.sin(a)];
+  // the G: a ring from its crossbar (3 o'clock) round the bottom, the left and the top to
+  // its upper terminal, plus the bar itself, squared off at the jaw
+  // the upper terminal is cut square, on the line the guillotine's left post stands on
+  const cut = C + 6.5;
+  const o1x = cut, o1y = cy - Math.sqrt(R * R - (cut - C) ** 2), i1x = cut, i1y = cy - Math.sqrt(r * r - (cut - C) ** 2);
+  const [o0x, o0y] = at(0, R), [i0x, i0y] = at(0, r);
+  const ringD = `M${P(o0x, o0y)}A${n2(R)} ${n2(R)} 0 1 1 ${P(o1x, o1y)}L${P(i1x, i1y)}A${n2(r)} ${n2(r)} 0 1 0 ${P(i0x, i0y)}Z`;
+  const barD = poly([[C + 2, cy - 3], [C + R, cy - 3], [C + R, cy + 11], [C + 2, cy + 11]]);
+  const G = ringD + barD;
+  // the guillotine, standing on the bar
+  // the beam runs on from the G's top, so the guillotine reads as the G's serif
+  const pl = [C + 9.5, C + 12.5], pr = [C + 23.5, C + 26.5], beamTop = cy - Math.sqrt(R * R - (cut - C) ** 2), top = beamTop + 4;
+  const posts = poly([[pl[0], cy - 3], [pl[1], cy - 3], [pl[1], top], [pl[0], top]]) + poly([[pr[0], cy - 3], [pr[1], cy - 3], [pr[1], top], [pr[0], top]]);
+  const beam = poly([[cut, beamTop], [C + 29, beamTop], [C + 29, top + 0.5], [cut, top + 0.5]]);
+  const blade = poly([[pl[1], top], [pr[0], top], [pr[0], cy - 22.5], [pl[1], cy - 17.5]]);
+  const edge = poly([[pl[1], cy - 19.4], [pr[0], cy - 24.4], [pr[0], cy - 22.5], [pl[1], cy - 17.5]]);
+  const lunette = poly([[pl[1], cy - 11], [pr[0], cy - 11], [pr[0], cy - 6], [pl[1], cy - 6]]);
+  const neck = circle((pl[1] + pr[0]) / 2, cy - 8.5, 1.9);
+  const field = (k) => circle(50, 50, k);
   const layers = [
-    L(plate(1.0, 17), AZ.black),
-    L(plate(0.97, 15.6), AZ.lime),
-    L(plate(0.88, 12.6), AZ.black),
-    L(plate(0.86, 12), AZ.ash),
-    L(sheet, AZ.ice, { stroke: AZ.black, sw: 1.2 }),
-    L(gloss, AZ.white),
-    L(cond, AZ.ashDeep, { stroke: AZ.black, sw: 1.6 }),
-    L(body, AZ.white, { stroke: AZ.black, sw: 2 }),
-    L(tank, AZ.ashDeep),
-    L(stripe, AZ.lime),
-    L(seat, AZ.ashDeep),
-    L(driver, AZ.black),
-    L(wheel, 'none', { stroke: AZ.black, sw: 1.8 }),
-    L(wheels, AZ.tyre, { stroke: AZ.black, sw: 1.4 }),
-    L(hubs, AZ.lime),
-    L(spray, AZ.iceDeep),
+    L(field(49.5), SG.blue),
+    L(field(45.6), SG.white),
+    L(ring(50, 50, 41.4, 43.2), SG.red),
+    L(G, SG.blue, { stroke: SG.blue, sw: 5 }),
+    L(G, SG.red),
+    L(posts + beam, SG.blue, { stroke: SG.blue, sw: 1 }),
+    L(blade, SG.steel, { stroke: SG.blueDeep, sw: 1.1 }),
+    L(edge, SG.steelDeep),
+    L(lunette, SG.blue),
+    L(neck, SG.white),
   ];
+  // small: the same G and frame, heavier, without the keylines and the lunette
   const small = [
-    L(plate(1.0, 17), AZ.lime),
-    L(plate(0.87, 12.4), AZ.ash),
-    L(shape([['M', 6, 76], ['L', 94, 76], ['L', 94, 90], ['L', 6, 90], ['Z']]), AZ.ice),
-    L(body, AZ.white, { stroke: AZ.black, sw: 3 }),
-    L(stripe, AZ.lime),
-    L(wheels, AZ.tyre, { stroke: AZ.black, sw: 2 }),
+    L(field(49.5), SG.blue),
+    L(field(44), SG.white),
+    L(G, SG.red, { stroke: SG.red, sw: 2 }),
+    L(posts + beam, SG.blue, { stroke: SG.blue, sw: 2.6 }),
+    L(blade, SG.steelDeep),
   ];
   return { box: 100, layers, small };
 }
@@ -813,15 +812,15 @@ export const CLUBS = {
         yoke: '#00727a', hem: [band(0.0, 0.05, '#00727a'), band(0.055, 0.025, '#0b2341'), band(0.085, 0.05, '#00727a')], sleeve: [band(0.28, 0.08, '#00727a'), band(0.36, 0.04, '#0b2341'), band(0.4, 0.08, '#00727a')], socks: [band(0.26, 0.08, '#00727a'), band(0.34, 0.04, '#0b2341'), band(0.38, 0.08, '#00727a')] }),
     },
   },
-  'Ashway Zambonis': {
-    district: 'ashway', home: 'the Ashway',
-    colours: ['#4c535a', '#c8dc2e'],
-    crest: ashway(),
+  'St Garneau Guillotines': {
+    district: 'residential', home: 'Nine Elms',
+    colours: ['#af1e2d', '#192168'],
+    crest: guillotines(),
     kit: {
-      home: kit({ jersey: '#4c535a', trim: '#c8dc2e', number: '#c8dc2e', numberEdge: '#141618', pants: '#2d3237', sock: '#4c535a', glove: '#2d3237', helmet: '#2d3237',
-        yoke: '#c8dc2e', hem: [band(0.0, 0.04, '#c8dc2e'), band(0.045, 0.03, '#e4f2f8'), band(0.08, 0.04, '#c8dc2e')], sleeve: [band(0.3, 0.06, '#c8dc2e'), band(0.36, 0.04, '#e4f2f8'), band(0.4, 0.06, '#c8dc2e')], socks: [band(0.28, 0.06, '#c8dc2e'), band(0.34, 0.04, '#e4f2f8'), band(0.38, 0.06, '#c8dc2e')] }),
-      road: kit({ jersey: '#eef1f2', trim: '#4c535a', number: '#4c535a', numberEdge: '#c8dc2e', pants: '#2d3237', sock: '#eef1f2', glove: '#2d3237', helmet: '#4c535a',
-        yoke: '#4c535a', hem: [band(0.0, 0.04, '#4c535a'), band(0.045, 0.03, '#c8dc2e'), band(0.08, 0.04, '#4c535a')], sleeve: [band(0.3, 0.06, '#4c535a'), band(0.36, 0.04, '#c8dc2e'), band(0.4, 0.06, '#4c535a')], socks: [band(0.28, 0.06, '#4c535a'), band(0.34, 0.04, '#c8dc2e'), band(0.38, 0.06, '#4c535a')] }),
+      home: kit({ jersey: '#af1e2d', trim: '#192168', number: '#ffffff', numberEdge: '#192168', pants: '#192168', sock: '#af1e2d', glove: '#192168', helmet: '#192168',
+        yoke: '#192168', hem: [band(0.0, 0.02, '#ffffff'), band(0.025, 0.07, '#192168'), band(0.1, 0.02, '#ffffff')], sleeve: [band(0.28, 0.03, '#ffffff'), band(0.31, 0.1, '#192168'), band(0.41, 0.03, '#ffffff')], socks: [band(0.24, 0.04, '#ffffff'), band(0.28, 0.12, '#192168'), band(0.4, 0.04, '#ffffff')] }),
+      road: kit({ jersey: '#f6f6f4', trim: '#af1e2d', number: '#af1e2d', numberEdge: '#192168', pants: '#192168', sock: '#f6f6f4', glove: '#192168', helmet: '#192168',
+        yoke: '#af1e2d', hem: [band(0.0, 0.02, '#af1e2d'), band(0.025, 0.07, '#192168'), band(0.1, 0.02, '#af1e2d')], sleeve: [band(0.28, 0.03, '#af1e2d'), band(0.31, 0.1, '#192168'), band(0.41, 0.03, '#af1e2d')], socks: [band(0.24, 0.04, '#af1e2d'), band(0.28, 0.12, '#192168'), band(0.4, 0.04, '#af1e2d')] }),
     },
   },
   'Yards Icehaulers': {

@@ -12,7 +12,7 @@
 // It proves the view RUNS and that its outcomes match the sim's. It does not look at
 // pixels and is not meant to.
 //
-// Run:  node scripts/shapes/rink-smoke.mjs [13|1010]
+// Run:  node scripts/shapes/rink-smoke.mjs [462|914]
 
 import fs from 'fs';
 import { __install } from './rink-dom-stub.mjs';
@@ -64,10 +64,9 @@ function gameLines(slot) {
 }
 
 // ── one game through the view ──────────────────────────────────────────────────
-// Slot 1010 (Marquee Marauders at the Coldwater Highlanders) stages every beat type,
-// a pulled goalie and a death in overtime among them; slot 13 (the Docks Boarders at the
-// Westside Warlords) has the fights, the scrums and the injuries. Between them the tartan
-// kit and the gem stripe are dressed and drawn.
+// Slot 914 (the Marquee Marauders at the Coldwater Highlanders, in the tartan) and slot
+// 462 (the St Garneau Guillotines at the Yards Icehaulers) each stage every beat type the
+// sim emits, a pulled goalie and a death among them.
 const seen = new Set();
 // a replay's stand-in world has the men, the puck and a camera of its own
 const src0ok = (RP) => { const s = RP.source; return s.bodies().length >= 10 && Number.isFinite(s.puck.x) && s.cam.mode === 'replay'; };
@@ -274,12 +273,12 @@ async function play(slot) {
 }
 
 // Run bare, it plays both games. The push gate runs each game as its own gate (a slot number
-// as the argument), side by side, so neither carries the other's CPU. Between them every
-// beat type is staged: 1010 has all of them, 13 everything but a pulled goalie and a death.
+// as the argument), side by side, so neither carries the other's CPU. Each one stages every
+// beat type on its own.
 const ALL = ['faceoff', 'chance', 'goal', 'boards', 'fight', 'scrum', 'injury', 'death', 'pull', 'intermission'];
-const EXPECT = { 13: ALL.filter((t) => t !== 'pull' && t !== 'death'), 1010: ALL };
+const EXPECT = { 462: ALL, 914: ALL };
 const slots = process.argv.slice(2).map(Number).filter((n) => EXPECT[n]);
-for (const slot of slots.length ? slots : [13, 1010]) await play(slot);
+for (const slot of slots.length ? slots : [462, 914]) await play(slot);
 for (const t of slots.length ? [...new Set(slots.flatMap((n) => EXPECT[n]))] : ALL) {
   check(`a "${t}" was staged`, seen.has(t), [...seen].join(','));
 }
