@@ -253,6 +253,7 @@ export const GROUPS = [
       'scripts/audio/murmur-smoke.mjs',
       'scripts/audio/limiter-smoke.mjs',   // 1: the master limiter, and nothing around it
       'scripts/audio/duck-smoke.mjs',      // 2: duck gains per bus, and duck()'s schedule
+      'scripts/audio/speech-channels-smoke.mjs',  // 3: a typed command stops Read Aloud, not the TV
       'scripts/audio/tvmix-smoke.mjs',     // 4: the tv bus's voice and effects sub-gains
       'scripts/audio/noise-smoke.mjs',     // 5: stereo noise in three colours, offsets, width
       'scripts/audio/filter-smoke.mjs',    // 6: filter gain for peaking and shelf types

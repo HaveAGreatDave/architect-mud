@@ -76,10 +76,23 @@ export function readableText(el) {
   return text;
 }
 
+// The TV ducks under the reader. The in-world voice does that itself for each
+// line it speaks; the browser's voice is outside Web Audio, so it drives the same
+// duck from its utterance's start and end events.
+let naturalDuck = null;
+function releaseNaturalDuck() {
+  try { naturalDuck?.release(); } catch { /* no context */ }
+  naturalDuck = null;
+}
+
 function speakNatural(text) {
   const u = new SpeechSynthesisUtterance(text);
   u.rate = rate;
-  u.onend = u.onerror = () => { speaking = false; pump(); };
+  u.onstart = () => {
+    releaseNaturalDuck();
+    try { naturalDuck = window.AudioEngine?.readerDuck?.() || null; } catch { /* no context yet */ }
+  };
+  u.onend = u.onerror = () => { releaseNaturalDuck(); speaking = false; pump(); };
   speaking = true;
   try { window.speechSynthesis.speak(u); }
   catch { speaking = false; }
@@ -119,12 +132,19 @@ export function enqueueForReading(text) {
 // every reader that lacks this is one you end up fighting, because the only way
 // to skip a long room description is to wait it out. Called when a command is
 // submitted, and bound to Escape.
+//
+// It stops the READER and nothing else: cancelSpeech('ui') is the Read Aloud
+// channel only. It used to cancel all speech, so typing anything while the TV
+// was talking silenced the TV, Read Aloud on or off.
 export function shush() {
   queue = [];
   speaking = false;
   clearTimeout(worldTimer);
+  releaseNaturalDuck();
+  // Nothing else in the client uses speechSynthesis, so this only ever stops
+  // the reader's natural voice.
   try { window.speechSynthesis?.cancel(); } catch { /* not supported */ }
-  try { window.AudioEngine?.cancelSpeech?.(); } catch { /* no context yet */ }
+  try { window.AudioEngine?.cancelSpeech?.('ui'); } catch { /* no context yet */ }
 }
 
 export function logReaderActive() { return mode !== 'off'; }
